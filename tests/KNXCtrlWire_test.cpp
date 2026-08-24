@@ -59,7 +59,7 @@
 #include <cctype>
 #include <string>
 #include "KNXCtrl.h"
-#include "Jansson_Addition.h"
+#include "Params.h"
 
 using std::string;
 
@@ -71,17 +71,13 @@ namespace
 //KNXValue::toJson() rendered to the bytes that go on the wire.
 string dumpKnxValue(const KNXValue &v)
 {
-    return jansson_to_string(v.toJson());
+    return v.toJson().dump(-1, ' ', true, Json::error_handler_t::replace);
 }
 
 //The reverse: the bytes of a "value" sub-document back into a KNXValue.
 KNXValue parseKnxValue(const string &text)
 {
-    json_error_t jerr;
-    json_t *j = json_loads(text.c_str(), 0, &jerr);
-    KNXValue v = KNXValue::fromJson(j);
-    if (j) json_decref(j);
-    return v;
+    return KNXValue::fromJson(Json::parse(text, nullptr, false));
 }
 
 //Mirror of the body of KNXCtrl::writeValue(), minus the sendMessage() it
@@ -91,10 +87,10 @@ string writeMessage(const string &group_addr, const KNXValue &value)
     Params p = {{"type", "write"},
                 {"group_addr", group_addr}};
 
-    json_t *jroot = jansson_from_params(p);
-    json_object_set_new(jroot, "value", value.toJson());
+    Json jroot = p.toNJson();
+    jroot["value"] = value.toJson();
 
-    return jansson_to_string(jroot);
+    return jroot.dump(-1, ' ', true, Json::error_handler_t::replace);
 }
 
 //Mirror of the body of KNXCtrl::readValue(), same caveat.
@@ -104,7 +100,7 @@ string readMessage(const string &group_addr, int eis)
                 {"group_addr", group_addr},
                 {"eis", Utils::to_string(eis)}};
 
-    return jansson_to_string(jansson_from_params(p));
+    return p.toNJson().dump(-1, ' ', true, Json::error_handler_t::replace);
 }
 
 /*** END OF THE SEAM - nothing below this line moves with the port ***/
@@ -330,7 +326,7 @@ TEST(KNXCtrlWire, NonAsciiExactBytes_DECLARED_DELTA)
     //every consumer of this wire; the invariant above is what keeps the
     //contract, this one only records which side of the port we are on.
     KNXValue v = parseKnxValue(kAccentedInput);
-    EXPECT_EQ(string(kAccentedJansson), dumpKnxValue(v));
+    EXPECT_EQ(string(kAccentedNlohmann), dumpKnxValue(v));
 }
 
 /******************************************************************************
@@ -367,12 +363,12 @@ TEST(KNXCtrlWire, ValueCharZeroExactBytes_DECLARED_DELTA)
     //jansson truncates the one-byte NUL string at its NUL and emits "";
     //nlohmann keeps it and emits the escaped NUL. Same decoded value on the
     //peer (previous test), different bytes, both ends shipped together.
-    EXPECT_EQ(string("{\"eis\":\"15\",\"type\":\"4\",\"value_char\":\"\","
+    EXPECT_EQ(string("{\"eis\":\"15\",\"type\":\"4\",\"value_char\":\"\\u0000\","
                      "\"value_float\":\"0\",\"value_int\":\"0\","
                      "\"value_string\":\"Chambre\"}"),
               dumpKnxValue(KNXValue::fromString("Chambre", 15)));
 
-    EXPECT_EQ(string("{\"eis\":\"13\",\"type\":\"3\",\"value_char\":\"\","
+    EXPECT_EQ(string("{\"eis\":\"13\",\"type\":\"3\",\"value_char\":\"\\u0000\","
                      "\"value_float\":\"0\",\"value_int\":\"0\","
                      "\"value_string\":\"\"}"),
               dumpKnxValue(KNXValue::fromChar((char)0, 13)));
@@ -397,10 +393,11 @@ TEST(KNXCtrlWire, ValueCharAboveAsciiExactBytes_DECLARED_DELTA)
     //value_float take that, while value_char takes the 200 back.
     KNXValue v = KNXValue::fromChar((char)200, 13);
 
-    EXPECT_EQ(string("{\"eis\":\"13\",\"type\":\"3\",\"value_float\":\"-56\","
-                     "\"value_int\":\"-56\",\"value_string\":\"\"}"),
+    EXPECT_EQ(string("{\"eis\":\"13\",\"type\":\"3\",\"value_char\":\"\\ufffd\","
+                     "\"value_float\":\"-56\",\"value_int\":\"-56\","
+                     "\"value_string\":\"\"}"),
               dumpKnxValue(v));
-    EXPECT_EQ(0, (int)parseKnxValue(dumpKnxValue(v)).toChar());
+    EXPECT_EQ(0xEF, (int)(unsigned char)parseKnxValue(dumpKnxValue(v)).toChar());
 }
 
 /******************************************************************************
@@ -454,12 +451,15 @@ TEST(KNXCtrlWire, AnArrayOrObjectFieldIsRecordedAsAnEmptyString)
 
 TEST(KNXCtrlWire, MissingKeysLeaveTheDefaultsAndNothingThrows)
 {
+    //The escaped NUL under value_char is DECLARED DELTA 2 again: a default
+    //KNXValue carries value_char = 0, so every case built on defaults shows
+    //it. jansson emitted "" here for exactly the same reason.
     //Utils::from_string on an empty string never reaches the extractor (the
     //stream sentry fails first), so the destination keeps its value. eis
     //therefore stays at its member default of -1, not at 0.
     KNXValue v = parseKnxValue("{\"type\":\"4\"}");
 
-    EXPECT_EQ(string("{\"eis\":\"-1\",\"type\":\"4\",\"value_char\":\"\","
+    EXPECT_EQ(string("{\"eis\":\"-1\",\"type\":\"4\",\"value_char\":\"\\u0000\","
                      "\"value_float\":\"0\",\"value_int\":\"0\","
                      "\"value_string\":\"\"}"),
               dumpKnxValue(v));
@@ -472,9 +472,11 @@ TEST(KNXCtrlWire, ADocumentThatIsNotAnObjectDecodesToTheDefaultValue)
     //key is absent, which is what a "read" event looks like. An array, a bare
     //string, a null and a missing key must all give a default KNXValue, and
     //none of them may throw.
+    //Same DECLARED DELTA 2 on value_char as everywhere a default value is
+    //serialized.
     const string expected =
-        "{\"eis\":\"-1\",\"type\":\"0\",\"value_char\":\"\",\"value_float\":\"0\","
-        "\"value_int\":\"0\",\"value_string\":\"\"}";
+        "{\"eis\":\"-1\",\"type\":\"0\",\"value_char\":\"\\u0000\","
+        "\"value_float\":\"0\",\"value_int\":\"0\",\"value_string\":\"\"}";
 
     EXPECT_EQ(expected, dumpKnxValue(parseKnxValue("[1,2,3]")));
     EXPECT_EQ(expected, dumpKnxValue(parseKnxValue("\"nope\"")));

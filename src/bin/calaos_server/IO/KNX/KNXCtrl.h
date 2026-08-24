@@ -61,14 +61,14 @@ public:
 
     void setEis(int e) { eis = e; }
 
-    json_t *toJson() const;
+    Json toJson() const;
     string toString() const;
     bool toBool() const;
     float toFloat() const;
     int toInt() const;
     char toChar() const;
 
-    static KNXValue fromJson(json_t *jval);
+    static KNXValue fromJson(const Json &jval);
     static KNXValue fromString(const string &val, int eis = 0);
     static KNXValue fromBool(bool val, int eis = 0);
     static KNXValue fromFloat(float val, int eis = 0);

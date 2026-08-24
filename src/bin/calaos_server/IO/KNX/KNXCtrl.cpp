@@ -21,6 +21,73 @@
 #include "KNXCtrl.h"
 #include "Prefix.h"
 
+namespace
+{
+
+/* E4.1e - the two jansson readers this file used, kept identical in
+ * behaviour on top of nlohmann::json.
+ *
+ * knxDecodeObject() mirrors jansson_decode_object() (src/lib/Jansson_Addition.h):
+ * a string stays a string, a boolean becomes "true"/"false", a number goes
+ * through Utils::to_string(double), anything else is recorded as an empty
+ * string, every key present is recorded, and NOTHING EVER THROWS. The natural
+ * nlohmann shortcut - assigning a Json straight into a std::string, the way
+ * Params::fromNJson() does - throws type_error.302 on a non-string value, from
+ * inside processNewMessage(), which has no handler above it: a subprocess
+ * sending {"value":{"eis":13}} would take the server down.
+ *
+ * knxStringGet() mirrors jansson_string_get(): string values only, the default
+ * for anything else, including a missing key.
+ */
+void knxDecodeObject(const Json &jroot, Params &params)
+{
+    if (!jroot.is_object())
+        return;
+
+    for (Json::const_iterator it = jroot.cbegin();it != jroot.cend();it++)
+    {
+        string svalue;
+
+        if (it->is_string())
+            svalue = it->get<string>();
+        else if (it->is_boolean())
+            svalue = it->get<bool>()?"true":"false";
+        else if (it->is_number())
+            svalue = Utils::to_string(it->get<double>());
+
+        params.Add(it.key(), svalue);
+    }
+}
+
+string knxStringGet(const Json &jroot, const string &key, const string &default_value = string())
+{
+    if (!jroot.is_object())
+        return default_value;
+
+    Json::const_iterator it = jroot.find(key);
+    if (it == jroot.cend())
+        return default_value;
+
+    if (!it->is_string())
+        return default_value;
+
+    return it->get<string>();
+}
+
+/* KNXCtrl::processNewMessage() hands fromJson() whatever sits under "value",
+ * and hands it nothing at all when the key is absent - which is exactly what a
+ * "read" event looks like. An absent key must stay absent, not become null.
+ */
+Json jsonChild(const Json &jroot, const string &key)
+{
+    Json::const_iterator it = jroot.find(key);
+    if (it == jroot.cend())
+        return Json();
+    return *it;
+}
+
+}
+
 KNXCtrl::KNXCtrl(const string host)
 {
     cDebugDom("knx") << "new KNXCtrl: " << host;
@@ -73,7 +140,7 @@ shared_ptr<KNXCtrl> KNXCtrl::Instance(const string &host)
     return mapInst[host];
 }
 
-json_t *KNXValue::toJson() const
+Json KNXValue::toJson() const
 {
     Params p = {{"type", Utils::to_string(type) },
                 {"eis", Utils::to_string(eis)},
@@ -81,13 +148,13 @@ json_t *KNXValue::toJson() const
                 {"value_float", Utils::to_string(value_float)},
                 {"value_char", Utils::to_string(value_char)},
                 {"value_string", value_string}};
-    return jansson_from_params(p);
+    return p.toNJson();
 }
 
-KNXValue KNXValue::fromJson(json_t *jval)
+KNXValue KNXValue::fromJson(const Json &jval)
 {
     Params p;
-    jansson_decode_object(jval, p);
+    knxDecodeObject(jval, p);
 
     KNXValue v;
     Utils::from_string(p["type"], v.type);
@@ -240,27 +307,26 @@ KNXValue KNXValue::fromString(const string &val, int eis)
 
 void KNXCtrl::processNewMessage(const string &msg)
 {
-    json_error_t jerr;
-    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
+    //E4.1e: json_loads() answered NULL on malformed input, Json::parse()
+    //throws. The non-throwing form plus is_discarded() keeps the same shape.
+    Json jroot = Json::parse(msg, nullptr, false);
 
-    if (!jroot || !json_is_object(jroot))
+    if (jroot.is_discarded() || !jroot.is_object())
     {
-        cWarningDom("knx") << "Error parsing json from sub process: " << jerr.text << " Raw message: " << msg;
-        if (jroot)
-            json_decref(jroot);
+        cWarningDom("knx") << "Error parsing json from sub process. Raw message: " << msg;
         return;
     }
 
-    string mtype = jansson_string_get(jroot, "type");
+    string mtype = knxStringGet(jroot, "type");
 
     if (mtype == "event")
     {
         cDebugDom("knx") << "Received event: " << msg;
-        string knxtype = jansson_string_get(jroot, "knx_type");
+        string knxtype = knxStringGet(jroot, "knx_type");
         if (knxtype != "read") //Do not emit signal for read commands
         {
-            string group_addr = jansson_string_get(jroot, "group_addr");
-            KNXValue val = KNXValue::fromJson(json_object_get(jroot, "value"));
+            string group_addr = knxStringGet(jroot, "group_addr");
+            KNXValue val = KNXValue::fromJson(jsonChild(jroot, "value"));
 
             knxCache[group_addr] = val;
             valueChanged.emit(group_addr, val);
@@ -271,8 +337,6 @@ void KNXCtrl::processNewMessage(const string &msg)
         cDebugDom("knx") << "Disconnected from knxd, restarting command process...";
         process->terminate();
     }
-
-    json_decref(jroot);
 }
 
 KNXValue KNXCtrl::getValue(const string &group_addr)
@@ -285,10 +349,10 @@ void KNXCtrl::writeValue(const string &group_addr, const KNXValue &value)
     Params p = {{"type", "write"},
                 {"group_addr", group_addr}};
 
-    json_t *jroot = jansson_from_params(p);
-    json_object_set_new(jroot, "value", value.toJson());
+    Json jroot = p.toNJson();
+    jroot["value"] = value.toJson();
 
-    string res = jansson_to_string(jroot);
+    string res = jroot.dump(-1, ' ', true, Json::error_handler_t::replace);
 
     if (!res.empty())
         process->sendMessage(res);
@@ -302,7 +366,7 @@ void KNXCtrl::readValue(const string &group_addr, int eis)
                 {"group_addr", group_addr},
                 {"eis", Utils::to_string(eis)}};
 
-    string res = jansson_to_string(jansson_from_params(p));
+    string res = p.toNJson().dump(-1, ' ', true, Json::error_handler_t::replace);
 
     if (!res.empty())
         process->sendMessage(res);

@@ -22,10 +22,51 @@
 #define KNXEXTERNPROC_MAIN_H
 
 #include "ExternProc.h"
-#include "Jansson_Addition.h"
+#include "Params.h"
 
 extern "C" {
 #include <eibclient.h>
+}
+
+/* E4.1e - mirror of jansson_decode_object() (src/lib/Jansson_Addition.h) on top
+ * of nlohmann::json, shared by the two translation units of calaos_knx
+ * (KNXExternProc_main.cpp for the message envelope, KNXExternProc_cli.cpp for
+ * KNXValue::fromJson). A string stays a string, a boolean becomes
+ * "true"/"false", a number goes through Utils::to_string(double), anything else
+ * is recorded as an empty string, and NOTHING EVER THROWS - assigning a Json
+ * straight into a std::string, the way Params::fromNJson() does, throws
+ * type_error.302 on a non-string, from inside messageReceived(), which has no
+ * handler above it.
+ */
+inline void knxDecodeObject(const Json &jroot, Params &params)
+{
+    if (!jroot.is_object())
+        return;
+
+    for (Json::const_iterator it = jroot.cbegin();it != jroot.cend();it++)
+    {
+        string svalue;
+
+        if (it->is_string())
+            svalue = it->get<string>();
+        else if (it->is_boolean())
+            svalue = it->get<bool>()?"true":"false";
+        else if (it->is_number())
+            svalue = Utils::to_string(it->get<double>());
+
+        params.Add(it.key(), svalue);
+    }
+}
+
+/* An absent "value" key must stay absent, not become null: fromJson() used to
+ * be handed the NULL that json_object_get() answered.
+ */
+inline Json knxJsonChild(const Json &jroot, const string &key)
+{
+    Json::const_iterator it = jroot.find(key);
+    if (it == jroot.cend())
+        return Json();
+    return *it;
 }
 
 class KNXValue
@@ -54,8 +95,8 @@ public:
     bool setValue(int eis, vector<uint8_t> data);
     bool toKnxData(vector<uint8_t> &data) const;
 
-    json_t *toJson() const;
-    static KNXValue fromJson(json_t *jval);
+    Json toJson() const;
+    static KNXValue fromJson(const Json &jval);
     static KNXValue fromString(int eis, const string &s);
 };
 

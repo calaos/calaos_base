@@ -102,16 +102,12 @@ namespace
 
 string dumpKnxValue(const KNXValue &v)
 {
-    return jansson_to_string(v.toJson());
+    return v.toJson().dump(-1, ' ', true, Json::error_handler_t::replace);
 }
 
 KNXValue parseKnxValue(const string &text)
 {
-    json_error_t jerr;
-    json_t *j = json_loads(text.c_str(), 0, &jerr);
-    KNXValue v = KNXValue::fromJson(j);
-    if (j) json_decref(j);
-    return v;
+    return KNXValue::fromJson(Json::parse(text, nullptr, false));
 }
 
 //Mirror of the "event" branch of KNXProcess::monitorWait()
@@ -123,11 +119,11 @@ string eventMessage(const string &group_addr, const string &knx_type,
                 {"group_addr", group_addr},
                 {"knx_type", knx_type}};
 
-    json_t *j = jansson_from_params(p);
+    Json j = p.toNJson();
     if (printValue)
-        json_object_set_new(j, "value", value.toJson());
+        j["value"] = value.toJson();
 
-    return jansson_to_string(j);
+    return j.dump(-1, ' ', true, Json::error_handler_t::replace);
 }
 
 //Mirror of the disconnection branch of KNXProcess::monitorWait().
@@ -135,7 +131,7 @@ string disconnectedMessage()
 {
     Params p = {{"type", "disconnected"}};
 
-    return jansson_to_string(jansson_from_params(p));
+    return p.toNJson().dump(-1, ' ', true, Json::error_handler_t::replace);
 }
 
 /*** END OF THE SEAM - nothing below this line moves with the port ***/
@@ -364,7 +360,7 @@ TEST(KNXExternProcWire, NonAsciiExactBytes_DECLARED_DELTA)
 {
     //DECLARED DELTA 1 of 3, and it has to flip on the SAME commit as its twin
     //in KNXCtrlWire_test.cpp: the two ends of this wire ship together.
-    EXPECT_EQ(string(kAccentedJansson), dumpKnxValue(accentedValue()));
+    EXPECT_EQ(string(kAccentedNlohmann), dumpKnxValue(accentedValue()));
 }
 
 /******************************************************************************
@@ -390,7 +386,7 @@ TEST(KNXExternProcWire, ValueCharZeroExactBytes_DECLARED_DELTA)
     //DECLARED DELTA 2 of 3, on the common path: jansson truncates the
     //one-byte NUL string and emits "", nlohmann keeps it and emits the
     //escaped NUL.
-    EXPECT_EQ(string("{\"eis\":\"13\",\"type\":\"3\",\"value_char\":\"\","
+    EXPECT_EQ(string("{\"eis\":\"13\",\"type\":\"3\",\"value_char\":\"\\u0000\","
                      "\"value_float\":\"0\",\"value_int\":\"0\","
                      "\"value_string\":\"\"}"),
               dumpKnxValue(makeValue(3, 13, 0, 0.0f, 0, "")));
@@ -406,10 +402,11 @@ TEST(KNXExternProcWire, ValueCharAboveAsciiExactBytes_DECLARED_DELTA)
     //consigned in FINDINGS.md, NOT fixed here.
     KNXValue v = makeValue(3, 13, 200, 200.0f, 200, "");
 
-    EXPECT_EQ(string("{\"eis\":\"13\",\"type\":\"3\",\"value_float\":\"200\","
-                     "\"value_int\":\"200\",\"value_string\":\"\"}"),
+    EXPECT_EQ(string("{\"eis\":\"13\",\"type\":\"3\",\"value_char\":\"\\ufffd\","
+                     "\"value_float\":\"200\",\"value_int\":\"200\","
+                     "\"value_string\":\"\"}"),
               dumpKnxValue(v));
-    EXPECT_EQ(0, (int)parseKnxValue(dumpKnxValue(v)).value_char);
+    EXPECT_EQ(0xEF, (int)parseKnxValue(dumpKnxValue(v)).value_char);
 }
 
 /******************************************************************************
@@ -441,11 +438,14 @@ TEST(KNXExternProcWire, ABooleanFieldIsStringifiedTheJanssonWay)
 
 TEST(KNXExternProcWire, MissingKeysLeaveTheDefaultsAndNothingThrows)
 {
+    //The escaped NUL under value_char is DECLARED DELTA 2 again: a default
+    //KNXValue carries value_char = 0, so every case built on defaults shows
+    //it. jansson emitted "" here for exactly the same reason.
     //Utils::from_string on an empty string never reaches the extractor, so
     //the destination keeps its value: eis stays at its member default of -1.
     KNXValue v = parseKnxValue("{\"type\":\"4\"}");
 
-    EXPECT_EQ(string("{\"eis\":\"-1\",\"type\":\"4\",\"value_char\":\"\","
+    EXPECT_EQ(string("{\"eis\":\"-1\",\"type\":\"4\",\"value_char\":\"\\u0000\","
                      "\"value_float\":\"0\",\"value_int\":\"0\","
                      "\"value_string\":\"\"}"),
               dumpKnxValue(v));
@@ -456,9 +456,11 @@ TEST(KNXExternProcWire, ADocumentThatIsNotAnObjectDecodesToTheDefaultValue)
     //KNXProcess::messageReceived() hands fromJson() whatever sits under the
     //"value" key of a "write" command, without checking it, and hands it
     //nothing at all when the key is absent.
+    //Same DECLARED DELTA 2 on value_char as everywhere a default value is
+    //serialized.
     const string expected =
-        "{\"eis\":\"-1\",\"type\":\"0\",\"value_char\":\"\",\"value_float\":\"0\","
-        "\"value_int\":\"0\",\"value_string\":\"\"}";
+        "{\"eis\":\"-1\",\"type\":\"0\",\"value_char\":\"\\u0000\","
+        "\"value_float\":\"0\",\"value_int\":\"0\",\"value_string\":\"\"}";
 
     EXPECT_EQ(expected, dumpKnxValue(parseKnxValue("[1,2,3]")));
     EXPECT_EQ(expected, dumpKnxValue(parseKnxValue("\"nope\"")));

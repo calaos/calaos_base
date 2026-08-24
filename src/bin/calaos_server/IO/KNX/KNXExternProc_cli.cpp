@@ -490,7 +490,7 @@ string KNXValue::toString()
     return string();
 }
 
-json_t *KNXValue::toJson() const
+Json KNXValue::toJson() const
 {
     Params p = {{"type", Utils::to_string(type) },
                 {"eis", Utils::to_string(eis)},
@@ -498,13 +498,13 @@ json_t *KNXValue::toJson() const
                 {"value_float", Utils::to_string(value_float)},
                 {"value_char", Utils::to_string(value_char)},
                 {"value_string", value_string}};
-    return jansson_from_params(p);
+    return p.toNJson();
 }
 
-KNXValue KNXValue::fromJson(json_t *jval)
+KNXValue KNXValue::fromJson(const Json &jval)
 {
     Params p;
-    jansson_decode_object(jval, p);
+    knxDecodeObject(jval, p);
 
     KNXValue v;
     Utils::from_string(p["type"], v.type);

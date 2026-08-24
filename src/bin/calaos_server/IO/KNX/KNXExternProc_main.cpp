@@ -30,23 +30,22 @@ void KNXProcess::readTimeout()
 
 void KNXProcess::messageReceived(const string &msg)
 {
-    json_error_t jerr;
-    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
+    //E4.1e: json_loads() answered NULL on malformed input, Json::parse()
+    //throws. The non-throwing form plus is_discarded() keeps the same shape.
+    Json jroot = Json::parse(msg, nullptr, false);
 
-    if (!jroot || !json_is_object(jroot))
+    if (jroot.is_discarded() || !jroot.is_object())
     {
-        cWarningDom("knx") << "Error parsing json from sub process: " << jerr.text;
-        if (jroot)
-            json_decref(jroot);
+        cWarningDom("knx") << "Error parsing json from sub process. Raw message: " << msg;
         return;
     }
 
     Params jsonData;
-    jansson_decode_object(jroot, jsonData);
+    knxDecodeObject(jroot, jsonData);
 
     if (jsonData["type"] == "write")
     {
-        KNXValue v = KNXValue::fromJson(json_object_get(jroot, "value"));
+        KNXValue v = KNXValue::fromJson(knxJsonChild(jroot, "value"));
 
         writeKnxValue(jsonData["group_addr"], v);
     }
@@ -54,7 +53,6 @@ void KNXProcess::messageReceived(const string &msg)
     {
         sendReadKnxCommand(jsonData["group_addr"]);
     }
-    json_decref(jroot);
 }
 
 bool KNXProcess::setup(int &argc, char **&argv)
@@ -217,7 +215,7 @@ bool KNXProcess::monitorWait()
         eibsock = nullptr;
         Params p = {{"type", "disconnected"}};
 
-        string res = jansson_to_string(jansson_from_params(p));
+        string res = p.toNJson().dump(-1, ' ', true, Json::error_handler_t::replace);
         if (!res.empty())
             sendMessage(res);
         return false;
@@ -262,11 +260,11 @@ bool KNXProcess::monitorWait()
     Params p = {{"type", "event"},
                 {"group_addr", knxGroupAddr(dest)},
                 {"knx_type", type}};
-    json_t *j = jansson_from_params(p);
+    Json j = p.toNJson();
     if (printValue)
-        json_object_set_new(j, "value", v.toJson());
+        j["value"] = v.toJson();
 
-    string res = jansson_to_string(j);
+    string res = j.dump(-1, ' ', true, Json::error_handler_t::replace);
     if (!res.empty())
         sendMessage(res);
 
