@@ -2266,3 +2266,51 @@ ticket**, laissés intacts, consignés ici pour ne pas les perdre. Dépôt :
   un segfault à la sauvegarde (corrigé par I4.1, `6cbd6f6`).
 
 Voir [`I4.1.md`](I4.1.md) §5bis.
+
+---
+
+## E4.5f — vérification de `08_http_api.md` / `10_events_notifications.md`
+
+Les deux documents réécrits par E4.0f étaient **justes sur le fond** ; ce qui les avait périmés
+tient à T3.18/T3.19 et à la **dérive des numéros de ligne**. Ce qui a été trouvé et n'est **pas**
+corrigé ici, faute de périmètre, est consigné ci-dessous.
+
+### ⚠️ Le throttle de login n'est **pas** par client derrière le reverse proxy (`T3.24`)
+
+Mesuré : les deux transports passent à `LoginThrottle` le résultat de `clientIp()`, qui renvoie
+`HttpClient::getClientIp()` — l'adresse du **pair TCP**
+(`JsonApiHandlerHttp.cpp:55-60`, `JsonApiHandlerWS.cpp:45-50`, `HttpClient.cpp:710-724`). Le
+plafond de connexions par client, lui, résout bien `X-Forwarded-For`
+(`HttpClient.cpp:195-215`) : **les deux mécanismes n'ont pas la même notion de « client »**.
+Derrière haproxy — le déploiement réel — toutes les sessions partagent l'adresse du proxy et donc
+**le même compteur d'échecs** : le délai exponentiel devient global, un tiers en échec bloque les
+autres, et le mécanisme ne protège pas ce qu'il annonce protéger.
+`docs/08_http_api.md` porte désormais une **réserve** à cet endroit, renvoyant ici. Le défaut
+lui-même reste ouvert en `T3.24`. Non corrigé, hors périmètre d'un ticket de documentation.
+
+### Deux refus HTTP n'étaient documentés nulle part — corrigés dans le périmètre
+
+`431` (en-têtes > 32 Kio, `TransportLimits::MaxHeadersSize`, non configurable) et `429`
+(`max_connections_per_ip`, 50 par défaut) sont des réponses qu'un client d'API peut recevoir
+**avant** que la moindre action JSON ne soit lue, et sans corps JSON. Elles sont désormais dans
+`08_http_api.md`, § « Deux refus qui arrivent avant le JsonApi ». La **sémantique des options**
+reste du ressort de `16_config_options.md` (E4.5e).
+
+### `--enable-asan` reste non documenté
+
+Signalé par les agents voisins ; c'est une option de **build**, hors du périmètre de `08`/`10`.
+Elle appartient à `16_config_options.md` / `README` (E4.5e). Non traitée ici.
+
+### La dérive des références `Fichier.cpp:ligne` est un défaut de série, pas un accident
+
+**36 groupes de références** de ces deux documents (sur 329 numéros de ligne cités) ne pointaient
+plus sur ce qu'ils annonçaient — jusqu'à 190 lignes d'écart dans `JsonApi.cpp`, que T3.18/T3.19
+ont allongé. Aucune ne pointait sur un
+fichier disparu, donc **rien ne rougissait** : elles désignaient simplement une accolade ou une
+ligne vide. Toutes sont recalculées et revérifiées mécaniquement dans ce commit.
+
+> **Généralisable, et vrai pour tous les documents de `docs/`** : une référence
+> `Fichier.cpp:ligne` est une assertion **non testée** qui se périme à chaque commit du fichier
+> visé. Le contrôle qui l'attrape coûte dix lignes de script — extraire les refs, afficher la
+> ligne visée, la relire — et c'est le **seul** qui marche. À refaire à chaque revue de doc, et à
+> considérer comme obligatoire dans la suite d'E4.5.

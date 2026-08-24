@@ -61,6 +61,25 @@ seul `/api` crée un `JsonApiHandlerWS` — les deux autres chemins sont routés
 ailleurs par le `else` de
 ([WebSocket.cpp:258-279 et :335-339](../src/bin/calaos_server/WebSocket.cpp)).
 
+### Deux refus qui arrivent **avant** le JsonApi
+
+Un client peut recevoir deux codes HTTP sans qu'aucune action JSON n'ait été
+lue. Ils ne portent **pas** de corps JSON applicatif, mais une page HTML, et la
+connexion est fermée :
+
+| Code | Quand | Où |
+|---|---|---|
+| `431 Request Header Fields Too Large` | les en-têtes d'une requête dépassent **32 Kio** (`TransportLimits::MaxHeadersSize`, constante, **non configurable** : haproxy ne transmet de toute façon pas plus de `tune.bufsize`) | [HttpClient.h:71-76, :248](../src/bin/calaos_server/HttpClient.h), [HttpClient.cpp:186-193](../src/bin/calaos_server/HttpClient.cpp) |
+| `429 Too Many Requests` | le client a déjà `max_connections_per_ip` connexions ouvertes (**50** par défaut) | [HttpClient.cpp:266-281](../src/bin/calaos_server/HttpClient.cpp), [HttpClient.h:68](../src/bin/calaos_server/HttpClient.h), [HttpClient.cpp:95-101](../src/bin/calaos_server/HttpClient.cpp) |
+
+Le plafond de connexions est compté **par identité client**, tirée de
+`X-Forwarded-For` quand elle existe et du pair TCP sinon
+([HttpClient.cpp:195-215](../src/bin/calaos_server/HttpClient.cpp)) ; il n'est
+appliqué qu'à la **première requête analysée**, puisque l'en-tête n'existe pas
+avant. La montée en WebSocket renvoie elle aussi `429` sur ce même plafond
+([WebSocket.cpp:314-315](../src/bin/calaos_server/WebSocket.cpp)). Pour la
+sémantique de l'option, voir [16_config_options.md](16_config_options.md).
+
 ---
 
 ## L'asymétrie fondamentale : où vivent les arguments
@@ -99,7 +118,7 @@ forme. Les conséquences observables (dérivées du code, pas capturées) :
 | idem, sur `get_param` / `set_param` / `del_param` | `id` vide → IO introuvable | `{"error":"wrong io/param"}` |
 | idem, sur `set_state` | `id` vide → échec | `{"success":"false"}` |
 | idem, sur `audio` / `audio_db` | `jansson_string_get(nullptr, …)` renvoie `""` | `{"error":"unkown audio_action"}` |
-| idem, sur `autoscenario` | `type` vide, aucune branche ne correspond | **rien du tout** ([JsonApiHandlerWS.cpp:474-491](../src/bin/calaos_server/JsonApiHandlerWS.cpp)) |
+| idem, sur `autoscenario` | `type` vide, aucune branche ne correspond | **rien du tout** ([JsonApiHandlerWS.cpp:474-495](../src/bin/calaos_server/JsonApiHandlerWS.cpp)) |
 | idem, sur `query` / `get_states` | `Exists("id")` faux | `{}` |
 | Requête HTTP avec les arguments sous `data` | `jansson_decode_object()` n'aplatit **que les scalaires** : un objet imbriqué devient une chaîne vide ([Jansson_Addition.h:93-111](../src/lib/Jansson_Addition.h)) | `jsonParam["data"] == ""` et **aucun** argument utile → mêmes réponses vides que ci-dessus |
 
@@ -175,7 +194,7 @@ attendre un `true`, un `false` ou un nombre JSON : il reçoit `"true"`,
 **L'unique exception de toute l'API** est `buildJsonEventLog()`, réécrit en
 nlohmann : `total_page`, `total_count`, `page` et `per_page` y sont de vrais
 **entiers JSON**
-([JsonApi.cpp:2050-2056](../src/bin/calaos_server/JsonApi.cpp)). C'est le seul
+([JsonApi.cpp:2361-2366](../src/bin/calaos_server/JsonApi.cpp)). C'est le seul
 endroit où un client doit attendre un nombre. Toujours dans `eventlog`, le champ
 `event_raw` de chaque entrée est un **objet JSON imbriqué** (le JSON de
 l'événement est reparsé), et non une chaîne
@@ -232,6 +251,20 @@ après 900 s sans activité, la table est bornée à 1024 IPs
 efface l'entrée. Pendant le blocage, HTTP répond 400 et WS répond
 `{"msg":"login","data":{"success":"false"}}` puis ferme.
 
+> ⚠️ **L'IP indexée est celle du pair TCP, pas celle du client.** Les deux
+> transports passent à `LoginThrottle` le résultat de `clientIp()`, qui renvoie
+> `HttpClient::getClientIp()`, c'est-à-dire l'adresse du **socket**
+> ([HttpClient.cpp:710-724](../src/bin/calaos_server/HttpClient.cpp),
+> [JsonApiHandlerHttp.cpp:55-60](../src/bin/calaos_server/JsonApiHandlerHttp.cpp),
+> [JsonApiHandlerWS.cpp:45-50](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
+> Le plafond de connexions par client, lui, utilise bien `X-Forwarded-For`
+> ([HttpClient.cpp:195-215](../src/bin/calaos_server/HttpClient.cpp)) — les deux
+> mécanismes n'ont donc **pas** la même notion de « client ». Derrière le reverse
+> proxy, où `calaos_server` est déployé, tous les clients partagent l'adresse du
+> proxy et **donc le même compteur d'échecs** : un client tiers en échec bloque
+> les autres, et le blocage n'est pas par client. Défaut connu, non corrigé à ce
+> jour, suivi en `T3.24` (voir `docs/refactoring/FINDINGS.md`).
+
 ### WebSocket — `login` (session admin)
 Premier message attendu sur `/api` (forme dérivée de
 [JsonApiHandlerWS.cpp:116-151](../src/bin/calaos_server/JsonApiHandlerWS.cpp)) :
@@ -251,7 +284,7 @@ service à portée restreinte (`serviceScope`). Voir
 ```
 Le token est comparé à l'option `mcp_service_token` de `local_config.xml`
 (`McpServerManager::getServiceToken()`). Un token non configuré n'accorde jamais
-l'accès ([JsonApiHandlerWS.cpp:526-562](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
+l'accès ([JsonApiHandlerWS.cpp:530-566](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
 En session `serviceScope`, 7 messages sont refusés avec
 `{"msg":"<msg>","data":{"error":"scope denied"}}` : `set_param`, `del_param`,
 `audio_db`, `set_timerange`, `eventlog`, `register_push`, `settings`
@@ -306,8 +339,8 @@ branche `else` ([JsonApiHandlerWS.cpp:156-229](../src/bin/calaos_server/JsonApiH
 
 ## Sous-actions
 
-Sept commandes redispatchent sur une sous-clé. **36 sous-actions au total**, ce
-qui porte l'API à **56 opérations distinctes** (20 commandes feuilles + 36
+Sept commandes redispatchent sur une sous-clé. **37 sous-actions au total**, ce
+qui porte l'API à **57 opérations distinctes** (20 commandes feuilles + 37
 sous-actions).
 
 ### `audio` — clé `audio_action` (5 en HTTP, 4 en WS)
@@ -326,7 +359,9 @@ Sous-action inconnue (ou absente) → `{"error":"unkown audio_action"}`.
 
 Tous prennent `id` (le player) ; sauf mention contraire, `from` et `count`
 (entiers, sous forme de chaînes) sont **obligatoires** et une valeur absente ou
-non numérique donne `{"error":"wrong from/count"}`.
+non numérique donne `{"error":"wrong from/count"}`. Les **seize** refusent par
+ailleurs `{"error":"no music database"}` quand le player n'a pas de base
+musicale — voir « pièges » ; ce refus arrive **après** celui de `from`/`count`.
 
 | `audio_action` | Nom HTTP | Nom WS | Arguments supplémentaires |
 |---|---|---|---|
@@ -356,7 +391,7 @@ Chaque transport **rejette** l'orthographe de l'autre avec
 `{"error":"unkown audio_action"}`. Un client multi-transport doit donc écrire
 les deux.
 
-### `autoscenario` — clé `type` (7 des deux côtés)
+### `autoscenario` — clé `type` (8 des deux côtés)
 
 | `type` | Arguments | Réponse |
 |---|---|---|
@@ -367,11 +402,12 @@ les deux.
 | `modify` | idem `create` + `id` | `{"success":"true"}` ou `{"error":"scenario modification failed"}` |
 | `add_schedule` | `id` | `{"id":"<id de la plage horaire>"}` |
 | `del_schedule` | `id` | `{"success":"true"}` |
+| `reenable` | `id` | `{"success":"true"}`, ou `{"error":"wrong input"}`, ou le **refus** `{"error":"scenario still references missing IOs: <ids>"}` — voir « scénario désactivé » plus bas |
 
 ⚠️ Un `type` inconnu (ou absent) **ne produit aucune réponse** sur les deux
 transports : il n'y a pas de branche `else`
-([JsonApiHandlerHttp.cpp:880-897](../src/bin/calaos_server/JsonApiHandlerHttp.cpp),
-[JsonApiHandlerWS.cpp:474-491](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
+([JsonApiHandlerHttp.cpp:880-901](../src/bin/calaos_server/JsonApiHandlerHttp.cpp),
+[JsonApiHandlerWS.cpp:474-495](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
 Le client reste en attente jusqu'à son propre timeout. Ce n'est pas une erreur,
 c'est un silence.
 
@@ -407,7 +443,7 @@ fichiers connus sont acceptés et le contenu doit commencer par `<?xml`
 | `get_video` | flux MJPEG relayé, ou flux construit image par image si la caméra n'a pas d'URL vidéo |
 
 `id` inconnu → `{"error":"unkown camera id"}`. `type` inconnu → **rien**, pas de
-branche `else` ([JsonApiHandlerHttp.cpp:899-1025](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)).
+branche `else` ([JsonApiHandlerHttp.cpp:903-1029](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)).
 
 ### `settings` — clé `action` (WS uniquement, 1)
 
@@ -417,7 +453,7 @@ branche `else` ([JsonApiHandlerHttp.cpp:899-1025](../src/bin/calaos_server/JsonA
 
 En cas de succès, la session est **déconnectée** (`loggedin = false`) : il faut
 se relogguer avec les nouveaux identifiants
-([JsonApiHandlerWS.cpp:512-524](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
+([JsonApiHandlerWS.cpp:516-528](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
 Toute autre valeur d'`action` → aucune réponse.
 
 ---
@@ -434,7 +470,7 @@ façon, et c'est une source classique de confusion :
 | `audio` / `audio_action: get_cover` | **octets JPEG bruts**, `Content-Type: image/jpeg` ([JsonApiHandlerHttp.cpp:753-757](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)) |
 | `camera` / `get_picture` | octets JPEG bruts |
 | `camera` / `get_video` | flux MJPEG |
-| `action: event_picture` | octets JPEG bruts, ou HTTP 404 si `pic_uid` est introuvable ([JsonApiHandlerHttp.cpp:1083-1104](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)) |
+| `action: event_picture` | octets JPEG bruts, ou HTTP 404 si `pic_uid` est introuvable ([JsonApiHandlerHttp.cpp:1087-1108](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)) |
 
 `get_cover` et `get_camera_pic` acceptent `width` (1…10000) et `rotate`
 (-360…360) ; toute autre valeur donne
@@ -630,7 +666,7 @@ Réponse (capturé, `tests/core/golden/e40c_http_get_timerange.json`, extrait) :
 ```
 `day` va de 1 (lundi) à 7 (dimanche) ; `months` est un bitset de 12 caractères
 **inversé** à l'émission pour se lire de gauche à droite
-([JsonApi.cpp:1610-1614](../src/bin/calaos_server/JsonApi.cpp)). IO qui n'est
+([JsonApi.cpp:1800-1804](../src/bin/calaos_server/JsonApi.cpp)). IO qui n'est
 pas une plage horaire → `{"error":"wrong input"}`.
 
 ### `autoscenario` / `get` et `list`
@@ -643,7 +679,9 @@ Réponse `get` (capturé, `tests/core/golden/e40c_ws_autoscenario_get.json`,
   "msg_id": "e40c-get",
   "data": {
     "id": "io_0", "category": "other", "cycle": "false", "enabled": "false",
-    "schedule": "false", "steps_count": "2",
+    "schedule": "false",
+    "broken": "false", "disabled_missing_io": "false", "missing_ios": "",
+    "steps_count": "2",
     "steps": [
       {"step_type": "standard", "step_pause": "1.5",
        "actions": [{"action": "true", "id": "e40c_bool"}]},
@@ -661,10 +699,10 @@ Réponse `get` (capturé, `tests/core/golden/e40c_ws_autoscenario_get.json`,
 > Ci-dessus : `steps_count` vaut `"2"` et `steps` contient **3** éléments. Ce
 > n'est pas une incohérence du golden, c'est le contrat :
 > `steps_count` est la taille de `getRuleSteps()`, c'est-à-dire le nombre
-> d'étapes **réelles** ([IO/Scenario.cpp:95](../src/bin/calaos_server/IO/Scenario.cpp)),
-> puis la boucle émet ces étapes ([:99-123](../src/bin/calaos_server/IO/Scenario.cpp))
+> d'étapes **réelles** ([IO/Scenario.cpp:141](../src/bin/calaos_server/IO/Scenario.cpp)),
+> puis la boucle émet ces étapes ([:145-168](../src/bin/calaos_server/IO/Scenario.cpp))
 > et une étape terminale **synthétique** `step_type: "end"` est ajoutée
-> **hors de la boucle** ([:125-142](../src/bin/calaos_server/IO/Scenario.cpp)).
+> **hors de la boucle** ([:171-189](../src/bin/calaos_server/IO/Scenario.cpp)).
 >
 > **L'invariant est donc `len(steps) == steps_count + 1`, toujours.** Un client
 > qui dimensionne son tableau sur `steps_count` **tronque l'étape de fin** —
@@ -681,9 +719,76 @@ portent toujours un `step_pause`, éventuellement `"0"`.
 `tests/core/golden/e40c_ws_autoscenario_list.json`). `schedule` vaut `"false"`
 ou l'identifiant de la plage horaire associée.
 
+### Scénario désactivé : `broken`, `disabled_missing_io`, `missing_ios`, `reenable`
+
+Un scénario dont une étape référence un IO introuvable est **entièrement
+désactivé** : il ne démarre plus, ni à l'heure programmée, ni sur commande
+([IO/Scenario.cpp:80-91](../src/bin/calaos_server/IO/Scenario.cpp) — la coupure
+est dans `set_value()`, et **seulement** sur `val == true`, pour que l'arrêt
+d'un scénario déjà lancé reste possible). Il reste **visible et intact** dans la
+configuration : rien n'est retiré du payload.
+
+Le payload de scénario porte donc **trois clés** que tout client doit lire. Elles
+sont **produites, jamais consommées** : `autoscenario create` / `modify` ne
+construisent leurs `Params` que sur six clés nommées en dur (`auto_scenario`,
+`name`, `visible`, `cycle`, `disabled`, plus la pièce) et **ignorent** les trois
+([JsonApi.cpp:2036-2044](../src/bin/calaos_server/JsonApi.cpp),
+[IO/Scenario.cpp:123-139](../src/bin/calaos_server/IO/Scenario.cpp)) :
+
+| Clé | Valeur | Sens |
+|---|---|---|
+| `broken` | `"true"` / `"false"` | **dérivé, jamais persisté** : au moins une étape référence un IO qui ne résout pas, ici et maintenant |
+| `disabled_missing_io` | `"true"` / `"false"` | **persisté et collant** : écrit comme paramètre de l'IO scénario, il survit au redémarrage et à la réapparition de l'IO ([Scenario/AutoScenario.cpp:112, 258](../src/bin/calaos_server/Scenario/AutoScenario.cpp)) |
+| `missing_ios` | chaîne, ids séparés par `, ` | ce qu'il faut réparer ; **vide** quand il n'y a rien à réparer ([Scenario/AutoScenario.cpp:212-247](../src/bin/calaos_server/Scenario/AutoScenario.cpp)) |
+
+⚠️ **Les deux drapeaux divergent volontairement, et c'est l'état qui compte.**
+`broken: "false"` avec `disabled_missing_io: "true"` signifie « réparé, en
+attente d'une réactivation manuelle » — c'est l'état qu'une interface doit
+transformer en bouton « réactiver ». Il est capturé tel quel (capturé,
+`tests/core/golden/e40c_ws_autoscenario_get_repaired.json`, **extrait de `data`**) :
+
+```json
+{"broken": "false", "disabled_missing_io": "true", "missing_ios": ""}
+```
+
+Un scénario réellement cassé porte les trois ensemble (capturé,
+`tests/core/golden/e40c_ws_autoscenario_get_broken.json`, **extrait de `data`**) :
+
+```json
+{"broken": "true", "disabled_missing_io": "true", "missing_ios": "e40c_target"}
+```
+
+Noter que `broken` peut être vrai avec `missing_ios` **vide** : une règle
+d'étape *détruite* ne laisse aucun id à nommer, contrairement à un IO simplement
+introuvable.
+
+⚠️ **`disabled_missing_io` reste néanmoins écrivable par `set_param`
+aujourd'hui**, et l'écriture est **asymétrique** : elle atteint la
+configuration mais **pas** le booléen en mémoire, si bien qu'un scénario sain
+marqué à la main continue de tourner **jusqu'au redémarrage**, où il se retrouve
+désactivé. C'est un défaut connu, tranché mais **non implémenté** (`T3.20` :
+le paramètre deviendra en lecture seule côté API). Un client ne doit pas s'en
+servir : la seule écriture supportée est `autoscenario reenable`.
+
+**La réactivation est manuelle et peut être refusée.** Elle n'est pas un
+`set_param` — un `set_param` ne sait pas refuser — mais une commande à part
+entière, `autoscenario` / `type: "reenable"`, disponible sur les **deux**
+transports ([JsonApiHandlerHttp.cpp:897-901](../src/bin/calaos_server/JsonApiHandlerHttp.cpp),
+[JsonApiHandlerWS.cpp:491-495](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
+Trois réponses possibles (dérivées de
+[JsonApi.cpp:2197-2226](../src/bin/calaos_server/JsonApi.cpp) et
+[Scenario/AutoScenario.cpp:272-306](../src/bin/calaos_server/Scenario/AutoScenario.cpp)) :
+
+- `id` qui n'est pas un scénario → `{"error":"wrong input"}` ;
+- le scénario est **encore** cassé → **refus**, et le refus **nomme** les
+  équipements : `{"error":"scenario still references missing IOs: <ids>"}` ;
+- sinon `{"success":"true"}`, le drapeau est levé, `io.xml` est réécrit et un
+  événement `scenario_changed` est émis. Réactiver un scénario qui n'était pas
+  désactivé est un **no-op qui réussit**, pas une erreur.
+
 ### `eventlog`
 
-Requête (dérivée, [JsonApi.cpp:2007-2060](../src/bin/calaos_server/JsonApi.cpp)) :
+Requête (dérivée, [JsonApi.cpp:2228-2371](../src/bin/calaos_server/JsonApi.cpp)) :
 ```json
 {"action": "eventlog", "cn_user": "user", "cn_pass": "pass",
  "page": "0", "per_page": "100"}
@@ -715,6 +820,35 @@ Avec `uuid` en argument, la réponse est **l'objet événement seul**, sans
 pagination ; `uuid` introuvable → `{"error":"uuid not found"}`
 ([HistLogger.cpp:337-341](../src/bin/calaos_server/HistLogger.cpp)).
 
+#### `per_page` est validé, et son refus est le seul refus **synchrone**
+
+`per_page ≤ 0` est refusé **avant** que la requête n'atteigne le thread SQLite
+([JsonApi.cpp:2337-2342](../src/bin/calaos_server/JsonApi.cpp)) — c'est la garde
+T3.19, qui remplace une division entière par zéro fatale au processus :
+
+```json
+{"error": "per_page is out of range"}
+```
+*(capturé, `tests/core/golden/t319_http_eventlog_per_page_out_of_range.json`,
+**intégral** ; le golden WebSocket `t319_ws_eventlog_per_page_out_of_range.json`
+porte le même document, car le test y capture le contenu de `data` sans son
+enveloppe.)*
+
+Ce qu'un client doit en retenir, et qui n'est pas intuitif :
+
+- **la garde teste la valeur, pas le succès du parsing.** Un `per_page` **absent
+  ou vide** garde donc le défaut `100` et reçoit sa réponse ; un `per_page`
+  illisible (`"abc"`, `"true"`) est lu comme `0` et est **refusé** ; un parse
+  partiel (`"1,5"`) vaut `1` et est servi ;
+- **un `per_page` négatif est désormais refusé alors qu'il recevait des
+  données.** C'est le seul changement de contrat client de T3.19 : SQLite lit un
+  `LIMIT` négatif comme « pas de limite », si bien que la requête renvoyait
+  **toutes** les lignes du journal sous un document annonçant `per_page: -5` ;
+- **`page`, elle, n'est pas gardée ici** — c'est délibéré. Son refus reste celui
+  de `HistLogger`, **asynchrone** et formulé autrement
+  (`page is out of range`, [HistLogger.cpp:271-277](../src/bin/calaos_server/HistLogger.cpp)).
+  Une `page` illisible est lue comme `0`, donc **indistinguable** de la page 0.
+
 ### `get_mcp_info` — **HTTP uniquement**
 
 Cette action n'existe **pas** dans le dispatch WebSocket : elle n'est câblée que
@@ -743,17 +877,21 @@ elles contiennent une faute de frappe historique (`unkown` au lieu de
 | `unkown audio_action` | [JsonApiHandlerHttp.cpp:775, 862](../src/bin/calaos_server/JsonApiHandlerHttp.cpp), [JsonApiHandlerWS.cpp:374, 461](../src/bin/calaos_server/JsonApiHandlerWS.cpp) | **coquille** — sous-action audio inconnue |
 | `unkown player_id` | [JsonApi.cpp:934](../src/bin/calaos_server/JsonApi.cpp) | **coquille** — `id` fourni mais pas un player |
 | `empty player id` | [JsonApi.cpp:926](../src/bin/calaos_server/JsonApi.cpp) | `id` absent ou vide |
-| `unkown camera id` | [JsonApiHandlerHttp.cpp:905](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | **coquille** — `id` fourni mais pas une caméra |
-| `wrong item` | [JsonApi.cpp:1038](../src/bin/calaos_server/JsonApi.cpp) | `item` absent ou non entier |
+| `unkown camera id` | [JsonApiHandlerHttp.cpp:909](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | **coquille** — `id` fourni mais pas une caméra |
+| `wrong item` | [JsonApi.cpp:1089](../src/bin/calaos_server/JsonApi.cpp) | `item` absent ou non entier |
 | `wrong from/count` | 14 occurrences dans les builders `audio_db` | `from`/`count` absents ou non entiers |
 | `wrong io/param` | [JsonApi.cpp:675, 703, 733](../src/bin/calaos_server/JsonApi.cpp) | `get_param`/`set_param`/`del_param` : IO ou param invalide |
 | `wrong id` | [JsonApi.cpp:609, 650](../src/bin/calaos_server/JsonApi.cpp) | `get_states` / `query` : IO introuvable |
-| `wrong input` | [JsonApi.cpp:1587, 1625, 1708, 1814, 1840, 1967, 1990](../src/bin/calaos_server/JsonApi.cpp) | plage horaire ou scénario introuvable |
-| `scenario creation failed` | [JsonApi.cpp:1748, 1760](../src/bin/calaos_server/JsonApi.cpp) | |
-| `scenario modification failed` | [JsonApi.cpp:1946](../src/bin/calaos_server/JsonApi.cpp) | |
+| `wrong input` | [JsonApi.cpp:1777, 1815, 1898, 2004, 2030, 2157, 2180, 2203](../src/bin/calaos_server/JsonApi.cpp) | plage horaire ou scénario introuvable |
+| `scenario creation failed` | [JsonApi.cpp:1938, 1950](../src/bin/calaos_server/JsonApi.cpp) | |
+| `scenario modification failed` | [JsonApi.cpp:2136](../src/bin/calaos_server/JsonApi.cpp) | |
 | `uuid not found` | [HistLogger.cpp:340](../src/bin/calaos_server/HistLogger.cpp) | `eventlog` avec un `uuid` inconnu |
+| `page is out of range` | [HistLogger.cpp:276](../src/bin/calaos_server/HistLogger.cpp) | `eventlog` : `page` négative ou au-delà de `total_page` — refus **asynchrone**, formulé par `HistLogger` |
+| `per_page is out of range` | [JsonApi.cpp:2339](../src/bin/calaos_server/JsonApi.cpp) | `eventlog` : `per_page` ≤ 0 (T3.19) — refus **synchrone**, la base n'est jamais atteinte |
+| `no music database` | [JsonApi.cpp:982](../src/bin/calaos_server/JsonApi.cpp) | `audio_db` sur un player sans base (T3.19) |
+| `scenario still references missing IOs: <ids>` | [Scenario/AutoScenario.cpp:281](../src/bin/calaos_server/Scenario/AutoScenario.cpp) | `autoscenario reenable` refusé (T3.18) — la seule chaîne d'erreur de l'API à porter une **partie variable** |
 | `scope denied` | [JsonApiHandlerWS.cpp:162](../src/bin/calaos_server/JsonApiHandlerWS.cpp) | message refusé en session `serviceScope` |
-| `invalid token` | [JsonApiHandlerWS.cpp:540, 551](../src/bin/calaos_server/JsonApiHandlerWS.cpp) | `login_service` refusé |
+| `invalid token` | [JsonApiHandlerWS.cpp:544, 555](../src/bin/calaos_server/JsonApiHandlerWS.cpp) | `login_service` refusé |
 | `id not set` | [JsonApiHandlerHttp.cpp:436, 504](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | `get_cover`/`get_camera_pic` : `id` invalide |
 | `invalid width or rotate parameter` | [JsonApiHandlerHttp.cpp:453, 521](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | |
 | `unable to get url` | [JsonApiHandlerHttp.cpp:470, 734](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | pas de pochette disponible |
@@ -786,12 +924,12 @@ un client :
 
 `audioGetDbStats()` ajoute `audio_action: "get_stats"` aux params du player
 **et renvoie ces params**, donc le client le voit
-([JsonApi.cpp:966-972](../src/bin/calaos_server/JsonApi.cpp)) — c'est visible
+([JsonApi.cpp:1018-1023](../src/bin/calaos_server/JsonApi.cpp)) — c'est visible
 dans le golden `t317b_http_audio_db_get_stats.json`. Mais
 `audioGetPlaylistSize()` et `audioGetTime()` ajoutent `audio_action` aux params
 du player puis construisent un **nouveau** `Params` pour la réponse : le champ
 n'atteint jamais le client
-([JsonApi.cpp:989-996, 1013-1020](../src/bin/calaos_server/JsonApi.cpp)),
+([JsonApi.cpp:1040-1046, 1064-1070](../src/bin/calaos_server/JsonApi.cpp)),
 confirmé par `t317b_http_audio_get_playlist_size.json` et
 `t317b_http_audio_get_time.json`. Un client ne peut donc pas se fier à
 `audio_action` pour corréler une réponse à sa requête : il faut utiliser
@@ -801,7 +939,7 @@ confirmé par `t317b_http_audio_get_playlist_size.json` et
 
 `processDbResult()` recopie **tous** les `Params` renvoyés par la base dans
 `items`, y compris celui qui porte la clé `count`
-([JsonApi.cpp:1079-1101](../src/bin/calaos_server/JsonApi.cpp)). Ce `Params`
+([JsonApi.cpp:1130-1152](../src/bin/calaos_server/JsonApi.cpp)). Ce `Params`
 n'est pas retiré : il apparaît dans `items` comme une pseudo-ligne
 `{"count":"N"}`. Sa position dépend du backend — le parseur SqueezeboxDB traite
 le token `count:` comme un séparateur d'enregistrement
@@ -841,19 +979,35 @@ Trois cas limites, tous capturés, que les clients doivent gérer :
 | `count: "00"` | `items` **n'est pas** vidé et `total_count` vaut `"00"` — la comparaison est faite sur la **chaîne** `"0"`, pas sur un nombre | `e40f_ws_db_count_double_zero_does_not_clear.json` |
 | `count` non numérique (`"beaucoup"`) | recopié verbatim dans `total_count`, `items` intact | `e40f_ws_db_count_not_a_number.json` |
 
-### `audio_db` sur un player sans base de données fait planter le serveur
+### `audio_db` sur un player sans base de données est refusé, pas servi
 
 `AudioPlayer::database` vaut `nullptr` par défaut
 ([AudioPlayer.cpp:26-28](../src/bin/calaos_server/Audio/AudioPlayer.cpp)) et
 seul `Squeezebox` l'initialise
-([Squeezebox.cpp:81](../src/bin/calaos_server/Audio/Squeezebox.cpp)). Aucun des
-deux dispatchs ne filtre sur `canDatabase()` (qui renvoie `false` dans la classe
-de base, [AudioPlayer.h:101](../src/bin/calaos_server/Audio/AudioPlayer.h)), et
-les 16 builders `audio_db` appellent `player->get_database()->…` sans test :
-adresser un `audio_db` à un player Roon **déréférence un pointeur nul**. C'est
-un bug connu, traité dans un ticket dédié ; en attendant, un client doit vérifier
-lui-même le champ `database` renvoyé par `get_home` avant d'émettre un
-`audio_db`.
+([Squeezebox.cpp:81](../src/bin/calaos_server/Audio/Squeezebox.cpp)) — un player
+Roon, celui de la configuration de référence, n'en a pas. Les 16 builders
+`audio_db` déréférençaient ce pointeur sans test : la commande **arrêtait net le
+serveur**. Depuis T3.19 les 16 passent par une garde commune,
+`audioDbUnavailable()` ([JsonApi.cpp:976-985](../src/bin/calaos_server/JsonApi.cpp)),
+et répondent (capturé, `tests/core/golden/t319_http_audio_db_no_database.json`,
+**intégral**) :
+
+```json
+{"error": "no music database"}
+```
+
+Trois précisions qui décident du code client :
+
+- **La garde teste le pointeur, pas `canDatabase()`.** Ce drapeau est une
+  constante par classe ([AudioPlayer.h:101](../src/bin/calaos_server/Audio/AudioPlayer.h))
+  qui n'est que **publiée** dans `get_home` : les deux peuvent diverger. Un
+  player qui annonce `database: "true"` mais dont le pointeur est nul est
+  **refusé** ; l'inverse est **servi**. Le champ `database` de `get_home` reste
+  donc une indication, pas une garantie.
+- **La garde est appelée *après* le contrôle de `from`/`count`**, jamais avant :
+  une requête déjà mal paginée continue de recevoir `{"error":"wrong from/count"}`.
+- **Une base vide n'est pas une base absente** : elle répond une liste vide,
+  comme avant. Seule l'**absence** de base est refusée.
 
 ---
 
@@ -882,7 +1036,10 @@ Tous les builders sont dans
 | `settings` / `change_cred` | `changeCredentials()` |
 
 `buildFlatIOList()` existe dans `JsonApi` mais **n'est appelé par aucune des deux
-tables de dispatch** : il n'est pas atteignable depuis cette API.
+tables de dispatch** : il n'est pas atteignable depuis cette API. Ce n'est pas
+pour autant du code mort — son unique appelant est le moteur Lua, qui s'en sert
+pour bâtir la table `context` d'un script
+([LuaScript/ScriptExec.cpp:162](../src/bin/calaos_server/LuaScript/ScriptExec.cpp)).
 
 ---
 

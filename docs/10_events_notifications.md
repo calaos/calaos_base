@@ -170,18 +170,18 @@ un avertissement ([EventManager.cpp:38-42](../src/bin/calaos_server/EventManager
 
 | n° | Constante | `type_str` | Clés de `data` | État |
 |---:|---|---|---|---|
-| 1 | `EventIOAdded` | `io_added` | `id`, `room_name`, `room_type` | ✅ [ListeRoom.cpp:466](../src/bin/calaos_server/ListeRoom.cpp) |
-| 2 | `EventIODeleted` | `io_deleted` | `id`, `room_name`, `room_type` | ✅ [Room.cpp:77](../src/bin/calaos_server/Room.cpp) |
+| 1 | `EventIOAdded` | `io_added` | `id`, `room_name`, `room_type` | ✅ [ListeRoom.cpp:533](../src/bin/calaos_server/ListeRoom.cpp) |
+| 2 | `EventIODeleted` | `io_deleted` | `id`, `room_name`, `room_type` | ✅ [Room.cpp:84](../src/bin/calaos_server/Room.cpp) |
 | 3 | `EventIOChanged` | `io_changed` | `id` + `state`, ou `id` + la propriété modifiée | ✅ ~40 sites (tous les IO, `set_param`) |
 | 4 | `EventIOPropertyDelete` | `io_prop_deleted` | `id`, `param` | ✅ [JsonApi.cpp:726](../src/bin/calaos_server/JsonApi.cpp) |
 | 5 | `EventRoomAdded` | `room_added` | — | ❌ **MORT** |
 | 6 | `EventRoomDeleted` | `room_deleted` | — | ❌ **MORT** |
-| 7 | `EventRoomChanged` | `room_changed` | variable, voir ci-dessous | ✅ [Room.cpp:114,123,133,143](../src/bin/calaos_server/Room.cpp), [JsonApi.cpp:1918](../src/bin/calaos_server/JsonApi.cpp) |
+| 7 | `EventRoomChanged` | `room_changed` | variable, voir ci-dessous | ✅ [Room.cpp:121,130,140,150](../src/bin/calaos_server/Room.cpp), [JsonApi.cpp:2108](../src/bin/calaos_server/JsonApi.cpp) |
 | 8 | `EventRoomPropertyDelete` | `room_prop_deleted` | — | ❌ **MORT** |
-| 9 | `EventTimeRangeChanged` | `timerange_changed` | `id` | ✅ [JsonApi.cpp:1670](../src/bin/calaos_server/JsonApi.cpp) |
-| 10 | `EventScenarioAdded` | `scenario_added` | `id` | ✅ [JsonApi.cpp:1797](../src/bin/calaos_server/JsonApi.cpp) |
-| 11 | `EventScenarioDeleted` | `scenario_deleted` | `id` | ✅ [JsonApi.cpp:1823](../src/bin/calaos_server/JsonApi.cpp) |
-| 12 | `EventScenarioChanged` | `scenario_changed` | `id` | ✅ [JsonApi.cpp:1675,1950,1973,1996](../src/bin/calaos_server/JsonApi.cpp) |
+| 9 | `EventTimeRangeChanged` | `timerange_changed` | `id` | ✅ [JsonApi.cpp:1860](../src/bin/calaos_server/JsonApi.cpp) |
+| 10 | `EventScenarioAdded` | `scenario_added` | `id` | ✅ [JsonApi.cpp:1987](../src/bin/calaos_server/JsonApi.cpp) |
+| 11 | `EventScenarioDeleted` | `scenario_deleted` | `id` | ✅ [JsonApi.cpp:2013](../src/bin/calaos_server/JsonApi.cpp) |
+| 12 | `EventScenarioChanged` | `scenario_changed` | `id` (dont, depuis T3.18, la réactivation manuelle `autoscenario reenable`) | ✅ [JsonApi.cpp:1865,2140,2163,2186](../src/bin/calaos_server/JsonApi.cpp), [Scenario/AutoScenario.cpp:302](../src/bin/calaos_server/Scenario/AutoScenario.cpp) |
 | 13 | `EventAudioSongChanged` | `audio_song_changed` | `player_id` | ✅ [Squeezebox.cpp:268](../src/bin/calaos_server/Audio/Squeezebox.cpp), [RoonPlayer.cpp:276](../src/bin/calaos_server/Audio/RoonPlayer.cpp) |
 | 14 | `EventAudioPlaylistAdd` | `playlist_tracks_added` | `player_id` | ✅ [Squeezebox.cpp:303](../src/bin/calaos_server/Audio/Squeezebox.cpp) |
 | 15 | `EventAudioPlaylistDelete` | `playlist_tracks_deleted` | `player_id`, `position` | ✅ [Squeezebox.cpp:286](../src/bin/calaos_server/Audio/Squeezebox.cpp) |
@@ -253,11 +253,11 @@ chaque site d'émission a le sien :
 
 | Cause | Clés de `data` |
 |---|---|
-| IO retiré d'une pièce ([Room.cpp:114](../src/bin/calaos_server/Room.cpp)) | `input_id_deleted`, `room_name`, `room_type` |
-| Renommage ([Room.cpp:123](../src/bin/calaos_server/Room.cpp)) | `old_room_name`, `new_room_name`, `room_type` |
-| Changement de type ([Room.cpp:133](../src/bin/calaos_server/Room.cpp)) | `old_room_type`, `new_room_type`, `room_name` |
-| Changement de `hits` ([Room.cpp:143](../src/bin/calaos_server/Room.cpp)) | `old_room_hits`, `new_room_hits`, `room_name`, `room_type` |
-| IO déplacé vers une pièce ([JsonApi.cpp:1918](../src/bin/calaos_server/JsonApi.cpp)) | `io_id_added`, `room_name`, `room_type` |
+| IO retiré d'une pièce ([Room.cpp:121](../src/bin/calaos_server/Room.cpp)) | `input_id_deleted`, `room_name`, `room_type` |
+| Renommage ([Room.cpp:130](../src/bin/calaos_server/Room.cpp)) | `old_room_name`, `new_room_name`, `room_type` |
+| Changement de type ([Room.cpp:140](../src/bin/calaos_server/Room.cpp)) | `old_room_type`, `new_room_type`, `room_name` |
+| Changement de `hits` ([Room.cpp:150](../src/bin/calaos_server/Room.cpp)) | `old_room_hits`, `new_room_hits`, `room_name`, `room_type` |
+| IO déplacé vers une pièce ([JsonApi.cpp:2108](../src/bin/calaos_server/JsonApi.cpp)) | `io_id_added`, `room_name`, `room_type` |
 
 Noter l'asymétrie de nommage entre `input_id_deleted` et `io_id_added` : ce sont
 bien deux clés distinctes, pas une faute de frappe de ce document.
@@ -424,7 +424,7 @@ Les tokens des appareils sont enregistrés via `JsonApi::registerPushToken()`
 (action/message `register_push`), qui exige `token` non vide et `hardware`
 valant exactement `android` ou `ios` — sinon il renvoie `false` et l'API répond
 `{"success":"false"}`
-([JsonApi.cpp:2062-2074](../src/bin/calaos_server/JsonApi.cpp)). Les tokens sont
+([JsonApi.cpp:2373-2385](../src/bin/calaos_server/JsonApi.cpp)). Les tokens sont
 stockés dans la même base SQLite que l'historique.
 
 L'option `notif_development` de `local_config.xml` bascule les notifications iOS
@@ -460,6 +460,20 @@ correspondant ; l'image se récupère ensuite en HTTP par
 `action: "event_picture"` avec ce `pic_uid` (voir
 [08_http_api.md](08_http_api.md)).
 
-Enfin, `IOBase` envoie lui-même des notifications de batterie faible et de perte
-de connexion, sans passer par une règle
-([IOBase.cpp:243-321](../src/bin/calaos_server/IOBase.cpp)).
+Enfin, deux émetteurs n'utilisent **aucune** règle :
+
+- `IOBase` envoie des notifications de batterie faible et de perte de connexion
+  ([IOBase.cpp:243-321](../src/bin/calaos_server/IOBase.cpp)) ;
+- `Config` envoie **une** alerte mail + push groupée `CONFIG_ALERT_DELAY_SEC`
+  après le démarrage ([CalaosConfig.cpp:229, 232-256](../src/bin/calaos_server/CalaosConfig.cpp)).
+  Elle est différée à dessein : `LoadConfigIO()` / `LoadConfigRule()` tournent
+  **avant** la boucle d'événements, où l'infrastructure de notification n'est pas
+  encore utilisable. Ce canal porte deux causes distinctes sous le même sujet
+  `Calaos: configuration problem detected` — la **restauration d'un fichier de
+  configuration corrompu** (T2.4) et les **règles désactivées** faute d'un IO
+  (E4.2e). Quand une règle désactivée est une étape de scénario, le corps de
+  l'alerte ajoute que le scénario **restera désactivé même une fois l'IO revenu**
+  et qu'il faut `autoscenario reenable`
+  ([CalaosConfig.cpp:441-444](../src/bin/calaos_server/CalaosConfig.cpp)). Ces
+  alertes ne produisent **aucun** `CalaosEvent` : elles ne se voient pas sur le
+  fil WebSocket.
