@@ -2011,6 +2011,63 @@ harnais lui-même est **stable et documenté**, et son contrat de cycle de vie e
   seulement**.
   **➡️ ACTION UTILISATEUR** : relire les **5** commits sur le `master` local de
   `calaos_installer` (`6cbd6f6`, `a84027c`, `1dfaed2`, `dac15cb`, `fa04c64`) et pousser lui-même.
+- **⭐ E4.5f ✅ mergé (2026-08-24, `530db772`, 2 commits, doc pure) — ET L'ÉPIQUE `E4.5` EST CLOSE,
+  6/6 (a→f).** Périmètre : `docs/08_http_api.md`, `docs/10_events_notifications.md`
+  (+ `FINDINGS.md`). **Vérification, pas réécriture** : E4.0f les avait écrits contre le code et
+  le fond tenait ; ce qui les avait périmés est T3.18/T3.19 et surtout la **dérive des numéros de
+  ligne**. Revue indépendante : `MERGE` avec réserves, **les trois fermées** par le second commit.
+  - ⭐⭐ **LE BLOQUANT, ET C'EST UN ANGLE MORT MÉTHODOLOGIQUE NEUF.** `08_http_api.md` affirmait
+    « rien n'est retiré du payload ». **Inversion pure** : `Scenario::toJson()` fait
+    `if (!sa.io) continue;` — **`IO/Scenario.cpp:158` et `:181`** (la revue avait écrit `:160`,
+    l'auteur a **remesuré à `:158`**, c'est la bonne valeur). Ce qui rend le cas exemplaire :
+    **le golden que la section citait elle-même le prouvait** — **2 actions à l'étape 2** dans
+    `e40c_ws_autoscenario_get.json`, **1** dans `..._get_broken.json` — et le test s'appelle
+    littéralement **`ABrokenStepSilentlyLosesItsActionFromThePayload`**. **Personne ne l'avait
+    vu** : ni l'auteur d'E4.5f, ni E4.0f qui avait écrit la section, ni la revue d'E4.0f.
+    ⇒ **LEÇON À RETENIR, distincte de la « fixture pauvre » et de la « citation infidèle » : on
+    vérifie qu'une citation de golden est *fidèle*, jamais qu'elle *SOUTIENT* la phrase qu'elle
+    illustre.** Une citation exacte peut démontrer le contraire de son paragraphe.
+  - **La seconde réserve est de la même famille.** La référence `WebSocket.cpp:314-315` est
+    **existante et plausible** — elle contient bien un `429` — mais elle désigne
+    l'**authentification RemoteUI**, pas le plafond par IP, lequel passe par
+    **`HttpClient.cpp:273-281`**. Une référence peut être vivante, vraisemblable, et **désigner
+    autre chose**.
+  - **Position retenue sur le script de contrôle des références** (candidat à ticket, **pas encore
+    un ticket**) : il n'attrape la dérive **que si l'assertion est ancrée** — citer un **fragment
+    attendu** à la ligne, pas seulement `Fichier.cpp:ligne`. **Aucun** des deux défauts de cette
+    branche n'aurait été attrapé par un contrôle non ancré. Donc : **ancré**, en cible
+    **`make check-docs` NON bloquante**, **hors** de `make check` — *un faux rouge sur de la doc à
+    chaque refactoring finirait par être désarmé, et un contrôle qu'on désarme vaut moins que pas
+    de contrôle* — et **obligatoire à chaque revue de doc**.
+  - ⭐ **LE BILAN CHIFFRÉ DE L'ÉPIQUE E4.5, qui est le vrai résultat : la documentation n'était pas
+    obsolète, elle était FAUSSE.** Noms de paramètres erronés pour **tous** les drivers (MQTT,
+    GPIO, KNX, Hue, Squeezebox) → **une configuration écrite d'après la doc n'avait aucun effet** ;
+    **5 types XML de caméra fantômes** (0 occurrence dans l'arbre) → **aucune caméra ne se
+    chargeait** ; **14 des 15 fonctions Lua documentées n'existaient pas** ; **`Timer` documenté à
+    l'envers** ; **`relay_num` 1-based** donné pour 0-based ; framing `ExternProc` **inventé**
+    (octet `START` inexistant, longueur sur 2 octets au lieu de 4) ; **exemple MQTT entièrement
+    fabriqué** ; et sur `08`, **36 groupes de références sur 329** ne pointaient plus sur rien,
+    jusqu'à **190 lignes d'écart**. Côté vérification : **~95 / ~95 / ~80 / ~60** affirmations
+    rouvertes au source par les relecteurs, contrôles byte-identiques **19/19, 24/24, 16/16,
+    23/23**.
+  - ⚠️ **Les bugs de CODE découverts en écrivant la doc, tous versés en `FINDINGS.md`, AUCUN encore
+    corrigé** : (1) ⭐ **syntaxe d'index `path` fausse dans la chaîne `ioDoc` elle-même** — donc
+    **affichée à tous les utilisateurs par `calaos_installer`** ; (2) **Roon reçoit `--port 0`**
+    (`9330` passé dans le paramètre `bool mandatory`) **et perd `--host`/`--port` au respawn** ;
+    (3) **OTA comparant les versions par égalité de chaînes** → un firmware **plus ancien** est
+    proposé comme mise à jour ; (4) `setIOParam`/`waitForIO` **`return 1` sans push** → **le script
+    récupère son propre dernier argument**, donc **tout test de statut lit vrai** ; (5) le
+    **throttle de login indexe le pair TCP sur les deux transports** (ticket **`T3.24`**, en cours).
+  - **Le rebase et son conflit annoncé.** `FINDINGS.md` a conflité une fois, en fin de fichier
+    (la branche y ajoute sa section pendant que master avançait) — **le même conflit que les
+    quatre du merge précédent**. **Résolution invariante : garder TOUS les blocs, dans l'ordre
+    master-d'abord-branche-ensuite**, jamais choisir. Contrôle des titres `^## ` : **49 (master) +
+    1 (branche) → 50**, et la liste des **49 titres de master vérifiée incluse en entier et dans
+    l'ordre** (0 section perdue). Séparateur `---` **précédé d'une ligne vide** à la jonction —
+    le piège du titre setext. Second commit appliqué sans conflit. **Pas de build : zéro ligne de
+    code dans les 2 commits, contrôle docs-only mécanique sur chacun.**
+  - **Rien n'a été poussé.** Worktree `.wave35/e4.5f` nettoyé, branche `docs/e4.5f` supprimée.
+    **`E4.5` bascule 📋 → ✅ sur le board — 6/6 livrés (a→f).**
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
