@@ -199,10 +199,11 @@ TEST(ParamsJson, ToJansson_EmptyStringValueIsEmittedNotOmitted)
 
 TEST(ParamsJson, ToJansson_ValidNonAsciiSurvivesAndDumpsAsAsciiEscapes)
 {
-    /* jansson_to_string() dumps with JSON_ENSURE_ASCII, so a legal accented
-     * value leaves as \uXXXX escapes and never as raw UTF-8 bytes. That is
-     * what the external processes (Wago, KNX, Lua) read off the wire today,
-     * and none of them is covered by the golden suite. */
+    /* A legal accented value survives the round trip into the jansson tree,
+     * and jansson_to_string() dumps it with JSON_ENSURE_ASCII, so it leaves as
+     * \uXXXX escapes and never as raw UTF-8 bytes. That is what the external
+     * processes (Wago, KNX, Lua) read off the wire today, and none of them is
+     * covered by the golden suite. */
     Params p;
     p.Add("k_accent", "\xc3\xa9\xc3\xa0\xc3\xbc");
     json_t *j = paramsToJansson(p);
@@ -211,17 +212,90 @@ TEST(ParamsJson, ToJansson_ValidNonAsciiSurvivesAndDumpsAsAsciiEscapes)
 
     //jansson_to_string() steals the reference, no decref here
     std::string dumped = jansson_to_string(j);
-    //UPPERCASE hex: that is jansson's escape, and it is not cosmetic for this
-    //migration. nlohmann's dump() does the opposite twice over - it emits the
-    //raw UTF-8 bytes, and its \uXXXX escapes (used only for controls) are
-    //lowercase. So every extern process reading this wire (Wago, KNX, Lua)
-    //will see "é" where it sees "\u00E9" today. Semantically identical, byte
-    //for byte different, and none of it is covered by the golden suite.
     EXPECT_NE(std::string::npos, dumped.find("\\u00E9"))
             << "JSON_ENSURE_ASCII no longer escapes non-ASCII as jansson does: "
             << dumped;
     EXPECT_EQ(std::string::npos, dumped.find("\xc3\xa9"))
             << "raw UTF-8 bytes reached the wire: " << dumped;
+}
+
+TEST(ParamsJson, Tripwire_TheThreeWireEscapingsAreThreeDifferentBytestreams)
+{
+    /* TRIPWIRE for the sub-ticket that migrates the EMITTERS.
+     *
+     * Escaping is where this migration changes bytes without changing meaning,
+     * and "semantically identical" is exactly what a golden suite is built to
+     * ignore. The API emitters (JsonApiHandlerWS.cpp:72,
+     * JsonApiHandlerHttp.cpp:223, EventManager.cpp:80) are covered by the
+     * goldens, which compare parsed documents and will therefore stay GREEN
+     * through the change. The driver wires (WagoMap, KNXCtrl, ScriptExec,
+     * ScriptBindings, ScriptExtern_main) have no net at all.
+     *
+     * So the three forms are pinned SEPARATELY, on the RAW dumped string with
+     * no case normalisation anywhere - normalising here would make the case
+     * pass for a migration that changed the wire, which is the one thing it
+     * exists to prevent. Whichever form the next sub-ticket produces, exactly
+     * one of these three blocks tells it what it produced.
+     *
+     * All values below are measured, not assumed. */
+    Params p;
+    p.Add("k_accent", "\xc3\xa9");                      //é, U+00E9
+    p.Add("k_ctrl", std::string("a\x1f") + "b\x01" + "c"); //U+001F then U+0001
+
+    //--- form 1: what ships TODAY. jansson + JSON_ENSURE_ASCII, hex UPPERCASE.
+    json_t *j = paramsToJansson(p);
+    ASSERT_TRUE(j != nullptr);
+    const std::string jansson_wire = jansson_to_string(j); //steals the ref
+    EXPECT_NE(std::string::npos, jansson_wire.find("\\u00E9"))
+            << "form 1 changed: " << jansson_wire;
+    EXPECT_EQ(std::string::npos, jansson_wire.find("\\u00e9"))
+            << "jansson started lowercasing its escapes: " << jansson_wire;
+    EXPECT_EQ(std::string::npos, jansson_wire.find("\xc3\xa9"))
+            << "jansson stopped escaping non-ASCII: " << jansson_wire;
+
+    Json jn = p.toNJson();
+
+    //--- form 2: nlohmann dump() bare. RAW UTF-8, no escape at all. This is
+    //what a straight port produces, and it differs from form 1 on every
+    //non-ASCII byte of every driver wire.
+    const std::string nlohmann_bare = jn.dump();
+    EXPECT_NE(std::string::npos, nlohmann_bare.find("\xc3\xa9"))
+            << "form 2 changed: " << nlohmann_bare;
+    EXPECT_EQ(std::string::npos, nlohmann_bare.find("\\u00E9"))
+            << "nlohmann started escaping non-ASCII: " << nlohmann_bare;
+    EXPECT_EQ(std::string::npos, nlohmann_bare.find("\\u00e9"))
+            << "nlohmann started escaping non-ASCII: " << nlohmann_bare;
+
+    //--- form 3: nlohmann dump(ensure_ascii = true). The closest port to
+    //form 1 - and STILL not byte identical to it, because the hex is
+    //LOWERCASE. This is the case a case-insensitive assertion would let
+    //through while the wire really had changed.
+    const std::string nlohmann_ascii = jn.dump(-1, ' ', true);
+    EXPECT_NE(std::string::npos, nlohmann_ascii.find("\\u00e9"))
+            << "form 3 changed: " << nlohmann_ascii;
+    EXPECT_EQ(std::string::npos, nlohmann_ascii.find("\\u00E9"))
+            << "form 3 became byte identical to jansson - the wire risk this "
+               "tripwire guards is gone, say so explicitly: " << nlohmann_ascii;
+    EXPECT_EQ(std::string::npos, nlohmann_ascii.find("\xc3\xa9"))
+            << "form 3 leaked raw bytes: " << nlohmann_ascii;
+
+    //--- and the three really are three: no two of them are the same string.
+    EXPECT_NE(jansson_wire, nlohmann_bare);
+    EXPECT_NE(jansson_wire, nlohmann_ascii);
+    EXPECT_NE(nlohmann_bare, nlohmann_ascii);
+
+    /* Control characters: NOT uniformly identical across the two libraries,
+     * contrary to what is easy to assume. Measured: U+001F is "\u001F" under
+     * jansson and "\u001f" under nlohmann - the case difference again, because
+     * the hex digits contain a LETTER. U+0001 is "\u0001" on both sides only
+     * because its digits contain none. A control-character check that used
+     * U+0001 alone would therefore see no difference and prove nothing. */
+    EXPECT_NE(std::string::npos, jansson_wire.find("\\u001F"));
+    EXPECT_NE(std::string::npos, nlohmann_bare.find("\\u001f"));
+    EXPECT_EQ(std::string::npos, jansson_wire.find("\\u001f"));
+    EXPECT_EQ(std::string::npos, nlohmann_bare.find("\\u001F"));
+    EXPECT_NE(std::string::npos, jansson_wire.find("\\u0001"));
+    EXPECT_NE(std::string::npos, nlohmann_bare.find("\\u0001"));
 }
 
 TEST(ParamsJson, ToJansson_InvalidUtf8ValueIsSilentlyDroppedAndTheRestSurvives)

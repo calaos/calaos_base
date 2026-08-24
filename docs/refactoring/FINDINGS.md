@@ -1873,13 +1873,43 @@ appris) : `json_dumps(..., JSON_ENSURE_ASCII)` sérialise `é` en **`é`**, hex 
 non-ASCII du tout (les octets UTF-8 partent bruts) et, pour ce qu'il échappe réellement (les
 contrôles), il utilise l'hex **minuscule**.
 
-Conséquence pour la suite d'E4.1 : **chaque processus externe** qui lit la sortie de
-`jansson_to_string()` — Wago, KNX, Lua (`ScriptExtern_main`, `ScriptExec`) — verra `"é"` là où il
-voit `"é"` aujourd'hui. **Sémantiquement identique, byte à byte différent**, et
-**aucun** de ces canaux n'a de golden (E4.0d : hors API, pas de filet). C'est le genre de
-changement qui ne casse rien dans la suite de tests et casse un parseur maison en production.
-Épinglé côté jansson par `ParamsJson.ToJansson_ValidNonAsciiSurvivesAndDumpsAsAsciiEscapes` : ce
-cas **doit** être modifié consciemment par le sous-ticket qui migre ces appelants.
+**Mesure des trois formes** (`é` = U+00E9, plus `U+001F` et `U+0001`) :
+
+| Forme | `é` | `U+001F` | `U+0001` |
+|---|---|---|---|
+| jansson `JSON_ENSURE_ASCII` - **ce qui part aujourd'hui** | `\u00E9` | `\u001F` | `\u0001` |
+| `nlohmann::dump()` nu | `é` **brut** | `\u001f` | `\u0001` |
+| `nlohmann::dump(-1, ' ', true)` | `\u00e9` | `\u001f` | `\u0001` |
+
+/!\ **Meme le port le plus proche n'est pas byte-identique** : `ensure_ascii = true` donne
+`\u00e9`, hex **minuscule**. Et contrairement a ce qu'on suppose facilement, **les caracteres de
+controle ne sont pas tous identiques** des deux cotes : `U+001F` diverge par la casse de son hex,
+`U+0001` non - parce que ses chiffres ne contiennent aucune **lettre**. Un test de controle bati
+sur `U+0001` seul ne verrait rien et ne prouverait rien.
+
+Consequence pour la suite d'E4.1 : **chaque processus externe** qui lit la sortie de
+`jansson_to_string()` - Wago, KNX, Lua (`ScriptExtern_main`, `ScriptExec`, `ScriptBindings`) - verra
+un flux **different octet par octet**, quelle que soit la forme choisie. **Semantiquement
+identique**, et **aucun** de ces canaux n'a de golden (E4.0d : hors API, pas de filet). Pire : les
+goldens des emetteurs d'API **ne rougiront pas non plus**, puisqu'ils comparent des documents
+**parses** (contrat d'oracle d'E4.0) et que les trois formes parsent vers le **meme** document.
+
+Le seul garde-fou est donc
+`ParamsJson.Tripwire_TheThreeWireEscapingsAreThreeDifferentBytestreams`, qui epingle les trois
+formes **separement**, sur la chaine **brute**, **sans aucune normalisation de casse** - une
+assertion insensible a la casse laisserait passer precisement le port
+`dump(..., ensure_ascii = true)`, celui qui a le plus de chances d'etre choisi. Verifie par
+mutation : ce port **rougit** (`form 1 changed: {"k_accent":"\u00e9",...}`) et le port `dump()` nu
+rougit aussi (`{"k_accent":"é",...}`). Ce cas **doit** etre modifie consciemment par le
+sous-ticket qui migre les emetteurs.
+
+### Carte des emetteurs - la ou l'asymetrie se declenchera
+
+E4.1a **ne declenche rien** : aucun site de dump n'est modifie. Les emetteurs sont
+`JsonApiHandlerWS.cpp:72`, `JsonApiHandlerHttp.cpp:223` et `EventManager.cpp:80` pour l'API (filet
+de goldens, mais **aveugle a l'echappement**, voir ci-dessus), et `WagoMap.cpp` (10 envois),
+`KNXCtrl.cpp:305`, `KNXExternProc_main.cpp:220`, `ScriptExec.cpp:168,184`, `ScriptBindings.cpp`,
+`ScriptExtern_main.cpp:140` pour les wires drivers - **aucun filet du tout**.
 
 ### `Config::saveStateCache()` a déjà tranché U+FFFD — c'est le précédent à suivre
 
@@ -1924,3 +1954,24 @@ maintenant sa dépendance), mais c'est le symptôme d'un arbre d'includes qui co
   `JsonApiAudioPayload_test.cpp:324`, `JsonApiMusicDb_test.cpp:786`). **Non touchés** : E4.1a ne
   réécrit aucune prose de test existante, pour que son diff reste lisible comme une bascule
   mécanique. À balayer en fin de série.
+
+
+### /!\ Trois fuites de `json_t` **preexistantes**, dont deux dans la zone sans filet
+
+Trouvees par la revue d'E4.1a. **Ce ne sont pas des regressions** : elles sont anterieures au
+ticket, qui a reecrit ces lignes mecaniquement sans les corriger - et **sans les voir**. C'est la
+trouvaille dans la trouvaille : une bascule mecanique traverse un bug sans jamais le lire.
+Volontairement **non corrigees ici** (hors perimetre d'E4.1a). **Elles meritent un ticket.**
+
+1. **`WagoMap::write_multiple_bits()`** (`WagoMap.cpp:328-337`) - construit `jret`, y ajoute le
+   tableau `values`... puis envoie une **seconde serialisation fraiche** :
+   `process->sendMessage(jansson_to_string(jansson_from_params(p)))`. Donc **le tableau `values`
+   n'est jamais emis** - c'est un bug **fonctionnel**, pas seulement une fuite - et **`jret` fuit**.
+2. **`WagoMap::write_multiple_words()`** (`WagoMap.cpp:402-411`) - strictement identique, au type
+   des elements pres.
+3. **`IODoc::genDocJson()`** (`IODoc.cpp:163`) - `json_object_set` (et **non** `_new`) pour
+   `list_value` : la reference fraiche n'est jamais reprise, elle **fuit**.
+
+/!\ Les deux premieres sont dans **la zone sans filet** : aucun test n'execute les drivers Wago
+(E4.0d). Un `values` jamais emis a donc pu vivre la indefiniment sans qu'aucune suite ne bronche -
+et c'est exactement le genre de site que le sous-ticket des emetteurs va toucher.
