@@ -1598,10 +1598,37 @@ harnais lui-même est **stable et documenté**, et son contrat de cycle de vie e
     La promesse faite à l'utilisateur n'est vraie **que si ce balayage est re-clé ou supprimé**.
     E4.6a l'épingle **avant** toute ligne de `src/`.
   - ⭐ **Trouvaille tardive (revue T3.20) qui a déplacé la conception** : le vrai vecteur
-    d'amputation est **hors API** — `calaos_installer` jette les actions à id non résolu au
-    chargement (`projectmanager.cpp:1126-1133`) puis **régénère et téléverse `io.xml`/`rules.xml`
-    entiers**. ⇒ la définition du scénario est placée dans un **`scenarios.xml` propre au serveur**,
-    hors de portée de l'installeur. C'est la **question ouverte n°4**, la plus structurante.
+    d'amputation est **hors API** — `calaos_installer` jette les entrées/sorties à id non résolu au
+    chargement de `rules.xml` (**4 sites** : `projectmanager.cpp:1023`, `:1054`, `:1082`, `:1125`)
+    puis **régénère et téléverse `io.xml`/`rules.xml` entiers** (`:922-933`,
+    `dialogsaveonline.cpp:100-122`).
+  - ✅ **LES 5 QUESTIONS SONT TRANCHÉES (2026-08-24)**, détail en `E4.6.md` §10 et entrées datées en
+    tête de `DECISIONS.md`. **Q1** refus `modify` (T3.20/R3) → **abandonné**, il compensait une perte
+    d'information que la refonte supprime. **Q2** payload → **tout en chaînes** (l'oracle des tests
+    est type-strict, `3 != "3"`). **Q3** → **`final_step` en champ séparé**. **Q5** →
+    `IO/Scenario.cpp` **exclu d'E4.1**, migré directement par E4.6 en nlohmann (note posée dans
+    `E4.1.md`).
+  - ⭐ **Q4 — l'utilisateur a choisi `io.xml`, contre la recommandation de l'agent ET de
+    l'orchestrateur**, au nom de l'**invariant « deux fichiers »** (`io.xml`/`rules.xml` sont ce que
+    tout l'outillage, les backups et l'installeur connaissent ; un 3ᵉ fichier n'aurait pas supprimé
+    le risque, il l'aurait déplacé vers le premier outil qui l'ignore). Confirmé par le code :
+    `JsonApiHandlerHttp.cpp:631-633` n'accepte au téléversement que ces 3 noms de fichiers en dur.
+  - ⭐⭐ **ET LA CONTRAINTE SE RETOURNE EN GARANTIE — c'est le résultat le plus important de la
+    reconception.** Mesuré au source de `calaos_installer` : les **params** d'un IO qu'il ne connaît
+    pas sont **préservés intégralement** (lecture générique sans liste blanche
+    `projectmanager.cpp:611-618` ; réécriture de tous les params `:197-204` ; preuve empirique :
+    `cycle=` et **78** `log_history=` survivent dans `configs/raoulh/io.xml`), alors que les **nœuds
+    XML enfants** sont **perdus** (`:653-658`, et `writeInput()` n'en réémet aucun hors cas spécial
+    RemoteUI). ⇒ la définition est portée par des **params d'IO**, donc préservée **même par un
+    installeur ANCIEN** — ceux qui resteront en circulation et qu'aucune mise à jour ne rattrapera.
+    **La correction de `calaos_installer` cesse d'être une dépendance dure** : ticket **I4.1**,
+    recommandé, non bloquant, pour un défaut qui concerne **toutes** les règles.
+  - **Défense en profondeur côté serveur (D10)** : niveau 0 = **auto-réparation** (les règles
+    générées sont régénérées depuis la définition, donc une amputation de l'installeur est écrasée
+    au démarrage suivant) ; niveau 1 = **sauvegarde avant écrasement DÉJÀ EN PLACE**
+    (`JsonApiHandlerHttp.cpp:624` → `Config::BackupFiles()`, `CalaosConfig.cpp:614`), à **prouver et
+    documenter** ; niveau 2 = **détecter et alerter** (E4.6h) ; niveau 3 = **refus écarté** (même
+    raison que Q1 : on ne refuse pas sur l'état d'avant).
   - ⛔ **Séquencement dur** : E4.6 vient **après E4.1** (décision du même jour : plus aucun code neuf
     en jansson ; les fichiers rouverts portent **41 %** du jansson du dépôt). **Arbitrage soumis
     (Q5)** : `IO/Scenario.cpp` — exclu du périmètre d'E4.1 et migré directement par E4.6, ou migré
@@ -1609,11 +1636,11 @@ harnais lui-même est **stable et documenté**, et son contrat de cycle de vie e
   - **T3.20 ⛔ parké** : R3/R5 absorbés par la refonte. **Exception extraite : T3.21** — le
     durcissement de `buildJsonDelParam` (`JsonApi.cpp:724`, court-circuite `IOBase::del_param()`)
     est **indépendant des scénarios**, une ligne, aucun appelant cassé. À livrer seul.
-  - **➡️ PROCHAINE ACTION CONCRÈTE** : faire trancher à l'utilisateur les **5 questions ouvertes**
-    de `E4.6.md` §10 — en priorité **Q4** (où vit la définition : `scenarios.xml` séparé ou `io.xml`)
-    et **Q5** (séquencement d'`IO/Scenario.cpp` entre E4.1 et E4.6), car les deux commandent le
-    périmètre d'E4.6b. Q1/Q2/Q3 peuvent être tranchées plus tard, avant E4.6d.
-    Ensuite : lancer **T3.21** (indépendant, non bloqué par E4.1) pendant qu'E4.1 démarre.
+  - **➡️ PROCHAINE ACTION CONCRÈTE** : plus rien à faire trancher. **Lancer E4.1** (elle bloque
+    E4.6d/e/f/g) **en excluant `IO/Scenario.cpp` de son périmètre** (Q5, note déjà posée dans
+    `E4.1.md`). **En parallèle, immédiatement** : **T3.21** (une ligne, indépendante, non bloquée
+    par E4.1) et **E4.6a** (caractérisation, tests seuls, zéro `src/` — non bloquée non plus).
+    **I4.1** peut partir quand on veut, sur le dépôt `calaos_installer`, sans coordination.
   - ⚠️ **Recalage de sites obligatoire** : la revue de T3.20 cite `IO/Scenario.cpp:206` et `:229`
     pour les gardes `if (!sa.io) continue;`. Sur **master `770e322f`** le fichier fait **195 lignes**
     et les sites sont **`:158`** et **`:181`** — l'écart vient du worktree `.wave26/t3.20`. Tout

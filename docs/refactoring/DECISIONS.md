@@ -4,6 +4,96 @@
 > **ne les re-demande pas** et respecte les contraintes. Format : date, décision, pourquoi,
 > comment l'appliquer. Ajouter en tête (plus récent en haut).
 
+## 2026-08-24 — AutoScenario : la définition vit dans **`io.xml`**, portée par les **params de l'IO**
+
+**Décision** : la définition des auto-scénarios est persistée **dans `io.xml`**, et **non** dans un
+nouveau fichier `scenarios.xml`. **Alternative écartée** : le fichier séparé, qui était la
+recommandation de l'agent de conception **et** de l'orchestrateur.
+
+**Pourquoi — les mots de l'utilisateur** :
+
+> « Toute l'infra calaos et ses outils tournent autour de `io.xml`/`rules.xml`. C'est ce qui est
+> backup, ce qui est download/upload par `calaos_installer`, etc. Donc pour remettre une
+> installation en route, **2 fichiers que tout le monde connaît et ça roule**. Si on ajoute
+> `scenarios.xml` ça casse ce principe. On modifiera `calaos_installer` en fonction. »
+
+**L'arbitrage, à ne pas re-proposer dans six mois** : le contrat « deux fichiers » est un
+**invariant d'exploitation**, pas un accident historique. Un troisième fichier n'aurait pas
+supprimé le risque de perte, il l'aurait **déplacé** : chaque outil, script de sauvegarde et
+procédure de restauration aurait dû apprendre son existence, et **le premier qui l'oublie perd les
+scénarios en silence**, sans même une erreur au démarrage. Le code confirme l'invariant :
+`JsonApiHandlerHttp.cpp:631-633` n'accepte au téléversement que `io.xml`, `rules.xml` et
+`local_config.xml`, en liste blanche codée en dur.
+
+**⭐ Le porteur, et c'est lui qui rend la décision SÛRE : les params de l'IO, pas des nœuds XML
+enfants.** Mesuré au source de `calaos_installer` :
+
+| | lecture | écriture | verdict |
+|---|---|---|---|
+| **params (attributs)** | `Params` construit depuis **tous** les attributs, **sans liste blanche** — `projectmanager.cpp:611-618` | **tous** les params réémis — `projectmanager.cpp:197-204` | ✅ **préservés** |
+| **nœuds enfants** | consommés et **jetés** — `projectmanager.cpp:653-658` | **aucun** réémis (hors cas spécial `RemoteUI`) | ❌ **perdus** |
+
+Preuve empirique dans la config de production : `cycle="false"` et **78** attributs `log_history=`
+survivent dans `configs/raoulh/io.xml` — des params dont `calaos_installer` n'a aucun modèle.
+
+**Conséquence de premier ordre** : la modification de `calaos_installer` **n'est PAS une dépendance
+dure** de la refonte. Un installeur **ancien** — et il en restera en circulation longtemps, sans
+qu'aucune mise à jour puisse les rattraper — **préserve la définition sans rien en savoir**.
+Le ticket **I4.1** reste recommandé, sur ses propres mérites : 4 `if (x)` sans `else`
+(`projectmanager.cpp:1023`, `:1054`, `:1082`, `:1125`) purgent silencieusement les entrées/sorties
+à id non résolu, ce qui concerne **toutes** les règles et pas seulement les scénarios.
+
+**⚠️ Le risque assumé, écrit sans atténuation.** Si la définition avait été portée par des **nœuds
+XML enfants**, un `save-online` depuis un `calaos_installer` non corrigé aurait **détruit purement
+et simplement tous les auto-scénarios** de la configuration de production — perte franche, sans
+message, sans sauvegarde côté installeur. Ce risque est **écarté par le choix du porteur « params »,
+pas par le choix du support**. Il reste **deux** risques résiduels, tous deux nommés :
+1. `DialogListProperties` (`calaos_installer/src/DialogListProperties.cpp:85-90`) permet la
+   **suppression manuelle** de n'importe quel param d'IO sauf `type` et `name` : un utilisateur peut
+   casser un scénario depuis cette boîte de dialogue avancée. Action délibérée, pas perte
+   silencieuse. Correctif en I4.1.
+2. Si un futur ticket devait malgré tout déplacer la définition vers des nœuds enfants, **le risque
+   de perte franche reviendrait intégralement**. À ne pas faire sans corriger l'installeur d'abord,
+   et sans accepter de perdre les installeurs anciens.
+
+**Défense en profondeur côté serveur, indépendante de tout cela** : auto-réparation des règles
+générées (elles sont régénérées depuis la définition à chaque chargement) ; sauvegarde avant
+écrasement, **déjà en place** (`JsonApiHandlerHttp.cpp:624` → `Config::BackupFiles()`,
+`CalaosConfig.cpp:614`) mais **non testée ni documentée** ; détection et alerte quand un
+téléversement fait disparaître un scénario connu. **Pas de refus de téléversement** — il bloquerait
+la suppression légitime, même raison que Q1 ci-dessous.
+
+**Appliquer** : [E4.6](E4.6.md) §4 (D2, D10), §7bis (I4.1), sous-tickets **E4.6b** et **E4.6h**.
+
+## 2026-08-24 — AutoScenario : les 4 autres questions de conception tranchées
+
+**Q1 — le refus de `modify` décidé le matin même est ABANDONNÉ.** `autoscenario modify` **accepte**
+un payload citant un IO absent et répond `success` ; le scénario **reste `broken`**, `missing_ios`
+rempli. **Ce n'est pas un oubli** : ce refus (entrée « `autoscenario modify` refuse un **payload**… »
+ci-dessous, même date) existait pour compenser **une perte d'information** — `toJson()` escamotait
+l'action dont l'IO manque, donc un aller-retour blanchissait un scénario amputé. **La refonte
+supprime la perte** : l'action est conservée partout, avec `resolved:"false"`. Blanchir devient
+impossible **par construction**, et le refus n'ajouterait plus aucune protection tout en empêchant
+une modification légitime (renommer, changer une pause) tant qu'une étape est cassée.
+*Règle générale : une garde qui compense une perte d'information doit disparaître avec la perte.*
+
+**Q2 — le payload reste TOUT EN CHAÎNES.** Cohérence avec les 19 autres domaines de l'API, et
+l'oracle du harnais de test est **type-strict** (`3 != "3"`) : un payload à types mixtes
+multiplierait les faux rouges à chaque golden régénéré. Si ce changement doit avoir lieu, c'est
+partout à la fois, et c'est une décision d'E4.1.
+
+**Q3 — l'étape terminale devient un champ séparé `final_step`.** `len(steps)` vaut enfin
+`steps_count` ; l'invariant piégeux `+1`, sur lequel la documentation d'E4.0f s'était déjà trompée
+**dans le mauvais sens**, devient inexprimable. `steps_count` disparaît du payload.
+
+**Q5 — `IO/Scenario.cpp` est EXCLU du périmètre d'E4.1** et migré directement par E4.6 en
+`nlohmann::json`. Tout le JSON du fichier est dans `toJson()`, que E4.6d réécrit intégralement :
+le migrer d'abord serait le migrer deux fois, dont une sur du code condamné. ⚠️ Le suivi d'E4.1 doit
+porter la ligne « `IO/Scenario.cpp` — exclu, migré par E4.6 » **explicitement**, sinon le fichier
+compte comme migré alors qu'il ne l'est pas. Note posée dans `E4.1.md`.
+
+**Appliquer** : [E4.6](E4.6.md) §10.
+
 ## 2026-08-24 — AutoScenario : refonte complète (API + modèle), **rupture assumée**
 
 **Décision** : la fonctionnalité AutoScenario est **refondue entièrement, API ET modèle interne**.

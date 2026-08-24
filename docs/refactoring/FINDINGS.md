@@ -1630,10 +1630,40 @@ Trouvé par la revue indépendante de T3.20, hors périmètre de `calaos_base`.
 d'où la référence a simplement disparu. C'est aujourd'hui le **vecteur d'amputation le plus probable
 en production** — plus probable que l'API, qui n'a aucun appelant first-party.
 
-**Traité côté serveur par E4.6** (D2/D10 : la définition du scénario vit dans un `scenarios.xml`
-que l'installeur ne téléverse pas, donc ne peut pas amputer). **Non traité côté installeur** :
-c'est un autre dépôt, et le défaut concerne **toutes** les règles, pas seulement les scénarios.
-Ticket à ouvrir sur `calaos_installer`.
+**Sites exacts : QUATRE, pas un** — `projectmanager.cpp:1023` et `:1082` (entrées de condition),
+`:1054` et `:1125` (sorties d'action). Tous des `if (x)` sans `else`.
+
+**Traité côté serveur par E4.6, en deux moitiés indépendantes** (D2/D10) :
+- **`rules.xml`** : la définition n'y est plus, et les règles générées sont **régénérées depuis la
+  définition** à chaque chargement ⇒ toute amputation par l'installeur est **écrasée au démarrage
+  suivant** (auto-réparation) ;
+- **`io.xml`** : la définition y vit (décision utilisateur — invariant « deux fichiers »), portée
+  par les **params de l'IO**, que l'installeur **préserve intégralement sans rien en savoir**.
+
+⭐ **La mesure qui décide, et qui vaut au-delà des scénarios** — `calaos_installer` et les données
+qu'il ne modélise pas :
+
+| | lecture | écriture | verdict |
+|---|---|---|---|
+| **params (attributs) d'un IO** | `Params` construit depuis **tous** les attributs, **sans liste blanche** — `projectmanager.cpp:611-618` | **tous** les params réémis — `projectmanager.cpp:197-204` | ✅ **préservés** |
+| **nœuds XML enfants d'un IO** | consommés et **jetés** — `projectmanager.cpp:653-658` | **aucun** réémis, hors le cas spécial `RemoteUI` (`:206-216`) | ❌ **perdus au premier save-online** |
+
+Preuve empirique : `cycle="false"` et **78** attributs `log_history=` survivent dans
+`configs/raoulh/io.xml`, params dont l'installeur n'a aucun modèle.
+Conséquence générale : **toute donnée serveur devant survivre à un aller-retour installeur doit
+être portée par un param d'IO, jamais par un nœud enfant** — y compris face aux installeurs
+**anciens**, qu'aucune mise à jour ne rattrapera.
+
+⚠️ Il existe **un précédent de sous-arbre XML préservé verbatim** : les pages `RemoteUI`, lues en
+brut (`readRemoteUIPagesElement()`, `:812`), stockées telles quelles (`setRemoteUIPagesXml()`,
+`:799`) et réémises verbatim (`writeRemoteUIPagesContent()`, `:222-247`). Le mécanisme existe donc
+déjà — mais il est **inopérant sur les installeurs déjà déployés**, ce qui est exactement pourquoi
+la conception d'E4.6 ne le retient pas.
+
+**Non traité côté installeur** : autre dépôt, et le défaut concerne **toutes** les règles.
+→ ticket **I4.1** (`BOARD.md`), **recommandé, non bloquant** : les 4 sites ci-dessus, plus la
+protection des params `autoscenario_*` dans `DialogListProperties.cpp:85-90` (éditeur manuel de
+propriétés, ne protège aujourd'hui que `type` et `name`).
 
 ### Sites recalés — la revue de T3.20 cite un worktree, pas master
 
