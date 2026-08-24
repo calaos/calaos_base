@@ -164,7 +164,8 @@ Et, mot pour mot :
 
 > « On désactive le scénario, on le flag avec **un nouveau paramètre dans la config** pour que ça
 > survive à un reboot, et **un user doit corriger le scénario manuellement en le réactivant**.
-> Si un IO disparaît c'est un problème, on ne peut pas le résoudre sans intervention manuelle. »
+> Si un IO disparaît c'est un problème, on ne peut pas le résoudre sans intervention manuelle,
+> et un IO dans Calaos ne se supprime pas comme ça. »
 
 (capturé, `docs/refactoring/DECISIONS.md:37-40`, intégral)
 
