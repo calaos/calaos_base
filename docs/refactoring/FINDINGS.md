@@ -192,7 +192,11 @@
 - **[DÉPLOIEMENT T2.5]** une libcurl compilée sans AsynchDNS/c-ares bloquerait la loop à chaque
   résolution (l'image de référence a AsynchDNS) — à mentionner dans la doc de déploiement.
 - **[NETTOYAGE]** `configure.ac` : check `AC_CHECK_PROG` du binaire curl désormais obsolète
-  (plus de subprocess) ; `docs/13_utility_lib.md` référence encore SHA1.{cpp,h} supprimés (T2.3).
+  (plus de subprocess). ~~`docs/13_utility_lib.md` référence encore SHA1.{cpp,h} supprimés
+  (T2.3)~~ — **RÉSOLU** : vérifié au source le 2026-08-24 (E4.5e), le document ne mentionne plus
+  SHA1 que pour dire que `src/lib/SHA1.{cpp,h}` n'existent plus ; le seul condensé SHA-1 restant
+  est l'`EVP_Digest(..., EVP_sha1(), ...)` du handshake WebSocket
+  (`src/bin/calaos_server/WebSocket.cpp:400-408`), imposé par la RFC 6455.
 
 ## Wave 4 — transverse, à traiter en priorité
 
@@ -2138,3 +2142,96 @@ Tous mesurés au source le 2026-08-24, aucun corrigé (le ticket est de la doc p
   chemin de socket `$CALAOS_HOME/run/` que le code ne consulte jamais. Même classe que les
   défauts d'E4.0f : la doc n'était pas périmée, elle était fausse.
 
+---
+
+## E4.5e — écarts trouvés en réécrivant `07_remoteui` / `09_lua_scripting` / `13_utility_lib`
+
+> Tous **hors périmètre** d'E4.5e (documentation pure : aucune ligne de `src/`, aucun test).
+> Vérifiés au source le 2026-08-24.
+
+### Documentation — trous restants, dans d'autres périmètres
+
+- **[DOC, → E4.5a] `--enable-asan` n'est documenté dans aucun `docs/*.md`.** L'option existe
+  (`configure.ac:241-266`, `ASAN_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g -O1"`,
+  désactivée par défaut, affichée dans le résumé de `configure` à `:331`). Sa place naturelle est
+  la section « dépendances / build » de `00_overview.md`, qui n'est pas dans le lot E4.5e.
+  Elle ne peut **pas** aller dans `16_config_options.md` : ce document est généré depuis le
+  registre des clés de `local_config.xml`, et `--enable-asan` n'est pas une clé de configuration.
+- **[DOC, → E4.5f] Le plafond d'en-têtes HTTP de 32 Kio → `431` n'est documenté nulle part.**
+  `src/bin/calaos_server/HttpClient.h:72-76` (`static constexpr std::size_t MaxHeadersSize =
+  32 * 1024;`, « Not configurable on purpose »), réponse construite en
+  `HttpClient.cpp:47-49` / `:191`. `grep -rl 431 docs/` ne renvoie que `03_rules_engine`,
+  `04_scenarios` (sans rapport) et les documents de refactoring — **pas** `08_http_api.md`, qui est
+  le lecteur naturel. Fixe et non configurable, il n'a pas d'entrée dans le registre non plus.
+
+### RemoteUI — la spec en arbre diverge du code
+
+`src/bin/calaos_server/RemoteUI/remote-ui.md` est un document de **spécification** ; trois points
+ne décrivent pas ce que le code fait :
+
+1. **`device_info` en XML** : la spec décrit des enfants `<calaos:param name=… value=…/>`
+   (`remote-ui.md:534-540`) ; le code écrit et relit des **attributs**
+   (`IO/RemoteUI/RemoteUI.cpp:261-262` et `:157-158`).
+2. **Emplacement des appareils** : la spec les met dans une section `<calaos:remote_uis>` sous
+   `<calaos:home>` (`remote-ui.md:524-526`) ; le chargeur lit `<calaos:remote_ui>` comme enfant
+   d'une **pièce** (`Room.cpp:171`).
+3. **Clé du code de provisioning** : `provisioning_code` dans la spec (`remote-ui.md:43-46`),
+   `code` dans le code (`RemoteUIProvisioningHandler.cpp:117` et `:246`).
+
+→ soit corriger la spec, soit la marquer explicitement comme « cible, non implémentée ».
+
+### RemoteUI — incohérences internes au code
+
+- **[MORT] Chaîne de type d'IO cherchée à trois valeurs différentes.** `REGISTER_IO(RemoteUI)`
+  (`IO/RemoteUI/RemoteUI.cpp:84`) fixe le type à `"RemoteUI"`, mais `RemoteUIManager` teste
+  `"RemoteUI" || "remote_ui_output"` (`RemoteUIManager.cpp:90-91` et `:117-118`) tandis que
+  `RemoteUIProvisioningHandler` teste `"RemoteUI" || "remote_ui"`
+  (`RemoteUIProvisioningHandler.cpp:151`). Les branches alternatives sont **mortes** et
+  divergentes. → nettoyage.
+- **[DOC/IODOC] Onze paramètres lus sans être déclarés dans `ioDoc`** : `name`, `brightness`,
+  `timeout`, `theme`, `room` (`IO/RemoteUI/RemoteUI.cpp:493-497`, `:511`, `:525`) et les huit
+  `screensaver_*` (`RemoteUIWebSocketHandler.cpp:272-279`). Ils n'apparaissent donc pas dans
+  `io_doc.json`, alors qu'ils sont poussés à l'appareil dans `remote_ui_config_update`.
+- **[CORRECTNESS, confirme le finding T1.6 « stoi non gardé »]** la conséquence observable est
+  pire que « throw » : l'exception de `std::stoi(get_param("brightness"))` /
+  `std::stoi(get_param("timeout"))` (`IO/RemoteUI/RemoteUI.cpp:496-497`) est avalée par le
+  `catch (const std::exception &e)` de `RemoteUIWebSocketHandler::processApi`, qui la journalise
+  comme **« JSON parse error »** (`RemoteUIWebSocketHandler.cpp:151-154`). L'appareil ne reçoit
+  aucune réponse `remote_ui_config` et le log accuse le mauvais coupable.
+- **[COMPORTEMENT] La décision de mise à jour OTA est une inégalité de chaînes**, pas une
+  comparaison sémantique : `if (firmware->getVersion() == currentVersion)` → pas de mise à jour
+  (`OtaFirmwareManager.cpp:249-253`). Un firmware **plus ancien** que celui de l'appareil est donc
+  proposé comme une mise à jour.
+
+### Lua — quirks d'API mesurés en documentant `09_lua_scripting`
+
+- **[API] `setIOParam` et `waitForIO` déclarent `return 1` sans rien empiler** sur leur chemin de
+  succès (`ScriptBindings.cpp:293` et `:333` ; corps vérifiés `:254-292`, `:300-331`). Le script
+  reçoit donc la valeur qui traîne dans l'emplacement de pile — indéterminée. → soit `return 0`,
+  soit empiler un résultat utile.
+- **[API] `requestUrl()` jette le corps de la réponse.** Aucun des deux chemins ne connecte
+  `m_signalCompleteData` ni ne renvoie quoi que ce soit (`ScriptBindings.cpp:344-354`,
+  `:361-367`, `return 0` à `:376`) : un script peut déclencher une requête HTTP mais **ne peut pas
+  en lire le résultat**. Limitation réelle de l'API scriptable, pas un bug de sécurité.
+- **[FOOTGUN] `ScriptManager::abortScript()` ne remet jamais `abort` à `false`**
+  (`ScriptManager.h:90`) : une instance abortée abortera tous les scripts suivants. Sans effet en
+  production, le processus `calaos_script` sortant après un seul script
+  (`ScriptExtern_main.cpp:144`), mais c'est une bombe si l'exécution en-processus revient un jour.
+- **[API] Un global `Calaos` (majuscule) est exposé en plus de `calaos`.** `Lunar::Register()`
+  dépose la table de méthodes dans les globales sous `T::className` (`Lunar.h:25-26`,
+  `ScriptBindings.cpp:122`), entrée `new` comprise. Le constructeur lève systématiquement
+  (`ScriptBindings.cpp:128-133`), donc c'est inoffensif — mais c'est de la surface non voulue, et
+  le message porte une faute de frappe : `"juste use the existing one"`.
+
+### `src/lib` — code mort compilé
+
+- **[MORT] `Calendar.{cpp,h}` n'a aucun consommateur.** `Calendar.h` n'est inclus que par son
+  propre `.cpp` et listé dans `src/lib/Makefile.am:53-54` — il est compilé dans
+  `libcalaos_common` et rien ne l'appelle. Il n'offre par ailleurs **aucune** gestion de jours
+  fériés, et `TimeRange` ne l'utilise pas (`sunset.h` n'est inclus que par `TimeRange.{h,cpp}`) —
+  les deux affirmations contraires étaient dans `13_utility_lib.md` et ont été retirées.
+  → candidat à la suppression.
+- **[MORT] `CalaosModule.h` n'est inclus par aucun fichier de l'arbre** (seule occurrence :
+  `src/lib/Makefile.am:52`). C'est l'API de modules-widgets de l'interface tactile, fondée sur EFL
+  (`Evas`/`Ecore`/`Edje`, `CalaosModule.h:24-31`), dépendances que le serveur ne lie plus.
+  → candidat à la suppression.
