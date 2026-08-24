@@ -8,7 +8,7 @@
 
 ## 🔁 REPRISE — lire en premier
 
-- **🔒 T3.24 LIVRÉ (branche `fix/t3.24`, non mergée) — le throttle de login identifie enfin le
+- **🔒 T3.24 ✅ MERGÉ (`dd0e7900`, 4 commits, ff-only, `make check` 71/71) — le throttle de login identifie enfin le
   client derrière haproxy.** `clientIp()` rendait le **pair TCP** sur **LES DEUX** transports
   (`JsonApiHandlerWS.cpp:45` **et** `JsonApiHandlerHttp.cpp:55` — le constat initial ne citait que
   WS) ⇒ **un seul seau `LoginThrottle` pour toute l'installation** : un attaquant verrouillait le
@@ -16,11 +16,12 @@
   n'importe qui. Les deux passent désormais par `HttpClient::getEffectiveClientIp()`, qui enveloppe
   `TransportLimits::effectiveClientIp()` — **le helper existait déjà** et était **déjà** utilisé dix
   lignes plus loin par `max_connections_per_ip` (`HttpClient.cpp:200`).
-  - ⚠️ **À SAVOIR AVANT DE MERGER** : le ticket touche `JsonApiHandler{WS,Http}.cpp`, donc **la
-    chaîne sérialisée d'E4.1** (`E4.1b`, puis `l`→`s`). Les hunks sont **minuscules** (les trois
-    lignes de `clientIp()` dans chaque fichier, plus une méthode inline dans `HttpClient.h`) et
-    **hors des zones jansson** que la chaîne réécrit. **Merger T3.24 AVANT de lancer `E4.1b`** :
-    après, chaque sous-ticket de la chaîne devra le rebaser.
+  - ⭐ **CE MERGE DÉBLOQUE `E4.1b`** et la chaîne sérialisée `E4.1l`→`E4.1s`, qui **possèdent**
+    `JsonApiHandler{WS,Http}.cpp`. Elles travaillent sur `sendJson` (**WS:75**, **Http:253**),
+    **sans recouvrement de lignes** avec `clientIp()` : les hunks de T3.24 sont **minuscules**
+    (les trois lignes de `clientIp()` dans chaque fichier, plus une méthode inline dans
+    `HttpClient.h`) et **hors des zones jansson** que la chaîne réécrit. Merger d'abord était
+    quand même le bon ordre : cela a **évité 12 rebases** aux sous-tickets de la chaîne.
   - ⚠️⚠️ **RÉSERVE ASSUMÉE, consignée en F-XFF-1 et NON corrigée — et T3.24 la CRÉE, il ne
     l'hérite pas.** Une première rédaction affirmait l'inverse, **c'était faux, corrigé en revue** :
     avant T3.24 les deux `clientIp()` rendaient le **pair TCP**, donc `X-Forwarded-For` n'avait
@@ -45,8 +46,20 @@
     dépend tout l'argument de sécurité, et que le fixture (qui injecte `request_headers` à la main)
     ne pouvait pas prouver. Le harnais E4.0a est **réutilisé sans être modifié**. Commit de
     caractérisation `56dceb11`, **zéro ligne de `src/`**.
+  - **La preuve est faite au VRAI parseur, pas au fixture** : en-tête `X-Forwarded-For` **répété**
+    ⇒ **la dernière ligne parsée gagne**, parce que le callback **écrase**
+    (`request_headers[lower(field)] = value`, `HttpClient.h:265`). Muté en `emplace`, la suite
+    rougit **exactement** `LastRepeatedHeaderLineWins` et `ClientSuppliedListIsDiscardedWholesale`
+    — **les 23 autres restent vertes**. C'est ce qui rend l'argument « derrière haproxy, non
+    contournable » démontré plutôt qu'affirmé.
+  - **Leçon de contre-mutation, à réutiliser** : échanger les *valeurs* de `kClientA`/`kClientB`
+    donne **0 rouge** — le fichier est **symétrique**, la mutation est donc sans effet. Ce qui mord
+    est l'échange des **identités entre les deux sessions d'un même cas**. De même, le cas du
+    préfixe forgé à **2 entrées** ne figeait **pas** `rfind` (il passait aussi avec `find`) : il a
+    fallu passer à **3 entrées** pour que la mutation rougisse.
   - **Non vérifié, noté tel quel** : haproxy 2.8 en **HTTP/2** frontend (déduit, non testé) ; le
     **request smuggling** à travers haproxy ; et la suite **non rejouée sous ASan**.
+  - **Rien n'a été poussé** : `master` local seulement.
 
 - **⭐ E4.1 DÉCOUPÉE (2026-08-24) — 17 sous-tickets `a`→`x`, 10 vagues, fiches écrites.**
   **Aucune ligne de `src/`, aucun test, aucun golden touché** par ce travail de conception.
