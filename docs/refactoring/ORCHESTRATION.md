@@ -1491,6 +1491,50 @@
   (`62739380`) et `getRemoteUIByToken` non constant-time **traité par T2.15** (`01089187`) ;
   **revérifiés au source** avant d'être déplacés dans une section « Résolus ») et ce journal.
   **Rien n'a été poussé.** **Reste de l'épique : E4.5c, E4.5d, E4.5e, E4.5f.**
+- **🚀 MASTER POUSSÉ (2026-08-24, `9d8d37b5..b6b5a2b6`, 249 commits) — première publication depuis
+  le début du refactoring.** Trois validations indépendantes ont précédé le push, dans cet ordre :
+  **(1) Banc réel — validation UTILISATEUR sur son installation de production**, depuis une build
+  locale (le paquet publié n'existait pas encore). ⚠️ **Le périmètre exact de ce qui a été exercé
+  n'est PAS documenté** : la question a été posée (scénario amputé + `autoscenario reenable`,
+  premier enregistrement sous pugixml, TLS insecure par défaut, drivers présents chez l'utilisateur)
+  et **la réponse n'est pas encore arrivée**. **Ne pas cocher les sous-systèmes du §5c/5d comme
+  validés** tant que la réponse n'est pas là — une case cochée à tort coûte plus cher qu'une case
+  vide.
+  **(2) Campagne de validation automatisée (subagent, SHA épinglé `4e5fe9fc`) — TOUT VERT, aucun
+  écart aux chiffres de référence** : `make check` **68/68** exit 0 ; **ASan complet**
+  (`distclean` + `--enable-asan` + `detect_leaks=0`) **68/68**, **zéro rapport AddressSanitizer** ;
+  **shuffle** `--gtest_shuffle` sur les **15** binaires `JsonApi*` × graines **7, 42, 101,
+  20260815** = **60 runs**, 0 échec, **tous rc=0**, aucun `uv__finish_close` / `bad_alloc` /
+  segfault — puis **les 60 mêmes runs REJOUÉS SOUS ASan**, également verts (mesure bonus, non
+  demandée) ; **configs réelles** avec un harnais linkant les **146** objets de `calaos_server`
+  hors points d'entrée — **raoulh** 13 pièces / 213 IOs / 125 règles / 177 conditions / 318 actions
+  et **solanora** 13 / 129 / 82 / 101 / 133, **identiques au caractère près** à la référence du
+  2026-08-16, save+reload **1:1**, 0 type inconnu, 0 règle amputée, **684 destructions** (426 + 258)
+  sans double-free ni UAF, en build par défaut **et** sous ASan.
+  **Ce que cette campagne prouve et qui n'allait pas de soi** : les cinq tickets qui ont touché le
+  cœur depuis la dernière référence (T3.17, T3.17f, T3.18, T3.19, E4.0g) **n'amputent ni ne
+  désactivent quoi que ce soit** sur deux vraies maisons — **0 scénario `disabled_missing_io`** à la
+  charge comme au rechargement. Les `[WRN] Rule ... is DISABLED` n'apparaissent que pendant la phase
+  de suppression volontaire d'IOs, c'est-à-dire le comportement T3.18 attendu.
+  **(3) Revue** : les merges E4.5a/E4.5b ci-dessus.
+  ⚠️ **Le push est une PUBLICATION, pas une validation CI** (cf. DECISIONS 2026-08-16) : bump de
+  version, tag git, `ghcr.io/calaos/calaos_base:dev` + tag versionné, dispatch `build_deb` vers
+  `calaos/pkgdebs`. GitHub a signalé **13 vulnérabilités Dependabot** sur la branche par défaut
+  (9 high, 4 moderate) au moment du push — **chiffre non recoupé** : T3.11 avait ramené `data/debug`
+  de 11 à 3 advisories (toutes enracinées dans `immutable`, devDependency jamais shippée) et posé un
+  `.github/dependabot.yml` limité à `/data/debug` en `dependency-type: production`. Soit le compte
+  est antérieur au recalcul, soit il porte sur autre chose — **à vérifier, pas à croire**.
+  **T3.20 n'est PAS dans ce push** (décision : ne pas diluer ce que le banc mesure en y glissant un
+  changement de comportement du jour même) ; il est en implémentation sur `fix/t3.20`, worktree
+  `/home/raoul/repos/calaos/.wave26/t3.20` — **sur disque réel**, les worktrees `/tmp` d'E4.5a/b
+  ayant été perdus.
+  **Trouvaille mineure à rattacher à un ticket, pas encore en FINDINGS** (FINDINGS est en cours
+  d'édition par le subagent T3.20, l'entrée sera posée après son merge) : chaque binaire `core/*`
+  se termine sur `[ERR] (CalaosConfig.cpp:552) Could not open <tmp>/cache/iostates.cache.tmp for
+  write !` — le singleton `Config` **flushe son cache d'état APRÈS que `CoreFixture::TearDown()` a
+  supprimé le répertoire temporaire**. Bénin (sortie de processus, aucun impact ASan), mais c'est
+  **un écrivain qui survit au teardown**, exactement la classe de défaut qu'E4.0g a passé un ticket
+  entier à refermer ailleurs. À connaître avant de durcir le harnais.
 
 ### 🏁 Bilan de la série E4.0 (close) — ce que E4.1 doit lire AVANT de démarrer
 
