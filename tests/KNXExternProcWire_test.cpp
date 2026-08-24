@@ -469,3 +469,45 @@ TEST(KNXExternProcWire, ADocumentThatIsNotAnObjectDecodesToTheDefaultValue)
     //A probe that can never become valid JSON.
     EXPECT_EQ(expected, dumpKnxValue(parseKnxValue("@@ not json @@")));
 }
+
+/******************************************************************************
+ * 6. THE PATH THAT MAKES ensure_ascii AND THE ERROR HANDLER NON-NEGOTIABLE.
+ *
+ * Added AFTER the port, on the coordinator's ensure_ascii alert, and it is the
+ * strongest case of this file - so its provenance is stated rather than
+ * hidden. It was NOT part of the characterization commit; what jansson does
+ * with it was measured separately on the same inputs and is written below.
+ *
+ * KNXValue::setValue(), case 15/16 (KNXExternProc_cli.cpp), fills value_string
+ * with the RAW BYTES of the bus frame - no validation, no transcoding. A KNX
+ * EIS 15/16 device sending latin-1 text therefore puts INVALID UTF-8 straight
+ * into a value that both ends dump. Measured on the latin-1 bytes C9 74 E9:
+ *
+ *   jansson (JSON_ENSURE_ASCII) -> json_string() answers NULL and THE WHOLE
+ *       value_string KEY DISAPPEARS from the message, silently. The server
+ *       receives an event with no string in it.
+ *   nlohmann, naked dump()      -> THROWS type_error.316 ("invalid UTF-8 byte
+ *       at index 1"). That throw happens inside KNXProcess::monitorWait(),
+ *       with no handler above it: std::terminate on a live installation.
+ *   nlohmann, ensure_ascii + error_handler_t::replace (what this ticket does)
+ *       -> U+FFFD for each bad byte, pure ASCII, parseable, lossy but not
+ *       fatal.
+ *
+ * So on THIS perimeter neither invariant is decorative: ensure_ascii is what
+ * keeps the wire ASCII when a device sends accented text, and the error
+ * handler is what turns a crash into a lossy string.
+ ******************************************************************************/
+
+TEST(KNXExternProcWire, RawNonUtf8BusBytesAreReplacedInsteadOfCrashing_DECLARED_DELTA)
+{
+    //DECLARED DELTA 4, on the end that actually reads the bus: this is the
+    //very value monitorWait() builds from the frame it just received.
+    KNXValue v = makeValue(4, 15, 0, 0.0f, 'B', "\xc9" "t" "\xe9");
+    const string msg = eventMessage("1/2/3", "write", v, true);
+
+    EXPECT_NE(string::npos, msg.find("\\ufffdt\\ufffd"));
+
+    for (char c: msg)
+        EXPECT_LT((unsigned int)(unsigned char)c, 0x80u);
+    EXPECT_FALSE(Json::parse(msg, nullptr, false).is_discarded());
+}
