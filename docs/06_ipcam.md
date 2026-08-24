@@ -175,8 +175,9 @@ produit `Unknown Input type !` et la caméra est ignorée. La recherche est en r
 
 Plus aucun utilisateur, matériel obsolète. Vérifié : `src/` et `tests/` n'en portent plus la
 moindre trace. Une configuration qui référence encore `type="Gadspot"` **démarre normalement** —
-la caméra est ignorée avec un avertissement au journal — mais elle **disparaît du fichier à la
-prochaine sauvegarde**. Le contrat complet est décrit dans
+la caméra est ignorée avec un avertissement au journal — mais la ligne est **effacée d'`io.xml`
+dès la première réécriture, qu'un simple redémarrage déclenche 0,1 s après le boot**. Le contrat
+complet, et pourquoi la perte n'est pas hypothétique, sont décrits dans
 [02_io_drivers.md](02_io_drivers.md#drivers-retirés).
 
 ### Il n'y a pas de « paramètres communs » de caméra

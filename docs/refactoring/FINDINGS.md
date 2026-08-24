@@ -2013,16 +2013,55 @@ périmètre.
   `type` **à l'octet près** à `"InternalBool"` / `"InternalInt"` / `"InternalString"`
   (`IO/IntValue.h:53-59`). Un `type="internalbool"` **crée l'IO** puis rend `TUNKNOWN`. Le même
   écart existe partout où un driver relit `get_param("type")` au lieu de son type de classe.
-- **[COMPORTEMENT, conséquence du contrat « type inconnu ignoré »] Un IO de type inconnu est
-  perdu à la première sauvegarde.** `Room::LoadFromXml()` saute l'IO nul (`Room.cpp:176-181`) et
-  `Room::SaveToXml()` ne sérialise que les IOs présents dans la pièce (`Room.cpp:187-200`) : rien
-  ne conserve le nœud XML d'origine. Le contrat annoncé pour MySensors (T2.12) et Gadspot (T3.6)
-  — « la configuration démarre normalement, l'IO inconnu est ignoré avec un avertissement » — est
-  **exact au démarrage** (vérifié, `CoreSmoke_test.cpp:86-99`) mais **incomplet** : la
-  configuration n'est pas seulement ignorée, elle est **amputée** dès que le serveur réécrit
-  `io.xml`. C'est écrit dans `02_io_drivers.md` ; si le comportement voulu est la préservation,
-  c'est un ticket.
+- **[PERTE DE DONNÉES, conséquence du contrat « type inconnu ignoré »] Un IO de type inconnu est
+  effacé d'`io.xml` par le seul fait de démarrer.** `Room::LoadFromXml()` saute l'IO nul
+  (`Room.cpp:176-181`) et `Config::SaveConfigIO()` — **unique** écrivain d'`io.xml` — reconstruit
+  un `pugi::xml_document` **neuf** depuis les seules pièces de `ListeRoom`
+  (`CalaosConfig.cpp:313-330`, `Room.cpp:187-200`). Aucun mécanisme de préservation n'existe
+  (`rawXml` / `preserveUnknown` → 0 occurrence dans `src/`). ⚠️ **La réécriture n'attend aucune
+  action de l'utilisateur** : `main.cpp:196` planifie `ListeRoom::checkAutoScenario()` **0,1 s
+  après le démarrage**, qui se termine par `SaveConfigIO()` (`ListeRoom.cpp:339-341`) ; neuf
+  autres sites la déclenchent aussi (huit dans l'API JSON, un dans le provisioning RemoteUI). Le contrat annoncé pour MySensors (T2.12)
+  et Gadspot (T3.6) est donc **exact au démarrage** (`CoreSmoke_test.cpp:86-99`) mais **rassurait
+  à tort sur le fichier** : `RELEASE_NOTES.md` a été corrigé en conséquence, et
+  `02_io_drivers.md` / `06_ipcam.md` le disent. **Si la préservation est le comportement voulu,
+  c'est un ticket** ; sinon la note de version doit rester aussi explicite qu'elle l'est
+  maintenant.
 - **[COSMÉTIQUE] `ReolinkInputSwitch` nomme son hôte `hostname`** (`IO/Reolink/ReolinkInputSwitch.cpp:40`)
   là où tous les autres drivers réseau utilisent `host` (Wago, KNX, MQTT, Hue, LAN, Squeezebox,
   AVReceiver). Renommer casserait les configs existantes ; à traiter par un alias si jamais.
+
+### E4.5c — suites de revue : deux bugs de code trouvés en corrigeant la doc
+
+- **[BUG, ⭐ visible par tous les utilisateurs] La syntaxe d'index de tableau publiée par l'ioDoc
+  ne fonctionne pas.** Les descriptions des paramètres `path` de MQTT (`MqttCtrl.cpp:415`, et les
+  six `*_path` de statut `:418…:437`) et des IOs Web (`WebDocBase.cpp:53`) donnent toutes l'exemple
+  **`weather[0]/description`**. Or les deux parseurs — qui sont le même code dupliqué —
+  découpent le chemin **sur `/` seul** et ne traitent un jeton comme index que s'il **commence
+  par `[`** (`MqttCtrl.cpp:146,157` ; `WebCtrl.cpp:185,196`). Le jeton `weather[0]` part donc en
+  `parent.at("weather[0]")`, échoue, la valeur rendue est **vide** et un
+  `Error in path …, subpath not found` est journalisé (`MqttCtrl.cpp:177-186`). **La forme qui
+  marche est `weather/[0]/description`** — l'index doit être son propre segment.
+  ⚠️ Ce n'est pas une coquille documentaire : ces chaînes alimentent `--gendoc` **et
+  calaos_installer**, donc **tous les utilisateurs voient la mauvaise syntaxe** au moment où ils
+  configurent un capteur MQTT dont le payload contient un tableau — cas très courant
+  (Zigbee2MQTT, OpenWeather). Corrigé dans `02_io_drivers.md` (§MQTT et §Web) ; **le code, lui,
+  mérite son ticket** : corriger les ~8 chaînes `_()` (et re-vérifier les `.po`).
+- **[BUG] `RoonPlayer` : `port` est déclaré obligatoire sans défaut, et `--port 0` part au
+  sidecar.** `paramAdd()` a pour signature
+  `(name, description, ParamType, bool mandatory, string defaultval = "", bool readonly = false)`
+  (`IO/IODoc.h:46`). `RoonPlayer.cpp:174` écrit
+  `paramAdd("port", …, IODoc::TYPE_INT, 9330)` : le `9330` occupe la place de **`mandatory`** (donc
+  `true`) et `defaultval` reste **vide**. À l'exécution `Utils::from_string("")` laisse `port` à
+  **0** (`RoonPlayer.cpp:179`), et si `host` est renseigné c'est **`--port 0`** qui est passé au
+  sidecar (`RoonPlayer.cpp:46-48`) ; le défaut 9330 n'existe que côté Python **quand le drapeau
+  est absent**, ce qui n'arrive alors jamais. → mini-ticket : `paramAddInt("port", …, 0, 65535,
+  false, 9330)`.
+  ⚠️ **Rapprochement avec E4.5d, qu'aucun des deux tickets ne pouvait faire seul** : E4.5d a
+  trouvé en parallèle que `RoonPlayer.cpp:43` **perd `--host` et `--port` au respawn** (le
+  `startProcess(exe, "roon")` du handler `processExited` ne repasse pas `args`). Pris ensemble —
+  port 0 au premier lancement, host et port perdus à chaque relance — **il est probable que
+  l'intégration Roon soit inutilisable en configuration à hôte statique aujourd'hui**. À
+  confirmer sur matériel avant de trancher, mais les deux défauts sont sur le même chemin et
+  méritent un seul ticket.
 

@@ -284,8 +284,27 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
 
 ## Drivers retirés
 - **MySensors** (T2.12) et **Gadspot** (T3.6) sont supprimés (plus d'utilisateurs). Une
-  configuration qui les référence encore démarre normalement : l'IO inconnu est ignoré avec un
-  avertissement dans les logs, le reste de l'installation fonctionne.
+  configuration qui les référence encore **démarre normalement** : l'IO inconnu est ignoré avec un
+  avertissement dans les logs (`<type>: Unknown Input type !`), le reste de l'installation
+  fonctionne. Vérifié au code (`IOFactory.cpp:44-53`, `Room.cpp:176-181`) et épinglé par
+  `tests/core/CoreSmoke_test.cpp:86-99`.
+
+  ⚠️ **Mais la configuration ne survit pas au démarrage, et cette note l'a laissé croire jusqu'au
+  2026-08-24.** L'IO inconnu n'est jamais ajouté à sa pièce ; or `Config::SaveConfigIO()` est
+  l'**unique** écrivain d'`io.xml` et reconstruit un document **neuf** à partir des seules pièces
+  de `ListeRoom` (`CalaosConfig.cpp:313-330`) — aucun mécanisme de préservation n'existe
+  (`grep -r 'rawXml\|preserveUnknown' src` → 0 résultat). **La ligne XML est donc effacée du
+  fichier à la première réécriture**, et celle-ci n'attend aucune action de l'utilisateur :
+  `main.cpp:196` planifie `ListeRoom::checkAutoScenario()` **0,1 s après le démarrage**, qui se
+  termine par `SaveConfigIO()` (`ListeRoom.cpp:339-341`). **Neuf autres** sites la déclenchent :
+  huit dans l'API JSON (ajout/suppression d'IO, opérations de pièce) et un dans le provisioning
+  RemoteUI.
+
+  Autrement dit : **redémarrer une seule fois suffit à perdre définitivement les entrées
+  MySensors et Gadspot du fichier de configuration.** Aucune migration n'est prévue — il faut
+  relever ces équipements **avant** la mise à jour et les remplacer. Les règles et scénarios qui
+  les référençaient tombent, eux, sous la règle générale de la dépendance manquante (règle
+  désactivée E4.2e, scénario désactivé T3.18).
 
 ## Sécurité & réseau
 - **TinyXML 2.5.3 (non maintenu, 2 CVE) remplacé par pugixml** — 14 242 lignes de bibliothèque

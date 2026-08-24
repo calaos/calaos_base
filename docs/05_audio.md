@@ -189,11 +189,15 @@ Interface avec LMS par son API CLI (TCP). **Deux types XML** :
 
 ⚠️ **Il n'existe pas de paramètre `playerid`** : la clé est `id`.
 
-⚠️ **`port` est une clé héritée, et elle est migrée en silence.** Si `port_cli` est absent, le
-constructeur lit `port` comme port CLI, force `port_web` à 9000, **écrit** `port_cli` et
-`port_web` dans les paramètres puis **supprime `port`**
-(dérivé, [Audio/Squeezebox.cpp:62-77](../src/bin/calaos_server/Audio/Squeezebox.cpp)). La
-prochaine sauvegarde de la configuration ne contient donc plus `port`.
+⚠️ **`port` est une clé héritée, et elle disparaît en silence.** Si `port_cli` est absent, le
+constructeur lit `port` comme port CLI, force `port_web` à 9000 et **écrit** `port_cli` et
+`port_web` dans les paramètres
+(dérivé, [Audio/Squeezebox.cpp:62-73](../src/bin/calaos_server/Audio/Squeezebox.cpp)).
+La suppression de `port`, elle, est **inconditionnelle** : elle est hors de la branche de
+migration et s'applique donc **aussi** à une configuration déjà pourvue de `port_cli`
+(dérivé, [Audio/Squeezebox.cpp:74-75](../src/bin/calaos_server/Audio/Squeezebox.cpp) :
+`if (param.Exists("port")) param.Delete("port");`). La prochaine sauvegarde de la configuration
+ne contient donc plus `port`, dans tous les cas.
 
 ### Capacités
 
@@ -256,9 +260,25 @@ Python `ExternProcRoon_main.py`).
 |---|---|---|
 | `zone_id` | oui | Identifiant de zone Roon |
 | `host` | non | IP du serveur Roon ; vide = autodétection réseau |
-| `port` | non, défaut `9330` | Port du serveur Roon ; vide = autodétection |
+| `port` | **oui, sans défaut** — voir l'avertissement ci-dessous | Port du serveur Roon |
 
 (dérivé, [Audio/RoonPlayer.cpp:172-174](../src/bin/calaos_server/Audio/RoonPlayer.cpp).)
+
+⚠️ **`port` est déclaré obligatoire et sans défaut — le « 9330 » de la ligne de code est un
+argument mal placé.** La signature est
+`paramAdd(name, description, ParamType type, bool mandatory, string defaultval = "", bool readonly = false)`
+(dérivé, [IO/IODoc.h:46](../src/bin/calaos_server/IO/IODoc.h)) : dans
+`paramAdd("port", …, IODoc::TYPE_INT, 9330)` le `9330` occupe la place de **`mandatory`** et vaut
+donc `true`, tandis que `defaultval` reste **vide**
+(dérivé, [Audio/RoonPlayer.cpp:174](../src/bin/calaos_server/Audio/RoonPlayer.cpp)).
+
+Conséquence à l'exécution : `Utils::from_string("")` laisse `port` à **0**
+(dérivé, [Audio/RoonPlayer.cpp:179](../src/bin/calaos_server/Audio/RoonPlayer.cpp)), et si `host`
+est renseigné c'est **`--port 0`** qui part au sidecar
+(dérivé, [Audio/RoonPlayer.cpp:46-48](../src/bin/calaos_server/Audio/RoonPlayer.cpp)). Le défaut
+9330 n'existe que **côté Python, quand le drapeau est absent** — ce qui n'arrive jamais dès lors
+que `host` est posé. **Renseigner explicitement `port` si l'on renseigne `host`.** Consigné dans
+`docs/refactoring/FINDINGS.md`.
 
 ⚠️ **Roon ne fournit ni playlist ni base musicale** : `canPlaylist()` et `canDatabase()` rendent
 `false` (dérivé, [Audio/RoonPlayer.h:176-177](../src/bin/calaos_server/Audio/RoonPlayer.h)).

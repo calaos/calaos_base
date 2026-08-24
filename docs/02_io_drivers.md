@@ -42,7 +42,7 @@ Les **types génériques** (`InputSwitch`, `OutputLight`…) sont dans
 `InputTemp`, `InputSwitchLongPress`, `InputSwitchTriple`, `AudioPlayer` et `IPCam` sont des
 **classes de base abstraites**. Aucune n'appelle `REGISTER_IO` : écrire
 `type="OutputLight"` dans `io.xml` produit un type inconnu (vérifié : aucune de ces classes
-n'apparaît dans les 85 sites `REGISTER_IO*` de l'arbre). Ce sont les types **de driver** qui
+n'apparaît dans les 84 invocations de `REGISTER_IO*` de l'arbre). Ce sont les types **de driver** qui
 s'écrivent dans la configuration.
 
 ### Un type inconnu est ignoré, le reste de la configuration se charge
@@ -273,7 +273,7 @@ sous-processus.
 | `WagoOutputShutter` | `WOVolet` | `WOVolet` | `OutputShutter` |
 | `WagoOutputShutterSmart` | `WOVoletSmart` | `WOVoletSmart` | `OutputShutterSmart` |
 
-(dérivé, les 22 `REGISTER_IO*` de `IO/Wago/*.cpp`. Il n'existe **ni** `WagoOutputLightDimmer`
+(dérivé, les 23 `REGISTER_IO*` de `IO/Wago/*.cpp`. Il n'existe **ni** `WagoOutputLightDimmer`
 **ni** `WagoOutputLightRGB` : les noms sont `WagoOutputDimmer` et `WagoOutputDimmerRGB`.)
 
 ### Paramètres
@@ -369,8 +369,25 @@ Les types multi-adresses remplacent `knx_group` par des clés dédiées
 - RGB : `knx_group_red` / `_green` / `_blue`, et `listen_knx_group_red` / `_green` / `_blue` ;
 - volets : `knx_group_up` et `knx_group_down`.
 
-Quand `knx_group` est absent, la lecture retombe sur `listen_knx_group`
-(dérivé, [IO/KNX/KNXBase.cpp:47-51](../src/bin/calaos_server/IO/KNX/KNXBase.cpp)).
+⚠️ **`listen_knx_group` n'est pas un repli, c'est un écrasement.** Dès que la clé
+`listen_<base>` **existe**, elle remplace `<base>` pour la lecture, que `<base>` soit renseigné ou
+non :
+
+```cpp
+// (dérivé, IO/KNX/KNXBase.cpp:45-52, intégral)
+string KNXBase::getReadGroupAddr(const string &group_base)
+{
+    string knx_group = params->get_param(group_base);
+    if (params->Exists("listen_" + group_base))
+        knx_group = params->get_param("listen_" + group_base);
+
+    return knx_group;
+}
+```
+
+Avec les deux clés posées, c'est donc **`listen_knx_group` qui est lue**, jamais `knx_group`. La
+même règle s'applique aux variantes `_red` / `_green` / `_blue`. L'écriture, elle, vise toujours
+`knx_group` (dérivé, [IO/KNX/KNXIo.cpp:164,190,218](../src/bin/calaos_server/IO/KNX/KNXIo.cpp)).
 
 ---
 
@@ -404,10 +421,24 @@ Sous-processus `calaos_mqtt`
 
 ⚠️ Les clés sont **`topic_sub`** et **`topic_pub`**. Il n'existe ni `topic` ni `topic_set`.
 
-⚠️ **`path` n'est pas du JSONPath.** C'est un chemin propre à Calaos : une clé simple
-(`temperature` pour `{"temperature":14.23}`) ou un chemin à segments avec index de tableau
-(`weather[0]/description`) — l'exemple est celui de la description du paramètre lui-même
-(dérivé, [IO/Mqtt/MqttCtrl.cpp:415](../src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp)).
+⚠️ **`path` n'est pas du JSONPath**, et sa syntaxe d'index de tableau n'est pas celle que
+l'on croit. Le chemin est **découpé sur `/` seul**, et un jeton n'est traité comme un index que
+s'il **commence par `[`** ; tout autre jeton est cherché comme **clé d'objet**
+(dérivé, [IO/Mqtt/MqttCtrl.cpp:145-188](../src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp)) :
+
+| payload | `path` correct |
+|---|---|
+| `{"temperature":14.23}` | `temperature` |
+| `{"color":{"x":0.4}}` | `color/x` |
+| `{"weather":[{"description":"pluie"}]}` | **`weather/[0]/description`** |
+
+⚠️ **`weather[0]/description` ne fonctionne pas** : le jeton `weather[0]` ne commence pas par
+`[`, il est donc cherché tel quel comme clé d'objet, `parent.at("weather[0]")` échoue, la valeur
+rendue est **vide** et un avertissement `Error in path …, subpath not found` est journalisé
+(dérivé, [IO/Mqtt/MqttCtrl.cpp:157,177-186](../src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp)).
+C'est pourtant la forme donnée par la description du paramètre publiée à calaos_installer
+(dérivé, [IO/Mqtt/MqttCtrl.cpp:415](../src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp)) — voir
+`docs/refactoring/FINDINGS.md`. L'index doit être **son propre segment**.
 
 ### Paramètres spécifiques
 
@@ -570,7 +601,7 @@ Bus 1-Wire, principalement pour les DS18B20. Sous-processus `calaos_1wire`
 | Paramètre | Obligatoire | Description |
 |---|---|---|
 | `ow_id` | oui | ID du capteur sur le bus |
-| `ow_args` | non | Arguments d'initialisation owfs (ex. `-u` pour l'USB) |
+| `ow_args` | **oui** | Arguments d'initialisation owfs (ex. `-u` pour l'USB) |
 | `use_w1` | non | Forcer le module noyau `w1` au lieu d'owfs |
 
 (dérivé, [IO/OneWire/OWTemp.cpp:41-46](../src/bin/calaos_server/IO/OneWire/OWTemp.cpp).)
@@ -686,7 +717,10 @@ ou `file://`
 | `file_type` | `xml`, `json` ou `text` |
 | `path` | Emplacement de la valeur — sa syntaxe **dépend de `file_type`** |
 
-- `file_type=json` → chemin à segments, ex. `weather[0]/description` ;
+- `file_type=json` → chemin découpé sur `/`, **l'index de tableau étant son propre segment
+  entre crochets** : `weather/[0]/description`, et non `weather[0]/description`. Le parseur est
+  le même que celui de MQTT — mêmes règles, même piège
+  (dérivé, [IO/Web/WebCtrl.cpp:184-227](../src/bin/calaos_server/IO/Web/WebCtrl.cpp)) ;
 - `file_type=xml` → **expression XPath** ;
 - `file_type=text` → `ligne/pos/séparateur` : la ligne est découpée par le séparateur et la valeur
   d'indice `pos` est rendue ; si le séparateur est absent, la ligne entière est rendue.
@@ -790,9 +824,18 @@ seulement annoncé :
 2. Le type inconnu est **ignoré** avec un avertissement au journal :
    `<type>: Unknown Input type !`
    (dérivé, [IO/IOFactory.cpp:51](../src/bin/calaos_server/IO/IOFactory.cpp)).
-3. ⚠️ L'IO **n'est pas conservé** : n'ayant jamais été ajouté à sa pièce, il **disparaît du
-   fichier à la prochaine sauvegarde de la configuration**
-   (dérivé, [Room.cpp:176-181,187-200](../src/bin/calaos_server/Room.cpp)).
+3. ⚠️ **L'IO est effacé du fichier, et un simple redémarrage y suffit.** N'ayant jamais été
+   ajouté à sa pièce, il n'existe pour aucun écrivain : `Config::SaveConfigIO()` est l'**unique**
+   producteur d'`io.xml` et reconstruit un document **neuf** à partir des seules pièces de
+   `ListeRoom` (dérivé, [CalaosConfig.cpp:313-330](../src/bin/calaos_server/CalaosConfig.cpp),
+   [Room.cpp:187-200](../src/bin/calaos_server/Room.cpp)) ; aucun mécanisme de préservation du
+   XML inconnu n'existe (vérifié : `rawXml` / `preserveUnknown` → 0 occurrence dans `src/`).
+   Et la réécriture n'attend **aucune action de l'utilisateur** : `main.cpp:196` planifie
+   `ListeRoom::checkAutoScenario()` **0,1 s après le démarrage**, qui se termine par
+   `SaveConfigIO()` (dérivé, [ListeRoom.cpp:339-341](../src/bin/calaos_server/ListeRoom.cpp)).
+   **Neuf autres** sites la déclenchent : huit dans l'API JSON (ajout/suppression d'IO,
+   opérations de pièce) et un dans le provisioning RemoteUI. **Relever les équipements concernés
+   avant la mise à jour.**
 4. Une règle ou un scénario qui **référençait** cet IO tombe sous la règle générale de la
    dépendance manquante : **la règle est désactivée** (E4.2e) et **le scénario est désactivé**
    (T3.18). Voir [03_rules_engine.md](03_rules_engine.md) et [04_scenarios.md](04_scenarios.md).
