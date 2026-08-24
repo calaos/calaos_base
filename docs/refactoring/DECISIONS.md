@@ -4,6 +4,74 @@
 > **ne les re-demande pas** et respecte les contraintes. Format : date, décision, pourquoi,
 > comment l'appliquer. Ajouter en tête (plus récent en haut).
 
+## 2026-08-24 — E4.1 : l'échappement du wire JSON sera `ensure_ascii = true`
+
+**Décision** : tout `dump()` nlohmann d'un payload sortant du serveur s'écrit
+`dump(-1, ' ', /*ensure_ascii=*/true, Json::error_handler_t::replace)`.
+**Alternative écartée** : les octets UTF-8 bruts, qui sont le défaut de `nlohmann`.
+
+**Pourquoi — le delta minimal.** Aucune des deux options nlohmann ne reproduit jansson à l'octet
+près, donc **le wire change de toute façon**. Mesuré par le tripwire d'E4.1a, sur la chaîne brute :
+
+| Forme | Producteur | `é` = U+00E9 | U+001F |
+|---|---|---|---|
+| 1 | jansson `JSON_ENSURE_ASCII` (aujourd'hui) | `\u00E9` hex **MAJUSCULE** | `\u001F` |
+| 2 | `dump()` nu | octets UTF-8 **bruts** | `\u001f` |
+| 3 | `dump(…, ensure_ascii = true)` ⬅️ **retenu** | `\u00e9` hex **minuscule** | `\u001f` |
+
+La forme 3 garde le wire **ASCII pur**, comme aujourd'hui : **la seule différence avec jansson est
+la casse de l'hexadécimal**. Un parseur JSON correct ne voit rien ; seul un analyseur maison
+sensible à la casse serait touché — et c'est le risque résiduel, nommé et déclaré en
+`RELEASE_NOTES.md`. La forme 2 cesserait de garantir l'ASCII-only : changement de forme bien plus
+large, dans une zone drivers **sans filet**.
+
+⚠️ **Correction d'une idée reçue** : les caractères de contrôle **divergent aussi**. La divergence
+apparaît dès que l'hexadécimal contient une **lettre** (`U+001F` diverge, `U+0001` non). Ce n'est
+donc pas « seulement le non-ASCII ».
+
+**La porte reste ouverte** : passer aux octets bruts est possible **plus tard, comme changement
+délibéré et déclaré** — jamais comme effet de bord d'une migration.
+
+**⚠️ Exception nommée** : sur les wires **tiers déjà en service en UTF-8 brut**
+(`Audio/RoonPlayer.cpp`, `Audio/AVRRose.cpp`, `IO/OneWire/OWExternProc_main.cpp`,
+`bin/tools/calaos_config.cpp`, `lib/ConfigOptions.cpp`), on ajoute **le gestionnaire d'erreur
+seul**, **pas** `ensure_ascii` : changer les octets d'un wire que l'épique ne migre pas serait
+exactement la faute que cette décision interdit.
+
+**⚠️ Fait mesuré qui a motivé la décision** : `nlohmann` **émet déjà** sur l'API, aujourd'hui —
+`JsonApiHandlerHttp.cpp:253` et `JsonApiHandlerWS.cpp:75` dument **à nu**, sans gestionnaire
+d'erreur, sur les chemins `login` et `scope denied`. L'API sert donc **deux formes d'échappement
+différentes selon le chemin de code**. La décision les unifie ; elle n'introduit pas l'écart.
+
+**Appliquer** : [E4.1](E4.1.md) § « Invariants de l'épique » ; [E4.1b](E4.1b.md) (durcissement des
+émetteurs existants, **avant** toute migration) ; [E4.1s](E4.1s.md) (bascule du wire et déclaration
+de risque). ⛔ **Le tripwire doit basculer vers la FORME 3, pas la 2** — un implémenteur qui le fait
+rougir dans la mauvaise direction croirait avoir réussi.
+
+## 2026-08-24 — E4.1 : découpage en 17 sous-tickets, et ce que le filet ne couvre pas
+
+**Décision de conception** (pas un arbitrage utilisateur, consignée ici parce qu'elle corrige une
+croyance qui circulait) : **les 145 goldens ne couvrent PAS la forme d'octets.** Ils comparent des
+**documents JSON parsés** — contrat d'oracle sémantique posé par E4.0a, choisi délibérément parce
+qu'un test byte-exact aurait échoué intégralement à la bascule à cause du tri des clés, pour une
+raison déjà acceptée.
+
+⇒ **Aucun golden ne rougira sur un changement d'échappement**, ni pour l'API ni pour les drivers.
+**La zone « sans filet » sur cette dimension, c'est toute la migration**, pas seulement les
+drivers. Chaque fiche de sous-ticket distingue donc **deux dimensions** : structure/valeurs
+(couvert) et forme d'octets (nu).
+
+**Le verdict sur les wires drivers, établi au source, fichier par fichier** : sur les 8 wires,
+**6 sont internes aux deux bouts** (Wago, OLA, MQTT, KNX, Reolink, Lua — le processus externe et le
+serveur sont dans ce dépôt, construits par le même `Makefile.am`, livrés par le même paquet) et
+**2 sont en lecture seule depuis un tiers** (Squeezebox, Hue — ils ne construisent aucun JSON
+sortant). **Aucun wire driver n'est exposé à un tiers en écriture**, et chaque extrémité décode avec
+un vrai parseur JSON, jamais par recherche de sous-chaîne. ⇒ **le risque « un parseur maison en
+aval » n'existe sur aucun wire driver** ; il ne subsiste que sur l'API publique, où il est déclaré.
+
+**Appliquer** : [E4.1](E4.1.md) (découpage, vagues, 5 questions ouvertes) et les fiches
+`E4.1b.md` → `E4.1x.md`.
+
 ## 2026-08-24 — AutoScenario : la définition vit dans **`io.xml`**, portée par les **params de l'IO**
 
 **Décision** : la définition des auto-scénarios est persistée **dans `io.xml`**, et **non** dans un

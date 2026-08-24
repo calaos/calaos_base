@@ -8,6 +8,76 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **⭐ E4.1 DÉCOUPÉE (2026-08-24) — 17 sous-tickets `a`→`x`, 10 vagues, fiches écrites.**
+  **Aucune ligne de `src/`, aucun test, aucun golden touché** par ce travail de conception.
+  Lire **[`E4.1.md`](E4.1.md)** (empreinte remesurée, découpage, vagues, verdict wires,
+  **5 questions ouvertes**) puis la fiche du sous-ticket qu'on lance.
+  - **➡️ PROCHAINE ACTION CONCRÈTE** : **finir de merger E4.1a** (branche `refactor/e4.1a`,
+    `a2a3150c`, revue en cours dans `.review27/e4.1a`), **puis lancer la VAGUE 1 : les 10 tickets
+    `E4.1b`…`E4.1k` en parallèle**, périmètres de fichiers disjoints, un agent chacun.
+    **Commencer par `E4.1b`** si un seul agent est disponible : c'est le prérequis dur d'`E4.1o`.
+    En parallèle et hors E4.1 : **T3.21** (une ligne) et **E4.6b/E4.6c** (non bloqués).
+  - ⚠️ **UN FAIT DU BRIEF INITIAL ÉTAIT FAUX, corrigé ici** : « les émetteurs d'API sont couverts
+    par les 145 goldens, la bascule sera visible et arbitrable ». **NON.** Les goldens comparent
+    des **documents parsés** (oracle sémantique E4.0a) : **aucun ne rougira sur un changement
+    d'échappement**. La zone nue sur cette dimension, **c'est toute la migration**. Le **tripwire**
+    d'E4.1a est le **seul** garde-fou, et chaque fiche distingue désormais **structure/valeurs**
+    (couvert) de **forme d'octets** (nu).
+  - ⚠️ **Second fait corrigé, mesuré par E4.1a** : les caractères de contrôle **divergent aussi**
+    entre les deux bibliothèques. `U+001F` → `\u001F` (jansson) contre `\u001f` (nlohmann) ; la
+    divergence apparaît dès que l'hexadécimal contient une **lettre**. `U+0001` ne diverge pas.
+    Ce n'est donc **pas** « seulement le non-ASCII ».
+  - ⭐⭐ **LE RÉSULTAT LE PLUS ATTENDU — les wires drivers, établis au source, fichier par fichier :
+    AUCUN n'est exposé à un tiers en écriture.** Sur les 8 : **6 internes aux deux bouts**
+    (Wago `WagoMap` ↔ `calaos_wago` — `WagoCtrl.cpp` ne contient **aucun** JSON ; OLA ; MQTT — le
+    broker ne voit que `payload`, en passe-plat d'octets ; KNX, sur **trois** bouts ; Reolink, dont
+    l'autre bout est `ExternProcReolink_main.py`, **du Python de ce dépôt** ; Lua) et **2 en lecture
+    seule depuis un tiers** (Squeezebox — son unique `json_dumps` va dans `cDebug()` ; Hue — aucun
+    `json_dumps`). Chaque extrémité décode avec un **vrai parseur JSON**, jamais par recherche de
+    sous-chaîne. ⇒ **le risque « un parseur maison en aval » n'existe sur aucun wire driver.**
+    Il ne subsiste que sur l'**API publique**, où il est déclaré en `RELEASE_NOTES` par `E4.1s`.
+  - ✅ **DÉCISION UTILISATEUR (2026-08-24) : `ensure_ascii = true` partout** —
+    `dump(-1, ' ', true, Json::error_handler_t::replace)`. **Delta minimal** : le wire reste ASCII
+    pur, seule la **casse de l'hexadécimal** change (`\u00E9` → `\u00e9`). Octets bruts **écartés**.
+    ⛔ **Le tripwire doit basculer vers la FORME 3, pas la 2** — le faire rougir dans la mauvaise
+    direction ressemble à une réussite. Entrée datée en tête de `DECISIONS.md`.
+  - ⭐ **Fait qui a structuré le découpage** : `nlohmann` **émet déjà sur l'API aujourd'hui**
+    (`JsonApiHandlerHttp.cpp:253`, `JsonApiHandlerWS.cpp:75`), **à nu, sans gestionnaire d'erreur**.
+    D'où **`E4.1b` en tout premier** : il pose les trois invariants d'émission sur les `dump()`
+    existants. **`E4.1o` est le ticket où le `std::terminate` d'E4.0 (`?param=%ff%80x`) devient
+    atteignable** — si `E4.1b` n'est pas mergé, on ne démarre pas `E4.1o`.
+  - **Le seam qui rend le découpage possible, il existait déjà** : les deux transports ont
+    **déjà** une surcharge `sendJson(const Json &)`. Migrer un constructeur = changer son type de
+    retour et basculer ses appelants dessus. **Aucun adaptateur transitoire n'est nécessaire dans
+    ce sens** — deux seulement dans la série, chacun à **un seul appelant** (`E4.1l` → retiré par
+    `E4.1m` ; `E4.1r` → retiré par `E4.6d`).
+  - ⛔ **RÈGLE ANTI-CONFLIT, la plus longue chaîne sérialisée du projet** : `E4.1b`, puis `E4.1l`
+    → `m` → `n` → `o` → `p` → `q` → `r` → `s` touchent tous `JsonApi.h/.cpp` +
+    `JsonApiHandler{Http,WS}.cpp`. **Neuf tickets, neuf vagues, jamais deux dans la même.**
+    La vague 1 (`b`…`k`) est en revanche **entièrement parallèle**.
+  - ⛔ **`E4.1x` (retrait de `jansson` de `configure.ac:52`) EST BLOQUÉ PAR `E4.6b`+`E4.6d`** —
+    conséquence directe de l'exclusion de `IO/Scenario.cpp` (34 appels, Q5). **E4.1 reste 🚧 après
+    le merge d'`E4.1s`** : afficher « 16/17 livrés, clôture en attente d'E4.6 », jamais ✅, pour
+    qu'un lecteur pressé ne croie pas la double bibliothèque partie.
+  - **Coût des 3 `toJson()` membres restants, évalué** : `KNXValue::toJson()` **faible** (9 lignes,
+    mais **déclaré 2×, défini 3×** — les trois copies dans le même commit, `E4.1e`) ;
+    `CalaosEvent::toJson()` **faible dans la fonction, moyen dans ses 4 appelants** (`E4.1l`) ;
+    `Scenario::toJson()` **sans objet pour E4.1** — réécrit par `E4.6d`.
+  - **Empreinte remesurée sur `refactor/e4.1a`, hors artefacts de build** : **476 appels dans
+    `src/`** + **152 dans `tests/`**, `jansson_from_params` à **104 occurrences**. Les chiffres
+    antérieurs (« 36 fichiers, 603 appels », `E4.6.md:105-114`) venaient d'un `grep -rl` qui
+    incluait des `.o` et des `.Po` ; **classement et ordre de grandeur identiques**, écart signalé
+    dans `E4.1.md`.
+  - **Deux découvertes hors périmètre, tranchées dans les fiches** : (1) le **bug fonctionnel Wago**
+    — `WagoMap::write_multiple_bits/_words` (`:328-337`, `:402-411`) construisent `values` puis
+    émettent `p` à la place : **l'écriture multiple n'écrit rien, en silence, depuis toujours**.
+    `E4.1h` le **porte tel quel** et pose un test qui l'épingle ; sa correction est une **question
+    ouverte (Q2)** et mérite son propre ticket avec caractérisation. (2) Les **fuites de `json_t`**
+    (mêmes sites + `IODoc.cpp:163`) disparaissent **d'elles-mêmes** avec nlohmann : rattachées aux
+    tickets de migration, aucun ticket séparé.
+  - **5 questions ouvertes** en fin de `E4.1.md`, chacune avec sa recommandation : Q1 migrer les
+    autoscénarios deux fois ou non · Q2 corriger le bug Wago ou non · Q3 l'ordre des clés dans
+    `io_doc.json` · Q4 quand déclarer l'épique close · Q5 quand renommer `toNJson`→`toJson`.
 - **PHASE 2 COMPLÈTE (13/13, incl. T2.7 mergé antérieurement).** Phase 1 complète (19/19).
   Wave 5 terminée (2026-08-15) : T2.9, T2.3, T2.12, T2.6, T2.1, T2.10, T2.8, T2.4 ✅, puis
   file sérialisée T2.13 ✅, T2.11 ✅, T2.5 ✅, et enfin **T2.2 ✅ mergé** (2026-08-15, split

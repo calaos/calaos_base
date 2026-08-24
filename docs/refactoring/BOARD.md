@@ -119,7 +119,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [E4.0e](E4.0.md) | 4 | Caractérisation de la session, des enveloppes et des chemins d'erreur (7 refus `scopeDenied`, silences, 400/404, pièges de bascule, 102 cas, 29 goldens) | tests | E4.0a | ✅ |
 | [E4.0f](E4.0.md) | 4 | Caractérisation du payload audio et base musicale (contrat de `processDbResult()`, `Utils::to_string(double)`, asymétrie WS/HTTP, 24 cas, 20 goldens) **+ réécriture de `docs/08_http_api.md` et `docs/10_events_notifications.md`** | tests | E4.0a | ✅ |
 | [E4.0g](E4.0g.md) | 4 | Harnais : drainer les events de destruction du fixture (`pumpEventLoop()` **après** `CoreFixture::TearDown()`) — 6 rustines retirées, contrat de file vide posé | tests | E4.0d, E4.0e, E4.0f | ✅ |
-| [E4.1](E4.1.md) | 4 | Single JSON library — **prérequis levé**, non démarrée ; lire `ORCHESTRATION.md` (bilan E4.0) avant de commencer | epic | ~~**E4.0**~~ ✅ satisfait | 📋 |
+| [E4.1](E4.1.md) | 4 | Single JSON library — **découpée (2026-08-24) en 17 sous-tickets `a`→`x`, 10 vagues** ; vague 1 = 10 tickets parallèles, vagues 2-9 = chaîne API **sérialisée** (même 4 fichiers). ⛔ **La clôture (`E4.1x`, `configure.ac`) attend E4.6b/E4.6d** à cause de l'exclusion `IO/Scenario.cpp`. 5 questions ouvertes en fin de `E4.1.md` | epic | ~~**E4.0**~~ ✅ satisfait | 📋 |
 | [E4.6](E4.6.md) | 4 | **AutoScenario : refonte complète (API + modèle interne)** — rupture assumée, aucun consommateur (user decision 2026-08-24). Absorbe T3.20. **1/8 livré (a)** ; b→h restent, ⛔ **après E4.1** (plus de jansson dans le code neuf) | epic | E4.1 | 📋 |
 | [E4.6a](E4.6.md) | 4 | Caractérisation du modèle AutoScenario avant la refonte (`core/AutoScenarioMigration_test`) : le balayage orphelin (`ListeRoom.cpp:324`) **détruit définitivement** les règles d'un scénario démarqué (`checkScenarioRules()` ne les recrée pas — seule création `AutoScenario.cpp:859`, API-only) ; le cas d'usage de référence (`get`→`modify`→`reenable` relance un scénario amputé, deux `success:true`) ; l'amputation muette par rechargement de config ; la sauvegarde **avant** écrasement de `config put` ; les **quatre états** `disabled`/`disabled_missing_io`/`broken` distingués (trou trouvé en revue, comblé) ; renumérotation partielle (3 des 4 numérotations, `auto_scenario_step` jamais réécrit). **Tests seuls, zéro `src/`, zéro golden touché** | tests | E4.6 | ✅ |
 | [E4.6b](E4.6.md) | 4 | Le modèle : `AutoScenarioDef` (étapes à id opaque, actions par **id d'IO**), **encodé dans les params de l'IO scénario** au sein d'`io.xml` (user decision — invariant « deux fichiers ») ; codec avec percent-encoding, marqueur `autoscenario_uid`, uid non recyclable. **Aucun nouveau fichier de config** | refactor | E4.6a | 📋 |
@@ -133,6 +133,25 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [E4.5a](E4.5.md) | 4 | `docs/00_overview`, `docs/01_core_data_model`, `docs/11_config_persistence` réécrits contre le code : ownership E4.2a→f, pugixml (E4.4), robustesse config T2.4, fidélité XML (E4.4cd) ; jansson laissé tel quel (E4.1 non faite) | doc | E4.5 | ✅ |
 | [E4.5b](E4.5.md) | 4 | `docs/03_rules_engine`, `docs/04_scenarios` réécrits contre le code et les goldens : règle désactivée (E4.2e), scénario désactivé + drapeau collant + `autoscenario reenable` + 3 clés de payload (T3.18), plages nocturnes wrappantes (T3.13), invariant `len(steps) == steps_count + 1` | doc | E4.5 | ✅ |
 | [E4.1a](E4.1a.md) | 4 | `Params` : couper le pont dual-API | refactor | E4.0 | 📋 |
+| [E4.1b](E4.1b.md) | 4 | Les **trois invariants d'émission** posés avant toute migration : `ensure_ascii=true` + `error_handler_t::replace` sur les 8 `dump()` nlohmann **déjà en service** (les deux `sendJson(const Json&)` dument à nu aujourd'hui). ⛔ **Prérequis dur d'E4.1o** : c'est là que le `terminate` d'E4.0 devient atteignable | fix | E4.1a | 📋 |
+| [E4.1c](E4.1c.md) | 4 | Résidus jansson qui ne produisent aucun JSON : includes morts (`IO/ExternProc.h`, `IO/Web/WebCtrl.cpp`) + macro de compat morte (`HttpClient.cpp:111-116`, jansson ≥ 2.5 la fournit) | cleanup | E4.1a | 📋 |
+| [E4.1d](E4.1d.md) | 4 | Lecteurs de JSON **tiers en lecture seule** : `Audio/Squeezebox.cpp` (12), `IO/Hue/HueOutputLightRGB.cpp` (8) — n'émettent **aucun** JSON, le seul `json_dumps` va dans `cDebug()` | refactor | E4.1a | 📋 |
+| [E4.1e](E4.1e.md) | 4 | Wire **KNX** (`KNXCtrl` ↔ `calaos_knx` ↔ `KNXExternProc_cli`, 5 fichiers) + `KNXValue::toJson/fromJson` — **déclaré 2 fois, défini 3 fois**, les trois copies bougent ensemble | refactor | E4.1a | 📋 |
+| [E4.1f](E4.1f.md) | 4 | Wire **OLA** (`OLACtrl` ↔ `calaos_ola`) — ⛔ **le seul wire du dépôt à vrais entiers JSON** (`json_integer`), retyper en chaîne casse le pilotage DMX en silence | refactor | E4.1a | 📋 |
+| [E4.1g](E4.1g.md) | 4 | Wire **MQTT** (`MqttCtrl` ↔ `calaos_mqtt`) — `payloadToJsonString()` est le **seul** traitement délibéré d'UTF-8 invalide du dépôt : préserver la **longueur** (octets nuls), U+FFFD remplace le repli maison | refactor | E4.1a | 📋 |
+| [E4.1h](E4.1h.md) | 4 | Wire **Wago** (`WagoMap` ↔ `calaos_wago`, 52 sites) — ⛔ porte un **bug fonctionnel préexistant** (`write_multiple_bits/_words` n'émettent jamais `values`) : **le porter tel quel**, pas le corriger (Q2) | refactor | E4.1a | 📋 |
+| [E4.1i](E4.1i.md) | 4 | Wire **Reolink** (`ReolinkCtrl` ↔ `ExternProcReolink_main.py`, Python **de ce dépôt**) — ⚠️ le message porte le mot de passe caméra en clair : aucune trace de debug neuve dessus | refactor | E4.1a | 📋 |
+| [E4.1j](E4.1j.md) | 4 | Wire **Lua aval** : `ScriptExtern_main.cpp`, `ScriptBindings.cpp` (`ScriptExec.cpp` **exclu**, il part en E4.1m). Piège : `operator[]` sur un document d'entrée le mute | refactor | E4.1a | 📋 |
+| [E4.1k](E4.1k.md) | 4 | Générateur **`io_doc.json`** : `IODoc.{h,cpp}`, `IOFactory.cpp` — ⚠️ seul site à `JSON_PRESERVE_ORDER` : l'ordre des sections devient alphabétique (Q3). Fichier hors ligne, pas un wire | refactor | E4.1a | 📋 |
+| [E4.1l](E4.1l.md) | 4 | `CalaosEvent::toJson()` → `Json` (2ᵉ des 3 `toJson()` membres) + ses 4 appelants ; adaptateur transitoire `jansson_from_json` **à un seul appelant** pour `ScriptExec.cpp:182` | refactor | **E4.1b** | 📋 |
+| [E4.1m](E4.1m.md) | 4 | `JsonApi` **modèle** : `buildJsonHome/IO/RoomIO/Cameras/Audio/StatusInfo/GetIO`, `buildFlatIOList`, `dumpJsonRedacted` + **`ScriptExec.cpp` migré intégralement** (l'adaptateur d'E4.1l disparaît) | refactor | **E4.1l** | 📋 |
+| [E4.1n](E4.1n.md) | 4 | `JsonApi` **état** : `buildJsonState/States/Query`, `decodeSetState` + ⭐ **le pont jansson↔nlohmann de `RemoteUIWebSocketHandler.cpp:246` disparaît**. ⚠️ `buildJsonState` est async : les `decref` partent, **les gardes de vie NON** | refactor | **E4.1m** | 📋 |
+| [E4.1o](E4.1o.md) | 4 | `JsonApi` **params + plages horaires** — ⛔ **c'est ici que le `std::terminate` d'E4.0 (`?param=%ff%80x`) devient atteignable** ; E4.1b doit être mergé. La paire n'est plus supprimée mais conservée avec U+FFFD (changement assumé, → `RELEASE_NOTES`) | refactor | **E4.1n**, E4.1b | 📋 |
+| [E4.1p](E4.1p.md) | 4 | `JsonApi` **lecteur audio** : `decodeGetPlaylist`, `getNextPlaylistItem` (récursive+async), `audioGet*`, `processDbResult`. ⛔ **`Utils::to_string(double)` ne se corrige pas** (`1234.56789` → `"1234.57"`, épinglé) | refactor | **E4.1o** | 📋 |
+| [E4.1q](E4.1q.md) | 4 | `JsonApi` **base musicale** : les 14 `audioDbGet*` jumelles (~75 sites). Séparé de E4.1p pour rester revuable ; contre-mutation exigée **entre deux domaines voisins** (albums ↔ artistes) | refactor | **E4.1p** | 📋 |
+| [E4.1r](E4.1r.md) | 4 | `JsonApi` **autoscénarios** (9 fonctions) — ⚠️ **candidat à l'annulation (Q1)** : E4.6d les réécrit entièrement. Recommandation : migrer **mécaniquement**. Adaptateur unique vers `Scenario::toJson()`, retiré par E4.6d | refactor | **E4.1q** | 📋 |
+| [E4.1s](E4.1s.md) | 4 | **Émetteurs + dispatch** : reste des deux handlers, suppression des surcharges `sendJson(json_t*)`, ⭐ **bascule du wire vers la FORME 3** (`ensure_ascii=true`, hex minuscule — **pas** les octets bruts) + déclaration de risque en `RELEASE_NOTES` | refactor | **E4.1r** | 📋 |
+| [E4.1x](E4.1x.md) | 4 | **Clôture** : `Jansson_Addition.h` supprimé, tripwire réduit à la forme 3, **`configure.ac:52`** (`jansson >= 2.5`), renommage `toNJson`→`toJson`. Preuve : `grep` tree-wide à zéro **ET** build vert **sans le paquet installé** | cleanup | **E4.1s** ⛔ **+ E4.6b + E4.6d** | ⛔ |
 | [E4.2](E4.2.md) | 4 | Ownership model (smart pointers / by-id) — **épique close : a→f tous livrés** (résolution par id, `Room` possède ses IOs en `unique_ptr`, Conditions/Actions par id, `Rule`/`ListeRule` possédants, règle désactivée si dépendance manquante, back-pointers de scénario en `weak_ptr`). **g abandonné après re-scope** (0/21 sites `IOBase*` de JsonApi dangereux) | epic | Phase 3 | ✅ |
 | [E4.2a](E4.2a.md) | 4 | ListeRoom by-id resolution + lookup hardening | refactor | — | ✅ |
 | [E4.2b](E4.2b.md) | 4 | Room owns unique_ptr<IOBase>, caches non-owning | refactor | E4.2a | ✅ |
@@ -202,6 +221,12 @@ Phase 4 (epics) — depends on Phase 3 + E4.3:
   E4.3 (ongoing from Phase 0) is the prerequisite net.
   E4.1 (JSON), E4.2 (ownership), E4.4 (TinyXML2) are SERIALIZED / split into per-module
   sub-tickets before execution — they all touch ListeRoom / ListeRule / CalaosConfig / JSON files.
+
+E4.1 waves (2026-08-24) — vague 1 parallèle, le reste sérialisé:
+  V1  E4.1b E4.1c E4.1d E4.1e E4.1f E4.1g E4.1h E4.1i E4.1j E4.1k   (10 en parallèle, fichiers disjoints)
+  V2  E4.1l    V3 E4.1m    V4 E4.1n    V5 E4.1o    V6 E4.1p
+  V7  E4.1q    V8 E4.1r    V9 E4.1s
+  V10 E4.1x  <-- bloqué par E4.6b + E4.6d (IO/Scenario.cpp exclu d'E4.1)
 ```
 
 Cross-phase sequential edges (same file, different wave — never same wave):
@@ -210,6 +235,12 @@ Cross-phase sequential edges (same file, different wave — never same wave):
 - `CalaosConfig.cpp`: T2.4 (P2) → E4.4 (P4, parser migration).
 - IO controller dirs: T1.13/T1.19 (P1, base/ctrl files) vs T3.2b/d/f (P3, subclass files) — disjoint files even inside the same directory.
 - `IO/Wago/`, `IO/Mqtt/`: T1.17 (P1, extern-proc mains) vs T3.2e/c (P3, subclasses) — disjoint files.
+- `JsonApi.h/.cpp`, `JsonApiHandlerHttp.cpp`, `JsonApiHandlerWS.cpp`: E4.1b (P4, V1) → E4.1l (V2) →
+  E4.1m (V3) → E4.1n (V4) → E4.1o (V5) → E4.1p (V6) → E4.1q (V7) → E4.1r (V8) → E4.1s (V9).
+  **Neuf tickets, neuf vagues, jamais deux dans la même** — c'est la plus longue chaîne sérialisée
+  du projet.
+- `LuaScript/ScriptExec.cpp`: E4.1l (V2, un site via adaptateur) → E4.1m (V3, intégral).
+  `LuaScript/ScriptExtern_main.cpp`/`ScriptBindings.cpp` = E4.1j (V1), fichiers disjoints.
 
 ---
 
