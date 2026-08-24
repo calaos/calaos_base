@@ -485,6 +485,40 @@ public:
     string buildHttpResponseFromFile(string code, Params &headers, string fileName);
 
     string getClientIp() const;
+
+    /* Client identity used by every per-client security decision of this
+     * connection: the per-IP connection cap (trackPerIpCap) and the login
+     * throttle of both JSON API transports (JsonApiHandlerWS::clientIp,
+     * JsonApiHandlerHttp::clientIp).
+     *
+     * NOT the same thing as getClientIp(), and the difference is the whole
+     * point: getClientIp() answers the TCP peer, which behind haproxy - the
+     * deployment of calaos-os - is the PROXY, identical for every user. Keying
+     * anything per-client on it collapses everybody into one bucket.
+     *
+     * This answers TransportLimits::effectiveClientIp() of the X-Forwarded-For
+     * line of the request being served: the LAST comma entry, the one the
+     * trusted proxy hop wrote. Everything before it is client supplied and
+     * ignored. Falls back to the TCP peer when the header is absent.
+     *
+     * TRUST MODEL, read before adding a caller: this is only as trustworthy as
+     * the assumption that a proxy sits in front. calaos_server does NOT verify
+     * that the peer is haproxy, so a client reaching it directly can put
+     * whatever it likes in X-Forwarded-For and pick its own bucket. The
+     * per-IP connection cap has always had that property; the login throttle
+     * now shares it, and it is the right trade: behind the proxy (the normal
+     * deployment) it turns one shared bucket into one bucket per client, and
+     * in a direct-exposure setup a header-forging attacker was, before this,
+     * already able to lock every other user out of their login.
+     */
+    string getEffectiveClientIp() const
+    {
+        const auto it = request_headers.find("x-forwarded-for");
+        return TransportLimits::effectiveClientIp(
+            it != request_headers.end()? it->second: string(),
+            getClientIp());
+    }
+
     void sendToClient(string res);
     void setNeedRestart(bool e) { need_restart = e; }
 

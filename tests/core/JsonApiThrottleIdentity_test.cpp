@@ -21,29 +21,30 @@
 /*******************************************************************************
  * T3.24 - WHICH CLIENT DOES THE LOGIN THROTTLE COUNT AGAINST?
  *
- * CHARACTERIZATION COMMIT. Every assertion below records what the tree does
- * TODAY, defect included. The two cases named *ShareOneBucket* pin a DEFECT and
- * are meant to go RED as soon as it is fixed; the others pin an ACQUIS that the
- * fix must not break. Each case says which of the two it is, in its own body.
+ * Two cases here pin the FIX (they were written red-on-purpose in the
+ * characterization commit and flipped by it), four pin an ACQUIS the fix had to
+ * keep. Each case says which of the two it is, in its own body.
  *
  * ---------------------------------------------------------------------------
- * THE DEFECT
+ * THE DEFECT THAT WAS FIXED
  * ---------------------------------------------------------------------------
  * LoginThrottle is keyed on the string returned by JsonApi::clientIp(), and
- * BOTH transports return the TCP peer address:
+ * BOTH transports used to return the TCP peer address:
  *      JsonApiHandlerWS.cpp:45-51    -> httpClient->getClientIp()
  *      JsonApiHandlerHttp.cpp:55-61  -> httpClient->getClientIp()
  * calaos_server always sits behind haproxy in calaos-os (DECISIONS.md,
  * "Throttle de login derrière haproxy"), so that peer is the PROXY, the same
  * address for every user of the installation. One bucket for everybody:
- *   - an attacker who burns the backoff window locks out every legitimate user,
- *   - and his own budget is diluted by everybody else's traffic.
+ *   - an attacker who burns the backoff window locked out every legitimate user,
+ *   - and his own budget was diluted by everybody else's traffic.
  *
- * The helper that answers the real question already exists and is already used,
- * ten lines away, by the per-IP CONNECTION cap:
- *      HttpClient.cpp:200-203 -> TransportLimits::effectiveClientIp(xff, peer)
- * so the connection cap identifies the client correctly while the login
- * throttle, on the very same connection, does not.
+ * The helper that answers the real question already existed and was already
+ * used, ten lines away, by the per-IP CONNECTION cap:
+ *      HttpClient.cpp:200 -> TransportLimits::effectiveClientIp(xff, peer)
+ * so the connection cap identified the client correctly while the login
+ * throttle, on the very same connection, did not. Both clientIp() now go
+ * through HttpClient::getEffectiveClientIp(), which wraps that same helper -
+ * read its trust note before adding a third caller.
  *
  * ---------------------------------------------------------------------------
  * WHY THE TWO ADDRESSES BELOW ARE AS UNALIKE AS THEY ARE
@@ -214,38 +215,38 @@ class JsonApiThrottleIdentityTest: public JsonApiCharacterizationTest {};
 } //namespace
 
 /*******************************************************************************
- * DEFECT - two different clients share one bucket
+ * THE FIX - two different clients get two buckets
  ******************************************************************************/
 
-TEST_F(JsonApiThrottleIdentityTest, WsTwoClientsBehindTheProxyShareOneBucket)
+TEST_F(JsonApiThrottleIdentityTest, WsTwoClientsBehindTheProxyGetTheirOwnBucket)
 {
-    //PINS A DEFECT. Client A burns one failed login; client B, a different
-    //machine behind the same haproxy, is then refused although its credentials
-    //are correct. Once clientIp() reads X-Forwarded-For this must become
-    //"B is accepted" - this case is written to flip.
+    //PINS THE FIX. Client A burns one failed login; client B, a different
+    //machine behind the same haproxy, logs in with the right password and is
+    //served. Before T3.24 this expectation was EXPECT_FALSE: B was locked out
+    //by A's failure, because both clients answered the proxy address.
     {
         WsLogin attacker(kClientA);
         EXPECT_FALSE(attacker.attempt(apiUser(), "wrong"));
     }
 
     WsLogin victim(kClientB);
-    EXPECT_FALSE(victim.attempt(apiUser(), apiPassword()))
-            << "a second client behind the proxy would already be told apart";
+    EXPECT_TRUE(victim.attempt(apiUser(), apiPassword()))
+            << "another client's failed login is still blocking this one";
 }
 
-TEST_F(JsonApiThrottleIdentityTest, HttpTwoClientsBehindTheProxyShareOneBucket)
+TEST_F(JsonApiThrottleIdentityTest, HttpTwoClientsBehindTheProxyGetTheirOwnBucket)
 {
-    //PINS THE SAME DEFECT ON THE OTHER TRANSPORT. JsonApiHandlerHttp::clientIp()
-    //is the same three lines as the WS one, so the HTTP login path collapses
-    //into the same single bucket. Written to flip.
+    //PINS THE FIX ON THE OTHER TRANSPORT. JsonApiHandlerHttp::clientIp() was
+    //the same three lines as the WS one and had the same defect: the HTTP login
+    //path collapsed into the same single bucket. Also EXPECT_FALSE before.
     {
         HttpLogin attacker(kClientA);
         EXPECT_FALSE(attacker.attempt(apiUser(), "wrong"));
     }
 
     HttpLogin victim(kClientB);
-    EXPECT_FALSE(victim.attempt(apiUser(), apiPassword()))
-            << "a second client behind the proxy would already be told apart";
+    EXPECT_TRUE(victim.attempt(apiUser(), apiPassword()))
+            << "another client's failed login is still blocking this one";
 }
 
 /*******************************************************************************
@@ -286,7 +287,8 @@ TEST_F(JsonApiThrottleIdentityTest, OneClientCarriesItsBucketAcrossBothTransport
     //PINS AN ACQUIS, and after the fix it also proves the two clientIp()
     //implementations agree: the failure is registered over WS and the block is
     //observed over HTTP, which can only work if both transports name the client
-    //the same way. Today it holds for the wrong reason (both say "unknown").
+    //the same way. Before T3.24 it held for a degenerate reason: both said
+    //"unknown", so it would also have held with only one transport fixed.
     {
         WsLogin first(kClientA);
         EXPECT_FALSE(first.attempt(apiUser(), "wrong"));

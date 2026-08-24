@@ -197,10 +197,7 @@ bool HttpClient::trackPerIpCap()
     if (ipTracked)
         return true;
 
-    auto it = request_headers.find("x-forwarded-for");
-    string ip = TransportLimits::effectiveClientIp(
-        it != request_headers.end()? it->second:string(),
-        getClientIp());
+    string ip = getEffectiveClientIp();
 
     if (!HttpServer::Instance().trackClientIp(ip))
     {

@@ -57,7 +57,13 @@ string JsonApiHandlerHttp::clientIp() const
     if (!httpClient)
         return "unknown";
 
-    return httpClient->getClientIp();
+    //The address the trusted proxy hop saw, NOT the TCP peer: calaos_server
+    //sits behind haproxy, so every client shares the peer address and keying
+    //LoginThrottle on it gives the whole installation a single backoff bucket
+    //- one attacker locks everybody out, and his own budget is diluted by
+    //everybody else. Same identity as the per-IP connection cap, which has
+    //always read it (HttpClient::getEffectiveClientIp, and its trust note).
+    return httpClient->getEffectiveClientIp();
 }
 
 void JsonApiHandlerHttp::sendLoginFailed()
