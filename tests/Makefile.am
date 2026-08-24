@@ -1986,3 +1986,23 @@ core_AutoScenarioMigration_test_LDADD = \
 #Built elsewhere, do not let automake turn them into prerequisites
 core_AutoScenarioMigration_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+
+# E4.1a
+#Characterization of the two JSON faces of Params, written BEFORE the bridge
+#is cut and green across the cut. Params.h is the one header that includes
+#both jansson and nlohmann; E4.1a keeps only the nlohmann face on the class
+#and moves the jansson serialization, verbatim, into the transitional adapter
+#jansson_from_params() of src/lib/Jansson_Addition.h. The only line of the
+#test that the migration touches is the seam paramsToJansson(); no assertion
+#moves. Only libcalaos_common code is exercised (Params + Jansson_Addition),
+#no server object and no fixture. Own HAVE_GTEST block so this stays a pure
+#append at the end of the file.
+if HAVE_GTEST
+TESTS += ParamsJson_test
+check_PROGRAMS += ParamsJson_test
+ParamsJson_test_SOURCES = ParamsJson_test.cpp
+ParamsJson_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
