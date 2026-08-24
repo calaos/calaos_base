@@ -2074,3 +2074,63 @@ core_IODocJson_test_LDADD = $(CORE_TEST_LDADD)
 #Built elsewhere, do not let automake turn them into prerequisites
 core_IODocJson_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+
+# E4.1e
+#Characterization of the KNX wire, written BEFORE IO/KNX is ported from
+#jansson to nlohmann::json and green across the port. Nothing in the existing
+#suite executes a driver (E4.0d), and the 145 goldens compare parsed
+#documents rather than bytes, so this wire had no net at all on either
+#dimension. Two binaries because KNXValue is declared TWICE - once in
+#KNXCtrl.h for the server, once in KNXExternProc_main.h for calaos_knx - and
+#the two classes cannot share a translation unit. They pin the SAME expected
+#literals on purpose: the two copies of toJson() must emit the same bytes or
+#the two ends of the wire stop understanding each other.
+#
+#Linking follows core/KnxIo_test: the server objects are reused as they are.
+#Only KNXCtrl.o and ExternProc.o are needed here, no fixture and no core.
+if HAVE_GTEST
+TESTS += KNXCtrlWire_test
+check_PROGRAMS += KNXCtrlWire_test
+KNXCtrlWire_test_SOURCES = KNXCtrlWire_test.cpp
+KNXCtrlWire_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/KNX \
+                  @CALAOS_SERVER_CFLAGS@
+KNXCtrlWire_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT) \
+                  @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+#Built elsewhere, do not let automake turn them into prerequisites
+KNXCtrlWire_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#The calaos_knx end. KNXExternProc_cli.cpp holds the THIRD definition of
+#KNXValue::toJson() and is only compiled when eibclient.h is present
+#(configure.ac:135 AC_CHECK_HEADERS -> HAVE_LIBKNX); there is no --with-knx
+#option, the support is header-detected. Without that header calaos_knx does
+#not exist and neither can this test, hence the nested conditional. A build
+#that skips it is a build that never compiled two of the five files of this
+#ticket: check the configure summary line "Eib/KNX support".
+if HAVE_GTEST
+if HAVE_LIBKNX
+TESTS += KNXExternProcWire_test
+check_PROGRAMS += KNXExternProcWire_test
+KNXExternProcWire_test_SOURCES = KNXExternProcWire_test.cpp
+KNXExternProcWire_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/KNX \
+                  @CALAOS_SERVER_CFLAGS@
+KNXExternProcWire_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXExternProc_cli.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT) \
+                  @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  -leibclient \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+#Built elsewhere, do not let automake turn them into prerequisites
+KNXExternProcWire_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
+endif
