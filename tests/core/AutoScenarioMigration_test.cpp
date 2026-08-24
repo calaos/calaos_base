@@ -38,6 +38,9 @@
  * assertion. If you are that sub-ticket: flip the expected value, keep the
  * measurement, and say so in the commit message.
  *
+ * COUNTS, so a reader can check them: 19 cases, of which 14 carry
+ * ">>> TO FLIP <<<" and 5 carry ">>> ✅ PROVE, DO NOT FLIP <<<".
+ *
  * The five defects E4.6.md asks E4.6a to pin, and where they live here:
  *
  *   (a) the ORPHAN SWEEP of ListeRoom.cpp:320-330 destroys - and persists the
@@ -94,14 +97,33 @@
  * sub-ticket can ever turn into a real name.
  *
  * ---------------------------------------------------------------------------
- * EVENT QUEUE
+ * EVENT QUEUE - THERE IS EXACTLY ONE PUMP IN THIS FILE, AND IT IS MEASURED
  * ---------------------------------------------------------------------------
  * The harness leaves the queue EMPTY between cases (E4.0g, see the TearDown()
- * comment in JsonApiCharacterization.h). No defensive pump is added here. The
- * two pumps that ARE here are measured: loadMigrationHouse() drains the
- * EventIOAdded raised by the load (same reason as loadReferenceHouse()), and
- * the one case asserting an event was DELIVERED pumps before counting -
- * "not delivered" is not "not raised".
+ * comment in JsonApiCharacterization.h). YOU INHERIT AN EMPTY QUEUE.
+ *
+ * THIS FILE FIRST SHIPPED WITH FOURTEEN PUMPS AND A HEADER CLAIMING TWO WERE
+ * MEASURED. THIRTEEN OF THEM ABSORBED NOTHING, and the review found it, which
+ * is exactly the recurrence §9.7 of E4.6.md describes: copying a pump you have
+ * not measured, with an explanation that is itself false. The thirteen were:
+ *   - twelve placed after ListeRoom::checkAutoScenario(), copied from one
+ *     another. That pass raises EventScenarioChanged, but NO case of this file
+ *     asserts anything about a message while those events are pending;
+ *   - one in loadMigrationHouse(), justified by "loading raises one
+ *     EventIOAdded per IO" - a claim JsonApiCharacterization.h had ALREADY
+ *     corrected in writing: config loading raises NOTHING, EventIOAdded has a
+ *     single call site and it is ListeRoom::createIO(), the runtime path.
+ * MEASURED as removable: 18/18 green without them, in default order and on
+ * five --gtest_shuffle seeds (1, 7, 42, 1234, 99999).
+ *
+ * The ONE that is left is in
+ * AnUnmarkedScenarioIoStillRunsItsRulesWhenTheButtonIsPressed, and it is load
+ * bearing because that case asserts an ABSENCE on one branch and a PRESENCE on
+ * the other, over the same channel: no io_changed for the scenario IO while it
+ * is marked and broken, one after the marker is gone. An absence assertion is
+ * worth nothing unless the channel was flushed first - "not delivered" is not
+ * "not raised" - so the pump is what turns that half into an oracle.
+ * If you ever need another one: measure what it absorbs, or do not add it.
  ******************************************************************************/
 
 #include "JsonApiCharacterization.h"
@@ -179,13 +201,11 @@ class AutoScenarioMigrationTest: public JsonApiCharacterizationTest
 protected:
     void loadMigrationHouse()
     {
+        //NO PUMP HERE. Config loading raises no event at all (measured, and
+        //already written down in JsonApiCharacterization.h): the pump this
+        //function used to end with absorbed nothing.
         loadConfig(ioXmlDocument(roomXml(ROOM_NAME_E46A, ROOM_TYPE_E46A, houseIosXml(), 0)),
                    rulesXmlDocument(std::string()));
-
-        //Loading raises one EventIOAdded per IO. They sit in the EventManager
-        //queue until something pumps the loop; drain here, exactly like
-        //loadReferenceHouse() does.
-        pumpEventLoop();
     }
 
     static Scenario *scenarioIo(const std::string &id = SCENARIO_IO_ID)
@@ -472,6 +492,26 @@ protected:
 
     static size_t markedRuleCount() { return markedRuleNames().size(); }
 
+    /* How many "io_changed" events a session received for this IO id.
+     * ALWAYS pump before calling it: on the ABSENCE side, a channel that was
+     * never flushed answers zero for the wrong reason (E4.0g, "not delivered
+     * is not not raised").
+     */
+    static size_t ioChangedCountFor(const WsTestSession &ws, const std::string &ioId)
+    {
+        size_t n = 0;
+        for (const std::string &m: ws.messages())
+        {
+            const Json env = Json::parse(m, nullptr, false);
+            if (env.is_discarded()) continue;
+            if (env.value("msg", std::string()) != "event") continue;
+            const Json data = member(env, "data");
+            if (str(data, "type_str") != "io_changed") continue;
+            if (str(member(data, "data"), "id") == ioId) n++;
+        }
+        return n;
+    }
+
     /* The value a rule's condition compares `ioId` against, "" when the rule
      * has no such condition. This is numbering (c) of E4.6.md §2.4 - the one
      * checkScenarioRules() REWRITES at :811-829 - as opposed to numbering (b),
@@ -537,7 +577,6 @@ protected:
         clearCoreState();
         loadConfig(ioXml, rulesXml);
         ListeRoom::Instance().checkAutoScenario();
-        pumpEventLoop();
 
         return scenarioId;
     }
@@ -562,7 +601,6 @@ protected:
         clearCoreState();
         loadConfig(ioXml, rulesXml);
         ListeRoom::Instance().checkAutoScenario();
-        pumpEventLoop();
 
         return scenarioId;
     }
@@ -692,7 +730,6 @@ TEST_F(AutoScenarioMigrationTest, RekeyingTheMarkerMakesTheOrphanSweepDestroyEve
     ASSERT_EQ(6u, before.size()) << "unexpected rule shape, the fixture moved";
 
     ListeRoom::Instance().checkAutoScenario();
-    pumpEventLoop();
     EXPECT_EQ(before, markedRuleNames())
             << "with the marker in place the sweep must keep every rule";
 
@@ -713,7 +750,6 @@ TEST_F(AutoScenarioMigrationTest, RekeyingTheMarkerMakesTheOrphanSweepDestroyEve
     ASSERT_EQ(6u, markedRuleCount()) << "the six rules loaded fine, they are ordinary rules";
 
     ListeRoom::Instance().checkAutoScenario();
-    pumpEventLoop();
 
     EXPECT_EQ(0u, markedRuleCount())
             << "TODAY the sweep destroys all six. E4.6c must make this zero become six.";
@@ -745,7 +781,6 @@ TEST_F(AutoScenarioMigrationTest, TheOrphanSweepDestructionIsPersistedToRulesXml
     ASSERT_EQ(6u, ruleCountOnDisk()) << "the six rules are on disk before the startup pass";
 
     ListeRoom::Instance().checkAutoScenario();
-    pumpEventLoop();
 
     EXPECT_EQ(0u, ruleCountOnDisk())
             << "TODAY the six rules are erased from rules.xml. E4.6c must keep them.";
@@ -754,7 +789,8 @@ TEST_F(AutoScenarioMigrationTest, TheOrphanSweepDestructionIsPersistedToRulesXml
 
 TEST_F(AutoScenarioMigrationTest, AnUnmarkedScenarioIoStillRunsItsRulesWhenTheButtonIsPressed)
 {
-    /* Defect (b) of E4.6.md §6 - and this one is a PROMISE of the migration,
+    /* ✅ PROVE, DO NOT FLIP.
+     * Defect (b) of E4.6.md §6 - and this one is a PROMISE of the migration,
      * not a defect: "the old scenarios keep working because they are ordinary
      * rules" (§5.1, §5.3). IO/Scenario.cpp:80 guards both T3.18 gates with
      * `auto_scenario &&`, so an unmarked IO goes straight to EmitSignalIO()
@@ -781,9 +817,20 @@ TEST_F(AutoScenarioMigrationTest, AnUnmarkedScenarioIoStillRunsItsRulesWhenTheBu
     ASSERT_TRUE(sc != nullptr && sc->getAutoScenario() != nullptr);
     ASSERT_TRUE(sc->getAutoScenario()->isBroken());
     ASSERT_TRUE(io(isActiveId) != nullptr);
-    EXPECT_TRUE(sc->set_value(true)) << "the convention is `accepted, did nothing`";
-    EXPECT_FALSE(io(isActiveId)->get_value_bool())
-            << "a broken MARKED scenario must not start";
+    {
+        WsTestSession refused;
+        EXPECT_TRUE(sc->set_value(true)) << "the convention is `accepted, did nothing`";
+        EXPECT_FALSE(io(isActiveId)->get_value_bool())
+                << "a broken MARKED scenario must not start";
+
+        //ABSENCE, and it is only an oracle because the channel is flushed
+        //first: set_value() returns at IO/Scenario.cpp:91, BEFORE
+        //EmitSignalIO() and before EventManager::create(), so nothing is even
+        //raised. Pump, then count.
+        pumpEventLoop();
+        EXPECT_EQ(0u, ioChangedCountFor(refused, SCENARIO_IO_ID))
+                << "a refused button must not report an io_changed";
+    }
 
     //--- unmarked: the same two files, marker removed from the Scenario IO only
     saveConfig();
@@ -815,27 +862,21 @@ TEST_F(AutoScenarioMigrationTest, AnUnmarkedScenarioIoStillRunsItsRulesWhenTheBu
     //scenario STARTING is exactly what that looks like
     EXPECT_FALSE(sc->get_value_bool());
 
-    //The IO really did emit on the wire too. Pump BEFORE counting: not
-    //delivered is not not raised (E4.0g).
+    /* PRESENCE, on the same channel and with the same counter as the absence
+     * asserted above - that pairing is what makes both halves mean something.
+     * THE ONLY PUMP OF THIS FILE, with the one above; see the header.
+     */
     pumpEventLoop();
-    bool sawIoChanged = false;
-    for (const std::string &m: ws.messages())
-    {
-        const Json env = Json::parse(m, nullptr, false);
-        if (env.is_discarded()) continue;
-        if (env.value("msg", std::string()) != "event") continue;
-        const Json data = member(env, "data");
-        if (str(data, "type_str") != "io_changed") continue;
-        if (str(member(data, "data"), "id") == SCENARIO_IO_ID)
-            sawIoChanged = true;
-    }
-    EXPECT_TRUE(sawIoChanged) << "no io_changed for " << SCENARIO_IO_ID
-                              << " among " << ws.count() << " messages";
+    EXPECT_EQ(2u, ioChangedCountFor(ws, SCENARIO_IO_ID))
+            << "MEASURED: exactly two - the press (state true) and the immediate "
+               "reset by `_button_start` (state false). That is the whole chain "
+               "running, on the wire. Among " << ws.count() << " messages.";
 }
 
 TEST_F(AutoScenarioMigrationTest, AutoscenarioGetAndListIgnoreAnUnmarkedScenarioIo)
 {
-    /* Defect (c) of E4.6.md §6 - also a PROMISE, and the literal wording of the
+    /* ✅ PROVE, DO NOT FLIP.
+     * Defect (c) of E4.6.md §6 - also a PROMISE, and the literal wording of the
      * user mandate: "the current ones are no longer considered auto scenarios".
      * buildAutoscenarioGet() tests !sc->getAutoScenario() (JsonApi.cpp:1896),
      * buildAutoscenarioList() walks ListeRoom::getAutoScenarios(), which is fed
@@ -935,7 +976,6 @@ TEST_F(AutoScenarioMigrationTest, AStepRuleWhoseConditionValueDoesNotMatchIsDrop
     clearCoreState();
     loadConfig(ioXml, rulesXmlPristine);
     ListeRoom::Instance().checkAutoScenario();
-    pumpEventLoop();
     {
         AutoScenario *as = autoScenario();
         ASSERT_TRUE(as != nullptr);
@@ -954,7 +994,6 @@ TEST_F(AutoScenarioMigrationTest, AStepRuleWhoseConditionValueDoesNotMatchIsDrop
     ASSERT_EQ(6u, markedRuleCount()) << "all six rules loaded, none of them is broken";
 
     ListeRoom::Instance().checkAutoScenario();
-    pumpEventLoop();
 
     AutoScenario *as = autoScenario();
     ASSERT_TRUE(as != nullptr);
@@ -1009,7 +1048,6 @@ TEST_F(AutoScenarioMigrationTest, AHeaderRuleThatFailsTheMatchIsRecreatedAndTheO
     ASSERT_EQ(6u, markedRuleCount());
 
     ListeRoom::Instance().checkAutoScenario();
-    pumpEventLoop();
 
     //A button_start is still there - but it is a NEW one, built from scratch
     //by the recreation block, and the original has been destroyed.
@@ -1293,13 +1331,28 @@ TEST_F(AutoScenarioMigrationTest, ReadingBackAndEchoingThePayloadRestartsAnAmput
             << "the name survived the echo, which today it must not";
     EXPECT_EQ("false", sc->get_param("visible"));
 
-    //--- 4. reenable: accepted, because there is nothing left to complain about
+    /* --- 4. reenable: accepted, and the mechanism is now asserted rather than
+     * asserted-about. The review proposed that `modify` had already cleared the
+     * flag, which would make tryReenable() take its no-op branch
+     * (AutoScenario.cpp:288-295). MEASURED HERE, AND IT IS NOT WHAT HAPPENS:
+     * `modify` leaves the flag SET - that is exactly what
+     * ScenarioDisabledMissingIo_test::ModifyDoesNotClearTheDisabledFlag pins -
+     * so tryReenable() reaches setDisabledMissingIo(false) and really does lift
+     * gate 2, only because `isBroken()` has been whitewashed at step 3.
+     * The two EXPECTs below are an exchange across the single call, so neither
+     * reading can be mistaken for the other any more.
+     * Acceptance criterion, unchanged: after E4.6d this command must REFUSE,
+     * naming the ids (§11.3, step 4).
+     */
+    EXPECT_TRUE(as->isDisabledMissingIo())
+            << "measured: `modify` does NOT clear gate 2, it is still set here";
     EXPECT_JSON_EQ(std::string(R"({"success":"true"})"),
                    wsAutoscenario(ws, Json{{ "type", "reenable" }, { "id", SCENARIO_IO_ID }}));
     as = autoScenario();
     ASSERT_TRUE(as != nullptr);
     EXPECT_FALSE(as->isDisabledMissingIo())
-            << "TODAY the sticky flag is lifted. E4.6d must make reenable REFUSE here.";
+            << "TODAY reenable really lifts gate 2 on an amputated scenario, "
+               "because step 3 whitewashed gate 1. E4.6d must make it REFUSE.";
 
     //--- and the scenario really runs again, amputated.
     //Put the ghost IO back first: if the action had survived anywhere, this is
@@ -1435,6 +1488,130 @@ TEST_F(AutoScenarioMigrationTest, ARuleDestroyedUnderTheScenarioMakesThePayloadS
     EXPECT_EQ("0.5", sc["steps"][1].value("step_pause", std::string()));
 }
 
+TEST_F(AutoScenarioMigrationTest, ThePayloadTellsTheFourStatesApartAndTwoOfThemDisagree)
+{
+    /* >>> TO FLIP (E4.6d, RC3/T3.18) <<<  - and this case exists because the
+     * REVIEW of E4.6a found the hole it fills.
+     *
+     * `broken`, `disabled_missing_io` and `missing_ios` agree in the two
+     * ordinary states, so a mutation making the FLAG a pure function of the
+     * non-emptiness of missing_ios - which destroys exactly the distinction
+     * T3.18 exists for - left the first version of this file 0/18 RED.
+     * MEASURED by the reviewer, and reproduced here before writing this case.
+     *
+     * The state that catches it is the third one below, and no other case of
+     * this file reached it: `broken`:"false" + `disabled_missing_io`:"true" +
+     * `missing_ios`:"" - "repaired, waiting for a manual re-enable", the state
+     * the user asked T3.18 for.
+     *
+     * ⚠️ THE ROUTE MATTERS. `modify` does NOT get you there: it rebuilds the
+     * rules from a payload that no longer names the dead IO, so `broken` and
+     * the FLAG both end up false (that is the reference use case, section 5).
+     * The route that works is the one of
+     * ScenarioDisabledMissingIo_test.cpp:971-981: amputate, reload, PUT THE IO
+     * BACK, save and reload again. The flag is persisted and sticky, the
+     * breakage is recomputed at load and is gone.
+     *
+     * ⚠️ THIS PROTECTION IS OWNED BY THE TICKET THAT DEMOLISHES IT. The only
+     * other witnesses of the same distinction are
+     * ScenarioDisabledMissingIo_test::ThePayloadTellsTheFourStatesApart and
+     * two cases of JsonApiScenario_test - all three inside E4.6d's rewrite
+     * perimeter (§8.2). E4.6d must carry this discrimination over into the new
+     * schema BEFORE rewriting them, not after.
+     */
+    const std::string scenarioId = loadScenarioWithTwoAmputatedActions();
+    ASSERT_FALSE(scenarioId.empty());
+
+    WsTestSession ws;
+
+    /* --- state 2: broken and freshly disabled -> true / true / the two ids ---
+     * (state 1, healthy, is the control at the end of this case: it needs a
+     * scenario that was NEVER broken, and this one has been)
+     */
+    {
+        const Json j = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", scenarioId }});
+        EXPECT_EQ("true", j.value("broken", std::string()));
+        EXPECT_EQ("true", j.value("disabled_missing_io", std::string()));
+        EXPECT_EQ(std::string(IO_GHOST_STEP) + ", " + IO_GHOST_END,
+                  j.value("missing_ios", std::string()));
+    }
+
+    /* --- state 3: REPAIRED, WAITING FOR A RE-ENABLE -> FALSE / TRUE / "" ----
+     * The two boolean keys DISAGREE here, and nowhere else in this direction.
+     * Put both IOs back and go through a real save/reload: the breakage is
+     * recomputed from the file and is gone, the flag is read back from io.xml
+     * and stays.
+     */
+    ASSERT_TRUE(createInternalIO("InternalString", IO_GHOST_STEP, "Fantome revenu") != nullptr);
+    ASSERT_TRUE(createInternalIO("InternalBool", IO_GHOST_END, "Fantome de fin revenu") != nullptr);
+
+    saveConfig();
+    ASSERT_NE(std::string::npos, ioXmlOnDisk().find("disabled_missing_io=\"true\""))
+            << "the sticky flag is not in io.xml, the reload cannot show it";
+
+    clearCoreState();
+    loadConfig(ioXmlOnDisk(), rulesXmlOnDisk());
+    ListeRoom::Instance().checkAutoScenario();
+
+    {
+        WsTestSession repaired;
+        const Json j = wsAutoscenario(repaired, Json{{ "type", "get" }, { "id", scenarioId }});
+        EXPECT_EQ("false", j.value("broken", std::string()))
+                << "the ids resolve again: " << j.dump();
+        EXPECT_EQ("true", j.value("disabled_missing_io", std::string()))
+                << "STICKY. Only an explicit reenable clears it - this is the state "
+                   "T3.18 exists to make visible, and a payload that derives the flag "
+                   "from missing_ios cannot express it.";
+        EXPECT_EQ("", j.value("missing_ios", std::string()));
+
+        //and the scenario really is still held: the gate is the flag alone
+        AutoScenario *as = autoScenario();
+        ASSERT_TRUE(as != nullptr);
+        EXPECT_FALSE(as->isBroken());
+        EXPECT_TRUE(as->isDisabledMissingIo());
+        EXPECT_EQ(0, runScenario()) << "gate 2 alone must still hold it back";
+    }
+
+    /* --- state 4: broken with the flag cleared by hand -> TRUE / FALSE / ids -
+     * the other disagreement, so neither key can hide behind the other.
+     */
+    {
+        /* ORDER MATTERS, and it was measured the wrong way round first:
+         * ListeRoom::deleteIO() runs refreshBrokenScenarios() itself, which
+         * re-arms the flag. So break it FIRST, then clear the flag by hand -
+         * the same sequence ScenarioDisabledMissingIo_test uses.
+         */
+        ASSERT_TRUE(deleteIO(io(IO_GHOST_STEP)));
+        AutoScenario *as = autoScenario();
+        ASSERT_TRUE(as != nullptr);
+        ASSERT_TRUE(as->isBroken());
+        as->setDisabledMissingIo(false);
+
+        WsTestSession halfBroken;
+        const Json j = wsAutoscenario(halfBroken, Json{{ "type", "get" }, { "id", scenarioId }});
+        EXPECT_EQ("true", j.value("broken", std::string()));
+        EXPECT_EQ("false", j.value("disabled_missing_io", std::string()))
+                << "cleared by hand, and nothing has re-flagged it yet: " << j.dump();
+        EXPECT_NE("", j.value("missing_ios", std::string()));
+    }
+
+    /* --- state 1: healthy -> false / false / "" -----------------------------
+     * The control, on a scenario that was never broken. Without it the three
+     * states above could all be reached by a payload that always says the same
+     * thing.
+     */
+    {
+        clearCoreState();
+        loadMigrationHouse();
+        WsTestSession healthy;
+        ASSERT_EQ(SCENARIO_IO_ID, createRichScenario(healthy));
+        const Json j = wsAutoscenario(healthy, Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
+        EXPECT_EQ("false", j.value("broken", std::string()));
+        EXPECT_EQ("false", j.value("disabled_missing_io", std::string()));
+        EXPECT_EQ("", j.value("missing_ios", std::string()));
+    }
+}
+
 /*******************************************************************************
  * SECTION 8 - RC9: THE AMPUTATION VECTOR THAT DOES NOT GO THROUGH THE API
  *
@@ -1475,7 +1652,6 @@ TEST_F(AutoScenarioMigrationTest, AnInstallerStyleReloadThatDroppedTheDeadOutput
     clearCoreState();
     loadConfig(ioXml, rulesKept);
     ListeRoom::Instance().checkAutoScenario();
-    pumpEventLoop();
     {
         WsTestSession ws;
         const Json sc = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
@@ -1493,7 +1669,6 @@ TEST_F(AutoScenarioMigrationTest, AnInstallerStyleReloadThatDroppedTheDeadOutput
     clearCoreState();
     loadConfig(ioXml, rulesDropped);
     ListeRoom::Instance().checkAutoScenario();
-    pumpEventLoop();
 
     AutoScenario *as = autoScenario();
     ASSERT_TRUE(as != nullptr);
@@ -1618,7 +1793,6 @@ TEST_F(AutoScenarioMigrationTest, TheBackupLeftByConfigPutIsUsableToGetTheLostSc
     clearCoreState();
     loadConfig(readWholeFile(ioBackups[0]), readWholeFile(ruleBackups[0]));
     ListeRoom::Instance().checkAutoScenario();
-    pumpEventLoop();
 
     AutoScenario *as = autoScenario();
     ASSERT_TRUE(as != nullptr) << "the restored configuration has no auto scenario";
@@ -1646,10 +1820,20 @@ TEST_F(AutoScenarioMigrationTest, TheBackupLeftByConfigPutIsUsableToGetTheLostSc
 
 TEST_F(AutoScenarioMigrationTest, TodayIoXmlCarriesOnlyTheMarkerAndTheDerivedInternalIos)
 {
-    /* Records the BEFORE of E4.6b. Today io.xml holds no step, no pause and no
-     * action: the whole definition is inferred from rules.xml (E4.6.md §2.1).
-     * What it does hold is the marker, the two flags, and three internal IOs
-     * whose ids are DERIVED from the marker - the squattable namespace of RC8.
+    /* >>> TO FLIP (E4.6b, D2) <<<   RECLASSIFIED AFTER REVIEW.
+     *
+     * This case was first filed among the "prove, never flip" ones. That was
+     * wrong, and the review was right: E4.6b moves the whole definition INTO
+     * io.xml, carried by params of the Scenario IO (D2), so the needles below
+     * - "2.25", "fantome", "bonsoir" - are going to appear there as
+     * `as_s2_pause` / `as_s2_actions`. The case MUST go red then, deliberately,
+     * and the flip is the proof that D2 landed.
+     *
+     * What it records is the BEFORE: today io.xml holds no step, no pause and
+     * no action, and the whole definition is inferred from rules.xml
+     * (E4.6.md §2.1). What it does hold is the marker, the two flags, and three
+     * internal IOs whose ids are DERIVED from the marker - the squattable
+     * namespace of RC8.
      */
     loadHealthyScenarioFromDisk();
 
@@ -1720,7 +1904,6 @@ TEST_F(AutoScenarioMigrationTest, AnUnknownParamOfTheScenarioIoSurvivesASaveRelo
     //a full startup pass, which ends with SaveConfigIO() (ListeRoom.cpp:340) -
     //the very moment a param nobody reads back would be erased
     ListeRoom::Instance().checkAutoScenario();
-    pumpEventLoop();
     saveConfig();
 
     EXPECT_NE(std::string::npos, ioXmlOnDisk().find(PROBE_PARAM))

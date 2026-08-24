@@ -1761,3 +1761,46 @@ Tout binaire `core/*` termine son exécution sur
 répertoire temporaire. Vérifié identique sur `core/JsonApiScenario_test` et
 `core/ScenarioDisabledMissingIo_test`. Sans effet sur le résultat des tests, jamais consigné
 jusqu'ici. **Ne pas le confondre avec un échec.**
+
+### E4.6a, suites de revue — un point de la revue infirmé par la mesure
+
+La revue d'E4.6a a demandé de corriger un commentaire du cas de référence en affirmant que
+`autoscenario modify` **efface** le drapeau collant `disabled_missing_io`, ce qui ferait prendre à
+`tryReenable()` sa branche no-op (`AutoScenario.cpp:288-295`). **Mesuré : c'est l'inverse.**
+`modify` **laisse le drapeau posé** — c'est précisément ce que fige
+`ScenarioDisabledMissingIo_test::ModifyDoesNotClearTheDisabledFlag` (`:789`) — donc `tryReenable()`
+atteint bien `setDisabledMissingIo(false)` et **lève réellement la porte 2**, uniquement parce que
+l'aller-retour de l'étape 3 a blanchi `isBroken()`.
+
+Les deux lectures finissent sur `success:true`, ce qui est exactement pourquoi il fallait mesurer :
+le cas assertait le résultat sans nommer le mécanisme. Il porte désormais un **échange autour du
+seul appel** (`EXPECT_TRUE(isDisabledMissingIo())` avant, `EXPECT_FALSE(...)` après), donc les deux
+lectures ne peuvent plus être confondues. **Le critère d'acceptation ne bouge pas** : après E4.6d,
+`reenable` doit **refuser** ici (§11.3, étape 4).
+
+### E4.6a — deux oracles faibles, consignés et non corrigés
+
+- L'assertion d'événement du cas (b) n'était **pas** un oracle mort (elle pompait avant de compter)
+  mais elle était strictement plus faible que la preuve `_is_active`/`_step` déjà présente. Elle a
+  été renforcée en **paire absence/présence sur le même canal et le même compteur** : zéro
+  `io_changed` sur la branche marquée-et-cassée (le chemin sort en `IO/Scenario.cpp:91`, avant
+  `EmitSignalIO()`), **deux** sur la branche démarquée (l'appui, puis la remise à `false` par
+  `_button_start`). C'est cette moitié d'absence qui rend l'**unique** pompage du fichier porteur.
+- `EXPECT_NE("Soirée", name)` dans le cas de référence reste un **oracle d'inégalité faible** : il
+  passerait pour n'importe quel autre nom. Conservé tel quel — la valeur exacte
+  (`_("New unnamed scenario")`) est **localisée** (`JsonApi.cpp:2038`), donc l'asserter en dur
+  rendrait le test dépendant de la locale du binaire. À reprendre par E4.6d, qui supprime le défaut.
+
+### E4.6a — treize pompages qui n'absorbaient rien (récidive §9.7, trouvée en revue)
+
+`core/AutoScenarioMigration_test.cpp` a d'abord été livré avec **14 `pumpEventLoop()`** et un
+en-tête affirmant que **deux** étaient mesurés. **Treize n'absorbaient rien**, vérifié en les
+retirant : 19/19 verts en ordre par défaut **et** sur 5 graines mélangées (1, 7, 42, 1234, 99999).
+- **douze** étaient placés après `ListeRoom::checkAutoScenario()`, recopiés les uns des autres ;
+- **un** était dans le chargement de la maison, justifié par « le chargement lève un `EventIOAdded`
+  par IO » — une explication que `JsonApiCharacterization.h` **corrige déjà par écrit** : le
+  chargement de config ne lève **rien**, `EventIOAdded` n'a qu'un site d'appel et c'est
+  `ListeRoom::createIO()`, le chemin d'exécution.
+Il en reste **un**, et il est porteur parce qu'il précède une assertion d'**absence**.
+C'est le même mécanisme que les 6 rustines de la série : **une explication fausse voyage plus vite
+qu'une mesure**. Le seul contrôle qui l'attrape est de retirer le pompage et de relancer.
