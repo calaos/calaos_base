@@ -1861,6 +1861,7 @@ Il en reste **un**, et il est porteur parce qu'il précède une assertion d'**ab
 C'est le même mécanisme que les 6 rustines de la série : **une explication fausse voyage plus vite
 qu'une mesure**. Le seul contrôle qui l'attrape est de retirer le pompage et de relancer.
 
+
 ---
 
 ## E4.1a — ce que la coupure du pont a révélé (hors périmètre, à reprendre)
@@ -1975,3 +1976,53 @@ Volontairement **non corrigees ici** (hors perimetre d'E4.1a). **Elles meritent 
 /!\ Les deux premieres sont dans **la zone sans filet** : aucun test n'execute les drivers Wago
 (E4.0d). Un `values` jamais emis a donc pu vivre la indefiniment sans qu'aucune suite ne bronche -
 et c'est exactement le genre de site que le sous-ticket des emetteurs va toucher.
+
+---
+
+## E4.5c — écarts trouvés en réécrivant `02_io_drivers` / `05_audio` / `06_ipcam`
+
+Tous vérifiés au source de master (`1b9f400f`). **Aucun n'est corrigé ici** : le ticket est de la
+documentation pure, ces cinq entrées demandent une modification de `src/` ou d'un document hors
+périmètre.
+
+- **[DOC, périmètre E4.5f] `docs/08_http_api.md:844-855` est périmé par T3.19.** La section
+  « `audio_db` sur un player sans base de données fait planter le serveur » décrit le défaut au
+  présent et conseille au client de « vérifier lui-même le champ `database` renvoyé par
+  `get_home` avant d'émettre un `audio_db` ». Le déréférencement est gardé depuis T3.19
+  (`JsonApi.cpp:976-985`, `audioDbUnavailable()`), la commande est **refusée proprement** avec
+  `{"error":"no music database"}` (goldens `t319_ws_audio_db_no_database.json` et
+  `t319_http_audio_db_no_database.json`). ⚠️ Le remplacement doit dire que **le test est le
+  pointeur, pas `canDatabase()`** — la capacité n'est que publiée.
+- **[API/ioDoc] `hifirose` est un `model` d'ampli accepté mais non publié.**
+  `AVRManager::Create()` accepte six modèles (`AVRManager.cpp:55-71`), dont `hifirose` →
+  `AVRRose`. La description du paramètre publiée à l'installeur n'en liste que **cinq** :
+  `_("AVReceiver model. Supported: pioneer, denon, onkyo, marantz, yamaha")`
+  (`Audio/AVReceiver.cpp:257`). Conséquence : `--gendoc` et calaos_installer n'offrent jamais
+  HiFi Rose, alors que le driver, son serveur de notifications (port 9284) et 14 Ko de code
+  existent. → mini-ticket : ajouter `hifirose` à la chaîne.
+- **[COMPORTEMENT] `StandardMjpeg` : la capacité PTZ dépend de la *présence* du paramètre, pas de
+  sa valeur.** `if (param.Exists("ptz")) { caps.Add("ptz","true"); caps.Add("position","8"); }`
+  (`IPCam/StandardMjpeg.cpp:41-45`), idem pour `zoom` (`:46-49`). Une caméra configurée
+  `ptz="false"` est donc annoncée **PTZ avec 8 positions mémoire** dans `get_home`. Le golden
+  `ws_get_home.json` ne l'attrape pas : sa caméra « plain » **omet** l'attribut
+  (`tests/core/JsonApiCharacterization.cpp:735-737`). Documenté comme piège dans `06_ipcam.md`,
+  mais c'est le code qui est incohérent avec le type `TYPE_BOOL` déclaré à l'ioDoc.
+- **[COMPORTEMENT] `Internal` : casse du `type` incohérente entre la fabrique et l'IO.**
+  `IOFactory::CreateIO()` et `RegisterClass()` passent le type en minuscules
+  (`IO/IOFactory.cpp:42`, `IO/IOFactory.h:81`), mais `Internal::get_type()` compare le paramètre
+  `type` **à l'octet près** à `"InternalBool"` / `"InternalInt"` / `"InternalString"`
+  (`IO/IntValue.h:53-59`). Un `type="internalbool"` **crée l'IO** puis rend `TUNKNOWN`. Le même
+  écart existe partout où un driver relit `get_param("type")` au lieu de son type de classe.
+- **[COMPORTEMENT, conséquence du contrat « type inconnu ignoré »] Un IO de type inconnu est
+  perdu à la première sauvegarde.** `Room::LoadFromXml()` saute l'IO nul (`Room.cpp:176-181`) et
+  `Room::SaveToXml()` ne sérialise que les IOs présents dans la pièce (`Room.cpp:187-200`) : rien
+  ne conserve le nœud XML d'origine. Le contrat annoncé pour MySensors (T2.12) et Gadspot (T3.6)
+  — « la configuration démarre normalement, l'IO inconnu est ignoré avec un avertissement » — est
+  **exact au démarrage** (vérifié, `CoreSmoke_test.cpp:86-99`) mais **incomplet** : la
+  configuration n'est pas seulement ignorée, elle est **amputée** dès que le serveur réécrit
+  `io.xml`. C'est écrit dans `02_io_drivers.md` ; si le comportement voulu est la préservation,
+  c'est un ticket.
+- **[COSMÉTIQUE] `ReolinkInputSwitch` nomme son hôte `hostname`** (`IO/Reolink/ReolinkInputSwitch.cpp:40`)
+  là où tous les autres drivers réseau utilisent `host` (Wago, KNX, MQTT, Hue, LAN, Squeezebox,
+  AVReceiver). Renommer casserait les configs existantes ; à traiter par un alias si jamais.
+
