@@ -1762,6 +1762,29 @@ harnais lui-même est **stable et documenté**, et son contrat de cycle de vie e
     tag + image + `build_deb`. **Avant ou juste après**, traiter **F-DEP-1** : sans pin du
     `Dockerfile`, la montée du `pyproject.toml` ne change rien à l'image déployée, qui reste
     cassée par `mcp 2.0.0`.
+- **I4.1 ✅ FAIT (2026-08-24) — dépôt `calaos_installer`, ⛔ NON POUSSÉ.** Ticket externe issu
+  d'E4.6 §7bis, mais **autonome** : il concerne **toutes** les règles. Les quatre `if (x)` sans
+  `else` de `projectmanager.cpp` (`:1023`, `:1054`, `:1082`, `:1125`) jetaient toute
+  entrée/sortie à id non résolu au chargement de `rules.xml` ; comme l'installeur **régénère
+  `rules.xml` en entier** à la sauvegarde, ouvrir puis sauvegarder un projet désaccordé
+  **détruisait** conditions et actions, **sans un mot**. Mesuré sur `tests/test` (449 règles)
+  contre un `io.xml` vide : **0 condition / 0 action** écrites avant, **621 / 664** après,
+  fichier **octet-pour-octet identique** à l'original. Option **(a) préserver** retenue (IO
+  fantôme portant l'id, **hors `Room`** → n'atteint jamais `io.xml`, la règle se remet à marcher
+  seule si l'IO revient) **plus** l'avertissement de (b) (`ProjectManager::missingIOReport()`,
+  affiché par `MainWindow::Load()` après le modal de progression). **Deux trouvailles au-delà du
+  cadrage** : (1) un **segfault** — `Condition::output` n'était pas initialisé, une
+  `<condition type="output">` à id pendant faisait déréférencer un pointeur indéterminé à la
+  sauvegarde (reproduit, exit 139) ; (2) une **seconde purge silencieuse à l'affichage** —
+  `formrules.cpp:1481/:1554/:1658` supprimaient le `val_var` mort depuis le remplissage de
+  l'arbre des règles. Site 2 (`DialogListProperties`, préfixes `autoscenario_`/`as_`) fait dans
+  **son propre commit**, car il **anticipe E4.6 non implémenté** — vérifié inerte (aucun param en
+  usage ne porte ces préfixes). Site 3 (affichage/édition des scénarios) **non fait**, hors
+  périmètre. Le dépôt **n'a pas de tests** (`tests/` = projets d'exemple) mais **se construit**
+  (qmake6/Qt6) : construit avant et après, vérifié par un harnais lié sur `ProjectManager`
+  **hors dépôt** (scratchpad, non commité). **Non vérifié : le rendu GUI réel.** Détail complet :
+  [`I4.1.md`](I4.1.md). **➡️ ACTION UTILISATEUR** : relire les 3 commits sur le `master` local de
+  `calaos_installer` (`6cbd6f6`, `a84027c`, `1dfaed2`) et pousser lui-même.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
