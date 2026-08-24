@@ -78,8 +78,6 @@
 #include <memory>
 #include <vector>
 
-#include <jansson.h>
-
 #include "CalaosCoreFixture.h"
 #include "IODoc.h"
 #include "IOFactory.h"
@@ -90,18 +88,13 @@ using namespace CalaosTest;
 namespace
 {
 
-/* THE SEAM. Before E4.1k, IODoc::genDocJson() answers a json_t* and this
- * function transcodes it; after E4.1k it answers a Json and the body is a
- * plain `return doc.genDocJson();`. This is the only place of the file the
- * migration commit is allowed to touch. */
+/* THE SEAM. Before E4.1k, IODoc::genDocJson() answered a json_t* and this
+ * function transcoded it; since E4.1k it answers a Json directly. This
+ * function body is the ONLY thing the migration commit touched in this file -
+ * not one assertion moved. */
 Json docToJson(IODoc &doc)
 {
-    json_t *j = doc.genDocJson();
-    char *s = json_dumps(j, JSON_ENCODE_ANY);
-    Json out = Json::parse(s);
-    free(s);
-    json_decref(j);
-    return out;
+    return doc.genDocJson();
 }
 
 /* A deliberately RICH fixture.
@@ -406,7 +399,7 @@ TEST(IODocJson, ListValueIsAttachedToItsOwnParameterOnly)
     EXPECT_EQ("kB_zulu", b.at("default").get<std::string>());
     EXPECT_EQ("list", b.at("type").get<std::string>());
 
-    for (const std::string &name: {"p_string", "p_bool", "p_int", "p_float"})
+    for (const char *name: {"p_string", "p_bool", "p_int", "p_float"})
     {
         Json other = paramNamed(j, name);
         ASSERT_TRUE(other.is_object()) << name << " is missing from the document";
@@ -436,10 +429,13 @@ TEST(IODocJson, ConditionsAndActionsAreTwoDistinctArrays)
 }
 
 //Non-ASCII survives the round trip as the SAME characters. This says nothing
-//about the escaping form on disk (jansson escapes é upper case, nlohmann
-//with ensure_ascii escapes é lower case, both parse back identically) -
-//that dimension belongs to the tripwire of tests/ParamsJson_test.cpp. What is
+//about the ESCAPING FORM once dumped - the three forms pinned by the tripwire
+//of tests/ParamsJson_test.cpp all parse back into this same string. What is
 //pinned here is that no byte is mangled or dropped on the way.
+//Measured while migrating: NO IO of the tree carries a non-ASCII character in
+//its documentation, so every byte of io_doc.json is already ASCII and
+//ensure_ascii is a no-op on the real artefact today. This fixture is the only
+//non-ASCII input the generator ever sees, which is exactly why it is here.
 TEST(IODocJson, NonAsciiTextIsCarriedThroughUnchanged)
 {
     IODoc doc;
@@ -517,7 +513,7 @@ TEST_F(IODocGenFileTest, TheTopLevelMapsEachTypeNameToItsOwnDocument)
     //lower case spelling is the registry key, NOT the published name
     EXPECT_FALSE(j.contains("internalbool"));
 
-    for (const std::string &type: {"InternalBool", "InputTimer", "Scenario"})
+    for (const char *type: {"InternalBool", "InputTimer", "Scenario"})
     {
         const Json &d = j.at(type);
         EXPECT_TRUE(d.is_object()) << type;

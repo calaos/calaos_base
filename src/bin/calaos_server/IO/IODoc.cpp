@@ -19,8 +19,6 @@
  **
  ******************************************************************************/
 #include "IODoc.h"
-//E4.1a: transitional jansson adapter for Params, see Jansson_Addition.h
-#include "Jansson_Addition.h"
 
 using namespace Calaos;
 
@@ -137,9 +135,9 @@ bool IODoc::isAlias(string alias)
     return false;
 }
 
-json_t *IODoc::genDocJson()
+Json IODoc::genDocJson()
 {
-    json_t *ret = json_object();
+    Json ret = Json::object();
 
     string desc;
     if (!m_description.empty())
@@ -147,39 +145,41 @@ json_t *IODoc::genDocJson()
     if (!m_description_base.empty())
         desc += " " + m_description_base;
 
-    json_object_set_new(ret, "description",
-                        json_string(desc.c_str()));
+    ret["description"] = desc;
 
-    json_t *aliases = json_array();
+    Json aliases = Json::array();
     for (const auto &alias : m_aliases)
     {
-        json_array_append_new(aliases, json_string(alias.c_str()));
+        aliases.push_back(alias);
     }
-    json_object_set_new(ret, "alias", aliases);
+    ret["alias"] = aliases;
 
-    json_t *array = json_array();
+    Json array = Json::array();
     for (const auto &it : m_parameters)
     {
-        json_t *jparam = jansson_from_params(it.second);
+        //Params is a map<string,string>: every value published here is a JSON
+        //STRING, min/max/default of an int or a float included. Typing them
+        //would break the type-strict oracle of the test suite (3 != "3").
+        Json jparam = it.second.toNJson();
         if (typeFromString(it.second["type"]) == TYPE_LIST)
-            json_object_set(jparam, "list_value", jansson_from_params(param_list_value[it.second["name"]]));
-        json_array_append_new(array, jparam);
+            jparam["list_value"] = param_list_value[it.second["name"]].toNJson();
+        array.push_back(jparam);
     }
-    json_object_set_new(ret, "parameters", array);
+    ret["parameters"] = array;
 
-    array = json_array();
+    array = Json::array();
     for (const auto &it : m_conditions)
     {
-        json_array_append_new(array, jansson_from_params(it.second));
+        array.push_back(it.second.toNJson());
     }
-    json_object_set_new(ret, "conditions", array);
+    ret["conditions"] = array;
 
-    array = json_array();
+    array = Json::array();
     for (const auto &it : m_actions)
     {
-        json_array_append_new(array, jansson_from_params(it.second));
+        array.push_back(it.second.toNJson());
     }
-    json_object_set_new(ret, "actions", array);
+    ret["actions"] = array;
 
     return ret;
 }

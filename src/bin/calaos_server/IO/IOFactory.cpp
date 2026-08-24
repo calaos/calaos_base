@@ -69,7 +69,7 @@ IOBase *IOFactory::CreateIO(pugi::xml_node node)
 
 void IOFactory::genDocIO(string docPath)
 {
-    json_t *j = json_object();
+    Json j = Json::object();
 
     string mdPath = docPath + "/io_doc.md";
     string jsonPath = docPath + "/io_doc.json";
@@ -98,18 +98,23 @@ void IOFactory::genDocIO(string docPath)
         IODoc *doc = io->getDoc();
         if (doc && !doc->isAlias(it->first.c_str()))
         {
-            json_object_set_new(j, origNameMap[it->first].c_str(), doc->genDocJson());
+            j[origNameMap[it->first]] = doc->genDocJson();
             mdFile << doc->genDocMd(origNameMap[it->first]);
         }
     }
 
-    char *jdump = json_dumps(j, JSON_PRESERVE_ORDER | JSON_INDENT(4));
-    if (jdump)
-    {
-        jsonFile << jdump;
-        free(jdump);
-    }
-    json_decref(j);
+    /* E4.1k: JSON_PRESERVE_ORDER disappears with the old dump and is NOT
+     * replaced by nlohmann::ordered_json (user decision, E4.1.md Q3): the keys of this
+     * generated file come out alphabetically now. At the top level that
+     * changes nothing (it was already filled from a std::map); inside one IO
+     * type the five sections move from the editorial order to
+     * actions/alias/conditions/description/parameters.
+     * JSON_INDENT(4) becomes dump(4, ' '). ensure_ascii = true is the epic
+     * invariant; it is a no-op on this artefact today, whose every byte is
+     * already ASCII, and it keeps it that way if an accented description ever
+     * appears. error_handler_t::replace turns invalid UTF-8 into U+FFFD
+     * instead of throwing type_error.316 out of dump(). */
+    jsonFile << j.dump(4, ' ', true, Json::error_handler_t::replace);
     jsonFile.close();
     mdFile.close();
 }
