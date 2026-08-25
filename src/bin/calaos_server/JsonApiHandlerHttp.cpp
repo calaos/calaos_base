@@ -404,18 +404,30 @@ void JsonApiHandlerHttp::processGetPlaylist()
 
 void JsonApiHandlerHttp::processPolling()
 {
-    json_t *jret = json_object();
+    /* E4.1l: poll_listen is the HTTP delivery of CalaosEvent::toJson(), so it
+     * follows the constructor onto the nlohmann emitter that E4.1b already
+     * hardened - sendJson(const Json &), :259, with the three invariants.
+     * No transitional adapter in this direction, and none is to be written:
+     * the overload exists and is in service.
+     * The whole function moves, not only the toJson() line: appending a Json
+     * to a json_t array is not a thing, and the alternative would have been to
+     * transcode a document this handler is about to serialize anyway.
+     * DELTA, declared: the answer's own members now travel sorted (events
+     * before success) and so do the four members of each event object. Every
+     * value stays a JSON STRING, "success" included - never a JSON boolean.
+     */
+    Json jret = Json::object();
 
     if (jsonParam["type"] == "register")
     {
         string uuid = PollListenner::Instance().Register();
-        json_object_set_new(jret, "uuid", json_string(uuid.c_str()));
+        jret["uuid"] = uuid;
     }
     else if (jsonParam["type"] == "unregister")
     {
         string uuid = jsonParam["uuid"];
         bool success = PollListenner::Instance().Unregister(uuid);
-        json_object_set_new(jret, "success", json_string(success?"true":"false"));
+        jret["success"] = success?"true":"false";
     }
     else if (jsonParam["type"] == "get")
     {
@@ -424,18 +436,18 @@ void JsonApiHandlerHttp::processPolling()
 
         bool res = PollListenner::Instance().GetEvents(uuid, events);
         if (!res)
-            json_object_set_new(jret, "success", json_string("false"));
+            jret["success"] = "false";
         else
         {
-            json_t *jev = json_array();
+            Json jev = Json::array();
 
             for (auto i = events.cbegin();i != events.cend();i++)
             {
-                json_array_append_new(jev, i->toJson());
+                jev.emplace_back(i->toJson());
             }
 
-            json_object_set_new(jret, "success", json_string("true"));
-            json_object_set_new(jret, "events", jev);
+            jret["success"] = "true";
+            jret["events"] = jev;
         }
 
     }

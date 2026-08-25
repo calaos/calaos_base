@@ -23,7 +23,7 @@
 
 #include "Timer.h"
 #include "Calaos.h"
-#include "Jansson_Addition.h"
+#include "Params.h"
 
 /*
  * This class handles all events that goes out of calaos_server, like IO changes
@@ -75,7 +75,16 @@ public:
     int getType() const { return evType; }
     const Params &getParam() const { return evParams; }
 
-    json_t *toJson() const;
+    /* E4.1l: nlohmann::json, standard - never ordered_json. The four members
+     * therefore travel SORTED (data, event_raw, type, type_str) where jansson
+     * emitted them in insertion order; the key order of this object is a
+     * declared, accepted delta of the epic (E4.1.md, invariant 1) and it is
+     * pinned on the bytes by tests/core/EventWireBytes_test.cpp.
+     * EVERY member is a JSON string, "type" included (the enum integer through
+     * Utils::to_string()): the oracle of the golden suite is type strict and
+     * an int that became a JSON number is a break of the wire contract.
+     */
+    Json toJson() const;
     string toString() const;
 
     static string typeToString(int type);

@@ -177,9 +177,17 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
                 ev.getType() == CalaosEvent::EventIOPropertyDelete ||
                 ev.getType() == CalaosEvent::EventIOStatusChanged)
             {
+                //E4.1l: the ONE call site of the transitional adapter (see
+                //Jansson_Addition.h). This message stays jansson until E4.1m
+                //migrates this file, because its sibling above carries
+                //JsonApi::buildFlatIOList(), still a json_t *. The adapter
+                //keeps the bytes of this wire as close as they can be: jansson
+                //re-escapes in its own form, so only the key order of the
+                //event object moves, and calaos_script decodes with a real
+                //parser (ScriptExtern_main.cpp), never by substring search.
                 json_t *jev = json_object();
                 json_object_set_new(jev, "msg", json_string("event"));
-                json_object_set_new(jev, "data", ev.toJson());
+                json_object_set_new(jev, "data", jansson_from_json(ev.toJson()));
                 process->sendMessage(jansson_to_string(jev));
             }
         }));

@@ -63,6 +63,15 @@ void JsonApiHandlerWS::handleEvents(const CalaosEvent &event)
 
     cDebugDom("network") << "Handling event: " << event.toString();
 
+    /* E4.1l: CalaosEvent::toJson() now answers a Json, so this call resolves to
+     * the nlohmann overload of sendJson() (:75) instead of the jansson one
+     * (:69) - the seam was already there and in service, nothing else was
+     * needed. Consequence on the bytes, declared: the envelope keys sort
+     * (data before msg) and so do the four members of the event object, and
+     * the escaping moves from jansson's UPPERCASE \u00E9 to nlohmann's
+     * lowercase \u00e9. Both are pure ASCII; pinned by
+     * tests/core/EventWireBytes_test.cpp.
+     */
     sendJson("event", event.toJson());
 }
 
