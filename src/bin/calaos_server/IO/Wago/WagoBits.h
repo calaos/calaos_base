@@ -21,7 +21,6 @@
 #ifndef S_WAGO_BITS_H
 #define S_WAGO_BITS_H
 
-#include <cstring>
 #include <vector>
 
 /*
@@ -34,8 +33,8 @@
  * belongs to, and deciding whether a count may be trusted - lives here so that
  * tests/WagoBits_test.cpp can execute the SHIPPED code instead of a copy of it.
  *
- * This header deliberately depends on nothing: <vector> and <cstring>, no
- * Utils.h, no mbus.h. mbus_ubyte is `unsigned char` and mbus_uword is
+ * This header deliberately depends on nothing: <vector> alone, no Utils.h, no
+ * mbus.h. mbus_ubyte is `unsigned char` and mbus_uword is
  * `unsigned short` (libmbus/mbus_conf.h), which is also Utils::UWord, so the
  * vectors below hand their data() straight to libmbus.
  *
@@ -66,11 +65,39 @@ namespace WagoBits
 {
 
 /* Bytes needed to carry nb coil bits. This is the size read_bits() must use
- * too: the two directions of the same wire have to agree. */
+ * too: the two directions of the same wire have to agree.
+ *
+ * The `nb <= 0` clamp is a SIZE answer, not a guard: a non-count needs no
+ * bytes. It is countIsReadable()/countIsWritable() below that refuse the count,
+ * and they must be asked FIRST - see the warning on countIsReadable(). */
 inline int coilBufferSize(int nb)
 {
     if (nb <= 0) return 0;
     return (nb + 7) / 8;
+}
+
+/* Is a count from the wire honourable for a READ? A modbus read asks for at
+ * least one item; zero is not a smaller read and a negative is not a count.
+ *
+ * ⚠️ WHY THIS EXISTS AS A SEPARATE, NAMED PREDICATE, and why coilBufferSize()
+ * was NOT changed instead. Without this check read_bits() takes
+ * `new mbus_ubyte[coilBufferSize(nb)]` = `new mbus_ubyte[0]` - a VALID pointer
+ * to ZERO usable bytes, no exception - asks the PLC for (mbus_uword)nb coils,
+ * and mbus_cmd_read_coil_status() then runs
+ * `while (byte_count--) MBUS_BYTE_WR(coils_data, *bufptr++)` where byte_count
+ * is an `mbus_ubyte` taken from the RESPONSE: up to 255 bytes copied into that
+ * zero-byte allocation, bounded by nothing the caller passed. read_words() is
+ * the same shape through mbus_cmd_read_holding_registers().
+ *
+ * Removing the clamp from coilBufferSize() does NOT substitute for this:
+ * (nb + 7) / 8 truncates TOWARDS ZERO, so it is 0 for every nb in [-8, 0] and
+ * only becomes negative - and only then makes new[] throw - at nb <= -9.
+ * Measured at g++ -std=c++11. The clamp is not the defect; allocating on an
+ * unchecked count is. A guard named here, next to its write twin, is also the
+ * only shape a THIRD caller of coilBufferSize() inherits by reading it. */
+inline bool countIsReadable(int nb)
+{
+    return nb > 0;
 }
 
 /* Is a count from the wire honourable against what was actually delivered?

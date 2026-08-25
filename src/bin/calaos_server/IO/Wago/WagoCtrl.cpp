@@ -82,6 +82,16 @@ bool WagoCtrl::read_bits(UWord address, int nb, vector<bool> &values)
 {
     if (!is_connected()) return false;
 
+    //T3.30 - REFUSE THE COUNT BEFORE ALLOCATING ON IT. `nb` arrives from the
+    //dispatcher out of an `int count;` that is never initialised (F-WAGO-7);
+    //on a non-positive one coilBufferSize() answers 0, this allocates a valid
+    //pointer to zero usable bytes, and mbus_cmd_read_coil_status() then copies
+    //the response byte-count - an mbus_ubyte, so up to 255 bytes, bounded by
+    //nothing passed here - straight into it. The two writes already refuse
+    //nb <= 0 through WagoBits::countIsWritable(); both directions of the wire
+    //now say the same thing.
+    if (!WagoBits::countIsReadable(nb)) return false;
+
     //T3.30 - the size of a coil buffer is the ceiling of nb over eight, and
     //it now comes from one place. The expression that used to be written out
     //here over-allocated (nb = 15 asked for 8 bytes to hold 2); benign in this
@@ -181,6 +191,13 @@ bool WagoCtrl::write_multiple_bits(UWord address, int nb, vector<bool> &values)
 bool WagoCtrl::read_words(UWord address, int nb, vector<UWord> &values)
 {
     if (!is_connected()) return false;
+
+    //T3.30 - the register twin of the guard in read_bits(), for the same
+    //reason and against the same uninitialised `count`. The allocation below
+    //throws for a negative nb and hands back ZERO usable words for nb == 0,
+    //and mbus_cmd_read_holding_registers() then writes up to 127 words into
+    //it - a count taken from the response, bounded by nothing passed here.
+    if (!WagoBits::countIsReadable(nb)) return false;
 
     mbus_uword *data = new mbus_uword[nb];
     int ret = mbus_cmd_read_holding_registers(mbus, 1, (mbus_uword)address, (mbus_uword)nb, data);

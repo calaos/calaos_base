@@ -107,16 +107,11 @@ using WagoBits::coilBufferSize;
 using WagoBits::packBits;
 using WagoBits::copyValues;
 using WagoBits::countIsWritable;
-
-//T3.30/F1 - CHARACTERIZATION, and the ONLY line of this seam that is not a
-//`using` yet. read_bits() and read_words() have NO count guard today: whatever
-//`nb` the dispatcher hands them is allocated on and put on the wire. That is
-//carried here as the shipped rule - "every count is readable" - exactly as this
-//seam carried the shipped packer BODIES before the fix commit, so that the
-//suite COMPILES at this commit and goes red on BEHAVIOUR rather than on a
-//missing symbol. The fix replaces this function with
-//`using WagoBits::countIsReadable;`.
-inline bool countIsReadable(int nb) { (void)nb; return true; }
+//T3.30/F1 - rewired by the fix commit. Until it, this name was a local
+//`{ return true; }` carrying the shipped rule "every count is readable"; it now
+//names the production predicate, so a mutation of WagoBits.h reddens the four
+//F1 cases below. Measured, not assumed.
+using WagoBits::countIsReadable;
 } //namespace seam
 
 namespace

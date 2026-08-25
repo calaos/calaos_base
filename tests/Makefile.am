@@ -2473,7 +2473,7 @@ endif
 #⚠️ Two of its cases DIE instead of failing before the fix - SIGSEGV on
 #values[0], exit code -11, and NO "FAILED" line at all:
 #the verdict is the per-case EXIT CODE, taken with --gtest_filter.
-#WagoBits.h is a self-contained header (<vector>, <cstring>) with no calaos
+#WagoBits.h is a self-contained header (<vector> alone) with no calaos
 #dependency; -I.../IO/Wago is already in AM_CPPFLAGS. No server object is
 #linked and none may be, which keeps this suite clear of the _DEPENDENCIES
 #pitfall. Own HAVE_GTEST block so this stays a pure append at the end of file.
