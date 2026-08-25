@@ -15,7 +15,8 @@ Scope, stated so it is not mistaken for a distcheck replacement:
   * covered -- EXTRA_DIST, the primaries automake distributes by default
     (_SOURCES, _HEADERS, _MANS, _TEXINFOS, _LISP, _JAVA, _PYTHON), and the
     opt-in dist_*_{SCRIPTS,DATA}.  nodist_* is excluded: automake does not
-    distribute it.
+    distribute it, and so are BUILT_SOURCES / DIST_SOURCES, which only look
+    like primaries -- see NOT_PRIMARY below.
   * covered -- $(srcdir)/, $(top_srcdir)/, aliases of $(srcdir), variables
     defined in the same Makefile.am that expand to a single token, and glob
     patterns (a glob matching nothing is a dead make target, exactly like a
@@ -43,6 +44,13 @@ import sys
 DIST_PRIMARY = re.compile(
     r'^(?!nodist_)[A-Za-z0-9_]*_'
     r'(?:SOURCES|HEADERS|MANS|TEXINFOS|LISP|JAVA|PYTHON)$')
+# ...minus the automake special variables that merely end in _SOURCES.
+# BUILT_SOURCES names files make GENERATES before `all`; `distdir` depends on
+# it to build them, never to ship them (they are absent from DISTFILES), so an
+# entry that does not exist in a pristine srcdir is the normal state, not a
+# defect -- src/bin/calaos_mcp/Makefile.am's `BUILT_SOURCES += calaos_mcp` is
+# exactly that. DIST_SOURCES is automake's own derived list, never hand-written.
+NOT_PRIMARY = frozenset(('BUILT_SOURCES', 'DIST_SOURCES'))
 # Primaries distributed only when explicitly opted in with dist_.
 DIST_OPTIN = re.compile(r'^dist_[A-Za-z0-9_]*_(?:SCRIPTS|DATA)$')
 
@@ -168,6 +176,8 @@ def main():
         here = os.path.dirname(mf)
         assigns, conditional = load_assignments(mf)
         for var, tokens in assigns.items():
+            if var in NOT_PRIMARY:
+                continue
             if not (var == 'EXTRA_DIST' or DIST_PRIMARY.match(var)
                     or DIST_OPTIN.match(var)):
                 continue
