@@ -3614,6 +3614,34 @@ hasard**. Six exécutions de `tests/OLAWire_test.cpp` y ont lu **21845, 21942, 2
 `Utils::from_string()` sans regarder le retour » n'est pas propre à OLA. Partout où la source de la
 chaîne peut être **vide**, la variable reste indéterminée. Non balayé par ce ticket.
 
+### F-OLA-1bis ⭐⭐ Le balayage a été fait par la revue — **112 sites sans garde, et la famille est atteignable À DISTANCE**
+
+Mécanisme **confirmé indépendamment** au source (`src/lib/StringUtils.h:104-110`, `return iss.eof()`)
+et **prouvé à l'exécution**. Balayage `python3` de `src/` : **320 sites d'appel de
+`Utils::from_string()`, 157 sur une destination non initialisée, dont 112 SANS garde.** Trois blocs :
+
+- **(a) `IO/Wago/WagoExternProc_main.cpp`, 12 sites — le JUMEAU EXACT du défaut OLA, NON CORRIGÉ.**
+  Même forme, même wire interne, même aplatissement en `Params`.
+- **(b) `IO/KNX/KNXExternProc_main.cpp:144-147` et `:157-160`**, plus des accès `tokens[1..2]`
+  **hors bornes**.
+- **(c) ⚠️ ATTEIGNABLE À DISTANCE — c'est le bloc grave.** `JsonApi.cpp:774/777` passe la chaîne
+  **client brute** à `set_value(string)`. Un `{"value":"impulse up "}` atteint
+  `IO/OutputShutter.cpp:114` et son `int v` non initialisé dans `ImpulseUp(v)`. Idem
+  `OutputShutterSmart` ×5, `OutputLightDimmer` ×5, `OutputLightRGB` ×10, `OutputLight`, `IntValue`,
+  `JsonApi.cpp:1964` et `:2057`.
+
+⇒ **le cas OLA était le seul INATTEIGNABLE de la famille**, ce qui valide l'absence d'entrée
+`RELEASE_NOTES` **pour E4.1f uniquement**. **Un ticket dédié est en cours d'ouverture par un autre
+agent ; E4.1f ne traite aucun de ces sites.**
+
+### F-OLA-7 ⛔ `impulse down` ne peut pas fonctionner — bug adjacent, hors périmètre, ticketé ailleurs
+
+Trouvé par la revue d'E4.1f. `IO/OutputShutter.cpp:120` fait `val.erase(0, 11)` **après** avoir
+reconnu le préfixe `"impulse down "`, qui fait **13 caractères**. Il reste donc `"n <ms>"` en entrée
+du `from_string`, qui **échoue systématiquement**. La commande `impulse down` est **inopérante**,
+et — voir F-OLA-1bis bloc (c) — elle laisse en plus la durée **non initialisée**.
+**Non corrigé ici** : hors du périmètre exclusif d'E4.1f, ticketé ailleurs.
+
 ### F-OLA-2 ⭐ Sur ce wire, un aller-retour est un oracle **qui ne peut pas échouer**
 
 Le décodeur aplatit **toute** valeur en chaîne (règles de `jansson_decode_object`) puis la relit
@@ -3664,7 +3692,7 @@ Vérifié au compilateur sur `master` `3357e4f7` (`#include "Jansson_Addition.h"
 `master`. **Après E4.1f, il reste DEUX unités** : `LuaScript/ScriptBindings.cpp` et
 `LuaScript/ScriptExtern_main.cpp`. À recompter au moment d'E4.1x plutôt qu'à le lire.
 
-### F-OLA-6 Une incohérence hors périmètre, signalée et non corrigée
+### F-OLA-6 Une incohérence hors périmètre, signalée et non corrigée — **confirmée par la revue**
 
 `OLAOutputLightRGB.cpp` déclare `channel_red` sur `0..9999` alors que `channel_green` et
 `channel_blue` sont sur `0..512` (comme le canal d'`OLAOutputLightDimmer`). Un univers DMX512 a 512

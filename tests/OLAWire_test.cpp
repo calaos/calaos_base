@@ -104,13 +104,19 @@
  * A DELIBERATELY RICH FIXTURE. The recurring defect of the E4.0/E4.1 series is
  * the "poor fixture": a dataset too uniform for a swap of two interchangeable
  * fields to show. Here:
- *   - the three RGB channels are 11 / 42 / 137 - three DIFFERENT values, none
- *     a substring of another, never 0/0/0;
- *   - the three colour components are 200 / 7 / 64 - three DIFFERENT values,
- *     none equal to any of the three channels, none a substring of another;
- *   - the dimmer uses channel 23 and 78%, which scales to 198: three distinct
- *     numbers, and 198 != 78 so the *255/100 scaling cannot hide.
- *   Exchanging ANY two of those eight numbers changes the emitted bytes.
+ *   - the three RGB channels are 11 / 42 / 137, three DIFFERENT values, never
+ *     0/0/0;
+ *   - the three colour components are 200 / 7 / 64, three DIFFERENT values,
+ *     none equal to any of the three channels;
+ *   - the dimmer uses channel 23 and 78%, which scales to 198, and 198 != 78
+ *     so the *255/100 scaling cannot hide.
+ *   NINE numbers, all different. Exchanging ANY two of them changes the
+ *   emitted bytes.
+ *   ⚠️ Accuracy, because this file counts everything else: they are NOT all
+ *   free of substring relations - 7 is a substring of both 78 and 137. It
+ *   costs nothing here, because every assertion compares either the WHOLE
+ *   message string or a QUOTED form ("\"198\"", "\"137\"") - never a bare
+ *   digit run inside a larger one. Do not weaken that if a case is added.
  ******************************************************************************/
 
 #include <gtest/gtest.h>

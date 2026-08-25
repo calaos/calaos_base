@@ -263,15 +263,29 @@ inline std::string flattenValue(const Json &v)
  *   - an entry that is not an object iterates zero times, so it yields an
  *     empty Params and is SKIPPED;
  *   - an entry missing "channel" or "value" is SKIPPED (Exists() is false);
- *   - a key that is present but unreadable ("" for null/object/array, "true"
- *     for a boolean) is NOT skipped: Exists() is true, from_string() fails and
- *     leaves 0. Present-and-empty is not the same answer as absent, and the
+ *   - a key that is PRESENT but unreadable is NOT skipped: Exists() is true,
+ *     and what from_string() does then is NOT one behaviour but TWO - see
+ *     just below, it is the whole reason this function zero-initializes.
+ *     Present-and-unreadable is not the same answer as absent, and the
  *     difference is visible on the DMX bus.
  * tests/OLAWire_test.cpp pins each of those.
  *
- * The return codes of from_string() were not tested before and are not tested
- * here: since C++11 a failed extraction stores 0, so the behaviour is defined
- * and unchanged.
+ * ⚠️ THE RETURN CODE OF from_string() IS STILL NOT TESTED, exactly as before -
+ * but do NOT write that off as "C++11 stores 0 on failure, so it is defined".
+ * THAT IS THE MYTH THIS TICKET DISPROVED, and the fix twelve lines below
+ * exists because of it. Measured, both cases:
+ *   - "true" (non empty, unreadable): the istringstream sentry succeeds, the
+ *     extraction runs and FAILS, and the C++11 rule does apply -> destination
+ *     set to 0, from_string() returns FALSE.
+ *   - "" (what a JSON null, object or array flattens to, and it PASSES the
+ *     Exists() gate above): the sentry fails on immediate EOF, so operator>>
+ *     NEVER RUNS and the C++11 rule never applies -> the destination is left
+ *     UNTOUCHED. Worse, the sentry's lookahead set eofbit, so from_string()
+ *     returns TRUE: it claims a success it did not perform.
+ * That is why ChannelValue is zero-initialized below rather than trusted to
+ * from_string(). tests/OLAWire_test.cpp:
+ * AnEmptyStringMakesFromStringWriteNothingAndStillClaimSuccess pins the
+ * mechanism itself, on the primitive, so it cannot be argued away again.
  */
 inline bool decodeMessage(const std::string &msg, std::vector<ChannelValue> &out)
 {
