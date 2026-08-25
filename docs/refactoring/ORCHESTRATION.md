@@ -3042,7 +3042,9 @@ Règles dures :
 > historique n'en utilisait qu'un cinquième, et surtout **`make check` tournait EN SÉRIE**
 > sur ~79 binaires — c'était la moitié du temps de chaque cycle. `serial-tests` n'est pas
 > activé (`configure.ac:10`), donc le harnais parallèle d'automake s'applique.
-> Utiliser désormais : **`make -j32 && make check -j16`**.
+> Utiliser désormais : **`make -j32 && make check -j16`** si l'agent builde seul,
+> **`make -j16 && make check -j8`** quand 3-4 agents buildent en parallèle (cas normal en vague).
+> **Plafond : ~4 agents build-lourds simultanés** — au-delà ils se volent le CPU.
 > `-j16` et non `-j64` sur les tests : plusieurs binaires ouvrent des sockets et lancent des
 > boucles libuv, les entasser risque des collisions de ports plutôt qu'un gain.
 > ⚠️ Distinct de l'autre cause de lenteur : **plusieurs builds Docker concurrents**. Un seul
