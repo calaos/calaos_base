@@ -249,6 +249,15 @@ protected:
         static Params noParams;
         return mqttCtrl().getValueJson(noParams, path, payload);
     }
+
+    //T3.35b. Same call, four-argument form, so the ERROR FLAG the parser
+    //produces can be read back.
+    std::string resolve(const std::string &path, bool &err,
+                        const char *payload = kPayload)
+    {
+        static Params noParams;
+        return mqttCtrl().getValueJson(noParams, path, payload, err);
+    }
 };
 
 class WebJsonPathTest: public ::testing::Test
@@ -807,6 +816,201 @@ TEST(UtilsFromString, ABlankStringNeitherWritesTheDestinationNorReportsIt)
     int j = 7777;
     EXPECT_FALSE(Utils::from_string(std::string("zz"), j));
     EXPECT_EQ(0, j);
+}
+
+/* ---------------------------------------------------------------------------
+ * T3.35b - THE ERROR FLAG, i.e. where T3.35 MOVED the problem.
+ *
+ * Before T3.35 a `battery_path` of "[" killed calaos_server. After it the
+ * parser returns an empty string - and MqttCtrl::getValue() cleared `err`
+ * UNCONDITIONALLY before calling the parser, so the caller was told the read
+ * had SUCCEEDED and the empty string went on to feed
+ *
+ *      double rawValue;                    // uninitialised
+ *      Utils::from_string(v, rawValue);    // writes nothing on a blank string
+ *      io->setStatusInfo(BatteryLevel, rawValue);
+ *
+ * Measured, not deduced: built with -ftrivial-auto-var-init=pattern, that
+ * shape publishes a battery level of about -5.3e307 %. A crash is visible and
+ * diagnosable; an invented battery level, RSSI or uptime is not - it reaches
+ * the interface and the user's rules and looks like a reading. Trading the
+ * first for the second is a bad trade, and closing it is the point of T3.35b.
+ *
+ * TWO ROADS WERE OPEN and only one of them is a fix:
+ *
+ *  (A) REPAIR THE FLAG. `err` never meant what its callers read it as. It
+ *      meant "a payload arrived on this topic"; all nine call sites read it as
+ *      "a value came out of it", and every one of them treats err == true as
+ *      "ignore this update". Making it honest can therefore only turn an
+ *      invented value into a skipped update - there is no caller for which the
+ *      change is a loss. TAKEN.
+ *  (B) GUARD EACH READ. A plaster: the flag would still lie, and every future
+ *      caller would have to know that and re-derive the truth. Taken AS WELL,
+ *      but as a second lock and not as the fix - because two of the reads are
+ *      NOT reachable through the flag at all (see getValueColor below), and
+ *      because this branch must be correct on its own, without T3.25.
+ *
+ * The suite drives the object through storeMessage(), the one door a broker
+ * message enters by. No broker, no subprocess, no event loop.
+ * ------------------------------------------------------------------------ */
+
+//A payload shaped like a colour bulb's state topic, plus the fields the status
+//topics read. `name` is deliberately a STRING: it is what a mistyped
+//`battery_path` most often lands on, and it resolves - so the flag alone does
+//not catch it and the numeric check has to.
+const char *const kDevicePayload = R"JSON({
+  "color": { "x": 0.4321, "y": 0.3512 },
+  "brightness": 200,
+  "battery": 87,
+  "name": "kitchen"
+})JSON";
+
+//! The flag is produced by the parser and says what the parser DID.
+TEST_F(MqttJsonPathTest, EveryFailureOfTheParserIsReportedThroughTheFlag)
+{
+    bool err = false;
+    EXPECT_EQ("", resolve("[", err));
+    EXPECT_TRUE(err) << "a lone '[' is a failure";
+
+    err = false;
+    EXPECT_EQ("", resolve("weather/[/description", err));
+    EXPECT_TRUE(err) << "a malformed index is a failure";
+
+    err = false;
+    EXPECT_EQ("", resolve("weather/[12/description", err));
+    EXPECT_TRUE(err) << "an index missing its closing bracket is a failure";
+
+    err = false;
+    EXPECT_EQ("", resolve("weather/[7]/description", err));
+    EXPECT_TRUE(err) << "an out of bounds index is a failure";
+
+    err = false;
+    EXPECT_EQ("", resolve("nosuchobject/description", err));
+    EXPECT_TRUE(err) << "an unknown key is a failure";
+
+    err = false;
+    EXPECT_EQ("", resolve("weather/[1]/description", err, "{ not json"));
+    EXPECT_TRUE(err) << "an unparsable payload is a failure";
+
+    //...and what it did NOT do. A container marker is a RESOLVED path landing
+    //on a container: T3.29 froze that value, and the flag must not requalify
+    //it as a failure behind the frozen behaviour's back.
+    err = true;
+    EXPECT_EQ("light rain", resolve("weather/[1]/description", err));
+    EXPECT_FALSE(err);
+
+    err = true;
+    EXPECT_EQ("clear sky", resolve("weather/[zz]/description", err));
+    EXPECT_FALSE(err) << "an unreadable index reads element 0 - warned about, not failed";
+
+    err = true;
+    EXPECT_EQ("object{}", resolve("main", err));
+    EXPECT_FALSE(err);
+}
+
+//! THE DISPLACED PROBLEM ITSELF, at the exact call the status topics make.
+TEST(MqttErrorFlag, AStatusPathThatDoesNotResolveIsNotASuccessfulReading)
+{
+    mqttCtrl().storeMessage("t335b/status", kDevicePayload);
+
+    Params p;
+    p.Add("battery_topic", "t335b/status");
+    p.Add("battery_path", "[");
+
+    bool err = false;
+    EXPECT_EQ("", mqttCtrl().getValue(p, err, "battery_topic", "battery_path"));
+    EXPECT_TRUE(err)
+        << "getValue() cleared err before the parser ran, so a battery_path of "
+           "\"[\" reached `if (!err)` with an empty value and published an "
+           "indeterminate battery level";
+}
+
+//! ...and the same lie one floor up: a value that resolves but is not a number.
+TEST(MqttErrorFlag, AValueThatIsNotANumberIsNotASuccessfulDouble)
+{
+    mqttCtrl().storeMessage("t335b/double", kDevicePayload);
+
+    Params p;
+    p.Add("topic_sub", "t335b/double");
+    p.Add("path", "name");
+
+    bool err = false;
+    EXPECT_DOUBLE_EQ(0.0, mqttCtrl().getValueDouble(p, err));
+    EXPECT_TRUE(err) << "getValueDouble() returned 0 and called it a success";
+}
+
+/* ! THE SITE T3.25 DOES NOT COVER, with or without it. getValueColor() reads
+ * three paths and CLEARS err on each one that succeeds, so a broken path_x
+ * followed by a working path_y left err false and handed fromXYBrightness() an
+ * uninitialised x. No amount of repair to Utils::from_string() reaches that:
+ * from_string is never called on the failing path at all.
+ */
+TEST(MqttErrorFlag, AColorIsNotAColorWhenOneOfItsThreePathsFails)
+{
+    mqttCtrl().storeMessage("t335b/rgb", kDevicePayload);
+
+    Params base;
+    base.Add("topic_sub", "t335b/rgb");
+    base.Add("path_x", "color/x");
+    base.Add("path_y", "color/y");
+    base.Add("path_brightness", "brightness");
+
+    //The control: all three resolve, so this IS a colour.
+    bool err = true;
+    mqttCtrl().getValueColor(base, err);
+    EXPECT_FALSE(err) << "three good paths must give a colour";
+
+    //x broken, y and brightness fine - the exact order that used to leave err
+    //false with x never written.
+    Params brokenX = base;
+    brokenX.Add("path_x", "[");
+    err = false;
+    mqttCtrl().getValueColor(brokenX, err);
+    EXPECT_TRUE(err) << "path_x failed; x was never written";
+
+    Params brokenY = base;
+    brokenY.Add("path_y", "[");
+    err = false;
+    mqttCtrl().getValueColor(brokenY, err);
+    EXPECT_TRUE(err) << "path_y failed; y was never written";
+
+    Params brokenB = base;
+    brokenB.Add("path_brightness", "[");
+    err = false;
+    mqttCtrl().getValueColor(brokenB, err);
+    EXPECT_TRUE(err) << "path_brightness failed; b was never written";
+
+    //Resolving is not enough: `name` is a string, and a string is not an x.
+    Params stringX = base;
+    stringX.Add("path_x", "name");
+    err = false;
+    mqttCtrl().getValueColor(stringX, err);
+    EXPECT_TRUE(err) << "path_x resolved onto a string, not a number";
+}
+
+//! The second lock on the three status topics (battery, wireless_signal,
+//uptime), which each declared a `double rawValue;` and handed it to
+//Utils::from_string(). It must REFUSE rather than write, and it must leave the
+//caller's variable ALONE when it refuses - that is the whole contract the
+//three call sites lean on.
+TEST(MqttErrorFlag, ARawStatusValueThatIsNotANumberIsRefusedAndWritesNothing)
+{
+    double d = 424242.0;
+
+    EXPECT_FALSE(MqttCtrl::readStatusNumber("", d));
+    EXPECT_DOUBLE_EQ(424242.0, d) << "a refused value must not be written";
+
+    EXPECT_FALSE(MqttCtrl::readStatusNumber("object{}", d));
+    EXPECT_DOUBLE_EQ(424242.0, d);
+
+    EXPECT_FALSE(MqttCtrl::readStatusNumber("kitchen", d));
+    EXPECT_DOUBLE_EQ(424242.0, d);
+
+    EXPECT_TRUE(MqttCtrl::readStatusNumber("87", d));
+    EXPECT_DOUBLE_EQ(87.0, d);
+
+    EXPECT_TRUE(MqttCtrl::readStatusNumber("-71.5", d));
+    EXPECT_DOUBLE_EQ(-71.5, d);
 }
 
 /* ---------------------------------------------------------------------------

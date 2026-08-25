@@ -194,60 +194,78 @@ string WebCtrl::getValueJson(string path, string filename)
             // if it's the case, it must be something like [x]
             if (val[0] == '[')
             {
-                /* T3.35. A well formed index token is "[n]". A token SHORTER
-                 * than two characters - a lone '[', mistyped in a
-                 * configuration parameter - is EMPTIED by the erase() below,
-                 * and pop_back() then underflows the size_t length of the
-                 * string. That was not a theoretical problem: the read that
-                 * followed escaped getValueJson() as a std::bad_alloc, nothing
-                 * caught it anywhere up to main(), and calaos_server
-                 * terminated. There is no remote vector - a `path` is only
-                 * ever written by calaos_installer - but a typo was enough to
-                 * bring the server down.
+                /* T3.35, corrected by T3.35b. A well formed index token is
+                 * "[n]" - an opening bracket AND a closing one. erase() and
+                 * pop_back() below strip the first and the last character
+                 * UNCONDITIONALLY, so what has to be checked here is the FORM.
+                 * A guard on the LENGTH alone (the T3.35 shape, `val.size() <
+                 * 2`) covered only half of it and the message it printed was
+                 * not true of the code that printed it:
+                 *
+                 *  - a lone '[' was EMPTIED by erase(), pop_back() then
+                 *    underflowed the size_t length of the string, and the read
+                 *    that followed escaped getValueJson() as a std::bad_alloc.
+                 *    Nothing caught it anywhere up to main() and calaos_server
+                 *    terminated. There is no remote vector - a `path` is only
+                 *    ever written by calaos_installer - but a typo was enough
+                 *    to bring the server down. A length guard does stop that.
+                 *
+                 *  - "[5" and "[12" are two characters or more, so a length
+                 *    guard let them straight through; pop_back() then ate a
+                 *    DIGIT and the parser answered element 0 and element 1,
+                 *    SILENTLY, with a value nothing distinguishes from a
+                 *    correct reading. That is worse than the empty string the
+                 *    same typo produces everywhere else in this parser.
                  */
-                if (val.size() < 2)
+                if (val.size() < 2 || val.back() != ']')
                 {
+                    //T3.35b. No `err` flag on this side: WebCtrl::getValue()
+                    //returns a string and nothing more, and none of its three
+                    //callers asks for an error. The MQTT copy carries one
+                    //because MqttCtrl::getValue() already promised one and was
+                    //lying about it. Deliberate divergence, see T3.37.
                     cWarning() << "Error in path " << path << ", malformed array index " << *it
                                << " : an array index must be written [n], as in weather/[0]/description";
                     return string();
                 }
 
-                /* T3.35. Initialised on purpose, and NOT redundant on this
-                 * branch: Utils::from_string() leaves its destination
-                 * untouched when the string is blank, because the stream
-                 * sentry fails before num_get ever runs. The token "[]" - which
-                 * the guard above deliberately still lets through, so that
-                 * T3.29's ANonNumericIndexSilentlyReadsElementZero keeps
-                 * holding - therefore used to read an UNINITIALISED int. T3.25
-                 * closes the same hole from the other side by making
-                 * from_string() write on every path; this line keeps the
-                 * branch correct with or without it.
-                 */
-                int idx = 0;
                 // Remove first and last char
                 val.erase(0, 1);
                 val.pop_back();
 
+                int idx = 0;
+
                 try
                 {
-                    /* T3.35. Moved INSIDE the try, and this is a SECOND line
-                     * of defence, not a cosmetic move: from_string() copies
-                     * `val` into an istringstream, so on a string whose length
-                     * has underflowed it is exactly where the std::bad_alloc
-                     * came from. Measured (mutation M1, guard displaced past
-                     * the erase/pop_back): with the try alone the process
-                     * SURVIVES a lone '[' and only the message is wrong.
+                    /* T3.35b. The index is DECIDED here, on both branches,
+                     * instead of being left to whatever Utils::from_string()
+                     * happens to leave behind. The two failing shapes do not
+                     * behave the same way and that asymmetry was the trap:
+                     * on a BLANK string - the token "[]" - the stream sentry
+                     * fails before num_get ever runs, so the destination is
+                     * NOT written and the index was read UNINITIALISED; on a
+                     * non blank string that does not parse - "[zz]" - the
+                     * sentry succeeds and C++11 num_get stores 0. from_string()
+                     * cannot even be interrogated about it: it returns
+                     * iss.eof(), which is TRUE for the blank string.
                      *
-                     * ! REDUNDANT GIVEN THE GUARD ABOVE, and annotated rather
-                     * than removed: mutation M5 puts this call back outside
-                     * the try, guard kept, and the suite stays at 0 red - an
-                     * equivalent mutant, not a hole in the net. It earns its
-                     * place by closing the family: everything that touches the
-                     * index now fails through the one error path this branch
-                     * already has.
+                     * The two cases are made to agree, deliberately, on
+                     * element 0: T3.29 froze that value and a real
+                     * configuration may lean on it. What does not stay is the
+                     * SILENCE - reading element 0 because the index was
+                     * unreadable is precisely the case a user cannot diagnose.
+                     *
+                     * Everything that touches the index sits inside this try,
+                     * so it can only ever fail through the one error path this
+                     * branch already has.
                      */
-                    // Read array index
-                    Utils::from_string(val, idx);
+                    if (val.empty() || !Utils::from_string(val, idx))
+                    {
+                        idx = 0;
+                        cWarning() << "Error in path " << path << ", array index " << *it
+                                   << " is not a number : reading element 0";
+                    }
+
                     parent = parent.at(idx);
                 }
                 catch (const std::exception &e)

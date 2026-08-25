@@ -43,7 +43,7 @@ MqttCtrl::MqttCtrl(const Params &params)
         cDebugDom("mqtt") << "Topic :  " << p["topic"] << " payload : " << p["payload"];
 
         // Set or replace the message
-        messages[p["topic"]] = p["payload"];
+        storeMessage(p["topic"], p["payload"]);
         for (auto& it: subscribeCb)
         {
             if (topicMatchesSubscription(it.first, p["topic"]))
@@ -64,6 +64,14 @@ MqttCtrl::MqttCtrl(const Params &params)
 
 MqttCtrl::~MqttCtrl()
 {
+}
+
+void MqttCtrl::storeMessage(const string &topic, const string &payload)
+{
+    //T3.35b. Extracted so that the only way a message enters this object has a
+    //name, and so that the error-flag suite can drive getValue() without a
+    //broker. Behaviour identical to the assignment it replaces.
+    messages[topic] = payload;
 }
 
 void MqttCtrl::subscribeTopic(const string topic, MsgReceivedSignal callback)
@@ -88,7 +96,15 @@ void MqttCtrl::publishTopic(const string topic, const string payload)
 
 string MqttCtrl::getValueJson(const Params &params, string path, string payload)
 {
+    bool err = false;
+    return getValueJson(params, path, payload, err);
+}
+
+string MqttCtrl::getValueJson(const Params &params, string path, string payload, bool &err)
+{
     string value;
+
+    err = false;
 
     // If path is empty, treat payload as direct raw value
     if (path.empty())
@@ -106,6 +122,7 @@ string MqttCtrl::getValueJson(const Params &params, string path, string payload)
 
     if (root.is_discarded())
     {
+        err = true;
         cWarning() << "Error parsing " << payload;
         return string();
     }
@@ -124,64 +141,79 @@ string MqttCtrl::getValueJson(const Params &params, string path, string payload)
             // if it's the case, it must be something like [x]
             if (val[0] == '[')
             {
-                /* T3.35. A well formed index token is "[n]". A token SHORTER
-                 * than two characters - a lone '[', mistyped in a
-                 * configuration parameter - is EMPTIED by the erase() below,
-                 * and pop_back() then underflows the size_t length of the
-                 * string. That was not a theoretical problem: the read that
-                 * followed escaped getValueJson() as a std::bad_alloc, nothing
-                 * caught it anywhere up to main(), and calaos_server
-                 * terminated. There is no remote vector - a `path` is only
-                 * ever written by calaos_installer - but a typo was enough to
-                 * bring the server down.
+                /* T3.35, corrected by T3.35b. A well formed index token is
+                 * "[n]" - an opening bracket AND a closing one. erase() and
+                 * pop_back() below strip the first and the last character
+                 * UNCONDITIONALLY, so what has to be checked here is the FORM.
+                 * A guard on the LENGTH alone (the T3.35 shape, `val.size() <
+                 * 2`) covered only half of it and the message it printed was
+                 * not true of the code that printed it:
+                 *
+                 *  - a lone '[' was EMPTIED by erase(), pop_back() then
+                 *    underflowed the size_t length of the string, and the read
+                 *    that followed escaped getValueJson() as a std::bad_alloc.
+                 *    Nothing caught it anywhere up to main() and calaos_server
+                 *    terminated. There is no remote vector - a `path` is only
+                 *    ever written by calaos_installer - but a typo was enough
+                 *    to bring the server down. A length guard does stop that.
+                 *
+                 *  - "[5" and "[12" are two characters or more, so a length
+                 *    guard let them straight through; pop_back() then ate a
+                 *    DIGIT and the parser answered element 0 and element 1,
+                 *    SILENTLY, with a value nothing distinguishes from a
+                 *    correct reading. That is worse than the empty string the
+                 *    same typo produces everywhere else in this parser.
                  */
-                if (val.size() < 2)
+                if (val.size() < 2 || val.back() != ']')
                 {
+                    err = true;
                     cWarning() << "Error in path " << path << ", malformed array index " << *it
                                << " : an array index must be written [n], as in weather/[0]/description";
                     return string();
                 }
 
-                /* T3.35. Initialised on purpose, and NOT redundant on this
-                 * branch: Utils::from_string() leaves its destination
-                 * untouched when the string is blank, because the stream
-                 * sentry fails before num_get ever runs. The token "[]" - which
-                 * the guard above deliberately still lets through, so that
-                 * T3.29's ANonNumericIndexSilentlyReadsElementZero keeps
-                 * holding - therefore used to read an UNINITIALISED int. T3.25
-                 * closes the same hole from the other side by making
-                 * from_string() write on every path; this line keeps the
-                 * branch correct with or without it.
-                 */
-                int idx = 0;
                 // Remove first and last char
                 val.erase(0, 1);
                 val.pop_back();
 
+                int idx = 0;
+
                 try
                 {
-                    /* T3.35. Moved INSIDE the try, and this is a SECOND line
-                     * of defence, not a cosmetic move: from_string() copies
-                     * `val` into an istringstream, so on a string whose length
-                     * has underflowed it is exactly where the std::bad_alloc
-                     * came from. Measured (mutation M1, guard displaced past
-                     * the erase/pop_back): with the try alone the process
-                     * SURVIVES a lone '[' and only the message is wrong.
+                    /* T3.35b. The index is DECIDED here, on both branches,
+                     * instead of being left to whatever Utils::from_string()
+                     * happens to leave behind. The two failing shapes do not
+                     * behave the same way and that asymmetry was the trap:
+                     * on a BLANK string - the token "[]" - the stream sentry
+                     * fails before num_get ever runs, so the destination is
+                     * NOT written and the index was read UNINITIALISED; on a
+                     * non blank string that does not parse - "[zz]" - the
+                     * sentry succeeds and C++11 num_get stores 0. from_string()
+                     * cannot even be interrogated about it: it returns
+                     * iss.eof(), which is TRUE for the blank string.
                      *
-                     * ! REDUNDANT GIVEN THE GUARD ABOVE, and annotated rather
-                     * than removed: mutation M5 puts this call back outside
-                     * the try, guard kept, and the suite stays at 0 red - an
-                     * equivalent mutant, not a hole in the net. It earns its
-                     * place by closing the family: everything that touches the
-                     * index now fails through the one error path this branch
-                     * already has.
+                     * The two cases are made to agree, deliberately, on
+                     * element 0: T3.29 froze that value and a real
+                     * configuration may lean on it. What does not stay is the
+                     * SILENCE - reading element 0 because the index was
+                     * unreadable is precisely the case a user cannot diagnose.
+                     *
+                     * Everything that touches the index sits inside this try,
+                     * so it can only ever fail through the one error path this
+                     * branch already has.
                      */
-                    // Read array index
-                    Utils::from_string(val, idx);
+                    if (val.empty() || !Utils::from_string(val, idx))
+                    {
+                        idx = 0;
+                        cWarning() << "Error in path " << path << ", array index " << *it
+                                   << " is not a number : reading element 0";
+                    }
+
                     parent = parent.at(idx);
                 }
                 catch (const std::exception &e)
                 {
+                    err = true;
                     cWarning() << "Error in path " << path << ", index not found " << *it << " : " << e.what();
                     return string();
                 }
@@ -195,6 +227,7 @@ string MqttCtrl::getValueJson(const Params &params, string path, string payload)
                 }
                 catch (const std::exception &e)
                 {
+                    err = true;
                     cWarning() << "Error in path " << path << ", subpath not found " << *it << " : " << e.what();
 
                     /* T3.35 - the "option C" of T3.29 section 5.6. NO FALSE
@@ -246,6 +279,15 @@ string MqttCtrl::getValueJson(const Params &params, string path, string payload)
             value = "array[]";
         }
     }
+    else
+    {
+        //T3.35b. A non empty path that splits into no token at all ("///"):
+        //nothing was resolved, so nothing is reported as resolved. The two
+        //container MARKERS above keep err false on purpose - the path DID
+        //resolve there, onto a container, and that frozen behaviour is what
+        //APathStoppingOnAContainerReturnsAMarker pins.
+        err = true;
+    }
 
     return value;
 }
@@ -269,8 +311,11 @@ string MqttCtrl::getValue(const Params &params, bool &err, string topic_param, s
         err = true;
         return "";
     }
-    err = false;
-    return getValueJson(params, params[path_param], payload);
+    //T3.35b. `err` used to be cleared HERE, unconditionally, and getValueJson()
+    //was then free to fail: `battery_path = "["` crossed the caller's
+    //`if (!err)` with an empty value in hand. The flag now comes from the
+    //parser itself.
+    return getValueJson(params, params[path_param], payload, err);
 }
 
 double MqttCtrl::getValueDouble(const Params &params, bool &err)
@@ -280,51 +325,76 @@ double MqttCtrl::getValueDouble(const Params &params, bool &err)
     err = true;
 
     value = getValue(params, err, "topic_sub");
+    if (err)
+        return val;
 
     if (Utils::is_of_type<double>(value) && !value.empty())
-    {
         Utils::from_string(value, val);
-        err = false;
-    }
+    else
+        //T3.35b. This branch used to leave `err` at whatever getValue() had
+        //set - false - so a value that is not a number was reported as a
+        //successful reading of 0.
+        err = true;
 
     return val;
 }
 
 ColorValue MqttCtrl::getValueColor(const Params &params, bool &err)
 {
+    /* T3.35b. Three corrections, all the same defect seen from three sides.
+     *
+     *  - x, y and b are INITIALISED. They were not, and no error flag could
+     *    have saved them: `err` was CLEARED by any ONE of the three reads
+     *    succeeding, so a device whose path_x is mistyped and whose path_y is
+     *    not left err false and handed fromXYBrightness() an uninitialised x.
+     *    That is true with or without T3.25, which is why this site is closed
+     *    here and not left to it.
+     *  - `err` is now the AND of the three reads, not their OR. All three
+     *    parameters are declared MANDATORY in the ioDoc of MqttOutputLightRGB;
+     *    a colour built out of two of them is not a colour, and
+     *    MqttOutputLightRGB::readValue() reads err as "ignore this update",
+     *    which is the right answer.
+     *  - each value is checked for being a NUMBER, not merely for having been
+     *    read: a path landing on an object answers the marker "object{}".
+     */
     string value;
-    double x, y;
-    int b;
+    double x = 0, y = 0;
+    int b = 0;
+    bool e = true;
+
     err = true;
 
-    value = getValue(params, err, "topic_sub", "path_x");
-
-    if (Utils::is_of_type<double>(value) && !value.empty())
-    {
-        Utils::from_string(value, x);
-        err = false;
-    }
-
-    value = getValue(params, err, "topic_sub", "path_y");
-
-    if (Utils::is_of_type<double>(value) && !value.empty())
-    {
-        Utils::from_string(value, y);
-        err = false;
-    }
-
-    value = getValue(params, err, "topic_sub", "path_brightness");
-
-    if (Utils::is_of_type<int>(value) && !value.empty())
-    {
-        Utils::from_string(value, b);
-        err = false;
-    }
-
-    if (err)
+    value = getValue(params, e, "topic_sub", "path_x");
+    if (e || value.empty() || !Utils::is_of_type<double>(value))
         return {};
+    Utils::from_string(value, x);
+
+    value = getValue(params, e, "topic_sub", "path_y");
+    if (e || value.empty() || !Utils::is_of_type<double>(value))
+        return {};
+    Utils::from_string(value, y);
+
+    value = getValue(params, e, "topic_sub", "path_brightness");
+    if (e || value.empty() || !Utils::is_of_type<int>(value))
+        return {};
+    Utils::from_string(value, b);
+
+    err = false;
 
     return ColorValue::fromXYBrightness(x, y, b / 255.0);
+}
+
+bool MqttCtrl::readStatusNumber(const string &value, double &out)
+{
+    //T3.35b. Utils::from_string() does not write its destination on a blank
+    //string - its stream sentry fails before num_get runs - and returns
+    //iss.eof(), which is TRUE for that very string. Its return code therefore
+    //cannot be used to detect the case; the string has to be checked first.
+    if (value.empty() || !Utils::is_of_type<double>(value))
+        return false;
+
+    Utils::from_string(value, out);
+    return true;
 }
 
 void MqttCtrl::setValueString(const Params &params, string val)
@@ -385,16 +455,15 @@ void MqttCtrl::setValueInt(const Params &params, int val, string dataParam)
     if (params.Exists(dataParam))
     {
         data = params[dataParam];
-        double coeff_a, coeff_b;
+        //T3.35b. Initialised at their declaration: a coeff_a that EXISTS but
+        //is not a number left Utils::from_string() with nothing to say and the
+        //multiplication below read an uninitialised double.
+        double coeff_a = 1.0, coeff_b = 0.0;
         if (params.Exists("coeff_a"))
             Utils::from_string(params["coeff_a"], coeff_a);
-        else
-            coeff_a = 1.0;
 
         if (params.Exists("coeff_b"))
             Utils::from_string(params["coeff_b"], coeff_b);
-        else
-            coeff_b = 0.0;
 
 
         replace_str(data, "__##VALUE##__", Utils::to_string((int)(val * coeff_a + coeff_b)));
@@ -647,8 +716,25 @@ void MqttCtrl::subscribeStatusTopics(Calaos::IOBase *io)
             auto v = getValue(params, err, "battery_topic", "battery_path");
             if (!err)
             {
-                double rawValue;
-                Utils::from_string(v, rawValue);
+                /* T3.35b. `double rawValue;` fed straight to
+                 * Utils::from_string(), which does NOT write its destination
+                 * when the string is blank. Before T3.35 a `battery_path`
+                 * of "[" killed the server; after it the parser returned an
+                 * empty string, getValue() reported success anyway, and this
+                 * block published an INDETERMINATE battery - a lie the
+                 * user reads in the interface and their rules act on, where
+                 * the crash at least announced itself. getValue() is honest
+                 * now, so `!err` no longer lets it in; this guard is the
+                 * second lock, and it also catches the value that resolves but
+                 * is not a number (a marker like "object{}", a string field).
+                 */
+                double rawValue = 0;
+                if (!readStatusNumber(v, rawValue))
+                {
+                    cWarningDom("mqtt") << "Battery value \"" << v << "\" read from path "
+                                        << params["battery_path"] << " is not a number, ignoring";
+                    return;
+                }
 
                 if (params.Exists("battery_expr") &&
                     ExpressionEvaluator::isExpressionValid(params["battery_expr"]))
@@ -726,8 +812,25 @@ void MqttCtrl::subscribeStatusTopics(Calaos::IOBase *io)
             auto v = getValue(params, err, "wireless_signal_topic", "wireless_signal_path");
             if (!err)
             {
-                double rawValue;
-                Utils::from_string(v, rawValue);
+                /* T3.35b. `double rawValue;` fed straight to
+                 * Utils::from_string(), which does NOT write its destination
+                 * when the string is blank. Before T3.35 a `wireless_signal_path`
+                 * of "[" killed the server; after it the parser returned an
+                 * empty string, getValue() reported success anyway, and this
+                 * block published an INDETERMINATE wireless signal - a lie the
+                 * user reads in the interface and their rules act on, where
+                 * the crash at least announced itself. getValue() is honest
+                 * now, so `!err` no longer lets it in; this guard is the
+                 * second lock, and it also catches the value that resolves but
+                 * is not a number (a marker like "object{}", a string field).
+                 */
+                double rawValue = 0;
+                if (!readStatusNumber(v, rawValue))
+                {
+                    cWarningDom("mqtt") << "Wireless signal value \"" << v << "\" read from path "
+                                        << params["wireless_signal_path"] << " is not a number, ignoring";
+                    return;
+                }
 
                 if (params.Exists("wireless_signal_expr") &&
                     ExpressionEvaluator::isExpressionValid(params["wireless_signal_expr"]))
@@ -765,8 +868,25 @@ void MqttCtrl::subscribeStatusTopics(Calaos::IOBase *io)
             auto v = getValue(params, err, "uptime_topic", "uptime_path");
             if (!err)
             {
-                double rawValue;
-                Utils::from_string(v, rawValue);
+                /* T3.35b. `double rawValue;` fed straight to
+                 * Utils::from_string(), which does NOT write its destination
+                 * when the string is blank. Before T3.35 a `uptime_path`
+                 * of "[" killed the server; after it the parser returned an
+                 * empty string, getValue() reported success anyway, and this
+                 * block published an INDETERMINATE uptime - a lie the
+                 * user reads in the interface and their rules act on, where
+                 * the crash at least announced itself. getValue() is honest
+                 * now, so `!err` no longer lets it in; this guard is the
+                 * second lock, and it also catches the value that resolves but
+                 * is not a number (a marker like "object{}", a string field).
+                 */
+                double rawValue = 0;
+                if (!readStatusNumber(v, rawValue))
+                {
+                    cWarningDom("mqtt") << "Uptime value \"" << v << "\" read from path "
+                                        << params["uptime_path"] << " is not a number, ignoring";
+                    return;
+                }
 
                 if (params.Exists("uptime_expr") &&
                     ExpressionEvaluator::isExpressionValid(params["uptime_expr"]))
