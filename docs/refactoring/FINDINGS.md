@@ -3214,20 +3214,35 @@ Ses **deux** faces, toutes deux rencontrées dans la série :
 
 ## E4.1c — les trois résidus jansson (2026-08-25)
 
-### ⛔ La « CORRECTION » posée par la revue d'E4.1k est CONFIRMÉE, et resserrée : 0 / 0 / 10
+### ⛔ La « CORRECTION » posée par la revue d'E4.1k est CONFIRMÉE — et ⭐ la liste d'E4.1x est **6**
 
-Graphe d'includes résolu en `python3` (résolution des `-I` d'`AM_CPPFLAGS`) sur les **18** unités de
-`src/` qui portent encore des symboles jansson sur master `24f635e3` :
+Le retrait d'`IO/ExternProc.h:26` `#include <jansson.h>` **seul** fait perdre `<jansson.h>` à
+**0** unité ; le retrait de `src/lib/Jansson_Addition.h:24` **seul**, à **0** aussi.
 
-| Ligne retirée | Unités qui perdent `<jansson.h>` |
-|---|---|
-| `IO/ExternProc.h:26` `#include <jansson.h>` **seule** | **0** |
-| `src/lib/Jansson_Addition.h:24` **seule** | **0** |
-| **les deux** | **10** |
+⚠️ **AUTOCORRECTION — j'ai d'abord écrit « 10 » ici pour la liste d'E4.1x. C'était faux, et pour
+deux raisons cumulées.** Les trois chiffres, et pourquoi seul le dernier est la liste à servir :
 
-Les 10, à servir une par une par **E4.1x** : `EventManager.cpp`, `IO/Scenario.cpp`, `KNXCtrl.cpp`,
-`KNXExternProc_main.cpp`, `OLACtrl.cpp`, `OLAExternProc_main.cpp`, `WagoMap.cpp`,
-`WagoExternProc_main.cpp`, `ScriptBindings.cpp`, `ScriptExtern_main.cpp`.
+| Chiffre | D'où il vient | Verdict |
+|---|---|---|
+| **10** | statique brut, mutation **infidèle** : `<jansson.h>` retiré des **deux** fichiers fournisseurs | ⛔ **artefact de la simulation.** `Jansson_Addition.h` **utilise `json_t` dans son propre corps** : lui retirer son include le casse lui-même — mesuré, **4158 `error:` et 128 objets en échec**. La mutation sciait *toutes* les branches, pas celle d'`ExternProc.h`. Ce n'est pas ce que fait E4.1x, qui **supprime le fichier** une fois ses 7 fonctions sans appelant |
+| **8** | les 10 moins la **prose** | `IO/KNX/KNXCtrl.cpp:310` et `IO/KNX/KNXExternProc_main.cpp:33` ne portent `json_loads` **que dans un commentaire** (`//E4.1e: json_loads() answered NULL…`), idem les 2 `jansson_*` de `KNXCtrl`. **0 appel en code.** Sur 17 porteurs bruts de `src/`, **15 hors prose** |
+| ⭐ **6** | mutation **fidèle** : `ExternProc.h` cesse de **déléguer**, `Jansson_Addition.h` **intact** | **la liste réelle**, obtenue **deux fois indépendamment** — graphe `python3` et `make -C src -j12 -k` → **6 objets en échec, exactement les mêmes 6 fichiers** |
+
+**Les 6 que `E4.1x` devra servir** : `IO/OLA/OLACtrl.cpp`, `IO/OLA/OLAExternProc_main.cpp`,
+`IO/Wago/WagoMap.cpp`, `IO/Wago/WagoExternProc_main.cpp`, `LuaScript/ScriptBindings.cpp`,
+`LuaScript/ScriptExtern_main.cpp`. **Aucune KNX.**
+
+**L'écart 8 → 6, expliqué — c'est le point à retenir** : `EventManager.cpp` et `IO/Scenario.cpp`
+**n'ont jamais dépendu d'`ExternProc.h`** pour jansson. Ils tiennent `Jansson_Addition.h` d'un
+chemin à eux : `EventManager.cpp → EventManager.h → Jansson_Addition.h`, et
+`IO/Scenario.cpp → IO/Scenario.h → IOBase.h → EventManager.h → Jansson_Addition.h`. La mutation
+infidèle les faisait tomber parce qu'elle coupait **la branche commune**. Ils restent à migrer
+(E4.1x / E4.6), mais **pas au titre d'`ExternProc.h`**.
+
+⚠️ **Leçon de méthode, générale à la série** : une simulation de suppression d'en-tête doit être
+**fidèle à ce que le ticket cible fera**. Retirer un `#include` d'un en-tête **qui s'en sert
+lui-même** ne mesure pas la dépendance de ses consommateurs — ça mesure sa propre autodestruction,
+et le chiffre obtenu est **surestimé sans que rien ne le signale**.
 
 **Preuve indépendante du graphe, par contre-mutation d'ÉCHANGE** (`M2` de la campagne d'E4.1c) :
 échanger `#include "Jansson_Addition.h"` contre `#include <jansson.h>` dans `ExternProc.h` laisse
@@ -3238,14 +3253,14 @@ Les 10, à servir une par une par **E4.1x** : `EventManager.cpp`, `IO/Scenario.c
 
 Deux mesures, indépendantes :
 
-1. **Elle ne tenait pas dans l'image de build.** `configure.ac` **n'a pas** de `--with-owfs` (ni
-   `--with-mqtt`, `--with-knx`, `--with-ola`) : les quatre drivers sont **auto-détectés** sur
-   `owcapi.h` / `libola.pc` / `eibclient.h` / `mosquitto.h`, tous présents dans
-   `vsc-calaos_base-1202…be26`. Un `./configure` **nu** y affiche
-   `One Wire: yes · OLA: yes · KNX: yes · MQTT: yes`, et le log porte `CXX IO/OneWire/OWCtrl.o` et
-   `CXX IO/OneWire/OWExternProc_main.o`. ⇒ **la mesure de la revue d'E4.1k compilait déjà OWFS**,
-   contrairement à ce que sa réserve annonçait. *(À vérifier chez qui reproduit : si votre image n'a
-   pas `owcapi.h`, votre `configure` nu affichera `One Wire: no` et là la réserve serait fondée.)*
+1. **Elle ne tenait sur AUCUNE machine, pas seulement sur celle-ci.** `configure.ac` n'a pas de
+   `--with-owfs` (ni `--with-mqtt`, `--with-knx`, `--with-ola`) : les quatre drivers sont
+   **auto-détectés**. Mais surtout, **OWFS n'est protégé par aucun garde** :
+   `src/bin/calaos_server/Makefile.am:184` met `IO/OneWire/OWCtrl.cpp` dans
+   `calaos_server_SOURCES` et `:390` met `calaos_1wire` dans `bin_PROGRAMS`, **hors de tout
+   `if HAVE_OWCAPI`**. `OWCtrl.cpp` et `OWExternProc_main.cpp` sont donc compilés
+   **inconditionnellement**, quelle que soit la présence d'`owcapi.h`. ⇒ **la mesure de la revue
+   d'E4.1k compilait déjà OWFS**, et sa réserve était sans objet dès le départ.
 2. **Et surtout : `OWCtrl.cpp` et `OWExternProc_main.cpp` portent 0 symbole jansson.** Ils sont déjà
    en `nlohmann` (`OWExternProc_main.cpp` porte même un `dump()` — c'est l'un des 5 wires tiers en
    UTF-8 brut de l'exception nommée, périmètre d'un autre ticket). La dépendance que l'analyse du
@@ -3253,23 +3268,40 @@ Deux mesures, indépendantes :
 
 ### Le chemin transitif `ReolinkCtrl.cpp` renvoyé par le ticket voisin est **inerte**
 
-`ReolinkCtrl.cpp → ReolinkCtrl.h → IO/ExternProc.h → <jansson.h>` **existe encore** comme chemin
-d'inclusion, mais `ReolinkCtrl.cpp` porte **0 symbole jansson** depuis le merge d'**E4.1i**. Il ne
+⚠️ **Précision** : sous cette forme exacte, le chemin **n'existe plus après E4.1c** —
+`ReolinkCtrl.h:31` inclut toujours `ExternProc.h`, mais jansson lui arrive maintenant par
+`ExternProc.h → Jansson_Addition.h`, ou par `ReolinkCtrl.h:32 IOBase.h → EventManager.h →
+Jansson_Addition.h`. Le chemin d'inclusion **subsiste** donc, mais `ReolinkCtrl.cpp` porte **0 symbole jansson** depuis le merge d'**E4.1i**. Il ne
 consomme donc rien de ce que le chemin lui livre, et il ne figure dans aucune des trois colonnes du
 tableau ci-dessus. Rien à faire ni pour E4.1c ni pour E4.1x de ce côté.
 
-### Le tableau « Fichier / Appels » d'`E4.1.md` est périmé par rapport à master
+### Le tableau « Fichier / Appels » d'`E4.1.md` est périmé par rapport à master — **8 fichiers, pas 6**
 
-Recompté sur `24f635e3` : **`MqttCtrl.cpp`, `MqttExternProc_main.cpp`, `ReolinkCtrl.cpp`,
-`IODoc.cpp`, `IOFactory.cpp`, `KNXExternProc_cli.cpp` sont à 0** — E4.1g / E4.1i / E4.1k sont
-mergés. Le tableau les compte encore à 13 / 15 / 9 / 16 / 4 / 2. **Les fiches non encore livrées de
-la vague 1 doivent recompter leur propre périmètre avant de s'y fier.**
+⚠️ **AUTOCORRECTION : j'avais écrit 6.** Recompté **hors prose** sur `24f635e3`, **8** entrées du
+tableau sont à **0 appel jansson en code** : `MqttCtrl.cpp` (compté 13), `MqttExternProc_main.cpp`
+(15), `ReolinkCtrl.cpp` (9), `IODoc.cpp` (16), `IOFactory.cpp` (4), `KNXExternProc_cli.cpp` (2),
+**`KNXCtrl.cpp` (6)** et **`KNXExternProc_main.cpp` (6)** — E4.1e / E4.1g / E4.1i / E4.1k sont
+mergés. Les deux KNX manquaient à ma première liste parce que je comptais **prose comprise** : leur
+unique jeton `json_loads` est dans un commentaire. `HttpClient.cpp` (2) fait le neuvième, par E4.1c.
+**Les fiches non encore livrées de la vague 1 doivent recompter leur propre périmètre, en excluant
+les commentaires, avant de s'y fier.**
 
 ### Deux numéros de ligne faux, dans deux fiches
 
 `jansson >= 2.5` est à **`configure.ac:51`** (`requirements_calaos_common=…`). La ligne **52** est le
 `PKG_CHECK_MODULES`. `E4.1c.md:20` **et** `E4.1x.md` (travail, point 4) citent tous deux `:52`.
 **E4.1x doit éditer la 51.**
+
+### ⚠️ Exposition conditionnelle, à léguer à E4.1x : trois extern-procs ne sont pas toujours compilés
+
+`calaos_ola` (`Makefile.am:400 if HAVE_LIBOLA`), `calaos_knx` (`:413 if HAVE_LIBKNX`) et
+`calaos_mqtt` (`:428 if HAVE_LIBMOSQUITTO`) **sont conditionnels** — contrairement à OWFS. Une
+machine sans `libola` **ne compile jamais `IO/OLA/OLAExternProc_main.cpp`**, qui est **l'un des 6
+vrais casseurs** ci-dessus. ⇒ **E4.1x ne peut pas conclure sur un seul environnement** : soit il
+construit avec `libola`, `eibclient` et `mosquitto` installés, soit il déclare explicitement que sa
+mesure ne couvre pas `OLAExternProc_main.cpp`. *(Non mesuré ici : aucun build sur une machine
+dépourvue de ces paquets. `OLACtrl.cpp`, `WagoMap.cpp`, `WagoExternProc_main.cpp`,
+`ScriptBindings.cpp` et `ScriptExtern_main.cpp` sont, eux, inconditionnels.)*
 
 ### `HttpClient.cpp` ne contenait déjà pas le mot `jansson`
 
@@ -3284,6 +3316,13 @@ d'E4.1x.
 **16** vrais sites d'appel de l'arbre (`JsonApi.cpp` ×6, les deux handlers ×2, Wago ×4, OLA ×1,
 `ScriptExtern_main.cpp` ×1) sont **tous dans d'autres unités de traduction** et la tiennent de
 `<jansson.h>` ; la macro vivait dans un `.cpp`, elle ne pouvait fuir nulle part.
+
+⭐ **Et le détail qui prouve qu'elle était morte *depuis toujours*, pas « depuis 2.5 »** (trouvé par
+la revue, vérifié) : `HttpClient.cpp` voyait déjà `<jansson.h>` **bien avant sa ligne 111** — dès sa
+ligne **21** (`RemoteUIProvisioningHandler.h → RemoteUIManager.h → EventManager.h →
+Jansson_Addition.h`) et de nouveau en **23** (`HttpClient.h:27 → JsonApiHandlerHttp.h:24 →
+JsonApi.h:25 <jansson.h>`). Son `#ifndef` était donc évalué **après** la définition de jansson :
+il **n'a jamais pu se déclencher**, quelle que soit la version installée.
 
 ### ⚠️ Dette laissée, et son propriétaire est E4.1x
 
@@ -3308,3 +3347,28 @@ Et il n'y a **aucun oracle d'octets ici, par mesure et non par supposition** : `
 `WebCtrl.cpp` et `HttpClient.cpp` portent **0 `dump()`**, **0 émission `nlohmann`**, **0 appel
 jansson**. Aucun non-ASCII ne peut atteindre un `dump()` de ce périmètre parce qu'il n'y en a aucun.
 C'est bien le seul sous-ticket de la série dans ce cas, comme `E4.1.md` l'annonçait.
+
+### ⭐ Une garde de sonde à un seul symbole ne rougit pas : elle CASSE LE BUILD
+
+Trouvé par la revue d'E4.1c, corrigé, et **mesuré dans les deux sens**. Le cas
+`JanssonProvidesArrayForeachNativelyAtTheConfiguredFloor` portait une sonde
+`#if defined(json_array_foreach)` et un `ASSERT_TRUE` sur son résultat — mais **le corps** du cas,
+qui *appelle* `json_array_foreach()`, était gardé par un **autre** symbole
+(`#if defined(JANSSON_VERSION_HEX)`). Conséquence : un jansson qui livre l'en-tête **sans** la macro
+ne rendait pas le cas rouge, il rendait le **build** rouge, et le message de l'`ASSERT_TRUE` ne
+pouvait **jamais** s'afficher.
+
+J'avais écrit qu'un tel jansson n'était pas constructible sans changer l'image. **Faux** : un
+en-tête écran `jansson.h` qui fait `#include_next <jansson.h>` puis `#undef json_array_foreach`,
+prépendu par `CPPFLAGS=-I…`, le construit en trois lignes et sans toucher au paquet. Reproduit :
+
+| Version | Build | Résultat |
+|---|---|---|
+| avant (`677ef37d`) | **RC=2**, 1 `error:` à `JanssonResidues_test.cpp:210`, **0 `CXXLD`** | aucun binaire |
+| après (`&& defined(json_array_foreach)`) | **RC=0**, `CXXLD` ×1, 0 `error:` | **1 rouge**, le cas visé, message affiché |
+
+⚠️ **Règle générale pour la série** : quand une sonde de préprocesseur `#if defined(X)` alimente une
+assertion, **le corps qui utilise X doit être gardé par X lui-même**, jamais par un symbole voisin
+« qui va avec ». Sinon la dégradation qu'on prétend détecter se manifeste en **erreur de
+compilation** — non silencieuse, donc non bloquante, mais l'oracle n'a **jamais** l'occasion de
+parler. Le même piège existe partout où un `#if` de disponibilité et un `#if` d'usage divergent.
