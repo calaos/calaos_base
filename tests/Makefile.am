@@ -4416,3 +4416,29 @@ core_AutoScenarioUploadGuard_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.43
+#Links the shipped mbus_cmd/mbus_rqst objects. mbus_sock.c is deliberately NOT
+#linked: the test supplies mbus_sock_read()/mbus_sock_write() itself and feeds
+#libmbus a forged response frame, so no live PLC is needed.
+#-I.../IO/Wago/libmbus, -I.../IO/Wago and -DLIBMBUS are already in AM_CPPFLAGS;
+#WagoBits.h is included for coilBufferSize(), so the size the test calls "the
+#caller's buffer" is the one read_bits() really allocates.
+if HAVE_GTEST
+TESTS += MbusResponse_test
+check_PROGRAMS += MbusResponse_test
+MbusResponse_test_SOURCES = MbusResponse_test.cpp
+MbusResponse_test_CPPFLAGS = $(AM_CPPFLAGS)
+MbusResponse_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/libmbus/mbus_cmd.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/libmbus/mbus_rqst.$(OBJEXT) \
+                  @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+MbusResponse_test_DEPENDENCIES = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/libmbus/mbus_cmd.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/libmbus/mbus_rqst.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
