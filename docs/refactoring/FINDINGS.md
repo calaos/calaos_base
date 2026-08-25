@@ -5077,7 +5077,7 @@ lanceur de `make dist` doit penser à `git checkout -- po/`** — piège à comm
   sept refus de compilation deux à deux distincts** (fichier, ligne et paire de types différents à
   chaque fois) ; **témoin sans mutation : aucun refus**. Le commit de caractérisation est
   **rouge exécuté** : 5 cas rouges sur 62 exécutés, `RC=1` sur les trois suites, `CXXLD` vu pour
-  chacune. **Restent NON fermés et déclarés : le saut dans `libmbus` (F-WAGO-9 ci-dessous) et
+  chacune. **Restent NON fermés et déclarés : le saut dans `libmbus` (F-WAGO-9 ci-dessous, ⇒ [T3.46](T3.46.md)) et
   l'emballage de la mauvaise variable** (`WagoTypes::Address(val)` type-checke ; limite
   intrinsèque, une ligne par commande).
 
@@ -5109,13 +5109,14 @@ lanceur de `make dist` doit penser à `git checkout -- po/`** — piège à comm
   valeur de **retour**), et un ordre imposé par le type de retour (les valeurs restent
   interchangeables à l'intérieur de chaque étape).
 
-- ⚠️ **[F-WAGO-9] — NON CORRIGÉ, PRÉEXISTANT, hors périmètre de T3.31, ⭐ TICKET DÉDIÉ DEMANDÉ
-  (numéro à attribuer) : `libmbus` prend l'adresse et la donnée comme deux `mbus_uword` côte à
-  côte, sur des ÉCRITURES.** `mbus_cmd_force_single_coil(mbus, slave, coil_addr, data)` et
+- ⚠️ **[F-WAGO-9] — NON CORRIGÉ, PRÉEXISTANT, hors périmètre de T3.31, ✅ TICKETÉ :
+  [T3.46](T3.46.md)** (numéro **attribué par le coordinateur**, vérifié libre sur `master` et dans
+  les huit worktrees vivants — `T3.40` à `T3.45` sont pris). **`libmbus` prend l'adresse et la
+  donnée comme deux `mbus_uword` côte à côte, sur des ÉCRITURES.** `mbus_cmd_force_single_coil(mbus, slave, coil_addr, data)` et
   `mbus_cmd_preset_single_register(mbus, slave, register_addr, preset_data)` (`libmbus/mbus.h:114`
   et `:116`) : une permutation **compile en silence** et **force un relais / écrit un registre à
   une adresse arbitraire de l'automate**. C'est la troisième ligne rouge de
-  [T3.43](T3.43.md) §5.5bis, et T3.31 ne la ferme pas — il ferme les **trois sauts Calaos**
+  T3.43 §5.5bis (⚠️ fiche **non mergée**, worktree `.wave57/fwago8`), et T3.31 ne la ferme pas — il ferme les **trois sauts Calaos**
   au-dessus (`WOAnalog` → `WagoMap` → `WagoWire`, puis `WagoExternProc_main` → `WagoCtrl`), pas
   celui-là. **Mesuré comme résiduel** : contre-mutation M5 de T3.31, `mbus_cmd_preset_single_register(mbus, 1, (mbus_uword)val, address)` **compile, rc=0**.
   ⭐ **Et ce n'est PAS une impossibilité technique, contrairement à ce que la première rédaction du
@@ -5124,7 +5125,7 @@ lanceur de `make dist` doit penser à `git checkout -- po/`** — piège à comm
   arrête T3.31, c'est **le coût et la propriété** : sept signatures d'une bibliothèque **tierce
   importée** (`$Id: mbus_conf.h,v 1.1.1.1 2003/…`), déjà divergée d'amont, répartie sur quatre
   fichiers `.c`, et que **rien dans l'arbre n'exécute** — la correction serait vérifiée **par la
-  compilation seule**. [T3.43](T3.43.md) §3 a refusé le même changement pour la même raison, et un
+  compilation seule**. T3.43 §3 a refusé le même changement pour la même raison, et un
   précédent de la même nuit a refusé de patcher `uvw` vendu au profit d'un ticket. **Une voie
   intermédiaire a été envisagée et écartée, mesurée** : une façade C++ typée au-dessus de
   `libmbus` déplacerait le déballage de **sept endroits vers sept endroits** — `WagoCtrl.cpp` est
