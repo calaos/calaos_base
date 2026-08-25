@@ -3021,3 +3021,54 @@ core_WagoReadReply_test_LDADD = \
 #Built elsewhere, do not let automake turn them into prerequisites
 core_WagoReadReply_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# E4.1m
+#The BYTES of the MODEL payloads - get_home and get_io - on the two transports.
+#The 145 goldens of E4.0 compare PARSED documents, so neither the key order nor
+#the escaping this ticket moves can make any of them red. Every assertion here
+#reads WsTestSession::lastMessage() and HttpTestRequest::body() RAW, exactly as
+#core/JsonApiEmissionBytes_test (E4.1b) and core/EventWireBytes_test (E4.1l) do.
+#Six disjoint oracles - key order, ensure_ascii, error_handler_t::replace,
+#U+007F, an embedded 0x00, and witnesses that must stay green on both trees - so
+#that a counter-mutation names ONE guilty parameter instead of reddening a file.
+#Adds NO golden: tests/core/golden must keep its tree hash.
+#Same link closure as core/EventWireBytes_test: it drives both transports, and
+#JsonApiHandlerHttp pulls PollListenner in.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiModelWireBytes_test
+check_PROGRAMS += core/JsonApiModelWireBytes_test
+core_JsonApiModelWireBytes_test_SOURCES = core/JsonApiModelWireBytes_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiModelWireBytes_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiModelWireBytes_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_JsonApiModelWireBytes_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
