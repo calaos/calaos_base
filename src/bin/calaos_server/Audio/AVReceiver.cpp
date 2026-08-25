@@ -55,8 +55,11 @@ AVReceiver::AVReceiver(Params &p, int default_port, int _connection_type):
     host = params["host"];
     port = default_port;
 
+    /* T3.25 (review). _or_keep: exactly the Mqtt shape already fixed by this
+     * ticket - Exists() does not protect against a key that is present and
+     * blank, and port 0 is not a port. */
     if (params.Exists("port"))
-        from_string(params["port"], port);
+        from_string_or_keep(params["port"], port);
 
     if (connection_type != AVR_CON_CUSTOM)
         timerConnReconnect();
@@ -264,8 +267,12 @@ IOAVReceiver::IOAVReceiver(Params &p):
 
     get_params().Add("gui_type", "avreceiver");
     get_params().Add("visible", "false");
+    /* T3.25 (review). _or_keep: `zone` is 1 in the constructor's init list, and
+     * a blank "zone" parameter made a plain from_string() write 0 - a zone that
+     * matches none of the three state_changed_N signals below, so the IO would
+     * connect to NOTHING and never report a status change again. */
     if (get_params().Exists("zone"))
-        from_string(get_param("zone"), zone);
+        from_string_or_keep(get_param("zone"), zone);
     receiver = AVRManager::Instance().Create(p);
 
     if (zone == 1 && receiver)

@@ -59,8 +59,11 @@ WODaliRVB::WODaliRVB(Params &_p):
     ioDoc->paramAddInt("bfade_time", _("DALI fade time for blue channel. value is between 1-10"), 1, 10, false);
 
     host = get_param("host");
+    /* T3.25 (review). _or_keep: Exists() proves the key is THERE, not that it
+     * carries a number. A "port" that is present and blank made a plain
+     * from_string() write 0 over the Modbus default of 502. */
     if (get_params().Exists("port"))
-        Utils::from_string(get_param("port"), port);
+        Utils::from_string_or_keep(get_param("port"), port);
 
     WagoMap::Instance(host, port);
 

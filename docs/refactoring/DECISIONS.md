@@ -173,6 +173,7 @@ accepté **pour la durée de la chaîne**, pas au-delà.
 **on découvrira peut-être des suites qui ne passaient que grâce à son absence**. C'est un argument
 **pour** la faire, pas contre — mais son premier `make check` **peut rougir**, et **ces rouges
 seront des trouvailles**, pas des régressions.
+
 ## 2026-08-25 — T3.25 : `from_string` corrigée **globalement**, puis audit des défauts — et la frontière d'API **dans le même ticket**
 
 **Décision utilisateur**, prise contre la recommandation de la fiche (qui proposait « étage 1 + 3,

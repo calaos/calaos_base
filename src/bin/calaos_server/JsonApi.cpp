@@ -2273,17 +2273,24 @@ void JsonApi::buildJsonEventLog(const Params &jParam, std::function<void(Json &)
     int page = 0;
     int perPage = 100;
 
-    /* T3.25. from_string_or_keep(), NOT from_string(): since T3.25 a blank
-     * value writes T{} instead of leaving the destination alone, and an ABSENT
-     * per_page (Params::operator[] returns "") would therefore have become 0 -
-     * which the guard 60 lines below refuses outright. A request that answers
-     * a full page of 100 events today would have started answering
-     * {"error":"per_page is out of range"}. The _keep form preserves T3.19's
-     * documented behaviour EXACTLY, partial parses included: "1,5" still reads
-     * as 1, "abc" still reads as 0.
+    /* T3.25. NOT from_string(): since T3.25 a blank value writes T{} instead of
+     * leaving the destination alone, and an ABSENT per_page (Params::operator[]
+     * returns "") would therefore have become 0 - which the guard 60 lines below
+     * refuses outright. A request that answers a full page of 100 events today
+     * would have started answering {"error":"per_page is out of range"}.
+     *
+     * ⛔ AND NOT from_string_or_keep() EITHER - this is the one site in src/
+     * where the difference matters. Since the T3.25 review, _or_keep() also
+     * keeps the default on an OVERFLOW, and T3.19's documented behaviour
+     * requires the opposite here: per_page:"99999999999" must be ANSWERED with
+     * the saturated 2147483647 echoed back (JsonApiInputGuards_test
+     * AHugePerPageSaturatesToIntMaxAndIsHarmless, JsonApiSession_test
+     * EventLogSaturatesAVeryLargePerPage). _unless_blank() keeps T3.19 EXACTLY,
+     * all three halves of it: blank keeps the 100, "abc" reads as 0 and is
+     * refused, "1,5" still reads as 1, "99999999999" still saturates.
      */
-    Utils::from_string_or_keep(jParam["page"], page);
-    Utils::from_string_or_keep(jParam["per_page"], perPage);
+    Utils::from_string_unless_blank(jParam["page"], page);
+    Utils::from_string_unless_blank(jParam["per_page"], perPage);
 
     /* T3.17f. Both callbacks below are armed here and run MUCH later: HistLogger
      * queues the query for its sqlite worker thread and wakes the loop back up

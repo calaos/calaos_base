@@ -246,7 +246,11 @@ void InPlageHoraire::LoadRange(pugi::xml_node node, vector<TimeRange> &plage)
         }
         if (cnode.attribute("start_offset"))
         {
-            from_string(string(cnode.attribute("start_offset").as_string()), h.start_offset);
+            //T3.25 (review): _or_keep. TimeRange::start_offset is 1 in-class and the
+            //clamp below only maps <0 to -1 and >0 to 1 - it cannot repair a 0. A
+            //blank start_offset attribute therefore ANNULLED the sunrise/sunset
+            //offset instead of keeping its documented sign.
+            from_string_or_keep(string(cnode.attribute("start_offset").as_string()), h.start_offset);
             if (h.start_offset < 0) h.start_offset = -1;
             if (h.start_offset > 0) h.start_offset = 1;
         }
@@ -262,7 +266,8 @@ void InPlageHoraire::LoadRange(pugi::xml_node node, vector<TimeRange> &plage)
         }
         if (cnode.attribute("end_offset"))
         {
-            from_string(string(cnode.attribute("end_offset").as_string()), h.end_offset);
+            //T3.25 (review): _or_keep, same reason as start_offset above.
+            from_string_or_keep(string(cnode.attribute("end_offset").as_string()), h.end_offset);
             if (h.end_offset < 0) h.end_offset = -1;
             if (h.end_offset > 0) h.end_offset = 1;
         }

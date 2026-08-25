@@ -1079,8 +1079,8 @@ TEST_F(JsonApiSessionTest, FromStringWritesZeroOnFailureWhichIsWhyEventLogCanDiv
      *     was written and the default survived BY ACCIDENT. T3.25 ENDED THAT -
      *     from_string() now writes T{} and answers false on a blank string, so
      *     the 100 would become 0 here too. buildJsonEventLog() therefore calls
-     *     from_string_or_keep() (JsonApi.cpp:2233-2234), which restores the
-     *     old outcome ON PURPOSE and says so. Both spellings are pinned below.
+     *     from_string_unless_blank() (JsonApi.cpp), which restores the old
+     *     outcome ON PURPOSE and says so. Both spellings are pinned below.
      *   - a NON EMPTY value that does not parse ("abc", "1,5", "true") makes
      *     num_get run and FAIL, and since C++11 a failed extraction writes ZERO
      *     into the destination. The 100 becomes 0.
@@ -1095,6 +1095,11 @@ TEST_F(JsonApiSessionTest, FromStringWritesZeroOnFailureWhichIsWhyEventLogCanDiv
      * suite, and every eventlog case below sends an explicit, non zero,
      * numeric per_page.
      *
+     * ⚠️ "an ABSENT per_page is fatal" was written here before T3.25 and IS NO
+     * LONGER TRUE - it is the very thing this ticket fixed. An absent per_page
+     * is now refused by from_string() and kept at 100 by the call site; the
+     * fatal input is the NON BLANK unreadable one ("abc", "0", "true").
+     *
      * T3.19 GUARDED THE CONSUMER, NOT from_string(). buildJsonEventLog()
      * refuses a per_page <= 0 before HistLogger is called at all, so the value
      * never reaches the divisor. That guard's REASON TO EXIST IS UNCHANGED by
@@ -1104,25 +1109,25 @@ TEST_F(JsonApiSessionTest, FromStringWritesZeroOnFailureWhichIsWhyEventLogCanDiv
      * the old outcome explicitly.
      */
     //An ABSENT or EMPTY per_page: from_string() now REFUSES it and writes 0
-    //(T3.25), and it is from_string_or_keep() - the spelling buildJsonEventLog()
-    //actually uses - that keeps the 100.
+    //(T3.25), and it is from_string_unless_blank() - the spelling
+    //buildJsonEventLog() actually uses - that keeps the 100.
     int perPage = 100;
     EXPECT_FALSE(Utils::from_string(std::string(), perPage));
     EXPECT_EQ(0, perPage) << "if this is still 100, T3.25 has been reverted";
 
     perPage = 100;
-    EXPECT_FALSE(Utils::from_string_or_keep(std::string(), perPage));
+    EXPECT_FALSE(Utils::from_string_unless_blank(std::string(), perPage));
     EXPECT_EQ(100, perPage) << "this is the call buildJsonEventLog() makes, and "
                                "the eventlog default depends on it";
 
     perPage = 100;
-    EXPECT_FALSE(Utils::from_string_or_keep(std::string("   "), perPage));
+    EXPECT_FALSE(Utils::from_string_unless_blank(std::string("   "), perPage));
     EXPECT_EQ(100, perPage);
 
     //A NON EMPTY value that does not parse is the fatal one: num_get runs,
     //fails, and writes 0. per_page:"0" reaches the same place directly.
     perPage = 100;
-    Utils::from_string(std::string("not-a-number"), perPage);
+    EXPECT_FALSE(Utils::from_string(std::string("not-a-number"), perPage));
     EXPECT_EQ(0, perPage) << "if this is still 100, the eventlog division by "
                              "zero is gone and the header of this file is stale";
 
@@ -1130,11 +1135,39 @@ TEST_F(JsonApiSessionTest, FromStringWritesZeroOnFailureWhichIsWhyEventLogCanDiv
     EXPECT_TRUE(Utils::from_string(std::string("7"), perPage));
     EXPECT_EQ(7, perPage);
 
-    //Overflow does NOT zero it, it saturates - which is why a huge per_page is
-    //harmless and an absent one is fatal.
+    /* ⭐ OVERFLOW, AND THE RETURN VALUE IS PART OF THE PIN (T3.25 review).
+     * The VALUE does not move - num_get saturates to INT_MAX, which is why a
+     * huge per_page is answered normally instead of being refused. What T3.25
+     * changed here is the VERDICT: "99999999999" used to answer TRUE, because
+     * the old return was iss.eof() alone and an overflow consumes the whole
+     * input. It is a FAILURE and from_string() now says so.
+     *
+     * ⚠️ This EXPECT_FALSE is the only thing standing between the tree and a
+     * silent revert of the overflow half of T3.25: every other overflow
+     * assertion in this file and in JsonApiInputGuards_test looks at the VALUE
+     * only, and the value is identical before and after. Do not drop it.
+     *
+     * The two _keep-family spellings differ HERE and nowhere else, which is
+     * exactly why buildJsonEventLog() does not use from_string_or_keep():
+     * per_page:"99999999999" must be answered with 2147483647 echoed back
+     * (EventLogSaturatesAVeryLargePerPage below), not with the default 100.
+     */
     perPage = 100;
-    Utils::from_string(std::string("99999999999"), perPage);
+    EXPECT_FALSE(Utils::from_string(std::string("99999999999"), perPage))
+        << "an overflow is a parse FAILURE - if this is true, from_string() is "
+           "back on iss.eof() alone and T3.25 has been reverted";
     EXPECT_EQ(2147483647, perPage);
+
+    perPage = 100;
+    EXPECT_FALSE(Utils::from_string_unless_blank(std::string("99999999999"), perPage));
+    EXPECT_EQ(2147483647, perPage) << "buildJsonEventLog() echoes this saturated "
+                                      "value back on the wire";
+
+    perPage = 100;
+    EXPECT_FALSE(Utils::from_string_or_keep(std::string("99999999999"), perPage));
+    EXPECT_EQ(100, perPage) << "from_string_or_keep() keeps the default on an "
+                               "overflow - the T3.25 review's correction - which "
+                               "is why per_page does NOT use it";
 }
 
 TEST_F(JsonApiSessionTest, EventLogPutsRealJsonIntegersOnTheWire)

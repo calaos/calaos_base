@@ -34,12 +34,21 @@
  *   "12abc"    false        12              num_get ran and SUCCEEDED, the
  *                                           stream just did not reach eof
  *   "12"       true         12              the only honest line
+ *   ⭐ "-"      TRUE         0               num_get consumed the sign, found
+ *                                           no digit, failed - and eof() said
+ *                                           success for the 0 it stored
+ *   ⭐ "2^31"   TRUE         INT_MAX         OVERFLOW: consumed whole, num_get
+ *                                           SATURATES and sets failbit - and
+ *                                           eof() said success for the limit
  *
- * The first two lines are the whole ticket: the ONLY inputs that LIE about
- * their return code are also the ONLY ones that leave the destination alone.
- * 312 of the 319 call sites in src/ ignore that return code, so for them an
- * empty string means "keep whatever was in that variable" - and 173 of those
- * destinations are uninitialised locals.
+ * ⭐ THREE families of input LIED about their return code, not one - the blank
+ * string, the lone sign and the overflow (T3.25 review, measured with
+ * g++ -std=c++17). The blank string is the one the ticket was opened for
+ * because it is the only one that leaves the destination ALONE: 312 of the 319
+ * call sites in src/ ignore the return code, so for them an empty string meant
+ * "keep whatever was in that variable", and most of those destinations are
+ * uninitialised locals. The other two always wrote something, which is exactly
+ * why nobody noticed that the verdict was wrong.
  *
  * THE SENTINEL IS THE POINT OF THIS FILE. Every destination is seeded with
  * 21845 (0x5555), never with 0. Seeding 0 would make "not written", "written
@@ -54,6 +63,11 @@
  *   - ABoolThatIsNeitherZeroNorOneIsReportedAsAFailure
  *   - ALoneSignIsNotANumberEitherAlthoughItReachesTheEnd
  *   - AnUnsignedDestinationIsNotSpared (its empty-string half)
+ *   - ⭐ AnIntegerOverflowSaturatesAndIsAFAILURE          ]  added by the
+ *   - ⭐ ADoubleOverflowSaturatesAndIsAFAILURETOO         ]  T3.25 REVIEW:
+ *   - ⭐ IsOfTypeRefusesAnOverflow                        ]  the overflow
+ *   - ⭐ FromStringOrKeepKeepsTheDefaultOnAnOverflow      ]  family was not
+ *   - ⭐ FromStringOrAlsoRejectsAnOverflow                ]  covered at all
  * Everything else is ALREADY true today and must stay true: those cases are
  * the guard rail that forbids the naive "dest = T{} on failure" correction,
  * which would silently turn "12abc" and "12 " into 0.
@@ -289,9 +303,26 @@ TEST(UtilsFromString, FromStringOrKeepLeavesTheDefaultAloneOnABlankString)
     EXPECT_FALSE(Utils::from_string_or_keep(string("12abc"), port));
     EXPECT_EQ(12, port) << "a partial read is kept, exactly as before T3.25";
 
+    /* ⭐ CHANGED BY THE T3.25 REVIEW, and it is the point of the helper.
+     * The first cut guarded the BLANK STRING ONLY and then delegated, so
+     * "abc" wrote 0 over the default. from_string_or_keep() now writes `dest`
+     * if and only if num_get produced a value FROM THE INPUT - which "abc"
+     * does not. The default is what the caller asked to protect; protecting it
+     * against a blank string but not against rubbish was an accident of the
+     * implementation, not a contract anybody wrote down.
+     *
+     * ⛔ The eventlog per_page site depends on the OPPOSITE ("abc" -> 0 ->
+     * refused, T3.19) and is the reason from_string_unless_blank() exists.
+     */
     port = 1883;
     EXPECT_FALSE(Utils::from_string_or_keep(string("abc"), port));
-    EXPECT_EQ(0, port) << "unreadable-but-not-blank has always written 0 here";
+    EXPECT_EQ(1883, port) << "nothing was read from the input, so the default "
+                             "stands - see from_string_unless_blank() for the "
+                             "one call site that needs the other answer";
+
+    port = 1883;
+    EXPECT_FALSE(Utils::from_string_or_keep(string("-"), port));
+    EXPECT_EQ(1883, port) << "a lone sign is not a value either";
 }
 
 TEST(UtilsFromString, FromStringOrReturnsTheDefaultOnEveryFailure)
@@ -307,4 +338,163 @@ TEST(UtilsFromString, FromStringOrReturnsTheDefaultOnEveryFailure)
                "from_string_or_keep()";
     EXPECT_EQ(42, Utils::from_string_or(string("42"), 100));
     EXPECT_DOUBLE_EQ(1.5, Utils::from_string_or(string("1.5"), 9.0));
+}
+
+/*******************************************************************************
+ * ⭐ OVERFLOW - the THIRD family whose verdict T3.25 changed, and the one this
+ * file did not cover at all before the review.
+ *
+ * The T3.25 review measured what the header claimed ("WHAT CHANGED, AND IT IS
+ * EXACTLY ONE INPUT: the blank string") and found it false: the return value
+ * flips from true to false on THREE families - the blank string, the lone
+ * sign, and OVERFLOW. Only the first leaves the destination untouched, which
+ * is why only the first was noticed.
+ *
+ * ⚠️ WHY THIS BLOCK IS NECESSARY, stated precisely. The saturated VALUE was
+ * already pinned elsewhere in the tree - core/JsonApiSession_test.cpp
+ * (EventLogSaturatesAVeryLargePerPage) and core/JsonApiInputGuards_test.cpp
+ * (AHugePerPageSaturatesToIntMaxAndIsHarmless) both assert 2147483647 - and
+ * that value is IDENTICAL before and after T3.25. The discovery of the ticket
+ * on this family is therefore NOT the INT_MAX, it is the `false`. Before this
+ * block, a partial revert of T3.25 restricted to overflow - one that keeps the
+ * blank string refused and only puts the saturated case back on iss.eof()
+ * alone - made NOTHING in the tree go red. Measured, not assumed.
+ ******************************************************************************/
+
+TEST(UtilsFromString, AnIntegerOverflowSaturatesAndIsAFAILURE)
+{
+    /* The VALUE does not move: num_get consumes every character, clamps to the
+     * limit of the type and sets failbit. The RETURN does move - the old
+     * iss.eof() said "success" because the whole string WAS consumed.
+     */
+    const int intMax = std::numeric_limits<int>::max();
+    const int intMin = std::numeric_limits<int>::min();
+
+    const char *tooBig[] = { "2147483648", "4294967296", "99999999999999999999" };
+    for (const char *r: tooBig)
+    {
+        int dest = INT_SENTINEL;
+        EXPECT_FALSE(Utils::from_string(string(r), dest))
+                << "input [" << string(r) << "] is a parse FAILURE, however "
+                   "completely it was consumed";
+        EXPECT_EQ(intMax, dest)
+                << "input [" << string(r) << "]: the saturated value is still "
+                   "published - T3.25 changes the verdict, never this value";
+    }
+
+    int dest = INT_SENTINEL;
+    EXPECT_FALSE(Utils::from_string(string("-2147483649"), dest));
+    EXPECT_EQ(intMin, dest);
+
+    //the boundary that must stay a success
+    dest = INT_SENTINEL;
+    EXPECT_TRUE(Utils::from_string(string("2147483647"), dest));
+    EXPECT_EQ(intMax, dest);
+}
+
+TEST(UtilsFromString, ADoubleOverflowSaturatesAndIsAFAILURETOO)
+{
+    //Same story one type over: HUGE_VAL is stored and failbit is set.
+    double dest = DOUBLE_SENTINEL;
+    EXPECT_FALSE(Utils::from_string(string("1e400"), dest));
+    EXPECT_DOUBLE_EQ(std::numeric_limits<double>::max(), dest);
+
+    dest = DOUBLE_SENTINEL;
+    EXPECT_FALSE(Utils::from_string(string("-1e400"), dest));
+    EXPECT_DOUBLE_EQ(-std::numeric_limits<double>::max(), dest);
+
+    /* ⚠️ NOT an overflow, and worth pinning next to the ones that are: an
+     * integer literal far past INT_MAX is a perfectly ordinary double.
+     */
+    dest = DOUBLE_SENTINEL;
+    EXPECT_TRUE(Utils::from_string(string("99999999999999999999"), dest));
+    EXPECT_DOUBLE_EQ(1e20, dest);
+}
+
+TEST(UtilsFromString, IsOfTypeRefusesAnOverflow)
+{
+    /* The guard and the parse it guards share Detail::parse(), so they cannot
+     * disagree. Ten call sites in src/ are protected by is_of_type() ALONE
+     * (the step=1.0 family), and this is the input that used to walk past it.
+     */
+    EXPECT_FALSE(Utils::is_of_type<int>(string("2147483648")));
+    EXPECT_FALSE(Utils::is_of_type<int>(string("99999999999999999999")));
+    EXPECT_FALSE(Utils::is_of_type<double>(string("1e400")));
+
+    EXPECT_TRUE(Utils::is_of_type<int>(string("2147483647")));
+    EXPECT_TRUE(Utils::is_of_type<double>(string("99999999999999999999")));
+}
+
+TEST(UtilsFromString, FromStringOrKeepKeepsTheDefaultOnAnOverflow)
+{
+    /* ⭐ THE T3.25 REVIEW'S CORRECTION, and the reason the helper was rewritten
+     * rather than re-documented. MEASURED on the first cut of this ticket:
+     *
+     *     int port = 1883;
+     *     from_string_or_keep("99999999999999999999", port);   // -> false
+     *     port == 2147483647;                                  // ⛔
+     *
+     * The function whose entire purpose is "the default survives what cannot
+     * be read" destroyed the default on the one failure mode where num_get
+     * leaves something behind. Twenty call sites depended on it: the mqtt port
+     * and keepalive, RemoteUI brightness, the KNX eis sentinel, the ColorUtils
+     * alpha, the two JSON-API ports, the Wago Modbus port, the AVReceiver zone.
+     */
+    int port = 1883;
+    EXPECT_FALSE(Utils::from_string_or_keep(string("99999999999999999999"), port));
+    EXPECT_EQ(1883, port) << "an overflow is a failure, and a failure must not "
+                             "cost the default this helper exists to protect";
+
+    port = 1883;
+    EXPECT_FALSE(Utils::from_string_or_keep(string("2147483648"), port));
+    EXPECT_EQ(1883, port);
+
+    double alpha = 1.0;
+    EXPECT_FALSE(Utils::from_string_or_keep(string("1e400"), alpha));
+    EXPECT_DOUBLE_EQ(1.0, alpha);
+
+    //and the boundary still lands, because it is not a failure
+    port = 1883;
+    EXPECT_TRUE(Utils::from_string_or_keep(string("2147483647"), port));
+    EXPECT_EQ(std::numeric_limits<int>::max(), port);
+}
+
+TEST(UtilsFromString, FromStringUnlessBlankPublishesTheSaturatedOverflow)
+{
+    /* The OTHER half of the old helper, and the one JsonApi.cpp's eventlog
+     * needs: T3.19 documents, and two suites pin, that per_page:"99999999999"
+     * is ANSWERED with 2147483647 echoed back. Only a BLANK value keeps the
+     * default here.
+     */
+    int perPage = 100;
+    EXPECT_FALSE(Utils::from_string_unless_blank(string(""), perPage));
+    EXPECT_EQ(100, perPage);
+
+    perPage = 100;
+    EXPECT_FALSE(Utils::from_string_unless_blank(string("  \t "), perPage));
+    EXPECT_EQ(100, perPage);
+
+    perPage = 100;
+    EXPECT_FALSE(Utils::from_string_unless_blank(string("99999999999"), perPage));
+    EXPECT_EQ(std::numeric_limits<int>::max(), perPage)
+            << "T3.19 answers a huge per_page instead of refusing it";
+
+    perPage = 100;
+    EXPECT_FALSE(Utils::from_string_unless_blank(string("abc"), perPage));
+    EXPECT_EQ(0, perPage) << "and this 0 is what the T3.19 range guard refuses";
+
+    perPage = 100;
+    EXPECT_FALSE(Utils::from_string_unless_blank(string("1,5"), perPage));
+    EXPECT_EQ(1, perPage) << "T3.19's documented partial read";
+}
+
+TEST(UtilsFromString, FromStringOrAlsoRejectsAnOverflow)
+{
+    //The strict form was already right on this family - it tests the return
+    //value of from_string() and nothing else - and this pins that it stays so.
+    EXPECT_EQ(1883, Utils::from_string_or(string("99999999999999999999"), 1883));
+    EXPECT_EQ(1883, Utils::from_string_or(string("2147483648"), 1883));
+    EXPECT_DOUBLE_EQ(1.0, Utils::from_string_or(string("1e400"), 1.0));
+    EXPECT_EQ(std::numeric_limits<int>::max(),
+              Utils::from_string_or(string("2147483647"), 1883));
 }

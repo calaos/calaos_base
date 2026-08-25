@@ -45,8 +45,11 @@ WIAnalog::WIAnalog(Params &p):
     ioDoc->paramAddInt("var", _("PLC address of the input sensor"), 0, 65535, true);
 
     host = get_param("host");
+    /* T3.25 (review). _or_keep: Exists() proves the key is THERE, not that it
+     * carries a number. A "port" that is present and blank made a plain
+     * from_string() write 0 over the Modbus default of 502. */
     if (get_params().Exists("port"))
-        Utils::from_string(get_param("port"), port);
+        Utils::from_string_or_keep(get_param("port"), port);
 
     WagoMap::Instance(host, port);
 
@@ -103,8 +106,11 @@ void WIAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord
 void WIAnalog::readValue()
 {
     host = get_param("host");
+    /* T3.25 (review). _or_keep: Exists() proves the key is THERE, not that it
+     * carries a number. A "port" that is present and blank made a plain
+     * from_string() write 0 over the Modbus default of 502. */
     if (get_params().Exists("port"))
-        Utils::from_string(get_param("port"), port);
+        Utils::from_string_or_keep(get_param("port"), port);
 
     Utils::from_string(get_param("var"), address);
 

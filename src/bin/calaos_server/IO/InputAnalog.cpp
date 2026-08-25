@@ -113,10 +113,13 @@ void InputAnalog::readConfig()
     else
         frequency = 15.0;
 
-    if (!get_params().Exists("precision"))
-        precision = 2;
-    else
-        Utils::from_string(get_param("precision"), precision);
+    /* T3.25 (review). The default is written FIRST and the parse is _or_keep:
+     * `precision` is a plain `int` member with no in-class initialiser
+     * (InputAnalog.h:36), so the old else-branch turned a "precision" parameter
+     * that is present and blank into 0 decimals instead of the documented 2. */
+    precision = 2;
+    if (get_params().Exists("precision"))
+        Utils::from_string_or_keep(get_param("precision"), precision);
 }
 
 void InputAnalog::emitChange()

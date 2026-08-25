@@ -96,78 +96,175 @@ private:
 /* T3.25. THE PARSING CONTRACT, in one place, because 319 call sites in src/
  * depend on it and 312 of them do so WITHOUT LOOKING AT THE RETURN VALUE.
  *
- *   input      returns   dest after the call
- *   ""         false     T{}     - nothing readable
- *   "  \t "    false     T{}     - idem, a blank string is not a number
- *   "abc"      false     T{}     - num_get ran and failed
- *   "-", "+"   false     T{}     - consumed whole, still not a number
- *   "12abc"    false     12      - a PARTIAL read is kept, not thrown away
- *   "12 "      false     12      - idem
- *   "12"       true      12
+ *   input                    returns   dest after the call
+ *   ""                       false     T{}       - nothing readable
+ *   "  \t "                  false     T{}       - idem, a blank string is not a number
+ *   "abc"                    false     T{}       - num_get ran and failed
+ *   "-", "+"                 false     T{}       - consumed whole, still not a number
+ *   "12abc"                  false     12        - a PARTIAL read is kept, not thrown away
+ *   "12 "                    false     12        - idem
+ *   "12"                     true      12
+ *   ⚠️ "2147483648"  <int>    false     INT_MAX   - OVERFLOW, and it is the ONE failure
+ *   ⚠️ "-2147483649" <int>    false     INT_MIN     mode where `dest` is NEITHER T{} NOR a
+ *   ⚠️ "1e400"    <double>    false     DBL_MAX     partial read: num_get SATURATES to the
+ *   ⚠️ "-1e400"   <double>    false     -DBL_MAX    limit of T, sets failbit, and T3.25
+ *                                                  PUBLISHES that saturated value.
  *
- * WHAT CHANGED, AND IT IS EXACTLY ONE INPUT: the blank string. Until T3.25 the
- * return value was `iss.eof()` alone, and on "" (or on any whitespace-only
- * string) the SENTRY of operator>> fails while skipping whitespace, so num_get
- * NEVER RUNS: eofbit is set, failbit is set, `dest` is left untouched and
- * eof() answered "success". Since Params::operator[] returns "" for an ABSENT
- * key, "the parameter is missing" meant "use whatever was on the stack" at 173
- * call sites whose destination is an uninitialised local. That reached an
- * OutputShutter through the JSON API and armed an impulse on an arbitrary
- * duration (T3.25 section 2).
+ * WHAT CHANGED IS THE RETURN VALUE, ON THREE FAMILIES OF INPUT — measured with
+ * g++ -std=c++17, not inferred. Until T3.25 the return was `iss.eof()` alone,
+ * which answers "the stream was consumed to the end", NOT "the parse
+ * succeeded". Three families are consumed to the end while failing:
  *
- * `iss.fail()` is what tells the two regimes apart: the sentry sets failbit,
- * a merely unconsumed trailing character does not.
+ *   1. THE BLANK STRING ("" and any whitespace-only string). The SENTRY of
+ *      operator>> fails while skipping whitespace, so num_get NEVER RUNS:
+ *      eofbit and failbit are both set, `dest` was left untouched, and eof()
+ *      answered "success". Since Params::operator[] returns "" for an ABSENT
+ *      key, "the parameter is missing" meant "use whatever was on the stack"
+ *      at every call site whose destination is an uninitialised local. That
+ *      reached an OutputShutter through the JSON API and armed an impulse on
+ *      an arbitrary duration (T3.25 section 2). ⭐ This is the family the
+ *      ticket was opened for, and the only one where `dest` was NOT written.
+ *   2. THE LONE SIGN ("-", "+"). num_get runs, consumes the sign, finds no
+ *      digit, sets failbit and writes 0. eof() said "success" for 0.
+ *   3. ⭐ OVERFLOW ("2147483648" for int, "1e400" for double). num_get runs,
+ *      consumes every character, saturates to INT_MAX/INT_MIN/±DBL_MAX and
+ *      sets failbit. eof() said "success" for the saturated value. THE VALUE
+ *      IS UNCHANGED by T3.25 — saturation is what the standard mandates and
+ *      what the tree already relied on (core/JsonApiSession_test.cpp and
+ *      core/JsonApiInputGuards_test.cpp pin INT_MAX). What T3.25 changes, and
+ *      all it changes, is that the caller is now TOLD it was a failure.
+ *
+ * The conclusion of the T3.25 audit is not affected by families 2 and 3: only
+ * the 7 sites in src/ that READ the return value can see the difference, and
+ * the two that are affected (WagoConfigParse.h:57, GpioCtrl.h:78) GAIN from it
+ * — they reject a value they used to accept.
+ *
+ * `iss.fail()` is what tells the two regimes apart: the sentry, an unreadable
+ * token and an overflow all set failbit; a merely unconsumed trailing
+ * character does not.
  *
  * ⛔ WHAT IS DELIBERATELY *NOT* DONE: "if it did not fully succeed, write T{}".
  * That would turn "12abc" and "12 " into 0 and silently change every config
  * value carrying a unit or a stray character. The partial read is kept, and
- * tests/StringUtilsFromString_test pins it.
+ * tests/StringUtilsFromString_test pins it — overflow rows included.
  */
+namespace Detail
+{
+/* The ONE parse that from_string(), from_string_or_keep() and is_of_type() all
+ * run, so that the guard, the two writers and the predicate can never disagree
+ * about what "readable" means. Each caller applies its own WRITE POLICY on top.
+ *
+ *   readOk == !iss.fail(): num_get produced a value from the input, whole or
+ *      partial. FALSE for a blank string, unreadable text, a lone sign, and
+ *      ⚠️ for an OVERFLOW — where num_get *does* leave a saturated value in
+ *      `out`, which is precisely why the write policy has to be a decision and
+ *      not an accident.
+ *   whole == iss.eof(): every character of the input was consumed.
+ *
+ * `out` must already hold a defined value: on the paths where num_get never
+ * runs (blank string) it is not written at all.
+ */
+template<typename T>
+void parse(const std::string &str, T &out, bool &readOk, bool &whole)
+{
+    std::istringstream iss(str);
+    /* std::locale::global() is never called anywhere in src/, so imbuing the
+     * "C" locale is a no-op today - it is here so that this can never change
+     * under us, and so that every caller shares the same one. */
+    iss.imbue(std::locale("C"));
+    iss >> out;
+    readOk = !iss.fail();
+    whole = iss.eof();
+}
+}
 template<typename T>
 bool is_of_type(const std::string &str)
 {
-    std::istringstream iss(str);
-    /* Same locale as from_string() below. std::locale::global() is never
-     * called anywhere in src/, so today this is a no-op - it is here so that
-     * the guard and the parse it guards can never disagree by construction.
-     */
-    iss.imbue(std::locale("C"));
     T tmp{};
-    iss >> tmp;
-    return !iss.fail() && iss.eof();
+    bool readOk = false, whole = false;
+    Detail::parse(str, tmp, readOk, whole);
+    return readOk && whole;
 }
 template<typename T>
 bool from_string(const std::string &str, T &dest)
 {
-    std::istringstream iss(str);
-    iss.imbue(std::locale("C")); //use the C locale when parsing
     /* Parse into a DEFINED temporary and always publish it: `dest` is written
      * on every path, so a caller that ignores the return value can no longer
-     * end up reading its own uninitialised variable.
+     * end up reading its own uninitialised variable. ⚠️ On overflow the value
+     * published is the SATURATED one, not T{} — see the table above.
      */
     T tmp{};
-    iss >> tmp;
+    bool readOk = false, whole = false;
+    Detail::parse(str, tmp, readOk, whole);
     dest = tmp;
-    return !iss.fail() && iss.eof();
+    return readOk && whole;
 }
-/* T3.25. The contract the 45 call sites carrying an INITIALISED destination
- * were relying on, written down instead of inferred: parse into `dest`, and
- * leave `dest` ALONE when there is nothing at all to parse. It is what
+/* T3.25. The contract the call sites carrying an INITIALISED destination were
+ * relying on, written down instead of inferred: parse into `dest`, and leave
+ * `dest` ALONE whenever the input does not yield a value. It is what
  * from_string() used to do BY ACCIDENT on a blank string, and the only reason
- * those sites kept their default when a parameter was absent. A partial read
- * still lands ("12abc" -> 12), exactly as before.
+ * those sites kept their default when a parameter was absent.
  *
  * Use it where a MEANINGFUL non-zero default must survive a missing value.
+ *
+ *   ""  "  " "abc" "-" "2147483648" "1e400"  ->  false, `dest` UNTOUCHED
+ *   "12abc" "12 "                            ->  false, `dest` = 12 (partial read lands)
+ *   "12"                                     ->  true,  `dest` = 12
+ *
+ * ⭐ THE OVERFLOW ROW IS THE T3.25 REVIEW'S CORRECTION, and it is not cosmetic.
+ * The first cut of this helper guarded the BLANK STRING ONLY and then delegated
+ * to from_string(), so from_string_or_keep("99999999999999999999", port) with
+ * port = 1883 returned false and left port = 2147483647 — destroying the very
+ * default the function exists to protect, at all 20 call sites (mqtt port and
+ * keepalive, RemoteUI brightness, KNX eis, ColorUtils alpha, the two JSON-API
+ * ports, ...). Testing `readOk` instead of testing the string covers the blank
+ * string, the unreadable token, the lone sign AND the overflow with one
+ * condition, and cannot drift away from what from_string() considers a failure.
+ *
+ * The rule, stated once: from_string_or_keep() writes `dest` if and only if
+ * num_get produced a value FROM THE INPUT. A saturated overflow is a value
+ * num_get produced from its own limits, and the default wins over it.
  */
 template<typename T>
 bool from_string_or_keep(const std::string &str, T &dest)
+{
+    T tmp{};
+    bool readOk = false, whole = false;
+    Detail::parse(str, tmp, readOk, whole);
+    if (!readOk)
+        return false;
+    dest = tmp;
+    return whole;
+}
+/* T3.25 (review). The OTHER half of the old from_string_or_keep(): parse
+ * exactly as from_string() does, INCLUDING publishing a saturated overflow,
+ * unless there is literally nothing to parse.
+ *
+ *   ""  "  "                                 ->  false, `dest` UNTOUCHED
+ *   "abc"                                    ->  false, `dest` = T{}
+ *   "12abc" "12 "                            ->  false, `dest` = 12
+ *   ⚠️ "99999999999" <int>                    ->  false, `dest` = INT_MAX
+ *   "12"                                     ->  true,  `dest` = 12
+ *
+ * ⛔ It exists for ONE requirement and has TWO call sites: JsonApi.cpp's
+ * eventlog `page`/`per_page`. T3.19 documents, and JsonApiInputGuards_test /
+ * JsonApiSession_test PIN, all three of these at once:
+ *   - an absent or blank per_page answers a page of 100 (the default survives);
+ *   - per_page:"abc" reads as 0 and is REFUSED ("per_page is out of range",
+ *     with a golden);
+ *   - per_page:"99999999999" is ANSWERED, echoing the saturated 2147483647.
+ * from_string_or_keep() satisfies the first and breaks the other two, which is
+ * why this site does not use it. Do not "simplify" one into the other.
+ */
+template<typename T>
+bool from_string_unless_blank(const std::string &str, T &dest)
 {
     if (str.find_first_not_of(" \t\n\v\f\r") == std::string::npos)
         return false;
     return from_string(str, dest);
 }
 /* T3.25. The stricter form, recommended for NEW code: any failure - blank,
- * unreadable, or only partially readable - yields `def`.
+ * unreadable, only partially readable, or overflowing - yields `def`.
  *
  * It is deliberately NOT retrofitted onto the existing call sites: unlike
  * from_string_or_keep() it also discards a PARTIAL read, and at least one
