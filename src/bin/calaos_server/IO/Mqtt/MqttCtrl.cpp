@@ -124,15 +124,60 @@ string MqttCtrl::getValueJson(const Params &params, string path, string payload)
             // if it's the case, it must be something like [x]
             if (val[0] == '[')
             {
-                int idx;
+                /* T3.35. A well formed index token is "[n]". A token SHORTER
+                 * than two characters - a lone '[', mistyped in a
+                 * configuration parameter - is EMPTIED by the erase() below,
+                 * and pop_back() then underflows the size_t length of the
+                 * string. That was not a theoretical problem: the read that
+                 * followed escaped getValueJson() as a std::bad_alloc, nothing
+                 * caught it anywhere up to main(), and calaos_server
+                 * terminated. There is no remote vector - a `path` is only
+                 * ever written by calaos_installer - but a typo was enough to
+                 * bring the server down.
+                 */
+                if (val.size() < 2)
+                {
+                    cWarning() << "Error in path " << path << ", malformed array index " << *it
+                               << " : an array index must be written [n], as in weather/[0]/description";
+                    return string();
+                }
+
+                /* T3.35. Initialised on purpose, and NOT redundant on this
+                 * branch: Utils::from_string() leaves its destination
+                 * untouched when the string is blank, because the stream
+                 * sentry fails before num_get ever runs. The token "[]" - which
+                 * the guard above deliberately still lets through, so that
+                 * T3.29's ANonNumericIndexSilentlyReadsElementZero keeps
+                 * holding - therefore used to read an UNINITIALISED int. T3.25
+                 * closes the same hole from the other side by making
+                 * from_string() write on every path; this line keeps the
+                 * branch correct with or without it.
+                 */
+                int idx = 0;
                 // Remove first and last char
                 val.erase(0, 1);
                 val.pop_back();
-                // Read array index
-                Utils::from_string(val, idx);
 
                 try
                 {
+                    /* T3.35. Moved INSIDE the try, and this is a SECOND line
+                     * of defence, not a cosmetic move: from_string() copies
+                     * `val` into an istringstream, so on a string whose length
+                     * has underflowed it is exactly where the std::bad_alloc
+                     * came from. Measured (mutation M1, guard displaced past
+                     * the erase/pop_back): with the try alone the process
+                     * SURVIVES a lone '[' and only the message is wrong.
+                     *
+                     * ! REDUNDANT GIVEN THE GUARD ABOVE, and annotated rather
+                     * than removed: mutation M5 puts this call back outside
+                     * the try, guard kept, and the suite stays at 0 red - an
+                     * equivalent mutant, not a hole in the net. It earns its
+                     * place by closing the family: everything that touches the
+                     * index now fails through the one error path this branch
+                     * already has.
+                     */
+                    // Read array index
+                    Utils::from_string(val, idx);
                     parent = parent.at(idx);
                 }
                 catch (const std::exception &e)
@@ -151,6 +196,32 @@ string MqttCtrl::getValueJson(const Params &params, string path, string payload)
                 catch (const std::exception &e)
                 {
                     cWarning() << "Error in path " << path << ", subpath not found " << *it << " : " << e.what();
+
+                    /* T3.35 - the "option C" of T3.29 section 5.6. NO FALSE
+                     * POSITIVE IS POSSIBLE HERE, by construction and not by
+                     * heuristic: this catch is only ever entered when
+                     * parent.at(val) has ALREADY thrown. A payload whose key
+                     * really is spelled "action[0]" - a real, measured
+                     * Zigbee2MQTT shape - has RESOLVED and never reaches this
+                     * line. That is exactly what separates it from teaching
+                     * the parser to also split a glued index, which T3.29
+                     * implemented, measured and rejected because it shadowed
+                     * such a key silently.
+                     *
+                     * Honest about its reach: cWarning() is not a filtered
+                     * domain, so this does go to the calaos_server log by
+                     * default - but the person who made the typo is sitting in
+                     * calaos_installer.
+                     */
+                    if (val.find('[') != string::npos)
+                    {
+                        string suggestion = val;
+                        suggestion.insert(suggestion.find('['), "/");
+                        cWarning() << "Error in path " << path << ", did you mean " << suggestion
+                                   << " ? array indices are their own path segment, not glued to "
+                                      "the key that precedes them";
+                    }
+
                     return string();
                 }
             }
