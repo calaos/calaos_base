@@ -3,6 +3,90 @@
 > Découvertes faites **en marge** des tickets (hors périmètre du ticket en cours, donc **non
 > corrigées**). Candidates à de futurs tickets. Sorti du job tmp éphémère → durable + partagé.
 
+## E4.1h — Wago (2026-08-25)
+
+- ✅ **[F-WAGO-1] — CORRIGÉ dans E4.1h** (commit `e6ab8589`, branche `refactor/e4.1h`), **contre la
+  recommandation écrite de `E4.1h.md` et de `E4.1.md` § Q2**, sur instruction explicite de
+  l'orchestrateur **et** parce que la mesure ci-dessous retire le seul risque invoqué.
+
+  **`WagoMap::write_multiple_bits()` (`WagoMap.cpp:328-337`) et `write_multiple_words()`
+  (`:402-411`) n'émettaient jamais leur tableau `values`, et fuyaient `jret`.** Mécanisme vérifié
+  au source : `jansson_to_string()` (`Jansson_Addition.h:150-165`) **vole** la référence, et
+  `jansson_from_params(p)` était appelé **deux fois** — la première dans `jret`, qui recevait le
+  tableau, la seconde **dans l'appel à `sendMessage`**. Le tableau ne quittait donc jamais le
+  processus, et `jret` (avec le tableau dont il avait pris possession) **n'était jamais rendu**.
+  ⚠️ **Ce n'est PAS le motif « `json_decref` de trop »** de `ReolinkCtrl.cpp:151` et
+  `MqttCtrl.cpp:115` : c'est une **référence jamais rendue**, la faute inverse. Ne pas confondre
+  les deux dans un balayage.
+
+  ⛔ **CE QUE LES FICHES DISAIENT EST FAUX, ET C'EST LE POINT IMPORTANT.** `E4.1h.md:32`,
+  `E4.1.md:196` et `ORCHESTRATION.md:594` décrivent « **une panne silencieuse en production** » /
+  « l'écriture multiple n'écrit rien, en silence, depuis toujours ». **Recompté ici par balayage
+  exhaustif de l'arbre** (`.cpp/.h/.c/.py/.lua/.xml/.json`, artefacts de build exclus, en
+  `python3`) : **`WagoMap::write_multiple_bits()` et `write_multiple_words()` n'ont AUCUN
+  APPELANT** — `WagoMap.h:188` et `:194` (déclarations) plus les deux définitions, **rien d'autre**.
+  Aucun IO Wago (`WODigital`, `WOAnalog`, `WODali`, `WODaliRVB`, `WOVolet`, `WOVoletSmart`,
+  `WITemp`, …) ne les appelle. `calaos_server` n'a donc **jamais** émis `action:"write_bits"` ni
+  `"write_words"` ; les branches `WagoExternProc_main.cpp:140-176` et `:245-283` **n'ont jamais été
+  atteintes** ; **aucun automate n'a jamais reçu ce message**.
+  ⇒ **Il n'y a pas de panne en production : la fonctionnalité est morte de bout en bout.**
+  ⇒ **Aucune entrée `RELEASE_NOTES`** — rien d'observable par un utilisateur ne change, ni avant ni
+  après la correction.
+  ⇒ Et le motif de non-correction (« ça change ce que reçoit un automate réel ») **ne tient pas** :
+  il n'y a pas d'automate à l'autre bout.
+
+  **Épinglé par des tests** : `tests/WagoWire_test.cpp` gelait l'**absence** dans deux cas nommés
+  `WriteMultiple{Bits,Words}RequestCarriesNoValuesArray_BUG` (octets exacts **et** nombre de clés,
+  pas un `!contains()` nu) ; le commit de correction les **flippe** au lieu de les supprimer.
+  Contre-mutation **M12** (re-supprimer le tableau du constructeur livré) → **3 cas rouges**.
+
+- ⚠️ **[F-WAGO-2] — NON CORRIGÉ, hors périmètre : `WagoCtrl` lit `values[i]` sans jamais confronter
+  `count` à `values.size()`.**
+  `WagoCtrl::write_multiple_bits()` (`WagoCtrl.cpp:159-160`) fait `setBit(*data, i, values[i])`
+  pour `i ∈ [0, nb)`, et `write_multiple_words()` (`:225-226`) fait `data[i] = values[i]` de même.
+  `nb` vient du message, `values` du tableau décodé. **Avec le défaut F-WAGO-1, `values` arrivait
+  VIDE et `nb` valait le compte annoncé** : `values[i]` sur un `vector` vide est un **comportement
+  indéfini** — pas « une écriture vide ». Sur `vector<bool>` c'est une lecture de bit dans un mot
+  inexistant ; sur `vector<UWord>` c'est une lecture via un pointeur potentiellement nul.
+  ⇒ **La description « l'écriture multiple n'écrit rien » est donc doublement fausse** : le chemin
+  est mort, et s'il ne l'était pas il ne serait pas silencieux.
+  ⛔ **F-WAGO-1 corrigé ne referme PAS celui-ci** : il le rend seulement inoffensif pour un appelant
+  qui passe `nb == values.size()`. `WagoCtrl.cpp` est hors du périmètre d'E4.1h (2 fichiers) et ne
+  contient aucun JSON. **Mérite son propre ticket** — une garde de deux lignes dans les deux
+  fonctions, ou un refus dans `WagoExternProc_main.cpp`.
+  ⚠️ **Démontré au source, jamais observé à l'exécution** : rien n'a tourné sous ASan et le chemin
+  est inatteignable.
+
+- ⚠️ **[F-WAGO-3] — NON CORRIGÉ (durcissement DÉCLARÉ, pas un report) : `string v =
+  json_string_value(value)` était un déréférencement de `NULL`.**
+  `WagoMap.cpp:215` / `:240` et `WagoExternProc_main.cpp:157` / `:262` construisaient un
+  `std::string` directement depuis `json_string_value()`, qui rend **`NULL`** sur tout ce qui n'est
+  pas une chaîne JSON. Un émetteur qui aurait un jour typé les valeurs en nombres ou en booléens
+  réels **plantait le récepteur**, dans son propre processus. On ne caractérise pas un comportement
+  indéfini : le décodeur migré (`WagoWire::decodeMessage`) aplatit ces entrées par les règles de la
+  maison, la couture jansson du commit de caractérisation faisait la même garde, et le cas
+  `NonStringEntriesInValuesDoNotCrashTheDecoder` l'épingle. **Le changement est donc réel et
+  déclaré**, mais il ne peut convertir qu'un plantage en valeur définie.
+
+- ⚠️ **[F-WAGO-4] — Le trou des arguments positionnels, MESURÉ pour la troisième fois de la série.**
+  Échanger `address` et `nb` **au site d'appel** de `WagoWire::buildReadWordsRequest()` dans
+  `WagoMap.cpp` : **compile sans un seul avertissement** (`int` et `UWord` sont implicitement
+  convertibles) et laisse la suite **31/31 VERTE**. Structurel et lisible dans le `Makefile`
+  généré : `WagoWire_test_LDADD` ne contient que `libcalaos_common.la` et gtest, **aucun objet
+  serveur** — la mutation n'est même pas compilée dans le binaire de test. **Les sites d'appel ne
+  sont pas mal couverts, ils sont absents du filet par construction.** Même constat qu'en E4.1i
+  (F-REO-5) et en E4.1g.
+  **Atténuations faites dans E4.1h**, et elles réduisent réellement la surface : le littéral
+  d'action est **dans** chaque constructeur, et les deux constructeurs de réponse prennent le
+  **`Params` décodé** au lieu de quatre chaînes — l'écho de `id`/`action`/`address`/`count` ne peut
+  plus être permuté au site d'appel. **Reste** : `address` ↔ `count`, deux entiers.
+
+- 📏 **[F-WAGO-5] — `--with-wago` n'existe pas.** Le point 6 de `E4.1h.md` propose de construire
+  « avec `--with-wago` si l'option existe ». **Elle n'existe pas** : `calaos_wago` est un
+  `bin_PROGRAMS +=` **inconditionnel** (`src/bin/calaos_server/Makefile.am:373`), contrairement à
+  `calaos_ola` (`if HAVE_LIBOLA`) et `calaos_knx` (`if HAVE_LIBKNX`). Le build par défaut le
+  construit toujours.
+
 ## E4.1i — Reolink (2026-08-25)
 
 - ✅ **[F-REO-1] — CORRIGÉ dans E4.1i** (commit `bcd3c403`, branche `refactor/e4.1i`).

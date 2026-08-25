@@ -64,12 +64,14 @@
  *       error_handler_t::replace is ever dropped, and RED DIFFERENTLY for each
  *       of the three spellings - replace writes � per bad byte, ignore
  *       makes the bytes DISAPPEAR, strict THROWS.
- *   Eight more cases freeze the exact byte string of the eight requests. Those
- *   eight do NOT move across the migration and that is the point: Params is a
- *   std::map, so jansson_from_params() already walked it ALPHABETICALLY, which
- *   is exactly what nlohmann::json does. The request wire is byte-identical
- *   before and after. Only the REPLIES, assembled key by key in insertion
- *   order by calaos_wago, get re-sorted.
+ *   Eight more cases freeze the exact byte string of the eight requests. Not
+ *   one of the eight moves across the MIGRATION, and that is the point: Params
+ *   is a std::map, so jansson_from_params() already walked it ALPHABETICALLY,
+ *   which is exactly what nlohmann::json does. The request wire is
+ *   byte-identical before and after. Only the REPLIES, assembled key by key in
+ *   insertion order by calaos_wago, get re-sorted.
+ *   Two of the eight - the multiple writes - move in the FIX commit instead,
+ *   which is a different thing and is flagged as such where they sit.
  *
  * WHERE THE BYTES OF THIS WIRE COME FROM - measured, because the answer is not
  * the same as on the KNX wire, where raw bus bytes reached a naked dump() and
