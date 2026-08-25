@@ -230,6 +230,93 @@
     c'est le code qui la consomme qui a été lu. Le seul programme exécuté est un `g++` autonome de
     12 lignes sur `from_string`/`is_of_type`.
 
+- **🔒 T3.45 ✅ MERGÉ (`ac95e8e0`, **6** commits, `git rebase 55beb79b` + `merge --ff-only`,
+  historique linéaire, **0 commit de fusion**, `./autogen.sh && ./configure && make -j32 &&
+  make check -j32` ⇒ **`# TOTAL: 94 / PASS: 94 / FAIL: 0 / SKIP: 0 / ERROR: 0`**, **un seul** bloc
+  `Testsuite summary`, `exit 0`, **0 `error:`**, `CXXLD  calaos_server`)** — `make dist` était mort
+  depuis **18 mois** : `EXTRA_DIST` pointait un niveau trop profond dans `src/lib/calaos-python`, et
+  **la CI ne lance ni `dist` ni `distcheck`**. **RIEN POUSSÉ.**
+
+  - ⭐⭐ **UNE RÉSERVE TROUVÉE PAR LE MERGE, ET FERMÉE DANS LE MÊME LOT — l'oracle rendait un FAUX
+    ROUGE, ce que ce ticket interdit précisément.** Le motif `[A-Za-z0-9_]*_SOURCES` attrapait
+    **`BUILT_SOURCES`**, qui n'est pas une primaire. `src/bin/calaos_mcp/Makefile.am` déclare
+    `BUILT_SOURCES += calaos_mcp` sous `if HAVE_PYTHON_MCP` ; `calaos_mcp` est **généré** par
+    `config.status` depuis `calaos_mcp.in` et listé dans `CLEANFILES`. ⇒ dans **tout srcdir jamais
+    construit** — un `git clone` frais, et le srcdir que `distcheck` monte en lecture seule —
+    `check-extra-dist` sortait **RC 1**, `1 missing`.
+    **Mesuré, pas argumenté** : `make distdir` **ne meurt pas** dessus, il le **construit**
+    (`distdir: $(BUILT_SOURCES)` dans le `Makefile.in` généré) et **ne l'expédie jamais** — le
+    distdir produit contient `calaos_mcp.in` et **pas** `calaos_mcp`, et `DIST_SOURCES` y vaut la
+    chaîne vide. Rougeur sans défaillance derrière ⇒ **faux rouge caractérisé**.
+    ⭐ **D'où venait le « 0 manquant » de la fiche** : la mesure d'origine a été prise dans un
+    worktree **déjà configuré et construit**, où le fichier généré existait. C'est **exactement la
+    même erreur d'arbre contaminé** que le `calaos-git/` du §3.4 que le ticket avait su corriger —
+    mais par le **build** au lieu d'un `distcheck` échoué, donc invisible à la même vigilance.
+    ⚠️ **Et cela falsifiait le §3.3 point 3** : `calaos_mcp` **était** le fichier généré,
+    conditionnel et listé hors `nodist_*` que ce point décrivait comme un risque **théorique**.
+    Le faux rouge n'était pas latent, il était **réalisé**.
+    **Correctif** (`ac95e8e0`) : `NOT_PRIMARY = {'BUILT_SOURCES', 'DIST_SOURCES'}`, écartées avant
+    le motif ⇒ **847 → 846** vérifiés, **402 → 401** conditionnels, **0 manquant**, et le compte est
+    désormais **identique en arbre construit et en arbre jamais construit** — la propriété qui
+    manquait. Arbre pristine (`git archive HEAD` + `tar -m`) : **RC 0**.
+
+  - ⭐ **M1–M4 rejouées, les quatre rougissent (RC 1), et la correspondance de M3 est VÉRIFIÉE POUR
+    DE VRAI** — c'est le point qui comptait, un oracle qui rougit sans que `distdir` meure ne
+    vaudrait rien. Dans l'arbre construit : `make[7]: *** No rule to make target
+    'calaos_extern_proc/absent.h', needed by 'distdir-am'.  Stop.`, **RC 2**. Messages relevés :
+    `EXTRA_DIST … nosuchthing*.foo` (M1), `$(top_srcdir)/nope/gone.txt` (M2),
+    `noinst_HEADERS … calaos_extern_proc/absent.h` (M3), `$(T345DIR)/absent.py` (M4).
+  - **A0 témoin rejoué en arbre pristine JAMAIS CONSTRUIT** (et non seulement « propre ») :
+    **RC 0, ensemble rouge VIDE**. `A1` et `A2` : **RC 1** chacun.
+    ⛔ **La fiche annonçait que le message distinguait A1 de A2 par « `calaospython_PYTHON` vs
+    `EXTRA_DIST` » : c'est FAUX** — les deux bras mutent `EXTRA_DIST`. **Le seul discriminant est le
+    `Makefile.am` nommé**, et il suffit :
+    `src/lib/calaos-python/Makefile.am:` vs `tests/Makefile.am:`. Corrigé dans la fiche et au board.
+  - ⛔ **Autre erreur de rédaction corrigée** : la fiche **et** le board attribuaient la faute
+    d'origine à `calaospython_PYTHON`. **C'était `EXTRA_DIST` depuis toujours** — vérifié sur les
+    deux **seuls** commits du fichier, `86da9b1b` (2025-02-16) et `06d799fe`, où
+    `calaospython_PYTHON` vaut bien `$(pythonsrcdir)/calaos_extern_proc/…`. La **conclusion** du
+    ticket (18 mois, `dist` mort, correctif d'une ligne) est **inchangée** ; seul le nom de la
+    variable l'était.
+  - ⭐ **`_MANS` EST exercé sur ce dépôt**, contrairement à ce que la revue supposait :
+    `src/lib/libquickmail/Makefile.am:65` porte `dist_man_MANS = man1/quickmail.1`, et le chemin
+    existe. Restent **non exercés** faute de déclarant : `_TEXINFOS`, `_LISP`, `_JAVA` — dans le
+    motif par conformité à automake, **pas** par mesure. C'est écrit dans la fiche.
+  - **`$(PACKAGE)-*` : 13 `Makefile.am` et non 12** — l'ancrage au niveau supérieur **plus** la
+    confirmation par le `configure.ac` du candidat préservent bien `src/lib/calaos-python`, qui
+    commence pourtant par `calaos-`. Recompté nommément : les 13 chemins sont sortis un par un.
+  - **Comptes recomptés en `python3`** (le hook `rtk` réécrit `git`/`grep`/`awk`) : **846** chemins
+    (401 conditionnels, **3** sautés, **849** jetons appariés), **13** `Makefile.am`, **0** manquant.
+    L'écart avec les **834/389** de la branche est **entièrement** `T3.25`, mergée entre-temps :
+    **4 suites** de plus dans `tests/Makefile.am`, **12 `_SOURCES`** sous `if HAVE_GTEST`, d'où
+    **+12** au total **et** au compteur conditionnel.
+  - **Conflits : AUCUN.** Le rebase sur `55beb79b` passe seul sur `tests/Makefile.am`, `BOARD.md` et
+    `FINDINGS.md`. ⚠️ **C'est précisément le cas où le piège de l'`endif` mord en silence** — donc
+    recontrôlé plutôt que supposé : `tests/Makefile.am` porte **81 `^if*` / 81 `endif`** (une seule
+    forme, `if`), profondeur finale **0**, **minimum 0, jamais négative**, **94** entrées `TESTS`
+    **sans doublon** (93 de `master` + `check-extra-dist.sh`), **`# TOTAL 94`** au build : les deux
+    moitiés de la règle de lecture concordent. `FINDINGS.md` : le bloc `## T3.45` s'ajoute **sous
+    son propre titre `##`**, sans toucher ceux de `T3.25`.
+  - **Cas réellement exécutés** (`.log`/`.trs` **effacés avant** le passage, donc aucun PASS de
+    cache) : **1585 cas gtest** sur **90** binaires, **0 `[  FAILED  ]`**, **23 cas Python**
+    (`Ran 23 tests`), **94 `.trs`** reconstruits. *(La fiche annonçait 1533 sur sa base : les
+    **+52** sont les 4 suites de `T3.25`.)*
+  - **Goldens : `d4ebc61f`, 145 fichiers, identique à `master` et à la base — AUCUN bougé.**
+    `git status -uall` du worktree de merge **vide**, **aucun `calaos-git*` résiduel**.
+  - ⚠️ **F-DIST-3 reconfirmé en passant** : le `make distdir` de la campagne a réécrit
+    `po/calaos.pot` **et 7 `.po`** — `de`, `es`, `fr`, `hi`, `nb`, `pl`, `ru` — **`en.po` intact**,
+    exactement le compte corrigé de la fiche. `git checkout -- po/` appliqué.
+  - **[`T3.48`](T3.48.md) créée et ouverte** (archive inconstructible : `exprtk.hpp`, `uvw/*.hpp`),
+    ligne au board **après** `T3.45`, tri par numéro respecté. **Aucun autre numéro n'a été
+    ouvert** — `T3.46`/`T3.47` n'existent ni comme fiche ni comme référence.
+
+  - **NON VÉRIFIÉ, à ne pas surestimer** : les chiffres d'archive du §4.2 — **415/126** absents,
+    `sole.cxx` comme seul discriminant du 125↔126, **838** entrées de tarball, **145/145** goldens
+    dans l'archive — **n'ont PAS été rejoués** : ils demandent un `make dist` complet, hors
+    périmètre d'un merge. Ils restent ceux de la branche, sur la base `1c6ab7a9`. De même le
+    **coût 33,7 ms** (n=20) n'a pas été remesuré, et le `distcheck` du §4.1 n'a pas été relancé —
+    seul `make distdir` l'a été, ce qui suffisait à M3.
+
 - **🔒 T3.34 ✅ MERGÉ (`d68aa1f3`, 7 commits, `merge --ff-only` sur `4e4b6226` — **master n'avait
   pas bougé depuis le rebase de l'auteur, donc ni rebase ni conflit**, historique linéaire,
   `./autogen.sh && ./configure && make -j12 && make check -j6` ⇒ **88/88**, `exit 0`, **0
