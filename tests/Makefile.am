@@ -2561,3 +2561,26 @@ LuaCalaosApi_test_LDADD = \
 #Built elsewhere, do not let automake turn them into prerequisites
 LuaCalaosApi_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.34
+#"impulse down <ms>" prefix removal: both shutter IOs recognised the 13
+#character prefix and then erased 11 characters, so the duration reached
+#Utils::from_string() as "n <ms>" and ImpulseDown() always got 0. Pins the
+#duration actually transmitted, the duration published in the IO command
+#state, and the stop timer really armed (this one drives the default uvw
+#loop, every wait wall clock bounded like core/Timer_test). Links the two
+#shutter objects on top of the core closure. Own HAVE_GTEST block so this
+#stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ShutterImpulse_test
+check_PROGRAMS += core/ShutterImpulse_test
+core_ShutterImpulse_test_SOURCES = core/ShutterImpulse_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ShutterImpulse_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ShutterImpulse_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_ShutterImpulse_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
