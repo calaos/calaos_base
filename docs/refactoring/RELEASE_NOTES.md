@@ -1098,3 +1098,58 @@ donc `%7f`, `%00` et n'importe quelle séquence UTF-8 invalide arrivent intacts 
 
 *(Les autres réponses de l'API basculeront de la même façon au fil des sous-tickets suivants de la
 série ; cette note sera à consolider en une seule à la fin.)*
+
+## 📦 Empaquetage — l'archive source est de nouveau constructible, et elle porte enfin les licences des bibliothèques embarquées
+
+*Cette section ne s'adresse pas à l'utilisateur du serveur mais à l'**intégrateur** et à
+l'**empaqueteur** : celui qui construit Calaos depuis un `tar.gz` et non depuis un `git clone`.
+Rien de ce qui suit ne change le comportement du serveur.*
+
+**Ce qui était cassé, et depuis quand.** Le tarball source produit par `make dist` est
+**inutilisable depuis le 2025-02-16**, en deux temps :
+
+- d'abord `make dist` **échouait** purement et simplement (`No rule to make target`, un chemin
+  `EXTRA_DIST` qui pointait un niveau trop bas) — donc **aucune archive n'était produite** ;
+- une fois cette faute réparée, l'archive se produisait, se dépliait, `configure` réussissait…
+  et **la construction mourait** sur `fatal error: exprtk.hpp: No such file or directory`, puis
+  sur `uvw/async.hpp: No such file or directory`. **417 fichiers suivis par git ne partaient pas
+  dans l'archive, dont 126 sources et en-têtes C/C++.** Les bibliothèques embarquées
+  (`uvw`, `exprtk`, `sqlite_modern_cpp`, `sole`, `llhttp`, `libquickmail`, `cpptui`,
+  `uri_parser`) n'étaient déclarées par **aucune** variable de distribution : sur `uvw`,
+  **1 fichier sur 82** partait — l'en-tête parapluie, précisément celui dont les `#include`
+  échouaient ensuite.
+
+**Personne ne l'avait vu parce que l'intégration continue ne lance ni `make dist` ni
+`make distcheck`** : le chemin de release n'était couvert nulle part. Un paquet distribution
+construit depuis un `git clone` n'a **jamais** été affecté ; seul le chemin tarball l'était.
+
+**Ce qui marche maintenant.** `make distcheck` passe **de bout en bout** : l'archive se déplie,
+se configure, **se construit**, **exécute la suite de tests complète depuis l'archive**
+(95 tests, 95 succès — c'était une première), s'installe, se désinstalle, et **reproduit une
+archive identique depuis l'arbre déplié**. Le tarball passe de **842** à **1081** entrées et
+**ne dépend plus de l'état de l'arbre source** : une archive faite depuis un clone neuf et une
+archive faite depuis un arbre entièrement construit ont **le même contenu**.
+
+⚠️ Un second défaut, invisible tant que le premier tenait, a été trouvé et corrigé au passage :
+`tests/check-config-docs.sh` **échouait en dur dans tout tarball**, parce qu'il compare la sortie
+de `calaos_config options --markdown` à un fichier de référence commité qui, lui non plus, ne
+partait pas. Un empaqueteur qui lançait `make check` après construction voyait donc un échec —
+sur un fichier manquant, pas sur une régression.
+
+**Licences — le point à retenir si vous redistribuez.** ⚠️ **L'archive ne contenait que 2 des 11
+fichiers de licence** des bibliothèques tierces embarquées dans les sources. Manquaient
+`exprtk/license.txt`, `libquickmail/COPYING`, `libquickmail/License.txt`, `llhttp/LICENSE`,
+`llhttp/LICENSE-MIT`, `sole/LICENSE`, `sqlite_modern_cpp/License.txt`, `uvw/LICENSE` et
+`uvw/docs/LICENSE`. **Une archive redistribuée sans les licences du code tiers qu'elle contient
+est un problème de conformité, indépendant du fait qu'elle compile ou non** — et toute archive
+produite avant cette version en souffrait. Les 11 fichiers voyagent désormais **avec le code
+qu'ils couvrent**, dans leur répertoire d'origine. ⚠️ **11 sur 11 de ce qui existe dans le
+dépôt** : `src/lib/uri_parser` ne contient **aucun** fichier de licence, ni avant ni après ;
+ce n'est pas un fichier perdu à la distribution, c'est un fichier absent de l'import amont, et
+il reste à obtenir.
+
+**Si vous aviez contourné le problème** (patch local ajoutant des chemins à `EXTRA_DIST`,
+construction depuis un export git plutôt que depuis le tarball) : le contournement n'est plus
+nécessaire et un patch qui énumère des fichiers des répertoires ci-dessus entrera en conflit —
+ces répertoires sont maintenant distribués **en entier**, par un mécanisme qui n'énumère rien.
+(T3.45, T3.48)

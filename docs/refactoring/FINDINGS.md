@@ -6094,3 +6094,93 @@ Constaté au passage, **non traité** : `po/LINGUAS` liste `en@boldquot`, `en@qu
 par les règles gettext, leur source ne part pas dans l'archive. Sans conséquence mesurée
 (`make check` depuis l'archive est vert), mais un `autoreconf` de tarball qui voudrait les
 régénérer ne le pourrait pas. Hors périmètre T3.48.
+
+### F-DIST-1 (suite) — ⭐ les **trois trous de la revue**, et un quatrième trouvé en les colmatant
+
+⚠️ **Les chiffres de l'entrée ci-dessus valent pour la base `180c4b87`.** La branche a été
+**rebasée sur `df2851d0`** et tout a été remesuré : entrées d'archive **1079 → 1081**, suivis
+absents **204 → 205** (le delta est entièrement `docs/`, 163 → 164), `docs/` non distribués
+**162 → 164**, chemins `check-extra-dist` **859 → 862** (+3 de `T3.31`), fichiers balayés par
+l'oracle **893 → 895**. Les invariants n'ont pas bougé : **0 non couvert**, **0 code absent sous
+`src/`**, **11/11 licences**, **goldens `d4ebc61f` 145 identiques**.
+⛔ **Un chiffre était incohérent et il est tranché : 211, pas 212.** Le commit de caractérisation
+(**sujet et corps**) et la première rédaction de `T3.48.md` §6.12 disaient 212 ; `FINDINGS.md` et
+le tableau avant/après disaient 211. Remesuré en arbre **vierge** (`git archive`) **aux deux
+commits de caractérisation**, avant et après rebase : **211 des deux côtés**. ⚠️ Le sujet du
+commit **ne peut pas** être corrigé sans réécrire l'historique et ne l'a pas été.
+
+Le correctif ci-dessus a été livré vert, puis la revue a mesuré trois façons de le contourner.
+Les trois sont fermées ; le détail est dans [`T3.48`](T3.48.md) §6.13 à §6.16.
+
+1. ⚠️ **Le hook et l'oracle divergeaient sur les liens symboliques.** `find -type f` **élimine**
+   les liens ; `check-dist-coverage.py` marche sur `os.walk()` et **les compte couverts** ⇒
+   sous-expédition **silencieuse**. **0 lien suivi dans ces neuf arbres aujourd'hui**, donc
+   **latent, pas actif**. Fermé par `\( -type f -o -type l \)` + `cp -pR`. ⭐ **Prouvé, et la
+   preuve apprend quelque chose** : un lien suivi posé dans `src/lib/uvw` est vu **0 fois** par
+   `find -type f`, **1 fois** par la forme neuve ; il **part** — et il part comme **fichier
+   régulier**, parce qu'automake archive avec `tar --format=ustar -chf` et que **`-h` déréférence**.
+   Le contenu archivé est `cmp`-identique à sa cible, laquelle devient une **entrée de lien dur**
+   dans l'archive. Aucune donnée perdue ; le contenu voyage sous les deux noms.
+2. ⛔ **L'oracle croyait la VARIABLE, pas le MÉCANISME — et c'est la forme exacte du défaut que
+   le ticket corrige, retournée contre son propre filet.** Hook neutralisé (`dist-hook: @true`),
+   `VENDORED_DIST_TREES` intacte ⇒ **219 fichiers disparaissent et l'oracle reste VERT**. Seul
+   `distcheck` le voyait, et la CI ne le lance pas. Fermé : avant de créditer **un seul** fichier
+   à la variable, l'oracle vérifie que le `Makefile.am` qui la déclare est **généré par
+   `AC_CONFIG_FILES`**, qu'il définit **exactement un** `dist-hook`, et que **cette recette nomme
+   `$(VENDORED_DIST_TREES)` et copie**. Les **quatre** façons de casser le mécanisme sont
+   rouges : recette neutralisée, règle supprimée, **seconde règle ajoutée** (make garde la
+   dernière — neutralisation *par addition*), et `src/lib/Makefile` retiré d'`AC_CONFIG_FILES`
+   (271 non couverts). ⚠️ **Ce qui reste hors de portée est écrit dans la docstring** : un hook
+   qui nomme la variable et copie **mal** satisfait les trois contrôles. **Le jour où quelqu'un
+   éditera ce hook et se trompera subtilement, `make check` ne dira rien.** `distcheck` le dira,
+   et il n'est toujours pas en CI (F-DIST-2).
+3. ⚠️ **Une release depuis un arbre sale fuitait.** Un fichier **non suivi** posé dans un arbre
+   listé partait dans le tarball. L'élagage attrapait `*~` et les déchets de construction, **pas**
+   `*.orig`, `*.rej`, `*.swp`, `*.user` — et **l'oracle ne regarde pas les non-suivis du tout**
+   (mesuré : cinq intrus, `rc 0`, « 221 couverts, 0 non couvert »). ⭐ **Tranché : élargir la
+   liste de suffixes a été ÉCARTÉ** — une liste est toujours en retard d'un suffixe. Le prédicat
+   exact d'une release est « suivi par git », donc **le hook demande à git et REFUSE de
+   construire** une archive qui emporterait un fichier privé (les cinq intrus sont **nommés**,
+   `exit 1`). ⚠️ Il se **met en retrait** là où il n'y a pas de dépôt enraciné sur `$(top_srcdir)`
+   — l'arbre que `distcheck` déplie — ce qui est correct : cet arbre contient exactement ce qui a
+   déjà été expédié.
+4. ⭐ **Trouvé en colmatant le n°3, par la sonde et non à la lecture** : la première version de la
+   garde **triait sous `LC_ALL=C` et comparait sous la locale ambiante**. `comm` valide l'ordre de
+   ses entrées avec **sa propre** collation, et une collation UTF-8 est en désaccord avec l'ordre C
+   exactement sur les différences de casse dont ces arbres sont pleins (`LICENSE` à côté de
+   `license.txt`). Résultat : `comm: file 1 is not in sorted order`, `exit 1` — **une release
+   refusée pour la mauvaise raison**, et seulement quand un vrai intrus faisait diverger les deux
+   listes (donc invisible sur un arbre propre). `LC_ALL=C` est désormais exporté pour **toute** la
+   recette. ⚠️ **Leçon** : `sort` et `comm` doivent partager la locale, sinon la sonde ment
+   précisément le jour où elle sert.
+
+### F-DIST-4 (suite) — ⚠️ **le trou résiduel : retirer la LIGNE sans supprimer le FICHIER**
+
+`docs/16_config_options.md` est bien une **donnée de test**, pas de la documentation, et le
+distribuer est la bonne réponse : `tests/check-config-docs.sh` la consomme. Bonus mesuré : le
+chemin entre dans les **859** de `check-extra-dist.sh`, donc **supprimer le fichier rougit**
+(« déclaré ⇒ existe »). ⛔ **Mais le sens inverse n'est tenu par personne** : retirer la **ligne**
+`EXTRA_DIST` en **laissant** le fichier n'est vu par **aucun** test statique —
+`check-extra-dist.sh` n'a plus rien à résoudre, et `check-dist-coverage.sh` ne balaie que `src/`
+et `tests/`, donc pas `docs/`. Le tarball redevient silencieusement cassé et **seul `distcheck`
+le voit**. ⚠️ Élargir le champ de l'oracle à `docs/` n'est **pas** la réponse : les 164 autres
+`docs/` ne sont pas distribués **par choix** et rougiraient tous. La réponse est le job CI
+`distcheck` de **F-DIST-2**.
+
+### F-DIST-2 (suite) — le coût remesuré, et la robustesse de l'import
+
+**Coût remesuré** sous la charge réelle de la machine (`load average` **17,50**, médiane sur
+**n=20**) : plancher `python3 -c pass` **10,4 ms**, `check-extra-dist.py` **33,6 ms**,
+`check-dist-coverage.py` **44,7 ms**. ⚠️ La revue avait mesuré **67,7 ms** sous **quatre
+constructions concurrentes** : **les deux sont vrais, et c'est le point** — le chiffre dépend de
+la charge et n'a de sens qu'accompagné d'elle. Dans tous les cas, **sous 70 ms sur une suite de 95
+tests**. **Import robuste, vérifié** : renommer `tests/check-extra-dist.py` fait sortir
+`check-dist-coverage.py` en **RC 2** avec un message explicite — **pas de vert silencieux**.
+
+### ⚠️ Licences — « 11/11 » veut dire **11/11 de ce qui existe**
+
+Les 11 fichiers de licence tiers présents dans le dépôt partent désormais tous dans l'archive
+(2/11 avant). ⛔ **`src/lib/uri_parser` ne contient AUCUN fichier de licence**, ni avant ni après :
+ce n'est pas un fichier perdu à la distribution, c'est un fichier **absent de l'import amont**.
+Le point est **juridique**, il doit être exact : l'archive est complète **par rapport au dépôt**,
+et le dépôt est incomplet **par rapport à ce qu'il embarque**. À obtenir auprès de l'amont.
