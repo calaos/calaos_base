@@ -240,8 +240,18 @@ const UWord       FX_WORDVAL  = 31000;
 
 /* FIVE DIFFERENT numbers of THREE different lengths, deliberately not sorted:
  * exchanging any two of them changes both the emitted bytes and the decoded
- * vector. Never [0,0,0] - the poor fixture this series keeps re-inventing. */
-const int         FX_RCOUNT   = 5;
+ * vector. Never [0,0,0] - the poor fixture this series keeps re-inventing.
+ *
+ * ⚠️ FX_RCOUNT IS 3 AND THE REPLY CARRIES 5 VALUES, ON PURPOSE. It used to be
+ * 5, which is exactly replyWordValues().size() - and that made a real oracle
+ * DEAD: rebuilding the reply's "count" from values.size() instead of ECHOING
+ * it from the request was invisible, 31/31 green (mutation N1 of the review).
+ * "count" is the ONE field where the request and the reply must be allowed to
+ * disagree - calaos_wago echoes what it was ASKED for, it does not recount
+ * what the PLC gave back - so the fixture has to make them disagree.
+ * 9th recurrence of the "poor fixture" defect in this series, found by a
+ * reviewer again and not by the implementer. */
+const int         FX_RCOUNT   = 3;
 vector<string> replyWordValues()
 {
     return vector<string>{ "11", "2222", "333", "44444", "5" };
@@ -652,7 +662,11 @@ TEST(WagoWire, ReadReplyEchoesTheRequestAndCarriesTheValues)
     EXPECT_EQ(FX_ID, j.at("id").get<string>());
     EXPECT_EQ("read_words", j.at("action").get<string>());
     EXPECT_EQ("4242", j.at("address").get<string>());
-    EXPECT_EQ("5", j.at("count").get<string>());       //the REPLY count, not 7
+    //ECHOED from the request, NOT recomputed: neither 7 (the request fixture of
+    //the other cases) nor 5 (the number of values below). Mutation N1 -
+    //Utils::to_string(values.size()) in place of the echo - is red here.
+    EXPECT_EQ("3", j.at("count").get<string>());
+    EXPECT_NE(Utils::to_string(j.at("values").size()), j.at("count").get<string>());
     EXPECT_EQ("true", j.at("status").get<string>());
 
     ASSERT_TRUE(j.at("values").is_array());
@@ -747,7 +761,7 @@ TEST(WagoWire, ReadReplyIsExactlyThisByteString)
     //now come out SORTED. Not one other byte of this string changed.
     EXPECT_EQ("{\"action\":\"read_words\","
               "\"address\":\"4242\","
-              "\"count\":\"5\","
+              "\"count\":\"3\","
               "\"id\":\"id-7f3a91-cmd\","
               "\"status\":\"true\","
               "\"values\":[\"11\",\"2222\",\"333\",\"44444\",\"5\"]}",
@@ -823,7 +837,7 @@ TEST(WagoWire, TheServerDecodesTheReadWordsValuesInOrder)
     EXPECT_TRUE(p.Exists("values"));
     EXPECT_EQ("", p["values"]);
     EXPECT_EQ("true", p["status"]);
-    EXPECT_EQ("5", p["count"]);
+    EXPECT_EQ("3", p["count"]);            //echoed, and NOT values.size()
     EXPECT_EQ("4242", p["address"]);
 }
 
@@ -833,7 +847,7 @@ TEST(WagoWire, TheServerDecodesTheReadBitsValuesInOrder)
     req.Add("id", FX_ID);
     req.Add("action", "read_bits");
     req.Add("address", Utils::to_string(FX_ADDRESS));
-    req.Add("count", "4");
+    req.Add("count", "9");   //again NOT the number of values below
 
     const string wire = wireReadReply(req, true,
                                       vector<string>{ "true", "false", "false", "true" });

@@ -592,9 +592,22 @@
     dans `E4.1.md`.
   - **Deux découvertes hors périmètre, tranchées dans les fiches** : (1) le **bug fonctionnel Wago**
     — `WagoMap::write_multiple_bits/_words` (`:328-337`, `:402-411`) construisent `values` puis
-    émettent `p` à la place : **l'écriture multiple n'écrit rien, en silence, depuis toujours**.
-    `E4.1h` le **porte tel quel** et pose un test qui l'épingle ; sa correction est une **question
-    ouverte (Q2)** et mérite son propre ticket avec caractérisation. (2) Les **fuites de `json_t`**
+    émettent `p` à la place, donc **le tableau ne part jamais** (et la référence fuit).
+    ⛔ **CETTE LIGNE DISAIT « l'écriture multiple n'écrit rien, en silence, depuis toujours » : LES
+    DEUX MOITIÉS SONT FAUSSES**, corrigé par E4.1h (2026-08-25) et confirmé en revue par un
+    balayage `python3` incluant les appels indirects. (a) **Le chemin est MORT** : les deux
+    méthodes n'ont **aucun appelant** — `&WagoMap::` donne 8 occurrences, toutes dans
+    `WagoMap.cpp`, aucune sur `write_multiple` ; aucun `std::bind`, aucune table de dispatch,
+    aucun binding Lua, méthodes non virtuelles. `action:"write_bits"` n'a **jamais** été émis,
+    donc **aucun automate n'a jamais vu ce message** et il n'y a **pas de panne en production**.
+    (b) **Et ce ne serait pas silencieux** : `calaos_wago` passait à `WagoCtrl` un vecteur **vide**
+    avec le `count` annoncé, et `values[0]` sur un vecteur vide **SEGFAUTE** (mesuré, SIGSEGV 139).
+    ⇒ le motif de non-correction (« ça change ce que reçoit un automate réel ») **tombe** :
+    `E4.1h` l'a donc **CORRIGÉ**, dans un commit séparé, **sans entrée `RELEASE_NOTES`** (rien
+    d'observable ne change). Reste ouvert et **hors périmètre** : `WagoCtrl::write_multiple_bits()`
+    est faux **même avec `values` livré** (`setBit()` n'écrit que le premier octet, `memset` plus
+    court que l'allocation) → **ticket dédié recommandé, priorité moyenne**, détail en
+    `FINDINGS.md` **F-WAGO-2**. (2) Les **fuites de `json_t`**
     (mêmes sites + `IODoc.cpp:163`) disparaissent **d'elles-mêmes** avec nlohmann : rattachées aux
     tickets de migration, aucun ticket séparé.
   - **5 questions ouvertes** en fin de `E4.1.md`, chacune avec sa recommandation : Q1 migrer les

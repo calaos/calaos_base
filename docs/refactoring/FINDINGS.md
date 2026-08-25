@@ -40,22 +40,43 @@
   pas un `!contains()` nu) ; le commit de correction les **flippe** au lieu de les supprimer.
   Contre-mutation **M12** (re-supprimer le tableau du constructeur livré) → **3 cas rouges**.
 
-- ⚠️ **[F-WAGO-2] — NON CORRIGÉ, hors périmètre : `WagoCtrl` lit `values[i]` sans jamais confronter
-  `count` à `values.size()`.**
-  `WagoCtrl::write_multiple_bits()` (`WagoCtrl.cpp:159-160`) fait `setBit(*data, i, values[i])`
-  pour `i ∈ [0, nb)`, et `write_multiple_words()` (`:225-226`) fait `data[i] = values[i]` de même.
-  `nb` vient du message, `values` du tableau décodé. **Avec le défaut F-WAGO-1, `values` arrivait
-  VIDE et `nb` valait le compte annoncé** : `values[i]` sur un `vector` vide est un **comportement
-  indéfini** — pas « une écriture vide ». Sur `vector<bool>` c'est une lecture de bit dans un mot
-  inexistant ; sur `vector<UWord>` c'est une lecture via un pointeur potentiellement nul.
-  ⇒ **La description « l'écriture multiple n'écrit rien » est donc doublement fausse** : le chemin
-  est mort, et s'il ne l'était pas il ne serait pas silencieux.
-  ⛔ **F-WAGO-1 corrigé ne referme PAS celui-ci** : il le rend seulement inoffensif pour un appelant
-  qui passe `nb == values.size()`. `WagoCtrl.cpp` est hors du périmètre d'E4.1h (2 fichiers) et ne
-  contient aucun JSON. **Mérite son propre ticket** — une garde de deux lignes dans les deux
-  fonctions, ou un refus dans `WagoExternProc_main.cpp`.
-  ⚠️ **Démontré au source, jamais observé à l'exécution** : rien n'a tourné sous ASan et le chemin
-  est inatteignable.
+- ⛔ **[F-WAGO-2] — NON CORRIGÉ, hors périmètre. ⭐ TICKET DÉDIÉ RECOMMANDÉ, PRIORITÉ MOYENNE :
+  `WagoCtrl::write_multiple_bits()` est fonctionnellement FAUX, et pas seulement à cause de
+  F-WAGO-1.** Trois défauts distincts sur les mêmes dix lignes (`WagoCtrl.cpp:152-176`, jumeau
+  `:220-242`), dont **deux trouvés par la revue et non par moi**.
+
+  **(a) `count` n'est jamais confronté à `values.size()`.** `setBit(*data, i, values[i])` pour
+  `i ∈ [0, nb)` et `data[i] = values[i]` de même : `nb` vient du message, `values` du tableau
+  décodé. **Avec F-WAGO-1, `values` arrivait VIDE et `nb` valait le compte annoncé.**
+  ⭐ **Mesuré par la revue, et c'est pire que ce que j'avais écrit : `values[0]` sur un
+  `vector<bool>`/`vector<UWord>` vide SEGFAUTE** (SIGSEGV 139, `_M_start` nul). Ce n'était donc pas
+  « l'écriture multiple n'écrit rien » : c'était **la mort de `calaos_wago`**, si le chemin avait
+  été atteint. **Ma correction de F-WAGO-1 ne referme PAS ce défaut-là** : elle le rend seulement
+  inoffensif pour un appelant qui passe `nb == values.size()`.
+
+  **(b) ⭐ `setBit()` n'écrit jamais que le PREMIER octet.** `WagoCtrl::setBit(unsigned char &mot,
+  int pos, bool val)` (`WagoCtrl.cpp:50-58`) prend une **référence à UN SEUL octet** et fait
+  `mot = mot | (0x01 << pos)`. L'appelant passe `*data`, c'est-à-dire **toujours `data[0]`**, avec
+  `pos = i` jusqu'à `nb - 1` — au lieu de `data[i / 8]` et `pos = i % 8`, ce que `read_bits()` fait
+  correctement deux fonctions plus haut (`:100-101`). Vérifié : 16 `setBit` successifs sur un octet
+  donnent `0xff`. ⇒ **seuls les bits 0 à 7 sont jamais écrits**, et **`pos ≥ 32` est un
+  comportement indéfini de décalage**. Une écriture multiple de plus de 8 bits est donc fausse
+  **même avec `values` livré**.
+
+  **(c) Le dernier octet du tampon n'est pas initialisé.**
+  `new mbus_ubyte[nb / 8 + nb % 8]` puis `memset(data, '\0', nb/8)` : le `memset` est **plus court
+  que l'allocation**. Pour `nb = 17` → 3 octets alloués, **2 seulement mis à zéro**. (L'allocation
+  elle-même sur-dimensionne parfois — `nb/8 + nb%8` au lieu de `(nb+7)/8`, ex. `nb=15` → 8 octets —
+  donc ce n'est pas un dépassement de tampon, mais le dernier octet part vers l'automate avec de la
+  mémoire arbitraire dedans.)
+
+  ⇒ **Ce ticket doit contenir les deux choses** : la garde `count` / `values.size()` **et** la
+  réécriture de la boucle de bits (`data[i / 8]`, `i % 8`, `memset` sur toute l'allocation).
+  **Pas urgent — aucun appelant aujourd'hui — mais c'est un piège armé pour le premier qui écrira
+  l'appelant**, et il ne se manifestera pas par un message d'erreur : par un segfault ou par des
+  sorties fausses.
+  ⚠️ **Le segfault est mesuré, les points (b) et (c) sont démontrés au source** ; rien n'a tourné
+  sous ASan ni contre un automate réel, et le chemin est inatteignable en l'état.
 
 - ⚠️ **[F-WAGO-3] — NON CORRIGÉ (durcissement DÉCLARÉ, pas un report) : `string v =
   json_string_value(value)` était un déréférencement de `NULL`.**
@@ -80,6 +101,29 @@
   d'action est **dans** chaque constructeur, et les deux constructeurs de réponse prennent le
   **`Params` décodé** au lieu de quatre chaînes — l'écho de `id`/`action`/`address`/`count` ne peut
   plus être permuté au site d'appel. **Reste** : `address` ↔ `count`, deux entiers.
+
+  ⭐ **LA VOIE DE FERMETURE, tranchée par la revue et à recommander pour TOUTE la série** : ce trou
+  ne se referme pas par un test, il se referme par le **typage**. `address` et `count` doivent être
+  **deux types distincts** dans les signatures de `WagoWire.h` — `enum class` ou struct nommé — et
+  la permutation devient une **erreur de compilation**, sans une ligne de test.
+  ⚠️ **Exiger le lien serait une fausse piste** : l'infrastructure existe (`CORE_TEST_LDADD` lie
+  déjà 25 objets serveur), mais le blocage n'est pas le lien — c'est qu'on **ne peut pas appeler**
+  `WagoMap::write_*` sans construire le singleton, dont le constructeur **bind un socket UDP et
+  lance `calaos_wago`**. La revue a rejoué M5 (**4 rouges**) et M8 (**31/31 vert, aucun
+  avertissement imputable**) et conclut : **limite acceptable, ne pas exiger le lien**.
+
+- ⚠️ **[F-WAGO-6] — 9ᵉ récidive du « fixture pauvre » dans la série, trouvée par la revue.**
+  Dans la première version de `tests/WagoWire_test.cpp`, `FX_RCOUNT` valait **5**, c'est-à-dire
+  exactement `replyWordValues().size()`. Conséquence mesurée (**mutation N1**) : remplacer l'**écho**
+  `jroot["count"] = request["count"]` par `Utils::to_string(values.size())` dans `buildReadReply()`
+  laissait la suite **VERTE 31/31** — un oracle mort sur le **seul** champ où la requête et la
+  réponse doivent pouvoir diverger (`calaos_wago` réécho ce qu'on lui a **demandé**, il ne recompte
+  pas ce que l'automate a **rendu**). Le fichier soignait pourtant ce point partout ailleurs.
+  **Corrigé** : `FX_RCOUNT = 3` avec **5** valeurs, plus un `EXPECT_NE` explicite entre `count` et
+  `values.size()`, et la réponse de lecture de bits porte `count = 9` pour **4** valeurs.
+  **N1 rejoué : 3 cas rouges.** Conséquence fonctionnelle réelle faible (les cinq
+  `WagoReadCallback` ignorent `count` et se gardent par `if (!values.empty())`) — mais un oracle
+  mort reste un oracle mort, et c'est **encore** un relecteur qui l'a vu.
 
 - 📏 **[F-WAGO-5] — `--with-wago` n'existe pas.** Le point 6 de `E4.1h.md` propose de construire
   « avec `--with-wago` si l'option existe ». **Elle n'existe pas** : `calaos_wago` est un
