@@ -3,6 +3,42 @@
 > Découvertes faites **en marge** des tickets (hors périmètre du ticket en cours, donc **non
 > corrigées**). Candidates à de futurs tickets. Sorti du job tmp éphémère → durable + partagé.
 
+## E4.1d — Squeezebox et Hue (2026-08-25)
+
+> Périmètre : `Audio/Squeezebox.cpp`, `IO/Hue/HueOutputLightRGB.cpp`. **Hors périmètre, NON
+> corrigé.** Tout ce qui suit préexiste à la migration jansson → nlohmann et lui survit à
+> l'identique.
+
+- **[F-HUE-1] Le log d'état de la lampe est faux depuis toujours : `sat` n'y figure pas, `hue` y
+  figure deux fois.** `HueOutputLightRGB.cpp` (ligne du `cDebugDom("hue") << "State: "`) écrit
+  `"State: " << on << " Hue : " << hue << " Bri: " << bri << " Hue : " << hue`. Le second `" Hue :
+  "` devait manifestement être `" Sat : " << sat`. Conséquence : **la saturation lue sur le pont
+  n'est jamais tracée**, et un lecteur du log croit voir deux champs alors qu'il en voit un deux
+  fois. Purement cosmétique (un `cDebugDom`, coupé par défaut) mais trompeur pendant un
+  diagnostic. **Gelé tel quel par E4.1d** — corriger un log n'a aucun rapport avec un changement
+  de bibliothèque JSON, et le figer aurait demandé un test de log qui n'existe pas.
+
+- **[F-SQBOX-1] La requête JSON-RPC de `get_album_cover()` est assemblée par concaténation, avec
+  l'identifiant du lecteur interpolé SANS ÉCHAPPEMENT.** `Squeezebox.cpp:740-742` :
+  `postData = "{\"id\":1,\"method\":\"slim.request\",\"params\":[\"" + id + "\",[…]]}"`.
+  `id` vient de `param["host"]`/de la configuration de l'IO (une adresse MAC en pratique), mais
+  **rien ne le contraint** : un `id` portant un guillemet ou une contre-oblique produit une requête
+  **syntaxiquement invalide**, que LMS rejette — la pochette échoue alors en silence et le driver
+  bascule sur le chemin CLI. Ce n'est pas une injection exploitable (l'`id` est de la config
+  locale, pas une entrée réseau), c'est une **fragilité de construction**. ⚠️ **E4.1d ne l'a pas
+  corrigée volontairement** : la migration porte sur la **lecture**, et construire cette requête
+  avec `nlohmann` changerait les octets envoyés à un **tiers** (`{"id":1,…}` deviendrait
+  `{"id":1,"method":…,"params":…}` **trié**), ce que l'invariant 3 de l'épique interdit sans
+  déclaration. Ticket dédié recommandé, avec caractérisation d'abord.
+
+- **[F-SQBOX-2] `Squeezebox.o` n'est lié par AUCUN binaire de test.** Mesuré : `tests/Makefile.am`
+  ne nomme `Squeezebox.$(OBJEXT)` nulle part, et le commentaire de `tests/Makefile.am:1100`
+  l'assume (« Squeezebox was rejected: it drags SqueezeboxDB, UrlDownloader and the nine AVR… »).
+  Conséquence à connaître avant de croire un vert : **toute mutation du corps de
+  `Squeezebox.cpp` est invisible pour la suite entière**, par construction et pas par manque de
+  cas. C'est pourquoi E4.1d a sorti la lecture dans `Audio/SqueezeboxWire.h` — mais les **sites
+  d'appel** de ce fichier restent, eux, hors de portée de tout test.
+
 ## E4.1h — Wago (2026-08-25)
 
 - ✅ **[F-WAGO-1] — CORRIGÉ dans E4.1h** (commit `e6ab8589`, branche `refactor/e4.1h`), **contre la
