@@ -123,7 +123,9 @@ void IPCam::downloadSnapshot(std::function<void(const string &)> dataCb)
 
     if (cameraSnapDl->isRunning())
     {
-        Timer::singleShot(0, [=]() { dataCb(lastSnapshot); });
+        //T3.40: lastSnapshot is a member; a camera deleted before the next
+        //loop turn used to have this read run on freed memory.
+        ioAlive.singleShot(0, [this, dataCb]() { dataCb(lastSnapshot); });
         return;
     }
 

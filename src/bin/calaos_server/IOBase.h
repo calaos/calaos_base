@@ -24,6 +24,7 @@
 #include "Calaos.h"
 #include "EventManager.h"
 #include "IODoc.h"
+#include "Timer.h"
 
 namespace Calaos
 {
@@ -47,6 +48,21 @@ protected:
     Params param;
 
     IODoc *ioDoc = nullptr;
+
+    /* T3.40 - lifetime token for the one-shots this IO arms.
+     *
+     * Any IO can be destroyed while the loop still holds a pending
+     * Timer::singleShot()/Idler::singleIdler(): ListeRoom::deleteIO()
+     * (reachable from the JSON API), Room::RemoveIO(), ~Room()/~ListeRoom()
+     * when the configuration is reloaded or the server stops. The uvw handle
+     * of a one-shot is anonymous, so ~IOBase() cannot cancel it, and IOBase
+     * deriving from sigc::trackable would not help either - it would only
+     * cover sigc::mem_fun, never a lambda that captures `this`.
+     *
+     * ⇒ arm through this (ioAlive.singleShot(...)/ioAlive.singleIdler(...))
+     * and the callback becomes a no-op once the IO is gone. Measured by
+     * tests/core/IoLifetimeTimer_test. */
+    LifetimeTag ioAlive;
 
     struct StatusInfo
     {

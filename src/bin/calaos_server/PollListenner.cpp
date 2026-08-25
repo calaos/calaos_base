@@ -57,7 +57,11 @@ void PollObject::Timeout_cb()
 
     cDebugDom("poll_listener") << uuid << " Timeout !";
 
-    Idler::singleIdler([=]()
+    //T3.40: PollListenner::Unregister() deletes the PollObject, and the JSON
+    //API reaches it directly (poll_unregister, JsonApiHandlerHttp.cpp:417).
+    //A client unregistering between this timeout and the next loop turn used
+    //to leave this getUUID() reading freed memory.
+    alive.singleIdler([this]()
     {
         PollListenner::Instance().Unregister(this->getUUID());
     });

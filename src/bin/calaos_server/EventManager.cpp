@@ -44,6 +44,10 @@ void EventManager::appendEvent(const CalaosEvent &ev)
     if (eventsQueue.empty())
     {
         //start idler if it was stopped
+        //T3.40: EventManager is a function-local static (EventManager.h) and
+        //nothing in the tree deletes it, so `this` outlives every idler this
+        //loop can run. Left unguarded on that measured ground, not on the
+        //assumption that "a singleton is safe".
         Idler::singleIdler([=]()
         {
             while (!eventsQueue.empty())

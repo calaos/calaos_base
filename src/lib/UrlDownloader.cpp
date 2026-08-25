@@ -731,6 +731,11 @@ void UrlDownloader::Destroy()
     destroyScheduled = true;
 
     cDebugDom("urlutils") << "UrlDownloader(" << this << ") Launch idler to destroy " << Utils::maskUrlCredentials(m_url);
+    //T3.40: this is NOT the use-after-free pattern of the sweep even though
+    //it looks like one. The idler does not USE the object, it is the
+    //object's own deferred destruction: `this` must still be alive when the
+    //callback runs, which is exactly what the anonymous uvw handle
+    //guarantees. A lifetime tag here would suppress the delete and leak.
     Idler::singleIdler([=]() { delete this; });
 }
 

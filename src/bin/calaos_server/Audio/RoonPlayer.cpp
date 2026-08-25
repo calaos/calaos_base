@@ -236,7 +236,11 @@ RoonPlayer::RoonPlayer(Params &p):
     RoonCtrl::Instance(host, port);
 
     //wait for the process to start
-    Timer::singleShot(10, [this]()
+    //T3.40: RoonPlayer is an IOBase (through AudioPlayer), so
+    //ListeRoom::deleteIO() reaches it exactly like a shutter. Ten seconds is
+    //a very wide window, and this lambda reads host/zoneId out of the object.
+    //Armed through the IO's lifetime tag, see IOBase::ioAlive.
+    ioAlive.singleShot(10, [this]()
     {
         RoonCtrl::Instance(host, port)->subscribeZone(zoneId, sigc::mem_fun(*this, &RoonPlayer::state_update_cb));
     });
@@ -364,13 +368,18 @@ void RoonPlayer::state_update_cb(const RoonPlayerState &state)
     playerState = state;
 }
 
+//T3.40: the seven deferred answers below all defer a call on `this` to the
+//next loop turn. The delay is 0, but the window is not the delay: nothing
+//pumps the loop between arming the one-shot and a synchronous deleteIO()
+//coming from the JSON API, so the callback used to answer for a destroyed
+//player. All armed through the IO's lifetime tag, see IOBase::ioAlive.
 void RoonPlayer::get_volume(AudioRequest_cb callback, AudioPlayerData user_data)
 {
     AudioPlayerData data;
     data.set_chain_data(new AudioPlayerData(user_data));
     data.callback = callback;
 
-    Timer::singleShot(0, [this, data]()
+    ioAlive.singleShot(0, [this, data]()
     {
         get_volume_cb(true, "", "", data);
     });
@@ -405,7 +414,7 @@ void RoonPlayer::get_songinfo(AudioRequest_cb callback, AudioPlayerData user_dat
     data.set_chain_data(new AudioPlayerData(user_data));
     data.callback = callback;
 
-    Timer::singleShot(0, [this, data]()
+    ioAlive.singleShot(0, [this, data]()
     {
         get_songinfo_cb(true, "", "", data);
     });
@@ -427,7 +436,7 @@ void RoonPlayer::get_current_time(AudioRequest_cb callback, AudioPlayerData user
     data.set_chain_data(new AudioPlayerData(user_data));
     data.callback = callback;
 
-    Timer::singleShot(0, [this, data]()
+    ioAlive.singleShot(0, [this, data]()
     {
         get_current_time_cb(true, "", "", data);
     });
@@ -452,7 +461,7 @@ void RoonPlayer::get_status(AudioRequest_cb callback, AudioPlayerData user_data)
     data.set_chain_data(new AudioPlayerData(user_data));
     data.callback = callback;
 
-    Timer::singleShot(0, [this, data]()
+    ioAlive.singleShot(0, [this, data]()
     {
         get_status_cb(true, "", "", data);
     });
@@ -477,7 +486,7 @@ void RoonPlayer::get_album_cover(AudioRequest_cb callback, AudioPlayerData user_
     data.set_chain_data(new AudioPlayerData(user_data));
     data.callback = callback;
 
-    Timer::singleShot(0, [this, data]()
+    ioAlive.singleShot(0, [this, data]()
     {
         get_album_cover_cb(true, "", "", data);
     });
@@ -495,7 +504,7 @@ void RoonPlayer::get_playlist_current(AudioRequest_cb callback, AudioPlayerData 
     data.set_chain_data(new AudioPlayerData(user_data));
     data.callback = callback;
 
-    Timer::singleShot(0, [this, data]()
+    ioAlive.singleShot(0, [this, data]()
     {
         get_playlist_current_cb(true, "", "", data);
     });
@@ -513,7 +522,7 @@ void RoonPlayer::get_playlist_size(AudioRequest_cb callback, AudioPlayerData use
     data.set_chain_data(new AudioPlayerData(user_data));
     data.callback = callback;
 
-    Timer::singleShot(0, [this, data]()
+    ioAlive.singleShot(0, [this, data]()
     {
         get_playlist_size_cb(true, "", "", data);
     });

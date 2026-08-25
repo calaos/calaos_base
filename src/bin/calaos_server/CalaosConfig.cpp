@@ -226,6 +226,9 @@ void Config::scheduleConfigAlert(const string &message)
     //started: defer the notification until the server is fully up (loop
     //running, network and notification infrastructure usable). Config is an
     //eternal singleton, capturing this is safe.
+    //T3.40: rechecked against the sweep - Config::Instance() is a
+    //function-local static (CalaosConfig.h) and nothing deletes it, so this
+    //`this` cannot dangle. Left unguarded on that measured ground.
     Timer::singleShot(CONFIG_ALERT_DELAY_SEC, [this]() { sendConfigAlerts(); });
 }
 

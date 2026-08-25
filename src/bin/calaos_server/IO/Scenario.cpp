@@ -100,7 +100,9 @@ bool Scenario::set_value(bool val)
                          value); //Only log scenario activation
 
     //reset input value to 0 after 250ms (simulate button press/release)
-    Timer::singleShot(0.250, [=]() { value = false; });
+    //T3.40: armed through the IO's lifetime tag - a deleteIO() in those
+    //250 ms used to leave this write pointing at a destroyed Scenario.
+    ioAlive.singleShot(0.250, [this]() { value = false; });
 
     return true;
 }

@@ -94,7 +94,10 @@ void InputSwitchTriple::emitChange()
                            { "state", Utils::to_string(value) } });
 
     //reset input value to 0 after 250ms (simulate button press/release)
-    Timer::singleShot(0.250, sigc::mem_fun(*this, &InputSwitchTriple::resetInput));
+    //T3.40: the only mem_fun of the sweep, and it was the least protected of
+    //all - sigc++ binds a RAW pointer because IOBase is not a
+    //sigc::trackable. Armed through the IO's lifetime tag like the others.
+    ioAlive.singleShot(0.250, [this]() { resetInput(); });
 }
 
 bool InputSwitchTriple::set_value(double v)

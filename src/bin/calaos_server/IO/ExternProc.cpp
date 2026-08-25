@@ -188,14 +188,21 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
     {
         cDebugDom("process") << "ExternProcess exited: " << ev.status;
         process_exe->close();
-        Timer::singleShot(0.1, [this]() { processExited.emit(); });
+        //T3.40: 100 ms with a raw `this`, and the server IS deleted inside
+        //that window - ~RoonPlayer, ~KNXCtrl, ~WagoMap, ~OLACtrl, ~OWCtrl all
+        //`delete process`, and LuaScript/ScriptExec.cpp:132 deletes it from
+        //an idler armed by processExited itself. sigc::trackable does not
+        //cover this: it is a lambda, not a mem_fun.
+        alive.singleShot(0.1, [this]() { processExited.emit(); });
     });
     process_exe->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &)
     {
         if (!isStarted) hasFailedStarting = true;
         cCriticalDom("process") << "Process error: " << ev.what();
         process_exe->close();
-        Timer::singleShot(0.1, [this]() { processExited.emit(); });
+        //T3.40: same window as the ExitEvent above, and both can be armed in
+        //the same run.
+        alive.singleShot(0.1, [this]() { processExited.emit(); });
     });
 
     //Create a pipe for reading stdout

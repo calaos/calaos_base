@@ -291,6 +291,9 @@ void McpServerManager::scheduleRestart()
     restartAttempts++;
 
     cWarningDom("mcp") << "scheduling sidecar restart in " << delay << "s";
+    //T3.40: McpServerManager is a function-local static (Instance(), :80-84)
+    //and nothing deletes it, so this `this` cannot dangle. Left unguarded on
+    //that measured ground.
     Timer::singleShot(delay, [this]() { spawnSidecar(); });
 }
 

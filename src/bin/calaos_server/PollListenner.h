@@ -32,6 +32,10 @@ namespace Calaos
 
 class PollObject
 {
+    /* T3.40 - lifetime token for the deferred self-unregistration, which is
+     * what deletes this very object. */
+    LifetimeTag alive;
+
 private:
     sigc::signal<void, string, string, void*, void*> sig_events;
 

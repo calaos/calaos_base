@@ -22,7 +22,9 @@
 #define CALAOS_TIMER_H
 
 #include "Utils.h"
+#include <functional>
 #include <memory>
+#include <utility>
 #include <sigc++/sigc++.h>
 
 using namespace Utils;
@@ -89,6 +91,67 @@ public:
 
     sigc::signal<void> idlerCallback;
 
+};
+
+/* T3.40 - lifetime token for the fire-and-forget one-shots above.
+ *
+ * Timer::singleShot()/Idler::singleIdler() copy the slot into an ANONYMOUS uvw
+ * handle (Timer.cpp:103-123 and :164-176): nothing holds that handle
+ * afterwards, so no destructor and no member can ever cancel it. A slot that
+ * holds `this` therefore keeps running after its object is gone, and
+ * sigc::trackable is no help: it disconnects a sigc::mem_fun, never a lambda
+ * capture, which sigc++ only ever sees as an opaque functor.
+ *
+ * Hold one of these as a member and arm through it rather than through
+ * Timer::singleShot() directly:
+ *
+ *      class Foo { LifetimeTag alive; ... };
+ *      alive.singleShot(0.250, [=]() { value = 0; });
+ *
+ * The witness dies with the object, the token the callback holds expires, and
+ * the callback becomes a no-op. Same scheme as Timer/Idler's own aliveTag.
+ *
+ * ⚠️ The token reaches the callback as a std::weak_ptr, and nothing here hands
+ * out the shared_ptr. That is deliberate: a witness captured STRONGLY is kept
+ * alive by the pending callback itself, so the guard never bites and the
+ * use-after-free quietly becomes a leaked libuv handle instead. Wrapping the
+ * capture here is what makes that mistake unwritable at a call site.
+ */
+class LifetimeTag
+{
+public:
+    LifetimeTag() = default;
+
+    /* A copy is a NEW owner and gets its own witness: sharing one would make
+     * the guard answer for some other object's lifetime. */
+    LifetimeTag(const LifetimeTag &) {}
+    LifetimeTag &operator=(const LifetimeTag &) { return *this; }
+
+    template <typename F>
+    void singleShot(double time, F &&cb) const
+    {
+        Timer::singleShot(time, guard(std::forward<F>(cb)));
+    }
+
+    template <typename F>
+    void singleIdler(F &&cb) const
+    {
+        Idler::singleIdler(guard(std::forward<F>(cb)));
+    }
+
+    /* For the rare call site that has to hand the slot to something else. */
+    template <typename F>
+    auto guard(F &&cb) const
+    {
+        return [token = std::weak_ptr<bool>(alive), cb = std::forward<F>(cb)]()
+        {
+            if (token.expired()) return;
+            cb();
+        };
+    }
+
+private:
+    std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 };
 
 

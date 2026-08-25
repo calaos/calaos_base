@@ -24,6 +24,7 @@
 #include "Utils.h"
 #include "Calaos.h"
 #include "Jansson_Addition.h"
+#include "Timer.h"
 
 namespace uvw {
 //Forward declare classes here to prevent long build time
@@ -91,6 +92,11 @@ private:
 
 class ExternProcServer: public sigc::trackable
 {
+    /* T3.40 - lifetime token for the deferred processExited.emit(). The
+     * server is deleted from inside that very signal's handlers (see
+     * ExternProc.cpp), and sigc::trackable does not disconnect a lambda. */
+    LifetimeTag alive;
+
 public:
     ExternProcServer(string pathprefix);
     ~ExternProcServer();

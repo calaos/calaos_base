@@ -71,7 +71,11 @@ protected:
         if (this->get_param("read_at_start") != "true")
             return;
 
-        Timer::singleShot(1.5, [this, eis, group_bases]()
+        //T3.40: 1.5 s is the widest window of the whole tree, and it opens at
+        //construction for every one of the eleven KNX IO types. Armed through
+        //the IO's lifetime tag (IOBase::ioAlive): both ctrl() and knxBase
+        //dereference `this`, so an IO deleted meanwhile used to crash here.
+        this->ioAlive.singleShot(1.5, [this, eis, group_bases]()
         {
             if (group_bases.empty())
                 ctrl()->readValue(knxBase.getReadGroupAddr(), eis);
