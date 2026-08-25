@@ -3211,3 +3211,100 @@ Ses **deux** faces, toutes deux rencontrées dans la série :
   réelle `weather/[0]/description`). Non modernisé, délibérément. À noter tout de même : un chemin
   à segment vide (`a//b`) produit un jeton vide, dont `val[0]` lit le terminateur — défini par le
   standard, sans conséquence, l'accès `at("")` échouant ensuite proprement. Non corrigé.
+
+## E4.1c — les trois résidus jansson (2026-08-25)
+
+### ⛔ La « CORRECTION » posée par la revue d'E4.1k est CONFIRMÉE, et resserrée : 0 / 0 / 10
+
+Graphe d'includes résolu en `python3` (résolution des `-I` d'`AM_CPPFLAGS`) sur les **18** unités de
+`src/` qui portent encore des symboles jansson sur master `24f635e3` :
+
+| Ligne retirée | Unités qui perdent `<jansson.h>` |
+|---|---|
+| `IO/ExternProc.h:26` `#include <jansson.h>` **seule** | **0** |
+| `src/lib/Jansson_Addition.h:24` **seule** | **0** |
+| **les deux** | **10** |
+
+Les 10, à servir une par une par **E4.1x** : `EventManager.cpp`, `IO/Scenario.cpp`, `KNXCtrl.cpp`,
+`KNXExternProc_main.cpp`, `OLACtrl.cpp`, `OLAExternProc_main.cpp`, `WagoMap.cpp`,
+`WagoExternProc_main.cpp`, `ScriptBindings.cpp`, `ScriptExtern_main.cpp`.
+
+**Preuve indépendante du graphe, par contre-mutation d'ÉCHANGE** (`M2` de la campagne d'E4.1c) :
+échanger `#include "Jansson_Addition.h"` contre `#include <jansson.h>` dans `ExternProc.h` laisse
+`ExternProcHeaderAloneStillProvidesTheJanssonApi` **VERT**. Les deux lignes sont
+**interchangeables** ; la ligne 26 n'apportait rien. Retirer **les deux** (`M3`) rougit ce cas.
+
+### La réserve `--with-owfs` est levée — et elle était sans objet au source
+
+Deux mesures, indépendantes :
+
+1. **Elle ne tenait pas dans l'image de build.** `configure.ac` **n'a pas** de `--with-owfs` (ni
+   `--with-mqtt`, `--with-knx`, `--with-ola`) : les quatre drivers sont **auto-détectés** sur
+   `owcapi.h` / `libola.pc` / `eibclient.h` / `mosquitto.h`, tous présents dans
+   `vsc-calaos_base-1202…be26`. Un `./configure` **nu** y affiche
+   `One Wire: yes · OLA: yes · KNX: yes · MQTT: yes`, et le log porte `CXX IO/OneWire/OWCtrl.o` et
+   `CXX IO/OneWire/OWExternProc_main.o`. ⇒ **la mesure de la revue d'E4.1k compilait déjà OWFS**,
+   contrairement à ce que sa réserve annonçait. *(À vérifier chez qui reproduit : si votre image n'a
+   pas `owcapi.h`, votre `configure` nu affichera `One Wire: no` et là la réserve serait fondée.)*
+2. **Et surtout : `OWCtrl.cpp` et `OWExternProc_main.cpp` portent 0 symbole jansson.** Ils sont déjà
+   en `nlohmann` (`OWExternProc_main.cpp` porte même un `dump()` — c'est l'un des 5 wires tiers en
+   UTF-8 brut de l'exception nommée, périmètre d'un autre ticket). La dépendance que l'analyse du
+   graphe leur prêtait est **une dépendance d'en-tête, pas d'usage** : elle ne pouvait rien casser.
+
+### Le chemin transitif `ReolinkCtrl.cpp` renvoyé par le ticket voisin est **inerte**
+
+`ReolinkCtrl.cpp → ReolinkCtrl.h → IO/ExternProc.h → <jansson.h>` **existe encore** comme chemin
+d'inclusion, mais `ReolinkCtrl.cpp` porte **0 symbole jansson** depuis le merge d'**E4.1i**. Il ne
+consomme donc rien de ce que le chemin lui livre, et il ne figure dans aucune des trois colonnes du
+tableau ci-dessus. Rien à faire ni pour E4.1c ni pour E4.1x de ce côté.
+
+### Le tableau « Fichier / Appels » d'`E4.1.md` est périmé par rapport à master
+
+Recompté sur `24f635e3` : **`MqttCtrl.cpp`, `MqttExternProc_main.cpp`, `ReolinkCtrl.cpp`,
+`IODoc.cpp`, `IOFactory.cpp`, `KNXExternProc_cli.cpp` sont à 0** — E4.1g / E4.1i / E4.1k sont
+mergés. Le tableau les compte encore à 13 / 15 / 9 / 16 / 4 / 2. **Les fiches non encore livrées de
+la vague 1 doivent recompter leur propre périmètre avant de s'y fier.**
+
+### Deux numéros de ligne faux, dans deux fiches
+
+`jansson >= 2.5` est à **`configure.ac:51`** (`requirements_calaos_common=…`). La ligne **52** est le
+`PKG_CHECK_MODULES`. `E4.1c.md:20` **et** `E4.1x.md` (travail, point 4) citent tous deux `:52`.
+**E4.1x doit éditer la 51.**
+
+### `HttpClient.cpp` ne contenait déjà pas le mot `jansson`
+
+Le critère d'acceptation 1 de la fiche (« `grep -c jansson` → 0 sur chacun des trois ») y était
+**vrai avant comme après** : ce qui y a disparu, ce sont les 2 jetons `json_array_size` /
+`json_array_get` du **corps** de la macro morte. Sur `ExternProc.h`, le critère n'est vrai qu'en
+**sensible à la casse** : `Jansson_Addition.h` (J majuscule) reste, et c'est voulu — c'est la ligne
+d'E4.1x.
+
+**La macro était bien morte, vérifié sur l'image** : `/usr/include/jansson.h:243` définit
+`json_array_foreach`, jansson **2.14**, au-dessus du plancher `>= 2.5` de `configure.ac:51`. Les
+**16** vrais sites d'appel de l'arbre (`JsonApi.cpp` ×6, les deux handlers ×2, Wago ×4, OLA ×1,
+`ScriptExtern_main.cpp` ×1) sont **tous dans d'autres unités de traduction** et la tiennent de
+`<jansson.h>` ; la macro vivait dans un `.cpp`, elle ne pouvait fuir nulle part.
+
+### ⚠️ Dette laissée, et son propriétaire est E4.1x
+
+`tests/JanssonResidues_test.cpp` (6 cas) appelle l'**API C jansson exprès** — c'est le seul moyen de
+prouver au runtime qu'`ExternProc.h` fournit encore l'en-tête — et l'un de ses tripwires épingle la
+ligne `#include "Jansson_Addition.h"` **qu'E4.1x supprime**. Ce fichier **remontera** dans le
+`grep -rn 'json_t\|jansson' src tests` du critère d'acceptation 1 d'E4.1x. **La bonne réponse là-bas
+est de le supprimer entièrement**, pas de le porter : il n'a plus d'objet une fois jansson parti.
+Marqué en tête du fichier **et** dans le commentaire de son bloc `tests/Makefile.am`.
+
+### Ce que le filet d'E4.1c ne couvre pas — dit franchement
+
+Quatre de ses six cas lisent le **texte des sources livrées** (via `-DCALAOS_TOP_SRCDIR`, sur le
+modèle de `CALAOS_GOLDEN_DIR`) : ce sont des **garde-fous de suppression**, pas des oracles de
+comportement. Ils rougissent si on remet un include ou la macro — mesuré, 3 mutations, 3 rouges
+distincts — mais **ne prouvent rien sur l'exécution**. Le seul oracle d'exécution du ticket ne peut
+rougir que si les **deux** fournisseurs d'`ExternProc.h` disparaissent. **La vraie sécurité de ce
+ticket est le compilateur** : c'est le build `distclean` avec les quatre drivers actifs qui la donne,
+pas la suite.
+
+Et il n'y a **aucun oracle d'octets ici, par mesure et non par supposition** : `ExternProc.h`,
+`WebCtrl.cpp` et `HttpClient.cpp` portent **0 `dump()`**, **0 émission `nlohmann`**, **0 appel
+jansson**. Aucun non-ASCII ne peut atteindre un `dump()` de ce périmètre parce qu'il n'y en a aucun.
+C'est bien le seul sous-ticket de la série dans ce cas, comme `E4.1.md` l'annonçait.
