@@ -85,45 +85,57 @@
  *     exactly one line per command, right under the parameter it names.
  *     See docs/refactoring/T3.31.md section 7.5.
  *
- *   - ⭐ THE RETURN PATH. Everything above is the OUTBOUND half. The reply
- *     callbacks are still four bare sigc::slot of scalars, WagoMap.h:38-41,
- *     and they carry the same permutable pairs coming back:
+ *   - THE RETURN PATH, HALF of which is now closed - T3.46.
+ *     Everything above is the OUTBOUND half. The replies come back through
+ *     four sigc::slot declared at WagoMap.h, and they carry the same
+ *     permutable pairs the other way round.
  *
- *       MultiBits_cb  / MultiWords_cb  (bool, UWord address, int count, ...)
- *       SingleBit_cb  / SingleWord_cb  (bool, UWord address, <payload>)
+ *     CLOSED by T3.46, the WRITE half - two slots, four implementations, two
+ *     emission sites:
+ *       SingleBit_cb   (bool, WagoTypes::Address, WagoTypes::BitValue)
+ *       SingleWord_cb  (bool, WagoTypes::Address, WagoTypes::WordValue)
+ *       WOAnalog::WagoWriteCallback      (WOAnalog.cpp)
+ *       WODigital::WagoWriteCallback     (WODigital.cpp)
+ *       WOVoletBase::WagoWriteCallback   (WagoIOBase.h)
+ *       WagoMap::processNewMessage, the two singleBit_cb/singleWord_cb calls
+ *       OutputAnalog::WagoReadCallback / ::WagoWriteCallback - DELETED, they
+ *         were defined nowhere in the tree (measured), which is what keeps
+ *         WagoTypes:: out of a generic base with no business knowing Wago.
+ *     Every one of those parameters is taken BY VALUE, not by lvalue
+ *     reference: a non-const reference makes std::is_invocable_v answer false
+ *     for the CORRECT order too, and the probes would pass for the wrong
+ *     reason (F-TYPE-5).
  *
- *     with eleven implementations, NONE of them typed, none of them reached
- *     by any test binary:
- *       WagoMap::WagoModbusReadHeartbeatCallback  (WagoMap.cpp:172)
- *       WIAnalog::WagoReadCallback                (WIAnalog.cpp:72)
- *       WITemp::WagoReadCallback                  (WITemp.cpp:68)
- *       WOAnalog::WagoReadCallback                (WOAnalog.cpp:69)
- *       WOAnalog::WagoWriteCallback               (WOAnalog.cpp:86)
- *       WODigital::WagoReadCallback               (WODigital.cpp:81)
- *       WODigital::WagoWriteCallback              (WODigital.cpp:109)
- *       WIDigitalBase::WagoReadCallback           (WagoIOBase.h:104)
- *       WOVoletBase::WagoWriteCallback            (WagoIOBase.h:291)
- *       OutputAnalog::WagoReadCallback  / ::WagoWriteCallback
- *                                                 (OutputAnalog.h:41-42)
- *     ⚠️ NOT closed here, and the reason is scope, not difficulty: the four
- *     typedefs plus those eleven signatures plus six invocation sites in
- *     WagoMap.cpp are ten files, one of which (OutputAnalog.h) is a GENERIC
- *     base outside the Wago tree - typing it would put WagoTypes:: into a
- *     class that has no business knowing about Wago. Ticketed: T3.46.
+ *     STILL OPEN, the READ half - two slots and seven implementations:
+ *       MultiBits_cb / MultiWords_cb  (bool, UWord address, int count, ...)
+ *       WagoMap::WagoModbusReadHeartbeatCallback  (WagoMap.cpp)
+ *       WIAnalog::WagoReadCallback                (WIAnalog.cpp)
+ *       WITemp::WagoReadCallback                  (WITemp.cpp)
+ *       WOAnalog::WagoReadCallback                (WOAnalog.cpp)
+ *       WODigital::WagoReadCallback               (WODigital.cpp)
+ *       WIDigitalBase::WagoReadCallback           (WagoIOBase.h)
+ *       plus four invocation sites in WagoMap::processNewMessage.
+ *     Their (UWord address, int count) is the pair E4.1h measured GREEN on a
+ *     swap. It is the MORE dangerous half - see below - and it is left for
+ *     the read ticket, on scope, not on difficulty.
  *
- *     ⭐ Measured, and it is what makes deferring defensible rather than
- *     merely convenient - the two halves are NOT equally dangerous:
+ *     Measured, and it is why T3.31 said the reads should go first - the two
+ *     halves are NOT equally dangerous:
  *       - the READ callbacks carry (UWord address, int count) live and
  *         adjacent: the same pair E4.1h measured, and it is real data;
- *       - the two WRITE callbacks carry (address, value) where the value is a
- *         CONSTANT at the only place that sends it - WagoMap.cpp:219 passes
- *         literal `false`, WagoMap.cpp:242 passes literal `0`. Permuting
- *         them substitutes a dummy, not a live payload.
- *     ⚠️ Consequence worth its own line, NOT fixed here because it is a
+ *       - the WRITE callbacks carry (address, value) where the VALUE is a
+ *         constant at the only place that sends it - WagoMap.cpp passes the
+ *         literal `false` for a bit and the literal `0` for a word.
+ *         Permuting them substitutes a dummy for a live payload.
+ *       But not for nothing, which is what T3.46 measured on top: the ADDRESS
+ *         at those same two lines is NOT a dummy, it is decoded from the
+ *         reply. A permutation there hands the LIVE address over as the
+ *         value, and WOAnalog assigns it.
+ *     Consequence worth its own line, NOT fixed here because it is a
  *     behaviour change on untouched master code: WOAnalog::WagoWriteCallback
- *     assigns `value = _value`, so a Wago analog output overwrites its own
+ *     assigns `value = _value.v`, so a Wago analog output overwrites its own
  *     reported value with that literal 0 after every successful write, and
- *     emitChange()s it. Reported, not changed.
+ *     emitChange()s it. Reported, not changed. T3.46.md section 6.4.
  */
 namespace WagoTypes
 {

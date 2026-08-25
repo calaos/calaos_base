@@ -38,7 +38,10 @@ private:
     bool start;
 
     void WagoReadCallback(bool status, UWord address, int count, vector<bool> &values);
-    void WagoWriteCallback(bool status, UWord address, bool value);
+    /* T3.46 - by value, see WOAnalog.h. ⚠️ Both parameters below are unused:
+     * permuting them is semantically a NO-OP, so no behavioural test could
+     * ever separate the two programs. Typing them closes a CONTRACT. */
+    void WagoWriteCallback(bool status, WagoTypes::Address address, WagoTypes::BitValue value);
 
 protected:
     bool set_value_real(bool val);

@@ -37,7 +37,11 @@ private:
     virtual void set_value_real(double val);
 
     void WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values);
-    void WagoWriteCallback(bool status, UWord address, UWord value);
+    /* T3.46 - taken BY VALUE on purpose. A parameter declared as a
+     * non-const lvalue reference makes std::is_invocable_v answer false for
+     * the CORRECT order too, so the probes of tests/WagoWriteReply_test.cpp
+     * would pass for the wrong reason (T3.31, F-TYPE-5). */
+    void WagoWriteCallback(bool status, WagoTypes::Address address, WagoTypes::WordValue value);
 
 public:
     WOAnalog(Params &p);

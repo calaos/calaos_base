@@ -216,7 +216,8 @@ void WagoMap::processNewMessage(const string &msg)
     else if (cmd.command == MBUS_WRITE_BIT)
     {
         if (cmd.mapSignals)
-            cmd.mapSignals->singleBit_cb(status, address, false);
+            cmd.mapSignals->singleBit_cb(status, WagoTypes::Address(address),
+                                         WagoTypes::BitValue(false));
     }
     else if (cmd.command == MBUS_WRITE_BITS)
     {
@@ -239,7 +240,8 @@ void WagoMap::processNewMessage(const string &msg)
     else if (cmd.command == MBUS_WRITE_WORD)
     {
         if (cmd.mapSignals)
-            cmd.mapSignals->singleWord_cb(status, address, 0);
+            cmd.mapSignals->singleWord_cb(status, WagoTypes::Address(address),
+                                          WagoTypes::WordValue(0));
     }
     else if (cmd.command == MBUS_WRITE_WORDS)
     {

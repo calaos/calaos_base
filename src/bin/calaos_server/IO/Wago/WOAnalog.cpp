@@ -83,7 +83,7 @@ void WOAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord
     Calaos::StartReadRules::Instance().ioRead();
 }
 
-void WOAnalog::WagoWriteCallback(bool status, UWord addr, UWord _value)
+void WOAnalog::WagoWriteCallback(bool status, WagoTypes::Address addr, WagoTypes::WordValue _value)
 {
     if (!status)
     {
@@ -91,7 +91,12 @@ void WOAnalog::WagoWriteCallback(bool status, UWord addr, UWord _value)
         return;
     }
 
-    value = _value;
+    /* ⚠️ T3.46 - the one line where the wrapper is undone (workaround W7).
+     * `value = addr.v` would type-check just as well; typing the signature
+     * removes the ORDER mistake, not this one. And the value that lands here
+     * is the literal 0 WagoMap.cpp sends, which is a defect of its own,
+     * reported at T3.46.md section 6.4 and deliberately NOT changed here. */
+    value = _value.v;
 
     emitChange();
 

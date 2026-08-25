@@ -288,7 +288,9 @@ public:
                                                        sigc::mem_fun(*this, &WOVoletBase::WagoWriteCallback));
     }
 
-    void WagoWriteCallback(bool status, UWord address, bool value)
+    /* T3.46 - by value, see WOAnalog.h. Both parameters are unused here too,
+     * so the permutation is semantically a no-op and this is a contract. */
+    void WagoWriteCallback(bool status, WagoTypes::Address address, WagoTypes::BitValue value)
     {
         if (!status)
         {

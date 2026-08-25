@@ -36,9 +36,25 @@ namespace Calaos
 {
 
 typedef sigc::slot<void, bool, UWord, int, vector<bool> &> MultiBits_cb;
-typedef sigc::slot<void, bool, UWord, bool> SingleBit_cb;
 typedef sigc::slot<void, bool, UWord, int, vector<UWord> &> MultiWords_cb;
-typedef sigc::slot<void, bool, UWord, UWord> SingleWord_cb;
+
+/* T3.46 - the WRITE half of the reply path, typed per role.
+ *
+ * These two slots carry a write acknowledgement back from calaos_wago.
+ * SingleWord_cb used to be sigc::slot<void, bool, UWord, UWord>: address and
+ * value, two values of the same width side by side, interchangeable with no
+ * diagnostic at all. That is the pair F-WAGO-7 names, arriving instead of
+ * leaving, and it is the last hop of the round trip WagoTypes.h describes.
+ * SingleBit_cb was <void, bool, UWord, bool> and carried TWO permutable pairs
+ * in one signature: address/value across two mutually convertible widths, and
+ * status/value which were both plain bool at positions 1 and 3.
+ *
+ * ⚠️ The two MULTI slots above are the READ half and are still bare - their
+ * (UWord address, int count) is the pair E4.1h measured. Not typed here, and
+ * that is a scope decision: see docs/refactoring/T3.46.md section 7.
+ */
+typedef sigc::slot<void, bool, WagoTypes::Address, WagoTypes::BitValue> SingleBit_cb;
+typedef sigc::slot<void, bool, WagoTypes::Address, WagoTypes::WordValue> SingleWord_cb;
 
 typedef sigc::slot<void, bool, string, string> WagoUdp_cb;
 typedef sigc::signal<void, bool, string, string> WagoUdp_signal;

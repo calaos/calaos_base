@@ -106,7 +106,7 @@ void WODigital::WagoReadCallback(bool status, UWord addr, int count, vector<bool
     }
 }
 
-void WODigital::WagoWriteCallback(bool status, UWord addr, bool _value)
+void WODigital::WagoWriteCallback(bool status, WagoTypes::Address addr, WagoTypes::BitValue _value)
 {
     if (!status)
     {
