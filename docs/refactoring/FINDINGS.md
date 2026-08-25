@@ -6750,9 +6750,39 @@ destiné à une machine**.
 
 **Mesuré, pas supposé** : à `ensure_ascii = false`, `json_dumps(JSON_INDENT(4))` et
 `dump(4, ' ', false, error_handler_t::replace)` sont **identiques à l'octet** sur ASCII, sur
-`U+00E9` **et sur `U+007F`** — le delta DEL lui-même disparaît quand `ensure_ascii` est faux.
-⇒ **zéro octet ne bouge sur le journal**, et il n'y a donc rien à déclarer en note de version pour
-ce site.
+`U+00E9`, sur `U+007F` **et sur un emoji hors BMP** (`U+1F600`) — le delta DEL lui-même disparaît
+quand `ensure_ascii` est faux, et à `true` les trois divergeraient (`\u00e9`, `\u007f`,
+`\ud83d\ude00`). ⇒ ⭐ **aucun octet ne bouge DU FAIT DE CE CHOIX-LÀ.**
+
+### ⛔⭐ …et la phrase qui suivait était PLUS GÉNÉREUSE QUE LA MESURE — restreinte, avec les trois familles qui bougent quand même
+
+**J'avais écrit « zéro octet ne bouge sur le journal ».** C'est faux comme phrase générale, et
+c'est le motif que cette série documente depuis onze affirmations : *une phrase localement vraie
+qui grandit d'un cran*. Ce qui est mesuré, c'est que **`ensure_ascii = false` ne coûte aucun
+octet** — pas que le journal soit inchangé. **Trois familles bougent, aucune imputable à
+`ensure_ascii`**, toutes reproduites sur la même sonde (jansson réel + le `json.hpp` du dépôt,
+chaîne `json_loads`/`json_dumps(JSON_INDENT(4))` contre `Json::parse`/`dump(4,' ',false,replace)`) :
+
+| Famille | Avant (`jansson`) | Après (`nlohmann`) | Cause |
+|---|---|---|---|
+| **ordre des clés** | ordre d'insertion = ordre du **client** : `{"z":1,"a":2,"m":3}` → `z, a, m` | **trié** : `a, m, z` | `std::map`, invariant 1 de l'épique |
+| ⭐ **rendu des nombres** | `%.17g` : `0.1` → `0.10000000000000001` · `3.14159` → `3.1415899999999999` · `1e50` → `1.0000000000000001e50` · `1e-7` → `9.9999999999999995e-8` | plus court aller-retour : `0.1` · `3.14159` · `1e+50` · `1e-07` | algorithme de sérialisation des `double` — **et la forme de l'exposant change aussi** |
+| **UTF-8 invalide** (document **construit en mémoire**) | `json_string()` rend `NULL`, `json_object_set_new()` rend −1 : **la paire disparaît**, le dump est `{}` | `EF BF BD` par octet fautif | `error_handler_t::replace`, invariant 3 |
+
+**Identiques et vérifiés comme tels** : les entiers (`42`) et les décimaux exactement
+représentables (`1.5`).
+
+⚠️ **Nuance mesurée sur la 3ᵉ famille, à NE PAS généraliser** : par les **deux appelants de
+production** — qui *parsent* le message du client avant d'appeler — cette famille **n'est pas
+atteignable**. Les deux bibliothèques **refusent** un document à octet invalide (`json_loads` :
+*« unable to decode byte 0xff »* ; `Json::parse(…, nullptr, false)` : `discarded`) et
+`dumpJsonRedacted()` rend `""` **des deux côtés**. La divergence n'existe que pour un document
+**construit en mémoire** — ce que fait le cas
+`RedactedDumpDoesNotThrowOnInvalidUtf8`, et c'est bien pour ça qu'il est écrit comme ça.
+
+⇒ **Rien à déclarer en `RELEASE_NOTES` pour le choix `ensure_ascii`** (il ne coûte aucun octet) ;
+les trois familles ci-dessus, elles, sont **les deltas déjà déclarés de l'épique**, et le journal
+en hérite comme n'importe quel autre `dump()`.
 
 `error_handler_t::replace` **est** appliqué : c'est l'invariant qui empêche un `type_error.316` de
 tuer une connexion vivante. Les **deux** choix sont épinglés par deux cas neufs de
@@ -6885,3 +6915,86 @@ acceptable que **nommé et expliqué**. ⚠️ **À qui écrira un oracle sur `g
 cherchez pas à couvrir l'ordre de la requête, il n'y a plus rien à couvrir. Ce qui reste couvrable,
 et couvert, c'est que la réponse est **triée** (`K_GetIoMapIsSortedByIdNotByRequestOrder`) et que
 chaque IO y porte le bon contenu.
+
+### ⛔⭐⭐ Le masquage des mots de passe ne tenait à **rien** — un `str_to_lower()` que RIEN ne couvrait, et la mutation qui l'enlève laisse le `make check` ENTIER au vert
+
+**Trouvé par la revue, fermé par cette livraison.** `JsonApi::dumpJsonRedacted()` compare la clé à
+une liste **entièrement en minuscules** (`"cn_pass"`, `"password"`, `"token"`, `"authorization"`,
+…) après lui avoir appliqué `Utils::str_to_lower()`. **Ce `str_to_lower()` est la seule chose qui
+masque `"CN_PASS"`, `"Password"` ou `"Authorization"`.**
+
+**Mutation `X2` du relecteur — retirer ce seul appel** : `make check` **complet au VERT** —
+`# TOTAL 99 / PASS 98 / SKIP 1 / FAIL 0`, **1632 cas**, **93 `CXXLD`**, **0 rouge**. ⇒ ⭐ **des
+mots de passe cesseraient d'être masqués dans le journal EN SILENCE, et aucun test du dépôt ne le
+dirait.** Cause : **aucun cas de l'arbre n'envoyait une clé de credential en casse mixte** — les
+trois cas de `JsonApiRedact` étaient tous en minuscules.
+
+⚠️ **Le défaut de couverture est PRÉÉXISTANT** (le `str_to_lower()` était déjà là dans la version
+jansson, `JsonApi.cpp:216` d'avant bascule) — **mais c'est exactement la fonction que l'incident de
+ce ticket avait mutée dans un commit**, et la fiche lui ajoutait deux cas *sans* fermer celui-là.
+Le laisser ouvert aurait été le motif de la nuit : *renforcer un oracle à côté du trou.*
+
+⭐ **Fermé** : `JsonApiRedact.HidesCredentialFieldsWhateverTheKeyCase`
+(`tests/core/JsonApiHardening_test.cpp`), deux clés **réalistes** en casse mixte — `"CN_Pass"` et
+`"Authorization"` (l'orthographe HTTP normale). ⚠️ **Chaque assertion est une PAIRE** : le secret
+est **absent** *et* la paire est **encore là, masquée** (`"CN_Pass": "***"`). Une assertion
+d'absence seule aurait aussi passé sur un dump qui **supprime** le champ — un autre défaut, pas
+celui-ci. Un troisième assert garde une clé **non-credential** en casse mixte (`"Action"`) lisible,
+pour qu'un « masquer tout » ne passe pas non plus.
+
+⇒ **`X2` rejouée sur l'arbre livré : elle ROUGIT** (chiffres en fin de section).
+
+### ⛔⭐⭐ Une mine posée SIX TICKETS à l'avance, dans une acceptation — `!Json` **compile**, et lève dans un callback que rien n'attrape
+
+L'acceptation n° 6 de `E4.1m.md` disait qu'`E4.1o` *« va casser cette ligne à la compilation
+(`!Json` ne compile pas) »*, à propos de `ScriptExec.cpp:131` :
+`if (!jsonApi->buildJsonSetParam(p))`. **C'est faux, et la phrase est plus dangereuse que le
+défaut** : elle promet au futur auteur d'`E4.1o` un filet — le compilateur — qui n'existe pas.
+
+**Mesuré**, sonde `g++ -std=c++17` contre le `json.hpp` du dépôt, dans l'image de build :
+
+| Retour de `buildJsonSetParam()` après E4.1o | `!Json` |
+|---|---|
+| objet non vide (`{"success":"true"}`) | **compile**, puis **lève** `type_error.302` — *« type must be boolean, but is object »* |
+| objet vide | **compile**, puis **lève** `type_error.302` |
+| `Json` nul | **compile**, puis **lève** `type_error.302` — *« but is null »* |
+
+**Pourquoi** : `JSON_USE_IMPLICIT_CONVERSIONS` vaut **1** — `src/lib/json.hpp:2812-2813`, un
+`#ifndef` / `#define … 1` **jamais surchargé**. Balayage de l'arbre entier (`.h`, `.hpp`, `.cpp`,
+`.am`, `.ac`, `.in`, `.m4`) : **3 occurrences, les trois dans `json.hpp`**, **zéro `-D`**. La
+conversion implicite `operator ValueType()` est donc active, `bool` est déduit, et
+`get<bool>()` lève sur tout ce qui n'est pas un booléen. **Aucune valeur de retour ne rend cette
+ligne inoffensive.**
+
+⛔ **Et l'endroit où elle lève est le pire du fichier** : la lambda de
+`process->messageReceived` (`LuaScript/ScriptExec.cpp:93-146`), appelée depuis la boucle `uvw`.
+**Aucun `try`/`catch` au-dessus** — vérifié fichier par fichier : `LuaScript/ScriptExec.cpp`,
+`IO/ExternProc.cpp`, `IO/ExternProc.h` n'en portent **aucun**. ⇒ **`std::terminate` de
+`calaos_server`**, déclenchable par **tout script Lua qui fait un `set_param`** : le chemin
+**nominal**, pas un cas limite.
+
+⭐ **C'est EXACTEMENT le précédent KNX**, § *« E4.1e — le wire KNX transporte des octets bruts du
+bus : `dump()` nu = `std::terminate` »* plus haut dans ce fichier : un appel `nlohmann` qui lève
+dans `KNXProcess::monitorWait()`, rien qui attrape au-dessus, `calaos_knx` terminé par une **trame
+de bus ordinaire** (un gradateur EIS 6 à 78 % suffit). La différence tient en un mot : là-bas
+c'était `type_error.316` depuis `dump()`, ici c'est `type_error.302` depuis une **conversion
+implicite**.
+
+⚠️ **Et `make check` ne préviendra pas non plus** : `F-LINK-1`, mesuré par ce ticket, établit que
+**les trois sites de `ScriptExec.cpp` ne sont atteints par AUCUNE suite** (0 passage sur
+92 binaires). Compilateur muet + suite muette = la panne apparaît **chez l'utilisateur**.
+
+⭐ **Bonus mesuré au passage : la garde actuelle est DÉJÀ INERTE.** Les deux branches de
+`buildJsonSetParam()` finissent par `return jansson_from_params(ret)`, qui rend `json_object()` —
+jamais `NULL` hors OOM. L'échec est signalé **dans le document** (`{"error": "wrong io/param"}`),
+pas par le pointeur : `cWarningDom("lua") << "Failed to decode set_param…"` **n'a jamais été
+imprimé**. La réécriture demandée à `E4.1o` n'est donc pas seulement sûre, elle **répare** cette
+garde morte. (La **fuite** de `json_t *` du même site, elle, disparaît d'elle-même avec
+`nlohmann`.)
+
+⇒ **Réécrit à trois endroits** : `E4.1m.md` (acceptation n° 6), `E4.1o.md` (§ *Pièges propres*, en
+tête, là où l'auteur du ticket le lira) et ici. ⚠️ **La leçon générale, et elle vaut au-delà de ce
+site** : *« ça ne compilera pas »* est une **prédiction**, pas une mesure. Sur `nlohmann::json`
+avec les conversions implicites actives, **presque tout compile** — c'est la bibliothèque entière
+qui est conçue pour ça. Une promesse de garde-fou au compilateur doit être **compilée** avant
+d'être écrite.
