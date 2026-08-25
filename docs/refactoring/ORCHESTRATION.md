@@ -8,6 +8,94 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **⭐ LES FINDINGS DE LA NUIT SONT TICKETÉS — dix fiches, `T3.25` → `T3.34`, toutes 📋
+  (2026-08-25).** Aucune ligne de `src/`, aucun test, aucun build : ce lot est de la **rédaction**.
+  Chaque finding d'origine renvoie désormais à sa fiche dans `FINDINGS.md`, l'analyse est
+  conservée. Numéros : **T3.20 est parké ⛔, T3.21-T3.24 étaient pris**, T3.25 était le premier
+  libre.
+
+  - ⭐⭐ **LA PREMIÈRE À FAIRE EST `T3.25`, et de loin — parce qu'elle est la seule dont le chemin
+    est ATTEIGNABLE À DISTANCE par un compte API ordinaire et débouche sur du matériel.**
+    `Utils::from_string("")` rend **`true` sans rien écrire** (`StringUtils.h:104-111` — plus
+    `Utils.h`, T2.2 l'a déplacée). **Il n'y a pas de « 0 en cas d'échec », il y a deux régimes** :
+    `""` **et toute chaîne blanche** → `ret=1`, **dest inchangée** ; `"true"` → `ret=0`, dest 0 ;
+    `"12abc"` → `ret=0`, dest **12**. Mesuré au `g++`, dest pré-semé à `0x5555` = **21845** — la
+    valeur exacte des canaux DMX qui ont tué `calaos_ola`. **Et `is_of_type<int>("")` rend `true`
+    aussi** (son `T tmp;` est lui-même non initialisé) ⇒ **cette garde ne garde pas**.
+    **Balayage `python3`, `src/` : 319 sites, 310 ignorent le retour (97 %), 165 passent une
+    locale sans initialiseur, 71 un membre sans initialiseur en-classe.** Un second balayage
+    indépendant (revue parallèle) donne **320 / 157 / dont 112 sans garde `.empty()`** — les deux
+    s'accordent à ~5 %, l'écart vient de la résolution des déclarations multiples `int a, b, c;`.
+    ⭐ **La chaîne atteignable, maillon par maillon** : `set_state` n'a **AUCUN `scopeDenied`**
+    (`JsonApiHandlerWS.cpp:170-231` ; les sept protégés sont `set_param`, `del_param`, `audio_db`,
+    `set_timerange`, `eventlog`, `register_push`, `settings`) → `JsonApi.cpp:774/777` passe la
+    **chaîne cliente brute** à `set_value(string)` → `{"value":"impulse up "}` atteint
+    `IO/OutputShutter.cpp:110-116`, où `erase(0,11)` laisse `""`, `from_string` rend `true` sans
+    écrire, et **`int v;` indéterminé part en durée d'impulsion**. Conséquence lue au source
+    (`:216-227`) : sur une **grande** valeur, `impulse_action_time + impulse_time < time * 1000`
+    est **faux** ⇒ **aucune minuterie d'arrêt n'est armée**, l'impulsion dégénère en **course
+    complète du volet** ; sur une valeur négative, `_t` négatif et **débordement `int` possible**.
+    Dans tous les cas la valeur arbitraire est **publiée dans l'état de l'IO** (`cmd_state` +
+    `updateCache()`). Même famille : `OutputShutterSmart` ×7, `OutputLightDimmer` ×8 (2 clampés
+    `[0,100]`, 6 non), `OutputLightRGB` ×10, `OutputLight`, `IntValue`, `JsonApi.cpp:1964/2057`.
+    ⭐ **Le défaut OLA était le seul cas INATTEIGNABLE de la famille.**
+    **Correctif recommandé, pas imposé** : retour honnête (`!iss.fail() && iss.eof()`, **1 ligne**,
+    **9** sites à auditer) **+** initialisation des destinataires **par lots**, lot **L1** =
+    le chemin ci-dessus, livré seul et en premier. ⛔ **PAS** un « 0 forcé » : il fermerait 310
+    sites d'un coup **et casserait 38 appelants nommables** dont le destinataire porte un défaut
+    utile (`port = 1883`, `keepalive = 120`, `interval = 15000`, `brightness = 100`,
+    `perPage = 100`, `eis = EIS_Autodetect`, huit `step = 1.0`, trois `a = 1.0`).
+
+  - ⛔ **TROIS FINDINGS DE LA NUIT SONT INEXACTS AU SOURCE — corrigés en place dans `FINDINGS.md`,
+    ne pas les réécrire.**
+    **(1)** « `from_string("")` retourne true **avec dest zéro-initialisée** » (:615-617) : `dest`
+    **n'est pas écrite du tout**, et le site a déménagé en `StringUtils.h`.
+    **(2)** « `RoonPlayer` : `from_string("")` laisse `port` à **0** » (:2458) : il est
+    **INDÉTERMINÉ** (`RoonPlayer.h:214`, `int port;` sans initialiseur, hors liste d'init). Et
+    **« il est probable que Roon soit inutilisable » est trop fort** : avec `host` vide — le mode
+    par défaut annoncé — `args` reste **vide**, aucun `--port` n'est passé, **l'autodétection
+    fonctionne**. Seule la configuration à **hôte statique** est cassée. Les lignes citées ont
+    dérivé de **+6** (bloc de commentaire E4.1g à `:159-164`) : c'est `:180` et `:185`.
+    **(3)** « deux tickets ont fermé le trou positionnel par `LmsHost{}` / `LightState` /
+    `RedChannel` » : **ces trois identifiants n'existent NULLE PART** dans l'arbre (`src/`,
+    `tests/`, `docs/`, `graft/`). **Aucun site d'appel n'est fermé par le typage à ce jour.**
+    Seul précédent réel : `enum class RuleDetachPolicy` (T3.18) — et il ferme un `bool`, pas une
+    permutation. `CameraRegistration` **existe** (`ReolinkEventRegistry.h:52-58`) mais n'a rien
+    fermé : `ReolinkCtrl.cpp:100` le construit en **brace-init positionnel**.
+    ⚠️ **Un quatrième, venu d'un balayage parallèle et infirmé ici** : les « accès `tokens[1]`
+    hors bornes » de `KNXExternProc_main.cpp` **n'existent pas** — `Utils::split` **pade**
+    (`StringUtils.cpp:210`, `while (tokens.size() < max) push_back("")`). Le vrai défaut est que
+    le remplissage `""` laisse `b`/`c` **indéterminés** ⇒ **adresse de groupe arbitraire sur le
+    bus KNX**, sans erreur.
+
+  - ⭐ **UN DÉFAUT NEUF, TROUVÉ EN VÉRIFIANT — `T3.34`, deux caractères, à livrer AVANT `T3.25` L1**
+    (mêmes lignes). `IO/OutputShutter.cpp:117-123` fait `compare(0, **13**, "impulse down ")` puis
+    **`erase(0, 11)`** : il reste `"n "` collé devant la valeur, `from_string("n 500")` échoue,
+    **`ImpulseDown(0)` est appelé quelle que soit la durée demandée**. **`impulse down` n'a jamais
+    fonctionné.** Idem `IO/OutputShutterSmart.cpp:171`. La branche `impulse up ` juste au-dessus
+    est correcte ; la faute vient de la longueur **écrite deux fois** sans rien qui les lie, alors
+    que `Utils::strStartsWith()` est utilisé **douze lignes plus bas** (`:124`). La trace est
+    visible dans l'API **depuis toujours** : `cmd_state = "impulse down 0"` (`:169`).
+
+  - **L'ORDRE RECOMMANDÉ** : **`T3.34`** (2 caractères, zéro risque, mêmes lignes que T3.25 L1) →
+    **`T3.25`** étage 1 + lot L1 → **`T3.29`** (visible par tous les utilisateurs, sans décision) →
+    **`T3.28`** → **`T3.26`** (⚠️ **bloqué sur décision utilisateur**, 3 options pesées, plus une
+    question ouverte : l'appareil installe-t-il seul ? c'est un **autre dépôt**) → **`T3.33`**
+    (après T3.25) → **`T3.32`** → **`T3.31`** → **`T3.30`** (piège armé, aucun appelant) →
+    **`T3.27`** ⚠️ **APRÈS `E4.1j`**, dont `ScriptBindings.cpp` est le périmètre exclusif et qui
+    est **en cours en ce moment**.
+
+  - ⚠️ **CROISEMENTS DE PÉRIMÈTRE À RESPECTER** : `T3.27` et le site `ScriptBindings.cpp:230` de
+    `T3.25` attendent **E4.1j** · `T3.33` touche `WagoExternProc_main.cpp` et
+    `OLAExternProc_main.cpp`, **3 des 6 casseurs de la liste d'`E4.1x`** ⇒ ne pas l'ouvrir
+    pendant une fenêtre E4.1x · `T3.29` touche `IO/Mqtt/MqttCtrl.cpp` et les 9 catalogues `po/`.
+
+  - **NON VÉRIFIÉ, à ne pas surestimer** : **rien n'a été construit** (trois agents buildaient en
+    parallèle), **rien sous ASan**, **aucun volet, aucun automate, aucun core Roon réel**. La
+    valeur exacte prise par `v` dans le chemin `impulse up ` **n'a pas été mesurée sur machine** :
+    c'est le code qui la consomme qui a été lu. Le seul programme exécuté est un `g++` autonome de
+    12 lignes sur `from_string`/`is_of_type`.
+
 - **🔒 E4.1c ✅ MERGÉ (`35ce4cbf`, 5 commits, `git rebase master` + `merge --ff-only`, historique
   linéaire, `make check` **79/79**) — le seul ticket de la série qui ne migre presque rien : il
   RETIRE TROIS CHOSES MORTES, `src/` = **−9 / +0, AUCUNE addition**.**

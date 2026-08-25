@@ -40,7 +40,10 @@
   pas un `!contains()` nu) ; le commit de correction les **flippe** au lieu de les supprimer.
   Contre-mutation **M12** (re-supprimer le tableau du constructeur livré) → **3 cas rouges**.
 
-- ⛔ **[F-WAGO-2] — NON CORRIGÉ, hors périmètre. ⭐ TICKET DÉDIÉ RECOMMANDÉ, PRIORITÉ MOYENNE :
+- ⛔ **[F-WAGO-2] — ✅ TICKETÉ : [T3.30](T3.30.md)** (2026-08-25). Analyse conservée telle quelle ;
+  deux corrections de référence apportées par le ticket : `setBit()` est à **`WagoCtrl.cpp:51-60`**
+  (et non `:50-58`), et la sur-allocation existe aussi dans `read_bits()` `:95` (bénigne, son
+  `memset` couvre tout). **NON CORRIGÉ, hors périmètre. ⭐ TICKET DÉDIÉ RECOMMANDÉ, PRIORITÉ MOYENNE :
   `WagoCtrl::write_multiple_bits()` est fonctionnellement FAUX, et pas seulement à cause de
   F-WAGO-1.** Trois défauts distincts sur les mêmes dix lignes (`WagoCtrl.cpp:152-176`, jumeau
   `:220-242`), dont **deux trouvés par la revue et non par moi**.
@@ -89,7 +92,12 @@
   `NonStringEntriesInValuesDoNotCrashTheDecoder` l'épingle. **Le changement est donc réel et
   déclaré**, mais il ne peut convertir qu'un plantage en valeur définie.
 
-- ⚠️ **[F-WAGO-4] — Le trou des arguments positionnels, MESURÉ pour la troisième fois de la série.**
+- ⚠️ **[F-WAGO-4] — ✅ TICKETÉ (transverse) : [T3.31](T3.31.md)** (2026-08-25). ⛔ **Une note de
+  cadrage affirmait que deux tickets avaient déjà fermé ce trou par des types distincts nommés
+  `LmsHost{}` / `LightState` / `RedChannel` : ces trois identifiants n'existent NULLE PART dans
+  l'arbre** (ni `src/`, ni `tests/`, ni `docs/`, ni `graft/`) — **aucun site d'appel n'est fermé
+  par le typage à ce jour**. Le seul précédent réel est `enum class RuleDetachPolicy` (T3.18).
+  **Le trou des arguments positionnels, MESURÉ pour la troisième fois de la série.**
   Échanger `address` et `nb` **au site d'appel** de `WagoWire::buildReadWordsRequest()` dans
   `WagoMap.cpp` : **compile sans un seul avertissement** (`int` et `UWord` sont implicitement
   convertibles) et laisse la suite **31/31 VERTE**. Structurel et lisible dans le `Makefile`
@@ -245,7 +253,10 @@
   laquelle des deux on cite**. **E4.1i n'en résorbe aucune** : `ReolinkCtrl.cpp` n'utilisait pas
   `jansson_from_params`.
 
-- ⚠️ **[F-REO-5] Quatre `string` positionnelles de même type traversent trois relais que rien ne
+- ⚠️ **[F-REO-5] — ✅ TICKETÉ (transverse) : [T3.31](T3.31.md)** (2026-08-25), cible n°1.
+  ⚠️ Le struct `CameraRegistration` existe bien (`ReolinkEventRegistry.h:52-58`) **mais n'a rien
+  fermé** : `ReolinkCtrl.cpp:100` le construit en **brace-init positionnel**, donc la permutation
+  reste écrivable. **Quatre `string` positionnelles de même type traversent trois relais que rien ne
   couvre — MESURÉ, plus supposé.** Le filet d'E4.1i tient `ReolinkWire::buildRegisterMessage()` ;
   il ne tient **pas** ce qu'on lui passe.
 
@@ -612,8 +623,23 @@
   → **T3.17**.
 - **[LIFETIME] `HttpClient.cpp:578` `sendToClient`** : enregistre un `once<uvw::WriteEvent>` par
   appel capturant `this` brut — dangling si le client est détruit avec des writes en vol.
-- **[FOOTGUN] `Utils::from_string("")` retourne true** avec dest zéro-initialisée
-  (`iss.eof()` vrai sur entrée vide) — `src/lib/Utils.h:308-315`. Chaque appelant doit se
+- **[FOOTGUN] `Utils::from_string("")` retourne true** — ✅ **TICKETÉ : [T3.25](T3.25.md)**
+  (2026-08-25), **fiche la plus prioritaire du lot**.
+  ⛔ **DEUX CORRECTIONS DE FAIT À CETTE PUCE, mesurées** : (1) « avec dest zéro-initialisée » est
+  **FAUX** — sur une entrée vide **ou blanche**, la sentinelle échoue **avant** `num_get` et
+  **`dest` n'est pas écrite du tout** (mesuré : dest pré-semé à 21845 ⇒ ressort à 21845) ; le
+  « 0 en cas d'échec » ne vaut que pour une entrée **illisible NON blanche** (`"true"` → 0,
+  `"12abc"` → 12). (2) le site n'est plus `src/lib/Utils.h:308-315` mais
+  **`src/lib/StringUtils.h:104-111`** depuis T2.2 (`Utils.h` ne contient plus le mot
+  `from_string`). ⭐ Et **`Utils::is_of_type<T>("")` rend `true` aussi** (`:96-103`, son `T tmp;`
+  est lui-même non initialisé) ⇒ **une garde `is_of_type` ne protège pas**.
+  ⭐ **Balayage : 319 sites d'appel dans `src/`, 310 ignorent le retour, 165 passent une locale
+  déclarée sans initialiseur, 71 un membre sans initialiseur en-classe.** Un second balayage
+  indépendant donne 320 / 157 / dont 112 sans garde `.empty()` — les deux s'accordent à ~5 %.
+  ⭐ **Et le chemin est ATTEIGNABLE À DISTANCE** : `set_state` n'a **aucun `scopeDenied`**
+  (`JsonApiHandlerWS.cpp:170-231`), `JsonApi.cpp:774/777` passe la chaîne cliente brute à
+  `set_value(string)`, et `{"value":"impulse up "}` atteint `IO/OutputShutter.cpp:110-116` où
+  `int v;` non initialisé part en durée d'impulsion sur un volet physique. Chaque appelant doit se
   défendre par un range-check (cf. `parseGridDimension` T1.10).
 - **[INFRA TESTS] Les suites Python (tests/python/, 42+ tests T1.8+T1.16) ne sont PAS câblées
   dans `make check`** — délibéré en wave 4 (le format Makefile.am est gtest-only, le câblage
@@ -1910,6 +1936,10 @@ et c'est **sûr** : `HistLogger.cpp:270-277` refuse `page < 0` et `page > total_
 qui atteignent la clause `LIMIT` sont donc déjà dans la plage, et `start` ne peut pas déborder.
 Le comportement est épinglé de l'extérieur par `ANonNumericPageIsStillReadAsPageZero` (un
 `from_string()` en échec écrit 0, qui est aussi le défaut : une `page` illisible est donc
+<!-- ⚠️ T3.25 (2026-08-25) : vrai pour une entrée illisible NON blanche ("true" → 0). FAUX pour
+     "" et pour toute chaîne blanche, où from_string rend `true` SANS RIEN ÉCRIRE. Ici la garde
+     tient parce qu'elle teste la VALEUR, pas le retour — mais la justification écrite ci-dessous
+     ne vaut que pour un des deux régimes. Voir T3.25.md §1. -->
 **indistinguable** de la page 0) et `APageOutOfRangeIsStillHistLoggersOwnRefusal` (le refus reste
 celui de `HistLogger`, asynchrone, avec sa propre formulation).
 
@@ -2437,7 +2467,15 @@ périmètre.
 ### E4.5c — suites de revue : deux bugs de code trouvés en corrigeant la doc
 
 - **[BUG, ⭐ visible par tous les utilisateurs] La syntaxe d'index de tableau publiée par l'ioDoc
-  ne fonctionne pas.** Les descriptions des paramètres `path` de MQTT (`MqttCtrl.cpp:415`, et les
+  ne fonctionne pas** — ✅ **TICKETÉ : [T3.29](T3.29.md)** (2026-08-25).
+  ⚠️ **Références recalées sur master `db6770a7`** : les 7 sites MQTT sont
+  `MqttCtrl.cpp:383,386,390,394,398,402,405` (et non `:415` / `:418…:437`), le site Web est
+  `WebDocBase.cpp:53-57` (littéral à `:56`, chaîne concaténée sur 5 lignes) ; les parseurs sont
+  `MqttCtrl.cpp:114,125` et `WebCtrl.cpp:184,195`. **Le « ~8 » est exact : 8 chaînes, 2 fichiers.**
+  ⭐ **Ce que la fiche d'origine n'annonçait pas : le gros du travail est dans les catalogues** —
+  `weather[0]` apparaît **110 fois hors `build_doc/`**, dont 8 dans `src/`, 8 dans `calaos.pot`,
+  9 dans `fr.po`, 8 dans chacun de `de/es/hi/nb/pl/ru`, et 16 dans chacun de `en@quot`/`en@boldquot`
+  (msgid + msgstr). Changer les msgid invalide les traductions de 9 catalogues. Les descriptions des paramètres `path` de MQTT (`MqttCtrl.cpp:415`, et les
   six `*_path` de statut `:418…:437`) et des IOs Web (`WebDocBase.cpp:53`) donnent toutes l'exemple
   **`weather[0]/description`**. Or les deux parseurs — qui sont le même code dupliqué —
   découpent le chemin **sur `/` seul** et ne traitent un jeton comme index que s'il **commence
@@ -2450,7 +2488,16 @@ périmètre.
   configurent un capteur MQTT dont le payload contient un tableau — cas très courant
   (Zigbee2MQTT, OpenWeather). Corrigé dans `02_io_drivers.md` (§MQTT et §Web) ; **le code, lui,
   mérite son ticket** : corriger les ~8 chaînes `_()` (et re-vérifier les `.po`).
-- **[BUG] `RoonPlayer` : `port` est déclaré obligatoire sans défaut, et `--port 0` part au
+- **[BUG] `RoonPlayer`** — ✅ **TICKETÉ : [T3.28](T3.28.md)** (2026-08-25), avec le finding
+  `RoonPlayer.cpp:39-50` d'E4.5d ci-dessous : **un seul ticket pour les deux**.
+  ⚠️ **Trois corrections apportées par le ticket** : le `paramAdd` est à **`RoonPlayer.cpp:180`**
+  (et non `:174`) et le `from_string` à **`:185`** (et non `:179`) — décalage de +6 dû au bloc de
+  commentaire inséré par E4.1g à `:159-164` ; et **`from_string("")` ne laisse PAS `port` à 0, elle
+  le laisse INDÉTERMINÉ** (`RoonPlayer.h:214` : `int port;` sans initialiseur, hors liste d'init).
+  ⚠️ **« Roon inutilisable » est trop fort** : avec `host` vide — le mode par défaut annoncé —
+  `args` reste vide, aucun `--port` n'est passé et l'autodétection fonctionne. **Seule la
+  configuration à hôte statique est cassée.** Aucun test sur matériel réel, ni ici ni là.
+  **`port` est déclaré obligatoire sans défaut, et `--port 0` part au
   sidecar.** `paramAdd()` a pour signature
   `(name, description, ParamType, bool mandatory, string defaultval = "", bool readonly = false)`
   (`IO/IODoc.h:46`). `RoonPlayer.cpp:174` écrit
@@ -2500,7 +2547,11 @@ Tous mesurés au source le 2026-08-24, aucun corrigé (le ticket est de la doc p
   sont installés (`Makefile.am:23`) et **importés par aucun module**. → soit retirer, soit brancher ;
   en l'état la doc devait explicitement dire que ce n'est pas utilisable, ce que fait désormais
   `docs/15_mcp_server.md`.
-- **[FIABILITÉ] `RoonPlayer.cpp:39-50` — le respawn perd `--host` et `--port`.** Le premier
+- **[FIABILITÉ] `RoonPlayer.cpp:39-50` — le respawn perd `--host` et `--port`** — ✅ **TICKETÉ
+  avec le finding `paramAdd` d'E4.5c : [T3.28](T3.28.md)** (2026-08-25). Références **vérifiées
+  exactes** (`:43` sans args, `:50` avec, `:46-48` la construction). ⚠️ Le respawn **sans délai**
+  des sept contrôleurs (puce suivante) est **délibérément laissé hors de T3.28** : sept fichiers,
+  sept propriétaires, ticket transverse à part. Le premier
   `startProcess(exe, "roon", args)` (`:50`) passe `--host <ip> --port <n>` construits depuis la
   configuration, mais le handler `processExited` (`:43`) rappelle `startProcess(exe, "roon")`
   **sans args**. Après le premier redémarrage, le sous-processus retombe donc sur la découverte
@@ -2598,7 +2649,17 @@ ne décrivent pas ce que le code fait :
   `catch (const std::exception &e)` de `RemoteUIWebSocketHandler::processApi`, qui la journalise
   comme **« JSON parse error »** (`RemoteUIWebSocketHandler.cpp:151-154`). L'appareil ne reçoit
   aucune réponse `remote_ui_config` et le log accuse le mauvais coupable.
-- **[COMPORTEMENT, plus grave qu'il n'y paraît] La décision de mise à jour OTA est une *égalité*
+- **[COMPORTEMENT, plus grave qu'il n'y paraît] La décision de mise à jour OTA** — ✅ **TICKETÉ :
+  [T3.26](T3.26.md)** (2026-08-25), **bloqué sur décision utilisateur**.
+  ⚠️ **Deux nuances ajoutées par le ticket, mesurées** : (1) le comportement est **DÉLIBÉRÉ**, le
+  commentaire `:247-248` dit *« This allows switching between dev and release branches »* — ce
+  n'est donc pas un oubli mais un arbitrage à rouvrir ; (2) **ce n'est pas un vecteur à distance** :
+  `OtaHttpHandler` n'expose **aucun endpoint d'envoi** (seulement `GET …/download` et
+  `POST …/ota/rescan`, **localhost uniquement**, `OtaHttpHandler.cpp:68`), donc déposer un firmware
+  demande un accès en écriture au système de fichiers. Le risque réel est l'**erreur
+  d'exploitation** (restauration, retour de release), pas l'attaque. **Non vérifié** : si
+  l'appareil installe seul la notification — c'est un autre dépôt, et ça décide de la gravité.
+  C'est une *égalité*
   de chaînes**, pas une comparaison sémantique de versions : le seul test est
   `if (firmware->getVersion() == currentVersion)` → « à jour, on ne propose rien »
   (`OtaFirmwareManager.cpp:249-253`). Il n'y a **aucun** ordre : toute version *différente* de
@@ -2611,7 +2672,13 @@ ne décrivent pas ce que le code fait :
 
 ### Lua — quirks d'API mesurés en documentant `09_lua_scripting`
 
-- **[API, conséquence identifiée] `setIOParam` et `waitForIO` déclarent `return 1` sans rien
+- **[API, conséquence identifiée] `setIOParam` et `waitForIO`** — ✅ **TICKETÉ : [T3.27](T3.27.md)**
+  (2026-08-25). ⚠️ **Le correctif vient APRÈS `E4.1j`**, dont `ScriptBindings.cpp` est le périmètre
+  exclusif et qui est **en cours**. Toutes les références de cette puce ont été **revérifiées
+  exactes** (`:293`, `:333`, corps `:254-292` et `:300-331`, `Lunar.h:130-137`). Nuance ajoutée
+  par le ticket : les chemins d'erreur réels passent par `lua_error()`, donc **lèvent** — le défaut
+  est un **mensonge d'API** (il fait écrire des gardes qui ne gardent rien), pas une perte de
+  détection. Ils déclarent `return 1` sans rien
   empiler** sur leur chemin de succès (`ScriptBindings.cpp:293` et `:333` ; corps vérifiés
   `:254-292`, `:300-331`). Ce n'est pas « une valeur indéterminée » : `Lunar::thunk` retire
   `self` puis laisse **les arguments de l'appel** sur la pile avant d'invoquer la méthode
@@ -2720,6 +2787,13 @@ une imprécision, sur le point le plus important de la section, et **sans réfé
 portée de tout contrôle automatique. Voir l'entrée suivante.
 
 ### La dérive des références `Fichier.cpp:ligne` — et la mesure honnête de ce qu'un script y peut
+
+> ✅ **TICKETÉ : [T3.32](T3.32.md)** (2026-08-25). La conclusion ci-dessous est **reprise telle
+> quelle** et ne doit pas être rouverte. ⚠️ **Une seule correction, d'unité** : « 36 groupes …
+> sur 329 numéros » mélange deux unités. Remesuré en `python3` sur master : `08_http_api.md`
+> porte **121 groupes / 237 numéros**, `10_events_notifications.md` **61 / 97**, soit **182
+> groupes / 334 numéros** pour les deux ⇒ le ratio est **36 sur ~182 groupes (≈ 20 %)**.
+> Surface totale des 16 documents : **1109 groupes / 2074 numéros**.
 
 **36 groupes de références** de ces deux documents (sur 329 numéros de ligne cités) ne pointaient
 plus sur ce qu'ils annonçaient — jusqu'à 190 lignes d'écart dans `JsonApi.cpp`, que T3.18/T3.19
@@ -3372,3 +3446,78 @@ assertion, **le corps qui utilise X doit être gardé par X lui-même**, jamais 
 « qui va avec ». Sinon la dégradation qu'on prétend détecter se manifeste en **erreur de
 compilation** — non silencieuse, donc non bloquante, mais l'oracle n'a **jamais** l'occasion de
 parler. Le même piège existe partout où un `#if` de disponibilité et un `#if` d'usage divergent.
+
+
+---
+
+## Ouverture des findings de la nuit en tickets (2026-08-25)
+
+Dix fiches ouvertes, **T3.25 → T3.34**. Chaque finding d'origine renvoie désormais à la sienne,
+et l'analyse est conservée en place. Ce qui suit est ce que la **vérification au source** a
+ajouté ou infirmé, et qui n'existait dans aucun finding.
+
+### ⛔ Trois findings de la nuit se sont révélés INEXACTS au source
+
+1. **« `from_string("")` retourne true avec dest zéro-initialisée »** (:615-617) — **non** :
+   `dest` **n'est pas écrite du tout**, et le régime « écrit 0 » ne concerne que les entrées
+   **illisibles NON blanches**. Le site a aussi changé (`StringUtils.h:104-111`, plus `Utils.h`).
+   ⇒ [T3.25](T3.25.md).
+2. **« `RoonPlayer` : `from_string("")` laisse `port` à 0 »** (:2458) — **non** : `port` est
+   **indéterminé** (`RoonPlayer.h:214`, `int port;` sans initialiseur). Et **« Roon inutilisable »**
+   est trop fort : le mode **autodétection** (host vide) fonctionne, seul l'hôte statique est
+   cassé. ⇒ [T3.28](T3.28.md).
+3. **« les deux tickets qui ont fermé le trou positionnel par le typage (`LmsHost{}`,
+   `LightState`, `RedChannel`) »** — **ces trois identifiants n'existent nulle part dans
+   l'arbre**. Aucun site d'appel n'est fermé par le typage à ce jour ; le seul précédent réel est
+   `enum class RuleDetachPolicy` (T3.18), qui ferme un `bool`, pas une permutation.
+   ⇒ [T3.31](T3.31.md).
+
+### ⭐ `IO/OutputShutter.cpp:119` et `OutputShutterSmart.cpp:171` — `impulse down` ne marche pas
+
+`val.compare(0, 13, "impulse down ")` puis **`val.erase(0, 11)`**. Le préfixe fait **13**
+caractères, on en retire **11** : il reste `"n "` collé devant la valeur.
+`from_string("n 500", v)` échoue (entrée illisible non blanche) ⇒ **`v = 0`**, et
+`ImpulseDown(0)` est appelé **quelle que soit la durée demandée**.
+La branche `impulse up ` juste au-dessus (`:110-116`) fait `compare(0, 11, …)` + `erase(0, 11)` —
+**correct**. La faute vient de ce que la longueur est écrite **deux fois** sans rien qui les lie,
+alors que `Utils::strStartsWith()` est utilisé **douze lignes plus bas**, à `:124`.
+Trace visible depuis toujours dans l'API : `cmd_state = "impulse down 0"` (`:169`).
+⇒ **[T3.34](T3.34.md)**, deux caractères, deux fichiers. **À livrer AVANT T3.25 L1**, qui touche
+les mêmes lignes.
+
+### ⛔ `Utils::split` PADE — l'« accès hors bornes » de `KNXExternProc_main.cpp` n'existe pas
+
+Un balayage de la nuit signalait des accès `tokens[1]`/`tokens[2]` **hors bornes** à
+`IO/KNX/KNXExternProc_main.cpp:145-147` et `:158-160` sur une adresse à moins de trois
+composantes. **Faux, vérifié au source** : `src/lib/StringUtils.cpp:210` —
+`while (tokens.size() < (uint)max) tokens.push_back("");` — avec `max = 3`, le vecteur porte
+**toujours** trois éléments. **Aucun accès hors bornes, aucun segfault.**
+⭐ **Le vrai défaut est plus discret** : le remplissage est `""`, donc `from_string` rend `true`
+sans écrire et `b`/`c` restent **indéterminés** ⇒ **une adresse KNX malformée produit une adresse
+de groupe arbitraire sur le bus**, sans erreur. Les `& 0x0F` / `& 0xFF` **masquent**, ils ne
+valident pas. ⇒ [T3.33](T3.33.md).
+
+### `IO/Wago/WagoExternProc_main.cpp` — le jumeau exact du défaut OLA, non corrigé
+
+12 sites (`:75-81`, `:108-112`, `:131-137`, `:160-166`, `:193-198`, `:217-223`, `:229-230`,
+`:266`) déclarent `UWord address; int count; UWord value;` **sans initialiseur** et les
+alimentent depuis `jsonData[…]`. C'est **ligne pour ligne** la forme qui a envoyé des canaux DMX
+à 21845 depuis `OLAExternProc_main.cpp:75-81`.
+📏 **E4.1h a initialisé le côté ÉMETTEUR (`WagoMap.cpp:203-204`) et pas le côté RÉCEPTEUR.**
+Vecteur **interne** (tube `ExternProc`, cadrage longueur-préfixée) ⇒ pas atteignable à distance,
+mais une adresse modbus arbitraire, ce sont des relais. ⇒ [T3.33](T3.33.md).
+
+### 📏 `IO/OLA/OLAOutputLightRGB.cpp:35` — `channel_red` documenté sur `0..9999`
+
+`paramAddInt("channel_red", …, 0, 9999, true)` alors que `:36` et `:37` déclarent
+`channel_green` et `channel_blue` sur `0..512`. Le `9999` est recopié de la ligne `universe`
+(`:34`). **Mineur**, un caractère, même famille que T3.29 (une chaîne d'ioDoc qui ment).
+Consigné dans [T3.29](T3.29.md) §2.5, à faire ou à laisser explicitement.
+
+### ⭐ `set_state` n'a AUCUN `scopeDenied` — mesuré
+
+`JsonApiHandlerWS.cpp:170-231` : les sept messages protégés sont `set_param`, `del_param`,
+`audio_db`, `set_timerange`, `eventlog`, `register_push`, `settings`. **`set_state` (`:197-198`)
+n'en a pas.** Côté HTTP (`JsonApiHandlerHttp.cpp:162`) il n'y a aucune couche de portée.
+⇒ **tout compte authentifié, portée service comprise, atteint `set_state`** — c'est le prérequis
+du chemin atteignable à distance de [T3.25](T3.25.md) §2.
