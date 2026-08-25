@@ -20,6 +20,7 @@
  ******************************************************************************/
 #include "ExternProc.h"
 #include "LuaScript/ScriptManager.h"
+#include "ScriptWire.h"
 
 using namespace Calaos;
 
@@ -44,34 +45,33 @@ protected:
 
 void ScriptProcess::messageReceived(const string &msg)
 {
-    json_error_t jerr;
-    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
+    Json jroot;
 
-    if (!jroot || !json_is_object(jroot))
+    //E4.1j: the parser error text the previous C library filled in here has
+    //no equivalent on a non throwing Json::parse(). The raw message is still
+    //logged, which is what a reader needs; same choice as the Wago and
+    //Reolink wires.
+    if (!ScriptWire::parseMessage(msg, jroot))
     {
-        cWarningDom("lua") << "Error parsing json from sub process: " << jerr.text << " Raw message: " << msg;
-        if (jroot)
-            json_decref(jroot);
+        cWarningDom("lua") << "Error parsing json from sub process. Raw message: " << msg;
         return;
     }
 
-    string mtype = jansson_string_get(jroot, "msg");
+    string mtype = ScriptWire::stringGet(jroot, "msg");
 
     if (mtype == "execute")
     {
         cInfoDom("lua") << "(PID#" << getpid() << ") " << "Executing LUA script";
-        string script = jansson_string_get(jroot, "script");
-
-        json_t *jctx = json_object_get(jroot, "context");
-        size_t idx;
-        json_t *value;
+        string script = ScriptWire::stringGet(jroot, "script");
 
         ScriptManager::Instance().luaCalaos.setExternProcClient(this);
 
-        json_array_foreach(jctx, idx, value)
+        //"context" is an ARRAY of IO objects, and its order is preserved
+        const vector<Params> ios = ScriptWire::decodeContext(jroot);
+        for (size_t i = 0;i < ios.size();i++)
         {
             LuaIOBase io(this);
-            jansson_decode_object(value, io.params);
+            io.params = ios[i];
             ScriptManager::Instance().luaCalaos.ioMap[io.params["id"]] = io;
         }
 
@@ -129,15 +129,12 @@ void ScriptProcess::messageReceived(const string &msg)
         });
 
         //Set env
-        jansson_decode_object(json_object_get(jroot, "env"),
-                              ScriptManager::Instance().luaCalaos.env);
+        ScriptWire::decodeEnv(jroot, ScriptManager::Instance().luaCalaos.env);
 
         //Execute the script, this call will block
         bool ret = ScriptManager::Instance().ExecuteScript(script);
 
-        Params pret = {{ "msg", "finished" },
-                       { "return_val", ret?"true":"false" }};
-        sendMessage(jansson_to_string(jansson_from_params(pret)));
+        sendMessage(ScriptWire::buildFinishedMessage(ret));
 
         cInfoDom("lua") << "(PID#" << getpid() << ") " << "Script finished, exiting process.";
 
@@ -145,14 +142,14 @@ void ScriptProcess::messageReceived(const string &msg)
     }
     else if (mtype == "event")
     {
-        json_t *jev = json_object_get(jroot, "data");
-        json_t *jdata = nullptr;
-        if (jev)
-            jdata = json_object_get(jev, "data");
+        //decodeEvent() takes jroot by CONST reference on purpose: the walk
+        //goes two levels down a document it does not own, the previous C
+        //accessor answered NULL on a missing "data" without touching
+        //anything, and the nlohmann operator[] would CREATE the key instead.
+        //See ScriptWire.h.
         Params ev;
-        jansson_decode_object(jdata, ev);
-
-        string t = jansson_string_get(jev, "type_str");
+        string t;
+        ScriptWire::decodeEvent(jroot, ev, t);
 
         //this IO has been changed by an event
         //if script is waiting on that IO, the script will be resumed
@@ -187,8 +184,6 @@ void ScriptProcess::messageReceived(const string &msg)
             ScriptManager::Instance().luaCalaos.ioMap[ev["id"]] = io;
         }
     }
-
-    json_decref(jroot);
 }
 
 bool ScriptProcess::setup(int &argc, char **&argv)

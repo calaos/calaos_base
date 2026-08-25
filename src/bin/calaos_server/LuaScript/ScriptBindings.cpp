@@ -20,6 +20,7 @@
  ******************************************************************************/
 #include "ScriptBindings.h"
 #include "ScriptManager.h"
+#include "ScriptWire.h"
 #include "UrlDownloader.h"
 #include "libuvw.h"
 
@@ -408,14 +409,18 @@ int Lua_Calaos::sendPushNotif(lua_State *L)
 
     if (argCount == 1 && lua_isstring(L, 1))
     {
-        Params p = {{ "message", string(lua_tostring(L, 1)) }};
-        sendJson("send_push_notif", p);
+        //The message is whatever the user's Lua script passed. A Lua string
+        //is a byte string, so it can carry any byte at all - which is why the
+        //dump() behind this call carries an invalid-UTF-8 error handler.
+        extClient->sendMessage(
+                    ScriptWire::buildPushNotifMessage(string(lua_tostring(L, 1))));
     }
     else if (argCount == 2 && lua_isstring(L, 1) && lua_isstring(L, 2))
     {
-        Params p = {{ "message", string(lua_tostring(L, 1)) },
-                    { "attachment", string(lua_tostring(L, 2)) }};
-        sendJson("send_push_notif", p);
+        extClient->sendMessage(
+                    ScriptWire::buildPushNotifMessage(
+                        string(lua_tostring(L, 1)),
+                        ScriptWire::PushAttachment{string(lua_tostring(L, 2))}));
     }
     else
     {
@@ -425,14 +430,6 @@ int Lua_Calaos::sendPushNotif(lua_State *L)
     }
 
     return 0;
-}
-
-void Lua_Calaos::sendJson(const string &msg_type, const Params &param) const
-{
-    json_t *jroot = json_object();
-    json_object_set_new(jroot, "msg", json_string(msg_type.c_str()));
-    json_object_set_new(jroot, "data", jansson_from_params(param));
-    extClient->sendMessage(jansson_to_string(jroot));
 }
 
 bool LuaIOBase::get_value_bool() const
@@ -455,41 +452,33 @@ string LuaIOBase::get_value_string() const
 
 void LuaIOBase::set_value(bool val) const
 {
-    Params p = {{ "id", params["id"] },
-                { "value", val?"true":"false" }};
-
-    sendJson("set_state", p);
+    extClient->sendMessage(
+                ScriptWire::buildSetStateMessage(ScriptWire::IoId{params["id"]},
+                                                 val?"true":"false"));
 }
 
 void LuaIOBase::set_value(double val) const
 {
-    Params p = {{ "id", params["id"] },
-                { "value", Utils::to_string(val) }};
-
-    sendJson("set_state", p);
+    //Utils::to_string(double) is a bare ostringstream: six significant digits,
+    //then scientific notation. Frozen behaviour, not corrected here.
+    extClient->sendMessage(
+                ScriptWire::buildSetStateMessage(ScriptWire::IoId{params["id"]},
+                                                 Utils::to_string(val)));
 }
 
 void LuaIOBase::set_value(std::string val) const
 {
-    Params p = {{ "id", params["id"] },
-                { "value", val }};
-
-    sendJson("set_state", p);
+    //val comes from the user's Lua script and can carry any byte.
+    extClient->sendMessage(
+                ScriptWire::buildSetStateMessage(ScriptWire::IoId{params["id"]}, val));
 }
 
 void LuaIOBase::set_param(const string &key, const string &val)
 {
-    Params p = {{ "id", params["id"] },
-                { "param", key },
-                { "value", val }};
-
-    sendJson("set_param", p);
-}
-
-void LuaIOBase::sendJson(const string &msg_type, const Params &param) const
-{
-    json_t *jroot = json_object();
-    json_object_set_new(jroot, "msg", json_string(msg_type.c_str()));
-    json_object_set_new(jroot, "data", jansson_from_params(param));
-    extClient->sendMessage(jansson_to_string(jroot));
+    //Three strings in a row: the named types make an exchange of any two of
+    //them a compile error rather than a silent wire defect.
+    extClient->sendMessage(
+                ScriptWire::buildSetParamMessage(ScriptWire::IoId{params["id"]},
+                                                 ScriptWire::ParamKey{key},
+                                                 ScriptWire::ParamValue{val}));
 }

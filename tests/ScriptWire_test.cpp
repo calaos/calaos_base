@@ -103,7 +103,11 @@
 
 #include "Utils.h"
 #include "Params.h"
-#include "Jansson_Addition.h"
+
+//E4.1j MIGRATION COMMIT: the seams below no longer carry a copy of the
+//assembly, they call the SHIPPED header. From here on, a mutation of the
+//production emitter or of the production decoder turns this suite RED.
+#include "ScriptWire.h"
 
 using std::string;
 using std::vector;
@@ -150,58 +154,45 @@ string escaped(const string &s)
  * a one line call into LuaScript/ScriptWire.h.
  *-------------------------------------------------------------------------*/
 
-//ScriptBindings.cpp:430-436 - the envelope shared by BOTH sendJson() members
-//(Lua_Calaos and LuaIOBase have the same body, duplicated).
-string janssonEnvelope(const string &msg_type, const Params &param)
-{
-    json_t *jroot = json_object();
-    json_object_set_new(jroot, "msg", json_string(msg_type.c_str()));
-    json_object_set_new(jroot, "data", jansson_from_params(param));
-    return jansson_to_string(jroot);
-}
+//ScriptBindings.cpp, the envelope shared by BOTH sendJson() members before
+//E4.1j (Lua_Calaos and LuaIOBase had the same body, duplicated). Both are now
+//one call into the shipped header.
 
-//ScriptBindings.cpp:405-427, sendPushNotif() - one argument form
+//ScriptBindings.cpp, sendPushNotif() - one argument form
 string wirePushNotif(const string &message)
 {
-    Params p = {{ "message", message }};
-    return janssonEnvelope("send_push_notif", p);
+    return ScriptWire::buildPushNotifMessage(message);
 }
 
-//ScriptBindings.cpp:405-427, sendPushNotif() - two arguments form
+//ScriptBindings.cpp, sendPushNotif() - two arguments form
 string wirePushNotif(const string &message, const string &attachment)
 {
-    Params p = {{ "message", message },
-                { "attachment", attachment }};
-    return janssonEnvelope("send_push_notif", p);
+    return ScriptWire::buildPushNotifMessage(message,
+                                             ScriptWire::PushAttachment{attachment});
 }
 
-//ScriptBindings.cpp:455-478, the three set_value() overloads. They differ only
-//in how they turn the Lua value into a string before this point, so one seam
-//covers the three: bool -> "true"/"false", double -> Utils::to_string(double),
-//string -> as is.
+//ScriptBindings.cpp, the three LuaIOBase::set_value() overloads. They differ
+//only in how they turn the Lua value into a string before this point, so one
+//seam covers the three: bool -> "true"/"false", double ->
+//Utils::to_string(double), string -> as is.
 string wireSetState(const string &id, const string &value)
 {
-    Params p = {{ "id", id },
-                { "value", value }};
-    return janssonEnvelope("set_state", p);
+    return ScriptWire::buildSetStateMessage(ScriptWire::IoId{id}, value);
 }
 
-//ScriptBindings.cpp:480-487, set_param()
+//ScriptBindings.cpp, LuaIOBase::set_param()
 string wireSetParam(const string &id, const string &key, const string &value)
 {
-    Params p = {{ "id", id },
-                { "param", key },
-                { "value", value }};
-    return janssonEnvelope("set_param", p);
+    return ScriptWire::buildSetParamMessage(ScriptWire::IoId{id},
+                                            ScriptWire::ParamKey{key},
+                                            ScriptWire::ParamValue{value});
 }
 
-//ScriptExtern_main.cpp:130-135 - the ONLY message calaos_script sends on its
-//own initiative. Note it is FLAT: no "data" envelope.
+//ScriptExtern_main.cpp - the ONLY message calaos_script sends on its own
+//initiative. Note it is FLAT: no "data" envelope.
 string wireFinished(bool ret)
 {
-    Params pret = {{ "msg", "finished" },
-                   { "return_val", ret?"true":"false" }};
-    return jansson_to_string(jansson_from_params(pret));
+    return ScriptWire::buildFinishedMessage(ret);
 }
 
 /*---------------------------------------------------------------------------
@@ -215,115 +206,74 @@ string wireFinished(bool ret)
  * has to change shape when the bodies go from jansson to nlohmann.
  *-------------------------------------------------------------------------*/
 
-//ScriptExtern_main.cpp:43-53: json_loads() plus json_is_object(). jansson has
-//no JSON_DECODE_ANY here, so a top level scalar does not even parse, and a top
-//level array parses but fails json_is_object(). Both are refused.
+//ScriptExtern_main.cpp: the parse guard. There was no JSON_DECODE_ANY, so a
+//top level scalar did not even parse, and a top level array parsed but failed
+//json_is_object(). Both are still refused.
 bool wireAcceptMessage(const string &msg)
 {
-    json_error_t jerr;
-    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
-    const bool ok = jroot && json_is_object(jroot);
-    if (jroot)
-        json_decref(jroot);
-    return ok;
+    Json jroot;
+    return ScriptWire::parseMessage(msg, jroot);
 }
 
-//jansson_string_get()'s DEFAULT CONTRACT, driven from the wire text: the
-//default comes back when the key is ABSENT and when the value is NOT A STRING.
-//It never throws. ScriptExtern_main.cpp:55/60/155 depend on it, and
-//ScriptExec.cpp:81 (out of perimeter) passes a NON EMPTY default.
+//The DEFAULT CONTRACT, driven from the wire text: the default comes back when
+//the key is ABSENT and when the value is NOT A STRING. It never throws.
+//ScriptExtern_main.cpp depends on it three times, and ScriptExec.cpp:81 (out
+//of perimeter) passes a NON EMPTY default.
 string wireStringGet(const string &msg, const string &key, const string &def)
 {
-    json_error_t jerr;
-    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
-    const string r = jansson_string_get(jroot, key, def);
-    if (jroot)
-        json_decref(jroot);
-    return r;
+    Json jroot;
+    if (!ScriptWire::parseMessage(msg, jroot))
+        return def;
+    return ScriptWire::stringGet(jroot, key, def);
 }
 
-//jansson_decode_object()'s FLATTENING CONTRACT, driven from the wire text.
+//The FLATTENING CONTRACT, driven from the wire text.
 void wireDecodeObject(const string &msg, Params &out)
 {
-    json_error_t jerr;
-    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
-    jansson_decode_object(jroot, out);
-    if (jroot)
-        json_decref(jroot);
+    const Json jroot = Json::parse(msg, nullptr, false);
+    if (jroot.is_discarded())
+        return;
+    ScriptWire::decodeObject(jroot, out);
 }
 
-//ScriptExtern_main.cpp:56-77 and :131 - the whole "execute" decode.
+//ScriptExtern_main.cpp - the whole "execute" decode.
 bool wireDecodeExecute(const string &msg, string &script, vector<Params> &ios, Params &env)
 {
-    json_error_t jerr;
-    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
-    if (!jroot || !json_is_object(jroot))
-    {
-        if (jroot)
-            json_decref(jroot);
+    Json jroot;
+    if (!ScriptWire::parseMessage(msg, jroot))
         return false;
-    }
 
-    script = jansson_string_get(jroot, "script");
+    script = ScriptWire::stringGet(jroot, "script");
 
-    json_t *jctx = json_object_get(jroot, "context");
-    size_t idx;
-    json_t *value;
-    json_array_foreach(jctx, idx, value)
-    {
-        Params p;
-        jansson_decode_object(value, p);
-        ios.push_back(p);
-    }
+    const vector<Params> decoded = ScriptWire::decodeContext(jroot);
+    ios.insert(ios.end(), decoded.begin(), decoded.end());
 
-    jansson_decode_object(json_object_get(jroot, "env"), env);
+    ScriptWire::decodeEnv(jroot, env);
 
-    json_decref(jroot);
     return true;
 }
 
 /*
- * ScriptExtern_main.cpp:139-153 - the whole "event" decode, INCLUDING the
- * pitfall this ticket exists to not fall into:
+ * ScriptExtern_main.cpp - the whole "event" decode, INCLUDING the pitfall this
+ * ticket exists to not fall into: the walk goes two levels down a document it
+ * does not own, and the key may be absent. ScriptWire::decodeEvent() takes the
+ * root by CONST reference so that the CREATING overload of operator[] cannot
+ * be reached from it.
  *
- *     json_t *jev = json_object_get(jroot, "data");   // may be NULL
- *     json_t *jdata = nullptr;
- *     if (jev) jdata = json_object_get(jev, "data");  // NULL safe
- *
- * json_object_get(NULL, ...) answers NULL without crashing, and so does
- * json_object_get(<not an object>, ...). The nlohmann equivalent of that walk
- * MUST NOT be operator[]: on a non const Json, operator[] CREATES the key and
- * turns a null into an object, so a document that had no "data" silently grows
- * one. root_after gives the test a way to see that: it is the root serialized
- * AFTER the decode ran.
+ * root_after is the root serialized AFTER the decode ran: that is how the test
+ * sees a document that grew a key, since the outputs stay empty either way.
  */
 bool wireDecodeEvent(const string &msg, Params &ev, string &type_str, string *root_after = nullptr)
 {
-    json_error_t jerr;
-    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
-    if (!jroot || !json_is_object(jroot))
-    {
-        if (jroot)
-            json_decref(jroot);
+    Json jroot;
+    if (!ScriptWire::parseMessage(msg, jroot))
         return false;
-    }
 
-    json_t *jev = json_object_get(jroot, "data");
-    json_t *jdata = nullptr;
-    if (jev)
-        jdata = json_object_get(jev, "data");
-    jansson_decode_object(jdata, ev);
-
-    type_str = jansson_string_get(jev, "type_str");
+    ScriptWire::decodeEvent(jroot, ev, type_str);
 
     if (root_after)
-    {
-        char *d = json_dumps(jroot, JSON_COMPACT | JSON_ENSURE_ASCII);
-        *root_after = d?string(d):string();
-        free(d);
-    }
+        *root_after = ScriptWire::dumpJson(jroot);
 
-    json_decref(jroot);
     return true;
 }
 
@@ -377,7 +327,7 @@ TEST(ScriptWire, PushNotifWithAMessageOnly)
 {
     const string wire = wirePushNotif("Le portail est ouvert");
 
-    EXPECT_EQ("{\"msg\":\"send_push_notif\",\"data\":{\"message\":\"Le portail est ouvert\"}}",
+    EXPECT_EQ("{\"data\":{\"message\":\"Le portail est ouvert\"},\"msg\":\"send_push_notif\"}",
               wire) << escaped(wire);
 }
 
@@ -387,8 +337,9 @@ TEST(ScriptWire, PushNotifWithAnAttachment)
 {
     const string wire = wirePushNotif("Le portail est ouvert", "http://cam/snap.jpg");
 
-    EXPECT_EQ("{\"msg\":\"send_push_notif\",\"data\":"
-              "{\"attachment\":\"http://cam/snap.jpg\",\"message\":\"Le portail est ouvert\"}}",
+    EXPECT_EQ("{\"data\":"
+              "{\"attachment\":\"http://cam/snap.jpg\",\"message\":\"Le portail est ouvert\"},"
+              "\"msg\":\"send_push_notif\"}",
               wire) << escaped(wire);
 }
 
@@ -397,8 +348,8 @@ TEST(ScriptWire, SetStateCarriesTheIdAndTheValue)
 {
     const string wire = wireSetState("io_kitchen_light", "true");
 
-    EXPECT_EQ("{\"msg\":\"set_state\",\"data\":"
-              "{\"id\":\"io_kitchen_light\",\"value\":\"true\"}}",
+    EXPECT_EQ("{\"data\":{\"id\":\"io_kitchen_light\",\"value\":\"true\"},"
+              "\"msg\":\"set_state\"}",
               wire) << escaped(wire);
 }
 
@@ -414,8 +365,8 @@ TEST(ScriptWire, SetStateOfADoubleGoesThroughUtilsToString)
 {
     const string wire = wireSetState("io_garage_probe", Utils::to_string(1234.56789));
 
-    EXPECT_EQ("{\"msg\":\"set_state\",\"data\":"
-              "{\"id\":\"io_garage_probe\",\"value\":\"1234.57\"}}",
+    EXPECT_EQ("{\"data\":{\"id\":\"io_garage_probe\",\"value\":\"1234.57\"},"
+              "\"msg\":\"set_state\"}",
               wire) << escaped(wire);
 }
 
@@ -424,8 +375,9 @@ TEST(ScriptWire, SetParamCarriesIdParamAndValue)
 {
     const string wire = wireSetParam("io_garage_probe", "log_history", "true");
 
-    EXPECT_EQ("{\"msg\":\"set_param\",\"data\":"
-              "{\"id\":\"io_garage_probe\",\"param\":\"log_history\",\"value\":\"true\"}}",
+    EXPECT_EQ("{\"data\":"
+              "{\"id\":\"io_garage_probe\",\"param\":\"log_history\",\"value\":\"true\"},"
+              "\"msg\":\"set_param\"}",
               wire) << escaped(wire);
 }
 
@@ -510,8 +462,9 @@ TEST(ScriptWire, TheWireStaysPureAsciiWhenALuaScriptSendsAnAccent)
     //MOVED BY E4.1j: jansson escaped with UPPERCASE hex, nlohmann with
     //LOWERCASE hex. That is the ONE byte difference of this migration on a
     //non-ASCII value, and no JSON parser can see it.
-    EXPECT_NE(string::npos, wire.find("\\u00E9")) << escaped(wire);
-    EXPECT_NE(string::npos, wire.find("\\u00C0")) << escaped(wire);
+    EXPECT_NE(string::npos, wire.find("\\u00e9")) << escaped(wire);
+    EXPECT_NE(string::npos, wire.find("\\u00c0")) << escaped(wire);
+    EXPECT_EQ(string::npos, wire.find("\\u00E9")) << escaped(wire);
 
     //and it round trips to the very same UTF-8 it came from
     const Json j = Json::parse(wire, nullptr, false);
@@ -548,9 +501,23 @@ TEST(ScriptWire, InvalidUtf8FromALuaScriptDoesNotAbortTheEmission)
      * notification. Under nlohmann the key is there, with the bad byte turned
      * into U+FFFD.
      */
-    EXPECT_TRUE(j.at("data").empty()) << escaped(wire);
-    EXPECT_FALSE(j.at("data").contains("message")) << escaped(wire);
-    EXPECT_EQ(string::npos, wire.find("\\ufffd")) << escaped(wire);
+    ASSERT_TRUE(j.at("data").contains("message")) << escaped(wire);
+    EXPECT_EQ(1u, j.at("data").size()) << escaped(wire);
+    EXPECT_NE(string::npos, wire.find("\\ufffd")) << escaped(wire);
+    EXPECT_EQ("push-\xef\xbf\xbd-tail", j.at("data").at("message").get<string>());
+
+    //MOVED BY E4.1j - and this is what ties the SHIPPED emitter to the
+    //"replace" column of the table in
+    //Tripwire_TheThreeErrorHandlerSpellingsAreThreeDifferentBytestreams.
+    //RED under ::ignore (the byte disappears, "push--tail"), RED under
+    //::strict (the ASSERT_NO_THROW above), RED without ensure_ascii (the raw
+    //U+FFFD bytes instead of the escape).
+    Json probe;
+    probe["message"] = "push-\xff-tail";
+    EXPECT_EQ("{\"data\":" + probe.dump(-1, ' ', true, Json::error_handler_t::replace) +
+              ",\"msg\":\"send_push_notif\"}", wire) << escaped(wire);
+    EXPECT_NE("{\"data\":" + probe.dump(-1, ' ', true, Json::error_handler_t::ignore) +
+              ",\"msg\":\"send_push_notif\"}", wire) << escaped(wire);
 }
 
 /*
@@ -737,7 +704,8 @@ TEST(ScriptWire, EventWithoutDataYieldsNothingAndDoesNotGrowTheDocument)
     });
 
     EXPECT_EQ(0, ev.size());
-    EXPECT_EQ("", type_str) << "the sentinel survived: type_str was never written";
+    EXPECT_EQ("", type_str)
+            << "the sentinel is still there: type_str was left as it came in";
 
     //THE DETECTOR: one key in, one key out.
     EXPECT_EQ("{\"msg\":\"event\"}", root_after) << escaped(root_after);
