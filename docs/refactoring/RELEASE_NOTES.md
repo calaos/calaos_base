@@ -73,9 +73,10 @@ dans un document JSON envoyé par un équipement. Quand cette valeur est rangée
 l'élément voulu.
 
 **L'aide de paramètre affichée par `calaos_installer` donnait l'exemple `weather[0]/description`.
-Cette forme ne fonctionne pas.** Elle ne produit **aucune erreur visible** : l'IO reste simplement
-**vide**, pour toujours, et la seule trace est un avertissement dans un journal que personne ne
-regarde. C'est le pire des deux mondes — la source que l'on consulte *au moment exact* où l'on
+Cette forme ne fonctionne pas.** Rien ne vous le dit là où vous travaillez : l'IO reste simplement
+**vide**, pour toujours. L'échec *est* bien journalisé (`[WRN] … subpath not found`), mais dans le
+log de **`calaos_server`** — alors que la faute se commet dans **`calaos_installer`**, où vous ne
+voyez rien. C'est le pire des deux mondes — la source que l'on consulte *au moment exact* où l'on
 configure l'IO enseignait une syntaxe sans effet.
 
 **La forme qui marche met l'indice dans son propre segment de chemin, entre crochets :**

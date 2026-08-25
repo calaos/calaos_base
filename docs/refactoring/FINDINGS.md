@@ -2555,14 +2555,21 @@ périmètre.
 
 ### E4.5c — suites de revue : deux bugs de code trouvés en corrigeant la doc
 
-- **[UB, trouvé en caractérisant T3.29, NON corrigé] Un jeton de chemin valant exactement `[`
-  appelle `std::string::pop_back()` sur une chaîne vide.** Branche index des **deux** parseurs
-  (`IO/Mqtt/MqttCtrl.cpp` et `IO/Web/WebCtrl.cpp`, `val.erase(0, 1)` puis `val.pop_back()` sans
-  aucun contrôle de longueur) : `val` vaut `"["`, `erase` le vide, `pop_back` sur vide est un
-  **comportement indéfini**. Atteignable par un `path` de configuration — donc pas à distance,
-  mais par une faute de frappe dans `calaos_installer`. **Aucun test ne le fige** : on ne
-  caractérise pas de l'UB. Correctif d'une ligne (`if (val.size() < 2) → chemin d'erreur`), à
-  faire avec l'option C du §5.6 de T3.29 si elle est retenue, puisque c'est la même branche.
+- **[⭐ PLANTAGE DÉTERMINISTE DU SERVEUR, trouvé en caractérisant T3.29, reproduit en revue —
+  ✅ TICKETÉ : [T3.35](T3.35.md)] Un `path` de configuration valant `[` fait tomber
+  `calaos_server`.** Branche index des **deux** parseurs (`IO/Mqtt/MqttCtrl.cpp`,
+  `IO/Web/WebCtrl.cpp`) : `val` vaut `"["`, `val.erase(0, 1)` le vide, `val.pop_back()` **sous-flue
+  le `size_t`** — et le `Utils::from_string(val, idx)` qui suit est **HORS du `try`**
+  (`MqttCtrl.cpp:132`, `WebCtrl.cpp:202`) ⇒ **`std::bad_alloc` s'échappe de `getValueJson()`**.
+  Aucun `catch` sur toute la chaîne (`getValue` → IO Mqtt → `main.cpp`) ⇒ **`std::terminate()`**.
+  ⚠️ **Ce n'est donc pas « de l'UB théorique »** : la première rédaction de ce finding sous-vendait
+  gravement le défaut. Le mot juste est **plantage**, et il est **mesuré sur les deux parseurs**.
+  **Atteignable par une faute de frappe dans un paramètre de configuration** ; ⛔ **aucun vecteur
+  distant** (le `path` n'est pas écrit par un client, seulement par `calaos_installer`).
+  **Volontairement non figé par un test** : la lecture de la chaîne vidée est de l'UB, et on ne
+  caractérise pas de l'UB — cette décision-là était juste, c'est la formulation qui ne l'était pas.
+  Correctif : une garde `if (val.size() < 2)` vers le chemin d'erreur, dans le **même `catch`** que
+  le message d'aide de T3.35.
   ⚠️ Voisin mesuré au même endroit et **figé, lui** : un index **non numérique** (`[zz]`) lit
   silencieusement l'**élément 0** — `Utils::from_string` laisse sa destination à 0 et son retour
   n'est pas regardé (famille T3.25).

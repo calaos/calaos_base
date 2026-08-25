@@ -39,7 +39,11 @@
  * _(), feeds `calaos_server --gendoc`, data/doc/{en,fr}/io_doc.json and the
  * calaos_installer parameter help - i.e. every user reads it at the exact
  * moment they configure the IO, writes a path that silently yields an empty
- * value, and gets only a cWarning in a log domain nobody reads.
+ * value, and never learns why. The failure IS logged - cWarning() is not a
+ * filtered domain (LogSetup.h:29), the "[WRN] (MqttCtrl.cpp) ... subpath not
+ * found" line goes to the server log by default - but the person who made the
+ * mistake is in calaos_installer and the message lands in the calaos_server
+ * log, which is why it does not reach them.
  *
  * TWO LEVELS, both needed:
  *
@@ -62,9 +66,16 @@
  * is visible. Same shape for `nested/list/[0]/deep`.
  *
  * NOT ASSERTED, on purpose:
- *  - a path token of exactly "[" reaches std::string::pop_back() on an empty
- *    string (MqttCtrl.cpp / WebCtrl.cpp, index branch), which is undefined
- *    behaviour. A test cannot pin UB; it is reported in FINDINGS.md instead.
+ *  - a path token of exactly "[" CRASHES THE SERVER, deterministically, on
+ *    both parsers. erase(0, 1) empties val, pop_back() then underflows the
+ *    size_t, and the Utils::from_string() that follows sits OUTSIDE the try
+ *    (MqttCtrl.cpp:132, WebCtrl.cpp:202), so std::bad_alloc escapes
+ *    getValueJson(); nothing catches it up to main() and std::terminate()
+ *    runs. Reachable by a typo in a configuration parameter (no remote
+ *    vector). It is NOT pinned here on purpose - the read of the emptied
+ *    string is undefined behaviour and a test must not freeze UB. Reported in
+ *    FINDINGS.md and ticketed as T3.35, together with the "did you mean
+ *    a/[0]/b ?" hint that shares the same catch block.
  ******************************************************************************/
 
 #include <gtest/gtest.h>
