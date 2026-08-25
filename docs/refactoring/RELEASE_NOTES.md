@@ -1007,6 +1007,12 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   mauvais** : voir l'entrée suivante.
 - **Un appareil de votre réseau local ne peut plus se faire passer pour quelqu'un d'autre.**
 
+  ⚠️ **DEUX RÉSERVES, à lire AVANT le reste de cette entrée** — elles sont détaillées plus bas :
+  **(1)** cette protection **ne couvre PAS l'assistant MCP** (`/mcp`, servi sur le même port) :
+  **ne le considérez pas comme protégé par cette version** ;
+  **(2)** si vous avez réglé `listen_address` sur **`::`** (ce n'est pas la valeur par défaut),
+  **tous vos utilisateurs partagent un compteur unique** — repassez à `0.0.0.0`.
+
   **Ce qui changeait le comportement.** Les deux protections ci-dessus — le ralentissement après
   mot de passe erroné et la limite de connexions — identifient un client par l'en-tête
   `X-Forwarded-For`, celui que le reverse-proxy (haproxy) ajoute pour dire de quelle adresse vient

@@ -949,10 +949,16 @@
   « *skipping pytest-only suites (test_auth.py, test_extern_proc.py, test_logger.py)* », `.trs` =
   **PASS**. ⇒ **11 cas de `test_auth.py` — précisément ceux du throttle MCP — ne s'exécutent pas,
   et la suite ne le signale que dans un log que personne ne lit.** Rejoués à la main sous un venv
-  avec les vraies dépendances : **11 passent**. C'est une **huitième variante de faux vert** à
-  ajouter à la liste de méthode : *une suite qui s'auto-saute est indistinguable d'une suite qui
-  passe*. Correctif : faire **échouer** `run-python-tests.sh` quand `pytest` manque, ou déclarer le
-  saut en `SKIP` automake plutôt qu'en `PASS`.
+  avec les vraies dépendances : **11 passent** (le code est bon ; c'est la *mesure* qui manquait).
+  ⭐ **Et la portée dépasse ce fichier — mesuré (`python3`)** : sur les **6** suites de
+  `tests/python/` (**42** cas), seules **3** (**23** cas) sont ramassées par le motif
+  `test_t116_*.py` ⇒ ⭐ **3 fichiers sur 6 (50 %) et 19 cas sur 42 (45 %) ne s'exécutent pas**
+  pendant que `make check` affiche `# FAIL: 0`. C'est une **huitième variante de faux vert**,
+  d'une **famille distincte** des sept autres — *une suite qui s'auto-saute est indistinguable
+  d'une suite qui passe* — **enregistrée comme telle à côté de `F-HARN-1`** (voir « LA HUITIÈME
+  VARIANTE DE FAUX VERT » plus bas). Correctif : faire **échouer** `run-python-tests.sh` quand
+  `pytest` manque, ou sortir **77 (`SKIP`)** — jamais **0** — et **affirmer** le nombre de cas
+  exécutés.
   ⚠️ Corollaire pour F-MCP-XFF-1 : **aucun** test ne mentionne `_source_ip` ni `request.client`, et
   **tous** les cas de `test_auth.py` fournissent un `X-Forwarded-For` — le repli `"unknown"` et le
   modèle de menace « sans proxy » sont **entièrement non testés**.
@@ -4934,6 +4940,12 @@ script **rend 0**. Le chiffre de 11 ne comptait que `test_auth.py`.
 exécutés** à chaque passe, jamais le seul code de sortie. Et le correctif de fond est d'installer
 `pytest` dans l'image, ou de faire de son absence un **SKIP explicite (77)** par fichier plutôt
 qu'un silence. Hors périmètre de `T3.25` ; **aucun** des 19 ne touche `from_string`.
+
+⭐ **Recoupement de la revue de [`T3.39`](T3.39.md)** : les **11** cas de `test_auth.py` sont
+exactement ceux du throttle du sidecar MCP, donc du modèle de menace de `F-MCP-XFF-1`. Le trou de
+`/mcp` a donc vécu tout ce temps sans qu'aucune mesure Python ne tourne dessus. Rejoués à la main
+sous un venv avec les vraies dépendances : **11 passent** — le code était bon, c'est la *mesure*
+qui manquait.
 ---
 
 ## T3.37 — l'extraction du parseur de chemin JSON (2026-08-25)
