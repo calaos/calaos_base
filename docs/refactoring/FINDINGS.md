@@ -6487,3 +6487,73 @@ prédicat tient pour la première fois et en exiger une **borne inférieure**. U
 **grandir** la mesure : une borne inférieure ne peut pas échouer parce que la machine est lente.
 La borne supérieure, elle, reste un **budget** (l'attente rend la main dès que le prédicat tient),
 jamais un délai subi.
+
+
+## T3.50 — la moitié LECTURE du chemin retour Wago
+
+- ⭐ **[F-WAGO-10] — NOUVEAU : `Utils::signal_wago` porte une paire permutable `(int addr, bool val)`
+  dont les DEUX membres sont lus.** `Calaos.h:68` déclare
+  `typedef sigc::signal<void, std::string, int, bool, std::string> type_signal_wago;` —
+  `(ip, addr, val, intype)`. `int` et `bool` se convertissent **dans les deux sens** en silence.
+  **1 implémentation** (`WIDigitalBase::ReceiveFromWago`, `WagoIOBase.h:194`), **1 enregistrement**
+  (`:169`), **2 sites d'émission** (`UDPServer.cpp:102` `"std"`, `:118` `"knx"`).
+  ⚠️ **Ce qui le distingue de tout ce que T3.31/T3.46/T3.50 ont fermé** : au receveur, les deux
+  valeurs sont **utilisées** — `if (ip == host && addr == address)` puis `udp_value = val`
+  (`WagoIOBase.h:195-201`). ⇒ **une permutation y CHANGE le programme** : une entrée digitale
+  comparerait son adresse à un booléen et prendrait pour état l'adresse reçue. C'est exactement ce
+  que la moitié lecture du chemin modbus **n'était pas** (voir l'entrée suivante).
+  **Hors périmètre de T3.50** : autre signal, autres fichiers (`Calaos.h`, `UDPServer.cpp`), chemin
+  **UDP** et non modbus. Fiché, pas avalé. ⚠️ **Non mesuré** : aucun test n'atteint ce chemin, et je
+  n'ai pas vérifié s'il est atteignable en production — l'affirmation « les deux valeurs sont
+  utilisées » est une **lecture du corps**, pas une exécution.
+
+- ⛔ **[Infirmation — la moitié LECTURE n'était PAS « la plus dangereuse », et c'était écrit
+  partout]** `T3.50.md` §1, `T3.46.md` §6.3.1 et `WagoTypes.h` affirmaient qu'une permutation de
+  `(UWord address, int count)` au retour produit « une lecture fausse à une adresse fausse » et que
+  `count` « gouverne la taille du vecteur lu ». **Mesuré, les deux sont faux sur cet arbre** :
+  **aucune** des six implémentations ne lit `address` ni `count` (**11 avertissements
+  `-Wunused-parameter`** sur les six signatures, l'instrument validé par sa propre sonde puisque le
+  projet compile avec `-Wno-unused-parameter`), et les vecteurs de réponse sont construits depuis
+  le **tableau JSON `"values"`**, jamais depuis `count`. ⇒ **la permutation était un NO-OP
+  sémantique**, aux implémentations **comme** aux quatre sites d'émission. Les deux valeurs sont
+  bien **vivantes** (décodées de la réponse, aucune n'est un littéral, contrairement à la moitié
+  écriture) — mais vivantes et **ignorées**.
+  ⭐ **Règle à retenir, la même que T3.46 §7.3 avait payée sur `M2`/`M3`** : *avant d'exiger un
+  rouge comportemental d'une permutation, lire les corps.* Si les paramètres ne sont pas utilisés,
+  exiger un rouge revient à exiger qu'un test distingue deux programmes identiques. **Ce que le
+  typage ferme alors est un CONTRAT, et il faut le dire ainsi.**
+
+- ⚠️ **[Portée — « `sigc++` refuse la référence lvalue » est FAUX comme phrase générale]** T3.46
+  §7.3 a mesuré `MXD` : une référence non-const dans `SingleWord_cb` ⇒ `rc=2`. **Le résultat ne se
+  transporte pas tel quel.** `MultiBits_cb`/`MultiWords_cb` portent **déjà** une référence lvalue
+  non-const, `vector<bool> &`/`vector<UWord> &`, et `sigc++` l'accepte **depuis toujours** — parce
+  que `WagoMap::processNewMessage` passe un **local nommé**. Ce qui décide est **ce que le site
+  d'émission passe**, pas le slot. Remesuré ici (`MXD-R`) : sur `address`/`count`, emballés en
+  **prvalue**, le refus tient (`rc=2`, *cannot bind non-const lvalue reference … to an rvalue*,
+  `WagoMap.cpp:214:61`) ; sur le 4ᵉ paramètre il n'a jamais existé. ⇒ **l'angle mort `F-TYPE-5` est
+  inarmable sur les deux paramètres typés, et parfaitement armé sur le troisième** — il faut donc
+  un témoin exécutable de la référence lvalue dans la suite, ce que le fichier de test porte.
+
+- ⭐ **[Trou d'oracle de T3.46 — COMBLÉ ici, par deux moyens différents]** T3.46 déclarait : *« les
+  quatre implémentations ne sont sondées par aucun cas »*. Sur la moitié lecture :
+  (a) **4 des 6** implémentations sont sondées **directement**, par pointeur sur membre lu par
+  `std::is_invocable_v` — SFINAE-friendly, donc un ré-élargissement **rougit** au lieu de casser la
+  compilation (⚠️ *un test qui ne compile pas est un test **absent**, pas un test rouge*) ;
+  (b) les **2 restantes sont `private`** (`WOAnalog`, `WODigital`) — aucune classe dérivée ne peut
+  les nommer, aucune sonde n'est possible. Ce qui les tient est l'enregistrement `sigc::mem_fun` de
+  leur propre `.cpp`, et **c'est mesuré** (`MW`) : ré-élargir la signature de `WODigital` **seule**,
+  sans toucher le `typedef`, donne `rc=2` à la ligne de l'enregistrement.
+  ⭐ **Et une implémentation est réellement EXERCÉE** (`WIAnalog`, construit par le constructeur de
+  production sur un hôte TEST-NET-1) : « lié » n'est pas « exercé » (`F-LINK-1`), et ici c'est
+  exercé.
+
+- ⚠️ **[F-WAGO-7 — numéros de ligne périmés dans cette fiche]** L'entrée `F-WAGO-7` ci-dessus cite
+  `WagoExternProc_main.cpp:218`/`:223`. **Recompté sur `master` `2861512d`** : les déclarations nues
+  sont à `:75`/`:76`, `:108`, `:131`/`:132`, `:160`/`:161`, `:193`, `:222`/`:223` — **6 `UWord
+  address;` et 4 `int count;`**, soit le **même compte** avec un décalage de 4 lignes sur la
+  dernière branche. Le défaut est **intact et toujours dû** ; T3.50 n'y touche pas.
+  ⭐ **Ce que T3.50 y change quand même** : un balayage `python3` de tout `IO/Wago/` à la recherche
+  d'une paire adjacente et **nue** dans une signature n'en trouve plus qu'**UNE**, et c'est
+  `F-WAGO-10` (chemin UDP). La chaîne Wago **modbus** est typée par rôle de bout en bout ; les
+  seuls endroits où la paire reste nue sont désormais **`libmbus`** (refusée sur le coût, T3.46
+  §7.5, non rouverte) et **le dispatcher de `F-WAGO-7`**. La liste de ce qui reste est **close**.
