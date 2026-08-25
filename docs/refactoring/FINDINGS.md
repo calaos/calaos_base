@@ -944,6 +944,21 @@
   appel capturant `this` brut — dangling si le client est détruit avec des writes en vol.
 - **[FOOTGUN] `Utils::from_string("")` retourne true** — ✅ **TICKETÉ : [T3.25](T3.25.md)**
   (2026-08-25), **fiche la plus prioritaire du lot**.
+  ⭐ **ADDENDUM (revue de `fix/t3.25`, 2026-08-25) — LE TITRE DE CETTE PUCE EST TROP ÉTROIT.**
+  Mesuré au `g++ -std=c++17` : le retour de `from_string` bascule `true` → `false` sur **TROIS**
+  familles d'entrée, pas une. **(1) le blanc** (`""` et toute chaîne blanche) — la seule où `dest`
+  n'était **pas écrite**, et donc la seule qui produisait un symptôme ; **(2) le signe seul**
+  (`"-"`, `"+"`) — `num_get` consomme le signe, ne trouve pas de chiffre, échoue et écrit 0 ;
+  **(3) ⭐ le DÉBORDEMENT** (`"2147483648"`, `"4294967296"`, `"99999999999999999999"` en `int` ;
+  `"1e400"` en `double`) — `num_get` consomme **tout**, **sature** à `INT_MAX`/`INT_MIN`/`±DBL_MAX`
+  et pose `failbit`, et `iss.eof()` répondait « succès » pour la valeur saturée. **La valeur, elle,
+  ne bouge pas** : la saturation était déjà figée par `core/JsonApiSession_test` et
+  `core/JsonApiInputGuards_test`, **avant comme après** ⇒ **la découverte du ticket sur cette
+  famille n'est pas `INT_MAX`, c'est le `false`**, et il n'était épinglé nulle part avant la revue.
+  ⚠️ **La conclusion de l'audit survit intacte** : seuls les **8** sites de `src/` qui lisent le
+  retour peuvent voir la différence, et les deux affectés (`WagoConfigParse.h`, `GpioCtrl.h`) y
+  **gagnent**. → détail dans [T3.25](T3.25.md) §4 et §9, suivi dans [T3.25a](T3.25a.md).
+
   ⛔ **DEUX CORRECTIONS DE FAIT À CETTE PUCE, mesurées** : (1) « avec dest zéro-initialisée » est
   **FAUX** — sur une entrée vide **ou blanche**, la sentinelle échoue **avant** `num_get` et
   **`dest` n'est pas écrite du tout** (mesuré : dest pré-semé à 21845 ⇒ ressort à 21845) ; le

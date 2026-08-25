@@ -9,7 +9,7 @@
 
 ## 🔴 Volets et variateurs : une commande incomplète pouvait déclencher un mouvement que personne n'avait demandé
 
-### Un volet pouvait partir en course complète sur une commande d'impulsion tronquée (T3.25)
+### Un volet pouvait partir en course complète sur une commande d'impulsion **tronquée** (T3.25)
 
 Les volets Calaos acceptent une commande d'**impulsion** : « monte pendant 500 ms », par exemple,
 pour entrouvrir sans aller jusqu'à la butée. La durée est envoyée avec la commande.
@@ -49,12 +49,30 @@ Les variateurs d'éclairage avaient la même faiblesse sur leurs commandes à ar
 
 **Ce qui change.** Deux protections, à deux endroits :
 
-- **Une commande incomplète est désormais refusée** par l'API, avec la réponse d'échec habituelle
+- **Une commande TRONQUÉE est désormais refusée** par l'API, avec la réponse d'échec habituelle
   (`success: false`), et l'équipement n'est **pas** touché. Le refus est **journalisé** avec le
   nom de l'équipement et la valeur reçue.
 - **Et si une telle commande arrivait quand même** par un chemin interne (une règle, un scénario,
-  un script Lua), la durée lue vaut maintenant **zéro** au lieu d'être imprévisible : le
-  comportement reste défini et borné.
+  un script Lua), la durée lue vaut maintenant **zéro** au lieu d'être imprévisible : elle est
+  **définie et reproductible**.
+
+> ### ⚠️ Ce que cette version ne corrige PAS — le périmètre exact
+>
+> La correction porte sur la commande **tronquée** — celle qui s'arrête juste après « monte
+> pendant », **sans rien derrière**. C'est le cas qui lisait une durée **jamais initialisée**, et
+> c'est celui-là qui est fermé.
+>
+> **Une commande complète mais absurde n'est pas concernée**, et il faut le dire : une durée
+> **numériquement trop grande** pour être représentée — par exemple `impulse up 99999999999999999999` —
+> **passe la validation** (elle n'est pas tronquée), et le serveur la ramène à la plus grande durée
+> représentable. **Le scénario « très grande valeur ⇒ le volet monte jusqu'à sa butée » reste donc
+> ouvert par ce chemin-là.** Il n'est pas nouveau, il n'est pas aggravé, et il demande une commande
+> qu'aucune application Calaos ne produit — mais il n'est **pas** fermé par cette version, et la
+> version précédente de cette note laissait croire le contraire.
+>
+> Le correctif durable est identifié et tient en deux lignes par commande dans l'équipement
+> lui-même (rejeter l'argument s'il n'est pas un nombre lisible, plutôt que de le deviner) ; il est
+> **suivi séparément** parce qu'il touche un fichier en cours de modification par un autre travail.
 
 > ⚠️ **Un changement de comportement à connaître si vous scriptez l'API.** Le refus ci-dessus
 > porte sur **toute** valeur de `set_state` qui **se termine par une espace ou une tabulation**,
@@ -67,7 +85,7 @@ Les variateurs d'éclairage avaient la même faiblesse sur leurs commandes à ar
 ### Effets de bord bénéfiques de la même correction
 
 La lecture des nombres depuis la configuration a été corrigée au même endroit pour tout le
-serveur. Trois conséquences visibles :
+serveur. Conséquences visibles :
 
 - **Un équipement Wago dont le paramètre d'adresse (`var`) est absent est désormais signalé dans
   le journal** au lieu d'être lu silencieusement comme l'adresse 0. Le comportement, lui, ne
@@ -77,6 +95,22 @@ serveur. Trois conséquences visibles :
 - Les valeurs de configuration **vides** ne sont plus confondues avec la valeur **zéro** : une
   ligne oubliée dans un fichier de configuration se comporte maintenant comme « non renseignée »,
   et non plus comme « réglée à 0 ».
+
+**Et une seconde série d'équipements, trouvée à la relecture, où un réglage vide donnait une
+valeur qui n'existe pas** — ils prennent maintenant leur défaut documenté :
+
+- **Relais d'un écran RemoteUI** : un `relay_num` **absent** commandait le relais **0**, qui
+  n'existe pas (les relais sont numérotés à partir de 1). C'est le plus facile à rencontrer de la
+  série : ce paramètre n'avait **aucune garde**, il suffisait qu'il manque.
+- **Équipements Wago** : un paramètre `port` **présent mais vide** faisait parler le serveur sur
+  le **port Modbus 0** au lieu du 502 habituel — c'est-à-dire plus du tout.
+- **Amplificateurs audio-vidéo** : un paramètre `zone` vide donnait la **zone 0**, qui ne
+  correspond à aucune des trois zones réelles ; l'équipement **ne remontait alors plus jamais de
+  changement d'état**. Un `port` vide donnait de même le port 0.
+- **Entrées analogiques** : une `precision` vide donnait **0 décimale** au lieu de 2.
+- **Plages horaires au lever/coucher du soleil** : un décalage (`start_offset`/`end_offset`) vide
+  **annulait le décalage** au lieu de conserver son sens — la plage se déclenchait à l'heure
+  exacte du lever ou du coucher.
 
 ## 🔴 Caméras Reolink : corruption mémoire à chaque enregistrement de caméra
 
