@@ -883,7 +883,10 @@ ici et dit vrai ailleurs.*
 
 ### ℹ️ Renvoi — la liste canonique des variantes de faux vert
 
-`FINDINGS.md` porte depuis le 2026-08-25 **LA liste canonique numérotée des ONZE variantes** de faux
-vert/faux rouge de la série. ⚠️ **« Cause racine des CINQ variantes » reste exact** partout où c'est
+`FINDINGS.md` porte depuis le 2026-08-25 **LA liste canonique numérotée des TREIZE variantes** de
+faux vert/faux rouge de la série. ⚠️ **Cette phrase disait « ONZE »** : le compte était celui du
+jour où la liste a été établie (`T3.44`), et il a été porté à **douze** puis **treize** par la
+livraison de [`T3.40`](T3.40.md) — n° 12 *la restauration qui ne restaure rien*, n° 13 *la borne de
+sûreté devenue la contrainte active*. Corrigé au merge de `T3.40` (2026-08-25). ⚠️ **« Cause racine des CINQ variantes » reste exact** partout où c'est
 écrit de `_DEPENDENCIES` ci-dessus : `T3.36` ferme les **n° 1 à 5**, et elles seules. Tout nouveau
 compte ou rang se lit **dans `FINDINGS.md`**, jamais recompté à la main.

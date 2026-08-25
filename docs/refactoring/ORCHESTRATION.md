@@ -8,6 +8,50 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅ [`T3.40`](T3.40.md) MERGÉE — `81a7ff44`, 16 commits, `--ff-only` sur `74d0c520`, `master`
+  immobile ⇒ **ni rebase ni conflit**, historique linéaire.** Le use-after-free généralisé est
+  fermé : **16 sites sur 20**, **6 classes d'IO** atteignables par un rechargement de
+  configuration. `make check` **99/99** (`# TOTAL: 99 / PASS 98 / SKIP 1 / FAIL 0`, le `SKIP` étant
+  `run-python-tests.sh`), **1631** cas gtest, **0 `error:`**, un seul `Testsuite summary`, **145
+  goldens / arbre `d4ebc61f` inchangé**, `git status -uall` vide. **`F-FLAKY-1` non rencontrée,
+  rien relancé.** ⛔ **Non poussé.**
+
+  ⭐ **Ce que ce merge a ajouté, et qui sert aux suivants :**
+  1. ⭐ **Un mutant qui TUE LE BINAIRE peut être rendu ATTRIBUABLE.** La n° 5 de la liste canonique
+     (*faux vert par mort du binaire*) se juge au **code de sortie** — mais le harnais peut aller
+     plus loin **pour presque rien** : relever le cas resté **sans `OK` ni `FAILED`**, c'est-à-dire
+     **celui qui tournait quand le binaire est mort**. Mesuré ici : **MU-G meurt sur
+     `ProcessExitedDoesNotOutliveTheDeletedServer`**, **MU-E sur
+     `ReadAtStartDoesNotOutliveTheDeletedIo`** — chacune sur l'oracle écrit pour elle. ⚠️ Sans ce
+     relevé les deux ont la **même** signature (`exit 139`, rouge = `{censeur}`) et **ne se
+     distinguent pas**. **À reprendre dans tout harnais de contre-mutation.**
+  2. ⚠️ **Un résumé d'une ligne qui circule et qui est FAUX** : « les ensembles rouges ne sont plus
+     disjoints, c'est leur **différence au censeur** qui l'est ». Vrai **uniquement pour
+     MU-A…MU-D**. Pour **MU-E, MU-G et MU-J** cette différence est **∅** — elles ne sont séparées
+     que par le **code de sortie**, puis par le cas mort. `T3.40.md` §17.5 l'écrit correctement ;
+     c'est le raccourci qu'il ne faut pas propager.
+  3. ⭐ **Le protocole de restauration de T3.40 est MEILLEUR que le nôtre et devient la
+     référence** : à chaque tour, **compter les fichiers écrits** (jamais zéro), puis exiger que
+     l'ensemble différant de la pristine soit **∅ avant** la mutation et **exactement `{le fichier
+     muté}` après** — ce qui prouve d'un coup *appliquée*, *non débordée* et *rendue*. Vérifié une
+     seconde fois, par un chemin indépendant, par un `git status -uall` **vide** en fin de
+     campagne. (Rappel n° 12 : **jamais de `git checkout` de restauration dans le conteneur**, le
+     `.git` d'un worktree est un *fichier* et la restauration échoue **en silence**.)
+  4. ⭐ **La liste canonique passe à TREIZE** (n° 12 *restauration muette*, n° 13 *borne de sûreté
+     devenue la contrainte active*). ⚠️ La **13ᵉ ne se voit QUE dans les DURÉES par cas** : valider
+     un `make check` sur les seuls verts et le code de sortie est désormais **insuffisant**. Ici :
+     suite **7 118 ms** (`make check`) et **7 104 ms** (témoin M0) contre les **1 042 ms** du faux
+     vert. **Renvoi `DECISIONS.md` corrigé ONZE → TREIZE au passage.**
+  5. ⭐ **Le lien `T3.40` ↔ [`T3.49`](T3.49.md) est désormais ÉCRIT DANS `T3.49.md` (§4.1)**, où il
+     manquait — il n'existait que dans la ligne `BOARD`. `pumpLoopFor()` existe en **trois copies**
+     (`ShutterImpulse_test.cpp:113`, `Timer_test.cpp:73`, `IoLifetimeTimer_test.cpp:161`) ; le faux
+     **vert** de T3.40 et le faux **rouge** de T3.49 sont **le même défaut aux deux bouts du même
+     axe**. Remède transposable versé : **l'assertion retournée en BORNE INFÉRIEURE**
+     (`pumpUntil` + `EXPECT_GE`) — **troisième voie**, ni horloge injectable ni marge élargie, qui
+     **conserve** la discrimination fermée par `T3.34`. ⚠️ Elle ne couvre que l'arrêt **trop tôt**
+     (ce qui suffit aux six sites de T3.49) ; une borne **supérieure** redevient sensible à
+     l'horloge. **Celui qui prendra `T3.49` doit lire §4.1 avant §4.**
+
 - **⭐⭐ CINQ ARBITRAGES UTILISATEUR DU 2026-08-25 — PORTÉS DANS `DECISIONS.md`, LISEZ-LES AVANT
   DE JUGER QUOI QUE CE SOIT.** Quatre d'entre eux **retirent** ou **requalifient** une analyse
   déjà écrite : ce ne sont pas des ajouts, ce sont des **corrections**. Lot de **rédaction pure** —
