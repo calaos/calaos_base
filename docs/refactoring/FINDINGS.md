@@ -4727,8 +4727,11 @@ naturelle vient d'être éliminée.
 ⚠️ **Non reproduite en 9 exécutions** : les **2 premiers builds** d'un worktree neuf, aux deux
 parallélismes (`-j12 && make check -j6` **et** `-j32 && make check -j16`), plus **6 relances**
 dont **3** forçant explicitement la régénération (`tests/Makefile.in`, `configure.ac`,
-`tests/Makefile.am`). ⭐ **À SURVEILLER, ni à nier ni à surestimer** : une observation unique,
-jamais rejouée, dont le mécanisme est inconnu et dont l'hypothèse la plus plausible est morte.
+`tests/Makefile.am`). **Plus 9 exécutions de la passe de correction du 2026-08-25**, dont une où
+`tests/Makefile.am` a **réellement** changé et où `automake` + `config.status` ont régénéré
+`tests/Makefile` **pendant** la recette : **un** bloc, `88/88/0`. ⭐ **À SURVEILLER, ni à nier ni à
+surestimer** : une observation unique, jamais rejouée, dont le mécanisme est inconnu et dont
+l'hypothèse la plus plausible est morte.
 
 #### ⭐ La règle de lecture de `make check` — c'est elle qui survit à la cause
 
@@ -4781,3 +4784,61 @@ couture de dispatch.
 
 ⇒ Motif **M-1/M-3** encore une fois — *une sortie plausible qui ne mène nulle part* —, consigné ici
 pour que la fiche T3.35 ne soit pas lue comme si T3.37 l'avait refermée.
+
+### ⭐ [F-RELINK-T337] `JsonPathSyntax_test` ne se relie PAS quand `MqttCtrl.cpp`/`WebCtrl.cpp` changent — **faux ROUGE reproduit sur source propre** (périmètre [`T3.36`](T3.36.md))
+
+⚠️ **Préexistant** : introduit par [T3.29](T3.29.md) avec la cible, **pas** par T3.37 — mais T3.37
+le consigne parce que c'est son harnais qui le porte, et parce qu'un relecteur **l'a subi**.
+
+`JsonPathSyntax_test_DEPENDENCIES` est écrasé à **`$(top_builddir)/src/lib/libcalaos_common.la`
+seul**, alors que le `_LDADD` de la cible relie **`IO/Mqtt/MqttCtrl.o`**, **`IO/Web/WebCtrl.o`** et
+**`IO/Web/WebDocBase.o`**. Ces trois objets ne sont donc **pas des prérequis du binaire** : `make`
+les **recompile** bien, et le binaire **n'est pas relié**.
+
+**Mesuré** sur `fix/t3.37`, même image, `make -j12` à la racine puis `make check -j6`, verdict pris
+sur le **code de sortie du binaire exécuté directement** :
+
+| # | Geste | `CXXLD` | `MqttCtrl.o` recompilé | binaire | rouges | `make check` |
+|---|---|---|---|---|---|---|
+| 1 | mutation M6 de `MqttCtrl.cpp` **+ `rm -f`** binaire et `.o` | **1** | 1 | **1** | **3**, tous MQTT | 88/87/1 |
+| 2 | ⭐ **restauration PRISTINE de `MqttCtrl.cpp`, SANS `rm -f`** | **0** | **1** | **1** | **les 3 MÊMES** | **88/87/1** |
+| 3 | même source pristine, **avec `rm -f`** binaire + `.o` de test | **1** | 0 | **0** | **0** — 63/63 | 88/88/0 |
+
+⇒ ⭐ **La ligne 2 est un FAUX ROUGE sur un arbre propre** : `make` recompile bien `MqttCtrl.o`, mais
+le binaire relié à l'objet **muté** survit et continue d'échouer. C'est la variante **symétrique**
+du faux vert habituel de `_DEPENDENCIES`, et elle est **plus traître** : un faux vert fait rater un
+défaut, un faux rouge fait **inventer** un défaut qui n'existe pas — puis « corriger » du code sain.
+
+### ⛔ Une précision que la revue avait à l'envers, et elle est mesurée
+
+La revue avançait que **faire du parseur un en-tête met le geste normal — éditer `JsonPath.h` —
+« pile dans le trou »**. ⛔ **C'est faux, et l'inverse est vrai** : `tests/JsonPathSyntax_test.cpp`
+fait `#include "JsonPath.h"`, donc l'en-tête est dans le **`.deps` de la cible elle-même**.
+
+**Mesuré** : mutation du message `"no path segment to resolve"` dans `JsonPath.h`, **sans aucun
+`rm -f`** ⇒ **`CXXLD` = 1**, objet de test recompilé, binaire à **exit 1**, **2 rouges**
+(`MqttJsonPathTest.APathThatSplitsIntoNoTokenIsLoggedAndNamesThePath` et son jumeau
+`WebJsonPathTest.*`) — **un par copie de l'appelant**. Le relink a bien eu lieu.
+
+⚠️ **Mais la conclusion pratique de la revue reste JUSTE, pour une autre raison** : cette protection
+est **incidente, pas conçue**. Elle ne tient qu'aussi longtemps que la suite **inclut** `JsonPath.h`.
+Or le §4 de la fiche T3.37 pousse justement à ne tester qu'à travers les deux enveloppes ; le jour
+où quelqu'un retire cet `#include`, **l'en-tête rejoint les deux `.cpp` dans le trou, sans que rien
+ne le signale**. ⇒ Ne jamais s'y fier : appliquer la règle, pas l'exception.
+
+**Règle pour cette cible** (écrite aussi **en commentaire dans `tests/Makefile.am`**, au-dessus du
+bloc `if HAVE_GTEST` de la cible — c'est là que le prochain regardera) : `rm -f` du binaire **et**
+de `tests/JsonPathSyntax_test-JsonPathSyntax_test.o` avant **chaque mutation** *et* avant **chaque
+restauration**, puis exiger la ligne **`CXXLD    JsonPathSyntax_test`** (espace **double**, chemin
+relatif à `tests/`) et prendre le verdict au **code de sortie du binaire lancé directement**.
+
+⚠️ **Ampleur, recomptée en `python3` sur cet arbre** : **86 `check_PROGRAMS`**, **51** portent la
+surcharge `_DEPENDENCIES`, **50** relient réellement des objets serveur ⇒ **le trou est armé sur 50
+cibles**, une seule surcharge est inoffensive. ⚠️ **Piège de décompte confirmé** (déjà signalé par
+`T3.36`) : un balayage naïf du seul `_LDADD` textuel donne **30**, parce que `CORE_TEST_LDADD`
+**contient** `CORE_SERVER_OBJECTS` — il faut développer les variables.
+
+⛔ **La ligne `_DEPENDENCIES` n'a PAS été corrigée par T3.37, et ne doit pas l'être à la légère** :
+c'est le périmètre de `T3.36`, cela concerne 50 cibles d'un coup, et une modification hâtive du
+harnais est **exactement** ce qui a produit les neuf variantes de faux vert/faux rouge de la série.
+Ce finding est là pour que `T3.36` hérite d'une **mesure**, pas d'une intuition.

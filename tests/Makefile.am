@@ -2397,6 +2397,37 @@ endif
 #WebDocBase has no state, so (B) instantiates no IO. -I.../IO/Mqtt is NOT in
 #the global AM_CPPFLAGS, hence the dedicated _CPPFLAGS (same as MqttIO_test).
 #Own HAVE_GTEST block so this stays a pure append at the end of the file.
+#
+#⚠️⚠️ RELINK HOLE - READ THIS BEFORE ANY MUTATION CAMPAIGN ON THIS TARGET.
+#Pre-existing, introduced by T3.29, and it belongs to T3.36's scope - but it
+#bites HERE, so it is written HERE, where the next person will look.
+#_DEPENDENCIES below is overridden to libcalaos_common.la ALONE, so the three
+#objects this binary links - MqttCtrl.o, WebCtrl.o, WebDocBase.o - are NOT
+#prerequisites of it: `make check` does NOT relink when one of those .cpp
+#changes. MEASURED on fix/t3.37, `make -j12 && make check -j6`, same image:
+#  1. mutate MqttCtrl.cpp, rm -f binary  -> CXXLD 1, exit 1, 3 reds  (honest)
+#  2. restore PRISTINE MqttCtrl.cpp, NO rm -> CXXLD 0, MqttCtrl.o IS rebuilt,
+#     and the binary still fails with the SAME 3 reds. 88/87/1 on a CLEAN
+#     TREE. ⭐ That is a FALSE RED, and the reviewer of T3.37 walked into it.
+#  3. rm -f binary + test .o, rebuild   -> CXXLD 1, 63/63 green.
+#⭐ JsonPath.h is NOT in the hole - and that protection is INCIDENTAL, not
+#designed. JsonPathSyntax_test.cpp does `#include "JsonPath.h"`, so the header
+#lands in THIS target's own .deps: editing it rebuilds the test object, which
+#drags the relink along (measured: edit JsonPath.h, no rm -f at all -> CXXLD 1,
+#exit 1, 2 reds, one per copy of the parser). ⚠️ Drop that include - e.g. to
+#test only through the two wrappers - and the header drops straight into the
+#hole beside the two .cpp files. Do not rely on it; rely on the rule below.
+#⇒ RULE for this target: rm -f tests/JsonPathSyntax_test AND
+#tests/JsonPathSyntax_test-JsonPathSyntax_test.o before every mutation AND
+#before every RESTORATION, then require the line `CXXLD    JsonPathSyntax_test`
+#(DOUBLE space, path relative to tests/) in the make output, and take the
+#verdict from the exit code of the binary run directly.
+#⛔ Do NOT "fix" the _DEPENDENCIES line here without measuring. It is T3.36's
+#scope; this target is 1 of 50 in the same shape (51 overrides over 86
+#check_PROGRAMS, 50 of which really do link server objects - ⚠️ a naive scan
+#says 30 because CORE_TEST_LDADD expands to CORE_SERVER_OBJECTS); and a hasty
+#harness edit is exactly what produced the nine false green/red variants of
+#this series. See FINDINGS.md [F-RELINK-T337].
 if HAVE_GTEST
 TESTS += JsonPathSyntax_test
 check_PROGRAMS += JsonPathSyntax_test
