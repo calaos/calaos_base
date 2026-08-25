@@ -79,20 +79,20 @@ bool WODali::set_value_real(int val)
     return true;
 }
 
-void WODali::WagoUDPCommand_cb(bool status, string command, string result)
+void WODali::WagoUDPCommand_cb(bool status, WagoTypes::UdpCommand command, WagoTypes::UdpResult result)
 {
     if (!status)
     {
-        cInfoDom("output") << "Error with request " << command;
+        cInfoDom("output") << "Error with request " << command.v;
         Calaos::StartReadRules::Instance().ioRead();
 
         return;
     }
 
-    if (command.find("WAGO_DALI_GET") != string::npos)
+    if (command.v.find("WAGO_DALI_GET") != string::npos)
     {
         vector<string> tokens;
-        split(result, tokens);
+        split(result.v, tokens);
         if (tokens.size() >= 3)
         {
             //get the status of the ballast

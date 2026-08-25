@@ -35,10 +35,10 @@ private:
 
     int red = -1, green = -1, blue = -1;
 
-    void WagoUDPCommandRed_cb(bool status, string command, string result);
-    void WagoUDPCommandGreen_cb(bool status, string command, string result);
-    void WagoUDPCommandBlue_cb(bool status, string command, string result);
-    void WagoUDPCommand_cb(bool status, string command, string result);
+    void WagoUDPCommandRed_cb(bool status, WagoTypes::UdpCommand command, WagoTypes::UdpResult result);
+    void WagoUDPCommandGreen_cb(bool status, WagoTypes::UdpCommand command, WagoTypes::UdpResult result);
+    void WagoUDPCommandBlue_cb(bool status, WagoTypes::UdpCommand command, WagoTypes::UdpResult result);
+    void WagoUDPCommand_cb(bool status, WagoTypes::UdpCommand command, WagoTypes::UdpResult result);
 
     void checkReadState();
 

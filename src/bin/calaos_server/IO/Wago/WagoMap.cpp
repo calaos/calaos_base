@@ -436,7 +436,8 @@ void WagoMap::udpRequest_cb(bool status, string res)
     WagoUdp_signal sig;
     if (cmd.mapSignals)
         sig.connect(cmd.mapSignals->wagoUdp_cb);
-    sig.emit(status, cmd.udp_command, cmd.udp_result);
+    sig.emit(status, WagoTypes::UdpCommand(cmd.udp_command),
+             WagoTypes::UdpResult(cmd.udp_result));
 
     udp_commands.pop();
 }

@@ -87,18 +87,18 @@ WODaliRVB::~WODaliRVB()
 {
 }
 
-void WODaliRVB::WagoUDPCommandRed_cb(bool status, string command, string result)
+void WODaliRVB::WagoUDPCommandRed_cb(bool status, WagoTypes::UdpCommand command, WagoTypes::UdpResult result)
 {
     if (!status)
     {
-        cInfoDom("output") << "Error with request " << command;
+        cInfoDom("output") << "Error with request " << command.v;
         Calaos::StartReadRules::Instance().ioRead();
 
         return;
     }
 
     vector<string> tokens;
-    split(result, tokens);
+    split(result.v, tokens);
     if (tokens.size() >= 3)
     {
         from_string(tokens[2], red);
@@ -108,18 +108,18 @@ void WODaliRVB::WagoUDPCommandRed_cb(bool status, string command, string result)
     Calaos::StartReadRules::Instance().ioRead();
 }
 
-void WODaliRVB::WagoUDPCommandGreen_cb(bool status, string command, string result)
+void WODaliRVB::WagoUDPCommandGreen_cb(bool status, WagoTypes::UdpCommand command, WagoTypes::UdpResult result)
 {
     if (!status)
     {
-        cInfoDom("output") << "Error with request " << command;
+        cInfoDom("output") << "Error with request " << command.v;
         Calaos::StartReadRules::Instance().ioRead();
 
         return;
     }
 
     vector<string> tokens;
-    split(result, tokens);
+    split(result.v, tokens);
     if (tokens.size() >= 3)
     {
         from_string(tokens[2], green);
@@ -129,18 +129,18 @@ void WODaliRVB::WagoUDPCommandGreen_cb(bool status, string command, string resul
     Calaos::StartReadRules::Instance().ioRead();
 }
 
-void WODaliRVB::WagoUDPCommandBlue_cb(bool status, string command, string result)
+void WODaliRVB::WagoUDPCommandBlue_cb(bool status, WagoTypes::UdpCommand command, WagoTypes::UdpResult result)
 {
     if (!status)
     {
-        cInfoDom("output") << "Error with request " << command;
+        cInfoDom("output") << "Error with request " << command.v;
         Calaos::StartReadRules::Instance().ioRead();
 
         return;
     }
 
     vector<string> tokens;
-    split(result, tokens);
+    split(result.v, tokens);
     if (tokens.size() >= 3)
     {
         from_string(tokens[2], blue);
@@ -161,11 +161,11 @@ void WODaliRVB::checkReadState()
     stateUpdated(c, red != 0 && green != 0 && blue != 0);
 }
 
-void WODaliRVB::WagoUDPCommand_cb(bool status, string command, string)
+void WODaliRVB::WagoUDPCommand_cb(bool status, WagoTypes::UdpCommand command, WagoTypes::UdpResult)
 {
     if (!status)
     {
-        cInfoDom("output") << "Error with request " << command;
+        cInfoDom("output") << "Error with request " << command.v;
 
         return;
     }

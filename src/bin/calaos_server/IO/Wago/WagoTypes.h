@@ -23,6 +23,9 @@
 
 #include <Utils.h>
 
+#include <string>
+#include <utility>
+
 /*
  * T3.31 - what a Wago modbus call carries, one type per role.
  *
@@ -181,6 +184,59 @@ struct BitValue
 {
     bool v;
     explicit BitValue(bool b): v(b) {}
+};
+
+/* T3.53 - the DALI UDP reply pair, typed per role.
+ *
+ * WagoMap.h:81-82 carry a UDP reply from calaos_wago back to a DALI ballast:
+ * the command that was sent, and the result the PLC answered. Both were a
+ * bare std::string, adjacent, in that order, and WagoMap.cpp emits them
+ * positionally.
+ *
+ * ⭐ THIS PAIR IS NOT LIKE THE FOUR ABOVE, and the difference is the whole
+ * reason it needed its own ticket. Address/Count and Address/WordValue are
+ * DIFFERENT types that convert into one another: silent, but a compiler
+ * COULD have spoken had they been distinct. Command and result were the SAME
+ * type. There is no conversion to diagnose, so no compiler, no flag and no
+ * type-based analyser will ever say a word about a permutation - not today
+ * and not in a future version. Typing by role is the only remedy there is,
+ * and the swap mutation on master is not merely silent: on the two typedefs
+ * it cannot even be WRITTEN, the two spellings being the same text.
+ *
+ * ⚠️ AND UNLIKE THE T3.50 PAIR, BOTH OF THESE ARE READ. Measured with
+ * -Wunused-parameter over the 14 units of IO/Wago/, with the instrument
+ * witnessed both ways (negative control: 0 warnings without the flag;
+ * positive control: the known unused `addr` of the write callbacks is found;
+ * and a probe at the site itself, which makes `result` unused the moment
+ * WODali stops splitting it). WODali tests the COMMAND for "WAGO_DALI_GET"
+ * and splits the RESULT; each WODaliRVB channel takes its level from
+ * tokens[2] of the RESULT.
+ * ⇒ A permutation is NOT the semantic no-op T3.50 measured on its own pair.
+ *   It CHANGES THE PROGRAM: the WAGO_DALI_GET branch is never taken again,
+ *   and each RGB channel stores its own DALI ADDRESS as its level. Both are
+ *   exercised on production objects by tests/core/WagoUdpReply_test.cpp.
+ *
+ * ⛔ ONE SITE THIS DOES NOT CLOSE, and it is measured, not suspected:
+ * WODaliRVB::WagoUDPCommand_cb (WODaliRVB.h:41, WODaliRVB.cpp:164) is the
+ * fifth definition of the pair and there are only FOUR sigc::mem_fun. Its
+ * address is taken by no line of the tree. It is typed here for the
+ * contract, but a permutation inside it still builds - nothing binds it, so
+ * nothing can refuse it.
+ */
+
+/* The text command sent to calaos_wago over UDP, handed back with the reply
+ * so the receiver can tell which request it is looking at. */
+struct UdpCommand
+{
+    std::string v;
+    explicit UdpCommand(std::string c): v(std::move(c)) {}
+};
+
+/* What the PLC answered to that command. */
+struct UdpResult
+{
+    std::string v;
+    explicit UdpResult(std::string r): v(std::move(r)) {}
 };
 
 } //namespace WagoTypes

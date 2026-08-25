@@ -78,8 +78,27 @@ typedef sigc::slot<void, bool, WagoTypes::Address, WagoTypes::Count, vector<UWor
 typedef sigc::slot<void, bool, WagoTypes::Address, WagoTypes::BitValue> SingleBit_cb;
 typedef sigc::slot<void, bool, WagoTypes::Address, WagoTypes::WordValue> SingleWord_cb;
 
-typedef sigc::slot<void, bool, string, string> WagoUdp_cb;
-typedef sigc::signal<void, bool, string, string> WagoUdp_signal;
+/* T3.53 - the DALI UDP reply path, typed per role.
+ *
+ * These two carry a UDP reply from calaos_wago back to a DALI ballast. They
+ * used to be sigc::slot/signal<void, bool, string, string>: the command and
+ * the result of the reply, adjacent and of the SAME type.
+ *
+ * ⭐ That makes this the most exposed pair of the whole Wago chain and the
+ * only one no compiler could ever have caught: MultiBits_cb and SingleBit_cb
+ * above at least carried two types that convert into one another, so a
+ * distinct spelling would have been diagnosable. Here the two spellings were
+ * the same text - the swap mutation on master could not even be written.
+ *
+ * ⚠️ And both members are READ by every live implementation (measured, see
+ * WagoTypes.h), so a permutation was never a no-op: WODali would search the
+ * REPLY for "WAGO_DALI_GET" and never take its GET branch again, and each
+ * WODaliRVB channel would store its own DALI address as its level.
+ *
+ * Taken BY VALUE, like every other role type of this header.
+ */
+typedef sigc::slot<void, bool, WagoTypes::UdpCommand, WagoTypes::UdpResult> WagoUdp_cb;
+typedef sigc::signal<void, bool, WagoTypes::UdpCommand, WagoTypes::UdpResult> WagoUdp_signal;
 
 enum { MBUS_NONE = 0, MBUS_READ_BITS, MBUS_READ_OUTBITS, MBUS_WRITE_BIT, MBUS_WRITE_BITS,
        MBUS_READ_WORDS, MBUS_READ_OUTWORDS, MBUS_WRITE_WORD, MBUS_WRITE_WORDS,
