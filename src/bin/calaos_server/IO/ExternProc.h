@@ -23,7 +23,6 @@
 
 #include "Utils.h"
 #include "Calaos.h"
-#include <jansson.h>
 #include "Jansson_Addition.h"
 
 namespace uvw {

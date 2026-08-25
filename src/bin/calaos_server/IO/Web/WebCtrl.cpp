@@ -19,7 +19,6 @@
  **
  ******************************************************************************/
 #include "WebCtrl.h"
-#include <jansson.h>
 
 //E4.4b: the XML branch runs on pugixml (DOM + native XPath 1.0). This is the
 //only place in calaos that parses *untrusted* XML -- getValue() feeds it a

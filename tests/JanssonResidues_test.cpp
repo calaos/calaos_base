@@ -57,10 +57,18 @@
  *     both handlers, Wago, OLA, ScriptExtern) are all in OTHER translation
  *     units and all take it from <jansson.h>.
  *
- * The TripwireSource_* cases read the shipped sources through
- * CALAOS_TOP_SRCDIR, so a mutation of PRODUCTION reddens this suite. This
- * characterization commit carries only the one that already holds BEFORE the
- * deletions; the deletion commit adds the three that can hold only after it.
+ * The four TripwireSource_* cases read the shipped sources through
+ * CALAOS_TOP_SRCDIR, so a mutation of PRODUCTION -- putting either include
+ * back, putting the macro back, or dropping the Jansson_Addition.h
+ * delegation -- reddens this suite. Each pins a DIFFERENT deletion, so four
+ * independent defects give four different failing cases.
+ *
+ * OWNED BY E4.1x. This whole file is transitional: it calls the jansson C API
+ * on purpose, and the delegation it pins is the very line E4.1x removes. When
+ * jansson leaves the build, this suite goes with it -- it is one of the
+ * `grep -rn 'json_t\|jansson' src tests` hits E4.1x's acceptance criterion 1
+ * will report, and the correct answer there is to delete the file, not to
+ * rescue it.
  */
 
 #include <gtest/gtest.h>
@@ -225,9 +233,13 @@ TEST(JanssonResidues, JanssonProvidesArrayForeachNativelyAtTheConfiguredFloor)
 }
 
 /*
- * One source tripwire, green on master and green after: the delegation line
- * that makes the whole ticket a no-op for the include graph. It is the line
- * E4.1x will remove, and the day it does, the case above goes red with it.
+ * The four source tripwires. Each pins ONE deletion of this ticket, so that
+ * re-introducing any of them -- which the ticket forbids by name for the
+ * header -- reddens a DIFFERENT case.
+ *
+ * TripwireSource_ExternProcHeaderStillDelegatesToJanssonAddition is the one
+ * that was already true before the deletions; it shipped with the
+ * characterization commit and pins the line that makes them a no-op.
  */
 TEST(JanssonResidues, TripwireSource_ExternProcHeaderStillDelegatesToJanssonAddition)
 {
@@ -239,4 +251,46 @@ TEST(JanssonResidues, TripwireSource_ExternProcHeaderStillDelegatesToJanssonAddi
         << "this is what makes the deletion of `#include <jansson.h>` a no-op. "
            "Remove it and the ten downstream units lose jansson -- that is "
            "E4.1x, and it owes each of them its own include.";
+}
+
+TEST(JanssonResidues, TripwireSource_ExternProcHeaderDoesNotIncludeJanssonDirectly)
+{
+    std::string src;
+    ASSERT_TRUE(readShippedSource("src/bin/calaos_server/IO/ExternProc.h", src))
+        << "cannot read the shipped header under CALAOS_TOP_SRCDIR="
+        << CALAOS_TOP_SRCDIR;
+    ASSERT_FALSE(src.empty());
+
+    EXPECT_EQ(0, countOccurrences(src, "#include <jansson.h>"))
+        << "E4.1c removed this include because Jansson_Addition.h already "
+           "brings it in on the next line. Do not put it back: the header is "
+           "the transitive jansson provider for ten units and E4.1x is the "
+           "ticket that unwires them, one own include at a time.";
+    EXPECT_EQ(0, countOccurrences(src, "jansson.h"));
+}
+
+TEST(JanssonResidues, TripwireSource_WebCtrlMentionsJanssonNowhere)
+{
+    std::string src;
+    ASSERT_TRUE(readShippedSource("src/bin/calaos_server/IO/Web/WebCtrl.cpp", src));
+    ASSERT_FALSE(src.empty());
+
+    EXPECT_EQ(0, countOccurrences(src, "jansson"))
+        << "WebCtrl.cpp parses XML with pugixml and emits no JSON at all; its "
+           "include was dead when E4.1c removed it.";
+    EXPECT_EQ(0, countOccurrences(src, "json_"));
+}
+
+TEST(JanssonResidues, TripwireSource_HttpClientDoesNotRedefineArrayForeach)
+{
+    std::string src;
+    ASSERT_TRUE(readShippedSource("src/bin/calaos_server/HttpClient.cpp", src));
+    ASSERT_FALSE(src.empty());
+
+    EXPECT_EQ(0, countOccurrences(src, "json_array_foreach"))
+        << "the pre-2.5 compat macro was deleted by E4.1c. jansson defines it "
+           "natively at the >= 2.5 floor of configure.ac:51, and "
+           "JanssonProvidesArrayForeachNativelyAtTheConfiguredFloor proves it "
+           "on the jansson this build actually links against.";
+    EXPECT_EQ(0, countOccurrences(src, "jansson"));
 }

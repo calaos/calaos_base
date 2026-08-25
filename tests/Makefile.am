@@ -2287,6 +2287,9 @@ endif
 #and none may be, which also keeps it clear of the _DEPENDENCIES pitfall.
 #CALAOS_TOP_SRCDIR lets the tripwire cases read the shipped sources, the same
 #way CALAOS_GOLDEN_DIR feeds the golden comparisons.
+#OWNED BY E4.1x: this suite calls the jansson C API on purpose and pins the
+#Jansson_Addition.h delegation E4.1x removes. It is deleted with jansson, not
+#ported.
 #Own HAVE_GTEST block so this stays a pure append at the end of the file.
 if HAVE_GTEST
 TESTS += JanssonResidues_test
