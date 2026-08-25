@@ -117,6 +117,86 @@
     c'est le code qui la consomme qui a été lu. Le seul programme exécuté est un `g++` autonome de
     12 lignes sur `from_string`/`is_of_type`.
 
+- **🔒 E4.1d ✅ MERGÉ (`9a1a5499`, 6 commits, `git rebase master` ×2 + `merge --ff-only`, historique
+  linéaire, `make check` **81/81**) — les deux lecteurs de JSON TIERS, et le ticket où la fiche
+  prescrivait elle-même un `std::terminate`.**
+  Périmètre réel : `Audio/Squeezebox.cpp`, `IO/Hue/HueOutputLightRGB.cpp`, les **deux en-têtes neufs
+  de production** `Audio/SqueezeboxWire.h` et `IO/Hue/HueWire.h` (déclarés dans
+  `calaos_server_SOURCES`, **2 lignes** de `src/bin/calaos_server/Makefile.am` isolées dans leur
+  propre commit `a334e482`), plus `tests/Makefile.am` et les deux fichiers neufs
+  `tests/{SqueezeboxWire,HueWire}_test.cpp`. Commit de caractérisation `7efa2ffe` : **zéro ligne de
+  `src/`** (3 fichiers, tous `tests/`). **Aucune assertion préexistante modifiée** : sur les 6
+  commits, les seuls `tests/` touchés sont ces trois-là. Goldens intacts : arbre `d4ebc61f…`,
+  **145 fichiers**, identique à master. Suite **79 → 81** (recompté en `python3`, continuations `\`
+  comprises ; les deux seuls ajouts sont `SqueezeboxWire_test` et `HueWire_test`). Équilibre
+  `tests/Makefile.am` **69 `^if*` / 69 `^endif`** tous préfixes confondus (**68/68** sur master),
+  profondeur jamais négative ; **append pur octet pour octet** (`cur.startswith(master)`, **+2 514
+  octets**) — **aucun conflit** au rebase, sur aucun fichier. Build distclean rejoué **après le
+  rebase de merge** (`make -j16 && make check -j8`, deux agents concurrents, attendu par
+  `docker wait`) : `CXX Audio/Squeezebox.o`, `CXX IO/Hue/HueOutputLightRGB.o`,
+  **`CXXLD SqueezeboxWire_test`**, **`CXXLD HueWire_test`** (×1 chacun), **0 `error:`**, code de
+  sortie **0**, **81/81 PASS / 0 FAIL / 0 SKIP**.
+
+  - ⭐ **LA FICHE PRESCRIVAIT UN `std::terminate`, ET L'AUTEUR A REFUSÉ SA RECOMMANDATION.**
+    `E4.1d.md` disait « **Utilise `j.value("sat", 0)`** ». Mesuré : `j.value("sat", 0)` **lève**
+    sur **4 des 7** formes qu'un pont peut renvoyer — `"77"`, `null`, `[77]`, `{}` — et côté
+    booléens `j.value("on", false)` lève sur `1`, `0`, `"true"`, `null`, **là où jansson rendait
+    `false`**. Le site est un callback `UrlDownloader` **sans `try`/`catch`**, sur un scrutin de
+    **2 s** déclenché par le pont : la recommandation, appliquée telle quelle, armait un
+    `terminate` répété. Écrits à la place : `integerOrDefault` / `booleanOrDefault`, **fidèles à
+    jansson sur les 9 et 7 formes**. Bonus mesuré : sur `{"sat":99999999999999999999}`, `j.value`
+    rend **−2147483648**, le helper rend **0**.
+
+  - ⭐ **UNE DIVERGENCE D'ACCEPTATION, ÉPINGLÉE — UN CAS DE CHAQUE CÔTÉ.** Sur `\u0000` **ÉCHAPPÉ**
+    (la séquence `\u0000` dans le texte JSON, six caractères), jansson **refuse**
+    (`\u0000 is not allowed without JSON_ALLOW_NUL`, et « NUL byte in object key not supported »), **nlohmann accepte** et décode
+    un vrai `0x00` ⇒ Hue passe de `Malformed` à `Ok`, Squeezebox quitte le **repli CLI** pour le
+    document parsé. **Le NUL BRUT, lui, est refusé par les deux** ⇒ le passage `c_str()` →
+    `std::string` **ne creuse aucun trou**.
+
+  - **INVARIANTS D'OCTETS : DÉFENSIFS, ET MESURÉS COMME TELS.** Les deux bibliothèques refusent
+    l'UTF-8 invalide **dès le parse** (0xff, `\xc3` tronqué, demi-surrogate, surlong `C0 80`, 0x80
+    nu, et 0xff **dans une clé**) ⇒ **rien ne peut présenter un octet invalide au `dump()`**.
+    **Ce n'est pas KNX.** `HueWire_test` **ne revendique aucun oracle d'octets** — il n'y a **pas un
+    `dump()`** dans `HueOutputLightRGB.cpp` ; les seuls oracles d'octets du ticket sont dans
+    `SqueezeboxWire_test`, sur l'unique `dump()` du périmètre (une trace `cDebug()`).
+
+  - ⭐ **RÈGLE DE SÉRIE POSÉE DANS `DECISIONS.md`** : `dump(N, ' ', true, error_handler_t::replace)`
+    **partout**, **aucune exception pour le gestionnaire**. Recensement `python3` : **38 sites
+    réels** dans `src/` (la 39ᵉ occurrence est une **ligne de commentaire**, `KNXCtrl.h:97`),
+    **0 nu**, **17 `true` / 21 `false`**. ⚠️ **La ligne de partage a TROIS côtés, pas deux** :
+    journal machine (échappé, précédent `NotifManager.cpp:258`), **écriture de fichier sur disque**
+    (`CalaosConfig.cpp:558`, `iostates.cache`), sortie humaine d'outil interactif
+    (`calaos_config.cpp:347/:616`, `std::cout`). L'argument décisif : **dissocier les trois
+    invariants site par site est ce qui finit par laisser passer un `dump()` nu dans un log**,
+    c'est-à-dire le `terminate` de KNX **déplacé dans une trace**.
+
+  - ⭐ **PREMIER TICKET À APPLIQUER LA MITIGATION PAR TYPAGE** — `LmsHost{}` et un `LightState`
+    nommé rendent la permutation positionnelle **non compilable** (l'ancienne signature à deux
+    `std::string` ne compile plus non plus). **DEUX RÉSIDUELS**, tous deux écrits dans les en-têtes :
+    emballer la **mauvaise variable**, **et** `LightState` étant un **agrégat** de 3 `int` + 2
+    `bool`, une initialisation **positionnelle** `{100,200,30000,true,true}` compile et **permute
+    `sat`/`bri` en silence** — latent aujourd'hui, mais la fermeture ne tient que **tant que personne
+    n'écrit d'agrégat**. **Trou des sites d'appel confirmé mesuré** :
+    `updateHueState(update.color, !update.on)` permuté **compile** et laisse `LanHue_test`
+    **10/10 vert** ; et **aucun binaire ne lie `Squeezebox.o`**.
+
+  - **DEUX ACQUIS QUE L'AUTEUR A TROUVÉS CONTRE LUI-MÊME.** (a) La moitié `is_discarded()` de ses
+    deux gardes est **redondante** — la retirer est un **mutant équivalent, 0 rouge** ; elle est
+    **gardée mais annotée**, pour qu'on ne la croie pas porteuse. (b) ⚠️ **Son script de mutation
+    restaure par `git checkout` et, lancé AVANT commit, a effacé toutes ses éditions d'en-tête** —
+    retrouvées et réappliquées. **La parade est de COMMITTER AVANT la campagne**, pas de « faire
+    attention » : à retenir pour les tickets restants.
+
+  - **D'OÙ VIENNENT LES OCTETS** : Squeezebox lit `result.remoteMeta`, **métadonnée d'un flux
+    distant** relayée telle quelle par LMS (titre, artiste, nom de webradio) ⇒ non-ASCII **réel** ;
+    Hue lit `name` (saisi dans l'app) et des chaînes d'erreur du pont, **dont aucune n'atteint un
+    `dump()`**.
+
+  - **NON VÉRIFIÉ, à ne pas surestimer** : **aucun `make dist`/`distcheck` réel**, **rien sous
+    ASan**, **aucun `calaos_server` exécuté**, **aucun vrai pont Hue ni vrai LMS**.
+    **Rien n'a été poussé.**
+
 - **🔒 E4.1c ✅ MERGÉ (`35ce4cbf`, 5 commits, `git rebase master` + `merge --ff-only`, historique
   linéaire, `make check` **79/79**) — le seul ticket de la série qui ne migre presque rien : il
   RETIRE TROIS CHOSES MORTES, `src/` = **−9 / +0, AUCUNE addition**.**
