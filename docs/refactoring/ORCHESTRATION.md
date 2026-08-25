@@ -230,6 +230,114 @@
     c'est le code qui la consomme qui a été lu. Le seul programme exécuté est un `g++` autonome de
     12 lignes sur `from_string`/`is_of_type`.
 
+- **🔒 T3.31 ✅ MERGÉ (`2c7e4892`, **9** commits, `git rebase 180c4b87` + `merge --ff-only`,
+  historique linéaire, **0 commit de fusion**, `./autogen.sh && ./configure && make -j32 &&
+  make check -j16` ⇒ **`# TOTAL: 94 / PASS: 94 / FAIL: 0 / SKIP: 0 / XFAIL: 0 / XPASS: 0 /
+  ERROR: 0`**, **un seul** bloc `Testsuite summary`, `exit 0`, **0 `error:`**, `CXXLD  calaos_server`
+  **et** `CXXLD  calaos_wago`)** — fermer par le **TYPAGE** le trou des arguments positionnels sur
+  les chaînes Wago et Reolink. **RIEN POUSSÉ.**
+
+  - ⭐⭐ **LA CAMPAGNE RA/RB A ÉTÉ REJOUÉE AU MERGE, PAS CRUE SUR PAROLE — 8 passes, et les 8
+    rendent le verdict annoncé.** Harnais privé (`/harness`, hors du worktree), copie **pristine**,
+    restauration par `open('wb')` **sans préserver les dates** (jamais `cp -p` / `shutil.copy2` :
+    l'horodatage préservé laisse des `.o` périmés et fabrique un rouge sur des sources identiques),
+    **`cmp` d'application avant chaque compilation**, **`rm -f` de l'objet ET des deux binaires**
+    (`calaos_server`, `calaos_wago`) avant chaque passe, et **assertion que l'objet a bien disparu**.
+
+    | # | Site | rc attendu | rc mesuré | message |
+    |---|---|---|---|---|
+    | **M0** ⭐ témoin, **ensemble VIDE** | — | 0 | **0** | objet reconstruit — sans lui les rouges seraient ininterprétables |
+    | **RA** `cameraKey(reg.event_type, reg.hostname)` | `ReolinkCtrl.cpp:117` | 2 | **2** | `no matching function for call to 'ReolinkEventRegistry::cameraKey(const std::string&, const std::string&)'` |
+    | **RA′** emballée mais permutée | `ReolinkCtrl.cpp:117` | 2 | **2** | `…cameraKey(ReolinkTypes::EventType, ReolinkTypes::Hostname)` |
+    | ⚠️ **RA″** résiduel **W3** | `ReolinkCtrl.cpp:117` | **0** | **0** | ✅ **compile — ATTENDU** : emballer la MAUVAISE variable type-vérifie et le fera toujours |
+    | **RB** `dispatch(event_type, hostname, event_data)` | `ReolinkCtrl.cpp:86` | 2 | **2** | `cannot convert 'std::string' to 'const ReolinkTypes::Hostname&'` |
+    | **RB′** emballée mais permutée | `ReolinkCtrl.cpp:86` | 2 | **2** | `cannot convert 'ReolinkTypes::EventType' to 'const ReolinkTypes::Hostname&'` |
+    | **RC** corps du callback | `ReolinkInputSwitch.cpp:104` | 2 | **2** | `cannot convert 'const ReolinkTypes::EventType' to 'const ReolinkTypes::Hostname&'` |
+    | **RD** signature de la lambda | `ReolinkInputSwitch.cpp:98` | 2 | **2** | conversion en `ReolinkCtrl::EventReceivedSignal` refusée |
+
+    ⭐ **`RA″` est bien écrit comme RÉSIDUEL** — au source (`ReolinkTypes.h`, en-tête de
+    `ReolinkRegistry_test.cpp`) **et** dans la fiche (§7.6bis) : *mesuré, pas supposé, et déclaré
+    plutôt que caché*. Ce qui est fermé est l'**ORDRE**, à tous les sauts ; ce qui reste ouvert est
+    le **NOMMAGE**, sur une ligne adjacente au champ qu'elle nomme.
+  - ⭐ **LA 12ᵉ VARIANTE DE FAUX VERT (restauration qui échoue en silence) EST DÉSARMÉE PAR UN
+    COMPTE, pas par une intention** : chaque restauration relit le fichier et le compare à la copie
+    pristine, et le harnais sort en `rc=97` si un seul octet diffère. **Total mesuré : 18 fichiers
+    effectivement restaurés** (9 passes × 2 fichiers) — **non nul**, donc les mutations ont bien été
+    jouées sur un arbre restauré.
+  - ⭐ **La surcharge à UN argument : TOUS les appelants internes qui tiennent une
+    `CameraRegistration` l'utilisent** — `ReolinkCtrl.cpp:117`, `:159` et
+    `ReolinkEventRegistry::add()` (`:135`). Les **trois** appels à deux arguments qui restent
+    (`dispatch` `:189`, `hasCamera` `:208`, `callbackCount` `:214`) transmettent des **paramètres
+    déjà typés** : là non plus il n'y a **ni ordre ni emballage** à se tromper. Le **seul** site
+    d'emballage de la classe est le corps de la surcharge (`:129-130`), sur les deux lignes qui
+    nomment les deux champs.
+  - ⭐ **Les DEUX angles morts de la sonde sont écrits AVEC la raison pour laquelle aucun ne mord
+    ici** (`tests/ReolinkRegistry_test.cpp`, cas `TheAggregateProbesActuallyDiscriminate`) :
+    **(a) référence lvalue** — `LieRef(std::string &, std::string &)` : les deux sondes répondent
+    **false** (« fermé ») alors que `is_constructible<LieRef, string&, string&>` vaut **true** ;
+    ⇒ *ne mord pas ici* car **toute enveloppe livrée prend sa charge PAR VALEUR**, et c'est
+    **vérifié** (`is_constructible_v<Hostname, string&>`), pas affirmé en prose.
+    **(b) rétrécissement** — **ni** les accolades **ni** la direct-init ne distinguent
+    `Narrowing(unsigned short)` de `NoNarrowing` explicite ; **seul `is_convertible_v`** le fait ;
+    ⇒ *ne mord pas ici* car la sonde à accolades n'est pointée que sur les enveloppes `std::string`,
+    et les enveloppes numériques Wago sont épinglées par `is_invocable_v`/`is_convertible_v` dans
+    `WagoWire_test.cpp`.
+  - ⭐ **Les 11 signatures Wago du chemin RETOUR sont NOMMÉES une par une**, aux trois endroits
+    promis — `IO/Wago/WagoTypes.h:97-106`, `T3.31` §7.11.5 et **`T3.46` partie B §6.2** (tableau
+    numéroté 1→11, fichier et ligne, paire permutable) : `WagoMap::WagoModbusReadHeartbeatCallback`,
+    `WIAnalog::`/`WITemp::`/`WOAnalog::`/`WODigital::`/`WIDigitalBase::`/`OutputAnalog::WagoReadCallback`,
+    ⭐ **`WOAnalog::WagoWriteCallback`**, `WODigital::`/`WOVoletBase::`/`OutputAnalog::WagoWriteCallback`.
+    **Report justifié par le PÉRIMÈTRE** (10 fichiers, dont `IO/OutputAnalog.h`, base **générique
+    hors arbre Wago**) **et par la mesure** : les écritures portent une valeur **constante** au seul
+    endroit qui l'émet (`WagoMap.cpp:219` littéral `false`, `:242` littéral `0`) ⇒ une permutation
+    y substitue un **mannequin**. **Traiter les lectures d'abord.**
+  - ⚠️ ⭐ **`F-FLAKY-1` NON RENCONTRÉ à ce merge** — `make check -j16` rend **94/94, FAIL 0** du
+    premier coup, **aucune relance**. Et l'exclusion de causalité est reproduite **plus fortement
+    que par `nm`** : `core/ShutterImpulse_test` se lie à **35** objets `CORE_SERVER_OBJECTS` + ses
+    3 sources, et **aucun** ne correspond aux **21** fichiers `src/` du diff (appariement `python3`
+    par nom de base) ; `nm -C` confirme **0 symbole** du ticket sur **6938**.
+    ⭐ **Et le point que l'auteur n'avait PAS montré est mesuré ici** : puisque **ni le binaire ni
+    aucune de ses entrées de lien ne diffèrent de `master`**, ce binaire **EST** celui de `master`.
+    Exercé **20 fois de suite sous contention artificielle** (12 boucles occupées + 3 autres agents
+    en train de builder) : **20 PASS / 0 FAIL**. ⇒ le flottement est **rare**, il appartient à
+    `master` (`ShutterImpulse_test:384`, course d'**horloge murale**, ticket T3.34) et **pas** à
+    T3.31 — mais **il n'est pas reproduit ici**, donc il n'est ni confirmé ni infirmé sur `master` nu.
+  - **Conflits : DEUX, tous les deux dans la doc** (le rebase de `src/` et de `tests/` passe seul).
+    `FINDINGS.md` : master ajoute `## T3.45` et la branche `## T3.31` **au même endroit** ⇒
+    **les deux côtés gardés, chacun sous son propre titre `##`**, séparés par `---` ; **71 titres
+    `^## `** après résolution, **0 marqueur résiduel**. `BOARD.md` : les deux côtés ajoutent une
+    ligne `T3.46` (master la version courte de `78c02589`, la branche la version longue « DEUX
+    moitiés ») ⇒ **la version de la branche gardée**, insérée **triée par NUMÉRO** entre `T3.45` et
+    `T3.48`. ⚠️ **`tests/Makefile.am` n'est PAS dans le diff** — le piège de l'`endif` avalé ne
+    pouvait donc pas se produire, **recontrôlé quand même** : **81 `^if*` / 81 `endif`**, profondeur
+    finale **0**, **minimum 0, jamais négative**, **94 entrées `TESTS` sans doublon**, et
+    **`# TOTAL: 94` du build = ce compte**.
+  - **Cas réellement EXÉCUTÉS, recomptés dans les `.log`** (un PASS ne prouve pas qu'une suite a
+    tourné, `F-PYTEST-1`) : **1595 cas gtest sur 90 binaires**, **aucune suite à 0 cas**, **aucun
+    `[  FAILED  ]`**. L'écart avec les **1585** de `master` est **exactement +10**, et il se
+    décompose : `ReolinkRegistry_test` **8 → 13**, `WagoWire_test` **31 → 35**, `ReolinkWire_test`
+    **17 → 18**. **95 `.log`** = 90 gtest + 4 scripts `.sh` + `test-suite.log`, pour **94** entrées.
+    **91 lignes `CXXLD` ancrées** (`^\s\sCXXLD\s+\S+$`, **double espace**, chemin **relatif à
+    `tests/`**) dans le journal de `make check`, + **11** au build.
+  - **Recomptes de la revue REVÉRIFIÉS après rebase** : `ReolinkRegistry_test` **13** cas `^TEST(`,
+    **9** cas `…IsExactlyThisByteString` (8 dans `WagoWire_test` + 1 dans `ReolinkWire_test`) et
+    ⭐ **les 9 corps sont octet pour octet identiques à ceux de `master 180c4b87`** (extraction par
+    appariement d'accolades en `python3`, **9/9**), **35** objets `CORE_SERVER_OBJECTS`, **neuf**
+    commits (`git rev-list --count`), board **📋 → 🚚 → ✅**.
+  - **Goldens : `d4ebc61fb2b1876f587d075a0cb050750dc1876f`, 145 fichiers, identique à `master` et à
+    la base — AUCUN bougé** (comparé par **hachage d'arbre**, pas par comptage). `git status -uall`
+    du worktree de merge **vide** après la campagne et le rebuild.
+  - ⛔ **Reste ouvert et déclaré, pas refermé en douce** : `T3.46` **📋** (partie A `libmbus`,
+    partie B les 11 callbacks du chemin RETOUR), la cible 0 `HueWire::LightState`, les cibles 4 et 5,
+    le décodeur typé de `WagoExternProc_main.cpp` (**aucun numéro attribué**), et l'écriture par
+    champ de `CameraRegistration` une fois construite.
+  - ⚠️ **CE DONT LE MERGE N'EST PAS SÛR** : rien n'a parlé à un automate Wago ni à une caméra
+    Reolink réels (l'invariance d'octets vient des suites) ; rien n'a tourné sous ASan/valgrind ;
+    `F-FLAKY-1` n'a **pas** été reproduit, donc son caractère « aussi présent sur `master` nu » reste
+    **argumenté par l'identité du binaire**, pas par une observation d'échec ; et les mesures de la
+    fiche antérieures au 4ᵉ rebase (93/93, blob `e2498c216dff`) n'ont pas été réécrites dans
+    `T3.31.md` — elles restent vraies **de leur base**, le board porte les valeurs à jour.
+
 - **🔒 T3.45 ✅ MERGÉ (`ac95e8e0`, **6** commits, `git rebase 55beb79b` + `merge --ff-only`,
   historique linéaire, **0 commit de fusion**, `./autogen.sh && ./configure && make -j32 &&
   make check -j32` ⇒ **`# TOTAL: 94 / PASS: 94 / FAIL: 0 / SKIP: 0 / ERROR: 0`**, **un seul** bloc
