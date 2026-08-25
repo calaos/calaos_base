@@ -4430,13 +4430,15 @@ vraiment** — un `make` lancé dans `tests/` **ne reconstruit pas `src/`**. La 
 ### ⭐ [F-LINK-1, apport n°6] Une sixième déclaration d'inatteignabilité, démentie par la mesure
 
 ⚠️ **Cette entrée s'ajoute à `F-LINK-1`** (dette méthodologique transverse : « cet objet n'est lié
-par aucun binaire de test » / « cette branche est morte », écrit sans mesure). Si `F-LINK-1` n'est
-pas encore sur cette branche, il arrive avec **T3.27** ; **garder les deux côtés** en cas de conflit.
+par aucun binaire de test » / « cette branche est morte », écrit sans mesure), section
+*« T3.27 — suites de revue : la dette des déclarations "objet non lié" »* ci-dessus.
+⚠️ **Section à APPENDRE, jamais à réécrire** — en conflit, **garder les deux côtés**.
 
-Les cinq premières occurrences recensées par T3.27 portaient sur le **lien** (`ScriptBindings`,
-`RoonPlayer`, `WagoCtrl`, `MqttCtrl` périmée) ou sur des **lambdas MQTT**. **La sixième est de la
-même famille mais sur un autre axe** : elle ne dit pas « pas lié », elle dit **« branche morte »** —
-et elle est fausse exactement de la même façon, pour la même raison.
+Les cinq premières affirmations d'inatteignabilité démenties portaient sur le **lien**
+(`ScriptBindings`, `RoonPlayer`, `WagoCtrl`, `MqttCtrl` — celle-là vraie mais **périmée**) ou sur des
+**lambdas MQTT**. **La sixième est de la même famille, sur un autre axe** : elle ne dit pas
+« pas lié », elle dit **« branche morte »** — et elle est fausse exactement de la même façon, pour
+la même raison.
 
 | | |
 |---|---|
