@@ -35,11 +35,41 @@ HOW COVERAGE IS DECIDED, in order:
      trees are copied whole by the dist-hook of the Makefile.am that declares
      the variable.  This is what keeps the check from rotting -- a `git subtree
      pull` that adds 40 files to src/lib/uvw needs no change anywhere.
+     BUT the variable alone proves nothing, so before crediting a single file
+     to it this check verifies the MECHANISM behind it exists: see
+     wholesale_mechanism_problems() and the paragraph below.
   3. otherwise the file must appear, path for path, in a dist-carrying
      variable of some Makefile.am.  The parsing of those variables is *not*
      duplicated here: check-extra-dist.py is imported and its
      load_assignments/expand/DIST_PRIMARY/DIST_OPTIN are reused, so the two
      checks can never disagree on what "declared" means.
+
+BELIEVING A VARIABLE IS HOW THIS CHECK WOULD LIE.  The defect this file exists
+to catch is "a declaration says a file ships and nothing actually ships it".
+Rule 2 above reproduced that defect inside the checker: neutralise the recipe
+(`dist-hook: @true`), leave VENDORED_DIST_TREES untouched, and 219 files stop
+reaching the tarball while this check stays green -- measured, in review.  Only
+`make distcheck` saw it, and CI runs neither dist nor distcheck.
+
+So rule 2 is now conditional on the mechanism, checked in this order before any
+file is credited to a wholesale tree:
+
+  * the Makefile.am that assigns the variable must sit in a directory
+    AC_CONFIG_FILES generates a Makefile for -- otherwise automake never reads
+    it and no hook of its ever runs;
+  * that same Makefile.am must define exactly one `dist-hook` rule;
+  * its recipe must mention $(VENDORED_DIST_TREES) and must copy something.
+
+Any of those failing is exit 2 with an explicit message -- an ERROR, not a
+silent PASS and not a coverage FAIL, because the checker's own premise is gone.
+
+WHAT REMAINS OUT OF REACH, and it must be said rather than implied: a hook that
+mentions the variable and copies *badly* -- wrong destination, a prune that
+eats a real file, a `cd` that lands elsewhere -- still satisfies all three.
+Statically that is indistinguishable from a correct one.  The consequence, in
+plain words: the day someone edits this hook and gets it subtly wrong, nothing
+in `make check` will say so; `make distcheck` will, and it is not wired into
+CI (F-DIST-2).  Running distcheck after touching the hook is not optional.
 
 There is NO allow-list of tolerated exceptions, on purpose: "every file under
 src/ and tests/ ships" is an invariant that stays true by itself, where a list
@@ -109,8 +139,10 @@ BUILD_OUTPUT_VARS = re.compile(
     r'BUILT_SOURCES|CLEANFILES|MOSTLYCLEANFILES|DISTCLEANFILES|'
     r'MAINTAINERCLEANFILES)$')
 
-# The variable a Makefile.am uses to declare "this directory ships whole".
+# The variable a Makefile.am uses to declare "this directory ships whole", and
+# the make rule that has to exist for that declaration to mean anything.
 WHOLESALE_VAR = 'VENDORED_DIST_TREES'
+WHOLESALE_HOOK = 'dist-hook'
 
 
 def load_extra_dist_module(top):
@@ -209,6 +241,116 @@ def collect(top, ced, makefiles, autodirs):
     return declared, wholesale, outputs, used
 
 
+def rule_recipes(path, target):
+    """Every recipe body defined for `target` in one Makefile.am, as strings.
+
+    A make recipe is the run of tab-indented lines following the target line;
+    blank and comment lines inside it do not end it, a line starting in column
+    one does.  Returning a LIST, not the first match, is deliberate: a second
+    `dist-hook:` rule carrying a recipe silently replaces the first one, which
+    is a perfectly good way to neutralise the mechanism by addition.
+    """
+    with open(path, encoding='utf-8', errors='replace') as fh:
+        lines = fh.read().split('\n')
+    head = re.compile(r'^' + re.escape(target) + r'\s*::?(?:\s|$)')
+    out = []
+    i = 0
+    while i < len(lines):
+        if not head.match(lines[i]):
+            i += 1
+            continue
+        # a target line may itself be continued with a trailing backslash
+        while lines[i].rstrip().endswith('\\') and i + 1 < len(lines):
+            i += 1
+        body = []
+        j = i + 1
+        while j < len(lines):
+            line = lines[j]
+            if line.startswith('\t'):
+                body.append(line)
+            elif line.strip() == '' or line.lstrip().startswith('#'):
+                k = j + 1
+                while k < len(lines) and (lines[k].strip() == ''
+                                          or lines[k].lstrip().startswith('#')):
+                    k += 1
+                if k >= len(lines) or not lines[k].startswith('\t'):
+                    break
+            else:
+                break
+            j += 1
+        out.append('\n'.join(body))
+        i = j
+    return out
+
+
+def wholesale_mechanism_problems(top, makefiles, autodirs, wholesale):
+    """Why the WHOLESALE_VAR declaration may not be backed by anything.
+
+    Returns a list of human-readable problems; empty means the variable is
+    wired to a hook that at least names it and copies.  See the module
+    docstring for what this can and cannot establish.
+    """
+    problems = []
+    if not wholesale:
+        return problems          # nothing claims wholesale coverage: nothing to back
+    declaring = [mf for mf in makefiles
+                 if WHOLESALE_VAR in ced_assign_names(mf)]
+    if not declaring:
+        problems.append(
+            '%s is credited for %d tree(s) but no Makefile.am assigns it'
+            % (WHOLESALE_VAR, len(wholesale)))
+        return problems
+    for mf in declaring:
+        rel = os.path.relpath(mf, top)
+        if os.path.dirname(mf) not in autodirs:
+            problems.append(
+                '%s assigns %s but AC_CONFIG_FILES does not generate a Makefile '
+                'there -- automake never reads it, so its %s never runs'
+                % (rel, WHOLESALE_VAR, WHOLESALE_HOOK))
+            continue
+        recipes = rule_recipes(mf, WHOLESALE_HOOK)
+        if not recipes:
+            problems.append(
+                '%s assigns %s but defines no %s rule -- the variable is read '
+                'by nothing and the trees would not ship'
+                % (rel, WHOLESALE_VAR, WHOLESALE_HOOK))
+            continue
+        if len(recipes) > 1:
+            problems.append(
+                '%s defines %d %s rules with a recipe; make keeps the last one, '
+                'so the earlier one(s) are dead'
+                % (rel, len(recipes), WHOLESALE_HOOK))
+        body = recipes[-1]
+        if ('$(%s)' % WHOLESALE_VAR) not in body and (
+                '${%s}' % WHOLESALE_VAR) not in body:
+            problems.append(
+                '%s: the %s recipe never mentions $(%s) -- the declaration '
+                'would be believed and the trees would stay behind'
+                % (rel, WHOLESALE_HOOK, WHOLESALE_VAR))
+        if not re.search(r'(?:^|[;&|`(\s])(?:cp|install|ln|tar|rsync)\s', body):
+            problems.append(
+                '%s: the %s recipe copies nothing' % (rel, WHOLESALE_HOOK))
+    return problems
+
+
+def ced_assign_names(mf):
+    """Variable names assigned in one Makefile.am -- cheap, parser-free.
+
+    load_assignments() is the authority on VALUES; here only the presence of a
+    name matters, and re-reading the file avoids threading its result through.
+    """
+    names = set()
+    try:
+        with open(mf, encoding='utf-8', errors='replace') as fh:
+            for line in fh:
+                m = re.match(r'^\s*([A-Za-z_][A-Za-z0-9_]*)\s*[+:?]?=', line)
+                if m:
+                    names.add(m.group(1))
+    except OSError:
+        pass
+    return names
+
+
 def under(path, dirs):
     for d in dirs:
         if path == d or path.startswith(d + os.sep):
@@ -236,6 +378,20 @@ def main():
 
     autodirs = configured_makefile_dirs(top)
     declared, wholesale, outputs, used = collect(top, ced, makefiles, autodirs)
+
+    # Before a single file is credited to a wholesale tree, check the mechanism
+    # behind the declaration exists.  A neutralised dist-hook with the variable
+    # left intact was measured to hide 219 missing files from this very check.
+    problems = wholesale_mechanism_problems(top, makefiles, autodirs,
+                                            wholesale)
+    for problem in problems:
+        print('check-dist-coverage: %s' % problem, file=sys.stderr)
+    if problems:
+        print('check-dist-coverage: the %s mechanism is broken; refusing to '
+              'credit %d tree(s) to it. That premise is what this check runs '
+              'on, so it errors out instead of passing.'
+              % (WHOLESALE_VAR, len(wholesale)), file=sys.stderr)
+        return 2
 
     uncovered = []
     scanned = 0

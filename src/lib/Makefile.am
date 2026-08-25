@@ -168,6 +168,29 @@ EXTRA_DIST += pugixml/LICENSE.md
 # been built -- the very kind of difference that hid this bug's size. The hook
 # prunes them, and `make dist` yields the same archive from a fresh clone and
 # from a fully built tree.
+#
+# Two properties the hook enforces beyond "copy the tree", both added after
+# review (docs/refactoring/T3.48.md sections 6.13 and 6.14):
+#
+#   * symbolic links ship. `find -type f` drops them silently while
+#     tests/check-dist-coverage.py -- which walks os.walk() -- counts them
+#     covered, so a tracked link inside a vendored tree would have gone
+#     missing with nothing red anywhere. `\( -type f -o -type l \)` closes it,
+#     and `cp -pR` copies the link as a link instead of dereferencing it.
+#     There are zero tracked links in these trees today; this is a trap set,
+#     not a bug fixed.
+#
+#   * a file the repository does not track never ships. The prune list above
+#     catches build droppings by name, but that is a list and a list is always
+#     one suffix behind: *.orig, *.rej, *.swp, a scratch .user file left in
+#     uvw/ by a maintainer all sailed into the tarball, and the static oracle
+#     never looks at untracked files at all. "Tracked by git" is the exact
+#     predicate a release wants, so the hook asks git and REFUSES to build a
+#     tarball that would carry a private file out of a working tree. The gate
+#     needs a real git checkout rooted at $(top_srcdir): inside the tree
+#     `make distcheck` unpacks there is no repository (and the enclosing one,
+#     if any, tracks none of those paths), so the gate stands down there --
+#     correctly, since that tree contains exactly what already shipped.
 VENDORED_DIST_TREES = \
         cpptui                                  \
         exprtk                                  \
@@ -182,17 +205,42 @@ VENDORED_DIST_TREES = \
 dist-hook:
 	@abs_srcdir=`cd $(srcdir) && pwd`; \
 	abs_distdir=`cd $(distdir) && pwd`; \
+	abs_topdir=`cd $(top_srcdir) && pwd`; \
 	for tree in $(VENDORED_DIST_TREES); do \
 	  test -d "$$abs_srcdir/$$tree" || \
 	    { echo "dist-hook: no such vendored tree: $$tree" >&2; exit 1; }; \
-	  (cd "$$abs_srcdir" && find "$$tree" \
-	      \( -name .git -o -name .deps -o -name .libs \
-	         -o -name __pycache__ \) -prune -o \
-	      -type f ! -name '*.o' ! -name '*.lo' ! -name '*.la' \
-	              ! -name '*.so' ! -name '*.gcno' ! -name '*.gcda' \
-	              ! -name '.dirstamp' ! -name '*~' -print) \
-	  | while read -r f; do \
-	      $(MKDIR_P) "$$abs_distdir/$${f%/*}" || exit 1; \
-	      cp -p "$$abs_srcdir/$$f" "$$abs_distdir/$$f" || exit 1; \
-	    done || exit 1; \
-	done
+	done; \
+	tmpd=`mktemp -d "$${TMPDIR:-/tmp}/calaos-dist-hook.XXXXXX"` || exit 1; \
+	(cd "$$abs_srcdir" && find $(VENDORED_DIST_TREES) \
+	    \( -name .git -o -name .deps -o -name .libs \
+	       -o -name __pycache__ \) -prune -o \
+	    \( -type f -o -type l \) \
+	            ! -name '*.o' ! -name '*.lo' ! -name '*.la' \
+	            ! -name '*.so' ! -name '*.gcno' ! -name '*.gcda' \
+	            ! -name '.dirstamp' ! -name '*~' -print) \
+	  | LC_ALL=C sort > "$$tmpd/shipped" \
+	  || { rm -rf "$$tmpd"; exit 1; }; \
+	gitroot=`cd "$$abs_srcdir" && git rev-parse --show-toplevel 2>/dev/null`; \
+	test -n "$$gitroot" && gitroot=`cd "$$gitroot" && pwd`; \
+	if test "x$$gitroot" = "x$$abs_topdir"; then \
+	  (cd "$$abs_srcdir" && git ls-files -- $(VENDORED_DIST_TREES)) \
+	    | LC_ALL=C sort > "$$tmpd/tracked" \
+	    || { rm -rf "$$tmpd"; exit 1; }; \
+	  comm -23 "$$tmpd/shipped" "$$tmpd/tracked" > "$$tmpd/stray" \
+	    || { rm -rf "$$tmpd"; exit 1; }; \
+	  if test -s "$$tmpd/stray"; then \
+	    echo "dist-hook: refusing to ship files git does not track:" >&2; \
+	    sed 's|^|dist-hook:     $(subdir)/|' "$$tmpd/stray" >&2; \
+	    echo "dist-hook: a release must not carry a working tree's private" >&2; \
+	    echo "dist-hook: files. Remove them, or commit them, then retry." >&2; \
+	    rm -rf "$$tmpd"; exit 1; \
+	  fi; \
+	else \
+	  echo "dist-hook: $(subdir) is not inside a git checkout rooted at" >&2; \
+	  echo "dist-hook: $$abs_topdir -- untracked-file gate stood down." >&2; \
+	fi; \
+	while read -r f; do \
+	  $(MKDIR_P) "$$abs_distdir/$${f%/*}" || exit 1; \
+	  cp -pR "$$abs_srcdir/$$f" "$$abs_distdir/$$f" || exit 1; \
+	done < "$$tmpd/shipped" || { rm -rf "$$tmpd"; exit 1; }; \
+	rm -rf "$$tmpd"
