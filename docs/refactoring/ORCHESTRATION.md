@@ -8,6 +8,122 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **🔒 E4.1i ✅ MERGÉ (`034d3915`, 5 commits, rebase sur `2955e84a` + ff-only, historique linéaire,
+  `make check` **77/77**) — la bascule du wire Reolink, ET un use-after-free réel refermé dans un
+  commit séparé.**
+  Périmètre réel : **un seul `.cpp` de production**, `IO/Reolink/ReolinkCtrl.cpp` (appels
+  `json_*`/`jansson_*` **16 → 0**, `grep jansson` = **0**), le fichier **neuf de production**
+  `IO/Reolink/ReolinkWire.h` (listé dans `calaos_server_SOURCES`, inclus tel quel par le serveur
+  **et** par le test), **1 ligne** de `src/bin/calaos_server/Makefile.am`, plus `tests/Makefile.am`
+  et le fichier neuf `tests/ReolinkWire_test.cpp` (**17 cas**). Le bout python
+  `ExternProcReolink_main.py` **n'est pas modifié**. Commit de caractérisation `2db0f7c9`, **zéro
+  ligne de `src/`** — vérifié sur le commit : **2 fichiers**, `tests/Makefile.am` et le fichier neuf.
+  **Aucune assertion préexistante modifiée** : sur les 5 commits, les seuls fichiers `tests/` touchés
+  sont ces deux-là. Goldens intacts : arbre git `d4ebc61f…` **et** condensé SHA-256 du contenu
+  recalculé au merge, identiques master/branche, **145 fichiers**. Suite **76 → 77** (recompté en
+  `python3`, continuations `\` comprises ; le seul ajout est `ReolinkWire_test`). Équilibre
+  `tests/Makefile.am` : **66 `^if*` / 66 `^endif`** tous préfixes confondus (**65/65** sur master —
+  dont **64 `if HAVE_GTEST` + 1 `if HAVE_LIBKNX`**, ne jamais compter que `HAVE_GTEST`), profondeur
+  jamais négative.
+
+  - ⭐⭐ **LE DÉFAUT : `ReolinkCtrl::doRegisterCamera()` faisait un `json_decref()` sur un bloc déjà
+    libéré** (commit séparé `43079284`). Mécanisme : `jansson_to_string()`
+    (`src/lib/Jansson_Addition.h:150-165`) **vole la référence** — ses **deux** chemins de sortie
+    appellent `json_decref(jroot)` — et `jroot` naissait à refcount **1** (`json_object()`), les
+    `json_object_set_new()` ne volant que les références des **valeurs**. Le `json_decref(jroot)`
+    qui suivait **relisait puis réécrivait `jroot->refcount` dans le bloc libéré**. **Portée** : une
+    fois **par enregistrement de caméra**, **plus une par caméra à chaque (re)connexion** du process
+    (`registerAllCameras()`), donc à chaque redémarrage de `calaos_reolink` — qui se relance en
+    boucle.
+    ⛔ **RÉSERVE À NE PAS DURCIR, accordée entre `FINDINGS.md`, `RELEASE_NOTES.md` et la fiche :
+    l'UAF est DÉMONTRÉ AU SOURCE, PAS OBSERVÉ. Rien n'a tourné sous ASan, aucun bout-à-bout avec un
+    vrai `calaos_reolink` ni une vraie caméra.** « Silencieux en pratique » décrit le mode *probable*
+    (bloc encore dans le tcache, écriture qui n'abîme souvent que le canari), **pas une garantie** :
+    dès que le bloc est repris par un objet vivant, l'écriture corrompt cet objet et le symptôme sort
+    ailleurs et plus tard. Une entrée `RELEASE_NOTES.md` a été écrite (le symptôme est ce que
+    l'utilisateur observe).
+
+  - ⭐ **LE BALAYAGE EST REFERMÉ : exactement 2 sites doublent le décrément, pas de troisième.**
+    `IO/Reolink/ReolinkCtrl.cpp:151` (celui-ci) et `IO/Mqtt/MqttCtrl.cpp:115` (E4.1g, déjà sur
+    master). Établi par un **recompte indépendant avec analyseur de portée**, et **7 des 16 sites
+    déclarés corrects ouverts et relus un par un**.
+    ⚠️ **Mais les TOTAUX divergent selon les recomptes, et le désaccord n'est pas tranché** :
+    `FINDINGS.md` publie **29** sites `jansson_to_string` dans `src/` sur `138c16ee`, un autre
+    recompte a donné **27**, et **le recompte du merge en donne 30 jetons** — dont **1 est la
+    définition** (`src/lib/Jansson_Addition.h:150`), soit **29 appels**, ce qui réconcilie avec
+    `FINDINGS.md` mais **pas** avec 27. **L'accord porte sur les 2 sites fautifs et sur les 18
+    arguments-variables** (18 = 2 + 16, vérifié au merge, liste identique) — **pas sur le total**.
+    Ne pas recopier un total sans dire ce qu'il compte.
+
+  - 📏 **LA CLASSE D'ERREUR QUI EXPLIQUE CES ÉCARTS — vraie pour toute la série.** Deux mentions
+    **en prose** (`tests/Makefile.am:1996`, `tests/ParamsJson_test.cpp:59`) écrivent
+    `jansson_from_params()` **parenthèses comprises, dans un commentaire** : tout compteur « jeton
+    suivi de `(` » les compte comme des appels. **Même cause probable — NON VÉRIFIÉE — pour la
+    divergence sur `jansson_to_string`** (la seule part démontrée au merge est la définition).
+    ⇒ **`grep -rn` (jeton) et « sites d'appel » ne sont pas le même nombre.**
+
+  - 📏 **Dette `jansson_from_params`** : sur `138c16ee`, **100 jetons = 96 sites + 1 définition +
+    3 prose** ; sur `3f0cc074`, **94 jetons = 90 sites**. Le chiffre a valu **100 → 98 → 102 → 96 →
+    90** selon ce qu'on comptait et l'état de master — **c'est l'argument, pas une anecdote : dire
+    laquelle des deux valeurs on cite.** **E4.1i n'en résorbe aucune** (`ReolinkCtrl.cpp` ne
+    l'utilisait pas).
+
+  - ⭐ **LE FILET PROTÈGE LE PRODUIT** (3ᵉ ticket d'affilée où c'est vérifié, pas supposé) : les
+    mutations sont faites dans `ReolinkWire.h`, **header de production** inclus par `calaos_server`,
+    la ligne **`CXXLD ReolinkWire_test` est exigée aux 7 runs** (son absence invalide le résultat,
+    vert comme rouge), avec `.o` du test + binaire + `ReolinkCtrl.o` + `calaos_server` effacés à
+    chaque fois. **Témoin sans mutation : 0/17.** ⚠️ **Chiffre non reproduit au merge** : le mandat
+    annonçait « 4 ensembles de rouges deux à deux distincts » ; la fiche en publie **6** (M1→M6 :
+    3, 1, 4, 1, 7, 5 rouges), **deux à deux distincts** — je n'ai pas rejoué les mutations, je
+    rapporte ce que la fiche mesure.
+
+  - ⚠️ **LE TROU MESURÉ, à consigner tel quel** : permuter `username` ↔ `password` **au site
+    d'appel** (dans `ReolinkCtrl.cpp`, hors du header) laisse la suite **VERTE 17/17**, alors que la
+    **même** permutation **dans l'en-tête** rougit **5 cas** (M6). La frontière du filet est
+    exactement l'entrée du header. **Trois relais de quatre `string` positionnelles**, aucun
+    couvert : `ReolinkInputSwitch.cpp:83-86` (quatre `get_param()`) → `registerCamera(...)`
+    (**`:92` sur master, la fiche écrit `:91`**) → `doRegisterCamera(...)`, plus le brace-init
+    positionnel de `registry.add({hostname, username, password, event_type}, …)`. **Limite jugée
+    acceptable** (couvrir demanderait d'instancier un singleton qui lance un processus externe) ;
+    **mitigation nommée : un struct nommé**, et `ReolinkEventRegistry::CameraRegistration` **existe
+    déjà** avec exactement ces quatre champs. **Ticket dédié, hors périmètre.**
+
+  - 📏 **Trois corrections de fiche, à ne pas redécouvrir** : (1) `ReolinkCtrl.cpp` portait **16**
+    appels, pas 9 (`E4.1.md` porte le même 9) ; (2) le critère d'acceptation « n'inclut plus
+    `jansson.h` par aucun chemin » était **FAUX et impossible dans ce périmètre** —
+    `ReolinkCtrl.cpp` → `ReolinkCtrl.h` → `IO/ExternProc.h` → `<jansson.h>` ; le critère réellement
+    tenu est `grep -c jansson` **sur le `.cpp`** → **0**, et l'include mort est **renvoyé à E4.1c** ;
+    (3) l'événement `detection` réel du driver porte **10 clés dont 5 non-chaînes ⇒ 5 levées**
+    `type_error.302` si on substituait `Params::fromNJson()` à `jansson_decode_object()` — le
+    « 9 levées sur 11 clés » d'abord publié décrivait une **charge composite de la sonde**, pas un
+    message que le driver émet. Le contrat d'aujourd'hui (chaîne · booléen → mot · nombre →
+    `Utils::to_string(double)` · **tout autre type → chaîne vide, clé ajoutée**) est donc réécrit à
+    la main dans `decodeMessage()`, avec un **tripwire nommé** qui rougit si `fromNJson()` cessait
+    de lever.
+
+  - ℹ️ **F-REO-6 — la bascule change le MODE d'échec, et c'est assumé sans note de version** : avant,
+    la paire `password` était **supprimée** et le bout python **refusait localement** (« *No username
+    or password provided* »), **aucune connexion planifiée** ; désormais il reçoit un mot de passe à
+    **U+FFFD**, donc **planifie réellement `connect_camera()`**, la caméra **refuse
+    l'authentification**, et le `CircuitBreaker` et ses **retries** entrent en jeu. Les deux
+    échouent et l'observable utilisateur est identique (la caméra ne marche pas), **mais les
+    journaux et le profil réseau diffèrent**. **Pas d'entrée `RELEASE_NOTES` pour la bascule** —
+    choix maintenu et argumenté.
+
+  - 🧾 **Conflit de merge : `tests/Makefile.am` seul** (E4.1e/E4.1g/E4.1b et E4.1i appendent chacun
+    en fin de fichier), résolu par **régénération** — `master:tests/Makefile.am` **intégral** +
+    **append verbatim** du bloc `# E4.1i` (**27 lignes**, `if HAVE_GTEST` … `endif`) — **jamais**
+    « garder les deux côtés », qui perd le `endif` extérieur du bloc précédent et fait échouer
+    `automake` sur *unterminated conditionals: HAVE_GTEST_TRUE* (la revue y était tombée).
+    **Append pur prouvé octet pour octet en `python3`** (`cur.startswith(master)` → `True`,
+    **+1419 octets / +27 lignes**). `FINDINGS.md` et `RELEASE_NOTES.md` : **aucun conflit** — la
+    branche **préfixe** ses blocs au lieu d'appender, donc git a fusionné seul ; **tous les blocs de
+    master sont intacts** (titres `^## ` **59 → 60** et **5 → 6**, aucun disparu). ⚠️ **Défaut
+    préexistant, non introduit ici et non corrigé** : `FINDINGS.md` porte un `---` **sans ligne vide
+    avant** (master `:2821`, désormais `:2979`).
+
+  - **RIEN N'A ÉTÉ POUSSÉ.** `master` local est à `034d3915`, en avance sur `origin/master`.
+
 - **🔒 E4.1b ✅ MERGÉ (`8c74a380`, 4 commits, rebase + ff-only, historique linéaire, `make check` 76/76) — les
   trois invariants d'émission posés avant toute migration, et un `std::terminate` ATTEIGNABLE À DISTANCE
   par un compte authentifié ordinaire, présent dans l'artefact publié.**
