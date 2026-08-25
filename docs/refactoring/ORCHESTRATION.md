@@ -324,6 +324,76 @@
     c'est le code qui la consomme qui a été lu. Le seul programme exécuté est un `g++` autonome de
     12 lignes sur `from_string`/`is_of_type`.
 
+- **👀 E4.1m LIVRÉE, branche `refactor/e4.1m`, `c6c7c0d3` + 3 commits — NON MERGÉE, RIEN POUSSÉ**
+  (2026-08-25). ⭐⭐ **E4.1n est débloquée.** Les 9 constructeurs du **modèle** de `JsonApi`
+  rendent un `Json` ; **`LuaScript/ScriptExec.cpp` est migré INTÉGRALEMENT**, lecture comprise, et
+  **l'adaptateur `jansson_from_json()` d'E4.1l disparaît** avec ses 4 cas. **E4.1 passe à 13/17.**
+
+  - ⭐ **Le retrait de l'adaptateur ne coûte pas 4 lignes, il en RETIRE** : `ScriptWire.h`, écrit et
+    couvert par **E4.1j** (32 cas) précisément pour ce moment, fournit `dumpJson`, `parseMessage`,
+    `stringGet` et `decodeObject`. ⚠️ `Params::fromNJson()` n'est **pas** un substitut de
+    `decodeObject()` — il lève `type_error.302` sur toute valeur non-chaîne, et `ScriptWire.h` le
+    disait déjà.
+
+  - ⭐⭐ **LA LEÇON D'OUTILLAGE DU TICKET, et elle dépasse E4.1** : `make -j12 && make check` après
+    une modification confinée à `src/bin/calaos_server/*.cpp` **ne relie AUCUN binaire de test**.
+    Mesuré sans ambiguïté : 14 `fprintf` compilés dans `JsonApi.o` (`grep -c` = 9 dans le seul
+    `JsonApi.cpp`), **0 occurrence dans le binaire**, **0 marqueur dans les 92 `.log`**,
+    **1 seule ligne `CXXLD`**, et un `# PASS: 96` qui décrit **le code d'avant**.
+    ⇒ **Le compte de lignes `CXXLD` est l'oracle, pas le `# PASS`.** Remède : `make distclean`, ou
+    `find tests -type f -name '*_test' -perm -u+x -delete` puis `make check`, et vérifier que
+    `CXXLD` égale le nombre de binaires. C'est la variante **n° 2** de la liste canonique, à une
+    échelle que personne n'avait décrite. **Ce ticket n'a conclu qu'après un relink des 92.**
+    ⚠️ **Ce qui a sauvé les tickets précédents** : `libcalaos_common.la` est dans le `LDADD` de
+    tous, donc dès qu'un ticket touche `src/lib/` tout se relie (93 relinks mesurés).
+
+  - ⭐ **`F-LINK-1`, 10ᵉ mesure.** Marqueur sur les **14** sites, `make check` complet **avec
+    relink forcé** : **10 atteints par 20 suites, dont 19 PRÉEXISTANTES** (`dumpJsonRedacted`
+    **748** passages), **4 jamais atteints et cohérents entre eux** — `buildFlatIOList` et les
+    **3** sites de `ScriptExec.cpp`, dont le seul appelant est un lambda branché **après le spawn
+    d'un vrai `calaos_script`**. ⇒ **gardés par le compilateur seul, déclaré ; aucune « réplique »
+    du site d'appel écrite** (elle n'aurait testé que la réplique).
+
+  - ⭐ **Cinq deltas d'octets, PAS SIX.** Sonde compilée contre les deux bibliothèques sur la chaîne
+    de ce ticket : **566 sondes, 315 DIFF / 251 SAME**, dont **les 256 octets en VALEUR et les 256
+    en NOM de champ**. Les **quatre catégories qu'E4.1l laissait « non balayées » sont refermées et
+    NÉGATIVES** : chaînes longues, doublons de clés, profondeur (jusqu'à 1024), et ⭐ **tri sur
+    clés non ASCII — l'ORDRE est IDENTIQUE**, les deux bibliothèques ordonnent sur les octets.
+
+  - ⭐ **Deux conséquences nommées du delta 3, plus lourdes que leur cause** : (a) un **équipement
+    pouvait PERDRE SON NOM** dans `get_home`/`get_io` — `buildJsonIO()` ne testait ni le retour de
+    `json_string()` ni celui de `json_object_set_new()` ⇒ paire supprimée en silence, appareil
+    indistinguable d'un appareil sans nom ; le cas de `core/JsonApiSession_test` qui épinglait ce
+    défaut est **RETOURNÉ** ; (b) un **script Lua contenant un octet mal encodé ne partait pas du
+    tout** — `ScriptWire.h` (E4.1j) l'avait **prédit** : « ce canal s'OUVRE avec E4.1m ». Il
+    s'ouvre. **Changement de comportement, déclaré en `RELEASE_NOTES.md`.**
+
+  - ⚠️ **Une exception assumée à l'invariant 3, et elle est FALSIFIABLE** : `dumpJsonRedacted()`
+    dumpe en `ensure_ascii = FALSE`. C'est un **journal**, pas un fil, et il n'a **jamais** été
+    ASCII (`JSON_INDENT(4)` seul). **Mesuré** : à `ensure_ascii = false` les deux dumps sont
+    identiques à l'octet sur ASCII, `U+00E9` **et `U+007F`** ⇒ **zéro octet ne bouge**.
+    `error_handler_t::replace` est appliqué. Les deux choix sont épinglés par deux cas neufs de
+    `core/JsonApiHardening_test` : retourner le `false` en `true` rougit.
+
+  - ⚠️ **`E4.1n` n'est PAS un ticket documentaire.** La requalification d'E4.1l est vraie **des
+    events seulement** ; le pont jansson↔nlohmann de `RemoteUIWebSocketHandler.cpp:236-252` est
+    **toujours là**, vérifié au source, et `buildJsonState/States/Query` + `decodeSetState`
+    l'attendent. La ligne `BOARD.md` a été **restreinte** en conséquence.
+
+  - **Le découpage `m` → `s` TIENT.** Le seam décrit par les fiches existe et fonctionne : migrer
+    un constructeur = changer son type de retour et laisser ses appelants tomber sur la surcharge
+    `Json` de `sendJson()`. **Aucun adaptateur écrit, aucune dépendance croisée découverte.**
+
+  - **Contrôles** : **145 goldens intacts** (arbre `d4ebc61f`, `git status` vide sur le
+    répertoire), `make check` **`# TOTAL: 97` / `# PASS: 96` / `# SKIP: 1` / `# FAIL: 0`**,
+    **1626 cas gtest** sur 92 binaires comptés **trois fois**, filet neuf **13 rouges sur 19** au
+    commit de caractérisation (`git diff-tree … -- src` = **0 ligne**), **19 verts** après.
+    ⚠️ **`F-FLAKY-1` n'a mordu sur aucune campagne de ce ticket.**
+
+  - **NON VÉRIFIÉ, à ne pas surestimer** : rien sous ASan, aucun bout-à-bout avec un vrai
+    `calaos_script`, aucun client tiers, et le changement de comportement du script Lua est mesuré
+    **au niveau du message construit**, pas sur un script réellement exécuté.
+
 - **🔒 E4.1l ✅ MERGÉ (`f36ff138`, **6** commits, `git rebase --onto 44657407 df2851d0` +
   `merge --ff-only`, historique linéaire, **0 commit de fusion**)** — ⭐⭐ **E4.1m EST DÉBLOQUÉE** :
   c'était le **premier de la chaîne sérialisée `l`→`s`**, et **sept tickets héritent de ce qui passe

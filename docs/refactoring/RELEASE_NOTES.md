@@ -1077,22 +1077,43 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   par E4.2d (le nouveau `Remove(Rule*)` refuse et logge au lieu de détruire un objet qu'il ne
   possède pas).
 
-## Détail pour les intégrateurs — les messages d'événement changent de forme, et cessent de perdre des données en silence (E4.1l)
+## Détail pour les intégrateurs — les événements ET `get_home` / `get_io` changent de forme, et cessent de perdre des données en silence (E4.1l, E4.1m)
 
 > **Rien à faire de votre côté, et aucune application Calaos ne s'en aperçoit.** Cette note existe
 > parce que le changement porte sur des **octets réellement servis** sur l'API JSON (port 5454),
 > et qu'un intégrateur qui a écrit son propre client a le droit de le lire avant de le découvrir.
 
-Les **événements temps réel** — le message `{"msg":"event", …}` poussé sur la WebSocket, et les
-événements rendus par `poll_listen` en HTTP — sont désormais fabriqués par la même bibliothèque
-JSON que le reste des réponses récentes. **Cinq** différences observables, **mesurées octet à
-octet** ; trois sont purement de forme, et **deux rendent des données qui étaient perdues en
-silence** :
+⚠️ **Note consolidée, pas empilée.** E4.1l l'a ouverte pour les événements ; E4.1m y ajoute
+`get_home` et `get_io` **sans dupliquer les cinq différences**, parce que ce sont **exactement les
+mêmes cinq**, remesurées sur la chaîne d'émission de ce ticket-là (512 sondes d'un octet, en valeur
+et en nom de champ, plus les formes bien et mal encodées). Les tickets suivants de la série feront
+de même. La liste des **réponses** concernées à ce stade est donc :
+
+| Réponse | Depuis |
+|---|---|
+| `{"msg":"event", …}` en WebSocket, et les événements de `poll_listen` en HTTP | E4.1l |
+| Le **journal d'événements** enregistré par le serveur | E4.1l |
+| Les **écrans déportés (RemoteUI)**, qui reçoivent les mêmes événements | E4.1l |
+| ⭐ **`get_home`** — la description complète de l'installation : pièces, équipements, caméras, lecteurs audio | **E4.1m** |
+| ⭐ **`get_io`** — la description d'une liste d'équipements demandés par leur identifiant | **E4.1m** |
+| ⭐ Le message envoyé aux **scripts Lua** (`calaos_script`) | **E4.1m** |
+
+Ces réponses sont désormais fabriquées par la même bibliothèque JSON que le reste des réponses
+récentes. **Cinq** différences observables, **mesurées octet à octet** ; trois sont purement de
+forme, et **deux rendent des données qui étaient perdues en silence** :
 
 - **L'ordre des membres change.** Il est maintenant **alphabétique** : `data` avant `event_raw`
   avant `type` avant `type_str`, et `data` avant `msg` dans l'enveloppe. Auparavant c'était
   l'ordre dans lequel le serveur les écrivait. **Aucune valeur, aucune clé, aucun tableau ne
   change** : les tableaux gardent leur ordre, qui lui est porteur de sens.
+  ⭐ **Sur `get_home` et `get_io` (E4.1m), c'est la différence la plus visible**, parce que ces
+  réponses sont grandes : les trois sections passent de `home`, `cameras`, `audio` à `audio`,
+  `cameras`, `home` ; chaque pièce passe de `type`, `name`, `hits`, `items` à `hits`, `items`,
+  `name`, `type` ; et chaque équipement ne commence plus par son `id`. **L'ordre des pièces et
+  l'ordre des équipements dans une pièce, eux, ne bougent pas** — ce sont des tableaux, et cet
+  ordre-là a un sens. ⚠️ Pour `get_io`, l'objet de réponse est **indexé par identifiant
+  d'équipement** : ces identifiants sortent maintenant **triés**, et non plus dans l'ordre où vous
+  les avez demandés.
 - **La casse de l'échappement change.** Un caractère accentué continue de partir échappé, la
   réponse reste en **ASCII pur** comme avant ; la casse de l'hexadécimal passe de
   `\u00E9` à `\u00e9` (pour `é`). Les deux se lisent de façon identique par n'importe
@@ -1104,6 +1125,13 @@ silence** :
   d'événements enregistre la même chose. ⚠️ **Cela vaut aussi quand ce sont les octets d'un NOM
   de champ qui sont mal encodés** : la paire entière disparaissait, elle est maintenant servie
   sous un nom contenant des `�` (`k��z`).
+  ⭐ **Sur `get_home` et `get_io` (E4.1m), ce cas a un nom concret : un équipement pouvait
+  perdre son NOM.** Si le nom d'un équipement contenait des octets mal encodés — c'est possible
+  par `set_param`, ou par une configuration importée depuis un outil tiers —, le champ `name`
+  était **retiré de la réponse** et l'équipement arrivait chez le client **indistinguable d'un
+  équipement qui n'a jamais eu de nom** : une application qui indexe par nom perdait simplement
+  l'appareil, sans aucun message. Le nom est désormais présent, avec les octets fautifs remplacés
+  par `�`. La même chose valait pour `id`, `state`, `unit` et les douze autres champs.
 - ⭐ **Le caractère DEL (U+007F) part désormais échappé, et la longueur du message change.** C'est
   le seul caractère qui était servi **en octet brut** et qui ne l'est plus : `{"c":"a<DEL>b"}`
   (**11 octets**) devient `{"c":"a\u007fb"}` (**16 octets**). Un client qui compte les octets
@@ -1120,6 +1148,26 @@ La comparaison a été faite **octet à octet, sur les deux chaînes d'émission
 (l'ancienne : `jansson_from_params()` + `json_dumps(JSON_COMPACT|JSON_ENSURE_ASCII)` ; la
 nouvelle : `Params::toNJson()` + `dump(-1, ' ', true, error_handler_t::replace)`), sur **120
 sondes** — **75 diffèrent, 45 sont identiques**.
+
+⭐ **E4.1m a refait le balayage sur SA propre chaîne** (l'ancienne : `json_string(valeur.c_str())`
++ `json_object_set_new(objet, clé.c_str(), …)` + `json_dumps(JSON_COMPACT|JSON_ENSURE_ASCII)` ; la
+nouvelle : `objet[clé] = valeur` + `dump(-1, ' ', true, error_handler_t::replace)`), sur **566
+sondes** — **315 diffèrent, 251 sont identiques**. Ce sont **les cinq mêmes différences, pas une
+sixième**, et le balayage a couvert **les 256 valeurs d'octet en VALEUR et les 256 en NOM de
+champ** :
+
+| Balayé par E4.1m | Résultat |
+|---|---|
+| Les **256 octets** en valeur, et les **256** en nom de champ | **130 diffèrent de chaque côté** : `0x00` (troncature), `0x7F` (octet brut → échappé), et les **128 octets `0x80`–`0xFF`** (champ qui disparaissait) ; **9 de plus** ne diffèrent que par la casse |
+| Chaînes **longues** (100 000 caractères ASCII, 20 000 accents, nom de 10 000 caractères) | **identiques**, à la casse près — *catégorie que la note précédente laissait ouverte* |
+| **Doublons de clés** (la même clé écrite deux fois) | ⭐ **identiques** — les deux bibliothèques gardent la dernière valeur à la position de la première ; *catégorie que la note précédente laissait ouverte* |
+| **Profondeur d'imbrication** (4, 64 et 1024 niveaux) | ⭐ **identiques** — *catégorie que la note précédente laissait ouverte* |
+| Tri sur des **clés non ASCII** | ⭐ **l'ordre est identique**, seule la casse de l'échappement change — *catégorie que la note précédente laissait ouverte* |
+| `/`, `\`, `"`, `\t`, `\n`, `\r`, `\b`, `\f` | **identiques** |
+| Séquences bien formées `U+0080`…`U+10FFFF`, non-caractères, surlongues, tronquées, substituts, 5 octets | conformes à la note d'E4.1l : casse pour les valides, champ conservé en `�` pour les invalides |
+
+⇒ **Quatre des cinq catégories qu'E4.1l laissait explicitement « non balayées » le sont
+maintenant, et aucune ne révèle une sixième différence.**
 
 | Balayé | Résultat |
 |---|---|
@@ -1143,6 +1191,21 @@ code, pas un ordre linguistique), et surtout : la mesure porte sur `Params` → 
 autres constructeurs de l'API qui basculeront dans `E4.1m` … `E4.1s`. Rien n'a été rejoué contre un
 **vrai client tiers**, ni sous ASan.
 
+### ⭐ Un script Lua qui contenait un caractère mal encodé ne partait pas du tout — il part désormais (E4.1m)
+
+Un **script Lua** dont le TEXTE contenait un octet mal encodé n'était pas seulement mal transmis :
+la paire entière était supprimée du message envoyé au processus de script, qui recevait donc un
+ordre d'exécution **sans script**. Résultat : **le script ne s'exécutait pas, en silence.**
+
+Le texte du script arrive maintenant entier, les octets fautifs remplacés par `�`, et **le script
+s'exécute**. ⚠️ **C'est un changement de comportement, pas seulement de forme** : un script qui ne
+faisait rien peut se mettre à faire quelque chose. Si le caractère fautif se trouvait dans une
+chaîne de caractères du script, il vaut la peine de rouvrir ce script et de le réenregistrer
+proprement depuis Calaos Installer. ⚠️ **Non vérifié de bout en bout avec un vrai `calaos_script` :
+la mesure a été faite au niveau du message construit, pas sur un script réellement exécuté.**
+
+### Ce qui pourrait s'en apercevoir
+
 ⚠️ **Ce qui pourrait s'en apercevoir** : un client qui **cherche une sous-chaîne dans le texte
 brut** de la réponse au lieu de la parser, et — pour le seul cas de DEL — un client qui **compte
 les octets** ou vérifie lui-même le `Content-Length`. Aucun client Calaos ne fait ni l'un ni
@@ -1155,7 +1218,10 @@ donc `%7f`, `%00` et n'importe quelle séquence UTF-8 invalide arrivent intacts 
 équipement, **sans traverser aucun parseur JSON**.
 
 *(Les autres réponses de l'API basculeront de la même façon au fil des sous-tickets suivants de la
-série ; cette note sera à consolider en une seule à la fin.)*
+série. ⚠️ **Cette note est LA note unique de la série : on l'étend, on ne la duplique pas** —
+E4.1m l'a fait le premier, en ajoutant deux lignes au tableau des réponses concernées et un
+balayage complémentaire, sans réécrire les cinq différences. `E4.1s` la relit une dernière fois
+et la ferme.)*
 
 ## 📦 Empaquetage — l'archive source est de nouveau constructible, et elle porte enfin les licences des bibliothèques embarquées
 

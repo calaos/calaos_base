@@ -6631,3 +6631,185 @@ jamais un délai subi.
 
   ⚠️ **Non mesuré, et c'est une lecture de corps, pas une exécution** : je n'ai ni muté ni exercé
   ces deux paires. L'affirmation « les deux membres sont lus » est établie **au source**.
+
+## E4.1m — `JsonApi`, le modèle : ce que la bascule a mesuré (2026-08-25)
+
+### ⭐⭐ La variante n° 2 (faux VERT de relink) rencontrée **à l'échelle du `make check` ENTIER** — et la démonstration est nette
+
+`FINDINGS.md` connaissait déjà la n° 2 : *le `.o` muté est recompilé, le binaire de test n'est pas
+relié.* Ce ticket l'a rencontrée **sans muter quoi que ce soit**, sur le geste le plus banal de
+toute la série, et il en a la preuve la plus propre qu'on puisse produire.
+
+**Le geste** : instrumenter les 14 sites du périmètre avec un `fprintf`, tous dans
+`src/bin/calaos_server/*.cpp`, puis
+`make -j12 && make check -j6`.
+
+**Le résultat** : `# TOTAL: 97 / # PASS: 96 / # FAIL: 0`, et **ZÉRO marqueur dans les 92 `.log`**.
+Vérifié à la source du malentendu : `grep -c E41M_MARK src/bin/calaos_server/JsonApi.cpp` = **9**,
+`strings tests/core/JsonApiModelWireBytes_test | grep -c E41M_MARK` = **0**, et le `make check`
+n'avait imprimé **qu'UNE seule ligne `CXXLD`** (celle de `calaos_server` lui-même).
+
+⇒ **Une modification confinée à `src/bin/calaos_server/*.cpp` ne relie AUCUN binaire de test.**
+`make check` rejoue les binaires du build précédent et imprime un vert qui décrit **le code
+d'avant**. Ce n'est pas une subtilité de campagne de mutation : c'est le mode de travail normal de
+tout ticket de cette série qui ne touche que `src/`.
+
+⭐ **Le corollaire qui sauve, et il est mesurable** : `libcalaos_common.la` **est** dans le
+`_DEPENDENCIES` et dans le `LDADD` de tous les binaires. Donc dès qu'un ticket touche un fichier de
+`src/lib/` — ce que fait tout ticket d'E4.1 qui allège `Jansson_Addition.h` — **la bibliothèque est
+reconstruite et tout se relie**. Compté sur les journaux de ce ticket :
+
+| Ce qui a changé | lignes `CXXLD` du `make check` |
+|---|---|
+| `src/lib/Jansson_Addition.h` + `src/bin/calaos_server/*.cpp` + 4 tests | **93** |
+| 3 fichiers de `tests/core/*.cpp` seulement | **2** |
+| 1 fichier de `tests/core/*.cpp` seulement | **1** |
+| `src/bin/calaos_server/*.cpp` **seulement** | ⛔ **1** — aucun binaire de test |
+| après `rm -f` des 92 binaires | **92** |
+
+⚠️ **Remède, et c'est celui que les fiches exigent déjà sans dire pourquoi** : `make distclean`
+avant de conclure — ou, quand on ne veut pas payer un build complet,
+`find tests -type f -name '*_test' -perm -u+x -delete` puis `make check`, **et compter les lignes
+`CXXLD`** : elles doivent égaler le nombre de binaires. **Le compte de `CXXLD` est l'oracle**, pas
+le `# PASS`.
+
+⚠️ **Ce n'est pas une douzième variante** : c'est la n° 2 de la liste canonique, à une échelle que
+les entrées précédentes n'avaient pas décrite (elles la décrivaient au grain d'**une** mutation).
+
+### ⭐ `F-LINK-1`, **dixième** mesure d'atteignabilité — 10 sites sur 14, et les 4 zéros sont cohérents
+
+Marqueur posé sur les 14 sites qu'E4.1m change, `make check` complet **avec relink forcé** (voir
+ci-dessus, sans quoi la mesure aurait rendu 0 partout pour une raison qui n'a rien à voir) :
+
+- **atteints** : `dumpJsonRedacted` **748** passages / **20** suites, `buildJsonIO` **320** / 6,
+  `buildJsonStatusInfo` **320** / 6, `buildJsonRoomIO` **96** / 6, `buildJsonHome`,
+  `buildJsonCameras` et `buildJsonAudio` **38** / 6 chacun, `buildJsonGetIO` **29** / 3,
+  `JsonApiHandlerWS::processGetHome` **29** / 5, `JsonApiHandlerHttp::processGetHome` **9** / 5 ;
+- ⛔ **jamais atteints** : `buildFlatIOList`, et les **trois** sites de `LuaScript/ScriptExec.cpp`
+  (message `execute`, message `event`, lecteur).
+
+**20 suites distinctes** atteignent le périmètre, dont **19 préexistantes**. Les quatre zéros sont
+**cohérents entre eux** : `buildFlatIOList()` n'a qu'un appelant, le message `execute` de
+`ScriptExec.cpp`, et ce lambda ne tourne qu'après le spawn d'un vrai `calaos_script` par uvw.
+⇒ **quatre sites gardés par le compilateur seul, déclarés comme tels.** Ce qui les couvre
+indirectement, ce sont les **formes** qu'ils emploient, toutes dans `ScriptWire.h` et couvertes par
+`tests/ScriptWire_test.cpp` (E4.1j, 32 cas). **Aucune « réplique » du site d'appel n'a été
+écrite** : elle n'aurait testé que la réplique.
+
+### ⭐ Le balayage d'octets : **cinq deltas, pas six** — et quatre catégories « non balayées » d'E4.1l refermées
+
+Sonde compilée dans le conteneur contre le vrai `jansson` et le vrai `json.hpp`, sur les **deux
+chaînes qu'E4.1m échange** (`json_string(v.c_str())` + `json_object_set_new(o, k.c_str(), …)` +
+`json_dumps(JSON_COMPACT|JSON_ENSURE_ASCII)` contre `o[k] = v` +
+`dump(-1, ' ', true, error_handler_t::replace)`) : **566 sondes, 315 DIFF, 251 SAME**, dont les
+**256 valeurs d'octet en VALEUR** et les **256 en NOM de champ**.
+
+Les cinq deltas d'E4.1l se reproduisent **à l'identique** sur cette chaîne-ci (130 octets
+structurellement divergents de chaque côté : `0x00`, `0x7F`, et les 128 de `0x80` à `0xFF` ; plus 9
+divergences de casse sur les contrôles C0). **Ce qui est neuf, ce sont les quatre catégories
+qu'E4.1l déclarait explicitement non balayées, et les quatre sont NÉGATIVES :**
+
+| Catégorie laissée ouverte par E4.1l | Verdict E4.1m |
+|---|---|
+| chaînes **longues** | **identiques** — 100 000 caractères ASCII, 20 000 accents, nom de 10 000 caractères |
+| **doublons de clés** | **identiques** — les deux gardent la dernière valeur **à la position de la première** |
+| **profondeur** d'imbrication | **identiques** — 4, 64 et 1024 niveaux |
+| tri sur **clés non ASCII** | ⭐ **l'ORDRE est identique** ; seule la casse de l'échappement bouge. Les deux ordonnent sur les **octets**, pas sur une collation |
+
+⇒ **Aucun sixième delta.** Ce que ce ticket ajoute, ce sont **deux conséquences nommées du delta 3**
+(l'UTF-8 invalide), et elles sont plus lourdes que leur cause :
+
+1. ⭐ **un équipement pouvait PERDRE SON NOM** sur `get_home` / `get_io`. `buildJsonIO()` ne testait
+   **ni** le retour de `json_string()` (NULL sur de l'UTF-8 invalide) **ni** celui de
+   `json_object_set_new()` (−1 alors) : la paire disparaissait, et l'équipement arrivait chez le
+   client **indistinguable d'un équipement sans nom**. Une application qui indexe par nom perdait
+   l'appareil, sans un message. `core/JsonApiSession_test` épinglait ce comportement comme
+   divergence connue ; **le cas est retourné par ce ticket**, il asserte maintenant que le nom
+   arrive, en `U+FFFD`.
+2. ⭐ **un script Lua contenant un octet mal encodé ne partait pas du tout.** `ScriptWire.h`
+   (E4.1j) l'avait écrit comme une **prédiction** : « *ce troisième canal s'OUVRE avec E4.1m* ».
+   Il s'ouvre. Avant, la paire `script` était supprimée du message `execute` et `calaos_script`
+   recevait un ordre **sans script** ⇒ **rien ne s'exécutait, en silence**. Désormais le script
+   arrive avec `U+FFFD` à la place de l'octet fautif et **s'exécute**. C'est un changement de
+   **comportement**, déclaré en `RELEASE_NOTES.md`. ⚠️ **Non rejoué contre un vrai
+   `calaos_script`** : mesuré au niveau du message construit.
+
+### ⚠️ `dumpJsonRedacted()` : le seul `dump()` de l'épique **sans** `ensure_ascii`, et pourquoi
+
+Ce n'est pas un oubli, c'est un arbitrage, et il est falsifiable.
+
+Cette fonction n'écrit pas sur un **fil** : elle écrit une ligne de **journal**
+(`cDebugDom("network")`). Ce journal **n'a jamais été en ASCII** — l'appel précédent était
+`json_dumps(copy, JSON_INDENT(4))`, **sans** `JSON_ENSURE_ASCII`. Poser `ensure_ascii = true`
+aurait donc changé les octets d'un flux que l'épique **ne migre pas** : exactement la faute que
+l'invariant 3 énonce pour l'interdire, et exactement le raisonnement de l'exception nommée
+d'`E4.1.md`. C'est aussi ce que font les **trois autres `dump(4, …)` de l'arbre**
+(`ConfigOptions.cpp:1496`, `CalaosConfig.cpp:558`, `calaos_config.cpp:347/:616`), tous à
+`ensure_ascii = false` ; le seul `dump(4, …, true)` est `IOFactory.cpp:117`, qui écrit un **fichier
+destiné à une machine**.
+
+**Mesuré, pas supposé** : à `ensure_ascii = false`, `json_dumps(JSON_INDENT(4))` et
+`dump(4, ' ', false, error_handler_t::replace)` sont **identiques à l'octet** sur ASCII, sur
+`U+00E9` **et sur `U+007F`** — le delta DEL lui-même disparaît quand `ensure_ascii` est faux.
+⇒ **zéro octet ne bouge sur le journal**, et il n'y a donc rien à déclarer en note de version pour
+ce site.
+
+`error_handler_t::replace` **est** appliqué : c'est l'invariant qui empêche un `type_error.316` de
+tuer une connexion vivante. Les **deux** choix sont épinglés par deux cas neufs de
+`core/JsonApiHardening_test` — un relecteur qui veut l'inverse retourne le `false` en `true` et
+voit rougir immédiatement.
+
+### ⚠️ « Fixture pauvre », récidive de plus : les deux capacités du lecteur audio sont **indiscernables**
+
+Le seul lecteur de la maison de référence est un `RoonPlayer` dont `canPlaylist()` **et**
+`canDatabase()` répondent **`false`**. ⇒ **échanger les deux capacités dans `buildJsonAudio()` ne
+change pas un octet**, et aucune suite ne peut le voir. La mutation a été **jouée quand même**
+(`M8b`) plutôt qu'évitée, et son ensemble rouge **vide** est déclaré, pas caché.
+
+⚠️ **À qui migrera `buildJsonAudio` plus loin, ou qui touchera la maison de référence** : le remède
+n'est pas d'ajouter un deuxième lecteur au hasard — `JsonApiCharacterization.h` explique longuement
+pourquoi la maison est ce qu'elle est —, c'est de savoir que **ces deux clés-là n'ont pas
+d'oracle**. Le reste de `buildJsonAudio` en a un (`M8`, échange de `id` et `name`, rougit).
+
+### ⚠️ Une leçon de campagne : **l'ensemble de binaires est un paramètre du protocole, et un pilote l'a montré**
+
+La première passe de campagne portait sur **6** binaires. `M1` (échanger deux IOs d'une pièce dans
+`buildJsonRoomIO`) n'a rendu **qu'UN seul rouge** — alors que c'est l'une des trois
+contre-mutations que la fiche exige, et qu'elle devrait faire tomber des **goldens**.
+
+Cause : **les goldens de `get_home` vivent dans `core/JsonApiCharacterization_test`**, qui n'était
+pas dans l'ensemble. Le pilote a été **jeté et rejoué**, pas rapiécé en vol (on n'édite pas un
+harnais pendant son exécution), avec **9** binaires.
+
+⇒ **Un ensemble rouge petit n'est pas d'abord un signe de filet faible : c'est d'abord un signe
+d'ensemble de binaires trop étroit.** La question à se poser avant de conclure quoi que ce soit est
+*« quel binaire porte l'oracle que cette mutation devrait tuer, et est-il dans ma liste ? »*.
+
+### ⚠️ La requalification d'`E4.1n` par E4.1l est **vraie mais lue trop large** — vérifié au source
+
+`E4.1l` a écrit, à juste titre, que les **events** RemoteUI avaient déjà basculé avec elle et qu'il
+n'y avait **rien à faire côté code** là-dessus. La phrase a été reprise dans `BOARD.md` sous la
+forme « **Rien à faire côté CODE ici** — ce qui reste est **DOCUMENTAIRE** », et **c'est cette
+formulation-là qui est dangereuse** : lue de la ligne `E4.1n`, elle dit que le ticket entier est
+documentaire.
+
+**Il ne l'est pas.** Vérifié au source depuis `refactor/e4.1m`, sur l'arbre d'après ma bascule :
+`RemoteUI/RemoteUIWebSocketHandler.cpp:236-252` **est toujours là, inchangé** —
+
+    buildJsonState(iolist, [this, iolist, alive](json_t *jret) {
+        char *json_str = json_dumps(jret, JSON_COMPACT);
+        json_decref(jret);
+        Json data = Json::parse(json_str);
+        sendJson("remote_ui_io_states", data);
+    });
+
+— une sérialisation **et** une désérialisation complètes pour la seule traversée de la frontière
+entre les deux bibliothèques. C'est le « meilleur argument concret de toute l'épique » d'`E4.1n.md`,
+et il attend `buildJsonState` — qui est le périmètre **de code** d'`E4.1n`, avec
+`buildJsonStates`, `buildQuery` et `decodeSetState`.
+
+⇒ **La ligne `E4.1n` de `BOARD.md` a été corrigée par E4.1m** pour restreindre la phrase aux
+events. **Le découpage `m` → `s` tient** : rien à re-planifier, seulement une phrase à ne pas
+laisser se généraliser toute seule. C'est le même mode de défaillance que les neuf affirmations
+d'atteignabilité de cette série — *une phrase localement vraie qui grandit d'un cran à chaque
+recopie.*
