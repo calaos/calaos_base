@@ -165,6 +165,13 @@ après  [WRN] (JsonPath.h:169)   Error in path weather/[/description, malformed 
   c'est assumé : ce qui identifie la ligne reste le **chemin**, qui est écrit dedans et qui vient
   de la configuration d'une entrée précise. L'ancien préfixe ne nommait de toute façon que le
   *pilote*, jamais l'entrée.
+- ⚠️ **Mais le `chemin` n'est pas une clé unique.** Si vous avez une entrée/sortie **Web** et une
+  entrée/sortie **MQTT** configurées sur le **même** `path` — ce qui est banal, par exemple
+  `weather/[0]/description` sur les deux —, leurs lignes de journal deviennent **strictement
+  indiscernables** : même préfixe `(JsonPath.h:NNN)`, même texte, même chemin. Avant, le préfixe
+  les séparait. Pour lever le doute il faut désormais recouper avec les lignes **voisines**, qui
+  gardent, elles, leur préfixe d'origine (`Failed to open WebCtrl file`, `Error parsing …` côté
+  MQTT).
 - Les messages qui **ne** viennent pas de l'analyseur de chemin — ouverture du fichier Web, payload
   MQTT illisible — gardent leur préfixe d'origine.
 

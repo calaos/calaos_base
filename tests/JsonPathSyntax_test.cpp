@@ -40,10 +40,15 @@
  * calaos_installer parameter help - i.e. every user reads it at the exact
  * moment they configure the IO, writes a path that silently yields an empty
  * value, and never learns why. The failure IS logged - cWarning() is not a
- * filtered domain (LogSetup.h:29), the "[WRN] (MqttCtrl.cpp) ... subpath not
+ * filtered domain (LogSetup.h:29), the "[WRN] (JsonPath.h) ... subpath not
  * found" line goes to the server log by default - but the person who made the
  * mistake is in calaos_installer and the message lands in the calaos_server
  * log, which is why it does not reach them.
+ * ⚠️ T3.37: that prefix read "(MqttCtrl.cpp)" / "(WebCtrl.cpp)" until the two
+ * parser copies were merged into IO/JsonPath.h. Logger.h:33 bakes __FILE__ at
+ * the cWarning() call site and that site now lives in the header, so EVERY
+ * path-parser line carries "(JsonPath.h:NNN)" whichever IO produced it. The
+ * message TEXT is unchanged to the character - only the prefix moved.
  *
  * TWO LEVELS, both needed:
  *

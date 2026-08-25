@@ -4660,7 +4660,8 @@ plus de variante sans drapeau), **et il s'arrête à `WebCtrl::getValueJson(path
 « personne n'en demande » :
 
 - ⛔ **un drapeau honnête sur une branche sur trois serait le défaut du §6.1, pas sa correction.**
-  `getValue()` sert **JSON, XML et TEXT**. `getValueXml()` a **quatre** retours d'échec explicites,
+  `getValue()` sert **JSON, XML et TEXT**. `getValueXml()` a **cinq** retours d'échec explicites
+  (`WebCtrl.cpp` 254, 266, 284, 292, 298),
   `getValueText()` en a **deux** explicites **plus** des échecs silencieux non instruits
   (`Utils::from_string(tokens[0], line_nb)` dont le retour n'est pas regardé — **famille T3.25** —
   et un `item_nb` hors plage qui rend `""`). Un `err` qui vaut « échec » pour JSON et « rien » pour
@@ -4673,11 +4674,12 @@ sauter la mise à jour chez les **quatre** appelants, avec la caractérisation q
 **changement de comportement** (une valeur vide ou nulle cesse d'être publiée) et il lui faudra sa
 note de version — T3.37 n'en produit aucun et n'en écrit donc pas.
 
-### ⭐ [F-BUILD-1] `make check` a imprimé **deux** `Testsuite summary` et **le premier était un FAUX VERT** — observé une fois, cause NON établie
+### ⭐ [F-BUILD-1] `make check` a imprimé **deux** `Testsuite summary`, le premier était un FAUX VERT — **et les DEUX comptaient un test de moins que l'arbre n'en déclare**
 
-⚠️ **Ce finding est délibérément sous-vendu : il a été OBSERVÉ, il n'a PAS été reproduit, et la
-cause avancée plus bas est une hypothèse non vérifiée.** Il est consigné parce que le *symptôme*
-suffit à égarer une lecture, pas parce que le mécanisme serait compris.
+⚠️ **Finding sous-vendu, et RÉÉCRIT le 2026-08-25 après revue.** Il a été **observé une fois**, il
+n'a **jamais été reproduit**, et l'hypothèse que la première rédaction avançait a depuis été
+**mesurée et INFIRMÉE**. Il est consigné parce que le *symptôme* suffit à égarer une lecture, et
+parce que la **règle de lecture** qu'il impose, elle, vaut indépendamment de la cause.
 
 **Ce qui a été mesuré**, sur le commit de caractérisation de T3.37 (`ec1abcb0`), au **tout premier
 build d'un worktree neuf** (aucun `Makefile`, aucun objet), recette
@@ -4691,27 +4693,81 @@ build d'un worktree neuf** (aucun `Makefile`, aucun objet), recette
 alors que `tests/JsonPathSyntax_test.log` porte bien **2 `FAILED`** et que le binaire, exécuté
 directement, sort en **1**.
 
-⛔ **NON REPRODUIT.** Trois autres builds sur le même arbre et la même image n'ont donné qu'**un
-seul** bloc et **une seule** invocation `make check-TESTS`, y compris le build final de livraison
-fait **après `make distclean`** puis `./autogen.sh && ./configure && make -j12 && make check -j6`
-— c'est-à-dire la recette même qui avait produit le double. ⇒ **« sur une reconfiguration » serait
-une conclusion trop large** : la seule différence encore debout est *premier build d'un arbre
-jamais configuré* contre *reconstruction*, et elle n'a pas été isolée.
+#### ⭐ L'épisode comportait DEUX défauts, pas un — et la première rédaction n'en a vu qu'un
 
-**Hypothèse, non vérifiée** : redémarrage de `make` après régénération des `Makefile` par
-`config.status` — GNU make ré-exécute le but et la sortie des deux tentatives se retrouve dans le
-même flux, dans un ordre que `-j` mélange. ⚠️ Elle n'explique pas pourquoi le bloc de la tentative
-qui a **relié** le binaire annonce un **PASS** ; ce point reste **inexpliqué**.
+**`ec1abcb0` déclare 88 entrées `TESTS`**, pas 87 (mesuré en `python3` sur le blob :
+3 hors condition + 84 sous `HAVE_GTEST` + 1 sous `HAVE_GTEST && HAVE_LIBKNX` = **88**, zéro
+doublon), et le relecteur en mesure **88** partout sur **ce commit et cette image**. Or **les deux
+blocs annoncent `# TOTAL: 87`**.
+
+⇒ ⭐ **Une suite n'a pas tourné du tout**, et le résumé ne l'a pas dit — pas de `SKIP`, pas de
+`ERROR` : elle est simplement **absente du total**. C'est la famille **`F-PYTEST-1`** (branche
+`fix/fpytest1` en vol, parente de **[F-DEP-2]** ci-dessus : une suite qui ne s'exécute pas est
+rapportée **`PASS`**, jamais `SKIP` — mesuré ailleurs à **3 fichiers sur 6 et 19 cas sur 42**).
+
+**L'épisode est donc la superposition de deux variantes distinctes** : un **doublon d'affichage**
+dont le premier bloc ment (`FAIL: 0` sur un arbre rouge) **et** un **test non exécuté** que ni
+l'un ni l'autre des deux blocs ne signale. La première rédaction de ce finding notait `TOTAL: 87`
+**deux fois sans le relever** et concluait au seul doublon : c'était une lecture incomplète.
+
+#### ⛔ L'hypothèse « redémarrage de `make` après régénération » est INFIRMÉE, mesurée
+
+La première rédaction avançait : *GNU make ré-exécute le but après que `config.status` a régénéré
+les `Makefile`, et la sortie des deux tentatives se retrouve dans le même flux.* **Testée
+directement, elle ne tient pas.** `touch tests/Makefile.in`, `touch configure.ac` (qui déclenche
+`autoreconf` **puis** `config.status`) et `touch tests/Makefile.am` **régénèrent bien pendant
+`make check`** — et ne produisent **jamais** deux résumés. make 4.3 refait les makefiles **avant**
+d'attaquer le but, pas après ; automake 1.16.5.
+
+⭐ **Fait structurant qui en découle** : **seul `tests/Makefile.am` définit `TESTS`**. Deux résumés
+exigeraient **deux invocations de `check-TESTS`** — donc deux `Makefile` portant une règle
+`check-TESTS`, ce que cet arbre n'a pas. La cause reste **NON ÉTABLIE**, et l'explication la plus
+naturelle vient d'être éliminée.
+
+⚠️ **Non reproduite en 9 exécutions** : les **2 premiers builds** d'un worktree neuf, aux deux
+parallélismes (`-j12 && make check -j6` **et** `-j32 && make check -j16`), plus **6 relances**
+dont **3** forçant explicitement la régénération (`tests/Makefile.in`, `configure.ac`,
+`tests/Makefile.am`). ⭐ **À SURVEILLER, ni à nier ni à surestimer** : une observation unique,
+jamais rejouée, dont le mécanisme est inconnu et dont l'hypothèse la plus plausible est morte.
+
+#### ⭐ La règle de lecture de `make check` — c'est elle qui survit à la cause
+
+⛔ **Le remède écrit dans la première rédaction — « le code de sortie, ou le DERNIER bloc » — est
+INSUFFISANT, et sa seconde moitié ne vaut rien.**
+
+- La **première** moitié est juste : le code de sortie était correct dans les deux cas.
+- ⛔ La **seconde** est circulaire. Sans `--output-sync`, l'ordre du flux sous `-j` est
+  **précisément** ce qu'on invoque pour expliquer le doublon ; « prendre le dernier trouvé »
+  **présuppose donc ce qu'il faudrait prouver**. Il n'y a aucune garantie que le dernier bloc
+  imprimé soit le dernier bloc produit.
+- ⛔ Et **ni l'une ni l'autre ne détecte `F-PYTEST-1`** : une suite qui ne tourne pas ne fait ni
+  échouer `make check`, ni apparaître un second bloc. Le code de sortie est **0** et il a raison
+  sur ce qu'il mesure — il mesure simplement moins de tests qu'il n'y en a.
+
+⭐ **RÈGLE CORRECTE, à appliquer à tout verdict `make check` de ce dépôt :**
+
+> Un `make check` n'est vert que si **(1)** son **code de sortie** est `0` **ET** **(2)** le
+> `# TOTAL` du résumé **égale le nombre attendu d'entrées `TESTS`** — c'est-à-dire les entrées
+> `TESTS` de `tests/Makefile.am` **activées par la configuration** de l'image utilisée.
+> Les deux conditions sont nécessaires ; **aucune des deux n'est suffisante**.
+> Le code de sortie seul rate `F-PYTEST-1` ; le `# TOTAL` seul rate un échec.
+
+**Comment obtenir le nombre attendu** (`python3`, jamais `grep` — le hook `rtk` réécrit `grep` et
+`awk`) : compter les jetons de toutes les lignes `TESTS =` / `TESTS +=` de `tests/Makefile.am`,
+en tenant la pile des `if`/`else`/`endif` pour savoir lesquelles la configuration active.
+⚠️ **`HAVE_LIBKNX` déplace légitimement ce nombre de 88 à 87** sur une image sans libknx :
+c'est la seule façon honnête d'obtenir 87 ici, et le relecteur a vérifié que ce n'était pas le
+cas sur l'image de l'épisode.
+
+**Et le mieux reste le mieux** : sur une cible précise, **exécuter le binaire de test directement**
+et relever son code de sortie. C'est le protocole que la campagne de mutations de T3.37 utilise à
+chaque tour, et il est resté juste partout — y compris pendant cet épisode.
 
 ⚠️ **Ce que cela ajoute aux variantes déjà consignées** : ce n'est ni un défaut de relink
-(`_DEPENDENCIES`), ni une mutation non appliquée (`F-HARN-1`), ni une mort du binaire — le build
-est sain et le verdict final est juste. C'est un **piège de LECTURE** : `grep -m1 'Testsuite
-summary' -A6` sur une reconfiguration peut rendre un vert parfait sur un arbre rouge.
-
-⇒ **Remède, et il ne dépend pas de la cause** : ne juger que sur **le code de sortie** de
-`make check` (juste dans les deux cas ici), ou sur le **DERNIER** bloc, jamais sur le premier
-trouvé. Mieux : exécuter le binaire de test **directement** et relever son code de sortie — c'est
-le protocole que la campagne T3.37 utilise à chaque tour, et il est resté juste partout.
+(`_DEPENDENCIES`), ni une mutation non appliquée (`F-HARN-1`), ni une mort du binaire. C'est un
+**piège de LECTURE** doublé d'un **trou de couverture** : `grep -m1 'Testsuite summary' -A6` sur
+une reconfiguration peut rendre un vert parfait sur un arbre rouge, **et** un résumé parfaitement
+formé peut taire une suite entière.
 
 ### ⚠️ Précision versée à **M-3** : l'extraction de T3.37 **n'ouvre PAS** les lambdas de `subscribeStatusTopics()`
 
