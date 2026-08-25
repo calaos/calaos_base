@@ -572,8 +572,18 @@
     **« le CAS DU TICKET serait resté vert »** — détecteur retiré, `M7` reste rouge **1/32**, mais
     via un **fixture voisin** et par une **exception non rattrapée**, pas par une assertion.
 
-  - **Un « VERT 0/32 » requalifié** : il est **structurellement garanti** — `ScriptBindings.cpp`
-    n'est lié dans **aucun** binaire de test ⇒ **limite de périmètre, pas trou de couverture**.
+  - **Un « VERT 0/32 » requalifié** : ~~il est **structurellement garanti** — `ScriptBindings.cpp`
+    n'est lié dans **aucun** binaire de test ⇒ **limite de périmètre, pas trou de couverture**.~~
+    - ⛔ **CORRECTION (2026-08-25, T3.27) — la prémisse est FAUSSE.** Mesuré en `python3`
+      (`_SOURCES`/`_LDADD`/`_DEPENDENCIES` aplatis, variables Make développées) sur `d68e59f1`,
+      `599fcea9`, `8bcffdc8` **et** `fb9d064c` : `LuaScript/ScriptBindings.$(OBJEXT)` est lié par
+      **`LuaSandbox_test`** dans les quatre arbres — **jamais zéro**. Le vert venait de
+      `LuaSandbox_test_DEPENDENCIES = libcalaos_common.la` : le mutant **n'était jamais relié,
+      donc jamais exécuté**. **Faux vert de relink** ([`T3.36`](T3.36.md)), **pas** une limite de
+      périmètre — et la différence compte, une limite se déclare, un faux vert se corrige avec
+      `rm -f`. T3.27 ajoute `LuaCalaosApi_test` (2ᵉ cible) et la permutation **rougit**.
+      ⚠️ Erreur **non isolée** : `FINDINGS.md` **F-LINK-1**, dette méthodologique transverse.
+      Corrigé aux trois endroits : ici, `E4.1j.md` et `FINDINGS.md`/F-LUA-3.
 
   - **Pas d'entrée `RELEASE_NOTES`, argumenté et confirmé par la revue.** Avant, `json_string()`
     rendait `NULL` sur l'octet invalide, la paire tombait, et `decodeSetState` appelait quand même
@@ -588,7 +598,9 @@
     **`T3.27` peut s'appuyer dessus** — et sa dépendance `E4.1j` est levée. `BOARD.md` recalé.
     ✅ **`T3.27` LIVRÉ (2026-08-25, branche `fix/t3.27`)** : `return 0` sur les deux — **divergence
     assumée d'avec la recommandation « booléen » du §2 de sa fiche**, motivée par la convention
-    mesurée des 9 `lua_CFunction` et par le fait qu'aucune des deux fonctions n'a d'information de
+    mesurée des ~~9~~ ⛔ **13** `lua_CFunction` (recompté en revue : `Lunar.h` en porte **4** de plus,
+    `thunk`/`new_T`/`gc_T`/`tostring_T`, **toutes correctes** ⇒ **0 suspect sur 13**, la conclusion
+    survit) et par le fait qu'aucune des deux fonctions n'a d'information de
     succès à rendre (un booléen serait la constante `true`). ⚠️ **Rupture observable silencieuse**
     pour un script qui testait le retour → `RELEASE_NOTES`. ⛔ **`F-LUA-3` corrigé** :
     `ScriptBindings.cpp` **était** lié dans `LuaSandbox_test`, son vert venait du **faux relink**
@@ -613,6 +625,100 @@
     compatibilité RAISONNÉE (les deux bouts décodent avec un vrai parseur), pas EXERCÉE.**
 
   - **Rien n'a été poussé.**
+
+  - ### ⭐⭐ SUITES DE REVUE `T3.27` (R2, 2026-08-25) — **la plus grosse trouvaille DÉPASSE le ticket**
+
+    **La revue a rendu MERGE SOUS RÉSERVE, 6 réserves, aucune bloquante sur `src/`.** Elle **valide
+    le correctif** : `waitForIO` ne peut pas revenir sur échec (`ScriptExtern_main.cpp:101-127` ne
+    rend `true` que si `waitIds.find(id) != end()`, sinon boucle ou `abortScript()` → `lua_error`)
+    ⇒ **`return 0` tient**, `lua_pushboolean(L, true)` serait bien la constante. **Rien n'a été
+    défait.** Ce qui suit est **la reprise**, chaque point **remesuré**, aucun cardinal recopié.
+
+    - ⭐⭐ **DETTE MÉTHODOLOGIQUE TRANSVERSE OUVERTE — `FINDINGS.md` `F-LINK-1`.** La correction de
+      `F-LUA-3` était juste mais **portée uniquement dans `FINDINGS.md`** ; le texte faux restait
+      **lisible et non contredit** dans `E4.1j.md` et dans ce fichier. ⛔ **Et il y a bien plus que
+      `F-LUA-3`** : les **85 cibles** de `tests/Makefile.am` ont été balayées
+      (`_SOURCES`/`_LDADD`/`_DEPENDENCIES` **aplatis** en `python3`, variables Make développées —
+      ⚠️ `CORE_TEST_LDADD` **contient** `CORE_SERVER_OBJECTS`, le balayage textuel sous-compte).
+      **Sur CINQ déclarations « objet non lié », TROIS sont fausses ou à moitié fausses** :
+
+      | déclaration | verdict | mesure |
+      |---|---|---|
+      | `ScriptBindings.o` « aucun binaire de test » | ⛔ **FAUSSE** | **1** cible (`LuaSandbox_test`) sur `d68e59f1`, `599fcea9`, `8bcffdc8`, `fb9d064c` — **jamais 0** |
+      | « Squeezebox/**RoonPlayer**/MqttCtrl pas même liés » | ⛔ **FAUSSE pour RoonPlayer** | **8** cibles **dans le commit E4.0d lui-même** (`d68e59f1`), **17** sur master. `MqttCtrl` vraie à la date, **périmée** (**1** aujourd'hui) |
+      | `core/RoonArgs_test` « seule suite à lier `RoonPlayer.o` » (T3.28) | ⛔ **FAUSSE** | **17** cibles, dont **16 `core/JsonApi*` antérieures** |
+      | `WagoCtrl.o` « non lié **et ne peut pas l'être** » (T3.30) | ⚠️ **MOITIÉ FAUSSE** | non-lié **vrai** (0 partout) ; « ne peut pas » **faux** — `WagoCtrl.cpp` ∈ `calaos_server_SOURCES` **et** `calaos_wago_SOURCES`, l'`.o` **existe**. Limite réelle : **exécution** (`!is_connected()`) |
+      | `Squeezebox.o` (F-SQBOX-2) · `HueOutputLightRGB.o` (E4.1d) | ✅ **vraies** | **0** · **1** (`core/LanHue_test`) |
+
+      ⭐ **La leçon est une distinction, pas un chiffre : « lié » ≠ « exercé ».** Les 16 suites
+      `core/JsonApi*` **lient** `RoonPlayer.o` sans jamais l'appeler. Dire « pas lié » quand on veut
+      dire « jamais appelé » **change la conclusion** — « pas lié » se lit *irréductible* et ferme
+      le sujet, « lié mais jamais exécuté » se lit *un cas à écrire*. Et **« ne peut pas être lié »
+      n'a été vrai dans AUCUN des cas examinés.**
+      ⇒ **Blocs `⛔ CORRECTION` posés à CHAQUE endroit** où une déclaration fausse est écrite,
+      précédent de l'arbitrage #2 respecté (barrage `~~…~~`, jamais de réécriture silencieuse) :
+      `E4.1j.md` · **ce fichier ×2** (journaux E4.1j **et** E4.0d) · `FINDINGS.md` ×2 (F-LUA-3 et
+      E4.0d) · `T3.30.md` · `T3.28.md` · `BOARD.md` · **et le commentaire de `tests/Makefile.am`**
+      (comment seul, zéro effet sur automake).
+      ⚠️ **`T3.28` VIENT D'ÊTRE MERGÉE et justifie ses tripwires de TEXTE par cette limite fausse**
+      ⇒ **fiche de suivi ouverte : [`T3.28b`](T3.28b.md)** (numéro vérifié libre, aucune occurrence
+      de `T3.28b` ni `T3.40` dans `docs/`). ⛔ **Non traitée ici** : hors du périmètre de T3.27, et
+      ⛔ **ni le correctif ni le filet de T3.28/T3.30 ne sont touchés** — ce sont des **affirmations**
+      qui sont corrigées.
+
+    - ⭐ **UN TROU RÉEL DU FILET, TROUVÉ PAR LA REVUE ET REFERMÉ.** Mutation **`MR1`** —
+      `lua_toboolean(L,3)?"true":"false"` ⇄ `?"false":"true"` — sortait **VERTE 0/12, sortie 0** :
+      **aucun cas ne passait un booléen Lua comme `value`**, la branche `lua_isboolean` de
+      `setIOParam` n'était donc **jamais prise**. Refermé par **un cas d'une ligne**,
+      `ABooleanValueIsWrittenAsTrueOrFalse` (`4813c143`), qui envoie **les DEUX booléens** —
+      ⚠️ avec `true` seul l'échange reste **indistinguable pour la moitié du domaine**.
+      **Rejoué, protocole complet** (`rm -f` `.o` **et** binaire, `cmp` d'application,
+      `CXX      LuaScript/ScriptBindings.o` = 1, `CXXLD    LuaCalaosApi_test` = 1, code de sortie) :
+      **MR1 rougit — 1 rouge, ce cas exactement, sortie 1** ; **témoin 0/13, sortie 0** ; et le
+      nouvel oracle est **ROUGE sur l'état de caractérisation** (`8547fb9d`, **zéro ligne de
+      `src/`**) : **7/13, sortie 1**. `MR2` de la revue (`ioMap.find(id) == end()` → `!=`) fait
+      **6 rouges** — le filet est porteur là où il compte.
+
+    - ⛔ **LA SIXIÈME VARIANTE DE FAUX VERT EST CONSIGNÉE — `FINDINGS.md` `F-HARN-1` — ET SA CAUSE
+      RACINE N'EST PAS CELLE DES CINQ AUTRES.** Les cinq viennent de `_DEPENDENCIES` (`T3.36`) ; la
+      sixième est **un défaut de HARNAIS** : mutation **non appliquée** ⇒ le cas tourne **non muté**
+      ⇒ vert. ⚠️ **Elle survit à tous les garde-fous de la série** : `rm -f` fait, les deux lignes
+      de journal présentes, code de sortie cohérent — ce qui manque n'est pas le lien, c'est **le
+      mutant**. ⭐ **Falsifiée en revue** : en mode laxiste, `LAX_M2` donne `CXX …ScriptBindings.o`=1,
+      `CXXLD LuaCalaosApi_test`=1, `.o` relié, **0 `FAILED`, sortie 0** — **un faux vert parfait**.
+      ⇒ **remède distinct** : **`cmp` d'application** + **comparaison des ENSEMBLES** au témoin.
+      **`DECISIONS.md` corrigé** — il écrivait « la cause racine des **CINQ** variantes ».
+
+    - ⛔ **Comptes et identifiants recalés.** **13** `lua_CFunction` et non 9 (`Lunar.h` en porte
+      **4** : `thunk`/`new_T`/`gc_T`/`tostring_T`, **relues, toutes correctes** ⇒ **0 suspect sur
+      13**, la conclusion du ticket **survit**) — corrigé ici, dans `FINDINGS.md`, `BOARD.md` et
+      `T3.27.md`. **`F-LUA-5` était un DOUBLON** (l'identifiant était pris par « la bascule perd le
+      texte d'erreur ») ⇒ **renuméroté `F-LUA-7`**, premier libre vérifié. **`_DEPENDENCIES`
+      remesuré** — trois chiffres divergents circulaient (« 47 des 84 », « 49/85 », « 50/96 ») :
+      **49 des 83 binaires de test** sur `fb9d064c` = **49/84 `check_PROGRAMS`** sur **86** entrées
+      `TESTS` (3 scripts shell) ; **50/84** sur cette branche. **Le piège est réel, seuls les
+      cardinaux étaient faux**, et **le ratio monte à chaque suite ajoutée** : toujours dire sur
+      quel arbre on mesure.
+
+    - ⛔ **Doc périmée introduite par le ticket lui-même, corrigée** : `docs/09_lua_scripting.md`
+      disait encore « Non couverts par un test : … `waitForIO()` » et son tableau « Tests » ne
+      listait pas `tests/LuaCalaosApi_test.cpp`, alors que **7 des 13 cas** exercent `waitForIO()`.
+      Corrigé, **avec la limite qui reste** : la **boucle bloquante** et le chemin `abort` ne sont
+      **pas** exercés (le slot répond vrai au premier `emit()`).
+
+    - **SECOND REBASE, sur `fb9d064c` (T3.28 mergée).** Le « `merge-tree` = 0 » de la fiche était
+      **périmé** : **deux** conflits. ⭐ **`tests/Makefile.am` : le piège s'est reproduit à
+      l'identique** — l'`endif` extérieur est **commun et hors** des deux blocs marqués, « garder
+      les deux côtés » donnait **2 `if` pour 1 `endif`** ⇒ **queue régénérée, un `endif` par bloc**.
+      Contrôle **tous préfixes `^if*` confondus** : **75 / 75**, profondeur **jamais négative**.
+      **`BOARD.md` : ordonné par NUMÉRO** (T3.27 branche · T3.28 master mergée · T3.28a master ·
+      T3.28b neuve), aucun doublon. `FINDINGS`/`ORCHESTRATION`/`RELEASE_NOTES` ont fusionné seuls.
+      Après résolution **`merge-tree` = 0**. Comptes : **87 `TESTS`**, **85 `check_PROGRAMS`**,
+      **`make check` 87/87**, **145 goldens, arbre `d4ebc61f` — aucun n'a bougé** (identique à
+      master). ⚠️ **`T3.35` mergeait en parallèle** : si elle atteint `master` d'abord, **tout
+      compte de suites monte de +1** — **remesurer, ne pas recopier**.
+
+    - **NE PAS MERGER, NE PAS POUSSER** — la file était occupée par `T3.35`. La branche est livrée.
 
 - **🔒 T3.29 ✅ MERGÉ (`bbde6c06`, 4 commits, `git rebase master` + `merge --ff-only`, historique
   linéaire, `make check` **83/83**) — l'ioDoc enseignait une syntaxe d'index que le parseur ne
@@ -2559,8 +2665,17 @@
   `audio_db`/`set_timerange`/`eventlog`/`register_push`/`settings` sont refusés **reçoit tout le
   flux de la maison**, ids et valeurs compris. **Gelé, non corrigé — mérite son ticket.**
   **Limite de portée assumée, écrite noir sur blanc** : les 8 payloads audio et `io_status_changed`
-  ne sont **pas opposables** (rien n'appelle Squeezebox/RoonPlayer/MqttCtrl dans la suite, les
-  objets ne sont même pas liés) ; **4 payloads audio ont été corrigés** parce qu'ils gelaient des
+  ne sont **pas opposables** (rien n'appelle Squeezebox/RoonPlayer/MqttCtrl dans la suite, ~~les
+  objets ne sont même pas liés~~
+  ⛔ **CORRECTION (2026-08-25, T3.27) : FAUX pour `RoonPlayer`.** Mesuré en `python3`
+  (`_SOURCES`/`_LDADD`/`_DEPENDENCIES` aplatis) — `Audio/RoonPlayer.$(OBJEXT)` est lié par **8**
+  cibles sur `d68e59f1`, **le commit E4.0d lui-même**, dont `core/JsonApiEvents_test` ; **17** sur
+  master `fb9d064c`. Vraie pour `Squeezebox` (**0** partout) ; vraie **à la date** pour `MqttCtrl`
+  (**0** sur `d68e59f1`) mais **périmée depuis** (**1**, `JsonPathSyntax_test`). ⭐ **La conclusion
+  de la puce tient** — rien n'*appelle* ces classes dans la suite — mais **la raison invoquée était
+  fausse**, et la nuance est opérationnelle : « non lié » se lit *irréductible*, « lié mais jamais
+  exécuté » se lit *un cas à écrire*. Voir `FINDINGS.md` **F-LINK-1**) ;
+  **4 payloads audio ont été corrigés** parce qu'ils gelaient des
   formes que la production n'émet pas — ce que ça achète n'est pas l'opposabilité mais que le
   golden **cesse d'affirmer une forme fausse**. Opposables : enveloppe, numérotation, encodage,
   stringification pour les **19** types atteignables ; formes de payload pour les **7** déclenchés

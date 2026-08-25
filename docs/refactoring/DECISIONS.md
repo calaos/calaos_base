@@ -126,7 +126,10 @@ cette entrée existe. La question a été instruite deux fois ; la deuxième a t
 
 ## 2026-08-25 — `T3.36` (relink des suites de tests) : **priorité haute, mais APRÈS `E4.1x`**
 
-**Décision** : [`T3.36`](T3.36.md) — les **47 suites sur 80** qui portent
+**Décision** : [`T3.36`](T3.36.md) — les ~~**47 suites sur 80**~~ **49 suites sur 83 binaires de
+test** (recompté en `python3` sur `fb9d064c` par T3.27, cf. `FINDINGS.md` **F-LINK-1** ; = 49 des
+**84** `check_PROGRAMS`, sur **86** entrées `TESTS` dont 3 scripts shell — ⚠️ **le ratio monte à
+chaque suite ajoutée, toujours dire sur quel arbre on l'a mesuré**) qui portent
 `<suite>_DEPENDENCIES = libcalaos_common.la` et ne relient donc pas les `.o` serveur qu'elles
 testent — est **prioritaire**, et **planifiée après la clôture d'E4.1** (`E4.1x`). ⛔ **Ne pas la
 lancer avant.**
@@ -135,6 +138,22 @@ lancer avant.**
 modifié**. Reproduit **deux fois dans la même journée, dans les deux sens** (faux vert *et* faux
 rouge). C'est la **cause racine des cinq variantes de faux vert/rouge** rencontrées depuis deux
 jours.
+
+⛔ **CORRECTION (2026-08-25, T3.27) — il y a une SIXIÈME variante, et elle n'a PAS cette cause
+racine.** ~~« la cause racine des CINQ variantes »~~ reste exacte **pour ces cinq-là** ; la
+sixième, rencontrée pendant la campagne de contre-mutation de T3.27, est **un défaut de harnais** :
+la mutation **n'a pas été appliquée** (motif de remplacement faux d'un fragment, `assert` du
+`python3` en échec, harnais sans `set -e`) ⇒ **le cas a tourné NON MUTÉ**, donc vert. Elle **survit
+à tous les garde-fous de la famille `_DEPENDENCIES`** : `rm -f` fait, `CXXLD` présente, `.o`
+recompilé, code de sortie cohérent. ⭐ **Falsifiée en revue** : en mode laxiste, `LAX_M2` donne
+`CXX LuaScript/ScriptBindings.o` = 1, `CXXLD LuaCalaosApi_test` = 1, **0 `FAILED`, sortie 0** —
+**un faux vert parfait sur un mutant qui n'a jamais existé.** ⇒ **Remède distinct, à porter dans
+tout brief de contre-mutation** : **`cmp` d'application** (refuser de scorer une mutation
+identique à l'original) **et comparaison des ENSEMBLES de rouges au témoin**, jamais de leurs
+cardinaux — dans l'épisode réel, seuls les ensembles l'ont vu (`M0` et `M2` **identiques**, deux
+comptes à 0 n'auraient rien dit). Détail et reproduction : `FINDINGS.md` **F-HARN-1**.
+⇒ **Formulation juste : cinq variantes de la famille `_DEPENDENCIES`, plus une sixième d'une autre
+famille.** T3.36 ferme les cinq, **pas la sixième**.
 ⚠️ **Piège de comptage à consigner avec** : `CORE_TEST_LDADD` **contient** `CORE_SERVER_OBJECTS`,
 donc chercher `$(CALAOS_SERVER_BUILDDIR)` en toutes lettres donne **27** au lieu de **47**.
 

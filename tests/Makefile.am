@@ -2503,11 +2503,16 @@ endif
 #CALAOS_TOP_SRCDIR, the same mechanism JanssonResidues_test uses; what IS
 #behavioural is the ioDoc, read off a real RoonPlayer, and the RoonArgs
 #free functions the fix extracts into Audio/RoonArgs.h.
-#It links Audio/RoonPlayer.$(OBJEXT) on top of the core objects, which is the
-#only suite of the tree that does. ⚠️ _DEPENDENCIES = libcalaos_common.la, like
-#every core suite, so automake does NOT relink this binary when RoonPlayer.o
-#changes: any mutation campaign on this file must rm -f BOTH the .o and the
-#test binary and then check the CXXLD line really came back.
+#It links Audio/RoonPlayer.$(OBJEXT) on top of the core objects. ⛔ T3.27: this
+#comment used to say "the only suite of the tree that does", which is FALSE -
+#17 targets link that object on fb9d064c, 16 of them core/JsonApi* suites that
+#all predate this one. What IS true is that this is the only suite that EXERCISES
+#RoonPlayer; the others link it to satisfy the core linker and never call it.
+#Linking is not exercising - see FINDINGS.md F-LINK-1.
+#⚠️ _DEPENDENCIES = libcalaos_common.la, like 49 of the 83 test binaries, so
+#automake does NOT relink this binary when RoonPlayer.o changes: any mutation
+#campaign on this file must rm -f BOTH the .o and the test binary and then check
+#the CXXLD line really came back.
 #-I.../Audio is already in AM_CPPFLAGS.
 #Own HAVE_GTEST block so this stays a pure append at the end of the file.
 if HAVE_GTEST

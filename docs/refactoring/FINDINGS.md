@@ -60,9 +60,10 @@
 
   ⚠️ **LES DEUX « VERT 0/32 » SONT VRAIS MAIS NON INFORMATIFS — à ne pas lire comme un trou de
   couverture.** Ils sont **structurellement garantis** : `ScriptWire_test_SOURCES =
-  ScriptWire_test.cpp` **seul**, et `ScriptBindings.cpp` **n'est lié dans AUCUN binaire de test**
-  de l'arbre. Le vert **constate que le site d'appel est hors d'atteinte**, il ne mesure pas la
-  faiblesse du filet. C'est une **limite de périmètre**.
+  ScriptWire_test.cpp` **seul**, ~~et `ScriptBindings.cpp` **n'est lié dans AUCUN binaire de
+  test** de l'arbre~~ ⛔ **FAUX, voir le bloc ⛔ CORRECTION en fin d'entrée**. Le vert **constate
+  que le site d'appel est hors d'atteinte**, il ne mesure pas la faiblesse du filet. C'est une
+  **limite de périmètre**.
 
   ⇒ **Le typage ferme la permutation des ARGUMENTS de la fonction, pas celle de leurs SOURCES.**
   Tant qu'un site d'appel construit lui-même les deux valeurs typées (`IoId{a}, ParamKey{b}` vs
@@ -93,8 +94,12 @@
   **La quatrième forme du défaut reste réelle** — le typage ne ferme toujours pas l'appariement
   source → emballage — mais elle est désormais **couverte par un test**, pas seulement déclarée.
 
-- 📏 **[F-LUA-5] `docs/09_lua_scripting.md` : deux références mesurées périmées, hors périmètre
-  T3.27.** T3.27 a recalé les **8** références qui pointaient au-delà de son point d'insertion dans
+- 📏 **[F-LUA-7] `docs/09_lua_scripting.md` : deux références mesurées périmées, hors périmètre
+  T3.27.**
+  ⛔ **RENUMÉROTÉ (2026-08-25, revue de T3.27) : cette entrée a d'abord été publiée sous
+  `F-LUA-5`, identifiant DÉJÀ PRIS** par « la bascule perd le texte d'erreur du parseur »
+  (même fichier, plus bas). `F-LUA-6` étant pris aussi, le premier libre était **`F-LUA-7`**
+  (vérifié : aucune occurrence de `F-LUA-7` dans `docs/` avant ce renommage). T3.27 a recalé les **8** références qui pointaient au-delà de son point d'insertion dans
   `ScriptBindings.cpp` (+26 lignes), mais deux autres écarts ont été **mesurés au passage** et
   **non corrigés**, faute d'appartenir à ce ticket :
   - `:350` citait `ScriptBindings.cpp:185-190` pour le dispatch `set_value` ; le dispatch occupe
@@ -1734,8 +1739,9 @@ consignée ici, et pas seulement dans l'en-tête du fichier de test.
    E4.0d est de la caractérisation, et corriger ceci change un comportement visible client.
 
 6. **[LIMITE DE PORTÉE ASSUMÉE] Les payloads audio et `io_status_changed` ne sont PAS
-   opposables.** Rien n'appelle `Squeezebox`, `RoonPlayer` ni `MqttCtrl` dans la suite — ces
-   objets ne sont même pas liés au binaire. Les **8** payloads audio et `io_status_changed` sont
+   opposables.** Rien n'appelle `Squeezebox`, `RoonPlayer` ni `MqttCtrl` dans la suite — ~~ces
+   objets ne sont même pas liés au binaire~~ ⛔ **FAUX pour `RoonPlayer`, voir la CORRECTION en
+   fin de puce**. Les **8** payloads audio et `io_status_changed` sont
    donc épinglés depuis des events **fabriqués à la main**, ce qui ne prouve rien de la forme que
    la production émet réellement. Quatre payloads audio du golden ont d'ailleurs été **corrigés**
    dans ce ticket parce qu'ils gelaient des formes que la production n'émet pas : les corriger ne
@@ -1744,6 +1750,29 @@ consignée ici, et pas seulement dans l'en-tête du fichier de test.
    l'encodage (UTF-8 accentué) et la stringification pour les **19** types atteignables, et les
    **formes de payload** pour les **7** types réellement déclenchés par du code de production
    traversé par la suite.
+
+   ### ⛔ CORRECTION (2026-08-25, T3.27) — `RoonPlayer.o` EST lié, et il l'était dans ce commit
+
+   ⛔ « ces objets ne sont même pas liés au binaire » est **faux pour `RoonPlayer`**, et il l'était
+   **dans le commit E4.0d lui-même**. Mesuré en `python3` (`_SOURCES`/`_LDADD`/`_DEPENDENCIES` de
+   `tests/Makefile.am` aplatis, variables Make développées, continuations `\` recollées) :
+
+   | objet | `d68e59f1` (E4.0d) | `fb9d064c` (master) | verdict de la déclaration |
+   |---|---|---|---|
+   | `Audio/RoonPlayer.$(OBJEXT)` | **8** cibles, dont **`core_JsonApiEvents_test` lui-même** | **17** cibles | ⛔ **FAUSSE** |
+   | `Audio/Squeezebox.$(OBJEXT)` | **0** | **0** | ✅ vraie |
+   | `IO/Mqtt/MqttCtrl.$(OBJEXT)` | **0** | **1** (`JsonPathSyntax_test`) | ✅ vraie **à la date**, **périmée depuis** |
+
+   ⭐ **Ce qui reste vrai, et c'est l'essentiel de la puce** : *rien n'APPELLE* ces trois classes
+   dans la suite. Les 8 payloads audio et `io_status_changed` restent **non opposables**, et la
+   conclusion de la puce **tient**. ⛔ **Mais la RAISON invoquée était fausse** : ce n'est pas que
+   l'objet manque au binaire, c'est qu'**aucun chemin de la suite ne l'exécute** alors qu'il est là,
+   à portée d'un `#include` et d'un cas. La distinction est opérationnelle : « non lié » se lit
+   comme *irréductible* et clôt la discussion ; « lié mais jamais exécuté » se lit comme *un cas à
+   écrire*, et c'est ce qu'il faut lire ici.
+
+   ⚠️ **Erreur non isolée** — voir **F-LINK-1**, la dette méthodologique transverse de ces
+   déclarations. Corrigé aussi dans `ORCHESTRATION.md` (journal E4.0d).
 
 7. **[ÉCART DOC/CODE] `docs/08_http_api.md` décrit une enveloppe d'event qui n'est jamais
    émise.** Le bloc `docs/08_http_api.md:210-221` montre un objet **plat**
@@ -3156,7 +3185,7 @@ ne décrivent pas ce que le code fait :
   ✅ **LIVRÉ par [`T3.27`](T3.27.md) (2026-08-25) : `return 0`, PAS un booléen empilé.**
   ⚠️ **Ce choix DIVERGE de la recommandation écrite dans la fiche du ticket** (§2, « Recommandation :
   le booléen »), et le motif est **mesuré**, pas stylistique. Deux constats :
-  (a) **la convention de la table est sans ambiguïté** — balayage `python3` des **9 `lua_CFunction`
+  (a) **la convention de la table est sans ambiguïté** — balayage `python3` des ~~**9**~~ ⛔ **13** (voir plus bas) **`lua_CFunction`
   de tout l'arbre**, toutes dans ce fichier : les 3 **accesseurs** (`getIOValue`, `getIOParam`,
   `getEnv`) rendent `1` et empilent leur valeur ; les 4 **mutateurs/actions** (`setIOValue`,
   `requestUrl`, `sendPushNotif`, `Lua_print`) rendent `0`. `setIOParam` est le **frère direct** de
@@ -4150,7 +4179,127 @@ les deux côtés**.
 | **M-3** | *une limite vraie pour une raison fausse* (même motif que M-1) | **T3.35b §6.8** : les lambdas de `subscribeStatusTopics()` sont intestables car « `IOBase` et `EventManager` ne sont pas dans la clôture de liaison » | **ils y sont** — `CORE_TEST_LDADD` commence par `CORE_SERVER_OBJECTS`, qui liste `IOBase.o` et `EventManager.o` ; `nm -C --defined-only` donne `IOBase::setStatusInfo` et `EventManager::create` en **`T`** et les **6 lambdas** définies dans `MqttCtrl.o`. La vraie raison est un **DISPATCH** absent : `subscribeCb` est **privé** et le seul code qui le parcourt est la lambda `messageReceived` du **constructeur**, pilotée par la boucle `uvw` de `calaos_mqtt` ; `storeMessage()` ne fait que **stocker** | lecture de `tests/Makefile.am` + `nm`. ⚠️ **Le coût de la fausse raison** : elle désigne « ajouter des `.o` au `LDADD` » comme sortie, ce qui **ne changerait rien**. La vraie désigne une **couture de dispatch** (ou l'extraction `resolveJsonPath()` de T3.37). |
 | **M-4** | *une assertion satisfaite par autre chose que ce qu'elle prétend vérifier* (« fixture pauvre ») | **T3.35b §6.5** : `logContains(log, "weather[0]")` prouvait l'indication | elle était satisfaite par la **ligne précédente** (`subpath not found`) ; casser l'indication laissait **0 rouge** | mutation R2 rejouée après resserrage de l'aiguille ⇒ **2 rouges** |
 | **M-5** | *un § qui affirme une clôture qu'il n'a pas mesurée* | **T3.35b §6.4** : « ⇒ il ne reste pas de trou à ficher » | la phrase portait sur la garde de **forme** et a été lue comme portant sur la garde d'**index** ; **cinq** jetons (`[]`, `[ ]`, `[\t]`, `[+]`, `[-]`) recevaient un « succès » de `from_string()` sans porter de nombre | sonde compilée contre le corps de `Utils::from_string` ⇒ tableau complet en **T3.35.md §6.4bis** |
+| **M-6** | *une déclaration d'ABSENCE écrite après coup pour expliquer un vert* | **[F-LINK-1]** ci-dessous : « cet objet n'est lié par aucun binaire de test » — écrit cinq fois dans la série | **trois** de ces cinq déclarations sont fausses ou à moitié fausses ; « lié » et « exercé » sont deux propriétés différentes, et « ne peut pas être lié » n'a été vrai dans **aucun** cas examiné | aplatissement `python3` de `tests/Makefile.am` avec les variables Make développées ⇒ tableau des cinq déclarations rejouées, plus bas dans cette section |
+| **M-7** | *un remède correct généralisé à une famille à laquelle il n'appartient pas* | **[F-HARN-1]** ci-dessous : `DECISIONS.md` faisait du relink `_DEPENDENCIES` la « cause racine des **cinq** variantes » de faux vert | il en existe une **sixième**, d'une autre famille : la mutation **non appliquée**. Elle survit à un `rm -f` parfait, à un `CXXLD` exigé et à un code de sortie 0 | campagne de contre-mutation T3.27, puis falsification en revue (`LAX_M2`) ⇒ le remède propre à cette famille est le **`cmp` d'application** + la comparaison des **ENSEMBLES** de rouges au témoin |
 
 ⭐ **Le fil commun de M-1, M-3 et M-5** : *la conclusion est juste, la justification ne l'est pas*.
 C'est le cas le plus coûteux, parce que **rien ne rougit** — la seule défense est de **remesurer la
 justification**, pas de revérifier la conclusion.
+
+⚠️ **Fusion de deux apports (2026-08-25), au merge de T3.27.** Cette section a été écrite deux fois
+le même jour : par **T3.35** (motifs M-1 à M-5, tableau ci-dessus) et par **T3.27** (M-6/M-7,
+détaillés ci-dessous). Les deux contenus sont conservés **intégralement** et vivent désormais sous
+un seul titre — le tableau ci-dessus est l'**index des motifs**, les sous-sections qui suivent
+portent les **mesures**. La consigne du préambule ne change pas : **on appende, on ne réécrit pas**.
+
+### T3.27 — la dette des déclarations « objet non lié » (suites de revue, 2026-08-25)
+
+- ⭐⭐ **[F-LINK-1] DETTE MÉTHODOLOGIQUE TRANSVERSE — « cet objet n'est lié par aucun binaire de
+  test » est un argument que ce dépôt écrit souvent, et qu'il vérifie rarement. Sur CINQ
+  déclarations de ce type balayées, TROIS sont fausses ou à moitié fausses.**
+
+  ⚠️ **Ce n'est pas une erreur de calcul, c'est une erreur de MÉTHODE**, et elle a une signature :
+  la déclaration est écrite **après** avoir constaté un vert, pour l'expliquer. Elle referme la
+  discussion (« hors d'atteinte, rien à faire ») là où la mesure aurait ouvert un cas à écrire.
+  Les cinq occurrences ci-dessous ont toutes été rédigées de cette façon.
+
+  ### Méthode de mesure — reproductible, à réutiliser telle quelle
+
+  `tests/Makefile.am` est **aplati en `python3`** : continuations `\` recollées (`re.sub(r'\\\n',
+  ' ')`), affectations `=` / `+=` accumulées dans l'ordre du fichier, puis **variables Make
+  développées récursivement** (`$(CORE_TEST_LDADD)`, `$(CORE_SERVER_OBJECTS)`,
+  `$(CALAOS_SERVER_BUILDDIR)`…) en gardant littéraux `$(OBJEXT)` / `$(top_builddir)`. Une **cible**
+  est tout `FOO` portant un `FOO_SOURCES`, `FOO_LDADD` ou `FOO_DEPENDENCIES`, moins les faux
+  positifs `AM` et `CORE_TEST`. On cherche alors l'objet dans la concaténation des trois variables.
+  ⚠️ **Le balayage textuel naïf ne marche pas** : `CORE_TEST_LDADD` **contient**
+  `CORE_SERVER_OBJECTS`, donc chercher `$(CALAOS_SERVER_BUILDDIR)` en toutes lettres sous-compte
+  massivement — c'est le piège déjà consigné pour [`T3.36`](T3.36.md), et c'est **la même cause**
+  que les trois déclarations fausses ci-dessous.
+
+  ### Les cinq déclarations, rejouées
+
+  | # | Déclaration, et où elle est écrite | Verdict | Mesure |
+  |---|---|---|---|
+  | 1 | `ScriptBindings.o` « n'est lié dans **AUCUN** binaire de test de l'arbre » — `E4.1j.md`, `FINDINGS.md`/F-LUA-3, `ORCHESTRATION.md` (journal E4.1j) | ⛔ **FAUSSE** | **1** cible (`LuaSandbox_test`) sur `d68e59f1`, `599fcea9`, `8bcffdc8` **et** `fb9d064c` — **jamais zéro**. Le vert venait du **relink** (`_DEPENDENCIES`), pas du périmètre |
+  | 2 | « rien n'appelle Squeezebox/**RoonPlayer**/MqttCtrl, ces objets **ne sont même pas liés** » — `FINDINGS.md`/E4.0d, `ORCHESTRATION.md` (journal E4.0d) | ⛔ **FAUSSE pour `RoonPlayer`** | **8** cibles sur `d68e59f1`, **le commit E4.0d lui-même**, dont `core/JsonApiEvents_test` ; **17** sur `fb9d064c`. `MqttCtrl` : **0** à la date, **1** aujourd'hui (`JsonPathSyntax_test`) ⇒ **vraie mais périmée** |
+  | 3 | `core/RoonArgs_test` est la « **seule suite de l'arbre** à lier `Audio/RoonPlayer.$(OBJEXT)` » — `T3.28.md`, `BOARD.md`, **et le commentaire de `tests/Makefile.am`** | ⛔ **FAUSSE** | **17** cibles sur `fb9d064c`, dont **16 `core/JsonApi*` qui lui préexistent toutes** |
+  | 4 | `WagoCtrl.o` « n'est lié par aucun binaire et **ne peut pas l'être** » — `T3.30.md` | ⚠️ **MOITIÉ FAUSSE** | non-lié = **vrai** (**0** cible, les quatre arbres). « ne peut pas » = **faux** : `WagoCtrl.cpp` ∈ `calaos_server_SOURCES` **et** `calaos_wago_SOURCES`, `IO/Wago/WagoCtrl.o` **existe**, nom plat, comme `Audio/RoonPlayer.o`. La vraie limite est d'**exécution** (`!is_connected()`) |
+  | 5 | `Squeezebox.o` « n'est lié par AUCUN binaire de test » (**F-SQBOX-2**) | ✅ **VRAIE** | **0** cible sur les quatre arbres |
+  | 6 | `HueOutputLightRGB.o` lié par **exactement une** cible (E4.1d) | ✅ **VRAIE** | **1** — `core/LanHue_test`, sur les quatre arbres |
+
+  ⇒ **3 fausses ou à moitié fausses sur 5 déclarations « non liable »** (les entrées 5 et 6 sont
+  les deux qui tiennent ; l'entrée 6 est un compte exact, pas une déclaration d'absence).
+
+  ### ⭐ Ce que la série apprend, et qui vaut plus que les six lignes
+
+  1. **« Lié » et « exercé » sont deux propriétés différentes, et ce dépôt les confond.** Les 16
+     suites `core/JsonApi*` **lient** `RoonPlayer.o` pour satisfaire l'éditeur de liens du cœur et
+     ne l'**appellent** jamais. Écrire « pas lié » quand on veut dire « jamais appelé » **change la
+     conclusion** : « pas lié » se lit *irréductible* et clôt le sujet ; « lié mais jamais
+     exécuté » se lit *un cas à écrire*, et c'est presque toujours la vérité.
+  2. **« Ne peut pas être lié » n'a été vrai dans AUCUN des cas examinés.** Tout `.o` d'un
+     `_SOURCES` de `calaos_server` est présent dans l'arbre de build sous son nom plat et se lie
+     par `$(CALAOS_SERVER_BUILDDIR)/…` — **50 cibles le font déjà**. L'obstacle réel, quand il
+     existe, est **à l'exécution** (`!is_connected()`, un socket, un `fork`), et le nommer désigne
+     la couture à écrire.
+  3. **Ces déclarations naissent d'un vert qu'on explique après coup.** Le remède n'est pas la
+     vigilance, c'est **la mesure avant la phrase** — et, quand un vert doit être expliqué,
+     l'hypothèse à écarter **en premier** est le **faux vert de relink** ([`T3.36`](T3.36.md)),
+     pas la limite de périmètre.
+
+  ### Comptes `_DEPENDENCIES`, recomptés par ce ticket — ⚠️ trois chiffres divergents circulaient
+
+  Trois valeurs coexistaient dans la doc (« 47 des 84 », « 49/85 », « 50/96 `check_PROGRAMS` /
+  85 `TESTS` ») et **aucune n'est reproductible telle quelle**, parce qu'elles mélangent trois
+  dénominateurs différents. Mesuré par la méthode ci-dessus, **le piège lui-même est réel** — seuls
+  les cardinaux étaient en cause :
+
+  | arbre | entrées `TESTS` | dont scripts shell | binaires de test | `check_PROGRAMS` | portant `_DEPENDENCIES = libcalaos_common.la` |
+  |---|---|---|---|---|---|
+  | `fb9d064c` (master) | **86** | 3 | **83** | **84** (83 + `StaticLogShutdown_helper`) | **49** |
+  | `fix/t3.27` rebasée | **87** | 3 | **84** | **85** | **50** |
+
+  ⚠️ **La valeur EST unique**, ce sont les dénominateurs qui bougent : **49 / 83 binaires** =
+  **49 / 84 `check_PROGRAMS`** = 49 sur 86 entrées `TESTS`. Et **elle augmente à chaque suite
+  ajoutée** : tout ticket qui cite ce ratio doit **dire sur quel arbre il l'a mesuré**.
+  Aucune cible ne porte une **autre** valeur de `_DEPENDENCIES` : les 49 portent toutes exactement
+  `$(top_builddir)/src/lib/libcalaos_common.la`.
+
+  ⇒ **Ticket proposé** : le contrôle est **automatisable en dix lignes** — le script d'aplatissement
+  ci-dessus, exécuté en cible non bloquante à côté de `check-config-docs.sh`, saurait répondre
+  « quelles cibles lient `X.o` ? » et **rendrait toute déclaration de ce genre vérifiable avant
+  d'être écrite**. Voisin naturel de [`T3.32`](T3.32.md) (contrôle ancré de la doc) et de
+  [`T3.36`](T3.36.md) (le relink lui-même).
+
+- ⭐ **[F-HARN-1] LA SIXIÈME VARIANTE DE FAUX VERT N'A PAS LA MÊME CAUSE RACINE QUE LES CINQ
+  AUTRES — elle vient du HARNAIS, pas de `_DEPENDENCIES`.**
+
+  `DECISIONS.md` (« `T3.36` : priorité haute, mais après `E4.1x` ») écrit que le défaut de relink
+  est « la **cause racine des cinq variantes** de faux vert/rouge ». **Il en existe une sixième, et
+  elle est d'une autre famille** : rencontrée pour de vrai pendant la campagne de contre-mutation
+  de T3.27, elle survit à un `rm -f` parfait et à un `CXXLD` exigé.
+
+  **Le mécanisme** : le motif de remplacement du harnais de mutation était faux d'un fragment
+  (`* A pushed…` au lieu de `* raises. A pushed…`), l'`assert` du `python3` a échoué, et **comme le
+  harnais n'avait pas `set -e`, le cas a tourné NON MUTÉ** — donc vert. Le binaire était
+  correctement recompilé et relié, la ligne `CXXLD` était bien là, le code de sortie valait 0 :
+  **tous les garde-fous de la série répondaient juste**, parce que ce qui manquait n'était pas le
+  lien mais **la mutation elle-même**.
+
+  ⇒ **Cause racine distincte, remède distinct** : `_DEPENDENCIES` se ferme avec `rm -f` + `CXXLD`
+  exigée ; **celle-ci ne se ferme QUE par un `cmp` d'application** (comparer le fichier muté à
+  l'original et **refuser de scorer** s'ils sont identiques) **et par la comparaison des ENSEMBLES
+  de cas rouges au témoin**, jamais de leurs cardinaux. Dans l'épisode réel, **seule la comparaison
+  des ensembles a révélé le problème** : `M0_control` et `M2` étaient **identiques**, ce qu'un
+  compte de rouges (0 et 0) n'aurait pas dit.
+
+  ⭐ **Falsifiée et validée en revue.** En mode laxiste — `cmp` d'application retiré, comparaison
+  aux ensembles remplacée par un compte —, la reproduction `LAX_M2` donne
+  **`CXX LuaScript/ScriptBindings.o` = 1, `CXXLD LuaCalaosApi_test` = 1, `.o` bien relié, 0 ligne
+  `FAILED`, code de sortie 0** : **un faux vert parfait**, indiscernable d'un mutant survivant, sur
+  un mutant qui n'a **jamais existé**.
+
+  ⚠️ **Conséquence pour tous les briefs** : la consigne « `rm -f` + exiger `CXXLD` + juger au code
+  de sortie » est **nécessaire et insuffisante**. Il faut y ajouter **`cmp` d'application** et
+  **comparaison des ensembles**. `DECISIONS.md` est corrigé en ce sens : **cinq variantes de la
+  famille `_DEPENDENCIES`, plus une sixième d'une autre famille.**

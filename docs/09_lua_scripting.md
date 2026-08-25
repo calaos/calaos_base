@@ -520,6 +520,18 @@ est abandonné sans que la règle soit désactivée pour autant.
 | [tests/core/RuleLifecycle_test.cpp](../tests/core/RuleLifecycle_test.cpp) | Dispatch et durée de vie des règles à script : règle désactivée si l'IO déclencheur disparaît (`:164`), une seule dispatch pour plusieurs conditions script (`:636`), complétion sur une règle **détruite** ignorée grâce à `Rule::aliveToken()` (`:778`) — « *nothing cancels a ScriptExec callback* » |
 | [tests/core/RuleIoReference_test.cpp:434](../tests/core/RuleIoReference_test.cpp) | `ScriptTriggersAreComparedById` |
 | [tests/core/RuleDisabledMissingIo_test.cpp:550](../tests/core/RuleDisabledMissingIo_test.cpp) | Un déclencheur script introuvable désactive la règle **et conserve l'id** à la sauvegarde |
+| [tests/LuaCalaosApi_test.cpp](../tests/LuaCalaosApi_test.cpp) | **T3.27 — le contrat de retour de l'API `calaos:*`, observé DEPUIS LUA.** 13 cas sur un vrai `lua_State` poussé par `ScriptManager::ExecuteScript()`, script Lua littéral, sortie lue sur une **vraie socket `AF_UNIX`**. `setIOParam()` et `waitForIO()` **ne rendent plus rien** (`nil`) au lieu de rendre au script son propre dernier argument ; `if calaos:waitForIO(io) then` **ne lit plus vrai par accident** ; la trame `set_param` réellement émise est décodée (id / clé / valeur, et les **deux** booléens `true` et `false` stringifiés) ; les chemins `invalid IO id` et mauvaise arité **lèvent** toujours ; les voisins de la table (`setIOValue` → rien, `getIOValue`/`getIOParam` → leur valeur) sont épinglés comme convention |
 
-Non couverts par un test : `requestUrl()` contre un vrai serveur, `waitForIO()`,
-`sendPushNotif()`, et le bout-en-bout du sous-processus `calaos_script`.
+Non couverts par un test : `requestUrl()` contre un vrai serveur, `sendPushNotif()`, et le
+bout-en-bout du sous-processus `calaos_script`.
+⛔ **`waitForIO()` a quitté cette liste (T3.27, 2026-08-25)** : ~~« Non couverts par un test :
+… `waitForIO()` »~~ — **7 des 13 cas** de `tests/LuaCalaosApi_test.cpp` l'exercent (compté en
+`python3` sur les corps de `TEST_F`) : `WhatTheScriptActuallySeesComingBack`,
+`WaitForIODoesNotHandBackItsIoId`, `WaitForIOHandsBackNothingAtAll`,
+`TheClassicGuardNoLongerReadsTrueByAccident`, `AnInvalidIoIdStillRaises`,
+`AWrongArityStillRaises`, `WaitForIOAsksTheSignalAboutTheIoItWasGiven` — dont **5 lui sont
+dédiés**, les deux `…StillRaises` couvrant `setIOParam` dans la même foulée. Le dernier vérifie
+que le signal `waitForIOChanged` reçoit bien **l'id qu'on lui a passé**. ⚠️ **Ce qui reste hors d'atteinte
+est la BOUCLE BLOQUANTE elle-même** : la suite branche un slot qui répond vrai au premier
+`emit()`, donc `while (!emit(id) && !abort);` sort tout de suite — l'attente réelle, le
+`ScriptWatchdogPause` et le chemin `abort` ⇒ `Abort script` ne sont **pas** exercés.
