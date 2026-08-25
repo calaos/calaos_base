@@ -67,17 +67,40 @@ bool runLoopUntil(const std::function<bool()> &pred, int timeoutMs = 2000)
     return true;
 }
 
+int elapsedMs(const std::chrono::steady_clock::time_point &t0)
+{
+    return (int) std::chrono::duration_cast<std::chrono::milliseconds>(
+                     std::chrono::steady_clock::now() - t0).count();
+}
+
 /* Keep pumping the loop for a fixed wall-clock duration: processes close
  * callbacks and would let any spurious extra tick (repeating-timer
- * regression) fire and be counted. */
+ * regression) fire and be counted.
+ *
+ * ⭐ T3.49: a wait must say whether it waited. This is the third copy of the
+ * helper (core/ShutterImpulse_test, core/IoLifetimeTimer_test), and the same
+ * post-condition is on all three. The assertions that FOLLOW it here are not
+ * on the false-red axis - they check that a count did NOT grow, so a longer
+ * pump can only make them stricter - but a pump that returns having run no
+ * iteration would make them vacuously green, which is the axis this closes.
+ * No iteration cap and no ms-sized iteration floor, for the reasons spelled
+ * out in core/ShutterImpulse_test.cpp. */
 void pumpLoopFor(int ms)
 {
     auto loop = uvw::Loop::getDefault();
-    auto deadline = std::chrono::steady_clock::now() +
-                    std::chrono::milliseconds(ms);
+    const auto t0 = std::chrono::steady_clock::now();
+    int iterations = 0;
 
-    while (std::chrono::steady_clock::now() < deadline)
+    while (elapsedMs(t0) < ms)
+    {
         loop->run<uvw::Loop::Mode::NOWAIT>();
+        iterations++;
+    }
+
+    if (iterations < 1 || elapsedMs(t0) < ms)
+        ADD_FAILURE() << "pumpLoopFor(" << ms << ") gave up after "
+                      << elapsedMs(t0) << " ms and " << iterations
+                      << " iterations: this wait proved nothing";
 }
 
 /* Number of timer handles still armed on the default loop (same helper as

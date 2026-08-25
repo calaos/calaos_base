@@ -52,10 +52,39 @@
  * ms. With the defect impulse_action_time is 0, so the shutter stops after
  * impulse_time alone - the bare relay pulse of the hardware, a fraction of
  * a second - instead of the requested travel. The test drives the real uvw
- * loop and checks the shutter is STILL moving at a point in time the broken
- * code has long passed, then that it does stop. Every wait is wall clock
- * bounded (same discipline as core/Timer_test) so a regression fails the
- * test instead of hanging make check.
+ * loop, MEASURES the instant at which the shutter is first seen stopped, and
+ * requires that instant to be no earlier than a probe placed halfway between
+ * the two candidate deadlines. Every wait is wall clock bounded (same
+ * discipline as core/Timer_test) so a regression fails the test instead of
+ * hanging make check.
+ *
+ * ⭐ T3.49: why a MEASURED INSTANT and not "is it stopped at probe ms?".
+ * The original form pumped the loop for the probe duration and asserted
+ * EXPECT_FALSE(isStopped()). That is an upper bound on an observation, and
+ * it went red on correct code six times on loaded hosts. The three things
+ * that make the present form immune, each closing a different half:
+ *
+ *   1. freshenLoopClock() before the command. libuv arms a deadline from
+ *      loop->time, its CACHED clock, refreshed only at the top of uv_run().
+ *      An idle gap - fixture teardown, loadConfig(), a host too busy to
+ *      schedule us - therefore arms the stop IN THE PAST by the length of
+ *      that gap. Measured with a standalone libuv probe in this image: a
+ *      182 ms one-shot armed after a 120 ms idle gap fires 62 ms later,
+ *      inside a 91 ms probe window. THIS is what reddened :297 and :384,
+ *      and PlainImpulseDownKeepsMovingAfterAnIdleLoopGap pins it.
+ *   2. the clock started BEFORE the command, so the arm-to-pump gap is
+ *      inside the measurement instead of being subtracted from it.
+ *   3. a LOWER bound on the answer. Time stolen after that origin can only
+ *      make the answer larger, so no amount of contention can falsify it -
+ *      whereas the same probe with a fresh clock and 40 ms of theft burned
+ *      in EVERY loop iteration never fires early, which is the measurement
+ *      that removes "the scheduler steals time from the pump" from the list
+ *      of possible causes.
+ *
+ * The probe itself is unchanged, and that is the point: the discrimination
+ * T3.34 needs - "stops after impulse_time" against "stops after the
+ * requested duration" - is exactly as sharp as it was. Widening the margin
+ * would have blunted it.
  *
  * Durations
  * ---------
@@ -111,15 +140,88 @@ bool runLoopUntil(const std::function<bool()> &pred, int timeoutMs = 5000)
     return true;
 }
 
-/* Pump the default loop for a fixed wall clock duration. */
+int elapsedMs(const std::chrono::steady_clock::time_point &t0)
+{
+    return (int) std::chrono::duration_cast<std::chrono::milliseconds>(
+                     std::chrono::steady_clock::now() - t0).count();
+}
+
+/* ⭐ Put the loop clock back on the wall clock. See kIdleGapMs below: libuv
+ * computes every timer deadline from loop->time, which only advances when the
+ * loop runs, so anything armed after an idle stretch is armed in the past by
+ * the length of that stretch. One NOWAIT iteration calls uv__update_time()
+ * and costs nothing. Call it immediately before arming anything whose
+ * deadline this file is about to measure. */
+void freshenLoopClock()
+{
+    uvw::Loop::getDefault()->run<uvw::Loop::Mode::NOWAIT>();
+}
+
+/* Pump the default loop for a fixed wall clock duration.
+ *
+ * No iteration cap: `elapsedMs(t0) < ms` alone terminates this loop, and a
+ * safety bound that can become the ACTIVE constraint is exactly how T3.40
+ * produced false green n.13 (a 200000 iteration cap an idle NOWAIT loop
+ * reaches in 80 ms, turning every 650 ms wait into an 80 ms one). No
+ * `iterations < ms` floor either: t0 is taken on entry, so the condition
+ * holds on entry and the loop always runs at least once, whereas an ms-sized
+ * floor would multiply the cost of every wait on a host whose loop iterations
+ * are slow - the same failure on the cost axis. */
 void pumpLoopFor(int ms)
 {
     auto loop = uvw::Loop::getDefault();
-    auto deadline = std::chrono::steady_clock::now() +
-                    std::chrono::milliseconds(ms);
+    const auto t0 = std::chrono::steady_clock::now();
+    int iterations = 0;
 
-    while (std::chrono::steady_clock::now() < deadline)
+    while (elapsedMs(t0) < ms)
+    {
         loop->run<uvw::Loop::Mode::NOWAIT>();
+        iterations++;
+    }
+
+    //A wait must say whether it waited (T3.40, FINDINGS n.13).
+    if (iterations < 1 || elapsedMs(t0) < ms)
+        ADD_FAILURE() << "pumpLoopFor(" << ms << ") gave up after "
+                      << elapsedMs(t0) << " ms and " << iterations
+                      << " iterations: the deadline under test never expired, "
+                         "so this case proved nothing";
+}
+
+/* ⭐ Pump the default loop until pred() holds; answers the ms elapsed SINCE
+ * t0 at the moment pred() was first SEEN to hold, or -1 if it never was
+ * within the budget.
+ *
+ * This is the shape T3.40 arrived at, and the reason it is used here instead
+ * of `pumpLoopFor(probe); EXPECT_FALSE(pred())`: an oracle written this way
+ * cannot fail because the machine was slow. Time stolen anywhere after t0 -
+ * before the command, between the command and the pump, or inside the pump -
+ * can only make the answer LARGER, and the case asserts a LOWER bound on it.
+ * "The shutter was not observed stopped before probe ms" is a property a busy
+ * host cannot falsify; "the shutter is not stopped at probe ms" is a race.
+ *
+ * ⚠️ A lower bound alone is NOT enough, and that is measured, not argued: with
+ * a stale loop clock the deadline itself moves into the past, which makes the
+ * answer SMALLER. freshenLoopClock() is what closes that half, and t0 taken
+ * before the command is what closes the arm-to-pump half. The three go
+ * together; any one of them alone leaves the race open.
+ *
+ * ⚠️ A lower bound says nothing about stopping too LATE. That is exactly what
+ * these cases need - the defect T3.34 closed is a shutter that stops after
+ * the bare relay pulse - and the budget keeps the other end: never stopping
+ * at all answers -1, which the cases reject. */
+int pumpUntilSince(const std::chrono::steady_clock::time_point &t0,
+                   const std::function<bool()> &pred, int timeoutMs = 5000)
+{
+    auto loop = uvw::Loop::getDefault();
+
+    while (!pred())
+    {
+        if (elapsedMs(t0) > timeoutMs)
+            return -1;
+        loop->run<uvw::Loop::Mode::NOWAIT>();
+    }
+
+    return elapsedMs(t0);
 }
 
 /* Timer handles still armed on the default loop, closing/collected ones
@@ -242,6 +344,10 @@ const int kSmartImpulseTimeMs = 41;
  * turned :297 and :384 red on a loaded host. */
 const int kIdleGapMs = 120;
 
+/* A budget for the out of range case, not a wait: nothing is expected to
+ * happen inside it, and the shutter's own 30 s travel is what stops it. */
+const int kOutOfRangeBudgetMs = 200;
+
 /* The instant at which a broken build has already stopped the shutter and a
  * correct one has not: strictly above impulse_time, strictly below the
  * requested duration. */
@@ -314,16 +420,18 @@ TEST_F(ShutterImpulseTest, PlainImpulseDownKeepsMovingUntilTheRequestedDuration)
     Params p = plainParams("t334_plain_down_timer");
     PlainShutterProbe sh(p);
 
+    freshenLoopClock();
+    const auto issued = std::chrono::steady_clock::now();
     ASSERT_TRUE(sh.set_value("impulse down " + Utils::to_string(kPlainDownMs)));
     ASSERT_FALSE(sh.isStopped()) << "shutter never started moving";
 
-    pumpLoopFor(stillMovingProbeMs(kPlainDownMs, kPlainImpulseTimeMs));
-    EXPECT_FALSE(sh.isStopped())
-        << "the shutter stopped after impulse_time instead of the "
-           "requested duration";
+    const int stoppedAt = pumpUntilSince(issued, [&]() { return sh.isStopped(); });
 
-    EXPECT_TRUE(runLoopUntil([&]() { return sh.isStopped(); }))
-        << "the shutter never stopped";
+    ASSERT_GE(stoppedAt, 0) << "the shutter never stopped";
+    EXPECT_GE(stoppedAt, stillMovingProbeMs(kPlainDownMs, kPlainImpulseTimeMs))
+        << "the shutter was seen stopped " << stoppedAt << " ms after the "
+           "command: it stopped after impulse_time instead of the requested "
+           "duration";
 }
 
 //The same oracle, after the loop has been left idle for longer than the
@@ -344,16 +452,18 @@ TEST_F(ShutterImpulseTest, PlainImpulseDownKeepsMovingAfterAnIdleLoopGap)
     uvw::Loop::getDefault()->run<uvw::Loop::Mode::NOWAIT>();
     ::usleep(kIdleGapMs * 1000);
 
+    freshenLoopClock();
+    const auto issued = std::chrono::steady_clock::now();
     ASSERT_TRUE(sh.set_value("impulse down " + Utils::to_string(kPlainDownMs)));
     ASSERT_FALSE(sh.isStopped()) << "shutter never started moving";
 
-    pumpLoopFor(stillMovingProbeMs(kPlainDownMs, kPlainImpulseTimeMs));
-    EXPECT_FALSE(sh.isStopped())
-        << "the shutter stopped after impulse_time instead of the "
-           "requested duration";
+    const int stoppedAt = pumpUntilSince(issued, [&]() { return sh.isStopped(); });
 
-    EXPECT_TRUE(runLoopUntil([&]() { return sh.isStopped(); }))
-        << "the shutter never stopped";
+    ASSERT_GE(stoppedAt, 0) << "the shutter never stopped";
+    EXPECT_GE(stoppedAt, stillMovingProbeMs(kPlainDownMs, kPlainImpulseTimeMs))
+        << "the shutter was seen stopped " << stoppedAt << " ms after the "
+           "command, while the loop clock was " << kIdleGapMs << " ms stale: "
+           "an idle gap must not be able to redden a duration oracle";
 }
 
 //The branch that already worked must not regress.
@@ -390,13 +500,18 @@ TEST_F(ShutterImpulseTest, PlainImpulseUpKeepsMovingUntilTheRequestedDuration)
     Params p = plainParams("t334_plain_up_timer");
     PlainShutterProbe sh(p);
 
+    freshenLoopClock();
+    const auto issued = std::chrono::steady_clock::now();
     ASSERT_TRUE(sh.set_value("impulse up " + Utils::to_string(kPlainUpMs)));
     ASSERT_FALSE(sh.isStopped()) << "shutter never started moving";
 
-    pumpLoopFor(stillMovingProbeMs(kPlainUpMs, kPlainImpulseTimeMs));
-    EXPECT_FALSE(sh.isStopped());
+    const int stoppedAt = pumpUntilSince(issued, [&]() { return sh.isStopped(); });
 
-    EXPECT_TRUE(runLoopUntil([&]() { return sh.isStopped(); }));
+    ASSERT_GE(stoppedAt, 0) << "the shutter never stopped";
+    EXPECT_GE(stoppedAt, stillMovingProbeMs(kPlainUpMs, kPlainImpulseTimeMs))
+        << "the shutter was seen stopped " << stoppedAt << " ms after the "
+           "command: it stopped after impulse_time instead of the requested "
+           "duration";
 }
 
 //The carrier case: same duration asked both ways, same duration used.
@@ -430,14 +545,19 @@ TEST_F(ShutterImpulseTest, PlainImpulseDownWithoutImpulseTimeStillHonoursTheDura
     Params p = plainParams("t334_plain_noimp", 30, false);
     PlainShutterProbe sh(p);
 
+    freshenLoopClock();
+    const auto issued = std::chrono::steady_clock::now();
     ASSERT_TRUE(sh.set_value("impulse down " + Utils::to_string(kPlainDownMs)));
     EXPECT_EQ(sh.impulseDownMs, kPlainDownMs);
-    ASSERT_FALSE(sh.isStopped());
+    ASSERT_FALSE(sh.isStopped()) << "shutter never started moving";
 
-    pumpLoopFor(stillMovingProbeMs(kPlainDownMs, 0));
-    EXPECT_FALSE(sh.isStopped());
+    const int stoppedAt = pumpUntilSince(issued, [&]() { return sh.isStopped(); });
 
-    EXPECT_TRUE(runLoopUntil([&]() { return sh.isStopped(); }));
+    ASSERT_GE(stoppedAt, 0) << "the shutter never stopped";
+    EXPECT_GE(stoppedAt, stillMovingProbeMs(kPlainDownMs, 0))
+        << "the shutter was seen stopped " << stoppedAt << " ms after the "
+           "command: it stopped after impulse_time instead of the requested "
+           "duration";
 }
 
 /******************************************************************************
@@ -497,16 +617,18 @@ TEST_F(SmartShutterImpulseTest, SmartImpulseDownKeepsMovingUntilTheRequestedDura
     Params p = smartParams("t334_smart_down_timer");
     SmartShutterProbe sh(p);
 
+    freshenLoopClock();
+    const auto issued = std::chrono::steady_clock::now();
     ASSERT_TRUE(sh.set_value("impulse down " + Utils::to_string(kSmartDownMs)));
     ASSERT_FALSE(sh.isStopped()) << "shutter never started moving";
 
-    pumpLoopFor(stillMovingProbeMs(kSmartDownMs, kSmartImpulseTimeMs));
-    EXPECT_FALSE(sh.isStopped())
-        << "the shutter stopped after impulse_time instead of the "
-           "requested duration";
+    const int stoppedAt = pumpUntilSince(issued, [&]() { return sh.isStopped(); });
 
-    EXPECT_TRUE(runLoopUntil([&]() { return sh.isStopped(); }))
-        << "the shutter never stopped";
+    ASSERT_GE(stoppedAt, 0) << "the shutter never stopped";
+    EXPECT_GE(stoppedAt, stillMovingProbeMs(kSmartDownMs, kSmartImpulseTimeMs))
+        << "the shutter was seen stopped " << stoppedAt << " ms after the "
+           "command: it stopped after impulse_time instead of the requested "
+           "duration";
 }
 
 TEST_F(SmartShutterImpulseTest, SmartImpulseUpReceivesTheRequestedDuration)
@@ -545,13 +667,19 @@ TEST_F(SmartShutterImpulseTest, SmartImpulseUpKeepsMovingUntilTheRequestedDurati
     SmartShutterProbe sh(p);
 
     ASSERT_TRUE(sh.set_value("set_state 100"));
+
+    freshenLoopClock();
+    const auto issued = std::chrono::steady_clock::now();
     ASSERT_TRUE(sh.set_value("impulse up " + Utils::to_string(kSmartUpMs)));
     ASSERT_FALSE(sh.isStopped()) << "shutter never started moving";
 
-    pumpLoopFor(stillMovingProbeMs(kSmartUpMs, kSmartImpulseTimeMs));
-    EXPECT_FALSE(sh.isStopped());
+    const int stoppedAt = pumpUntilSince(issued, [&]() { return sh.isStopped(); });
 
-    EXPECT_TRUE(runLoopUntil([&]() { return sh.isStopped(); }));
+    ASSERT_GE(stoppedAt, 0) << "the shutter never stopped";
+    EXPECT_GE(stoppedAt, stillMovingProbeMs(kSmartUpMs, kSmartImpulseTimeMs))
+        << "the shutter was seen stopped " << stoppedAt << " ms after the "
+           "command: it stopped after impulse_time instead of the requested "
+           "duration";
 }
 
 TEST_F(SmartShutterImpulseTest, SmartImpulseUpAndDownAgreeOnTheSameDuration)
@@ -708,14 +836,21 @@ TEST_F(ShutterImpulseLifetimeTest, PlainOutOfRangeImpulseLeavesNoTimerArmedForEv
         Params p = plainParams("t334_plain_huge");
         PlainShutterProbe sh(p);
 
+        freshenLoopClock();
+        const auto issued = std::chrono::steady_clock::now();
         ASSERT_TRUE(sh.set_value("impulse down 99999999999999999999"));
         EXPECT_EQ(sh.impulseDownMs, std::numeric_limits<int>::max());
         ASSERT_FALSE(sh.isStopped()) << "shutter never started moving";
 
         //Asking for 24 days on a 30 s shutter: no early stop is due, the
-        //shutter simply travels to its end.
-        pumpLoopFor(200);
-        EXPECT_FALSE(sh.isStopped());
+        //shutter simply travels to its end. Waiting for the real stop would
+        //cost that 30 s travel, so this one keeps a budget - but it is still
+        //a LOWER bound and not a wall clock check: a host so slow that the
+        //budget buys fewer iterations answers -1, never a red. Only a stop
+        //that really happened inside 200 ms can redden it.
+        EXPECT_EQ(pumpUntilSince(issued, [&]() { return sh.isStopped(); },
+                                 kOutOfRangeBudgetMs), -1)
+            << "an out of range impulse stopped the shutter early";
     }
 
     pumpLoopFor(150);

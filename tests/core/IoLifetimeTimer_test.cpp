@@ -185,6 +185,43 @@ void pumpLoopFor(int ms)
  * bound on it. That is the difference between "the callback did not fire
  * before 40 ms" (which a scheduling hiccup can break) and "the callback was
  * not observed before 40 ms" (which it cannot). */
+/* ⭐ T3.49: put the loop clock back on the wall clock.
+ *
+ * libuv does not read the clock when a timer is armed: uv_timer_start()
+ * computes its deadline from loop->time, the CACHED loop clock, refreshed
+ * only by uv__update_time() at the top of uv_run(). A stretch of wall clock
+ * in which nobody pumps - a fixture teardown, loadConfig(), a host too busy
+ * to schedule this process - therefore arms the deadline IN THE PAST by
+ * exactly the length of that gap, and every lower bound below measures a
+ * shorter delay than the one the production code asked for.
+ *
+ * That is the residual flake T3.40 measured at 1 in ~80 on
+ * ProcessExitedStillFiresWhileTheServerIsAlive, whose margin (100 ms delay,
+ * 40 ms bound) is the tightest of this file. A lower bound alone does NOT
+ * close it: the answer gets SMALLER, not larger. Measured in this image with
+ * a standalone libuv probe - see T3.49.md. */
+void freshenLoopClock()
+{
+    uvw::Loop::getDefault()->run<uvw::Loop::Mode::NOWAIT>();
+}
+
+int pumpUntilSince(const std::chrono::steady_clock::time_point &t0,
+                   const std::function<bool()> &pred, int timeoutMs)
+{
+    auto loop = uvw::Loop::getDefault();
+
+    while (!pred())
+    {
+        if (elapsedMs(t0) > timeoutMs)
+            return -1;
+
+        loop->run<uvw::Loop::Mode::NOWAIT>();
+        ::usleep(1000);
+    }
+
+    return elapsedMs(t0);
+}
+
 int pumpUntil(const std::function<bool()> &pred, int timeoutMs)
 {
     auto loop = uvw::Loop::getDefault();
@@ -796,6 +833,8 @@ TEST_F(IoLifetimeTest, LongPressResetStillRunsWhileTheIoIsAlive)
     Params p = switchParams("t340_longpress_alive");
     LongPressProbe io(p);
 
+    freshenLoopClock();
+    const auto armed = std::chrono::steady_clock::now();
     ASSERT_TRUE(io.set_value(1.));
     ASSERT_EQ(io.get_value_double(), 1.);
 
@@ -804,8 +843,9 @@ TEST_F(IoLifetimeTest, LongPressResetStillRunsWhileTheIoIsAlive)
     //OBSERVED? Too early means there is no window; never means the one-shot
     //does not run at all. A late observation is not a failure - which is what
     //makes this form immune to a slow machine.
-    const int resetAt = pumpUntil([&io]() { return io.get_value_double() == 0.; },
-                                  kResetBudgetMs);
+    const int resetAt = pumpUntilSince(armed,
+                                       [&io]() { return io.get_value_double() == 0.; },
+                                       kResetBudgetMs);
 
     ASSERT_GE(resetAt, 0)
         << "the reset one-shot never ran at all on a LIVE IO within "
@@ -852,11 +892,14 @@ TEST_F(IoLifetimeTest, TripleResetStillRunsWhileTheIoIsAlive)
     Params p = switchParams("t340_triple_alive");
     TripleProbe io(p);
 
+    freshenLoopClock();
+    const auto armed = std::chrono::steady_clock::now();
     ASSERT_TRUE(io.set_value(2.));
     ASSERT_EQ(io.get_value_double(), 2.);
 
-    const int resetAt = pumpUntil([&io]() { return io.get_value_double() == 0.; },
-                                  kResetBudgetMs);
+    const int resetAt = pumpUntilSince(armed,
+                                       [&io]() { return io.get_value_double() == 0.; },
+                                       kResetBudgetMs);
 
     ASSERT_GE(resetAt, 0)
         << "InputSwitchTriple::resetInput() never ran at all on a LIVE IO";
@@ -895,11 +938,14 @@ TEST_F(IoLifetimeTest, ScenarioResetStillRunsWhileTheIoIsAlive)
     Params p = scenarioParams("t340_scenario_alive");
     Scenario io(p);
 
+    freshenLoopClock();
+    const auto armed = std::chrono::steady_clock::now();
     ASSERT_TRUE(io.set_value(true));
     ASSERT_TRUE(io.get_value_bool());
 
-    const int resetAt = pumpUntil([&io]() { return !io.get_value_bool(); },
-                                  kResetBudgetMs);
+    const int resetAt = pumpUntilSince(armed,
+                                       [&io]() { return !io.get_value_bool(); },
+                                       kResetBudgetMs);
 
     ASSERT_GE(resetAt, 0)
         << "the reset one-shot of Scenario never ran at all on a LIVE IO";
@@ -1037,12 +1083,15 @@ TEST_F(IoLifetimeExternProcTest, ProcessExitedStillFiresWhileTheServerIsAlive)
     int exited = 0;
     srv.processExited.connect([&exited]() { exited++; });
 
+    freshenLoopClock();
+    const auto armed = std::chrono::steady_clock::now();
     srv.startProcess(kNoSuchBinary, "t340", "");
     ASSERT_EQ(exited, 0)
         << "processExited was emitted synchronously: there is no window at all";
 
-    const int firedAt = pumpUntil([&exited]() { return exited > 0; },
-                                  kExternProcPastWindowMs);
+    const int firedAt = pumpUntilSince(armed,
+                                       [&exited]() { return exited > 0; },
+                                       kExternProcPastWindowMs);
 
     ASSERT_GE(firedAt, 0)
         << "the deferred processExited never ran at all on a LIVE server "
@@ -1125,6 +1174,8 @@ TEST_F(IoLifetimeKnxTest, ReadAtStartStillRunsWhileTheIoIsAlive)
     const int before = countOwnSockets();
     ASSERT_GE(before, 0) << "/tmp could not be read: the observable is blind";
 
+    freshenLoopClock();
+    const auto armed = std::chrono::steady_clock::now();
     Params p = knxParams("t340_knx_alive", "true", "127.0.0.9");
     KnxSwitchProbe io(p);
 
@@ -1132,8 +1183,9 @@ TEST_F(IoLifetimeKnxTest, ReadAtStartStillRunsWhileTheIoIsAlive)
         << "building the IO already built the KNX controller for this host: "
            "the observable can no longer tell the one-shot from the constructor";
 
-    const int firedAt = pumpUntil([&]() { return countOwnSockets() > before; },
-                                  kKnxBudgetMs);
+    const int firedAt = pumpUntilSince(armed,
+                                       [&]() { return countOwnSockets() > before; },
+                                       kKnxBudgetMs);
 
     ASSERT_GE(firedAt, 0)
         << "the read_at_start one-shot never ran at all on a LIVE IO within "
