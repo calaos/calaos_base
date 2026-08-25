@@ -3175,3 +3175,32 @@ core_JsonApiStateWireBytes_test_LDADD = \
 #Built elsewhere, do not let automake turn them into prerequisites
 core_JsonApiStateWireBytes_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#T3.51 -- controle permanent de l'outillage : si un cache de compilation
+#(ccache) est en service, il doit rendre un objet qui correspond a la source.
+#
+#Sort 77 (SKIP) quand AUCUN cache n'est en service.  ATTENTION : ce n'est PAS
+#le cas par defaut partout.  Sur Fedora et Gentoo, /usr/lib64/ccache (resp.
+#/usr/lib/ccache) est dans le PATH par defaut et `g++` y est un lien vers
+#ccache : la sonde y trouve donc un cache EN SERVICE, non configure, et rend
+#1 -- `make check` est ROUGE des le premier essai, sans que personne n'ait
+#rien allume.  TROIS issues, au choix :
+#  (1) scripts/ccache-setup.sh  (ecrit la configuration auditee dans le
+#      CCACHE_DIR ; sans CCACHE_DIR il utilise celui que ccache lui-meme
+#      declare) ;
+#  (2) les variables CCACHE_* dans l'environnement (rien n'est persiste) :
+#      CCACHE_SLOPPINESS= CCACHE_COMPILERCHECK=content CCACHE_HASHDIR=true
+#      CCACHE_BASEDIR= ... ;
+#  (3) retirer le repertoire de shims du PATH (ou CXX=/usr/bin/g++) : plus
+#      aucun cache en service, la sonde rend 77 -- un SKIP propre.
+#
+#La sonde ne rend PASS que sur un cache en service ET conforme ; tout autre
+#mode d'echec rend 1, jamais 77 (voir scripts/ccache-honesty-probe.py).
+#Cout mesure : ~35 ms sans cache (sortie 77), ~175 ms avec (six compilations
+#triviales).
+#DELIBEREMENT EN TOUTE FIN DE FICHIER, apres le dernier `endif`, et donc HORS
+#de tout `if HAVE_GTEST` : ce test n'a besoin ni de gtest ni d'un binaire
+#construit. Ce placement rend la liste TESTS de `master` un PREFIXE STRICT de
+#celle de la branche -- une seule entree, ajoutee en queue, verifiable.
+TESTS += check-ccache-honesty.sh
+dist_check_SCRIPTS += check-ccache-honesty.sh

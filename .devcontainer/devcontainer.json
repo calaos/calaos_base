@@ -13,8 +13,24 @@
 		"source=${localEnv:HOME}/.claude,target=/opt/.claude,type=bind,consistency=cached",
 		"source=${localEnv:HOME}/.agents,target=/opt/.agents,type=bind,consistency=cached",
 		"source=${localEnv:HOME}/.config/rtk,target=/opt/.config/rtk,type=bind,consistency=cached",
-		"source=${localEnv:HOME}/.claude.json,target=/opt/.claude.json,type=bind,consistency=cached"
+		"source=${localEnv:HOME}/.claude.json,target=/opt/.claude.json,type=bind,consistency=cached",
+		// Cache de compilation. Monte mais INACTIF : ccache ne s'active que si
+		// /usr/lib/ccache est en tete du PATH (voir docs/refactoring/OUTILLAGE-CCACHE.md
+		// et docs/refactoring/T3.51.md). Sur DISQUE, jamais /tmp (tmpfs 32 Go partage).
+		//
+		// ATTENTION : ce chemin est PARTAGE entre agents et entre worktrees, et
+		// $CCACHE_DIR/ccache.conf est un ETAT PARTAGE MUTABLE. Un `ccache -o` joue
+		// ici PERSISTE, et tout conteneur ulterieur en herite sans trace de qui l'a
+		// ecrit ; max_size est partage lui aussi, si bien qu'un agent monte a un
+		// autre chemin evince les entrees chaudes des autres, invisiblement.
+		// Un agent qui doit PUBLIER un chiffre (taux de succes, gain) monte son
+		// PROPRE repertoire : -v "$HOME/.cache/calaos-ccache-$AGENT":/ccache
+		// et n'appelle JAMAIS `ccache -z` sur le repertoire partage (il remettrait
+		// a zero les compteurs de TOUS les agents).
+		"source=${localEnv:HOME}/.cache/calaos-ccache,target=/ccache,type=bind,consistency=cached"
 	],
+
+	"containerEnv": { "CCACHE_DIR": "/ccache" },
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},

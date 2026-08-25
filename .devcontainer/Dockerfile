@@ -15,7 +15,7 @@ RUN apt-get update -qq && \
         libpugixml-dev \
         knxd knxd-dev googletest libuv1-dev libmosquitto-dev libmosquittopp-dev \
         libola-dev ola \
-        unzip zip cmake automake autoconf libtool autopoint gettext  \
+        unzip zip cmake automake autoconf libtool autopoint gettext ccache \
         tar gzip zsh vim nano sudo zstd less gnupg ripgrep gdb cgdb locales \
         python3-pip python3-full iproute2 python3-colorama libgtest-dev npm
 

@@ -90,6 +90,8 @@ COPYING \
 README.md \
 autogen.sh \
 scripts/pyproject-requirements.py \
+scripts/ccache-honesty-probe.py \
+scripts/ccache-setup.sh \
 m4/efl_compiler.m4 \
 version \
 docs/16_config_options.md
