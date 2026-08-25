@@ -4319,13 +4319,35 @@ longueur du littéral. Deux sont ceux de T3.34 ; le troisième est ailleurs :
 `set off #AABBCC` devient `off #AABBCC`, `ColorValue` le refuse (`isValid()` faux) et **toute la
 branche est un no-op silencieux** : ni couleur mémorisée, ni `cmd_state`, ni erreur.
 
-⭐ **Particularité qui la rend moins urgente, et plus délicate** : la branche est **morte de bout en
-bout**. `cmd_state = "set off " + color.toString()` (`:118`) n'est produit **que par cette branche
-elle-même**, donc l'état ne peut jamais reboucler dessus ; et `set off ` n'est déclaré dans **aucun**
-`ioDoc->actionAdd()` du fichier. Aucun client ne peut l'avoir apprise autrement qu'en lisant le code.
-⇒ Corriger **ressusciterait du code jamais exécuté**, avec des effets (mémorisation de couleur,
-`cmd_state_bool = false`, `DELETE_NULL(timer_auto)`) que personne n'a jamais observés.
-**Mérite son propre ticket**, avec la décision « réparer ou supprimer » posée explicitement.
+⛔ **CORRECTION (revue T3.34, 2026-08-25) — la version précédente de cette fiche écrivait que la
+branche était « morte de bout en bout ». C'est FAUX, et c'est mesuré comme tel.** La revue a lié une
+vraie `OutputLightRGB` et envoyé `set off #445566` : la commande renvoie **`success`**, `setColorReal`
+reçoit **+0 appel**, l'état de l'IO est **inchangé**. La branche est donc **atteinte**, elle ne fait
+simplement **rien**.
+
+**Elle est appelable depuis trois entrées de l'arbre**, toutes générales — chacune passe une chaîne
+cliente arbitraire à `IOBase::set_value(std::string)`, donc à `OutputLightRGB::set_value` :
+
+| Site | Chemin |
+|---|---|
+| `JsonApi.cpp:774` | `set_state` de l'API JSON — `io->set_value(jParam["value"])` |
+| `Rules/ActionStd.cpp:152` et `:207` | les actions de règle et de scénario (`TBOOL` littéral, puis `TSTRING`) |
+| `LuaScript/ScriptBindings.cpp:191` | `setIOValue()` en Lua — `io.set_value(Utils::to_string(lua_tostring(L, 2)))` |
+
+⇒ **Ce qui est vrai** : la branche **n'a jamais fonctionné**, donc **rien ne régresse** à la laisser
+en l'état et le report hors périmètre reste justifié.
+⇒ **Ce qui est faux** : « morte ». C'est une **commande cassée et appelable aujourd'hui** — depuis
+l'API, depuis les règles, depuis Lua — qui répond `success` et **n'a silencieusement aucun effet**.
+Le seul fondement de l'ancienne formulation était que `set off ` n'apparaît dans aucun
+`ioDoc->actionAdd()` et que `cmd_state = "set off …"` (`:118`) n'est produit que par la branche
+elle-même : **non documentée ≠ non atteignable**. `set_value` n'a jamais eu de liste blanche.
+
+⚠️ **Cette nuance décide du sort de la fiche** : une fiche qui dit « mort » ne sera jamais reprise ;
+une fiche qui dit « appelable et silencieusement sans effet » le sera. **Mérite son propre ticket**,
+avec la décision « réparer ou supprimer » posée explicitement — et, si c'est « réparer », en sachant
+que les effets réactivés (mémorisation de couleur, `cmd_state_bool = false`, `DELETE_NULL(timer_auto)`)
+n'ont jamais été observés par personne.
+⇒ **Versé à `F-LINK-1`** : c'est la **sixième** affirmation d'inatteignabilité démentie par la mesure.
 
 ### F-SIGC-1 ⭐ `Timer::singleShot` + `sigc::mem_fun` sur un objet non-`trackable` — le motif, pas seulement les volets
 
@@ -4399,3 +4421,57 @@ vraiment** — un `make` lancé dans `tests/` **ne reconstruit pas `src/`**. La 
 `rm -f <objets> <binaire>` puis un `make` **à la racine**, puis le `make` de la suite, et le
 `CXXLD` n'est une preuve que du **lien**, jamais de la fraîcheur des objets liés.
 
+
+
+---
+
+## T3.34 — revue (2026-08-25) : versement à **F-LINK-1**, et le motif `singleShot`
+
+### ⭐ [F-LINK-1, apport n°6] Une sixième déclaration d'inatteignabilité, démentie par la mesure
+
+⚠️ **Cette entrée s'ajoute à `F-LINK-1`** (dette méthodologique transverse : « cet objet n'est lié
+par aucun binaire de test » / « cette branche est morte », écrit sans mesure). Si `F-LINK-1` n'est
+pas encore sur cette branche, il arrive avec **T3.27** ; **garder les deux côtés** en cas de conflit.
+
+Les cinq premières occurrences recensées par T3.27 portaient sur le **lien** (`ScriptBindings`,
+`RoonPlayer`, `WagoCtrl`, `MqttCtrl` périmée) ou sur des **lambdas MQTT**. **La sixième est de la
+même famille mais sur un autre axe** : elle ne dit pas « pas lié », elle dit **« branche morte »** —
+et elle est fausse exactement de la même façon, pour la même raison.
+
+| | |
+|---|---|
+| **Déclaration** | « `OutputLightRGB.cpp:107` — la branche `set off ` est **morte de bout en bout** » (`T3.34.md` §1 et `FINDINGS.md`/F-RGB-1, première rédaction) |
+| **Argument avancé** | `set off ` n'est dans aucun `ioDoc->actionAdd()`, et le seul producteur de `cmd_state = "set off …"` est la branche elle-même |
+| **Verdict** | ⛔ **FAUSSE** |
+| **Mesure** | `OutputLightRGB` réelle, `set off #445566` ⇒ **`success`**, `setColorReal` **+0 appel**, état **inchangé**. Atteinte depuis **`JsonApi.cpp:774`**, **`ActionStd.cpp:152` / `:207`**, **`ScriptBindings.cpp:191`** |
+| **Ce qui restait vrai** | la branche **n'a jamais fonctionné** ⇒ rien ne régresse, le report hors périmètre tient |
+
+⭐ **Ce que ce sixième cas ajoute à la leçon de `F-LINK-1`.** Les cinq premiers confondaient **lié** et
+**exercé**. Celui-ci confond **documenté** et **atteignable** — et c'est le même glissement : on
+constate une absence *dans un endroit qu'on sait lire* (le `Makefile.am`, l'`ioDoc`) et on en conclut
+une absence *dans l'arbre*. Or `IOBase::set_value(std::string)` **n'a pas de liste blanche** : trois
+chemins généraux (API JSON, règles, Lua) passent une chaîne cliente arbitraire, et **aucun** ne
+consulte l'`ioDoc`. La forme générale de l'erreur, valable pour les six :
+
+> **une propriété de la DOCUMENTATION ou du BUILD est prise pour une propriété du FLOT DE CONTRÔLE.**
+
+⇒ **Même remède que `F-LINK-1`** : la mesure **avant** la phrase. Ici elle tient en une ligne — lier
+l'IO, envoyer la commande, regarder la valeur de retour **et** la sonde d'effet. ⚠️ Et le coût de
+l'erreur n'est pas nul : **« mort » referme la fiche pour de bon**, alors que **« appelable et
+silencieusement sans effet » la fait reprendre**. La formulation décide de la suite, pas la sévérité.
+
+### ⚠️ Précision de mécanique versée à **F-SIGC-1** : `sigc::trackable` ne protège PAS une lambda
+
+Recompté en revue, et c'est le point qui fait diverger les balayages. `Timer::singleShot`
+(`src/lib/Timer.cpp:103-123`) recopie la `sigc::slot` dans le handler uvw et l'appelle telle quelle :
+
+- **`sigc::mem_fun(*this, …)` sur une classe `sigc::trackable`** ⇒ le slot est **notifié** de la mort
+  de l'objet et devient un no-op. **Protégé.** (C'est le cas des **6** sites de `Squeezebox`.)
+- **une lambda qui capture `this`** ⇒ sigc++ ne voit **qu'un foncteur opaque**. `trackable` ne
+  déconnecte rien, la lambda est appelée, le `this` est pendouillant. **NON protégé**, que la classe
+  dérive de `trackable` ou non. (C'est le cas des **8** sites de `RoonPlayer`, des **2** d'
+  `ExternProcServer`, de celui d'`EventManager` et de celui d'`UrlDownloader:734`.)
+
+⇒ **Filtrer un balayage sur « la classe dérive-t-elle de `sigc::trackable` ? » sous-compte** : la
+question qui décide est **« la cible est-elle un `mem_fun`, ou une lambda ? »**. Détail consigné ici
+parce qu'il change la liste de [`T3.40`](T3.40.md), pas seulement son cardinal.

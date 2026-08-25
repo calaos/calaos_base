@@ -288,6 +288,16 @@ la course voulue, ou en remplaçant la commande par `down` suivi d'un `stop` —
 vont maintenant s'ajouter à la durée qui est enfin respectée**. Relisez les règles qui utilisent
 `impulse down` avant de mettre à jour.
 
+⭐ **Et seulement celles-là.** `impulse up` **fonctionnait déjà correctement** et **n'est pas touchée
+par cette correction** : sa durée était honorée avant, elle l'est après, à l'identique. Vous n'avez
+donc **pas** à relire les règles, scénarios ou scripts qui n'utilisent que `impulse up`, `up`,
+`down`, `stop` ou `toggle`. **La seule commande dont le comportement change est `impulse down`** —
+cherchez cette chaîne, et arrêtez-vous là.
+
+⚠️ Le paramètre `impulse_time` de vos volets, lui aussi, **garde exactement le sens qu'il avait** :
+il n'est ni à régler ni à retirer. Si vous l'aviez détourné pour obtenir une course donnée avec
+`impulse down`, c'est ce détournement — pas le paramètre — qui est à défaire.
+
 Deux cas limites changent aussi, tous deux sans effet sur une configuration saine :
 `impulse down 0` (ou une durée négative) arrête le volet immédiatement au lieu de le laisser aller
 en fin de course, et une durée absurdement grande laisse simplement le volet aller au bout de sa

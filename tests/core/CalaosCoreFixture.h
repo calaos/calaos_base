@@ -87,9 +87,22 @@
  *     is intentionally never reset - it only holds the IO types that are
  *     actually linked into the test binary (see tests/Makefile.am: the core
  *     tests deliberately link the internal IOs only, no hardware driver).
- *   - EventManager queues events into a libuv idler. No libuv loop runs in the
- *     tests, so the queue simply grows and no event is ever dispatched. This
- *     is harmless but it means event delivery cannot be observed here.
+ *   - EventManager queues events into a libuv idler. Most suites never run a
+ *     libuv loop, so for them the queue simply grows and no event is ever
+ *     dispatched - harmless, but event delivery cannot be observed.
+ *     ⚠️ This is no longer true of every suite: since T3.34,
+ *     core/ShutterImpulse_test pumps the real default loop
+ *     (uvw::Loop::getDefault()->run<NOWAIT>(), every wait wall clock bounded,
+ *     same discipline as core/Timer_test) to observe the stop timer a shutter
+ *     really arms. When the loop is pumped, that idler DOES fire and drains
+ *     the queue through EventManager::newEvent - which in a core test has no
+ *     subscriber, so draining is all that happens. Note the history path is
+ *     NOT on the idler: appendEvent() writes to HistLogger synchronously, at
+ *     queue time, and only when the event carries logHistory. The shutter IOs
+ *     call EventManager::create(..., false), so logHistory is false, no
+ *     HistLogger is ever reached, and pumping the loop changes nothing there.
+ *     A suite that wants the loop must still leave it drained for the next
+ *     one: park nothing that outlives the case.
  *   - HistLogger/DataLogger are only reachable for IOs flagged with
  *     log_history="true"/logged="true". The minimal config sets neither, so no
  *     sqlite database and no influxdb request is ever created.
