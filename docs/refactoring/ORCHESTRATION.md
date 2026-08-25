@@ -338,6 +338,121 @@
     négative**, minimum 0, final 0. **`BOARD.md` reste trié par NUMÉRO** — aucune ligne ajoutée,
     seules les lignes `E4.1` et `E4.1l` réécrites sur place.
 
+- **🔒 T3.46 ✅ MERGÉ (`ec0bdfe1`, **10** commits, `git rebase --onto c6c7c0d3 44657407` +
+  `merge --ff-only`, historique linéaire, **0 commit de fusion**)** — ⭐⭐ **[T3.50](T3.50.md) EST
+  OUVERTE ET C'EST LE PROCHAIN DE SA CHAÎNE, pas « plus tard »** : la moitié **LECTURE** du chemin
+  RETOUR de Wago, **13 sites nommés / 12 vivants**. C'est la **CONDITION** à laquelle l'inversion
+  d'ordre de T3.46 (écriture avant lecture) a été acceptée. **RIEN POUSSÉ.**
+
+  - ⭐⭐ **LE PIÈGE DE L'`endif` A MORDU — et il a été résolu par RÉGÉNÉRATION, pas par « garder les
+    deux côtés ».** `E4.1l` avait appendu son bloc `core/EventWireBytes_test` en fin de
+    `tests/Makefile.am` pendant que la branche restait sur `44657407` : le premier commit de la
+    branche est entré en **CONFLIT** sur cette queue. Résolution mécanique, en `python3` :
+    `git show c6c7c0d3:tests/Makefile.am` **+ append verbatim** des 25 lignes du bloc `# T3.46`
+    (prouvé append pur : les deux côtés sont `base(2824) + queue`), **jamais** une fusion de
+    marqueurs. Résultat **+25 / −0** contre `master`, puis **+2** par le commit du tripwire ⇒ **+27
+    / −0** au total, le chiffre annoncé par la fiche. **Contrôle après merge : `^if*` / `endif`
+    = 83 / 83** (master 82/82 + le bloc T3.46), **profondeur jamais négative, minimum 0, final 0**.
+    ⚠️ **Leçon confirmée pour la Nᵉ fois : sur cette queue de fichier, un `endif` par bloc ; « garder
+    les deux côtés » y fabrique un `endif` orphelin qui ne se voit pas au `git diff`.**
+
+  - **Deuxième conflit, `FINDINGS.md`, résolu « garder les deux côtés »** — la section `E4.1l` de
+    `master` d'abord, la section `T3.46` **appendue** ensuite, **chacune sous son propre titre
+    `##`**. `BOARD.md` a fusionné **sans conflit** (la ligne `T3.46` réécrite, la ligne `T3.50`
+    insérée), et **reste triée par NUMÉRO** : T3.45 · T3.46 · T3.47 · T3.48 · **T3.50**.
+    ⚠️ `T3.49` **n'existe pas dans cet arbre** (propriété d'un autre agent) — **aucun doublon créé
+    par ce merge**, T3.46 se contente de la nommer.
+
+  - ⭐⭐ **L'INFIRMATION N°3 EST RÉÉCRITE AUX QUATRE ENDROITS, le 4ᵉ compris.** La revue n'avait vu
+    que trois porteurs de la phrase fausse *« la paire permutable n'est pas dans les six commandes
+    publiques »* ; le **`BOARD`** était le quatrième. Vérifié un par un ici — `T3.46.md` §7.5(b),
+    `FINDINGS.md` `F-WAGO-9`, l'en-tête de `tests/WagoWriteReply_test.cpp` et la ligne `BOARD`
+    portent **tous** : `mbus.h:109-127`, **les 6 commandes appelées portent TOUTES la paire
+    adjacente**, `M5` permute justement une **signature publique**, et ce qui porte réellement le
+    refus est **`mbus_cmd_addr_wdata`** (`mbus_cmd.c:78`), **5 sites** (`:254 :292 :332 :368 :405`),
+    **3 paires de rôles** ⇒ impossible sans **scinder**. ⭐ **Le refus tient sur le COÛT, pas sur
+    l'absence de la paire.** Les trois occurrences résiduelles de l'ancienne phrase sont toutes
+    **citées pour être démenties**, aucune ne subsiste comme affirmation.
+
+  - ⭐⭐ **LE TRIPWIRE DURCI : LA TABLE 4/5 → 1/5 EST REPRODUITE INDÉPENDAMMENT.** Les deux
+    analyseurs extraits — celui de `7d957874` et celui livré — dans **une même sonde `g++
+    -std=c++17`**, **chacun jugé avec SA propre assertion** (`address` avant, `addr` après ; les
+    confondre fait disparaître le faux rouge `R2`). Verdicts : `base` VERT/VERT · **`R1` espace
+    avant `(` 🔴→✅** · **`R2` renommage `address`→`addr` 🔴→✅** · **`R3` cast sorti en variable
+    🔴→🔴 (subsiste, déclaré)** · ⭐ **`R4` COMMENTAIRE DE DOC 🔴 (`argc=2`) → ✅ VERT — le pire cas,
+    rejoué en priorité et bel et bien fermé** · `R5` trois lignes VERT/VERT · **`M6`/`M7` 🔴/🔴 des
+    deux côtés, les vrais rouges sont CONSERVÉS**. Trois cas supplémentaires non demandés confirment
+    le blanchiment : **commentaire `//` 🔴→✅**, **littéral de chaîne 🔴→✅**, identifiant plus long
+    VERT/VERT. *Un garde-fou qui rougit parce que quelqu'un a écrit un commentaire est un garde-fou
+    que le premier venu désactive* — il ne rougit plus.
+
+  - ⭐ **`M6`/`M7` REVÉRIFIÉS SUR LE BINAIRE LIVRÉ, un seul cas rouge chacun.** Le tripwire lit
+    `WagoCtrl.cpp` **à l'exécution** (`CALAOS_TOP_SRCDIR`) ⇒ **aucune reconstruction**, donc le faux
+    vert « arbre déjà construit » est **exclu par construction**. Mesuré : **témoin `rc=0`, 6 cas,
+    6 PASS** · **`M6` `rc=1`, 6 ran / 5 PASS, seul rouge
+    `TheTwoUntypedLibmbusWriteCallsStillPassAddressBeforePayload`** · **`M7` `rc=1`, idem** ·
+    **contrôle après restauration `rc=0`, 6/6**. Restauration **comptée `1` fichier** à chaque passe,
+    vérifiée par `filecmp.cmp`, `os.utime` forcé.
+
+  - ⭐⭐ **`MXD` REJOUÉ — c'est la garantie la plus forte du ticket, et elle tient.** `WagoTypes::
+    WordValue &` dans le `typedef` `SingleWord_cb` ⇒ **`rc=2`, 2 lignes `error:`**, la seconde étant
+    `WagoMap.cpp:244:54: error: cannot bind non-const lvalue reference of type
+    'sigc::slot3<void, bool, WagoTypes::Address, WagoTypes::WordValue&>::arg3_type_' … to an rvalue`.
+    ⇒ ⭐ **`sigc++` refuse LUI-MÊME la référence** : sur `SingleBit_cb`/`SingleWord_cb`, l'angle mort
+    **`F-TYPE-5` est INARMABLE en silence** — la tentative est un **échec de build**, pas une suite
+    verte. Ce n'est plus une discipline d'auteur, c'est une propriété de la bibliothèque.
+    ⚠️ **Portée à ne pas élargir** : propriété de `sigc::slot`, **pas** de la sonde `is_invocable_v`.
+    **Les trois `MX` seulement CITÉS par la revue ont été rejoués aussi** (pas un seul, les trois) :
+    **`MXA`** `status`↔`BitValue` **`rc=2`, 4 lignes** · **`MXB`** même enveloppe deux fois **`rc=2`,
+    2 lignes** · **`MXC`** `static_cast` **`rc=2`, 2 lignes** (`no matching function for call to
+    'WagoTypes::Address::Address(WagoTypes::WordValue)'`). **Témoin `M0` `rc=0`, ensemble VIDE**, et
+    **passe de contrôle finale revenue à `rc=0`, ensemble VIDE** ; restauration **9 fichiers**
+    comptés et vérifiés octet à octet à chaque passe.
+
+  - **Les deux trous de l'oracle, vérifiés séparément.** (1) ✅ **Comblé** :
+    `EXPECT_FALSE(is_base_of_v<Address, WordValue>)` a désormais son **contrôle positif** —
+    `struct AProbeBase` / `struct AProbeDerived: AProbeBase` et un `EXPECT_TRUE(is_base_of_v<…>)`
+    avec le message *« is_base_of_v answers FALSE for everything here — the W4 line above is passing
+    for free »*. (2) ⚠️ **Déclaré, pas comblé** : *« les 4 implémentations ne sont sondées par aucun
+    cas »* est écrit **en tête de `WagoWriteReply_test.cpp`** (« ⚠️ HOLE, NAMED … Said, not hidden »)
+    **et** au **§7.11** de la fiche, avec la même phrase clé : ce qui les ferme est la **compilation**
+    plus `M1`/`M2`/`M3`, et c'est **strictement plus faible qu'un oracle exécuté**.
+
+  - **Build de validation post-rebase, sur l'arbre mergé** : `# TOTAL: 97` · `# PASS: 95` ·
+    `# SKIP: 1` · `# FAIL: 1` · `# XFAIL/XPASS/ERROR: 0`, **un seul bloc `Testsuite summary`**,
+    **0 `error:`**, `CXXLD    calaos_wago` **et** `CXXLD    calaos_server` présents (regex ancrée).
+    ⭐ **Le `97` est RECOMPTÉ, pas cru** : **97 fichiers `.trs`** sur l'arbre, et
+    `TESTS` = **99 entrées** dont 2 éteintes par condition ⇒ `96` sur `master` **+ 1**
+    (`WagoWriteReply_test`, **6 cas, 6 PASS**). **1634 cas gtest exécutés** sur **93** suites,
+    **aucune à 0 cas** (le compte monte depuis les ~1601 de la branche : `E4.1l` a apporté ses cas).
+    **`# SKIP: 1` = `run-python-tests.sh`**, comportement **voulu** installé par `T3.44` — aucune
+    image n'a `pytest` ⇒ `T3.47`. **`git status -uall` VIDE.**
+
+  - ⭐ **`F-FLAKY-1` VU au run de validation, et VÉRIFIÉ DE CETTE FAMILLE avant d'être écarté** —
+    pas seulement « c'est le flake connu ». `core/ShutterImpulse_test.cpp:297`,
+    `PlainImpulseDownKeepsMovingUntilTheRequestedDuration`, `Value of: sh.isStopped() / Actual: true
+    / Expected: false` : **le fichier ET la forme d'assertion** de la famille des **6** (`:297 :343
+    :384 :450 :498 :664`, relues une par une sur l'arbre mergé, toutes `EXPECT_FALSE(sh.isStopped())`
+    après un `pumpLoopFor` en deçà de l'échéance). Arithmétique refaite **au source** :
+    `kPlainImpulseTimeMs = 35` (`:213`… `:215`), `kPlainDownMs = 147`,
+    `stillMovingProbeMs = (impulse + requested) / 2` ⇒ sonde à **91 ms** pour une échéance à
+    **147 ms** = ⭐ **56 ms de marge**. **AUCUN `make check` relancé pour laver le rouge** ⇒ `T3.49`.
+
+  - **Goldens vérifiés APRÈS les campagnes de mutation, pas avant** : **145** fichiers, arbre
+    `d4ebc61fb2b1876f587d075a0cb050750dc1876f`, **aucun bougé**, `git status` sur `tests/core/golden`
+    **vide**. ⭐ **`src/` strictement inchangé depuis l'état revu** — vérifié en diff ciblé
+    `dbf4fbc1..HEAD` sur `src/bin/calaos_server/IO/` et `tests/WagoWriteReply_test.cpp` : **vide**.
+
+  - ⚠️ **Ce dont je ne suis pas sûr.** (a) Le commentaire d'en-tête du test compte *« deux des quatre
+    corrigées »* là où la fiche compte *« 4/5 → 1/5 »* : les deux disent la même réalité mesurée
+    (`R2` est traitée dans le point (3) du commentaire, comme acceptation du préfixe `addr`), mais la
+    **comptabilité est formulée différemment aux deux endroits** — cosmétique, non bloquant.
+    (b) L'en-tête du test nomme `mbus_cmd_addr_wdata` et ses **5** sites mais **pas** sa ligne de
+    définition `mbus_cmd.c:78`, présente aux trois autres endroits. (c) La ligne `BOARD` de T3.46
+    cite `T3.49`, **dont la fiche n'existe pas encore** dans cet arbre : lien mort tant que l'agent
+    propriétaire n'a pas livré. (d) Rien n'a tourné sous **ASan**, ni `make distcheck`, ni contre un
+    automate Wago réel — la preuve sur ce chemin reste **la compilation, la mutation et le tripwire**.
+
 - **🔒 T3.44 ✅ MERGÉ (`159202b3`, **16** commits, `master` **immobile** sur `df2851d0` ⇒ **rebase
   inutile**, `merge --ff-only`, historique linéaire, **0 commit de fusion**)** — `make check` ne dit
   plus `PASS` sur des suites qui n'ont pas tourné : `tests/run-python-tests.sh` délègue à
