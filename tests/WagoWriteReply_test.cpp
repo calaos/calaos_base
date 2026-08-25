@@ -340,8 +340,10 @@ TEST(WagoWriteReply, TheProbesActuallyDiscriminate)
  *       and address are both accepted now; `a`, `reg`, `target` are not);
  *   (4) hoisting the cast into a named temporary whose name carries neither
  *       "addr"/"val" nor "data".
- * ⇒ Residual rate re-measured on the same five rewrites after hardening: see
- * docs/refactoring/T3.46.md section 7.5(e). Forms (3) and (4) are a RENAME
+ * ⇒ Rate re-measured on the same five rewrites before AND after hardening,
+ * with the parser extracted from both versions of this file into one probe:
+ * 4/5 red before, 1/5 after, M6 and M7 still red. Table in
+ * docs/refactoring/T3.46.md section 7.5, block (e-bis). Forms (3) and (4) are a RENAME
  * telling you to update the expectation below, not a defect being reported.
  *
  * If it fires: someone edited WagoCtrl.cpp:write_single_bit or

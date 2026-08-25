@@ -5984,6 +5984,11 @@ Mesures faites en livrant `fix/t3.46` (base `df2851d0`). Fiche : `docs/refactori
   ⭐ **Mesuré (mutation `MXD`) : c'est une propriété de la BIBLIOTHÈQUE.** Réécrire un paramètre
   de `SingleBit_cb`/`SingleWord_cb` en `T &` ⇒ **`rc=2`** : `sigc++` instancie l'invocateur du slot
   avec des arguments **prvalue** aux sites d'émission et **refuse lui-même la référence**.
+  ⭐ **Rejoué indépendamment** (témoin `M0` à ensemble VIDE, ancre unique, mutation relue sur le
+  disque, `os.utime` pour qu'un arbre déjà construit ne rende pas un faux vert, restauration
+  comptée et vérifiée octet à octet, passe de contrôle revenue à `rc=0` ensemble VIDE) — la ligne
+  qui dit tout : `WagoMap.cpp:244: error: cannot bind non-const lvalue reference of type
+  'sigc::slot3<…, WagoTypes::WordValue&>::arg3_type_' to an rvalue`.
   ⇒ **Sur ces deux `typedef`, l'angle mort ne peut PAS être réarmé en silence : la tentative est un
   échec de build, pas une suite verte.**
   ⚠️ **Portée à ne pas élargir** : propriété de `sigc::slot`, **pas** de la sonde. Sur une fonction
