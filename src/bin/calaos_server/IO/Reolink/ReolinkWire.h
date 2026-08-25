@@ -24,6 +24,7 @@
 #include <string>
 
 #include "Params.h"
+#include "ReolinkTypes.h"
 #include "StringUtils.h"
 
 /*
@@ -63,17 +64,26 @@ namespace ReolinkWire
  * NOTE for whoever adds logging here: this message carries the camera
  * password IN CLEAR. Never log the message itself.
  */
-inline std::string buildRegisterMessage(const std::string &hostname,
-                                        const std::string &username,
-                                        const std::string &password,
-                                        const std::string &event_type)
+/*
+ * T3.31 - the four parameters are FOUR DISTINCT TYPES, not four std::string.
+ *
+ * They used to be four bare strings in a row: any two of them could be
+ * exchanged at the call site with no diagnostic whatsoever, and no test could
+ * catch it (ReolinkCtrl is not linked into ReolinkWire_test and cannot be).
+ * See IO/Reolink/ReolinkTypes.h for what the shape of those wrappers buys and
+ * what it does not, and tests/ReolinkWire_test.cpp for the oracle.
+ */
+inline std::string buildRegisterMessage(const ReolinkTypes::Hostname &hostname,
+                                        const ReolinkTypes::Username &username,
+                                        const ReolinkTypes::Password &password,
+                                        const ReolinkTypes::EventType &event_type)
 {
     Json jroot;
     jroot["action"] = "register";
-    jroot["hostname"] = hostname;
-    jroot["username"] = username;
-    jroot["password"] = password;
-    jroot["event_type"] = event_type;
+    jroot["hostname"] = hostname.v;
+    jroot["username"] = username.v;
+    jroot["password"] = password.v;
+    jroot["event_type"] = event_type.v;
 
     return jroot.dump(-1, ' ', true, Json::error_handler_t::replace);
 }

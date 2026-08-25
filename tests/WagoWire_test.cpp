@@ -123,19 +123,23 @@ namespace
  * replaces each body with a one line call into IO/Wago/WagoWire.h.
  *-------------------------------------------------------------------------*/
 
+/* T3.31 - the shipped builders now take WagoTypes::Address / Count / Value.
+ * The seams keep bare scalars on purpose: they stand where WagoMap.cpp
+ * stands, and the wrapping they do here is the wrapping the production call
+ * site does. Not one assertion below changed with them. */
 string wireReadBits(const string &id, UWord address, int count)
 {
-    return WagoWire::buildReadBitsRequest(id, address, count);
+    return WagoWire::buildReadBitsRequest(id, WagoTypes::Address(address), WagoTypes::Count(count));
 }
 
 string wireReadOutputBits(const string &id, UWord address, int count)
 {
-    return WagoWire::buildReadOutputBitsRequest(id, address, count);
+    return WagoWire::buildReadOutputBitsRequest(id, WagoTypes::Address(address), WagoTypes::Count(count));
 }
 
 string wireWriteBit(const string &id, UWord address, bool value)
 {
-    return WagoWire::buildWriteBitRequest(id, address, value);
+    return WagoWire::buildWriteBitRequest(id, WagoTypes::Address(address), WagoTypes::BitValue(value));
 }
 
 /* The site that carried the bug. Before the rewiring this body was the
@@ -146,28 +150,28 @@ string wireWriteBit(const string &id, UWord address, bool value)
  * See the two cases named ...CarriesTheValuesArray below. */
 string wireWriteBits(const string &id, UWord address, int count, const vector<bool> &values)
 {
-    return WagoWire::buildWriteBitsRequest(id, address, count, values);
+    return WagoWire::buildWriteBitsRequest(id, WagoTypes::Address(address), WagoTypes::Count(count), values);
 }
 
 string wireReadWords(const string &id, UWord address, int count)
 {
-    return WagoWire::buildReadWordsRequest(id, address, count);
+    return WagoWire::buildReadWordsRequest(id, WagoTypes::Address(address), WagoTypes::Count(count));
 }
 
 string wireReadOutputWords(const string &id, UWord address, int count)
 {
-    return WagoWire::buildReadOutputWordsRequest(id, address, count);
+    return WagoWire::buildReadOutputWordsRequest(id, WagoTypes::Address(address), WagoTypes::Count(count));
 }
 
 string wireWriteWord(const string &id, UWord address, UWord value)
 {
-    return WagoWire::buildWriteWordRequest(id, address, value);
+    return WagoWire::buildWriteWordRequest(id, WagoTypes::Address(address), WagoTypes::WordValue(value));
 }
 
 /* Same defect as wireWriteBits(), same rewiring, same fix. */
 string wireWriteWords(const string &id, UWord address, int count, const vector<UWord> &values)
 {
-    return WagoWire::buildWriteWordsRequest(id, address, count, values);
+    return WagoWire::buildWriteWordsRequest(id, WagoTypes::Address(address), WagoTypes::Count(count), values);
 }
 
 /*---------------------------------------------------------------------------
@@ -1116,6 +1120,21 @@ TEST(WagoWire, TheTwoSingleWritesRefuseABareAddressAndValuePair)
     EXPECT_FALSE((std::is_invocable_v<WriteBitFn, const string &, bool, UWord>))
         << "buildWriteBitRequest() still takes a bare UWord and a bare bool: "
            "bool and UWord convert both ways, so the permutation compiles";
+
+    //The counterpart: the typed forms ARE accepted. Without these, a
+    //signature that accepted nothing would pass the two above for free.
+    EXPECT_TRUE((std::is_invocable_v<WriteWordFn, const string &,
+                                     WagoTypes::Address, WagoTypes::WordValue>));
+    EXPECT_TRUE((std::is_invocable_v<WriteBitFn, const string &,
+                                     WagoTypes::Address, WagoTypes::BitValue>));
+
+    //⭐ And the permutation OF THE TYPED FORM, which is the whole point.
+    EXPECT_FALSE((std::is_invocable_v<WriteWordFn, const string &,
+                                      WagoTypes::WordValue, WagoTypes::Address>))
+        << "the address and the value of a single word write are still "
+           "interchangeable - this is the pair F-WAGO-7 names";
+    EXPECT_FALSE((std::is_invocable_v<WriteBitFn, const string &,
+                                      WagoTypes::BitValue, WagoTypes::Address>));
 }
 
 /* The four reads: (UWord address, int count). Different types, permutable all
@@ -1130,6 +1149,12 @@ TEST(WagoWire, TheFourReadsRefuseAPermutedAddressAndCount)
         << "buildReadWordsRequest(id, count, address) still type-checks";
     EXPECT_FALSE((std::is_invocable_v<ReadOutputWordsFn, const string &, int, UWord>))
         << "buildReadOutputWordsRequest(id, count, address) still type-checks";
+
+    EXPECT_TRUE((std::is_invocable_v<ReadBitsFn, const string &,
+                                     WagoTypes::Address, WagoTypes::Count>));
+    EXPECT_FALSE((std::is_invocable_v<ReadBitsFn, const string &,
+                                      WagoTypes::Count, WagoTypes::Address>))
+        << "address and count are still interchangeable - this is E4.1h's M6";
 }
 
 /* The two multiple writes. Their chain is dead end to end (T3.30 section 6.1:
@@ -1144,4 +1169,49 @@ TEST(WagoWire, TheTwoMultipleWritesRefuseAPermutedAddressAndCount)
     EXPECT_FALSE((std::is_invocable_v<WriteWordsFn, const string &, int, UWord,
                                       const vector<UWord> &>))
         << "buildWriteWordsRequest(id, count, address, values) still type-checks";
+
+    EXPECT_TRUE((std::is_invocable_v<WriteBitsFn, const string &,
+                                     WagoTypes::Address, WagoTypes::Count,
+                                     const vector<bool> &>));
+    EXPECT_FALSE((std::is_invocable_v<WriteBitsFn, const string &,
+                                      WagoTypes::Count, WagoTypes::Address,
+                                      const vector<bool> &>));
+}
+
+/* T3.31 - ⭐ THE SHAPE OF THE WRAPPERS, ASKED OF THE TYPE SYSTEM.
+ *
+ * The three cases above would still pass if someone "simplified" these types
+ * into non-explicit wrappers, or gave them a common base, or added a
+ * conversion operator back to the scalar - because they only probe the bare
+ * scalar lists. These four probes pin the properties that make the closure
+ * hold, each one measured against a workaround that defeats it
+ * (docs/refactoring/T3.31.md section 3):
+ *
+ *   W1  a non-explicit constructor lets a bare scalar convert in on its own
+ *   W4  a shared base lets sibling wrappers stand in for one another
+ *   W5  copy-list-init f({a},{b}) writes the permutation in short form
+ *   W6  a conversion operator back to the scalar re-arms everything
+ */
+TEST(WagoWire, TheWrapperShapeIsTheThingThatCloses)
+{
+    //W1 - the constructors are explicit, so a bare scalar is not an Address.
+    EXPECT_FALSE((std::is_convertible_v<UWord, WagoTypes::Address>));
+    EXPECT_FALSE((std::is_convertible_v<UWord, WagoTypes::WordValue>));
+    EXPECT_FALSE((std::is_convertible_v<int, WagoTypes::Count>));
+    EXPECT_FALSE((std::is_convertible_v<bool, WagoTypes::BitValue>));
+    EXPECT_TRUE((std::is_constructible_v<WagoTypes::Address, UWord>));
+
+    //W4 - no common base, so no sibling can stand in for another.
+    EXPECT_FALSE((std::is_convertible_v<WagoTypes::WordValue, WagoTypes::Address>));
+    EXPECT_FALSE((std::is_convertible_v<WagoTypes::Address, WagoTypes::WordValue>));
+    EXPECT_FALSE((std::is_convertible_v<WagoTypes::Count, WagoTypes::Address>));
+    EXPECT_FALSE((std::is_base_of_v<WagoTypes::Address, WagoTypes::WordValue>));
+
+    //W6 - and no way back to the raw scalar without naming .v.
+    EXPECT_FALSE((std::is_convertible_v<WagoTypes::Address, UWord>));
+    EXPECT_FALSE((std::is_convertible_v<WagoTypes::Count, int>));
+
+    //W5 is the same statement as W1 for a one-argument constructor:
+    //is_convertible_v is exactly copy-initialisation, which is what {a}
+    //performs at a call site.
 }

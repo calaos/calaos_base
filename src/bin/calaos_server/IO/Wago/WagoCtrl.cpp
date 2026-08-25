@@ -78,8 +78,21 @@ bool WagoCtrl::is_connected()
         return false;
 }
 
-bool WagoCtrl::read_bits(UWord address, int nb, vector<bool> &values)
+bool WagoCtrl::read_bits(WagoTypes::Address addr, WagoTypes::Count count, vector<bool> &values)
 {
+    /* T3.31 - THE LAST HOP IS UNTYPED, AND IT STAYS UNTYPED. libmbus takes
+     * two mbus_uword in a row; it is a vendored 2003 import, already diverged
+     * from upstream, and this ticket does not change its signatures - the
+     * same refusal T3.43 section 3 made. ⚠️ That is a COST decision, not an
+     * impossibility: a one-field struct closes a permutation in C exactly as
+     * it does in C++ (measured). The scalars are therefore unwrapped HERE,
+     * once, on the line under the parameter they name, and everything below
+     * is unchanged. This body is the one region of the Wago chain where an
+     * address and a payload are two loose scalars again - four unguarded
+     * hops collapsed into one. See docs/refactoring/T3.31.md section 4. */
+    const UWord address = addr.v;
+    const int nb = count.v;
+
     if (!is_connected()) return false;
 
     //T3.30 - REFUSE THE COUNT BEFORE ALLOCATING ON IT. `nb` arrives from the
@@ -120,8 +133,13 @@ bool WagoCtrl::read_bits(UWord address, int nb, vector<bool> &values)
     }
 }
 
-bool WagoCtrl::write_single_bit(UWord address, bool val)
+bool WagoCtrl::write_single_bit(WagoTypes::Address addr, WagoTypes::BitValue value)
 {
+    //T3.31 - unwrapped here, once: the libmbus call below is untyped. See
+    //read_bits() above for why that hop is left open.
+    const UWord address = addr.v;
+    const bool val = value.v;
+
     if (!is_connected()) return false;
 
     mbus_uword data = 0x0000;
@@ -142,11 +160,13 @@ bool WagoCtrl::write_single_bit(UWord address, bool val)
     }
 }
 
-bool WagoCtrl::read_single_output_bit(UWord address)
+bool WagoCtrl::read_single_output_bit(WagoTypes::Address address)
 {
     vector<bool> v;
 
-    if (!read_bits(address + 0x200, 1, v))
+    //T3.31 - the 0x200 offset turns an input address into its output image.
+    //Rebuilt as an Address so it cannot land in the count parameter.
+    if (!read_bits(WagoTypes::Address(address.v + 0x200), WagoTypes::Count(1), v))
         return false;
 
     if (!v.empty())
@@ -155,8 +175,13 @@ bool WagoCtrl::read_single_output_bit(UWord address)
     return false;
 }
 
-bool WagoCtrl::write_multiple_bits(UWord address, int nb, vector<bool> &values)
+bool WagoCtrl::write_multiple_bits(WagoTypes::Address addr, WagoTypes::Count count, vector<bool> &values)
 {
+    //T3.31 - unwrapped here, once: the libmbus call below is untyped. See
+    //read_bits() above for why that hop is left open.
+    const UWord address = addr.v;
+    const int nb = count.v;
+
     if (!is_connected()) return false;
 
     //T3.30 - `nb` comes from the wire message and `values` from the decoded
@@ -188,8 +213,13 @@ bool WagoCtrl::write_multiple_bits(UWord address, int nb, vector<bool> &values)
     }
 }
 
-bool WagoCtrl::read_words(UWord address, int nb, vector<UWord> &values)
+bool WagoCtrl::read_words(WagoTypes::Address addr, WagoTypes::Count count, vector<UWord> &values)
 {
+    //T3.31 - unwrapped here, once: the libmbus call below is untyped. See
+    //read_bits() above for why that hop is left open.
+    const UWord address = addr.v;
+    const int nb = count.v;
+
     if (!is_connected()) return false;
 
     //T3.30 - the register twin of the guard in read_bits(), for the same
@@ -219,8 +249,13 @@ bool WagoCtrl::read_words(UWord address, int nb, vector<UWord> &values)
     }
 }
 
-bool WagoCtrl::write_single_word(UWord address, UWord val)
+bool WagoCtrl::write_single_word(WagoTypes::Address addr, WagoTypes::WordValue value)
 {
+    //T3.31 - unwrapped here, once: the libmbus call below is untyped. See
+    //read_bits() above for why that hop is left open.
+    const UWord address = addr.v;
+    const UWord val = value.v;
+
     if (!is_connected()) return false;
 
     int ret = mbus_cmd_preset_single_register(mbus, 1, (mbus_uword)address, val);
@@ -237,8 +272,13 @@ bool WagoCtrl::write_single_word(UWord address, UWord val)
     }
 }
 
-bool WagoCtrl::write_multiple_words(UWord address, int nb, vector<UWord> &values)
+bool WagoCtrl::write_multiple_words(WagoTypes::Address addr, WagoTypes::Count count, vector<UWord> &values)
 {
+    //T3.31 - unwrapped here, once: the libmbus call below is untyped. See
+    //read_bits() above for why that hop is left open.
+    const UWord address = addr.v;
+    const int nb = count.v;
+
     if (!is_connected()) return false;
 
     //T3.30 - the twin of write_multiple_bits(): no bit packing, the same

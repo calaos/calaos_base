@@ -90,26 +90,39 @@ ReolinkCtrl::~ReolinkCtrl()
 {
 }
 
-ReolinkCtrl::RegistrationId ReolinkCtrl::registerCamera(const string hostname, const string username, const string password, const string event_type, EventReceivedSignal callback)
+ReolinkCtrl::RegistrationId ReolinkCtrl::registerCamera(ReolinkTypes::Hostname hostname,
+                                                        ReolinkTypes::Username username,
+                                                        ReolinkTypes::Password password,
+                                                        ReolinkTypes::EventType event_type,
+                                                        EventReceivedSignal callback)
 {
-    string camera_key = ReolinkEventRegistry::cameraKey(hostname, event_type);
+    /* T3.31 - the four fields are assembled ONCE, here, by name, and travel
+     * as one value from this line on. The positional brace-init that used to
+     * sit on the registry.add() below is gone: it was the one place in the
+     * tree where the residual of an aggregate had actually been realised. */
+    const ReolinkEventRegistry::CameraRegistration reg(std::move(hostname),
+                                                       std::move(username),
+                                                       std::move(password),
+                                                       std::move(event_type));
 
-    cDebugDom("reolink") << "Registering camera: " << hostname << " for event: " << event_type;
+    string camera_key = ReolinkEventRegistry::cameraKey(reg.hostname, reg.event_type);
+
+    cDebugDom("reolink") << "Registering camera: " << reg.hostname << " for event: " << reg.event_type;
 
     // Add callback + store registration info for recovery after crashes
-    RegistrationId id = registry.add({hostname, username, password, event_type}, std::move(callback));
+    RegistrationId id = registry.add(reg, std::move(callback));
 
     // Check if camera is already registered for this event type
     if (registeredCameras.find(camera_key) != registeredCameras.end())
     {
-        cDebugDom("reolink") << "Camera " << hostname << " already registered for event " << event_type;
+        cDebugDom("reolink") << "Camera " << reg.hostname << " already registered for event " << reg.event_type;
         return id;
     }
 
     // Send registration if connected, otherwise wait for connection
     if (connected)
     {
-        doRegisterCamera(hostname, username, password, event_type);
+        doRegisterCamera(reg);
     }
     else
     {
@@ -132,19 +145,29 @@ void ReolinkCtrl::unregisterCamera(RegistrationId id)
     }
 }
 
-void ReolinkCtrl::doRegisterCamera(const string &hostname, const string &username, const string &password, const string &event_type)
+void ReolinkCtrl::doRegisterCamera(const ReolinkEventRegistry::CameraRegistration &reg)
 {
-    string camera_key = ReolinkEventRegistry::cameraKey(hostname, event_type);
+    string camera_key = ReolinkEventRegistry::cameraKey(reg.hostname, reg.event_type);
 
-    // Register camera with the external process. The message carries the
-    // camera password IN CLEAR: never log it, here or anywhere downstream.
-    process->sendMessage(ReolinkWire::buildRegisterMessage(hostname, username,
-                                                           password, event_type));
+    /* Register camera with the external process. The message carries the
+     * camera password IN CLEAR: never log it, here or anywhere downstream.
+     *
+     * ⚠️ T3.31, residual n°1, DECLARED and not closed: these four wrappings
+     * are the one place left where a human could name the wrong field -
+     * ReolinkTypes::Username(reg.password) type-checks and always will. That
+     * is intrinsic to wrapping: the typing collapses four unguarded hops into
+     * this single line, it does not remove it. What it does remove is any
+     * possibility of getting the ORDER wrong between here and the JSON. */
+    process->sendMessage(ReolinkWire::buildRegisterMessage(
+                             ReolinkTypes::Hostname(reg.hostname),
+                             ReolinkTypes::Username(reg.username),
+                             ReolinkTypes::Password(reg.password),
+                             ReolinkTypes::EventType(reg.event_type)));
 
     // Mark camera as registered
     registeredCameras[camera_key] = camera_key;
 
-    cInfoDom("reolink") << "Camera registration sent: " << hostname << " for event " << event_type;
+    cInfoDom("reolink") << "Camera registration sent: " << reg.hostname << " for event " << reg.event_type;
 }
 
 void ReolinkCtrl::registerAllCameras()
@@ -160,7 +183,7 @@ void ReolinkCtrl::registerAllCameras()
     registry.forEachRegistration([this](const ReolinkEventRegistry::CameraRegistration &reg)
     {
         cDebugDom("reolink") << "Registering camera: " << reg.hostname << " for event: " << reg.event_type;
-        doRegisterCamera(reg.hostname, reg.username, reg.password, reg.event_type);
+        doRegisterCamera(reg);
     });
 }
 

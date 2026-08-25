@@ -114,5 +114,6 @@ void WIAnalog::readValue()
 
     Utils::from_string(get_param("var"), address);
 
-    WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WIAnalog::WagoReadCallback));
+    WagoMap::Instance(host, port).read_words(WagoTypes::Address((UWord)address), WagoTypes::Count(1),
+                                              sigc::mem_fun(*this, &WIAnalog::WagoReadCallback));
 }

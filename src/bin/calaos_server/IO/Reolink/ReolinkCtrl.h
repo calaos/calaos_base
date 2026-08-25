@@ -54,13 +54,23 @@ private:
 
     bool connected = false;
 
-    void doRegisterCamera(const string &hostname, const string &username, const string &password, const string &event_type);
+    //T3.31 - one registration, not four loose strings: there is no order
+    //left to get wrong between here and the wire.
+    void doRegisterCamera(const ReolinkEventRegistry::CameraRegistration &reg);
     void registerAllCameras();
 
 public:
     // Returns an id that MUST be passed to unregisterCamera() before the
     // callback's owner is destroyed, otherwise the stored callback dangles.
-    RegistrationId registerCamera(const string hostname, const string username, const string password, const string event_type, EventReceivedSignal callback);
+    //T3.31 - four DISTINCT types, never four bare strings. A caller that
+    //hands hostname/username/password/event_type in the wrong order no
+    //longer compiles; before, it produced a perfectly well formed message
+    //that sent the password in clear in the username field.
+    RegistrationId registerCamera(ReolinkTypes::Hostname hostname,
+                                  ReolinkTypes::Username username,
+                                  ReolinkTypes::Password password,
+                                  ReolinkTypes::EventType event_type,
+                                  EventReceivedSignal callback);
     void unregisterCamera(RegistrationId id);
 
     bool isConnected() const { return connected; }

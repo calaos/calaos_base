@@ -89,7 +89,12 @@ ReolinkInputSwitch::ReolinkInputSwitch(Params &p):
 
     // The callback is stored in the long-lived ReolinkCtrl singleton: guard
     // it with the alive token (belt) and remove it in the destructor (braces)
-    registrationId = ctrl->registerCamera(hostname, username, password, event_type,
+    /* T3.31 - each value is named on its own line, next to the field it
+     * fills. Handing them over in any other order no longer compiles. */
+    registrationId = ctrl->registerCamera(ReolinkTypes::Hostname(hostname),
+                        ReolinkTypes::Username(username),
+                        ReolinkTypes::Password(password),
+                        ReolinkTypes::EventType(event_type),
                         [this, weakAlive = std::weak_ptr<bool>(alive)](const string &host, const string &evt_type, const string &evt_data)
                         {
                             if (weakAlive.expired())

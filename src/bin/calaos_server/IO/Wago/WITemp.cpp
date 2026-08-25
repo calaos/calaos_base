@@ -99,5 +99,6 @@ void WITemp::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> 
 
 void WITemp::readValue()
 {
-    WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WITemp::WagoReadCallback));
+    WagoMap::Instance(host, port).read_words(WagoTypes::Address((UWord)address), WagoTypes::Count(1),
+                                              sigc::mem_fun(*this, &WITemp::WagoReadCallback));
 }

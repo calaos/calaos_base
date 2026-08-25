@@ -26,6 +26,7 @@
 
 #include "Params.h"
 #include "Utils.h"
+#include "WagoTypes.h"
 
 /*
  * E4.1h - the Wago wire, in one place.
@@ -115,38 +116,41 @@ inline std::string flattenValue(const Json &v)
  * docs/refactoring/E4.1h.md - a free function cannot cover its own call site.
  ******************************************************************************/
 
-inline std::string buildReadBitsRequest(const std::string &id, Utils::UWord address, int count)
+inline std::string buildReadBitsRequest(const std::string &id, WagoTypes::Address address,
+                                        WagoTypes::Count count)
 {
     Json jroot;
     jroot["action"] = "read_bits";
     jroot["id"] = id;
-    jroot["address"] = Utils::to_string(address);
-    jroot["count"] = Utils::to_string(count);
+    jroot["address"] = Utils::to_string(address.v);
+    jroot["count"] = Utils::to_string(count.v);
 
     return dumpJson(jroot);
 }
 
 //Same message, other action. The 0x200 offset that turns this into a read of
 //the OUTPUT image is applied by calaos_wago, never by the address on the wire.
-inline std::string buildReadOutputBitsRequest(const std::string &id, Utils::UWord address, int count)
+inline std::string buildReadOutputBitsRequest(const std::string &id, WagoTypes::Address address,
+                                              WagoTypes::Count count)
 {
     Json jroot;
     jroot["action"] = "read_output_bits";
     jroot["id"] = id;
-    jroot["address"] = Utils::to_string(address);
-    jroot["count"] = Utils::to_string(count);
+    jroot["address"] = Utils::to_string(address.v);
+    jroot["count"] = Utils::to_string(count.v);
 
     return dumpJson(jroot);
 }
 
 //A single write carries "value" and NO "count".
-inline std::string buildWriteBitRequest(const std::string &id, Utils::UWord address, bool value)
+inline std::string buildWriteBitRequest(const std::string &id, WagoTypes::Address address,
+                                        WagoTypes::BitValue value)
 {
     Json jroot;
     jroot["action"] = "write_bit";
     jroot["id"] = id;
-    jroot["address"] = Utils::to_string(address);
-    jroot["value"] = value?"true":"false";
+    jroot["address"] = Utils::to_string(address.v);
+    jroot["value"] = value.v?"true":"false";
 
     return dumpJson(jroot);
 }
@@ -176,14 +180,15 @@ inline std::string buildWriteBitRequest(const std::string &id, Utils::UWord addr
  *
  * tests/WagoWire_test.cpp pins the emitted array, values and order included.
  */
-inline std::string buildWriteBitsRequest(const std::string &id, Utils::UWord address, int count,
+inline std::string buildWriteBitsRequest(const std::string &id, WagoTypes::Address address,
+                                         WagoTypes::Count count,
                                          const std::vector<bool> &values)
 {
     Json jroot;
     jroot["action"] = "write_bits";
     jroot["id"] = id;
-    jroot["address"] = Utils::to_string(address);
-    jroot["count"] = Utils::to_string(count);
+    jroot["address"] = Utils::to_string(address.v);
+    jroot["count"] = Utils::to_string(count.v);
 
     //STRINGS, like every other value of this wire: calaos_wago reads them back
     //with a string accessor and compares them to the word "true".
@@ -195,49 +200,53 @@ inline std::string buildWriteBitsRequest(const std::string &id, Utils::UWord add
     return dumpJson(jroot);
 }
 
-inline std::string buildReadWordsRequest(const std::string &id, Utils::UWord address, int count)
+inline std::string buildReadWordsRequest(const std::string &id, WagoTypes::Address address,
+                                         WagoTypes::Count count)
 {
     Json jroot;
     jroot["action"] = "read_words";
     jroot["id"] = id;
-    jroot["address"] = Utils::to_string(address);
-    jroot["count"] = Utils::to_string(count);
+    jroot["address"] = Utils::to_string(address.v);
+    jroot["count"] = Utils::to_string(count.v);
 
     return dumpJson(jroot);
 }
 
-inline std::string buildReadOutputWordsRequest(const std::string &id, Utils::UWord address, int count)
+inline std::string buildReadOutputWordsRequest(const std::string &id, WagoTypes::Address address,
+                                               WagoTypes::Count count)
 {
     Json jroot;
     jroot["action"] = "read_output_words";
     jroot["id"] = id;
-    jroot["address"] = Utils::to_string(address);
-    jroot["count"] = Utils::to_string(count);
+    jroot["address"] = Utils::to_string(address.v);
+    jroot["count"] = Utils::to_string(count.v);
 
     return dumpJson(jroot);
 }
 
-inline std::string buildWriteWordRequest(const std::string &id, Utils::UWord address, Utils::UWord value)
+inline std::string buildWriteWordRequest(const std::string &id, WagoTypes::Address address,
+                                         WagoTypes::WordValue value)
 {
     Json jroot;
     jroot["action"] = "write_word";
     jroot["id"] = id;
-    jroot["address"] = Utils::to_string(address);
-    jroot["value"] = Utils::to_string(value);
+    jroot["address"] = Utils::to_string(address.v);
+    jroot["value"] = Utils::to_string(value.v);
 
     return dumpJson(jroot);
 }
 
 //⭐ Same defect as buildWriteBitsRequest(), fixed the same way and for the
 //same measured reason - this function has no caller either. See there.
-inline std::string buildWriteWordsRequest(const std::string &id, Utils::UWord address, int count,
+inline std::string buildWriteWordsRequest(const std::string &id, WagoTypes::Address address,
+                                          WagoTypes::Count count,
                                           const std::vector<Utils::UWord> &values)
 {
     Json jroot;
     jroot["action"] = "write_words";
     jroot["id"] = id;
-    jroot["address"] = Utils::to_string(address);
-    jroot["count"] = Utils::to_string(count);
+    jroot["address"] = Utils::to_string(address.v);
+    jroot["count"] = Utils::to_string(count.v);
 
     //decimal digits, as STRINGS - never JSON numbers
     Json jarr = Json::array();

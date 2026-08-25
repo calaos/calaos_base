@@ -98,8 +98,14 @@ namespace
 string buildRegisterWire(const string &hostname, const string &username,
                          const string &password, const string &event_type)
 {
-    return ReolinkWire::buildRegisterMessage(hostname, username, password,
-                                             event_type);
+    /* T3.31 - the shipped emitter now takes four DISTINCT types. The seam
+     * keeps four bare strings on purpose: it stands where ReolinkCtrl.cpp
+     * stands, and the wrapping it does here is exactly the wrapping the
+     * production call site does. */
+    return ReolinkWire::buildRegisterMessage(ReolinkTypes::Hostname(hostname),
+                                             ReolinkTypes::Username(username),
+                                             ReolinkTypes::Password(password),
+                                             ReolinkTypes::EventType(event_type));
 }
 
 /*---------------------------------------------------------------------------
@@ -612,4 +618,21 @@ TEST(ReolinkWire, TheRegisterMessageRefusesFourBareStrings)
     EXPECT_FALSE((std::is_invocable_v<RegisterFn, const char *, const char *,
                                       const char *, const char *>))
         << "buildRegisterMessage() still accepts four bare string literals";
+
+    //And the counterpart: the typed form IS accepted. Without this a
+    //signature that accepted nothing at all would pass the two above.
+    EXPECT_TRUE((std::is_invocable_v<RegisterFn,
+                                     const ReolinkTypes::Hostname &,
+                                     const ReolinkTypes::Username &,
+                                     const ReolinkTypes::Password &,
+                                     const ReolinkTypes::EventType &>));
+
+    //⭐ And the permutation OF THE TYPED FORM, which is the whole point:
+    //handing the password where the username goes no longer type-checks.
+    EXPECT_FALSE((std::is_invocable_v<RegisterFn,
+                                      const ReolinkTypes::Hostname &,
+                                      const ReolinkTypes::Password &,
+                                      const ReolinkTypes::Username &,
+                                      const ReolinkTypes::EventType &>))
+        << "username and password are still interchangeable at the call site";
 }

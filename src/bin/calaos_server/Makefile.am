@@ -176,6 +176,7 @@ calaos_server_SOURCES = \
         IO/Mqtt/MqttWire.h                              \
         IO/Reolink/ReolinkCtrl.h                        \
         IO/Reolink/ReolinkCtrl.cpp                      \
+        IO/Reolink/ReolinkTypes.h                       \
         IO/Reolink/ReolinkWire.h                        \
         IO/Reolink/ReolinkInputSwitch.h                 \
         IO/Reolink/ReolinkInputSwitch.cpp               \
@@ -238,6 +239,7 @@ calaos_server_SOURCES = \
         IO/Wago/WagoMap.cpp                             \
         IO/Wago/WagoIOBase.h                            \
         IO/Wago/WagoMap.h                               \
+        IO/Wago/WagoTypes.h                             \
         IO/Wago/WagoWire.h                              \
         IO/Wago/libmbus/mbus.c                          \
         IO/Wago/libmbus/mbus.h                          \
@@ -390,6 +392,7 @@ calaos_wago_SOURCES = \
         IO/Wago/libmbus/mbus_conf.h         \
         IO/Wago/libmbus/mbus_rqst.c         \
         IO/Wago/libmbus/mbus_sock.c         \
+        IO/Wago/WagoTypes.h                 \
         IO/Wago/WagoWire.h                  \
         IO/Wago/WagoExternProc_main.cpp
 

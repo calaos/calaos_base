@@ -38,7 +38,20 @@ using std::string;
 
 static ReolinkEventRegistry::CameraRegistration makeReg(const string &host, const string &evt)
 {
-    return {host, "user", "secret", evt};
+    /* T3.31 - was `return {host, "user", "secret", evt};`, the same positional
+     * brace-init ReolinkCtrl.cpp:100 wrote. The four values are now named on
+     * their own line, and no other order compiles.
+     *
+     * ⚠️ Fixture: the four are mutually non-substitutable on purpose - a
+     * hostname that looks like a hostname, a username and a password of
+     * different lengths and different character families, and an event type
+     * the caller chooses. A fixture whose fields could stand in for one
+     * another would prove nothing about a permutation. */
+    return ReolinkEventRegistry::CameraRegistration(
+               ReolinkTypes::Hostname(host),
+               ReolinkTypes::Username("operator-7"),
+               ReolinkTypes::Password("Kx9!vQm2#Zt"),
+               ReolinkTypes::EventType(evt));
 }
 
 TEST(ReolinkRegistry, CameraKeyFormat)
@@ -264,6 +277,42 @@ TEST(ReolinkRegistry, ARegistrationRefusesFourBareStringsPositionally)
     EXPECT_FALSE((isDirectInitializable<Reg, string, string, string, string>))
         << "CameraRegistration(h, u, p, e) still compiles - a positional "
            "constructor is not a fix, it is the same hole with a name on it";
+
+    //The counterpart: the typed form IS accepted, so the two above are not
+    //passing because the type became unbuildable.
+    EXPECT_TRUE((isDirectInitializable<Reg, ReolinkTypes::Hostname,
+                                       ReolinkTypes::Username,
+                                       ReolinkTypes::Password,
+                                       ReolinkTypes::EventType>));
+
+    //⭐ And the permutation of the typed form is refused - username and
+    //password swapped, which is the exact defect F-REO-5 names.
+    EXPECT_FALSE((isDirectInitializable<Reg, ReolinkTypes::Hostname,
+                                        ReolinkTypes::Password,
+                                        ReolinkTypes::Username,
+                                        ReolinkTypes::EventType>));
+    EXPECT_FALSE((isBraceInitializable<Reg, ReolinkTypes::Hostname,
+                                       ReolinkTypes::Password,
+                                       ReolinkTypes::Username,
+                                       ReolinkTypes::EventType>));
+}
+
+/* T3.31 - the fields still land where their names say, after the shape
+ * change. The four fixture values are mutually non-substitutable, so this
+ * would fall on any permutation inside the constructor itself - which is the
+ * one hop the typing moved the risk INTO. */
+TEST(ReolinkRegistry, TheTypedConstructorFillsEachFieldFromItsOwnWrapper)
+{
+    const ReolinkEventRegistry::CameraRegistration reg(
+        ReolinkTypes::Hostname("cam-north.lan"),
+        ReolinkTypes::Username("operator-7"),
+        ReolinkTypes::Password("Kx9!vQm2#Zt"),
+        ReolinkTypes::EventType("person"));
+
+    EXPECT_EQ("cam-north.lan", reg.hostname);
+    EXPECT_EQ("operator-7", reg.username);
+    EXPECT_EQ("Kx9!vQm2#Zt", reg.password);
+    EXPECT_EQ("person", reg.event_type);
 }
 
 /* The probes above are only worth their line count if they can tell the two

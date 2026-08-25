@@ -53,7 +53,8 @@ WOAnalog::WOAnalog(Params &p):
 
     WagoMap::Instance(host, port).onWagoConnected.connect([=]()
     {
-        WagoMap::Instance(host, port).read_words((UWord)address + 0x200, 1, sigc::mem_fun(*this, &WOAnalog::WagoReadCallback));
+        WagoMap::Instance(host, port).read_words(WagoTypes::Address((UWord)address + 0x200), WagoTypes::Count(1),
+                                              sigc::mem_fun(*this, &WOAnalog::WagoReadCallback));
     });
 
     Calaos::StartReadRules::Instance().addIO();
@@ -107,5 +108,6 @@ void WOAnalog::set_value_real(double val)
     if (get_params().Exists("port"))
         Utils::from_string_or_keep(get_param("port"), port);
 
-    WagoMap::Instance(host, port).write_single_word((UWord)address, val, sigc::mem_fun(*this, &WOAnalog::WagoWriteCallback));
+    WagoMap::Instance(host, port).write_single_word(WagoTypes::Address((UWord)address), WagoTypes::WordValue(val),
+                                                     sigc::mem_fun(*this, &WOAnalog::WagoWriteCallback));
 }

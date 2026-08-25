@@ -135,7 +135,8 @@ protected:
         if (readsInitialState && this->get_param("knx") != "true")
         {
             //Force to reconnect in case of disconnection
-            WagoMap::Instance(host, port).read_bits((UWord)address, 1, sigc::mem_fun(*this, &WIDigitalBase::WagoReadCallback));
+            WagoMap::Instance(host, port).read_bits(WagoTypes::Address((UWord)address), WagoTypes::Count(1),
+                                                sigc::mem_fun(*this, &WIDigitalBase::WagoReadCallback));
         }
 
         return udp_value;
@@ -171,7 +172,8 @@ public:
         {
             if (this->get_param("knx") != "true")
             {
-                WagoMap::Instance(host, port).read_bits((UWord)address, 1, sigc::mem_fun(*this, &WIDigitalBase::WagoReadCallback));
+                WagoMap::Instance(host, port).read_bits(WagoTypes::Address((UWord)address), WagoTypes::Count(1),
+                                                sigc::mem_fun(*this, &WIDigitalBase::WagoReadCallback));
 
                 Calaos::StartReadRules::Instance().addIO();
             }
@@ -275,13 +277,15 @@ public:
     virtual void setOutputUp(bool enable)
     {
         readConfig();
-        WagoMap::Instance(host, port).write_single_bit((UWord)up_address, enable, sigc::mem_fun(*this, &WOVoletBase::WagoWriteCallback));
+        WagoMap::Instance(host, port).write_single_bit(WagoTypes::Address((UWord)up_address), WagoTypes::BitValue(enable),
+                                                       sigc::mem_fun(*this, &WOVoletBase::WagoWriteCallback));
     }
 
     virtual void setOutputDown(bool enable)
     {
         readConfig();
-        WagoMap::Instance(host, port).write_single_bit((UWord)down_address, enable, sigc::mem_fun(*this, &WOVoletBase::WagoWriteCallback));
+        WagoMap::Instance(host, port).write_single_bit(WagoTypes::Address((UWord)down_address), WagoTypes::BitValue(enable),
+                                                       sigc::mem_fun(*this, &WOVoletBase::WagoWriteCallback));
     }
 
     void WagoWriteCallback(bool status, UWord address, bool value)

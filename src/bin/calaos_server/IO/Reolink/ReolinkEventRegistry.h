@@ -27,7 +27,10 @@
 #include <functional>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
+
+#include "ReolinkTypes.h"
 
 /*
  * Bookkeeping for Reolink camera event callbacks, kept free of any process
@@ -49,8 +52,42 @@ public:
                                              const std::string &event_type,
                                              const std::string &event_data)>;
 
+    /*
+     * T3.31 - four std::string, and NOT an aggregate.
+     *
+     * ⚠️ The struct alone closed nothing and this is the measurement that
+     * says so: it has carried these four fields by name since E4.1i, and
+     * ReolinkCtrl.cpp:100 still built it POSITIONALLY,
+     * registry.add({hostname, username, password, event_type}, ...) - so
+     * username and password stayed two adjacent strings a caller could swap
+     * in silence. A named struct bought a name, not a check.
+     *
+     * ⭐ MEASURED, and it contradicts what T3.31 asked for. The ticket said
+     * to close this "by giving CameraRegistration a constructor". A
+     * constructor does remove aggregate-ness, but the constructor is ITSELF
+     * positional: with `Reg(string h, string u, string p, string e)` the call
+     * `add({h, p, u, e})` still compiles, with zero warnings at -Wall
+     * -Wextra -Wconversion. Only per-field strong types close it, so that is
+     * what this takes. tests/ReolinkRegistry_test.cpp carries both halves of
+     * that measurement.
+     *
+     * ⚠️ Having a user-provided constructor makes this NOT default
+     * constructible, which is deliberate: a half-filled registration has no
+     * meaning. add() below therefore uses insert_or_assign() and not
+     * operator[], which would require a default constructor.
+     */
     struct CameraRegistration
     {
+        CameraRegistration(ReolinkTypes::Hostname h,
+                           ReolinkTypes::Username u,
+                           ReolinkTypes::Password p,
+                           ReolinkTypes::EventType e):
+            hostname(std::move(h.v)),
+            username(std::move(u.v)),
+            password(std::move(p.v)),
+            event_type(std::move(e.v))
+        {}
+
         std::string hostname;
         std::string username;
         std::string password;
@@ -67,7 +104,7 @@ public:
         const std::string key = cameraKey(reg.hostname, reg.event_type);
         const RegistrationId id = nextId++;
         callbacks[key].push_back({id, std::move(callback)});
-        registrations[key] = reg;
+        registrations.insert_or_assign(key, reg); //not operator[]: see CameraRegistration
         idToKey[id] = key;
         return id;
     }

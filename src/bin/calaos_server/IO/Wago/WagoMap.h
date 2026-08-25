@@ -24,6 +24,7 @@
 #include <Calaos.h>
 #include <Timer.h>
 #include "ExternProc.h"
+#include "WagoTypes.h"
 
 namespace uvw {
 //Forward declare classes here to prevent long build time
@@ -182,16 +183,19 @@ public:
     static void stopAllWagoMaps();
 
     //bits
-    void read_bits(UWord address, int nb, MultiBits_cb callback);
-    void read_output_bits(UWord address, int nb, MultiBits_cb callback);
-    void write_single_bit(UWord address, bool val, SingleBit_cb callback);
-    void write_multiple_bits(UWord address, int nb, vector<bool> &values, MultiBits_cb callback);
+    /* T3.31 - address, count and payload each have a type of their own, so a
+     * caller can no longer hand them over in the wrong order. See
+     * IO/Wago/WagoTypes.h for what that buys and what it leaves open. */
+    void read_bits(WagoTypes::Address address, WagoTypes::Count nb, MultiBits_cb callback);
+    void read_output_bits(WagoTypes::Address address, WagoTypes::Count nb, MultiBits_cb callback);
+    void write_single_bit(WagoTypes::Address address, WagoTypes::BitValue val, SingleBit_cb callback);
+    void write_multiple_bits(WagoTypes::Address address, WagoTypes::Count nb, vector<bool> &values, MultiBits_cb callback);
 
     //Words
-    void read_words(UWord address, int nb, MultiWords_cb callback);
-    void read_output_words(UWord address, int nb, MultiWords_cb callback);
-    void write_single_word(UWord address, UWord val, SingleWord_cb callback);
-    void write_multiple_words(UWord address, int nb, vector<UWord> &values, MultiWords_cb callback);
+    void read_words(WagoTypes::Address address, WagoTypes::Count nb, MultiWords_cb callback);
+    void read_output_words(WagoTypes::Address address, WagoTypes::Count nb, MultiWords_cb callback);
+    void write_single_word(WagoTypes::Address address, WagoTypes::WordValue val, SingleWord_cb callback);
+    void write_multiple_words(WagoTypes::Address address, WagoTypes::Count nb, vector<UWord> &values, MultiWords_cb callback);
 
     std::string get_host() { return host; }
     int get_port() { return port; }

@@ -86,11 +86,11 @@ void WagoProcess::messageReceived(const string &msg)
 
         cDebug() << "Reading address " << (address + offset) << " (PLC: " << wago_host << ")";
 
-        if (!wago->read_bits(address + offset, count, values_bits))
+        if (!wago->read_bits(WagoTypes::Address(address + offset), WagoTypes::Count(count), values_bits))
         {
             cWarning() << "Wago MBUS, Reconnecting to host " << wago_host;
             wago->Connect();
-            if (!wago->read_bits(address + offset, count, values_bits))
+            if (!wago->read_bits(WagoTypes::Address(address + offset), WagoTypes::Count(count), values_bits))
             {
                 cError() << "Wago MBUS, failed to send request";
                 status = false;
@@ -113,11 +113,11 @@ void WagoProcess::messageReceived(const string &msg)
 
         cDebug() << "Writing " << value << " to address " << address << " (PLC: " << wago_host << ")";
 
-        if (!wago->write_single_bit(address, value))
+        if (!wago->write_single_bit(WagoTypes::Address(address), WagoTypes::BitValue(value)))
         {
             cWarning() << "Wago MBUS, Reconnecting to host " << wago_host;
             wago->Connect();
-            if (!wago->write_single_bit(address, value))
+            if (!wago->write_single_bit(WagoTypes::Address(address), WagoTypes::BitValue(value)))
             {
                 cError() << "Wago MBUS, failed to send request";
                 status = false;
@@ -141,11 +141,11 @@ void WagoProcess::messageReceived(const string &msg)
         for (const string &v: values)
             values_bits.push_back(v == "true");
 
-        if (!wago->write_multiple_bits(address, count, values_bits))
+        if (!wago->write_multiple_bits(WagoTypes::Address(address), WagoTypes::Count(count), values_bits))
         {
             cWarning() << "Wago MBUS, Reconnecting to host " << wago_host;
             wago->Connect();
-            if (!wago->write_multiple_bits(address, count, values_bits))
+            if (!wago->write_multiple_bits(WagoTypes::Address(address), WagoTypes::Count(count), values_bits))
             {
                 cError() << "Wago MBUS, failed to send request";
                 status = false;
@@ -171,11 +171,11 @@ void WagoProcess::messageReceived(const string &msg)
 
         cDebug() << "Reading address " << (address + offset) << " (PLC: " << wago_host << ")";
 
-        if (!wago->read_words(address + offset, count, values_words))
+        if (!wago->read_words(WagoTypes::Address(address + offset), WagoTypes::Count(count), values_words))
         {
             cWarning() << "Wago MBUS, Reconnecting to host " << wago_host;
             wago->Connect();
-            if (!wago->read_words(address + offset, count, values_words))
+            if (!wago->read_words(WagoTypes::Address(address + offset), WagoTypes::Count(count), values_words))
             {
                 cError() << "Wago MBUS, failed to send request";
                 status = false;
@@ -199,11 +199,16 @@ void WagoProcess::messageReceived(const string &msg)
 
         cDebug() << "Writing " << value << " to address " << address << " (PLC: " << wago_host << ")";
 
-        if (!wago->write_single_word(address, value))
+        /* T3.31 - THE pair of F-WAGO-7: two UWord side by side on a WRITE.
+         * Permuting them used to compile in silence and preset an arbitrary
+         * register of the PLC. The wrapping below is the one place left where
+         * a human names which is which, and it sits four lines under the two
+         * from_string() calls that fill them. */
+        if (!wago->write_single_word(WagoTypes::Address(address), WagoTypes::WordValue(value)))
         {
             cWarning() << "Wago MBUS, Reconnecting to host " << wago_host;
             wago->Connect();
-            if (!wago->write_single_word(address, value))
+            if (!wago->write_single_word(WagoTypes::Address(address), WagoTypes::WordValue(value)))
             {
                 cError() << "Wago MBUS, failed to send request";
                 status = false;
@@ -231,11 +236,11 @@ void WagoProcess::messageReceived(const string &msg)
             values_words.push_back(vv);
         }
 
-        if (!wago->write_multiple_words(address, count, values_words))
+        if (!wago->write_multiple_words(WagoTypes::Address(address), WagoTypes::Count(count), values_words))
         {
             cWarning() << "Wago MBUS, Reconnecting to host " << wago_host;
             wago->Connect();
-            if (!wago->write_multiple_words(address, count, values_words))
+            if (!wago->write_multiple_words(WagoTypes::Address(address), WagoTypes::Count(count), values_words))
             {
                 cError() << "Wago MBUS, failed to send request";
                 status = false;

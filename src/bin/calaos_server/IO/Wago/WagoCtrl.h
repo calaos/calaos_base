@@ -24,6 +24,8 @@
 #include <Utils.h>
 #include <mbus.h>
 
+#include "WagoTypes.h"
+
 class WagoCtrl
 {
 protected:
@@ -48,15 +50,22 @@ public:
     bool is_connected();
 
     //bits
-    bool read_bits(Utils::UWord address, int nb, vector<bool> &values);
-    bool write_single_bit(Utils::UWord address, bool val);
-    bool read_single_output_bit(Utils::UWord address);
-    bool write_multiple_bits(Utils::UWord address, int nb, vector<bool> &values);
+    /* T3.31 - address, count and payload each have a type of their own.
+     * ⚠️ The LAST hop, from these bodies into libmbus, is NOT closed:
+     * mbus_cmd_preset_single_register() and mbus_cmd_force_single_coil()
+     * take two mbus_uword in a row. That is a cost decision about a vendored
+     * library, not an impossibility - a one-field struct closes a
+     * permutation in C too, measured. WagoCtrl.cpp unwraps with .v in
+     * exactly one line per command. See docs/refactoring/T3.31.md 4. */
+    bool read_bits(WagoTypes::Address address, WagoTypes::Count nb, vector<bool> &values);
+    bool write_single_bit(WagoTypes::Address address, WagoTypes::BitValue val);
+    bool read_single_output_bit(WagoTypes::Address address);
+    bool write_multiple_bits(WagoTypes::Address address, WagoTypes::Count nb, vector<bool> &values);
 
     //Words
-    bool read_words(Utils::UWord address, int nb, vector<Utils::UWord> &values);
-    bool write_single_word(Utils::UWord address, Utils::UWord val);
-    bool write_multiple_words(Utils::UWord address, int nb, vector<Utils::UWord> &values);
+    bool read_words(WagoTypes::Address address, WagoTypes::Count nb, vector<Utils::UWord> &values);
+    bool write_single_word(WagoTypes::Address address, WagoTypes::WordValue val);
+    bool write_multiple_words(WagoTypes::Address address, WagoTypes::Count nb, vector<Utils::UWord> &values);
 
     void set_host(std::string &h) { host = h; }
     std::string get_host() { return host; }

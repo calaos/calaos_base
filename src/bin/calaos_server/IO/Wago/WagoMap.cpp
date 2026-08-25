@@ -165,7 +165,8 @@ void WagoMap::createUdpSocket()
 
 void WagoMap::WagoModbusHeartBeatTick()
 {
-    read_bits(0, 1, sigc::mem_fun(*this, &WagoMap::WagoModbusReadHeartbeatCallback));
+    read_bits(WagoTypes::Address(0), WagoTypes::Count(1),
+              sigc::mem_fun(*this, &WagoMap::WagoModbusReadHeartbeatCallback));
 }
 
 void WagoMap::WagoModbusReadHeartbeatCallback(bool status, UWord address, int count, vector<bool> &values)
@@ -249,7 +250,7 @@ void WagoMap::processNewMessage(const string &msg)
     cmd.deleteSignals();
 }
 
-void WagoMap::read_bits(UWord address, int nb, MultiBits_cb callback)
+void WagoMap::read_bits(WagoTypes::Address address, WagoTypes::Count nb, MultiBits_cb callback)
 {
     WagoMapCmd cmd(MBUS_READ_BITS);
     cmd.createSignals();
@@ -261,7 +262,7 @@ void WagoMap::read_bits(UWord address, int nb, MultiBits_cb callback)
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
-void WagoMap::read_output_bits(UWord address, int nb, MultiBits_cb callback)
+void WagoMap::read_output_bits(WagoTypes::Address address, WagoTypes::Count nb, MultiBits_cb callback)
 {
     WagoMapCmd cmd(MBUS_READ_OUTBITS);
     cmd.createSignals();
@@ -273,7 +274,7 @@ void WagoMap::read_output_bits(UWord address, int nb, MultiBits_cb callback)
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
-void WagoMap::write_single_bit(UWord address, bool val, SingleBit_cb callback)
+void WagoMap::write_single_bit(WagoTypes::Address address, WagoTypes::BitValue val, SingleBit_cb callback)
 {
     WagoMapCmd cmd(MBUS_WRITE_BIT);
     cmd.createSignals();
@@ -285,7 +286,7 @@ void WagoMap::write_single_bit(UWord address, bool val, SingleBit_cb callback)
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
-void WagoMap::write_multiple_bits(UWord address, int nb, vector<bool> &values, MultiBits_cb callback)
+void WagoMap::write_multiple_bits(WagoTypes::Address address, WagoTypes::Count nb, vector<bool> &values, MultiBits_cb callback)
 {
     WagoMapCmd cmd(MBUS_WRITE_BITS);
     cmd.createSignals();
@@ -302,7 +303,7 @@ void WagoMap::write_multiple_bits(UWord address, int nb, vector<bool> &values, M
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
-void WagoMap::read_words(UWord address, int nb, MultiWords_cb callback)
+void WagoMap::read_words(WagoTypes::Address address, WagoTypes::Count nb, MultiWords_cb callback)
 {
     WagoMapCmd cmd(MBUS_READ_WORDS);
     cmd.createSignals();
@@ -314,7 +315,7 @@ void WagoMap::read_words(UWord address, int nb, MultiWords_cb callback)
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
-void WagoMap::read_output_words(UWord address, int nb, MultiWords_cb callback)
+void WagoMap::read_output_words(WagoTypes::Address address, WagoTypes::Count nb, MultiWords_cb callback)
 {
     WagoMapCmd cmd(MBUS_READ_OUTWORDS);
     cmd.createSignals();
@@ -326,7 +327,7 @@ void WagoMap::read_output_words(UWord address, int nb, MultiWords_cb callback)
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
-void WagoMap::write_single_word(UWord address, UWord val, SingleWord_cb callback)
+void WagoMap::write_single_word(WagoTypes::Address address, WagoTypes::WordValue val, SingleWord_cb callback)
 {
     WagoMapCmd cmd(MBUS_WRITE_WORD);
     cmd.createSignals();
@@ -338,7 +339,7 @@ void WagoMap::write_single_word(UWord address, UWord val, SingleWord_cb callback
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
-void WagoMap::write_multiple_words(UWord address, int nb, vector<UWord> &values, MultiWords_cb callback)
+void WagoMap::write_multiple_words(WagoTypes::Address address, WagoTypes::Count nb, vector<UWord> &values, MultiWords_cb callback)
 {
     WagoMapCmd cmd(MBUS_WRITE_WORDS);
     cmd.createSignals();
