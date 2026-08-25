@@ -462,6 +462,86 @@ TEST_F(WebJsonPathTest, AnEmptyPathReturnsEmpty)
     EXPECT_EQ("", resolve("///"));
 }
 
+/* ---------------------------------------------------------------------------
+ * T3.37 - CHARACTERIZATION of the one branch the extraction cannot keep twice.
+ *
+ * The two copies of this parser are, after T3.35c, identical line for line
+ * except for four `err = true;` statements and ONE branch: the tail of
+ * `if (!tokens.empty())`, reached when a NON EMPTY path splits into no token
+ * at all ("/", "///", and on the Web side also ""). There the two copies say
+ * different things:
+ *
+ *   MQTT : sets err and logs NOTHING AT ALL. A `path` of "///" is answered
+ *          with an empty value and not one line in the server log.
+ *   Web  : logs "Error emtpy path not allowed" - a typo, and it does not name
+ *          the path that caused it, so the log line cannot be traced back to
+ *          the IO that produced it when several are polling.
+ *
+ * An extraction has to pick one, and the one it picks has to be the one that
+ * honours the contract every OTHER failure of this parser already honours
+ * (T3.35 sect. 5.1): an empty value, no exception, and a warning THAT NAMES
+ * THE OFFENDING PATH. These two cases are therefore red before the extraction
+ * on BOTH sides - MQTT for having no message, Web for having one that says
+ * neither what is wrong nor which path is wrong.
+ *
+ * ! WHAT THESE CASES ARE NOT. They are not the proof that the two callers
+ * route through the extracted parser. A behaviour preserving extraction is
+ * green from end to end and proves nothing by being green; the proof is that
+ * a mutation of the SHARED body reddens MQTT cases AND Web cases together,
+ * which is what the T3.37 mutation campaign measures. See docs/refactoring/
+ * T3.37.md sect. 5.
+ * ------------------------------------------------------------------------ */
+
+//The wording the unified no-token branch must carry. Two needles, asserted
+//separately: the DIAGNOSIS ("there is nothing to resolve") and the RULE (what
+//a path is supposed to contain). A single needle covering both would be
+//satisfied by half a sentence.
+const char *const kNoSegmentDiagnosis = "no path segment";
+const char *const kNoSegmentRule = "at least one key or index";
+
+TEST_F(MqttJsonPathTest, APathThatSplitsIntoNoTokenIsLoggedAndNamesThePath)
+{
+    std::string value, log;
+    {
+        CoutCapture capture;
+        value = resolve("///");
+        log = capture.str();
+    }
+
+    EXPECT_EQ("", value);
+    EXPECT_TRUE(logContains(log, kNoSegmentDiagnosis)) << "log was: [" << log << "]";
+    EXPECT_TRUE(logContains(log, kNoSegmentRule)) << "log was: [" << log << "]";
+    //The echo of the offending path. On master the MQTT copy prints NOTHING
+    //here, so there is no earlier line this could be satisfied by.
+    EXPECT_TRUE(logContains(log, "///")) << "log was: [" << log << "]";
+}
+
+TEST_F(WebJsonPathTest, APathThatSplitsIntoNoTokenIsLoggedAndNamesThePath)
+{
+    std::string value, log;
+    {
+        CoutCapture capture;
+        value = resolve("///");
+        log = capture.str();
+    }
+
+    EXPECT_EQ("", value);
+    EXPECT_TRUE(logContains(log, kNoSegmentDiagnosis)) << "log was: [" << log << "]";
+    EXPECT_TRUE(logContains(log, kNoSegmentRule)) << "log was: [" << log << "]";
+    EXPECT_TRUE(logContains(log, "///")) << "log was: [" << log << "]";
+
+    //The empty path reaches the same branch on this copy - and only on this
+    //copy, which is the divergence AnEmptyPathReturnsTheRawPayload freezes.
+    //It gets the same message; there is no path to echo.
+    std::string emptyLog;
+    {
+        CoutCapture capture;
+        EXPECT_EQ("", resolve(""));
+        emptyLog = capture.str();
+    }
+    EXPECT_TRUE(logContains(emptyLog, kNoSegmentDiagnosis)) << "log was: [" << emptyLog << "]";
+}
+
 //Malformed input is survivable on both sides: no exception escapes.
 TEST_F(MqttJsonPathTest, AMalformedPayloadReturnsEmpty)
 {
