@@ -135,16 +135,74 @@ namespace
 
 /* ---- loop helpers (same discipline as core/Timer_test) ---------------- */
 
-/* Pump the default loop for a fixed wall clock duration. Every wait in this
- * file is bounded, so a regression fails instead of hanging make check. */
+int elapsedMs(const std::chrono::steady_clock::time_point &t0)
+{
+    return static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - t0).count());
+}
+
+/* Pump the default loop for a fixed wall clock duration.
+ *
+ * ⚠️ BOUNDED ON WALL CLOCK **AND** ON ITERATIONS, and the second bound is not
+ * decoration. On a starved machine a wall-clock-only loop can find its
+ * deadline already past and return HAVING PUMPED ONCE OR NOT AT ALL - which
+ * turns a case that must let a deadline expire into a case that exercises
+ * nothing, i.e. green for the wrong reason. Measured on this binary: one run
+ * in ~80, under a loaded host, saw its window check land on the wrong side.
+ *
+ * ⛔ AND THE POST CONDITION IS CHECKED, because the first version of this
+ * hardening ALSO carried a "never hang make check" cap of 200000 iterations -
+ * which an idle NOWAIT loop reaches in about 80 ms. Every case that waits for
+ * a deadline to expire then returned in 80 ms instead of 650 or 1900, green
+ * and exercising NOTHING: a false green produced by the safety bound itself.
+ * It was visible only in the per-case timings. So the wait now says out loud
+ * whether it waited; the loop needs no cap, since `elapsedMs(t0) < ms` alone
+ * already terminates it. */
 void pumpLoopFor(int ms)
 {
     auto loop = uvw::Loop::getDefault();
-    auto deadline = std::chrono::steady_clock::now() +
-                    std::chrono::milliseconds(ms);
+    const auto t0 = std::chrono::steady_clock::now();
+    int iterations = 0;
 
-    while (std::chrono::steady_clock::now() < deadline)
+    while (elapsedMs(t0) < ms || iterations < ms)
+    {
         loop->run<uvw::Loop::Mode::NOWAIT>();
+        iterations++;
+    }
+
+    if (elapsedMs(t0) < ms)
+        ADD_FAILURE() << "pumpLoopFor(" << ms << ") gave up after "
+                      << elapsedMs(t0) << " ms and " << iterations
+                      << " iterations: the deadline under test never expired, "
+                         "so this case proved nothing";
+}
+
+/* Pump until pred() holds; answers the elapsed ms at which it FIRST held, or
+ * -1 if it never did within the budget.
+ *
+ * ⭐ An oracle written this way cannot fail because the machine was slow: a
+ * late observation only makes the answer larger, and the case asserts a LOWER
+ * bound on it. That is the difference between "the callback did not fire
+ * before 40 ms" (which a scheduling hiccup can break) and "the callback was
+ * not observed before 40 ms" (which it cannot). */
+int pumpUntil(const std::function<bool()> &pred, int timeoutMs)
+{
+    auto loop = uvw::Loop::getDefault();
+    const auto t0 = std::chrono::steady_clock::now();
+
+    for (int i = 0; i < 200000; i++)
+    {
+        if (pred())
+            return elapsedMs(t0);
+
+        loop->run<uvw::Loop::Mode::NOWAIT>();
+        ::usleep(1000);
+
+        if (elapsedMs(t0) > timeoutMs)
+            break;
+    }
+
+    return pred() ? elapsedMs(t0) : -1;
 }
 
 /* ---- the poisoned storage oracle -------------------------------------- */
@@ -292,12 +350,22 @@ const int kResetDelayMs = 250;
 const int kInsideWindowMs = 90;
 const int kPastWindowMs = 650;
 
+/* Budgets for pumpUntil(), not waits: it returns as soon as the predicate
+ * holds, so the cases below cost their real delay and not this. */
+const int kResetBudgetMs = 3000;
+const int kKnxBudgetMs = 6000;
+
 /* KNXIo::readAtStart() uses 1.5 s - the widest window of the whole sweep. */
 const int kKnxPastWindowMs = 1900;
 
-/* ExternProcServer defers processExited.emit() by 100 ms (ExternProc.cpp). */
+/* ExternProcServer defers processExited.emit() by 100 ms (ExternProc.cpp).
+ * kExternProcInsideWindowMs is a LOWER bound on when the emission may be
+ * OBSERVED - being observed late is not a failure, being observed early is.
+ * kExternProcPastWindowMs is a budget, not a wait: pumpUntil() returns as soon
+ * as the counter moves, so the case costs ~100 ms in the normal run. */
 const int kExternProcInsideWindowMs = 40;
-const int kExternProcPastWindowMs = 400;
+const int kExternProcPastWindowMs = 3000;
+const int kExternProcDeletedPumpMs = 400;
 
 /* A path uv_spawn cannot resolve, so the spawn fails SYNCHRONOUSLY and leaves
  * no child behind. */
@@ -732,15 +800,21 @@ TEST_F(IoLifetimeTest, LongPressResetStillRunsWhileTheIoIsAlive)
     ASSERT_EQ(io.get_value_double(), 1.);
 
     //Well inside the 250 ms: the window this defect needs really exists.
-    pumpLoopFor(kInsideWindowMs);
-    EXPECT_EQ(io.get_value_double(), 1.)
-        << "the reset fired before " << kInsideWindowMs << " ms: there is no "
-           "window left for a deletion to slip into";
+    //ONE measurement pins both ends of the window: when was the reset first
+    //OBSERVED? Too early means there is no window; never means the one-shot
+    //does not run at all. A late observation is not a failure - which is what
+    //makes this form immune to a slow machine.
+    const int resetAt = pumpUntil([&io]() { return io.get_value_double() == 0.; },
+                                  kResetBudgetMs);
 
-    pumpLoopFor(kPastWindowMs - kInsideWindowMs);
-    EXPECT_EQ(io.get_value_double(), 0.)
-        << "the reset one-shot never ran at all on a LIVE IO: the cases below "
-           "would then be green for the wrong reason";
+    ASSERT_GE(resetAt, 0)
+        << "the reset one-shot never ran at all on a LIVE IO within "
+        << kResetBudgetMs << " ms: the cases below would then be green for the "
+           "wrong reason";
+    EXPECT_GE(resetAt, kInsideWindowMs)
+        << "the reset was observed " << resetAt << " ms after the change (the "
+           "delay is " << kResetDelayMs << " ms): there is no window left for a "
+           "deletion to slip into";
 }
 
 TEST_F(IoLifetimeTest, LongPressResetDoesNotOutliveTheDeletedIo)
@@ -781,13 +855,13 @@ TEST_F(IoLifetimeTest, TripleResetStillRunsWhileTheIoIsAlive)
     ASSERT_TRUE(io.set_value(2.));
     ASSERT_EQ(io.get_value_double(), 2.);
 
-    pumpLoopFor(kInsideWindowMs);
-    EXPECT_EQ(io.get_value_double(), 2.)
-        << "the reset fired before " << kInsideWindowMs << " ms";
+    const int resetAt = pumpUntil([&io]() { return io.get_value_double() == 0.; },
+                                  kResetBudgetMs);
 
-    pumpLoopFor(kPastWindowMs - kInsideWindowMs);
-    EXPECT_EQ(io.get_value_double(), 0.)
-        << "the reset one-shot never ran at all on a LIVE IO";
+    ASSERT_GE(resetAt, 0)
+        << "InputSwitchTriple::resetInput() never ran at all on a LIVE IO";
+    EXPECT_GE(resetAt, kInsideWindowMs)
+        << "the reset was observed " << resetAt << " ms after the change";
 }
 
 TEST_F(IoLifetimeTest, TripleResetDoesNotOutliveTheDeletedIo)
@@ -824,13 +898,13 @@ TEST_F(IoLifetimeTest, ScenarioResetStillRunsWhileTheIoIsAlive)
     ASSERT_TRUE(io.set_value(true));
     ASSERT_TRUE(io.get_value_bool());
 
-    pumpLoopFor(kInsideWindowMs);
-    EXPECT_TRUE(io.get_value_bool())
-        << "the reset fired before " << kInsideWindowMs << " ms";
+    const int resetAt = pumpUntil([&io]() { return !io.get_value_bool(); },
+                                  kResetBudgetMs);
 
-    pumpLoopFor(kPastWindowMs - kInsideWindowMs);
-    EXPECT_FALSE(io.get_value_bool())
-        << "the reset one-shot never ran at all on a LIVE IO";
+    ASSERT_GE(resetAt, 0)
+        << "the reset one-shot of Scenario never ran at all on a LIVE IO";
+    EXPECT_GE(resetAt, kInsideWindowMs)
+        << "the reset was observed " << resetAt << " ms after the change";
 }
 
 TEST_F(IoLifetimeTest, ScenarioResetDoesNotOutliveTheDeletedIo)
@@ -890,10 +964,12 @@ TEST_F(IoLifetimeRoonTest, PlaylistSizeAnswersWhileThePlayerIsAlive)
 
     ASSERT_EQ(answers, 0) << "the one-shot ran synchronously, there is no window";
 
-    pumpLoopFor(200);
-    EXPECT_EQ(answers, 1)
+    const int answeredAt = pumpUntil([&answers]() { return answers > 0; },
+                                     kResetBudgetMs);
+    ASSERT_GE(answeredAt, 0)
         << "the deferred answer never ran at all on a LIVE player: the case "
            "below would then be green for the wrong reason";
+    EXPECT_EQ(answers, 1) << "the deferred answer ran " << answers << " times";
 }
 
 TEST_F(IoLifetimeRoonTest, PlaylistSizeDoesNotAnswerForADeletedPlayer)
@@ -963,17 +1039,20 @@ TEST_F(IoLifetimeExternProcTest, ProcessExitedStillFiresWhileTheServerIsAlive)
 
     srv.startProcess(kNoSuchBinary, "t340", "");
     ASSERT_EQ(exited, 0)
-        << "processExited was emitted synchronously: there is no window";
+        << "processExited was emitted synchronously: there is no window at all";
 
-    pumpLoopFor(kExternProcInsideWindowMs);
-    EXPECT_EQ(exited, 0)
-        << "the deferred processExited fired before "
-        << kExternProcInsideWindowMs << " ms: no window left for a deletion";
+    const int firedAt = pumpUntil([&exited]() { return exited > 0; },
+                                  kExternProcPastWindowMs);
 
-    pumpLoopFor(kExternProcPastWindowMs - kExternProcInsideWindowMs);
+    ASSERT_GE(firedAt, 0)
+        << "the deferred processExited never ran at all on a LIVE server "
+           "within " << kExternProcPastWindowMs << " ms: the case below would "
+           "then be green for the wrong reason";
     EXPECT_EQ(exited, 1)
-        << "the deferred processExited never ran at all on a LIVE server: the "
-           "case below would then be green for the wrong reason";
+        << "processExited was emitted " << exited << " times for one failed spawn";
+    EXPECT_GE(firedAt, kExternProcInsideWindowMs)
+        << "processExited was observed only " << firedAt << " ms after arming: "
+           "the 100 ms window a deletion has to slip into is not there";
 }
 
 TEST_F(IoLifetimeExternProcTest, ProcessExitedDoesNotOutliveTheDeletedServer)
@@ -990,7 +1069,10 @@ TEST_F(IoLifetimeExternProcTest, ProcessExitedDoesNotOutliveTheDeletedServer)
     ASSERT_EQ(exited, 0);
 
     store.destroyAndPoison();
-    pumpLoopFor(kExternProcPastWindowMs);
+    //A fixed pump here, not pumpUntil: nothing is expected to happen, so there
+    //is no predicate to wait on - the deadline simply has to expire, and
+    //pumpLoopFor guarantees both the wall clock and the iterations for that.
+    pumpLoopFor(kExternProcDeletedPumpMs);
 
     EXPECT_EQ(exited, 0)
         << "a destroyed ExternProcServer emitted processExited from the loop";
@@ -1050,17 +1132,16 @@ TEST_F(IoLifetimeKnxTest, ReadAtStartStillRunsWhileTheIoIsAlive)
         << "building the IO already built the KNX controller for this host: "
            "the observable can no longer tell the one-shot from the constructor";
 
-    //Well inside the 1.5 s: the widest window of the sweep really exists.
-    pumpLoopFor(kInsideWindowMs);
-    EXPECT_EQ(countOwnSockets(), before)
-        << "the read_at_start one-shot fired before " << kInsideWindowMs
-        << " ms: there is no window left for a deletion to slip into";
+    const int firedAt = pumpUntil([&]() { return countOwnSockets() > before; },
+                                  kKnxBudgetMs);
 
-    pumpLoopFor(kKnxPastWindowMs - kInsideWindowMs);
-    EXPECT_GT(countOwnSockets(), before)
-        << "the read_at_start one-shot never ran at all on a LIVE IO: the case "
-           "below would then be green for the wrong reason, and MU-E would be "
-           "the only thing keeping it honest";
+    ASSERT_GE(firedAt, 0)
+        << "the read_at_start one-shot never ran at all on a LIVE IO within "
+        << kKnxBudgetMs << " ms: the case below would then be green for the "
+           "wrong reason, and MU-E would be the only thing keeping it honest";
+    EXPECT_GE(firedAt, kInsideWindowMs)
+        << "the one-shot was observed " << firedAt << " ms after construction "
+           "(the delay is 1500 ms): the widest window of the sweep is not there";
 }
 
 TEST_F(IoLifetimeKnxTest, ReadAtStartDoesNotOutliveTheDeletedIo)
