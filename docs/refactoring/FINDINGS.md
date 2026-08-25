@@ -7144,3 +7144,68 @@ d'être écrite.
   ⭐ **Ce qui porte la démonstration, c'est l'ORDRE, pas le TAUX** : la forme de `master` redevient
   rouge dans le même conteneur à la même charge, la forme livrée y est **0/48**, et les rouges
   tombent sur la marge la plus courte du tableau corrigé.
+
+## T3.53 — la paire DALI `(command, result)` : quand les deux types sont le MÊME type (2026-08-26)
+
+⭐ **La conclusion qui vaut d'être retenue : c'est la seule paire de la chaîne Wago dont la mutation
+par échange NE PEUT PAS ÊTRE ÉCRITE.** `WagoMap.h:81-82` déclaraient
+`sigc::slot/signal<void, bool, string, string>`. Permuter les deux `string` d'un `typedef` produit
+**le même texte**. Il n'y a rien à muter, et pourtant les deux rôles sont bel et bien intervertis à
+l'exécution. C'est la forme la plus pure du défaut que T3.31, T3.46 et T3.50 ont chassé sous une
+forme atténuée (deux types **distincts** qui se convertissent).
+
+**Recompté** (`python3`, commentaires blanchis) : **5 déclarations / 5 définitions / 4
+`sigc::mem_fun`** — la fiche était exacte site pour site. **Deux ajouts mesurés qu'elle n'avait
+pas** : le `typedef` de la fente est **double** (`WagoUdp_cb` **et** `WagoUdp_signal`), et il
+n'existe **qu'un seul site d'émission**, `WagoMap.cpp:439`. **13 sites**, pas 10.
+
+⭐ **F-WAGO-11 — une implémentation MORTE au milieu d'une paire vivante.**
+`WODaliRVB::WagoUDPCommand_cb` (`WODaliRVB.h:41`, `WODaliRVB.cpp:164`) est la **5ᵉ** définition et
+il n'y a que **4** enregistrements. Son adresse n'est prise par **aucune ligne de l'arbre**
+(balayage de l'arbre entier). ⛔ **Conséquence à ne pas arrondir : le typage ne la ferme PAS.**
+Mesuré, mutation M8 : après le correctif, permuter ses deux paramètres compile toujours (`rc=0`,
+0 `error:`), parce que **rien ne la lie et donc rien ne peut la refuser**. Elle est typée pour le
+contrat, un point c'est tout. **Sa suppression n'a pas été faite** — T3.46 avait supprimé une
+déclaration *sans définition* ; celle-ci en a une, c'est un autre arbitrage. **Non ouvert, non
+numéroté au board.**
+
+⭐ **L'AFFIRMATION « les deux membres sont lus » ÉTAIT UNE LECTURE ; elle est maintenant MESURÉE, et
+elle tient** — contrairement à celle de la fiche de T3.50, que sa propre campagne avait infirmée.
+`-Wunused-parameter` sur les **14** unités de `IO/Wago/`, compilation réelle, **0 unité en échec**
+(sans quoi « zéro avertissement » serait un mensonge), **témoin négatif** (0 avertissement sans le
+drapeau) et **témoin positif** (les `addr` inutilisés des callbacks d'écriture sont bien trouvés,
+7 occurrences). ⭐ **Et une SONDE AU SITE** : faire cesser la lecture de `result` dans `WODali` fait
+apparaître `WODali.cpp:82:68: warning: unused parameter 'result'`. **C'est cette sonde qui
+transforme un silence en mesure** — sans elle, « zéro avertissement » ressemble exactement à la
+réponse attendue.
+⇒ **La permutation change le programme** : `WODali` ne prend plus jamais sa branche
+`WAGO_DALI_GET`, et chaque canal de `WODaliRVB` **range son adresse DALI comme niveau**. **Une
+valeur fausse vivante**, pas un no-op.
+
+⭐ **UN TEST COMPORTEMENTAL EXISTE ET IL EST PROUVÉ CAPABLE DE ROUGIR.** Il n'y avait **aucun test
+DALI** dans l'arbre. `tests/core/WagoUdpReply_test.cpp` construit un `WODali` et un `WODaliRVB` par
+le **constructeur de production** via `IOFactory`, les nourrit par `WagoMap::udpRequest_cb()`
+(public) et relit par `get_value_string()` (public). Sur `master`, permutation appliquée au seul
+site d'émission puis binaire **reconstruit et exécuté** : **2 cas passent au ROUGE**. Les 3 qui
+restent verts sont des **contrôles** dont ce n'est pas le rôle — dit plutôt qu'arrondi.
+
+⚠️ **UNE 16ᵉ VARIANTE DE FAUX VERT, ET ELLE M'A EU** — à ajouter à la liste canonique :
+**deux mutations DIFFÉRENTES peuvent produire des ensembles de lignes `error:` IDENTIQUES sans que
+le typage y soit pour rien.** Les permutations de `…Red_cb`, `…Green_cb` et `…Blue_cb` donnaient
+**3 paires identiques sur 4 ensembles non vides** : sigc++ signale l'échec depuis
+`adaptor_trait.h` et nomme le **foncteur**, identique pour les trois canaux. ⭐ **Le remède est
+d'enrichir le VERDICT, pas d'accuser la mutation** : le contexte d'instanciation de gcc
+(`… required from here`) nomme le site, et l'on obtient **0 paire identique** — chaque
+implémentation étant refusée **à sa propre ligne d'enregistrement** (`WODali.cpp:62`,
+`WODaliRVB.cpp:73`, `:75`, `:77`). **Publier « ensembles distincts » sans cette passe aurait été
+faux.**
+
+⚠️ **Et un piège de build rencontré, à ne pas confondre avec un rouge** : après un changement
+d'en-tête seul, l'objet de test de `tests/` n'a **pas** été reconstruit et le binaire relié
+(`CXXLD`) rendait encore l'ancien verdict — **4 cas faussement rouges**. Les `.deps` avaient été
+brouillées par les `os.utime` de la campagne. **Un `rm -f` de l'objet du test, pas seulement du
+binaire, avant de juger.**
+
+⛔ **Repéré en passant, NON traité, non numéroté** : `Audio/Squeezebox.cpp:408` —
+`sig.emit(status, cmd.request, cmd.result, cmd.user_data)`, **même motif `(request, result)` de
+même type**, hors du sous-système Wago.
