@@ -218,6 +218,136 @@
     c'est le code qui la consomme qui a été lu. Le seul programme exécuté est un `g++` autonome de
     12 lignes sur `from_string`/`is_of_type`.
 
+- **🔒 T3.29 ✅ MERGÉ (`bbde6c06`, 4 commits, `git rebase master` + `merge --ff-only`, historique
+  linéaire, `make check` **83/83**) — l'ioDoc enseignait une syntaxe d'index que le parseur ne
+  comprend pas, et `calaos_installer` l'affichait à tout le monde.**
+  Périmètre réel : **8 chaînes d'ioDoc** — **7 dans `IO/Mqtt/MqttCtrl.cpp`** (`path`,
+  `battery_path`, `connected_status_path`, `wireless_signal_path`, `uptime_path`,
+  `ip_address_path`, `wifi_ssid_path`) et **1 dans `IO/Web/WebDocBase.cpp`** (`path`, littéral
+  concaténé sur 5 lignes) : `weather[0]/description` → **`weather/[0]/description`**, et elles
+  portent désormais **la règle** (« *array indices are their own path segment* ») et pas seulement
+  l'exemple. Le parseur n'est **pas** touché. Commit de caractérisation `d95b8905` : **zéro ligne
+  de `src/`**, **476 insertions / 0 suppression** ⇒ **aucune assertion préexistante modifiée**.
+  Reconstruite à l'état master + tests seuls et **relinkée pour de vrai** (`rm -f` puis `CXXLD
+  JsonPathSyntax_test`), la suite rend **24 verts / 3 rouges**, et les 3 sont **exactement** les cas
+  que le correctif ferme : `IoDocIndexSyntax.{MqttNeverTeachesAnIndexGluedToItsKey,
+  WebNeverTeachesAnIndexGluedToItsKey, TheIndexRuleIsSpelledOutAndNotOnlyShown}`. Goldens intacts :
+  arbre `d4ebc61f…`, **145 fichiers** (145 `.json`, **aucun** ne contient de description d'ioDoc),
+  identique à master. Suite **82 → 83** (recompté en `python3`, continuations `\` recollées ; unique
+  ajout `JsonPathSyntax_test`). `tests/Makefile.am` **71 `^if*` / 71 `^endif`** (**70/70** sur
+  master), profondeur jamais négative, **append pur octet pour octet** (`cur.startswith(master)`,
+  **+1 449 octets**) — le bloc ajouté a **son propre `if HAVE_GTEST`/`endif`**, ce qui est
+  précisément ce qui rend l'append sûr. Build distclean rejoué **après le rebase de merge**
+  (`make -j16 && make check -j8`, agents concurrents, attendu par `docker wait`) :
+  **`CXXLD JsonPathSyntax_test`** *(précédé d'un `rm -f` du binaire — sans quoi le vert ne prouve
+  rien, cf. T3.36)*, **`PASS: JsonPathSyntax_test`**, **83 PASS / 0 FAIL / 0 SKIP / 0 ERROR**,
+  **0 `error:`**, code de sortie **0**.
+
+  - ⭐ **CE QUE `calaos_installer` EMBARQUERA, MESURÉ** : `calaos_server --gendoc` avant/après donne
+    **68 descriptions changées et RIEN D'AUTRE**. Même **70** types d'IO, **8 260** feuilles JSON,
+    **jeux de chemins identiques**, et les 68 feuilles modifiées sont **toutes** sous
+    `…/parameters/[N]/description`. `io_doc.json` **+68 / −68** lignes (525 588 → 529 600 o),
+    `io_doc.md` **+76 / −76** (227 362 → 231 374 o) — le md en compte 8 de plus parce que la
+    description Web est repliée. `weather[N]` **68 → 0**, `weather/[N]` **0 → 68**, dans les deux
+    fichiers. Réparti sur **9 types MQTT × 7 paramètres + 5 types Web × 1**.
+    ⚠️ `data/doc/` n'est **pas suivi par git** et n'existe pas dans un arbre propre : **rien à
+    régénérer en dépôt**, la doc est produite au moment de l'empaquetage.
+
+  - **`po/` — édition chirurgicale, choix validé par la revue.** **9 catalogues suivis**, **8
+    changés** ; `po/en.po` est légitimement **intouché** (il ne contient aucune des 8 chaînes).
+    ⚠️ *Le brief de merge disait « 8 catalogues suivis » : il y en a **9**, dont 8 concernés.*
+    `weather[0]` **8 → 0** partout, **9 → 0** dans `fr.po` (8 `msgid` + **1 `msgstr` traduit**,
+    corrigé dans le même geste). **0 entrée `fuzzy` créée** (`fr` reste à **6**), **0 traduction
+    perdue** : 7 des 8 entrées n'étaient traduites nulle part, la 8ᵉ a suivi son `msgid` ; `fr.po`
+    **404 / 6 / 24 — identique avant et après**. `msgfmt -c` **vert sur les 9 suivis** *et* sur
+    `en@quot.po` / `en@boldquot.po`, qui sont **générés et non suivis**.
+    L'auteur a **écarté `make -C po update-po`** — il régénérait `calaos.pot` depuis
+    `POT-Creation-Date: 2025-06-29` (434 → 820 messages) et noyait les 8 lignes utiles dans
+    **~19 000** (+2244 / −427 par catalogue), en marchant sur le périmètre des autres tickets.
+
+  - ⭐ **L'ARBITRAGE A ÉTÉ FERMÉ PAR UNE MESURE, PAS PAR UN AVIS.** « Accepter aussi l'ancienne
+    syntaxe » paraissait généreux et était **dangereux** : **`weather[0]` n'est pas un jeton inerte,
+    c'est une recherche de clé d'objet parfaitement valide**. Sur une charge Zigbee2MQTT réelle
+    (`{"action[0]":"single", …}`), `resolve("action[0]")` rend `"single"`. Découper aussi sur `[`
+    **casserait ce cas en silence**, et les noms de clés d'un équipement tiers ne sont pas sous
+    notre contrôle. La revue a **implémenté l'option B** pour vérifier, et la suite de
+    caractérisation l'a **rejetée avec 2 rouges**. ⇒ **la fermeture est désormais activement gardée
+    par les tests**, pas seulement argumentée. Cas témoin :
+    `AGluedIndexStillMatchesAKeySpelledThatWay`.
+
+  - ⭐ **PLANTAGE SERVEUR TROUVÉ AU PASSAGE → [`T3.35`](T3.35.md), priorité haute.** Un `path`
+    valant `[` : `erase(0, 1)` vide la chaîne, `pop_back()` **sous-flue le `size_t`**, et le
+    `Utils::from_string()` qui suit est **HORS du `try`** (`MqttCtrl.cpp:132`, `WebCtrl.cpp:202`,
+    lignes vérifiées au source) ⇒ **`std::bad_alloc` s'échappe de `getValueJson()`**, aucun `catch`
+    jusqu'à `main.cpp` ⇒ **`std::terminate()`**. **Une faute de frappe dans un paramètre de
+    configuration fait terminer `calaos_server`.** ⛔ **Aucun vecteur distant** — le `path` n'est
+    écrit que par `calaos_installer`. ⚠️ **La première rédaction disait « UB théorique » : elle
+    sous-vendait le défaut.** Le mot juste est **plantage déterministe**, et la correction a été
+    portée **aux trois endroits** (`FINDINGS.md`, la fiche, l'en-tête du test).
+
+  - ⭐ **DÉFAUT DE HARNAIS À L'ÉCHELLE DU DÉPÔT → [`T3.36`](T3.36.md), PRIORITÉ HAUTE.** ⚠️ **Ce
+    ticket-ci a été mordu POUR DE VRAI** : `JsonPathSyntax_test_DEPENDENCIES =
+    $(top_builddir)/src/lib/libcalaos_common.la` retire les `.o` serveur des prérequis du binaire,
+    donc **il ne se relinke pas quand un `.o` serveur change**. La revue a reproduit le faux vert —
+    forme fautive réintroduite dans `MqttCtrl.cpp`, `make check` → **83/83 PASS, relink `CXXLD`
+    = 0**. **Chiffres recomptés ici en `python3`, continuations `\` recollées, et ils tombent
+    juste : 81 `check_PROGRAMS` dont 1 helper ⇒ 80 binaires** (`TESTS` = 83 = 80 + 3 scripts) ;
+    **48 overrides `_DEPENDENCIES`**, dont **47 relient réellement des `.o` serveur** et **1 est
+    inoffensif** (`JanssonResidues_test`) — donc **47 sur 80**, *et non 48/82*.
+    ⚠️ **Piège de comptage à consigner** : `CORE_TEST_LDADD` **contient** `CORE_SERVER_OBJECTS`,
+    donc chercher `$(CALAOS_SERVER_BUILDDIR)` en toutes lettres dans les `_LDADD` donne **27** au
+    lieu de 47 — *reproduit à l'identique ici*. C'est la **cause racine des cinq variantes de faux
+    vert / faux rouge** de la série. **Seul contrôle valable, jusqu'à T3.36 : `rm -f tests/<suite>`,
+    puis exiger la ligne `CXXLD <suite>` ET le code de sortie.**
+
+  - **L'OPTION C, RETENUE ET SÛRE** : journaliser « *did you mean `a/[0]/b` ?* » dans le `catch` de
+    la **branche objet** (`MqttCtrl.cpp:151-155`, `WebCtrl.cpp:221-225`). ⭐ **Le faux positif est
+    IMPOSSIBLE par construction** : on n'entre dans ce `catch` que si `parent.at(val)` a **déjà**
+    jeté — donc une charge dont la clé s'appelle vraiment `action[0]` **n'y passe jamais**. C'est
+    exactement ce qui rend C sûre là où B ne l'était pas. **Décision utilisateur : groupée avec le
+    plantage dans `T3.35`** — même `catch`, même revue, un seul passage sur ces lignes.
+
+  - **UNE IMPRÉCISION CORRIGÉE, ET ELLE COMPTE** : `cWarning()` **n'est pas** un domaine filtré
+    (`LogSetup.h:29`) — le message `[WRN] … subpath not found` **part bien dans le log serveur par
+    défaut**. Le vrai problème n'est pas la visibilité du message, c'est son **destinataire** : la
+    faute se commet dans **`calaos_installer`**, le message atterrit dans le log de
+    **`calaos_server`**. La même erreur figurait dans `RELEASE_NOTES.md` — corrigée aux deux
+    endroits.
+
+  - **LES DEUX PARSEURS JUMEAUX ONT DÉJÀ DIVERGÉ → [`T3.37`](T3.37.md).** Chemin vide : **MQTT rend
+    la charge brute**, **Web rend `""`** — divergence **figée par test** ici, donc connue avant
+    toute unification. Et **tous les défauts sont en double** : le plantage du `[`, l'index non
+    numérique qui lit l'**élément 0 en silence** (famille T3.25), `from_string` hors du `try`, le
+    message d'échec sans indication. ⇒ **une seule extraction fermerait les quatre**.
+
+  - **HORS PÉRIMÈTRE, CONSIGNÉ → [`T3.38`](T3.38.md)** : `IO/OLA/OLAOutputLightRGB.cpp:35` déclare
+    `channel_red` sur `0..9999` quand `:36`/`:37` déclarent green et blue sur `0..512` (valeur
+    recopiée de la ligne `universe`), et `IO/Mqtt/MqttOutputLightRGB.cpp:43` dit « read the **x**
+    value » pour `path_y`. **Non corrigé ici** : `.wave46/e4.1j` est **vivante sur `IO/OLA/`**,
+    d'où la dépendance déclarée `E4.1j`.
+
+  - ⛔ **NON VÉRIFIÉ** : aucun ASan/UBSan ; aucun broker MQTT ni téléchargement Web réel ;
+    `calaos_installer` **n'a pas été construit** — le fait qu'il embarque `io_doc.json` est
+    **déduit, pas observé**. **RIEN N'A ÉTÉ POUSSÉ.**
+
+  - **LE MERGE (agent dédié).** `master` a avancé **pendant** les contrôles (`d1462d9e` →
+    `79390a0d`, arbitrages utilisateur) : rebase rejoué, **un seul conflit, `BOARD.md`** — master
+    ajoute la ligne `T3.39`, la branche ajoute `T3.35`-`T3.38`, **au même endroit du même tableau**.
+    **Résolution : garder TOUTES les lignes, aucune n'est choisie** — ici le tableau est **trié par
+    numéro de ticket**, donc l'ordre retenu est `T3.35`→`T3.39` plutôt que « master d'abord », ce
+    qui préserve à la fois les 5 lignes **et** l'invariant de tri du fichier. Contrôle : **152
+    lignes de tableau à la base, 154 sur master, 156 sur la branche, 158 après résolution** ; les
+    **4** lignes ajoutées/modifiées par master **et** les **5** de la branche sont **toutes**
+    présentes ; `^## ` **6 avant / 6 après** des deux côtés, `^### ` 1 / 1 ; aucun `---` non précédé
+    d'une ligne vide. ⭐ **Le rebase n'a déplacé aucune ligne de code** : les arbres git de `src`,
+    `tests`, `po`, `data`, `Makefile.am` et `configure.ac` sont **identiques** à ceux du commit
+    construit (`bcfe9d2e`) — **le contenu mergé est donc exactement celui qui a été construit et
+    exercé**. Le delta de rebase vaut **une ligne de `BOARD.md`**.
+    ⚠️ **Et la règle « tant qu'un agent de merge est en vol, l'orchestrateur ne commite rien sur
+    master » n'a de nouveau pas été tenue** — `79390a0d` touche `BOARD.md` et `FINDINGS.md`,
+    exactement les deux fichiers qu'un agent de merge écrit. Le coût a été un rebase et un conflit
+    de plus ; il était évitable.
+
 - **🔒 E4.1f ✅ MERGÉ (`5ab5827a`, 5 commits, `git rebase master` + `merge --ff-only`, historique
   linéaire, `make check` **82/82**) — le wire OLA, le seul du dépôt à vrais entiers JSON, et le
   ticket qui a fait tomber une famille de défauts bien plus large que lui.**
