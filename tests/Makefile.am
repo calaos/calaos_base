@@ -25,6 +25,16 @@ dist_check_SCRIPTS = check-config-options.sh check-config-docs.sh
 # AM_PATH_PYTHON via AM_TESTS_ENVIRONMENT above.
 TESTS += run-python-tests.sh
 dist_check_SCRIPTS += run-python-tests.sh
+
+# F-PYTEST-1: meta-oracle over the entry just above. run-python-tests.sh used
+# to exit 0 -- automake PASS -- while three of the six suites in tests/python/
+# had not been executed at all; the only trace was one line in a .log. This
+# guard asserts the launcher publishes how many declared cases it really ran
+# and that its exit code agrees (all -> 0, some missing -> 77 = a SKIP that
+# shows up in the "# SKIP:" column, never a silent PASS). It needs no gtest and
+# no built binary, so it lives outside the HAVE_GTEST conditional.
+TESTS += check-python-tests-reporting.sh
+dist_check_SCRIPTS += check-python-tests-reporting.sh
 EXTRA_DIST = \
               python/conftest.py             \
               python/test_auth.py            \
