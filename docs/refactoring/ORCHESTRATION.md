@@ -8,6 +8,106 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **🔒 E4.1g ✅ MERGÉ (`a66056fb`, 8 commits, ff-only, historique linéaire, `make check` 75/75) — le wire
+  MQTT passe à `nlohmann::json`, et en le caractérisant on a trouvé **trois défauts réels**, dont un
+  message entier jeté par notre propre bout.**
+  Périmètre réel : `IO/Mqtt/MqttCtrl.cpp`, `IO/Mqtt/MqttExternProc_main.cpp`, le fichier **neuf**
+  `IO/Mqtt/MqttWire.h`, et **2 lignes** de `src/bin/calaos_server/Makefile.am`. **Aucun débordement.**
+  Appels `json_*` : **20 → 0** (`MqttCtrl.cpp`) et **15 → 0** (`MqttExternProc_main.cpp`) ; `grep jansson`
+  = **0** sur les deux. Commit de caractérisation `1bdc716a` (`53ee2a2a` avant le dernier rebase),
+  **zéro ligne de `src/`** — vérifié sur le commit : `tests/Makefile.am` (+24/-0) et le fichier neuf
+  `tests/MqttWire_test.cpp` uniquement. **Aucune assertion préexistante modifiée** : sur les 8 commits,
+  les seuls fichiers `tests/` touchés sont ces deux-là, et `tests/Makefile.am` est un **append pur octet
+  pour octet** (126 956 o → 128 140 o, le résultat *commence par* le contenu master à l'octet près).
+  Goldens intacts : arbre git `d4ebc61f…` **et** condensé SHA-256 du contenu identiques à master,
+  **145 fichiers**. Suite : **74 → 75** (`MqttWire_test`, **37 cas** gtest), recompté en python,
+  continuations `\` comprises. Équilibre `tests/Makefile.am` : **64 `^if*` / 64 `^endif`** tous préfixes
+  confondus (63 `HAVE_GTEST` + 1 `HAVE_LIBKNX` d'E4.1e), profondeur jamais négative.
+
+  - ⭐ **TROIS DÉFAUTS RÉELS TROUVÉS EN MIGRANT.**
+    (1) **Un payload à octet nul était jeté par notre propre bout, topic compris.** `calaos_mqtt`
+    l'émettait pourtant correctement (`json_stringn(data, len)` — tout le code amont existait pour ça),
+    mais `json_loads()` **refuse cet échappement sans `JSON_ALLOW_NUL`**, et le drapeau n'était passé
+    nulle part : `MqttCtrl.cpp:52-61` jetait **le message entier** avec un « Error parsing json ».
+    ⭐ **Et la revue a montré que c'était plus profond** : même avec le drapeau, `json_string_value()`
+    rend un `const char*` que `strlen` mesure à **1**, et l'ancien `publishTopic(…c_str())`
+    **retronquait au retour**. **Les trois couches sont refermées** par la bascule ; entrée
+    `RELEASE_NOTES.md` posée (changement visible utilisateur).
+    (2) **Un `json_decref` de trop à chaque publication MQTT** — `jansson_to_string()` *vole* la
+    référence (`json_decref` dans **les deux** branches) et `MqttCtrl.cpp:115-116` décrémentait encore :
+    **use-after-free à chaque envoi**. Disparu avec la bascule.
+    (3) **`IO/Mqtt/MqttExternProc_main.h` était listé dans `calaos_mqtt_SOURCES` et n'existe pas** —
+    entrée morte qui aurait faussé `make dist` ; remplacée par `IO/Mqtt/MqttWire.h`, qui existe.
+
+  - ⭐ **LE FILET PROTÈGE LE PRODUIT — contrairement à la première version d'E4.1e.** La leçon du
+    test-miroir a été appliquée d'emblée : `MqttWire.h` est du **code de production**, inclus tel quel
+    par `MqttCtrl.cpp`, par `MqttExternProc_main.cpp` **et** par `MqttWire_test.cpp` (vérifié : les trois
+    portent le même `#include "MqttWire.h"`). Muter le code partagé **rougit** — 11 cas de mutation
+    mesurés.
+    ⚠️ **MAIS les 5 sites d'appel hors du header ne sont couverts par rien** : muter
+    `MqttCtrl::publishTopic()` en **échangeant ses arguments** laisse la suite **32/32 verte**. Le code
+    *partagé* est tenu, son *câblage* ne l'est pas, et **rien dans le dépôt ne peut le fermer** tant
+    qu'aucun test ne lie les objets serveur. **Consigné, non fermable ici.**
+
+  - ⭐ **`error_handler_t::replace` A DÉSORMAIS UN TÉMOIN**, et il épingle **la bonne des trois
+    orthographes** : `replace` → `�` **par octet** · `ignore` → les octets **disparaissent** ·
+    `strict` → **lève**. C'était le **deuxième des trois invariants d'émission** de l'épique livré
+    **sans aucun oracle** ; il ne l'est plus. Le chemin est portant : `MqttCtrl::publishTopic()` envoie
+    au `dump()` un payload **jamais assaini**.
+
+  - ⚠️ **CINQUIÈME VARIANTE DU FAUX VERT, à porter dans le brief des sous-tickets suivants.** Sous
+    `strict`, la suite rend **3 rouges au lieu d'avorter** *parce que gtest attrape le throw*. Sans ce
+    filet, le binaire **mourrait**, **aucune ligne `FAILED` ne sortirait**, et un harnais qui compte les
+    `FAILED` lirait **0 rouge**. ⇒ **tout harnais de mutation doit vérifier le CODE DE SORTIE du binaire
+    de test**, pas seulement compter les rouges. (Les quatre autres variantes connues : faux ROUGE
+    uniforme · faux VERT · faux ROUGE après rebase · **faux VERT total, contrôle compris**, quand
+    `check_PROGRAMS` n'est pas construit par un `make` nu. Le **seul** contrôle valable partout reste
+    **exiger la ligne `CXXLD <binaire>`**.)
+
+  - **Nuance sur les contre-mutations, à corriger dans la règle héritée.** Deux paires de mutations
+    partagent leur ensemble de rouges, et **ce n'est PAS le piège `_DEPENDENCIES`** : ce sont **deux
+    orthographes d'un même défaut**, qu'un même cas attrape légitimement. La règle « rouges identiques
+    = piège » ne vaut **qu'entre défauts indépendants**.
+
+  - **L'arbitrage `?` vs U+FFFD, confirmé et non rouvert.** Le `?` est une **décision utilisateur déjà
+    livrée** (entrée `RELEASE_NOTES` antérieure), et le remplacement **par octet** préserve la
+    **longueur** — ce que ce wire doit avant tout préserver. Les deux chemins sont **distincts et tous
+    deux épinglés** : `?` sur le payload **montant** (assainissement maison de `calaos_mqtt`),
+    `error_handler_t::replace` sur le **topic venu du broker** au `dump()`.
+
+  - ⚠️ **UNE DIVERGENCE NON RÉSOLUE, consignée honnêtement.** Deux recomptes indépendants, **tous deux
+    hors du hook `rtk`**, donnent **27** et **29** sites d'appel de `jansson_to_string` dans `src/`. Ils
+    s'accordent sur l'essentiel — **exactement 2 doublaient le décrément** : `ReolinkCtrl.cpp:151` (⛔
+    **encore ouvert**, hors périmètre, l'agent d'E4.1i travaille dessus) et `MqttCtrl.cpp:115` (fermé
+    ici) — mais **pas sur le total**. Un troisième comptage au merge (regex `\bjansson_to_string\s*\(`
+    sur les blobs de `3f0cc074`) rend **26 occurrences brutes dans `src/` + 5 dans `tests/`**, dont
+    **1 est la définition inline** (`src/lib/Jansson_Addition.h`). **Ne pas trancher** : le chiffre
+    dépend de ce qu'on compte (déclaration, définition, commentaires) et l'écart n'a jamais été réduit.
+
+  - **Dette `jansson_from_params` : ~90 sites d'appel** (87 `src/` + 3 `tests/`) **+ 1 définition** sur
+    `3f0cc074`. ⚠️ Ce chiffre a valu **100 → 98 → 102 → 96 → 90** au fil de la nuit selon ce qu'on
+    comptait et l'état de master ; le recomptage au merge donne **92 occurrences brutes** (88 `src/` +
+    4 `tests/`, dont la définition et sa déclaration dans `Jansson_Addition.h`), **70 dans le seul
+    `JsonApi.cpp`**. **C'est l'instabilité du chiffre qui est l'argument** : toute affirmation chiffrée
+    de cette épique doit citer sa méthode et son SHA, sinon elle n'est pas comparable.
+
+  - **Deux erreurs de méthode consignées par l'auteur, utiles aux suivants** : (1) une assertion
+    comptant **15 octets pour un topic de 13** — attrapée par le contrôle sans mutation, pas par la
+    relecture ; (2) **éditer le harnais pendant qu'il s'exécute** (`bash` lit son script **au fil de
+    l'eau** : réécrire le fichier décale l'interpréteur, qui s'est mis à exécuter une ligne de C++ comme
+    une commande shell) ; et (3) une **campagne tuée qui laisse le fichier muté dans le worktree**, ce
+    qui **empoisonne la campagne suivante** (elle prend la version mutée pour référence). D'où la règle :
+    **un harnais sème sa copie de référence depuis un montage EN LECTURE SEULE**, jamais depuis l'arbre
+    de travail — et **on ne modifie jamais un harnais en cours d'exécution**.
+
+  - **Build de merge rejoué en distclean complet** (image `vsc-calaos_base-1202…`, `./autogen.sh &&
+    ./configure && make -j12 && make check` sur un `git archive` de la branche) :
+    `MQTT support (libmosquittopp)........: yes`, `CXX IO/Mqtt/MqttCtrl.o`,
+    `CXX IO/Mqtt/MqttExternProc_main.o`, **`CXXLD calaos_mqtt`**, `CXXLD calaos_server`,
+    `CXXLD MqttWire_test` — **75/75**.
+
+  - **RIEN N'A ÉTÉ POUSSÉ.**
+
 - **🔒 E4.1e ✅ MERGÉ (`72dfb068`, 7 commits, rebase + ff-only, `make check` 74/74) — le wire KNX passe à
   `nlohmann::json`, et en le caractérisant on a trouvé un plantage que du matériel ordinaire déclenche.**
   Périmètre réel : les **5 fichiers** annoncés (`IO/KNX/KNXCtrl.{h,cpp}`, `KNXExternProc_main.{h,cpp}`,
