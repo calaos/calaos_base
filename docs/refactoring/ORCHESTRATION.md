@@ -8,6 +8,96 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **🔒 E4.1h ✅ MERGÉ (`63cf379a`, 6 commits, `git rebase master` **no-op** + ff-only, historique
+  linéaire, `make check` **78/78**) — la bascule du wire Wago, ET le bug `values` CORRIGÉ contre la
+  recommandation de la fiche, parce que la mesure a retiré le motif qui la justifiait.**
+  Périmètre réel : `IO/Wago/WagoMap.cpp`, `IO/Wago/WagoExternProc_main.cpp` (`grep jansson` = **0**
+  et **0** appel `json_*` sur les deux), le fichier **neuf de production** `IO/Wago/WagoWire.h`
+  (déclaré dans **les deux** `_SOURCES` — `calaos_server_SOURCES` **et** `calaos_wago_SOURCES` — soit
+  **2 lignes** de `src/bin/calaos_server/Makefile.am`, isolées dans leur propre commit `5451095a`),
+  plus `tests/Makefile.am` et le fichier neuf `tests/WagoWire_test.cpp` (**31 cas**). **Aucun
+  débordement.** Commit de caractérisation `b77043ad`, **zéro ligne de `src/`** — vérifié sur le
+  commit : **2 fichiers**, `tests/Makefile.am` (+31/-0) et le fichier neuf (+1069/-0). **Aucune
+  assertion préexistante modifiée** : sur les **6** commits, les seuls fichiers `tests/` touchés sont
+  ces deux-là. Goldens intacts : arbre git `d4ebc61f…`, **145 fichiers**, vérifié identique à master
+  **sur chacun des 6 commits**. Suite **77 → 78** (recompté en `python3`, continuations `\`
+  comprises ; le seul ajout est `WagoWire_test`). Équilibre `tests/Makefile.am` : **67 `^if*` /
+  67 `^endif`** tous préfixes confondus (**66/66** sur master — dont **66 `if HAVE_GTEST` +
+  1 `if HAVE_LIBKNX`** côté branche, ne jamais compter que `HAVE_GTEST`), profondeur **jamais
+  négative**. Le bloc est un **append pur, octet pour octet** : le fichier de la branche
+  `startswith()` celui de master (133 432 → 135 213 octets, +1 781).
+
+  - ⭐⭐ **LE BUG `values` EST CORRIGÉ (`e6ab8589`), ET VOICI POURQUOI C'ÉTAIT SÛR.**
+    `WagoMap::write_multiple_bits/_words` construisaient la liste des valeurs puis émettaient un
+    message qui ne la contenait pas. La fiche, `E4.1.md` (Q2) et ce journal recommandaient de **ne
+    pas** corriger, au motif que « ça change ce que reçoit un automate réel ». **Ce motif est tombé
+    à la mesure : ces deux méthodes n'ont AUCUN APPELANT dans tout l'arbre.** Confirmé par un
+    balayage `python3` incluant les appels **indirects** : `&WagoMap::` donne **8 occurrences**
+    (`WagoMap.cpp:45,46,55,95,167,444,467,522`), **toutes ailleurs**, aucune sur `write_multiple` ;
+    **aucun `std::bind`** dans l'arbre ; aucune table de dispatch, aucun binding Lua, méthodes **non
+    virtuelles**. Hors `WagoMap.h` (déclaration) et `WagoMap.cpp` (définition), les seules
+    occurrences de `write_multiple_*` sont **l'autre bout** — `WagoCtrl` — appelé par
+    `WagoExternProc_main.cpp:161/165/268/272` **uniquement** sur réception de
+    `action:"write_bits"`/`"write_words"`, que **seul** `WagoMap` émet. ⇒ **la chaîne est morte de
+    bout en bout**, `action:"write_bits"` **n'a jamais été émis**, **aucun automate n'a jamais vu ce
+    message**, ⇒ **pas d'entrée `RELEASE_NOTES`** (rien d'observable par un utilisateur ne change).
+    ⛔ **LA PRÉMISSE « PANNE SILENCIEUSE EN PRODUCTION » DE CE JOURNAL ÉTAIT FAUSSE** : elle a été
+    **corrigée en place** à `ORCHESTRATION.md:594` et `E4.1.md:196` (§ Q2) par cette branche, et ces
+    deux corrections ont été **vérifiées survivantes au rebase de merge**. Ne pas les réécrire.
+
+  - ⭐ **`F-WAGO-2` ÉLARGI — et bien pire que « n'écrit rien ».** L'aval, `WagoCtrl`, recevait un
+    vecteur **vide** avec le `count` annoncé : lire `values[0]` sur un `vector` vide **SEGFAUTE**
+    (mesuré, **SIGSEGV 139**, `_M_start` nul) — donc **la mort de `calaos_wago`**, pas une panne
+    muette. Et **`WagoCtrl::write_multiple_bits()` reste fonctionnellement FAUX même avec `values`
+    livré** : (a) `setBit(*data, i, val)` prend une référence à **un SEUL octet** et fait
+    `mot |= 0x01 << pos` ⇒ **seuls les bits 0-7 sont jamais écrits**, et `pos ≥ 32` est un **UB de
+    décalage** ; (b) `new[nb/8 + nb%8]` avec `memset(.., nb/8)` laisse le **dernier octet non
+    initialisé**. Aucun appelant aujourd'hui ⇒ **pas urgent**, mais **piège armé pour le premier qui
+    en écrira un**. **Ticket dédié recommandé, priorité moyenne** : garde `count`/`values.size()`
+    **plus** réécriture de la boucle de bits. Détail en `FINDINGS.md` **F-WAGO-2**.
+
+  - ⭐ **`F-WAGO-4` — LA VOIE DE FERMETURE DU TROU DES SITES D'APPEL, À SA 3ᵉ RÉCIDIVE DANS LA
+    SÉRIE.** Permuter `address` ↔ `nb` **au site d'appel** compile sans avertissement et laisse la
+    suite verte. R3 tranché : **ce n'est PAS un problème de lien** — `CORE_TEST_LDADD` lie déjà **25
+    objets serveur**, la porte est ouverte — mais l'impossibilité d'**appeler** ces méthodes sans
+    construire un singleton qui **bind un socket UDP et lance `calaos_wago`**. ⇒ **la mitigation
+    réelle est le TYPAGE** : `enum class` / struct nommé pour distinguer `address` de `count`, la
+    permutation devenant une **erreur de compilation**, **sans une ligne de test**. **Recommandé
+    pour toute la série.**
+
+  - **9ᵉ RÉCIDIVE DU « FIXTURE PAUVRE » (`F-WAGO-6`)**, trouvée par la revue comme les huit
+    précédentes, et à l'endroit le plus ironique : sur le **seul** champ où requête et réponse
+    doivent différer, `FX_RCOUNT = 5` **égalait** la taille de la réponse ⇒ recalculer `count` au
+    lieu de l'**écho** était invisible, **l'oracle était mort**. Corrigé (`FX_RCOUNT = 3` pour
+    5 valeurs + `EXPECT_NE`), **mutation N1 rejouée : 3 rouges**.
+
+  - **LE PRÉCÉDENT KNX NE S'APPLIQUE PAS ICI, et c'est écrit en tête du test.** **Aucun octet du bus
+    modbus n'atteint jamais une chaîne JSON** : `WagoCtrl` rend des `vector<bool>` / `vector<UWord>`,
+    **jamais un tampon** ; `action` est l'un de **8 littéraux**, `id` est un UUID, le reste est du
+    `to_string` d'entiers. ⇒ sur ce wire les invariants d'octets (`ensure_ascii`, gestionnaire
+    d'UTF-8 invalide) sont **défensifs, pas porteurs**. Le cadrage `ExternProc` a été instruit :
+    **longueur-préfixée**, **purge complète au dépassement**, **pas d'épissure** ⇒ pas de message
+    partiel qui se parse.
+
+  - **Campagne de 17 mutations** (M1-M13 + N1-N4 de la revue), dont **11 dans l'en-tête de
+    production** `IO/Wago/WagoWire.h`, la ligne **`CXXLD` exigée à chaque exécution**, témoin **0
+    rouge avant ET après** chaque passe. Muter `"read_bits"` dans l'en-tête **livré** → **4 rouges**
+    : le filet protège bien le produit, pas une copie. **Exactement 3 chaînes d'octets gelées
+    bougent** sur toute la branche — la réponse de lecture (bascule) et les 2 requêtes d'écriture
+    multiple (correction) ; **les 6 autres requêtes et la réponse de statut sont identiques à
+    l'octet** (`Params` est un `std::map`, l'adaptateur jansson émettait déjà alphabétiquement). Les
+    2 cas `..._BUG` du commit de caractérisation sont **flippés, pas supprimés**.
+
+  - **HORS PÉRIMÈTRE, PRÉEXISTANT, À SAVOIR** : `ExternProcServer` **accepte n'importe quel
+    connecteur local** et **écrase `client`** — **tous les drivers `ExternProc` sont concernés**, pas
+    seulement Wago.
+
+  - ⛔ **NON VÉRIFIÉ, à ne pas durcir** : **rien n'a tourné sous ASan**, **aucun automate réel ni
+    aucun `calaos_wago` réel** n'a été sollicité, et les **permissions du socket `/tmp`** n'ont pas
+    été examinées.
+
+  - **RIEN N'A ÉTÉ POUSSÉ.**
+
 - **🔒 E4.1i ✅ MERGÉ (`034d3915`, 5 commits, rebase sur `2955e84a` + ff-only, historique linéaire,
   `make check` **77/77**) — la bascule du wire Reolink, ET un use-after-free réel refermé dans un
   commit séparé.**
