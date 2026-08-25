@@ -4303,3 +4303,99 @@ portent les **mesures**. La consigne du préambule ne change pas : **on appende,
   de sortie » est **nécessaire et insuffisante**. Il faut y ajouter **`cmp` d'application** et
   **comparaison des ensembles**. `DECISIONS.md` est corrigé en ce sens : **cinq variantes de la
   famille `_DEPENDENCIES`, plus une sixième d'une autre famille.**
+---
+
+### F-RGB-1 ⛔ Troisième site de la classe « longueur écrite deux fois » — `IO/OutputLightRGB.cpp:107-109`
+
+Trouvé par le balayage exhaustif exigé par **T3.34** (critère d'acceptation n°2), sur tout `src/` :
+**50 sites** `compare(0, N, "…")`, dont **3** où `N` ou le `erase(0, M)` qui suit ne vaut pas la
+longueur du littéral. Deux sont ceux de T3.34 ; le troisième est ailleurs :
+
+```cpp
+107|    else if (val.compare(0, 8, "set off ") == 0)
+109|        val.erase(0, 4);        // ⛔ "set off " fait 8
+```
+
+`set off #AABBCC` devient `off #AABBCC`, `ColorValue` le refuse (`isValid()` faux) et **toute la
+branche est un no-op silencieux** : ni couleur mémorisée, ni `cmd_state`, ni erreur.
+
+⭐ **Particularité qui la rend moins urgente, et plus délicate** : la branche est **morte de bout en
+bout**. `cmd_state = "set off " + color.toString()` (`:118`) n'est produit **que par cette branche
+elle-même**, donc l'état ne peut jamais reboucler dessus ; et `set off ` n'est déclaré dans **aucun**
+`ioDoc->actionAdd()` du fichier. Aucun client ne peut l'avoir apprise autrement qu'en lisant le code.
+⇒ Corriger **ressusciterait du code jamais exécuté**, avec des effets (mémorisation de couleur,
+`cmd_state_bool = false`, `DELETE_NULL(timer_auto)`) que personne n'a jamais observés.
+**Mérite son propre ticket**, avec la décision « réparer ou supprimer » posée explicitement.
+
+### F-SIGC-1 ⭐ `Timer::singleShot` + `sigc::mem_fun` sur un objet non-`trackable` — le motif, pas seulement les volets
+
+Instruit en livrant **T3.34**. ⚠️ **L'hypothèse initiale — « `ImpulseDown(0)` ⇒ échéance immédiate
+⇒ UAF à chaque appel » — est INFIRMÉE**, et sa mécanique est fausse. Mesuré dans l'image du
+conteneur, **libuv 1.44.2**, sonde autonome liant le vrai `src/lib/Timer.cpp` :
+
+```
+singleShot(-0.001)  -> uv timeout = 18446744073709551615   fired=0  handle ARMÉ, jamais collecté
+singleShot(0.0)     -> tire au tour de boucle SUIVANT
+singleShot(0.035)   -> tire à 34 ms
+```
+
+Un délai négatif passe `static_cast<uint64_t>(-1.0)` à `uv_timer_start`, qui **écrête l'échéance
+débordante à `(uint64_t)-1`** : le one-shot **ne tire jamais**. Un délai nul tire au tour suivant,
+alors que l'objet est **encore vivant**. ⇒ **ni 0 ni négatif ne produisent la fenêtre qu'un UAF
+exige.**
+
+**Mais l'UAF existe, et son déclencheur est une commande BIEN FORMÉE.** `class IOBase`
+(`IOBase.h:35`) **ne dérive de rien** : ce n'est pas un `sigc::trackable`, donc
+`sigc::mem_fun(*this, &X::Stop)` tient un pointeur **nu** que rien ne déconnecte, et le handle uvw
+du one-shot est **anonyme** — aucun destructeur ne peut l'annuler. Il suffit d'un **délai positif
+court** (`impulse up 500`) suivi d'un `ListeRoom::deleteIO()` (API JSON), d'un `Room::RemoveIO()` ou
+d'un `~Room()`. **Reproduit trois fois en exécution, sans sanitizer** :
+
+1. IO détruite puis boucle pompée ⇒ **SIGSEGV, exit 139, et AUCUNE ligne `FAILED`** ;
+2. la simple succession *création / `impulse` / destruction* de deux cas voisins : le one-shot
+   orphelin est retombé sur l'adresse **réutilisée** par le volet suivant et **l'a arrêté** — un
+   volet vivant piloté par le callback d'un volet mort ;
+3. trace `gdb` : `sigc::bound_mem_functor0<void, Calaos::OutputShutterSmart>::operator()` appelé
+   depuis `uvw::TimerHandle::startCallback` ← `uv_run`.
+
+**T3.34 n'a gardé que ses 4 sites** (les deux `Up()`/`Down()` de `OutputShutter.cpp` et de
+`OutputShutterSmart.cpp`), par jeton de vie `std::weak_ptr` sur un membre — le schéma d'`aliveTag`
+de `Timer`/`Idler` eux-mêmes. Il devait les prendre : **corriger la longueur agrandit la fenêtre**
+de `impulse_time` seul à la durée demandée par le client, jusqu'à la course complète du volet.
+⭐ **Le motif reste à instruire ailleurs dans l'arbre** — c'est plus large qu'un ticket sur les
+volets, et ça mérite son propre balayage (`Timer::singleShot` + `sigc::mem_fun`, ou lambda capturant
+`this`, sur un objet dont la durée de vie n'est pas garantie jusqu'à l'échéance).
+
+### F-IMP-1 Fuite de handle libuv atteignable à distance, une par commande
+
+Corollaire mesuré du même régime écrêté. Deux entrées d'API mènent à un délai négatif dans les IO
+volet :
+
+- `impulse_time` **absent** (volet à relais ordinaire) ⇒ `impulse_time == -1`, donc
+  `impulse down 0` ou `impulse down -1` rend la somme négative ;
+- `Utils::from_string` **sature à `INT_MAX`** ⇒ `{"value":"impulse down 99999999999999999999"}`
+  fait déborder `INT_MAX + impulse_time` (**UB signé**), qui repasse négatif.
+
+Le one-shot **ne tire jamais et reste armé** : le volet fait sa course complète, **et un handle
+libuv retenant l'IO fuit à chaque appel**. Il suffit de répéter la commande. Corrigé dans T3.34 pour
+ses deux fichiers (somme et borne en `double`, délai écrêté à zéro) ; ⚠️ **le même calcul d'échéance
+en `int` non gardé est à chercher ailleurs** — partout où une durée venue du client est additionnée
+puis divisée avant d'atteindre un timer.
+
+### F-TEST-2 ⚠️ Le piège de non-relink s'étend au FAUX ROUGE, pas seulement au faux vert
+
+Rencontré en livrant T3.34, et il a coûté deux campagnes de mesure avant d'être vu. Le piège connu
+(`_DEPENDENCIES = libcalaos_common.la` ⇒ les `.o` serveur ne sont pas des prérequis) est présenté
+comme un producteur de **faux verts** : le binaire ne relie pas le code modifié. Mesuré ici, il
+produit aussi des **faux rouges et des crashs**, et ceux-là sont bien plus déroutants.
+
+Séquence : une campagne de contre-mutations restaure les sources à la fin **sans reconstruire**.
+`OutputShutterSmart.o` reste donc celui de la **dernière mutation**. Un `cd tests && make <suite>`
+relie alors joyeusement (`CXXLD` bien présent, code de sortie du `make` à 0) un objet **muté** à des
+sources saines : la suite **segfaute**, et le journal accuse un cas qui n'a rien fait de mal.
+
+⇒ **Le `rm -f` des `.o` touchés ne suffit pas s'il n'est pas suivi d'un `make` qui les reconstruit
+vraiment** — un `make` lancé dans `tests/` **ne reconstruit pas `src/`**. La séquence sûre est
+`rm -f <objets> <binaire>` puis un `make` **à la racine**, puis le `make` de la suite, et le
+`CXXLD` n'est une preuve que du **lien**, jamais de la fraîcheur des objets liés.
+

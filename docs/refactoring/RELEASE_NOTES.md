@@ -253,6 +253,48 @@ ailleurs — signalez-le.
 
 ---
 
+## 🔴 Volets : l'action `impulse down` n'a jamais respecté la durée demandée
+
+### Ce que vous avez pu observer (T3.34)
+Si vous pilotez un volet avec `impulse down <durée>` — depuis une règle, un scénario, un bouton de
+l'interface ou l'API — **la durée que vous demandiez était ignorée**, et ce depuis toujours. La
+commande jumelle `impulse up <durée>`, elle, fonctionnait. Ce qui se passait dépendait de votre
+configuration :
+
+- **Volet configuré avec `impulse_time`** (volet à impulsions) : le volet **partait puis s'arrêtait
+  presque aussitôt**, après la seule durée d'impulsion du matériel — quelques dizaines ou centaines
+  de millisecondes. En pratique, un frémissement au lieu d'un mouvement. Facile à mettre sur le
+  compte du matériel ou du relais.
+- **Volet sans paramètre `impulse_time`** (volet à relais ordinaire, le cas le plus courant) : c'est
+  l'inverse. Le volet **partait et ne s'arrêtait plus** : il descendait **jusqu'à sa fin de course**,
+  au lieu des quelques secondes demandées. Si vous avez renoncé à `impulse down` parce que « ça
+  ferme tout le volet à chaque fois », c'était ça.
+
+Dans les deux cas la commande **répondait `success`** et rien n'était journalisé comme une erreur.
+Le seul indice était visible dans l'état de l'IO remonté par l'API, qui affichait
+`impulse down 0` quelle que soit la durée envoyée.
+
+La cause : en retirant le préfixe `impulse down ` de la commande, le serveur enlevait **deux
+caractères de trop peu**. La durée arrivait donc illisible à la conversion, qui rendait **0**.
+
+### Ce qui change
+`impulse down <durée>` fait maintenant ce qu'elle annonce : le volet descend pendant la durée
+demandée, puis s'arrête — exactement comme `impulse up` le faisait déjà. **Aucun changement de
+configuration n'est nécessaire.**
+
+⚠️ **Vos automatismes vont changer de comportement, et c'est le but.** Si vous aviez contourné le
+défaut — en encadrant `impulse down` d'un `stop` temporisé, en réglant `impulse_time` pour obtenir
+la course voulue, ou en remplaçant la commande par `down` suivi d'un `stop` — **ces contournements
+vont maintenant s'ajouter à la durée qui est enfin respectée**. Relisez les règles qui utilisent
+`impulse down` avant de mettre à jour.
+
+Deux cas limites changent aussi, tous deux sans effet sur une configuration saine :
+`impulse down 0` (ou une durée négative) arrête le volet immédiatement au lieu de le laisser aller
+en fin de course, et une durée absurdement grande laisse simplement le volet aller au bout de sa
+course au lieu de dérégler la minuterie d'arrêt. Ces deux entrées faisaient en outre **fuir une
+ressource interne à chaque appel** ; répétées depuis l'API, elles finissaient par peser sur le
+serveur. C'est corrigé.
+
 ## ⚠️ Comportements qui changent sur une installation existante
 
 ### Une règle dont un équipement a disparu ne s'exécute plus (décision utilisateur)
