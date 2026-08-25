@@ -466,6 +466,114 @@
     M2, M3, M4, M5 ni M9 : la revue n'en demandait pas la reprise, je m'en remets à la mesure de
     l'auteur pour ces cinq-là.
 
+- **🔒 T3.25 ✅ MERGÉ (`16c4aaba`, **14** commits, `git rebase master` + `merge --ff-only` sur
+  `1c6ab7a9`, historique linéaire, **0 commit de fusion**, `./autogen.sh && ./configure &&
+  make -j12 && make check -j6` ⇒ **`# TOTAL: 93 / PASS: 93 / FAIL: 0`**, **un seul** bloc
+  `Testsuite summary`, `exit 0`, **0 `error:`**, `CXXLD    calaos_server`)** —
+  `Utils::from_string("")` rendait `true` **sans rien écrire**, et un compte API ordinaire
+  atteignait le trou sur des volets et des variateurs. **RIEN POUSSÉ.**
+
+  - ⭐⭐ **DÉBLOQUE LA CHAÎNE SÉRIALISÉE `E4.1l`→`s`**, qui touche les mêmes lignes de
+    `JsonApi.cpp`. C'était la raison de sérialiser ce merge ; la file peut repartir.
+  - ⭐⭐ **`CM-15` ROUGIT — c'était LA réserve de la seconde revue, et elle est levée par la
+    mesure.** Avant, les lignes corrigées des six familles n'étaient épinglées par **rien** : les
+    muter toutes en bloc laissait **89/89 et un ensemble rouge VIDE**. Rejouée ici sur l'arbre
+    rebasé : **sortie 2**, ensemble rouge **11 cas / 2 binaires**, **une rougeur par ligne** —
+    **9** rouges pour les **9** lignes `port` des six classes Wago (`WIAnalog` ×2, `WITemp`,
+    `WOAnalog` ×2, `WODigital` ×2, `WODali`, `WODaliRVB`) et **2** pour l'unique ligne
+    `relay_num` (formes **absente** et **blanche**, qui l'atteignent toutes les deux faute de
+    garde `Exists()` — c'est justement ce qui distingue `relay_num` des Wago). **Les 3 témoins
+    restent VERTS** (`AnAbsentPortParameterKeepsTheModbusDefaultToo`,
+    `AConfiguredPortIsStillTheOneUsed`, `AConfiguredRelayNumIsStillTheOneUsed`) ⇒ les 11 cas ne
+    peuvent pas être satisfaits en « ne lisant jamais le paramètre ».
+  - **`CM-OVF`** : sortie **2**, **30 cas / 6 binaires**. ⚠️ **L'auteur en annonçait 28** : l'écart
+    est **entièrement expliqué** par `T3.37`, mergée entre-temps sur `master`, qui ajoute **2** cas
+    à `JsonPathSyntax_test` (18 → **20**) ; **l'ensemble des binaires est identique**.
+    **`CM-KEEP`** : sortie **2**, **4 cas / 3 binaires**, oracle KNX
+    (`AnOverflowingValueIntKeepsTheDefaultInsteadOfSaturating`) compris.
+  - ⭐ **LES TROIS ENSEMBLES SONT DEUX À DEUX DISJOINTS, vérifié AU NIVEAU DU CAS et nom par nom**,
+    jamais sur les cardinaux. Piège évité : `CM-OVF` et `CM-KEEP` **partagent le binaire**
+    `StringUtilsFromString_test` mais **aucun cas** (`IsOfType*` d'un côté, `FromStringOrKeep*` de
+    l'autre) — un jugement pris sur les binaires aurait conclu à tort au recouvrement. ⇒ les
+    **trois** écritures de la primitive sont **séparément** épinglées.
+  - **Témoin M0 joué AVANT et APRÈS la campagne** : sortie **0**, **93/93**, ensemble rouge
+    **VIDE** les deux fois. ⭐ **1585 cas gtest exécutés, IDENTIQUE aux quatre passes**
+    (90 suites gtest + 3 scripts shell = 93) ⇒ **aucune suite silencieusement sautée** (`F-PYTEST-1`).
+  - **Protocole, appliqué aux quatre passes** : pristine restaurée **sans préserver les dates**
+    (`shutil.copy` puis `os.utime`, jamais `copy2` — c'est la **neuvième variante de faux rouge**
+    que l'auteur a consignée, et elle ne s'est **pas** produite ici), `cmp` d'application sur
+    chaque fichier, purge de **tous** les `tests/**/*.o`, `*.log`, `*.trs` **et** des **91**
+    binaires de test avant chaque reconstruction, `CXXLD` compté par **regex à double espace** :
+    **102** aux quatre passes, `calaos_server` compris.
+  - ⭐ **La production n'a bougé QUE de ce qui était annoncé**, recompté en `python3` hors
+    commentaires : **+97 / −46 lignes de code** sur `src/`, dont **une seule** ligne ajoutée pour
+    la testabilité — `int getRelayNum() const { return relay_num; }`, **additive et `const`**,
+    appelée par **rien** dans `src/`. **Le point d'accès Wago coûte ZÉRO ligne de production** :
+    `WagoMap::get_maps()` était **déjà public**. `WagoConfigParse.h` et `TimeRange.cpp` ne changent
+    **que des commentaires** (0 ligne de code). **Aucun `friend`, aucun `#ifdef` de test, aucun
+    `private:` déplacé.**
+  - **Les 5 lignes de `CM-15` restées NON ÉPINGLÉES sont bien FICHÉES ET NOMMÉES**, une par ligne,
+    dans un tableau dédié de `T3.25.md` §10.6 avec la **raison mesurée** : `AVReceiver.cpp:62`
+    (`port`), `:275` (`zone`), `InputAnalog.cpp:122` (`precision`), `InPlageHoraire.cpp:253`/`:270`
+    (`start_offset`/`end_offset`). **Les cinq numéros de ligne sont exacts sur l'arbre mergé**,
+    vérifiés un par un. 10 épinglées + 5 fichées = **15**, et il y a bien **15** occurrences de
+    `from_string_or_keep` dans les 10 fichiers visés.
+  - ⛔ **`ColorUtils.cpp:245` : l'auto-démenti de l'auteur est CONFIRMÉ PAR LA MESURE.**
+    `ColorValue_test.ADecimalStringPastIntMaxIsNotAColour` **n'apparaît pas** dans l'ensemble rouge
+    de `CM-OVF` ⇒ l'oracle était **vide**, l'audit avait lu `setAlpha()` (qui borne) au lieu de
+    `setRgb()` (qui **sort**). Le cas est **conservé en témoin et étiqueté comme tel dans son
+    propre commentaire** ; le tableau du §10.2 et la note de version sont corrigés — **aucune
+    affirmation de changement de couleur n'y subsiste**.
+  - **`OLAWire` est réparé sur la tête** : le cas s'appelle désormais
+    `AnEmptyStringIsRefusedByFromStringAndNoLongerLeavesTheDestinationAlone`, ses deux assertions
+    sont les **exactes opposées** des anciennes, la sentinelle `0xA5A5A5A5` est conservée, et la
+    prémisse périmée d'`E4.1f` n'est plus **invoquée** — elle est **recadrée** (« *E4.1f avait
+    raison POUR E4.1f* »). La première revue avait relu un tip rouge ; ce n'est plus le cas.
+  - ⚠️ **Conflits et résolution, dits en clair** : **2 fichiers, 3 hunks**. ⭐ **`tests/Makefile.am`
+    — LE PIÈGE DU `endif` A MORDU, comme annoncé** : les deux versants du conflit s'arrêtent
+    **avant** l'`endif` partagé situé **après** le marqueur `>>>>>>>`, si bien que « garder les
+    deux côtés » tel quel laisse **un seul `endif` pour deux `if`**. Résolu en **régénérant un
+    `endif` par bloc** (celui du versant `master`/`T3.28b` `RoonSpawnViaPlayer`, le partagé
+    refermant le bloc `ImpulseGarbageIo` de `T3.25`). Recompté **tous préfixes `^if*` confondus** :
+    **81 `if` / 81 `endif`**, profondeur finale **0**, **minimum 0**, **jamais négative**, zéro
+    marqueur résiduel. **`FINDINGS.md` ×2 : les deux côtés gardés intégralement**, les blocs
+    `T3.25` placés **avant** le titre `## T3.37` de `master` pour qu'ils restent sous le `##` qui
+    était le leur, et non avalés par une section voisine — vérifié section par section.
+  - **Tests RECOMPTÉS, pas recopiés** : `tests/Makefile.am` porte **93** entrées `TESTS`
+    (89 sous `HAVE_GTEST` + 3 hors condition + 1 sous `HAVE_GTEST && HAVE_LIBKNX`), **0 doublon**,
+    et **91** `check_PROGRAMS`. `master` en portait **89** ⇒ **+4** :
+    `StringUtilsFromString_test`, `core/SetStateGarbage_test`, `core/ImpulseGarbageIo_test`,
+    `core/WagoPortDefault_test`. **`# TOTAL: 93` du build = ce compte** ⇒ les **deux** moitiés de
+    la règle de lecture sont satisfaites. ⚠️ **L'auteur annonçait 92/+4 sur `88`** : c'était juste
+    **sur sa base** `b7a4c63d` ; le nombre attendu se **recompte** après rebase.
+  - **145 goldens, arbre `d4ebc61f`, IDENTIQUE à `master`, ZÉRO bougé** ; `git status -uall` du
+    worktree de merge **vide** après la campagne.
+  - ⚠️ **Écarts de rédaction relevés, tous NON BLOQUANTS et aucun n'invalide une conclusion** —
+    ils sont laissés tels quels plutôt que corrigés en silence, mais ils sont fichés ici :
+    **(a)** `T3.25.md` §9.3 et `BOARD` annoncent **84** sites `is_of_type` en **22** fichiers ;
+    mesuré en `python3` sur l'arbre : **86** en **23** fichiers (**60** `<int>`, **26** `<double>`)
+    — l'écart est `LuaScript/ScriptBindings.cpp`, qui en porte **2** et que le balayage a manqué ;
+    **(b)** `DECISIONS.md` écrit « `from_string_or_keep()` utilisée à **20 sites** » : mesuré
+    **33** sites de code hors `StringUtils.h` ; **(c)** `DECISIONS.md` dit **312** appelants
+    ignorant le retour là où la fiche dit **310** ; **(d)** §9.4 écrit que « la **ligne 97** fait
+    `set_param("period", …)` » — c'est la **98** ; le trio de lignes `97/105/109` est **exact**, et
+    le raisonnement (membre `double frequency;` **sans initialiseur**, `InputAnalog.h:35`, qu'un
+    `_or_keep` sérialiserait dans `io.xml`) est **juste et vérifié au source** ; **(e)** §8.7
+    affirme encore « **`T3.34` n'est PAS mergé sur `master`** » — c'était vrai à l'écriture, mais
+    `T3.34` **est** la base `b7a4c63d` de la branche ; **(f)** `T3.25.md` §10.6 renvoie les 5
+    lignes non épinglées « → `T3.25a` », or **`T3.25a.md` ne porte aucune section pour elles** —
+    elles ne sont perdues nulle part (tableau du §10.6 + ligne `BOARD` de `T3.25a`), mais le
+    renvoi est **pendant**. ⇒ à verser dans `T3.25a` quand elle sera reprise.
+  - ⚠️ **Ce dont je ne suis PAS sûr, dit franchement** : **rien sous ASan**, **aucun volet, aucun
+    automate Wago, aucun bus KNX réel** — tout est mesuré sur suites unitaires. Je n'ai **pas**
+    rejoué les mutations **M0…M7** du §8.3 ni les campagnes de la **première** revue : le mandat
+    portait sur `CM-15`, `CM-OVF` et `CM-KEEP`, et je m'en remets à la mesure de l'auteur pour les
+    autres. Les **deux assertions non déterministes** nommées au §8.7
+    (`AnImpulseWithNoDurationIsDefaultedToZero`, `ADimmerSetWithNoPercentDoesNotMoveTheLight`)
+    sont **vertes ici**, mais leur caractère non déterministe est une propriété du compilateur et
+    de la pile : **mon vert ne prouve rien pour elles**, et l'auteur le dit déjà. `F-BUILD-1`
+    **reste non reproduit** (un seul bloc `Testsuite summary` aux quatre passes).
+
 - **🔒 T3.27 ✅ MERGÉ (`ed9fc58e`, 5 commits, `git rebase master` + `merge --ff-only`, historique
   linéaire, `./autogen.sh && ./configure && make -j12 && make check -j6` **87/87**, `exit 0`, **0
   `error:`**, `CXXLD    calaos_server`)** — `setIOParam()`/`waitForIO()` déclaraient `return 1`
