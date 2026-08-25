@@ -438,9 +438,15 @@ TEST(ForwardedForLine, LastRepeatedHeaderLineWins)
     //LAST line, not the first: request_headers is a map and the callback
     //assigns, so the client supplied line is overwritten (HttpClient.h:265).
     EXPECT_EQ("198.51.100.7", p.state.request_headers["x-forwarded-for"]);
+    //T3.39: the peer of this scenario is haproxy, and haproxy reaches
+    //calaos_server on 127.0.0.1:5454 (backend calaos-server of
+    //conf/haproxy-calaos.cfg). It was seeded "10.0.0.254" before, which no
+    //deployment produces: this case is about the PROXY path, so it must be
+    //driven with the proxy's real peer address, otherwise the trust guard of
+    //T3.39 turns it red and makes it look like the proxy path broke.
     EXPECT_EQ("198.51.100.7",
               TransportLimits::effectiveClientIp(
-                  p.state.request_headers["x-forwarded-for"], "10.0.0.254"));
+                  p.state.request_headers["x-forwarded-for"], "127.0.0.1"));
 }
 
 TEST(ForwardedForLine, ClientSuppliedListIsDiscardedWholesale)
@@ -455,29 +461,210 @@ TEST(ForwardedForLine, ClientSuppliedListIsDiscardedWholesale)
                              "X-Forwarded-For: 198.51.100.7\r\n"
                              "\r\n"));
     ASSERT_TRUE(p.state.parse_done);
+    //T3.39: re-seeded on the proxy's real peer address, same reason as above.
     EXPECT_EQ("198.51.100.7",
               TransportLimits::effectiveClientIp(
-                  p.state.request_headers["x-forwarded-for"], "10.0.0.254"));
+                  p.state.request_headers["x-forwarded-for"], "127.0.0.1"));
 }
 
-TEST(ForwardedForLine, WithoutAProxyTheHeaderIsTakenAtFaceValue)
+TEST(ForwardedForLine, WithoutAProxyTheHeaderIsIgnored)
 {
     KeepAliveParser p;
 
-    //No proxy in front: nothing overwrites the client's line, so the client
-    //names its own throttle bucket and its own connection-cap counter, while
-    //its real address (192.0.2.55 here) is ignored. THIS IS F-XFF-1, pinned as
-    //a fact rather than described in a comment. It is reachable on a standard
-    //install: HttpServer.cpp:31 binds listen_address = "0.0.0.0" by default
-    //while haproxy only targets 127.0.0.1:5454, so port 5454 answers directly
-    //from the LAN. A case that goes red here means somebody has restricted the
-    //trust - read F-XFF-1 in docs/refactoring/FINDINGS.md before "fixing" it.
+    //T3.39 TURNS THIS CASE. It used to pin F-XFF-1 as a FACT: with no proxy in
+    //front nothing overwrites the client's line, so the client named its own
+    //throttle bucket and its own connection-cap counter while its real address
+    //(192.0.2.55 here) was ignored - which handed a direct LAN client both the
+    //exemption from the login backoff and the power to throttle a victim.
+    //
+    //Same request, INVERTED oracle: the header is only as trustworthy as the
+    //hop that wrote it, and on this connection no trusted hop wrote it. The
+    //peer is 192.0.2.55, which is not the loopback, so the line is client
+    //supplied from end to end and is dropped. F-XFF-1 is CLOSED by this case
+    //going green, not by it going red.
     ASSERT_EQ(HPE_OK, p.feed("GET /api HTTP/1.1\r\n"
                              "Host: calaos\r\n"
                              "X-Forwarded-For: 203.0.113.9\r\n"
                              "\r\n"));
     ASSERT_TRUE(p.state.parse_done);
-    EXPECT_EQ("203.0.113.9",
+    //The parser still keeps the line - the guard is about TRUST, not parsing.
+    EXPECT_EQ("203.0.113.9", p.state.request_headers["x-forwarded-for"]);
+    EXPECT_EQ("192.0.2.55",
               TransportLimits::effectiveClientIp(
                   p.state.request_headers["x-forwarded-for"], "192.0.2.55"));
+}
+
+//--- 6. T3.39: WHOSE WORD IS THE X-Forwarded-For LINE? -----------------------
+//
+//Section 5 proves that BEHIND haproxy the header cannot be forged: the proxy
+//appends its own line last and the last line wins. That argument has a silent
+//premise - that a proxy is in front at all - and nothing checked it. T3.24
+//routed LoginThrottle through this helper, so on a server reachable from the
+//LAN (HttpServer.cpp:29-31 binds listen_address = "0.0.0.0" by default, and it
+//MUST stay reachable: the RemoteUI fleet and the LAN mobile apps speak to
+//port 5454 directly) a client wrote its own identity and gained two things:
+//it exempted itself from the login backoff by rotating the header, and it
+//throttled a victim by wearing her address. That was F-XFF-1.
+//
+//The rule pinned here: the header is worth exactly as much as the hop that
+//wrote it. haproxy reaches calaos_server over the loopback (backend
+//calaos-server 127.0.0.1:5454), so a loopback peer IS the proxy and its header
+//is read. Any other peer is a client talking to us directly, and its header is
+//dropped in favour of the address the kernel reports.
+//
+//WHY THE ADDRESSES BELOW ARE WHAT THEY ARE. Every case seeds a peer and a
+//header that DIFFER, and asserts WHICH OF THE TWO came out - not merely that
+//two clients differ, which is true on both sides of the guard as soon as the
+//headers differ, and would pin nothing. None of the non-loopback addresses is
+//in 127.0.0.0/8, and they are drawn from three different documentation ranges
+//so no prefix or truncation slip can make one pass for another.
+
+namespace
+{
+//A direct client on the LAN, its forged header, and the victim it would like
+//to wear. Three distinct documentation ranges (RFC 5737), none of them
+//loopback, none a prefix of another.
+const char *const kDirectPeer   = "192.0.2.55";
+const char *const kForgedIp     = "203.0.113.9";
+const char *const kVictimIp     = "198.51.100.7";
+}
+
+TEST(TrustedProxyPeer, ADirectClientCannotNameItsOwnBucket)
+{
+    //PINS THE FIX, capability (a) of F-XFF-1: exempting yourself from the
+    //backoff. The peer is a LAN address, so the header is somebody's claim
+    //about himself and carries no weight.
+    EXPECT_EQ(kDirectPeer,
+              TransportLimits::effectiveClientIp(kForgedIp, kDirectPeer));
+}
+
+TEST(TrustedProxyPeer, ADirectClientCannotRotateItsBucket)
+{
+    //PINS THE FIX, the exploit itself rather than one request of it: a client
+    //that puts a FRESH address in the header on every attempt must keep
+    //landing in the SAME bucket, or the login throttle simply does not exist
+    //for him. Two forged identities, one peer, one answer - and the answer is
+    //asserted by VALUE, so a guard that returned some third string would not
+    //sneak through on "they are equal".
+    const std::string first  =
+        TransportLimits::effectiveClientIp(kForgedIp, kDirectPeer);
+    const std::string second =
+        TransportLimits::effectiveClientIp(kVictimIp, kDirectPeer);
+
+    EXPECT_EQ(kDirectPeer, first);
+    EXPECT_EQ(kDirectPeer, second);
+    EXPECT_EQ(first, second)
+            << "rotating X-Forwarded-For bought a direct client a new bucket";
+}
+
+TEST(TrustedProxyPeer, ADirectClientCannotThrottleAVictim)
+{
+    //PINS THE FIX, capability (b): wearing somebody else's address to burn HER
+    //backoff window. The identity must be the attacker's own peer, never the
+    //address he typed.
+    const std::string id =
+        TransportLimits::effectiveClientIp(kVictimIp, kDirectPeer);
+
+    EXPECT_EQ(kDirectPeer, id);
+    EXPECT_NE(kVictimIp, id)
+            << "a forged header still charges the login backoff to the victim";
+}
+
+TEST(TrustedProxyPeer, ALookalikePeerIsNotTheLoopback)
+{
+    //THE PREFIX TRAP, named instead of suffered. 127.0.0.0/8 is loopback, but
+    //"127." appearing ANYWHERE in the string is not: a containment test rather
+    //than a prefix test would hand the whole exploit back to any client whose
+    //address happens to embed the octets. 10.127.0.5 is an ordinary LAN
+    //address and must be treated as one.
+    EXPECT_EQ("10.127.0.5",
+              TransportLimits::effectiveClientIp(kForgedIp, "10.127.0.5"));
+}
+
+TEST(TrustedProxyPeer, AMappedLanAddressIsNotTheLoopback)
+{
+    //THE SECOND HALF OF THE SAME TRAP. A dual stack listener reports IPv4
+    //peers in the ::ffff: form, so the guard has to understand that form - but
+    //understanding it must not degrade into trusting everything that carries
+    //the prefix. ::ffff:192.0.2.55 is the LAN client of this file, wearing its
+    //mapped clothes.
+    EXPECT_EQ("::ffff:192.0.2.55",
+              TransportLimits::effectiveClientIp(kForgedIp,
+                                                 "::ffff:192.0.2.55"));
+}
+
+TEST(TrustedProxyPeer, AnUnknownPeerBuysNoTrust)
+{
+    //HttpClient::getClientIp() answers the literal "unknown" when both
+    //peer<uvw::IPv4>() and peer<uvw::IPv6>() fail (HttpClient.cpp:700-727).
+    //"unknown" is not the loopback, so the header is dropped and every such
+    //connection shares one bucket. That is the SAFE reading - we decline to
+    //believe a header on a connection we cannot even name - and it is written
+    //down here so the next reader finds a decision rather than an accident.
+    EXPECT_EQ("unknown",
+              TransportLimits::effectiveClientIp(kForgedIp, "unknown"));
+}
+
+//--- The proxy path, unchanged: these are the witnesses ----------------------
+
+TEST(TrustedProxyPeer, BehindTheProxyTheHeaderStillDecides)
+{
+    //PINS AN ACQUIS - the whole point of T3.24, which must survive T3.39. The
+    //peer is haproxy on the loopback, so the header is the proxy's word about
+    //the real client and it wins over the peer.
+    EXPECT_EQ(kForgedIp,
+              TransportLimits::effectiveClientIp(kForgedIp, "127.0.0.1"));
+}
+
+TEST(TrustedProxyPeer, TheWholeLoopbackRangeIsTheProxy)
+{
+    //DECIDED EXPLICITLY: all of 127.0.0.0/8 is loopback (RFC 1122), not just
+    //127.0.0.1, so the guard tests the range and not one address. A local
+    //resolver or a second proxy bound on 127.0.0.53 is still on this machine.
+    EXPECT_EQ(kForgedIp,
+              TransportLimits::effectiveClientIp(kForgedIp, "127.0.0.53"));
+    EXPECT_EQ(kForgedIp,
+              TransportLimits::effectiveClientIp(kForgedIp, "127.1.2.3"));
+}
+
+TEST(TrustedProxyPeer, Ipv6LoopbackIsTrustedToo)
+{
+    //THE WORST FAILURE MODE THIS TICKET CAN HAVE, pinned. If ::1 were left out
+    //of the trusted set, haproxy on a dual stack machine would have its header
+    //ignored and EVERY client of that installation would collapse into the
+    //proxy's single bucket - the exact defect T3.24 fixed, silently
+    //reintroduced on the standard deployment.
+    EXPECT_EQ(kForgedIp,
+              TransportLimits::effectiveClientIp(kForgedIp, "::1"));
+}
+
+TEST(TrustedProxyPeer, MappedIpv4LoopbackIsTrustedToo)
+{
+    //SAME FAILURE MODE, other spelling: a dual stack listener hands back
+    //::ffff:127.0.0.1 for an IPv4 loopback connection. Miss this form and
+    //haproxy loses its trust on exactly the machines that run dual stack.
+    EXPECT_EQ(kForgedIp,
+              TransportLimits::effectiveClientIp(kForgedIp,
+                                                 "::ffff:127.0.0.1"));
+}
+
+TEST(TrustedProxyPeer, TheHeaderlessFallbackIsUntouched)
+{
+    //PINS AN ACQUIS on both sides of the guard: with no header there is
+    //nothing to distrust, and the peer is the answer whoever the peer is.
+    //Without this, a guard could "pass" by always returning the peer.
+    EXPECT_EQ("127.0.0.1", TransportLimits::effectiveClientIp("", "127.0.0.1"));
+    EXPECT_EQ(kDirectPeer, TransportLimits::effectiveClientIp("", kDirectPeer));
+    EXPECT_EQ(kDirectPeer, TransportLimits::effectiveClientIp("  ", kDirectPeer));
+}
+
+TEST(TrustedProxyPeer, BehindTheProxyTheLastEntryIsStillTheOneRead)
+{
+    //PINS AN ACQUIS that the guard must not cost us: on the proxy path the
+    //client supplied prefix of the list stays worthless. Guard plus rfind, not
+    //guard instead of rfind - a fix that trusted the FIRST entry behind the
+    //proxy would be vulnerable again through a legitimate haproxy.
+    EXPECT_EQ(kVictimIp,
+              TransportLimits::effectiveClientIp(
+                  std::string(kForgedIp) + ", " + kVictimIp, "127.0.0.1"));
 }
