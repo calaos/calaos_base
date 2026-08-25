@@ -2901,6 +2901,8 @@ if HAVE_GTEST
 TESTS += WagoWriteReply_test
 check_PROGRAMS += WagoWriteReply_test
 WagoWriteReply_test_SOURCES = WagoWriteReply_test.cpp
+WagoWriteReply_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -DCALAOS_TOP_SRCDIR='"$(abs_top_srcdir)"'
 WagoWriteReply_test_LDADD = @CALAOS_SERVER_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main

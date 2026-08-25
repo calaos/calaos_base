@@ -232,3 +232,173 @@ TEST(WagoWriteReply, TheProbesActuallyDiscriminate)
     EXPECT_TRUE((std::is_constructible_v<WagoTypes::Address, UWord>));
     EXPECT_FALSE((std::is_convertible_v<UWord, WagoTypes::Address>));
 }
+
+/*----------------------------------------------------------------------------
+ * T3.46 part A - libmbus, THE LAST HOP, and why it stays untyped.
+ *
+ * The Calaos side of a single write is typed end to end now: WOAnalog ->
+ * WagoMap -> WagoWire -> (JSON) -> WagoExternProc_main -> WagoCtrl, and the
+ * reply comes back through the two slots above. The hop AFTER WagoCtrl is
+ * not, and cannot be closed the same way:
+ *
+ *   mbus_cmd_force_single_coil     (mbus, slave, mbus_uword coil_addr,     mbus_uword data)
+ *   mbus_cmd_preset_single_register(mbus, slave, mbus_uword register_addr, mbus_uword preset_data)
+ *
+ * ⭐ THE ARBITRATION, and the measurement that decides it. T3.31 refused to
+ * patch libmbus on ownership and cost. That refusal is UPHELD here, on a
+ * measurement T3.31 did not have and that makes it stronger rather than
+ * merely repeated:
+ *
+ *   A one-field struct DOES close a permutation in C - re-measured for this
+ *   ticket, gcc -std=c11 -Wall -Wextra: the correct order compiles (rc=0),
+ *   the permuted typed pair and the bare permutation are both refused (rc=1).
+ *   So this is not a technical impossibility, exactly as T3.31 said.
+ *
+ *   ⭐ But the permutable pair is NOT in the six public commands. All six are
+ *   thin wrappers over ONE internal request builder,
+ *   mbus_cmd_addr_wdata(mbus, slave_addr, funct_code, mbus_uword addr,
+ *   mbus_uword data), and across its five call sites in mbus_cmd.c its two
+ *   word parameters carry THREE different roles: an address + a COUNT
+ *   (read_coil_status, read_holding_registers), an address + a DATA
+ *   (force_single_coil, preset_single_register) and a SUBFUNCTION + a data
+ *   (diagnostics). One-type-per-role therefore cannot be applied to it at
+ *   all without SPLITTING it - a functional change to vendored 2003 C that
+ *   nothing in this tree executes. Typing only the six public signatures
+ *   leaves the same pair live one frame below and moves the six unwraps from
+ *   WagoCtrl.cpp into libmbus: T3.31's "seven places to seven places, no net
+ *   gain", now measured one level deeper with a concrete reason.
+ *
+ *   And "nothing executes it" is measured, not assumed: over the 92 ELF
+ *   binaries under tests/, mbus_cmd_preset_single_register,
+ *   mbus_cmd_force_single_coil and mbus_cmd_addr_wdata are defined in ZERO
+ *   and referenced as undefined in ZERO.
+ *
+ * ⇒ The residual is DECLARED, not deferred a third time. What follows is the
+ * other half of that sentence: since the six call sites cannot be closed by
+ * type, the two WRITE ones - the pair F-WAGO-7 names, the ones where a
+ * permutation drives a relay or presets a register at an arbitrary address -
+ * are pinned by a SOURCE TRIPWIRE instead, the mechanism JanssonResidues_test
+ * and the T3.28 suites already use over CALAOS_TOP_SRCDIR.
+ *
+ * ⚠️ THIS IS NOT A TYPE. It cannot stop a NEW call site from being written
+ * with the arguments the wrong way round; it only fails when THESE two lines
+ * change. That is strictly less than the C++ side gets, and saying otherwise
+ * would be selling an oracle for something it is not.
+ *
+ * If it fires: someone edited WagoCtrl.cpp:write_single_bit or
+ * :write_single_word. Check that the modbus ADDRESS is still the third
+ * argument and the payload the fourth, then update the expectation here.
+ *--------------------------------------------------------------------------*/
+
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
+
+namespace
+{
+
+std::string readSource(const std::string &rel)
+{
+    std::ifstream f(std::string(CALAOS_TOP_SRCDIR) + "/" + rel);
+    std::ostringstream ss;
+    ss << f.rdbuf();
+    return ss.str();
+}
+
+/* The comma-separated argument list of the first call to `fn`, with every run
+ * of whitespace squeezed to one space and casts left in place. Depth-aware, so
+ * a nested call or a cast never splits an argument in two. */
+std::vector<std::string> argumentsOf(const std::string &src, const std::string &fn)
+{
+    std::vector<std::string> args;
+    size_t call = src.find(fn + "(");
+    if (call == std::string::npos) return args;
+
+    size_t i = call + fn.size() + 1;
+    int depth = 0;
+    std::string cur;
+    for (; i < src.size(); i++)
+    {
+        char c = src[i];
+        if (c == '(') depth++;
+        else if (c == ')')
+        {
+            if (depth == 0) { args.push_back(cur); break; }
+            depth--;
+        }
+        if (c == ',' && depth == 0) { args.push_back(cur); cur.clear(); continue; }
+        cur += c;
+    }
+
+    for (std::string &a: args)
+    {
+        std::string out;
+        bool sp = false;
+        for (char c: a)
+        {
+            if (isspace(static_cast<unsigned char>(c))) { sp = !out.empty(); continue; }
+            if (sp) { out += ' '; sp = false; }
+            out += c;
+        }
+        a = out;
+    }
+    return args;
+}
+
+} //namespace
+
+/* ⚠️ A SOURCE TRIPWIRE, not a type. See the block above for what it does and
+ * does not buy. */
+TEST(WagoWriteReply, TheTwoUntypedLibmbusWriteCallsStillPassAddressBeforePayload)
+{
+    const std::string src = readSource("src/bin/calaos_server/IO/Wago/WagoCtrl.cpp");
+    ASSERT_FALSE(src.empty())
+        << "WagoCtrl.cpp not readable under CALAOS_TOP_SRCDIR - the tripwire "
+           "cannot be green just because it read nothing";
+
+    const std::vector<std::string> coil =
+        argumentsOf(src, "mbus_cmd_force_single_coil");
+    ASSERT_EQ(4u, coil.size()) << "mbus_cmd_force_single_coil() call not found "
+                                 "with four arguments in WagoCtrl.cpp";
+    EXPECT_NE(std::string::npos, coil[2].find("address"))
+        << "3rd argument of mbus_cmd_force_single_coil() is [" << coil[2]
+        << "], expected the modbus ADDRESS - a permutation here forces a "
+           "physical relay at whatever the payload happened to be";
+    EXPECT_NE(std::string::npos, coil[3].find("data"))
+        << "4th argument of mbus_cmd_force_single_coil() is [" << coil[3] << "]";
+
+    const std::vector<std::string> reg =
+        argumentsOf(src, "mbus_cmd_preset_single_register");
+    ASSERT_EQ(4u, reg.size()) << "mbus_cmd_preset_single_register() call not "
+                                "found with four arguments in WagoCtrl.cpp";
+    EXPECT_NE(std::string::npos, reg[2].find("address"))
+        << "3rd argument of mbus_cmd_preset_single_register() is [" << reg[2]
+        << "], expected the modbus ADDRESS";
+    EXPECT_NE(std::string::npos, reg[3].find("val"))
+        << "4th argument of mbus_cmd_preset_single_register() is [" << reg[3] << "]";
+}
+
+/* The tripwire above would pass on an empty file, on a renamed function, or
+ * on a parser that always answers "found". This is its witness: the same
+ * parser, on a call whose order is deliberately wrong, must disagree. */
+TEST(WagoWriteReply, TheSourceTripwireCanActuallyFail)
+{
+    const std::string wrong =
+        "int ret = mbus_cmd_preset_single_register(mbus, 1, val, (mbus_uword)address);";
+    const std::vector<std::string> a =
+        argumentsOf(wrong, "mbus_cmd_preset_single_register");
+    ASSERT_EQ(4u, a.size());
+    EXPECT_EQ(std::string::npos, a[2].find("address"))
+        << "the parser cannot tell a permuted call apart - the tripwire above "
+           "is worthless";
+    EXPECT_NE(std::string::npos, a[3].find("address"));
+
+    //And it must not answer four arguments for something that is not there.
+    EXPECT_TRUE(argumentsOf(wrong, "mbus_cmd_force_single_coil").empty());
+    //Nested parentheses must not split an argument.
+    const std::vector<std::string> nested =
+        argumentsOf("f(a, g(b, c), d)", "f");
+    ASSERT_EQ(3u, nested.size());
+    EXPECT_EQ("g(b, c)", nested[1]);
+}
