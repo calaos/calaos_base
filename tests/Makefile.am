@@ -56,6 +56,17 @@ TESTS += check-extra-dist.sh
 dist_check_SCRIPTS += check-extra-dist.sh
 EXTRA_DIST += check-extra-dist.py
 
+# T3.48: the other direction of the same question. check-extra-dist.sh above
+# asks "does every declared dist path exist?"; this asks "does every file that
+# exists get declared?". `make dist` answered "tarball built" while leaving 417
+# tracked files out of it -- 126 C/C++ sources and headers, every vendored
+# library's licence, and exprtk.hpp, without which the unpacked archive does
+# not compile. It reuses check-extra-dist.py's Makefile.am parser rather than
+# growing a second one. docs/refactoring/T3.48.md.
+TESTS += check-dist-coverage.sh
+dist_check_SCRIPTS += check-dist-coverage.sh
+EXTRA_DIST += check-dist-coverage.py
+
 if HAVE_GTEST
 AM_CPPFLAGS = \
               -I$(top_srcdir)/src \
