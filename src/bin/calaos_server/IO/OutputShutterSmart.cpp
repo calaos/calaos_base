@@ -23,6 +23,13 @@
 
 using namespace Calaos;
 
+/* T3.34: the prefix length used to be written twice, once in the compare()
+ * and once in the erase(), and only "impulse down " got them wrong (13 then
+ * 11), which silently truncated the duration into "n <ms>". Naming the
+ * prefix once is what makes that mistake unwritable. */
+static const std::string kImpulseUpPrefix = "impulse up ";
+static const std::string kImpulseDownPrefix = "impulse down ";
+
 OutputShutterSmart::OutputShutterSmart(Params &p):
     IOBase(p, IOBase::IO_OUTPUT),
     total_time(0),
@@ -159,16 +166,16 @@ bool OutputShutterSmart::set_value(std::string val)
     {
         Stop();
     }
-    else if (val.compare(0, 11, "impulse up ") == 0)
+    else if (Utils::strStartsWith(val, kImpulseUpPrefix))
     {
-        val.erase(0, 11);
+        val.erase(0, kImpulseUpPrefix.length());
         int v;
         from_string(val, v);
         ImpulseUp(v);
     }
-    else if (val.compare(0, 13, "impulse down ") == 0)
+    else if (Utils::strStartsWith(val, kImpulseDownPrefix))
     {
-        val.erase(0, 11);
+        val.erase(0, kImpulseDownPrefix.length());
         int v;
         from_string(val, v);
         ImpulseDown(v);
@@ -325,7 +332,18 @@ void OutputShutterSmart::Up(double new_value)
         if (impulse_action_time + impulse_time < _t * 1000)
         {
             double _timer = (double)(impulse_action_time + impulse_time) / 1000.;
-            Timer::singleShot(_timer, sigc::mem_fun(*this, &OutputShutterSmart::Stop));
+            Timer::singleShot(_timer, sigc::slot<void>(
+                [this, alive = std::weak_ptr<bool>(impulseStopTag)]()
+            {
+                //T3.34: this one-shot is parked on the event loop with a raw
+                //`this` (IOBase is not a sigc::trackable, and nothing
+                //cancels the anonymous handle). Honouring the requested
+                //duration makes the window as long as the client asked for
+                //instead of the bare impulse_time, so the callback checks
+                //that the IO is still alive before touching it.
+                if (alive.expired()) return;
+                Stop();
+            }));
         }
     }
     else
@@ -402,7 +420,18 @@ void OutputShutterSmart::Down(double new_value)
         if (impulse_action_time + impulse_time < _t * 1000)
         {
             double _timer = (double)(impulse_action_time + impulse_time) / 1000.;
-            Timer::singleShot(_timer, sigc::mem_fun(*this, &OutputShutterSmart::Stop));
+            Timer::singleShot(_timer, sigc::slot<void>(
+                [this, alive = std::weak_ptr<bool>(impulseStopTag)]()
+            {
+                //T3.34: this one-shot is parked on the event loop with a raw
+                //`this` (IOBase is not a sigc::trackable, and nothing
+                //cancels the anonymous handle). Honouring the requested
+                //duration makes the window as long as the client asked for
+                //instead of the bare impulse_time, so the callback checks
+                //that the IO is still alive before touching it.
+                if (alive.expired()) return;
+                Stop();
+            }));
         }
     }
     else
