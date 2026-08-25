@@ -24,6 +24,7 @@
 #include "AudioPlayer.h"
 #include "Timer.h"
 #include "ExternProc.h"
+#include "RoonArgs.h"
 #include <json.hpp>
 #include <optional>
 #include "Json_Addition.h"
@@ -149,8 +150,14 @@ public:
 private:
     explicit RoonCtrl(const string &host, int port);
 
+    //T3.28: the single launch path. See RoonPlayer.cpp.
+    void launch();
+
     ExternProcServer *process;
     string exe;
+    //The --host/--port command line, built once in the constructor and reused
+    //by every relaunch.
+    string procArgs;
 
     std::map<string, std::function<void(const RoonPlayerState &)>> subscribeCb;
 
@@ -209,9 +216,29 @@ public:
         return p;
     }
 
+    /*
+     * T3.28: read-only view of what would be handed to RoonCtrl::Instance().
+     *
+     * These exist for tests/core/RoonArgs_test.cpp and say so. RoonCtrl is a
+     * singleton that spawns a process in its constructor and is unreachable
+     * from make check (E4.1h), so without these two accessors nothing can
+     * check that a RoonPlayer built from a real Params resolved its port -
+     * which is precisely the line this ticket fixes.
+     */
+    int portGet() const { return port; }
+    const std::string &hostGet() const { return host; }
+
 private:
     std::string zoneId, host, id;
-    int port;
+    /*
+     * ⚠️ THE IN-CLASS INITIALISER IS THE BELT, portFromParams() IS THE
+     * BRACES. Before T3.28 this was `int port;` with nothing in the
+     * constructor's initialiser list, and Utils::from_string("") answers true
+     * WITHOUT WRITING (the stream sentry fails before extraction) - so the
+     * port handed to the sidecar was whatever the stack held. Not 0.
+     * Indeterminate, and therefore not reproducible from one run to the next.
+     */
+    int port = RoonArgs::DefaultPort;
 
     RoonPlayerState playerState;
 

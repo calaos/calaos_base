@@ -72,6 +72,7 @@ calaos_server_SOURCES = \
         Audio/SqueezeboxWire.h                          \
         Audio/SqueezeboxDB.cpp                          \
         Audio/SqueezeboxDB.h                            \
+        Audio/RoonArgs.h                                \
         Audio/RoonPlayer.cpp                            \
         Audio/RoonPlayer.h                              \
         Calaos.cpp                                      \

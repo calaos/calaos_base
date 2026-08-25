@@ -34,20 +34,43 @@ RoonCtrl::RoonCtrl(const string &host, int port)
     process = new ExternProcServer("roon");
     exe = Prefix::Instance().binDirectoryGet() + "/calaos_roon";
 
+    //T3.28: built ONCE, here, and used by every launch. Before this ticket
+    //`args` was built after the connect() below and the handler relaunched
+    //calaos_roon with no arguments at all, so the first restart silently
+    //dropped a statically configured core and fell back to RoonDiscovery.
+    procArgs = RoonArgs::buildArgs(host, port);
+
     process->messageReceived.connect(sigc::mem_fun(*this, &RoonCtrl::processNewMessage));
 
-    process->processExited.connect([=]()
+    process->processExited.connect([this]()
     {
         //restart process when stopped
         cWarningDom("roon") << "process exited, restarting...";
-        process->startProcess(exe, "roon");
+        launch();
     });
 
-    string args;
-    if (!host.empty())
-        args += " --host " + host + " --port " + Utils::to_string(port);
+    launch();
+}
 
-    process->startProcess(exe, "roon", args);
+/*
+ * T3.28: THE ONLY PLACE THAT LAUNCHES calaos_roon.
+ *
+ * That is the whole point of the function. The first launch and the respawn
+ * cannot pass different arguments because there is only one call site left -
+ * a structural closure, not a convention. tests/core/RoonArgs_test.cpp keeps
+ * it that way with a source tripwire counting the spawn call sites of this
+ * file - hence the deliberate absence of that call's spelling anywhere else
+ * in this file, prose included - because RoonCtrl itself is unreachable from
+ * make check: its constructor binds a unix socket and spawns a process
+ * (E4.1h).
+ *
+ * ⛔ NOT IN SCOPE, and deliberately so: this respawn has NO BACKOFF, like six
+ * other controllers of the tree (FINDINGS.md:2510-2518). Generalising
+ * WagoMap.h:165-172 is a separate, cross-cutting ticket.
+ */
+void RoonCtrl::launch()
+{
+    process->startProcess(exe, "roon", procArgs);
 }
 
 RoonCtrl::~RoonCtrl()
@@ -177,12 +200,19 @@ RoonPlayer::RoonPlayer(Params &p):
 
     ioDoc->paramAdd("zone_id", _("Roon zone ID"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("host", _("Static Roon server IP address, empty to autodetect on network"), IODoc::TYPE_STRING, false);
-    ioDoc->paramAdd("port", _("Static Roon server port, empty to autodetect on network"), IODoc::TYPE_INT, 9330);
+    //T3.28: paramAddInt, NOT paramAdd. paramAdd's fourth parameter is
+    //`bool mandatory` (IODoc.h:46), so the 9330 that used to sit there was
+    //converted to `true` without a warning and `defaultval` stayed "" -
+    //IODoc.cpp:59 only adds a "default" key when it is non-empty. The
+    //installer was therefore told "port is REQUIRED and has no default", on a
+    //parameter whose own description says "empty to autodetect".
+    ioDoc->paramAddInt("port", _("Static Roon server port, empty to autodetect on network"),
+                       1, 65535, false, RoonArgs::DefaultPort);
 
     host = param["host"];
     zoneId = param["zone_id"];
     id = param["id"];
-    Utils::from_string(param["port"], port);
+    port = RoonArgs::portFromParams(param);
 
     if (zoneId.empty())
     {
