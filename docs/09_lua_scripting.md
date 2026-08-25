@@ -286,16 +286,69 @@ E4.5e et **aucun n'existe** : un script qui les appelle échoue avec
 | `calaos:getIOValue(id)` | 1 (string) | 1 valeur, **typée d'après le param `var_type`** de l'IO : `"float"` → nombre, `"bool"` → booléen, sinon chaîne | `ScriptBindings.cpp:135-167` |
 | `calaos:setIOValue(id, value)` | 2 | rien | `ScriptBindings.cpp:169-207` |
 | `calaos:getIOParam(id, key)` | 2 (string, string) | 1 valeur, coercée : numérique → nombre, `"true"`/`"false"` → booléen, sinon chaîne | `ScriptBindings.cpp:209-248` |
-| `calaos:setIOParam(id, key, value)` | 3 | ⚠️ déclare `return 1` mais **n'empile rien** | `ScriptBindings.cpp:250-294` |
-| `calaos:waitForIO(id)` | 1 | ⚠️ déclare `return 1` mais **n'empile rien** ; bloque sous `ScriptWatchdogPause` | `ScriptBindings.cpp:296-334` |
-| `calaos:requestUrl(url [, post_data])` | 1 ou 2 | rien — ⚠️ **le corps de la réponse est jeté** | `ScriptBindings.cpp:336-377` |
-| `calaos:sendPushNotif(message [, attachment])` | 1 ou 2 | rien | `ScriptBindings.cpp:405-428` |
-| `calaos:getEnv(key)` | 1 | toujours une chaîne, vide si la clé est absente | `ScriptBindings.cpp:379-403` |
+| `calaos:setIOParam(id, key, value)` | 3 | rien (`nil`) — ⚠️ **a changé en T3.27**, voir ci-dessous | `ScriptBindings.cpp:250-312` |
+| `calaos:waitForIO(id)` | 1 | rien (`nil`) — ⚠️ **a changé en T3.27** ; bloque sous `ScriptWatchdogPause` | `ScriptBindings.cpp:313-361` |
+| `calaos:requestUrl(url [, post_data])` | 1 ou 2 | rien — ⚠️ **le corps de la réponse est jeté** | `ScriptBindings.cpp:362-404` |
+| `calaos:sendPushNotif(message [, attachment])` | 1 ou 2 | rien | `ScriptBindings.cpp:431-459` |
+| `calaos:getEnv(key)` | 1 | toujours une chaîne, vide si la clé est absente | `ScriptBindings.cpp:405-430` |
+
+### ⚠️ `setIOParam()` et `waitForIO()` : le retour a changé (T3.27)
+
+**Avant T3.27**, ces deux fonctions déclaraient `return 1` — « je laisse **une** valeur de retour
+sur la pile Lua » — **sans jamais rien y empiler**. `Lunar::thunk`
+(`src/bin/calaos_server/LuaScript/Lunar.h:130-137`) ne retire que `self` avant de dispatcher : les
+**arguments de l'appel restaient sur la pile**, et Lua en prenait le sommet comme résultat. Le
+script recevait donc **son propre dernier argument**. Mesuré, en exécutant un vrai `lua_State`
+(`tests/LuaCalaosApi_test.cpp`) :
+
+| Appel | Ce que le script recevait, avant T3.27 |
+|---|---|
+| `calaos:setIOParam(id, key, value)` | la chaîne `value` |
+| `calaos:waitForIO(id)` | la chaîne `id` |
+
+⇒ **toute garde du type `if calaos:waitForIO(io) then … end` prenait la branche vraie, quoi qu'il
+arrive** : une chaîne non vide est *truthy* en Lua. La garde ne gardait rien.
+
+**Depuis T3.27**, les deux fonctions rendent **`nil`**, comme `setIOValue()`, `requestUrl()` et
+`sendPushNotif()` à côté d'elles. C'est la convention de la table : les **accesseurs**
+(`getIOValue`, `getIOParam`, `getEnv`) rendent leur valeur, les **mutateurs et actions** ne
+rendent rien.
+
+**Pourquoi pas un booléen de succès** : `LuaIOBase::set_param()` est `void` et envoie un message
+sans réponse sur la socket `ExternProc` ; `waitForIO()` ne revient normalement que si le signal a
+répondu vrai et que le script n'a pas été interrompu. **Aucune des deux n'a d'information de
+succès à rendre** — un booléen ne pourrait être que la constante `true`, c'est-à-dire exactement
+l'ancien défaut sous un autre nom.
+
+**Comment un échec se signale, et ça n'a pas changé** : par une **erreur Lua** (`lua_error()`),
+pas par une valeur de retour. `id` d'IO inconnu, valeur de type refusé, script interrompu — tous
+lèvent. Un script qui ne teste rien est donc **quand même** interrompu ; c'est `pcall()` qui
+permet de les rattraper.
+
+⚠️ **Si vos scripts testaient le retour**, ils changent de comportement : la branche qui était
+prise systématiquement ne l'est plus jamais. Voyez `RELEASE_NOTES.md`.
+
+```lua
+-- ❌ ne veut rien dire, ni avant (toujours vrai) ni après (toujours faux)
+if calaos:waitForIO("io_0001") then
+  calaos:setIOValue("io_0002", true)
+end
+
+-- ✅ waitForIO() rend la main quand l'IO a changé, sinon il lève
+calaos:waitForIO("io_0001")
+calaos:setIOValue("io_0002", true)
+
+-- ✅ et si vous voulez survivre à un id invalide
+local ok, err = pcall(function() calaos:waitForIO("io_0001") end)
+if not ok then
+  print("waitForIO a echoue: " .. tostring(err))
+end
+```
 
 Le type de valeur transmis à `setIOValue()` est dispatché depuis le type Lua vers
 `set_value(double)` / `set_value(bool)` / `set_value(std::string)`
-(dérivé, `src/bin/calaos_server/LuaScript/ScriptBindings.cpp:185-190`), chacun émettant un message
-`set_state` vers le processus parent (`:456-478`).
+(dérivé, `src/bin/calaos_server/LuaScript/ScriptBindings.cpp:186-191`), chacun émettant un message
+`set_state` vers le processus parent (`:479-500`).
 
 ### `getEnv()` — une seule clé aujourd'hui
 
@@ -311,7 +364,7 @@ peuplée**, et seulement dans une condition.
 ⚠️ **La vérification de certificat est désactivée en dur, sans opt-out.** Contrairement aux IOs
 Web et caméras, qui honorent un paramètre `insecure` par équipement via `setInsecureFromParam()`,
 `requestUrl()` appelle `setInsecure()` **inconditionnellement** à chaque appel
-(capturé, `src/bin/calaos_server/LuaScript/ScriptBindings.cpp:344-349`, intégral) :
+(capturé, `src/bin/calaos_server/LuaScript/ScriptBindings.cpp:371-375`, intégral) :
 
 ```cpp
 UrlDownloader *dl = new UrlDownloader(url, true);
@@ -324,10 +377,10 @@ dl->httpGet();
 
 Le raisonnement figure dans le commentaire : l'URL vient du code Lua **à l'exécution**, il n'y a
 aucun paramètre d'équipement où déclarer une préférence. Le variant POST est identique avec
-`dl->httpPost(string(), post_data);` (`:361-364`).
+`dl->httpPost(string(), post_data);` (`:388-391`).
 
 Les deux chemins mettent ensuite le watchdog en pause et font tourner la boucle jusqu'à la fin du
-téléchargement (`:353-354`, `:366-367`).
+téléchargement (`:379-380`, `:392-393`).
 
 ### Le global `Calaos` (majuscule)
 

@@ -291,7 +291,24 @@ int Lua_Calaos::setIOParam(lua_State *L)
         lua_error(L);
     }
 
-    return 1;
+    /* T3.27: 0, not 1. This used to declare one result and push nothing, and
+     * Lunar::thunk leaves the call arguments on the stack, so lua handed the
+     * script back the top of it - the third argument, `value`. Every
+     * `if calaos:setIOParam(...) then` therefore read true.
+     *
+     * 0 is the convention of this method table: the three getters
+     * (getIOValue/getIOParam/getEnv) return 1 and push their value, the
+     * setters and actions (setIOValue, requestUrl, sendPushNotif, print)
+     * return 0. setIOValue() right above is this function's own sibling.
+     *
+     * NOT a pushed boolean, and the reason is measurable rather than stylistic:
+     * LuaIOBase::set_param() is void and fire-and-forget over the ExternProc
+     * socket, and every failure path here longjmps through lua_error(). There
+     * is no success/failure information to report, so `lua_pushboolean(L, true)`
+     * would be a hardcoded constant - it would keep the guard above reading
+     * true forever, which is the defect under a better name.
+     */
+    return 0;
 }
 
 int Lua_Calaos::waitForIO(lua_State *L)
@@ -331,7 +348,16 @@ int Lua_Calaos::waitForIO(lua_State *L)
         lua_error(L);
     }
 
-    return 1;
+    /* T3.27: 0, not 1. Same defect as setIOParam() above - the declared result
+     * was never pushed, so the script got back the top of the stack, here the
+     * only argument: the io id. A non-empty string is truthy, so
+     * `if calaos:waitForIO(io) then` took the true branch unconditionally.
+     *
+     * Nothing to report either: this function returns normally only when
+     * waitForIOChanged.emit() answered true AND abort is false. The abort case
+     * raises. A pushed boolean could only ever be the constant true.
+     */
+    return 0;
 }
 
 int Lua_Calaos::requestUrl(lua_State *L)
