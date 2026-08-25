@@ -2776,6 +2776,51 @@ périmètre.
   lisait un `int` **NON INITIALISÉ** sur master (`from_string("")` laisse sa destination intacte,
   le sentry échoue avant `num_get`) ; corrigé par `int idx = 0`, ce qui converge avec T3.25.
   ⚠️ **T3.25 ne corrigeait PAS ce plantage** : il naît du `pop_back()`, **avant** `from_string`.
+  ⭐ **T3.35b (revue du correctif, 2026-08-25) — LE CORRECTIF AVAIT DÉPLACÉ LE PROBLÈME, et le
+  troc était défavorable.** `MqttCtrl::getValue()` posait **`err = false` inconditionnellement**
+  avant `getValueJson()`, qui rend une chaîne vide sur **chacun** de ses échecs. Une fois le
+  plantage supprimé, `battery_path = "["` **franchissait** le `if (!err)` de l'appelant avec
+  `v == ""` et alimentait `double rawValue;` **non initialisé** (idem `wireless_signal`, `uptime`).
+  **Mesuré** : la même forme compilée avec `-ftrivial-auto-var-init=pattern` publie un niveau de
+  batterie de **≈ −5,3·10³⁰⁷ %**. Un plantage est visible et diagnosticable ; une valeur inventée
+  remonte dans l'interface et **les règles agissent dessus**.
+  ⭐ **La racine était le drapeau, pas les lectures.** `err` disait « un payload est arrivé », ses
+  **neuf** sites d'appel l'entendent tous comme « une valeur en est sortie » et traitent
+  `err == true` comme « ignorer cette mise à jour » ⇒ le rendre honnête ne peut transformer qu'une
+  valeur inventée en mise à jour sautée. Le drapeau est désormais produit **par le parseur**
+  (surcharge à 4 arguments de `getValueJson()`) ; les lectures sont gardées **en second verrou**,
+  parce que cette branche doit être juste **sans T3.25**, qui n'est pas mergée et peut être revertée.
+  ⭐ **`MqttCtrl::getValueColor()` — site que T3.25 ne couvre PAS**, avec ou sans elle : `double x,
+  y; int b;` non initialisés et `err` effacé par **n'importe laquelle** des trois lectures réussies
+  ⇒ `path_x` cassé + `path_y` bon = `fromXYBrightness()` reçoit un `x` **jamais écrit** ;
+  `from_string` n'est même pas appelée sur le chemin fautif. Corrigé : initialisation, **ET** au
+  lieu du OU, et exigence d'un **nombre**.
+  ⚠️ **Recompte des locales non initialisées** de `MqttCtrl.cpp` + `WebCtrl.cpp` : **8 variables sur
+  5 sites** (3 `rawValue`, `x`/`y`/`b`, `coeff_a`/`coeff_b`), et non 4 — le compte de 4 portait sur
+  les **sites** en comptant `getValueColor` pour un et omettait `coeff_a`/`coeff_b`.
+  ⚠️ **La garde de T3.35 vérifiait une LONGUEUR quand son message annonçait une FORME.** Mesuré :
+  `weather/[5/description` rendait `clear sky` (élément 0) et `weather/[12/description`
+  `light rain` (élément 1), **sans rien journaliser** — `pop_back()` mangeait le chiffre. Durcie en
+  `val.size() < 2 || val.back() != ']'` ⇒ pas de trou à ficher.
+  ⚠️ **Fixture pauvre, motif de la série.** `EXPECT_TRUE(logContains(log, "weather[0]"))` était
+  satisfait par la **première** ligne du scénario (`subpath not found weather[0]`), donc le texte de
+  l'indication n'était asserté **nulle part** : supprimer `suggestion.insert(...)` faisait proposer
+  *le chemin fautif lui-même* pour **0 rouge**. Aiguille corrigée en `"did you mean weather/[0]"` ⇒
+  la mutation donne **2 rouges**. **Balayage des autres assertions** : **un seul scénario de toute
+  la suite émet plus d'une ligne de journal**, donc **2** assertions au total pouvaient être
+  satisfaites par une ligne antérieure — les deux corrigées. Famille voisine distincte : **4**
+  assertions satisfaites par une autre partie de **la même** ligne (l'écho du `path` au lieu du
+  jeton), 2 corrigées, 2 laissées avec leur raison.
+  ⚠️ **`int idx = 0` n'était retenu par AUCUN test, et ne peut pas l'être.** La mutation
+  `int idx = 0` → `int idx;` reste à **0 rouge** après correctif — mais c'est désormais **correct** :
+  l'index est assigné sur **toutes** les branches, donc l'initialiseur est mort et le mutant est
+  **équivalent par construction**. Un test ne peut pas détecter une lecture non initialisée de façon
+  portable ; la sortie est de rendre le code **déterministe** et d'épingler ce qu'il **décide** —
+  ce que font deux mutations qui rougissent (valeur : 7 rouges, avertissement : 4 rouges).
+  ⚠️ **Agrégat SHA-256 des goldens `2a3526f0…` : RETIRÉ de la fiche.** Irreproductible — 13 recettes
+  essayées au total (5 par le relecteur, 8 de plus ici), aucune ne le redonne. Le fait vérifiable
+  qui le remplace : **145 goldens, arbre `d4ebc61f`**. ⚠️ **Diffstat de `3db14a92` corrigé** :
+  **+148/−6** et non +134/−6.
   ⚠️ Voisin mesuré au même endroit et **figé, lui** : un index **non numérique** (`[zz]`) lit
   silencieusement l'**élément 0** — `Utils::from_string` laisse sa destination à 0 et son retour
   n'est pas regardé (famille T3.25).

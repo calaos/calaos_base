@@ -117,6 +117,34 @@ journal du serveur qu'il faut ouvrir.
 alors vos paramètres `path` — la faute de frappe est probablement toujours là, elle est simplement
 devenue inoffensive.
 
+### Un `path` fautif ne peut plus inventer un niveau de batterie ni une couleur (T3.35b)
+
+Corriger le point ci-dessus avait un effet de bord qu'il a fallu fermer à son tour. Le serveur ne
+s'arrêtait plus — mais l'entrée/sortie **croyait avoir lu une valeur** alors qu'elle n'avait rien lu.
+Concrètement, si le `path` d'un **niveau de batterie**, d'une **qualité de signal** ou d'un
+**uptime** ne menait nulle part, la valeur remontée dans l'interface était **quelconque** : un
+nombre sans rapport, parfois énorme, qui avait toutes les apparences d'une mesure. Vos **règles**
+pouvaient s'en servir. Même chose pour les ampoules **couleur** MQTT dont l'un des trois chemins
+(`path_x`, `path_y`, `path_brightness`) était mal saisi : la couleur affichée était fabriquée à
+partir de valeurs jamais lues.
+
+**Ce que vous verrez désormais.** Un chemin qui ne trouve rien **ne met plus rien à jour** : la
+valeur précédente reste en place, et le journal de `calaos_server` dit ce qu'il n'a pas su lire.
+C'est le comportement que vous aviez déjà pour n'importe quel autre chemin invalide.
+
+⚠️ **Un cas peut vous surprendre, et c'est voulu** : si un `path` de batterie pointait sur un texte
+ou sur un objet JSON au lieu d'un nombre, l'entrée affichait jusqu'ici une valeur (fausse) et
+n'affiche désormais **plus rien**, avec un message dans le journal. Si une valeur d'état a disparu
+de votre interface après cette mise à jour, **c'est ce paramètre-là qu'il faut corriger** — elle
+n'a jamais été juste.
+
+**Trois autres formes de `path` qui mentaient en silence** sont corrigées au même endroit : un index
+de tableau **sans crochet fermant** (`weather/[5`, `weather/[12`) lisait un élément **au hasard**
+(le premier, le deuxième…) sans rien dire ; il est maintenant refusé et signalé. Et un index
+**illisible** (`weather/[zz]`, `weather/[]`) continue de lire le premier élément — comportement
+inchangé, pour ne casser aucune configuration existante — mais le journal le **dit** désormais, au
+lieu de laisser croire à une lecture normale.
+
 ---
 
 ## 🔴 MQTT et Web : la syntaxe d'index de tableau affichée par `calaos_installer` était fausse
