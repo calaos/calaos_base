@@ -74,11 +74,16 @@ static const int DefaultPort = 9330;
  *   - "abc", "12abc"               : answers FALSE and writes 0 resp. 12
  *     (C++11 num_get stores a value on failure, unlike C++03).
  *   - "99999999999999999999"       : answers TRUE and writes INT_MAX.
- * T3.25 is in flight and changes the FIRST regime so that a defined value is
- * written on failure. This function is written to answer the same thing
- * before and after that change: `parsed` is SEEDED with DefaultPort, so the
- * "wrote nothing" case and the "wrote the default" case coincide, and every
- * other regime is filtered by the range test below.
+ * T3.25 is in flight and changes TWO of those three regimes, not one. It
+ * returns `!fail() && eof()` instead of `eof()` alone and publishes a
+ * value-initialised temporary on every path, so the blank string answers FALSE
+ * and writes 0 (instead of TRUE and nothing) AND the overflow answers FALSE
+ * while still writing INT_MAX (instead of TRUE). Only the middle regime comes
+ * through unchanged. This function is written to answer the same thing before
+ * and after: `parsed` is SEEDED with DefaultPort, so the "wrote nothing" case
+ * and the "wrote the default" case coincide, and every value the other regimes
+ * can leave behind - 0, 12, INT_MAX - is filtered by the range test below,
+ * whichever way the return value went.
  *
  * ⚠️ DELIBERATE DEVIATION FROM THE TICKET, stated so a reviewer does not have
  * to guess: T3.28.md §3 suggested a declared range of 0..65535 for the ioDoc.

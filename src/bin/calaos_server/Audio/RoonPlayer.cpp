@@ -65,7 +65,10 @@ RoonCtrl::RoonCtrl(const string &host, int port)
  * (E4.1h).
  *
  * ⛔ NOT IN SCOPE, and deliberately so: this respawn has NO BACKOFF, like six
- * other controllers of the tree (FINDINGS.md:2510-2518). Generalising
+ * other controllers of the tree (FINDINGS.md, E4.5d, "Sept contrôleurs sur
+ * huit respawnent leur sous-processus sans aucun délai" - cited by title
+ * because the line number was already stale when it was written).
+ * Generalising
  * WagoMap.h:165-172 is a separate, cross-cutting ticket.
  */
 void RoonCtrl::launch()

@@ -111,7 +111,7 @@ laquelle des deux vous vouliez dire.
 
 ---
 
-## 🔴 Roon : l'adresse d'un core configurée à la main n'était jamais utilisée
+## 🔴 Roon (hôte statique) : mauvais port au démarrage, adresse perdue à la première relance
 
 ### Qui est concerné, et qui ne l'est pas (T3.28)
 
@@ -167,6 +167,8 @@ Deux défauts se cumulaient sur ce chemin, et un seul suffisait à le casser.
 tests, c'est que Calaos transmet bien l'adresse et le port configurés, et qu'il les retransmet à
 chaque relance. Si un problème de connexion subsiste chez vous après la mise à jour, il est
 ailleurs — signalez-le.
+
+---
 
 ## ⚠️ Comportements qui changent sur une installation existante
 

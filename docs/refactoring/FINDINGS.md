@@ -2843,12 +2843,45 @@ périmètre.
      indéterminée) passe `argparse` sans broncher — `_negative_number_matcher` — et arrive
      jusqu'à `RoonApi`.
   3. **`from_string` rend `true` sur une SURCHARGE** en écrivant `INT_MAX`
-     (`"99999999999999999999"` → `true`, `2147483647`). Ni cette fiche ni T3.25 ne le disaient.
+     (`"99999999999999999999"` → `true`, `2147483647`).
+     ⚠️ **Rectifié après revue** : la première rédaction disait « ni cette fiche ni T3.25 ne le
+     disaient », ce qui est **faux pour la saturation**. `FINDINGS.md:1546` écrit déjà « **très
+     grand** → **sature à `INT_MAX`**, donc inoffensif », `T3.19.md:86` porte la même ligne, et
+     `tests/core/JsonApiSession_test.cpp:1120-1122` la **fige** (`EXPECT_EQ(2147483647, perPage)`,
+     commentaire « Overflow does NOT zero it, it saturates ») — `JsonApiInputGuards_test.cpp:915`
+     fige la même valeur sur le fil. **Ce qui était inédit, c'est le RETOUR `true`** : ces sources
+     décrivent ce qui est **écrit** et concluent « inoffensif » **pour `per_page`** (destination
+     amorcée à `100`), aucune ne dit que `from_string` **répond succès** sur une entrée qu'aucun
+     `int` ne représente — donc qu'un appelant qui *teste* le retour est aussi exposé qu'un
+     appelant qui l'ignore.
   4. **Après T3.25**, le défaut non corrigé donnerait `--port 0` — **déterministe au lieu
      d'aléatoire, toujours faux** : le symptôme change, la cause non.
      `RoonArgs::portFromParams()` amorce sa destination avec `9330` et répond donc **la même chose
      avant et après T3.25** ; les deux tickets restent indépendants.
+     ⚠️ **Rectifié après revue** : la fiche affirmait que T3.25 ne change que le régime « chaîne
+     blanche ». **Faux** — T3.25 rend `!fail() && eof()` au lieu de `eof()`, donc le régime de
+     **débordement** change aussi de retour : `"99999999999999999999"` rendait `true`/`INT_MAX`,
+     il rend `false`/`INT_MAX`. Deux régimes sur trois bougent. Sans effet ici (la plage filtre
+     `INT_MAX` dans les deux mondes), mais la fiche le disait mal.
   ⛔ **Aucun test sur matériel réel** — ni ici, ni en E4.5c, ni en E4.5d. C'est dit dans la fiche.
+
+  ⚠️ **[BUG, PRÉ-EXISTANT, NON INTRODUIT ET NON CORRIGÉ PAR T3.28] Un `host` contenant un ESPACE
+  met le sidecar Roon dans une boucle de relance à 100 ms** — ✅ **fiché : [T3.28a](T3.28a.md)**
+  (2026-08-25). `RoonArgs::buildArgs()` concatène `host` sans le protéger :
+  `" --host " + host + " --port " + to_string(port)`. `ExternProcServer::startProcess()` découpe
+  cette chaîne sur `" "` (`Utils::split`) et la remet dans un `CStrArray` — un `host` valant
+  `"192.168.7.42 --foo"`, ou simplement `"mon core"`, produit donc des **argv supplémentaires**
+  qu'`argparse` refuse (`ExternProcRoon_main.py`, `parse_args()` sort en `SystemExit(2)`). Le
+  process meurt aussitôt, `processExited` relance, **et il n'y a aucun backoff** (le même trou que
+  « Sept contrôleurs sur huit respawnent leur sous-processus sans aucun délai », plus bas dans
+  cette même section E4.5d, recense) : le serveur reboucle sur un
+  `fork`/`exec` par ~100 ms tant que la configuration reste en place.
+  ⚠️ **Ni introduit ni aggravé par T3.28** : avant le ticket, `args` était assemblé exactement de
+  la même façon à `RoonPlayer.cpp:46-48`. T3.28 a **déplacé** cette concaténation dans
+  `RoonArgs::buildArgs()`, ce qui la rend pour la première fois **testable** — mais n'y touche pas.
+  Le champ vient de `calaos_installer` et n'est pas validé ; ce n'est pas une escalade de
+  privilèges (l'attaquant doit déjà pouvoir écrire `io.xml`), c'est un **déni de service par
+  faute de frappe**. Correctif hors périmètre T3.28 : voir `T3.28a.md`.
 
 ---
 

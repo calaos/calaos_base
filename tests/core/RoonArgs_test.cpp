@@ -72,13 +72,26 @@
  * cannot diverge because there is only one path - and the tripwire is what
  * keeps a future edit from re-opening it.
  *
+ * ⚠️ A SOURCE TRIPWIRE COUNTS TEXT, SO IT MUST COUNT THE TEXT THAT MATTERS.
+ * The first version of that tripwire counted `startProcess(` - the call NAME -
+ * and the review of this ticket showed what that buys: exchanging the shipped
+ * `startProcess(exe, "roon", procArgs)` for `startProcess(exe, "roon",
+ * std::string())` left the count at one and the whole suite GREEN. The sidecar
+ * could be restarted with no arguments at all - the defect this ticket exists
+ * to fix - without a single red. Both tripwires below now pin the full
+ * spelling of what they guard, not the fragment that identifies it: the launch
+ * site pins its argument list, and the `port` member pins its initialiser's
+ * VALUE and not merely the presence of an `=`.
+ *
  * ⚠️ Stated plainly so nobody credits this suite with more than it has: a
- * source tripwire is a WEAKER oracle than a behavioural case. It cannot tell
- * you the surviving call site passes the RIGHT string; the buildArgs() cases
- * at the bottom do that, on production code. The two together are the net,
- * neither alone. What NOTHING here can prove is that calaos_roon then does
- * the right thing with those flags: no test on real Roon hardware was run
- * for this ticket, and the delivery sheet says so.
+ * source tripwire is still a WEAKER oracle than a behavioural case, and
+ * pinning the spelling does not change its nature. It says the call passes
+ * `procArgs`; it cannot say `procArgs` HOLDS the right string - the buildArgs()
+ * cases at the bottom do that, on production code, and they would not notice a
+ * call site that vanished. The two together are the net, neither alone. What
+ * NOTHING here can prove is that calaos_roon then does the right thing with
+ * those flags: no test on real Roon hardware was run for this ticket, and the
+ * delivery sheet says so.
  *
  * ---------------------------------------------------------------------------
  * WHAT THIS SUITE DELIBERATELY DOES NOT TOUCH
@@ -88,7 +101,10 @@
  *    ticket must not depend on it either way: RoonArgs::portFromParams() is
  *    written so that its answer is the same before and after T3.25 lands.
  *  - The respawn having NO BACKOFF AT ALL (seven controllers out of eight,
- *    FINDINGS.md:2510-2518). That is a separate, cross-cutting ticket.
+ *    FINDINGS.md, E4.5d, "Sept controleurs sur huit respawnent leur
+ *    sous-processus sans aucun delai" - cited by title because the line
+ *    number this file shipped with was already stale). That is a separate,
+ *    cross-cutting ticket.
  ******************************************************************************/
 
 #include <gtest/gtest.h>
@@ -136,6 +152,52 @@ int countOccurrences(const std::string &haystack, const std::string &needle)
          p = haystack.find(needle, p + needle.size()))
         n++;
     return n;
+}
+
+/*
+ * Collapse every run of whitespace into a single space.
+ *
+ * ⚠️ THIS IS WHAT MAKES IT AFFORDABLE TO PIN A WHOLE CALL AND NOT JUST ITS
+ * NAME. A tripwire that counts `startProcess(` pins the EXISTENCE of the call;
+ * one that counts `startProcess(exe, "roon", procArgs);` pins WHAT IT PASSES,
+ * which is the only thing this ticket is about. The price of the second form
+ * is that it goes red when someone re-wraps the call across two lines or
+ * re-indents the file - a false red, and false reds are how tripwires get
+ * deleted. Collapsing whitespace first removes that price: the needle then
+ * matches any layout of the same tokens.
+ *
+ * It does NOT normalise spaces *around* punctuation, so `startProcess( exe ,
+ * ... )` would still miss. That is a loud red with a message naming the
+ * spelling it wants, not a silent survival, and the two are not the same
+ * failure: the whole point of the hardening is that a WRONG argument list can
+ * no longer pass unnoticed.
+ *
+ * Runs inside string literals are collapsed too. Neither file read here
+ * contains a literal with two adjacent spaces; should one appear, this must be
+ * revisited rather than trusted.
+ */
+std::string collapseWhitespace(const std::string &src)
+{
+    std::string out;
+    out.reserve(src.size());
+
+    bool inRun = false;
+    for (std::string::size_type i = 0; i < src.size(); i++)
+    {
+        const unsigned char c = static_cast<unsigned char>(src[i]);
+        if (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v')
+        {
+            if (!inRun) out += ' ';
+            inRun = true;
+        }
+        else
+        {
+            out += src[i];
+            inRun = false;
+        }
+    }
+
+    return out;
 }
 
 /*
@@ -293,16 +355,34 @@ TEST_F(RoonArgsTest, TheIoDocStillDeclaresHostOptional)
 
 /*
  * ⭐ DEFECT (b): the respawn must launch calaos_roon exactly as the first
- * launch did.
+ * launch did, WITH THE ARGUMENTS.
  *
- * The oracle is the number of startProcess( call sites in the shipped
- * RoonPlayer.cpp. Two on master - one at :43 with no arguments, one at :50
- * with them. One after the fix, inside the private launch() both paths go
- * through. See the header comment for why this cannot be a behavioural case.
+ * TWO oracles on the shipped RoonPlayer.cpp, and they answer two different
+ * questions. Both are needed; neither implies the other.
  *
- * This is also the case the counter-mutation of the delivery targets: putting
- * `process->startProcess(exe, "roon");` back into the handler brings the
- * count to two and reddens THIS case and this case only.
+ *  1. HOW MANY launch sites there are. Two on master - one at :43 with no
+ *     arguments, one at :50 with them. One after the fix, inside the private
+ *     launch() both paths go through. This is the STRUCTURAL closure: the two
+ *     paths cannot diverge because there is only one path left.
+ *
+ *  2. WHAT THAT ONE SITE PASSES, spelled out in full. Because oracle 1 counts
+ *     the call NAME, it is blind to the arguments: the review of this ticket
+ *     exchanged `startProcess(exe, "roon", procArgs)` for
+ *     `startProcess(exe, "roon", std::string())` and the WHOLE SUITE STAYED
+ *     GREEN - a sidecar restarted with no arguments at all, which is the very
+ *     defect this ticket fixes, reintroduced without a single red. The count
+ *     was still one. So the argument list is pinned here, literally.
+ *
+ * ⚠️ Oracle 2 does NOT make this a behavioural case and must not be read as
+ * one. It pins the TEXT of a call, not its effect: it cannot tell you that
+ * `procArgs` holds the right string - the buildArgs() cases at the bottom do
+ * that, on production code - and it would be satisfied by a `procArgs` that
+ * was never assigned. What it does close is the one hole a name-only count
+ * leaves wide open, at the cost of one line.
+ *
+ * Both mutations of the delivery campaign land HERE and nowhere else: putting
+ * `process->startProcess(exe, "roon");` back into the handler reddens oracle 1
+ * (and 2), and blanking the third argument reddens oracle 2.
  */
 TEST_F(RoonArgsTest, TripwireSource_TheRespawnLaunchesThroughTheSameCallSite)
 {
@@ -310,14 +390,23 @@ TEST_F(RoonArgsTest, TripwireSource_TheRespawnLaunchesThroughTheSameCallSite)
     ASSERT_TRUE(readShippedSource("src/bin/calaos_server/Audio/RoonPlayer.cpp", src))
         << "could not read the shipped RoonPlayer.cpp under " << CALAOS_TOP_SRCDIR;
 
-    EXPECT_EQ(1, countOccurrences(stripComments(src), "startProcess("))
+    const std::string code = collapseWhitespace(stripComments(src));
+
+    EXPECT_EQ(1, countOccurrences(code, "startProcess("))
         << "RoonPlayer.cpp must launch calaos_roon from ONE place, so the "
            "respawn cannot pass different arguments than the first launch";
+
+    EXPECT_EQ(1, countOccurrences(code, "process->startProcess(exe, \"roon\", procArgs);"))
+        << "the single launch site must hand calaos_roon the argument string "
+           "built in the constructor: exactly "
+           "`process->startProcess(exe, \"roon\", procArgs);`. A launch with "
+           "no arguments, or with a different string, is the defect T3.28 "
+           "fixes - and counting the call NAME alone cannot see it";
 }
 
 /*
- * The belt of the braces: RoonPlayer.h must give `port` an in-class
- * initialiser.
+ * The belt of the braces: RoonPlayer.h must initialise `port` in-class TO THE
+ * DEFAULT PORT.
  *
  * ⚠️ THIS TRIPWIRE IS NOT REDUNDANT WITH THE BEHAVIOURAL PORT CASES, and that
  * is worth stating because it looks like it is. Once portFromParams() answers
@@ -327,21 +416,36 @@ TEST_F(RoonArgsTest, TripwireSource_TheRespawnLaunchesThroughTheSameCallSite)
  * initialiser is there for the day someone adds an early return above the
  * assignment, and only a source oracle can pin it.
  *
+ * ⚠️ AND IT PINS THE VALUE, NOT MERELY THE PRESENCE OF AN `=`. The first
+ * version of this case counted `int port =`, while its own failure message
+ * said "has no in-class initialiser". The review exchanged
+ * `int port = RoonArgs::DefaultPort;` for `int port = 0;` and the suite stayed
+ * green: the guard held the presence and the message promised the meaning. A
+ * message that overstates its guard is worse than a guard that admits its
+ * limits, because the next reader trusts the message. The value is what the
+ * scenario above is about - on that hypothetical early return, `0` would hand
+ * the sidecar `--port 0`, the exact shape of the bug being fixed - so the
+ * value is what gets pinned, and the message now says exactly that.
+ *
  * RED on master: RoonPlayer.h:214 is `int port;`, and the constructor's
  * initialiser list (:172-173) carries only AudioPlayer(p). On a blank
  * param["port"], Utils::from_string() answers true WITHOUT WRITING - the
  * stream sentry fails before extraction (StringUtils.h:104-111, measured in
  * T3.25) - so port keeps whatever was on the stack. Not 0. Indeterminate.
  */
-TEST_F(RoonArgsTest, TripwireSource_ThePortMemberCarriesAnInClassInitialiser)
+TEST_F(RoonArgsTest, TripwireSource_ThePortMemberIsInitialisedToTheDefaultPort)
 {
     std::string hdr;
     ASSERT_TRUE(readShippedSource("src/bin/calaos_server/Audio/RoonPlayer.h", hdr))
         << "could not read the shipped RoonPlayer.h under " << CALAOS_TOP_SRCDIR;
 
-    EXPECT_EQ(1, countOccurrences(stripComments(hdr), "int port ="))
-        << "RoonPlayer::port has no in-class initialiser, so a from_string() "
-           "that writes nothing leaves it indeterminate";
+    EXPECT_EQ(1, countOccurrences(collapseWhitespace(stripComments(hdr)),
+                                  "int port = RoonArgs::DefaultPort;"))
+        << "RoonPlayer::port must be initialised in-class to "
+           "RoonArgs::DefaultPort. Without an initialiser a from_string() that "
+           "writes nothing leaves it indeterminate; with the WRONG initialiser "
+           "an early return above the assignment would hand the sidecar a port "
+           "nobody configured - `--port 0` for `int port = 0;`";
 }
 
 
@@ -523,11 +627,19 @@ TEST_F(RoonArgsTest, AStaticallyConfiguredPlayerProducesTheArgumentsOfItsOwnCore
  *   ""  / "   "            -> answers TRUE, writes NOTHING (sentry failure);
  *   "abc" / "12abc"        -> answers FALSE, writes 0 resp. 12 (C++11);
  *   "99999999999999999999" -> answers TRUE, writes INT_MAX.
- * T3.25 is in flight and changes the FIRST regime so a defined value is
- * written on failure. Under T3.25 the blank string would produce 0 here
- * instead of an untouched destination - the SYMPTOM changes, the cause does
- * not - and portFromParams() answers 9330 in BOTH worlds because it seeds its
- * destination with DefaultPort and range-filters the result.
+ * T3.25 is in flight and changes TWO of those three, not one - the claim that
+ * it only touches the blank string was wrong and is corrected here. It returns
+ * `!fail() && eof()` instead of `eof()` alone, and publishes a value-initialised
+ * temporary on every path, so: the blank string answers FALSE and writes 0
+ * instead of answering TRUE and writing nothing, AND the overflow answers
+ * FALSE instead of TRUE while still writing INT_MAX. The middle regime is the
+ * only one that comes through untouched.
+ * Neither change is visible from here: portFromParams() answers 9330 in BOTH
+ * worlds because it seeds its destination with DefaultPort and range-filters
+ * the result, so a blank string falls back whether from_string refused it or
+ * left the seed alone, and an overflow falls back whether it was refused or
+ * clamped to INT_MAX. The SYMPTOM of the unfixed defect changes, the cause
+ * does not.
  *
  * ⚠️ Deliberately NOT a tripwire on from_string() itself: that would go red
  * the day T3.25 merges, which is a landmine and not a net.
