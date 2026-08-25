@@ -5140,8 +5140,10 @@ lanceur de `make dist` doit penser à `git checkout -- po/`** — piège à comm
   dans un membre de `WIDigitalBase<T>`, **jamais instancié** tant qu'aucune unité ne l'instancie.
   Compilée via `WIDigitalBP.cpp`, la même mutation rend **`rc=1`**. ⇒ **une passe de mutation qui
   vise un en-tête template DOIT compiler une unité qui l'instancie**, jamais l'en-tête seul. À
-  ranger à côté des cinq variantes de `_DEPENDENCIES` : c'est une **sixième** façon d'obtenir un
-  vert parfait sans avoir rien vérifié.
+  ranger à côté des cinq variantes de `_DEPENDENCIES` : c'est **une façon de plus** d'obtenir un
+  vert parfait sans avoir rien vérifié. ⚠️ **Cette entrée s'écrivait « une sixième » : le rang était
+  déjà pris par `F-HARN-1`.** ⇒ **c'est la n° 10 de la liste canonique** (plus bas), reclassée au
+  merge de `T3.31` comme cette liste le prévoyait.
 
 - ⭐⭐ **[F-TYPE-4] — un correctif de typage ne balaye qu'UNE DIRECTION de la chaîne, et laisse
   l'autre nue. Mesuré sur T3.31 même, par sa revue.** T3.31 a typé la chaîne Reolink
@@ -5210,7 +5212,8 @@ lanceur de `make dist` doit penser à `git checkout -- po/`** — piège à comm
 *(Établie le 2026-08-25 en fermant les réserves de la 2ᵉ revue de [T3.44](T3.44.md). ⚠️ **C'est LA
 référence** : toute mention d'un compte ou d'un rang ailleurs dans `docs/refactoring/` doit
 s'y accorder. Avant elle, trois numérotations incompatibles coexistaient — « cinq » (la seule
-famille `_DEPENDENCIES`), « sixième » (revendiqué par **deux** findings différents), et un compte
+famille `_DEPENDENCIES`), « sixième » (revendiqué par **deux** findings différents — `F-HARN-1` et
+`F-TYPE-3`, arbitré ci-dessous), et un compte
 global « septième / huitième / neuvième » qui **n'avait jamais énuméré `F-BUILD-1` ni
 `F-TYPE-3`**.)*
 
@@ -5227,7 +5230,7 @@ global « septième / huitième / neuvième » qui **n'avait jamais énuméré `
 | **7** | **Lecture de non-initialisé** — un oracle qui attend `0` sur un chemin non initialisé est **vide par construction** ⚠️ **phénomène, pas règle** | — | [T3.34](T3.34.md) §  « La 7ᵉ variante » ; *Le motif de la pile n'est pas une règle*, plus haut |
 | **8** | **Tests qui ne s'exécutent pas** — repli `unittest discover -p 'test_t116_*.py'`, 3 suites sur 6 ramassées, sortie **0** ⇒ automake écrit **`PASS`** | **F-PYTEST-1** | section suivante ; [T3.44](T3.44.md) |
 | **9** | **Deux `Testsuite summary`** — le premier bloc est un faux vert, et **les deux** comptent un test de moins que l'arbre n'en déclare | **F-BUILD-1** | *`make check` a imprimé **deux** `Testsuite summary`*, plus haut |
-| **10** | **En-tête template au `-fsyntax-only`** — le corps vit dans un membre d'un template **jamais instancié**, `rc=0` : mutation « compilée verte » sans rien vérifier | **F-TYPE-3** | ⚠️ **consignée sur `.wave59/t3.31`, NON MERGÉE** — à recoller au merge de `T3.31` |
+| **10** | **En-tête template au `-fsyntax-only`** — le corps vit dans un membre d'un template **jamais instancié**, `rc=0` : mutation « compilée verte » sans rien vérifier | **F-TYPE-3** | *`[F-TYPE-3]` — un en-tête TEMPLATE ne se vérifie pas au `-fsyntax-only`*, plus haut (mergée avec `T3.31`) |
 | **11** | **Restauration pristine par `copy2`** — la date préservée rend la source **plus ancienne** que le `.o` muté : `make` ne recompile rien | — | *Neuvième variante de faux vert/rouge*, plus haut |
 
 ⚠️ **Deux voisins qui ne sont PAS des variantes de plus** — les recompter serait une douzième et une
@@ -5235,13 +5238,16 @@ treizième imaginaires : **`F-TEST-2`** (le non-relink étendu au faux **rouge**
 **`F-RELINK-T337`** (faux rouge reproduit sur source propre) sont deux **instances** de la
 famille `_DEPENDENCIES`, n° 1 à 5.
 
-⚠️ **Deux dettes de numérotation, écrites pour être vues** :
-1. **La n° 10 (`F-TYPE-3`) n'existe pas dans cet arbre** : elle est écrite sur `.wave59/t3.31`, où
-   elle se présente elle-même comme « une **sixième** » — **collision de rang avec `F-HARN-1`**.
-   ⇒ **au merge de `T3.31`, la reclasser n° 10** et retirer le mot « sixième ».
-2. **La n° 3 n'a jamais eu de section dans `FINDINGS.md`** ; son seul écrit est dans
+⚠️ **Une dette de numérotation reste, et une a été payée** :
+1. ✅ **PAYÉE — la n° 10 (`F-TYPE-3`)**. Cette liste a été écrite alors que `F-TYPE-3` vivait
+   encore sur `.wave59/t3.31`, où elle se présentait comme « une **sixième** » — **collision de rang
+   avec `F-HARN-1`**. `T3.31` ayant été mergée depuis, l'entrée est **dans cet arbre** et le mot
+   « sixième » en a été retiré : c'est la **n° 10**. ⚠️ **C'est le seul mécanisme qui a marché** :
+   la dette était écrite ici, avec l'instruction, et le ticket suivant l'a exécutée.
+2. ⚠️ **RESTE — la n° 3 n'a jamais eu de section dans `FINDINGS.md`** ; son seul écrit est dans
    `ORCHESTRATION.md`. Elle est comptée ici parce qu'elle a été **rencontrée et mesurée**, pas
-   parce qu'elle est fichée.
+   parce qu'elle est fichée. ⇒ **à ficher par le prochain ticket qui la rencontre**, pas à
+   reconstituer de mémoire.
 
 ⚠️ **« Cause racine des CINQ variantes » reste juste** partout où c'est écrit de `_DEPENDENCIES` :
 `T3.36` ferme les n° 1 à 5, **et elles seules**. Les six autres ont chacune une cause racine et un
@@ -5289,12 +5295,12 @@ sortirait **0**, et le `PASS` silencieux reviendrait **une couche plus bas**.
 
 ### ⭐ Le balayage de TOUTES les entrées `TESTS` — la question que personne n'avait posée
 
-**94 entrées** sur `master` `180c4b87` (recomptées `python3` à la livraison, continuations
+**94 entrées** sur `master` `df2851d0` (recomptées `python3` à la livraison, continuations
 recollées, `if`/`else`/`endif` empilés, zéro doublon) : **4 scripts shell** + **89 binaires sous
 `if HAVE_GTEST`** + ⭐ **1 binaire imbriqué `if HAVE_GTEST` → `if HAVE_LIBKNX`**
 (`KNXExternProcWire_test`). La branche en ajoute une, l'oracle : **95**.
 ⚠️ **Ces totaux montent à chaque merge de la série** (`89`/`90` sur `701a98e4`, `93`/`94` sur
-`55beb79b`, `94`/`95` sur `180c4b87`) : **les recompter, jamais les recopier.** Ce qui ne bouge pas :
+`55beb79b`, `94`/`95` sur `df2851d0`) : **les recompter, jamais les recopier.** Ce qui ne bouge pas :
 **une seule imbrication** dans tout l'arbre.
 
 | entrée `TESTS` | peut rendre `PASS` sans exécuter ? | mesure |
@@ -5323,8 +5329,8 @@ propres**, **0 `DISABLED_`**.
 le **helper de fixture** `evalInStableWindow`, appelé par **10** `TEST_F` — ⚠️ *compter les
 `GTEST_SKIP` n'est pas compter les cas qu'ils sautent*), et donc « 15 cas » (c'est **24**).
 **Agrégat mesuré sur le `make check` de livraison (image de dev, conteneur root, arbre rebasé sur
-`180c4b87`) : ⭐ 90 binaires, 1585 cas exécutés / 1584 passés, 1 seul silencieusement sauté**
-(`core/CalaosConfigRobustness_test`, `geteuid() == 0`) ⇒ ⭐ **plafond de silence 24 / 1585, et non
+`df2851d0`) : ⭐ 90 binaires, 1595 cas exécutés / 1594 passés, 1 seul silencieusement sauté**
+(`core/CalaosConfigRobustness_test`, `geteuid() == 0`) ⇒ ⭐ **plafond de silence 24 / 1595, et non
 15 / 1527**.
 ⚠️ Le relevé de la 2ᵉ revue, fait sur `1c6ab7a9`, donnait **89 `.cpp` / 86 binaires / 1533-1532** :
 **mêmes corrections, autre arbre** — `master` a mergé `T3.25`, `T3.45` et `T3.48` entre-temps. ⚠️ **Nuance** : un `GTEST_SKIP` **imprime** `[  SKIPPED ]` et gtest le compte — il est *à
