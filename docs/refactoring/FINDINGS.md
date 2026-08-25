@@ -5068,8 +5068,10 @@ lanceur de `make dist` doit penser à `git checkout -- po/`** — piège à comm
 
 ## T3.31 — le typage contre la permutation d'arguments (2026-08-25)
 
-- ⚠️ **[F-WAGO-4] et [F-REO-5] — ✅ CORRIGÉS EN PARTIE par T3.31** (`87f81b13` caractérisation +
-  `d9066854` correction, branche `fix/t3.31`). Deux en-têtes neufs, `IO/Wago/WagoTypes.h`
+- ⚠️ **[F-WAGO-4] et [F-REO-5] — ✅ CORRIGÉS EN PARTIE par T3.31** (branche `fix/t3.31`, quatre
+  commits : caractérisation, correction, documentation, attribution de T3.46 — ⚠️ **sans SHA
+  volontairement**, la branche a été rebasée deux fois et un SHA recopié est faux dès le rebase
+  suivant ; référence stable : `master` = `1c6ab7a9`). Deux en-têtes neufs, `IO/Wago/WagoTypes.h`
   (`Address`, `Count`, `WordValue`, `BitValue`) et `IO/Reolink/ReolinkTypes.h` (`Hostname`,
   `Username`, `Password`, `EventType`) : **un champ, constructeur `explicit`, aucune base commune,
   aucun opérateur de conversion**. `WagoWire`, `WagoMap`, `WagoCtrl`, `ReolinkWire`, `ReolinkCtrl`
