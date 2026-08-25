@@ -230,6 +230,100 @@
     c'est le code qui la consomme qui a été lu. Le seul programme exécuté est un `g++` autonome de
     12 lignes sur `from_string`/`is_of_type`.
 
+- **🔒 T3.35 ✅ MERGÉ (`555b1d02`, 8 commits, `merge --ff-only` sur `fb9d064c` — **rebase inutile,
+  aucun conflit**, historique linéaire, `make -j12 && make check -j6` **86/86**, `exit 0`, **0
+  `error:`**, `CXXLD    calaos_server`) — ⭐⭐ **la revue avait rendu « merge REFUSÉ » sur UNE
+  réserve, et elle avait raison : le §6.4 de la fiche déclarait clos un trou qui ne l'était pas.**
+  Fermée avant ce merge, puis tout revalidé.**
+
+  - ⭐ **LA RÉSERVE, MESURÉE.** La garde d'index livrée par T3.35b,
+    `val.empty() || !Utils::from_string(val, idx)`, **se lit** « un index qui n'est pas un nombre est
+    refusé » et **ce n'est pas ce qu'elle fait**. `Utils::from_string()` rend **`iss.eof()`**, et un
+    flux qui n'a consommé que des **blancs** — ou qu'un **signe** — a bien atteint sa fin : elle
+    annonce donc un **SUCCÈS** sur **cinq** jetons qui ne portent aucun nombre. `val.empty()` n'en
+    attrapait **qu'un**.
+
+    | jeton | `from_string` | écrit `idx` ? | T3.35b | T3.35c |
+    |---|---|---|---|---|
+    | `[]` | `true` | **NON** | élément 0 + avertissement | **inchangé** |
+    | `[ ]` `[\t]` | `true` | **NON** | ⛔ élément 0 **en silence**, `idx` **jamais assigné** | élément 0 **+ avertissement** |
+    | `[+]` `[-]` | `true` | oui, `0` | ⛔ élément 0 **en silence** | élément 0 **+ avertissement** |
+    | `[zz]` `[5 ]` | `false` | oui | élément 0 + avertissement | **inchangé** |
+    | `[ 5]` `[+2]` | `true` | oui | **résolvent** (élém. 5 / 2) | **inchangé** |
+    | `[-1]` | `true` | oui, `-1` | `""` + *index not found* (`at()`) | **inchangé** |
+
+  - ⭐⭐ **CE QUE CE MERGE A APPRIS ET QUI VAUT AU-DELÀ DU TICKET : `0 rouge` sur une mutation
+    d'INITIALISEUR ne prouve rien sans sa VARIANTE POISON.** La fiche concluait de `R1`
+    (`int idx = 0` → `int idx;`, **0 rouge**) que l'initialiseur était **mort**. Il était **VIVANT** :
+    sur `[ ]` / `[\t]` la branche `idx = 0` n'est pas prise et `from_string()` n'écrit rien, donc
+    `parent.at(idx)` lisait le **déclarateur**. **`0 rouge` ne disait pas « équivalent », il disait
+    « trou non vu » — et les deux se ressemblent exactement.** Ce qui les sépare est **`R1s`**,
+    l'initialiseur remplacé par une valeur **fautive** (`int idx = 7`) : un mutant vraiment
+    équivalent ne peut pas la voir, un trou la voit.
+
+    | | `R1` (`int idx;`) | **`R1s` (`int idx = 7`)** |
+    |---|---|---|
+    | **avant** | 0 rouge → *conclusion tirée : équivalent* | ⛔ **4 rouges**, `array index 7 is out of range`, **les deux parseurs** |
+    | **après** | 0 rouge | ⭐ **0 rouge** — équivalence **prouvée**, plus supposée |
+
+    ⇒ **RÈGLE versée à la « dette méthodologique » de `FINDINGS.md`** (section neuve, **à APPENDRE,
+    jamais à réécrire** ; conflit ⇒ **garder les deux côtés**). Une suppression d'initialiseur ne
+    peut pas rougir un test **portable** ; une valeur fautive, si.
+
+  - **LE CORRECTIF — une ligne par parseur** : `val.find_first_of("0123456789") == string::npos`.
+    Il **subsume `val.empty()`** (une chaîne vide n'a pas de chiffre non plus) ⇒ **aucune
+    sous-condition morte**, et il établit l'**invariant** qui rend `R1` légitimement équivalent :
+    garde passante ⇒ `val` porte un chiffre ⇒ la sentinelle réussit ⇒ **`num_get` tourne** et, en
+    C++11, **écrit toujours** ; garde déclenchée ⇒ `idx = 0` assigné. **Tout** chemin vers
+    `parent.at(idx)` écrit `idx`.
+
+    ⛔ **La forme proposée en revue, `find_first_not_of("0123456789")`, a été ÉPROUVÉE ET ÉCARTÉE** —
+    elle testait faux de **trois** façons : une chaîne **vide** n'a pas de **non**-chiffre non plus
+    ⇒ **`[]` repassait NON GARDÉ** (le piège même du ticket) ; `[+2]` cessait de résoudre ; `[-1]`
+    s'entendait dire *« is not a number »*, **un mensonge sur `-1`**. ⇒ **le signe n'est PAS rejeté,
+    délibérément** : un index négatif est déjà refusé **là où c'est juste**, par `at()`, avec
+    *index not found* — autre message pour autre faute. `APaddedOrSignedNumberIsStillReadAsANumber`
+    (×2) est le cas qui **refuse ce troc**, **vert avant comme après**, et il est là exprès.
+
+  - ⚠️ **DEUXIÈME « limite vraie pour une raison fausse » — motif `F-LUA-3`, désormais compté trois
+    fois dans la série.** Le §6.8 disait les lambdas de `subscribeStatusTopics()` intestables parce
+    qu'`IOBase`/`EventManager` « ne sont pas dans la clôture de liaison ». **Ils y sont** :
+    `JsonPathSyntax_test_LDADD` finit par `$(CORE_TEST_LDADD)`, qui **commence** par
+    `$(CORE_SERVER_OBJECTS)`, lequel liste `IOBase.$(OBJEXT)` et `EventManager.$(OBJEXT)` ;
+    `nm -C --defined-only` donne `IOBase::setStatusInfo` et `EventManager::create` en **`T`** et les
+    **6 lambdas** définies dans `MqttCtrl.o`. **La vraie raison est un DISPATCH absent** :
+    `subscribeCb` est **privé** (`MqttCtrl.h:78`) et **le seul code qui le parcourt** est la lambda
+    `process->messageReceived` du **constructeur**, pilotée par la boucle `uvw` de `calaos_mqtt` que
+    la fixture ne fait jamais tourner ; `storeMessage()` **ne fait que stocker**.
+    ⚠️ **Le coût de la fausse raison** : elle désigne « ajouter des `.o` au `LDADD` » comme sortie —
+    **ce qui ne changerait rien**. La vraie désigne une **couture de dispatch**, ou l'extraction
+    `resolveJsonPath()` de **`T3.37`**.
+
+  - ⚠️ **`MqttInputSwitch::readValue()` REND `false`, il ne « saute » pas** (sa signature n'a pas de
+    troisième réponse) — **mais le changement y est NUL** : l'ancien chemin (`err = false`,
+    `sv == ""`) ne correspondait ni à `on_value` ni à `off_value` et tombait **déjà** sur le
+    `return false` final. ⇒ **l'argument des 9 lecteurs de `err` tient**, il faut seulement lire
+    cette ligne du tableau §6.2 comme *« rend `false` »*.
+
+  - ⛔ **DIVERGENCE LAISSÉE OUVERTE, MAINTENANT AU BOARD ET PLUS SEULEMENT DANS LA FICHE §6.8** :
+    **`WebCtrl` n'a AUCUN drapeau d'erreur**. `WebCtrl::getValue()` rend une chaîne, aucun de ses
+    trois appelants n'en demande, lui en ajouter un serait de l'**API morte**. Les corrections de
+    **parseur** sont portées **à l'identique** sur les deux copies ; **seul le drapeau diverge**.
+    **À refermer par [`T3.37`](T3.37.md)**.
+
+  - **CHIFFRES, tous RECOMPTÉS en `python3` sur l'arbre livré — aucun cardinal recopié** :
+    `JsonPathSyntax_test` **51 → 57** cas · entrées `TESTS` **86**, **0 doublon** (la fiche
+    annonçait **83**, chiffre pris avant deux merges de `master`) · `^if` / `endif` **74 / 74**,
+    profondeur finale **0**, minimum **0** · goldens **145**, arbre **`d4ebc61f`**, **aucun n'a
+    bougé** · **0 fichier suivi modifié** après `make check`. `tests/Makefile.am` **n'est pas
+    touché** par la branche ⇒ le piège du `endif` consommé était **sans objet** ici.
+
+  - **NON VÉRIFIÉ, à ne pas surestimer** : aucun bout-à-bout avec un vrai courtier MQTT ni un vrai
+    serveur web ; rien sous ASan ; `R4` (garde de **forme** ramenée à `val.size() < 2`) **n'est pas
+    implémentée dans `mutate.py`** et **n'a pas été rejouée** — son **5** est le chiffre de la
+    campagne T3.35b, et le correctif T3.35c ne touche pas la garde qu'elle vise. **RIEN N'A ÉTÉ
+    POUSSÉ.**
+
 - **🔒 T3.28 ✅ MERGÉ (`1a7e7d73`, 6 commits, `git rebase master` + `merge --ff-only`, historique
   linéaire, `make check` **86/86**) — ⭐ **la revue avait rendu « merge sous réserve » et les DEUX
   réserves étaient dans le FILET, pas dans `src/` : deux tripwires source qui promettaient plus
