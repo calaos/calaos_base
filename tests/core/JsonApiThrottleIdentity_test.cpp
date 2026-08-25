@@ -132,6 +132,40 @@ public:
     //guard itself untouched. The guard is NOT reimplemented here (T3.39 §4.5).
     string getClientIp() const override { return peerIp; }
 
+    /***************************************************************************
+     * T3.39 R2 - REACHING THE SECOND CALLER FOR REAL, NOT BY READING.
+     *
+     * getEffectiveClientIp() has exactly two callers:
+     *   - the login throttle of both transports (JsonApiHandlerWS.cpp:45-51,
+     *     JsonApiHandlerHttp.cpp:55-61), which every other case in this file
+     *     drives, and
+     *   - the per-IP CONNECTION cap, HttpClient::trackPerIpCap()
+     *     (HttpClient.cpp:188-207).
+     *
+     * Nothing in the tree reached that second one. Mutating its call site from
+     * getEffectiveClientIp() to getClientIp() left the entire suite green
+     * (mutation MI of the T3.39 review), so the acceptance criterion "both
+     * callers inherit the guard" was held by reading only - the exact shape of
+     * the F-LINK-1 debt, where "linked" was mistaken for "exercised".
+     *
+     * No seam and no reimplementation were needed to close it: trackPerIpCap()
+     * is protected (HttpClient.h), so a subclass calls THE PRODUCTION METHOD
+     * ITSELF. What comes back is trackedIp, the string trackPerIpCap() commits
+     * to HttpServer's per-IP map - the decision as taken, not a recomputation
+     * of it.
+     *
+     * The refusal sentinel is a word, not an empty string and not a zero: a cap
+     * that turned the connection away must be distinguishable from a cap that
+     * counted the empty identity, and both must be distinguishable from every
+     * legitimate answer.
+     **************************************************************************/
+    std::string trackAndReportCapIdentity()
+    {
+        if (!trackPerIpCap())
+            return "<refused-by-cap>";
+        return trackedIp;
+    }
+
     std::shared_ptr<uvw::TcpHandle> handle;
     std::string peerIp;
 };
@@ -186,6 +220,16 @@ public:
     //:45-51, JsonApiHandlerHttp.cpp:55-61) and the per-IP connection cap
     //(HttpClient.cpp:193) all call this one method.
     std::string identity() const { return client->getEffectiveClientIp(); }
+
+    //The identity the per-IP CONNECTION cap actually counted, obtained by
+    //running the real HttpClient::trackPerIpCap() on this connection. See
+    //ProxiedClient::trackAndReportCapIdentity() for why this exists.
+    //
+    //It reaches HttpServer::Instance(), which is a live singleton owning a
+    //listening socket; the balancing releaseClientIp() is done by
+    //~HttpClient(), which ProxiedSession's destructor runs, so a case that
+    //calls this leaves the per-IP map exactly as it found it.
+    std::string capIdentity() { return client->trackAndReportCapIdentity(); }
 };
 
 /*******************************************************************************
@@ -381,8 +425,12 @@ TEST_F(JsonApiThrottleIdentityTest, WithoutForwardedForTheBucketIsThePeers)
 {
     //PINS AN ACQUIS, and covers the branch nothing else in this file reaches:
     //the fallback of TransportLimits::effectiveClientIp() when the header is
-    //absent. Every session here runs on an unconnected socket, so the peer is
-    //"unknown" for all of them - which is what makes the two halves readable.
+    //absent. Every session here takes ProxiedSession's DEFAULT peer, kProxyPeer
+    //= "127.0.0.1" - so the peer is the loopback for all of them, the header is
+    //trusted, and the only thing deciding the bucket is whether a header is
+    //there at all. That is what makes the two halves readable. (An earlier
+    //revision of this comment said the peer was "unknown" for all of them: that
+    //was true before T3.39 made the peer part of the decision, and false since.)
     //
     //(a) two header-less clients resolve to the SAME identity (the peer), so
     //    the second is blocked by the first one's failure. That is the fallback
@@ -514,4 +562,56 @@ TEST_F(JsonApiThrottleIdentityTest, AnUnknownPeerDoesNotBuyTrust)
     WsLogin nameless(kClientA, "unknown");
     EXPECT_EQ("unknown", nameless.identity())
             << "an unreadable peer address bought the header its trust back";
+}
+
+/*******************************************************************************
+ * THE SECOND CALLER, EXERCISED - the per-IP connection cap
+ *
+ * Everything above drives the login throttle. These two cases drive the OTHER
+ * caller of getEffectiveClientIp(), HttpClient::trackPerIpCap(), through the
+ * production method itself. Before them, no test in the tree reached
+ * trackPerIpCap() at all and the T3.39 acceptance criterion "both callers
+ * inherit the guard" rested on reading the source.
+ ******************************************************************************/
+
+TEST_F(JsonApiThrottleIdentityTest, TheConnectionCapCountsTheGuardedIdentity)
+{
+    //PINS THE FIX at the cap, by value on both deployments.
+    //
+    //Behind haproxy the cap must count the client the proxy named, or one
+    //installation's users share a single 50-connection budget (T3.24). From the
+    //LAN it must count the PEER, or a direct client empties everybody's budget
+    //by rotating a header it writes itself.
+    //
+    //Asserting the two differ would pass on both sides of the guard and pin
+    //nothing, so each half names the string it expects.
+    WsLogin proxied(kClientA, kProxyPeer);
+    EXPECT_EQ(kClientA, proxied.capIdentity())
+            << "behind haproxy the connection cap ignored the proxy's word";
+
+    WsLogin direct(kClientA, kLanPeer);
+    EXPECT_EQ(kLanPeer, direct.capIdentity())
+            << "a direct client named its own bucket to the connection cap";
+}
+
+TEST_F(JsonApiThrottleIdentityTest, TheCapAndTheThrottleCommitToTheSameString)
+{
+    //PINS THE SINGLE SITE, now on both callers rather than on one plus a
+    //reading of the other. On one and the same connection, the identity the
+    //login throttle keys on and the identity the connection cap COUNTED must be
+    //the same string - not merely both "guarded", the same. A guard applied in
+    //one caller and not the other would show up here as a mismatch, on whichever
+    //of the two deployments the omission was made.
+    {
+        WsLogin proxied(kClientA, kProxyPeer);
+        EXPECT_EQ(proxied.identity(), proxied.capIdentity())
+                << "behind haproxy the cap and the throttle counted two "
+                   "different clients on one connection";
+    }
+    {
+        WsLogin direct(kClientA, kLanPeer);
+        EXPECT_EQ(direct.identity(), direct.capIdentity())
+                << "from the LAN the cap and the throttle counted two "
+                   "different clients on one connection";
+    }
 }

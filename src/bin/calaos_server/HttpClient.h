@@ -151,6 +151,45 @@ inline uint64_t parseLimit(const std::string &value, uint64_t def,
 //  - ::ffff:127.x.x.x, how a dual stack listener reports an IPv4 peer.
 //PREFIX, NEVER CONTAINMENT: "10.127.0.5" is an ordinary LAN address and must
 //not pass. Pure, unit tested in tests/TransportHardening_test.cpp, section 6.
+//
+//=== THE TWO IPv6 BRANCHES ARE UNREACHABLE BY CONSTRUCTION TODAY (MEASURED) ===
+//They are kept as DEFENCE IN DEPTH, not as a protection that operates. This
+//function is pure and its caller feeds it HttpClient::getClientIp(), which
+//CANNOT return an IPv6 literal, for a reason that has nothing to do with this
+//file: uvw's details::address<I>() (src/lib/uvw/src/uvw/util.hpp:384-398) asks
+//libuv for the peer into a sockaddr_storage and then reinterpret_casts it to
+//sockaddr_in WITHOUT LOOKING AT ss_family. getClientIp() tries peer<IPv4>()
+//first and returns it when non-empty (HttpClient.cpp:707-709), so on an IPv6
+//peer inet_ntop reads the first four bytes of sin6_flowinfo instead of an
+//address. Measured on a real accepted ::1 connection (T3.39 R3):
+//      real peer family = AF_INET6, peer<IPv6>().ip = "::1"
+//      sin6_flowinfo    = 0x00000000
+//      peer<IPv4>().ip  = "0.0.0.0"   <- non-empty, so it wins
+//      => getClientIp() returns "0.0.0.0", never "::1"
+//That defect is PRE-EXISTING (it predates T3.39 and is not made worse by the
+//guard itself); it is tracked as F-IP6-1 in docs/refactoring/FINDINGS.md.
+//
+//WHAT THIS COSTS, STATED PLAINLY. On the shipped configuration nothing:
+//listen_address defaults to "0.0.0.0" (ConfigOptions.cpp:499), the listener is
+//IPv4-only, every peer is AF_INET, and haproxy reaches us on 127.0.0.1 - the
+//branch that matters is the IPv4 one and it works. But if an operator hand-sets
+//listen_address = "::" (a legal value of a documented key, docs/16_config_options
+//.md), EVERY peer becomes AF_INET6, getClientIp() answers "0.0.0.0" for all of
+//them, this function refuses it, and every client of the installation collapses
+//into one "0.0.0.0" bucket - the T3.24 defect, for that configuration only. The
+//guard FAILS CLOSED there (no identity is forged, no backoff is escaped), so it
+//is an availability regression and not a security hole, but it IS a regression
+//against master for that one hand-set value. Do not claim this guard protects
+//an IPv6 deployment until F-IP6-1 is fixed; when it is, these two branches
+//start operating and this note should be deleted.
+//
+//FORMS DELIBERATELY NOT RECOGNISED (fail-closed, and that is the right default:
+//an unrecognised peer is distrusted, never trusted): "0:0:0:0:0:0:0:1",
+//"::1%lo", "::0001", "::FFFF:127.0.0.1" (the comparison is case-SENSITIVE and
+//inet_ntop only ever emits lowercase) and "::ffff:7f00:1". None of them can be
+//produced by getClientIp() today; if F-IP6-1 makes IPv6 literals reachable, the
+//set that libuv's uv_ip6_name() actually emits is "::1" and "::ffff:127.0.0.1",
+//which is exactly what the two branches below match.
 inline bool isTrustedProxyPeer(const std::string &peerIp)
 {
     if (peerIp == "::1")
@@ -533,11 +572,25 @@ public:
     string buildHttpResponse(string code, Params &headers, string body);
     string buildHttpResponseFromFile(string code, Params &headers, string fileName);
 
-    //virtual for tests only: the peer address comes from a real socket, and a
-    //unit test has no way to be reached from a non-loopback address. Overriding
-    //it is how tests/core/JsonApiThrottleIdentity_test.cpp plays the two
-    //deployments (behind haproxy / direct from the LAN) on this exact
-    //production code path. Production never subclasses HttpClient.
+    //Made virtual by T3.39 so that TESTS can inject a peer address: the real
+    //one comes from a connected socket, and a unit test has no way to be
+    //reached from a non-loopback address. Overriding it is how
+    //tests/core/JsonApiThrottleIdentity_test.cpp plays the two deployments
+    //(behind haproxy / direct from the LAN) on this exact production code path.
+    //
+    //Production DOES subclass HttpClient - WebSocket does (WebSocket.h:35), and
+    //every live connection is a WebSocket - but no production subclass
+    //overrides this method, so every production call resolves here. The class
+    //already had a vtable (virtual ~HttpClient(), HttpClient.h:526), and the
+    //method is called from neither the constructor nor the destructor, so
+    //making it virtual changed no layout and no dispatch. An earlier revision
+    //of this comment claimed "Production never subclasses HttpClient": that was
+    //simply wrong, and the accurate statement is the one above.
+    //
+    //RETURN VALUE, MEASURED - DO NOT ASSUME IT CAN BE AN IPv6 LITERAL. See the
+    //"UNREACHABLE BY CONSTRUCTION" note on isTrustedProxyPeer() above: on the
+    //shipped configuration this only ever answers an IPv4 dotted quad, "0.0.0.0"
+    //or "unknown".
     virtual string getClientIp() const;
 
     /* Client identity used by every per-client security decision of this

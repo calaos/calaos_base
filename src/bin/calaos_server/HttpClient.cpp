@@ -255,11 +255,18 @@ int HttpClient::processHeaders(const string &request)
 
     cancelReadTimeout();
 
-    //Per-source connection cap, enforced on the first parsed request: the
-    //client identity comes from X-Forwarded-For (calaos_server always sits
-    //behind haproxy), which does not exist before the headers are read. The
-    //global cap at accept time (HttpServer::addConnection) still bounds what
-    //an unparsed connection can hold.
+    //Per-source connection cap, enforced on the first parsed request rather
+    //than at accept time: the client identity may come from X-Forwarded-For,
+    //which does not exist before the headers are read. The global cap at accept
+    //time (HttpServer::addConnection) still bounds what an unparsed connection
+    //can hold.
+    //
+    //T3.39: this comment used to say the identity "comes from X-Forwarded-For
+    //(calaos_server is always behind haproxy)". That is exactly the assumption
+    //the guard added by T3.39 removes, and it was false at the site that most
+    //needed it to be true: port 5454 answers directly from the LAN by default.
+    //The header is now believed only when the TCP peer is the loopback - read
+    //the trust note on HttpClient::getEffectiveClientIp() before touching this.
     if (!trackPerIpCap())
     {
         Params headers;
