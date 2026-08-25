@@ -65,22 +65,34 @@
      test**, ⛔ **pas** élargir la garde à `"unknown"`.
      `FINDINGS.md`/F-XFF-1 et `T3.24.md` **mis à jour** (bloc ⛔ CORRECTION, ancien texte barré).
 
-  4. ⭐ **[`I4.1`](I4.1.md) EST VALIDÉ SUR UNE CONFIGURATION DE PRODUCTION RÉELLE — le trou de
-     vérification déclaré est COMBLÉ.** Ouverture + sauvegarde **par le GUI** d'une vraie maison :
-     **125 règles / 177 conditions / 318 actions**, `io.xml` **identique OCTET POUR OCTET**,
-     **multiensemble global des lignes de `rules.xml` IDENTIQUE** ⇒ **aucune perte**. C'était
-     exactement le « le chemin GUI n'a jamais été exercé » du §4. **Seul écart : 12 lignes**, toutes
-     des `<calaos:input>` dans les **deux** conditions `script` → [`I4.2`](I4.2.md).
-     ⭐ **Et `I4.2` conclut CONTRE sa propre prémisse** : le jumeau installeur du défaut serveur
-     **n'existe pas**. `Calaos/Condition.h:49` est un **`std::vector<IOBase*>`**, la lecture est en
-     ordre du document (QDom) et l'écriture est indexée ⇒ **l'aller-retour est ordre-préservant par
-     construction**. La permutation observée est un **quasi-renversement** (exact sur 2 éléments,
-     à une transposition adjacente près sur 10) : **signature du `_Hashtable` de libstdc++**, donc
-     de l'`unordered_map<IOBase*,IOBase*>` **du serveur** — le défaut de `RELEASE_NOTES.md:480-484`
-     fermé par **E4.2c** (`ff6c51c7`) et **non déployé en production**. ⛔ **Ne rien corriger avant
-     l'expérience de `I4.2` §3.2** (rouvrir le `rules.xml` **local**, sauver, comparer à l'octet) :
-     « corriger » un vecteur déjà ordonné reviendrait à **introduire** un tri pour masquer un
-     défaut situé ailleurs.
+  4. ⭐ **[`I4.1`](I4.1.md) EST VALIDÉ SANS RÉSERVE SUR UNE CONFIGURATION DE PRODUCTION RÉELLE, et
+     [`I4.2`](I4.2.md) est ✅ CLOSE SANS AUCUN DÉFAUT.** Ouverture + sauvegarde **par le GUI** d'une
+     vraie maison : **125 règles / 177 conditions / 318 actions**, `io.xml` **identique OCTET POUR
+     OCTET**, **multiensemble global des lignes de `rules.xml` IDENTIQUE** ⇒ **aucune perte**.
+     C'était exactement le « le chemin GUI n'a jamais été exercé » du §4 : **comblé**.
+     **Seul écart : 12 lignes**, toutes des `<calaos:input>` dans les **deux** conditions `script`.
+     - ⛔ **La prémisse d'ouverture d'`I4.2` — « c'est le jumeau installeur du défaut corrigé côté
+       serveur » — était FAUSSE**, et elle est **barrée au §0bis de la fiche** (formulation
+       d'origine conservée, pas de réécriture silencieuse). `Calaos/Condition.h:49` est un
+       **`std::vector<IOBase*>`**, la lecture est en ordre de document (QDom,
+       `projectmanager.cpp:1184-1206`) et l'écriture est **indexée** (`:384-392`) ⇒
+       **ordre-préservant par construction**. Il n'y a **pas de jumeau**, et il n'y en a jamais eu.
+     - ⭐ **La forme de la permutation avait désigné le coupable AVANT le fait décisif** : un
+       **quasi-renversement** (exact sur la liste de 2, à une transposition adjacente près sur celle
+       de 10) est la **signature du `_Hashtable` de libstdc++** — insertion en tête, collision de
+       seau — **pas** celle d'un brassage. C'est la seule empreinte qui sépare « vecteur mal
+       ordonné » de « conteneur non ordonné ».
+     - ✅ **LE FAIT DÉCISIF, obtenu de l'utilisateur** : la configuration a été **chargée depuis le
+       SERVEUR EN MARCHE**, pas depuis un fichier local. Ce serveur est **antérieur à `E4.2c`** :
+       il a re-sérialisé les déclencheurs en **ordre de hash des pointeurs**
+       (`unordered_map<IOBase*,IOBase*>`, donc ASLR) **avant de les envoyer**. Les deux fichiers
+       comparés sont **deux sérialisations du serveur**, sous deux ASLR ; l'installeur n'a fait que
+       **transporter**. ⇒ **le bug serveur capturé EN TRANSIT.**
+     - ⭐ **RIEN À FAIRE, ET C'EST LA CONCLUSION** : `E4.2c` (`ff6c51c7`) est **déjà dans `master`**
+       depuis le 2026-08-16 ⇒ **la prochaine version déployée arrête ces diffs**, sans aucune
+       action. ⭐ **Dette de DÉPLOIEMENT, pas de code.** ⛔ Ne ticketez rien, et surtout n'ajoutez
+       **pas** de tri dans l'installeur : ce serait **introduire** un réordonnancement permanent
+       pour masquer un défaut situé ailleurs.
 
   5. ⭐ **`T3.36` (relink des suites) : PRIORITÉ HAUTE, mais PLANIFIÉE APRÈS `E4.1x`.**
      **47 suites sur 80** peuvent répondre **vert sans avoir relié le code modifié** — cause racine
@@ -106,8 +118,8 @@
     **`E4.1j`** (dernier de la vague 1), puis la chaîne sérialisée `E4.1l`→`E4.1s`, puis `E4.1x`
     — **et c'est seulement là que `T3.36` se lance**. Côté fixes, `T3.25` reste la première
     (atteignable à distance, débouche sur du matériel), `T3.34` **avant** elle (deux caractères,
-    mêmes lignes). **`T3.39` est prêt à lancer et indépendant.** Côté installeur, `I4.2` **commence
-    par une expérience de deux minutes**, pas par du code.
+    mêmes lignes). **`T3.39` est prêt à lancer et indépendant.** ✅ **Côté installeur, plus rien** :
+    `I4.1` est validé sans réserve et `I4.2` est close sans défaut.
 
 - **⭐ LES FINDINGS DE LA NUIT SONT TICKETÉS — dix fiches, `T3.25` → `T3.34`, toutes 📋
   (2026-08-25).** Aucune ligne de `src/`, aucun test, aucun build : ce lot est de la **rédaction**.

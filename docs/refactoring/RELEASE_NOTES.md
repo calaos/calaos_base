@@ -527,6 +527,11 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   l'ASLR), donc deux **exécutions** successives du serveur produisaient des
   `rules.xml` différents dès qu'une condition script avait ≥2 déclencheurs. L'ordre est
   désormais celui du document, stable. (Corrigé au passage par E4.2c.)
+  ⚠️ **Si vous voyez encore ce diff après la mise à jour** : il vient du serveur **qui a produit le
+  fichier**, pas de l'outil qui l'a enregistré. Ouvrir une configuration depuis un `calaos_server`
+  **plus ancien** (Calaos Installer, « ouvrir depuis le serveur ») rapporte l'ordre brassé par ce
+  serveur-là, et le fichier réenregistré le conserve fidèlement — **rien n'est perdu**, seul
+  l'ordre de quelques lignes change. Mettre à jour le serveur suffit.
 - **RemoteUI — le `device_info` n'est plus perdu** : les informations remontées par l'écran lors
   de la provision (modèle, fabricant, firmware, adresse MAC, capacités) étaient écrites dans
   `io.xml` sous le nœud **pièce**, alors qu'elles sont relues **à l'intérieur** de
