@@ -120,6 +120,21 @@ incomplète : le serveur s'arrêtait, et il fallait attendre son redémarrage. L
 refaite juste après le redémarrage l'arrêtait de nouveau, aussi longtemps que l'événement fautif
 restait dans le journal.
 
+**Êtes-vous concerné ?** Il faut réunir deux conditions, et il est important de dire les deux :
+
+- **N'importe quel compte ayant accès à l'API suffit** — aucun privilège particulier n'est requis,
+  et la commande qui déclenche l'enregistrement est une commande de pilotage tout à fait
+  ordinaire ;
+- **mais votre installation doit posséder au moins un équipement de type TEXTE dont
+  l'historique est activé.** C'est la condition qui limite la portée : un éclairage, un volet, un
+  variateur ou un scénario **refuse** une valeur qui n'est pas la sienne, donc rien de mal encodé
+  ne peut être enregistré à son sujet.
+
+Vérifié sur deux installations réelles : l'historique y est activé sur **quasiment tous** les
+équipements (78 et 48 respectivement), mais **aucun** n'est de type texte — **ces deux
+installations n'étaient donc pas exposées**. Une installation qui utilise des équipements de type
+texte avec historique, elle, l'était.
+
 Le même défaut guettait ailleurs, pour les mêmes raisons : les notifications push, la réponse
 d'appairage d'un écran déporté, la mise à jour de son micrologiciel, et la trace enregistrée
 lorsqu'une règle envoie une notification.

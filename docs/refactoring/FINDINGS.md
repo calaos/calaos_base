@@ -2484,8 +2484,20 @@ sous-ensemble que le script couvre, et il est **étroit**.
   `ev.getParam()["state"]`, que `set_state` peut alimenter en **octets percent-décodés** par le
   repli GET de `JsonApiHandlerHttp.cpp:88`. Démonstration exécutée : `SIGABRT` (134),
   `[json.exception.type_error.316] invalid UTF-8 byte at index 0: 0xFF`.
+  ⭐ **CONDITION DE PORTÉE, ajoutée par la revue (R1) et que je n'avais PAS mesurée** : la chaîne
+  complète exige un **IO journalisé de type CHAÎNE** (`OutputString`/`InputString`). Sur un IO
+  booléen ou analogique, `set_value(octets arbitraires)` **renvoie `false` et n'émet rien**, donc
+  rien n'est persisté et la chaîne s'arrête à l'étape 1. Mesuré par la revue sur les deux configs
+  réelles : `log_history="true"` est **ubiquitaire** (**78** IOs chez `raoulh`, **48** chez
+  `solanora`, tous à `"true"`) mais **exclusivement** lumières, volets, scénarios et variateurs
+  ⇒ **ces deux installations ne sont pas exploitables telles quelles**. Il faut donc énoncer les
+  **deux** moitiés : **tout compte authentifié ordinaire suffit** (aucun contrôle de scope sur le
+  dispatch HTTP, aucun `scopeDenied` sur `set_state` même en `serviceScope`, les 7 refus existants
+  sont **WS-only**) **et** l'installation doit **posséder un IO chaîne journalisé**.
   ➡️ **Conséquence pour la suite de l'épique** : `E4.1o` n'est pas le premier point où le crash
-  devient atteignable, il n'est que le premier où la fiche l'avait vu. **Corrigé par ce ticket.**
+  devient atteignable, il n'est que le premier où la fiche l'avait vu — et **E4.1o, lui, n'aura
+  PAS besoin de cette condition** : il remet une clé fournie par le client directement dans
+  l'arbre, sans passer par aucun IO. **Corrigé par ce ticket.**
 
 - ⚠️ **[F-E41B-2] `OtaHttpHandler` renvoie l'identifiant matériel pris DANS L'URI dans un corps
   JSON.** `handleFirmwareDownload()` construit
@@ -2518,12 +2530,17 @@ sous-ensemble que le script couvre, et il est **étroit**.
   le savoir : **une contre-mutation sur ces 20 sites ne rougirait rien**, et ce n'est pas un
   symptôme du piège `_DEPENDENCIES`. Les harnais capables de les exercer appartiennent à E4.1d→j.
 
-- 📌 **[F-E41B-6] `EventManager::appendEvent()` ne journalise que si l'IO porte
-  `log_history == "true"`** (`EventManager.cpp:78`). Cela **borne** le canal d'injection de
-  F-E41B-1 aux IOs explicitement journalisés. **Non mesuré ici** : aucun `io.xml` n'est versionné
-  dans ce dépôt, la configuration de production n'y est pas ; `ORCHESTRATION.md` cite **78**
-  `log_history=` survivant dans `configs/raoulh/io.xml`, chiffre repris **sans vérification** —
-  à recompter sur une vraie installation avant d'en tirer une conclusion sur l'ampleur.
+- 📌 **[F-E41B-6] `log_history` n'est PAS la borne du canal d'injection — le TYPE de l'IO l'est.**
+  `EventManager::appendEvent()` (`EventManager.cpp:78`) ne journalise que si l'IO porte
+  `log_history == "true"`, et je pensais que c'était là la restriction. **Mesuré par la revue
+  (R1) : non.** `log_history="true"` est **ubiquitaire** — **78** IOs chez `raoulh`, **48** chez
+  `solanora`, **tous** à `"true"`. La vraie borne est que l'octet invalide doit **persister**, donc
+  que l'IO soit de **type chaîne** (`OutputString`/`InputString`) : sur les lumières, volets,
+  scénarios et variateurs qui composent **la totalité** des IOs journalisés de ces deux configs,
+  `set_value(octets arbitraires)` **renvoie `false` et n'émet rien**. ⇒ ces deux installations
+  **ne sont pas exploitables telles quelles** ; une installation **avec un IO chaîne journalisé**
+  l'est. Je n'avais pas mesuré cette condition — je m'étais borné à dire que l'ampleur restait à
+  recompter, ce qui était vrai mais insuffisant.
 
 ## E4.1k — le générateur `io_doc.json` (`IODoc.{h,cpp}`, `IOFactory.cpp`)
 
