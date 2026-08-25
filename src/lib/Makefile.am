@@ -228,6 +228,7 @@ dist-hook:
 	    { echo "dist-hook: no such vendored tree: $$tree" >&2; exit 1; }; \
 	done; \
 	tmpd=`mktemp -d "$${TMPDIR:-/tmp}/calaos-dist-hook.XXXXXX"` || exit 1; \
+	trap 'rm -rf "$$tmpd"' 0; \
 	(cd "$$abs_srcdir" && find $(VENDORED_DIST_TREES) \
 	    \( -name .git -o -name .deps -o -name .libs \
 	       -o -name __pycache__ \) -prune -o \
