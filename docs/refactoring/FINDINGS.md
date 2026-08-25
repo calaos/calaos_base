@@ -4695,9 +4695,10 @@ directement, sort en **1**.
 
 #### ⭐ L'épisode comportait DEUX défauts, pas un — et la première rédaction n'en a vu qu'un
 
-**`ec1abcb0` déclare 88 entrées `TESTS`**, pas 87 (mesuré en `python3` sur le blob :
+**Le commit de caractérisation déclarait 88 entrées `TESTS`**, pas 87 — mesuré en `python3` sur le
+blob de `ec1abcb0` *tel qu'il était au moment de l'épisode*, avant le rebase de la branche :
 3 hors condition + 84 sous `HAVE_GTEST` + 1 sous `HAVE_GTEST && HAVE_LIBKNX` = **88**, zéro
-doublon), et le relecteur en mesure **88** partout sur **ce commit et cette image**. Or **les deux
+doublon ; et le relecteur en mesure **88** partout sur **ce commit et cette image**. Or **les deux
 blocs annoncent `# TOTAL: 87`**.
 
 ⇒ ⭐ **Une suite n'a pas tourné du tout**, et le résumé ne l'a pas dit — pas de `SKIP`, pas de
@@ -4729,7 +4730,9 @@ parallélismes (`-j12 && make check -j6` **et** `-j32 && make check -j16`), plus
 dont **3** forçant explicitement la régénération (`tests/Makefile.in`, `configure.ac`,
 `tests/Makefile.am`). **Plus 9 exécutions de la passe de correction du 2026-08-25**, dont une où
 `tests/Makefile.am` a **réellement** changé et où `automake` + `config.status` ont régénéré
-`tests/Makefile` **pendant** la recette : **un** bloc, `88/88/0`. ⭐ **À SURVEILLER, ni à nier ni à
+`tests/Makefile` **pendant** la recette : **un** bloc, `88/88/0` ; **plus une dixième** après le
+rebase de la branche sur `701a98e4` (`T3.28b` a ajouté une suite) : **un** bloc, `89/89/0`,
+régénération comprise. ⭐ **À SURVEILLER, ni à nier ni à
 surestimer** : une observation unique, jamais rejouée, dont le mécanisme est inconnu et dont
 l'hypothèse la plus plausible est morte.
 
@@ -4758,9 +4761,13 @@ INSUFFISANT, et sa seconde moitié ne vaut rien.**
 **Comment obtenir le nombre attendu** (`python3`, jamais `grep` — le hook `rtk` réécrit `grep` et
 `awk`) : compter les jetons de toutes les lignes `TESTS =` / `TESTS +=` de `tests/Makefile.am`,
 en tenant la pile des `if`/`else`/`endif` pour savoir lesquelles la configuration active.
-⚠️ **`HAVE_LIBKNX` déplace légitimement ce nombre de 88 à 87** sur une image sans libknx :
-c'est la seule façon honnête d'obtenir 87 ici, et le relecteur a vérifié que ce n'était pas le
-cas sur l'image de l'épisode.
+⚠️ **Deux façons parfaitement légitimes de déplacer le nombre attendu**, et il faut les connaître
+avant de crier au trou de couverture : **(a)** `HAVE_LIBKNX` — sur une image sans libknx le nombre
+attendu passe de 88 à **87**, la seule façon honnête d'obtenir 87 à l'époque, et le relecteur a
+vérifié que ce n'était **pas** le cas sur l'image de l'épisode ; **(b)** ⭐ **le simple passage du
+temps** — `T3.28b`, fusionné le 2026-08-25, fait passer l'arbre de 88 à **89**. ⇒ **Le nombre
+attendu se RECOMPTE à chaque verdict ; il ne se retient pas, et surtout il ne se recopie pas d'une
+fiche à l'autre.**
 
 **Et le mieux reste le mieux** : sur une cible précise, **exécuter le binaire de test directement**
 et relever son code de sortie. C'est le protocole que la campagne de mutations de T3.37 utilise à
@@ -4804,6 +4811,9 @@ sur le **code de sortie du binaire exécuté directement** :
 | 2 | ⭐ **restauration PRISTINE de `MqttCtrl.cpp`, SANS `rm -f`** | **0** | **1** | **1** | **les 3 MÊMES** | **88/87/1** |
 | 3 | même source pristine, **avec `rm -f`** binaire + `.o` de test | **1** | 0 | **0** | **0** — 63/63 | 88/88/0 |
 
+*(campagne menée **avant** le rebase sur `701a98e4`, d'où le total de 88 ; l'arbre livré en déclare
+**89** et sort `89/89/0`. Le trou de relink, lui, ne dépend pas du nombre de suites.)*
+
 ⇒ ⭐ **La ligne 2 est un FAUX ROUGE sur un arbre propre** : `make` recompile bien `MqttCtrl.o`, mais
 le binaire relié à l'objet **muté** survit et continue d'échouer. C'est la variante **symétrique**
 du faux vert habituel de `_DEPENDENCIES`, et elle est **plus traître** : un faux vert fait rater un
@@ -4832,11 +4842,13 @@ de `tests/JsonPathSyntax_test-JsonPathSyntax_test.o` avant **chaque mutation** *
 restauration**, puis exiger la ligne **`CXXLD    JsonPathSyntax_test`** (espace **double**, chemin
 relatif à `tests/`) et prendre le verdict au **code de sortie du binaire lancé directement**.
 
-⚠️ **Ampleur, recomptée en `python3` sur cet arbre** : **86 `check_PROGRAMS`**, **51** portent la
-surcharge `_DEPENDENCIES`, **50** relient réellement des objets serveur ⇒ **le trou est armé sur 50
-cibles**, une seule surcharge est inoffensive. ⚠️ **Piège de décompte confirmé** (déjà signalé par
-`T3.36`) : un balayage naïf du seul `_LDADD` textuel donne **30**, parce que `CORE_TEST_LDADD`
-**contient** `CORE_SERVER_OBJECTS` — il faut développer les variables.
+⚠️ **Ampleur, recomptée en `python3` sur l'arbre rebasé sur `701a98e4`** : **87 `check_PROGRAMS`**,
+**52** portent la surcharge `_DEPENDENCIES`, **51** relient réellement des objets serveur ⇒ **le
+trou est armé sur 51 cibles**, une seule surcharge est inoffensive. ⚠️ **Piège de décompte
+confirmé** (déjà signalé par `T3.36`) : un balayage naïf du seul `_LDADD` textuel donne **31**,
+parce que `CORE_TEST_LDADD` **contient** `CORE_SERVER_OBJECTS` — il faut développer les variables.
+⚠️ Ces trois nombres **montent à chaque suite ajoutée** (`T3.36` en mesurait 47/48/80) : les
+recompter, jamais les recopier.
 
 ⛔ **La ligne `_DEPENDENCIES` n'a PAS été corrigée par T3.37, et ne doit pas l'être à la légère** :
 c'est le périmètre de `T3.36`, cela concerne 50 cibles d'un coup, et une modification hâtive du

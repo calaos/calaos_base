@@ -2423,9 +2423,9 @@ endif
 #(DOUBLE space, path relative to tests/) in the make output, and take the
 #verdict from the exit code of the binary run directly.
 #⛔ Do NOT "fix" the _DEPENDENCIES line here without measuring. It is T3.36's
-#scope; this target is 1 of 50 in the same shape (51 overrides over 86
-#check_PROGRAMS, 50 of which really do link server objects - ⚠️ a naive scan
-#says 30 because CORE_TEST_LDADD expands to CORE_SERVER_OBJECTS); and a hasty
+#scope; this target is 1 of 51 in the same shape (52 overrides over 87
+#check_PROGRAMS, 51 of which really do link server objects - ⚠️ a naive scan
+#says 31 because CORE_TEST_LDADD expands to CORE_SERVER_OBJECTS); and a hasty
 #harness edit is exactly what produced the nine false green/red variants of
 #this series. See FINDINGS.md [F-RELINK-T337].
 if HAVE_GTEST
