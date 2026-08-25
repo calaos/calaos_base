@@ -95,7 +95,9 @@ ReolinkInputSwitch::ReolinkInputSwitch(Params &p):
                         ReolinkTypes::Username(username),
                         ReolinkTypes::Password(password),
                         ReolinkTypes::EventType(event_type),
-                        [this, weakAlive = std::weak_ptr<bool>(alive)](const string &host, const string &evt_type, const string &evt_data)
+                        [this, weakAlive = std::weak_ptr<bool>(alive)](const ReolinkTypes::Hostname &host,
+                                                                       const ReolinkTypes::EventType &evt_type,
+                                                                       const ReolinkTypes::EventData &evt_data)
                         {
                             if (weakAlive.expired())
                                 return; //IO deleted, stale callback
@@ -113,11 +115,13 @@ ReolinkInputSwitch::~ReolinkInputSwitch()
         ctrl->unregisterCamera(registrationId);
 }
 
-void ReolinkInputSwitch::eventReceivedCallback(string hostname, string event_type, string event_data)
+void ReolinkInputSwitch::eventReceivedCallback(const ReolinkTypes::Hostname &hostname,
+                                               const ReolinkTypes::EventType &event_type,
+                                               const ReolinkTypes::EventData &event_data)
 {
-    cDebugDom("reolink") << "Event received from " << hostname << " type: " << event_type << " data: " << event_data;
+    cDebugDom("reolink") << "Event received from " << hostname.v << " type: " << event_type.v << " data: " << event_data.v;
 
-    lastEventData = event_data;
+    lastEventData = event_data.v;
     eventReceived = true;
 
     // Trigger value change detection

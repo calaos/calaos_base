@@ -27,7 +27,10 @@
 /*
  * T3.31 - the four camera fields, each with a type of its own.
  *
- * A camera registration travels four hops as four adjacent std::string:
+ * There are TWO chains here, not one, and the second was missed by the first
+ * pass of this ticket - it took a reviewer's mutation to find it.
+ *
+ * (1) REGISTRATION, outbound. Four hops, four adjacent std::string:
  *   ReolinkInputSwitch.cpp  ->  ReolinkCtrl::registerCamera()
  *                           ->  ReolinkEventRegistry::CameraRegistration
  *                           ->  ReolinkCtrl::doRegisterCamera()
@@ -41,6 +44,28 @@
  * the net by construction (the singleton spawns a process from its
  * constructor, so no test can build one).
  *
+ * (2) ⭐ EVENT, inbound - and this one is WORSE than it looks:
+ *   ReolinkCtrl.cpp messageReceived  ->  ReolinkEventRegistry::dispatch()
+ *                                    ->  EventCallback
+ *                                    ->  ReolinkInputSwitch::eventReceivedCallback()
+ * plus cameraKey()/hasCamera()/callbackCount(), each taking hostname and
+ * event_type as two bare adjacent std::string. MEASURED by the reviewer of
+ * this ticket, on the first delivery, which had left this half untyped:
+ *   - cameraKey(reg.event_type, reg.hostname)                  -> COMPILED, rc=0
+ *   - dispatch(event_type, hostname, event_data)               -> COMPILED, rc=0
+ * and no test caught either, because no test can: `nm` finds ZERO ReolinkCtrl
+ * symbol in any of the test binaries. The second one is the dangerous shape -
+ * a swapped dispatch() builds a key nothing is registered under, so it
+ * returns 0 and EVERY EVENT FROM EVERY CAMERA IS SILENTLY DROPPED. No error,
+ * no log, no failing test: the installation simply stops reacting.
+ *
+ * ⭐ cameraKey() has a second overload taking the CameraRegistration whole.
+ * That is not sugar: an internal caller that already holds a registration
+ * passes ONE argument, so there is no order left to get wrong AND no wrapping
+ * to get wrong either (residual W3 below). The two-argument typed overload is
+ * for callers that only have the two values, and it is the only place in the
+ * class where a std::string is wrapped.
+ *
  * ⭐ THE SHAPE MATTERS, and the two properties below are the whole point.
  * They are not decoration:
  *
@@ -49,7 +74,7 @@
  *
  *   2. `explicit`. Without it a bare std::string converts into the wrapper on
  *      its own and the permutation type-checks again exactly as before -
- *      MEASURED, T3.31 section 3, workaround W1. `explicit` also rejects
+ *      MEASURED, T3.31.md section 7.3, workaround W1. `explicit` also rejects
  *      copy-list-initialisation at the call site, f({a}, {b}), so the short
  *      spelling cannot creep back in either (workaround W5).
  *
@@ -88,6 +113,16 @@ struct EventType
 {
     std::string v;
     explicit EventType(std::string s): v(std::move(s)) {}
+};
+
+/* The payload of one camera event, as it comes off the JSON. Never a key,
+ * never a name: it is the only one of the five that is pure data. It exists
+ * so that the EVENT path has no two adjacent std::string left either - see
+ * the second chain in the comment above. */
+struct EventData
+{
+    std::string v;
+    explicit EventData(std::string s): v(std::move(s)) {}
 };
 
 } //namespace ReolinkTypes

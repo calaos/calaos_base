@@ -56,7 +56,7 @@ public:
      * take two mbus_uword in a row. That is a cost decision about a vendored
      * library, not an impossibility - a one-field struct closes a
      * permutation in C too, measured. WagoCtrl.cpp unwraps with .v in
-     * exactly one line per command. See docs/refactoring/T3.31.md 4. */
+     * exactly one line per command. See docs/refactoring/T3.31.md section 7.5. */
     bool read_bits(WagoTypes::Address address, WagoTypes::Count nb, vector<bool> &values);
     bool write_single_bit(WagoTypes::Address address, WagoTypes::BitValue val);
     bool read_single_output_bit(WagoTypes::Address address);

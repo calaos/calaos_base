@@ -43,7 +43,12 @@ private:
      * callbacks become no-ops. */
     std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 
-    void eventReceivedCallback(string hostname, string event_type, string event_data);
+    /* T3.31 - three DISTINCT types. Three bare std::string in a row is the
+     * shape that lost every camera event when the caller got the order wrong;
+     * see IO/Reolink/ReolinkTypes.h, chain (2). */
+    void eventReceivedCallback(const ReolinkTypes::Hostname &hostname,
+                               const ReolinkTypes::EventType &event_type,
+                               const ReolinkTypes::EventData &event_data);
 
 protected:
     virtual bool readValue() override;

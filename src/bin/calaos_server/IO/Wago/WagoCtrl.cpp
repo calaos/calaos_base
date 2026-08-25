@@ -89,7 +89,7 @@ bool WagoCtrl::read_bits(WagoTypes::Address addr, WagoTypes::Count count, vector
      * once, on the line under the parameter they name, and everything below
      * is unchanged. This body is the one region of the Wago chain where an
      * address and a payload are two loose scalars again - four unguarded
-     * hops collapsed into one. See docs/refactoring/T3.31.md section 4. */
+     * hops collapsed into one. See docs/refactoring/T3.31.md section 7.5. */
     const UWord address = addr.v;
     const int nb = count.v;
 

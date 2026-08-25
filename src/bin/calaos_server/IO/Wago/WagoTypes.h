@@ -44,7 +44,7 @@
  * measured it - swapping them at WagoMap.cpp left WagoWire_test 31/31 GREEN
  * with no warning at all.
  *
- * ⭐ THE SHAPE, and why it is this shape (all four measured, T3.31 section 3):
+ * ⭐ THE SHAPE, and why it is this shape (all four measured, T3.31.md section 7.3):
  *
  *   1. ONE field each. A wrapper with two fields is a smaller copy of the
  *      same problem. With one there is no order left to get wrong.
@@ -83,7 +83,47 @@
  *     verified by compilation alone. T3.43 section 3 refused the same change
  *     for the same reason. WagoCtrl.cpp therefore unwraps with `.v` in
  *     exactly one line per command, right under the parameter it names.
- *     See docs/refactoring/T3.31.md section 4.
+ *     See docs/refactoring/T3.31.md section 7.5.
+ *
+ *   - ⭐ THE RETURN PATH. Everything above is the OUTBOUND half. The reply
+ *     callbacks are still four bare sigc::slot of scalars, WagoMap.h:38-41,
+ *     and they carry the same permutable pairs coming back:
+ *
+ *       MultiBits_cb  / MultiWords_cb  (bool, UWord address, int count, ...)
+ *       SingleBit_cb  / SingleWord_cb  (bool, UWord address, <payload>)
+ *
+ *     with eleven implementations, NONE of them typed, none of them reached
+ *     by any test binary:
+ *       WagoMap::WagoModbusReadHeartbeatCallback  (WagoMap.cpp:172)
+ *       WIAnalog::WagoReadCallback                (WIAnalog.cpp:72)
+ *       WITemp::WagoReadCallback                  (WITemp.cpp:68)
+ *       WOAnalog::WagoReadCallback                (WOAnalog.cpp:69)
+ *       WOAnalog::WagoWriteCallback               (WOAnalog.cpp:86)
+ *       WODigital::WagoReadCallback               (WODigital.cpp:81)
+ *       WODigital::WagoWriteCallback              (WODigital.cpp:109)
+ *       WIDigitalBase::WagoReadCallback           (WagoIOBase.h:104)
+ *       WOVoletBase::WagoWriteCallback            (WagoIOBase.h:291)
+ *       OutputAnalog::WagoReadCallback  / ::WagoWriteCallback
+ *                                                 (OutputAnalog.h:41-42)
+ *     ⚠️ NOT closed here, and the reason is scope, not difficulty: the four
+ *     typedefs plus those eleven signatures plus six invocation sites in
+ *     WagoMap.cpp are ten files, one of which (OutputAnalog.h) is a GENERIC
+ *     base outside the Wago tree - typing it would put WagoTypes:: into a
+ *     class that has no business knowing about Wago. Ticketed: T3.46.
+ *
+ *     ⭐ Measured, and it is what makes deferring defensible rather than
+ *     merely convenient - the two halves are NOT equally dangerous:
+ *       - the READ callbacks carry (UWord address, int count) live and
+ *         adjacent: the same pair E4.1h measured, and it is real data;
+ *       - the two WRITE callbacks carry (address, value) where the value is a
+ *         CONSTANT at the only place that sends it - WagoMap.cpp:219 passes
+ *         literal `false`, WagoMap.cpp:242 passes literal `0`. Permuting
+ *         them substitutes a dummy, not a live payload.
+ *     ⚠️ Consequence worth its own line, NOT fixed here because it is a
+ *     behaviour change on untouched master code: WOAnalog::WagoWriteCallback
+ *     assigns `value = _value`, so a Wago analog output overwrites its own
+ *     reported value with that literal 0 after every successful write, and
+ *     emitChange()s it. Reported, not changed.
  */
 namespace WagoTypes
 {

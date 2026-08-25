@@ -1185,7 +1185,7 @@ TEST(WagoWire, TheTwoMultipleWritesRefuseAPermutedAddressAndCount)
  * conversion operator back to the scalar - because they only probe the bare
  * scalar lists. These four probes pin the properties that make the closure
  * hold, each one measured against a workaround that defeats it
- * (docs/refactoring/T3.31.md section 3):
+ * (docs/refactoring/T3.31.md section 7.3):
  *
  *   W1  a non-explicit constructor lets a bare scalar convert in on its own
  *   W4  a shared base lets sibling wrappers stand in for one another

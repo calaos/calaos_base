@@ -78,7 +78,14 @@ ReolinkCtrl::ReolinkCtrl()
 
             cDebugDom("reolink") << "Event received from " << hostname << " type: " << event_type << " data: " << event_data;
 
-            registry.dispatch(hostname, event_type, event_data);
+            /* T3.31 - each value is named on its own line, next to the
+             * field it fills. Handing them over in any other order no longer
+             * compiles. It used to: dispatch(event_type, hostname, ...) was
+             * accepted in silence and dropped EVERY camera event, because the
+             * key it built matched no registration. */
+            registry.dispatch(ReolinkTypes::Hostname(hostname),
+                              ReolinkTypes::EventType(event_type),
+                              ReolinkTypes::EventData(event_data));
         }
     });
 
@@ -105,7 +112,9 @@ ReolinkCtrl::RegistrationId ReolinkCtrl::registerCamera(ReolinkTypes::Hostname h
                                                        std::move(password),
                                                        std::move(event_type));
 
-    string camera_key = ReolinkEventRegistry::cameraKey(reg.hostname, reg.event_type);
+    //T3.31 - the whole registration, not two loose strings: cameraKey() takes
+    //one argument here, so there is no order left to get wrong.
+    string camera_key = ReolinkEventRegistry::cameraKey(reg);
 
     cDebugDom("reolink") << "Registering camera: " << reg.hostname << " for event: " << reg.event_type;
 
@@ -147,7 +156,7 @@ void ReolinkCtrl::unregisterCamera(RegistrationId id)
 
 void ReolinkCtrl::doRegisterCamera(const ReolinkEventRegistry::CameraRegistration &reg)
 {
-    string camera_key = ReolinkEventRegistry::cameraKey(reg.hostname, reg.event_type);
+    string camera_key = ReolinkEventRegistry::cameraKey(reg); //T3.31 - one argument
 
     /* Register camera with the external process. The message carries the
      * camera password IN CLEAR: never log it, here or anywhere downstream.

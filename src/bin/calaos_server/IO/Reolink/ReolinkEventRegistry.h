@@ -48,9 +48,19 @@ public:
     using RegistrationId = uint64_t;
     static constexpr RegistrationId INVALID_ID = 0;
 
-    using EventCallback = std::function<void(const std::string &hostname,
-                                             const std::string &event_type,
-                                             const std::string &event_data)>;
+    /*
+     * T3.31 - three DISTINCT types, never three bare strings.
+     *
+     * ⚠️ This half of the chain was left untyped by the first delivery of
+     * T3.31 and the reviewer's mutation found it: with three std::string in a
+     * row, a callback body that reads (event_type, hostname, event_data) - or
+     * a dispatch() call that hands them over in that order - compiled with
+     * zero diagnostics and lost every event in silence. See ReolinkTypes.h,
+     * chain (2).
+     */
+    using EventCallback = std::function<void(const ReolinkTypes::Hostname &hostname,
+                                             const ReolinkTypes::EventType &event_type,
+                                             const ReolinkTypes::EventData &event_data)>;
 
     /*
      * T3.31 - four std::string, and NOT an aggregate.
@@ -94,14 +104,35 @@ public:
         std::string event_type;
     };
 
-    static std::string cameraKey(const std::string &hostname, const std::string &event_type)
+    /*
+     * T3.31 - hostname and event_type used to be two bare adjacent
+     * std::string here, and cameraKey(event_type, hostname) compiled with no
+     * warning at -Wall -Wextra -Wconversion: it builds a key nothing is
+     * registered under, so hasCamera() says no and dispatch() delivers to
+     * nobody. Measured on the first delivery of this ticket, rc=0.
+     */
+    static std::string cameraKey(const ReolinkTypes::Hostname &hostname,
+                                 const ReolinkTypes::EventType &event_type)
     {
-        return hostname + "_" + event_type;
+        return hostname.v + "_" + event_type.v;
+    }
+
+    /*
+     * ⭐ The overload every internal caller uses. ONE argument: there is no
+     * order to get wrong, and - unlike the two-argument form - nothing to
+     * wrap, so residual W3 (naming the wrong field at the wrapping site) does
+     * not apply to it either. The single wrapping site of the whole class is
+     * the body below, on the two lines that name the two fields.
+     */
+    static std::string cameraKey(const CameraRegistration &reg)
+    {
+        return cameraKey(ReolinkTypes::Hostname(reg.hostname),
+                         ReolinkTypes::EventType(reg.event_type));
     }
 
     RegistrationId add(const CameraRegistration &reg, EventCallback callback)
     {
-        const std::string key = cameraKey(reg.hostname, reg.event_type);
+        const std::string key = cameraKey(reg);
         const RegistrationId id = nextId++;
         callbacks[key].push_back({id, std::move(callback)});
         registrations.insert_or_assign(key, reg); //not operator[]: see CameraRegistration
@@ -151,8 +182,9 @@ public:
      * unregistered by an earlier callback of the same dispatch (e.g. its IO
      * was just deleted) is never invoked on a dead object.
      */
-    size_t dispatch(const std::string &hostname, const std::string &event_type,
-                    const std::string &event_data)
+    size_t dispatch(const ReolinkTypes::Hostname &hostname,
+                    const ReolinkTypes::EventType &event_type,
+                    const ReolinkTypes::EventData &event_data)
     {
         auto it = callbacks.find(cameraKey(hostname, event_type));
         if (it == callbacks.end())
@@ -170,12 +202,14 @@ public:
         return delivered;
     }
 
-    bool hasCamera(const std::string &hostname, const std::string &event_type) const
+    bool hasCamera(const ReolinkTypes::Hostname &hostname,
+                   const ReolinkTypes::EventType &event_type) const
     {
         return registrations.count(cameraKey(hostname, event_type)) > 0;
     }
 
-    size_t callbackCount(const std::string &hostname, const std::string &event_type) const
+    size_t callbackCount(const ReolinkTypes::Hostname &hostname,
+                         const ReolinkTypes::EventType &event_type) const
     {
         auto it = callbacks.find(cameraKey(hostname, event_type));
         return it == callbacks.end() ? 0 : it->second.size();
