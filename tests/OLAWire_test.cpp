@@ -568,15 +568,20 @@ TEST(OLAWire, TheFlatteningHouseRulesDecideWhatANonIntegerEntryDrives)
     EXPECT_EQ(64u, out[2].value);
 
     EXPECT_EQ(137u, out[3].channel);
-    /* ⚠️ out[3].value IS DELIBERATELY NOT ASSERTED, and that omission is the
-     * one defect this characterization found. "value":null flattens to the
-     * EMPTY STRING, which PASSES the Exists() gate, and Utils::from_string("")
-     * then writes NOTHING AT ALL - see the next case. The shipped
-     * OLAExternProc_main.cpp declares `unsigned int val;` with no initializer
-     * and hands whatever was on the stack to ola::DmxBuffer::SetChannel().
-     * There is no value to freeze because the value is INDETERMINATE: three
-     * runs of this suite read 21845, 22007 and 64.
-     * FLIPPED BY THE FIX COMMIT of this ticket. */
+    /* ⭐ FLIPPED BY THE FIX COMMIT. Before it, this assertion could not exist:
+     * "value":null flattens to the EMPTY STRING, PASSES the Exists() gate, and
+     * Utils::from_string("") writes NOTHING (see the next case), so the shipped
+     * decoder handed an UNINITIALIZED unsigned int to
+     * ola::DmxBuffer::SetChannel() - three runs of this suite read 21845,
+     * 22007 and 64 there. OLAWire::decodeMessage() now zero-initializes its
+     * ChannelValue, so an unreadable field drives channel 0 / level 0 instead
+     * of a random one.
+     * ⚠️ Honest about this one oracle: reverting the initializer makes this
+     * assertion INDETERMINATE, not guaranteed red. It was red on every run
+     * measured (six of six), but a compiler that happened to leave a zero in
+     * that slot would let it pass. It is the only assertion of this file in
+     * that situation. */
+    EXPECT_EQ(0u, out[3].value);
 }
 
 /*

@@ -292,7 +292,24 @@ inline bool decodeMessage(const std::string &msg, std::vector<ChannelValue> &out
         if (!p.Exists("channel") || !p.Exists("value"))
             continue;
 
-        ChannelValue cv;
+        /* ⭐ E4.1f FIX, in its own commit: ZERO INITIALIZED.
+         *
+         * The shipped OLAExternProc_main.cpp declared `unsigned int channel;
+         * unsigned int val;` with no initializer and relied on from_string()
+         * to write them. It does not always: on a value that flattened to the
+         * EMPTY STRING - which is what a JSON null, object or array becomes,
+         * and which PASSES the Exists() gate above - the istringstream sentry
+         * fails before the extraction runs, so nothing is written and
+         * from_string() even returns TRUE. The uninitialized unsigned int then
+         * went straight into ola::DmxBuffer::SetChannel(): a random channel
+         * driven at a random level. Six runs of tests/OLAWire_test.cpp read
+         * 21845, 21942, 22007, 22069, 22072 and 64 there.
+         *
+         * No message our own emitter produces can reach this - both ends ship
+         * together and OLACtrl only ever emits integers - so this is not a
+         * user-visible fix, but it is an uninitialized read on data that comes
+         * off a pipe, and it costs two zeros. */
+        ChannelValue cv = { 0, 0 };
         Utils::from_string(p["channel"], cv.channel);
         Utils::from_string(p["value"], cv.value);
         out.push_back(cv);
