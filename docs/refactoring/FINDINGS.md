@@ -512,6 +512,9 @@
   (`docs/16_config_options.md`) alors qu'haproxy ne vise que `127.0.0.1:5454` — **le port 5454
   répond donc directement depuis le LAN sur un déploiement standard**. Un client qui le joint en
   direct **choisit son identité**, donc son seau de throttle **et** son compteur de connexions.
+  ⚠️ **Et il DOIT rester joignable** : le parc RemoteUI et les apps mobiles en LAN s'y connectent
+  en direct (voir la CORRECTION en fin d'entrée). Le défaut n'est donc **pas** que le port soit
+  ouvert — c'est qu'on **croie l'en-tête sans savoir d'où vient la connexion**.
 
   ⚠️ **T3.24 CRÉE cette exposition pour le throttle, il ne la subit pas.** Une première rédaction
   de cette entrée affirmait le contraire (« l'attaquant pouvait déjà verrouiller les autres ») :
@@ -527,11 +530,45 @@
   depuis son merge. La garantie invoquée reste une **garantie de déploiement** (`DECISIONS.md`),
   **pas une garantie de code**.
 
-  **Le vrai correctif, et il est gratuit — suite à ouvrir hors de ce dépôt (calaos-os)** : poser
+  ### ⛔ CORRECTION (2026-08-25) — la mitigation retenue n'est PAS `listen_address`
+
+  ~~**Le vrai correctif, et il est gratuit — suite à ouvrir hors de ce dépôt (calaos-os)** : poser
   **`listen_address = 127.0.0.1`** dans la configuration de calaos-os. L'option **existe déjà** et
   est documentée ; seul haproxy pourrait alors joindre le port, ce qui rend la confiance en
-  `X-Forwarded-For` **saine** au lieu d'hypothétique. À défaut, une liste de proxys de confiance
-  côté `calaos_server` (ou la normalisation de l'en-tête par `McpProxyHandler`, cf. T1.8).
+  `X-Forwarded-For` **saine** au lieu d'hypothétique.~~
+
+  ⛔ **`listen_address` est ÉCARTÉ** — dans le code **comme** dans la configuration de calaos-os.
+  Décision utilisateur du 2026-08-25 (`DECISIONS.md`, « `X-Forwarded-For` : la confiance se
+  conditionne au **pair TCP** »). **Deux raisons, vérifiées au source, et chacune suffit** :
+
+  1. ⭐ **La clé gouverne DEUX serveurs, pas un.** `HttpServer.cpp:29-31` **et
+     `UDPServer.cpp:58-61`** lisent la **même** option avec le **même** repli `"0.0.0.0"`. Le
+     serveur UDP est **la découverte** : il répond `CALAOS_IP <ip>` à `CALAOS_DISCOVER`
+     (`UDPServer.cpp:67-84`, adresse rendue par `TCPSocket::GetLocalIPFor(remoteIp)`) et reçoit
+     **aussi** les trames `WAGO INT` / `WAGO KNX` des automates (`:88-118`) — **un chemin d'IO
+     vivant**. Le confiner au loopback casse la découverte **et** les entrées Wago.
+  2. ⭐ **Les clients qui joignent le 5454 en direct sont des clients LÉGITIMES**, vérifié dans les
+     dépôts voisins : le firmware **RemoteUI** (`calaos_remote_ui/main/calaos_protocol.h:28`
+     `WS_PORT = 5454` ; `provisioning_requester.cpp:161` `http://<ip>:5454/api/v3/provision/request`
+     — découverte UDP **puis** connexion directe, en clair, sans proxy), l'**application mobile en
+     LAN** (`calaos_mobile/src/CalaosConnection.cpp:307-308` : hôte nu ⇒ `ws://<h>:5454/api`), et
+     l'**auto-détection de `calaos_installer`** (`dialogautodetect.cpp:74`, broadcast UDP). Seul le
+     **sidecar MCP** est indifférent (`calaos_mcp/config.py:41`, `ws://127.0.0.1:5454/api`).
+
+  ⇒ **le port 5454 ouvert n'est pas un défaut : c'est le produit.**
+
+  **La mitigation retenue — [`T3.39`](T3.39.md)** : lire `X-Forwarded-For` **uniquement si le pair
+  TCP est le loopback** (`127.0.0.1` / `::1`), c'est-à-dire haproxy ; sinon prendre l'adresse du
+  pair et **ignorer l'en-tête**. C'est la « liste de proxys de confiance » dont l'analyse ci-dessus
+  constatait l'absence dans tout l'arbre — **réduite à une seule entrée**. Elle ferme
+  **entièrement** les capacités (a) et (b) créées par T3.24 en accès direct, **sans rien casser** :
+  RemoteUI et les apps LAN restent identifiés par leur **vraie** adresse, ce qui est exactement ce
+  qu'un throttle veut.
+  ⚠️ **Reste ouvert, accepté** : un attaquant **sur la machine elle-même** est loopback, donc peut
+  encore forger. Et un déploiement où **haproxy vit sur une autre machine** serait cassé par la
+  garde — d'où l'option de configuration proposée en §3 de T3.39, **par défaut le loopback**.
+  ⚠️ **Ne reproposez pas `listen_address` dans six mois** : il est documenté, il a l'air gratuit,
+  et il ne l'est pas. La question a été instruite deux fois ; la deuxième a trouvé `UDPServer.cpp`.
 
   **Non vérifié, noté tel quel** : le comportement d'haproxy 2.8 en **HTTP/2** côté frontend
   (déduit de la doc et de la conversion h2→h1, non testé) ; le **request smuggling** à travers

@@ -8,6 +8,107 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **⭐⭐ CINQ ARBITRAGES UTILISATEUR DU 2026-08-25 — PORTÉS DANS `DECISIONS.md`, LISEZ-LES AVANT
+  DE JUGER QUOI QUE CE SOIT.** Quatre d'entre eux **retirent** ou **requalifient** une analyse
+  déjà écrite : ce ne sont pas des ajouts, ce sont des **corrections**. Lot de **rédaction pure** —
+  aucune ligne de `src/`, aucun test, aucun build.
+
+  1. ⭐ **[`T3.26`](T3.26.md) REQUALIFIÉE — le downgrade OTA n'est PAS un défaut, c'est le
+     comportement VOULU.** *« l'appareil installe seul, sans confirmation utilisateur, on peut
+     vouloir un downgrade c'est accepté […] `calaos_server` fait juste son travail pour pousser la
+     version qu'il a »*. Le serveur est un **distributeur, pas un arbitre** ; le fichier déposé
+     dans `/usr/share/calaos/firmwares/<hardware_id>/` **est** l'opt-in. ⇒ options **A**
+     (strictement supérieur — **casse l'usage**) et **B** (clé de manifeste — **négociation de
+     format pour un besoin inexistant**) **écartées** ; **C** retenue en **confort de diagnostic**,
+     forme **minimale** (nommer les deux versions, dire « change », **pas** de comparateur
+     sémantique — il reviendrait par la porte du journal). ⛔ **La suite `OtaVersionOrder_test` est
+     annulée**, aucune entrée `RELEASE_NOTES`. **Priorité ⬇️ dernière du lot des dix.**
+     ⚠️ **Un ticket futur qui « corrigerait » `OtaFirmwareManager.cpp:249-253` en comparaison
+     relationnelle RÉGRESSE le produit** — c'est précisément ce que la fiche s'apprêtait à faire.
+
+  2. ⭐ **PROTECTION DE `master` : RECOMMANDATION RETIRÉE — et c'est une information
+     D'ARCHITECTURE que plusieurs agents ont ignorée.** *« Pourquoi proteger master? […] On a 2
+     canaux: push sur master fera des prerelease que seul moi ou les gens qui dev utilisent, et si
+     je fait une release quand le code est clean, ca pousse pour tout le monde. »* ⇒ **`master` est
+     le canal de PRÉVERSION**, les **releases** sont ce qui atteint les utilisateurs. La protéger
+     **empêcherait son usage prévu** ; l'absence de *required status check* n'est **pas un trou**.
+     **Requalification de l'épisode du sidecar MCP mort** : l'image `:dev` cassée était **une
+     préversion cassée sur le canal fait pour ça**, **pas** un artefact livré ⇒ **la gravité
+     tombe** ; [`T3.23`](T3.23.md) reste **entièrement juste**, seule sa **justification** change.
+     **Barré (bloc ⛔ CORRECTION, jamais réécrit en silence) en trois endroits** : ce fichier
+     (bloc T3.23, deux occurrences) et `T3.23.md` §4. La phrase « la fenêtre qui a laissé publier
+     une image cassée reste ouverte » est **périmée** : il n'y a pas de fenêtre, il y a un canal.
+     Le garde-fou utile existe déjà — `DECISIONS.md`, « ⚠️ Pousser master publie des artefacts ».
+
+  3. ⭐ **`listen_address` ÉCARTÉ, remplacé par [`T3.39`](T3.39.md) — confiance
+     `X-Forwarded-For` conditionnée au PAIR TCP LOOPBACK.** L'utilisateur avait d'abord accepté
+     `listen_address` ; **l'instruction l'a tué**, et deux fois plutôt qu'une :
+     **(1)** la clé bind **AUSSI le serveur UDP** (`UDPServer.cpp:58-61`, ligne identique à
+     `HttpServer.cpp:29-31`) — c'est-à-dire **la découverte** (`CALAOS_DISCOVER` → `CALAOS_IP <ip>`)
+     **et** les trames **`WAGO INT`/`WAGO KNX`** (`:88-118`), un chemin d'IO vivant ;
+     **(2)** ⭐ **la question « qui se connecte directement au 5454 ? » a une réponse : les clients
+     LÉGITIMES** — firmware **RemoteUI** (`calaos_remote_ui/main/calaos_protocol.h:28`,
+     `provisioning_requester.cpp:161` : découverte UDP **puis** `http://<ip>:5454/api/v3/provision/request`
+     et WS 5454, en clair), **app mobile en LAN** (`calaos_mobile/src/CalaosConnection.cpp:307-308`),
+     **auto-détection de l'installeur** (`dialogautodetect.cpp:74`). Seul le sidecar MCP est
+     loopback. ⇒ **le port ouvert n'est pas le défaut : c'est le produit.**
+     **Le vrai correctif** : lire l'en-tête **seulement si le pair TCP est `127.0.0.1`/`::1`** —
+     la « liste de proxys de confiance » absente de tout l'arbre, **réduite à une entrée**.
+     ⭐ **Le pair est DÉJÀ un argument de `TransportLimits::effectiveClientIp()`** (fonction pure,
+     `HttpClient.h:144-158`) ⇒ garde de 3 lignes, pureté et testabilité intactes, et **les deux**
+     appelants servis d'un coup — **instruit : le cap `max_connections_per_ip` veut la MÊME
+     sémantique que le throttle**, dans les deux déploiements.
+     ⚠️ **Deux pièges chiffrés dans la fiche** : `ForwardedForLine.LastRepeatedHeaderLineWins` et
+     `…ClientSuppliedListIsDiscardedWholesale` sèment un pair **`10.0.0.254`** ⇒ **FAUX ROUGES**
+     à re-semer sur `127.0.0.1` ; et les **7 cas** de `core/JsonApiThrottleIdentity_test` tournent
+     sur un handle **jamais connecté** ⇒ pair `"unknown"` ⇒ **tous rouges**, il faut un **joint de
+     test**, ⛔ **pas** élargir la garde à `"unknown"`.
+     `FINDINGS.md`/F-XFF-1 et `T3.24.md` **mis à jour** (bloc ⛔ CORRECTION, ancien texte barré).
+
+  4. ⭐ **[`I4.1`](I4.1.md) EST VALIDÉ SUR UNE CONFIGURATION DE PRODUCTION RÉELLE — le trou de
+     vérification déclaré est COMBLÉ.** Ouverture + sauvegarde **par le GUI** d'une vraie maison :
+     **125 règles / 177 conditions / 318 actions**, `io.xml` **identique OCTET POUR OCTET**,
+     **multiensemble global des lignes de `rules.xml` IDENTIQUE** ⇒ **aucune perte**. C'était
+     exactement le « le chemin GUI n'a jamais été exercé » du §4. **Seul écart : 12 lignes**, toutes
+     des `<calaos:input>` dans les **deux** conditions `script` → [`I4.2`](I4.2.md).
+     ⭐ **Et `I4.2` conclut CONTRE sa propre prémisse** : le jumeau installeur du défaut serveur
+     **n'existe pas**. `Calaos/Condition.h:49` est un **`std::vector<IOBase*>`**, la lecture est en
+     ordre du document (QDom) et l'écriture est indexée ⇒ **l'aller-retour est ordre-préservant par
+     construction**. La permutation observée est un **quasi-renversement** (exact sur 2 éléments,
+     à une transposition adjacente près sur 10) : **signature du `_Hashtable` de libstdc++**, donc
+     de l'`unordered_map<IOBase*,IOBase*>` **du serveur** — le défaut de `RELEASE_NOTES.md:480-484`
+     fermé par **E4.2c** (`ff6c51c7`) et **non déployé en production**. ⛔ **Ne rien corriger avant
+     l'expérience de `I4.2` §3.2** (rouvrir le `rules.xml` **local**, sauver, comparer à l'octet) :
+     « corriger » un vecteur déjà ordonné reviendrait à **introduire** un tri pour masquer un
+     défaut situé ailleurs.
+
+  5. ⭐ **`T3.36` (relink des suites) : PRIORITÉ HAUTE, mais PLANIFIÉE APRÈS `E4.1x`.**
+     **47 suites sur 80** peuvent répondre **vert sans avoir relié le code modifié** — cause racine
+     des cinq variantes de faux vert/rouge. **Après E4.1x** parce que la réparation touche
+     `tests/Makefile.am`, où **huit tickets sérialisés (`E4.1l`→`E4.1s`) appendent chacun leur
+     bloc** : la faire maintenant produirait un conflit à chaque merge, sur le fichier dont la
+     résolution naïve **perd le `endif` extérieur** et casse `automake`. ⚠️ **Piège de comptage** :
+     `CORE_TEST_LDADD` **contient** `CORE_SERVER_OBJECTS` ⇒ chercher `$(CALAOS_SERVER_BUILDDIR)` en
+     toutes lettres donne **27** au lieu de 47. **Contrepartie assumée** : d'ici là la protection
+     **repose sur la discipline** (chaque brief doit porter `rm -f` binaire **et** `.o` serveur,
+     puis exiger `CXXLD` **et** le code de sortie) — ce n'est **pas** une garantie. **Risque de la
+     réparation** : son premier `make check` **peut rougir**, et **ces rouges seront des
+     trouvailles**.
+     ⚠️ **`T3.36.md` et sa ligne de `BOARD.md` N'EXISTENT PAS ENCORE sur `master`** — la fiche vit
+     dans le worktree `.wave48/t3.29` (lot `T3.35`→`T3.38`), **merge en cours**. ⛔ **Je ne l'ai
+     donc ni créée ni éditée** ; l'agent qui mergera `T3.29` doit **porter « priorité haute,
+     planifiée après `E4.1x` » sur la ligne `T3.36` du board** au moment du merge, faute de quoi
+     quelqu'un la prendra pour une fiche en attente et la lancera au mauvais moment.
+
+  - **Numéros attribués** : **`T3.39`** (T3.35→T3.38 étaient pris par le lot de `T3.29`, worktree
+    `.wave48/t3.29`) et **`I4.2`** (dépôt `calaos_installer`).
+  - ➡️ **PROCHAINE ACTION** : rien de ces cinq points n'est bloquant. Le chemin critique reste
+    **`E4.1j`** (dernier de la vague 1), puis la chaîne sérialisée `E4.1l`→`E4.1s`, puis `E4.1x`
+    — **et c'est seulement là que `T3.36` se lance**. Côté fixes, `T3.25` reste la première
+    (atteignable à distance, débouche sur du matériel), `T3.34` **avant** elle (deux caractères,
+    mêmes lignes). **`T3.39` est prêt à lancer et indépendant.** Côté installeur, `I4.2` **commence
+    par une expérience de deux minutes**, pas par du code.
+
 - **⭐ LES FINDINGS DE LA NUIT SONT TICKETÉS — dix fiches, `T3.25` → `T3.34`, toutes 📋
   (2026-08-25).** Aucune ligne de `src/`, aucun test, aucun build : ce lot est de la **rédaction**.
   Chaque finding d'origine renvoie désormais à sa fiche dans `FINDINGS.md`, l'analyse est
@@ -3132,6 +3233,15 @@ harnais lui-même est **stable et documenté**, et son contrat de cycle de vie e
     `needs:`**, et **`master` n'est pas protégée** (404 sur `/protection`, rulesets vides) → aucun
     *required status check*, un job rouge ne bloque rien. Rendre `mcp-sidecar-deps` bloquant est
     une **configuration de dépôt**, hors de portée du code.
+    - ⛔ **CORRECTION (2026-08-25, décision utilisateur — voir `DECISIONS.md`, « DEUX canaux de
+      publication »).** ~~Le constat ci-dessus était présenté comme un **trou à refermer**, et la
+      protection de `master` comme le geste manquant.~~ **C'est faux, et la raison est
+      d'architecture** : `master` **est le canal de préversion** (`ghcr…:dev`, `.deb` de
+      préversion), destiné aux développeurs ; ce qui atteint les utilisateurs, ce sont les
+      **releases**. **Protéger `master` empêcherait son usage prévu.** L'absence de *required
+      status check* n'est donc pas un défaut de configuration : c'est la conséquence du rôle de la
+      branche. Le constat factuel (workflow séparé, sans `needs:`) reste exact ; **c'est la
+      conclusion qu'on en tirait qui est retirée**.
   - **Versé en FINDINGS (non traité ici, élargirait le ticket)** : **F-DEP-3** la divergence peut
     revenir — un `RUN pip install foo` en dur passerait toute la CI au vert ; le dépôt a pourtant
     le patron (`tests/check-config-docs.sh` dans `make check`), l'analogue manque → ticket proposé
@@ -3175,11 +3285,17 @@ harnais lui-même est **stable et documenté**, et son contrat de cycle de vie e
     ⚠️ *Note d'outillage, sans rapport avec le ticket* : un `docker run` attaché dont le client est
     tué laisse `make` **tourner en boucle sur son stdout orphelin** après la fin des tests — relancé
     détaché avec sortie en fichier, `make check` rend la main en < 1 min avec rc 0.
-  - **Ce qui NE change pas, et qui revient à l'utilisateur** : le nouveau job CI améliore la
-    **détection**, pas le **blocage**. `docker-publish-dev.yml` reste un workflow séparé **sans
-    `needs:`** et **`master` n'est toujours pas protégée** → aucun *required status check*.
-    **La fenêtre qui a laissé publier une image cassée reste donc ouverte** — c'est une décision de
-    configuration de dépôt, pas de code.
+  - **Ce qui NE change pas** : le nouveau job CI améliore la **détection**, pas le **blocage**.
+    `docker-publish-dev.yml` reste un workflow séparé **sans `needs:`** et `master` n'est pas
+    protégée → aucun *required status check*.
+    ⛔ **CORRECTION (2026-08-25, décision utilisateur)** : ~~« la fenêtre qui a laissé publier une
+    image cassée reste donc ouverte »~~ — **il n'y a pas de fenêtre, il y a un canal.** L'image
+    `:dev` cassée était **une préversion sur le canal prévu pour les préversions** ; elle n'a
+    **pas** atteint les utilisateurs. ⇒ **la gravité de l'épisode tombe**, le correctif T3.23 reste
+    entièrement juste mais sa **justification** change : on corrige parce qu'une préversion cassée
+    fait perdre du temps aux développeurs, **pas** parce qu'un artefact cassé aurait été livré.
+    **La recommandation de protéger `master` est RETIRÉE** — voir `DECISIONS.md`, « DEUX canaux de
+    publication : `master` = préversion, *release* = tout le monde ».
   - **➡️ SUITE IMMÉDIATE : merger `chore/dependabot-2026-08-24` maintenant.** L'ordre était
     **T3.23 d'abord, Dependabot ensuite** (zéro fichier en commun, vérifié deux fois) : avant
     T3.23 le `pyproject.toml` n'avait **aucun effet** sur l'image, donc merger Dependabot seul

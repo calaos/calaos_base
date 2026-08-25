@@ -4,6 +4,157 @@
 > **ne les re-demande pas** et respecte les contraintes. Format : date, décision, pourquoi,
 > comment l'appliquer. Ajouter en tête (plus récent en haut).
 
+## 2026-08-25 — OTA RemoteUI : le **downgrade est voulu**, `calaos_server` pousse ce qu'on lui donne
+
+**Décision** : `OtaFirmwareManager::checkDeviceForUpdate()` **garde son égalité de chaînes**
+(`OtaFirmwareManager.cpp:249-253`). Toute version **différente** de celle de l'appareil — **plus
+ancienne comprise** — est proposée, et l'appareil **l'installe seul, sans confirmation**.
+⛔ **Ce n'est pas un défaut, c'est le contrat.**
+
+**Mot de l'utilisateur, textuel** :
+
+> « l'appareil installe seul, sans confirmation utilisateur, on peut vouloir un downgrade c'est
+> accepté. Le process de downgrade (et upgrade) est à la charge de l'utilisateur et
+> `calaos_server` fait juste son travail pour pousser la version qu'il a aux devices
+> `remote_ui` »
+
+**Pourquoi** : `calaos_server` est un **distributeur, pas un arbitre**. Ce que l'administrateur
+dépose dans `/usr/share/calaos/firmwares/<hardware_id>/` **est** la version voulue pour ce parc ;
+la décision de monter ou de descendre est prise **en amont**, au moment du dépôt. Le fichier
+déposé **est** l'opt-in.
+
+**Ce que cela écarte, nommément** (options pesées par [`T3.26`](T3.26.md) §4, première rédaction) :
+- **A — n'offrir que strictement supérieur** : ⛔ **casse l'usage**. Redescendre un parc devient
+  impossible, et c'est un geste légitime — le commentaire de `:247-248` le disait déjà
+  (« *This allows switching between dev and release branches* »).
+- **B — downgrade opt-in par une clé du manifeste** : ⛔ **négociation de format avec le firmware**
+  (autre dépôt) pour un besoin **qui n'existe pas**.
+- **C — journaliser** : ✅ retenue, mais **requalifiée en confort de diagnostic**, sous sa forme
+  minimale (nommer les deux versions, dire « change » et non « update ») — **sans** comparateur
+  sémantique, qui réintroduirait par la porte du journal la machinerie écartée par la porte du
+  comportement.
+
+**Comment l'appliquer** : ⚠️ **un ticket futur qui « corrigerait » `:249-253` en comparaison
+relationnelle RÉGRESSE le produit.** [`T3.26`](T3.26.md) a été **requalifiée** en conséquence
+(titre, constat, priorité ⬇️, suite de tests annulée) : c'est exactement la faute qu'elle allait
+commettre. Cette entrée existe pour l'empêcher une seconde fois.
+
+## 2026-08-25 — ⭐ **DEUX canaux de publication** : `master` = préversion, *release* = tout le monde. Ne pas protéger `master`
+
+**Décision** : ⛔ **la recommandation de protéger la branche `master` sur GitHub est RETIRÉE.**
+Elle était fondée sur une **méconnaissance du modèle de publication**, pas sur un risque réel.
+
+**Mot de l'utilisateur, textuel** :
+
+> « Pourquoi proteger master? c'est par la qu'on build+push un nouveau .deb/docker. On a 2 canaux:
+> push sur master fera des prerelease que seul moi ou les gens qui dev utilisent, et si je fait
+> une release quand le code est clean, ca pousse pour tout le monde. »
+
+**Le modèle, à retenir avant toute analyse de CI** :
+
+| Canal | Déclencheur | Public |
+|---|---|---|
+| **préversion** | **tout push vers `master`** → `docker-publish-dev.yml` : bump de version, tag git, `ghcr.io/calaos/calaos_base:dev` + tag versionné, `repository_dispatch build_deb` vers `calaos/pkgdebs` | **les développeurs**, et l'utilisateur lui-même |
+| **release** | une **release** faite délibérément, quand le code est propre | **tous les utilisateurs** |
+
+⇒ **`master` n'est pas la branche de production : c'est le canal de préversion.** La protéger
+**empêcherait son usage prévu** — on ne pourrait plus produire de préversion sans cérémonie.
+L'absence de *required status check* n'est donc **pas un trou**, c'est la conséquence directe du
+rôle de la branche.
+
+**Requalification de l'épisode du sidecar MCP mort** (F-DEP-1 / [`T3.23`](T3.23.md)) : l'image
+`ghcr.io/calaos/calaos_base:dev` publiée avec `mcp 2.0.0` **n'a pas atteint les utilisateurs**.
+C'était **une préversion cassée sur le canal fait pour ça**. ⇒ **la gravité tombe** ; le correctif
+T3.23 reste **entièrement juste** (le manifeste doit être la source unique, la sonde doit sonder
+l'API réellement importée), seule sa **justification** change : on corrige parce qu'une préversion
+cassée fait perdre du temps aux développeurs, **pas** parce qu'un artefact cassé aurait été livré.
+
+**Comment l'appliquer** : la phrase « **la fenêtre qui a laissé publier une image cassée reste
+ouverte** » (ORCHESTRATION, T3.23) est **périmée** — il n'y a pas de fenêtre, il y a un canal.
+Le geste utile n'est pas un verrou de branche mais **la porte de sortie qui existe déjà** :
+`DECISIONS.md`, « ⚠️ Pousser master publie des artefacts », qui impose de **demander avant tout
+push**. Elle reste, et elle suffit.
+⚠️ **Plusieurs agents ont ignoré ce modèle et en ont tiré une mauvaise analyse.** C'est une
+information **d'architecture**, à lire avant de juger un workflow.
+
+## 2026-08-25 — `X-Forwarded-For` : la confiance se conditionne au **pair TCP**, pas à `listen_address`
+
+**Décision** : la mitigation de **F-XFF-1** (exposition du throttle de login créée par
+[`T3.24`](T3.24.md)) est **la confiance conditionnée au pair TCP loopback**, ticket
+[`T3.39`](T3.39.md). ⛔ **`listen_address = 127.0.0.1` est ÉCARTÉ**, dans le code **comme** dans la
+configuration de calaos-os.
+
+**Pourquoi `listen_address` est mort — vérifié au source, et c'est net** : **la même clé gouverne
+DEUX serveurs**.
+
+| Site | Ce qu'il bind |
+|---|---|
+| `HttpServer.cpp:29-31` | l'API HTTP/WebSocket, port `port_api` (5454) |
+| **`UDPServer.cpp:58-61`** | **le serveur de découverte UDP**, *même ligne, même repli `"0.0.0.0"`* |
+
+`UDPServer::processRequest()` répond à `CALAOS_DISCOVER` par `CALAOS_IP <ip>`, où l'adresse est
+`TCPSocket::GetLocalIPFor(remoteIp)` — **l'adresse LAN joignable depuis le client**. Il reçoit
+**aussi** les trames `WAGO INT` / `WAGO KNX` des automates (`UDPServer.cpp:88-118`), qui sont un
+**chemin d'IO vivant**.
+
+**Et la question « qui se connecte directement au 5454 ? » a une réponse : les clients
+légitimes.** Vérifié dans les dépôts voisins :
+
+| Client | Site | Chemin |
+|---|---|---|
+| **RemoteUI** (firmware ESP32) | `calaos_remote_ui/main/calaos_protocol.h:28` (`WS_PORT = 5454`), `provisioning_requester.cpp:161`, `.h:92` | découverte **UDP**, puis `http://<ip>:5454/api/v3/provision/request` et WS sur 5454, **en clair, sans proxy** |
+| **application mobile en LAN** | `calaos_mobile/src/CalaosConnection.cpp:307-308` | hôte nu ⇒ `ws://<h>:5454/api` + `http://<h>:5454/api.php` (le mode `https` passe, lui, par haproxy) |
+| **calaos_installer** | `dialogautodetect.cpp:74` | `CALAOS_DISCOVER` en **broadcast UDP** (le transfert de config, lui, passe par `https://<ip>/api.php`) |
+| sidecar MCP | `calaos_mcp/config.py:41` | `ws://127.0.0.1:5454/api` — **loopback**, seul client indifférent |
+
+⇒ poser `127.0.0.1` **casserait la découverte ET la connexion de tout le parc RemoteUI**, les apps
+mobiles en LAN, et les entrées Wago. **Le port 5454 ouvert n'est pas un défaut : c'est le produit.**
+
+**Ce qu'on fait à la place** : `X-Forwarded-For` n'est lu que **si le pair TCP est le loopback**
+(`127.0.0.1` / `::1`), c'est-à-dire haproxy ; sinon on prend l'adresse du pair et **l'en-tête est
+ignoré**. C'est la « liste de proxys de confiance » dont T3.24 avait constaté l'absence dans tout
+l'arbre — réduite à **une entrée**. Elle ferme **entièrement** l'exposition (plus d'exonération du
+throttle, plus de victime accablée) **sans rien casser** : RemoteUI et les apps LAN restent
+identifiés par leur **vraie** adresse, ce qui est exactement ce qu'un throttle veut.
+
+**Ce qui reste ouvert, et c'est accepté** : un attaquant **sur la machine elle-même** garde la
+capacité de forger l'en-tête, puisqu'il est loopback. À écrire, pas à corriger.
+
+**Comment l'appliquer** : ⚠️ **ne reproposez pas `listen_address`.** Il est documenté
+(`docs/16_config_options.md`), il a l'air gratuit, et il ne l'est pas — c'est exactement pourquoi
+cette entrée existe. La question a été instruite deux fois ; la deuxième a trouvé `UDPServer.cpp`.
+
+## 2026-08-25 — `T3.36` (relink des suites de tests) : **priorité haute, mais APRÈS `E4.1x`**
+
+**Décision** : [`T3.36`](T3.36.md) — les **47 suites sur 80** qui portent
+`<suite>_DEPENDENCIES = libcalaos_common.la` et ne relient donc pas les `.o` serveur qu'elles
+testent — est **prioritaire**, et **planifiée après la clôture d'E4.1** (`E4.1x`). ⛔ **Ne pas la
+lancer avant.**
+
+**Le constat** : plus d'une suite sur deux **peut répondre vert sans avoir relié le code
+modifié**. Reproduit **deux fois dans la même journée, dans les deux sens** (faux vert *et* faux
+rouge). C'est la **cause racine des cinq variantes de faux vert/rouge** rencontrées depuis deux
+jours.
+⚠️ **Piège de comptage à consigner avec** : `CORE_TEST_LDADD` **contient** `CORE_SERVER_OBJECTS`,
+donc chercher `$(CALAOS_SERVER_BUILDDIR)` en toutes lettres donne **27** au lieu de **47**.
+
+**Pourquoi après** : la réparation touche **`tests/Makefile.am`**, et **huit tickets sérialisés
+(`E4.1l` → `E4.1s`) y appendent chacun leur bloc**. La faire maintenant produirait **un conflit à
+chaque merge de la chaîne**, sur le fichier dont la résolution naïve est déjà connue pour **perdre
+le `endif` extérieur** et casser `automake` (cf. ORCHESTRATION, « Pattern récurrent : conflit
+`tests/Makefile.am` »).
+
+**La contrepartie, assumée** : d'ici là **la protection repose sur la discipline**. Chaque brief
+d'agent doit porter le contournement — `rm -f` du **binaire de test** *et* des **`.o` serveur
+touchés**, puis **exiger la ligne `CXXLD` et le code de sortie du binaire**, jamais compter les
+`FAILED`. Ce n'est **pas une garantie**, c'est une consigne qu'on peut oublier. Le risque est
+accepté **pour la durée de la chaîne**, pas au-delà.
+
+**Risque connu de la réparation elle-même, à écrire dans le ticket** : en rétablissant le relink,
+**on découvrira peut-être des suites qui ne passaient que grâce à son absence**. C'est un argument
+**pour** la faire, pas contre — mais son premier `make check` **peut rougir**, et **ces rouges
+seront des trouvailles**, pas des régressions.
+
 ## 2026-08-25 — E4.1 : la règle vaut pour **TOUS** les `dump()`, journaux compris
 
 **Décision** : `dump(N, ' ', /*ensure_ascii=*/true, Json::error_handler_t::replace)` **partout**,
