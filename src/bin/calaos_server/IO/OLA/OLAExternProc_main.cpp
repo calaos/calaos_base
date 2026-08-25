@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "ExternProc.h"
+#include "OLAWire.h"
 
 #include <ola/DmxBuffer.h>
 #include <ola/Logging.h>
@@ -49,39 +50,35 @@ void OLAProcess::readTimeout()
 {
 }
 
+/*
+ * E4.1f: the decoding lives in OLAWire.h, which OLACtrl.cpp includes too, so
+ * both ends of the wire read from the same text and tests/OLAWire_test.cpp
+ * exercises the SHIPPED decoder.
+ *
+ * ⚠️ THE ROOT IS AN ARRAY. decodeMessage() answers false exactly where
+ * json_loads() answered NULL or json_is_array() was false, so a malformed
+ * message, a top level scalar and a top level OBJECT are all refused here
+ * and the buffer is NOT sent - unchanged.
+ *
+ * The only observable difference is the log line: nlohmann's non-throwing
+ * parse has no jerr.text to offer, so the raw message is logged instead,
+ * exactly as KNXExternProc_main.cpp does since E4.1e.
+ */
 void OLAProcess::messageReceived(const string &msg)
 {
-    json_error_t jerr;
-    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
+    vector<OLAWire::ChannelValue> entries;
 
-    if (!jroot || !json_is_array(jroot))
+    if (!OLAWire::decodeMessage(msg, entries))
     {
-        cWarningDom("ola") << "Error parsing json from sub process: " << jerr.text;
-        if (jroot)
-            json_decref(jroot);
+        cWarningDom("ola") << "Error parsing json from sub process. Raw message: " << msg;
         return;
     }
 
-    size_t idx;
-    json_t *value;
-
-    json_array_foreach(jroot, idx, value)
+    for (const OLAWire::ChannelValue &entry: entries)
     {
-        Params p;
-        jansson_decode_object(value, p);
-
-        if (p.Exists("channel") && p.Exists("value"))
-        {
-            unsigned int channel;
-            unsigned int val;
-            Utils::from_string(p["channel"], channel);
-            Utils::from_string(p["value"], val);
-
-            cDebugDom("ola") << "Set channel " << channel << " with value: " << val;
-            buffer.SetChannel(channel, val);
-        }
+        cDebugDom("ola") << "Set channel " << entry.channel << " with value: " << entry.value;
+        buffer.SetChannel(entry.channel, entry.value);
     }
-    json_decref(jroot);
 
     client.SendDmx(universe, buffer);
 }

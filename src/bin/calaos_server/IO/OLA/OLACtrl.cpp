@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "OLACtrl.h"
+#include "OLAWire.h"
 #include "Prefix.h"
 
 OLACtrl::OLACtrl(const string &universe)
@@ -43,16 +44,22 @@ OLACtrl::~OLACtrl()
     delete process;
 }
 
+/*
+ * E4.1f: the assembly lives in OLAWire.h, which calaos_ola includes too, so
+ * that tests/OLAWire_test.cpp exercises the SHIPPED emitter and not a copy of
+ * it. The *255/100 that turns the 0-100 setting into a DMX level moved there
+ * with it - it is part of what goes on the wire.
+ *
+ * ⭐ The two arguments are wrapped in DISTINCT types on the way in. That is
+ * the point: `channel` and `value` are both plain ints here, a free function
+ * cannot cover its own call site, and permuting two positional int arguments
+ * was measured to stay green in three tickets of this series. Written this
+ * way, the swap does not compile.
+ */
 void OLACtrl::setValue(int channel, int value)
 {
-    json_t *jroot = json_array();
-
-    json_t *jdata = json_object();
-    json_object_set_new(jdata, "channel", json_integer(channel));
-    json_object_set_new(jdata, "value", json_integer(value * 255 / 100));
-    json_array_append_new(jroot, jdata);
-
-    string res = jansson_to_string(jroot);
+    const string res = OLAWire::buildSetValueMessage(OLAWire::DmxChannel(channel),
+                                                     OLAWire::DimmerPercent(value));
 
     if (!res.empty())
         process->sendMessage(res);
@@ -60,26 +67,21 @@ void OLACtrl::setValue(int channel, int value)
     cDebugDom("ola") << "Sending value (" << value << ") " << res;
 }
 
+/*
+ * E4.1f: same move, and the ColorValue is handed over WHOLE. The pairing of a
+ * component with its channel happens inside buildSetColorMessage(), where the
+ * test suite can see it, instead of three times here where nothing could.
+ *
+ * ⭐ And the three channels are wrapped in three DISTINCT types, so handing
+ * the blue channel where the red one belongs does not compile either - the
+ * exact swap acceptance criterion 4 of E4.1f asks about.
+ */
 void OLACtrl::setColor(const ColorValue &color, int channel_red, int channel_green, int channel_blue)
 {
-    json_t *jroot = json_array();
-
-    json_t *jdata = json_object();
-    json_object_set_new(jdata, "channel", json_integer(channel_red));
-    json_object_set_new(jdata, "value", json_integer(color.getRed()));
-    json_array_append_new(jroot, jdata);
-
-    jdata = json_object();
-    json_object_set_new(jdata, "channel", json_integer(channel_green));
-    json_object_set_new(jdata, "value", json_integer(color.getGreen()));
-    json_array_append_new(jroot, jdata);
-
-    jdata = json_object();
-    json_object_set_new(jdata, "channel", json_integer(channel_blue));
-    json_object_set_new(jdata, "value", json_integer(color.getBlue()));
-    json_array_append_new(jroot, jdata);
-
-    string res = jansson_to_string(jroot);
+    const string res = OLAWire::buildSetColorMessage(color,
+                                                     OLAWire::RedChannel(channel_red),
+                                                     OLAWire::GreenChannel(channel_green),
+                                                     OLAWire::BlueChannel(channel_blue));
 
     if (!res.empty())
         process->sendMessage(res);

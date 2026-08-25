@@ -179,6 +179,7 @@ calaos_server_SOURCES = \
         IO/Reolink/ReolinkInputSwitch.cpp               \
         IO/OLA/OLACtrl.cpp                              \
         IO/OLA/OLACtrl.h                                \
+        IO/OLA/OLAWire.h                                \
         IO/OLA/OLAOutputLightDimmer.cpp                 \
         IO/OLA/OLAOutputLightDimmer.h                   \
         IO/OLA/OLAOutputLightRGB.cpp                    \
@@ -406,6 +407,7 @@ bin_PROGRAMS += calaos_ola
 calaos_ola_SOURCES = \
         IO/ExternProc.cpp               \
         IO/ExternProc.h                 \
+        IO/OLA/OLAWire.h                \
         IO/OLA/OLAExternProc_main.cpp
 
 calaos_ola_LDADD = \

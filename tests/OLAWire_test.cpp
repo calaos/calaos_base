@@ -58,11 +58,11 @@
  * json_is_array(); an is_object() would refuse every real message. Pinned by
  * ATopLevelObjectIsRefusedBecauseTheRootOfThisWireIsAnArray.
  *
- * THE SEAM is the free functions of the anonymous namespace below. In THIS
- * (characterization) commit they carry the jansson bodies of the two
- * production files VERBATIM; the migration commit rewires them onto the
- * shipped header IO/OLA/OLAWire.h, so that from then on a mutation of the
- * SHIPPED emitter turns this suite RED. A test that re-implements the
+ * THE SEAM is the free functions of the anonymous namespace below. In the
+ * characterization commit they carried the jansson bodies of the two
+ * production files VERBATIM; THIS commit has rewired them onto the shipped
+ * header IO/OLA/OLAWire.h, so a mutation of the SHIPPED emitter or decoder
+ * now turns this suite RED. A test that re-implements the
  * assembly instead of calling it only freezes what the TEST does - measured on
  * a sibling ticket of this series, where 34/34 stayed green while the
  * production dump() was put back naked. Every assertion that moves when the
@@ -123,11 +123,12 @@
 #include "Params.h"
 #include "ColorUtils.h"
 
-/* CHARACTERIZATION COMMIT: the seam below is jansson, copied verbatim from
- * OLACtrl.cpp and OLAExternProc_main.cpp. REPLACED BY E4.1f with
- *   #include "OLAWire.h"
- * i.e. the very text the two shipped binaries include. */
-#include "Jansson_Addition.h"
+/* ⭐ THE PRODUCTION HEADER. Not a copy of it: the very text OLACtrl.cpp and
+ * OLAExternProc_main.cpp include and the two binaries ship. Every seam below
+ * is now a one-line forwarder, so a mutation of the SHIPPED emitter or of the
+ * SHIPPED decoder turns this suite red. (In the characterization commit these
+ * were the jansson bodies, copied verbatim.) */
+#include "OLAWire.h"
 
 using std::string;
 using std::vector;
@@ -159,40 +160,22 @@ const int FX_BLUE  = 64;
 
 //OLACtrl::setValue(). `value` is a PERCENTAGE (0-100); the *255/100 that turns
 //it into a DMX level lives in the emitter, so it is part of what is frozen.
+//The two ints are wrapped in the two DISTINCT types of the wire on the way in:
+//written this way, permuting them here does not compile.
 string wireSetValue(int channel, int value)
 {
-    json_t *jroot = json_array();
-
-    json_t *jdata = json_object();
-    json_object_set_new(jdata, "channel", json_integer(channel));
-    json_object_set_new(jdata, "value", json_integer(value * 255 / 100));
-    json_array_append_new(jroot, jdata);
-
-    return jansson_to_string(jroot);
+    return OLAWire::buildSetValueMessage(OLAWire::DmxChannel(channel),
+                                         OLAWire::DimmerPercent(value));
 }
 
 //OLACtrl::setColor(). NOTE THE ASYMMETRY, deliberate and pinned: the colour
 //components are emitted RAW (0-255 already), with NO *255/100.
 string wireSetColor(const ColorValue &color, int channel_red, int channel_green, int channel_blue)
 {
-    json_t *jroot = json_array();
-
-    json_t *jdata = json_object();
-    json_object_set_new(jdata, "channel", json_integer(channel_red));
-    json_object_set_new(jdata, "value", json_integer(color.getRed()));
-    json_array_append_new(jroot, jdata);
-
-    jdata = json_object();
-    json_object_set_new(jdata, "channel", json_integer(channel_green));
-    json_object_set_new(jdata, "value", json_integer(color.getGreen()));
-    json_array_append_new(jroot, jdata);
-
-    jdata = json_object();
-    json_object_set_new(jdata, "channel", json_integer(channel_blue));
-    json_object_set_new(jdata, "value", json_integer(color.getBlue()));
-    json_array_append_new(jroot, jdata);
-
-    return jansson_to_string(jroot);
+    return OLAWire::buildSetColorMessage(color,
+                                         OLAWire::RedChannel(channel_red),
+                                         OLAWire::GreenChannel(channel_green),
+                                         OLAWire::BlueChannel(channel_blue));
 }
 
 /*
@@ -204,62 +187,33 @@ string wireSetColor(const ColorValue &color, int channel_red, int channel_green,
  * something to bite on, because no production field of this wire is a string.
  * See the header of this file - these two cases are DEFENSIVE.
  *
- * It goes through the SAME serialization call as the two emitters above, so
- * mutating that one call turns both oracles red.
+ * It goes through OLAWire::dumpJson(), which is THE dump of this wire and the
+ * one buildSetValueMessage() and buildSetColorMessage() call: mutating that
+ * single production line turns both oracles red.
  */
 string wireDumpProbe(const string &note)
 {
-    json_t *jroot = json_array();
+    Json jroot = Json::array();
 
-    json_t *jdata = json_object();
-    json_object_set_new(jdata, "channel", json_integer(7));
-    json_object_set_new(jdata, "note", json_string(note.c_str()));
-    json_array_append_new(jroot, jdata);
+    Json entry;
+    entry["channel"] = 7;
+    entry["note"] = note;
+    jroot.push_back(entry);
 
-    return jansson_to_string(jroot);
+    return OLAWire::dumpJson(jroot);
 }
 
 /*---------------------------------------------------------------------------
  * THE SEAM - what calaos_ola makes of it (OLAExternProc_main.cpp:52-87).
  *--------------------------------------------------------------------------*/
 
-struct WireChannelValue
-{
-    unsigned int channel;
-    unsigned int value;
-};
+//The struct calaos_ola actually hands to ola::DmxBuffer::SetChannel(), with
+//NAMED members - two positional unsigned ints could be swapped in silence.
+typedef OLAWire::ChannelValue WireChannelValue;
 
 bool wireDecode(const string &msg, vector<WireChannelValue> &out)
 {
-    json_error_t jerr;
-    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
-
-    if (!jroot || !json_is_array(jroot))
-    {
-        if (jroot)
-            json_decref(jroot);
-        return false;
-    }
-
-    size_t idx;
-    json_t *value;
-
-    json_array_foreach(jroot, idx, value)
-    {
-        Params p;
-        jansson_decode_object(value, p);
-
-        if (p.Exists("channel") && p.Exists("value"))
-        {
-            WireChannelValue cv;
-            Utils::from_string(p["channel"], cv.channel);
-            Utils::from_string(p["value"], cv.value);
-            out.push_back(cv);
-        }
-    }
-    json_decref(jroot);
-
-    return true;
+    return OLAWire::decodeMessage(msg, out);
 }
 
 /*---------------------------------------------------------------------------
@@ -680,15 +634,15 @@ TEST(OLAWire, TheWireStaysPureAsciiWhenAStringFieldIsNot)
 
     EXPECT_TRUE(isPureAscii(wire)) << escaped(wire);
 
-    //MOVED BY E4.1f: jansson escapes with UPPERCASE hex, nlohmann with
+    //MOVED BY E4.1f: jansson escaped with UPPERCASE hex, nlohmann escapes with
     //LOWERCASE hex. That is the ONE byte difference this migration makes on a
     //non-ASCII field, and no JSON parser can see it. The four assertions are
     //written both ways round on purpose, so that the case pins WHICH of the
     //two forms is on the wire and not merely that one of them is.
-    EXPECT_NE(string::npos, wire.find("\\u00E9")) << escaped(wire);
-    EXPECT_NE(string::npos, wire.find("\\u00C0")) << escaped(wire);
-    EXPECT_EQ(string::npos, wire.find("\\u00e9")) << escaped(wire);
-    EXPECT_EQ(string::npos, wire.find("\\u00c0")) << escaped(wire);
+    EXPECT_NE(string::npos, wire.find("\\u00e9")) << escaped(wire);
+    EXPECT_NE(string::npos, wire.find("\\u00c0")) << escaped(wire);
+    EXPECT_EQ(string::npos, wire.find("\\u00E9")) << escaped(wire);
+    EXPECT_EQ(string::npos, wire.find("\\u00C0")) << escaped(wire);
 
     //parseable, and the value round-trips to the same UTF-8 it came from
     const Json j = Json::parse(wire, nullptr, false);
@@ -722,14 +676,23 @@ TEST(OLAWire, InvalidUtf8InAStringFieldDoesNotAbortTheEmission)
     ASSERT_TRUE(j.is_array()) << escaped(wire);
     ASSERT_EQ(1u, j.size()) << escaped(wire);
 
-    //MOVED BY E4.1f. Under jansson, json_string() answers NULL on the bad
-    //byte, json_object_set_new() answers -1, neither return code is tested,
-    //and the WHOLE PAIR is dropped on the floor: the entry leaves with a
+    //MOVED BY E4.1f. Under jansson, json_string() answered NULL on the bad
+    //byte, json_object_set_new() answered -1, neither return code was tested,
+    //and the WHOLE PAIR was dropped on the floor: the entry left with a
     //single key. Under nlohmann the key is THERE, with the bad byte turned
     //into U+FFFD - the wire stops lying about which fields were sent.
-    EXPECT_EQ(1u, j[0].size()) << escaped(wire);
-    EXPECT_FALSE(j[0].contains("note")) << escaped(wire);
-    EXPECT_EQ(string::npos, wire.find("\\ufffd")) << escaped(wire);
+    //
+    //THIS IS WHERE THE THREE SPELLINGS SEPARATE, and why the assertions are on
+    //the VALUE and on the BYTES rather than on "it did not throw":
+    //  replace : one U+FFFD per rejected byte -> everything below holds;
+    //  ignore  : the byte DISAPPEARS, the note reads "bad--tail" -> the
+    //            EXPECT_EQ on the value and the find("\\ufffd") both fail;
+    //  strict  : dump() throws type_error.316 -> the ASSERT_NO_THROW fails.
+    EXPECT_EQ(2u, j[0].size()) << escaped(wire);
+    ASSERT_TRUE(j[0].contains("note")) << escaped(wire);
+    EXPECT_EQ("bad-\xef\xbf\xbd-tail", j[0].at("note").get<string>()) << escaped(wire);
+    EXPECT_NE(string::npos, wire.find("\\ufffd")) << escaped(wire);
+    EXPECT_EQ(string::npos, wire.find("bad--tail")) << escaped(wire);
 
     //what survives, either way
     EXPECT_EQ(7, j[0].at("channel").get<int>()) << escaped(wire);
