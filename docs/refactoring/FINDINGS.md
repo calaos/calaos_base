@@ -3576,3 +3576,98 @@ Consigné dans [T3.29](T3.29.md) §2.5, à faire ou à laisser explicitement.
 n'en a pas.** Côté HTTP (`JsonApiHandlerHttp.cpp:162`) il n'y a aucune couche de portée.
 ⇒ **tout compte authentifié, portée service comprise, atteint `set_state`** — c'est le prérequis
 du chemin atteignable à distance de [T3.25](T3.25.md) §2.
+
+---
+
+## E4.1f — wire OLA (`OLACtrl` ↔ `calaos_ola`)
+
+### F-OLA-1 ⭐ `Utils::from_string("")` **annonce un succès et n'écrit rien** — `calaos_ola` pilotait un canal DMX **non initialisé**
+
+Trouvé par le commit de caractérisation, **corrigé dans un commit séparé**, et c'est le seul défaut
+de comportement de ce ticket.
+
+`OLAExternProc_main.cpp` déclarait `unsigned int channel; unsigned int val;` **sans initialiseur**,
+puis appelait `Utils::from_string()` sur ce que l'aplatissement `jansson_decode_object` avait mis
+dans le `Params`. Deux comportements **différents**, et un seul est un trou :
+
+| Entrée | *Sentry* | Extraction | Destination | Retour |
+|---|---|---|---|---|
+| `""` (ce que devient un `null`, un objet, un tableau) | **échoue** (eof immédiat) | **jamais exécutée** | **inchangée** | **`true`** |
+| `"true"` (non vide, illisible) | passe | échoue | **mise à `0`** (règle C++11) | `false` |
+
+La règle C++11 « stocker 0 quand l'extraction échoue » **ne s'applique pas quand le sentry échoue**,
+parce que `operator>>` ne s'exécute pas du tout. Et comme la lecture anticipée du sentry a positionné
+`eofbit`, `from_string()` **retourne `true`**.
+
+Or la clé **existe** (`jansson_decode_object` ajoute la paire même pour un `null`, avec la chaîne
+vide), donc la garde `p.Exists("channel") && p.Exists("value")` **passe**. L'`unsigned int` non
+initialisé partait dans `ola::DmxBuffer::SetChannel()` : **un canal au hasard, à un niveau au
+hasard**. Six exécutions de `tests/OLAWire_test.cpp` y ont lu **21845, 21942, 22007, 22069, 22072 et
+64**.
+
+**Correction** : `OLAWire::decodeMessage()` initialise son `ChannelValue` à `{0, 0}`.
+**`Utils::from_string` n'est PAS corrigé** — il est utilisé dans tout l'arbre, son comportement est
+**épinglé** (`AnEmptyStringMakesFromStringWriteNothingAndStillClaimSuccess`) et pas modifié.
+**Pas d'entrée `RELEASE_NOTES`** : aucun message que `OLACtrl` produit ne peut atteindre ce chemin.
+
+⚠️ **À rechercher ailleurs** : le motif « déclarer une variable non initialisée puis la remplir par
+`Utils::from_string()` sans regarder le retour » n'est pas propre à OLA. Partout où la source de la
+chaîne peut être **vide**, la variable reste indéterminée. Non balayé par ce ticket.
+
+### F-OLA-2 ⭐ Sur ce wire, un aller-retour est un oracle **qui ne peut pas échouer**
+
+Le décodeur aplatit **toute** valeur en chaîne (règles de `jansson_decode_object`) puis la relit
+avec `Utils::from_string()`. Mesuré : `[{"channel":"11","value":"200"}]` pilote le canal 11 à 200
+**exactement comme** `[{"channel":11,"value":200}]`.
+
+⇒ une régression de l'émetteur de `json_integer()` vers `json_string()` — le réflexe « tout part en
+chaîne » du reste de la série E4.1 — **laisserait vert n'importe quel test d'aller-retour**, tout en
+étant la panne silencieuse que ce ticket doit empêcher. **La preuve de type doit être sur le TEXTE
+ÉMIS**, jamais sur un décodage. Épinglé par
+`StringTypedEntriesAreAcceptedByTheDecoderWhichIsWhyTheEmitterMustBePinned`, qui existe pour que ce
+point aveugle reste écrit.
+
+### F-OLA-3 ⭐⭐ Le trou des arguments positionnels : **fermé par le typage**, mesuré dans les deux sens
+
+Trois sous-tickets de la série ont mesuré qu'une permutation de deux arguments positionnels **au
+site d'appel** restait verte : une fonction libre ne couvre pas son propre appelant. Sur OLA le trou
+est fermé **par le compilateur**, pour **six lignes** de types :
+
+| Sonde dans `OLACtrl.cpp` | Résultat |
+|---|---|
+| échanger les deux arguments de `buildSetValueMessage` | ⛔ `could not convert 'OLAWire::DimmerPercent(value)' … to 'OLAWire::DmxChannel'` |
+| échanger les arguments rouge et bleu de `buildSetColorMessage` | ⛔ `could not convert 'OLAWire::BlueChannel(channel_blue)' … to 'OLAWire::RedChannel'` |
+| `RedChannel(channel_blue)` / `BlueChannel(channel_red)` (échange **dans** l'enveloppe) | ✅ compile, suite **verte** — **résiduel** |
+
+`DmxChannel` / `DmxLevel` / `DimmerPercent` sont distincts ; `RedChannel` / `GreenChannel` /
+`BlueChannel` dérivent de `DmxChannel` (conversion **vers** la base, jamais entre frères). La
+`ColorValue` est passée **entière**, donc l'appariement composante ↔ canal se fait **dans la
+fonction testée**.
+
+**Le résiduel est réel** : le typage ferme la permutation **d'arguments**, pas la substitution
+**d'expression à l'intérieur** d'une enveloppe nommée. Mais `RedChannel(channel_blue)` se lit,
+là où `f(a, b)` contre `f(b, a)` ne se lit pas. **Recommandation pour le reste de la série** : c'est
+bon marché et c'est la seule fermeture réelle connue de ce trou.
+
+### F-OLA-4 📏 Les décomptes d'`E4.1.md`/`E4.1f.md` ne se reproduisent pas
+
+Recompté en `python3` sur `master` `3357e4f7` : `OLACtrl.cpp` porte **28** appels (annoncé 18) et
+`OLAExternProc_main.cpp` **6** dont une **macro** (annoncé 5). Le **18** est le total **moins les 8
+`json_integer` et les 2 `jansson_to_string`** — c'est-à-dire un décompte qui ignore précisément les
+appels porteurs du contrat de type de ce wire. Le classement des fichiers ne change pas.
+
+### F-OLA-5 ⚠️ La liste des « six unités » d'E4.1x est périmée — elle était déjà à **quatre**
+
+Vérifié au compilateur sur `master` `3357e4f7` (`#include "Jansson_Addition.h"` retiré d'
+`IO/ExternProc.h`, puis `make -C src/bin/calaos_server -k -j12`) : **`WagoMap.cpp` et
+`WagoExternProc_main.cpp` recompilent déjà sans la délégation** — E4.1h les a sortis et est sur
+`master`. **Après E4.1f, il reste DEUX unités** : `LuaScript/ScriptBindings.cpp` et
+`LuaScript/ScriptExtern_main.cpp`. À recompter au moment d'E4.1x plutôt qu'à le lire.
+
+### F-OLA-6 Une incohérence hors périmètre, signalée et non corrigée
+
+`OLAOutputLightRGB.cpp` déclare `channel_red` sur `0..9999` alors que `channel_green` et
+`channel_blue` sont sur `0..512` (comme le canal d'`OLAOutputLightDimmer`). Un univers DMX512 a 512
+canaux. C'est de la documentation d'IO (`ioDoc->paramAddInt`, ce que voit l'installeur), pas du
+wire, et le fichier n'est pas dans le périmètre d'E4.1f.
+
