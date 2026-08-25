@@ -8,6 +8,90 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **🔒 E4.1b ✅ MERGÉ (`8c74a380`, 4 commits, rebase + ff-only, historique linéaire, `make check` 76/76) — les
+  trois invariants d'émission posés avant toute migration, et un `std::terminate` ATTEIGNABLE À DISTANCE
+  par un compte authentifié ordinaire, présent dans l'artefact publié.**
+  Périmètre réel : **les deux émetteurs de l'API** (`JsonApiHandlerHttp.cpp:261`, `JsonApiHandlerWS.cpp:90`,
+  qui faisaient un `dump()` **nu**) + 6 autres charges serveur + les wires tiers, soit **12 fichiers `src/`**,
+  `tests/Makefile.am` et le fichier neuf `tests/core/JsonApiEmissionBytes_test.cpp`. **Zéro appel jansson
+  touché.** Commit de caractérisation `1ca4a4e0`, **zéro ligne de `src/`** — vérifié sur le commit :
+  `tests/Makefile.am` (+55/-0) et le fichier neuf uniquement. **Aucune assertion préexistante modifiée** :
+  sur les 4 commits, les seuls fichiers `tests/` touchés sont ces deux-là, et `tests/Makefile.am` est un
+  **append pur octet pour octet** (128 140 o → 132 013 o, le résultat *commence par* le contenu master à
+  l'octet près — conflit résolu par **régénération**, pas par « garder les deux côtés »). Goldens intacts :
+  arbre git `d4ebc61f…` **et** condensé SHA-256 du contenu identiques à master, **145 fichiers**. Suite :
+  **74 → 76** (la fiche annonçait 75 sur `3f0cc074` ; après rebase sur `dcbefd4a`, master était déjà à 75,
+  donc **76**), recompté en python, continuations `\` comprises. Équilibre `tests/Makefile.am` :
+  **65 `^if*` / 65 `^endif`** tous préfixes confondus (64 de master + 1), profondeur jamais négative.
+
+  - ⭐⭐ **LE DÉFAUT : `std::terminate` de `calaos_server` atteignable à distance par TOUT compte API
+    authentifié, en DEUX requêtes GET.** Chaîne vérifiée maillon par maillon :
+    `JsonApiHandlerHttp.cpp:88` (`jsonParam = paramsGET` — repli GET qui livre des **octets
+    percent-décodés**, **sans traverser aucun parseur JSON**, donc sans la validation UTF-8 que `json_loads()`
+    et `Json::parse()` imposent) → `set_state` (**aucun contrôle de scope sur le dispatch HTTP, aucun
+    `scopeDenied` sur `set_state`** ; les 7 refus existants sont WS-only) → `EventManager::appendEvent()`
+    (`EventManager.cpp:93`, `e.io_state = ev.getParam()["state"]`) → `HistLogger` → `HistEvent::toJson()`
+    (`HistLogger.cpp:82-103`, recopie sqlite → arbre nlohmann sans validation) → `buildJsonEventLog()` →
+    `sendJson(const Json &)` → **`dump()` nu** → `type_error.316`, **aucun `catch`**, SIGABRT 134.
+    **Sur les DEUX transports.** **Présent sur master avant ce merge, donc dans `4.4.3-dev.11`.**
+    La fiche du ticket affirmait le contraire (« aucun payload client-influencé n'atteint ces deux
+    surcharges ») : **c'est l'auteur qui l'a mesurée fausse**, en restaurant les deux émetteurs de master
+    et en empoisonnant la base.
+
+  - ⭐ **LA CONDITION DE PORTÉE — les deux moitiés ensemble, jamais une seule.**
+    (1) **Aucun privilège requis** : tout compte API authentifié ordinaire suffit.
+    (2) **Mais il faut un IO de type CHAÎNE journalisé** (`OutputString`/`InputString`) : c'est la seule
+    famille dont `set_value()` accepte des octets arbitraires — sur une lumière, un volet, un variateur ou
+    un scénario, `set_value(octets arbitraires)` **renvoie `false` et n'émet aucun event**, donc rien n'est
+    persisté et la chaîne s'arrête à l'étape 1. ⚠️ **Ce n'est PAS `log_history` qui borne** : la revue l'a
+    mesuré **ubiquitaire** sur les deux configs réelles (**78** IOs journalisés chez `raoulh`, **48** chez
+    `solanora`, **tous** à `"true"`) — c'est le **type** qui borne. ⇒ **Les deux installations réelles
+    vérifiées n'étaient pas exposées.** L'auteur s'était trompé de borne au premier jet (il avait écrit
+    `log_history`) et l'a corrigé après la revue R1. Le durcissement reste **nécessaire** : E4.1o remet une
+    clé fournie par le client directement dans l'arbre, **sans passer par aucun IO**.
+
+  - ⭐ **LES DEUX ORACLES D'OCTETS SONT DÉLIBÉRÉMENT DISJOINTS — point de conception, à ne pas casser.**
+    **A** (`InvalidUtf8InTheEventLogIsServedAsReplacementChar{OverHttp,OverWebsocket}`) est sensible au
+    **gestionnaire seul** : U+FFFD se reparse à l'identique qu'il soit échappé ou brut, donc A **n'affirme
+    jamais** que le fil est ASCII. **B** (`TheNlohmann{Http,Websocket}WireIsAsciiOnlyAndEscapesWithLowercaseHex`)
+    est sensible à **`ensure_ascii` seul** : sa sonde `U+00E9` est **valide**, aucun gestionnaire ne la
+    regarde. **Un cas par transport**, et ce n'est pas cosmétique : un cas unique couvrant les deux aurait
+    donné le **même ensemble rouge** pour deux mutations différentes — signature même du piège
+    `_DEPENDENCIES`. Campagne : **4 mutations par échange → 4 singletons DISTINCTS**, plus un contrôle sans
+    mutation à **0 rouge**. ⚠️ Si quelqu'un fait un jour affirmer à A « le fil est ASCII », la séparation
+    est détruite.
+
+  - ⚠️ **LA REVUE A REPRODUIT LE FAUX VERT `_DEPENDENCIES` SUR CE TICKET MÊME** : un `make` nu laissait
+    `CXXLD` à **0** et rapportait **tout vert sous chacune des quatre mutations** — les oracles n'avaient
+    simplement jamais été relinkés. **La garde `CXXLD` est indispensable, pas décorative** : effacer le `.o`
+    **et** le binaire, puis **exiger la ligne `CXXLD <binaire>` ET le code de sortie du binaire**. C'est le
+    seul contrôle qui attrape les **cinq** variantes (faux ROUGE uniforme · faux VERT · faux ROUGE après
+    rebase · faux VERT total avec `check_PROGRAMS` non construit · faux VERT par mort du binaire, exception
+    non attrapée ⇒ **aucune ligne `FAILED`**). **À reprendre tel quel dans les 11 sous-tickets restants.**
+
+  - **Portée mesurée du durcissement** : **30 `.dump()`** dans `src/bin`+`src/lib` (hors `json.hpp`),
+    **0 sans gestionnaire** après le ticket — **8** en invariants 2+3 (`dump(-1, ' ', true, replace)`),
+    **20** en gestionnaire **seul** (wires tiers déjà en service en UTF-8 brut : y ajouter `ensure_ascii`
+    changerait les octets d'un wire que l'épique ne migre pas), **2** déjà conformes (`CalaosConfig.cpp:558`,
+    `IO/IOFactory.cpp:117`). Le groupe « wires tiers » **n'a aucun oracle et ne peut pas en avoir** : aucun
+    test n'observe leurs octets sortants, et le gestionnaire est un **no-op sur données valides** — donc
+    aucune observation ne distingue l'avant de l'après. **C'est distinct du piège `_DEPENDENCIES`**
+    (là, l'oracle existe mais n'est pas exercé) ; raisonnement validé par la revue.
+
+  - ⚠️ **UN FAUX POSITIF APPARU AU REBASE, À NE PAS « CORRIGER »** : le critère d'acceptation 1 compte
+    désormais **36** occurrences de `.dump(` (35 sur `3f0cc074`, +1 apportée par E4.1g), dont **une seule**
+    sans `error_handler` — et c'est de la **prose dans un commentaire** : `IO/KNX/KNXCtrl.h:97`
+    (« *…were put back to a naked `.dump()`…* »), posée par E4.1e. Les 5 sites neufs d'E4.1e sont **tous
+    conformes**. E4.1s et E4.1x doivent **exclure les commentaires** ou reconnaître cette ligne.
+
+  - **Build de merge rejoué en distclean complet après MON rebase** (image `vsc-calaos_base-1202…`,
+    `make distclean && ./autogen.sh && ./configure && make -j12 && make check`, attendu par
+    **`docker wait`**) : `CXX JsonApiHandlerHttp.o`, `CXX JsonApiHandlerWS.o`,
+    **`CXXLD core/JsonApiEmissionBytes_test`**, `CXXLD calaos_server` — **76/76 PASS**,
+    0 FAIL / 0 ERROR / 0 SKIP, code de sortie **0**.
+
+  - **RIEN N'A ÉTÉ POUSSÉ.**
+
 - **🔒 E4.1g ✅ MERGÉ (`a66056fb`, 8 commits, ff-only, historique linéaire, `make check` 75/75) — le wire
   MQTT passe à `nlohmann::json`, et en le caractérisant on a trouvé **trois défauts réels**, dont un
   message entier jeté par notre propre bout.**
