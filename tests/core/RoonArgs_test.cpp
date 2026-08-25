@@ -109,9 +109,16 @@
 
 #include <gtest/gtest.h>
 
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include <chrono>
+#include <cstdlib>
 #include <fstream>
+#include <functional>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "CalaosCoreFixture.h"
 #include "IOBase.h"
@@ -119,6 +126,7 @@
 #include "Params.h"
 #include "RoonArgs.h"
 #include "RoonPlayer.h"
+#include "libuvw.h"
 
 using namespace Calaos;
 using namespace CalaosTest;
@@ -303,6 +311,116 @@ Params roonParams(const std::string &id)
     return p;
 }
 
+/*******************************************************************************
+ * T3.28b - THE HARNESS THAT LETS THE SIDECAR LAUNCH BE OBSERVED FOR REAL.
+ *
+ * ⭐ WHAT IT DISPROVES. T3.28 justified its two source tripwires by writing
+ * that "RoonCtrl::Instance() is a static singleton whose constructor builds an
+ * ExternProcServer - which binds a unix socket - and spawns calaos_roon.
+ * Nothing in `make check` can construct a RoonCtrl". Measured on this tree,
+ * every clause of that sentence is true and the conclusion drawn from it is
+ * not:
+ *
+ *   - Instance() is PUBLIC and static, and Audio/RoonPlayer.$(OBJEXT) is
+ *     linked by seventeen test binaries, this one included. Nothing hides it.
+ *   - Binding a unix socket in /tmp is not a blocker: ExternProcServer's
+ *     constructor does exactly that and tests/core/KnxIo_test.cpp already
+ *     builds a real KNXCtrl - the same shape, the same ExternProcServer, the
+ *     same spawn - on every `make check` run.
+ *   - Spawning is not a blocker either. It is an OBSERVATION POINT: what the
+ *     sidecar is started with is the only thing this ticket ever cared about.
+ *
+ * So the singleton is reachable, and the invariant "the respawn carries the
+ * arguments" can be executed instead of spelled. That is what the case below
+ * does, and it is why the source tripwire that used to be the ONLY guard of
+ * that invariant is now the second net rather than the first.
+ *
+ * HOW. Prefix::binDirectoryGet() (src/lib/Prefix.cpp:31-37) answers
+ * getenv("CALAOS_BIN_PREFIX") and does NOT cache it, so a test can point
+ * `exe` at a directory of its own. We drop a `calaos_roon` there that appends
+ * its own argv to a journal and exits; ExternProcServer's ExitEvent handler
+ * then arms the 0.1s respawn timer (IO/ExternProc.cpp:184-190) and RoonCtrl
+ * relaunches. Pumping the loop for a bounded time therefore yields ONE LINE
+ * PER LAUNCH, first launch and respawn alike, spelled by the production code
+ * end to end.
+ *
+ * ⚠️ Bounded on wall clock, never on iterations: a regression must be able to
+ * fail this case, never to hang `make check`. Same rule as Timer_test.
+ ******************************************************************************/
+
+//A private directory to act as CALAOS_BIN_PREFIX. Empty string on failure, so
+//the case fails instead of silently pointing at the real install prefix.
+std::string makeTempBinPrefix()
+{
+    char tmpl[] = "/tmp/calaos_roon_spawn_XXXXXX";
+    const char *d = ::mkdtemp(tmpl);
+    return d? std::string(d) : std::string();
+}
+
+/*
+ * Write the stand-in calaos_roon.
+ *
+ * `printf '%s\n' "$*"` writes ONE line per launch, in a single write() to a
+ * file opened O_APPEND, so two launches can never interleave into one line.
+ * The journal path is baked in at write time rather than read from the
+ * environment: startProcess() hands the child an explicit environment
+ * (IO/ExternProc.cpp:252-273) which does not forward CALAOS_BIN_PREFIX or
+ * anything of ours.
+ */
+bool writeSpawnRecorder(const std::string &script, const std::string &journal)
+{
+    {
+        std::ofstream f(script.c_str(), std::ios::out | std::ios::trunc);
+        if (!f.is_open())
+            return false;
+        f << "#!/bin/sh\n"
+             "printf '%s\\n' \"$*\" >> '" << journal << "'\n"
+             "exit 0\n";
+        if (!f.good())
+            return false;
+    }
+    return ::chmod(script.c_str(), 0755) == 0;
+}
+
+//One entry per launch, in order. A missing journal answers empty, which is a
+//failure of the case and not of the reader.
+std::vector<std::string> readSpawnJournal(const std::string &path)
+{
+    std::vector<std::string> lines;
+    std::ifstream f(path.c_str());
+    std::string line;
+
+    while (std::getline(f, line))
+    {
+        if (!line.empty())
+            lines.push_back(line);
+    }
+
+    return lines;
+}
+
+//Run the default loop until pred() holds, with a wall clock deadline. Same
+//shape as tests/core/Timer_test.cpp's runLoopUntil(); NOWAIT plus a short
+//sleep rather than ONCE so that a loop left with no active handle spins
+//cheaply until the deadline instead of burning a core.
+bool runLoopUntil(const std::function<bool()> &pred, int timeoutMs)
+{
+    auto loop = uvw::Loop::getDefault();
+    const auto deadline = std::chrono::steady_clock::now() +
+                          std::chrono::milliseconds(timeoutMs);
+
+    while (!pred())
+    {
+        if (std::chrono::steady_clock::now() > deadline)
+            return false;
+
+        loop->run<uvw::Loop::Mode::NOWAIT>();
+        ::usleep(2000);
+    }
+
+    return true;
+}
+
 } // namespace
 
 class RoonArgsTest: public CoreFixture {};
@@ -354,6 +472,84 @@ TEST_F(RoonArgsTest, TheIoDocStillDeclaresHostOptional)
 }
 
 /*
+ * ⭐⭐ T3.28b - DEFECT (b), EXECUTED: calaos_roon is relaunched WITH ITS
+ * ARGUMENTS, and this case watches it happen.
+ *
+ * The one oracle in this file that runs the whole production chain of the
+ * defect: RoonCtrl's constructor builds the argument string from its own
+ * parameters, launch() hands it to ExternProcServer::startProcess(), which
+ * concatenates and re-splits it (IO/ExternProc.cpp:176, :275-277) and spawns
+ * the sidecar - then the sidecar exits, the 0.1s respawn timer fires, and the
+ * SAME path runs again. The journal holds what the kernel actually handed to
+ * calaos_roon, both times.
+ *
+ * ⚠️ EVERY LAUNCH IS CHECKED, NOT "AT LEAST ONE". The defect T3.28 fixed was
+ * a FIRST launch that was right followed by a respawn that was wrong; an
+ * assertion happy with one good line would have been green on the very bug
+ * this suite exists to catch. This is also the trap the review of T3.28 found
+ * in a neighbouring suite - an EXPECT satisfied by an earlier line than the
+ * one it claims to be about - so the loop below indexes and reports the launch
+ * number.
+ *
+ * ⚠️ The tail is pinned, not searched for. `--namespace roon` is included so
+ * that the arguments are pinned AT THE END of the command line and nothing can
+ * follow them; the `--socket <random path>` prefix is the only part left free,
+ * because ExternProcServer picks it.
+ *
+ * Fixture: 192.168.7.42 and 9331, never the empty host and never the 9330
+ * default - on the default port "the configured value was passed" and "a
+ * default was substituted" are indistinguishable, and with an empty host
+ * buildArgs() answers "" so a silent emitter would pass.
+ *
+ * ⛔ WHAT THIS STILL DOES NOT PROVE: that calaos_roon does the right thing
+ * with those flags. The recorder is a stand-in; no Roon core was involved,
+ * here or anywhere in T3.28.
+ */
+TEST_F(RoonArgsTest, TheRespawnedSidecarIsSpawnedWithTheArgumentsOfTheFirstLaunch)
+{
+    const std::string dir = makeTempBinPrefix();
+    ASSERT_FALSE(dir.empty()) << "could not create a temporary CALAOS_BIN_PREFIX";
+
+    const std::string journal = dir + "/argv.journal";
+    ASSERT_TRUE(writeSpawnRecorder(dir + "/calaos_roon", journal))
+        << "could not write the stand-in calaos_roon into " << dir;
+
+    ASSERT_EQ(0, ::setenv("CALAOS_BIN_PREFIX", dir.c_str(), 1));
+
+    //THE call T3.28 declared unreachable. It is public, static, and linked.
+    RoonCtrl::Instance("192.168.7.42", 9331);
+
+    const bool respawned = runLoopUntil(
+        [&]() { return readSpawnJournal(journal).size() >= 2; }, 5000);
+
+    const std::vector<std::string> launches = readSpawnJournal(journal);
+
+    ASSERT_FALSE(launches.empty())
+        << "calaos_roon was never spawned at all - the harness is broken, not "
+           "the code under test";
+    ASSERT_TRUE(respawned)
+        << "the sidecar was spawned " << launches.size()
+        << " time(s) in 5s: the respawn never happened, so this case cannot "
+           "say anything about the arguments it carries";
+
+    const std::string tail = "--namespace roon --host 192.168.7.42 --port 9331";
+
+    for (std::vector<std::string>::size_type i = 0; i < launches.size(); i++)
+    {
+        const std::string &argv = launches[i];
+        const bool ok = argv.size() >= tail.size() &&
+                        argv.compare(argv.size() - tail.size(),
+                                     tail.size(), tail) == 0;
+
+        EXPECT_TRUE(ok)
+            << "launch #" << (i + 1) << " of " << launches.size()
+            << " did not hand calaos_roon the configured core.\n"
+            << "  argv            : " << argv << "\n"
+            << "  must end with   : " << tail;
+    }
+}
+
+/*
  * ⭐ DEFECT (b): the respawn must launch calaos_roon exactly as the first
  * launch did, WITH THE ARGUMENTS.
  *
@@ -383,6 +579,18 @@ TEST_F(RoonArgsTest, TheIoDocStillDeclaresHostOptional)
  * Both mutations of the delivery campaign land HERE and nowhere else: putting
  * `process->startProcess(exe, "roon");` back into the handler reddens oracle 1
  * (and 2), and blanking the third argument reddens oracle 2.
+ *
+ * ⭐ T3.28b: "and nowhere else" is no longer true, and that is the point.
+ * TheRespawnedSidecarIsSpawnedWithTheArgumentsOfTheFirstLaunch above now
+ * catches both of those mutations by RUNNING the respawn, so this tripwire is
+ * the SECOND net and not the only one. It is kept, deliberately, because the
+ * two fail differently: the execution case says the arguments were wrong, this
+ * one says the file grew a second launch site - the structural property, which
+ * is what stops the two paths diverging in the first place. Its known weakness
+ * is unchanged and is a LOUD one: collapseWhitespace() does not normalise
+ * spaces around punctuation, so `startProcess( exe , "roon" , procArgs )` would
+ * fail this case while the execution case above stays green. A false red that
+ * names the spelling it wants, never a silent survival.
  */
 TEST_F(RoonArgsTest, TripwireSource_TheRespawnLaunchesThroughTheSameCallSite)
 {
@@ -685,4 +893,27 @@ TEST_F(RoonArgsTest, AUsablePortIsPassedThroughUnchanged)
         p.Add("port", c.spelling);
         EXPECT_EQ(c.expected, RoonArgs::portFromParams(p)) << c.spelling;
     }
+}
+
+/*
+ * Own main instead of gtest_main, same reason as tests/core/KnxIo_test.cpp:
+ * skip the static destructors.
+ *
+ * The RoonCtrl singleton is a function-local static shared_ptr. Destroying it
+ * at process exit runs ~ExternProcServer, which does
+ * process_exe->kill(SIGTERM) on the last spawned child (IO/ExternProc.cpp:100-104)
+ * and closes libuv handles on a loop this binary has stopped pumping. KnxIo_test
+ * documents what that class of teardown already cost once - a SIGTERM to the
+ * whole process group taking down the automake harness with Error 143 AFTER the
+ * tests had passed. Nothing here needs those destructors to run.
+ *
+ * (An object file's main always wins over the one in libgtest_main.)
+ */
+int main(int argc, char **argv)
+{
+    ::testing::InitGoogleTest(&argc, argv);
+    const int ret = RUN_ALL_TESTS();
+
+    fflush(nullptr);
+    _exit(ret);
 }
