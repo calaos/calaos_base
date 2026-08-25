@@ -324,9 +324,56 @@
     c'est le code qui la consomme qui a été lu. Le seul programme exécuté est un `g++` autonome de
     12 lignes sur `from_string`/`is_of_type`.
 
-- **👀 E4.1m LIVRÉE, branche `refactor/e4.1m`, `74d0c520` + 3 commits — NON MERGÉE, RIEN POUSSÉ**
-  (2026-08-25, ⚠️ **rebasée sur `74d0c520`** après coupure de session : T3.46 et T3.48 intégrées).
+- **👀 E4.1m LIVRÉE, branche `refactor/e4.1m`, `bdc13081` + 6 commits — NON MERGÉE, RIEN POUSSÉ**
+  (2026-08-25, puis ⭐ **passe de correction des trois réserves de revue le 2026-08-26**).
   ⭐⭐ **E4.1n est débloquée.**
+
+  - ⭐ **2ᵉ REBASE, sur `master` `bdc13081`** (T3.40 mergée entre-temps) : **2 conflits**, aucun
+    dans `src/`, et **aucun des 6 fichiers `src/` du périmètre n'est touché par `master`**.
+    `tests/Makefile.am` **reconstruit** — les deux côtés prouvés **appends purs** en `python3`
+    (`startswith(base)` vrai des deux, +3316 / +3597 octets, 53 / 51 lignes de queue), résultat =
+    base + queue de `master` + ma queue, avec le contrôle qui ferme : *le fichier de `master` est
+    un **préfixe strict** du résultat* (+3597 octets exactement). **85 `if` / 85 `endif`**
+    (master : 84/84), **profondeur finale 0, minimum 0**, **0 marqueur de conflit en début de
+    ligne**. `FINDINGS.md` : **les deux côtés gardés**, zéro contexte partagé dupliqué. ⚠️ **La
+    section `T3.40` de `master` cite des marqueurs de conflit EN PROSE** — la recherche doit être
+    **ancrée en début de ligne**, sinon faux positif.
+
+  - ⛔⭐ **R1 — le masquage des mots de passe ne tenait à RIEN, et c'est fermé.** La mutation `X2`
+    du relecteur (retirer `Utils::str_to_lower()` du test de clé de `dumpJsonRedacted()`) laissait
+    le `make check` **COMPLET au vert** ⇒ `"CN_PASS"`, `"Password"`, `"Authorization"` cessaient
+    d'être masqués **en silence**. **Préexistant**, mais sur exactement la fonction que l'incident
+    `M3` avait mutée. Fermé par `JsonApiRedact.HidesCredentialFieldsWhateverTheKeyCase`
+    (`"CN_Pass"` **et** `"Authorization"`, **assertions appariées** : le secret **absent** *et* la
+    paire **encore là, masquée**). ⭐ **`X2` rejouée : elle rougit**, et **chirurgicalement** — le
+    seul cas neuf tombe, les 5 autres cas de `JsonApiRedact` restent verts.
+
+  - ⛔⭐ **R2 — une mine posée SIX TICKETS à l'avance, désamorcée.** Mon acceptation n° 6 promettait
+    qu'`E4.1o` casserait `ScriptExec.cpp:131` **à la compilation**. **FAUX, mesuré** :
+    `JSON_USE_IMPLICIT_CONVERSIONS` vaut **1** (`src/lib/json.hpp:2813`, jamais surchargé, zéro
+    `-D`) ⇒ **`!Json` compile sans un avertissement** et **lève `type_error.302` à l'exécution**,
+    pour les **trois** formes de retour, **dans le callback de lecture d'un `ExternProc`** où
+    **rien n'attrape** (0 `try`/`catch` dans `ScriptExec.cpp`, `ExternProc.cpp`, `ExternProc.h`)
+    ⇒ **`std::terminate` de `calaos_server`** sur le chemin **nominal** d'un `set_param` de script.
+    ⭐ **C'est le précédent KNX** (`FINDINGS.md § E4.1e`). Réécrit dans **`E4.1m.md`**,
+    **`E4.1o.md`** et **`FINDINGS.md`** ; `BOARD.md` porte la ligne courte sur `E4.1o`.
+    ⇒ **Leçon générale** : *« ça ne compilera pas »* est une **prédiction**, pas une mesure — sur
+    `nlohmann::json` avec les conversions implicites actives, **presque tout compile**.
+
+  - ⚠️⭐ **R3 — une phrase plus généreuse que la mesure, restreinte.** « Zéro octet ne bouge sur le
+    journal » devient « **aucun octet ne bouge du fait de ce choix-là** », et les **trois familles
+    qui bougent quand même** sont nommées et reproduites (ordre des clés · rendu des nombres ·
+    UTF-8 invalide, cette dernière **non atteignable par les deux appelants de production**).
+    L'exception `ensure_ascii = false` est **saine et gardée**.
+
+  - **Validation finale, chiffres recomptés** (`make distclean` + `autogen` + `configure` +
+    `make -j16` + `make check -j8`, **un seul build**, attendu par `docker wait`) : **rc 0**,
+    `# TOTAL: 100` **= 94 binaires gtest + 6 tests de script** (master **99**), `PASS: 99`,
+    `SKIP: 1`, `FAIL: 0`, **95 lignes `CXXLD`** à la regex **ancrée**, **1649 cas gtest** comptés
+    **deux fois et concordants**, **91,0 s** de temps mural cumulé, **145 goldens intacts**
+    (`d4ebc61f`, vérifié **après**). ⚠️ ⭐ **`F-FLAKY-1` VU une fois et NON RELANCÉ** — la fiche
+    disait « pas vu du tout », **corrigé** : `core/ShutterImpulse_test:297`, marge **56 ms**, la
+    plus serrée des 6 sites ; identifié par **fichier ET forme**, sans relance dédiée.
 
   - ⚠️ **Le rebase, et les trois conflits — aucun dans `src/`.** `tests/Makefile.am` résolu par
     **RECONSTRUCTION** et non par « garder les deux côtés » : version de `master` prise **telle
