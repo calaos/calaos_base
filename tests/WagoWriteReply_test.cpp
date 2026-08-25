@@ -52,10 +52,15 @@
  * a permuted call no longer TYPE-CHECKS. It proves nothing about what any
  * callback then does.
  *
- * The closure of the four IMPLEMENTATIONS themselves is not asked here at
- * all: it is established by mutation, by permuting the two parameters in each
- * of the four signatures and watching the build REFUSE. See
- * docs/refactoring/T3.46.md section 7.
+ * ⚠️ HOLE, NAMED: the closure of the four IMPLEMENTATIONS themselves is not
+ * asked here AT ALL. No case below mentions WOAnalog::WagoWriteCallback,
+ * WODigital::WagoWriteCallback or WOVoletBase::WagoWriteCallback; what closes
+ * them is that the tree still compiles after their parameters were typed, plus
+ * the mutation campaign that permutes each of the four signatures and watches
+ * the build REFUSE (docs/refactoring/T3.46.md section 7.3). That is a real
+ * proof and it is also strictly weaker than an executed oracle: nothing here
+ * would notice if an implementation were later re-widened to take scalars and
+ * every emission site updated in the same commit. Said, not hidden.
  *
  * ⭐ AND ONE DISTINCTION THAT MATTERS, because getting it wrong means asking a
  * test to tell two identical programs apart:
@@ -153,6 +158,16 @@ TEST(WagoWriteReply, TheSingleBitReplyRefusesABareAddressAndValuePair)
            "permutation this signature also carries";
 }
 
+namespace
+{
+/* Positive control for is_base_of_v. It was the ONE assertion of the case
+ * below with no witness: a trait that answered FALSE for everything would have
+ * let the W4 line pass for free - exactly the defect this file refuses
+ * everywhere else. */
+struct AProbeBase { };
+struct AProbeDerived: AProbeBase { };
+} //namespace
+
 /* T3.46 - the shape of the wrappers, asked of the type system.
  *
  * The two cases above would still pass if someone "simplified" WagoTypes into
@@ -173,6 +188,9 @@ TEST(WagoWriteReply, TheWrapperShapeIsWhatCloses)
     EXPECT_FALSE((std::is_convertible_v<WagoTypes::WordValue, WagoTypes::Address>));
     EXPECT_FALSE((std::is_convertible_v<WagoTypes::Address, WagoTypes::WordValue>));
     EXPECT_FALSE((std::is_base_of_v<WagoTypes::Address, WagoTypes::WordValue>));
+    EXPECT_TRUE((std::is_base_of_v<AProbeBase, AProbeDerived>))
+        << "is_base_of_v answers FALSE for everything here - the W4 line above "
+           "is passing for free and proves nothing";
 
     //W6 - and no way back to the raw scalar without naming .v.
     EXPECT_FALSE((std::is_convertible_v<WagoTypes::Address, UWord>));
@@ -192,7 +210,17 @@ struct Slot { int v; explicit Slot(int a): v(a) {} };
  * prvalue arguments answers FALSE even for the CORRECT order, so a signature
  * written this way would make every probe above pass for the wrong reason,
  * while a permuted call written with real lvalues compiles fine. This is why
- * the four implementations T3.46 types take their payload BY VALUE. */
+ * the four implementations T3.46 types take their payload BY VALUE.
+ *
+ * ⭐ AND THE GUARANTEE IS STRONGER THAN "we were careful to write by value" -
+ * measured by the 2nd review of T3.46 as mutation MXD: rewriting one of these
+ * slot parameters as `WagoTypes::Address &` does not merely make the probes
+ * lie, IT DOES NOT BUILD (rc=2). sigc++ instantiates the slot's invoker with
+ * prvalue arguments at the emission sites, so the library itself refuses the
+ * non-const reference. ⇒ On THESE two typedefs the F-TYPE-5 blind spot cannot
+ * be re-armed silently: the attempt is a build failure, not a green suite.
+ * That is a property of sigc++, not of this file - it does NOT transfer to an
+ * ordinary function or functor probed the same way. */
 inline void takesLvalueRefs(Payload &, Slot &) { }
 
 /* Blind spot 2 - NARROWING. Neither braces nor direct-initialisation
@@ -254,19 +282,31 @@ TEST(WagoWriteReply, TheProbesActuallyDiscriminate)
  *   the permuted typed pair and the bare permutation are both refused (rc=1).
  *   So this is not a technical impossibility, exactly as T3.31 said.
  *
- *   ⭐ But the permutable pair is NOT in the six public commands. All six are
- *   thin wrappers over ONE internal request builder,
- *   mbus_cmd_addr_wdata(mbus, slave_addr, funct_code, mbus_uword addr,
- *   mbus_uword data), and across its five call sites in mbus_cmd.c its two
- *   word parameters carry THREE different roles: an address + a COUNT
- *   (read_coil_status, read_holding_registers), an address + a DATA
- *   (force_single_coil, preset_single_register) and a SUBFUNCTION + a data
- *   (diagnostics). One-type-per-role therefore cannot be applied to it at
- *   all without SPLITTING it - a functional change to vendored 2003 C that
- *   nothing in this tree executes. Typing only the six public signatures
- *   leaves the same pair live one frame below and moves the six unwraps from
+ *   ⛔ CORRECTED by the 2nd review of T3.46. An earlier wording of this
+ *   block claimed "the permutable pair is NOT in the six public commands".
+ *   That is FALSE, and the false version made the refusal sound stronger
+ *   than it is. mbus.h:109-127: ALL SIX commands Calaos calls carry an
+ *   adjacent (mbus_uword, mbus_uword) pair - coils_addr/coils_num,
+ *   start_addr/points_num, coil_addr/data, register_addr/preset_data, and
+ *   the two multiple-* forms. M5, the permutation measured at rc=0 for this
+ *   ticket, is itself a permutation OF a public signature. The pair is right
+ *   there in the six.
+ *
+ *   ⭐ WHAT IS ACTUALLY MEASURED, and what the refusal really rests on, sits
+ *   one frame lower: all six are thin wrappers over ONE internal request
+ *   builder, mbus_cmd_addr_wdata(mbus, slave_addr, funct_code,
+ *   mbus_uword addr, mbus_uword data), and across its FIVE call sites in
+ *   mbus_cmd.c (:254, :292, :332, :368, :405) those two word parameters
+ *   carry THREE DIFFERENT ROLE PAIRS: address + a COUNT (read_coil_status,
+ *   read_holding_registers), address + a DATA (force_single_coil,
+ *   preset_single_register), and a SUBFUNCTION + a data (diagnostics).
+ *   One-type-per-role therefore cannot be applied to that function without
+ *   SPLITTING it - a functional change to vendored 2003 C that nothing in
+ *   this tree executes. Typing the six public signatures alone would leave
+ *   the same pair live one frame below and move six unwraps from
  *   WagoCtrl.cpp into libmbus: T3.31's "seven places to seven places, no net
- *   gain", now measured one level deeper with a concrete reason.
+ *   gain", one level deeper and with a concrete reason.
+ *   ⇒ The refusal stands on COST, measured. NOT on the pair being absent.
  *
  *   And "nothing executes it" is measured, not assumed: over the 92 ELF
  *   binaries under tests/, mbus_cmd_preset_single_register,
@@ -285,9 +325,30 @@ TEST(WagoWriteReply, TheProbesActuallyDiscriminate)
  * change. That is strictly less than the C++ side gets, and saying otherwise
  * would be selling an oracle for something it is not.
  *
+ * ⛔ AND IT HAS A REAL FALSE-POSITIVE RATE. The 2nd review of T3.46 extracted
+ * this parser into a standalone unit and fed it five INNOCENT rewrites of the
+ * two call lines: FOUR of the five turned it red. Two of those four are now
+ * FIXED here and have witnesses in TheSourceTripwireCanActuallyFail:
+ *   (1) a space between the function name and the '(' - the scan used to be a
+ *       plain find(name + "(");
+ *   (2) ⭐ a DOC COMMENT that merely NAMES one of the two functions - the scan
+ *       latched onto the comment and returned two arguments instead of four.
+ *       This one matters most: a guard that goes red because someone wrote a
+ *       comment is a guard the next person deletes.
+ * Two remain, and are NOT fixed because no cheap textual rule covers them:
+ *   (3) renaming the local past the "addr" prefix this file matches on (addr
+ *       and address are both accepted now; `a`, `reg`, `target` are not);
+ *   (4) hoisting the cast into a named temporary whose name carries neither
+ *       "addr"/"val" nor "data".
+ * ⇒ Residual rate re-measured on the same five rewrites after hardening: see
+ * docs/refactoring/T3.46.md section 7.5(e). Forms (3) and (4) are a RENAME
+ * telling you to update the expectation below, not a defect being reported.
+ *
  * If it fires: someone edited WagoCtrl.cpp:write_single_bit or
  * :write_single_word. Check that the modbus ADDRESS is still the third
- * argument and the payload the fourth, then update the expectation here.
+ * argument and the payload the fourth, then update the expectation here -
+ * this is the intended maintenance cost of a source tripwire, and it is the
+ * reason it guards TWO known lines rather than a pattern.
  *--------------------------------------------------------------------------*/
 
 #include <fstream>
@@ -306,16 +367,75 @@ std::string readSource(const std::string &rel)
     return ss.str();
 }
 
+/* Comments and string/char literals blanked to spaces, positions preserved.
+ * Without this, a doc comment that merely NAMES one of the two functions is
+ * picked up as if it were the call - measured, form (2) of the header block. */
+std::string blankCommentsAndLiterals(const std::string &src)
+{
+    std::string out = src;
+    enum { CODE, LINE_C, BLOCK_C, IN_STR, IN_CHR } st = CODE;
+    for (size_t i = 0; i < out.size(); i++)
+    {
+        const char c = out[i];
+        const char n = (i + 1 < out.size()) ? out[i + 1] : '\0';
+        switch (st)
+        {
+        case CODE:
+            if (c == '/' && n == '/') { st = LINE_C; out[i] = out[i + 1] = ' '; i++; }
+            else if (c == '/' && n == '*') { st = BLOCK_C; out[i] = out[i + 1] = ' '; i++; }
+            else if (c == '"') st = IN_STR;
+            else if (c == '\'') st = IN_CHR;
+            break;
+        case LINE_C:
+            if (c == '\n') st = CODE; else out[i] = ' ';
+            break;
+        case BLOCK_C:
+            if (c == '*' && n == '/') { st = CODE; out[i] = out[i + 1] = ' '; i++; }
+            else if (c != '\n') out[i] = ' ';
+            break;
+        case IN_STR:
+        case IN_CHR:
+            if (c == '\\')
+            {
+                out[i] = ' ';
+                if (i + 1 < out.size()) out[i + 1] = ' ';
+                i++;
+            }
+            else if ((st == IN_STR && c == '"') || (st == IN_CHR && c == '\'')) st = CODE;
+            else out[i] = ' ';
+            break;
+        }
+    }
+    return out;
+}
+
+/* Offset just past the '(' of the first REAL call to `fn`: the name must not
+ * be a fragment of a longer identifier, and whitespace between the name and
+ * the parenthesis is a reformat, not a permutation - form (1). */
+size_t callArgsBegin(const std::string &src, const std::string &fn)
+{
+    for (size_t p = src.find(fn); p != std::string::npos; p = src.find(fn, p + 1))
+    {
+        const unsigned char before = (p > 0) ? static_cast<unsigned char>(src[p - 1]) : ' ';
+        if (isalnum(before) || before == '_') continue;
+        size_t q = p + fn.size();
+        while (q < src.size() && isspace(static_cast<unsigned char>(src[q]))) q++;
+        if (q < src.size() && src[q] == '(') return q + 1;
+    }
+    return std::string::npos;
+}
+
 /* The comma-separated argument list of the first call to `fn`, with every run
  * of whitespace squeezed to one space and casts left in place. Depth-aware, so
- * a nested call or a cast never splits an argument in two. */
-std::vector<std::string> argumentsOf(const std::string &src, const std::string &fn)
+ * a nested call or a cast never splits an argument in two. Comment- and
+ * literal-blind, and tolerant of whitespace before the '('. */
+std::vector<std::string> argumentsOf(const std::string &rawSrc, const std::string &fn)
 {
     std::vector<std::string> args;
-    size_t call = src.find(fn + "(");
-    if (call == std::string::npos) return args;
+    const std::string src = blankCommentsAndLiterals(rawSrc);
+    size_t i = callArgsBegin(src, fn);
+    if (i == std::string::npos) return args;
 
-    size_t i = call + fn.size() + 1;
     int depth = 0;
     std::string cur;
     for (; i < src.size(); i++)
@@ -361,10 +481,11 @@ TEST(WagoWriteReply, TheTwoUntypedLibmbusWriteCallsStillPassAddressBeforePayload
         argumentsOf(src, "mbus_cmd_force_single_coil");
     ASSERT_EQ(4u, coil.size()) << "mbus_cmd_force_single_coil() call not found "
                                  "with four arguments in WagoCtrl.cpp";
-    EXPECT_NE(std::string::npos, coil[2].find("address"))
+    EXPECT_NE(std::string::npos, coil[2].find("addr"))
         << "3rd argument of mbus_cmd_force_single_coil() is [" << coil[2]
-        << "], expected the modbus ADDRESS - a permutation here forces a "
-           "physical relay at whatever the payload happened to be";
+        << "], expected the modbus ADDRESS (spelled addr or address) - a "
+           "permutation here forces a physical relay at whatever the payload "
+           "happened to be";
     EXPECT_NE(std::string::npos, coil[3].find("data"))
         << "4th argument of mbus_cmd_force_single_coil() is [" << coil[3] << "]";
 
@@ -372,7 +493,7 @@ TEST(WagoWriteReply, TheTwoUntypedLibmbusWriteCallsStillPassAddressBeforePayload
         argumentsOf(src, "mbus_cmd_preset_single_register");
     ASSERT_EQ(4u, reg.size()) << "mbus_cmd_preset_single_register() call not "
                                 "found with four arguments in WagoCtrl.cpp";
-    EXPECT_NE(std::string::npos, reg[2].find("address"))
+    EXPECT_NE(std::string::npos, reg[2].find("addr"))
         << "3rd argument of mbus_cmd_preset_single_register() is [" << reg[2]
         << "], expected the modbus ADDRESS";
     EXPECT_NE(std::string::npos, reg[3].find("val"))
@@ -389,10 +510,10 @@ TEST(WagoWriteReply, TheSourceTripwireCanActuallyFail)
     const std::vector<std::string> a =
         argumentsOf(wrong, "mbus_cmd_preset_single_register");
     ASSERT_EQ(4u, a.size());
-    EXPECT_EQ(std::string::npos, a[2].find("address"))
+    EXPECT_EQ(std::string::npos, a[2].find("addr"))
         << "the parser cannot tell a permuted call apart - the tripwire above "
            "is worthless";
-    EXPECT_NE(std::string::npos, a[3].find("address"));
+    EXPECT_NE(std::string::npos, a[3].find("addr"));
 
     //And it must not answer four arguments for something that is not there.
     EXPECT_TRUE(argumentsOf(wrong, "mbus_cmd_force_single_coil").empty());
@@ -401,4 +522,31 @@ TEST(WagoWriteReply, TheSourceTripwireCanActuallyFail)
         argumentsOf("f(a, g(b, c), d)", "f");
     ASSERT_EQ(3u, nested.size());
     EXPECT_EQ("g(b, c)", nested[1]);
+
+    //⭐ The two false-positive forms that were MEASURED red on the first
+    //version of this parser (header block, forms (1) and (2)). They must stay
+    //fixed: a tripwire that goes red on a comment gets deleted, not obeyed.
+    const std::string commented =
+        "/* mbus_cmd_force_single_coil() drives one relay. */\n"
+        "int ret = mbus_cmd_force_single_coil(mbus, 1, (mbus_uword)address, data);";
+    const std::vector<std::string> withComment =
+        argumentsOf(commented, "mbus_cmd_force_single_coil");
+    ASSERT_EQ(4u, withComment.size())
+        << "a doc comment merely NAMING the function is being read as the call";
+    EXPECT_NE(std::string::npos, withComment[2].find("addr"));
+
+    const std::vector<std::string> spaced = argumentsOf(
+        "int ret = mbus_cmd_force_single_coil (mbus, 1, address, data);",
+        "mbus_cmd_force_single_coil");
+    ASSERT_EQ(4u, spaced.size())
+        << "a space before the '(' is a reformat, not a permutation";
+    EXPECT_NE(std::string::npos, spaced[2].find("addr"));
+
+    //...and the name must not match inside a longer identifier.
+    EXPECT_TRUE(argumentsOf("int x_mbus_cmd_force_single_coil(a, b, c, d);",
+                            "mbus_cmd_force_single_coil").empty());
+
+    //A string literal cannot pass for a call either.
+    EXPECT_TRUE(argumentsOf("const char *s = \"mbus_cmd_force_single_coil(a,b,c,d)\";",
+                            "mbus_cmd_force_single_coil").empty());
 }

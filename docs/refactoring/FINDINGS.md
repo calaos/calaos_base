@@ -5841,15 +5841,31 @@ Mesures faites en livrant `fix/t3.46` (base `df2851d0`). Fiche : `docs/refactori
   plus n'est pas la même chose que « non atteint » : les trois se mesurent séparément.*
 
 - ⭐ **[F-WAGO-9 — TRANCHÉ : `libmbus` n'est PAS patchée, et voici la mesure qui décide]**
-  La paire permutable **n'est pas dans les six commandes publiques** de `libmbus`. Les six
+  ⛔ **RECTIFIÉ le 2026-08-25 (2ᵉ revue de T3.46) — la 1ʳᵉ rédaction de ce finding était FAUSSE.**
+  Elle disait : « la paire permutable **n'est pas dans les six commandes publiques** ». **Faux** :
+  `mbus.h:109-127` montre que **les six commandes que Calaos appelle portent TOUTES une paire
+  `(mbus_uword, mbus_uword)` adjacente** — `coils_addr`/`coils_num`, `start_addr`/`points_num`,
+  `coil_addr`/`data`, `register_addr`/`preset_data`, et les deux formes `*_multiple_*` ; les deux
+  commandes **non appelées** sont justement les seules sans la paire (`diagnostics` n'a qu'**un**
+  `mbus_uword`, `report_slave_id` aucun). ⚠️ **Et la mesure `M5` du même ticket la contredisait** :
+  elle permute `mbus_cmd_preset_single_register(mbus, 1, (mbus_uword)val, address)` — **une
+  permutation d'une signature publique** — à `rc=0`.
+  ⭐ **Corollaire de méthode** : *une phrase qui affirme « la paire n'y est pas » à côté d'une
+  mesure qui permute cette paire n'a pas été relue contre sa propre mesure.* Et ici la formulation
+  fausse rendait le refus **plus fort qu'il n'est**.
+  ⭐ **CE QUI EST EXACT, ET CE QUI PORTE RÉELLEMENT L'ARBITRAGE**, un cran plus bas : les six
   délèguent à **un seul constructeur de requête interne**,
   `mbus_cmd_addr_wdata(mbus, slave_addr, funct_code, mbus_uword addr, mbus_uword data)`
-  (`libmbus/mbus_cmd.c`), et sur ses **cinq** sites d'appel ses deux paramètres mot portent
-  **trois rôles différents** : adresse + **compte** (`read_coil_status`,
-  `read_holding_registers`), adresse + **donnée** (`force_single_coil`,
-  `preset_single_register`), **sous-fonction** + donnée (`diagnostics`).
+  (`libmbus/mbus_cmd.c:78-80`), et sur ses **CINQ** sites d'appel (`:254`, `:292`, `:332`, `:368`,
+  `:405`) ses deux paramètres mot portent **TROIS paires de rôles différentes** : adresse +
+  **compte** (`read_coil_status`, `read_holding_registers`), adresse + **donnée**
+  (`force_single_coil`, `preset_single_register`), **sous-fonction** + donnée (`diagnostics`).
   ⇒ **« un type par rôle » ne s'applique pas à cette fonction sans la SCINDER** — un changement
-  *fonctionnel* dans du C tiers de 2003 que rien n'exécute. Typer seulement les six signatures
+  *fonctionnel* dans du C tiers de 2003 que rien n'exécute.
+  ⇒ ⭐ **Le refus tient sur le COÛT, mesuré. Il ne tenait PAS sur « la paire est absente ».** La
+  décision est inchangée ; c'est sa justification publiée qui était fausse. Corrigée aux **trois**
+  endroits où elle avait été écrite : ici, `T3.46.md` §7.5(b), et le commentaire d'en-tête de
+  `tests/WagoWriteReply_test.cpp`. Typer seulement les six signatures
   publiques laisserait la paire vivante une trame plus bas et déplacerait les six déballages de
   `WagoCtrl.cpp` **dans** `libmbus`. C'est le « 7 endroits → 7 endroits » de `T3.31` §7.5,
   **mesuré un niveau plus profond, avec une raison concrète**.
@@ -5900,8 +5916,15 @@ Mesures faites en livrant `fix/t3.46` (base `df2851d0`). Fiche : `docs/refactori
   `WIDigitalBase::WagoReadCallback` (`WagoIOBase.h`), plus `OutputAnalog::WagoReadCallback`
   **supprimée** — et **quatre** sites d'invocation dans `WagoMap::processNewMessage`. Leur
   `(UWord address, int count)` est la paire qu'E4.1h a mesurée **verte** sur un échange. C'est la
-  moitié **la plus dangereuse** ; T3.46 a reçu l'autre pour périmètre et le dit. **Numéro de
-  ticket à attribuer par le coordinateur.**
+  moitié **la plus dangereuse** ; T3.46 a reçu l'autre pour périmètre et le dit.
+  ⭐ **Numéro attribué : [`T3.50`](T3.50.md), fiche créée, et c'est LE PROCHAIN de cette chaîne —
+  pas « plus tard ».** **13 sites nommés** : 2 `typedef` (`WagoMap.h:38`, `:39`), 7 implémentations
+  (`WagoMap.cpp:172`, `WIAnalog.cpp:72`, `WITemp.cpp:68`, `WOAnalog.cpp:69`, `WODigital.cpp:81`,
+  `WagoIOBase.h:104` — **6 vivantes** — plus `OutputAnalog::WagoReadCallback`, la 13ᵉ, **mesurée
+  morte et supprimée par T3.46**), et 4 sites d'invocation (`WagoMap.cpp:214`, `:225`, `:238`,
+  `:249`). **12 vivants sur 13.** ⚠️ **L'inversion d'ordre (écriture avant lecture) n'est
+  acceptable qu'à cette condition** : elle est acceptée parce qu'elle est dite franchement, et elle
+  ne doit pas se répéter.
 
 - ⛔ **[Non corrigé, comme exigé]** `WOAnalog::WagoWriteCallback` écrase sa propre valeur
   rapportée avec le littéral `0` après chaque écriture réussie, puis `emitChange()`
@@ -5929,3 +5952,71 @@ Mesures faites en livrant `fix/t3.46` (base `df2851d0`). Fiche : `docs/refactori
   (d) un `make check` antérieur sur le même code : **19/19** sur cette suite.
   ⚠️ **Aucun `make check` relancé pour faire disparaître le rouge** ; le 94/95 est publié tel quel
   à côté du 95/95, dans `T3.46.md` §7.8.
+
+  ⭐ **TRANCHÉ le 2026-08-25 par la 2ᵉ revue de T3.46 — la mesure POSITIVE que personne n'avait
+  faite.** `F-FLAKY-1` a été **reproduit sur `master` NU** (`df2851d0`, worktree neuf, même
+  recette, **aucune ligne de `fix/t3.46`**) ⇒ `exit 2`, `# TOTAL: 94 / PASS 93 / FAIL 1`, **seul
+  échec `core/ShutterImpulse_test.cpp:297`** — le cas, la ligne et le message exacts du run 2 de
+  T3.46. Quantifié : **24 exécutions à vide ⇒ 0 rouge**, **48 exécutions sous 96 brûleurs ⇒ 5
+  rouges** (`:297` ×2, `:384` ×3).
+  ⇒ ⭐ **LA FAMILLE EST D'AU MOINS SIX, pas deux.** La forme identique — pomper la boucle **juste
+  en deçà** de l'échéance puis exiger `EXPECT_FALSE(sh.isStopped())` — existe à
+  `core/ShutterImpulse_test.cpp` **lignes 297, 343, 384, 450, 498 et 664** (relues une par une :
+  les cinq premières via `pumpLoopFor(stillMovingProbeMs(...))`, la 6ᵉ via un `pumpLoopFor(200)`
+  fixe).
+  ⇒ ⭐ **CE N'EST PAS DU BRUIT, C'EST UN DÉFAUT DE TEST** : une durée mesurée sur l'**horloge
+  réelle**, sans horloge injectable. `stillMovingProbeMs = (impulse + requested) / 2` avec
+  `kPlainDownMs = 147` et `kPlainImpulseTimeMs = 35` ⇒ sonde à **91 ms** pour une échéance à
+  **147 ms** : ⭐ **56 ms de marge**, que l'ordonnanceur mange sous charge. Le classer « flottant »
+  et passer à autre chose est la mauvaise lecture ; **la correction est une échéance relative au
+  temps simulé, ou une marge** — ⇒ **`T3.49`**.
+  ⚠️ **Acquis : ne plus relancer un `make check` pour le faire disparaître, et ne plus refaire
+  l'exclusion de causalité ticket par ticket.** Si ce rouge apparaît, il se **note** et on
+  continue.
+
+### ⭐ T3.46 — ce que la 2ᵉ revue a ajouté par la MESURE (append, 2026-08-25)
+
+- ⭐ **[F-TYPE-5 — INARMABLE sur un `sigc::slot`, et c'est plus fort que « nous avons pris soin »]**
+  L'angle mort connu de la sonde `is_invocable_v` est le **paramètre référence non-const** : avec
+  un `T &`, la sonde répond FAUX **même pour l'ordre correct**, donc toutes les assertions
+  `EXPECT_FALSE` d'un fichier passeraient gratuitement. `T3.46` écrivait s'en protéger **par
+  discipline** (« les quatre implémentations prennent leur charge par valeur »).
+  ⭐ **Mesuré (mutation `MXD`) : c'est une propriété de la BIBLIOTHÈQUE.** Réécrire un paramètre
+  de `SingleBit_cb`/`SingleWord_cb` en `T &` ⇒ **`rc=2`** : `sigc++` instancie l'invocateur du slot
+  avec des arguments **prvalue** aux sites d'émission et **refuse lui-même la référence**.
+  ⇒ **Sur ces deux `typedef`, l'angle mort ne peut PAS être réarmé en silence : la tentative est un
+  échec de build, pas une suite verte.**
+  ⚠️ **Portée à ne pas élargir** : propriété de `sigc::slot`, **pas** de la sonde. Sur une fonction
+  ou un foncteur ordinaires, `F-TYPE-5` reste entier.
+  Les trois autres contournements essayés donnent aussi `rc=2` : `MXA` permuter `status` ↔
+  `BitValue`, `MXB` la **même** enveloppe deux fois, `MXC` un `static_cast` explicite.
+  ⇒ **Aucun contournement trouvé** : ni cast, ni agrégat, ni `operator=`, ni base commune, ni
+  retour au scalaire.
+
+- ⭐ **[F-ORACLE — un tripwire de source a un TAUX DE FAUX ROUGE, et il se mesure]**
+  Nouveau motif, générique. Le tripwire de `tests/WagoWriteReply_test.cpp` (qui épingle l'ordre des
+  arguments des deux appels `libmbus` d'écriture) était annoncé avec « une reformulation innocente
+  peut le faire rougir ». **Mesuré : 4 réécritures innocentes sur 5 le faisaient rougir** — espace
+  avant `(`, renommage du local `address` → `addr`, extraction du cast dans une variable, et ⭐
+  **ajout d'un COMMENTAIRE DE DOC nommant la fonction** (`src.find(fn + "(")` accrochait le
+  commentaire et rendait **2** arguments au lieu de 4). Seul un reflow sur trois lignes restait
+  vert.
+  **Durci** (blanchiment des commentaires et littéraux par automate à 5 états à positions
+  préservées ; nom refusé s'il est fragment d'un identifiant plus long ; espace toléré avant `(` ;
+  préfixe `addr` accepté) ⇒ **1 faux rouge sur 5**, les deux vrais rouges `M6`/`M7` **conservés**.
+  Avant/après mesurés dans **une même sonde `g++ -std=c++17`** alimentée par le même jeu, en
+  extrayant l'analyseur des **deux** versions du fichier.
+  ⭐ **Règle à retenir** : *un garde-fou qui rougit parce que quelqu'un a écrit un commentaire est
+  un garde-fou que le premier venu désactive.* Ignorer commentaires et littéraux est le **minimum**
+  pour tout oracle qui lit du source — plusieurs suites du dépôt le font déjà. Et **publier le
+  taux mesuré**, pas « ça peut arriver ».
+
+- **[Trou d'oracle — l'assertion sans contrôle positif]** Dans `WagoWriteReply_test.cpp`,
+  `EXPECT_FALSE(std::is_base_of_v<Address, WordValue>)` était **la seule** assertion du fichier
+  sans témoin : un trait répondant FAUX à tout l'aurait fait passer gratuitement. **Comblé** par un
+  couple `AProbeBase`/`AProbeDerived` et un `EXPECT_TRUE` à côté.
+  ⚠️ **Second trou, DÉCLARÉ et non comblé** : **les quatre implémentations ne sont sondées par
+  aucun cas**. Ce qui les ferme est la **compilation** plus la campagne `M1`/`M2`/`M3`. Vraie
+  preuve, mais strictement plus faible qu'un oracle exécuté — rien ne verrait une implémentation
+  ré-élargie aux scalaires si les sites d'émission étaient mis à jour dans le même commit.
+
