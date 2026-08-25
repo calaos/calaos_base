@@ -147,8 +147,6 @@ traité comme ce qu'il est : une valeur illisible.
 - **Sonde de présence réseau (ping).** Un `timeout` ou un `interval` trop grand retombe sur la
   valeur par défaut documentée au lieu d'être passé tel quel à la commande système ou de suspendre
   la scrutation pendant 25 jours.
-- **Couleurs.** Une couleur écrite en décimal trop grand (`99999999999`) était acceptée et donnait
-  une couleur arbitraire ; elle est maintenant **refusée** comme invalide.
 
 **Ce qui ne change PAS** : les valeurs à la limite exacte restent valides — `2147483647` est
 toujours accepté, `2147483648` ne l'est plus. Et un nombre **suivi de texte** (`12abc`, `1,5`)

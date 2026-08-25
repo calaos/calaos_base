@@ -4700,6 +4700,76 @@ coller le versant local. **Recompter `if`/`endif` sur CHAQUE commit de la série
 la tête : le trou avait été introduit au **premier** des 11 et se propageait à tous les suivants —
 et il rendait **le commit de caractérisation non compilable**, donc la preuve par contre-mutation
 impossible.
+
+### ⭐ Neuvième variante de faux vert/rouge — **la restauration pristine par `copy2` ne recompile rien**
+
+Rencontrée pendant la campagne de la deuxième revue de `fix/t3.25`, et elle vaut pour **toute** la
+série, pas seulement pour ce ticket. Le protocole publié dit « **restaurer depuis une copie
+pristine, jamais `git checkout`** » — et l'implémentation évidente, `shutil.copy2()`, **préserve la
+date de modification**. Le fichier restauré ressort donc **plus ancien** que les objets compilés
+depuis le mutant : `make` les juge à jour et **ne les recompile pas**.
+
+**Mesuré** : le retour au témoin a rendu **1 rouge** (`KNXCtrlWire_test`) sur un arbre dont les
+**11 fichiers étaient prouvés identiques au pristine par `cmp`**. `git status` propre, `cmp` propre,
+et pourtant le binaire portait encore la mutation. Ici le symptôme est un faux **rouge** ; la même
+mécanique produit un faux **vert** dès que la mutation est restaurée *avant* la passe qui doit la
+voir.
+
+⇒ **Après toute restauration** : `os.utime()` sur chaque fichier restauré **et** purge des objets
+de `src/`, puis reconstruction complète. ⚠️ La purge bute sur des artefacts appartenant à `root`
+(`src/lib/llhttp/src/.libs/`, écrits par le conteneur de compilation) — **pas de `sudo`** : la date
+rafraîchie sur les sources suffit, puisque tout ce qui les inclut redevient périmé.
+
+**C'est la neuvième**, après les cinq de `_DEPENDENCIES`, `F-HARN-1` (mutation non appliquée), la
+lecture de non-initialisé (**phénomène**, pas règle) et `F-PYTEST-1` (cas jamais exécutés). Les
+neuf ont la même forme : **l'arbre a l'air juste à l'endroit qu'on regarde**.
+
+### ⚠️ Un oracle écrit par l'audit et démenti par la campagne — `ColorUtils.cpp:245`
+
+Consigné parce que c'est **la campagne, et non la relecture, qui l'a trouvé**. L'audit du volet
+débordement avait classé `ColorValue::setString("99999999999")` en « comportement CHANGÉ » : avant
+`setRgb(32767,255,255)` et `isValid() == true`, maintenant `ColorInvalid`. **Faux.** Il avait lu
+`setAlpha()`, qui **borne**, et supposé que `setRgb()` en faisait autant. `setRgb()` **sort
+immédiatement** sur une composante hors `0..255` **sans écrire `type`**, laissé à `ColorInvalid` en
+tête de `setString()` — et tout débordement entier sature à `INT_MAX`/`INT_MIN`, donc `dec >> 16`
+vaut `32767` ou `-32768`, **jamais** dans `0..255`.
+
+⇒ **Aucun décimal en débordement n'a jamais pu construire une couleur valide**, ni avant ni après.
+Le cas de test écrit pour l'épingler était **vide** : mesuré **vert** sous `CM-OVF`. Il est
+**conservé en témoin** (il fige la borne `16777215` → `#FFFFFF`) et **étiqueté comme tel dans son
+propre commentaire**. **Leçon** : lire la fonction **appelée**, pas sa voisine de même famille —
+`setRgb` borne, `setAlpha` borne, et **`setRgb` refuse**.
+
+### ⚠️ `F-PYTEST-1` recompté : ce ne sont pas **11** cas qui ne s'exécutent pas, ce sont **19**
+
+Mesuré pendant la campagne de la deuxième revue de `fix/t3.25`, sur l'image de compilation
+courante, `make check` **vert**, `PASS: run-python-tests.sh`, `exit status: 0` :
+
+```
+Ran 23 tests in 0.025s
+OK
+```
+
+**23** cas exécutés. Or `tests/python/` en déclare **42** :
+
+| Fichier | Cas | Style | Exécuté ? |
+|---|---|---|---|
+| `test_t116_mcp_config_io.py` | 10 | `unittest` | ✅ |
+| `test_t116_roon.py` | 8 | `unittest` | ✅ |
+| `test_t116_mcp_client.py` | 5 | `unittest` | ✅ |
+| ⛔ `test_auth.py` | **11** | pytest | ❌ |
+| ⛔ `test_extern_proc.py` | **4** | pytest | ❌ |
+| ⛔ `test_logger.py` | **4** | pytest | ❌ |
+
+`run-python-tests.sh` bascule en **repli `unittest` de la bibliothèque standard** quand `pytest`
+est absent — et il l'est dans l'image. Le repli ne charge que les suites écrites en `unittest` :
+les **19** cas en style pytest sont **silencieusement sautés**, sans une ligne de journal, et le
+script **rend 0**. Le chiffre de 11 ne comptait que `test_auth.py`.
+
+⇒ **Le contrôle reste le même, et il faut l'appliquer aussi ici** : compter **les cas réellement
+exécutés** à chaque passe, jamais le seul code de sortie. Et le correctif de fond est d'installer
+`pytest` dans l'image, ou de faire de son absence un **SKIP explicite (77)** par fichier plutôt
+qu'un silence. Hors périmètre de `T3.25` ; **aucun** des 19 ne touche `from_string`.
 ---
 
 ## T3.37 — l'extraction du parseur de chemin JSON (2026-08-25)

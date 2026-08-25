@@ -208,17 +208,32 @@ TEST_F(ColorValueTest, SetString)
 }
 
 
-/* ⭐ T3.25 (review reserve 2). A decimal string past INT_MAX is not a colour.
+/* T3.25 (review reserve 2). A decimal string past INT_MAX is not a colour —
+ * ⚠️ AND IT NEVER WAS. GREEN BEFORE AND AFTER T3.25, said plainly.
  *
- * ColorUtils.cpp:245 gates the "plain decimal" spelling of a colour on
- * Utils::is_of_type<int>(). Before T3.25 that answered TRUE for a token that
- * merely consumed the whole string, so "99999999999" saturated to 0x7FFFFFFF
- * and setRgb(32767, 255, 255) built a colour that reported itself VALID out of
- * a number no colour can hold. It is now refused, and the object stays
- * ColorInvalid - which is what every caller checks with isValid().
+ * ⛔ THIS CASE WAS FIRST WRITTEN AS AN ORACLE OF THE OVERFLOW CHANGE, AND IT IS
+ * NOT ONE. Measured: with is_of_type() put back to `iss.eof()` alone, the whole
+ * suite stays GREEN — the case does not move. The audit that produced it read
+ * `setAlpha()`, which CLAMPS, and assumed `setRgb()` did too. It does not:
  *
- * The boundary that must still work is one character away, so the case pins
- * both sides of it.
+ *     void ColorValue::setRgb(int r, int g, int b, int a)
+ *     {
+ *         if (OUT_OF_RANGE(r, 0, 255) || ...) { cWarning() << ...; return; }   // EARLY RETURN
+ *         ... type = ColorRGB;
+ *     }
+ *
+ * `type` is set to ColorInvalid at the top of setString() and setRgb() returns
+ * BEFORE touching it. And every int overflow saturates to INT_MAX/INT_MIN, so
+ * `dec >> 16` is 32767 or -32768 — always outside 0..255. ⇒ no decimal overflow
+ * can ever build a valid colour, in either regime. What T3.25 changes here is
+ * only WHICH LINE LOGS: `cWarning() << "rgb values out of range"` before, the
+ * plain `cDebug() << "Invalid color string"` now. Nothing a caller can see.
+ *
+ * The case is KEPT as a control rather than deleted: it fixes the boundary
+ * (16777215 = 0xFFFFFF is the largest real RGB decimal and must keep working)
+ * and it records, where someone will look for it, that ColorUtils belongs to
+ * the "behaviour unchanged" column of the overflow audit — not the "behaviour
+ * changed" one, where the first draft of T3.25 section 10.2 had put it.
  */
 TEST(ColorValueOverflow, ADecimalStringPastIntMaxIsNotAColour)
 {
@@ -227,6 +242,10 @@ TEST(ColorValueOverflow, ADecimalStringPastIntMaxIsNotAColour)
     EXPECT_EQ(false, over.isValid())
             << "a decimal that does not fit an int became the colour "
             << over.toString();
+
+    ColorValue neg;
+    neg.setString("-2147483649");
+    EXPECT_EQ(false, neg.isValid());
 
     ColorValue max;
     max.setString("16777215");   //0xFFFFFF, the largest real RGB decimal
