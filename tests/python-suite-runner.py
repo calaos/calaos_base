@@ -213,6 +213,12 @@ def _is_expected_failure(skipped):
 def rel_to_pydir(raw, pydir):
     """junit's file="..." turned into a path relative to pydir.
 
+    ⚠️ file= is written only by the xunit1/legacy junit families; the default
+    (xunit2) omits it, so on a stock pytest this function is never reached and
+    src_from_classname does the work. It is kept because a report that DOES
+    carry file= is exact, and pinned by a dedicated oracle case that asks for
+    junit_family=xunit1 explicitly.
+
     pytest writes it relative to its rootdir, which is pydir itself (we pass
     --rootdir) or, if a future pytest ignores that, one of pydir's ancestors.
     Both are resolved here. ⚠️ The fallback is the RAW string, never the
@@ -242,9 +248,25 @@ def rel_to_pydir(raw, pydir):
     return raw
 
 
-def src_from_classname(classname, pydir):
-    """Last resort when junit gives no file=: rebuild the path from the dotted
-    module, longest prefix first, and keep it only if it exists on disk."""
+def src_from_classname(classname, pydir, declared):
+    """The path a junit classname points at, or "" when it is not certain.
+
+    ⚠️ THIS IS THE PATH THAT ACTUALLY RUNS. pytest's default junit family
+    (xunit2 since pytest 6) does NOT write file= at all -- measured on 7.2.1 and
+    on 9.1.1 -- so the classname is all there is, and the previous version of
+    this function took its FIRST module-looking component and appended ".py".
+    That is where the same-basename collision really came from.
+
+    Two steps, in order:
+      1. the dotted classname IS a path when the directory is a package: the
+         longest prefix that exists on disk wins, so "sub.test_dup.Dup" lands
+         on "sub/test_dup.py" and not on "test_dup.py";
+      2. otherwise (a sub-directory with no __init__.py: pytest names the module
+         after the file alone) fall back to the basename -- but ONLY if exactly
+         one declared suite bears it. Two candidates means the answer is not
+         known, and an unknown answer must stay unknown: returning either one
+         would be the collision again, silently.
+    """
     parts = [p for p in (classname or "").split(".") if p]
     for i in range(len(parts), 0, -1):
         if not is_suite_file(parts[i - 1] + ".py"):
@@ -252,6 +274,15 @@ def src_from_classname(classname, pydir):
         rel = "/".join(parts[:i]) + ".py"
         if os.path.exists(os.path.join(pydir, rel)):
             return rel
+    for part in parts:
+        base = part + ".py"
+        if not is_suite_file(base):
+            continue
+        hits = [d for d in declared if os.path.basename(d) == base]
+        if len(hits) == 1:
+            return hits[0]
+        if len(hits) > 1:
+            return ""
     return ""
 
 
@@ -272,7 +303,7 @@ def junit_case_id(case, stem):
     return ".".join(parts + [name]) if name else ""
 
 
-def run_with_pytest(pydir):
+def run_with_pytest(pydir, declared):
     """(executed_names_per_file, failed, note). Skipped cases are NOT executed."""
     executed = {}
     failed = 0
@@ -288,8 +319,11 @@ def run_with_pytest(pydir):
                            "accounted for" % proc.returncode)
         root = ET.parse(report).getroot()
         for case in root.iter("testcase"):
+            # file= comes first because it is exact when it is there at all
+            # (junit_family=xunit1/legacy); with the default family it is
+            # absent and the classname is what resolves.
             src = (rel_to_pydir(case.get("file"), pydir) or
-                   src_from_classname(case.get("classname"), pydir) or
+                   src_from_classname(case.get("classname"), pydir, declared) or
                    "<unknown>")
             base = os.path.basename(src)
             stem = base[:-3] if base.endswith(".py") else base
@@ -449,7 +483,7 @@ def main(argv):
     notes = []
     if have_pytest():
         print("Running python suites with pytest (%s)" % sys.executable)
-        executed, failed, note = run_with_pytest(pydir)
+        executed, failed, note = run_with_pytest(pydir, declared)
         if note:
             notes.append(note)
     else:

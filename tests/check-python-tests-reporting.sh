@@ -608,6 +608,40 @@ if [ "$have_stub" = yes ]; then
     c5_run "C5g same-basename unittest-backend" "$duptree" "$stub" 2 4 1 3 77 "$DUPWHY"
 fi
 
+# C5m -- the SAME tree, but asking pytest for a junit report that carries the
+#        file="..." attribute.
+#
+# ⚠️ Why this exists: pytest's DEFAULT junit family (xunit2, since pytest 6)
+# writes no file= at all -- measured on 7.2.1 and on 9.1.1 -- so the launcher
+# resolves suites from the classname, and the code that reads file= is never
+# reached on a stock run. Two paths, one exercised: this case exercises the
+# other one, on the tree where getting it wrong shows.
+# ⚠️ It is GUARDED, not assumed: xunit1 is a legacy family and a future pytest
+# may drop it. If the probe stops producing a file= attribute the case says so
+# and stands down, because a harness that cannot measure has found nothing --
+# it must never break `make check` over a collection option going away.
+xunit1_ok=no
+if "$COUNTPY" -c "import pytest" >/dev/null 2>&1; then
+    probe="$tmpdir/xunit1probe"
+    mkdir -p "$probe" || exit 1
+    printf 'def test_probe():\n    assert True\n' > "$probe/test_probe.py"
+    "$COUNTPY" -m pytest -q -p no:cacheprovider -o junit_family=xunit1 \
+        --junit-xml="$probe/j.xml" "$probe" >/dev/null 2>&1
+    if [ -f "$probe/j.xml" ] && \
+       [ -n "`sed -n 's/.*<testcase[^>]* file=\"[^\"]*\".*/found/p' "$probe/j.xml" | head -n 1`" ]; then
+        xunit1_ok=yes
+    fi
+fi
+if [ "$xunit1_ok" = yes ]; then
+    PYTEST_ADDOPTS="-o junit_family=xunit1"
+    export PYTEST_ADDOPTS
+    c5_run "C5m same-basename junit-file-attribute" "$duptree" "$COUNTPY" 2 4 1 3 77 "$DUPWHY"
+    unset PYTEST_ADDOPTS
+else
+    echo "check-python-tests-reporting: C5m skipped, no junit report with a" \
+         "file= attribute is obtainable under $COUNTPY"
+fi
+
 # ---------------------------------------------------------------------------
 # C5h/C5i -- "*_test.py" is the other half of pytest's default python_files. A
 #            suite named that way is collected and RUN by pytest; if the
