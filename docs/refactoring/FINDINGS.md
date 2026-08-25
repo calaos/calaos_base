@@ -5910,3 +5910,22 @@ Mesures faites en livrant `fix/t3.46` (base `df2851d0`). Fiche : `docs/refactori
   `calaos_wago`) est **inchangé par ce ticket** : même paire de valeurs, mais un défaut
   d'**initialisation** et non de **signature**, et dans un fichier que T3.46 ne touche pas.
   **Toujours ouvert, toujours dû.**
+
+- ⭐ **[F-FLAKY-1 — ÉLARGI : le finding nomme un cas, la famille en compte AU MOINS DEUX]**
+  Vu pendant la validation finale de T3.46 (`make distclean` + reconfigure complet, `make check -j8`,
+  trois autres agents buildaient) ⇒ **`# FAIL: 1`**, mais **pas le cas que `F-FLAKY-1` nomme** :
+  `core/ShutterImpulse_test.cpp:297`,
+  `ShutterImpulseTest.PlainImpulseDownKeepsMovingUntilTheRequestedDuration`,
+  `Actual: true / Expected: false` — **le voisin** de
+  `PlainImpulseDownWithoutImpulseTimeStillHonoursTheDuration` (`:384`), **de forme identique** :
+  la boucle est pompée **juste en deçà** de l'échéance d'impulsion, puis
+  `EXPECT_FALSE(sh.isStopped())`.
+  ⇒ **Corollaire de méthode** : chercher « le cas de F-FLAKY-1 » par son NOM conduit à conclure
+  « ce n'est pas le flake connu » et donc « c'est ma modification ». **C'est le FICHIER et la
+  FORME de l'assertion qui identifient la famille, pas le nom du cas.**
+  **Exclusion de causalité refaite pour T3.46, pas citée** : (a) `ShutterImpulse_test.cpp` hors du
+  diff (11 fichiers) ; (b) `nm -C` sur le binaire : **6938 symboles, 0** portant l'un des neuf noms
+  touchés par le ticket ; (c) **12 exécutions du cas seul en isolation : 12 PASS, 0 FAIL** ;
+  (d) un `make check` antérieur sur le même code : **19/19** sur cette suite.
+  ⚠️ **Aucun `make check` relancé pour faire disparaître le rouge** ; le 94/95 est publié tel quel
+  à côté du 95/95, dans `T3.46.md` §7.8.
