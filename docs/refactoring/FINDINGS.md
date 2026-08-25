@@ -6028,3 +6028,69 @@ Mesures faites en livrant `fix/t3.46` (base `df2851d0`). Fiche : `docs/refactori
   preuve, mais strictement plus faible qu'un oracle exécuté — rien ne verrait une implémentation
   ré-élargie aux scalaires si les sites d'émission étaient mis à jour dans le même commit.
 
+
+---
+
+## T3.48 — l'archive source redevient constructible (2026-08-25)
+
+### F-DIST-1 — ⭐ **FERMÉ par [`T3.48`](T3.48.md)** (`fix/t3.48`, `206d66fa` + `7fbecfdc`)
+
+⛔ **La cause supposée était fausse et il faut le dire : ce n'était PAS `SUBDIRS`.**
+`src/lib/Makefile.am` distribue déjà, **sans aucun `SUBDIRS`**, des fichiers de sous-répertoires
+(`llhttp/src/api.c`, `uri_parser/hef_uri_syntax.cpp`, `sole/sole.hpp`, `cpptui/cpptui.hpp`).
+Automake résout un chemin de sous-répertoire comme un chemin plat. **Personne n'avait simplement
+écrit ces fichiers dans une variable.**
+
+**Forme retenue** : `VENDORED_DIST_TREES` + un `dist-hook` dans `src/lib/Makefile.am` — **le
+répertoire, et non le fichier, est l'unité de distribution** ; **9 arbres couvrent 219 fichiers**
+et un `git subtree pull` qui en ajoute quarante ne demande aucune retouche. ⚠️ Le patron
+`pugixml` (4/4) / `calaos-python` (8/8) est une **énumération explicite** : lu, gardé pour les
+petits arbres, **écarté** pour `uvw` (82), `sqlite_modern_cpp` (36) et `exprtk` (31), où il
+produirait exactement la liste périmable que le ticket interdit. ⚠️ `EXTRA_DIST = <répertoire>`
+(qu'automake sait faire) a été écarté aussi : il copie **verbatim**, donc `.deps/`, `.libs/` et
+`*.lo` d'une construction dans l'arbre ; le hook élague, et **le tarball est identique en arbre
+vierge et en arbre construit — 1079 entrées des deux côtés, différence `∅` dans les deux sens**.
+
+**Mesuré, `180c4b87` → `7fbecfdc`** : suivis absents **417 → 204** ; **code sous `src/` 126 → 0** ;
+fichiers sous `src/` ou `tests/` **211 → 0** ; entrées d'archive **842 → 1079** ; entrées de
+`po/POTFILES.in` absentes **72 → 0** ; goldens **145/145** inchangés.
+⭐ **Licences : 2/11 → 11/11.** Le ticket en annonçait 4 ; il y en avait **9** manquantes —
+`exprtk/license.txt`, `libquickmail/COPYING`, `libquickmail/License.txt`, `llhttp/LICENSE`,
+`llhttp/LICENSE-MIT`, `sole/LICENSE`, `sqlite_modern_cpp/License.txt`, `uvw/LICENSE`,
+`uvw/docs/LICENSE`. Elles voyagent **avec le code qu'elles couvrent**, pas dans un dossier tiers.
+
+**`make distcheck` : RC 0 de bout en bout**, et ⭐ **`make check` a tourné DEPUIS L'ARCHIVE pour
+la première fois — `# TOTAL 95`, 95 PASS** : la réserve ouverte par T3.45 §6 est fermée.
+
+### F-DIST-4 — ⭐ le mur qui était derrière : `check-config-docs.sh` meurt dans tout tarball
+
+Trouvé en franchissant le build. `tests/check-config-docs.sh` diffe
+`docs/16_config_options.md` contre `calaos_config options --markdown` — et **`docs/` n'est
+distribué par personne**. Dans un tarball, le test **échoue en dur** (`FAIL: … is missing`),
+juste après une construction pourtant réussie. ⚠️ **Ce n'est pas une exception au choix « `docs/`
+n'est pas distribué »** : ce fichier n'est pas de la documentation, c'est une **sortie de
+générateur commitée qu'un test consomme**. Corrigé en le nommant seul dans l'`EXTRA_DIST`
+racine ; les 162 autres `docs/` restent dehors. **Aucun troisième mur** : `install`/`uninstall`,
+`distcleancheck` et le `dist` imbriqué passent sans retouche.
+
+### F-DIST-2 — **débloqué** : le job CI `distcheck` peut être branché
+
+Il était « à brancher après T3.48, sinon rouge dès le premier jour ». **`distcheck` est vert** :
+la condition est levée. Reste ouvert (aucune ligne de `.github/` écrite par ce ticket).
+En attendant, la paire de contrôles statiques tient les deux sens, pour **~83 ms** cumulées :
+`check-extra-dist.sh` « déclaré ⇒ existe » (**37,3 ms**, 859 chemins) et
+`check-dist-coverage.sh` « existe ⇒ déclaré » (**46,3 ms**, 893 fichiers balayés) — le second
+**importe** l'analyseur du premier plutôt que d'en écrire un deuxième.
+
+### F-DIST-3 — **reconfirmé une fois de plus**
+
+Le `make dist` de ce ticket a réécrit `po/calaos.pot` et **7** `.po` (`de`, `es`, `fr`, `hi`,
+`nb`, `pl`, `ru`), **`en.po` intact**. `git checkout -- po/` appliqué ; `git status -uall` vide.
+
+### F-DIST-5 — `po/en.po` n'est pas distribué parce que `en` n'est pas dans `po/LINGUAS`
+
+Constaté au passage, **non traité** : `po/LINGUAS` liste `en@boldquot`, `en@quot`, `de`, `es`,
+`fr`, `hi`, `nb`, `pl`, `ru` — **pas `en`**. Les deux `en@*.po` étant *générés depuis* `en.po`
+par les règles gettext, leur source ne part pas dans l'archive. Sans conséquence mesurée
+(`make check` depuis l'archive est vert), mais un `autoreconf` de tarball qui voudrait les
+régénérer ne le pourrait pas. Hors périmètre T3.48.
