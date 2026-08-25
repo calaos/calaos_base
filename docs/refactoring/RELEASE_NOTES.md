@@ -1019,7 +1019,7 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   par E4.2d (le nouveau `Remove(Rule*)` refuse et logge au lieu de détruire un objet qu'il ne
   possède pas).
 
-## Détail pour les intégrateurs — les messages d'événement changent de forme, pas de contenu (E4.1l)
+## Détail pour les intégrateurs — les messages d'événement changent de forme, et cessent de perdre des données en silence (E4.1l)
 
 > **Rien à faire de votre côté, et aucune application Calaos ne s'en aperçoit.** Cette note existe
 > parce que le changement porte sur des **octets réellement servis** sur l'API JSON (port 5454),
@@ -1027,26 +1027,74 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
 
 Les **événements temps réel** — le message `{"msg":"event", …}` poussé sur la WebSocket, et les
 événements rendus par `poll_listen` en HTTP — sont désormais fabriqués par la même bibliothèque
-JSON que le reste des réponses récentes. Trois différences observables, **toutes de forme** :
+JSON que le reste des réponses récentes. **Cinq** différences observables, **mesurées octet à
+octet** ; trois sont purement de forme, et **deux rendent des données qui étaient perdues en
+silence** :
 
 - **L'ordre des membres change.** Il est maintenant **alphabétique** : `data` avant `event_raw`
   avant `type` avant `type_str`, et `data` avant `msg` dans l'enveloppe. Auparavant c'était
   l'ordre dans lequel le serveur les écrivait. **Aucune valeur, aucune clé, aucun tableau ne
   change** : les tableaux gardent leur ordre, qui lui est porteur de sens.
 - **La casse de l'échappement change.** Un caractère accentué continue de partir échappé, la
-  réponse reste en **ASCII pur** comme avant ; seule la casse de l'hexadécimal passe de
+  réponse reste en **ASCII pur** comme avant ; la casse de l'hexadécimal passe de
   `\u00E9` à `\u00e9` (pour `é`). Les deux se lisent de façon identique par n'importe
   quelle bibliothèque JSON.
 - **Un texte mal encodé ne fait plus disparaître son champ.** Si l'état d'un équipement contenait
   des octets qui ne forment pas du texte valide, le champ correspondant **était retiré de
   l'événement, en silence** : l'événement partait amputé. Il est désormais **présent**, avec les
   octets fautifs remplacés par le caractère de remplacement Unicode (`�`). Le journal
-  d'événements enregistre la même chose.
+  d'événements enregistre la même chose. ⚠️ **Cela vaut aussi quand ce sont les octets d'un NOM
+  de champ qui sont mal encodés** : la paire entière disparaissait, elle est maintenant servie
+  sous un nom contenant des `�` (`k��z`).
+- ⭐ **Le caractère DEL (U+007F) part désormais échappé, et la longueur du message change.** C'est
+  le seul caractère qui était servi **en octet brut** et qui ne l'est plus : `{"c":"a<DEL>b"}`
+  (**11 octets**) devient `{"c":"a\u007fb"}` (**16 octets**). Un client qui compte les octets
+  d'une valeur, ou qui s'appuie sur le `Content-Length` de la réponse HTTP, voit la différence —
+  la valeur **décodée**, elle, est identique.
+- ⭐ **Un octet nul (`%00`) ne tronque plus la valeur ni le nom du champ.** L'ancienne chaîne C
+  s'arrêtait au premier zéro : `a\0b` partait en `"a"`, et un nom `k\0z` partait sous le nom
+  `"k"` — c'est-à-dire **sous un autre nom que celui reçu**, en silence. La valeur est maintenant
+  servie entière, le zéro étant écrit `\u0000`.
 
-⚠️ **Ce qui pourrait s'en apercevoir** : uniquement un client qui **cherche une sous-chaîne dans le
-texte brut** de la réponse au lieu de la parser — aucun client Calaos ne le fait, et aucune
-bibliothèque JSON n'y est sensible. Les **écrans déportés (RemoteUI)** reçoivent les mêmes
-événements et sont dans le même cas.
+### Ce qui a été balayé, et ce qui ne l'a pas été
+
+La comparaison a été faite **octet à octet, sur les deux chaînes d'émission réelles compilées**
+(l'ancienne : `jansson_from_params()` + `json_dumps(JSON_COMPACT|JSON_ENSURE_ASCII)` ; la
+nouvelle : `Params::toNJson()` + `dump(-1, ' ', true, error_handler_t::replace)`), sur **120
+sondes** — **75 diffèrent, 45 sont identiques**.
+
+| Balayé | Résultat |
+|---|---|
+| `0x01`–`0x1F` (contrôles C0), en valeur | **9 diffèrent**, *toutes* de casse : `0B 0E 0F 1A 1B 1C 1D 1E 1F`. `\b \t \n \f \r` gardent leur forme courte des deux côtés |
+| `0x00`, en valeur **et** en nom | **diffère** — troncature, voir ci-dessus |
+| `0x7F` (DEL), en valeur **et** en nom | **diffère** — octet brut → `\u007f`, voir ci-dessus |
+| `0x80`–`0x9F` en **octets bruts** (UTF-8 invalide isolé) | **32/32 diffèrent** — c'est le cas « champ qui disparaissait », déjà décrit |
+| `U+0080`–`U+009F` **bien formés** (`C2 80`…`C2 9F`) | **12 diffèrent**, toutes de casse |
+| Substituts écrits en UTF-8 (`U+D800`, `U+DC00`, `U+DFFF`), valeur et nom | **diffèrent** — UTF-8 invalide, cas du champ qui disparaissait |
+| Non-caractères `U+FFFE`, `U+FFFF`, `U+FDD0`, `U+1FFFE` | **diffèrent**, toutes de casse — aucun n'est filtré, ni avant ni après |
+| `U+2028` / `U+2029` | ⭐ **identiques** — échappés `\u2028`/`\u2029` des deux côtés |
+| Formes invalides : surlongue `C0 AF`, tronquée `E2 80`, 5 octets `F8 88 80 80 80` | **diffèrent** — cas du champ qui disparaissait |
+| `"` et `\` | **identiques** |
+| `U+00E9`, `U+FFFD`, `U+1F600` (paire de substituts) | **diffèrent**, toutes de casse |
+
+⚠️ **Ce qui n'a PAS été balayé, et reste à faire par les tickets suivants de la série** : les
+chaînes **longues** (aucun effet de bord de tampon n'a été cherché), les **nombres** et les
+**booléens** (hors périmètre : tout part en chaîne ici), la **profondeur** d'imbrication, les
+**doublons de clés**, l'ordre de tri sur des clés **non ASCII** (il devient l'ordre des unités de
+code, pas un ordre linguistique), et surtout : la mesure porte sur `Params` → JSON, **pas** sur les
+autres constructeurs de l'API qui basculeront dans `E4.1m` … `E4.1s`. Rien n'a été rejoué contre un
+**vrai client tiers**, ni sous ASan.
+
+⚠️ **Ce qui pourrait s'en apercevoir** : un client qui **cherche une sous-chaîne dans le texte
+brut** de la réponse au lieu de la parser, et — pour le seul cas de DEL — un client qui **compte
+les octets** ou vérifie lui-même le `Content-Length`. Aucun client Calaos ne fait ni l'un ni
+l'autre, et aucune bibliothèque JSON n'y est sensible. Les **écrans déportés (RemoteUI)**
+reçoivent les mêmes événements et sont dans le même cas.
+
+ℹ️ **Comment un tel octet arrive-t-il là ?** Par `set_state`, dont les paramètres peuvent être
+donnés en GET : le décodage pourcent (`Utils::url_decode`) ajoute l'octet tel quel à la chaîne,
+donc `%7f`, `%00` et n'importe quelle séquence UTF-8 invalide arrivent intacts jusqu'à l'état d'un
+équipement, **sans traverser aucun parseur JSON**.
 
 *(Les autres réponses de l'API basculeront de la même façon au fil des sous-tickets suivants de la
 série ; cette note sera à consolider en une seule à la fin.)*

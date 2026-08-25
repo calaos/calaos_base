@@ -77,12 +77,19 @@ void EventManager::appendEvent(const CalaosEvent &ev)
             return;
 
         /* E4.1l: the third wire of CalaosEvent::toJson(), and the one no test
-         * had ever executed before core/EventWireBytes_test.cpp - HistLogger is
-         * only reachable for an IO carrying log_history="true", which no
-         * fixture of the series was setting. The three emission invariants of
+         * had an ORACLE on before core/EventWireBytes_test.cpp. It was NOT
+         * unexercised - the first delivery claimed that and it is false,
+         * measured by instrumenting this very line: three preexisting suites
+         * walk through here 13 times per make check, because seven IO classes
+         * set log_history="true" by default in their own constructor. They
+         * simply never asserted anything about the bytes it writes.
+         * The three emission invariants of
          * the epic, all three together, exactly as on the two API emitters:
-         * compact, ensure_ascii = true (this row was already pure ASCII under
-         * JSON_ENSURE_ASCII, only the case of the hexadecimal changes), and
+         * compact, ensure_ascii = true (this row stays pure ASCII, as it was
+         * under JSON_ENSURE_ASCII; what changes on the bytes is the case of
+         * the hexadecimal, U+007F which jansson emitted RAW and nlohmann
+         * escapes, an embedded NUL which json_string() truncated at, and the
+         * invalid-UTF-8 pair that used to vanish - see RELEASE_NOTES.md), and
          * error_handler_t::replace - NOT a try/catch. It matters here more than
          * anywhere: this state comes straight from set_state, including the
          * percent decoded GET parameter fallback of JsonApiHandlerHttp.cpp:88,
@@ -189,9 +196,14 @@ string CalaosEvent::typeToString(int type)
 
 Json CalaosEvent::toJson() const
 {
-    /* The json_pack() this replaces DROPPED SILENTLY any pair whose C string
-     * was NULL, and jansson_from_params() produced exactly that on a parameter
-     * value that is not valid UTF-8 (json_string() answers NULL). A degenerate
+    /* Where the silent pair drop really came from, MEASURED against the real
+     * jansson rather than read: json_pack("{s:s,...}") does NOT drop a pair
+     * whose C string is NULL - it answers NULL for the WHOLE OBJECT, and this
+     * function would then have returned nothing at all. The drop happened one
+     * level down, in jansson_from_params(): json_string() answers NULL on a
+     * value that is not valid UTF-8, json_object_set_new() answers -1, neither
+     * return code was tested, and only THAT pair vanished while the object
+     * stayed valid. So the old failure modes were two, not one. A degenerate
      * event cannot lose a member here any more: the three scalars are always
      * built (typeToString() answers "unkown" rather than nothing, and
      * toString() url-encodes, so event_raw is ASCII whatever the parameters

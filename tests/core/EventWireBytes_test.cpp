@@ -33,16 +33,43 @@
  *                                event into HistEvent::event_raw and hands it
  *                                to HistLogger - i.e. into sqlite.
  *
- * Wire 3 HAS NO TEST AT ALL on this tree, and the reason is written in
- * CalaosCoreFixture.h: "HistLogger/DataLogger are only reachable for IOs
- * flagged with log_history=true; the minimal config sets neither". Every
- * eventlog suite of the E4.0/T3.17 series seeds HistLogger::appendEvent()
- * DIRECTLY with a hand built HistEvent, so EventManager.cpp's own dump - the
- * only producer of event_raw in production - was never executed by any case.
- * Migrating it under a green suite would have proven nothing; the three
- * HistoryRow cases below are what makes that path EXERCISED and not merely
- * LINKED (EventManager.o is in CORE_SERVER_OBJECTS, which is not the same
- * thing - see FINDINGS.md, F-LINK-1).
+ * Wire 3 HAD NO ORACLE. Not "no execution" - that is a stronger claim, and it
+ * is FALSE. It was claimed here in the first delivery and the review killed it
+ * with a measurement this file now records, because the difference is the
+ * whole point of F-LINK-1.
+ *
+ * MEASURED, by planting an fprintf on the dump site of EventManager.cpp and
+ * counting the passages of one full `make check`: the site is reached 13 times
+ * by suites that ALREADY EXISTED before this ticket -
+ *     core/ImpulseGarbageIo_test   10 passages
+ *     core/WagoPortDefault_test     2 passages
+ *     core/SetStateGarbage_test     1 passage
+ * plus 4 by the HistoryRow cases below. The reason is not in the fixtures at
+ * all: SEVEN IO classes set log_history="true" THEMSELVES, by default, in
+ * their own constructor - OutputLight, OutputShutter, OutputShutterSmart,
+ * OutputLightDimmer, OutputLightRGB, OutputAnalog and Scenario - so the guard
+ * chain of EventManager.cpp:62-77 opens for any of them. Those three suites
+ * build OutputShutter, OutputLightDimmer, OutputAnalog, OutputLightRGB and
+ * OutputLight. And that guard chain is byte identical between master and this
+ * branch, so it was just as open BEFORE the migration.
+ *
+ * What IS true, and what these three cases buy, is the modest half: NO ORACLE
+ * EVER LOOKED AT THOSE BYTES. Every eventlog suite of the E4.0/T3.17 series
+ * seeds HistLogger::appendEvent() DIRECTLY with a hand built HistEvent, so
+ * none of them asserts anything about what EventManager.cpp actually wrote,
+ * and the 13 passages above ran the dump for its SIDE EFFECT while asserting
+ * on something else entirely. Migrating under that green would have proven
+ * nothing about the bytes - which is a claim about the ORACLE, not about
+ * reachability.
+ *
+ * THE LESSON, and it is the point of F-LINK-1: "not exercised" is measured by
+ * INSTRUMENTING THE SITE, never by reasoning about the configuration. The
+ * reasoning here was locally correct at every link (the fixture comment is
+ * accurate, the reference house really does set log_history nowhere, the
+ * eventlog suites really do seed by hand) and the conclusion was still wrong,
+ * because production code was setting the flag on its own. EventManager.o
+ * being in CORE_SERVER_OBJECTS never proved execution either - see
+ * FINDINGS.md, F-LINK-1.
  *
  * ---------------------------------------------------------------------------
  * THE ORACLE IS RAW BYTES, ON PURPOSE, AND THAT IS NOT A HARNESS VIOLATION
@@ -309,11 +336,15 @@ protected:
     /* ---------------------------------------------------------------------
      * Wire 3 - the history row, raw, as EventManager wrote it into sqlite.
      *
-     * THE ONLY WAY to reach EventManager.cpp's own dump: appendEvent() writes
-     * the row only for an EventIOChanged carrying "state", on an IO that
-     * exists AND whose log_history param is the string "true". The reference
-     * house sets it nowhere, which is why no suite of the series had ever run
-     * this code. The write is SYNCHRONOUS, at queue time, not on the idler.
+     * appendEvent() writes the row only for an EventIOChanged carrying
+     * "state", on an IO that exists AND whose log_history param is the string
+     * "true". The reference house sets it nowhere, so these cases have to set
+     * it explicitly - but do NOT read that as "nothing else reaches this
+     * code": seven production IO classes set the flag by default in their own
+     * constructor and three preexisting suites walk through here 13 times per
+     * make check (measured, see the file header). What those suites lack is an
+     * ORACLE on the bytes, which is what the three cases below add.
+     * The write is SYNCHRONOUS, at queue time, not on the idler.
      * ------------------------------------------------------------------ */
     static void enableHistoryOn(const char *ioId)
     {

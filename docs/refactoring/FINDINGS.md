@@ -5577,29 +5577,97 @@ ce qui **fabrique** ce chemin — ici l'oracle et sa campagne de mutation.
 
 ## E4.1l — `CalaosEvent::toJson()` : ce que la bascule a mesuré (2026-08-25)
 
-### ⭐ Le troisième wire : `EventManager.cpp:79` n'était exercé par AUCUN test
+### ⭐ Le troisième wire : `EventManager.cpp:79` n'avait pas d'ORACLE — et la première rédaction de ce finding disait « pas exercé », ce qui est FAUX
 
 `CalaosEvent::toJson()` a **trois** consommateurs qui sérialisent, pas deux : le push WS, la
 réponse HTTP `poll_listen`, et **la ligne d'historique** — `EventManager::appendEvent()` dumpe
 l'event dans `HistEvent::event_raw` et le donne à `HistLogger`, **synchroniquement, au moment de
 la mise en file**, pas sur l'idler.
 
-**Mesuré** : aucun cas de l'arbre ne l'exécutait. La raison est écrite dans
-`tests/core/CalaosCoreFixture.h:106` — *« HistLogger/DataLogger are only reachable for IOs flagged
-with `log_history="true"` ; the minimal config sets neither »*. Toutes les suites `eventlog` de la
-série (`JsonApiEventLog_test`, `JsonApiSession_test`, `JsonApiInputGuards_test`,
-`JsonApiEmissionBytes_test`) ensemencent `HistLogger::appendEvent()` **à la main** avec un
-`HistEvent` construit dans le test : le producteur de production d'`event_raw` n'a jamais tourné.
+⛔ **L'affirmation renversée, et comment.** La première livraison écrivait ici : *« Mesuré : aucun
+cas de l'arbre ne l'exécutait »*. Elle n'était pas mesurée, elle était **raisonnée** — trois
+maillons tous **exacts** individuellement : (a) `tests/core/CalaosCoreFixture.h:106` dit bien
+*« HistLogger/DataLogger are only reachable for IOs flagged with `log_history="true"` ; the minimal
+config sets neither »* ; (b) la maison de référence ne pose effectivement le paramètre nulle part ;
+(c) les suites `eventlog` de la série (`JsonApiEventLog_test`, `JsonApiSession_test`,
+`JsonApiInputGuards_test`, `JsonApiEmissionBytes_test`) ensemencent bien
+`HistLogger::appendEvent()` **à la main**. **La conclusion ne suit pas.**
 
-`EventManager.o` est pourtant dans `CORE_SERVER_OBJECTS`, donc **lié dans tous les binaires
-`core/`**. ⇒ **cas d'école de `F-LINK-1`** : *lié* n'est pas *exercé*, et migrer sous un vert
-obtenu comme ça n'aurait rien prouvé. Le remède tient en trois lignes de fixture :
+⭐ **La mesure qui l'a tuée — un `fprintf` sur la ligne du dump, un `make check` complet, comptage
+des marqueurs par fichier `.log`** (relevée par la revue, **reproduite indépendamment** ici, mêmes
+chiffres) :
+
+| Suite | Passages | Préexistante ? |
+|---|---:|---|
+| `core/ImpulseGarbageIo_test` | **10** | ✅ inchangée par le ticket |
+| `core/WagoPortDefault_test` | **2** | ✅ inchangée par le ticket |
+| `core/SetStateGarbage_test` | **1** | ✅ inchangée par le ticket |
+| `core/EventWireBytes_test` (filet neuf) | 4 | — |
+| **total** | **17**, dont **13 avant le ticket** | |
+
+**La cause n'est pas dans les fixtures, elle est dans le PRODUIT** : ⭐ **sept classes d'IO posent
+`log_history="true"` elles-mêmes, par défaut, dans leur constructeur** —
+`OutputLight.cpp:53`, `OutputShutter.cpp:62`, `OutputShutterSmart.cpp:73`,
+`OutputLightDimmer.cpp:58`, `OutputLightRGB.cpp:53`, `OutputAnalog.cpp:50`, `Scenario.cpp:55`,
+toutes sous la forme `if (!get_params().Exists("log_history")) set_param("log_history", "true");`.
+Les trois suites ci-dessus construisent `OutputShutter`, `OutputLightDimmer`, `OutputAnalog`,
+`OutputLightRGB` et `OutputLight`. Et la chaîne de garde `EventManager.cpp:61-77` est **byte à
+byte identique** entre `master` (`df2851d0`) et cette branche — **491 octets des deux côtés**,
+comparés en `python3` ⇒ **elle était tout aussi ouverte AVANT la bascule**.
+
+⭐ **Ce qui reste vrai, et qui suffit : AUCUN ORACLE NE REGARDAIT CES OCTETS.** Les 13 passages
+faisaient tourner le dump **pour son effet de bord**, en assertant sur tout autre chose ; aucune
+suite ne relisait `event_raw` tel qu'`EventManager` l'avait écrit. C'est une affirmation sur
+l'**oracle**, pas sur l'atteignabilité — plus modeste, plus faible, et **défendable**. Elle
+justifie exactement la même chose : les trois cas `HistoryRow` de
+`tests/core/EventWireBytes_test.cpp`, qui font
 `io->set_param("log_history", "true")` sur un IO de la maison de référence, puis
-`EventManager::create(EventIOChanged, {{"id", …}, {"state", …}})`, puis relire la colonne
-`event_raw` par `HistLogger::getEvents()` — c'est ce que font les trois cas `HistoryRow` de
-`tests/core/EventWireBytes_test.cpp`. **Mesuré rouge avant la bascule, vert après.**
+`EventManager::create(EventIOChanged, {{"id", …}, {"state", …}})`, puis relisent la colonne
+`event_raw` par `HistLogger::getEvents()`. **Mesurés rouges avant la bascule, verts après.**
 
-### ⛔ Trois affirmations de la fiche `E4.1l.md` que la mesure contredit
+⚠️ **`EventManager.o` est dans `CORE_SERVER_OBJECTS`, donc lié dans tous les binaires `core/`** —
+mais ce n'était pas non plus l'argument : *lié* n'est ni *exercé* ni *observé*, et le vrai piège
+ici était le troisième terme. Leçon versée à **`F-LINK-1`**, ci-dessous.
+
+### ⭐ `F-LINK-1`, **neuvième** affirmation d'atteignabilité renversée — et **la première dans l'autre sens**
+
+⚠️ **Append à la section `F-LINK-1`. En conflit, GARDER LES DEUX CÔTÉS.**
+
+Les huit premiers cas de `F-LINK-1` allaient tous dans le même sens : *« ce n'est pas atteignable /
+pas testable / pas liable »*, et la mesure répondait **si, ça l'est**. ⭐ **Le neuvième va dans le
+sens INVERSE, et c'est le premier** : *« ce n'est exercé par rien »*, et la mesure répond **si, 13
+fois par `make check`, par trois suites qui existaient déjà**.
+
+| # | La phrase qui était fausse | La mesure qui l'a tuée |
+|---|---|---|
+| **9** | *« `EventManager.cpp:79` n'était exercé par AUCUN test de l'arbre »* (E4.1l, 1ʳᵉ livraison) | ⭐ **un `fprintf` sur la ligne du dump + un `make check` + comptage des marqueurs par `.log`** : **17 passages**, dont **13 dans 3 suites préexistantes**. Cause : **7 classes d'IO posent `log_history="true"` par défaut dans leur propre constructeur**, et la chaîne de garde est **byte-identique** master↔branche |
+
+> ⭐ **RÈGLE `F-LINK-1` (v3), quatrième membre :**
+>
+> 4. **« Non exercé » se mesure en INSTRUMENTANT LE SITE — jamais en raisonnant sur la
+>    configuration.** Le geste est d'une ligne : poser un `fprintf` (ou un compteur statique) sur
+>    la ligne en question, lancer la campagne, compter les passages **par fichier `.log`** — ce qui
+>    donne en prime **quelles** suites y passent, donc **pourquoi**. Tout le reste est une
+>    hypothèse déguisée en mesure. Et la sortie de secours, quand la mesure renverse la phrase,
+>    est presque toujours une affirmation **plus faible et suffisante** : ici, *« aucun oracle ne
+>    regardait ces octets »*, qui justifie le même filet neuf sans être fausse.
+
+⛔ **Pourquoi ce cas-là est instructif, et pas seulement une erreur de plus.** Le raisonnement était
+**correct à chaque maillon** — le commentaire de fixture cité est exact, la maison de référence ne
+pose vraiment pas le paramètre, les suites `eventlog` ensemencent vraiment à la main. Il ne manquait
+qu'une chose : **le produit lui-même posait le drapeau**, dans sept constructeurs que personne
+n'avait balayés. ⇒ **Une chaîne de maillons vrais ne fait pas une mesure.** Le raccourci de
+diagnostic à retenir, symétrique de celui du cas 7-8 (*« chercher ce que le produit publie déjà »*)
+est : ⭐ **avant d'écrire « rien n'atteint ce site », balayer ce que le PRODUIT met par défaut** —
+`grep` du nom du paramètre de garde sur tout `src/`, pas seulement sur `tests/`. Ici,
+`grep -rn log_history src` rendait **8 lignes** et la réponse était dans **7** d'entre elles.
+
+⚠️ **Corollaire sur le coût.** Cette erreur ne se voit **pas** dans le vert : la suite neuve est
+verte, les 145 goldens sont intacts, le `make check` est bon. Elle ne coûte rien **au code** et
+tout **au récit** — et le récit, ici, est ce dont sept tickets suivants héritent. C'est la raison
+pour laquelle elle vaut un retour à l'auteur alors que le `src/` est sain.
+
+### ⛔ QUATRE affirmations de la fiche `E4.1l.md` que la mesure contredit
 
 1. **« `JsonApiHandlerHttp.cpp:417` — `json_array_append_new(jev, i->toJson())` dans `eventlog` »**
    → **faux**, ce site est dans **`processPolling()`** (l'action `poll_listen`), pas dans
@@ -5628,6 +5696,15 @@ obtenu comme ça n'aurait rien prouvé. Le remède tient en trois lignes de fixt
    des fichiers suivis). Les deux suites passent par les transports. **Zéro fichier de test n'a
    dû suivre la signature**, et le commit de bascule ne touche aucun test.
 
+4. **« `json_pack("{s:s, …}")` abandonne silencieusement une paire dont la chaîne C est `NULL` »**
+   → **faux**, mesuré sur sonde compilée contre le vrai jansson : `json_pack` rend **`NULL` pour
+   l'objet ENTIER** dès qu'un `%s` reçoit `NULL` — `CalaosEvent::toJson()` n'aurait donc rien rendu
+   du tout, et il n'y avait aucune « paire perdue » à ce niveau. **L'abandon de paire venait d'un
+   cran plus bas**, de `jansson_from_params()` : `json_string()` rend `NULL` sur de l'UTF-8
+   invalide, `json_object_set_new()` rend `-1`, et **seule cette paire-là** disparaissait pendant
+   que l'objet restait valide. ⇒ **Deux modes de défaillance, pas un.** Le commentaire de
+   `EventManager.cpp` qui recopiait l'affirmation de la fiche a été **corrigé** (prose seule).
+
 ### ⭐ Le wire RemoteUI reçoit AUSSI ce changement — mesuré, non annoncé par la fiche
 
 `JsonApiHandlerWS` branche `handleEvents` sur `EventManager::newEvent` **dans son constructeur**
@@ -5637,17 +5714,69 @@ obtenu comme ça n'aurait rien prouvé. Le remède tient en trois lignes de fixt
 RemoteUI changent d'ordre de clés et d'échappement exactement comme ceux de l'API publique.**
 Le tableau des wires d'`E4.1.md` classe RemoteUI en « déjà en nlohmann aujourd'hui » : c'est vrai
 de ses **réponses**, pas de ses **events**, qui partaient par la surcharge jansson de `sendJson()`.
-L'autre bout est le firmware d'un dépôt voisin, qui décode avec un vrai parseur. **À reprendre
-par `E4.1n`**, qui possède RemoteUI.
+L'autre bout est le firmware d'un dépôt voisin, qui décode avec un vrai parseur.
 
-### Ce qui bouge sur les octets, exhaustivement
+⚠️ **Le renvoi « à reprendre par `E4.1n` » de la première rédaction était TROMPEUR : il n'y a plus
+rien à faire côté CODE.** Ce ticket couvre ce wire **par construction** (l'héritage fait que la
+bascule s'y applique sans une ligne de plus), et le delta est **déjà déclaré** dans
+`RELEASE_NOTES.md`, qui nomme explicitement les écrans déportés. L'exigence est **satisfaite ici**.
+⇒ **`E4.1n` hérite d'une tâche exclusivement DOCUMENTAIRE** : corriger la ligne RemoteUI du tableau
+des wires d'`E4.1.md`, qui la classe « déjà en nlohmann aujourd'hui » — vrai de ses **réponses**,
+faux de ses **events**. ⛔ **Ne pas ouvrir de ticket de code là-dessus, il serait vide.**
 
-| Wire | Ordre des clés | Échappement | Autre |
-|---|---|---|---|
-| WS `{"msg":"event",…}` (API + RemoteUI) | enveloppe `msg,data` → `data,msg` ; event `event_raw,type,type_str,data` → `data,event_raw,type,type_str` | `\u00E9` → `\u00e9` | UTF-8 invalide : paire **supprimée** → paire **conservée** avec U+FFFD |
-| HTTP `poll_listen` | racine `success,events` → `events,success` ; même bascule sur l'event | `\u00E9` → `\u00e9` | idem |
-| Ligne d'historique (`event_raw` en base) | même bascule sur l'event | `\u00E9` → `\u00e9` | idem |
-| `calaos_script` (`ScriptExec`) | **seul** l'objet event se trie ; l'enveloppe reste en ordre d'insertion | **inchangé** (MAJUSCULE), grâce à l'adaptateur | idem |
+### Ce qui bouge sur les octets — ⛔ **la première rédaction en déclarait TROIS, il y en a CINQ**
+
+⚠️ **La revue a trouvé les deux manquants ; ils sont ici REPRODUITS**, sur une sonde compilée
+contre le vrai `jansson` et le vrai `json.hpp`, exécutant les deux chaînes réelles :
+`jansson_from_params()` + `json_dumps(JSON_COMPACT|JSON_ENSURE_ASCII)` d'un côté,
+`Params::toNJson()` + `dump(-1, ' ', true, error_handler_t::replace)` de l'autre. **120 sondes,
+75 DIFF, 45 SAME.**
+
+| # | Delta | Avant | Après | 1ʳᵉ livraison |
+|---|---|---|---|---|
+| 1 | ordre des clés | ordre d'insertion | trié | ✅ déclaré |
+| 2 | casse de l'hexadécimal | `\u00E9` | `\u00e9` | ✅ déclaré |
+| 3 | **valeur** en UTF-8 invalide | paire **supprimée** | conservée en U+FFFD | ✅ déclaré |
+| 3b | ⭐ **CLÉ** en UTF-8 invalide | paire **supprimée** (`{}`) | clé servie en `k��z` | ⛔ **non dit** |
+| 4 | ⭐ **`U+007F` (DEL)**, valeur **ou** clé | **octet BRUT** : `{"c":"a<0x7f>b"}` = **11 o** | `{"c":"a\u007fb"}` = **16 o** | ⛔ **manquait** |
+| 5 | ⭐ **`0x00` embarqué**, valeur **ou** clé | **TRONCATURE** à la chaîne C : `a\0b` → `"a"` ; une clé `k\0z` → `"k"`, donc **paire renommée en silence** | `"a\u0000b"` / `"k\u0000z"` | ⛔ **manquait** |
+
+⭐ **Le delta 4 est le seul qui change la LONGUEUR du message** (11 → 16 octets sur la sonde), donc
+le `Content-Length` de la réponse HTTP. C'était l'énoncé « seule la casse de l'hexadécimal » qui le
+masquait : il est **trop étroit**, et c'est exactement le mot « seule » qui était faux.
+⭐ **Le delta 5 est le plus vicieux** : avant, une clé contenant un `0x00` était servie **sous un
+autre nom**, silencieusement, avec sa valeur — un client la lisait sans rien remarquer.
+
+**Atteignabilité des deltas 4 et 5** : `%7f` et `%00` sur `set_state`. `Utils::url_decode`
+(`StringUtils.cpp:57-73`) fait `ret += (char) htoi(...)` — l'octet entre **tel quel** dans la
+`std::string`, y compris le zéro, et ne traverse **aucun parseur JSON**. ⚠️ *Vérifié au niveau du
+décodeur ; **pas** rejoué de bout en bout contre un `calaos_server` réel.*
+
+**Ce qui a été balayé au-delà** (résultats détaillés dans `RELEASE_NOTES.md`) : `0x00` ;
+`0x01`–`0x1F` ⇒ **9 diffs, toutes de casse** (`0B 0E 0F 1A 1B 1C 1D 1E 1F`) — chiffre du relecteur,
+reproduit à l'identique ; `0x7F` ; `0x80`–`0x9F` en **octets bruts** ⇒ **32/32 diffs** (UTF-8
+invalide) ; `U+0080`–`U+009F` **bien formés** ⇒ **12 diffs**, casse ; **substituts** écrits en UTF-8
+(`U+D800`/`U+DC00`/`U+DFFF`) en valeur et en clé ⇒ diffs, UTF-8 invalide ; **non-caractères**
+`U+FFFE`/`U+FFFF`/`U+FDD0`/`U+1FFFE` ⇒ diffs de casse, **aucun n'est filtré ni avant ni après** ;
+⭐ `U+2028`/`U+2029` ⇒ **IDENTIQUES**, échappés des deux côtés ; surlongue `C0 AF`, tronquée
+`E2 80`, séquence 5 octets ⇒ diffs (UTF-8 invalide) ; `"` et `\` ⇒ identiques.
+
+⛔ **Ce qui n'a PAS été balayé, et dont les sept tickets suivants héritent** : les chaînes
+**longues** (aucun effet de bord de tampon cherché), les **nombres** et **booléens** (hors périmètre
+ici, tout part en chaîne), la **profondeur** d'imbrication, les **doublons de clés**, l'ordre de tri
+sur des clés **non ASCII** (il devient l'ordre des unités de code UTF-8, pas un ordre linguistique
+— et il n'y a **aucun** oracle dessus), et tout ce qui n'est pas `Params` → JSON : les autres
+constructeurs de l'API basculent dans `E4.1m` … `E4.1s` et **n'ont pas été sondés**. Rien contre un
+client tiers, rien sous ASan.
+
+**Par wire** :
+
+| Wire | Ordre des clés | Deltas 2-5 |
+|---|---|---|
+| WS `{"msg":"event",…}` (API + RemoteUI) | enveloppe `msg,data` → `data,msg` ; event `event_raw,type,type_str,data` → `data,event_raw,type,type_str` | tous |
+| HTTP `poll_listen` | racine `success,events` → `events,success` ; même bascule sur l'event | tous |
+| Ligne d'historique (`event_raw` en base) | même bascule sur l'event | tous |
+| `calaos_script` (`ScriptExec`) | **seul** l'objet event se trie ; l'enveloppe reste en ordre d'insertion | ⚠️ **aucun** — le round-trip `json_loads()` de l'adaptateur ré-échappe en jansson. **Non mesuré sur sonde**, déduit du fait que la sortie repasse par `json_dumps()` |
 
 ⚠️ **Aucun de ces deltas n'est visible d'un golden** : les 145 comparent des documents parsés.
 `tests/core/EventWireBytes_test.cpp` est le seul oracle qui les voit — 9 de ses 10 cas étaient
@@ -5657,7 +5786,12 @@ rouges sur l'arbre jansson, et le 10ᵉ (le témoin de typage) vert des deux cô
 
 `jansson_from_params()` **supprimait la paire en silence** (`json_string()` rend `NULL`,
 `json_object_set_new()` rend `-1`, aucun des deux codes n'était testé) ; `Params::toNJson()` la
-conserve et `error_handler_t::replace` la rend en U+FFFD. Sur un event `io_changed`, cela veut dire
+conserve et `error_handler_t::replace` la rend en U+FFFD. ⚠️ **Et cela vaut aussi quand c'est la
+CLÉ qui est mal encodée** : `json_object_set_new()` valide l'UTF-8 de la clé et rend `-1` de la
+même façon ; désormais la clé est servie en `k��z`. ⛔ **À ne pas confondre avec `json_pack()`** :
+sondé, `json_pack("{s:s,…}")` avec une chaîne C `NULL` ne perd pas une paire, il rend **`NULL`
+pour l'objet ENTIER** — c'est un tout autre mode de défaillance, et le commentaire de
+`EventManager.cpp` qui l'attribuait à `json_pack` a été corrigé. Sur un event `io_changed`, cela veut dire
 que `data.state` **disparaissait** de l'event et de la ligne d'historique et qu'il est maintenant
 présent, en garbage lisible. **Même arbitrage que `F-LUA-2` (E4.1j) et `F-REO-6`** : les deux issues
 sont du garbage, l'entrée était déjà cassée dans les deux, et la nature de l'observable ne change
