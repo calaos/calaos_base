@@ -232,6 +232,7 @@ calaos_server_SOURCES = \
         IO/Wago/WagoMap.cpp                             \
         IO/Wago/WagoIOBase.h                            \
         IO/Wago/WagoMap.h                               \
+        IO/Wago/WagoWire.h                              \
         IO/Wago/libmbus/mbus.c                          \
         IO/Wago/libmbus/mbus.h                          \
         IO/Wago/libmbus/mbus_cmd.c                      \
@@ -381,6 +382,7 @@ calaos_wago_SOURCES = \
         IO/Wago/libmbus/mbus_conf.h         \
         IO/Wago/libmbus/mbus_rqst.c         \
         IO/Wago/libmbus/mbus_sock.c         \
+        IO/Wago/WagoWire.h                  \
         IO/Wago/WagoExternProc_main.cpp
 
 calaos_wago_LDADD = \
