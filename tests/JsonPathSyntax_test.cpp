@@ -141,6 +141,7 @@
 #include "MqttCtrl.h"
 #include "WebCtrl.h"
 #include "WebDocBase.h"
+#include "JsonPath.h"
 
 using namespace Calaos;
 
@@ -1160,6 +1161,160 @@ TEST_F(MqttJsonPathTest, EveryFailureOfTheParserIsReportedThroughTheFlag)
     err = true;
     EXPECT_EQ("object{}", resolve("main", err));
     EXPECT_FALSE(err);
+}
+
+//! The same contract, on the OTHER copy of the parser. Before T3.37 this
+//could not be written at all: WebCtrl::getValueJson() had no flag, because
+//the two parsers were two bodies and each got to decide. They are one body
+//now, so the answer reaches both callers and the Web wrapper is where it
+//lands - T3.35b sect. 6.8 divergence, closed.
+TEST_F(WebJsonPathTest, EveryFailureOfTheParserIsReportedThroughTheFlag)
+{
+    bool err = false;
+    EXPECT_EQ("", ctrl.getValueJson("[", filename, err));
+    EXPECT_TRUE(err) << "a lone '[' is a failure";
+
+    err = false;
+    EXPECT_EQ("", ctrl.getValueJson("weather/[/description", filename, err));
+    EXPECT_TRUE(err) << "a malformed index is a failure";
+
+    err = false;
+    EXPECT_EQ("", ctrl.getValueJson("weather/[12/description", filename, err));
+    EXPECT_TRUE(err) << "an index missing its closing bracket is a failure";
+
+    err = false;
+    EXPECT_EQ("", ctrl.getValueJson("weather/[7]/description", filename, err));
+    EXPECT_TRUE(err) << "an out of bounds index is a failure";
+
+    err = false;
+    EXPECT_EQ("", ctrl.getValueJson("nosuchobject/description", filename, err));
+    EXPECT_TRUE(err) << "an unknown key is a failure";
+
+    //Web only: the empty path has no shortcut on this side, it splits into no
+    //token and fails. The MQTT copy answers the raw payload and reports
+    //SUCCESS - the frozen divergence, seen from the flag.
+    err = false;
+    EXPECT_EQ("", ctrl.getValueJson("", filename, err));
+    EXPECT_TRUE(err) << "a path with no segment is a failure on the Web side";
+
+    err = false;
+    EXPECT_EQ("", ctrl.getValueJson("weather/[1]/description", "/tmp/calaos_t337_no_such_file.json", err));
+    EXPECT_TRUE(err) << "a file that cannot be opened is a failure";
+
+    //...and what it did NOT do, same three as the MQTT twin.
+    err = true;
+    EXPECT_EQ("light rain", ctrl.getValueJson("weather/[1]/description", filename, err));
+    EXPECT_FALSE(err);
+
+    err = true;
+    EXPECT_EQ("clear sky", ctrl.getValueJson("weather/[zz]/description", filename, err));
+    EXPECT_FALSE(err) << "an unreadable index reads element 0 - warned about, not failed";
+
+    err = true;
+    EXPECT_EQ("object{}", ctrl.getValueJson("main", filename, err));
+    EXPECT_FALSE(err);
+}
+
+/* ---------------------------------------------------------------------------
+ * T3.37 - THE PARSER, ON ITS OWN.
+ *
+ * What every case above pays for, twice: MqttJsonPathTest has to build an
+ * MqttCtrl, whose constructor SPAWNS calaos_mqtt, and WebJsonPathTest has to
+ * write a temporary file and read it back. Neither has anything to do with
+ * parsing a path. Calaos::JsonPath::resolve() takes a document and a string
+ * and answers - no object, no broker, no file, no fixture.
+ *
+ * ! THESE DO NOT REPLACE THE TWO FIXTURES ABOVE, and T3.37 deliberately does
+ * NOT do what its own sect. 4 suggested ("retirer alors la construction de
+ * MqttCtrl du fixture"). Testing the free function proves the free function
+ * works; it says NOTHING about whether MqttCtrl and WebCtrl route through it.
+ * The ~50 cases that run twice, once per caller, are the only thing that
+ * does, and the T3.37 mutation campaign uses exactly that: a mutation of this
+ * shared body has to redden MQTT cases AND Web cases together. Deleting the
+ * fixtures would delete the evidence.
+ * ------------------------------------------------------------------------ */
+
+TEST(JsonPathResolve, ResolvesWithoutABrokerAFileOrAnObject)
+{
+    const Json root = Json::parse(kPayload);
+    std::string value;
+
+    EXPECT_TRUE(Calaos::JsonPath::resolve(root, "weather/[1]/description", value));
+    EXPECT_EQ("light rain", value);
+
+    value.clear();
+    EXPECT_TRUE(Calaos::JsonPath::resolve(root, "main/city", value));
+    EXPECT_EQ("Toulouse", value);
+
+    value.clear();
+    EXPECT_TRUE(Calaos::JsonPath::resolve(root, "nested/list/[0]/deep/[2]", value));
+    EXPECT_EQ("gamma", value);
+}
+
+//! On a failure the OUT PARAMETER IS NOT TOUCHED. The callers pre-set it to
+//an empty string, so a parser that wrote a partial result on the way out
+//would be invisible to them - and this is the one property a caller which
+//keeps its previous reading would depend on.
+TEST(JsonPathResolve, AFailureLeavesTheValueUntouched)
+{
+    const Json root = Json::parse(kPayload);
+    std::string value = "sentinel";
+
+    EXPECT_FALSE(Calaos::JsonPath::resolve(root, "weather/[7]/description", value));
+    EXPECT_EQ("sentinel", value) << "an out of bounds index must not write the value";
+
+    EXPECT_FALSE(Calaos::JsonPath::resolve(root, "nosuchobject", value));
+    EXPECT_EQ("sentinel", value) << "an unknown key must not write the value";
+
+    EXPECT_FALSE(Calaos::JsonPath::resolve(root, "[", value));
+    EXPECT_EQ("sentinel", value) << "a malformed index must not write the value";
+
+    EXPECT_FALSE(Calaos::JsonPath::resolve(root, "///", value));
+    EXPECT_EQ("sentinel", value) << "a path with no segment must not write the value";
+}
+
+//! The frozen tokens of T3.29/T3.35c, replayed on the shared body itself so
+//that the grammar is pinned in ONE place too. Every expectation here is
+//already asserted through both callers; what this adds is a single table a
+//reader can check the grammar against.
+TEST(JsonPathResolve, TheFrozenIndexGrammarIsUnchanged)
+{
+    const Json root = Json::parse(kPayload);
+
+    struct Case { const char *path; bool ok; const char *value; };
+    const Case cases[] = {
+        //unreadable index tokens: element 0, warned about, NOT a failure
+        { "weather/[]/description",   true,  "clear sky" },
+        { "weather/[zz]/description", true,  "clear sky" },
+        { "weather/[ ]/description",  true,  "clear sky" },
+        { "weather/[\t]/description", true,  "clear sky" },
+        { "weather/[+]/description",  true,  "clear sky" },
+        { "weather/[-]/description",  true,  "clear sky" },
+        //...but a padded or signed NUMBER is a number and still resolves
+        { "weather/[ 2]/description", true,  "thunderstorm" },
+        { "weather/[+2]/description", true,  "thunderstorm" },
+        //malformed FORM: rejected before erase()/pop_back() can eat a digit
+        { "weather/[5/description",   false, "" },
+        { "weather/[12/description",  false, "" },
+        { "weather/[/description",    false, "" },
+        //"[5 ]" has the right FORM, so it reaches the index test; the token
+        //"5 " carries a digit but from_string() stops before the space and
+        //reports failure, so it is an unreadable index: element 0, warned.
+        { "weather/[5 ]/description", true,  "clear sky" },
+        //a negative index carries a number, so it is at() that refuses it
+        { "weather/[-1]/description", false, "" },
+    };
+
+    for (const Case &c : cases)
+    {
+        std::string value;
+        EXPECT_EQ(c.ok, Calaos::JsonPath::resolve(root, c.path, value))
+            << "path was: " << c.path;
+        if (c.ok)
+            EXPECT_EQ(c.value, value) << "path was: " << c.path;
+        else
+            EXPECT_EQ("", value) << "path was: " << c.path;
+    }
 }
 
 //! THE DISPLACED PROBLEM ITSELF, at the exact call the status topics make.

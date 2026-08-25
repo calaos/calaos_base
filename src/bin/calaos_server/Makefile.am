@@ -116,6 +116,7 @@ calaos_server_SOURCES = \
         IO/IODoc.h                                      \
         IO/IOFactory.cpp                                \
         IO/IOFactory.h                                  \
+        IO/JsonPath.h                                   \
         IO/InPlageHoraire.cpp                           \
         IO/InPlageHoraire.h                             \
         IO/InputAnalog.cpp                              \

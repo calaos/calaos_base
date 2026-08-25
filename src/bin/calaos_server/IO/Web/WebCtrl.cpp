@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "WebCtrl.h"
+#include "JsonPath.h"
 
 //E4.4b: the XML branch runs on pugixml (DOM + native XPath 1.0). This is the
 //only place in calaos that parses *untrusted* XML -- getValue() feeds it a
@@ -160,11 +161,20 @@ void WebCtrl::launchDownload()
 
 string WebCtrl::getValueJson(string path, string filename)
 {
+    bool err = false;
+    return getValueJson(path, filename, err);
+}
+
+string WebCtrl::getValueJson(string path, string filename, bool &err)
+{
     string value;
+
+    err = false;
 
     std::ifstream ifs(filename);
     if (!ifs.is_open())
     {
+        err = true;
         cWarning() << "Failed to open WebCtrl file: " << filename;
         return string();
     }
@@ -176,201 +186,32 @@ string WebCtrl::getValueJson(string path, string filename)
     }
     catch (const std::exception &e)
     {
+        err = true;
         cWarning() << "Error parsing " << filename << ":" << e.what();
         return string();
     }
 
-    vector<string> tokens;
-    Utils::split(path, tokens, "/");
-
-    if (!tokens.empty())
+    //T3.37. The ~55 line path parser that used to sit here, and again in
+    //MqttCtrl::getValueJson(), now lives once in IO/JsonPath.h. What is left
+    //is what is genuinely Web's: the document comes from a downloaded FILE,
+    //so it is opened and parsed here and the log names the file. There is no
+    //empty-path shortcut on this side - "" splits into no token and falls
+    //into the parser's "no path segment" branch, which is the divergence
+    //T3.29 AnEmptyPathReturnsEmpty freezes against the MQTT copy.
+    if (!JsonPath::resolve(root, path, value))
     {
-        Json parent = root;
-        for (auto it = tokens.begin();it != tokens.end();it++)
-        {
-            string val = *it;
-
-            // Test if the token is an array index
-            // if it's the case, it must be something like [x]
-            if (val[0] == '[')
-            {
-                /* T3.35, corrected by T3.35b. A well formed index token is
-                 * "[n]" - an opening bracket AND a closing one. erase() and
-                 * pop_back() below strip the first and the last character
-                 * UNCONDITIONALLY, so what has to be checked here is the FORM.
-                 * A guard on the LENGTH alone (the T3.35 shape, `val.size() <
-                 * 2`) covered only half of it and the message it printed was
-                 * not true of the code that printed it:
-                 *
-                 *  - a lone '[' was EMPTIED by erase(), pop_back() then
-                 *    underflowed the size_t length of the string, and the read
-                 *    that followed escaped getValueJson() as a std::bad_alloc.
-                 *    Nothing caught it anywhere up to main() and calaos_server
-                 *    terminated. There is no remote vector - a `path` is only
-                 *    ever written by calaos_installer - but a typo was enough
-                 *    to bring the server down. A length guard does stop that.
-                 *
-                 *  - "[5" and "[12" are two characters or more, so a length
-                 *    guard let them straight through; pop_back() then ate a
-                 *    DIGIT and the parser answered element 0 and element 1,
-                 *    SILENTLY, with a value nothing distinguishes from a
-                 *    correct reading. That is worse than the empty string the
-                 *    same typo produces everywhere else in this parser.
-                 */
-                if (val.size() < 2 || val.back() != ']')
-                {
-                    //T3.35b. No `err` flag on this side: WebCtrl::getValue()
-                    //returns a string and nothing more, and none of its three
-                    //callers asks for an error. The MQTT copy carries one
-                    //because MqttCtrl::getValue() already promised one and was
-                    //lying about it. Deliberate divergence, see T3.37.
-                    cWarning() << "Error in path " << path << ", malformed array index " << *it
-                               << " : an array index must be written [n], as in weather/[0]/description";
-                    return string();
-                }
-
-                // Remove first and last char
-                val.erase(0, 1);
-                val.pop_back();
-
-                int idx = 0;
-
-                try
-                {
-                    /* T3.35b. The index is DECIDED here, on both branches,
-                     * instead of being left to whatever Utils::from_string()
-                     * happens to leave behind. The two failing shapes do not
-                     * behave the same way and that asymmetry was the trap:
-                     * on a BLANK string - the token "[]" - the stream sentry
-                     * fails before num_get ever runs, so the destination is
-                     * NOT written and the index was read UNINITIALISED; on a
-                     * non blank string that does not parse - "[zz]" - the
-                     * sentry succeeds and C++11 num_get stores 0. from_string()
-                     * cannot even be interrogated about it: it returns
-                     * iss.eof(), which is TRUE for the blank string.
-                     *
-                     * The two cases are made to agree, deliberately, on
-                     * element 0: T3.29 froze that value and a real
-                     * configuration may lean on it. What does not stay is the
-                     * SILENCE - reading element 0 because the index was
-                     * unreadable is precisely the case a user cannot diagnose.
-                     *
-                     * Everything that touches the index sits inside this try,
-                     * so it can only ever fail through the one error path this
-                     * branch already has.
-                     *
-                     * T3.35c. THE TEST IS "DOES IT CARRY A DIGIT", NOT "DOES
-                     * from_string() COMPLAIN". from_string() returns
-                     * iss.eof(), and a stream that consumed only whitespace -
-                     * or only a sign - DID reach its end, so it reports
-                     * SUCCESS on "[ ]", "[\t]", "[+]" and "[-]". On the two
-                     * blank ones it does not write the destination either,
-                     * which is how the index was still being read UNASSIGNED
-                     * after T3.35b: `val.empty()` catches "[]" and nothing
-                     * else. find_first_of() closes the whole family in one
-                     * test, and it subsumes val.empty() - an empty string has
-                     * no digit - so no sub-condition here is dead.
-                     *
-                     * WHY NOT "every character must be a digit"
-                     * (find_first_not_of): it would test the WRONG thing
-                     * three ways. An empty string has no NON-digit either, so
-                     * "[]" would walk back through unguarded; "[+2]" would
-                     * stop resolving; and "[-1]" would be answered "is not a
-                     * number", which is false about -1. The sign is NOT
-                     * rejected here, deliberately: a signed or padded token
-                     * carries a number and goes on to at(), which refuses a
-                     * negative index as out of range - a different message
-                     * for a different mistake.
-                     *
-                     * INVARIANT this establishes, and the reason the
-                     * `int idx = 0` above is now GENUINELY dead - it is kept
-                     * as a belt, it is no longer the value anything reads:
-                     * when the guard passes, val holds at least one digit, so the
-                     * stream sentry succeeds, so num_get RUNS - and C++11
-                     * num_get always stores something (the value, 0 on a
-                     * failed parse, or the clamped limit on overflow). When
-                     * the guard trips, idx = 0 is assigned. Every path into
-                     * parent.at(idx) therefore writes idx first.
-                     */
-                    if (val.find_first_of("0123456789") == string::npos ||
-                        !Utils::from_string(val, idx))
-                    {
-                        idx = 0;
-                        cWarning() << "Error in path " << path << ", array index " << *it
-                                   << " is not a number : reading element 0";
-                    }
-
-                    parent = parent.at(idx);
-                }
-                catch (const std::exception &e)
-                {
-                    cWarning() << "Error in path " << path << ", index not found " << *it << " : " << e.what();
-                    return string();
-                }
-            }
-            else
-            {
-                // Toke is a normal object name
-                try
-                {
-                    parent = parent.at(val);
-                }
-                catch (const std::exception &e)
-                {
-                    cWarning() << "Error in path " << path << ", subpath not found " << *it << " : " << e.what();
-
-                    /* T3.35 - the "option C" of T3.29 section 5.6. NO FALSE
-                     * POSITIVE IS POSSIBLE HERE, by construction and not by
-                     * heuristic: this catch is only ever entered when
-                     * parent.at(val) has ALREADY thrown. A payload whose key
-                     * really is spelled "action[0]" - a real, measured
-                     * Zigbee2MQTT shape - has RESOLVED and never reaches this
-                     * line. That is exactly what separates it from teaching
-                     * the parser to also split a glued index, which T3.29
-                     * implemented, measured and rejected because it shadowed
-                     * such a key silently.
-                     *
-                     * Honest about its reach: cWarning() is not a filtered
-                     * domain, so this does go to the calaos_server log by
-                     * default - but the person who made the typo is sitting in
-                     * calaos_installer.
-                     */
-                    if (val.find('[') != string::npos)
-                    {
-                        string suggestion = val;
-                        suggestion.insert(suggestion.find('['), "/");
-                        cWarning() << "Error in path " << path << ", did you mean " << suggestion
-                                   << " ? array indices are their own path segment, not glued to "
-                                      "the key that precedes them";
-                    }
-
-                    return string();
-                }
-            }
-        }
-
-        if (parent.is_null())
-            value = "null";
-        else if (parent.is_boolean())
-            value = parent.get<bool>()?"true":"false";
-        else if (parent.is_number())
-            value = Utils::to_string(parent.get<double>());
-        else if (parent.is_string())
-            value = parent.get<string>();
-        else if (parent.is_object())
-        {
-            cWarning() << "Error, path returns an object, not a value";
-            value = "object{}";
-        }
-        else if (parent.is_array())
-        {
-            cWarning() << "Error, path returns an array, not a value";
-            value = "array[]";
-        }
-    }
-    else
-    {
-        cWarning() << "Error emtpy path not allowed";
+        //T3.37 closes the T3.35b sect. 6.8 divergence AT THE PARSER: resolve()
+        //reports to everyone, there is no flagless variant to fall back on.
+        //It is DISCARDED HERE, on purpose and in one place, because
+        //WebCtrl::getValue() reports nothing to its four call sites and
+        //making it report is a behaviour change that also has to cover the
+        //XML and TEXT branches to mean anything - a flag honest on one branch
+        //out of three is the very defect T3.35b sect. 6.1 had to undo. The
+        //measurement of what those four sites do with a silent failure today,
+        //and the follow-up it calls for, are in docs/refactoring/T3.37.md
+        //sect. 4.
+        err = true;
+        return string();
     }
 
     return value;

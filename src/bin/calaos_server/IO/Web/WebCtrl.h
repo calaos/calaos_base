@@ -53,6 +53,14 @@ public:
              std::function<void()> fileDownloaded_cb = []() { cDebugDom("web") << "File downloaded"; });
     void Del(string path);
 
+    /*
+     * T3.37. The parser lives in IO/JsonPath.h and reports to EVERY caller
+     * whether the path resolved - that is not a per-copy choice any more.
+     * This overload is where the answer arrives on the Web side; the two
+     * argument form is the production entry point and discards it, in the one
+     * documented place, for the reasons spelled out at the call site.
+     */
+    string getValueJson(string path, string filename, bool &err);
     string getValueJson(string path, string filename);
     string getValueXml(string path, string filename);
     string getValueText(string path, string filename);
