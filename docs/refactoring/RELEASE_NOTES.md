@@ -64,6 +64,61 @@ qui ne démarre pas. Un `calaos_mcp --help` suffit désormais à vérifier qu'un
 
 ---
 
+## 🔴 MQTT et Web : une faute de frappe dans un `path` arrêtait le serveur
+
+### Un `path` contenant un crochet isolé faisait s'arrêter `calaos_server` (T3.35)
+Si `calaos_server` **s'arrêtait net** peu après un démarrage ou après avoir modifié une
+entrée/sortie **MQTT** ou **Web**, sans message d'erreur exploitable, regardez le paramètre
+**`path`** des entrées que vous veniez de toucher.
+
+Il suffisait qu'un `path` contienne un crochet ouvrant **tout seul** — `[`, ou
+`weather/[/description` : une **faute de frappe**, une parenthèse effacée à moitié, un copier-coller
+tronqué — pour que le serveur **s'arrête** au moment où il lisait la valeur, c'est-à-dire à chaque
+message reçu du capteur ou à chaque interrogation de la page web. Ce n'était pas un cas rare à
+provoquer : la syntaxe des index de tableau **contient** des crochets, donc c'est exactement dans ce
+paramètre-là qu'on en tape.
+
+⛔ **Rien à craindre de l'extérieur** : un `path` n'est écrit que depuis `calaos_installer`, jamais
+par un client de l'API, un navigateur ou un appareil du réseau. Il fallait donc y avoir accès pour
+déclencher le défaut — mais il fallait aussi n'avoir fait qu'**une faute de frappe**.
+
+**Ce que vous verrez désormais.** Le serveur **continue de tourner**. L'entrée/sortie concernée rend
+une valeur **vide**, comme pour n'importe quel chemin qui ne mène nulle part, et le journal de
+`calaos_server` nomme le jeton fautif :
+
+```
+[WRN] (MqttCtrl.cpp) Error in path weather/[/description, malformed array index [ :
+      an array index must be written [n], as in weather/[0]/description
+```
+
+### Et quand le chemin ne trouve rien, le journal dit maintenant quoi corriger
+Deuxième changement, au même endroit. Si vous aviez copié l'**ancienne** syntaxe d'index — celle que
+`calaos_installer` affichait à tort avant la correction ci-dessous — vous obteniez une valeur vide
+et un message qui se contentait de dire que la clé n'existait pas. Le journal ajoute désormais la
+correction à faire :
+
+```
+[WRN] (MqttCtrl.cpp) Error in path weather[0]/description, subpath not found weather[0] : …
+[WRN] (MqttCtrl.cpp) Error in path weather[0]/description, did you mean weather/[0] ?
+      array indices are their own path segment, not glued to the key that precedes them
+```
+
+⚠️ **Cette aide ne se déclenche jamais à tort.** Elle n'apparaît que lorsque la recherche a
+**réellement échoué**. Si votre appareil publie un payload dont une clé s'appelle *vraiment*
+`action[0]` — c'est le cas de certains boutons Zigbee2MQTT — ce chemin **fonctionne**, continue de
+fonctionner exactement comme avant, et **ne reçoit aucun message**. Rien de ce qui marchait ne
+change.
+
+⚠️ **Là où le message arrive** : dans le journal de **`calaos_server`**, pas dans
+`calaos_installer`. Si vous configurez depuis l'installeur et que la valeur reste vide, c'est le
+journal du serveur qu'il faut ouvrir.
+
+→ **Rien à faire de votre côté**, sauf si le serveur s'arrêtait sans raison apparente : vérifiez
+alors vos paramètres `path` — la faute de frappe est probablement toujours là, elle est simplement
+devenue inoffensive.
+
+---
+
 ## 🔴 MQTT et Web : la syntaxe d'index de tableau affichée par `calaos_installer` était fausse
 
 ### Si votre paramètre `path` contient des crochets, il ne lisait probablement rien (T3.29)

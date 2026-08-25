@@ -2749,7 +2749,8 @@ périmètre.
 ### E4.5c — suites de revue : deux bugs de code trouvés en corrigeant la doc
 
 - **[⭐ PLANTAGE DÉTERMINISTE DU SERVEUR, trouvé en caractérisant T3.29, reproduit en revue —
-  ✅ TICKETÉ : [T3.35](T3.35.md)] Un `path` de configuration valant `[` fait tomber
+  ✅ **LIVRÉ** sur `fix/t3.35` (`3685dc7b` caractérisation, `3db14a92` correctif), fiche
+  [T3.35](T3.35.md)] Un `path` de configuration valant `[` fait tomber
   `calaos_server`.** Branche index des **deux** parseurs (`IO/Mqtt/MqttCtrl.cpp`,
   `IO/Web/WebCtrl.cpp`) : `val` vaut `"["`, `val.erase(0, 1)` le vide, `val.pop_back()` **sous-flue
   le `size_t`** — et le `Utils::from_string(val, idx)` qui suit est **HORS du `try`**
@@ -2763,6 +2764,18 @@ périmètre.
   caractérise pas de l'UB — cette décision-là était juste, c'est la formulation qui ne l'était pas.
   Correctif : une garde `if (val.size() < 2)` vers le chemin d'erreur, dans le **même `catch`** que
   le message d'aide de T3.35.
+  ⭐ **Livré 2026-08-25, et la sortie de l'impasse « on ne fige pas de l'UB » vaut d'être notée** :
+  les cas ne figent PAS le comportement actuel, ils figent le **chemin d'erreur qui devrait
+  exister** (valeur vide, aucune exception, jeton nommé) — le contrat que tous les autres échecs de
+  ce parseur honorent déjà. Rouge mesuré sur le commit de caractérisation : **6 cas, `exit status:
+  1`**, `Actual: it throws std::bad_alloc`, sur les deux parseurs.
+  ⚠️ **Deux corrections à ce finding, mesurées par mutation** : (a) `Utils::from_string` **PEUT**
+  lever ici — elle copie `val` dans un `istringstream`, c'est de là que vient le `bad_alloc` ; donc
+  la rentrer dans le `try` suffit à faire **survivre** le processus (mutation M1 : garde déplacée,
+  `ALonePathBracketDoesNotKillTheProcess` reste vert). (b) Le jeton **`[]`** — voisin non signalé —
+  lisait un `int` **NON INITIALISÉ** sur master (`from_string("")` laisse sa destination intacte,
+  le sentry échoue avant `num_get`) ; corrigé par `int idx = 0`, ce qui converge avec T3.25.
+  ⚠️ **T3.25 ne corrigeait PAS ce plantage** : il naît du `pop_back()`, **avant** `from_string`.
   ⚠️ Voisin mesuré au même endroit et **figé, lui** : un index **non numérique** (`[zz]`) lit
   silencieusement l'**élément 0** — `Utils::from_string` laisse sa destination à 0 et son retour
   n'est pas regardé (famille T3.25).
