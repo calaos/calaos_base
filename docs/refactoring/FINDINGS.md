@@ -5182,3 +5182,24 @@ lanceur de `make dist` doit penser à `git checkout -- po/`** — piège à comm
   ⇒ **Règle** : **écrire les angles morts de la sonde dans le fichier**. *Une sonde dont les
   angles morts sont écrits vaut mieux qu'une sonde qu'on croit complète.* Les deux témoins sont
   exécutables dans `TheAggregateProbesActuallyDiscriminate`.
+
+- ⚠️ **[F-FLAKY-1] — `core/ShutterImpulse_test` a une course d'HORLOGE MURALE, et elle rougit sous
+  contention CPU.** Observé en revalidant T3.31 : `make check -j8` pendant que trois autres agents
+  buildaient ⇒ **`# FAIL: 1`**, `ShutterImpulse_test.cpp:384`,
+  `PlainImpulseDownWithoutImpulseTimeStillHonoursTheDuration`, `Actual: true / Expected: false`.
+  Le cas pompe la boucle **juste en deçà** de l'échéance d'impulsion
+  (`pumpLoopFor(stillMovingProbeMs(kPlainDownMs, 0))`) puis exige `EXPECT_FALSE(sh.isStopped())` :
+  si l'ordonnanceur vole assez de temps, la boucle **dépasse** l'échéance et le volet s'arrête
+  **avant** l'assertion.
+  ⭐ **Mesuré comme flottant, pas supposé** : (a) le même arbre a rendu **93/93** deux fois avant
+  et une fois après ; (b) le cas seul passe **10/10** en isolation ; (c) `nm` sur
+  `tests/core/ShutterImpulse_test` trouve **0 symbole** de ce qui était en cours de modification,
+  sur **6938** — le lien de causalité est exclu, pas seulement jugé improbable.
+  ⇒ **Piège de diagnostic** : c'est un **faux ROUGE** dépendant de la charge, et il tombe sur un
+  fichier que le ticket courant ne touche pas — la réaction réflexe (« ma modification a cassé
+  quelque chose ») est fausse. **Vérifier par `nm` et par la répétition en isolation avant de
+  conclure**, et **ne jamais relancer un `make check` en aveugle** pour faire disparaître un
+  rouge sans l'avoir expliqué.
+  ⚠️ **Non corrigé ici** (fichier hors périmètre de T3.31) : à traiter par une échéance relative
+  au temps simulé plutôt qu'à l'horloge, ou par une marge. Voir aussi la règle de parallélisme :
+  `make check -j8` quand 3-4 agents buildent, `-j16` seulement en solo.
