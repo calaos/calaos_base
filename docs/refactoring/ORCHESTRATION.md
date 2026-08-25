@@ -8,6 +8,99 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **🔒 E4.1c ✅ MERGÉ (`35ce4cbf`, 5 commits, `git rebase master` + `merge --ff-only`, historique
+  linéaire, `make check` **79/79**) — le seul ticket de la série qui ne migre presque rien : il
+  RETIRE TROIS CHOSES MORTES, `src/` = **−9 / +0, AUCUNE addition**.**
+  Périmètre réel : `IO/ExternProc.h` (le `#include <jansson.h>` de la ligne 26),
+  `IO/Web/WebCtrl.cpp` (son include), `HttpClient.cpp` (la macro de compat `json_array_foreach`,
+  `:111-116`). **Aucun octet observable ne change** : les trois fichiers portent **0 `dump()`**,
+  **0 émission nlohmann**, **0 appel jansson** ⇒ aucune entrée `RELEASE_NOTES`. Commit de
+  caractérisation `9c920a31`, **zéro ligne de `src/`** — vérifié sur le commit : **2 fichiers**,
+  `tests/Makefile.am` et le fichier neuf `tests/JanssonResidues_test.cpp`. **Aucune assertion
+  préexistante modifiée** : sur les **5** commits, les seuls fichiers `tests/` touchés sont ces
+  deux-là. Goldens intacts : arbre git `d4ebc61f…`, **145 fichiers**, identique à master. Suite
+  **78 → 79** (recompté en `python3`, continuations `\` comprises ; le seul ajout est
+  `JanssonResidues_test`). Équilibre `tests/Makefile.am` après merge : **68 `^if*` / 68 `^endif`**
+  tous préfixes confondus (**67/67** sur master ; tous littéralement `if `, ni `ifeq` ni `ifdef`),
+  profondeur **jamais négative**. Bloc **append pur, octet pour octet** (`cur.startswith(master)`,
+  135 210 → 136 785 octets, +1 575).
+
+  - ⭐⭐ **LE RÉSULTAT CENTRAL POUR `E4.1x` : LA LISTE EST 6, PAS 10. Trois chiffres, et l'écart
+    expliqué.** **10** = artefact d'une **simulation infidèle** : retirer `<jansson.h>` de
+    `Jansson_Addition.h` casse **ce fichier lui-même** (il utilise `json_t` dans son corps) —
+    mesuré **4158 `error:`, 128 objets en échec**, ça scie *toutes* les branches, pas celles
+    d'`ExternProc.h`. **8** = les 10 moins **deux mentions de PROSE** (`IO/KNX/KNXCtrl.cpp:310`,
+    `IO/KNX/KNXExternProc_main.cpp:33` : `json_loads` **en commentaire seul**, 0 code). ⭐ **6** =
+    mutation **fidèle** — `ExternProc.h` cesse de **déléguer**, `Jansson_Addition.h` **intact** —
+    obtenue **deux fois indépendamment**, graphe `python3` **et** compilateur (`make -C src -j12 -k`
+    → exactement 6 objets en échec, les mêmes 6 fichiers) : **`IO/OLA/OLACtrl.cpp`,
+    `IO/OLA/OLAExternProc_main.cpp`, `IO/Wago/WagoMap.cpp`, `IO/Wago/WagoExternProc_main.cpp`,
+    `LuaScript/ScriptBindings.cpp`, `LuaScript/ScriptExtern_main.cpp`** — **aucune KNX**.
+    **L'écart 8 → 6** : `EventManager.cpp` et `IO/Scenario.cpp` **n'ont JAMAIS dépendu
+    d'`ExternProc.h`** — ils tiennent `Jansson_Addition.h` par `EventManager.h`, et par
+    `IO/Scenario.h → IOBase.h → EventManager.h`. La mutation infidèle les faisait tomber en sciant
+    **la branche commune**. ⇒ la condition de casse est la **délégation** d'`ExternProc.h` vers
+    `Jansson_Addition.h`, **jamais la ligne 26**.
+
+  - ⭐ **LA LEÇON GÉNÉRALISABLE, à appliquer à toute la série** : *une simulation de suppression
+    d'en-tête doit être **FIDÈLE** au ticket cible* — sinon on ne mesure pas les conséquences de la
+    suppression qu'on prépare, mais celles **d'une autre**. Et *une sonde `#if defined(X)` doit
+    garder **son propre corps** sous `X`* : sinon elle ne rougit pas, **elle casse le build**.
+    C'est exactement ce que la revue a construit (en-tête écran `#include_next` + `#undef
+    json_array_foreach`) et ce que le correctif `1410bbca` a refermé : avant, **RC=2, 1 `error:`,
+    aucun `CXXLD`** ⇒ pas de binaire, message d'assertion jamais affiché ; après, **RC=0, `CXXLD`
+    ×1, exactement 1 rouge**, le cas visé.
+
+  - ⭐ **L'EXPOSITION D'`E4.1x`, MESURÉE — et la réserve initiale était fausse partout.** « OWFS
+    non compilé sur un `./configure` nu » **ne tenait sur AUCUNE machine** : `OWCtrl.cpp` est dans
+    `calaos_server_SOURCES` (`src/bin/calaos_server/Makefile.am:184`) et `calaos_1wire` dans
+    `bin_PROGRAMS` (`:390`), **sans aucun garde `HAVE_OWCAPI`** ; et de toute façon ces deux
+    fichiers portent **0 symbole jansson**. De plus **`--with-owfs` / `--with-mqtt` / `--with-knx` /
+    `--with-ola` N'EXISTENT PAS** : `configure.ac` ne porte que **`--with-mcp`** et
+    **`--enable-asan`**, tout le reste est **auto-détecté** (`owcapi.h`, `libola.pc`, `eibclient.h`,
+    `mosquitto.h`). ⭐ **Le vrai trou conditionnel est ailleurs, et il vise E4.1x** : `calaos_ola`
+    (`:400 if HAVE_LIBOLA`), `calaos_knx` (`:413 if HAVE_LIBKNX`) et `calaos_mqtt`
+    (`:428 if HAVE_LIBMOSQUITTO`) **sont** sous conditions ⇒ **une machine sans `libola` ne compile
+    JAMAIS `IO/OLA/OLAExternProc_main.cpp`**, l'un des **6** vrais casseurs. E4.1x ne peut donc pas
+    conclure sur un seul environnement : soit il construit avec `libola`, `eibclient` **et**
+    `mosquitto` présents, soit il **déclare** que sa mesure ne couvre pas `OLAExternProc_main.cpp`.
+
+  - **`E4.1x.md` A ÉTÉ MIS À JOUR PAR CE TICKET** : `jansson >= 2.5` est à **`configure.ac:51`**
+    (et non `:52`, cité faux par les deux fiches — ⚠️ **`BOARD.md` porte encore `:52` sur la ligne
+    `E4.1x`, à corriger là-bas**) ; les `--with-*` inexistants remplacés par la vraie consigne ; un
+    § portant la liste des **6** ; l'exposition conditionnelle ci-dessus ; et **l'ORDRE DE
+    SUPPRIMER `tests/JanssonResidues_test.cpp`** — il appelle l'API C jansson **exprès** et
+    remontera dans le `grep -rn 'json_t\|jansson' src tests` de son critère 1 d'acceptation ; la
+    bonne réponse là-bas est de **le supprimer**, pas de le porter. Le tripwire
+    `…StillDelegatesToJanssonAddition` **rougira mécaniquement** quand E4.1x retirera la
+    délégation : **la dette se dénonce elle-même**.
+
+  - **LA MACRO ÉTAIT MORTE DEPUIS TOUJOURS, pas « depuis jansson 2.5 »** : `HttpClient.cpp` voyait
+    déjà `<jansson.h>` dès sa **ligne 21** (`RemoteUIProvisioningHandler.h → RemoteUIManager.h →
+    EventManager.h → Jansson_Addition.h`) puis de nouveau en **23** (`HttpClient.h:27 →
+    JsonApiHandlerHttp.h:24 → JsonApi.h:25`), donc son `#ifndef` de la ligne **111** était évalué
+    **après** que jansson eut défini la macro : il **n'a jamais pu se déclencher**, quelle que soit
+    la version. Ses **16 sites d'appel** de `json_array_foreach` vivent tous dans **d'autres unités**
+    (`JsonApiHandlerHttp.cpp`, `JsonApiHandlerWS.cpp`) et sont **intacts** — la macro était dans un
+    `.cpp`, elle ne pouvait fuir nulle part.
+
+  - **LE RÉGIME DE PREUVE, ASSUMÉ ET ÉCRIT PAR L'AUTEUR** : **4 cas sur 6 lisent le TEXTE des
+    sources** (via `-DCALAOS_TOP_SRCDIR`, sur le modèle de `CALAOS_GOLDEN_DIR`) — ce sont des
+    **garde-fous de non-réintroduction, PAS des oracles** ; les deux prémisses exécutables le sont
+    (`ExternProcHeaderAloneStillProvidesTheJanssonApi`,
+    `JanssonProvidesArrayForeachNativelyAtTheConfiguredFloor`). ⇒ **le juge de ce ticket est le
+    COMPILATEUR**, et il a jugé : build **distclean complet** rejoué après le rebase de merge, avec
+    `CXX IO/ExternProc.o`, `CXX IO/Web/WebCtrl.o`, `CXX HttpClient.o`, `CXXLD JanssonResidues_test`
+    (×1 chacun) et les **5 binaires** `CXXLD calaos_server / calaos_1wire / calaos_ola / calaos_knx /
+    calaos_mqtt`, **0 `error:`**, code de sortie **0**. **5 contre-mutations de production → 5
+    ensembles de rouges DISTINCTS**, témoin sans mutation **0 rouge**. ⭐ **M2 (échange
+    `Jansson_Addition.h` ↔ `<jansson.h>`) est la preuve directe de la redondance** : l'échange
+    laisse l'oracle d'exécution **VERT**, les deux lignes sont **interchangeables**.
+
+  - **NON MESURÉ, à ne pas surestimer** : **rien sous ASan** ; **aucun build sans `libola` /
+    `eibclient` / `mosquitto`** (donc l'exposition conditionnelle ci-dessus est **raisonnée, pas
+    exercée**) ; **aucun `calaos_server` exécuté**. **Rien n'a été poussé.**
+
 - **🔒 E4.1h ✅ MERGÉ (`63cf379a`, 6 commits, `git rebase master` **no-op** + ff-only, historique
   linéaire, `make check` **78/78**) — la bascule du wire Wago, ET le bug `values` CORRIGÉ contre la
   recommandation de la fiche, parce que la mesure a retiré le motif qui la justifiait.**
