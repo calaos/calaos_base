@@ -163,6 +163,44 @@ TEST(JsonApiRedact, HidesCredentialFields)
     EXPECT_NE(dump.find("admin"), std::string::npos) << dump;
 }
 
+TEST(JsonApiRedact, HidesCredentialFieldsWhateverTheKeyCase)
+{
+    //THE ONLY ORACLE OF THE TREE ON THE CASE FOLD. The whole sensitive list is
+    //spelled in lower case, so the masking depends ENTIRELY on the
+    //Utils::str_to_lower() applied to the key in dumpJsonRedacted(): drop that
+    //one call and "CN_Pass" and "Authorization" stop being masked IN SILENCE,
+    //with the whole rest of the suite still green. Both keys are realistic: a
+    //client is free to spell its own field however it likes, and
+    //"Authorization" is spelled with a capital A everywhere HTTP is written.
+    //
+    //⚠️ Each assertion comes in PAIRS - the secret is GONE and the pair is
+    //STILL THERE, masked. A "find(secret) == npos" alone would also pass on a
+    //dump that dropped the field altogether, which is a different bug and not
+    //the one this case is about.
+    Json j;
+    j["CN_Pass"] = "M1XED_CASE_SECRET_THAT_MUST_NOT_REACH_THE_LOG";
+    j["Authorization"] = "Bearer C4P1TAL_A_TOKEN_THAT_MUST_NOT_REACH_THE_LOG";
+    j["Action"] = "get_home";
+
+    const std::string dump = JsonApi::dumpJsonRedacted(j);
+
+    EXPECT_EQ(dump.find("M1XED_CASE_SECRET_THAT_MUST_NOT_REACH_THE_LOG"),
+              std::string::npos)
+            << "the case fold is gone from dumpJsonRedacted(): " << dump;
+    EXPECT_NE(dump.find("\"CN_Pass\": \"***\""), std::string::npos)
+            << "masked, not dropped - the pair must survive: " << dump;
+
+    EXPECT_EQ(dump.find("C4P1TAL_A_TOKEN_THAT_MUST_NOT_REACH_THE_LOG"),
+              std::string::npos)
+            << "the case fold is gone from dumpJsonRedacted(): " << dump;
+    EXPECT_NE(dump.find("\"Authorization\": \"***\""), std::string::npos)
+            << "masked, not dropped - the pair must survive: " << dump;
+
+    //And a NON credential key in mixed case is still fully readable: the fold
+    //must not be an excuse to mask everything.
+    EXPECT_NE(dump.find("\"Action\": \"get_home\""), std::string::npos) << dump;
+}
+
 TEST(JsonApiRedact, HidesNestedAndServiceSecrets)
 {
     Json data;
