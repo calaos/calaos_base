@@ -34,6 +34,16 @@ EXTRA_DIST = \
               python/test_t116_mcp_config_io.py \
               python/test_t116_roon.py
 
+# T3.45: dist-path integrity. Every file named by EXTRA_DIST and friends must
+# exist, or `make dist` dies with "No rule to make target" and no release
+# tarball can be built. src/lib/calaos-python/Makefile.am shipped such a path
+# from 2025-02-16 to 2026-08-25 undetected, because CI runs neither dist nor
+# distcheck. This is the sub-second static stand-in for that check; the real
+# `make distcheck` remains a manual/release-time gate (docs/refactoring/T3.45.md).
+TESTS += check-extra-dist.sh
+dist_check_SCRIPTS += check-extra-dist.sh
+EXTRA_DIST += check-extra-dist.py
+
 if HAVE_GTEST
 AM_CPPFLAGS = \
               -I$(top_srcdir)/src \
