@@ -188,7 +188,18 @@
   pas un `!contains()` nu) ; le commit de correction les **flippe** au lieu de les supprimer.
   Contre-mutation **M12** (re-supprimer le tableau du constructeur livré) → **3 cas rouges**.
 
-- ⛔ **[F-WAGO-2] — ✅ TICKETÉ : [T3.30](T3.30.md)** (2026-08-25). Analyse conservée telle quelle ;
+- ✅ **[F-WAGO-2] — CORRIGÉ par T3.30** (2026-08-25, `51962e51` caractérisation + `55e75ff6`
+  correction, branche `fix/t3.30`). **Les trois défauts ensemble**, `IO/Wago/WagoBits.h` est
+  désormais du code de production appelé par `WagoCtrl.cpp` **et** par `tests/WagoBits_test.cpp`
+  (14 cas, 12 rouges avant dont **2 SIGSEGV sans aucune ligne `FAILED`**). Sept contre-mutations,
+  **sept ensembles rouges deux à deux distincts**, témoin à 0 ; M4 (retrait de la garde)
+  **reproduit le SIGSEGV**. ⚠️ **Pas d'entrée `RELEASE_NOTES`** : l'absence d'appelant a été
+  revérifiée (balayage `python3`, 628 fichiers, appels indirects compris — `&WagoMap::` = 8, aucune
+  vers `write_multiple_*` ; `&WagoCtrl::` = 0 ; aucune sous-classe, aucune méthode virtuelle), la
+  chaîne est morte des deux côtés du wire et **rien d'observable ne change**. ⛔ Restent NON faits :
+  ASan, automate réel, et la **permutation `address`/`nb` au site d'appel**, qui laisse la suite
+  verte (mesuré, mutation M6) et se ferme par le **typage** — T3.31. Analyse d'origine conservée
+  telle quelle ci-dessous ;
   deux corrections de référence apportées par le ticket : `setBit()` est à **`WagoCtrl.cpp:51-60`**
   (et non `:50-58`), et la sur-allocation existe aussi dans `read_bits()` `:95` (bénigne, son
   `memset` couvre tout). **NON CORRIGÉ, hors périmètre. ⭐ TICKET DÉDIÉ RECOMMANDÉ, PRIORITÉ MOYENNE :
@@ -228,6 +239,22 @@
   sorties fausses.
   ⚠️ **Le segfault est mesuré, les points (b) et (c) sont démontrés au source** ; rien n'a tourné
   sous ASan ni contre un automate réel, et le chemin est inatteignable en l'état.
+
+- ⚠️ **[F-WAGO-7] — NON CORRIGÉ, hors périmètre de T3.30 : `int count;` part NON INITIALISÉ dans
+  les quatre branches du dispatcher de `calaos_wago`.** `WagoExternProc_main.cpp:76`/`:81`,
+  `:132`/`:137`, `:161`/`:166`, `:218`/`:223` déclarent `int count;` puis appellent
+  `Utils::from_string(jsonData["count"], count)` **sans regarder son retour**. Or `from_string`
+  rend **`true` sans rien écrire** sur une chaîne vide (c'est le défaut que **T3.25** corrige) :
+  une clé `count` absente ou vide laissait donc `count` valant de la mémoire de pile arbitraire,
+  et c'est **cette valeur-là** qui partait vers `WagoCtrl::read_bits()`, `read_words()` et les
+  deux écritures multiples. ⭐ **T3.30 rend le cas inoffensif pour les deux écritures multiples**
+  — un `count` arbitraire dépasse presque toujours `values.size()` et est refusé, un `count`
+  négatif l'est aussi — **mais pas pour les deux LECTURES** (`:76` et `:161`), qui allouent
+  `new mbus_ubyte[coilBufferSize(count)]` / `new mbus_uword[count]` sur ce même entier. **Ce qui
+  manque est une ligne, pas une refonte** : `int count = 0;`, et un test du retour de
+  `from_string`. ⚠️ **Ne pas le confondre avec T3.25** : T3.25 corrige `from_string`, ceci corrige
+  ses **appelants**, qui resteraient fragiles même avec une `from_string` parfaite le jour où la
+  clé est absente plutôt que vide.
 
 - ⚠️ **[F-WAGO-3] — NON CORRIGÉ (durcissement DÉCLARÉ, pas un report) : `string v =
   json_string_value(value)` était un déréférencement de `NULL`.**
