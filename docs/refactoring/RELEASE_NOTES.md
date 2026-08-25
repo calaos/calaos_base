@@ -312,6 +312,71 @@ celle qu'on croit.
 > les clés inconnues, doit être mis à jour. Sept fichiers de référence de l'API ont été
 > régénérés en conséquence.
 
+### ⚠️ Scripts Lua — `calaos:waitForIO()` et `calaos:setIOParam()` ne renvoient plus rien (T3.27)
+
+**C'est la seule note de ce fichier qui peut faire changer de comportement un script que vous avez
+écrit vous-même.** Lisez-la si vous avez des règles ou des scénarios avec du Lua.
+
+**Ce qui se passait.** Ces deux fonctions annonçaient à l'interpréteur Lua qu'elles laissaient une
+valeur de retour, mais n'en déposaient jamais aucune. Lua reprenait alors ce qui traînait à sa
+place : **le dernier argument de votre propre appel.** `calaos:waitForIO("io_0042")` vous rendait
+la chaîne `"io_0042"`, et `calaos:setIOParam(id, cle, valeur)` vous rendait `valeur`.
+
+En Lua, **toute chaîne non vide est vraie**. Donc ceci :
+
+```lua
+if calaos:waitForIO("io_0042") then
+  -- « l'attente a réussi »
+end
+```
+
+prenait la branche vraie **à tous les coups** — y compris là où vous pensiez vous protéger. Ce
+n'était pas un test qui se trompait de temps en temps : c'était un test qui n'en était pas un.
+
+**Ce qui se passe maintenant.** Les deux fonctions ne renvoient **rien** (`nil`), comme
+`calaos:setIOValue()`, `calaos:requestUrl()` et `calaos:sendPushNotif()` à côté d'elles. C'est la
+règle de toute l'API : les fonctions qui **lisent** (`getIOValue`, `getIOParam`, `getEnv`) rendent
+une valeur, celles qui **agissent** n'en rendent pas.
+
+⚠️ **Conséquence directe, et elle est silencieuse** : le `if` ci-dessus, qui était **toujours
+vrai**, devient **toujours faux**. Rien ne vous préviendra — pas d'erreur, pas de ligne de
+journal. Le script tournera simplement dans l'autre branche.
+
+**Pourquoi pas un booléen de succès plutôt que `nil` ?** Parce qu'il n'y aurait rien à mettre
+dedans. Ces deux fonctions **n'ont aucun moyen de savoir si elles ont réussi** : `setIOParam()`
+envoie sa demande au serveur sans attendre de réponse, et `waitForIO()` ne rend la main que quand
+l'IO a effectivement changé. Un booléen n'aurait pu valoir que `true`, toujours — c'est-à-dire
+exactement le défaut d'avant, avec un nom plus rassurant. Mieux vaut ne rien rendre que rendre une
+promesse vide.
+
+**Comment un échec se signale alors ?** Par une **erreur Lua**, et ça n'a pas changé : un `id` d'IO
+inconnu, une valeur d'un type refusé ou un script interrompu **font échouer le script**. Vous
+n'avez donc jamais eu besoin de tester le retour pour être protégé — le script s'arrêtait de
+toute façon. Si vous voulez au contraire *survivre* à l'erreur, c'est `pcall()` qu'il faut :
+
+```lua
+local ok, err = pcall(function() calaos:waitForIO("io_0042") end)
+if not ok then
+  print("waitForIO a echoue : " .. tostring(err))
+end
+```
+
+### Ce que vous avez à faire
+1. Ouvrez vos scripts Lua (règles à condition/action « script », dans `calaos_installer` ou via
+   l'API JSON) et **cherchez `waitForIO` et `setIOParam`**.
+2. Pour chacun, regardez si la valeur de retour est **utilisée** : dans un `if`, dans un `while`,
+   affectée à une variable (`local ok = calaos:waitForIO(...)`), passée à `assert()`, ou combinée
+   avec `and` / `or` / `not`.
+3. **Si le retour n'est pas utilisé** — c'est le cas courant, `calaos:waitForIO("io_0042")` seul
+   sur sa ligne — **il n'y a rien à faire.** Le comportement est identique.
+4. **Si le retour est utilisé**, l'écriture ne voulait déjà rien dire : supprimez le test et
+   laissez l'appel nu. `if calaos:waitForIO(io) then A end` devient `calaos:waitForIO(io)` suivi
+   de `A`. Si vous vouliez vraiment rattraper une erreur, passez par `pcall()` comme ci-dessus.
+5. Même chose pour `setIOParam` : `if calaos:setIOParam(id, k, v) then …` n'a jamais testé quoi
+   que ce soit ; enlevez le `if`.
+
+Le détail complet, avec les exemples, est dans `docs/09_lua_scripting.md`.
+
 ### IOs Web — les expressions XPath renvoient enfin les bonnes valeurs (E4.4b)
 Le moteur XPath (TinyXPath, non maintenu) est remplacé par pugixml. TinyXPath violait XPath 1.0
 sur plusieurs points ; les configurations concernées étaient **silencieusement cassées** et vont

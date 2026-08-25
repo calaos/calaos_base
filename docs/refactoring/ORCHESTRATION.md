@@ -586,6 +586,13 @@
     argument**, donc **tout test de statut sur `waitForIO` lit vrai**. `ScriptBindings.cpp` passe
     de **495 à 484 lignes**, `:293`/`:333` → **`:294`/`:334`** (vérifié ici en `python3`).
     **`T3.27` peut s'appuyer dessus** — et sa dépendance `E4.1j` est levée. `BOARD.md` recalé.
+    ✅ **`T3.27` LIVRÉ (2026-08-25, branche `fix/t3.27`)** : `return 0` sur les deux — **divergence
+    assumée d'avec la recommandation « booléen » du §2 de sa fiche**, motivée par la convention
+    mesurée des 9 `lua_CFunction` et par le fait qu'aucune des deux fonctions n'a d'information de
+    succès à rendre (un booléen serait la constante `true`). ⚠️ **Rupture observable silencieuse**
+    pour un script qui testait le retour → `RELEASE_NOTES`. ⛔ **`F-LUA-3` corrigé** :
+    `ScriptBindings.cpp` **était** lié dans `LuaSandbox_test`, son vert venait du **faux relink**
+    (T3.36), pas d'une limite de périmètre.
 
   - **`F-REO-1` confirmé mort** : ses deux sites `jansson_to_string` de `ScriptBindings.cpp`
     n'existent plus.

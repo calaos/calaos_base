@@ -76,6 +76,38 @@
   emballage**. Réductible **en principe**, **pas ici**. (Précédents : Wago `F-WAGO-4`, Reolink
   `username`↔`password`.)
 
+  ⛔ **CORRIGÉ PAR T3.27 (2026-08-25) — LA PRÉMISSE EST FAUSSE, ET LE TROU EST REFERMÉ.**
+  La phrase « `ScriptBindings.cpp` **n'est lié dans AUCUN binaire de test** de l'arbre » est
+  **inexacte** : `tests/Makefile.am` liait déjà
+  `$(CALAOS_SERVER_BUILDDIR)/LuaScript/ScriptBindings.$(OBJEXT)` dans **`LuaSandbox_test`**
+  (bloc T1.15), et `LuaSandbox_test.cpp` exécute déjà du Lua littéral contre un vrai `lua_State`
+  (`calaos:getEnv("no_such_key")`). Le « VERT 0/32 » observé était **vrai pour `ScriptWire_test`**,
+  dont `_SOURCES` est bien le seul `.cpp` — mais la généralisation à *tout* l'arbre ne tenait pas.
+  ⚠️ **Ce que le vert mesurait vraiment** est plus intéressant que « hors d'atteinte » :
+  `LuaSandbox_test_DEPENDENCIES = libcalaos_common.la` (comme **47 des 80 suites d'alors**,
+  cf. [`T3.36`](T3.36.md)), donc muter `ScriptBindings.cpp` **ne relie pas** le binaire — le
+  mutant n'était **jamais exécuté**. C'est un **faux vert de relink**, pas une limite de périmètre.
+  ⇒ `tests/LuaCalaosApi_test.cpp` (T3.27) décode la trame `set_param` émise sur une **vraie socket
+  AF_UNIX**, et la permutation `io.set_param(value, key)` **ROUGIT** (`TheParamIsActuallyWritten
+  OnTheIo` + `WhatTheScriptActuallySeesComingBack`, `.o` et binaire effacés, `CXXLD` exigé).
+  **La quatrième forme du défaut reste réelle** — le typage ne ferme toujours pas l'appariement
+  source → emballage — mais elle est désormais **couverte par un test**, pas seulement déclarée.
+
+- 📏 **[F-LUA-5] `docs/09_lua_scripting.md` : deux références mesurées périmées, hors périmètre
+  T3.27.** T3.27 a recalé les **8** références qui pointaient au-delà de son point d'insertion dans
+  `ScriptBindings.cpp` (+26 lignes), mais deux autres écarts ont été **mesurés au passage** et
+  **non corrigés**, faute d'appartenir à ce ticket :
+  - `:350` citait `ScriptBindings.cpp:185-190` pour le dispatch `set_value` ; le dispatch occupe
+    **`:186-191`** (décalage **antérieur** à T3.27, hérité d'E4.5e). **Corrigé quand même**, la
+    référence tombait à un caractère de sa cible.
+  - `docs/02_io_drivers.md:162` cite `ScriptBindings.cpp:348,363` pour « Bindings Lua
+    (`downloadFile`, POST) » ; ces deux lignes étaient (avant T3.27) des **commentaires**, les
+    `dl->setInsecure()` étant à `:349`/`:364`. T3.27 les repointe sur les appels réels
+    (`:375`/`:390`) plutôt que de propager l'écart.
+  ⇒ **Matière pour [`T3.32`](T3.32.md)** (contrôle ancré) : les deux écarts étaient invisibles
+  parce qu'ils tombaient sur une ligne **existante mais non pertinente**, exactement le motif que
+  T3.32 décrit.
+
 - 📏 **[F-LUA-4] RECALAGE OBLIGATOIRE — le défaut `setIOParam`/`waitForIO` a bougé de +1 ligne, et
   deux références d'un autre finding sont MORTES.**
   - Le défaut connu (« `return 1` sans rien empiler », § *Lua — quirks d'API* plus bas) est
@@ -3121,6 +3153,28 @@ ne décrivent pas ce que le code fait :
   `calaos:waitForIO(id)` renvoie `id`. Un script qui teste ce retour croit lire un statut de
   succès et lit en réalité son propre argument, ce qui est **toujours vrai** pour une chaîne non
   vide. → soit `return 0`, soit empiler un vrai statut.
+  ✅ **LIVRÉ par [`T3.27`](T3.27.md) (2026-08-25) : `return 0`, PAS un booléen empilé.**
+  ⚠️ **Ce choix DIVERGE de la recommandation écrite dans la fiche du ticket** (§2, « Recommandation :
+  le booléen »), et le motif est **mesuré**, pas stylistique. Deux constats :
+  (a) **la convention de la table est sans ambiguïté** — balayage `python3` des **9 `lua_CFunction`
+  de tout l'arbre**, toutes dans ce fichier : les 3 **accesseurs** (`getIOValue`, `getIOParam`,
+  `getEnv`) rendent `1` et empilent leur valeur ; les 4 **mutateurs/actions** (`setIOValue`,
+  `requestUrl`, `sendPushNotif`, `Lua_print`) rendent `0`. `setIOParam` est le **frère direct** de
+  `setIOValue`. **Aucun binding de l'arbre ne rend un booléen de succès** — le proposer, c'est
+  inventer une convention, pas s'aligner.
+  (b) ⭐ **il n'y a AUCUNE information de succès à empiler** : `LuaIOBase::set_param()` est `void`
+  et poste un message **sans réponse** sur la socket `ExternProc` (`:502-509`) ; `waitForIO()` ne
+  revient normalement que si `waitForIOChanged.emit()` a répondu vrai **et** que `abort` est faux —
+  le cas `abort` **lève**. ⇒ `lua_pushboolean(L, true)` serait une **CONSTANTE `true`**, donc
+  `if calaos:waitForIO(io) then` resterait vrai **pour toujours** : c'est exactement le défaut, avec
+  un nom plus rassurant. La rétro-compatibilité que le booléen achetait était la
+  **rétro-compatibilité avec le bug**.
+  ⚠️ **Contrepartie assumée, et elle est réelle** : la bascule est **silencieuse**. Un script qui
+  écrivait `if calaos:waitForIO(io) then A else B end` passait **toujours** par `A` et passera
+  **toujours** par `B`, sans erreur ni ligne de journal. Entrée `RELEASE_NOTES` écrite pour ça, avec
+  la liste de ce qu'un utilisateur doit chercher dans ses scripts. **Si un relecteur ou l'utilisateur
+  préfère le booléen malgré (b), le retour arrière est d'UNE ligne par fonction** — les deux `return
+  0` de `ScriptBindings.cpp` (`:311`, `:360`) et les six cas ⭐ du filet.
 - **[API] `requestUrl()` jette le corps de la réponse.** Aucun des deux chemins ne connecte
   `m_signalCompleteData` ni ne renvoie quoi que ce soit (`ScriptBindings.cpp:344-354`,
   `:361-367`, `return 0` à `:376`) : un script peut déclencher une requête HTTP mais **ne peut pas
