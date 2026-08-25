@@ -2663,3 +2663,99 @@ core_RoonSpawnViaPlayer_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.
 #Built elsewhere, do not let automake turn them into prerequisites
 core_RoonSpawnViaPlayer_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.25 (A)
+#The parsing contract of Utils::from_string()/Utils::is_of_type()
+#(src/lib/StringUtils.h). Everything under test is a template in a header of
+#libcalaos_common, so nothing more is linked and there is no _DEPENDENCIES
+#pitfall to dodge. AM_CPPFLAGS already carries -I$(top_srcdir)/src/lib.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += StringUtilsFromString_test
+check_PROGRAMS += StringUtilsFromString_test
+StringUtilsFromString_test_SOURCES = StringUtilsFromString_test.cpp
+StringUtilsFromString_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+#Built elsewhere, do not let automake turn them into prerequisites
+StringUtilsFromString_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.25 (B)
+#The remotely reachable chain of T3.25: set_state -> decodeSetState ->
+#OutputShutter::set_value()/OutputLightDimmer::set_value() -> from_string().
+#Reuses the E4.0a harness (core/JsonApiCharacterization.*) UNMODIFIED, so the
+#same link closure as the other JsonApi* core suites is required - the harness
+#builds a reference house containing a StandardMjpeg camera and a RoonPlayer
+#and pulls both transports in. NO GOLDEN is produced or read by this suite:
+#every oracle is a direct assertion on cmd_state, which embeds
+#to_string(impulse_action_time) character for character, so the 145 goldens of
+#the tree are untouched. IO/OutputShutter and IO/OutputLightDimmer are NOT part
+#of CORE_SERVER_OBJECTS (they appear only in core_KnxIo_test_LDADD), hence the
+#two extra objects below. -DCALAOS_GOLDEN_DIR is still defined because the
+#harness compiles its golden helpers unconditionally.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/SetStateGarbage_test
+check_PROGRAMS += core/SetStateGarbage_test
+core_SetStateGarbage_test_SOURCES = core/SetStateGarbage_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_SetStateGarbage_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_SetStateGarbage_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_SetStateGarbage_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.25 (B2)
+#The same defect with the API boundary bypassed: OutputShutter::set_value() and
+#OutputLightDimmer::set_value() called directly, the way an in-process caller
+#does. SEPARATE BINARY ON PURPOSE - on the characterization commit these cases
+#take SIGSEGV (the indeterminate duration arms Timer::singleShot() on a
+#negative delay), and a death inside core/SetStateGarbage_test hid six of its
+#cases. Splitting bounds what a crash can hide. CoreFixture only, so no JSON
+#API object and no libuv loop is ever run here; the link closure is
+#CORE_TEST_LDADD plus the two IO objects, which are NOT in CORE_SERVER_OBJECTS.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ImpulseGarbageIo_test
+check_PROGRAMS += core/ImpulseGarbageIo_test
+core_ImpulseGarbageIo_test_SOURCES = core/ImpulseGarbageIo_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ImpulseGarbageIo_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ImpulseGarbageIo_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT)                 \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_ImpulseGarbageIo_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
