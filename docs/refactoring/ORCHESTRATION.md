@@ -47,7 +47,8 @@
     `perPage = 100`, `eis = EIS_Autodetect`, huit `step = 1.0`, trois `a = 1.0`).
 
   - ⛔ **TROIS FINDINGS DE LA NUIT SONT INEXACTS AU SOURCE — corrigés en place dans `FINDINGS.md`,
-    ne pas les réécrire.**
+    ne pas les réécrire.** ⚠️ **Le n°3 ci-dessous a lui-même été corrigé** : ma conclusion était
+    fausse, seule l'observation tenait. Lire la puce entière avant d'agir.
     **(1)** « `from_string("")` retourne true **avec dest zéro-initialisée** » (:615-617) : `dest`
     **n'est pas écrite du tout**, et le site a déménagé en `StringUtils.h`.
     **(2)** « `RoonPlayer` : `from_string("")` laisse `port` à **0** » (:2458) : il est
@@ -56,12 +57,32 @@
     par défaut annoncé — `args` reste **vide**, aucun `--port` n'est passé, **l'autodétection
     fonctionne**. Seule la configuration à **hôte statique** est cassée. Les lignes citées ont
     dérivé de **+6** (bloc de commentaire E4.1g à `:159-164`) : c'est `:180` et `:185`.
-    **(3)** « deux tickets ont fermé le trou positionnel par `LmsHost{}` / `LightState` /
-    `RedChannel` » : **ces trois identifiants n'existent NULLE PART** dans l'arbre (`src/`,
-    `tests/`, `docs/`, `graft/`). **Aucun site d'appel n'est fermé par le typage à ce jour.**
-    Seul précédent réel : `enum class RuleDetachPolicy` (T3.18) — et il ferme un `bool`, pas une
-    permutation. `CameraRegistration` **existe** (`ReolinkEventRegistry.h:52-58`) mais n'a rien
-    fermé : `ReolinkCtrl.cpp:100` le construit en **brace-init positionnel**.
+    **(3)** ⚠️ **CE POINT ÉTAIT LUI-MÊME FAUX ET IL EST CORRIGÉ (2026-08-25).** J'avais écrit
+    que `LmsHost{}` / `LightState` / `RedChannel` « n'existent nulle part ». **Le balayage était
+    juste, la conclusion fausse : il portait sur `master`.** Ces types vivent sur **deux branches
+    livrées et revues, NON MERGÉES** : `refactor/e4.1d` (`689e26b0`) — `LmsHost`
+    (`Audio/SqueezeboxWire.h:188-191`) et `LightState` (`IO/Hue/HueWire.h:107-114`) — et
+    `refactor/e4.1f` (`4e238f2c`) — `DmxChannel`/`DmxLevel`/`DimmerPercent` +
+    `RedChannel`/`GreenChannel`/`BlueChannel` (`IO/OLA/OLAWire.h:91-124`), sites d'appel
+    `OLACtrl.cpp:61-62` et `:81-84`. La permutation y **ne compile pas**
+    (`could not convert 'OLAWire::DimmerPercent(value)' … to 'OLAWire::DmxChannel'`).
+    ⇒ **le compte de récidives est CINQ : 3 ouvertes sur master (E4.1g/h/i), 2 fermées sur
+    branches en attente (E4.1d, E4.1f).** Sur master, seul précédent : `enum class
+    RuleDetachPolicy` (T3.18).
+    ⭐ **Et l'apport qui reste valable, devenu le cœur de `T3.31`** : `CameraRegistration`
+    (`ReolinkEventRegistry.h:52-58`) **existe et n'a rien fermé** — `ReolinkCtrl.cpp:100` le
+    construit en **brace-init positionnel**. C'est **le même défaut** que le relecteur d'E4.1d a
+    trouvé sur `HueWire::LightState` (agrégat de 3 `int` + 2 `bool`, `-fsyntax-only`, permute
+    `sat`/`bri` en silence) — **latent** là-bas, **réalisé** ici ⇒ **motif récurrent, pas
+    accident**. ⭐ **Règle de série : un type nommé ne ferme rien s'il reste un agrégat
+    initialisable positionnellement.** La forme qui ferme est celle d'`OLAWire.h` —
+    **constructeur `explicit`**, donc pas d'agrégat ; les désignateurs C++20 rendent la
+    permutation *visible*, pas *impossible*.
+    ⚠️ **Leçon d'outillage générale : toujours dire sur quelle référence on a mesuré.** Un
+    balayage `master` ne voit pas les branches livrées.
+    ⛔ **Résiduel n°1** (emballer la mauvaise variable : `RedChannel(channel_blue)`,
+    `buildCoverUrl(aurl, LmsHost{aurl})`) : **limite INTRINSÈQUE**, verdict du relecteur d'E4.1f —
+    **à déclarer, jamais à promettre**.
     ⚠️ **Un quatrième, venu d'un balayage parallèle et infirmé ici** : les « accès `tokens[1]`
     hors bornes » de `KNXExternProc_main.cpp` **n'existent pas** — `Utils::split` **pade**
     (`StringUtils.cpp:210`, `while (tokens.size() < max) push_back("")`). Le vrai défaut est que

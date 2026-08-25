@@ -92,11 +92,20 @@
   `NonStringEntriesInValuesDoNotCrashTheDecoder` l'épingle. **Le changement est donc réel et
   déclaré**, mais il ne peut convertir qu'un plantage en valeur définie.
 
-- ⚠️ **[F-WAGO-4] — ✅ TICKETÉ (transverse) : [T3.31](T3.31.md)** (2026-08-25). ⛔ **Une note de
-  cadrage affirmait que deux tickets avaient déjà fermé ce trou par des types distincts nommés
-  `LmsHost{}` / `LightState` / `RedChannel` : ces trois identifiants n'existent NULLE PART dans
-  l'arbre** (ni `src/`, ni `tests/`, ni `docs/`, ni `graft/`) — **aucun site d'appel n'est fermé
-  par le typage à ce jour**. Le seul précédent réel est `enum class RuleDetachPolicy` (T3.18).
+- ⚠️ **[F-WAGO-4] — ✅ TICKETÉ (transverse) : [T3.31](T3.31.md)** (2026-08-25).
+  ⚠️ **Correction d'une correction** : une première rédaction de T3.31 affirmait que `LmsHost{}`,
+  `LightState` et `RedChannel` « n'existent nulle part dans l'arbre ». **Le balayage était juste,
+  la conclusion fausse : il portait sur `master`.** Ces types existent bel et bien, sur **deux
+  branches livrées et revues mais NON MERGÉES à la date du balayage** — `LmsHost`
+  (`Audio/SqueezeboxWire.h:188-191`) et `LightState` (`IO/Hue/HueWire.h:107-114`) sur
+  **`refactor/e4.1d`** (`689e26b0`), `RedChannel`/`GreenChannel`/`BlueChannel`/`DmxChannel`/
+  `DmxLevel`/`DimmerPercent` (`IO/OLA/OLAWire.h:91-124`) sur **`refactor/e4.1f`** (`4e238f2c`).
+  **Sur master, le seul précédent est `enum class RuleDetachPolicy` (T3.18).**
+  ⇒ **le compte de récidives de la série est CINQ, pas trois** : trois **ouvertes sur master**
+  (E4.1g, E4.1h, E4.1i) et deux **fermées sur branches en attente** (E4.1d, E4.1f).
+  ⭐ **Leçon d'outillage** : *toujours dire sur quelle référence on a mesuré* — un balayage sur
+  `master` ne voit pas les branches livrées et conclut à tort qu'une mitigation n'a jamais été
+  appliquée.
   **Le trou des arguments positionnels, MESURÉ pour la troisième fois de la série.**
   Échanger `address` et `nb` **au site d'appel** de `WagoWire::buildReadWordsRequest()` dans
   `WagoMap.cpp` : **compile sans un seul avertissement** (`int` et `UWord` sont implicitement
@@ -256,7 +265,13 @@
 - ⚠️ **[F-REO-5] — ✅ TICKETÉ (transverse) : [T3.31](T3.31.md)** (2026-08-25), cible n°1.
   ⚠️ Le struct `CameraRegistration` existe bien (`ReolinkEventRegistry.h:52-58`) **mais n'a rien
   fermé** : `ReolinkCtrl.cpp:100` le construit en **brace-init positionnel**, donc la permutation
-  reste écrivable. **Quatre `string` positionnelles de même type traversent trois relais que rien ne
+  reste écrivable. ⭐ **Et ce n'est pas un accident, c'est un motif** : le relecteur d'E4.1d a
+  trouvé le même défaut sur `HueWire::LightState` (agrégat de 3 `int` + 2 `bool` ⇒
+  `LightState{100, 200, 30000, true, true}` compile, mesuré `-fsyntax-only`, et **permute
+  `sat`/`bri` en silence**) — latent là-bas, **réalisé** ici. ⇒ **règle de série : un type nommé
+  ne ferme rien s'il reste un agrégat initialisable positionnellement.** La forme qui ferme est
+  celle d'`OLAWire.h:91-124` — **constructeur `explicit`**, donc pas d'agrégat ; les désignateurs
+  C++20 rendent la permutation *visible*, pas *impossible*. **Quatre `string` positionnelles de même type traversent trois relais que rien ne
   couvre — MESURÉ, plus supposé.** Le filet d'E4.1i tient `ReolinkWire::buildRegisterMessage()` ;
   il ne tient **pas** ce qu'on lui passe.
 
@@ -3466,11 +3481,14 @@ ajouté ou infirmé, et qui n'existait dans aucun finding.
    **indéterminé** (`RoonPlayer.h:214`, `int port;` sans initialiseur). Et **« Roon inutilisable »**
    est trop fort : le mode **autodétection** (host vide) fonctionne, seul l'hôte statique est
    cassé. ⇒ [T3.28](T3.28.md).
-3. **« les deux tickets qui ont fermé le trou positionnel par le typage (`LmsHost{}`,
-   `LightState`, `RedChannel`) »** — **ces trois identifiants n'existent nulle part dans
-   l'arbre**. Aucun site d'appel n'est fermé par le typage à ce jour ; le seul précédent réel est
-   `enum class RuleDetachPolicy` (T3.18), qui ferme un `bool`, pas une permutation.
-   ⇒ [T3.31](T3.31.md).
+3. ⚠️ **CE POINT ÉTAIT LUI-MÊME FAUX, et il est corrigé ici (2026-08-25).** J'avais écrit que
+   `LmsHost{}`, `LightState` et `RedChannel` « n'existent nulle part dans l'arbre ». **Le
+   balayage était juste, la conclusion fausse : il portait sur `master`.** Ces types existent sur
+   **`refactor/e4.1d`** (`689e26b0` — `Audio/SqueezeboxWire.h:188-191`, `IO/Hue/HueWire.h:107-114`)
+   et **`refactor/e4.1f`** (`4e238f2c` — `IO/OLA/OLAWire.h:91-124`), **deux branches livrées et
+   revues, non mergées à la date du balayage**. Sur master, le seul précédent reste
+   `enum class RuleDetachPolicy` (T3.18). ⇒ **cinq récidives** au total : **3 ouvertes sur
+   master**, **2 fermées sur branches en attente**. ⇒ [T3.31](T3.31.md), réécrite.
 
 ### ⭐ `IO/OutputShutter.cpp:119` et `OutputShutterSmart.cpp:171` — `impulse down` ne marche pas
 
