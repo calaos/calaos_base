@@ -371,8 +371,8 @@ c5_tree()
 
 c5_run()
 {
-    # $1 = label, $2 = tree root, $3 = interpreter to hand to the launcher
-    _lbl=$1; _root=$2; _py=$3
+    # $1 = label, $2 = tree root, $3 = interpreter, $4 = why it must be 1 of 2
+    _lbl=$1; _root=$2; _py=$3; _why=$4
     _d=`"$COUNTPY" "$COUNTER" "$_root/tests/python" 2>/dev/null` || _d=""
     if [ -z "$_d" ]; then
         fail "$_lbl: could not count the fabricated tree"
@@ -399,11 +399,10 @@ c5_run()
         return 1
     fi
     if [ "$_got" -ne 1 ] || [ "$_rc" -ne 77 ]; then
-        fail "$_lbl: a case skipped from INSIDE the suite was NOT executed, so the" \
-             "honest report is 'cases=1/2' and exit 77 (SKIP). Got '$_line' and" \
-             "exit $_rc. A skipped case counted as executed puts F-PYTEST-1 straight" \
-             "back: pytest.importorskip on the missing sidecar deps would then read" \
-             "as PASS."
+        fail "$_lbl: $_why So the honest report is 'cases=1/2' and exit 77 (SKIP)." \
+             "Got '$_line' and exit $_rc -- one of the two declared cases is being" \
+             "paid for by something that is not it, which is F-PYTEST-1 one layer" \
+             "down."
         sed 's/^/      /' "$_log" >&2
         return 1
     fi
@@ -429,9 +428,9 @@ class SkippedIsNotExecuted(unittest.TestCase):
         raise AssertionError("this case must never run")
 PY_EOF
 
-c5_run "C5a pytest-backend" "$unittree" "$COUNTPY"
+c5_run "C5a pytest-backend" "$unittree" "$COUNTPY" "Exactly one of the two declared cases can run; the other is skipped from INSIDE the suite, and a skipped case is a case that did NOT execute -- that is the whole point: pytest.importorskip on the missing sidecar deps skips from the inside too, and must not read as PASS."
 if [ "$have_stub" = yes ]; then
-    c5_run "C5b unittest-backend" "$unittree" "$stub"
+    c5_run "C5b unittest-backend" "$unittree" "$stub" "Exactly one of the two declared cases can run; the other is skipped from INSIDE the suite, and a skipped case is a case that did NOT execute -- that is the whole point: pytest.importorskip on the missing sidecar deps skips from the inside too, and must not read as PASS."
 fi
 
 # C5c -- the parametrization trap, pytest only. One parametrized case expands
@@ -439,6 +438,40 @@ fi
 #        accounting that compares COUNTS per file reads 3 >= 2 and reports
 #        "every declared case executed" -- which is how the very first version
 #        of this runner was fooled. Comparing case NAMES is what closes it.
+# C5d -- names, not counts. A suite whose second case runs under a DIFFERENT
+#        name than the one declared: the two counts match, the two names do
+#        not. An accounting that compares counts per file reports 2 of 2 and
+#        exits 0 while a declared case never ran; comparing names reports 1 of
+#        2 and exits 77. This is what makes the name comparison itself -- the
+#        fix for the parametrize trap -- mutation-covered rather than merely
+#        present.
+nametree="$tmpdir/c5-names"
+c5_tree "$nametree" || exit 1
+cat > "$nametree/tests/python/test_c5_names.py" <<'PY_EOF'
+# Fabricated by tests/check-python-tests-reporting.sh (C5d). Two declared
+# cases; the second one is renamed at import time, so exactly two cases run but
+# one DECLARED case never does. Counts agree, names do not.
+import unittest
+
+
+class NamesNotCounts(unittest.TestCase):
+    def test_declared_and_run(self):
+        self.assertTrue(True)
+
+    def test_declared_but_never_run(self):
+        raise AssertionError("this case must never run under its own name")
+
+
+NamesNotCounts.test_running_under_another_name = \
+    NamesNotCounts.test_declared_and_run
+del NamesNotCounts.test_declared_but_never_run
+PY_EOF
+
+c5_run "C5d names-not-counts" "$nametree" "$COUNTPY" "Two cases run and two are declared, but one of them runs under a DIFFERENT name than the one declared, so a declared case never ran. Counts agree; names do not, and names are what is being accounted for."
+if [ "$have_stub" = yes ]; then
+    c5_run "C5e names-not-counts-unittest" "$nametree" "$stub" "Two cases run and two are declared, but one of them runs under a DIFFERENT name than the one declared, so a declared case never ran. Counts agree; names do not, and names are what is being accounted for."
+fi
+
 if "$COUNTPY" -c "import pytest" >/dev/null 2>&1; then
     paramtree="$tmpdir/c5-param"
     c5_tree "$paramtree" || exit 1
@@ -458,7 +491,7 @@ def test_parametrized(value):
 def test_never_executed():
     raise AssertionError("this case must never run")
 PY_EOF
-    c5_run "C5c parametrize-trap" "$paramtree" "$COUNTPY"
+    c5_run "C5c parametrize-trap" "$paramtree" "$COUNTPY" "One declared case is parametrized x3 (pytest emits 3 junit entries for it) and the other is skipped. Three instances of one case are still ONE case: they must not pay for the case that never ran."
 else
     echo "check-python-tests-reporting: C5c skipped, pytest is not importable" \
          "under $COUNTPY"
