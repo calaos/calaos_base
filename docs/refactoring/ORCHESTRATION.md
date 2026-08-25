@@ -8,6 +8,56 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅ [`T3.50`](T3.50.md) MERGÉE — `544aa0f8`, 6 commits, `--ff-only`, historique linéaire.**
+  ⭐ **`master` était IMMOBILE sur `bdc13081`** = exactement la base de la branche ⇒ **ni rebase ni
+  conflit au merge** (les deux rebases et le conflit `tests/Makefile.am` de la fiche sont ceux de
+  l'auteur). La **moitié LECTURE** du chemin retour Wago est typée : 2 `typedef`, 6 implémentations
+  vivantes, 4 sites d'émission. `make check` **100/100** (`# TOTAL: 100 / PASS 99 / SKIP 1 /
+  FAIL 0 / ERROR 0`, rc 0), **1640** cas sur **94 gtest + 6 scripts**, **0 `error:`**, un seul
+  `Testsuite summary`, **145 goldens / arbre `d4ebc61f` inchangé** (vérifié APRÈS),
+  `git status -uall` vide. **`F-FLAKY-1` non rencontrée, rien relancé.** ⛔ **Non poussé.**
+
+  ⭐ **Ce que ce merge a ajouté, et qui sert aux suivants :**
+  1. ⭐ **La 15ᵉ variante de faux vert a une sœur : « le balayage n'a trouvé AUCUNE unité ».**
+     L'auteur avait été pris par « 0 avertissement parce que rien ne compilait » (`rc=1`), et son
+     script exige désormais `rc=0`. ⚠️ **Le mien est tombé un cran plus tôt** : ma 1ʳᵉ extraction
+     des commandes de compilation a rendu **0 commande**, donc **0 unité, 0 avertissement, 0
+     échec** — *tous les gardes au vert, et le chiffre attendu était « 0 »*. Ce qui l'a arrêté est
+     le seul compteur qui ne pouvait pas mentir : **`nb_units`**. ⭐ **Publier le CARDINAL DE
+     L'ÉCHANTILLON à côté du résultat** — un instrument qui n'a rien mesuré et un instrument qui a
+     mesuré zéro rendent le même chiffre. *(Cause : les lignes `V=1` d'automake se terminent par
+     `&&\` et portent un `$depbase` non substituable — une regex ancrée sur `\.cpp$` ne matche
+     rien.)*
+  2. ⭐ **Une contre-mutation se réécrit APRÈS le correctif, sinon elle ne mute rien.** Ma première
+     permutation cherchait `multiBits_cb(status, address, count, …)` — la forme d'AVANT le typage :
+     **0 occurrence** sur l'arbre livré. Le garde `assert n > 0` a arrêté la chaîne au lieu de
+     publier « 0 mutation survivante », **qui se serait lu comme un succès**. Réécrite contre la
+     forme livrée (`WagoTypes::Address(address), WagoTypes::Count(count)`) : **4 sites, 4/4
+     `rc=1`, 0 survivante**, témoin sain `rc=0`, restauration **1 fichier**, sha256 identique.
+     ⭐ *Une campagne « 0 survivante » doit publier le nombre de sites MUTÉS.*
+  3. ⚠️ **La seule correction de fiche du merge est une PORTÉE, pas un chiffre — et c'est la
+     troisième de la nuit.** R1 tient (**12 avertissements uniques, 6 `address` + 6 `count`,
+     `WagoIOBase.h:104:82` colonne 82 confirmée, témoin à 0, 0 unité en échec sur 14**, plus le
+     bonus `WagoMap.cpp:172:126` `values`). Mais **« ZÉRO ligne `-Wshadow` » ne vaut que pour les
+     six unités de l'auteur** : sur les 14, `WagoIOBase.h:104:82` **émet bien** un `-Wshadow`, dans
+     **une seule** unité (`WIDigitalTriple.cpp`, la seule dont la base porte un membre `count`), et
+     **c'est là, et là seulement, que `count` perd son `unused parameter`**. ⇒ **l'intuition de la
+     1ʳᵉ rédaction était juste pour 1 unité sur 5**, la conclusion corrigée reste juste, et la
+     phrase absolue était trop large. **Écrire la portée du balayage DANS la phrase qu'il porte** —
+     exactement ce que R2 demandait pour « la paire *(address, count)* ».
+  4. ⭐ **Les deux paires fichées sans numéro sont ATTRIBUÉES** : **[`T3.53`](T3.53.md)** = la paire
+     DALI `(string command, string result)` — **types identiques ⇒ hors de portée de tout
+     compilateur**, 5 décl. / 5 déf. / 4 `mem_fun`, **aucun test** ⇒ la plus exposée ;
+     **[`T3.54`](T3.54.md)** = `setBufferBit(…, int bit, bool val)` — 1 déf. / 1 appel,
+     **atténuée** par `packBits` (couvert par `tests/WagoBits_test.cpp`), ⚠️ **atténuation DÉDUITE
+     et jamais mesurée**, ce qui en fait le premier livrable du ticket. **Comptes re-vérifiés au
+     source par le merge, concordants. Aucun autre numéro ouvert.**
+  5. ⭐ **Le raccourci de campagne de l'auteur est FONDÉ, et ça se vérifie en une commande** :
+     l'arbre git `src/bin/calaos_server/IO/Wago` vaut **`758ee79c…`** sur `74d0c520`, sur
+     `bdc13081` **et** sur le parent des deux commits de code ⇒ **le même objet**, la campagne
+     mesurée avant les rebases porte donc sur les mêmes octets. *Vérifier l'identité d'objet plutôt
+     que la liste des fichiers touchés : c'est plus court et ça ne se raisonne pas.*
+
 - **✅ [`T3.40`](T3.40.md) MERGÉE — `81a7ff44`, 16 commits, `--ff-only` sur `74d0c520`, `master`
   immobile ⇒ **ni rebase ni conflit**, historique linéaire.** Le use-after-free généralisé est
   fermé : **16 sites sur 20**, **6 classes d'IO** atteignables par un rechargement de

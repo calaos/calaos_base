@@ -6526,6 +6526,22 @@ jamais un délai subi.
   `WIDigitalBase` aurait alors reposé sur une **lecture** de corps et non sur une mesure.
   **Remesuré** : `WagoIOBase.h:104` produit **bien** `unused parameter 'count'`, et les six unités
   ne contiennent **ZÉRO** ligne `-Wshadow`. ⇒ **les six conclusions reposent sur une MESURE.**
+  ⭐ **PRÉCISION AJOUTÉE AU MERGE DE T3.50, et elle réhabilite en partie la 1ʳᵉ rédaction sans
+  renverser la conclusion.** Le merge a rejoué la mesure dans l'image de build sur **les 14 unités
+  de `IO/Wago/`** (et non six), drapeaux projet + `-Wunused-parameter`, **`rc=0` exigé d'abord** :
+  **0 unité en échec**, **13 avertissements uniques sur les six sites** — les **12** annoncés
+  (**6 `address`/`addr` + 6 `count`**, `WagoIOBase.h:104:82` **colonne 82 confirmée**) **plus**
+  `WagoMap.cpp:172:126` `unused parameter 'values'`, qui confirme que
+  `WagoModbusReadHeartbeatCallback` n'utilise **même pas** `values`. **Témoin sans le drapeau : 0.**
+  ⚠️ **Mais « ZÉRO ligne `-Wshadow` » ne vaut QUE pour les six unités de l'auteur** : sur les 14,
+  `WagoIOBase.h:104:82` **émet bien** `declaration of 'count' shadows a member` — dans **une seule**
+  unité, **`WIDigitalTriple.cpp`**, la seule dont la base `WIDigitalBase<InputSwitchTriple>` porte un
+  membre `count` ; et **c'est exactement là, et là seulement, que `count` perd son
+  `unused parameter`**. Dans `WIDigitalBP.cpp` et `WIDigitalLong.cpp` les **deux** avertissements
+  sortent. ⇒ ⭐ **la conclusion tient — l'avertissement existe et il est mesuré — mais la phrase
+  absolue était trop large, et l'intuition de la 1ʳᵉ rédaction (« gcc y met un `-Wshadow` à la
+  place ») était juste POUR UNE unité sur cinq.** ⚠️ **Même classe de généralisation que R2 :
+  une portée de balayage doit être écrite avec la phrase qu'elle porte.**
   ⭐ **Garde-fou de l'instrument, appris à ses dépens** : la 1ʳᵉ passe du recomptage a rendu
   « 0 avertissement partout » parce que les six unités **ne compilaient pas** (arbre configuré pour
   l'image de build, pas pour l'hôte). *Une unité en échec rend zéro avertissement, et zéro
@@ -6579,13 +6595,19 @@ jamais un délai subi.
   affirmations d'atteignabilité dans les tickets précédents. **Deux autres paires nues existent
   bel et bien dans `IO/Wago/`** : voir l'entrée suivante.
 
-- ⛔ **[SANS NUMÉRO — DEUX AUTRES PAIRES ADJACENTES NUES DANS `IO/Wago/`, remontées au
-  coordinateur pour attribution.]** ⚠️ **Trouvées par la revue de T3.50, pas par moi** : mon
+- ✅ **[NUMÉROS ATTRIBUÉS AU MERGE DE T3.50 : [`T3.53`](T3.53.md) = la paire DALI ·
+  [`T3.54`](T3.54.md) = `setBufferBit`.]** ⭐ **Les deux comptes ci-dessous ont été RE-VÉRIFIÉS au
+  source par le merge, indépendamment, et concordent avec ceux de l'auteur** (DALI : 5 décl. /
+  5 déf. / 4 `mem_fun`, le 3ᵉ paramètre de `WODaliRVB.cpp:164` bien anonyme ; `setBufferBit` :
+  1 déf. `WagoBits.h:114` / 1 appel `:138` ; `tests/WagoBits_test.cpp` : **12** `packBits`,
+  **0** `setBufferBit` ; **aucun** fichier de test DALI dans l'arbre). ⛔ **Aucun autre numéro
+  ouvert.** *Texte d'origine conservé ci-dessous :* ⛔ **[DEUX AUTRES PAIRES ADJACENTES NUES DANS
+  `IO/Wago/`, remontées au coordinateur pour attribution.]** ⚠️ **Trouvées par la revue de T3.50, pas par moi** : mon
   balayage ne cherchait que la forme `(address, count)` et **ne pouvait pas les voir**. Vérifiées
   au source ici, les deux sont réelles. ⛔ **Aucun numéro n'est ouvert de mon propre chef**
   (`T3.40`…`T3.50` sont pris) — **il en faut un, ou deux, et c'est au coordinateur de trancher.**
 
-  1. ⭐ **`setBufferBit(unsigned char *buf, int bit, bool val)` — `WagoBits.h:114`.** `int` et
+  1. ⭐ **[T3.54](T3.54.md) — `setBufferBit(unsigned char *buf, int bit, bool val)` — `WagoBits.h:114`.** `int` et
      `bool` se convertissent **dans les deux sens** en silence, les deux paramètres sont
      **adjacents**, et ⭐ **les DEUX sont lus** : `buf[bit / 8]`, `0x01u << (bit % 8)`, puis
      `if (val)`. **1 définition** (`:114`), **1 seul site d'appel** (`WagoBits.h:138`,
@@ -6595,7 +6617,7 @@ jamais un délai subi.
      un test de comportement** (`tests/WagoBits_test.cpp`, 12 occurrences de `packBits`) — une
      permutation au site d'appel serait très probablement **rougie par un test existant**. C'est
      ce qui la sépare de `F-WAGO-10`, qu'aucun test n'atteint.
-  2. ⭐ **`(bool status, string command, string result)` — la paire DALI.** `WODali.h:38` /
+  2. ⭐ **[T3.53](T3.53.md) — `(bool status, string command, string result)` — la paire DALI.** `WODali.h:38` /
      `WODali.cpp:82` · `WODaliRVB.h:38-41` / `WODaliRVB.cpp:90`, `:111`, `:132`, `:164`.
      ⛔ **Pire que permutable : les deux types sont IDENTIQUES** (`std::string`) — il n'existe
      **aucune conversion à diagnostiquer**, donc **aucun compilateur ne pourra jamais rien en
