@@ -596,25 +596,38 @@ TEST(OLAWire, TheFlatteningHouseRulesDecideWhatANonIntegerEntryDrives)
  *
  * Utils::from_string() is an istringstream extraction. On an EMPTY string the
  * stream's sentry fails before operator>> ever runs, so the C++11 rule that
- * stores 0 into the destination on a FAILED extraction never applies: the
- * destination keeps whatever it held. And because the sentry's lookahead set
- * eofbit, from_string() returns TRUE - it claims success while having written
- * nothing at all.
+ * stores 0 into the destination on a FAILED extraction never applied: the
+ * destination kept whatever it held. And because the sentry's lookahead set
+ * eofbit, from_string() returned TRUE - it claimed success while having
+ * written nothing at all.
+ *
+ * ⭐ T3.25 CLOSED THAT HOLE IN THE PRIMITIVE ITSELF, and this case is rewritten
+ * accordingly rather than deleted. E4.1f said "this ticket does NOT change it
+ * (Utils::from_string is used everywhere)", and it was right for E4.1f: the
+ * decoder fix below is what E4.1f owned, and it still stands on its own -
+ * OLAWire must not hand an unwritten variable to the DMX buffer whatever the
+ * primitive does. What changed is that the primitive no longer offers one:
+ * from_string("") now answers FALSE and writes T{}.
  *
  * Contrast with a non-empty unreadable string ("true"): there the sentry
  * succeeds, the extraction fails, the destination IS set to 0 and the return
- * is false. The two are not the same, and only the first one is a hole.
- *
- * This is Utils' behaviour, not the wire's, and this ticket does NOT change it
- * (Utils::from_string is used everywhere). What the fix commit changes is the
- * DECODER, which must not hand an uninitialized variable to the DMX buffer.
+ * is false. THAT half is untouched by T3.25 - and it is the half that matters
+ * for every guard written against a garbage value.
  */
-TEST(OLAWire, AnEmptyStringMakesFromStringWriteNothingAndStillClaimSuccess)
+TEST(OLAWire, AnEmptyStringIsRefusedByFromStringAndNoLongerLeavesTheDestinationAlone)
 {
+    //T3.25: was AnEmptyStringMakesFromStringWriteNothingAndStillClaimSuccess,
+    //and the two assertions below are its exact opposites. The sentinel is
+    //kept as it was (0xA5A5A5A5, never 0) so that "not written" and "written
+    //zero" stay distinguishable.
     unsigned int a = 0xA5A5A5A5u;
-    EXPECT_TRUE(Utils::from_string(string(""), a)) << "from_string(\"\") no longer claims success";
-    EXPECT_EQ(0xA5A5A5A5u, a) << "from_string(\"\") now writes something";
+    EXPECT_FALSE(Utils::from_string(string(""), a))
+            << "from_string(\"\") claims success again: T3.25 has been reverted";
+    EXPECT_EQ(0u, a)
+            << "from_string(\"\") left the destination untouched again";
 
+    //unchanged by T3.25, and the reason the decoder fix of E4.1f is still the
+    //one doing the work for a NON EMPTY unreadable channel
     unsigned int b = 0xA5A5A5A5u;
     EXPECT_FALSE(Utils::from_string(string("true"), b));
     EXPECT_EQ(0u, b);
