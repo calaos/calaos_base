@@ -476,6 +476,49 @@ TEST(KNXCtrlWire, MissingKeysLeaveTheDefaultsAndNothingThrows)
               dumpKnxValue(v));
 }
 
+/* ⭐ T3.25 (review reserve 2). value_int in OVERFLOW keeps 0, and that is a
+ * DIFFERENT wrong number from the one it used to keep.
+ *
+ * KNXCtrl.cpp:171 reads value_int with from_string_or_keep() and KNXValue's
+ * member default is 0 (KNXCtrl.h:82). A value that does not fit an int is a
+ * parse FAILURE since T3.25, so the default wins:
+ *
+ *     before: "99999999999" -> value_int = 2147483647 (num_get saturates)
+ *     now:    "99999999999" -> value_int = 0          (the default survives)
+ *
+ * ⚠️ Both are wrong - the frame said neither 0 nor INT_MAX. 0 is the safer of
+ * the two on a KNX bus (INT_MAX is written out as a group value), and it is the
+ * one the ticket chose, deliberately and with no clamp added. This case exists
+ * so that the choice is a decision and not an accident.
+ *
+ * ⚠️ The CLI twin (KNXExternProc_cli.cpp:521) carries an int64_t, not an int
+ * (KNXExternProc_main.h:89): "99999999999" fits there and parses fine. Its
+ * overflow token is 9223372036854775808. Do not copy this input across.
+ */
+TEST(KNXCtrlWire, AnOverflowingValueIntKeepsTheDefaultInsteadOfSaturating)
+{
+    KNXValue v = parseKnxValue("{\"type\":\"1\",\"eis\":\"6\","
+                               "\"value_int\":\"99999999999\","
+                               "\"value_float\":\"21.5\",\"value_char\":\"A\","
+                               "\"value_string\":\"\"}");
+
+    EXPECT_EQ(string("{\"eis\":\"6\",\"type\":\"1\",\"value_char\":\"A\","
+                     "\"value_float\":\"21.5\",\"value_int\":\"0\","
+                     "\"value_string\":\"\"}"),
+              dumpKnxValue(v));
+
+    //The boundary that must still parse, one character away from the refusal.
+    KNXValue max = parseKnxValue("{\"type\":\"1\",\"eis\":\"6\","
+                                 "\"value_int\":\"2147483647\","
+                                 "\"value_float\":\"21.5\",\"value_char\":\"A\","
+                                 "\"value_string\":\"\"}");
+
+    EXPECT_EQ(string("{\"eis\":\"6\",\"type\":\"1\",\"value_char\":\"A\","
+                     "\"value_float\":\"21.5\",\"value_int\":\"2147483647\","
+                     "\"value_string\":\"\"}"),
+              dumpKnxValue(max));
+}
+
 TEST(KNXCtrlWire, ADocumentThatIsNotAnObjectDecodesToTheDefaultValue)
 {
     //KNXCtrl::processNewMessage() hands fromJson() whatever sits under the

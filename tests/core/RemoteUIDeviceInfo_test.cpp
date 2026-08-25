@@ -53,6 +53,7 @@
 #include "CalaosCoreFixture.h"
 
 #include "IO/RemoteUI/RemoteUI.h"
+#include "IO/RemoteUI/RemoteUIOutputRelay.h"
 
 using namespace Calaos;
 using namespace CalaosTest;
@@ -273,4 +274,74 @@ TEST_F(RemoteUIDeviceInfoTest, NoDeviceInfoWritesNoElement)
 
     //The rest of the IO is untouched by all this
     EXPECT_TRUE(roundTripIo());
+}
+
+/*******************************************************************************
+ * T3.25 (review reserve 1) - relay_num, which had no oracle at all.
+ *
+ * RemoteUIOutputRelay.o has been linked into this binary since T3.15, but the
+ * class was never instantiated by any test: the review measured that the token
+ * `relay_num` appears in NO file of tests/. Its constructor is the ONE
+ * from_string_or_keep() site of the RemoteUI family and there is no Exists()
+ * guard in front of it, so before T3.25 an absent or blank "relay_num" made a
+ * plain from_string() write 0 - a relay number the ioDoc rules out (1..99) -
+ * over the in-class default of 1, and the wrong relay was then sent on the wire
+ * by set_value_real().
+ *
+ * The parsed value has no other observable (see the comment on getRelayNum()),
+ * so these three cases are what stands between that line and the next
+ * refactoring. The third one is the control: `_or_keep` must still let a
+ * configured relay number WIN, or "keep the default" would be satisfied by
+ * never reading the parameter.
+ ******************************************************************************/
+namespace
+{
+
+RemoteUIOutputRelay *makeRelay(const std::string &id, bool withParam,
+                               const std::string &relayNum)
+{
+    Params p = {{ "type", "RemoteUIOutputRelay" },
+                { "id", id },
+                { "name", "Relay under test" },
+                { "remote_ui_id", DEVICE_A },
+                { "enabled", "true" },
+                { "visible", "true" }};
+    if (withParam)
+        p.Add("relay_num", relayNum);
+
+    return dynamic_cast<RemoteUIOutputRelay *>(CoreFixture::createIO(p));
+}
+
+}
+
+TEST_F(RemoteUIDeviceInfoTest, AnAbsentRelayNumKeepsTheDocumentedFirstRelay)
+{
+    loadConfig();
+
+    RemoteUIOutputRelay *relay = makeRelay("t325_relay_absent", false, "");
+    ASSERT_NE(nullptr, relay);
+    EXPECT_EQ(1, relay->getRelayNum())
+            << "an absent relay_num drove relay " << relay->getRelayNum()
+            << ", a relay the ioDoc says does not exist";
+}
+
+TEST_F(RemoteUIDeviceInfoTest, ABlankRelayNumKeepsTheDocumentedFirstRelay)
+{
+    loadConfig();
+
+    RemoteUIOutputRelay *relay = makeRelay("t325_relay_blank", true, "");
+    ASSERT_NE(nullptr, relay);
+    EXPECT_EQ(1, relay->getRelayNum())
+            << "a present but blank relay_num drove relay " << relay->getRelayNum()
+            << "; RemoteUIOutputRelay.cpp:47 no longer protects the default";
+}
+
+TEST_F(RemoteUIDeviceInfoTest, AConfiguredRelayNumIsStillTheOneUsed)
+{
+    //GREEN BEFORE AND AFTER: the control of the three.
+    loadConfig();
+
+    RemoteUIOutputRelay *relay = makeRelay("t325_relay_three", true, "3");
+    ASSERT_NE(nullptr, relay);
+    EXPECT_EQ(3, relay->getRelayNum());
 }

@@ -2759,3 +2759,43 @@ core_ImpulseGarbageIo_test_LDADD = \
 #Built elsewhere, do not let automake turn them into prerequisites
 core_ImpulseGarbageIo_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.25 (review reserve 1)
+#The oracle the Wago `port` family did not have. WIAnalog/WITemp/WOAnalog/
+#WODali/WODaliRVB/WODigital appeared in NO test file of the tree, so their nine
+#from_string_or_keep("port") lines were pinned by nothing. The seam is
+#WagoMap::get_maps(): WagoMap keys its singletons on the (host, port) pair and
+#publishes the table, so the port an IO chose is observable without adding a
+#single accessor to production. Every case uses its own TEST-NET-1 host
+#(RFC 5737), which never binds and never collides with a parallel `make check`
+#peer. None of the six Wago IO objects, nor WagoMap/WagoCtrl, nor the
+#InputTemp/OutputAnalog/OutputLightRGB parents are part of CORE_SERVER_OBJECTS,
+#hence the list below.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WagoPortDefault_test
+check_PROGRAMS += core/WagoPortDefault_test
+core_WagoPortDefault_test_SOURCES = core/WagoPortDefault_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_WagoPortDefault_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoPortDefault_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT)                      \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT)                     \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoCtrl.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT)                \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_WagoPortDefault_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif

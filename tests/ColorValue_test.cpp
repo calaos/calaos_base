@@ -207,3 +207,29 @@ TEST_F(ColorValueTest, SetString)
     EXPECT_EQ(false, s8.isValid());
 }
 
+
+/* ⭐ T3.25 (review reserve 2). A decimal string past INT_MAX is not a colour.
+ *
+ * ColorUtils.cpp:245 gates the "plain decimal" spelling of a colour on
+ * Utils::is_of_type<int>(). Before T3.25 that answered TRUE for a token that
+ * merely consumed the whole string, so "99999999999" saturated to 0x7FFFFFFF
+ * and setRgb(32767, 255, 255) built a colour that reported itself VALID out of
+ * a number no colour can hold. It is now refused, and the object stays
+ * ColorInvalid - which is what every caller checks with isValid().
+ *
+ * The boundary that must still work is one character away, so the case pins
+ * both sides of it.
+ */
+TEST(ColorValueOverflow, ADecimalStringPastIntMaxIsNotAColour)
+{
+    ColorValue over;
+    over.setString("99999999999");
+    EXPECT_EQ(false, over.isValid())
+            << "a decimal that does not fit an int became the colour "
+            << over.toString();
+
+    ColorValue max;
+    max.setString("16777215");   //0xFFFFFF, the largest real RGB decimal
+    EXPECT_EQ(true, max.isValid());
+    EXPECT_EQ("#FFFFFF", max.toString());
+}

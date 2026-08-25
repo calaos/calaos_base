@@ -701,6 +701,66 @@ TEST_F(JsonApiAudioPayloadTest, ADecimalFromIsRefusedBeforeTheDatabase)
     EXPECT_EQ(0, player->database_().listCalls);
 }
 
+/* ⭐ T3.25 (review reserve 2). THE OVERFLOW HALF OF THE is_of_type() CHANGE, on
+ * the gate that carries it 14 times.
+ *
+ * JsonApi.cpp has FOURTEEN identical from/count pairs - measured, one per
+ * audio_db list method: :1211, :1285, :1325, :1365, :1405, :1445, :1484, :1523,
+ * :1562, :1601, :1641, :1681, :1720, :1759. All of them read
+ *
+ *     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) || ...) -> refuse
+ *
+ * BEFORE T3.25, is_of_type<int>("99999999999") answered TRUE because
+ * iss.eof() only said "the whole string was consumed", never "it fits": the
+ * request was ACCEPTED, from_string() saturated the count to INT_MAX and
+ * getAlbums(from, 2147483647) reached the music database. It is now refused.
+ *
+ * ⚠️ THAT IS A REAL API CHANGE and this case is what pins it, for all fourteen
+ * pairs at once: they are byte-identical, so one of them is the oracle of the
+ * shape. It is deliberately NOT a golden - the answer is a one key document and
+ * the two assertions below say all of it. Contrast it with the row directly
+ * above (-5/-1 pass untouched): the gate has never had a RANGE check, and this
+ * ticket did not add one. What changed is only that a token which does not fit
+ * an int stopped being called an int.
+ */
+TEST_F(JsonApiAudioPayloadTest, AnOverflowingCountIsRefusedBeforeTheDatabase)
+{
+    FakeAudioPlayer *player = addPlayer();
+
+    WsTestSession ws;
+    ws.send(wsRequest("audio_db", "get_album", PLAYER_ID,
+                      Json{{ "from", "0" }, { "count", "99999999999" }}));
+
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_EQ("wrong from/count", str(ws.lastData(), "error"));
+    EXPECT_EQ(0, player->database_().listCalls)
+            << "a count that does not fit an int reached the database "
+               "saturated to INT_MAX";
+}
+
+//The same on `from`, and on the exact boundary token that must STILL pass:
+//2147483647 is an int, 2147483648 is not, and one character separates them.
+TEST_F(JsonApiAudioPayloadTest, TheIntBoundaryIsWhereTheGateNowCuts)
+{
+    FakeAudioPlayer *player = addPlayer();
+    player->database_().listAnswer.vparams = { countMarker("0") };
+
+    WsTestSession ok;
+    ok.send(wsRequest("audio_db", "get_album", PLAYER_ID,
+                      Json{{ "from", "2147483647" }, { "count", "1" }}));
+    ASSERT_EQ(1u, ok.count());
+    EXPECT_EQ(1, player->database_().listCalls);
+    EXPECT_EQ(2147483647, player->database_().lastFrom);
+
+    WsTestSession ko;
+    ko.send(wsRequest("audio_db", "get_album", PLAYER_ID,
+                      Json{{ "from", "2147483648" }, { "count", "1" }}));
+    ASSERT_EQ(1u, ko.count());
+    EXPECT_EQ("wrong from/count", str(ko.lastData(), "error"));
+    EXPECT_EQ(1, player->database_().listCalls)
+            << "the out-of-range `from` reached the database as well";
+}
+
 /*******************************************************************************
  * B. SCALAR FORMATTING - THE "Formatage numerique" ROW OF THE SWITCH TABLE
  *

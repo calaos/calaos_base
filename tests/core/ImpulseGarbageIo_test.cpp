@@ -78,15 +78,51 @@ protected:
     void setOutputDown(bool) override {}
 };
 
+/* ⭐ T3.25 (review reserve 3). THE SENTINEL, and why 0 is never allowed to be
+ * one here.
+ *
+ * 0x55555555 = 1431655765, the int form of the 0x5555 = 21845 that
+ * tests/StringUtilsFromString_test seeds into every destination. Two distinct
+ * jobs, both of them the same idea - "not written" must never be able to look
+ * like "written zero":
+ *
+ *   - SENTINEL_VALUE seeds lastRealValue/lastDimUp, so "set_value_real() was
+ *     never called at all" is distinguishable from "called with 0";
+ *   - STACK_PAINT_BYTE is written over several kilobytes of stack BELOW the
+ *     test frame just before the call, so that the UNINITIALISED `int percent`
+ *     of OutputLightDimmer::set_value() reads back STACK_PAINT_INT instead of
+ *     a plausible 0 when the T3.25 primitive is reverted.
+ */
+const int SENTINEL_VALUE   = 21845;         //0x5555
+const int STACK_PAINT_BYTE = 0x55;
+const int STACK_PAINT_INT  = 0x55555555;    //1431655765
+
+void paintStackBelow()
+{
+    volatile unsigned char scratch[8192];
+    for (size_t i = 0; i < sizeof(scratch); i++)
+        scratch[i] = (unsigned char)STACK_PAINT_BYTE;
+
+    //read it back through the volatile so that nothing here can be elided
+    unsigned char acc = 0;
+    for (size_t i = 0; i < sizeof(scratch); i++)
+        acc = (unsigned char)(acc ^ scratch[i]);
+    (void)acc;
+}
+
 class T325bDimmer: public OutputLightDimmer
 {
 public:
     T325bDimmer(Params &p): OutputLightDimmer(p) {}
 
-    int lastRealValue = -1;
+    //Seeded with the sentinel, NEVER with 0 or -1: an oracle that expects 0 on
+    //a destination that starts at 0 says nothing at all.
+    int lastRealValue = SENTINEL_VALUE;
+    int lastDimUp = SENTINEL_VALUE;
 
 protected:
     bool set_value_real(int val) override { lastRealValue = val; return true; }
+    bool set_dim_up_real(int percent) override { lastDimUp = percent; return true; }
 };
 
 void registerT325bIos()
@@ -223,23 +259,137 @@ TEST_F(ImpulseGarbageIoTest, AWellFormedDimmerImpulseStillArmsItsTimer)
     EXPECT_EQ(before + 1, armedTimerCount());
 }
 
+/*******************************************************************************
+ * ⭐ THE TWO NON-DETERMINISTIC CASES OF THIS FILE, rewritten by the T3.25
+ * review, which found the first version of them EMPTY BY CONSTRUCTION.
+ *
+ * WHAT WAS WRONG. The shipped `ADimmerSetWithNoPercentDoesNotMoveTheLight`
+ * asserted EXPECT_EQ(0, lastRealValue) on a path where, with T3.25 reverted,
+ * `int percent` is never written. It was red here and GREEN on the reviewer's
+ * machine on the very same defective code. The rule the first version leaned
+ * on - "at -O2 an uninitialised local reads 0" - IS NOT ONE. Measured across
+ * two compilers, same program, five runs each:
+ *
+ *     g++ 12.2  -O0 -> 32766 x5      g++ 12.2  -O1 -> 0 x5
+ *     g++ 12.2  -O2 -> 0 then 32648 x4
+ *     g++ 16.2  -O2 -> 0 x5          g++ 16.2  -O3 -> 0 x5
+ *
+ * It is a PHENOMENON of the compiler and of the shape of the stack, not a
+ * property, and an oracle that expects 0 on a non-initialisation path is empty
+ * whenever the phenomenon lands on 0.
+ *
+ * WHAT IS DONE ABOUT IT, and what is honestly still not guaranteed:
+ *   1. the stack below the test frame is PAINTED with 0x55 immediately before
+ *      the call, so a slot that production never writes reads back
+ *      STACK_PAINT_INT rather than whatever the previous call left;
+ *   2. the discriminating assertion is the SENTINEL one - "the painted garbage
+ *      did not surface" - and not the "== 0" one;
+ *   3. the `up ` branch is added because it has NO CLAMP: `set ` clamps
+ *      `percent` into [0,100] (OutputLightDimmer.cpp:145-147), which HIDES the
+ *      garbage behind a plausible brightness, while `up ` hands the raw parsed
+ *      int to set_dim_up_real().
+ *
+ * ⚠️ Still not a guaranteed red: a compiler that keeps `percent` in a register
+ * never touches the painted stack at all, and nothing in the language lets a
+ * test observe that. THE DETERMINISTIC PIN OF THIS EXACT DEFECT LIVES ON THE
+ * PRIMITIVE - tests/StringUtilsFromString_test seeds 21845 and asserts
+ * from_string("") answers false AND writes 0 - and that is the one that cannot
+ * be argued with. These two cases are the IO-level corroboration of it, and
+ * they are counted as two, not one, in T3.25 §8.7.
+ ******************************************************************************/
+
 TEST_F(ImpulseGarbageIoTest, ADimmerSetWithNoPercentDoesNotMoveTheLight)
 {
-    //RED BEFORE THE FIX.
-    //
-    //Same caveat as AnImpulseWithNoDurationIsDefaultedToZero: `int percent;`
-    //is indeterminate and the clamp to [0,100] at OutputLightDimmer.cpp:144-145
-    //hides that behind a PLAUSIBLE brightness - which is precisely what makes
-    //this one hard to notice in the field. Primed with a well formed "set 40"
-    //so the slot holds something recognisable.
     T325bDimmer *dim = makeDimmer();
     ASSERT_NE(nullptr, dim);
 
     EXPECT_TRUE(dim->set_value(std::string("set 40")));
     ASSERT_EQ(40, dim->lastRealValue);
 
+    paintStackBelow();
     EXPECT_TRUE(dim->set_value(std::string("set ")));
+
+    EXPECT_NE(SENTINEL_VALUE, dim->lastRealValue)
+            << "set_value_real() was not called at all";
     EXPECT_EQ(0, dim->lastRealValue)
             << "the dimmer was driven to a level nobody asked for";
     EXPECT_EQ("set 0", dim->get_command_string());
+}
+
+TEST_F(ImpulseGarbageIoTest, ADimmerDimUpWithNoPercentDimsByNothing)
+{
+    //The same defect on the branch that does NOT clamp, so the garbage shows
+    //as itself instead of as a plausible brightness. Measured on this tree
+    //with T3.25 reverted and the stack painted: set_dim_up_real() received
+    //1431655765 = STACK_PAINT_INT.
+    T325bDimmer *dim = makeDimmer();
+    ASSERT_NE(nullptr, dim);
+
+    EXPECT_TRUE(dim->set_value(std::string("up 10")));
+    ASSERT_EQ(10, dim->lastDimUp);
+
+    paintStackBelow();
+    EXPECT_TRUE(dim->set_value(std::string("up ")));
+
+    EXPECT_NE(SENTINEL_VALUE, dim->lastDimUp)
+            << "set_dim_up_real() was not called at all";
+    EXPECT_NE(STACK_PAINT_INT, dim->lastDimUp)
+            << "the painted stack came straight back out of the parse: "
+               "`percent` was never written, T3.25 has been reverted";
+    EXPECT_EQ(0, dim->lastDimUp)
+            << "the dimmer was dimmed up by an amount nobody asked for";
+}
+
+/*******************************************************************************
+ * ⭐ T3.25 (review reserve 2) - THE OVERFLOW HALF OF THE is_of_type() CHANGE.
+ *
+ * §8.3 audited the BLANK half of the is_of_type() flip ("", " ", "-", "+").
+ * The OVERFLOW half - "2147483648", "-2147483649", "99999999999" - flips at the
+ * same 84 sites and had NO oracle anywhere in the tree at product level. The
+ * primitive is pinned (StringUtilsFromString_test: IsOfTypeRefusesAnOverflow),
+ * but before this block "a partial revert of T3.25 restricted to overflow" left
+ * every product-level test green.
+ *
+ * These two are the reachable IO-grammar half of it. Both are DETERMINISTIC -
+ * is_of_type() flips true -> false, nothing here reads an uninitialised local.
+ ******************************************************************************/
+
+TEST_F(ImpulseGarbageIoTest, ADimmerImpulseWithAnOverflowingDurationArmsNoTimer)
+{
+    //RED BEFORE THE FIX. is_of_type<int>("99999999999") answered TRUE, so the
+    //numeric fork was taken, from_string() SATURATED the duration to INT_MAX
+    //and impulse() armed a libuv timer of 2147483 s ~ 24.8 days with the light
+    //switched ON. is_of_type() now refuses the token, the extended-pattern fork
+    //is taken instead, and "99999999999" matches no arm of it: nothing is armed
+    //and the light does not move.
+    T325bDimmer *dim = makeDimmer();
+    ASSERT_NE(nullptr, dim);
+
+    const int before = armedTimerCount();
+    dim->set_value(std::string("impulse 99999999999"));
+    EXPECT_EQ(before, armedTimerCount())
+            << "a saturated impulse duration armed a timer for ~24.8 days";
+}
+
+TEST_F(ImpulseGarbageIoTest, ADimmerSetStateWithAnOverflowingPercentDoesNotMoveTheLight)
+{
+    //RED BEFORE THE FIX, and this one is the API-facing shape: "set_state
+    //<n>" is what JsonApi's set_state hands to the IO verbatim - the boundary
+    //guard added by this ticket only refuses a value ending on whitespace.
+    //is_of_type<int>("99999999999") used to answer TRUE, from_string()
+    //saturated to INT_MAX and the clamp turned that into 100: the dimmer was
+    //driven to FULL BRIGHTNESS by a number that does not fit in an int.
+    T325bDimmer *dim = makeDimmer();
+    ASSERT_NE(nullptr, dim);
+
+    EXPECT_TRUE(dim->set_value(std::string("set 40")));
+    ASSERT_EQ("set 40", dim->get_command_string());
+    ASSERT_EQ(40, dim->lastRealValue);
+
+    dim->set_value(std::string("set_state 99999999999"));
+
+    EXPECT_EQ("set 40", dim->get_command_string())
+            << "an out-of-range set_state was saturated to INT_MAX and clamped "
+               "to 100: the light went to full";
+    EXPECT_EQ(40, dim->lastRealValue);
 }
