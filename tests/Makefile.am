@@ -2411,3 +2411,39 @@ JsonPathSyntax_test_LDADD = \
 #Built elsewhere, do not let automake turn them into prerequisites
 JsonPathSyntax_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# E4.1j
+#Characterization of the DOWNSTREAM half of the Lua wire: the messages
+#calaos_script emits ({msg,data} from every Lua binding that talks back, plus
+#the flat "finished") and the messages it decodes ("execute" with its script,
+#its context array and its env; "event" with its type_str and its nested
+#data). Written BEFORE the jansson -> nlohmann migration of
+#LuaScript/ScriptExtern_main.cpp and LuaScript/ScriptBindings.cpp and green
+#across it; the seams are the free functions of the anonymous namespace in the
+#test itself, which the migration commit rewires onto the production header
+#LuaScript/ScriptWire.h so that a mutation of the SHIPPED emitter or decoder
+#turns this suite red. LuaScript/ScriptExec.cpp - the calaos_server end - is
+#OUT of perimeter (E4.1m) and untouched: both ends decode with a real JSON
+#parser, so the mixed state is supported.
+#Nothing in this suite executed a driver before (E4.0d) and no golden covers
+#this wire: this file is the only net this migration has.
+#Three of its cases assert on the RAW BYTES (ensure_ascii, the invalid-UTF-8
+#error handler, and the three spellings of that handler pinned separately).
+#Unlike Wago/OLA/Hue those oracles are LOAD BEARING here, not defensive: one
+#line of user Lua - calaos.sendPushNotif(string.char(0xFF)) - puts an
+#arbitrary byte straight into a JSON string value, and a naked dump() on this
+#path is std::terminate on calaos_script.
+#Only libcalaos_common code is exercised (Params + Utils + the wire header),
+#no server object and no fixture, which also keeps it clear of the
+#_DEPENDENCIES pitfall; jansson comes with @CALAOS_COMMON_LIBS@.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += ScriptWire_test
+check_PROGRAMS += ScriptWire_test
+ScriptWire_test_SOURCES = ScriptWire_test.cpp
+ScriptWire_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/LuaScript
+ScriptWire_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
