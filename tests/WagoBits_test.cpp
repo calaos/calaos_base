@@ -106,6 +106,17 @@ namespace seam
 using WagoBits::coilBufferSize;
 using WagoBits::packBits;
 using WagoBits::copyValues;
+using WagoBits::countIsWritable;
+
+//T3.30/F1 - CHARACTERIZATION, and the ONLY line of this seam that is not a
+//`using` yet. read_bits() and read_words() have NO count guard today: whatever
+//`nb` the dispatcher hands them is allocated on and put on the wire. That is
+//carried here as the shipped rule - "every count is readable" - exactly as this
+//seam carried the shipped packer BODIES before the fix commit, so that the
+//suite COMPILES at this commit and goes red on BEHAVIOUR rather than on a
+//missing symbol. The fix replaces this function with
+//`using WagoBits::countIsReadable;`.
+inline bool countIsReadable(int nb) { (void)nb; return true; }
 } //namespace seam
 
 namespace
@@ -318,6 +329,83 @@ TEST(WagoBits, ANonPositiveCountIsRefused)
 }
 
 /*******************************************************************************
+ * F1 - THE READ DIRECTION, which this ticket left open
+ *
+ * The ticket hardened the two WRITES by refusing `nb <= 0` (countIsWritable).
+ * The two READS were not touched, and they are the half that RUNS: the modbus
+ * heartbeat calls read_bits(0, 1, ...) every ten seconds and every Wago poll
+ * goes through read_bits()/read_words(). `nb` reaches them from
+ * WagoExternProc_main.cpp, out of an `int count;` that is NEVER INITIALISED and
+ * whose from_string() return is never read (F-WAGO-7) - so a pipe message with
+ * no `count` key hands them arbitrary stack memory, zero and negatives
+ * included.
+ *
+ * WHAT A NON-POSITIVE COUNT DOES, MEASURED AT g++ -std=c++11 FOR THIS TICKET:
+ *
+ *   coilBufferSize(nb <= 0) is 0, so read_bits() takes `new mbus_ubyte[0]` - a
+ *   VALID pointer to ZERO usable bytes, no throw - and then asks the PLC for
+ *   (mbus_uword)nb coils: 65535 of them for nb == -1, 0 for nb == 0.
+ *   mbus_cmd_read_coil_status() then reads the byte-count field of the RESPONSE
+ *   into `mbus_ubyte byte_count` and runs `while (byte_count--) MBUS_BYTE_WR(
+ *   coils_data, *bufptr++)`. That loop is bounded by the RESPONSE and by the
+ *   width of an unsigned char - up to 255 bytes - and by NOTHING the caller
+ *   passed. 255 bytes into a 0-byte allocation is a heap overflow.
+ *   read_words() is the same shape through mbus_cmd_read_holding_registers(),
+ *   where `mbus_ubyte data_count = MBUS_BYTE_RD(bufptr) / 2` caps at 127 words.
+ *
+ * ⚠️ WHY THE FIX IS A GUARD AND NOT A DIFFERENT coilBufferSize(). Dropping the
+ * `if (nb <= 0) return 0;` clamp does NOT bring back a diagnostic: (nb + 7) / 8
+ * truncates TOWARDS ZERO, so it is 0 for every nb in [-8, 0] and only goes
+ * negative - and only then throws - at nb <= -9. Measured. The clamp is not
+ * what is wrong; allocating on an unchecked count is.
+ *
+ * These cases execute the SHIPPED predicate through the seam above. The call
+ * sites in WagoCtrl.cpp cannot be executed (is_connected() again) and are
+ * covered by the source tripwire at the bottom of this file, as everything else
+ * in WagoCtrl.cpp is.
+ ******************************************************************************/
+
+//⭐ The rule itself. Zero is not a smaller read, it is not a read; a negative
+//count is not a count at all. Both are refused BEFORE anything is allocated.
+TEST(WagoBits, ANonPositiveCountIsNotReadable)
+{
+    EXPECT_FALSE(seam::countIsReadable(0));
+    EXPECT_FALSE(seam::countIsReadable(-1));
+    EXPECT_FALSE(seam::countIsReadable(-8));
+    EXPECT_FALSE(seam::countIsReadable(-40));
+
+    EXPECT_TRUE(seam::countIsReadable(1));
+    EXPECT_TRUE(seam::countIsReadable(FX_NB));
+    EXPECT_TRUE(seam::countIsReadable(512));
+}
+
+//⭐ THE INVARIANT F1 IS ABOUT, stated over the two functions at once rather
+//than over a hand-picked value: no count that read_bits() ACCEPTS may size a
+//zero-byte buffer. The heap overflow needs both halves - an accepted count AND
+//an empty allocation - so pinning the conjunction is what closes it.
+TEST(WagoBits, NoReadableCountEverSizesAZeroByteBuffer)
+{
+    for (int nb = -64; nb <= 512; nb++)
+    {
+        if (!seam::countIsReadable(nb)) continue;
+        EXPECT_GT(seam::coilBufferSize(nb), 0)
+            << "nb = " << nb << " is accepted for reading and allocates nothing";
+    }
+}
+
+//The two directions of the same wire must not disagree on what a count is: the
+//writes already refuse nb <= 0 through countIsWritable(). Without this case the
+//read guard could be written as `nb < 0` and the zero half would stay open.
+TEST(WagoBits, TheReadAndWriteDirectionsAgreeOnWhatACount)
+{
+    const size_t plenty = 1024;
+
+    for (int nb = -64; nb <= 512; nb++)
+        EXPECT_EQ(seam::countIsWritable(nb, plenty), seam::countIsReadable(nb))
+            << "nb = " << nb << ": the two directions of the wire disagree";
+}
+
+/*******************************************************************************
  * THE ACQUIRED - what already worked must not move
  ******************************************************************************/
 
@@ -417,4 +505,67 @@ TEST(WagoBits, ShippedWagoCtrlHasNoShortMemsetAndNoCeilingByHand)
         << "the over-allocating coil buffer expression is back in WagoCtrl.cpp";
     EXPECT_EQ(string::npos, compact.find("memset(data,'\\0',nb/8)"))
         << "the short memset is back in WagoCtrl.cpp";
+}
+
+//⭐ F1 - THE CALL SITES OF THE READ GUARD. The predicate above proves the RULE;
+//these two prove read_bits() and read_words() actually ask it, and ask it
+//BEFORE they allocate. Same weakness as the two tripwires above and labelled
+//the same way: they read the shipped source, they do not execute it.
+//
+//⚠️ ONE CASE PER READ, deliberately. Written as a single case, losing the guard
+//in read_bits() and losing it in read_words() produced the SAME red set and the
+//log could not say which - measured, mutations M1 and M2 of this ticket.
+//
+//⚠️ The searched needle is the WHOLE STATEMENT, not just the call: a tripwire
+//matching `WagoBits::countIsReadable(nb)` alone would be satisfied by a COMMENT
+//mentioning it. The allocation needles carry the same hazard the other way -
+//writing `new mbus_uword[nb]` inside a comment ABOVE the guard makes the
+//allocation appear first and reddens the case. Both were observed while writing
+//this, neither is theoretical.
+namespace
+{
+const char *GUARD_STATEMENT = "if(!WagoBits::countIsReadable(nb))returnfalse;";
+
+string compactedWagoCtrl()
+{
+    const string src = readShippedSource(
+        "src/bin/calaos_server/IO/Wago/WagoCtrl.cpp");
+    string compact;
+    for (size_t i = 0; i < src.size(); i++)
+        if (src[i] != ' ' && src[i] != '\t') compact += src[i];
+    return compact;
+}
+} //anonymous namespace
+
+TEST(WagoBits, ShippedReadBitsRefusesANonPositiveCountBeforeAllocating)
+{
+    const string compact = compactedWagoCtrl();
+    ASSERT_FALSE(compact.empty()) << "cannot read the shipped WagoCtrl.cpp";
+
+    const size_t fn = compact.find("boolWagoCtrl::read_bits(");
+    ASSERT_NE(string::npos, fn) << "read_bits() is gone from WagoCtrl.cpp";
+    const size_t alloc = compact.find("newmbus_ubyte[", fn);
+    ASSERT_NE(string::npos, alloc)
+        << "read_bits() no longer allocates; this tripwire needs rewriting";
+
+    EXPECT_LT(compact.find(GUARD_STATEMENT, fn), alloc)
+        << "read_bits() allocates a coil buffer on a count it never checked - "
+           "a non-positive nb gives new mbus_ubyte[0] and libmbus then copies "
+           "up to 255 response bytes into it";
+}
+
+TEST(WagoBits, ShippedReadWordsRefusesANonPositiveCountBeforeAllocating)
+{
+    const string compact = compactedWagoCtrl();
+    ASSERT_FALSE(compact.empty()) << "cannot read the shipped WagoCtrl.cpp";
+
+    const size_t fn = compact.find("boolWagoCtrl::read_words(");
+    ASSERT_NE(string::npos, fn) << "read_words() is gone from WagoCtrl.cpp";
+    const size_t alloc = compact.find("newmbus_uword[", fn);
+    ASSERT_NE(string::npos, alloc)
+        << "read_words() no longer allocates; this tripwire needs rewriting";
+
+    EXPECT_LT(compact.find(GUARD_STATEMENT, fn), alloc)
+        << "read_words() allocates a register buffer on a count it never "
+           "checked - libmbus then writes up to 127 response words into it";
 }
