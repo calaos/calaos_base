@@ -2487,3 +2487,39 @@ WagoBits_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+
+# T3.28
+#Characterization of the Roon launch arguments: the "port" parameter of the
+#RoonPlayer ioDoc, and the two startProcess() call sites of RoonCtrl.
+#Written BEFORE the fix and RED on master, on three counts: port is declared
+#mandatory with no default (9330 landed in the bool `mandatory` parameter of
+#IODoc::paramAdd, IODoc.h:46), the processExited handler relaunches
+#calaos_roon without --host/--port, and RoonPlayer::port has no in-class
+#initialiser.
+#⚠️ RoonCtrl is UNREACHABLE from make check - its constructor binds a unix
+#socket through ExternProcServer and spawns calaos_roon (measured in E4.1h,
+#FINDINGS.md:109-113, and the review closed the question). The respawn and the
+#member initialiser are therefore pinned by SOURCE TRIPWIRES over
+#CALAOS_TOP_SRCDIR, the same mechanism JanssonResidues_test uses; what IS
+#behavioural is the ioDoc, read off a real RoonPlayer, and the RoonArgs
+#free functions the fix extracts into Audio/RoonArgs.h.
+#It links Audio/RoonPlayer.$(OBJEXT) on top of the core objects, which is the
+#only suite of the tree that does. ⚠️ _DEPENDENCIES = libcalaos_common.la, like
+#every core suite, so automake does NOT relink this binary when RoonPlayer.o
+#changes: any mutation campaign on this file must rm -f BOTH the .o and the
+#test binary and then check the CXXLD line really came back.
+#-I.../Audio is already in AM_CPPFLAGS.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/RoonArgs_test
+check_PROGRAMS += core/RoonArgs_test
+core_RoonArgs_test_SOURCES = core/RoonArgs_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_RoonArgs_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -DCALAOS_TOP_SRCDIR='"$(abs_top_srcdir)"'
+core_RoonArgs_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_RoonArgs_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
