@@ -109,6 +109,65 @@ l'ancien exemple **ne marchait déjà pas** — la corriger ne casse rien, ça l
 pour laquelle le serveur **n'a pas** été rendu tolérant aux deux formes : il ne peut pas deviner
 laquelle des deux vous vouliez dire.
 
+---
+
+## 🔴 Roon : l'adresse d'un core configurée à la main n'était jamais utilisée
+
+### Qui est concerné, et qui ne l'est pas (T3.28)
+
+**Vous n'êtes concerné que si vous avez rempli le champ `host` de votre lecteur Roon** dans
+`calaos_installer` pour désigner un core précis sur votre réseau.
+
+**Si vous avez laissé `host` vide — le mode par défaut, celui que l'aide du paramètre recommande —
+tout fonctionnait, et rien ne change pour vous.** Calaos ne passait alors aucune option au
+processus `calaos_roon`, qui cherchait le core tout seul sur le réseau. C'est le cas de la grande
+majorité des installations. Nous le disons explicitement parce qu'un premier diagnostic interne
+avait conclu, à tort, que « l'intégration Roon est inutilisable » : **c'est faux**, seule la
+configuration à hôte statique l'était.
+
+### Ce qui se passait avec un hôte statique
+
+Deux défauts se cumulaient sur ce chemin, et un seul suffisait à le casser.
+
+1. **Le port partait en vrac.** Le numéro de port n'était jamais lu correctement : Calaos
+   transmettait au processus `calaos_roon` une valeur **prise au hasard dans la mémoire**. D'un
+   démarrage à l'autre elle changeait, ce qui explique pourquoi le symptôme pouvait sembler
+   capricieux — une fois sur mille, la valeur tombait par chance sur le bon numéro. Le port par
+   défaut de Roon (9330) ne pouvait pas rattraper le coup : il n'entre en jeu que lorsque Calaos
+   ne dit **rien** du port, et Calaos disait toujours quelque chose dès que `host` était rempli.
+2. **Au premier redémarrage du processus, l'adresse était oubliée.** Le processus `calaos_roon`
+   se relance automatiquement quand il s'arrête ; il repartait alors **sans `host` ni port**,
+   c'est-à-dire en recherche automatique. Votre lecteur pouvait donc finir par fonctionner —
+   mais **sur le core que le réseau a bien voulu rendre**, pas forcément celui que vous aviez
+   désigné. Sur une installation avec plusieurs cores Roon, ce n'est pas la même chose.
+
+### Ce qui change
+
+- L'adresse **et** le port que vous configurez sont désormais transmis, **au premier démarrage
+  comme à chaque relance**.
+- Un port laissé **vide**, ou saisi de travers (`abc`, `0`, `70000`…), retombe proprement sur le
+  port standard de Roon, **9330**, au lieu de partir en valeur aléatoire.
+- Dans `calaos_installer`, la fiche du paramètre **`port`** change : il était affiché
+  **« obligatoire, sans valeur par défaut »**, ce qui contredisait sa propre description
+  (« laisser vide pour détecter automatiquement »). Il est maintenant affiché **facultatif, avec
+  la valeur par défaut 9330 et la plage 1–65535**.
+
+### Ce que vous avez à faire
+
+**Rien, dans la plupart des cas** — mettez à jour et redémarrez `calaos_server`.
+
+1. Si vous aviez **renoncé** à l'hôte statique parce qu'il ne marchait pas et que vous êtes repassé
+   en détection automatique : vous pouvez le réessayer, il fonctionne.
+2. Si vous aviez rempli `host` **et** `port` : vérifiez simplement que le port est bien celui de
+   votre core (**9330** sauf configuration particulière). Il est maintenant **réellement utilisé** —
+   avant, il ne l'était pas, et une valeur fausse laissée là passait donc inaperçue.
+3. Si votre champ `port` est **vide** : laissez-le vide, 9330 sera pris.
+
+⚠️ **Cette correction n'a pas été essayée sur un core Roon réel.** Ce qui est vérifié par les
+tests, c'est que Calaos transmet bien l'adresse et le port configurés, et qu'il les retransmet à
+chaque relance. Si un problème de connexion subsiste chez vous après la mise à jour, il est
+ailleurs — signalez-le.
+
 ## ⚠️ Comportements qui changent sur une installation existante
 
 ### Une règle dont un équipement a disparu ne s'exécute plus (décision utilisateur)

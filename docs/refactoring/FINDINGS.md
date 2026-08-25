@@ -2827,6 +2827,29 @@ périmètre.
   confirmer sur matériel avant de trancher, mais les deux défauts sont sur le même chemin et
   méritent un seul ticket.
 
+  ✅ **LIVRÉ par [T3.28](T3.28.md) (`fix/t3.28`, 2026-08-25).** Quatre corrections apportées à
+  cette entrée, **mesurées** :
+  1. **`paramAdd` n'a ni `min`, ni `max`, ni validation** — `type` ne sert qu'à `typeToString()`
+     (`IODoc.cpp:52-63`). Un `TYPE_INT` déclaré par `paramAdd` est donc un entier **sans bornes
+     annoncées** ; seul `paramAddInt` émet `min`/`max` **et** émet `default` inconditionnellement.
+     Et `defaultval` restant `""`, le `if (!defaultval.empty())` de `:59` fait que la clé
+     `"default"` **n'existe pas du tout** — pas `"default": ""`, **pas de clé**. Vérifié à
+     l'exécution sur un vrai `RoonPlayer`.
+  2. **Le défaut Python `9330` n'existe que drapeau ABSENT — confirmé au source.**
+     `ExternProcRoon_main.py:43` : `add_argument('--port', default=9330)` **sans `type=int`** ⇒
+     drapeau absent = **entier** `9330`, drapeau présent = **chaîne** telle quelle, **aucune
+     validation**. `:42` : `--host` n'a **aucun** `default` ⇒ `None` ⇒ `get_roon_host()` bascule
+     sur `RoonDiscovery` (`:75-83`), qui **ignore le port**. Une valeur **négative** (mémoire
+     indéterminée) passe `argparse` sans broncher — `_negative_number_matcher` — et arrive
+     jusqu'à `RoonApi`.
+  3. **`from_string` rend `true` sur une SURCHARGE** en écrivant `INT_MAX`
+     (`"99999999999999999999"` → `true`, `2147483647`). Ni cette fiche ni T3.25 ne le disaient.
+  4. **Après T3.25**, le défaut non corrigé donnerait `--port 0` — **déterministe au lieu
+     d'aléatoire, toujours faux** : le symptôme change, la cause non.
+     `RoonArgs::portFromParams()` amorce sa destination avec `9330` et répond donc **la même chose
+     avant et après T3.25** ; les deux tickets restent indépendants.
+  ⛔ **Aucun test sur matériel réel** — ni ici, ni en E4.5c, ni en E4.5d. C'est dit dans la fiche.
+
 ---
 
 ## E4.5d — écarts trouvés en réécrivant `12/14/15` contre le code (hors périmètre, non corrigés)
@@ -2870,6 +2893,13 @@ Tous mesurés au source le 2026-08-24, aucun corrigé (le ticket est de la doc p
   automatique `RoonDiscovery` (`ExternProcRoon_main.py:75-83`) au lieu du core configuré — et se
   connecte potentiellement au mauvais core, ou à aucun. → mini-ticket : capturer `args` dans le
   lambda.
+  ✅ **LIVRÉ par [T3.28](T3.28.md).** ⚠️ **Ce n'était pas un oubli de capture** : `args` était
+  construit **après** le `connect`, donc `[=]` ne *pouvait pas* le capturer. Corrigé
+  **structurellement** et non par une capture : `RoonCtrl::procArgs` est construit avant le
+  `connect` et `RoonCtrl::launch()` est **le seul site de lancement** du fichier — les deux chemins
+  ne peuvent plus diverger parce qu'il n'y en a plus qu'un. Une tripwire source
+  (`tests/core/RoonArgs_test.cpp`, via `CALAOS_TOP_SRCDIR`) compte ce site unique, `RoonCtrl` étant
+  inatteignable depuis `make check`.
 - **[FIABILITÉ] Sept contrôleurs sur huit respawnent leur sous-processus sans aucun délai.**
   `MqttCtrl.cpp:43-48`, `KNXCtrl.cpp:36-41` et `:48-53`, `OLACtrl.cpp:31-36`, `OwCtrl.cpp:33-38`,
   `ReolinkCtrl.cpp:37-43`, `RoonPlayer.cpp:39-44` rappellent `startProcess()` directement depuis
@@ -3777,7 +3807,9 @@ ajouté ou infirmé, et qui n'existait dans aucun finding.
 2. **« `RoonPlayer` : `from_string("")` laisse `port` à 0 »** (:2458) — **non** : `port` est
    **indéterminé** (`RoonPlayer.h:214`, `int port;` sans initialiseur). Et **« Roon inutilisable »**
    est trop fort : le mode **autodétection** (host vide) fonctionne, seul l'hôte statique est
-   cassé. ⇒ [T3.28](T3.28.md).
+   cassé. ⇒ [T3.28](T3.28.md). ✅ **Corrigé et livré** (`fix/t3.28`, 2026-08-25) ; le
+   partage exact autodétection / hôte statique est **confirmé au source du sidecar Python**, et
+   `RELEASE_NOTES.md` le dit à l'utilisateur en nommant qui est concerné.
 3. ⚠️ **CE POINT ÉTAIT LUI-MÊME FAUX, et il est corrigé ici (2026-08-25).** J'avais écrit que
    `LmsHost{}`, `LightState` et `RedChannel` « n'existent nulle part dans l'arbre ». **Le
    balayage était juste, la conclusion fausse : il portait sur `master`.** Ces types existent sur
