@@ -117,6 +117,75 @@
     c'est le code qui la consomme qui a été lu. Le seul programme exécuté est un `g++` autonome de
     12 lignes sur `from_string`/`is_of_type`.
 
+- **🔒 E4.1f ✅ MERGÉ (`5ab5827a`, 5 commits, `git rebase master` + `merge --ff-only`, historique
+  linéaire, `make check` **82/82**) — le wire OLA, le seul du dépôt à vrais entiers JSON, et le
+  ticket qui a fait tomber une famille de défauts bien plus large que lui.**
+  Périmètre réel : `IO/OLA/OLACtrl.cpp`, `IO/OLA/OLAExternProc_main.cpp`, l'**en-tête neuf de
+  production** `IO/OLA/OLAWire.h` (inclus tel quel par les deux binaires **et** par le test), plus
+  **2 lignes** de `_SOURCES` dans `src/bin/calaos_server/Makefile.am` — aucun débordement. Commit de
+  caractérisation `4fcaeebb` : **zéro ligne de `src/`** (2 fichiers, tous `tests/`). **Aucune
+  assertion préexistante modifiée** : sur les 5 commits, les seuls `tests/` touchés sont
+  `tests/OLAWire_test.cpp` (neuf) et `tests/Makefile.am`. Goldens intacts : arbre `d4ebc61f…`
+  (chemin réel `tests/core/golden`), **145 fichiers**, identique à master. Suite **81 → 82**
+  (recompté en `python3`, continuations `\` comprises ; unique ajout `OLAWire_test`). Équilibre
+  `tests/Makefile.am` **70 `^if*` / 70 `^endif`** tous préfixes confondus (**69/69** sur master),
+  profondeur jamais négative ; **append pur octet pour octet** (`cur.startswith(master)`,
+  **+2 313 octets**). Build distclean rejoué **après le rebase de merge** (`make -j16 &&
+  make check -j8`, agents concurrents, attendu par `docker wait`) :
+  **`Open Lightning Architecture support..: yes`** (le libellé n'est **pas** « OLA support »),
+  **`CXX IO/OLA/OLAExternProc_main.o`**, **`CXXLD calaos_ola`**, `CXX IO/OLA/OLACtrl.o`,
+  **`CXXLD OLAWire_test`**, **`PASS: OLAWire_test`**, **0 `error:`**, code de sortie **0**,
+  **82 PASS / 0 FAIL / 0 SKIP**. ⚠️ `calaos_ola` est sous `if HAVE_LIBOLA` : **sans ces deux lignes
+  la moitié du périmètre n'est pas compilée et le vert ne prouve rien**.
+
+  - ⭐ **UN DÉFAUT RÉEL TROUVÉ PAR LA CARACTÉRISATION, CORRIGÉ DANS UN COMMIT SÉPARÉ**
+    (`5c4d2874`). **`Utils::from_string("")` retourne `true` en n'écrivant RIEN** — le sentry échoue
+    **avant** l'extraction, il n'y a **pas** de « 0 en cas d'échec » — et `calaos_ola` passait un
+    **`unsigned int` non initialisé** à `DmxBuffer::SetChannel()`. Valeurs observées sur machine :
+    **21845, 21942, 22007, 22069, 22072, 64**. Corrigé par `{0,0}` dans `decodeMessage` ;
+    **`Utils::from_string` n'est PAS touchée ici**.
+
+  - ⭐ **LE BALAYAGE QUI EN DÉCOULE DÉPASSE CE TICKET** : **~319-320 sites d'appel**, **310 ignorent
+    le retour (97 %)**, **157-165 passent une locale non initialisée**, **112 sans aucune garde**.
+    Trois blocs : **`WagoExternProc_main.cpp` (12 sites, jumeau EXACT du défaut corrigé ici)** ·
+    **`KNXExternProc_main.cpp:144-147`/`:157-160`** — ⚠️ l'accès `tokens[1..2]` **hors bornes**
+    annoncé est **FAUX**, `Utils::split` **pade** ; le vrai défaut est `b`/`c` **indéterminés** ⇒
+    **adresse de groupe arbitraire sur le bus** — et un chemin **atteignable À DISTANCE** via
+    `JsonApi.cpp:774/777` → `OutputShutter`/`ShutterSmart`/`LightDimmer`/`LightRGB`.
+    **Le cas OLA était le seul INATTEIGNABLE de la famille**, ce qui valide l'absence d'entrée
+    `RELEASE_NOTES` **pour ce ticket seul**. Ticket dédié **`T3.25`** ouvert, **en cours**.
+
+  - ⭐ **LA LISTE BLOQUANT `E4.1x` TOMBE À DEUX**, mesuré **deux fois** par mutation **fidèle**
+    (`ExternProc.h` cesse de **déléguer**, `Jansson_Addition.h` **intact**) : **`ScriptBindings.o` et
+    `ScriptExtern_main.o`** — soit **exactement le périmètre d'`E4.1j`**, le dernier ticket ouvert de
+    la vague 1. OLA **et** Wago compilent désormais sans jansson.
+
+  - **TYPAGE APPLIQUÉ, 2ᵉ APPLICATION DE LA SÉRIE** (`DmxChannel`/`DmxLevel`/`DimmerPercent`/
+    `RedChannel`/`GreenChannel`/`BlueChannel`, constructeurs `explicit` — donc **pas** des agrégats) :
+    permuter les arguments de `buildSetValueMessage` **ne compile pas**, rouge↔bleu non plus.
+    **Résiduel jugé LIMITE INTRINSÈQUE par la revue** — `RedChannel(channel_blue)` compile ; le
+    fermer exigerait que l'enveloppe *produise* la valeur, ce qui **déplace le trou d'un cran**.
+    **À recommander tel quel** (voir `T3.31`).
+
+  - ⚠️ **LA LEÇON DES TROIS CHIFFRES FAUX.** Le § « Acceptation » de la fiche portait des mesures du
+    **PREMIER build**, encore polluées par le cas que le commit de correction a fait tomber.
+    ⭐ **Une mesure prise avant le correctif et conservée dans la fiche n'est pas fausse quand on
+    l'écrit — elle le devient.** **Seul le tableau mesuré en distclean sur l'arbre final fait foi.**
+
+  - **M9 : TROU DE MUTATION-KILL DÉCLARÉ, PAS TEST INSTABLE.** L'assertion est **déterministe après
+    correctif** (le `{0,0}` la garantit) ; c'est la **détection du mutant** qui est indéterminée. Le
+    mécanisme est épinglé de façon déterministe par un autre cas.
+
+  - **LE COMMENTAIRE MYTHIQUE RETIRÉ** : `OLAWire.h` affirmait « *since C++11 a failed extraction
+    stores 0* » — exactement ce que le correctif douze lignes plus bas réfute.
+
+  - **HORS PÉRIMÈTRE, CONSIGNÉS** : `OutputShutter.cpp:120` fait `erase(0, 11)` contre un préfixe de
+    **13** caractères ⇒ **`impulse down` inopérante** (ticket **`T3.34`**) · `OLAOutputLightRGB.cpp`
+    documente `channel_red` sur `0..9999` contre `0..512` pour vert et bleu.
+
+  - ⛔ **NON VÉRIFIÉ** : aucun test bout-à-bout avec un vrai `olad` ni gradateur DMX ; M9 sur un
+    autre compilateur ; M1/M2/M3/M7/M8 non rejoués par la revue. **Rien n'a été poussé.**
+
 - **🔒 E4.1d ✅ MERGÉ (`9a1a5499`, 6 commits, `git rebase master` ×2 + `merge --ff-only`, historique
   linéaire, `make check` **81/81**) — les deux lecteurs de JSON TIERS, et le ticket où la fiche
   prescrivait elle-même un `std::terminate`.**
