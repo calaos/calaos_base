@@ -4082,3 +4082,21 @@ Vérifié au compilateur sur `master` `3357e4f7` (`#include "Jansson_Addition.h"
 canaux. C'est de la documentation d'IO (`ioDoc->paramAddInt`, ce que voit l'installeur), pas du
 wire, et le fichier n'est pas dans le périmètre d'E4.1f.
 
+
+## ⚠️ Dette méthodologique — les erreurs de RAISONNEMENT que la série a commises et mesurées
+
+⚠️ **Section à APPENDRE, jamais à réécrire.** Chaque ligne est une conclusion qui s'est révélée
+fausse *alors qu'elle était vraie en surface*. Un conflit sur cette section se résout en **gardant
+les deux côtés**.
+
+| # | Motif | Ce qui a été conclu | Ce qui était vrai | Ce qui l'a mis en défaut |
+|---|---|---|---|---|
+| **M-1** | *une limite vraie pour une raison fausse* | `F-LUA-3` — le typage « ferme le trou des sites d'appel » | le trou était fermé, mais pas par ce qui était invoqué | recomptage des sites |
+| **M-2** | *0 rouge ≠ mutant équivalent* | **T3.35b §6.6** : `int idx = 0` est « mort », R1 (`int idx;`) donne 0 rouge ⇒ **équivalent par construction** | l'initialiseur était **VIVANT** : sur `[ ]` / `[\t]`, `Utils::from_string()` **n'écrit pas** la destination et la branche `idx = 0` n'est pas prise ⇒ `parent.at(idx)` lisait le **déclarateur** | ⭐ **la sonde POISON** : `int idx = 7` au lieu de `int idx;` ⇒ **4 rouges** (`array index 7 is out of range`, les deux parseurs). ⇒ **RÈGLE : une mutation d'initialiseur ne prouve l'équivalence QUE si sa variante poison est jouée aussi.** Une suppression d'initialiseur ne peut pas rougir un test portable ; une valeur fautive, si. |
+| **M-3** | *une limite vraie pour une raison fausse* (même motif que M-1) | **T3.35b §6.8** : les lambdas de `subscribeStatusTopics()` sont intestables car « `IOBase` et `EventManager` ne sont pas dans la clôture de liaison » | **ils y sont** — `CORE_TEST_LDADD` commence par `CORE_SERVER_OBJECTS`, qui liste `IOBase.o` et `EventManager.o` ; `nm -C --defined-only` donne `IOBase::setStatusInfo` et `EventManager::create` en **`T`** et les **6 lambdas** définies dans `MqttCtrl.o`. La vraie raison est un **DISPATCH** absent : `subscribeCb` est **privé** et le seul code qui le parcourt est la lambda `messageReceived` du **constructeur**, pilotée par la boucle `uvw` de `calaos_mqtt` ; `storeMessage()` ne fait que **stocker** | lecture de `tests/Makefile.am` + `nm`. ⚠️ **Le coût de la fausse raison** : elle désigne « ajouter des `.o` au `LDADD` » comme sortie, ce qui **ne changerait rien**. La vraie désigne une **couture de dispatch** (ou l'extraction `resolveJsonPath()` de T3.37). |
+| **M-4** | *une assertion satisfaite par autre chose que ce qu'elle prétend vérifier* (« fixture pauvre ») | **T3.35b §6.5** : `logContains(log, "weather[0]")` prouvait l'indication | elle était satisfaite par la **ligne précédente** (`subpath not found`) ; casser l'indication laissait **0 rouge** | mutation R2 rejouée après resserrage de l'aiguille ⇒ **2 rouges** |
+| **M-5** | *un § qui affirme une clôture qu'il n'a pas mesurée* | **T3.35b §6.4** : « ⇒ il ne reste pas de trou à ficher » | la phrase portait sur la garde de **forme** et a été lue comme portant sur la garde d'**index** ; **cinq** jetons (`[]`, `[ ]`, `[\t]`, `[+]`, `[-]`) recevaient un « succès » de `from_string()` sans porter de nombre | sonde compilée contre le corps de `Utils::from_string` ⇒ tableau complet en **T3.35.md §6.4bis** |
+
+⭐ **Le fil commun de M-1, M-3 et M-5** : *la conclusion est juste, la justification ne l'est pas*.
+C'est le cas le plus coûteux, parce que **rien ne rougit** — la seule défense est de **remesurer la
+justification**, pas de revérifier la conclusion.
