@@ -219,6 +219,11 @@ bool logContains(const std::string &log, const std::string &needle)
 const char *const kHintQuestion = "did you mean";
 const char *const kHintRule = "array indices are their own path segment";
 
+//T3.35b. The wording of the warning an index token that does not parse must
+//carry. It is asserted on its own needle so that a case which reaches it
+//cannot be confused with the "malformed array index" case above.
+const char *const kUnreadableIndex = "is not a number";
+
 /* ---------------------------------------------------------------------------
  * (A) THE PARSER - one fixture per copy, the same cases on both.
  * ------------------------------------------------------------------------ */
@@ -488,7 +493,9 @@ TEST_F(MqttJsonPathTest, ALonePathBracketIsLoggedAsAnError)
         log = capture.str();
     }
     EXPECT_TRUE(logContains(log, "weather/[/description")) << "log was: " << log;
-    EXPECT_TRUE(logContains(log, "array index")) << "log was: " << log;
+    //! Names the offending TOKEN. "array index" alone was also true of a
+    //message that only echoed the path, so it could not tell the two apart.
+    EXPECT_TRUE(logContains(log, "malformed array index [")) << "log was: " << log;
     EXPECT_FALSE(logContains(log, "index not found")) << "log was: " << log;
 }
 
@@ -502,7 +509,9 @@ TEST_F(WebJsonPathTest, ALonePathBracketIsLoggedAsAnError)
         log = capture.str();
     }
     EXPECT_TRUE(logContains(log, "weather/[/description")) << "log was: " << log;
-    EXPECT_TRUE(logContains(log, "array index")) << "log was: " << log;
+    //! Names the offending TOKEN. "array index" alone was also true of a
+    //message that only echoed the path, so it could not tell the two apart.
+    EXPECT_TRUE(logContains(log, "malformed array index [")) << "log was: " << log;
     EXPECT_FALSE(logContains(log, "index not found")) << "log was: " << log;
 }
 
@@ -521,9 +530,14 @@ TEST_F(MqttJsonPathTest, AGluedIndexIsAnsweredWithAHint)
         EXPECT_EQ("", resolve("weather[0]/description"));
         log = capture.str();
     }
-    EXPECT_TRUE(logContains(log, kHintQuestion)) << "log was: " << log;
     EXPECT_TRUE(logContains(log, kHintRule)) << "log was: " << log;
-    EXPECT_TRUE(logContains(log, "weather[0]")) << "log was: " << log;
+    //! The needle is the SUGGESTION, "weather/[0]", and not the path the user
+    //typed. Asserting on "weather[0]" was satisfied by the "subpath not found
+    //weather[0]" line printed just above the hint, so the suggested text
+    //itself was pinned by nothing: a hint that echoed the faulty path back
+    //unchanged passed. The '/' is the whole content of the advice.
+    EXPECT_TRUE(logContains(log, std::string(kHintQuestion) + " weather/[0]"))
+        << "log was: " << log;
 }
 
 TEST_F(WebJsonPathTest, AGluedIndexIsAnsweredWithAHint)
@@ -535,9 +549,14 @@ TEST_F(WebJsonPathTest, AGluedIndexIsAnsweredWithAHint)
         EXPECT_EQ("", resolve("weather[0]/description"));
         log = capture.str();
     }
-    EXPECT_TRUE(logContains(log, kHintQuestion)) << "log was: " << log;
     EXPECT_TRUE(logContains(log, kHintRule)) << "log was: " << log;
-    EXPECT_TRUE(logContains(log, "weather[0]")) << "log was: " << log;
+    //! The needle is the SUGGESTION, "weather/[0]", and not the path the user
+    //typed. Asserting on "weather[0]" was satisfied by the "subpath not found
+    //weather[0]" line printed just above the hint, so the suggested text
+    //itself was pinned by nothing: a hint that echoed the faulty path back
+    //unchanged passed. The '/' is the whole content of the advice.
+    EXPECT_TRUE(logContains(log, std::string(kHintQuestion) + " weather/[0]"))
+        << "log was: " << log;
 }
 
 //! THE CASE THE WHOLE DESIGN RESTS ON. `action[0]` is a REAL key of a real
@@ -622,6 +641,172 @@ TEST_F(WebJsonPathTest, APlainMissingKeyGetsNoHint)
     EXPECT_TRUE(logContains(log, "nosuchobject")) << "log was: " << log;
     EXPECT_FALSE(logContains(log, kHintQuestion)) << "log was: " << log;
     EXPECT_FALSE(logContains(log, kHintRule)) << "log was: " << log;
+}
+
+/* ---------------------------------------------------------------------------
+ * T3.35b - WHAT THE REVIEW OF T3.35 FOUND, characterized.
+ *
+ * (a) THE GUARD CHECKS A LENGTH, THE MESSAGE CLAIMS A FORM. T3.35 added
+ *     `if (val.size() < 2)` and printed "an array index must be written [n]".
+ *     Those are not the same statement. "[5" and "[12" are two characters or
+ *     more, so they walk straight past the guard, get their first AND LAST
+ *     character stripped anyway, and resolve: "[5" loses its '5' and reads
+ *     element 0, "[12" loses its '2' and reads element 1. The user is told the
+ *     parser wants "[n]" while the parser is in fact accepting "[n" and
+ *     answering with the WRONG element - silently, with a plausible value.
+ *     That is worse than the empty string the same typo used to produce
+ *     elsewhere: it cannot be told apart from a correct reading.
+ *
+ *     These four cases are RED on 3db14a92 - they get "clear sky" and "light
+ *     rain" instead of nothing.
+ *
+ * (b) A TOKEN WHOSE INDEX DOES NOT PARSE SAYS NOTHING. T3.29 froze the VALUE
+ *     ("[zz]" reads element 0, ANonNumericIndexSilentlyReadsElementZero) and
+ *     that stays frozen - it is a behaviour real configurations may lean on.
+ *     What must not stay is the SILENCE: reading element 0 because the index
+ *     was unreadable is exactly the case the user cannot diagnose, and it is
+ *     the same class of failure as the guard above. The value is kept, a
+ *     warning is added. RED on 3db14a92: nothing is logged at all.
+ *
+ *     "[]" belongs to the same family and is the one that made `int idx = 0`
+ *     load bearing: after erase/pop_back the inner text is BLANK, and
+ *     Utils::from_string() does not write its destination on a blank string
+ *     (its stream sentry fails before num_get runs), so the index was read
+ *     UNINITIALISED. Measured directly, not deduced: from_string("", d) leaves
+ *     d at its previous value AND returns true, so its return code cannot be
+ *     used to detect the case either.
+ * ------------------------------------------------------------------------ */
+
+//! The two forms the T3.35 message promises to reject and does not. They must
+//! return NOTHING - not element 0, not element 1.
+TEST_F(MqttJsonPathTest, AnIndexMissingItsClosingBracketIsRejected)
+{
+    EXPECT_EQ("", resolve("weather/[5/description"));
+    EXPECT_EQ("", resolve("weather/[12/description"));
+}
+
+TEST_F(WebJsonPathTest, AnIndexMissingItsClosingBracketIsRejected)
+{
+    EXPECT_EQ("", resolve("weather/[5/description"));
+    EXPECT_EQ("", resolve("weather/[12/description"));
+}
+
+//! ...and they must say so, naming the TOKEN and not only echoing the path.
+//The needle carries the token itself ("[12"), so an assertion on the path
+//alone cannot stand in for it.
+TEST_F(MqttJsonPathTest, AnIndexMissingItsClosingBracketIsLogged)
+{
+    resolve("main/city"); //warm up the logger before capturing
+    std::string log;
+    {
+        CoutCapture capture;
+        resolve("weather/[12/description");
+        log = capture.str();
+    }
+    EXPECT_TRUE(logContains(log, "malformed array index [12")) << "log was: " << log;
+    EXPECT_FALSE(logContains(log, "index not found")) << "log was: " << log;
+}
+
+TEST_F(WebJsonPathTest, AnIndexMissingItsClosingBracketIsLogged)
+{
+    resolve("main/city");
+    std::string log;
+    {
+        CoutCapture capture;
+        resolve("weather/[12/description");
+        log = capture.str();
+    }
+    EXPECT_TRUE(logContains(log, "malformed array index [12")) << "log was: " << log;
+    EXPECT_FALSE(logContains(log, "index not found")) << "log was: " << log;
+}
+
+//! An index that cannot be parsed still reads element 0 - T3.29 froze that -
+//but it is no longer silent about it. The VALUE assertion is the T3.29
+//behaviour, unchanged; the LOG assertion is what T3.35b adds.
+TEST_F(MqttJsonPathTest, AnUnreadableIndexIsLoggedAndStillReadsElementZero)
+{
+    resolve("main/city");
+    std::string log;
+    std::string value;
+    {
+        CoutCapture capture;
+        value = resolve("weather/[zz]/description");
+        log = capture.str();
+    }
+    EXPECT_EQ("clear sky", value);
+    EXPECT_TRUE(logContains(log, "[zz]")) << "log was: " << log;
+    EXPECT_TRUE(logContains(log, kUnreadableIndex)) << "log was: " << log;
+}
+
+TEST_F(WebJsonPathTest, AnUnreadableIndexIsLoggedAndStillReadsElementZero)
+{
+    resolve("main/city");
+    std::string log;
+    std::string value;
+    {
+        CoutCapture capture;
+        value = resolve("weather/[zz]/description");
+        log = capture.str();
+    }
+    EXPECT_EQ("clear sky", value);
+    EXPECT_TRUE(logContains(log, "[zz]")) << "log was: " << log;
+    EXPECT_TRUE(logContains(log, kUnreadableIndex)) << "log was: " << log;
+}
+
+//! "[]" - the token that made `int idx = 0` load bearing. It must land in the
+//SAME place as "[zz]": element 0, and a warning. Before T3.35b the index was
+//read uninitialised here, so the value was whatever the stack held.
+TEST_F(MqttJsonPathTest, AnEmptyIndexIsLoggedAndStillReadsElementZero)
+{
+    resolve("main/city");
+    std::string log;
+    std::string value;
+    {
+        CoutCapture capture;
+        value = resolve("weather/[]/description");
+        log = capture.str();
+    }
+    EXPECT_EQ("clear sky", value);
+    EXPECT_TRUE(logContains(log, kUnreadableIndex)) << "log was: " << log;
+}
+
+TEST_F(WebJsonPathTest, AnEmptyIndexIsLoggedAndStillReadsElementZero)
+{
+    resolve("main/city");
+    std::string log;
+    std::string value;
+    {
+        CoutCapture capture;
+        value = resolve("weather/[]/description");
+        log = capture.str();
+    }
+    EXPECT_EQ("clear sky", value);
+    EXPECT_TRUE(logContains(log, kUnreadableIndex)) << "log was: " << log;
+}
+
+//! The measured reason the two cases above exist at all. Utils::from_string()
+//is the only thing standing between a failed parse and the caller's variable,
+//and on a BLANK string it neither writes the destination nor reports it:
+//the stream sentry fails before num_get runs, and iss.eof() is TRUE because
+//the stream did reach its end. A caller cannot detect the case from the
+//return code, which is why every caller must either pre-check the string or
+//own an initialised destination.
+TEST(UtilsFromString, ABlankStringNeitherWritesTheDestinationNorReportsIt)
+{
+    double d = 424242.0;
+    EXPECT_TRUE(Utils::from_string(std::string(""), d));
+    EXPECT_DOUBLE_EQ(424242.0, d);
+
+    int i = 7777;
+    EXPECT_TRUE(Utils::from_string(std::string(""), i));
+    EXPECT_EQ(7777, i);
+
+    //By contrast a NON blank string that fails to parse DOES write 0: the
+    //sentry succeeds, num_get runs and C++11 makes it store zero on failure.
+    //That asymmetry is the whole trap.
+    int j = 7777;
+    EXPECT_FALSE(Utils::from_string(std::string("zz"), j));
+    EXPECT_EQ(0, j);
 }
 
 /* ---------------------------------------------------------------------------
