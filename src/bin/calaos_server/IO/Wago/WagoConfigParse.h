@@ -33,8 +33,14 @@ namespace Calaos
  * that does not parse or falls outside the ioDoc-documented 0..65535
  * range yields the fallback instead of garbage (the legacy code left an
  * *uninitialized* address member untouched on a failed parse).
- * Beware: Utils::from_string("") returns true with a zero-filled dest,
- * so an absent param surfaces as 0, exactly like the legacy behavior.
+ * T3.25 CORRECTED THIS PARAGRAPH, which described the world before it. It
+ * used to read "Utils::from_string(\"\") returns true with a zero-filled dest";
+ * both halves were wrong - it returned true and left the destination
+ * UNTOUCHED. Since T3.25 a blank value is a parse FAILURE, so an absent
+ * "var"/"port" now takes the fallback branch and sets *ok to false. The VALUE
+ * is unchanged (ADDRESS_DEFAULT is 0, which is what the legacy path produced
+ * anyway); what is new is that WagoIOBase now LOGS the missing parameter
+ * instead of silently treating it as address 0.
  * Header-inline (std + libcalaos_common only) so it can be unit-tested
  * without linking server objects. */
 class WagoConfigParse

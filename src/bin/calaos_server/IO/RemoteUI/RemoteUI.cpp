@@ -522,7 +522,10 @@ bool RemoteUI::setBrightness(int brightness)
 int RemoteUI::getBrightness()
 {
     int brightness = 100; // Default value
-    Utils::from_string(get_param("brightness"), brightness);
+    //T3.25: _keep. get_param() returns "" for an absent parameter, and a plain
+    //from_string() would now turn that into brightness 0 - a screen turned off
+    //instead of a screen at full brightness.
+    Utils::from_string_or_keep(get_param("brightness"), brightness);
     return brightness;
 }
 

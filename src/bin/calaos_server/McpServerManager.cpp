@@ -70,8 +70,10 @@ unsigned short jsonApiPort()
 {
     unsigned short port = DEFAULT_JSONAPI_PORT;
     std::string opt = Utils::get_config_option(MCP_LISTEN_PORT_KEY);
+    //T3.25: _keep. The .empty() test does not cover a BLANK option ("  "),
+    //which would now write port 0 over the default.
     if (!opt.empty())
-        from_string(opt, port);
+        from_string_or_keep(opt, port);
     return port;
 }
 

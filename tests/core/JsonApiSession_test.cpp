@@ -1074,9 +1074,13 @@ TEST_F(JsonApiSessionTest, FromStringWritesZeroOnFailureWhichIsWhyEventLogCanDiv
      * 2009-2013) initialises perPage to 100 and then hands that variable to
      * Utils::from_string(). MEASURED, and it is subtler than it looks:
      *
-     *   - an ABSENT or EMPTY per_page leaves the 100 alone. The istream sentry
-     *     fails on end of input before num_get is called, so nothing is
-     *     written. The default survives.
+     *   - an ABSENT or EMPTY per_page USED TO leave the 100 alone: the istream
+     *     sentry failed on end of input before num_get was called, so nothing
+     *     was written and the default survived BY ACCIDENT. T3.25 ENDED THAT -
+     *     from_string() now writes T{} and answers false on a blank string, so
+     *     the 100 would become 0 here too. buildJsonEventLog() therefore calls
+     *     from_string_or_keep() (JsonApi.cpp:2233-2234), which restores the
+     *     old outcome ON PURPOSE and says so. Both spellings are pinned below.
      *   - a NON EMPTY value that does not parse ("abc", "1,5", "true") makes
      *     num_get run and FAIL, and since C++11 a failed extraction writes ZERO
      *     into the destination. The 100 becomes 0.
@@ -1091,17 +1095,28 @@ TEST_F(JsonApiSessionTest, FromStringWritesZeroOnFailureWhichIsWhyEventLogCanDiv
      * suite, and every eventlog case below sends an explicit, non zero,
      * numeric per_page.
      *
-     * T3.19 GUARDED THE CONSUMER, NOT from_string(). buildJsonEventLog() now
+     * T3.19 GUARDED THE CONSUMER, NOT from_string(). buildJsonEventLog()
      * refuses a per_page <= 0 before HistLogger is called at all, so the value
-     * never reaches the divisor. THIS CASE IS UNCHANGED AND MUST STAY GREEN:
-     * from_string() still writes 0 on failure, which is precisely why that
-     * guard has to exist. If it ever stops doing so, the guard's reason to
-     * exist has changed and both this case and T3.19's must be re-read.
+     * never reaches the divisor. That guard's REASON TO EXIST IS UNCHANGED by
+     * T3.25: from_string() still writes 0 on a non-blank unreadable value
+     * ("abc", "true"), which is exactly the input that used to divide by zero.
+     * Only the BLANK case moved, and only because this call site now asks for
+     * the old outcome explicitly.
      */
-    //An ABSENT or EMPTY per_page is harmless: the stream sentry fails before
-    //num_get is ever called, so the destination keeps its 100.
+    //An ABSENT or EMPTY per_page: from_string() now REFUSES it and writes 0
+    //(T3.25), and it is from_string_or_keep() - the spelling buildJsonEventLog()
+    //actually uses - that keeps the 100.
     int perPage = 100;
-    Utils::from_string(std::string(), perPage);
+    EXPECT_FALSE(Utils::from_string(std::string(), perPage));
+    EXPECT_EQ(0, perPage) << "if this is still 100, T3.25 has been reverted";
+
+    perPage = 100;
+    EXPECT_FALSE(Utils::from_string_or_keep(std::string(), perPage));
+    EXPECT_EQ(100, perPage) << "this is the call buildJsonEventLog() makes, and "
+                               "the eventlog default depends on it";
+
+    perPage = 100;
+    EXPECT_FALSE(Utils::from_string_or_keep(std::string("   "), perPage));
     EXPECT_EQ(100, perPage);
 
     //A NON EMPTY value that does not parse is the fatal one: num_get runs,

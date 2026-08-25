@@ -190,11 +190,14 @@ bool MqttProcess::setup(int &argc, char **&argv)
 
     if (p.Exists("host"))
         host = p["host"];
+    //T3.25: _keep, so that a key that is PRESENT AND EMPTY keeps the default
+    //rather than collapsing to port 0 / keepalive 0, neither of which is a
+    //usable value. Exists() does not protect against an empty value.
     if (p.Exists("port"))
-        from_string(p["port"], port);
+        from_string_or_keep(p["port"], port);
 
     if (p.Exists("keepalive"))
-        from_string(p["keepalive"], keepalive);
+        from_string_or_keep(p["keepalive"], keepalive);
 
     if (p.Exists("user") && p.Exists("password"))
     {

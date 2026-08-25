@@ -506,12 +506,21 @@ KNXValue KNXValue::fromJson(const Json &jval)
     Params p;
     knxDecodeObject(jval, p);
 
+    /* T3.25. from_string_or_keep(), NOT from_string(): KNXValue's in-class
+     * defaults are not all zero - `eis` is -1 (KNXCtrl.h:80), the "no EIS type
+     * was given" sentinel, and 0 is a REAL eis type (EIS_Autodetect). Since
+     * T3.25 from_string() writes T{} when it cannot read anything, so a
+     * message whose "eis" key is absent would have silently decoded as
+     * eis = 0 instead of eis = -1. Caught by KNXCtrlWire_test and
+     * KNXExternProcWire_test (MissingKeysLeaveTheDefaultsAndNothingThrows),
+     * which is what those suites are for.
+     */
     KNXValue v;
-    Utils::from_string(p["type"], v.type);
-    Utils::from_string(p["eis"], v.eis);
-    Utils::from_string(p["value_int"], v.value_int);
-    Utils::from_string(p["value_float"], v.value_float);
-    Utils::from_string(p["value_char"], v.value_char);
+    Utils::from_string_or_keep(p["type"], v.type);
+    Utils::from_string_or_keep(p["eis"], v.eis);
+    Utils::from_string_or_keep(p["value_int"], v.value_int);
+    Utils::from_string_or_keep(p["value_float"], v.value_float);
+    Utils::from_string_or_keep(p["value_char"], v.value_char);
     v.value_string = p["value_string"];
 
     return v;

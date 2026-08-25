@@ -151,8 +151,11 @@ void ColorValue::setString(const string &str)
             Utils::from_string(values[1], g);
             Utils::from_string(values[2], b);
 
+            //T3.25: _keep. An alpha field that is present but empty
+            //("rgba(1,2,3,)") kept a = 1.0 before T3.25 and must keep it now;
+            //a plain from_string() would make the colour fully transparent.
             if (values.size() == 4)
-                Utils::from_string(values[3], a);
+                Utils::from_string_or_keep(values[3], a);
 
             if ((values.size() == 3 && !needalpha) ||
                 (values.size() == 4 && needalpha))
@@ -188,8 +191,11 @@ void ColorValue::setString(const string &str)
             Utils::from_string(values[1], ss);
             Utils::from_string(values[2], l);
 
+            //T3.25: _keep. An alpha field that is present but empty
+            //("rgba(1,2,3,)") kept a = 1.0 before T3.25 and must keep it now;
+            //a plain from_string() would make the colour fully transparent.
             if (values.size() == 4)
-                Utils::from_string(values[3], a);
+                Utils::from_string_or_keep(values[3], a);
 
             if ((values.size() == 3 && !needalpha) ||
                 (values.size() == 4 && needalpha))
@@ -225,8 +231,11 @@ void ColorValue::setString(const string &str)
             Utils::from_string(values[1], ss);
             Utils::from_string(values[2], v);
 
+            //T3.25: _keep. An alpha field that is present but empty
+            //("rgba(1,2,3,)") kept a = 1.0 before T3.25 and must keep it now;
+            //a plain from_string() would make the colour fully transparent.
             if (values.size() == 4)
-                Utils::from_string(values[3], a);
+                Utils::from_string_or_keep(values[3], a);
 
             if ((values.size() == 3 && !needalpha) ||
                 (values.size() == 4 && needalpha))

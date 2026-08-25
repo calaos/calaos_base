@@ -165,8 +165,10 @@ int main (int argc, char **argv)
     //Start Json API server
     unsigned short port = JSONAPI_PORT;
     string tmp =  Utils::get_config_option("port_api");
+    //T3.25: _keep. Same reason as McpServerManager::jsonApiPort() - .empty()
+    //lets a blank option through, and port 0 is not a port.
     if (!tmp.empty())
-        from_string(tmp, port);
+        from_string_or_keep(tmp, port);
     HttpServer::Instance(port);
 
     // Spawn the MCP sidecar (calaos_mcp Python process). The sidecar listens

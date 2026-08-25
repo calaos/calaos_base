@@ -2230,8 +2230,17 @@ void JsonApi::buildJsonEventLog(const Params &jParam, std::function<void(Json &)
     int page = 0;
     int perPage = 100;
 
-    Utils::from_string(jParam["page"], page);
-    Utils::from_string(jParam["per_page"], perPage);
+    /* T3.25. from_string_or_keep(), NOT from_string(): since T3.25 a blank
+     * value writes T{} instead of leaving the destination alone, and an ABSENT
+     * per_page (Params::operator[] returns "") would therefore have become 0 -
+     * which the guard 60 lines below refuses outright. A request that answers
+     * a full page of 100 events today would have started answering
+     * {"error":"per_page is out of range"}. The _keep form preserves T3.19's
+     * documented behaviour EXACTLY, partial parses included: "1,5" still reads
+     * as 1, "abc" still reads as 0.
+     */
+    Utils::from_string_or_keep(jParam["page"], page);
+    Utils::from_string_or_keep(jParam["per_page"], perPage);
 
     /* T3.17f. Both callbacks below are armed here and run MUCH later: HistLogger
      * queues the query for its sqlite worker thread and wakes the loop back up
