@@ -2447,3 +2447,43 @@ ScriptWire_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+
+# T3.30
+#Characterization of the modbus multiple-write buffer assembly of
+#IO/Wago/WagoCtrl.cpp - FINDINGS.md F-WAGO-2, three defects on the same ten
+#lines: a `count` taken from the message and never confronted with the decoded
+#`values` (SIGSEGV 139 on an empty vector), a setBit() that takes a reference
+#to ONE byte and is called with `*data` for every bit (only bits 0..7 are ever
+#written, and pos >= 32 is an undefined shift), and a memset shorter than its
+#allocation (nb = 17 allocates 3 bytes and zeroes 2).
+#⭐ Nothing in the tree calls these functions - WagoMap::write_multiple_bits and
+#write_multiple_words have zero callers, indirect ones included, so no PLC has
+#ever seen this message and no RELEASE_NOTES entry is due. The suite exists
+#because the code LOOKS right: the first caller written gets all three at once.
+#THE SEAM is namespace `seam` in the test. The characterization commit carries
+#the shipped bodies there verbatim; the fix commit rewires it onto the
+#production header IO/Wago/WagoBits.h so that from then on a mutation of the
+#SHIPPED packer turns this suite red.
+#⚠️ WagoCtrl.o is in NO test binary and cannot be - write_multiple_bits()
+#returns on !is_connected() before its body, which needs a live modbus socket.
+#The two call sites in WagoCtrl.cpp are covered by SOURCE TRIPWIRES (the
+#JanssonResidues_test pattern, hence CALAOS_TOP_SRCDIR) and by nothing else;
+#swapping `address` and `nb` there stays green here and needs distinct types,
+#which is T3.31's business.
+#⚠️ Two of its cases DIE instead of failing before the fix - SIGSEGV on
+#values[0], exit code -11, and NO "FAILED" line at all:
+#the verdict is the per-case EXIT CODE, taken with --gtest_filter.
+#WagoBits.h is a self-contained header (<vector>, <cstring>) with no calaos
+#dependency; -I.../IO/Wago is already in AM_CPPFLAGS. No server object is
+#linked and none may be, which keeps this suite clear of the _DEPENDENCIES
+#pitfall. Own HAVE_GTEST block so this stays a pure append at the end of file.
+if HAVE_GTEST
+TESTS += WagoBits_test
+check_PROGRAMS += WagoBits_test
+WagoBits_test_SOURCES = WagoBits_test.cpp
+WagoBits_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -DCALAOS_TOP_SRCDIR='"$(abs_top_srcdir)"'
+WagoBits_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
