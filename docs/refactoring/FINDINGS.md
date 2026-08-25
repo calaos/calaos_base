@@ -6010,7 +6010,10 @@ Mesures faites en livrant `fix/t3.46` (base `df2851d0`). Fiche : `docs/refactori
   préservées ; nom refusé s'il est fragment d'un identifiant plus long ; espace toléré avant `(` ;
   préfixe `addr` accepté) ⇒ **1 faux rouge sur 5**, les deux vrais rouges `M6`/`M7` **conservés**.
   Avant/après mesurés dans **une même sonde `g++ -std=c++17`** alimentée par le même jeu, en
-  extrayant l'analyseur des **deux** versions du fichier.
+  extrayant l'analyseur des **deux** versions du fichier. ⭐ **Puis `M6`/`M7` revérifiés de bout en
+  bout sur le binaire livré** — le tripwire lisant le source **à l'exécution**, la mutation se fait
+  **sans reconstruire**, ce qui exclut le faux vert de « l'arbre déjà construit » : témoin `rc=0`
+  6/6, `M6` et `M7` `rc=1` avec **un seul** cas rouge, contrôle après restauration `rc=0` 6/6.
   ⭐ **Règle à retenir** : *un garde-fou qui rougit parce que quelqu'un a écrit un commentaire est
   un garde-fou que le premier venu désactive.* Ignorer commentaires et littéraux est le **minimum**
   pour tout oracle qui lit du source — plusieurs suites du dépôt le font déjà. Et **publier le
