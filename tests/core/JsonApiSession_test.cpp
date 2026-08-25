@@ -2220,12 +2220,27 @@ TEST_F(JsonApiSessionTest, InvalidUtf8InAParamValueIsDroppedAndAnswers200)
             << "the key came back, so jansson accepted the invalid value";
 }
 
-TEST_F(JsonApiSessionTest, InvalidUtf8InAnIoNameDropsTheNameKeyFromGetHome)
+TEST_F(JsonApiSessionTest, InvalidUtf8InAnIoNameNoLongerDropsTheNameKeyFromGetHome)
 {
-    //The worst shape of the drop: a whole IO comes back on get_home WITHOUT
-    //its "name", indistinguishable from an IO that never had one. Every other
-    //key of the object is intact, so a client that indexes by name silently
-    //loses the device.
+    /* E4.1m TURNED THIS CASE OVER, and it is the ticket's most visible
+     * behaviour change on the model payloads. It used to be named
+     * InvalidUtf8InAnIoNameDropsTheNameKeyFromGetHome and it pinned the drop as
+     * a KNOWN DIVERGENCE: an IO came back on get_home WITHOUT its "name",
+     * indistinguishable from an IO that never had one, so a client indexing by
+     * name silently lost the device. The cause was measured, not guessed:
+     * json_string() answers NULL on a value that is not valid UTF-8,
+     * json_object_set_new() then returns -1, and buildJsonIO() tested NEITHER
+     * return code.
+     *
+     * buildJsonIO() goes through neither of them any more, and the epic's
+     * error_handler_t::replace turns each bad byte into U+FFFD. The IO keeps
+     * its name, mangled and VISIBLE, instead of losing it in silence.
+     * Declared in RELEASE_NOTES.md.
+     *
+     * The two get_param cases just above still pin the DROP and stay green on
+     * purpose: buildJsonGetParam() belongs to E4.1o and has not migrated yet.
+     * When it does, they turn over the same way.
+     */
     loadReferenceHouse();
 
     IOBase *io = ListeRoom::Instance().get_io(HOUSE_STRING);
@@ -2247,9 +2262,12 @@ TEST_F(JsonApiSessionTest, InvalidUtf8InAnIoNameDropsTheNameKeyFromGetHome)
             if (str(item, "id") != HOUSE_STRING)
                 continue;
             found = true;
-            EXPECT_FALSE(has(item, "name"))
-                    << "the invalid name was serialized instead of dropped";
-            //The rest of the object is untouched: only the offending pair goes.
+            EXPECT_TRUE(has(item, "name"))
+                    << "the IO lost its name on the wire again";
+            //One U+FFFD per bad byte, and the trailing 'x' of the probe
+            //survives untouched: replace substitutes, it does not truncate.
+            EXPECT_EQ("\xef\xbf\xbd\xef\xbf\xbd" "x", str(item, "name"));
+            //The rest of the object is untouched.
             EXPECT_TRUE(has(item, "id"));
             EXPECT_TRUE(has(item, "type"));
             EXPECT_TRUE(has(item, "var_type"));

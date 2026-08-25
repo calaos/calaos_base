@@ -122,19 +122,19 @@ public:
     /* json dump for the logs, with the value of every credential field replaced
      * by ***. Never log a request before it has gone through this.
      */
-    static string dumpJsonRedacted(json_t *jroot);
+    static string dumpJsonRedacted(const Json &jroot);
 
 
 
     /* API calls helpers */
 
-    json_t *buildJsonHome();
-    json_t *buildJsonCameras();
-    json_t *buildJsonAudio();
-    json_t *buildFlatIOList();
+    Json buildJsonHome();
+    Json buildJsonCameras();
+    Json buildJsonAudio();
+    Json buildFlatIOList();
 
-    void buildJsonIO(IOBase *io, json_t *jio);
-    json_t *buildJsonRoomIO(Room *room);
+    void buildJsonIO(IOBase *io, Json &jio);
+    Json buildJsonRoomIO(Room *room);
 
     //result is given with a call to a lambda because we may need to wait for
     //network queries
@@ -163,9 +163,9 @@ public:
      * nothing, which is exactly the silent no-op this ticket removes. */
     json_t *buildAutoscenarioReenable(json_t *jdata);
 
-    json_t *buildJsonGetIO(vector<string> iolist);
+    Json buildJsonGetIO(vector<string> iolist);
 
-    json_t *buildJsonStatusInfo(IOBase *io);
+    Json buildJsonStatusInfo(IOBase *io);
 
     void buildJsonEventLog(const Params &jParam, std::function<void(Json &)> callback);
     bool registerPushToken(const Params &jParam);

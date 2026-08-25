@@ -523,220 +523,27 @@ TEST(ParamsJson, Utf8_NlohmannDumpThrows316AndTheReplaceHandlerYieldsFffd)
 }
 
 /*******************************************************************************
- * E4.1l - jansson_from_json(), THE OTHER transitional adapter of this header.
+ * E4.1l's SECOND transitional adapter - the Json to jansson one, the mirror of
+ * jansson_from_params() above - and its four cases WERE HERE. E4.1m deleted the adapter along with the last thing that needed
+ * it: LuaScript/ScriptExec.cpp is migrated whole, so the {msg:"event",
+ * data:<event>} message it sends to calaos_script is now assembled and dumped
+ * in one library. The greppable name E4.1l gave it answers NOTHING tree wide
+ * now, comments included: that grep WAS the protocol, and leaving the token in
+ * a tombstone would have kept answering 1 forever.
  *
- * It goes the other way round from jansson_from_params(): a Json in, a json_t *
- * out, by dumping and re-parsing. It exists for ONE call site,
- * LuaScript/ScriptExec.cpp, where the {msg:"event", data:<event>} message sent
- * to calaos_script is still assembled with jansson because the sibling message
- * of the same function carries JsonApi::buildFlatIOList(), still a json_t *.
- * E4.1m migrates that file and deletes this adapter with it.
+ * The four cases went with it rather than being retargeted: three of them
+ * asserted properties OF THE ADAPTER (that it carried the nested member, that
+ * it handed jansson a sorted document, that a bad byte crossed it as U+FFFD)
+ * and the fourth was a REPLICA of the call site that pinned the byte stability
+ * the adapter bought for one ticket - the very thing E4.1m gives up on
+ * purpose, and declares in RELEASE_NOTES.md. Keeping any of them would have
+ * pinned the past.
  *
- * ---------------------------------------------------------------------------
- * WHAT IS EXERCISED HERE AND WHAT IS NOT - said plainly, because "linked" is
- * not "exercised" (FINDINGS.md, F-LINK-1)
- * ---------------------------------------------------------------------------
- * The ADAPTER is exercised, directly, by the cases below. Its CALL SITE is
- * not: ScriptExec.cpp:190 sits inside a lambda connected to
- * EventManager::newEvent only after a real calaos_script process has been
- * spawned through uvw, which no in-process test can do. ScriptExec.o IS linked
- * into every core test binary (CORE_SERVER_OBJECTS), and that proves nothing
- * about execution. The substitution made there is one token wide and guarded
- * by the compiler alone; this is stated, not glossed over.
- *
- * ---------------------------------------------------------------------------
- * ONE OF THE THREE EMISSION INVARIANTS IS INERT ON THIS dump(), MEASURED
- * ---------------------------------------------------------------------------
- * The adapter dumps with the epic's full form -
- * dump(-1, ' ', true, error_handler_t::replace) - but the result is IMMEDIATELY
- * re-parsed by json_loads(), and a parser is blind to escaping. So:
- *   - error_handler_t::replace IS observable (a bare dump() throws
- *     type_error.316 and there would be no document at all; `ignore` drops the
- *     bytes instead of replacing them). Two cases below.
- *   - the SORTED key order IS observable, because jansson preserves the order
- *     it parsed. One case below. That is invariant 1 - nlohmann::json standard,
- *     never ordered_json - seen through the adapter.
- *   - ensure_ascii is NOT observable here, and that is structural, not a hole
- *     in the fixture: json_loads() decodes \u00e9 and the raw UTF-8 bytes of
- *     U+00E9 to the same jansson string, and jansson_to_string() re-escapes in
- *     its own UPPERCASE form on the way out whatever went in. The counter
- *     mutation was RUN, not assumed: flipping it true -> false leaves this file
- *     green, and the reason is written here so nobody reads that green as
- *     coverage. It is kept for uniformity with every other dump() of the epic.
+ * What covers that wire now: tests/ScriptWire_test.cpp (E4.1j) covers every
+ * shape ScriptExec.cpp uses - dumpJson(), parseMessage(), stringGet(),
+ * decodeObject() - and the assembly in between is guarded by the compiler
+ * alone. Said plainly rather than glossed over: that lambda only runs after a
+ * real calaos_script has been spawned through uvw, and F-LINK-1 is exactly
+ * about not calling "linked" what is not "exercised". E4.1m MEASURED it with a
+ * marker on the site instead of reasoning about it; see docs/refactoring/E4.1m.md.
  ******************************************************************************/
-
-namespace
-{
-
-/* A deliberately RICH document for the adapter, same discipline as
- * richFixture() above:
- *   - members inserted in an order that is NOT alphabetical, and whose
- *     alphabetical order differs from it on every adjacent pair;
- *   - no two values equal, drawn from disjoint vocabularies;
- *   - one NESTED object, because the ScriptExec message nests the event under
- *     "data" and a flat document could not tell a nested walk from a flat one;
- *   - non-ASCII in one member only, so a case cannot confuse "escapes
- *     everything" with "escapes the first thing it meets".
- */
-Json richAdapterDocument()
-{
-    Json j;
-    j["z_last"] = "v_zulu";
-    j["m_middle"] = "v_mike";
-    j["a_first"] = "v_alpha";
-    j["n_accent"] = "caf\xc3\xa9";
-    j["d_nested"] = Json{{ "inner_z", "v_inner_zulu" },
-                         { "inner_a", "v_inner_alpha" }};
-    return j;
-}
-
-} //namespace
-
-TEST(ParamsJson, JsonAdapter_CarriesEveryMemberIncludingTheNestedOneAndTheAccent)
-{
-    json_t *j = jansson_from_json(richAdapterDocument());
-    ASSERT_TRUE(j != nullptr) << "the adapter answered NULL";
-    ASSERT_TRUE(json_is_object(j));
-    EXPECT_EQ(5u, json_object_size(j));
-
-    EXPECT_EQ("v_zulu", janssonValueOf(j, "z_last"));
-    EXPECT_EQ("v_mike", janssonValueOf(j, "m_middle"));
-    EXPECT_EQ("v_alpha", janssonValueOf(j, "a_first"));
-    //The accent survives as its UTF-8 bytes, whatever escaping crossed over.
-    EXPECT_EQ("caf\xc3\xa9", janssonValueOf(j, "n_accent"));
-
-    json_t *nested = json_object_get(j, "d_nested");
-    ASSERT_TRUE(nested != nullptr);
-    ASSERT_TRUE(json_is_object(nested));
-    EXPECT_EQ(2u, json_object_size(nested));
-    EXPECT_EQ("v_inner_zulu", janssonValueOf(nested, "inner_z"));
-    EXPECT_EQ("v_inner_alpha", janssonValueOf(nested, "inner_a"));
-
-    json_decref(j);
-}
-
-TEST(ParamsJson, JsonAdapter_HandsJanssonTheKeysAlreadySorted)
-{
-    /* INVARIANT 1 of the epic, seen through the adapter: nlohmann::json is a
-     * std::map and dumps SORTED, jansson preserves the order it parses, so the
-     * document that reaches ScriptExec's message is alphabetical - not the
-     * insertion order of richAdapterDocument(), which is deliberately not
-     * alphabetical on any adjacent pair. If ordered_json were ever substituted
-     * for Json, this case is what says so. */
-    json_t *j = jansson_from_json(richAdapterDocument());
-    ASSERT_TRUE(j != nullptr);
-
-    std::vector<std::string> keys;
-    const char *key;
-    json_t *value;
-    json_object_foreach(j, key, value)
-        keys.push_back(key);
-
-    ASSERT_EQ(5u, keys.size());
-    const std::vector<std::string> expected = {
-        "a_first", "d_nested", "m_middle", "n_accent", "z_last" };
-    EXPECT_EQ(expected, keys)
-            << "the adapter no longer hands jansson a sorted document";
-
-    json_decref(j);
-}
-
-TEST(ParamsJson, JsonAdapter_InvalidUtf8BecomesFffdInsteadOfKillingTheMessage)
-{
-    /* INVARIANT 3, and the reason it is not negotiable on this dump: a Lua
-     * script puts a raw 0xFF into a JSON string in one line (E4.1j measured
-     * the four spellings that pass the lua_isstring guard), and a bare dump()
-     * would throw type_error.316 from inside an ExternProc callback where
-     * nothing catches it - std::terminate, not a lost message.
-     *
-     * The two halves are asserted separately, so `strict` and `ignore` do not
-     * redden the same assertion:
-     *   - the adapter ANSWERS (strict would have thrown out of it),
-     *   - and the bytes were REPLACED, not dropped (that is `ignore`). */
-    Json j;
-    j["good"] = "v_alpha";
-    j["bad"] = std::string("head") + INVALID_UTF8_BYTES + "tail";
-
-    json_t *out = nullptr;
-    ASSERT_NO_THROW(out = jansson_from_json(j))
-            << "the adapter threw - a bare dump() or a strict handler is back";
-    ASSERT_TRUE(out != nullptr)
-            << "the adapter answered NULL: json_loads() refused what dump() wrote";
-
-    //U+FFFD is EF BF BD once json_loads() has decoded it back.
-    const std::string bad = janssonValueOf(out, "bad");
-    EXPECT_NE(std::string::npos, bad.find("\xef\xbf\xbd"))
-            << "the invalid bytes did not become U+FFFD: " << bad;
-    EXPECT_EQ(std::string::npos, bad.find("\xff\x80"))
-            << "the invalid bytes crossed the adapter untouched: " << bad;
-    //Not a truncation: both ends of the value and the sibling pair survive.
-    EXPECT_EQ(0u, bad.find("head")) << bad;
-    EXPECT_NE(std::string::npos, bad.find("tail")) << bad;
-    EXPECT_EQ("v_alpha", janssonValueOf(out, "good"));
-
-    json_decref(out);
-}
-
-TEST(ParamsJson, JsonAdapter_TheScriptExecEventMessageIsAssembledAndSerializable)
-{
-    /* A REPLICA of LuaScript/ScriptExec.cpp:187-191, not the production call:
-     * that lambda only runs once a real calaos_script has been spawned through
-     * uvw. What this case proves is that the adapter composes with the jansson
-     * assembly around it - the returned reference is owned and consumable by
-     * json_object_set_new(), the envelope serializes, and the event object
-     * inside it is the sorted one nlohmann produced.
-     *
-     * The envelope itself is still jansson, so it still travels in INSERTION
-     * order (msg, then data) and still escapes in jansson's UPPERCASE form:
-     * that is the whole point of routing this site through the adapter for one
-     * ticket instead of migrating the file. The only thing that moves on the
-     * calaos_script wire is the key order INSIDE the event object. */
-    Json event = {
-        { "event_raw", "io_changed id:io_x state:caf\xc3\xa9" },
-        { "type", "3" },
-        { "type_str", "io_changed" },
-        { "data", Json{{ "id", "io_x" }, { "state", "caf\xc3\xa9" }}}
-    };
-
-    json_t *jev = json_object();
-    json_object_set_new(jev, "msg", json_string("event"));
-    json_object_set_new(jev, "data", jansson_from_json(event));
-
-    //jansson_to_string() decrefs jev, exactly as ScriptExec.cpp relies on.
-    const std::string wire = jansson_to_string(jev);
-    ASSERT_FALSE(wire.empty());
-
-    //The envelope: jansson insertion order, msg before data.
-    const size_t msgPos = wire.find("\"msg\":");
-    const size_t dataPos = wire.find("\"data\":");
-    ASSERT_NE(std::string::npos, msgPos) << wire;
-    ASSERT_NE(std::string::npos, dataPos) << wire;
-    EXPECT_LT(msgPos, dataPos)
-            << "the envelope is no longer jansson's: " << wire;
-    EXPECT_NE(std::string::npos, wire.find("\"msg\":\"event\"")) << wire;
-
-    //The event object: sorted, because it crossed nlohmann.
-    const size_t inner = dataPos + 1;
-    const size_t evData = wire.find("\"data\":", inner);
-    const size_t evRaw  = wire.find("\"event_raw\":", inner);
-    const size_t evType = wire.find("\"type\":", inner);
-    const size_t evStr  = wire.find("\"type_str\":", inner);
-    ASSERT_NE(std::string::npos, evData) << wire;
-    ASSERT_NE(std::string::npos, evRaw) << wire;
-    ASSERT_NE(std::string::npos, evType) << wire;
-    ASSERT_NE(std::string::npos, evStr) << wire;
-    EXPECT_LT(evData, evRaw) << wire;
-    EXPECT_LT(evRaw, evType) << wire;
-    EXPECT_LT(evType, evStr) << wire;
-
-    //And the escaping on THIS wire is still jansson's, UPPERCASE: the adapter
-    //buys byte stability here, which is why it exists for one ticket.
-    EXPECT_NE(std::string::npos, wire.find("\\u00E9"))
-            << "the calaos_script wire changed its escaping: " << wire;
-    EXPECT_EQ(std::string::npos, wire.find("\\u00e9"))
-            << "lowercase hex on a wire this ticket does not migrate: " << wire;
-
-    //Every leaf is still a JSON string: "type" is the stringified enum.
-    EXPECT_NE(std::string::npos, wire.find("\"type\":\"3\"")) << wire;
-    EXPECT_EQ(std::string::npos, wire.find("\"type\":3")) << wire;
-}

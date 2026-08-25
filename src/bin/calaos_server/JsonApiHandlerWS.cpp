@@ -123,7 +123,15 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
         return;
     }
 
-    cDebugDom("network") << dumpJsonRedacted(jroot);
+    /* E4.1m: dumpJsonRedacted() answers on a Json now, so the raw request is
+     * parsed once more for the log line. The document the dispatch below walks
+     * stays as it is - migrating it is E4.1s's dispatch, not this ticket - and
+     * the log is a DIFFERENT consumer of the same bytes, so a second parse is
+     * honest rather than shared state. A message that this parser refuses and
+     * the other accepted logs an empty line instead of a redacted document; it
+     * is a debug line, and it never reaches a client.
+     */
+    cDebugDom("network") << dumpJsonRedacted(Json::parse(data, nullptr, false));
 
     //decode the json root object into Params
     jansson_decode_object(jroot, jsonRoot);
@@ -254,12 +262,21 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
 
 void JsonApiHandlerWS::processGetHome(const Params &jsonReq, const string &client_id)
 {
-    json_t *jret = nullptr;
-
-    jret = json_pack("{s:o, s:o, s:o}",
-                     "home", buildJsonHome(),
-                     "cameras", buildJsonCameras(),
-                     "audio", buildJsonAudio());
+    /* E4.1m: the three builders answer a Json, so this call resolves to the
+     * nlohmann overload of sendJson() (:75) instead of the jansson one (:69).
+     * The seam was already there and in service - E4.1b built it, E4.1l
+     * crossed it for events - and nothing else was needed here.
+     *
+     * Consequence on the bytes, declared and pinned by
+     * core/JsonApiModelWireBytes_test: the envelope sorts (data before msg),
+     * the three members sort (audio, cameras, home, where json_pack() walked
+     * them in the exact opposite order), every room and every IO object sorts,
+     * and the escaping moves to a lowercase hexadecimal. All of it stays pure
+     * ASCII, as this wire has always been.
+     */
+    Json jret = {{ "home", buildJsonHome() },
+                 { "cameras", buildJsonCameras() },
+                 { "audio", buildJsonAudio() }};
 
     sendJson("get_home", jret, client_id);
 }

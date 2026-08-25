@@ -24,6 +24,38 @@
 #include "JsonApi.h"
 #include "EventManager.h"
 #include "ActionPush.h"
+#include "ScriptWire.h"
+
+/* E4.1m migrated this file whole. Both halves of the Lua wire now speak the
+ * same library, and every shape of it lives in ScriptWire.h, written and
+ * covered by E4.1j (tests/ScriptWire_test.cpp) for exactly this moment.
+ *
+ * ONE CONTRACT IS KEPT BY HAND rather than by a shortcut, and ScriptWire says
+ * why at length: ScriptWire::decodeObject() flattens a value of ANY type into
+ * a Params entry - a string as is, a boolean as the WORD "true"/"false", a
+ * number through Utils::to_string(double), anything else the empty string WITH
+ * THE KEY STILL THERE. Params::fromNJson() is NOT a substitute: it assigns the
+ * value straight into a std::string and throws type_error.302 on everything
+ * that is not a JSON string.
+ *
+ * ONE BEHAVIOUR CHANGES, and it is declared in RELEASE_NOTES.md: a script text
+ * carrying a byte that is not valid UTF-8 used to have its WHOLE pair dropped
+ * by the previous emitter, so calaos_script received an "execute" message with
+ * no script at all and ran nothing. It now arrives, with U+FFFD in place of
+ * the bad byte, so the script RUNS. ScriptWire.h predicted this ticket would
+ * open that channel; it does.
+ */
+
+//json_object_get(jroot, "data") was total: it answered NULL on a NULL and on
+//anything that is not an object, and json_object_foreach() then iterated zero
+//times. find() on a const Json answers cend() in exactly the same cases, and
+//it cannot CREATE the key the way operator[] would.
+static void decodeDataObject(const Json &jroot, Params &params)
+{
+    const Json::const_iterator it = jroot.find("data");
+    if (it != jroot.cend())
+        ScriptWire::decodeObject(*it, params);
+}
 
 enum
 {
@@ -61,45 +93,48 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
             return;
 
         cDebug() << "Message received for process:" << process;
-        json_error_t jerr;
-        json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
 
-        if (!jroot || !json_is_object(jroot))
+        Json jroot;
+        if (!ScriptWire::parseMessage(msg, jroot))
         {
-            cWarningDom("lua") << "Error parsing json from sub process: " << jerr.text << " Raw message: " << msg;
-            if (jroot)
-                json_decref(jroot);
+            //The parser detail the previous error text carried has no
+            //equivalent in a non throwing parse, so it is gone; the raw
+            //message next to it is what a reader actually needs. Same choice
+            //as WagoWire, ReolinkWire and ScriptWire itself.
+            cWarningDom("lua") << "Error parsing json from sub process. Raw message: " << msg;
             return;
         }
 
-        string mtype = jansson_string_get(jroot, "msg");
+        string mtype = ScriptWire::stringGet(jroot, "msg");
 
         if (mtype == "finished")
         {
             cInfoDom("lua") << "LUA script finished.";
             process->terminate();
-            string ret = jansson_string_get(jroot, "return_val", "false");
+            //A WORD, not a JSON boolean: a real boolean would read back as
+            //the default and every script would look like it failed.
+            string ret = ScriptWire::stringGet(jroot, "return_val", "false");
             processStatus[process] = ProcessFinished;
             cb(ret == "true"); //process finished, call callback, process will be deleted later
         }
         else if (mtype == "set_state")
         {
             Params p;
-            jansson_decode_object(json_object_get(jroot, "data"), p);
+            decodeDataObject(jroot, p);
             if (!jsonApi->decodeSetState(p))
                 cWarningDom("lua") << "Failed to decode set_state from Lua Script!";
         }
         else if (mtype == "set_param")
         {
             Params p;
-            jansson_decode_object(json_object_get(jroot, "data"), p);
+            decodeDataObject(jroot, p);
             if (!jsonApi->buildJsonSetParam(p))
                 cWarningDom("lua") << "Failed to decode set_param from Lua Script!";
         }
         else if (mtype == "send_push_notif")
         {
             Params p;
-            jansson_decode_object(json_object_get(jroot, "data"), p);
+            decodeDataObject(jroot, p);
 
             ActionPush *push = new ActionPush(p["message"], p["attachment"]);
             push->notifSent.connect([push]()
@@ -109,8 +144,6 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
             });
             push->Execute();
         }
-
-        json_decref(jroot);
     });
 
     process->processExited.connect([=]()
@@ -154,18 +187,17 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
         Params p = {{ "msg", "execute" },
                     { "script", script } };
 
-        json_t *jroot = jansson_from_params(p);
+        Json jroot = p.toNJson();
 
         //send the full calaos context here. (using JsonApi) to the process
         //after connect process to calaos events, and send him event so the process
         //can update its local cache of IO states.
-        json_object_set_new(jroot, "context", jsonApi->buildFlatIOList());
+        jroot["context"] = jsonApi->buildFlatIOList();
 
         //Also append the env to the json. Actually the env can contain which io has triggered the script
-        json_object_set_new(jroot, "env", jansson_from_params(env));
+        jroot["env"] = env.toNJson();
 
-        string m = jansson_to_string(jroot);
-        process->sendMessage(m);
+        process->sendMessage(ScriptWire::dumpJson(jroot));
 
         //After initial context, send all events to the external process
         *evcon = std::move(EventManager::Instance().newEvent.connect([=](const CalaosEvent &ev)
@@ -177,18 +209,18 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
                 ev.getType() == CalaosEvent::EventIOPropertyDelete ||
                 ev.getType() == CalaosEvent::EventIOStatusChanged)
             {
-                //E4.1l: the ONE call site of the transitional adapter (see
-                //Jansson_Addition.h). This message stays jansson until E4.1m
-                //migrates this file, because its sibling above carries
-                //JsonApi::buildFlatIOList(), still a json_t *. The adapter
-                //keeps the bytes of this wire as close as they can be: jansson
-                //re-escapes in its own form, so only the key order of the
-                //event object moves, and calaos_script decodes with a real
-                //parser (ScriptExtern_main.cpp), never by substring search.
-                json_t *jev = json_object();
-                json_object_set_new(jev, "msg", json_string("event"));
-                json_object_set_new(jev, "data", jansson_from_json(ev.toJson()));
-                process->sendMessage(jansson_to_string(jev));
+                /* E4.1m: the transitional adapter E4.1l wrote for this ONE
+                 * call site is gone, and so is the round trip it did. What
+                 * changes on this wire, on top of the key order E4.1l already
+                 * declared: the escape of a non ASCII character loses its
+                 * uppercase hexadecimal, because that round trip was what
+                 * re-escaped it. calaos_script decodes with a real parser
+                 * (ScriptExtern_main.cpp), never by substring search, and both
+                 * ends of this wire ship in the same package.
+                 */
+                Json jev = {{ "msg", "event" },
+                            { "data", ev.toJson() }};
+                process->sendMessage(ScriptWire::dumpJson(jev));
             }
         }));
     });

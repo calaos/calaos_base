@@ -126,15 +126,35 @@ TEST(JsonApiIntParam, RejectsOutOfRangeValues)
  * Redaction of the credentials in the logs (F4)
  ******************************************************************************/
 
+/* E4.1m ported these to nlohmann with the function. The ORACLE did not move:
+ * a secret must not be readable and everything else must stay readable. Two
+ * things were ADDED, both of them about what the port could have broken and
+ * nothing else could see:
+ *
+ *  - RedactedDumpKeepsRawUtf8AndStaysIndented pins the FORM of this dump. It
+ *    is the one dump() of the epic that deliberately does NOT set
+ *    ensure_ascii, because it feeds a LOG and that log has never been ASCII:
+ *    the previous call asked for INDENT(4) alone. Measured on a probe built
+ *    against both libraries: with ensure_ascii = false the two forms agree byte
+ *    for byte. This case is what makes that decision falsifiable - flip the
+ *    flag and it reddens.
+ *  - RedactedDumpDoesNotThrowOnInvalidUtf8 pins error_handler_t::replace. A
+ *    bare dump() throws type_error.316 and nothing catches it above
+ *    processApi(): that is std::terminate on a live connection, on a document
+ *    the client wrote.
+ */
+
 TEST(JsonApiRedact, HidesCredentialFields)
 {
-    json_t *j = json_object();
-    json_object_set_new(j, "cn_user", json_string("admin"));
-    json_object_set_new(j, "cn_pass", json_string("sup3rs3cr3t"));
-    json_object_set_new(j, "action", json_string("get_home"));
+    //Insertion order is NOT alphabetical, and the visible and the masked field
+    //carry values from disjoint vocabularies: exchanging "cn_pass" and
+    //"cn_user" in the sensitive list has to redden both halves of this case.
+    Json j;
+    j["cn_user"] = "admin";
+    j["cn_pass"] = "sup3rs3cr3t";
+    j["action"] = "get_home";
 
-    std::string dump = JsonApi::dumpJsonRedacted(j);
-    json_decref(j);
+    const std::string dump = JsonApi::dumpJsonRedacted(j);
 
     EXPECT_EQ(dump.find("sup3rs3cr3t"), std::string::npos) << dump;
     EXPECT_NE(dump.find("***"), std::string::npos) << dump;
@@ -145,18 +165,17 @@ TEST(JsonApiRedact, HidesCredentialFields)
 
 TEST(JsonApiRedact, HidesNestedAndServiceSecrets)
 {
-    json_t *data = json_object();
-    json_object_set_new(data, "cn_pass", json_string("wspassword"));
-    json_object_set_new(data, "token", json_string("deadbeefservicetoken"));
-    json_object_set_new(data, "old_pw", json_string("oldpassword"));
-    json_object_set_new(data, "new_pw", json_string("newpassword"));
+    Json data;
+    data["cn_pass"] = "wspassword";
+    data["token"] = "deadbeefservicetoken";
+    data["old_pw"] = "oldpassword";
+    data["new_pw"] = "newpassword";
 
-    json_t *j = json_object();
-    json_object_set_new(j, "msg", json_string("login"));
-    json_object_set_new(j, "data", data);
+    Json j;
+    j["msg"] = "login";
+    j["data"] = data;
 
-    std::string dump = JsonApi::dumpJsonRedacted(j);
-    json_decref(j);
+    const std::string dump = JsonApi::dumpJsonRedacted(j);
 
     EXPECT_EQ(dump.find("wspassword"), std::string::npos) << dump;
     EXPECT_EQ(dump.find("deadbeefservicetoken"), std::string::npos) << dump;
@@ -167,20 +186,66 @@ TEST(JsonApiRedact, HidesNestedAndServiceSecrets)
 
 TEST(JsonApiRedact, HandlesNullAndArrays)
 {
+    //nullptr still answers the empty string: a null Json is the translation of
+    //the null pointer the jansson version refused, and the two callers can
+    //hand one over whenever a non throwing parse discards a bad message.
     EXPECT_EQ(JsonApi::dumpJsonRedacted(nullptr), std::string());
+    EXPECT_EQ(JsonApi::dumpJsonRedacted(Json::parse("not json", nullptr, false)),
+              std::string());
 
-    json_t *arr = json_array();
-    json_t *item = json_object();
-    json_object_set_new(item, "password", json_string("insidearray"));
-    json_array_append_new(arr, item);
+    Json item;
+    item["password"] = "insidearray";
+    Json j;
+    j["items"] = Json::array({ item });
 
-    json_t *j = json_object();
-    json_object_set_new(j, "items", arr);
-
-    std::string dump = JsonApi::dumpJsonRedacted(j);
-    json_decref(j);
+    const std::string dump = JsonApi::dumpJsonRedacted(j);
 
     EXPECT_EQ(dump.find("insidearray"), std::string::npos) << dump;
+    EXPECT_NE(dump.find("***"), std::string::npos) << dump;
+}
+
+TEST(JsonApiRedact, RedactedDumpKeepsRawUtf8AndStaysIndented)
+{
+    //THE DELIBERATE EXCEPTION of E4.1m to invariant 3 of the epic, and the
+    //only oracle that can see it. The value is a VALID code point, so no error
+    //handler ever looks at it: this case is sensitive to ensure_ascii ONLY.
+    Json j;
+    j["name"] = "caf\xc3\xa9";
+
+    const std::string dump = JsonApi::dumpJsonRedacted(j);
+
+    EXPECT_NE(dump.find("caf\xc3\xa9"), std::string::npos)
+            << "the log stopped carrying raw UTF-8: " << dump;
+    EXPECT_EQ(dump.find("\\u00e9"), std::string::npos)
+            << "ensure_ascii was turned on: the log bytes changed for nothing";
+    EXPECT_EQ(dump.find("\\u00E9"), std::string::npos) << dump;
+    //And it is still the INDENT(4) shape a human reads, not a compact line.
+    EXPECT_NE(dump.find("\n    \"name\""), std::string::npos) << dump;
+}
+
+TEST(JsonApiRedact, RedactedDumpDoesNotThrowOnInvalidUtf8)
+{
+    //The probe is a byte pair that can never become valid UTF-8, so this case
+    //is sensitive to the error handler ONLY. It asserts BOTH halves, so that
+    //`strict` and `ignore` cannot redden the same assertion:
+    //  - the call RETURNS (strict throws type_error.316 out of it),
+    //  - and the bytes were REPLACED, not dropped (that is `ignore`).
+    Json j;
+    j["good"] = "readable";
+    j["bad"] = std::string("head\xff\x80tail");
+
+    std::string dump;
+    ASSERT_NO_THROW(dump = JsonApi::dumpJsonRedacted(j))
+            << "a bare dump() or a strict handler is back on the log path";
+
+    //U+FFFD is EF BF BD in UTF-8, and there is one per bad byte.
+    EXPECT_NE(dump.find("\xef\xbf\xbd\xef\xbf\xbd"), std::string::npos) << dump;
+    EXPECT_EQ(dump.find("\xff\x80"), std::string::npos)
+            << "the invalid bytes reached the log untouched";
+    //Not a truncation: both ends of the value and the sibling pair survive.
+    EXPECT_NE(dump.find("head"), std::string::npos) << dump;
+    EXPECT_NE(dump.find("tail"), std::string::npos) << dump;
+    EXPECT_NE(dump.find("readable"), std::string::npos) << dump;
 }
 
 /******************************************************************************

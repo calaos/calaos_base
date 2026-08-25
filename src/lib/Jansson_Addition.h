@@ -63,36 +63,6 @@ inline json_t *jansson_from_params(const Params &params)
     return ret;
 }
 
-/*******************************************************************************
- * TRANSITIONAL ADAPTER - E4.1l. REMOVED BY E4.1m.
- *
- * `grep -rn jansson_from_json src tests` is the exact list of what still needs
- * it, and that list has exactly ONE entry: LuaScript/ScriptExec.cpp, where the
- * {msg:"event", data:<event>} message sent to calaos_script is still assembled
- * with jansson because the SIBLING message of the same lambda's enclosing
- * scope carries JsonApi::buildFlatIOList(), which is still a json_t *. If you
- * find yourself calling this from a second site, you have overrun a perimeter.
- *
- * Protocol copied from jansson_from_params() above (E4.1a), because it worked:
- * a greppable name, and a comment naming the ticket that deletes it.
- *
- * It is deliberately the SAME dump() as every other emitter of the epic -
- * compact, ensure_ascii = true, error_handler_t::replace - so that a value the
- * client influenced cannot throw type_error.316 from inside an ExternProc read
- * callback, where nothing catches it (the KNX precedent, and E4.1j measured
- * that a Lua script can put a raw 0xFF into a JSON string in one line). The
- * round trip through json_loads() is what keeps the ScriptExec wire byte
- * stable this ticket: jansson re-escapes in its own UPPERCASE form on the way
- * out, so the only thing that changes on that wire is the key order of the
- * event object.
- ******************************************************************************/
-inline json_t *jansson_from_json(const Json &j)
-{
-    json_error_t e;
-    return json_loads(j.dump(-1, ' ', true,
-                             Json::error_handler_t::replace).c_str(), 0, &e);
-}
-
 inline bool jansson_bool_get(const json_t *json, const std::string &str, const bool default_value = false)
 {
     bool ret;

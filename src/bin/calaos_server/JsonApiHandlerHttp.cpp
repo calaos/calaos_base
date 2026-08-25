@@ -98,7 +98,8 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
     }
     else
     {
-        cDebugDom("network") << dumpJsonRedacted(jroot);
+        //E4.1m: see the twin line in JsonApiHandlerWS::processApi().
+        cDebugDom("network") << dumpJsonRedacted(Json::parse(data, nullptr, false));
 
         //decode the json root object into jsonParam
         jansson_decode_object(jroot, jsonParam);
@@ -283,12 +284,12 @@ void JsonApiHandlerHttp::sendJson(const Json &json)
 
 void JsonApiHandlerHttp::processGetHome()
 {
-    json_t *jret = nullptr;
-
-    jret = json_pack("{s:o, s:o, s:o}",
-                     "home", buildJsonHome(),
-                     "cameras", buildJsonCameras(),
-                     "audio", buildJsonAudio());
+    //E4.1m: same bascule as JsonApiHandlerWS::processGetHome(), same deltas,
+    //and here Content-Length follows the body because sendJson(const Json &)
+    //computes it from the dumped string (:272).
+    Json jret = {{ "home", buildJsonHome() },
+                 { "cameras", buildJsonCameras() },
+                 { "audio", buildJsonAudio() }};
 
     sendJson(jret);
 }

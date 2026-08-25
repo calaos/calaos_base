@@ -184,60 +184,72 @@ bool JsonApi::resolveEventPicture(const string &picUid, string &outPath)
                                       outPath);
 }
 
-string JsonApi::dumpJsonRedacted(json_t *jroot)
+/* E4.1m. The redaction walk moved to nlohmann. TWO deliberate choices, both
+ * argued in docs/refactoring/E4.1m.md:
+ *
+ * (a) THE PARAMETER IS A Json, NOT THE RAW REQUEST TEXT. The two callers parse
+ *     the client's message anyway; they hand a document, not a string, so this
+ *     function keeps having exactly one job.
+ *
+ * (b) ensure_ascii IS FALSE HERE, and NOWHERE ELSE IN THE EPIC. This output is
+ *     a LOG LINE, not a wire, and it has NEVER been ASCII: the previous dump
+ *     asked for INDENT(4) only, so an accented device name has always been
+ *     written in raw UTF-8 in calaos_server's log. Escaping it now would change
+ *     the bytes of a stream the epic does not migrate, which is precisely what
+ *     invariant 3 exists to forbid; the same reasoning already exempts
+ *     lib/ConfigOptions.cpp, bin/tools/calaos_config.cpp and CalaosConfig.cpp,
+ *     the three other indented dumps of the tree. MEASURED, on a probe
+ *     compiled against both libraries: with ensure_ascii = false the two
+ *     dumps agree BYTE FOR BYTE on ASCII, on U+00E9 and on U+007F. So this
+ *     migration changes NOTHING in the log, and
+ *     core/JsonApiModelWireBytes_test has no case here for that reason.
+ *     error_handler_t::replace IS applied: it is the invariant that stops a
+ *     dump() from throwing type_error.316 on a live connection, and it costs
+ *     no byte on anything that is valid.
+ */
+string JsonApi::dumpJsonRedacted(const Json &jroot)
 {
     static const vector<string> sensitive =
     { "cn_pass", "password", "passwd", "pass", "token", "old_pw", "new_pw",
       "old_password", "new_password", "secret", "authorization" };
 
-    if (!jroot)
+    //A null Json is the translation of the null pointer this used to refuse,
+    //and a discarded one is what a non throwing parse answers on garbage.
+    if (jroot.is_null() || jroot.is_discarded())
         return string();
 
-    json_t *copy = json_deep_copy(jroot);
-    if (!copy)
-        return string();
+    Json copy = jroot;
 
-    std::function<void(json_t *)> redact = [&](json_t *j)
+    std::function<void(Json &)> redact = [&](Json &j)
     {
-        if (json_is_array(j))
+        if (j.is_array())
         {
-            uint idx;
-            json_t *value;
-            json_array_foreach(j, idx, value)
+            for (Json &value: j)
                 redact(value);
             return;
         }
 
-        if (!json_is_object(j))
+        if (!j.is_object())
             return;
 
+        //The keys are collected first and rewritten after the walk: writing
+        //into the object while iterating it invalidates the iterator.
         vector<string> keys;
-        const char *key;
-        json_t *value;
-        json_object_foreach(j, key, value)
+        for (Json::iterator it = j.begin(); it != j.end(); ++it)
         {
-            if (std::find(sensitive.begin(), sensitive.end(), Utils::str_to_lower(key)) != sensitive.end())
-                keys.push_back(key);
+            if (std::find(sensitive.begin(), sensitive.end(), Utils::str_to_lower(it.key())) != sensitive.end())
+                keys.push_back(it.key());
             else
-                redact(value);
+                redact(it.value());
         }
 
         for (const string &k: keys)
-            json_object_set_new(j, k.c_str(), json_string("***"));
+            j[k] = "***";
     };
 
     redact(copy);
 
-    char *d = json_dumps(copy, JSON_INDENT(4));
-    json_decref(copy);
-
-    if (!d)
-        return string();
-
-    string ret(d);
-    free(d);
-
-    return ret;
+    return copy.dump(4, ' ', false, Json::error_handler_t::replace);
 }
 
 JsonApi::JsonApi(HttpClient *client):
@@ -253,7 +265,7 @@ JsonApi::~JsonApi()
 {
 }
 
-void JsonApi::buildJsonIO(IOBase *io, json_t *jio)
+void JsonApi::buildJsonIO(IOBase *io, Json &jio)
 {
     vector<string> params =
     { "id", "name", "type", "hits", "var_type", "visible",
@@ -287,78 +299,91 @@ void JsonApi::buildJsonIO(IOBase *io, json_t *jio)
             value = io->get_param(param);
         }
 
-        json_object_set_new(jio, param.c_str(),
-                            json_string(value.c_str()));
+        /* E4.1m. THE `continue` ABOVE IS THE CONTRACT: an absent param emits NO
+         * KEY, never a null and never an empty string. This assignment is only
+         * ever reached for a param that exists, or for the two computed ones.
+         *
+         * value is passed WHOLE here, where json_string(value.c_str()) used to
+         * stop at the first NUL and answer NULL outright on invalid UTF-8 -
+         * and neither its return code nor json_object_set_new()'s was tested,
+         * so the pair vanished from the payload in silence. Pinned by the R_
+         * and Z_ cases of core/JsonApiModelWireBytes_test.
+         */
+        jio[param] = value;
     }
 
-    auto jstatus = buildJsonStatusInfo(io);
-    if (jstatus)
-        json_object_set_new(jio, "status_info", jstatus);
+    //A null Json means "this IO has no status info" - NOT an empty object,
+    //which is truthy and would add "status_info":{} to every IO of the API.
+    Json jstatus = buildJsonStatusInfo(io);
+    if (!jstatus.is_null())
+        jio["status_info"] = jstatus;
 }
 
-json_t *JsonApi::buildJsonRoomIO(Room *room)
+Json JsonApi::buildJsonRoomIO(Room *room)
 {
-    json_t *jdata = json_array();
+    Json jdata = Json::array();
 
     for (int i = 0;i < room->get_size();i++)
     {
-        json_t *jio = json_object();
+        Json jio = Json::object();
         IOBase *io = room->get_io(i);
 
         buildJsonIO(io, jio);
 
-        json_array_append_new(jdata, jio);
+        jdata.emplace_back(std::move(jio));
     }
 
     return jdata;
 }
 
-json_t *JsonApi::buildJsonHome()
+Json JsonApi::buildJsonHome()
 {
-    json_t *jdata = json_array();
+    Json jdata = Json::array();
 
     for (int iroom = 0;iroom < ListeRoom::Instance().size();iroom++)
     {
         Room *room = ListeRoom::Instance().get_room(iroom);
-        json_t *jroom = json_object();
+        Json jroom = Json::object();
 
-        json_t *jitems = buildJsonRoomIO(room);
+        Json jitems = buildJsonRoomIO(room);
 
-        json_object_set_new(jroom, "type", json_string(room->get_type().c_str()));
-        json_object_set_new(jroom, "name", json_string(room->get_name().c_str()));
-        json_object_set_new(jroom, "hits", json_string(Utils::to_string(room->get_hits()).c_str()));
-        json_object_set_new(jroom, "items", jitems);
+        //hits STAYS A STRING. Zero json_integer() in this file, and the oracle
+        //of the whole E4.0 series is type strict: 3 is not "3".
+        jroom["type"] = room->get_type();
+        jroom["name"] = room->get_name();
+        jroom["hits"] = Utils::to_string(room->get_hits());
+        jroom["items"] = std::move(jitems);
 
-        json_array_append_new(jdata, jroom);
+        jdata.emplace_back(std::move(jroom));
     }
 
     return jdata;
 }
 
-json_t *JsonApi::buildFlatIOList()
+Json JsonApi::buildFlatIOList()
 {
-    json_t *jdata = json_array();
+    Json jdata = Json::array();
 
     for (int iroom = 0;iroom < ListeRoom::Instance().size();iroom++)
     {
         Room *room = ListeRoom::Instance().get_room(iroom);
         for (int i = 0;i < room->get_size();i++)
         {
-            json_t *jio = json_object();
+            Json jio = Json::object();
             IOBase *io = room->get_io(i);
 
             buildJsonIO(io, jio);
 
-            json_array_append_new(jdata, jio);
+            jdata.emplace_back(std::move(jio));
         }
     }
 
     return jdata;
 }
 
-json_t *JsonApi::buildJsonCameras()
+Json JsonApi::buildJsonCameras()
 {
-    json_t *jdata = json_array();
+    Json jdata = Json::array();
 
     list<IOBase *> camlist = ListeRoom::Instance().getCameraList();
 
@@ -368,27 +393,28 @@ json_t *JsonApi::buildJsonCameras()
         IPCam *camera = dynamic_cast<IPCam *>(io);
         if (!camera) continue;
 
-        json_t *jcam = json_object();
-        json_object_set_new(jcam, "id", json_string(camera->get_param("id").c_str()));
-        json_object_set_new(jcam, "name", json_string(camera->get_param("name").c_str()));
-        json_object_set_new(jcam, "type", json_string(camera->get_param("type").c_str()));
+        Json jcam = Json::object();
+        jcam["id"] = camera->get_param("id");
+        jcam["name"] = camera->get_param("name");
+        jcam["type"] = camera->get_param("type");
         Params caps = camera->getCapabilities();
+        //THE WORD "true", not the JSON literal. Same reason as hits above.
         if (caps["ptz"] == "true")
-            json_object_set_new(jcam, "ptz", json_string("true"));
+            jcam["ptz"] = "true";
         else
-            json_object_set_new(jcam, "ptz", json_string("false"));
+            jcam["ptz"] = "false";
 
         cpt++;
 
-        json_array_append_new(jdata, jcam);
+        jdata.emplace_back(std::move(jcam));
     }
 
     return jdata;
 }
 
-json_t *JsonApi::buildJsonAudio()
+Json JsonApi::buildJsonAudio()
 {
-    json_t *jdata = json_array();
+    Json jdata = Json::array();
 
     list<IOBase *> audiolist = ListeRoom::Instance().getAudioList();
 
@@ -397,18 +423,21 @@ json_t *JsonApi::buildJsonAudio()
         AudioPlayer *player = dynamic_cast<AudioPlayer *>(io);
         if (!player) continue;
 
-        json_t *jaudio = json_object();
-        json_object_set_new(jaudio, "id", json_string(player->get_param("id").c_str()));
-        json_object_set_new(jaudio, "name", json_string(player->get_param("name").c_str()));
-        json_object_set_new(jaudio, "type", json_string(player->get_param("type").c_str()));
+        Json jaudio = Json::object();
+        jaudio["id"] = player->get_param("id");
+        jaudio["name"] = player->get_param("name");
+        jaudio["type"] = player->get_param("type");
 
-        json_object_set_new(jaudio, "playlist", json_string(player->canPlaylist()?"true":"false"));
-        json_object_set_new(jaudio, "database", json_string(player->canDatabase()?"true":"false"));
+        //Four capability flags, all of them WORDS. A real JSON boolean here
+        //would break every client that compares them to the string "true".
+        jaudio["playlist"] = player->canPlaylist()?"true":"false";
+        jaudio["database"] = player->canDatabase()?"true":"false";
 
+        //Optional: absent param, absent key. Never null, never "".
         if (player->get_params().Exists("amp"))
-            json_object_set_new(jaudio, "avr", json_string(player->get_param("amp").c_str()));
+            jaudio["avr"] = player->get_param("amp");
 
-        json_array_append_new(jdata, jaudio);
+        jdata.emplace_back(std::move(jaudio));
 
         //don't query detailed player infos here, other informations need to be queried to the squeezecenter
         //so the get_home request will be delayed by all the squeezecenter's requests.
@@ -737,19 +766,21 @@ json_t *JsonApi::buildJsonDelParam(const Params &jParam)
     return jansson_from_params(ret);
 }
 
-json_t *JsonApi::buildJsonGetIO(vector<string> iolist)
+Json JsonApi::buildJsonGetIO(vector<string> iolist)
 {
-    json_t *jret = json_object();
+    Json jret = Json::object();
 
     for (string ioid: iolist)
     {
         IOBase *io = ListeRoom::Instance().get_io(ioid);
         if (io)
         {
-            json_t *jio = json_object();
+            Json jio = Json::object();
             buildJsonIO(io, jio);
 
-            json_object_set_new(jret, ioid.c_str(), jio);
+            //An id the tree does not know is SKIPPED, not answered as null:
+            //the `if` above is the contract, pinned by E4.0b.
+            jret[ioid] = std::move(jio);
         }
     }
 
@@ -2463,11 +2494,14 @@ bool JsonApi::changeCredentials(string olduser, string oldpass, string newuser, 
     return true;
 }
 
-json_t *JsonApi::buildJsonStatusInfo(IOBase *io)
+Json JsonApi::buildJsonStatusInfo(IOBase *io)
 {
-    if (!io || !io->hasStatusInfo()) return nullptr;
+    //A NULL Json, deliberately, not an empty object: buildJsonIO() tests it to
+    //decide whether the "status_info" key exists at all, and Json::object() is
+    //NOT null - it would put "status_info":{} on every IO of every payload.
+    if (!io || !io->hasStatusInfo()) return Json();
 
-    json_t *jret = json_object();
+    Json jret = Json::object();
 
     Params p = io->getStatusInfo();
 
@@ -2476,7 +2510,7 @@ json_t *JsonApi::buildJsonStatusInfo(IOBase *io)
         string key, value;
         p.get_item(i, key, value);
 
-        json_object_set_new(jret, key.c_str(), json_string(value.c_str()));
+        jret[key] = value;
     }
 
     return jret;
