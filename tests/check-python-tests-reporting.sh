@@ -567,36 +567,45 @@ mkdir -p "$duptree/tests/python/sub" || exit 1
 : > "$duptree/tests/python/sub/__init__.py"
 cat > "$duptree/tests/python/test_dup.py" <<'PY_EOF'
 # Fabricated by tests/check-python-tests-reporting.sh (C5f/C5g). Same BASENAME
-# as sub/test_dup.py below, and the case that is skipped here bears the same
-# dotted name as the case that runs there.
+# as sub/test_dup.py below, and the case that is SKIPPED here bears the same
+# dotted name as a case that RUNS there.
 import unittest
 
 
 class Dup(unittest.TestCase):
-    def test_runs_here(self):
-        self.assertTrue(True)
-
     @unittest.skip("C5f: pinned as NOT executed")
     def test_shared_name(self):
         raise AssertionError("this case must never run")
+
+    def test_only_here(self):
+        self.assertTrue(True)
 PY_EOF
 cat > "$duptree/tests/python/sub/test_dup.py" <<'PY_EOF'
 # Fabricated by tests/check-python-tests-reporting.sh (C5f/C5g). Same basename
-# as ../test_dup.py, and its ONE case bears the same dotted name as the case
-# that is skipped there. Keyed by basename the two files merge and this case
-# pays for that one.
+# as ../test_dup.py. Both its cases run, and one of them bears the same dotted
+# name as the case that is skipped there.
+#
+# ⚠️ The two files are DELIBERATELY asymmetric -- 2 cases each, and this one
+# declares a case (test_only_there) that the other does not. With a symmetric
+# pair, merging the two files on a basename key happens to yield the same two
+# numbers as the honest accounting, and the collision is invisible. Measured:
+# with the first, symmetric version of this fixture, a mutant that keyed the
+# executed cases by basename SURVIVED the whole campaign.
 import unittest
 
 
 class Dup(unittest.TestCase):
     def test_shared_name(self):
         self.assertTrue(True)
+
+    def test_only_there(self):
+        self.assertTrue(True)
 PY_EOF
 
-DUPWHY="Two suites share a BASENAME in two directories, and the case that runs in the sub-directory bears the same dotted name as the case that is skipped at the top level. Three cases are declared over two files; exactly two of them execute, and the top-level suite is incomplete."
-c5_run "C5f same-basename pytest-backend" "$duptree" "$COUNTPY" 2 3 1 2 77 "$DUPWHY"
+DUPWHY="Two suites share a BASENAME in two directories. Four cases are declared over the two files; three execute -- the top-level one is skipped from the inside -- so the top-level suite is incomplete and the sub-directory one is complete. Keyed by basename the two files merge into one, the cases of the sub-directory suite pay for the skipped case above it, and the sub-directory suite reads as having run nothing."
+c5_run "C5f same-basename pytest-backend" "$duptree" "$COUNTPY" 2 4 1 3 77 "$DUPWHY"
 if [ "$have_stub" = yes ]; then
-    c5_run "C5g same-basename unittest-backend" "$duptree" "$stub" 2 3 1 2 77 "$DUPWHY"
+    c5_run "C5g same-basename unittest-backend" "$duptree" "$stub" 2 4 1 3 77 "$DUPWHY"
 fi
 
 # ---------------------------------------------------------------------------
@@ -683,10 +692,12 @@ if "$COUNTPY" -c "import pytest" >/dev/null 2>&1; then
 import pytest
 
 
-# ⚠️ Two of the three ids contain a ']' on purpose: with integer ids alone, any
-# change to the "strip the [...] suffix" regex that only matters on bracketed
-# ids is invisible here.
-@pytest.mark.parametrize("value", ["a]b", "]", "plain"])
+# ⚠️ EVERY id contains a ']' on purpose. With integer ids the "strip the [...]
+# suffix" regex is pinned only in its easiest case; and with even ONE
+# well-behaved id among them, an instance still maps back to the declared name
+# and pays for all the others. Measured: leaving one plain id let a lazy,
+# unanchored variant of the regex survive the campaign.
+@pytest.mark.parametrize("value", ["a]b", "]", "c]"])
 def test_parametrized(value):
     assert value
 
