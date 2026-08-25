@@ -52,25 +52,38 @@
  *     whatever RoonDiscovery finds.
  *
  * ---------------------------------------------------------------------------
- * WHY (b) AND THE PORT MEMBER ARE PINNED BY SOURCE TRIPWIRES AND NOT BY A
- * BEHAVIOURAL CASE
+ * ⛔ T3.28b - THE PARAGRAPH THAT USED TO STAND HERE WAS WRONG, AND IT IS THE
+ * REASON THIS FILE HAS AN EXECUTION CASE NOW
  * ---------------------------------------------------------------------------
- * RoonCtrl::Instance() (RoonPlayer.cpp:58-60) is a static singleton whose
- * constructor builds an ExternProcServer - which binds a unix socket - and
- * spawns calaos_roon. E4.1h measured this and the review closed the question:
- * "the blocker is not the link, it is the singleton that binds a socket and
- * launches the process" (FINDINGS.md:109-113). Nothing in `make check` can
+ * T3.28 justified its two source tripwires like this: "RoonCtrl::Instance()
+ * is a static singleton whose constructor builds an ExternProcServer - which
+ * binds a unix socket - and spawns calaos_roon. Nothing in `make check` can
  * construct a RoonCtrl, so no test can observe which arguments its two
- * startProcess() call sites pass.
+ * startProcess() call sites pass."
  *
- * What CAN be observed is the shipped source, through CALAOS_TOP_SRCDIR - the
- * mechanism tests/JanssonResidues_test.cpp already uses for the same reason.
- * The tripwire below counts the spawn call sites of RoonPlayer.cpp: two on
- * master, one after the fix, because the fix routes both the first launch and
- * the respawn through a single private launch() that uses a single argument
- * string. That single call site is a STRUCTURAL closure - the two paths
- * cannot diverge because there is only one path - and the tripwire is what
- * keeps a future edit from re-opening it.
+ * Every clause of that is true. The conclusion is not, and it was never
+ * measured - only cited, from a review of E4.1h about a different class:
+ *
+ *   - Instance() is PUBLIC and static (RoonPlayer.h:139). Only the
+ *     CONSTRUCTOR is private, and a public factory is not a wall.
+ *   - Audio/RoonPlayer.o is linked by SEVENTEEN test binaries, not by this
+ *     one alone as the delivery sheet claimed - sixteen of them already
+ *     linked it before this suite existed.
+ *   - Binding a socket in /tmp blocks nothing, and neither does spawning:
+ *     tests/core/KnxIo_test.cpp builds a real KNXCtrl - the same singleton
+ *     shape, the same ExternProcServer, the same spawn - on EVERY make check
+ *     run. The one step nobody had taken was letting the spawn SUCCEED.
+ *
+ * So the launch arguments ARE observable, and
+ * TheRespawnedSidecarIsSpawnedWithTheArgumentsOfTheFirstLaunch observes them:
+ * both launches, spelled by the production code, read back from what the
+ * kernel handed the child. See FINDINGS.md, [F-LINK-1], and docs T3.28b.md.
+ *
+ * The source tripwire below is KEPT as the second net, because it answers a
+ * different question - HOW MANY launch sites the file has, the structural
+ * property that stops the two paths diverging at all. It is no longer the
+ * only guard of the arguments, and it never should have been the first.
+ * The mechanism is CALAOS_TOP_SRCDIR, as tests/JanssonResidues_test.cpp uses.
  *
  * ⚠️ A SOURCE TRIPWIRE COUNTS TEXT, SO IT MUST COUNT THE TEXT THAT MATTERS.
  * The first version of that tripwire counted `startProcess(` - the call NAME -
@@ -88,10 +101,10 @@
  * pinning the spelling does not change its nature. It says the call passes
  * `procArgs`; it cannot say `procArgs` HOLDS the right string - the buildArgs()
  * cases at the bottom do that, on production code, and they would not notice a
- * call site that vanished. The two together are the net, neither alone. What
- * NOTHING here can prove is that calaos_roon then does the right thing with
- * those flags: no test on real Roon hardware was run for this ticket, and the
- * delivery sheet says so.
+ * call site that vanished. The execution case does both at once, which is why
+ * it leads now. What NOTHING here can prove is that calaos_roon then does the
+ * right thing with those flags: no test on real Roon hardware was run for this
+ * ticket or for T3.28b, and both delivery sheets say so.
  *
  * ---------------------------------------------------------------------------
  * WHAT THIS SUITE DELIBERATELY DOES NOT TOUCH
@@ -339,7 +352,7 @@ Params roonParams(const std::string &id)
  * getenv("CALAOS_BIN_PREFIX") and does NOT cache it, so a test can point
  * `exe` at a directory of its own. We drop a `calaos_roon` there that appends
  * its own argv to a journal and exits; ExternProcServer's ExitEvent handler
- * then arms the 0.1s respawn timer (IO/ExternProc.cpp:184-190) and RoonCtrl
+ * then arms the 0.1s respawn timer (IO/ExternProc.cpp:187-199) and RoonCtrl
  * relaunches. Pumping the loop for a bounded time therefore yields ONE LINE
  * PER LAUNCH, first launch and respawn alike, spelled by the production code
  * end to end.
@@ -364,7 +377,7 @@ std::string makeTempBinPrefix()
  * file opened O_APPEND, so two launches can never interleave into one line.
  * The journal path is baked in at write time rather than read from the
  * environment: startProcess() hands the child an explicit environment
- * (IO/ExternProc.cpp:252-273) which does not forward CALAOS_BIN_PREFIX or
+ * (IO/ExternProc.cpp:260-275) which does not forward CALAOS_BIN_PREFIX or
  * anything of ours.
  */
 bool writeSpawnRecorder(const std::string &script, const std::string &journal)
@@ -478,7 +491,7 @@ TEST_F(RoonArgsTest, TheIoDocStillDeclaresHostOptional)
  * The one oracle in this file that runs the whole production chain of the
  * defect: RoonCtrl's constructor builds the argument string from its own
  * parameters, launch() hands it to ExternProcServer::startProcess(), which
- * concatenates and re-splits it (IO/ExternProc.cpp:176, :275-277) and spawns
+ * concatenates and re-splits it (IO/ExternProc.cpp:184, :276-278) and spawns
  * the sidecar - then the sidecar exits, the 0.1s respawn timer fires, and the
  * SAME path runs again. The journal holds what the kernel actually handed to
  * calaos_roon, both times.
@@ -901,7 +914,7 @@ TEST_F(RoonArgsTest, AUsablePortIsPassedThroughUnchanged)
  *
  * The RoonCtrl singleton is a function-local static shared_ptr. Destroying it
  * at process exit runs ~ExternProcServer, which does
- * process_exe->kill(SIGTERM) on the last spawned child (IO/ExternProc.cpp:100-104)
+ * process_exe->kill(SIGTERM) on the last spawned child (IO/ExternProc.cpp:101-106)
  * and closes libuv handles on a loop this binary has stopped pumping. KnxIo_test
  * documents what that class of teardown already cost once - a SIGTERM to the
  * whole process group taking down the automake harness with Error 143 AFTER the

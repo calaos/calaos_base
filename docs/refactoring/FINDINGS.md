@@ -4303,6 +4303,79 @@ portent les **mesures**. La consigne du préambule ne change pas : **on appende,
   de sortie » est **nécessaire et insuffisante**. Il faut y ajouter **`cmp` d'application** et
   **comparaison des ensembles**. `DECISIONS.md` est corrigé en ce sens : **cinq variantes de la
   famille `_DEPENDENCIES`, plus une sixième d'une autre famille.**
+
+### T3.28b — ⭐ le premier remboursement de `F-LINK-1`, et le **troisième** verdict qui manquait (2026-08-25)
+
+> Append à la section `F-LINK-1` ci-dessus, écrit **sans l'avoir vue** : `T3.28b` a été instruit en
+> parallèle de la revue de `T3.27` et est arrivé aux **mêmes chiffres par une autre route**
+> (aplatissement `python3` des corps de `*_LDADD`) — **8** cibles au commit E4.0d, **16** à la base
+> de `T3.28`, **17** sur `fb9d064c`. Deux mesures indépendantes, un seul résultat. Ce qui suit est
+> ce que `T3.28b` ajoute et qui n'était pas dans la mesure de `T3.27` : **la moitié « exécution »**.
+
+- ⭐⭐ **[F-LINK-1, suite] Le point 2 de la section ci-dessus — « l'obstacle réel, quand il existe,
+  est à l'exécution » — a été REJOUÉ sur `RoonCtrl`, et l'obstacle n'existait pas non plus.**
+
+  `T3.28` justifiait ses deux tripwires de source par : *« `RoonCtrl::Instance()` est un singleton
+  `static` dont le constructeur construit un `ExternProcServer` — qui bind un socket unix — et lance
+  `calaos_roon`. Rien dans `make check` ne peut construire un `RoonCtrl`. »* **Chaque clause est
+  vraie, la conclusion est fausse**, et elle n'avait jamais été essayée :
+
+  1. `Instance()` est **publique et `static`** (`RoonPlayer.h:139`) ; seul le **constructeur** est
+     privé, et une fabrique publique n'est pas un mur.
+  2. Le **bind** (`IO/ExternProc.cpp:31-84`) crée un socket dans `/tmp` : aucun test de l'arbre
+     n'a jamais été bloqué par ça.
+  3. Le **`spawn`** est un **point d'observation**, pas un mur.
+     `Prefix::binDirectoryGet()` (`src/lib/Prefix.cpp:31-37`) répond `getenv("CALAOS_BIN_PREFIX")`
+     **sans le mettre en cache** ⇒ un test choisit l'exécutable lancé. Un faux `calaos_roon` qui
+     journalise son `argv` et sort suffit : l'`ExitEvent` arme le `Timer::singleShot(0.1, …)`
+     (`ExternProc.cpp:191`/`:198`), le contrôleur **relance**, et pomper la boucle donne **une ligne
+     par lancement**.
+  4. ⭐ **Le précédent dormait déjà dans l'arbre** : `tests/core/KnxIo_test.cpp` construit un **vrai
+     `KNXCtrl`** — même forme de singleton, même `ExternProcServer`, même `spawn` — à **chaque**
+     `make check`, et le documente dans son en-tête. La seule chose que personne n'avait faite :
+     laisser le `spawn` **réussir**.
+
+  **Mesuré** : 2 lancements journalisés en **120 ms**, tous deux portant
+  `--namespace roon --host 192.168.7.42 --port 9331`. ⇒ `tests/core/RoonArgs_test.cpp` a un **14ᵉ
+  cas d'exécution**, la tripwire du respawn passe **second filet**, et la mutation
+  `startProcess(exe, "roon", std::string())` — qui **survivait** à `T3.28` — **rougit**.
+
+- ⭐ **Le verdict manquant, et le tableau à trois entrées qu'il faut appliquer aux suivantes.**
+  La section `F-LINK-1` ci-dessus distingue **non lié** de **lié mais non exercé**. La série a
+  besoin d'une **troisième** case, parce que les tripwires de `T3.28` sont nées de sa confusion
+  avec la deuxième :
+
+  | Verdict | Comment le prouver | Ce qu'il autorise |
+  |---|---|---|
+  | **non lié** | corps des `*_LDADD` aplatis **et** `nm` sur le binaire | ajouter le `.o`, puis reposer la question |
+  | **lié mais non ATTEIGNABLE** | nommer **le mécanisme exact** : méthode privée sans dispatcheur public (le cas `MqttCtrl` de **M-3**), garde `!is_connected()` (le cas `WagoCtrl`)… | une tripwire, **et l'écrire comme telle** |
+  | ⭐ **atteignable, personne n'a regardé** | **l'appeler** | de **vrais** tests |
+
+  ⚠️ **`RoonCtrl` était le troisième cas et sa fiche annonçait le deuxième.** Un singleton n'est
+  pas une preuve d'inatteignabilité : `Instance()` est publique, et un `spawn` s'observe.
+
+- ⭐ **Le critère qui dit quelle tripwire SURVIT à cette découverte, et il est vérifiable par
+  mutation.** Des deux tripwires de `T3.28`, une seule tombe :
+  - `…TheRespawnLaunchesThroughTheSameCallSite` était justifiée **par le lien/l'exécution** ⇒ elle
+    tombe de son rôle de premier filet dès que le code est exercé ;
+  - `…ThePortMemberIsInitialisedToTheDefaultPort` est justifiée par une **équivalence
+    observationnelle** (`RoonPlayer.cpp:218` écrit `port` **inconditionnellement** avant tout
+    usage) ⇒ elle **survit**, et le brief de `T3.28b` avait raison de le pressentir.
+    **Vérifié, pas lu** : la mutation `int port = RoonArgs::DefaultPort;` ⇄ `int port = 0;` laisse
+    **tous** les cas comportementaux verts — y compris les quatre qui construisent un vrai
+    `RoonPlayer` — et ne rougit **qu'elle**.
+
+  ⇒ **RÈGLE : une tripwire justifiée par une équivalence observationnelle est légitime ; une
+  tripwire justifiée par « on ne peut pas lier / on ne peut pas atteindre » doit être rejouée avant
+  d'être crue.** C'est le pendant exact de la règle **M-2** (« 0 rouge ≠ mutant équivalent »).
+
+⛔ **Ce que `T3.28b` n'a PAS mesuré** : les entrées 1, 4 et 5 du tableau de `T3.27` ci-dessus, et
+les autres déclarations d'inatteignabilité encore debout — `FINDINGS.md` `ReolinkCtrl::doRegisterCamera`
+(« méthode privée d'un singleton qui lance un processus »), la permutation du `brace-init` de
+`ReolinkEventRegistry`, le wire KNX (« constructeur privé derrière un singleton qui lance deux
+sous-processus ») et `WagoMap` (« bind un socket UDP »). **Aucune n'est rejouée.** Elles sont
+listées ici pour que la prochaine campagne commence par la mesure et non par la citation.
+
 ---
 
 ### F-RGB-1 ⛔ Troisième site de la classe « longueur écrite deux fois » — `IO/OutputLightRGB.cpp:107-109`

@@ -2513,6 +2513,9 @@ endif
 #automake does NOT relink this binary when RoonPlayer.o changes: any mutation
 #campaign on this file must rm -f BOTH the .o and the test binary and then check
 #the CXXLD line really came back.
+#⭐ T3.28b: and this suite now EXERCISES RoonCtrl too - it points
+#CALAOS_BIN_PREFIX at a temporary directory and watches the real spawn, first
+#launch and respawn. "RoonCtrl is unreachable from make check" was false.
 #-I.../Audio is already in AM_CPPFLAGS.
 #Own HAVE_GTEST block so this stays a pure append at the end of the file.
 if HAVE_GTEST
