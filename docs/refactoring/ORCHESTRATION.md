@@ -324,20 +324,26 @@
     c'est le code qui la consomme qui a été lu. Le seul programme exécuté est un `g++` autonome de
     12 lignes sur `from_string`/`is_of_type`.
 
-- **👀 E4.1m LIVRÉE, branche `refactor/e4.1m`, `bdc13081` + 6 commits — NON MERGÉE, RIEN POUSSÉ**
+- **👀 E4.1m LIVRÉE, branche `refactor/e4.1m`, `7667838f` + 7 commits — NON MERGÉE, RIEN POUSSÉ**
   (2026-08-25, puis ⭐ **passe de correction des trois réserves de revue le 2026-08-26**).
   ⭐⭐ **E4.1n est débloquée.**
 
-  - ⭐ **2ᵉ REBASE, sur `master` `bdc13081`** (T3.40 mergée entre-temps) : **2 conflits**, aucun
-    dans `src/`, et **aucun des 6 fichiers `src/` du périmètre n'est touché par `master`**.
-    `tests/Makefile.am` **reconstruit** — les deux côtés prouvés **appends purs** en `python3`
-    (`startswith(base)` vrai des deux, +3316 / +3597 octets, 53 / 51 lignes de queue), résultat =
-    base + queue de `master` + ma queue, avec le contrôle qui ferme : *le fichier de `master` est
-    un **préfixe strict** du résultat* (+3597 octets exactement). **85 `if` / 85 `endif`**
-    (master : 84/84), **profondeur finale 0, minimum 0**, **0 marqueur de conflit en début de
-    ligne**. `FINDINGS.md` : **les deux côtés gardés**, zéro contexte partagé dupliqué. ⚠️ **La
-    section `T3.40` de `master` cite des marqueurs de conflit EN PROSE** — la recherche doit être
-    **ancrée en début de ligne**, sinon faux positif.
+  - ⭐ **DEUX REBASES DE PLUS — `master` a bougé DEUX FOIS pendant la passe** :
+    `74d0c520` → **`bdc13081`** (T3.40) → **`7667838f`** (T3.50). **Base livrée : `7667838f`**, et
+    ⚠️ **tous les chiffres ont été REMESURÉS sur elle** — recopier ceux de la base intermédiaire
+    aurait publié un faux sans qu'aucun test ne rougisse (la leçon de T3.31, rejouée).
+    **Mêmes 2 conflits aux deux passes**, aucun dans `src/`, et **aucun des 6 fichiers `src/` du
+    périmètre n'est touché par `master`** (T3.40 : `Timer.h`/`IOBase.h`/`ExternProc.*`/… ;
+    T3.50 : l'arbre `IO/Wago/`). `tests/Makefile.am` **reconstruit** — les deux côtés prouvés
+    **appends purs** en `python3` (`startswith(base)` vrai des deux ; sur `7667838f` :
+    +2892 o / 43 lignes côté `master`, +3597 o / 51 lignes côté branche), résultat = base + queue
+    de `master` + ma queue, avec le contrôle qui ferme : *le fichier de `master` est un **préfixe
+    strict** du résultat* (**+3597 octets exactement**). **86 `if` / 86 `endif`** (master : 85/85),
+    **profondeur finale 0, minimum 0**, **0 marqueur de conflit en début de ligne**.
+    `FINDINGS.md` : **les deux côtés gardés**, zéro contexte partagé dupliqué (la branche est un
+    **append pur**, `cp(base, theirs) == len(base)` vérifié). ⚠️ **La section `T3.40` de `master`
+    cite des marqueurs de conflit EN PROSE** — la recherche doit être **ancrée en début de
+    ligne**, sinon faux positif.
 
   - ⛔⭐ **R1 — le masquage des mots de passe ne tenait à RIEN, et c'est fermé.** La mutation `X2`
     du relecteur (retirer `Utils::str_to_lower()` du test de clé de `dumpJsonRedacted()`) laissait
@@ -345,8 +351,10 @@
     d'être masqués **en silence**. **Préexistant**, mais sur exactement la fonction que l'incident
     `M3` avait mutée. Fermé par `JsonApiRedact.HidesCredentialFieldsWhateverTheKeyCase`
     (`"CN_Pass"` **et** `"Authorization"`, **assertions appariées** : le secret **absent** *et* la
-    paire **encore là, masquée**). ⭐ **`X2` rejouée : elle rougit**, et **chirurgicalement** — le
-    seul cas neuf tombe, les 5 autres cas de `JsonApiRedact` restent verts.
+    paire **encore là, masquée**). ⭐ **`X2` rejouée sur la base finale : elle rougit**, et
+    **chirurgicalement** — `# TOTAL: 101 / PASS: 99 / FAIL: 1`, rouge =
+    **`core/JsonApiHardening_test` seul** ; le seul cas neuf tombe, sur ses 4 assertions
+    appariées, et les 5 autres cas de `JsonApiRedact` restent verts.
 
   - ⛔⭐ **R2 — une mine posée SIX TICKETS à l'avance, désamorcée.** Mon acceptation n° 6 promettait
     qu'`E4.1o` casserait `ScriptExec.cpp:131` **à la compilation**. **FAUX, mesuré** :
@@ -366,14 +374,19 @@
     UTF-8 invalide, cette dernière **non atteignable par les deux appelants de production**).
     L'exception `ensure_ascii = false` est **saine et gardée**.
 
-  - **Validation finale, chiffres recomptés** (`make distclean` + `autogen` + `configure` +
-    `make -j16` + `make check -j8`, **un seul build**, attendu par `docker wait`) : **rc 0**,
-    `# TOTAL: 100` **= 94 binaires gtest + 6 tests de script** (master **99**), `PASS: 99`,
-    `SKIP: 1`, `FAIL: 0`, **95 lignes `CXXLD`** à la regex **ancrée**, **1649 cas gtest** comptés
-    **deux fois et concordants**, **91,0 s** de temps mural cumulé, **145 goldens intacts**
-    (`d4ebc61f`, vérifié **après**). ⚠️ ⭐ **`F-FLAKY-1` VU une fois et NON RELANCÉ** — la fiche
-    disait « pas vu du tout », **corrigé** : `core/ShutterImpulse_test:297`, marge **56 ms**, la
-    plus serrée des 6 sites ; identifié par **fichier ET forme**, sans relance dédiée.
+  - **Validation finale, chiffres recomptés sur la base `7667838f`** (`make distclean` +
+    `autogen` + `configure` + `make -j16` + `make check -j8`, **un seul build à la fois**, attendu
+    par `docker wait`) : **rc 0**, `# TOTAL: 101` **= 95 binaires gtest + 6 tests de script**
+    (master **100**), `PASS: 100`, `SKIP: 1`, `FAIL: 0`, `ERROR: 0`, **UN seul
+    `Testsuite summary`**, `CXXLD` à la regex **ancrée** : **107** au distclean, **96** aux deux
+    exécutions de campagne, **1658 cas gtest** comptés **deux fois et concordants**
+    (1657 `[ OK ]` + 1 `SKIPPED` à l'exécution, **aucun binaire à 0 cas**), **88,7 s** de temps
+    mural cumulé (87,7 s à la clôture), **145 goldens intacts** (`d4ebc61f`, vérifié **après**).
+    ⚠️ ⭐ **`F-FLAKY-1` VU une fois et NON RELANCÉ** — la fiche disait « pas vu du tout »,
+    **corrigé** : au distclean de la base intermédiaire `bdc13081`,
+    `core/ShutterImpulse_test:297`, sonde 91 ms contre échéance 147 ms ⇒ marge **56 ms**, la plus
+    serrée des 6 sites ; identifié par **fichier ET forme**, **sans relance dédiée** ; les
+    5 exécutions suivantes ne l'ont pas revu, et l'exécution rouge reste rapportée.
 
   - ⚠️ **Le rebase, et les trois conflits — aucun dans `src/`.** `tests/Makefile.am` résolu par
     **RECONSTRUCTION** et non par « garder les deux côtés » : version de `master` prise **telle
