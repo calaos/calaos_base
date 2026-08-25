@@ -50,7 +50,10 @@ def main():
 
     makefiles = []
     for root, dirs, files in os.walk(top):
-        dirs[:] = [d for d in dirs if d not in ('.git', '.deps', '.libs')]
+        # Skip VCS and build scratch. _build/_inst are distcheck's own
+        # subdirectories, which live inside the unpacked srcdir we walk.
+        dirs[:] = [d for d in dirs if d not in (
+            '.git', '.deps', '.libs', '_build', '_inst', 'autom4te.cache')]
         if 'Makefile.am' in files:
             makefiles.append(os.path.join(root, 'Makefile.am'))
     makefiles.sort()
