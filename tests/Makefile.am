@@ -2496,13 +2496,15 @@ endif
 #IODoc::paramAdd, IODoc.h:46), the processExited handler relaunches
 #calaos_roon without --host/--port, and RoonPlayer::port has no in-class
 #initialiser.
-#⚠️ RoonCtrl is UNREACHABLE from make check - its constructor binds a unix
-#socket through ExternProcServer and spawns calaos_roon (measured in E4.1h,
-#FINDINGS.md:109-113, and the review closed the question). The respawn and the
-#member initialiser are therefore pinned by SOURCE TRIPWIRES over
-#CALAOS_TOP_SRCDIR, the same mechanism JanssonResidues_test uses; what IS
-#behavioural is the ioDoc, read off a real RoonPlayer, and the RoonArgs
-#free functions the fix extracts into Audio/RoonArgs.h.
+#⛔ THE NEXT SENTENCE IS FALSE AND IS KEPT ONLY TO BE CORRECTED - see the T3.28b
+#paragraph at the end of this block. It read: "RoonCtrl is UNREACHABLE from make
+#check - its constructor binds a unix socket through ExternProcServer and spawns
+#calaos_roon (measured in E4.1h, FINDINGS.md:109-113, and the review closed the
+#question)". Every clause about the constructor is true; the conclusion is not.
+#The respawn and the member initialiser were therefore pinned by SOURCE
+#TRIPWIRES over CALAOS_TOP_SRCDIR, the same mechanism JanssonResidues_test uses;
+#what was already behavioural is the ioDoc, read off a real RoonPlayer, and the
+#RoonArgs free functions the fix extracts into Audio/RoonArgs.h.
 #It links Audio/RoonPlayer.$(OBJEXT) on top of the core objects. ⛔ T3.27: this
 #comment used to say "the only suite of the tree that does", which is FALSE -
 #17 targets link that object on fb9d064c, 16 of them core/JsonApi* suites that
@@ -2516,6 +2518,11 @@ endif
 #⭐ T3.28b: and this suite now EXERCISES RoonCtrl too - it points
 #CALAOS_BIN_PREFIX at a temporary directory and watches the real spawn, first
 #launch and respawn. "RoonCtrl is unreachable from make check" was false.
+#⚠️ It spends the ONE launch this process can observe on a direct
+#RoonCtrl::Instance() call, which leaves Audio/RoonPlayer.cpp:227 uncovered -
+#that is what core/RoonSpawnViaPlayer_test is for, in its own process. The
+#shared harness is core/RoonSpawnHarness.h; it also gives back the /tmp sandbox,
+#the unix socket and the last child, none of which _exit() would.
 #-I.../Audio is already in AM_CPPFLAGS.
 #Own HAVE_GTEST block so this stays a pure append at the end of the file.
 if HAVE_GTEST

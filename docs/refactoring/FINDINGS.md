@@ -4376,6 +4376,84 @@ les autres déclarations d'inatteignabilité encore debout — `FINDINGS.md` `Re
 sous-processus ») et `WagoMap` (« bind un socket UDP »). **Aucune n'est rejouée.** Elles sont
 listées ici pour que la prochaine campagne commence par la mesure et non par la citation.
 
+### T3.28b — **revue** : la règle `F-LINK-1` était juste et **incomplète**, et une 7ᵉ affirmation tombe (2026-08-25)
+
+⚠️ **Append à la section `F-LINK-1` ci-dessus. En conflit, GARDER LES DEUX CÔTÉS** — cette section
+est éditée par plusieurs agents, on appende, on ne réécrit jamais en silence.
+
+- ⭐⭐ **[F-LINK-1] LA RÈGLE RÉÉCRITE — elle avait DEUX trous, et les deux sont du même genre : elle
+  décrivait un verdict sans dire COMMENT il se prouve.**
+
+  La rédaction précédente (juste au-dessus) disait :
+
+  > ⇒ **RÈGLE : une tripwire justifiée par une équivalence observationnelle est légitime ; une
+  > tripwire justifiée par « on ne peut pas lier / on ne peut pas atteindre » doit être rejouée
+  > avant d'être crue.**
+
+  ⛔ **Elle reste vraie, elle n'est pas suffisante.** La revue de `T3.28b` a relevé que *« son
+  premier membre ne tient que parce que l'auteur a fait ce qu'elle ne dit pas — vérifier
+  l'équivalence PAR MUTATION, pas par lecture »*. Et il lui manquait le symétrique. Rédaction
+  complète, à citer telle quelle :
+
+  > ⭐ **RÈGLE `F-LINK-1` (v2), trois membres :**
+  >
+  > 1. **Une tripwire justifiée par une ÉQUIVALENCE OBSERVATIONNELLE est légitime — à condition que
+  >    l'équivalence soit prouvée PAR MUTATION, jamais par lecture.** Une équivalence lue est une
+  >    hypothèse ; une équivalence mutée est une mesure. La forme du geste : muter la propriété
+  >    prétendument invisible, et exiger que **l'ensemble** des cas rouges soit **exactement** la
+  >    tripwire — si un cas comportemental rougit aussi, l'équivalence est fausse ; s'il n'en
+  >    rougit aucun, y compris la tripwire, c'est la tripwire qui ne garde rien.
+  > 2. **Une tripwire justifiée par « on ne peut pas lier / on ne peut pas atteindre » doit être
+  >    rejouée avant d'être crue.** Sept de ces déclarations sont tombées à la mesure dans ce dépôt.
+  > 3. ⭐ **Le verdict « atteignable, personne n'a regardé » doit être rejoué LUI AUSSI** — c'est le
+  >    seul des trois qui autorise à **déplacer** une tripwire de son rôle de premier filet, donc
+  >    c'est celui qui coûte le plus cher s'il est faux. Le rejouer veut dire : le cas d'exécution
+  >    qui remplace la tripwire doit rougir sous **la mutation que la tripwire attrapait**, mesurée,
+  >    sur le code livré. Un cas d'exécution vert ne prouve rien de ce qu'il remplace.
+
+  ⭐ **Le membre 3 n'est pas théorique : c'est exactement ce qui a mordu `T3.28b` à sa première
+  livraison.** Elle avait prouvé « atteignable » et écrit de vrais tests — mais son cas d'exécution
+  atteignait le singleton **en appelant `RoonCtrl::Instance()` lui-même**, ce qui laisse
+  `RoonPlayer.cpp:227` — le site qui **reporte la configuration de l'utilisateur** — hors du chemin.
+  La mutation `Instance(host, port)` ⇄ `Instance(host, RoonArgs::DefaultPort)` **survivait à 14/14,
+  sortie 0** : le défaut de terrain de `T3.28` **déplacé d'un site**, invisible.
+  **Le remède tient en une phrase et vaut pour tout singleton** : *un binaire de test EST un
+  processus*. `tests/core/RoonSpawnViaPlayer_test` donne au singleton un processus neuf et couvre
+  l'autre forme ; la mutation rougit, et **elle seule**.
+
+- ⭐ **[F-LINK-1, 7ᵉ affirmation tombée] Le wire KNX — « constructeur privé derrière un singleton
+  qui lance DEUX sous-processus » — est atteignable, et il est DÉJÀ exercé à chaque `make check`.**
+
+  Elle figurait dans la liste « pas rejouée » du paragraphe ci-dessus. Elle est tombée pendant la
+  revue de `T3.28b`, **par le mécanisme que `T3.28b` venait de publier** : `CALAOS_BIN_PREFIX` n'est
+  pas mis en cache (`src/lib/Prefix.cpp:31-37`), et `KNXCtrl` construit son `exe` à partir de lui
+  (`IO/KNX/KNXCtrl.cpp:98`). **Mesuré deux fois indépendamment** (le relecteur, puis la livraison
+  corrigée), en posant un `calaos_knx` enregistreur dans un `mktemp -d` et en lançant
+  `tests/core/KnxIo_test` **sans le modifier** :
+
+  ```
+  --socket <sock> --namespace knx --server ip:127.0.0.1
+  --socket <sock> --namespace knx --internal-monitor-bus --server ip:127.0.0.1
+  ```
+
+  **Les DEUX sidecars démarrent et journalisent leur `argv`**, `KnxIo_test` sort en 0. ⇒ la ligne de
+  commande KNX, y compris celle du moniteur de bus, est **observable depuis `make check` dès
+  aujourd'hui**, sans une ligne de `src/`. ⚠️ **Personne n'a écrit ce test** : c'est une mesure, pas
+  un filet. Ticket évident pour qui passera par là.
+
+- ⛔ **Ce qui reste NON REJOUÉ après cette correction — la liste à jour.** Le paragraphe
+  « Ce que `T3.28b` n'a PAS mesuré » ci-dessus en listait **quatre** ; le wire KNX en sort. Il
+  reste **trois** :
+
+  | # | Déclaration | Où | État |
+  |---|---|---|---|
+  | 1 | `ReolinkCtrl::doRegisterCamera` — « méthode privée d'un singleton qui lance un processus » | `FINDINGS.md` | ⚠️ **non rejouée** — mais le singleton lance un **processus**, donc le mécanisme `CALAOS_BIN_PREFIX` s'applique *a priori* |
+  | 2 | la permutation du `brace-init` de `ReolinkEventRegistry` | `FINDINGS.md` | ⚠️ **non rejouée** |
+  | 3 | `WagoMap` — « bind un socket UDP » | `FINDINGS.md` | ⚠️ **non rejouée** — ⭐ un bind de socket n'a jamais été un mur dans **aucun** des sept cas mesurés |
+
+  Les entrées **1, 4 et 5** du tableau de `T3.27` restent également non rejouées.
+  ⚠️ **Elles sont listées, pas instruites.** Aucune ne doit être citée comme acquise.
+
 ---
 
 ### F-RGB-1 ⛔ Troisième site de la classe « longueur écrite deux fois » — `IO/OutputLightRGB.cpp:107-109`
