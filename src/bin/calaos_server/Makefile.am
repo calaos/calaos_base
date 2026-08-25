@@ -353,6 +353,7 @@ calaos_server_SOURCES = \
         HistLogger.h                                    \
         NotifManager.h                                  \
         NotifManager.cpp                                \
+        version.h                                       \
         main.cpp
 
 calaos_server_LDADD =                                   \
@@ -404,6 +405,7 @@ bin_PROGRAMS += calaos_1wire
 calaos_1wire_SOURCES = \
         IO/ExternProc.cpp               \
         IO/ExternProc.h                 \
+        IO/OneWire/OWFSUtils.h          \
         IO/OneWire/OWExternProc_main.cpp
 
 calaos_1wire_LDADD = \
@@ -462,6 +464,13 @@ externalprocess_PYTHON =
 BUILT_SOURCES =
 CLEANFILES =
 EXTRA_DIST =
+
+# T3.48: reference material that lives next to the code it documents. Not
+# compiled, so no primary carries it, and it never reached the tarball.
+EXTRA_DIST += \
+        Audio/hifi_rose_API.md          \
+        IO/io_types.txt                 \
+        RemoteUI/remote-ui.md
 
 if HAVE_PYTHON_ROON
 bin_SCRIPTS += Audio/calaos_roon

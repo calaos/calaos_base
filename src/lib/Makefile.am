@@ -118,6 +118,12 @@ EXTRA_DIST = \
         cpptui/LICENSE                          \
         cpptui/README.calaos
 
+# T3.48: sigc_fix_functor.h is compiled by nothing -- no source includes it --
+# but po/POTFILES.in:355 names it, and xgettext dies on a POTFILES entry that
+# is not in the tarball. Shipped rather than deleted: removing a header is a
+# source change, not a packaging one, and POTFILES.in would have to follow.
+EXTRA_DIST += sigc_fix_functor.h
+
 MAINTAINERCLEANFILES = Makefile.in
 
 # E4.4a
@@ -140,3 +146,53 @@ libcalaos_common_la_SOURCES += \
 endif
 
 EXTRA_DIST += pugixml/LICENSE.md
+
+# T3.48 -- vendored third-party trees ship WHOLE, not file by file.
+#
+# Each directory below is an upstream import. Naming their files one by one is
+# what left the release tarball unbuildable for 18 months: this Makefile.am
+# shipped uvw/src/uvw.hpp and none of the 27 headers that umbrella includes,
+# exprtk.hpp appeared in no variable at all, and 81 of uvw's 82 files, 36 of
+# 36 in sqlite_modern_cpp and 31 of 31 in exprtk stayed behind -- along with
+# the licences of llhttp, libquickmail, exprtk, sole and uvw, which makes the
+# archive a redistribution problem as much as a broken build. A hand-written
+# list also rots in silence at the next upstream import, so the directory, not
+# the file, is the unit of distribution here: a `git subtree pull` that adds
+# files needs no edit. tests/check-dist-coverage.sh fails if this list stops
+# covering src/lib.
+#
+# Why not the shorter `EXTRA_DIST += uvw exprtk ...`: automake does copy a
+# directory named in EXTRA_DIST recursively, but verbatim. An in-tree build
+# leaves .deps/, .libs/ and *.lo inside llhttp/, libquickmail/, uri_parser/
+# and pugixml/, so the tarball would depend on whether the source tree had
+# been built -- the very kind of difference that hid this bug's size. The hook
+# prunes them, and `make dist` yields the same archive from a fresh clone and
+# from a fully built tree.
+VENDORED_DIST_TREES = \
+        cpptui                                  \
+        exprtk                                  \
+        libquickmail                            \
+        llhttp                                  \
+        pugixml                                 \
+        sole                                    \
+        sqlite_modern_cpp                       \
+        uri_parser                              \
+        uvw
+
+dist-hook:
+	@abs_srcdir=`cd $(srcdir) && pwd`; \
+	abs_distdir=`cd $(distdir) && pwd`; \
+	for tree in $(VENDORED_DIST_TREES); do \
+	  test -d "$$abs_srcdir/$$tree" || \
+	    { echo "dist-hook: no such vendored tree: $$tree" >&2; exit 1; }; \
+	  (cd "$$abs_srcdir" && find "$$tree" \
+	      \( -name .git -o -name .deps -o -name .libs \
+	         -o -name __pycache__ \) -prune -o \
+	      -type f ! -name '*.o' ! -name '*.lo' ! -name '*.la' \
+	              ! -name '*.so' ! -name '*.gcno' ! -name '*.gcda' \
+	              ! -name '.dirstamp' ! -name '*~' -print) \
+	  | while read -r f; do \
+	      $(MKDIR_P) "$$abs_distdir/$${f%/*}" || exit 1; \
+	      cp -p "$$abs_srcdir/$$f" "$$abs_distdir/$$f" || exit 1; \
+	    done || exit 1; \
+	done

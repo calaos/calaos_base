@@ -90,4 +90,18 @@ COPYING \
 README.md \
 autogen.sh \
 scripts/pyproject-requirements.py \
-m4/efl_compiler.m4
+m4/efl_compiler.m4 \
+version \
+docs/16_config_options.md
+
+# T3.48: docs/ is not distributed, by choice -- but this one file is not
+# documentation, it is a committed generator output that tests/check-config-
+# docs.sh diffs against `calaos_config options --markdown`. Without it that
+# test fails hard ("FAIL: ... is missing") in every unpacked tarball, which is
+# the wall standing immediately behind the compile failure this ticket fixes.
+#
+# T3.48: `version` holds the string m4/calaos.m4 turns into PACKAGE_VERSION,
+# through m4_esyscmd(cat version) at autoreconf time. configure is shipped
+# pre-generated so a tarball consumer never needs it to build -- but autogen.sh
+# is shipped too, and re-running it without `version` silently renumbers the
+# package to 0.

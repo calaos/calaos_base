@@ -67,6 +67,13 @@ TESTS += check-dist-coverage.sh
 dist_check_SCRIPTS += check-dist-coverage.sh
 EXTRA_DIST += check-dist-coverage.py
 
+# T3.48: the Autobahn websocket fuzzing harness. Driven by hand, not by
+# `make check`, but it is part of the test suite a tarball consumer gets.
+EXTRA_DIST += \
+              websockets/fuzzingclient.json      \
+              websockets/run_testsuite_client.sh \
+              websockets/run_testsuite_server.sh
+
 if HAVE_GTEST
 AM_CPPFLAGS = \
               -I$(top_srcdir)/src \
