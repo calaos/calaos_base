@@ -258,8 +258,42 @@ string WebCtrl::getValueJson(string path, string filename)
                      * Everything that touches the index sits inside this try,
                      * so it can only ever fail through the one error path this
                      * branch already has.
+                     *
+                     * T3.35c. THE TEST IS "DOES IT CARRY A DIGIT", NOT "DOES
+                     * from_string() COMPLAIN". from_string() returns
+                     * iss.eof(), and a stream that consumed only whitespace -
+                     * or only a sign - DID reach its end, so it reports
+                     * SUCCESS on "[ ]", "[\t]", "[+]" and "[-]". On the two
+                     * blank ones it does not write the destination either,
+                     * which is how the index was still being read UNASSIGNED
+                     * after T3.35b: `val.empty()` catches "[]" and nothing
+                     * else. find_first_of() closes the whole family in one
+                     * test, and it subsumes val.empty() - an empty string has
+                     * no digit - so no sub-condition here is dead.
+                     *
+                     * WHY NOT "every character must be a digit"
+                     * (find_first_not_of): it would test the WRONG thing
+                     * three ways. An empty string has no NON-digit either, so
+                     * "[]" would walk back through unguarded; "[+2]" would
+                     * stop resolving; and "[-1]" would be answered "is not a
+                     * number", which is false about -1. The sign is NOT
+                     * rejected here, deliberately: a signed or padded token
+                     * carries a number and goes on to at(), which refuses a
+                     * negative index as out of range - a different message
+                     * for a different mistake.
+                     *
+                     * INVARIANT this establishes, and the reason the
+                     * `int idx = 0` above is now GENUINELY dead - it is kept
+                     * as a belt, it is no longer the value anything reads:
+                     * when the guard passes, val holds at least one digit, so the
+                     * stream sentry succeeds, so num_get RUNS - and C++11
+                     * num_get always stores something (the value, 0 on a
+                     * failed parse, or the clamped limit on overflow). When
+                     * the guard trips, idx = 0 is assigned. Every path into
+                     * parent.at(idx) therefore writes idx first.
                      */
-                    if (val.empty() || !Utils::from_string(val, idx))
+                    if (val.find_first_of("0123456789") == string::npos ||
+                        !Utils::from_string(val, idx))
                     {
                         idx = 0;
                         cWarning() << "Error in path " << path << ", array index " << *it
