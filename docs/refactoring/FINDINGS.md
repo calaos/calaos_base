@@ -6288,3 +6288,119 @@ fonction** qu'aucun `delete` de l'arbre n'atteint. Le motif est écrit **au sour
 demande un `UrlDownloader` réellement en transfert, et `~IPCam` supprime le téléchargeur en vol —
 trois facteurs confondants), `IO/ExternProc.cpp:191/198` et `PollListenner.cpp:60` (chemin de
 destruction établi **au code**, pas exercé). **Retirer ces gardes-là ne rougit rien.**
+
+### ⭐ [F-SIGC-1, apport] Le filet ferme la garde **mal posée** ; la garde **absente** demande un censeur de source
+
+`LifetimeTag` rend la faute « témoin capturé en `shared_ptr` **fort** » **inécrivable au site
+d'appel** — c'est MU-F qui le mesure. Il ne dit **rien** de la garde **absente** :
+`Timer::singleShot()` et `Idler::singleIdler()` restent **publics**, et un site neuf écrit demain
+avec un `this` nu compile, se relie et tourne exactement comme les vingt que le ticket a pesés.
+⛔ **Rien dans l'arbre ne le détectait**, et le filet de cas gtest ne le pouvait pas : il n'observe
+que le code qu'il exécute.
+
+Trois remèdes, deux écartés **par la mesure** :
+
+| Remède | Coût **mesuré** | Verdict |
+|---|---|---|
+| `[[deprecated]]` sur les deux points d'entrée | ⭐ **essayé, pas raisonné** : reconstruction complète avec l'attribut ⇒ **85 avertissements sur 27 sites distincts** — les **4** laissés bruts délibérément, les **8** portant déjà leur propre garde, les **6** `mem_fun` de `Squeezebox`, les **2** qui ne capturent pas `this`, les **3** singletons, `UrlDownloader:739`, `main.cpp:198`, **et les 2 de `LifetimeTag` lui-même**. **Aucun n'est un défaut** ; l'arbre ne compile en `-Werror` nulle part, donc le bruit serait simplement ignoré | écarté |
+| surcharge exigeant le jeton pour les classes dérivant d'`IOBase` | C++ ne sait pas exprimer *« ce site d'appel est dans une classe dérivant de X »*. Le contrôle redeviendrait un **nom à respecter**, c'est-à-dire exactement la discipline qui a échoué | écarté |
+| ⭐ **censeur de source** dans le filet | 1 fichier, 3 cas gtest, **~110 ms** | **retenu** |
+
+Le censeur **gèle l'ensemble des appels bruts** de `src/` (par fichier, commentaires blanchis,
+espaces écrasés — `Timer :: singleShot (` et `Timer::singleShot(` comptent pareil). Un one-shot
+fire-and-forget ajouté n'importe où **rougit** ; la correction est soit `LifetimeTag`, soit **une
+ligne d'allocation avec sa raison**.
+
+⚠️ **Ce qu'il ne dit pas** : il **ignore** si un site capture `this`, et l'ignorera toujours. Il dit
+*« quelqu'un a ajouté un one-shot que ce ticket n'a jamais regardé »* — la question qui n'avait
+**aucune** réponse avant, et la seule qu'un recensement textuel puisse répondre honnêtement.
+
+⚠️ **Effet de bord MESURÉ, et il change la lecture d'une campagne.** MU-A…MU-E et MU-G convertissent
+une garde en appel brut **dans un fichier dont l'allocation est 0** ⇒ elles rougissent **aussi** le
+censeur. ⛔ Les ensembles rouges ne sont donc **plus deux à deux disjoints** : ils **partagent** le
+censeur. ⭐ Ce qu'il faut écrire, c'est que leur **différence au censeur** l'est — pas
+« disjoints ».
+⭐ Conséquence heureuse : **MU-E n'est plus muette**. Le censeur est déclaré **en premier** et ne
+touche ni la boucle ni un IO, donc il rougit **avant** que le binaire ne meure. La signature de MU-E
+passe de « **139 sans une seule ligne `FAILED`** » à « **1 ligne `FAILED` puis 139** ».
+
+### ⭐ [F-SIGC-1, apport] Un jeton porté par la BASE meurt en DERNIER — la fenêtre se ferme par un invariant, pas par un ordre de déclaration
+
+`IOBase::ioAlive` est un membre de la **base**. L'ordre du langage est : corps de `~Derived` →
+membres dérivés (ordre inverse de déclaration) → corps de `~IOBase` → membres d'`IOBase` → bases.
+⇒ **pendant tout le démontage dérivé, la garde répond « vivant »**, et un one-shot qui tirerait là
+tournerait sur un objet à moitié détruit.
+
+⛔ **Aucun ordre de déclaration ne ferme ça** : un sous-objet de base est **toujours** détruit après
+le dérivé complet. Déclarer `ioAlive` **dernier membre** d'`IOBase` — c'est fait — ne gagne que la
+moitié visible : le membre devient le **premier détruit** parmi ceux d'`IOBase`, donc la garde est
+déjà morte pendant que `~IOBase` démonte `param`, `ioDoc` et `status_info`. Gain réel, minuscule,
+**et ce n'est pas la fermeture**.
+
+⭐ **La fermeture est un INVARIANT** : *aucun destructeur de cet arbre ne pompe la boucle*. Un
+one-shot en attente ne peut pas tirer pendant un destructeur si rien, dans ce destructeur, ne rend
+la main à la boucle. Mesuré : hors `src/lib/uvw` (tiers vendoré, sa propre boucle et ses propres
+tests), **tout `src/` pompe la boucle en exactement TROIS endroits** — `calaos_server/main.cpp` (la
+boucle principale) et les **deux** liaisons `requestUrl()` de `LuaScript/ScriptBindings.cpp`, qui
+tournent dans le **sous-processus** de script. **Aucun n'est un destructeur.**
+
+⚠️ **Un invariant non exécutable se périme.** Celui-là l'est : le cas
+`IoLifetimeSourceGuardTest.NothingNewPumpsTheEventLoop` gèle l'ensemble des trois, à l'**égalité**
+(pas au « ≤ ») — un quatrième n'est pas interdit, il **oblige** quelqu'un à répondre
+*« est-il atteignable depuis un destructeur ? »* avant de mettre l'ensemble à jour. Contre-mutation
+**MU-I** (un `run()` de plus dans `ScriptBindings.cpp`) : **rouge, et rouge SEUL** — sortie 1,
+16 cas lancés, 15 OK.
+
+⭐ **La leçon générale** : *un jeton de vie ne protège jamais le démontage de son propre objet.*
+Là où l'objet garde n'est pas le dernier à mourir, la sûreté ne vient pas du jeton mais de la
+**garantie que personne ne rend la main à la boucle pendant la destruction** — et cette garantie
+doit être **écrite et mesurée**, sinon elle se referme sur le prochain qui ajoute un `run()`.
+
+### ⭐ [F-SIGC-1, apport] « Couvert » et « couvert par ÉCHANTILLON » ne se valent pas
+
+Deux familles multi-sites, deux natures de couverture **différentes**, que six mois effacent si on
+écrit « couvert » dans les deux cas :
+
+| Famille | Sites | Nature | Ce qu'un mutant posé ailleurs donne |
+|---|---|---|---|
+| `KNXIo<Base>` | **11 types** KNX | ⭐ **structurellement couverts** : les onze partagent **LA MÊME LIGNE** (`IO/KNX/KNXIo.h:78`, mixin `template`) | il n'y a **aucun autre endroit** où le poser |
+| `RoonPlayer` | **8 sites** | ⭐ **couvert par ÉCHANTILLON** : **1 site sur 8** est tenu par un mutant (`get_playlist_size`) | **il SURVIT** — mesuré sur `get_volume` |
+
+⚠️ **Et une couverture structurelle ne dit pas qu'elle est non vide.** Le cas KNX n'avait **aucun**
+compagnon `*StillRunsWhileAlive` : sa non-vacuité reposait entièrement sur MU-E, c'est-à-dire sur
+*« retirer la garde tue le binaire »*. Cela prouve que la garde **porte aujourd'hui** ; cela ne dit
+rien du jour où `read_at_start` n'armerait plus rien — ce jour-là MU-E cesserait de planter, **le
+mutant survivrait**, et le cas resterait vert pour la mauvaise raison. Compagnon ajouté, et la
+contre-mutation qui le vise (**MU-H** : le délai 1,5 s porté à 30 s, la garde **intacte**) le rougit
+**SEUL** — ni MU-E ni le cas de destruction ne la voient.
+
+### ⛔ Douzième variante de faux vert — **la restauration qui ne restaure RIEN**
+
+Rencontrée par le **relecteur de T3.40 sur sa propre campagne**. Son script restaurait l'arbre par
+`git checkout -- <fichiers>` **exécuté dans le conteneur**. Or l'arbre est un **worktree git** : son
+`.git` est un *fichier* pointant vers `…/calaos_base/.git/worktrees/<nom>`, **hors du montage**.
+Dans le conteneur, `git` ne voit donc **aucun dépôt**, `git checkout` **échoue** — et son code de
+retour n'était pas testé.
+
+⇒ **rien n'était restauré**. La mutation précédente restait sur le disque, la suivante s'appliquait
+**par-dessus**, et le résultat le plus dangereux est le **vert** : un `M0` joué après une mutation
+restée en place est un témoin **qui n'est plus le témoin**.
+
+⭐ **Ce qui l'a rendu visible** : le script **imprimait le nombre de fichiers restaurés**, et il y a
+lu **zéro**. **Aucun** autre signal ne le disait — ni le code de sortie du `make`, ni le journal du
+test, ni même le `cmp` d'application, qui comparait la mutation à… l'état déjà muté.
+
+**La règle qui en sort** :
+1. la restauration ne s'appuie **jamais** sur `git` à l'intérieur d'un conteneur — copie
+   **pristine** montée à part, `shutil.copyfile` (dates **non** préservées : F-TEST-2 exige que
+   `make` recompile) ;
+2. elle **compte** ce qu'elle a remis, et l'on **refuse de conclure si le compte est nul** ;
+3. elle **revérifie octet à octet** après coup, et la vérification d'application (`cmp`) compare à
+   la **pristine**, jamais à l'état courant ;
+4. ⭐ elle rapporte aussi **quels** fichiers avaient changé : après une mutation, cet ensemble doit
+   valoir **exactement `{le fichier muté}`** — c'est la même mesure qui prouve que la mutation a été
+   appliquée **et** qu'elle n'a pas débordé **et** qu'elle a été rendue.
+
+⚠️ **Généralisation, et c'est là que ça mord** : *tout* outil qui « ne fait rien » silencieusement
+dans le conteneur produit cette variante. `git` en est un cas particulier — mais dans un
+**worktree**, il l'est **structurellement**, pas par accident.

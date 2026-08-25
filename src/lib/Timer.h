@@ -121,12 +121,19 @@ public:
  * It makes a BADLY PLACED guard unwritable. It does nothing about a guard that
  * is simply ABSENT: Timer::singleShot() and Idler::singleIdler() above are
  * still public, and a new call site written with a raw `this` compiles and
- * runs exactly like the twenty T3.40 weighed. Marking them [[deprecated]] was
- * measured and rejected - 25 warnings on call sites that are all deliberate,
- * including the two inside this very class, for zero defects. The absent guard
- * is caught one level up instead, by a census of the raw call sites of src/:
- * tests/core/IoLifetimeTimer_test.cpp, IoLifetimeSourceGuardTest. A new
- * fire-and-forget one-shot fails that case until somebody weighs it.
+ * runs exactly like the twenty T3.40 weighed.
+ *
+ * Marking them [[deprecated]] was MEASURED, not argued: a full rebuild of the
+ * tree with the attribute on both entry points emits 85 warnings over 27
+ * distinct call sites - the 4 T3.40 deliberately left raw, the 8 already
+ * carrying a guard of their own, the 6 sigc::mem_fun of Squeezebox, the 2
+ * that do not capture `this`, and the 2 inside this very class. Every one of
+ * them is deliberate; not one is a defect. Rejected.
+ *
+ * The absent guard is caught one level up instead, by a census of the raw call
+ * sites of src/: tests/core/IoLifetimeTimer_test.cpp,
+ * IoLifetimeSourceGuardTest. A new fire-and-forget one-shot fails that case
+ * until somebody weighs it.
  */
 class LifetimeTag
 {
