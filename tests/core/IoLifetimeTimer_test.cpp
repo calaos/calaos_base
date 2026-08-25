@@ -1,0 +1,575 @@
+/******************************************************************************
+ **  Copyright (c) 2006-2026, Calaos. All Rights Reserved.
+ **
+ **  This file is part of Calaos.
+ **
+ **  Calaos is free software; you can redistribute it and/or modify
+ **  it under the terms of the GNU General Public License as published by
+ **  the Free Software Foundation; either version 3 of the License, or
+ **  (at your option) any later version.
+ **
+ **  Calaos is distributed in the hope that it will be useful,
+ **  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ **  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ **  GNU General Public License for more details.
+ **
+ **  You should have received a copy of the GNU General Public License
+ **  along with Calaos; if not, write to the Free Software
+ **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ **
+ ******************************************************************************/
+
+/******************************************************************************
+ * T3.40 - a fire-and-forget one-shot must not outlive the IO that armed it.
+ *
+ * Timer::singleShot()/Idler::singleIdler() (src/lib/Timer.cpp) copy the slot
+ * into an ANONYMOUS uvw handle. Nothing holds that handle afterwards: no
+ * destructor and no member can cancel it. A slot that holds `this` therefore
+ * keeps running after the object is gone, and sigc::trackable does not help -
+ * it only ever disconnects a sigc::mem_fun, never a lambda capture
+ * (FINDINGS.md / F-SIGC-1).
+ *
+ * class IOBase does not derive from anything, and every IO in the tree can be
+ * destroyed while the loop is still running: ListeRoom::deleteIO() (reachable
+ * from the JSON API), Room::RemoveIO(), ~Room()/~ListeRoom() when the
+ * configuration is reloaded or the server stops. T3.34 measured the
+ * consequence on the two shutter IOs - SIGSEGV, exit 139, and not a single
+ * FAILED line - and guarded its own four sites. This suite covers the same
+ * defect on the IOs that were left out.
+ *
+ * ---------------------------------------------------------------------------
+ * THE ORACLE: a caller-owned buffer, poisoned after destruction
+ * ---------------------------------------------------------------------------
+ * A use-after-free does not have to crash, so "the binary survived" proves
+ * nothing and the test must not depend on the allocator either. Each probe is
+ * therefore built with placement new INTO A BUFFER THE TEST OWNS, destroyed
+ * with an explicit destructor call, and the buffer is then filled with a
+ * poison byte. Nothing else can ever write there: the storage is a member of
+ * the test object, no allocator can hand it out again, and the loop is only
+ * pumped afterwards.
+ *
+ *   - if the orphan callback writes through its dangling `this`, the poison
+ *     is broken at that offset and the case fails;
+ *   - if it dereferences the poison, the binary dies (exit 139) and there is
+ *     NO FAILED line - which is why this suite is judged on the exit code
+ *     first and the log second.
+ *
+ * 0xA5 is deliberately not a value any of the callbacks writes: they all
+ * write 0/false, so "never written" and "written the broken value" cannot be
+ * confused (the 7th false-green variant of the tree's method notes: when 0 is
+ * a value of the domain, the sentinel must be outside it).
+ *
+ * PoisonDetectorSeesAWriteIntoTheFreedStorage is the self-test of that oracle:
+ * a detector that cannot see a write would make every case in this file
+ * vacuously green.
+ *
+ * ---------------------------------------------------------------------------
+ * THE WINDOW IS REAL, AND IT IS A SHORT POSITIVE DELAY
+ * ---------------------------------------------------------------------------
+ * Measured in this image by T3.34 (libuv 1.44.2): singleShot(0) fires on the
+ * NEXT loop turn, when the object is still alive, and singleShot(-0.001)
+ * passes an overflowing deadline that libuv clamps to "never", so the one-shot
+ * never fires at all. Neither opens a window. Only a SHORT POSITIVE delay
+ * does, and that is what the IOs covered here use: 250 ms
+ * (Scenario/InputSwitchLongPress/InputSwitchTriple) and 1.5 s (KNXIo).
+ * *TheResetStillRunsWhileTheIoIsAlive pins both ends of that window: the value
+ * is untouched well inside the delay and reset well after it.
+ *
+ * The one 0-delay site covered here (RoonPlayer::get_playlist_size) is not a
+ * counter-example: its window is not a delay, it is the fact that nothing
+ * pumps the loop between arming the one-shot and destroying the IO - which is
+ * exactly what a synchronous deleteIO() coming from the JSON API does.
+ *
+ * ---------------------------------------------------------------------------
+ * SUITE ORDER MATTERS
+ * ---------------------------------------------------------------------------
+ * The Roon and KNX suites are declared LAST, in that order, because before the
+ * guard they do not fail, they KILL the binary, and gtest would never reach
+ * anything declared after them.
+ *
+ * Own main() with _exit(), same reason as core/KnxIo_test: KNXCtrl/RoonCtrl
+ * live in function-local statics whose destruction tears down an
+ * ExternProcServer whose own destructor sends SIGTERM to pid 0 after a failed
+ * spawn - i.e. to our whole process group, killing the automake harness.
+ ******************************************************************************/
+
+#include <gtest/gtest.h>
+
+#include <unistd.h>
+
+#include <chrono>
+#include <cstring>
+#include <functional>
+#include <new>
+#include <string>
+#include <utility>
+
+#include "CalaosCoreFixture.h"
+#include "RoonSpawnHarness.h"
+#include "libuvw.h"
+
+#include "InputSwitch.h"
+#include "InputSwitchLongPress.h"
+#include "InputSwitchTriple.h"
+#include "Scenario.h"
+#include "RoonPlayer.h"
+#include "KNX/KNXIo.h"
+
+using namespace Calaos;
+using namespace CalaosTest;
+
+namespace
+{
+
+/* ---- loop helpers (same discipline as core/Timer_test) ---------------- */
+
+/* Pump the default loop for a fixed wall clock duration. Every wait in this
+ * file is bounded, so a regression fails instead of hanging make check. */
+void pumpLoopFor(int ms)
+{
+    auto loop = uvw::Loop::getDefault();
+    auto deadline = std::chrono::steady_clock::now() +
+                    std::chrono::milliseconds(ms);
+
+    while (std::chrono::steady_clock::now() < deadline)
+        loop->run<uvw::Loop::Mode::NOWAIT>();
+}
+
+/* ---- the poisoned storage oracle -------------------------------------- */
+
+const unsigned char kPoison = 0xA5;
+
+/* Storage for one probe, owned by the test. construct() places the object in
+ * it, destroyAndPoison() runs the destructor and overwrites every byte with
+ * kPoison. breaches() counts the bytes that are no longer poison, i.e. the
+ * bytes a callback wrote through a dangling `this`. */
+template <typename T>
+class OwnedIoStorage
+{
+public:
+    template <typename... A>
+    T *construct(A &&... args)
+    {
+        obj = new (buf) T(std::forward<A>(args)...);
+        return obj;
+    }
+
+    void destroyAndPoison()
+    {
+        obj->~T();
+        obj = nullptr;
+        std::memset(buf, kPoison, sizeof(buf));
+    }
+
+    int breaches() const
+    {
+        int n = 0;
+        for (size_t i = 0; i < sizeof(buf); i++)
+            if (static_cast<unsigned char>(buf[i]) != kPoison) n++;
+        return n;
+    }
+
+    /* Only for the self-test of the detector. */
+    void scribble(size_t offset, unsigned char v) { buf[offset] = static_cast<char>(v); }
+
+    size_t size() const { return sizeof(buf); }
+
+private:
+    alignas(T) char buf[sizeof(T)];
+    T *obj = nullptr;
+};
+
+/* ---- probes ----------------------------------------------------------- */
+
+/* The two switch IOs are abstract (readValue() is pure virtual); the probes
+ * add nothing else - the code under test is the production emitChange(). */
+class LongPressProbe: public InputSwitchLongPress
+{
+public:
+    explicit LongPressProbe(Params &p): InputSwitchLongPress(p) {}
+protected:
+    bool readValue() override { return false; }
+};
+
+class TripleProbe: public InputSwitchTriple
+{
+public:
+    explicit TripleProbe(Params &p): InputSwitchTriple(p) {}
+protected:
+    bool readValue() override { return false; }
+};
+
+/* KNXIo<Base> is a template mixin with a protected constructor: it has no
+ * instance of its own, it is instantiated by the eleven KNXInput / KNXOutput
+ * classes of IO/KNX/KNXIo.cpp. This probe is the same instantiation as the
+ * production KNXInputSwitch (KNXIo.cpp:52), and it calls the very same
+ * readAtStart() - the site under test is KNXIo.h, once, for all eleven. */
+class KnxSwitchProbe: public KNXIo<InputSwitch>
+{
+public:
+    explicit KnxSwitchProbe(Params &p):
+        KNXIo<InputSwitch>(p, "KnxSwitchProbe", "T3.40 probe")
+    {
+        readAtStart(KNXValue::EIS_Switch_OnOff);
+    }
+protected:
+    bool readValue() override { return false; }
+};
+
+/* ---- parameters ------------------------------------------------------- */
+
+Params switchParams(const std::string &id)
+{
+    Params p;
+    p.Add("id", id);
+    p.Add("name", id);
+    p.Add("enabled", "true");
+    p.Add("visible", "false");
+    return p;
+}
+
+Params scenarioParams(const std::string &id)
+{
+    Params p;
+    p.Add("type", "scenario");
+    p.Add("id", id);
+    p.Add("name", id);
+    p.Add("enabled", "true");
+    p.Add("visible", "false");
+    //Scenario defaults log_history to true, which sends the activation event
+    //through HistLogger and its sqlite file. Nothing here is about history,
+    //and a core suite must leave no database behind: turn it off explicitly.
+    p.Add("log_history", "false");
+    return p;
+}
+
+Params knxParams(const std::string &id, const char *readAtStart)
+{
+    Params p;
+    p.Add("type", "KNXInputSwitch");
+    p.Add("id", id);
+    p.Add("name", id);
+    p.Add("knx_group", "0/1/2");
+    p.Add("host", "127.0.0.1");
+    p.Add("read_at_start", readAtStart);
+    p.Add("enabled", "true");
+    p.Add("visible", "false");
+    return p;
+}
+
+Params roonParams(const std::string &id)
+{
+    Params p;
+    p.Add("type", "Roon");
+    p.Add("id", id);
+    p.Add("name", id);
+    p.Add("zone_id", "160132a7337c26b01e556c2809514e65d6a0");
+    p.Add("host", "192.168.7.42");
+    p.Add("port", "9331");
+    p.Add("enabled", "true");
+    p.Add("visible", "false");
+    return p;
+}
+
+/* The reset one-shot of the three switch-like IOs. Non-zero values only: 0 is
+ * what the callback writes, so a case asking for 0 would be green both ways.
+ * kInsideWindowMs is strictly below the delay, kPastWindowMs comfortably
+ * above it. */
+const int kResetDelayMs = 250;
+const int kInsideWindowMs = 90;
+const int kPastWindowMs = 650;
+
+/* KNXIo::readAtStart() uses 1.5 s - the widest window of the whole sweep. */
+const int kKnxPastWindowMs = 1900;
+
+}
+
+/******************************************************************************
+ * The oracle itself
+ ******************************************************************************/
+
+class IoLifetimeTest: public CoreFixture
+{
+};
+
+//Without this, every poison case in this file would be vacuously green.
+TEST_F(IoLifetimeTest, PoisonDetectorSeesAWriteIntoTheFreedStorage)
+{
+    loadConfig();
+
+    Params p = switchParams("t340_detector_selftest");
+    OwnedIoStorage<LongPressProbe> store;
+    LongPressProbe *io = store.construct(p);
+    ASSERT_TRUE(io != nullptr);
+
+    store.destroyAndPoison();
+    ASSERT_EQ(store.breaches(), 0) << "the poison did not take";
+
+    //One byte, written by hand, standing in for the dangling `this` write.
+    store.scribble(0, 0x00);
+    EXPECT_EQ(store.breaches(), 1)
+        << "the detector cannot see a write into the freed storage";
+}
+
+/******************************************************************************
+ * IO/InputSwitchLongPress.cpp:87 - Timer::singleShot(0.250, [=]{ value = 0; })
+ ******************************************************************************/
+
+TEST_F(IoLifetimeTest, LongPressResetStillRunsWhileTheIoIsAlive)
+{
+    loadConfig();
+
+    Params p = switchParams("t340_longpress_alive");
+    LongPressProbe io(p);
+
+    ASSERT_TRUE(io.set_value(1.));
+    ASSERT_EQ(io.get_value_double(), 1.);
+
+    //Well inside the 250 ms: the window this defect needs really exists.
+    pumpLoopFor(kInsideWindowMs);
+    EXPECT_EQ(io.get_value_double(), 1.)
+        << "the reset fired before " << kInsideWindowMs << " ms: there is no "
+           "window left for a deletion to slip into";
+
+    pumpLoopFor(kPastWindowMs - kInsideWindowMs);
+    EXPECT_EQ(io.get_value_double(), 0.)
+        << "the reset one-shot never ran at all on a LIVE IO: the cases below "
+           "would then be green for the wrong reason";
+}
+
+TEST_F(IoLifetimeTest, LongPressResetDoesNotOutliveTheDeletedIo)
+{
+    loadConfig();
+
+    Params p = switchParams("t340_longpress_lifetime");
+    OwnedIoStorage<LongPressProbe> store;
+    LongPressProbe *io = store.construct(p);
+
+    ASSERT_TRUE(io->set_value(1.));
+    ASSERT_EQ(io->get_value_double(), 1.);
+
+    store.destroyAndPoison();
+    pumpLoopFor(kPastWindowMs);
+
+    EXPECT_EQ(store.breaches(), 0)
+        << "the reset one-shot of InputSwitchLongPress wrote into a destroyed "
+           "IO (" << store.breaches() << " of " << store.size()
+        << " bytes of the freed storage are no longer poison)";
+}
+
+/******************************************************************************
+ * IO/InputSwitchTriple.cpp:97 - singleShot(0.250, mem_fun(*this, resetInput))
+ *
+ * The one mem_fun of the five: sigc++ binds a RAW pointer here, because
+ * InputSwitchTriple is not a sigc::trackable. This is the only site of the
+ * whole sweep that deriving IOBase from sigc::trackable would have covered.
+ ******************************************************************************/
+
+TEST_F(IoLifetimeTest, TripleResetStillRunsWhileTheIoIsAlive)
+{
+    loadConfig();
+
+    Params p = switchParams("t340_triple_alive");
+    TripleProbe io(p);
+
+    ASSERT_TRUE(io.set_value(2.));
+    ASSERT_EQ(io.get_value_double(), 2.);
+
+    pumpLoopFor(kInsideWindowMs);
+    EXPECT_EQ(io.get_value_double(), 2.)
+        << "the reset fired before " << kInsideWindowMs << " ms";
+
+    pumpLoopFor(kPastWindowMs - kInsideWindowMs);
+    EXPECT_EQ(io.get_value_double(), 0.)
+        << "the reset one-shot never ran at all on a LIVE IO";
+}
+
+TEST_F(IoLifetimeTest, TripleResetDoesNotOutliveTheDeletedIo)
+{
+    loadConfig();
+
+    Params p = switchParams("t340_triple_lifetime");
+    OwnedIoStorage<TripleProbe> store;
+    TripleProbe *io = store.construct(p);
+
+    ASSERT_TRUE(io->set_value(2.));
+    ASSERT_EQ(io->get_value_double(), 2.);
+
+    store.destroyAndPoison();
+    pumpLoopFor(kPastWindowMs);
+
+    EXPECT_EQ(store.breaches(), 0)
+        << "InputSwitchTriple::resetInput() ran on a destroyed IO ("
+        << store.breaches() << " of " << store.size()
+        << " bytes of the freed storage are no longer poison)";
+}
+
+/******************************************************************************
+ * IO/Scenario.cpp:103 - Timer::singleShot(0.250, [=]{ value = false; })
+ ******************************************************************************/
+
+TEST_F(IoLifetimeTest, ScenarioResetStillRunsWhileTheIoIsAlive)
+{
+    loadConfig();
+
+    Params p = scenarioParams("t340_scenario_alive");
+    Scenario io(p);
+
+    ASSERT_TRUE(io.set_value(true));
+    ASSERT_TRUE(io.get_value_bool());
+
+    pumpLoopFor(kInsideWindowMs);
+    EXPECT_TRUE(io.get_value_bool())
+        << "the reset fired before " << kInsideWindowMs << " ms";
+
+    pumpLoopFor(kPastWindowMs - kInsideWindowMs);
+    EXPECT_FALSE(io.get_value_bool())
+        << "the reset one-shot never ran at all on a LIVE IO";
+}
+
+TEST_F(IoLifetimeTest, ScenarioResetDoesNotOutliveTheDeletedIo)
+{
+    loadConfig();
+
+    Params p = scenarioParams("t340_scenario_lifetime");
+    OwnedIoStorage<Scenario> store;
+    Scenario *io = store.construct(p);
+
+    ASSERT_TRUE(io->set_value(true));
+    ASSERT_TRUE(io->get_value_bool());
+
+    store.destroyAndPoison();
+    pumpLoopFor(kPastWindowMs);
+
+    EXPECT_EQ(store.breaches(), 0)
+        << "the reset one-shot of Scenario wrote into a destroyed IO ("
+        << store.breaches() << " of " << store.size()
+        << " bytes of the freed storage are no longer poison)";
+}
+
+/******************************************************************************
+ * Audio/RoonPlayer.cpp - eight one-shots, all [this] lambdas
+ *
+ * ⚠️ RoonPlayer IS an IOBase: RoonPlayer -> AudioPlayer -> IOBase
+ * (Audio/RoonPlayer.h:167, Audio/AudioPlayer.h:32). It is registered with
+ * REGISTER_IO_USERTYPE(Roon, RoonPlayer), so ListeRoom::deleteIO() reaches it
+ * exactly like a shutter. That it ALSO derives from sigc::trackable changes
+ * nothing: all eight sites are lambdas, and trackable never disconnects one.
+ *
+ * The site used here is get_playlist_size (the one-shot calls
+ * get_playlist_size_cb, whose body touches NO member): after the player is
+ * gone the callback does not crash, it quietly runs and calls back into the
+ * caller's slot. That makes it the sharpest observable of the file - a
+ * counter, not a memory pattern - and it shows the defect is not only a crash
+ * risk: a destroyed IO answers an API request.
+ *
+ * Declared after the poison suite: building a RoonPlayer starts RoonCtrl,
+ * whose failed spawn leaves respawn timers on the loop for the rest of the
+ * process.
+ ******************************************************************************/
+
+class IoLifetimeRoonTest: public CoreFixture
+{
+};
+
+TEST_F(IoLifetimeRoonTest, PlaylistSizeAnswersWhileThePlayerIsAlive)
+{
+    loadConfig();
+
+    Params p = roonParams("t340_roon_alive");
+    RoonPlayer player(p);
+
+    int answers = 0;
+    player.get_playlist_size([&answers](AudioPlayerData) { answers++; });
+
+    ASSERT_EQ(answers, 0) << "the one-shot ran synchronously, there is no window";
+
+    pumpLoopFor(200);
+    EXPECT_EQ(answers, 1)
+        << "the deferred answer never ran at all on a LIVE player: the case "
+           "below would then be green for the wrong reason";
+}
+
+TEST_F(IoLifetimeRoonTest, PlaylistSizeDoesNotAnswerForADeletedPlayer)
+{
+    loadConfig();
+
+    Params p = roonParams("t340_roon_lifetime");
+    OwnedIoStorage<RoonPlayer> store;
+    RoonPlayer *player = store.construct(p);
+
+    int answers = 0;
+    player->get_playlist_size([&answers](AudioPlayerData) { answers++; });
+    ASSERT_EQ(answers, 0);
+
+    store.destroyAndPoison();
+    pumpLoopFor(200);
+
+    EXPECT_EQ(answers, 0)
+        << "a destroyed RoonPlayer answered an API request from the loop";
+    EXPECT_EQ(store.breaches(), 0)
+        << "the deferred answer wrote into the destroyed player";
+}
+
+/******************************************************************************
+ * IO/KNX/KNXIo.h:74 - Timer::singleShot(1.5, [this, eis, group_bases]{ ... })
+ *
+ * The widest window of the sweep (1.5 s), opened at CONSTRUCTION whenever
+ * read_at_start is set, and shared by the eleven KNX IO types through the
+ * KNXIo<Base> mixin.
+ *
+ * ⚠️ DECLARED LAST. Its callback dereferences the dangling `this` right away
+ * (ctrl() reads this->param, knxBase is a member), so before the guard this
+ * case does not fail, it KILLS the binary: exit 139 and NOT ONE FAILED line.
+ * That is the signal to read - the exit code, plus which guard was removed -
+ * never the log.
+ ******************************************************************************/
+
+class IoLifetimeKnxTest: public CoreFixture
+{
+};
+
+TEST_F(IoLifetimeKnxTest, ReadAtStartDoesNotOutliveTheDeletedIo)
+{
+    loadConfig();
+
+    //Bring KNXCtrl (and the respawn timers of its failed spawn) into
+    //existence first, so that the case below only adds the read_at_start
+    //one-shot to the loop.
+    {
+        Params warm = knxParams("t340_knx_warmup", "false");
+        KnxSwitchProbe warmup(warm);
+    }
+
+    Params p = knxParams("t340_knx_lifetime", "true");
+    OwnedIoStorage<KnxSwitchProbe> store;
+    KnxSwitchProbe *io = store.construct(p);
+    ASSERT_TRUE(io != nullptr);
+
+    store.destroyAndPoison();
+    pumpLoopFor(kKnxPastWindowMs);
+
+    EXPECT_EQ(store.breaches(), 0)
+        << "the read_at_start one-shot of KNXIo ran on a destroyed IO ("
+        << store.breaches() << " of " << store.size()
+        << " bytes of the freed storage are no longer poison)";
+}
+
+//Own main instead of gtest_main: skip static destructors, see file header.
+//
+//⚠️ Skipping them also skips ~ExternProcServer, which is what unlinks the unix
+//socket it bound in /tmp (IO/ExternProc.cpp:114-115). RoonCtrl and KNXCtrl are
+//built by the last two suites, so this binary must give those sockets back by
+//hand, and reap whatever child the failed spawns left. Both helpers match on
+//OUR pid, so a concurrent `make check -jN` cannot be robbed.
+int main(int argc, char **argv)
+{
+    ::testing::InitGoogleTest(&argc, argv);
+    const int ret = RUN_ALL_TESTS();
+
+    RoonSpawn::reapChildren(1000);
+    RoonSpawn::removeOwnSockets();
+
+    fflush(nullptr);
+    _exit(ret);
+}

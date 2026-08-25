@@ -2925,3 +2925,48 @@ WagoWriteReply_test_LDADD = @CALAOS_SERVER_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+
+# T3.40
+#⭐ A fire-and-forget one-shot must not outlive the IO that armed it.
+#Timer::singleShot()/Idler::singleIdler() copy the slot into an ANONYMOUS uvw
+#handle: no destructor and no member can cancel it, and sigc::trackable never
+#disconnects a lambda. Every IO in the tree can die before the deadline
+#(ListeRoom::deleteIO() from the JSON API, Room::RemoveIO(), ~Room() on a
+#configuration reload), so the four sites T3.34 guarded were not the only ones.
+#Oracle: each probe is built with placement new into a buffer the TEST owns,
+#destroyed explicitly, and the buffer is then poisoned with 0xA5 - a value none
+#of the callbacks writes. A write through the dangling `this` breaks the poison
+#and a dereference kills the binary, so this suite is judged on the EXIT CODE
+#first (a SIGSEGV prints no FAILED line) and on the log second.
+#The suites are declared in a deliberate order and the file carries its own
+#main() with _exit(): see the file header.
+#Links the switch base classes, the KNX objects (KNXIo<Base> is a template
+#mixin instantiated by the test itself, exactly as KNXIo.cpp does) and
+#Audio/RoonPlayer.o on top of the core closure; IO/Scenario.o and
+#Audio/AudioPlayer.o are already in CORE_SERVER_OBJECTS.
+#⚠️ _DEPENDENCIES = libcalaos_common.la, like most test binaries here, so
+#automake does NOT relink when one of those .o changes: a mutation campaign
+#must rm -f BOTH the .o and the test binary, rebuild from the ROOT, and check
+#the CXXLD line really came back (double space, path relative to tests/ -
+#match it with a regex, never a single space).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/IoLifetimeTimer_test
+check_PROGRAMS += core/IoLifetimeTimer_test
+core_IoLifetimeTimer_test_SOURCES = core/IoLifetimeTimer_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/RoonSpawnHarness.h
+core_IoLifetimeTimer_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/KNX
+core_IoLifetimeTimer_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitchLongPress.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitchTriple.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_IoLifetimeTimer_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
