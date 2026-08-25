@@ -366,6 +366,7 @@ calaos_script_SOURCES = \
         LuaScript/ScriptManager.cpp \
         LuaScript/ScriptBindings.h \
         LuaScript/ScriptBindings.cpp \
+        LuaScript/ScriptWire.h \
         IO/ExternProc.cpp \
         IO/ExternProc.h
 
