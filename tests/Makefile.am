@@ -2348,3 +2348,41 @@ HueWire_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+
+# E4.1f
+#Characterization of the OLA wire: the [{channel,value}, ...] array OLACtrl
+#sends to calaos_ola, and the decoding calaos_ola does of it. Written BEFORE
+#the jansson -> nlohmann migration of OLACtrl.cpp / OLAExternProc_main.cpp and
+#green across it; the seam is the free functions of the anonymous namespace in
+#the test itself, which the migration commit rewires onto the production header
+#IO/OLA/OLAWire.h so that a mutation of the SHIPPED emitter turns this suite
+#red. Nothing in this suite executed a driver before (E4.0d) and there is no
+#other OLA test at all: this file is the only net this migration has.
+#⭐ This is the ONLY wire of the series that carries real JSON INTEGERS
+#(json_integer, not json_string). Its most important case is the type proof -
+#a `value` that comes back quoted stops the DMX driver in silence, and the
+#decoder cannot catch it because it flattens everything to strings anyway.
+#Two of its cases assert on the RAW BYTES (ensure_ascii, and the invalid-UTF-8
+#error handler); the 145 goldens compare parsed documents and are blind to
+#escaping by construction. Those two are DEFENSIVE and say so: no string of
+#any kind reaches this wire in production, only two integers.
+#Only libcalaos_common code is exercised (Params + Utils + ColorValue + the
+#wire header), no server object and no fixture, so the _DEPENDENCIES pitfall
+#cannot apply; jansson comes with @CALAOS_COMMON_LIBS@. -I.../IO/OLA is NOT in
+#the global AM_CPPFLAGS, hence the dedicated _CPPFLAGS.
+#NOTE: this test does NOT need libola and is built whether or not calaos_ola
+#is (if HAVE_LIBOLA in src/bin/calaos_server/Makefile.am) - the wire header has
+#no libola dependency. A build without libola still runs this suite, but it
+#never compiles OLAExternProc_main.cpp: check the configure summary line
+#"Open Lightning Architecture support" before trusting a green.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += OLAWire_test
+check_PROGRAMS += OLAWire_test
+OLAWire_test_SOURCES = OLAWire_test.cpp
+OLAWire_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/OLA
+OLAWire_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
