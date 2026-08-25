@@ -66,24 +66,75 @@
  * is visible. Same shape for `nested/list/[0]/deep`.
  *
  * NOT ASSERTED, on purpose:
- *  - a path token of exactly "[" CRASHES THE SERVER, deterministically, on
- *    both parsers. erase(0, 1) empties val, pop_back() then underflows the
- *    size_t, and the Utils::from_string() that follows sits OUTSIDE the try
- *    (MqttCtrl.cpp:132, WebCtrl.cpp:202), so std::bad_alloc escapes
- *    getValueJson(); nothing catches it up to main() and std::terminate()
- *    runs. Reachable by a typo in a configuration parameter (no remote
- *    vector). It is NOT pinned here on purpose - the read of the emptied
- *    string is undefined behaviour and a test must not freeze UB. Reported in
- *    FINDINGS.md and ticketed as T3.35, together with the "did you mean
- *    a/[0]/b ?" hint that shares the same catch block.
+ *  - see the T3.35 block below for the one case T3.29 left out and T3.35
+ *    brings in: a path token of exactly "[".
+ ******************************************************************************/
+
+/*******************************************************************************
+ * T3.35 - CHARACTERIZATION of the two changes that share ONE catch block.
+ *
+ * (1) THE CRASH. A path token of exactly "[" takes down calaos_server,
+ *     deterministically, on BOTH parsers. val.erase(0, 1) empties the token,
+ *     val.pop_back() then underflows the size_t length, and the
+ *     Utils::from_string(val, idx) that follows sits OUTSIDE the try block
+ *     (MqttCtrl.cpp:132, WebCtrl.cpp:202 on master dd619482), so the
+ *     std::bad_alloc escapes getValueJson(). Nothing catches it anywhere on
+ *     the way up - getValue() -> the Mqtt/Web IO -> main() - and
+ *     std::terminate() runs. Reachable by a TYPO in a configuration
+ *     parameter; there is no remote vector, a `path` is only ever written by
+ *     calaos_installer.
+ *
+ *     T3.29 deliberately did not pin this, because reading a string whose
+ *     length has underflowed is undefined behaviour and a test must not
+ *     freeze UB. The cases below therefore do NOT pin the crash: they pin the
+ *     ERROR PATH THAT SHOULD EXIST - an empty value, no exception, and a
+ *     warning that names the offending token. That is a statement about the
+ *     behaviour we want, not about the behaviour we have, which is what makes
+ *     it a legitimate red-before-green.
+ *
+ *     ! HOW THESE FAIL BEFORE THE FIX. A dying binary prints no FAILED line.
+ *     Depending on where the underflowed string lands, the run either raises
+ *     (gtest turns it into a failure) or dies outright, in which case the
+ *     only trustworthy signal is the EXIT CODE of the test binary, not the
+ *     absence of red lines in its output.
+ *
+ * (2) THE HINT ("option C" of T3.29 sect. 5.6). The user who copied the old
+ *     glued syntax gets an empty value and a "subpath not found" that does
+ *     not tell them what to do. T3.35 logs, in the OBJECT branch's catch,
+ *     "did you mean a/[0]/b ? array indices are their own path segment".
+ *
+ *     ! WHY NO FALSE POSITIVE IS POSSIBLE, and it is the whole design: that
+ *     catch is only ever entered when parent.at(val) HAS ALREADY THROWN. A
+ *     payload whose key really is spelled "action[0]" - a real, measured
+ *     Zigbee2MQTT shape - RESOLVES, so it never reaches the catch and never
+ *     gets a hint. AKeyReallySpelledThatWayGetsNoHint is that case, and it is
+ *     exactly what separates option C from option B (teaching the parser to
+ *     ALSO split a glued index), which T3.29 implemented, measured, and
+ *     REJECTED: it shadowed that key silently. AnIndexGluedToTheKeyDoesNotResolve
+ *     and AGluedIndexStillMatchesAKeySpelledThatWay are the anti-option-B
+ *     guard; do not weaken them.
+ *
+ *     The hint is a WEAK improvement and should not be oversold: cWarning()
+ *     is not a filtered domain, so the line does reach the server log by
+ *     default - but the person who made the typo is sitting in
+ *     calaos_installer, and the message lands in the calaos_server log.
+ *
+ * FIXTURE, for (2): kZigbeePayload owns a key literally spelled "action[0]"
+ * AND a real array named "action", plus a string, an integer and a nested
+ * object. The two together are what makes option B visible: under option B
+ * `action[0]` reads action's element 0 ("hold") instead of the key's value
+ * ("single"). The diversity of the FIELDS is the net here, not the number of
+ * array elements.
  ******************************************************************************/
 
 #include <gtest/gtest.h>
 
 #include <cstdio>
 #include <fstream>
+#include <iostream>
 #include <regex>
 #include <set>
+#include <sstream>
 #include <string>
 
 #include "IODoc.h"
@@ -117,6 +168,56 @@ const char *const kPayload = R"JSON({
 //would shadow this key.
 const char *const kBracketKeyPayload =
     R"JSON({ "weather[0]": { "description": "a literal key, not an index" } })JSON";
+
+//T3.35. The shape that makes the "no false positive" claim checkable, taken
+//from a real Zigbee2MQTT button payload: the document owns a key LITERALLY
+//spelled "action[0]" and, next to it, a real ARRAY named "action". A parser
+//that also split a glued index - option B, rejected by T3.29 - would answer
+//`action[0]` with the array's element 0 ("hold") instead of the key's value
+//("single"), silently. The other fields are deliberately of different kinds
+//(string, integer, nested object, array of strings): the diversity of the
+//FIELDS is what makes a wrong lookup visible, not the length of the array.
+const char *const kZigbeePayload = R"JSON({
+  "action[0]": "single",
+  "action[1]": "double",
+  "action": [ "hold", "release" ],
+  "battery": 87,
+  "linkquality": 132,
+  "device": { "friendlyName": "kitchen_button", "model": "WXKG01LM" }
+})JSON";
+
+//T3.35. cWarning() writes to std::cout (Logger.cpp, LogStream::~LogStream),
+//and WARNING (3) is below the default level INFO (4), so the line is emitted
+//by default - cWarning() is not a filtered domain. Swapping the streambuf for
+//the duration of one call is therefore enough to read back what the server
+//would have logged.
+//
+//WARM UP FIRST: the very first log of the process builds Logger.cpp's level
+//cache, which reads the config and can print on its own. Every case below
+//resolves something harmless before installing the capture.
+class CoutCapture
+{
+public:
+    CoutCapture(): saved(std::cout.rdbuf(buffer.rdbuf())) {}
+    ~CoutCapture() { std::cout.rdbuf(saved); }
+    std::string str() const { return buffer.str(); }
+
+private:
+    std::ostringstream buffer;
+    std::streambuf *saved;
+};
+
+bool logContains(const std::string &log, const std::string &needle)
+{
+    return log.find(needle) != std::string::npos;
+}
+
+//The user facing wording the hint must carry. "did you mean" is the question,
+//the second half is the RULE - the same sentence the ioDoc publishes (see
+//IoDocIndexSyntax.TheIndexRuleIsSpelledOutAndNotOnlyShown) - so that the log
+//and the parameter help say the same thing.
+const char *const kHintQuestion = "did you mean";
+const char *const kHintRule = "array indices are their own path segment";
 
 /* ---------------------------------------------------------------------------
  * (A) THE PARSER - one fixture per copy, the same cases on both.
@@ -345,6 +446,182 @@ TEST_F(MqttJsonPathTest, AMalformedPayloadReturnsEmpty)
 TEST_F(WebJsonPathTest, AMalformedPayloadReturnsEmpty)
 {
     EXPECT_EQ("", resolve("weather/[1]/description", "{ not json"));
+}
+
+/* ---------------------------------------------------------------------------
+ * T3.35 (1) - THE CRASH, pinned by the ERROR PATH THAT SHOULD EXIST.
+ *
+ * These do NOT assert what master does; master reads a string whose length
+ * has underflowed, and that is undefined behaviour nobody may freeze. They
+ * assert the contract a malformed index token must honour: an EMPTY value, NO
+ * exception, and a warning that names the offending token - the same contract
+ * every other failing path of this parser already honours (unknown key, out
+ * of bounds index, malformed payload).
+ *
+ * Before the fix these fail by RAISING or by KILLING the process. A dead
+ * binary prints no FAILED line: the signal to check is the exit code.
+ * ------------------------------------------------------------------------ */
+
+TEST_F(MqttJsonPathTest, ALonePathBracketDoesNotKillTheProcess)
+{
+    EXPECT_NO_THROW({ EXPECT_EQ("", resolve("[")); });
+    EXPECT_NO_THROW({ EXPECT_EQ("", resolve("weather/[/description")); });
+}
+
+TEST_F(WebJsonPathTest, ALonePathBracketDoesNotKillTheProcess)
+{
+    EXPECT_NO_THROW({ EXPECT_EQ("", resolve("[")); });
+    EXPECT_NO_THROW({ EXPECT_EQ("", resolve("weather/[/description")); });
+}
+
+//A silent empty value is what T3.29 measured as the reason nobody can debug a
+//bad path. The error path added here must name what it choked on, and it must
+//not pretend it looked an index up: reaching "index not found" would mean the
+//garbage index was used after all.
+TEST_F(MqttJsonPathTest, ALonePathBracketIsLoggedAsAnError)
+{
+    resolve("main/city"); //warm up the logger before capturing
+    std::string log;
+    {
+        CoutCapture capture;
+        resolve("weather/[/description");
+        log = capture.str();
+    }
+    EXPECT_TRUE(logContains(log, "weather/[/description")) << "log was: " << log;
+    EXPECT_TRUE(logContains(log, "array index")) << "log was: " << log;
+    EXPECT_FALSE(logContains(log, "index not found")) << "log was: " << log;
+}
+
+TEST_F(WebJsonPathTest, ALonePathBracketIsLoggedAsAnError)
+{
+    resolve("main/city");
+    std::string log;
+    {
+        CoutCapture capture;
+        resolve("weather/[/description");
+        log = capture.str();
+    }
+    EXPECT_TRUE(logContains(log, "weather/[/description")) << "log was: " << log;
+    EXPECT_TRUE(logContains(log, "array index")) << "log was: " << log;
+    EXPECT_FALSE(logContains(log, "index not found")) << "log was: " << log;
+}
+
+/* ---------------------------------------------------------------------------
+ * T3.35 (2) - THE HINT, and the case that proves it cannot fire wrongly.
+ * ------------------------------------------------------------------------ */
+
+//The old, documented-until-T3.29 form. It still resolves to nothing - that is
+//option B staying rejected - but the log now says why, and how to fix it.
+TEST_F(MqttJsonPathTest, AGluedIndexIsAnsweredWithAHint)
+{
+    resolve("main/city");
+    std::string log;
+    {
+        CoutCapture capture;
+        EXPECT_EQ("", resolve("weather[0]/description"));
+        log = capture.str();
+    }
+    EXPECT_TRUE(logContains(log, kHintQuestion)) << "log was: " << log;
+    EXPECT_TRUE(logContains(log, kHintRule)) << "log was: " << log;
+    EXPECT_TRUE(logContains(log, "weather[0]")) << "log was: " << log;
+}
+
+TEST_F(WebJsonPathTest, AGluedIndexIsAnsweredWithAHint)
+{
+    resolve("main/city");
+    std::string log;
+    {
+        CoutCapture capture;
+        EXPECT_EQ("", resolve("weather[0]/description"));
+        log = capture.str();
+    }
+    EXPECT_TRUE(logContains(log, kHintQuestion)) << "log was: " << log;
+    EXPECT_TRUE(logContains(log, kHintRule)) << "log was: " << log;
+    EXPECT_TRUE(logContains(log, "weather[0]")) << "log was: " << log;
+}
+
+//! THE CASE THE WHOLE DESIGN RESTS ON. `action[0]` is a REAL key of a real
+//Zigbee2MQTT payload. It RESOLVES, so parent.at() never throws, so the catch
+//that carries the hint is never entered, so no hint can be emitted. The false
+//positive is impossible by construction, not by heuristic - and that is
+//precisely what option B could not offer: splitting the glued token would
+//have answered "hold" here, silently, forever.
+TEST_F(MqttJsonPathTest, AKeyReallySpelledThatWayGetsNoHint)
+{
+    resolve("main/city");
+    std::string log;
+    std::string value;
+    {
+        CoutCapture capture;
+        value = resolve("action[0]", kZigbeePayload);
+        log = capture.str();
+    }
+    EXPECT_EQ("single", value);
+    EXPECT_FALSE(logContains(log, kHintQuestion)) << "log was: " << log;
+    EXPECT_FALSE(logContains(log, kHintRule)) << "log was: " << log;
+    EXPECT_EQ("", log) << "a path that resolves must log nothing at all";
+
+    //The neighbours of the key, so that a lookup landing on the wrong field
+    //is visible instead of accidentally right.
+    EXPECT_EQ("double", resolve("action[1]", kZigbeePayload));
+    EXPECT_EQ("hold", resolve("action/[0]", kZigbeePayload));
+    EXPECT_EQ("release", resolve("action/[1]", kZigbeePayload));
+    EXPECT_EQ("87", resolve("battery", kZigbeePayload));
+    EXPECT_EQ("kitchen_button", resolve("device/friendlyName", kZigbeePayload));
+}
+
+TEST_F(WebJsonPathTest, AKeyReallySpelledThatWayGetsNoHint)
+{
+    resolve("main/city");
+    std::string log;
+    std::string value;
+    {
+        CoutCapture capture;
+        value = resolve("action[0]", kZigbeePayload);
+        log = capture.str();
+    }
+    EXPECT_EQ("single", value);
+    EXPECT_FALSE(logContains(log, kHintQuestion)) << "log was: " << log;
+    EXPECT_FALSE(logContains(log, kHintRule)) << "log was: " << log;
+    EXPECT_EQ("", log) << "a path that resolves must log nothing at all";
+
+    EXPECT_EQ("double", resolve("action[1]", kZigbeePayload));
+    EXPECT_EQ("hold", resolve("action/[0]", kZigbeePayload));
+    EXPECT_EQ("release", resolve("action/[1]", kZigbeePayload));
+    EXPECT_EQ("87", resolve("battery", kZigbeePayload));
+    EXPECT_EQ("kitchen_button", resolve("device/friendlyName", kZigbeePayload));
+}
+
+//The other half of the "cannot fire wrongly" claim: a plain missing key is
+//still a plain missing key. The hint is bound to the presence of a '[' in the
+//token, so a token without one must not get it - otherwise the hint becomes
+//noise on every typo and stops being read.
+TEST_F(MqttJsonPathTest, APlainMissingKeyGetsNoHint)
+{
+    resolve("main/city");
+    std::string log;
+    {
+        CoutCapture capture;
+        EXPECT_EQ("", resolve("nosuchobject/description"));
+        log = capture.str();
+    }
+    EXPECT_TRUE(logContains(log, "nosuchobject")) << "log was: " << log;
+    EXPECT_FALSE(logContains(log, kHintQuestion)) << "log was: " << log;
+    EXPECT_FALSE(logContains(log, kHintRule)) << "log was: " << log;
+}
+
+TEST_F(WebJsonPathTest, APlainMissingKeyGetsNoHint)
+{
+    resolve("main/city");
+    std::string log;
+    {
+        CoutCapture capture;
+        EXPECT_EQ("", resolve("nosuchobject/description"));
+        log = capture.str();
+    }
+    EXPECT_TRUE(logContains(log, "nosuchobject")) << "log was: " << log;
+    EXPECT_FALSE(logContains(log, kHintQuestion)) << "log was: " << log;
+    EXPECT_FALSE(logContains(log, kHintRule)) << "log was: " << log;
 }
 
 /* ---------------------------------------------------------------------------
