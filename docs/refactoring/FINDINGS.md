@@ -5244,24 +5244,32 @@ sortirait **0**, et le `PASS` silencieux reviendrait **une couche plus bas**.
 
 ### ⭐ Le balayage de TOUTES les entrées `TESTS` — la question que personne n'avait posée
 
-**88 entrées** à `b7a4c63d` (recomptées `python3`, continuations recollées, zéro doublon) :
-**3 scripts shell** + **85 binaires gtest**.
+**89 entrées** sur `master` `701a98e4` (recomptées `python3` après rebase, continuations
+recollées, `if`/`else`/`endif` empilés, zéro doublon) : **3 scripts shell** + **85 binaires sous
+`if HAVE_GTEST`** + ⭐ **1 binaire imbriqué `if HAVE_GTEST` → `if HAVE_LIBKNX`**
+(`KNXExternProcWire_test`). La branche en ajoute une, l'oracle : **90**.
 
 | entrée `TESTS` | peut rendre `PASS` sans exécuter ? | mesure |
 |---|---|---|
 | `run-python-tests.sh` | ⛔ **OUI, totalement** — 3/6 fichiers, 19/42 cas, sortie 0, `PASS` | mesuré ; **corrigé par T3.44** |
 | `check-config-options.sh` | ✅ **NON** — chaque scan optionnel porte un `else fail "… scan rule X is dead"`, plus une garde d'anti-vacuité `nb_used == 0` (« *this test would pass whatever the code does* ») | lu + exécuté |
 | `check-config-docs.sh` | ✅ **NON** — binaire absent / document absent / générateur muet ⇒ `exit 1` | lu + exécuté |
-| **les 85 binaires, en bloc** | ⛔ **OUI, autrement** — tout le bloc est `if HAVE_GTEST` ; sans l'en-tête gtest les 85 **quittent `TESTS`**, le total tombe de 89 à **4**, le résumé affiche toujours `# FAIL: 0`. Seul `GTEST_INFO` au `configure` le dit | statique |
-| `UrlDownloader_test` | ⚠️ **OUI, partiellement** — 8 cas derrière `REQUIRE_CURL()` ; **sans `curl` dans le `PATH` : `ran=10, skipped=7, passed=3`, sortie 0, `PASS`** | **mesuré** (`PATH=/nocurl`) |
+| **les 86 binaires, en bloc** | ⛔ **OUI, autrement** — tout le bloc est `if HAVE_GTEST` ; sans l'en-tête gtest les 86 **quittent `TESTS`**, le total tombe de 90 à **4**, le résumé affiche toujours `# FAIL: 0`. Seul `GTEST_INFO` au `configure` le dit | statique |
+| ⭐ `KNXExternProcWire_test` | ⛔ **OUI, d'une troisième façon** — imbriqué `if HAVE_GTEST` → `if HAVE_LIBKNX` ; sans `libknx` **l'entrée n'existe plus**, pas même en `SKIP` : rien ne l'imprime ET rien ne la compte | **mesuré** : `# TOTAL: 90` (image de dev) vs **89** (image CI) |
+| `UrlDownloader_test` | ⚠️ **OUI, partiellement** — ⭐ **7** cas derrière `REQUIRE_CURL()` (le 8ᵉ match du balayage est la ligne `#define`, `UrlDownloader_test.cpp:64`) ; **sans `curl` dans le `PATH` : `ran=10, skipped=7, passed=3`, sortie 0, `PASS`** | **mesuré** (`PATH=/nocurl`) |
 | `core/CalaosConfigRobustness_test` | ⚠️ **OUI, partiellement** — `GTEST_SKIP` si `geteuid() == 0`, donc **dans tout conteneur root**, y compris chaque build de cette série | **mesuré : 1/12 sauté, `PASS`** |
 | `Utils_config_test`, `ConfigModel_test` | ⚠️ 1 cas chacun si la descente de privilèges échoue | mesuré : **0** sauté |
 | `TimeRangeCalendar_test` | ⚠️ 2 cas (`tzdata` absent ; course d'une seconde) | mesuré : **0** sauté |
 | `core/JsonApiCharacterization_test` | ⚠️ 3 cas en mode mise à jour des goldens | mesuré : **0** sauté |
-| les **79** autres binaires | aucun saut conditionnel à l'environnement trouvé | balayage `python3` |
+| les **80** autres binaires | aucun saut conditionnel à l'environnement, **et zéro `DISABLED_` dans tout le dépôt** | balayage `python3` |
 
-**Agrégat mesuré sur un `make check` complet : 85 binaires, 1525 cas exécutés, 1 cas silencieusement
-sauté.** ⚠️ **Nuance** : un `GTEST_SKIP` **imprime** `[  SKIPPED ]` et gtest le compte — il est *à
+**Compte par binaire** (balayage `python3` des 87 `.cpp` de `tests/`, motifs `GTEST_SKIP(` et
+`TEST*(…, DISABLED_…`) : **6 binaires sur 86** portent au moins un saut conditionnel, **15 cas** au
+total (`UrlDownloader_test` 7, `core/JsonApiCharacterization_test` 3, `TimeRangeCalendar_test` 2,
+`ConfigModel_test` 1, `Utils_config_test` 1, `core/CalaosConfigRobustness_test` 1) ; **80 binaires
+propres**, **0 `DISABLED_`**.
+**Agrégat mesuré sur le `make check` de livraison (image de dev, conteneur root) : 86 binaires,
+1527 cas exécutés, 1 seul silencieusement sauté.** ⚠️ **Nuance** : un `GTEST_SKIP` **imprime** `[  SKIPPED ]` et gtest le compte — il est *à
 moitié* visible. Le défaut de `run-python-tests.sh` était d'un cran pire : la suite entière
 manquait, comptée nulle part.
 
@@ -5323,3 +5331,79 @@ make -j12 && make check -j6`, un seul passage) : **un seul** bloc `Testsuite sum
 journal (compté `python3`), `# TOTAL: 89 / # PASS: 88 / # SKIP: 1 / # FAIL: 0`, sortie **0**. Le
 double bloc n'est **pas** apparu ici. ⇒ point de mesure négatif, la variante reste **ouverte et non
 reproduite** ; le remède provisoire (juger au code de sortie, ou au DERNIER bloc) reste de mise.
+
+### ⭐ Ce que la REVUE a mesuré et que le premier correctif ratait (2026-08-25, `RETOUR À L'AUTEUR`)
+
+Trois choses, toutes rejouées et fermées ; le détail est dans [`T3.44`](T3.44.md) §7–§8.
+
+1. ⛔ **Un méta-oracle qui ne peut pas mesurer ne doit PAS rougir.** La première version comptait les
+   cas déclarés avec le `python3` **ambiant** et sortait **1** quand il n'y en avait pas — c'est le
+   cas **de la CI**, dont la liste `apt` n'installe aucun `python3`. Résultat mesuré dans
+   `debian:12` + liste exacte de `ci.yml` : `# TOTAL: 88 · FAIL: 1`, `make check` **RC 2**,
+   `build-and-test` rouge **à chaque `push`**. ⭐ **C'est « l'échec franc » que le ticket écarte
+   explicitement, réintroduit par la porte du harnais.** Règle générale : *un harnais qui ne peut
+   pas mesurer n'a rien trouvé* ⇒ **77**, jamais 1 ; et les cas qui n'ont besoin de rien (ici les
+   deux témoins, `/bin/sh` seul) se jouent **d'abord**.
+2. ⭐ **Compter n'est pas mesurer : il faut comparer des NOMS.** Le relecteur a posé dans la fixture
+   un fichier = 1 cas `@pytest.mark.parametrize`(×3) + 1 cas `@pytest.mark.skip`. `pytest` imprimait
+   `45 passed, 1 skipped` et le lanceur publiait **`cases=44/44`, « every declared case executed »,
+   sortie 0** : le `got >= want` **par fichier** laissait **3 instances d'un cas payer pour un cas
+   jamais exécuté**. ⚠️ **Le risque était écrit dans la fiche comme « futur » : il était présent.**
+   ⇒ intersecter les **ensembles de noms** (`<testcase name=…>` du junit, suffixe `[…]` retiré,
+   contre les noms pointés lus à l'`ast`), jamais des cardinaux.
+3. ⭐ **La « seconde couche » d'un défaut doit être épinglée par son PROPRE cas.** L'invariant vendu
+   en tête du lanceur — *un cas sauté de l'INTÉRIEUR compte comme NON exécuté* — n'était épinglé par
+   **aucun** cas : deux mutations (`if skipped: … continue` supprimé ; `skipped` reclassé en
+   `executed`) laissaient l'oracle **vert**. Le remède est un cas qui **fabrique l'arbre source
+   entier** — deux cas déclarés dont un qui ne peut pas tourner — et l'exige **sur les deux
+   back-ends**. Campagne rejouée : **6/6 mutants tués dans le monde `pytest`, zéro survivant**,
+   témoin à ensemble rouge **VIDE**.
+
+⚠️ **Deux fragilités d'oracle mesurées au passage, à retenir pour tout méta-oracle** :
+- **le faux rouge latent** — le cas « `pytest` caché » épinglait **en dur** que la fixture garde des
+  suites *pytest-only* ; **porter `tests/python/` en `unittest`, un progrès souhaitable, cassait
+  `make check`**. Un oracle d'honnêteté ne doit asserter que ce qui est vrai dans **tous** les
+  mondes (ici : la ligne existe, elle est cohérente, et **retirer une dépendance ne peut pas faire
+  tourner PLUS de cas**) ;
+- **l'angle mort du motif** — un fichier **`*_test.py`** sous `tests/python/` est ramassé par
+  `pytest` (moitié de son `python_files` par défaut) mais n'était **pas déclaré** par le compteur
+  `ast` : suite entière ni exécutée ni comptée, **aucune note**. **Exactement la famille du défaut
+  corrigé.** Les deux motifs sont désormais déclarés, et un cas rapporté hors déclaration est
+  imprimé `UNDECLARED: …`.
+
+⚠️ **Le gain CI annoncé n'existait pas.** `PYTHON=:` court-circuite **avant** le runner : la ligne
+`suites=N/M cases=N/M` **n'est jamais imprimée en CI**, le `SKIP: run-python-tests.sh` **y était
+déjà** avant le correctif, et l'étape qui dumpe les `.log` est `if: failure()`. **Seul gain vérifié
+en CI : la ligne `PYTEST_INFO` au `configure`.** ⇒ dit franchement dans la fiche plutôt que
+revendiqué ; la visibilité CI est laissée à un ticket dédié.
+
+## F-DIST-1 — `make dist` est cassé depuis `06d799fe`, donc `make distcheck` est impossible (2026-08-25)
+
+*(Trouvée par la revue de [T3.44](T3.44.md). ⚠️ **Hors périmètre de ce ticket, non corrigée** —
+numéro de fiche à attribuer par l'orchestrateur.)*
+
+`src/lib/calaos-python/Makefile.am` :
+
+```make
+EXTRA_DIST = \
+    python/calaos_extern_proc/__init__.py \
+    python/calaos_extern_proc/extern_proc.py \
+    python/calaos_extern_proc/message.py \
+    python/calaos_extern_proc/logger.py
+```
+
+⚠️ **Il n'existe aucun répertoire `python/` sous `src/lib/calaos-python/`** : les fichiers sont en
+`calaos_extern_proc/*` (le `calaospython_PYTHON` juste au-dessus, lui, pointe correctement sur
+`$(srcdir)/calaos_extern_proc/*`). `make dist` meurt donc dans ce répertoire. Introduit par
+**`06d799fe`** (« Make roon player work in calaos ») ; le chemin `python/` correspond à une
+disposition antérieure.
+
+⭐ **Pourquoi ça compte au-delà de l'inconfort** : `make dist` est **le chemin d'une release**, et
+`make distcheck` est le seul garde-fou qui vérifie qu'un arbre **distribué** se configure, se
+compile et passe `make check` **hors de l'arbre source, en `srcdir` en lecture seule**. Tant qu'il
+est cassé, **aucune** des neuf variantes de faux vert n'est vérifiable par ce chemin — et
+`run-python-tests.sh` est précisément un script qui doit se comporter correctement en `srcdir`
+lecture seule (d'où son `PYTHONDONTWRITEBYTECODE=1`).
+
+**Substitut joué par le relecteur**, faute de `distcheck` : `srcdir` monté **en lecture seule**,
+deux mondes ⇒ **77** et **0**, **zéro résidu** dans l'arbre source.

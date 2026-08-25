@@ -816,3 +816,28 @@ l'utilisateur préfère l'échec franc, le changement est d'une ligne dans
 aucune machine de CI. Un `apt-get install python3 python3-pytest python3-fastapi python3-httpx
 python3-colorama` les ferait passer de **0** à **42** exécutés. `ci.yml` est propriété de `T0.1`,
 d'où le ticket distinct.
+
+### ⭐ Addendum du 2026-08-25 (revue de [T3.44](T3.44.md), `RETOUR À L'AUTEUR`) — la règle vaut AUSSI pour le harnais
+
+L'arbitrage ci-dessus écarte **l'échec franc** parce qu'il casserait le build de tout le monde. ⚠️ La
+première version du correctif l'a **réintroduit par la porte de derrière** : le méta-oracle
+`tests/check-python-tests-reporting.sh` comptait les cas déclarés avec le `python3` **ambiant** et
+sortait **1** quand il n'y en avait pas. Or la liste `apt` de `.github/workflows/ci.yml` n'installe
+**aucun `python3`** ⇒ `make check` **RC 2**, `build-and-test` **rouge à chaque `push`** (mesuré dans
+`debian:12` : `# TOTAL: 88 · PASS: 86 · SKIP: 1 · FAIL: 1`).
+
+**Règle posée, générale à tous les harnais du dépôt** :
+
+> **Un harnais qui ne peut pas mesurer n'a rien trouvé.** Il sort **77** (`SKIP`, compté dans la
+> colonne visible), **jamais 1**. Un `FAIL` doit toujours vouloir dire « j'ai mesuré, et c'est
+> faux » — sinon le harnais commet, un niveau plus haut, exactement la malhonnêteté de rapport
+> qu'il est là pour attraper.
+
+**Conséquence de forme** : les cas qui n'exigent **rien** (ici les deux témoins, `/bin/sh` seul) se
+jouent **en premier**, avant toute recherche d'outil. On perd le moins de couverture possible sur
+une machine pauvre, et l'on ne peut pas confondre « pas d'outil » avec « défaut ».
+
+⚠️ **Corollaire pour la bascule d'une ligne** évoquée plus haut (`return 77` → `return 1` dans
+`tests/python-suite-runner.py`, si l'utilisateur préfère l'échec franc) : elle reste vraie et
+l'oracle reste vert — mais elle ne concerne **que** le lanceur. **Le méta-oracle, lui, doit garder
+son `77`** : son rôle n'est pas de juger l'environnement, c'est de juger un rapport.
