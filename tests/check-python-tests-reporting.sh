@@ -51,17 +51,27 @@
 #                         turn this case red.
 #   C3  no-interpreter    PYTHON=: -> 77                        [CONTROL]
 #   C4  no-suite-dir      tests/python/ missing -> 77           [CONTROL]
-#   C5  skipped-is-not-executed
-#                         on a FABRICATED tree of exactly two declared cases,
-#                         one of which is skipped from the inside, the
-#                         launcher must report cases=1/2 and exit 77 -- never
-#                         2/2 and 0. Run twice: once through the ambient
-#                         interpreter (pytest back-end when pytest is there)
-#                         and once with pytest shadowed (unittest back-end),
-#                         so BOTH back-ends are pinned. A second fabricated
-#                         tree pins the parametrization trap: 1 parametrized
-#                         case expanding to 3 junit entries must not pay for
-#                         the 1 skipped case next to it.
+#   C5  the accounting itself, on FABRICATED source trees. Every case asserts
+#                         the SAME five things: the totals the launcher
+#                         publishes equal what an independent counter reads
+#                         from the sources (BOTH halves, suites= and cases=),
+#                         the two numerators are what the fixture makes true,
+#                         and the exit code agrees. Each tree is run on both
+#                         back-ends where it can be.
+#     C5a/C5b  skipped from the inside is NOT executed  -> 1 of 2, exit 77
+#     C5c      1 parametrized case (3 junit entries) must not pay for the
+#              skipped case next to it                  -> 1 of 2, exit 77
+#     C5d/C5e  two cases run, two declared, but one runs under ANOTHER name:
+#              counts agree, names do not                -> 1 of 2, exit 77
+#     C5f/C5g  ⭐ a NON-FLAT tree: two suites with the SAME BASENAME in
+#              different directories. Keyed by basename they merge and the
+#              cases of one pay for the cases of the other -> 2 of 3, exit 77
+#     C5h/C5i  a "*_test.py" suite is half of pytest's default python_files:
+#              it must be DECLARED, or it runs uncounted  -> 1 of 2, exit 77
+#     C5j/C5k  an EXPECTED FAILURE is an executed case, on both back-ends,
+#              or one xfail freezes make check at SKIP    -> 2 of 2, exit 0
+#     C5l      pytest only: xfail(run=False) really is not executed, and a
+#              plain xfail next to it is                  -> 2 of 3, exit 77
 #
 # C3 and C4 are the CONTROLS: they already hold before the fix, so a harness
 # that went red everywhere would be visible immediately.
@@ -153,29 +163,42 @@ import ast
 import os
 import sys
 
+import fnmatch
+
 pydir = sys.argv[1]
 files = 0
 cases = 0
-for name in sorted(os.listdir(pydir)):
-    # pytest's default python_files, both patterns -- see the same function in
-    # tests/python-suite-runner.py.
-    if not (name.endswith(".py") and
-            (name.startswith("test_") or name.endswith("_test.py"))):
-        continue
-    files += 1
-    tree = ast.parse(open(os.path.join(pydir, name), encoding="utf-8").read(), name)
+# pytest's default norecursedirs -- see the same list in
+# tests/python-suite-runner.py. ⚠️ The walk is RECURSIVE on purpose: a flat
+# listing here would disagree with the launcher about what the tree declares,
+# and two suites with the same basename in different directories would be
+# invisible to this counter.
+norec = ("*.egg", ".*", "_darcs", "build", "CVS", "dist", "node_modules",
+         "venv", "{arch}", "__pycache__")
+for root, dirs, names in os.walk(pydir):
+    dirs[:] = sorted(d for d in dirs
+                     if not any(fnmatch.fnmatch(d, pat) for pat in norec))
+    for name in sorted(names):
+        # pytest's default python_files, both patterns -- see the same function
+        # in tests/python-suite-runner.py.
+        if not (name.endswith(".py") and
+                (name.startswith("test_") or name.endswith("_test.py"))):
+            continue
+        files += 1
+        full = os.path.join(root, name)
+        tree = ast.parse(open(full, encoding="utf-8").read(), name)
 
-    def walk(node):
-        n = 0
-        for child in node.body:
-            if isinstance(child, ast.ClassDef):
-                n += walk(child)
-            elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                if child.name.startswith("test"):
-                    n += 1
-        return n
+        def walk(node):
+            n = 0
+            for child in node.body:
+                if isinstance(child, ast.ClassDef):
+                    n += walk(child)
+                elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    if child.name.startswith("test"):
+                        n += 1
+            return n
 
-    cases += walk(tree)
+        cases += walk(tree)
 print("%d %d" % (files, cases))
 PY_EOF
 
@@ -254,14 +277,34 @@ check_accounting()
     fi
     _gotc=`acct_field "$_line" cases 1`
     _totc=`acct_field "$_line" cases 2`
+    _gots=`acct_field "$_line" suites 1`
     _tots=`acct_field "$_line" suites 2`
-    if [ -z "$_gotc" ] || [ -z "$_totc" ]; then
+    if [ -z "$_gotc" ] || [ -z "$_totc" ] || [ -z "$_gots" ] || [ -z "$_tots" ]; then
         fail "$_lbl: malformed accounting line: '$_line'"
         return 1
     fi
     if [ "$_tots" -ne "$_dfiles" ] || [ "$_totc" -ne "$_dcases" ]; then
         fail "$_lbl: the launcher declares $_tots/$_totc but the sources declare" \
              "$_dfiles/$_dcases -- the launcher is counting something else"
+    fi
+    # ⭐ The suites= half of the published line is asserted too. Without this,
+    # half of what the launcher prints is unmeasured, and a launcher that made
+    # its suite counter unconditional would publish the SELF-CONTRADICTORY
+    # "suites=6/6 cases=23/42" -- every suite complete, half the cases missing --
+    # while every other check here stayed green.
+    if [ "$_gotc" -eq "$_totc" ]; then
+        if [ "$_gots" -ne "$_tots" ]; then
+            fail "$_lbl: '$_line' contradicts itself: every declared case ran," \
+                 "yet only $_gots of $_tots suites are counted as complete."
+        fi
+    else
+        if [ "$_gots" -ge "$_tots" ]; then
+            fail "$_lbl: '$_line' contradicts itself: $_gots of $_tots suites are" \
+                 "counted as complete while only $_gotc of $_totc declared cases" \
+                 "ran. A suite with a case that did not execute is NOT complete;" \
+                 "the suites= half of this line is not measuring anything."
+            sed 's/^/      /' "$_log" >&2
+        fi
     fi
     if [ "$_gotc" -eq "$_totc" ]; then
         if [ "$_rc" -ne 0 ] && [ "$_rc" -ne 1 ]; then
@@ -369,10 +412,19 @@ c5_tree()
     return 0
 }
 
+# c5_run <label> <root> <interp> <want files> <want cases> <want ran suites> \
+#        <want ran cases> <want rc> <why>
+#
+# ⚠️ Every C5 case asserts ALL of: the fabricated tree declares what it is meant
+# to declare (so the fixture cannot rot into vacuity), the launcher's PUBLISHED
+# totals equal that -- BOTH halves, suites= and cases= -- the two numerators are
+# exactly what the fixture makes true, and the exit code agrees. Asserting only
+# the cases= numerator left the suites= half of the published line, and the
+# declaration side itself, pinned by nothing.
 c5_run()
 {
-    # $1 = label, $2 = tree root, $3 = interpreter, $4 = why it must be 1 of 2
-    _lbl=$1; _root=$2; _py=$3; _why=$4
+    _lbl=$1; _root=$2; _py=$3
+    _wf=$4; _wc=$5; _wrs=$6; _wrc=$7; _wrcode=$8; _why=$9
     _d=`"$COUNTPY" "$COUNTER" "$_root/tests/python" 2>/dev/null` || _d=""
     if [ -z "$_d" ]; then
         fail "$_lbl: could not count the fabricated tree"
@@ -380,8 +432,9 @@ c5_run()
     fi
     _df=`echo "$_d" | cut -d' ' -f1`
     _dc=`echo "$_d" | cut -d' ' -f2`
-    if [ "$_dc" -ne 2 ]; then
-        fail "$_lbl: the fabricated tree should declare exactly 2 cases, it declares $_dc"
+    if [ "$_df" -ne "$_wf" ] || [ "$_dc" -ne "$_wc" ]; then
+        fail "$_lbl: the fabricated tree should declare $_wf file(s) / $_wc case(s)," \
+             "it declares $_df/$_dc -- the fixture, not the launcher, is wrong"
         return 1
     fi
     _log="$tmpdir/`echo "$_lbl" | tr 'A-Z ' 'a-z_'`.log"
@@ -393,16 +446,27 @@ c5_run()
     _rc=$?
     _line=`acct_line "$_log"`
     _got=`acct_field "$_line" cases 1`
-    if [ -z "$_line" ] || [ -z "$_got" ]; then
+    _tot=`acct_field "$_line" cases 2`
+    _gs=`acct_field "$_line" suites 1`
+    _ts=`acct_field "$_line" suites 2`
+    if [ -z "$_line" ] || [ -z "$_got" ] || [ -z "$_gs" ]; then
         fail "$_lbl: no accounting line (exit $_rc)"
         sed 's/^/      /' "$_log" >&2
         return 1
     fi
-    if [ "$_got" -ne 1 ] || [ "$_rc" -ne 77 ]; then
-        fail "$_lbl: $_why So the honest report is 'cases=1/2' and exit 77 (SKIP)." \
-             "Got '$_line' and exit $_rc -- one of the two declared cases is being" \
-             "paid for by something that is not it, which is F-PYTEST-1 one layer" \
-             "down."
+    if [ "$_ts" -ne "$_wf" ] || [ "$_tot" -ne "$_wc" ]; then
+        fail "$_lbl: the sources declare $_wf file(s) / $_wc case(s) but the launcher" \
+             "publishes 'suites=…/$_ts cases=…/$_tot'. The launcher is declaring" \
+             "something other than what is on disk, so its numerators cannot mean" \
+             "what they say. $_why"
+        sed 's/^/      /' "$_log" >&2
+        return 1
+    fi
+    if [ "$_got" -ne "$_wrc" ] || [ "$_gs" -ne "$_wrs" ] || [ "$_rc" -ne "$_wrcode" ]; then
+        fail "$_lbl: $_why So the honest report is 'suites=$_wrs/$_wf" \
+             "cases=$_wrc/$_wc' and exit $_wrcode." \
+             "Got '$_line' and exit $_rc -- what is published is not what ran," \
+             "which is F-PYTEST-1 one layer down."
         sed 's/^/      /' "$_log" >&2
         return 1
     fi
@@ -428,9 +492,9 @@ class SkippedIsNotExecuted(unittest.TestCase):
         raise AssertionError("this case must never run")
 PY_EOF
 
-c5_run "C5a pytest-backend" "$unittree" "$COUNTPY" "Exactly one of the two declared cases can run; the other is skipped from INSIDE the suite, and a skipped case is a case that did NOT execute -- that is the whole point: pytest.importorskip on the missing sidecar deps skips from the inside too, and must not read as PASS."
+c5_run "C5a pytest-backend" "$unittree" "$COUNTPY" 1 2 0 1 77 "Exactly one of the two declared cases can run; the other is skipped from INSIDE the suite, and a skipped case is a case that did NOT execute -- that is the whole point: pytest.importorskip on the missing sidecar deps skips from the inside too, and must not read as PASS."
 if [ "$have_stub" = yes ]; then
-    c5_run "C5b unittest-backend" "$unittree" "$stub" "Exactly one of the two declared cases can run; the other is skipped from INSIDE the suite, and a skipped case is a case that did NOT execute -- that is the whole point: pytest.importorskip on the missing sidecar deps skips from the inside too, and must not read as PASS."
+    c5_run "C5b unittest-backend" "$unittree" "$stub" 1 2 0 1 77 "Exactly one of the two declared cases can run; the other is skipped from INSIDE the suite, and a skipped case is a case that did NOT execute -- that is the whole point: pytest.importorskip on the missing sidecar deps skips from the inside too, and must not read as PASS."
 fi
 
 # C5c -- the parametrization trap, pytest only. One parametrized case expands
@@ -478,9 +542,135 @@ NamesNotCounts.test_running_under_another_name = \
 del NamesNotCounts.test_declared_but_never_run
 PY_EOF
 
-c5_run "C5d names-not-counts" "$nametree" "$COUNTPY" "Two cases run and two are declared, but one of them runs under a DIFFERENT name than the one declared, so a declared case never ran. Counts agree; names do not, and names are what is being accounted for."
+c5_run "C5d names-not-counts" "$nametree" "$COUNTPY" 1 2 0 1 77 "Two cases run and two are declared, but one of them runs under a DIFFERENT name than the one declared, so a declared case never ran. Counts agree; names do not, and names are what is being accounted for."
 if [ "$have_stub" = yes ]; then
-    c5_run "C5e names-not-counts-unittest" "$nametree" "$stub" "Two cases run and two are declared, but one of them runs under a DIFFERENT name than the one declared, so a declared case never ran. Counts agree; names do not, and names are what is being accounted for."
+    c5_run "C5e names-not-counts-unittest" "$nametree" "$stub" 1 2 0 1 77 "Two cases run and two are declared, but one of them runs under a DIFFERENT name than the one declared, so a declared case never ran. Counts agree; names do not, and names are what is being accounted for."
+fi
+
+# ---------------------------------------------------------------------------
+# C5f/C5g -- ⭐ THE TREE IS NOT FLAT. Two suites with the SAME BASENAME in two
+#            directories. This is the shape that the rest of C5 could not see,
+#            because every other fabricated tree here has exactly one directory.
+#
+# Measured on the real tests/python/ before this case existed: one case of
+# test_logger.py marked skip, plus a regress/test_logger.py declaring a case of
+# the same dotted name, and the launcher published "suites=6/6 cases=42/42",
+# PASS, exit 0 -- no NOT RUN line, no UNDECLARED line. The declaration side read
+# one flat directory and the execution side keyed by basename, so the two files
+# collapsed into ONE key and the case that ran paid for the case that did not.
+# ⚠️ An oracle whose fixtures are all flat cannot fail on a path collision. Do
+# not "simplify" this tree back to one directory.
+# ---------------------------------------------------------------------------
+duptree="$tmpdir/c5-samebasename"
+c5_tree "$duptree" || exit 1
+mkdir -p "$duptree/tests/python/sub" || exit 1
+: > "$duptree/tests/python/sub/__init__.py"
+cat > "$duptree/tests/python/test_dup.py" <<'PY_EOF'
+# Fabricated by tests/check-python-tests-reporting.sh (C5f/C5g). Same BASENAME
+# as sub/test_dup.py below, and the case that is skipped here bears the same
+# dotted name as the case that runs there.
+import unittest
+
+
+class Dup(unittest.TestCase):
+    def test_runs_here(self):
+        self.assertTrue(True)
+
+    @unittest.skip("C5f: pinned as NOT executed")
+    def test_shared_name(self):
+        raise AssertionError("this case must never run")
+PY_EOF
+cat > "$duptree/tests/python/sub/test_dup.py" <<'PY_EOF'
+# Fabricated by tests/check-python-tests-reporting.sh (C5f/C5g). Same basename
+# as ../test_dup.py, and its ONE case bears the same dotted name as the case
+# that is skipped there. Keyed by basename the two files merge and this case
+# pays for that one.
+import unittest
+
+
+class Dup(unittest.TestCase):
+    def test_shared_name(self):
+        self.assertTrue(True)
+PY_EOF
+
+DUPWHY="Two suites share a BASENAME in two directories, and the case that runs in the sub-directory bears the same dotted name as the case that is skipped at the top level. Three cases are declared over two files; exactly two of them execute, and the top-level suite is incomplete."
+c5_run "C5f same-basename pytest-backend" "$duptree" "$COUNTPY" 2 3 1 2 77 "$DUPWHY"
+if [ "$have_stub" = yes ]; then
+    c5_run "C5g same-basename unittest-backend" "$duptree" "$stub" 2 3 1 2 77 "$DUPWHY"
+fi
+
+# ---------------------------------------------------------------------------
+# C5h/C5i -- "*_test.py" is the other half of pytest's default python_files. A
+#            suite named that way is collected and RUN by pytest; if the
+#            declaration side does not know the pattern, the suite runs
+#            uncounted and its skipped cases are invisible. Nothing pinned this
+#            before: the claim "that blind spot is closed" was asserted by no
+#            case at all.
+# ---------------------------------------------------------------------------
+pattree="$tmpdir/c5-patterns"
+c5_tree "$pattree" || exit 1
+cat > "$pattree/tests/python/test_prefix.py" <<'PY_EOF'
+# Fabricated by tests/check-python-tests-reporting.sh (C5h/C5i). The "test_*.py"
+# half of pytest's default python_files: one case, and it runs.
+import unittest
+
+
+class Prefix(unittest.TestCase):
+    def test_runs(self):
+        self.assertTrue(True)
+PY_EOF
+cat > "$pattree/tests/python/suffix_test.py" <<'PY_EOF'
+# Fabricated by tests/check-python-tests-reporting.sh (C5h/C5i). The "*_test.py"
+# half of pytest's default python_files. Its only case is skipped from the
+# inside, so a declaration side that does not know this pattern reports
+# "everything ran" while this case did not.
+import unittest
+
+
+class Suffix(unittest.TestCase):
+    @unittest.skip("C5h: pinned as NOT executed")
+    def test_never_executed(self):
+        raise AssertionError("this case must never run")
+PY_EOF
+
+PATWHY="A '*_test.py' suite is half of pytest's default python_files: it IS collected and run. Two files declare one case each; the case in the '*_test.py' file is skipped from the inside, so it did not execute -- and a launcher that does not declare that pattern would not even know the file exists."
+c5_run "C5h suffix-pattern pytest-backend" "$pattree" "$COUNTPY" 2 2 1 1 77 "$PATWHY"
+if [ "$have_stub" = yes ]; then
+    c5_run "C5i suffix-pattern unittest-backend" "$pattree" "$stub" 2 2 1 1 77 "$PATWHY"
+fi
+
+# ---------------------------------------------------------------------------
+# C5j/C5k -- ⭐ AN EXPECTED FAILURE IS AN EXECUTED CASE, and the two back-ends
+#            must say so alike. Measured before this case existed: the same
+#            @unittest.expectedFailure gave "cases=1/2, exit 77" through pytest
+#            (whose junit files xfail as <skipped>) and "cases=2/2, exit 0"
+#            through unittest (whose addExpectedFailure counts it as run).
+# ⚠️ The consequence was not academic: ONE legitimate xfail under tests/python/
+# would have pinned `make check` at a PERPETUAL SKIP on every machine that has
+# pytest -- i.e. exactly the machines a future ticket is meant to create.
+# ---------------------------------------------------------------------------
+xfailtree="$tmpdir/c5-xfail"
+c5_tree "$xfailtree" || exit 1
+cat > "$xfailtree/tests/python/test_c5_xfail.py" <<'PY_EOF'
+# Fabricated by tests/check-python-tests-reporting.sh (C5j/C5k). Two declared
+# cases, BOTH of which execute: the second one runs and fails on purpose, which
+# is its expected outcome. Neither back-end may call it "not executed".
+import unittest
+
+
+class ExpectedFailureIsExecuted(unittest.TestCase):
+    def test_plain(self):
+        self.assertTrue(True)
+
+    @unittest.expectedFailure
+    def test_expected_failure(self):
+        self.fail("C5j: this failure is the expected outcome, and it RAN")
+PY_EOF
+
+XFWHY="Both declared cases execute: an expected failure runs its body and fails, which is its expected outcome -- it is not a case that could not run. Reporting it as unexecuted would freeze make check at a permanent SKIP the day pytest is installed."
+c5_run "C5j xfail-is-executed pytest-backend" "$xfailtree" "$COUNTPY" 1 2 1 2 0 "$XFWHY"
+if [ "$have_stub" = yes ]; then
+    c5_run "C5k xfail-is-executed unittest-backend" "$xfailtree" "$stub" 1 2 1 2 0 "$XFWHY"
 fi
 
 if "$COUNTPY" -c "import pytest" >/dev/null 2>&1; then
@@ -493,18 +683,49 @@ if "$COUNTPY" -c "import pytest" >/dev/null 2>&1; then
 import pytest
 
 
-@pytest.mark.parametrize("value", [1, 2, 3])
+# ⚠️ Two of the three ids contain a ']' on purpose: with integer ids alone, any
+# change to the "strip the [...] suffix" regex that only matters on bracketed
+# ids is invisible here.
+@pytest.mark.parametrize("value", ["a]b", "]", "plain"])
 def test_parametrized(value):
-    assert value > 0
+    assert value
 
 
 @pytest.mark.skip(reason="C5c: pinned as NOT executed")
 def test_never_executed():
     raise AssertionError("this case must never run")
 PY_EOF
-    c5_run "C5c parametrize-trap" "$paramtree" "$COUNTPY" "One declared case is parametrized x3 (pytest emits 3 junit entries for it) and the other is skipped. Three instances of one case are still ONE case: they must not pay for the case that never ran."
+    c5_run "C5c parametrize-trap" "$paramtree" "$COUNTPY" 1 2 0 1 77 "One declared case is parametrized x3 (pytest emits 3 junit entries for it) and the other is skipped. Three instances of one case are still ONE case: they must not pay for the case that never ran."
+
+    # C5l -- the ONE xfail flavour that really does not run. pytest marks it
+    #        "[NOTRUN]" in the junit message; a plain xfail beside it does run.
+    #        Without this case, "an xfail is executed" would be applied to
+    #        xfail(run=False) too, and a case that never ran would read as PASS.
+    notruntree="$tmpdir/c5-notrun"
+    c5_tree "$notruntree" || exit 1
+    cat > "$notruntree/tests/python/test_c5_notrun.py" <<'PY_EOF'
+# Fabricated by tests/check-python-tests-reporting.sh (C5l). Three declared
+# cases: one plain, one xfail that RUNS and fails as expected, and one
+# xfail(run=False) that is never entered at all.
+import pytest
+
+
+def test_plain():
+    assert True
+
+
+@pytest.mark.xfail(reason="C5l: runs, and fails as expected")
+def test_xfail_runs():
+    assert False
+
+
+@pytest.mark.xfail(run=False, reason="C5l: pinned as NOT executed")
+def test_xfail_not_run():
+    raise AssertionError("this case must never run")
+PY_EOF
+    c5_run "C5l xfail-run-false" "$notruntree" "$COUNTPY" 1 3 0 2 77 "An xfail that RUNS is an executed case; xfail(run=False) is the one flavour that is never entered, and pytest says so by prefixing its junit message with '[NOTRUN]'. Two of the three declared cases execute."
 else
-    echo "check-python-tests-reporting: C5c skipped, pytest is not importable" \
+    echo "check-python-tests-reporting: C5c/C5l skipped, pytest is not importable" \
          "under $COUNTPY"
 fi
 

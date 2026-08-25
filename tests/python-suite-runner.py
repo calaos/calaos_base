@@ -65,6 +65,27 @@
 # suite is collected and run by pytest but was never declared, so it could
 # neither be counted nor be missed.
 #
+# ⚠️ ACCOUNTING IS KEYED BY PATH RELATIVE TO tests/python/, NEVER BY BASENAME,
+# and the declaration side WALKS THE TREE instead of listing one flat level.
+# The two halves must agree or they collide: with a flat os.listdir on one side
+# and os.path.basename on the other, adding tests/python/regress/test_logger.py
+# next to tests/python/test_logger.py made the cases of the second pay for the
+# cases of the first. Measured on the real tree: one case of test_logger.py
+# marked skip, plus that same-basename file in a sub-package, and the launcher
+# published "suites=6/6 cases=42/42", PASS, exit 0 -- with no NOT RUN line and
+# no UNDECLARED line, because the collision made the two files ONE key. That is
+# this file's own defect, committed inside the fix for it.
+#
+# ⚠️ AN EXPECTED FAILURE IS AN EXECUTED CASE. pytest's junit reports xfail as
+# <skipped type="pytest.xfail">, which reads as "not executed" unless the type
+# is looked at; unittest's addExpectedFailure has always counted it as run. The
+# two back-ends disagreed, and the pytest side was the wrong one: an xfailing
+# case DID run, its body raised, and that is the expected outcome. Left
+# unfixed, a single legitimate xfail under tests/python/ would have pinned
+# `make check` at a PERPETUAL SKIP on every machine that has pytest. The one
+# exception is xfail(run=False), whose reason pytest prefixes with "[NOTRUN]":
+# that case really is not executed and is counted as such.
+#
 # ⚠️ KNOWN, DELIBERATE RESIDUE -- read this before trusting a green run.
 # When a back-end reports a case this file never declared, the runner prints
 #     run-python-tests:   UNDECLARED: <file> ran <names>
@@ -80,6 +101,23 @@
 # fact is printed, in the same place as the accounting, for a human to read.
 # If that trade ever stops being acceptable, the change is one line here --
 # and it needs an arbitration, not a patch.
+#
+# ⚠️ AND THE NOTE IS NOT A COMPLETE SAFETY NET -- say it plainly. It is printed
+# only when a back-end REPORTS a file or a case name the declaration side does
+# not know. A suite that NOBODY collects -- a file named so that neither
+# python_files pattern matches it -- is reported by nobody, so nothing is
+# printed at all and the silence is total. The note covers "collected but not
+# declared"; it does not cover "collected by no one".
+#
+# ⚠️ SECOND KNOWN RESIDUE, opposite direction: the ast walk declares the
+# test-shaped methods of EVERY class, including a base/mixin class that neither
+# back-end collects (pytest collects classes named Test*, unittest collects
+# TestCase subclasses; a plain mixin is neither). Its methods are then declared
+# and never executed, and the launcher reports cases=0/N and exits 77. That is
+# a FALSE SKIP, not a false PASS: it is loud, it names the missing cases on the
+# NOT RUN line, and it errs on the side this file exists to defend. Narrowing
+# the walk to "collectable-looking" classes would trade this noisy, safe error
+# for a silent, unsafe one, so it is left as is -- deliberately.
 # ---------------------------------------------------------------------------
 
 import ast
@@ -99,28 +137,51 @@ def is_suite_file(name):
                                      name.endswith("_test.py"))
 
 
+# pytest's default `norecursedirs`. Same rule as above: a directory pytest does
+# not descend into declares nothing, so mirroring its list is what keeps the
+# declaration side and the execution side describing the same tree.
+_NORECURSE = ("*.egg", ".*", "_darcs", "build", "CVS", "dist", "node_modules",
+              "venv", "{arch}", "__pycache__")
+
+
+def _recurse_into(dirname):
+    import fnmatch
+    return not any(fnmatch.fnmatch(dirname, pat) for pat in _NORECURSE)
+
+
 def declared_suites(pydir):
-    """{filename: set(dotted case names)} read from the SOURCES, never from a
-    runner. 'Dotted' means 'Class.method' for class-based cases and plain
-    'function' for module-level ones -- exactly what both back-ends report."""
+    """{path relative to pydir: set(dotted case names)} read from the SOURCES,
+    never from a runner. 'Dotted' means 'Class.method' for class-based cases and
+    plain 'function' for module-level ones -- exactly what both back-ends
+    report.
+
+    ⚠️ The key is the RELATIVE PATH, and the walk is recursive. A basename key
+    on a tree with two same-named suites in different directories merges them
+    into one entry, and the cases of one then pay for the cases of the other.
+    """
     suites = {}
-    for name in sorted(os.listdir(pydir)):
-        if not is_suite_file(name):
-            continue
-        with open(os.path.join(pydir, name), encoding="utf-8") as handle:
-            tree = ast.parse(handle.read(), name)
-        cases = set()
+    for root, dirs, files in os.walk(pydir):
+        dirs[:] = sorted(d for d in dirs if _recurse_into(d))
+        for base in sorted(files):
+            if not is_suite_file(base):
+                continue
+            full = os.path.join(root, base)
+            name = os.path.relpath(full, pydir).replace(os.sep, "/")
+            with open(full, encoding="utf-8") as handle:
+                tree = ast.parse(handle.read(), name)
+            cases = set()
 
-        def walk(node, prefix):
-            for child in node.body:
-                if isinstance(child, ast.ClassDef):
-                    walk(child, prefix + child.name + ".")
-                elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    if child.name.startswith("test"):
-                        cases.add(prefix + child.name)
+            def walk(node, prefix, cases=cases):
+                for child in node.body:
+                    if isinstance(child, ast.ClassDef):
+                        walk(child, prefix + child.name + ".", cases)
+                    elif isinstance(child, (ast.FunctionDef,
+                                            ast.AsyncFunctionDef)):
+                        if child.name.startswith("test"):
+                            cases.add(prefix + child.name)
 
-        walk(tree, "")
-        suites[name] = cases
+            walk(tree, "")
+            suites[name] = cases
     return suites
 
 
@@ -133,6 +194,65 @@ def have_pytest():
 
 
 _PARAM_SUFFIX = re.compile(r"\[.*\]$", re.S)
+
+
+def _is_expected_failure(skipped):
+    """True when this junit <skipped> is an xfail, i.e. a case that DID run.
+
+    pytest files xfail under <skipped type="pytest.xfail">; a real skip is
+    type="pytest.skip" (or has no type at all on very old versions). The single
+    xfail flavour that really does not run is xfail(run=False), whose message
+    pytest prefixes with "[NOTRUN]".
+    """
+    if (skipped.get("type") or "") != "pytest.xfail":
+        return False
+    message = skipped.get("message") or ""
+    return not message.lstrip().startswith("[NOTRUN]")
+
+
+def rel_to_pydir(raw, pydir):
+    """junit's file="..." turned into a path relative to pydir.
+
+    pytest writes it relative to its rootdir, which is pydir itself (we pass
+    --rootdir) or, if a future pytest ignores that, one of pydir's ancestors.
+    Both are resolved here. ⚠️ The fallback is the RAW string, never the
+    basename: an unresolvable path must land on a key that matches nothing and
+    surface as UNDECLARED, not silently merge with a declared suite.
+    """
+    if not raw:
+        return ""
+    raw = raw.replace("\\", "/")
+    if os.path.isabs(raw):
+        cands = [raw]
+    else:
+        cands = []
+        base = pydir
+        while True:
+            cands.append(os.path.join(base, raw))
+            parent = os.path.dirname(base)
+            if parent == base:
+                break
+            base = parent
+    for cand in cands:
+        cand = os.path.normpath(cand)
+        if not cand.startswith(pydir + os.sep):
+            continue
+        if os.path.exists(cand):
+            return os.path.relpath(cand, pydir).replace(os.sep, "/")
+    return raw
+
+
+def src_from_classname(classname, pydir):
+    """Last resort when junit gives no file=: rebuild the path from the dotted
+    module, longest prefix first, and keep it only if it exists on disk."""
+    parts = [p for p in (classname or "").split(".") if p]
+    for i in range(len(parts), 0, -1):
+        if not is_suite_file(parts[i - 1] + ".py"):
+            continue
+        rel = "/".join(parts[:i]) + ".py"
+        if os.path.exists(os.path.join(pydir, rel)):
+            return rel
+    return ""
 
 
 def junit_case_id(case, stem):
@@ -158,23 +278,25 @@ def run_with_pytest(pydir):
     failed = 0
     with tempfile.TemporaryDirectory() as tmp:
         report = os.path.join(tmp, "junit.xml")
+        # --rootdir pins what junit's file="..." is relative to; rel_to_pydir
+        # copes anyway, but pinning it makes the common case exact.
         cmd = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
-               "--junit-xml=" + report, pydir]
+               "--rootdir", pydir, "--junit-xml=" + report, pydir]
         proc = subprocess.run(cmd, cwd=pydir)
         if not os.path.exists(report):
             return {}, 0, ("pytest produced no report (exit %d); nothing can be "
                            "accounted for" % proc.returncode)
         root = ET.parse(report).getroot()
         for case in root.iter("testcase"):
-            src = os.path.basename(case.get("file") or "")
-            if not src:
-                parts = (case.get("classname") or "").split(".")
-                mods = [p for p in parts if is_suite_file(p + ".py")]
-                src = (mods[0] + ".py") if mods else "<unknown>"
-            stem = src[:-3] if src.endswith(".py") else src
+            src = (rel_to_pydir(case.get("file"), pydir) or
+                   src_from_classname(case.get("classname"), pydir) or
+                   "<unknown>")
+            base = os.path.basename(src)
+            stem = base[:-3] if base.endswith(".py") else base
             ident = junit_case_id(case, stem)
             executed.setdefault(src, set())
-            if case.find("skipped") is not None:
+            skipped = case.find("skipped")
+            if skipped is not None and not _is_expected_failure(skipped):
                 # Skipped from the inside: collected, never executed.
                 continue
             if not ident:
@@ -206,8 +328,12 @@ def ident(test):
     tid = getattr(test, "id", lambda: str(test))()
     tid = tid.split(" ")[0]
     parts = tid.split(".")
-    if parts and parts[0] == module:
-        parts = parts[1:]
+    # The module may be dotted ("regress.test_logger"): strip ALL of its
+    # components, or a nested suite reports "pkg.mod.Class.method" against a
+    # declaration that says "Class.method" and every case reads as missing.
+    mparts = module.split(".")
+    if parts[:len(mparts)] == mparts:
+        parts = parts[len(mparts):]
     return ".".join(parts)
 
 class Result(unittest.TextTestResult):
@@ -265,15 +391,19 @@ def run_with_unittest(pydir, srcroot):
             handle.write(_UNITTEST_DRIVER)
 
         for name in sorted(declared_suites(pydir)):
-            module = name[:-3]
+            # name is a path relative to pydir; the module is its dotted form.
+            # A sub-directory without __init__.py simply fails to import and is
+            # reported as such -- which is the truth: it did not run.
+            module = name[:-3].replace("/", ".")
             executed.setdefault(name, set())
             probe = subprocess.run([sys.executable, "-c", "import " + module],
                                    cwd=pydir, env=env,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if probe.returncode != 0:
                 reason = probe.stderr.decode("utf-8", "replace").strip().splitlines()
-                notes.append("%s: not importable without pytest (%s)"
-                             % (name, reason[-1] if reason else "unknown error"))
+                notes.append("%s: not importable without pytest as '%s' (%s)"
+                             % (name, module,
+                                reason[-1] if reason else "unknown error"))
                 continue
 
             proc = subprocess.run([sys.executable, driver, module],
