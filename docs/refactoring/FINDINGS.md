@@ -4721,7 +4721,7 @@ de `src/`, puis reconstruction complète. ⚠️ La purge bute sur des artefacts
 rafraîchie sur les sources suffit, puisque tout ce qui les inclut redevient périmé.
 
 ⭐ **C'est la n° 11 de la liste canonique** (plus bas, avant `F-PYTEST-1`). ⚠️ Cette section disait
-« **la neuvième** » : le compte d'alors n'avait énuméré ni `F-BUILD-1` ni `F-TYPE-3`. Les **onze**
+« **la neuvième** » : le compte d'alors n'avait énuméré ni `F-BUILD-1` ni `F-TYPE-3`. Les **treize**
 ont la même forme : **l'arbre a l'air juste à l'endroit qu'on regarde**.
 
 ### ⚠️ Un oracle écrit par l'audit et démenti par la campagne — `ColorUtils.cpp:245`
@@ -4993,7 +4993,7 @@ recompter, jamais les recopier.
 
 ⛔ **La ligne `_DEPENDENCIES` n'a PAS été corrigée par T3.37, et ne doit pas l'être à la légère** :
 c'est le périmètre de `T3.36`, cela concerne 50 cibles d'un coup, et une modification hâtive du
-harnais est **exactement** ce qui a produit les **onze** variantes de faux vert/faux rouge de
+harnais est **exactement** ce qui a produit les **treize** variantes de faux vert/faux rouge de
 la série (liste canonique numérotée plus bas).
 Ce finding est là pour que `T3.36` hérite d'une **mesure**, pas d'une intuition.
 
@@ -5207,7 +5207,7 @@ lanceur de `make dist` doit penser à `git checkout -- po/`** — piège à comm
   au temps simulé plutôt qu'à l'horloge, ou par une marge. Voir aussi la règle de parallélisme :
   `make check -j8` quand 3-4 agents buildent, `-j16` seulement en solo.
 ## F-PYTEST-1 — la huitième variante de faux vert : des tests qui ne s'exécutent pas (2026-08-25)
-## ⭐ LA LISTE CANONIQUE DES VARIANTES DE FAUX VERT / FAUX ROUGE — **onze**, numérotées
+## ⭐ LA LISTE CANONIQUE DES VARIANTES DE FAUX VERT / FAUX ROUGE — **treize**, numérotées
 
 *(Établie le 2026-08-25 en fermant les réserves de la 2ᵉ revue de [T3.44](T3.44.md). ⚠️ **C'est LA
 référence** : toute mention d'un compte ou d'un rang ailleurs dans `docs/refactoring/` doit
@@ -5217,7 +5217,7 @@ famille `_DEPENDENCIES`), « sixième » (revendiqué par **deux** findings diff
 global « septième / huitième / neuvième » qui **n'avait jamais énuméré `F-BUILD-1` ni
 `F-TYPE-3`**.)*
 
-⚠️ **Le fil commun des onze** : *l'arbre a l'air juste à l'endroit qu'on regarde.*
+⚠️ **Le fil commun des treize** : *l'arbre a l'air juste à l'endroit qu'on regarde.*
 
 | n° | variante | id | où c'est mesuré |
 |---|---|---|---|
@@ -5232,11 +5232,19 @@ global « septième / huitième / neuvième » qui **n'avait jamais énuméré `
 | **9** | **Deux `Testsuite summary`** — le premier bloc est un faux vert, et **les deux** comptent un test de moins que l'arbre n'en déclare | **F-BUILD-1** | *`make check` a imprimé **deux** `Testsuite summary`*, plus haut |
 | **10** | **En-tête template au `-fsyntax-only`** — le corps vit dans un membre d'un template **jamais instancié**, `rc=0` : mutation « compilée verte » sans rien vérifier | **F-TYPE-3** | *`[F-TYPE-3]` — un en-tête TEMPLATE ne se vérifie pas au `-fsyntax-only`*, plus haut (mergée avec `T3.31`) |
 | **11** | **Restauration pristine par `copy2`** — la date préservée rend la source **plus ancienne** que le `.o` muté : `make` ne recompile rien | — | *Neuvième variante de faux vert/rouge*, plus haut |
+| **12** | ⭐ **La restauration qui ne restaure RIEN** — dans un **worktree git**, le `.git` est un *fichier* pointant hors du montage : `git checkout` **échoue en silence** dans le conteneur, la mutation précédente reste sur le disque et le témoin **n'est plus le témoin** | — (T3.40) | *Douzième variante — la restauration qui ne restaure RIEN*, plus bas |
+| **13** | ⭐ **La borne de sûreté devenue la contrainte active** — un plafond « ne jamais bloquer `make check` » atteint **avant** l'échéance testée : l'attente rend la main en 80 ms au lieu de 650, verte, **sans rien exercer** | — (T3.40) | *Treizième variante — la borne de sûreté devenue la contrainte active*, plus bas |
 
-⚠️ **Deux voisins qui ne sont PAS des variantes de plus** — les recompter serait une douzième et une
-treizième imaginaires : **`F-TEST-2`** (le non-relink étendu au faux **rouge**) et
+⚠️ **Deux voisins qui ne sont PAS des variantes de plus** — les recompter en ferait deux
+**imaginaires** de plus : **`F-TEST-2`** (le non-relink étendu au faux **rouge**) et
 **`F-RELINK-T337`** (faux rouge reproduit sur source propre) sont deux **instances** de la
 famille `_DEPENDENCIES`, n° 1 à 5.
+
+⭐ **Les n° 12 et 13 ont été ajoutées par [T3.40](T3.40.md)**, l'une **rencontrée par son relecteur
+sur sa propre campagne**, l'autre **produite par T3.40 elle-même en corrigeant un flottement**.
+⚠️ Le fil commun des treize n'a pas changé : *l'arbre a l'air juste à l'endroit qu'on regarde* —
+et les deux dernières ajoutent une précision : **l'endroit qu'on regarde peut être le verdict, alors
+que la mesure est dans le compte de fichiers restaurés ou dans le temps par cas.**
 
 ⚠️ **Une dette de numérotation reste, et une a été payée** :
 1. ✅ **PAYÉE — la n° 10 (`F-TYPE-3`)**. Cette liste a été écrite alors que `F-TYPE-3` vivait
@@ -5254,7 +5262,7 @@ famille `_DEPENDENCIES`, n° 1 à 5.
 remède propres. C'est la faute **M-7** du catalogue des fautes de méthode : *un remède correct
 généralisé à une famille à laquelle il n'appartient pas.*
 
-## F-PYTEST-1 — la **8ᵉ** des **onze** variantes de faux vert (liste canonique ci-dessus) : des tests qui ne s'exécutent pas (2026-08-25)
+## F-PYTEST-1 — la **8ᵉ** des **treize** variantes de faux vert (liste canonique ci-dessus) : des tests qui ne s'exécutent pas (2026-08-25)
 
 *(Trouvée par la revue de [T3.39](T3.39.md) en mesurant F-MCP-XFF-1 ; **fermée par
 [T3.44](T3.44.md)**, branche `fix/fpytest1`. Cette section est le versement de ce qui a été
@@ -6374,7 +6382,7 @@ mutant survivrait**, et le cas resterait vert pour la mauvaise raison. Compagnon
 contre-mutation qui le vise (**MU-H** : le délai 1,5 s porté à 30 s, la garde **intacte**) le rougit
 **SEUL** — ni MU-E ni le cas de destruction ne la voient.
 
-### ⛔ Douzième variante de faux vert — **la restauration qui ne restaure RIEN**
+### ⛔ Douzième variante de faux vert (**n° 12 de la liste canonique**) — **la restauration qui ne restaure RIEN**
 
 Rencontrée par le **relecteur de T3.40 sur sa propre campagne**. Son script restaurait l'arbre par
 `git checkout -- <fichiers>` **exécuté dans le conteneur**. Or l'arbre est un **worktree git** : son
@@ -6405,7 +6413,7 @@ test, ni même le `cmp` d'application, qui comparait la mutation à… l'état d
 dans le conteneur produit cette variante. `git` en est un cas particulier — mais dans un
 **worktree**, il l'est **structurellement**, pas par accident.
 
-### ⛔ Treizième variante de faux vert — **la borne de sûreté devenue la contrainte active**
+### ⛔ Treizième variante de faux vert (**n° 13 de la liste canonique**) — **la borne de sûreté devenue la contrainte active**
 
 Produite **en corrigeant** un flottement, pendant la livraison de T3.40. Le filet attend l'expiration
 de délais réels (250 ms, 400 ms, 1,5 s) en pompant la boucle ; l'attente était bornée à l'horloge.
