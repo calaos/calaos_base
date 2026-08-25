@@ -83,9 +83,12 @@
  * ---------------------------------------------------------------------------
  * SUITE ORDER MATTERS
  * ---------------------------------------------------------------------------
- * The Roon and KNX suites are declared LAST, in that order, because before the
- * guard they do not fail, they KILL the binary, and gtest would never reach
- * anything declared after them.
+ * The suites that KILL the binary rather than fail are declared LAST, after
+ * the ones that merely go red: before the guard, IoLifetimeExternProcTest and
+ * IoLifetimeKnxTest dereference the dangling `this` straight away, gtest emits
+ * no FAILED line, and nothing declared after them is ever reached. Order:
+ * source guard (touches neither loop nor IO), poisoned storage, Roon (a
+ * counter, never a crash), then the two killers.
  *
  * Own main() with _exit(), same reason as core/KnxIo_test: KNXCtrl/RoonCtrl
  * live in function-local statics whose destruction tears down an
@@ -715,7 +718,7 @@ TEST_F(IoLifetimeTest, PoisonDetectorSeesAWriteIntoTheFreedStorage)
 }
 
 /******************************************************************************
- * IO/InputSwitchLongPress.cpp:87 - Timer::singleShot(0.250, [=]{ value = 0; })
+ * IO/InputSwitchLongPress.cpp:88 - ioAlive.singleShot(0.250, [this]{ value = 0; })
  ******************************************************************************/
 
 TEST_F(IoLifetimeTest, LongPressResetStillRunsWhileTheIoIsAlive)
@@ -761,7 +764,7 @@ TEST_F(IoLifetimeTest, LongPressResetDoesNotOutliveTheDeletedIo)
 }
 
 /******************************************************************************
- * IO/InputSwitchTriple.cpp:97 - singleShot(0.250, mem_fun(*this, resetInput))
+ * IO/InputSwitchTriple.cpp:100 - ioAlive.singleShot(0.250, [this]{ resetInput(); })
  *
  * The one mem_fun of the five: sigc++ binds a RAW pointer here, because
  * InputSwitchTriple is not a sigc::trackable. This is the only site of the
@@ -808,7 +811,7 @@ TEST_F(IoLifetimeTest, TripleResetDoesNotOutliveTheDeletedIo)
 }
 
 /******************************************************************************
- * IO/Scenario.cpp:103 - Timer::singleShot(0.250, [=]{ value = false; })
+ * IO/Scenario.cpp:105 - ioAlive.singleShot(0.250, [this]{ value = false; })
  ******************************************************************************/
 
 TEST_F(IoLifetimeTest, ScenarioResetStillRunsWhileTheIoIsAlive)
@@ -846,82 +849,6 @@ TEST_F(IoLifetimeTest, ScenarioResetDoesNotOutliveTheDeletedIo)
 
     EXPECT_EQ(store.breaches(), 0)
         << "the reset one-shot of Scenario wrote into a destroyed IO ("
-        << store.breaches() << " of " << store.size()
-        << " bytes of the freed storage are no longer poison)";
-}
-
-/******************************************************************************
- * IO/ExternProc.cpp:191 and :198 - alive.singleShot(0.1, [this]{ ... })
- *
- * ⭐ THE ONE OF THE THREE GUARDS WITHOUT AN ORACLE THAT ACTUALLY NEEDED ONE.
- * T3.40 closed sixteen sites and left three of them unexercised
- * (IPCam/IPCam.cpp:126, this one, PollListenner.cpp:60). This is the only one
- * of the three where the object is destroyed INSIDE the 100 ms window, by
- * production code, on an ordinary path: ~WagoMap, ~KNXCtrl, ~OLACtrl, ~OWCtrl
- * and ~RoonPlayer all `delete process`, and LuaScript/ScriptExec.cpp:132
- * deletes the server from an idler that processExited itself armed. The other
- * two rest on a code reading; this one now rests on a measurement.
- *
- * HOW THE WINDOW IS OPENED HERE: uv_spawn on a path that does not exist fails
- * SYNCHRONOUSLY (ExternProc.cpp checks hasFailedStarting on the line after
- * spawn()), so ProcessHandle publishes ErrorEvent inside startProcess(), and
- * the handler arms the 100 ms deferred processExited.emit(). No child is
- * created, nothing is left to reap.
- *
- * ⚠️ ExternProcServer is NOT an IOBase: it carries its own LifetimeTag
- * (`alive`, ExternProc.h). Deriving IOBase from sigc::trackable would not have
- * covered it either way - and it IS a sigc::trackable already, which is
- * exactly the trap: trackable disconnects mem_fun, never a lambda.
- ******************************************************************************/
-
-class IoLifetimeExternProcTest: public CoreFixture
-{
-};
-
-TEST_F(IoLifetimeExternProcTest, ProcessExitedStillFiresWhileTheServerIsAlive)
-{
-    loadConfig();
-
-    ExternProcServer srv("t340probe");
-
-    int exited = 0;
-    srv.processExited.connect([&exited]() { exited++; });
-
-    srv.startProcess(kNoSuchBinary, "t340", "");
-    ASSERT_EQ(exited, 0)
-        << "processExited was emitted synchronously: there is no window";
-
-    pumpLoopFor(kExternProcInsideWindowMs);
-    EXPECT_EQ(exited, 0)
-        << "the deferred processExited fired before "
-        << kExternProcInsideWindowMs << " ms: no window left for a deletion";
-
-    pumpLoopFor(kExternProcPastWindowMs - kExternProcInsideWindowMs);
-    EXPECT_EQ(exited, 1)
-        << "the deferred processExited never ran at all on a LIVE server: the "
-           "case below would then be green for the wrong reason";
-}
-
-TEST_F(IoLifetimeExternProcTest, ProcessExitedDoesNotOutliveTheDeletedServer)
-{
-    loadConfig();
-
-    OwnedIoStorage<ExternProcServer> store;
-    ExternProcServer *srv = store.construct(std::string("t340probe"));
-
-    int exited = 0;
-    srv->processExited.connect([&exited]() { exited++; });
-
-    srv->startProcess(kNoSuchBinary, "t340", "");
-    ASSERT_EQ(exited, 0);
-
-    store.destroyAndPoison();
-    pumpLoopFor(kExternProcPastWindowMs);
-
-    EXPECT_EQ(exited, 0)
-        << "a destroyed ExternProcServer emitted processExited from the loop";
-    EXPECT_EQ(store.breaches(), 0)
-        << "the deferred processExited touched the destroyed server ("
         << store.breaches() << " of " << store.size()
         << " bytes of the freed storage are no longer poison)";
 }
@@ -991,7 +918,90 @@ TEST_F(IoLifetimeRoonTest, PlaylistSizeDoesNotAnswerForADeletedPlayer)
 }
 
 /******************************************************************************
- * IO/KNX/KNXIo.h:74 - Timer::singleShot(1.5, [this, eis, group_bases]{ ... })
+ * IO/ExternProc.cpp:196 and :205 - alive.singleShot(0.1, [this]{ ... })
+ *
+ * ⭐ THE ONE OF THE THREE GUARDS WITHOUT AN ORACLE THAT ACTUALLY NEEDED ONE.
+ * T3.40 closed sixteen sites and left three of them unexercised
+ * (IPCam/IPCam.cpp:126, this one, PollListenner.cpp:60). This is the only one
+ * of the three where the object is destroyed INSIDE the 100 ms window, by
+ * production code, on an ordinary path: ~WagoMap, ~KNXCtrl, ~OLACtrl, ~OWCtrl
+ * and ~RoonPlayer all `delete process`, and LuaScript/ScriptExec.cpp:132
+ * deletes the server from an idler that processExited itself armed. The other
+ * two rest on a code reading; this one now rests on a measurement.
+ *
+ * HOW THE WINDOW IS OPENED HERE: uv_spawn on a path that does not exist fails
+ * SYNCHRONOUSLY (ExternProc.cpp checks hasFailedStarting on the line after
+ * spawn()), so ProcessHandle publishes ErrorEvent inside startProcess(), and
+ * the handler arms the 100 ms deferred processExited.emit(). No child is
+ * created, nothing is left to reap.
+ *
+ * ⚠️ ExternProcServer is NOT an IOBase: it carries its own LifetimeTag
+ * (`alive`, ExternProc.h). Deriving IOBase from sigc::trackable would not have
+ * covered it either way - and it IS a sigc::trackable already, which is
+ * exactly the trap: trackable disconnects mem_fun, never a lambda.
+ *
+ * ⚠️ DECLARED AFTER THE ROON SUITE, and that is not cosmetic: the deferred
+ * callback here is processExited.emit(), i.e. an immediate dereference of the
+ * dangling `this`, so without the guard this case does not fail, it KILLS the
+ * binary. Measured: with the suite declared earlier, the badly placed guard
+ * mutant (MU-F) died HERE and the Roon oracle never got to run, losing one of
+ * the four red cases that make MU-F attributable. Non fatal oracles first.
+ ******************************************************************************/
+
+class IoLifetimeExternProcTest: public CoreFixture
+{
+};
+
+TEST_F(IoLifetimeExternProcTest, ProcessExitedStillFiresWhileTheServerIsAlive)
+{
+    loadConfig();
+
+    ExternProcServer srv("t340probe");
+
+    int exited = 0;
+    srv.processExited.connect([&exited]() { exited++; });
+
+    srv.startProcess(kNoSuchBinary, "t340", "");
+    ASSERT_EQ(exited, 0)
+        << "processExited was emitted synchronously: there is no window";
+
+    pumpLoopFor(kExternProcInsideWindowMs);
+    EXPECT_EQ(exited, 0)
+        << "the deferred processExited fired before "
+        << kExternProcInsideWindowMs << " ms: no window left for a deletion";
+
+    pumpLoopFor(kExternProcPastWindowMs - kExternProcInsideWindowMs);
+    EXPECT_EQ(exited, 1)
+        << "the deferred processExited never ran at all on a LIVE server: the "
+           "case below would then be green for the wrong reason";
+}
+
+TEST_F(IoLifetimeExternProcTest, ProcessExitedDoesNotOutliveTheDeletedServer)
+{
+    loadConfig();
+
+    OwnedIoStorage<ExternProcServer> store;
+    ExternProcServer *srv = store.construct(std::string("t340probe"));
+
+    int exited = 0;
+    srv->processExited.connect([&exited]() { exited++; });
+
+    srv->startProcess(kNoSuchBinary, "t340", "");
+    ASSERT_EQ(exited, 0);
+
+    store.destroyAndPoison();
+    pumpLoopFor(kExternProcPastWindowMs);
+
+    EXPECT_EQ(exited, 0)
+        << "a destroyed ExternProcServer emitted processExited from the loop";
+    EXPECT_EQ(store.breaches(), 0)
+        << "the deferred processExited touched the destroyed server ("
+        << store.breaches() << " of " << store.size()
+        << " bytes of the freed storage are no longer poison)";
+}
+
+/******************************************************************************
+ * IO/KNX/KNXIo.h:78 - ioAlive.singleShot(1.5, [this, eis, group_bases]{ ... })
  *
  * The widest window of the sweep (1.5 s), opened at CONSTRUCTION whenever
  * read_at_start is set, and shared by the eleven KNX IO types through the

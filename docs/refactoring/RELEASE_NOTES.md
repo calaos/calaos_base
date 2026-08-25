@@ -482,9 +482,17 @@ d'une modification de configuration dans la seconde qui suit, suffisait. La fen�
 (un quart de seconde pour la plupart des équipements, **une seconde et demie** pour le KNX au
 démarrage), mais un rechargement de configuration en pleine activité tombe exactement dedans.
 
-**Types d'équipements concernés** : scénarios, boutons *appui long* et *triple appui*, caméras IP,
+**Types d'équipements concernés** : scénarios, boutons *appui long* et *triple appui*,
 **tous les équipements KNX** (entrées, sorties, variateurs, RVB, volets) et les lecteurs **Roon**.
+S'y ajoute la **surveillance des processus auxiliaires** (KNX, Wago, OLA, 1-Wire, Roon), dont
+l'avis d'arrêt différé pouvait de la même façon retomber sur un objet déjà détruit.
 Les volets avaient déjà été traités séparément.
+
+⚠️ **Les caméras IP sont dans le même cas et sont corrigées de la même façon, mais elles sont la
+seule famille de cette liste dont le défaut n'a PAS pu être reproduit par un test** : le déclencher
+demande un téléchargement réellement en cours, et la destruction de la caméra emporte ce
+téléchargement en vol. Leur présence ici est **déduite du code**, pas mesurée — contrairement à tout
+le reste de ce paragraphe.
 
 ### Ce qui change
 Chaque action différée vérifie désormais que son équipement **existe encore** avant de s'exécuter,
@@ -498,7 +506,7 @@ mesuré, c'est que l'action différée **ne s'exécute plus** une fois l'équipe
 par des tests qui détruisent l'objet puis surveillent sa mémoire, et par un lecteur Roon détruit
 qui, avant la correction, **répondait encore** à une requête de l'API. Ce qui n'est pas mesuré,
 c'est le comportement sur du matériel réel : ni bus KNX, ni core Roon, ni caméra n'ont été
-impliqués.
+impliqués — **ni le cas des caméras IP**, signalé ci-dessus.
 
 ---
 
