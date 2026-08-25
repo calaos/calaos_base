@@ -6445,6 +6445,29 @@ seraient devenus la norme, ce qui se lit comme « le filet ne couvre pas ce site
 seulement `PASS`/`FAIL`/code de sortie. Un journal qui ne garde que le verdict est aveugle à toute
 la famille « l'oracle a cessé d'observer ».
 
+⭐ **Et cette variante a un JUMEAU DE L'AUTRE CÔTÉ, déjà fiché ailleurs : `F-FLAKY-1` / [T3.49](T3.49.md).**
+Ma n° 13 est *l'attente qui rend la main TROP TÔT* (verte, sans rien exercer). `F-FLAKY-1` est
+*l'attente qui rend la main TROP TARD* (rouge, sans défaut) — et c'est bien l'hypothèse que T3.49
+retient. Les deux sortent **du même helper**, écrit de la même façon :
+
+```cpp
+tests/core/ShutterImpulse_test.cpp:113   //et, avant ce ticket, IoLifetimeTimer_test.cpp
+void pumpLoopFor(int ms)
+{
+    auto deadline = now() + ms;
+    while (now() < deadline) loop->run<NOWAIT>();     //borné à l'HORLOGE, et MUET
+}
+```
+
+⇒ **remède transposable, et il est concret** : (1) l'attente **dit si elle a attendu**
+(`ADD_FAILURE()` quand l'écoulé est inférieur au demandé) — cela sépare *« le produit s'est arrêté
+trop tôt »* de *« la pompe a débordé »*, ce que le message actuel (`Actual: true / Expected: false`)
+**ne permet pas de distinguer** ; (2) là où c'est une **fenêtre** qu'on vérifie, ne pas demander
+*« l'événement n'a pas eu lieu avant t »* mais **mesurer l'instant où il est OBSERVÉ** et en exiger
+une **borne inférieure** — un retard ne fait alors que grandir la mesure, et **ne peut plus rougir**.
+⚠️ **Non appliqué ici** : `core/ShutterImpulse_test.cpp` est le périmètre de `T3.49`, pas de T3.40.
+Ce paragraphe est la **mesure** que T3.49 hérite, pas une correction.
+
 ### ⚠️ [F-SIGC-1, apport] Un rouge NON REPRODUCTIBLE, et pourquoi la fenêtre ne doit pas être pinglée à l'horloge
 
 Au tour **MU-J** d'une campagne, `ProcessExitedStillFiresWhileTheServerIsAlive` a rougi. **MU-J
