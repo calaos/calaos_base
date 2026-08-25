@@ -2978,3 +2978,46 @@ core_IoLifetimeTimer_test_LDADD = $(CORE_TEST_LDADD) \
 #Built elsewhere, do not let automake turn them into prerequisites
 core_IoLifetimeTimer_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.50
+#The READ half of the Wago REPLY path: MultiBits_cb and MultiWords_cb
+#(WagoMap.h:38-39), the two slots that carry a read reply back from
+#calaos_wago. They carried (UWord address, int count) - two types that convert
+#into one another in silence, the pair E4.1h measured GREEN on a swap. T3.46
+#closed the WRITE half and named this one as the next ticket of the chain.
+#The *Refuses* cases are a COMPILATION property reported through an executable
+#oracle (std::is_invocable_v read by EXPECT_FALSE), never a behavioural one,
+#and every EXPECT_FALSE has its EXPECT_TRUE control next to it.
+#⭐ Unlike WagoWriteReply_test this one also probes the IMPLEMENTATIONS through
+#pointers to member, and EXERCISES one of them for real - which is why it links
+#the Wago server objects and lives under core/ with the fixture, exactly like
+#core/WagoPortDefault_test whose LDADD list this copies.
+#Built elsewhere: the server objects come from another Makefile, so only
+#libcalaos_common.la may appear in _DEPENDENCIES (the -DEPENDENCIES pitfall).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WagoReadReply_test
+check_PROGRAMS += core/WagoReadReply_test
+core_WagoReadReply_test_SOURCES = core/WagoReadReply_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_WagoReadReply_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoReadReply_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT)                      \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT)                     \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT)                \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_WagoReadReply_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
