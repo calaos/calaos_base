@@ -6998,3 +6998,58 @@ site** : *« ça ne compilera pas »* est une **prédiction**, pas une mesure. S
 avec les conversions implicites actives, **presque tout compile** — c'est la bibliothèque entière
 qui est conçue pour ça. Une promesse de garde-fou au compilateur doit être **compilée** avant
 d'être écrite.
+
+## T3.49 — `F-FLAKY-1` **FERMÉ** : ce n'était pas le vol de temps dans le pompage, c'est l'horloge EN CACHE de libuv (2026-08-26)
+
+- ⭐ **[F-FLAKY-1, FERMÉ par [`T3.49`](T3.49.md)] — `uv_timer_start()` ne lit PAS l'horloge.** Il
+  calcule son échéance depuis `loop->time`, l'horloge **en cache** de la boucle, que seul
+  `uv__update_time()` rafraîchit **en tête de chaque `uv_run()`**. Toute plage de temps mural
+  pendant laquelle **personne ne pompe** arme donc les échéances **dans le passé**, d'exactement la
+  longueur de cette plage. Dans une suite gtest, cette plage est le démontage/montage de fixture
+  plus `loadConfig()` : quelques ms à vide, **plus de 73 ms sous 96 brûleurs**.
+  ⇒ **Le seuil d'un tel flottement est `gap > marge`**, pas « la contention » : un **seuil**, pas une
+  probabilité, ce qui explique 0 % à vide et ~10 % sous charge sur la **même** machine.
+  ⛔ **Le mécanisme qui était écrit dans la fiche — « l'ordonnanceur vole du temps à `pumpLoopFor` »
+  — est INFIRMÉ par la mesure** : `pumpLoopFor(ms)` ne fait tourner les minuteries qu'au **début**
+  de chaque itération et n'itère que tant que `elapsed < ms`, donc **tous** les instants de tir
+  possibles sont `< ms`, strictement avant l'échéance. Sonde autonome liant la `libuv 1.44.2` de
+  l'image : **40 ms de vol délibéré dans CHAQUE itération ne font jamais tirer l'échéance dans la
+  fenêtre**, tandis qu'un **gap oisif de 120 ms** la fait tirer à **62 ms** pour une sonde à 91.
+  ⚠️ **Conséquence de méthode, et c'est la leçon transportable** : *quand une attente à l'horloge
+  murale flotte, regarder d'abord ce qui s'est passé **AVANT** l'attente, pas pendant.*
+
+- ⛔ **[F-FLAKY-1] Une borne inférieure ne suffit pas — la n° 13 a un côté qu'on n'avait pas vu.**
+  La forme retenue par [`T3.40`](T3.40.md) (*mesurer l'instant où le prédicat tient, puis en exiger
+  une borne inférieure*) est juste **contre le temps volé après l'origine**, et c'est bien tout ce
+  qu'il y avait dans le cas de T3.40. Elle ne couvre **pas** l'échéance qui **recule** : avec une
+  horloge de boucle vieille de `gap`, la réponse devient **plus petite**, et la borne inférieure
+  tombe. **Mesuré** : `gap=120`, échéance 182, sonde 91 ⇒ `pumpUntil` aurait rendu **62**.
+  ⇒ **Une borne inférieure n'est un rempart que si son ORIGINE et l'ÉCHÉANCE sont dans la même
+  horloge.** Il faut rafraîchir l'horloge de la boucle **juste avant** d'armer, sans quoi les deux
+  origines dérivent l'une de l'autre.
+
+- ⚠️ **[F-FLAKY-1] Le même défaut latent existait dans le jumeau `core/IoLifetimeTimer_test`**, et
+  c'est très probablement le *« rouge non reproductible »* que T3.40 a mesuré à **1 sur ~80** sur
+  `ProcessExitedStillFiresWhileTheServerIsAlive` — la marge la plus étroite du fichier (délai
+  100 ms, borne 40 ms ⇒ **60 ms**, la plus courte des cinq). Les **cinq** bornes inférieures du
+  fichier mesurent désormais depuis **avant** l'armement, horloge rafraîchie.
+  ⚠️ **Non reproduit ici** : je n'ai pas rejoué les ~80 exécutions qui l'avaient exhibé, et je ne
+  peux donc pas dire que cette cause-là est la sienne, seulement qu'elle **suffirait**.
+
+- ⚠️ **[F-FLAKY-1] Un tableau de marges qui prédit à l'envers vaut moins que pas de tableau.** Le
+  §1.1 de la fiche calculait `marge = durée demandée − sonde` en oubliant que l'échéance vaut
+  `impulse_action_time + impulse_time`. Marges réelles **73 · 91 · 159 · 180 · 231 ms** (et non
+  56 · 73 · 124 · 139 · 190), ce qui **inverse les deux premiers** : c'est `:384` le plus court, et
+  c'est bien lui que les observations frappent le plus souvent (§2 : 3× contre 2× ; cette
+  campagne : **5 rouges sur 5**).
+
+- ⭐ **[F-FLAKY-1] `RELEASE_NOTES` : rien de dû, et ce n'est pas une omission — c'est une
+  vérification.** L'horloge en cache **ne peut pas** décaler une échéance en production : dans une
+  boucle d'événements mono-thread, tout code applicatif tourne **à l'intérieur** d'un
+  `uv_run()`, donc `loop->time` n'est jamais vieille de plus d'une itération.
+  ⚠️ **La seule exception est le DÉMARRAGE** : les IO sont construites **avant** que la boucle ne
+  tourne, donc un one-shot armé à la construction (`KNXIo::read_at_start`, **1,5 s**) part d'une
+  `loop->time` figée à l'initialisation de la boucle. Si la construction de la configuration dure
+  plus longtemps que le délai, le one-shot tire **au premier tour** au lieu d'attendre.
+  ⚠️ **Non mesuré sur un vrai démarrage** — c'est une conséquence du mécanisme, pas une observation.
+  Consigné pour qui instruira les délais de démarrage.
