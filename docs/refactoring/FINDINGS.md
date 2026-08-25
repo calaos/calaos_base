@@ -3,6 +3,92 @@
 > Découvertes faites **en marge** des tickets (hors périmètre du ticket en cours, donc **non
 > corrigées**). Candidates à de futurs tickets. Sorti du job tmp éphémère → durable + partagé.
 
+## E4.1j — wire Lua aval (2026-08-25)
+
+- ⭐⭐ **[F-LUA-1] Un script Lua écrit par l'utilisateur peut injecter des OCTETS ARBITRAIRES dans
+  le JSON du wire — ce wire n'est PAS comme Wago, OLA ou Hue.** Mesuré au source :
+  `ScriptBindings.cpp` prend `lua_tostring()` et le met **directement** dans une valeur de chaîne
+  JSON, sur **trois** entrées atteignables en une ligne de script :
+
+  ```lua
+  calaos.sendPushNotif(string.char(0xFF))          -- "message"
+  calaos.setIOValue("io_x", string.char(0xFF))     -- "value"
+  calaos.setIOParam("io_x", "k", string.char(0xFF))-- "value"
+  ```
+
+  Une chaîne Lua est une **chaîne d'octets** ; LuaJIT est du Lua 5.1, donc `string.char()` **et**
+  l'échappement décimal `"\255"` existent, et le texte du script lui-même peut porter des octets
+  bruts. Le script arrive par `rules.xml` ou par l'API JSON.
+  ⇒ **Sur ce wire, `ensure_ascii` et `error_handler_t::replace` sont PORTEURS, pas défensifs.** Un
+  `dump()` nu ici lève `type_error.316` **depuis le callback de lecture `ExternProc`**, où rien
+  n'attrape : `std::terminate` de `calaos_script` au milieu du script de l'utilisateur. C'est
+  exactement le précédent KNX (le driver tué par un variateur à 78 %).
+  **Corrigé par construction dans E4.1j** : les trois invariants sont dans `ScriptWire::dumpJson()`
+  et nulle part ailleurs.
+
+- ℹ️ **[F-LUA-2] La bascule change le MODE d'échec sur UTF-8 invalide — assumé, sans note de
+  version.** Avant : `json_string()` rendait `NULL`, `json_object_set_new()` rendait `-1`, **aucun
+  code de retour n'était testé**, et la **paire entière** était supprimée — le serveur recevait
+  `send_push_notif` avec un `data` **vide**, ou un `set_state` **sans `value`**. Après : la clé est
+  là, l'octet fautif est devenu **U+FFFD**. Les deux issues sont du garbage pour l'utilisateur (la
+  notification est vide dans un cas, illisible dans l'autre), l'entrée est **déjà cassée** dans les
+  deux, et l'observable utilisateur ne change pas de nature. **Même arbitrage que F-REO-6 : pas
+  d'entrée `RELEASE_NOTES`.** ⚠️ Si un relecteur juge l'inverse, c'est **ici** qu'est la mesure.
+
+- ⚠️ **[F-LUA-3] LE TROU DES SITES D'APPEL, MESURÉ, et ce que le typage ferme vraiment.**
+  Trois permutations jouées sur la branche, build complet + `CXXLD ScriptWire_test` exigé à chaque
+  fois :
+  | Permutation | Résultat |
+  |---|---|
+  | `ScriptWire::buildSetParamMessage(ParamKey{key}, IoId{id}, …)` | **NE COMPILE PAS** (`invalid initialization of reference of type 'const ScriptWire::IoId&'`) |
+  | `io.set_param(key, value)` → `io.set_param(value, key)` (`ScriptBindings.cpp`) | **VERT 0/32** |
+  | `buildPushNotifMessage(lua_tostring(L,1), PushAttachment{lua_tostring(L,2)})` → indices échangés | **VERT 0/32** |
+
+  ⇒ **Le typage ferme la permutation des ARGUMENTS de la fonction, pas celle de leurs SOURCES.**
+  Tant qu'un site d'appel construit lui-même les deux valeurs typées (`IoId{a}, ParamKey{b}` vs
+  `IoId{b}, ParamKey{a}`), la permutation reste compilable. La fermeture complète demanderait de
+  typer `LuaIOBase::set_param()` et le dépilement Lua eux-mêmes, ce qui déborde du périmètre.
+  **6ᵉ mesure de ce trou dans la série** (Wago F-WAGO-4, Reolink `username`↔`password`) : le
+  motif est confirmé, **la voie de fermeture aussi**.
+
+- 📏 **[F-LUA-4] RECALAGE OBLIGATOIRE — le défaut `setIOParam`/`waitForIO` a bougé de +1 ligne, et
+  deux références d'un autre finding sont MORTES.**
+  - Le défaut connu (« `return 1` sans rien empiler », § *Lua — quirks d'API* plus bas) est
+    **inchangé et non corrigé** par E4.1j, comme demandé. Ses sites passent de
+    `ScriptBindings.cpp:293` / `:333` à **`:294`** / **`:334`** (décalage d'exactement +1, dû au
+    seul `#include "ScriptWire.h"` ajouté en tête). Le fichier passe de **495 à 484 lignes**.
+  - ⛔ **`F-REO-1` cite `LuaScript/ScriptBindings.cpp:435,:494` comme sites `jansson_to_string`
+    corrects : CES DEUX SITES N'EXISTENT PLUS.** Les deux corps `sendJson()` dupliqués ont été
+    remplacés par les constructeurs nommés de `ScriptWire.h`. Tout recompte de
+    `jansson_to_string` postérieur à E4.1j doit retirer ces deux-là. **Non corrigé en place dans
+    `F-REO-1`** pour ne pas réécrire la mesure d'un autre ticket.
+
+- ℹ️ **[F-LUA-5] La bascule perd le texte d'erreur du parseur dans un `cWarningDom`.** Le message
+  « *Error parsing json from sub process* » citait `jerr.text` (position et cause de l'erreur de
+  syntaxe) ; `Json::parse(msg, nullptr, false)` n'a pas d'équivalent non levant. Le **message brut
+  reste journalisé** à côté, ce qui est ce qu'un lecteur exploite réellement. **Même choix que
+  `WagoWire` et `ReolinkWire`.** Récupérer le texte demanderait un `try`/`catch` autour du
+  **parse** — pas interdit par la décision utilisateur (qui vise le `dump()`), mais c'est de la
+  surface ajoutée pour un journal. → ticket possible, non recommandé.
+
+- 📏 **[F-LUA-6] La liste de dépendances d'`E4.1x` est passée de 4 à 2 puis à ZÉRO.**
+  Mutation **fidèle** (`IO/ExternProc.h` cesse de déléguer, `src/lib/Jansson_Addition.h`
+  **intact**), `make -C src -j16 -k`, mesurée **trois fois** :
+
+  | arbre | RC | objets en échec | lignes `error:` |
+  |---|---|---|---|
+  | `db6770a7` (master avant `E4.1d`/`E4.1f`) | 2 | **4** — les 2 OLA + mes 2 | 62 |
+  | `d1462d9e` (master actuel) **seul** | 2 | **2** — `LuaScript/ScriptBindings.cpp`, `LuaScript/ScriptExtern_main.cpp` | 34 |
+  | ⭐ `d1462d9e` + `refactor/e4.1j` | **0** | **ZÉRO** | **0** |
+
+  Sur la dernière ligne les **sept** binaires sont produits (`calaos_server`, `calaos_ola`,
+  `calaos_knx`, `calaos_mqtt`, `calaos_wago`, `calaos_script`, `calaos_1wire`).
+  ⇒ **`E4.1x` n'est plus bloqué par cette liste.** ⚠️ Mesure faite avec `libola`, `eibclient`
+  **et** `mosquitto` présents (`HAVE_LIBOLA_TRUE=''`, `HAVE_LIBKNX_TRUE=''`,
+  `HAVE_LIBMOSQUITTO_TRUE=''` dans `config.log`) : les trois binaires conditionnels sont
+  **réellement compilés**. La réserve d'exposition conditionnelle d'`E4.1c` est levée **sur cette
+  machine**, pas dans l'absolu.
+
 ## E4.1d — Squeezebox et Hue (2026-08-25)
 
 > Périmètre : `Audio/Squeezebox.cpp`, `IO/Hue/HueOutputLightRGB.cpp`. **Hors périmètre, NON
