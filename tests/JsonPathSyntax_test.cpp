@@ -1053,26 +1053,52 @@ TEST_F(WebJsonPathTest, APaddedOrSignedNumberIsStillReadAsANumber)
     EXPECT_TRUE(logContains(log, "index not found")) << "log was: " << log;
 }
 
-//! The measured reason the two cases above exist at all. Utils::from_string()
-//is the only thing standing between a failed parse and the caller's variable,
-//and on a BLANK string it neither writes the destination nor reports it:
-//the stream sentry fails before num_get runs, and iss.eof() is TRUE because
-//the stream did reach its end. A caller cannot detect the case from the
-//return code, which is why every caller must either pre-check the string or
-//own an initialised destination.
-TEST(UtilsFromString, ABlankStringNeitherWritesTheDestinationNorReportsIt)
+//! The measured reason the two cases above exist at all.
+//
+//⛔ T3.25 CLOSED THE PREMISE OF THIS CASE, so it is REWRITTEN rather than
+//deleted - the two assertions on the blank string are now the exact OPPOSITE of
+//what they were, and the sentinels are kept as they were (424242.0 and 7777,
+//never 0, so that "not written" and "written zero" stay distinguishable).
+//
+//It used to read: "Utils::from_string() is the only thing standing between a
+//failed parse and the caller's variable, and on a BLANK string it neither
+//writes the destination nor reports it: the stream sentry fails before num_get
+//runs, and iss.eof() is TRUE because the stream did reach its end. A caller
+//cannot detect the case from the return code, which is why every caller must
+//either pre-check the string or own an initialised destination."
+//
+//Every word of that was true of the shipped primitive, and it is what made the
+//two WebJsonPath cases above necessary. Since T3.25 from_string() returns
+//`!fail() && eof()` and publishes a value-initialised temporary on EVERY path:
+//a blank string answers FALSE and writes T{}. The caller CAN now detect the
+//case from the return code - which is precisely what T3.25 bought, and what
+//this case now pins.
+//
+//The asymmetry at the bottom is UNTOUCHED by T3.25 and stays: a non blank
+//unreadable string has always written 0, because there the sentry succeeds and
+//num_get runs. It is the half every guard written against a garbage value
+//depends on.
+TEST(UtilsFromString, ABlankStringIsRefusedAndNoLongerLeavesTheDestinationAlone)
 {
     double d = 424242.0;
-    EXPECT_TRUE(Utils::from_string(std::string(""), d));
-    EXPECT_DOUBLE_EQ(424242.0, d);
+    EXPECT_FALSE(Utils::from_string(std::string(""), d))
+            << "from_string(\"\") claims success again: T3.25 has been reverted";
+    EXPECT_DOUBLE_EQ(0.0, d)
+            << "from_string(\"\") left the destination untouched again";
 
     int i = 7777;
-    EXPECT_TRUE(Utils::from_string(std::string(""), i));
-    EXPECT_EQ(7777, i);
+    EXPECT_FALSE(Utils::from_string(std::string(""), i));
+    EXPECT_EQ(0, i);
+
+    //A whitespace-only string is the same family and was the same trap.
+    int w = 7777;
+    EXPECT_FALSE(Utils::from_string(std::string("  \t "), w));
+    EXPECT_EQ(0, w);
 
     //By contrast a NON blank string that fails to parse DOES write 0: the
     //sentry succeeds, num_get runs and C++11 makes it store zero on failure.
-    //That asymmetry is the whole trap.
+    //That half is unchanged, and it is why the return code was never enough on
+    //its own.
     int j = 7777;
     EXPECT_FALSE(Utils::from_string(std::string("zz"), j));
     EXPECT_EQ(0, j);

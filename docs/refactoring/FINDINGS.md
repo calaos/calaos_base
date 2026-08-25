@@ -4644,6 +4644,62 @@ Recompté en revue, et c'est le point qui fait diverger les balayages. `Timer::s
 question qui décide est **« la cible est-elle un `mem_fun`, ou une lambda ? »**. Détail consigné ici
 parce qu'il change la liste de [`T3.40`](T3.40.md), pas seulement son cardinal.
 
+### ⭐ `F-LINK-1`, septième et huitième cas — et le **huitième est celui qui coûtait le plus cher**
+
+Versés par la **deuxième revue de `fix/t3.25`** (réserve 1). Les six premiers cas confondaient
+**lié** / **exercé** et **documenté** / **atteignable**. Les deux suivants confondent
+**« il faudrait un banc » / « il faut regarder où le produit publie déjà »**.
+
+| # | La phrase qui était fausse | La mesure qui l'a tuée |
+|---|---|---|
+| **7** | *« les IO Wago ne sont pas testables sans matériel ni sous-processus »* | ⭐ **`WagoMap::get_maps()` est PUBLIC** (`WagoMap.h`), et `WagoMap` **indexe ses singletons sur le couple `(host, port)`**. Le port qu'une IO a **réellement choisi** est donc lisible **depuis le produit**, sans mock, sans accesseur neuf, sans extraction en en-tête. `core/WagoPortDefault_test` épingle les **9** lignes `port` des six classes Wago avec ce seul joint |
+| **8** | *« `relay_num` n'a pas d'observable »* | **Presque vrai, et c'est le piège** : son unique consommateur (`set_value_real` → `RemoteUIManager::sendCommand`) **sort en avertissement** tant qu'aucun appareil ne tient un websocket. Mais l'objet était **lié** dans `core/RemoteUIDeviceInfo_test` **depuis T3.15** et **jamais instancié**. Coût réel de la fermeture : **un accesseur `const` de trois mots**, pas un banc |
+
+⇒ **La règle se resserre** : avant d'écrire « non testable », chercher **ce que le produit publie
+déjà** — une table de singletons, un registre, un compteur, un `get_*()` existant. Sur ces deux
+cas la réponse était **dans le `.h` de production**, à côté de la ligne à épingler.
+
+### ⚠️ Le motif de la pile n'est **pas** une règle — correction versée à la dette des non-initialisés
+
+`T3.25` §8.7 annonçait « à `-O2`, une locale non initialisée lit `0` cinq fois sur cinq ». **Faux.**
+Même programme, deux compilateurs, cinq exécutions chacun :
+
+| | `-O0` | `-O1` | `-O2` | `-O3` |
+|---|---|---|---|---|
+| **g++ 12.2** | `32766` ×5 | `0` ×5 | `0` puis `32648` ×4 | — |
+| **g++ 16.2** | — | — | `0` ×5 | `0` ×5 |
+
+⇒ **C'est un phénomène du compilateur ET de la forme de la pile, pas une propriété.** Conséquence
+qui vaut pour **toute** la série : **un oracle qui attend `0` sur un chemin de non-initialisation
+est VIDE PAR CONSTRUCTION** — il a été mesuré **vert chez un relecteur** et **rouge chez l'auteur**
+sur exactement le même code défectueux. Le remède est celui déjà employé par
+`StringUtilsFromString_test`, `OLAWire_test` et `ScriptWire_test` : **semer une sentinelle non
+nulle** (`21845`, `0xA5A5A5A5`, une chaîne impossible) **et peindre la pile** (`0x55`) quand la
+destination est une locale de production hors d'atteinte. ⚠️ Même peinte, ce n'est pas un rouge
+**garanti** : un compilateur qui garde la variable en **registre** ne touche pas la pile. **Le rouge
+déterministe d'un défaut de non-initialisation vit sur la PRIMITIVE, jamais sur l'IO.**
+
+### `MqttCtrl.cpp:226` — un non-initialisé que la famille « débordement » vient de rejoindre
+
+`int b;` sans initialiseur, gardé par `is_of_type<int>` à `:247` (`getValueColor`, luminosité MQTT).
+**Avant `T3.25`** un débordement donnait `b = INT_MAX` — faux mais **défini**. **Depuis**, la garde
+refuse, `b` **n'est jamais écrite**, et si `path_x`/`path_y` ont été lus alors `err == false` et
+`b / 255.0` lit une valeur **indéterminée**. Ce n'est **pas neuf** (tout jeton non numérique y
+menait déjà) et ce n'est **pas** une régression de `T3.25` : c'est la **famille des entrées qui
+l'atteignent** qui s'élargit. → [`T3.35`](T3.35.md).
+
+### ⚠️ Le piège du `endif` mord AUSSI à la résolution de conflit, pas seulement à l'écriture
+
+Mesuré sur le rebase de `fix/t3.25` sur `b7a4c63d`. `tests/Makefile.am` reçoit des **appends purs
+des deux côtés**, donc « garder les deux côtés » est la bonne résolution — **et elle est fausse
+telle quelle**. Les deux versants du conflit s'arrêtent **avant** le `endif` final, qui est du
+**contexte partagé** situé **après** le marqueur `>>>>>>>`. Concaténer les deux versants laisse donc
+**un seul `endif` pour deux `if` ouverts** : mesuré `if` **80** / `endif` **79**, profondeur finale
+**1**, et automake casse. ⇒ **Le résolveur doit refermer explicitement le versant amont** avant de
+coller le versant local. **Recompter `if`/`endif` sur CHAQUE commit de la série**, pas seulement sur
+la tête : le trou avait été introduit au **premier** des 11 et se propageait à tous les suivants —
+et il rendait **le commit de caractérisation non compilable**, donc la preuve par contre-mutation
+impossible.
 ---
 
 ## T3.37 — l'extraction du parseur de chemin JSON (2026-08-25)

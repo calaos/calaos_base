@@ -148,6 +148,25 @@ private:
  * value carrying a unit or a stray character. The partial read is kept, and
  * tests/StringUtilsFromString_test pins it — overflow rows included.
  */
+/* ⭐ T3.25 (review). WHAT "BLANK" MEANS, in ONE place.
+ *
+ * The six characters std::isspace() answers true for in the "C" locale, which
+ * is exactly the set the istringstream sentry of Detail::parse() skips - and
+ * the sentry is the reason a blank string never reaches num_get at all. The
+ * set is spelled out rather than obtained from the locale so that "blank" can
+ * never start depending on a global the tree never sets.
+ *
+ * Two callers, and they ask DIFFERENT questions of the same set:
+ *   - from_string_unless_blank() below asks "is the WHOLE string blank";
+ *   - JsonApi.cpp's setStateValueLostItsArgument() asks "does it END on a
+ *     blank" - a set_state value that ends on its separator is a command that
+ *     lost its argument.
+ * They were two hardcoded copies of " \t\n\v\f\r" until the review pointed
+ * out that nothing kept them in step; the QUESTIONS stay separate, the SET is
+ * now shared.
+ */
+inline constexpr const char BLANK_CHARS[] = " \t\n\v\f\r";
+
 namespace Detail
 {
 /* The ONE parse that from_string(), from_string_or_keep() and is_of_type() all
@@ -259,7 +278,7 @@ bool from_string_or_keep(const std::string &str, T &dest)
 template<typename T>
 bool from_string_unless_blank(const std::string &str, T &dest)
 {
-    if (str.find_first_not_of(" \t\n\v\f\r") == std::string::npos)
+    if (str.find_first_not_of(BLANK_CHARS) == std::string::npos)
         return false;
     return from_string(str, dest);
 }

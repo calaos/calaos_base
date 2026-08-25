@@ -294,27 +294,27 @@ TEST_F(RemoteUIDeviceInfoTest, NoDeviceInfoWritesNoElement)
  * configured relay number WIN, or "keep the default" would be satisfied by
  * never reading the parameter.
  ******************************************************************************/
-namespace
+//createIO() is protected on the fixture, so the helper lives on a fixture too.
+class RemoteUIRelayNumTest: public RemoteUIDeviceInfoTest
 {
+protected:
+    RemoteUIOutputRelay *makeRelay(const std::string &id, bool withParam,
+                                   const std::string &relayNum)
+    {
+        Params p = {{ "type", "RemoteUIOutputRelay" },
+                    { "id", id },
+                    { "name", "Relay under test" },
+                    { "remote_ui_id", DEVICE_A },
+                    { "enabled", "true" },
+                    { "visible", "true" }};
+        if (withParam)
+            p.Add("relay_num", relayNum);
 
-RemoteUIOutputRelay *makeRelay(const std::string &id, bool withParam,
-                               const std::string &relayNum)
-{
-    Params p = {{ "type", "RemoteUIOutputRelay" },
-                { "id", id },
-                { "name", "Relay under test" },
-                { "remote_ui_id", DEVICE_A },
-                { "enabled", "true" },
-                { "visible", "true" }};
-    if (withParam)
-        p.Add("relay_num", relayNum);
+        return dynamic_cast<RemoteUIOutputRelay *>(createIO(p));
+    }
+};
 
-    return dynamic_cast<RemoteUIOutputRelay *>(CoreFixture::createIO(p));
-}
-
-}
-
-TEST_F(RemoteUIDeviceInfoTest, AnAbsentRelayNumKeepsTheDocumentedFirstRelay)
+TEST_F(RemoteUIRelayNumTest, AnAbsentRelayNumKeepsTheDocumentedFirstRelay)
 {
     loadConfig();
 
@@ -325,7 +325,7 @@ TEST_F(RemoteUIDeviceInfoTest, AnAbsentRelayNumKeepsTheDocumentedFirstRelay)
             << ", a relay the ioDoc says does not exist";
 }
 
-TEST_F(RemoteUIDeviceInfoTest, ABlankRelayNumKeepsTheDocumentedFirstRelay)
+TEST_F(RemoteUIRelayNumTest, ABlankRelayNumKeepsTheDocumentedFirstRelay)
 {
     loadConfig();
 
@@ -336,7 +336,7 @@ TEST_F(RemoteUIDeviceInfoTest, ABlankRelayNumKeepsTheDocumentedFirstRelay)
             << "; RemoteUIOutputRelay.cpp:47 no longer protects the default";
 }
 
-TEST_F(RemoteUIDeviceInfoTest, AConfiguredRelayNumIsStillTheOneUsed)
+TEST_F(RemoteUIRelayNumTest, AConfiguredRelayNumIsStillTheOneUsed)
 {
     //GREEN BEFORE AND AFTER: the control of the three.
     loadConfig();

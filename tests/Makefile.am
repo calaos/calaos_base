@@ -2770,7 +2770,9 @@ endif
 #(RFC 5737), which never binds and never collides with a parallel `make check`
 #peer. None of the six Wago IO objects, nor WagoMap/WagoCtrl, nor the
 #InputTemp/OutputAnalog/OutputLightRGB parents are part of CORE_SERVER_OBJECTS,
-#hence the list below.
+#hence the list below. ⚠️ WagoCtrl.$(OBJEXT) is deliberately NOT linked: WagoMap.cpp
+#only #includes WagoCtrl.h and uses no symbol of it, while the object itself pulls
+#in the whole libmbus C library.
 #Own HAVE_GTEST block so this stays a pure append at the end of the file.
 if HAVE_GTEST
 TESTS += core/WagoPortDefault_test
@@ -2787,7 +2789,6 @@ core_WagoPortDefault_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT)                \
-                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoCtrl.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT)                  \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT)                   \

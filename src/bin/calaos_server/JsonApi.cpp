@@ -787,7 +787,11 @@ json_t *JsonApi::buildJsonGetIO(vector<string> iolist)
  */
 static bool setStateValueLostItsArgument(const string &value)
 {
-    static const string blanks = " \t\n\v\f\r";
+    //T3.25 (review): the SET comes from Utils::BLANK_CHARS, shared with
+    //from_string_unless_blank(), so the two can never drift apart. The
+    //QUESTION stays this function's own: not "is it blank" but "does it END
+    //on a blank".
+    static const string blanks = Utils::BLANK_CHARS;
     return !value.empty() && blanks.find(value[value.size() - 1]) != string::npos;
 }
 

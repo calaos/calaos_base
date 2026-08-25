@@ -112,6 +112,48 @@ valeur qui n'existe pas** — ils prennent maintenant leur défaut documenté :
   **annulait le décalage** au lieu de conserver son sens — la plage se déclenchait à l'heure
   exacte du lever ou du coucher.
 
+### ⚠️ Changement de comportement à connaître : un nombre TROP GRAND est maintenant refusé, là où il était silencieusement ramené à la plus grande valeur possible
+
+C'est le pendant du point précédent, et il vaut la peine d'être lu par quiconque **scripte l'API**
+ou **écrit sa configuration à la main**.
+
+Le serveur teste très souvent « est-ce que ce texte est un nombre ? » avant de s'en servir. Ce test
+répondait **oui** à un nombre qui ne **tient pas** dans un entier — `99999999999`, par exemple.
+Le serveur le ramenait alors, sans rien dire, à **2 147 483 647** (le plus grand entier qu'il sache
+manipuler) et continuait comme si de rien n'était. Il répond désormais **non**, et le nombre est
+traité comme ce qu'il est : une valeur illisible.
+
+**Ce que vous verrez changer, concrètement :**
+
+- **Bibliothèque musicale.** Une requête de liste avec un `count` (ou un `from`) trop grand —
+  `{"from":"0","count":"99999999999"}` — était **acceptée** et interrogeait la base avec
+  2 147 483 647. Elle reçoit maintenant `{"error":"wrong from/count"}` et la base n'est pas
+  interrogée. C'est le cas le plus susceptible d'être rencontré par un script : **14 requêtes de
+  liste** (albums, artistes, genres, années, listes de lecture, radios, recherche…) partagent
+  exactement cette validation. ⚠️ **Attention** : la validation n'a jamais vérifié les **bornes**,
+  et elle ne le fait toujours pas — un `count` **négatif** passe comme avant. Ce qui change est
+  uniquement qu'un nombre qui ne tient pas dans un entier a cessé d'être appelé un entier.
+- **Volets et variateurs.** `impulse 99999999999` armait une minuterie de **2 147 483 secondes,
+  soit près de 25 jours**, avec la lampe allumée ; `set_state 99999999999` sur un variateur le
+  poussait à **100 %** (la valeur ramenée puis bornée). Ces commandes ne font désormais **plus
+  rien du tout** — l'équipement ne bouge pas.
+- **KNX.** Une valeur entière hors bornes reçue du bus laisse maintenant le champ à **0** au lieu
+  de le remplir avec 2 147 483 647. ⚠️ **Les deux sont faux** : la trame ne disait ni l'un ni
+  l'autre. **0 est le moins dangereux des deux sur un bus KNX**, et c'est celui qui a été retenu ;
+  aucune borne n'a été ajoutée.
+- **Amplificateurs audio-vidéo.** Une trame de volume aberrante venant du réseau est maintenant
+  **ignorée** (le volume précédent est conservé) au lieu de produire un événement de volume
+  absurde.
+- **Sonde de présence réseau (ping).** Un `timeout` ou un `interval` trop grand retombe sur la
+  valeur par défaut documentée au lieu d'être passé tel quel à la commande système ou de suspendre
+  la scrutation pendant 25 jours.
+- **Couleurs.** Une couleur écrite en décimal trop grand (`99999999999`) était acceptée et donnait
+  une couleur arbitraire ; elle est maintenant **refusée** comme invalide.
+
+**Ce qui ne change PAS** : les valeurs à la limite exacte restent valides — `2147483647` est
+toujours accepté, `2147483648` ne l'est plus. Et un nombre **suivi de texte** (`12abc`, `1,5`)
+continue d'être lu comme avant, c'est-à-dire partiellement : ce ticket n'y a pas touché.
+
 ## 🔴 Caméras Reolink : corruption mémoire à chaque enregistrement de caméra
 
 ### Le serveur écrivait dans de la mémoire libérée dès qu'une caméra Reolink était enregistrée (E4.1i)
