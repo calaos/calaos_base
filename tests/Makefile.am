@@ -3072,3 +3072,49 @@ core_JsonApiModelWireBytes_test_LDADD = \
 #Built elsewhere, do not let automake turn them into prerequisites
 core_JsonApiModelWireBytes_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.53
+#The DALI UDP reply pair: WagoUdp_cb / WagoUdp_signal (WagoMap.h:81-82), the
+#slot and the signal that carry a UDP reply from calaos_wago back to a DALI
+#ballast. They carried (string command, string result) - the SAME type twice in
+#a row, so unlike every other pair of the Wago chain no compiler could ever
+#diagnose a permutation. There was NOT ONE DALI test in this tree before this
+#file.
+#The *Refuses* cases are a COMPILATION property reported through an executable
+#oracle (std::is_invocable_v / std::is_same_v read by EXPECT_FALSE), never a
+#behavioural one, and every EXPECT_FALSE has its EXPECT_TRUE control inside its
+#own case.
+#⭐ The WagoUdpReplyExercise cases ARE behavioural: they build a production
+#WODali and a production WODaliRVB through IOFactory and hand them a reply
+#through WagoMap::udpRequest_cb(), which is why this links the Wago server
+#objects and lives under core/ with the fixture - the LDADD list is
+#core/WagoReadReply_test's.
+#Built elsewhere: the server objects come from another Makefile, so only
+#libcalaos_common.la may appear in _DEPENDENCIES (the -DEPENDENCIES pitfall).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WagoUdpReply_test
+check_PROGRAMS += core/WagoUdpReply_test
+core_WagoUdpReply_test_SOURCES = core/WagoUdpReply_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_WagoUdpReply_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoUdpReply_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT)                      \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT)                     \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT)                \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_WagoUdpReply_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
