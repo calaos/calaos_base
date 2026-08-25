@@ -324,8 +324,30 @@
     c'est le code qui la consomme qui a été lu. Le seul programme exécuté est un `g++` autonome de
     12 lignes sur `from_string`/`is_of_type`.
 
-- **👀 E4.1m LIVRÉE, branche `refactor/e4.1m`, `c6c7c0d3` + 3 commits — NON MERGÉE, RIEN POUSSÉ**
-  (2026-08-25). ⭐⭐ **E4.1n est débloquée.** Les 9 constructeurs du **modèle** de `JsonApi`
+- **👀 E4.1m LIVRÉE, branche `refactor/e4.1m`, `74d0c520` + 3 commits — NON MERGÉE, RIEN POUSSÉ**
+  (2026-08-25, ⚠️ **rebasée sur `74d0c520`** après coupure de session : T3.46 et T3.48 intégrées).
+  ⭐⭐ **E4.1n est débloquée.**
+
+  - ⚠️ **Le rebase, et les trois conflits — aucun dans `src/`.** `tests/Makefile.am` résolu par
+    **RECONSTRUCTION** et non par « garder les deux côtés » : version de `master` prise **telle
+    quelle**, mon bloc `if HAVE_GTEST … endif` (**autonome, 1 `if` / 1 `endif`**) ré-ajouté **en
+    queue**, et la propriété *« la base est un PRÉFIXE STRICT du résultat »* **prouvée en
+    `python3`** avant validation. Contrôles : master **98 `TESTS`, 83/83** ; branche **99, 84/84**,
+    **profondeur jamais négative**, **tous préfixes `^if*`** (il n'y a que `if` dans ce fichier).
+    `FINDINGS.md` : **les deux côtés gardés**. `RELEASE_NOTES.md` : ma phrase de clôture remplace
+    l'ancienne, la section « Empaquetage » de `master` est **conservée intégralement**.
+
+  - ⛔⭐ **UN DÉFAUT DE LIVRABLE QU'AUCUN TEST NE POUVAIT VOIR, trouvé et corrigé.** Le commit de
+    documentation avait été fait avec **`git add -A` pendant que la campagne tournait** : il a
+    ramassé la mutation `M3` en vol et **livré dans `src/` un affaiblissement de
+    `dumpJsonRedacted()`** (`"cn_pass"` → `"cn_user"`, c'est-à-dire le mot de passe qui cesse
+    d'être masqué dans les journaux). ⚠️ **Rien dans la discipline de test ne pouvait l'attraper** :
+    la campagne restaure depuis la pristine à chaque itération, donc **l'arbre construit était
+    toujours correct** — `make check` vert, contre-mutations rouges, témoin vide, tout était
+    compatible avec ce commit. Ce qui l'a attrapé est la comparaison **pristine ↔ `HEAD`**
+    (`pristine == worktree` mais `pristine != HEAD`). Corrigé par `--amend`. ⇒ **`git add -A` est
+    interdit tant qu'un harnais peut écrire dans l'arbre**, et `git diff-tree … -- src` doit être
+    passé sur **chaque** commit qui n'est pas censé toucher `src/`. Versé à `FINDINGS.md`. Les 9 constructeurs du **modèle** de `JsonApi`
   rendent un `Json` ; **`LuaScript/ScriptExec.cpp` est migré INTÉGRALEMENT**, lecture comprise, et
   **l'adaptateur `jansson_from_json()` d'E4.1l disparaît** avec ses 4 cas. **E4.1 passe à 13/17.**
 
@@ -368,6 +390,23 @@
     tout** — `ScriptWire.h` (E4.1j) l'avait **prédit** : « ce canal s'OUVRE avec E4.1m ». Il
     s'ouvre. **Changement de comportement, déclaré en `RELEASE_NOTES.md`.**
 
+  - ⛔⭐ **UNE PRÉDICTION DE MOI, DÉMENTIE PAR LA MESURE — la 11ᵉ affirmation renversée.** J'avais
+    annoncé `M8b` (échange de `playlist` et `database` dans `buildJsonAudio`) **inerte**, parce que
+    le seul lecteur de la maison de référence répond `false` aux deux capacités. Chaque maillon du
+    raisonnement est vrai, la conclusion est fausse : `M8b` rend **1 rouge**, car
+    `core/JsonApiInputGuards_test` (**T3.19**) **ajoute ses propres lecteurs**, dont un porte
+    `database="true"` / `playlist="false"` — **et son commentaire dit qu'il est là exactement pour
+    qu'un échange de ces deux clés ne passe pas inaperçu**. C'est `F-LINK-1` transposé de
+    l'atteignabilité vers l'**oracle** : *raisonner sur UNE fixture quand plusieurs suites en
+    construisent d'autres.* ⭐ **Ce qui a sauvé la fiche : la mutation prédite inerte a été JOUÉE
+    au lieu d'être sautée.** ⇒ **règle : jamais sauter une contre-mutation qu'on croit inerte.**
+
+  - ⭐ **Une VRAIE inertie, mesurée et expliquée** : `M6` — échanger deux identifiants demandés dans
+    `buildJsonGetIO()` — rend un ensemble **VIDE**. Ce n'est pas un trou : **c'est ce ticket qui a
+    supprimé l'information**. La réponse de `get_io` est un objet indexé par id ; sous jansson elle
+    gardait l'ordre de la **requête**, sous `nlohmann` elle sort **triée**, donc l'ordre demandé
+    n'est plus observable **par personne**. Déclaré, comme `M8` l'avait été par E4.1l.
+
   - ⚠️ **Une exception assumée à l'invariant 3, et elle est FALSIFIABLE** : `dumpJsonRedacted()`
     dumpe en `ensure_ascii = FALSE`. C'est un **journal**, pas un fil, et il n'a **jamais** été
     ASCII (`JSON_INDENT(4)` seul). **Mesuré** : à `ensure_ascii = false` les deux dumps sont
@@ -384,11 +423,16 @@
     un constructeur = changer son type de retour et laisser ses appelants tomber sur la surcharge
     `Json` de `sendJson()`. **Aucun adaptateur écrit, aucune dépendance croisée découverte.**
 
-  - **Contrôles** : **145 goldens intacts** (arbre `d4ebc61f`, `git status` vide sur le
-    répertoire), `make check` **`# TOTAL: 97` / `# PASS: 96` / `# SKIP: 1` / `# FAIL: 0`**,
-    **1626 cas gtest** sur 92 binaires comptés **trois fois**, filet neuf **13 rouges sur 19** au
-    commit de caractérisation (`git diff-tree … -- src` = **0 ligne**), **19 verts** après.
-    ⚠️ **`F-FLAKY-1` n'a mordu sur aucune campagne de ce ticket.**
+  - **Contrôles, tous rejoués APRÈS le rebase** : **145 goldens intacts** (arbre `d4ebc61f`,
+    `git status` vide sur le répertoire), `make check` **en DISTCLEAN complet** —
+    **`# TOTAL: 99` / `# PASS: 98` / `# SKIP: 1` / `# FAIL: 0` / `# ERROR: 0`**, **un seul
+    `Testsuite summary`**, **105 lignes `CXXLD`** —, **1632 cas gtest** sur **93** binaires
+    comptés **trois fois** et concordants. Filet neuf **rejoué contre l'arbre jansson de
+    `74d0c520`** (sources de `master` réécrites par contenu, `.o` et binaire supprimés, ligne
+    `CXXLD` exigée) : **19 cas, 13 ROUGES, 6 VERTS — exactement les six témoins `W_`**.
+    Le commit de caractérisation touche **0 fichier de `src/`** (`git diff-tree`).
+    Marqueur **rejoué après rebase et identique à l'unité près** : 10 sites atteints, 20 suites,
+    4 zéros. ⚠️ **`F-FLAKY-1` n'a mordu sur AUCUNE campagne de ce ticket.**
 
   - **NON VÉRIFIÉ, à ne pas surestimer** : rien sous ASan, aucun bout-à-bout avec un vrai
     `calaos_script`, aucun client tiers, et le changement de comportement du script Lua est mesuré

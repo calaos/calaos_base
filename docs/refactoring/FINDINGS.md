@@ -6759,17 +6759,34 @@ tuer une connexion vivante. Les **deux** choix sont épinglés par deux cas neuf
 `core/JsonApiHardening_test` — un relecteur qui veut l'inverse retourne le `false` en `true` et
 voit rougir immédiatement.
 
-### ⚠️ « Fixture pauvre », récidive de plus : les deux capacités du lecteur audio sont **indiscernables**
+### ⛔⭐ « Fixture pauvre » ANNONCÉE et **DÉMENTIE PAR LA MESURE** — la 11ᵉ affirmation renversée de la série, et cette fois elle est de MOI
 
-Le seul lecteur de la maison de référence est un `RoonPlayer` dont `canPlaylist()` **et**
-`canDatabase()` répondent **`false`**. ⇒ **échanger les deux capacités dans `buildJsonAudio()` ne
-change pas un octet**, et aucune suite ne peut le voir. La mutation a été **jouée quand même**
-(`M8b`) plutôt qu'évitée, et son ensemble rouge **vide** est déclaré, pas caché.
+**J'avais prédit un trou, il n'y en a pas.** Le raisonnement était : le seul lecteur de la maison de
+référence est un `RoonPlayer` dont `canPlaylist()` **et** `canDatabase()` répondent `false`, donc
+échanger les deux capacités dans `buildJsonAudio()` ne peut pas changer un octet, donc aucune suite
+ne peut le voir. Chaque maillon est **vrai**. La conclusion est **fausse**.
 
-⚠️ **À qui migrera `buildJsonAudio` plus loin, ou qui touchera la maison de référence** : le remède
-n'est pas d'ajouter un deuxième lecteur au hasard — `JsonApiCharacterization.h` explique longuement
-pourquoi la maison est ce qu'elle est —, c'est de savoir que **ces deux clés-là n'ont pas
-d'oracle**. Le reste de `buildJsonAudio` en a un (`M8`, échange de `id` et `name`, rougit).
+**Mesuré** : la mutation `M8b` — échange de `playlist` et `database` — rend **1 rouge**,
+`core/JsonApiInputGuards_test::JsonApiAudioDbGuardTest.GetHomePublishesACapabilityThatSaysNothingAboutThePointer`.
+
+**Pourquoi** : cette suite (T3.19) **n'utilise pas seulement la maison de référence, elle ajoute ses
+propres lecteurs**, et l'un d'eux — `CAPABLE_EMPTY_ID` — porte `database = "true"` et
+`playlist = "false"`. Son commentaire dit **exactement pourquoi**, et il a été écrit avant ce
+ticket :
+
+> *« la capacité `canPlaylist` jumelle est lue elle aussi, pour qu'échanger les deux clés dans
+> `buildJsonAudio()` ne puisse pas passer inaperçu — `CAPABLE_EMPTY_ID` a `database` "true" et
+> `playlist` "false", une paire qu'aucune autre entrée ne répète. »*
+
+⇒ **La couverture était là, et l'auteur de T3.19 l'avait posée délibérément.** Mon erreur est celle
+que cette série documente depuis dix affirmations : *raisonner sur UNE fixture quand plusieurs
+suites en construisent d'autres.* C'est le même mode de défaillance que `F-LINK-1`, transposé de
+l'**atteignabilité** vers l'**oracle**.
+
+⭐ **Ce qui a sauvé la mise, et c'est la seule leçon actionnable** : la mutation prédite inerte a été
+**JOUÉE QUAND MÊME au lieu d'être sautée**. Une prédiction d'inertie qu'on n'exécute pas n'est pas
+une mesure, c'est une opinion — et elle serait entrée dans la fiche comme un fait. ⇒ **règle :
+jamais sauter une contre-mutation parce qu'on la croit inerte ; la jouer et publier le chiffre.**
 
 ### ⚠️ Une leçon de campagne : **l'ensemble de binaires est un paramètre du protocole, et un pilote l'a montré**
 
@@ -6813,3 +6830,58 @@ events. **Le découpage `m` → `s` tient** : rien à re-planifier, seulement un
 laisser se généraliser toute seule. C'est le même mode de défaillance que les neuf affirmations
 d'atteignabilité de cette série — *une phrase localement vraie qui grandit d'un cran à chaque
 recopie.*
+
+### ⛔⭐ Une variante de FAUX ARTEFACT que la liste canonique n'a pas : **la campagne a écrit dans un COMMIT**
+
+Ce n'est pas un faux vert ni un faux rouge — les onze de la liste canonique portent tous sur le
+**résultat d'un test**. Celle-ci porte sur **le livrable**, et elle est passée à travers tous les
+contrôles de test parce qu'aucun d'eux ne la regarde.
+
+**Ce qui s'est passé, exactement.** Le commit de documentation a été fait avec `git add -A`
+**pendant que la campagne de contre-mutation tournait**. À cet instant précis, l'arbre portait la
+mutation `M3` — l'échange du champ masqué et du champ visible de `dumpJsonRedacted()`,
+`"cn_pass"` → `"cn_user"`. `git add -A` l'a ramassée, et **le commit de doc a livré, dans `src/`,
+un affaiblissement de la fonction qui masque les mots de passe dans les journaux**.
+
+⚠️ **Aucun test ne pouvait le voir** : la campagne restaure depuis la copie pristine à chaque
+itération, donc **l'arbre construit était toujours correct** ; le défaut ne vivait que dans l'objet
+git. Un `make check` vert, dix contre-mutations et un témoin à ensemble vide sont tous compatibles
+avec ce commit-là.
+
+⭐ **Ce qui l'a attrapé** : la comparaison **copie pristine ↔ `HEAD`**, faite pour une tout autre
+raison (vérifier qu'une restauration avait bien eu lieu). `pristine == worktree` mais
+`pristine != HEAD` : l'anomalie n'est pas dans l'arbre de travail, elle est dans l'historique.
+
+**Corrigé** par `commit --amend` : le commit de documentation ne touche plus **aucun fichier de
+`src/`** (`git diff-tree --no-commit-id --name-only -r <sha> -- src` → **0 ligne**), et la ligne
+sensible de `HEAD` est de nouveau `"cn_pass"`.
+
+⚠️ **Les deux règles, à appliquer littéralement** :
+1. **On ne commite pas pendant qu'une campagne tourne.** La consigne « commite AVANT ta campagne »
+   n'est pas une commodité d'ordonnancement : pendant la campagne, `src/` **appartient au
+   harnais**.
+2. **`git add -A` est interdit tant qu'un harnais peut écrire dans l'arbre.** Nommer les fichiers,
+   ou ne rien committer.
+   ⭐ Et le contrôle qui ferme la famille, à faire **avant de livrer** :
+   `git diff-tree --no-commit-id --name-only -r <chaque commit> -- src` sur **tous** les commits qui
+   ne sont pas censés toucher `src/`, plus une comparaison **pristine ↔ `HEAD`** sur les fichiers
+   du périmètre. Les deux sont mécaniques et coûtent une seconde.
+
+### ⭐ `M6` : une contre-mutation **structurellement inerte**, et c'est la MIGRATION qui l'a rendue telle
+
+Échanger les deux premiers identifiants demandés dans `buildJsonGetIO()` — une mutation par échange
+en bonne et due forme, sur la fonction qui construit la réponse de `get_io` — laisse un ensemble
+rouge **VIDE**.
+
+**Ce n'est pas un trou de filet, c'est une conséquence directe de ce ticket.** La réponse de
+`get_io` est un objet **indexé par identifiant d'IO**. Sous `jansson`, l'objet gardait l'ordre
+d'insertion, donc l'ordre de la **requête** : permuter deux identifiants demandés changeait le
+document servi, et un oracle aurait pu le voir. Sous `nlohmann::json`, l'objet est un `std::map`
+et sort **trié** : l'ordre de la requête n'est plus observable **du tout**, par personne.
+
+⇒ **La mutation est inobservable parce que l'information qu'elle déplace a cessé d'exister sur le
+wire.** Déclaré ici plutôt que caché, exactement comme `M8` d'E4.1l : un ensemble rouge vide n'est
+acceptable que **nommé et expliqué**. ⚠️ **À qui écrira un oracle sur `get_io` plus tard** : ne
+cherchez pas à couvrir l'ordre de la requête, il n'y a plus rien à couvrir. Ce qui reste couvrable,
+et couvert, c'est que la réponse est **triée** (`K_GetIoMapIsSortedByIdNotByRequestOrder`) et que
+chaque IO y porte le bon contenu.
