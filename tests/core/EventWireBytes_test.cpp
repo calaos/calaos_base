@@ -77,7 +77,7 @@
  *     probe is a byte pair that can never become valid UTF-8. Sensitive to
  *     error_handler_t::replace ONLY: it asserts the key is STILL THERE and
  *     carries U+FFFD. It never asserts that the wire is ASCII (U+FFFD parses
- *     back the same whether written � or as its three UTF-8 bytes) and
+ *     back the same whether written \ufffd or as its three UTF-8 bytes) and
  *     never asserts key order.
  *
  * ---------------------------------------------------------------------------
@@ -86,7 +86,7 @@
  * This is the characterization commit of E4.1l and it is RED on the jansson
  * tree, by construction: it spells the TARGET bytes. On the untouched tree
  *   - the three ORACLE K cases fail (jansson insertion order),
- *   - the three ORACLE A cases fail (jansson writes é, UPPERCASE),
+ *   - the three ORACLE A cases fail (jansson writes \u00E9, UPPERCASE hex),
  *   - the three ORACLE R cases fail (jansson_from_params() DROPS a pair whose
  *     value is not valid UTF-8: json_string() answers NULL, so the key simply
  *     vanishes from data.data instead of carrying U+FFFD),

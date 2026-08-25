@@ -557,7 +557,7 @@ TEST(ParamsJson, Utf8_NlohmannDumpThrows316AndTheReplaceHandlerYieldsFffd)
  *     it parsed. One case below. That is invariant 1 - nlohmann::json standard,
  *     never ordered_json - seen through the adapter.
  *   - ensure_ascii is NOT observable here, and that is structural, not a hole
- *     in the fixture: json_loads() decodes é and the raw UTF-8 bytes of
+ *     in the fixture: json_loads() decodes \u00e9 and the raw UTF-8 bytes of
  *     U+00E9 to the same jansson string, and jansson_to_string() re-escapes in
  *     its own UPPERCASE form on the way out whatever went in. The counter
  *     mutation was RUN, not assumed: flipping it true -> false leaves this file
