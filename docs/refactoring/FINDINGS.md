@@ -5820,3 +5820,93 @@ elle (une suite aveugle à `ensure_ascii`), déclaré cette fois **avant** la re
   client tiers.
 - **`processPolling()` n'a pas été rejoué contre un client de production** ; l'argument de
   compatibilité est *raisonné* (tout consommateur décode avec un vrai parseur), pas *exercé*.
+
+---
+
+## T3.46 — la moitié ÉCRITURE du chemin RETOUR Wago, et le sort de `libmbus` (2026-08-25)
+
+Mesures faites en livrant `fix/t3.46` (base `df2851d0`). Fiche : `docs/refactoring/T3.46.md` §7.
+**Toutes recomptées sur cet arbre** ; aucun cardinal repris d'une fiche antérieure.
+
+- ⭐ **[F-LINK-1, nouvelle occurrence — et une affirmation publiée qui était FAUSSE]**
+  `T3.31` §7.11.5, la fiche `T3.46` §6.2 et le commentaire de `IO/Wago/WagoTypes.h` écrivaient
+  tous les trois qu'**aucune** des onze implémentations de callback Wago n'est *atteinte par un
+  binaire de test*. **Mesuré : faux au premier degré.** `nm -C` sur les **92** ELF de `tests/`
+  trouve `WagoWriteCallback` et `WagoReadCallback` **définis dans un binaire**,
+  `core/WagoPortDefault_test`, qui lie `WOAnalog.o`, `WODigital.o` et `WagoMap.o`.
+  ⭐ **La formulation correcte est mesurable et a été mesurée** : `::abort()` inséré en **première
+  instruction** de `WOAnalog::WagoWriteCallback`, `WODigital::WagoWriteCallback` et
+  `WOAnalog::WagoReadCallback`, reconstruction, exécution ⇒ **11 cas, 11 PASS, `exit 0`**.
+  ⇒ **liés dans 1 ELF sur 92, invoqués dans 0.** *« Lié » n'est pas « exercé », et « non lié » non
+  plus n'est pas la même chose que « non atteint » : les trois se mesurent séparément.*
+
+- ⭐ **[F-WAGO-9 — TRANCHÉ : `libmbus` n'est PAS patchée, et voici la mesure qui décide]**
+  La paire permutable **n'est pas dans les six commandes publiques** de `libmbus`. Les six
+  délèguent à **un seul constructeur de requête interne**,
+  `mbus_cmd_addr_wdata(mbus, slave_addr, funct_code, mbus_uword addr, mbus_uword data)`
+  (`libmbus/mbus_cmd.c`), et sur ses **cinq** sites d'appel ses deux paramètres mot portent
+  **trois rôles différents** : adresse + **compte** (`read_coil_status`,
+  `read_holding_registers`), adresse + **donnée** (`force_single_coil`,
+  `preset_single_register`), **sous-fonction** + donnée (`diagnostics`).
+  ⇒ **« un type par rôle » ne s'applique pas à cette fonction sans la SCINDER** — un changement
+  *fonctionnel* dans du C tiers de 2003 que rien n'exécute. Typer seulement les six signatures
+  publiques laisserait la paire vivante une trame plus bas et déplacerait les six déballages de
+  `WagoCtrl.cpp` **dans** `libmbus`. C'est le « 7 endroits → 7 endroits » de `T3.31` §7.5,
+  **mesuré un niveau plus profond, avec une raison concrète**.
+  Recomptes : `mbus.h` déclare **8** `mbus_cmd_*`, Calaos en appelle **6**, un site par commande,
+  tous dans `WagoCtrl.cpp`. `nm -C` sur les 92 ELF de `tests/` :
+  `mbus_cmd_preset_single_register`, `mbus_cmd_force_single_coil`, `mbus_cmd_addr_wdata` **définis
+  dans 0, référencés dans 0**.
+  ⚠️ **Ce n'est toujours PAS une impossibilité technique** — re-mesuré `gcc 16.2.1 -std=c11 -Wall
+  -Wextra` : `struct` à un champ, forme correcte `rc=0`, paire typée permutée `rc=1`, permutation
+  nue `rc=1`. C'est un **coût**, et le coût vient d'être remesuré plus haut qu'estimé.
+  ⇒ **Résiduel fermé AUTREMENT, pas repoussé** : un **tripwire de source** dans
+  `tests/WagoWriteReply_test.cpp` lit `WagoCtrl.cpp` via `CALAOS_TOP_SRCDIR` et exige que
+  l'adresse reste le **3ᵉ** argument des deux appels d'écriture. **Contre-mutations M6/M7 :
+  permuter l'un ou l'autre appel COMPILE toujours (`rc=0`)** — la preuve que le saut C est nu —
+  **et le tripwire devient rouge**.
+  ⚠️ **Un tripwire n'est pas un type** : il n'empêche pas un **nouveau** site d'appel écrit à
+  l'envers, il ne tombe que si ces deux lignes-là bougent. Écrit tel quel dans le test.
+
+- **[Déclarations mortes — `IO/OutputAnalog.h`]** `OutputAnalog::WagoReadCallback` et
+  `::WagoWriteCallback` étaient **déclarées et définies nulle part** : balayage `python3` de tout
+  l'arbre, **1** occurrence du premier nom (dans un commentaire) et **0** du second. `WOAnalog`
+  déclare et définit les siennes. **Supprimées** par T3.46 — ce qui règle le « point dur
+  architectural » du §6.3.3 (une base **générique** hors arbre Wago qui aurait dû apprendre
+  `WagoTypes::`) **sans arbitrage**, parce qu'il n'y avait rien à typer.
+
+- ⭐ **[Piège de méthode — la permutation SÉMANTIQUEMENT IDENTIQUE]** Sur les quatre callbacks
+  d'écriture typés, la contre-mutation par échange ne dit pas la même chose partout, et confondre
+  les deux cas mène soit à un faux rouge exigé, soit à une trouvaille retirée à tort :
+  `WOAnalog::WagoWriteCallback` fait `value = _value` ⇒ permuter **change le programme** (la
+  sortie rapporterait son adresse modbus). `WODigital::WagoWriteCallback` et
+  `WOVoletBase::WagoWriteCallback` ne lisent **que `status`**, leurs deux autres paramètres sont
+  **inutilisés** ⇒ permuter est un **no-op sémantique**, et **exiger un test rouge y serait exiger
+  qu'un test distingue deux programmes identiques**. Le typage y ferme un **contrat** (pour la
+  prochaine implémentation, le prochain site d'émission), pas une réponse fausse vivante.
+  ⇒ **Distinguer les deux avant d'écrire l'oracle**, et dire lequel est lequel.
+
+- **[Le mannequin de `WagoMap.cpp` — vrai à moitié]** `T3.31` a mesuré que la **valeur** des deux
+  émissions de réponse d'écriture est un littéral (`false` pour un bit, `0` pour un mot), donc
+  qu'une permutation y substitue un mannequin. ⭐ **Ce qui manquait : l'ADRESSE de ces mêmes lignes
+  n'est pas un mannequin**, elle est décodée de la réponse. Une permutation envoie donc l'**adresse
+  vivante** à la place de la valeur, et `WOAnalog` l'assigne puis `emitChange()`.
+  ⇒ La moitié écriture vaut **moins** que la moitié lecture, pas **rien**.
+
+- ⚠️ **[Reste dû — la moitié LECTURE du chemin retour]** `MultiBits_cb` / `MultiWords_cb`
+  (`IO/Wago/WagoMap.h`) et **sept** implémentations —
+  `WagoMap::WagoModbusReadHeartbeatCallback`, `WIAnalog::WagoReadCallback`,
+  `WITemp::WagoReadCallback`, `WOAnalog::WagoReadCallback`, `WODigital::WagoReadCallback`,
+  `WIDigitalBase::WagoReadCallback` (`WagoIOBase.h`), plus `OutputAnalog::WagoReadCallback`
+  **supprimée** — et **quatre** sites d'invocation dans `WagoMap::processNewMessage`. Leur
+  `(UWord address, int count)` est la paire qu'E4.1h a mesurée **verte** sur un échange. C'est la
+  moitié **la plus dangereuse** ; T3.46 a reçu l'autre pour périmètre et le dit. **Numéro de
+  ticket à attribuer par le coordinateur.**
+
+- ⛔ **[Non corrigé, comme exigé]** `WOAnalog::WagoWriteCallback` écrase sa propre valeur
+  rapportée avec le littéral `0` après chaque écriture réussie, puis `emitChange()`
+  (`T3.46.md` §6.4). Changement de **comportement** sur du code de `master` : arbitrage séparé.
+  **F-WAGO-7** (`UWord address;` / `int count;` non initialisés dans le dispatcher de
+  `calaos_wago`) est **inchangé par ce ticket** : même paire de valeurs, mais un défaut
+  d'**initialisation** et non de **signature**, et dans un fichier que T3.46 ne touche pas.
+  **Toujours ouvert, toujours dû.**
