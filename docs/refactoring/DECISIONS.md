@@ -785,7 +785,7 @@ et le job `coverage` produit un vrai rapport (26,7 % lignes).
 ## 2026-08-25 — ⚠️ F-PYTEST-1 : `SKIP` visible plutôt qu'échec franc — **arbitrage EN ATTENTE DE VALIDATION UTILISATEUR**
 **Le fait** : `tests/run-python-tests.sh` rendait **`PASS`** en n'exécutant que **23 des 42** cas de
 `tests/python/` (3 suites sur 6) quand `pytest` manque — et ce n'était **pas** un `SKIP` automake,
-donc rien dans `# TOTAL / # PASS / # SKIP` ne le disait. Voir [T3.43](T3.43.md) et `FINDINGS.md`.
+donc rien dans `# TOTAL / # PASS / # SKIP` ne le disait. Voir [T3.44](T3.44.md) et `FINDINGS.md`.
 
 **Le principe posé** : *un test qui ne peut pas s'exécuter doit ÉCHOUER ou être VISIBLEMENT sauté,
 jamais passer.* Trois voies étaient ouvertes ; **la voie retenue est le `SKIP` automake réel

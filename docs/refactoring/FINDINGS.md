@@ -5206,7 +5206,7 @@ lanceur de `make dist` doit penser à `git checkout -- po/`** — piège à comm
 ## F-PYTEST-1 — la huitième variante de faux vert : des tests qui ne s'exécutent pas (2026-08-25)
 
 *(Trouvée par la revue de [T3.39](T3.39.md) en mesurant F-MCP-XFF-1 ; **fermée par
-[T3.43](T3.43.md)**, branche `fix/fpytest1`. Cette section est le versement de ce qui a été
+[T3.44](T3.44.md)**, branche `fix/fpytest1`. Cette section est le versement de ce qui a été
 **mesuré** en la fermant, pas la redite du finding.)*
 
 ### ⭐ Le mécanisme exact — et pourquoi le suspect évident est presque juste
@@ -5249,7 +5249,7 @@ sortirait **0**, et le `PASS` silencieux reviendrait **une couche plus bas**.
 
 | entrée `TESTS` | peut rendre `PASS` sans exécuter ? | mesure |
 |---|---|---|
-| `run-python-tests.sh` | ⛔ **OUI, totalement** — 3/6 fichiers, 19/42 cas, sortie 0, `PASS` | mesuré ; **corrigé par T3.43** |
+| `run-python-tests.sh` | ⛔ **OUI, totalement** — 3/6 fichiers, 19/42 cas, sortie 0, `PASS` | mesuré ; **corrigé par T3.44** |
 | `check-config-options.sh` | ✅ **NON** — chaque scan optionnel porte un `else fail "… scan rule X is dead"`, plus une garde d'anti-vacuité `nb_used == 0` (« *this test would pass whatever the code does* ») | lu + exécuté |
 | `check-config-docs.sh` | ✅ **NON** — binaire absent / document absent / générateur muet ⇒ `exit 1` | lu + exécuté |
 | **les 85 binaires, en bloc** | ⛔ **OUI, autrement** — tout le bloc est `if HAVE_GTEST` ; sans l'en-tête gtest les 85 **quittent `TESTS`**, le total tombe de 89 à **4**, le résumé affiche toujours `# FAIL: 0`. Seul `GTEST_INFO` au `configure` le dit | statique |
@@ -5278,8 +5278,10 @@ de `.github/workflows/ci.yml` dans `debian:12`, puis `command -v python3` ⇒ in
 rapport à la CI » ; la CI est plus vide encore, et son silence est du bon type.**
 
 ⭐ **Corollaire, plus lourd que le défaut initial et NON corrigé : les 42 cas Python ne tournent sur
-AUCUNE machine de CI.** `test_auth.py` — les 11 cas du throttle MCP, le filet de
-[T3.42](T3.42.md) — n'a jamais été exécuté par un `push`. Le remède tient en une ligne d'`apt` dans
+AUCUNE machine de CI.** `test_auth.py` — les 11 cas du throttle MCP, le filet de la fiche `F-MCP-XFF-1`
+ouverte par la revue de [T3.39](T3.39.md) (numérotée `T3.42` dans `.wave54/t3.39`, non mergée —
+⚠️ vérifier son numéro au merge, la série en a renuméroté une cette nuit) — n'a jamais été exécuté
+par un `push`. Le remède tient en une ligne d'`apt` dans
 `ci.yml`, **propriété de `T0.1`** : à ticketer à part.
 
 ### Le remède retenu, et les deux écartés
