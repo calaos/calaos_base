@@ -20,6 +20,7 @@
  ******************************************************************************/
 #include <WagoMap.h>
 #include <WagoCtrl.h>
+#include "WagoWire.h"
 #include <tcpsocket.h>
 #include "Prefix.h"
 #include "libuvw.h"
@@ -175,19 +176,17 @@ void WagoMap::WagoModbusReadHeartbeatCallback(bool status, UWord address, int co
 
 void WagoMap::processNewMessage(const string &msg)
 {
-    json_error_t jerr;
-    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
+    Params jsonData;
+    vector<string> values;
 
-    if (!jroot || !json_is_object(jroot))
+    //E4.1h: ONE non-throwing parse for both the flattened Params and the
+    //"values" array. The array used to be read straight off the raw parsed
+    //root, separately from the flattening.
+    if (!WagoWire::decodeMessage(msg, jsonData, &values))
     {
-        cWarningDom("wago") << "Error parsing json from sub process: " << jerr.text;
-        if (jroot)
-            json_decref(jroot);
+        cWarningDom("wago") << "Error parsing json from sub process";
         return;
     }
-
-    Params jsonData;
-    jansson_decode_object(jroot, jsonData);
 
     if (mbus_commands.find(jsonData["id"]) == mbus_commands.end())
         return;
@@ -207,14 +206,8 @@ void WagoMap::processNewMessage(const string &msg)
     if (cmd.command == MBUS_READ_BITS ||
         cmd.command == MBUS_READ_OUTBITS)
     {
-        uint idx;
-        json_t *value;
-
-        json_array_foreach(json_object_get(jroot, "values"), idx, value)
-        {
-            string v = json_string_value(value);
+        for (const string &v: values)
             values_bits.push_back(v == "true");
-        }
 
         if (cmd.mapSignals)
             cmd.mapSignals->multiBits_cb(status, address, count, values_bits);
@@ -232,12 +225,8 @@ void WagoMap::processNewMessage(const string &msg)
     else if (cmd.command == MBUS_READ_WORDS ||
              cmd.command == MBUS_READ_OUTWORDS)
     {
-        uint idx;
-        json_t *value;
-
-        json_array_foreach(json_object_get(jroot, "values"), idx, value)
+        for (const string &v: values)
         {
-            string v = json_string_value(value);
             UWord vv;
             Utils::from_string(v, vv);
             values_words.push_back(vv);
@@ -258,8 +247,6 @@ void WagoMap::processNewMessage(const string &msg)
     }
 
     cmd.deleteSignals();
-
-    json_decref(jroot);
 }
 
 void WagoMap::read_bits(UWord address, int nb, MultiBits_cb callback)
@@ -269,12 +256,7 @@ void WagoMap::read_bits(UWord address, int nb, MultiBits_cb callback)
     cmd.mapSignals->multiBits_cb = callback;
     cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    Params p = {{ "action", "read_bits" },
-                { "id", cmd.wago_cmd_id },
-                { "address", Utils::to_string(address) },
-                { "count", Utils::to_string(nb) } };
-
-    process->sendMessage(jansson_to_string(jansson_from_params(p)));
+    process->sendMessage(WagoWire::buildReadBitsRequest(cmd.wago_cmd_id, address, nb));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
@@ -286,12 +268,7 @@ void WagoMap::read_output_bits(UWord address, int nb, MultiBits_cb callback)
     cmd.mapSignals->multiBits_cb = callback;
     cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    Params p = {{ "action", "read_output_bits" },
-                { "id", cmd.wago_cmd_id },
-                { "address", Utils::to_string(address) },
-                { "count", Utils::to_string(nb) } };
-
-    process->sendMessage(jansson_to_string(jansson_from_params(p)));
+    process->sendMessage(WagoWire::buildReadOutputBitsRequest(cmd.wago_cmd_id, address, nb));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
@@ -303,12 +280,7 @@ void WagoMap::write_single_bit(UWord address, bool val, SingleBit_cb callback)
     cmd.mapSignals->singleBit_cb = callback;
     cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    Params p = {{ "action", "write_bit" },
-                { "id", cmd.wago_cmd_id },
-                { "address", Utils::to_string(address) },
-                { "value", val?"true":"false" } };
-
-    process->sendMessage(jansson_to_string(jansson_from_params(p)));
+    process->sendMessage(WagoWire::buildWriteBitRequest(cmd.wago_cmd_id, address, val));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
@@ -320,18 +292,14 @@ void WagoMap::write_multiple_bits(UWord address, int nb, vector<bool> &values, M
     cmd.mapSignals->multiBits_cb = callback;
     cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    Params p = {{ "action", "write_bits" },
-                { "id", cmd.wago_cmd_id },
-                { "address", Utils::to_string(address) },
-                { "count", Utils::to_string(nb) } };
-
-    json_t *jret = jansson_from_params(p);
-    json_t *jarr = json_array();
-    for (uint i = 0;i < values.size();i++)
-        json_array_append_new(jarr, json_string(values[i]?"true":"false"));
-    json_object_set_new(jret, "values", jarr);
-
-    process->sendMessage(jansson_to_string(jansson_from_params(p)));
+    //E4.1h - THE MISSING "values" ARRAY IS PORTED AS IS, deliberately: this
+    //site built the array into a separate object it then threw away (leaking
+    //it), and sent a second, fresh serialization of the four-key Params
+    //instead. The leak is gone for free - nlohmann has no reference counting -
+    //but the array is still not emitted, so this commit changes not one byte
+    //of what a real installation puts on its wire.
+    //See WagoWire::buildWriteBitsRequest().
+    process->sendMessage(WagoWire::buildWriteBitsRequest(cmd.wago_cmd_id, address, nb, values));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
@@ -343,12 +311,7 @@ void WagoMap::read_words(UWord address, int nb, MultiWords_cb callback)
     cmd.mapSignals->multiWords_cb = callback;
     cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    Params p = {{ "action", "read_words" },
-                { "id", cmd.wago_cmd_id },
-                { "address", Utils::to_string(address) },
-                { "count", Utils::to_string(nb) } };
-
-    process->sendMessage(jansson_to_string(jansson_from_params(p)));
+    process->sendMessage(WagoWire::buildReadWordsRequest(cmd.wago_cmd_id, address, nb));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
@@ -360,12 +323,7 @@ void WagoMap::read_output_words(UWord address, int nb, MultiWords_cb callback)
     cmd.mapSignals->multiWords_cb = callback;
     cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    Params p = {{ "action", "read_output_words" },
-                { "id", cmd.wago_cmd_id },
-                { "address", Utils::to_string(address) },
-                { "count", Utils::to_string(nb) } };
-
-    process->sendMessage(jansson_to_string(jansson_from_params(p)));
+    process->sendMessage(WagoWire::buildReadOutputWordsRequest(cmd.wago_cmd_id, address, nb));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
@@ -377,12 +335,7 @@ void WagoMap::write_single_word(UWord address, UWord val, SingleWord_cb callback
     cmd.mapSignals->singleWord_cb = callback;
     cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    Params p = {{ "action", "write_word" },
-                { "id", cmd.wago_cmd_id },
-                { "address", Utils::to_string(address) },
-                { "value", Utils::to_string(val) } };
-
-    process->sendMessage(jansson_to_string(jansson_from_params(p)));
+    process->sendMessage(WagoWire::buildWriteWordRequest(cmd.wago_cmd_id, address, val));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
@@ -394,18 +347,9 @@ void WagoMap::write_multiple_words(UWord address, int nb, vector<UWord> &values,
     cmd.mapSignals->multiWords_cb = callback;
     cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    Params p = {{ "action", "write_words" },
-                { "id", cmd.wago_cmd_id },
-                { "address", Utils::to_string(address) },
-                { "count", Utils::to_string(nb) } };
-
-    json_t *jret = jansson_from_params(p);
-    json_t *jarr = json_array();
-    for (uint i = 0;i < values.size();i++)
-        json_array_append_new(jarr, json_string(Utils::to_string(values[i]).c_str()));
-    json_object_set_new(jret, "values", jarr);
-
-    process->sendMessage(jansson_to_string(jansson_from_params(p)));
+    //E4.1h - same missing "values" array as write_multiple_bits(), ported the
+    //same way. See WagoWire::buildWriteWordsRequest().
+    process->sendMessage(WagoWire::buildWriteWordsRequest(cmd.wago_cmd_id, address, nb, values));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }

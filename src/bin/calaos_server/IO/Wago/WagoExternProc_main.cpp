@@ -21,6 +21,7 @@
 #include "ExternProc.h"
 
 #include "WagoCtrl.h"
+#include "WagoWire.h"
 
 class WagoProcess: public ExternProcClient
 {
@@ -54,21 +55,19 @@ void WagoProcess::readTimeout()
 
 void WagoProcess::messageReceived(const string &msg)
 {
-    json_error_t jerr;
-    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
-
-    if (!jroot || !json_is_object(jroot))
-    {
-        cWarningDom("wago") << "Error parsing json from sub process: " << jerr.text;
-        if (jroot)
-            json_decref(jroot);
-        return;
-    }
-
     string res;
 
     Params jsonData;
-    jansson_decode_object(jroot, jsonData);
+    vector<string> values;
+
+    //E4.1h: ONE non-throwing parse for both the flattened Params and the
+    //"values" array. The array used to be read straight off the raw parsed
+    //root, separately from the flattening.
+    if (!WagoWire::decodeMessage(msg, jsonData, &values))
+    {
+        cWarningDom("wago") << "Error parsing json from calaos_server";
+        return;
+    }
 
     if (jsonData["action"] == "read_bits" ||
         jsonData["action"] == "read_output_bits")
@@ -98,18 +97,11 @@ void WagoProcess::messageReceived(const string &msg)
             }
         }
 
-        json_t *jret = json_object();
-        json_object_set_new(jret, "id", json_string(jsonData["id"].c_str()));
-        json_object_set_new(jret, "action", json_string(jsonData["action"].c_str()));
-        json_object_set_new(jret, "address", json_string(jsonData["address"].c_str()));
-        json_object_set_new(jret, "count", json_string(jsonData["count"].c_str()));
-        json_object_set_new(jret, "status", json_string(status?"true":"false"));
-        json_t *jarr = json_array();
-        for (uint i = 0;i < values_bits.size();i++)
-            json_array_append_new(jarr, json_string(values_bits[i]?"true":"false"));
-        json_object_set_new(jret, "values", jarr);
+        vector<string> jvalues;
+        for (size_t i = 0;i < values_bits.size();i++)
+            jvalues.push_back(values_bits[i]?"true":"false");
 
-        res = jansson_to_string(jret);
+        res = WagoWire::buildReadReply(jsonData, status, jvalues);
     }
     else if (jsonData["action"] == "write_bit")
     {
@@ -132,10 +124,7 @@ void WagoProcess::messageReceived(const string &msg)
             }
         }
 
-        json_t *jret = json_object();
-        json_object_set_new(jret, "id", json_string(jsonData["id"].c_str()));
-        json_object_set_new(jret, "status", json_string(status?"true":"false"));
-        res = jansson_to_string(jret);
+        res = WagoWire::buildStatusReply(jsonData, status);
     }
     else if (jsonData["action"] == "write_bits")
     {
@@ -147,16 +136,10 @@ void WagoProcess::messageReceived(const string &msg)
         Utils::from_string(jsonData["address"], address);
         Utils::from_string(jsonData["count"], count);
 
-        uint idx;
-        json_t *value;
-
         cDebug() << "Writing multiple values to address " << address << " (PLC: " << wago_host << ")";
 
-        json_array_foreach(json_object_get(jroot, "values"), idx, value)
-        {
-            string v = json_string_value(value);
+        for (const string &v: values)
             values_bits.push_back(v == "true");
-        }
 
         if (!wago->write_multiple_bits(address, count, values_bits))
         {
@@ -169,10 +152,7 @@ void WagoProcess::messageReceived(const string &msg)
             }
         }
 
-        json_t *jret = json_object();
-        json_object_set_new(jret, "id", json_string(jsonData["id"].c_str()));
-        json_object_set_new(jret, "status", json_string(status?"true":"false"));
-        res = jansson_to_string(jret);
+        res = WagoWire::buildStatusReply(jsonData, status);
     }
     else if (jsonData["action"] == "read_words" ||
              jsonData["action"] == "read_output_words")
@@ -202,18 +182,11 @@ void WagoProcess::messageReceived(const string &msg)
             }
         }
 
-        json_t *jret = json_object();
-        json_object_set_new(jret, "id", json_string(jsonData["id"].c_str()));
-        json_object_set_new(jret, "action", json_string(jsonData["action"].c_str()));
-        json_object_set_new(jret, "address", json_string(jsonData["address"].c_str()));
-        json_object_set_new(jret, "count", json_string(jsonData["count"].c_str()));
-        json_object_set_new(jret, "status", json_string(status?"true":"false"));
-        json_t *jarr = json_array();
-        for (uint i = 0;i < values_words.size();i++)
-            json_array_append_new(jarr, json_string(Utils::to_string(values_words[i]).c_str()));
-        json_object_set_new(jret, "values", jarr);
+        vector<string> jvalues;
+        for (size_t i = 0;i < values_words.size();i++)
+            jvalues.push_back(Utils::to_string(values_words[i]));
 
-        res = jansson_to_string(jret);
+        res = WagoWire::buildReadReply(jsonData, status, jvalues);
     }
     else if (jsonData["action"] == "write_word")
     {
@@ -237,10 +210,7 @@ void WagoProcess::messageReceived(const string &msg)
             }
         }
 
-        json_t *jret = json_object();
-        json_object_set_new(jret, "id", json_string(jsonData["id"].c_str()));
-        json_object_set_new(jret, "status", json_string(status?"true":"false"));
-        res = jansson_to_string(jret);
+        res = WagoWire::buildStatusReply(jsonData, status);
     }
     else if (jsonData["action"] == "write_words")
     {
@@ -252,14 +222,10 @@ void WagoProcess::messageReceived(const string &msg)
         Utils::from_string(jsonData["address"], address);
         Utils::from_string(jsonData["count"], count);
 
-        uint idx;
-        json_t *value;
-
         cDebug() << "Writing multiple values to address " << address << " (PLC: " << wago_host << ")";
 
-        json_array_foreach(json_object_get(jroot, "values"), idx, value)
+        for (const string &v: values)
         {
-            string v = json_string_value(value);
             UWord vv;
             Utils::from_string(v, vv);
             values_words.push_back(vv);
@@ -276,13 +242,8 @@ void WagoProcess::messageReceived(const string &msg)
             }
         }
 
-        json_t *jret = json_object();
-        json_object_set_new(jret, "id", json_string(jsonData["id"].c_str()));
-        json_object_set_new(jret, "status", json_string(status?"true":"false"));
-        res = jansson_to_string(jret);
+        res = WagoWire::buildStatusReply(jsonData, status);
     }
-
-    json_decref(jroot);
 
     if (!res.empty())
         sendMessage(res);

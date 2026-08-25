@@ -102,7 +102,9 @@
 
 #include "Utils.h"
 #include "Params.h"
-#include "Jansson_Addition.h"
+/* THE PRODUCTION HEADER. Not a copy of it: the very text WagoMap.cpp and
+ * WagoExternProc_main.cpp include and the two binaries ship. */
+#include "WagoWire.h"
 
 using std::string;
 using std::vector;
@@ -120,109 +122,50 @@ namespace
 
 string wireReadBits(const string &id, UWord address, int count)
 {
-    Params p = {{ "action", "read_bits" },
-                { "id", id },
-                { "address", Utils::to_string(address) },
-                { "count", Utils::to_string(count) } };
-
-    return jansson_to_string(jansson_from_params(p));
+    return WagoWire::buildReadBitsRequest(id, address, count);
 }
 
 string wireReadOutputBits(const string &id, UWord address, int count)
 {
-    Params p = {{ "action", "read_output_bits" },
-                { "id", id },
-                { "address", Utils::to_string(address) },
-                { "count", Utils::to_string(count) } };
-
-    return jansson_to_string(jansson_from_params(p));
+    return WagoWire::buildReadOutputBitsRequest(id, address, count);
 }
 
 string wireWriteBit(const string &id, UWord address, bool value)
 {
-    Params p = {{ "action", "write_bit" },
-                { "id", id },
-                { "address", Utils::to_string(address) },
-                { "value", value?"true":"false" } };
-
-    return jansson_to_string(jansson_from_params(p));
+    return WagoWire::buildWriteBitRequest(id, address, value);
 }
 
-/* WagoMap.cpp:316-337, INCLUDING ITS BUG. The values array is built into jret
- * and jret is then thrown away: what goes on the wire is a SECOND, FRESH
- * serialization of p, which has no "values" key. See the two cases named
- * ...CarriesNoValuesArray_BUG below.
- * The one difference with production, and it is deliberate: the decref. The
- * production site LEAKS jret (and the array it now owns) on every call;
- * reproducing a leak inside the test suite would only make the suite noisy
- * under ASan. What this seam reproduces is the EMITTED BYTES. */
+/* The site that carries the bug. Before the rewiring this body was the
+ * jansson assembly of WagoMap.cpp:316-337 verbatim: build the values array
+ * into a json_t called jret, attach it, then send a SECOND, FRESH
+ * serialization of the four-key Params - and leak jret. It now forwards to
+ * the shipped builder, which reproduces the missing array deliberately (and
+ * no longer leaks anything: nlohmann has no reference counting).
+ * See the two cases named ...CarriesNoValuesArray_BUG below. */
 string wireWriteBits(const string &id, UWord address, int count, const vector<bool> &values)
 {
-    Params p = {{ "action", "write_bits" },
-                { "id", id },
-                { "address", Utils::to_string(address) },
-                { "count", Utils::to_string(count) } };
-
-    json_t *jret = jansson_from_params(p);
-    json_t *jarr = json_array();
-    for (size_t i = 0;i < values.size();i++)
-        json_array_append_new(jarr, json_string(values[i]?"true":"false"));
-    json_object_set_new(jret, "values", jarr);
-
-    const string wire = jansson_to_string(jansson_from_params(p));
-
-    json_decref(jret); //production leaks it here, see the comment above
-    return wire;
+    return WagoWire::buildWriteBitsRequest(id, address, count, values);
 }
 
 string wireReadWords(const string &id, UWord address, int count)
 {
-    Params p = {{ "action", "read_words" },
-                { "id", id },
-                { "address", Utils::to_string(address) },
-                { "count", Utils::to_string(count) } };
-
-    return jansson_to_string(jansson_from_params(p));
+    return WagoWire::buildReadWordsRequest(id, address, count);
 }
 
 string wireReadOutputWords(const string &id, UWord address, int count)
 {
-    Params p = {{ "action", "read_output_words" },
-                { "id", id },
-                { "address", Utils::to_string(address) },
-                { "count", Utils::to_string(count) } };
-
-    return jansson_to_string(jansson_from_params(p));
+    return WagoWire::buildReadOutputWordsRequest(id, address, count);
 }
 
 string wireWriteWord(const string &id, UWord address, UWord value)
 {
-    Params p = {{ "action", "write_word" },
-                { "id", id },
-                { "address", Utils::to_string(address) },
-                { "value", Utils::to_string(value) } };
-
-    return jansson_to_string(jansson_from_params(p));
+    return WagoWire::buildWriteWordRequest(id, address, value);
 }
 
-/* WagoMap.cpp:390-411, same bug as wireWriteBits(). */
+/* Same bug as wireWriteBits(), same rewiring. */
 string wireWriteWords(const string &id, UWord address, int count, const vector<UWord> &values)
 {
-    Params p = {{ "action", "write_words" },
-                { "id", id },
-                { "address", Utils::to_string(address) },
-                { "count", Utils::to_string(count) } };
-
-    json_t *jret = jansson_from_params(p);
-    json_t *jarr = json_array();
-    for (size_t i = 0;i < values.size();i++)
-        json_array_append_new(jarr, json_string(Utils::to_string(values[i]).c_str()));
-    json_object_set_new(jret, "values", jarr);
-
-    const string wire = jansson_to_string(jansson_from_params(p));
-
-    json_decref(jret); //production leaks it here
-    return wire;
+    return WagoWire::buildWriteWordsRequest(id, address, count, values);
 }
 
 /*---------------------------------------------------------------------------
@@ -242,27 +185,12 @@ string wireWriteWords(const string &id, UWord address, int count, const vector<U
 
 string wireReadReply(const Params &request, bool status, const vector<string> &values)
 {
-    json_t *jret = json_object();
-    json_object_set_new(jret, "id", json_string(request["id"].c_str()));
-    json_object_set_new(jret, "action", json_string(request["action"].c_str()));
-    json_object_set_new(jret, "address", json_string(request["address"].c_str()));
-    json_object_set_new(jret, "count", json_string(request["count"].c_str()));
-    json_object_set_new(jret, "status", json_string(status?"true":"false"));
-    json_t *jarr = json_array();
-    for (size_t i = 0;i < values.size();i++)
-        json_array_append_new(jarr, json_string(values[i].c_str()));
-    json_object_set_new(jret, "values", jarr);
-
-    return jansson_to_string(jret);
+    return WagoWire::buildReadReply(request, status, values);
 }
 
 string wireStatusReply(const Params &request, bool status)
 {
-    json_t *jret = json_object();
-    json_object_set_new(jret, "id", json_string(request["id"].c_str()));
-    json_object_set_new(jret, "status", json_string(status?"true":"false"));
-
-    return jansson_to_string(jret);
+    return WagoWire::buildStatusReply(request, status);
 }
 
 /*---------------------------------------------------------------------------
@@ -276,19 +204,7 @@ string wireStatusReply(const Params &request, bool status)
 
 bool wireDecode(const string &msg, Params &out)
 {
-    json_error_t jerr;
-    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
-
-    if (!jroot || !json_is_object(jroot))
-    {
-        if (jroot)
-            json_decref(jroot);
-        return false;
-    }
-
-    jansson_decode_object(jroot, out);
-    json_decref(jroot);
-    return true;
+    return WagoWire::decodeMessage(msg, out);
 }
 
 /* WagoMap.cpp:213-217 / :238-244 and WagoExternProc_main.cpp:155-159 / :260-266:
@@ -305,26 +221,8 @@ bool wireDecode(const string &msg, Params &out)
  * the migrated decoder must keep. */
 bool wireDecodeValues(const string &msg, vector<string> &values)
 {
-    json_error_t jerr;
-    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
-
-    if (!jroot || !json_is_object(jroot))
-    {
-        if (jroot)
-            json_decref(jroot);
-        return false;
-    }
-
-    size_t idx;
-    json_t *value;
-    json_array_foreach(json_object_get(jroot, "values"), idx, value)
-    {
-        const char *v = json_string_value(value);
-        values.push_back(v?v:"");
-    }
-
-    json_decref(jroot);
-    return true;
+    Params ignored;
+    return WagoWire::decodeMessage(msg, ignored, &values);
 }
 
 /*---------------------------------------------------------------------------
@@ -787,11 +685,13 @@ TEST(WagoWire, AFailedOperationAnswersTheStringFalse)
 //cannot happen silently.
 TEST(WagoWire, ReadReplyIsExactlyThisByteString)
 {
-    //MOVED BY E4.1h: key ORDER only, insertion -> sorted. Nothing else.
-    EXPECT_EQ("{\"id\":\"id-7f3a91-cmd\","
-              "\"action\":\"read_words\","
+    //MOVED BY E4.1h, and this is the whole of the move: the keys used to come
+    //out in INSERTION order (id, action, address, count, status, values), they
+    //now come out SORTED. Not one other byte of this string changed.
+    EXPECT_EQ("{\"action\":\"read_words\","
               "\"address\":\"4242\","
               "\"count\":\"5\","
+              "\"id\":\"id-7f3a91-cmd\","
               "\"status\":\"true\","
               "\"values\":[\"11\",\"2222\",\"333\",\"44444\",\"5\"]}",
               wireReadReply(readWordsRequestParams(), true, replyWordValues()));
@@ -1026,8 +926,10 @@ TEST(WagoWire, TheWireStaysPureAsciiWhenAnEchoedFieldIsNot)
     //MOVED BY E4.1h: jansson escaped with UPPERCASE hex, nlohmann with
     //LOWERCASE hex. That is the ONE byte difference of this migration on a
     //non-ASCII field, and no JSON parser can see it.
-    EXPECT_NE(string::npos, wire.find("\\u00E9")) << escaped(wire);
-    EXPECT_NE(string::npos, wire.find("\\u00C0")) << escaped(wire);
+    EXPECT_NE(string::npos, wire.find("\\u00e9")) << escaped(wire);
+    EXPECT_NE(string::npos, wire.find("\\u00c0")) << escaped(wire);
+    EXPECT_EQ(string::npos, wire.find("\\u00E9")) << escaped(wire);
+    EXPECT_EQ(string::npos, wire.find("\\u00C0")) << escaped(wire);
 
     //parseable, and the value round-trips to the same UTF-8 it came from
     const Json j = Json::parse(wire, nullptr, false);
@@ -1062,8 +964,19 @@ TEST(WagoWire, InvalidUtf8InAnEchoedFieldDoesNotAbortTheEmission)
     //byte, json_object_set_new() answered -1, neither return code was tested,
     //and the WHOLE PAIR was dropped on the floor: the reply left with a single
     //key and the server never matched it to its pending command. Under
-    //nlohmann the key is there, with the bad byte turned into U+FFFD.
-    EXPECT_EQ(1u, j.size()) << escaped(wire);
-    EXPECT_FALSE(j.contains("id")) << escaped(wire);
+    //nlohmann the key is THERE, with the bad byte turned into U+FFFD - the
+    //wire no longer lies about which fields were sent.
+    //
+    //THIS IS WHERE THE THREE SPELLINGS SEPARATE, and why the assertions below
+    //are on the value and on the bytes rather than on "it did not throw":
+    //  replace : one U+FFFD per rejected byte -> everything below holds;
+    //  ignore  : the byte DISAPPEARS, the id reads "id--tail" -> the EXPECT_EQ
+    //            on the value and the find("\\ufffd") both fail;
+    //  strict  : dump() throws type_error.316 -> the ASSERT_NO_THROW fails.
+    EXPECT_EQ(2u, j.size()) << escaped(wire);
+    ASSERT_TRUE(j.contains("id")) << escaped(wire);
+    EXPECT_EQ("id-\xef\xbf\xbd-tail", j.at("id").get<string>()) << escaped(wire);
+    EXPECT_NE(string::npos, wire.find("\\ufffd")) << escaped(wire);
+    EXPECT_EQ(string::npos, wire.find("id--tail")) << escaped(wire);
     EXPECT_EQ("true", j.at("status").get<string>());
 }
