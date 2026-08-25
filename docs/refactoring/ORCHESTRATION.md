@@ -230,6 +230,114 @@
     c'est le code qui la consomme qui a été lu. Le seul programme exécuté est un `g++` autonome de
     12 lignes sur `from_string`/`is_of_type`.
 
+- **🔒 E4.1l ✅ MERGÉ (`f36ff138`, **6** commits, `git rebase --onto 44657407 df2851d0` +
+  `merge --ff-only`, historique linéaire, **0 commit de fusion**)** — ⭐⭐ **E4.1m EST DÉBLOQUÉE** :
+  c'était le **premier de la chaîne sérialisée `l`→`s`**, et **sept tickets héritent de ce qui passe
+  ici**. `CalaosEvent::toJson()` rend un `Json` ; ses **trois** wires sérialisants suivent (push WS,
+  `processPolling()`, **la ligne d'historique** `EventManager.cpp:79`) ; adaptateur transitoire
+  `jansson_from_json()` à **un seul appelant**, que `E4.1m` supprime. **E4.1 passe à 12/17.**
+  **RIEN POUSSÉ.**
+
+  - ⭐ **LE PARCOURS EST LA LEÇON : le `src/` était SAIN et le RÉCIT était FAUX** — retour à
+    l'auteur pour cela seul. Le correctif ne touche **aucune ligne de CODE** : revérifié au merge en
+    `python3`, comments dépouillés (chaînes et littéraux respectés) sur les deux fichiers du
+    correctif — `EventManager.cpp` **4302 → 4302 o de code**, `EventWireBytes_test.cpp`
+    **17292 → 17292 o**, **byte-identiques**, seuls les commentaires bougent.
+
+  - ⭐⭐ **LE MARQUEUR A ÉTÉ REJOUÉ, PAS CRU SUR PAROLE, ET IL TOMBE À L'UNITÉ PRÈS.** `fprintf`
+    posé sur la ligne du dump, campagne `make check` complète, comptage **par fichier `.log`** :
+    **17 passages**, dont **13 dans TROIS suites PRÉEXISTANTES** — `core/ImpulseGarbageIo_test`
+    **10**, `core/WagoPortDefault_test` **2**, `core/SetStateGarbage_test` **1** — plus **4** du
+    filet neuf `core/EventWireBytes_test`. Cause revérifiée : **7 classes d'IO** posent
+    `log_history="true"` par défaut **dans leur propre constructeur** (`OutputLight`,
+    `OutputShutter`, `OutputShutterSmart`, `OutputLightDimmer`, `OutputLightRGB`, `OutputAnalog`,
+    `Scenario`), et la chaîne de garde `EventManager.cpp:61-77` est **byte-identique
+    master↔branche — 491 octets des deux côtés**, donc **tout aussi ouverte avant**. ⇒
+    l'affirmation *« n'était exercé par AUCUN test »* est bien **morte** ; celle qui la remplace,
+    **« aucun oracle ne regardait ces octets »**, est vérifiée aux **6 endroits** annoncés
+    (`FINDINGS.md`, `E4.1l.md`, `BOARD.md`, en-tête d'`EventWireBytes_test.cpp`, **+ les 2
+    commentaires de `EventManager.cpp`**). ⭐ **`core/ShutterImpulse_test.log` porte 0 marqueur** —
+    le site migré n'est pas sur son chemin, mesuré et non supposé.
+
+  - ⭐⭐ **LES CINQ DELTAS D'OCTETS SONT REPRODUITS SUR SONDE COMPILÉE** contre le vrai `jansson` et
+    le vrai `json.hpp`, **hexadécimal à l'appui** — c'est ce dont les sept tickets suivants héritent :
+    **(1)** ordre des clés — l'objet event `event_raw,type,type_str,data` → **`data,event_raw,type,
+    type_str`**, l'enveloppe `msg,data` → **`data,msg`** ; **(2)** `\u00E9` → `\u00e9` ;
+    **(3)** paire en UTF-8 invalide **supprimée** (`{}`, 2 o) → **conservée** en U+FFFD, **en valeur
+    comme en clé** ; **(4)** ⭐ **DEL** — `7b2263223a22617f62227d` = `{"c":"a<7f>b"}` **11 o** →
+    `{"c":"a\u007fb"}` **16 o** : ⚠️ **le `Content-Length` change** ; **(5)** ⭐ **`0x00` embarqué** —
+    `json_string()` **tronquait à la chaîne C** : `{"c":"a"}` **9 o** au lieu de `a\0b`, et une clé
+    `k\0z` était servie sous le nom **`"k"`, en silence**, avec sa valeur → `{"k\u0000z":"v"}`.
+    Atteignables par `%7f` / `%00` : `Utils::url_decode` (`StringUtils.cpp:57-73`) fait
+    `ret += (char) htoi(...)`, l'octet entre **tel quel**, **sans traverser aucun parseur JSON**
+    (revérifié ; ⚠️ **pas** rejoué de bout en bout contre un `calaos_server` réel — l'auteur l'écrit).
+    Balayages reproduits à l'identique : `0x01`–`0x1F` ⇒ **9 diffs, toutes de casse**, aux octets
+    **`0B 0E 0F 1A 1B 1C 1D 1E 1F`** ; `0x80`–`0x9F` bruts ⇒ **32/32** ; `U+0080`–`U+009F` bien
+    formés ⇒ **12** ; ⭐ **`U+2028`/`U+2029` IDENTIQUES** ; `"` et `\` identiques. Et **`json_pack()`
+    avec un `%s` NULL rend bien `NULL` pour l'objet ENTIER** — le commentaire `EventManager.cpp:198`
+    et l'énoncé de fiche qui disaient « une paire perdue » sont bien corrigés, la perte venait de
+    `jansson_from_params()`.
+
+  - ⭐⭐ **L'INVARIANT 3 D'`E4.1.md` EST CORRIGÉ SUR PLACE** — c'est le point qui comptait le plus,
+    parce que c'est le document de l'épique : *« seule la casse de l'hexadécimal change »* a été
+    **retiré de l'énoncé** et remplacé par un bloc ⚠️ daté qui nomme **DEL** et **`0x00`** et écrit
+    que **tout sous-ticket de la série hérite de ces deux deltas**. Un invariant faux qui survivait
+    ici se serait propagé **sept fois**.
+
+  - **Contre-mutations rejouées au merge, arbre reconstruit depuis une copie pristine hors du dépôt
+    et hors de `/tmp`** (réécriture du contenu, **jamais `cp -p`**), **fichiers restaurés comptés,
+    jamais nul**, `cmp` d'application exigé (**F-HARN-1**), **binaires de test supprimés avant chaque
+    passe** (le piège `_DEPENDENCIES` : les trois binaires portent
+    `_DEPENDENCIES = libcalaos_common.la` et ne se relient pas tout seuls), et la ligne **`CXXLD`
+    exigée par regex ANCRÉE à double espace** :
+    - **témoin `M0`** (aucune mutation) ⇒ **ensemble VIDE, 0 rouge**, `# TOTAL: 96 / FAIL: 0`,
+      **1609 cas exécutés** — donc **aucun binaire mort**, pas de faux vert par mort de binaire ;
+    - **`M3`** (`typeToString()` : `room_added` ↔ `room_changed`) ⇒ **8 rouges**, exactement les
+      cinq annoncés (`EveryEmittedTypeHasItsEnvelope`, `EventRawEncodesWhatDataKeepsRaw`,
+      `RoomChangedOnTheFourRoomMutators`, `TheFourDeadTypesKeepTheirNumbersAndStrings`,
+      `TypeToStringCoversTheTwentyThreeNamedTypes`) **plus 3 du filet d'octets**, et ⭐ **3 des 8
+      sont ADOSSÉS AUX GOLDENS `e40d_*`** (`e40d_ws_event_accented`, `e40d_scenario` /
+      `e40d_ws_event_catalog`, `e40d_ws_room_changed`) : **le filet des goldens reste PORTEUR**.
+
+  - **Build d'intégration post-rebase, `distclean` complet** (`autogen` + `configure` + `make -j32` +
+    `make check -j8`, **un seul build**, attendu par **`docker wait`**, sans relance) : **`# TOTAL: 96`
+    = le compte d'entrées `TESTS` recompté en `python3`** (master **95**, **+1**
+    `core/EventWireBytes_test`), **`# PASS: 95 / FAIL: 0 / ERROR: 0 / XFAIL: 0 / XPASS: 0`**,
+    **`# SKIP: 1` = `run-python-tests.sh`** (pytest absent de l'image ⇒ `exit 77`, **le comportement
+    voulu de T3.44**, pas une régression), **un seul** bloc `Testsuite summary`, **0 `error:`**,
+    **`^  CXXLD    calaos_server$`** (regex ancrée, double espace) présent. **Cas réellement exécutés
+    comptés sur les lignes `[ RUN ]` : 1609 sur 91 binaires gtest** (+ 5 suites-scripts = 96) ;
+    périmètre : `core/EventWireBytes_test` **10**, `ParamsJson_test` **19**,
+    `core/JsonApiEvents_test` **57**. ⚠️ **Écart de récit, non bloquant** : la fiche annonçait
+    **1628 sur 92** ; l'écart vaut **exactement 19 cas et 1 binaire**, soit un `ParamsJson_test.log`
+    compté deux fois côté auteur. **Les chiffres par suite, eux, tombent juste.**
+    **145 goldens, arbre `d4ebc61f`** identique à `master`, **aucun bougé**, `git status -uall`
+    **vide** après restauration.
+
+  - ⚠️ **`F-FLAKY-1` n'a PAS mordu au merge** : `core/ShutterImpulse_test` est **vert sur les quatre
+    campagnes** (validation, marqueur, `M0`, `M3`), `# FAIL: 0` partout. Rien n'a été relancé pour
+    l'obtenir. Le finding reste **entièrement valable** — il dépend de la charge, et cette campagne a
+    été moins contendue que celle de l'auteur.
+
+  - **Corrigé au merge, mesuré** : l'énoncé d'acceptation n°1 disait que le mot `jansson` restait
+    « **1 fois dans chaque fichier** » ; **recompté, il est 3 fois dans `EventManager.cpp`**
+    (`:90`, `:200`, `:203`) et **1 fois dans `EventManager.h`** — le correctif de revue en a ajouté
+    deux. Toutes en **commentaire** ; le critère mesurable (**0 `json_t` / 0 `json_*(` dans le
+    CODE**) est vérifié, et le périmètre passe bien de **181 à 166** appels `json_*(` hors
+    commentaires. `E4.1n` est bien **requalifiée en tâche DOCUMENTAIRE aux 4 endroits** (⛔ *ne pas
+    ouvrir de ticket vide*), et `F-LINK-1` a bien son **4ᵉ membre** : *« non exercé » se mesure en
+    INSTRUMENTANT LE SITE*.
+
+  - **Conflit de rebase : un seul, attendu, `FINDINGS.md`** — appends des deux côtés (T3.44 pour
+    `master`, E4.1l pour la branche). Résolu **en gardant les deux côtés**, chacun **sous son propre
+    titre `##`**, par régénération : fichier complet de `master` + append du bloc de branche
+    **verbatim** (la branche est un append **pur** sur la base, vérifié : `base` est préfixe exact de
+    la version de branche, **8506 octets** ajoutés). **0 marqueur de conflit résiduel**, et les
+    **149 fichiers** de `docs/refactoring/` intacts. ⚠️ **Le piège de l'`endif` n'a pas mordu** :
+    `tests/Makefile.am` = **82 `^if*` / 82 `endif`** (master **81/81**), **profondeur jamais
+    négative**, minimum 0, final 0. **`BOARD.md` reste trié par NUMÉRO** — aucune ligne ajoutée,
+    seules les lignes `E4.1` et `E4.1l` réécrites sur place.
+
 - **🔒 T3.44 ✅ MERGÉ (`159202b3`, **16** commits, `master` **immobile** sur `df2851d0` ⇒ **rebase
   inutile**, `merge --ff-only`, historique linéaire, **0 commit de fusion**)** — `make check` ne dit
   plus `PASS` sur des suites qui n'ont pas tourné : `tests/run-python-tests.sh` délègue à
