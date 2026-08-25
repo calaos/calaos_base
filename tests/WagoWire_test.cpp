@@ -100,6 +100,7 @@
 
 #include <cstdio>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "Utils.h"
@@ -1052,4 +1053,95 @@ TEST(WagoWire, InvalidUtf8InAnEchoedFieldDoesNotAbortTheEmission)
     EXPECT_NE(string::npos, wire.find("\\ufffd")) << escaped(wire);
     EXPECT_EQ(string::npos, wire.find("id--tail")) << escaped(wire);
     EXPECT_EQ("true", j.at("status").get<string>());
+}
+
+/*----------------------------------------------------------------------------
+ * T3.31 - THE POSITIONAL-ARGUMENT HOLE, ASKED OF THE TYPE SYSTEM AT RUNTIME.
+ *
+ * Every case above exercises a CORRECTLY ordered call. None of them can ever
+ * fail on a call site that swapped two arguments, because a swapped call site
+ * is not in this binary: WagoWire_test_LDADD carries libcalaos_common and
+ * gtest and NO server object at all, so muting WagoMap.cpp changes nothing
+ * here. That is measured, not supposed - E4.1h swapped `address` and `nb` at
+ * WagoMap.cpp and this suite stayed 31/31 GREEN with no warning, because
+ * Utils::UWord and int convert into one another in silence.
+ *
+ * These cases therefore do NOT test behaviour. They ask a question the
+ * compiler can answer and gtest can report: CAN a caller still hand this
+ * builder its arguments in the wrong order? std::is_invocable_v answers
+ * exactly that, at compile time, and EXPECT_FALSE turns the answer into a
+ * PASS/FAIL line instead of a broken build.
+ *
+ * ⚠️ This is a COMPILATION property reported through an executable oracle. It
+ * is not a behavioural oracle and must not be sold as one: it proves that a
+ * permuted call no longer TYPE-CHECKS, it proves nothing about what the
+ * builder emits. What the builder emits is pinned by the thirty-one cases
+ * above, and they are untouched.
+ *
+ * ⚠️ It does NOT close the residual of wrapping the WRONG variable:
+ * buildWriteWordRequest(id, Address(value), WordValue(address)) type-checks
+ * and always will. See docs/refactoring/T3.31.md section 3.
+ *
+ * The probed argument lists below are the PERMUTED ones, spelled out:
+ *   - the two single writes carry (address, value) of the SAME type, so the
+ *     permuted list is identical to the correct one and one probe covers it;
+ *   - the four reads and the two multiple writes carry (address, count) as
+ *     (UWord, int), so the permuted list is (int, UWord).
+ *--------------------------------------------------------------------------*/
+
+namespace
+{
+
+using ReadBitsFn        = decltype(&WagoWire::buildReadBitsRequest);
+using ReadOutputBitsFn  = decltype(&WagoWire::buildReadOutputBitsRequest);
+using ReadWordsFn       = decltype(&WagoWire::buildReadWordsRequest);
+using ReadOutputWordsFn = decltype(&WagoWire::buildReadOutputWordsRequest);
+using WriteBitFn        = decltype(&WagoWire::buildWriteBitRequest);
+using WriteWordFn       = decltype(&WagoWire::buildWriteWordRequest);
+using WriteBitsFn       = decltype(&WagoWire::buildWriteBitsRequest);
+using WriteWordsFn      = decltype(&WagoWire::buildWriteWordsRequest);
+
+} //namespace
+
+/* The two RED ones of the whole family: address and value are the same width
+ * and go out as a WRITE. A permutation here does not read the wrong register,
+ * it DRIVES A RELAY at whatever address the value happened to be. This is the
+ * pair F-WAGO-7 names, one hop above WagoCtrl::write_single_word(). */
+TEST(WagoWire, TheTwoSingleWritesRefuseABareAddressAndValuePair)
+{
+    EXPECT_FALSE((std::is_invocable_v<WriteWordFn, const string &, UWord, UWord>))
+        << "buildWriteWordRequest() still takes two bare UWord: at WagoMap.cpp "
+           "the address and the value are interchangeable in total silence";
+
+    EXPECT_FALSE((std::is_invocable_v<WriteBitFn, const string &, bool, UWord>))
+        << "buildWriteBitRequest() still takes a bare UWord and a bare bool: "
+           "bool and UWord convert both ways, so the permutation compiles";
+}
+
+/* The four reads: (UWord address, int count). Different types, permutable all
+ * the same - this is exactly E4.1h's mutation M6, which left the suite green. */
+TEST(WagoWire, TheFourReadsRefuseAPermutedAddressAndCount)
+{
+    EXPECT_FALSE((std::is_invocable_v<ReadBitsFn, const string &, int, UWord>))
+        << "buildReadBitsRequest(id, count, address) still type-checks";
+    EXPECT_FALSE((std::is_invocable_v<ReadOutputBitsFn, const string &, int, UWord>))
+        << "buildReadOutputBitsRequest(id, count, address) still type-checks";
+    EXPECT_FALSE((std::is_invocable_v<ReadWordsFn, const string &, int, UWord>))
+        << "buildReadWordsRequest(id, count, address) still type-checks";
+    EXPECT_FALSE((std::is_invocable_v<ReadOutputWordsFn, const string &, int, UWord>))
+        << "buildReadOutputWordsRequest(id, count, address) still type-checks";
+}
+
+/* The two multiple writes. Their chain is dead end to end (T3.30 section 6.1:
+ * WagoMap::write_multiple_* has no caller), so this is the cheapest of the
+ * eight to get right and the one most likely to be got wrong the day someone
+ * revives it. */
+TEST(WagoWire, TheTwoMultipleWritesRefuseAPermutedAddressAndCount)
+{
+    EXPECT_FALSE((std::is_invocable_v<WriteBitsFn, const string &, int, UWord,
+                                      const vector<bool> &>))
+        << "buildWriteBitsRequest(id, count, address, values) still type-checks";
+    EXPECT_FALSE((std::is_invocable_v<WriteWordsFn, const string &, int, UWord,
+                                      const vector<UWord> &>))
+        << "buildWriteWordsRequest(id, count, address, values) still type-checks";
 }

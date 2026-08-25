@@ -73,6 +73,7 @@
 #include <gtest/gtest.h>
 
 #include <string>
+#include <type_traits>
 
 #include "Utils.h"
 #include "Params.h"
@@ -572,4 +573,43 @@ TEST(ReolinkWire, Tripwire_ParamsFromNJsonIsNotASubstituteForThisDecoder)
     Params p = Params::fromNJson(allStrings);
     EXPECT_EQ("detection", p["event"]);
     EXPECT_EQ("h-cam", p["hostname"]);
+}
+
+/*----------------------------------------------------------------------------
+ * T3.31 - THE POSITIONAL-ARGUMENT HOLE ON THE REGISTER MESSAGE.
+ *
+ * buildRegisterMessage() takes FOUR std::string in a row. Every case above
+ * calls it in the right order, and none of them can catch a caller that does
+ * not - ReolinkCtrl.cpp is not linked into this binary and cannot be (the
+ * singleton spawns calaos_reolink from its constructor). E4.1i measured it:
+ * swapping `username` and `password` at ReolinkCtrl.cpp left this suite 17/17
+ * GREEN, while the same swap made INSIDE this header reddens five cases.
+ *
+ * The consequence of that permutation is the worst of the whole series: the
+ * message is perfectly well formed, the camera silently fails to
+ * authenticate, and THE PASSWORD IS SENT IN CLEAR IN THE USERNAME FIELD.
+ *
+ * ⚠️ Compilation property reported through an executable oracle, exactly as
+ * in tests/WagoWire_test.cpp - it says a permuted call no longer type-checks,
+ * it says nothing about what is emitted. What is emitted stays pinned by
+ * RegisterMessageCarriesTheFourParamsUnderTheirOwnKeys and its neighbours,
+ * whose four fixture values are mutually non-substitutable on purpose.
+ *--------------------------------------------------------------------------*/
+
+TEST(ReolinkWire, TheRegisterMessageRefusesFourBareStrings)
+{
+    using RegisterFn = decltype(&ReolinkWire::buildRegisterMessage);
+
+    EXPECT_FALSE((std::is_invocable_v<RegisterFn, const string &, const string &,
+                                      const string &, const string &>))
+        << "buildRegisterMessage() still takes four bare std::string: any two "
+           "of hostname/username/password/event_type are interchangeable at "
+           "the call site with no diagnostic at all";
+
+    //The same question asked of raw literals, which is how a hurried caller
+    //writes it. const char* converts to std::string, so this must fall with
+    //the previous one and not separately.
+    EXPECT_FALSE((std::is_invocable_v<RegisterFn, const char *, const char *,
+                                      const char *, const char *>))
+        << "buildRegisterMessage() still accepts four bare string literals";
 }

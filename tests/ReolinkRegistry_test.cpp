@@ -28,6 +28,8 @@
 #include <gtest/gtest.h>
 
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "ReolinkEventRegistry.h"
@@ -190,4 +192,103 @@ TEST(ReolinkRegistry, ForEachRegistrationListsCrashRecoveryRecords)
     EXPECT_EQ(1u, reg.cameraCount());
     EXPECT_TRUE(reg.hasCamera("cam1", "motion"));
     EXPECT_FALSE(reg.hasCamera("cam2", "person"));
+}
+
+/*----------------------------------------------------------------------------
+ * T3.31 - CameraRegistration IS AN AGGREGATE, AND THAT IS THE WHOLE HOLE.
+ *
+ * The struct exists and carries exactly the four fields by name, and it has
+ * closed NOTHING: ReolinkCtrl.cpp:100 builds it POSITIONALLY,
+ * registry.add({hostname, username, password, event_type}, ...), so username
+ * and password are still two adjacent std::string a caller can swap in
+ * silence. The named struct bought a name, not a check.
+ *
+ * ⭐ MEASURED, and it contradicts what T3.31 asked for. The ticket's
+ * acceptance criterion 3 says to close this "by giving CameraRegistration a
+ * constructor". A constructor removes aggregate-ness, but the constructor is
+ * ITSELF positional:
+ *
+ *     Reg(std::string h, std::string u, std::string p, std::string e);
+ *     add({h, p, u, e});      // still compiles, zero warnings at -Wall
+ *                             // -Wextra -Wconversion, username <-> password
+ *
+ * Only per-field STRONG TYPES close it, and that is what the two probes below
+ * demand: not "is it an aggregate", but "can four bare strings still be
+ * poured into it in any order at all", which is the question that matters and
+ * the one a plain constructor still answers yes to.
+ *
+ * ⚠️ Compilation property reported through an executable oracle. It does not
+ * close the residual of wrapping the wrong variable - Username(password)
+ * type-checks and always will - it only collapses that risk from four call
+ * sites down to the one line that does the wrapping.
+ *--------------------------------------------------------------------------*/
+
+namespace
+{
+
+/* Direct-initialisation, T obj(a, b, c, d). In C++20 this also reaches
+ * parenthesised aggregate initialisation, so it is true for a bare aggregate
+ * AND for a positional constructor - which is exactly why it is probed. */
+template <class T, class... A>
+constexpr bool isDirectInitializable = std::is_constructible_v<T, A...>;
+
+/* List-initialisation, T{a, b, c, d} - the form ReolinkCtrl.cpp:100 actually
+ * writes. std::is_constructible does not see this one, so it gets its own
+ * detector. */
+template <class T, class... A>
+class BraceInitProbe
+{
+    template <class U, class... B>
+    static auto probe(int) -> decltype(U{std::declval<B>()...}, std::true_type{});
+    template <class, class...>
+    static std::false_type probe(...);
+
+public:
+    static constexpr bool value = decltype(probe<T, A...>(0))::value;
+};
+
+template <class T, class... A>
+constexpr bool isBraceInitializable = BraceInitProbe<T, A...>::value;
+
+} //namespace
+
+TEST(ReolinkRegistry, ARegistrationRefusesFourBareStringsPositionally)
+{
+    using Reg = ReolinkEventRegistry::CameraRegistration;
+
+    EXPECT_FALSE((isBraceInitializable<Reg, string, string, string, string>))
+        << "CameraRegistration{h, u, p, e} still compiles - this is the exact "
+           "form ReolinkCtrl.cpp:100 writes, and it puts the password wherever "
+           "the caller happens to have typed it";
+
+    EXPECT_FALSE((isDirectInitializable<Reg, string, string, string, string>))
+        << "CameraRegistration(h, u, p, e) still compiles - a positional "
+           "constructor is not a fix, it is the same hole with a name on it";
+}
+
+/* The probes above are only worth their line count if they can tell the two
+ * situations apart. A trait that answers false to everything would pass them
+ * for free. */
+TEST(ReolinkRegistry, TheAggregateProbesActuallyDiscriminate)
+{
+    struct Aggregate { std::string a, b; };
+    struct Positional { Positional(std::string, std::string) {} };
+    struct Guarded
+    {
+        struct A { std::string v; explicit A(std::string s): v(std::move(s)) {} };
+        struct B { std::string v; explicit B(std::string s): v(std::move(s)) {} };
+        Guarded(A, B) {}
+    };
+
+    EXPECT_TRUE((isBraceInitializable<Aggregate, string, string>));
+    EXPECT_TRUE((isDirectInitializable<Aggregate, string, string>)); //C++20
+
+    //⭐ The measurement that infirms T3.31 acceptance criterion 3: a plain
+    //constructor leaves BOTH doors open.
+    EXPECT_TRUE((isBraceInitializable<Positional, string, string>));
+    EXPECT_TRUE((isDirectInitializable<Positional, string, string>));
+
+    //Per-field strong types, and only they, shut both.
+    EXPECT_FALSE((isBraceInitializable<Guarded, string, string>));
+    EXPECT_FALSE((isDirectInitializable<Guarded, string, string>));
 }
