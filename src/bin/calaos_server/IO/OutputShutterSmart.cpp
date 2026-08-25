@@ -329,9 +329,20 @@ void OutputShutterSmart::Up(double new_value)
 
         double _t = pos;
         if (new_value > 0) _t -= new_value;
-        if (impulse_action_time + impulse_time < _t * 1000)
+        //T3.34: both operands come from outside. impulse_action_time is the
+        //duration the client asked for (Utils::from_string saturates an
+        //out-of-range value to INT_MAX), and impulse_time is -1 when the
+        //shutter simply has no impulse_time parameter. The int sum therefore
+        //overflows (UB) at the top of the range, and goes negative at the
+        //bottom; a negative delay reaches Timer::singleShot() as
+        //static_cast<uint64_t>(-1.0), which libuv clamps to "never" -- measured:
+        //the handle stays armed on the loop for good, holding this IO, once per
+        //command. Compute in double and never ask for a negative delay.
+        const double _impulseEnd = (double)impulse_action_time + (double)impulse_time;
+        if (_impulseEnd < (double)(_t * 1000))
         {
-            double _timer = (double)(impulse_action_time + impulse_time) / 1000.;
+            double _timer = _impulseEnd / 1000.;
+            if (_timer < 0.) _timer = 0.;
             Timer::singleShot(_timer, sigc::slot<void>(
                 [this, alive = std::weak_ptr<bool>(impulseStopTag)]()
             {
@@ -417,9 +428,20 @@ void OutputShutterSmart::Down(double new_value)
 
         double _t = (double)total_time - pos;
         if (new_value > 0) _t -= new_value;
-        if (impulse_action_time + impulse_time < _t * 1000)
+        //T3.34: both operands come from outside. impulse_action_time is the
+        //duration the client asked for (Utils::from_string saturates an
+        //out-of-range value to INT_MAX), and impulse_time is -1 when the
+        //shutter simply has no impulse_time parameter. The int sum therefore
+        //overflows (UB) at the top of the range, and goes negative at the
+        //bottom; a negative delay reaches Timer::singleShot() as
+        //static_cast<uint64_t>(-1.0), which libuv clamps to "never" -- measured:
+        //the handle stays armed on the loop for good, holding this IO, once per
+        //command. Compute in double and never ask for a negative delay.
+        const double _impulseEnd = (double)impulse_action_time + (double)impulse_time;
+        if (_impulseEnd < (double)(_t * 1000))
         {
-            double _timer = (double)(impulse_action_time + impulse_time) / 1000.;
+            double _timer = _impulseEnd / 1000.;
+            if (_timer < 0.) _timer = 0.;
             Timer::singleShot(_timer, sigc::slot<void>(
                 [this, alive = std::weak_ptr<bool>(impulseStopTag)]()
             {
