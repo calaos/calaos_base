@@ -801,11 +801,13 @@ dépendance optionnelle — `HAVE_GTEST` inclus : sans gtest, `make check` reste
 S'aligner sur la convention du dépôt plutôt que d'inventer.
 
 **Ce que ça change, concrètement** : sur une machine sans `pytest`+`fastapi`+`httpx`+`colorama`,
-`make check` passe de ⭐ **`90/90 PASS`** à ⭐ **`89 PASS / 1 SKIP`**, **sortie toujours 0, build non
-cassé**. ⚠️ **Cette ligne a d'abord été écrite « 88/88 → 88 PASS / 1 SKIP »** : le compte d'entrées
-`TESTS` a été recompté depuis (`89` sur `master`, **`90`** sur la branche, l'oracle compris ; **`89`
-en CI**, où `KNXExternProcWire_test` quitte `TESTS` sans un mot faute de `libknx`). Voir
-[T3.44](T3.44.md) §4 et §8.1.
+`make check` passe de ⭐ **`95/95 PASS`** à ⭐ **`94 PASS / 1 SKIP`**, **sortie toujours 0, build non
+cassé**. ⚠️ **Cette ligne a d'abord été écrite « 88/88 → 88 PASS / 1 SKIP », puis « 90/90 → 89 + 1 »** :
+le compte d'entrées `TESTS` **bouge à chaque merge de la série** et doit être **recompté, jamais
+recopié**. ⭐ **Recompté `python3` au merge de `T3.44` (arbre `159202b3`)** : **`94` sur `master`
+`df2851d0`**, **`95`** sur la branche (l'oracle compris), **`94` en CI**, où `KNXExternProcWire_test`
+quitte `TESTS` sans un mot faute de `libknx`. **Mesuré dans l'image de dev** : `# TOTAL: 95 / PASS: 94
+/ SKIP: 1 / FAIL: 0`, RC 0, et **95 `.trs`** exactement. Voir [T3.44](T3.44.md) §4 et §8.1.
 ⇒ **personne ne casse**, mais **personne ne peut plus lire « vert » sans savoir**.
 
 ⚠️ **Le point à valider par l'utilisateur** : accepter que le `SKIP` devienne l'état **normal** de

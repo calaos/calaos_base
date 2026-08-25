@@ -230,6 +230,198 @@
     c'est le code qui la consomme qui a été lu. Le seul programme exécuté est un `g++` autonome de
     12 lignes sur `from_string`/`is_of_type`.
 
+- **🔒 T3.44 ✅ MERGÉ (`159202b3`, **16** commits, `master` **immobile** sur `df2851d0` ⇒ **rebase
+  inutile**, `merge --ff-only`, historique linéaire, **0 commit de fusion**)** — `make check` ne dit
+  plus `PASS` sur des suites qui n'ont pas tourné : `tests/run-python-tests.sh` délègue à
+  `tests/python-suite-runner.py`, qui **compte ce que `tests/python/` DÉCLARE, compte ce qu'il a
+  EXÉCUTÉ, publie les deux** (`run-python-tests: suites=N/M cases=N/M`) et sort **77** (`SKIP`
+  visible) plutôt que **0** quand les deux désaccordent. **RIEN POUSSÉ.**
+
+  - ⭐⭐ **LES QUATRE RÉSERVES DE LA 2ᵉ REVUE ONT ÉTÉ REJOUÉES AU MERGE, PAS CRUES SUR PAROLE.**
+    Copie **pristine** et scripts de mesure sous un chemin **qui nomme l'agent de merge**
+    (`…/scratchpad/merge58-fpytest1/`) — le scratchpad de session n'est pas privé. Reconstruction
+    de l'arbre de travail **avant chaque mutant**, par recopie **sans préserver les dates**
+    (`shutil.copy`, jamais `copy2` — variante n° 11), **fichiers restaurés COMPTÉS : 1153 à chaque
+    passe, jamais nul** (une restauration qui échoue en silence rejoue les mutations sur un arbre
+    non restauré et rend **vert**), et **refus si le motif de mutation est absent ou ambigu**.
+
+    - ⭐ **`R1` — la fixture du relecteur ROUGIT, et la correction porte bien sur le REPLI.**
+      Rejouée sur l'arbre réel (`debian:12` + `python3-pytest` 7.2.1 + `fastapi`/`httpx`/`colorama`,
+      les quatre paquets) : un cas de `tests/python/test_logger.py` marqué `@pytest.mark.skip`, plus
+      un paquet `tests/python/regress/` portant un `test_logger.py` **de même basename** déclarant
+      un cas **du même nom pointé**. Publié : **`suites=6/7 cases=42/43`**, `NOT RUN: test_logger.py
+      (3 of 4 declared cases executed; missing: test_default_level_4_logs_debug)`, **RC 77** —
+      exactement la colonne « après » de la fiche.
+      ⭐ **Le mécanisme d'origine a été RECONSTITUÉ, pas seulement raconté** : déclaration remise
+      **plate** (`os.listdir`) **ET** `classname` résolu par sa **première** composante « module »
+      ⇒ **`suites=6/6 cases=42/42`, `PASS`, RC 0, sans `NOT RUN` ni `UNDECLARED`** — le faux vert
+      d'origine, reproduit.
+      ⭐ **La mesure qui a corrigé la correction est confirmée** : la famille junit **par défaut
+      n'écrit AUCUN `file=`** (revérifié sur pytest 7.2.1 : sonde `--junit-xml` nue, `file=` absent)
+      ⇒ le chemin vivant est le **repli** sur le `classname`, pas `basename(file)`. **Démontré par
+      deux mutations opposées** : `MU_D` (clé par basename **dans le lecteur de `file=`**) laisse la
+      fixture **ROUGE** — il est inatteignable ; `MU_J` (repli par la **1ʳᵉ** composante) est **tué
+      par `C5f`**, ensemble rouge **exactement `{C5f}`**. ⚠️ **Nuance mesurée, à ne pas gommer** :
+      **aucune des deux moitiés du correctif ne suffit à elle seule** à produire le faux vert
+      (`MU_E` seul ⇒ `5/6 41/42` + `UNDECLARED` ; `MU_J` seul ⇒ `6/7 42/43`) — **il faut les deux**.
+      La fixture sur arbre réel ne discrimine donc **pas** laquelle des deux moitiés a été réparée ;
+      **c'est l'oracle qui le fait** (`C5f` pour le repli, `C5m` pour le lecteur de `file=`).
+      ⭐ **`C5f`/`C5g` sont bien ASYMÉTRIQUES** : `test_dup.py` déclare `{test_shared_name (skip),
+      test_only_here}` et `sub/test_dup.py` `{test_shared_name, test_only_there}` — honnête **3/4**
+      sur **1/2** suites, clé par basename **2/3** sur 1 fichier : **les deux comptabilités
+      DIVERGENT NUMÉRIQUEMENT**, ce qu'une paire symétrique ne faisait pas.
+
+    - ⭐ **`R2` — `MU_A` et `MU_B` rougissent ; `MU_C` est bien ÉQUIVALENT, `MU_I` bien réel.**
+      `MU_A` (motif `*_test.py` retiré du déclarateur) ⇒ **`{C5h, C5i}`**, exactement la table.
+      `MU_I` (`_PARAM_SUFFIX` **lazy ET non ancré**) ⇒ **`{C5c}`**. `MU_B` (`ran_files += 1`
+      inconditionnel) ⇒ **12 cas rouges** `{C2, C5a…C5i, C5l, C5m}`, la table à l'unité près.
+      `MU_C` (lazy **ancré**) **survit, oracle vert** — et sa preuve d'équivalence a été **rejouée à
+      l'identique** : **87 381** chaînes exhaustives sur `{'[', ']', 'a', '\n'}` longueurs 0–8 et
+      **400 000** aléatoires, **0 différence**. ⭐ **La preuve tient, et elle est falsifiable** : la
+      **même** campagne aléatoire montre que la variante **non ancrée** diffère sur **175 384** des
+      400 000 chaînes, et le contre-exemple publié se vérifie (`test_p[a]b]` → `test_p` avec l'ancre,
+      `test_pb]` sans). ⇒ l'ancre `$` cloue bien le `]` en fin de chaîne : greedy et lazy consomment
+      le même segment. **La moitié `suites=` est effectivement assertée** — numérateur **et**
+      invariant de cohérence dans les deux sens (`check_accounting`), plus les deux moitiés dans
+      chaque `c5_run` ; c'est ce qui tue `MU_B`.
+
+    - **`R3` — l'arbitrage `xfail` est consigné dans `DECISIONS.md` et il est JUSTE.** Un `xfail`
+      **a tourné** : son corps s'est exécuté et a levé, ce qui est son issue attendue ; la
+      classification `<skipped type="pytest.xfail">` du junit est un **artefact de rapport**, pas un
+      énoncé sur l'exécution. La comptabilité de ce lanceur existe pour distinguer « n'a pas PU
+      s'exécuter » — l'`xfail` n'est pas de ceux-là. L'exception `xfail(run=False)` / `[NOTRUN]` est
+      la bonne, et la divergence résiduelle sur le **verdict** d'un *xpass* est correctement
+      identifiée comme une divergence de verdict, non de comptabilité. Le **mixin** reste
+      **documenté et NON épinglé**, ⭐ **et la raison est écrite** : l'épingler figerait un **faux
+      `SKIP`** bruyant ; restreindre le parcours `ast` aux classes « d'allure collectable »
+      échangerait cette erreur bruyante et sûre contre une erreur **silencieuse et fausse**.
+
+    - ⚠️ ⭐ **`R4` — LA LISTE CANONIQUE : ONZE au moment de ce merge, et la DOUZIÈME N'Y EST PAS.**
+      **Vérifié à l'instant du merge** : ni `master` `df2851d0` ni l'arbre de `fix/t3.40`
+      (`e4af03fc`) ne portaient d'entrée pour la douzième variante — *une restauration de sources
+      qui échoue silencieusement ⇒ mutations rejouées sur un arbre non restauré ⇒ vert*.
+      ⇒ **la place est LAISSÉE, rien n'a été écrit ici** : ajouter une n° 12 depuis ce merge et une
+      autre depuis `fix/t3.40` ferait le doublon que `F-LINK-1` a déjà subi cette nuit.
+      ⭐ ⚠️ **ET ELLE EST ARRIVÉE PENDANT CE MERGE — écrit ici pour que le prochain n'ait pas à le
+      redécouvrir.** Contrôlé une seconde fois juste après le `ff-only` : `fix/t3.40` porte
+      désormais, à `90f90bf8`, une section **« ⛔ Douzième variante de faux vert — la restauration
+      qui ne restaure RIEN »** (`FINDINGS.md` ~`:5399`). ⚠️ **Son arbre est encore basé sur un
+      `master` d'avant ce merge et ne contient donc PAS la liste canonique** (`LISTE CANONIQUE`
+      absente de son `FINDINGS.md`). ⇒ **CE QUE DOIT FAIRE CELUI QUI MERGERA `T3.40`** : après
+      rebase, `FINDINGS.md` sera en conflit — **garder les deux côtés, chaque bloc sous son propre
+      titre `##`** —, puis **rattacher la section « Douzième variante » à la liste canonique en
+      n° 12**, et **reprendre les mentions de compte et de rang** (`onze` → **douze**, `dix autres`
+      → **onze autres**, le « fil commun des onze », et le titre de la liste elle-même).
+      ⛔ **Ne PAS écrire une seconde section pour le même défaut** : celle de `fix/t3.40` est la
+      bonne, elle a été écrite par qui l'a mesurée.
+      **Chiffres recomptés `python3` sur l'arbre mergé, tous confirmés** : **93 `.cpp`** dans
+      `tests/` = **90 `*_test.cpp` + 3 auxiliaires** ; `TimeRangeCalendar_test` = **11** cas
+      atteignables (**1** `GTEST_SKIP` `tzdata` à `:501` **+ 10** `TEST_F` appelant le helper
+      `evalInStableWindow` à `:584` — la définition à `:565` fait la 11ᵉ occurrence, pas un cas) ;
+      **plafond 24/1595** = 11 + 7 + 3 + 1 + 1 + 1 sur **6 binaires** portant un `GTEST_SKIP`, **0
+      `DISABLED_`** dans tout le dépôt ; `UrlDownloader_test` = **7** cas derrière `REQUIRE_CURL()`
+      sur 10 (la 8ᵉ occurrence est bien la ligne `#define`, `:64`). **Dette n° 10 payée**
+      (`F-TYPE-3` reclassée, « sixième » retiré) ; **dette n° 3 toujours sans section `FINDINGS`**,
+      écrite comme dette — les deux vérifiées dans le texte.
+
+  - ⭐ **QUATRE INCOHÉRENCES DE DOC TROUVÉES AU MERGE ET CORRIGÉES ICI** (aucune ne touche le code) :
+    1. ⛔ **`BOARD.md` réécrivait le SHA de rebase de `T3.31`** : le commit de rebase de la branche a
+       passé un `180c4b87` → `df2851d0` de trop, et la ligne de `T3.31` annonçait
+       `git rebase df2851d0` — **impossible**, `df2851d0` est le commit de **journal** qui SUIT la
+       fusion `2c7e4892`, et son propre message dit « rebase sur 180c4b87 ». **Restauré.**
+       ⇒ ⚠️ *leçon : un remplacement global de SHA au moment d'un rebase mord les lignes des AUTRES
+       tickets ; borner la substitution à sa propre ligne.*
+    2. `T3.44.md` §9.1 disait encore « aucune des **neuf** variantes » — la seule mention restée
+       hors de l'alignement (qui n'avait porté que sur `FINDINGS.md`). ⇒ **onze**.
+    3. `DECISIONS.md` portait encore `90/90 PASS` → `89 PASS / 1 SKIP` et « 89 sur master, 90 sur la
+       branche, 89 en CI » : comptes de l'ère `701a98e4`, jamais réalignés après les merges de
+       `T3.25`/`T3.45`/`T3.48`. ⇒ **94 / 95 / 94**, mesurés.
+    4. `check-extra-dist.sh` était attribué à **`T3.48`** (`T3.44` §8.1 et `T3.47` §2.4) : il vient
+       de **`T3.45`**, ajouté par `3aa67056` — `T3.48` **n'est pas mergée**. ⇒ corrigé des deux côtés.
+    ⚠️ **Résidu laissé tel quel, signalé et non corrigé** : l'index des cas en tête de
+    `tests/check-python-tests-reporting.sh` s'arrête à `C5l` et **ne mentionne pas `C5m`**, ajouté
+    plus tard. Ne pas toucher au fichier après la validation des deux images pour un commentaire ;
+    **au prochain qui l'ouvre.**
+
+  - **`T3.47` porte bien son AVERTISSEMENT en §0** : *ce ticket ACTIVE un chemin que rien n'exécute*
+    — `run_with_pytest` et ses auxiliaires sont **du CODE MORT dans les deux images** (dev :
+    `ModuleNotFoundError: No module named 'pytest'`, **revérifié** ; CI : **aucun `python3`**,
+    **revérifié** `which python3` vide dans `debian:12` + la liste `apt` exacte de `ci.yml`) — avec
+    `R1`/`R2`/`R3` en **tableau de dette d'entrée**. L'avertissement sur `check-extra-dist.sh` qui
+    **se réveillera** quand `python3` sera installé, *et dont rien ne dit qu'il sera vert*, y est
+    aussi. La nuance `UNDECLARED:` est écrite noir sur blanc dans `FINDINGS.md` : la note n'est
+    imprimée **que si un back-end RAPPORTE** un inconnu, **une suite que personne ne collecte n'est
+    rapportée par personne** ⇒ « le milieu honnête » est vrai **à 90 %, pas à 100 %**.
+
+  - **BUILD DE VALIDATION DANS LES DEUX IMAGES, post-merge** (`./autogen.sh && ./configure && make`
+    puis `make check`, **un seul build par image**, attendu par `docker wait`) :
+
+    | image | `python3` | `libknx` | `# TOTAL` | `# PASS` | `# SKIP` | `# FAIL` | RC | blocs `Testsuite summary` |
+    |---|---|---|---|---|---|---|---|---|
+    | dev (`vsc-calaos_base-…`) | 3.11.2, **sans** `pytest` | oui | **95** | 94 | **1** | 0 | **0** | **1** |
+    | CI (`debian:12` + `apt` de `ci.yml`) | ⛔ **aucun** | non | **94** | 91 | **3** | 0 | **0** | **1** |
+    **CI, les 3 `SKIP` relevés dans les `.trs`** : `run-python-tests.sh`,
+    `check-python-tests-reporting.sh` (tous deux `SKIP: no python3 interpreter detected at configure
+    time`) et `check-extra-dist.sh` — **le 3ᵉ vient de `T3.45`, pas de nous** ; **89 binaires gtest
+    / 1577 cas / 1576 passés** (un binaire de moins : `KNXExternProcWire_test` sans `libknx`), **0
+    `error:`** à la compilation, `  CXXLD    calaos_server` présent (regex **ancrée**). Le seul cas
+    gtest sauté est le même dans les deux images :
+    `ConfigRobustnessTest.FailedSaveKeepsThePreviousConfigIntact` (`geteuid() == 0`, conteneur root).
+    ⚠️ **Incident d'outillage, sans rapport avec le ticket, à connaître** : le premier essai de
+    l'image CI a échoué en `/usr/bin/ld: final link failed: No space left on device` — la copie
+    jetable avait été posée sur `/tmp`, **un tmpfs de 32 Go partagé par tous les agents** que les 90
+    binaires de test saturent. ⇒ **poser les arbres de build jetables sur le disque**, jamais sur
+    `/tmp` ; l'espace a été rendu par un `busybox` monté sur **le chemin exact**.
+
+
+    ⭐ **Le `# TOTAL` de chaque image égale MON PROPRE compte d'entrées `TESTS`**, recompté `python3`
+    sur `tests/Makefile.am` (continuations recollées, `if`/`else`/`endif` empilés) : **95** =
+    5 scripts shell hors condition + 89 binaires sous `if HAVE_GTEST` + **1** imbriqué
+    `if HAVE_GTEST` → `if HAVE_LIBKNX`, **zéro doublon** ; **94** en CI, où `KNXExternProcWire_test`
+    quitte `TESTS` sans un mot faute de `libknx`. **`^if*` 81 / `endif` 81, profondeur finale 0,
+    jamais négative, maximum 2 ⇒ une seule imbrication** — inchangé par ce ticket.
+    ⭐ **Cas EXÉCUTÉS comptés, pas lus** : **95 `.trs`** dans l'image de dev (94 `PASS` + 1 `SKIP`,
+    le `SKIP` étant `run-python-tests.sh`), et **90 binaires gtest / 1595 cas exécutés / 1594
+    passés** relevés sur les `.log`. `git status` **vide**, arbre goldens `tests/core/golden`
+    **`d4ebc61f…` inchangé, 145 fichiers**, **zéro ligne de `src/`** (10 fichiers touchés : 6 docs,
+    `configure.ac`, `tests/Makefile.am` et les 2 scripts Python/shell).
+    ⭐ **Le correctif se voit en vrai dans le journal de dev** : `SKIP: run-python-tests.sh`,
+    `exit 77`, et la ligne `run-python-tests: suites=3/6 cases=23/42` suivie des trois `NOT RUN` qui
+    **nomment les 19 cas** — là où `master` écrivait `PASS` sans un mot.
+    Ligne de `configure` relevée dans les deux images : `tests/python/ (pytest + sidecar deps):
+    install pytest, fastapi, httpx and colorama to measure tests/python/ (make check will report
+    SKIP)`.
+
+  - ⚠️ ⭐ **`F-FLAKY-1` — VU, et il faut le dire : ce n'est plus une observation unique.**
+    Le **premier** `make check -j8` de l'image de dev a rendu **`# FAIL: 1`, RC 2** sur
+    `core/ShutterImpulse_test`, cas
+    `ShutterImpulseTest.PlainImpulseDownKeepsMovingUntilTheRequestedDuration`
+    (`core/ShutterImpulse_test.cpp:297`, `sh.isStopped()` **true** alors qu'on l'attend `false` :
+    « the shutter stopped after impulse_time instead of the requested duration », 137 ms).
+    ⭐ **C'est un cas DIFFÉRENT de celui vu par l'auteur** (`SmartImpulseUp…` sous `-j16`), **de la
+    même famille « durée »**. ⇒ **deux observations indépendantes, deux cas différents, deux niveaux
+    de parallélisme** : le classement « flottement sous charge » cesse d'être un jugement isolé.
+    ⛔ **Le binaire n'a PAS été rejoué jusqu'au vert.** Exclusion de causalité, dans l'ordre :
+      1. **diff** — la branche ne touche **aucun `.cpp`, aucun `.h`** ; les trois hunks de
+         `tests/Makefile.am` sont en lignes **22-40**, les règles de `ShutterImpulse_test` en
+         **2639-2649** ; `configure.ac` n'ajoute qu'une variable de résumé, **aucun `CFLAGS` /
+         `CXXFLAGS` / `LDFLAGS`**. ⇒ **aucune entrée de ce binaire ne diffère de `master`.**
+      2. **`nm`** — le symbole du cas rouge est bien dans ce binaire
+         (`ShutterImpulseTest_PlainImpulseDownKeepsMovingUntilTheRequestedDuration_Test::TestBody()`,
+         `T` à `0x46cb0`), `sha256 e4fb6acb…` ; les **80** unités de traduction qu'il cite sont
+         **toutes** hors du diff de la branche.
+      3. **isolation, sans charge** — le cas seul **6/6 verts**, le binaire entier **3/3 verts** :
+         **0 rouge sur 9 passes**.
+      4. **autre point de charge** — `make check -j6` (la configuration publiée par la fiche) :
+         **RC 0**, `# FAIL: 0`, **un seul** bloc `Testsuite summary`.
+    ⚠️ **Ce qui reste vrai et qu'aucune de ces quatre mesures ne prouve** : qu'aucune régression
+    n'existe. Elles prouvent que **ce ticket** n'en est pas la cause, et que la rougeur dépend de la
+    **charge**, pas du contenu. ⇒ ⚠️ **`core/ShutterImpulse_test` est un test de DURÉE sans horloge
+    injectable : il rougira encore, sur n'importe quelle branche, dès que la machine est chargée.**
+    **À traiter comme un défaut de test à part entière** (horloge simulée ou marge), **pas comme du
+    bruit à relancer** — et surtout **à ne pas imputer au prochain ticket qui le croisera**.
+
+
 - **🔒 T3.31 ✅ MERGÉ (`2c7e4892`, **9** commits, `git rebase 180c4b87` + `merge --ff-only`,
   historique linéaire, **0 commit de fusion**, `./autogen.sh && ./configure && make -j32 &&
   make check -j16` ⇒ **`# TOTAL: 94 / PASS: 94 / FAIL: 0 / SKIP: 0 / XFAIL: 0 / XPASS: 0 /
