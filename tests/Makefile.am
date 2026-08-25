@@ -2523,3 +2523,36 @@ core_RoonArgs_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) 
 #Built elsewhere, do not let automake turn them into prerequisites
 core_RoonArgs_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.27
+#The RETURN CONTRACT of the calaos:* scriptable API, observed FROM LUA.
+#setIOParam()/waitForIO() declared `return 1` and pushed nothing, so Lunar::
+#thunk handed the script back its own last argument; the defect is a property
+#of the lua stack, not of the C++ return value, so every case here pushes a
+#real lua_State through ScriptManager::ExecuteScript() and runs literal lua.
+#Same object reuse as LuaSandbox_test (ScriptManager/ScriptBindings/ExternProc
+#are built into calaos_script, a program): this suite therefore DOES reach
+#ScriptBindings.cpp, which FINDINGS.md F-LUA-3 believed unreachable.
+#ExternProc.$(OBJEXT) is needed for real here and not only to satisfy the
+#linker: one case connects a live AF_UNIX socket and decodes the set_param
+#frame the binding emits, which is what turns the io.set_param(value,key)
+#permutation red.
+#⚠️ _DEPENDENCIES carries libcalaos_common.la only (T3.36): a change to
+#ScriptBindings.cpp does not relink this binary on its own.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += LuaCalaosApi_test
+check_PROGRAMS += LuaCalaosApi_test
+LuaCalaosApi_test_SOURCES = LuaCalaosApi_test.cpp
+LuaCalaosApi_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+LuaCalaosApi_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/LuaScript/ScriptManager.$(OBJEXT)   \
+                  $(CALAOS_SERVER_BUILDDIR)/LuaScript/ScriptBindings.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT)             \
+                  @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+#Built elsewhere, do not let automake turn them into prerequisites
+LuaCalaosApi_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
