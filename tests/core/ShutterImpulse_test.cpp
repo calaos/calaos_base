@@ -79,6 +79,8 @@
 #include <limits>
 #include <string>
 
+#include <unistd.h>
+
 #include "CalaosCoreFixture.h"
 #include "OutputShutter.h"
 #include "OutputShutterSmart.h"
@@ -218,6 +220,28 @@ const int kSmartDownMs = 319;
 const int kSmartUpMs = 421;
 const int kSmartImpulseTimeMs = 41;
 
+/* ⭐ F-FLAKY-1 (T3.49), made deterministic.
+ *
+ * libuv does NOT read the clock when a timer is armed: uv_timer_start()
+ * computes its deadline from loop->time, the loop's CACHED clock, which is
+ * only refreshed by uv__update_time() at the top of each uv_run(). So a
+ * stretch of wall clock during which nobody pumps the loop - a fixture
+ * teardown, loadConfig(), constructing the probe, or simply a host so busy
+ * that this process does not get scheduled - arms every deadline of the case
+ * that follows IN THE PAST, by exactly the length of that gap.
+ *
+ * That is why this suite went red on correct code, and it is measured, not
+ * supposed: a standalone libuv probe in this image arms a 182 ms one-shot
+ * after a 120 ms idle gap and sees it fire 62 ms later, i.e. well inside a
+ * 91 ms probe window. The same probe with a fresh loop clock never fires
+ * early, not even with 40 ms of deliberate theft burned inside EVERY loop
+ * iteration.
+ *
+ * kIdleGapMs is chosen strictly between the margin of the probe below (91 ms)
+ * and the deadline it watches (182 ms): that is exactly the regime that
+ * turned :297 and :384 red on a loaded host. */
+const int kIdleGapMs = 120;
+
 /* The instant at which a broken build has already stopped the shutter and a
  * correct one has not: strictly above impulse_time, strictly below the
  * requested duration. */
@@ -289,6 +313,36 @@ TEST_F(ShutterImpulseTest, PlainImpulseDownKeepsMovingUntilTheRequestedDuration)
 
     Params p = plainParams("t334_plain_down_timer");
     PlainShutterProbe sh(p);
+
+    ASSERT_TRUE(sh.set_value("impulse down " + Utils::to_string(kPlainDownMs)));
+    ASSERT_FALSE(sh.isStopped()) << "shutter never started moving";
+
+    pumpLoopFor(stillMovingProbeMs(kPlainDownMs, kPlainImpulseTimeMs));
+    EXPECT_FALSE(sh.isStopped())
+        << "the shutter stopped after impulse_time instead of the "
+           "requested duration";
+
+    EXPECT_TRUE(runLoopUntil([&]() { return sh.isStopped(); }))
+        << "the shutter never stopped";
+}
+
+//The same oracle, after the loop has been left idle for longer than the
+//probe margin. Nothing about the shutter changes here: only the loop clock
+//is stale, which is the whole of F-FLAKY-1 (see kIdleGapMs above). A case
+//that measures a duration must survive this, or every red of this suite is
+//going to be blamed on the weather.
+TEST_F(ShutterImpulseTest, PlainImpulseDownKeepsMovingAfterAnIdleLoopGap)
+{
+    loadConfig();
+
+    Params p = plainParams("t349_plain_gap");
+    PlainShutterProbe sh(p);
+
+    //Put the loop clock back on the wall clock, then let it go stale by a
+    //known amount, so that the gap under test is kIdleGapMs and not whatever
+    //the host happened to steal.
+    uvw::Loop::getDefault()->run<uvw::Loop::Mode::NOWAIT>();
+    ::usleep(kIdleGapMs * 1000);
 
     ASSERT_TRUE(sh.set_value("impulse down " + Utils::to_string(kPlainDownMs)));
     ASSERT_FALSE(sh.isStopped()) << "shutter never started moving";
