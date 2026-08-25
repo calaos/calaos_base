@@ -77,14 +77,14 @@ int elapsedMs(const std::chrono::steady_clock::time_point &t0)
  * callbacks and would let any spurious extra tick (repeating-timer
  * regression) fire and be counted.
  *
- * ⭐ T3.49: a wait must say whether it waited. This is the third copy of the
- * helper (core/ShutterImpulse_test, core/IoLifetimeTimer_test), and the same
- * post-condition is on all three. The assertions that FOLLOW it here are not
- * on the false-red axis - they check that a count did NOT grow, so a longer
- * pump can only make them stricter - but a pump that returns having run no
- * iteration would make them vacuously green, which is the axis this closes.
- * No iteration cap and no ms-sized iteration floor, for the reasons spelled
- * out in core/ShutterImpulse_test.cpp. */
+ * ⭐ T3.49: this is the third copy of the helper (core/ShutterImpulse_test,
+ * core/IoLifetimeTimer_test) and it now counts its iterations and reports
+ * them on failure, like the other two. The assertions that FOLLOW it here are
+ * not on the false-red axis - they check that a count did NOT grow, so a
+ * longer pump can only make them stricter - what would hurt them is a pump
+ * that returned having exercised nothing, which is why the guard below
+ * refuses a degenerate duration. No iteration cap and no ms-sized iteration
+ * floor, for the reasons spelled out in core/ShutterImpulse_test.cpp. */
 void pumpLoopFor(int ms)
 {
     auto loop = uvw::Loop::getDefault();
@@ -97,7 +97,13 @@ void pumpLoopFor(int ms)
         iterations++;
     }
 
-    if (iterations < 1 || elapsedMs(t0) < ms)
+    /* A check on the ARGUMENT, not a post-condition on the wait: t0 is taken
+     * on entry, so for any ms >= 1 the body runs at least once and the loop
+     * exits only once elapsed >= ms - the last two clauses are unreachable
+     * from every call site that exists. pumpLoopFor(0) is what is reachable,
+     * and it is a no-op wearing the shape of a wait. See the same note in
+     * core/ShutterImpulse_test.cpp. */
+    if (ms < 1 || iterations < 1 || elapsedMs(t0) < ms)
         ADD_FAILURE() << "pumpLoopFor(" << ms << ") gave up after "
                       << elapsedMs(t0) << " ms and " << iterations
                       << " iterations: this wait proved nothing";

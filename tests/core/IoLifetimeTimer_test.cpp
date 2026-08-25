@@ -195,11 +195,19 @@ void pumpLoopFor(int ms)
  * exactly the length of that gap, and every lower bound below measures a
  * shorter delay than the one the production code asked for.
  *
- * That is the residual flake T3.40 measured at 1 in ~80 on
- * ProcessExitedStillFiresWhileTheServerIsAlive, whose margin (100 ms delay,
- * 40 ms bound) is the tightest of this file. A lower bound alone does NOT
- * close it: the answer gets SMALLER, not larger. Measured in this image with
- * a standalone libuv probe - see T3.49.md. */
+ * That mechanism WOULD suffice to explain the residual flake T3.40 measured
+ * at 1 in ~80 on ProcessExitedStillFiresWhileTheServerIsAlive, whose margin
+ * (100 ms delay, 40 ms bound) is the tightest of this file - but the link is
+ * a hypothesis, not a measurement: 240 runs of the master form of that case
+ * under the same load produced 0 red. A lower bound alone does NOT close the
+ * mechanism anyway: the answer gets SMALLER, not larger. Measured in this
+ * image with a standalone libuv probe - see T3.49.md.
+ *
+ * ⚠️ ORDER MATTERS: take the origin FIRST, then call this, then arm.
+ * uv__update_time() runs at the TOP of the iteration, so an origin taken
+ * after this RETURNS is later than loop->time by the cost of the iteration,
+ * and the deadline lands that much before origin + delay. Origin first gives
+ * loop->time >= origin, hence deadline >= origin + delay unconditionally. */
 void freshenLoopClock()
 {
     uvw::Loop::getDefault()->run<uvw::Loop::Mode::NOWAIT>();
@@ -833,8 +841,8 @@ TEST_F(IoLifetimeTest, LongPressResetStillRunsWhileTheIoIsAlive)
     Params p = switchParams("t340_longpress_alive");
     LongPressProbe io(p);
 
-    freshenLoopClock();
     const auto armed = std::chrono::steady_clock::now();
+    freshenLoopClock();
     ASSERT_TRUE(io.set_value(1.));
     ASSERT_EQ(io.get_value_double(), 1.);
 
@@ -892,8 +900,8 @@ TEST_F(IoLifetimeTest, TripleResetStillRunsWhileTheIoIsAlive)
     Params p = switchParams("t340_triple_alive");
     TripleProbe io(p);
 
-    freshenLoopClock();
     const auto armed = std::chrono::steady_clock::now();
+    freshenLoopClock();
     ASSERT_TRUE(io.set_value(2.));
     ASSERT_EQ(io.get_value_double(), 2.);
 
@@ -938,8 +946,8 @@ TEST_F(IoLifetimeTest, ScenarioResetStillRunsWhileTheIoIsAlive)
     Params p = scenarioParams("t340_scenario_alive");
     Scenario io(p);
 
-    freshenLoopClock();
     const auto armed = std::chrono::steady_clock::now();
+    freshenLoopClock();
     ASSERT_TRUE(io.set_value(true));
     ASSERT_TRUE(io.get_value_bool());
 
@@ -1083,8 +1091,8 @@ TEST_F(IoLifetimeExternProcTest, ProcessExitedStillFiresWhileTheServerIsAlive)
     int exited = 0;
     srv.processExited.connect([&exited]() { exited++; });
 
-    freshenLoopClock();
     const auto armed = std::chrono::steady_clock::now();
+    freshenLoopClock();
     srv.startProcess(kNoSuchBinary, "t340", "");
     ASSERT_EQ(exited, 0)
         << "processExited was emitted synchronously: there is no window at all";
@@ -1174,8 +1182,8 @@ TEST_F(IoLifetimeKnxTest, ReadAtStartStillRunsWhileTheIoIsAlive)
     const int before = countOwnSockets();
     ASSERT_GE(before, 0) << "/tmp could not be read: the observable is blind";
 
-    freshenLoopClock();
     const auto armed = std::chrono::steady_clock::now();
+    freshenLoopClock();
     Params p = knxParams("t340_knx_alive", "true", "127.0.0.9");
     KnxSwitchProbe io(p);
 
