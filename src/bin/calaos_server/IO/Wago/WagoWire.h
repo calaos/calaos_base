@@ -152,22 +152,29 @@ inline std::string buildWriteBitRequest(const std::string &id, Utils::UWord addr
 }
 
 /*
- * ⛔ E4.1h - THE BUG IS PORTED HERE, NOT FIXED.
+ * ⭐ E4.1h - THE "values" ARRAY IS EMITTED. THIS IS A BUG FIX, IN ITS OWN COMMIT.
  *
- * WagoMap::write_multiple_bits() built the values array into a json_t called
- * jret, attached it, then sent a SECOND, FRESH serialization of the four-key
- * Params - so the array never left the process, and jret (with the array it
- * owned) was never decref'd. The leak is gone for free with nlohmann, which
- * has no reference counting; the missing array is DELIBERATELY reproduced, so
- * that this commit changes not one byte of what a real PLC installation puts
- * on its wire.
+ * What it used to do (WagoMap.cpp:328-337 before this series): build the array
+ * into a json_t called jret, attach it, then send a SECOND, FRESH
+ * serialization of the four-key Params. The array never left the process, and
+ * jret - with the array it owned - was never decref'd. So this one site was
+ * BOTH a functional defect and a leak. The leak went away with nlohmann, which
+ * has no reference counting; the missing array is fixed here.
  *
- * The `values` argument is therefore accepted and dropped on the floor. It is
- * accepted rather than removed so that fixing the bug is a change inside this
- * function only, with no call site to touch.
+ * WHY IT IS SAFE TO FIX, measured rather than assumed: WagoMap::
+ * write_multiple_bits() and write_multiple_words() have ZERO CALLERS in the
+ * whole tree - declaration and definition only. No calaos_server ever emitted
+ * action "write_bits" or "write_words", so the matching branches of
+ * calaos_wago were never reached and NO PLC HAS EVER SEEN THIS MESSAGE. The
+ * objection recorded against fixing it (that it would change what a real PLC
+ * receives) does not hold: there is nothing on the other end to change.
  *
- * tests/WagoWire_test.cpp pins the absence with two cases whose names end in
- * _BUG; whoever fixes this flips them.
+ * And what the old wire did downstream was worse than "writes nothing":
+ * calaos_wago handed WagoCtrl an EMPTY vector together with the count it had
+ * been told, and WagoCtrl::write_multiple_bits() reads values[i] for i in
+ * [0, count) - out of bounds on an empty vector. See FINDINGS.md, F-WAGO-2.
+ *
+ * tests/WagoWire_test.cpp pins the emitted array, values and order included.
  */
 inline std::string buildWriteBitsRequest(const std::string &id, Utils::UWord address, int count,
                                          const std::vector<bool> &values)
@@ -178,7 +185,12 @@ inline std::string buildWriteBitsRequest(const std::string &id, Utils::UWord add
     jroot["address"] = Utils::to_string(address);
     jroot["count"] = Utils::to_string(count);
 
-    (void)values; //see the comment above: the bug is ported, not fixed
+    //STRINGS, like every other value of this wire: calaos_wago reads them back
+    //with a string accessor and compares them to the word "true".
+    Json jarr = Json::array();
+    for (size_t i = 0;i < values.size();i++)
+        jarr.push_back(values[i]?"true":"false");
+    jroot["values"] = jarr;
 
     return dumpJson(jroot);
 }
@@ -216,7 +228,8 @@ inline std::string buildWriteWordRequest(const std::string &id, Utils::UWord add
     return dumpJson(jroot);
 }
 
-//⛔ Same bug as buildWriteBitsRequest(), ported the same way. See there.
+//⭐ Same defect as buildWriteBitsRequest(), fixed the same way and for the
+//same measured reason - this function has no caller either. See there.
 inline std::string buildWriteWordsRequest(const std::string &id, Utils::UWord address, int count,
                                           const std::vector<Utils::UWord> &values)
 {
@@ -226,7 +239,11 @@ inline std::string buildWriteWordsRequest(const std::string &id, Utils::UWord ad
     jroot["address"] = Utils::to_string(address);
     jroot["count"] = Utils::to_string(count);
 
-    (void)values; //see buildWriteBitsRequest(): the bug is ported, not fixed
+    //decimal digits, as STRINGS - never JSON numbers
+    Json jarr = Json::array();
+    for (size_t i = 0;i < values.size();i++)
+        jarr.push_back(Utils::to_string(values[i]));
+    jroot["values"] = jarr;
 
     return dumpJson(jroot);
 }

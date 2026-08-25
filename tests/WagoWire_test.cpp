@@ -135,13 +135,12 @@ string wireWriteBit(const string &id, UWord address, bool value)
     return WagoWire::buildWriteBitRequest(id, address, value);
 }
 
-/* The site that carries the bug. Before the rewiring this body was the
+/* The site that carried the bug. Before the rewiring this body was the
  * jansson assembly of WagoMap.cpp:316-337 verbatim: build the values array
  * into a json_t called jret, attach it, then send a SECOND, FRESH
  * serialization of the four-key Params - and leak jret. It now forwards to
- * the shipped builder, which reproduces the missing array deliberately (and
- * no longer leaks anything: nlohmann has no reference counting).
- * See the two cases named ...CarriesNoValuesArray_BUG below. */
+ * the shipped builder, which since the fix commit EMITS the array.
+ * See the two cases named ...CarriesTheValuesArray below. */
 string wireWriteBits(const string &id, UWord address, int count, const vector<bool> &values)
 {
     return WagoWire::buildWriteBitsRequest(id, address, count, values);
@@ -162,7 +161,7 @@ string wireWriteWord(const string &id, UWord address, UWord value)
     return WagoWire::buildWriteWordRequest(id, address, value);
 }
 
-/* Same bug as wireWriteBits(), same rewiring. */
+/* Same defect as wireWriteBits(), same rewiring, same fix. */
 string wireWriteWords(const string &id, UWord address, int count, const vector<UWord> &values)
 {
     return WagoWire::buildWriteWordsRequest(id, address, count, values);
@@ -500,84 +499,140 @@ TEST(WagoWire, WriteWordRequestIsExactlyThisByteString)
 }
 
 /*******************************************************************************
- * THE BUG - write_multiple_bits / write_multiple_words emit no "values"
+ * THE BUG, AND ITS FIX - write_multiple_bits / write_multiple_words
  *
- * WagoMap.cpp:328-337 and :402-411 build the values array into a json_t named
- * jret, attach it, and then send jansson_to_string(jansson_from_params(p)) -
- * a SECOND, FRESH serialization of the four-key Params. The array never
- * leaves the process, and jret (with the array it owns) is never decref'd.
+ * WagoMap.cpp:328-337 and :402-411 used to build the values array into a
+ * json_t named jret, attach it, and then send
+ * jansson_to_string(jansson_from_params(p)) - a SECOND, FRESH serialization of
+ * the four-key Params. The array never left the process and jret, with the
+ * array it owned, was never decref'd: one functional defect and one leak on
+ * the same four lines.
  *
- * ON THE ABSENCE ASSERTION: the series rule is that an assertion of absence is
- * worthless unless the channel was flushed first - "not delivered is not not
- * raised". There is no channel here: the seam is a pure function that RETURNS
- * the complete message, so the message is fully in hand before the assertion.
- * The absence is nevertheless asserted in its strong form - the exact byte
- * string AND the exact key count - rather than as a bare !contains("values"),
- * which would also pass on an empty message.
+ * THE TWO CASES BELOW WERE WRITTEN AS ABSENCE ASSERTIONS and are FLIPPED here,
+ * in the fix commit, exactly as their predecessors said they would be. Both
+ * halves are worth reading in the diff: the first shows what crossed before,
+ * the second what crosses now.
  *
- * These two cases are expected to be FLIPPED, not deleted, by whoever fixes
- * the bug. That is their job.
+ * Fixing it is safe because the two emitters have ZERO CALLERS in the tree -
+ * no PLC has ever received this message. Measured, not assumed; see
+ * FINDINGS.md, F-WAGO-2.
+ *
+ * ON ASSERTIONS OF ABSENCE, which the "values" key still needs elsewhere: the
+ * series rule is that they are worthless unless the channel was flushed first
+ * - "not delivered is not not raised". There is no channel here: the seam is a
+ * pure function that RETURNS the complete message, so the message is fully in
+ * hand before the assertion. They are nevertheless asserted in their strong
+ * form - the exact byte string AND the exact key count - rather than as a bare
+ * !contains(), which would also pass on an empty message.
  ******************************************************************************/
 
-TEST(WagoWire, WriteMultipleBitsRequestCarriesNoValuesArray_BUG)
+TEST(WagoWire, WriteMultipleBitsRequestCarriesTheValuesArray)
 {
     const string wire = wireWriteBits(FX_ID, FX_ADDRESS, FX_COUNT, requestBitValues());
 
+    //FLIPPED BY THE FIX. It used to read, and pass:
+    //  "{\"action\":\"write_bits\",\"address\":\"4242\","
+    //  "\"count\":\"7\",\"id\":\"id-7f3a91-cmd\"}"   - four keys, no values
     EXPECT_EQ("{\"action\":\"write_bits\","
               "\"address\":\"4242\","
               "\"count\":\"7\","
-              "\"id\":\"id-7f3a91-cmd\"}",
+              "\"id\":\"id-7f3a91-cmd\","
+              "\"values\":[\"true\",\"false\",\"false\",\"true\"]}",
               wire);
 
     const Json j = Json::parse(wire, nullptr, false);
     ASSERT_FALSE(j.is_discarded()) << escaped(wire);
-    ASSERT_EQ(4u, j.size()) << escaped(wire);
-    EXPECT_FALSE(j.contains("values")) << escaped(wire);
+    ASSERT_EQ(5u, j.size()) << escaped(wire);
+    ASSERT_TRUE(j.contains("values")) << escaped(wire);
+    ASSERT_TRUE(j.at("values").is_array());
+    ASSERT_EQ(4u, j.at("values").size());
+
+    //STRINGS, not JSON booleans, and in the order they were given
+    for (const Json &v: j.at("values"))
+    {
+        EXPECT_TRUE(v.is_string()) << v.dump();
+        EXPECT_FALSE(v.is_boolean()) << v.dump();
+    }
+    EXPECT_EQ("true", j.at("values")[0].get<string>());
+    EXPECT_EQ("false", j.at("values")[1].get<string>());
+    EXPECT_EQ("false", j.at("values")[2].get<string>());
+    EXPECT_EQ("true", j.at("values")[3].get<string>());
 }
 
-TEST(WagoWire, WriteMultipleWordsRequestCarriesNoValuesArray_BUG)
+TEST(WagoWire, WriteMultipleWordsRequestCarriesTheValuesArray)
 {
     const string wire = wireWriteWords(FX_ID, FX_ADDRESS, FX_COUNT, requestWordValues());
 
+    //FLIPPED BY THE FIX. It used to read, and pass:
+    //  "{\"action\":\"write_words\",\"address\":\"4242\","
+    //  "\"count\":\"7\",\"id\":\"id-7f3a91-cmd\"}"   - four keys, no values
+    //FIVE DIFFERENT numbers of THREE different lengths: exchanging any two of
+    //them changes this string.
     EXPECT_EQ("{\"action\":\"write_words\","
               "\"address\":\"4242\","
               "\"count\":\"7\","
-              "\"id\":\"id-7f3a91-cmd\"}",
+              "\"id\":\"id-7f3a91-cmd\","
+              "\"values\":[\"11\",\"2222\",\"333\",\"44444\",\"5\"]}",
               wire);
 
     const Json j = Json::parse(wire, nullptr, false);
     ASSERT_FALSE(j.is_discarded()) << escaped(wire);
-    ASSERT_EQ(4u, j.size()) << escaped(wire);
-    EXPECT_FALSE(j.contains("values")) << escaped(wire);
+    ASSERT_EQ(5u, j.size()) << escaped(wire);
+    ASSERT_TRUE(j.at("values").is_array());
+    ASSERT_EQ(5u, j.at("values").size());
+
+    //STRINGS, not JSON numbers: 3 is not "3".
+    for (const Json &v: j.at("values"))
+    {
+        EXPECT_TRUE(v.is_string()) << v.dump();
+        EXPECT_FALSE(v.is_number()) << v.dump();
+    }
+    EXPECT_EQ("11", j.at("values")[0].get<string>());
+    EXPECT_EQ("2222", j.at("values")[1].get<string>());
+    EXPECT_EQ("333", j.at("values")[2].get<string>());
+    EXPECT_EQ("44444", j.at("values")[3].get<string>());
+    EXPECT_EQ("5", j.at("values")[4].get<string>());
 }
 
-//WHAT THE RECEIVER MAKES OF IT. json_array_foreach() over an absent key
-//iterates ZERO times, so calaos_wago hands WagoCtrl an EMPTY vector together
-//with the count it was told - and WagoCtrl::write_multiple_bits() then reads
-//values[i] for i in [0, count). This case pins the empty list; the crossing of
-//"count 7, zero values" into WagoCtrl is out of this ticket's perimeter and is
-//written up in FINDINGS.md.
-TEST(WagoWire, AnAbsentValuesKeyDecodesToAnEmptyValueList)
+//WHAT THE RECEIVER MAKES OF IT, end to end. Before the fix this case asserted
+//that both lists came back EMPTY: json_array_foreach() over an absent key
+//iterates zero times, so calaos_wago handed WagoCtrl an empty vector together
+//with the count it had been told - and WagoCtrl::write_multiple_bits() reads
+//values[i] for i in [0, count), out of bounds. The values now cross.
+//⚠️ The count/size MISMATCH itself is NOT closed by this ticket: WagoCtrl
+//still trusts `count` blindly. It is out of perimeter (WagoCtrl.cpp) and
+//written up in FINDINGS.md as F-WAGO-2.
+TEST(WagoWire, TheWriteMultipleValuesNowReachTheReceiver)
 {
     vector<string> values;
     ASSERT_TRUE(wireDecodeValues(wireWriteBits(FX_ID, FX_ADDRESS, FX_COUNT,
                                                requestBitValues()), values));
-    EXPECT_TRUE(values.empty()) << values.size();
+    ASSERT_EQ(4u, values.size());
+    EXPECT_EQ("true", values[0]);
+    EXPECT_EQ("false", values[1]);
+    EXPECT_EQ("false", values[2]);
+    EXPECT_EQ("true", values[3]);
 
     vector<string> wvalues;
     ASSERT_TRUE(wireDecodeValues(wireWriteWords(FX_ID, FX_ADDRESS, FX_COUNT,
                                                 requestWordValues()), wvalues));
-    EXPECT_TRUE(wvalues.empty()) << wvalues.size();
+    ASSERT_EQ(5u, wvalues.size());
+    EXPECT_EQ("11", wvalues[0]);
+    EXPECT_EQ("2222", wvalues[1]);
+    EXPECT_EQ("333", wvalues[2]);
+    EXPECT_EQ("44444", wvalues[3]);
+    EXPECT_EQ("5", wvalues[4]);
 
-    //and the four keys that DID cross are all there, so the message is not
-    //simply empty: the receiver is told to write, with no idea what to write.
+    //and the flattened Params now carries the key too, empty-valued, which is
+    //the house rule for an array - present is not the same answer as absent.
     Params p;
     ASSERT_TRUE(wireDecode(wireWriteBits(FX_ID, FX_ADDRESS, FX_COUNT,
                                          requestBitValues()), p));
-    EXPECT_EQ(4, p.size());
+    EXPECT_EQ(5, p.size());
     EXPECT_EQ("write_bits", p["action"]);
     EXPECT_EQ("7", p["count"]);
-    EXPECT_FALSE(p.Exists("values"));
+    EXPECT_TRUE(p.Exists("values"));
+    EXPECT_EQ("", p["values"]);
 }
 
 /*******************************************************************************
@@ -713,15 +768,17 @@ TEST(WagoWire, StatusReplyIsExactlyThisByteString)
 //address/count/value out of the flattened Params.
 TEST(WagoWire, TheProcessDecodesEachOfTheEightRequests)
 {
-    struct { string wire; string action; bool hasCount; } cases[] = {
-        { wireReadBits(FX_ID, FX_ADDRESS, FX_COUNT), "read_bits", true },
-        { wireReadOutputBits(FX_ID, FX_ADDRESS, FX_COUNT), "read_output_bits", true },
-        { wireWriteBit(FX_ID, FX_ADDRESS, true), "write_bit", false },
-        { wireWriteBits(FX_ID, FX_ADDRESS, FX_COUNT, requestBitValues()), "write_bits", true },
-        { wireReadWords(FX_ID, FX_ADDRESS, FX_COUNT), "read_words", true },
-        { wireReadOutputWords(FX_ID, FX_ADDRESS, FX_COUNT), "read_output_words", true },
-        { wireWriteWord(FX_ID, FX_ADDRESS, FX_WORDVAL), "write_word", false },
-        { wireWriteWords(FX_ID, FX_ADDRESS, FX_COUNT, requestWordValues()), "write_words", true },
+    //nkeys: 4 everywhere, 5 for the two multiple-write requests since the fix
+    //put their "values" array back on the wire.
+    struct { string wire; string action; bool hasCount; int nkeys; } cases[] = {
+        { wireReadBits(FX_ID, FX_ADDRESS, FX_COUNT), "read_bits", true, 4 },
+        { wireReadOutputBits(FX_ID, FX_ADDRESS, FX_COUNT), "read_output_bits", true, 4 },
+        { wireWriteBit(FX_ID, FX_ADDRESS, true), "write_bit", false, 4 },
+        { wireWriteBits(FX_ID, FX_ADDRESS, FX_COUNT, requestBitValues()), "write_bits", true, 5 },
+        { wireReadWords(FX_ID, FX_ADDRESS, FX_COUNT), "read_words", true, 4 },
+        { wireReadOutputWords(FX_ID, FX_ADDRESS, FX_COUNT), "read_output_words", true, 4 },
+        { wireWriteWord(FX_ID, FX_ADDRESS, FX_WORDVAL), "write_word", false, 4 },
+        { wireWriteWords(FX_ID, FX_ADDRESS, FX_COUNT, requestWordValues()), "write_words", true, 5 },
     };
 
     for (const auto &c: cases)
@@ -731,7 +788,7 @@ TEST(WagoWire, TheProcessDecodesEachOfTheEightRequests)
         EXPECT_EQ(c.action, p["action"]) << c.action;
         EXPECT_EQ(FX_ID, p["id"]) << c.action;
         EXPECT_EQ("4242", p["address"]) << c.action;
-        EXPECT_EQ(4, p.size()) << c.action;
+        EXPECT_EQ(c.nkeys, p.size()) << c.action;
         EXPECT_EQ(c.hasCount, p.Exists("count")) << c.action;
         EXPECT_EQ(!c.hasCount, p.Exists("value")) << c.action;
         if (c.hasCount)

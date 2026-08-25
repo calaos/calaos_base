@@ -2257,8 +2257,9 @@ endif
 #escaping by construction. Eight more freeze the exact request strings, which
 #do NOT move across the migration - Params is a std::map, so the jansson
 #adapter already emitted alphabetically.
-#Two cases are named ..._BUG on purpose: they pin the fact that
-#write_multiple_bits/write_multiple_words emit no "values" array at all.
+#Two of its cases were written as ..._BUG, pinning the fact that
+#write_multiple_bits/write_multiple_words emitted no "values" array at all;
+#the fix commit of this same ticket flips them, which is what they were for.
 #Only libcalaos_common code is exercised (Params + Utils + the wire header),
 #no server object and no fixture; jansson comes with @CALAOS_COMMON_LIBS@ and
 #-I.../IO/Wago is already in AM_CPPFLAGS. Own HAVE_GTEST block so this stays a

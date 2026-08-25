@@ -292,13 +292,11 @@ void WagoMap::write_multiple_bits(UWord address, int nb, vector<bool> &values, M
     cmd.mapSignals->multiBits_cb = callback;
     cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    //E4.1h - THE MISSING "values" ARRAY IS PORTED AS IS, deliberately: this
-    //site built the array into a separate object it then threw away (leaking
-    //it), and sent a second, fresh serialization of the four-key Params
-    //instead. The leak is gone for free - nlohmann has no reference counting -
-    //but the array is still not emitted, so this commit changes not one byte
-    //of what a real installation puts on its wire.
-    //See WagoWire::buildWriteBitsRequest().
+    //E4.1h - this site used to build the "values" array into a separate object
+    //it then threw away (leaking it) and send a second, fresh serialization of
+    //the four-key Params instead, so the array never left the process. Both
+    //the leak and the missing array are gone; the array is emitted by
+    //WagoWire::buildWriteBitsRequest(), which explains why fixing it was safe.
     process->sendMessage(WagoWire::buildWriteBitsRequest(cmd.wago_cmd_id, address, nb, values));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
@@ -347,8 +345,8 @@ void WagoMap::write_multiple_words(UWord address, int nb, vector<UWord> &values,
     cmd.mapSignals->multiWords_cb = callback;
     cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    //E4.1h - same missing "values" array as write_multiple_bits(), ported the
-    //same way. See WagoWire::buildWriteWordsRequest().
+    //E4.1h - same defect as write_multiple_bits(), fixed the same way.
+    //See WagoWire::buildWriteWordsRequest().
     process->sendMessage(WagoWire::buildWriteWordsRequest(cmd.wago_cmd_id, address, nb, values));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
