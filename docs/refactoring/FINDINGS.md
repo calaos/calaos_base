@@ -5572,3 +5572,117 @@ sont la **dette d'entrée** de qui prendra `T3.47`, écrite en tête de sa fiche
 ⚠️ **Corollaire de méthode, général** : *un correctif dont le chemin principal n'est exécuté par
 aucune machine du dépôt n'est pas « vérifié parce que la suite est verte ».* Il n'est vérifié que par
 ce qui **fabrique** ce chemin — ici l'oracle et sa campagne de mutation.
+
+---
+
+## E4.1l — `CalaosEvent::toJson()` : ce que la bascule a mesuré (2026-08-25)
+
+### ⭐ Le troisième wire : `EventManager.cpp:79` n'était exercé par AUCUN test
+
+`CalaosEvent::toJson()` a **trois** consommateurs qui sérialisent, pas deux : le push WS, la
+réponse HTTP `poll_listen`, et **la ligne d'historique** — `EventManager::appendEvent()` dumpe
+l'event dans `HistEvent::event_raw` et le donne à `HistLogger`, **synchroniquement, au moment de
+la mise en file**, pas sur l'idler.
+
+**Mesuré** : aucun cas de l'arbre ne l'exécutait. La raison est écrite dans
+`tests/core/CalaosCoreFixture.h:106` — *« HistLogger/DataLogger are only reachable for IOs flagged
+with `log_history="true"` ; the minimal config sets neither »*. Toutes les suites `eventlog` de la
+série (`JsonApiEventLog_test`, `JsonApiSession_test`, `JsonApiInputGuards_test`,
+`JsonApiEmissionBytes_test`) ensemencent `HistLogger::appendEvent()` **à la main** avec un
+`HistEvent` construit dans le test : le producteur de production d'`event_raw` n'a jamais tourné.
+
+`EventManager.o` est pourtant dans `CORE_SERVER_OBJECTS`, donc **lié dans tous les binaires
+`core/`**. ⇒ **cas d'école de `F-LINK-1`** : *lié* n'est pas *exercé*, et migrer sous un vert
+obtenu comme ça n'aurait rien prouvé. Le remède tient en trois lignes de fixture :
+`io->set_param("log_history", "true")` sur un IO de la maison de référence, puis
+`EventManager::create(EventIOChanged, {{"id", …}, {"state", …}})`, puis relire la colonne
+`event_raw` par `HistLogger::getEvents()` — c'est ce que font les trois cas `HistoryRow` de
+`tests/core/EventWireBytes_test.cpp`. **Mesuré rouge avant la bascule, vert après.**
+
+### ⛔ Trois affirmations de la fiche `E4.1l.md` que la mesure contredit
+
+1. **« `JsonApiHandlerHttp.cpp:417` — `json_array_append_new(jev, i->toJson())` dans `eventlog` »**
+   → **faux**, ce site est dans **`processPolling()`** (l'action `poll_listen`), pas dans
+   `eventlog`. `eventlog` est `processEventLog()`, déjà en nlohmann depuis E4.0/E4.1b via
+   `HistEvent::toJson()`, et **il n'est pas dans ce périmètre**. Conséquence directe : le piège
+   annoncé en tête de fiche — *« `eventlog` est le SEUL endroit de l'API qui émet de vrais entiers
+   JSON »* — visait un site **hors périmètre**. Recompté sur le périmètre réel : **zéro** entier
+   JSON, **zéro** réel, tout part en chaîne, `"type"` compris (l'entier de l'enum passé par
+   `Utils::to_string()`). Épinglé sur les octets par
+   `TheEventTypeTravelsAsAJsonStringOnAllThreeWires`, **vert avant et après**.
+2. **« `ScriptExec.cpp` ne peut pas être migré ici : il dépend aussi de
+   `JsonApi::buildFlatIOList()` (`:162`) »** → **faux pour le site concerné**. La dépendance à
+   `buildFlatIOList()` est dans le message **frère** (`jroot`, le contexte initial, `:157-170`) ;
+   le bloc qui appelle `ev.toJson()` (`jev`, `:186-191`) ne construit que
+   `{msg:"event", data:<event>}` et **n'a aucune dépendance jansson propre**. Il aurait donc pu
+   être migré entièrement ici, **sans adaptateur**.
+   ⇒ L'adaptateur `jansson_from_json()` a quand même été écrit, **parce que la fiche l'exige
+   nommément et non négociablement**, et parce qu'il achète quelque chose de réel : le
+   round-trip par `json_loads()` fait **re-échapper jansson dans sa forme MAJUSCULE** en sortie,
+   donc **le seul octet qui bouge sur le wire `calaos_script` est l'ordre des clés de l'objet
+   event**. **Pour `E4.1m` : le supprimer coûte 4 lignes** (l'enveloppe `jev` devient
+   `Json{{ "msg", "event" }, { "data", ev.toJson() }}` + un `dump()`), et il n'y a **aucune** autre
+   contrainte.
+3. **« `tests/core/JsonApiEvents_test.cpp`, `JsonApiEventLog_test.cpp` suivent la signature »**
+   → **faux** : **aucun** test de l'arbre n'appelle `CalaosEvent::toJson()` (vérifié par balayage
+   des fichiers suivis). Les deux suites passent par les transports. **Zéro fichier de test n'a
+   dû suivre la signature**, et le commit de bascule ne touche aucun test.
+
+### ⭐ Le wire RemoteUI reçoit AUSSI ce changement — mesuré, non annoncé par la fiche
+
+`JsonApiHandlerWS` branche `handleEvents` sur `EventManager::newEvent` **dans son constructeur**
+(`JsonApiHandlerWS.cpp:37`), `RemoteUIWebSocketHandler` en **hérite** sans le redéfinir, et
+`RemoteUIWebSocketHandler.cpp:72` appelle `setAuthenticated(true)` — la garde `if (!loggedin)` de
+`handleEvents` est donc franchie pour un écran déporté. ⇒ **les push d'événements vers un appareil
+RemoteUI changent d'ordre de clés et d'échappement exactement comme ceux de l'API publique.**
+Le tableau des wires d'`E4.1.md` classe RemoteUI en « déjà en nlohmann aujourd'hui » : c'est vrai
+de ses **réponses**, pas de ses **events**, qui partaient par la surcharge jansson de `sendJson()`.
+L'autre bout est le firmware d'un dépôt voisin, qui décode avec un vrai parseur. **À reprendre
+par `E4.1n`**, qui possède RemoteUI.
+
+### Ce qui bouge sur les octets, exhaustivement
+
+| Wire | Ordre des clés | Échappement | Autre |
+|---|---|---|---|
+| WS `{"msg":"event",…}` (API + RemoteUI) | enveloppe `msg,data` → `data,msg` ; event `event_raw,type,type_str,data` → `data,event_raw,type,type_str` | `\u00E9` → `\u00e9` | UTF-8 invalide : paire **supprimée** → paire **conservée** avec U+FFFD |
+| HTTP `poll_listen` | racine `success,events` → `events,success` ; même bascule sur l'event | `\u00E9` → `\u00e9` | idem |
+| Ligne d'historique (`event_raw` en base) | même bascule sur l'event | `\u00E9` → `\u00e9` | idem |
+| `calaos_script` (`ScriptExec`) | **seul** l'objet event se trie ; l'enveloppe reste en ordre d'insertion | **inchangé** (MAJUSCULE), grâce à l'adaptateur | idem |
+
+⚠️ **Aucun de ces deltas n'est visible d'un golden** : les 145 comparent des documents parsés.
+`tests/core/EventWireBytes_test.cpp` est le seul oracle qui les voit — 9 de ses 10 cas étaient
+rouges sur l'arbre jansson, et le 10ᵉ (le témoin de typage) vert des deux côtés.
+
+### Le changement de comportement sur l'UTF-8 invalide, et pourquoi pas de correctif séparé
+
+`jansson_from_params()` **supprimait la paire en silence** (`json_string()` rend `NULL`,
+`json_object_set_new()` rend `-1`, aucun des deux codes n'était testé) ; `Params::toNJson()` la
+conserve et `error_handler_t::replace` la rend en U+FFFD. Sur un event `io_changed`, cela veut dire
+que `data.state` **disparaissait** de l'event et de la ligne d'historique et qu'il est maintenant
+présent, en garbage lisible. **Même arbitrage que `F-LUA-2` (E4.1j) et `F-REO-6`** : les deux issues
+sont du garbage, l'entrée était déjà cassée dans les deux, et la nature de l'observable ne change
+pas. La surface d'injection est celle qu'`E4.1b` a mesurée et écrite : `set_state` par le repli
+sur les paramètres GET (`JsonApiHandlerHttp.cpp:88`), octets pourcent-décodés qui ne traversent
+**aucun parseur JSON**.
+
+### Un des trois invariants est INERTE sur l'adaptateur — mesuré, pas supposé
+
+`jansson_from_json()` dumpe avec la forme complète de l'épique, mais son résultat est
+**immédiatement re-parsé** par `json_loads()`, et un parseur est aveugle à l'échappement.
+`ensure_ascii` y est donc **structurellement inobservable** : la contre-mutation `true → false`
+laisse `ParamsJson_test` **vert**, et c'est écrit en toutes lettres dans le fichier de test pour
+que personne ne lise ce vert comme une couverture. `error_handler_t::replace` et **l'ordre trié**,
+eux, sont observables et ont chacun leur cas. C'est exactement le défaut qu'`E4.1k` a trouvé chez
+elle (une suite aveugle à `ensure_ascii`), déclaré cette fois **avant** la revue.
+
+### Ce qui n'est PAS mesuré, à ne pas surestimer
+
+- **Le site d'appel de l'adaptateur n'est pas exercé.** `ScriptExec.cpp:190` vit dans un lambda
+  branché sur `newEvent` après le spawn d'un vrai `calaos_script` par uvw ; aucun test en
+  processus ne peut y arriver. `ScriptExec.o` est **lié** partout, ce qui ne prouve rien.
+  La substitution y fait **un token de large** et n'a que le compilateur pour filet. **Déclaré,
+  pas glosé** — et c'est la formulation que `F-LINK-1` demande.
+- **Rien n'a tourné sous ASan.** Aucun `calaos_server` réel, aucun `calaos_script` réel, aucun
+  client tiers.
+- **`processPolling()` n'a pas été rejoué contre un client de production** ; l'argument de
+  compatibilité est *raisonné* (tout consommateur décode avec un vrai parseur), pas *exercé*.

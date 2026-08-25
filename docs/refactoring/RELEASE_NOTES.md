@@ -1018,3 +1018,35 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   crash du serveur possible en supprimant un IO référencé par un scénario. Corrigé incidemment
   par E4.2d (le nouveau `Remove(Rule*)` refuse et logge au lieu de détruire un objet qu'il ne
   possède pas).
+
+## Détail pour les intégrateurs — les messages d'événement changent de forme, pas de contenu (E4.1l)
+
+> **Rien à faire de votre côté, et aucune application Calaos ne s'en aperçoit.** Cette note existe
+> parce que le changement porte sur des **octets réellement servis** sur l'API JSON (port 5454),
+> et qu'un intégrateur qui a écrit son propre client a le droit de le lire avant de le découvrir.
+
+Les **événements temps réel** — le message `{"msg":"event", …}` poussé sur la WebSocket, et les
+événements rendus par `poll_listen` en HTTP — sont désormais fabriqués par la même bibliothèque
+JSON que le reste des réponses récentes. Trois différences observables, **toutes de forme** :
+
+- **L'ordre des membres change.** Il est maintenant **alphabétique** : `data` avant `event_raw`
+  avant `type` avant `type_str`, et `data` avant `msg` dans l'enveloppe. Auparavant c'était
+  l'ordre dans lequel le serveur les écrivait. **Aucune valeur, aucune clé, aucun tableau ne
+  change** : les tableaux gardent leur ordre, qui lui est porteur de sens.
+- **La casse de l'échappement change.** Un caractère accentué continue de partir échappé, la
+  réponse reste en **ASCII pur** comme avant ; seule la casse de l'hexadécimal passe de
+  `\u00E9` à `\u00e9` (pour `é`). Les deux se lisent de façon identique par n'importe
+  quelle bibliothèque JSON.
+- **Un texte mal encodé ne fait plus disparaître son champ.** Si l'état d'un équipement contenait
+  des octets qui ne forment pas du texte valide, le champ correspondant **était retiré de
+  l'événement, en silence** : l'événement partait amputé. Il est désormais **présent**, avec les
+  octets fautifs remplacés par le caractère de remplacement Unicode (`�`). Le journal
+  d'événements enregistre la même chose.
+
+⚠️ **Ce qui pourrait s'en apercevoir** : uniquement un client qui **cherche une sous-chaîne dans le
+texte brut** de la réponse au lieu de la parser — aucun client Calaos ne le fait, et aucune
+bibliothèque JSON n'y est sensible. Les **écrans déportés (RemoteUI)** reçoivent les mêmes
+événements et sont dans le même cas.
+
+*(Les autres réponses de l'API basculeront de la même façon au fil des sous-tickets suivants de la
+série ; cette note sera à consolider en une seule à la fin.)*
