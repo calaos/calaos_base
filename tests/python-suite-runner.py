@@ -64,6 +64,22 @@
 # blind spot of exactly the same family as the defect above: a "*_test.py"
 # suite is collected and run by pytest but was never declared, so it could
 # neither be counted nor be missed.
+#
+# ⚠️ KNOWN, DELIBERATE RESIDUE -- read this before trusting a green run.
+# When a back-end reports a case this file never declared, the runner prints
+#     run-python-tests:   UNDECLARED: <file> ran <names>
+# and that is ALL it does: an undeclared case is a NOTE, not a failure, and it
+# does NOT change the exit code. The consequence is concrete: someone can add
+# a test file under a name neither pattern matches, or a case this module's
+# ast walk does not recognise as one, and NOTHING WILL FAIL -- the suite may
+# never run and the build stays green. That is the very family of defect this
+# file exists to close, left open one notch on purpose: turning it into a hard
+# failure would make any collection quirk of a future pytest break `make
+# check` for everybody, which is the "franc echec" that
+# docs/refactoring/DECISIONS.md rules out. The note is the honest middle: the
+# fact is printed, in the same place as the accounting, for a human to read.
+# If that trade ever stops being acceptable, the change is one line here --
+# and it needs an arbitration, not a patch.
 # ---------------------------------------------------------------------------
 
 import ast
@@ -343,8 +359,11 @@ def main(argv):
               % (name, len(declared[name]) - len(names), len(declared[name]),
                  ", ".join(names)))
     for name, names in unexpected:
-        print("run-python-tests:   UNDECLARED: %s ran %s -- the declaration side "
-              "did not know about it" % (name, ", ".join(names)))
+        # NOTE only, never a failure: see the "KNOWN, DELIBERATE RESIDUE" note
+        # at the top of this file. This line does not affect the exit code.
+        print("run-python-tests:   UNDECLARED (note, does not fail the suite): "
+              "%s ran %s -- the declaration side did not know about it"
+              % (name, ", ".join(names)))
 
     if failed:
         print("run-python-tests: FAIL, %d red case(s)" % failed)

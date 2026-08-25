@@ -442,9 +442,20 @@ fi
 #        name than the one declared: the two counts match, the two names do
 #        not. An accounting that compares counts per file reports 2 of 2 and
 #        exits 0 while a declared case never ran; comparing names reports 1 of
-#        2 and exits 77. This is what makes the name comparison itself -- the
-#        fix for the parametrize trap -- mutation-covered rather than merely
-#        present.
+#        2 and exits 77.
+#
+# ⚠️ WHY THIS FIXTURE LOOKS CONTRIVED, AND WHY IT STAYS. Renaming a method at
+# import time is not something tests/python/ does or should do. It is here
+# because it is the ONLY shape that separates the two accountings, and that
+# separation was measured, not imagined: with C5a/C5b/C5c alone, a mutation
+# putting back the per-file "executed >= declared" comparison -- the exact
+# regression this harness was returned to its author for -- SURVIVED the whole
+# campaign. Once the parametrization suffix is stripped upstream, three
+# instances of one case collapse to one name, so counts stop lying on their
+# own; the only world left where they still lie is this one. A fabricated case
+# that kills a real mutant is worth more than a natural case that kills
+# nothing. Do not "simplify" it back into a normal-looking suite without first
+# re-running the mutation campaign.
 nametree="$tmpdir/c5-names"
 c5_tree "$nametree" || exit 1
 cat > "$nametree/tests/python/test_c5_names.py" <<'PY_EOF'

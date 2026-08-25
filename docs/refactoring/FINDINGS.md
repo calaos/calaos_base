@@ -5377,33 +5377,40 @@ déjà** avant le correctif, et l'étape qui dumpe les `.log` est `if: failure()
 en CI : la ligne `PYTEST_INFO` au `configure`.** ⇒ dit franchement dans la fiche plutôt que
 revendiqué ; la visibilité CI est laissée à un ticket dédié.
 
-## F-DIST-1 — `make dist` est cassé depuis `06d799fe`, donc `make distcheck` est impossible (2026-08-25)
+### ℹ️ `make dist` cassé — **renvoi vers [`T3.45`](T3.45.md)**, pas une entrée autonome
 
-*(Trouvée par la revue de [T3.44](T3.44.md). ⚠️ **Hors périmètre de ce ticket, non corrigée** —
-numéro de fiche à attribuer par l'orchestrateur.)*
+⚠️ **Le défaut appartient à [`T3.45`](T3.45.md)** (livrée) : **pas d'entrée `FINDINGS` propre ici** —
+deux entrées sur le même défaut se percutent au merge, comme `F-LINK-1` écrite deux fois cette nuit.
+⭐ **Et `T3.45` va bien plus loin que la faute de chemin** : `distcheck` y révèle que **l'archive est
+inconstructible — 414 fichiers suivis absents du tarball, dont 125 sources/en-têtes** (arbres
+vendorés entiers). **Lire `T3.45`, pas ce paragraphe.**
 
-`src/lib/calaos-python/Makefile.am` :
-
-```make
-EXTRA_DIST = \
-    python/calaos_extern_proc/__init__.py \
-    python/calaos_extern_proc/extern_proc.py \
-    python/calaos_extern_proc/message.py \
-    python/calaos_extern_proc/logger.py
-```
-
-⚠️ **Il n'existe aucun répertoire `python/` sous `src/lib/calaos-python/`** : les fichiers sont en
-`calaos_extern_proc/*` (le `calaospython_PYTHON` juste au-dessus, lui, pointe correctement sur
-`$(srcdir)/calaos_extern_proc/*`). `make dist` meurt donc dans ce répertoire. Introduit par
-**`06d799fe`** (« Make roon player work in calaos ») ; le chemin `python/` correspond à une
-disposition antérieure.
-
-⭐ **Pourquoi ça compte au-delà de l'inconfort** : `make dist` est **le chemin d'une release**, et
-`make distcheck` est le seul garde-fou qui vérifie qu'un arbre **distribué** se configure, se
-compile et passe `make check` **hors de l'arbre source, en `srcdir` en lecture seule**. Tant qu'il
-est cassé, **aucune** des neuf variantes de faux vert n'est vérifiable par ce chemin — et
-`run-python-tests.sh` est précisément un script qui doit se comporter correctement en `srcdir`
-lecture seule (d'où son `PYTHONDONTWRITEBYTECODE=1`).
-
-**Substitut joué par le relecteur**, faute de `distcheck` : `srcdir` monté **en lecture seule**,
+**Corroboration indépendante, versée seulement parce qu'elle vient d'un autre chemin** : en cherchant
+un substitut à `make distcheck` pour vérifier `run-python-tests.sh` en **`srcdir` lecture seule**,
+`src/lib/calaos-python/Makefile.am` est apparu déclarant `EXTRA_DIST = python/calaos_extern_proc/*`
+alors qu'il n'existe **aucun** répertoire `python/` sous `src/lib/calaos-python/` (les fichiers sont
+en `calaos_extern_proc/*` ; le `calaospython_PYTHON` juste au-dessus, lui, est correct) — régression
+de **`06d799fe`**. ⇒ **substitut joué faute de `distcheck`** : `srcdir` monté **en lecture seule**,
 deux mondes ⇒ **77** et **0**, **zéro résidu** dans l'arbre source.
+
+### ⚠️ Deux compromis ASSUMÉS de ce harnais, écrits pour être relus (2026-08-25)
+
+1. ⭐ **Un cas de test fabriqué peut être le seul qui tue un mutant réel.** `C5d`/`C5e` renomment une
+   méthode à l'import — forme que `tests/python/` ne pratique pas et ne devrait pas pratiquer.
+   Ils restent parce que la mesure l'exige : sans eux, la mutation qui **remet la comparaison par
+   compte** (`got >= want` par fichier, la régression même de la revue) **survivait à toute la
+   campagne**. Une fois le suffixe `[…]` de paramétrisation retiré en amont, trois instances d'un
+   cas se replient sur un nom et les comptes cessent de mentir seuls ; le seul monde où ils mentent
+   encore est celui-là. ⇒ **règle** : un cas fabriqué qui tue un mutant réel vaut mieux qu'un cas
+   d'allure naturelle qui ne tue rien — **mais la raison s'écrit DANS le fichier**, sinon le
+   relecteur suivant le prend pour un caprice et le « simplifie ».
+2. ⚠️ **Un fichier de test non déclaré ne fait PAS échouer le build — résidu volontaire.** Quand un
+   back-end rapporte un cas inconnu du déclarateur, `python-suite-runner.py` imprime
+   `UNDECLARED: … (note, does not fail the suite)` et **ne change pas son code de sortie**.
+   ⇒ **quelqu'un peut ajouter un fichier de test sous un nom qu'aucun des deux motifs
+   `python_files` ne ramasse, et ne jamais le voir tourner, le build restant vert.** C'est **la
+   famille même du défaut fermé ici**, laissée ouverte d'un cran : en faire un échec dur casserait
+   `make check` chez tout le monde au premier caprice de collecte d'un `pytest` futur — l'« échec
+   franc » que `DECISIONS.md` écarte. **La note est le milieu honnête** : le fait est imprimé, au
+   même endroit que la comptabilité. Le changement est d'**une ligne** — et demande **un arbitrage,
+   pas un patch**.
