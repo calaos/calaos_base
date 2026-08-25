@@ -2303,3 +2303,48 @@ JanssonResidues_test_LDADD = @CALAOS_COMMON_LIBS@ \
 #Built elsewhere, do not let automake turn them into prerequisites
 JanssonResidues_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# E4.1d
+#Characterization of the two THIRD PARTY JSON READERS of the tree: the
+#Logitech Media Server answer Squeezebox.cpp walks for artwork_url, and the
+#Philips Hue bridge answer HueOutputLightRGB.cpp walks for
+#state.{sat,bri,hue,on,reachable}. Both are READ ONLY - neither builds JSON for
+#its third party, so neither carries a wire this series has to protect.
+#Written BEFORE the jansson -> nlohmann migration of the two files and green
+#across it; the seams are the free functions of the anonymous namespace in each
+#test, which the migration commit rewires onto the production headers
+#Audio/SqueezeboxWire.h and IO/Hue/HueWire.h so that a mutation of the SHIPPED
+#reader turns these suites red.
+#SqueezeboxWire_test carries the ONLY byte oracles of the ticket, on the ONLY
+#dump() of the perimeter - a cDebug() trace: one case is red if ensure_ascii is
+#dropped, one is red if error_handler_t::replace is dropped, and a tripwire
+#records the measurement that makes that handler DEFENSIVE and not load
+#bearing (both libraries refuse invalid UTF-8 at parse time, so nothing can
+#reach the dump with a bad byte). The 145 goldens compare parsed documents and
+#are blind to escaping by construction.
+#HueWire_test carries NO byte oracle and claims none: there is no dump() in
+#HueOutputLightRGB.cpp at all. Its risk is TYPE TOLERANCE, and its tripwire
+#pins the measured divergence between json_integer_value() and the "obvious"
+#j.value("sat", 0), which THROWS on two of the five shapes a bridge can send -
+#inside a download callback with no try/catch on the path.
+#Only libcalaos_common code is exercised (Params + Utils + ColorValue + the
+#wire headers), no server object and no fixture; jansson comes with
+#@CALAOS_COMMON_LIBS@. -I.../Audio is already in AM_CPPFLAGS, -I.../IO/Hue is
+#not. Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += SqueezeboxWire_test
+check_PROGRAMS += SqueezeboxWire_test
+SqueezeboxWire_test_SOURCES = SqueezeboxWire_test.cpp
+SqueezeboxWire_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+
+TESTS += HueWire_test
+check_PROGRAMS += HueWire_test
+HueWire_test_SOURCES = HueWire_test.cpp
+HueWire_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Hue
+HueWire_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
