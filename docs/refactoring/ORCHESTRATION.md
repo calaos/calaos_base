@@ -298,6 +298,76 @@
     la lambda `[=]` ne capture plus `this`) ⇒ **5 classes, pas 6** ; et filtrer sur « dérive de
     `trackable` » **sous-compte** (`trackable` ne couvre que les `mem_fun`, jamais une lambda).
 
+- **🔒 T3.28b ✅ MERGÉ (`e135fd48`, 5 commits, `merge --ff-only` sur `b7a4c63d` — **master n'avait
+  pas bougé depuis le rebase de l'auteur, donc ni rebase ni conflit, PAS MÊME sur l'append de
+  `FINDINGS.md` que l'auteur avait rencontré à SON rebase**, historique linéaire, 0 commit de
+  fusion, `./autogen.sh && ./configure && make -j12 && make check -j6` ⇒ **89/89**, `exit 0`,
+  **0 `error:`**, `CXXLD    calaos_server`)** — les deux tripwires de source de `T3.28` étaient
+  justifiées par une inatteignabilité **qui n'existe pas** ; elles sont doublées par de vrais
+  tests d'exécution. **RIEN POUSSÉ.**
+
+  - ⭐⭐ **`MR4` REJOUÉE AU MERGE : ELLE ROUGIT, ET ELLE SEULE.** Protocole complet à chaque passe
+    (`cmp` d'application, `rm -f` de `Audio/RoonPlayer.o` **et des DEUX binaires**, `make` **à la
+    RACINE** — `F-TEST-2` —, `CXX      Audio/RoonPlayer.o` **et** les deux `CXXLD` exigées par
+    **regex** à double espace, jugement au **code de sortie** et au **nombre de cas exécutés**) :
+    **`RoonCtrl::Instance(host, port)` ⇄ `Instance(host, RoonArgs::DefaultPort)` à
+    `RoonPlayer.cpp:227` ⇒ `core/RoonArgs_test` **14/14, `exit 0`** (aveugle, comme annoncé) et
+    `core/RoonSpawnViaPlayer_test` **`exit 1`**, un seul rouge nommé,
+    `RoonSpawnViaPlayerTest.TheSidecarIsLaunchedWithTheCoreTheIoWasConfiguredWith`.
+    ⇒ **le bug de terrain de `T3.28` déplacé d'un site est bien attrapé**, et le second binaire
+    achète quelque chose qu'aucun oracle du premier n'avait.
+  - **`MR4b` (`Instance(host, port)->subscribeZone`, `:232`) SURVIT — l'argument d'équivalence
+    tient, VÉRIFIÉ AU SOURCE et pas cru sur parole** : `:227` est un appel **inconditionnel**
+    exécuté avant l'armement du `Timer::singleShot` de `:230-233`, et `Instance()` est un static
+    de fonction (`RoonPlayer.cpp:86`) ⇒ le second appel rend l'objet **déjà construit** et jette
+    ses arguments. **Son point de rupture est écrit** dans la fiche (§5) : le jour où `:227`
+    disparaîtrait ou passerait derrière une condition, `:232` deviendrait le créateur et la
+    mutation cesserait d'être équivalente — et **`MR4` couvre exactement ce jour-là**.
+  - ⭐ **RÉSIDU REMESURÉ INDÉPENDAMMENT, avec un TÉMOIN qui prouve que la sonde voit quelque
+    chose** — sous **PID 1 = `sleep infinity`** (l'environnement de build des agents, celui où
+    personne ne récolte les orphelins), 10 passes des **deux** binaires, comptage `python3`
+    (répertoires `/tmp/calaos_roon_spawn_*`, sockets `/tmp/calaos_proc_*_roon_*`, états `Z` lus
+    dans `/proc/*/stat`) :
+    **livré ⇒ DELTA `0 / 0 / 0`** · **`teardown()` neutralisé ⇒ DELTA `+20 / +20 / +20`** pour
+    20 exécutions, soit **+1/+1/+1 par exécution**, la fuite linéaire exactement telle que la
+    fiche la décrit. ⇒ c'était bien **notre propre environnement de build** qui trinquait.
+  - **`--gtest_repeat=2` REFERMÉ** : `core/RoonArgs_test` **14 + 14 OK, `exit 0`** et
+    `core/RoonSpawnViaPlayer_test` **1 + 1 OK, `exit 0`** (itérations 1 et 2 comptées séparément,
+    aucune ligne `FAILED`). Le piège est écrit **aux deux endroits** exigés — en-tête de
+    `tests/core/RoonArgs_test.cpp` **et** en-tête de `tests/core/RoonSpawnHarness.h`, plus la
+    fiche §3(c) — **avec sa limite** : les suites `core/` **restent non rejouables** dans un même
+    processus (`CalaosCoreFixture.h`, singletons sans API de remise à zéro), le harnais ne ferme
+    que **sa** contribution.
+  - **Témoin à ensemble VIDE et cas COMPTÉS, jamais déduits d'un code de sortie** (`F-PYTEST-1`) :
+    **15 cas exécutés à CHAQUE passe** (14 + 1) — M0, MR4, MR4b, sans exception — donc aucun
+    binaire mort. M0 : **0 rouge, `exit 0`** sur les deux binaires.
+  - **`src/` : prose SEULE, vérifié en `python3`** et non relu — les trois fichiers ont été
+    dépouillés de leurs commentaires (machine à états chaînes/caractères comprise) et comparés
+    à `b7a4c63d` : **25 / 315 / 169 lignes de code, IDENTIQUES des deux côtés**. Et
+    **`startProcess(` reste à 1 / 1 / 0 occurrence**, inchangé — **aucune tripwire faussée**.
+  - **`F-LINK-1` v2 : les TROIS membres sont présents** dans `FINDINGS.md` (équivalence
+    observationnelle légitime **seulement prouvée par mutation** · « on ne peut pas atteindre » à
+    rejouer · ⭐ « atteignable, personne n'a regardé » **à rejouer LUI AUSSI**, le seul verdict
+    qui autorise à *déplacer* une tripwire — et c'est exactement ce qui avait mordu la première
+    livraison). La **7ᵉ affirmation** (wire KNX, remesurée indépendamment par le relecteur) est
+    versée, et les **trois non rejouées sont listées nommément** :
+    `ReolinkCtrl::doRegisterCamera`, le `brace-init` de `ReolinkEventRegistry`, `WagoMap`.
+  - **Recomptes refaits en `python3`, aucun cardinal recopié** : **89 entrées `TESTS`** (aucun
+    doublon ; 86 binaires + 3 scripts `.sh`), **87 `check_PROGRAMS`**, et le `# TOTAL` du harnais
+    automake dit **89** — les deux chiffres coïncident. `tests/Makefile.am` : **77 `^if*` / 77
+    `endif`**, **profondeur finale 0, jamais négative**, et **un seul préfixe `if` dans tout le
+    fichier** (ni `ifdef` ni `ifeq`) ; le bloc du ticket est un `if HAVE_GTEST … endif` **complet
+    et autonome**, appendu après celui de `T3.34`, **pas** une fusion avec le voisin.
+  - **145 goldens, arbre `d4ebc61f…` IDENTIQUE à master, aucun bougé** ; `git status` du worktree
+    de merge **vide** en fin de campagne (**0 fichier suivi modifié ET 0 non suivi**), sources
+    restaurées depuis la pristine **et rebâties** (`F-TEST-2`).
+  - ⚠️ **Ce dont je ne suis pas sûr, dit franchement** : les deux cas d'exécution **`spawn` un
+    processus** et sont donc les premiers suspects si `make check` devient flottant sous forte
+    parallélisation — la revue avait passé 215 exécutions sous charge sur la version à **un**
+    binaire, **le second binaire n'a jamais été soumis à cette campagne-là** (ni par l'auteur, ni
+    ici : mes 10+10 passes de résidu ne sont pas une campagne de charge). Et **aucun essai sur un
+    core Roon réel** n'a été fait, ici comme dans `T3.28`.
+
 - **🔒 T3.27 ✅ MERGÉ (`ed9fc58e`, 5 commits, `git rebase master` + `merge --ff-only`, historique
   linéaire, `./autogen.sh && ./configure && make -j12 && make check -j6` **87/87**, `exit 0`, **0
   `error:`**, `CXXLD    calaos_server`)** — `setIOParam()`/`waitForIO()` déclaraient `return 1`
