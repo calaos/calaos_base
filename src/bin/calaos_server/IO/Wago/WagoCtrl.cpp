@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include <WagoCtrl.h>
+#include <WagoBits.h>
 
 using namespace Utils;
 
@@ -46,17 +47,6 @@ WagoCtrl::~WagoCtrl()
 bool WagoCtrl::getBit(unsigned char mot, int pos)
 {
     return ((mot >> pos) & 0x01);
-}
-
-void WagoCtrl::setBit(unsigned char &mot, int pos, bool val)
-{
-    if (val)
-        mot = mot | (0x01 << pos);
-    else
-    {
-        if (getBit(mot, pos))
-            mot = mot ^ (0x01 << pos);
-    }
 }
 
 bool WagoCtrl::Connect()
@@ -92,7 +82,13 @@ bool WagoCtrl::read_bits(UWord address, int nb, vector<bool> &values)
 {
     if (!is_connected()) return false;
 
-    int data_size = nb / 8 + nb % 8;
+    //T3.30 - the size of a coil buffer is the ceiling of nb over eight, and
+    //it now comes from one place. The expression that used to be written out
+    //here over-allocated (nb = 15 asked for 8 bytes to hold 2); benign in this
+    //direction because the memset below covers the whole allocation, but it is
+    //the same expression write_multiple_bits() got wrong, so both ends of the
+    //wire now agree through WagoBits::coilBufferSize().
+    int data_size = WagoBits::coilBufferSize(nb);
     mbus_ubyte *data = new mbus_ubyte[data_size];
     memset(data, 0, sizeof(mbus_ubyte) * data_size);
     int ret = mbus_cmd_read_coil_status(mbus, 1, (mbus_uword)address, (mbus_uword)nb, data);
@@ -153,15 +149,22 @@ bool WagoCtrl::write_multiple_bits(UWord address, int nb, vector<bool> &values)
 {
     if (!is_connected()) return false;
 
-    mbus_ubyte *data = new mbus_ubyte[nb / 8 + nb % 8];
-    memset(data, '\0', nb/8);
+    //T3.30 - `nb` comes from the wire message and `values` from the decoded
+    //array: two independent facts. packBits() refuses a count it cannot
+    //honour instead of truncating - a short write is indistinguishable, at
+    //the relays, from a complete one - and it is also what stops values[i]
+    //from reading past the end, which on an empty vector was a SIGSEGV.
+    //It packs bit i into byte i / 8 at offset i % 8, like read_bits() above,
+    //and writes every byte of the buffer it sizes.
+    vector<unsigned char> data;
+    if (!WagoBits::packBits(nb, values, data))
+    {
+        cErrorDom("wago") << "WagoCtrl::write_multiple_bits(): refusing to write "
+                          << nb << " bits from " << values.size() << " values!";
+        return false;
+    }
 
-    for (int i = 0;i < nb;i++)
-        setBit(*data, i, values[i]);
-
-    int ret = mbus_cmd_force_multiple_coils(mbus, 1, (mbus_uword)address, (mbus_uword)nb, data);
-
-    delete[] data;
+    int ret = mbus_cmd_force_multiple_coils(mbus, 1, (mbus_uword)address, (mbus_uword)nb, &data[0]);
 
     if (ret != 0)
     {
@@ -221,13 +224,18 @@ bool WagoCtrl::write_multiple_words(UWord address, int nb, vector<UWord> &values
 {
     if (!is_connected()) return false;
 
-    mbus_uword *data = new mbus_uword[nb];
-    for (int i = 0;i < nb;i++)
-        data[i] = values[i];
+    //T3.30 - the twin of write_multiple_bits(): no bit packing, the same
+    //refusal. UWord and mbus_uword are both `unsigned short`, so the vector
+    //hands its buffer straight to libmbus.
+    vector<UWord> data;
+    if (!WagoBits::copyValues(nb, values, data))
+    {
+        cErrorDom("wago") << "WagoCtrl::write_multiple_words(): refusing to write "
+                          << nb << " words from " << values.size() << " values!";
+        return false;
+    }
 
-    int ret = mbus_cmd_preset_multiple_registers(mbus, 1, (mbus_uword)address, (mbus_uword)nb, data);
-
-    delete[] data;
+    int ret = mbus_cmd_preset_multiple_registers(mbus, 1, (mbus_uword)address, (mbus_uword)nb, &data[0]);
 
     if (ret != 0)
     {

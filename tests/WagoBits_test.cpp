@@ -51,12 +51,13 @@
  * at once, and two of them are silent - a segfault, or wrong bits on physical
  * relays.
  *
- * THE SEAM is namespace `seam` below. In THIS commit it carries the shipped
- * bodies of WagoCtrl.cpp verbatim, translated to the vector<> signature and
- * NOTHING else; the fix commit rewires it onto the production header
- * IO/Wago/WagoBits.h with `using`, so that from then on a mutation of the
- * SHIPPED packer turns this suite RED. A test that re-implements the packing
- * would only freeze what the test does.
+ * THE SEAM is namespace `seam` below. The characterization commit (51962e51)
+ * carried the shipped bodies of WagoCtrl.cpp there verbatim, translated to the
+ * vector<> signature and NOTHING else; this commit rewires it onto the
+ * production header IO/Wago/WagoBits.h with three `using` lines, so a mutation
+ * of the SHIPPED packer turns this suite red. Measured, not assumed: swapping
+ * `bit / 8` and `bit % 8` inside WagoBits.h reddens four cases, and each of the
+ * four mutations of the ticket reddens a DIFFERENT set.
  *
  * ⚠️ WHAT THIS SUITE CANNOT SEE. WagoCtrl.o is linked by no test binary and
  * cannot be: write_multiple_bits() returns on `if (!is_connected())` before
@@ -73,18 +74,18 @@
  * assertion is still on the CORRECT output, never on what the UB happens to
  * do on this machine.
  *
- * ⚠️ A SEGFAULT PRODUCES NO "FAILED" LINE. Three cases below kill the binary
- * in this commit rather than failing it on their own terms: the two
- * ...WithANonZeroCountIsRefused take SIGSEGV on values[0] (measured, exit code
- * -11 = signal 11 = the 139 of F-WAGO-2), and ANonPositiveCountIsRefused
- * throws out of the negative resize the shipped size expression produces -
- * gtest turns that one back into a failure, the two others produce NO "FAILED"
- * line at all. The verdict of this suite is the EXIT CODE, one case at a time
- * (--gtest_filter), never the count of red lines. Every run reported by this
- * ticket was taken that way.
+ * ⚠️ A SEGFAULT PRODUCES NO "FAILED" LINE. Against the shipped bodies, the two
+ * ...WithANonZeroCountIsRefused cases did not fail, they DIED: SIGSEGV on
+ * values[0], exit code -11 - signal 11, the 139 of F-WAGO-2 - and not one red
+ * line in the log. The verdict of this suite is therefore the EXIT CODE, one
+ * case at a time (--gtest_filter), never the count of red lines. Every run
+ * reported by this ticket, characterization and mutations alike, was taken
+ * that way.
  ******************************************************************************/
 
 #include <gtest/gtest.h>
+
+#include <WagoBits.h>
 
 #include <cstring>
 #include <fstream>
@@ -94,57 +95,17 @@
 
 using namespace std;
 
-//The fix commit replaces this whole block with the three `using` lines that
-//point at IO/Wago/WagoBits.h. Nothing else in this file moves.
+//SEAM, REWIRED BY THE FIX COMMIT of T3.30. Until this commit this block
+//carried the shipped bodies of WagoCtrl.cpp verbatim; it now names the
+//production header,
+//so every case below executes the code that ships inside calaos_server and
+//calaos_wago. Mutate WagoBits.h and this suite goes red - that is the whole
+//point of the indirection, and it is checked, not assumed.
 namespace seam
 {
-
-//WagoCtrl.cpp:156 and :225 - `nb / 8 + nb % 8`.
-int coilBufferSize(int nb)
-{
-    return nb / 8 + nb % 8;
-}
-
-//WagoCtrl.cpp:51-60 - a reference to ONE byte, and a position that the caller
-//lets run up to nb-1.
-void setBitOneByte(unsigned char &mot, int pos, bool val)
-{
-    if (val)
-        mot = mot | (0x01 << pos);
-    else
-    {
-        if ((mot >> pos) & 0x01)
-            mot = mot ^ (0x01 << pos);
-    }
-}
-
-//WagoCtrl.cpp:152-160 - the shipped body. `out` stands in for the buffer
-//`new mbus_ubyte[...]` hands back: the caller of this seam pre-fills it, which
-//is how the bytes the shipped memset does NOT cover become OBSERVABLE instead
-//of merely arbitrary. resize() keeps the elements already there, new[] keeps
-//whatever was on the heap - same story, made deterministic.
-bool packBits(int nb, const vector<bool> &values, vector<unsigned char> &out)
-{
-    //no guard at all: `nb` is trusted on its own word
-    out.resize((size_t)coilBufferSize(nb));
-    memset(out.data(), '\0', (size_t)(nb / 8));
-
-    for (int i = 0; i < nb; i++)
-        setBitOneByte(out[0], i, values[i]);
-
-    return true;
-}
-
-//WagoCtrl.cpp:220-226 - the twin, same missing guard.
-template<typename T>
-bool copyValues(int nb, const vector<T> &values, vector<T> &out)
-{
-    out.resize((size_t)nb);
-    for (int i = 0; i < nb; i++)
-        out[i] = values[i];
-    return true;
-}
-
+using WagoBits::coilBufferSize;
+using WagoBits::packBits;
+using WagoBits::copyValues;
 } //namespace seam
 
 namespace

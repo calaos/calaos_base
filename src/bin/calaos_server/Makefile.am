@@ -229,6 +229,7 @@ calaos_server_SOURCES = \
         IO/Wago/WOVolet.h                               \
         IO/Wago/WOVoletSmart.cpp                        \
         IO/Wago/WOVoletSmart.h                          \
+        IO/Wago/WagoBits.h                              \
         IO/Wago/WagoConfigParse.h                       \
         IO/Wago/WagoCtrl.cpp                            \
         IO/Wago/WagoCtrl.h                              \
@@ -379,6 +380,7 @@ bin_PROGRAMS += calaos_wago
 calaos_wago_SOURCES = \
         IO/ExternProc.cpp                   \
         IO/ExternProc.h                     \
+        IO/Wago/WagoBits.h                  \
         IO/Wago/WagoCtrl.cpp                \
         IO/Wago/libmbus/mbus.c              \
         IO/Wago/libmbus/mbus.h              \

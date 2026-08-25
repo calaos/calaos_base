@@ -33,7 +33,12 @@ protected:
     mbus_struct *mbus;
 
     bool getBit(unsigned char mot, int pos);
-    void setBit(unsigned char &mot, int pos, bool val);
+    //T3.30 - setBit(unsigned char &mot, int pos, bool val) is GONE. It took a
+    //reference to ONE byte plus a position, and every caller of a multiple
+    //write handed it *data with pos running to nb - 1: every bit landed in
+    //data[0], and pos >= 32 was an undefined shift. The byte/offset split now
+    //happens in exactly one place, WagoBits::setBufferBit(). Do not bring the
+    //old signature back: it invites the bug rather than allowing it.
 public:
     WagoCtrl(std::string host, int port = 502);
     ~WagoCtrl();
