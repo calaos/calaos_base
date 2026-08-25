@@ -240,10 +240,21 @@
   ⚠️ **Le segfault est mesuré, les points (b) et (c) sont démontrés au source** ; rien n'a tourné
   sous ASan ni contre un automate réel, et le chemin est inatteignable en l'état.
 
-- ⚠️ **[F-WAGO-7] — NON CORRIGÉ, hors périmètre de T3.30 : `int count;` part NON INITIALISÉ dans
+- ⚠️ **[F-WAGO-7] — PARTIELLEMENT CORRIGÉ par T3.30 (voir l'addendum en fin d'entrée) : `int count;`
+  ET `UWord address;` partent NON INITIALISÉS dans
   les quatre branches du dispatcher de `calaos_wago`.** `WagoExternProc_main.cpp:76`/`:81`,
   `:132`/`:137`, `:161`/`:166`, `:218`/`:223` déclarent `int count;` puis appellent
-  `Utils::from_string(jsonData["count"], count)` **sans regarder son retour**. Or `from_string`
+  `Utils::from_string(jsonData["count"], count)` **sans regarder son retour**.
+  ⭐ **Correction de périmètre apportée par la revue de T3.30 : `count` n'est pas seul.** La ligne
+  au-dessus de chacune des quatre déclarations de `count` est un **`UWord address;`** tout aussi
+  nu (`:75`, `:131`, `:160`, `:217`), suivi du même `Utils::from_string(jsonData["address"],
+  address)` dont le retour n'est pas lu davantage — et les **deux autres branches** du dispatcher
+  (`:108`, `:193`, écriture d'un bit / d'un mot unique) déclarent elles aussi un `address` nu, sans
+  `count` — et `write_word` y ajoute un **`UWord value;`** nu (`:194`), lui aussi rempli par un
+  `from_string` dont le retour n'est pas lu. Une clé `address` absente envoie donc une **adresse modbus de pile arbitraire** à
+  l'automate, et pour les écritures c'est une **écriture à une adresse quelconque**, ce qui est
+  strictement pire qu'une lecture fausse. La correction est la même et de la même taille :
+  `UWord address = 0;` / `int count = 0;`, et un test du retour de `from_string`. Or `from_string`
   rend **`true` sans rien écrire** sur une chaîne vide (c'est le défaut que **T3.25** corrige) :
   une clé `count` absente ou vide laissait donc `count` valant de la mémoire de pile arbitraire,
   et c'est **cette valeur-là** qui partait vers `WagoCtrl::read_bits()`, `read_words()` et les
@@ -255,6 +266,50 @@
   `from_string`. ⚠️ **Ne pas le confondre avec T3.25** : T3.25 corrige `from_string`, ceci corrige
   ses **appelants**, qui resteraient fragiles même avec une `from_string` parfaite le jour où la
   clé est absente plutôt que vide.
+
+  ⭐ **ADDENDUM T3.30 (revue de merge, 2026-08-25) — la moitié `nb <= 0` des DEUX LECTURES est
+  fermée ; `int count = 0;` reste à faire.** La revue avait relevé que `coilBufferSize()` écrase
+  `nb <= 0` en 0 et que `read_bits()` l'appelait sans garde. **Remesuré au `g++ -std=c++11` avant
+  correction, et le partage entre régression et défaut préexistant est net — les deux moitiés ne
+  se traitent pas pareil** :
+
+  | `nb` | `master` (`nb / 8 + nb % 8`) | `fix/t3.30` avant cet addendum |
+  |---|---|---|
+  | `-1`, `-7`, `-8`, `-9`, `-40` | **négatif** ⇒ `new mbus_ubyte[négatif]` **lève `std::bad_alloc`** | `0` ⇒ `new mbus_ubyte[0]`, **aucune exception** |
+  | `0` | `0` ⇒ `new mbus_ubyte[0]`, **aucune exception** | `0` ⇒ idem, **inchangé** |
+
+  ⇒ **`nb < 0` était une RÉGRESSION INTRODUITE par T3.30** (un plantage bruyant devenu un tampon
+  vide silencieux) : jamais livrée, jamais publiée, **donc pas un défaut de production** — elle est
+  fermée dans la branche et consignée dans [T3.30](T3.30.md), pas ici. **`nb == 0` était et reste
+  un défaut PRÉEXISTANT, livré, sur les DEUX lectures** (`read_words()` : `new mbus_uword[0]`) :
+  c'est *lui* qui appartient à cette entrée, et c'est l'extraction de `coilBufferSize()` qui l'a
+  rendu visible, pas elle qui l'a créé. Les deux moitiés sont closes par la même garde,
+  `WagoBits::countIsReadable(nb)` en tête de `read_bits()` **et** de `read_words()`, épinglée par
+  cinq oracles (`tests/WagoBits_test.cpp`) dont deux fils de source, un par lecture.
+  ⚠️ **Ce qui NE l'est pas** : `int count = 0;` / `UWord address = 0;` eux-mêmes, et surtout
+  **F-WAGO-8 ci-dessous, que cette garde ne ferme pas**.
+
+- ⚠️ **[F-WAGO-8] — NON CORRIGÉ, PRÉEXISTANT, hors périmètre de T3.30, trouvé en refermant F-WAGO-7 :
+  `libmbus` recopie la réponse d'après la RÉPONSE, jamais d'après ce que l'appelant a demandé.**
+  `mbus_cmd.c`, `mbus_cmd_read_coil_status()` : `mbus_ubyte byte_count = MBUS_BYTE_RD(bufptr)` puis
+  `while (byte_count--) MBUS_BYTE_WR(coils_data, *bufptr++)`. `byte_count` sort du **champ
+  byte-count de la trame reçue**, il est plafonné par la seule largeur d'un `unsigned char` —
+  **255** — et il n'est confronté **ni à `coils_num`, ni à la taille du tampon `coils_data`**.
+  ⭐ **La garde `nb > 0` de T3.30 ne ferme PAS ce défaut-là et il ne faut pas le croire fermé** :
+  le battement de cœur modbus appelle `read_bits(0, 1, …)` toutes les dix secondes, `nb == 1`
+  alloue **un octet**, et une réponse annonçant 255 déborde ce tampon de **254 octets**. Même forme
+  côté registres (`mbus_cmd_read_holding_registers()`, `data_count = MBUS_BYTE_RD(bufptr) / 2`,
+  jusqu'à **127 mots**). En amont, `mbus_rqst()` lit le corps de la réponse avec
+  `mbus_sock_read(mbus->sd, mbus->buf + MBUS_HDR_LEN, MBUS_HDR(mbus->buf, MBUS_LENGTH_L), …)` : la
+  longueur vient elle aussi de la trame, jusqu'à **255**, dans un `mbus->buf` de
+  `MBUS_HDR_LEN + MBUS_DATA_LEN` = **260** octets dont **254** disponibles après l'en-tête — donc
+  **un dépassement d'un octet de `mbus_struct` avant même la recopie**. ⚠️ **Portée réelle** : il
+  faut un pair modbus malveillant ou en panne sur le socket de l'automate, ce qui n'est pas rien
+  mais n'est pas le cas nominal ; **rien n'a tourné sous ASan ni contre un automate réel**, tout
+  est établi au source. `libmbus` est un tiers importé (`$Id: mbus_conf.h,v 1.1.1.1 2003/…`) :
+  le corriger, c'est **borner `byte_count` par la taille demandée et passer cette taille en
+  paramètre**, donc toucher sa signature — **⭐ TICKET DÉDIÉ RECOMMANDÉ**, à ne pas glisser dans un
+  ticket Wago applicatif.
 
 - ⚠️ **[F-WAGO-3] — NON CORRIGÉ (durcissement DÉCLARÉ, pas un report) : `string v =
   json_string_value(value)` était un déréférencement de `NULL`.**
