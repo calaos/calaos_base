@@ -63,8 +63,9 @@
  * characterization commit; since the migration commit they FORWARD to the
  * SHIPPED header Audio/SqueezeboxWire.h - the very header Squeezebox.cpp
  * itself includes - so that a mutation of the PRODUCTION reader turns this
- * suite red. Exactly five assertions moved with that rewiring, each flagged
- * MOVED BY E4.1d in place.
+ * suite red. ELEVEN assertions and declarations carry a MOVED BY E4.1d mark in
+ * this file - count them with grep, the number in this sentence is the one
+ * thing here nothing checks.
  *
  * ⚠️ WHAT THIS FILE STILL DOES NOT COVER, measured and consigned rather than
  * hidden: the CALL SITES inside Squeezebox::get_album_cover_json_cb() - the
@@ -370,6 +371,50 @@ TEST(SqueezeboxWire, TopLevelScalarsAreRefusedAndArraysFallThroughSilently)
     LookupOutcome arr = lookupArtwork("[1,2]");
     EXPECT_TRUE(arr.parsed);
     EXPECT_EQ(ArtworkLookup::NoResultObject, arr.where);
+}
+
+//⛔ THE ONE MEASURED ACCEPTANCE DIVERGENCE OF THIS FILE, DECLARED and pinned
+//here so that changing it again is a deliberate act.
+//
+//AN ESCAPED NUL, "\u0000": jansson REFUSED it - "\u0000 is not allowed without
+//JSON_ALLOW_NUL" in a value, "NUL byte in object key not supported" in a key -
+//so the whole answer was a parse error and the driver fell back to the CLI
+//path. nlohmann ACCEPTS it and decodes it to a real 0x00 byte inside the
+//std::string. So an LMS answer carrying an escaped NUL moves from "malformed,
+//fall back" to "parsed, walk it" - and, if it sits in artwork_url, that NUL
+//ends up in an HTTP URL.
+//
+//⚠️ A RAW NUL byte is refused by BOTH libraries (jansson: "control character
+//0x0"; nlohmann: discarded), so nothing here rests on the c_str() the old code
+//used - measured both ways.
+//
+//This is not reachable from a normal LMS, whose metadata is text. It is
+//reachable from a hostile or broken stream announcement, which is exactly the
+//kind of byte this perimeter reads.
+TEST(SqueezeboxWire, TheDeclaredAcceptanceDivergence_EscapedNulIsNowAccepted)
+{
+    //an escaped NUL in the artwork_url itself: parsed now, refused before
+    LookupOutcome inValue = lookupArtwork(
+            "{\"result\":{\"remoteMeta\":{\"artwork_url\":\"a-x\\u0000y.jpg\"}}}");
+    ASSERT_TRUE(inValue.parsed)
+            << "the escaped-NUL divergence changed: re-read the comment above";
+    EXPECT_EQ(ArtworkLookup::Found, inValue.where);
+    EXPECT_EQ(9u, inValue.aurl.size()) << "the NUL was dropped from the value";
+    EXPECT_NE(string::npos, inValue.aurl.find('\0'));
+
+    //and in a key
+    LookupOutcome inKey = lookupArtwork("{\"a\\u0000b\":1,\"result\":{}}");
+    EXPECT_TRUE(inKey.parsed);
+
+    //...but a RAW NUL byte is still refused, by both libraries.
+    string rawNul = string("{\"result\":{\"remoteMeta\":{\"artwork_url\":\"a-x");
+    rawNul.push_back('\0');
+    rawNul += "y.jpg\"}}}";
+    //a probe that cannot silently become valid
+    ASSERT_NE(string::npos, rawNul.find('\0')) << "the fixture lost its embedded NUL";
+    EXPECT_FALSE(lookupArtwork(rawNul).parsed)
+            << "a RAW NUL byte became acceptable: that one was refused by BOTH "
+               "libraries and the guard contract just changed";
 }
 
 /*******************************************************************************

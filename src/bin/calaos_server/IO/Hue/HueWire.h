@@ -89,7 +89,21 @@ enum class Decode
     NoState,
 };
 
-//The five fields the driver reads out of "state", and nothing else.
+/*
+ * The five fields the driver reads out of "state", and nothing else.
+ *
+ * ⚠️ THE RESIDUAL OF THE NAMED-STRUCT CLOSURE, written down because it is
+ * exactly the kind of guarantee one believes is acquired. Passing a LightState
+ * instead of three ints makes toStateUpdate(hue, sat, bri) impossible to
+ * permute AT THE CALL SITE - but LightState is an AGGREGATE of three int and
+ * two bool, so
+ *      HueWire::LightState st{100, 200, 30000, true, true};
+ * compiles (measured with -fsyntax-only) and silently permutes sat and bri.
+ * Nothing writes that today - the driver default-constructs and fills BY NAME,
+ * and so does the test - and the closure holds only for as long as that stays
+ * true. If a positional aggregate initialisation ever appears, give the fields
+ * distinct types or delete the aggregate-ness with a constructor.
+ */
 struct LightState
 {
     int sat = 0;
@@ -146,12 +160,33 @@ inline bool booleanOrDefault(const Json &j, const char *key, bool def = false)
  * `st` is written ONLY on Ok: a refused answer must never leave a half filled
  * state behind, because the driver returns without updating anything.
  *
- * ⚠️ ONE MEASURED DIVERGENCE, deliberately not reproduced: an integer literal
- * too large for int64 (e.g. {"sat":99999999999999999999}) made jansson refuse
- * the WHOLE document ("too big integer"); nlohmann parses it as a float, which
- * integerOrDefault() then answers 0 for. So that answer moves from Malformed
- * to Ok-with-sat-0. No Hue bridge sends it, and reproducing it would mean
- * re-implementing a number lexer.
+ * ⚠️ TWO MEASURED DIVERGENCES, both deliberately not reproduced, both pinned by
+ * TheTwoDeclaredAcceptanceDivergencesFromJansson in tests/HueWire_test.cpp:
+ *
+ *  1. AN ESCAPED NUL, "\u0000". jansson refused it outright ("\u0000 is not
+ *     allowed without JSON_ALLOW_NUL" in a value, "NUL byte in object key not
+ *     supported" in a key), so the answer was Malformed. nlohmann accepts it
+ *     and decodes a real 0x00 byte into the std::string, so the answer becomes
+ *     Ok. A RAW NUL byte is still refused by BOTH (jansson: "control character
+ *     0x0"; nlohmann: discarded), so handing this function the whole
+ *     std::string rather than a c_str() digs no hole - measured both ways.
+ *  2. AN INTEGER BEYOND int64, e.g. {"sat":99999999999999999999}. jansson
+ *     refused the WHOLE document ("too big integer"); nlohmann parses it as a
+ *     float, which is not is_number_integer(), so integerOrDefault() answers
+ *     its default. The answer moves from Malformed to Ok-with-sat-0.
+ *     ⚠️ On that same payload j.value("sat", 0) answers -2147483648. One more
+ *     reason the helper is written by hand.
+ *
+ * No Hue bridge sends either shape; reproducing them would mean re-scanning
+ * the escapes and re-implementing a number lexer.
+ *
+ * ⚠️ MEASURED, so that nobody takes it for load bearing: the `is_discarded()`
+ * half of the guard below is REDUNDANT with the other half - a discarded value
+ * answers false to BOTH is_object() and is_array(). Removing it changes
+ * nothing and turns no test red (an equivalent mutant, verified). It is kept
+ * because it states the intent - "the parse failed" and "the root is a scalar"
+ * are two different reasons - and because the day someone replaces the
+ * container test, the parse test must still be there.
  */
 inline Decode decodeLightState(const std::string &data, LightState &st)
 {

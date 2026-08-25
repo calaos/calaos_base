@@ -78,7 +78,25 @@ namespace SqueezeboxWire
  * A top level ARRAY is accepted, as it was before, and falls through
  * findArtworkUrl() as NoResultObject.
  *
+ * ⚠️ ONE MEASURED DIVERGENCE, declared and deliberately not reproduced, pinned
+ * by TheDeclaredAcceptanceDivergence_EscapedNulIsNowAccepted: an ESCAPED NUL,
+ * "\u0000", was refused by jansson ("\u0000 is not allowed without
+ * JSON_ALLOW_NUL" in a value, "NUL byte in object key not supported" in a key)
+ * and is ACCEPTED by nlohmann, which decodes a real 0x00 byte into the
+ * std::string. So such an answer moves from "malformed, fall back to the CLI"
+ * to "parsed, walk it" - and a NUL in artwork_url ends up in an HTTP URL. A RAW
+ * NUL byte is still refused by BOTH libraries, so nothing here rested on the
+ * c_str() the old code passed - measured both ways.
+ *
  * `out` is left untouched when the answer is refused.
+ *
+ * ⚠️ MEASURED, so that nobody takes it for load bearing: the `is_discarded()`
+ * half of the guard below is REDUNDANT with the other half - a discarded value
+ * answers false to BOTH is_object() and is_array(). Removing it changes
+ * nothing and turns no test red (an equivalent mutant, verified). It is kept
+ * because it states the intent - "the parse failed" and "the root is a scalar"
+ * are two different reasons - and because the day someone replaces the
+ * container test, the parse test must still be there.
  */
 inline bool parseResponse(const std::string &response, Json &out)
 {
@@ -181,8 +199,11 @@ struct LmsHost
  * host on port 9000.
  *
  * compare(0, 4, ...) clamps on a shorter string rather than throwing, so ""
- * and "ht" go through the relative branch. Do not "simplify" it to
- * substr(0, 4).
+ * and "ht" go through the relative branch. (substr(0, 4) would behave the same
+ * here - pos == 0 is always valid and the length clamps too; an earlier version
+ * of this comment claimed otherwise and was WRONG. What must not change is the
+ * BRANCH, which is pinned by
+ * ShortAndEmptyArtworkUrlsGoThroughTheRelativeBranch.)
  */
 inline std::string buildCoverUrl(const std::string &artworkUrl, const LmsHost &host)
 {

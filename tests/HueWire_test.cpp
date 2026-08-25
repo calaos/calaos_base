@@ -448,6 +448,75 @@ TEST(HueWire, TopLevelScalarsAreMalformedAndTopLevelArraysAreNotAnObject)
                                "\"description\":\"d-unauthorized user\"}}]", st));
 }
 
+//⛔ THE TWO MEASURED ACCEPTANCE DIVERGENCES OF THIS MIGRATION, both DECLARED
+//and both pinned here so that changing them again is a deliberate act.
+//
+//(1) AN ESCAPED NUL, "\u0000". jansson REFUSED it outright - "\u0000 is not
+//    allowed without JSON_ALLOW_NUL" in a value, "NUL byte in object key not
+//    supported" in a key - so the whole answer was Malformed. nlohmann ACCEPTS
+//    it and decodes it to a real 0x00 byte inside the std::string. So a bridge
+//    answer carrying an escaped NUL moves from Malformed to Ok.
+//    ⚠️ A RAW NUL byte is refused by BOTH (jansson: "control character 0x0";
+//    nlohmann: discarded), so passing the whole std::string rather than a
+//    c_str() digs no hole - measured both ways.
+//
+//(2) AN INTEGER BEYOND int64. jansson refused the WHOLE document ("too big
+//    integer"); nlohmann parses it as a float, which is not is_number_integer(),
+//    so integerOrDefault() answers its default. The answer moves from Malformed
+//    to Ok with sat = 0.
+//    ⚠️ MEASURED, and it is the argument FOR the hand written helper: on that
+//    same payload j.value("sat", 0) answers -2147483648, not 0 and not 12.
+//
+//Neither shape can come from a real Hue bridge. Reproducing (1) would mean
+//re-scanning the escapes and (2) re-implementing a number lexer; both were
+//judged more expensive than the divergence is worth. What is NOT acceptable is
+//that they change again in silence, which is what this case prevents.
+TEST(HueWire, TheTwoDeclaredAcceptanceDivergencesFromJansson)
+{
+    //(1) escaped NUL - jansson said Malformed, we now say Ok
+    LightState nulInValue;
+    EXPECT_EQ(Decode::Ok,
+              decodeWire("{\"name\":\"n-a\\u0000b\",\"state\":{"
+                         "\"sat\":200,\"bri\":100,\"hue\":30000,"
+                         "\"on\":true,\"reachable\":true}}", nulInValue))
+            << "the escaped-NUL divergence changed: re-read the comment above";
+    EXPECT_EQ(200, nulInValue.sat);
+    EXPECT_TRUE(nulInValue.reachable);
+
+    LightState nulInKey;
+    EXPECT_EQ(Decode::Ok,
+              decodeWire("{\"n-a\\u0000b\":1,\"state\":{\"sat\":200}}", nulInKey));
+    EXPECT_EQ(200, nulInKey.sat);
+
+    //...but a RAW NUL byte is still refused, by both libraries. Built as a
+    //std::string with an embedded 0x00 so that nothing truncates it.
+    string rawNul = string("{\"name\":\"n-a");
+    rawNul.push_back('\0');
+    rawNul += "b\",\"state\":{\"sat\":200}}";
+    //the probe must be a value that cannot silently become valid: if the NUL
+    //ever stops being IN the fixture, the case below proves nothing
+    ASSERT_NE(string::npos, rawNul.find('\0')) << "the fixture lost its embedded NUL";
+    ASSERT_EQ(36u, rawNul.size()) << "the fixture was truncated at the NUL";
+    LightState raw;
+    EXPECT_EQ(Decode::Malformed, decodeWire(rawNul, raw))
+            << "a RAW NUL byte became acceptable: that one was refused by BOTH "
+               "libraries and the guard contract just changed";
+
+    //(2) an integer beyond int64 - jansson said Malformed, we now say Ok/0
+    LightState big;
+    EXPECT_EQ(Decode::Ok,
+              decodeWire("{\"state\":{\"sat\":99999999999999999999,"
+                         "\"bri\":100,\"hue\":30000,"
+                         "\"on\":true,\"reachable\":true}}", big))
+            << "the too-big-integer divergence changed: re-read the comment above";
+    EXPECT_EQ(0, big.sat) << "the shipped helper must answer its DEFAULT here; "
+                             "j.value(\"sat\", 0) answers -2147483648 on this "
+                             "very payload, which is why it is not used";
+    //the well typed siblings are untouched: the default did not leak
+    EXPECT_EQ(100, big.bri);
+    EXPECT_EQ(30000, big.hue);
+}
+
 //"state" ABSENT, or present but not an object, is a THIRD outcome and not the
 //same as a malformed answer: it means the bridge replied something we could
 //read but did not recognise.
