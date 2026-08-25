@@ -5014,9 +5014,22 @@ src/lib/uvw/src/uvw.hpp:1:    fatal error: uvw/async.hpp: No such file or direct
 `src/lib/Makefile.am` distribue l'en-tête parapluie `uvw/src/uvw.hpp` mais **aucun** des en-têtes
 `uvw/src/uvw/*.hpp` qu'il inclut ; `exprtk.hpp` n'est listé **nulle part**.
 
-Mesure statique (suivis par git ∖ contenu du tarball) : **414** fichiers suivis absents, dont
-**125** sources/en-têtes sous `src/` — 57 `uvw`, 31 `sqlite_modern_cpp`, 27 `exprtk`, 4
-`libquickmail`, 3 `sole`, `sigc_fix_functor.h`, `version.h`, `OWFSUtils.h`.
+Mesure statique (suivis par git ∖ contenu du tarball), avec le commit de chaque chiffre :
+
+| Commit de `fix/t3.45` | suivis absents | dont code sous `src/` |
+|---|---:|---:|
+| `e416ff25` (le correctif) | **414** | **126** |
+| `8a117171` (tête, la fiche `T3.45.md` en plus) | **415** | **126** |
+
+L'écart de 1 sur le total est **exactement `docs/refactoring/T3.45.md`** (`docs/` n'est distribué
+par personne : 162 des 415). ⭐ L'écart **125 / 126** n'est **pas** `src/lib/sole/demo.cc` mais
+**`src/lib/sole/sole.cxx`** : le jeu d'extensions `.c .cc .cpp .h .hpp` donne 125, y ajouter `.cxx`
+donne 126. Répartition du code : 57 `uvw` (sur 82 fichiers suivis, **1 seul** distribué — le
+parapluie), 31 `sqlite_modern_cpp` (**0** distribué), 27 `exprtk` (**0** distribué), 4
+`libquickmail`, 4 `sole`, plus **`version.h`**, **`OWFSUtils.h`** et **`sigc_fix_functor.h`**, qui
+sont à nous et non à un tiers. ⭐ `pugixml` (4/4) et `calaos-python` (8/8) sont **complets** : l'état
+correct est atteignable arbre par arbre. ⚠️ Les **licences** des tiers ne partent pas non plus
+(`llhttp/LICENSE`, `llhttp/LICENSE-MIT`, `libquickmail/COPYING`, `exprtk/license.txt`).
 
 ⚠️ **Portée** : aucun binaire n'a pu être construit depuis un tarball de ce dépôt **depuis
 2025-02-16** — d'abord parce que `make dist` échouait, ensuite parce que l'archive est incomplète.
@@ -5024,7 +5037,8 @@ Donc **aucun risque de binaire divergent** en circulation ; c'est le **chemin de
 mort, pas le produit.
 
 **Non corrigé par T3.45** (périmètre distinct et bien plus large : la faute T3.45 était une faute
-de chemin d'une ligne). **Un numéro de fiche est demandé à l'orchestrateur.**
+de chemin d'une ligne). ⭐ **Numéro attribué : [`T3.48`](T3.48.md)**, avec un point de départ imposé
+— *`make distcheck` doit franchir le build*.
 
 ### F-DIST-2 — la CI ne lance **ni `dist` ni `distcheck`**
 
@@ -5033,13 +5047,19 @@ changées, job de dépendances Python du sidecar MCP. **Zéro** occurrence de `d
 `.github/`. C'est la raison pour laquelle F-DIST-1 et la faute T3.45 ont vécu **~18 mois** sans être
 vues : *personne ne lançait la cible*.
 
-**Remède proposé** : un job CI `distcheck` séparé — mais **après** F-DIST-1, sinon il est rouge dès
-le premier jour. En attendant, `tests/check-extra-dist.sh` (T3.45, ~36 ms) tient le sous-ensemble
-« un chemin de distribution qui ne résout aucun fichier », **pas** le reste.
+**Remède proposé** : un job CI `distcheck` séparé — mais **après** [`T3.48`](T3.48.md), sinon il
+est rouge dès le premier jour. En attendant, `tests/check-extra-dist.sh` (T3.45, **33,7 ms**
+médiane sur n=20, dont 12 ms de démarrage d'interpréteur) tient le sous-ensemble « un chemin de
+distribution qui ne résout aucun fichier », **pas** le reste — il vaut dans le sens
+« déclaré ⇒ existe » et **jamais** dans le sens inverse, qui est celui de F-DIST-1.
 
 ### F-DIST-3 — `make dist` réécrit les `po/*.po` suivis
 
-Lancer `make dist` régénère `po/calaos.pot` et fait un `msgmerge` sur les **8** `po/*.po` suivis,
-salissant l'arbre de travail (~19 000 lignes). Le `.pot` commité date du **2025-06-29** : les
+Lancer `make dist` régénère `po/calaos.pot` et fait un `msgmerge` sur les `.po`. ⚠️ **Compte
+corrigé** : sur les **8** `po/*.po` **suivis**, **7 sont réécrits** (`de`, `es`, `fr`, `hi`, `nb`,
+`pl`, `ru`) et ⭐ **`en.po` reste strictement inchangé** ; `po/calaos.pot` est réécrit lui aussi.
+Volume mesuré : **20 589** lignes ± sur les 7 `.po` et **2 870** sur le `.pot`. Deux `.po` **non
+suivis** (`en@quot.po`, `en@boldquot.po`, générés depuis `en.po`) sont réécrits sans salir
+`git status`. Le `.pot` commité date du **2025-06-29** : les
 références de lignes sources y sont périmées. Sans conséquence fonctionnelle, mais **tout
 lanceur de `make dist` doit penser à `git checkout -- po/`** — piège à commit accidentel.
