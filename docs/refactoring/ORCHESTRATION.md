@@ -368,6 +368,104 @@
     ici : mes 10+10 passes de résidu ne sont pas une campagne de charge). Et **aucun essai sur un
     core Roon réel** n'a été fait, ici comme dans `T3.28`.
 
+- **🔒 T3.37 ✅ MERGÉ (`cab9e0a8`, 6 commits, `merge --ff-only` sur `701a98e4` — **master n'avait
+  pas bougé depuis le rebase de l'auteur : ni rebase ni conflit, PAS MÊME sur l'append de
+  `FINDINGS.md`**, historique linéaire, **0 commit de fusion**, `./autogen.sh && ./configure &&
+  make -j12 && make check -j6` ⇒ **`# TOTAL: 89 / PASS: 89 / FAIL: 0`**, **un seul** bloc
+  `Testsuite summary`, `exit 0`, **0 `error:`**, `CXXLD    calaos_server`)** — le parseur de
+  `path` JSON, copié entre `MqttCtrl` et `WebCtrl`, n'existe plus qu'une fois dans
+  `IO/JsonPath.h`. **RIEN POUSSÉ.**
+
+  - ⭐⭐ **LES TROIS MUTATIONS DEMANDÉES REJOUÉES AU MERGE, ET L'EXCLUSIVITÉ EST STRICTE — vérifiée
+    NOM PAR NOM, pas sur un cardinal.** Protocole complet à chaque tour (`cmp` d'application — le
+    motif exactement **une** fois et le fichier sur disque **différent** du pristine posé dans le
+    conteneur —, `rm -f` du binaire **et** de `tests/JsonPathSyntax_test-JsonPathSyntax_test.o`,
+    `make -j12` **à la RACINE** puis `make -j6 check TESTS=`, ligne **`CXXLD    JsonPathSyntax_test`**
+    exigée par **regex à double espace**, verdict au **code de sortie du binaire lancé directement**
+    et au **nombre de cas exécutés**) :
+    **M1** (corps **partagé**, `val.back() != ']'` ⇄ `val.front() != '['`) ⇒ **7 rouges des DEUX
+    côtés** — `AnIndexMissingItsClosingBracketIsRejected`/`…IsLogged` **×2**, `EveryFailure…` **×2**,
+    `JsonPathResolve.TheFrozenIndexGrammarIsUnchanged` ; **M6** (enveloppe **MQTT**) ⇒ **3, TOUS
+    `Mqtt*`** ; **M7** (enveloppe **Web**) ⇒ **14, TOUS `WebJsonPathTest.*`**.
+    ⭐ **M6 ∩ M7 = ∅** : aucun cas Web dans M6, aucun cas MQTT dans M7. Les deux appelants sont donc
+    câblés **séparément et tous les deux**, ce qu'aucune des deux moitiés n'établirait seule.
+  - **Témoin M0 à ensemble VIDE, joué trois fois** (avant campagne, après, et en tête de la reprise
+    de la sonde de relink) : **63 cas, 6 suites, 0 rouge, `exit 0`** à chaque fois — et **63 cas
+    comptés**, jamais déduits d'une absence de `FAILED`.
+  - ⭐⭐ **LE FAUX ROUGE DE RELINK EST REPRODUIT À L'IDENTIQUE, et la protection par `.deps` est
+    CONFIRMÉE — les deux mesures, pas une.** `JsonPathSyntax_test_DEPENDENCIES` reste écrasé à
+    `libcalaos_common.la` seul :
+    **(1)** mutation M6 de `MqttCtrl.cpp` **+ `rm -f`** ⇒ `CXXLD` **1**, `MqttCtrl.o` recompilé,
+    `exit 1`, **3 rouges** — honnête ;
+    **(2)** ⭐ **restauration PRISTINE, SANS aucun `rm -f`** ⇒ `CXXLD` **0**, `MqttCtrl.o`
+    **pourtant recompilé**, `.o` de test **non** recompilé, **les 3 MÊMES rouges sur un arbre
+    PROPRE** — **FAUX ROUGE**, variante symétrique et plus traître du faux vert ;
+    **(3)** même source pristine **avec `rm -f`** ⇒ `CXXLD` **1**, **0 rouge**.
+    **(4)** ⭐ **mutation de `JsonPath.h` SANS aucun `rm -f`** ⇒ `.o` de test **recompilé**, `CXXLD`
+    **1**, `exit 1`, **2 rouges, un par copie de l'appelant** ⇒ **l'en-tête n'est PAS dans le trou**,
+    la revue avait le mécanisme à l'envers et l'auteur a raison de la corriger.
+    ⭐ **Le contraste (2) / (4) isole la cause** : dans les deux tours le `.o` serveur est recompilé,
+    et seul (4) relie — parce que seul (4) recompile le `.o` **de la cible**, `JsonPath.h` étant dans
+    son `.deps` par l'`#include "JsonPath.h"` de `tests/JsonPathSyntax_test.cpp`.
+    ⚠️ **Donc la protection est bien INCIDENTE, pas conçue** : retirer cet `#include` — ce que le §4
+    de la fiche pousse à faire — y précipite l'en-tête **sans rien signaler**. Conclusion pratique de
+    la revue **maintenue**, mécanisme **corrigé**.
+  - ⭐ **M8 EST UN MUTANT ÉQUIVALENT LÉGITIME, ET C'EST PROUVÉ PAR SON CONTRÔLE, pas affirmé.**
+    L'**initialiseur** `int idx = 0` → `int idx = 7` ⇒ **0 rouge, `exit 0`** ; le **contrôle** sur
+    l'**affectation gardée** `idx = 0` → `idx = 7` ⇒ **13 rouges des DEUX côtés** (6 `Mqtt*`,
+    6 `Web*`, plus `TheFrozenIndexGrammarIsUnchanged`). ⇒ **la suite observe bel et bien `idx`** :
+    le 0 de M8 mesure l'**inatteignabilité** de l'initialiseur, pas l'aveuglement de la suite.
+    C'est ce que la fiche §5.5 affirme, et le contrôle qui le démontre est **M3** de sa propre table
+    (`idx = 0` ⇄ `idx = 1`, **13 rouges**). ⚠️ **Seul écart de rédaction relevé** : la fiche ne
+    **relie pas explicitement** M8 à ce contrôle — les deux lignes sont dans la même table, la
+    déduction est laissée au lecteur. **Rédactionnel, aucune mesure en défaut.**
+  - **`tests/Makefile.am` — le piège du `endif` est sans objet et le reste après recompte** :
+    **31 lignes ajoutées, TOUTES des commentaires** (vérifié en `python3` : 31 `+`, **0 `-`**, zéro
+    ligne ajoutée ne commençant pas par `#`), **aucune règle, aucune entrée `TESTS`, aucun
+    `if`/`endif`** ; ⭐ **`_DEPENDENCIES` NON touchée** — vérifié : le mot n'apparaît dans aucune
+    ligne ajoutée ni supprimée. Invariants recomptés **tous préfixes `^if*` confondus** :
+    **77 `if*` / 77 `endif`**, profondeur finale **0**, **minimum 0**, maximum 2 ; **89 entrées
+    `TESTS`** (3 hors condition + 85 `HAVE_GTEST` + 1 `HAVE_GTEST && HAVE_LIBKNX`), **89 uniques,
+    zéro doublon** — et **`# TOTAL: 89`** du build de validation **égale ce compte**, les deux
+    moitiés de la règle de lecture réécrite par ce ticket-même.
+  - **`src/` : ZÉRO ligne depuis la revue**, mesuré en `python3` — `git diff --name-only -- src/`
+    **vide** depuis `2eed5a44` (le commit d'extraction) jusqu'à `cab9e0a8`. Les quatre commits de
+    rédaction et de correction de réserves ne touchent que `docs/` et `tests/`. Corps du parseur
+    dans `src/` : **1** occurrence (quatre sondes textuelles indépendantes, toutes dans
+    `IO/JsonPath.h`). `getValueXml()` : **cinq** retours d'échec confirmés au source
+    (`WebCtrl.cpp` 254, 266, 284, 292, 298).
+  - **Réserves de revue vérifiées comme fermées, une par une** : règle de lecture de `make check`
+    **réécrite** (code de sortie `0` **ET** `# TOTAL` = compte attendu, aucune des deux suffisante) ·
+    récit de `F-BUILD-1` **corrigé** (les deux blocs disaient `TOTAL: 87` alors que le commit
+    déclarait **88** ⇒ l'épisode cachait **aussi** une suite non exécutée, famille `F-PYTEST-1`, et
+    l'hypothèse « redémarrage de `make` » est **infirmée**) · nuance de journal **ajoutée aux
+    `RELEASE_NOTES`** (un IO **Web** et un IO **MQTT** sur le **même** `path` sont désormais
+    **indiscernables** au journal) · préfixe `(MqttCtrl.cpp)` **corrigé en `(JsonPath.h)`** dans
+    l'en-tête de `tests/JsonPathSyntax_test.cpp` · doublon « Versé à `FINDINGS.md` » **retiré** de
+    `T3.35.md`.
+  - **Goldens : 145 fichiers, arbre `tests/core/golden` = `d4ebc61f`** — identique sur `master`
+    avant merge, sur la branche, et après. **ZÉRO golden bougé.** ⭐ Et **`git status` du worktree de
+    merge est VIDE après la campagne complète** (`--untracked-files=all` : **0 fichier suivi
+    modifié, 0 non suivi**) : dix-huit cycles de build, neuf mutations et leurs restaurations n'ont
+    rien laissé derrière eux, et l'arbre est **byte-identique** à `cab9e0a8`.
+  - ⭐ **Un préexistant corrigé au passage, hors périmètre du ticket** : les lignes `BOARD.md` de
+    **T3.35** et **T3.37** contenaient des `|` **non échappés** dans du code en ligne
+    (`` `val.empty() || !from_string(val, idx)` `` et `` `val.size() < 2 || val.back() != ']'` ``) ⇒
+    ⇒ **9 barres NON échappées de chaque côté pour un tableau qui en attend 7** (T3.35 en portait
+    **11** au total, dont deux déjà correctement échappées ; T3.37 **9**, aucune échappée) : les
+    deux lignes **cassaient le rendu du tableau**.
+    Échappées en `\|\|` — la convention que la ligne T3.35 utilisait **déjà** quinze cents
+    caractères plus tôt. **Toutes les lignes de cette table ont désormais exactement 7 barres non
+    échappées.** Ce n'était le fait ni de l'auteur ni de ce ticket.
+  - ⚠️ **Ce dont je ne suis pas sûr, dit franchement** : **rien n'a été mesuré sur un vrai courtier
+    MQTT ni un vrai serveur web**, et les quatre appelants de `WebCtrl::getValue()` restent
+    **inatteignables par test** — le drapeau s'arrête à `getValueJson(path, filename, bool &err)` et
+    la suite est **nommée** (`F-WEB-1`), pas faite. **`F-BUILD-1` reste NON REPRODUIT** : ni pendant
+    ce merge (un seul bloc `Testsuite summary`, une seule invocation `check-TESTS`) ni pendant les
+    dix-huit exécutions antérieures — sa cause est toujours **inconnue**. Et je n'ai **pas** rejoué
+    M2, M3, M4, M5 ni M9 : la revue n'en demandait pas la reprise, je m'en remets à la mesure de
+    l'auteur pour ces cinq-là.
+
 - **🔒 T3.27 ✅ MERGÉ (`ed9fc58e`, 5 commits, `git rebase master` + `merge --ff-only`, historique
   linéaire, `./autogen.sh && ./configure && make -j12 && make check -j6` **87/87**, `exit 0`, **0
   `error:`**, `CXXLD    calaos_server`)** — `setIOParam()`/`waitForIO()` déclaraient `return 1`
