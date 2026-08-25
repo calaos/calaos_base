@@ -781,3 +781,38 @@ un **tag git**, publie `ghcr.io/calaos/calaos_base:dev` + un tag versionné, et 
 Validé par ailleurs : `build-and-test` PASSE (première exécution réelle du chemin pugixml
 **système 1.13**, jusque-là jamais construit — tous les builds locaux prenaient le vendored 1.14)
 et le job `coverage` produit un vrai rapport (26,7 % lignes).
+
+## 2026-08-25 — ⚠️ F-PYTEST-1 : `SKIP` visible plutôt qu'échec franc — **arbitrage EN ATTENTE DE VALIDATION UTILISATEUR**
+**Le fait** : `tests/run-python-tests.sh` rendait **`PASS`** en n'exécutant que **23 des 42** cas de
+`tests/python/` (3 suites sur 6) quand `pytest` manque — et ce n'était **pas** un `SKIP` automake,
+donc rien dans `# TOTAL / # PASS / # SKIP` ne le disait. Voir [T3.43](T3.43.md) et `FINDINGS.md`.
+
+**Le principe posé** : *un test qui ne peut pas s'exécuter doit ÉCHOUER ou être VISIBLEMENT sauté,
+jamais passer.* Trois voies étaient ouvertes ; **la voie retenue est le `SKIP` automake réel
+(`exit 77`) accompagné d'une comptabilité publiée** (`run-python-tests: suites=N/M cases=N/M`),
+plus une ligne `PYTEST_INFO` au `configure`, de la même forme que `GTEST_INFO`.
+
+**Pourquoi pas l'échec franc** (le plus honnête en apparence) : il casserait le build de tout
+développeur sans `pytest`, **le nôtre compris**, et serait contourné dans l'heure — on aurait
+troqué un faux vert contre un `TESTS` amputé, c'est-à-dire **le même silence sous un autre nom**.
+**Pourquoi pas la dépendance obligatoire dans `configure.ac`** : elle déplace l'échec du test vers
+la configuration, pour une dépendance **de test seulement**, et le dépôt ne le fait pour **aucune**
+dépendance optionnelle — `HAVE_GTEST` inclus : sans gtest, `make check` reste vert avec 3 tests.
+S'aligner sur la convention du dépôt plutôt que d'inventer.
+
+**Ce que ça change, concrètement** : sur une machine sans `pytest`+`fastapi`+`httpx`+`colorama`,
+`make check` passe de `88/88 PASS` à `88 PASS / 1 SKIP`, **sortie toujours 0, build non cassé**.
+⇒ **personne ne casse**, mais **personne ne peut plus lire « vert » sans savoir**.
+
+⚠️ **Le point à valider par l'utilisateur** : accepter que le `SKIP` devienne l'état **normal** de
+la machine de développement et de la CI — c'est-à-dire accepter, en connaissance de cause, que
+**les 42 cas Python ne soient exercés nulle part** tant que le point suivant n'est pas fait. Si
+l'utilisateur préfère l'échec franc, le changement est d'une ligne dans
+`tests/python-suite-runner.py` (`return 77` → `return 1`) et l'oracle
+`tests/check-python-tests-reporting.sh` reste vert (il accepte 77 **ou** 1, jamais 0).
+
+**Corollaire à ticketer séparément (non fait ici)** : `.github/workflows/ci.yml` n'installe **aucun
+`python3`** (mesuré en rejouant sa liste `apt` dans `debian:12`) ⇒ les 42 cas ne tournent sur
+aucune machine de CI. Un `apt-get install python3 python3-pytest python3-fastapi python3-httpx
+python3-colorama` les ferait passer de **0** à **42** exécutés. `ci.yml` est propriété de `T0.1`,
+d'où le ticket distinct.

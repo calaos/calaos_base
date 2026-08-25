@@ -5203,3 +5203,121 @@ lanceur de `make dist` doit penser à `git checkout -- po/`** — piège à comm
   ⚠️ **Non corrigé ici** (fichier hors périmètre de T3.31) : à traiter par une échéance relative
   au temps simulé plutôt qu'à l'horloge, ou par une marge. Voir aussi la règle de parallélisme :
   `make check -j8` quand 3-4 agents buildent, `-j16` seulement en solo.
+## F-PYTEST-1 — la huitième variante de faux vert : des tests qui ne s'exécutent pas (2026-08-25)
+
+*(Trouvée par la revue de [T3.39](T3.39.md) en mesurant F-MCP-XFF-1 ; **fermée par
+[T3.43](T3.43.md)**, branche `fix/fpytest1`. Cette section est le versement de ce qui a été
+**mesuré** en la fermant, pas la redite du finding.)*
+
+### ⭐ Le mécanisme exact — et pourquoi le suspect évident est presque juste
+
+`tests/run-python-tests.sh:50-60` (état `b7a4c63d`) lançait `pytest` s'il était importable et
+retombait sinon sur `python3 -m unittest discover -p 'test_t116_*.py'`. Le motif ramasse **3** des
+**6** suites de `tests/python/` ; les trois autres disparaissent.
+
+⚠️ **Il n'y a PAS d'`exit 0` explicite sur `pytest` absent.** Le `0` propagé par l'`exec` est celui
+d'`unittest discover`, qui a **vraiment réussi** — sur un sous-ensemble que personne n'avait
+déclaré. Automake lit `0 = PASS` et écrit `:test-result: PASS` dans le `.trs`. ⭐ **Ce n'est donc
+même pas un `SKIP`** : un `SKIP` (77) est compté dans la colonne **visible** `# SKIP:`. C'est
+pourquoi **aucun** garde-fou des sept autres variantes ne le voit — ni `rm -f` + `CXXLD`, ni `cmp`
+d'application, ni la comparaison des ensembles : **tout ce qui a tourné est vert ; ce qui manque,
+c'est ce qui n'a pas tourné.**
+
+### Le périmètre, **reproduit** (`python3`/`ast`, `conftest.py` exclu)
+
+| | fichiers | cas |
+|---|---|---|
+| déclarés dans `tests/python/` | **6** | **42** |
+| ramassés par `test_t116_*.py` | 3 | 23 |
+| ⚠️ **non exécutés, suite verte** | **3** | **19** |
+
+`unittest discover -p 'test_t116_*.py'` rend `Ran 23 tests … OK` : les 23 sont confirmées **par
+exécution**. **50 % des fichiers, 45 % des cas.** Les chiffres du finding sont exacts.
+
+### ⭐ Ce que le finding ne voyait pas : installer `pytest` **ne suffirait pas**
+
+`test_auth.py` fait `pytest.importorskip("fastapi")` et `("httpx")` ; `test_extern_proc.py` et
+`test_logger.py` font `importorskip("colorama")`. **Aucun** de ces quatre modules n'est dans l'image
+de build (mesuré). Avec `pytest` seul, les 19 cas seraient **`skipped` par pytest**, pytest
+sortirait **0**, et le `PASS` silencieux reviendrait **une couche plus bas**.
+⇒ **Le remède doit compter les CAS, pas les dépendances.**
+
+### ⭐ Le balayage de TOUTES les entrées `TESTS` — la question que personne n'avait posée
+
+**88 entrées** à `b7a4c63d` (recomptées `python3`, continuations recollées, zéro doublon) :
+**3 scripts shell** + **85 binaires gtest**.
+
+| entrée `TESTS` | peut rendre `PASS` sans exécuter ? | mesure |
+|---|---|---|
+| `run-python-tests.sh` | ⛔ **OUI, totalement** — 3/6 fichiers, 19/42 cas, sortie 0, `PASS` | mesuré ; **corrigé par T3.43** |
+| `check-config-options.sh` | ✅ **NON** — chaque scan optionnel porte un `else fail "… scan rule X is dead"`, plus une garde d'anti-vacuité `nb_used == 0` (« *this test would pass whatever the code does* ») | lu + exécuté |
+| `check-config-docs.sh` | ✅ **NON** — binaire absent / document absent / générateur muet ⇒ `exit 1` | lu + exécuté |
+| **les 85 binaires, en bloc** | ⛔ **OUI, autrement** — tout le bloc est `if HAVE_GTEST` ; sans l'en-tête gtest les 85 **quittent `TESTS`**, le total tombe de 89 à **4**, le résumé affiche toujours `# FAIL: 0`. Seul `GTEST_INFO` au `configure` le dit | statique |
+| `UrlDownloader_test` | ⚠️ **OUI, partiellement** — 8 cas derrière `REQUIRE_CURL()` ; **sans `curl` dans le `PATH` : `ran=10, skipped=7, passed=3`, sortie 0, `PASS`** | **mesuré** (`PATH=/nocurl`) |
+| `core/CalaosConfigRobustness_test` | ⚠️ **OUI, partiellement** — `GTEST_SKIP` si `geteuid() == 0`, donc **dans tout conteneur root**, y compris chaque build de cette série | **mesuré : 1/12 sauté, `PASS`** |
+| `Utils_config_test`, `ConfigModel_test` | ⚠️ 1 cas chacun si la descente de privilèges échoue | mesuré : **0** sauté |
+| `TimeRangeCalendar_test` | ⚠️ 2 cas (`tzdata` absent ; course d'une seconde) | mesuré : **0** sauté |
+| `core/JsonApiCharacterization_test` | ⚠️ 3 cas en mode mise à jour des goldens | mesuré : **0** sauté |
+| les **79** autres binaires | aucun saut conditionnel à l'environnement trouvé | balayage `python3` |
+
+**Agrégat mesuré sur un `make check` complet : 85 binaires, 1525 cas exécutés, 1 cas silencieusement
+sauté.** ⚠️ **Nuance** : un `GTEST_SKIP` **imprime** `[  SKIPPED ]` et gtest le compte — il est *à
+moitié* visible. Le défaut de `run-python-tests.sh` était d'un cran pire : la suite entière
+manquait, comptée nulle part.
+
+### ⭐ `pytest` dans l'image ? en CI ? — **l'hypothèse du rapporteur est fausse dans les deux sens**
+
+| | `python3` | `pytest` | `fastapi`/`httpx`/`colorama` | `curl` | gtest | verdict |
+|---|---|---|---|---|---|---|
+| image de build locale | 3.11.2 | **non** | **non** | oui | oui | avant **`PASS` sur 23/42**, après **`SKIP`** |
+| CI (`debian:12` + liste `apt` de `ci.yml`) | ⛔ **absent** | absent | absent | oui | oui | **77 = `SKIP`**, déjà honnête |
+
+La CI n'a pas `pytest` : elle n'a **aucun `python3`** (rejoué : `apt-get install` de la liste exacte
+de `.github/workflows/ci.yml` dans `debian:12`, puis `command -v python3` ⇒ introuvable).
+`AM_PATH_PYTHON` pose `PYTHON=:`, le script sort 77. ⇒ **notre image n'est pas « incomplète par
+rapport à la CI » ; la CI est plus vide encore, et son silence est du bon type.**
+
+⭐ **Corollaire, plus lourd que le défaut initial et NON corrigé : les 42 cas Python ne tournent sur
+AUCUNE machine de CI.** `test_auth.py` — les 11 cas du throttle MCP, le filet de
+[T3.42](T3.42.md) — n'a jamais été exécuté par un `push`. Le remède tient en une ligne d'`apt` dans
+`ci.yml`, **propriété de `T0.1`** : à ticketer à part.
+
+### Le remède retenu, et les deux écartés
+
+**`SKIP` automake réel (`exit 77`) + comptabilité publiée**, pas l'échec franc :
+- **échec franc** ⇒ casse le build de quiconque n'a pas `pytest`, **nous compris**, et serait
+  contourné dans l'heure — on aurait troqué un faux vert contre un `TESTS` amputé, le même silence
+  sous un autre nom ;
+- **dépendance obligatoire dans `configure.ac`** ⇒ déplace l'échec vers la configuration, pour une
+  dépendance **de test seulement** ; le dépôt ne le fait pour **aucune** dépendance optionnelle
+  (gtest compris : sans lui `make check` reste vert avec 3 tests).
+
+`tests/python-suite-runner.py` compte les cas **déclarés** (`ast`, plus aucun motif de nom de
+fichier — **le glob était le mécanisme du défaut**), compte les **exécutés**, publie
+`run-python-tests: suites=N/M cases=N/M`, et sort **1 (rouge) / 77 (un cas non exécuté) / 0 (tout
+exécuté)**. `configure.ac` gagne `PYTEST_INFO`, **de la forme de `GTEST_INFO`**. ⇒ **on ne peut plus
+lire `88/88` sans que la colonne `# SKIP:` dise que le Python n'a pas été mesuré.**
+
+### ⭐ La forme d'oracle que cette famille exige
+
+`tests/check-python-tests-reporting.sh` n'exerce pas le produit : il exerce **l'honnêteté de rapport
+d'une autre entrée de `TESTS`**. ⚠️ **Le piège à éviter était un oracle qui passerait aussi bien la
+suite tournant que ne tournant pas.** Il est désamorcé en **fabriquant** le monde « la suite ne
+tourne pas » plutôt qu'en l'attendant : un module fantôme `pytest.py` qui lève `ImportError` pousse
+une machine avec `pytest` et une machine sans dans **le même état**. L'oracle a été joué **dans les
+deux mondes** — sans deps : `suites=3/6 cases=23/42` → **77** ; avec `pytest fastapi httpx colorama`
+: `6/6`, `42/42` → **0** — **vert dans les deux**, parce qu'il asserte le **rapport**, pas la
+dépendance ; et rouge dès que le rapport ment (`C1`, `C2` rouges sur la caractérisation).
+
+⚠️ **Conséquence pour tous les briefs, précisée** : à côté de « le binaire a-t-il été relié ? » et
+« la mutation a-t-elle été appliquée ? », il faut poser **« combien de cas ont réellement tourné, et
+est-ce le nombre attendu ? »** — et le nombre attendu doit être **lu dans les sources**, jamais dans
+ce que le lanceur a bien voulu ramasser.
+
+### ℹ️ `F-BUILD-1` — non reproduite
+
+Premier `make check` d'un worktree neuf (`.wave58/fpytest1`, `./autogen.sh && ./configure &&
+make -j12 && make check -j6`, un seul passage) : **un seul** bloc `Testsuite summary` dans tout le
+journal (compté `python3`), `# TOTAL: 89 / # PASS: 88 / # SKIP: 1 / # FAIL: 0`, sortie **0**. Le
+double bloc n'est **pas** apparu ici. ⇒ point de mesure négatif, la variante reste **ouverte et non
+reproduite** ; le remède provisoire (juger au code de sortie, ou au DERNIER bloc) reste de mise.
