@@ -60,8 +60,11 @@ file is credited to a wholesale tree:
   * that same Makefile.am must define exactly one `dist-hook` rule;
   * its recipe must mention $(VENDORED_DIST_TREES) and must copy something.
 
-Any of those failing is exit 2 with an explicit message -- an ERROR, not a
-silent PASS and not a coverage FAIL, because the checker's own premise is gone.
+Any of those failing is exit 2 with an explicit message, the same code
+check-extra-dist.py uses when its own premise is gone.  Automake's simple test
+driver reports it as a FAIL like any non-zero exit -- what distinguishes it is
+the message, which names the mechanism rather than a file.  It is never a
+silent PASS, which is the only outcome that would matter.
 
 WHAT REMAINS OUT OF REACH, and it must be said rather than implied: a hook that
 mentions the variable and copies *badly* -- wrong destination, a prune that

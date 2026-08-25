@@ -177,6 +177,12 @@ EXTRA_DIST += pugixml/LICENSE.md
 #     covered, so a tracked link inside a vendored tree would have gone
 #     missing with nothing red anywhere. `\( -type f -o -type l \)` closes it,
 #     and `cp -pR` copies the link as a link instead of dereferencing it.
+#     NOTE, measured rather than assumed: automake then archives with
+#     `am__tar = tar --format=ustar -chf`, and `-h` DEREFERENCES, so the link
+#     lands in the tarball as a regular file with its target's content, and
+#     the target itself becomes a hard-link entry. Nothing is lost -- the
+#     content travels under both names -- but do not expect a symlink to
+#     survive as a symlink into the archive.
 #     There are zero tracked links in these trees today; this is a trap set,
 #     not a bug fixed.
 #
@@ -191,6 +197,16 @@ EXTRA_DIST += pugixml/LICENSE.md
 #     `make distcheck` unpacks there is no repository (and the enclosing one,
 #     if any, tracks none of those paths), so the gate stands down there --
 #     correctly, since that tree contains exactly what already shipped.
+#
+# LC_ALL=C is set once for the whole recipe and not just on the two `sort`s:
+# `comm` validates the ordering of its inputs under its OWN locale, and a
+# UTF-8 collation disagrees with C ordering on exactly the case differences
+# these trees are full of (LICENSE next to license.txt). The first version of
+# this hook sorted under C and compared under the ambient locale; it died with
+# `comm: file 1 is not in sorted order` the first time a real stray made the
+# two lists diverge -- so the untracked gate would have failed a release for
+# the wrong reason. Found by the campaign probe of T3.48 section 6.15, not by
+# reading.
 VENDORED_DIST_TREES = \
         cpptui                                  \
         exprtk                                  \
@@ -203,7 +219,8 @@ VENDORED_DIST_TREES = \
         uvw
 
 dist-hook:
-	@abs_srcdir=`cd $(srcdir) && pwd`; \
+	@LC_ALL=C; export LC_ALL; \
+	abs_srcdir=`cd $(srcdir) && pwd`; \
 	abs_distdir=`cd $(distdir) && pwd`; \
 	abs_topdir=`cd $(top_srcdir) && pwd`; \
 	for tree in $(VENDORED_DIST_TREES); do \
