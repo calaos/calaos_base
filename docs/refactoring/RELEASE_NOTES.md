@@ -7,6 +7,77 @@
 > l'utilisateur observe alors, c'est le symptôme, et il a besoin de savoir qu'il a disparu.
 > Ordre : impact décroissant.
 
+## 🔴 Volets et variateurs : une commande incomplète pouvait déclencher un mouvement que personne n'avait demandé
+
+### Un volet pouvait partir en course complète sur une commande d'impulsion tronquée (T3.25)
+
+Les volets Calaos acceptent une commande d'**impulsion** : « monte pendant 500 ms », par exemple,
+pour entrouvrir sans aller jusqu'à la butée. La durée est envoyée avec la commande.
+
+Jusqu'ici, si cette durée **manquait** — la commande envoyée s'arrêtait juste après « monte
+pendant », sans nombre derrière — le serveur ne s'en apercevait pas. Il lisait une durée
+**quelconque**, prise dans une zone de mémoire qui n'avait jamais été remplie : parfois un très
+grand nombre, parfois un nombre négatif, et **jamais deux fois la même**. Le volet partait alors
+pour une durée qui n'avait aucun rapport avec la commande. Dans le cas le plus fréquent — une
+grande valeur — **aucune minuterie d'arrêt n'était armée du tout** : au lieu d'un à-coup de
+quelques centaines de millisecondes, le volet **montait jusqu'à sa butée**.
+
+La valeur inventée était en plus **publiée dans l'état de l'équipement** et **renvoyée à toutes
+les applications connectées**, qui affichaient donc une durée que personne n'avait choisie.
+
+Les variateurs d'éclairage avaient la même faiblesse sur leurs commandes à argument (« règle à
+… % », « impulsion de … ms ») : la lampe changeait de niveau, vers un niveau arbitraire.
+
+> ### Êtes-vous concerné ?
+>
+> Il faut réunir deux conditions, et il est important de dire les deux :
+>
+> - **N'importe quel compte ayant accès à l'API suffit.** Aucun privilège particulier n'est requis
+>   et aucun réglage ne pouvait le refuser : la commande de pilotage `set_state` est ouverte à
+>   toute session authentifiée, sur les deux transports (WebSocket et HTTP), **y compris une
+>   session en portée « service »**. C'est le point qui rend cette correction prioritaire.
+> - **mais il faut que la commande soit malformée**, c'est-à-dire tronquée juste après le mot de
+>   la commande. **Aucune application Calaos ne produit ce message** : ni Calaos Home, ni
+>   l'interface web, ni les écrans tactiles. En pratique, cela vous concerne si un **script**, une
+>   **automatisation maison**, une **intégration tierce** ou un outil de test construit ses
+>   commandes lui-même — c'est-à-dire un cas réel, mais pas un cas courant.
+>
+> **Ce n'est pas une prise de contrôle** : la valeur n'était pas choisie par celui qui envoyait la
+> commande, seulement imprévisible. **Et ce n'est pas anodin non plus** : un compte ordinaire
+> pouvait provoquer un mouvement de volet **différent de celui qu'il avait demandé**, de façon
+> **non reproductible**, sur du matériel qui pince les doigts.
+
+**Ce qui change.** Deux protections, à deux endroits :
+
+- **Une commande incomplète est désormais refusée** par l'API, avec la réponse d'échec habituelle
+  (`success: false`), et l'équipement n'est **pas** touché. Le refus est **journalisé** avec le
+  nom de l'équipement et la valeur reçue.
+- **Et si une telle commande arrivait quand même** par un chemin interne (une règle, un scénario,
+  un script Lua), la durée lue vaut maintenant **zéro** au lieu d'être imprévisible : le
+  comportement reste défini et borné.
+
+> ⚠️ **Un changement de comportement à connaître si vous scriptez l'API.** Le refus ci-dessus
+> porte sur **toute** valeur de `set_state` qui **se termine par une espace ou une tabulation**,
+> quel que soit le type d'équipement. C'est volontairement une règle simple, sans exception : elle
+> continuera de protéger les équipements ajoutés plus tard. La conséquence est qu'une variable de
+> type **texte** ne peut plus être réglée à une valeur **finissant par une espace** (`"note "`)
+> par cette commande — retirez l'espace de fin, ou ajoutez un caractère après. Les espaces au
+> **début** et **à l'intérieur** de la valeur sont conservées comme avant.
+
+### Effets de bord bénéfiques de la même correction
+
+La lecture des nombres depuis la configuration a été corrigée au même endroit pour tout le
+serveur. Trois conséquences visibles :
+
+- **Un équipement Wago dont le paramètre d'adresse (`var`) est absent est désormais signalé dans
+  le journal** au lieu d'être lu silencieusement comme l'adresse 0. Le comportement, lui, ne
+  change pas : c'est bien l'adresse 0 qui continue d'être utilisée.
+- **Un équipement GPIO ou un écran distant dont un réglage numérique est vide retombe désormais
+  sur sa valeur par défaut documentée** au lieu de retomber sur zéro.
+- Les valeurs de configuration **vides** ne sont plus confondues avec la valeur **zéro** : une
+  ligne oubliée dans un fichier de configuration se comporte maintenant comme « non renseignée »,
+  et non plus comme « réglée à 0 ».
+
 ## 🔴 Caméras Reolink : corruption mémoire à chaque enregistrement de caméra
 
 ### Le serveur écrivait dans de la mémoire libérée dès qu'une caméra Reolink était enregistrée (E4.1i)

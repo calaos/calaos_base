@@ -173,6 +173,45 @@ accepté **pour la durée de la chaîne**, pas au-delà.
 **on découvrira peut-être des suites qui ne passaient que grâce à son absence**. C'est un argument
 **pour** la faire, pas contre — mais son premier `make check` **peut rougir**, et **ces rouges
 seront des trouvailles**, pas des régressions.
+## 2026-08-25 — T3.25 : `from_string` corrigée **globalement**, puis audit des défauts — et la frontière d'API **dans le même ticket**
+
+**Décision utilisateur**, prise contre la recommandation de la fiche (qui proposait « étage 1 + 3,
+pas 2 ») : **les deux, dans cet ordre**.
+
+1. **`Utils::from_string` écrit une valeur définie (`T{}`) quand elle ne peut rien lire, et rend
+   `false` sur une chaîne vide ou blanche.** Les **312 appelants qui ignorent le code de retour**
+   (sur 319) deviennent sûrs **immédiatement**, sans qu'on ait à toucher une seule de leurs lignes.
+2. **Puis auditer les destinataires pré-initialisés**, parce que la correction du point 1
+   **écraserait leur défaut par 0, en silence**. C'est **la régression à ne pas introduire**, et
+   c'est exactement pour ça que cette voie a été choisie plutôt que la correction locale : elle
+   rend le danger visible et bornée à une population qu'on peut nommer et vérifier.
+3. **La validation à la frontière d'API est DANS CE TICKET**, pas dans un suivant. Ceinture **et**
+   bretelles : `from_string` protège les appelants d'aujourd'hui, la frontière protège **même si un
+   appelant futur réintroduit le motif**.
+
+**Pourquoi cet ordre et pas l'inverse** : initialiser 236 destinataires un par un (l'« étage 3 »
+de la fiche) est sûr mais lent, et pendant tout ce temps chaque site non encore traité reste
+exploitable. Corriger la fonction ferme tout d'un coup ; l'audit ne sert plus qu'à ne pas casser
+les rares sites qui vivaient du contrat implicite « je ne t'écris pas si je ne sais pas lire ».
+
+**Ce qui a été livré sur cette base** (branche `fix/t3.25`) :
+- `from_string` **conserve les lectures partielles** (`"12abc"` → 12) : n'écrire `T{}` qu'en cas
+  d'échec **total** est ce qui rend la correction sans dommage collatéral. Une correction naïve
+  `dest = ok ? tmp : T{}` aurait transformé `"12abc"` et `"12 "` en 0.
+- `is_of_type` corrigée **dans le même commit**, et ce n'est pas un bonus : dix sites portant un
+  défaut utile (`step = 1.0`, `interval = 15000`, `LOG_LEVEL_INFO`) ne sont protégés **que** par
+  elle. Démontré par contre-mutation : la remettre en `iss.eof()` seul rend rouges deux suites
+  qui n'ont rien à voir avec l'analyse syntaxique (`StaticLogShutdown_test`,
+  `RuleDisabledMissingIo_test`) parce que le niveau de journalisation par défaut retombe à 0.
+- **`from_string_or_keep()`** ajoutée et utilisée à **20 sites** : « analyse, mais ne touche pas
+  la destination s'il n'y a rien à analyser ». C'est le contrat implicite d'avant, écrit noir sur
+  blanc, là où un défaut non nul devait survivre.
+- **`from_string_or()`** ajoutée pour du code **neuf** et **délibérément retrofittée nulle part** :
+  elle jette aussi les lectures partielles, et un comportement documenté en dépend
+  (`per_page="1,5"` lu comme 1, T3.19).
+- **Frontière d'API** : `set_state` refuse une valeur qui **finit sur son séparateur**. Coût
+  assumé et écrit dans les notes de version : une variable de type texte ne peut plus être réglée
+  à une valeur finissant par une espace via cette commande.
 
 ## 2026-08-25 — E4.1 : la règle vaut pour **TOUS** les `dump()`, journaux compris
 
