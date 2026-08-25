@@ -80,6 +80,23 @@ namespace
 const char *const kClientA = "198.51.100.7";
 const char *const kClientB = "2001:db8:dead:beef::1";
 
+//T3.39: the two PEER addresses, i.e. the two deployments this file plays.
+//
+//kProxyPeer is haproxy. calaos-os installs it and calaos_server from the same
+//`calaos` meta package, as two podman units on --network=host, and haproxy's
+//backend is `server calaos-server 127.0.0.1:5454`: behind the proxy the peer
+//is ALWAYS the loopback, so that is what these sessions must seed. Before
+//T3.39 they ran on an unconnected socket and the peer was the literal
+//"unknown" - which happened to work only because the header was believed
+//unconditionally.
+//
+//kLanPeer is a client that reached port 5454 directly, which a standard
+//install allows (listen_address defaults to "0.0.0.0", and must: RemoteUI and
+//the LAN mobile apps need it). It is not in 127.0.0.0/8 and shares no prefix
+//with either client address above.
+const char *const kProxyPeer = "127.0.0.1";
+const char *const kLanPeer   = "192.0.2.55";
+
 /*******************************************************************************
  * A connection whose request carried an X-Forwarded-For line.
  *
@@ -89,22 +106,34 @@ const char *const kClientB = "2001:db8:dead:beef::1";
  * i.e. the LAST line of a repeated header wins - which is haproxy's, appended
  * after any line the client itself supplied).
  *
- * The TCP handle is never connected, so getClientIp() answers "unknown" for
- * every client here: that is exactly the production situation behind a proxy,
- * where the peer address is the same for everybody.
+ * The TCP handle is never connected, so the real getClientIp() would answer
+ * "unknown" for every client here. Since T3.39 the peer address is part of the
+ * security decision, so it is injected instead: see ProxiedClient below.
  ******************************************************************************/
 class ProxiedClient: public HttpClient
 {
 public:
-    ProxiedClient(const std::shared_ptr<uvw::TcpHandle> &h, const std::string &xff):
+    ProxiedClient(const std::shared_ptr<uvw::TcpHandle> &h,
+                  const std::string &xff, const std::string &peer):
         HttpClient(h),
-        handle(h)
+        handle(h),
+        peerIp(peer)
     {
         if (!xff.empty())
             request_headers["x-forwarded-for"] = xff;
     }
 
+    //THE SEAM T3.39 NEEDED, and why it is a seam and not a fake. The guard
+    //keys on the TCP peer, and the peer comes from a real connected socket: a
+    //unit test cannot be reached from 192.0.2.55, and the unconnected handle
+    //these sessions run on answers "unknown" for everybody. Overriding the one
+    //accessor lets both deployments run through the REAL production path -
+    //getEffectiveClientIp() -> TransportLimits::effectiveClientIp() - with the
+    //guard itself untouched. The guard is NOT reimplemented here (T3.39 §4.5).
+    string getClientIp() const override { return peerIp; }
+
     std::shared_ptr<uvw::TcpHandle> handle;
+    std::string peerIp;
 };
 
 //Builds client + handler on the default loop, and tears them down in the order
@@ -114,11 +143,12 @@ template<typename HandlerT>
 class ProxiedSession
 {
 public:
-    explicit ProxiedSession(const std::string &xff)
+    explicit ProxiedSession(const std::string &xff,
+                            const std::string &peer = kProxyPeer)
     {
         auto loop = uvw::Loop::getDefault();
         tcp = loop->resource<uvw::TcpHandle>();
-        client.reset(new ProxiedClient(tcp, xff));
+        client.reset(new ProxiedClient(tcp, xff, peer));
         handler.reset(new HandlerT(client.get()));
 
         handler->sendData.connect([this](const std::string &data)
@@ -149,6 +179,13 @@ protected:
     std::unique_ptr<HandlerT> handler;
     std::vector<std::string> sent;
     std::vector<std::pair<int, std::string>> closes;
+
+public:
+    //The single identity every per-client security decision of this connection
+    //is keyed on: the login throttle of both transports (JsonApiHandlerWS.cpp
+    //:45-51, JsonApiHandlerHttp.cpp:55-61) and the per-IP connection cap
+    //(HttpClient.cpp:193) all call this one method.
+    std::string identity() const { return client->getEffectiveClientIp(); }
 };
 
 /*******************************************************************************
@@ -365,4 +402,116 @@ TEST_F(JsonApiThrottleIdentityTest, WithoutForwardedForTheBucketIsThePeers)
     WsLogin proxied(kClientA);
     EXPECT_TRUE(proxied.attempt(apiUser(), apiPassword()))
             << "a proxied client was blocked by a header-less client's failure";
+}
+
+/*******************************************************************************
+ * T3.39 - WHOSE WORD IS THE HEADER? The two deployments, end to end.
+ *
+ * Everything above runs behind haproxy, where the header is the proxy's word
+ * about the real client and believing it is correct. These cases run the OTHER
+ * deployment: a client that reached port 5454 directly from the LAN, where the
+ * header is the client's word about itself. T3.24 gave that client the run of
+ * the login throttle; these are the two capabilities it took away.
+ ******************************************************************************/
+
+TEST_F(JsonApiThrottleIdentityTest, AForgedHeaderFromTheLanCannotChooseItsBucket)
+{
+    //PINS THE FIX, capability (a): exempting yourself from the backoff. One
+    //attacker, one peer, a FRESH forged identity on each attempt. If the header
+    //were believed he would get a fresh bucket every time and could brute force
+    //the password with no rate limit at all - which is exactly what happened
+    //between T3.24 and T3.39, and what this case was red for.
+    {
+        WsLogin attacker(kClientA, kLanPeer);
+        EXPECT_FALSE(attacker.attempt(apiUser(), "wrong"));
+    }
+
+    WsLogin sameAttackerNewCostume(kClientB, kLanPeer);
+    EXPECT_FALSE(sameAttackerNewCostume.attempt(apiUser(), apiPassword()))
+            << "rotating X-Forwarded-For bought a direct client a fresh bucket";
+}
+
+TEST_F(JsonApiThrottleIdentityTest, AForgedHeaderFromTheLanCannotThrottleAVictim)
+{
+    //PINS THE FIX, capability (b): burning somebody ELSE's backoff window. The
+    //attacker is on the LAN and wears kClientA, the address of a real user who
+    //comes in through the proxy. The failure must be charged to the attacker's
+    //own peer, so the victim's next login - correct password, through haproxy,
+    //carrying her real address - has to be served.
+    {
+        WsLogin attackerWearingTheVictim(kClientA, kLanPeer);
+        EXPECT_FALSE(attackerWearingTheVictim.attempt(apiUser(), "wrong"));
+    }
+
+    WsLogin victim(kClientA, kProxyPeer);
+    EXPECT_TRUE(victim.attempt(apiUser(), apiPassword()))
+            << "a forged header still charged the backoff to the victim";
+}
+
+TEST_F(JsonApiThrottleIdentityTest, HttpForgedHeaderFromTheLanCannotChooseItsBucket)
+{
+    //PINS THE FIX ON THE OTHER TRANSPORT. Both clientIp() go through the same
+    //HttpClient::getEffectiveClientIp(), so a fix that reached only one of them
+    //would leave the HTTP login path wide open - that asymmetry is precisely
+    //the bug T3.24 had to repair, and it must not come back by the other end.
+    {
+        HttpLogin attacker(kClientA, kLanPeer);
+        EXPECT_FALSE(attacker.attempt(apiUser(), "wrong"));
+    }
+
+    HttpLogin sameAttackerNewCostume(kClientB, kLanPeer);
+    EXPECT_FALSE(sameAttackerNewCostume.attempt(apiUser(), apiPassword()))
+            << "rotating X-Forwarded-For bought a direct HTTP client a bucket";
+}
+
+TEST_F(JsonApiThrottleIdentityTest, TwoDirectLanClientsStillGetTheirOwnBucket)
+{
+    //PINS AN ACQUIS the guard could easily have cost us, and the reason the
+    //peer - not a constant - is what answers on the direct path: two DIFFERENT
+    //machines on the LAN must still be told apart, or the guard would have
+    //traded the header bypass for the very lockout T3.24 removed. Different
+    //peers, and neither sends a header at all.
+    {
+        WsLogin first("", kLanPeer);
+        EXPECT_FALSE(first.attempt(apiUser(), "wrong"));
+    }
+
+    WsLogin other("", "203.0.113.9");
+    EXPECT_TRUE(other.attempt(apiUser(), apiPassword()))
+            << "one LAN client's failure locked out a different LAN client";
+}
+
+TEST_F(JsonApiThrottleIdentityTest, TheCapAndTheThrottleAgreeOnOneIdentity)
+{
+    //PINS THE SINGLE SITE. The per-IP connection cap (HttpClient.cpp:193) and
+    //the login throttle of both transports read the SAME method, so the guard
+    //had to live in one place - TransportLimits::effectiveClientIp() - and not
+    //be copied into each caller. That duplication is the exact fault T3.24
+    //repaired; this asserts the identity BY VALUE on both deployments, so a
+    //guard that answered some third string could not slip through.
+    //
+    //Peer and header always differ here, and the case says WHICH of the two
+    //came out: asserting only that the two sessions differ would be true on
+    //both sides of the guard and would pin nothing.
+    WsLogin proxied(kClientA, kProxyPeer);
+    EXPECT_EQ(kClientA, proxied.identity())
+            << "behind haproxy the proxy's word must decide";
+
+    WsLogin direct(kClientA, kLanPeer);
+    EXPECT_EQ(kLanPeer, direct.identity())
+            << "a direct client still named its own identity";
+}
+
+TEST_F(JsonApiThrottleIdentityTest, AnUnknownPeerDoesNotBuyTrust)
+{
+    //THE TRAP NAMED INSTEAD OF SUFFERED. getClientIp() answers the literal
+    //"unknown" when both peer<uvw::IPv4>() and peer<uvw::IPv6>() fail
+    //(HttpClient.cpp:700-727). "unknown" is not the loopback, so the header is
+    //dropped and all such connections share one bucket. That is the SAFE
+    //reading - we decline to believe a header on a connection we cannot name -
+    //and widening the guard to accept "unknown" would reopen the whole hole by
+    //the service door, for any connection whose address could not be read.
+    WsLogin nameless(kClientA, "unknown");
+    EXPECT_EQ("unknown", nameless.identity())
+            << "an unreadable peer address bought the header its trust back";
 }

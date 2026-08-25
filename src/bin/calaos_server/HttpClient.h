@@ -131,19 +131,68 @@ inline uint64_t parseLimit(const std::string &value, uint64_t def,
     return v;
 }
 
-//The client identity of a proxied connection. calaos_server always sits
-//behind haproxy in calaos-os, so the TCP peer is the proxy: without this,
-//every client collapses into one per-IP bucket. haproxy APPENDS its own
+//T3.39: is this TCP peer a hop whose X-Forwarded-For we are willing to
+//believe? An X-Forwarded-For line is worth exactly as much as the hop that
+//wrote it, and the only hop calaos_server can recognise is the reverse proxy
+//running beside it: calaos-os installs haproxy and calaos_server from the same
+//`calaos` meta package, as two podman units sharing the host network namespace
+//(--network=host on both), and haproxy's backend is `server calaos-server
+//127.0.0.1:5454`. So the proxy ALWAYS reaches us over the loopback, and a peer
+//that is not the loopback is a client talking to us directly - see the trust
+//note on HttpClient::getEffectiveClientIp() below for what that client could do
+//with a header we believed.
+//
+//THE THREE SPELLINGS ALL COUNT, and missing one is the worst thing this
+//function can do: it would silently stop trusting haproxy itself on the
+//standard deployment, collapsing every user of the installation back into the
+//proxy's single bucket - the T3.24 defect, reintroduced without a symptom.
+//  - 127.0.0.0/8 ENTIRE (RFC 1122), not just 127.0.0.1;
+//  - ::1, the IPv6 loopback;
+//  - ::ffff:127.x.x.x, how a dual stack listener reports an IPv4 peer.
+//PREFIX, NEVER CONTAINMENT: "10.127.0.5" is an ordinary LAN address and must
+//not pass. Pure, unit tested in tests/TransportHardening_test.cpp, section 6.
+inline bool isTrustedProxyPeer(const std::string &peerIp)
+{
+    if (peerIp == "::1")
+        return true;
+
+    static const std::string mapped("::ffff:");
+    const std::string v4 = (peerIp.compare(0, mapped.size(), mapped) == 0)?
+                           peerIp.substr(mapped.size()):
+                           peerIp;
+
+    return v4.compare(0, 4, "127.") == 0;
+}
+
+//The client identity of a proxied connection. calaos_server sits behind
+//haproxy in calaos-os, so the TCP peer is the proxy: without this, every
+//client collapses into one per-IP bucket. haproxy APPENDS its own
 //X-Forwarded-For header line after any client supplied one; the header map
 //keeps the last parsed line, and this helper takes the last comma entry of
 //that line: the address the trusted proxy hop saw. Everything before it is
 //client supplied and can be rotated at will, so it is ignored (same rule as
 //the MCP sidecar throttle, T1.8). Falls back to the TCP peer address when the
-//header is absent or empty (direct connection, no proxy).
+//header is absent or empty.
+//
+//T3.39 - THE HEADER IS ONLY READ WHEN A TRUSTED HOP WROTE IT. Port 5454
+//answers from the LAN on a standard install (HttpServer.cpp:29-31 binds
+//listen_address = "0.0.0.0" by default) and it MUST: the RemoteUI fleet and
+//the LAN mobile apps speak to it directly, which is why restricting the bind
+//was rejected (DECISIONS.md, 2026-08-25 - the same key also governs the UDP
+//discovery server, UDPServer.cpp:58-61). So a direct client used to name its
+//own identity here, exempting itself from the login backoff and throttling
+//whoever it liked. Now: peer not loopback => the header is dropped and the
+//peer answers. This is the trusted-proxy list T3.24 found missing from the
+//whole tree, reduced to the one entry the real deployment needs.
 //Pure, unit tested in tests/TransportHardening_test.cpp.
 inline std::string effectiveClientIp(const std::string &xffLastLine,
                                      const std::string &peerIp)
 {
+    //Everything below decides WHICH entry of a trusted line to read. If the
+    //hop that wrote the line is not trusted, there is nothing to read.
+    if (!isTrustedProxyPeer(peerIp))
+        return peerIp;
+
     std::string::size_type pos = xffLastLine.rfind(',');
     std::string last = (pos == std::string::npos)?
                        xffLastLine:
@@ -484,7 +533,12 @@ public:
     string buildHttpResponse(string code, Params &headers, string body);
     string buildHttpResponseFromFile(string code, Params &headers, string fileName);
 
-    string getClientIp() const;
+    //virtual for tests only: the peer address comes from a real socket, and a
+    //unit test has no way to be reached from a non-loopback address. Overriding
+    //it is how tests/core/JsonApiThrottleIdentity_test.cpp plays the two
+    //deployments (behind haproxy / direct from the LAN) on this exact
+    //production code path. Production never subclasses HttpClient.
+    virtual string getClientIp() const;
 
     /* Client identity used by every per-client security decision of this
      * connection: the per-IP connection cap (trackPerIpCap) and the login
@@ -501,34 +555,42 @@ public:
      * trusted proxy hop wrote. Everything before it is client supplied and
      * ignored. Falls back to the TCP peer when the header is absent.
      *
-     * TRUST MODEL - READ THIS BEFORE ADDING A CALLER. This is only as
-     * trustworthy as the assumption that a proxy sits in front, and NOTHING IN
-     * THE CODE CHECKS IT: calaos_server never verifies that its TCP peer is
-     * haproxy, and there is no trusted-proxy list anywhere in the tree. A
-     * client that reaches the port directly puts whatever it likes in
-     * X-Forwarded-For and NAMES ITS OWN IDENTITY.
+     * TRUST MODEL - READ THIS BEFORE ADDING A CALLER. The header is believed
+     * ONLY when the TCP peer is the loopback, because that is where the proxy
+     * is: calaos-os installs haproxy and calaos_server from the same `calaos`
+     * meta package as two podman units on --network=host, and haproxy's
+     * backend is `server calaos-server 127.0.0.1:5454`. Any other peer is a
+     * client that reached us directly, and its X-Forwarded-For is its own word
+     * about itself: it is dropped, and the peer address answers. See
+     * TransportLimits::isTrustedProxyPeer().
      *
-     * That is not theoretical here. HttpServer.cpp:31 binds listen_address =
-     * "0.0.0.0" by default, while haproxy only ever targets 127.0.0.1:5454, so
-     * on a standard install PORT 5454 ANSWERS DIRECTLY FROM THE LAN. Behind the
-     * proxy the header is sound (haproxy appends its own line last and the last
-     * line wins - tests/TransportHardening_test.cpp, ForwardedForLine.*); from
-     * the LAN it is whatever the client typed.
+     * WHY THAT GUARD EXISTS (F-XFF-1, closed by T3.39). Port 5454 answers
+     * directly from the LAN on a standard install - HttpServer.cpp:29-31 binds
+     * listen_address = "0.0.0.0" by default - and it has to stay that way: the
+     * RemoteUI fleet and the LAN mobile apps connect to it with no proxy in
+     * between, and the same config key also governs the UDP discovery server
+     * (UDPServer.cpp:58-61), so restricting the bind would break discovery and
+     * the Wago input path too. That was measured twice and is written down in
+     * DECISIONS.md, 2026-08-25; do not re-propose listen_address.
      *
-     * WHAT T3.24 ADDED, STATED PLAINLY BECAUSE THE OPPOSITE WAS WRITTEN HERE
-     * FIRST: before T3.24, both clientIp() answered the TCP peer, so
-     * X-Forwarded-For had NO effect on LoginThrottle in ANY deployment. Routing
-     * the throttle through this method CREATES that exposure. On a directly
-     * reachable server an attacker gains two capabilities he did not have:
-     * exempting himself from the backoff (so, brute forcing a password with no
-     * rate limit at all), and throttling a chosen victim by forging her
-     * address. The trade was made deliberately - the DoS it removes is an
-     * unauthenticated lockout of EVERY user reachable from the WAN, the one it
-     * adds needs LAN access, and the connection cap already trusts this header
-     * - but it IS a trade, not a free win. Tracked as F-XFF-1 in
-     * docs/refactoring/FINDINGS.md; the real fix is upstream, setting
-     * listen_address = 127.0.0.1 in calaos-os so that only haproxy can reach
-     * the port. Do not add a third caller without re-reading that entry.
+     * T3.24 routed the login throttle through this method, which was a real
+     * gain behind the proxy - before it, both clientIp() answered the TCP peer,
+     * so one attacker locked out every user of the installation - but on a
+     * directly reachable server it handed that same attacker two capabilities:
+     * exempting himself from the backoff by rotating the header, and throttling
+     * a chosen victim by wearing her address. The guard closes both. What it
+     * does NOT close, deliberately: an attacker running code ON THIS MACHINE is
+     * loopback, so he can still forge the header and choose his bucket. Someone
+     * with local execution has better options already.
+     *
+     * KNOWN LIMIT, stated because it is a real deployment and not a hypothesis:
+     * a reverse proxy on a DIFFERENT machine has its header ignored, so all of
+     * its clients collapse into the proxy's single bucket - the T3.24 defect,
+     * for that topology only. No Calaos deployment ships that way (see above),
+     * and it is only reachable by hand-editing /mnt/calaos/haproxy/haproxy.cfg
+     * or the calaos_ddns backend override. If it ever needs supporting, the
+     * shape is a `trusted_proxies` config option defaulting to the loopback,
+     * NOT a wider hard-coded rule - see docs/refactoring/T3.39.md.
      */
     string getEffectiveClientIp() const
     {
