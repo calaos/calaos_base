@@ -305,6 +305,19 @@ course au lieu de dérégler la minuterie d'arrêt. Ces deux entrées faisaient 
 ressource interne à chaque appel** ; répétées depuis l'API, elles finissaient par peser sur le
 serveur. C'est corrigé.
 
+### Et le serveur ne plante plus si un volet est supprimé pendant une impulsion (T3.34)
+Quand un volet reçoit `impulse up` ou `impulse down`, le serveur arme une minuterie interne chargée
+de l'arrêter à l'échéance. Si le volet disparaissait **entre-temps** — suppression d'un équipement
+depuis l'interface ou l'API, suppression d'une pièce, rechargement de configuration — cette
+minuterie retombait sur un équipement qui n'existait plus : le serveur pouvait **s'arrêter
+brutalement**, ou **arrêter un autre volet à la place** de celui qui avait disparu.
+
+⚠️ **Ce défaut n'a pas été introduit par la correction ci-dessus — il existait déjà** : un
+`impulse up <durée>` parfaitement correct suffisait à l'ouvrir, de longue date. Corriger la durée de
+`impulse down` ne fait qu'**allonger la fenêtre** pendant laquelle il pouvait se produire, et c'est
+précisément pourquoi il est refermé dans la même livraison plutôt que reporté. Les deux types de
+volets (`OutputShutter` et `OutputShutterSmart`) sont couverts.
+
 ## ⚠️ Comportements qui changent sur une installation existante
 
 ### Une règle dont un équipement a disparu ne s'exécute plus (décision utilisateur)

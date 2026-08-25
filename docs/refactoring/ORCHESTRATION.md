@@ -230,6 +230,74 @@
     c'est le code qui la consomme qui a été lu. Le seul programme exécuté est un `g++` autonome de
     12 lignes sur `from_string`/`is_of_type`.
 
+- **🔒 T3.34 ✅ MERGÉ (`d68aa1f3`, 7 commits, `merge --ff-only` sur `4e4b6226` — **master n'avait
+  pas bougé depuis le rebase de l'auteur, donc ni rebase ni conflit**, historique linéaire,
+  `./autogen.sh && ./configure && make -j12 && make check -j6` ⇒ **88/88**, `exit 0`, **0
+  `error:`**, `CXXLD    calaos_server`)** — `impulse down <ms>` retirait **11** caractères d'un
+  préfixe de **13**, plus l'échéance d'impulsion qui débordait aux deux bouts et un one-shot
+  survivant à l'IO. **RIEN POUSSÉ.**
+
+  - ⭐⭐ **LE PIÈGE DU `endif` N'A PAS MORDU AU MERGE — parce qu'il avait déjà été désamorcé.**
+    L'auteur l'avait rencontré **à son rebase** (T3.27 venait d'appender `LuaCalaosApi_test`
+    exactement à l'endroit visé, et le `endif` du dernier bloc est en contexte commun **au-dessous**
+    des marqueurs : « garder les deux côtés » laisse la profondeur à **1** ⇒ `automake:
+    unterminated conditionals`). **Master n'a pas rebougé depuis**, donc aucun conflit à rejouer.
+    ⇒ **Ce qui a été vérifié est la RÉSOLUTION, pas le conflit** : recompté en `python3` sur
+    **tous** les préfixes `^if*` (il n'y en a qu'un seul dans ce fichier, `if HAVE_GTEST`) —
+    **76 `if` / 76 `endif`, profondeur finale 0, minimum 0 (jamais négative), maximum 2**, sur
+    master **comme** sur la branche. La forme livrée est un bloc `if HAVE_GTEST … endif`
+    **complet et autonome** appendu après celui de T3.27, **pas** une fusion des deux côtés.
+    ⚠️ **La leçon reste armée pour le prochain ticket qui appendra en fin de `tests/Makefile.am`.**
+
+  - ⭐ **CONTRE-MUTATIONS REJOUÉES AU MERGE** (protocole complet : `rm -f` des **deux** `.o` serveur
+    **et** du binaire, `make` **à la RACINE** puis `make -C tests` — `F-TEST-2` —, ligne
+    `CXXLD    core/ShutterImpulse_test` exigée par **regex** (double espace), **jugement au code de
+    sortie, jamais aux lignes rouges**) :
+    **M0 témoin ⇒ ensemble rouge VIDE, `exit 0`** · **M1 (longueur du jumeau sur `OutputShutter`)
+    ⇒ 6 rouges, TOUS `Plain*`, `exit 1`** · **M2 (idem `OutputShutterSmart`) ⇒ 4 rouges, TOUS
+    `Smart*`, `exit 1`** ⇒ **M1 ∩ M2 = ∅**, les deux sites jumeaux sont bien couverts par des
+    ensembles disjoints · **garde de vie retirée ⇒ `exit 139` et ZÉRO ligne `FAILED`** — le faux
+    vert par mort du binaire, reproduit tel quel.
+  - ⭐ **La ⛔ CORRECTION du §9 de la fiche est CONFIRMÉE EN EXÉCUTION, pas seulement relue** : la
+    garde a été retirée dans le fichier **`Plain`**, et le processus est mort dans un cas
+    **`Smart`** (`t334_smart_down_timer`, dernière ligne du journal). ⇒ **le site de mort désigne le
+    test en cours, jamais le code muté** ; la preuve primaire reste le couple *(code 139, quelle
+    garde exactement a été retirée)*.
+
+  - **L'UAF est dit comme une AGGRAVATION, jamais comme une régression** — vérifié aux deux
+    endroits qui décident si c'est un défaut livré : `T3.34.md` §3 (« ⭐⭐ L'UAF **PRÉEXISTE SUR
+    MASTER** — ce ticket l'élargit, il ne le crée pas », avec le chemin `impulse up 5000` +
+    `deleteIO()` qui l'ouvre **déjà sur master**, la branche `up` ayant toujours eu la bonne
+    longueur) et la ligne `BOARD.md`.
+    ⚠️ **ÉCART TROUVÉ ET FERMÉ AU MERGE : `RELEASE_NOTES.md` n'en disait RIEN DU TOUT** — ni comme
+    aggravation ni comme régression. La note couvrait la durée, les deux cas limites et la fuite de
+    handle, mais **pas le plantage**, alors que le correctif le referme et que la note a toute une
+    famille d'entrées « plus de plantage… ». **Paragraphe ajouté au merge**, formulé
+    **explicitement comme préexistant** (« ce défaut n'a pas été introduit par la correction
+    ci-dessus — il existait déjà »).
+
+  - **Recomptes refaits, aucun cardinal recopié** (tout en `python3`, le hook `rtk` réécrivant
+    `git`/`grep`/`awk`) : **88 entrées `TESTS`, aucun doublon**, 86 `check_PROGRAMS` ;
+    balayage `compare(0, N, "littéral")` **master 50 / 3 fautifs** → **branche 46 / 1** (le résidu
+    est bien `OutputLightRGB.cpp:107`, F-RGB-1, hors périmètre) ; **145 goldens**, arbre
+    `tests/core/golden` = **`d4ebc61f`** identique sur master, sur la branche et après merge —
+    **zéro golden bougé**.
+  - **La vraie boucle uvw sous `CoreFixture` ne laisse rien derrière elle** : `git status` du
+    worktree de merge **vide** après `make check` (**0 fichier suivi modifié ET 0 non suivi**),
+    **0 ligne `HistLogger`/`sqlite`** dans les journaux, et la suite a été **rejouée 4 fois au
+    total** (1 build + 3 passes) — **88/88, `exit 0`, aucun scintillement**.
+  - **Réserves de revue vérifiées comme fermées** : `F-RGB-1` **barrée par un bloc ⛔ CORRECTION**
+    (jamais réécrite en silence) et **versée à `F-LINK-1` comme apport n°6**, avec les trois entrées
+    mesurées (`JsonApi.cpp:774`, `ActionStd.cpp:152`/`:207`, `ScriptBindings.cpp:191`) ; commentaire
+    de `tests/core/CalaosCoreFixture.h` corrigé (« No libuv loop runs in the tests » était devenu
+    faux). ⭐ **[`T3.40`](T3.40.md) ouverte** (UAF généralisé, **20 sites non gardés / 12 classes**,
+    dont **5** dérivent d'`IOBase`), ligne `BOARD.md` présente et **triée par NUMÉRO** (après
+    T3.39). **Numéro `T3.40` revérifié LIBRE en `python3`** — aucune autre branche ni aucun worktree
+    vivant ne le revendique. Les **deux corrections de la revue** tiennent au source :
+    `Foscam.cpp:125` **n'en est pas** (T2.19 a déjà sorti la capture dans un `bool insecure` local,
+    la lambda `[=]` ne capture plus `this`) ⇒ **5 classes, pas 6** ; et filtrer sur « dérive de
+    `trackable` » **sous-compte** (`trackable` ne couvre que les `mem_fun`, jamais une lambda).
+
 - **🔒 T3.27 ✅ MERGÉ (`ed9fc58e`, 5 commits, `git rebase master` + `merge --ff-only`, historique
   linéaire, `./autogen.sh && ./configure && make -j12 && make check -j6` **87/87**, `exit 0`, **0
   `error:`**, `CXXLD    calaos_server`)** — `setIOParam()`/`waitForIO()` déclaraient `return 1`
