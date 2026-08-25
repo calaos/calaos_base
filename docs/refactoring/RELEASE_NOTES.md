@@ -17,9 +17,12 @@ caméras**, la cause pouvait être ici.
 Chaque fois que Calaos annonçait une caméra au processus `calaos_reolink`, il **libérait** le
 message qu'il venait de construire, puis **écrivait à nouveau dedans**. Le bloc de mémoire venait
 d'être rendu à l'allocateur : entre-temps, n'importe quelle autre partie du serveur pouvait l'avoir
-repris. L'écriture allait alors abîmer *les données de quelqu'un d'autre*, et le symptôme —
-plantage, valeur aberrante, blocage — apparaissait **ailleurs et plus tard**, ce qui rend ce genre
-de défaut particulièrement difficile à relier à sa cause.
+repris. Le plus souvent l'écriture retombait sur un bloc encore libre et **ne se voyait pas** ;
+mais dès que le bloc avait été **repris par autre chose**, elle abîmait *les données de quelqu'un
+d'autre*, et le symptôme — plantage, valeur aberrante, blocage — apparaissait **ailleurs et plus
+tard**, ce qui rend ce genre de défaut particulièrement difficile à relier à sa cause. C'est bien
+pour ça qu'il est corrigé plutôt que toléré : on ne peut pas savoir d'avance dans quel camp on
+tombe.
 
 Ce n'était pas un cas rare : cela se produisait à l'enregistrement de **chaque caméra**, et de
 nouveau **pour toutes les caméras à chaque redémarrage** du processus `calaos_reolink` — lequel se

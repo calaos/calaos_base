@@ -19,6 +19,15 @@
   la décrémentait. Silencieux en pratique (la valeur relue n'atteint pas 0, donc pas de second
   `json_delete`), **erreur dure sous ASan**, et corruption du canari de double-free du tcache.
 
+  ⚠️ **Accord de ton avec `RELEASE_NOTES.md`** (relevé en revue) : « silencieux **en pratique** »
+  décrit le **mode le plus probable** — l'écriture retombe sur un bloc que l'allocateur garde dans
+  son tcache, où elle n'abîme souvent que le canari. Elle n'est **pas bénigne** pour autant : dès
+  que le bloc a été **repris par un autre objet vivant**, l'écriture corrompt les données de cet
+  objet, et le symptôme sort **ailleurs et plus tard**. Les deux textes décrivent le même défaut vu
+  de deux endroits : ici la mécanique, là le symptôme que l'utilisateur observe.
+  ⛔ **Aucune des deux n'est vérifiée à l'exécution : rien n'a été lancé sous ASan, et il n'y a eu
+  aucun test bout-à-bout avec le vrai `calaos_reolink`.**
+
   **Portée** : un appel par `registerCamera()` d'une caméra pas encore enregistrée, **plus un par
   caméra à chaque (re)connexion du processus** via `registerAllCameras()` — donc à chaque
   redémarrage de `calaos_reolink`, qui se relance en boucle quand il sort.
@@ -58,9 +67,15 @@
   à tous les sous-tickets d'E4.1 qui décodent un wire.**
 
   `Params::fromNJson()` fait `p.params[it.key()] = it.value();` — conversion implicite `Json` →
-  `std::string` qui **lève `type_error.302` pour tout ce qui n'est pas une chaîne JSON**. Mesuré sur
-  un événement `detection` réel : **9 levées sur 11 clés** (`arr`, `async_callback`,
-  `callback_duration`, `channel`, `nested`, `nil`, `ratio`, `tcp_push_active`, `uptime`).
+  `std::string` qui **lève `type_error.302` pour tout ce qui n'est pas une chaîne JSON**.
+
+  ⚠️ **Chiffre corrigé après revue (R3)** : l'événement `detection` **réel** du driver
+  (`ExternProcReolink_main.py:1292-1303`, qui est la fixture du test) porte **10 clés dont 5
+  non-chaînes** — `channel` (int), `tcp_push_active` (bool), `callback_duration` (float),
+  `async_callback` (bool), `adaptive_timeout` (int) — donc **5 levées**. Le « 9 levées sur 11
+  clés » publié d'abord décrivait une charge **composite** de ma sonde de mesure (elle ajoutait un
+  tableau et un `null`), **pas un message que le driver émet**. Le fond ne bouge pas : **une seule
+  levée suffit**, et il y en a cinq à chaque détection.
 
   Or **tout** événement de `ExternProcReolink_main.py` porte `channel` (int),
   `tcp_push_active` (bool) et `callback_duration` (float) (`:1292-1303`), et la réponse
@@ -78,11 +93,66 @@
   `json_decref` 2, `json_object` 1, `json_object_set_new` 5, `json_string` 5) **+ 2 appels
   `jansson_*`**. Le classement des fichiers ne change pas. Corrigé dans `E4.1i.md`.
 
-- 📏 **[F-REO-3b] La dette `jansson_from_params` : 100 ET 98 sont justes, ils ne comptent pas la
-  même chose.** Sur `master` `138c16ee`, en `python3` : **100 occurrences du jeton** = **98 sites
-  d'appel réels** + **1 définition** (`Jansson_Addition.h`) + **1 mention en prose**
-  (`tests/Makefile.am`). Le `grep -rn` d'`E4.1a` comptait le jeton (donc 100/104 selon la date).
-  **E4.1i n'en résorbe aucune** : `ReolinkCtrl.cpp` n'utilisait pas `jansson_from_params`.
+- 📏 **[F-REO-3b] La dette `jansson_from_params` — valeur de référence : `94` jetons = `90` sites
+  d'appel sur `master` `3f0cc074`.** ⚠️ **Corrigé après revue (R1)** : j'avais publié « 98 sites »,
+  en n'ayant vu **qu'une** des trois mentions en prose et en l'ayant mal située. **C'est 96 sites
+  sur la base `138c16ee`, 90 sur `master`.**
+
+  Recompté avec un classificateur qui distingue **définition / commentaire / appel** (`python3`,
+  hors du hook) :
+
+  | Rev | Jetons | **Sites d'appel** | Définition | Prose |
+  |---|---|---|---|---|
+  | `138c16ee` (base d'E4.1i) | **100** | **96** (93 `src/` + 3 `tests/`) | 1 | 3 |
+  | `3f0cc074` (`master` actuel) | **94** | **90** (87 `src/` + 3 `tests/`) | 1 | 3 |
+
+  Les **trois** mentions en prose : `src/lib/Jansson_Addition.h:39`, `tests/Makefile.am:1996`,
+  `tests/ParamsJson_test.cpp:59`. Les deux dernières écrivent `jansson_from_params()`
+  **parenthèses comprises, dans un commentaire** — c'est le piège : un comptage « jeton suivi de
+  `(` » les compte comme des appels, et c'est exactement l'erreur que j'ai faite. La définition est
+  `Jansson_Addition.h:52`.
+
+  ⇒ **`grep -rn` (le jeton) et « sites d'appel » diffèrent de 4, systématiquement.** Quatre valeurs
+  ont circulé (104, 100, 98, 96) : **utiliser `94 jetons = 90 sites` sur `3f0cc074`**, et **dire
+  laquelle des deux on cite**. **E4.1i n'en résorbe aucune** : `ReolinkCtrl.cpp` n'utilisait pas
+  `jansson_from_params`.
+
+- ⚠️ **[F-REO-5] Quatre `string` positionnelles de même type traversent trois relais que rien ne
+  couvre — MESURÉ, plus supposé.** Le filet d'E4.1i tient `ReolinkWire::buildRegisterMessage()` ;
+  il ne tient **pas** ce qu'on lui passe.
+
+  **Mesure**, même protocole que les six contre-mutations (`.o` du test + binaire + `ReolinkCtrl.o`
+  + `calaos_server` effacés, ligne `CXXLD ReolinkWire_test` exigée) : permuter `username` ↔
+  `password` **au site d'appel**, dans `ReolinkCtrl.cpp`, laisse la suite **verte 17/17**. La
+  **même** permutation **à l'intérieur** de l'en-tête extrait rougit **5 cas** (mutation M6). La
+  frontière du filet est donc exactement l'entrée de l'en-tête.
+
+  **Trois relais en amont**, tous en quatre `string` positionnelles dans le même ordre, aucun
+  couvert : `ReolinkInputSwitch.cpp:83-86` (quatre `get_param()`) → `:91 registerCamera(...)` →
+  `ReolinkCtrl::registerCamera()` → `doRegisterCamera(...)`, plus le brace-init positionnel
+  `registry.add({hostname, username, password, event_type}, ...)`. Une permutation à n'importe
+  lequel de ces points produit un message **parfaitement bien formé** et une caméra qui ne
+  s'authentifie pas.
+
+  **Limite jugée acceptable pour un ticket de bascule JSON** (couvrir demanderait d'instancier un
+  singleton qui lance un processus externe), **mais la mitigation est évidente et bon marché** :
+  un **struct nommé** au lieu de quatre `string` — `ReolinkEventRegistry::CameraRegistration`
+  existe déjà, porte exactement ces quatre champs, et rendrait la permutation **impossible à
+  écrire** sur trois des quatre sauts. **Candidat à un ticket dédié**, hors périmètre d'E4.1i.
+
+- ℹ️ **[F-REO-6] Le delta « paire supprimée → U+FFFD » change le MODE d'échec, pas seulement le
+  contenu du message.** Vérifié au source du bout python (`ExternProcReolink_main.py:1626-1627`).
+
+  **Avant** : sans clé `password`, `if not username or not password:` → journal
+  « *No username or password provided* », `return`. **Aucune connexion n'est planifiée.**
+  **Après** : le mot de passe existe et vaut `p\ufffd…`, donc la valeur est vraie ; le driver
+  **planifie réellement** `connect_camera()`, la caméra **refuse l'authentification**, et le
+  `CircuitBreaker` et ses **retries** entrent en jeu.
+
+  Les deux échouent, mais **les journaux et le profil réseau diffèrent**. Le cas d'entrée reste
+  tordu (un octet UTF-8 invalide dans un mot de passe d'`io.xml`) et le résultat observable pour
+  l'utilisateur — la caméra ne marche pas — est identique : **pas d'entrée `RELEASE_NOTES` pour la
+  bascule**, choix assumé et maintenu. Consigné pour que personne n'ait à le redécouvrir.
 
 - ℹ️ **[F-REO-4] Le message `register` transporte le mot de passe de la caméra EN CLAIR** — connu
   (`E4.1i.md` le signale), **hors périmètre, non touché**. Deux garde-fous posés sans changer de
