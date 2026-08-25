@@ -64,6 +64,50 @@ qui ne démarre pas. Un `calaos_mcp --help` suffit désormais à vérifier qu'un
 
 ---
 
+## 🔴 MQTT et Web : la syntaxe d'index de tableau affichée par `calaos_installer` était fausse
+
+### Si votre paramètre `path` contient des crochets, il ne lisait probablement rien (T3.29)
+Le paramètre **`path`** d'une entrée/sortie **MQTT** ou **Web** sert à aller chercher une valeur
+dans un document JSON envoyé par un équipement. Quand cette valeur est rangée dans un **tableau**
+— c'est le cas courant avec Zigbee2MQTT, Tasmota ou OpenWeather — il faut donner l'indice de
+l'élément voulu.
+
+**L'aide de paramètre affichée par `calaos_installer` donnait l'exemple `weather[0]/description`.
+Cette forme ne fonctionne pas.** Elle ne produit **aucune erreur visible** : l'IO reste simplement
+**vide**, pour toujours, et la seule trace est un avertissement dans un journal que personne ne
+regarde. C'est le pire des deux mondes — la source que l'on consulte *au moment exact* où l'on
+configure l'IO enseignait une syntaxe sans effet.
+
+**La forme qui marche met l'indice dans son propre segment de chemin, entre crochets :**
+
+| Charge utile reçue | ❌ ce qui était documenté | ✅ ce qu'il faut écrire |
+|---|---|---|
+| `{"weather":[{"description":"pluie"}]}` | `weather[0]/description` | **`weather/[0]/description`** |
+| `{"e":[{},{"t":21.5}]}` | `e[1]/t` | **`e/[1]/t`** |
+
+La règle, en une phrase : **un indice de tableau est un segment de chemin à lui seul**, séparé par
+des `/` comme n'importe quelle clé. Elle est maintenant écrite dans l'aide de chaque paramètre
+concerné (les 7 `*path*` du MQTT et le `path` du Web), en anglais comme en français.
+
+### Ce que vous avez à faire
+**Rien ne change dans le serveur** : le comportement du parseur est **exactement le même
+qu'avant**, seule la documentation est corrigée. Autrement dit, une configuration écrite d'après
+l'ancien exemple **ne marchait déjà pas** — la corriger ne casse rien, ça la fait marcher.
+
+1. Ouvrez `calaos_installer` et regardez les IOs **MQTT** et **Web** dont le `path` (ou
+   `battery_path`, `connected_status_path`, `wireless_signal_path`, `uptime_path`,
+   `ip_address_path`, `wifi_ssid_path`) contient des crochets.
+2. Insérez un `/` **devant** le crochet ouvrant : `weather[0]/description` →
+   `weather/[0]/description`.
+3. Les `path` sans crochets (`temperature`, `color/x`, `main/temp`…) sont corrects et **ne doivent
+   pas être touchés**.
+
+⚠️ **Un seul cas où il ne faut PAS corriger** : si votre équipement envoie réellement une clé
+*nommée* `weather[0]` (des crochets dans le nom de la clé, pas un tableau), alors
+`weather[0]/description` était et reste la bonne écriture. C'est rare, mais c'est aussi la raison
+pour laquelle le serveur **n'a pas** été rendu tolérant aux deux formes : il ne peut pas deviner
+laquelle des deux vous vouliez dire.
+
 ## ⚠️ Comportements qui changent sur une installation existante
 
 ### Une règle dont un équipement a disparu ne s'exécute plus (décision utilisateur)

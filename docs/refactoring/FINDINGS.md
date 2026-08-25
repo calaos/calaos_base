@@ -2555,8 +2555,31 @@ périmètre.
 
 ### E4.5c — suites de revue : deux bugs de code trouvés en corrigeant la doc
 
+- **[UB, trouvé en caractérisant T3.29, NON corrigé] Un jeton de chemin valant exactement `[`
+  appelle `std::string::pop_back()` sur une chaîne vide.** Branche index des **deux** parseurs
+  (`IO/Mqtt/MqttCtrl.cpp` et `IO/Web/WebCtrl.cpp`, `val.erase(0, 1)` puis `val.pop_back()` sans
+  aucun contrôle de longueur) : `val` vaut `"["`, `erase` le vide, `pop_back` sur vide est un
+  **comportement indéfini**. Atteignable par un `path` de configuration — donc pas à distance,
+  mais par une faute de frappe dans `calaos_installer`. **Aucun test ne le fige** : on ne
+  caractérise pas de l'UB. Correctif d'une ligne (`if (val.size() < 2) → chemin d'erreur`), à
+  faire avec l'option C du §5.6 de T3.29 si elle est retenue, puisque c'est la même branche.
+  ⚠️ Voisin mesuré au même endroit et **figé, lui** : un index **non numérique** (`[zz]`) lit
+  silencieusement l'**élément 0** — `Utils::from_string` laisse sa destination à 0 et son retour
+  n'est pas regardé (famille T3.25).
+
 - **[BUG, ⭐ visible par tous les utilisateurs] La syntaxe d'index de tableau publiée par l'ioDoc
-  ne fonctionne pas** — ✅ **TICKETÉ : [T3.29](T3.29.md)** (2026-08-25).
+  ne fonctionne pas** — ✅ **TICKETÉ : [T3.29](T3.29.md)** (2026-08-25) — ✅ **LIVRÉ** sur `fix/t3.29` (`a8be430b` caractérisation, `6154ef93` correctif).
+  ⚠️ **Deux chiffres du finding ne se reproduisent pas** — voir T3.29.md §5.3/§5.4 : les occurrences
+  hors `build_doc/` sont **92**, pas 110 (`po/en@quot.po` et `po/en@boldquot.po`, 32 à eux deux,
+  sont **générés et non suivis**) ; et **aucune traduction n'est invalidée** — 7 des 8 entrées
+  n'étaient traduites nulle part, la 8ᵉ (fr, `path` Web) a été corrigée avec son `msgid`, `fr.po`
+  reste à 404 traduits / 6 fuzzy / 24 non traduits. **Le « 8 chaînes dans 2 fichiers » est exact.**
+  ⭐ **Ce que ni le finding ni la fiche n'avaient vu, et qui tranche l'option « accepter aussi
+  l'ancienne syntaxe »** : `weather[0]` n'est pas un jeton inerte, c'est une **recherche de clé
+  d'objet valide** — sur une charge `{"weather[0]": {…}}` la forme collée **résout** (test
+  `AGluedIndexStillMatchesAKeySpelledThatWay`). Rendre le parseur tolérant aux deux formes
+  **casserait** ce cas en silence, et les noms de clés des charges MQTT ne sont pas sous notre
+  contrôle. La doc seule est donc corrigée.
   ⚠️ **Références recalées sur master `db6770a7`** : les 7 sites MQTT sont
   `MqttCtrl.cpp:383,386,390,394,398,402,405` (et non `:415` / `:418…:437`), le site Web est
   `WebDocBase.cpp:53-57` (littéral à `:56`, chaîne concaténée sur 5 lignes) ; les parseurs sont
