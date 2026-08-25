@@ -212,6 +212,17 @@ bool logContains(const std::string &log, const std::string &needle)
     return log.find(needle) != std::string::npos;
 }
 
+//T3.35c. Two blank tokens in one capture must produce TWO warnings, not one:
+//a single-line assertion cannot tell "both were caught" from "one was caught
+//and the other slipped through in silence".
+size_t countOccurrences(const std::string &log, const std::string &needle)
+{
+    size_t n = 0;
+    for (size_t p = log.find(needle); p != std::string::npos; p = log.find(needle, p + 1))
+        n++;
+    return n;
+}
+
 //The user facing wording the hint must carry. "did you mean" is the question,
 //the second half is the RULE - the same sentence the ioDoc publishes (see
 //IoDocIndexSyntax.TheIndexRuleIsSpelledOutAndNotOnlyShown) - so that the log
@@ -791,6 +802,169 @@ TEST_F(WebJsonPathTest, AnEmptyIndexIsLoggedAndStillReadsElementZero)
     }
     EXPECT_EQ("clear sky", value);
     EXPECT_TRUE(logContains(log, kUnreadableIndex)) << "log was: " << log;
+}
+
+/* ---------------------------------------------------------------------------
+ * T3.35c - THE HOLE §6.4 CLAIMED WAS CLOSED AND WAS NOT.
+ *
+ * `if (val.empty() || !Utils::from_string(val, idx))` reads as "an index that
+ * is not a number is refused", and it is not what it does. Measured, not
+ * deduced (probe compiled against the very body of Utils::from_string):
+ *
+ *   token   from_string returns   writes idx ?   guard trips ?
+ *   "[]"    true                  NO             yes, on val.empty()
+ *   "[ ]"   true                  NO             ** no **
+ *   "[\t]"  true                  NO             ** no **
+ *   "[+]"   true                  yes, 0         ** no **
+ *   "[-]"   true                  yes, 0         ** no **
+ *   "[zz]"  false                 yes, 0         yes
+ *   "[5 ]"  false                 yes, 5         yes
+ *
+ * from_string() returns iss.eof(), and a stream that consumed only whitespace
+ * - or only a sign - DID reach its end. It therefore reports SUCCESS on five
+ * tokens that carry no number, two of which never write the destination at
+ * all. `val.empty()` catches exactly one of the five.
+ *
+ * TWO CONSEQUENCES, and the second is why these cases are worth their lines:
+ *
+ *  (1) "[ ]" and "[\t]" reach parent.at(idx) with idx NEVER ASSIGNED - the
+ *      `idx = 0` branch is not taken and from_string wrote nothing. It only
+ *      looks harmless because the DECLARATION happens to say `int idx = 0`.
+ *      That initialiser is therefore LIVE, not dead, and §6.6 of T3.35.md
+ *      called it a dead one: a future cleanup following that sentence would
+ *      re-introduce an uninitialised read. Proven by exchange, not by
+ *      reasoning: the mutation `int idx = 7` (R1s) turns these very cases
+ *      red before the fix and cannot after it.
+ *
+ *  (2) "[+]", "[-]", "[ ]" and "[\t]" read element 0 IN SILENCE - the exact
+ *      failure §6.4 said no longer existed ("il ne reste pas de trou").
+ *
+ * THE VALUE STAYS ELEMENT 0 - T3.29 froze it and a real configuration may
+ * lean on it. What goes is the silence, and the undefined read under it.
+ *
+ * ! WHAT THESE CASES DO **NOT** ASK FOR. The guard must keep answering
+ * `[ 1]`, `[+2]` and `[-1]` exactly as it does today. A guard written as
+ * "every character must be a digit" (find_first_not_of) would look like the
+ * same fix and would in fact do three other things: it would let "[]" back
+ * through unguarded (an empty string has no non-digit either), it would stop
+ * resolving "[+2]", and it would answer "[-1]" with "array index -1 is not a
+ * number", which is a lie about -1. APaddedOrSignedNumberIsStillReadAsANumber
+ * is the case that refuses that trade; it is GREEN before and after and it is
+ * there on purpose.
+ * ------------------------------------------------------------------------ */
+
+//! A blank index token - the shape "[]" wears when the user typed a space.
+//It must land where "[]" and "[zz]" land: element 0, and a warning naming the
+//token. RED before the fix on the LOG assertion; the value assertion passes
+//before the fix only because the declaration initialises idx.
+TEST_F(MqttJsonPathTest, AWhitespaceIndexIsLoggedAndStillReadsElementZero)
+{
+    resolve("main/city"); //warm up the logger before capturing
+    std::string log;
+    std::string spaceValue, tabValue;
+    {
+        CoutCapture capture;
+        spaceValue = resolve("weather/[ ]/description");
+        tabValue = resolve("weather/[\t]/description");
+        log = capture.str();
+    }
+    EXPECT_EQ("clear sky", spaceValue);
+    EXPECT_EQ("clear sky", tabValue);
+    EXPECT_EQ(2u, countOccurrences(log, kUnreadableIndex)) << "log was: " << log;
+}
+
+TEST_F(WebJsonPathTest, AWhitespaceIndexIsLoggedAndStillReadsElementZero)
+{
+    resolve("main/city");
+    std::string log;
+    std::string spaceValue, tabValue;
+    {
+        CoutCapture capture;
+        spaceValue = resolve("weather/[ ]/description");
+        tabValue = resolve("weather/[\t]/description");
+        log = capture.str();
+    }
+    EXPECT_EQ("clear sky", spaceValue);
+    EXPECT_EQ("clear sky", tabValue);
+    EXPECT_EQ(2u, countOccurrences(log, kUnreadableIndex)) << "log was: " << log;
+}
+
+//! A sign with no digits behind it. from_string() reports SUCCESS here and
+//num_get does store 0, so this one is deterministic - but just as silent, and
+//silence is what the ticket removes.
+TEST_F(MqttJsonPathTest, ASignOnlyIndexIsLoggedAndStillReadsElementZero)
+{
+    resolve("main/city");
+    std::string log;
+    std::string plusValue, minusValue;
+    {
+        CoutCapture capture;
+        plusValue = resolve("weather/[+]/description");
+        minusValue = resolve("weather/[-]/description");
+        log = capture.str();
+    }
+    EXPECT_EQ("clear sky", plusValue);
+    EXPECT_EQ("clear sky", minusValue);
+    EXPECT_EQ(2u, countOccurrences(log, kUnreadableIndex)) << "log was: " << log;
+}
+
+TEST_F(WebJsonPathTest, ASignOnlyIndexIsLoggedAndStillReadsElementZero)
+{
+    resolve("main/city");
+    std::string log;
+    std::string plusValue, minusValue;
+    {
+        CoutCapture capture;
+        plusValue = resolve("weather/[+]/description");
+        minusValue = resolve("weather/[-]/description");
+        log = capture.str();
+    }
+    EXPECT_EQ("clear sky", plusValue);
+    EXPECT_EQ("clear sky", minusValue);
+    EXPECT_EQ(2u, countOccurrences(log, kUnreadableIndex)) << "log was: " << log;
+}
+
+//! The counterweight: a token that DOES carry a number keeps being read as
+//one, whatever decoration surrounds it. GREEN before the fix and green after
+//- it is not what the fix changes, it is what the fix must not break.
+//
+//"[-1]" is a number, so it must NOT be answered "is not a number": it goes
+//through to at(), which refuses it as out of range. That is a different
+//message for a different mistake, and keeping the two apart is the point.
+TEST_F(MqttJsonPathTest, APaddedOrSignedNumberIsStillReadAsANumber)
+{
+    EXPECT_EQ("light rain", resolve("weather/[ 1]/description"));
+    EXPECT_EQ("thunderstorm", resolve("weather/[+2]/description"));
+
+    resolve("main/city");
+    std::string log;
+    std::string negativeValue;
+    {
+        CoutCapture capture;
+        negativeValue = resolve("weather/[-1]/description");
+        log = capture.str();
+    }
+    EXPECT_EQ("", negativeValue);
+    EXPECT_FALSE(logContains(log, kUnreadableIndex)) << "log was: " << log;
+    EXPECT_TRUE(logContains(log, "index not found")) << "log was: " << log;
+}
+
+TEST_F(WebJsonPathTest, APaddedOrSignedNumberIsStillReadAsANumber)
+{
+    EXPECT_EQ("light rain", resolve("weather/[ 1]/description"));
+    EXPECT_EQ("thunderstorm", resolve("weather/[+2]/description"));
+
+    resolve("main/city");
+    std::string log;
+    std::string negativeValue;
+    {
+        CoutCapture capture;
+        negativeValue = resolve("weather/[-1]/description");
+        log = capture.str();
+    }
+    EXPECT_EQ("", negativeValue);
+    EXPECT_FALSE(logContains(log, kUnreadableIndex)) << "log was: " << log;
+    EXPECT_TRUE(logContains(log, "index not found")) << "log was: " << log;
 }
 
 //! The measured reason the two cases above exist at all. Utils::from_string()
