@@ -432,6 +432,51 @@ TEST_F(RoonArgsTest, ThePortDefaultsTo9330WhenTheParamIsPresentButEmpty)
 }
 
 /*
+ * ⭐ THE HOLE THE MUTATION CAMPAIGN FOUND, and the case that plugs it.
+ *
+ * Without this case, exchanging RoonPlayer.cpp's
+ *     port = RoonArgs::portFromParams(param);
+ * back for the shipped-before-T3.28
+ *     Utils::from_string(param["port"], port);
+ * SURVIVED the whole suite (mutant M5, measured: 0 red). The reason is
+ * instructive rather than embarrassing: with the in-class initialiser in
+ * place, from_string() and portFromParams() answer the SAME thing for a blank
+ * value (from_string writes nothing, so 9330 survives) and for a well-formed
+ * one. They part company only where from_string() writes a value nobody
+ * asked for - 0 for "abc", 12 for "12abc" - or where it succeeds on a number
+ * that is not a port - 70000, or an overflow clamped to INT_MAX.
+ *
+ * So the call site is pinned HERE, on a real RoonPlayer, and nowhere else.
+ * A behavioural case on portFromParams() alone cannot do it: the function can
+ * be perfect and the call site still gone.
+ */
+TEST_F(RoonArgsTest, ThePortDefaultsTo9330WhenTheParamIsUnreadableOrOutOfRange)
+{
+    {
+        Params p = roonParams("roon_port_abc");
+        p.Add("port", "abc");
+        RoonPlayer player(p);
+        //from_string() writes 0 here and answers false: 0 is not a port, and
+        //"--port 0" is the very shape of the bug this ticket fixes.
+        EXPECT_EQ(9330, player.portGet()) << "port=\"abc\"";
+    }
+    {
+        Params p = roonParams("roon_port_12abc");
+        p.Add("port", "12abc");
+        RoonPlayer player(p);
+        //from_string() writes 12 - a partial parse silently accepted.
+        EXPECT_EQ(9330, player.portGet()) << "port=\"12abc\"";
+    }
+    {
+        Params p = roonParams("roon_port_70000");
+        p.Add("port", "70000");
+        RoonPlayer player(p);
+        //from_string() succeeds: nothing but the range test catches this one.
+        EXPECT_EQ(9330, player.portGet()) << "port=\"70000\"";
+    }
+}
+
+/*
  * A configured port is read, and it is NOT the default.
  *
  * The control of the two cases above: if this one went to 9330 as well,
