@@ -2386,3 +2386,28 @@ OLAWire_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+# T3.29
+#JSON `path` syntax of the MQTT and Web IOs: (A) characterization of the two
+#duplicated parsers - an array index is a path segment of its own
+#(weather/[0]/description), an index glued to its key resolves to nothing -
+#and (B) the syntax the ioDoc actually PUBLISHES, read back out of
+#IODoc::genDocJson(), the document --gendoc writes and calaos_installer ships.
+#Links the two parser objects from the server build plus WebDocBase (the Web
+#`path` description) and the core closure; MqttCtrl::commonDoc() is static and
+#WebDocBase has no state, so (B) instantiates no IO. -I.../IO/Mqtt is NOT in
+#the global AM_CPPFLAGS, hence the dedicated _CPPFLAGS (same as MqttIO_test).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += JsonPathSyntax_test
+check_PROGRAMS += JsonPathSyntax_test
+JsonPathSyntax_test_SOURCES = JsonPathSyntax_test.cpp
+JsonPathSyntax_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt
+JsonPathSyntax_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebDocBase.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+JsonPathSyntax_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
