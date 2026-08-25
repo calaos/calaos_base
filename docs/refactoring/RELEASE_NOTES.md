@@ -152,6 +152,81 @@ traité comme ce qu'il est : une valeur illisible.
 toujours accepté, `2147483648` ne l'est plus. Et un nombre **suivi de texte** (`12abc`, `1,5`)
 continue d'être lu comme avant, c'est-à-dire partiellement : ce ticket n'y a pas touché.
 
+## 🔴 Automates Wago : une réponse Modbus anormale pouvait écraser de la mémoire du serveur
+
+### Ce que Calaos croyait sur parole (T3.43)
+**Concerné : toute installation qui pilote au moins un automate Wago** (entrées/sorties `Wago…`
+dans votre configuration). Si vous n'avez aucun IO Wago, ce point ne vous concerne pas.
+
+Quand Calaos interroge un automate Modbus, la réponse commence par un octet qui annonce **combien
+d'octets de données suivent**. La bibliothèque Modbus embarquée recopiait exactement ce nombre
+d'octets dans le tampon préparé par Calaos — **sans jamais vérifier qu'il correspondait à ce qui
+avait été demandé, ni qu'il tenait dans ce tampon**.
+
+Or Calaos lit les Wago **un bit à la fois** ou **un mot à la fois** : le tampon préparé fait donc
+**un seul octet** (ou deux). Une réponse annonçant le maximum que cet octet peut dire — **255** —
+faisait donc écrire **254 octets par-dessus le reste de la mémoire du processus**. La même chose
+existait un cran plus tôt, sur la longueur totale de la trame.
+
+⚠️ **Ce n'est pas un recoin du produit : c'est chaque lecture de chaque entrée Wago de votre
+installation.** Le chemin fautif était emprunté par :
+- le **battement de cœur** qui vérifie que l'automate répond, **toutes les dix secondes**, en
+  permanence, dès qu'un automate est configuré ;
+- **chaque entrée digitale** (interrupteurs, boutons, contacts) — à la lecture de son état initial
+  au démarrage **et** à chaque scrutin ;
+- **chaque sortie digitale** dont Calaos relit l'état (relais, éclairages, volets) ;
+- **chaque entrée analogique et chaque sonde de température**.
+
+Autrement dit : si vous avez des Wago, **toutes vos entrées passaient par là, en boucle, tant que
+le serveur tournait**. Le battement de cœur n'était que le plus régulier des chemins concernés, pas
+le seul.
+
+**Ce qui pouvait arriver.** Une écriture hors du tampon prévu abîme les données d'une autre partie
+du programme. Le symptôme apparaît alors **ailleurs et plus tard** : plantage de `calaos_server` ou
+de `calaos_wago`, valeur aberrante, blocage — sans rapport visible avec les automates. Souvent,
+elle ne se voit pas du tout. **On ne peut pas savoir d'avance dans quel cas on tombe : c'est
+précisément pour ça que c'est corrigé plutôt que toléré.**
+
+**D'où pouvait venir une telle réponse.** De deux endroits, et le second est ce qui fait de ce
+point un défaut de **sécurité** : d'un automate en panne ou mal configuré, **ou de quelqu'un
+d'autre**. Le protocole Modbus/TCP **ne comporte aucune authentification** : rien, dans le
+protocole, ne distingue une réponse de votre automate d'une réponse fabriquée par un appareil qui
+peut atteindre le même réseau.
+
+**Ce qui change.** Calaos vérifie désormais que la réponse correspond à ce qu'il a demandé : le
+nombre d'octets annoncé doit être exactement celui qu'implique la requête, et il doit tenir dans la
+trame reçue. Sinon **la réponse est refusée**, une erreur est écrite dans le journal, et Calaos
+reconnecte puis réessaie une fois — comme il le faisait déjà quand un automate ne répond pas.
+
+⚠️ **Le choix a été de refuser, pas de tronquer.** Une réponse tronquée aurait fait publier à
+Calaos des états d'entrée qu'il n'a jamais reçus — un interrupteur vu « fermé » parce que la
+mémoire lue par hasard valait ça. **Une entrée qui garde sa dernière valeur connue et une ligne
+d'erreur au journal valent mieux qu'un état inventé.**
+
+**Avec un automate qui répond normalement, rien ne change** : mêmes lectures, mêmes valeurs, mêmes
+performances. Aucune modification de configuration, aucune migration.
+
+→ **Ce que vous pouvez vérifier.** Après la mise à jour, cherchez dans le journal
+(`journalctl -u calaos_server`, ou vos fichiers de log) les lignes `Error reading bits!`,
+`Error reading words...` ou `Wago MBUS, Reconnecting to host`. **Si elles n'apparaissent pas, vos
+automates répondent correctement et vous n'avez rien à faire.** Si elles apparaissent en continu
+sur un automate donné, ce n'est pas un effet de la mise à jour : cet automate envoyait déjà des
+réponses incohérentes, et Calaos les acceptait en silence. Vérifiez alors le firmware et le
+câblage de cet automate, et signalez-le.
+
+⚠️ **Ce qui est mesuré, et ce qui ne l'est pas** — parce que ce genre de note se surestime vite :
+- **Mesuré** : l'écriture hors du tampon de l'appelant, l'écriture d'un octet hors de la structure
+  interne, et la lecture de quatre octets au-delà de cette même structure ensuite recopiés vers
+  l'appelant. Ces trois faits sont constatés par des tests automatisés qui exécutent la
+  bibliothèque réellement livrée, avec des trames fabriquées.
+- **NON mesuré** : rien n'a été essayé contre un **automate Wago réel**, aucun outil d'analyse
+  mémoire (ASan, valgrind) n'a été passé sur ce chemin, et **il n'a été démontré ni qu'un attaquant
+  pourrait en tirer une exécution de code, ni qu'un plantage observé en production vienne de là**.
+  Aucun incident de ce type n'a été rapporté. Ce qui est établi, c'est que le défaut existait, que
+  le chemin s'exécutait en permanence, et qu'il ne s'exécute plus ainsi.
+
+---
+
 ## 🔴 Caméras Reolink : corruption mémoire à chaque enregistrement de caméra
 
 ### Le serveur écrivait dans de la mémoire libérée dès qu'une caméra Reolink était enregistrée (E4.1i)

@@ -326,7 +326,7 @@
   ⚠️ **Ce qui NE l'est pas** : `int count = 0;` / `UWord address = 0;` eux-mêmes, et surtout
   **F-WAGO-8 ci-dessous, que cette garde ne ferme pas**.
 
-- ⚠️ **[F-WAGO-8] — NON CORRIGÉ, PRÉEXISTANT, hors périmètre de T3.30, trouvé en refermant F-WAGO-7 :
+- ✅ **[F-WAGO-8] — CORRIGÉ : [T3.43](T3.43.md)** (2026-08-25). ⚠️ **SÉCURITÉ.** *(Énoncé d'origine conservé ci-dessous, addendum de livraison en fin d'entrée.)* **PRÉEXISTANT, hors périmètre de T3.30, trouvé en refermant F-WAGO-7 :
   `libmbus` recopie la réponse d'après la RÉPONSE, jamais d'après ce que l'appelant a demandé.**
   `mbus_cmd.c`, `mbus_cmd_read_coil_status()` : `mbus_ubyte byte_count = MBUS_BYTE_RD(bufptr)` puis
   `while (byte_count--) MBUS_BYTE_WR(coils_data, *bufptr++)`. `byte_count` sort du **champ
@@ -347,8 +347,90 @@
   le corriger, c'est **borner `byte_count` par la taille demandée et passer cette taille en
   paramètre**, donc toucher sa signature — **⭐ TICKET DÉDIÉ RECOMMANDÉ**, à ne pas glisser dans un
   ticket Wago applicatif.
-  ⭐ **Ce ticket existe : [T3.43](T3.43.md)**, fiche portée sur `master`. ⛔ **Son code n'est pas
-  mergé** (branche `fix/fwago8`) : l'entrée reste donc OUVERTE côté arbre.
+  ⭐ **Ce ticket existe et son code est MERGÉ : [T3.43](T3.43.md)** — branche `fix/fwago8`,
+  rebasée sur `master` puis `merge --ff-only`. L'entrée est FERMÉE côté arbre.
+
+  ⭐ **ADDENDUM DE LIVRAISON — T3.43 (2026-08-25).** Caractérisation `2cc41b44` (**tests seuls, zéro
+  ligne de `src/`**, vérifié sur le commit), correction `15765564`. **L'énoncé ci-dessus est exact
+  sur le fond et se corrige sur deux points de périmètre, mesurés en `python3` :**
+
+  1. ⭐ **`read_coil_status` n'est PAS le seul, et ce ne sont pas les commandes attendues.** Balayage
+     des **8** commandes déclarées par `mbus.h` : **TROIS** lisent une quantité **dans la réponse**
+     pour la recopier dans un tampon **dimensionné par l'appelant** — **FC 01** (`read_coil_status`),
+     **FC 03** (`read_holding_registers`) et **FC 17** (`report_slave_id`, sans aucun appelant dans
+     l'arbre). ⚠️ **`read_input_status` (FC 02) et `read_input_registers` (FC 04) N'EXISTENT PAS**
+     dans cette bibliothèque : `MBUS_FC_READINPUTSTATUS`/`MBUS_FC_READINPUTREGISTERS` sont
+     **définis** (`mbus_cmd.c:52`/`:53`) mais **aucune fonction ne les utilise**. Les cinq autres
+     commandes (05, 06, 08, 15, 16) lisent des **mots de position et de taille fixes** qu'elles
+     **comparent** à la requête : elles ne sont pas touchées. Tableau complet : [T3.43](T3.43.md) §2.
+  2. ⭐ **La portée est plus large que « le battement de cœur ».** **Tout** ce qui lit un automate
+     Wago dans Calaos lit **UN bit ou UN mot** — `WagoIOBase.h:138`/`:174`, `WODigital.cpp:62`,
+     `WIAnalog.cpp:111`, `WITemp.cpp:99`, `WOAnalog.cpp:53` — donc **1 octet** ou **2 octets**
+     alloués, débordés de **254** et de **252**. Ce n'est pas un cas de bord, c'est le cas nominal.
+  3. ⚠️ **« Il faut un pair malveillant ou en panne » reste vrai mais était sous-dit** : Modbus/TCP
+     **n'est pas authentifié**, donc « le pair » n'est pas nécessairement l'automate — c'est
+     n'importe qui capable d'atteindre le socket.
+
+  **Correction : REJETER, pas écrêter.** `mbus_cmd_bytecount_ok()` exige **deux** faits — le compte
+  est celui que la requête implique **et** il tient dans le corps réellement reçu (les deux ne
+  s'impliquent pas : 2040 bobines demandent légitimement 255 octets et seuls 251 tiennent dans un
+  corps). ⛔ **Écrêter aurait été « désamorcer ici, réarmer là »** : `WagoCtrl::read_bits()` boucle
+  sur **`nb`**, pas sur ce qui a été reçu, et publierait des bits jamais reçus comme états d'entrée
+  d'automate. Le `-1` rendu est celui que la bibliothèque rend déjà sur une mauvaise adresse
+  d'esclave ; **tous** ses appelants le traitent déjà, et les IO gardent leur **dernière valeur
+  connue** au lieu d'en inventer une. ⚠️ **Aucune signature publique n'a changé.**
+
+  ⭐ **Le débordement est PROUVÉ, pas supposé** : la suite `tests/MbusResponse_test.cpp` (**14 cas**)
+  lie les objets **réels** `mbus_cmd.o` et `mbus_rqst.o`, remplace **seulement**
+  `mbus_sock_read()`/`mbus_sock_write()`, fabrique une trame au `byte_count` mensonger, et remet à
+  `libmbus` des tampons qui sont des **tranches d'arènes sentinelles**. Mesuré sur le code livré :
+  `firstByteWrittenPast(1) = 1` (le battement de cœur déborde son unique octet),
+  `firstWordWrittenPast(3) = 3`, `byteAfterBuf(0) = 0x3C` au lieu de `0xC3` (**l'octet juste après
+  `mbus_struct::buf` est écrit**), et **4 octets lus hors de `buf`** livrés à l'appelant à l'index
+  **251**. Un débordement de tas ne plante pas de façon fiable : aucun oracle ici ne repose sur un
+  plantage, et aucun n'a **`0`** pour valeur de passage (`-1` = « resté dans les bornes »).
+
+  **Ce qui reste ouvert, et qu'il ne faut PAS croire fermé :**
+  - ⛔ **FC 17** garde un **contrat documenté** (`mbus.h`) sur la taille de `slave_data` plutôt
+    qu'un bornage : sa requête n'annonce **aucune** quantité, il n'y a rien à quoi confronter le
+    compte. Sans appelant aujourd'hui ; le jour où il en a un, **passer la taille en paramètre**.
+  - ⛔ **F-WAGO-7 n'est pas fermé par ce ticket** : `int count;` et `UWord address;` non initialisés
+    dans **six** branches de `WagoExternProc_main.cpp` restent entiers. Seule la conséquence
+    « recopie bornée par la réponse » disparaît. **Aucune ligne de `WagoCtrl.cpp` ni de
+    `WagoExternProc_main.cpp` n'a été touchée.**
+  - ⭐ **Ce qui a d'abord été fiché comme un « trou de filet » (M6) n'en est PAS un, et la
+    correction vaut d'être lue.** Permuter les deux arguments de `mbus_cmd_bytecount_ok()` compile
+    et laisse la suite verte — **parce que la permutation est sémantiquement NULLE** aux sites
+    FC 01/FC 03 : le prédicat exige `bc == exp`, et sous cette égalité les deux ordres sont la
+    **même** proposition. Aucun oracle ne PEUT être rouge, et en exiger un serait exiger qu'un test
+    distingue deux programmes identiques. ⭐ **Mesuré par contraste : la même permutation au site
+    FC 17** — où `expected` vaut `-1` — **est attrapée** (mutation M7, 1 rouge). Le filet mord
+    partout où la permutation a un effet.
+  - ⚠️ **En revanche la FORME reste un piège de site d'appel, et c'est le sujet de T3.31.**
+    Inventaire `python3` des signatures de `libmbus` + `WagoBits.h` + `WagoCtrl.h` : **15 fonctions**
+    portent au moins une paire de paramètres **de type identique**, donc permutables **sans
+    avertissement**. **Trois sont des paires adresse ⇄ valeur sur des ÉCRITURES** :
+    `mbus_cmd_force_single_coil(coil_addr, data)`, `mbus_cmd_preset_single_register(register_addr,
+    preset_data)` et ⭐ `WagoCtrl::write_single_word(UWord address, UWord val)` — **la paire même de
+    F-WAGO-7**. Deux de ces trois sont **dans `libmbus`**, donc **un typage fort côté Calaos seul ne
+    les fermera pas**. S'y ajoute `WagoCtrl::read_bits(UWord address, int nb, …)`, permutable en
+    silence par conversion (`UWord` → `int`) : **c'est le M6 d'origine de T3.30, toujours ouvert**.
+    Tableau complet et classement par gravité : [T3.43](T3.43.md) §5.5bis.
+  - ⛔ **Rien n'a tourné sous ASan ni contre un automate réel.**
+
+- ⚠️ **[F-WAGO-12] — NOUVEAU, NON CORRIGÉ, adjacent à F-WAGO-8 et trouvé en le refermant (⚠️ ouvert sous le numéro **F-WAGO-9** sur `fix/fwago8`, renuméroté au merge : `T3.31` avait entre-temps attribué F-WAGO-9 à la paire adresse/donnée, cf. plus bas) :
+  `mbus_cmd_addr_mdata()` déborde `mbus_struct::buf` de 8 octets sur le chemin d'ÉCRITURE, et sa
+  longueur de trame TRONQUE.** `mbus_cmd.c` construit la requête dans `mbus->buf + MBUS_HDR_LEN` :
+  **7** octets d'en-tête de corps puis `byte_count` octets de données, soit jusqu'à
+  `6 + 7 + 255` = **268** dans un `buf` de **260** ⇒ **8 octets hors de la structure**. Et
+  `mbus_rqst(mbus, 7 + byte_count)` prend un `mbus_ubyte` : `7 + 255 = 262` **tronque à 6**, donc
+  la trame émise annonce une longueur absurde. ⚠️ **Ce n'est PAS F-WAGO-8** : ici la quantité vient
+  de **la requête**, donc de l'appelant, pas du pair — la correction n'est pas la même. **Portée** :
+  seules FC 15 et FC 16 passent par là, atteintes uniquement par
+  `WagoCtrl::write_multiple_bits()`/`write_multiple_words()`, dont T3.30 §6.1 a mesuré que la
+  chaîne est **morte de bout en bout**. Il faut `nb >= 2033` bobines ou `>= 128` registres pour
+  l'atteindre. **Établi au source, rien n'a été exécuté sur ce chemin.** ⭐ **TICKET DÉDIÉ
+  RECOMMANDÉ**, à traiter avec le premier appelant de `write_multiple_*`.
 
 - ⚠️ **[F-WAGO-3] — NON CORRIGÉ (durcissement DÉCLARÉ, pas un report) : `string v =
   json_string_value(value)` était un déréférencement de `NULL`.**
@@ -5362,7 +5444,7 @@ lanceur de `make dist` doit penser à `git checkout -- po/`** — piège à comm
   `mbus_cmd_preset_single_register(mbus, slave, register_addr, preset_data)` (`libmbus/mbus.h:114`
   et `:116`) : une permutation **compile en silence** et **force un relais / écrit un registre à
   une adresse arbitraire de l'automate**. C'est la troisième ligne rouge de
-  [T3.43](T3.43.md) §5.5bis (⭐ fiche portée sur `master` ; **le code de `fix/fwago8` n'est pas mergé**), et T3.31 ne la ferme pas — il ferme les **trois sauts Calaos**
+  [T3.43](T3.43.md) §5.5bis (⭐ fiche et code de `fix/fwago8` mergés), et T3.31 ne la ferme pas — il ferme les **trois sauts Calaos**
   au-dessus (`WOAnalog` → `WagoMap` → `WagoWire`, puis `WagoExternProc_main` → `WagoCtrl`), pas
   celui-là. **Mesuré comme résiduel** : contre-mutation M5 de T3.31, `mbus_cmd_preset_single_register(mbus, 1, (mbus_uword)val, address)` **compile, rc=0**.
   ⭐ **Et ce n'est PAS une impossibilité technique, contrairement à ce que la première rédaction du
