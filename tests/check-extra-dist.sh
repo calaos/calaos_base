@@ -10,8 +10,11 @@
 # `make distcheck` is the real oracle but costs minutes (it rebuilds the whole
 # tree twice, out of tree, against a read-only srcdir). This static check is
 # its sub-second stand-in for the one failure mode that actually bit us: a
-# dist path that does not resolve. It is not a replacement for distcheck --
-# see docs/refactoring/T3.45.md.
+# dist path that does not resolve. It covers EXTRA_DIST *and* every primary
+# automake distributes by default (_SOURCES, _HEADERS, _MANS, _TEXINFOS,
+# _LISP, _JAVA, _PYTHON) plus dist_*_{SCRIPTS,DATA}. It is not a replacement
+# for distcheck: check-extra-dist.py's docstring lists what it does not see,
+# and docs/refactoring/T3.45.md section 3 explains why.
 #
 # Exit codes follow the automake simple-test protocol:
 #   0  -> PASS (every dist path resolves)
