@@ -6404,3 +6404,55 @@ test, ni même le `cmp` d'application, qui comparait la mutation à… l'état d
 ⚠️ **Généralisation, et c'est là que ça mord** : *tout* outil qui « ne fait rien » silencieusement
 dans le conteneur produit cette variante. `git` en est un cas particulier — mais dans un
 **worktree**, il l'est **structurellement**, pas par accident.
+
+### ⛔ Treizième variante de faux vert — **la borne de sûreté devenue la contrainte active**
+
+Produite **en corrigeant** un flottement, pendant la livraison de T3.40. Le filet attend l'expiration
+de délais réels (250 ms, 400 ms, 1,5 s) en pompant la boucle ; l'attente était bornée à l'horloge.
+Pour la rendre robuste à une machine affamée — où une attente bornée **uniquement** à l'horloge peut
+trouver son échéance déjà passée et rendre la main **sans avoir pompé** — un plancher d'itérations a
+été ajouté… **avec un plafond « ne jamais bloquer `make check` » de 200 000 itérations**.
+
+⛔ Une boucle `uv_run(NOWAIT)` au repos atteint 200 000 itérations en **~80 ms**. Le plafond est donc
+devenu la **contrainte active** : *toutes* les attentes rendaient la main au bout de **80 ms au lieu
+de 650 ou 1900**. Les cas restaient **verts** — ils n'exerçaient plus **rien**, l'échéance qu'ils
+testent n'expirant jamais. **Sortie 0, 16 cas sur 16, aucune ligne rouge, aucun signal.**
+
+⭐ **Ce qui l'a rendu visible : les TEMPS PAR CAS**, et rien d'autre — une suite passée de
+**4 024 ms à 1 042 ms**. Ni le code de sortie, ni le nombre de cas, ni le journal `PASS/FAIL` ne le
+disaient, et une campagne de contre-mutation ne l'aurait pas vu non plus : les mutants **survivants**
+seraient devenus la norme, ce qui se lit comme « le filet ne couvre pas ce site », pas comme
+« le filet n'attend plus ».
+
+**Les deux règles** :
+1. ⭐ **une borne de sûreté ne doit jamais pouvoir devenir la contrainte active.** Ici l'horloge
+   suffisait déjà à faire terminer la boucle : le plafond n'apportait aucune sûreté et retirait
+   toute la mesure. *Une garde qui peut mordre avant la condition qu'elle protège n'est pas une
+   garde, c'est un raccourci.*
+2. ⭐ **une attente doit dire si elle a attendu.** `pumpLoopFor()` se termine désormais par un
+   `ADD_FAILURE()` lorsque le temps écoulé est **inférieur** au temps demandé : le défaut ci-dessus
+   serait aujourd'hui **rouge**, pas invisible.
+
+⚠️ **Conséquence sur la méthode de campagne** : relever les **temps par cas** à chaque tour, pas
+seulement `PASS`/`FAIL`/code de sortie. Un journal qui ne garde que le verdict est aveugle à toute
+la famille « l'oracle a cessé d'observer ».
+
+### ⚠️ [F-SIGC-1, apport] Un rouge NON REPRODUCTIBLE, et pourquoi la fenêtre ne doit pas être pinglée à l'horloge
+
+Au tour **MU-J** d'une campagne, `ProcessExitedStillFiresWhileTheServerIsAlive` a rougi. **MU-J
+n'ajoute qu'un `Timer::singleShot` dans `main.cpp`, objet qui n'est même pas relié au binaire de
+test** : la mutation **ne peut pas** en être la cause. Flottement mesuré à **1 sur ~80** exécutions,
+**non reproduit** en 20 exécutions isolées ni en 12 exécutions concurrentes sous 40 processus de
+charge.
+
+**Diagnostic** : le cas demandait *« le callback n'a pas tiré avant 40 ms »* pour un délai réel de
+**100 ms**. Une seule itération `run<NOWAIT>` peut déborder cette marge de 60 ms sur une machine
+chargée — la boucle porte le cycle de respawn de `RoonCtrl`, qui refait un `uv_spawn` **toutes les
+100 ms**. L'observation tombe alors **après** l'échéance, et le cas rougit **sans défaut**.
+
+⭐ **La forme qui ne peut pas mentir** : ne pas demander *« le callback n'a pas TIRÉ avant t »* mais
+*« le callback n'a pas été **OBSERVÉ** avant t »* — c'est-à-dire **mesurer** l'instant où le
+prédicat tient pour la première fois et en exiger une **borne inférieure**. Un retard ne fait que
+**grandir** la mesure : une borne inférieure ne peut pas échouer parce que la machine est lente.
+La borne supérieure, elle, reste un **budget** (l'attente rend la main dès que le prédicat tient),
+jamais un délai subi.
