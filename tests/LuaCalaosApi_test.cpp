@@ -66,7 +66,10 @@
  * suite. TheParamIsActuallyWrittenOnTheIo below reads the emitted frame and
  * turns that permutation RED. See the ticket sheet for the measurement.
  *
- * ⚠️ RELINK. Like 47 of the 84 suites, this one carries
+ * ⚠️ RELINK. Like 49 of the 83 test binaries of tests/Makefile.am (counted by
+ * flattening _SOURCES/_LDADD/_DEPENDENCIES with the Make variables expanded, on
+ * the merge base of this branch; the same 49 out of 84 check_PROGRAMS, out of 86
+ * TESTS entries once the 3 shell scripts are counted in), this one carries
  * _DEPENDENCIES = libcalaos_common.la, so changing ScriptBindings.cpp does NOT
  * relink the binary by itself (T3.36 in DECISIONS.md). Any mutation run against
  * it must rm -f both the .o and the test binary and check for the CXXLD line.
@@ -437,6 +440,48 @@ TEST_F(LuaCalaosApi, TheParamIsActuallyWrittenOnTheIo)
     EXPECT_EQ(kIoId,  p["id"]);
     EXPECT_EQ(kKey,   p["param"]);
     EXPECT_EQ(kValue, p["value"]);
+}
+
+/*
+ * ⭐ THE BOOLEAN BRANCH of setIOParam(), which nothing else in this suite
+ * reaches.
+ *
+ * Every other case hands a STRING as `value`, so `lua_isboolean(L, 3)` is never
+ * taken and the whole branch is dead code as far as the net is concerned:
+ * swapping `lua_toboolean(L, 3) ? "true" : "false"` for `? "false" : "true"`
+ * leaves the suite GREEN 0/12 (mutation MR1 of the T3.27 review). One case
+ * closes it - and it has to send BOTH booleans, because with `true` alone the
+ * swap is indistinguishable for half of the domain.
+ *
+ * ⭐ It is also a return-contract case, and the sharpest one in the file. The
+ * header above explains why `setIOParam(id, key, true)` proves nothing about the
+ * return on its own: before T3.27 the call handed back `true`, which is exactly
+ * what a guard wants to read anyway. `false` is the counterexample - before
+ * T3.27 the call handed back `false`, which is NOT nil - so `a ~= nil or
+ * b ~= nil` separates the two worlds on both halves and this case is RED on the
+ * characterization commit.
+ */
+TEST_F(LuaCalaosApi, ABooleanValueIsWrittenAsTrueOrFalse)
+{
+    ASSERT_TRUE(runScript(
+        "local a = calaos:setIOParam(\"" + kIoId + "\", \"flag_on\", true)\n"
+        "local b = calaos:setIOParam(\"" + kIoId + "\", \"flag_off\", false)\n"
+        "if a ~= nil or b ~= nil then return false end\n"
+        "return true\n"))
+            << "setIOParam() handed the script back its own boolean argument";
+    EXPECT_FALSE(scriptFailed()) << lastError();
+
+    std::string on, off;
+    for (const auto &m : WireProbe::Instance().drain())
+    {
+        Params p = m.second;
+        if (p["param"] == "flag_on")  on  = p["value"];
+        if (p["param"] == "flag_off") off = p["value"];
+    }
+
+    //BOTH halves, so `? "false" : "true"` cannot survive here.
+    EXPECT_EQ("true",  on)  << "lua true was not written as \"true\"";
+    EXPECT_EQ("false", off) << "lua false was not written as \"false\"";
 }
 
 //The failure paths go through lua_error(), which longjmps: they never were a
