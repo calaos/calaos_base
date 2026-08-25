@@ -21,7 +21,8 @@
 - **[F-SQBOX-1] La requête JSON-RPC de `get_album_cover()` est assemblée par concaténation, avec
   l'identifiant du lecteur interpolé SANS ÉCHAPPEMENT.** `Squeezebox.cpp:740-742` :
   `postData = "{\"id\":1,\"method\":\"slim.request\",\"params\":[\"" + id + "\",[…]]}"`.
-  `id` vient de `param["host"]`/de la configuration de l'IO (une adresse MAC en pratique), mais
+  `id` vient de **`param["id"]`** (`Squeezebox.cpp:75`), donc de `io.xml` (une adresse MAC en
+  pratique), mais
   **rien ne le contraint** : un `id` portant un guillemet ou une contre-oblique produit une requête
   **syntaxiquement invalide**, que LMS rejette — la pochette échoue alors en silence et le driver
   bascule sur le chemin CLI. Ce n'est pas une injection exploitable (l'`id` est de la config

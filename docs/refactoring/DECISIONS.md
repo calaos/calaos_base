@@ -4,6 +4,48 @@
 > **ne les re-demande pas** et respecte les contraintes. Format : date, décision, pourquoi,
 > comment l'appliquer. Ajouter en tête (plus récent en haut).
 
+## 2026-08-25 — E4.1 : la règle vaut pour **TOUS** les `dump()`, journaux compris
+
+**Décision** : `dump(N, ' ', /*ensure_ascii=*/true, Json::error_handler_t::replace)` **partout**,
+y compris quand la sortie part dans un `cDebug()`/`cDebugDom()` ou dans un fichier sur disque.
+**`ensure_ascii = false` n'est admis que dans deux cas nommés**, et aucun autre ne s'ouvre sans
+une entrée datée ici :
+
+1. **un wire tiers déjà en service en UTF-8 brut** — `Audio/RoonPlayer.cpp` (7 sites),
+   `Audio/AVRRose.cpp` (9), `IO/OneWire/OWExternProc_main.cpp` (1) : changer leurs octets serait
+   exactement la faute que l'invariant 3 interdit ;
+2. **une sortie destinée à un œil humain ou à un fichier relu par un humain** —
+   `bin/tools/calaos_config.cpp:347` et `:616` (`std::cout` d'un outil interactif),
+   `lib/ConfigOptions.cpp:1496`, et `CalaosConfig.cpp:558` (le cache `iostates.cache` écrit à
+   4 espaces). ⚠️ **Ce dernier n'est pas une « sortie d'outil interactif »** : c'est un **fichier
+   sur disque**. La ligne de partage réelle a donc **trois** côtés, pas deux, et il faut l'écrire
+   ainsi sous peine de voir le prochain ticket ranger un cache dans la mauvaise case.
+
+**⛔ Le gestionnaire d'erreur, lui, n'a AUCUNE exception.** Il est sur les 38 sites.
+
+**Pourquoi — l'argument décisif, et il ne porte pas sur l'échappement.** Ce qui finit par laisser
+passer un `dump()` **nu** dans un journal, c'est de **dissocier les trois invariants site par
+site** : dès qu'un ticket se met à arbitrer « ici c'est un log, donc je n'applique pas la règle »,
+il arbitre aussi, sans le dire, sur `error_handler_t::replace` — et un `dump()` nu dans une trace,
+c'est le `std::terminate` de KNX **déplacé dans le chemin de debug**, où personne ne le cherchera.
+`NotifManager.cpp:258` est le précédent : le `cDebugDom` y est en `ensure_ascii = true` **et** en
+`replace`, parce que le corps de notification vient de `rules.xml` et n'a jamais vu de parseur.
+
+**Mesuré sur `refactor/e4.1d`** (en `python3`, hors `rtk`) : **38 sites `.dump()`** dans `src/`
+(`json.hpp` exclu ; une 39ᵉ occurrence est une ligne de commentaire de `KNXCtrl.h:97`).
+**ZÉRO nu** — les 38 portent `error_handler_t::replace`. Répartition : **17 en `ensure_ascii =
+true`**, **21 en `false`**, et les 21 sont **exactement** les deux cas nommés ci-dessus.
+
+**Comment l'appliquer** : sur un `dump()` neuf, on n'arbitre pas. On écrit la forme complète. Si
+on croit tenir une exception, on la fait entrer dans l'une des deux catégories ci-dessus **ou** on
+ouvre une entrée datée dans ce fichier. Les onze sous-tickets restants d'E4.1 n'ont donc plus à
+rejouer l'arbitrage à chaque `cDebug()`.
+
+**Origine** : soumis en réserve par E4.1d, qui avait mis son unique `dump()` — la trace
+`cDebug()` de `SqueezeboxWire::prettyPrint()` — en `ensure_ascii = true` **sans** que la règle
+existe, et qui déclarait l'arbitrage « log contre wire » comme non tranché. Le recensement
+ci-dessus montre que l'arbre l'avait déjà tranché, mais nulle part par écrit.
+
 ## 2026-08-24 — E4.1 : l'échappement du wire JSON sera `ensure_ascii = true`
 
 **Décision** : tout `dump()` nlohmann d'un payload sortant du serveur s'écrit
