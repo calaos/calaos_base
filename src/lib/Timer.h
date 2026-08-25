@@ -116,6 +116,17 @@ public:
  * alive by the pending callback itself, so the guard never bites and the
  * use-after-free quietly becomes a leaked libuv handle instead. Wrapping the
  * capture here is what makes that mistake unwritable at a call site.
+ *
+ * ⛔ WHAT THIS CLASS DOES NOT DO, and where the answer is instead.
+ * It makes a BADLY PLACED guard unwritable. It does nothing about a guard that
+ * is simply ABSENT: Timer::singleShot() and Idler::singleIdler() above are
+ * still public, and a new call site written with a raw `this` compiles and
+ * runs exactly like the twenty T3.40 weighed. Marking them [[deprecated]] was
+ * measured and rejected - 25 warnings on call sites that are all deliberate,
+ * including the two inside this very class, for zero defects. The absent guard
+ * is caught one level up instead, by a census of the raw call sites of src/:
+ * tests/core/IoLifetimeTimer_test.cpp, IoLifetimeSourceGuardTest. A new
+ * fire-and-forget one-shot fails that case until somebody weighs it.
  */
 class LifetimeTag
 {

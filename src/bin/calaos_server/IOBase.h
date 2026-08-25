@@ -49,21 +49,6 @@ protected:
 
     IODoc *ioDoc = nullptr;
 
-    /* T3.40 - lifetime token for the one-shots this IO arms.
-     *
-     * Any IO can be destroyed while the loop still holds a pending
-     * Timer::singleShot()/Idler::singleIdler(): ListeRoom::deleteIO()
-     * (reachable from the JSON API), Room::RemoveIO(), ~Room()/~ListeRoom()
-     * when the configuration is reloaded or the server stops. The uvw handle
-     * of a one-shot is anonymous, so ~IOBase() cannot cancel it, and IOBase
-     * deriving from sigc::trackable would not help either - it would only
-     * cover sigc::mem_fun, never a lambda that captures `this`.
-     *
-     * ⇒ arm through this (ioAlive.singleShot(...)/ioAlive.singleIdler(...))
-     * and the callback becomes a no-op once the IO is gone. Measured by
-     * tests/core/IoLifetimeTimer_test. */
-    LifetimeTag ioAlive;
-
     struct StatusInfo
     {
         double battery_level = 0.0; // Battery level in percentage
@@ -222,6 +207,39 @@ public:
     }
 
     Params getStatusInfo() const;
+
+protected:
+    /* T3.40 - lifetime token for the one-shots this IO arms.
+     *
+     * Any IO can be destroyed while the loop still holds a pending
+     * Timer::singleShot()/Idler::singleIdler(): ListeRoom::deleteIO()
+     * (reachable from the JSON API), Room::RemoveIO(), ~Room()/~ListeRoom()
+     * when the configuration is reloaded or the server stops. The uvw handle
+     * of a one-shot is anonymous, so ~IOBase() cannot cancel it, and IOBase
+     * deriving from sigc::trackable would not help either - it would only
+     * cover sigc::mem_fun, never a lambda that captures `this`.
+     *
+     * ⇒ arm through this (ioAlive.singleShot(...)/ioAlive.singleIdler(...))
+     * and the callback becomes a no-op once the IO is gone. Measured by
+     * tests/core/IoLifetimeTimer_test.
+     *
+     * ⚠️ DECLARED LAST ON PURPOSE, and that is only HALF of what it looks
+     * like. Members are destroyed in reverse declaration order, so being last
+     * makes the witness die FIRST among IOBase's own members: while ~IOBase()
+     * tears down param, ioDoc and status_info, the guard already answers
+     * "dead". What no declaration order can change is the other half: a BASE
+     * subobject is always destroyed after the whole derived one, so
+     * throughout ~Derived() and every derived member the guard still answers
+     * "alive".
+     *
+     * ⇒ that residual window is closed by an INVARIANT, not by this member:
+     * NO DESTRUCTOR IN THIS TREE PUMPS THE EVENT LOOP, so no pending one-shot
+     * can fire while a destructor runs. Measured, and kept measured, by
+     * IoLifetimeSourceGuardTest.NothingNewPumpsTheEventLoop - the whole of
+     * src/ gives the loop a turn in exactly three places, none of them a
+     * destructor: main.cpp and the two requestUrl() Lua bindings, which run
+     * in the script side process. */
+    LifetimeTag ioAlive;
 };
 
 }

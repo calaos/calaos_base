@@ -2949,6 +2949,13 @@ endif
 #must rm -f BOTH the .o and the test binary, rebuild from the ROOT, and check
 #the CXXLD line really came back (double space, path relative to tests/ -
 #match it with a regex, never a single space).
+#⭐ CALAOS_SRC_DIR is the SOURCE tree, read at run time by the three
+#IoLifetimeSourceGuardTest cases: they census the raw
+#Timer::singleShot()/Idler::singleIdler() call sites (a guard that is ABSENT on
+#a NEW site is what LifetimeTag cannot make unwritable) and the places that
+#pump the event loop (the invariant that closes the "the token dies last"
+#window). abs_top_srcdir, not srcdir: the binary runs from tests/ and the tree
+#may be a VPATH build.
 #Own HAVE_GTEST block so this stays a pure append at the end of the file.
 if HAVE_GTEST
 TESTS += core/IoLifetimeTimer_test
@@ -2958,7 +2965,8 @@ core_IoLifetimeTimer_test_SOURCES = core/IoLifetimeTimer_test.cpp \
                   core/CalaosCoreFixture.h \
                   core/RoonSpawnHarness.h
 core_IoLifetimeTimer_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/IO/KNX
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/KNX \
+                  -DCALAOS_SRC_DIR='"$(abs_top_srcdir)/src"'
 core_IoLifetimeTimer_test_LDADD = $(CORE_TEST_LDADD) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
