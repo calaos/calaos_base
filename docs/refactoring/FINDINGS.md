@@ -4673,9 +4673,14 @@ sauter la mise à jour chez les **quatre** appelants, avec la caractérisation q
 **changement de comportement** (une valeur vide ou nulle cesse d'être publiée) et il lui faudra sa
 note de version — T3.37 n'en produit aucun et n'en écrit donc pas.
 
-### ⭐ [F-BUILD-1] Sur une RECONFIGURATION, `make check` peut imprimer **deux** `Testsuite summary`, et **le premier peut être un FAUX VERT**
+### ⭐ [F-BUILD-1] `make check` a imprimé **deux** `Testsuite summary` et **le premier était un FAUX VERT** — observé une fois, cause NON établie
 
-Mesuré sur le commit de caractérisation de T3.37 (`ec1abcb0`), recette
+⚠️ **Ce finding est délibérément sous-vendu : il a été OBSERVÉ, il n'a PAS été reproduit, et la
+cause avancée plus bas est une hypothèse non vérifiée.** Il est consigné parce que le *symptôme*
+suffit à égarer une lecture, pas parce que le mécanisme serait compris.
+
+**Ce qui a été mesuré**, sur le commit de caractérisation de T3.37 (`ec1abcb0`), au **tout premier
+build d'un worktree neuf** (aucun `Makefile`, aucun objet), recette
 `./autogen.sh && ./configure && make -j12 && make check -j6` dans le conteneur :
 
 ```
@@ -4684,20 +4689,29 @@ Mesuré sur le commit de caractérisation de T3.37 (`ec1abcb0`), recette
 ```
 
 alors que `tests/JsonPathSyntax_test.log` porte bien **2 `FAILED`** et que le binaire, exécuté
-directement, sort en **1**. Sur un arbre **déjà configuré**, un seul bloc est imprimé (vérifié deux
-fois). La cause probable est le **redémarrage de `make`** après régénération des `Makefile` par
-`config.status` : GNU make ré-exécute le but et la sortie des deux tentatives se retrouve dans le
-même flux, dans un ordre que `-j` mélange.
+directement, sort en **1**.
+
+⛔ **NON REPRODUIT.** Trois autres builds sur le même arbre et la même image n'ont donné qu'**un
+seul** bloc et **une seule** invocation `make check-TESTS`, y compris le build final de livraison
+fait **après `make distclean`** puis `./autogen.sh && ./configure && make -j12 && make check -j6`
+— c'est-à-dire la recette même qui avait produit le double. ⇒ **« sur une reconfiguration » serait
+une conclusion trop large** : la seule différence encore debout est *premier build d'un arbre
+jamais configuré* contre *reconstruction*, et elle n'a pas été isolée.
+
+**Hypothèse, non vérifiée** : redémarrage de `make` après régénération des `Makefile` par
+`config.status` — GNU make ré-exécute le but et la sortie des deux tentatives se retrouve dans le
+même flux, dans un ordre que `-j` mélange. ⚠️ Elle n'explique pas pourquoi le bloc de la tentative
+qui a **relié** le binaire annonce un **PASS** ; ce point reste **inexpliqué**.
 
 ⚠️ **Ce que cela ajoute aux variantes déjà consignées** : ce n'est ni un défaut de relink
 (`_DEPENDENCIES`), ni une mutation non appliquée (`F-HARN-1`), ni une mort du binaire — le build
 est sain et le verdict final est juste. C'est un **piège de LECTURE** : `grep -m1 'Testsuite
 summary' -A6` sur une reconfiguration peut rendre un vert parfait sur un arbre rouge.
 
-⇒ **Remède** : ne juger que sur **le code de sortie** de `make check` (juste dans les deux cas ici),
-ou sur le **DERNIER** bloc, jamais sur le premier trouvé. Mieux : exécuter le binaire de test
-**directement** et relever son code de sortie — c'est le protocole que la campagne T3.37 utilise à
-chaque tour.
+⇒ **Remède, et il ne dépend pas de la cause** : ne juger que sur **le code de sortie** de
+`make check` (juste dans les deux cas ici), ou sur le **DERNIER** bloc, jamais sur le premier
+trouvé. Mieux : exécuter le binaire de test **directement** et relever son code de sortie — c'est
+le protocole que la campagne T3.37 utilise à chaque tour, et il est resté juste partout.
 
 ### ⚠️ Précision versée à **M-3** : l'extraction de T3.37 **n'ouvre PAS** les lambdas de `subscribeStatusTopics()`
 
