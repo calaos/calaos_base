@@ -4720,9 +4720,9 @@ de `src/`, puis reconstruction complète. ⚠️ La purge bute sur des artefacts
 (`src/lib/llhttp/src/.libs/`, écrits par le conteneur de compilation) — **pas de `sudo`** : la date
 rafraîchie sur les sources suffit, puisque tout ce qui les inclut redevient périmé.
 
-**C'est la neuvième**, après les cinq de `_DEPENDENCIES`, `F-HARN-1` (mutation non appliquée), la
-lecture de non-initialisé (**phénomène**, pas règle) et `F-PYTEST-1` (cas jamais exécutés). Les
-neuf ont la même forme : **l'arbre a l'air juste à l'endroit qu'on regarde**.
+⭐ **C'est la n° 11 de la liste canonique** (plus bas, avant `F-PYTEST-1`). ⚠️ Cette section disait
+« **la neuvième** » : le compte d'alors n'avait énuméré ni `F-BUILD-1` ni `F-TYPE-3`. Les **onze**
+ont la même forme : **l'arbre a l'air juste à l'endroit qu'on regarde**.
 
 ### ⚠️ Un oracle écrit par l'audit et démenti par la campagne — `ColorUtils.cpp:245`
 
@@ -4993,7 +4993,8 @@ recompter, jamais les recopier.
 
 ⛔ **La ligne `_DEPENDENCIES` n'a PAS été corrigée par T3.37, et ne doit pas l'être à la légère** :
 c'est le périmètre de `T3.36`, cela concerne 50 cibles d'un coup, et une modification hâtive du
-harnais est **exactement** ce qui a produit les neuf variantes de faux vert/faux rouge de la série.
+harnais est **exactement** ce qui a produit les **onze** variantes de faux vert/faux rouge de
+la série (liste canonique numérotée plus bas).
 Ce finding est là pour que `T3.36` hérite d'une **mesure**, pas d'une intuition.
 
 ---
@@ -5204,6 +5205,50 @@ lanceur de `make dist` doit penser à `git checkout -- po/`** — piège à comm
   au temps simulé plutôt qu'à l'horloge, ou par une marge. Voir aussi la règle de parallélisme :
   `make check -j8` quand 3-4 agents buildent, `-j16` seulement en solo.
 ## F-PYTEST-1 — la huitième variante de faux vert : des tests qui ne s'exécutent pas (2026-08-25)
+## ⭐ LA LISTE CANONIQUE DES VARIANTES DE FAUX VERT / FAUX ROUGE — **onze**, numérotées
+
+*(Établie le 2026-08-25 en fermant les réserves de la 2ᵉ revue de [T3.44](T3.44.md). ⚠️ **C'est LA
+référence** : toute mention d'un compte ou d'un rang ailleurs dans `docs/refactoring/` doit
+s'y accorder. Avant elle, trois numérotations incompatibles coexistaient — « cinq » (la seule
+famille `_DEPENDENCIES`), « sixième » (revendiqué par **deux** findings différents), et un compte
+global « septième / huitième / neuvième » qui **n'avait jamais énuméré `F-BUILD-1` ni
+`F-TYPE-3`**.)*
+
+⚠️ **Le fil commun des onze** : *l'arbre a l'air juste à l'endroit qu'on regarde.*
+
+| n° | variante | id | où c'est mesuré |
+|---|---|---|---|
+| **1** | **Faux ROUGE uniforme** — le binaire non relié rejoue la mutation précédente, toutes les passes rougissent sur le même cas | — (E4.1k) | *Le piège `_DEPENDENCIES`, variante faux ROUGE UNIFORME*, plus haut |
+| **2** | **Faux VERT de relink** — le `.o` muté est recompilé, le binaire de test n'est **pas** relié : la mutation n'est jamais exercée | — (E4.1e) ; voir aussi `F-RELINK-T337` | *E4.1e — variante « faux VERT » du piège `_DEPENDENCIES`* |
+| **3** | **Faux ROUGE après rebase** — le `.o` d'avant le rebase survit ; le binaire teste une garde contre un objet qui ne l'a pas | — (E4.0b) | ⚠️ **hors `FINDINGS.md`** : `ORCHESTRATION.md` ; voisin mesuré ici : `F-TEST-2` |
+| **4** | **Faux VERT total** — `check_PROGRAMS` n'est pas construit par un `make` nu : le binaire n'existe plus, **0 rouge, témoin compris** | — (E4.1g) | *E4.1e — le piège `_DEPENDENCIES` reste ARMÉ pour le prochain* |
+| **5** | **Faux VERT par mort du binaire** — le test avorte (`throw`/segfault), **aucune** ligne `FAILED` n'est émise, un harnais qui compte les rouges lit **0** | — (E4.1g) | idem, § « un `dump()` levant peut se lire *0 rouge* » |
+| **6** | **Mutation jamais appliquée** — motif de remplacement faux **et** harnais sans `set -e` ⇒ le cas tourne **NON MUTÉ**, vert parfait | **F-HARN-1** | *LA SIXIÈME VARIANTE… vient du HARNAIS* ; falsifiée en revue (`LAX_M2`) |
+| **7** | **Lecture de non-initialisé** — un oracle qui attend `0` sur un chemin non initialisé est **vide par construction** ⚠️ **phénomène, pas règle** | — | [T3.34](T3.34.md) §  « La 7ᵉ variante » ; *Le motif de la pile n'est pas une règle*, plus haut |
+| **8** | **Tests qui ne s'exécutent pas** — repli `unittest discover -p 'test_t116_*.py'`, 3 suites sur 6 ramassées, sortie **0** ⇒ automake écrit **`PASS`** | **F-PYTEST-1** | section suivante ; [T3.44](T3.44.md) |
+| **9** | **Deux `Testsuite summary`** — le premier bloc est un faux vert, et **les deux** comptent un test de moins que l'arbre n'en déclare | **F-BUILD-1** | *`make check` a imprimé **deux** `Testsuite summary`*, plus haut |
+| **10** | **En-tête template au `-fsyntax-only`** — le corps vit dans un membre d'un template **jamais instancié**, `rc=0` : mutation « compilée verte » sans rien vérifier | **F-TYPE-3** | ⚠️ **consignée sur `.wave59/t3.31`, NON MERGÉE** — à recoller au merge de `T3.31` |
+| **11** | **Restauration pristine par `copy2`** — la date préservée rend la source **plus ancienne** que le `.o` muté : `make` ne recompile rien | — | *Neuvième variante de faux vert/rouge*, plus haut |
+
+⚠️ **Deux voisins qui ne sont PAS des variantes de plus** — les recompter serait une douzième et une
+treizième imaginaires : **`F-TEST-2`** (le non-relink étendu au faux **rouge**) et
+**`F-RELINK-T337`** (faux rouge reproduit sur source propre) sont deux **instances** de la
+famille `_DEPENDENCIES`, n° 1 à 5.
+
+⚠️ **Deux dettes de numérotation, écrites pour être vues** :
+1. **La n° 10 (`F-TYPE-3`) n'existe pas dans cet arbre** : elle est écrite sur `.wave59/t3.31`, où
+   elle se présente elle-même comme « une **sixième** » — **collision de rang avec `F-HARN-1`**.
+   ⇒ **au merge de `T3.31`, la reclasser n° 10** et retirer le mot « sixième ».
+2. **La n° 3 n'a jamais eu de section dans `FINDINGS.md`** ; son seul écrit est dans
+   `ORCHESTRATION.md`. Elle est comptée ici parce qu'elle a été **rencontrée et mesurée**, pas
+   parce qu'elle est fichée.
+
+⚠️ **« Cause racine des CINQ variantes » reste juste** partout où c'est écrit de `_DEPENDENCIES` :
+`T3.36` ferme les n° 1 à 5, **et elles seules**. Les six autres ont chacune une cause racine et un
+remède propres. C'est la faute **M-7** du catalogue des fautes de méthode : *un remède correct
+généralisé à une famille à laquelle il n'appartient pas.*
+
+## F-PYTEST-1 — la **8ᵉ** des **onze** variantes de faux vert (liste canonique ci-dessus) : des tests qui ne s'exécutent pas (2026-08-25)
 
 *(Trouvée par la revue de [T3.39](T3.39.md) en mesurant F-MCP-XFF-1 ; **fermée par
 [T3.44](T3.44.md)**, branche `fix/fpytest1`. Cette section est le versement de ce qui a été
@@ -5219,7 +5264,7 @@ retombait sinon sur `python3 -m unittest discover -p 'test_t116_*.py'`. Le motif
 d'`unittest discover`, qui a **vraiment réussi** — sur un sous-ensemble que personne n'avait
 déclaré. Automake lit `0 = PASS` et écrit `:test-result: PASS` dans le `.trs`. ⭐ **Ce n'est donc
 même pas un `SKIP`** : un `SKIP` (77) est compté dans la colonne **visible** `# SKIP:`. C'est
-pourquoi **aucun** garde-fou des sept autres variantes ne le voit — ni `rm -f` + `CXXLD`, ni `cmp`
+pourquoi **aucun** garde-fou des **dix autres** variantes ne le voit — ni `rm -f` + `CXXLD`, ni `cmp`
 d'application, ni la comparaison des ensembles : **tout ce qui a tourné est vert ; ce qui manque,
 c'est ce qui n'a pas tourné.**
 
@@ -5259,17 +5304,24 @@ recollées, `if`/`else`/`endif` empilés, zéro doublon) : **3 scripts shell** +
 | `UrlDownloader_test` | ⚠️ **OUI, partiellement** — ⭐ **7** cas derrière `REQUIRE_CURL()` (le 8ᵉ match du balayage est la ligne `#define`, `UrlDownloader_test.cpp:64`) ; **sans `curl` dans le `PATH` : `ran=10, skipped=7, passed=3`, sortie 0, `PASS`** | **mesuré** (`PATH=/nocurl`) |
 | `core/CalaosConfigRobustness_test` | ⚠️ **OUI, partiellement** — `GTEST_SKIP` si `geteuid() == 0`, donc **dans tout conteneur root**, y compris chaque build de cette série | **mesuré : 1/12 sauté, `PASS`** |
 | `Utils_config_test`, `ConfigModel_test` | ⚠️ 1 cas chacun si la descente de privilèges échoue | mesuré : **0** sauté |
-| `TimeRangeCalendar_test` | ⚠️ 2 cas (`tzdata` absent ; course d'une seconde) | mesuré : **0** sauté |
+| ⭐ `TimeRangeCalendar_test` | ⚠️ **11** cas : 1 (`tzdata` absent) **+ 10** — le 2ᵉ `GTEST_SKIP` est dans le **helper de fixture** `evalInStableWindow`, appelé par 10 `TEST_F` | mesuré : **0** sauté ; ⚠️ la fiche écrivait « 2 cas », en comptant les `GTEST_SKIP` et non les cas **atteignables** |
 | `core/JsonApiCharacterization_test` | ⚠️ 3 cas en mode mise à jour des goldens | mesuré : **0** sauté |
 | les **80** autres binaires | aucun saut conditionnel à l'environnement, **et zéro `DISABLED_` dans tout le dépôt** | balayage `python3` |
 
-**Compte par binaire** (balayage `python3` des 87 `.cpp` de `tests/`, motifs `GTEST_SKIP(` et
-`TEST*(…, DISABLED_…`) : **6 binaires sur 86** portent au moins un saut conditionnel, **15 cas** au
-total (`UrlDownloader_test` 7, `core/JsonApiCharacterization_test` 3, `TimeRangeCalendar_test` 2,
+**Compte par binaire, RECOMPTÉ à la 2ᵉ revue** (balayage `python3` des ⭐ **89** `.cpp` de `tests/` —
+**86 `*_test.cpp` + 3 auxiliaires** : `StaticLogShutdown_helper.cpp`, `core/CalaosCoreFixture.cpp`,
+`core/JsonApiCharacterization.cpp` ; motifs `GTEST_SKIP(` et `TEST*(…, DISABLED_…`) :
+**6 binaires sur 86** portent au moins un saut conditionnel, ⭐ **24 cas atteignables** au total
+(`TimeRangeCalendar_test` **11**, `UrlDownloader_test` 7, `core/JsonApiCharacterization_test` 3,
 `ConfigModel_test` 1, `Utils_config_test` 1, `core/CalaosConfigRobustness_test` 1) ; **80 binaires
 propres**, **0 `DISABLED_`**.
+⚠️ **Trois chiffres de la première rédaction étaient faux** : « 87 `.cpp` » (c'est **89**),
+« `TimeRangeCalendar_test` : 2 cas » (c'est **11** : le 2ᵉ `GTEST_SKIP` est dans le helper
+`evalInStableWindow`, appelé par **10** `TEST_F`), et donc « 15 cas » (c'est **24**).
+⇒ ⭐ **le plafond de silence est 24 / 1533, pas 15 / 1527.**
 **Agrégat mesuré sur le `make check` de livraison (image de dev, conteneur root) : 86 binaires,
-1527 cas exécutés, 1 seul silencieusement sauté.** ⚠️ **Nuance** : un `GTEST_SKIP` **imprime** `[  SKIPPED ]` et gtest le compte — il est *à
+⭐ 1533 cas exécutés / 1532 passés, 1 seul silencieusement sauté** (`core/CalaosConfigRobustness_test`,
+`geteuid() == 0`). ⚠️ **Nuance** : un `GTEST_SKIP` **imprime** `[  SKIPPED ]` et gtest le compte — il est *à
 moitié* visible. Le défaut de `run-python-tests.sh` était d'un cran pire : la suite entière
 manquait, comptée nulle part.
 
@@ -5414,3 +5466,97 @@ deux mondes ⇒ **77** et **0**, **zéro résidu** dans l'arbre source.
    franc » que `DECISIONS.md` écarte. **La note est le milieu honnête** : le fait est imprimé, au
    même endroit que la comptabilité. Le changement est d'**une ligne** — et demande **un arbitrage,
    pas un patch**.
+   ⭐ ⚠️ **NUANCE MESURÉE À LA 2ᵉ REVUE — « la note est le milieu honnête » est vrai à 90 %, pas à
+   100 %.** La note n'est imprimée **que si un back-end RAPPORTE** un fichier ou un nom que la
+   déclaration ne connaît pas. **Une suite que PERSONNE ne collecte n'est rapportée par personne** :
+   rien n'est imprimé du tout, et le silence est **total**. La note couvre « collecté mais non
+   déclaré » ; elle ne couvre pas « collecté par personne ».
+3. ⚠️ ⭐ **Second résidu, en sens INVERSE : une classe *mixin* produit un FAUX SKIP.** Le parcours
+   `ast` déclare les méthodes en `test*` de **toute** classe, y compris une classe de base que
+   **ni** back-end ne collecte (`pytest` collecte les classes nommées `Test*`, `unittest` les
+   sous-classes de `TestCase` ; un mixin n'est ni l'un ni l'autre). Ses méthodes sont alors
+   déclarées et jamais exécutées ⇒ `cases=0/N` et **77**. ⚠️ **C'est un faux `SKIP`, pas un faux
+   `PASS`** : il est bruyant, il nomme les cas manquants sur la ligne `NOT RUN`, et il se trompe du
+   **bon côté**. Restreindre le parcours aux classes « d'allure collectable » échangerait cette
+   erreur bruyante et sûre contre une erreur silencieuse et fausse. ⇒ **laissé tel quel,
+   délibérément, et écrit ici pour ne pas être redécouvert comme un défaut.**
+
+### ⛔ ⭐ 2ᵉ REVUE — **le correctif de F-PYTEST-1 contenait le défaut même qu'il corrige** (2026-08-25)
+
+⚠️ **À lire avant tout autre paragraphe de cette section.** La 2ᵉ revue a rendu *MERGE SOUS RÉSERVE*
+en confirmant les trois levées précédentes **par ses propres mesures** — et en trouvant, **dans le
+correctif lui-même**, une **nouvelle instance de la variante n° 8** (ce n'est **pas** une douzième
+variante : même mécanisme, même remède, autre victime) : *des tests qui ne s'exécutent pas, sur un
+vert parfait.*
+
+**Le mécanisme, reproduit sur l'arbre RÉEL** (image de dev + `python3-pytest python3-fastapi
+python3-httpx python3-colorama`, arbre complet) : marquer **un** cas de `tests/python/test_logger.py`
+`@pytest.mark.skip`, et poser à côté un paquet `tests/python/regress/` (`__init__.py`) contenant un
+`test_logger.py` **de même basename** déclarant un cas **du même nom pointé**. Résultat mesuré :
+
+```
+42 passed, 1 skipped
+run-python-tests: suites=6/6 cases=42/42
+run-python-tests: PASS, every declared case executed        LAUNCHER_RC=0
+```
+
+**Ni `NOT RUN`, ni `UNDECLARED`, ni `SKIP`.** Un cas déclaré n'a pas tourné et le lanceur a écrit
+`PASS`. ⭐ **C'est exactement le défaut que le ticket ferme, commis à l'intérieur du correctif.**
+
+**La cause, mesurée maillon par maillon** :
+1. la **déclaration** lisait un `os.listdir` **PLAT** ⇒ `regress/test_logger.py` n'existait pour
+   personne ;
+2. l'**exécution** classait les cas par **`os.path.basename`** ⇒ les deux fichiers tombaient sur
+   **une seule clé** et le cas qui tourne payait pour le cas sauté ;
+3. ⭐ **et la famille junit par défaut n'écrit même pas `file=`** : mesuré sur **pytest 7.2.1 ET
+   9.1.1**, `xunit2` (défaut depuis pytest 6) omet `file=` et `line=`. Le chemin qui tournait
+   vraiment n'était donc pas `basename(file)` mais le repli qui prenait la **première** composante
+   « module » du `classname` et lui collait `.py`. ⚠️ **Le premier correctif de cette réserve a
+   corrigé la mauvaise moitié** : le mutant qui remettait la clé par basename dans le lecteur de
+   `file=` **a survécu à toute la campagne**, faute d'être atteignable.
+
+⭐ **Pourquoi rien ne l'avait vu, et c'est la leçon transportable** : les **cinq** arbres fabriqués
+de l'oracle étaient **TOUS PLATS**. *Un oracle dont toutes les fixtures ont un seul répertoire ne
+peut pas rougir sur une collision de chemin.* ⇒ **règle : quand une comptabilité est indexée par un
+chemin, au moins une fixture doit être NON PLATE.**
+
+⚠️ **Et la fixture non plate doit être ASYMÉTRIQUE** : la première version (2 cas + 1 cas) donnait,
+sous la clé par basename, **exactement les deux mêmes nombres** que la comptabilité honnête, et le
+mutant survivait encore. Rendue asymétrique (2 + 2, dont un cas que **seul** le sous-répertoire
+déclare), honnête = **3/4** et clé par basename = **2/4**. ⇒ **une fixture de collision doit être
+construite pour que les DEUX comptabilités divergent numériquement, pas seulement conceptuellement.**
+
+### ⭐ Trois autres choses que la 2ᵉ revue a mesurées et qui valent hors de ce ticket
+
+1. ⛔ **La moitié d'une ligne publiée n'était assertée nulle part.** L'oracle vérifiait les
+   dénominateurs et le numérateur `cases=`, **jamais** le numérateur `suites=`. Mutation : rendre
+   `ran_files += 1` inconditionnel ⇒ le lanceur publie **`suites=6/6 cases=23/42`** — ligne
+   **auto-contradictoire**, toutes les suites complètes et la moitié des cas manquants — et
+   **l'oracle reste VERT**. ⇒ **règle : tout champ d'une ligne machine publiée doit être asserté,
+   ou il ne veut rien dire ; et une ligne à plusieurs champs doit avoir un invariant de COHÉRENCE
+   entre eux.**
+2. ⛔ **`xfail` : les deux back-ends se contredisaient, et le silence était du mauvais côté.** Un
+   `@unittest.expectedFailure` ordinaire ⇒ back-end **pytest** : `cases=42/43`, **RC 77** (le junit
+   le classe `<skipped type="pytest.xfail">`) ; back-end **unittest** : `43/43`, **RC 0**
+   (`addExpectedFailure` le compte exécuté). ⭐ **Le back-end `unittest` a raison** : un `xfail` a
+   **tourné**, son corps a levé, c'est son issue attendue. ⇒ **un seul `xfail` légitime sous
+   `tests/python/` aurait figé `make check` en `SKIP` PERPÉTUEL sur toute machine ayant `pytest`.**
+   Seule exception, gardée : `xfail(run=False)`, que `pytest` préfixe `[NOTRUN]` — celui-là n'a
+   vraiment pas tourné.
+3. ⚠️ **Un « angle mort fermé » qu'aucun cas n'épingle n'est pas fermé.** La 1ʳᵉ rédaction
+   revendiquait la fermeture de l'angle mort `*_test.py` ; la mutation qui **retire ce motif** du
+   déclarateur **survivait dans les deux mondes**. ⇒ **règle : une revendication de clôture se
+   présente avec le mutant qu'elle tue, ou elle se retire.**
+
+### ⭐ Le fait qui remet le reste en perspective — `run_with_pytest` est du CODE MORT aujourd'hui
+
+**Mesuré** : **aucune** des deux images du projet n'a `pytest` (image de dev : `ModuleNotFoundError` ;
+CI `debian:12` + liste `apt` de `ci.yml` : **aucun `python3` du tout**). ⇒ tout le back-end `pytest`
+du lanceur — c'est-à-dire l'endroit où vivent les trois réserves ci-dessus — **ne s'exécute nulle
+part dans ce dépôt**. Il devient **le seul chemin** le jour où [`T3.47`](T3.47.md) installe les
+paquets.
+⇒ **C'est pourquoi ces réserves sont bloquantes pour `T3.47` et non pour le merge de `T3.44`** : elles
+sont la **dette d'entrée** de qui prendra `T3.47`, écrite en tête de sa fiche.
+⚠️ **Corollaire de méthode, général** : *un correctif dont le chemin principal n'est exécuté par
+aucune machine du dépôt n'est pas « vérifié parce que la suite est verte ».* Il n'est vérifié que par
+ce qui **fabrique** ce chemin — ici l'oracle et sa campagne de mutation.
