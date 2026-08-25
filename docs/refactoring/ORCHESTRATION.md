@@ -384,7 +384,7 @@
     conformes**. E4.1s et E4.1x doivent **exclure les commentaires** ou reconnaître cette ligne.
 
   - **Build de merge rejoué en distclean complet après MON rebase** (image `vsc-calaos_base-1202…`,
-    `make distclean && ./autogen.sh && ./configure && make -j12 && make check`, attendu par
+    `make distclean && ./autogen.sh && ./configure && make -j32 && make check -j16`, attendu par
     **`docker wait`**) : `CXX JsonApiHandlerHttp.o`, `CXX JsonApiHandlerWS.o`,
     **`CXXLD core/JsonApiEmissionBytes_test`**, `CXXLD calaos_server` — **76/76 PASS**,
     0 FAIL / 0 ERROR / 0 SKIP, code de sortie **0**.
@@ -484,7 +484,7 @@
     de travail — et **on ne modifie jamais un harnais en cours d'exécution**.
 
   - **Build de merge rejoué en distclean complet** (image `vsc-calaos_base-1202…`, `./autogen.sh &&
-    ./configure && make -j12 && make check` sur un `git archive` de la branche) :
+    ./configure && make -j32 && make check -j16` sur un `git archive` de la branche) :
     `MQTT support (libmosquittopp)........: yes`, `CXX IO/Mqtt/MqttCtrl.o`,
     `CXX IO/Mqtt/MqttExternProc_main.o`, **`CXXLD calaos_mqtt`**, `CXXLD calaos_server`,
     `CXXLD MqttWire_test` — **75/75**.
@@ -2478,7 +2478,7 @@ harnais lui-même est **stable et documenté**, et son contrat de cycle de vie e
   déplacée hors de la classe dans l'adaptateur transitoire `jansson_from_params()` de
   `src/lib/Jansson_Addition.h`, corps inchangé. Périmètre : 15 fichiers `src/` (dont
   `JsonApi.cpp`, 70 sites), `tests/ParamsJson_test.cpp` neuf (520 lignes) et **2 lignes d'appel**
-  dans 2 tests préexistants. Build docker complet (`autogen` + `configure` + `make -j12` +
+  dans 2 tests préexistants. Build docker complet (`autogen` + `configure` + `make -j32` +
   `make check`) : **70/70** (`TESTS` = **entrées**, pas lignes — 69 avant, +1 `ParamsJson_test`).
   **145 goldens intacts, hash d'arbre git identique** (`tests/core/golden` = `d4ebc61f` sur master
   comme sur la branche).
@@ -2618,7 +2618,7 @@ harnais lui-même est **stable et documenté**, et son contrat de cycle de vie e
   `/home/raoul/repos/calaos/.wave29/dependabot`, **rebasée sur ce commit de docs, donc
   ff-only depuis `master`** (le SHA de tête bouge à chaque rebase — se fier au nom de branche).
   Deux commits, un par sujet, `src/bin/calaos_mcp/pyproject.toml` **seul fichier touché**.
-  **`make check` VERT sur la branche** : `./autogen.sh && ./configure && make -j12 && make check`
+  **`make check` VERT sur la branche** : `./autogen.sh && ./configure && make -j32 && make check -j16`
   dans le conteneur de build, sortie 0, **69/69 PASS**, 0 FAIL / 0 ERROR / 0 SKIP.
   - **Verdicts.** `#167` minimatch, `#169` picomatch, `#170` lodash, `#171` follow-redirects,
     `#168` immutable → **FERMÉES sur GitHub**, chacune avec un commentaire qui pose l'argument.
@@ -3036,11 +3036,21 @@ Règles dures :
   ```
   docker run --rm -v <worktree>:/workspaces/calaos_base -w /workspaces/calaos_base \
     vsc-calaos_base-12022039c4b5f0e1b3db46145edacf81b99ac88513f5f47e81e91e6919b1be26:latest \
-    bash -c "./autogen.sh && ./configure && make -j12 && make check"
+    bash -c "./autogen.sh && ./configure && make -j32 && make check -j16"
   ```
+> ⚙️ **Parallélisme (corrigé le 2026-08-25).** La machine a **64 cœurs / 62 Go**. Le `-j12`
+> historique n'en utilisait qu'un cinquième, et surtout **`make check` tournait EN SÉRIE**
+> sur ~79 binaires — c'était la moitié du temps de chaque cycle. `serial-tests` n'est pas
+> activé (`configure.ac:10`), donc le harnais parallèle d'automake s'applique.
+> Utiliser désormais : **`make -j32 && make check -j16`**.
+> `-j16` et non `-j64` sur les tests : plusieurs binaires ouvrent des sockets et lancent des
+> boucles libuv, les entasser risque des collisions de ports plutôt qu'un gain.
+> ⚠️ Distinct de l'autre cause de lenteur : **plusieurs builds Docker concurrents**. Un seul
+> build à la fois par agent, attendu par `docker wait`.
+
 - ASan : depuis E4.3cd, plus de `CXXFLAGS` bricolés — utiliser l'option de configure.
   ```
-  ./autogen.sh && ./configure --enable-asan && make -j12 && \
+  ./autogen.sh && ./configure --enable-asan && make -j32 && \
     ASAN_OPTIONS=detect_leaks=0 make check
   ```
   `--enable-asan` ajoute `-fsanitize=address -fno-omit-frame-pointer -g -O1` à
