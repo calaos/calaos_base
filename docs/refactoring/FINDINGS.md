@@ -5289,18 +5289,21 @@ sortirait **0**, et le `PASS` silencieux reviendrait **une couche plus bas**.
 
 ### ⭐ Le balayage de TOUTES les entrées `TESTS` — la question que personne n'avait posée
 
-**89 entrées** sur `master` `701a98e4` (recomptées `python3` après rebase, continuations
-recollées, `if`/`else`/`endif` empilés, zéro doublon) : **3 scripts shell** + **85 binaires sous
+**94 entrées** sur `master` `180c4b87` (recomptées `python3` à la livraison, continuations
+recollées, `if`/`else`/`endif` empilés, zéro doublon) : **4 scripts shell** + **89 binaires sous
 `if HAVE_GTEST`** + ⭐ **1 binaire imbriqué `if HAVE_GTEST` → `if HAVE_LIBKNX`**
-(`KNXExternProcWire_test`). La branche en ajoute une, l'oracle : **90**.
+(`KNXExternProcWire_test`). La branche en ajoute une, l'oracle : **95**.
+⚠️ **Ces totaux montent à chaque merge de la série** (`89`/`90` sur `701a98e4`, `93`/`94` sur
+`55beb79b`, `94`/`95` sur `180c4b87`) : **les recompter, jamais les recopier.** Ce qui ne bouge pas :
+**une seule imbrication** dans tout l'arbre.
 
 | entrée `TESTS` | peut rendre `PASS` sans exécuter ? | mesure |
 |---|---|---|
 | `run-python-tests.sh` | ⛔ **OUI, totalement** — 3/6 fichiers, 19/42 cas, sortie 0, `PASS` | mesuré ; **corrigé par T3.44** |
 | `check-config-options.sh` | ✅ **NON** — chaque scan optionnel porte un `else fail "… scan rule X is dead"`, plus une garde d'anti-vacuité `nb_used == 0` (« *this test would pass whatever the code does* ») | lu + exécuté |
 | `check-config-docs.sh` | ✅ **NON** — binaire absent / document absent / générateur muet ⇒ `exit 1` | lu + exécuté |
-| **les 86 binaires, en bloc** | ⛔ **OUI, autrement** — tout le bloc est `if HAVE_GTEST` ; sans l'en-tête gtest les 86 **quittent `TESTS`**, le total tombe de 90 à **4**, le résumé affiche toujours `# FAIL: 0`. Seul `GTEST_INFO` au `configure` le dit | statique |
-| ⭐ `KNXExternProcWire_test` | ⛔ **OUI, d'une troisième façon** — imbriqué `if HAVE_GTEST` → `if HAVE_LIBKNX` ; sans `libknx` **l'entrée n'existe plus**, pas même en `SKIP` : rien ne l'imprime ET rien ne la compte | **mesuré** : `# TOTAL: 90` (image de dev) vs **89** (image CI) |
+| **les 90 binaires, en bloc** | ⛔ **OUI, autrement** — tout le bloc est `if HAVE_GTEST` ; sans l'en-tête gtest les 90 **quittent `TESTS`**, le total tombe de 95 à **5**, le résumé affiche toujours `# FAIL: 0`. Seul `GTEST_INFO` au `configure` le dit | statique |
+| ⭐ `KNXExternProcWire_test` | ⛔ **OUI, d'une troisième façon** — imbriqué `if HAVE_GTEST` → `if HAVE_LIBKNX` ; sans `libknx` **l'entrée n'existe plus**, pas même en `SKIP` : rien ne l'imprime ET rien ne la compte | **mesuré** : `# TOTAL: 95` (image de dev) vs **94** (image CI) |
 | `UrlDownloader_test` | ⚠️ **OUI, partiellement** — ⭐ **7** cas derrière `REQUIRE_CURL()` (le 8ᵉ match du balayage est la ligne `#define`, `UrlDownloader_test.cpp:64`) ; **sans `curl` dans le `PATH` : `ran=10, skipped=7, passed=3`, sortie 0, `PASS`** | **mesuré** (`PATH=/nocurl`) |
 | `core/CalaosConfigRobustness_test` | ⚠️ **OUI, partiellement** — `GTEST_SKIP` si `geteuid() == 0`, donc **dans tout conteneur root**, y compris chaque build de cette série | **mesuré : 1/12 sauté, `PASS`** |
 | `Utils_config_test`, `ConfigModel_test` | ⚠️ 1 cas chacun si la descente de privilèges échoue | mesuré : **0** sauté |
@@ -5315,13 +5318,16 @@ recollées, `if`/`else`/`endif` empilés, zéro doublon) : **3 scripts shell** +
 (`TimeRangeCalendar_test` **11**, `UrlDownloader_test` 7, `core/JsonApiCharacterization_test` 3,
 `ConfigModel_test` 1, `Utils_config_test` 1, `core/CalaosConfigRobustness_test` 1) ; **80 binaires
 propres**, **0 `DISABLED_`**.
-⚠️ **Trois chiffres de la première rédaction étaient faux** : « 87 `.cpp` » (c'est **89**),
-« `TimeRangeCalendar_test` : 2 cas » (c'est **11** : le 2ᵉ `GTEST_SKIP` est dans le helper
-`evalInStableWindow`, appelé par **10** `TEST_F`), et donc « 15 cas » (c'est **24**).
-⇒ ⭐ **le plafond de silence est 24 / 1533, pas 15 / 1527.**
-**Agrégat mesuré sur le `make check` de livraison (image de dev, conteneur root) : 86 binaires,
-⭐ 1533 cas exécutés / 1532 passés, 1 seul silencieusement sauté** (`core/CalaosConfigRobustness_test`,
-`geteuid() == 0`). ⚠️ **Nuance** : un `GTEST_SKIP` **imprime** `[  SKIPPED ]` et gtest le compte — il est *à
+⚠️ **Trois chiffres de la première rédaction étaient faux** : « 87 `.cpp` » (les **3 auxiliaires**
+étaient oubliés), « `TimeRangeCalendar_test` : 2 cas » (c'est **11** : le 2ᵉ `GTEST_SKIP` est dans
+le **helper de fixture** `evalInStableWindow`, appelé par **10** `TEST_F` — ⚠️ *compter les
+`GTEST_SKIP` n'est pas compter les cas qu'ils sautent*), et donc « 15 cas » (c'est **24**).
+**Agrégat mesuré sur le `make check` de livraison (image de dev, conteneur root, arbre rebasé sur
+`180c4b87`) : ⭐ 90 binaires, 1585 cas exécutés / 1584 passés, 1 seul silencieusement sauté**
+(`core/CalaosConfigRobustness_test`, `geteuid() == 0`) ⇒ ⭐ **plafond de silence 24 / 1585, et non
+15 / 1527**.
+⚠️ Le relevé de la 2ᵉ revue, fait sur `1c6ab7a9`, donnait **89 `.cpp` / 86 binaires / 1533-1532** :
+**mêmes corrections, autre arbre** — `master` a mergé `T3.25`, `T3.45` et `T3.48` entre-temps. ⚠️ **Nuance** : un `GTEST_SKIP` **imprime** `[  SKIPPED ]` et gtest le compte — il est *à
 moitié* visible. Le défaut de `run-python-tests.sh` était d'un cran pire : la suite entière
 manquait, comptée nulle part.
 
