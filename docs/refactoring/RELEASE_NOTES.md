@@ -145,6 +145,53 @@ de tableau **sans crochet fermant** (`weather/[5`, `weather/[12`) lisait un él�
 inchangé, pour ne casser aucune configuration existante — mais le journal le **dit** désormais, au
 lieu de laisser croire à une lecture normale.
 
+### Les messages de `path` dans le journal changent de préfixe (T3.37)
+⚠️ **À lire si vous filtrez le journal de `calaos_server`.** Les deux analyseurs de `path` — celui
+des entrées/sorties **MQTT** et celui des entrées/sorties **Web** — étaient **deux copies du même
+code**. Ils n'en font plus qu'une, ce qui veut dire que la correction du plantage ci-dessus n'aura
+plus à être écrite deux fois. **Conséquence visible** : tous les messages de `path` cités plus haut
+sortent désormais sous le préfixe **`(JsonPath.h)`**, et non plus `(MqttCtrl.cpp)` ou
+`(WebCtrl.cpp)` :
+
+```
+avant  [WRN] (MqttCtrl.cpp:151) Error in path weather/[/description, malformed array index [ : …
+avant  [WRN] (WebCtrl.cpp:221)  Error in path weather/[/description, malformed array index [ : …
+après  [WRN] (JsonPath.h:169)   Error in path weather/[/description, malformed array index [ : …
+```
+
+- **Si vous avez un filtre ou un `grep` sur `MqttCtrl.cpp` ou `WebCtrl.cpp`**, il cessera de voir
+  ces lignes-là. Les messages eux-mêmes sont **inchangés au caractère près**.
+- ⛔ **Le préfixe ne distingue plus MQTT de Web.** C'est le prix d'un seul exemplaire du code, et
+  c'est assumé : ce qui identifie la ligne reste le **chemin**, qui est écrit dedans et qui vient
+  de la configuration d'une entrée précise. L'ancien préfixe ne nommait de toute façon que le
+  *pilote*, jamais l'entrée.
+- Les messages qui **ne** viennent pas de l'analyseur de chemin — ouverture du fichier Web, payload
+  MQTT illisible — gardent leur préfixe d'origine.
+
+→ **Rien à faire de votre côté**, sauf à mettre à jour un filtre de journal si vous en avez un.
+
+### Un `path` qui ne contient que des barres obliques est maintenant signalé (T3.37)
+Petit changement, **de journal uniquement**. Un `path` fait uniquement de séparateurs — `/`, `///`,
+ou vide côté **Web** — ne désigne aucune clé : il n'y a rien à aller chercher. Une entrée/sortie
+**MQTT** rendait dans ce cas une valeur vide **sans rien écrire du tout** dans le journal, et une
+entrée/sortie **Web** écrivait `Error emtpy path not allowed`, qui ne disait ni ce qui n'allait pas
+ni **quel** paramètre était en cause — impossible à rattacher à une entrée quand plusieurs
+interrogent en même temps. Les deux disent désormais la même chose, et nomment le chemin :
+
+```
+[WRN] (JsonPath.h) Error in path ///, no path segment to resolve : a path must name at
+      least one key or index, as in weather/[0]/description
+```
+
+⛔ **Aucune valeur ne change.** Les entrées/sorties MQTT et Web rendent exactement ce qu'elles
+rendaient avant, dans tous les cas ; seul le message du journal est ajouté ou reformulé.
+
+⚠️ **Côté MQTT, un `path` VIDE reste un cas à part et n'est pas concerné** : il veut dire « la
+charge utile est la valeur » — c'est ainsi qu'on lit un appareil qui publie un nombre nu au lieu
+d'un document JSON — et il continue de rendre la charge brute, sans message.
+
+→ **Rien à faire de votre côté.**
+
 ---
 
 ## 🔴 MQTT et Web : la syntaxe d'index de tableau affichée par `calaos_installer` était fausse

@@ -4628,3 +4628,86 @@ Recompté en revue, et c'est le point qui fait diverger les balayages. `Timer::s
 ⇒ **Filtrer un balayage sur « la classe dérive-t-elle de `sigc::trackable` ? » sous-compte** : la
 question qui décide est **« la cible est-elle un `mem_fun`, ou une lambda ? »**. Détail consigné ici
 parce qu'il change la liste de [`T3.40`](T3.40.md), pas seulement son cardinal.
+
+---
+
+## T3.37 — l'extraction du parseur de chemin JSON (2026-08-25)
+
+### ⭐ [F-WEB-1] `WebCtrl::getValue()` ne rapporte rien, et **trois** de ses **quatre** appelants traitent un échec comme une lecture
+
+La §6.8 de [`T3.35`](T3.35.md) laissait la divergence ouverte avec cette justification :
+*« `WebCtrl::getValue()` rend une chaîne et aucun de ses trois appelants n'en demande ; lui en
+ajouter un serait de l'API morte »*. **C'est un constat, pas une justification** — et le compte
+était de trois, il est de **quatre**.
+
+| Site | Ce qu'il fait d'un échec silencieux (`""`) | Verdict |
+|---|---|---|
+| `IO/Web/WebOutputString.cpp:41` | `value = getValue(path); emitChange();` | ⚠️ **publie la valeur vide**, écrasant la précédente |
+| `IO/Web/WebInputString.cpp:42` | `if (v != value) { value = v; emitChange(); }` | ⚠️ **idem**, une fois (déjà noté en T3.35 §6.8) |
+| `IO/Web/WebOutputAnalog.cpp:41` | `if (Utils::is_of_type<double>(v)) Utils::from_string(v, value);` | ✅ **inerte** — `is_of_type<double>("")` rend **`true`** (flux vide ⇒ `eof()`), mais `from_string("", value)` **n'écrit rien** ⇒ valeur précédente conservée, pas d'émission |
+| `IO/Web/WebDocBase.h:113` → `WebCtrl::getValueDouble()` | `double val = 0; … return val;` puis `convertValue()` + `emitChange()` | ⚠️⚠️ **publie `0`** — une température de 0 °C ou un analogique nul que **rien** ne distingue d'une vraie lecture, et sur lequel les règles de l'utilisateur agissent |
+
+⭐ **La forme n'est PAS celle du §6.1 de T3.35, et c'est mesuré** : là-bas, `err = false` posé
+inconditionnellement alimentait un `double rawValue;` **non initialisé** (≈ −5,3·10³⁰⁷ % de
+batterie). Ici il n'existe **aucune locale lisible non initialisée** — `getValueDouble()` déclare
+`double val = 0;`, `WebOutputAnalog` écrit dans un membre — ce que le tableau du §6.3 de T3.35
+disait déjà de ce fichier. Même **famille** (un échec publié comme une lecture), **gravité
+moindre** : valeur plausible et déterministe.
+
+⇒ **T3.37 tranche : le drapeau est produit par le parseur unifié pour TOUT LE MONDE** (il n'existe
+plus de variante sans drapeau), **et il s'arrête à `WebCtrl::getValueJson(path, filename, bool &err)`**,
+épinglé par test. Il n'est **pas** câblé jusqu'aux quatre sites, et la raison n'est pas
+« personne n'en demande » :
+
+- ⛔ **un drapeau honnête sur une branche sur trois serait le défaut du §6.1, pas sa correction.**
+  `getValue()` sert **JSON, XML et TEXT**. `getValueXml()` a **quatre** retours d'échec explicites,
+  `getValueText()` en a **deux** explicites **plus** des échecs silencieux non instruits
+  (`Utils::from_string(tokens[0], line_nb)` dont le retour n'est pas regardé — **famille T3.25** —
+  et un `item_nb` hors plage qui rend `""`). Un `err` qui vaut « échec » pour JSON et « rien » pour
+  les deux autres est un drapeau qui ment, exactement comme celui que T3.35b a dû défaire.
+- ⛔ **aucun des quatre sites n'est atteignable par un test** de `JsonPathSyntax_test`
+  (`WebCtrl::Instance()` est un singleton indexé sur l'URL, les IO passent par `IOFactory`).
+
+**Suite à donner, nommée** : rendre `WebCtrl::getValue()` honnête sur ses **trois** branches et
+sauter la mise à jour chez les **quatre** appelants, avec la caractérisation qui va avec. C'est un
+**changement de comportement** (une valeur vide ou nulle cesse d'être publiée) et il lui faudra sa
+note de version — T3.37 n'en produit aucun et n'en écrit donc pas.
+
+### ⭐ [F-BUILD-1] Sur une RECONFIGURATION, `make check` peut imprimer **deux** `Testsuite summary`, et **le premier peut être un FAUX VERT**
+
+Mesuré sur le commit de caractérisation de T3.37 (`ec1abcb0`), recette
+`./autogen.sh && ./configure && make -j12 && make check -j6` dans le conteneur :
+
+```
+... Testsuite summary ...  # TOTAL: 87  # PASS: 87  # FAIL: 0     <- PREMIER bloc
+... Testsuite summary ...  # TOTAL: 87  # PASS: 86  # FAIL: 1     <- SECOND bloc
+```
+
+alors que `tests/JsonPathSyntax_test.log` porte bien **2 `FAILED`** et que le binaire, exécuté
+directement, sort en **1**. Sur un arbre **déjà configuré**, un seul bloc est imprimé (vérifié deux
+fois). La cause probable est le **redémarrage de `make`** après régénération des `Makefile` par
+`config.status` : GNU make ré-exécute le but et la sortie des deux tentatives se retrouve dans le
+même flux, dans un ordre que `-j` mélange.
+
+⚠️ **Ce que cela ajoute aux variantes déjà consignées** : ce n'est ni un défaut de relink
+(`_DEPENDENCIES`), ni une mutation non appliquée (`F-HARN-1`), ni une mort du binaire — le build
+est sain et le verdict final est juste. C'est un **piège de LECTURE** : `grep -m1 'Testsuite
+summary' -A6` sur une reconfiguration peut rendre un vert parfait sur un arbre rouge.
+
+⇒ **Remède** : ne juger que sur **le code de sortie** de `make check` (juste dans les deux cas ici),
+ou sur le **DERNIER** bloc, jamais sur le premier trouvé. Mieux : exécuter le binaire de test
+**directement** et relever son code de sortie — c'est le protocole que la campagne T3.37 utilise à
+chaque tour.
+
+### ⚠️ Précision versée à **M-3** : l'extraction de T3.37 **n'ouvre PAS** les lambdas de `subscribeStatusTopics()`
+
+La §6.8 de T3.35 donnait deux sorties possibles à l'intestabilité des trois
+`if (!readStatusNumber(v, rawValue)) return;` : une **couture de dispatch**, ou *« l'extraction de
+`resolveJsonPath()` de T3.37 »*. **La seconde est fausse, et T3.37 le constate en la livrant** :
+extraire le parseur donne un point d'entrée testable **au parseur**, pas aux lambdas. Celles-ci
+restent enregistrées dans `subscribeCb`, qui est **privé**, et que seul le lambda
+`process->messageReceived` du **constructeur** parcourt. Il reste donc **une seule** sortie : la
+couture de dispatch.
+
+⇒ Motif **M-1/M-3** encore une fois — *une sortie plausible qui ne mène nulle part* —, consigné ici
+pour que la fiche T3.35 ne soit pas lue comme si T3.37 l'avait refermée.
