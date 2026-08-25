@@ -191,7 +191,13 @@ TEST(JanssonResidues, JanssonProvidesArrayForeachNativelyAtTheConfiguredFloor)
            "#ifndef compat copy was deleted by E4.1c on the premise that this "
            "can never happen (configure.ac:51 pins jansson >= 2.5).";
 
-#if defined(JANSSON_VERSION_HEX)
+//REVIEW E4.1c/R3: the guard below must name BOTH symbols. Guarding only on
+//JANSSON_VERSION_HEX left the json_array_foreach() call sites of this body
+//outside any macro guard, so a jansson that shipped the header WITHOUT the
+//macro did not turn this case red -- it failed to COMPILE, and the ASSERT_TRUE
+//message above could never be printed. Constructible: the review built it with
+//a screening header plus #include_next, without touching the image.
+#if defined(JANSSON_VERSION_HEX) && defined(json_array_foreach)
     //2.5 is where jansson added json_array_foreach, and configure.ac:51 asks
     //for exactly that floor. 0x020500 == 2.5.0.
     EXPECT_GE(JANSSON_VERSION_HEX, 0x020500)
