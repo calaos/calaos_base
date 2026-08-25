@@ -2880,3 +2880,28 @@ core_EventWireBytes_test_LDADD = \
 #Built elsewhere, do not let automake turn them into prerequisites
 core_EventWireBytes_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.46
+#The WRITE half of the Wago REPLY path: SingleBit_cb and SingleWord_cb
+#(WagoMap.h), the two slots that carry a write acknowledgement back from
+#calaos_wago. SingleWord_cb carried two bare Utils::UWord in a row - address
+#and value, interchangeable with no diagnostic, the pair F-WAGO-7 names,
+#arriving instead of leaving. T3.31 typed the OUTBOUND half and left this one,
+#named in T3.46.md section 6.
+#These cases are a COMPILATION property reported through an executable oracle
+#(std::is_invocable_v read by EXPECT_FALSE), NOT a behavioural oracle, and the
+#file says so at length: not one of the four implementations of these two
+#slots is reachable from a test binary. The closure of the implementations
+#themselves is established by mutation, in T3.46.md section 7.
+#It includes WagoMap.h and NOTHING else from the server, so no server object
+#is linked and none may be - that keeps it clear of the _DEPENDENCIES pitfall.
+#-I.../IO/Wago and -I.../IO are already in AM_CPPFLAGS.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += WagoWriteReply_test
+check_PROGRAMS += WagoWriteReply_test
+WagoWriteReply_test_SOURCES = WagoWriteReply_test.cpp
+WagoWriteReply_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
