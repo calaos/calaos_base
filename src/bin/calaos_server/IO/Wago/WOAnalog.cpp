@@ -66,7 +66,7 @@ WOAnalog::~WOAnalog()
 {
 }
 
-void WOAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
+void WOAnalog::WagoReadCallback(bool status, WagoTypes::Address addr, WagoTypes::Count count, vector<UWord> &values)
 {
     if (!status)
     {

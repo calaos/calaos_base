@@ -35,8 +35,31 @@ class UDPHandle;
 namespace Calaos
 {
 
-typedef sigc::slot<void, bool, UWord, int, vector<bool> &> MultiBits_cb;
-typedef sigc::slot<void, bool, UWord, int, vector<UWord> &> MultiWords_cb;
+/* T3.50 - the READ half of the reply path, typed per role.
+ *
+ * These two slots carry a read reply back from calaos_wago. They used to be
+ * sigc::slot<void, bool, UWord, int, ...>: an address and a count side by
+ * side, two types that convert into one another in BOTH directions with no
+ * diagnostic at all. E4.1h measured the outbound twin of that pair GREEN on
+ * a swap - 31/31, not one warning.
+ *
+ * ⚠️ Measured while typing them (T3.50.md section 7.2), and it corrects what
+ * the fiche said: NOT ONE of the six implementations reads its `address` or
+ * its `count` - they use `status` and `values` only, and the reply vector is
+ * built from the JSON "values" array, never from `count`. So a permutation
+ * here is today a SEMANTIC NO-OP, and what these types close is a CONTRACT
+ * for the next implementation and the next emission site, not a live wrong
+ * answer. Both values ARE live at the four emission sites, decoded from the
+ * reply at WagoMap.cpp - that much of the fiche holds.
+ *
+ * The payloads are taken BY VALUE. The trailing vector is a non-const lvalue
+ * reference and always was: sigc++ accepts it because processNewMessage()
+ * hands over a NAMED LOCAL. The address and the count are passed as prvalues
+ * once wrapped, so a `T &` on either of them does not build - measured,
+ * mutation MXD-R. F-TYPE-5 cannot be re-armed silently on those two.
+ */
+typedef sigc::slot<void, bool, WagoTypes::Address, WagoTypes::Count, vector<bool> &> MultiBits_cb;
+typedef sigc::slot<void, bool, WagoTypes::Address, WagoTypes::Count, vector<UWord> &> MultiWords_cb;
 
 /* T3.46 - the WRITE half of the reply path, typed per role.
  *
@@ -49,9 +72,8 @@ typedef sigc::slot<void, bool, UWord, int, vector<UWord> &> MultiWords_cb;
  * in one signature: address/value across two mutually convertible widths, and
  * status/value which were both plain bool at positions 1 and 3.
  *
- * ⚠️ The two MULTI slots above are the READ half and are still bare - their
- * (UWord address, int count) is the pair E4.1h measured. Not typed here, and
- * that is a scope decision: see docs/refactoring/T3.46.md section 7.
+ * The two MULTI slots above are the READ half; T3.46 left them bare on scope
+ * and T3.50 typed them, as T3.46.md section 7.6.1 required.
  */
 typedef sigc::slot<void, bool, WagoTypes::Address, WagoTypes::BitValue> SingleBit_cb;
 typedef sigc::slot<void, bool, WagoTypes::Address, WagoTypes::WordValue> SingleWord_cb;
@@ -170,7 +192,7 @@ protected:
     void WagoHeartBeatTick();
     void WagoModbusHeartBeatTick();
 
-    void WagoModbusReadHeartbeatCallback(bool status, UWord address, int count, vector<bool> &values);
+    void WagoModbusReadHeartbeatCallback(bool status, WagoTypes::Address address, WagoTypes::Count count, vector<bool> &values);
 
 public:
     ~WagoMap();

@@ -106,18 +106,27 @@
  *     for the CORRECT order too, and the probes would pass for the wrong
  *     reason (F-TYPE-5).
  *
- *     STILL OPEN, the READ half - two slots and seven implementations:
- *       MultiBits_cb / MultiWords_cb  (bool, UWord address, int count, ...)
+ *     CLOSED by T3.50, the READ half - two slots, six implementations, four
+ *     emission sites:
+ *       MultiBits_cb   (bool, WagoTypes::Address, WagoTypes::Count, ...)
+ *       MultiWords_cb  (bool, WagoTypes::Address, WagoTypes::Count, ...)
  *       WagoMap::WagoModbusReadHeartbeatCallback  (WagoMap.cpp)
  *       WIAnalog::WagoReadCallback                (WIAnalog.cpp)
  *       WITemp::WagoReadCallback                  (WITemp.cpp)
  *       WOAnalog::WagoReadCallback                (WOAnalog.cpp)
  *       WODigital::WagoReadCallback               (WODigital.cpp)
  *       WIDigitalBase::WagoReadCallback           (WagoIOBase.h)
- *       plus four invocation sites in WagoMap::processNewMessage.
- *     Their (UWord address, int count) is the pair E4.1h measured GREEN on a
- *     swap. It is the MORE dangerous half - see below - and it is left for
- *     the read ticket, on scope, not on difficulty.
+ *       WagoMap::processNewMessage, the four multiBits_cb/multiWords_cb calls
+ *     Their (UWord address, int count) was the pair E4.1h measured GREEN on a
+ *     swap.
+ *     ⚠️ AND ONE THING T3.50 MEASURED THAT CONTRADICTS THE PARAGRAPH BELOW:
+ *     none of those six implementations ever READS its address or its count -
+ *     they use `status` and `values` only, and the reply vector is built from
+ *     the JSON "values" array, not from `count`. Both values are live at the
+ *     four emission sites, but since every receiver ignores them a
+ *     permutation was a SEMANTIC NO-OP. The read half was therefore NOT the
+ *     more dangerous one in practice; the typing closes a CONTRACT on both
+ *     halves. Said here because the sentence below said the opposite.
  *
  *     Measured, and it is why T3.31 said the reads should go first - the two
  *     halves are NOT equally dangerous:

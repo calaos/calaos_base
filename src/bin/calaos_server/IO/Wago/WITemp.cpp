@@ -65,7 +65,7 @@ WITemp::~WITemp()
 {
 }
 
-void WITemp::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
+void WITemp::WagoReadCallback(bool status, WagoTypes::Address addr, WagoTypes::Count count, vector<UWord> &values)
 {
     if (!status)
     {

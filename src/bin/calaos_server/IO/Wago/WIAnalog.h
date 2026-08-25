@@ -39,7 +39,7 @@ protected:
 
     virtual void readValue();
 
-    void WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values);
+    void WagoReadCallback(bool status, WagoTypes::Address address, WagoTypes::Count count, vector<UWord> &values);
 
 public:
     WIAnalog(Params &p);

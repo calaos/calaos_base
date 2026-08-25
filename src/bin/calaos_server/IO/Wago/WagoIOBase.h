@@ -101,7 +101,7 @@ protected:
         }
     }
 
-    void WagoReadCallback(bool status, UWord addr, int count, std::vector<bool> &values)
+    void WagoReadCallback(bool status, WagoTypes::Address addr, WagoTypes::Count count, std::vector<bool> &values)
     {
         if (!status)
         {

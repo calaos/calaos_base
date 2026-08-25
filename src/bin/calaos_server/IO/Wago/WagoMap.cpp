@@ -169,7 +169,7 @@ void WagoMap::WagoModbusHeartBeatTick()
               sigc::mem_fun(*this, &WagoMap::WagoModbusReadHeartbeatCallback));
 }
 
-void WagoMap::WagoModbusReadHeartbeatCallback(bool status, UWord address, int count, vector<bool> &values)
+void WagoMap::WagoModbusReadHeartbeatCallback(bool status, WagoTypes::Address address, WagoTypes::Count count, vector<bool> &values)
 {
     if (!status)
         cErrorDom("wago") << "failed to read !";
@@ -211,7 +211,8 @@ void WagoMap::processNewMessage(const string &msg)
             values_bits.push_back(v == "true");
 
         if (cmd.mapSignals)
-            cmd.mapSignals->multiBits_cb(status, address, count, values_bits);
+            cmd.mapSignals->multiBits_cb(status, WagoTypes::Address(address),
+                                          WagoTypes::Count(count), values_bits);
     }
     else if (cmd.command == MBUS_WRITE_BIT)
     {
@@ -222,7 +223,8 @@ void WagoMap::processNewMessage(const string &msg)
     else if (cmd.command == MBUS_WRITE_BITS)
     {
         if (cmd.mapSignals)
-            cmd.mapSignals->multiBits_cb(status, address, count, values_bits);
+            cmd.mapSignals->multiBits_cb(status, WagoTypes::Address(address),
+                                          WagoTypes::Count(count), values_bits);
     }
     else if (cmd.command == MBUS_READ_WORDS ||
              cmd.command == MBUS_READ_OUTWORDS)
@@ -235,7 +237,8 @@ void WagoMap::processNewMessage(const string &msg)
         }
 
         if (cmd.mapSignals)
-            cmd.mapSignals->multiWords_cb(status, address, count, values_words);
+            cmd.mapSignals->multiWords_cb(status, WagoTypes::Address(address),
+                                          WagoTypes::Count(count), values_words);
     }
     else if (cmd.command == MBUS_WRITE_WORD)
     {
@@ -246,7 +249,8 @@ void WagoMap::processNewMessage(const string &msg)
     else if (cmd.command == MBUS_WRITE_WORDS)
     {
         if (cmd.mapSignals)
-            cmd.mapSignals->multiWords_cb(status, address, count, values_words);
+            cmd.mapSignals->multiWords_cb(status, WagoTypes::Address(address),
+                                          WagoTypes::Count(count), values_words);
     }
 
     cmd.deleteSignals();

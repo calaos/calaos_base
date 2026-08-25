@@ -78,7 +78,7 @@ WODigital::~WODigital()
 {
 }
 
-void WODigital::WagoReadCallback(bool status, UWord addr, int count, vector<bool> &values)
+void WODigital::WagoReadCallback(bool status, WagoTypes::Address addr, WagoTypes::Count count, vector<bool> &values)
 {
     if (!status)
     {

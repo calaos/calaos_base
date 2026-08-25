@@ -37,7 +37,7 @@ private:
 
     bool start;
 
-    void WagoReadCallback(bool status, UWord address, int count, vector<bool> &values);
+    void WagoReadCallback(bool status, WagoTypes::Address address, WagoTypes::Count count, vector<bool> &values);
     /* T3.46 - by value, see WOAnalog.h. ⚠️ Both parameters below are unused:
      * permuting them is semantically a NO-OP, so no behavioural test could
      * ever separate the two programs. Typing them closes a CONTRACT. */
