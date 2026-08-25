@@ -18,12 +18,10 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <jansson.h>
-
 #include "HueOutputLightRGB.h"
+#include "HueWire.h"
 #include "IOFactory.h"
 #include "UrlDownloader.h"
-#include "Jansson_Addition.h"
 
 using namespace Calaos;
 
@@ -55,46 +53,36 @@ HueOutputLightRGB::HueOutputLightRGB(Params &p):
         {
             if (status)
             {
-                json_error_t error;
-                json_t *root = json_loads((const char*)downloadedData.c_str(), 0, &error);
-                if (!root)
+                //E4.1d: the whole reader lives in HueWire.h so that
+                //tests/HueWire_test.cpp can call the SHIPPED code. Its integer
+                //and boolean reads reproduce the jansson defaults by hand: the
+                //"obvious" j.value("sat", 0) THROWS on a string or a null, and
+                //a throw here is a throw in a download callback with no
+                //try/catch on the path.
+                HueWire::LightState st;
+                const HueWire::Decode decoded = HueWire::decodeLightState(downloadedData, st);
+
+                if (decoded == HueWire::Decode::Malformed)
                 {
-                    cErrorDom("hue") << "Json received malformed : " << error.source
-                                     << " " << error.text << " (" << Utils::to_string(error.line) << " )";
+                    //jansson gave an error.source/text/line here; nlohmann's
+                    //non-throwing parse has no message to give, so the answer
+                    //itself is logged instead - the same thing the two
+                    //"Protocol changed ?" lines below already log.
+                    cErrorDom("hue") << "Json received malformed : " << downloadedData;
                     return;
                 }
-                if (!json_is_object(root))
+                if (decoded != HueWire::Decode::Ok)
                 {
+                    //NotAnObject and NoState logged the same line before and
+                    //still do
                     cErrorDom("hue") << "Protocol changed ? date received : " << downloadedData;
                     return;
                 }
 
-                json_t *tstate = json_object_get(root, "state");
-                if (!tstate || !json_is_object(tstate))
-                {
-                    cErrorDom("hue") << "Protocol changed ? date received : " << downloadedData;
-                    return;
-                }
+                cDebugDom("hue") << "State: " << st.on << " Hue : " << st.hue << " Bri: " << st.bri << " Hue : " << st.hue << "Data : " << downloadedData;
 
-                int sat, bri, hue;
-                bool on, reachable;
-
-                sat = json_integer_value(json_object_get(tstate, "sat"));
-                bri = json_integer_value(json_object_get(tstate, "bri"));
-                hue = json_integer_value(json_object_get(tstate, "hue"));
-                on = jansson_bool_get(tstate, "on");
-                reachable = jansson_bool_get(tstate, "reachable");
-
-                cDebugDom("hue") << "State: " << on << " Hue : " << hue << " Bri: " << bri << " Hue : " << hue << "Data : " << downloadedData;
-
-                if (reachable)
-                    updateHueState(ColorValue::fromHsl((int)(hue * 360.0 / 65535.0),
-                                                       (int)(sat * 100.0 / 255.0),
-                                                       (int)(bri * 100.0 / 255.0)), on);
-                else
-                    updateHueState(ColorValue(), reachable);
-
-                json_decref(root);
+                const HueWire::StateUpdate update = HueWire::toStateUpdate(st);
+                updateHueState(update.color, update.on);
             }
             else
             {

@@ -57,19 +57,22 @@
  * two seconds. That is the same family of defect as the KNX one, reached from
  * a THIRD PARTY device instead of a bus.
  *
- * THE SEAMS are the two free functions of the anonymous namespace below. In
- * this commit they carry the jansson body of HueOutputLightRGB.cpp VERBATIM
- * (this is the characterization commit: zero src/). The migration commit
- * rewires them onto the SHIPPED header IO/Hue/HueWire.h, so that a mutation of
- * the PRODUCTION decoder turns this suite red. Every assertion that moves in
- * that commit is flagged MOVED BY E4.1d, in place - and the count is expected
- * to be ZERO, because nothing observable is supposed to change here.
+ * THE SEAMS are the two free functions of the anonymous namespace below. They
+ * carried the jansson body of HueOutputLightRGB.cpp VERBATIM in the
+ * characterization commit; since the migration commit they FORWARD to the
+ * SHIPPED header IO/Hue/HueWire.h - the very header HueOutputLightRGB.cpp
+ * itself includes - so that a mutation of the PRODUCTION decoder turns this
+ * suite red.
+ * ⭐ NOT ONE ASSERTION OF THIS FILE MOVED with that rewiring, and that is the
+ * result: nothing observable changes here. The only MOVED BY E4.1d marks below
+ * are on the three type aliases and on the tripwire, which swapped the jansson
+ * column of its table for the nlohmann one.
  *
  * ⚠️ WHAT THIS FILE STILL DOES NOT COVER, measured and consigned rather than
  * hidden: the polling lambda itself - the URL it builds, the three cErrorDom
- * lines, and the call to updateHueState(). toStateUpdate() exists precisely to
- * pull the reachable/on branch OUT of that lambda and under test; what is left
- * at the call site is two statements with no branch.
+ * lines, and the call to updateHueState(). HueWire::toStateUpdate() exists
+ * precisely to pull the reachable/on branch OUT of that lambda and under test;
+ * what is left at the call site is two statements with no branch.
  *
  * A DELIBERATELY RICH FIXTURE. sat, bri and hue carry THREE DIFFERENT values
  * whose THREE SCALED RESULTS are also different (200 -> 78%, 100 -> 39%,
@@ -84,12 +87,13 @@
 #include <string>
 #include <cstdio>
 
-#include <jansson.h>
-
 #include "Utils.h"
 #include "Params.h"
 #include "ColorUtils.h"
-#include "Jansson_Addition.h"
+
+/* THE PRODUCTION HEADER. Not a copy of it: the very text
+ * HueOutputLightRGB.cpp includes and the server ships. */
+#include "HueWire.h"
 
 using std::string;
 
@@ -113,98 +117,43 @@ namespace
  * All four end the same way for the user: the poll returns and NO state
  * update is emitted at all - not even an "unreachable" one.
  *
- * MOVED BY E4.1d: this local enum becomes an alias of the SHIPPED
- * HueWire::Decode in the migration commit. The enumerator names do not change,
- * so no assertion below moves with it.
+ * MOVED BY E4.1d: Decode, LightState and StateUpdate were local declarations
+ * carrying the jansson outcomes; they are now aliases of the SHIPPED ones. No
+ * name changed, so no assertion below moved with them.
  *-------------------------------------------------------------------------*/
-enum class Decode
-{
-    Ok,
-    Malformed,
-    NotAnObject,
-    NoState,
-};
-
-//The five fields the driver reads, and nothing else.
-struct LightState
-{
-    int sat = 0;
-    int bri = 0;
-    int hue = 0;
-    bool on = false;
-    bool reachable = false;
-};
-
-//What the driver hands to updateHueState(): a colour and a state.
-struct StateUpdate
-{
-    ColorValue color;
-    bool on = false;
-};
+using Decode = HueWire::Decode;
+using LightState = HueWire::LightState;
+using StateUpdate = HueWire::StateUpdate;
 
 /*---------------------------------------------------------------------------
  * THE SEAM - decode.
  *
- * Verbatim body of the HueOutputLightRGB polling lambda
- * (HueOutputLightRGB.cpp:58-86). MOVED BY E4.1d onto
- * HueWire::decodeLightState().
+ * Was the jansson body of the HueOutputLightRGB polling lambda copied
+ * verbatim; since E4.1d it forwards to the SHIPPED decoder, so a mutation of
+ * HueWire::decodeLightState() turns this suite red.
+ * RENAMED BY E4.1d (decodeLightState -> decodeWire): LightState is now the
+ * shipped type, so an unqualified call to the old name found BOTH this seam
+ * and HueWire::decodeLightState() by ADL and did not compile. Same reason for
+ * stateUpdateOf() below.
  *-------------------------------------------------------------------------*/
-Decode decodeLightState(const string &data, LightState &st)
+Decode decodeWire(const string &data, LightState &st)
 {
-    json_error_t error;
-    json_t *root = json_loads(data.c_str(), 0, &error);
-    if (!root)
-        return Decode::Malformed;
-
-    if (!json_is_object(root))
-    {
-        json_decref(root);
-        return Decode::NotAnObject;
-    }
-
-    json_t *tstate = json_object_get(root, "state");
-    if (!tstate || !json_is_object(tstate))
-    {
-        json_decref(root);
-        return Decode::NoState;
-    }
-
-    st.sat = json_integer_value(json_object_get(tstate, "sat"));
-    st.bri = json_integer_value(json_object_get(tstate, "bri"));
-    st.hue = json_integer_value(json_object_get(tstate, "hue"));
-    st.on = jansson_bool_get(tstate, "on");
-    st.reachable = jansson_bool_get(tstate, "reachable");
-
-    json_decref(root);
-    return Decode::Ok;
+    return HueWire::decodeLightState(data, st);
 }
 
 /*---------------------------------------------------------------------------
  * THE SEAM - the state update.
  *
- * Verbatim body of HueOutputLightRGB.cpp:90-95, branch included. The three
- * scalings are the shipped ones: hue is 0..65535 over 360 degrees, sat and bri
- * are 0..255 over 100 percent. MOVED BY E4.1d onto HueWire::toStateUpdate(),
- * which takes a NAMED STRUCT so that its three integers cannot be permuted at
- * the call site.
+ * Was the reachable/on branch of the polling lambda copied verbatim; since
+ * E4.1d it forwards to the SHIPPED HueWire::toStateUpdate(). The three
+ * scalings sit on TWO axes: hue is 0..65535 over 360 degrees, sat and bri are
+ * 0..255 over 100 percent. HueWire::toStateUpdate() takes a NAMED STRUCT so
+ * that its three integers cannot be permuted at the call site - a test can
+ * only ever catch the permutation INSIDE the function.
  *-------------------------------------------------------------------------*/
-StateUpdate toStateUpdate(const LightState &st)
+StateUpdate stateUpdateOf(const LightState &st)
 {
-    StateUpdate u;
-
-    if (!st.reachable)
-    {
-        //updateHueState(ColorValue(), reachable) - and reachable is false here
-        u.color = ColorValue();
-        u.on = false;
-        return u;
-    }
-
-    u.color = ColorValue::fromHsl(static_cast<int>(st.hue * 360.0 / 65535.0),
-                                  static_cast<int>(st.sat * 100.0 / 255.0),
-                                  static_cast<int>(st.bri * 100.0 / 255.0));
-    u.on = st.on;
-    return u;
+    return HueWire::toStateUpdate(st);
 }
 
 /*---------------------------------------------------------------------------
@@ -281,7 +230,7 @@ string answerWith(const string &sat, const string &bri, const string &hue,
 TEST(HueWire, DecodesAWellFormedBridgeAnswer)
 {
     LightState st;
-    ASSERT_EQ(Decode::Ok, decodeLightState(HUE_LIGHT_ANSWER, st));
+    ASSERT_EQ(Decode::Ok, decodeWire(HUE_LIGHT_ANSWER, st));
 
     EXPECT_EQ(FX_SAT, st.sat);
     EXPECT_EQ(FX_BRI, st.bri);
@@ -298,10 +247,10 @@ TEST(HueWire, DecodesAWellFormedBridgeAnswer)
 TEST(HueWire, SwappingSatAndBriInTheAnswerIsVisible)
 {
     LightState straight;
-    ASSERT_EQ(Decode::Ok, decodeLightState(answerWith("200", "100", "30000",
+    ASSERT_EQ(Decode::Ok, decodeWire(answerWith("200", "100", "30000",
                                                       "true", "true"), straight));
     LightState swapped;
-    ASSERT_EQ(Decode::Ok, decodeLightState(answerWith("100", "200", "30000",
+    ASSERT_EQ(Decode::Ok, decodeWire(answerWith("100", "200", "30000",
                                                       "true", "true"), swapped));
 
     //the two raw fields really did move
@@ -312,8 +261,8 @@ TEST(HueWire, SwappingSatAndBriInTheAnswerIsVisible)
     EXPECT_NE(straight.sat, straight.bri);
 
     //and the colour that comes out of them is not the same colour
-    const StateUpdate a = toStateUpdate(straight);
-    const StateUpdate b = toStateUpdate(swapped);
+    const StateUpdate a = stateUpdateOf(straight);
+    const StateUpdate b = stateUpdateOf(swapped);
     EXPECT_EQ(FX_SAT_PCT, a.color.getHSLSaturation());
     EXPECT_EQ(FX_BRI_PCT, a.color.getHSLLightness());
     EXPECT_EQ(FX_BRI_PCT, b.color.getHSLSaturation());
@@ -327,10 +276,10 @@ TEST(HueWire, SwappingSatAndBriInTheAnswerIsVisible)
 TEST(HueWire, TheThreeScalingsAreThreeDifferentAxes)
 {
     LightState st;
-    ASSERT_EQ(Decode::Ok, decodeLightState(HUE_LIGHT_ANSWER, st));
+    ASSERT_EQ(Decode::Ok, decodeWire(HUE_LIGHT_ANSWER, st));
     st.reachable = true; //so the colour branch is taken
 
-    const StateUpdate u = toStateUpdate(st);
+    const StateUpdate u = stateUpdateOf(st);
 
     ASSERT_TRUE(u.color.isValid());
     EXPECT_EQ(FX_HUE_DEG, u.color.getHSLHue());
@@ -348,23 +297,23 @@ TEST(HueWire, AnUnreachableLightIsReportedInvalidAndOffWhateverOnSaid)
 
     st = LightState(); st.hue = FX_HUE; st.sat = FX_SAT; st.bri = FX_BRI;
     st.on = true; st.reachable = true;
-    EXPECT_TRUE(toStateUpdate(st).color.isValid());
-    EXPECT_TRUE(toStateUpdate(st).on);
+    EXPECT_TRUE(stateUpdateOf(st).color.isValid());
+    EXPECT_TRUE(stateUpdateOf(st).on);
 
     st.on = false; st.reachable = true;
-    EXPECT_TRUE(toStateUpdate(st).color.isValid());
-    EXPECT_FALSE(toStateUpdate(st).on);
+    EXPECT_TRUE(stateUpdateOf(st).color.isValid());
+    EXPECT_FALSE(stateUpdateOf(st).on);
 
     st.on = true; st.reachable = false;
-    EXPECT_FALSE(toStateUpdate(st).color.isValid());
-    EXPECT_FALSE(toStateUpdate(st).on)
+    EXPECT_FALSE(stateUpdateOf(st).color.isValid());
+    EXPECT_FALSE(stateUpdateOf(st).on)
             << "an unreachable light reported itself ON: the branch passes "
                "reachable as the state, not on";
-    EXPECT_EQ("#000000", toStateUpdate(st).color.toString());
+    EXPECT_EQ("#000000", stateUpdateOf(st).color.toString());
 
     st.on = false; st.reachable = false;
-    EXPECT_FALSE(toStateUpdate(st).color.isValid());
-    EXPECT_FALSE(toStateUpdate(st).on);
+    EXPECT_FALSE(stateUpdateOf(st).color.isValid());
+    EXPECT_FALSE(stateUpdateOf(st).on);
 }
 
 /*******************************************************************************
@@ -383,7 +332,7 @@ TEST(HueWire, AbsentIntegerKeysDecodeToZeroWithoutThrowing)
 {
     LightState st;
     ASSERT_EQ(Decode::Ok,
-              decodeLightState("{\"state\":{\"bri\":100,\"on\":true,"
+              decodeWire("{\"state\":{\"bri\":100,\"on\":true,"
                                "\"reachable\":true}}", st));
 
     EXPECT_EQ(0, st.sat);
@@ -411,7 +360,7 @@ TEST(HueWire, IntegerKeysOfTheWrongTypeDecodeToZero)
     {
         LightState st;
         ASSERT_EQ(Decode::Ok,
-                  decodeLightState(answerWith(s.sat, "100", "30000",
+                  decodeWire(answerWith(s.sat, "100", "30000",
                                               "true", "true"), st))
                 << s.label;
         EXPECT_EQ(0, st.sat) << s.label;
@@ -427,21 +376,21 @@ TEST(HueWire, IntegerKeysOfTheWrongTypeDecodeToZero)
 TEST(HueWire, BooleanKeysOfTheWrongTypeOrAbsentFallBackToFalse)
 {
     LightState st;
-    ASSERT_EQ(Decode::Ok, decodeLightState(answerWith("200", "100", "30000",
+    ASSERT_EQ(Decode::Ok, decodeWire(answerWith("200", "100", "30000",
                                                       "1", "\"true\""), st));
     EXPECT_FALSE(st.on)        << "the NUMBER 1 was read as a boolean";
     EXPECT_FALSE(st.reachable) << "the STRING \"true\" was read as a boolean";
 
     LightState absent;
     ASSERT_EQ(Decode::Ok,
-              decodeLightState("{\"state\":{\"sat\":200,\"bri\":100,"
+              decodeWire("{\"state\":{\"sat\":200,\"bri\":100,"
                                "\"hue\":30000}}", absent));
     EXPECT_FALSE(absent.on);
     EXPECT_FALSE(absent.reachable);
 
     //and a real boolean IS read, both ways round, in the same payload
     LightState ok;
-    ASSERT_EQ(Decode::Ok, decodeLightState(answerWith("200", "100", "30000",
+    ASSERT_EQ(Decode::Ok, decodeWire(answerWith("200", "100", "30000",
                                                       "false", "true"), ok));
     EXPECT_FALSE(ok.on);
     EXPECT_TRUE(ok.reachable);
@@ -453,7 +402,7 @@ TEST(HueWire, BooleanKeysOfTheWrongTypeOrAbsentFallBackToFalse)
 TEST(HueWire, NegativeAndOversizedIntegersArePassedThroughUnclamped)
 {
     LightState st;
-    ASSERT_EQ(Decode::Ok, decodeLightState(answerWith("-5", "999", "70000",
+    ASSERT_EQ(Decode::Ok, decodeWire(answerWith("-5", "999", "70000",
                                                       "true", "true"), st));
     EXPECT_EQ(-5, st.sat);
     EXPECT_EQ(999, st.bri);
@@ -468,11 +417,11 @@ TEST(HueWire, NegativeAndOversizedIntegersArePassedThroughUnclamped)
 TEST(HueWire, MalformedAnswersAreRefused)
 {
     LightState st;
-    EXPECT_EQ(Decode::Malformed, decodeLightState("", st));
-    EXPECT_EQ(Decode::Malformed, decodeLightState("{oops", st));
-    EXPECT_EQ(Decode::Malformed, decodeLightState("{\"state\":{}} trailing", st));
-    EXPECT_EQ(Decode::Malformed, decodeLightState("{\"state\":{}", st));
-    EXPECT_EQ(Decode::Malformed, decodeLightState("<html>401</html>", st));
+    EXPECT_EQ(Decode::Malformed, decodeWire("", st));
+    EXPECT_EQ(Decode::Malformed, decodeWire("{oops", st));
+    EXPECT_EQ(Decode::Malformed, decodeWire("{\"state\":{}} trailing", st));
+    EXPECT_EQ(Decode::Malformed, decodeWire("{\"state\":{}", st));
+    EXPECT_EQ(Decode::Malformed, decodeWire("<html>401</html>", st));
 }
 
 //⛔ THE ACCEPTANCE SET, measured on jansson with no decode flag: a TOP LEVEL
@@ -485,17 +434,17 @@ TEST(HueWire, MalformedAnswersAreRefused)
 TEST(HueWire, TopLevelScalarsAreMalformedAndTopLevelArraysAreNotAnObject)
 {
     LightState st;
-    EXPECT_EQ(Decode::Malformed, decodeLightState("3", st));
-    EXPECT_EQ(Decode::Malformed, decodeLightState("\"ok\"", st));
-    EXPECT_EQ(Decode::Malformed, decodeLightState("true", st));
-    EXPECT_EQ(Decode::Malformed, decodeLightState("null", st));
+    EXPECT_EQ(Decode::Malformed, decodeWire("3", st));
+    EXPECT_EQ(Decode::Malformed, decodeWire("\"ok\"", st));
+    EXPECT_EQ(Decode::Malformed, decodeWire("true", st));
+    EXPECT_EQ(Decode::Malformed, decodeWire("null", st));
 
     //a top level ARRAY parses and is refused one step later. This is the shape
     //a real bridge answers with when the API key is wrong:
     //[{"error":{"type":1,"address":"/lights/3","description":"unauthorized user"}}]
-    EXPECT_EQ(Decode::NotAnObject, decodeLightState("[1,2]", st));
+    EXPECT_EQ(Decode::NotAnObject, decodeWire("[1,2]", st));
     EXPECT_EQ(Decode::NotAnObject,
-              decodeLightState("[{\"error\":{\"type\":1,"
+              decodeWire("[{\"error\":{\"type\":1,"
                                "\"description\":\"d-unauthorized user\"}}]", st));
 }
 
@@ -506,15 +455,15 @@ TEST(HueWire, AMissingOrNonObjectStateIsItsOwnOutcome)
 {
     LightState st;
     EXPECT_EQ(Decode::NoState,
-              decodeLightState("{\"name\":\"n-Lampe Salon\",\"type\":\"t-x\"}", st));
-    EXPECT_EQ(Decode::NoState, decodeLightState("{\"state\":\"s-on\"}", st));
-    EXPECT_EQ(Decode::NoState, decodeLightState("{\"state\":null}", st));
-    EXPECT_EQ(Decode::NoState, decodeLightState("{\"state\":[1,2]}", st));
-    EXPECT_EQ(Decode::NoState, decodeLightState("{}", st));
+              decodeWire("{\"name\":\"n-Lampe Salon\",\"type\":\"t-x\"}", st));
+    EXPECT_EQ(Decode::NoState, decodeWire("{\"state\":\"s-on\"}", st));
+    EXPECT_EQ(Decode::NoState, decodeWire("{\"state\":null}", st));
+    EXPECT_EQ(Decode::NoState, decodeWire("{\"state\":[1,2]}", st));
+    EXPECT_EQ(Decode::NoState, decodeWire("{}", st));
 
     //an EMPTY state object is NOT this outcome: it decodes, with all defaults
     LightState empty;
-    EXPECT_EQ(Decode::Ok, decodeLightState("{\"state\":{}}", empty));
+    EXPECT_EQ(Decode::Ok, decodeWire("{\"state\":{}}", empty));
     EXPECT_EQ(0, empty.sat);
     EXPECT_EQ(0, empty.bri);
     EXPECT_EQ(0, empty.hue);
@@ -529,14 +478,14 @@ TEST(HueWire, ARefusedAnswerNeverPartiallyFillsTheState)
     LightState st;
     st.sat = 111; st.bri = 222; st.hue = 333; st.on = true; st.reachable = true;
 
-    ASSERT_EQ(Decode::NoState, decodeLightState("{\"state\":\"s-on\"}", st));
+    ASSERT_EQ(Decode::NoState, decodeWire("{\"state\":\"s-on\"}", st));
     EXPECT_EQ(111, st.sat);
     EXPECT_EQ(222, st.bri);
     EXPECT_EQ(333, st.hue);
     EXPECT_TRUE(st.on);
     EXPECT_TRUE(st.reachable);
 
-    ASSERT_EQ(Decode::Malformed, decodeLightState("{oops", st));
+    ASSERT_EQ(Decode::Malformed, decodeWire("{oops", st));
     EXPECT_EQ(111, st.sat);
     EXPECT_EQ(222, st.bri);
 }
@@ -552,14 +501,14 @@ TEST(HueWire, NonAsciiInTheAnswerIsDecodedBackToRawUtf8)
                           "\"on\":true,\"reachable\":true}}";
 
     LightState st;
-    ASSERT_EQ(Decode::Ok, decodeLightState(answer, st)) << escaped(answer);
+    ASSERT_EQ(Decode::Ok, decodeWire(answer, st)) << escaped(answer);
     EXPECT_EQ(200, st.sat);
     EXPECT_TRUE(st.reachable);
 
     //raw UTF-8 in the answer is accepted too
     LightState raw;
     ASSERT_EQ(Decode::Ok,
-              decodeLightState("{\"name\":\"n-Entr\xc3\xa9""e\",\"state\":{"
+              decodeWire("{\"name\":\"n-Entr\xc3\xa9""e\",\"state\":{"
                                "\"sat\":200,\"bri\":100,\"hue\":30000,"
                                "\"on\":true,\"reachable\":true}}", raw));
     EXPECT_EQ(200, raw.sat);
@@ -574,9 +523,9 @@ TEST(HueWire, InvalidUtf8FromTheBridgeIsRefusedAtTheParse)
 {
     LightState st;
     EXPECT_EQ(Decode::Malformed,
-              decodeLightState("{\"name\":\"n-b\xff""ad\",\"state\":{\"sat\":200}}", st));
-    EXPECT_EQ(Decode::Malformed, decodeLightState("{\"name\":\"x\xc3\"}", st));
-    EXPECT_EQ(Decode::Malformed, decodeLightState("{\"name\":\"\\ud800\"}", st));
+              decodeWire("{\"name\":\"n-b\xff""ad\",\"state\":{\"sat\":200}}", st));
+    EXPECT_EQ(Decode::Malformed, decodeWire("{\"name\":\"x\xc3\"}", st));
+    EXPECT_EQ(Decode::Malformed, decodeWire("{\"name\":\"\\ud800\"}", st));
 }
 
 /*******************************************************************************
@@ -597,24 +546,39 @@ TEST(HueWire, InvalidUtf8FromTheBridgeIsRefusedAtTheParse)
 //    {"sat":true}   0                        1           (silent wrong value)
 //    absent         0                        0           (agree)
 //
-//This case pins the jansson column - the contract the migration must keep. The
-//migration commit adds the nlohmann column next to it. It exists so that the
-//next reader who reaches for the "obvious" one-liner is told, in one red line,
-//what it costs.
-TEST(HueWire, Tripwire_JsonIntegerValueDefaultsWhereValueWithDefaultWouldThrow)
+//This case pins the nlohmann column, on the shipped library, and next to it
+//the answer HueWire::integerOrDefault() gives on the same five shapes - which
+//is the jansson column, kept by hand. It exists so that the next reader who
+//reaches for the "obvious" one-liner is told, in one red line, what it costs.
+TEST(HueWire, Tripwire_ValueWithDefaultIsNotASubstituteForTheIntegerContract)
 {
-    json_t *root = json_loads("{\"f\":12.5,\"s\":\"77\",\"n\":null,"
-                              "\"b\":true,\"i\":42}", 0, NULL);
-    ASSERT_TRUE(root != NULL);
+    const Json j = Json::parse(string("{\"f\":12.5,\"s\":\"77\",\"n\":null,"
+                                      "\"b\":true,\"i\":42}"), nullptr, false);
+    ASSERT_FALSE(j.is_discarded());
 
-    EXPECT_EQ(0, json_integer_value(json_object_get(root, "f")));
-    EXPECT_EQ(0, json_integer_value(json_object_get(root, "s")));
-    EXPECT_EQ(0, json_integer_value(json_object_get(root, "n")));
-    EXPECT_EQ(0, json_integer_value(json_object_get(root, "b")));
-    EXPECT_EQ(0, json_integer_value(json_object_get(root, "absent")));
+    //MOVED BY E4.1d: this case used to measure the jansson column of the table
+    //above, on the shipped jansson. It now measures the nlohmann column, on
+    //the shipped nlohmann - the one that says why the "obvious" one-liner is
+    //not usable here.
+    EXPECT_THROW(j.value("s", 0), Json::exception)
+            << "j.value() stopped throwing on a STRING: re-measure the whole "
+               "table before substituting it for HueWire::integerOrDefault()";
+    EXPECT_THROW(j.value("n", 0), Json::exception)
+            << "j.value() stopped throwing on a NULL: re-measure the whole "
+               "table before substituting it for HueWire::integerOrDefault()";
+    EXPECT_EQ(12, j.value("f", 0)) << "j.value() truncates a float to 12 where "
+                                      "json_integer_value() answered 0";
+    EXPECT_EQ(1, j.value("b", 0)) << "j.value() reads a boolean as 1 where "
+                                     "json_integer_value() answered 0";
+
+    //...and the shipped reader answers the jansson default on every one of
+    //them, without ever throwing. THIS is the contract.
+    EXPECT_EQ(0, HueWire::integerOrDefault(j, "f"));
+    EXPECT_EQ(0, HueWire::integerOrDefault(j, "s"));
+    EXPECT_EQ(0, HueWire::integerOrDefault(j, "n"));
+    EXPECT_EQ(0, HueWire::integerOrDefault(j, "b"));
+    EXPECT_EQ(0, HueWire::integerOrDefault(j, "absent"));
 
     //and the one well typed key really is read: this is not "everything is 0"
-    EXPECT_EQ(42, json_integer_value(json_object_get(root, "i")));
-
-    json_decref(root);
+    EXPECT_EQ(42, HueWire::integerOrDefault(j, "i"));
 }

@@ -25,8 +25,7 @@
 #include "EventManager.h"
 #include "ListeRoom.h"
 #include "libuvw.h"
-
-#include <jansson.h>
+#include "SqueezeboxWire.h"
 
 #define SQ_TIMEOUT      40.0
 #define SQ_RECONNECT    3.0
@@ -771,86 +770,47 @@ void Squeezebox::get_album_cover_json_cb(const string &result, int status, void 
         AudioPlayerData adata(*_data);
         delete _data;
 
-        json_error_t jerr;
-        json_t *json = json_loads(result.c_str(), 0, &jerr);
-
-        if (!json)
+        //E4.1d: the whole reader lives in SqueezeboxWire.h so that
+        //tests/SqueezeboxWire_test.cpp can call the SHIPPED code. Refuses
+        //exactly what json_loads(result.c_str(), 0, &jerr) refused, top level
+        //scalars included.
+        Json json;
+        if (!SqueezeboxWire::parseResponse(result, json))
         {
-            cDebugDom("squeezebox") <<  "JSON - Error loading json : " << jerr.text;
+            //jansson gave a jerr.text here; nlohmann's non-throwing parse has
+            //no message to give, so the answer itself is logged instead - more
+            //useful, and this is a cDebugDom, off by default.
+            cDebugDom("squeezebox") <<  "JSON - Error loading json : " << result;
 
             get_album_cover_std(adata);
 
             return;
         }
 
-        char *jdump = json_dumps(json, JSON_INDENT(4));
-        if (jdump)
+        //The ONLY dump() of this driver, and it goes to a log. See the header
+        //for what ensure_ascii and the error handler do and do not protect.
+        cDebug() << SqueezeboxWire::prettyPrint(json);
+
+        string aurl;
+        const SqueezeboxWire::ArtworkLookup found =
+                SqueezeboxWire::findArtworkUrl(json, aurl);
+
+        if (found == SqueezeboxWire::ArtworkLookup::Found)
         {
-            cDebug() << jdump;
-            free(jdump);
+            adata.get_chain_data().svalue =
+                    SqueezeboxWire::buildCoverUrl(aurl, SqueezeboxWire::LmsHost{host});
+
+            AudioRequest_signal sig;
+            sig.connect(adata.callback);
+            sig.emit(adata.get_chain_data());
+
+            return;
         }
 
-        json_t *remoteMeta = NULL, *artwork_url = NULL, *jresult = NULL;
-
-        if (json_is_object(json))
-        {
-            jresult = json_object_get(json, "result");
-
-            if (json_is_object(jresult))
-            {
-                remoteMeta = json_object_get(jresult, "remoteMeta");
-
-                if (json_is_object(remoteMeta))
-                {
-                    artwork_url = json_object_get(remoteMeta, "artwork_url");
-                    if (json_is_string(artwork_url))
-                    {
-                        string aurl;
-
-                        aurl = json_string_value(artwork_url);
-
-                        //jresult/remoteMeta/artwork_url are borrowed
-                        //json_object_get references: only the json_loads
-                        //root is owned and must be decref'ed.
-                        json_decref(json);
-
-                        if (aurl.compare(0, 4, "http") == 0)
-                        {
-                            adata.get_chain_data().svalue = aurl;
-
-                            AudioRequest_signal sig;
-                            sig.connect(adata.callback);
-                            sig.emit(adata.get_chain_data());
-
-                            return;
-                        }
-                        else
-                        {
-                            string s = "http://";
-                            s += host + ":9000/";
-                            s += aurl;
-
-                            adata.get_chain_data().svalue = s;
-
-                            AudioRequest_signal sig;
-                            sig.connect(adata.callback);
-                            sig.emit(adata.get_chain_data());
-
-                            return;
-                        }
-                    }
-
-                    cDebugDom("squeezebox") <<  "JSON - artwork_url not found in remoteMeta!";
-                }
-                else
-                {
-                    cDebugDom("squeezebox") <<  "JSON - remoteMeta not found!";
-                }
-            }
-        }
-
-        //Only the json_loads root is owned (see above)
-        json_decref(json);
+        if (found == SqueezeboxWire::ArtworkLookup::NoArtworkUrl)
+            cDebugDom("squeezebox") <<  "JSON - artwork_url not found in remoteMeta!";
+        else if (found == SqueezeboxWire::ArtworkLookup::NoRemoteMeta)
+            cDebugDom("squeezebox") <<  "JSON - remoteMeta not found!";
 
         get_album_cover_std(adata);
     }
