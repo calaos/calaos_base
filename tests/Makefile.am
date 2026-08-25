@@ -2523,7 +2523,8 @@ TESTS += core/RoonArgs_test
 check_PROGRAMS += core/RoonArgs_test
 core_RoonArgs_test_SOURCES = core/RoonArgs_test.cpp \
                   core/CalaosCoreFixture.cpp \
-                  core/CalaosCoreFixture.h
+                  core/CalaosCoreFixture.h \
+                  core/RoonSpawnHarness.h
 core_RoonArgs_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
                   -DCALAOS_TOP_SRCDIR='"$(abs_top_srcdir)"'
 core_RoonArgs_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
@@ -2586,4 +2587,41 @@ core_ShutterImpulse_test_LDADD = $(CORE_TEST_LDADD) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT)
 #Built elsewhere, do not let automake turn them into prerequisites
 core_ShutterImpulse_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.28b
+#⭐ THE SECOND BINARY, and it is a second BINARY for one measured reason.
+#RoonCtrl::Instance() is a function-local static (Audio/RoonPlayer.cpp:86): the
+#first call in a process wins, so ONE process can observe exactly ONE launch
+#configuration. core/RoonArgs_test spends it by calling Instance() itself,
+#which leaves Audio/RoonPlayer.cpp:227 - RoonCtrl::Instance(host, port), the
+#call that carries the user's configuration across - uncovered. The review of
+#T3.28b proved it bites: exchanging it for RoonCtrl::Instance(host,
+#RoonArgs::DefaultPort) left core/RoonArgs_test at 14/14, exit 0. That is the
+#field defect of T3.28 moved one call site further on.
+#A test binary is a process: this one builds a REAL RoonPlayer with a non-empty
+#zone_id and watches the launch that follows, so both forms are covered without
+#a fork, a seam, or a test-only hook in src/.
+#⚠️ ONE case on purpose. A second case needing a differently-configured
+#controller in the same process would be back on the same singleton.
+#Same linkage as core/RoonArgs_test: Audio/RoonPlayer.$(OBJEXT) on top of the
+#core objects; -I.../Audio is already in AM_CPPFLAGS.
+#⚠️ _DEPENDENCIES = libcalaos_common.la, like 49 of the test binaries, so
+#automake does NOT relink this binary when RoonPlayer.o changes: any mutation
+#campaign must rm -f BOTH the .o and the test binary, then check the CXXLD line
+#really came back (double space, path relative to tests/ - match it with a
+#regex, never a single space).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/RoonSpawnViaPlayer_test
+check_PROGRAMS += core/RoonSpawnViaPlayer_test
+core_RoonSpawnViaPlayer_test_SOURCES = core/RoonSpawnViaPlayer_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/RoonSpawnHarness.h
+core_RoonSpawnViaPlayer_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_RoonSpawnViaPlayer_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_RoonSpawnViaPlayer_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif

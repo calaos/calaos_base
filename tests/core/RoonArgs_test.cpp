@@ -107,6 +107,27 @@
  * ticket or for T3.28b, and both delivery sheets say so.
  *
  * ---------------------------------------------------------------------------
+ * ⚠️ --gtest_repeat, AND WHY A FLICKER HUNT MUST NOT START HERE
+ * ---------------------------------------------------------------------------
+ * `--gtest_repeat=N` is the first tool anyone reaches for when a suite looks
+ * unstable, and on the review of T3.28b it turned the execution case RED. That
+ * red was NOT a flicker and NOT a defect of the code under test: RoonCtrl is a
+ * function-local static built ONCE per process, and the first version of the
+ * harness made a fresh mkdtemp() sandbox per case - so the second repetition
+ * watched an empty journal while the controller kept appending to the first
+ * one. Someone investigating an unstable `make check` would have run this and
+ * believed they had found it.
+ *
+ * The harness is now process-scoped for exactly that reason (see
+ * core/RoonSpawnHarness.h), and the execution cases of this suite and of
+ * core/RoonSpawnViaPlayer_test are replayable in one process.
+ *
+ * ⛔ THE SUITE AS A WHOLE STILL IS NOT, and neither is any core suite:
+ * CalaosCoreFixture.h says so in its own header - Config, ListeRoom, IOFactory
+ * and friends are process-wide singletons with no reset API. A red under
+ * --gtest_repeat is a property of the harness, not evidence about the tree.
+ *
+ * ---------------------------------------------------------------------------
  * WHAT THIS SUITE DELIBERATELY DOES NOT TOUCH
  * ---------------------------------------------------------------------------
  *  - Utils::from_string(). Its "returns true and writes nothing on a blank
@@ -139,6 +160,7 @@
 #include "Params.h"
 #include "RoonArgs.h"
 #include "RoonPlayer.h"
+#include "RoonSpawnHarness.h"
 #include "libuvw.h"
 
 using namespace Calaos;
@@ -324,115 +346,11 @@ Params roonParams(const std::string &id)
     return p;
 }
 
-/*******************************************************************************
- * T3.28b - THE HARNESS THAT LETS THE SIDECAR LAUNCH BE OBSERVED FOR REAL.
- *
- * ⭐ WHAT IT DISPROVES. T3.28 justified its two source tripwires by writing
- * that "RoonCtrl::Instance() is a static singleton whose constructor builds an
- * ExternProcServer - which binds a unix socket - and spawns calaos_roon.
- * Nothing in `make check` can construct a RoonCtrl". Measured on this tree,
- * every clause of that sentence is true and the conclusion drawn from it is
- * not:
- *
- *   - Instance() is PUBLIC and static, and Audio/RoonPlayer.$(OBJEXT) is
- *     linked by seventeen test binaries, this one included. Nothing hides it.
- *   - Binding a unix socket in /tmp is not a blocker: ExternProcServer's
- *     constructor does exactly that and tests/core/KnxIo_test.cpp already
- *     builds a real KNXCtrl - the same shape, the same ExternProcServer, the
- *     same spawn - on every `make check` run.
- *   - Spawning is not a blocker either. It is an OBSERVATION POINT: what the
- *     sidecar is started with is the only thing this ticket ever cared about.
- *
- * So the singleton is reachable, and the invariant "the respawn carries the
- * arguments" can be executed instead of spelled. That is what the case below
- * does, and it is why the source tripwire that used to be the ONLY guard of
- * that invariant is now the second net rather than the first.
- *
- * HOW. Prefix::binDirectoryGet() (src/lib/Prefix.cpp:31-37) answers
- * getenv("CALAOS_BIN_PREFIX") and does NOT cache it, so a test can point
- * `exe` at a directory of its own. We drop a `calaos_roon` there that appends
- * its own argv to a journal and exits; ExternProcServer's ExitEvent handler
- * then arms the 0.1s respawn timer (IO/ExternProc.cpp:187-199) and RoonCtrl
- * relaunches. Pumping the loop for a bounded time therefore yields ONE LINE
- * PER LAUNCH, first launch and respawn alike, spelled by the production code
- * end to end.
- *
- * ⚠️ Bounded on wall clock, never on iterations: a regression must be able to
- * fail this case, never to hang `make check`. Same rule as Timer_test.
- ******************************************************************************/
-
-//A private directory to act as CALAOS_BIN_PREFIX. Empty string on failure, so
-//the case fails instead of silently pointing at the real install prefix.
-std::string makeTempBinPrefix()
-{
-    char tmpl[] = "/tmp/calaos_roon_spawn_XXXXXX";
-    const char *d = ::mkdtemp(tmpl);
-    return d? std::string(d) : std::string();
-}
-
 /*
- * Write the stand-in calaos_roon.
- *
- * `printf '%s\n' "$*"` writes ONE line per launch, in a single write() to a
- * file opened O_APPEND, so two launches can never interleave into one line.
- * The journal path is baked in at write time rather than read from the
- * environment: startProcess() hands the child an explicit environment
- * (IO/ExternProc.cpp:260-275) which does not forward CALAOS_BIN_PREFIX or
- * anything of ours.
+ * T3.28b - the spawn harness lives in core/RoonSpawnHarness.h, shared with
+ * core/RoonSpawnViaPlayer_test.cpp. Read its header for what it disproves, why
+ * its sandbox is process-scoped, and what it gives back at teardown.
  */
-bool writeSpawnRecorder(const std::string &script, const std::string &journal)
-{
-    {
-        std::ofstream f(script.c_str(), std::ios::out | std::ios::trunc);
-        if (!f.is_open())
-            return false;
-        f << "#!/bin/sh\n"
-             "printf '%s\\n' \"$*\" >> '" << journal << "'\n"
-             "exit 0\n";
-        if (!f.good())
-            return false;
-    }
-    return ::chmod(script.c_str(), 0755) == 0;
-}
-
-//One entry per launch, in order. A missing journal answers empty, which is a
-//failure of the case and not of the reader.
-std::vector<std::string> readSpawnJournal(const std::string &path)
-{
-    std::vector<std::string> lines;
-    std::ifstream f(path.c_str());
-    std::string line;
-
-    while (std::getline(f, line))
-    {
-        if (!line.empty())
-            lines.push_back(line);
-    }
-
-    return lines;
-}
-
-//Run the default loop until pred() holds, with a wall clock deadline. Same
-//shape as tests/core/Timer_test.cpp's runLoopUntil(); NOWAIT plus a short
-//sleep rather than ONCE so that a loop left with no active handle spins
-//cheaply until the deadline instead of burning a core.
-bool runLoopUntil(const std::function<bool()> &pred, int timeoutMs)
-{
-    auto loop = uvw::Loop::getDefault();
-    const auto deadline = std::chrono::steady_clock::now() +
-                          std::chrono::milliseconds(timeoutMs);
-
-    while (!pred())
-    {
-        if (std::chrono::steady_clock::now() > deadline)
-            return false;
-
-        loop->run<uvw::Loop::Mode::NOWAIT>();
-        ::usleep(2000);
-    }
-
-    return true;
-}
 
 } // namespace
 
@@ -520,22 +438,16 @@ TEST_F(RoonArgsTest, TheIoDocStillDeclaresHostOptional)
  */
 TEST_F(RoonArgsTest, TheRespawnedSidecarIsSpawnedWithTheArgumentsOfTheFirstLaunch)
 {
-    const std::string dir = makeTempBinPrefix();
-    ASSERT_FALSE(dir.empty()) << "could not create a temporary CALAOS_BIN_PREFIX";
-
-    const std::string journal = dir + "/argv.journal";
-    ASSERT_TRUE(writeSpawnRecorder(dir + "/calaos_roon", journal))
-        << "could not write the stand-in calaos_roon into " << dir;
-
-    ASSERT_EQ(0, ::setenv("CALAOS_BIN_PREFIX", dir.c_str(), 1));
+    ASSERT_TRUE(RoonSpawn::install())
+        << "could not set up the CALAOS_BIN_PREFIX sandbox";
 
     //THE call T3.28 declared unreachable. It is public, static, and linked.
     RoonCtrl::Instance("192.168.7.42", 9331);
 
-    const bool respawned = runLoopUntil(
-        [&]() { return readSpawnJournal(journal).size() >= 2; }, 5000);
+    const bool respawned = RoonSpawn::runLoopUntil(
+        []() { return RoonSpawn::journalLines().size() >= 2; }, 5000);
 
-    const std::vector<std::string> launches = readSpawnJournal(journal);
+    const std::vector<std::string> launches = RoonSpawn::journalLines();
 
     ASSERT_FALSE(launches.empty())
         << "calaos_roon was never spawned at all - the harness is broken, not "
@@ -926,6 +838,14 @@ int main(int argc, char **argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
     const int ret = RUN_ALL_TESTS();
+
+    //⚠️ _exit() skips destructors, so nothing else will give these back: the
+    //sandbox directory, the unix socket ~ExternProcServer never got to unlink,
+    //and the last spawned child, still unreaped because the loop stopped being
+    //pumped. Measured before this call existed: +1 directory, +1 socket and
+    //+1 `calaos_roon <defunct>` per run of `make check`, forever, in a
+    //container whose PID 1 does not reap. See core/RoonSpawnHarness.h.
+    CalaosTest::RoonSpawn::teardown();
 
     fflush(nullptr);
     _exit(ret);
