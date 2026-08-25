@@ -756,6 +756,41 @@ json_t *JsonApi::buildJsonGetIO(vector<string> iolist)
     return jret;
 }
 
+/* T3.25. THE API BOUNDARY, and it is the belt to from_string()'s braces.
+ *
+ * A set_state value reaches io->set_value(std::string) VERBATIM (:774 and
+ * :777 below). Every IO of the tree that understands a "<command> <argument>"
+ * form parses that argument as a NUMBER and throws the return code away:
+ * "impulse up " / "impulse down " (OutputShutter, OutputShutterSmart),
+ * "set ", "set off ", "up ", "down ", "impulse " (OutputLightDimmer,
+ * OutputLightRGB), "inc ", "dec " (Internal, OutputAnalog). A value that
+ * carries the command and then STOPS ON ITS SEPARATOR is one of those
+ * commands with its argument missing - and that is precisely the payload that
+ * made an OutputShutter arm an impulse on an indeterminate int (T3.25 §2).
+ *
+ * from_string() no longer leaves a destination unwritten, so such a request
+ * would now be executed with a 0 instead of with rubbish. That is defined, but
+ * it is still NOT WHAT THE CLIENT ASKED FOR, and it would stay defined only as
+ * long as every future caller keeps using from_string(). Refusing the shape
+ * here does not depend on that.
+ *
+ * ⚠️ THE COST, stated rather than discovered: the rule is grammar free, so it
+ * also refuses a TEXT value that ends in whitespace ("note " on an
+ * InternalString). That is a real, deliberate narrowing - pinned by
+ * core/SetStateGarbage_test::AValueEndingInWhitespaceIsRefusedForEveryIoType
+ * and written up in RELEASE_NOTES. The alternative, a list of the command
+ * prefixes that take an argument, was rejected: it would have had to be kept
+ * in step with every IO grammar and would protect nothing a future one adds.
+ *
+ * The refusal reuses set_state's own vocabulary, {"success":"false"}. No new
+ * error shape, per the T3.17 rule.
+ */
+static bool setStateValueLostItsArgument(const string &value)
+{
+    static const string blanks = " \t\n\v\f\r";
+    return !value.empty() && blanks.find(value[value.size() - 1]) != string::npos;
+}
+
 bool JsonApi::decodeSetState(Params &jParam)
 {
     bool success = true;
@@ -763,6 +798,14 @@ bool JsonApi::decodeSetState(Params &jParam)
     IOBase *io = ListeRoom::Instance().get_io(jParam["id"]);
     if (!io)
         success = false;
+    else if (setStateValueLostItsArgument(jParam["value"]))
+    {
+        cWarningDom("network") << "set_state refused for io " << jParam["id"]
+                               << ": the value ends on its separator (\""
+                               << jParam["value"] << "\"), which is a command "
+                               << "with no argument";
+        success = false;
+    }
     else
     {
         success = false;

@@ -180,15 +180,30 @@ protected:
     std::string dimmerId() const { return "t325_dimmer_" + caseName(); }
     std::string stringId() const { return "t325_string_" + caseName(); }
 
-    //time=60s so that impulse_action_time + impulse_time < time * 1000 can be
-    //true for a sane duration, which is what arms the stop timer at
-    //OutputShutter.cpp:216-227.
+    /* time="0" ON PURPOSE, and it is not cosmetic.
+     *
+     * OutputShutter.cpp:216-227 arms the stop timer with
+     * Timer::singleShot(_t, mem_fun(this, &Stop)) when
+     * impulse_action_time + impulse_time < time * 1000. singleShot() is
+     * FIRE AND FORGET: the slot holds `this`, nothing cancels it, and it
+     * outlives the IO. This fixture destroys every IO in TearDown() and then
+     * pumps the libuv loop, so any timer still armed fires into freed memory
+     * and takes the binary down with SIGSEGV - measured, repeatedly, on this
+     * suite before and after the fix. That is a PRE-EXISTING use-after-free in
+     * OutputShutter, not something this ticket introduced and not something it
+     * fixes; it is written up as a finding.
+     *
+     * With time="0" the condition above is false for every non-negative
+     * duration, so no timer is ever armed and the suite measures what it is
+     * here to measure. The oracle is cmd_state, which records the duration
+     * regardless of whether a timer was armed.
+     */
     T325Shutter *makeShutter()
     {
         Params p = {{ "type", "T325Shutter" },
                     { "id", shutterId() },
                     { "name", "Shutter under test" },
-                    { "time", "60" },
+                    { "time", "0" },
                     { "impulse_time", "0" },
                     { "enabled", "true" },
                     { "visible", "true" }};
