@@ -5141,3 +5141,44 @@ lanceur de `make dist` doit penser à `git checkout -- po/`** — piège à comm
   vise un en-tête template DOIT compiler une unité qui l'instancie**, jamais l'en-tête seul. À
   ranger à côté des cinq variantes de `_DEPENDENCIES` : c'est une **sixième** façon d'obtenir un
   vert parfait sans avoir rien vérifié.
+
+- ⭐⭐ **[F-TYPE-4] — un correctif de typage ne balaye qu'UNE DIRECTION de la chaîne, et laisse
+  l'autre nue. Mesuré sur T3.31 même, par sa revue.** T3.31 a typé la chaîne Reolink
+  **sortante** (enregistrement d'une caméra : `registerCamera` → `CameraRegistration` →
+  `buildRegisterMessage`) et a livré en se croyant complet. La chaîne **entrante** — `dispatch`,
+  `cameraKey`, `hasCamera`, `callbackCount`, `EventCallback`,
+  `ReolinkInputSwitch::eventReceivedCallback` — est restée en `std::string` nus, et les mots
+  « `cameraKey` » et « `dispatch` » avaient **zéro occurrence** dans la fiche de livraison.
+  Mutations du relecteur : `cameraKey(event_type, hostname)` et
+  `dispatch(event_type, hostname, event_data)` ⇒ **`make` complet, 0 `error:`, 0 avertissement**.
+  ⚠️ **La conséquence de la seconde était pire que celle que le ticket fermait** : une `dispatch()`
+  permutée cherche une clé sous laquelle rien n'est enregistré, renvoie 0, et **tous les
+  événements de toutes les caméras sont perdus en silence**.
+  ⇒ **Règle** : sur un ticket de typage, **recenser les DEUX sens du trajet avant de livrer** —
+  commande **et** réponse, émission **et** réception, aller **et** retour. La même vérification a
+  immédiatement produit une seconde occurrence : les quatre `sigc::slot` de réponse de
+  `WagoMap.h:38-41` et leurs **onze** implémentations, toutes nues (⇒ T3.46 partie B).
+  ⚠️ **Et ces sites sont exactement ceux qu'aucun test ne peut atteindre** : `nm` sur les binaires
+  de test ne trouve **aucun symbole `ReolinkCtrl`**, donc les deux mutations étaient **vertes par
+  construction**. Une fiche de typage doit donc **énumérer les signatures**, pas affirmer une
+  couverture — *une fiche qui affirme une couverture qu'elle n'a pas est pire qu'une fiche qui
+  déclare un trou*.
+
+- ⚠️ **[F-TYPE-5] — une sonde de type peut mentir DANS LE SENS DANGEREUX, et deux façons ont été
+  mesurées.** Trouvées par le relecteur de T3.31 sur les sondes de `ReolinkRegistry_test.cpp`,
+  toutes deux rendant **« fermé » sur un type grand ouvert** :
+  **(a) référence lvalue** — `std::declval<std::string>()` produit un **rvalue**, donc un
+  constructeur prenant `std::string &` fait répondre **`false` aux deux sondes** alors que
+  `std::string h, u, p, e; LieRef bad(h, p, u, e);` **compile** et met le mot de passe dans
+  `username`. La sonde ne dit rien des arguments lvalue tant qu'on ne l'interroge pas avec
+  `string &`.
+  **(b) rétrécissement** — `isBraceInitializable<T, int>` vaut **0** pour un constructeur
+  **non-`explicit`** `T(unsigned short)`, non pas grâce au garde mais parce que les accolades
+  refusent `int → unsigned short`. Lu comme « fermé », il masque **W1 grand ouvert** : `T obj(i)`
+  compile. ⚠️ Symétriquement, `is_constructible` ne discrimine pas non plus — un constructeur
+  `explicit` reste **directement** appelable. ⇒ **la seule question qui vaut pour une enveloppe
+  numérique est la copy-initialisation** (`is_convertible_v` / `is_invocable_v`), parce que c'est
+  celle qu'un site d'appel pose.
+  ⇒ **Règle** : **écrire les angles morts de la sonde dans le fichier**. *Une sonde dont les
+  angles morts sont écrits vaut mieux qu'une sonde qu'on croit complète.* Les deux témoins sont
+  exécutables dans `TheAggregateProbesActuallyDiscriminate`.
