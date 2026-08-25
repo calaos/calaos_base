@@ -69,6 +69,7 @@ calaos_server_SOURCES = \
         Audio/AudioPlayerData.h                         \
         Audio/Squeezebox.cpp                            \
         Audio/Squeezebox.h                              \
+        Audio/SqueezeboxWire.h                          \
         Audio/SqueezeboxDB.cpp                          \
         Audio/SqueezeboxDB.h                            \
         Audio/RoonPlayer.cpp                            \
@@ -136,6 +137,7 @@ calaos_server_SOURCES = \
         IO/IntValue.h                                   \
         IO/Hue/HueOutputLightRGB.h                      \
         IO/Hue/HueOutputLightRGB.cpp                    \
+        IO/Hue/HueWire.h                                \
         IO/KNX/KNXCtrl.h                                \
         IO/KNX/KNXCtrl.cpp                              \
         IO/KNX/KNXBase.cpp                              \
