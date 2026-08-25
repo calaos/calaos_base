@@ -8,6 +8,107 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅ [`E4.1m`](E4.1m.md) MERGÉE — `69fdc3c6`, 8 commits, `--ff-only`, historique linéaire, 0 commit de fusion.**
+  ⭐ **`master` était IMMOBILE sur `7667838f`** = exactement la base de la branche (le 3ᵉ rebase de
+  l'auteur l'y avait déjà posée) ⇒ **ni rebase ni conflit au merge**. `tests/Makefile.am` : la
+  propriété *« `master` est un **PRÉFIXE STRICT** du résultat, **+3597 octets exactement** »*
+  **reprouvée en `python3`**, **86 `if` / 86 `endif`** (master 85/85), profondeur finale **0**,
+  minimum **0**. **`git diff-tree` sur les 8 commits : UN SEUL touche `src/`** (`d79f6459`,
+  6 fichiers), **les 7 autres à 0**. Build de validation en distclean : **rc 0**,
+  **`# TOTAL: 101`** (master **100**) **= mon recompte indépendant du `tests/Makefile.am`**
+  (**95 gtest + 6 scripts**), `PASS 100 / SKIP 1 / FAIL 0 / ERROR 0`, **un seul `Testsuite
+  summary`**, **0 `error:`**, **107 `CXXLD`** (regex ancrée), **1658 cas** comptés **deux fois et
+  concordants**, **aucun binaire à 0 cas**, **88,7 s** de mural gtest cumulé, **145 goldens / arbre
+  `d4ebc61f` inchangé** (vérifié **APRÈS**), `git status -uall` **vide**. ⛔ **Non poussé.**
+
+  ⭐ **Les trois réserves ont été REJOUÉES, pas relues :**
+  1. ⭐ **R1 tient, et `X2` est chirurgicale.** Mutation réappliquée à la main : `cmp` rend
+     **« differ: byte 7424, ligne 240 »**, *le chiffre exact de la fiche*. Protocole complet
+     (`rm -f` du `.o` serveur **et des 95 binaires** — 95/95 réellement supprimés — build depuis la
+     **RACINE**, **96 `CXXLD`**) : sur les **6** cas de `JsonApiRedact`, **seul le cas neuf tombe**,
+     sur **exactement** ses 4 assertions `:187 :190 :193 :196`, **les 5 autres verts**. ⭐ **Et les
+     assertions sont bien des PAIRES** : `:187`/`:193` constatent l'**absence du secret**,
+     `:190`/`:196` la **présence du champ masqué** (`"CN_Pass": "***"`) — les deux moitiés tombent
+     ensemble, donc le cas distingue vraiment *« masqué »* de *« supprimé »*. L'assertion sur la clé
+     non-credential (`"Action"`, `:201`) **reste verte** sous mutation, comme elle doit.
+  2. ⭐ **R2 vérifiée au SOURCE, pas seulement dans les fiches.** La mine est bien désamorcée
+     **aux 4 endroits** (`E4.1m.md` accept. n° 6 + § R2, `E4.1o.md` § *Pièges propres* **en tête**,
+     `FINDINGS.md`, `BOARD.md`). Mécanisme reconfirmé sur l'arbre mergé : `ScriptExec.cpp:131` porte
+     bien `if (!jsonApi->buildJsonSetParam(p))`, `JSON_USE_IMPLICIT_CONVERSIONS` = **1**
+     (`json.hpp:2813`), et **0 `try` réel** dans les trois fichiers (l'unique occurrence du mot dans
+     `ScriptExec.cpp` est le sous-mot d'« en**try** » dans un commentaire — vérifié à la limite de
+     mot). ⭐ **Le bonus est vrai aussi** : `JsonApi.cpp:709-737`, **les deux branches** rendent
+     `jansson_from_params(ret)` (`{"error": "wrong io/param"}` ou `{"success": "true"}`), **jamais
+     `NULL` hors OOM** ⇒ **la garde est DÉJÀ inerte** et le `cWarningDom("lua")` n'a jamais été
+     imprimé.
+  3. ⭐ **R3 tient, et la nuance a été REMESURÉE.** Sonde `g++ -std=c++17` sur le `json.hpp` du
+     dépôt : nlohmann rend `0.1` / `3.14159` / **`1e+50`** / **`1e-07`** là où `%.17g` rend
+     `0.10000000000000001` / `3.1415899999999999` / `1.0000000000000001e+50` /
+     `9.9999999999999995e-08` — **exposant compris** — et `42` / `1.5` sont **identiques**. La
+     nuance *« les deux bibliothèques parsent et REFUSENT le document, le journal reçoit `""` des
+     deux côtés »* est bien **écrite et gardée** (`FINDINGS.md`) : elle **réduit la portée réelle**
+     de la 3ᵉ famille au document **construit en mémoire**.
+
+  ⭐ **Contre-mutations rejouées de bout en bout** : **témoin `M0` = ensemble VIDE** (9/9 verts), et
+  **`M1` rend 5 cas rouges** — **au grain du CAS, pas du binaire** (2 binaires / 5 cas) — **dont
+  les DEUX goldens `get_home`** (`WsGetHomeMatchesGolden`, `HttpGetHomeMatchesGolden`), plus
+  `W_RoomsAndIosKeepTheirDeclarationOrder`, `WsGetHomeKeepsRoomAndIoOrder` et
+  `CamerasAndPlayersAreNotVisibleRoomItems`. **Le filet des goldens est PORTEUR.** *(Ma mutation a
+  été réécrite indépendamment de celle de l'auteur et rend le même ensemble — c'est le contrôle.)*
+
+  ⚠⭐ **`F-FLAKY-1` VUE, et NON RELANCÉE.** Elle a mordu pendant l'exécution `X2` :
+  `core/ShutterImpulse_test.cpp:297`,
+  `ShutterImpulseTest.PlainImpulseDownKeepsMovingUntilTheRequestedDuration`, forme
+  `EXPECT_FALSE(sh.isStopped())` après `pumpLoopFor(stillMovingProbeMs(…))` — **le site le plus
+  serré des 6** de la famille, et **le même** que celui de l'auteur. Identifiée par **FICHIER ET
+  FORME**, **aucune relance dédiée**, la suite est repassée verte à l'exécution suivante du
+  protocole. ⚠ **Le contrôle `nm` ne s'applique pas** (cette suite **lie** la clôture serveur) :
+  ce qui exclut la causalité, c'est que le fichier contient **0 occurrence** de `Json`, `json`,
+  `JsonApi` — *compté* — et que le marqueur mesure **0 passage**.
+
+  ⭐ **Ce que ce merge ajoute pour les suivants :**
+  1. ⛔⭐ **Le « faux vert de relink » a une forme INVERSE : le faux ROUGE de relink — et je suis
+     tombé dedans.** Après avoir restauré la pristine, j'ai rebuildé en ne supprimant que
+     `src/bin/calaos_server/JsonApi.o` : `make -j16` l'a bien recompilé, mais **`make check` a rendu
+     `# FAIL: 1` sur `JsonApiHardening_test`, aux 4 mêmes assertions** — *sur un arbre pourtant
+     `cmp`-identique à la pristine et `git status` vide*. **`CXXLD` pendant le `make check` : 0.**
+     Le binaire de test n'avait **pas** été relié et exécutait encore le **mutant**. ⭐ **La cause
+     est ÉCRITE DANS L'ARBRE et elle est DÉLIBÉRÉE** : `tests/Makefile.am` passe les objets serveur
+     par `CORE_SERVER_OBJECTS` dans `LDADD` avec le commentaire *« They are not repeated in
+     `_DEPENDENCIES` on purpose: they are built by another Makefile and make has no rule for them
+     here »* ⇒ **aucune dépendance make ne relie un binaire de test à un `.o` serveur modifié.**
+     ⇒ **Le `rm -f` des binaires n'est pas une cérémonie du protocole, c'est sa CONDITION DE
+     VALIDITÉ** — dans les **deux** sens : sans lui, une mutation peut se lire verte, **et une
+     restauration peut se lire rouge**. ⭐ *Le seul oracle reste le compte de `CXXLD`, jamais le
+     `# PASS` ni le `# FAIL`.* Vérification finale rejouée **avec** le `rm -f` des 95 binaires :
+     `rc=0`, **101 / PASS 100 / SKIP 1 / FAIL 0**, 1658 cas, 86,7 s, goldens `d4ebc61f`, arbre
+     propre.
+  2. ⛔⭐ **UNE PHRASE DE FICHE DÉMENTIE PAR LE MERGE, et c'est la 4ᵉ « portée trop large » de la
+     série.** La ligne `E4.1m` de `BOARD.md` se terminait par *« la requalification d'`E4.1n` en
+     documentation pure est **revérifiée vraie depuis ici** »*. **FAUX, vérifié au source sur
+     l'arbre mergé** : le pont **`json_dumps` + `Json::parse`** est **toujours là** dans
+     `RemoteUI/RemoteUIWebSocketHandler.cpp` — callback `(json_t *jret)` **:236**,
+     `json_dumps(jret, JSON_COMPACT)` **:246**, `json_decref` **:247**, `Json::parse(json_str)`
+     **:250**. La requalification d'`E4.1l` ne valait **QUE POUR LES EVENTS** ; l'étendre à tout
+     `E4.1n` était exactement le motif que R3 venait de restreindre, **réapparu deux paragraphes
+     plus loin dans la même fiche**. **Ligne corrigée.** ⭐ *(La ligne `E4.1n` de `BOARD.md`, elle,
+     portait DÉJÀ la bonne précision — les deux se contredisaient à 1 ligne d'écart : **quand une
+     fiche corrige une portée, relire les lignes VOISINES qui répètent l'ancienne**.)*
+  3. ⚠ **Bonus repéré en vérifiant le pont** : `RemoteUIWebSocketHandler.cpp:250` fait
+     `Json::parse(json_str)` — **la forme qui LÈVE** (ni `nullptr, false`) — dans un **callback
+     async** sous `uvw`. Même figure que la mine d'`E4.1o`, un cran plus bas. **À traiter par
+     `E4.1n` en même temps que le pont**, pas séparément.
+  4. ⚠ *Note d'outillage, sans rapport avec le ticket* : `tests/core/JsonApiModelWireBytes_test.cpp`
+     est vu **binaire** par git (`Bin 0 -> 32389 bytes`) parce qu'il **contient un octet `NUL`**
+     (mesuré ; par ailleurs **100 % ASCII et UTF-8 valide**). C'est **volontaire** — le fichier teste
+     des octets bruts — mais ⚠ **`git diff` n'affichera jamais son contenu** : un futur relecteur
+     doit le lire au fichier, pas au diff.
+
+  ⭐ **→ [`E4.1n`](E4.1n.md) est DÉBLOQUÉE, et elle N'EST PAS DOCUMENTAIRE : c'est un ticket de
+  CODE** (`buildJsonState/States/Query`, `decodeSetState`, **plus le pont
+  `RemoteUIWebSocketHandler.cpp:236-252`**). 3ᵉ maillon de la chaîne sérialisée `l`→`s`.
+  **`E4.1` passe à 13/17** (`a`→`m`).
+
 - **✅ [`T3.50`](T3.50.md) MERGÉE — `544aa0f8`, 6 commits, `--ff-only`, historique linéaire.**
   ⭐ **`master` était IMMOBILE sur `bdc13081`** = exactement la base de la branche ⇒ **ni rebase ni
   conflit au merge** (les deux rebases et le conflit `tests/Makefile.am` de la fiche sont ceux de
