@@ -280,6 +280,33 @@ AM_CONDITIONAL([HAVE_PYTHON_ROON], [test "x$have_python_roon" = "xyes"])
 AM_CONDITIONAL([HAVE_PYTHON_REOLINK], [test "x$have_python_reolink" = "xyes"])
 AM_CONDITIONAL([HAVE_PYTHON_MCP], [test "x$have_python_mcp" = "xyes"])
 
+# F-PYTEST-1: report, at configure time, whether "make check" will be able to
+# MEASURE tests/python/ at all.
+#
+# Half of that directory (3 files of 6, 19 cases of 42) imports pytest at
+# module level; two of those three then reach for fastapi/httpx or colorama
+# through pytest.importorskip. Without those modules the suites cannot run --
+# and until now they did not run while "make check" printed "# FAIL: 0", which
+# is the worst of the three possible outcomes.
+#
+# The dependency is deliberately NOT made mandatory (it would break the build
+# of every developer who has no pytest, ourselves included; see
+# docs/refactoring/DECISIONS.md). What is mandatory is that nobody can read a
+# green build and not know: this line at configure time, and an automake SKIP
+# -- counted in the visible "# SKIP:" column -- at "make check" time.
+#
+# Same shape as GTEST_INFO above, on purpose.
+PYTEST_INFO="install pytest, fastapi, httpx and colorama to measure tests/python/ (make check will report SKIP)"
+if test "x$PYTHON" != "x:" && test "x$PYTHON" != "x"; then
+    AC_MSG_CHECKING([for the Python modules the tests/python/ suites need])
+    if $PYTHON -c "import pytest, fastapi, httpx, colorama" 2>/dev/null; then
+        PYTEST_INFO="make check"
+        AC_MSG_RESULT([yes])
+    else
+        AC_MSG_RESULT([no])
+    fi
+fi
+
 ### AddressSanitizer (--enable-asan)
 #Off by default: a plain ./configure must produce byte-for-byte the same flags
 #as before this option existed, so nothing here runs unless it is asked for.
@@ -370,6 +397,7 @@ echo "  LDFLAGS..............................: $LDFLAGS"
 echo
 echo "Test Suite:"
 echo "  gtest library........................: $GTEST_INFO"
+echo "  tests/python/ (pytest + sidecar deps): $PYTEST_INFO"
 echo "  AddressSanitizer (--enable-asan).....: $(colorOut $have_asan) $ASAN_HINT"
 echo
 echo "Installation...........................: make install (as root if needed, with 'su' or 'sudo')"

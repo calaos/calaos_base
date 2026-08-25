@@ -19,10 +19,11 @@ TESTS += check-config-options.sh check-config-docs.sh
 dist_check_SCRIPTS = check-config-options.sh check-config-docs.sh
 
 # T2.14: python suites (tests/python/, from T1.8 + T1.16) wired into make
-# check through a wrapper. It runs pytest when available, falls back to the
-# stdlib "unittest discover" for the test_t116_*.py suites, and exits 77
-# (automake SKIP) when no usable python3 exists. PYTHON comes from
-# AM_PATH_PYTHON via AM_TESTS_ENVIRONMENT above.
+# check through a wrapper. PYTHON comes from AM_PATH_PYTHON via
+# AM_TESTS_ENVIRONMENT above.
+# F-PYTEST-1: the wrapper delegates to python-suite-runner.py, which counts the
+# declared cases, counts the executed ones, publishes both, and exits 77 (a
+# SKIP that shows in the "# SKIP:" column) rather than 0 when they disagree.
 TESTS += run-python-tests.sh
 dist_check_SCRIPTS += run-python-tests.sh
 
@@ -36,6 +37,7 @@ dist_check_SCRIPTS += run-python-tests.sh
 TESTS += check-python-tests-reporting.sh
 dist_check_SCRIPTS += check-python-tests-reporting.sh
 EXTRA_DIST = \
+              python-suite-runner.py         \
               python/conftest.py             \
               python/test_auth.py            \
               python/test_extern_proc.py     \
