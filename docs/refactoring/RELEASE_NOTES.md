@@ -1044,6 +1044,27 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   **Ce qui reste vrai.** Quelqu'un capable d'exécuter du code **sur le boîtier Calaos lui-même**
   est vu comme le proxy et peut encore choisir son identité. C'est accepté : à ce stade il a déjà
   bien mieux à sa disposition.
+
+  ⚠️⚠️ **CETTE PROTECTION EST INCOMPLÈTE — l'assistant MCP n'en bénéficie PAS encore.** Si vous
+  avez activé le serveur MCP (l'interface qui permet à un assistant IA de piloter votre
+  installation), sachez qu'il est servi **sur le même port 5454**, sous `/mcp`, et qu'il possède
+  **son propre** compteur de tentatives et sa propre liste de blocage. Ce compteur-là lit toujours
+  l'en-tête `X-Forwarded-For` **sans vérifier d'où vient la connexion**. Autrement dit, les deux
+  abus décrits plus haut — essayer des jetons sans limite, ou faire bloquer quelqu'un d'autre —
+  **restent possibles sur `/mcp` depuis votre réseau local**. Mesuré : avec une limite réglée à 5
+  requêtes, 20 requêtes portant un en-tête forgé **changé à chaque fois** passent **toutes**, là où
+  20 requêtes honnêtes sont bloquées après 4.
+  ⇒ **Ne considérez pas `/mcp` comme protégé par cette version.** Tant que ce n'est pas corrigé,
+  n'exposez pas le port 5454 hors de votre réseau local sans passer par le reverse-proxy, et
+  traitez le jeton MCP comme un secret dont la seule défense est sa longueur. Le correctif demande
+  une modification plus profonde du relais et fait l'objet d'une fiche séparée.
+
+  ⚠️ **Un cas particulier de configuration.** Si vous avez réglé `listen_address` sur `::` (l'écoute
+  IPv6 « toutes interfaces » — ce n'est pas la valeur par défaut et rien dans Calaos ne la pose),
+  le serveur ne sait pas lire l'adresse de ses clients dans ce mode, et **tous vos utilisateurs
+  retombent dans un compteur unique**, comme dans le cas du proxy déporté ci-dessus. Aucune
+  identité n'est usurpable pour autant — le serveur refuse de faire confiance plutôt que de se
+  tromper. Repassez à `0.0.0.0` (la valeur par défaut) en attendant le correctif.
 - **En-têtes HTTP** limités à 32 Kio → `431` (auparavant illimité jusqu'au timeout).
 - **TLS** : la vérification des certificats reste **désactivée par défaut** pour tous les
   équipements configurés par l'utilisateur (caméras HTTPS auto-signées, devices LAN) — aucune

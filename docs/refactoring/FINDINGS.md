@@ -824,12 +824,31 @@
   - ✅ **l'entrée disait vrai sur le reste** : `rfind(',')` prend bien la **dernière** entrée
     (celle du proxy, pas celle que le client contrôle), et `option forwardfor` est bien **sans**
     `if-none` sur les **trois** générateurs de config haproxy du produit
-    (`calaos-os-conf/conf/haproxy-calaos.cfg:48`, `pkgdebs/haproxy/haproxy_pre:63`,
+    (~~`calaos-os-conf/conf/haproxy-calaos.cfg:48`~~, `pkgdebs/haproxy/haproxy_pre:63`,
     `calaos_ddns/haproxy/haconfig.go:39-41`), tous sur **`127.0.0.1:5454`**.
+    - ⛔ **CORRECTION (T3.39 R-provenance, 2026-08-25)** : la **conclusion tient**, la **première
+      citation était mauvaise** et la réserve « provenance invérifiable » était **trop pessimiste**.
+      `haproxy-calaos.cfg` n'est **pas** sur cette machine (dépôt distant seulement épinglé par un
+      `PKGBUILD`) et il est **périmé** (ère Arch ; l'image livrée est Debian/dpkg). La topologie se
+      vérifie **entièrement hors ligne** sur l'artefact réellement livré,
+      `calaos-build/out/calaos-os.rootfs.tar` : `usr/sbin/haproxy_pre:38` `option forwardfor`
+      (**`if-none` : 0 occurrence**), `usr/sbin/haproxy_pre:63`
+      `server calaos-server 127.0.0.1:5454 check`, `usr/share/calaos-ddns/haproxy.template:34`
+      idem, et **`--network=host` sur les deux units podman**
+      (`haproxy.service:27`, `calaos-server.service:30`). Rien ne dépend d'un fichier distant.
 
-  **Balayage complémentaire (`python3`, arbre entier)** : `X-Forwarded-For` est la **seule** tête
-  de provenance lue — **`X-Real-IP` : 0 occurrence**, `Forwarded` (RFC 7239) **jamais parsé**.
-  Aucun autre site à durcir.
+  **Balayage complémentaire (`python3`, arbre entier)** : côté **C++**, `X-Forwarded-For` est la
+  **seule** tête de provenance lue — **`X-Real-IP` : 0 occurrence**, `Forwarded` (RFC 7239)
+  **jamais parsé**.
+  - ⛔ **CORRECTION (T3.39 R1, 2026-08-25) — la phrase « Aucun autre site à durcir » était FAUSSE,
+    et c'est la moitié du trou.** Le balayage n'avait porté que sur le C++. **`calaos_mcp`
+    (`src/bin/calaos_mcp/python/calaos_mcp/auth.py:65-78`, MÊME DÉPÔT) lit `X-Forwarded-For`
+    avec exactement la même règle « dernière ligne, dernière entrée » et SANS AUCUN test du pair**,
+    et en clef son rate-limiter **et sa liste de bannissement**. Or `/mcp` est servi **sur le
+    5454** et le proxy C++ transmet les octets **sans réécrire l'en-tête**. ⇒ les deux capacités
+    que T3.39 ferme côté serveur restent **entièrement ouvertes** côté MCP. Consigné en
+    **F-MCP-XFF-1** ci-dessous (fiche **[T3.42](T3.42.md)**) ; **la protection de F-XFF-1 est
+    INCOMPLÈTE tant que F-MCP-XFF-1 n'est pas fermé**.
 
   **Ce qui reste ouvert, et qui est ACCEPTÉ** :
   - un attaquant **sur la machine elle-même** est loopback ⇒ il peut encore forger l'en-tête et
@@ -842,6 +861,113 @@
     option `trusted_proxies` (défaut `"127.0.0.1,::1"`, donc iso-comportement) est PROPOSÉE mais
     volontairement NON introduite** — l'arbitrage appartient à l'utilisateur, cf. T3.39 §7.1 ;
   - le **request smuggling** à travers haproxy reste hors périmètre, inchangé.
+  - ⛔ **ET CE QUI N'EST PAS ACCEPTÉ, ajouté par la revue de T3.39** : **F-MCP-XFF-1** ci-dessous.
+    Ce n'est pas un arbitrage, c'est la **même faille non fermée sur l'autre moitié du port 5454**.
+
+- ⚠️⚠️ **F-MCP-XFF-1 — [SÉCURITÉ, OUVERT, fiche [T3.42](T3.42.md)] le sidecar MCP croit
+  `X-Forwarded-For` sans aucun test du pair : le rate-limit et le bannissement `/mcp` sont contournables depuis le LAN** (trouvé par
+  la revue de T3.39, **mesuré de bout en bout**, **non corrigé**).
+
+  **Le chemin, mesuré et non repris sur parole** :
+  1. `/mcp` est servi **sur le port 5454** — `WebSocket.cpp:74-127` renifle la première requête et,
+     sur un chemin `/mcp`, bascule la connexion en tunnel (`McpProxyHandler`) ;
+  2. le proxy transmet les octets **verbatim** : `McpProxyHandler::writeToSidecar()` (`:281-287`)
+     fait une copie mémoire et un `write`, **aucune réécriture d'en-tête** ;
+  3. le sidecar est joint par une **socket Unix** — `calaos_mcp/__main__.py:116-141` bind un
+     `AF_UNIX` puis le passe à uvicorn par `fd=`, **jamais de host/port** ;
+  4. ⇒ **`request.client` vaut `None`** côté Starlette. **Mesuré** sur les versions épinglées
+     (uvicorn 0.34.2 / starlette 1.3.1) **et** en dernières versions, en `httpx(uds=)` **et** en
+     octets HTTP/1.1 bruts sur une socket `AF_UNIX` : identique. Le repli
+     `request.client.host if request.client else "unknown"` (`auth.py:77`) prend **toujours** la
+     branche `"unknown"` ;
+  5. ⇒ `_source_ip()` n'a **aucune** information de pair sur laquelle bâtir la garde de T3.39.
+     Avec le **vrai** `BearerAuthMiddleware`, `rate_limit=5`, 20 requêtes sur la vraie socket :
+     · clef fixe (sans en-tête → `"unknown"`) → **200 : 4 · 429 : 16**
+     · `X-Forwarded-For` forgé et **tourné à chaque requête** → **200 : 20 · 429 : 0**
+     **Contournement total du rate-limiter**, et symétriquement le bannissement d'une victime
+     choisie en portant son adresse.
+
+  **Pourquoi ce n'est PAS une garde de trois lignes, et donc pourquoi T3.39 ne l'a pas fermé** —
+  c'est l'argument de périmètre, il est mesuré, pas supposé :
+  - le sidecar **ne peut pas** se garder lui-même : `request.client` est `None`, l'information de
+    pair n'existe **que** côté C++ ;
+  - le C++ **ne peut pas** l'injecter à peu de frais : **seule la PREMIÈRE requête d'une connexion
+    est inspectée**. `WebSocket.cpp:64-69` renvoie vers `mcpProxy->onClientData()` **avant** le
+    bloc de reniflage, l'état `Proxied` n'a **aucune transition de retour**, et tout octet suivant
+    part au sidecar sans lecture. ⇒ **assainir l'en-tête une fois à l'ouverture serait contourné
+    par une seconde requête sur la même connexion keep-alive.** Un correctif juste demande un
+    **découpage requête par requête dans le tunnel** — c'est-à-dire transformer un tunnel d'octets
+    en proxy HTTP, avec la surface de smuggling que cela rouvre. **Refonte, pas garde.**
+
+  **Forme du correctif proposée** (à instruire dans le ticket dédié) : que `McpProxyHandler`
+  **retire toute ligne `X-Forwarded-For` cliente et pose la sienne** (`getClientIp()`) quand le
+  pair n'est pas le loopback, **sur chaque requête du tunnel** — le sidecar garde alors sa règle
+  actuelle sans une ligne de Python à changer. Alternative moins invasive à peser : refuser
+  `/mcp` aux pairs non-loopback (mais `/mcp` depuis le LAN peut être légitime).
+
+  ⚠️ **Tant que cette entrée est ouverte, la protection annoncée par F-XFF-1 est INCOMPLÈTE**, et
+  la note de version le dit explicitement. Un auto-hébergeur qui lit « les tentatives sont
+  désormais correctement comptées » et laisse `/mcp` exposé **se croirait protégé**.
+
+- ⚠️ **F-IP6-1 — [CORRECTION, OUVERT, PRÉEXISTANT, fiche [T3.41](T3.41.md)] `HttpClient::getClientIp()` ne détecte pas la
+  famille d'adresse : sur un pair IPv6 il rend `"0.0.0.0"`, jamais l'adresse** (trouvé par la revue
+  de T3.39, **mesuré**, **non corrigé** — le défaut précède T3.39).
+
+  **La cause** : `uvw`'s `details::address<I>()` (`src/lib/uvw/src/uvw/util.hpp:384-398`) demande le
+  pair dans un `sockaddr_storage` puis le **`reinterpret_cast` en `sockaddr_in` sans regarder
+  `ss_family`**. `getClientIp()` (`HttpClient.cpp:700-722`) essaie `peer<uvw::IPv4>()` d'abord et
+  le renvoie dès qu'il est **non vide** — or il ne l'est jamais.
+
+  **Mesuré** sur une connexion `::1` réellement acceptée (programme C, `getpeername` + `inet_ntop`,
+  exactement la séquence d'uvw) :
+  `famille = AF_INET6` · `peer<IPv6>().ip = "::1"` · `sin6_flowinfo = 0x00000000` ·
+  **`peer<IPv4>().ip = "0.0.0.0"`** (non vide ⇒ il gagne) ⇒ **`getClientIp()` rend `"0.0.0.0"`**.
+
+  **Conséquences** :
+  - les branches **`::1`** et **`::ffff:127.x`** de `TransportLimits::isTrustedProxyPeer()` sont
+    **du code mort en production** — elles restent en défense en profondeur, la note de
+    `HttpClient.h` le dit désormais explicitement au lieu de promettre une protection qui n'opère
+    pas ;
+  - sur la configuration livrée, **aucun coût** : `listen_address` vaut `"0.0.0.0"`
+    (`ConfigOptions.cpp:499`), l'écoute est IPv4, tout pair est `AF_INET`, la branche `127.` marche ;
+  - ⚠️ mais si un opérateur pose **`listen_address = "::"`** (valeur légale d'une clé documentée),
+    **tout** pair devient `AF_INET6`, `getClientIp()` rend `"0.0.0.0"` pour tout le monde, la garde
+    le refuse, et **toute l'installation retombe dans un seau unique** — le défaut T3.24, pour
+    cette configuration-là. La garde **échoue en fermeture** (aucune identité n'est forgée), donc
+    c'est une régression de **disponibilité**, pas un trou de sécurité — **mais c'en est une contre
+    master pour cette valeur**, et elle est écrite plutôt que tue.
+
+  **Forme du correctif** : appeler `uv_tcp_getpeername()` soi-même, tester `ss_family`, et router
+  vers `uv_ip6_name()` ou `uv_ip4_name()`. ⚠️ Le chemin n'est pas atteignable par un test unitaire
+  sans socket réelle : **ne pas déclarer « couvert » sans l'avoir mesuré** (dette `F-LINK-1`).
+
+- ⚠️ **F-PYTEST-1 — [FAUX VERT, OUVERT] `tests/python/test_auth.py` est silencieusement SAUTÉ par
+  `make check`, qui reste vert** (trouvé en mesurant F-MCP-XFF-1).
+  `tests/run-python-tests.sh:50-60` lance `pytest` **s'il est disponible**, sinon retombe sur
+  `unittest discover -p 'test_t116_*.py'`. Sur cette machine `/usr/bin/python3 -m pytest` →
+  `No module named pytest`, et `tests/run-python-tests.sh.log` du dernier `make check` réel porte :
+  « *skipping pytest-only suites (test_auth.py, test_extern_proc.py, test_logger.py)* », `.trs` =
+  **PASS**. ⇒ **11 cas de `test_auth.py` — précisément ceux du throttle MCP — ne s'exécutent pas,
+  et la suite ne le signale que dans un log que personne ne lit.** Rejoués à la main sous un venv
+  avec les vraies dépendances : **11 passent**. C'est une **huitième variante de faux vert** à
+  ajouter à la liste de méthode : *une suite qui s'auto-saute est indistinguable d'une suite qui
+  passe*. Correctif : faire **échouer** `run-python-tests.sh` quand `pytest` manque, ou déclarer le
+  saut en `SKIP` automake plutôt qu'en `PASS`.
+  ⚠️ Corollaire pour F-MCP-XFF-1 : **aucun** test ne mentionne `_source_ip` ni `request.client`, et
+  **tous** les cas de `test_auth.py` fournissent un `X-Forwarded-For` — le repli `"unknown"` et le
+  modèle de menace « sans proxy » sont **entièrement non testés**.
+
+- ⚠️ **F-MCP-SNIFF-1 — [SÉCURITÉ, OUVERT, PRÉEXISTANT] la détection de smuggling de `/mcp` se
+  contourne avec ~8 Kio de bourrage d'en-têtes** (trouvé en mesurant F-MCP-XFF-1, **hors périmètre
+  T3.39**, non corrigé).
+  `McpProxyHandler::sniffRequest()` (`:144-156`) ne cherche `detectSmuggling()` que s'il a **vu**
+  la fin du bloc d'en-têtes ; si `\r\n\r\n` n'est pas trouvé **et** que le tampon dépasse
+  `SNIFF_LIMIT` (**8192**, `:34`), il rend `Mcp` **sans aucun contrôle**. Vérifié en compilant le
+  **texte réel** des lignes 32-157 dans un harnais : un bloc portant **deux `Content-Length`** et
+  bourré au-delà de 8 Kio sans terminaison passe en `Mcp`. `MCP_SNIFF_LIMIT` vaut **16384**
+  (`WebSocket.h:101`) et `MaxHeadersSize` **32768**, donc c'est bien la limite de 8 Kio qui tombe
+  la première. Mineur au passage : `McpProxyHandler.cpp:134-135` teste `"/mcp?"` sur un chemin dont
+  la query a **déjà** été retirée (`:131-132`) — **branche morte**.
 
 - ✅ **[SÉCURITÉ, même classe que F2] `RemoteUIManager::getRemoteUIByToken` en `string ==`** —
   **traité par T2.15** (`01089187`, « … constant-time RemoteUI token lookup »). Revérifié au

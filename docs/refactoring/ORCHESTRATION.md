@@ -4376,13 +4376,40 @@
     **L'échange reste acceptable** (il retire un DoS de lockout non authentifié atteignable depuis
     le WAN et frappant tout le monde ; il ajoute un abus qui exige le LAN ; et le cap de connexions
     fait déjà confiance à l'en-tête) — **mais c'est un arbitrage, pas un gain gratuit**.
-    - ⭐ **SUITE À OUVRIR, HORS DE CE DÉPÔT (calaos-os), et elle est gratuite** : poser
-      **`listen_address = 127.0.0.1`**. L'option **existe déjà** et est documentée
-      (`docs/16_config_options.md`) ; seul haproxy joindrait alors le port, ce qui rend la confiance
-      en `X-Forwarded-For` **saine**. C'est le vrai correctif de fond de F-XFF-1.
-    - Config de production **vérifiée, pas supposée** : `pkgbuilds/calaos-os-conf/PKGBUILD` épingle
-      `33f794eb`, dont `conf/haproxy-calaos.cfg` porte **`option forwardfor` SANS `if-none`** ⇒
-      haproxy ajoute **toujours** sa ligne, en queue. **Derrière le proxy, non contournable.**
+    - ⭐ ~~**SUITE À OUVRIR, HORS DE CE DÉPÔT (calaos-os), et elle est gratuite** : poser~~
+      ~~**`listen_address = 127.0.0.1`**. L'option **existe déjà** et est documentée~~
+      ~~(`docs/16_config_options.md`) ; seul haproxy joindrait alors le port, ce qui rend la confiance~~
+      ~~en `X-Forwarded-For` **saine**. C'est le vrai correctif de fond de F-XFF-1.~~
+    - ⛔ **CORRECTION (T3.39, 2026-08-25) — CE REMÈDE EST FAUX, ET IL ÉTAIT ENCORE ICI LE SEUL
+      NON BARRÉ.** Partout ailleurs dans ce fichier `listen_address` est écarté (voir l'entrée **3**
+      de l'en-tête) ; ce bloc-ci le présentait toujours comme *« gratuite »* et *« le vrai correctif
+      de fond de F-XFF-1 »*. Il ne l'est ni l'un ni l'autre :
+      **(1)** la clé **bind aussi le serveur UDP** — `UDPServer.cpp:58-61` lit `listen_address` par
+      la **même ligne** que `HttpServer.cpp:29-31` — donc la poser à `127.0.0.1` **casse la
+      découverte** (`CALAOS_DISCOVER` → `CALAOS_IP`) **et** les trames `WAGO INT`/`WAGO KNX` ;
+      **(2)** les clients du 5454 en direct sont **légitimes** : le firmware **RemoteUI** se
+      découvre en UDP **puis** se connecte au 5454, l'app mobile en LAN et l'auto-détection de
+      l'installeur aussi. **Le port ouvert n'est pas le défaut, c'est le produit.**
+      Le correctif réel est celui que T3.39 a livré : **ne croire l'en-tête que si le pair TCP est
+      le loopback**. Ne re-proposez pas `listen_address` ; c'est consigné dans `DECISIONS.md`.
+    - ~~Config de production **vérifiée, pas supposée** : `pkgbuilds/calaos-os-conf/PKGBUILD` épingle~~
+      ~~`33f794eb`, dont `conf/haproxy-calaos.cfg` porte **`option forwardfor` SANS `if-none`** ⇒~~
+      ~~haproxy ajoute **toujours** sa ligne, en queue. **Derrière le proxy, non contournable.**~~
+    - ⛔ **CORRECTION (T3.39, 2026-08-25) — LA CONCLUSION TIENT, LA CITATION ÉTAIT MAUVAISE.**
+      `conf/haproxy-calaos.cfg` **n'est pas sur cette machine** (le `PKGBUILD` ne fait qu'épingler un
+      dépôt distant, non cloné) et il est de surcroît **périmé** : c'est la config de l'ère Arch,
+      alors que l'image livrée est Debian/dpkg et ne contient **aucun** `/etc/haproxy/haproxy-calaos.cfg`.
+      La provenance est néanmoins **vérifiable entièrement hors ligne**, sur un artefact **plus fort**
+      que le dépôt cité — l'image réellement livrée,
+      `calaos-build/out/calaos-os.rootfs.tar` (1 129,8 Mo, 21 138 membres) :
+      · `usr/sbin/haproxy_pre:38` → `option forwardfor` (**1 occurrence, `if-none` : 0**)
+      · `usr/sbin/haproxy_pre:63` → `server calaos-server 127.0.0.1:5454 check`
+      · `usr/share/calaos-ddns/haproxy.template:34` → `option forwardfor` (**`if-none` : 0** aussi ;
+        ce chemin **réécrit** la config par défaut, et les deux concordent)
+      · `usr/lib/systemd/system/haproxy.service:27` et `…/calaos-server.service:30` → **`--network=host`
+        sur les deux** ⇒ le `127.0.0.1` d'haproxy est bien le loopback de l'hôte que calaos_server voit.
+      ⇒ **La réserve « provenance non vérifiable » était TROP PESSIMISTE** : la décision de T3.39 ne
+      repose sur aucun fichier distant.
   - **Nouveau binaire de test** `core/JsonApiThrottleIdentity_test` (**7 cas**, 2 transports,
     **0 golden**) **+ 3 cas** dans `TransportHardening_test.cpp` qui figent, **au vrai parseur
     llhttp**, que « **la dernière ligne `X-Forwarded-For` répétée gagne** » — l'invariant dont
