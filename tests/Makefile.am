@@ -2272,3 +2272,31 @@ WagoWire_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+
+# E4.1c
+#The two build-only contracts the "dead jansson residues" cleanup rests on,
+#plus the source tripwires that keep the deletions deleted.
+#(A) IO/ExternProc.h must go on handing <jansson.h> to the ten units that take
+#it from there and nowhere else; the deleted `#include <jansson.h>` was
+#redundant with the `#include "Jansson_Addition.h"` on the next line, and it is
+#E4.1x, not E4.1c, that removes the provision itself.
+#(B) json_array_foreach is native to jansson >= 2.5 (configure.ac:51), so the
+##ifndef compat copy deleted from HttpClient.cpp could never fire.
+#This unit includes ExternProc.h and NOTHING else from calaos, so that jansson
+#being visible below proves that header brought it: no server object is linked
+#and none may be, which also keeps it clear of the _DEPENDENCIES pitfall.
+#CALAOS_TOP_SRCDIR lets the tripwire cases read the shipped sources, the same
+#way CALAOS_GOLDEN_DIR feeds the golden comparisons.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += JanssonResidues_test
+check_PROGRAMS += JanssonResidues_test
+JanssonResidues_test_SOURCES = JanssonResidues_test.cpp
+JanssonResidues_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -DCALAOS_TOP_SRCDIR='"$(abs_top_srcdir)"'
+JanssonResidues_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+#Built elsewhere, do not let automake turn them into prerequisites
+JanssonResidues_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
