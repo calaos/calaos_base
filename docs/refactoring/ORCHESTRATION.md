@@ -230,6 +230,85 @@
     c'est le code qui la consomme qui a été lu. Le seul programme exécuté est un `g++` autonome de
     12 lignes sur `from_string`/`is_of_type`.
 
+- **🔒 T3.30 ✅ MERGÉ (`206e82ff`, 6 commits, `git rebase master` + `merge --ff-only`, historique
+  linéaire, `make check` **85/85**) — ⭐ **la revue de merge a rendu « merge sous réserve », et la
+  réserve était juste : le ticket désamorçait un piège sur une chaîne MORTE et le réarmait un cran
+  plus loin sur la chaîne VIVANTE.****
+  Périmètre réel : l'**en-tête neuf de production** `IO/Wago/WagoBits.h`, `IO/Wago/WagoCtrl.{cpp,h}`,
+  **1 ligne** de `src/bin/calaos_server/Makefile.am`, `tests/{Makefile.am,WagoBits_test.cpp}` et deux
+  fiches. **Aucun débordement.** Goldens : arbre `d4ebc61f…`, **145 fichiers**, **identique à
+  master**. Suites **84 → 85** (recompté en `python3`, continuations `\` comprises ; unique ajout
+  `WagoBits_test`). `tests/Makefile.am` : **73 `^if*` / 73 `^endif`** tous préfixes confondus
+  (**72/72** sur master), profondeur jamais négative.
+
+  - ⭐ **F1, LA RÉSERVE BLOQUANTE, ET CE QUE MA PROPRE MESURE A CHANGÉ À SA CORRECTION.**
+    `coilBufferSize()` écrase `nb <= 0` en **0** et **les deux LECTURES allouaient dessus**, sur le
+    chemin qui s'exécute (battement de cœur modbus toutes les 10 s, tout scrutin Wago), alors que
+    les écritures durcies par le ticket n'ont **aucun appelant**. **D'où sortent les 255** :
+    `mbus_cmd.c`, `mbus_cmd_read_coil_status()` déclare **`mbus_ubyte byte_count`**
+    (`unsigned char`, `mbus_conf.h`), le remplit **depuis la trame de réponse** et fait
+    `while (byte_count--) MBUS_BYTE_WR(coils_data, *bufptr++)` — borné par la réponse et par la
+    largeur d'un `unsigned char`, **par rien de ce que l'appelant a passé**.
+    ⚠️ **La revue proposait deux voies et l'une des deux ne corrige rien** : retirer le clamp de
+    `coilBufferSize()` laisse `(nb + 7) / 8` **tronquer vers zéro**, donc rendre `0` sur tout
+    `[-8, 0]` — neuf valeurs, dont `nb == 0`. **Mesuré au `g++`, pas déduit.** Voie retenue : le
+    prédicat nommé `WagoBits::countIsReadable()`, en tête de `read_bits()` **et** de `read_words()`
+    (qui ne refusaient pas le même domaine), à côté de sa jumelle `countIsWritable()`.
+
+  - ⭐ **RÉGRESSION OU DÉFAUT PRÉEXISTANT ? LES DEUX, ET ILS NE SE FICHENT PAS AU MÊME ENDROIT.**
+    Décidable, donc mesuré sur `master` : `nb / 8 + nb % 8` est **négatif pour tout `nb < 0`**
+    testé (`-1, -7, -8, -9, -40`) ⇒ `new mbus_ubyte[négatif]` **lève** ⇒ **`nb < 0` est une
+    régression introduite par T3.30**, jamais livrée, **donc pas fichée comme défaut de
+    production** (consignée dans `T3.30.md`). Mais `master` rend **déjà `0` pour `nb == 0`** ⇒
+    **`nb == 0` est un défaut PRÉEXISTANT et LIVRÉ, sur les deux lectures** : addendum à
+    **F-WAGO-7**. L'extraction de `coilBufferSize()` l'a rendu **visible**, elle ne l'a pas créé.
+
+  - ⭐ **UN DÉFAUT DE PLUS, TROUVÉ EN REFERMANT F1, QUE LA GARDE NE FERME PAS — `F-WAGO-8`.**
+    `byte_count` reste borné par la **réponse**, jamais par la demande ni par la taille du tampon.
+    Le battement de cœur appelle `read_bits(0, 1, …)` : **un octet alloué**, une réponse annonçant
+    255 le déborde de **254**. Idem côté registres (127 mots), et `mbus_rqst()` lit déjà le corps
+    de trame sur `MBUS_LENGTH_L` (jusqu'à 255) dans les **254** octets libres de `mbus->buf`.
+    **Préexistant, inchangé par ce ticket, ticket dédié recommandé** (`libmbus` est un tiers
+    importé : le corriger change sa signature). ⛔ **Ne pas lire « F1 fermé » comme « le
+    débordement de tas est fermé ».**
+
+  - **L'ORACLE, ET LA CONTRE-MUTATION.** Commit de caractérisation `9597c897` : **zéro ligne de
+    `src/`**, **5 rouges sur 19**, code de sortie **1** ; le correctif `3f663aba` les passe au vert,
+    **19/19**, code de sortie **0**. Contre-mutations, binaire de test **et** `.o` serveur `rm -f`
+    d'abord, **`CXXLD WagoBits_test` exigé à chaque tour**, verdict au **code de sortie** : témoin
+    **0 rouge / exit 0** · M1 garde retirée de `read_bits()` → **1** · M2 garde retirée de
+    `read_words()` → **1** · M3 `countIsReadable → nb >= 0` → **3** · M4 `→ true` → **3**.
+    ⚠️ **M3 et M4 partagent leur ensemble** — deux forces de la même mutation du même prédicat, et
+    je ne prétends pas le contraire. **M1 et M2 le partageaient aussi** tant que le fil de source
+    était **un seul cas** : il a été **scindé en un cas par lecture** parce que le journal ne disait
+    pas laquelle des deux avait perdu sa garde.
+
+  - **F2/F3/F4/F6 fermés.** F2 : `F-WAGO-7` omettait **`UWord address;`**, nu dans les **mêmes
+    quatre branches** que `count` (`:75/:131/:160/:217`) — et dans **deux branches de plus**
+    (`:108`, `:193`, écritures unitaires), où une adresse de pile arbitraire part **en ÉCRITURE**
+    vers l'automate ; `write_word` y ajoute un **`UWord value;`** nu (`:194`). F3 : « 82 → 83 »
+    n'était pas faux, il avait **périmé** — `master` a gagné `JsonPathSyntax_test` et
+    `ScriptWire_test` ⇒ **84 → 85**. F4 : « `&WagoMap::` = 8, **toutes** des `sigc::mem_fun` » ⇒
+    **7 sur 8**, la 8ᵉ est le **type de retour** de `WagoMap &WagoMap::Instance(...)`
+    (`WagoMap.cpp:96`) ; conclusion inchangée. F6 : `WagoBits.h` sans `<cstring>`.
+
+  - **Build de validation rejoué en `distclean` complet après le rebase** (`./autogen.sh &&
+    ./configure && make -j12 && make check -j6`, agents concurrents, attendu par **`docker wait`**) :
+    **0 `error:`**, **`CXXLD calaos_wago`**, **`CXXLD calaos_server`**, **`CXXLD WagoBits_test`**
+    (×1 chacun), **85 PASS / 0 FAIL / 0 SKIP / 0 ERROR**, code de sortie **0**.
+
+  - ⚠️ **`fix/t3.30` n'a PAS été déplacée** : la branche est sortie dans le worktree voisin vivant
+    `.wave50/t3.30` et y toucher aurait bougé son `HEAD` sous les pieds d'un autre agent. Le travail
+    a été fait sur `merge50/t3.30` (worktree `.merge50/t3.30`) et c'est **`master` qui porte les six
+    commits**. `fix/t3.30` pointe encore sur l'ancien `20341e90` : à supprimer avec son worktree.
+
+  - **NON VÉRIFIÉ, à ne pas surestimer** : **rien sous ASan**, **aucun automate réel**, aucune trame
+    modbus émise. Le débordement de F1 comme celui de F-WAGO-8 sont établis **au source et par un
+    `g++` autonome**, pas observés en vol. Les sites d'appel de `WagoCtrl.cpp` restent couverts par
+    **quatre fils de texte** et non par de l'exécution — plus faible, et dit comme tel.
+
+  - **Rien n'a été poussé.**
+
 - **🔒 E4.1j ✅ MERGÉ (`2abd16b4`, 6 commits, `git rebase master` + `merge --ff-only`, historique
   linéaire, `make check` **84/84**) — ⭐ le wire Lua aval, et **le merge qui CLÔT la vague 1
   parallèle d'E4.1** : l'épique passe à **11/17 livrés (`a`→`k`)**, il ne reste que la chaîne
