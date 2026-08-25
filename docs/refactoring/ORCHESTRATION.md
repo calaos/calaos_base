@@ -230,6 +230,81 @@
     c'est le code qui la consomme qui a été lu. Le seul programme exécuté est un `g++` autonome de
     12 lignes sur `from_string`/`is_of_type`.
 
+- **🔒 T3.27 ✅ MERGÉ (`ed9fc58e`, 5 commits, `git rebase master` + `merge --ff-only`, historique
+  linéaire, `./autogen.sh && ./configure && make -j12 && make check -j6` **87/87**, `exit 0`, **0
+  `error:`**, `CXXLD    calaos_server`)** — `setIOParam()`/`waitForIO()` déclaraient `return 1`
+  sans rien empiler et rendaient au script **son propre dernier argument**. **RIEN POUSSÉ.**
+
+  - ⭐ **LES TROIS MESURES DE LA REVUE, REJOUÉES AU MERGE** (protocole complet à chaque passe :
+    `cmp` d'application — refus de scorer une source identique à l'original —, `rm -f` du `.o`
+    **et** du binaire, `CXX      LuaScript/ScriptBindings.o` et `CXXLD    LuaCalaosApi_test`
+    exigées à **1** chacune, jugement **au code de sortie**, et comparaison des **ENSEMBLES** de
+    rouges au témoin, jamais de leurs cardinaux) :
+    - **Témoin, aucune mutation** : `CXX`=1, `CXXLD`=1, **0 rouge**, **sortie 0**.
+    - ⭐ **`MR1` rejouée** (`lua_toboolean(L, 3)?"true":"false"` ⇄ `?"false":"true"`) : **ROUGIT —
+      1 rouge, `ABooleanValueIsWrittenAsTrueOrFalse` exactement, sortie 1.** Elle **survivait**
+      avant correction (0/12) : aucun cas ne passait de booléen Lua. ⚠️ **Le cas envoie bien les
+      DEUX booléens** — vérifié dans la source : `flag_on`/`true` **et** `flag_off`/`false`, avec
+      `EXPECT_EQ("true", on)` **et** `EXPECT_EQ("false", off)` ; avec `true` seul, la moitié du
+      domaine resterait indistinguable **pour le contrat de retour**.
+    - **État de caractérisation rejoué** (les deux `return 0` remis à `return 1`, c'est-à-dire
+      l'état de `38a49017`, dont le diff ne porte **zéro ligne de `src/`** — vérifié :
+      `tests/LuaCalaosApi_test.cpp` et `tests/Makefile.am` seuls) : **7/13 rouges, sortie 1**,
+      dont le nouveau cas booléen. Les trois ensembles sont **strictement emboîtés et distincts**.
+
+  - ⭐⭐ **CONFLIT DOCUMENTAIRE ANNONCÉ, RÉSOLU PAR FUSION — `FINDINGS.md`.** `T3.35` et `T3.27`
+    ont appendu **le même jour** une section « dette méthodologique » en fin de fichier ⇒ deux
+    titres `##` pour le même sujet. **Fusionnés sous le seul titre de T3.35**, *les deux contenus
+    intégralement conservés* : le tableau des motifs devient l'**index** (M-1..M-5 de T3.35,
+    **plus M-6 = `F-LINK-1`** — la déclaration d'absence écrite après coup — **et M-7 =
+    `F-HARN-1`** — un remède correct généralisé à une famille étrangère), et l'apport de T3.27
+    devient la sous-section `### T3.27 — la dette des déclarations « objet non lié »`, avec sa
+    méthode de mesure, ses cinq déclarations rejouées et son tableau `_DEPENDENCIES`.
+    ⚠️ **Rien n'a été supprimé** : contrôle `python3` ligne à ligne contre les **trois** étages du
+    conflit — les seules lignes absentes du résultat sont (a) les deux titres remplacés et (b) les
+    lignes que les blocs `⛔ CORRECTION` **barrent** (`~~…~~`), jamais effacent.
+
+  - **Les 8 blocs `⛔ CORRECTION` sont des INSERTIONS LOCALES** — `E4.1j.md` · ce fichier ×2
+    (journaux E4.1j **et** E4.0d) · `FINDINGS.md` ×2 · `T3.30.md` · `T3.28.md` · `BOARD.md` ·
+    **et le commentaire de `tests/Makefile.am`**. Mesuré sur le diff `4295d1f3..ed9fc58e` :
+    **40 lignes supprimées** en tout dans la doc et le `Makefile.am`, pour **1047 insérées** —
+    et **chacune** des suppressions est soit une ligne **rendue barrée `~~…~~`** au-dessus de son
+    bloc (**22** lignes ajoutées portent `~~`), soit un **recalage de numéro de ligne** après
+    E4.1j (`02_io_drivers.md`, les refs `ScriptBindings.cpp:` de `09_lua_scripting.md`), soit la
+    ligne `BOARD` du ticket lui-même. **Aucune section entière n'est réécrite, aucun paragraphe
+    d'un autre agent n'est perdu.** Le bloc de `tests/Makefile.am` ne touche **que des lignes
+    `#`** : **zéro effet automake**, vérifié au diff hunk par hunk.
+
+  - **Conflits du rebase** : **un seul**, `FINDINGS.md` (ci-dessus). ⚠️ **`tests/Makefile.am` et
+    `BOARD.md` n'ont PAS conflicté** — contrairement au rebase de l'auteur contre `fb9d064c` :
+    `T3.35` **ne touche pas** `tests/Makefile.am` (74/74 et 86 `TESTS` identiques sur `fb9d064c`
+    et `4295d1f3`) et sa ligne `BOARD` est ailleurs. **Recompté après merge, pas recopié** :
+    `tests/Makefile.am` **75 `^if*` / 75 `endif`**, profondeur finale **0**, **jamais négative** ;
+    **87 entrées `TESTS`** (3 scripts shell), **85 `check_PROGRAMS`**. `BOARD.md` reste trié par
+    numéro (T3.27 · T3.28 · T3.28a · **T3.28b** · T3.29).
+
+  - **`make check` 87/87, 0 FAIL**, **145 goldens**, arbre `tests/core/golden`
+    **`d4ebc61fb2b1876f587d075a0cb050750dc1876f`** — **identique à master, aucun n'a bougé** —
+    et **0 fichier suivi modifié** après `make check`.
+
+  - **Corrections transverses vérifiées** : `F-LUA-5` → **`F-LUA-7`** (`F-LUA-1..7` **uniques**,
+    un seul `[F-LUA-n]` par identifiant) · **`F-HARN-1`** consignée comme **6ᵉ variante de famille
+    distincte** · `DECISIONS.md` porte le bloc `⛔ CORRECTION` qui requalifie « cause racine des
+    **CINQ** variantes » en « cinq de la famille `_DEPENDENCIES`, **plus une sixième d'une autre
+    famille** » ⚠️ *(la phrase d'origine n'est pas barrée, elle est laissée intacte et contredite
+    juste en dessous — insertion locale, rien d'écrasé)* · `docs/09_lua_scripting.md` : `waitForIO()`
+    **retiré** de « non couverts par un test », `tests/LuaCalaosApi_test.cpp` **ajouté** au tableau,
+    et **7 des 13 cas** l'exercent — **recompté en `python3` sur les corps de `TEST_F`, exact**.
+
+  - **Ouvert par ce merge, à ne pas perdre** : **[`T3.28b`](T3.28b.md)** (📋) — les deux tripwires
+    de source de `T3.28` sont justifiées par une limite (« seule suite à lier `RoonPlayer.o` ») qui
+    est **fausse** ; les trois écritures fautives sont déjà corrigées, l'instruction ne l'est pas.
+
+  - **Nettoyage** : worktrees `.wave52/t3.27` et `.merge52/t3.27` supprimés par **chemin exact**,
+    branche `fix/t3.27` supprimée, `git worktree prune` (l'enregistrement `.review52/t3.27` avait
+    déjà disparu du disque). **Voisins vivants intacts.**
+
+
 - **🔒 T3.35 ✅ MERGÉ (`555b1d02`, 8 commits, `merge --ff-only` sur `fb9d064c` — **rebase inutile,
   aucun conflit**, historique linéaire, `make -j12 && make check -j6` **86/86**, `exit 0`, **0
   `error:`**, `CXXLD    calaos_server`) — ⭐⭐ **la revue avait rendu « merge REFUSÉ » sur UNE
