@@ -22,9 +22,12 @@
 /*******************************************************************************
  * T3.28 - CHARACTERIZATION of the Roon launch arguments.
  *
- * Two defects, both in Audio/RoonPlayer.cpp, and this file is written BEFORE
- * either is fixed. It is RED on master and it must stay red until the fix
- * commit lands.
+ * Two defects, both in Audio/RoonPlayer.cpp. The first four cases of this
+ * file were written and committed BEFORE either was fixed and were RED on
+ * master (eb369987); the behavioural half at the bottom was added once
+ * Audio/RoonArgs.h existed to be called, and every one of its cases was then
+ * proved to bite by mutating the SHIPPED code - see the delivery sheet of
+ * T3.28 for the campaign and its two disjoint red sets.
  *
  * (a) THE PORT NEVER REACHES THE ioDoc AS A DEFAULT.
  *     RoonPlayer.cpp:180 calls
@@ -62,18 +65,20 @@
  *
  * What CAN be observed is the shipped source, through CALAOS_TOP_SRCDIR - the
  * mechanism tests/JanssonResidues_test.cpp already uses for the same reason.
- * The tripwire below counts the startProcess( call sites of RoonPlayer.cpp:
- * two today, one after the fix, because the fix routes both the first launch
- * and the respawn through a single private launch() that uses a single
- * argument string. That single call site is a STRUCTURAL closure - the two
- * paths cannot diverge because there is only one path - and the tripwire is
- * what keeps a future edit from re-opening it.
+ * The tripwire below counts the spawn call sites of RoonPlayer.cpp: two on
+ * master, one after the fix, because the fix routes both the first launch and
+ * the respawn through a single private launch() that uses a single argument
+ * string. That single call site is a STRUCTURAL closure - the two paths
+ * cannot diverge because there is only one path - and the tripwire is what
+ * keeps a future edit from re-opening it.
  *
  * ⚠️ Stated plainly so nobody credits this suite with more than it has: a
  * source tripwire is a WEAKER oracle than a behavioural case. It cannot tell
  * you the surviving call site passes the RIGHT string; the buildArgs() cases
- * added by the fix commit do that, on production code. The two together are
- * the net, neither alone.
+ * at the bottom do that, on production code. The two together are the net,
+ * neither alone. What NOTHING here can prove is that calaos_roon then does
+ * the right thing with those flags: no test on real Roon hardware was run
+ * for this ticket, and the delivery sheet says so.
  *
  * ---------------------------------------------------------------------------
  * WHAT THIS SUITE DELIBERATELY DOES NOT TOUCH
@@ -96,6 +101,7 @@
 #include "IOBase.h"
 #include "IODoc.h"
 #include "Params.h"
+#include "RoonArgs.h"
 #include "RoonPlayer.h"
 
 using namespace Calaos;
@@ -130,6 +136,63 @@ int countOccurrences(const std::string &haystack, const std::string &needle)
          p = haystack.find(needle, p + needle.size()))
         n++;
     return n;
+}
+
+/*
+ * Drop C and C++ comments, keeping string and char literals intact.
+ *
+ * ⚠️ THIS IS NOT COSMETIC. A tripwire that counts a call spelling over the RAW
+ * bytes of a source file also counts every mention of it in PROSE, so the
+ * comment that explains the tripwire would itself break the tripwire - and a
+ * maintainer would "fix" it by rewording a comment, learning nothing. Counting
+ * over the CODE only makes the oracle mean what its name says.
+ *
+ * It is a lexer, not a parser: it is deliberately blind to raw string literals
+ * (R"(...)"), which neither of the two files it reads contains. Should one
+ * appear, this must be revisited rather than trusted.
+ */
+std::string stripComments(const std::string &src)
+{
+    std::string out;
+    out.reserve(src.size());
+
+    enum { Code, LineComment, BlockComment, StringLit, CharLit } st = Code;
+
+    for (std::string::size_type i = 0; i < src.size(); i++)
+    {
+        const char c = src[i];
+        const char n = (i + 1 < src.size())? src[i + 1] : '\0';
+
+        switch (st)
+        {
+        case Code:
+            if (c == '/' && n == '/')      { st = LineComment; i++; }
+            else if (c == '/' && n == '*') { st = BlockComment; i++; }
+            else
+            {
+                if (c == '"')       st = StringLit;
+                else if (c == '\'') st = CharLit;
+                out += c;
+            }
+            break;
+        case LineComment:
+            if (c == '\n') { st = Code; out += c; }
+            break;
+        case BlockComment:
+            if (c == '*' && n == '/') { st = Code; i++; }
+            else if (c == '\n')       out += c;   //keep line numbering readable
+            break;
+        case StringLit:
+        case CharLit:
+            out += c;
+            if (c == '\\' && i + 1 < src.size()) { out += n; i++; }
+            else if ((st == StringLit && c == '"') || (st == CharLit && c == '\''))
+                st = Code;
+            break;
+        }
+    }
+
+    return out;
 }
 
 /*
@@ -247,7 +310,7 @@ TEST_F(RoonArgsTest, TripwireSource_TheRespawnLaunchesThroughTheSameCallSite)
     ASSERT_TRUE(readShippedSource("src/bin/calaos_server/Audio/RoonPlayer.cpp", src))
         << "could not read the shipped RoonPlayer.cpp under " << CALAOS_TOP_SRCDIR;
 
-    EXPECT_EQ(1, countOccurrences(src, "startProcess("))
+    EXPECT_EQ(1, countOccurrences(stripComments(src), "startProcess("))
         << "RoonPlayer.cpp must launch calaos_roon from ONE place, so the "
            "respawn cannot pass different arguments than the first launch";
 }
@@ -276,7 +339,193 @@ TEST_F(RoonArgsTest, TripwireSource_ThePortMemberCarriesAnInClassInitialiser)
     ASSERT_TRUE(readShippedSource("src/bin/calaos_server/Audio/RoonPlayer.h", hdr))
         << "could not read the shipped RoonPlayer.h under " << CALAOS_TOP_SRCDIR;
 
-    EXPECT_EQ(1, countOccurrences(hdr, "int port ="))
+    EXPECT_EQ(1, countOccurrences(stripComments(hdr), "int port ="))
         << "RoonPlayer::port has no in-class initialiser, so a from_string() "
            "that writes nothing leaves it indeterminate";
+}
+
+
+/*******************************************************************************
+ * THE BEHAVIOURAL HALF: RoonArgs, the production assembly.
+ *
+ * Everything below calls Audio/RoonArgs.h - the same inline functions
+ * RoonCtrl and RoonPlayer call, not a copy - or builds a real RoonPlayer and
+ * reads back what it resolved. A mutation of either turns cases here red.
+ ******************************************************************************/
+
+/*
+ * ⭐ ACQUIS, and the most important case of the file: an empty host must
+ * produce NOTHING.
+ *
+ * This is the mode the parameter description advertises ("empty to autodetect
+ * on network"), it is the default, and it WORKED before this ticket - which
+ * is exactly why "Roon is unusable" was too strong a claim. With no argument
+ * at all the sidecar runs RoonDiscovery (ExternProcRoon_main.py:75-83).
+ * Passing --port alone would be worse than useless: get_roon_host() ignores
+ * the port unless a host was given.
+ *
+ * ⚠️ The port here is 9331, NOT the 9330 default, on purpose: a fixture
+ * sitting on the default cannot tell "the default was applied" from "the
+ * configured value was read".
+ */
+TEST_F(RoonArgsTest, EmptyHostProducesNoArgumentsAtAll)
+{
+    EXPECT_EQ("", RoonArgs::buildArgs("", 9331));
+    EXPECT_EQ("", RoonArgs::buildArgs("", RoonArgs::DefaultPort));
+}
+
+/*
+ * ⭐ ACQUIS: a static host carries BOTH flags, in the shipped spelling.
+ *
+ * Byte for byte, leading space included - ExternProcServer::startProcess()
+ * splits this string on whitespace. The host and the port are chosen so that
+ * neither could be mistaken for the other if the two were ever permuted.
+ */
+TEST_F(RoonArgsTest, AStaticHostCarriesBothFlags)
+{
+    EXPECT_EQ(" --host 192.168.7.42 --port 9331",
+              RoonArgs::buildArgs("192.168.7.42", 9331));
+    EXPECT_EQ(" --host roon.lan --port 9330",
+              RoonArgs::buildArgs("roon.lan", RoonArgs::DefaultPort));
+}
+
+/*
+ * ⭐ DEFECT (a), the half that reaches the sidecar: an absent "port" resolves
+ * to 9330 and not to a stack value.
+ *
+ * The RoonPlayer is REAL and so is the Params: this runs
+ * RoonPlayer.cpp's `port = RoonArgs::portFromParams(param)` and reads the
+ * member back. It is the one case that ties the production CALL SITE to the
+ * production FUNCTION - portFromParams() could be perfect and the call site
+ * still dropped, and only this case would notice.
+ *
+ * ⚠️ On master the answer was neither 9330 nor 0: Utils::from_string("")
+ * answers true WITHOUT WRITING, so the member kept whatever the stack held.
+ * A test asserting "0" would have been green or red depending on the weather.
+ */
+TEST_F(RoonArgsTest, ThePortDefaultsTo9330WhenTheParamIsAbsent)
+{
+    Params p = roonParams("roon_port_absent");
+    ASSERT_FALSE(p.Exists("port"));
+
+    RoonPlayer player(p);
+    EXPECT_EQ(9330, player.portGet());
+}
+
+/*
+ * ⭐ DEFECT (a), the shape a real configuration actually produces: the key is
+ * THERE and its value is "".
+ *
+ * calaos_installer writes the attribute whether or not the user filled it, so
+ * Exists() is true and the value is empty. This is the path that mattered in
+ * the field, and it is a different code path from the absent key above -
+ * Params::operator[] answers "" for both, but only this one proves it.
+ */
+TEST_F(RoonArgsTest, ThePortDefaultsTo9330WhenTheParamIsPresentButEmpty)
+{
+    Params p = roonParams("roon_port_empty");
+    p.Add("port", "");
+    ASSERT_TRUE(p.Exists("port"));
+
+    RoonPlayer player(p);
+    EXPECT_EQ(9330, player.portGet());
+}
+
+/*
+ * A configured port is read, and it is NOT the default.
+ *
+ * The control of the two cases above: if this one went to 9330 as well,
+ * portFromParams() would be answering the default unconditionally and the
+ * suite would be green for the wrong reason.
+ */
+TEST_F(RoonArgsTest, AConfiguredPortIsReadAndIsNotTheDefault)
+{
+    Params p = roonParams("roon_port_set");
+    p.Add("port", "9331");
+    p.Add("host", "192.168.7.42");
+
+    RoonPlayer player(p);
+    EXPECT_EQ(9331, player.portGet());
+    EXPECT_EQ("192.168.7.42", player.hostGet());
+}
+
+/*
+ * END TO END, on the one path that broke in the field: a statically
+ * configured player must hand the sidecar its OWN host and port.
+ *
+ * This is the case a reviewer should read first. It joins the two halves -
+ * what RoonPlayer resolved out of the configuration, and what buildArgs()
+ * makes of it - which is exactly the join RoonCtrl performs and no test can
+ * reach directly.
+ */
+TEST_F(RoonArgsTest, AStaticallyConfiguredPlayerProducesTheArgumentsOfItsOwnCore)
+{
+    Params p = roonParams("roon_static");
+    p.Add("host", "192.168.7.42");
+    p.Add("port", "9331");
+
+    RoonPlayer player(p);
+
+    EXPECT_EQ(" --host 192.168.7.42 --port 9331",
+              RoonArgs::buildArgs(player.hostGet(), player.portGet()));
+}
+
+/*
+ * ⭐ THE T3.25 BOUNDARY, and the reason this suite does not depend on it.
+ *
+ * Utils::from_string() has three MEASURED regimes (all reproduced with a
+ * standalone program, none deduced):
+ *   ""  / "   "            -> answers TRUE, writes NOTHING (sentry failure);
+ *   "abc" / "12abc"        -> answers FALSE, writes 0 resp. 12 (C++11);
+ *   "99999999999999999999" -> answers TRUE, writes INT_MAX.
+ * T3.25 is in flight and changes the FIRST regime so a defined value is
+ * written on failure. Under T3.25 the blank string would produce 0 here
+ * instead of an untouched destination - the SYMPTOM changes, the cause does
+ * not - and portFromParams() answers 9330 in BOTH worlds because it seeds its
+ * destination with DefaultPort and range-filters the result.
+ *
+ * ⚠️ Deliberately NOT a tripwire on from_string() itself: that would go red
+ * the day T3.25 merges, which is a landmine and not a net.
+ */
+TEST_F(RoonArgsTest, EveryUnusablePortSpellingFallsBackToTheDefault)
+{
+    const char *const unusable[] = {
+        "",                        //sentry failure, writes nothing
+        "   ",                     //same, all blank
+        "abc",                     //parse failure, from_string writes 0
+        "12abc",                   //partial parse, from_string writes 12
+        "0",                       //parses, but 0 is not a connectable port
+        "-5",                      //parses, negative
+        "70000",                   //parses, above 65535
+        "99999999999999999999",    //answers TRUE and writes INT_MAX
+    };
+
+    for (const char *spelling: unusable)
+    {
+        Params p;
+        p.Add("port", spelling);
+        EXPECT_EQ(RoonArgs::DefaultPort, RoonArgs::portFromParams(p))
+            << "port spelled \"" << spelling << "\" should fall back to the default";
+    }
+}
+
+/*
+ * The range that IS accepted, at both ends and in the middle. Guards against
+ * a fix that clamps too hard - 1 and 65535 are legal ports and must survive.
+ */
+TEST_F(RoonArgsTest, AUsablePortIsPassedThroughUnchanged)
+{
+    const struct { const char *spelling; int expected; } usable[] = {
+        { "1", 1 },
+        { "9331", 9331 },
+        { "9330", 9330 },
+        { "65535", 65535 },
+    };
+
+    for (const auto &c: usable)
+    {
+        Params p;
+        p.Add("port", c.spelling);
+        EXPECT_EQ(c.expected, RoonArgs::portFromParams(p)) << c.spelling;
+    }
 }
