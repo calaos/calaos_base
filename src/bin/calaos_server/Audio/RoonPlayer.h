@@ -219,11 +219,19 @@ public:
     /*
      * T3.28: read-only view of what would be handed to RoonCtrl::Instance().
      *
-     * These exist for tests/core/RoonArgs_test.cpp and say so. RoonCtrl is a
-     * singleton that spawns a process in its constructor and is unreachable
-     * from make check (E4.1h), so without these two accessors nothing can
-     * check that a RoonPlayer built from a real Params resolved its port -
-     * which is precisely the line this ticket fixes.
+     * These exist for tests/core/RoonArgs_test.cpp and say so: without them
+     * nothing can check that a RoonPlayer built from a real Params resolved
+     * its port - which is precisely the line T3.28 fixes - without also
+     * launching a sidecar to look at.
+     *
+     * ⛔ T3.28b - the reason written here used to be "RoonCtrl is a singleton
+     * that spawns a process in its constructor and is unreachable from make
+     * check (E4.1h)". FALSE: Instance() is public and static, and the spawn is
+     * an observation point, not a wall. tests/core/RoonSpawnViaPlayer_test.cpp
+     * builds a real RoonPlayer and watches the launch that follows. These
+     * accessors stay because reading a member back is a cheaper and sharper
+     * oracle than a subprocess, not because the subprocess is out of reach.
+     * See docs/refactoring/FINDINGS.md, F-LINK-1.
      */
     int portGet() const { return port; }
     const std::string &hostGet() const { return host; }

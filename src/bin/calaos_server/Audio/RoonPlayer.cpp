@@ -60,9 +60,18 @@ RoonCtrl::RoonCtrl(const string &host, int port)
  * a structural closure, not a convention. tests/core/RoonArgs_test.cpp keeps
  * it that way with a source tripwire counting the spawn call sites of this
  * file - hence the deliberate absence of that call's spelling anywhere else
- * in this file, prose included - because RoonCtrl itself is unreachable from
- * make check: its constructor binds a unix socket and spawns a process
- * (E4.1h).
+ * in this file, prose included.
+ *
+ * ⛔ T3.28b - THAT TRIPWIRE IS NO LONGER THE ONLY GUARD, AND THE REASON GIVEN
+ * FOR IT WAS FALSE. It used to end "because RoonCtrl itself is unreachable
+ * from make check: its constructor binds a unix socket and spawns a process
+ * (E4.1h)". The constructor does both of those things; neither is a wall.
+ * tests/core/RoonArgs_test.cpp and tests/core/RoonSpawnViaPlayer_test.cpp
+ * point CALAOS_BIN_PREFIX at a sandbox and read back what the kernel handed
+ * the child, on every `make check` - first launch AND respawn. The tripwire is
+ * kept as the second net because it answers a different question: HOW MANY
+ * launch sites this file has, which is the structural property above.
+ * See docs/refactoring/FINDINGS.md, F-LINK-1.
  *
  * ⛔ NOT IN SCOPE, and deliberately so: this respawn has NO BACKOFF, like six
  * other controllers of the tree (FINDINGS.md, E4.5d, "Sept contrôleurs sur

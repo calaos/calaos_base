@@ -29,15 +29,24 @@
 /*
  * T3.28 - the command line calaos_roon is launched with, in one place.
  *
- * These two functions live here, and not inside RoonCtrl, because
- * RoonCtrl::Instance() is a static singleton whose constructor builds an
- * ExternProcServer - binding a unix socket - and spawns the python sidecar.
- * Nothing in `make check` can construct one; E4.1h measured it and the review
- * closed the question (FINDINGS.md:109-113). Free functions CAN be called from
- * a test, and tests/core/RoonArgs_test.cpp calls exactly these - the same code
- * the server ships - so a mutation of the shipped assembly turns that suite
- * red. Same shape as Audio/SqueezeboxWire.h, IO/Mqtt/MqttWire.h,
+ * These two functions live here, and not inside RoonCtrl, so that the
+ * assembly of the command line can be called on its own, without a controller
+ * and without a subprocess. tests/core/RoonArgs_test.cpp calls exactly these -
+ * the same code the server ships - so a mutation of the shipped assembly turns
+ * that suite red. Same shape as Audio/SqueezeboxWire.h, IO/Mqtt/MqttWire.h,
  * IO/Reolink/ReolinkWire.h, IO/Wago/WagoWire.h and IO/OLA/OLAWire.h.
+ *
+ * ⛔ T3.28b - THE REASON THIS COMMENT USED TO GIVE WAS FALSE. It read: "nothing
+ * in `make check` can construct a RoonCtrl; E4.1h measured it and the review
+ * closed the question". Every clause about the constructor is true - it does
+ * build an ExternProcServer, it does bind a unix socket, it does spawn the
+ * python sidecar - and the conclusion is not. Instance() is public and static,
+ * and a spawn is an OBSERVATION POINT: point CALAOS_BIN_PREFIX at a directory
+ * of your own and the launch reads back from what the kernel handed the child.
+ * tests/core/RoonArgs_test.cpp and tests/core/RoonSpawnViaPlayer_test.cpp both
+ * do it on every `make check`. See docs/refactoring/FINDINGS.md, F-LINK-1.
+ * The extraction stays - it is good for its own sake - but it is no longer
+ * justified by an impossibility that does not exist.
  *
  * ⚠️ NO NAMED WRAPPER TYPE HERE, DELIBERATELY, and the reason is measured
  * rather than aesthetic. The series introduced LmsHost / LightState /
