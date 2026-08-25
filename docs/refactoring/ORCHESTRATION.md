@@ -230,6 +230,94 @@
     c'est le code qui la consomme qui a été lu. Le seul programme exécuté est un `g++` autonome de
     12 lignes sur `from_string`/`is_of_type`.
 
+- **🔒 T3.28 ✅ MERGÉ (`1a7e7d73`, 6 commits, `git rebase master` + `merge --ff-only`, historique
+  linéaire, `make check` **86/86**) — ⭐ **la revue avait rendu « merge sous réserve » et les DEUX
+  réserves étaient dans le FILET, pas dans `src/` : deux tripwires source qui promettaient plus
+  qu'elles ne gardaient. Corrigées avant ce merge, et rejouées ici.****
+  Périmètre réel : l'**en-tête neuf de production** `Audio/RoonArgs.h`, `Audio/RoonPlayer.{cpp,h}`,
+  **1 ligne** de `src/bin/calaos_server/Makefile.am`, `tests/{Makefile.am,core/RoonArgs_test.cpp}`
+  et trois fiches. **Aucun débordement.** Goldens : arbre `d4ebc61f…`, **145 fichiers**,
+  **identique à `master`**. Suites **85 → 86** (recompté en `python3` ; unique ajout
+  `core/RoonArgs_test`) — ⚠️ **la fiche annonce 82 → 83, chiffre pris AVANT le merge de `T3.30`**.
+  `tests/Makefile.am` : **74 `^if*` / 74 `endif`** tous préfixes confondus (**73/73** sur
+  `master`), profondeur **jamais négative**.
+
+  - ⭐ **CE QUE LA REVUE AVAIT TROUVÉ, ET POURQUOI C'ÉTAIT GRAVE MALGRÉ « aucune ligne de `src/`
+    en cause ».** Une tripwire qui compte `startProcess(` épingle l'**EXISTENCE** de l'appel, pas
+    ses arguments : échanger `startProcess(exe, "roon", procArgs)` contre
+    `startProcess(exe, "roon", std::string())` laissait la suite **entièrement VERTE** — c'est-à-dire
+    **le défaut même du ticket réintroduit sans un seul rouge**, le sidecar reparti sans `--host`
+    ni `--port`. Jumelle : `int port =` épinglait la **PRÉSENCE** de l'initialiseur pendant que le
+    message d'échec promettait « *has no in-class initialiser* » ⇒ `int port = 0;` survivait, et
+    sur l'early-return que cet initialiseur existe précisément pour couvrir, `--port 0` serait
+    parti au sidecar. **Un message qui surpasse sa garde est pire qu'une garde qui admet ses
+    limites** : le lecteur suivant croit le message.
+
+  - ⭐ **REJOUÉES AU MERGE, ET ELLES ROUGISSENT** — protocole du brief à la lettre : `rm -f` du
+    **binaire** `tests/core/RoonArgs_test` **et** des `.o` (serveur `Audio/RoonPlayer.o` + test),
+    reconstruction, **`CXXLD    core/RoonArgs_test` exigée à double espace** (présente aux quatre
+    passes) **et code de sortie du binaire**, jamais un comptage de `FAILED`.
+
+    | # | Échange | `CXXLD` | Code | Cas rouges |
+    |---|---|---|---|---|
+    | **M0** | *témoin, aucune mutation* | ✔ | **0** | **∅** (13/13 verts) |
+    | **N3** | `startProcess(exe, "roon", procArgs)` ⇄ `…, std::string())` | ✔ | 1 | `TripwireSource_TheRespawnLaunchesThroughTheSameCallSite` |
+    | **N2** | `int port = RoonArgs::DefaultPort;` ⇄ `int port = 0;` | ✔ | 1 | `TripwireSource_ThePortMemberIsInitialisedToTheDefaultPort` |
+    | **N4** | reformatage `startProcess( exe , "roon" , procArgs );` | ✔ | 1 | `TripwireSource_TheRespawnLaunchesThroughTheSameCallSite` |
+
+    **N3 et N2 rougissent sur des ensembles DISJOINTS**, un cas chacun, témoin à **0**.
+
+  - ⚠️ **LE PRIX DE L'AIGUILLE LONGUE EST PAYÉ, ET IL EST DU BON CÔTÉ.** `collapseWhitespace()`
+    ramène toute suite de blancs à un espace mais **ne normalise pas les espaces autour de la
+    ponctuation** ⇒ `startProcess( exe , … )` **manque l'aiguille**. **N4 le mesure** : faux rouge,
+    message nommant l'épellation exacte attendue (`process->startProcess(exe, "roon", procArgs);`).
+    **Bruyant, jamais silencieux** — et c'est structurel, pas chanceux : la forme
+    `EXPECT_EQ(1, countOccurrences(…))` **ne peut pas verdir sur aiguille absente**, elle ne peut
+    que rougir. Un faux rouge est acceptable, un faux vert ne l'est pas. ⛔ **Ne « réparez » jamais
+    ce rouge en reformulant l'aiguille** : les deux tripwires lisent la source **privée de ses
+    commentaires** (`stripComments`), et `RoonPlayer.cpp` évite délibérément d'épeler l'appel dans
+    sa prose — une explication qui recopie l'appel casserait le compte.
+
+  - **Les modifications de `src/` du commit de correction sont des COMMENTAIRES SEULS, vérifié
+    mécaniquement** : `RoonArgs.h` et `RoonPlayer.cpp` passés à un dépouilleur de commentaires
+    (`python3`, chaînes et caractères respectés) ⇒ **25 et 315 lignes de code, identiques avant et
+    après**, zéro changement de comportement. Le commit retire une **citation périmée**
+    (`FINDINGS.md:2510-2518`, remplacée par un renvoi **par titre**) et corrige une phrase fausse
+    sur `T3.25` (elle change **deux régimes sur trois**, pas un : le débordement passe de
+    `true`/`INT_MAX` à `false`/`INT_MAX`).
+
+  - **Conflits de rebase : UN SEUL, `tests/Makefile.am`** — les deux blocs `HAVE_GTEST` (T3.30 de
+    `master`, T3.28 de la branche) appendus au même endroit. ⚠️ **Le piège annoncé s'est bien
+    présenté** : les deux côtés du conflit s'arrêtent **avant** le `endif`, qui est **commun et
+    hors du bloc marqué** ⇒ « garder les deux côtés » tel quel produit **un `endif` pour deux
+    `if`** et `automake` répond *unterminated conditionals*. Résolu en **régénérant** la queue de
+    fichier (bloc T3.30 + `endif`, ligne vide, bloc T3.28 + `endif`), puis **recomptage tous
+    préfixes `^if*` confondus**. `RELEASE_NOTES.md` et `FINDINGS.md` **n'ont PAS conflité** —
+    `git` a su fusionner les deux appends ; diff contre `master` : **+61/−0** et **+66/−1**, la
+    seule suppression étant l'annotation d'une ligne de finding que la branche avait elle-même
+    écrite.
+
+  - **Ouvert par la revue et fiché, PAS corrigé : [`T3.28a`](T3.28a.md)** — un `host` contenant un
+    **espace** met `calaos_roon` en boucle de relance à ~100 ms (`buildArgs()` concatène sans
+    quoting, `startProcess()` redécoupe sur l'espace, `argparse` sort en `SystemExit(2)`, le
+    respawn n'a **aucun backoff**). ⚠️ **Préexistant** : T3.28 a **déplacé** la concaténation, il
+    ne l'a ni introduite ni aggravée — mais il l'a rendue **testable** pour la première fois.
+    Entrée `FINDINGS.md` **appendue** dans la section E4.5d, aucune ligne d'autrui réécrite.
+
+  - ⚠️ **CE DONT JE NE SUIS PAS SÛR** : **aucun core Roon réel, aucun sidecar lancé** — `RoonCtrl`
+    reste inatteignable depuis `make check` (son constructeur lie un socket unix et spawn), donc le
+    **site de lancement unique** et l'**initialiseur en-classe** sont gardés par des tripwires
+    **de texte** et par rien d'autre ; elles ne peuvent pas dire que `procArgs` contient la bonne
+    chaîne (ce sont les cas `buildArgs()` qui le font, sur du code de production). Et **§7/§8 de
+    `T3.28.md` n'ont pas été remis à jour par le commit de correction** : le tableau M7 nomme
+    encore `…ThePortMemberCarriesAnInClassInitialiser` avec l'échange `int port;`, alors que le cas
+    s'appelle désormais `…ThePortMemberIsInitialisedToTheDefaultPort`. **Fiche à recaler, code
+    juste.**
+
+  ⚠️ **`fix/t3.28` n'a pas été déplacée puis supprimée par commodité** : le travail est sur
+  `merge49/t3.28` et c'est `master` qui porte les six commits. **RIEN N'A ÉTÉ POUSSÉ.**
+
+
 - **🔒 T3.30 ✅ MERGÉ (`206e82ff`, 6 commits, `git rebase master` + `merge --ff-only`, historique
   linéaire, `make check` **85/85**) — ⭐ **la revue de merge a rendu « merge sous réserve », et la
   réserve était juste : le ticket désamorçait un piège sur une chaîne MORTE et le réarmait un cran
