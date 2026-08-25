@@ -76,6 +76,7 @@
 
 #include <chrono>
 #include <functional>
+#include <limits>
 #include <string>
 
 #include "CalaosCoreFixture.h"
@@ -117,6 +118,23 @@ void pumpLoopFor(int ms)
 
     while (std::chrono::steady_clock::now() < deadline)
         loop->run<uvw::Loop::Mode::NOWAIT>();
+}
+
+/* Timer handles still armed on the default loop, closing/collected ones
+ * filtered out (same helper as core/Timer_test and core/KnxIo_test). A
+ * one-shot that libuv can never fire shows up here for ever. */
+int armedTimerCount()
+{
+    int count = 0;
+
+    uvw::Loop::getDefault()->walk([&count](uvw::BaseHandle &handle)
+    {
+        if (handle.type() == uvw::HandleType::TIMER &&
+            handle.active() && !handle.closing())
+            count++;
+    });
+
+    return count;
 }
 
 /* ---- probes ----------------------------------------------------------- */
@@ -567,4 +585,115 @@ TEST_F(ShutterImpulseLifetimeTest, PlainImpulseStopDoesNotOutliveTheDeletedIo)
 
     EXPECT_EQ(StopCountingShutterProbe::stopCalls, 0)
         << "the impulse stop callback ran on a destroyed shutter";
+}
+
+
+/******************************************************************************
+ * Deadline arithmetic: what the client asks for reaches an int addition
+ *
+ * (impulse_action_time + impulse_time) is computed in int and handed to
+ * Timer::singleShot() divided by 1000. Both ends of the range are reachable
+ * from the API, and the shutter used to be shielded from them only because
+ * "impulse down" always collapsed to 0:
+ *
+ *  - impulse_time is -1 when the shutter has no impulse_time parameter (an
+ *    ordinary relay shutter), so a zero or negative duration makes the sum
+ *    negative. Measured in this image (libuv 1.44.2): singleShot(-0.001)
+ *    passes static_cast<uint64_t>(-1.0) == 18446744073709551615 to
+ *    uv_timer_start, which clamps the overflowing deadline to (uint64_t)-1.
+ *    The timer NEVER fires and stays armed: the shutter runs its full
+ *    course, and one libuv handle holding the IO leaks per command.
+ *  - Utils::from_string saturates an out-of-range value to INT_MAX, so
+ *    "impulse down 99999999999999999999" makes INT_MAX + impulse_time
+ *    overflow a signed int - undefined behaviour, wrapping negative, which
+ *    lands on the same never-firing armed handle.
+ *
+ * The oracle is the loop itself: once the IO is gone and the close callbacks
+ * have run, the number of armed timer handles must be back where it started.
+ ******************************************************************************/
+
+TEST_F(ShutterImpulseLifetimeTest, PlainZeroLengthImpulseLeavesNoTimerArmedForEver)
+{
+    loadConfig();
+
+    //Drain first: an impulse stop parked by an earlier case is armed for up
+    //to (duration + impulse_time) and would otherwise fire, close, and
+    //cancel out the leak this case is looking for.
+    pumpLoopFor(800);
+    const int before = armedTimerCount();
+
+    {
+        //No impulse_time parameter at all: impulse_time == -1
+        Params p = plainParams("t334_plain_zero", 30, false);
+        PlainShutterProbe sh(p);
+
+        ASSERT_TRUE(sh.set_value("impulse down 0"));
+        EXPECT_EQ(sh.impulseDownMs, 0);
+        //A shutter that never started moving would make the rest vacuous
+        ASSERT_FALSE(sh.isStopped()) << "shutter never started moving";
+        EXPECT_TRUE(runLoopUntil([&]() { return sh.isStopped(); }, 2000))
+            << "a zero length impulse never stopped the shutter";
+    }
+
+    pumpLoopFor(150);
+    EXPECT_EQ(armedTimerCount(), before)
+        << "an impulse stop handle stayed armed on the loop for ever";
+}
+
+TEST_F(ShutterImpulseLifetimeTest, PlainOutOfRangeImpulseLeavesNoTimerArmedForEver)
+{
+    loadConfig();
+
+    //Drain first: an impulse stop parked by an earlier case is armed for up
+    //to (duration + impulse_time) and would otherwise fire, close, and
+    //cancel out the leak this case is looking for.
+    pumpLoopFor(800);
+    const int before = armedTimerCount();
+
+    {
+        Params p = plainParams("t334_plain_huge");
+        PlainShutterProbe sh(p);
+
+        ASSERT_TRUE(sh.set_value("impulse down 99999999999999999999"));
+        EXPECT_EQ(sh.impulseDownMs, std::numeric_limits<int>::max());
+        ASSERT_FALSE(sh.isStopped()) << "shutter never started moving";
+
+        //Asking for 24 days on a 30 s shutter: no early stop is due, the
+        //shutter simply travels to its end.
+        pumpLoopFor(200);
+        EXPECT_FALSE(sh.isStopped());
+    }
+
+    pumpLoopFor(150);
+    EXPECT_EQ(armedTimerCount(), before)
+        << "an impulse stop handle stayed armed on the loop for ever";
+}
+
+TEST_F(SmartShutterImpulseTest, SmartZeroLengthImpulseLeavesNoTimerArmedForEver)
+{
+    loadConfig();
+
+    //Drain first: an impulse stop parked by an earlier case is armed for up
+    //to (duration + impulse_time) and would otherwise fire, close, and
+    //cancel out the leak this case is looking for.
+    pumpLoopFor(800);
+    const int before = armedTimerCount();
+
+    {
+        //Drop impulse_time so that readConfig() leaves it at -1
+        Params p = smartParams("t334_smart_zero");
+        p.Delete("impulse_time");
+        SmartShutterProbe sh(p);
+
+        ASSERT_TRUE(sh.set_value("impulse down 0"));
+        EXPECT_EQ(sh.impulseDownMs, 0);
+        //A shutter that never started moving would make the rest vacuous
+        ASSERT_FALSE(sh.isStopped()) << "shutter never started moving";
+        EXPECT_TRUE(runLoopUntil([&]() { return sh.isStopped(); }, 2000))
+            << "a zero length impulse never stopped the shutter";
+    }
+
+    pumpLoopFor(150);
+    EXPECT_EQ(armedTimerCount(), before)
+        << "an impulse stop handle stayed armed on the loop for ever";
 }
