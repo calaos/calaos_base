@@ -2822,3 +2822,61 @@ core_WagoPortDefault_test_LDADD = \
 #Built elsewhere, do not let automake turn them into prerequisites
 core_WagoPortDefault_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# E4.1l
+#The BYTES of an event, on the three wires CalaosEvent::toJson() travels: the
+#websocket push, the HTTP poll_listen answer, and the HISTORY ROW that
+#EventManager::appendEvent() dumps into HistEvent::event_raw. The 145 goldens of
+#E4.0 compare parsed documents, so neither a key order nor an escaping change can
+#make any of them red - every assertion here reads WsTestSession::lastMessage(),
+#HttpTestRequest::body() and HistEvent::event_raw RAW, like E4.1b's
+#core/JsonApiEmissionBytes_test does.
+#The history wire had NO test at all before this file: CalaosCoreFixture.h says
+#HistLogger is only reachable for an IO flagged log_history="true" and the
+#reference house flags none, so the only production producer of event_raw was
+#linked (EventManager.o is in CORE_SERVER_OBJECTS) but never executed.
+#HistLogger is brought in exactly like core/JsonApiEventLog_test,
+#core/JsonApiSession_test and core/JsonApiEmissionBytes_test do - built once,
+#before the first CoreFixture::SetUp(), in a directory of its own (template
+#calaos_e41l_hist_XXXXXX) so no two binaries ever share a database.
+#Same link closure as core/JsonApiEmissionBytes_test: it drives both transports,
+#needs PollListenner for poll_listen and HistLogger for the history row, both
+#already part of CORE_SERVER_OBJECTS or listed below.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/EventWireBytes_test
+check_PROGRAMS += core/EventWireBytes_test
+core_EventWireBytes_test_SOURCES = core/EventWireBytes_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_EventWireBytes_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_EventWireBytes_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_EventWireBytes_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
