@@ -287,6 +287,20 @@ namespace
  * everything would let the W4 lines below pass for free. */
 struct AProbeBase { };
 struct AProbeDerived: AProbeBase { };
+
+/* Positive control for the W6 lines, and it belongs HERE rather than in
+ * another case: a wrapper that DOES leak back to its scalar. Without it the
+ * two W6 EXPECT_FALSE below would pass for free on an is_convertible_v that
+ * answered FALSE to every wrapper-to-scalar question. The file did carry
+ * EXPECT_TRUE(is_convertible_v<...>) lines - in TheBarePairReallyIsSilent and
+ * in TheProbesActuallyDiscriminate - so the control existed at FILE level but
+ * not in the case that leans on it. A control one case away is a control the
+ * next reader has to go looking for. */
+struct ALeakyWrapper
+{
+    UWord v;
+    operator UWord() const { return v; }
+};
 } //namespace
 
 TEST(WagoReadReply, TheWrapperShapeIsWhatCloses)
@@ -307,6 +321,10 @@ TEST(WagoReadReply, TheWrapperShapeIsWhatCloses)
     //W6 - and no way back to the raw scalar without naming .v.
     EXPECT_FALSE((std::is_convertible_v<Address, UWord>));
     EXPECT_FALSE((std::is_convertible_v<Count, int>));
+    EXPECT_TRUE((std::is_convertible_v<ALeakyWrapper, UWord>))
+        << "is_convertible_v answers FALSE for every wrapper-to-scalar "
+           "question here - the two W6 lines above are passing for free "
+           "and prove nothing";
     //⚠️ Count wraps a SIGNED int on purpose (WagoTypes.h): it arrives from the
     //JSON and may be negative. The wrapper does not validate, it only stops
     //the value being mistaken for an address.

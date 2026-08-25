@@ -6511,13 +6511,26 @@ jamais un délai subi.
   partout]** `T3.50.md` §1, `T3.46.md` §6.3.1 et `WagoTypes.h` affirmaient qu'une permutation de
   `(UWord address, int count)` au retour produit « une lecture fausse à une adresse fausse » et que
   `count` « gouverne la taille du vecteur lu ». **Mesuré, les deux sont faux sur cet arbre** :
-  **aucune** des six implémentations ne lit `address` ni `count` (**11 avertissements
-  `-Wunused-parameter`** sur les six signatures, l'instrument validé par sa propre sonde puisque le
-  projet compile avec `-Wno-unused-parameter`), et les vecteurs de réponse sont construits depuis
+  **aucune** des six implémentations ne lit `address` ni `count` — ⭐ **12 avertissements
+  `-Wunused-parameter` sur les six signatures : `addr`/`address` 6 fois sur 6 ET `count` 6 fois
+  sur 6** (`WagoMap.cpp:172` · `WIAnalog.cpp:72` · `WITemp.cpp:68` · `WOAnalog.cpp:69` ·
+  `WODigital.cpp:81` · `WagoIOBase.h:104`), l'instrument validé par sa propre sonde puisque le
+  projet compile avec `-Wno-unused-parameter` —, et les vecteurs de réponse sont construits depuis
   le **tableau JSON `"values"`**, jamais depuis `count`. ⇒ **la permutation était un NO-OP
   sémantique**, aux implémentations **comme** aux quatre sites d'émission. Les deux valeurs sont
   bien **vivantes** (décodées de la réponse, aucune n'est un littéral, contrairement à la moitié
   écriture) — mais vivantes et **ignorées**.
+  ⚠️ **Le chiffre de 11 et le caveat publiés par la 1ʳᵉ rédaction étaient FAUX, dans le sens de la
+  sous-estimation** : elle donnait `count` **5 fois sur 6** et prétendait que `WagoIOBase.h:104`
+  échappait à l'instrument, gcc y émettant un `-Wshadow` à la place — la conclusion sur
+  `WIDigitalBase` aurait alors reposé sur une **lecture** de corps et non sur une mesure.
+  **Remesuré** : `WagoIOBase.h:104` produit **bien** `unused parameter 'count'`, et les six unités
+  ne contiennent **ZÉRO** ligne `-Wshadow`. ⇒ **les six conclusions reposent sur une MESURE.**
+  ⭐ **Garde-fou de l'instrument, appris à ses dépens** : la 1ʳᵉ passe du recomptage a rendu
+  « 0 avertissement partout » parce que les six unités **ne compilaient pas** (arbre configuré pour
+  l'image de build, pas pour l'hôte). *Une unité en échec rend zéro avertissement, et zéro
+  avertissement se lit comme une bonne nouvelle.* **Compter les unités en échec et exiger 0 avant
+  de publier un compte d'avertissements.**
   ⭐ **Règle à retenir, la même que T3.46 §7.3 avait payée sur `M2`/`M3`** : *avant d'exiger un
   rouge comportemental d'une permutation, lire les corps.* Si les paramètres ne sont pas utilisés,
   exiger un rouge revient à exiger qu'un test distingue deux programmes identiques. **Ce que le
@@ -6548,12 +6561,51 @@ jamais un délai subi.
   exercé.
 
 - ⚠️ **[F-WAGO-7 — numéros de ligne périmés dans cette fiche]** L'entrée `F-WAGO-7` ci-dessus cite
-  `WagoExternProc_main.cpp:218`/`:223`. **Recompté sur `master` `2861512d`** : les déclarations nues
-  sont à `:75`/`:76`, `:108`, `:131`/`:132`, `:160`/`:161`, `:193`, `:222`/`:223` — **6 `UWord
-  address;` et 4 `int count;`**, soit le **même compte** avec un décalage de 4 lignes sur la
-  dernière branche. Le défaut est **intact et toujours dû** ; T3.50 n'y touche pas.
+  `WagoExternProc_main.cpp:217`/`:218`/`:223` pour sa **dernière** branche (`write_words`).
+  **Recompté au source** : `UWord address;` **6 fois** — `:75` · `:108` · `:131` · `:160` · `:193`
+  · **`:222`** ; `int count;` **4 fois** — `:76` · `:132` · `:161` · **`:223`**. La dernière branche
+  est donc à `:222`/`:223` (et son `from_string` de `count` à `:228`) : **dérive de 5 lignes**, sur
+  **cette branche seulement** — les trois autres et les deux branches sans `count` n'ont pas bougé.
+  **Le compte est le même : 6 et 4.** Le défaut est **intact et toujours dû** ; T3.50 n'y touche pas.
   ⭐ **Ce que T3.50 y change quand même** : un balayage `python3` de tout `IO/Wago/` à la recherche
-  d'une paire adjacente et **nue** dans une signature n'en trouve plus qu'**UNE**, et c'est
-  `F-WAGO-10` (chemin UDP). La chaîne Wago **modbus** est typée par rôle de bout en bout ; les
-  seuls endroits où la paire reste nue sont désormais **`libmbus`** (refusée sur le coût, T3.46
-  §7.5, non rouverte) et **le dispatcher de `F-WAGO-7`**. La liste de ce qui reste est **close**.
+  d'une paire **`(address, count)`** adjacente et **nue** dans une signature n'en trouve plus
+  qu'**UNE**, et c'est `F-WAGO-10` (chemin UDP). La chaîne Wago **modbus** est typée par rôle de
+  bout en bout ; les seuls endroits où **la paire *(address, count)*** reste nue sont désormais
+  **`libmbus`** (refusée sur le coût, T3.46 §7.5, non rouverte) et **le dispatcher de `F-WAGO-7`**.
+  ⚠️ **Portée exacte, et la 1ʳᵉ rédaction la donnait trop large** : elle écrivait « la liste de ce
+  qui reste est **close** » sans nommer la paire, alors que la mesure ne portait que sur la forme
+  `(address, count)`. **La mesure n'était pas fausse, la phrase l'était.** ⭐ **Écrire « la paire
+  *(address, count)* », jamais « la paire »** — c'est la généralisation qui a renversé dix
+  affirmations d'atteignabilité dans les tickets précédents. **Deux autres paires nues existent
+  bel et bien dans `IO/Wago/`** : voir l'entrée suivante.
+
+- ⛔ **[SANS NUMÉRO — DEUX AUTRES PAIRES ADJACENTES NUES DANS `IO/Wago/`, remontées au
+  coordinateur pour attribution.]** ⚠️ **Trouvées par la revue de T3.50, pas par moi** : mon
+  balayage ne cherchait que la forme `(address, count)` et **ne pouvait pas les voir**. Vérifiées
+  au source ici, les deux sont réelles. ⛔ **Aucun numéro n'est ouvert de mon propre chef**
+  (`T3.40`…`T3.50` sont pris) — **il en faut un, ou deux, et c'est au coordinateur de trancher.**
+
+  1. ⭐ **`setBufferBit(unsigned char *buf, int bit, bool val)` — `WagoBits.h:114`.** `int` et
+     `bool` se convertissent **dans les deux sens** en silence, les deux paramètres sont
+     **adjacents**, et ⭐ **les DEUX sont lus** : `buf[bit / 8]`, `0x01u << (bit % 8)`, puis
+     `if (val)`. **1 définition** (`:114`), **1 seul site d'appel** (`WagoBits.h:138`,
+     `setBufferBit(&out[0], i, values[i])`). Une permutation y **change le programme** — même
+     classe que `F-WAGO-10`, et non pas le no-op que ce ticket a mesuré.
+     ⚠️ **Atténuation, à dire dans les deux sens** : `packBits`, seul appelant, **est couvert par
+     un test de comportement** (`tests/WagoBits_test.cpp`, 12 occurrences de `packBits`) — une
+     permutation au site d'appel serait très probablement **rougie par un test existant**. C'est
+     ce qui la sépare de `F-WAGO-10`, qu'aucun test n'atteint.
+  2. ⭐ **`(bool status, string command, string result)` — la paire DALI.** `WODali.h:38` /
+     `WODali.cpp:82` · `WODaliRVB.h:38-41` / `WODaliRVB.cpp:90`, `:111`, `:132`, `:164`.
+     ⛔ **Pire que permutable : les deux types sont IDENTIQUES** (`std::string`) — il n'existe
+     **aucune conversion à diagnostiquer**, donc **aucun compilateur ne pourra jamais rien en
+     dire**, et le typage par rôle est le **seul** remède possible. **Les deux membres sont lus** :
+     `command.find("WAGO_DALI_GET")` puis `split(result, tokens)` (`WODali.cpp:88-92`).
+     **5 déclarations**, **5 définitions** — dont `WODaliRVB.cpp:164`, où le 3ᵉ paramètre est
+     **anonyme** et donc hors de portée — et **4 enregistrements `sigc::mem_fun`**
+     (`WODali.cpp:62`, `WODaliRVB.cpp:73`, `:75`, `:77`). ⚠️ **Aucun test ne couvre ce chemin.**
+     ⇒ **c'est la plus exposée des deux** : le plus de sites, aucun filet de test, et hors de
+     portée de tout diagnostic.
+
+  ⚠️ **Non mesuré, et c'est une lecture de corps, pas une exécution** : je n'ai ni muté ni exercé
+  ces deux paires. L'affirmation « les deux membres sont lus » est établie **au source**.
