@@ -5063,3 +5063,78 @@ suivis** (`en@quot.po`, `en@boldquot.po`, générés depuis `en.po`) sont rééc
 `git status`. Le `.pot` commité date du **2025-06-29** : les
 références de lignes sources y sont périmées. Sans conséquence fonctionnelle, mais **tout
 lanceur de `make dist` doit penser à `git checkout -- po/`** — piège à commit accidentel.
+
+---
+
+## T3.31 — le typage contre la permutation d'arguments (2026-08-25)
+
+- ⚠️ **[F-WAGO-4] et [F-REO-5] — ✅ CORRIGÉS EN PARTIE par T3.31** (`87f81b13` caractérisation +
+  `d9066854` correction, branche `fix/t3.31`). Deux en-têtes neufs, `IO/Wago/WagoTypes.h`
+  (`Address`, `Count`, `WordValue`, `BitValue`) et `IO/Reolink/ReolinkTypes.h` (`Hostname`,
+  `Username`, `Password`, `EventType`) : **un champ, constructeur `explicit`, aucune base commune,
+  aucun opérateur de conversion**. `WagoWire`, `WagoMap`, `WagoCtrl`, `ReolinkWire`, `ReolinkCtrl`
+  et `ReolinkEventRegistry::CameraRegistration` les prennent. **Sept contre-mutations par échange,
+  sept refus de compilation deux à deux distincts** (fichier, ligne et paire de types différents à
+  chaque fois) ; **témoin sans mutation : aucun refus**. Le commit de caractérisation est
+  **rouge exécuté** : 5 cas rouges sur 62 exécutés, `RC=1` sur les trois suites, `CXXLD` vu pour
+  chacune. **Restent NON fermés et déclarés : le saut dans `libmbus` (F-WAGO-9 ci-dessous) et
+  l'emballage de la mauvaise variable** (`WagoTypes::Address(val)` type-checke ; limite
+  intrinsèque, une ligne par commande).
+
+- ⭐ **[F-TYPE-1] — MESURE QUI INFIRME UNE RÈGLE PUBLIÉE : un constructeur positionnel ne ferme
+  RIEN.** La règle du §1bis de [T3.31](T3.31.md) — *« un type nommé ne ferme rien s'il reste un
+  agrégat initialisable positionnellement »* — et son acceptation n°3 — *« fermer
+  `CameraRegistration` **par un constructeur** »* — sont **fausses pour une structure à plusieurs
+  champs**, mesuré au `g++ -std=c++20 -Wall -Wextra -Wconversion` :
+
+  | forme | `T{a, b, c, d}` permuté | `T(a, b, c, d)` permuté |
+  |---|---|---|
+  | agrégat nu (master) | **compile**, 0 avertissement | **compile** (init. d'agrégat entre parenthèses, C++20) |
+  | + constructeur positionnel (**ce que la fiche demandait**) | **compile**, 0 avertissement | **compile** |
+  | + un type fort **PAR CHAMP** | **refusé** | **refusé** |
+
+  ⇒ **ce n'est pas l'agrégat-ness qui ouvre le trou, c'est l'ORDRE.** Un constructeur retire
+  l'agrégat-ness et reste positionnel. `OLAWire.h` (`refactor/e4.1f`) ferme parce que ses
+  enveloppes ont **UN champ** — donc aucun ordre à se tromper —, **pas** parce qu'elles ne sont pas
+  des agrégats. La règle réécrite : **un type ferme quand il ne reste plus deux paramètres du même
+  type côte à côte, à aucun niveau — signature comprise.** Épinglé par
+  `tests/ReolinkRegistry_test.cpp`, cas `TheAggregateProbesActuallyDiscriminate`.
+
+- ⭐ **[F-TYPE-2] — les désignateurs C++20 sont COSMÉTIQUES ici, mesuré.**
+  `Reg{.hostname = h, .username = **p**, .password = **u**, …}` — bonne clé, mauvaise valeur —
+  **compile**, 0 avertissement. Seul le désordre **des clés** est refusé (C++20 impose l'ordre de
+  déclaration), et ce n'est pas ainsi que le bug se produit. ⇒ **ils rendent la permutation
+  visible, pas impossible** : la fiche le disait, c'est maintenant mesuré.
+  Mesuré aussi et sans effet sur une permutation de **paramètres** : `[[nodiscard]]` (il garde une
+  valeur de **retour**), et un ordre imposé par le type de retour (les valeurs restent
+  interchangeables à l'intérieur de chaque étape).
+
+- ⚠️ **[F-WAGO-9] — NON CORRIGÉ, PRÉEXISTANT, hors périmètre de T3.31, ⭐ TICKET DÉDIÉ DEMANDÉ
+  (numéro à attribuer) : `libmbus` prend l'adresse et la donnée comme deux `mbus_uword` côte à
+  côte, sur des ÉCRITURES.** `mbus_cmd_force_single_coil(mbus, slave, coil_addr, data)` et
+  `mbus_cmd_preset_single_register(mbus, slave, register_addr, preset_data)` (`libmbus/mbus.h:114`
+  et `:116`) : une permutation **compile en silence** et **force un relais / écrit un registre à
+  une adresse arbitraire de l'automate**. C'est la troisième ligne rouge de
+  [T3.43](T3.43.md) §5.5bis, et T3.31 ne la ferme pas — il ferme les **trois sauts Calaos**
+  au-dessus (`WOAnalog` → `WagoMap` → `WagoWire`, puis `WagoExternProc_main` → `WagoCtrl`), pas
+  celui-là. **Mesuré comme résiduel** : contre-mutation M5 de T3.31, `mbus_cmd_preset_single_register(mbus, 1, (mbus_uword)val, address)` **compile, rc=0**.
+  ⭐ **Et ce n'est PAS une impossibilité technique, contrairement à ce que la première rédaction du
+  correctif affirmait** : mesuré au `gcc -std=c11`, une `struct` à **un champ** ferme une
+  permutation en **C** exactement comme en C++ (`error: incompatible type for argument 1`). Ce qui
+  arrête T3.31, c'est **le coût et la propriété** : sept signatures d'une bibliothèque **tierce
+  importée** (`$Id: mbus_conf.h,v 1.1.1.1 2003/…`), déjà divergée d'amont, répartie sur quatre
+  fichiers `.c`, et que **rien dans l'arbre n'exécute** — la correction serait vérifiée **par la
+  compilation seule**. [T3.43](T3.43.md) §3 a refusé le même changement pour la même raison, et un
+  précédent de la même nuit a refusé de patcher `uvw` vendu au profit d'un ticket. **Une voie
+  intermédiaire a été envisagée et écartée, mesurée** : une façade C++ typée au-dessus de
+  `libmbus` déplacerait le déballage de **sept endroits vers sept endroits** — `WagoCtrl.cpp` est
+  le seul appelant C++ et il n'a **qu'un** site par commande. **Gain net nul.**
+
+- ⚠️ **[F-TYPE-3] — un en-tête TEMPLATE ne se vérifie pas au `-fsyntax-only`, et une campagne de
+  mutation peut en mourir.** Mesuré en écrivant T3.31 : la mutation M4 permute les arguments dans
+  `WagoIOBase.h`, et `g++ -fsyntax-only WagoIOBase.h` a rendu **`rc=0`, faux vert** — le corps est
+  dans un membre de `WIDigitalBase<T>`, **jamais instancié** tant qu'aucune unité ne l'instancie.
+  Compilée via `WIDigitalBP.cpp`, la même mutation rend **`rc=1`**. ⇒ **une passe de mutation qui
+  vise un en-tête template DOIT compiler une unité qui l'instancie**, jamais l'en-tête seul. À
+  ranger à côté des cinq variantes de `_DEPENDENCIES` : c'est une **sixième** façon d'obtenir un
+  vert parfait sans avoir rien vérifié.

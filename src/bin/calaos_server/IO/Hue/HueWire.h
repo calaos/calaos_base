@@ -101,8 +101,18 @@ enum class Decode
  * compiles (measured with -fsyntax-only) and silently permutes sat and bri.
  * Nothing writes that today - the driver default-constructs and fills BY NAME,
  * and so does the test - and the closure holds only for as long as that stays
- * true. If a positional aggregate initialisation ever appears, give the fields
- * distinct types or delete the aggregate-ness with a constructor.
+ * true.
+ *
+ * ⭐ T3.31 CORRECTS THE ADVICE THAT USED TO END THIS COMMENT. It said "give
+ * the fields distinct types OR delete the aggregate-ness with a constructor".
+ * The second half is MEASURED FALSE: a constructor does remove aggregate-ness,
+ * and it is ITSELF positional, so
+ *      LightState(100, 200, 30000, true, true)
+ * still compiles and still permutes sat and bri, with zero warnings at -Wall
+ * -Wextra -Wconversion. It is not the aggregate that opens the hole, it is the
+ * ORDER. ⇒ only DISTINCT TYPES PER FIELD close this one. See
+ * docs/refactoring/T3.31.md section 7.2 and tests/ReolinkRegistry_test.cpp,
+ * TheAggregateProbesActuallyDiscriminate.
  */
 struct LightState
 {
