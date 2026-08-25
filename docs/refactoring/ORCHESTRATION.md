@@ -338,6 +338,102 @@
     négative**, minimum 0, final 0. **`BOARD.md` reste trié par NUMÉRO** — aucune ligne ajoutée,
     seules les lignes `E4.1` et `E4.1l` réécrites sur place.
 
+- **🔒 T3.48 ✅ MERGÉ (`931cb6ff`, **7** commits, `git rebase 2861512d` + `merge --ff-only`,
+  historique linéaire, **0 commit de fusion**)** — ⭐⭐ **`make distcheck` A ÉTÉ REJOUÉ APRÈS LE
+  REBASE, et c'est la décision centrale de ce merge.** L'auteur ne l'avait pas refait (43 min) et
+  master avait ajouté **6 fichiers sous `tests/`** ⇒ le résultat livré ne portait plus sur ce qui
+  est mergé. Rejoué **une seule fois**, attendu par `docker wait` : **RC 0 de bout en bout**, et
+  ⭐ **la suite COMPLÈTE tourne depuis l'archive dépliée** — `# TOTAL: 98 / PASS 97 / SKIP 1 /
+  FAIL 0`, **un seul bloc `Testsuite summary`**, **0 `error:`**, **104 `CXXLD` ancrées**.
+  **RIEN POUSSÉ.**
+
+  - ⭐ **7ᵉ COMMIT AJOUTÉ AU MERGE — la salissure `mktemp` n'est plus fichée, elle est CORRIGÉE.**
+    Le §6.16 la déclarait « laissée volontairement », au seul motif que la corriger invaliderait le
+    `distcheck` validant. **Le rebase rendait ce distcheck caduc de toute façon** ⇒ l'argument
+    tombe. `trap 'rm -rf "$tmpd"' 0` ajouté juste après le `mktemp -d` (**une ligne**, les `rm -rf`
+    explicites conservés, redondants et inoffensifs), et **c'est ce hook-là — trap compris — que le
+    `distcheck` du merge valide**. Fiche : bloc ⛔ **CORRECTION**, ancien texte **barré**.
+
+  - ⭐ **La garde des non-suivis (R3) a été REJOUÉE EN VRAI, pas relue.** Piège d'outillage à
+    retenir : dans un worktree git, `.git` est un **fichier** qui pointe **hors du montage** ⇒ dans
+    le conteneur habituel (`-w /workspaces/calaos_base`) `git rev-parse` échoue et **la garde se
+    met en retrait sans jamais être exercée** — c'est très probablement le cas de l'auteur. Montage
+    utilisé ici : le worktree **à son vrai chemin hôte** + `…/calaos_base/.git` en `:ro` +
+    `safe.directory=*` ⇒ **`GITPROBE_RC=0`, garde ACTIVE**. Résultat : `src/lib/uvw/stray-merge63.user`
+    posé ⇒ `make dist` **RC 2**, `dist-hook: refusing to ship files git does not track:` puis
+    **`dist-hook:     src/lib/uvw/stray-merge63.user`** — **nommé** ; retiré ⇒ **RC 0**. ⭐ **La
+    correction de locale tient** : aucun `comm: file 1 is not in sorted order`. ⚠️ **Et le `distcheck`
+    complet a tourné garde ACTIVE au premier `dist`** : `untracked-file gate stood down` apparaît
+    **exactement une fois**, au `dist` imbriqué — le test d'égalité sur la RACINE fait ce qui est écrit.
+    Limite déclarée au §6.16 (« sans `git`, retrait silencieux ») : **présente et exacte**.
+
+  - **`H1` et `H3` de l'oracle rejoués** (worktree jetable `.merge63/oracle-probe`, **1 fichier
+    restauré**, `git checkout` donc **dates non préservées**, oracle revenu vert après) :
+    `dist-hook: @true` ⇒ **RC 2**, et ⭐ la neutralisation **par ADDITION** ⇒ **RC 2** avec
+    `src/lib/Makefile.am defines 2 dist-hook rules with a recipe; make keeps the last one`. Les
+    messages nomment le **mécanisme**, jamais un fichier. La limite résiduelle (« nommer la variable
+    et copier mal passe les trois contrôles ») est écrite **dans la docstring ET dans la fiche**.
+
+  - ⭐ **`tar --format=ustar -chf` DÉRÉFÉRENCE — confirmé par sonde, pas par lecture.** `cp -pR`
+    conserve le lien (`lrwxrwxrwx`), puis l'archive le rend en **fichier régulier** portant le
+    contenu, la cible devenant une entrée **`hard link`**. `am__tar` du `Makefile` généré :
+    `tar --format=ustar -chf - "$$tardir"`. `find \( -type f -o -type l \)` **2**, `find -type f`
+    **1**, sur la même sonde.
+
+  - **Conflits et résolution.** `tests/Makefile.am` **s'auto-fusionne** (le bloc T3.48 s'insère
+    avant `if HAVE_GTEST`, il n'appende pas la queue) ⇒ **le piège de l'`endif` n'avait rien à
+    mordre**, vérifié quand même : **83 `^if*` / 83 `endif`** (master **83/83**, la branche
+    n'ajoute aucun bloc conditionnel), **profondeur jamais négative**, min 0, final 0.
+    Trois conflits **documentaires**, tous des appends : `FINDINGS.md` et `RELEASE_NOTES.md`
+    **« garder les deux côtés »**, chaque bloc **sous son propre titre `##`** (77 `##`, **aucun
+    doublon**) ; `BOARD.md` recomposé en `python3` et **retrié par NUMÉRO** — T3.46 · T3.47 ·
+    **T3.48** · **T3.49** · T3.50.
+
+  - ⭐ **Le lien mort de la ligne `T3.46` est RÉPARÉ par ce merge** : elle nommait `T3.49.md`, que
+    cette branche crée. Balayage complet des liens `*.md` de `docs/refactoring/` : **il ne reste que
+    `T3.41.md` et `T3.42.md`**, tous deux cités par la ligne `T3.47` et **déjà morts sur `master`** —
+    **pas de ce merge**.
+
+  - **Recomptes faits ici, pas repris.** `211` non couverts sur le commit de caractérisation
+    **rebasé**, arbre vierge (le sujet du commit dit toujours `212` : **dit dans la fiche**, pas
+    réécrit). Oracle sur l'arbre mergé : **899 balayés / 219 couverts / 0 non couvert** (895/219
+    avant rebase). Archive réelle : **1085 entrées** (1009 fichiers, 76 répertoires), **11/11
+    licences** — ⚠️ **`uri_parser` n'en a AUCUNE dans le dépôt**, nuance écrite dans
+    `RELEASE_NOTES.md` §📦 · **209 fichiers suivis absents, dont 0 sous `src/` ou `tests/`**.
+    Suite : **98 journaux = 98 `.trs` = 98 entrées `TESTS`**, **1615 cas gtest** sur **92** binaires
+    (1612 OK, **3** `SKIPPED` internes à gtest, 2 rouges), **93 `CXXLD` ancrées** au `make check`.
+    ⚠️ **`# SKIP: 1` = `run-python-tests.sh`, NORMAL** (pas de `pytest` dans l'image, voulu par T3.44).
+
+  - ⚠️ **`F-FLAKY-1` VU, et il a APPRIS quelque chose.** `# FAIL: 1` au `make check` d'intégration,
+    **un seul binaire**, `core/ShutterImpulse_test`, **deux cas** : **`:297`** (marge 56 ms, connu)
+    **et ⭐ `:343`** (marge 124 ms, *`PlainImpulseUpKeepsMovingUntilTheRequestedDuration`*) — même
+    fichier, **même forme** (`pumpLoopFor(stillMovingProbeMs(…))` + `EXPECT_FALSE(isStopped())`),
+    même message. ⭐ **`:343` est une PREMIÈRE observation** : le tableau de `T3.49` §1.1 le donnait
+    « jamais vu rouge ». **Cela VALIDE la lecture par la marge au lieu de l'infirmer** — c'est le
+    **suivant sur la liste** qui tombe, pas un site au hasard. **Non relancé** (consigne, et
+    relancer effacerait l'information) ; `T3.49.md` §1.1 et sa ligne de `BOARD` **mises à jour**.
+    **0 FAIL dans `distcheck`**, sur la même suite, depuis l'archive.
+
+  - **Marges de `T3.49` recalculées en `python3` depuis la source** : 56 · **73** · 124 · 139 ·
+    190 ms et ≈29,8 s. ⭐ **Le `73` de `:384` est le bon et mon premier calcul était faux** : sans
+    `impulse_time`, le commentaire du test dit l'échéance à **`requested - 1`** = 146, pas 147 —
+    la fiche est plus soigneuse que le recompte naïf. `:384` **n'est donc pas** la marge la plus
+    étroite, l'inférence corrigée par l'auteur **tient**.
+
+  - **Goldens `d4ebc61f`, 145 fichiers, AUCUN bougé — vérifié APRÈS le build** (arbre identique à
+    la base `df2851d0` **et** à `master`). `git status -uall` **vide** : les **8** `po/`
+    régénérés par le build ont été **restaurés sans préserver les dates** (`git checkout -- po/`).
+
+  - ⚠️ **Chiffres de la fiche périmés par MON rebase, laissés tels quels et signalés ici** :
+    §6.12 dit `TESTS` **95** et `if`/`endif` **81/81** (mesures pré-rebase) ; l'arbre mergé donne
+    **98** et **83/83**. Idem `1081` entrées d'archive → **1085**, `205` restants → **209**,
+    `895` balayés → **899**. Les SHA de commits cités dans `T3.48.md`/`FINDINGS.md`
+    (`206d66fa`, `7fbecfdc`, `07106292`) sont **ceux d'avant rebase**, et il y a **deux
+    générations** : `206d66fa`/`7fbecfdc` sont l'incarnation d'avant le rebase de l'AUTEUR,
+    `07106292`/`791d6f13` celle d'après. Tous portent les **mêmes sujets** ; l'équivalence sur
+    `master` est **caractérisation → `de759073`** et **correctif → `3428adcc`**. Convention du
+    dépôt : les fiches citent les SHA de branche, réécrits à chaque rebase.
+
 - **🔒 T3.46 ✅ MERGÉ (`ec0bdfe1`, **10** commits, `git rebase --onto c6c7c0d3 44657407` +
   `merge --ff-only`, historique linéaire, **0 commit de fusion**)** — ⭐⭐ **[T3.50](T3.50.md) EST
   OUVERTE ET C'EST LE PROCHAIN DE SA CHAÎNE, pas « plus tard »** : la moitié **LECTURE** du chemin
