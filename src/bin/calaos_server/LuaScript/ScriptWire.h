@@ -68,10 +68,19 @@
  *     calaos.setIOParam("io_x", "key", string.char(0xFF))
  *
  * A Lua string is a byte string; LuaJIT is Lua 5.1, so string.char() and the
- * "\255" decimal escape both exist, and the script text itself can carry raw
- * bytes. lua_tostring() hands them to ScriptBindings.cpp, which puts them
- * straight into a JSON string value. The script is written by the user and
- * arrives through rules.xml or the JSON API.
+ * "\255" decimal escape both exist. lua_tostring() hands the bytes to
+ * ScriptBindings.cpp, which puts them straight into a JSON string value. The
+ * script is written by the user and arrives through rules.xml or the JSON API.
+ *
+ * ⚠️ MEASURED, and worth being precise about: the two spellings above WORK
+ * TODAY because the script itself stays pure ASCII and the byte is born inside
+ * the Lua VM. A RAW invalid byte written in the SCRIPT TEXT does NOT survive
+ * the trip today - ScriptExec.cpp:154-157 sends the script through
+ * jansson_from_params(), whose json_string() answers NULL on it and DROPS the
+ * whole pair, so calaos_script never receives that script at all. That third
+ * channel OPENS with E4.1m, which migrates ScriptExec.cpp: from then on the
+ * raw bytes of the script text reach this side too. The handler below already
+ * covers it.
  *
  * A NAKED dump() HERE IS std::terminate ON calaos_script: type_error.316 is
  * thrown from inside the ExternProc read callback, and there is no try/catch

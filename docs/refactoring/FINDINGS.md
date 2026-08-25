@@ -17,8 +17,22 @@
   ```
 
   Une chaîne Lua est une **chaîne d'octets** ; LuaJIT est du Lua 5.1, donc `string.char()` **et**
-  l'échappement décimal `"\255"` existent, et le texte du script lui-même peut porter des octets
-  bruts. Le script arrive par `rules.xml` ou par l'API JSON.
+  l'échappement décimal `"\255"` existent. Le script arrive par `rules.xml` ou par l'API JSON.
+
+  ⭐ **MESURÉ, PAS RAISONNÉ** (revue) : un programme liant le **vrai LuaJIT** du conteneur
+  (`LUA_VERSION_NUM = 501`), avec la garde `lua_isstring`/`lua_tostring` **recopiée verbatim** de
+  `Lua_Calaos::sendPushNotif`, montre que **quatre orthographes passent la garde et livrent
+  l'octet** ; `ScriptWire::dumpJson()` rend `push-\ufffd-tail`, un `j.dump()` nu lève
+  `type_error.316 invalid UTF-8 byte at index 5: 0xFF`.
+
+  ⚠️ **PRÉCISION QUI VISE `E4.1m`** : une troisième orthographe — **un octet brut écrit dans le
+  TEXTE du script** — **ne survit PAS au transport aujourd'hui**. `ScriptExec.cpp:154-157` fait
+  passer le script par `jansson_from_params()`, dont `json_string()` rend `NULL` sur cet octet et
+  **laisse tomber la paire entière** : `calaos_script` ne reçoit alors **pas ce script du tout**.
+  Ce qui passe aujourd'hui, ce sont `string.char(0xFF)` et `"\255"`, parce que **le script reste
+  ASCII pur et que l'octet naît dans la VM**. **Le chemin brut s'ouvrira avec `E4.1m`**, qui migre
+  `ScriptExec.cpp` ; le gestionnaire posé par E4.1j le couvre déjà. **Ne pas citer ce chemin comme
+  atteignable avant `E4.1m`.**
   ⇒ **Sur ce wire, `ensure_ascii` et `error_handler_t::replace` sont PORTEURS, pas défensifs.** Un
   `dump()` nu ici lève `type_error.316` **depuis le callback de lecture `ExternProc`**, où rien
   n'attrape : `std::terminate` de `calaos_script` au milieu du script de l'utilisateur. C'est
@@ -44,12 +58,23 @@
   | `io.set_param(key, value)` → `io.set_param(value, key)` (`ScriptBindings.cpp`) | **VERT 0/32** |
   | `buildPushNotifMessage(lua_tostring(L,1), PushAttachment{lua_tostring(L,2)})` → indices échangés | **VERT 0/32** |
 
+  ⚠️ **LES DEUX « VERT 0/32 » SONT VRAIS MAIS NON INFORMATIFS — à ne pas lire comme un trou de
+  couverture.** Ils sont **structurellement garantis** : `ScriptWire_test_SOURCES =
+  ScriptWire_test.cpp` **seul**, et `ScriptBindings.cpp` **n'est lié dans AUCUN binaire de test**
+  de l'arbre. Le vert **constate que le site d'appel est hors d'atteinte**, il ne mesure pas la
+  faiblesse du filet. C'est une **limite de périmètre**.
+
   ⇒ **Le typage ferme la permutation des ARGUMENTS de la fonction, pas celle de leurs SOURCES.**
   Tant qu'un site d'appel construit lui-même les deux valeurs typées (`IoId{a}, ParamKey{b}` vs
   `IoId{b}, ParamKey{a}`), la permutation reste compilable. La fermeture complète demanderait de
   typer `LuaIOBase::set_param()` et le dépilement Lua eux-mêmes, ce qui déborde du périmètre.
-  **6ᵉ mesure de ce trou dans la série** (Wago F-WAGO-4, Reolink `username`↔`password`) : le
-  motif est confirmé, **la voie de fermeture aussi**.
+
+  ⭐ **C'est une QUATRIÈME FORME distincte du défaut de la série**, confirmée en revue : les
+  précédentes (« emballer la mauvaise variable », « agrégat positionnel ») portaient sur **un**
+  argument mal rempli ; ici les deux valeurs typées sont **construites au site d'appel**, chaque
+  `X{…}` est **individuellement bien typé**, et la faute est dans l'**appariement source →
+  emballage**. Réductible **en principe**, **pas ici**. (Précédents : Wago `F-WAGO-4`, Reolink
+  `username`↔`password`.)
 
 - 📏 **[F-LUA-4] RECALAGE OBLIGATOIRE — le défaut `setIOParam`/`waitForIO` a bougé de +1 ligne, et
   deux références d'un autre finding sont MORTES.**
