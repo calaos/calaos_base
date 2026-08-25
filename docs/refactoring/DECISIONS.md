@@ -801,7 +801,11 @@ dépendance optionnelle — `HAVE_GTEST` inclus : sans gtest, `make check` reste
 S'aligner sur la convention du dépôt plutôt que d'inventer.
 
 **Ce que ça change, concrètement** : sur une machine sans `pytest`+`fastapi`+`httpx`+`colorama`,
-`make check` passe de `88/88 PASS` à `88 PASS / 1 SKIP`, **sortie toujours 0, build non cassé**.
+`make check` passe de ⭐ **`90/90 PASS`** à ⭐ **`89 PASS / 1 SKIP`**, **sortie toujours 0, build non
+cassé**. ⚠️ **Cette ligne a d'abord été écrite « 88/88 → 88 PASS / 1 SKIP »** : le compte d'entrées
+`TESTS` a été recompté depuis (`89` sur `master`, **`90`** sur la branche, l'oracle compris ; **`89`
+en CI**, où `KNXExternProcWire_test` quitte `TESTS` sans un mot faute de `libknx`). Voir
+[T3.44](T3.44.md) §4 et §8.1.
 ⇒ **personne ne casse**, mais **personne ne peut plus lire « vert » sans savoir**.
 
 ⚠️ **Le point à valider par l'utilisateur** : accepter que le `SKIP` devienne l'état **normal** de
@@ -824,7 +828,11 @@ première version du correctif l'a **réintroduit par la porte de derrière** : 
 `tests/check-python-tests-reporting.sh` comptait les cas déclarés avec le `python3` **ambiant** et
 sortait **1** quand il n'y en avait pas. Or la liste `apt` de `.github/workflows/ci.yml` n'installe
 **aucun `python3`** ⇒ `make check` **RC 2**, `build-and-test` **rouge à chaque `push`** (mesuré dans
-`debian:12` : `# TOTAL: 88 · PASS: 86 · SKIP: 1 · FAIL: 1`).
+`debian:12`). ⚠️ **Le relevé de cette mesure portait le même décompte faux** (« `# TOTAL: 88 · PASS:
+86 · SKIP: 1 · FAIL: 1` ») : le total de l'image CI est **89**, pas 88. **Le fait qui compte —
+`FAIL: 1` et RC 2 — est intact** ; la répartition exacte `PASS`/`SKIP` de cet état-là n'est plus
+remesurable (l'oracle fautif n'existe plus) et **n'est donc pas réécrite ici**, plutôt que corrigée
+au jugé.
 
 **Règle posée, générale à tous les harnais du dépôt** :
 
@@ -841,3 +849,39 @@ une machine pauvre, et l'on ne peut pas confondre « pas d'outil » avec « déf
 `tests/python-suite-runner.py`, si l'utilisateur préfère l'échec franc) : elle reste vraie et
 l'oracle reste vert — mais elle ne concerne **que** le lanceur. **Le méta-oracle, lui, doit garder
 son `77`** : son rôle n'est pas de juger l'environnement, c'est de juger un rapport.
+
+### ⭐ Addendum du 2026-08-25 (2ᵉ revue de [T3.44](T3.44.md), `MERGE SOUS RÉSERVE`) — **un `xfail` est un cas EXÉCUTÉ**
+
+**Le fait, mesuré** : un `@unittest.expectedFailure` ordinaire sous `tests/python/` est compté
+**« non exécuté »** par le back-end `pytest` (`cases=42/43`, **RC 77** — son junit le classe
+`<skipped type="pytest.xfail">`) et **« exécuté »** par le back-end `unittest` (`43/43`, **RC 0** —
+`addExpectedFailure`). **Les deux back-ends du même lanceur se contredisaient.**
+
+**Arbitrage rendu : le back-end `unittest` a raison.** Un `xfail` **a tourné** — son corps s'est
+exécuté et a levé, ce qui est son issue attendue. Ce n'est **pas** un cas qui n'a *pas pu*
+s'exécuter, et c'est cette distinction-là, et elle seule, que la comptabilité de
+`tests/python-suite-runner.py` existe pour tenir. **Seule exception** : `xfail(run=False)`, que
+`pytest` préfixe `[NOTRUN]` — celui-là n'entre jamais dans le corps et compte donc comme **non
+exécuté**.
+
+⛔ **Pourquoi ça n'était pas un détail** : sans cet arbitrage, **un seul `xfail` légitime ajouté à
+`tests/python/` aurait figé `make check` en `SKIP` PERPÉTUEL sur toute machine ayant `pytest`** —
+c'est-à-dire sur toutes celles que [`T3.47`](T3.47.md) va créer — et aurait défait sa cible
+`42/42` **sans que rien ne l'explique**.
+
+⚠️ **Divergence résiduelle ASSUMÉE, de verdict et non de comptabilité** : un `xfail` qui passe
+quand même (*xpass*) est **exécuté des deux côtés**, mais `unittest` le rend **rouge** et `pytest`
+non strict le rend **vert**. Le lanceur suit **la règle de chaque back-end** ; ce qu'il publie, lui,
+dit la même chose des deux côtés.
+
+**Règle générale qui en sort** : *quand un outil a deux back-ends, toute divergence de comptabilité
+entre eux est un défaut, pas une nuance — il faut trancher laquelle est juste et l'écrire, sinon
+c'est l'environnement qui décide du verdict.* C'est la même famille que `F-PYTEST-1` : *le vert ment
+ici et dit vrai ailleurs.*
+
+### ℹ️ Renvoi — la liste canonique des variantes de faux vert
+
+`FINDINGS.md` porte depuis le 2026-08-25 **LA liste canonique numérotée des ONZE variantes** de faux
+vert/faux rouge de la série. ⚠️ **« Cause racine des CINQ variantes » reste exact** partout où c'est
+écrit de `_DEPENDENCIES` ci-dessus : `T3.36` ferme les **n° 1 à 5**, et elles seules. Tout nouveau
+compte ou rang se lit **dans `FINDINGS.md`**, jamais recompté à la main.
