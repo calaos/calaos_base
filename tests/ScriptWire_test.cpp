@@ -67,10 +67,18 @@
  *     calaos.setIOParam("io_x", "k", string.char(0xFF))
  *
  * A Lua string is a byte string; LuaJIT is Lua 5.1, so string.char() and the
- * "\255" decimal escape both exist, and the script text itself can carry raw
- * bytes. Those bytes are handed to lua_tostring() and land STRAIGHT in a JSON
- * string value - see ScriptBindings.cpp:411/416/456-487. The script is written
- * by the user and arrives through rules.xml or the JSON API.
+ * "\255" decimal escape both exist. Those bytes are handed to lua_tostring()
+ * and land STRAIGHT in a JSON string value - see ScriptBindings.cpp:411/416/
+ * 456-487. The script is written by the user and arrives through rules.xml or
+ * the JSON API.
+ *
+ * ⚠️ PRECISION, measured: the two spellings above work TODAY because the
+ * script stays pure ASCII and the byte is born inside the Lua VM. A RAW
+ * invalid byte written in the SCRIPT TEXT does NOT survive the trip today -
+ * ScriptExec.cpp:154-157 sends the script through jansson_from_params(), whose
+ * json_string() answers NULL on it and DROPS the whole pair, so calaos_script
+ * never receives that script at all. That third channel OPENS with E4.1m,
+ * which migrates ScriptExec.cpp. Do not cite it as reachable before then.
  *
  * So the KNX precedent applies here in full: raw bytes reaching a NAKED dump()
  * throw type_error.316, and there is no try/catch anywhere on this path -
@@ -665,12 +673,16 @@ TEST(ScriptWire, ExecuteWithAnEnvThatIsNotAnObjectLeavesTheEnvEmpty)
 TEST(ScriptWire, EventYieldsItsTypeAndItsFlattenedData)
 {
     Params ev;
+    //Same sentinel as the case below, on the POPULATED path this time: a
+    //decoder that only ADDS to ev would come back with four parameters here.
+    ev.Add("__sentinel_key_that_is_never_an_event_parameter__", "__sentinel_value__");
     string type_str;
 
     ASSERT_TRUE(wireDecodeEvent(FX_EVENT, ev, type_str));
 
     EXPECT_EQ("io_changed", type_str);
-    EXPECT_EQ(3, ev.size());
+    EXPECT_EQ(3, ev.size()) << "the sentinel survived: ev was not cleared";
+    EXPECT_FALSE(ev.Exists("__sentinel_key_that_is_never_an_event_parameter__"));
     EXPECT_EQ("io_garage_probe", ev["id"]);
     EXPECT_EQ("19.5", ev["state"]);
     EXPECT_EQ("Sonde garage", ev["name"]);
@@ -695,19 +707,30 @@ TEST(ScriptWire, EventYieldsItsTypeAndItsFlattenedData)
  */
 TEST(ScriptWire, EventWithoutDataYieldsNothingAndDoesNotGrowTheDocument)
 {
+    /*
+     * TWO SENTINELS, one per output, and neither can ever become a legal value:
+     * no event type is spelled like this, and no event parameter is keyed like
+     * this. They are here because both outputs are OUT PARAMETERS the caller
+     * owns: the decoder has to leave them EMPTY on a message that carries
+     * nothing, not merely "not add to them". Reviewed defect: without the ev
+     * sentinel, dropping ev.clear() from the production decoder went unseen.
+     */
     Params ev;
-    string type_str = "sentinel_that_can_never_be_a_type";
+    ev.Add("__sentinel_key_that_is_never_an_event_parameter__", "__sentinel_value__");
+    string type_str = "__sentinel_that_can_never_be_a_type__";
     string root_after;
 
     ASSERT_NO_THROW({
         ASSERT_TRUE(wireDecodeEvent(FX_EVENT_NO_DATA, ev, type_str, &root_after));
     });
 
-    EXPECT_EQ(0, ev.size());
+    EXPECT_EQ(0, ev.size())
+            << "the sentinel survived: ev was left as it came in";
+    EXPECT_FALSE(ev.Exists("__sentinel_key_that_is_never_an_event_parameter__"));
     EXPECT_EQ("", type_str)
-            << "the sentinel is still there: type_str was left as it came in";
+            << "the sentinel survived: type_str was left as it came in";
 
-    //THE DETECTOR: one key in, one key out.
+    //THE DETECTOR of the operator[] pitfall: one key in, one key out.
     EXPECT_EQ("{\"msg\":\"event\"}", root_after) << escaped(root_after);
 }
 
