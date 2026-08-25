@@ -452,6 +452,56 @@ ailleurs — signalez-le.
 
 ---
 
+## 🔴 Le serveur pouvait tomber après une modification de configuration
+
+### Ce que vous avez pu observer (T3.40)
+Si `calaos_server` **s'est arrêté, figé ou comporté bizarrement peu après** que vous ayez
+**supprimé ou modifié un équipement** — depuis `calaos_installer`, depuis l'interface, ou par
+n'importe quel outil qui parle à l'API — sans rapport apparent avec ce que vous veniez de toucher,
+la cause pouvait être ici.
+
+Quand Calaos supprime un équipement, il détruit l'objet correspondant **immédiatement**. Or
+plusieurs types d'équipements programment des petites actions **différées** : un scénario ou un
+bouton remet son état à zéro **250 ms** après avoir été déclenché, un équipement **KNX** demande la
+valeur courante au bus **1,5 seconde** après son démarrage, un lecteur **Roon** prépare sa réponse
+pour le tour suivant. Ces actions différées **n'étaient rattachées à rien** : plus rien ne pouvait
+les annuler. Si l'équipement disparaissait entre-temps, l'action différée s'exécutait quand même,
+**sur un objet qui n'existait plus**.
+
+Ce qui se passait alors n'est pas prévisible — c'est ce qui rend ce genre de défaut difficile à
+relier à sa cause :
+
+- souvent **rien de visible**, la mémoire libérée n'ayant pas encore été réutilisée ;
+- parfois un **arrêt brutal** du serveur ;
+- parfois, plus insidieux, l'action retombait sur **un autre équipement** entre-temps installé à la
+  même adresse mémoire, et **agissait à sa place**. Un cas de ce genre a été observé sur les volets
+  au ticket précédent : un volet vivant **arrêté** par la minuterie d'un volet supprimé.
+
+⚠️ **Il ne fallait aucune commande douteuse pour y arriver.** Une action parfaitement normale, suivie
+d'une modification de configuration dans la seconde qui suit, suffisait. La fenêtre est courte
+(un quart de seconde pour la plupart des équipements, **une seconde et demie** pour le KNX au
+démarrage), mais un rechargement de configuration en pleine activité tombe exactement dedans.
+
+**Types d'équipements concernés** : scénarios, boutons *appui long* et *triple appui*, caméras IP,
+**tous les équipements KNX** (entrées, sorties, variateurs, RVB, volets) et les lecteurs **Roon**.
+Les volets avaient déjà été traités séparément.
+
+### Ce qui change
+Chaque action différée vérifie désormais que son équipement **existe encore** avant de s'exécuter,
+et ne fait rien s'il a disparu. **Aucun changement de configuration n'est nécessaire, et aucun
+comportement normal ne change** : tant que l'équipement est là, tout se passe exactement comme
+avant.
+
+⚠️ **Ce qui n'est pas promis.** Ce défaut est de ceux qui, la plupart du temps, **ne se voient
+pas** : il est impossible d'affirmer qu'un plantage que vous avez connu venait de là. Ce qui est
+mesuré, c'est que l'action différée **ne s'exécute plus** une fois l'équipement supprimé — vérifié
+par des tests qui détruisent l'objet puis surveillent sa mémoire, et par un lecteur Roon détruit
+qui, avant la correction, **répondait encore** à une requête de l'API. Ce qui n'est pas mesuré,
+c'est le comportement sur du matériel réel : ni bus KNX, ni core Roon, ni caméra n'ont été
+impliqués.
+
+---
+
 ## 🔴 Volets : l'action `impulse down` n'a jamais respecté la durée demandée
 
 ### Ce que vous avez pu observer (T3.34)

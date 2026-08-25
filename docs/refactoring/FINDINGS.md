@@ -6184,3 +6184,107 @@ Les 11 fichiers de licence tiers présents dans le dépôt partent désormais to
 ce n'est pas un fichier perdu à la distribution, c'est un fichier **absent de l'import amont**.
 Le point est **juridique**, il doit être exact : l'archive est complète **par rapport au dépôt**,
 et le dépôt est incomplet **par rapport à ce qu'il embarque**. À obtenir auprès de l'amont.
+## T3.40 — livraison (2026-08-25) : `F-SIGC-1` instruite hors des volets
+
+⚠️ **Section à APPENDRE, jamais à réécrire** — en conflit, **garder les deux côtés**.
+
+### ⭐ [F-SIGC-1, apport] `RoonPlayer` **EST** un `IOBase` : le classement de la fiche était faux
+
+La fiche `T3.40` rangeait les 20 sites en **5 `IOBase`** (atteignables par `deleteIO()`) et
+**15 autres**, et mettait `RoonPlayer` (**8 sites**) dans les seconds, au motif que la classe dérive
+de `sigc::trackable`. **Mesuré au source** :
+
+```
+Audio/RoonPlayer.h:167   class RoonPlayer: public AudioPlayer, public sigc::trackable
+Audio/AudioPlayer.h:32   class AudioPlayer: public IOBase
+Audio/RoonPlayer.cpp:29  REGISTER_IO_USERTYPE(Roon, RoonPlayer)
+```
+
+Les deux affirmations sont vraies **et c'est la première qui décide** : un `RoonPlayer` est créé par
+l'`IOFactory`, rangé dans une `Room`, et `ListeRoom::deleteIO()` l'atteint **exactement** comme un
+volet. ⇒ il n'y a pas **5** sites `IOBase` non gardés mais ⭐ **13, sur 6 classes**
+(`Scenario`, `InputSwitchLongPress`, `InputSwitchTriple`, `IPCam`, `KNXIo<Base>`, `RoonPlayer`).
+
+⚠️ **La forme générale de l'erreur** : `sigc::trackable` a été utilisé **deux fois de suite comme
+critère de classement**, et **les deux fois il a menti dans un sens différent** — d'abord en
+laissant croire que `RoonPlayer` était *protégé* (démenti par la revue de T3.34 : ce sont des
+lambdas), puis en laissant croire qu'il n'était *pas un `IOBase`*. La question qui classe un site
+n'est **jamais** de quoi la classe hérite : c'est **« existe-t-il un chemin de destruction réel ? »**
+et **« la cible est-elle un `mem_fun` ou une lambda ? »**, deux questions indépendantes.
+
+### ⭐ [F-SIGC-1, apport] Le compilateur répond lui-même à « ce `[=]` capture-t-il `this` ? »
+
+L'arbre compile en **C++20**, où g++ émet
+*« implicit capture of `this` via `[=]` is deprecated »* **exactement** pour les lambdas `[=]` qui
+capturent `this`. Un `make` complet en produit **120**, et c'est une **mesure**, pas une lecture.
+
+Confrontée à cette liste, l'exclusion des deux faux positifs de la fiche est **confirmée par
+l'outil qui décide** : `IPCam/Foscam.cpp:125` et `LuaScript/ScriptExec.cpp:129` **n'y figurent
+pas**. Les sites `[=]` qui y figurent (`IPCam.cpp:126`, `Scenario.cpp:103`,
+`InputSwitchLongPress.cpp:87`, `EventManager.cpp:47`, `PollListenner.cpp:60`,
+`UrlDownloader.cpp:734`) capturent bien `this`.
+
+⚠️ **Complément, pas remplacement** : une capture **explicite** (`[this]`, `[this, data]`) ne produit
+aucun avertissement. Le balayage textuel reste nécessaire ; l'avertissement tranche seulement les
+`[=]`, qui sont précisément les cas que la lecture confond.
+
+### ⛔ [F-SIGC-1, apport] `class IOBase: public sigc::trackable` — essayé, ça **ne compile pas**
+
+```
+error: 'sigc::trackable' is an ambiguous base of 'Calaos::RoonPlayer'
+error: 'sigc::trackable' is an ambiguous base of 'Calaos::IOAVReceiver'
+error: 'sigc::trackable' is an ambiguous base of 'Calaos::Squeezebox'
+```
+
+Ces trois classes dérivent **déjà** de `sigc::trackable` à côté de leur branche `IOBase`. Et même en
+les démêlant, le bénéfice serait **1 site sur 20** : c'est le nombre de `sigc::mem_fun` du balayage
+(`InputSwitchTriple:97`), les 19 autres étant des lambdas que `trackable` ne déconnecte jamais.
+⇒ **ce qui ferme la classe de défauts est un jeton de vie porté par `IOBase`**, qui ne fait aucune
+différence entre une lambda et un `mem_fun`. `sizeof(sigc::trackable)` = **8**,
+`sizeof(std::shared_ptr<bool>)` = **16**.
+
+### ⭐ [F-SIGC-1, apport] Un use-after-free qui ne plante pas — et l'oracle qui le voit quand même
+
+`RoonPlayer::get_playlist_size_cb` **ne touche aucun membre** : elle écrit dans la donnée capturée
+et **rappelle le slot de l'appelant**. Après destruction du lecteur, le callback **ne plante pas** :
+il **répond tranquillement à une requête d'API pour un IO détruit**. ⇒ *« le binaire a survécu »* ne
+prouve rien, et un filet qui n'attend qu'un `SIGSEGV` serait **vert pour la mauvaise raison** sur
+sept des huit sites Roon.
+
+Deux oracles déterministes en sortent, tous deux sans dépendance à l'allocateur :
+
+1. ⭐ **le tampon empoisonné** : la sonde est construite par **placement `new` dans un tampon que le
+   test possède**, détruite par appel explicite du destructeur, puis le tampon est rempli de
+   `0xA5` — **hors du domaine** (tous ces callbacks écrivent `0`/`false`). Aucun allocateur ne peut
+   redistribuer ce tampon, donc une écriture à travers le `this` pendouillant est **certaine** d'y
+   être vue, et « jamais écrit » ne se confond pas avec « écrit la valeur du défaut » (7ᵉ variante) ;
+2. **le compteur d'appels**, quand le callback rappelle l'appelant : plus tranchant encore, et il
+   montre que le défaut n'est pas seulement un risque de plantage.
+
+⚠️ Un tel filet doit porter **son propre auto-test** (« le détecteur voit-il une écriture ? »), sans
+quoi tous ses cas sont **vertement vides**.
+
+### ⭐ [F-SIGC-1, apport] La garde recopiée redevient une garde qu'on peut poser de travers
+
+T3.34 réécrit son jeton **à chaque site**. Recopié 16 fois, il redevient la forme où l'erreur
+s'écrit — et l'erreur est nommée : **témoin capturé en `shared_ptr` fort**, garde inerte,
+use-after-free mué en **fuite de handle**. T3.40 empaquette le mécanisme **une fois**
+(`LifetimeTag`, `src/lib/Timer.h`, à côté du `singleShot` dont il répare l'angle mort) et
+**n'expose que le `weak_ptr`** : la faute devient **inécrivable au site d'appel**, et reste
+écrivable **au seul endroit où une contre-mutation peut la viser**. Mutation faite : les **4**
+oracles de sites rougissent **et** le binaire meurt (`139`). *Le trou ne se referme pas par la
+vigilance, il se referme par une forme où l'erreur ne s'écrit pas* (leçon T3.31).
+
+### ⚠️ [F-SIGC-1, apport] Ce que T3.40 ne ferme PAS
+
+**16 sites sur 20** sont gardés. Restent : `lib/UrlDownloader.cpp:734` — **délibéré**, l'idler
+n'*utilise* pas l'objet, il **est** sa destruction différée (`delete this`), et une garde y
+supprimerait le `delete` ⇒ fuite — et **3 singletons** (`EventManager.cpp:47`,
+`CalaosConfig.cpp:229`, `McpServerManager.cpp:292`) dont l'`Instance()` est un **static local de
+fonction** qu'aucun `delete` de l'arbre n'atteint. Le motif est écrit **au source**, appuyé sur
+*« aucun chemin de destruction dans l'arbre »*, pas sur *« un singleton, c'est sûr »*.
+
+⛔ Et **parmi les 16 fermés, 3 le sont sans oracle dédié** : `IPCam/IPCam.cpp:126` (atteindre le site
+demande un `UrlDownloader` réellement en transfert, et `~IPCam` supprime le téléchargeur en vol —
+trois facteurs confondants), `IO/ExternProc.cpp:191/198` et `PollListenner.cpp:60` (chemin de
+destruction établi **au code**, pas exercé). **Retirer ces gardes-là ne rougit rien.**
