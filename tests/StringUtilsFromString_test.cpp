@@ -263,3 +263,48 @@ TEST(UtilsFromString, AnUnsignedDestinationIsNotSpared)
     EXPECT_TRUE(Utils::from_string(string("512"), dest));
     EXPECT_EQ(512u, dest);
 }
+
+/*******************************************************************************
+ * The two helpers T3.25 adds
+ ******************************************************************************/
+
+TEST(UtilsFromString, FromStringOrKeepLeavesTheDefaultAloneOnABlankString)
+{
+    //NEW API, lands with the fix. This is what the 45 call sites carrying an
+    //initialised destination were relying on from_string() to do BY ACCIDENT,
+    //said out loud: nothing readable at all -> the default stands.
+    int port = 1883;
+    EXPECT_FALSE(Utils::from_string_or_keep(string(""), port));
+    EXPECT_EQ(1883, port) << "an absent value must not cost the default";
+
+    EXPECT_FALSE(Utils::from_string_or_keep(string("   "), port));
+    EXPECT_EQ(1883, port);
+
+    //but anything READABLE still lands, partial reads included - that is the
+    //whole difference with from_string_or() below
+    EXPECT_TRUE(Utils::from_string_or_keep(string("1234"), port));
+    EXPECT_EQ(1234, port);
+
+    port = 1883;
+    EXPECT_FALSE(Utils::from_string_or_keep(string("12abc"), port));
+    EXPECT_EQ(12, port) << "a partial read is kept, exactly as before T3.25";
+
+    port = 1883;
+    EXPECT_FALSE(Utils::from_string_or_keep(string("abc"), port));
+    EXPECT_EQ(0, port) << "unreadable-but-not-blank has always written 0 here";
+}
+
+TEST(UtilsFromString, FromStringOrReturnsTheDefaultOnEveryFailure)
+{
+    //NEW API, lands with the fix. The stricter of the two: a partial read is
+    //a failure like any other. This is why it is NOT retrofitted onto the
+    //existing call sites.
+    EXPECT_EQ(100, Utils::from_string_or(string(""), 100));
+    EXPECT_EQ(100, Utils::from_string_or(string("  "), 100));
+    EXPECT_EQ(100, Utils::from_string_or(string("abc"), 100));
+    EXPECT_EQ(100, Utils::from_string_or(string("12abc"), 100))
+            << "the strict form discards a partial read, unlike "
+               "from_string_or_keep()";
+    EXPECT_EQ(42, Utils::from_string_or(string("42"), 100));
+    EXPECT_DOUBLE_EQ(1.5, Utils::from_string_or(string("1.5"), 9.0));
+}

@@ -76,10 +76,17 @@ bool TimeRange::parseHms(const string &h, const string &m, const string &s, long
 {
     int hi = 0, mi = 0, si = 0;
 
-    /* from_string() returns istringstream::eof(), which is also true for an
-     * empty string (the value is then zero initialized), so the empty case is
-     * rejected explicitly. Anything else that does not consume the whole
-     * string ("12abc", "abc"...) is rejected by from_string() itself.
+    /* T3.25 corrected this comment, which described the world before it:
+     * from_string() USED to return istringstream::eof() alone, which was true
+     * for an empty string - and, contrary to what this comment claimed, the
+     * value was then NOT written at all rather than zero initialized. Since
+     * T3.25 from_string() rejects a blank string on its own and writes T{},
+     * so the three .empty() tests below are now REDUNDANT rather than load
+     * bearing. They are KEPT, not removed: they say at the call site which
+     * inputs this parser refuses, they cost nothing, and removing a guard
+     * because another one now covers it is how a guard gets lost. Anything
+     * else that does not consume the whole string ("12abc", "abc"...) has
+     * always been rejected by from_string() itself.
      */
     if (h.empty() || m.empty() || s.empty())
         return false;
