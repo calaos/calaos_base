@@ -230,6 +230,122 @@
     c'est le code qui la consomme qui a été lu. Le seul programme exécuté est un `g++` autonome de
     12 lignes sur `from_string`/`is_of_type`.
 
+- **🔒 E4.1j ✅ MERGÉ (`2abd16b4`, 6 commits, `git rebase master` + `merge --ff-only`, historique
+  linéaire, `make check` **84/84**) — ⭐ le wire Lua aval, et **le merge qui CLÔT la vague 1
+  parallèle d'E4.1** : l'épique passe à **11/17 livrés (`a`→`k`)**, il ne reste que la chaîne
+  sérialisée `l`→`s` puis `x`.**
+  Périmètre réel : `LuaScript/ScriptExtern_main.cpp`, `LuaScript/ScriptBindings.cpp`, l'**en-tête
+  neuf de production** `LuaScript/ScriptWire.h` (**1 ligne** de `calaos_script_SOURCES`), plus le
+  débordement déclaré de **2 lignes** dans `ScriptBindings.h` (deux déclarations privées
+  `sendJson()` devenues mortes). `LuaScript/ScriptExec.cpp` **hors périmètre** (E4.1m) : **diff
+  vide, vérifié**. Commit de caractérisation `c8654672` : **zéro ligne de `src/`** (2 fichiers,
+  `tests/ScriptWire_test.cpp` neuf + `tests/Makefile.am`), et **verte seule contre le code
+  jansson** — reconstruite au premier commit rebasé, binaire effacé puis **`CXXLD ScriptWire_test`
+  pour de vrai**, **32/32 PASSED**. **Aucune assertion préexistante modifiée** : sur les 6 commits,
+  les seuls `tests/` touchés sont ces deux-là. Goldens intacts : arbre `d4ebc61f…`, **145
+  fichiers**, identique à master **et sur chacun des 6 commits**. Suite **83 → 84** (recompté en
+  `python3`). `tests/Makefile.am` : conflit de rebase (le seul), résolu par **régénération**
+  — **append pur octet pour octet prouvé en `python3`** (`branche == base + suffixe`, puis
+  `nouveau == master + le MÊME suffixe`, **+2 094 octets / 36 lignes**, sha256 du suffixe
+  `310ee00e4487…`) ; **72 `^if*` / 72 `^endif`** (**71/71** sur master), profondeur jamais
+  négative. Build distclean rejoué **après le rebase de merge** (`git clean -xdff` puis
+  `make -j16 && make check -j8`, 3 agents concurrents, attendu par `docker wait`) :
+  **`CXX LuaScript/ScriptExtern_main.o`**, **`CXX LuaScript/ScriptBindings.o`**,
+  **`CXXLD calaos_script`**, **`CXXLD ScriptWire_test`**, **`PASS: ScriptWire_test`**,
+  **84 PASS / 0 FAIL / 0 SKIP / 0 ERROR**, **0 `error:`**, code de sortie **0**.
+  *(Master a bougé pendant le build — `dd619482`, docs seuls ; rebase rejoué, et les arbres `src`
+  et `tests` sont **identiques bit pour bit** à ceux qui ont été construits : `54597d12bf52` /
+  `ae4be6724421`. Le contenu mergé est exactement celui qui a été exercé.)*
+
+  - ⭐⭐ **LA DÉPENDANCE D'`E4.1x` EST VIDE — MESURÉE UNE QUATRIÈME FOIS, PAR LE MERGE.**
+    Mutation **fidèle** d'`IO/ExternProc.h` (la seule ligne `#include "Jansson_Addition.h"`
+    commentée : l'en-tête **cesse de déléguer** jansson à ses includeurs, `Jansson_Addition.h`
+    **reste INTACT** — vérifié `git diff` vide dessus), **tous les `.o` supprimés** plus les 7
+    binaires, `make -C src -j16 -k`. **Sur master (`b107a1e5`) : 34 `error:`, 2 TU casseurs —
+    `LuaScript/ScriptExtern_main.cpp` et `LuaScript/ScriptBindings.cpp` — et `calaos_script` PAS
+    PRODUIT (6/7).** **Avec la branche : RC=0 (relevé pour de vrai, pas via un `$?` mangé par le
+    shell hôte), ZÉRO `error:`, 157 TU recompilés, 7 `CXXLD` et les 7 binaires présents dont
+    `calaos_script`.** Cela reproduit la mesure de l'auteur (`db6770a7` → 4 casseurs,
+    `d1462d9e` seul → 2, avec la branche → 0) : **plus aucun driver ne dépend de jansson**, il ne
+    reste que la chaîne sérialisée `l`→`s`.
+    ⚠️ **« Fidèle » est le mot** : retirer `<jansson.h>` de `Jansson_Addition.h` (qui utilise
+    `json_t` dans son propre corps) casse **ce fichier** et a déjà produit **4 158 erreurs** et un
+    faux chiffre de 10 unités.
+
+  - ⭐ **PREMIER TICKET DE LA SÉRIE DONT LES ORACLES D'OCTETS SONT PORTEURS, PAS DÉFENSIFS — ET
+    C'EST MESURÉ, PAS RAISONNÉ.** La revue a **écrit et exécuté le cas** : un programme liant le
+    **vrai LuaJIT du conteneur**, avec la garde `lua_isstring`/`lua_tostring` **recopiée verbatim**
+    de `Lua_Calaos::sendPushNotif`. **4 orthographes passent** la garde et livrent l'octet ;
+    `j.dump()` nu lève alors `type_error.316 invalid UTF-8 byte at index 5: 0xFF`. Il n'y a **aucun
+    try/catch** sur ce chemin (`messageReceived()` est appelé depuis le callback de lecture
+    `ExternProc`) : **le précédent KNX s'applique en plein — sans le gestionnaire, `calaos_script`
+    TERMINERAIT**, au milieu du script de l'utilisateur. Wago, OLA et Hue avaient tous conclu
+    « défensif » parce qu'il fallait un équipement hostile ; **ici une ligne de Lua écrite par
+    l'utilisateur suffit**.
+    ⚠️ **La précision qui manquait, mesurée elle aussi** : l'orthographe « **octet brut dans le
+    texte du script** » **ne survit PAS au transport aujourd'hui** — `ScriptExec.cpp:154-157`
+    passe le script par `jansson_from_params()`, dont `json_string()` rend `NULL` sur l'octet
+    invalide, et **la paire entière tombe** : `calaos_script` ne reçoit jamais ce script. Ce qui
+    passe, c'est **`string.char(0xFF)` et `"\255"`**, **le script restant ASCII pur, l'octet
+    naissant dans la VM**. **Le chemin brut s'ouvre avec `E4.1m`** (migration de `ScriptExec.cpp`)
+    — ne pas le citer comme atteignable avant.
+
+  - ⭐ **UNE QUATRIÈME FORME DE CONTOURNEMENT DU TYPAGE, DISTINCTE DES TROIS CONNUES —
+    consignée `F-LUA-3`.** Le typage fort du ticket (`ScriptWire::IoId` / `ParamKey` /
+    `ParamValue` / `PushAttachment`) fait bien de `buildSetParamMessage(ParamKey{}, IoId{}, …)`
+    une **erreur de compilation**. Mais `io.set_param(value, key)` côté script, et la permutation
+    des indices `lua_tostring(L, 1/2)` côté dépilement, **compilent tous les deux**. Les trois
+    formes déjà connues portaient sur **un** argument mal rempli (« emballer la mauvaise
+    variable », « agrégat positionnel ») ; **ici les deux valeurs typées sont construites au site
+    d'appel, chacune bien typée, et la faute est dans l'appariement source → emballage**.
+    Réductible **en principe** (typer `LuaIOBase::set_param()` et le dépilement Lua), **pas dans
+    ce ticket**.
+
+  - **La sentinelle ajoutée en suites de revue** (`23da0c0a`, tests seuls) : `decodeEvent` perdait
+    son `ev.clear()` **sans qu'aucun cas ne rougisse** (0/32). Sentinelle **symétrique** de celle
+    de `type_str`, posée sur **les deux chemins** (peuplé et vide) ⇒ la mutation `N2` passe de
+    **0/32 à 2 cas / 4 assertions**, `N3` en rougit **1**, et **les ensembles sont distincts** :
+    les deux sentinelles ne se remplacent pas.
+
+  - **Un recalibrage d'honnêteté** : « sans ce détecteur `M7` serait restée verte » devient
+    **« le CAS DU TICKET serait resté vert »** — détecteur retiré, `M7` reste rouge **1/32**, mais
+    via un **fixture voisin** et par une **exception non rattrapée**, pas par une assertion.
+
+  - **Un « VERT 0/32 » requalifié** : il est **structurellement garanti** — `ScriptBindings.cpp`
+    n'est lié dans **aucun** binaire de test ⇒ **limite de périmètre, pas trou de couverture**.
+
+  - **Pas d'entrée `RELEASE_NOTES`, argumenté et confirmé par la revue.** Avant, `json_string()`
+    rendait `NULL` sur l'octet invalide, la paire tombait, et `decodeSetState` appelait quand même
+    `set_value("")` ; après, il reçoit la chaîne à U+FFFD. **Les deux écrivent du garbage**,
+    l'observable ne change pas de nature — et **l'utilisateur écrit lui-même le script** qui
+    produit ces octets.
+
+  - **Défaut connu recalé à l'octet** : `setIOParam` / `waitForIO` `return 1` **sans rien
+    empiler** ⇒ `Lunar::thunk` laisse les arguments et **le script récupère son propre dernier
+    argument**, donc **tout test de statut sur `waitForIO` lit vrai**. `ScriptBindings.cpp` passe
+    de **495 à 484 lignes**, `:293`/`:333` → **`:294`/`:334`** (vérifié ici en `python3`).
+    **`T3.27` peut s'appuyer dessus** — et sa dépendance `E4.1j` est levée. `BOARD.md` recalé.
+
+  - **`F-REO-1` confirmé mort** : ses deux sites `jansson_to_string` de `ScriptBindings.cpp`
+    n'existent plus.
+
+  - ⚠️ **Écart de comptage avec le brief de merge, donné tel que recompté ici** : à l'intérieur du
+    fichier neuf, le commit de bascule remplace **11 énoncés d'assertion** et en ajoute **4** ; sur
+    les 11, **10 changent la valeur attendue et portent toutes l'annotation `MOVED BY E4.1j`**
+    (annotations posées **dès le commit de caractérisation**, cf. son en-tête ligne 50), la 11ᵉ ne
+    change **que le message d'échec** (`EXPECT_EQ("", type_str)`, expression inchangée) et n'est
+    donc pas annotée — c'est la « reformulation d'une sentinelle » du delta documenté. Le commit de
+    suites en remplace **2** et en ajoute **2**. Total : **13 énoncés réécrits, 6 nets ajoutés**
+    (144 → 150 assertions, 32 cas). Les 4 catégories du delta documenté (ordre `msg`/`data`, casse
+    hexa, paire supprimée → U+FFFD, reformulation de sentinelle) **couvrent la totalité** des
+    changements.
+
+  - **NON VÉRIFIÉ, à dire tel quel** : rien sous ASan, aucun `calaos_script` réel, aucun
+    bout-à-bout socket, et **`ScriptExec.cpp` n'a jamais été rejoué contre le nouvel émetteur —
+    compatibilité RAISONNÉE (les deux bouts décodent avec un vrai parseur), pas EXERCÉE.**
+
+  - **Rien n'a été poussé.**
+
 - **🔒 T3.29 ✅ MERGÉ (`bbde6c06`, 4 commits, `git rebase master` + `merge --ff-only`, historique
   linéaire, `make check` **83/83**) — l'ioDoc enseignait une syntaxe d'index que le parseur ne
   comprend pas, et `calaos_installer` l'affichait à tout le monde.**
