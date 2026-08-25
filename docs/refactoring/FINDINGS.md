@@ -805,6 +805,44 @@
   haproxy, seul vecteur résiduel permettant d'injecter une ligne **après** celle du proxy ; et la
   suite n'a pas été rejouée sous ASan.
 
+  ---
+
+  ✅ **FERMÉ par [T3.39](T3.39.md)** (`4025e2a6`, branche `fix/t3.39`, **non mergée** — merge
+  suspendu à l'accord de l'utilisateur). `TransportLimits::effectiveClientIp()` ne lit
+  `X-Forwarded-For` que si le **pair TCP est le loopback**, via `isTrustedProxyPeer()` :
+  `127.0.0.0/8` **entier**, `::1`, et la forme `::ffff:127.x` (test de **préfixe**, jamais de
+  containement). **Un seul site**, donc les **deux** appelants — throttle de login des deux
+  transports **et** cap `max_connections_per_ip` (`HttpClient.cpp:193`) — héritent de la garde
+  sans duplication. Les capacités **(a)** et **(b)** sont fermées.
+
+  **Ce que l'instruction a corrigé dans l'entrée ci-dessus** :
+  - ⛔ **le remède qu'elle désignait était faux**. `listen_address = 127.0.0.1` gouverne **aussi**
+    `UDPServer.cpp:58-61` (découverte + trames Wago) et couperait tout le parc RemoteUI :
+    **écarté par décision utilisateur** (`DECISIONS.md`, 2026-08-25). La note de confiance de
+    `getEffectiveClientIp()` et l'entrée `RELEASE_NOTES.md`, qui le conseillaient toutes deux,
+    sont **réécrites** — une note qui désigne le mauvais remède est pire qu'absente.
+  - ✅ **l'entrée disait vrai sur le reste** : `rfind(',')` prend bien la **dernière** entrée
+    (celle du proxy, pas celle que le client contrôle), et `option forwardfor` est bien **sans**
+    `if-none` sur les **trois** générateurs de config haproxy du produit
+    (`calaos-os-conf/conf/haproxy-calaos.cfg:48`, `pkgdebs/haproxy/haproxy_pre:63`,
+    `calaos_ddns/haproxy/haconfig.go:39-41`), tous sur **`127.0.0.1:5454`**.
+
+  **Balayage complémentaire (`python3`, arbre entier)** : `X-Forwarded-For` est la **seule** tête
+  de provenance lue — **`X-Real-IP` : 0 occurrence**, `Forwarded` (RFC 7239) **jamais parsé**.
+  Aucun autre site à durcir.
+
+  **Ce qui reste ouvert, et qui est ACCEPTÉ** :
+  - un attaquant **sur la machine elle-même** est loopback ⇒ il peut encore forger l'en-tête et
+    choisir son seau. Écrit dans la note de confiance, pas corrigé ;
+  - ⚠️ **un reverse-proxy DÉPORTÉ sur une autre machine voit son en-tête ignoré** ⇒ ses clients
+    retombent dans le seau unique du proxy, soit le défaut T3.24 **pour cette topologie-là**.
+    Aucun déploiement Calaos ne la produit (haproxy et `calaos_server` viennent du **même
+    méta-paquet**, en **deux unités podman `--network=host`**), elle n'est atteignable qu'en
+    éditant `/mnt/calaos/haproxy/haproxy.cfg` à la main ou le backend de `calaos_ddns`. **Une
+    option `trusted_proxies` (défaut `"127.0.0.1,::1"`, donc iso-comportement) est PROPOSÉE mais
+    volontairement NON introduite** — l'arbitrage appartient à l'utilisateur, cf. T3.39 §7.1 ;
+  - le **request smuggling** à travers haproxy reste hors périmètre, inchangé.
+
 - ✅ **[SÉCURITÉ, même classe que F2] `RemoteUIManager::getRemoteUIByToken` en `string ==`** —
   **traité par T2.15** (`01089187`, « … constant-time RemoteUI token lookup »). Revérifié au
   source : `RemoteUIManager.cpp:96` compare désormais via

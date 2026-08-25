@@ -1002,14 +1002,48 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   autres utilisateurs** — application mobile, écrans muraux, intégrations — alors qu'à l'inverse sa
   propre limite était remise à zéro par le premier login réussi de n'importe qui d'autre.
   Désormais chaque client a son propre compteur, sur **l'interface web/API comme sur le websocket**.
-  ⚠️ **Cela suppose que Calaos est bien joint à travers son reverse-proxy.** C'est le cas depuis
-  Internet, mais **pas depuis votre réseau local** : par défaut le serveur écoute sur toutes les
-  interfaces (`listen_address` = `0.0.0.0`) alors que le proxy ne l'appelle que sur `127.0.0.1`,
-  donc un appareil du LAN peut joindre le port directement et **annoncer l'identité de son choix** —
-  ce qui lui permet d'échapper au ralentissement, ou de le déclencher au nom d'un autre. C'est la
-  même hypothèse que la limite de connexions ci-dessus. Si votre réseau local n'est pas de
-  confiance, réglez `listen_address` sur `127.0.0.1` : seul le reverse-proxy pourra alors joindre
-  le serveur.
+  ⚠️ **La réserve qui figurait ici — « un appareil du LAN peut annoncer l'identité de son choix,
+  réglez `listen_address` sur `127.0.0.1` » — est levée, et le remède qu'elle proposait était
+  mauvais** : voir l'entrée suivante.
+- **Un appareil de votre réseau local ne peut plus se faire passer pour quelqu'un d'autre.**
+
+  **Ce qui changeait le comportement.** Les deux protections ci-dessus — le ralentissement après
+  mot de passe erroné et la limite de connexions — identifient un client par l'en-tête
+  `X-Forwarded-For`, celui que le reverse-proxy (haproxy) ajoute pour dire de quelle adresse vient
+  vraiment la demande. Le serveur croyait cet en-tête **quelle que soit la provenance de la
+  connexion**. Or votre serveur Calaos répond aussi **directement** sur le port 5454 depuis votre
+  réseau local — c'est nécessaire, c'est par là que passent les écrans RemoteUI et l'application
+  mobile en Wi-Fi. Un appareil du LAN pouvait donc **écrire cet en-tête lui-même** et : (1)
+  changer d'identité à chaque essai de mot de passe, ce qui **annulait complètement** le
+  ralentissement anti-force-brute et permettait d'essayer des mots de passe sans aucune limite ;
+  (2) porter l'adresse d'un autre appareil pour **le faire ralentir ou bloquer à sa place**.
+
+  **Ce qui change.** L'en-tête n'est désormais cru **que si la connexion vient de la machine
+  elle-même** (`127.0.0.1` / `::1`) — c'est-à-dire quand elle vient du reverse-proxy, qui tourne
+  sur le même boîtier Calaos. Pour toute autre connexion, c'est l'adresse réelle de l'appareil qui
+  compte, et l'en-tête est ignoré.
+
+  **Qui doit vérifier sa configuration.** ⚠️ **Uniquement** ceux qui ont **déplacé haproxy (ou un
+  autre reverse-proxy) sur une machine différente** de celle qui fait tourner `calaos_server` —
+  un montage qu'aucune installation Calaos standard ne produit, et qui suppose d'avoir édité
+  `/mnt/calaos/haproxy/haproxy.cfg` à la main ou reconfiguré le backend de `calaos_ddns`. Dans ce
+  cas seulement, le serveur ne reconnaît plus votre proxy : **tous vos utilisateurs retombent dans
+  un compteur unique**, celui du proxy, et se ralentissent mutuellement comme avant. Signalez-le,
+  la configuration de proxys de confiance supplémentaires est prévue mais volontairement pas
+  livrée sans demande.
+
+  **Si vous ne faites rien.** Sur une installation Calaos normale — haproxy et `calaos_server` sur
+  le même boîtier — **il n'y a rien à faire, rien ne change** pour vous : le proxy est reconnu, vos
+  utilisateurs gardent chacun leur compteur, et la protection anti-force-brute cesse simplement
+  d'être contournable depuis votre réseau local. ⛔ **Et surtout : ne réglez pas `listen_address`
+  sur `127.0.0.1`.** L'ancienne version de cette note le conseillait ; c'était une erreur. Ce
+  réglage gouverne **aussi** le service de découverte UDP : il rendrait votre serveur invisible
+  pour `calaos_installer`, pour l'application mobile et pour tous vos écrans RemoteUI, et couperait
+  les entrées Wago.
+
+  **Ce qui reste vrai.** Quelqu'un capable d'exécuter du code **sur le boîtier Calaos lui-même**
+  est vu comme le proxy et peut encore choisir son identité. C'est accepté : à ce stade il a déjà
+  bien mieux à sa disposition.
 - **En-têtes HTTP** limités à 32 Kio → `431` (auparavant illimité jusqu'au timeout).
 - **TLS** : la vérification des certificats reste **désactivée par défaut** pour tous les
   équipements configurés par l'utilisateur (caméras HTTPS auto-signées, devices LAN) — aucune
