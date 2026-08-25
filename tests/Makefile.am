@@ -2240,3 +2240,34 @@ ReolinkWire_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+
+# E4.1h
+#Characterization of the Wago wire: the eight requests WagoMap sends to
+#calaos_wago, the two reply shapes calaos_wago sends back, and the decoding
+#both ends do. Written BEFORE the jansson -> nlohmann migration of
+#WagoMap.cpp / WagoExternProc_main.cpp and green across it; the seams are the
+#free functions of the anonymous namespace in the test itself, which the
+#migration commit rewires onto the production header
+#IO/Wago/WagoWire.h so that a mutation of the SHIPPED emitter turns this suite
+#red. Nothing in this suite executed a driver before (E4.0d), and
+#WagoConfigParse_test only covers the io.xml address parser: this file is the
+#only net this migration has.
+#Two of its cases assert on the RAW BYTES (ensure_ascii, and the invalid-UTF-8
+#error handler); the 145 goldens compare parsed documents and are blind to
+#escaping by construction. Eight more freeze the exact request strings, which
+#do NOT move across the migration - Params is a std::map, so the jansson
+#adapter already emitted alphabetically.
+#Two cases are named ..._BUG on purpose: they pin the fact that
+#write_multiple_bits/write_multiple_words emit no "values" array at all.
+#Only libcalaos_common code is exercised (Params + Utils + the wire header),
+#no server object and no fixture; jansson comes with @CALAOS_COMMON_LIBS@ and
+#-I.../IO/Wago is already in AM_CPPFLAGS. Own HAVE_GTEST block so this stays a
+#pure append at the end of the file.
+if HAVE_GTEST
+TESTS += WagoWire_test
+check_PROGRAMS += WagoWire_test
+WagoWire_test_SOURCES = WagoWire_test.cpp
+WagoWire_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
