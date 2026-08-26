@@ -42,6 +42,7 @@
 
 #include <chrono>
 #include <functional>
+#include <thread>
 
 #include "Timer.h"
 #include "libuvw.h"
@@ -107,6 +108,48 @@ void pumpLoopFor(int ms)
         ADD_FAILURE() << "pumpLoopFor(" << ms << ") gave up after "
                       << elapsedMs(t0) << " ms and " << iterations
                       << " iterations: this wait proved nothing";
+}
+
+/* ⭐ T3.56 - answer the ms elapsed SINCE t0 at the moment pred() was first
+ * SEEN to hold, or -1 if it never was within the budget.
+ *
+ * Same shape as core/ShutterImpulse_test's pumpUntilSince, and here for the
+ * same reason: the cases below assert a LOWER bound on when a timer fired,
+ * and time stolen anywhere after t0 can only make that answer LARGER. A busy
+ * host cannot falsify "the timer was not observed fired before D ms"; it can
+ * trivially falsify "the timer has not fired at D ms".
+ *
+ * ⚠️ t0 must be taken BEFORE the timer is armed, never after. The whole point
+ * of these cases is where the deadline lands relative to the arming instant. */
+int pumpUntilSince(const std::chrono::steady_clock::time_point &t0,
+                   const std::function<bool()> &pred, int timeoutMs = 5000)
+{
+    auto loop = uvw::Loop::getDefault();
+
+    while (!pred())
+    {
+        if (elapsedMs(t0) > timeoutMs)
+            return -1;
+        loop->run<uvw::Loop::Mode::NOWAIT>();
+    }
+
+    return elapsedMs(t0);
+}
+
+/* ⭐ T3.56 - FABRICATE the idle stretch this whole suite is about.
+ *
+ * Nothing pumps the loop during these ms, which is exactly what happens
+ * between uv_loop_init() and the first loop->run(): calaos_server creates the
+ * loop at CalaosConfig.cpp:206 (the Timer(60.0) of the state cache) and does
+ * not run it until main.cpp:223, with LoadConfigIO()/LoadConfigRule() in
+ * between. Every timer armed by an IO constructor in that window is armed off
+ * a loop clock frozen at line 206.
+ *
+ * ⚠️ A case that pumps the loop throughout can NEVER see this defect - the
+ * pump is what refreshes the clock. The idle stretch is the fixture. */
+void goIdleFor(int ms)
+{
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
 
 /* Number of timer handles still armed on the default loop (same helper as
@@ -302,4 +345,169 @@ TEST(IdlerLifetime, DeleteFromOwnCallback)
     EXPECT_EQ(count, 1);
     EXPECT_EQ(o, nullptr);
     EXPECT_EQ(liveHandleCount(uvw::HandleType::IDLE), 0);
+}
+
+/******************************************************************************
+ * ⭐ T3.56 — a timer armed while the loop is IDLE must still wait its delay.
+ *
+ * ---------------------------------------------------------------------------
+ * THE MECHANISM, AND WHY IT IS A PRODUCT DEFECT AND NOT A TEST ARTEFACT
+ * ---------------------------------------------------------------------------
+ * uv_timer_start() does NOT read the clock. It computes its deadline from
+ * loop->time, the CACHED clock, which only uv__update_time() advances — at the
+ * top of every uv_run() and again right after epoll_pwait(). So a timer armed
+ * during a stretch in which nobody runs the loop is armed in the PAST by the
+ * length of that stretch. T3.49 measured this on the test side; the same
+ * arming code is what every IO constructor of the server uses.
+ *
+ * calaos_server creates the default loop at CalaosConfig.cpp:206 and does not
+ * run it until main.cpp:223. LoadConfigIO()/LoadConfigRule() (main.cpp:150-151)
+ * sit in between and build every IO of the installation. Every Timer an IO
+ * constructor arms in that window is therefore SHORTER than it says by the
+ * duration of the configuration load, and any delay smaller than that load
+ * fires on the very first loop iteration — IO/Wago/WagoMap.cpp:46 asks for
+ * 0.1 s, the shortest pre-loop delay of the tree.
+ *
+ * ---------------------------------------------------------------------------
+ * WHAT THESE CASES ARE, AND WHAT THEY ARE NOT
+ * ---------------------------------------------------------------------------
+ * They are a LOWER bound on when a timer fires, measured from the instant it
+ * was armed, with an idle stretch deliberately placed before the arming. The
+ * lower bound is the falsifiable half: time stolen after t0 can only make the
+ * answer larger, so a slow host cannot redden them; a deadline that moved into
+ * the past can only make it smaller, and that is the defect.
+ *
+ * ⚠️ kIdleGapMs is deliberately THREE TIMES kArmedDelayMs. An idle stretch
+ * shorter than the armed delay proves nothing at all: the deadline would still
+ * land in the future and every case would pass on broken code. The gap has to
+ * be comfortably LONGER than what is being armed.
+ *
+ * ⚠️ kCoarseClockSlackMs is not padding for a busy host — the lower bound does
+ * not need any. It answers ONE thing: uv__update_time() reads
+ * CLOCK_MONOTONIC_COARSE while these cases measure with CLOCK_MONOTONIC, so a
+ * freshly updated loop->time can legitimately sit up to one kernel tick behind
+ * t0. 25 ms is far above any CONFIG_HZ in use and still 8x below the 200 ms
+ * being asserted, so it can never hide the defect: broken, these cases fire at
+ * ~0 ms, not at 180.
+ ******************************************************************************/
+
+namespace
+{
+/* Three times the armed delay: see the ⚠️ above. */
+constexpr int kIdleGapMs = 600;
+constexpr int kArmedDelayMs = 200;
+constexpr int kCoarseClockSlackMs = 25;
+
+/* Upper bound for the NOMINAL case only, and generous on purpose: it is not
+ * there to time the loop, it is there so a "fix" that made every wait wildly
+ * longer — or that armed nothing at all — cannot pass as an improvement. */
+constexpr int kNominalCeilingMs = 2000;
+}
+
+TEST(TimerStaleLoopClock, RepeatingTimerArmedAfterAnIdleStretchStillWaitsItsFullDelay)
+{
+    //Start from a CURRENT loop clock so the staleness under test is exactly
+    //kIdleGapMs and nothing left over from the cases above.
+    uvw::Loop::getDefault()->run<uvw::Loop::Mode::NOWAIT>();
+
+    goIdleFor(kIdleGapMs);
+
+    int count = 0;
+    int firedAt = -1;
+
+    {
+        //⚠️ t0 BEFORE the arming, always. What is under test is where the
+        //deadline lands relative to the instant the Timer was constructed.
+        const auto t0 = std::chrono::steady_clock::now();
+        Timer t(kArmedDelayMs / 1000.0, sigc::slot<void>([&count]() { count++; }));
+
+        firedAt = pumpUntilSince(t0, [&count]() { return count >= 1; });
+    }
+
+    ASSERT_GE(firedAt, 0)
+        << "the timer never fired at all within the budget: this case can say "
+           "nothing about when it fired";
+
+    EXPECT_GE(firedAt, kArmedDelayMs - kCoarseClockSlackMs)
+        << "a Timer asked for " << kArmedDelayMs << " ms fired after "
+        << firedAt << " ms, having been armed while the loop had been idle for "
+        << kIdleGapMs << " ms.\n"
+        << "uv_timer_start() computed its deadline from the CACHED loop clock, "
+           "which nothing refreshed during that idle stretch, so the deadline "
+           "was already in the past when the timer was armed.\n"
+        << "In calaos_server that idle stretch is the configuration load "
+           "(main.cpp:150-151) and this is what makes IO/Wago/WagoMap.cpp:46 "
+           "(0.1 s) fire on the first loop iteration.";
+
+    //Give the closed handle its close callback back before the next case.
+    pumpLoopFor(20);
+}
+
+TEST(TimerStaleLoopClock, SingleShotArmedAfterAnIdleStretchStillWaitsItsFullDelay)
+{
+    //Separate case, not a parameter of the one above: Timer::singleShot() arms
+    //its own anonymous handle through a DIFFERENT code path (Timer.cpp), and a
+    //remedy applied to one and not the other has to be visible. The two cases
+    //are what makes the counter-mutation sets distinct.
+    uvw::Loop::getDefault()->run<uvw::Loop::Mode::NOWAIT>();
+
+    goIdleFor(kIdleGapMs);
+
+    int count = 0;
+    const auto t0 = std::chrono::steady_clock::now();
+
+    Timer::singleShot(kArmedDelayMs / 1000.0, [&count]() { count++; });
+
+    const int firedAt = pumpUntilSince(t0, [&count]() { return count >= 1; });
+
+    ASSERT_GE(firedAt, 0)
+        << "the one-shot never fired at all within the budget";
+
+    EXPECT_GE(firedAt, kArmedDelayMs - kCoarseClockSlackMs)
+        << "Timer::singleShot(" << (kArmedDelayMs / 1000.0) << ") fired after "
+        << firedAt << " ms, having been armed while the loop had been idle for "
+        << kIdleGapMs << " ms.\n"
+        << "This is the shape Audio/RoonPlayer.cpp:243 uses to \"wait for the "
+           "process to start\": a delay armed off a frozen loop clock is "
+           "amputated by the length of the idle stretch that preceded it.";
+
+    pumpLoopFor(20);
+}
+
+/* ⭐ THE SYMMETRIC CONTROL, and it is not decoration.
+ *
+ * A remedy that stopped distinguishing anything — one that armed every timer
+ * far into the future, or that turned the wait into a handle nobody starts —
+ * would make the two cases above green while being strictly worse than the
+ * defect. This case pins the NOMINAL behaviour from both ends on a loop clock
+ * that is already current: the delay is still honoured, and it is still only
+ * the delay. It is expected green before and after the remedy; its job is to
+ * be the case a bad remedy breaks. */
+TEST(TimerStaleLoopClock, OnACurrentLoopClockTheDelayIsHonouredAndNothingMore)
+{
+    //No idle stretch here: this is the case that must NOT move.
+    uvw::Loop::getDefault()->run<uvw::Loop::Mode::NOWAIT>();
+
+    int count = 0;
+    int firedAt = -1;
+
+    {
+        const auto t0 = std::chrono::steady_clock::now();
+        Timer t(kArmedDelayMs / 1000.0, sigc::slot<void>([&count]() { count++; }));
+
+        firedAt = pumpUntilSince(t0, [&count]() { return count >= 1; });
+    }
+
+    ASSERT_GE(firedAt, 0) << "the timer never fired on a current loop clock";
+
+    EXPECT_GE(firedAt, kArmedDelayMs - kCoarseClockSlackMs)
+        << "a Timer asked for " << kArmedDelayMs << " ms fired after "
+        << firedAt << " ms on a loop clock that was already current";
+
+    EXPECT_LE(firedAt, kNominalCeilingMs)
+        << "a Timer asked for " << kArmedDelayMs << " ms fired after "
+        << firedAt << " ms on a loop clock that was already current: whatever "
+           "closes the stale-clock hole must not push ordinary waits out.";
+
+    pumpLoopFor(20);
 }
