@@ -1,11 +1,18 @@
 # Outillage — cache de compilation (`ccache`) : mesures, honnêteté, recette
 
-⚠️ **Branche `tooling/ccache`, non fusionnée. Rien n'est actif par défaut.**
+⚠️ **Branche `tooling/ccache`, non fusionnée. Rien n'est actif par défaut DANS LE CONTENEUR.**
 Le cache ne s'allume que si `/usr/lib/ccache` est en tête du `PATH`. Le `Dockerfile` installe
 l'outil, `devcontainer.json` monte le volume : les deux sont **inertes** tant que le `PATH` n'est pas
 changé.
 
-**Les conditions de bascule sont dans [T3.51](T3.51.md)** (7 conditions, dont 3 issues de la revue).
+> ⛔ ⚠️ **MAIS PAS HORS CONTENEUR.** Sur **Fedora** (`/usr/lib64/ccache`) et **Gentoo**
+> (`/usr/lib/ccache`), ce répertoire est dans le `PATH` **par défaut** et `g++` y est un **lien vers
+> `ccache`**. ⇒ **La sonde y trouve un cache en service et non configuré, rend `1`, et `make check`
+> est ROUGE dès le premier essai.** ⭐ **C'est le cas de la machine de ce dépôt** — voir §4, *hors
+> conteneur*, et ses **TROIS** issues.
+
+**Les conditions de bascule sont dans [T3.51](T3.51.md)** — **7 numérotées, 6 ACTIVES** (la n° 4 est
+retirée, son numéro conservé pour ne pas décaler les renvois), dont 3 issues de la revue.
 **Le parallélisme de `make distcheck` est dans [T3.52](T3.52.md)** — c'est un levier **indépendant**,
 sorti d'ici pour que les deux gains restent attribuables séparément.
 
@@ -17,6 +24,9 @@ sorti d'ici pour que les deux gains restent attribuables séparément.
 >   4.7.5).
 > - **[R]** re-mesuré par la revue sur un **`CCACHE_DIR` privé** — c'est la source qui **corrige** [A].
 > - **[C]** mesuré au retour de revue, sur la branche **rebasée sur `7667838f`**.
+> - **[C2]** mesuré à la **3ᵉ passe de correction**, branche **rebasée sur `75ed9cb9`**, sur `ccache`
+>   **4.12.3** (hôte Fedora) **et** **4.7.5** (image `calaos-ccache:essai`) — la version est dite
+>   à chaque fois, parce qu'elle change des résultats.
 
 ## 1. Le gain — avec la charge, et en fourchette
 
@@ -82,7 +92,7 @@ n'appelle simplement pas le compilateur, le cache n'est pas consulté (`CXXLD` =
 
 ### ⛔ « Le seul réglage qui rendrait le cache menteur » — **cette phrase est FAUSSE et elle est retirée**
 
-Il y en a **quatre**, pas un. Trois d'entre eux n'étaient **ni livrés ni empêchés** par la branche, et
+Il y en a **cinq**, pas un. Quatre d'entre eux n'étaient **ni livrés ni empêchés** par la branche, et
 ⭐ **le deuxième était le défaut que la branche livrait**.
 
 | # | réglage | ce qu'il fait | ancienne sonde |
@@ -91,12 +101,18 @@ Il y en a **quatre**, pas un. Trois d'entre eux n'étaient **ni livrés ni empê
 | ② | ⭐ `compiler_check = mtime` — **LE DÉFAUT LIVRÉ** | compilateur remplacé à taille et date égales ⇒ **objet périmé** | **`rc=0` par construction** |
 | ③ | `compiler_check = string:CONST` | ≡ `none`, que la sonde refusait nommément | `rc=0`, **non listé** |
 | ④ | `sloppiness = file_stat_matches[,_ctime]` | en-tête modifié à taille **et** dates égales ⇒ objet précédent servi | **`rc=0`** — voir §5 |
+| ⑤ | ⭐ **`ignore_options = -D*`** **[C2]** | une **option** sort de la clef : `-DVAL=2` reçoit l'objet de `-DVAL=1` — objets identiques à l'octet, `direct_cache_hit`, **`mov $0x1`** au désassemblage | **`rc=0`**, ⚠️ **y compris avec la « liste blanche » de 4 clefs** |
 
 ⭐ **La cause commune est la LISTE NOIRE** : elle laisse passer tout ce qu'on n'a pas pensé à y
-écrire, et ③ en est la démonstration littérale. ⇒ **remplacée par une LISTE BLANCHE** (§5).
+écrire, et ③ en est la démonstration littérale. ⚠️ **Et la « liste blanche » de quatre clefs qui l'a
+d'abord remplacée était la même faute sous un autre nom** — ⑤ l'a démontré. ⇒ **remplacée à son tour
+par l'AUDIT INTÉGRAL de ce que `ccache -p` publie** (§5).
 
-*(Note mesurée : **`base_dir` est SAIN.** C'est le **bon** levier si l'on veut un jour partager entre
-chemins différents — ⛔ **pas** `hash_dir=false`, qui est le mensonge ①.)*
+*(Note mesurée, et ⭐ **TRANCHÉE** : **`base_dir` n'est pas malhonnête** — ⛔ **mais ce n'est pas une
+option ouverte**, et ce document ne le recommande plus : la sonde l'exige **vide** et rend `1` sinon.
+⚠️ **Le partage entre chemins différents n'est donc PAS disponible aujourd'hui** ; le rendre possible
+demandera d'**auditer** `base_dir` — le mesurer contre une compilation propre — et de modifier la
+table de la sonde. ⛔ Ce qui reste interdit sans condition, c'est `hash_dir=false`, le mensonge ①.)*
 
 ## 3. Le partage entre agents — et ce qui n'est pas « sans danger »
 
@@ -115,7 +131,9 @@ c'est sans danger, seulement sans gain* ». ⚠️ **C'est vrai à moitié.** La
    succès qui baisse, sans cause visible.
 3. ⛔ **Le « correctif » intuitif à l'absence de gain est précisément `hash_dir=false`** — c'est-à-dire
    le mensonge ①. **C'est le piège** : celui qui constate « je n'ai aucun succès de cache » est
-   conduit tout droit vers le réglage qui rend le cache menteur.
+   conduit tout droit vers le réglage qui rend le cache menteur. ⚠️ **Et `base_dir` n'est pas la
+   porte de sortie** : la sonde l'exige vide (voir §2). **Monter au même chemin est aujourd'hui la
+   seule façon de partager.**
 
 ### ⚠️ ⭐ `ccache.conf` est un ÉTAT PARTAGÉ MUTABLE
 
@@ -165,6 +183,27 @@ l'identique**.
 **la sonde échoue** (`rc=1`) — c'est voulu : le défaut de `ccache` n'est pas sûr, il est seulement
 courant.
 
+### ⛔ ⚠️ HORS CONTENEUR : **`make check` est ROUGE par défaut sur Fedora et Gentoo** — **[C2]**
+
+⚠️ **Ce document affirmait « rien n'est actif par défaut ». C'est FAUX sur la machine de ce dépôt.**
+`/usr/lib64/ccache` est dans le `PATH` **par défaut** sur Fedora (`/usr/lib/ccache` sur Gentoo) et
+`g++` y est un **lien vers `ccache`** : `which g++` rend `/usr/lib64/ccache/g++`. ⇒ **La sonde y
+trouve un cache EN SERVICE et NON CONFIGURÉ, et rend `1` sans que personne n'ait rien allumé.**
+
+⭐ **TROIS issues, pas une** :
+
+| # | geste | résultat |
+|---|---|---|
+| **1** | `scripts/ccache-setup.sh` (avec ou sans `CCACHE_DIR`) | **`0` PASS** — vérifié **[C2]** hors conteneur |
+| **2** | `CCACHE_SLOPPINESS= CCACHE_COMPILERCHECK=content CCACHE_HASHDIR=true CCACHE_BASEDIR=` | **`0` PASS**, rien n'est persisté |
+| **3** | ⭐ **retirer le répertoire de *shims* du `PATH`**, ou `CXX=/usr/bin/g++` | **`77` SKIP propre** |
+
+⚠️ **Et l'issue 1 ÉCHOUAIT hors conteneur** : `scripts/ccache-setup.sh` sans `CCACHE_DIR` rendait
+`mkdir: cannot create directory '/ccache': Permission denied`, **`rc=1`** — `/ccache` n'existe que
+dans le conteneur. ⇒ **Corrigé** : le script **demande à `ccache` où est son cache**
+(`ccache -k cache_dir`) quand `CCACHE_DIR` n'est pas posé, vérifie que le répertoire est
+inscriptible, et **rend `rc=0` hors conteneur** — mesuré **[C2]** dans les deux modes.
+
 ⚠️ **Taux de succès** : `ccache -s` **uniquement sur un `CCACHE_DIR` privé**, et le chiffre publié dit
 d'où il vient. ⛔ **Jamais `ccache -z` sur un cache partagé.**
 
@@ -181,48 +220,94 @@ Entrée `TESTS`, appelle `scripts/ccache-honesty-probe.py`.
 
 | code | quand | ligne imprimée |
 |---|---|---|
-| **0** | cache en service, configuration auditée, aller-retours honnêtes | `SONDE-CCACHE: PASS -- …` |
+| **0** | cache en service, **toute** la configuration publiée auditée, **succès de cache constaté**, aller-retours honnêtes | `SONDE-CCACHE: PASS -- …` |
 | **77** | ⭐ **SEUL motif restant** : aucun cache en service | `SONDE-CCACHE: SKIP -- AUCUN cache … ce n'est NI un PASS NI une preuve.` |
-| **1** | **tout le reste** : cache menteur, configuration non auditée, sonde qui ne compile pas, résultat non concluant, **exception** | `SONDE-CCACHE: ECHEC -- …` |
+| **1** | **tout le reste** : cache menteur, **une seule** clef de configuration non auditée, **détecteur qui ne peut pas mordre**, piège non armé, sonde qui ne compile pas, résultat non concluant, **exception** | `SONDE-CCACHE: ECHEC -- …` |
 
-⭐ **Ce que la sonde faisait avant, et qui est fermé.** Elle était *fail-open* sur **tous** ses modes
-d'échec : ④ imprimait « aller-retour honnête » et `rc=0` sur un cache démontré menteur (4/4) ; un
-build câblé par `CXX="ccache g++"` rendait `77` ; un `CXX` avec un argument la faisait **planter** et
-elle **convertissait sa propre panne en `77`** ; et ⭐ `obj(A) == obj(B)` — **exactement le
-mensonge** — était classé « non concluant », `77`. ⚠️ **Et `SKIP` était indiscernable de `PASS` dans
-le journal.**
+⭐ **Ce que la sonde faisait avant, et qui est fermé — HUIT modes, en trois vagues.**
+**Première vague** : ④ imprimait « aller-retour honnête » et `rc=0` sur un cache démontré menteur
+(4/4) ; un build câblé par `CXX="ccache g++"` rendait `77` ; un `CXX` avec un argument la faisait
+**planter** et elle **convertissait sa propre panne en `77`** ; ⭐ `obj(A) == obj(B)` — **exactement
+le mensonge** — était classé « non concluant », `77` ; et **`SKIP` était indiscernable de `PASS`**.
+**Deuxième vague** (2ᵉ revue) : ⭐ **la « liste blanche » ne couvrait que 4 des 44 réglages publiés**
+(⑤ `ignore_options=-D*` ⇒ `rc=0` sur un mensonge prouvé au désassemblage) ; ⭐ **la sonde annonçait
+« le piège est armé et il mord » sans jamais le vérifier** (`disable`/`recache`/`read_only` ⇒ `0` en
+3/3, garde désarmée). **Troisième vague** (cette passe) : ⭐ **elle auditait le `ccache` du `PATH`,
+pas celui que `CXX` emploie**.
 
 **Ce qu'elle vérifie maintenant :**
 
-1. ⭐ **Liste blanche de configuration** (et non liste noire — c'est ③ qui l'a imposée) :
-   `sloppiness` **vide** · `compiler_check = content` · `hash_dir = true` · `base_dir` **vide**.
-   Toute autre valeur ⇒ `rc=1`, **avec la raison**.
-2. ⭐ **Aller-retour sur un EN-TÊTE**, à **taille et mtime égales** — le seul chemin par lequel ④ peut
+1. ⭐ **AUDIT INTÉGRAL DE LA CONFIGURATION — toutes les clefs publiées, pas quatre.** ⚠️ La « liste
+   blanche » de la passe précédente couvrait **4 réglages sur les 44** publiés par `ccache -p` :
+   **une liste noire de 4 lignes déguisée**, qui laissait passer ⑤ (`ignore_options`) mais aussi
+   `direct_mode`, `hard_link`, `prefix_command`, `compiler`, `disable`, `read_only`, `recache`,
+   `remote_storage`, `path`… ⇒ **la sonde demande à l'outil ce qu'il publie** et exige que **chaque
+   clef** soit couverte : **33 clefs à valeur exigée + 11 explicitement libres** (chemins, quotas,
+   compression du **stockage**) en 4.12.3 ; **32 + 12** en 4.7.5 ; **0 inconnue** des deux côtés.
+   ⛔ **Toute clef publiée absente de la table ⇒ `rc=1`, en la nommant** — une version ultérieure de
+   `ccache` qui ajoute un réglage dangereux se signale au lieu de passer. Une **empreinte `sha256`**
+   de la configuration publiée est imprimée à chaque PASS.
+2. ⭐ **UN SUCCÈS DE CACHE CONSTATÉ.** ⚠️ La sonde **annonçait** « le piège est armé et il mord »
+   **sans jamais le vérifier**. ⇒ si l'en-tête restauré à l'identique (3ᵉ compilation) et la source
+   rejouée (6ᵉ) ne sont pas servis **par le cache**, elle rend **`1`**. *Un détecteur qui ne peut pas
+   mordre doit échouer, pas réussir.*
+3. ⭐ **LE PIÈGE S'AUTO-VÉRIFIE** : après réécriture, la sonde **constate** que `(taille, mtime)`
+   sont identiques ; sinon `rc=1`.
+4. ⭐ **LE CACHE AUDITÉ EST CELUI QUE `CXX` EMPLOIE**, pas celui du `PATH` : un enrobage nommé
+   `ccache` qui exporte `CCACHE_IGNOREOPTIONS=-D*` faisait auditer un exemplaire **propre** pendant
+   qu'un autre mentait (`rc=0`) ⇒ désormais `rc=1`.
+5. **Aller-retour sur un EN-TÊTE**, à **taille et mtime égales** — le seul chemin par lequel ④ peut
    se manifester. ⚠️ **La sonde précédente n'avait AUCUN `#include`** : le mensonge ne pouvait pas
-   s'y produire, et c'est **pour cela** qu'elle imprimait « honnête ».
-   La mtime est figée **dans le passé** (2020-09-13) et non « maintenant » : `ccache` refuse de se
-   fier à `(taille, mtime)` pour un fichier modifié trop récemment, si bien qu'une mtime courante
-   rendrait le piège **intermittent**.
-3. **Aller-retour sur la SOURCE** A → B → A : `obj(A) != obj(B)` **et** `obj(A rejoué) == obj(A)`.
-4. **Attribution du succès de cache par `CCACHE_STATSLOG`** (par invocation), **jamais** `ccache -s`.
+   s'y produire, et c'est **pour cela** qu'elle imprimait « honnête ». La mtime est figée **dans le
+   passé** (2020-09-13) : laissée à « maintenant », le piège **ne mord pas** (voir plus bas).
+6. **Aller-retour sur la SOURCE** A → B → A : `obj(A) != obj(B)` **et** `obj(A rejoué) == obj(A)`.
+7. **Attribution du succès de cache par `CCACHE_STATSLOG`** (un journal **par invocation**),
+   **jamais** `ccache -s`, **jamais** `ccache -z`.
 
-**Vérifié [C] — 15 cas, tous conformes** : `77` sans cache · `1` sans cache en mode strict · `1` sur
-le défaut `compiler_check=mtime` · **`0` après `ccache-setup.sh`** · `1` sur ④, sur `none`, sur
-`string:CONST`, sur `hash_dir=false`, sur `base_dir` non vide · **`0` avec `CXX="ccache g++"`** (au
-lieu de `77`) · `1` avec `CXX="ccache"` seul (`ccache: invalid option -- 'g'`, au lieu de `77`) ·
-`1` sur un `CXX` cassé (au lieu de `77`) · ⭐ **`1` en 4/4 avec la garde de configuration DÉSARMÉE et
-`sloppiness` fautif** — la moitié empirique voit désormais ④ **seule** · `0` en 2/2 sur le témoin
-honnête, garde désarmée.
+**Vérifié [C2] — 27 cas rejoués DEUX FOIS sur `ccache` 4.12.3 (hôte Fedora) et 24 cas rejoués DEUX
+FOIS sur 4.7.5 (conteneur) : 102 exécutions, toutes conformes** : `77` sans cache · `1` sans cache en mode strict · `1` sur le défaut
+`compiler_check=mtime` · **`0` après `ccache-setup.sh`** (sans aucune variable `CCACHE_*`) · `1` sur
+④, sur `none`, sur `string:CONST`, sur `hash_dir=false`, sur `base_dir` non vide, sur `time_macros` ·
+⭐ **`1` sur `ignore_options=-D*`, `ignore_headers_in_manifest`, `prefix_command`, `compiler`,
+`disable`, `read_only`, `recache`, `direct_mode=false`** (tous **`0`** auparavant) · ⭐ **`1` sur
+l'enrobage `ccache` qui injecte `-D*`** · **`0` avec `CXX="ccache g++"`** · `1` avec `CXX="ccache"`
+seul, avec un drapeau inexistant, avec un compilateur introuvable derrière `ccache` · `1` sur un
+`CCACHE_DIR` non inscriptible.
+⚠️ **Un cas rend `0`, et c'est JUSTE** : `max_size=1` sur un `CCACHE_DIR` neuf — mesuré, le cache
+**sert encore** (l'éviction n'est pas immédiate), le 3ᵉ appel **est** un succès de cache, donc le
+détecteur n'est pas mort et le PASS est légitime.
 
-⚠️ **Ce qui reste vrai** : la moitié empirique est un **détecteur par échantillon** — elle prouve
-qu'un mensonge s'est produit, jamais qu'aucun ne peut se produire. **La liste blanche reste la garde
-principale.** Les deux ne se remplacent pas.
+**Sous le harnais automake RÉEL [C2]** : `PASS: check-ccache-honesty.sh` avec cache actif, **et en
+mode `CALAOS_CCACHE_PROBE_STRICT=1`** ; `SKIP: check-ccache-honesty.sh` sans cache, avec la phrase
+entière dans `test-suite.log` (`SONDE-CCACHE: SKIP -- AUCUN cache … ce n'est NI un PASS NI une
+preuve.`).
+
+### ⚠️ Ce que la moitié empirique voit — et surtout ce qu'elle NE voit PAS, garde désarmée **[C2]**
+
+| cas | obtenu | lecture |
+|---|---|---|
+| `sloppiness = file_stat_matches,file_stat_matches_ctime` | **`1` en 4/4** (4.12.3 **et** 4.7.5) | elle voit **le couple** |
+| ⛔ `sloppiness = file_stat_matches` **SEUL** | **`0` en 4/4** des deux côtés | ⚠️ **elle ne le voit PAS** — `ccache` compare encore le `ctime`, qu'`os.utime` ne peut pas remettre en place |
+| témoin honnête | `0` en 2/2 | — |
+| `disable` / `recache` / `read_only` | **`1` en 3/3** (était `0` en 3/3) — `disable` **4/4** en 4.7.5 | c'est **le succès de cache exigé** qui les attrape |
+| ⛔ `direct_mode=false` + `sloppiness` menteur | **`0` en 3/3** (4.12.3) et **4/4** (4.7.5) | ⚠️ **elle ne voit pas le mode préprocesseur** — c'est **la table** qui l'attrape |
+| ⛔ mtime **non figée** | **`0` en 6/6** (4.12.3) | le piège **n'était pas armé** ; l'auto-vérification rend désormais `1` — 3/3 (4.12.3), 4/4 (4.7.5) |
+
+⭐ **CORRECTION D'UNE PHRASE DE LA VERSION PRÉCÉDENTE** : « *elle voit `file_stat_matches` SEULE,
+4/4* » est **fausse et infirmée en 4/4 des deux côtés**.
+
+⚠️ ⭐ **Conclusion à écrire telle quelle** : la moitié empirique est un **détecteur par échantillon**
+qui **ne couvre ni les options ignorées, ni `direct_mode=false`, ni `file_stat_matches` seul**, et
+dont le piège **ne mord que grâce à une date figée**. ⇒ ⭐ **LA GARDE PRINCIPALE EST L'AUDIT INTÉGRAL
+DE LA CONFIGURATION.** Les deux ne se remplacent pas, et elles ne pèsent pas le même poids.
 
 `CALAOS_CCACHE_PROBE_STRICT=1` transforme le `77` en échec — condition (7) de [T3.51](T3.51.md).
 
-**Coût mesuré [C]** : **34 ms** sans cache (sortie 77) · **173 ms** avec cache chaud · **168 ms** à
-froid (`CCACHE_DIR` neuf, six compilations triviales) — ⚠️ le coût est le même à froid et à chaud, ce
-sont les six compilations qui le font, pas le cache.
+**Coût mesuré [C2]** : **29–40 ms** sans cache (sortie 77) · **165–176 ms** avec cache — 5
+répétitions sur `ccache` 4.7.5 **et** 4.12.3, machine 64 cœurs chargée ; **170 ms à froid**
+(`CCACHE_DIR` neuf). ⚠️ Le coût est le même à froid et à chaud : ce sont les six compilations qui le
+font, pas le cache. ⚠️ **La version précédente annonçait « ~0,3 s » dans le script et dans
+`tests/Makefile.am`** alors que sa propre mesure disait 173 ms — **corrigé des deux côtés**.
 
 ## 6. ⭐ Ce que le cache rend POSSIBLE, et qui est le meilleur argument en sa faveur
 
@@ -234,10 +319,13 @@ en conclure.
 
 ⭐ **Mais borner le taux sous 1 % demande ~300 verts consécutifs :**
 
-| | `make check` | 300 verts consécutifs |
-|---|---|---|
-| **sans cache** | **105 s** | **≈ 8,8 h** |
-| **avec cache** | **29,8 s** | **≈ 2,5 h** |
+| | `make check` | 300 verts consécutifs | src |
+|---|---|---|---|
+| **sans cache** | **105 s** | **≈ 8,8 h** | **[R]** |
+| **avec cache** | **29,8 s** | **≈ 2,5 h** | **[R]** |
+
+*(⚠️ Les deux durées de « 300 verts » sont **arithmétiques** — 300 × la durée d'un `make check` —,
+**pas mesurées**. Dit ici pour que personne ne les cite comme des mesures.)*
 
 **8,8 h, c'est une campagne qu'on n'ouvre pas ; 2,5 h, c'en est une qu'on lance le soir.**
 ⇒ ⭐ **Le cache ne sert pas d'abord à aller plus vite : il rend faisable une mesure qu'on renonçait à
@@ -248,19 +336,27 @@ faire.** C'est l'argument le plus fort en faveur de la bascule, et il ne figurai
 ⚠️ **Le compte se recompte, il ne se recopie pas.** La branche annonçait « 98 → 99 » ; ⛔ **c'était
 vrai avant que `master` n'avance**.
 
-**Recompté [C]** sur la branche **rebasée sur `7667838f`**, sans cache, `PATH` canonique :
+**Recompté [C2]** sur la branche **rebasée sur `75ed9cb9`** (⚠️ `master` a de nouveau avancé : E4.1m
+y a ajouté `core/JsonApiModelWireBytes_test`), sans cache, `PATH` canonique, `make` **à la racine** :
 
 ```
-# TOTAL: 101   # PASS: 99   # SKIP: 2   # FAIL: 0   # XFAIL/XPASS/ERROR: 0
+# TOTAL: 102   # PASS: 100   # SKIP: 2   # FAIL: 0   # XFAIL/XPASS/ERROR: 0
 ```
-`MAKE_RC=0`, `CHECK_RC=0`. `master` = **100** entrées, la branche en ajoute **une**.
+`MAKE_RC=0`, `CHECK_RC=0`, **7 `CXXLD`** au `make` racine (regex ancrée `^ *CXXLD `), **61** au
+`make check`. ⚠️ **`master` = 101 entrées**, la branche en ajoute **une** ⇒ **102**.
+⛔ **La version précédente annonçait `# TOTAL: 101` et « `master` = 100 » : c'était vrai contre
+`7667838f`, c'est FAUX contre le `master` d'aujourd'hui.** Le compte **se recompte à chaque rebase**.
 Les 2 `SKIP` sont `run-python-tests.sh` (`pytest` absent) et `check-ccache-honesty.sh` (pas de cache).
-**94** binaires de test (**95** `check_PROGRAMS` − `StaticLogShutdown_helper`), **1639** cas gtest.
+**95** binaires de test (**96** exécutables dans `tests/` − `StaticLogShutdown_helper`), **1658** cas
+gtest — ⚠️ **recomptés** : c'était **94** et **1639** avant que `master` n'ajoute
+`core/JsonApiModelWireBytes_test`.
 Goldens : **145** fichiers, arbre `d4ebc61f` — **inchangés**.
 
-⭐ **Preuve `base + queue` (préfixe strict).** L'entrée est ajoutée **en toute fin de
-`tests/Makefile.am`, après le dernier `endif`** — c'est le piège qui a mordu trois fois sur ce
-fichier. Vérifié en `python3` : `tests/Makefile.am` de `master` est un **préfixe strict** de celui de
-la branche (**+877 octets, +14 lignes**, **1** seul `TESTS +=`, **0** `if`/`endif` dans la queue), et
-dans le `Makefile` **généré** `check-ccache-honesty.sh` est la **dernière** entrée de `TESTS`, **hors
-de tout `am__EXEEXT_n`** — donc hors de tout `if HAVE_GTEST`.
+⭐ **Preuve `base + queue` (préfixe strict), rejouée après RÉSOLUTION DE CONFLIT.** ⚠️ `master` a
+**lui aussi** appendu en queue de `tests/Makefile.am` (un bloc `if HAVE_GTEST` complet) : le rebase a
+donc **conflité**, et la résolution place le bloc de `master` **d'abord**, le nôtre **après le dernier
+`endif`** — c'est le piège qui a mordu **trois fois** sur ce fichier. Vérifié en `python3` :
+`tests/Makefile.am` de `master` est un **préfixe strict** de celui de la branche
+(**+1708 octets, +29 lignes**, **1** seul `TESTS +=`, **0** `if`/`endif` dans la queue, queue =
+`['check-ccache-honesty.sh']`). ⚠️ **Le « +877 o » de la version précédente était vrai contre
+`7667838f` et ne l'est plus.**

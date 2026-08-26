@@ -908,22 +908,37 @@ tout le reste**, exception comprise. ⭐ **Généralisable** : *une garde qui ne
 échouer, pas se taire — et son silence doit être impossible à confondre avec un succès dans le
 journal.* Les lignes sont préfixées `SONDE-CCACHE: PASS|SKIP|ECHEC`.
 
-**Décision 2 — une garde de configuration se fait par LISTE BLANCHE.**
+**Décision 2 — une garde de configuration audite TOUT ce que l'outil publie, pas une liste de clefs.**
 La liste noire de chaînes interdites laissait passer `compiler_check = string:CONST`, strictement
 équivalent à `none` qu'elle refusait nommément ; et elle **validait `compiler_check = mtime`, le
-défaut que la branche livrait**, sur lequel un compilateur remplacé à taille et date égales rend un
-objet périmé. ⇒ **Quatre réglages, quatre valeurs exigées** (`sloppiness` vide ·
-`compiler_check = content` · `hash_dir = true` · `base_dir` vide), tout le reste refusé.
-⭐ **Généralisable** : *interdire ce qu'on connaît ne protège que de ce qu'on connaît ; exiger ce qu'on
-a audité protège du reste.*
+défaut que la branche livrait**. ⚠️ **La « liste blanche » qui l'a remplacée n'a tenu qu'une revue** :
+elle exigeait **quatre** clefs sur les **44** que `ccache -p` publie, et laissait donc passer
+`ignore_options`, `direct_mode`, `hard_link`, `prefix_command`, `compiler`, `disable`, `read_only`,
+`recache`… ⭐ **Mesuré : `ignore_options=-D*` fait servir l'objet de `-DVAL=1` pour une compilation
+`-DVAL=2`** — objets identiques à l'octet, `direct_cache_hit` au journal, `mov $0x1` au
+désassemblage — **et la sonde rendait `0`.** ⇒ **La sonde DEMANDE À L'OUTIL sa configuration et exige
+que CHAQUE clef publiée soit couverte** : valeur exigée (33 clefs) ou valeur explicitement libre
+(11 clefs : chemins, quotas, compression du stockage). ⛔ **Toute clef publiée que la table ne connaît
+pas ⇒ `rc=1`, en la nommant** — c'est ainsi qu'une version ultérieure de `ccache` qui ajoute un
+réglage dangereux se signale au lieu de passer.
+⭐ **Généralisable** : *une liste de choses à surveiller est toujours en retard d'une chose. Demander
+à l'outil ce qu'il expose, et refuser tout ce qui n'a pas été audité, ne l'est jamais.* C'est
+exactement le remède déjà employé sur `T3.48` (« toujours en retard d'un suffixe »).
 
-**Décision 3 — une sonde doit pouvoir VOIR le défaut qu'elle prétend garder.**
+**Décision 3 — une sonde doit pouvoir VOIR le défaut qu'elle prétend garder, et le PROUVER.**
 La moitié empirique compilait une unité de traduction **sans aucun `#include`**, alors que le défaut
-gardé (`file_stat_matches`) porte sur les **fichiers inclus** : elle imprimait « aller-retour
-honnête » sur un cache démontré menteur. ⇒ **La sonde doit être exercée contre le défaut, garde
-désarmée, et le voir.** Vérifié **4/4**. ⚠️ Elle reste un **détecteur par échantillon** : elle prouve
-qu'un mensonge s'est produit, jamais qu'aucun ne peut se produire — la liste blanche reste la garde
-principale.
+gardé porte sur les **fichiers inclus** : elle imprimait « aller-retour honnête » sur un cache
+démontré menteur. ⇒ **La sonde est exercée contre le défaut, garde désarmée, et le voit** :
+`sloppiness = file_stat_matches,file_stat_matches_ctime` ⇒ `1` en **4/4**, témoin honnête `0` en
+**2/2** (ccache 4.12.3 comme 4.7.5).
+⚠️ **Restriction mesurée, à ne pas élargir** : `file_stat_matches` **SEUL** rend `rc=0` en **4/4** —
+`ccache` compare encore le `ctime`, qu'`os.utime` ne peut pas remettre en place. **Seul le couple**
+se voit ainsi ; le réglage seul n'est attrapé que par la table de la décision 2.
+⚠️ Et le piège ne tient qu'à un détail qui n'en est pas un : la **mtime figée dans le passé**. Avec
+une mtime « maintenant », il ne mord pas de façon fiable.
+⇒ ⭐ **L'audit intégral de la configuration (décision 2) est la garde PRINCIPALE** ; la moitié
+empirique est un **détecteur par échantillon** qui prouve qu'un mensonge s'est produit, jamais
+qu'aucun ne peut se produire. Elle ne voit ni les options ignorées, ni `direct_mode = false`.
 
 **Décision 4 — aucun chiffre publié depuis un état partagé non attribuable.**
 Le taux `416/417` avait été lu par `ccache -s` sur le `CCACHE_DIR` **partagé** pendant que **trois
@@ -948,8 +963,29 @@ SANS CACHE.** ⭐ **Et l'argument inverse, qui est le meilleur en faveur du cach
 (`make check` 105 s → 29,8 s) — *le cache ne sert pas d'abord à aller plus vite, il rend faisable une
 mesure qu'on renonçait à faire.*
 
+**Décision 8 — un détecteur qui ne peut pas mordre doit ÉCHOUER, pas réussir.**
+La sonde imprimait « *le piège est armé et il mord* » **sans jamais le vérifier** : elle calculait
+l'information (le journal par invocation `CCACHE_STATSLOG`) et se contentait de l'imprimer.
+⭐ **Mesuré : `CCACHE_DISABLE=1`, `recache`, `read_only` rendaient `0` en 3/3** avec la garde de
+configuration désarmée — le cache ne servait rien, donc **rien ne pouvait être détecté**, et la sonde
+concluait « honnête ». ⇒ **La sonde EXIGE désormais un succès de cache CONSTATÉ** : si l'en-tête
+restauré à l'identique (3ᵉ compilation) et la source rejouée (6ᵉ) ne sont pas servis **par le cache**,
+`rc=1`. Rejoué : les trois cas ci-dessus rendent **`1` en 3/3**, garde désarmée.
+⭐ **Généralisable** : *une garde doit prouver que son capteur est vivant avant de publier son
+verdict ; sinon elle mesure son propre silence.*
+
+**Décision 9 — on audite le cache que le BUILD emploie, pas celui que le `PATH` désigne.**
+La sonde lisait la configuration via `ccache -p` **trouvé dans le `PATH`**, alors que les
+compilations passaient par le `CXX` du build. ⭐ **Mesuré** : un enrobage nommé `ccache` qui exporte
+`CCACHE_IGNOREOPTIONS=-D*` puis appelle `/usr/bin/ccache` fait auditer un ccache **propre** pendant
+qu'un autre ment ⇒ **`rc=0`**, alors que `-DVAL=2` reçoit bien l'objet de `-DVAL=1`. ⇒ **La sonde
+interroge le binaire de la ligne `CXX`** (un enrobage répond à `-p` avec l'environnement qu'il
+injecte), ou la cible du lien pour un `g++` qui est un *shim* ⇒ **`rc=1`**.
+⭐ **Généralisable** : *auditer un outil par un autre exemplaire du même nom, ce n'est pas l'auditer.*
+
 **Décision 7 — un drapeau se vérifie dans l'outil du dépôt, pas dans sa documentation en ligne.**
 `AM_DISTCHECK_MAKEFLAGS` **n'existe pas** en automake 1.16.5 : **0** occurrence dans
 `am/distdir.am` **et 0** dans le `Makefile` généré ; les `$(MAKE)` récursifs de `distcheck` portent
-`$(AM_MAKEFLAGS)`. L'ajouter aurait été un **no-op qu'aucun diagnostic n'aurait signalé**.
+`$(AM_MAKEFLAGS)`. ⚠️ **Et il n'existe pas non plus dans automake 1.18** : la phrase « ce nom existe
+en automake récent » était fausse — **0 occurrence en 1.16.5 comme en 1.18**. L'ajouter aurait été un **no-op qu'aucun diagnostic n'aurait signalé**.
 ⇒ [T3.52](T3.52.md), sous son vrai nom, **portée projet** et **flottement `-j32` déclarés**.

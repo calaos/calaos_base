@@ -6106,9 +6106,19 @@ par image ni par ancêtre pour arrêter un conteneur : les worktrees voisins par
 ## ⚠️ Outillage — cache de compilation `ccache` : monté, INACTIF, et ce qu'il ne faut pas faire (2026-08-26, [T3.51](T3.51.md))
 
 **État** : la branche `tooling/ccache` **installe** `ccache` dans l'image de dev et **monte**
-`$HOME/.cache/calaos-ccache` sur `/ccache`, mais **n'active rien** : le cache ne s'allume que si
-`/usr/lib/ccache` est en **tête du `PATH`**. Les conditions de bascule sont dans
-[T3.51](T3.51.md) §6 (**7** conditions).
+`$HOME/.cache/calaos-ccache` sur `/ccache`, mais **n'active rien DANS LE CONTENEUR** : le cache ne
+s'y allume que si `/usr/lib/ccache` est en **tête du `PATH`**. Les conditions de bascule sont dans
+[T3.51](T3.51.md) §6 — **7 numérotées, 6 ACTIVES** (la n° 4 est retirée, son numéro conservé).
+
+> ⛔ ⚠️ **HORS CONTENEUR, C'EST L'INVERSE : `make check` est ROUGE par défaut sur Fedora et Gentoo.**
+> `/usr/lib64/ccache` (resp. `/usr/lib/ccache`) est dans le `PATH` **par défaut** et `g++` y est un
+> **lien vers `ccache`** ⇒ la sonde trouve un cache **en service et non configuré** et rend **`1`**,
+> sans que personne n'ait rien allumé. ⭐ **C'est le cas de la machine de ce dépôt.**
+> **TROIS issues** : (1) `scripts/ccache-setup.sh` ⇒ `0` PASS · (2) les variables `CCACHE_*` dans
+> l'environnement ⇒ `0` PASS · (3) ⭐ **retirer le répertoire de *shims* du `PATH`** (ou
+> `CXX=/usr/bin/g++`) ⇒ **`77` SKIP propre**.
+> ⚠️ Et le remède (1) **échouait** hors conteneur (`mkdir: /ccache: Permission denied`) : **corrigé**,
+> le script demande à `ccache` où est son cache quand `CCACHE_DIR` n'est pas posé.
 
 ⭐ **Le cache ne ment pas** (12 scénarios d'attaque sains, 370/370 objets identiques, aller-retour
 rouge, 90/90 en concurrence sous charge 127). **Ce qui a été renvoyé, c'est la sonde.**
@@ -6127,8 +6137,10 @@ rouge, 90/90 en concurrence sous charge 127). **Ce qui a été renvoyé, c'est l
    l'**agrégat**, pas le sien. Un chiffre de taux dit **d'où il vient**, sinon il ne vaut rien.
 3. ⛔ **Ne jamais « réparer » une absence de succès de cache par `hash_dir=false`.** C'est le réflexe
    naturel quand on monte le worktree à un autre chemin — et c'est **exactement** le réglage qui rend
-   le cache menteur (objet du chemin A servi au chemin B). Le bon levier de partage inter-chemins est
-   **`base_dir`**, qui est **sain** et **testé**.
+   le cache menteur (objet du chemin A servi au chemin B). ⚠️ **Et `base_dir` n'est pas la porte de
+   sortie non plus** : il n'est pas malhonnête, mais **la sonde l'exige vide** et rend `1` sinon
+   (**tranché** : le partage inter-chemins n'est pas disponible tant que `base_dir` n'a pas été
+   audité). **Monter au même chemin est aujourd'hui la seule façon de partager.**
 
 ⚠️ **`scripts/ccache-setup.sh` n'est pas facultatif** : sans lui, `compiler_check` vaut `mtime` — le
 défaut de `ccache`, sur lequel un compilateur remplacé à taille et date égales rend un objet périmé —
@@ -6136,8 +6148,12 @@ et **`tests/check-ccache-honesty.sh` échoue (`rc=1`)**. C'est **voulu** : le d�
 pas sûr, il est seulement courant.
 
 **La sonde ne rend plus jamais PASS ni SKIP sur un mode d'échec** : `0` PASS · `77` **uniquement**
-quand aucun cache n'est en service · `1` pour tout le reste (cache menteur, configuration non
-auditée, sonde qui ne compile pas, exception). Les lignes sont préfixées
+quand aucun cache n'est en service · `1` pour tout le reste (cache menteur, **une seule** clef de
+configuration non auditée, **détecteur qui ne peut pas mordre**, piège non armé, sonde qui ne compile
+pas, exception). ⭐ **Elle épingle TOUTE la configuration publiée par `ccache -p`** (33 clefs à valeur
+exigée + 11 libres en 4.12.3 ; 32 + 12 en 4.7.5 ; **0 inconnue**), **exige un succès de cache
+CONSTATÉ**, **auto-vérifie son piège**, et **audite le `ccache` que `CXX` emploie**, pas celui du
+`PATH`. Les lignes sont préfixées
 `SONDE-CCACHE: PASS|SKIP|ECHEC` et le SKIP dit en toutes lettres que **ce n'est ni un PASS ni une
 preuve**. `CALAOS_CCACHE_PROBE_STRICT=1` transforme le SKIP en échec — à poser dans **tout arbre qui
 sert à juger une campagne** (condition 7).
@@ -6152,8 +6168,12 @@ rien.*
 occurrence dans `/usr/share/automake-1.16/am/distdir.am` **et 0** dans le `Makefile` généré.
 L'écrire serait un **no-op qu'aucun diagnostic ne signalerait**.
 
+⚠️ **Et il n'existe pas non plus en automake 1.18** : la phrase « ce nom existe en automake récent »
+était fausse — **0 des deux côtés**.
+
 Ce qui marche : **`make distcheck AM_MAKEFLAGS=-j32`** ⇒ **2995 s (49,9 min, RC 0) → 347,9 s
-(5,8 min), ×8,6**.
+(5,8 min), ×8,6** — ⚠️ **tous ces nombres sont `[R]`** (mesurés par la revue, **une seule exécution
+chacun**), **non re-mesurés** à la passe de correction.
 
 ⚠️ **Deux réserves à connaître avant de l'employer** :
 - **RC=2** : `ShutterImpulseTest.PlainImpulseDownWithoutImpulseTimeStillHonoursTheDuration` **a

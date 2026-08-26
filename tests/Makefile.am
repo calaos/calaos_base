@@ -3196,8 +3196,8 @@ endif
 #
 #La sonde ne rend PASS que sur un cache en service ET conforme ; tout autre
 #mode d'echec rend 1, jamais 77 (voir scripts/ccache-honesty-probe.py).
-#Cout mesure : ~35 ms sans cache (sortie 77), ~175 ms avec (six compilations
-#triviales).
+#Cout mesure : 29-40 ms sans cache (sortie 77), 165-176 ms avec (six
+#compilations triviales), ccache 4.7.5 et 4.12.3.
 #DELIBEREMENT EN TOUTE FIN DE FICHIER, apres le dernier `endif`, et donc HORS
 #de tout `if HAVE_GTEST` : ce test n'a besoin ni de gtest ni d'un binaire
 #construit. Ce placement rend la liste TESTS de `master` un PREFIXE STRICT de

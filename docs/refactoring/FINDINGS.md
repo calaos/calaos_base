@@ -4721,7 +4721,7 @@ de `src/`, puis reconstruction complète. ⚠️ La purge bute sur des artefacts
 rafraîchie sur les sources suffit, puisque tout ce qui les inclut redevient périmé.
 
 ⭐ **C'est la n° 11 de la liste canonique** (plus bas, avant `F-PYTEST-1`). ⚠️ Cette section disait
-« **la neuvième** » : le compte d'alors n'avait énuméré ni `F-BUILD-1` ni `F-TYPE-3`. Les **treize**
+« **la neuvième** » : le compte d'alors n'avait énuméré ni `F-BUILD-1` ni `F-TYPE-3`. Les **quatorze**
 ont la même forme : **l'arbre a l'air juste à l'endroit qu'on regarde**.
 
 ### ⚠️ Un oracle écrit par l'audit et démenti par la campagne — `ColorUtils.cpp:245`
@@ -4993,7 +4993,7 @@ recompter, jamais les recopier.
 
 ⛔ **La ligne `_DEPENDENCIES` n'a PAS été corrigée par T3.37, et ne doit pas l'être à la légère** :
 c'est le périmètre de `T3.36`, cela concerne 50 cibles d'un coup, et une modification hâtive du
-harnais est **exactement** ce qui a produit les **treize** variantes de faux vert/faux rouge de
+harnais est **exactement** ce qui a produit les **quatorze** variantes de faux vert/faux rouge de
 la série (liste canonique numérotée plus bas).
 Ce finding est là pour que `T3.36` hérite d'une **mesure**, pas d'une intuition.
 
@@ -5207,7 +5207,7 @@ lanceur de `make dist` doit penser à `git checkout -- po/`** — piège à comm
   au temps simulé plutôt qu'à l'horloge, ou par une marge. Voir aussi la règle de parallélisme :
   `make check -j8` quand 3-4 agents buildent, `-j16` seulement en solo.
 ## F-PYTEST-1 — la huitième variante de faux vert : des tests qui ne s'exécutent pas (2026-08-25)
-## ⭐ LA LISTE CANONIQUE DES VARIANTES DE FAUX VERT / FAUX ROUGE — **treize**, numérotées
+## ⭐ LA LISTE CANONIQUE DES VARIANTES DE FAUX VERT / FAUX ROUGE — **quatorze**, numérotées
 
 *(Établie le 2026-08-25 en fermant les réserves de la 2ᵉ revue de [T3.44](T3.44.md). ⚠️ **C'est LA
 référence** : toute mention d'un compte ou d'un rang ailleurs dans `docs/refactoring/` doit
@@ -5217,7 +5217,7 @@ famille `_DEPENDENCIES`), « sixième » (revendiqué par **deux** findings diff
 global « septième / huitième / neuvième » qui **n'avait jamais énuméré `F-BUILD-1` ni
 `F-TYPE-3`**.)*
 
-⚠️ **Le fil commun des treize** : *l'arbre a l'air juste à l'endroit qu'on regarde.*
+⚠️ **Le fil commun des quatorze** : *l'arbre a l'air juste à l'endroit qu'on regarde.*
 
 | n° | variante | id | où c'est mesuré |
 |---|---|---|---|
@@ -5234,15 +5234,20 @@ global « septième / huitième / neuvième » qui **n'avait jamais énuméré `
 | **11** | **Restauration pristine par `copy2`** — la date préservée rend la source **plus ancienne** que le `.o` muté : `make` ne recompile rien | — | *Neuvième variante de faux vert/rouge*, plus haut |
 | **12** | ⭐ **La restauration qui ne restaure RIEN** — dans un **worktree git**, le `.git` est un *fichier* pointant hors du montage : `git checkout` **échoue en silence** dans le conteneur, la mutation précédente reste sur le disque et le témoin **n'est plus le témoin** | — (T3.40) | *Douzième variante — la restauration qui ne restaure RIEN*, plus bas |
 | **13** | ⭐ **La borne de sûreté devenue la contrainte active** — un plafond « ne jamais bloquer `make check` » atteint **avant** l'échéance testée : l'attente rend la main en 80 ms au lieu de 650, verte, **sans rien exercer** | — (T3.40) | *Treizième variante — la borne de sûreté devenue la contrainte active*, plus bas |
+| **14** | ⭐ **Le cache de compilation qui rend un objet périmé** — ⚠️ **CONDITIONNELLE** : elle n'existe que si le cache est mal configuré, mais **l'un des réglages fautifs était le DÉFAUT** (`compiler_check = mtime`). Le `.o` ne correspond pas à la source, **sans aucune trace** : compilation réussie, objet bien daté, test vert | — (T3.51) | *T3.51 — Quatorzième variante de faux vert*, plus bas ; [T3.51](T3.51.md) |
 
 ⚠️ **Deux voisins qui ne sont PAS des variantes de plus** — les recompter en ferait deux
 **imaginaires** de plus : **`F-TEST-2`** (le non-relink étendu au faux **rouge**) et
 **`F-RELINK-T337`** (faux rouge reproduit sur source propre) sont deux **instances** de la
 famille `_DEPENDENCIES`, n° 1 à 5.
 
+⭐ **La n° 14 a été ajoutée par [T3.51](T3.51.md)** (2026-08-26) — c'est la **seule CONDITIONNELLE**
+de la liste : elle n'existe que si le cache de compilation est mal configuré. Elle est comptée ici
+parce que le réglage fautif ② était **le défaut livré**, donc **active et non hypothétique**.
+
 ⭐ **Les n° 12 et 13 ont été ajoutées par [T3.40](T3.40.md)**, l'une **rencontrée par son relecteur
 sur sa propre campagne**, l'autre **produite par T3.40 elle-même en corrigeant un flottement**.
-⚠️ Le fil commun des treize n'a pas changé : *l'arbre a l'air juste à l'endroit qu'on regarde* —
+⚠️ Le fil commun des quatorze n'a pas changé : *l'arbre a l'air juste à l'endroit qu'on regarde* —
 et les deux dernières ajoutent une précision : **l'endroit qu'on regarde peut être le verdict, alors
 que la mesure est dans le compte de fichiers restaurés ou dans le temps par cas.**
 
@@ -5262,7 +5267,7 @@ que la mesure est dans le compte de fichiers restaurés ou dans le temps par cas
 remède propres. C'est la faute **M-7** du catalogue des fautes de méthode : *un remède correct
 généralisé à une famille à laquelle il n'appartient pas.*
 
-## F-PYTEST-1 — la **8ᵉ** des **treize** variantes de faux vert (liste canonique ci-dessus) : des tests qui ne s'exécutent pas (2026-08-25)
+## F-PYTEST-1 — la **8ᵉ** des **quatorze** variantes de faux vert (liste canonique ci-dessus) : des tests qui ne s'exécutent pas (2026-08-25)
 
 *(Trouvée par la revue de [T3.39](T3.39.md) en mesurant F-MCP-XFF-1 ; **fermée par
 [T3.44](T3.44.md)**, branche `fix/fpytest1`. Cette section est le versement de ce qui a été
@@ -6863,7 +6868,7 @@ recopie.*
 
 ### ⛔⭐ Une variante de FAUX ARTEFACT que la liste canonique n'a pas : **la campagne a écrit dans un COMMIT**
 
-Ce n'est pas un faux vert ni un faux rouge — les onze de la liste canonique portent tous sur le
+Ce n'est pas un faux vert ni un faux rouge — les quatorze de la liste canonique portent tous sur le
 **résultat d'un test**. Celle-ci porte sur **le livrable**, et elle est passée à travers tous les
 contrôles de test parce qu'aucun d'eux ne la regarde.
 
@@ -7596,7 +7601,7 @@ unifie — **auquel cas ce golden bouge, et il faudra le déclarer.**
   « 100 ms » — mais il est **inoffensif dans les deux cas** (bullet ci-dessus), donc toujours rien
   à annoncer.
 
-## T3.51 — le cache de compilation : ce qui NE ment pas, et les quatre réglages qui le feraient mentir
+## T3.51 — le cache de compilation : ce qui NE ment pas, et les CINQ réglages qui le feraient mentir
 
 *(Retour de revue de la branche `tooling/ccache`, 2026-08-26. ⭐ **Les deux côtés sont gardés** : ce
 qui est établi sain, et ce qui ne l'est pas.)*
@@ -7617,8 +7622,8 @@ compilateur, le cache n'est pas consulté (`CXXLD` = 0). **La discipline `rm -f`
 ### ⛔ Quatorzième variante de faux vert (**n° 14 de la liste canonique**) — **le cache qui rend un objet périmé**
 
 ⚠️ **Elle est CONDITIONNELLE** — c'est ce qui la distingue des treize précédentes : elle n'existe que
-si le cache est **mal configuré**. ⛔ **Mais l'un des quatre réglages fautifs était LE DÉFAUT QUE LA
-BRANCHE LIVRAIT**, ce qui la rendait active, pas hypothétique.
+si le cache est **mal configuré**. ⛔ **Mais l'un des réglages fautifs était LE DÉFAUT QUE LA BRANCHE
+LIVRAIT**, ce qui la rendait active, pas hypothétique.
 
 | # | réglage | mécanisme | l'ancienne sonde |
 |---|---|---|---|
@@ -7626,6 +7631,7 @@ BRANCHE LIVRAIT**, ce qui la rendait active, pas hypothétique.
 | ② | ⭐ `compiler_check = mtime` — **LE DÉFAUT LIVRÉ** | un compilateur remplacé à taille et date égales n'invalide rien ⇒ **objet périmé servi** | **`rc=0` par construction** |
 | ③ | `compiler_check = string:CONST` | ≡ `none`, que la sonde refusait **nommément** — mais celui-ci n'était **pas listé** | `rc=0` |
 | ④ | `sloppiness = file_stat_matches[,_ctime]` | un **en-tête** modifié à taille **et** dates égales fait servir l'objet de la version précédente ; **reproduit 4/4** | **`rc=0`** — voir ci-dessous |
+| ⑤ | ⭐ **`ignore_options = -D*`** (trouvé à la 3ᵉ passe) | une **option de compilation** sort de la clef : `-DVAL=2` reçoit l'objet de `-DVAL=1`. **Objets identiques à l'octet, `direct_cache_hit` au journal, `mov $0x1` au désassemblage.** ⚠️ **Aucun aller-retour sur les FICHIERS ne peut le voir** | **`rc=0`**, y compris avec la « liste blanche » de 4 clefs |
 
 ⭐ **Ce que cette variante a de propre à elle** : les treize précédentes se voient dans un journal
 (un test qui ne tourne pas, un lien qui ne se refait pas, une restauration qui ne restaure rien).
@@ -7633,7 +7639,7 @@ BRANCHE LIVRAIT**, ce qui la rendait active, pas hypothétique.
 vert, et le `.o` ne correspond simplement pas à la source. **Elle ne se voit qu'en comparant l'objet
 à celui d'une compilation propre** — c'est-à-dire en le cherchant.
 
-### ⛔ Et la garde elle-même était *fail-open* — cinq fois
+### ⛔ Et la garde elle-même était *fail-open* — HUIT fois (cinq, puis trois de plus en revue)
 
 ⭐ **La cause de ④ est mesurée, et elle est instructive : l'unité de traduction de la sonde n'avait
 aucun `#include`.** `file_stat_matches` porte sur les **fichiers inclus** ; sans inclusion, le
@@ -7646,18 +7652,42 @@ elle **convertissait sa propre panne en `77`** ; et ⭐ **`obj(A) == obj(B)` —
 le mensonge — était classé « non concluant », `77`**. ⚠️ **`SKIP` et `PASS` étaient indiscernables
 dans le journal.**
 
-**Deux règles générales en sortent**, écrites dans `DECISIONS.md` (2026-08-26) :
+**Quatre règles générales en sortent**, écrites dans `DECISIONS.md` (2026-08-26) :
 1. *Une garde qui ne sait pas conclure doit échouer, pas se taire — et son silence doit être
    impossible à confondre avec un succès.*
 2. *Interdire ce qu'on connaît ne protège que de ce qu'on connaît ; exiger ce qu'on a audité protège
-   du reste.* ⇒ liste noire **remplacée par une liste blanche** (`sloppiness` vide ·
-   `compiler_check = content` · `hash_dir = true` · `base_dir` vide).
+   du reste.* ⚠️ **Première tentative INSUFFISANTE, et c'est le plus instructif du lot** : la liste
+   noire avait été remplacée par une **liste blanche de quatre réglages** — ⛔ mais `ccache -p` en
+   publie **44**, et `ignore_options=-D*`, non couvert, fait servir l'objet de `-DVAL=1` pour une
+   compilation `-DVAL=2` (**objets identiques à l'octet, `direct_cache_hit` au journal, `mov $0x1`
+   au désassemblage**), sonde à **`rc=0`**. ⇒ ⭐ *une liste de clefs à surveiller est toujours en
+   retard d'une clef* : la sonde **demande à l'outil** sa configuration et exige que **chaque clef
+   publiée** soit couverte — valeur exigée ou valeur explicitement libre —, **toute clef inconnue
+   rendant `1` en la nommant**. (Même remède que « toujours en retard d'un suffixe » sur `T3.48`.)
+3. ⭐ *Un détecteur qui ne peut pas mordre doit ÉCHOUER, pas réussir.* La sonde imprimait « le piège
+   est armé et il mord » **sans jamais le vérifier** : avec `CCACHE_DISABLE=1`, `recache` ou
+   `read_only`, le cache ne servait rien et elle rendait **`0` en 3/3**, garde de configuration
+   désarmée. Elle exige désormais un **succès de cache CONSTATÉ** ⇒ **`1` en 3/3**.
+4. ⭐ *Auditer un outil par un autre exemplaire du même nom, ce n'est pas l'auditer.* La sonde lisait
+   `ccache -p` **trouvé dans le `PATH`** pendant que les compilations passaient par `CXX` : un
+   enrobage nommé `ccache` qui exporte `CCACHE_IGNOREOPTIONS=-D*` la faisait rendre **`0`**. Elle
+   interroge désormais **le binaire de la ligne `CXX`**.
 
-⚠️ **La moitié empirique reste un détecteur par ÉCHANTILLON.** Avec le `#include` ajouté et la mtime
-figée dans le passé, elle voit ④ **seule**, garde désarmée, en **4/4**. Elle prouve qu'un mensonge
-s'est produit — **jamais qu'aucun ne peut se produire**. La liste blanche reste la garde principale ;
-les deux ne se remplacent pas.
+⚠️ **La moitié empirique reste un détecteur par ÉCHANTILLON, et sa portée est plus étroite que ce
+qui avait été écrit.** Avec le `#include` ajouté et la mtime figée dans le passé, elle voit
+`sloppiness = file_stat_matches,file_stat_matches_ctime` **seule**, garde désarmée, en **4/4**
+(`ccache` 4.12.3 **et** 4.7.5). ⛔ **Mais la phrase « elle voit `file_stat_matches` SEULE » est
+FAUSSE** : le réglage **nu** rend `rc=0` en **4/4** des deux côtés — `ccache` compare encore le
+`ctime`, qu'`os.utime` ne peut pas remettre en place. Elle ne voit **ni** les options ignorées,
+**ni** `direct_mode = false`. ⚠️ **Et son piège ne mord que grâce à la mtime FIGÉE DANS LE PASSÉ** :
+laissée à « maintenant », donc différente d'une écriture à l'autre, la sonde imprimait **PASS en
+6/6 sur un cache démontré menteur**. ⇒ **la date figée n'est pas un détail, c'est TOUT le piège** —
+et la sonde le **constate** désormais elle-même (taille *et* mtime égales, sinon `rc=1`).
+⇒ ⭐ **L'AUDIT INTÉGRAL DE LA CONFIGURATION est la garde PRINCIPALE** ; elle prouve qu'un mensonge
+s'est produit, jamais qu'aucun ne peut se produire. Les deux ne se remplacent pas, et elles ne pèsent
+pas le même poids.
 
-*(Note mesurée, à garder des deux côtés : **`base_dir` est SAIN.** C'est le **bon** levier si l'on
-veut un jour partager le cache entre chemins différents. ⛔ **Le réflexe naturel — `hash_dir=false` —
-est le mensonge ①.**)*
+*(Note mesurée, et **tranchée** : **`base_dir` n'est pas malhonnête** — ⛔ **mais ce n'est pas une
+option ouverte pour autant** : la sonde l'exige **vide** et rend `1` sinon. Le partage entre chemins
+différents **n'est pas disponible** aujourd'hui ; il faudra d'abord **auditer** `base_dir`. ⛔ Ce qui
+reste interdit sans condition, c'est le réflexe naturel `hash_dir=false` — le mensonge ①.)*
