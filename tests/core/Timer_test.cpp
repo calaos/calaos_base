@@ -369,6 +369,39 @@ TEST(IdlerLifetime, DeleteFromOwnCallback)
  * 0.1 s, the shortest pre-loop delay of the tree.
  *
  * ---------------------------------------------------------------------------
+ * ⛔ THE FIXTURE TRAP THAT COST THIS SUITE ITS FIRST RUN — READ THIS BEFORE
+ *    TOUCHING ANY OF THE FOUR CASES
+ * ---------------------------------------------------------------------------
+ * The first version of these cases was GREEN on the unfixed tree — 819 ms per
+ * case, the timer waiting its full 200 ms after a 600 ms idle stretch — while
+ * a standalone libuv probe on the very same image reproduced the defect in
+ * three lines. The oracle was not measuring what it said.
+ *
+ * uvw::Loop::getDefault() (uvw/src/uvw/loop.hpp) caches the wrapper in a
+ * std::weak_ptr. When nothing holds a strong reference — and nothing does
+ * while no handle is alive — the shared_ptr it just returned is destroyed at
+ * the end of the full expression, ~Loop() calls uv_loop_close(), and
+ * uv_loop_close() ends with `if (loop == default_loop_ptr) default_loop_ptr =
+ * NULL;`. The NEXT uv_default_loop() therefore runs uv_loop_init() again on
+ * the same static uv_loop_t — and uv_loop_init() calls uv__update_time().
+ *
+ * ⇒ ⭐ IN A BINARY WITH NO LIVE HANDLE, EVERY `uvw::Loop::getDefault()->x()`
+ * SILENTLY RE-INITIALISES THE DEFAULT LOOP AND HANDS BACK A FRESH CLOCK.
+ * Measured on this image: two temporaries either side of a 600 ms sleep, same
+ * raw loop pointer, uv_now() advanced by 600.
+ *
+ * calaos_server is NOT in that shape and this is what makes the defect real
+ * there: Config's own state-cache Timer (CalaosConfig.cpp:206) holds a live
+ * uvw handle — hence a strong reference to the Loop — from before the
+ * configuration load until the process ends, so the loop is never recreated
+ * and its clock never refreshed until main.cpp:223.
+ *
+ * ⇒ EVERY CASE BELOW PINS THE LOOP (`auto loop = uvw::Loop::getDefault();`
+ * held for the whole case) AND THEN ASSERTS THAT THE FIXTURE REALLY PRODUCED
+ * A STALE CLOCK. Without the pin the fixture evaporates; without the assertion
+ * nobody notices.
+ *
+ * ---------------------------------------------------------------------------
  * WHAT THESE CASES ARE, AND WHAT THEY ARE NOT
  * ---------------------------------------------------------------------------
  * They are a LOWER bound on when a timer fires, measured from the instant it
@@ -386,9 +419,9 @@ TEST(IdlerLifetime, DeleteFromOwnCallback)
  * not need any. It answers ONE thing: uv__update_time() reads
  * CLOCK_MONOTONIC_COARSE while these cases measure with CLOCK_MONOTONIC, so a
  * freshly updated loop->time can legitimately sit up to one kernel tick behind
- * t0. 25 ms is far above any CONFIG_HZ in use and still 8x below the 200 ms
- * being asserted, so it can never hide the defect: broken, these cases fire at
- * ~0 ms, not at 180.
+ * the origin. 25 ms is far above any CONFIG_HZ in use and still 8x below the
+ * 200 ms being asserted, so it can never hide the defect: broken, these cases
+ * fire at ~0 ms, not at 180.
  ******************************************************************************/
 
 namespace
@@ -402,15 +435,39 @@ constexpr int kCoarseClockSlackMs = 25;
  * there to time the loop, it is there so a "fix" that made every wait wildly
  * longer — or that armed nothing at all — cannot pass as an improvement. */
 constexpr int kNominalCeilingMs = 2000;
+
+/* ⭐ How far behind the wall clock the loop's CACHED clock has fallen.
+ *
+ * This is the quantity the whole suite is about, and measuring it is what
+ * turns "we slept, so the clock must be stale" into something checked. It is
+ * also the guard against the fixture trap documented above: a re-initialised
+ * loop answers ~0 here and the case says so instead of passing. */
+int loopClockStalenessMs(const std::shared_ptr<uvw::Loop> &loop)
+{
+    const uint64_t wall = uv_hrtime() / 1000000ULL;
+    const uint64_t cached = (uint64_t) loop->now().count();
+
+    return wall > cached ? (int)(wall - cached) : 0;
+}
 }
 
 TEST(TimerStaleLoopClock, RepeatingTimerArmedAfterAnIdleStretchStillWaitsItsFullDelay)
 {
+    //⚠️ THE PIN, see the block comment. Held for the whole case.
+    auto loop = uvw::Loop::getDefault();
+
     //Start from a CURRENT loop clock so the staleness under test is exactly
     //kIdleGapMs and nothing left over from the cases above.
-    uvw::Loop::getDefault()->run<uvw::Loop::Mode::NOWAIT>();
+    loop->run<uvw::Loop::Mode::NOWAIT>();
 
     goIdleFor(kIdleGapMs);
+
+    ASSERT_GE(loopClockStalenessMs(loop), kIdleGapMs / 2)
+        << "the fixture did not produce a stale loop clock: after " << kIdleGapMs
+        << " ms with nobody running the loop, loop->time is still current. "
+           "Something refreshed it — the usual culprit is a "
+           "uvw::Loop::getDefault() TEMPORARY re-initialising the default loop "
+           "(see the block comment). This case proves nothing in that state.";
 
     int count = 0;
     int firedAt = -1;
@@ -449,9 +506,14 @@ TEST(TimerStaleLoopClock, SingleShotArmedAfterAnIdleStretchStillWaitsItsFullDela
     //its own anonymous handle through a DIFFERENT code path (Timer.cpp), and a
     //remedy applied to one and not the other has to be visible. The two cases
     //are what makes the counter-mutation sets distinct.
-    uvw::Loop::getDefault()->run<uvw::Loop::Mode::NOWAIT>();
+    auto loop = uvw::Loop::getDefault();
+
+    loop->run<uvw::Loop::Mode::NOWAIT>();
 
     goIdleFor(kIdleGapMs);
+
+    ASSERT_GE(loopClockStalenessMs(loop), kIdleGapMs / 2)
+        << "the fixture did not produce a stale loop clock; see the case above";
 
     int count = 0;
     const auto t0 = std::chrono::steady_clock::now();
@@ -474,19 +536,81 @@ TEST(TimerStaleLoopClock, SingleShotArmedAfterAnIdleStretchStillWaitsItsFullDela
     pumpLoopFor(20);
 }
 
+/* ⭐ THE THIRD ARMING PATH, and the one no census had listed.
+ *
+ * Timer::Reset() re-arms through uv_timer_again(), which reads the SAME cached
+ * loop clock as uv_timer_start(). It is not a loop-only path: WebCtrl::Add()
+ * runs from the constructor of every web IO (IO/Web/WebDocBase.h:99,
+ * webRegisterPolling()) and from the second such IO onwards it takes the
+ * timer->Reset(frequency) branch, IO/Web/WebCtrl.cpp:115 — inside the
+ * configuration load, with the loop stopped.
+ *
+ * The Timer is armed here on a CURRENT clock with a delay it cannot reach
+ * during the idle stretch, so the only thing this case can be measuring is
+ * where Reset() put the new deadline. */
+TEST(TimerStaleLoopClock, ResetAfterAnIdleStretchStillWaitsItsFullDelay)
+{
+    auto loop = uvw::Loop::getDefault();
+
+    loop->run<uvw::Loop::Mode::NOWAIT>();
+
+    int count = 0;
+    int firedAt = -1;
+
+    {
+        //10 s: far beyond the idle stretch AND beyond the budget below, so it
+        //cannot fire on its own and be mistaken for the Reset() under test.
+        Timer t(10.0, sigc::slot<void>([&count]() { count++; }));
+
+        pumpLoopFor(20);
+        ASSERT_EQ(count, 0) << "the 10 s timer fired before Reset() was even "
+                               "called: this case is not measuring Reset()";
+
+        goIdleFor(kIdleGapMs);
+
+        ASSERT_GE(loopClockStalenessMs(loop), kIdleGapMs / 2)
+            << "the fixture did not produce a stale loop clock; see the first "
+               "case of this suite";
+
+        const auto t0 = std::chrono::steady_clock::now();
+        t.Reset(kArmedDelayMs / 1000.0);
+
+        firedAt = pumpUntilSince(t0, [&count]() { return count >= 1; });
+    }
+
+    ASSERT_GE(firedAt, 0)
+        << "the timer never fired after Reset() within the budget";
+
+    EXPECT_GE(firedAt, kArmedDelayMs - kCoarseClockSlackMs)
+        << "Timer::Reset(" << (kArmedDelayMs / 1000.0) << ") fired after "
+        << firedAt << " ms, having been called while the loop had been idle "
+           "for " << kIdleGapMs << " ms.\n"
+        << "uv_timer_again() reads the same cached loop clock as "
+           "uv_timer_start(), so a Reset() issued from an IO constructor — "
+           "IO/Web/WebCtrl.cpp:115 — lands its deadline in the past too.";
+
+    pumpLoopFor(20);
+}
+
 /* ⭐ THE SYMMETRIC CONTROL, and it is not decoration.
  *
  * A remedy that stopped distinguishing anything — one that armed every timer
  * far into the future, or that turned the wait into a handle nobody starts —
- * would make the two cases above green while being strictly worse than the
+ * would make the three cases above green while being strictly worse than the
  * defect. This case pins the NOMINAL behaviour from both ends on a loop clock
  * that is already current: the delay is still honoured, and it is still only
  * the delay. It is expected green before and after the remedy; its job is to
  * be the case a bad remedy breaks. */
 TEST(TimerStaleLoopClock, OnACurrentLoopClockTheDelayIsHonouredAndNothingMore)
 {
+    auto loop = uvw::Loop::getDefault();
+
     //No idle stretch here: this is the case that must NOT move.
-    uvw::Loop::getDefault()->run<uvw::Loop::Mode::NOWAIT>();
+    loop->run<uvw::Loop::Mode::NOWAIT>();
+
+    ASSERT_LE(loopClockStalenessMs(loop), kCoarseClockSlackMs)
+        << "the loop clock was not current at the start of the control case, "
+           "so this case is not the control it claims to be";
 
     int count = 0;
     int firedAt = -1;
