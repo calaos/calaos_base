@@ -7090,7 +7090,7 @@ d'être écrite.
   ⭐ **Bonne nouvelle, et elle borne le risque : il n'y a PAS de rechargement de configuration en
   production.** Quand l'API réécrit la configuration, `JsonApiHandlerHttp.cpp:707` pose
   `setNeedRestart(true)` et `HttpClient.cpp:480` appelle `uvw::Loop::getDefault()->stop()` ⇒ **le
-  processus REDÉMARRE**. Et la création d'IO à chaud (`JsonApi.cpp:1973` → `ListeRoom::createIO`)
+  processus REDÉMARRE**. Et la création d'IO à chaud (`JsonApi.cpp:2004`, dans `buildAutoscenarioCreate` → `ListeRoom::createIO`)
   se fait **à l'intérieur** de `uv_run()`, sur une horloge fraîche. ⇒ **le risque est cantonné au
   démarrage, une fois par vie du processus.**
   ⚠️ **Non mesuré sur un vrai démarrage** : ni la durée du chargement, ni un tir prématuré observé.

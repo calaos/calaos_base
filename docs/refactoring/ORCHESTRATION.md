@@ -8,6 +8,124 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅ [`T3.49`](T3.49.md) MERGÉE — 5 commits de la branche + 1 commit de doc, `--ff-only`, historique linéaire, 0 commit de fusion.**
+  ⭐ **CE MERGE ENLÈVE LE SEUL ÉCHEC CONNU DE `master` : `master` redevient VERT AU SENS STRICT.**
+  `F-FLAKY-1` — l'horloge **en cache** de `libuv` — est fermée, et le diagnostic d'origine de la
+  fiche (*« l'ordonnanceur vole du temps à `pumpLoopFor()` »*) reste **INFIRMÉ**.
+  ⭐ **`master` était sur `75ed9cb9` = EXACTEMENT la base de la branche** (le 3ᵉ rebase de l'auteur
+  l'y avait déjà posée) ⇒ **ni rebase ni conflit**. `tests/Makefile.am` : **blob IDENTIQUE à
+  `master`**, donc le piège de l'`endif` — qui a mordu trois fois ailleurs — **ne s'applique pas
+  ici** ; vérifié quand même en `python3` sur les marqueurs **en début de ligne** : **86 `if` / 86
+  `endif`**, profondeur finale **0**, **minimum 0, jamais négative**. **`git diff --numstat` sur les
+  5 commits : ZÉRO fichier de `src/`** — 3 fichiers de `tests/core/` et 3 de `docs/refactoring/`.
+
+  ⭐ **Les trois réserves ont été REJOUÉES, pas relues.**
+  1. ⭐ **R1 — la sonde `D=95` est VERTE, remesurée dans l'image** (`libuv 1.44.2`, sonde autonome de
+     l'auteur rejouée telle quelle). En **phase *check*** — la queue **post-sondage**, la seule
+     fenêtre résiduelle réelle — échéance 182 / sonde 91 : **ordre d'avant ⇒ 87, 20/20 ROUGES** ;
+     **ordre livré ⇒ 182, 0/20**. Couple de `:384` (146 / 73) : **51 contre 146**, **20/20 contre
+     0/20**. Balayage `D = 0 / 40 / 95 / 200` ⇒ **182 / 142 / 87 / 0** contre **182 / 182 / 182 /
+     200**. ⭐ **Et les deux lignes ont été vérifiées une à une sur les 12 sites** (7 dans
+     `ShutterImpulse_test`, 5 dans `IoLifetimeTimer_test`) : **12/12 avec l'origine prise AVANT
+     `freshenLoopClock()`, 0 mauvais**.
+     ⭐ **La phrase est bien réécrite en INÉGALITÉ PAR CONSTRUCTION** — `loop->time ≥ origine` ⇒
+     `échéance ≥ origine + délai` — et l'ancienne (« `gap > marge` devient inatteignable ») n'est
+     plus affirmée nulle part : elle ne subsiste que dans les deux passages qui la **corrigent
+     explicitement** comme ayant été *trop forte*.
+     ⭐ **`libuv` relit bien l'horloge DEUX fois par itération**, et c'est **remesuré ici** : les
+     mêmes `D=95` brûlés **avant** le sondage rendent **182 et 0/10 rouge**, la même brûlure
+     **après** rend 87 et 20/20 ⇒ la fenêtre résiduelle est bien **la seule queue post-sondage**.
+     ⚠️ **C'est aussi pourquoi la 1ʳᵉ livraison passait quand même** : cette queue vaut
+     *normalement* des microsecondes — **et « normalement » n'est pas une borne.**
+  2. **R2 — le lien avec le rouge 1-sur-80 de [`T3.40`](T3.40.md) est bien AFFAIBLI EN HYPOTHÈSE**,
+     dans la fiche **et** dans `FINDINGS.md` : *« le mécanisme suffirait … mais il ne se reproduit
+     pas »*, **240 exécutions ⇒ 0 rouge**. ⭐ **`FINDINGS.md` ne monte plus d'un cran de certitude**,
+     et la leçon de rédaction est écrite noir sur blanc : *« un report d'une fiche vers le journal
+     ne doit jamais monter d'un cran dans l'échelle de certitude ; c'est le sens de la marche qui
+     trahit, pas le mot choisi. »*
+  3. ⭐ **R3 — la seule partie qui touche le PRODUIT. Les trois maillons du « le processus
+     REDÉMARRE » sont vérifiés AU SOURCE, pas crus** : (a) `LoadConfigIO` et `LoadConfigRule` n'ont
+     **qu'un seul site d'appel chacune** (`main.cpp:150` / `:151`) — les seules autres occurrences de
+     l'arbre sont leur **définition** (`CalaosConfig.cpp:262` / `:353`) et leur **déclaration**
+     (`CalaosConfig.h:61` / `:62`) ; (b) `setNeedRestart(true)` (`JsonApiHandlerHttp.cpp:707-708`) et
+     `uvw::Loop::getDefault()->stop()` (`HttpClient.cpp:480`) sont les **seules** occurrences de
+     `src/` ; (c) la création d'IO à chaud est bien **dans** `uv_run()` — c'est
+     `JsonApi::buildAutoscenarioCreate`, appelée par le handler JSON. ⇒ **risque CANTONNÉ AU
+     DÉMARRAGE, une fois par vie du processus.**
+     ⛔ **Une correction de fait apportée au merge** : `FINDINGS.md` écrivait `JsonApi.cpp:1973` pour
+     ce dernier maillon ; `:1973` est en réalité `buildAutoscenarioGet` → `get_io()`. Le vrai site
+     `ListeRoom::createIO` est **`JsonApi.cpp:2004`**. **La substance tient, le numéro était faux —
+     rectifié dans `FINDINGS.md` et repris dans la fiche neuve.**
+     ⭐ **Les dix armements pré-boucle re-vérifiés au source, valeurs comprises** : `WagoMap.cpp:46`
+     **0,1 s** et `:47` 10 s · `HueOutputLightRGB.cpp:47` 2 s · `KNXIo.h:78` 1,5 s ·
+     `RoonPlayer.cpp:243` 10 s (le commentaire *« wait for the process to start »* est bien là,
+     ligne 238) · `CalaosConfig.cpp:232` 30 s (`CONFIG_ALERT_DELAY_SEC = 30.0`) · `AVRRose.cpp:67`
+     30 s (`POLL_INTERVAL = 30.0`) · `InputAnalog.cpp:71` 4 h
+     (`IOBase::TimerChangedWarning = 60*60*4`) · `InputAnalog.cpp:63` où `Utils::getMainLoopTime()`
+     (`Utils.cpp:136`) rend bien `loop->now()` · et `CalaosConfig.cpp:206` **n'est PAS une victime :
+     c'est l'ORIGINE**, il crée la boucle. **La conséquence est écrite comme demandé** : le décalage
+     vaut **la durée du chargement de la configuration**, ces attentes sont **plus courtes
+     qu'annoncé**, et **celles sous ce temps tirent immédiatement**.
+     ⭐ **[`T3.56`](T3.56.md) CRÉÉE** pour les deux sites qui le méritent — `WagoMap.cpp:46` (0,1 s,
+     le plus court de l'arbre) et `RoonPlayer.cpp:243` (10 s, dont le délai **est** la sémantique).
+     Ligne `BOARD.md` insérée **triée par numéro**, après T3.54. **Aucun autre numéro ouvert.**
+
+  ⭐ **LE TÉMOIN QUE L'AUTEUR DÉCLARAIT MANQUANT A ÉTÉ AJOUTÉ, et il est POSITIF.** La campagne
+  post-R1 de l'auteur (24 exécutions, 0 rouge) n'avait **pas** de témoin : sans binaire `master`
+  reconstruit, elle ne pouvait pas établir que la sonde **voit encore**. Refaite ici de bout en
+  bout, dans le même conteneur, **96 brûleurs**, **alternée**, **48 exécutions de chaque côté** :
+  binaire `master` **reconstruit** depuis un source **byte-identique au blob de `master`**
+  (`sha256 c52c25c3e9a027df…`, comparé au `git show 75ed9cb9:`), `rm -f` des chemins exacts
+  (binaire + `.o` du test + les deux `.o` serveur) et **`CXXLD` ancré exigé à chaque relink**.
+  ⇒ ⭐ **`master` : 1 rouge / 48**, sur `PlainImpulseDownWithoutImpulseTimeStillHonoursTheDuration`
+  — le cas de `:384`, **la marge la plus courte du tableau corrigé**, exactement celui que l'auteur
+  voyait tomber ; **forme livrée : 0 rouge / 48**. **La sonde voit encore, et la forme livrée y est
+  insensible.**
+  ⚠️ **1/48 ici contre 5/48 chez l'auteur** — hôte moins chargé. **C'est la leçon déjà écrite** :
+  un taux de flottement n'est pas une constante, **c'est l'ORDRE qui est prédit, pas le TAUX**.
+  *(⚠️ Un premier essai à N=24 avait rendu **0/24 des deux côtés**, donc **non concluant** : à ce
+  taux, ne rien voir en 24 tirages n'a rien d'improbable. C'est pourquoi le protocole complet à 48
+  a été refait — et c'est la raison pour laquelle la campagne de l'auteur ne prouvait rien.)*
+
+  ⭐ **`M0` et `MU-1` rejouées**, mutation appliquée à la main sur ancre unique, avec **preuve de
+  non-débordement** (`OutputShutterSmart.cpp` recomparé octet pour octet), restauration **sans
+  préservation des dates** et **fichiers comptés** (3/3) : **`M0` (ensemble VIDE) ⇒ `rc 0`, 20/20
+  OK, aucune ligne `FAILED`** ; **`MU-1` ⇒ `rc 1`, 13 OK et EXACTEMENT 7 rouges, TOUS `Plain*`** —
+  la liste de la fiche **au cas près** (`PlainImpulseDownKeepsMovingUntilTheRequestedDuration`,
+  `…AfterAnIdleLoopGap`, `…Publishes…`, `…Receives…`, `…WithoutImpulseTimeStillHonoursTheDuration`,
+  `PlainImpulseUpAndDownAgreeOnTheSameDuration`, `PlainOutOfRangeImpulseLeavesNoTimerArmedForEver`).
+  Après quoi l'arbre a été **restauré et reconstruit** : `tests/` et `src/` rendent **0 ligne** de
+  `git status --porcelain -uall`.
+
+  ⭐ **Build de validation** (image du dépôt, `autogen` + `configure` + `make -j32` + `make check
+  -j8`, tout sur DISQUE, `rm -f` préalable des chemins exacts) : **`MAKE_RC=0`, `CHECK_RC=0`**,
+  **`# TOTAL: 101`** — **= mon recompte indépendant des entrées `TESTS` de `tests/Makefile.am`**
+  (**95 binaires gtest + 6 scripts**) —, `PASS 100 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 /
+  ERROR 0`, **un seul `Testsuite summary`**, **0 `error:`**, **107 `CXXLD`** en regex ancrée à
+  double espace (dont les **trois** tests touchés, chacun réellement relinké), **1659 cas exécutés
+  sur 95 binaires**. Le `SKIP` est `run-python-tests.sh` — **normal**.
+  ⭐ **Et les DURÉES, cas par cas, sont toutes AU-DESSUS de leur échéance** — c'est ce qui interdit
+  qu'un cas soit **creux** : `205 / 325 / 347 / 174 / 383 / 486 ms` mesurés contre des échéances de
+  `182 / 302 / 318 / 147 / 360 / 462 ms` pour les six oracles de durée (le 2ᵉ inclut bien les
+  `kIdleGapMs = 120` du cas d'écart oisif) ; `PlainOutOfRange` **1175 ms** ;
+  `ProcessExitedStillFiresWhileTheServerIsAlive` **127 ms** contre 100. Suites :
+  `ShutterImpulse` **20/20 en 5943 ms**, `IoLifetimeTimer` **16/16 en 7259 ms**, `Timer` **8/8 en
+  366 ms**.
+  ⭐ **Goldens vérifiés APRÈS le build et APRÈS la campagne de mutation** : **145 fichiers**, arbre
+  `tests/core/golden` = **`d4ebc61fb2b1876f587d075a0cb050750dc1876f`**, **zéro golden bougé**.
+  `git status -uall` **vide** hors ce commit de doc. ⛔ **Non poussé.**
+
+  ⚠️ **Ce qui reste NON ÉTABLI, et que le merge ne prétend pas avoir fermé** — repris de la
+  déclaration de l'auteur, confirmé :
+  - **Rien n'est observé sur un VRAI démarrage** : la durée du chargement de configuration n'est
+    **pas mesurée**, aucun tir prématuré n'a été **vu**. R3 est de la **lecture de source**, et
+    [`T3.56`](T3.56.md) fait de cette mesure son **premier livrable**.
+  - **Le classement pré-boucle porte sur 11 sites sur 99.** Les 88 autres **ne sont pas classés** —
+    consigné dans la fiche neuve comme un livrable, pas comme un détail.
+  - **La sonde `order_probe` FABRIQUE la queue** avec un `uv_check_t`. Elle prouve **que la fenêtre
+    existe et que l'ordre livré la ferme** ; elle ne prouve **pas** que cette queue atteint 95 ms
+    dans la suite réelle. Ce que la suite réelle établit, c'est le **témoin ci-dessus**.
+
 - **✅ [`E4.1m`](E4.1m.md) MERGÉE — `69fdc3c6`, 8 commits, `--ff-only`, historique linéaire, 0 commit de fusion.**
   ⭐ **`master` était IMMOBILE sur `7667838f`** = exactement la base de la branche (le 3ᵉ rebase de
   l'auteur l'y avait déjà posée) ⇒ **ni rebase ni conflit au merge**. `tests/Makefile.am` : la
