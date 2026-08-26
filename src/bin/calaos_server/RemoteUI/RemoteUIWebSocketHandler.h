@@ -35,7 +35,20 @@ class RemoteUI;
 
 class RemoteUIWebSocketHandler: public JsonApiHandlerWS
 {
-private:
+    /* PROTECTED, NOT PRIVATE, AND IT IS A TEST SEAM - E4.1n.
+     *
+     * The whole point of this class for the E4.1 epic is sendInitialIOStates()
+     * (:223), and nothing in the suite could drive it: the only way to set
+     * authenticated_remote_ui is authenticateConnection(), which needs a real
+     * HMAC handshake. Widening this block lets a test subclass attach a
+     * config-loaded RemoteUI directly and put the RemoteUI wire under a byte
+     * oracle - the wire that goes to a PHYSICAL DEVICE with its own client,
+     * which will not be updated at the same time as the server.
+     *
+     * No behaviour changes with this line, and nothing outside the class reads
+     * any of these members: they stay invisible to every caller.
+     */
+protected:
     RemoteUI *authenticated_remote_ui;
     AuthFailureReason last_auth_failure;
 

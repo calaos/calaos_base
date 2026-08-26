@@ -648,3 +648,392 @@ TEST_F(JsonApiStateWireBytesTest, SetStateWsEnvelopePutsMsgBeforeDataToday)
     EXPECT_LT(keyPos(wire, "msg"), keyPos(wire, "data"))
             << "the jansson envelope is msg, msg_id, data: " << wire;
 }
+
+/*******************************************************************************
+ * ===========================================================================
+ * PART TWO - THE REMOTEUI BRIDGE.
+ * ===========================================================================
+ *
+ * RemoteUIWebSocketHandler::sendInitialIOStates() is the reason E4.1n exists as
+ * a ticket rather than as a line of another one. It calls buildJsonState() and
+ * then does, on the jansson result it is handed:
+ *
+ *      char *json_str = json_dumps(jret, JSON_COMPACT);   (:246)
+ *      Json data = Json::parse(json_str);                 (:250)
+ *
+ * a FULL serialization plus a FULL reparse, for no purpose but crossing the
+ * border between the two libraries. When buildJsonState() answers a Json those
+ * six lines become an assignment.
+ *
+ * ---------------------------------------------------------------------------
+ * THE FORM THAT COMPILES AND THROWS, AND NOTHING CATCHES IT
+ * ---------------------------------------------------------------------------
+ * :250 is a THROWING Json::parse (the two other Json::parse of that file, :128
+ * and :185, sit inside a try). It is called from the buildJsonState()
+ * completion, i.e. from an audio callback on the event loop, and there is NO
+ * try anywhere above it: a parse_error there is std::terminate on a live
+ * server. Same shape as the KNX precedent, where a bare dump() in
+ * monitorWait() took calaos_knx down on an ordinary bus frame.
+ *
+ * MEASURED, and the honest verdict: no input could be built that makes it
+ * throw TODAY, because jansson validates UTF-8 at json_string() and json_dumps
+ * therefore cannot emit anything Json::parse refuses - the NULL return is the
+ * only failure and :249 guards it. The form is a LATENT mine, disarmed by the
+ * very validation this epic removes. This ticket deletes the form outright,
+ * which is the only way to be sure it never becomes live.
+ *
+ * ---------------------------------------------------------------------------
+ * WHAT THE DEVICE SEES, AND IT IS ALMOST NOTHING - MEASURED
+ * ---------------------------------------------------------------------------
+ * The RemoteUI wire is the one wire of this ticket that talks to a PHYSICAL
+ * DEVICE with its own client, not updated in lockstep with the server, so every
+ * byte counts double. It is also, measured, the wire that moves LEAST, and for
+ * a reason worth spelling out: the payload ALREADY makes a round trip through
+ * nlohmann today. json_dumps -> Json::parse -> dump(ensure_ascii) means that of
+ * the five deltas of this ticket,
+ *
+ *   - key order       does NOT move. Twice over: the round trip already sorts,
+ *                     AND RemoteUI::referenced_ios is a std::set, so the iolist
+ *                     handed to buildJsonState() is already alphabetical.
+ *   - hex case        does NOT move: the final dump is already nlohmann's.
+ *   - DEL 0x7F        does NOT move: the final dump already escapes it.
+ *   - invalid UTF-8   MOVES. Today the pair is dropped by json_string(), before
+ *                     the bridge; tomorrow it arrives as U+FFFD. A key the
+ *                     device never received starts arriving.
+ *   - embedded NUL    MOVES, same reason: silent truncation becomes an escaped
+ *                     NUL in the value.
+ *
+ * Two deltas, both of them poison payloads. That is the paragraph
+ * RELEASE_NOTES.md needs, and these cases are what it is founded on.
+ ******************************************************************************/
+
+#include "RemoteUIWebSocketHandler.h"
+#include "IO/RemoteUI/RemoteUI.h"
+#include "AudioPlayer.h"
+#include "HttpClient.h"
+#include "libuvw.h"
+
+#include <deque>
+#include <memory>
+#include <vector>
+
+namespace
+{
+
+const char *const REMOTE_UI_ID = "e41n_screen";
+
+//A real HttpClient on an unconnected uvw::TcpHandle. Same object, and the same
+//measurement, as HttpTestRequest::Client (JsonApiCharacterization.cpp:449): the
+//constructor only needs the handle to be non-null, and ~HttpClient() does not
+//call CloseConnection(). RemoteUIWebSocketHandler's constructor dereferences
+//httpClient (it logs getClientIp()), so unlike WsTestSession::Handler this one
+//cannot be built on nullptr.
+class BridgeClient: public HttpClient
+{
+public:
+    explicit BridgeClient(const std::shared_ptr<uvw::TcpHandle> &h):
+        HttpClient(h), handle(h) {}
+
+    std::shared_ptr<uvw::TcpHandle> handle;
+};
+
+//Subclass only to reach the protected session state, exactly as
+//WsTestSession::Handler does for JsonApiHandlerWS. The production class is not
+//modified beyond the private -> protected of that one block.
+class BridgeHandler: public Calaos::RemoteUIWebSocketHandler
+{
+public:
+    explicit BridgeHandler(HttpClient *c): RemoteUIWebSocketHandler(c) {}
+
+    void attach(Calaos::RemoteUI *ui)
+    {
+        authenticated_remote_ui = ui;
+        setAuthenticated(true);
+    }
+};
+
+/* An AudioPlayer whose async getters never answer on their own. Same shape as
+ * the one in core/JsonApiAudioState_test.cpp, and duplicated rather than shared
+ * on purpose: that file characterizes buildJsonState() itself, this one
+ * characterizes what RemoteUI does with its answer, and a shared fake would tie
+ * two independent oracles together.
+ */
+class BridgeFakePlayer: public Calaos::AudioPlayer
+{
+public:
+    explicit BridgeFakePlayer(Params &p): AudioPlayer(p) {}
+
+    std::deque<Calaos::AudioRequest_cb> pending;
+
+    void get_playlist_current(Calaos::AudioRequest_cb cb, Calaos::AudioPlayerData = Calaos::AudioPlayerData()) override
+    { pending.push_back(cb); }
+    void get_volume(Calaos::AudioRequest_cb cb, Calaos::AudioPlayerData = Calaos::AudioPlayerData()) override
+    { pending.push_back(cb); }
+    void get_playlist_size(Calaos::AudioRequest_cb cb, Calaos::AudioPlayerData = Calaos::AudioPlayerData()) override
+    { pending.push_back(cb); }
+    void get_current_time(Calaos::AudioRequest_cb cb, Calaos::AudioPlayerData = Calaos::AudioPlayerData()) override
+    { pending.push_back(cb); }
+    void get_status(Calaos::AudioRequest_cb cb, Calaos::AudioPlayerData = Calaos::AudioPlayerData()) override
+    { pending.push_back(cb); }
+    void get_songinfo(Calaos::AudioRequest_cb cb, Calaos::AudioPlayerData = Calaos::AudioPlayerData()) override
+    { pending.push_back(cb); }
+
+    //Detach the oldest pending answer, the way a real connection owns it and
+    //can fire it after the IO - or the handler - is gone.
+    Calaos::AudioRequest_cb takeNext()
+    {
+        if (pending.empty())
+            return Calaos::AudioRequest_cb();
+        Calaos::AudioRequest_cb cb = pending.front();
+        pending.pop_front();
+        return cb;
+    }
+};
+
+std::string remoteUiXml()
+{
+    std::string x;
+    x += "    <calaos:remote_ui type=\"RemoteUI\" id=\"";
+    x += REMOTE_UI_ID;
+    x += "\" name=\"Screen\" enabled=\"true\" visible=\"true\""
+         " device_type=\"waveshare-86-panel\" grid_w=\"3\" grid_h=\"3\">\n";
+    x += "      <calaos:pages>\n";
+    x += "        <calaos:page name=\"p1\">\n";
+    x += std::string("          <calaos:widget type=\"switch\" x=\"0\" y=\"0\" io_id=\"") + IO_ZULU + "\"/>\n";
+    x += std::string("          <calaos:widget type=\"switch\" x=\"1\" y=\"0\" io_id=\"") + IO_ALPHA + "\"/>\n";
+    x += "        </calaos:page>\n";
+    x += "      </calaos:pages>\n";
+    x += "    </calaos:remote_ui>\n";
+    return x;
+}
+
+} //namespace
+
+class RemoteUiStateBridgeTest: public JsonApiCharacterizationTest
+{
+protected:
+    void SetUp() override
+    {
+        JsonApiCharacterizationTest::SetUp();
+
+        forgetIOState(IO_ZULU);
+        forgetIOState(IO_ALPHA);
+
+        //No rule: the default rules.xml references ids this house does not
+        //declare, and RulesFactory silently drops a rule whose ids are unknown.
+        loadConfig(ioXmlDocument(roomXml("Salon", "livingroom", remoteUiXml())),
+                   rulesXmlDocument(""));
+
+        screen = dynamic_cast<Calaos::RemoteUI *>(ListeRoom::Instance().get_io(REMOTE_UI_ID));
+        ASSERT_NE(screen, nullptr) << "the RemoteUI IO was not created";
+
+        //The two state IOs are added by hand, for the reason given at the top
+        //of this file: set_value() would Save() the poisoned bytes into
+        //Config's process-wide state cache.
+        zulu  = addProbe(IO_ZULU, "InternalString", "Zulu");
+        alpha = addProbe(IO_ALPHA, "InternalBool", "Alpha");
+
+        auto loop = uvw::Loop::getDefault();
+        auto tcp = loop->resource<uvw::TcpHandle>();
+        client = std::make_shared<BridgeClient>(tcp);
+
+        handler.reset(new BridgeHandler(client.get()));
+        handler->sendData.connect([this](const std::string &d) { sent.push_back(d); });
+        handler->attach(screen);
+    }
+
+    void TearDown() override
+    {
+        //Destroy the handler first: it holds a raw pointer on the client.
+        handler.reset();
+        if (client && client->handle)
+            client->handle->close();
+        client.reset();
+        pumpEventLoop(2);
+
+        JsonApiCharacterizationTest::TearDown();
+    }
+
+    ProbeIO *addProbe(const std::string &id, const std::string &type,
+                      const std::string &name)
+    {
+        Params p;
+        p.Add("id", id);
+        p.Add("name", name);
+        p.Add("type", type);
+
+        ProbeIO *o = new ProbeIO(p);
+        firstRoom()->AddIO(o);
+        ListeRoom::Instance().addIOHash(o);
+        return o;
+    }
+
+    BridgeFakePlayer *addPlayer(const std::string &id)
+    {
+        Params p;
+        p.Add("id", id);
+        p.Add("name", "Player");
+        p.Add("type", "BridgeFakePlayer");
+
+        BridgeFakePlayer *pl = new BridgeFakePlayer(p);
+        firstRoom()->AddIO(pl);
+        ListeRoom::Instance().addIOHash(pl);
+        return pl;
+    }
+
+    std::string lastMessage() const { return sent.empty() ? std::string() : sent.back(); }
+
+    Calaos::RemoteUI *screen = nullptr;
+    ProbeIO *zulu = nullptr;
+    ProbeIO *alpha = nullptr;
+
+    std::shared_ptr<BridgeClient> client;
+    std::unique_ptr<BridgeHandler> handler;
+    std::vector<std::string> sent;
+};
+
+/*******************************************************************************
+ * R1. THE ORDINARY PAYLOAD DOES NOT MOVE BY ONE BYTE. INVARIANT.
+ *
+ * This is the case the physical device depends on, and it is an INVARIANT on
+ * BOTH sides of the migration: sorted keys, lowercase hex, ASCII only. If it
+ * moves, the screens see a wire they were not shipped against.
+ ******************************************************************************/
+TEST_F(RemoteUiStateBridgeTest, InitialStatesAreSortedAsciiAndLowercaseHex)
+{
+    zulu->setRawString(std::string("caf") + RAW_E_ACUTE);
+
+    handler->sendInitialIOStates();
+
+    ASSERT_EQ(1u, sent.size()) << "sendInitialIOStates() sent nothing";
+    const std::string wire = lastMessage();
+
+    EXPECT_TRUE(contains(wire, "\"remote_ui_io_states\"")) << wire;
+
+    ASSERT_NE(std::string::npos, keyPos(wire, IO_ALPHA)) << wire;
+    ASSERT_NE(std::string::npos, keyPos(wire, IO_ZULU)) << wire;
+    EXPECT_LT(keyPos(wire, IO_ALPHA), keyPos(wire, IO_ZULU))
+            << "RemoteUI::referenced_ios is a std::set AND the payload already "
+               "round trips through nlohmann: this wire is sorted on both sides "
+               "of the migration: " << wire;
+
+    EXPECT_TRUE(contains(wire, ASCII_E_LOWER))
+            << "the RemoteUI wire is already dumped by nlohmann today: " << wire;
+    EXPECT_FALSE(contains(wire, ASCII_E_UPPER)) << wire;
+    EXPECT_FALSE(contains(wire, RAW_E_ACUTE)) << wire;
+
+    for (unsigned char c : wire)
+        ASSERT_LT(c, 0x80u) << "the RemoteUI wire must be ASCII only";
+}
+
+/*******************************************************************************
+ * R1bis. DEL DOES NOT MOVE EITHER. INVARIANT.
+ *
+ * Same reason: the escaping the device sees is nlohmann's already, and nlohmann
+ * escapes every codepoint >= 0x7F under ensure_ascii. Pinned as a case rather
+ * than as a sentence, because it is a NEGATIVE result on a wire where a
+ * positive one would have cost a firmware release.
+ ******************************************************************************/
+TEST_F(RemoteUiStateBridgeTest, InitialStatesAlreadyEscapeDel)
+{
+    zulu->setRawString(std::string("a") + DEL_BYTE + "z");
+
+    handler->sendInitialIOStates();
+
+    ASSERT_EQ(1u, sent.size());
+    const std::string wire = lastMessage();
+
+    EXPECT_TRUE(contains(wire, ASCII_DEL)) << wire;
+    EXPECT_EQ(0u, occurrences(wire, std::string(1, DEL_BYTE))) << wire;
+}
+
+/*******************************************************************************
+ * R2. INVALID UTF-8 - ONE OF THE TWO DELTAS THE DEVICE WILL SEE.
+ ******************************************************************************/
+TEST_F(RemoteUiStateBridgeTest, InitialStatesDropThePairOnInvalidUtf8Today)
+{
+    zulu->setRawString(std::string("a") + INVALID_UTF8 + "z");
+
+    handler->sendInitialIOStates();
+
+    ASSERT_EQ(1u, sent.size());
+    const std::string wire = lastMessage();
+
+    EXPECT_EQ(std::string::npos, keyPos(wire, IO_ZULU))
+            << "json_string() answers NULL before the bridge is even reached, "
+               "so the device never receives that key: " << wire;
+    EXPECT_NE(std::string::npos, keyPos(wire, IO_ALPHA)) << wire;
+    EXPECT_FALSE(contains(wire, ASCII_FFFD)) << wire;
+}
+
+/*******************************************************************************
+ * R3. EMBEDDED NUL - THE OTHER ONE.
+ ******************************************************************************/
+TEST_F(RemoteUiStateBridgeTest, InitialStatesTruncateTheValueAtAnEmbeddedNulToday)
+{
+    zulu->setRawString(std::string("a\0z", 3));
+
+    handler->sendInitialIOStates();
+
+    ASSERT_EQ(1u, sent.size());
+    const std::string wire = lastMessage();
+
+    EXPECT_TRUE(contains(wire, std::string("\"") + IO_ZULU + "\":\"a\""))
+            << "jansson takes a const char*: the tail is lost in silence: " << wire;
+    EXPECT_FALSE(contains(wire, ASCII_NUL)) << wire;
+}
+
+/*******************************************************************************
+ * R4. THE LIFE GUARD - THE RISK N.1 OF THIS TICKET, AND IT IS AN INVARIANT.
+ *
+ * buildJsonState() DEFERS its callback behind the audio chain. The device can
+ * drop the connection in that window, and then the handler is destroyed while
+ * an answer is in flight. Before the migration the callback owned a json_t and
+ * had to json_decref() it on the abandon path (:241); after it, ownership is by
+ * value and those decrefs disappear - BUT THE LIFE GUARDS MUST NOT.
+ *
+ * MEASURED WHILE WRITING THIS CASE, and it corrects the reading of the ticket:
+ * there are TWO guards on this path, not one, and the one that actually stops
+ * the callback is NOT the weak_ptr in RemoteUIWebSocketHandler.
+ * RemoteUIWebSocketHandler IS-A JsonApiHandlerWS IS-A JsonApi, so destroying
+ * the handler destroys JsonApi::apiAlive, and JsonApi.cpp:491 checks THAT token
+ * before every step of the chain and before finishOne() - the result lambda is
+ * never entered at all. The handler's own handlerAlive weak_ptr (:237) is a
+ * second belt, load bearing for the post-auth Timer::singleShot which is NOT
+ * inside JsonApi. Do not "clean up" either of them.
+ ******************************************************************************/
+TEST_F(RemoteUiStateBridgeTest, InitialStatesSurviveTheHandlerDyingMidFlight)
+{
+    /* referenced_ios is built from the XML at load time and this test does not
+     * touch it: the PLAYER TAKES THE PLACE of the string IO, under the id the
+     * screen already references. That is also what makes the case realistic -
+     * a screen showing a music widget is exactly how the deferred path is
+     * reached in production.
+     */
+    ASSERT_TRUE(deleteIO(zulu));
+    zulu = nullptr;
+    BridgeFakePlayer *player = addPlayer(IO_ZULU);
+
+    handler->sendInitialIOStates();
+
+    //Nothing sent yet: the answer waits for the six audio callbacks.
+    ASSERT_EQ(0u, sent.size()) << "the answer must be deferred behind the player";
+    ASSERT_EQ(1u, player->pending.size()) << "the chain did not start";
+
+    //The connection object keeps the callback, then the device disconnects.
+    Calaos::AudioRequest_cb lateAnswer = player->takeNext();
+    ASSERT_FALSE(lateAnswer.empty());
+
+    handler.reset();    //the device dropped the connection
+
+    //The squeezebox-style answer arrives afterwards. Before T2.15 this
+    //dereferenced a dead JsonApi; it must now be a no-op.
+    lateAnswer(Calaos::AudioPlayerData());
+    //Drop our copy of the chain, exactly as the dying connection object would.
+    lateAnswer = Calaos::AudioRequest_cb();
+
+    //The chain stopped at the first guard: no next request was queued...
+    EXPECT_TRUE(player->pending.empty());
+    //...and nothing was ever written to the socket.
+    EXPECT_EQ(0u, sent.size());
+}
