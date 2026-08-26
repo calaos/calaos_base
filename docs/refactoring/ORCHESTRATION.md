@@ -6102,3 +6102,63 @@ done
 **Règle** : un build qui dépasse le timeout de l'outil n'est **jamais** relancé — on retrouve le
 conteneur par `docker inspect`/`Source` et on attend (`docker wait`). Et on ne filtre **jamais**
 par image ni par ancêtre pour arrêter un conteneur : les worktrees voisins partagent la même image.
+
+## ⚠️ Outillage — cache de compilation `ccache` : monté, INACTIF, et ce qu'il ne faut pas faire (2026-08-26, [T3.51](T3.51.md))
+
+**État** : la branche `tooling/ccache` **installe** `ccache` dans l'image de dev et **monte**
+`$HOME/.cache/calaos-ccache` sur `/ccache`, mais **n'active rien** : le cache ne s'allume que si
+`/usr/lib/ccache` est en **tête du `PATH`**. Les conditions de bascule sont dans
+[T3.51](T3.51.md) §6 (**7** conditions).
+
+⭐ **Le cache ne ment pas** (12 scénarios d'attaque sains, 370/370 objets identiques, aller-retour
+rouge, 90/90 en concurrence sous charge 127). **Ce qui a été renvoyé, c'est la sonde.**
+
+**Pour un agent qui veut s'en servir — trois règles opérationnelles :**
+
+1. ⭐ **UN `CCACHE_DIR` PAR AGENT.** `-v "$HOME/.cache/calaos-ccache-$AGENT":/ccache`.
+   ⚠️ `$CCACHE_DIR/ccache.conf` est un **état partagé mutable** : un `ccache -o` **persiste** et tout
+   conteneur ultérieur en hérite, sans trace de qui l'a écrit. **Constaté** : le cache partagé porte
+   **`max_size = 30G`** au lieu des 10G documentés, **sans attribution** ; ses **1763 fichiers** sont
+   tous **`uid=0`** dans un `$HOME` `uid` 1000 (⇒ `busybox` sur le chemin exact pour les effacer,
+   jamais `sudo`, jamais le dossier parent). Et `max_size` étant **partagé**, un agent monté à un
+   autre chemin **évince les entrées chaudes des voisins, invisiblement**.
+2. ⛔ **Jamais `ccache -z` sur un cache partagé** — il remet à zéro les compteurs de **tous** les
+   agents. Et **aucun taux de succès publié depuis un cache partagé** : `ccache -s` en donne
+   l'**agrégat**, pas le sien. Un chiffre de taux dit **d'où il vient**, sinon il ne vaut rien.
+3. ⛔ **Ne jamais « réparer » une absence de succès de cache par `hash_dir=false`.** C'est le réflexe
+   naturel quand on monte le worktree à un autre chemin — et c'est **exactement** le réglage qui rend
+   le cache menteur (objet du chemin A servi au chemin B). Le bon levier de partage inter-chemins est
+   **`base_dir`**, qui est **sain** et **testé**.
+
+⚠️ **`scripts/ccache-setup.sh` n'est pas facultatif** : sans lui, `compiler_check` vaut `mtime` — le
+défaut de `ccache`, sur lequel un compilateur remplacé à taille et date égales rend un objet périmé —
+et **`tests/check-ccache-honesty.sh` échoue (`rc=1`)**. C'est **voulu** : le défaut de l'outil n'est
+pas sûr, il est seulement courant.
+
+**La sonde ne rend plus jamais PASS ni SKIP sur un mode d'échec** : `0` PASS · `77` **uniquement**
+quand aucun cache n'est en service · `1` pour tout le reste (cache menteur, configuration non
+auditée, sonde qui ne compile pas, exception). Les lignes sont préfixées
+`SONDE-CCACHE: PASS|SKIP|ECHEC` et le SKIP dit en toutes lettres que **ce n'est ni un PASS ni une
+preuve**. `CALAOS_CCACHE_PROBE_STRICT=1` transforme le SKIP en échec — à poser dans **tout arbre qui
+sert à juger une campagne** (condition 7).
+
+⭐ **Et la règle qui prime sur tout le reste** : **tout RED→GREEN qui décide d'un ticket est
+reconfirmé UNE FOIS SANS CACHE** (condition 5). *Le cache accélère la compilation ; il ne prouve
+rien.*
+
+## ⚠️ Outillage — `make distcheck` en parallèle : le drapeau s'appelle `AM_MAKEFLAGS` (2026-08-26, [T3.52](T3.52.md))
+
+⛔ **`AM_DISTCHECK_MAKEFLAGS` n'existe pas en automake 1.16.5** (la version du dépôt) : **0**
+occurrence dans `/usr/share/automake-1.16/am/distdir.am` **et 0** dans le `Makefile` généré.
+L'écrire serait un **no-op qu'aucun diagnostic ne signalerait**.
+
+Ce qui marche : **`make distcheck AM_MAKEFLAGS=-j32`** ⇒ **2995 s (49,9 min, RC 0) → 347,9 s
+(5,8 min), ×8,6**.
+
+⚠️ **Deux réserves à connaître avant de l'employer** :
+- **RC=2** : `ShutterImpulseTest.PlainImpulseDownWithoutImpulseTimeStillHonoursTheDuration` **a
+  flanché sous `-j32`** (famille `F-FLAKY-1`, [T3.49](T3.49.md)). Le gain est réel, **le verdict ne
+  l'est plus**.
+- **Portée PROJET** : `AM_MAKEFLAGS` s'applique à **tout `make` récursif du projet** (12 des 23
+  occurrences seulement sont dans `distcheck`). ⇒ **en ligne de commande uniquement**, **jamais**
+  dans `Makefile.am`.

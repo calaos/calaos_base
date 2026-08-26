@@ -883,10 +883,73 @@ ici et dit vrai ailleurs.*
 
 ### ℹ️ Renvoi — la liste canonique des variantes de faux vert
 
-`FINDINGS.md` porte depuis le 2026-08-25 **LA liste canonique numérotée des TREIZE variantes** de
+`FINDINGS.md` porte depuis le 2026-08-25 **LA liste canonique numérotée des QUATORZE variantes** de
 faux vert/faux rouge de la série. ⚠️ **Cette phrase disait « ONZE »** : le compte était celui du
 jour où la liste a été établie (`T3.44`), et il a été porté à **douze** puis **treize** par la
 livraison de [`T3.40`](T3.40.md) — n° 12 *la restauration qui ne restaure rien*, n° 13 *la borne de
-sûreté devenue la contrainte active*. Corrigé au merge de `T3.40` (2026-08-25). ⚠️ **« Cause racine des CINQ variantes » reste exact** partout où c'est
+sûreté devenue la contrainte active*. Corrigé au merge de `T3.40` (2026-08-25). ⚠️ **Porté à QUATORZE le 2026-08-26** par le retour de revue de [`T3.51`](T3.51.md) — n° 14 *le cache de compilation qui rend un objet périmé*, ⚠️ **la seule CONDITIONNELLE de la liste** (elle n'existe que sur l'un des quatre réglages fautifs) ⛔ **mais l'un d'eux était le défaut livré**, et ⭐ **c'est la seule qui ne laisse aucune trace dans un journal**. ⚠️ **« Cause racine des CINQ variantes » reste exact** partout où c'est
 écrit de `_DEPENDENCIES` ci-dessus : `T3.36` ferme les **n° 1 à 5**, et elles seules. Tout nouveau
 compte ou rang se lit **dans `FINDINGS.md`**, jamais recompté à la main.
+
+## 2026-08-26 — cache de compilation : **fermeture par défaut** de la sonde, et la liste NOIRE remplacée par une liste BLANCHE
+
+**Contexte** : revue de la branche `tooling/ccache` ([T3.51](T3.51.md)), rendue `RETOUR À L'AUTEUR`.
+
+⭐ **Le cache lui-même ne ment pas** — 12 scénarios d'attaque sains, 370/370 objets identiques,
+aller-retour rouge, 90/90 en concurrence. **Ce qui était faux, c'est la garde.**
+
+**Décision 1 — une sonde de garde ne rend JAMAIS PASS ni SKIP sur un mode d'échec.**
+`scripts/ccache-honesty-probe.py` était *fail-open* sur **tous** les siens : elle traduisait sa propre
+panne (`ccache: invalid option -- 'g'`) en `77`, elle classait `obj(A) == obj(B)` — **c'est-à-dire
+exactement le mensonge qu'elle cherchait** — en « non concluant », `77`, et un build câblé par
+`CXX="ccache g++"` lui faisait rendre `77` alors que le cache était **actif**. ⇒ **Désormais trois
+codes seulement** : `0` PASS · `77` **uniquement** quand il n'y a aucun cache à garder · `1` **pour
+tout le reste**, exception comprise. ⭐ **Généralisable** : *une garde qui ne sait pas conclure doit
+échouer, pas se taire — et son silence doit être impossible à confondre avec un succès dans le
+journal.* Les lignes sont préfixées `SONDE-CCACHE: PASS|SKIP|ECHEC`.
+
+**Décision 2 — une garde de configuration se fait par LISTE BLANCHE.**
+La liste noire de chaînes interdites laissait passer `compiler_check = string:CONST`, strictement
+équivalent à `none` qu'elle refusait nommément ; et elle **validait `compiler_check = mtime`, le
+défaut que la branche livrait**, sur lequel un compilateur remplacé à taille et date égales rend un
+objet périmé. ⇒ **Quatre réglages, quatre valeurs exigées** (`sloppiness` vide ·
+`compiler_check = content` · `hash_dir = true` · `base_dir` vide), tout le reste refusé.
+⭐ **Généralisable** : *interdire ce qu'on connaît ne protège que de ce qu'on connaît ; exiger ce qu'on
+a audité protège du reste.*
+
+**Décision 3 — une sonde doit pouvoir VOIR le défaut qu'elle prétend garder.**
+La moitié empirique compilait une unité de traduction **sans aucun `#include`**, alors que le défaut
+gardé (`file_stat_matches`) porte sur les **fichiers inclus** : elle imprimait « aller-retour
+honnête » sur un cache démontré menteur. ⇒ **La sonde doit être exercée contre le défaut, garde
+désarmée, et le voir.** Vérifié **4/4**. ⚠️ Elle reste un **détecteur par échantillon** : elle prouve
+qu'un mensonge s'est produit, jamais qu'aucun ne peut se produire — la liste blanche reste la garde
+principale.
+
+**Décision 4 — aucun chiffre publié depuis un état partagé non attribuable.**
+Le taux `416/417` avait été lu par `ccache -s` sur le `CCACHE_DIR` **partagé** pendant que **trois
+agents construisaient** : c'est l'agrégat de tous. ⇒ **Retiré.** Sur cache privé : **417/420** et
+**471/477**. ⛔ **Et `ccache -z` sur un cache partagé remet à zéro les compteurs de TOUS les agents**
+— la version précédente du document le recommandait sans le dire.
+⚠️ **Même famille** : `$CCACHE_DIR/ccache.conf` est un **état partagé mutable** — un `ccache -o`
+persiste et **tout conteneur ultérieur en hérite**. Constaté : le cache partagé porte
+**`max_size = 30G`** au lieu des 10G documentés, **sans attribution**, et ses **1763 fichiers sont
+`uid=0`** dans un `$HOME` `uid` 1000. ⇒ **un `CCACHE_DIR` par agent**, ou les variables `CCACHE_*`
+qui ne persistent rien.
+
+**Décision 5 — un rapport de gain sans sa charge est un chiffre faux.**
+Les deux rapports annoncés étaient faux **dans des sens opposés** : ×8,4 → **×6,2** (charge 10 → 125)
+et ×4,3 → **×5,0**. Et « gain nul sur un `rm -f` chirurgical » est **infirmé** : **6,37 s → 2,06 s,
+×3,1, −68 %**. ⇒ **Tout rapport se publie en fourchette, avec la charge relevée et la provenance.**
+
+**Décision 6 — le cache accélère, il ne signe pas.**
+Condition (5) de [T3.51](T3.51.md) : **tout RED→GREEN qui décide d'un ticket est reconfirmé UNE FOIS
+SANS CACHE.** ⭐ **Et l'argument inverse, qui est le meilleur en faveur du cache** : borner le taux de
+`F-FLAKY-1` sous 1 % demande **~300 verts consécutifs**, soit **8,8 h sans cache contre 2,5 h avec**
+(`make check` 105 s → 29,8 s) — *le cache ne sert pas d'abord à aller plus vite, il rend faisable une
+mesure qu'on renonçait à faire.*
+
+**Décision 7 — un drapeau se vérifie dans l'outil du dépôt, pas dans sa documentation en ligne.**
+`AM_DISTCHECK_MAKEFLAGS` **n'existe pas** en automake 1.16.5 : **0** occurrence dans
+`am/distdir.am` **et 0** dans le `Makefile` généré ; les `$(MAKE)` récursifs de `distcheck` portent
+`$(AM_MAKEFLAGS)`. L'ajouter aurait été un **no-op qu'aucun diagnostic n'aurait signalé**.
+⇒ [T3.52](T3.52.md), sous son vrai nom, **portée projet** et **flottement `-j32` déclarés**.

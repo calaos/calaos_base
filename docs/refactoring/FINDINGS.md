@@ -7595,3 +7595,69 @@ unifie — **auquel cas ce golden bouge, et il faudra le déclarer.**
   défaut. Sur une carte cinq fois plus lente le heartbeat Wago passerait bien d'« immédiat » à
   « 100 ms » — mais il est **inoffensif dans les deux cas** (bullet ci-dessus), donc toujours rien
   à annoncer.
+
+## T3.51 — le cache de compilation : ce qui NE ment pas, et les quatre réglages qui le feraient mentir
+
+*(Retour de revue de la branche `tooling/ccache`, 2026-08-26. ⭐ **Les deux côtés sont gardés** : ce
+qui est établi sain, et ce qui ne l'est pas.)*
+
+### ✅ Le côté SAIN — établi, à ne pas remesurer
+
+Le cache **tel que livré** ne ment pas. **12 scénarios d'attaque tous sains** : chemins identiques ·
+macro passée en ligne de commande · `config.h` généré · collision (taille, mtime) sur **en-tête**
+*et* sur **source** · `__DATE__`/`__TIME__` · mtime décalée d'un an · **trois compilations dans la
+même seconde** · `cp -p` · **cache saturé, forcé à évincer**. Plus : **370 objets sur 370 identiques**
+octet pour octet entre un arbre bâti depuis le cache et un arbre compilé de zéro, **aller-retour
+rouge** (mutation → restauration → re-mutation ⇒ le test redevient rouge), **90/90 en concurrence**
+sous charge 127, et **11 empreintes d'objets identiques** entre le mode avec cache et le mode sans.
+
+⚠️ La restauration `cp -p` **n'est ni aggravée ni masquée** par le cache : `make` n'appelle pas le
+compilateur, le cache n'est pas consulté (`CXXLD` = 0). **La discipline `rm -f` reste entière.**
+
+### ⛔ Quatorzième variante de faux vert (**n° 14 de la liste canonique**) — **le cache qui rend un objet périmé**
+
+⚠️ **Elle est CONDITIONNELLE** — c'est ce qui la distingue des treize précédentes : elle n'existe que
+si le cache est **mal configuré**. ⛔ **Mais l'un des quatre réglages fautifs était LE DÉFAUT QUE LA
+BRANCHE LIVRAIT**, ce qui la rendait active, pas hypothétique.
+
+| # | réglage | mécanisme | l'ancienne sonde |
+|---|---|---|---|
+| ① | `hash_dir = false` | l'objet compilé au chemin A est servi au chemin B ; il **diffère** de ce qu'une compilation propre produit (`DW_AT_comp_dir`) | `rc=0` |
+| ② | ⭐ `compiler_check = mtime` — **LE DÉFAUT LIVRÉ** | un compilateur remplacé à taille et date égales n'invalide rien ⇒ **objet périmé servi** | **`rc=0` par construction** |
+| ③ | `compiler_check = string:CONST` | ≡ `none`, que la sonde refusait **nommément** — mais celui-ci n'était **pas listé** | `rc=0` |
+| ④ | `sloppiness = file_stat_matches[,_ctime]` | un **en-tête** modifié à taille **et** dates égales fait servir l'objet de la version précédente ; **reproduit 4/4** | **`rc=0`** — voir ci-dessous |
+
+⭐ **Ce que cette variante a de propre à elle** : les treize précédentes se voient dans un journal
+(un test qui ne tourne pas, un lien qui ne se refait pas, une restauration qui ne restaure rien).
+⛔ **Celle-ci ne laisse AUCUNE trace** : la compilation réussit, l'objet est bien daté, le test est
+vert, et le `.o` ne correspond simplement pas à la source. **Elle ne se voit qu'en comparant l'objet
+à celui d'une compilation propre** — c'est-à-dire en le cherchant.
+
+### ⛔ Et la garde elle-même était *fail-open* — cinq fois
+
+⭐ **La cause de ④ est mesurée, et elle est instructive : l'unité de traduction de la sonde n'avait
+aucun `#include`.** `file_stat_matches` porte sur les **fichiers inclus** ; sans inclusion, le
+mensonge **ne peut pas se manifester**. La sonde imprimait donc « aller-retour honnête », `rc=0`, sur
+un cache démontré menteur — **seule une liste noire de chaînes protégeait**.
+
+Les autres modes : un build câblé par `CXX="ccache g++"` (cache **actif**) rendait `SKIP rc=77` ; un
+`CXX` exporté **avec un argument** faisait **planter** la sonde (`ccache: invalid option -- 'g'`) et
+elle **convertissait sa propre panne en `77`** ; et ⭐ **`obj(A) == obj(B)` — c'est-à-dire exactement
+le mensonge — était classé « non concluant », `77`**. ⚠️ **`SKIP` et `PASS` étaient indiscernables
+dans le journal.**
+
+**Deux règles générales en sortent**, écrites dans `DECISIONS.md` (2026-08-26) :
+1. *Une garde qui ne sait pas conclure doit échouer, pas se taire — et son silence doit être
+   impossible à confondre avec un succès.*
+2. *Interdire ce qu'on connaît ne protège que de ce qu'on connaît ; exiger ce qu'on a audité protège
+   du reste.* ⇒ liste noire **remplacée par une liste blanche** (`sloppiness` vide ·
+   `compiler_check = content` · `hash_dir = true` · `base_dir` vide).
+
+⚠️ **La moitié empirique reste un détecteur par ÉCHANTILLON.** Avec le `#include` ajouté et la mtime
+figée dans le passé, elle voit ④ **seule**, garde désarmée, en **4/4**. Elle prouve qu'un mensonge
+s'est produit — **jamais qu'aucun ne peut se produire**. La liste blanche reste la garde principale ;
+les deux ne se remplacent pas.
+
+*(Note mesurée, à garder des deux côtés : **`base_dir` est SAIN.** C'est le **bon** levier si l'on
+veut un jour partager le cache entre chemins différents. ⛔ **Le réflexe naturel — `hash_dir=false` —
+est le mensonge ①.**)*
