@@ -8,6 +8,136 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅ [`T3.53`](T3.53.md) MERGÉE — 4 commits de la branche + 1 commit de doc, `--ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`0d445230`**.
+  ⭐ **CE MERGE FERME LA PAIRE LA PLUS EXPOSÉE DU SOUS-SYSTÈME WAGO : celle dont les deux types
+  sont le MÊME type.** `WagoMap.h:81-82` portaient `sigc::slot/signal<void, bool, string, string>` ;
+  sur `master` la mutation par échange des deux `typedef` **ne peut même pas être ÉCRITE** (même
+  texte des deux côtés), et les six permutations écrivables compilaient **`rc=0`, 0 `error:`**.
+  ⇒ **aucun compilateur ne pouvait jamais rien en dire ; le typage par rôle était le seul remède.**
+
+  ⚠️ **`master` avait avancé de `75ed9cb9` à `c287d700` (T3.49 mergée) ⇒ REBASE.** **Deux
+  conflits, tous deux des appends des deux côtés.** ⭐ **Et le piège de l'`endif` ne s'applique
+  PAS ici — c'est mesuré, pas espéré** : `tests/Makefile.am` a le **blob IDENTIQUE** sur
+  `75ed9cb9` et `c287d700`, donc **aucun conflit**. Prouvé quand même sur le résultat : **préfixe
+  STRICT** (`bytes.startswith`, jamais un `diff`) des **184 928 octets** de `master`, suivi d'une
+  **queue de 49 lignes** qui est exactement le bloc du ticket ; `^if*`/`endif` **86/86 → 87/87**,
+  profondeur finale **0**, **minimum 0, jamais négative** ; entrées `TESTS` **101 → 102**, toutes
+  uniques, **une seule ajoutée** (`core/WagoUdpReply_test`).
+  - **`FINDINGS.md`** — **les deux côtés gardés**, T3.49 (de `master`) puis T3.53 appendue sous son
+    propre titre `##`. Contrôles : **0 marqueur en DÉBUT DE LIGNE**, `## T3.49 —` et `## T3.53 —`
+    **une fois chacun**, résultat = **`master` en préfixe strict + 4 963 octets de queue**, et
+    **0 ligne longue dupliquée dans la zone fusionnée** (les **4** doublons du fichier sont
+    **préexistants sur `master`**, mesuré, aucun ne touche la queue).
+  - **`BOARD.md`** — les deux côtés ajoutaient une ligne : T3.56 (`master`) et T3.55 (branche).
+    **Tri par NUMÉRO** ⇒ T3.55 **avant** T3.56. ⛔ **Un défaut de table trouvé au passage** : la
+    ligne `T3.55` livrée n'avait que **3 colonnes sur 6** (4 `|` au lieu de 7) — elle **cassait le
+    tableau**. **Complétée au merge** (`| fix | — | 📋 |`).
+
+  ⭐ **LES TROIS RÉSERVES ONT ÉTÉ REJOUÉES, PAS RELUES.**
+  1. ⭐ **R3 — le contrôle sur lequel repose toute la méthode, rejoué avec le NOUVEAU harnais.**
+     `M0`, `M5`, `M6`, `M7`, `M0-end` sur l'arbre **rebasé** (harnais de l'auteur, `ORDER` réduit,
+     rien d'autre changé). ⇒ **`M0` et `M0-end` : `rc=0`, ensemble VIDE, aucune cible en échec,
+     `CXXLD calaos_server` ET `CXXLD calaos_wago`** ; **`M5`/`M6`/`M7` : `rc=2`**, **une seule**
+     unité en échec (`IO/Wago/WODaliRVB.o`), **3 verdicts non vides deux à deux DISTINCTS**,
+     restauration **comptée 7/7** et vérifiée octet à octet.
+     ⚠️ ⭐ **CE QUI PORTE RÉELLEMENT LA DISTINCTION, ET IL FAUT LE DIRE** : les ensembles de lignes
+     `error:` de M5, M6 et M7 sont **IDENTIQUES au caractère près** — sigc++ nomme le foncteur, pas
+     le site. **Seul** le `required from here` lu dans le journal **PROPRE** de l'unité les sépare :
+     `WODaliRVB.cpp:73` · `:75` · `:77`. ⇒ **la distinction au grain du CAS tient, et elle tient
+     ENTIÈREMENT par l'attribution par unité de compilation.**
+     ⭐ **Et l'ANCIENNE règle est retombée dans son piège sous mes yeux** : le harnais enregistre en
+     parallèle ce qu'aurait répondu « le dernier `required from here` du journal `-j8` », et il
+     répond **`IO/Wago/WOVoletSmart.cpp:44`** — **une TU étrangère** — pour **M5, M6, M7 ET pour
+     `M0-end` où RIEN n'échoue** (et `WOVolet.cpp:44` pour `M0`). **La réserve était fondée et la
+     correction est la bonne.**
+     ⚠️ **Ce que je n'ai PAS vérifié** : l'auteur déclare n'avoir jamais retrouvé le harnais
+     d'origine — sa « règle naïve » est une **reconstitution**. L'écart 3-paires/0-paire est donc
+     mesuré **sur cette reconstitution**, et je n'ai pas de moyen d'en juger autrement. Ce qui est
+     établi, c'est que **la règle naïve telle que reconstituée désigne bien du bruit de journal**,
+     ici comme chez l'auteur.
+  2. **R1 — prémisse corrigée, revérifiée.** `docs/refactoring/RELEASE_NOTES.md` **existe**, est
+     **suivi par git**, fait **1279 lignes** et **51 commits** le touchent. §7.6 est bien réécrit en
+     **« aucune entrée due »**, la formulation de T3.46 §7.10 / T3.50 §7.7. Conclusion revérifiée :
+     **2 `*_HEADERS` dans tout `src/`**, **les deux dans `src/lib/libquickmail/Makefile.am`** ;
+     `src/bin/calaos_server/Makefile.am` n'en déclare **aucune** ⇒ signatures **internes**.
+  3. **R2 — reformulée aux CINQ endroits, et les mesures sous-jacentes refaites.** Les quatre du
+     ticket (`T3.53.md` §3 et §6.4, `FINDINGS.md`, `tests/Makefile.am`, `tests/core/WagoUdpReply_test.cpp`)
+     **plus la ligne `BOARD.md`** qui portait encore l'ancienne phrase — **vérifiés un par un** :
+     tous disent « **0 fichier nommé `*Dali*`** sous `tests/` » et « **aucun test du chemin de
+     RÉPONSE UDP** », et **tous citent `WagoPortDefault_test.cpp:220`/`:228`**. La phrase « aucun
+     test DALI » ne subsiste que là où elle est **explicitement corrigée**. Mesures refaites sur
+     `c287d700` : **0** fichier nommé `*Dali*` sous `tests/` (**2** fichiers seulement mentionnent
+     DALI), `:220` et `:228` sont bien `ADaliOutputWithABlankPortKeepsTheModbusDefault` et
+     `ADaliRvbOutputWithABlankPortKeepsTheModbusDefault`, et ce fichier ne nomme **ni**
+     `udpRequest_cb` **ni** `WagoUDPCommand` **ni** `SendUDPCommand` — **0 occurrence des trois**.
+
+  ⭐ **[`T3.55`](T3.55.md) — VÉRIFIÉE AU MERGE, y compris le point qui décide de sa priorité.**
+  **84 sites recomptés à l'identique** par balayage indépendant (commentaires blanchis) : **2**
+  `typedef` (`Squeezebox.h:37`, `:38`), **27** déclarations (`:92`…`:137`), **26** définitions,
+  **28** `sigc::mem_fun` sur **26** cibles distinctes, **1** émission (`Squeezebox.cpp:408`) —
+  **56** à la convention de T3.53 §5 (sans les enregistrements) contre **13**, donc le « ~78 contre
+  13 » du signalement est bien corrigé. Périmètre confiné à **2 fichiers** de tout `src/`, et la
+  déclaration morte `get_album_cover_id_cb` (`:135`) est confirmée **déclarée, jamais définie**.
+  ⭐ **Sonde `-Wunused-parameter` REJOUÉE dans le conteneur** : unité `rc=0`, témoin négatif **0**,
+  ⇒ **26 avertissements `unused parameter 'request'` exactement aux 26 lignes de définition**,
+  **0 pour `result`** ; sonde au site (`p.Parse(result)` → `p.Parse(request)` dans `get_album_cb`)
+  ⇒ `result` apparaît **exactement à `Squeezebox.cpp:718`** et les `request` tombent **26 → 25** ;
+  restauration ⇒ **0 / 26**. ⇒ ⭐ **la réponse est bien l'INVERSE de T3.53** : `result` lu par les
+  26 implémentations, `request` par **aucune** — et la gravité reste **HAUTE**, puisque après
+  permutation **les 26 analyseurs parsent la commande**.
+  ⭐ **ET LE FILET EST BIEN ABSENT, MESURÉ** : `Squeezebox_test_LDADD` et
+  `SqueezeboxWire_test_LDADD` **ne contiennent PAS** `Audio/Squeezebox.$(OBJEXT)` — leurs
+  `_SOURCES` se réduisent au `.cpp` du test, leur `LDADD` à `libcalaos_common.la` + gtest ⇒
+  ⛔ **`F-LINK-1` dans sa forme la plus littérale : « couvert » n'y veut pas dire « exercé »**.
+  **C'est ce qui fixe la priorité de T3.55 : haute gravité ET aucun filet.**
+  ⛔ **Deux chiffres de la fiche corrigés au merge** : « **deux** callbacks enregistrés **deux**
+  fois » est faux — c'est **UN SEUL**, `get_playlist_info_cb`, enregistré **TROIS** fois
+  (`Squeezebox.cpp:1292`, `:1309`, `:1315`) ; les totaux 28/26 sont justes. Et « **15** fichiers de
+  `tests/` mentionnent Squeezebox » ⇒ **10** (13 en insensible à la casse).
+
+  ⭐ **BUILD DE VALIDATION POST-REBASE, arbre NEUF, un seul conteneur attendu par `docker wait`**
+  (`autogen.sh` + `configure` + `make -j32` + `make check -j8`, tout sur DISQUE) :
+  **`AUTOGEN_RC=0 CONFIGURE_RC=0 MAKE_RC=0 CHECK_RC=0`**, **`# TOTAL: 102`** — **= mon recompte
+  indépendant** des entrées `TESTS` de `tests/Makefile.am` (**102 uniques**, **96** binaires gtest
+  + **6** scripts) —, **`# PASS: 101` / `# SKIP: 1` / `# FAIL: 0` / `# XFAIL: 0` / `# XPASS: 0` /
+  `# ERROR: 0`**, **un seul `Testsuite summary`**, **0 `error:`** dans les deux journaux,
+  **108 lignes `CXXLD`** (regex **ancrée** `^  CXXLD +\S+$`, **double espace**) dont
+  **`calaos_wago` 1**, **`calaos_server` 1** et **`core/WagoUdpReply_test` 1**. **102 `.trs` =
+  101 `PASS` + 1 `SKIP`** — le `SKIP` est `run-python-tests.sh`, **vérifié dans son propre `.trs`**,
+  **normal** ; **103 `.log`**, le 103ᵉ étant l'agrégat `test-suite.log`.
+  ⭐ **Les CAS et les DURÉES sont recomptés, pas recopiés** : **1668 cas exécutés**, **1667 `OK` +
+  1 `SKIPPED`**, **aucune suite à 0 cas**. ⚠️ **1668 et non les 1667 de l'auteur, et l'écart est
+  EXPLIQUÉ, pas arrondi** : `master` a bougé entre-temps et **T3.49 a ajouté un témoin à
+  `ShutterImpulse` (19 → 20 cas)**. Le `SKIPPED` est
+  `ConfigRobustnessTest.FailedSaveKeepsThePreviousConfigIntact`, **préexistant**, sans rapport.
+  `core/WagoUdpReply_test` rend **`9 tests from 2 test suites`**, **`[  PASSED  ] 9 tests.`**,
+  **112 ms**. **88,7 s** de gtest cumulé ; les deux cas les plus longs sont **exactement
+  `5000 ms`** — `LuaSandbox.InfiniteLoopIsAbortedByTheWatchdog` et
+  `…HotNumericLoopIsAbortedByTheWatchdog` —, c'est-à-dire `SCRIPT_MAX_EXEC_TIME 5.0`
+  (`LuaScript/ScriptManager.h:31`) : ⭐ **le plateau EST la fenêtre du chien de garde, il n'y a
+  RIEN à instruire** ; le 3ᵉ est à **2751 ms**.
+  ⚠️ ⭐ **`F-FLAKY-1` PAS VU** : `core/ShutterImpulse_test` rend **`[  PASSED  ] 20 tests.`** et
+  **0 ligne `[  FAILED  ]`**, **aucune relance**. **Et depuis T3.49 ce ne serait plus « le
+  flottement connu » : si ce test rougit désormais, c'est une régression à INSTRUIRE.**
+  ⭐ **145 goldens, arbre `tests/core/golden` = `d4ebc61fb2b1876f587d075a0cb050750dc1876f`,
+  IDENTIQUE à `master`, aucun bougé — vérifié APRÈS le build, APRÈS la campagne de mutation ET
+  APRÈS la sonde T3.55.** `git status -uall` **VIDE** hors ce commit de doc. ⛔ **Non poussé.**
+
+  ⚠️ **CE QUE L'AUTEUR DÉCLARE NON FAIT — jugé, et je confirme que la fiche le dit ainsi.**
+  - **Le harnais original n'a pas été retrouvé** : la « règle naïve » est une **reconstitution**
+    (voir R3 ci-dessus). **Non réparable a posteriori** ; ce qui compte — que l'attribution par
+    unité de compilation soit, elle, correcte — **est mesuré**.
+  - ⭐ **`T3.55` n'a subi AUCUNE mutation compilée**, et **la fiche l'écrit noir sur blanc** (§6,
+    *« je l'affirme par analogie de forme avec T3.53 — c'est un raisonnement, pas une mesure, et le
+    ticket devra le mesurer »*). **Vérifié : la fiche ne surestime pas ce qu'elle a fait.**
+  - **La phase A (côté `master`) de la campagne n'a pas été rejouée**, seulement la phase B —
+    **exact**, et je n'ai pas rejoué la phase A non plus : ce que j'ai mesuré, c'est que **l'arbre
+    LIVRÉ refuse les permutations**, pas que `master` les acceptait.
+  - **Les 24 cas des tests Squeezebox sont un comptage de `^TEST(`** — **revérifié : 7 + 17 = 24**,
+    et **ces binaires n'ont toujours pas été exécutés isolément**. Sans importance ici, puisque le
+    point décisif est qu'ils **ne lient pas l'objet de production**.
+
+
 - **✅ [`T3.49`](T3.49.md) MERGÉE — 5 commits de la branche + 1 commit de doc, `--ff-only`, historique linéaire, 0 commit de fusion.**
   ⭐ **CE MERGE ENLÈVE LE SEUL ÉCHEC CONNU DE `master` : `master` redevient VERT AU SENS STRICT.**
   `F-FLAKY-1` — l'horloge **en cache** de `libuv` — est fermée, et le diagnostic d'origine de la
