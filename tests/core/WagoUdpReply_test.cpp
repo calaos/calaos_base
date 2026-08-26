@@ -81,7 +81,10 @@
  *     their own .cpp (WODali.cpp:62, WODaliRVB.cpp:73/:75/:77): converting a
  *     mem_functor into a WagoUdp_cb requires the member to be callable with
  *     the typed argument list, so a re-widening there is a BUILD FAILURE.
- *     Measured, mutations M3..M6 of docs/refactoring/T3.53.md - not assumed.
+ *     Measured, mutations M4..M7 of docs/refactoring/T3.53.md - not assumed,
+ *     and re-measured after review with the verdict attributed PER
+ *     COMPILATION UNIT (T3.53 s7.3): each one is refused at its own
+ *     registration line, 0 identical pair out of 7 non-empty verdicts.
  *   - ⛔ WODaliRVB::WagoUDPCommand_cb (WODaliRVB.h:41, WODaliRVB.cpp:164) is
  *     registered NOWHERE: it is the fifth definition and there are only four
  *     sigc::mem_fun. Its address is taken by no line of the tree (measured).
@@ -269,9 +272,21 @@ TEST(WagoUdpReply, TheWrapperShapeIsWhatCloses)
 }
 
 /*----------------------------------------------------------------------------
- * ⭐ THE EXERCISE - production DALI objects, actually run. There was NOT ONE
- * DALI test in this tree before this file (measured: zero *Dali* under
- * tests/), so everything below starts from a blank page.
+ * ⭐ THE EXERCISE - production DALI objects, actually run.
+ *
+ * ⚠️ SCOPE OF THE "no test" CLAIM, WRITTEN AT THE GRAIN OF WHAT WAS MEASURED.
+ * An earlier wording said "there was not one DALI test in this tree". That is
+ * WIDER than the measurement and it is wrong: master already carries
+ * ADaliOutputWithABlankPortKeepsTheModbusDefault and
+ * ADaliRvbOutputWithABlankPortKeepsTheModbusDefault
+ * (core/WagoPortDefault_test.cpp:220 and :228), which build a production
+ * WODali and WODaliRVB through the same factory. What was actually measured
+ * is two narrower facts:
+ *   - ZERO file NAMED *Dali* under tests/ (0 of the tree's test files), and
+ *   - NO test of the UDP REPLY PATH at all - WagoPortDefault_test exercises
+ *     the Modbus port default (WODali.cpp:53, WODaliRVB.cpp:66), never
+ *     WagoMap::udpRequest_cb() nor WagoUDPCommand_cb.
+ * The reply path is what starts from a blank page here, not "DALI".
  *
  * The path is the production one end to end: the constructor queues a
  * "WAGO_DALI_GET ..." through WagoMap::SendUDPCommand() with a sigc::mem_fun

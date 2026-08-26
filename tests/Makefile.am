@@ -3078,8 +3078,11 @@ endif
 #slot and the signal that carry a UDP reply from calaos_wago back to a DALI
 #ballast. They carried (string command, string result) - the SAME type twice in
 #a row, so unlike every other pair of the Wago chain no compiler could ever
-#diagnose a permutation. There was NOT ONE DALI test in this tree before this
-#file.
+#diagnose a permutation.
+#Scope of the "no test" claim, at the grain of the measurement: ZERO file NAMED
+#*Dali* under tests/, and NO test of the UDP REPLY PATH. master does already
+#carry two DALI cases (core/WagoPortDefault_test.cpp:220 and :228) but they
+#exercise the Modbus port default, never WagoMap::udpRequest_cb().
 #The *Refuses* cases are a COMPILATION property reported through an executable
 #oracle (std::is_invocable_v / std::is_same_v read by EXPECT_FALSE), never a
 #behavioural one, and every EXPECT_FALSE has its EXPECT_TRUE control inside its

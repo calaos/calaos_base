@@ -7182,8 +7182,14 @@ réponse attendue.
 `WAGO_DALI_GET`, et chaque canal de `WODaliRVB` **range son adresse DALI comme niveau**. **Une
 valeur fausse vivante**, pas un no-op.
 
-⭐ **UN TEST COMPORTEMENTAL EXISTE ET IL EST PROUVÉ CAPABLE DE ROUGIR.** Il n'y avait **aucun test
-DALI** dans l'arbre. `tests/core/WagoUdpReply_test.cpp` construit un `WODali` et un `WODaliRVB` par
+⭐ **UN TEST COMPORTEMENTAL EXISTE ET IL EST PROUVÉ CAPABLE DE ROUGIR.** ⚠️ **Portée au grain de la
+mesure, après correction d'une première rédaction trop large** : il n'y avait **`0` fichier nommé
+`*Dali*`** sous `tests/` et **aucun test du chemin de RÉPONSE UDP** — mais **pas** « aucun test
+DALI » : `master` porte déjà `ADaliOutputWithABlankPortKeepsTheModbusDefault` et
+`ADaliRvbOutputWithABlankPortKeepsTheModbusDefault` (`tests/core/WagoPortDefault_test.cpp:220`,
+`:228`), qui construisent des `WODali`/`WODaliRVB` de production par la fabrique — sur le **défaut
+de port Modbus**, jamais sur `udpRequest_cb()`.
+`tests/core/WagoUdpReply_test.cpp` construit un `WODali` et un `WODaliRVB` par
 le **constructeur de production** via `IOFactory`, les nourrit par `WagoMap::udpRequest_cb()`
 (public) et relit par `get_value_string()` (public). Sur `master`, permutation appliquée au seul
 site d'émission puis binaire **reconstruit et exécuté** : **2 cas passent au ROUGE**. Les 3 qui
@@ -7193,12 +7199,36 @@ restent verts sont des **contrôles** dont ce n'est pas le rôle — dit plutôt
 **deux mutations DIFFÉRENTES peuvent produire des ensembles de lignes `error:` IDENTIQUES sans que
 le typage y soit pour rien.** Les permutations de `…Red_cb`, `…Green_cb` et `…Blue_cb` donnaient
 **3 paires identiques sur 4 ensembles non vides** : sigc++ signale l'échec depuis
-`adaptor_trait.h` et nomme le **foncteur**, identique pour les trois canaux. ⭐ **Le remède est
-d'enrichir le VERDICT, pas d'accuser la mutation** : le contexte d'instanciation de gcc
-(`… required from here`) nomme le site, et l'on obtient **0 paire identique** — chaque
-implémentation étant refusée **à sa propre ligne d'enregistrement** (`WODali.cpp:62`,
-`WODaliRVB.cpp:73`, `:75`, `:77`). **Publier « ensembles distincts » sans cette passe aurait été
-faux.**
+`adaptor_trait.h` et nomme le **foncteur**, identique pour les trois canaux. Le remède cherché fut
+d'enrichir le VERDICT du contexte d'instanciation de gcc (`… required from here`).
+
+⛔ **ET LE REMÈDE ÉTAIT LUI-MÊME UN FAUX VERT — c'est la vraie leçon, mesurée à la reprise.**
+L'enrichissement prenait le **dernier `required from here` du journal `make -k -j8` ENTIER**, un
+journal **entrelacé** où l'ordre ne veut rien dire. Campagne **rejouée** : cette règle désigne
+`IO/Wago/WOVoletSmart.cpp:44` — **une unité de compilation ÉTRANGÈRE** — pour **M3, M4, M5, M6 et
+M7** à la fois, **et même pour les trois témoins où RIEN n'échoue** (M0, M8, M0-end). ⇒ **sous
+cette règle M5, M6 et M7 redeviennent identiques : 3 paires identiques.** Le garde-fou contre le
+faux vert **était** un faux vert.
+
+⭐ **LE CORRECTIF, ET IL EST GÉNÉRAL : ASSOCIER PAR UNITÉ DE COMPILATION, PAS PAR PROXIMITÉ DANS LE
+JOURNAL.** (1) le passage `-k -j8` ne sert plus qu'au **code de retour** et à **l'ensemble des
+cibles en échec**, lues dans les lignes que **make** écrit lui-même — `*** [<makefile>:<ligne>:
+<cible>] Error N`, une ligne, une cible nommée ; (2) **chaque cible en échec est recompilée SEULE,
+dans son propre processus, avec sa propre sortie capturée** ⇒ l'association est **par
+construction**, jamais par lecture. Résultat : **0 paire identique sur 7 verdicts non vides**,
+**ensemble VIDE sur les 3 témoins**, chaque implémentation refusée **à sa propre ligne
+d'enregistrement** (`WODali.cpp:62`, `WODaliRVB.cpp:73`, `:75`, `:77`), et **8/8** des sites
+attribués appartiennent bien au `.cpp` de leur unité. ⚠️ **À retenir hors de ce ticket : un verdict
+de mutation qui dépouille un journal PARALLÈLE dépouille un document où l'ordre n'a pas de sens.**
+
+⭐ **ET UNE LEÇON D'ÉCRITURE, LA TROISIÈME DE LA MÊME NUIT** *(après E4.1l et T3.53 §7.6)* :
+**écrire sa portée au plus près de ce qu'on a MESURÉ.** Trois affirmations de cette campagne
+étaient *plus larges* que leur mesure — « aucun test DALI » (mesuré : **0 fichier nommé `*Dali*`**
+et **aucun test du chemin de réponse UDP**), « il n'existe aucun fichier `RELEASE_NOTES` » (mesuré :
+**aucune ENTRÉE due** ; le fichier existe, suivi, 1279 lignes) et « ensembles distincts » (mesuré :
+distincts **une fois l'association construite par unité**). ⚠️ **Aucune des trois n'était une erreur
+de mesure : les trois étaient des erreurs de PHRASE.** Une conclusion juste énoncée trop largement
+est indiscernable d'une conclusion fausse pour le lecteur suivant — et c'est lui qui la recopiera.
 
 ⚠️ **Et un piège de build rencontré, à ne pas confondre avec un rouge** : après un changement
 d'en-tête seul, l'objet de test de `tests/` n'a **pas** été reconstruit et le binaire relié
@@ -7206,6 +7236,27 @@ d'en-tête seul, l'objet de test de `tests/` n'a **pas** été reconstruit et le
 brouillées par les `os.utime` de la campagne. **Un `rm -f` de l'objet du test, pas seulement du
 binaire, avant de juger.**
 
-⛔ **Repéré en passant, NON traité, non numéroté** : `Audio/Squeezebox.cpp:408` —
-`sig.emit(status, cmd.request, cmd.result, cmd.user_data)`, **même motif `(request, result)` de
-même type**, hors du sous-système Wago.
+⭐ **LE MÊME DÉFAUT EXISTE HORS DE WAGO, ET IL EST 5× PLUS GROS — numéroté [T3.55](T3.55.md).**
+`Audio/Squeezebox.h:37-38` déclarent `sigc::slot/signal<void, bool, string, string,
+AudioPlayerData>` : **la même paire adjacente de type identique**, émise une seule fois
+(`Squeezebox.cpp:408`). **Recompté** : **84 sites** (2 `typedef`, 27 déclarations, 26 définitions,
+28 `sigc::mem_fun` sur 26 cibles, 1 émission) contre **17** pour la paire DALI recomptée à la même
+règle — ⚠️ **et les deux conventions sont dites** : sans les enregistrements (celle de T3.53 §5,
+qui annonce **13**), Squeezebox pèse **56** ⇒ ≈4,3× ; enregistrements inclus, **84** contre **17**
+⇒ ≈4,9×. **Le signalement initial disait « ~78 contre 13 » : corrigé.**
+
+⭐ **Et la sonde au site y répond L'INVERSE de ce qu'elle répond ici, ce qui interdit de recopier la
+conclusion** : `g++ -Wunused-parameter` ajouté après le `-Wno-unused-parameter` du projet, unité
+compilée (`rc=0`), **témoin négatif à 0**, sonde au site validée
+(`Squeezebox.cpp:718: warning: unused parameter 'result'` apparaît exactement là quand on fait
+cesser la lecture, et les `request` tombent de 26 à 25) ⇒ ⛔ **`result` est lu par les 26
+implémentations, `request` par AUCUNE — 26 avertissements `unused parameter 'request'`, un par
+définition.**
+
+⚠️ **Ce n'est PAS l'atténuation de T3.50** — où **les deux** membres étaient morts. Ici un seul
+l'est, et c'est **l'autre** qui décide : après permutation le paramètre `result` reçoit **le texte
+de la commande**, et **les 26 analyseurs le parsent**. ⇒ **valeurs fausses vivantes**, gravité de
+T3.46/T3.53. ⚠️ **Et aucun filet** : `tests/` porte bien **2 fichiers nommés `*Squeezebox*`**
+(24 cas), mais **aucun des deux ne LIE `Audio/Squeezebox.$(OBJEXT)`** — ils réimplantent la logique
+(`SqueezeboxWire_test.cpp:141` annonce porter le *verbatim body* de la fonction) — et **aucun
+n'atteint le chemin de réponse**. ⭐ **`F-LINK-1` dans sa forme la plus littérale.**
