@@ -136,11 +136,25 @@ public:
     void buildJsonIO(IOBase *io, Json &jio);
     Json buildJsonRoomIO(Room *room);
 
-    //result is given with a call to a lambda because we may need to wait for
-    //network queries
-    void buildJsonState(vector<string> iolist, std::function<void(json_t *)>result_lambda);
-    void buildJsonStates(const Params &jParam, std::function<void(json_t *)>result_lambda);
-    void buildQuery(const Params &jParam, std::function<void(json_t *)>result_lambda);
+    /* result is given with a call to a lambda because we may need to wait for
+     * network queries.
+     *
+     * E4.1n: the three of them answer a Json BY VALUE, and that is the whole
+     * change of ownership. With json_t* the callee handed over a reference and
+     * the caller had to json_decref() it on EVERY path, including the abandon
+     * path of an async chain; with a value there is nothing to release. THE
+     * LIFE GUARDS ARE NOT PART OF THAT, and must not be removed with the
+     * decrefs: apiAlive (:256) protects `this` and the raw handler pointers the
+     * result lambda captures, not the document.
+     *
+     * The copy is real: buildJsonState() captures by copy through six nested
+     * lambdas. It is correct, and it is the price of the guarantee. If it ever
+     * matters, std::move - but NEVER a captured `Json &`, the lambda outlives
+     * its scope.
+     */
+    void buildJsonState(vector<string> iolist, std::function<void(Json)>result_lambda);
+    void buildJsonStates(const Params &jParam, std::function<void(Json)>result_lambda);
+    void buildQuery(const Params &jParam, std::function<void(Json)>result_lambda);
 
     json_t *buildJsonGetParam(const Params &jParam);
     json_t *buildJsonSetParam(const Params &jParam);

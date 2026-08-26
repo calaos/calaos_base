@@ -447,16 +447,27 @@ Json JsonApi::buildJsonAudio()
     return jdata;
 }
 
-void JsonApi::buildJsonState(vector<string> iolist, std::function<void(json_t *)> result_lambda)
+void JsonApi::buildJsonState(vector<string> iolist, std::function<void(Json)> result_lambda)
 {
-    //The audio-player part below is asynchronous (squeezebox answers come
-    //back later on the loop). Every json container is therefore owned by a
-    //shared_ptr with json_decref as deleter, captured by value in the
-    //callbacks: whatever happens to the chain (client disconnected, player
-    //deleted, callback never invoked), the json is released exactly once.
-    //Ownership of the result is handed to result_lambda with an extra
-    //reference (json_incref), the caller keeps its usual json_decref.
-    std::shared_ptr<json_t> sjio(json_object(), json_decref);
+    /* The audio-player part below is asynchronous (squeezebox answers come back
+     * later on the loop), so the document being filled is SHARED between the
+     * player chains and the completion: it stays behind a shared_ptr.
+     *
+     * E4.1n: what the shared_ptr no longer carries is a REFCOUNT. The jansson
+     * version needed json_decref as a deleter and an explicit json_incref to
+     * hand the result over; with a Json the container owns its subtree, the
+     * result goes out BY VALUE, and there is nothing left to release on any
+     * path - including the one where the callback is never invoked at all.
+     * The T2.15 leak (json_object_set instead of _new, one reference lost per
+     * state built) cannot be written any more.
+     *
+     * Json::object() and NOT `Json sjio;`: a default-constructed Json is
+     * `null`, not `{}`, and an empty state answered as null would be a silent
+     * change of document that no golden can see (they compare parsed
+     * documents; null and {} are both valid). Pinned by
+     * core/JsonApiStateWireBytes_test.
+     */
+    auto sjio = std::make_shared<Json>(Json::object());
     list<AudioPlayer *> audioplayers;
 
     for (string ioid: iolist)
@@ -466,12 +477,17 @@ void JsonApi::buildJsonState(vector<string> iolist, std::function<void(json_t *)
 
         if (io->get_param("gui_type") != "audio_player")
         {
+            //Everything leaves as a STRING, int and double included: the
+            //oracle of the golden suite is type-strict (3 != "3") and a real
+            //JSON number here would break every client. std::string and not
+            //c_str(): jansson truncated a value at an embedded NUL in silence,
+            //this does not.
             if (io->get_type() == TBOOL)
-                json_object_set_new(sjio.get(), ioid.c_str(), json_string(io->get_value_bool()?"true":"false"));
+                (*sjio)[ioid] = io->get_value_bool()?"true":"false";
             else if (io->get_type() == TINT)
-                json_object_set_new(sjio.get(), ioid.c_str(), json_string(Utils::to_string(io->get_value_double()).c_str()));
+                (*sjio)[ioid] = Utils::to_string(io->get_value_double());
             else if (io->get_type() == TSTRING)
-                json_object_set_new(sjio.get(), ioid.c_str(), json_string(io->get_value_string().c_str()));
+                (*sjio)[ioid] = io->get_value_string();
         }
         else
         {
@@ -499,7 +515,7 @@ void JsonApi::buildJsonState(vector<string> iolist, std::function<void(json_t *)
         if (playerCounts[uuid] <= 0)
         {
             playerCounts.erase(uuid);
-            result_lambda(json_incref(sjio.get()));
+            result_lambda(*sjio);
         }
     };
 
@@ -516,15 +532,13 @@ void JsonApi::buildJsonState(vector<string> iolist, std::function<void(json_t *)
             return dynamic_cast<AudioPlayer *>(ListeRoom::Instance().get_io(playerId));
         };
 
-        std::shared_ptr<json_t> sjplayer(json_object(), json_decref);
+        auto sjplayer = std::make_shared<Json>(Json::object());
 
         player->get_playlist_current([=](AudioPlayerData data1)
         {
             if (alive.expired()) return;
 
-            json_object_set_new(sjplayer.get(),
-                                "playlist_current_track",
-                                json_string(Utils::to_string(data1.ivalue).c_str()));
+            (*sjplayer)["playlist_current_track"] = Utils::to_string(data1.ivalue);
 
             AudioPlayer *p1 = playerById();
             if (!p1) { finishOne(); return; }
@@ -533,9 +547,7 @@ void JsonApi::buildJsonState(vector<string> iolist, std::function<void(json_t *)
             {
                 if (alive.expired()) return;
 
-                json_object_set_new(sjplayer.get(),
-                                    "volume",
-                                    json_string(Utils::to_string(data2.ivalue).c_str()));
+                (*sjplayer)["volume"] = Utils::to_string(data2.ivalue);
 
                 AudioPlayer *p2 = playerById();
                 if (!p2) { finishOne(); return; }
@@ -544,9 +556,7 @@ void JsonApi::buildJsonState(vector<string> iolist, std::function<void(json_t *)
                 {
                     if (alive.expired()) return;
 
-                    json_object_set_new(sjplayer.get(),
-                                        "playlist_size",
-                                        json_string(Utils::to_string(data3.ivalue).c_str()));
+                    (*sjplayer)["playlist_size"] = Utils::to_string(data3.ivalue);
 
                     AudioPlayer *p3 = playerById();
                     if (!p3) { finishOne(); return; }
@@ -555,9 +565,7 @@ void JsonApi::buildJsonState(vector<string> iolist, std::function<void(json_t *)
                     {
                         if (alive.expired()) return;
 
-                        json_object_set_new(sjplayer.get(),
-                                            "time_elapsed",
-                                            json_string(Utils::to_string(data4.dvalue).c_str()));
+                        (*sjplayer)["time_elapsed"] = Utils::to_string(data4.dvalue);
 
                         AudioPlayer *p4 = playerById();
                         if (!p4) { finishOne(); return; }
@@ -577,14 +585,12 @@ void JsonApi::buildJsonState(vector<string> iolist, std::function<void(json_t *)
                             case AudioSongChange: status = "song_change"; break;
                             }
 
-                            json_object_set_new(sjplayer.get(),
-                                                "status",
-                                                json_string(status.c_str()));
+                            (*sjplayer)["status"] = status;
 
                             AudioPlayer *p5 = playerById();
                             if (!p5) { finishOne(); return; }
 
-                            std::shared_ptr<json_t> sjtrack(json_object(), json_decref);
+                            auto sjtrack = std::make_shared<Json>(Json::object());
                             p5->get_songinfo([=](AudioPlayerData data6)
                             {
                                 if (alive.expired()) return;
@@ -595,20 +601,18 @@ void JsonApi::buildJsonState(vector<string> iolist, std::function<void(json_t *)
                                     string inf_key, inf_value;
                                     infos.get_item(i, inf_key, inf_value);
 
-                                    json_object_set_new(sjtrack.get(),
-                                                        inf_key.c_str(),
-                                                        json_string(inf_value.c_str()));
+                                    (*sjtrack)[inf_key] = inf_value;
                                 }
 
-                                //json_object_set (not _new): the shared_ptr
-                                //keeps its own reference and releases it, the
-                                //container ends up with exactly one.
-                                json_object_set(sjplayer.get(),
-                                                "current_track",
-                                                sjtrack.get());
+                                //A copy of the subtree, owned by its parent.
+                                //The reference dance of T2.15 (json_object_set
+                                //rather than _new, so the shared_ptr keeps its
+                                //own reference) has no equivalent and needs
+                                //none.
+                                (*sjplayer)["current_track"] = *sjtrack;
 
                                 //Add player to array, and send data back if all players requests are done.
-                                json_object_set(sjio.get(), playerId.c_str(), sjplayer.get());
+                                (*sjio)[playerId] = *sjplayer;
                                 finishOne();
                             });
                         });
@@ -622,12 +626,24 @@ void JsonApi::buildJsonState(vector<string> iolist, std::function<void(json_t *)
     if (playerCounts[uuid] == 0)
     {
         playerCounts.erase(uuid);
-        result_lambda(json_incref(sjio.get()));
+        result_lambda(*sjio);
     }
 }
 
-void JsonApi::buildJsonStates(const Params &jParam, std::function<void (json_t *)> result_lambda)
+void JsonApi::buildJsonStates(const Params &jParam, std::function<void (Json)> result_lambda)
 {
+    /* E4.1n: jansson_from_params() -> Params::toNJson(), which is Json(map).
+     * Two consequences, both declared:
+     *   - the key order does NOT move. Params IS a std::map, so the jansson
+     *     adapter already walked it alphabetically, and so does nlohmann.
+     *   - a pair whose VALUE is invalid UTF-8 stops DISAPPEARING. json_string()
+     *     answered NULL, json_object_set_new() answered -1, and neither return
+     *     code was ever tested (the adapter's own header says so): the client
+     *     silently received one pair fewer. It now arrives, with one U+FFFD per
+     *     invalid byte, written by the emitter's error handler.
+     * An empty Params answers {} and not null: Json(std::map) builds an OBJECT,
+     * measured, and core/JsonApiStateWireBytes_test pins it.
+     */
     Params res;
 
     if (jParam.Exists("id"))
@@ -636,7 +652,7 @@ void JsonApi::buildJsonStates(const Params &jParam, std::function<void (json_t *
         if (!o)
         {
             Params p = {{ "error", "wrong id" }};
-            result_lambda(jansson_from_params(p));
+            result_lambda(p.toNJson());
             return;
         }
 
@@ -664,10 +680,10 @@ void JsonApi::buildJsonStates(const Params &jParam, std::function<void (json_t *
         }
     }
 
-    result_lambda(jansson_from_params(res));
+    result_lambda(res.toNJson());
 }
 
-void JsonApi::buildQuery(const Params &jParam, std::function<void (json_t *)> result_lambda)
+void JsonApi::buildQuery(const Params &jParam, std::function<void (Json)> result_lambda)
 {
     Params res;
 
@@ -677,7 +693,7 @@ void JsonApi::buildQuery(const Params &jParam, std::function<void (json_t *)> re
         if (!o)
         {
             Params p = {{ "error", "wrong id" }};
-            result_lambda(jansson_from_params(p));
+            result_lambda(p.toNJson());
             return;
         }
 
@@ -686,7 +702,7 @@ void JsonApi::buildQuery(const Params &jParam, std::function<void (json_t *)> re
             res.Add(it.first, it.second);
     }
 
-    result_lambda(jansson_from_params(res));
+    result_lambda(res.toNJson());
 }
 
 json_t *JsonApi::buildJsonGetParam(const Params &jParam)

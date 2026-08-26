@@ -321,7 +321,10 @@ void JsonApiHandlerHttp::processGetState(json_t *jroot)
         }
     }
 
-    buildJsonState(iolist, [=](json_t *jret)
+    //E4.1n: same seam as on the websocket - the builders answer a Json, so
+    //these three resolve to sendJson(const Json &) (:267), which already
+    //carries the three emission invariants of E4.1b.
+    buildJsonState(iolist, [=](Json jret)
     {
         sendJson(jret);
     });
@@ -329,7 +332,7 @@ void JsonApiHandlerHttp::processGetState(json_t *jroot)
 
 void JsonApiHandlerHttp::processGetStates()
 {
-    buildJsonStates(jsonParam, [=](json_t *jret)
+    buildJsonStates(jsonParam, [=](Json jret)
     {
         sendJson(jret);
     });
@@ -337,7 +340,7 @@ void JsonApiHandlerHttp::processGetStates()
 
 void JsonApiHandlerHttp::processQuery()
 {
-    buildQuery(jsonParam, [=](json_t *jret)
+    buildQuery(jsonParam, [=](Json jret)
     {
         sendJson(jret);
     });
@@ -390,9 +393,9 @@ void JsonApiHandlerHttp::processGetIO(json_t *jroot)
 
 void JsonApiHandlerHttp::processSetState()
 {
-    json_t *jret = json_object();
-    json_object_set_new(jret, "success", json_string(decodeSetState(jsonParam)?"true":"false"));
-    sendJson(jret);
+    //E4.1n: one ASCII pair, and it does not move by one byte on this transport
+    //(there is no envelope on HTTP). Only the emitter changes.
+    sendJson(Json{{ "success", decodeSetState(jsonParam)?"true":"false" }});
 }
 
 void JsonApiHandlerHttp::processGetPlaylist()

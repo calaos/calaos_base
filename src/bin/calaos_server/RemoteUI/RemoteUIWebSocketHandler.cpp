@@ -230,30 +230,45 @@ void RemoteUIWebSocketHandler::sendInitialIOStates()
     // Convert set to vector for buildJsonState
     vector<string> iolist(referenced_ios.begin(), referenced_ios.end());
 
-    // buildJsonState may defer the callback through async audio-player
-    // queries: guard with the alive token, the handler may be deleted
-    // (device disconnect) before the result comes back
-    buildJsonState(iolist, [this, iolist, alive = std::weak_ptr<bool>(handlerAlive)](json_t *jret)
+    /* buildJsonState may defer the callback through async audio-player
+     * queries: guard with the alive token, the handler may be deleted
+     * (device disconnect) before the result comes back.
+     *
+     * E4.1n. THIS IS WHAT THE TICKET WAS FOR. Six lines used to sit here:
+     *
+     *      char *json_str = json_dumps(jret, JSON_COMPACT);
+     *      json_decref(jret);
+     *      if (json_str) { Json data = Json::parse(json_str); free(json_str);
+     *
+     * a full serialization plus a full reparse whose only purpose was to cross
+     * the border between the two libraries, on a path that runs at every device
+     * connection. buildJsonState() answers a Json now, so the bridge is one
+     * parameter.
+     *
+     * That Json::parse was also the ONLY throwing form of this file with no try
+     * above it (the other two, :128 and :185, are inside one), on a callback
+     * reached from the event loop - i.e. std::terminate on a live server if it
+     * ever threw. It could not, today, because jansson validated the UTF-8 that
+     * json_dumps re-emitted; it is deleted rather than left to become live when
+     * that validation goes.
+     *
+     * THE LIFE GUARD BELOW IS NOT PART OF THE CLEANUP. The decrefs disappear
+     * because ownership is by value; the weak_ptr protects `this`, not the
+     * document, and there are in fact TWO guards on this path - JsonApi's own
+     * apiAlive stops the chain before the lambda is even entered, and this one
+     * is the belt that also covers the post-auth timer, which is not inside
+     * JsonApi. Pinned by RemoteUiStateBridgeTest.
+     */
+    buildJsonState(iolist, [this, iolist, alive = std::weak_ptr<bool>(handlerAlive)](Json jret)
     {
         auto token = alive.lock();
         if (!token || !*token)
-        {
-            json_decref(jret); //we own the result, avoid leaking it
             return;
-        }
 
-        // Convert jansson json_t to nlohmann::json
-        char *json_str = json_dumps(jret, JSON_COMPACT);
-        json_decref(jret); //buildJsonState hands us the ownership
-        if (json_str)
-        {
-            Json data = Json::parse(json_str);
-            free(json_str);
-            sendJson("remote_ui_io_states", data);
+        sendJson("remote_ui_io_states", jret);
 
-            cDebugDom(TAG) << "RemoteUIWebSocketHandler: Sent initial IO states ("
-                     << iolist.size() << " IOs) to " << authenticated_remote_ui->get_param("id");
-        }
+        cDebugDom(TAG) << "RemoteUIWebSocketHandler: Sent initial IO states ("
+                 << iolist.size() << " IOs) to " << authenticated_remote_ui->get_param("id");
     });
 }
 

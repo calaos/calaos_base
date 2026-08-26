@@ -81,14 +81,19 @@
  * ---------------------------------------------------------------------------
  * DELTA CASES vs INVARIANT CASES - READ BEFORE EDITING
  * ---------------------------------------------------------------------------
- * Cases named ...Today pin the JANSSON bytes and are EXPECTED to be flipped by
- * the migration commit, which rewrites the assertion and drops the suffix. They
- * are the characterization half: they are green on an untouched tree and red
- * the moment src/ moves, which is how this file proves the path is EXERCISED
- * rather than merely compiled.
+ * THE FLIP HAS HAPPENED. This file shipped in two commits: the first pinned the
+ * JANSSON bytes, case by case, on an untouched tree (19 + 5 green, suffix
+ * ...Today); the migration commit rewrote exactly the assertions that had to
+ * move and dropped the suffix. That is the proof the path is EXERCISED and not
+ * merely compiled - a case that had to be edited is a case that ran.
  *
- * Cases with no suffix are INVARIANTS: they must stay green on both sides. If
- * one of them moves, a VALUE or a STRUCTURE changed - stop and understand why.
+ * Eleven cases flipped and thirteen did NOT. The thirteen are INVARIANTS and
+ * they must stay green forever: the three ...AnswersAnEmptyObject (the sixth
+ * delta guard), GetStatesKeysAreAlphabetical (Params is already a std::map),
+ * SetStateHttpBodyIsOneAsciiPair, and the two RemoteUI negatives
+ * (InitialStatesAreSortedAsciiAndLowercaseHex, InitialStatesAlreadyEscapeDel).
+ * If one of those moves, a VALUE or a STRUCTURE changed - stop and understand
+ * why before touching the assertion.
  *
  * ---------------------------------------------------------------------------
  * FIXTURE, AND THE "POOR FIXTURE" TRAP (12 recorded relapses in this series)
@@ -262,7 +267,7 @@ protected:
  * The fixture is asymmetric on purpose: with two ids already in alphabetical
  * order this case would be green on both sides and would measure nothing.
  ******************************************************************************/
-TEST_F(JsonApiStateWireBytesTest, GetStateHttpKeysAreInRequestOrderToday)
+TEST_F(JsonApiStateWireBytesTest, GetStateHttpKeysAreAlphabetical)
 {
     HttpTestRequest req;
     req.send(getStateRequest());
@@ -273,12 +278,12 @@ TEST_F(JsonApiStateWireBytesTest, GetStateHttpKeysAreInRequestOrderToday)
     ASSERT_NE(std::string::npos, keyPos(wire, IO_ZULU)) << wire;
     ASSERT_NE(std::string::npos, keyPos(wire, IO_ALPHA)) << wire;
 
-    EXPECT_LT(keyPos(wire, IO_ZULU), keyPos(wire, IO_ALPHA))
-            << "jansson emits the keys in the order buildJsonState() inserted "
-               "them, i.e. the order of the request: " << wire;
+    EXPECT_LT(keyPos(wire, IO_ALPHA), keyPos(wire, IO_ZULU))
+            << "nlohmann::json is a std::map: the answer is sorted, whatever "
+               "order the request asked for. DELTA 1, declared: " << wire;
 }
 
-TEST_F(JsonApiStateWireBytesTest, GetStateWsKeysAreInRequestOrderToday)
+TEST_F(JsonApiStateWireBytesTest, GetStateWsKeysAreAlphabetical)
 {
     WsTestSession ws;
     ws.send(wsGetStateRequest());
@@ -289,7 +294,7 @@ TEST_F(JsonApiStateWireBytesTest, GetStateWsKeysAreInRequestOrderToday)
     ASSERT_NE(std::string::npos, keyPos(wire, IO_ZULU)) << wire;
     ASSERT_NE(std::string::npos, keyPos(wire, IO_ALPHA)) << wire;
 
-    EXPECT_LT(keyPos(wire, IO_ZULU), keyPos(wire, IO_ALPHA)) << wire;
+    EXPECT_LT(keyPos(wire, IO_ALPHA), keyPos(wire, IO_ZULU)) << wire;
 }
 
 /*******************************************************************************
@@ -301,7 +306,7 @@ TEST_F(JsonApiStateWireBytesTest, GetStateWsKeysAreInRequestOrderToday)
  * payload moves the call to the other overload, so THE ENVELOPE MOVES TOO - a
  * separate case because it is a separate emitter and a separate delta.
  ******************************************************************************/
-TEST_F(JsonApiStateWireBytesTest, GetStateWsEnvelopePutsMsgBeforeDataToday)
+TEST_F(JsonApiStateWireBytesTest, GetStateWsEnvelopePutsDataFirst)
 {
     WsTestSession ws;
     ws.send(wsGetStateRequest());
@@ -312,9 +317,9 @@ TEST_F(JsonApiStateWireBytesTest, GetStateWsEnvelopePutsMsgBeforeDataToday)
     ASSERT_NE(std::string::npos, keyPos(wire, "msg")) << wire;
     ASSERT_NE(std::string::npos, keyPos(wire, "data")) << wire;
 
-    EXPECT_LT(keyPos(wire, "msg"), keyPos(wire, "data"))
-            << "the jansson envelope is msg, msg_id, data: " << wire;
-    EXPECT_LT(keyPos(wire, "msg_id"), keyPos(wire, "data")) << wire;
+    EXPECT_LT(keyPos(wire, "data"), keyPos(wire, "msg"))
+            << "the nlohmann envelope sorts to data, msg, msg_id: " << wire;
+    EXPECT_LT(keyPos(wire, "data"), keyPos(wire, "msg_id")) << wire;
 }
 
 /*******************************************************************************
@@ -326,7 +331,7 @@ TEST_F(JsonApiStateWireBytesTest, GetStateWsEnvelopePutsMsgBeforeDataToday)
  * the ParamsJson tripwire, which lowercased the wire before matching and would
  * have stayed green through the whole migration.
  ******************************************************************************/
-TEST_F(JsonApiStateWireBytesTest, GetStateHttpEscapesAccentWithUppercaseHexToday)
+TEST_F(JsonApiStateWireBytesTest, GetStateHttpEscapesAccentWithLowercaseHex)
 {
     zulu->setRawString(std::string("caf") + RAW_E_ACUTE);
 
@@ -336,17 +341,21 @@ TEST_F(JsonApiStateWireBytesTest, GetStateHttpEscapesAccentWithUppercaseHexToday
     ASSERT_EQ(1u, req.count());
     const std::string wire = req.body();
 
-    EXPECT_TRUE(contains(wire, ASCII_E_UPPER))
-            << "jansson escapes U+00E9 with UPPERCASE hex: " << wire;
-    EXPECT_FALSE(contains(wire, ASCII_E_LOWER)) << wire;
+    EXPECT_TRUE(contains(wire, ASCII_E_LOWER))
+            << "nlohmann escapes U+00E9 with LOWERCASE hex. DELTA 2, declared, "
+               "and it is the ONLY difference from jansson's form here: " << wire;
+    EXPECT_FALSE(contains(wire, ASCII_E_UPPER))
+            << "not jansson's form either - a case folding comparison would see "
+               "the two as equal, which is the defect E4.1a found in the "
+               "ParamsJson tripwire: " << wire;
     EXPECT_FALSE(contains(wire, RAW_E_ACUTE))
-            << "the jansson wire is ASCII only (JSON_ENSURE_ASCII): " << wire;
+            << "ensure_ascii = true: no raw UTF-8 on this wire: " << wire;
 
     for (unsigned char c : wire)
-        ASSERT_LT(c, 0x80u) << "the jansson get_state wire must be ASCII only";
+        ASSERT_LT(c, 0x80u) << "the get_state wire must stay ASCII only";
 }
 
-TEST_F(JsonApiStateWireBytesTest, GetStateWsEscapesAccentWithUppercaseHexToday)
+TEST_F(JsonApiStateWireBytesTest, GetStateWsEscapesAccentWithLowercaseHex)
 {
     zulu->setRawString(std::string("caf") + RAW_E_ACUTE);
 
@@ -356,8 +365,8 @@ TEST_F(JsonApiStateWireBytesTest, GetStateWsEscapesAccentWithUppercaseHexToday)
     ASSERT_EQ(1u, ws.count());
     const std::string wire = ws.lastMessage();
 
-    EXPECT_TRUE(contains(wire, ASCII_E_UPPER)) << wire;
-    EXPECT_FALSE(contains(wire, ASCII_E_LOWER)) << wire;
+    EXPECT_TRUE(contains(wire, ASCII_E_LOWER)) << wire;
+    EXPECT_FALSE(contains(wire, ASCII_E_UPPER)) << wire;
     EXPECT_FALSE(contains(wire, RAW_E_ACUTE)) << wire;
 }
 
@@ -376,7 +385,7 @@ TEST_F(JsonApiStateWireBytesTest, GetStateWsEscapesAccentWithUppercaseHexToday)
  * fallback (JsonApiHandlerHttp.cpp:88) puts no JSON parser on that path, and a
  * JSON parser is the only thing in the tree that refuses invalid UTF-8.
  ******************************************************************************/
-TEST_F(JsonApiStateWireBytesTest, GetStateHttpDropsThePairOnInvalidUtf8Today)
+TEST_F(JsonApiStateWireBytesTest, GetStateHttpKeepsThePairOnInvalidUtf8AsReplacementChar)
 {
     zulu->setRawString(std::string("a") + INVALID_UTF8 + "z");
 
@@ -386,14 +395,17 @@ TEST_F(JsonApiStateWireBytesTest, GetStateHttpDropsThePairOnInvalidUtf8Today)
     ASSERT_EQ(1u, req.count());
     const std::string wire = req.body();
 
-    EXPECT_EQ(std::string::npos, keyPos(wire, IO_ZULU))
-            << "jansson DROPS the whole pair on invalid UTF-8: " << wire;
-    EXPECT_NE(std::string::npos, keyPos(wire, IO_ALPHA))
-            << "the other IO must still be answered: " << wire;
-    EXPECT_FALSE(contains(wire, ASCII_FFFD)) << wire;
+    EXPECT_NE(std::string::npos, keyPos(wire, IO_ZULU))
+            << "the pair no longer disappears. DELTA 3, and it is a STRUCTURE "
+               "delta: " << wire;
+    EXPECT_NE(std::string::npos, keyPos(wire, IO_ALPHA)) << wire;
+    //One U+FFFD per invalid byte, and 0xFF 0x80 is two of them.
+    EXPECT_EQ(2u, occurrences(wire, ASCII_FFFD)) << wire;
+    EXPECT_TRUE(contains(wire, std::string("\"") + IO_ZULU + "\":\"a"
+                         + ASCII_FFFD + ASCII_FFFD + "z\"")) << wire;
 }
 
-TEST_F(JsonApiStateWireBytesTest, GetStateWsDropsThePairOnInvalidUtf8Today)
+TEST_F(JsonApiStateWireBytesTest, GetStateWsKeepsThePairOnInvalidUtf8AsReplacementChar)
 {
     zulu->setRawString(std::string("a") + INVALID_UTF8 + "z");
 
@@ -403,9 +415,9 @@ TEST_F(JsonApiStateWireBytesTest, GetStateWsDropsThePairOnInvalidUtf8Today)
     ASSERT_EQ(1u, ws.count());
     const std::string wire = ws.lastMessage();
 
-    EXPECT_EQ(std::string::npos, keyPos(wire, IO_ZULU)) << wire;
+    EXPECT_NE(std::string::npos, keyPos(wire, IO_ZULU)) << wire;
     EXPECT_NE(std::string::npos, keyPos(wire, IO_ALPHA)) << wire;
-    EXPECT_FALSE(contains(wire, ASCII_FFFD)) << wire;
+    EXPECT_EQ(2u, occurrences(wire, ASCII_FFFD)) << wire;
 }
 
 /*******************************************************************************
@@ -416,7 +428,7 @@ TEST_F(JsonApiStateWireBytesTest, GetStateWsDropsThePairOnInvalidUtf8Today)
  * codepoint >= 0x7F. Five bytes per occurrence, and the HTTP Content-Length
  * header moves with the body - which is why this case reads the header too.
  ******************************************************************************/
-TEST_F(JsonApiStateWireBytesTest, GetStateHttpWritesDelRawAndSizesTheBodyToday)
+TEST_F(JsonApiStateWireBytesTest, GetStateHttpEscapesDelAndSizesTheBody)
 {
     zulu->setRawString(std::string("a") + DEL_BYTE + "z");
 
@@ -426,9 +438,10 @@ TEST_F(JsonApiStateWireBytesTest, GetStateHttpWritesDelRawAndSizesTheBodyToday)
     ASSERT_EQ(1u, req.count());
     const std::string wire = req.body();
 
-    EXPECT_EQ(1u, occurrences(wire, std::string(1, DEL_BYTE)))
-            << "jansson writes DEL as the raw byte";
-    EXPECT_FALSE(contains(wire, ASCII_DEL)) << wire;
+    EXPECT_EQ(0u, occurrences(wire, std::string(1, DEL_BYTE)))
+            << "DELTA 4: nlohmann escapes every codepoint >= 0x7F under "
+               "ensure_ascii, DEL included: " << wire;
+    EXPECT_TRUE(contains(wire, ASCII_DEL)) << wire;
 
     //Content-Length is computed from these exact bytes
     //(JsonApiHandlerHttp::sendJson). Escaping DEL adds five bytes to both.
@@ -445,7 +458,7 @@ TEST_F(JsonApiStateWireBytesTest, GetStateHttpWritesDelRawAndSizesTheBodyToday)
  * carrying a NUL cannot reach buildJsonState(), the request parser already
  * truncated it at json_string_value() -> std::string.
  ******************************************************************************/
-TEST_F(JsonApiStateWireBytesTest, GetStateHttpTruncatesTheValueAtAnEmbeddedNulToday)
+TEST_F(JsonApiStateWireBytesTest, GetStateHttpKeepsTheWholeValueAcrossAnEmbeddedNul)
 {
     zulu->setRawString(std::string("a\0z", 3));
 
@@ -456,9 +469,9 @@ TEST_F(JsonApiStateWireBytesTest, GetStateHttpTruncatesTheValueAtAnEmbeddedNulTo
     const std::string wire = req.body();
 
     ASSERT_NE(std::string::npos, keyPos(wire, IO_ZULU)) << wire;
-    EXPECT_TRUE(contains(wire, std::string("\"") + IO_ZULU + "\":\"a\""))
-            << "jansson truncates the value at the NUL: " << wire;
-    EXPECT_FALSE(contains(wire, ASCII_NUL)) << wire;
+    EXPECT_TRUE(contains(wire, std::string("\"") + IO_ZULU + "\":\"a"
+                         + ASCII_NUL + "z\""))
+            << "DELTA 5: the tail after the NUL is no longer lost: " << wire;
 }
 
 /*******************************************************************************
@@ -488,7 +501,7 @@ TEST_F(JsonApiStateWireBytesTest, GetStateAnswersAnEmptyObjectForAnUnknownId)
  * buildJsonStates() goes through jansson_from_params() (Jansson_Addition.h),
  * whose own header documents the silent drop this case pins.
  ******************************************************************************/
-TEST_F(JsonApiStateWireBytesTest, GetStatesEscapesAccentWithUppercaseHexToday)
+TEST_F(JsonApiStateWireBytesTest, GetStatesEscapesAccentWithLowercaseHex)
 {
     probe->allValues["zulu"]  = std::string("caf") + RAW_E_ACUTE;
     probe->allValues["alpha"] = "plain";
@@ -499,12 +512,12 @@ TEST_F(JsonApiStateWireBytesTest, GetStatesEscapesAccentWithUppercaseHexToday)
     ASSERT_EQ(1u, req.count());
     const std::string wire = req.body();
 
-    EXPECT_TRUE(contains(wire, ASCII_E_UPPER)) << wire;
-    EXPECT_FALSE(contains(wire, ASCII_E_LOWER)) << wire;
+    EXPECT_TRUE(contains(wire, ASCII_E_LOWER)) << wire;
+    EXPECT_FALSE(contains(wire, ASCII_E_UPPER)) << wire;
     EXPECT_FALSE(contains(wire, RAW_E_ACUTE)) << wire;
 }
 
-TEST_F(JsonApiStateWireBytesTest, GetStatesDropsThePairOnInvalidUtf8Today)
+TEST_F(JsonApiStateWireBytesTest, GetStatesKeepsThePairOnInvalidUtf8AsReplacementChar)
 {
     probe->allValues["zulu"]  = std::string("a") + INVALID_UTF8 + "z";
     probe->allValues["alpha"] = "plain";
@@ -515,10 +528,11 @@ TEST_F(JsonApiStateWireBytesTest, GetStatesDropsThePairOnInvalidUtf8Today)
     ASSERT_EQ(1u, req.count());
     const std::string wire = req.body();
 
-    EXPECT_EQ(std::string::npos, keyPos(wire, "zulu"))
-            << "jansson_from_params() drops the pair in silence: " << wire;
+    EXPECT_NE(std::string::npos, keyPos(wire, "zulu"))
+            << "Params::toNJson() keeps what jansson_from_params() dropped in "
+               "silence. DELTA 3: " << wire;
     EXPECT_NE(std::string::npos, keyPos(wire, "alpha")) << wire;
-    EXPECT_FALSE(contains(wire, ASCII_FFFD)) << wire;
+    EXPECT_EQ(2u, occurrences(wire, ASCII_FFFD)) << wire;
 }
 
 /*******************************************************************************
@@ -563,7 +577,7 @@ TEST_F(JsonApiStateWireBytesTest, GetStatesAnswersAnEmptyObjectForAnIoWithNoValu
  * below because that quirk is PRE-EXISTING behaviour this ticket does not
  * touch; changing it would be a behaviour change hidden inside a port.
  ******************************************************************************/
-TEST_F(JsonApiStateWireBytesTest, QueryEscapesAccentWithUppercaseHexToday)
+TEST_F(JsonApiStateWireBytesTest, QueryEscapesAccentWithLowercaseHex)
 {
     probe->queryValues["zulu"]  = std::string("caf") + RAW_E_ACUTE;
     probe->queryValues["alpha"] = "plain";
@@ -577,12 +591,12 @@ TEST_F(JsonApiStateWireBytesTest, QueryEscapesAccentWithUppercaseHexToday)
     ASSERT_EQ(1u, req.count());
     const std::string wire = req.body();
 
-    EXPECT_TRUE(contains(wire, ASCII_E_UPPER)) << wire;
-    EXPECT_FALSE(contains(wire, ASCII_E_LOWER)) << wire;
+    EXPECT_TRUE(contains(wire, ASCII_E_LOWER)) << wire;
+    EXPECT_FALSE(contains(wire, ASCII_E_UPPER)) << wire;
     EXPECT_FALSE(contains(wire, RAW_E_ACUTE)) << wire;
 }
 
-TEST_F(JsonApiStateWireBytesTest, QueryDropsThePairOnInvalidUtf8Today)
+TEST_F(JsonApiStateWireBytesTest, QueryKeepsThePairOnInvalidUtf8AsReplacementChar)
 {
     probe->queryValues["zulu"]  = std::string("a") + INVALID_UTF8 + "z";
     probe->queryValues["alpha"] = "plain";
@@ -596,9 +610,9 @@ TEST_F(JsonApiStateWireBytesTest, QueryDropsThePairOnInvalidUtf8Today)
     ASSERT_EQ(1u, req.count());
     const std::string wire = req.body();
 
-    EXPECT_EQ(std::string::npos, keyPos(wire, "zulu")) << wire;
+    EXPECT_NE(std::string::npos, keyPos(wire, "zulu")) << wire;
     EXPECT_NE(std::string::npos, keyPos(wire, "alpha")) << wire;
-    EXPECT_FALSE(contains(wire, ASCII_FFFD)) << wire;
+    EXPECT_EQ(2u, occurrences(wire, ASCII_FFFD)) << wire;
 }
 
 TEST_F(JsonApiStateWireBytesTest, QueryAnswersAnEmptyObjectWhenTheIoAnswersNothing)
@@ -631,7 +645,7 @@ TEST_F(JsonApiStateWireBytesTest, SetStateHttpBodyIsOneAsciiPair)
     EXPECT_EQ("{\"success\":\"true\"}", req.body());
 }
 
-TEST_F(JsonApiStateWireBytesTest, SetStateWsEnvelopePutsMsgBeforeDataToday)
+TEST_F(JsonApiStateWireBytesTest, SetStateWsEnvelopePutsDataFirst)
 {
     WsTestSession ws;
     ws.send(Json{{ "msg", "set_state" },
@@ -645,8 +659,8 @@ TEST_F(JsonApiStateWireBytesTest, SetStateWsEnvelopePutsMsgBeforeDataToday)
 
     ASSERT_NE(std::string::npos, keyPos(wire, "msg")) << wire;
     ASSERT_NE(std::string::npos, keyPos(wire, "data")) << wire;
-    EXPECT_LT(keyPos(wire, "msg"), keyPos(wire, "data"))
-            << "the jansson envelope is msg, msg_id, data: " << wire;
+    EXPECT_LT(keyPos(wire, "data"), keyPos(wire, "msg"))
+            << "the nlohmann envelope sorts to data, msg, msg_id: " << wire;
 }
 
 /*******************************************************************************
@@ -950,7 +964,7 @@ TEST_F(RemoteUiStateBridgeTest, InitialStatesAlreadyEscapeDel)
 /*******************************************************************************
  * R2. INVALID UTF-8 - ONE OF THE TWO DELTAS THE DEVICE WILL SEE.
  ******************************************************************************/
-TEST_F(RemoteUiStateBridgeTest, InitialStatesDropThePairOnInvalidUtf8Today)
+TEST_F(RemoteUiStateBridgeTest, InitialStatesKeepThePairOnInvalidUtf8AsReplacementChar)
 {
     zulu->setRawString(std::string("a") + INVALID_UTF8 + "z");
 
@@ -959,17 +973,17 @@ TEST_F(RemoteUiStateBridgeTest, InitialStatesDropThePairOnInvalidUtf8Today)
     ASSERT_EQ(1u, sent.size());
     const std::string wire = lastMessage();
 
-    EXPECT_EQ(std::string::npos, keyPos(wire, IO_ZULU))
-            << "json_string() answers NULL before the bridge is even reached, "
-               "so the device never receives that key: " << wire;
+    EXPECT_NE(std::string::npos, keyPos(wire, IO_ZULU))
+            << "DELTA, AND IT REACHES A PHYSICAL DEVICE: a key the screens "
+               "never received starts arriving: " << wire;
     EXPECT_NE(std::string::npos, keyPos(wire, IO_ALPHA)) << wire;
-    EXPECT_FALSE(contains(wire, ASCII_FFFD)) << wire;
+    EXPECT_EQ(2u, occurrences(wire, ASCII_FFFD)) << wire;
 }
 
 /*******************************************************************************
  * R3. EMBEDDED NUL - THE OTHER ONE.
  ******************************************************************************/
-TEST_F(RemoteUiStateBridgeTest, InitialStatesTruncateTheValueAtAnEmbeddedNulToday)
+TEST_F(RemoteUiStateBridgeTest, InitialStatesKeepTheWholeValueAcrossAnEmbeddedNul)
 {
     zulu->setRawString(std::string("a\0z", 3));
 
@@ -978,9 +992,10 @@ TEST_F(RemoteUiStateBridgeTest, InitialStatesTruncateTheValueAtAnEmbeddedNulToda
     ASSERT_EQ(1u, sent.size());
     const std::string wire = lastMessage();
 
-    EXPECT_TRUE(contains(wire, std::string("\"") + IO_ZULU + "\":\"a\""))
-            << "jansson takes a const char*: the tail is lost in silence: " << wire;
-    EXPECT_FALSE(contains(wire, ASCII_NUL)) << wire;
+    EXPECT_TRUE(contains(wire, std::string("\"") + IO_ZULU + "\":\"a"
+                         + ASCII_NUL + "z\""))
+            << "DELTA, AND IT REACHES A PHYSICAL DEVICE: the truncated tail "
+               "comes back, escaped: " << wire;
 }
 
 /*******************************************************************************

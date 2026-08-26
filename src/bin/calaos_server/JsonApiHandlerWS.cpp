@@ -303,7 +303,21 @@ void JsonApiHandlerWS::processGetState(json_t *jdata, const string &client_id)
         }
     }
 
-    buildJsonState(iolist, [=](json_t *jret)
+    /* E4.1n: the three builders answer a Json, so these three calls resolve to
+     * the nlohmann overload of sendJson() (:90) instead of the jansson one
+     * (:78). The seam was already there and in service; no adapter was needed
+     * and none was written. Consequence on the bytes, declared: the envelope
+     * keys sort (data before msg, msg_id) and, for get_state only, so do the
+     * io ids inside data - buildJsonStates()/buildQuery() were already
+     * alphabetical, Params being a std::map. Pinned by
+     * core/JsonApiStateWireBytes_test.
+     *
+     * The `nullptr` answer of the no-data path above stays on the jansson
+     * overload ON PURPOSE: that overload OMITS the "data" key when the pointer
+     * is null, where the nlohmann one would write "data":null. Moving it would
+     * change the document, and golden e40e_ws_get_state_without_data pins it.
+     */
+    buildJsonState(iolist, [=](Json jret)
     {
         sendJson("get_state", jret, client_id);
     });
@@ -311,7 +325,7 @@ void JsonApiHandlerWS::processGetState(json_t *jdata, const string &client_id)
 
 void JsonApiHandlerWS::processGetStates(const Params &jsonReq, const string &client_id)
 {
-    buildJsonStates(jsonReq, [=](json_t *jret)
+    buildJsonStates(jsonReq, [=](Json jret)
     {
         sendJson("get_states", jret, client_id);
     });
@@ -319,7 +333,7 @@ void JsonApiHandlerWS::processGetStates(const Params &jsonReq, const string &cli
 
 void JsonApiHandlerWS::processQuery(const Params &jsonReq, const string &client_id)
 {
-    buildQuery(jsonReq, [=](json_t *jret)
+    buildQuery(jsonReq, [=](Json jret)
     {
         sendJson("query", jret, client_id);
     });
@@ -371,9 +385,9 @@ void JsonApiHandlerWS::processSetState(Params &jsonReq, const string &client_id)
 
     if (!client_id.empty())
     {
-        json_t *jret = json_object();
-        json_object_set_new(jret, "success", json_string(res?"true":"false"));
-        sendJson("set_state", jret, client_id);
+        //E4.1n: one ASCII pair, byte for byte the same payload; what moves is
+        //the ENVELOPE, which sorts like every other nlohmann answer.
+        sendJson("set_state", Json{{ "success", res?"true":"false" }}, client_id);
     }
 }
 

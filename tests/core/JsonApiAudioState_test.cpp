@@ -30,8 +30,29 @@
  *
  * The FakeAudioPlayer below stores the callbacks instead of answering, so the
  * tests control exactly *when* every answer arrives, with no loop and no
- * network. The refcount checks read json_t::refcount directly, which jansson
- * exposes in its public struct.
+ * network.
+ *
+ * ---------------------------------------------------------------------------
+ * E4.1n - WHY THE REFCOUNT ASSERTIONS ARE GONE, AND WHAT REPLACED THEM
+ * ---------------------------------------------------------------------------
+ * They used to read the reference counter of the jansson object directly (it is
+ * public in that struct) because the T2.15 defect WAS a reference count:
+ * json_object_set instead of _new leaked one per state built. buildJsonState()
+ * answers a Json by value now, and NO SUCH COUNTER EXISTS ANY MORE - the
+ * containers own their subtrees and the caller owns its copy.
+ *
+ * The ticket's acceptance asked for these cases "green without modifying an
+ * assertion". THAT IS NOT POSSIBLE and pretending otherwise would have been
+ * worse than saying so: an assertion on a field of a type no longer involved
+ * cannot survive. What those three assertions really pinned was "the document
+ * handed to the caller is complete, and holding it keeps nothing else alive";
+ * that is what the replacements assert, structurally, plus the string typing of
+ * every value - which a port could have broken with no golden noticing.
+ *
+ * The two cases that matter most are UNCHANGED in substance and are the ones to
+ * watch: ClientGoneBeforeAnswerIsIgnored (the UAF T2.15 fixed) and
+ * MixedCompletionAndDeletionAnswersOnce (the answer released exactly once).
+ * Neither ever looked at a reference count.
  */
 
 #include "CalaosCoreFixture.h"
@@ -39,8 +60,6 @@
 #include "JsonApi.h"
 #include "AudioPlayer.h"
 #include "ListeRoom.h"
-
-#include <jansson.h>
 
 #include <deque>
 
@@ -149,58 +168,75 @@ protected:
     }
 };
 
-/* No audio player: the answer is synchronous, and the caller receives the
- * only reference (it json_decrefs it, as every call site does).
+/* No audio player: the answer is synchronous, and the caller receives a
+ * complete document by value.
+ *
+ * The is_object() check is not decoration: a default-constructed Json is null,
+ * not {}, so this case also guards the shape of the container the builder
+ * starts from.
  */
-TEST_F(JsonApiAudioStateTest, SyncStateHandsSingleReference)
+TEST_F(JsonApiAudioStateTest, SyncStateHandsACompleteDocument)
 {
     JsonApi api;
 
-    json_t *jret = nullptr;
-    api.buildJsonState({ ID_BOOL_IN, ID_INT }, [&](json_t *j) { jret = j; });
+    bool called = false;
+    Json jret;
+    api.buildJsonState({ ID_BOOL_IN, ID_INT }, [&](Json j) { jret = j; called = true; });
 
-    ASSERT_NE(jret, nullptr);
-    EXPECT_EQ(jret->refcount, (size_t)1);
-    EXPECT_TRUE(json_is_string(json_object_get(jret, ID_BOOL_IN)));
-    EXPECT_TRUE(json_is_string(json_object_get(jret, ID_INT)));
-    json_decref(jret);
+    ASSERT_TRUE(called);
+    ASSERT_TRUE(jret.is_object()) << jret.dump();
+    EXPECT_EQ(2u, jret.size()) << jret.dump();
+    ASSERT_TRUE(jret.contains(ID_BOOL_IN));
+    ASSERT_TRUE(jret.contains(ID_INT));
+    EXPECT_TRUE(jret[ID_BOOL_IN].is_string()) << jret.dump();
+    EXPECT_TRUE(jret[ID_INT].is_string()) << jret.dump();
 }
 
-/* The leak of JsonApi.cpp (json_object_set instead of _new on the per-player
- * object): after a complete chain, every container must end up with exactly
- * one reference, the one held by its parent.
+/* What the reference-count assertions of T2.15 really pinned, said
+ * structurally: after a complete chain the caller holds the WHOLE document,
+ * nested subtrees included, and every value is a STRING (the type-strict
+ * oracle: 3 != "3").
+ *
+ * The int and the double both leave as strings - "42" and "12.5" - which is
+ * exactly the contract Utils::to_string() carries and which a port to nlohmann
+ * could have broken without a single golden noticing.
  */
-TEST_F(JsonApiAudioStateTest, AudioStateLeaksNoReference)
+TEST_F(JsonApiAudioStateTest, AudioStateHandsTheWholeNestedDocument)
 {
     FakeAudioPlayer *player = addFakePlayer("audio_fake_1");
     JsonApi api;
 
-    json_t *jret = nullptr;
-    api.buildJsonState({ ID_BOOL_IN, "audio_fake_1" }, [&](json_t *j) { jret = j; });
+    bool called = false;
+    Json jret;
+    api.buildJsonState({ ID_BOOL_IN, "audio_fake_1" }, [&](Json j) { jret = j; called = true; });
 
     //All six requests are in flight, nothing answered yet
-    EXPECT_EQ(jret, nullptr);
+    EXPECT_FALSE(called);
     answerAll(player);
 
-    ASSERT_NE(jret, nullptr);
-    EXPECT_EQ(jret->refcount, (size_t)1);
+    ASSERT_TRUE(called);
+    ASSERT_TRUE(jret.is_object()) << jret.dump();
 
-    json_t *jplayer = json_object_get(jret, "audio_fake_1");
-    ASSERT_NE(jplayer, nullptr);
-    //Before T2.15 this was 2: json_object_set leaked one reference per state
-    EXPECT_EQ(jplayer->refcount, (size_t)1);
+    ASSERT_TRUE(jret.contains("audio_fake_1")) << jret.dump();
+    const Json &jplayer = jret["audio_fake_1"];
+    ASSERT_TRUE(jplayer.is_object()) << jret.dump();
 
-    json_t *jtrack = json_object_get(jplayer, "current_track");
-    ASSERT_NE(jtrack, nullptr);
-    EXPECT_EQ(jtrack->refcount, (size_t)1);
+    ASSERT_TRUE(jplayer.contains("current_track")) << jret.dump();
+    const Json &jtrack = jplayer["current_track"];
+    ASSERT_TRUE(jtrack.is_object()) << jret.dump();
 
-    EXPECT_STREQ(json_string_value(json_object_get(jplayer, "playlist_current_track")), "3");
-    EXPECT_STREQ(json_string_value(json_object_get(jplayer, "volume")), "42");
-    EXPECT_STREQ(json_string_value(json_object_get(jplayer, "playlist_size")), "12");
-    EXPECT_STREQ(json_string_value(json_object_get(jplayer, "status")), "stop");
-    EXPECT_STREQ(json_string_value(json_object_get(jtrack, "title")), "a title");
+    EXPECT_EQ("3",    jplayer["playlist_current_track"].get<std::string>()) << jret.dump();
+    EXPECT_EQ("42",   jplayer["volume"].get<std::string>()) << jret.dump();
+    EXPECT_EQ("12",   jplayer["playlist_size"].get<std::string>()) << jret.dump();
+    EXPECT_EQ("12.5", jplayer["time_elapsed"].get<std::string>()) << jret.dump();
+    EXPECT_EQ("stop", jplayer["status"].get<std::string>()) << jret.dump();
+    EXPECT_EQ("a title", jtrack["title"].get<std::string>()) << jret.dump();
+    EXPECT_EQ("an artist", jtrack["artist"].get<std::string>()) << jret.dump();
 
-    json_decref(jret);
+    //Not a JSON number, on any of them. A number here would break every client
+    //that compares the state to a string.
+    EXPECT_TRUE(jplayer["volume"].is_string()) << jret.dump();
+    EXPECT_TRUE(jplayer["time_elapsed"].is_string()) << jret.dump();
 }
 
 /* Client disconnected while the answers were in flight: the JsonApi is
@@ -214,7 +250,7 @@ TEST_F(JsonApiAudioStateTest, ClientGoneBeforeAnswerIsIgnored)
     bool resultCalled = false;
     {
         JsonApi api;
-        api.buildJsonState({ "audio_fake_1" }, [&](json_t *) { resultCalled = true; });
+        api.buildJsonState({ "audio_fake_1" }, [&](Json) { resultCalled = true; });
         //api dies here, exactly as when the WS client disconnects
     }
 
@@ -234,8 +270,9 @@ TEST_F(JsonApiAudioStateTest, PlayerDeletedMidFlightStillAnswers)
     FakeAudioPlayer *player = addFakePlayer("audio_fake_1");
     JsonApi api;
 
-    json_t *jret = nullptr;
-    api.buildJsonState({ ID_BOOL_IN, "audio_fake_1" }, [&](json_t *j) { jret = j; });
+    bool called = false;
+    Json jret;
+    api.buildJsonState({ ID_BOOL_IN, "audio_fake_1" }, [&](Json j) { jret = j; called = true; });
 
     //The connection detaches the callback, then the IO is deleted
     AudioRequest_cb lateAnswer = player->takeNext();
@@ -244,15 +281,15 @@ TEST_F(JsonApiAudioStateTest, PlayerDeletedMidFlightStillAnswers)
 
     //The late answer must not dereference the dead player
     lateAnswer(AudioPlayerData());
-    //Drop our copy of the chain (it owns a reference on the json being
+    //Drop our copy of the chain (it holds a copy of the shared document being
     //built), exactly as the dying connection object would
     lateAnswer = AudioRequest_cb();
 
-    ASSERT_NE(jret, nullptr);
-    EXPECT_EQ(jret->refcount, (size_t)1);
-    EXPECT_TRUE(json_is_string(json_object_get(jret, ID_BOOL_IN)));
-    EXPECT_EQ(json_object_get(jret, "audio_fake_1"), nullptr);
-    json_decref(jret);
+    ASSERT_TRUE(called);
+    ASSERT_TRUE(jret.is_object()) << jret.dump();
+    EXPECT_TRUE(jret[ID_BOOL_IN].is_string()) << jret.dump();
+    //The dead player is ABSENT, not null: the contract is a skipped key.
+    EXPECT_FALSE(jret.contains("audio_fake_1")) << jret.dump();
 }
 
 /* Two players, one completes and one dies: the count of pending players must
@@ -265,8 +302,8 @@ TEST_F(JsonApiAudioStateTest, MixedCompletionAndDeletionAnswersOnce)
     JsonApi api;
 
     int resultCount = 0;
-    json_t *jret = nullptr;
-    api.buildJsonState({ "audio_fake_1", "audio_fake_2" }, [&](json_t *j)
+    Json jret;
+    api.buildJsonState({ "audio_fake_1", "audio_fake_2" }, [&](Json j)
     {
         resultCount++;
         jret = j;
@@ -275,15 +312,15 @@ TEST_F(JsonApiAudioStateTest, MixedCompletionAndDeletionAnswersOnce)
     AudioRequest_cb lateAnswer = p2->takeNext();
     ASSERT_TRUE(deleteIO(p2));
     lateAnswer(AudioPlayerData());
-    lateAnswer = AudioRequest_cb(); //drop our reference-holding copy
+    lateAnswer = AudioRequest_cb(); //drop our copy of the chain
     EXPECT_EQ(resultCount, 0);
 
     answerAll(p1);
 
+    //ANSWERED EXACTLY ONCE - the counter is the point of this case, and it
+    //never had anything to do with reference counts.
     EXPECT_EQ(resultCount, 1);
-    ASSERT_NE(jret, nullptr);
-    EXPECT_EQ(jret->refcount, (size_t)1);
-    EXPECT_NE(json_object_get(jret, "audio_fake_1"), nullptr);
-    EXPECT_EQ(json_object_get(jret, "audio_fake_2"), nullptr);
-    json_decref(jret);
+    ASSERT_TRUE(jret.is_object()) << jret.dump();
+    EXPECT_TRUE(jret.contains("audio_fake_1")) << jret.dump();
+    EXPECT_FALSE(jret.contains("audio_fake_2")) << jret.dump();
 }
