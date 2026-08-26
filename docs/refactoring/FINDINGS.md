@@ -7028,13 +7028,20 @@ d'être écrite.
   horloge.** Il faut rafraîchir l'horloge de la boucle **juste avant** d'armer, sans quoi les deux
   origines dérivent l'une de l'autre.
 
-- ⚠️ **[F-FLAKY-1] Le même défaut latent existait dans le jumeau `core/IoLifetimeTimer_test`**, et
-  c'est très probablement le *« rouge non reproductible »* que T3.40 a mesuré à **1 sur ~80** sur
-  `ProcessExitedStillFiresWhileTheServerIsAlive` — la marge la plus étroite du fichier (délai
-  100 ms, borne 40 ms ⇒ **60 ms**, la plus courte des cinq). Les **cinq** bornes inférieures du
-  fichier mesurent désormais depuis **avant** l'armement, horloge rafraîchie.
-  ⚠️ **Non reproduit ici** : je n'ai pas rejoué les ~80 exécutions qui l'avaient exhibé, et je ne
-  peux donc pas dire que cette cause-là est la sienne, seulement qu'elle **suffirait**.
+- ⛔ **[F-FLAKY-1] Le même défaut latent existait dans le jumeau `core/IoLifetimeTimer_test`** — les
+  **cinq** bornes inférieures du fichier mesurent désormais depuis **avant** le rafraîchissement,
+  donc avant l'armement. ⚠️ **Mais le lien avec le *« rouge non reproductible »* que T3.40 a mesuré
+  à 1 sur ~80 sur `ProcessExitedStillFiresWhileTheServerIsAlive` est une HYPOTHÈSE, pas un
+  diagnostic.** Le mécanisme **suffirait** — marges revérifiées au source : `ExternProc`
+  (`ExternProc.cpp:196` et `:205`, `singleShot(0.1)`, borne 40) ⇒ **60 ms**, la plus courte ; les
+  trois `Reset` (250 / 90) ⇒ **160** ; `KNX` (1500 / 90) ⇒ **1410**. ⛔ **Et il ne se reproduit
+  pas** : **240 exécutions** de la forme `master` du jumeau sous les **mêmes 96 brûleurs** (200 du
+  cas filtré + 40 de la suite entière) rendent **0 rouge**, là où le même protocole rend **2/48**
+  sur `ShutterImpulse`.
+  ⚠️ ⭐ **Leçon de rédaction, et elle vise ce fichier-ci** : la fiche écrivait « plausible, non
+  rejoué » — honnête — et **`FINDINGS.md` avait durci en « très probablement »**, donc *plus fort
+  que la mesure*. **Un report d'une fiche vers le journal ne doit jamais monter d'un cran dans
+  l'échelle de certitude** ; c'est le sens de la marche qui trahit, pas le mot choisi.
 
 - ⚠️ **[F-FLAKY-1] Un tableau de marges qui prédit à l'envers vaut moins que pas de tableau.** Le
   §1.1 de la fiche calculait `marge = durée demandée − sonde` en oubliant que l'échéance vaut
@@ -7047,9 +7054,93 @@ d'être écrite.
   vérification.** L'horloge en cache **ne peut pas** décaler une échéance en production : dans une
   boucle d'événements mono-thread, tout code applicatif tourne **à l'intérieur** d'un
   `uv_run()`, donc `loop->time` n'est jamais vieille de plus d'une itération.
-  ⚠️ **La seule exception est le DÉMARRAGE** : les IO sont construites **avant** que la boucle ne
-  tourne, donc un one-shot armé à la construction (`KNXIo::read_at_start`, **1,5 s**) part d'une
-  `loop->time` figée à l'initialisation de la boucle. Si la construction de la configuration dure
-  plus longtemps que le délai, le one-shot tire **au premier tour** au lieu d'attendre.
-  ⚠️ **Non mesuré sur un vrai démarrage** — c'est une conséquence du mécanisme, pas une observation.
-  Consigné pour qui instruira les délais de démarrage.
+  ⚠️ **L'exception est le DÉMARRAGE, et « la seule exception est `KNXIo` » était INCOMPLET** —
+  voir le point suivant.
+
+- ⛔ **[F-FLAKY-1 → produit] Au démarrage, TOUTE attente armée pendant le chargement de la
+  configuration est amputée de la durée de ce chargement.** `uvw::Loop::getDefault()` naît au
+  premier usage — `CalaosConfig.cpp:206`, le `Timer(60)` du cache d'état, dans le constructeur de
+  `Config` — et `uv_loop_init()` y fige `loop->time`. `main.cpp:150-151` construit **toute** la
+  configuration (`LoadConfigIO`/`LoadConfigRule`, **seuls sites d'appel de chacune**, vérifié) ;
+  `main.cpp:223` (`loop->run()`) est 73 lignes plus loin ; **rien entre les deux ne rafraîchit
+  l'horloge**. ⇒ ⭐ **le décalage vaut exactement le temps écoulé entre la création de la boucle et
+  l'armement, c'est-à-dire la durée du chargement de la configuration : ces attentes sont plus
+  courtes qu'annoncé, et celles dont le délai est inférieur à ce temps tirent IMMÉDIATEMENT, au
+  premier tour de boucle.**
+  ⭐ **Balayage** (`(singleShot|singleIdler)\s*\(`, `new Timer\s*\(`, `make_shared<Timer>\s*\(`,
+  commentaires écartés, `src/lib/Timer.{h,cpp}` exclu car c'est l'API) : **99 sites dans 38
+  fichiers**, dont **9 dans un constructeur** au sens syntaxique, plus `KNX/KNXIo.h:78` (corps en
+  en-tête, hors de portée du balayage) et `CalaosConfig.cpp:232` (pas un constructeur, mais appelé
+  **depuis** `LoadConfigIO`). ⚠️ **Le classement pré-boucle a été fait à la main sur ces 11 sites
+  seulement ; les 88 autres ne sont pas classés** — le cardinal est publié à côté du résultat.
+  **Les onze** : `Wago/WagoMap.cpp:46` **0,1 s** (⛔ le plus court de l'arbre) · `:47` 10 s ·
+  `Hue/HueOutputLightRGB.cpp:47` **2 s** · `KNX/KNXIo.h:78` **1,5 s** (7 constructeurs) ·
+  ⭐ `Audio/RoonPlayer.cpp:243` **10 s**, dont le commentaire dit *« wait for the process to
+  start »* · ⭐ `CalaosConfig.cpp:232` **30 s**, dont le commentaire promet *« defer the
+  notification until the server is fully up »* — la promesse littérale tient (rien ne tire avant
+  `loop->run()`) mais **le sursis de 30 s est amputé d'autant, et nul si le chargement dépasse
+  30 s** · `Audio/AVRRose.cpp:67` 30 s · `IO/InputAnalog.cpp:71` 4 h (négligeable) ·
+  `CalaosConfig.cpp:206` 60 s — ⭐ **celui-là n'est pas victime, c'est l'ORIGINE : il crée la
+  boucle**.
+  ⭐ **Et la même horloge fuit en HORODATAGE, pas seulement en armement** :
+  `Utils::getMainLoopTime()` (`Utils.cpp:136`) rend `loop->now()`, donc `InputAnalog.cpp:63`
+  estampille `timer` à la **création de la boucle** et le premier `readValue()` périodique arrive
+  en avance d'autant. *(`LuaScript/ScriptManager.h:65` documente déjà ce piège pour son chien de
+  garde : le seul endroit de l'arbre qui l'avait vu.)*
+  ⭐ **Bonne nouvelle, et elle borne le risque : il n'y a PAS de rechargement de configuration en
+  production.** Quand l'API réécrit la configuration, `JsonApiHandlerHttp.cpp:707` pose
+  `setNeedRestart(true)` et `HttpClient.cpp:480` appelle `uvw::Loop::getDefault()->stop()` ⇒ **le
+  processus REDÉMARRE**. Et la création d'IO à chaud (`JsonApi.cpp:1973` → `ListeRoom::createIO`)
+  se fait **à l'intérieur** de `uv_run()`, sur une horloge fraîche. ⇒ **le risque est cantonné au
+  démarrage, une fois par vie du processus.**
+  ⚠️ **Non mesuré sur un vrai démarrage** : ni la durée du chargement, ni un tir prématuré observé.
+  Lecture de source. **Aucun ticket ouvert** (`T3.40`–`T3.54` sont pris) ; `WagoMap.cpp:46` et
+  `RoonPlayer.cpp:243` sont les deux qui en méritent un — **numéro à demander**.
+
+- ⛔ **[F-FLAKY-1, passe de correction] « Rafraîchir l'horloge avant d'armer » ne suffit pas : il
+  faut prendre l'ORIGINE avant le rafraîchissement.** `uv__update_time()` tourne en **tête** de
+  `uv_run()`, donc une origine prise **après** le retour de l'itération de rafraîchissement est
+  postérieure à `loop->time` de **tout ce que coûte la queue de cette itération** — et l'échéance,
+  calculée depuis `loop->time`, atterrit d'autant **avant** `origine + délai`. **C'est le même
+  défaut, déplacé dans la queue de l'itération**, et la 1ʳᵉ rédaction de `T3.49` écrivait
+  « `gap > marge` devient inatteignable », ce qui était **trop fort**.
+  ⭐ **Ce qui est vrai après correction est une INÉGALITÉ, pas une petitesse** : origine prise
+  d'abord ⇒ **`loop->time ≥ origine`** ⇒ **`échéance ≥ origine + délai`**, *par construction*,
+  quel que soit le temps passé dans l'itération ou volé par l'hôte. **Il n'y a plus de `gap` à
+  comparer à une marge : le membre de gauche a disparu.**
+  ⭐ **Mesuré** (sonde autonome, `libuv 1.44.2` de l'image) en rendant l'itération de
+  rafraîchissement coûteuse de `D` ms : ordre d'avant ⇒ `D=0` 182, `D=40` 141, **`D=95` 87 sous une
+  sonde de 91, 20/20 rouges**, `D=200` **0** ; ordre livré ⇒ **182 pour tout `D`, 0/20**. Même
+  résultat sur le couple de `:384` (**51** contre **146**, sonde 73).
+  ⚠️ ⭐ **Et la sonde a corrigé le mécanisme au passage : `libuv` relit l'horloge DEUX fois par
+  itération** — en tête, **et inconditionnellement après `epoll_pwait()`** (`uv__io_poll`, dont le
+  commentaire dit qu'il n'y a *« aucune garantie que le système ne nous ait pas déordonnancés
+  pendant l'appel »*). La fenêtre résiduelle n'est donc **pas** l'itération entière mais sa
+  **queue après le sondage** : `uv__run_check`, les fermetures, le retour, et tout
+  déordonnancement avant la prise de l'origine. **Vérifié en brûlant `D` des deux côtés du
+  sondage** : avant ⇒ 182 partout, **aucun rouge** ; après ⇒ le tableau ci-dessus. C'est pourquoi
+  la première livraison passait le `make check` : cette queue vaut **normalement** des
+  microsecondes. ⭐ **« Normalement » n'est pas une borne** — et c'est la différence entre un test
+  qui passe et un test qui ne peut pas échouer.
+
+- ⚠️ **[Faux vert, méthode] Une garde peut être VACANTE PAR CONSTRUCTION et se vendre comme une
+  post-condition.** Le `pumpLoopFor()` de `T3.49` ajoutait `if (iterations < 1 || elapsed < ms)
+  ADD_FAILURE()` sous la bannière *« une attente doit dire si elle a attendu »*. **`t0` étant pris
+  à l'entrée, la condition de boucle tient à l'entrée, le corps tourne au moins une fois, et la
+  boucle ne sort que quand `elapsed ≥ ms`** : les deux clauses sont **inatteignables depuis tous
+  les sites d'appel existants**. Inoffensif, mais **la bannière survendait**. ⭐ **Ce qui était
+  atteignable, c'est l'ARGUMENT** : `pumpLoopFor(0)` est un non-événement déguisé en attente — la
+  famille exacte du faux vert n° 13. Garde rendue non vacante (`ms < 1 || …`) et **redite pour ce
+  qu'elle est**. ⭐ *Avant d'écrire qu'une garde protège de X, chercher l'exécution qui la
+  déclenche ; si elle n'existe pas, c'est le libellé qu'il faut corriger, pas la garde qu'il faut
+  garder telle quelle.*
+
+- ⚠️ **[Méthode, chiffres] Un taux de flottement n'est pas une constante, et « exactement le même
+  chiffre » se lit comme une loi.** `T3.49` écrivait *« 5 rouges sur 48, exactement le chiffre du
+  §2 »*. Le §2 relevait **2/48 sur `:297` et 3/48 sur `:384`** — même total, répartition
+  différente — quand la campagne de livraison rend **5/48 tous sur `:384`**. Ces comptages sont des
+  tirages de Poisson sur un **seuil** (`gap > marge`) dont l'issue dépend de la charge de l'hôte à
+  la milliseconde : **5/48 et 2/48 sont compatibles**, et l'égalité des totaux est une coïncidence.
+  ⭐ **Ce qui porte la démonstration, c'est l'ORDRE, pas le TAUX** : la forme de `master` redevient
+  rouge dans le même conteneur à la même charge, la forme livrée y est **0/48**, et les rouges
+  tombent sur la marge la plus courte du tableau corrigé.
