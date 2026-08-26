@@ -7260,3 +7260,234 @@ T3.46/T3.53. ⚠️ **Et aucun filet** : `tests/` porte bien **2 fichiers nommé
 (24 cas), mais **aucun des deux ne LIE `Audio/Squeezebox.$(OBJEXT)`** — ils réimplantent la logique
 (`SqueezeboxWire_test.cpp:141` annonce porter le *verbatim body* de la fonction) — et **aucun
 n'atteint le chemin de réponse**. ⭐ **`F-LINK-1` dans sa forme la plus littérale.**
+
+## E4.1n — `JsonApi`, l'état : ce que la bascule a mesuré (2026-08-26)
+
+### ⛔⭐ La requalification d'`E4.1n` était FAUSSE une deuxième fois — et cette fois elle avait été « revérifiée »
+
+E4.1m avait déjà restreint la phrase d'E4.1l aux **events** (§ *« La requalification d'`E4.1n` par
+E4.1l est vraie mais lue trop large »*, plus haut). Le board a ensuite affirmé que la
+requalification « documentaire » avait été **revérifiée vraie**. ⛔ **Elle ne l'était pas**, et
+E4.1n l'a mesurée une **troisième** fois, sur `master` `75ed9cb9` :
+
+    RemoteUIWebSocketHandler.cpp:236   buildJsonState(iolist, [...](json_t *jret)
+    RemoteUIWebSocketHandler.cpp:246   char *json_str = json_dumps(jret, JSON_COMPACT);
+    RemoteUIWebSocketHandler.cpp:250   Json data = Json::parse(json_str);
+
+⭐ **La leçon générale, et c'est la même que pour les dix affirmations d'atteignabilité de cette
+série** : une phrase localement vraie (« les *events* RemoteUI ont déjà basculé ») a grandi d'un
+cran à chaque recopie jusqu'à « le ticket est documentaire », **et la recopie suivante l'a
+certifiée**. ⚠️ **« Revérifié » sans la commande qui l'a revérifié n'est pas une mesure.** Remède
+appliqué : la fiche `E4.1n.md` porte désormais le `grep` et les trois numéros de ligne, en tête,
+sous un marqueur qui dit laquelle des trois versions fait foi.
+
+### ⭐ La mine du pont : `Json::parse` **non gardé** dans un callback de boucle — même famille que KNX et `E4.1o`
+
+`RemoteUIWebSocketHandler.cpp:250` était le **seul `Json::parse` du fichier sans `try` au-dessus**
+(`:128` et `:185` sont dans un `try`), appelé depuis la complétion de `buildJsonState()`,
+c'est-à-dire depuis un callback audio **sur la boucle d'événements**. Une `parse_error` là-dedans =
+**`std::terminate` sur un serveur vivant**, exactement la forme du précédent KNX (`dump()` nu dans
+`monitorWait()`) et de la mine d'`E4.1o` (`!Json` dans `ScriptExec.cpp`).
+
+⭐ **Verdict honnête, et il est NÉGATIF** : aucune entrée ne la faisait lever **aujourd'hui**.
+`json_string()` refuse l'UTF-8 invalide à la construction, donc `json_dumps` ne pouvait rien
+produire que `Json::parse` refuse, et son seul autre échec (`NULL`) était gardé par le `if` de
+`:249`. ⇒ **mine LATENTE, désamorcée par la validation même que cette épique retire.** Elle a été
+**supprimée** plutôt que gardée : c'est la seule façon d'être sûr qu'elle ne s'arme pas.
+
+⚠️ **Ce que cela dit du reste de la série** : chaque fois qu'un `json_string()` disparaît, une
+validation d'UTF-8 disparaît avec lui, et les formes `nlohmann` en aval qui étaient **protégées par
+jansson sans le savoir** deviennent atteignables. Ce ticket n'en a trouvé qu'une sur son périmètre ;
+**le balayage vaut d'être refait dans chaque sous-ticket suivant, sur SON périmètre.**
+
+### ⭐ Les cinq deltas remesurés une troisième fois — et **toujours pas de sixième**
+
+Sonde `g++ -std=c++17` contre le jansson et le `json.hpp` de l'arbre, sur les formes exactes de
+cette chaîne (résultats verbatim, pas recopiés d'E4.1l ni d'E4.1m) :
+
+| # | jansson | nlohmann |
+|---|---|---|
+| 1 ordre des clés | `{"zulu":"1","alpha":"2"}` | `{"alpha":"2","zulu":"1"}` |
+| 2 casse hexa | `é` (majuscules) | `é` (minuscules) |
+| 3 UTF-8 invalide | `json_string()` rend `NULL`, `json_object_set_new()` rend `-1`, **paire entière perdue**, résultat `{}` | `{"k":"a��z"}` — **un U+FFFD par octet invalide** |
+| 4 DEL `0x7F` | octet **brut** sur le wire, **12 octets** | echappe (`\u007f`), **17 octets** |
+| 5 NUL embarqué | `{"k":"a"}` — **tronqué en silence**, valeur **et** clé | valeur entière, NUL echappe (`\u0000`) |
+
+⚠️ **Le n° 3 est un delta de STRUCTURE, pas seulement d'octets** : une clé absente devient présente.
+C'est le seul des cinq qu'un oracle **sémantique** pourrait voir — et aucun golden ne le voit,
+parce qu'aucun golden ne contient d'UTF-8 invalide.
+
+⭐ **Les NOMBRES ne mordent pas sur ce périmètre, et c'est mesuré** : `JsonApi.cpp` compte
+**32 `json_string()` et ZÉRO `json_real()`/`json_integer()`**. L'`int` et le `double` de
+`buildJsonState()` passent par `Utils::to_string()` et sortent en **chaîne**. La famille « nombres »
+d'E4.1m est **sans objet ici**, et c'est un résultat négatif qu'il faut écrire : le prochain
+sous-ticket qui touchera `eventlog` la retrouvera, lui.
+
+### ⭐⭐ Le sixième delta que ce ticket devait ÉVITER DE CRÉER — `Json jret;` vaut `null`, pas `{}`
+
+`nlohmann::json` construit par défaut est `value_t::null`. Trois conteneurs de cette chaîne
+répondaient `{}` en jansson. Écrire `Json jret;` au lieu de `Json::object()` les fait répondre
+`null` :
+
+- **ça compile sans le moindre avertissement** ;
+- **aucun golden ne le voit** : ils comparent des documents **parsés**, et `null` comme `{}` sont
+  des documents valides ;
+- **aucun test de la suite ne le voyait** avant ce ticket.
+
+⇒ **Même famille que le `!Json` d'`E4.1o` et que le `dump()` nu de KNX : la forme qui compile.**
+Trois cas `...AnswersAnEmptyObject` (HTTP : `get_state`, `get_states`, `query`) ferment le trou et
+sont des **invariants** — ils doivent rester verts des deux côtés de toute bascule future.
+⚠️ **À reprendre dans chaque sous-ticket restant** : `Params::toNJson()` est `Json(std::map)` et
+rend bien un **objet** même vide (mesuré), mais **tout conteneur construit à la main est exposé**.
+
+### ⭐ RemoteUI : **trois des cinq deltas n'atteignent PAS l'appareil physique** — mesuré, pas raisonné
+
+Le wire RemoteUI est le seul de l'épique qui parle à un **appareil matériel** dont le client vit
+dans un dépôt voisin et **n'est pas mis à jour avec le serveur**. Mesure du pont **tel qu'il
+était** (`json_dumps(JSON_COMPACT)`, puis `Json::parse`, puis `dump(ensure_ascii=true, replace)`) :
+
+| delta | atteint l'écran ? | pourquoi |
+|---|---|---|
+| ordre des clés | **NON** | l'aller-retour triait déjà — **et** `RemoteUI::referenced_ios` est un `std::set`, donc l'`iolist` était déjà alphabétique. Deux raisons indépendantes. |
+| casse hexa | **NON** | le `dump()` final était déjà celui de nlohmann |
+| DEL `0x7F` | **NON** | idem — nlohmann échappe tout point de code >= `0x7F` sous `ensure_ascii` |
+| UTF-8 invalide | **OUI** | la paire était droppée **avant** le pont, par `json_string()` |
+| NUL embarqué | **OUI** | tronqué **avant** le pont, par `.c_str()` |
+
+⇒ **Deux deltas, tous deux sur charge empoisonnée.** Épinglés par **deux cas NÉGATIFS**
+(`RemoteUiStateBridgeTest.InitialStatesAreSortedAsciiAndLowercaseHex` et
+`.InitialStatesAlreadyEscapeDel`) et non par une phrase : sur ce wire, un résultat négatif vaut une
+release de firmware. `RELEASE_NOTES.md` reçoit un encadré propre aux écrans déportés.
+
+### ⭐ Il y a DEUX gardes de vie sur le chemin RemoteUI, et ce n'est pas celle qu'on croit qui agit
+
+`E4.1n.md` attribuait la protection au `weak_ptr` de `RemoteUIWebSocketHandler` (`:237`). **Mesuré,
+c'est la seconde ceinture, pas la première.** `RemoteUIWebSocketHandler` **EST-UN**
+`JsonApiHandlerWS` **EST-UN** `JsonApi` : détruire le handler détruit `JsonApi::apiAlive`
+(`JsonApi.h:256`), et `JsonApi.cpp:491` teste **ce** jeton avant chaque étape de la chaîne audio et
+avant `finishOne()` — **la lambda de résultat n'est même pas entrée**. Le `handlerAlive` du handler
+reste **porteur** pour le `Timer::singleShot` post-auth (`:93`), qui lui n'est **pas** dans
+`JsonApi`.
+
+⛔ **Ne « nettoie » ni l'une ni l'autre en supprimant les `json_decref`** : les `decref`
+disparaissent parce que la propriété passe par valeur ; les gardes protègent `this` et les
+pointeurs bruts de handler que la lambda capture, **pas le document**. Couvert par
+`RemoteUiStateBridgeTest.InitialStatesSurviveTheHandlerDyingMidFlight`.
+
+### ⛔ Une acceptation de fiche IMPOSSIBLE, corrigée plutôt que contournée
+
+`E4.1n.md` §Acceptation 2 exigeait `core/JsonApiAudioState_test` *« vert sans modification
+d'assertion »*. **Impossible** : trois de ses assertions lisaient le compteur de références de
+l'objet jansson, et **il n'y a plus de compteur** quand le résultat est une valeur. Une acceptation
+ne peut pas demander la survie d'une assertion sur un champ d'un type qu'elle supprime.
+
+Remplacées par ce qu'elles épinglaient **réellement** — document complet, sous-arbres imbriqués, clé
+absente et **non `null`** — **plus** le typage chaîne de chaque valeur (`"42"`, `"12.5"`), qui
+n'était couvert nulle part et qu'un port aurait pu casser sans qu'un golden bronche. Les deux cas
+qui portaient le défaut T2.15 (`ClientGoneBeforeAnswerIsIgnored`,
+`MixedCompletionAndDeletionAnswersOnce`) sont **inchangés sur le fond** et n'ont **jamais** regardé
+un compteur de références.
+
+⚠️ **Leçon pour les fiches restantes** : une acceptation formulée sur la **forme** d'un test
+(« sans modifier d'assertion ») devient fausse dès que le ticket change un **type**. Formulée sur
+l'**intention** (« le cas T2.15 reste couvert »), elle résiste.
+
+### ⭐ `get_states` et `query` n'étaient couvrables par AUCUNE maison de configuration — 13e « fixture pauvre »
+
+Mesuré en écrivant le filet : `IOBase::get_all_values_bool/double/string()` et
+`IOBase::query_param()` ont **exactement UNE surcharge chacun dans tout l'arbre**
+(`IOAVReceiver`, `Audio/AVReceiver.cpp:307` et `Audio/AVReceiver.h:160`). **Tout autre IO rend une
+map VIDE.**
+
+⇒ Sur n'importe quelle maison de test constructible, `get_states` et `query` répondent `{}` — et une
+fixture qui ne voit que `{}` **ne distingue ni un ordre, ni un encodage, ni une perte de paire**.
+Les cas auraient été verts des deux côtés de la bascule. Le remède est une classe de test
+(`ProbeIO`) qui surcharge les deux méthodes. ⚠️ **À relire par tout ticket qui prétendra couvrir
+`get_states` ou `query`.**
+
+### ⚠️ La valeur empoisonnée doit être posée SANS passer par `set_value()`
+
+`Internal::set_value(string)` appelle `Save()`, qui écrit dans le cache d'état de `Config` — **à
+l'échelle du processus, et jamais purgé** (cf. l'avertissement en tête de `CalaosCoreFixture.h`).
+Une valeur contenant `0xFF 0x80` ou un octet nul écrite par ce chemin **fuit dans le cas suivant du
+même binaire**, et la fuite est invisible tant que l'ordre d'exécution ne change pas. `ProbeIO`
+expose donc `setRawString()`, qui écrit le membre protégé directement. ⚠️ **Le contrôle qui attrape
+une régression ici est `--gtest_shuffle`, jamais l'ordre par défaut.**
+
+### ⚠️ Une couture de test assumée : `private` vers `protected` dans `RemoteUIWebSocketHandler.h`
+
+`sendInitialIOStates()` — la fonction pour laquelle ce ticket existe — était **impilotable** :
+`authenticated_remote_ui` n'est renseigné que par `authenticateConnection()`, qui exige une vraie
+poignée de main HMAC. Un bloc de trois membres passe de `private` à `protected`. **Zéro
+comportement**, **aucun appelant hors de la classe ne lit ces membres**, et c'est exactement le
+motif déjà employé par `WsTestSession::Handler` pour `JsonApiHandlerWS`.
+
+⚠️ Consigné parce que c'est une modification de `src/` faite **pour un test**, et qu'elle a donc été
+livrée dans un commit **séparé** de la caractérisation (qui, lui, est à zéro ligne de `src/`,
+vérifié par `git diff-tree` **sur le commit**).
+
+### ⭐ Le protocole en trois commits, et pourquoi la caractérisation seule ne suffisait pas
+
+1. `18160275` — **caractérisation, zéro `src/`** (vérifié sur le commit) : 19 cas, verts sur l'arbre
+   jansson.
+2. `22c6f9b2` — **couture + 5 cas RemoteUI** : ils ne pouvaient pas tenir dans (1) sans la couture.
+   Verts **avant** la migration, ce qui est ce qui les rend probants.
+3. `b1081598` — **la migration**, qui a dû **réécrire 11 des 24 cas**.
+
+⭐ **C'est ce chiffre qui prouve que le chemin est EXERCÉ**, et pas le `make check` vert : *un cas
+qu'il a fallu éditer est un cas qui a tourné.* Zéro golden bougé (arbre `d4ebc61f`, 145 fichiers) —
+et **un golden inchangé ne prouve rien**, il est aveugle par construction à ce que ce ticket
+modifie.
+
+### Contre-mutations — six tours, ensembles rouges deux à deux distincts au grain du CAS
+
+`cmp` d'application `rc=1` à chaque tour ; `rm -f` du binaire **et** des objets (serveur **et**
+test) avant chaque build ; ligne `CXXLD` exigée et obtenue à chaque tour (`tests/Makefile.am` exclut
+délibérément les objets serveur des `_DEPENDENCIES`, donc **rien ne se relie tout seul**).
+
+| # | Échange | Rouges |
+|---|---|---|
+| M1 | `buildJsonState` : accesseurs `TBOOL` <-> `TSTRING` | 10 |
+| M2 | émetteur HTTP : `ensure_ascii` `true` -> `false` | 7 |
+| M3 | émetteur WS : `error_handler_t::replace` -> `ignore` | 2 |
+| M4 | sites d'appel HTTP : `buildJsonStates` <-> `buildQuery` | 6 |
+| M5 | RemoteUI : `remote_ui_io_states` -> `remote_ui_config` | 1 |
+| Témoin | extraction d'une variable locale, sémantique nulle | **0** |
+
+⭐ **M2 et M3 séparent les DEUX invariants d'émission sur les DEUX transports** : `ensure_ascii`
+rougit 7 cas HTTP et **aucun** cas WS ; `replace` rougit 2 cas WS (dont **un** cas RemoteUI) et
+**aucun** cas HTTP. C'est la disjonction qu'E4.1b avait construite, et elle tient sur cette chaîne
+aussi. ⚠️ **`GetStateHttpKeepsTheWholeValueAcrossAnEmbeddedNul` reste VERT sous M2**, et c'est
+correct : l'octet nul est un caractère de contrôle inférieur à `0x20`, échappé **indépendamment**
+d'`ensure_ascii`. Un cas qui aurait rougi là aurait signalé un oracle trop large.
+
+### Décomptes
+
+- `make check` en **distclean complet** : `rc=0`, `# TOTAL: 102 / PASS: 101 / SKIP: 1 / FAIL: 0`.
+  `+1` sur master (`core/JsonApiStateWireBytes_test`). `SKIP` = `run-python-tests.sh`, normal.
+- Cas et durées : `JsonApiStateWireBytes` **24/24**, 38 à 43 ms par cas, 748 ms au total ;
+  `JsonApiAudioState` **5/5**, 14 à 15 ms. **Uniformes** — aucun plafond de sûreté.
+- Jetons jansson dans `src/` (`json_*(`, `jansson_*(`, `json_t`, `JSON_*`, **hors commentaires**) :
+  **734 -> 677**. `RemoteUI/RemoteUIWebSocketHandler.cpp` : **5 -> 0**.
+- Avertissements de compilation **inchangés** : `JsonApi.cpp` 17, `JsonApiHandlerWS.cpp` 25,
+  `JsonApiHandlerHttp.cpp` 24, `RemoteUIWebSocketHandler.cpp` 0 — identiques à l'arbre jansson,
+  zéro erreur.
+- **`F-FLAKY-1`** : `tests/core/ShutterImpulse_test.cpp` présent, **6 sites** (297, 343, 384, 450,
+  498, 664), tous à la forme déclarée `EXPECT_FALSE(sh.isStopped())`. **Non vu rouge** sur les
+  quatre `make check` complets de ce ticket ; **non relancé** pour le provoquer.
+
+### Le découpage `n` vers `s` tient — et un point à léguer à `E4.1s`
+
+Rien à re-planifier. Le seam (`sendJson` en surcharge nlohmann des deux côtés) a suffi, **aucun
+adaptateur transitoire n'a été écrit**, et `decodeSetState` s'est révélé n'avoir **aucun** appel
+jansson dans son corps : son périmètre réel était ses **deux constructeurs de réponse**, chez les
+appelants (`JsonApiHandlerHttp.cpp:394`, `JsonApiHandlerWS.cpp:373`).
+
+⚠️ **Le point légué, mesuré et laissé volontairement** : `JsonApiHandlerWS::processGetState()`
+conserve `sendJson("get_state", nullptr, client_id)` sur la **surcharge jansson** quand la requête
+n'a pas de `data`. Ce n'est pas un oubli : cette surcharge **omet** la clé `"data"` quand le
+pointeur est nul, là où la surcharge nlohmann écrirait `"data":null`. Le golden
+`e40e_ws_get_state_without_data.json` épingle l'omission. ⇒ **`get_state` a donc DEUX formes
+d'enveloppe** sur le websocket depuis ce ticket (chemin normal trié, chemin sans `data` à l'ancien
+ordre). C'est cohérent avec « zéro golden bougé », et c'est `E4.1s` qui devra trancher si l'on
+unifie — **auquel cas ce golden bouge, et il faudra le déclarer.**

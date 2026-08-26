@@ -1077,7 +1077,7 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   par E4.2d (le nouveau `Remove(Rule*)` refuse et logge au lieu de détruire un objet qu'il ne
   possède pas).
 
-## Détail pour les intégrateurs — les événements ET `get_home` / `get_io` changent de forme, et cessent de perdre des données en silence (E4.1l, E4.1m)
+## Détail pour les intégrateurs — les événements, `get_home` / `get_io` ET l'état des équipements changent de forme, et cessent de perdre des données en silence (E4.1l, E4.1m, E4.1n)
 
 > **Rien à faire de votre côté, et aucune application Calaos ne s'en aperçoit.** Cette note existe
 > parce que le changement porte sur des **octets réellement servis** sur l'API JSON (port 5454),
@@ -1086,8 +1086,10 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
 ⚠️ **Note consolidée, pas empilée.** E4.1l l'a ouverte pour les événements ; E4.1m y ajoute
 `get_home` et `get_io` **sans dupliquer les cinq différences**, parce que ce sont **exactement les
 mêmes cinq**, remesurées sur la chaîne d'émission de ce ticket-là (512 sondes d'un octet, en valeur
-et en nom de champ, plus les formes bien et mal encodées). Les tickets suivants de la série feront
-de même. La liste des **réponses** concernées à ce stade est donc :
+et en nom de champ, plus les formes bien et mal encodées). **E4.1n** y ajoute l'**état des
+équipements**, remesuré une troisième fois sur sa propre chaîne : **les mêmes cinq**, aucune
+sixième. Les tickets suivants de la série feront de même. La liste des **réponses** concernées à ce
+stade est donc :
 
 | Réponse | Depuis |
 |---|---|
@@ -1097,6 +1099,11 @@ de même. La liste des **réponses** concernées à ce stade est donc :
 | ⭐ **`get_home`** — la description complète de l'installation : pièces, équipements, caméras, lecteurs audio | **E4.1m** |
 | ⭐ **`get_io`** — la description d'une liste d'équipements demandés par leur identifiant | **E4.1m** |
 | ⭐ Le message envoyé aux **scripts Lua** (`calaos_script`) | **E4.1m** |
+| ⭐ **`get_state`** — l'état d'une liste d'équipements, **la réponse la plus demandée de l'API** | **E4.1n** |
+| ⭐ **`get_states`** — tous les états d'un équipement | **E4.1n** |
+| ⭐ **`query`** — l'interrogation d'un paramètre d'équipement | **E4.1n** |
+| ⭐ **`set_state`** — l'accusé de réception (`{"success":"true"}`) | **E4.1n** |
+| ⭐ Les **écrans déportés (RemoteUI)** à la connexion, pour leurs **états initiaux** — voir l'encadré qui leur est consacré plus bas | **E4.1n** |
 
 Ces réponses sont désormais fabriquées par la même bibliothèque JSON que le reste des réponses
 récentes. **Cinq** différences observables, **mesurées octet à octet** ; trois sont purement de
@@ -1203,6 +1210,34 @@ faisait rien peut se mettre à faire quelque chose. Si le caractère fautif se t
 chaîne de caractères du script, il vaut la peine de rouvrir ce script et de le réenregistrer
 proprement depuis Calaos Installer. ⚠️ **Non vérifié de bout en bout avec un vrai `calaos_script` :
 la mesure a été faite au niveau du message construit, pas sur un script réellement exécuté.**
+
+### ⭐ Les écrans déportés (RemoteUI) : ce qui change pour eux, et c'est deux choses seulement (E4.1n)
+
+Les écrans déportés sont le **seul destinataire matériel** de cette série : ils embarquent leur
+propre client, dans un dépôt voisin, et **ils ne sont pas mis à jour en même temps que le serveur**.
+Le message de leurs **états initiaux** (envoyé une fois, juste après la connexion de l'écran) est
+donc regardé de plus près que les autres.
+
+**Bonne nouvelle, et c'est mesuré cas par cas** : sur les cinq différences décrites plus haut,
+**trois ne les concernent pas du tout**. L'ordre des membres, la casse de l'échappement et le
+traitement de `DEL` étaient **déjà** ceux de la nouvelle bibliothèque, parce que le serveur
+retraduisait déjà ce message d'une bibliothèque à l'autre avant de l'envoyer — un
+aller-retour complet, purement mécanique, que ce ticket supprime. Les octets qu'un écran reçoit
+pour un état normal sont donc **rigoureusement identiques**, avant comme après.
+
+**Deux différences les concernent**, et seulement quand l'état d'un équipement contient des octets
+que rien n'aurait dû y mettre (voir l'encadré « comment un tel octet arrive-t-il là ? ») :
+
+- l'état d'un équipement dont la valeur contenait un **caractère mal encodé** n'était **pas envoyé
+  du tout** — l'écran affichait l'équipement sans son état. Il arrive désormais, les octets fautifs
+  remplacés par `�`. ⚠️ **C'est une clé que l'écran ne recevait jamais et qui commence à
+  arriver** ;
+- une valeur contenant un **octet nul** était **coupée à cet octet** ; elle arrive maintenant
+  entière.
+
+⚠️ **Non vérifié sur un écran réel** : la mesure porte sur les octets que le serveur émet, pas sur
+ce qu'un firmware d'écran en fait. Un écran qui affiche une valeur d'état telle quelle montrera le
+caractère `�` là où il ne montrait rien.
 
 ### Ce qui pourrait s'en apercevoir
 
