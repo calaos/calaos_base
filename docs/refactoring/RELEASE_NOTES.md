@@ -1542,3 +1542,45 @@ construction depuis un export git plutôt que depuis le tarball) : le contournem
 nécessaire et un patch qui énumère des fichiers des répertoires ci-dessus entrera en conflit —
 ces répertoires sont maintenant distribués **en entier**, par un mécanisme qui n'énumère rien.
 (T3.45, T3.48)
+
+## Les auto-scénarios sont enfin **écrits** dans votre configuration, au lieu d'être devinés
+
+Jusqu'ici, un auto-scénario n'existait **nulle part** sur le disque. Ni ses étapes, ni ses pauses,
+ni ses actions : le serveur les **re-devinait** à chaque démarrage, en reconnaissant des motifs
+dans `rules.xml`. Un caractère changé dans ce fichier et une étape entière disparaissait,
+définitivement, sans un message.
+
+À partir de cette version, la **définition** du scénario est écrite dans `io.xml`, sur l'IO du
+scénario lui-même, sous la forme d'attributs lisibles :
+
+```xml
+<calaos:input type="scenario" id="io_18" name="Monter volets matin"
+              autoscenario_uid="as_0" autoscenario_cycle="false" autoscenario_enabled="true"
+              autoscenario_steps="s0|s1"
+              as_s0_pause="1.5"  as_s0_actions="io_77=up|io_78=up"
+              as_s1_pause="0"    as_s1_actions="io_9=42"
+              as_final_actions="io_9=false"/>
+```
+
+**Ce que ça change concrètement**
+
+- **Toujours deux fichiers.** `io.xml` et `rules.xml`, comme avant. Rien de nouveau à sauvegarder,
+  à téléverser ou à restaurer, et aucun outil à mettre à jour pour ne rien perdre.
+- **`calaos_installer`, même ancien, préserve tout.** Ce sont des **attributs**, et l'installeur
+  réécrit verbatim les attributs qu'il ne connaît pas. Il fallait le vérifier avant de choisir :
+  ça a été fait, au source.
+- **Un scénario qui référence un IO disparu ne l'oublie plus.** L'identifiant reste écrit dans la
+  définition, donc réparable — là où auparavant un simple aller-retour par l'installeur effaçait
+  l'action pour de bon, sans trace.
+- **C'est lisible et réparable à la main.** Une valeur contenant `%`, `=` ou une barre verticale est
+  encodée (`%25`, `%3D`, `%7C`) et redonne exactement les mêmes octets.
+
+**Ce qui ne change pas encore, dans cette version** : ce sont toujours les règles qui **exécutent**
+le scénario. La définition est écrite et conservée, mais rien ne s'en sert encore pour reconstruire
+les règles — c'est l'étape suivante. Aucun comportement visible ne change : vos scénarios se
+déclenchent exactement comme avant, l'API répond exactement comme avant.
+
+**Rien n'a été supprimé de votre configuration.** L'ancien marqueur `auto_scenario` est laissé
+strictement en place, et le nouvel identifiant vit **à côté** de lui. C'était la condition à tenir :
+le re-clé aurait fait détruire, en silence et au premier démarrage, toutes les règles des scénarios
+existants. (E4.6b)

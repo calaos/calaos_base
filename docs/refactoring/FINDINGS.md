@@ -8133,3 +8133,48 @@ n'ecrivent que `$(CORE_TEST_LDADD)` relient pourtant les 35 objets de `CORE_SERV
 jamais nommer la variable. *(La fiche annoncait le meme ecart a son echelle : 27 pour 47.)*
 **Ce fichier ne se compte qu'en resolvant les variables** — et c'est desormais
 `tests/check-test-deps.py` qui le fait, a chaque `make check`.
+
+## E4.6b — un test qui vérifie « l'IO a disparu » par une SOUS-CHAÎNE du fichier casse dès que le fichier a le droit de citer l'id (2026-09-01)
+
+Trois fixtures partagées vérifiaient qu'un IO amputé n'était plus dans `io.xml` ainsi :
+
+```cpp
+removeIoFromXml(ioXml, IO_TARGET);
+EXPECT_EQ(std::string::npos, ioXml.find(IO_TARGET));   //<- la sous-chaîne, pas l'élément
+```
+
+`tests/core/AutoScenarioMigration_test.cpp` (`loadScenarioWithTwoAmputatedActions()`),
+`tests/core/JsonApiScenario_test.cpp` et `tests/core/JsonApiScenarioWireBytes_test.cpp`.
+
+E4.6b met la **définition** du scénario dans `io.xml` (D2) et cette définition **garde l'id d'une
+action dont l'IO a disparu** (D4). La chaîne réapparaît donc **légitimement**, et les trois
+préconditions tombent — **8 cas rouges d'un coup**, dont le garde-fou
+`AnUnmarkedScenarioIoStillRunsItsRulesWhenTheButtonIsPressed`, alors qu'**aucune propriété mesurée
+par ces cas n'avait bougé**.
+
+⚠️ **Deux d'entre elles étaient des `ASSERT_`**, donc le corps de la fixture s'arrêtait là : les cas
+en aval s'exécutaient sur l'**état du cas précédent** et échouaient sur des symptômes sans rapport
+(un scénario « sain » là où on attendait `broken`). **Le message d'erreur ne désignait jamais la
+cause.**
+
+**La leçon, généralisable** : une assertion d'absence portée sur le **document entier** mesure
+l'objet à travers une chaîne dont on suppose qu'aucune autre partie du document ne peut la
+produire. Cette supposition n'est pas énoncée, donc personne ne la revoit quand elle devient
+fausse. **Mesurer la structure** — ici `id="…"`, l'attribut qui déclare l'élément — et, quand la
+chaîne survit ailleurs pour une bonne raison, **l'assertir positivement** : le test devient alors
+un témoin de la nouvelle propriété au lieu d'un obstacle à elle.
+
+## E4.6b — un jeton de test pris dans l'espace d'un allocateur global rend le cas dépendant de l'ordre (2026-09-01)
+
+Le cas de l'`as_*` orphelin plaçait `as_s9_actions` sur l'IO scénario, « un pas qui n'existe pas ».
+Les ids d'étape sont pourtant frappés `s<n>` par un **compteur de processus** : au moment où ce cas
+tourne, `s9` peut très bien être le nom d'une étape **réelle** d'un autre cas du même binaire.
+Le cas passait seul et échouait dans la suite complète — et il aurait pu faire l'inverse.
+
+C'est la **récidive §9.4 d'E4.6.md** (« les sondes de test qui deviennent valides », E4.0c avait pris
+`reenable` comme canari de commande inconnue et T3.18 a livré la commande), avec une variante
+plus perfide : ici ce n'est pas un ticket futur qui rend la sonde valide, c'est **l'exécution
+elle-même**, dans le même binaire, selon l'ordre. Corrigé en `as_s_orphan_actions` — un id d'étape
+**valide** que l'allocateur ne peut **jamais** produire, puisqu'il ne frappe que `s<chiffres>`.
+**Une sonde doit être hors de l'espace de nommage d'un allocateur, pas seulement hors des noms
+observés aujourd'hui.**
