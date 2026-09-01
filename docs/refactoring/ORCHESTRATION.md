@@ -8,7 +8,9 @@
 
 ## 🔁 REPRISE — lire en premier
 
-- **✅⭐ [`T3.36`](T3.36.md) LIVRÉE — branche `fix/t3.36`, 2 commits (correctif `7fc427f6`), ⛔ NON MERGÉE, rien poussé.**
+- **✅⭐ [`T3.36`](T3.36.md) MERGÉE — 2 commits de la branche + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`82b63233`** (correctif `7fc427f6`).
+  ⭐ **`master` ÉTAIT IMMOBILE sur `4498c29a`** = exactement la merge-base ⇒ **ni rebase ni conflit**.
+  ⛔ **Rien poussé.**
   ⭐ **Le filet de sécurité est réparé : `make` relinke enfin les binaires de test.** Population
   **re-mesurée** sur `master` = `4498c29a` (les « 47 sur 80 » du titre dataient du 2026-08-25) :
   `TESTS` **109**, **102 binaires de test**, **67** overrides `_DEPENDENCIES` dont ⭐ **65 AVEUGLES**
@@ -24,6 +26,64 @@
   **93/93**, `autoreconf` sans avertissement neuf. Garde neuve **`check-test-deps.sh`**.
   ⛔⭐ **LA CONSIGNE « `rm -f` binaire + `.o` serveur puis exiger `CXXLD` » EST CADUQUE** — réécrite
   dans la section « Piège `_DEPENDENCIES` », §RÉPARÉ. **Ne la recopiez plus dans un brief.**
+
+  ⭐⭐ **CE QUE TOUT BRIEF DOIT ÉCRIRE DÉSORMAIS — la discipline du `rm -f` est TERMINÉE.**
+  Elle est remplacée, mot pour mot, par : **muter, `make -j32 && make check -j16`, LIRE la ligne
+  `CXXLD <suite>` et le code de sortie. Rien de plus. On n'efface plus ni binaire de test ni `.o`
+  serveur** — un `rm -f` rend désormais le `CXXLD` inconditionnel, donc **inobservable**, et détruit
+  l'oracle au lieu de l'armer. L'absence d'un `CXXLD` attendu n'est plus un oubli de brief : c'est
+  une **régression du harnais**, que `tests/check-test-deps.sh` fait rougir en statique à chaque
+  `make check`. ⚠️ **Ce qui NE change PAS** : la restauration reste **une copie vérifiée au `cmp`**
+  (⛔ jamais un `git` dans le conteneur), et **`make distclean` après un rebase reste requis** —
+  T3.36 relie `tests/` à `src/`, il ne dit rien de la cohérence des `.o` de `src/` **entre eux**.
+  ⚠️ Ordre d'observation à connaître : `make` seul ne relinke **aucun** binaire de test
+  (`check_PROGRAMS` n'est pas dans `all`) — **la ligne `CXXLD` d'une suite apparaît dans le journal
+  de `make check`**, pas dans celui de `make`.
+
+  ⛔ **La condition « `T3.36` : priorité haute, mais APRÈS `E4.1x` » (`DECISIONS.md`) N'A PLUS
+  D'OBJET** — le ticket est fait et mergé. Ne la relayez plus dans un brief ni dans un plan de wave.
+
+  ⭐ **VÉRIFIÉ AU MERGE, mesures REJOUÉES par l'agent de merge, pas relues** — même manip
+  (défaut T3.29 réintroduit sur les 7 `weather/[0]/description` de l'ioDoc MQTT), **zéro `rm -f`** :
+  **AVANT** (ancien `tests/Makefile.am` remis en place) `MqttCtrl.o` recompilé, `CXXLD calaos_server`
+  = 1, **`CXXLD` de binaires de test = 0**, `JsonPathSyntax_test` **VERT sur le défaut réintroduit** ;
+  **APRÈS** exactement **1** relink, **`CXXLD    JsonPathSyntax_test`**, `TOTAL 110 / PASS 107 /
+  SKIP 2 / **FAIL 1** : JsonPathSyntax_test`. **Couverture** (`touch` des **154** `.o` serveur) :
+  **0/65** avant, ⭐ **65/65** après, **0 recompilation**. **Témoin** (commentaire seul) : `CXXLD`
+  présent et **`FAIL 0`** ⇒ la dépendance est **juste**, ce n'est pas un relink systématique.
+  **Garde `check-test-deps.sh` jouée dans les DEUX sens** : **65 échecs** sur l'ancien fichier,
+  **PASS (0)** sur le neuf (`103 check_PROGRAMS, 65 linking server objects`).
+  **Masquage de la règle implicite confirmé** : `make -C tests -n <objet serveur inexistant>` rend
+  `:` — `tests/` n'a acquis **aucun** moyen de compiler du `src/`.
+  **Structure** : `^if`≡`endif` **93/93** des deux côtés · **aucune entrée `TESTS` perdue**
+  (109 → 110, la seule ajoutée est `check-test-deps.sh`) · les 67 mêmes cibles portent un
+  `_DEPENDENCIES` avant/après · **toute ligne supprimée est un `_DEPENDENCIES`, un commentaire ou
+  une ligne vide** — aucun `_LDADD` touché · `src/` **vide dans le diff** · `autoreconf` : seuls les
+  **2 avertissements préexistants de `configure.ac:161`** (`AC_LANG_C`, `AC_TRY_LINK`).
+  **`make distclean` final** : **`TOTAL 110 / PASS 108 / SKIP 2 / FAIL 0 / XFAIL 0 / XPASS 0 /
+  ERROR 0`**, un seul `Testsuite summary`, 0 `error:`, les 2 `SKIP` attendus
+  (`run-python-tests.sh`, `check-ccache-honesty.sh`).
+  ⭐ **Sur le « ZÉRO rouge découvert » : l'argument de l'auteur est CONFIRMÉ, et il est même plus
+  fort qu'il ne le dit.** Un `make distclean` relie **tout** à neuf : une suite qui ne passait que
+  grâce à un binaire périmé y rougirait. Le distclean est vert ⇒ **il n'existe aucun rouge latent
+  dans un build complet**, et il n'y a rien à balayer. Ce que le correctif protège est le régime
+  **incrémental** (muter / rebaser / contre-muter), et les arbres où les faux verts passés sont
+  survenus n'existent plus : **ils ne sont pas rejouables**. ⇒ **Aucun balayage supplémentaire n'est
+  proposé.** Si l'on en voulait un un jour, ce serait une campagne de mutation par objet
+  (154 `.o`, muter chacun, exiger que les seules suites relinkées restent vertes) — coûteuse et
+  sans rouge attendu.
+
+- ⭐⭐ **PROCHAINE ACTION : [`E4.6b`](E4.6.md) — le modèle `AutoScenarioDef` + le codec params**,
+  premier maillon de la refonte AutoScenario après `E4.6a` (livrée). Suite : `c → (d ‖ e) →
+  (f ‖ g ‖ h)`.
+  ⚠️ **`E4.6d` porte DEUX DETTES écrites au merge d'`E4.1s`** — la **troncature du NUL** par
+  `Scenario::toJson()` (§6.1) et l'**UTF-8 invalide droppé avec sa clé**. Elles doivent être
+  reprises telles quelles dans son brief.
+  ⭐ **`E4.6b` + `E4.6d` débloquent la clôture d'`E4.1x`** (donc de l'épique E4.1) : `E4.1x` retire
+  `src/lib/Jansson_Addition.h` et ne peut partir tant qu'un appelant `json_t *` vit dans
+  `IO/Scenario.{cpp,h}`.
+  ✅ **En revanche la condition « T3.36 après E4.1x » est CADUQUE** : T3.36 est mergée, `E4.1x` n'a
+  plus rien à attendre de ce côté — elle n'attend plus que `E4.6b` + `E4.6d`.
 
 - **✅ [`E4.1s`](E4.1s.md) MERGÉE — 3 commits de la branche + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`d818a391`**.
   ⭐ **`master` ÉTAIT IMMOBILE sur `a26c874e`** = exactement la merge-base ⇒ **ni rebase ni conflit**,
