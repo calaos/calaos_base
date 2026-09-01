@@ -8,6 +8,62 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅ [`T3.56`](T3.56.md) MERGÉE — 3 commits de la branche + 1 commit de doc (livrables documentaires trouvés **NON COMMITÉS** dans le worktree, commités avant rebase) + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`85619bc1`**.
+  ⭐ **CE MERGE FERME LA VARIANTE PRODUIT DU DÉFAUT D'HORLOGE DE T3.49 — ET LE CORRECTIF N'EST
+  AUCUN DES DEUX REMÈDES QUE LA FICHE PROPOSAIT.** `uv_timer_start()` ne lit pas l'horloge : il
+  calcule son échéance depuis `loop->time`, le cache que seul `uv__update_time()` avance. Le
+  correctif pose `loop->update()` dans les **trois** fonctions d'armement de `Timer` — `create()`,
+  `Reset()` (les deux surcharges, la seconde **délègue** à la première) et `singleShot()` — plutôt
+  que sur les sites appelants : **rien de l'arbre ne peut armer une échéance libuv sans y passer**,
+  la propriété est structurelle et le prochain site écrit naît correct. `uv_update_time()` n'est
+  **pas** une itération de boucle (il ne dispatche rien), donc sûr depuis un constructeur d'IO.
+
+  **Revue : `approve`.** ⛔ **Et la MESURE, livrable n° 1 de la fiche, INFIRME LES DEUX VICTIMES
+  DÉSIGNÉES** (`main.cpp` instrumenté, `calaos_server` réel, deux configs réelles 474/284 IO) :
+  le décalage au `loop->run()` est de **39–64 ms** (134–142 ms avec l'hôte ralenti 5×), pas
+  « plus de 100 ms » ; **le chargement lui-même ne coûte que 10–30 ms, le gros est le montage des
+  services APRÈS** (`main.cpp:152-191`) — T3.49 l'attribuait à `LoadConfigIO`/`LoadConfigRule`.
+  `IO/Wago/WagoMap.cpp:46` est **inoffensif même en tirant immédiatement** (socket liée **avant** le
+  timer, le rappel n'envoie rien lui-même, et il **répète** toutes les 10 s) ; les **10 s** de
+  `Audio/RoonPlayer.cpp:243` sont deux ordres de grandeur au-dessus. ⭐ **Quatre sites d'armement
+  pré-boucle qu'aucun recensement n'avait listés** : `main.cpp:194`, `:195`, `:198` et
+  `IO/Web/WebCtrl.cpp:115` via `Reset()`.
+
+  ⛔⭐ **FAUX VERT DE VARIANTE NOUVELLE, consigné en `FINDINGS.md` — l'oracle dont la FIXTURE
+  S'ÉVAPORE.** `uvw::Loop::getDefault()` met le wrapper en cache dans un **`weak_ptr`** : sans
+  handle vivant, le `shared_ptr` rendu meurt en fin d'expression, `~Loop()` appelle
+  `uv_loop_close()` qui remet `default_loop_ptr = NULL`, et le `uv_default_loop()` suivant refait
+  **`uv_loop_init()`** — lequel appelle `uv__update_time()`. ⇒ **dans un binaire sans handle vivant,
+  tout `uvw::Loop::getDefault()->x()` réinitialise silencieusement la boucle et rend une horloge
+  FRAÎCHE.** La 1ʳᵉ rédaction des cas était donc **verte sur l'arbre non corrigé**. Les 4 cas
+  **épinglent** la boucle pour toute leur durée **et vérifient que la fixture a bien produit une
+  horloge périmée** (`loopClockStalenessMs()`). `calaos_server` n'est pas dans cette forme (le
+  `Timer` du cache d'état, `CalaosConfig.cpp:206`, tient un handle) — ce qui rend le défaut **réel
+  côté produit et invisible côté test**.
+
+  ⚠️ **`master` avait avancé de `c287d700` à `e6ffe4d3` (E4.1n) ⇒ REBASE.** **Un seul conflit,
+  `FINDINGS.md`**, appends des deux côtés, résolu par **régénération** (`git show
+  master:…` en entier + append verbatim) : `diff` = **+104 / −0 / ~0**, `master` préfixe **STRICT**
+  en octets (567 981 o, queue de 8 646 o), **0 marqueur de conflit**. ⭐ **`tests/Makefile.am` n'est
+  PAS touché par ce ticket** (`core/Timer_test` existait déjà) ⇒ ni conflit ni entrée nouvelle.
+
+  ⭐ **BUILD D'INTÉGRATION POST-REBASE, `make distclean` d'abord**, une seule invocation synchrone :
+  **`rc=0`**, **0 `error:`**, **`# TOTAL: 103` / `# PASS: 102` / `# SKIP: 1` / `# FAIL: 0` /
+  `# XFAIL: 0` / `# XPASS: 0` / `# ERROR: 0`** — entrées `TESTS` **103 → 103, inchangées**. Le `SKIP`
+  est `run-python-tests.sh`, **normal**. `core/Timer_test` **PASS** (4 cas nouveaux, dont le
+  **contrôle symétrique** qui borde le cas nominal des deux côtés pour qu'un « remède » armant tout
+  loin dans le futur ne passe pas pour une amélioration).
+
+  ⛔ **NOUVEAU À INSTRUIRE, demande de numéro (consigné en `FINDINGS.md`)** : **`RoonCtrl` ne se
+  réabonne JAMAIS et l'abonnement peut être perdu SILENCIEUSEMENT.** `RoonPlayer.cpp:245` appelle
+  `subscribeZone()`, qui envoie via `ExternProcServer::sendMessage()` — `if (client) { … }`
+  (`IO/ExternProc.cpp:135`) : **sidecar pas encore connecté ⇒ message jeté sans un mot**. `RoonCtrl`
+  n'écoute pas `processConnected`, donc **la zone ne remonte plus jamais son état**, et la perte se
+  reproduit **après chaque respawn** de `calaos_roon`. Indépendant de l'horloge gelée.
+
+  ⛔ **Non poussé.** Worktree `.wave71/t3.56` supprimé (via conteneur, artefacts root),
+  `git worktree prune`, branche `fix/t3.56` supprimée.
+
 - **✅ [`E4.1n`](E4.1n.md) MERGÉE — 4 commits de la branche + 1 commit de doc, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de la branche après rebase **`340a7f43`**.
   ⭐ **CE MERGE FERME L'ÉTAT DE `JsonApi` — ET, SURTOUT, LE PONT jansson↔nlohmann DE
   `RemoteUIWebSocketHandler`.** `buildJsonState/States/Query` rendent un **`Json` par valeur** (plus
