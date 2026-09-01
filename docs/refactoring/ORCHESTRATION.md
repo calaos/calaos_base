@@ -8,6 +8,112 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅ [`E4.1q`](E4.1q.md) MERGÉE — 3 commits de la branche + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`59663335`**.
+  ⭐ **`master` ÉTAIT IMMOBILE sur `283d8b80`** = exactement la merge-base ⇒ **ni rebase ni conflit**,
+  le `merge --ff-only` est passé tel quel.
+
+  **Revue : `approve`.** Ce ticket **boucle la base musicale** : `processDbResult`,
+  `audioDbUnavailable`, `audioGetDbStats`, les **quinze** `audioDbGet*` et le dispatcheur
+  `processAudioDb()` sur les **deux** transports. **Ce qu'il ferme** : le lot `audio_db` en entier —
+  après lui, plus une seule méthode de la famille musicale ne parle jansson.
+
+  ⭐ **L'ADAPTATEUR TRANSITOIRE A BIEN DISPARU — VÉRIFIÉ, PAS SUR PAROLE.** Le motif `getAudioPlayer`
+  suivi de `json_t` rend **2 sur `master`, 0 sur la branche**, sur **tout** `src/`, commentaires
+  compris (les commentaires du ticket ont été rédigés pour ne pas réintroduire le jeton). Il ne reste
+  **qu'une** surcharge, `getAudioPlayer(const Json &, string &)`, et les deux lecteurs continuent de
+  se rejoindre sur l'`audioPlayerById()` extrait par E4.1p (l'orthographe `"unkown"` est du contrat
+  de wire, inchangée). Les **16 appelants** d'E4.1p — écart assumé au protocole d'E4.1l — sont partis
+  en deux temps : **quinze** par la migration du dispatcheur, **le seizième par le compilateur**.
+
+  ⭐⛔ **LE SEIZIÈME APPELANT, ET LA SEULE LIGNE DU TICKET QUE RIEN NE TESTE.** C'était la branche
+  **`get_cover`** de `JsonApiHandlerHttp::processAudio()`, qu'E4.1p avait délibérément laissée en
+  jansson et qui n'était pas annoncée. ⛔ **`get_cover` n'a AUCUN cas de test dans tout l'arbre**,
+  avant comme après (finding consigné par E4.1p). **Lue au source, la ligne est jugée saine** :
+  `getAudioPlayer(jdata, err)` → `getAudioPlayer(jdataDoc, err)`, **un seul jeton**, où `jdataDoc`
+  est le document que `processApi()` passe **déjà** à `processAudio()` pour ses quatre autres
+  branches depuis E4.1p — même corps de requête, même membre `id`, même `audioPlayerById()`. Les
+  **deux charges d'erreur bâties à la main restent jansson et intactes** (`jansson_from_params`,
+  `json_object_set_new`), elles partent en E4.1s. La seule divergence concevable serait que les deux
+  analyseurs du **même corps** ne s'accordent pas ; c'est une exposition **préexistante et partagée**
+  avec les quatre branches migrées par E4.1p, pas quelque chose que ce ticket introduit. ⇒ **Non
+  bloquant, mais c'est le point nu du ticket** : couvert par le compilateur et par rien d'autre.
+
+  ⭐ **AUCUN PONT — L'ARGUMENT MÊME QUI JUSTIFIAIT CE REGROUPEMENT.** Le document d'entrée est
+  **hissé, pas ajouté** : `processAudioDb()` lit le parse nlohmann que `processApi()` faisait déjà
+  (`jsonRootDoc` en HTTP, `jsonDataDoc` — initialisé à `Json::object()`, jamais `null` — en WS).
+  **Mesuré sur tout `src/`** : `json_loads` **15 → 15**, `.dump(` **50 → 50**, aucun site d'émission
+  neuf. Le `json_dumps` et le `Json::parse` qui apparaissent en +1 dans `JsonApiHandlerHttp.cpp` sont
+  **les deux mots d'un commentaire** qui dit qu'il n'y a pas de pont. ⇒ **`dump()` + `json_loads()`
+  n'a pas été écrit**, donc le sort de l'UTF-8 invalide n'a pas été déplacé par accident.
+
+  ⭐ **L'ÉCHANGE DES DEUX JUMELLES (M1) MORD, ET LA FIXTURE EST LA RAISON.** `audioDbGetAlbums` ↔
+  `audioDbGetArtists` : **25 cas rouges dans 4 binaires**, dont deux goldens (`WsGetAlbums`,
+  `HttpGetAlbums`, `WsGetArtists`, `HttpGetArtists`) — cohérent, un échange de jumelles est un delta
+  de **valeurs**, la dimension que les goldens couvrent. **Vérifié au source** : chacun des quatorze
+  getters de liste rend des lignes portant **son** kind **et** un `total_count` qui est le sien, en
+  quatre largeurs (2, 31, 412, 53, 6, 77, 812, 9, 104, 1105, 12, 133, 14, 1512) ⇒ un échange déplace
+  **le texte ET la longueur**. `TheFifteenPayloadsArePairwiseDistinctOnTheWire` **asserte la
+  propriété directement** (`std::set` des quinze wires HTTP, `EXPECT_EQ(15u, wires.size())`) : la
+  14ᵉ récidive possible du « fixture pauvre » est fermée **par construction**, pas après coup.
+  Les cinq échanges donnent des ensembles rouges **deux à deux distincts** (25 · 65 · 9 · 2 · 49)
+  + **témoin vert à 0**.
+
+  ⚠️ **CHANGEMENT DE COMPORTEMENT VISIBLE, ASSUMÉ — même retournement qu'E4.1o et E4.1p, au point le
+  plus exposé de l'épique.** L'UTF-8 invalide de la base musicale (tags de fichiers et **chemins de
+  système de fichiers**) n'est plus **supprimé** — la paire disparaissait — mais **conservé avec un
+  U+FFFD par octet fautif** ; un **NUL embarqué** ne tronque plus ; `DEL` s'échappe en `\u007f` avec
+  un `Content-Length` qui suit. `RELEASE_NOTES.md` est **ÉTENDU, PAS DUPLIQUÉ** (vérifié au diff) :
+  un encadré propre à la base musicale, la note consolidée des cinq différences **n'est pas
+  réécrite**, et la phrase de clôture liste maintenant « E4.1n, E4.1o, E4.1p et E4.1q ».
+
+  **Contrats vérifiés** : **145 goldens INTACTS** — comparaison d'**arbre git**, 145 blobs des deux
+  côtés, **0 différent, 0 ajouté, 0 retiré**. Tripwire
+  `Tripwire_TheThreeWireEscapingsAreThreeDifferentBytestreams` **INTACT** (`tests/ParamsJson_test.cpp`,
+  blob **`f7872fce`** des deux côtés — c'est E4.1s qui le bascule). **Aucun `int` ne devient un nombre
+  JSON** (`total_count` et les durées restent des **chaînes**, `scount` est une `string`). Clé absente
+  **omise** : pas de `total_count` du tout quand il n'y a pas de compteur, **jamais `null`** ; et
+  `Json::array()` explicite plutôt qu'un `Json` par défaut, pour qu'une réponse sans ligne émette
+  `"items":[]` et non `"items":null`. **Trois invariants d'émission** tenus sans nouveau site de
+  `dump()`. Commit de caractérisation à **zéro ligne de `src/`** (`git diff-tree` : `tests/Makefile.am`
+  + `tests/core/JsonApiMusicDbWireBytes_test.cpp`, rien d'autre).
+
+  **Filet neuf `core/JsonApiMusicDbWireBytes_test` : 45 cas** sur les octets bruts. `tests/Makefile.am`
+  est un **append pur** (`master` préfixe **STRICT** en octets, 199 961 → 203 268 ; `^if` **91** ==
+  `^endif` **91**). Entrées `TESTS` **106 → 107**, une seule ajoutée, zéro retirée — **= le recompte
+  indépendant** du build.
+
+  ⭐ **BUILD D'INTÉGRATION, `make distclean` d'abord** (piège `_DEPENDENCIES` en variante faux-rouge),
+  une seule invocation synchrone : **`rc=0`**, **0 `error:`**, **`# TOTAL: 107` / `# PASS: 105` /
+  `# SKIP: 2` / `# FAIL: 0` / `# XFAIL: 0` / `# XPASS: 0` / `# ERROR: 0`**. Les **deux** `SKIP` sont
+  les attendus : `run-python-tests.sh` et `check-ccache-honesty.sh` (sonde ccache, `exit 77`).
+  `core/JsonApiMusicDbWireBytes_test` : **PASS**.
+
+  ⭐ **JETONS JANSSON — LA CONVENTION EST FIXÉE ET LA SUITE EST COHÉRENTE.** Voir la section
+  « ⭐ Mesure — la convention de comptage des jetons jansson » plus bas : la commande y est écrite,
+  et elle **reproduit exactement** toute la suite publiée — **677** (E4.1n) → **640** (E4.1o) →
+  **569** (E4.1p) → **378** (E4.1q), delta **−191**. ⇒ **Le chiffre du ticket, 569 → 378, est le
+  bon** ; c'est le **brief** d'E4.1q qui annonçait 640 à tort (640 était la valeur **avant** E4.1p).
+  **Valeur unique après ce merge : 378.**
+
+  ⚠️ **Trois corrections de doc portées par le commit de doc de ce merge** : (1) `processAudioDb` a
+  **SEIZE** branches nommées sur **chaque** transport, pas quinze — recompté au source (les 15
+  `audioDbGet*` **plus** `get_stats`) ; `E4.1q.md` et `E4.1p.md` corrigées. (2) La table de périmètre
+  d'`E4.1s.md` réclamait encore `processAudioDb` en `json_t *` : **périmée** — et `processSetTimerange`
+  l'était aussi (elle prend un `const Json &` depuis E4.1m/E4.1o). (3) La convention de comptage
+  jansson, ci-dessus.
+
+  ⛔ **Non poussé.** Nettoyage fait : worktree `.wave75/e4.1q` supprimé (via conteneur, artefacts
+  root), `git worktree prune`, branche `refactor/e4.1q` supprimée.
+
+  ➡️ **PROCHAINE ACTION : [`E4.1r`](E4.1r.md)** — `JsonApi` **autoscénarios**, 9 fonctions.
+  ⭐⛔ **Q1 EST TRANCHÉE (2026-09-01) : le ticket est MAINTENU et la migration est MÉCANIQUE. NE PAS
+  LA ROUVRIR.** Aucune amélioration, aucun renommage, aucune refonte de `Scenario` : **E4.6d** les
+  réécrit ensuite. Adaptateur **unique** vers `Scenario::toJson()`, retiré par E4.6d.
+  ⚠️ Rappels qui coûtent cher si on les redécouvre : **`git checkout` ne restaure RIEN dans le
+  conteneur** (restaurer par copie **vérifiée**) · **`make distclean` avant de conclure** (piège
+  `_DEPENDENCIES`, variante faux-rouge) · **zéro golden modifié** sauf déclaration argumentée · le
+  **tripwire** reste intact jusqu'à E4.1s.
+
 - **✅ [`E4.1p`](E4.1p.md) MERGÉE — 3 commits de la branche + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`42a1ae1a`**.
   ⭐ **`master` ÉTAIT IMMOBILE sur `9cc1ef1f`** = exactement la merge-base ⇒ **ni rebase ni conflit**,
   le `merge --ff-only` est passé tel quel.
@@ -37,7 +143,8 @@
   semblait les inclure. Les deux mesures de l'auteur tiennent, et ont été **revérifiées** :
   - **(a) `get_stats` n'est pas une action `audio`** : elle est dispatchée par **`processAudioDb()`**
     (`JsonApiHandlerHttp.cpp:829`, `JsonApiHandlerWS.cpp:455` — **vérifié**), au milieu des 14
-    jumelles. La migrer isolément obligeait à migrer `processAudioDb()` et ses quinze branches,
+    jumelles. La migrer isolément obligeait à migrer `processAudioDb()` et ses **seize** branches
+    (corrigé au merge d'E4.1q — 16, pas 15),
     c'est-à-dire **E4.1q en entier** — l'inverse exact de la raison du découpage.
   - **(b) `processDbResult` ne peut pas basculer sans ses 14 appelants** : la conversion implicite
     `Json` → `json_t*` **n'existe pas** (constructeur gabarit éliminé par SFINAE ⇒ échec **de
@@ -6417,6 +6524,74 @@ et le chiffre ne mesure pas ce qu'on croit.
 ℹ️ Les opérations `git` **de lecture d'index** (`git status`, `git diff`) échouent de la même façon
 dans le conteneur : leur silence n'est pas une preuve d'arbre propre. **Le `git` de vérité est celui
 de l'hôte, dans le worktree.**
+
+## ⭐ Mesure — la convention de comptage des jetons jansson (fixée au merge d'E4.1q, 2026-09-01)
+
+**Le problème** : la série publie un « jetons jansson `src/` » à chaque merge, mais la commande
+n'avait jamais été écrite. Résultat, **deux conventions ont coexisté** — la fiche d'E4.1p annonçait
+`580 → 515`, celle d'E4.1q partait de `640` alors que `640` était la valeur **avant** E4.1p — et un
+chiffre qu'on ne sait pas reproduire ne mesure rien.
+
+⇒ **UNE SEULE CONVENTION, ÉCRITE ICI, ET ELLE REPRODUIT TOUTE LA SUITE DÉJÀ PUBLIÉE.**
+
+**Définition** — nombre d'**occurrences d'identifiants** correspondant à `\b(json_\w*|jansson\w*)\b`
+dans les fichiers **suivis** sous `src/` d'extension `.c/.cc/.cpp/.h/.hpp`, **en excluant** :
+la bibliothèque vendorisée `src/lib/json.hpp` · les **commentaires** (`//` et `/* */`) · les
+**littéraux chaîne** · les lignes `#include`.
+
+```sh
+python3 - <<'EOF'
+import subprocess, re
+sh = lambda *a: subprocess.run(a, capture_output=True, text=True).stdout
+def strip(s):                      # comments and string literals out
+    out=[]; i=0; n=len(s); st=0
+    while i < n:
+        c = s[i]
+        if st == 0:
+            if c=='/' and i+1<n and s[i+1]=='/': st=1; i+=2; continue
+            if c=='/' and i+1<n and s[i+1]=='*': st=2; i+=2; continue
+            if c=='"': st=3; i+=1; continue
+            out.append(c); i+=1
+        elif st == 1:
+            if c=='\n': st=0; out.append(c)
+            i+=1
+        elif st == 2:
+            if c=='*' and i+1<n and s[i+1]=='/': st=0; i+=2; continue
+            i+=1
+        else:
+            if c=='\\': i+=2; continue
+            if c=='"': st=0
+            i+=1
+    return ''.join(out)
+pat = re.compile(r'\b(?:json_[A-Za-z0-9_]*|jansson[A-Za-z0-9_]*)\b')
+tot = 0
+for f in sh('git','ls-tree','-r','--name-only','HEAD','src/').split():
+    if not f.endswith(('.c','.cc','.cpp','.h','.hpp')) or f.endswith('json.hpp'):
+        continue
+    b = strip(sh('git','show','HEAD:'+f))
+    b = '\n'.join(l for l in b.splitlines() if not l.lstrip().startswith('#include'))
+    tot += len(pat.findall(b))
+print(tot)
+EOF
+```
+
+**La suite, mesurée avec cette commande aux têtes de merge** — elle retombe **exactement** sur les
+chiffres publiés, donc rien à réécrire dans l'historique :
+
+| Tête de merge | Ticket | Jetons |
+|---|---|---|
+| `340a7f43` | E4.1n | **677** |
+| `105a7542` | E4.1o | **640** |
+| `42a1ae1a` | E4.1p | **569** |
+| `59663335` | **E4.1q** | **378** |
+
+⛔ **Règle** : tout brief ou toute fiche qui cite un compte jansson cite **cette** convention, et le
+**point de départ d'un ticket est la valeur à la tête de merge du ticket précédent** — jamais un
+chiffre recopié d'une fiche antérieure. C'est exactement l'erreur du brief d'E4.1q (il annonçait
+640, la valeur d'**avant** E4.1p).
+
+ℹ️ Les deux fiches qui portaient l'ancienne convention (`E4.1p.md` : « 580 → 515 ») ne sont pas
+réécrites : leur **delta** était du bon ordre et le merge correspondant a déjà consigné l'écart.
 
 ## ⚠️ Outillage — cache de compilation `ccache` : monté, INACTIF, et ce qu'il ne faut pas faire (2026-08-26, [T3.51](T3.51.md))
 
