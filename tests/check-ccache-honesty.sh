@@ -5,10 +5,12 @@
 # mutations et invaliderait le dispositif de qualite tout entier.
 #
 # Trois codes de sortie, et AUCUN mode d'echec ne rend PASS :
-#   0  PASS  -- cache en service, TOUTE sa configuration publiee est celle qui
-#               a ete auditee, un succes de cache a ete CONSTATE, aller-retours
+#   0  PASS  -- cache en service sur au moins un des deux canaux audites (CXX
+#               et CC), TOUTE sa configuration publiee est celle qui a ete
+#               auditee, un succes de cache a ete CONSTATE, aller-retours
 #               honnetes.
-#   77 SKIP  -- AUCUN cache en service. Seul motif de SKIP restant. La ligne
+#   77 SKIP  -- AUCUN cache en service, ni sur CXX ni sur CC. Seul motif de
+#               SKIP restant. La ligne
 #               imprimee commence par "SONDE-CCACHE: SKIP" et le dit : un SKIP
 #               ne doit pas pouvoir se lire comme un PASS dans un journal.
 #   1  ECHEC -- tout le reste, y compris "la sonde ne compile pas", "le
@@ -23,10 +25,10 @@
 # vers ccache, donc un cache EST en service -- non configure. TROIS issues :
 #   (1) scripts/ccache-setup.sh ; (2) les variables CCACHE_* dans
 #   l'environnement ; (3) retirer le repertoire de shims du PATH (ou
-#   CXX=/usr/bin/g++) => plus aucun cache, SKIP propre.
+#   CXX=/usr/bin/g++ CC=/usr/bin/gcc) => plus aucun cache, SKIP propre.
 #
-# Cout mesure : 29-40 ms sans cache (sortie 77), 165-176 ms avec (six
-# compilations triviales) -- ccache 4.7.5 et 4.12.3, machine 64 coeurs chargee.
+# Cout mesure : 30-40 ms sans cache (sortie 77), 350 ms avec les deux canaux
+# (douze compilations triviales) -- ccache 4.12.3, machine 64 coeurs chargee.
 #
 # Il ne remplace PAS la discipline "rm -f objets + binaire puis make a la
 # racine" : il verifie l'outil, pas le protocole.
