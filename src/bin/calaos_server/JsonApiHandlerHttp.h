@@ -63,7 +63,12 @@ private:
      */
     std::shared_ptr<bool> handlerAlive { std::make_shared<bool>(true) };
 
-    void sendJson(json_t *json);
+    /* E4.1s: the jansson overload is GONE. It was the last emitter of this
+     * transport that dumped with JSON_COMPACT | JSON_ENSURE_ASCII, and with it
+     * goes the last form-1 bytestream of the HTTP API. Everything now leaves
+     * through the nlohmann overload and its three emission invariants
+     * (E4.1b): sorted keys, ensure_ascii = true, error_handler_t::replace.
+     */
     void sendJson(const Json &json);
     void sendLoginFailed();
 
@@ -79,7 +84,10 @@ private:
 
     //processing functions
     void processGetHome();
-    void processGetState(json_t *jroot);
+    //E4.1s: the request document itself, not a second parse. A body that did
+    //not parse as an object is a NULL Json here, which is what a null json_t*
+    //meant to these three: fall back to the GET parameters.
+    void processGetState(const Json &jroot);
     void processGetStates();
     void processQuery();
     void processGetParam();
@@ -90,8 +98,8 @@ private:
     void processPolling();
     void processGetCover();
     void processGetCameraPic();
-    void processConfig(json_t *jroot);
-    void processGetIO(json_t *jroot);
+    void processConfig(const Json &jroot);
+    void processGetIO(const Json &jroot);
     void processGetTimerange();
     void processSetTimerange(const Json &jroot);
     //E4.1r: the document the dispatch already parsed, not a second parse.
@@ -101,9 +109,9 @@ private:
     void processEventPicture();
     void processRegisterPush();
 
-    //E4.1p: the second document is processApi()'s own nlohmann parse of the
-    //same bytes, hoisted. The dispatch stays jansson until E4.1s.
-    void processAudio(json_t *jroot, const Json &jrootDoc);
+    //E4.1s: ONE document now. The json_t* twin that carried the dispatch is
+    //gone with the request parse it came from.
+    void processAudio(const Json &jrootDoc);
     void processAudioDb(const Json &jrootDoc);
 
     void exeFinished(int exit_code);

@@ -37,8 +37,14 @@ protected:
     void setAuthenticated(bool auth) { loggedin = auth; }
     bool isAuthenticated() const { return loggedin; }
 
-    void sendJson(const string &msg_type, json_t *data, const string &client_id = string());
+    /* E4.1s: the jansson overload is GONE. Its ONE behaviour that the
+     * nlohmann overload does not have - OMITTING the "data" member when the
+     * pointer was null, where `jroot["data"] = json` would write "data":null -
+     * lives on in sendJsonNoData() below. Golden
+     * e40e_ws_get_state_without_data pins that omission.
+     */
     void sendJson(const string &msg_type, const Json &json, const string &client_id = string());
+    void sendJsonNoData(const string &msg_type, const string &client_id = string());
 
     bool loggedin = false;
     // Set to true when the session was opened with login_service (S2).
@@ -57,7 +63,13 @@ private:
     void handleEvents(const CalaosEvent &event);
 
     void processGetHome(const Params &jsonReq, const string &client_id = string());
-    void processGetState(json_t *jdata, const string &client_id = string());
+    /* E4.1s: a POINTER, and deliberately so. `json_object_get(jroot, "data")`
+     * answered NULL for an ABSENT member and a non null json_null for a
+     * member spelled `"data": null`, and these two functions branch on exactly
+     * that difference. A `const Json &` cannot carry it - a null Json would
+     * merge the two cases and turn `"data": null` into the no-data answer.
+     */
+    void processGetState(const Json *jdata, const string &client_id = string());
     void processGetStates(const Params &jsonReq, const string &client_id = string());
     void processQuery(const Params &jsonReq, const string &client_id = string());
     void processGetParam(const Params &jsonReq, const string &client_id = string());
@@ -65,16 +77,16 @@ private:
     void processDelParam(const Params &jsonReq, const string &client_id = string());
     void processSetState(Params &jsonReq, const string &client_id = string());
     void processGetPlaylist(Params &jsonReq, const string &client_id = string());
-    void processGetIO(json_t *jdata, const string &client_id = string());
+    void processGetIO(const Json *jdata, const string &client_id = string());
     void processGetTimerange(const Params &jsonReq, const string &client_id = string());
     void processSetTimerange(const Json &jdata, const string &client_id = string());
     void processEventLog(const Params &jsonReq, const string &client_id = string());
     void processRegisterPush(const Params &jsonReq, const string &client_id = string());
     void processSettings(const Params &jsonReq, const string &client_id = string());
 
-    //E4.1p: the second document is the "data" member of processApi()'s own
-    //nlohmann parse, hoisted. The dispatch stays jansson until E4.1s.
-    void processAudio(json_t *jdata, const Json &jdataDoc, const string &client_id = string());
+    //E4.1s: ONE document. The json_t* twin that carried the dispatch is gone
+    //with the request parse it came from.
+    void processAudio(const Json &jdataDoc, const string &client_id = string());
     void processAudioDb(const Json &jdataDoc, const string &client_id = string());
 
     //E4.1r: the "data" member as a document, not a second parse.

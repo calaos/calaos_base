@@ -542,27 +542,33 @@ TEST_F(JsonApiEmissionBytesTest, TheReplaceHandlerAnswersWhereTheBareDumpThrows)
  *
  * BEFORE E4.1b this case was named Delta_TodayTheNlohmannWireIsRawUtf8...: the
  * API served TWO escapings depending on which emitter answered.
- *   - the jansson half goes through JsonApiHandlerHttp::sendJson(json_t *),
- *     dumped with JSON_ENSURE_ASCII -> the accented IO name of the reference
- *     house comes out as \\u00C9 / \\u00E9, UPPERCASE hex, pure ASCII.
- *     RETARGETED TWICE, and the reason is the chain itself: this half asked
- *     get_home until E4.1m and get_param until E4.1o, and both of those
- *     payloads have moved to the nlohmann emitter. The probe is now `config`
- *     with type=get, whose answer is built by hand as a json_t* in
- *     JsonApiHandlerHttp::processConfig() and carries the io.xml of the house -
- *     the SAME accented name. The ORACLE never moved; only the action that
- *     still reaches the jansson emitter did. Every ticket of the chain that
- *     empties this side further has to retarget it again, until E4.1s deletes
- *     the overload and this half of the case with it.
+ *   - the jansson half went through JsonApiHandlerHttp::sendJson(json_t *),
+ *     dumped with JSON_ENSURE_ASCII -> UPPERCASE hex, pure ASCII;
  *   - eventlog goes through JsonApiHandlerHttp::sendJson(const Json &), which
  *     was a BARE dump() -> the accented io_state came out as RAW UTF-8 BYTES.
  *
- * E4.1b removed that asymmetry, and this case is the AFTER picture. The wire
- * stays ASCII-only on both paths; the ONLY residual difference between the two
- * emitters is the CASE of the hexadecimal (\\u00E9 for jansson, \\u00e9 for
- * nlohmann), which is the delta the epic declared and accepted (E4.1.md,
- * invariant 3). Both are read by real JSON parsers on every consumer, so it is
- * invisible to all of them.
+ * E4.1b removed that asymmetry and this case became the AFTER picture: two
+ * emitters, both ASCII-only, one hexadecimal case apart. Both are read by real
+ * JSON parsers on every consumer, so that difference is invisible to all of
+ * them (E4.1.md, invariant 3).
+ *
+ * E4.1s DELETED THE JANSSON HALF, EXACTLY AS THIS BLOCK SAID IT WOULD. The
+ * half was RETARGETED TWICE while the chain emptied it - it asked get_home
+ * until E4.1m, get_param until E4.1o, then `config` with type=get, the last
+ * payload JsonApiHandlerHttp::processConfig() still built by hand as a
+ * json_t*. E4.1s migrated processConfig() and removed sendJson(json_t *)
+ * altogether, so there is NO third target: the assertion "jansson escapes with
+ * an UPPERCASE hex" no longer has an emitter to be about, and pointing it at a
+ * nlohmann payload would have made it assert the OPPOSITE of what it says.
+ *
+ * IT WAS DELETED, NOT WEAKENED. What that half really pinned - the wire is
+ * ASCII-only, and the escape is not the raw UTF-8 of a bare dump() - is
+ * asserted by the nlohmann half below, on the same transport. And the
+ * DISAPPEARANCE of form 1 from `config` is pinned positively, by name and in
+ * both directions, in core/JsonApiDispatchWireBytes_test
+ * (Tripwire_TheHttpApiWireIsFormThreeAndNeitherOfTheOtherTwo and
+ * A_ConfigGetEscapesNonAsciiInLowercaseHex). The oracle moved file; it did not
+ * evaporate.
  *
  * THIS IS THE ORACLE THE WHOLE SUITE WAS MISSING. Flip ensure_ascii back to
  * false in either emitter and this case goes red - and it is the only one that
@@ -572,39 +578,9 @@ TEST_F(JsonApiEmissionBytesTest, TheReplaceHandlerAnswersWhereTheBareDumpThrows)
  ******************************************************************************/
 TEST_F(JsonApiEmissionBytesTest, TheNlohmannHttpWireIsAsciiOnlyAndEscapesWithLowercaseHex)
 {
-    //--- jansson side: config get, HTTP -----------------------------------
-    {
-        //The house is NOT loaded by the fixture's SetUp(): every case of this
-        //harness asks for it explicitly. HOUSE_ACCENTED carries the accented
-        //name this half of the case reads.
-        //RETARGETED A SECOND TIME, BY E4.1o, exactly as the header above said
-        //every ticket of the chain would have to: this half asked get_home
-        //until E4.1m and get_param until E4.1o, and buildJsonGetParam() has now
-        //moved to the nlohmann emitter too. `config` with type=get is what is
-        //left: JsonApiHandlerHttp::processConfig() builds a json_t* by hand and
-        //hands it to the jansson overload of sendJson(), and its payload is the
-        //io.xml of the house - which contains the accented name of
-        //HOUSE_ACCENTED, so the ORACLE below did not move either.
-        //The NEXT ticket that empties this side has to retarget it again, until
-        //E4.1s deletes the overload and this half of the case with it.
-        loadReferenceHouse();
-
-        HttpTestRequest req;
-        req.send(authenticated({{ "action", "config" },
-                                { "type", "get" }}));
-
-        ASSERT_EQ(1u, req.count()) << "config did not answer";
-        const std::string wire = req.body();
-
-        //"<E acute>clairage caf<e acute>" is the name of HOUSE_ACCENTED.
-        EXPECT_TRUE(contains(wire, ASCII_E_UPPER))
-                << "jansson must escape U+00E9 with UPPERCASE hex";
-        EXPECT_FALSE(contains(wire, RAW_E_ACUTE))
-                << "jansson answers are ASCII-only (JSON_ENSURE_ASCII)";
-
-        for (unsigned char c : wire)
-            ASSERT_LT(c, 0x80u) << "the jansson wire must be ASCII-only";
-    }
+    //The jansson half of this case is GONE with sendJson(json_t *), deleted by
+    //E4.1s. See the header above for why it was deleted rather than retargeted
+    //a third time, and for where its oracle lives now.
 
     //--- nlohmann side: eventlog, HTTP ------------------------------------
     {

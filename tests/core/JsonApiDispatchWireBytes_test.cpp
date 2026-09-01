@@ -294,9 +294,38 @@ protected:
                (members.empty()? std::string(): "," + members) + "}";
     }
 
+    /* ⚠️ EVERY HTTP request of this file clears the login throttle first, and
+     * that is not hygiene, it is an ORACLE PROBLEM the red round of this ticket
+     * CAUGHT RED HANDED.
+     *
+     * A refused request registers a login FAILURE, and the next request from
+     * the same address inside the backoff window answers 400 whatever its body
+     * says. P_ANestingDepthAbove2048... was written as "a refusal, then the
+     * probe" and stayed GREEN through the migration - not because the parser
+     * still refused the deep document, but because the FIRST half had poisoned
+     * the throttle and the second half could not have answered anything else.
+     * The "fixture pauvre" trap in its nastiest form: a case that passes for a
+     * reason that has nothing to do with what it claims to measure.
+     *
+     * The throttle has a suite of its own (core/JsonApiThrottleIdentity_test);
+     * it is not this file's oracle, so it is neutralised here.
+     */
+    static void clearThrottle() { LoginThrottle::clear(); }
+
+    //Answers the status line of one HTTP request driven on a clean throttle.
+    static std::string httpStatusFor(const std::string &rawBody)
+    {
+        clearThrottle();
+        HttpTestRequest req;
+        req.send(rawBody);
+        EXPECT_EQ(1u, req.count());
+        return req.statusLine();
+    }
+
     //Drives one HTTP request and answers the raw body of the response.
     static std::string httpWire(const Json &body)
     {
+        clearThrottle();
         HttpTestRequest req;
         req.send(authenticated(body));
         return req.body();
@@ -324,6 +353,7 @@ protected:
      */
     std::string configGetWireWithProbeOnDisk(const std::string &probe)
     {
+        clearThrottle();
         HttpTestRequest req;
         req.send(authenticated(Json{{ "action", "config" }, { "type", "get" }}));
 
@@ -345,124 +375,120 @@ protected:
  * escaping or a key order.
  ******************************************************************************/
 
-TEST_F(JsonApiDispatchWireBytesTest, P_AnEscapedNulInAValueIsRefusedByTheParserToday)
+TEST_F(JsonApiDispatchWireBytesTest, P_AnEscapedNulInAValueNowTraversesTheParser)
 {
-    /* ⛔⭐ THE MINE, seen from the door it comes through.
+    /* ⛔⭐⭐ THE MINE, seen from the door it comes through, AFTER E4.1s opened
+     * it. This case was P_AnEscapedNulInAValueIsRefusedByTheParserToday and it
+     * pinned the refusal:
      *
-     * json_loads() refuses "\u0000" outright: "\u0000 is not allowed without
-     * JSON_ALLOW_NUL". The document never exists, so on HTTP the handler falls
-     * back to the (empty) GET parameters and answers 400 on the credentials,
-     * and on the websocket the message is dropped without a word.
+     *   json_loads() answered "\u0000 is not allowed without JSON_ALLOW_NUL"
+     *   and threw the whole document away. On HTTP the handler fell back to
+     *   the (empty) GET parameters and answered 400 on the credentials; on the
+     *   websocket the message was dropped without a word.
      *
-     * Json::parse() accepts the very same bytes. This case is the FRONT DOOR
-     * of the charge E4.1s detonates, and it is expected to turn over.
+     * Json::parse() accepts the very same bytes. The request is now SERVED on
+     * both transports. This is not a formatting delta: it is a change of
+     * INPUT SURFACE, declared in RELEASE_NOTES.md, and it is the reason the
+     * truncation still living inside Scenario::toJson() (IO/Scenario.cpp,
+     * EXCLUDED by Q5, rewritten by E4.6d) becomes reachable for the first
+     * time. The case that pins that truncation is in
+     * core/JsonApiScenarioWireBytes_test.cpp.
      */
     loadReferenceHouse();
 
-    const std::string body = httpRawBody("\"action\":\"get_home\",\"probe\":\"a\\u0000b\"");
-
-    HttpTestRequest req;
-    req.send(body);
-    ASSERT_EQ(1u, req.count());
-    EXPECT_EQ("HTTP/1.0 400 Bad Request", req.statusLine())
-            << "the HTTP parser started accepting an escaped NUL";
+    EXPECT_EQ("HTTP/1.0 200 OK",
+              httpStatusFor(httpRawBody("\"action\":\"get_home\","
+                                        "\"probe\":\"a\\u0000b\"")))
+            << "the HTTP parser went back to refusing an escaped NUL";
 
     WsTestSession ws;
     ws.send(std::string("{\"msg\":\"get_home\",\"msg_id\":\"1\","
                         "\"probe\":\"a\\u0000b\"}"));
     pumpEventLoop();
-    EXPECT_EQ(0u, ws.count())
-            << "the WS parser started accepting an escaped NUL";
+    EXPECT_EQ(1u, ws.count())
+            << "the WS parser went back to refusing an escaped NUL";
 }
 
-TEST_F(JsonApiDispatchWireBytesTest, P_AnEscapedNulInAKeyIsRefusedByTheParserToday)
+TEST_F(JsonApiDispatchWireBytesTest, P_AnEscapedNulInAKeyNowTraversesTheParser)
 {
-    //The other half: jansson has a SECOND, DIFFERENT refusal for a NUL in an
-    //object KEY ("NUL byte in object key not supported"). Both refusals go
-    //away together, which is why they are pinned separately.
+    //The other half, and jansson had a SECOND, DIFFERENT refusal for it ("NUL
+    //byte in object key not supported"). Both refusals went away together,
+    //which is why they are pinned separately: a guard put back on values only
+    //would leave this case green.
     loadReferenceHouse();
 
-    HttpTestRequest req;
-    req.send(httpRawBody("\"action\":\"get_home\",\"a\\u0000b\":\"v\""));
-    ASSERT_EQ(1u, req.count());
-    EXPECT_EQ("HTTP/1.0 400 Bad Request", req.statusLine())
-            << "the HTTP parser started accepting an escaped NUL in a key";
+    EXPECT_EQ("HTTP/1.0 200 OK",
+              httpStatusFor(httpRawBody("\"action\":\"get_home\","
+                                        "\"a\\u0000b\":\"v\"")))
+            << "the HTTP parser went back to refusing an escaped NUL in a key";
 
     WsTestSession ws;
     ws.send(std::string("{\"msg\":\"get_home\",\"msg_id\":\"1\","
                         "\"a\\u0000b\":\"v\"}"));
     pumpEventLoop();
-    EXPECT_EQ(0u, ws.count())
-            << "the WS parser started accepting an escaped NUL in a key";
+    EXPECT_EQ(1u, ws.count())
+            << "the WS parser went back to refusing an escaped NUL in a key";
 }
 
-TEST_F(JsonApiDispatchWireBytesTest, P_AnIntegerBeyondInt64IsRefusedByTheParserToday)
+TEST_F(JsonApiDispatchWireBytesTest, P_AnIntegerBeyondInt64NowTraversesTheParser)
 {
-    /* MEASURED, and it is a SECOND relaxation of the input surface that comes
-     * with the same line of code as the NUL: jansson answers "too big integer"
-     * and throws the WHOLE document away; nlohmann parses the literal into a
-     * double (1.2345678901234568e+29) and carries on.
-     *
-     * Downstream the flattening contract turns it into a string through
-     * Utils::to_string(double), which is a bare ostringstream - so what used to
-     * be a 400 becomes a served request whose parameter reads "1.23457e+29".
+    /* The SECOND relaxation of the input surface, and it arrives with the same
+     * line of code as the NUL. jansson answered "too big integer" and threw the
+     * WHOLE document away; nlohmann parses the literal into a double
+     * (1.2345678901234568e+29) and carries on. Downstream the flattening
+     * contract turns it into a string through Utils::to_string(double), a bare
+     * ostringstream frozen on purpose - so what used to be a 400 is now a
+     * served request. Declared in RELEASE_NOTES.md.
      */
     loadReferenceHouse();
 
-    HttpTestRequest req;
-    req.send(httpRawBody("\"action\":\"get_home\","
-                         "\"probe\":123456789012345678901234567890"));
-    ASSERT_EQ(1u, req.count());
-    EXPECT_EQ("HTTP/1.0 400 Bad Request", req.statusLine())
-            << "the HTTP parser started accepting an integer beyond int64";
+    EXPECT_EQ("HTTP/1.0 200 OK",
+              httpStatusFor(httpRawBody("\"action\":\"get_home\","
+                                        "\"probe\":123456789012345678901234567890")))
+            << "the HTTP parser went back to refusing an integer beyond int64";
 
     WsTestSession ws;
     ws.send(std::string("{\"msg\":\"get_home\",\"msg_id\":\"1\","
                         "\"probe\":123456789012345678901234567890}"));
     pumpEventLoop();
-    EXPECT_EQ(0u, ws.count())
-            << "the WS parser started accepting an integer beyond int64";
+    EXPECT_EQ(1u, ws.count())
+            << "the WS parser went back to refusing an integer beyond int64";
 }
 
-TEST_F(JsonApiDispatchWireBytesTest, P_ANestingDepthAbove2048IsRefusedByTheParserToday)
+TEST_F(JsonApiDispatchWireBytesTest, P_ANestingDepthAbove2048NowTraversesTheParser)
 {
     /* ⚠️ CORRECTS THE TICKET SHEET, WHICH SAYS "jansson has no default limit".
      * MEASURED: jansson caps nesting at 2048 (JSON_PARSER_MAX_DEPTH) and
-     * answers "maximum parsing depth reached"; nlohmann has NO limit at all.
-     * The two neighbouring depths are pinned together so the case cannot pass
-     * on a limit that moved rather than on the limit that exists.
+     * answers "maximum parsing depth reached"; nlohmann has NO limit at all,
+     * which is the THIRD relaxation of the input surface.
      *
-     * 2049 was also measured NOT to be a crash on the nlohmann side: 100000
-     * levels parse and destruct without a stack overflow (json.hpp 3.11.3
-     * destroys iteratively). What changes is what is ACCEPTED, not whether the
-     * process survives - and the body is still bounded by the HTTP request
-     * size, so this is a widened surface, not a new denial of service.
+     * ⭐ AND IT IS NOT A NEW DENIAL OF SERVICE, measured rather than assumed:
+     * 100000 levels parse AND DESTRUCT without a stack overflow (json.hpp
+     * 3.11.3 destroys iteratively), and the body is still bounded by the HTTP
+     * request size. What changed is what is ACCEPTED, not whether the process
+     * survives.
+     *
+     * ⛔ THIS CASE USED TO PASS FOR THE WRONG REASON, and the red round of the
+     * migration is what exposed it. It sent a refusal first and the probe
+     * second, so the LOGIN THROTTLE - not the parser - answered 400 to the
+     * second one, and the case stayed green through a bascule that had changed
+     * exactly what it claimed to measure. Every HTTP request of this file now
+     * goes through httpStatusFor(), which clears the throttle. See the comment
+     * on clearThrottle().
      */
     loadReferenceHouse();
 
-    {
-        //2048 levels: accepted by BOTH, so the request reaches the dispatch and
-        //dies on "not an object" - the GET fallback, hence 400. This half is an
-        //INVARIANT and its job is to prove the two depths below differ for the
-        //reason claimed.
-        HttpTestRequest req;
-        req.send(nested(2048));
-        ASSERT_EQ(1u, req.count());
-        EXPECT_EQ("HTTP/1.0 400 Bad Request", req.statusLine());
-    }
+    //2048 levels: accepted by BOTH parsers, so the document reaches the
+    //dispatch and dies on "not an object" - the GET fallback, hence 400. The
+    //INVARIANT half, and the contrast that says the case below moved on the
+    //DEPTH and not on something else.
+    EXPECT_EQ("HTTP/1.0 400 Bad Request", httpStatusFor(nested(2048)));
 
-    //A depth of 2049 inside a real object: refused by jansson TODAY, so the
-    //credentials are never read and the answer is the same 400. After the
-    //bascule the document parses, the credentials ARE read, and the answer
-    //becomes the served get_home.
-    const std::string deep = httpRawBody("\"action\":\"get_home\",\"probe\":" +
-                                         nested(2049));
-
-    HttpTestRequest req;
-    req.send(deep);
-    ASSERT_EQ(1u, req.count());
-    EXPECT_EQ("HTTP/1.0 400 Bad Request", req.statusLine())
-            << "the HTTP parser started accepting a nesting depth above 2048";
+    //A depth of 2050 inside a real object: refused by jansson, served now.
+    EXPECT_EQ("HTTP/1.0 200 OK",
+              httpStatusFor(httpRawBody("\"action\":\"get_home\",\"probe\":" +
+                                        nested(2049))))
+            << "the HTTP parser went back to refusing a nesting depth above 2048";
 }
 
 TEST_F(JsonApiDispatchWireBytesTest, P_InvalidUtf8InTheBodyIsRefusedByBothParsers)
@@ -475,13 +501,9 @@ TEST_F(JsonApiDispatchWireBytesTest, P_InvalidUtf8InTheBodyIsRefusedByBothParser
      */
     loadReferenceHouse();
 
-    const std::string body = httpRawBody("\"action\":\"get_home\",\"probe\":\"" +
-                                         INVALID_UTF8 + "\"");
-
-    HttpTestRequest req;
-    req.send(body);
-    ASSERT_EQ(1u, req.count());
-    EXPECT_EQ("HTTP/1.0 400 Bad Request", req.statusLine())
+    EXPECT_EQ("HTTP/1.0 400 Bad Request",
+              httpStatusFor(httpRawBody("\"action\":\"get_home\",\"probe\":\"" +
+                                        INVALID_UTF8 + "\"")))
             << "a parser started accepting invalid UTF-8 in the request body";
 
     WsTestSession ws;
@@ -499,10 +521,8 @@ TEST_F(JsonApiDispatchWireBytesTest, P_ALoneSurrogateIsRefusedByBothParsers)
     //that is the other half of the UTF-8 lock.
     loadReferenceHouse();
 
-    HttpTestRequest req;
-    req.send(httpRawBody("\"action\":\"get_home\",\"probe\":\"\\ud800\""));
-    ASSERT_EQ(1u, req.count());
-    EXPECT_EQ("HTTP/1.0 400 Bad Request", req.statusLine())
+    EXPECT_EQ("HTTP/1.0 400 Bad Request",
+              httpStatusFor(httpRawBody("\"action\":\"get_home\",\"probe\":\"\\ud800\"")))
             << "a parser started accepting a lone surrogate";
 }
 
@@ -515,16 +535,12 @@ TEST_F(JsonApiDispatchWireBytesTest, P_ARealNumberOverflowIsRefusedByBothParsers
     //otherwise pass.
     loadReferenceHouse();
 
-    HttpTestRequest req;
-    req.send(httpRawBody("\"action\":\"get_home\",\"probe\":1e400"));
-    ASSERT_EQ(1u, req.count());
-    EXPECT_EQ("HTTP/1.0 400 Bad Request", req.statusLine())
+    EXPECT_EQ("HTTP/1.0 400 Bad Request",
+              httpStatusFor(httpRawBody("\"action\":\"get_home\",\"probe\":1e400")))
             << "a parser started accepting a real number overflow";
 
-    HttpTestRequest req2;
-    req2.send(httpRawBody("\"action\":\"get_home\",\"probe\":-1e400"));
-    ASSERT_EQ(1u, req2.count());
-    EXPECT_EQ("HTTP/1.0 400 Bad Request", req2.statusLine())
+    EXPECT_EQ("HTTP/1.0 400 Bad Request",
+              httpStatusFor(httpRawBody("\"action\":\"get_home\",\"probe\":-1e400")))
             << "a parser started accepting a negative real number overflow";
 }
 
@@ -534,10 +550,8 @@ TEST_F(JsonApiDispatchWireBytesTest, P_TrailingGarbageIsRefusedByBothParsers)
     //serves the prefix and ignores the rest.
     loadReferenceHouse();
 
-    HttpTestRequest req;
-    req.send(httpRawBody("\"action\":\"get_home\"") + " trailing");
-    ASSERT_EQ(1u, req.count());
-    EXPECT_EQ("HTTP/1.0 400 Bad Request", req.statusLine())
+    EXPECT_EQ("HTTP/1.0 400 Bad Request",
+              httpStatusFor(httpRawBody("\"action\":\"get_home\"") + " trailing"))
             << "a parser started serving a document with trailing garbage";
 }
 
@@ -562,10 +576,9 @@ TEST_F(JsonApiDispatchWireBytesTest, P_ARawNulStillEndsTheBodyOnBothParsers)
     loadReferenceHouse();
 
     //(a) after a complete document: served, trailing bytes ignored, BOTH sides.
-    HttpTestRequest req;
-    req.send(httpRawBody("\"action\":\"get_home\"") + std::string("\0garbage", 8));
-    ASSERT_EQ(1u, req.count());
-    EXPECT_EQ("HTTP/1.0 200 OK", req.statusLine())
+    EXPECT_EQ("HTTP/1.0 200 OK",
+              httpStatusFor(httpRawBody("\"action\":\"get_home\"") +
+                            std::string("\0garbage", 8)))
             << "a raw NUL after the document stopped being invisible";
 
     //(b) inside a string: the input ends there, the document is unterminated.
@@ -576,10 +589,7 @@ TEST_F(JsonApiDispatchWireBytesTest, P_ARawNulStillEndsTheBodyOnBothParsers)
                                   "\",\"action\":\"get_home\",\"probe\":\"x" +
                                   std::string("\0y\"}", 4);
 
-    HttpTestRequest req2;
-    req2.send(truncated);
-    ASSERT_EQ(1u, req2.count());
-    EXPECT_EQ("HTTP/1.0 400 Bad Request", req2.statusLine())
+    EXPECT_EQ("HTTP/1.0 400 Bad Request", httpStatusFor(truncated))
             << "a raw NUL inside a string stopped truncating the body";
 }
 
@@ -591,10 +601,7 @@ TEST_F(JsonApiDispatchWireBytesTest, P_ANonObjectBodyIsStillNoJsonAtAll)
     //stay an OBJECT check and not become a "did it parse" check.
     loadReferenceHouse();
 
-    HttpTestRequest req;
-    req.send(std::string("[1,2,3]"));
-    ASSERT_EQ(1u, req.count());
-    EXPECT_EQ("HTTP/1.0 400 Bad Request", req.statusLine());
+    EXPECT_EQ("HTTP/1.0 400 Bad Request", httpStatusFor(std::string("[1,2,3]")));
 
     WsTestSession ws;
     ws.send(std::string("[1,2,3]"));
@@ -615,6 +622,7 @@ TEST_F(JsonApiDispatchWireBytesTest, P_TheGetParameterFallbackStillServesTheRequ
     get.Add("cn_pass", apiPassword());
     get.Add("action", "get_home");
 
+    clearThrottle();
     HttpTestRequest req;
     req.send(std::string("this is not json"), get);
     ASSERT_EQ(1u, req.count());
@@ -626,36 +634,59 @@ TEST_F(JsonApiDispatchWireBytesTest, P_TheGetParameterFallbackStillServesTheRequ
  * N_ - THE EMBEDDED NUL, once it is through the door.
  ******************************************************************************/
 
-TEST_F(JsonApiDispatchWireBytesTest, N_AnEscapedNulInAParamValueIsRefusedToday)
+TEST_F(JsonApiDispatchWireBytesTest, N_AnEscapedNulInAParamValueIsStoredWholeAndComesBackEscaped)
 {
-    /* ⛔⭐ THE MINE, end to end, on the shortest path that ECHOES the value
+    /* ⛔⭐⭐ THE MINE, END TO END, on the shortest path that ECHOES the value
      * back: set_param stores it on the IO, get_param reads it out again.
      *
-     * TODAY the request dies in the parser and the param is never written, so
-     * the case pins BOTH halves: the refusal AND the absence of any trace.
-     * After the bascule the value is stored WHOLE - three bytes, not one - and
-     * comes back on the wire as the escape \u0000, because the emitters this
-     * ticket leaves behind are nlohmann's.
+     * This case was N_AnEscapedNulInAParamValueIsRefusedToday and it pinned the
+     * refusal: the request died in the parser and NOTHING was written.
+     *
+     * THE MEASURED VERDICT, and it is the one E4.1s owns: through the emitters
+     * this ticket leaves behind, the NUL travels WHOLE. Three bytes are stored,
+     * three bytes come back, and the wire spells the zero byte \u0000 - it is
+     * not truncated, not dropped, not replaced. THE DECISION IS TO ACCEPT IT
+     * and to say so: no guard is added, because a guard would be a new refusal
+     * this ticket was not asked to invent, and because the place where the NUL
+     * still does damage is Scenario::toJson(), inside the file E4.1 excludes.
+     *
+     * Every assertion is on the length as well as on the content: "a" and
+     * "a\0b" compare EQUAL through a const char *, which is exactly the
+     * confusion this case exists to prevent.
      */
     loadReferenceHouse();
 
     IOBase *io = ListeRoom::Instance().get_io(HOUSE_STRING);
     ASSERT_TRUE(io != nullptr);
 
-    HttpTestRequest req;
-    req.send(httpRawBody(std::string("\"action\":\"set_param\",\"id\":\"") +
-                         HOUSE_STRING + "\",\"param\":\"e41s_nul\","
-                         "\"value\":\"a\\u0000b\""));
-    ASSERT_EQ(1u, req.count());
-    EXPECT_EQ("HTTP/1.0 400 Bad Request", req.statusLine())
-            << "set_param started accepting an escaped NUL";
+    EXPECT_EQ("HTTP/1.0 200 OK",
+              httpStatusFor(httpRawBody(std::string("\"action\":\"set_param\",\"id\":\"") +
+                                        HOUSE_STRING + "\",\"param\":\"e41s_nul\","
+                                        "\"value\":\"a\\u0000b\"")))
+            << "set_param went back to refusing an escaped NUL";
 
-    //And nothing was written: the request never reached the dispatch.
-    EXPECT_FALSE(io->get_params().Exists("e41s_nul"))
-            << "the param was written even though the request was refused";
+    //Stored WHOLE: three bytes, not the one byte a C string would have kept.
+    ASSERT_TRUE(io->get_params().Exists("e41s_nul"));
+    EXPECT_EQ(NUL_INSIDE, io->get_param("e41s_nul"));
+    EXPECT_EQ(3u, io->get_param("e41s_nul").size())
+            << "the value was truncated at the zero byte on the way in";
+
+    //And back out, on the RAW wire, as the escape - never as a raw zero byte
+    //and never truncated.
+    clearThrottle();
+    HttpTestRequest back;
+    back.send(authenticated(Json{{ "action", "get_param" },
+                                 { "id", HOUSE_STRING },
+                                 { "param", "e41s_nul" }}));
+    ASSERT_EQ(1u, back.count());
+    EXPECT_TRUE(contains(back.body(), std::string("\"a") + ASCII_NUL + "b\""))
+            << back.body();
+    EXPECT_EQ(std::string::npos, back.body().find('\0'))
+            << "a raw zero byte reached the wire";
+    EXPECT_EQ(NUL_INSIDE, str(back.bodyJson(), "e41s_nul"));
 }
 
-TEST_F(JsonApiDispatchWireBytesTest, N_AnEscapedNulInAWsRequestIsRefusedToday)
+TEST_F(JsonApiDispatchWireBytesTest, N_AnEscapedNulInAWsRequestIsStoredWholeAndComesBackEscaped)
 {
     //The websocket half of the same door. Kept separate from the HTTP one
     //because the two transports parse in two different functions and a
@@ -670,8 +701,29 @@ TEST_F(JsonApiDispatchWireBytesTest, N_AnEscapedNulInAWsRequestIsRefusedToday)
             HOUSE_STRING + "\",\"param\":\"e41s_wsnul\",\"value\":\"a\\u0000b\"}}");
     pumpEventLoop();
 
-    EXPECT_EQ(0u, ws.count()) << "the WS set_param started accepting a NUL";
-    EXPECT_FALSE(io->get_params().Exists("e41s_wsnul"));
+    /* TWO messages, and the second is not noise: set_param raises an
+     * EventIOChanged, this session is subscribed to it since its constructor,
+     * and the event carries the value. So the NUL reaches the EVENT wire as
+     * well as the answer - one more emitter, and it is asserted below rather
+     * than tolerated. On the jansson tree this count was ZERO: the message
+     * died in the parser and no event was ever raised.
+     */
+    ASSERT_EQ(2u, ws.count()) << "the WS set_param went back to refusing a NUL";
+    EXPECT_TRUE(contains(ws.lastMessage(), std::string("\"a") + ASCII_NUL + "b\""))
+            << "the event wire lost the NUL: " << ws.lastMessage();
+
+    ASSERT_TRUE(io->get_params().Exists("e41s_wsnul"));
+    EXPECT_EQ(NUL_INSIDE, io->get_param("e41s_wsnul"));
+    EXPECT_EQ(3u, io->get_param("e41s_wsnul").size());
+
+    ws.clear();
+    ws.send(Json{{ "msg", "get_param" }, { "msg_id", "2" },
+                 { "data", {{ "id", HOUSE_STRING }, { "param", "e41s_wsnul" }} }});
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_TRUE(contains(ws.lastMessage(), std::string("\"a") + ASCII_NUL + "b\""))
+            << ws.lastMessage();
+    EXPECT_EQ(std::string::npos, ws.lastMessage().find('\0'))
+            << "a raw zero byte reached the wire";
 }
 
 /*******************************************************************************
@@ -679,12 +731,12 @@ TEST_F(JsonApiDispatchWireBytesTest, N_AnEscapedNulInAWsRequestIsRefusedToday)
  * payloads: no escaping is ever asserted here.
  ******************************************************************************/
 
-TEST_F(JsonApiDispatchWireBytesTest, K_GetMcpInfoKeysAreInsertionOrderedToday)
+TEST_F(JsonApiDispatchWireBytesTest, K_GetMcpInfoKeysAreSorted)
 {
-    /* json_object_set_new() walks url_path, token, hint, in that order, and
-     * jansson dumps an object in INSERTION order. Alphabetically that order is
+    /* json_object_set_new() walked url_path, token, hint, in that order, and
+     * jansson dumped an object in INSERTION order. Alphabetically that order is
      * hint, token, url_path - EVERY ONE of the three positions moves, and no
-     * accident produces that.
+     * accident produces that. Declared byte delta of E4.1s.
      */
     const std::string wire = httpWire(Json{{ "action", "get_mcp_info" }});
 
@@ -693,10 +745,10 @@ TEST_F(JsonApiDispatchWireBytesTest, K_GetMcpInfoKeysAreInsertionOrderedToday)
 
     const std::vector<std::string> keys = keyOrder(doc);
     ASSERT_EQ(3u, keys.size()) << joined(keys);
-    EXPECT_EQ("url_path,token,hint", joined(keys));
+    EXPECT_EQ("hint,token,url_path", joined(keys));
 }
 
-TEST_F(JsonApiDispatchWireBytesTest, K_GetCoverRefusalKeysAreInsertionOrderedToday)
+TEST_F(JsonApiDispatchWireBytesTest, K_GetCoverRefusalKeysAreSorted)
 {
     //processGetCover() sets success THEN error_str; sorted, that is error_str
     //THEN success. Both positions move. The payload is pure ASCII, so nothing
@@ -711,10 +763,10 @@ TEST_F(JsonApiDispatchWireBytesTest, K_GetCoverRefusalKeysAreInsertionOrderedTod
 
     const std::vector<std::string> keys = keyOrder(doc);
     ASSERT_EQ(2u, keys.size()) << joined(keys);
-    EXPECT_EQ("success,error_str", joined(keys));
+    EXPECT_EQ("error_str,success", joined(keys));
 }
 
-TEST_F(JsonApiDispatchWireBytesTest, K_GetCameraPicRefusalKeysAreInsertionOrderedToday)
+TEST_F(JsonApiDispatchWireBytesTest, K_GetCameraPicRefusalKeysAreSorted)
 {
     //The twin refusal, on the other binary operation, and a DIFFERENT call site
     //of the same shape: a migration that moved one and forgot the other would
@@ -726,10 +778,10 @@ TEST_F(JsonApiDispatchWireBytesTest, K_GetCameraPicRefusalKeysAreInsertionOrdere
 
     const nlohmann::ordered_json doc = ordered(wire);
     ASSERT_FALSE(doc.is_discarded()) << wire;
-    EXPECT_EQ("success,error_str", joined(keyOrder(doc)));
+    EXPECT_EQ("error_str,success", joined(keyOrder(doc)));
 }
 
-TEST_F(JsonApiDispatchWireBytesTest, K_ConfigGetFileNamesAreInsertionOrderedToday)
+TEST_F(JsonApiDispatchWireBytesTest, K_ConfigGetFileNamesAreSorted)
 {
     /* processConfig() sets io.xml, rules.xml, local_config.xml in that order.
      * Sorted, that is io.xml, local_config.xml, rules.xml: positions two and
@@ -738,6 +790,7 @@ TEST_F(JsonApiDispatchWireBytesTest, K_ConfigGetFileNamesAreInsertionOrderedToda
      */
     loadReferenceHouse();
 
+    clearThrottle();
     HttpTestRequest req;
     req.send(authenticated(Json{{ "action", "config" }, { "type", "get" }}));
     ASSERT_EQ(1u, req.count());
@@ -747,7 +800,7 @@ TEST_F(JsonApiDispatchWireBytesTest, K_ConfigGetFileNamesAreInsertionOrderedToda
 
     const std::vector<std::string> files = keyOrder(doc["config_files"]);
     ASSERT_EQ(3u, files.size()) << joined(files);
-    EXPECT_EQ("io.xml,rules.xml,local_config.xml", joined(files));
+    EXPECT_EQ("io.xml,local_config.xml,rules.xml", joined(files));
 }
 
 /*******************************************************************************
@@ -755,15 +808,18 @@ TEST_F(JsonApiDispatchWireBytesTest, K_ConfigGetFileNamesAreInsertionOrderedToda
  * perimeter that carries bytes a client can influence.
  ******************************************************************************/
 
-TEST_F(JsonApiDispatchWireBytesTest, A_ConfigGetEscapesNonAsciiInUppercaseHexToday)
+TEST_F(JsonApiDispatchWireBytesTest, A_ConfigGetEscapesNonAsciiInLowercaseHex)
 {
-    /* The probe is a VALID code point, so no error handler ever looks at it:
-     * this case is sensitive to ensure_ascii and to NOTHING ELSE.
+    /* ⭐ THE FORM 3 BASCULE, on the one emitter of this perimeter that carries
+     * bytes a client can influence. The probe is a VALID code point, so no
+     * error handler ever looks at it: this case is sensitive to ensure_ascii
+     * and to NOTHING ELSE.
      *
-     * TODAY processConfig() answers through sendJson(json_t *), which dumps
-     * with JSON_COMPACT | JSON_ENSURE_ASCII: the hexadecimal is UPPERCASE.
-     * That is FORM 1. After the bascule it is form 3, lowercase - and it must
-     * never be form 2, the raw UTF-8 bytes.
+     * processConfig() used to answer through sendJson(json_t *), which dumped
+     * with JSON_COMPACT | JSON_ENSURE_ASCII and wrote an UPPERCASE
+     * hexadecimal. That was FORM 1. It is FORM 3 now - lowercase, still pure
+     * ASCII - and the three assertions below say so separately: form 3 IS
+     * there, form 1 is NOT, and form 2 (raw UTF-8) is not either.
      */
     loadReferenceHouse();
 
@@ -771,10 +827,10 @@ TEST_F(JsonApiDispatchWireBytesTest, A_ConfigGetEscapesNonAsciiInUppercaseHexTod
 
     const std::string wire = configGetWireWithProbeOnDisk("caf" + RAW_E);
 
-    EXPECT_TRUE(contains(wire, ASCII_E_UPPER))
-            << "form 1 is gone from processConfig()";
-    EXPECT_FALSE(contains(wire, ASCII_E_LOWER))
-            << "the wire moved to the lowercase hexadecimal";
+    EXPECT_TRUE(contains(wire, ASCII_E_LOWER))
+            << "processConfig() is not emitting form 3";
+    EXPECT_FALSE(contains(wire, ASCII_E_UPPER))
+            << "the wire fell back to jansson's UPPERCASE hexadecimal";
     EXPECT_FALSE(contains(wire, RAW_E))
             << "raw UTF-8 bytes reached the wire - that is FORM 2, and form 2 "
                "is a failure of this ticket, not a variant of it";
@@ -782,12 +838,13 @@ TEST_F(JsonApiDispatchWireBytesTest, A_ConfigGetEscapesNonAsciiInUppercaseHexTod
             << "the config payload stopped being pure ASCII";
 }
 
-TEST_F(JsonApiDispatchWireBytesTest, D_ConfigGetLeavesDelAsARawByteToday)
+TEST_F(JsonApiDispatchWireBytesTest, D_ConfigGetNowEscapesDel)
 {
     /* U+007F is the delta that changes the LENGTH of the payload, and it is a
-     * delta neither library calls a control character: jansson leaves it raw
+     * delta neither library calls a control character: jansson left it raw
      * under JSON_ENSURE_ASCII, nlohmann escapes it. Its own case, because it
-     * is the only one that moves Content-Length.
+     * is the only one that moves Content-Length - a three character value goes
+     * from 11 bytes to 16.
      */
     loadReferenceHouse();
 
@@ -796,13 +853,13 @@ TEST_F(JsonApiDispatchWireBytesTest, D_ConfigGetLeavesDelAsARawByteToday)
 
     const std::string wire = configGetWireWithProbeOnDisk("e41s-" + probe);
 
-    EXPECT_FALSE(contains(wire, ASCII_DEL))
-            << "U+007F started being escaped";
-    EXPECT_TRUE(contains(wire, probe))
-            << "the raw DEL byte left the wire";
+    EXPECT_TRUE(contains(wire, ASCII_DEL))
+            << "U+007F stopped being escaped";
+    EXPECT_FALSE(contains(wire, probe))
+            << "the raw DEL byte is back on the wire";
 }
 
-TEST_F(JsonApiDispatchWireBytesTest, R_ConfigGetDropsTheWholeIoXmlPairOnInvalidUtf8Today)
+TEST_F(JsonApiDispatchWireBytesTest, R_ConfigGetNoLongerDropsTheIoXmlPairOnInvalidUtf8)
 {
     /* ⛔ THE WORST OF THE FIVE DELTAS, on the biggest payload of the API.
      *
@@ -817,13 +874,25 @@ TEST_F(JsonApiDispatchWireBytesTest, R_ConfigGetDropsTheWholeIoXmlPairOnInvalidU
      * The other two files are asserted PRESENT in the same answer: "dropped the
      * bad one" must not be confused with "dropped everything".
      *
+     * error_handler_t::replace ENDS THAT: one U+FFFD per bad byte, the key
+     * survives, and what the operator gets back is a configuration file that
+     * is visibly mangled instead of one that is silently absent.
+     *
+     * ⛔ AND IT IS THE REASON error_handler_t::replace IS NOT OPTIONAL: a bare
+     * dump() on this payload is type_error.316, uncaught above processApi(),
+     * i.e. std::terminate on a live connection, on bytes a client can put in a
+     * user file. Both halves are asserted - the answer is DELIVERED and the
+     * bytes were REPLACED, not ignored - so `strict` and `ignore` cannot
+     * redden the same assertion.
+     *
      * Its own case, and not a probe added to the A_/D_ fixture, precisely
-     * because it destroys the payload it travels in.
+     * because it used to destroy the payload it travels in.
      */
     loadReferenceHouse();
 
     probeIoName(HOUSE_STRING, "e41s-" + INVALID_UTF8 + "-end");
 
+    clearThrottle();
     HttpTestRequest req;
     req.send(authenticated(Json{{ "action", "config" }, { "type", "get" }}));
     ASSERT_EQ(1u, req.count());
@@ -838,13 +907,20 @@ TEST_F(JsonApiDispatchWireBytesTest, R_ConfigGetDropsTheWholeIoXmlPairOnInvalidU
     const Json files = member(req.bodyJson(), "config_files");
     ASSERT_TRUE(files.is_object()) << req.body().substr(0, 200);
 
-    EXPECT_FALSE(has(files, "io.xml"))
-            << "the invalid-UTF-8 pair is no longer silently dropped";
-    EXPECT_TRUE(has(files, "rules.xml")) << "a good pair went down with it";
-    EXPECT_TRUE(has(files, "local_config.xml")) << "a good pair went down with it";
-    EXPECT_EQ(2u, files.size());
+    EXPECT_TRUE(has(files, "io.xml"))
+            << "the invalid-UTF-8 pair is being dropped again";
+    EXPECT_TRUE(has(files, "rules.xml"));
+    EXPECT_TRUE(has(files, "local_config.xml"));
+    EXPECT_EQ(3u, files.size());
 
-    //And "success" is still "true": the drop is entirely silent.
+    //REPLACED, not ignored: one U+FFFD per bad byte, and both ends of the
+    //probe survive - this is a substitution, not a truncation.
+    const std::string io = str(files, "io.xml");
+    EXPECT_NE(std::string::npos, io.find("e41s-" + TWO_REPLACEMENTS + "-end"))
+            << "the bad bytes were dropped rather than replaced";
+    EXPECT_EQ(std::string::npos, io.find(INVALID_UTF8))
+            << "the invalid bytes reached the wire untouched";
+
     EXPECT_EQ("true", str(req.bodyJson(), "success"));
 }
 
@@ -862,7 +938,7 @@ TEST_F(JsonApiDispatchWireBytesTest, R_ConfigGetDropsTheWholeIoXmlPairOnInvalidU
  * because a port to ensure_ascii would have left it green.
  ******************************************************************************/
 
-TEST_F(JsonApiDispatchWireBytesTest, Tripwire_TheHttpApiWireIsFormOneTodayAndNeitherOfTheOtherTwo)
+TEST_F(JsonApiDispatchWireBytesTest, Tripwire_TheHttpApiWireIsFormThreeAndNeitherOfTheOtherTwo)
 {
     /* The three forms, asserted SEPARATELY on the RAW body:
      *
@@ -893,22 +969,28 @@ TEST_F(JsonApiDispatchWireBytesTest, Tripwire_TheHttpApiWireIsFormOneTodayAndNei
 
     const std::string wire = configGetWireWithProbeOnDisk(probe);
 
-    //--- form 1: what ships TODAY on this emitter.
-    EXPECT_TRUE(contains(wire, ASCII_E_UPPER)) << "form 1 changed";
-    EXPECT_TRUE(contains(wire, std::string("\x7f", 1)))
-            << "form 1 changed on U+007F";
+    //--- form 3: what ships NOW on this emitter, and the point of the ticket.
+    EXPECT_TRUE(contains(wire, ASCII_E_LOWER))
+            << "the API wire is not form 3";
+    EXPECT_TRUE(contains(wire, ASCII_DEL))
+            << "the API wire is not form 3 on U+007F";
+
+    //--- form 1: gone. jansson's UPPERCASE hexadecimal and its raw DEL byte
+    //are what this emitter used to put on the socket.
+    EXPECT_FALSE(contains(wire, ASCII_E_UPPER))
+            << "the API wire fell back to FORM 1 (jansson, uppercase hex)";
+    EXPECT_FALSE(contains(wire, std::string("\x7f", 1)))
+            << "the API wire fell back to FORM 1 on U+007F";
 
     //--- form 2: raw UTF-8. Never, on any tree. Form 2 is the FAILURE mode of
-    //this ticket, not a variant of it.
+    //this ticket, not a variant of it: a bare dump() would land here, and a
+    //reader who only knows "the tripwire must go red" could take it for
+    //success.
     EXPECT_FALSE(contains(wire, RAW_E))
             << "the API wire went to FORM 2 (raw UTF-8) - that is not the "
                "bascule this ticket asks for";
     EXPECT_FALSE(hasAnyByteAbove7f(wire))
             << "the API wire stopped being pure ASCII";
-
-    //--- form 3: not yet, on this emitter.
-    EXPECT_FALSE(contains(wire, ASCII_E_LOWER)) << "form 3 arrived early";
-    EXPECT_FALSE(contains(wire, ASCII_DEL)) << "form 3 arrived early on U+007F";
 }
 
 TEST_F(JsonApiDispatchWireBytesTest, Tripwire_TheWsApiWireIsAlreadyFormThree)

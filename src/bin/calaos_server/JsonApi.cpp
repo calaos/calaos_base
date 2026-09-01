@@ -26,6 +26,14 @@
 #include "CalaosConfig.h"
 #include "HistLogger.h"
 
+/* E4.1s: JsonApi.h stopped handing <jansson.h> to everyone downstream - it
+ * had no jansson in its own declarations. This file still needs it, and
+ * for ONE reason: janssonScenarioPayloadBridge(), the adapter to
+ * Scenario::toJson(), which IO/Scenario.cpp being excluded (Q5) keeps alive
+ * until E4.6d. When that goes, so does this include.
+ */
+#include <jansson.h>
+
 #include <openssl/evp.h>
 #include <openssl/crypto.h>
 

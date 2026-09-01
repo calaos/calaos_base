@@ -48,7 +48,9 @@
  *     the WS envelope in two different key orders today depending on which
  *     sendJson() overload is used (JsonApiHandlerWS.cpp:63-73 gives
  *     msg,msg_id,data; :75-85 gives data,msg,msg_id) - clients already live
- *     with both.
+ *     with both. ⚠️ E4.1s DELETED the jansson overload: one envelope order is
+ *     left, the sorted one, plus the no-data envelope of sendJsonNoData(),
+ *     which OMITS the key rather than writing a null.
  *   - SENSITIVE to array order. The order of rooms, IOs and rules IS
  *     semantic (it drives evaluation order, invariant of the E4.2 series).
  *     NEVER sort an array before comparing.
@@ -59,7 +61,7 @@
  * REVIEW. Concretely, never write any of:
  *      EXPECT_EQ(payload, "{\"a\":\"b\"}");
  *      EXPECT_EQ(j.dump(), golden);
- *      EXPECT_EQ(jansson_to_string(x), "...");
+ *      EXPECT_EQ(j.dump(-1, ' ', true, Json::error_handler_t::replace), "...");
  *      any assertion on key order or on the length of a JSON string.
  * Use EXPECT_JSON_EQ / ASSERT_JSON_EQ / EXPECT_JSON_GOLDEN below. They accept
  * a raw std::string of JSON text and parse it for you - passing the captured
@@ -514,10 +516,16 @@ protected:
      *   - the three variable types (bool, int, string) so var_type and the
      *     stringification of state are exercised,
      *   - a non zero "hits" on the first room,
-     *   - an IO whose name carries accented UTF-8. jansson serializes it as
-     *     \uXXXX escapes (JSON_ENSURE_ASCII) while nlohmann writes raw UTF-8;
-     *     both parse to the same string, which is precisely what the semantic
-     *     oracle has to prove,
+     *   - an IO whose name carries accented UTF-8. It leaves as \uXXXX escapes
+     *     on BOTH sides - jansson wrote an UPPERCASE hexadecimal under
+     *     JSON_ENSURE_ASCII, the tree writes a lowercase one since E4.1b and
+     *     E4.1s (ensure_ascii = true, invariant 3 of the epic) - and both
+     *     parse to the same string, which is precisely what the semantic
+     *     oracle has to prove.
+     *     ⚠️ THIS PARAGRAPH USED TO SAY "nlohmann writes raw UTF-8". That is
+     *     FORM 2, the bare dump(), and it is exactly the form the epic refused
+     *     to ship; see the tripwires of tests/ParamsJson_test.cpp and
+     *     core/JsonApiDispatchWireBytes_test.cpp,
      *   - that SAME IO (HOUSE_ACCENTED) is also the only one setting every
      *     OPTIONAL param of buildJsonIO() - hits, chauffage_id, unit,
      *     auto_scenario, step, io_style, value_warning - so all sixteen

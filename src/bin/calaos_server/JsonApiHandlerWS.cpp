@@ -57,6 +57,63 @@ inline std::string jsonStringGet(const Json &j, const char *key,
     return it->get<std::string>();
 }
 
+/* E4.1s. jansson_decode_object()'s FLATTENING CONTRACT, kept BY HAND: a string
+ * as is, a boolean as the WORD "true"/"false", any number through
+ * Utils::to_string(double) - a bare ostringstream, frozen on purpose and not
+ * "fixed" here - and ANY OTHER TYPE (object, array, null) the EMPTY STRING,
+ * WITH THE KEY STILL ADDED. A non object iterates zero times, exactly as
+ * json_object_foreach() did on a NULL or on a non object.
+ *
+ * ⚠️ THE ORDER OF ITERATION CHANGES AND IT DOES NOT MATTER: Params is a
+ * std::map, so the destination is sorted either way, and duplicate keys were
+ * already collapsed at PARSE time (last one wins, measured identical in both
+ * libraries).
+ *
+ * Identical, deliberately, to the copy JsonApi.cpp carries (E4.1o), to the one
+ * in JsonApiHandlerHttp.cpp and to ScriptWire::decodeObject(): a contract
+ * E4.1x folds once Jansson_Addition.h goes away, not a helper to improve here.
+ */
+inline void decodeJsonObject(const Json &j, Params &params)
+{
+    if (!j.is_object())
+        return;
+
+    for (Json::const_iterator it = j.cbegin(); it != j.cend(); ++it)
+    {
+        std::string svalue;
+
+        if (it.value().is_string())
+            svalue = it.value().get<std::string>();
+        else if (it.value().is_boolean())
+            svalue = it.value().get<bool>()?"true":"false";
+        else if (it.value().is_number())
+            svalue = Utils::to_string(it.value().get<double>());
+
+        params.Add(it.key(), svalue);
+    }
+}
+
+/* E4.1s. The "items" array of get_state / get_io, transcribed one for one from
+ * json_object_get + json_is_array + json_array_foreach + json_is_string. Every
+ * guard is kept: an absent "items", an "items" that is not an array, and a non
+ * string element are all SILENTLY SKIPPED and never an error.
+ */
+inline void collectStringItems(const Json &jdata, vector<string> &iolist)
+{
+    if (!jdata.is_object())
+        return;
+
+    const Json::const_iterator it = jdata.find("items");
+    if (it == jdata.cend() || !it->is_array())
+        return;
+
+    for (const Json &value: *it)
+    {
+        if (value.is_string())
+            iolist.push_back(value.get<std::string>());
+    }
+}
+
 } //namespace
 
 JsonApiHandlerWS::JsonApiHandlerWS(HttpClient *client):
@@ -103,16 +160,32 @@ void JsonApiHandlerWS::handleEvents(const CalaosEvent &event)
     sendJson("event", event.toJson());
 }
 
-void JsonApiHandlerWS::sendJson(const string &msg_type, json_t *data, const string &client_id)
+/* ⭐ E4.1s. WHAT IS LEFT OF sendJson(const string &, json_t *, const string &)
+ * ONCE ITS PAYLOAD IS GONE: the envelope WITHOUT a "data" member.
+ *
+ * That overload OMITTED the key when the pointer was null. The nlohmann
+ * overload below always writes it, so routing the two null callers
+ * (processGetState() and processGetIO(), on a message that carries no "data")
+ * through it would have turned `{"msg":...,"msg_id":...}` into
+ * `{"msg":...,"msg_id":...,"data":null}` - a DIFFERENT document, and one the
+ * epic's own contract forbids ("absent key, never null"). Golden
+ * e40e_ws_get_state_without_data pins it.
+ *
+ * ⭐ NOT ONE BYTE MOVES HERE: jansson walked msg then msg_id in INSERTION
+ * order, and "msg" < "msg_id" alphabetically, so the sorted order is the same
+ * order. The payload is pure ASCII by construction (a message type and a
+ * client id), so the escaping question does not arise either. Pinned, on the
+ * RAW message and not on a parsed document, by
+ * core/JsonApiDispatchWireBytes_test.
+ */
+void JsonApiHandlerWS::sendJsonNoData(const string &msg_type, const string &client_id)
 {
-    json_t *jroot = json_object();
-    json_object_set_new(jroot, "msg", json_string(msg_type.c_str()));
-    if (client_id != "")
-        json_object_set_new(jroot, "msg_id", json_string(client_id.c_str()));
-    if (data)
-        json_object_set_new(jroot, "data", data);
+    Json jroot = {{ "msg", msg_type }};
 
-    sendData.emit(jansson_to_string(jroot));
+    if (client_id != "")
+        jroot["msg_id"] = client_id;
+
+    sendData.emit(jroot.dump(-1, ' ', true, Json::error_handler_t::replace));
 }
 
 void JsonApiHandlerWS::sendJson(const string &msg_type, const Json &json, const string &client_id)
@@ -124,12 +197,13 @@ void JsonApiHandlerWS::sendJson(const string &msg_type, const Json &json, const 
 
     jroot["data"] = json;
 
-    //E4.1b: same two invariants as JsonApiHandlerHttp::sendJson(const Json &),
-    //and the same reason - the jansson overload just above emits ASCII only,
-    //and a bare dump() on a payload holding invalid UTF-8 terminates the
+    //E4.1b: same three invariants as JsonApiHandlerHttp::sendJson(const Json &),
+    //and the same reason - the jansson overload this replaced emitted ASCII
+    //only, and a bare dump() on a payload holding invalid UTF-8 terminates the
     //process. RemoteUIWebSocketHandler inherits this overload
-    //(RemoteUIWebSocketHandler.h:90), so the RemoteUI device wire is covered
+    //(RemoteUIWebSocketHandler.h:103), so the RemoteUI device wire is covered
     //here and has no emitter of its own.
+    //E4.1s: this is now the ONLY payload emitter of this transport.
     sendData.emit(jroot.dump(-1, ' ', true, Json::error_handler_t::replace));
 }
 
@@ -140,51 +214,57 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
     Params jsonRoot;
     Params jsonData;
 
-    //parse the json data
-    json_error_t jerr;
-    json_t *jroot = json_loads(data.c_str(), 0, &jerr);
+    /* ⛔⭐⭐ E4.1s. THE REQUEST PARSE, and the ONE change of this ticket that is
+     * not about formatting. From E4.1m to E4.1r this nlohmann parse ran
+     * ALONGSIDE jansson's - one for the redacted log line and the migrated
+     * readers, one for the dispatch. There is only one now, and no second
+     * parse anywhere.
+     *
+     * THE TWO PARSERS DO NOT DRAW THE SAME LINE. Measured, pinned case by case
+     * in tests/core/JsonApiDispatchWireBytes_test.cpp, DECLARED in
+     * docs/refactoring/RELEASE_NOTES.md, and spelled out at length on the twin
+     * line of JsonApiHandlerHttp::processApi(). In one sentence: an escaped
+     * "\u0000", an integer beyond int64 and a nesting depth above 2048 used to
+     * be REFUSED and are now served; invalid UTF-8, a lone surrogate, a
+     * real-number overflow, trailing garbage and a raw NUL are refused by both
+     * and MUST STAY REFUSED.
+     */
+    const Json jsonRootDoc = Json::parse(data, nullptr, false);
 
-    if (!jroot || !json_is_object(jroot))
+    if (!jsonRootDoc.is_object())
     {
-        cDebugDom("network") << "Error loading json : " << jerr.text;
-        if (jroot) json_decref(jroot);
+        //The parser's own message is gone with the parser: Json::parse() in
+        //its non throwing form does not produce one. This is a debug line.
+        cDebugDom("network") << "Error loading json";
         return;
     }
 
-    /* E4.1m: dumpJsonRedacted() answers on a Json now, so the raw request is
-     * parsed once more for the log line. The document the dispatch below walks
-     * stays as it is - migrating it is E4.1s's dispatch, not this ticket - and
-     * the log is a DIFFERENT consumer of the same bytes, so a second parse is
-     * honest rather than shared state. A message that this parser refuses and
-     * the other accepted logs an empty line instead of a redacted document; it
-     * is a debug line, and it never reaches a client.
-     */
-    const Json jsonRootDoc = Json::parse(data, nullptr, false);
     cDebugDom("network") << dumpJsonRedacted(jsonRootDoc);
 
-    /* E4.1o: the "data" member as a DOCUMENT, for the one action of this
-     * dispatch that consumes client JSON. HOISTED, NOT ADDED - the parse above
-     * is E4.1m's and already ran on every message. `jdata` (the json_t twin,
-     * a few lines down) stays for everything else; migrating the dispatch
-     * itself is E4.1s.
-     * Json::object() and not a default constructed Json on the absent path:
-     * json_object_get(jroot, "data") answered NULL there, and every reader
-     * below treats a missing member as absent, not as null.
+    /* E4.1s: the "data" member as a POINTER, because ABSENT and `"data": null`
+     * are two different answers here. json_object_get() gave NULL for the
+     * first and a json_null for the second, and processGetState() /
+     * processGetIO() branch on precisely that. `jsonRootDoc` is const and
+     * outlives every use, so the pointer stays valid.
      */
-    Json jsonDataDoc = Json::object();
-    if (jsonRootDoc.is_object())
+    const Json *jdata = nullptr;
     {
         const Json::const_iterator it = jsonRootDoc.find("data");
         if (it != jsonRootDoc.cend())
-            jsonDataDoc = *it;
+            jdata = &(*it);
     }
 
-    //decode the json root object into Params
-    jansson_decode_object(jroot, jsonRoot);
+    /* E4.1o: Json::object() and not a default constructed Json on the absent
+     * path: json_object_get(jroot, "data") answered NULL there, and every
+     * reader below treats a missing member as absent, not as null.
+     */
+    const Json jsonDataDoc = jdata? *jdata : Json::object();
 
-    json_t *jdata = json_object_get(jroot, "data");
+    //decode the json root object into Params
+    decodeJsonObject(jsonRootDoc, jsonRoot);
+
     if (jdata)
-        jansson_decode_object(jdata, jsonData);
+        decodeJsonObject(*jdata, jsonData);
 
     //Format: { msg: "type", msg_id: id, data: {} }
 
@@ -207,10 +287,10 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
 
             cDebugDom("network") << "Login failed!";
 
-            json_t *jret = json_object();
-            json_object_set_new(jret, "success", json_string("false"));
-
-            sendJson("login", jret, jsonRoot["msg_id"]);
+            //E4.1s: the last caller of the jansson overload that carried a
+            //payload. One ASCII pair, byte for byte the same document as the
+            //two brace-initialised twins a few lines above and below.
+            sendJson("login", Json{{ "success", "false" }}, jsonRoot["msg_id"]);
 
             //Close the connection on login failure
             closeConnection.emit(WebSocketFrame::CloseCodeNormal, "login failed!");
@@ -264,7 +344,7 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
         else if (jsonRoot["msg"] == "get_io")
             processGetIO(jdata, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "audio")
-            processAudio(jdata, jsonDataDoc, jsonRoot["msg_id"]);
+            processAudio(jsonDataDoc, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "audio_db")
         {
             if (serviceScope) scopeDenied("audio_db");
@@ -302,8 +382,6 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
 //        else if (jsonParam["action"] == "config")
 //            processConfig(jroot);
     }
-
-    json_decref(jroot);
 }
 
 void JsonApiHandlerWS::processGetHome(const Params &jsonReq, const string &client_id)
@@ -327,27 +405,19 @@ void JsonApiHandlerWS::processGetHome(const Params &jsonReq, const string &clien
     sendJson("get_home", jret, client_id);
 }
 
-void JsonApiHandlerWS::processGetState(json_t *jdata, const string &client_id)
+void JsonApiHandlerWS::processGetState(const Json *jdata, const string &client_id)
 {
     if (!jdata)
     {
-        sendJson("get_state", nullptr, client_id);
+        //E4.1s: sendJsonNoData() and not sendJson(..., Json(), ...) - the
+        //answer OMITS "data", it does not carry a null. Golden
+        //e40e_ws_get_state_without_data.
+        sendJsonNoData("get_state", client_id);
         return;
     }
 
     vector<string> iolist;
-    json_t *jio = json_object_get(jdata, "items");
-    if (jio && json_is_array(jio))
-    {
-        uint idx;
-        json_t *value;
-
-        json_array_foreach(jio, idx, value)
-        {
-            if (json_is_string(value))
-                iolist.push_back(json_string_value(value));
-        }
-    }
+    collectStringItems(*jdata, iolist);
 
     /* E4.1n: the three builders answer a Json, so these three calls resolve to
      * the nlohmann overload of sendJson() (:90) instead of the jansson one
@@ -358,10 +428,9 @@ void JsonApiHandlerWS::processGetState(json_t *jdata, const string &client_id)
      * alphabetical, Params being a std::map. Pinned by
      * core/JsonApiStateWireBytes_test.
      *
-     * The `nullptr` answer of the no-data path above stays on the jansson
-     * overload ON PURPOSE: that overload OMITS the "data" key when the pointer
-     * is null, where the nlohmann one would write "data":null. Moving it would
-     * change the document, and golden e40e_ws_get_state_without_data pins it.
+     * E4.1s: the no-data path above no longer has a jansson overload to lean
+     * on; it goes through sendJsonNoData(), which keeps the OMISSION and
+     * nothing else. The document is unchanged, byte for byte.
      */
     buildJsonState(iolist, [=](Json jret)
     {
@@ -400,27 +469,16 @@ void JsonApiHandlerWS::processDelParam(const Params &jsonReq, const string &clie
     sendJson("del_param", buildJsonDelParam(jsonReq), client_id);
 }
 
-void JsonApiHandlerWS::processGetIO(json_t *jdata, const string &client_id)
+void JsonApiHandlerWS::processGetIO(const Json *jdata, const string &client_id)
 {
     if (!jdata)
     {
-        sendJson("get_io", nullptr, client_id);
+        sendJsonNoData("get_io", client_id);
         return;
     }
 
     vector<string> iolist;
-    json_t *jio = json_object_get(jdata, "items");
-    if (jio && json_is_array(jio))
-    {
-        uint idx;
-        json_t *value;
-
-        json_array_foreach(jio, idx, value)
-        {
-            if (json_is_string(value))
-                iolist.push_back(json_string_value(value));
-        }
-    }
+    collectStringItems(*jdata, iolist);
 
     sendJson("get_io", buildJsonGetIO(iolist), client_id);
 }
@@ -453,14 +511,15 @@ void JsonApiHandlerWS::processGetPlaylist(Params &jsonReq, const string &client_
     });
 }
 
-/* E4.1p. TWO DOCUMENTS, AND THE SECOND ONE IS HOISTED, NOT ADDED - see the
- * twin comment on JsonApiHandlerHttp::processAudio(). `jdataDoc` is the "data"
- * member of processApi()'s existing nlohmann parse (E4.1o named it); the
- * jansson `jdata` stays for the DISPATCH, whose migration is E4.1s.
+/* E4.1s. ONE DOCUMENT - the json_t* twin that carried the DISPATCH is gone
+ * with the request parse it came from. jsonStringGet() reproduces
+ * jansson_string_get()'s contract on the same document: the DEFAULT on an
+ * absent member, on a member that is not a JSON string, and on a root that is
+ * not an object.
  */
-void JsonApiHandlerWS::processAudio(json_t *jdata, const Json &jdataDoc, const string &client_id)
+void JsonApiHandlerWS::processAudio(const Json &jdataDoc, const string &client_id)
 {
-    string msg = jansson_string_get(jdata, "audio_action");
+    string msg = jsonStringGet(jdataDoc, "audio_action");
     if (msg == "get_playlist_size")
         audioGetPlaylistSize(jdataDoc, [=](const Json &jret)
         {

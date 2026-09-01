@@ -104,15 +104,18 @@
  *     json_object_set_new() answers -1, nobody looks). It does not become
  *     U+FFFD here. E4.6d moves that, not E4.1r.
  *   - AN EMBEDDED NUL still TRUNCATES the value at the C string, on the way
- *     out. ⭐ MEASURED, and it invalidates the obvious guess: the INPUT side
- *     cannot be reached at all today, because the REQUEST is still parsed by
- *     jansson (the dispatch is E4.1s's, not this ticket's) and jansson
- *     REFUSES "\u0000" in a string unless JSON_ALLOW_NUL is passed. A client
- *     cannot put a NUL into an action, so the pair jansson_string_get() /
- *     jsonStringGet() is never asked the question. A case below pins that
- *     refusal, and E4.1s inherits it: the day the request parse becomes
- *     nlohmann, "\u0000" starts being ACCEPTED and the whole string reaches
- *     the rule. Written down in FINDINGS.md.
+ *     out. E4.1r measured that the INPUT side could not be reached at all,
+ *     because the REQUEST was still parsed by jansson and jansson REFUSES
+ *     "\u0000" in a string unless JSON_ALLOW_NUL is passed.
+ *
+ *     ⛔⭐⭐ E4.1s MOVED THAT PARSE TO nlohmann, WHICH ACCEPTS IT, and the day
+ *     it did the truncation stopped being unreachable. A client CAN now put a
+ *     zero byte into an action; it reaches AutoScenario whole, and
+ *     Scenario::toJson() cuts it at the first zero byte in silence. The case
+ *     AnEmbeddedNulInAnActionIsTruncatedByScenarioToJson below - which used to
+ *     pin the refusal and was rewritten by E4.1s - is where that is measured.
+ *     ⛔ It is E4.6d's to FIX, not E4.1s's: IO/Scenario.cpp is the excluded
+ *     file. Written down in FINDINGS.md and declared in RELEASE_NOTES.md.
  *
  * ---------------------------------------------------------------------------
  * THE TRANSITIONAL BRIDGE, AND ITS SINGLE PURPOSE
@@ -701,24 +704,44 @@ TEST_F(JsonApiScenarioWireBytesTest, ADelByteInAnActionIsEscaped)
     EXPECT_EQ(std::string::npos, wire.find(std::string("\"a\x7f""b\""))) << wire;
 }
 
-/* INVARIANT, AND A MEASUREMENT THAT KILLED THE OBVIOUS GUESS.
+/* THE MINE OF E4.1s, MEASURED.
  *
- * An embedded NUL never reaches an action at all: the REQUEST is parsed by
- * jansson on both transports (the dispatch is E4.1s's to migrate, not this
- * ticket's) and jansson REFUSES "\u0000" in a string without JSON_ALLOW_NUL.
- * The message is dropped before any autoscenario code runs - zero answers, and
- * zero scenarios created. This is true before AND after the migration, which
- * is why the NUL delta of the series does not appear on this perimeter.
+ * THIS CASE WAS TURNED OVER BY E4.1s, AND IT IS THE ONE PLACE IN THE SUITE
+ * WHERE THE CHARGE THAT TICKET DETONATED IS VISIBLE.
  *
- * ⚠️ E4.1s inherits it: nlohmann ACCEPTS "\u0000", so the day the request
- * parse moves, this request starts being served.
+ * It used to be named AnEmbeddedNulInAnActionIsRefusedByTheRequestParser and
+ * it pinned a REFUSAL: the request was parsed by jansson on both transports,
+ * jansson REFUSES an escaped NUL in a string without JSON_ALLOW_NUL, and the
+ * message died before any autoscenario code ran - zero answers, zero scenarios
+ * created. E4.1r wrote it down as "the NUL delta of the series does not appear
+ * on this perimeter, and E4.1s inherits it".
+ *
+ * E4.1s MOVED THE REQUEST PARSE TO nlohmann, WHICH ACCEPTS THE ESCAPED NUL.
+ * The request is served now, the scenario IS created, and the action string
+ * reaches AutoScenario::addStepAction() WHOLE - three bytes.
+ *
+ * AND THEN Scenario::toJson() TRUNCATES IT AT THE FIRST ZERO BYTE, IN SILENCE.
+ * json_string(sa.action.c_str()) stops at the C string, IO/Scenario.cpp is
+ * EXCLUDED from E4.1 by decision Q5, and E4.6d is the ticket that rewrites it.
+ * The parade of E4.1s was to KNOW this and to WRITE IT DOWN, not to migrate
+ * the excluded file on the sly - so this case pins the truncation as the
+ * measured behaviour of today, loudly, with the ticket that owns it named.
+ *
+ * The probe is asymmetric on purpose ("a" before the NUL, "b" after): a
+ * truncation and a drop and a replacement are three different answers, and a
+ * probe that was empty on one side could not tell them apart. The assertion is
+ * on the RAW wire and on the parsed value, so "the action is a" cannot be read
+ * as "the action is missing".
  */
-TEST_F(JsonApiScenarioWireBytesTest, AnEmbeddedNulInAnActionIsRefusedByTheRequestParser)
+TEST_F(JsonApiScenarioWireBytesTest, AnEmbeddedNulInAnActionIsTruncatedByScenarioToJson)
 {
     loadScenarioHouse();
 
+    //wsWire() counts the answer BEFORE the loop is pumped, which is what makes
+    //"one answer" mean the answer and not the backlog of EventIOAdded that
+    //creating a scenario raises.
     WsTestSession ws;
-    ws.send(wsRequest(Json{
+    const Json ret = Json::parse(wsWire(ws, Json{
         { "type", "create" },
         { "name", "nul" },
         { "room_name", E41R_ROOM_NAME },
@@ -727,11 +750,29 @@ TEST_F(JsonApiScenarioWireBytesTest, AnEmbeddedNulInAnActionIsRefusedByTheReques
             Json{{ "step_type", "standard" }, { "step_pause", "1" },
                  { "actions", Json::array({ Json{{ "id", IO_BOOL },
                                                  { "action", std::string("a\0b", 3) }} }) }}
-        }) }}));
+        }) }}), nullptr, false);
     pumpEventLoop();
 
-    EXPECT_EQ(0u, ws.count());
-    EXPECT_TRUE(ListeRoom::Instance().getAutoScenarios().empty());
+    //SERVED, where it used to be dropped before any autoscenario code ran.
+    ASSERT_TRUE(ret.is_object()) << "the request parse went back to refusing a NUL";
+    ASSERT_EQ(SCENARIO_IO_ID,
+              ret.value("data", Json::object()).value("id", std::string()));
+    ASSERT_EQ(1u, ListeRoom::Instance().getAutoScenarios().size());
+
+    const std::string wire = httpWire(Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
+
+    //TRUNCATED, inside the excluded file. Three assertions, because the three
+    //possible answers have to be told apart:
+    //  - the action is "a"          -> truncated at the zero byte  (TODAY)
+    //  - the action is "a\u0000b"   -> carried whole               (E4.6d)
+    //  - no action at all           -> dropped
+    EXPECT_NE(std::string::npos, wire.find("\"action\":\"a\""))
+            << "Scenario::toJson() stopped truncating at the NUL - if that is "
+               "E4.6d landing, this case is the one to rewrite: " << wire;
+    EXPECT_EQ(std::string::npos, wire.find("\\u0000"))
+            << "the NUL now travels whole out of the excluded file: " << wire;
+    EXPECT_EQ(std::string::npos, wire.find('\0'))
+            << "a raw zero byte reached the wire";
 }
 
 //INVARIANT. Poison in an action does not kill the connection: the response is

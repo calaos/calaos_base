@@ -224,28 +224,47 @@ TEST(ParamsJson, ToJansson_ValidNonAsciiSurvivesAndDumpsAsAsciiEscapes)
 
 TEST(ParamsJson, Tripwire_TheThreeWireEscapingsAreThreeDifferentBytestreams)
 {
-    /* TRIPWIRE for the sub-ticket that migrates the EMITTERS.
+    /* TRIPWIRE, AND E4.1s IS THE SUB-TICKET THAT BASCULED IT.
      *
      * Escaping is where this migration changes bytes without changing meaning,
      * and "semantically identical" is exactly what a golden suite is built to
-     * ignore. The API emitters (JsonApiHandlerWS.cpp:72,
-     * JsonApiHandlerHttp.cpp:223, EventManager.cpp:80) are covered by the
-     * goldens, which compare parsed documents and will therefore stay GREEN
-     * through the change. The driver wires (WagoMap, KNXCtrl, ScriptExec,
-     * ScriptBindings, ScriptExtern_main) have no net at all.
-     *
-     * So the three forms are pinned SEPARATELY, on the RAW dumped string with
+     * ignore. The 145 goldens compare PARSED DOCUMENTS and stayed GREEN through
+     * every emitter of the series. This case is one of the two things that did
+     * not: it pins the three forms SEPARATELY, on the RAW dumped string, with
      * no case normalisation anywhere - normalising here would make the case
      * pass for a migration that changed the wire, which is the one thing it
-     * exists to prevent. Whichever form the next sub-ticket produces, exactly
-     * one of these three blocks tells it what it produced.
+     * exists to prevent, and it is the defect E4.1a had to rewrite it for.
+     *
+     * WHAT CHANGED IN E4.1s, AND IN WHICH DIRECTION. The API emitters
+     * (JsonApiHandlerHttp::sendJson(const Json &),
+     * JsonApiHandlerWS::sendJson(const string &, const Json &, const string &),
+     * and JsonApiHandlerWS::sendJsonNoData()) no longer produce FORM 1. They
+     * produce FORM 3, and the exact expression they use is asserted below as
+     * `shipped`:
+     *
+     *     dump(-1, SPACE, ensure_ascii = true, Json::error_handler_t::replace)
+     *
+     * FORM 2 IS A FAILURE OF THAT TICKET, NOT A VARIANT OF IT. A bare dump()
+     * would also have made this case "go red" against form 1, and an
+     * implementer who only read "the tripwire must move" could take that for
+     * success. So `shipped` is asserted EQUAL to form 3 and DIFFERENT from
+     * BOTH of the others, separately.
+     *
+     * THE WIRE HALF OF THIS TRIPWIRE lives in
+     * tests/core/JsonApiDispatchWireBytes_test.cpp
+     * (Tripwire_TheHttpApiWireIsFormThreeAndNeitherOfTheOtherTwo): this file
+     * links only libcalaos_common and can compare the three FORMS, but it
+     * cannot read a byte a handler really put on a socket. The two together are
+     * the whole net on this dimension. Neither one alone is.
      *
      * All values below are measured, not assumed. */
     Params p;
-    p.Add("k_accent", "\xc3\xa9");                      //é, U+00E9
+    p.Add("k_accent", "\xc3\xa9");                      //e acute, U+00E9
     p.Add("k_ctrl", std::string("a\x1f") + "b\x01" + "c"); //U+001F then U+0001
 
-    //--- form 1: what ships TODAY. jansson + JSON_ENSURE_ASCII, hex UPPERCASE.
+    //--- form 1: jansson + JSON_ENSURE_ASCII, hex UPPERCASE. What the API used
+    //to ship, up to and including E4.1r. jansson_from_params() still builds it
+    //for the call sites outside the API, so it is still measurable here.
     json_t *j = paramsToJansson(p);
     ASSERT_TRUE(j != nullptr);
     const std::string jansson_wire = jansson_to_string(j); //steals the ref
@@ -260,7 +279,8 @@ TEST(ParamsJson, Tripwire_TheThreeWireEscapingsAreThreeDifferentBytestreams)
 
     //--- form 2: nlohmann dump() bare. RAW UTF-8, no escape at all. This is
     //what a straight port produces, and it differs from form 1 on every
-    //non-ASCII byte of every driver wire.
+    //non-ASCII byte. IT IS NOT WHAT E4.1s SHIPPED, and the assertions on
+    //`shipped` below are what makes that falsifiable.
     const std::string nlohmann_bare = jn.dump();
     EXPECT_NE(std::string::npos, nlohmann_bare.find("\xc3\xa9"))
             << "form 2 changed: " << nlohmann_bare;
@@ -269,10 +289,10 @@ TEST(ParamsJson, Tripwire_TheThreeWireEscapingsAreThreeDifferentBytestreams)
     EXPECT_EQ(std::string::npos, nlohmann_bare.find("\\u00e9"))
             << "nlohmann started escaping non-ASCII: " << nlohmann_bare;
 
-    //--- form 3: nlohmann dump(ensure_ascii = true). The closest port to
-    //form 1 - and STILL not byte identical to it, because the hex is
-    //LOWERCASE. This is the case a case-insensitive assertion would let
-    //through while the wire really had changed.
+    //--- form 3: nlohmann dump(ensure_ascii = true). WHAT THE API SHIPS SINCE
+    //E4.1s. The closest port to form 1 - and STILL not byte identical to it,
+    //because the hex is LOWERCASE. This is the case a case-insensitive
+    //assertion would let through while the wire really had changed.
     const std::string nlohmann_ascii = jn.dump(-1, ' ', true);
     EXPECT_NE(std::string::npos, nlohmann_ascii.find("\\u00e9"))
             << "form 3 changed: " << nlohmann_ascii;
@@ -287,18 +307,50 @@ TEST(ParamsJson, Tripwire_TheThreeWireEscapingsAreThreeDifferentBytestreams)
     EXPECT_NE(jansson_wire, nlohmann_ascii);
     EXPECT_NE(nlohmann_bare, nlohmann_ascii);
 
+    /* THE VERDICT OF E4.1s: WHICH OF THE THREE THE API PUTS ON THE WIRE.
+     *
+     * `shipped` is the emission expression of BOTH handlers, spelled out here
+     * rather than referred to, because this file cannot link them. The three
+     * invariants of E4.1b travel together and all three are in it: sorted keys
+     * (a nlohmann object IS a std::map), ensure_ascii = true, and
+     * error_handler_t::replace.
+     *
+     * Asserted as an EQUALITY against form 3 and as an INEQUALITY against each
+     * of the other two, separately - so that "the wire moved" can never be
+     * confused with "the wire moved to the right place".
+     */
+    const std::string shipped = jn.dump(-1, ' ', true, Json::error_handler_t::replace);
+
+    EXPECT_EQ(nlohmann_ascii, shipped)
+            << "the API emission expression is no longer FORM 3: " << shipped;
+    EXPECT_NE(jansson_wire, shipped)
+            << "the API went back to FORM 1 (jansson, uppercase hex)";
+    EXPECT_NE(nlohmann_bare, shipped)
+            << "the API went to FORM 2 (raw UTF-8 bytes) - that is NOT the "
+               "bascule E4.1s asks for, it is its failure mode";
+
     /* Control characters: NOT uniformly identical across the two libraries,
-     * contrary to what is easy to assume. Measured: U+001F is "\u001F" under
-     * jansson and "\u001f" under nlohmann - the case difference again, because
-     * the hex digits contain a LETTER. U+0001 is "\u0001" on both sides only
-     * because its digits contain none. A control-character check that used
-     * U+0001 alone would therefore see no difference and prove nothing. */
+     * contrary to what is easy to assume. Measured: U+001F is \\u001F
+     * under jansson and \\u001f under nlohmann - the case difference
+     * again, because the hex digits contain a LETTER. U+0001 is \\u0001 on
+     * both sides only because its digits contain none. A control-character
+     * check that used U+0001 alone would therefore see no difference and prove
+     * nothing.
+     *
+     * This is also the half the WIRE tripwire cannot carry, and it was
+     * measured there: the only API emitter that reflects client bytes reads
+     * them out of the XML configuration files, and the XML writer does not
+     * carry U+001F or U+0001 at all.
+     */
     EXPECT_NE(std::string::npos, jansson_wire.find("\\u001F"));
     EXPECT_NE(std::string::npos, nlohmann_bare.find("\\u001f"));
+    EXPECT_NE(std::string::npos, shipped.find("\\u001f"));
     EXPECT_EQ(std::string::npos, jansson_wire.find("\\u001f"));
     EXPECT_EQ(std::string::npos, nlohmann_bare.find("\\u001F"));
+    EXPECT_EQ(std::string::npos, shipped.find("\\u001F"));
     EXPECT_NE(std::string::npos, jansson_wire.find("\\u0001"));
     EXPECT_NE(std::string::npos, nlohmann_bare.find("\\u0001"));
+    EXPECT_NE(std::string::npos, shipped.find("\\u0001"));
 }
 
 TEST(ParamsJson, ToJansson_InvalidUtf8ValueIsSilentlyDroppedAndTheRestSurvives)

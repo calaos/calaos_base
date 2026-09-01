@@ -116,6 +116,12 @@
 
 #include "JsonApiCharacterization.h"
 
+//E4.1s: this unit calls the jansson C API directly, to prove what the
+//OTHER library does. It used to get <jansson.h> transitively through
+//JsonApi.h, whose include was dead and is gone; the dependency is now
+//spelled where it is used. E4.1x deletes both the include and the cases.
+#include <jansson.h>
+
 #include "EventManager.h"
 #include "HistLogger.h"
 #include "McpServerManager.h"

@@ -58,6 +58,70 @@ inline std::string jsonStringGet(const Json &j, const char *key,
     return it->get<std::string>();
 }
 
+/* E4.1s. jansson_decode_object()'s FLATTENING CONTRACT, kept BY HAND: a string
+ * as is, a boolean as the WORD "true"/"false", any number through
+ * Utils::to_string(double) - a bare ostringstream, frozen on purpose and not
+ * "fixed" here - and ANY OTHER TYPE (object, array, null) the EMPTY STRING,
+ * WITH THE KEY STILL ADDED. A non object iterates zero times, exactly as
+ * json_object_foreach() did on a NULL or on a non object.
+ *
+ * ⚠️ THE ORDER OF ITERATION CHANGES AND IT DOES NOT MATTER: Params is a
+ * std::map, so the destination is sorted either way, and jansson had already
+ * collapsed duplicate keys at PARSE time (last one wins, measured identical in
+ * both libraries).
+ *
+ * Identical, deliberately, to the copy JsonApi.cpp carries (E4.1o), to the one
+ * in JsonApiHandlerWS.cpp and to ScriptWire::decodeObject(): this is a
+ * contract E4.1x folds once Jansson_Addition.h goes away, not a helper to
+ * improve here.
+ */
+inline void decodeJsonObject(const Json &j, Params &params)
+{
+    if (!j.is_object())
+        return;
+
+    for (Json::const_iterator it = j.cbegin(); it != j.cend(); ++it)
+    {
+        std::string svalue;
+
+        if (it.value().is_string())
+            svalue = it.value().get<std::string>();
+        else if (it.value().is_boolean())
+            svalue = it.value().get<bool>()?"true":"false";
+        else if (it.value().is_number())
+            svalue = Utils::to_string(it.value().get<double>());
+
+        params.Add(it.key(), svalue);
+    }
+}
+
+/* E4.1s. The "items" array of get_state / get_io, transcribed one for one from
+ *
+ *      json_t *jio = json_object_get(jroot, "items");
+ *      if (jio && json_is_array(jio))
+ *          json_array_foreach(jio, idx, value)
+ *              if (json_is_string(value)) iolist.push_back(...);
+ *
+ * Every guard is kept: an absent "items", an "items" that is not an array, and
+ * a non-string element are all SILENTLY SKIPPED and never an error. Frozen,
+ * not tidied.
+ */
+inline void collectStringItems(const Json &jroot, vector<string> &iolist)
+{
+    if (!jroot.is_object())
+        return;
+
+    const Json::const_iterator it = jroot.find("items");
+    if (it == jroot.cend() || !it->is_array())
+        return;
+
+    for (const Json &value: *it)
+    {
+        if (value.is_string())
+            iolist.push_back(value.get<std::string>());
+    }
+}
+
 } //namespace
 
 JsonApiHandlerHttp::JsonApiHandlerHttp(HttpClient *client):
@@ -108,39 +172,62 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
 {
     jsonParam.clear();
 
-    //parse the json data
-    json_error_t jerr;
-    json_t *jroot = json_loads(data.c_str(), 0, &jerr);
-
-    /* E4.1o: HOISTED, NOT ADDED. E4.1m already parsed `data` a second time with
-     * nlohmann for the redacted log line below; this only gives that parse a
-     * name so buildJsonSetTimerange() can be handed a document instead of a
-     * json_t*. Zero extra parse, and the log line is unchanged.
-     * It stays `null` on the GET-parameter fallback, which is exactly the
-     * branch where set_timerange answers 400 before reaching the dispatch.
+    /* ⛔⭐⭐ E4.1s. THE REQUEST PARSE, and the ONE change of this ticket that is
+     * not about formatting: json_loads() is gone and Json::parse() decides what
+     * the API accepts. From E4.1m to E4.1r this parse ran ALONGSIDE jansson's,
+     * for the redacted log line; it is now the only one, and there is no second
+     * parse anywhere - the document below is handed down to every reader.
+     *
+     * THE TWO PARSERS DO NOT DRAW THE SAME LINE. Measured against the real
+     * jansson and this repository's json.hpp (3.11.3), pinned case by case in
+     * tests/core/JsonApiDispatchWireBytes_test.cpp, and DECLARED in
+     * docs/refactoring/RELEASE_NOTES.md:
+     *
+     *   WIDER, three inputs that used to be refused and are now served:
+     *     - an ESCAPED NUL, "\u0000", in a value or in a key. jansson refused
+     *       it outright ("\u0000 is not allowed without JSON_ALLOW_NUL"). ⭐
+     *       THIS IS THE ONE THAT MATTERS: it is a path that did not exist
+     *       before this line changed, and Scenario::toJson() - IO/Scenario.cpp,
+     *       EXCLUDED by decision Q5 - still TRUNCATES a value at the first zero
+     *       byte. The truncation is E4.6d's to fix; knowing it and writing it
+     *       down is this ticket's part, and the case that pins it lives in
+     *       tests/core/JsonApiScenarioWireBytes_test.cpp.
+     *     - an integer beyond int64: "too big integer" against a double.
+     *     - a nesting depth above 2048: jansson caps at JSON_PARSER_MAX_DEPTH,
+     *       nlohmann has no limit. NOT a crash - 100000 levels parse and
+     *       destruct without a stack overflow, json.hpp destroys iteratively -
+     *       and the body is still bounded by the HTTP request size.
+     *
+     *   UNCHANGED, the locks that must NOT move: invalid UTF-8 and a lone
+     *   surrogate are refused by BOTH parsers, and so are a real-number
+     *   overflow and trailing garbage. A raw NUL still ends the body on both
+     *   sides - json.hpp lists '\0' next to eof() in its lexer, exactly as
+     *   json_loads(data.c_str()) stopped at the C string.
+     *
+     * The document stays `null` on the GET-parameter fallback, which is exactly
+     * the branch where set_timerange answers 400 before reaching the dispatch.
      */
-    Json jsonRootDoc;
+    Json jsonRootDoc = Json::parse(data, nullptr, false);
 
-    if (!jroot || !json_is_object(jroot))
+    //Same test as json_is_object() on the jansson tree, and it must STAY an
+    //object test: a valid JSON array is not a request either.
+    const bool hasJsonBody = jsonRootDoc.is_object();
+
+    if (!hasJsonBody)
     {
-        cDebugDom("network") << "Error loading json : " << jerr.text << ". No JSON, trying with GET parameters.";
+        //The parser's own message is gone with the parser: Json::parse() in its
+        //non throwing form does not produce one. This is a debug line.
+        cDebugDom("network") << "Error loading json. No JSON, trying with GET parameters.";
 
         jsonParam = paramsGET;
-
-        if (jroot)
-        {
-            json_decref(jroot);
-            jroot = nullptr;
-        }
+        jsonRootDoc = Json();
     }
     else
     {
-        //E4.1m: see the twin line in JsonApiHandlerWS::processApi().
-        jsonRootDoc = Json::parse(data, nullptr, false);
         cDebugDom("network") << dumpJsonRedacted(jsonRootDoc);
 
         //decode the json root object into jsonParam
-        jansson_decode_object(jroot, jsonParam);
+        decodeJsonObject(jsonRootDoc, jsonParam);
     }
 
     const string ip = clientIp();
@@ -151,12 +238,6 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
         cWarningDom("network") << "Too many failed logins from " << ip << ", request refused";
 
         sendLoginFailed();
-
-        if (jroot)
-        {
-            json_decref(jroot);
-            jroot = nullptr;
-        }
 
         return;
     }
@@ -170,12 +251,6 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
 
         sendLoginFailed();
 
-        if (jroot)
-        {
-            json_decref(jroot);
-            jroot = nullptr;
-        }
-
         return;
     }
 
@@ -185,9 +260,9 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
     if (jsonParam["action"] == "get_home")
         processGetHome();
     else if (jsonParam["action"] == "get_state")
-        processGetState(jroot);
+        processGetState(jsonRootDoc);
     else if (jsonParam["action"] == "get_io")
-        processGetIO(jroot);
+        processGetIO(jsonRootDoc);
     else if (jsonParam["action"] == "get_states")
         processGetStates();
     else if (jsonParam["action"] == "query")
@@ -222,18 +297,18 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
     {
         // Return MCP connection info (URL path + bearer token) for the
         // authenticated admin user — never exposed without credentials.
+        //E4.1s: DECLARED byte delta - the three keys sorted (url_path, token,
+        //hint -> hint, token, url_path). Pure ASCII on both sides, and no
+        //value moves. Pinned by core/JsonApiDispatchWireBytes_test.
         const string &token = McpServerManager::Instance().bearerToken();
-        json_t *jret = json_object();
-        json_object_set_new(jret, "url_path", json_string("/mcp"));
-        json_object_set_new(jret, "token", json_string(token.c_str()));
-        json_object_set_new(jret, "hint",
-            json_string("Use token as Bearer in Authorization header. "
-                        "Append /mcp to your Calaos HTTPS base URL."));
-        sendJson(jret);
+        sendJson(Json{{ "url_path", "/mcp" },
+                      { "token", token },
+                      { "hint", "Use token as Bearer in Authorization header. "
+                                "Append /mcp to your Calaos HTTPS base URL." }});
     }
     else
     {
-        if (!jroot)
+        if (!hasJsonBody)
         {
             Params headers;
             headers.Add("Connection", "close");
@@ -246,9 +321,9 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
         }
 
         if (jsonParam["action"] == "config")
-            processConfig(jroot);
+            processConfig(jsonRootDoc);
         else if (jsonParam["action"] == "audio")
-            processAudio(jroot, jsonRootDoc);
+            processAudio(jsonRootDoc);
         else if (jsonParam["action"] == "audio_db")
             processAudioDb(jsonRootDoc);
         else if (jsonParam["action"] == "set_timerange")
@@ -258,56 +333,35 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
         else
             sendJson({{ "error", "unknown action" }});
     }
-
-    if (jroot)
-        json_decref(jroot);
 }
 
-void JsonApiHandlerHttp::sendJson(json_t *json)
-{
-    char *d = json_dumps(json, JSON_COMPACT | JSON_ENSURE_ASCII /*| JSON_ESCAPE_SLASH*/);
-    if (!d)
-    {
-        json_decref(json);
-        cDebugDom("network") << "json_dumps failed!";
-
-        Params headers;
-        headers.Add("Connection", "close");
-        headers.Add("Content-Type", "text/html");
-        string res = httpClient->buildHttpResponse(HTTP_500, headers, HTTP_500_BODY);
-        sendData.emit(res);
-        closeConnection.emit(0, string());
-
-        return;
-    }
-    json_decref(json);
-
-    string data(d);
-    free(d);
-
-    Params headers;
-    headers.Add("Connection", "Close");
-    headers.Add("Cache-Control", "no-cache, must-revalidate");
-    headers.Add("Expires", "Mon, 26 Jul 1997 05:00:00 GMT");
-    headers.Add("Content-Type", "application/json");
-    headers.Add("Content-Length", Utils::to_string(data.size()));
-    string res = httpClient->buildHttpResponse(HTTP_200, headers, data);
-    sendData.emit(res);
-}
-
+/* ⭐ E4.1s. sendJson(json_t *) IS GONE, and with it the HTTP 500 branch it
+ * carried: json_dumps() answered NULL on a tree holding invalid UTF-8, and
+ * THAT was the only way this transport ever produced a 500. It cannot happen
+ * any more - error_handler_t::replace turns the bad bytes into U+FFFD and the
+ * dump always succeeds - so the branch is not "removed", it is UNREACHABLE and
+ * would have been dead code. E4.0e measured that it was already all but dead:
+ * jansson refused the bytes at CONSTRUCTION, so the pair vanished long before
+ * the dump and the client got a 200 with a mutilated payload.
+ */
 void JsonApiHandlerHttp::sendJson(const Json &json)
 {
-    //E4.1b, the two emission invariants of the epic.
-    //ensure_ascii = true: this wire has ALWAYS been ASCII only (the jansson
-    //overload above dumps with JSON_ENSURE_ASCII); a bare dump() would have
-    //started serving raw UTF-8 on half the actions. Only the case of the
-    //hexadecimal differs from jansson's (\u00e9 against \u00E9).
-    //error_handler_t::replace: dump() THROWS type_error.316 on invalid UTF-8
-    //in the tree, and nothing catches it above this line - that is
-    //std::terminate on a live connection. Reachable today: eventlog reflects
-    //io_id/io_state/pic_uid straight out of sqlite (HistLogger.cpp:82-103),
-    //and EventManager.cpp:93 puts an IO state there without any JSON parser
-    //on the way in. NOT a try/catch: the handler treats the cause.
+    /* E4.1b, the three emission invariants of the epic, and this is now the
+     * ONLY emitter of this transport.
+     * ensure_ascii = true: this wire has ALWAYS been ASCII only (the jansson
+     * overload dumped with JSON_ENSURE_ASCII). Only the case of the
+     * hexadecimal differs from jansson's (\u00e9 against \u00E9) - and U+007F,
+     * which jansson left raw and nlohmann escapes, which is why the payload
+     * can grow and Content-Length follows it below.
+     * error_handler_t::replace: dump() THROWS type_error.316 on invalid UTF-8
+     * in the tree, and nothing catches it above this line - that is
+     * std::terminate on a live connection. Reachable today: eventlog reflects
+     * io_id/io_state/pic_uid straight out of sqlite (HistLogger.cpp:82-103),
+     * EventManager.cpp:93 puts an IO state there without any JSON parser on the
+     * way in, and since this ticket processConfig() reflects the RAW BYTES of
+     * io.xml / rules.xml / local_config.xml, which are user files and
+     * guarantee nothing. NOT a try/catch: the handler treats the cause.
+     */
     string data = json.dump(-1, ' ', true, Json::error_handler_t::replace);
 
     Params headers;
@@ -332,24 +386,16 @@ void JsonApiHandlerHttp::processGetHome()
     sendJson(jret);
 }
 
-void JsonApiHandlerHttp::processGetState(json_t *jroot)
+void JsonApiHandlerHttp::processGetState(const Json &jroot)
 {
     vector<string> iolist;
 
-    if (jroot)
+    //E4.1s: `is_object()` is the transcription of the old `if (jroot)` - the
+    //pointer was non null exactly when the body had parsed as an object. The
+    //comma-separated GET form is the other branch, untouched.
+    if (jroot.is_object())
     {
-        json_t *jio = json_object_get(jroot, "items");
-        if (jio && json_is_array(jio))
-        {
-            uint idx;
-            json_t *value;
-
-            json_array_foreach(jio, idx, value)
-            {
-                if (json_is_string(value))
-                    iolist.push_back(json_string_value(value));
-            }
-        }
+        collectStringItems(jroot, iolist);
     }
     else
     {
@@ -399,24 +445,13 @@ void JsonApiHandlerHttp::processDelParam()
     sendJson(buildJsonDelParam(jsonParam));
 }
 
-void JsonApiHandlerHttp::processGetIO(json_t *jroot)
+void JsonApiHandlerHttp::processGetIO(const Json &jroot)
 {
     vector<string> iolist;
 
-    if (jroot)
+    if (jroot.is_object())
     {
-        json_t *jio = json_object_get(jroot, "items");
-        if (jio && json_is_array(jio))
-        {
-            uint idx;
-            json_t *value;
-
-            json_array_foreach(jio, idx, value)
-            {
-                if (json_is_string(value))
-                    iolist.push_back(json_string_value(value));
-            }
-        }
+        collectStringItems(jroot, iolist);
     }
     else
     {
@@ -511,10 +546,11 @@ void JsonApiHandlerHttp::processGetCover()
     AudioPlayer *player = dynamic_cast<AudioPlayer *>(ListeRoom::Instance().get_io(jsonParam["id"]));
     if (!player)
     {
-        json_t *jret = json_object();
-        json_object_set_new(jret, "success", json_string("false"));
-        json_object_set_new(jret, "error_str", json_string("id not set"));
-        sendJson(jret);
+        //E4.1s: DECLARED byte delta on the four refusals of the two binary
+        //operations - the pair sorts (success, error_str -> error_str,
+        //success). Both values stay JSON STRINGS, never JSON booleans (Q2 of
+        //E4.6). Pinned by core/JsonApiDispatchWireBytes_test.
+        sendJson(Json{{ "success", "false" }, { "error_str", "id not set" }});
         return;
     }
 
@@ -528,10 +564,8 @@ void JsonApiHandlerHttp::processGetCover()
 
     if (!checkPictureParams(width, rotate))
     {
-        json_t *jret = json_object();
-        json_object_set_new(jret, "success", json_string("false"));
-        json_object_set_new(jret, "error_str", json_string("invalid width or rotate parameter"));
-        sendJson(jret);
+        sendJson(Json{{ "success", "false" },
+                      { "error_str", "invalid width or rotate parameter" }});
         return;
     }
 
@@ -545,10 +579,8 @@ void JsonApiHandlerHttp::processGetCover()
         //do not start another exe if one is running already
         if (data.svalue == "" || exe_thumb_running)
         {
-            json_t *jret = json_object();
-            json_object_set_new(jret, "success", json_string("false"));
-            json_object_set_new(jret, "error_str", json_string("unable to get url"));
-            sendJson(jret);
+            sendJson(Json{{ "success", "false" },
+                          { "error_str", "unable to get url" }});
             return;
         }
 
@@ -579,10 +611,7 @@ void JsonApiHandlerHttp::processGetCameraPic()
     IPCam *camera = dynamic_cast<IPCam *>(ListeRoom::Instance().get_io(jsonParam["id"]));
     if (!camera || exe_thumb_running)
     {
-        json_t *jret = json_object();
-        json_object_set_new(jret, "success", json_string("false"));
-        json_object_set_new(jret, "error_str", json_string("id not set"));
-        sendJson(jret);
+        sendJson(Json{{ "success", "false" }, { "error_str", "id not set" }});
         return;
     }
 
@@ -596,10 +625,8 @@ void JsonApiHandlerHttp::processGetCameraPic()
 
     if (!checkPictureParams(width, rotate))
     {
-        json_t *jret = json_object();
-        json_object_set_new(jret, "success", json_string("false"));
-        json_object_set_new(jret, "error_str", json_string("invalid width or rotate parameter"));
-        sendJson(jret);
+        sendJson(Json{{ "success", "false" },
+                      { "error_str", "invalid width or rotate parameter" }});
         return;
     }
 
@@ -656,58 +683,100 @@ void JsonApiHandlerHttp::exeFinished(int exit_code)
 {
     if (exit_code != 0)
     {
-        json_t *jret = json_object();
-        json_object_set_new(jret, "success", json_string("false"));
-        json_object_set_new(jret, "error_str", json_string("unable to load data from url"));
-        sendJson(jret);
+        sendJson(Json{{ "success", "false" },
+                      { "error_str", "unable to load data from url" }});
         return;
     }
 
-    json_t *jret = json_object();
-    json_object_set_new(jret, "success", json_string("true"));
-    json_object_set_new(jret, "contenttype", json_string("image/jpeg"));
-    json_object_set_new(jret, "encoding", json_string("base64"));
-    json_object_set_new(jret, "data", json_string(Utils::getFileContentBase64(tempfname.c_str()).c_str()));
-    sendJson(jret);
+    //E4.1s: DECLARED byte delta - the four keys sort (success, contenttype,
+    //encoding, data -> contenttype, data, encoding, success). The base64 body
+    //is ASCII by construction, so nothing else moves on this payload.
+    sendJson(Json{{ "success", "true" },
+                  { "contenttype", "image/jpeg" },
+                  { "encoding", "base64" },
+                  { "data", Utils::getFileContentBase64(tempfname.c_str()) }});
 }
 
-void JsonApiHandlerHttp::processConfig(json_t *jroot)
+/* ⭐⭐ E4.1s. THE BIGGEST PAYLOAD OF THE API, AND THE ONE EMITTER OF THIS
+ * PERIMETER THAT CARRIES BYTES A CLIENT CAN INFLUENCE.
+ *
+ * "get" reflects the RAW TEXT of io.xml, rules.xml and local_config.xml. Those
+ * are USER FILES: nothing on the way in guarantees they hold valid UTF-8, and
+ * an IO name is enough to put any byte in them. Three consequences, all
+ * DECLARED and all pinned by core/JsonApiDispatchWireBytes_test:
+ *
+ *   1. INVALID UTF-8 STOPS BEING A SILENT AMPUTATION. json_string() answered
+ *      NULL on the file content, json_object_set_new() then returned -1, and
+ *      NEITHER return code was tested here: the client got a 200 whose
+ *      "config_files" was MISSING io.xml entirely - indistinguishable from a
+ *      configuration that has none. error_handler_t::replace now writes one
+ *      U+FFFD per bad byte and the key survives, mangled and VISIBLE.
+ *      ⛔ This is also the reason error_handler_t::replace is not optional on
+ *      sendJson(): a bare dump() here is type_error.316, uncaught, on a live
+ *      connection - std::terminate on a payload the client can shape.
+ *   2. The three file names SORT (io.xml, rules.xml, local_config.xml ->
+ *      io.xml, local_config.xml, rules.xml) and the escaping moves to form 3.
+ *   3. A U+007F inside a configuration file is now ESCAPED, so the payload
+ *      GROWS and Content-Length follows it.
+ *
+ * ⛔ THE UPLOAD WHITELIST IS AN INVARIANT OF OPERATION (user decision,
+ * 2026-08-24) and is NOT touched: the three names stay hard coded and the
+ * comparison stays a comparison of whole strings, which is what keeps an
+ * embedded NUL - now that one can reach this far - from smuggling a fourth
+ * name past it.
+ *
+ * The iteration order of "put" moves from insertion to sorted. It has no
+ * observable effect: each name writes a different file, the whitelist test is
+ * per key, and `ret` is the AND of independent outcomes.
+ */
+void JsonApiHandlerHttp::processConfig(const Json &jroot)
 {
-    json_t *jret = json_object();
+    Json jret = Json::object();
 
     if (jsonParam["type"] == "get")
     {
         Config::Instance().SaveConfigIO();
         Config::Instance().SaveConfigRule();
 
-        json_t *jfiles = json_object();
-        json_object_set_new(jfiles, "io.xml",
-                            json_string(Utils::getFileContent(Utils::getConfigFile(IO_CONFIG).c_str()).c_str()));
-        json_object_set_new(jfiles, "rules.xml",
-                            json_string(Utils::getFileContent(Utils::getConfigFile(RULES_CONFIG).c_str()).c_str()));
-        json_object_set_new(jfiles, "local_config.xml",
-                            json_string(Utils::getFileContent(Utils::getConfigFile(LOCAL_CONFIG).c_str()).c_str()));
+        //The three names stay SPELLED OUT, as they were: they are the wire
+        //contract, and IO_CONFIG happens to hold the same text only because
+        //nothing has ever moved the file. Strict transcription, not tidying.
+        Json jfiles = Json::object();
+        jfiles["io.xml"] = Utils::getFileContent(Utils::getConfigFile(IO_CONFIG).c_str());
+        jfiles["rules.xml"] = Utils::getFileContent(Utils::getConfigFile(RULES_CONFIG).c_str());
+        jfiles["local_config.xml"] = Utils::getFileContent(Utils::getConfigFile(LOCAL_CONFIG).c_str());
 
-        json_object_set_new(jret, "config_files", jfiles);
-        json_object_set_new(jret, "success", json_string("true"));
+        jret["config_files"] = jfiles;
+        jret["success"] = "true";
     }
     else if (jsonParam["type"] == "put")
     {
         bool ret = true;
-        json_t *jfiles = json_object_get(jroot, "config_files");
-        if (jfiles && json_is_object(jfiles))
-        {
-            const char *key;
-            json_t *value;
 
+        /* json_object_get(jroot, "config_files") answered NULL on an absent
+         * member and on a non object root, and json_is_object() then decided.
+         * Transcribed with a find() so the "absent" and "present but not an
+         * object" paths stay the SAME path, as they were.
+         */
+        Json jfiles;
+        if (jroot.is_object())
+        {
+            const Json::const_iterator it = jroot.find("config_files");
+            if (it != jroot.cend())
+                jfiles = *it;
+        }
+
+        if (jfiles.is_object())
+        {
             //Do a backup before overwriting new files
             Config::Instance().BackupFiles();
 
-            json_object_foreach(jfiles, key, value)
+            for (Json::const_iterator it = jfiles.cbegin(); it != jfiles.cend(); ++it)
             {
-                if (key && json_is_string(value))
+                const string skey = it.key();
+
+                if (it.value().is_string())
                 {
-                    string skey = key;
                     if (skey != IO_CONFIG &&
                         skey != RULES_CONFIG &&
                         skey != LOCAL_CONFIG)
@@ -717,7 +786,7 @@ void JsonApiHandlerHttp::processConfig(json_t *jroot)
                         continue;
                     }
 
-                    string filecontent = json_string_value(value);
+                    string filecontent = it.value().get<std::string>();
 
                     if (!Utils::strStartsWith(filecontent, "<?xml"))
                     {
@@ -726,7 +795,11 @@ void JsonApiHandlerHttp::processConfig(json_t *jroot)
                         continue;
                     }
 
-                    ofstream ofs(Utils::getConfigFile(key), ios::out | ios::trunc);
+                    //c_str() and not skey: getConfigFile() takes a const
+                    //char *, exactly as it did with jansson's key. The
+                    //whitelist above has already reduced skey to one of three
+                    //literals, so a NUL smuggled into a key cannot reach here.
+                    ofstream ofs(Utils::getConfigFile(skey.c_str()), ios::out | ios::trunc);
 
                     if (ofs.is_open())
                     {
@@ -735,13 +808,13 @@ void JsonApiHandlerHttp::processConfig(json_t *jroot)
                     }
                     else
                     {
-                        cErrorDom("network") << "Error, key " << key << " is not a string";
+                        cErrorDom("network") << "Error, key " << skey << " is not a string";
                         ret = false;
                     }
                 }
                 else
                 {
-                    cErrorDom("network") << "Error, key " << key << " is not a string";
+                    cErrorDom("network") << "Error, key " << skey << " is not a string";
                     ret = false;
                 }
             }
@@ -752,14 +825,14 @@ void JsonApiHandlerHttp::processConfig(json_t *jroot)
             cErrorDom("network") << "Error, wrong query";
         }
 
-        json_object_set_new(jret, "success", json_string(ret?"true":"false"));
+        jret["success"] = ret?"true":"false";
 
         if (ret)
             httpClient->setNeedRestart(true);
     }
     else
     {
-        json_object_set_new(jret, "success", json_string("false"));
+        jret["success"] = "false";
     }
 
     sendJson(jret);
@@ -772,12 +845,16 @@ void JsonApiHandlerHttp::processConfig(json_t *jroot)
  * Zero extra parse, no json_dumps + Json::parse bridge, and none is to be
  * written. The DISPATCH itself stays jansson - reading `audio_action` is the
  * dispatcher's business and its migration is E4.1s, exactly as E4.1o left the
- * set_timerange dispatch alone. When E4.1s takes it, this signature loses its
- * json_t* and the get_cover branch below follows.
+ * set_timerange dispatch alone.
+ *
+ * ⭐ E4.1s TOOK IT. The json_t* twin is gone with the request parse it came
+ * from, and jsonStringGet() reproduces jansson_string_get()'s contract on the
+ * SAME document: the DEFAULT on an absent member, on a member that is not a
+ * JSON string, and on a root that is not an object.
  */
-void JsonApiHandlerHttp::processAudio(json_t *jdata, const Json &jdataDoc)
+void JsonApiHandlerHttp::processAudio(const Json &jdataDoc)
 {
-    string msg = jansson_string_get(jdata, "audio_action");
+    string msg = jsonStringGet(jdataDoc, "audio_action");
     if (msg == "get_playlist_size")
         audioGetPlaylistSize(jdataDoc, [=](const Json &jret)
         {
@@ -808,11 +885,12 @@ void JsonApiHandlerHttp::processAudio(json_t *jdata, const Json &jdataDoc)
          *
          * ⚠️ E4.1q: the ONE line that had to move here anyway. This was the
          * sixteenth caller of the transitional jansson overload of
-         * getAudioPlayer() that E4.1p left for that ticket. It is deleted, so
-         * lookup now reads the SAME member out of the SAME request through the
-         * document processApi() already parsed. It converts nothing and it
-         * answers nothing: the two hand built payloads below are untouched and
-         * still jansson.
+         * getAudioPlayer() that E4.1p left for that ticket.
+         *
+         * ⭐ E4.1s finishes it: the three payloads below cross to the nlohmann
+         * emitter with the rest of the file. The refusal is ONE pair, so no
+         * order can move and no byte does - it is the witness of the deletion
+         * of the last jansson_from_params() call site of this transport.
          */
         string err;
         AudioPlayer *player = getAudioPlayer(jdataDoc, err);
@@ -820,7 +898,7 @@ void JsonApiHandlerHttp::processAudio(json_t *jdata, const Json &jdataDoc)
         if (!err.empty())
         {
             Params p = {{"error", err }};
-            sendJson(jansson_from_params(p));
+            sendJson(p.toNJson());
             return;
         }
 
@@ -833,10 +911,8 @@ void JsonApiHandlerHttp::processAudio(json_t *jdata, const Json &jdataDoc)
 
             if (data.svalue == "" || exe_thumb_running)
             {
-                json_t *jret = json_object();
-                json_object_set_new(jret, "success", json_string("false"));
-                json_object_set_new(jret, "error_str", json_string("unable to get url"));
-                sendJson(jret);
+                sendJson(Json{{ "success", "false" },
+                              { "error_str", "unable to get url" }});
                 return;
             }
 
@@ -847,10 +923,8 @@ void JsonApiHandlerHttp::processAudio(json_t *jdata, const Json &jdataDoc)
                 exe_thumb_running = false;
                 if (ev.status != 0)
                 {
-                    json_t *jret = json_object();
-                    json_object_set_new(jret, "success", json_string("false"));
-                    json_object_set_new(jret, "error_str", json_string("unable to load data from url"));
-                    this->sendJson(jret);
+                    this->sendJson(Json{{ "success", "false" },
+                                        { "error_str", "unable to load data from url" }});
                     return;
                 }
 
