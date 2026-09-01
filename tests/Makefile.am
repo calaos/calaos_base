@@ -208,6 +208,24 @@ CORE_TEST_LDADD = $(CORE_SERVER_OBJECTS) \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 
+#T3.36: every test binary that links server objects must also DEPEND on them.
+#The historical override "<name>_DEPENDENCIES = ...libcalaos_common.la" was
+#written to stop automake from turning those objects into prerequisites; the
+#side effect was that make never relinked a test after the code under test was
+#rebuilt, so `make check` could re-run a stale binary against mutated sources
+#and report PASS (and, after a rebase, report a segfault that no source
+#explained). Listing the objects here restores the timestamp comparison
+#without giving tests/ any way to build them: the pattern rule below shadows
+#make's built-in .cpp.o rule, so an object that is genuinely missing surfaces
+#as a link error naming the file instead of being recompiled with the wrong
+#flags. src/ is built before tests/ (top level SUBDIRS = src data tests), so
+#in practice they always exist and are always up to date by then.
+CORE_TEST_DEPS = $(CORE_SERVER_OBJECTS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+
+$(CALAOS_SERVER_BUILDDIR)/%.$(OBJEXT):
+	@:
+
 TESTS += core/CoreSmoke_test
 check_PROGRAMS += core/CoreSmoke_test
 core_CoreSmoke_test_SOURCES = core/CoreSmoke_test.cpp \
@@ -215,8 +233,10 @@ core_CoreSmoke_test_SOURCES = core/CoreSmoke_test.cpp \
                   core/CalaosCoreFixture.h
 core_CoreSmoke_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_CoreSmoke_test_LDADD = $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_CoreSmoke_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_CoreSmoke_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 
 #ConfigModel lives with the TUI but does not include cpptui.hpp, so it is
 #compiled straight into the test and runs without any terminal
@@ -270,8 +290,15 @@ core_LanHue_test_LDADD = $(CORE_TEST_LDADD) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/LAN/PingInputSwitch.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/LAN/WOLOutputBool.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Hue/HueOutputLightRGB.$(OBJEXT)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_LanHue_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_LanHue_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/LAN/PingInputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/LAN/WOLOutputBool.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Hue/HueOutputLightRGB.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 
 endif
 
@@ -287,8 +314,10 @@ core_RuleLifecycle_test_SOURCES = core/RuleLifecycle_test.cpp \
                   core/CalaosCoreFixture.h
 core_RuleLifecycle_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_RuleLifecycle_test_LDADD = $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_RuleLifecycle_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_RuleLifecycle_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 
@@ -310,8 +339,12 @@ LuaSandbox_test_LDADD = \
                   @CALAOS_SERVER_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
-#Built elsewhere, do not let automake turn them into prerequisites
-LuaSandbox_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+LuaSandbox_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/LuaScript/ScriptManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/LuaScript/ScriptBindings.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # T1.3
@@ -326,8 +359,10 @@ core_ListeRoomRobustness_test_SOURCES = core/ListeRoomRobustness_test.cpp \
                   core/CalaosCoreFixture.h
 core_ListeRoomRobustness_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_ListeRoomRobustness_test_LDADD = $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_ListeRoomRobustness_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ListeRoomRobustness_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # T1.2
@@ -342,8 +377,10 @@ core_ConditionEval_test_SOURCES = core/ConditionEval_test.cpp \
                   core/CalaosCoreFixture.h
 core_ConditionEval_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_ConditionEval_test_LDADD = $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_ConditionEval_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ConditionEval_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 # T1.4
 #Hardening of the json api: security helpers and login throttle. Own HAVE_GTEST
@@ -356,8 +393,10 @@ core_JsonApiHardening_test_SOURCES = core/JsonApiHardening_test.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiHardening_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_JsonApiHardening_test_LDADD = $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiHardening_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiHardening_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 # T1.5
 #WebSocket frame parsing: 64 bits payload length and frame size cap.
@@ -389,8 +428,10 @@ ExternProcFraming_test_LDADD = \
                   @CALAOS_SERVER_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
-#Built elsewhere, do not let automake turn them into prerequisites
-ExternProcFraming_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+ExternProcFraming_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 # T1.6
 #RemoteUI HMAC constant-time comparison and dedup'd auth helpers. The helpers
@@ -423,8 +464,10 @@ core_IOIdIntegrity_test_SOURCES = core/IOIdIntegrity_test.cpp \
                   core/CalaosCoreFixture.h
 core_IOIdIntegrity_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_IOIdIntegrity_test_LDADD = $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_IOIdIntegrity_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_IOIdIntegrity_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # T1.10
@@ -458,8 +501,11 @@ IOControllers_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 IOControllers_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebCtrl.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-IOControllers_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+IOControllers_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebCtrl.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 # T1.14
 #Reolink event registry: register/unregister bookkeeping + reentrant-safe
@@ -575,8 +621,10 @@ core_CalaosConfigRobustness_test_SOURCES = core/CalaosConfigRobustness_test.cpp 
                   core/CalaosCoreFixture.h
 core_CalaosConfigRobustness_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_CalaosConfigRobustness_test_LDADD = $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_CalaosConfigRobustness_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_CalaosConfigRobustness_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # T2.11
@@ -631,8 +679,10 @@ check_PROGRAMS += IPCamUrl_test
 IPCamUrl_test_SOURCES = IPCamUrl_test.cpp
 IPCamUrl_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 IPCamUrl_test_LDADD = $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-IPCamUrl_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+IPCamUrl_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # T3.5
@@ -707,8 +757,27 @@ core_WebIO_test_LDADD = $(CORE_TEST_LDADD) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebOutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebOutputLightRGB.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebOutputString.$(OBJEXT)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_WebIO_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_WebIO_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebDocBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebInputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebInputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebInputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebOutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebOutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebOutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebOutputString.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 # T3.2c
 #Mqtt thin IO subclasses: MqttOutputLightRGB color+state feedback fix. The
@@ -756,8 +825,11 @@ AVReceiver_test_SOURCES = AVReceiver_test.cpp
 AVReceiver_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 AVReceiver_test_LDADD = $(AVR_TEST_OBJECTS) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-AVReceiver_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+AVReceiver_test_DEPENDENCIES = $(AVR_TEST_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # T3.2a
@@ -792,7 +864,23 @@ core_KnxIo_test_LDADD = $(CORE_TEST_LDADD) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXBase.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXIo.$(OBJEXT)
-core_KnxIo_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+core_KnxIo_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitchLongPress.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitchTriple.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXIo.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # T2.15
@@ -813,8 +901,10 @@ core_JsonApiAudioState_test_SOURCES = core/JsonApiAudioState_test.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiAudioState_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_JsonApiAudioState_test_LDADD = $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiAudioState_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiAudioState_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # T2.19
@@ -850,8 +940,10 @@ core_ScenarioNullGuard_test_SOURCES = core/ScenarioNullGuard_test.cpp \
                   core/CalaosCoreFixture.h
 core_ScenarioNullGuard_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_ScenarioNullGuard_test_LDADD = $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_ScenarioNullGuard_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ScenarioNullGuard_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # E4.2a
@@ -873,8 +965,10 @@ core_ListeRoomIdResolution_test_SOURCES = core/ListeRoomIdResolution_test.cpp \
                   core/CalaosCoreFixture.h
 core_ListeRoomIdResolution_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_ListeRoomIdResolution_test_LDADD = $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_ListeRoomIdResolution_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ListeRoomIdResolution_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # E4.4a
@@ -913,8 +1007,10 @@ TimeRangeCalendar_test_SOURCES = TimeRangeCalendar_test.cpp \
                   core/CalaosCoreFixture.h
 TimeRangeCalendar_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 TimeRangeCalendar_test_LDADD = $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-TimeRangeCalendar_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+TimeRangeCalendar_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # E4.3b
@@ -935,8 +1031,10 @@ core_ConfigRoundTrip_test_SOURCES = core/ConfigRoundTrip_test.cpp \
                   core/CalaosCoreFixture.h
 core_ConfigRoundTrip_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_ConfigRoundTrip_test_LDADD = $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_ConfigRoundTrip_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ConfigRoundTrip_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # E4.2b
@@ -959,8 +1057,10 @@ core_ListeRoomOwnership_test_SOURCES = core/ListeRoomOwnership_test.cpp \
                   core/CalaosCoreFixture.h
 core_ListeRoomOwnership_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_ListeRoomOwnership_test_LDADD = $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_ListeRoomOwnership_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ListeRoomOwnership_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # E4.4b
@@ -981,8 +1081,11 @@ WebCtrlXPath_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 WebCtrlXPath_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebCtrl.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-WebCtrlXPath_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+WebCtrlXPath_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebCtrl.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 #Conditions/Actions reference their IOs BY ID (step 3/6 of the E4.2 series):
@@ -1001,8 +1104,10 @@ core_RuleIoReference_test_SOURCES = core/RuleIoReference_test.cpp \
                   core/CalaosCoreFixture.h
 core_RuleIoReference_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_RuleIoReference_test_LDADD = $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_RuleIoReference_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_RuleIoReference_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # T3.15
@@ -1044,8 +1149,28 @@ core_RemoteUIDeviceInfo_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_RemoteUIDeviceInfo_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_RemoteUIDeviceInfo_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # E4.2d
@@ -1069,8 +1194,10 @@ core_RuleOwnership_test_SOURCES = core/RuleOwnership_test.cpp \
                   core/CalaosCoreFixture.h
 core_RuleOwnership_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_RuleOwnership_test_LDADD = $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_RuleOwnership_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_RuleOwnership_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # E4.2e
@@ -1093,8 +1220,10 @@ core_RuleDisabledMissingIo_test_SOURCES = core/RuleDisabledMissingIo_test.cpp \
                   core/CalaosCoreFixture.h
 core_RuleDisabledMissingIo_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_RuleDisabledMissingIo_test_LDADD = $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_RuleDisabledMissingIo_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_RuleDisabledMissingIo_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # T3.14
@@ -1173,8 +1302,30 @@ core_JsonApiCharacterization_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiCharacterization_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiCharacterization_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 #Goldens are data, they must travel with the distribution
 EXTRA_DIST += core/golden/ws_get_home.json \
                   core/golden/http_get_home.json
@@ -1225,8 +1376,30 @@ core_JsonApiPlaylist_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiPlaylist_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiPlaylist_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 #Goldens are data, they must travel with the distribution
 EXTRA_DIST += core/golden/t317a_ws_get_playlist.json \
                   core/golden/t317a_http_get_playlist.json \
@@ -1281,8 +1454,30 @@ core_JsonApiHome_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiHome_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiHome_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 #Goldens are data, they must travel with the distribution
 EXTRA_DIST += core/golden/e40b_ws_get_io.json \
                   core/golden/e40b_http_get_io.json \
@@ -1337,8 +1532,30 @@ core_JsonApiCameraSnapshot_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiCameraSnapshot_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiCameraSnapshot_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # T3.17b
@@ -1389,8 +1606,31 @@ core_JsonApiPlayerState_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiPlayerState_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiPlayerState_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 #Goldens are data, they must travel with the distribution
 EXTRA_DIST += core/golden/t317b_ws_audio_get_playlist_size.json \
                   core/golden/t317b_http_audio_get_playlist_size.json \
@@ -1456,8 +1696,30 @@ core_JsonApiScenario_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiScenario_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiScenario_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 #Goldens are data, they must travel with the distribution.
 #The two last ones are the UNHEALTHY scenarios T3.18.md asks for (a broken one
 #and a repaired one waiting for a manual re-enable). T3.18 regenerates all five
@@ -1518,8 +1780,30 @@ core_JsonApiWsTransport_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiWsTransport_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiWsTransport_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # E4.0d
@@ -1569,8 +1853,30 @@ core_JsonApiEvents_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiEvents_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiEvents_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 #Goldens are data, they must travel with the distribution
 EXTRA_DIST += core/golden/e40d_ws_event_envelope.json \
                   core/golden/e40d_ws_event_accented.json \
@@ -1641,8 +1947,31 @@ core_JsonApiMusicDb_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiMusicDb_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiMusicDb_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 #Goldens are data, they must travel with the distribution
 EXTRA_DIST += core/golden/t317c_ws_get_albums.json \
                   core/golden/t317c_http_get_albums.json \
@@ -1729,8 +2058,31 @@ core_JsonApiSession_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiSession_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiSession_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 #Goldens are data, they must travel with the distribution
 EXTRA_DIST += core/golden/e40e_http_audio_db_unknown_action.json \
                   core/golden/e40e_http_camera_unknown_id.json \
@@ -1806,8 +2158,31 @@ core_JsonApiAudioPayload_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiAudioPayload_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiAudioPayload_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 #Goldens are data, they must travel with the distribution
 EXTRA_DIST += core/golden/e40f_ws_db_count_marker_in_the_middle.json \
                   core/golden/e40f_ws_db_no_count_marker_at_all.json \
@@ -1881,8 +2256,31 @@ core_JsonApiEventLog_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiEventLog_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiEventLog_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 #Goldens are data, they must travel with the distribution
 EXTRA_DIST += core/golden/t317f_ws_eventlog_page_out_of_range.json \
                   core/golden/t317f_ws_eventlog_uuid_not_found.json \
@@ -1940,8 +2338,31 @@ core_JsonApiInputGuards_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiInputGuards_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiInputGuards_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 #Goldens are data, they must travel with the distribution
 EXTRA_DIST += core/golden/t319_ws_audio_db_no_database.json \
                   core/golden/t319_http_audio_db_no_database.json \
@@ -1968,8 +2389,10 @@ core_ScenarioDisabledMissingIo_test_SOURCES = core/ScenarioDisabledMissingIo_tes
 core_ScenarioDisabledMissingIo_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
                   -I$(top_srcdir)/src/bin/calaos_server/Scenario
 core_ScenarioDisabledMissingIo_test_LDADD = $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_ScenarioDisabledMissingIo_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ScenarioDisabledMissingIo_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 
@@ -2023,8 +2446,30 @@ core_AutoScenarioMigration_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_AutoScenarioMigration_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_AutoScenarioMigration_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 
@@ -2088,8 +2533,31 @@ core_JsonApiThrottleIdentity_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiThrottleIdentity_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiThrottleIdentity_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 
@@ -2111,8 +2579,10 @@ core_IODocJson_test_SOURCES = core/IODocJson_test.cpp \
                   core/CalaosCoreFixture.h
 core_IODocJson_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_IODocJson_test_LDADD = $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_IODocJson_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_IODocJson_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 
@@ -2143,8 +2613,11 @@ KNXCtrlWire_test_LDADD = \
                   @CALAOS_SERVER_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
-#Built elsewhere, do not let automake turn them into prerequisites
-KNXCtrlWire_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+KNXCtrlWire_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 #The calaos_knx end. KNXExternProc_cli.cpp holds the THIRD definition of
@@ -2170,8 +2643,11 @@ KNXExternProcWire_test_LDADD = \
                   -leibclient \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
-#Built elsewhere, do not let automake turn them into prerequisites
-KNXExternProcWire_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+KNXExternProcWire_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXExternProc_cli.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 endif
 
@@ -2250,8 +2726,31 @@ core_JsonApiEmissionBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiEmissionBytes_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiEmissionBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # E4.1i
@@ -2479,8 +2978,13 @@ JsonPathSyntax_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebCtrl.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebDocBase.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-JsonPathSyntax_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+JsonPathSyntax_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebDocBase.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # E4.1j
@@ -2607,8 +3111,11 @@ core_RoonArgs_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
                   -DCALAOS_TOP_SRCDIR='"$(abs_top_srcdir)"'
 core_RoonArgs_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_RoonArgs_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_RoonArgs_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # T3.27
@@ -2640,8 +3147,12 @@ LuaCalaosApi_test_LDADD = \
                   @CALAOS_SERVER_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
-#Built elsewhere, do not let automake turn them into prerequisites
-LuaCalaosApi_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+LuaCalaosApi_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/LuaScript/ScriptManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/LuaScript/ScriptBindings.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # T3.34
@@ -2663,8 +3174,12 @@ core_ShutterImpulse_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_ShutterImpulse_test_LDADD = $(CORE_TEST_LDADD) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_ShutterImpulse_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ShutterImpulse_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # T3.28b
@@ -2700,8 +3215,11 @@ core_RoonSpawnViaPlayer_test_SOURCES = core/RoonSpawnViaPlayer_test.cpp \
 core_RoonSpawnViaPlayer_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_RoonSpawnViaPlayer_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_RoonSpawnViaPlayer_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_RoonSpawnViaPlayer_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # T3.25 (A)
@@ -2771,8 +3289,33 @@ core_SetStateGarbage_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_SetStateGarbage_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_SetStateGarbage_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # T3.25 (B2)
@@ -2796,8 +3339,12 @@ core_ImpulseGarbageIo_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT)                 \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_ImpulseGarbageIo_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ImpulseGarbageIo_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # T3.25 (review reserve 1)
@@ -2837,8 +3384,24 @@ core_WagoPortDefault_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT)                \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT)                \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_WagoPortDefault_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_WagoPortDefault_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # E4.1l
@@ -2895,8 +3458,31 @@ core_EventWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_EventWireBytes_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_EventWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # T3.46
@@ -2975,8 +3561,17 @@ core_IoLifetimeTimer_test_LDADD = $(CORE_TEST_LDADD) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXBase.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_IoLifetimeTimer_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_IoLifetimeTimer_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitchLongPress.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitchTriple.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # T3.50
@@ -3018,8 +3613,24 @@ core_WagoReadReply_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT)                \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT)                \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_WagoReadReply_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_WagoReadReply_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # E4.1m
@@ -3069,8 +3680,31 @@ core_JsonApiModelWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiModelWireBytes_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiModelWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # T3.53
@@ -3118,8 +3752,24 @@ core_WagoUdpReply_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT)                \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT)                \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_WagoUdpReply_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_WagoUdpReply_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # E4.1n
@@ -3172,8 +3822,31 @@ core_JsonApiStateWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiStateWireBytes_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiStateWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 #T3.51 -- controle permanent de l'outillage : si un cache de compilation
@@ -3247,8 +3920,31 @@ core_JsonApiParamsWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiParamsWireBytes_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiParamsWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # E4.1p
@@ -3293,8 +3989,31 @@ core_JsonApiAudioWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiAudioWireBytes_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiAudioWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # E4.1q
@@ -3340,8 +4059,31 @@ core_JsonApiMusicDbWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiMusicDbWireBytes_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiMusicDbWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # E4.1r
@@ -3387,8 +4129,30 @@ core_JsonApiScenarioWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiScenarioWireBytes_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiScenarioWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 # E4.1s
@@ -3437,6 +4201,41 @@ core_JsonApiDispatchWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#Built elsewhere, do not let automake turn them into prerequisites
-core_JsonApiDispatchWireBytes_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiDispatchWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.36
+# Static guard over this very file: a test binary that links a calaos_server
+# object must declare it in its _DEPENDENCIES, or make never relinks the
+# binary when that object is rebuilt and `make check` re-runs the stale one.
+# 65 of the 102 test binaries were in that state until T3.36. Every ticket
+# appends its block here by copying an older one, so the blind form would come
+# back on its own; this check is what stops it. It needs no gtest and no built
+# binary, so it lives outside the HAVE_GTEST conditional.
+TESTS += check-test-deps.sh
+dist_check_SCRIPTS += check-test-deps.sh
+EXTRA_DIST += check-test-deps.py
