@@ -7491,3 +7491,107 @@ pointeur est nul, là où la surcharge nlohmann écrirait `"data":null`. Le gold
 d'enveloppe** sur le websocket depuis ce ticket (chemin normal trié, chemin sans `data` à l'ancien
 ordre). C'est cohérent avec « zéro golden bougé », et c'est `E4.1s` qui devra trancher si l'on
 unifie — **auquel cas ce golden bouge, et il faudra le déclarer.**
+
+## T3.56 — l'horloge gelée au démarrage : le mécanisme tient, **les deux victimes désignées ne tiennent pas** (2026-08-26)
+
+- ⛔⭐⭐ **[Faux vert, VARIANTE NOUVELLE] L'oracle dont la FIXTURE S'ÉVAPORE : `uvw::Loop::getDefault()`
+  RECRÉE la boucle par défaut, et rend donc une horloge FRAÎCHE.** La 1ʳᵉ rédaction des cas de
+  `T3.56` était **verte sur l'arbre non corrigé** — 819 ms par cas, le timer attendant bien ses
+  200 ms après 600 ms d'oisiveté — alors qu'une sonde `libuv` autonome sur **la même image**
+  reproduisait le défaut en trois lignes (`fired after 0 ms`).
+  ⭐ **Le mécanisme, mesuré** : `uvw::Loop::getDefault()` (`uvw/src/uvw/loop.hpp`) met le wrapper en
+  cache dans un **`std::weak_ptr`**. Sans référence forte — et il n'y en a **aucune** tant qu'aucun
+  handle n'est vivant — le `shared_ptr` rendu meurt **en fin d'expression**, `~Loop()` appelle
+  `uv_loop_close()`, et `uv_loop_close()` se termine par
+  `if (loop == default_loop_ptr) default_loop_ptr = NULL;`. Le `uv_default_loop()` suivant refait
+  donc **`uv_loop_init()`** sur le même `uv_loop_t` **statique** — et `uv_loop_init()` appelle
+  `uv__update_time()`. **Sonde sur l'image** : deux temporaires de part et d'autre d'un `sleep`
+  de 600 ms, **même pointeur de boucle**, `uv_now()` avance de **600**.
+  ⇒ ⭐ **Dans un binaire sans handle vivant, tout `uvw::Loop::getDefault()->x()` RÉINITIALISE
+  silencieusement la boucle par défaut.** Un test qui écrit `uvw::Loop::getDefault()->run<…>()`
+  au lieu de garder la boucle dans une variable ne mesure pas ce qu'il croit — et **`calaos_server`
+  n'est PAS dans cette forme** (le `Timer` du cache d'état, `CalaosConfig.cpp:206`, tient un handle
+  donc une référence forte pendant tout le chargement), ce qui est **exactement** ce qui rend le
+  défaut réel côté produit et invisible côté test.
+  ⭐ **Le remède de méthode, générique** : *épingler* la ressource partagée pour toute la durée du
+  cas **et vérifier que la fixture a bien produit l'état qu'elle prétend produire*. Les quatre cas
+  de `core/Timer_test` mesurent désormais la péremption de l'horloge (`loopClockStalenessMs()`) et
+  **échouent en le disant** si elle est absente. Sans cette vérification, personne ne l'aurait vu.
+
+- ⭐ **[F-FLAKY-1 → produit] La durée du chargement de configuration est MESURÉE — c'était le
+  livrable n° 1 de la fiche, et le chiffre INFIRME l'hypothèse haute qu'elle posait.**
+  Instrumentation temporaire de `main.cpp` (`uv_hrtime() − uv_now(loop)` en quatre points),
+  `calaos_server` réel, **deux configurations réelles** (474 IO / 284 IO, deux `WagoMap` construits,
+  vérifié dans la trace) :
+
+  | régime | `before_loadio` | `after_loadio` | `after_loadrule` | ⭐ `before_run` |
+  |---|---:|---:|---:|---:|
+  | hôte x86 64 cœurs, 474 IO, 3 tirs | 1 | 22–28 | 25–30 | **50–64 ms** |
+  | hôte x86 64 cœurs, 284 IO, 3 tirs | 1 | 11 | 12 | **39–50 ms** |
+  | **un seul cœur, 4 brûleurs dessus** (≈ 5× plus lent), 474 IO, 3 tirs | — | — | — | ⛔ **134–142 ms** |
+
+  ⇒ ⭐ **Le chargement lui-même ne coûte que 10–30 ms ; le gros du décalage est le montage des
+  services APRÈS le chargement** (`main.cpp:152-191`) — la fiche `T3.49` n'attribuait le décalage
+  qu'à `LoadConfigIO`/`LoadConfigRule`, c'est **moins de la moitié**.
+  ⇒ ⛔ **« un chargement de plus de 100 ms, c'est-à-dire toujours » est FAUX sur cette classe de
+  matériel** : le délai le plus court de l'arbre (`WagoMap.cpp:46`, 0,1 s) garde **~40 ms de ses
+  100**. Il n'en garde **plus rien** dès que la machine est cinq fois plus lente — ce qui est le
+  régime plausible d'une carte embarquée, **non mesuré ici**.
+
+- ⭐ **[F-FLAKY-1 → produit] `IO/Wago/WagoMap.cpp:46` est INOFFENSIF même en tirant immédiatement —
+  lu au source, pas supposé.** Trois maillons : (1) `createUdpSocket()` est appelé **avant** la
+  création du timer et `bind()` est **synchrone**, donc la socket est prête ; (2) le rappel
+  n'envoie rien lui-même — il empile dans `udp_commands` et arme un timer de 50 ms **depuis
+  l'intérieur de la boucle**, donc sur une horloge fraîche ; (3) le rappel commence par
+  `if (heartbeat_timer->getTime() < 10.0) Reset(10.0)` et le timer **répète** : rien n'est perdu,
+  rien ne s'emballe, l'occasion revient toutes les 10 s. ⇒ **le site n° 1 de la fiche est infirmé.**
+
+- ⭐ **[F-FLAKY-1 → produit] `Audio/RoonPlayer.cpp:243` n'est PAS menacé par l'horloge gelée non
+  plus** : ses **10 s** sont deux ordres de grandeur au-dessus du décalage mesuré (39–64 ms, 142 ms
+  au pire régime testé). ⇒ **le site n° 2 de la fiche est infirmé aussi.** ⚠️ Ce qui reste vrai est
+  la remarque de forme : ces 10 s sont comptées **depuis le constructeur**, donc depuis avant la
+  boucle — rafraîchir l'horloge rend le délai honnête sur sa **longueur**, jamais sur ce qu'il
+  attend.
+
+- ⛔⭐ **[NOUVEAU, à instruire — demande de numéro] `RoonCtrl` ne se réabonne JAMAIS, et l'abonnement
+  peut être perdu SILENCIEUSEMENT.** `RoonPlayer.cpp:245` appelle `subscribeZone()`, qui mémorise le
+  rappel dans `subscribeCb` **puis envoie un message** via `ExternProcServer::sendMessage()` —
+  lequel est `if (client) { … }` (`IO/ExternProc.cpp:135`) : **si le sidecar n'est pas encore
+  connecté, le message est jeté sans un mot**. `RoonCtrl` n'écoute **pas** `processConnected`
+  (vérifié : le constructeur ne connecte que `messageReceived` et `processExited`), donc rien ne
+  rejoue l'abonnement. ⇒ **la zone ne remonte plus jamais son état**, et **la même perte se produit
+  après CHAQUE respawn de `calaos_roon`** — `processExited` relance le processus mais ne réémet
+  aucun abonnement. Indépendant de l'horloge gelée ; trouvé en instruisant `T3.56`.
+
+- ⭐ **[F-FLAKY-1 → produit] Quatre sites d'armement pré-boucle qu'AUCUN recensement n'avait
+  listés.** Le classement de `T3.49` portait sur 11 sites « en constructeur » ; il en manquait
+  quatre qui ne sont pas des constructeurs mais tournent **avant** `main.cpp:223` :
+  `main.cpp:194` (la boucle d'événements des règles, **0,1 s**), `main.cpp:195` (le chien de garde,
+  5 s), `main.cpp:198` (`Timer::singleShot(0.1, checkAutoScenario)`, dont le commentaire dit
+  *« once the main loop is started »*), et **`IO/Web/WebCtrl.cpp:115`** — un `Timer::Reset()`,
+  chemin d'armement que le motif de balayage de `T3.49` (`singleShot|singleIdler|new Timer|
+  make_shared<Timer>`) **ne pouvait pas voir**, atteint depuis `webRegisterPolling()` appelé à la
+  fin du constructeur de chaque IO web (`IO/Web/WebDocBase.h:99`).
+  ⚠️ **`uv_timer_again()` lit la même horloge en cache que `uv_timer_start()`** : un recensement
+  des armements qui ne compte pas les **ré**-armements est incomplet par construction.
+
+- ⭐ **[F-FLAKY-1 → produit] Le remède produit ne peut PAS être celui des tests, et la différence
+  est structurelle.** `freshenLoopClock()` de `T3.49` fait tourner **une itération NOWAIT** : elle
+  **distribue des rappels**. Appelée depuis un constructeur d'IO au milieu du chargement de
+  configuration, elle ferait tourner la boucle sur un arbre à moitié construit. `uv_update_time()`
+  **lit l'horloge et écrit `loop->time`, sans rien distribuer** — c'est ce que `libuv` documente
+  pour ce cas exact (*« can be called manually if you have callbacks that block the event loop for
+  longer periods of time »*), et c'est ce qui permet de mettre le remède **dans `Timer`**
+  (`create()`, `singleShot()`, `Reset()`) plutôt qu'aux deux sites de la fiche : les douze sites
+  pré-boucle se referment d'un coup, **y compris les quatre que personne n'avait listés**, et le
+  prochain site écrit naît correct.
+
+- ⭐ **[T3.56] `RELEASE_NOTES` : rien de dû, et c'est une vérification, pas un oubli.** Le décalage
+  supprimé vaut **39–64 ms** sur le matériel mesuré. Aucune attente ne passe de *« tire
+  immédiatement »* à *« attend »* dans ce régime — le plus court délai pré-boucle (0,1 s) gardait
+  déjà 40 ms. Les effets sont : première trame `WAGO_HEARTBEAT` à 100 ms au lieu de ~40, première
+  évaluation des règles à 100 ms au lieu de ~40, alertes de configuration à 30 s au lieu de 29,94.
+  **Rien qu'un utilisateur puisse observer**, et **aucun rapport d'utilisateur** n'est rattaché au
+  défaut. Sur une carte cinq fois plus lente le heartbeat Wago passerait bien d'« immédiat » à
+  « 100 ms » — mais il est **inoffensif dans les deux cas** (bullet ci-dessus), donc toujours rien
+  à annoncer.
