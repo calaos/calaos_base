@@ -100,7 +100,9 @@ private:
     void processEventPicture();
     void processRegisterPush();
 
-    void processAudio(json_t *jroot);
+    //E4.1p: the second document is processApi()'s own nlohmann parse of the
+    //same bytes, hoisted. The dispatch stays jansson until E4.1s.
+    void processAudio(json_t *jroot, const Json &jrootDoc);
     void processAudioDb(json_t *jroot);
 
     void exeFinished(int exit_code);

@@ -53,14 +53,19 @@
  * ---------------------------------------------------------------------------
  * DELTA CASES vs INVARIANT CASES - READ BEFORE EDITING
  * ---------------------------------------------------------------------------
- * This file ships in two commits. The first pins the JANSSON bytes, case by
- * case, on an untouched tree (suffix ...Today on every case that has to move);
- * the migration commit rewrites exactly those assertions and drops the suffix.
- * That is the proof the path is EXERCISED and not merely compiled - a case that
- * had to be edited is a case that ran.
+ * This file shipped in two commits. The first pinned the JANSSON bytes, case by
+ * case, on an untouched tree, with the suffix ...Today on every case that had
+ * to move; the migration commit rewrote exactly those assertions and dropped
+ * the suffix. That is the proof the path is EXERCISED and not merely compiled -
+ * a case that had to be edited is a case that ran.
  *
- * The INVARIANTS must stay green on both sides. If one of them moves, a VALUE
- * or a STRUCTURE changed - stop and understand why before touching it.
+ * MEASURED: 43 cases, 15 of them ...Today. The migration made those 15 fail and
+ * NOT ONE of the other 28, and no other test of the tree moved - the 145
+ * goldens included. Every case now carries either MOVED (it was a ...Today) or
+ * INVARIANT in its comment.
+ *
+ * The INVARIANTS held on both sides. If one of them ever moves, a VALUE or a
+ * STRUCTURE changed - stop and understand why before touching it.
  *
  * ---------------------------------------------------------------------------
  * THE DELTAS, ON THIS PERIMETER
@@ -458,9 +463,11 @@ protected:
  * current_track, count and duration.
  ******************************************************************************/
 
-//DELTA: the three keys of the player object are inserted current_track, count,
-//items and sort to count, current_track, items. The WS envelope sorts too.
-TEST_F(JsonApiAudioWireBytesTest, WsGetPlaylistWholeAnswerBytesToday)
+//MOVED by E4.1p, as announced: the three keys of the player object were
+//inserted current_track, count, items and now SORT to count, current_track,
+//items; the WS envelope sorts with them (data before msg). Nothing else in
+//this string moved - not one item, not one member, not one quote.
+TEST_F(JsonApiAudioWireBytesTest, WsGetPlaylistWholeAnswerBytes)
 {
     FakeWirePlayer *player = addPlayer();
 
@@ -468,19 +475,19 @@ TEST_F(JsonApiAudioWireBytesTest, WsGetPlaylistWholeAnswerBytesToday)
     ws.send(wsPlaylistRequest(PLAYER_ID));
 
     ASSERT_EQ(1u, ws.count());
-    EXPECT_EQ("{\"msg\":\"get_playlist\",\"msg_id\":\"1\",\"data\":"
-              "{\"current_track\":\"1\",\"count\":\"3\",\"items\":["
+    EXPECT_EQ("{\"data\":{\"count\":\"3\",\"current_track\":\"1\",\"items\":["
               + trackBytes("First",  "Ann", "61",  "track_a", "Alpha") + ","
               + trackBytes("Second", "Bob", "122", "track_b", "Beta")  + ","
-              + trackBytes("Third",  "Cid", "183", "track_c", "Gamma") + "]}}",
+              + trackBytes("Third",  "Cid", "183", "track_c", "Gamma") + "]},"
+              "\"msg\":\"get_playlist\",\"msg_id\":\"1\"}",
               ws.lastMessage());
 
     //The recursion asked for every index, once, in order.
     EXPECT_EQ(std::vector<int>({ 0, 1, 2 }), player->requestedItems);
 }
 
-//DELTA: same three keys, no envelope on this transport.
-TEST_F(JsonApiAudioWireBytesTest, HttpGetPlaylistWholeAnswerBytesToday)
+//MOVED: same three keys, no envelope on this transport.
+TEST_F(JsonApiAudioWireBytesTest, HttpGetPlaylistWholeAnswerBytes)
 {
     FakeWirePlayer *player = addPlayer();
 
@@ -488,7 +495,7 @@ TEST_F(JsonApiAudioWireBytesTest, HttpGetPlaylistWholeAnswerBytesToday)
     req.send(httpPlaylistRequest(PLAYER_ID));
 
     EXPECT_EQ("HTTP/1.0 200 OK", req.statusLine());
-    EXPECT_EQ("{\"current_track\":\"1\",\"count\":\"3\",\"items\":["
+    EXPECT_EQ("{\"count\":\"3\",\"current_track\":\"1\",\"items\":["
               + trackBytes("First",  "Ann", "61",  "track_a", "Alpha") + ","
               + trackBytes("Second", "Bob", "122", "track_b", "Beta")  + ","
               + trackBytes("Third",  "Cid", "183", "track_c", "Gamma") + "]}",
@@ -654,7 +661,8 @@ TEST_F(JsonApiAudioWireBytesTest, AWholeTimeElapsedHasNoDecimalPointOnTheWire)
 }
 
 //Same value, WS side: only the envelope differs, the payload bytes do not.
-TEST_F(JsonApiAudioWireBytesTest, WsTimeElapsedCarriesTheSamePayloadBytesToday)
+//MOVED: the envelope sorts. "1234.57" is untouched, and that is the point.
+TEST_F(JsonApiAudioWireBytesTest, WsTimeElapsedCarriesTheSamePayloadBytes)
 {
     FakeWirePlayer *player = addPlayer();
     player->currentTime = 1234.56789;
@@ -663,8 +671,8 @@ TEST_F(JsonApiAudioWireBytesTest, WsTimeElapsedCarriesTheSamePayloadBytesToday)
     ws.send(wsAudioRequest("get_time", Json{{ "id", PLAYER_ID }}));
 
     ASSERT_EQ(1u, ws.count());
-    EXPECT_EQ("{\"msg\":\"audio\",\"msg_id\":\"1\","
-              "\"data\":{\"time_elapsed\":\"1234.57\"}}",
+    EXPECT_EQ("{\"data\":{\"time_elapsed\":\"1234.57\"},"
+              "\"msg\":\"audio\",\"msg_id\":\"1\"}",
               ws.lastMessage());
 }
 
@@ -696,8 +704,9 @@ TEST_F(JsonApiAudioWireBytesTest, TheWireStaysPureAsciiOnAnAccentedPlaylist)
     EXPECT_TRUE(isPureAscii(req.body())) << req.body();
 }
 
-//DELTA: jansson writes the hexadecimal in UPPER case, nlohmann in lower.
-TEST_F(JsonApiAudioWireBytesTest, WsAnAccentedTrackTitleIsEscapedUpperCaseToday)
+//MOVED: jansson wrote the hexadecimal in UPPER case, nlohmann writes it lower.
+//The wire is still pure ASCII, which is the invariant that matters.
+TEST_F(JsonApiAudioWireBytesTest, WsAnAccentedTrackTitleIsEscapedLowerCase)
 {
     FakeWirePlayer *player = addPlayer();
     player->items[1] = trackParams("track_b", std::string("Caf") + RAW_E_ACUTE,
@@ -708,11 +717,11 @@ TEST_F(JsonApiAudioWireBytesTest, WsAnAccentedTrackTitleIsEscapedUpperCaseToday)
     ASSERT_EQ(1u, ws.count());
 
     const std::string wire = ws.lastMessage();
-    EXPECT_TRUE(contains(wire, std::string("\"title\":\"Caf") + ASCII_E_UPPER + "\"")) << wire;
-    EXPECT_FALSE(contains(wire, ASCII_E_LOWER));
+    EXPECT_TRUE(contains(wire, std::string("\"title\":\"Caf") + ASCII_E_LOWER + "\"")) << wire;
+    EXPECT_FALSE(contains(wire, ASCII_E_UPPER));
 }
 
-TEST_F(JsonApiAudioWireBytesTest, HttpAnAccentedTrackTitleIsEscapedUpperCaseToday)
+TEST_F(JsonApiAudioWireBytesTest, HttpAnAccentedTrackTitleIsEscapedLowerCase)
 {
     FakeWirePlayer *player = addPlayer();
     player->items[0] = trackParams("track_a", std::string("Caf") + RAW_E_ACUTE,
@@ -722,13 +731,13 @@ TEST_F(JsonApiAudioWireBytesTest, HttpAnAccentedTrackTitleIsEscapedUpperCaseToda
     req.send(httpPlaylistRequest(PLAYER_ID));
 
     const std::string wire = req.body();
-    EXPECT_TRUE(contains(wire, std::string("\"title\":\"Caf") + ASCII_E_UPPER + "\"")) << wire;
-    EXPECT_FALSE(contains(wire, ASCII_E_LOWER));
+    EXPECT_TRUE(contains(wire, std::string("\"title\":\"Caf") + ASCII_E_LOWER + "\"")) << wire;
+    EXPECT_FALSE(contains(wire, ASCII_E_UPPER));
 }
 
 //The single shot methods carry player text too - a cover URL comes from the
 //same helper as the track metadata.
-TEST_F(JsonApiAudioWireBytesTest, HttpAnAccentedCoverUrlIsEscapedUpperCaseToday)
+TEST_F(JsonApiAudioWireBytesTest, HttpAnAccentedCoverUrlIsEscapedLowerCase)
 {
     FakeWirePlayer *player = addPlayer();
     player->coverUrl = std::string("http://calaos.fr/caf") + RAW_E_ACUTE + ".jpg";
@@ -736,13 +745,14 @@ TEST_F(JsonApiAudioWireBytesTest, HttpAnAccentedCoverUrlIsEscapedUpperCaseToday)
     HttpTestRequest req;
     req.send(httpAudioRequest("get_cover_url", Json{{ "id", PLAYER_ID }}));
 
-    EXPECT_EQ(std::string("{\"cover\":\"http://calaos.fr/caf") + ASCII_E_UPPER + ".jpg\"}",
+    EXPECT_EQ(std::string("{\"cover\":\"http://calaos.fr/caf") + ASCII_E_LOWER + ".jpg\"}",
               req.body());
 }
 
-//DELTA: 0x7F is ASCII, so jansson writes the raw byte; nlohmann escapes
-//everything >= 0x7F when ensure_ascii is on (json.hpp:18467).
-TEST_F(JsonApiAudioWireBytesTest, ADelByteInATrackTitleIsWrittenRawToday)
+//MOVED: 0x7F is ASCII, so jansson wrote the raw byte; nlohmann escapes
+//everything >= 0x7F when ensure_ascii is on (json.hpp:18467). +5 bytes on the
+//wire, and Content-Length follows.
+TEST_F(JsonApiAudioWireBytesTest, ADelByteInATrackTitleIsEscaped)
 {
     FakeWirePlayer *player = addPlayer();
     player->items[0] = trackParams("track_a", std::string("A") + RAW_DEL + "B",
@@ -752,13 +762,17 @@ TEST_F(JsonApiAudioWireBytesTest, ADelByteInATrackTitleIsWrittenRawToday)
     req.send(httpPlaylistRequest(PLAYER_ID));
 
     const std::string wire = req.body();
-    EXPECT_TRUE(contains(wire, std::string("\"title\":\"A") + RAW_DEL + "B\"")) << wire;
-    EXPECT_FALSE(contains(wire, ASCII_DEL));
+    EXPECT_TRUE(contains(wire, std::string("\"title\":\"A") + ASCII_DEL + "B\"")) << wire;
+    EXPECT_FALSE(contains(wire, RAW_DEL));
 }
 
-//DELTA: json_string() takes a const char*, so the value STOPS at the NUL and
-//the rest is lost in silence. nlohmann takes the std::string whole.
-TEST_F(JsonApiAudioWireBytesTest, AnEmbeddedNulTruncatesATrackTitleToday)
+/* MOVED, and this one is a VALUE that stops being silently lost: json_string()
+ * took a const char*, so the title STOPPED at the NUL and the client got "A".
+ * nlohmann takes the std::string whole and escapes the NUL. Nothing in the
+ * tree produces such a title today - it is a robustness contract, not a
+ * behaviour anyone depends on.
+ */
+TEST_F(JsonApiAudioWireBytesTest, AnEmbeddedNulNoLongerTruncatesATrackTitle)
 {
     FakeWirePlayer *player = addPlayer();
     player->items[0] = trackParams("track_a", std::string("A\0B", 3),
@@ -768,8 +782,8 @@ TEST_F(JsonApiAudioWireBytesTest, AnEmbeddedNulTruncatesATrackTitleToday)
     req.send(httpPlaylistRequest(PLAYER_ID));
 
     const std::string wire = req.body();
-    EXPECT_TRUE(contains(wire, "\"title\":\"A\"")) << wire;
-    EXPECT_FALSE(contains(wire, ASCII_NUL));
+    EXPECT_TRUE(contains(wire, std::string("\"title\":\"A") + ASCII_NUL + "B\"")) << wire;
+    EXPECT_FALSE(contains(wire, "\"title\":\"A\""));
 }
 
 /*******************************************************************************
@@ -781,9 +795,14 @@ TEST_F(JsonApiAudioWireBytesTest, AnEmbeddedNulTruncatesATrackTitleToday)
  * a bare dump() would be std::terminate on a live connection.
  ******************************************************************************/
 
-//DELTA: jansson drops the whole pair (json_string() answers NULL and
-//json_object_set_new() answers -1, untested), nlohmann keeps it replaced.
-TEST_F(JsonApiAudioWireBytesTest, AnInvalidUtf8TrackTitleIsDroppedToday)
+/* MOVED, and it is a STRUCTURE delta - the only kind a golden could ever see.
+ * jansson dropped the whole pair (json_string() answered NULL and
+ * json_object_set_new() answered -1, neither return code tested); the pair is
+ * now KEPT, with one U+FFFD per invalid byte, by error_handler_t::replace.
+ * Same behaviour change E4.1o declared for get_param, on the same grounds:
+ * a mangled, visible value beats a silently missing one.
+ */
+TEST_F(JsonApiAudioWireBytesTest, AnInvalidUtf8TrackTitleIsNoLongerDropped)
 {
     FakeWirePlayer *player = addPlayer();
     player->items[0] = trackParams("track_a", INVALID_UTF8_PROBE,
@@ -793,11 +812,12 @@ TEST_F(JsonApiAudioWireBytesTest, AnInvalidUtf8TrackTitleIsDroppedToday)
     req.send(httpPlaylistRequest(PLAYER_ID));
 
     const std::string wire = req.body();
-    //The pair is gone: the other four members of that track are still there.
-    EXPECT_TRUE(contains(wire, "{\"album\":\"First\",\"artist\":\"Ann\","
-                               "\"duration\":\"61\",\"id\":\"track_a\"}")) << wire;
-    EXPECT_EQ(2u, occurrences(wire, "\"title\":"));
-    EXPECT_FALSE(contains(wire, ASCII_FFFD_FFFD_X));
+    //The pair is there, replaced, and the other four members are untouched.
+    EXPECT_TRUE(contains(wire, std::string("{\"album\":\"First\",\"artist\":\"Ann\","
+                                           "\"duration\":\"61\",\"id\":\"track_a\","
+                                           "\"title\":\"") + ASCII_FFFD_FFFD_X + "\"}")) << wire;
+    //Three tracks, three titles - the count is what says the pair came back.
+    EXPECT_EQ(3u, occurrences(wire, "\"title\":"));
 }
 
 //INVARIANT - the terminate question, HTTP side.
@@ -847,9 +867,9 @@ TEST_F(JsonApiAudioWireBytesTest, AnInvalidUtf8CoverUrlIsDeliveredAndTheConnecti
     EXPECT_TRUE(req.closes().empty());
 }
 
-//DELTA on the same request: today the cover pair disappears and the client
-//gets an EMPTY object.
-TEST_F(JsonApiAudioWireBytesTest, AnInvalidUtf8CoverUrlIsDroppedToday)
+//MOVED on the same request: the cover pair used to disappear entirely and the
+//client got {}. It is now delivered, replaced.
+TEST_F(JsonApiAudioWireBytesTest, AnInvalidUtf8CoverUrlIsNoLongerDropped)
 {
     FakeWirePlayer *player = addPlayer();
     player->coverUrl = std::string("http://calaos.fr/") + INVALID_UTF8_PROBE;
@@ -857,7 +877,8 @@ TEST_F(JsonApiAudioWireBytesTest, AnInvalidUtf8CoverUrlIsDroppedToday)
     HttpTestRequest req;
     req.send(httpAudioRequest("get_cover_url", Json{{ "id", PLAYER_ID }}));
 
-    EXPECT_EQ("{}", req.body());
+    EXPECT_EQ(std::string("{\"cover\":\"http://calaos.fr/") + ASCII_FFFD_FFFD_X + "\"}",
+              req.body());
 }
 
 /*******************************************************************************
@@ -912,7 +933,7 @@ TEST_F(JsonApiAudioWireBytesTest, ADeferredPlaylistIsAnsweredWholeAndInOrder)
 
 //A single track: the tail branch is the one that both appends the last item AND
 //answers, so an off by one there hides on a longer list.
-TEST_F(JsonApiAudioWireBytesTest, ASingleTrackPlaylistIsWholeOnTheWireToday)
+TEST_F(JsonApiAudioWireBytesTest, ASingleTrackPlaylistIsWholeOnTheWire)
 {
     FakeWirePlayer *player = addPlayer();
     player->items.resize(1);
@@ -920,14 +941,14 @@ TEST_F(JsonApiAudioWireBytesTest, ASingleTrackPlaylistIsWholeOnTheWireToday)
     HttpTestRequest req;
     req.send(httpPlaylistRequest(PLAYER_ID));
 
-    EXPECT_EQ("{\"current_track\":\"1\",\"count\":\"1\",\"items\":["
+    EXPECT_EQ("{\"count\":\"1\",\"current_track\":\"1\",\"items\":["
               + trackBytes("First", "Ann", "61", "track_a", "Alpha") + "]}",
               req.body());
     EXPECT_EQ(std::vector<int>({ 0 }), player->requestedItems);
 }
 
 //count <= 0 short circuits the recursion entirely.
-TEST_F(JsonApiAudioWireBytesTest, AnEmptyPlaylistHasAnEmptyItemsArrayToday)
+TEST_F(JsonApiAudioWireBytesTest, AnEmptyPlaylistHasAnEmptyItemsArray)
 {
     FakeWirePlayer *player = addPlayer();
     player->items.clear();
@@ -935,7 +956,7 @@ TEST_F(JsonApiAudioWireBytesTest, AnEmptyPlaylistHasAnEmptyItemsArrayToday)
     HttpTestRequest req;
     req.send(httpPlaylistRequest(PLAYER_ID));
 
-    EXPECT_EQ("{\"current_track\":\"1\",\"count\":\"0\",\"items\":[]}", req.body());
+    EXPECT_EQ("{\"count\":\"0\",\"current_track\":\"1\",\"items\":[]}", req.body());
     EXPECT_TRUE(player->requestedItems.empty());
 }
 
@@ -974,7 +995,7 @@ TEST_F(JsonApiAudioWireBytesTest, ClientGoneMidRecursionAnswersNothingAndStops)
  * playlist missing its tail. It is the same success:false the entry point
  * answers for an id that is not a player.
  */
-TEST_F(JsonApiAudioWireBytesTest, PlayerDeletedMidRecursionAnswersFalseNotATruncatedPlaylistToday)
+TEST_F(JsonApiAudioWireBytesTest, PlayerDeletedMidRecursionAnswersFalseNotATruncatedPlaylist)
 {
     FakeWirePlayer *player = addPlayer();
     queue.deferred = true;
@@ -996,8 +1017,8 @@ TEST_F(JsonApiAudioWireBytesTest, PlayerDeletedMidRecursionAnswersFalseNotATrunc
     lateAnswer = std::function<void()>();
 
     ASSERT_EQ(1u, ws.count());
-    EXPECT_EQ("{\"msg\":\"get_playlist\",\"msg_id\":\"1\","
-              "\"data\":{\"success\":\"false\"}}", ws.lastMessage());
+    EXPECT_EQ("{\"data\":{\"success\":\"false\"},"
+              "\"msg\":\"get_playlist\",\"msg_id\":\"1\"}", ws.lastMessage());
     EXPECT_FALSE(contains(ws.lastMessage(), "items"));
 }
 
@@ -1042,7 +1063,7 @@ TEST_F(JsonApiAudioWireBytesTest, ANumericIdMemberIsTreatedAsAbsent)
     EXPECT_EQ("{\"error\":\"empty player id\"}", req.body());
 }
 
-TEST_F(JsonApiAudioWireBytesTest, WsANumericIdMemberIsTreatedAsAbsentToday)
+TEST_F(JsonApiAudioWireBytesTest, WsANumericIdMemberIsTreatedAsAbsent)
 {
     addPlayer();
 
@@ -1050,8 +1071,8 @@ TEST_F(JsonApiAudioWireBytesTest, WsANumericIdMemberIsTreatedAsAbsentToday)
     ws.send(wsAudioRequest("get_time", Json{{ "id", 42 }}));
 
     ASSERT_EQ(1u, ws.count());
-    EXPECT_EQ("{\"msg\":\"audio\",\"msg_id\":\"1\","
-              "\"data\":{\"error\":\"empty player id\"}}", ws.lastMessage());
+    EXPECT_EQ("{\"data\":{\"error\":\"empty player id\"},"
+              "\"msg\":\"audio\",\"msg_id\":\"1\"}", ws.lastMessage());
 }
 
 TEST_F(JsonApiAudioWireBytesTest, AnUnknownPlayerIdIsRefusedWithItsHistoricalSpelling)
@@ -1190,7 +1211,7 @@ TEST_F(JsonApiAudioWireBytesTest, AudioDbGetAlbumsWithoutADatabaseAnswersTheSame
  *     does not harmonise them.
  ******************************************************************************/
 
-TEST_F(JsonApiAudioWireBytesTest, TheWsAnswerIsEnvelopedAndTheHttpOneIsNotToday)
+TEST_F(JsonApiAudioWireBytesTest, TheWsAnswerIsEnvelopedAndTheHttpOneIsNot)
 {
     FakeWirePlayer *player = addPlayer();
     player->overrideSize = true;
@@ -1203,8 +1224,8 @@ TEST_F(JsonApiAudioWireBytesTest, TheWsAnswerIsEnvelopedAndTheHttpOneIsNotToday)
     HttpTestRequest req;
     req.send(httpAudioRequest("get_playlist_size", Json{{ "id", PLAYER_ID }}));
 
-    EXPECT_EQ("{\"msg\":\"audio\",\"msg_id\":\"1\","
-              "\"data\":{\"playlist_size\":\"5\"}}", ws.lastMessage());
+    EXPECT_EQ("{\"data\":{\"playlist_size\":\"5\"},"
+              "\"msg\":\"audio\",\"msg_id\":\"1\"}", ws.lastMessage());
     EXPECT_EQ("{\"playlist_size\":\"5\"}", req.body());
 
     //The payload is the SAME object on both sides; only the wrapping differs.

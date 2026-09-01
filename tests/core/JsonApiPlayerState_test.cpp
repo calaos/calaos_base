@@ -671,16 +671,46 @@ TEST_F(JsonApiPlayerStateTest, DbStatsPlayerDeletedMidFlightStillAnswers)
  *     lives. They assert nothing beyond "it ran"; ASan is the oracle.
  ******************************************************************************/
 
-//Drives one method on a bare JsonApi that dies before the answer comes back.
-//Returns true when the result lambda fired anyway - i.e. when the answer was
-//sent to a destroyed object.
+/* Drives one method on a bare JsonApi that dies before the answer comes back.
+ * The case FAILS when the result lambda fired anyway - i.e. when the answer was
+ * sent to a destroyed object.
+ *
+ * E4.1p split this in two, and the split is the perimeter of that ticket: the
+ * four `audio` actions now take and answer a Json, while audioGetDbStats() is
+ * dispatched by processAudioDb() and stays jansson until E4.1q. The BODY of
+ * the two macros is otherwise identical, deliberately - what is being observed
+ * is the guard, not the document.
+ */
 #define EXPECT_ANSWER_DROPPED_AFTER_API_DEATH(call)                            \
     do {                                                                       \
         addPlayer();                                                           \
         queue.deferred = true;                                                 \
                                                                                \
+        const Json jdata = Json{{ "id", PLAYER_ID }, { "item", "3" }};         \
+        bool answered = false;                                                 \
+                                                                               \
+        {                                                                      \
+            JsonApi api;                                                       \
+            api.call(jdata, [&](const Json &)                                  \
+            {                                                                  \
+                answered = true;                                               \
+            });                                                                \
+            ASSERT_EQ(1u, queue.count());                                      \
+            /* api dies here, exactly as when the client disconnects */        \
+        }                                                                      \
+                                                                               \
+        ASSERT_TRUE(queue.fireNext());                                         \
+        EXPECT_FALSE(answered);                                                \
+    } while (0)
+
+//The jansson twin, for the one method of this file that E4.1q still owns.
+#define EXPECT_JANSSON_ANSWER_DROPPED_AFTER_API_DEATH(call)                    \
+    do {                                                                       \
+        addPlayer();                                                           \
+        queue.deferred = true;                                                 \
+                                                                               \
         Params p = {{ "id", PLAYER_ID }, { "item", "3" }};                     \
-        json_t *jdata = jansson_from_params(p);                                            \
+        json_t *jdata = jansson_from_params(p);                                \
         bool answered = false;                                                 \
                                                                                \
         {                                                                      \
@@ -722,7 +752,7 @@ TEST_F(JsonApiPlayerStateTest, ApiGoneBeforeCoverInfoAnswer)
 
 TEST_F(JsonApiPlayerStateTest, ApiGoneBeforeDbStatsAnswer)
 {
-    EXPECT_ANSWER_DROPPED_AFTER_API_DEATH(audioGetDbStats);
+    EXPECT_JANSSON_ANSWER_DROPPED_AFTER_API_DEATH(audioGetDbStats);
 }
 
 /* The real thing: a websocket client that leaves while its answer is in

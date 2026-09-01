@@ -236,7 +236,7 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
         else if (jsonRoot["msg"] == "get_io")
             processGetIO(jdata, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "audio")
-            processAudio(jdata, jsonRoot["msg_id"]);
+            processAudio(jdata, jsonDataDoc, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "audio_db")
         {
             if (serviceScope) scopeDenied("audio_db");
@@ -411,32 +411,45 @@ void JsonApiHandlerWS::processSetState(Params &jsonReq, const string &client_id)
 
 void JsonApiHandlerWS::processGetPlaylist(Params &jsonReq, const string &client_id)
 {
-    decodeGetPlaylist(jsonReq, [=](json_t *jret)
+    /* E4.1p: decodeGetPlaylist() answers a Json now, so this resolves to the
+     * nlohmann overload of sendJson() (:75) instead of the jansson one (:69) -
+     * the seam was already there and in service. Declared consequence on the
+     * bytes: the envelope sorts (data before msg), the three keys of the
+     * answer sort with it, and the escaping moves to nlohmann's lowercase
+     * hexadecimal. Both stay pure ASCII. Pinned by
+     * tests/core/JsonApiAudioWireBytes_test.cpp.
+     */
+    decodeGetPlaylist(jsonReq, [=](const Json &jret)
     {
         sendJson("get_playlist", jret, client_id);
     });
 }
 
-void JsonApiHandlerWS::processAudio(json_t *jdata, const string &client_id)
+/* E4.1p. TWO DOCUMENTS, AND THE SECOND ONE IS HOISTED, NOT ADDED - see the
+ * twin comment on JsonApiHandlerHttp::processAudio(). `jdataDoc` is the "data"
+ * member of processApi()'s existing nlohmann parse (E4.1o named it); the
+ * jansson `jdata` stays for the DISPATCH, whose migration is E4.1s.
+ */
+void JsonApiHandlerWS::processAudio(json_t *jdata, const Json &jdataDoc, const string &client_id)
 {
     string msg = jansson_string_get(jdata, "audio_action");
     if (msg == "get_playlist_size")
-        audioGetPlaylistSize(jdata, [=](json_t *jret)
+        audioGetPlaylistSize(jdataDoc, [=](const Json &jret)
         {
             sendJson("audio", jret, client_id);
         });
     else if (msg == "get_time")
-        audioGetTime(jdata, [=](json_t *jret)
+        audioGetTime(jdataDoc, [=](const Json &jret)
         {
             sendJson("audio", jret, client_id);
         });
     else if (msg == "get_playlist_item")
-        audioGetPlaylistItem(jdata, [=](json_t *jret)
+        audioGetPlaylistItem(jdataDoc, [=](const Json &jret)
         {
             sendJson("audio", jret, client_id);
         });
     else if (msg == "get_cover_url")
-        audioGetCoverInfo(jdata, [=](json_t *jret)
+        audioGetCoverInfo(jdataDoc, [=](const Json &jret)
         {
             sendJson("audio", jret, client_id);
         });

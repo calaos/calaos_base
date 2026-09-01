@@ -220,7 +220,7 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
         if (jsonParam["action"] == "config")
             processConfig(jroot);
         else if (jsonParam["action"] == "audio")
-            processAudio(jroot);
+            processAudio(jroot, jsonRootDoc);
         else if (jsonParam["action"] == "audio_db")
             processAudioDb(jroot);
         else if (jsonParam["action"] == "set_timerange")
@@ -410,7 +410,16 @@ void JsonApiHandlerHttp::processSetState()
 
 void JsonApiHandlerHttp::processGetPlaylist()
 {
-    decodeGetPlaylist(jsonParam, [=](json_t *jret)
+    /* E4.1p: decodeGetPlaylist() answers a Json now, so this resolves to the
+     * nlohmann overload of sendJson() (:259) instead of the jansson one - the
+     * seam was already there and in service, no adapter was needed and none
+     * was written. Declared consequence on the bytes: the three keys of the
+     * answer sort (current_track,count,items -> count,current_track,items) and
+     * the escaping moves from jansson's UPPERCASE \u00E9 to nlohmann's
+     * lowercase \u00e9. Both stay pure ASCII. Pinned by
+     * tests/core/JsonApiAudioWireBytes_test.cpp.
+     */
+    decodeGetPlaylist(jsonParam, [=](const Json &jret)
     {
         sendJson(jret);
     });
@@ -728,31 +737,47 @@ void JsonApiHandlerHttp::processConfig(json_t *jroot)
     sendJson(jret);
 }
 
-void JsonApiHandlerHttp::processAudio(json_t *jdata)
+/* E4.1p. TWO DOCUMENTS, AND THE SECOND ONE IS HOISTED, NOT ADDED.
+ *
+ * `jdataDoc` is processApi()'s own nlohmann parse of the very same bytes
+ * (E4.1m parsed them for the redacted log line, E4.1o gave that parse a name).
+ * Zero extra parse, no json_dumps + Json::parse bridge, and none is to be
+ * written. The DISPATCH itself stays jansson - reading `audio_action` is the
+ * dispatcher's business and its migration is E4.1s, exactly as E4.1o left the
+ * set_timerange dispatch alone. When E4.1s takes it, this signature loses its
+ * json_t* and the get_cover branch below follows.
+ */
+void JsonApiHandlerHttp::processAudio(json_t *jdata, const Json &jdataDoc)
 {
     string msg = jansson_string_get(jdata, "audio_action");
     if (msg == "get_playlist_size")
-        audioGetPlaylistSize(jdata, [=](json_t *jret)
+        audioGetPlaylistSize(jdataDoc, [=](const Json &jret)
         {
             sendJson(jret);
         });
     else if (msg == "get_time")
-        audioGetTime(jdata, [=](json_t *jret)
+        audioGetTime(jdataDoc, [=](const Json &jret)
         {
             sendJson(jret);
         });
     else if (msg == "get_playlist_item")
-        audioGetPlaylistItem(jdata, [=](json_t *jret)
+        audioGetPlaylistItem(jdataDoc, [=](const Json &jret)
         {
             sendJson(jret);
         });
     else if (msg == "get_cover_url")
-        audioGetCoverInfo(jdata, [=](json_t *jret)
+        audioGetCoverInfo(jdataDoc, [=](const Json &jret)
         {
             sendJson(jret);
         });
     else if (msg == "get_cover")
     {
+        /* NOT migrated, deliberately: this branch answers an IMAGE, not JSON,
+         * and its two error payloads are hand built here and covered by no
+         * case of the suite (measured: no test in tests/ mentions "unable to
+         * get url"). Moving them would sort their keys with nothing to catch a
+         * mistake. It goes with the dispatch, in E4.1s.
+         */
         string err;
         AudioPlayer *player = getAudioPlayer(jdata, err);
 

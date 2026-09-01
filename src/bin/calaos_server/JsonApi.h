@@ -198,8 +198,15 @@ public:
     bool registerPushToken(const Params &jParam);
 
     bool decodeSetState(Params &jParam);
-    void decodeGetPlaylist(Params &jParam, std::function<void(json_t *)>result_lambda);
+    void decodeGetPlaylist(Params &jParam, std::function<void(const Json &)>result_lambda);
 
+    AudioPlayer *getAudioPlayer(const Json &jdata, string &err);
+    /* ⛔ E4.1p. TRANSITIONAL OVERLOAD OWNED BY E4.1q - delete it there. Its
+     * only callers are audioGetDbStats() and the fourteen audioDbGet*, which
+     * processAudioDb() still dispatches with a json_t*. It converts nothing:
+     * both overloads read the same member and hand the same string to
+     * audioPlayerById().
+     */
     AudioPlayer *getAudioPlayer(json_t *jdata, string &err);
     /* T3.19. Answers the refusal and returns true when the player owns no music
      * database. Called by the sixteen audio_db methods IMMEDIATELY BEFORE their
@@ -208,11 +215,17 @@ public:
      */
     bool audioDbUnavailable(AudioPlayer *player,
                             const std::function<void(json_t *)> &result_lambda);
+    /* ⛔ audioGetDbStats() is NOT an `audio` action: processAudioDb() is what
+     * dispatches it (JsonApiHandlerHttp.cpp:829, JsonApiHandlerWS.cpp:455),
+     * together with the fourteen audioDbGet*. It therefore stays jansson here
+     * and migrates with its dispatcher, in E4.1q - see E4.1p.md. The four
+     * below are the ones processAudio() reaches.
+     */
     void audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioGetPlaylistSize(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioGetTime(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioGetPlaylistItem(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioGetCoverInfo(json_t *jdata, std::function<void(json_t *)>result_lambda);
+    void audioGetPlaylistSize(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioGetTime(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioGetPlaylistItem(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioGetCoverInfo(const Json &jdata, std::function<void(const Json &)>result_lambda);
 
     json_t *processDbResult(const AudioPlayerData &data);
     void audioDbGetAlbums(json_t *jdata, std::function<void(json_t *)>result_lambda);
@@ -242,7 +255,13 @@ protected:
      * deleted through the API in between, so the player is looked up again at
      * every step - exactly like buildJsonState() does (T2.15).
      */
-    void getNextPlaylistItem(const string &playerId, json_t *jplayer, json_t *jplaylist, int it_current, int it_count, std::function<void(json_t *)>result_lambda);
+    void getNextPlaylistItem(const string &playerId, Json jplayer, Json jplaylist, int it_current, int it_count, std::function<void(const Json &)>result_lambda);
+
+    /* E4.1p. The player resolution shared by the two getAudioPlayer()
+     * overloads, so that the reader that is migrated and the one that is not
+     * cannot answer two different refusals.
+     */
+    AudioPlayer *audioPlayerById(const string &id, string &err);
 
     HttpClient *httpClient = nullptr;
 

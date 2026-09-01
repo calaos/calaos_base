@@ -72,7 +72,9 @@ private:
     void processRegisterPush(const Params &jsonReq, const string &client_id = string());
     void processSettings(const Params &jsonReq, const string &client_id = string());
 
-    void processAudio(json_t *jdata, const string &client_id = string());
+    //E4.1p: the second document is the "data" member of processApi()'s own
+    //nlohmann parse, hoisted. The dispatch stays jansson until E4.1s.
+    void processAudio(json_t *jdata, const Json &jdataDoc, const string &client_id = string());
     void processAudioDb(json_t *jdata, const string &client_id = string());
 
     void processAutoscenario(json_t *jdata, const string &client_id = string());

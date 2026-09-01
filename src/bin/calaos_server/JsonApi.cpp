@@ -963,14 +963,27 @@ bool JsonApi::decodeSetState(Params &jParam)
 //requested IO is not (or no longer) an audio player. Shared by the entry point
 //and by the async stages, so a player deleted mid-flight gives the client the
 //SAME answer as an unknown id - never a playlist silently missing its tail.
-static json_t *playlistNoPlayerAnswer()
+static Json playlistNoPlayerAnswer()
 {
-    json_t *jret = json_object();
-    json_object_set_new(jret, "success", json_string("false"));
-    return jret;
+    return Json{{ "success", "false" }};
 }
 
-void JsonApi::decodeGetPlaylist(Params &jParam, std::function<void(json_t *)>result_lambda)
+/* E4.1p. THE DOCUMENT IS NOW A VALUE, AND THAT IS THE WHOLE POINT.
+ *
+ * jansson gave this chain a refcounted pointer that every stage could share,
+ * at the price of three json_decref() on the guarded paths - one per stage,
+ * each of them the only thing standing between a client disconnection and a
+ * leaked partial answer. A Json OWNS its subtree, so those three releases have
+ * no successor: the closure that held the document dies with the callback and
+ * takes the document with it.
+ *
+ * ⛔ NOT a Json&. The ticket sheet is explicit and it is right: a reference
+ * would have to outlive an ASYNCHRONOUS round trip, and the only frame that
+ * could own it is the one that returns immediately after arming the callback.
+ * That is a use after free, not a slow path. The document therefore travels
+ * BY VALUE, moved from one stage into the next (see getNextPlaylistItem()).
+ */
+void JsonApi::decodeGetPlaylist(Params &jParam, std::function<void(const Json &)>result_lambda)
 {
     const string playerId = jParam["id"];
     IOBase *io = ListeRoom::Instance().get_io(playerId);
@@ -991,17 +1004,14 @@ void JsonApi::decodeGetPlaylist(Params &jParam, std::function<void(json_t *)>res
      */
     std::weak_ptr<bool> alive = apiAlive;
 
-    json_t *jplayer = json_object();
-
     player->get_playlist_current([=](AudioPlayerData data)
     {
-        //jplayer is only reachable from this chain: releasing it here is what
-        //keeps the guard from leaking the partial answer.
-        if (alive.expired()) { json_decref(jplayer); return; }
+        if (alive.expired()) return;
 
-        json_object_set_new(jplayer,
-                            "current_track",
-                            json_string(Utils::to_string(data.ivalue).c_str()));
+        //Built HERE rather than before the call: with a value there is nothing
+        //to allocate up front and nothing to release on the guarded path.
+        Json jplayer = Json::object();
+        jplayer["current_track"] = Utils::to_string(data.ivalue);
 
         //The player IO can be deleted through the API while a request is in
         //flight: never keep the raw pointer across an async boundary, look it
@@ -1009,33 +1019,58 @@ void JsonApi::decodeGetPlaylist(Params &jParam, std::function<void(json_t *)>res
         AudioPlayer *p1 = dynamic_cast<AudioPlayer *>(ListeRoom::Instance().get_io(playerId));
         if (!p1)
         {
-            json_decref(jplayer);
             result_lambda(playlistNoPlayerAnswer());
             return;
         }
 
-        p1->get_playlist_size([=](AudioPlayerData data1)
+        /* Explicit capture list, and `mutable`: the document is MOVED into the
+         * closure instead of copied, and the closure has to be allowed to
+         * write to it. `this` is captured by name because the recursion below
+         * is a member call - it was captured implicitly by the old [=] and the
+         * apiAlive token above is what makes it safe, unchanged.
+         */
+        p1->get_playlist_size([this, alive, playerId, result_lambda,
+                               jplayer = std::move(jplayer)](AudioPlayerData data1) mutable
         {
-            if (alive.expired()) { json_decref(jplayer); return; }
+            if (alive.expired()) return;
 
-            json_object_set_new(jplayer,
-                                "count",
-                                json_string(Utils::to_string(data1.ivalue).c_str()));
+            jplayer["count"] = Utils::to_string(data1.ivalue);
 
             int it_count = data1.ivalue;
             if (it_count <= 0)
             {
-                json_object_set_new(jplayer, "items", json_array());
+                jplayer["items"] = Json::array();
                 result_lambda(jplayer);
             }
             else
                 //getNextPlaylistItem() looks the player up itself
-                getNextPlaylistItem(playerId, jplayer, json_array(), 0, it_count, result_lambda);
+                getNextPlaylistItem(playerId, std::move(jplayer), Json::array(),
+                                    0, it_count, result_lambda);
         });
     });
 }
 
-void JsonApi::getNextPlaylistItem(const string &playerId, json_t *jplayer, json_t *jplaylist, int it_current, int it_count, std::function<void(json_t *)>result_lambda)
+/* E4.1p. THE RECURSIVE, ASYNCHRONOUS STAGE - the one place of this epic where
+ * a document has to survive a network round trip AND a self call.
+ *
+ * ⛔ BY VALUE, AND MOVED. Both documents are taken by value, moved into the
+ * closure, and moved again into the next recursion. The move is what keeps
+ * this linear: taken by value and captured with [=], every stage would deep
+ * copy an array that grows with the playlist, i.e. O(N^2) node copies on a
+ * library playlist of a few thousand tracks - a real cost that jansson's
+ * refcount did not have.
+ *
+ * A Json& taken instead would be a use after free: the only frame that could
+ * own the referent is the caller's, and the caller returns as soon as
+ * get_playlist_item() has armed its callback. Nothing crashes on the
+ * SYNCHRONOUS unroll of a test fake, which is exactly why the deferred cases
+ * of tests/core/JsonApiAudioWireBytes_test.cpp drive the stages one at a time.
+ *
+ * The three json_decref() this function used to carry are gone with the
+ * pointer: the closure owns its two documents and destroys them when the
+ * player releases the callback, on the guarded path as on any other.
+ */
+void JsonApi::getNextPlaylistItem(const string &playerId, Json jplayer, Json jplaylist, int it_current, int it_count, std::function<void(const Json &)>result_lambda)
 {
     //Entered either from decodeGetPlaylist() or from the recursion below, in
     //both cases right after an alive check, so this is safe to touch.
@@ -1044,8 +1079,6 @@ void JsonApi::getNextPlaylistItem(const string &playerId, json_t *jplayer, json_
     {
         //The IO went away between two items. The client is still there and
         //must get an answer, but not a truncated playlist.
-        json_decref(jplayer);
-        json_decref(jplaylist);
         result_lambda(playlistNoPlayerAnswer());
         return;
     }
@@ -1054,52 +1087,50 @@ void JsonApi::getNextPlaylistItem(const string &playerId, json_t *jplayer, json_
     //the top. Here N is the length of the playlist.
     std::weak_ptr<bool> alive = apiAlive;
 
-    player->get_playlist_item(it_current, [=](AudioPlayerData data)
+    player->get_playlist_item(it_current,
+                              [this, alive, playerId, it_current, it_count, result_lambda,
+                               jplayer = std::move(jplayer),
+                               jplaylist = std::move(jplaylist)](AudioPlayerData data) mutable
     {
         if (alive.expired())
-        {
-            //jplaylist is not attached to jplayer yet: release both.
-            json_decref(jplayer);
-            json_decref(jplaylist);
             return;
-        }
 
-        json_t *jtrack = json_object();
+        Json jtrack = Json::object();
         Params &infos = data.params;
         for (int i = 0;i < infos.size();i++)
         {
             string inf_key, inf_value;
             infos.get_item(i, inf_key, inf_value);
 
-            json_object_set_new(jtrack,
-                                inf_key.c_str(),
-                                json_string(inf_value.c_str()));
+            jtrack[inf_key] = inf_value;
         }
 
-        json_array_append_new(jplaylist, jtrack);
+        jplaylist.push_back(std::move(jtrack));
 
         int idx = it_current + 1;
         if (idx >= it_count)
         {
             //all track are queried, send back data
-            json_object_set_new(jplayer,
-                                "items",
-                                jplaylist);
+            jplayer["items"] = std::move(jplaylist);
             result_lambda(jplayer);
         }
         else
         {
-            getNextPlaylistItem(playerId, jplayer, jplaylist, idx, it_count, result_lambda);
+            getNextPlaylistItem(playerId, std::move(jplayer), std::move(jplaylist),
+                                idx, it_count, result_lambda);
         }
     });
 }
 
-AudioPlayer *JsonApi::getAudioPlayer(json_t *jdata, string &err)
+/* E4.1p. The resolution itself, unchanged, extracted so that the two readers
+ * below cannot drift apart. Its two messages are wire contract, spelling
+ * included ("unkown").
+ */
+AudioPlayer *JsonApi::audioPlayerById(const string &id, string &err)
 {
     AudioPlayer *player = nullptr;
     err.clear();
 
-    string id = jansson_string_get(jdata, "id");
     if (id == "")
     {
         err = "empty player id";
@@ -1113,6 +1144,26 @@ AudioPlayer *JsonApi::getAudioPlayer(json_t *jdata, string &err)
         err = "unkown player_id";
 
     return player;
+}
+
+AudioPlayer *JsonApi::getAudioPlayer(const Json &jdata, string &err)
+{
+    return audioPlayerById(jsonStringGet(jdata, "id"), err);
+}
+
+/* ⛔ TRANSITIONAL OVERLOAD, AND ITS OWNER IS E4.1q - DELETE IT THERE.
+ *
+ * The audio_db family (audioGetDbStats() and the fourteen audioDbGet*) is
+ * dispatched by processAudioDb(), which E4.1p does not touch, so it still
+ * hands this function a json_t*. This is NOT an adapter between the two JSON
+ * representations - nothing is converted, the two readers simply extract the
+ * same member from the two documents and hand the SAME string to the SAME
+ * resolution. The moment processAudioDb() migrates, this overload has no
+ * caller left and goes away with jansson_string_get().
+ */
+AudioPlayer *JsonApi::getAudioPlayer(json_t *jdata, string &err)
+{
+    return audioPlayerById(jansson_string_get(jdata, "id"), err);
 }
 
 /* T3.19. AudioPlayer::database is a RAW POINTER the base constructor leaves
@@ -1202,15 +1253,14 @@ void JsonApi::audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result
     });
 }
 
-void JsonApi::audioGetPlaylistSize(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioGetPlaylistSize(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
@@ -1220,21 +1270,24 @@ void JsonApi::audioGetPlaylistSize(json_t *jdata, std::function<void(json_t *)>r
     {
         if (alive.expired()) return;
 
+        //Kept verbatim: this Add() writes into a Params the answer below does
+        //NOT use, so audio_action never reaches the client. Dead since T3.17b
+        //and pinned as such by the goldens - removing it is not this ticket's.
         adata.params.Add("audio_action", "get_playlist_size");
-        Params p = {{"playlist_size", Utils::to_string(adata.ivalue)}};
-        result_lambda(jansson_from_params(p));
+        //⛔ Utils::to_string(int) - a STRING, never a JSON number. The oracle
+        //of the goldens is type strict: 3 is not "3".
+        result_lambda(Json{{ "playlist_size", Utils::to_string(adata.ivalue) }});
     });
 }
 
-void JsonApi::audioGetTime(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioGetTime(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
@@ -1244,29 +1297,37 @@ void JsonApi::audioGetTime(json_t *jdata, std::function<void(json_t *)>result_la
     {
         if (alive.expired()) return;
 
+        //Same dead Add() as audioGetPlaylistSize(), kept verbatim.
         adata.params.Add("audio_action", "get_time");
-        Params p = {{"time_elapsed", Utils::to_string(adata.dvalue)}};
-        result_lambda(jansson_from_params(p));
+        /* ⛔ Utils::to_string(double) IS A BARE OSTRINGSTREAM AND STAYS ONE.
+         * 1234.56789 leaves as "1234.57" and 123456789.0 as "1.23457e+08" -
+         * six significant digits, scientific notation past them. It looks like
+         * a bug and it is the contract: pinned by E4.0f goldens and, at the
+         * byte level, by JsonApiAudioWireBytes_test. Handing the double to
+         * nlohmann instead would change BOTH the formatting and the TYPE.
+         */
+        result_lambda(Json{{ "time_elapsed", Utils::to_string(adata.dvalue) }});
     });
 }
 
-void JsonApi::audioGetPlaylistItem(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioGetPlaylistItem(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string it = jansson_string_get(jdata, "item");
+    //jsonStringGet() and not jdata["item"].get<string>(): a member that is not
+    //a JSON STRING must read as ABSENT here, exactly as jansson_string_get()
+    //made it, so that {"item":2} is still refused instead of throwing.
+    string it = jsonStringGet(jdata, "item");
     if (it.empty() || !Utils::is_of_type<int>(it))
     {
-        Params p = {{"error", "wrong item" }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", "wrong item" }});
         return;
     }
 
@@ -1279,19 +1340,18 @@ void JsonApi::audioGetPlaylistItem(json_t *jdata, std::function<void(json_t *)>r
     {
         if (alive.expired()) return;
 
-        result_lambda(jansson_from_params(data.params));
+        result_lambda(data.params.toNJson());
     });
 }
 
-void JsonApi::audioGetCoverInfo(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioGetCoverInfo(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
@@ -1301,8 +1361,14 @@ void JsonApi::audioGetCoverInfo(json_t *jdata, std::function<void(json_t *)>resu
     {
         if (alive.expired()) return;
 
-        Params p = {{ "cover", data.svalue }};
-        result_lambda(jansson_from_params(p));
+        /* BEHAVIOUR CHANGE, ASSUMED - same one E4.1o declared for get_param.
+         * A cover URL comes back from the player and ultimately from a
+         * filesystem, which guarantees nothing about UTF-8. jansson dropped
+         * the whole pair on an invalid byte and answered {}; the emitter's
+         * error_handler_t::replace (E4.1b) now keeps it with one U+FFFD per
+         * bad byte. Pinned by JsonApiAudioWireBytes_test.
+         */
+        result_lambda(Json{{ "cover", data.svalue }});
     });
 }
 
