@@ -8,6 +8,92 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅ [`T3.51`](T3.51.md) MERGÉE (branche `tooling/ccache`) — 3 commits + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`b3f609be`**.
+  ⭐ **CE MERGE APPORTE UN CACHE DE COMPILATION PARTAGÉ, *INACTIF PAR DÉFAUT*, ET SURTOUT LA SONDE
+  QUI LE SURVEILLE EN PERMANENCE.** Le cache ne s'allume que si un répertoire de *shims* est en tête
+  du `PATH` : un `./configure` nu est **inchangé**. `tests/check-ccache-honesty.sh` (entrée `TESTS`
+  n° 104, **en toute fin de fichier, hors de tout `if HAVE_GTEST`** — elle n'a besoin ni de gtest ni
+  d'un binaire) refuse de rendre PASS sur autre chose qu'un cache **en service ET conforme** :
+  **`77` uniquement quand AUCUN cache n'est en service** (seul motif de SKIP), **`1` pour tout le
+  reste** — cache malhonnête, configuration non auditée, sonde qui ne compile pas, détecteur qui ne
+  peut pas mordre, exception. `CALAOS_CCACHE_PROBE_STRICT=1` transforme le SKIP en échec, pour tout
+  arbre qui sert à **juger une campagne de mutations**.
+
+  **Revue : `approve`.** ⭐ **Le point qui vaut d'être retenu : le cache NE MENT PAS (12 scénarios
+  d'attaque, 370/370 objets identiques), c'est la SONDE qui était *fail-open* — dans HUIT modes.**
+  La cause commune était la **liste** (noire *comme* blanche : une « liste blanche » de 4 clefs sur
+  les 44 publiées laissait passer `ignore_options=-D*`, qui fait servir l'objet de `-DVAL=1` pour
+  `-DVAL=2`). ⇒ la sonde demande désormais à **`ccache -p`** ce qu'il publie et **exige que CHAQUE
+  clef soit couverte** (33 à valeur exigée + 11 libres en 4.12.3 ; toute clef inconnue ⇒ `1`, **en la
+  nommant**), **constate** un succès de cache par `CCACHE_STATSLOG` (jamais `ccache -s`), et
+  **auto-vérifie son piège** (mtime **figée dans le passé** : non figée, elle rendait PASS **6/6** sur
+  un cache menteur). ⚠️ **Contrepartie assumée, écrite dans le fichier** : la table est **figée**, donc
+  un `ccache` d'une version ultérieure publiant une clef neuve rend `1` — c'est **voulu** (fermeture
+  par défaut), mais cela demande une **relecture humaine** quand ccache bouge.
+
+  ⛔ **À SAVOIR AVANT DE S'ÉTONNER : `make check` est ROUGE PAR DÉFAUT sur Fedora et Gentoo**, où
+  `/usr/lib64/ccache` (resp. `/usr/lib/ccache`) est dans le `PATH` par défaut et `g++` y est un lien
+  vers `ccache` — un cache **est** en service, **non configuré**. **TROIS issues**, écrites dans le
+  `Makefile.am` et dans le script : `scripts/ccache-setup.sh`, les variables `CCACHE_*`, ou retirer
+  le répertoire de shims du `PATH` (⇒ SKIP propre). ⚠️ **`$CCACHE_DIR/ccache.conf` est un ÉTAT
+  PARTAGÉ MUTABLE** entre agents et worktrees : un `ccache -o` **persiste**, `max_size` est partagé
+  (un agent monté ailleurs **évince** les entrées chaudes des autres, invisiblement), et **jamais
+  `ccache -z`** sur le répertoire partagé. Un agent qui doit **publier un chiffre** monte son
+  **propre** répertoire.
+
+  ⚠️ **`master` avait avancé jusqu'à `f0dc4cc2` (E4.1n puis T3.56) ⇒ REBASE.** **Trois conflits, tous
+  résolus sans éditer un seul marqueur.**
+  - **`tests/Makefile.am`** — **régénération** : `git show master:…` en entier + append **verbatim**
+    du bloc `#T3.51`. **Append pur** : `diff` = **+29 / −0 / ~0**, `master` **préfixe STRICT** en
+    octets (191 901 → 193 580). Équilibre en début de ligne `^if ` **88** == `^endif` **88** (dont
+    `^if HAVE_GTEST` **87** + un `if HAVE_LIBKNX` — nuance **préexistante**), profondeur finale **0**,
+    minimum **0**. Entrées `TESTS` **103 → 104**, toutes uniques, **une seule ajoutée**
+    (`check-ccache-honesty.sh`), **zéro retirée**.
+  - **`FINDINGS.md`, deux fois** (une par commit qui y touche). Le 1ᵉʳ : **régénération**, `diff` =
+    **+66 / −0 / ~0**, `master` préfixe strict. Le 2ᵉ n'était **pas** un append — il renumérote la
+    liste canonique (**treize → quatorze** variantes de faux vert) ET réécrit son propre titre ; le
+    conflit portait sur **la seule ligne de titre** (« quatre » → « **CINQ** » réglages). Résolu en
+    gardant **les deux côtés** (`## E4.1n` et `## T3.56` de `master` **intacts**) et le titre entrant ;
+    prouvé : le bloc `## T3.51` est **identique octet pour octet** à celui de `91a8cda3` (7 434 o), et
+    l'écart total avec `master` est **+96 lignes ajoutées / 7 lignes remplacées une à une** aux
+    exactement 7 lignes de renumérotation. **0 marqueur.**
+  - **`BOARD.md` / `ORCHESTRATION.md` / `DECISIONS.md`** — fusion automatique, **vérifiée** : **0
+    marqueur**, la ligne `T3.56` de `master` survit à ✅, le bloc REPRISE de T3.56 intact.
+
+  ⭐ **ET LE POINT À NE PAS RATER, TRAITÉ** : **`T3.51` et `T3.52` n'existaient NULLE PART sur
+  `master`** — ni fiche ni ligne de board. Les deux lignes arrivent avec la branche, **au bon rang**
+  (entre `T3.50` et `T3.53`), mais **à 3 colonnes sur 6** — même défaut que `T3.55` au merge de
+  `T3.53`. **Complétées au commit de doc** : `| outillage | — | ✅ |` et `| outillage | — | 📋 |`,
+  **7 `|` chacune**.
+
+  ⭐ **BUILD D'INTÉGRATION POST-REBASE, `make distclean` d'abord**, une seule invocation synchrone :
+  **`rc=0`**, **0 `error:`**, **`# TOTAL: 104` / `# PASS: 102` / `# SKIP: 2` / `# FAIL: 0` /
+  `# XFAIL: 0` / `# XPASS: 0` / `# ERROR: 0`**. Les **deux** `SKIP` sont attendus :
+  `run-python-tests.sh` et **la sonde elle-même** (`SONDE-CCACHE: SKIP -- AUCUN cache de compilation
+  en service (CXX=g++)`, `exit 77`) — **l'image de build n'embarque pas encore `ccache`** (le
+  `.devcontainer/Dockerfile` l'ajoute, l'image existante est antérieure).
+
+  ⚠️ **UNE 4ᵉ PASSE DE LA SONDE A ÉTÉ TROUVÉE *NON COMMITÉE* DANS LE WORKTREE, ET ELLE N'EST PAS
+  MERGÉE.** `scripts/ccache-honesty-probe.py` **+464 / −125** : audit des **DEUX** canaux (`CXX`
+  **et** `CC` — `configure.ac` appelle `AC_PROG_CC` et l'arbre porte 12 `.c`, ce canal n'était
+  **jamais** audité), **aller-retour n° 0** sur une macro `-D` (le seul chemin empirique qui prend
+  `ignore_options=-D*`), détection des clefs **EXIGÉES DISPARUES** de `ccache -p` (un `continue`
+  silencieux rendait la table *fail-open* sur tout réglage retiré), origine `(default)`/`(environment)`
+  imprimée, et **deux affirmations mesurées FAUSSES corrigées** (un `max_size` minuscule **ne tue pas**
+  le détecteur). **Non mergée parce qu'incomplète** : sa docstring documente comme **fait** un export
+  de `CXX`/`CC` dans `AM_TESTS_ENVIRONMENT` (`tests/Makefile.am`) qui **n'est pas dans l'arbre**, et
+  ni `T3.51.md` ni `OUTILLAGE-CCACHE.md` ne connaissent ses modes ⑫/⑬ ni les deux canaux (**0
+  occurrence**). ⇒ **mise à l'abri sur la branche `wip/t3.51-probe-pass4` (`d1693b19`)**, à reprendre
+  par l'auteur de T3.51. ⚠️ **Tant qu'elle n'est pas reprise, la sonde ne voit PAS le canal `CC`, et
+  elle ne voit `CXX` que si `CXX` est exporté jusqu'au test — ce que le harnais ne fait pas.**
+
+  ⛔ **Non poussé.** Worktree `.wave67/ccache` supprimé (via conteneur, artefacts root),
+  `git worktree prune`, branche `tooling/ccache` supprimée. ⚠️ **`wip/t3.51-probe-pass4` est
+  CONSERVÉE** (et `.review67b/ccache` n'a pas été touché).
+
+  ➡️ **[`T3.52`](T3.52.md) est OUVERTE** — `make distcheck AM_MAKEFLAGS=-j32` (×8,6 mesuré, ⚠️ **RC=2
+  sous `-j32` par `F-FLAKY-1`** : à revérifier maintenant que **T3.49 ET T3.56** sont fermées).
+
 - **✅ [`T3.56`](T3.56.md) MERGÉE — 3 commits de la branche + 1 commit de doc (livrables documentaires trouvés **NON COMMITÉS** dans le worktree, commités avant rebase) + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`85619bc1`**.
   ⭐ **CE MERGE FERME LA VARIANTE PRODUIT DU DÉFAUT D'HORLOGE DE T3.49 — ET LE CORRECTIF N'EST
   AUCUN DES DEUX REMÈDES QUE LA FICHE PROPOSAIT.** `uv_timer_start()` ne lit pas l'horloge : il
