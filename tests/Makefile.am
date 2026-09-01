@@ -192,7 +192,8 @@ CORE_SERVER_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/Rules/ConditionStart.$(OBJEXT)       \
                   $(CALAOS_SERVER_BUILDDIR)/Rules/ConditionStd.$(OBJEXT)         \
                   $(CALAOS_SERVER_BUILDDIR)/Rules/RulesFactory.$(OBJEXT)         \
-                  $(CALAOS_SERVER_BUILDDIR)/Scenario/AutoScenario.$(OBJEXT)
+                  $(CALAOS_SERVER_BUILDDIR)/Scenario/AutoScenario.$(OBJEXT)     \
+                  $(CALAOS_SERVER_BUILDDIR)/Scenario/AutoScenarioDef.$(OBJEXT)
 
 #The server headers pulled in by the core fixture need the libuv/curl/openssl
 #include paths, which the common flags above do not carry.

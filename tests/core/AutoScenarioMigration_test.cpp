@@ -38,8 +38,18 @@
  * assertion. If you are that sub-ticket: flip the expected value, keep the
  * measurement, and say so in the commit message.
  *
- * COUNTS, so a reader can check them: 19 cases, of which 14 carry
- * ">>> TO FLIP <<<" and 5 carry ">>> ✅ PROVE, DO NOT FLIP <<<".
+ * COUNTS, so a reader can check them: 19 cases. As shipped by E4.6a, 14
+ * carried ">>> TO FLIP <<<" and 5 carried ">>> ✅ PROVE, DO NOT FLIP <<<".
+ *
+ * ALREADY FLIPPED, and by whom:
+ *   - TodayIoXmlCarriesOnlyTheMarkerAndTheDerivedInternalIos -> E4.6b (D2),
+ *     2026-09-01. io.xml now carries the definition, exactly as E4.6a
+ *     predicted it would. 13 ">>> TO FLIP <<<" left.
+ * E4.6b also corrected ONE precondition of loadScenarioWithTwoAmputatedActions()
+ * without touching any case: it asserted that the id of an amputated IO was
+ * absent from io.xml as a SUBSTRING, which io.xml can now produce legitimately
+ * because the definition keeps the id of an action whose IO disappeared (D4).
+ * It measures the element instead, and asserts the surviving id positively.
  *
  * The five defects E4.6.md asks E4.6a to pin, and where they live here:
  *
@@ -568,8 +578,20 @@ protected:
         const std::string rulesXml = rulesXmlOnDisk();
         EXPECT_TRUE(removeIoFromXml(ioXml, IO_GHOST_STEP));
         EXPECT_TRUE(removeIoFromXml(ioXml, IO_GHOST_END));
-        EXPECT_EQ(std::string::npos, ioXml.find(IO_GHOST_STEP));
-        EXPECT_EQ(std::string::npos, ioXml.find(IO_GHOST_END));
+        /* E4.6b: "the IO ELEMENT is gone", not "the string is gone". io.xml
+         * now carries the definition (D2) and the definition KEEPS the id of
+         * an action whose IO disappeared (D4) - which is the whole point, and
+         * which the two EXPECT_NE below now assert positively. Before E4.6b
+         * these two lines read `ioXml.find(IO_GHOST_*) == npos`; they measured
+         * the element through a substring that nothing else could produce, and
+         * something else can now.
+         */
+        EXPECT_EQ(std::string::npos, ioXml.find(std::string("id=\"") + IO_GHOST_STEP + "\""));
+        EXPECT_EQ(std::string::npos, ioXml.find(std::string("id=\"") + IO_GHOST_END + "\""));
+        EXPECT_NE(std::string::npos, ioXml.find(IO_GHOST_STEP))
+                << "the definition in io.xml lost the id of the dead action (D4)";
+        EXPECT_NE(std::string::npos, ioXml.find(IO_GHOST_END))
+                << "the definition in io.xml lost the id of the dead action (D4)";
         //the rules keep the dead references verbatim: that is the premise
         EXPECT_NE(std::string::npos, rulesXml.find(IO_GHOST_STEP));
         EXPECT_NE(std::string::npos, rulesXml.find(IO_GHOST_END));
@@ -1820,20 +1842,25 @@ TEST_F(AutoScenarioMigrationTest, TheBackupLeftByConfigPutIsUsableToGetTheLostSc
 
 TEST_F(AutoScenarioMigrationTest, TodayIoXmlCarriesOnlyTheMarkerAndTheDerivedInternalIos)
 {
-    /* >>> TO FLIP (E4.6b, D2) <<<   RECLASSIFIED AFTER REVIEW.
+    /* ✅ FLIPPED BY E4.6b (D2), 2026-09-01 - and the flip IS the proof.
      *
-     * This case was first filed among the "prove, never flip" ones. That was
-     * wrong, and the review was right: E4.6b moves the whole definition INTO
-     * io.xml, carried by params of the Scenario IO (D2), so the needles below
-     * - "2.25", "fantome", "bonsoir" - are going to appear there as
-     * `as_s2_pause` / `as_s2_actions`. The case MUST go red then, deliberately,
-     * and the flip is the proof that D2 landed.
+     * E4.6a filed this as ">>> TO FLIP (E4.6b, D2) <<<" and predicted, word for
+     * word, that "the needles below - 2.25, fantome, bonsoir - are going to
+     * appear there as as_s2_pause / as_s2_actions". They do. The assertions
+     * below are the SAME MEASUREMENT with the expected value turned around, as
+     * the header of this file requires: nothing is weakened, the direction is
+     * reversed and the reason is written down.
      *
-     * What it records is the BEFORE: today io.xml holds no step, no pause and
-     * no action, and the whole definition is inferred from rules.xml
-     * (E4.6.md §2.1). What it does hold is the marker, the two flags, and three
-     * internal IOs whose ids are DERIVED from the marker - the squattable
-     * namespace of RC8.
+     * What stays untouched, and it matters more than the flip: the LEGACY
+     * marker `auto_scenario` is still there and still what builds the
+     * AutoScenario. `autoscenario_uid` lives NEXT TO it, in a namespace of its
+     * own. That separation is what keeps the orphan sweep of ListeRoom.cpp:324
+     * from finding an unadopted rule (E4.6.md §5.2), and it is why the three
+     * internal IOs below still carry the old marker too.
+     *
+     * The name is kept on purpose: this case is cited by name in E4.6.md §8.3
+     * and in the E4.6b brief, and renaming it would break the link between the
+     * table and the file.
      */
     loadHealthyScenarioFromDisk();
 
@@ -1860,11 +1887,28 @@ TEST_F(AutoScenarioMigrationTest, TodayIoXmlCarriesOnlyTheMarkerAndTheDerivedInt
     EXPECT_TRUE(io(std::string(SCENARIO_MARKER) + "_schedule") == nullptr);
     EXPECT_TRUE(io(std::string(SCENARIO_MARKER) + "_is_schedule_enabled") == nullptr);
 
-    //and NOTHING of the definition is in io.xml: no action value, no pause
-    for (const char *needle: { "fantome", "bonsoir", "2.25", "auto_scenario_step" })
-        EXPECT_EQ(std::string::npos, xml.find(needle))
-                << "io.xml already carries " << needle << ", the model moved";
-    //while rules.xml carries all of it
+    /* THE FLIP. io.xml now carries the DEFINITION: the pauses and the action
+     * values are in it, under `as_<step>_pause` / `as_<step>_actions` (D2).
+     */
+    for (const char *needle: { "fantome", "bonsoir", "2.25",
+                               "autoscenario_uid", "autoscenario_steps" })
+        EXPECT_NE(std::string::npos, xml.find(needle))
+                << "io.xml does not carry " << needle << ": D2 did not land";
+
+    //and the uid is the NEW marker, next to - never instead of - the old one
+    EXPECT_TRUE(sc->param_exists("autoscenario_uid"));
+    EXPECT_EQ(SCENARIO_MARKER, sc->get_param("auto_scenario"))
+            << "the legacy marker was re-keyed: the orphan sweep is now armed";
+
+    /* `auto_scenario_step` is the PROJECTION's numbering (E4.6.md §2.4(b)) and
+     * it stays in rules.xml only: the definition addresses its steps by opaque
+     * id (D3), never by position.
+     */
+    EXPECT_EQ(std::string::npos, xml.find("auto_scenario_step"))
+            << "io.xml carries the positional step numbering, which D3 removes";
+
+    //rules.xml still carries all of it too - E4.6b does not touch the
+    //generator, so the rules are still the thing that runs (that is E4.6c)
     const std::string rules = rulesXmlOnDisk();
     EXPECT_NE(std::string::npos, rules.find("fantome"));
     EXPECT_NE(std::string::npos, rules.find("auto_scenario_step"));

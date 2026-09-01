@@ -325,6 +325,8 @@ calaos_server_SOURCES = \
         Rules/RulesFactory.h                            \
         Scenario/AutoScenario.cpp                       \
         Scenario/AutoScenario.h                         \
+        Scenario/AutoScenarioDef.cpp                    \
+        Scenario/AutoScenarioDef.h                      \
         UDPServer.cpp                                   \
         UDPServer.h                                     \
         WebSocket.cpp                                   \

@@ -20,8 +20,13 @@
  ******************************************************************************/
 #include "Scenario.h"
 #include "AutoScenario.h"
+#include "AutoScenarioDef.h"
+#include "ActionStd.h"
+#include "Rule.h"
 #include "Timer.h"
 #include "IOFactory.h"
+
+#include <set>
 
 using namespace Calaos;
 
@@ -30,7 +35,8 @@ REGISTER_IO(Scenario)
 Scenario::Scenario(Params &p):
     IOBase(p, IOBase::IO_INOUT),
     value(false),
-    auto_scenario(NULL)
+    auto_scenario(NULL),
+    auto_scenario_def(new AutoScenarioDef())
 {
     ioDoc->friendlyNameSet("Scenario");
     ioDoc->descriptionSet(_("A scenario variable. Use this like a virtual button to start a scenario (list of actions)"));
@@ -45,11 +51,27 @@ Scenario::Scenario(Params &p):
 
     set_param("gui_type", "scenario");
 
+    /* THE MARKER, AND IT IS STILL `auto_scenario` - E4.6b DOES NOT RE-KEY IT.
+     *
+     * E4.6.md §5.2, the one thing in the whole epic that can destroy user
+     * data: ListeRoom::checkAutoScenario() (ListeRoom.cpp:320-330) destroys
+     * every rule that carries the `auto_scenario` param and that no
+     * AutoScenario has adopted, then SaveConfigRule() persists it. Re-key this
+     * test and no AutoScenario is built for an existing scenario, nothing
+     * adopts its rules, and the sweep destroys them all - 18 of them on
+     * configs/raoulh - at the first startup, in silence.
+     * The sweep is E4.6c's to remove; until then the marker stays where it is,
+     * and `autoscenario_uid` lives NEXT TO it.
+     */
     if (get_param("auto_scenario") != "")
     {
         auto_scenario = new AutoScenario(this);
         setAutoScenario(true);
     }
+
+    //E4.6b. The definition, when this IO carries one. Answers false and
+    //changes nothing when it does not.
+    auto_scenario_def->loadFromParams(get_params());
 
     if (!get_params().Exists("visible")) set_param("visible", "true");
     if (!get_params().Exists("log_history")) set_param("log_history", "true");
@@ -58,6 +80,121 @@ Scenario::Scenario(Params &p):
 Scenario::~Scenario()
 {
     DELETE_NULL(auto_scenario);
+    DELETE_NULL(auto_scenario_def);
+}
+
+namespace
+{
+
+/* The ids of the IOs that drive the scenario itself. Same skip list as
+ * AutoScenario::isScenarioInternalIO() (AutoScenario.cpp:919-928), by ID
+ * rather than by pointer so that a machinery IO which failed to build - the
+ * factory miss T2.18 guards - cannot be mistaken for a user action.
+ * The derived ids are added too: they are what AutoScenario::createInput()
+ * builds them from (`<sid>_step` & co., AutoScenario.cpp:574-599).
+ */
+std::set<std::string> scenarioMachineryIds(AutoScenario *as, IOBase *scenarioIo)
+{
+    std::set<std::string> ids;
+
+    if (scenarioIo) ids.insert(scenarioIo->get_param("id"));
+    if (!as) return ids;
+
+    IOBase *machinery[] = { as->getIOIsActive(), as->getIOStep(), as->getIOTimer(),
+                            as->getIOScheduleEnabled(), as->getIOScenario() };
+    for (IOBase *io: machinery)
+        if (io) ids.insert(io->get_param("id"));
+
+    const std::string sid = as->getScenarioId();
+    if (!sid.empty())
+        for (const char *suffix: { "_is_active", "_step", "_timer", "_schedule",
+                                   "_is_schedule_enabled" })
+            ids.insert(sid + suffix);
+
+    return ids;
+}
+
+/* The user actions of one generated rule, BY ID.
+ *
+ * get_output_id() and not get_output(): the id of an action whose IO has
+ * disappeared is still there (E4.6.md §2.5) and it is exactly what D4 says to
+ * keep. Reading it through get_output() would resolve to nullptr, which
+ * isScenarioInternalIO() reports as "machinery", which is how RC3 escamotes
+ * the action today.
+ */
+void collectRuleActions(Rule *rule, const std::set<std::string> &machinery,
+                        vector<AutoScenarioDefAction> &out)
+{
+    if (!rule) return;
+
+    for (int i = 0;i < rule->get_size_actions();i++)
+    {
+        ActionStd *act = dynamic_cast<ActionStd *>(rule->get_action(i));
+        if (!act) continue;
+        if (act->get_size() != 1) continue;
+
+        const std::string id = act->get_output_id(0);
+        if (id.empty()) continue;
+        if (machinery.find(id) != machinery.end()) continue;
+
+        AutoScenarioDefAction a;
+        a.ioId = id;
+        a.value = act->get_params().get_param(id);
+        out.push_back(a);
+    }
+}
+
+}
+
+void Scenario::captureDefinitionFromRules()
+{
+    if (!auto_scenario) return;
+
+    AutoScenarioDef &def = *auto_scenario_def;
+
+    //Allocated once and then reused for ever: a uid is never recycled (D3).
+    if (def.uid.empty()) def.uid = AutoScenarioDef::newUid();
+
+    def.cycle = auto_scenario->isCycling();
+    //`enabled` is the old `disabled`, inverted ONCE, here (D6).
+    def.enabled = !auto_scenario->isDisabled();
+    def.scheduleIoId = (auto_scenario->isScheduled() && auto_scenario->getIOTimeRange())?
+                           auto_scenario->getIOTimeRange()->get_param("id"):
+                           std::string();
+
+    const std::set<std::string> machinery = scenarioMachineryIds(auto_scenario, this);
+
+    const vector<Rule *> stepRules = auto_scenario->getRuleSteps();
+    vector<AutoScenarioDefStep> captured;
+    captured.reserve(stepRules.size());
+
+    for (size_t i = 0;i < stepRules.size();i++)
+    {
+        AutoScenarioDefStep step;
+        //REUSE the id already held at this position, so two consecutive saves
+        //of an unchanged scenario write the same bytes. E4.6c makes the
+        //identity real (the definition becomes the source); here it is as
+        //stable as a positional model can be.
+        step.stepId = (i < def.steps.size() && !def.steps[i].stepId.empty())?
+                          def.steps[i].stepId: AutoScenarioDef::newStepId();
+        step.pause = auto_scenario->getStepPause((int)i);
+        collectRuleActions(stepRules[i], machinery, step.actions);
+
+        captured.push_back(step);
+    }
+
+    def.steps.swap(captured);
+
+    def.finalStep = AutoScenarioDefStep();
+    collectRuleActions(auto_scenario->getRuleStepEnd(), machinery, def.finalStep.actions);
+}
+
+bool Scenario::SaveToXml(pugi::xml_node node)
+{
+    captureDefinitionFromRules();
+    auto_scenario_def->saveToParams(get_params());
+
+    return IOBase::SaveToXml(node);
 }
 
 bool Scenario::set_value(bool val)

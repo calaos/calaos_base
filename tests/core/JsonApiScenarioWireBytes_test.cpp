@@ -290,7 +290,10 @@ protected:
         std::string ioXml = ioXmlOnDisk();
         const std::string rulesXml = rulesXmlOnDisk();
         ASSERT_TRUE(removeIoFromXml(ioXml, IO_TARGET));
-        ASSERT_EQ(std::string::npos, ioXml.find(IO_TARGET));
+        //E4.6b: "the IO ELEMENT is gone", not "the string is gone". io.xml
+        //carries the scenario definition since E4.6b (E4.6.md D2) and that
+        //definition KEEPS the id of an action whose IO disappeared (D4).
+        ASSERT_EQ(std::string::npos, ioXml.find(std::string("id=\"") + IO_TARGET + "\""));
 
         clearCoreState();
         loadConfig(ioXml, rulesXml);
