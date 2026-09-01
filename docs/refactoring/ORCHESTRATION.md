@@ -8,6 +8,88 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅ [`E4.1o`](E4.1o.md) MERGÉE — 3 commits de la branche + 1 commit de doc, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`105a7542`**.
+  ⭐ **CE MERGE FERME LE POINT OÙ LE `std::terminate` D'E4.0 (`?param=%ff%80x`) DEVENAIT
+  ATTEIGNABLE — ET IL NE SE PRODUIT PAS.** Les **cinq** constructeurs `buildJson{Get,Set,Del}Param`,
+  `buildJsonGetTimerange`, `buildJsonSetTimerange` rendent un **`Json` par valeur** ; les **10 sites
+  d'appel** suivent (les deux handlers passent la racine/le membre `data` déjà parsés par E4.1m —
+  **parse HISSÉ, pas ajouté**, zéro analyse supplémentaire). `jansson_from_params` dans `JsonApi.cpp`
+  **67 → 60**, jetons jansson `src/` **677 → 640**.
+
+  ⛔⭐ **LA MINE D'`E4.1m` EST DÉSAMORCÉE DANS LE MÊME COMMIT QUE LA SIGNATURE.**
+  `LuaScript/ScriptExec.cpp:131` lisait `if (!jsonApi->buildJsonSetParam(p))` : avec
+  `JSON_USE_IMPLICIT_CONVERSIONS` à **1**, cette expression **compile sans un avertissement** sur un
+  `Json` et lève `type_error.302` à l'exécution — dans le callback de lecture d'un `ExternProc`, sur
+  la boucle uvw, **sans aucun `try`/`catch` au-dessus** ⇒ `std::terminate` sur le chemin **nominal**
+  de tout script Lua appelant `set_param`. La ligne lit désormais le **document**
+  (`answer.contains("error")`), ce qui **répare** au passage une garde qui était **déjà inerte**, et
+  un tripwire `EXPECT_THROW((void)!json, Json::type_error)` sur les **trois** formes de retour
+  (objet plein, objet vide, `null`) épingle le piège pour que personne ne le réintroduise.
+
+  **Revue : `approve`.** ⭐ **DEUX GOLDENS MODIFIÉS — DÉCLARÉS, ARGUMENTÉS, ET VÉRIFIÉS.**
+  `e40e_http_get_param_invalid_utf8_{name,value}.json` passent de `{}` à la paire **présente** avec
+  **un U+FFFD par octet invalide** : c'est un delta de **STRUCTURE** (une clé absente devient
+  présente), **pas une valeur qui bouge** — exactement le delta n° 3 mesuré par E4.1m
+  (« paire SUPPRIMÉE → conservée en U+FFFD »), dont le retournement était **annoncé par écrit** dans
+  `JsonApiSession_test.cpp` par E4.1m. **Les 143 autres goldens sont byte-identiques** — vérifié par
+  **comparaison d'arbre git** (145 blobs des deux côtés, 2 différents, 0 ajouté, 0 retiré), pas sur
+  parole. Le `terminate` est **atteignable et ne se produit pas** : `error_handler_t::replace` d'E4.1b
+  était **déjà en service** sur les deux émetteurs, **rien n'a été ajouté**, et c'est **épinglé** —
+  `GetParamHttpInvalidUtf8{Name,Value}IsDeliveredAndTheConnectionSurvives` traversent le **vrai**
+  chemin HTTP et assertent *une* réponse, `200`, `closes()` vide, octets exacts et `Content-Length`.
+  Le tripwire `Tripwire_TheThreeWireEscapingsAreThreeDifferentBytestreams` est **INTACT**
+  (`tests/ParamsJson_test.cpp`, blob **inchangé** — c'est E4.1s qui le fera basculer, pas E4.1o).
+  Les trois invariants d'émission tiennent **sans nouveau site d'émission** (aucun `dump()` ajouté ni
+  déplacé) ; **aucun `int` ne devient un nombre JSON** (`Params` est un `map<string,string>`,
+  `EveryTimerangeValueIsAJsonStringNeverANumber` l'épingle) ; la clé absente reste **omise**
+  (`Params::Add` n'est simplement pas appelé), `Json::array()`/`Json::object()` et non un `Json` par
+  défaut là où `null` aurait été invisible ; `Utils::to_string(double)` **non « corrigé »**. Les deux
+  contrats de `Jansson_Addition.h` (`jansson_string_get`, `jansson_decode_object`) sont **retranscrits
+  à la main** plutôt qu'approchés par `Params::fromNJson()`, qui lèverait `type_error.302` sur
+  `{"day": 1}` — **cinquième copie manuelle** du même contrat, consignée en `FINDINGS.md`.
+
+  ⚠️ **`master` avait avancé de `e6ffe4d3` à `9c2c4394` (T3.56, `tooling/ccache`, décision Q1) ⇒
+  REBASE.** **Deux conflits, ZÉRO dans `src/`** — conforme au recouvrement mesuré (3 fichiers).
+  - **`tests/Makefile.am`** — recette **« régénération »**, **aucun marqueur édité** :
+    `git show master:tests/Makefile.am` **en entier** + append **verbatim** du bloc `# E4.1o`.
+    **Append pur** : `diff` = **+46 / −0 / ~0**, hunk unique en fin de fichier, `master` **préfixe
+    STRICT** en octets (**193 609 → 196 841**). Équilibre en début de ligne `^if ` **89** ==
+    `^endif` **89** (dont `^if HAVE_GTEST` **88** + un `if HAVE_LIBKNX` — nuance **préexistante**),
+    profondeur finale **0**, minimum **0**. Entrées `TESTS` **104 → 105**, toutes uniques, **une
+    seule ajoutée** (`core/JsonApiParamsWireBytes_test`), **zéro retirée**.
+  - **`FINDINGS.md`** — **les deux côtés gardés** : le bloc `## T3.56` de `master` d'abord, puis les
+    deux blocs `## E4.1o` de la branche. **Append pur** également : `diff` = **+64 / −0 / ~0**,
+    `master` préfixe strict (585 169 → 589 679 octets), **0 marqueur**.
+  - **`BOARD.md`** — fusion **automatique**, vérifiée à la main : **180 lignes de tableau des deux
+    côtés**, **le seul écart avec `master` est la ligne `E4.1o`**, qui porte bien **7 `|`**
+    (le défaut récurrent des lignes à 3 colonnes ne s'est **pas** reproduit) ; la ligne `E4.1r` de
+    `master` (Q1 tranchée) **survit intacte**, elle n'a **pas** été ramenée à « candidat à
+    l'annulation ». Les 4 lignes hors norme du fichier sont **préexistantes** (tableau de synthèse à
+    5 colonnes en tête, `|` littéral dans T3.35/T3.37).
+
+  ⭐ **BUILD D'INTÉGRATION POST-REBASE, `make distclean` d'abord** (piège `_DEPENDENCIES` en variante
+  faux-rouge), une seule invocation synchrone : **`# TOTAL: 105` / `# PASS: 103` / `# SKIP: 2` /
+  `# FAIL: 0` / `# XFAIL: 0` / `# XPASS: 0` / `# ERROR: 0`** — **= le recompte indépendant** des
+  entrées `TESTS` (**105 uniques**). Les **deux** `SKIP` sont attendus : `run-python-tests.sh` et la
+  **sonde ccache** (`exit 77`, l'image de dev n'embarque pas `ccache`).
+  `core/JsonApiParamsWireBytes_test` **PASS** (27 cas).
+
+  ⚠️ **Points légués, consignés en `FINDINGS.md`** : `"months"` passe **avant** `"ranges"` sur le
+  wire de `get_timerange` (nlohmann trie ; les 9 goldens E4.0c comparent des documents parsés et ne
+  le voient pas) ; la moitié jansson de `JsonApiEmissionBytes_test` a dû être **retargetée une
+  deuxième fois** (`get_param` → `config type=get`) parce que ce ticket vide encore ce côté ;
+  **`T3.21` reste entièrement ouvert** (`del_param` court-circuite `IOBase::del_param()`, ligne
+  **identique**, seul le type de la réponse a bougé).
+
+  ⛔ **Non poussé.** Nettoyage fait : worktree `.wave73/e4.1o` supprimé (via conteneur, artefacts
+  root), `git worktree prune`, branche `refactor/e4.1o` supprimée.
+
+  ➡️ **PROCHAINE ACTION : [`E4.1p`](E4.1p.md)** — `JsonApi` **lecteur audio** (`decodeGetPlaylist`,
+  `getNextPlaylistItem` récursive+async, `audioGet*`, `processDbResult`). ⛔ **`Utils::to_string(double)`
+  ne se corrige pas** (`1234.56789` → `"1234.57"`, épinglé).
+  ✅ **Q1 EST TRANCHÉE (2026-09-01) — NE PAS LA ROUVRIR** : [`E4.1r`](E4.1r.md) (autoscénarios,
+  9 fonctions) est **MAINTENU**, migration **MÉCANIQUE**. Voir [`DECISIONS.md`](DECISIONS.md).
+
 - **✅ [`T3.51`](T3.51.md) MERGÉE (branche `tooling/ccache`) — 3 commits + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`b3f609be`**.
   ⭐ **CE MERGE APPORTE UN CACHE DE COMPILATION PARTAGÉ, *INACTIF PAR DÉFAUT*, ET SURTOUT LA SONDE
   QUI LE SURVEILLE EN PERMANENCE.** Le cache ne s'allume que si un répertoire de *shims* est en tête
