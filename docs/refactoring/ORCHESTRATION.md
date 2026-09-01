@@ -8,6 +8,77 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅ [`E4.1n`](E4.1n.md) MERGÉE — 4 commits de la branche + 1 commit de doc, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de la branche après rebase **`340a7f43`**.
+  ⭐ **CE MERGE FERME L'ÉTAT DE `JsonApi` — ET, SURTOUT, LE PONT jansson↔nlohmann DE
+  `RemoteUIWebSocketHandler`.** `buildJsonState/States/Query` rendent un **`Json` par valeur** (plus
+  aucune référence à rendre sur aucun chemin, chemin d'abandon d'une chaîne async compris) ; les deux
+  constructeurs de réponse de `set_state` passent à `Json`. **Aucun adaptateur transitoire** : la
+  surcharge nlohmann de `sendJson()` existait déjà des deux transports. Les **6 lignes** de
+  `json_dumps` + `Json::parse` de `RemoteUIWebSocketHandler.cpp` — une sérialisation ET une reanalyse
+  complètes dont le seul rôle était de franchir la frontière entre les deux bibliothèques, à **chaque
+  connexion d'appareil** — deviennent **un paramètre**. Ce `Json::parse` était aussi le **seul du
+  fichier sans `try` au-dessus**, sur un callback de boucle : mine **latente** supprimée avant que
+  l'épique ne l'arme. Appels jansson dans `src/` **734 → 677**.
+
+  **Revue : `approve`.** Les trois invariants d'émission de la série E4.1 sont tenus **sans nouveau
+  site d'émission** : les deux `sendJson(const Json &)` (`JsonApiHandlerHttp.cpp:273`,
+  `JsonApiHandlerWS.cpp:105`) portent déjà `dump(-1, ' ', true, Json::error_handler_t::replace)`, et
+  le ticket n'ajoute **aucun `dump()`** — RemoteUI hérite de la surcharge WS. **Aucun `int` ne devient
+  un nombre JSON** : `TBOOL`/`TINT`/`TSTRING` et les cinq champs du joueur passent tous par
+  `Utils::to_string()` ou une `std::string`, donc **tout sort en chaîne** (et `std::string` au lieu de
+  `c_str()` ferme au passage la troncature silencieuse sur NUL embarqué). **La clé absente reste
+  absente** : le joueur mort n'est pas écrit `null`, il est **omis** — épinglé par
+  `PlayerDeletedMidFlightStillAnswers`. `Json::object()` et non `Json jret;` partout où l'objet vide
+  est le contrat (`null` aurait été invisible pour les 145 goldens, qui comparent des documents
+  parsés). Une couture de test assumée : un bloc de `RemoteUIWebSocketHandler.h` passe `private` →
+  `protected`, zéro comportement, livrée dans un commit séparé.
+
+  ⚠️ **`master` avait avancé de `75ed9cb9` à `15ecd096` (T3.49 puis T3.53, 11 commits) ⇒ REBASE.**
+  **Deux conflits, tous deux des appends des deux côtés, et ZÉRO conflit dans `src/`** — conforme au
+  recouvrement mesuré avant le merge (3 fichiers seulement : `BOARD.md`, `FINDINGS.md`,
+  `tests/Makefile.am`).
+  - **`tests/Makefile.am`** — recette **« régénération »** appliquée, **aucun marqueur édité** :
+    `git show master:tests/Makefile.am` **en entier** + append **verbatim** du bloc `# E4.1n`.
+    Prouvé **append pur** : `diff` = **+54 / −0 / ~0**, et `master` est un **préfixe STRICT** en
+    octets (188 132 octets, queue de 3 769). Équilibre des marqueurs **en début de ligne** :
+    `^if ` **88** == `^endif` **88** (dont `^if HAVE_GTEST` 87 + `if HAVE_LIBKNX` 1 — le fichier n'a
+    **jamais** été à 88/87, master était déjà à 87/87), profondeur finale **0**, **minimum 0, jamais
+    négative**. Entrées `TESTS` **102 → 103**, **toutes uniques**, **une seule ajoutée**
+    (`core/JsonApiStateWireBytes_test`), **zéro retirée**.
+  - **`FINDINGS.md`** — **les deux côtés gardés** : le bloc de `master` (T3.49/T3.55) d'abord, puis
+    `## E4.1n —` appendu sous son propre titre `##`. Résultat = **`master` en préfixe strict** + une
+    queue de **15 351 octets** ; **0 marqueur de conflit en début de ligne**.
+  - **`BOARD.md`** — fusion automatique **vérifiée à la main** : les lignes **T3.55 et T3.56** de
+    `master` survivent, la ligne `E4.1n` passe bien à ✅, et **le seul écart avec `master` est cette
+    ligne**. Table à **6 colonnes / 7 `|`** sur les trois lignes concernées (les 5 lignes du fichier
+    hors norme sont **préexistantes** : le tableau de synthèse à 5 colonnes en tête, et deux cellules
+    de T3.35/T3.37 contenant un `|` littéral).
+
+  ⭐ **BUILD D'INTÉGRATION POST-REBASE, `make distclean` OBLIGATOIRE d'abord** (piège `_DEPENDENCIES`
+  en variante faux-rouge), puis `autogen.sh` + `configure` + `make -j32` + `make check -j16`, **une
+  seule invocation synchrone** : **`rc=0`**, **0 `error:`**, et
+  **`# TOTAL: 103` / `# PASS: 102` / `# SKIP: 1` / `# FAIL: 0` / `# XFAIL: 0` / `# XPASS: 0` /
+  `# ERROR: 0`** — **= le recompte indépendant** des entrées `TESTS` (**103 uniques**). Le `SKIP` est
+  `run-python-tests.sh`, **normal**. `core/JsonApiStateWireBytes_test` **PASS**, ainsi que
+  `core/JsonApiAudioState_test` dont 3 assertions de refcount jansson ont dû être **remplacées** —
+  l'acceptation « sans modifier d'assertion » de la fiche était **impossible** (il n'y a plus de
+  compteur), et **la fiche le dit elle-même**, ce qui est le bon comportement.
+
+  ⚠️ **Point légué à `E4.1s`, déjà consigné par l'auteur** : `processGetState()` garde
+  `sendJson("get_state", nullptr, …)` sur la **surcharge jansson**, qui **omet** la clé `data` là où
+  nlohmann écrirait `"data":null` — golden `e40e_ws_get_state_without_data` ⇒ **`get_state` a deux
+  formes d'enveloppe** sur le websocket. C'est cohérent avec « zéro golden bougé » ; le jour où l'on
+  unifie, **ce golden bouge et il faudra le déclarer**.
+
+  ⛔ **Non poussé.** Nettoyage fait : worktrees `.wave70/e4.1n` et `.review70/e4.1n` supprimés
+  (via conteneur, artefacts root), `git worktree prune`, branche `refactor/e4.1n` supprimée.
+
+  ➡️ **PROCHAINE ACTION : [`E4.1o`](E4.1o.md)** — `JsonApi` **params + plages horaires**, c'est là
+  que le `std::terminate` d'E4.0 (`?param=%ff%80x`) devient atteignable.
+  ⚠️ **Et une décision utilisateur est en attente, NON TRANCHÉE ICI** : [`E4.1r`](E4.1r.md)
+  (autoscénarios, 9 fonctions) est signalée **candidate à l'annulation** au profit d'**E4.6d**, qui
+  les réécrit entièrement. **À arbitrer avant d'y arriver** ; l'agent de merge ne tranche pas.
+
 - **✅ [`T3.53`](T3.53.md) MERGÉE — 4 commits de la branche + 1 commit de doc, `--ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`0d445230`**.
   ⭐ **CE MERGE FERME LA PAIRE LA PLUS EXPOSÉE DU SOUS-SYSTÈME WAGO : celle dont les deux types
   sont le MÊME type.** `WagoMap.h:81-82` portaient `sigc::slot/signal<void, bool, string, string>` ;
