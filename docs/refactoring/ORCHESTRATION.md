@@ -8,6 +8,121 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅ [`E4.1r`](E4.1r.md) MERGÉE — 3 commits de la branche + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`ef02bbd0`**.
+  ⭐ **`master` ÉTAIT IMMOBILE sur `6eeefb9f`** = exactement la merge-base ⇒ **ni rebase ni conflit**,
+  le `merge --ff-only` est passé tel quel.
+
+  **Revue : `approve`.** Ce ticket migre les **neuf** constructeurs d'autoscénarios
+  (`buildAutoscenarioList/Get/Create/Delete/Modify/AddSchedule/DelSchedule/Reenable`) plus
+  `processAutoscenario()` sur les **deux** transports. **Q1 étant tranchée « migration
+  STRICTEMENT MÉCANIQUE » (2026-09-01), la revue a cherché l'excès de zèle autant que le défaut :
+  le diff est une bascule de types, et rien d'autre.** Toutes les faiblesses déclarées « vues et
+  délibérément pas corrigées » sont **encore là, vérifiées au source** : les deux refus de `create`
+  répondent les mêmes octets · `modify` appelle `deleteRules()` **avant** de valider et ne sauve pas
+  sur son chemin d'erreur · `index_act = idx` fait toujours de l'indice du tableau JSON un numéro
+  d'étape · l'action sur IO inconnu est toujours perdue en silence (`if (out)` sans `else`) · les
+  includes jansson morts (`JsonApi.h`, `ScenarioNullGuard_test.cpp`) sont **laissés en place**.
+  ⭐ **Zéro ligne d'`#include` modifiée dans tout le diff `src/`.**
+
+  ⭐ **L'ADAPTATEUR A BIEN DEUX APPELANTS, ET DEUX EST LE PLANCHER — L'ARGUMENT EST JUSTE, VÉRIFIÉ
+  AU SOURCE.** La fiche réclamait « exactement 1 » parce qu'elle avait oublié
+  `buildAutoscenarioList()`. **Sur `master`, `Scenario::toJson()` a déjà DEUX sites d'appel dans
+  `JsonApi.cpp`** — `:2163` (`json_array_append_new(jarr, it->toJson())`) et `:2180`
+  (`return sc->toJson()`) — tous deux dans le périmètre d'E4.1r, et aucun ne s'exprime par l'autre
+  sans changer le comportement. ⇒ **Ce n'est PAS la récidive des 16 appelants d'E4.1p** (où un seul
+  suffisait) : c'est un plancher structurel imposé par l'exclusion d'`IO/Scenario.cpp` (Q5).
+  Protocole d'E4.1l tenu : nom greppable, **commentaire nommant E4.6d** comme le ticket qui le
+  retire (`JsonApi.cpp:53`, redit dans `JsonApi.h:185`), **1 définition + 2 appelants** dans les
+  sources suivies. Le pont **prend possession de son argument** (`json_decref`), ce qui rend
+  exactement la sémantique de `json_array_append_new` et du `sendJson(json_t *)` qu'il remplace —
+  ni fuite ni double libération.
+
+  ⭐ **AUCUN PONT DANS LE SENS DE LA MIGRATION.** Le document d'entrée est **hissé, pas ajouté** :
+  `processAutoscenario()` lit le parse nlohmann que `processApi()` faisait déjà (`jsonRootDoc` en
+  HTTP, `jsonDataDoc` — `Json::object()` quand `data` est absent — en WS). Le `json_dumps` +
+  `Json::parse` n'existe **que** dans le pont, du côté jansson→nlohmann.
+
+  ⛔ **LES 145 GOLDENS SONT INTACTS — PROUVÉ PAR COMPARAISON D'ARBRE GIT, PAS SUR PAROLE.**
+  `git ls-tree -r` sur `tests/` des deux côtés : **146 blobs** de chaque côté (145 goldens +
+  `tests/websockets/fuzzingclient.json`), **0 différent, 0 ajouté, 0 retiré**. Les **9** goldens
+  `e40c_*` sont dans ce lot et **aucun n'a bougé** — E4.6d en régénérera six **plus tard**, et rien
+  n'a été anticipé ici. Tripwire `Tripwire_TheThreeWireEscapingsAreThreeDifferentBytestreams`
+  **INTACT** (`tests/ParamsJson_test.cpp`, blob **`f7872fce`** des deux côtés — c'est E4.1s qui le
+  bascule). ⛔ **`IO/Scenario.cpp` NON MODIFIÉ** (décision Q5) : blob **`57978196`** identique des
+  deux côtés.
+
+  ⭐ **LES 4 SITES `perr`, UN PAR UN — ET LES DEUX REFUS DE `create` IDENTIQUES SONT BIEN
+  PRÉEXISTANTS.** Comparés à `master` ligne à ligne : `master:2216` et `master:2228` portent **déjà**
+  tous deux `{{ "error", "scenario creation failed" }}` ⇒ l'indistinguabilité factory-null / rules
+  est un **défaut de `master`**, pas un aplatissement introduit par la bascule. `modify`
+  (« scenario modification failed ») et `reenable` (`err` dynamique) **restent distincts**. Les
+  quatre sites ne changent que leur émetteur : `jansson_from_params(perr)` → `perr.toNJson()`.
+
+  ⭐ **LA TRANSCRIPTION DE `json_array_foreach()` EST FIDÈLE, Y COMPRIS SUR SON PIÈGE.** Le compteur
+  `idx` est désormais manuel (`size_t idx = 0` … `idx++` en fin de corps). **Vérifié : aucun
+  `continue` ni `break` dans les deux boucles** de `Create` et de `Modify` ⇒ `idx` suit exactement
+  l'indice du tableau, comme la macro. Et le `json_array_size(NULL) == 0` — un `steps` absent ou
+  non-tableau est un **NO-OP, pas une erreur** — est reconduit par un `find()` + `is_array()`
+  explicite, commenté « frozen, not tidied ».
+
+  **M1 — L'INJECTION EST UNE CONTRE-MUTATION HONNÊTE.** L'échange de deux étapes est injecté dans
+  `buildAutoscenarioGet` et non dans la source de l'ordre, parce que l'ordre des étapes est produit
+  par `Scenario::toJson()`, dans le fichier **exclu**. C'est le seul point du périmètre où la
+  propriété est observable : muter hors périmètre aurait mesuré un fichier que le ticket ne migre
+  pas. **22 cas rouges dans 3 binaires**, goldens `WsAutoscenarioGet`/`HttpAutoscenarioGet` compris,
+  **6 échanges + témoin vert à 0**, ensembles deux à deux distincts (22 · 16 · 1 · 4 · 3 · 35).
+
+  **Contrats vérifiés** : commit de caractérisation à **zéro ligne de `src/`** (`git diff-tree` :
+  `tests/Makefile.am` + `tests/core/JsonApiScenarioWireBytes_test.cpp`, rien d'autre). **Aucun `int`
+  ne devient un nombre JSON** — tout part en chaîne (Q2 d'E4.6). **Clé absente omise, jamais
+  `null`** ; `Json::array()` explicite pour que `list` sans scénario émette `"scenarios":[]`.
+  **Trois invariants d'émission** tenus sans nouveau site de `dump()`. `tests/Makefile.am` est un
+  **append pur** (`master` préfixe **STRICT** en octets, 203 351 → 206 654 ; `^if HAVE_GTEST`
+  **90 → 91**, `^endif` **91 → 92**, écart constant dû à l'`if HAVE_LIBKNX`). Les deux fichiers de
+  test suivis par obligation de compilation (`ScenarioNullGuard`, `ScenarioDisabledMissingIo`) sont
+  une bascule de types **assertion pour assertion**, aucune affaiblie.
+
+  ⭐ **BUILD D'INTÉGRATION, `make distclean` d'abord**, une seule invocation synchrone :
+  **`# TOTAL: 108` / `# PASS: 106` / `# SKIP: 2` / `# FAIL: 0` / `# XFAIL: 0` / `# XPASS: 0` /
+  `# ERROR: 0`**. Les **deux** `SKIP` sont les attendus (`run-python-tests.sh`,
+  `check-ccache-honesty.sh`). `core/JsonApiScenarioWireBytes_test` : **PASS**. Entrées `TESTS`
+  listées **108 → 109**, une seule ajoutée — dont **une** guardée par `if HAVE_LIBKNX`
+  (`KNXExternProcWire_test`, non construite), ce qui donne le **107 → 108** exécuté.
+
+  ⭐ **JETONS JANSSON `src/` : 378 → 283** (**−95**), mesuré avec la convention écrite plus bas, aux
+  deux têtes de merge. `JsonApi.cpp` 79 → **6** (les six étant le pont), `JsonApi.h` 16 → **0**.
+  **Valeur unique après ce merge : 283.**
+
+  ⭐⭐ **DEUX LEGS À NE PAS PERDRE — PORTÉS DANS [`E4.1s.md`](E4.1s.md).**
+  (1) **Deux des cinq deltas de la série n'ont PAS lieu ici** : l'UTF-8 invalide reste **droppé avec
+  sa clé** et le NUL embarqué reste **tronquant**, parce que les deux sont détruits **à l'intérieur
+  de `Scenario::toJson()`**, le fichier **exclu** — ⇒ ils reviendront chez **E4.6d**, pas chez
+  E4.1s. Restent trois deltas ici : ordre des clés, casse de l'hexadécimal, `DEL` échappé.
+  (2) ⛔⭐ **LA MINE DU NUL, POUR E4.1s.** Le NUL embarqué est **aujourd'hui INATTEIGNABLE de bout en
+  bout** : la requête est encore parsée par **jansson, qui REFUSE un NUL**. **E4.1s bascule ce parse
+  vers nlohmann, qui l'ACCEPTE** ⇒ **E4.1s ouvre un chemin qui n'existait pas**, et le comportement
+  tronquant de `Scenario::toJson()` devient atteignable pour la première fois. **Ce n'est pas une
+  régression d'E4.1r, c'est une charge amorcée que le prochain ticket doit désamorcer.**
+
+  ⚠️ **Finding le plus lourd du ticket, consigné dans `FINDINGS.md`** : **un `deleteIO()` sur un IO
+  interne d'un scénario VIVANT segfaute** — détruire `scenario_0_is_active` pendant que le scénario
+  existe laisse `AutoScenario::ioIsActive` pendante, et le `modify` suivant la déréférence.
+  **Non atteignable par l'API** (aucune commande ne supprime un IO interne de scénario) ⇒ hors
+  périmètre, **non instruit**, et le cas de test a été réécrit pour passer par le fichier de
+  configuration. Même famille que **T3.40**. ➡️ **Numéro proposé pour l'ouvrir : `T3.57` — durée de
+  vie des IOs internes de scénario.** ⛔ **Non ouvert ici** (proposition, pas décision).
+
+  ⛔ **Non poussé.** Nettoyage fait : worktree `.wave76/e4.1r` supprimé (via conteneur, artefacts
+  root), `git worktree prune`, branche `refactor/e4.1r` supprimée.
+
+  ➡️ **PROCHAINE ACTION : [`E4.1s`](E4.1s.md)** — **le DERNIER de la chaîne API** : reste des deux
+  handlers, **suppression des surcharges `sendJson(json_t *)`** (encore en service, `HandlerHttp.h:66`
+  et `HandlerWS.h:40`), et ⭐ **bascule du wire vers la FORME 3**, qui fait tomber le tripwire.
+  ⛔ **Lire d'abord la mine du NUL ci-dessus** — elle est réécrite en tête d'`E4.1s.md`.
+  ⚠️ Rappels : **`git checkout` ne restaure RIEN dans le conteneur** · **`make distclean` avant de
+  conclure** (piège `_DEPENDENCIES`, variante faux-rouge) · le pont
+  `janssonScenarioPayloadBridge()` **reste** jusqu'à E4.6d, ne pas le retirer en E4.1s.
+
 - **✅ [`E4.1q`](E4.1q.md) MERGÉE — 3 commits de la branche + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`59663335`**.
   ⭐ **`master` ÉTAIT IMMOBILE sur `283d8b80`** = exactement la merge-base ⇒ **ni rebase ni conflit**,
   le `merge --ff-only` est passé tel quel.
@@ -6583,7 +6698,8 @@ chiffres publiés, donc rien à réécrire dans l'historique :
 | `340a7f43` | E4.1n | **677** |
 | `105a7542` | E4.1o | **640** |
 | `42a1ae1a` | E4.1p | **569** |
-| `59663335` | **E4.1q** | **378** |
+| `59663335` | E4.1q | **378** |
+| `ef02bbd0` | **E4.1r** | **283** |
 
 ⛔ **Règle** : tout brief ou toute fiche qui cite un compte jansson cite **cette** convention, et le
 **point de départ d'un ticket est la valeur à la tête de merge du ticket précédent** — jamais un
