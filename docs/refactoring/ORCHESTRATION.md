@@ -8,6 +8,76 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅⭐ [`E4.6b`](E4.6.md) MERGÉE — 3 commits de la branche, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`e44c2c3c`**.
+  ⭐ **`master` ÉTAIT IMMOBILE sur `57e5622c`** = exactement la merge-base ⇒ **ni rebase ni conflit**.
+  ⛔ **Rien poussé.** **Premier sous-ticket de CODE de la refonte AutoScenario.**
+
+  **Ce que ça pose** : `Scenario/AutoScenarioDef.{h,cpp}` — uid opaque non recyclable, étapes à id
+  opaque (D3), actions par **`ioId`** (D4), codec params ⇄ définition (D2) avec percent-encoding
+  `%25`/`%7C`/`%3D`. `Scenario::SaveToXml()` matérialise la définition dans les params ⇒ **`io.xml`
+  cesse d'être vide du modèle**. ⭐⭐ **La définition est ÉCRITE mais PAS ENCORE CONSOMMÉE** : en
+  E4.6b les **règles restent la source de vérité** et la définition est *capturée depuis elles* au
+  save (`captureDefinitionFromRules()`). C'est la couture qu'`E4.6c` coupe.
+
+  ⭐⭐ **RIEN N'ARME LE BALAYAGE ORPHELIN — vérifié au source au merge, trois fois.**
+  (1) `if (get_param("auto_scenario") != "")` (`IO/Scenario.cpp`) est **inchangé** — zéro ligne `-`
+  dans le diff ; (2) `isDefinitionParam("auto_scenario")` est **faux** (les deux namespaces possédés
+  sont `autoscenario_` et `as_<id>_pause|_actions`, `auto_scenario` n'est dans ni l'un ni l'autre)
+  et c'est **épinglé** par `TheLegacyMarkerIsInNeitherOwnedNamespaceAndIsNeverRemoved` ; (3) un IO
+  `type="scenario"` **sans** marqueur ressort **octet pour octet** — `saveToParams()` sort sur
+  `if (uid.empty()) return;`, épinglé par `APlainScenarioIoWithoutTheMarkerGetsNoDefinitionParam`
+  (deux `saveConfig()` ⇒ fichier identique). Contre-mutation **M6** de l'auteur : re-cléer le
+  marqueur rougit **71 cas sur 7 binaires** — chiffre consigné en **`E4.6.md` §8.4** et sur la ligne
+  `E4.6b` de `BOARD.md`, utile à `E4.6c`/`E4.6f`.
+
+  ⭐ **Une seule bascule, déclarée** : `TodayIoXmlCarriesOnlyTheMarkerAndTheDerivedInternalIos`
+  (même mesure, valeur attendue retournée ; `auto_scenario_step` reste asserté **absent** d'`io.xml`).
+  `AnInstallerStyleReloadThatDroppedTheDeadOutputLeavesNoTraceAtAll` **reste vert et c'est correct** :
+  il n'assertit que sur `broken`/`disabled_missing_io`/`missing_ios`/le payload WS, tous dérivés des
+  **règles** — rien ne consomme encore la définition. **Sa bascule revient à `E4.6c`.**
+
+  ⚠️ **Trois fichiers de test hors périmètre modifiés, et c'est légitime** — revu ligne à ligne au
+  merge : `AutoScenarioMigration_test.cpp`, `JsonApiScenario_test.cpp`,
+  `JsonApiScenarioWireBytes_test.cpp` cherchaient l'id d'un IO amputé comme **sous-chaîne** d'`io.xml` ;
+  la définition peut désormais le produire **légitimement** (D4). Chaque changement est un
+  **resserrement du motif** (sous-chaîne → élément `id="…"`), **jamais** un assouplissement : aucun
+  cas retiré, aucun `ASSERT_`→`EXPECT_`, et dans `AutoScenarioMigration_test` deux `EXPECT_NE`
+  **ajoutés** qui assertissent *positivement* la survie de l'id. **Ensembles de noms de cas
+  IDENTIQUES avant/après (19 / 53 / 35)** et **tous verts des deux côtés** ⇒ **zéro cas a changé de
+  verdict**. Leçon générale en `FINDINGS.md`.
+
+  **Mesuré au merge** : `TESTS` **110 → 111** · **`TOTAL 111 / PASS 109 / SKIP 2 / FAIL 0 /
+  XFAIL 0 / XPASS 0 / ERROR 0`** (`make distclean` + `autogen` + `configure` + `make -j32` +
+  `make check -j16`, RC 0 ; les 2 `SKIP` attendus : `run-python-tests.sh`,
+  `check-ccache-honesty.sh`) · `core/AutoScenarioDef_test` **17/17** ·
+  **145 goldens, arbre git IDENTIQUE** (`tests/core/golden` = `7f775830` des deux côtés) ·
+  `src/bin/calaos_server/Makefile.am` **+2 lignes et rien d'autre** (les deux fichiers neufs) ·
+  commit de caractérisation `4b288b9a` : **zéro ligne de `src/`** (`git diff-tree`).
+  ✅ **`IO/Scenario.cpp` : jansson INCHANGÉ, et c'est attendu** — les 57 jetons sont tous dans
+  `Scenario::toJson()`, qui appartient à **`E4.6d`** ; le retirer imposerait de supprimer le pont
+  `janssonScenarioPayloadBridge()` de `JsonApi.cpp`, hors périmètre.
+  ⭐ **La ligne de suivi jansson d'`E4.1` RESTE OUVERTE et vise `E4.6d`** : `E4.1x` (retrait de
+  `src/lib/Jansson_Addition.h`) ne peut partir tant qu'un appelant `json_t *` vit dans
+  `IO/Scenario.{cpp,h}`. E4.6b n'a rien changé de ce côté.
+
+- ⭐⭐ **PROCHAINE ACTION : [`E4.6c`](E4.6.md) — LE GÉNÉRATEUR** (`rebuildRules()` détruit-puis-
+  régénère **depuis** la définition, et la capture d'E4.6b disparaît avec).
+  ⭐⭐ **C'EST `E4.6c` QUI SUPPRIME LE BALAYAGE ORPHELIN** (`ListeRoom.cpp:320-330`) — la seule
+  chose de tout l'épique qui peut détruire de la donnée utilisateur. Tant qu'il est là, **le
+  marqueur `auto_scenario` ne se re-clé pas**.
+  ⭐ **`E4.6c` doit faire basculer 6 cas NOMMÉS d'`E4.6a`** (`E4.6.md` §8.3) :
+  `RekeyingTheMarkerMakesTheOrphanSweepDestroyEveryRuleOfTheScenario`,
+  `TheOrphanSweepDestructionIsPersistedToRulesXmlAtTheFirstStartup`,
+  `AStepRuleWhoseConditionValueDoesNotMatchIsDroppedAndThenDestroyed`,
+  `AHeaderRuleThatFailsTheMatchIsRecreatedAndTheOriginalDestroyed`,
+  `LosingTheMiddleStepRenumbersEveryStepAfterIt`,
+  `AnInstallerStyleReloadThatDroppedTheDeadOutputLeavesNoTraceAtAll`.
+  Les **13 autres** restent verts, et `AnUnmarkedScenarioIoStillRunsItsRulesWhenTheButtonIsPressed`
+  est le garde-fou : il **doit** rester vrai.
+  Suite de l'épique : `c → (d ‖ e) → (f ‖ g ‖ h)`.
+  ⚠️ **`E4.6d` porte TOUJOURS SES DEUX DETTES** écrites au merge d'`E4.1s` — la **troncature du
+  NUL** par `Scenario::toJson()` (§6.1) et l'**UTF-8 invalide droppé avec sa clé**.
+
 - **✅⭐ [`T3.36`](T3.36.md) MERGÉE — 2 commits de la branche + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`82b63233`** (correctif `7fc427f6`).
   ⭐ **`master` ÉTAIT IMMOBILE sur `4498c29a`** = exactement la merge-base ⇒ **ni rebase ni conflit**.
   ⛔ **Rien poussé.**
@@ -73,7 +143,7 @@
   (154 `.o`, muter chacun, exiger que les seules suites relinkées restent vertes) — coûteuse et
   sans rouge attendu.
 
-- ⭐⭐ **PROCHAINE ACTION : [`E4.6b`](E4.6.md) — le modèle `AutoScenarioDef` + le codec params**,
+- ✅ **~~PROCHAINE ACTION : [`E4.6b`]~~ — PÉRIMÉ, `E4.6b` est MERGÉE (`e44c2c3c`). La prochaine action est [`E4.6c`](E4.6.md), voir le bloc en tête de fichier.** Le modèle `AutoScenarioDef` + le codec params,
   premier maillon de la refonte AutoScenario après `E4.6a` (livrée). Suite : `c → (d ‖ e) →
   (f ‖ g ‖ h)`.
   ⚠️ **`E4.6d` porte DEUX DETTES écrites au merge d'`E4.1s`** — la **troncature du NUL** par
