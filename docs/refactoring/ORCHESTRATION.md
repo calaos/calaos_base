@@ -8,6 +8,122 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅ [`E4.1p`](E4.1p.md) MERGÉE — 3 commits de la branche + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`42a1ae1a`**.
+  ⭐ **`master` ÉTAIT IMMOBILE sur `9cc1ef1f`** = exactement la merge-base ⇒ **ni rebase ni conflit**,
+  le `merge --ff-only` est passé tel quel.
+
+  **Revue : `approve`.** Ce ticket fait basculer le **lecteur audio** : `decodeGetPlaylist`,
+  `getNextPlaylistItem`, `playlistNoPlayerAnswer`, `getAudioPlayer`, `audioGetPlaylistSize`,
+  `audioGetTime`, `audioGetPlaylistItem`, `audioGetCoverInfo`, plus `processGetPlaylist()` et
+  `processAudio()` sur les **deux** transports. **Aucun adaptateur écrit dans le sens de la
+  migration** : les surcharges nlohmann de `sendJson()` existaient et étaient en service.
+
+  ⭐⭐ **LA RÉCURSION ASYNCHRONE — VÉRIFIÉE AU SOURCE, PAS AU BUILD.** C'est le seul endroit du
+  ticket où une erreur ne se verrait **ni au build ni au `make check`**.
+  `getNextPlaylistItem(const string &, Json jplayer, Json jplaylist, …)` prend ses deux documents
+  **par valeur** ; la lambda de `get_playlist_item()` a une **liste de capture explicite**
+  (`[this, alive, playerId, it_current, it_count, result_lambda, jplayer = std::move(jplayer),
+  jplaylist = std::move(jplaylist)]`) et est **`mutable`** ; la récursion les **re-déplace**
+  (`std::move` sur les deux arguments). Idem dans `decodeGetPlaylist`, où `jplayer` est **construit
+  à l'intérieur** de la première fermeture puis déplacé dans la seconde. Un `Json&` y serait un
+  **use-after-free** (le seul cadre susceptible de posséder le référent rend la main **dès que
+  `get_playlist_item()` a armé son callback**) ; un `[=]` sur un paramètre par valeur recopierait un
+  tableau qui grandit à chaque étage, soit **O(N²)** nœuds. Les `json_decref()` des chemins gardés
+  **disparaissent avec le pointeur** : la fermeture possède ses documents et les détruit quand le
+  lecteur relâche le callback.
+
+  ⛔⭐ **RÉDUCTION DE PÉRIMÈTRE — ARBITRÉE EN REVUE, ARGUMENT RETENU.** `audioGetDbStats`,
+  `audioDbUnavailable` et `processDbResult` **restent en jansson** alors que la fiche `E4.1p.md`
+  semblait les inclure. Les deux mesures de l'auteur tiennent, et ont été **revérifiées** :
+  - **(a) `get_stats` n'est pas une action `audio`** : elle est dispatchée par **`processAudioDb()`**
+    (`JsonApiHandlerHttp.cpp:829`, `JsonApiHandlerWS.cpp:455` — **vérifié**), au milieu des 14
+    jumelles. La migrer isolément obligeait à migrer `processAudioDb()` et ses quinze branches,
+    c'est-à-dire **E4.1q en entier** — l'inverse exact de la raison du découpage.
+  - **(b) `processDbResult` ne peut pas basculer sans ses 14 appelants** : la conversion implicite
+    `Json` → `json_t*` **n'existe pas** (constructeur gabarit éliminé par SFINAE ⇒ échec **de
+    compilation**, bruyant — contrairement au `!Json` d'E4.1m/E4.1o qui était un `type_error.302` à
+    l'exécution), et un pont `dump()` + `json_loads()` **changerait le sort de l'UTF-8 invalide chez
+    E4.1q** (`error_handler_t::replace` remplacerait les octets fautifs **avant** que jansson ne les
+    voie, faisant disparaître la suppression silencieuse de la paire sans qu'E4.1q ait écrit une
+    ligne).
+  ⇒ **Acceptation n° 1 tenue à la lettre, et PROUVÉE PAR COMPARAISON DE BLOBS, pas sur parole** :
+  le bloc `processDbResult` + les **15** `audioDbGet*` est **identique octet pour octet** entre
+  `master` et la branche (**641 lignes**, `cmp` rc=0) ; `audioDbUnavailable` (10 lignes) et
+  `audioGetDbStats` (38 lignes) le sont également. ⇒ **La ligne de dépendance et le périmètre
+  d'`E4.1q.md` ont été corrigés au commit de doc** : la dépendance E4.1q → E4.1p **reste réelle**
+  (sérialisation stricte sur les mêmes quatre fichiers + la surcharge `getAudioPlayer(const Json &)`
+  posée ici), mais elle ne porte **plus** sur `processDbResult`, qui bascule **en E4.1q,
+  atomiquement avec ses quatorze appelants** ; `audioGetDbStats`, `audioDbUnavailable` et
+  `processDbResult` sont désormais **explicitement dans le périmètre d'E4.1q**.
+
+  **L'adaptateur transitoire `getAudioPlayer(json_t *)`** : commentaire nommant **E4.1q** dans le
+  `.h` **et** dans le `.cpp`, **un seul rôle** — il **ne convertit rien** : les deux surcharges
+  lisent le même membre `id` et passent la **même `string`** au `audioPlayerById()` neuf, extrait
+  pour que le lecteur migré et celui qui ne l'est pas ne puissent pas rendre deux refus différents
+  (l'orthographe `"unkown"` est du contrat de wire). ⚠️ **Écart assumé au protocole d'E4.1l** : il a
+  **16 appelants**, pas un seul (les 14 `audioDbGet*` + `audioGetDbStats` + la branche `get_cover`
+  de `processAudio`) — c'est un artefact du découpage, pas un pont neuf, et ils disparaissent
+  **tous** en E4.1q.
+
+  **Contrats vérifiés** : **145 goldens INTACTS** — comparaison d'**arbre git**, 145 blobs des deux
+  côtés, **0 différent, 0 ajouté, 0 retiré**. Tripwire
+  `Tripwire_TheThreeWireEscapingsAreThreeDifferentBytestreams` **INTACT**
+  (`tests/ParamsJson_test.cpp`, blob **`f7872fce`** des deux côtés — c'est E4.1s qui le fera
+  basculer). **Aucun `dump()` ajouté ni déplacé** ⇒ les trois invariants d'émission tiennent sans
+  nouveau site d'émission. **Aucun `int` ne devient un nombre JSON**
+  (`Utils::to_string(int|double)` partout, oracle type-strict). Clé absente **omise** :
+  `jsonStringGet()` (posé par E4.1o, `JsonApi.cpp:40`) est conservé plutôt que
+  `jdata["item"].get<string>()`, pour qu'un membre **non-chaîne** lise comme **absent** et que
+  `{"item":2}` reste **refusé** au lieu de lever. ⛔ **`Utils::to_string(double)` NON « corrigé »** :
+  `1234.56789` → `"1234.57"`, `123456789.0` → `"1.23457e+08"`, assertés **à travers l'API**.
+
+  ⚠️ **CHANGEMENT DE COMPORTEMENT VISIBLE, ASSUMÉ — même retournement qu'E4.1o.** L'UTF-8 invalide
+  venu du **lecteur** (titre de piste, URL de pochette, donc en dernier ressort du **système de
+  fichiers**) n'est plus **supprimé** — la paire disparaissait et la réponse valait `{}` — mais
+  **conservé avec un U+FFFD par octet fautif** ; un **NUL embarqué** ne **tronque** plus le titre.
+  `RELEASE_NOTES.md` le dit, et l'entrée a été **ÉTENDUE, PAS DUPLIQUÉE** (vérifié) : 2 lignes
+  ajoutées au tableau des réponses concernées + **un encadré propre au lecteur audio** (« le texte
+  ne vient ni de vous ni du serveur, il vient de votre bibliothèque »), la note consolidée des cinq
+  différences n'est **pas** réécrite, et la phrase de clôture liste maintenant « E4.1n, E4.1o et
+  E4.1p ».
+
+  **Filet neuf `core/JsonApiAudioWireBytes_test` : 43 cas** sur les **octets bruts**, dont
+  `ADeferredPlaylistIsAnsweredWholeAndInOrder` qui conduit les **cinq étages un par un** (le déroulé
+  synchrone d'un faux lecteur ne prouverait rien de la durée de vie),
+  `PlayerDeletedMidRecursionAnswersFalseNotATruncatedPlaylist`,
+  `ClientGoneMidRecursionAnswersNothingAndStops`, et les cas `to_string(double)` **à travers l'API**.
+  Commit de caractérisation à **zéro ligne de `src/`** (vérifié par `git diff-tree` sur le commit).
+  **5 contre-mutations par échange**, ensembles rouges **deux à deux distincts** (9 · 15 · 8 · 18 ·
+  13) + **témoin vert à 0**.
+
+  ⭐ **BUILD D'INTÉGRATION, `make distclean` d'abord** (piège `_DEPENDENCIES` en variante faux-rouge),
+  une seule invocation synchrone : **`rc=0`**, **0 `error:`**, **`# TOTAL: 106` / `# PASS: 104` /
+  `# SKIP: 2` / `# FAIL: 0` / `# XFAIL: 0` / `# XPASS: 0` / `# ERROR: 0`** — **= le recompte
+  indépendant** des entrées `TESTS` (**105 → 106**, toutes uniques, **une seule ajoutée**
+  `core/JsonApiAudioWireBytes_test`, **zéro retirée** ; `^if ` **90** == `^endif` **90**, `master`
+  **préfixe STRICT** en octets 196 758 → 199 961). Les **deux** `SKIP` sont attendus :
+  `run-python-tests.sh` et la **sonde ccache** (`exit 77`, l'image de dev n'embarque pas `ccache`).
+
+  ⚠️ **Un chiffre de la fiche est imprécis, consigné pour que personne ne s'y fie** : « jetons
+  jansson `src/` **580 → 515** » n'est pas dans la convention de mesure de la série — la **même**
+  commande qui donnait **677 → 640** en E4.1o donne ici **640 → 569**. Le **delta** est du bon ordre
+  (−65 annoncé, **−71** mesuré) ; la **base**, non. La conclusion du ticket n'en dépend pas.
+
+  ⛔ **Non poussé.** Nettoyage fait : worktree `.wave74/e4.1p` supprimé (via conteneur, artefacts
+  root), `git worktree prune`, branche `refactor/e4.1p` supprimée.
+
+  ⭐⛔ **PIÈGE D'OUTILLAGE NEUF, HISSÉ DANS CE FICHIER — à répercuter dans TOUS les briefs
+  suivants** : **`git checkout -- src/` ne restaure RIEN dans le conteneur** (le worktree est monté,
+  son `.git` ne l'est pas), **six mutations d'E4.1p se sont empilées en silence** et son premier tour
+  de mesures a dû être jeté. Voir la section « ⛔⭐ Outillage — `git checkout` DANS LE CONTENEUR NE
+  RESTAURE RIEN » plus bas : **restaurer par une copie mesurée et VÉRIFIER la restauration**
+  (`cmp` / comptage), **jamais** par un `git` exécuté dans le conteneur.
+
+  ➡️ **PROCHAINE ACTION : [`E4.1q`](E4.1q.md)** — `JsonApi` **base musicale** : les 14 `audioDbGet*`
+  jumelles (~75 sites) **plus**, par l'arbitrage ci-dessus, **`processDbResult`, `audioGetDbStats`,
+  `audioDbUnavailable` et le dispatcheur `processAudioDb()`**, et la **suppression** de la surcharge
+  transitoire `getAudioPlayer(json_t *)`. ⛔ **`Utils::to_string(double)` ne se corrige toujours
+  pas.**
 - **✅ [`E4.1o`](E4.1o.md) MERGÉE — 3 commits de la branche + 1 commit de doc, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`105a7542`**.
   ⭐ **CE MERGE FERME LE POINT OÙ LE `std::terminate` D'E4.0 (`?param=%ff%80x`) DEVENAIT
   ATTEIGNABLE — ET IL NE SE PRODUIT PAS.** Les **cinq** constructeurs `buildJson{Get,Set,Del}Param`,
@@ -6269,6 +6385,38 @@ done
 **Règle** : un build qui dépasse le timeout de l'outil n'est **jamais** relancé — on retrouve le
 conteneur par `docker inspect`/`Source` et on attend (`docker wait`). Et on ne filtre **jamais**
 par image ni par ancêtre pour arrêter un conteneur : les worktrees voisins partagent la même image.
+
+## ⛔⭐ Outillage — `git checkout` DANS LE CONTENEUR NE RESTAURE RIEN (E4.1p, 2026-09-01)
+
+**Le worktree est monté, son `.git` ne l'est pas.** Les worktrees `git` portent un fichier `.git`
+qui **pointe** vers `…/.git/worktrees/<nom>` du dépôt principal. Le `docker run -v
+<worktree>:/workspaces/calaos_base` de la procédure ne monte **que** le worktree : à l'intérieur du
+conteneur, ce pointeur ne résout rien.
+
+⇒ **`git checkout -- src/` y échoue — et l'agent ne le voit pas.** Vécu en E4.1p : **six mutations
+se sont empilées en silence** sur `src/`, chacune croyant repartir d'un arbre propre. Le premier
+tour complet de mesures de contre-mutation a dû être **jeté et refait**.
+
+⚠️ **C'est un piège qui invalide SILENCIEUSEMENT toute une campagne de contre-mutation** : les
+ensembles rouges obtenus ne sont plus ceux de la mutation qu'on croit mesurer, mais ceux du cumul.
+Et un cumul de mutations rougit **plus**, donc le résultat a l'air *meilleur* — rien dans la sortie
+ne signale l'anomalie. Même famille que les faux verts de `_DEPENDENCIES` : l'outil rend un chiffre,
+et le chiffre ne mesure pas ce qu'on croit.
+
+**Parade — deux règles :**
+
+1. ⛔ **Ne jamais restaurer un fichier par un `git` exécuté DANS le conteneur.** Ni
+   `git checkout --`, ni `git restore`, ni `git stash`.
+2. ⭐ **Restaurer par une COPIE, et VÉRIFIER la restauration.** Prendre l'original **avant** de muter
+   (`cp src/…/F.cpp /tmp/F.orig` — ou, depuis l'hôte, `git show HEAD:src/…/F.cpp`), le recopier après
+   chaque tour, puis **prouver** que la restauration a eu lieu : `cmp -s /tmp/F.orig src/…/F.cpp`
+   (rc attendu **0**), ou un comptage stable de l'aiguille (`grep -c` du motif muté ⇒ **0**).
+   ⛔ **Une restauration non vérifiée n'est pas une restauration** : c'est exactement l'hypothèse
+   que ce piège prend en défaut.
+
+ℹ️ Les opérations `git` **de lecture d'index** (`git status`, `git diff`) échouent de la même façon
+dans le conteneur : leur silence n'est pas une preuve d'arbre propre. **Le `git` de vérité est celui
+de l'hôte, dans le worktree.**
 
 ## ⚠️ Outillage — cache de compilation `ccache` : monté, INACTIF, et ce qu'il ne faut pas faire (2026-08-26, [T3.51](T3.51.md))
 
