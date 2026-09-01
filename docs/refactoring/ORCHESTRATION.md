@@ -8,6 +8,176 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅ [`E4.1s`](E4.1s.md) MERGÉE — 3 commits de la branche + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`d818a391`**.
+  ⭐ **`master` ÉTAIT IMMOBILE sur `a26c874e`** = exactement la merge-base ⇒ **ni rebase ni conflit**,
+  le `merge --ff-only` est passé tel quel.
+
+  ⭐⭐ **LA CHAÎNE API `E4.1a` → `E4.1s` EST CLOSE.** Les quatre fichiers de l'API —
+  `JsonApi.h`, `JsonApiHandlerHttp.{cpp,h}`, `JsonApiHandlerWS.{cpp,h}` — portent **zéro jeton
+  jansson de code**, et `JsonApi.cpp` n'en garde que **six**, tous dans le pont.
+
+  **Revue : `approve`.** Ce ticket bascule le **parse de requête** des deux transports
+  (`json_loads()` → `Json::parse()`), **supprime** `sendJson(json_t *)` en HTTP et
+  `sendJson(const string &, json_t *, const string &)` en WS, et migre les derniers émetteurs
+  (`processConfig`, `get_mcp_info`, les refus `get_cover`/`get_camera_pic`/`audio get_cover`,
+  `exeFinished()`, le refus de login WS, les `items` de `get_state`/`get_io`, le dispatch de
+  `processAudio`).
+
+  ⭐⭐ **LE TRIPWIRE EN FORME 3, VÉRIFIÉ AU SOURCE — c'est le seul filet que les goldens ne
+  pouvaient pas fournir.** `Tripwire_TheThreeWireEscapingsAreThreeDifferentBytestreams`
+  (`tests/ParamsJson_test.cpp`) garde les **trois formes assertées séparément, sur la chaîne
+  BRUTE, sans le moindre repli de casse** — chaque forme est épinglée **dans les deux sens**
+  (présence de sa graphie, **absence** des deux autres). L'expression de production
+  `dump(-1, ' ', true, Json::error_handler_t::replace)` y est écrite en toutes lettres sous le nom
+  `shipped` et assertée **ÉGALE à la forme 3** (`\u00e9`, hex **minuscule**) **et DIFFÉRENTE de
+  la forme 1** (`\u00E9`, hex **MAJUSCULE**, jansson) **et de la forme 2** (les octets UTF-8 bruts
+  de `é`), **chacune séparément**.
+  ⛔ **La forme 2 est nommée comme l'ÉCHEC du ticket, pas comme une variante** — la porte par
+  laquelle un implémenteur pressé aurait pu passer est fermée par une assertion, pas par un
+  commentaire. Un **SECOND** tripwire, neuf, lit le **vrai wire** :
+  `Tripwire_TheHttpApiWireIsFormThreeAndNeitherOfTheOtherTwo`
+  (`core/JsonApiDispatchWireBytes_test`), sur `config get` — **mesuré** comme le seul émetteur du
+  périmètre qui reflète des octets influençables par un client. Ses constantes sont écrites en
+  échappements (`ASCII_E_LOWER`/`ASCII_E_UPPER`/`ASCII_DEL`/`ASCII_US_LOW`/`ASCII_US_UP`) et son
+  `contains()` est un `find()` nu : **aucune normalisation nulle part**.
+
+  ⭐ **LES DEUX CONTRE-MUTATIONS DE WIRE ROUGISSENT AILLEURS L'UNE QUE L'AUTRE, ET L'ARGUMENT
+  TIENT.** M1 (`ensure_ascii` → `false`, départ vers la forme 2) : **35 cas rouges**, 9 binaires.
+  M2 (l'émetteur nlohmann → un aller-retour jansson `JSON_COMPACT|JSON_ENSURE_ASCII`, retour à la
+  forme 1) : **36 cas rouges**, 9 binaires. ⭐ **Les cardinalités diffèrent — 35 ≠ 36 — donc les
+  deux ensembles sont distincts par construction, sans avoir à croire la comparaison sur parole**,
+  et les deux contiennent le tripwire du wire : il rougit dans les **deux** directions, ce qui est
+  exactement ce que la fiche réclamait. Les 5 autres tours (2 · 3 · 2 · 6 + un **témoin à 0**)
+  complètent les **21 paires** annoncées distinctes. `rm -f` du `.o` serveur **et des 102 binaires**
+  à chaque tour, `CXXLD` exigée (1 + 102), restauration **par copie vérifiée au `cmp`** — jamais un
+  `git checkout` dans le conteneur.
+
+  ⛔ **LES TROIS SURVIVANTS EXIGÉS SONT INTACTS, VÉRIFIÉS PAR HASH DE BLOB.**
+  `janssonScenarioPayloadBridge()` est **RESTÉ** — **1 définition, 2 appelants**
+  (`JsonApi.cpp:2215`, `:2233`), commentaire nommant **E4.6d** comme celui qui le retire ;
+  `configure.ac` (`d6c83488`), `src/lib/Jansson_Addition.h` (`3cec0a3b`) et
+  `IO/Scenario.cpp` (`57978196`) sont **blob-identiques** entre `a26c874e` et `d818a391`. E4.1x
+  reste bloquée par **E4.6b + E4.6d**, comme prévu.
+
+  ⭐ **LE POINTEUR SURVIVANT EST JUSTIFIÉ, ET LA MESURE LE CONFIRME.**
+  `processGetState/GetIO(const Json *)` en WS garde un pointeur parce que `json_object_get()`
+  répondait `NULL` pour un membre **absent** et un `json_null` non nul pour `"data": null` — une
+  référence fusionnerait les deux et transformerait `"data": null` en réponse « sans data ».
+  ⚠️ **Vérifié que la branche non nulle est bien préservée** : sur `"data": null`, `jdata` est non
+  nul, `collectStringItems()` sort sur `!is_object()`, la liste est vide et l'on répond un
+  `get_state` vide — **exactement** ce que `json_object_get(json_null, "items") == NULL` produisait.
+  Le pointeur vise `jsonRootDoc`, `const` et local à `processApi()`, et **nlohmann garantit la
+  stabilité des références d'objet** (c'est un `std::map`) : ni pendaison ni invalidation.
+  ⭐ **`sendJsonNoData()` est identique OCTET POUR OCTET** : jansson parcourait `msg` puis `msg_id`
+  en ordre d'**insertion**, et `"msg" < "msg_id"` alphabétiquement ⇒ l'ordre trié **est** cet
+  ordre ; la charge est ASCII pure par construction. **La clé absente reste OMISE, jamais `null`.**
+
+  ⚠️⭐ **DEUX FAUX POSITIFS DE COMPTAGE, CONSIGNÉS DANS [`E4.1x.md`](E4.1x.md) — sinon quelqu'un
+  croira à un échec de clôture.** La convention (`\b(json_\w*|jansson\w*)\b`) attrape `json_body`,
+  **variable locale `std::string` de `WebSocket.cpp:328-329`**, produite par un `dump()` **nlohmann**.
+  ⇒ **le compte d'E4.1x tombera à `2`, pas à `0`.** ⛔ Ne pas renommer la variable pour flatter un
+  `grep`. ℹ️ Le critère d'acceptation d'E4.1x, lui, cherche `json_t|jansson` et rend **bien zéro**.
+
+  ⭐ **UN TOUR ROUGE HONNÊTE, ET SA CORRECTION EST RÉELLE.** **13 cas mouvants sur 31**, tous des
+  `...Today`, **aucun des 17 invariants**. Le **14ᵉ** mouvant prédit était **VERT POUR LA MAUVAISE
+  RAISON** : `P_ANestingDepthAbove2048...` envoyait un refus puis la sonde, et c'est le
+  **`LoginThrottle`** — pas le parseur — qui répondait 400 à la seconde. ✅ **Correction vérifiée au
+  source** : le fichier porte `clearThrottle()` (`LoginThrottle::clear()`) et **toutes** ses
+  requêtes HTTP passent par `httpStatusFor()`, `httpWire()` ou `configGetWireWithProbeOnDisk()`,
+  qui l'appellent en première ligne ; le cas est réécrit en **deux moitiés** (2048 → 400 comme
+  invariant de contraste, 2049 → 200) et la mine est écrite dans son commentaire. Versé aux
+  findings.
+
+  **Contrats vérifiés.** ⛔ **ZÉRO GOLDEN MODIFIÉ, prouvé par comparaison d'arbre git** :
+  `git ls-tree -r` sur `tests/core/golden` rend **145 blobs identiques** des deux côtés, **0
+  différent, 0 ajouté, 0 retiré**. Commit de caractérisation à **zéro ligne de `src/`**
+  (`git diff-tree` : `tests/Makefile.am` + `tests/core/JsonApiDispatchWireBytes_test.cpp`, rien
+  d'autre). **Aucun `int` ne devient un nombre JSON** — tout part en chaîne. `tests/Makefile.am`
+  est un **append pur** (`master` préfixe **STRICT** en octets, 206 654 → 210 114 ;
+  `^if HAVE_GTEST` **91 → 92**, `^endif` **92 → 93**), entrées `TESTS` **108 → 109**, **une seule
+  ajoutée** (`core/JsonApiDispatchWireBytes_test`), **aucune retirée**.
+
+  ⭐ **BUILD D'INTÉGRATION, `make distclean` d'abord**, une seule invocation synchrone :
+  **`# TOTAL: 109` / `# PASS: 107` / `# SKIP: 2` / `# FAIL: 0` / `# XFAIL: 0` / `# XPASS: 0` /
+  `# ERROR: 0`**. Les **deux** `SKIP` sont les attendus (`run-python-tests.sh`,
+  `check-ccache-honesty.sh`). `core/JsonApiDispatchWireBytes_test` : **PASS**.
+
+  ⭐ **JETONS JANSSON `src/` : 283 → 110** (**−173**), mesuré avec la convention écrite plus bas, aux
+  deux têtes de merge. Décomposition : `IO/Scenario.cpp` **56** + `IO/Scenario.h` **1** (E4.6b/d) ·
+  `Jansson_Addition.h` **45** (E4.1x) · `JsonApi.cpp` **6** (le pont, E4.6d) · `WebSocket.cpp` **2**
+  (**faux positifs**). Les 4 fichiers handler : **0**. **Valeur unique après ce merge : 110.**
+
+  ⭐⭐ **CE QU'IL RESTE DE JANSSON, ET POURQUOI — la liste est courte et chacune a son propriétaire.**
+  | Reste | Jetons | Qui le retire | Pourquoi pas E4.1 |
+  |---|---|---|---|
+  | `IO/Scenario.{cpp,h}` | 57 | **E4.6b / E4.6d** | **décision Q5** : le fichier est réécrit de bout en bout par E4.6 ; le migrer par E4.1 serait le migrer **deux fois** |
+  | le pont `janssonScenarioPayloadBridge()` (`JsonApi.cpp`) | 6 | **E4.6d** | il n'existe que parce que `Scenario::toJson()` rend encore un `json_t *` : il **tombe avec** le fichier ci-dessus |
+  | `src/lib/Jansson_Addition.h` + `configure.ac:51` | 45 | **E4.1x** | E4.1x est **bloquée par E4.6b + E4.6d** — on ne retire pas la dépendance tant qu'un appelant vit |
+  | `json_body` × 2 (`WebSocket.cpp`) | 2 | **personne** | **faux positifs** de la convention de comptage |
+  ⇒ ⛔ **L'ÉPIQUE E4.1 N'EST PAS CLOSE ; c'est sa CHAÎNE API qui l'est.** E4.1 reste 🚧 jusqu'à
+  E4.1x, et E4.1x attend E4.6.
+
+  ⭐ **DEUX TICKETS OUVERTS À CE MERGE, tous deux 📋, fiche + ligne de board à 6 colonnes.**
+  - **[`T3.58`](T3.58.md) — les gardes du parseur de requête JSON**, **trois volets séparés** :
+    (a) plafond de profondeur d'imbrication (celui de jansson, **2048**, a disparu — ⚠️ la fiche
+    d'E4.1s affirmait à tort qu'il n'existait pas — et **ce n'est pas un DoS neuf** : 100 000
+    niveaux mesurés sans débordement de pile), (b) sort du **NUL échappé** (accepté en **valeur ET
+    en clé** ; jansson avait **deux refus DISTINCTS**, donc une garde posée sur les valeurs seules
+    laisserait la moitié du trou), (c) **entiers hors `int64`**. **Une seule cause** (la bascule du
+    parseur), **un seul harnais** de caractérisation ⇒ **un ticket, pas trois**.
+    ⭐ **DÉCISION UTILISATEUR DU 2026-09-01 : merger E4.1s TELLE QUELLE et ouvrir les gardes
+    séparément** — la discipline de la série interdit d'ajouter un **refus neuf** dans un ticket de
+    migration, et une garde posée là masquerait une cause qui vit dans le fichier exclu.
+  - **[`T3.57`](T3.57.md) — durée de vie des IOs internes de scénario** : un `deleteIO()` sur un IO
+    interne d'un scénario **vivant** segfaute. Proposé au merge d'**E4.1r** et **non ouvert alors**,
+    ouvert ici. **Non instruit** : la fiche dit ce que `FINDINGS.md` en dit, et rien de plus.
+  ⛔ **La troncature silencieuse du NUL par `Scenario::toJson()` n'est PAS dans T3.58** — elle vit
+  dans `IO/Scenario.cpp` ⇒ **portée comme contrainte dure sur E4.6d** : une clause dans la ligne
+  E4.6d du tableau de découpage **et** un bloc dédié **[`E4.6.md`](E4.6.md) §6.1**, qui donne la
+  mesure, les trois issues possibles du cas d'épinglage, et pourquoi elle ne dispense pas de T3.58
+  ni l'inverse.
+
+  ⛔ **Non poussé.** Nettoyage fait : worktree `.wave77/e4.1s` supprimé (via conteneur, artefacts
+  root), `git worktree prune`, branche `refactor/e4.1s` supprimée.
+
+  ➡️⭐⭐ **PROCHAINE ACTION — DEUX OPTIONS, ET LE CHOIX EST À L'UTILISATEUR. Ce n'est plus dans
+  E4.1.**
+
+  **Option A — [`T3.36`](T3.36.md), le relink des suites (`infra`, ⚠️ PRIORITÉ HAUTE).**
+  **47 suites sur 80** peuvent répondre **vert sans avoir relié le code modifié** : c'est la **cause
+  racine des cinq variantes de faux vert / faux rouge** que toute la série contourne **à la main**
+  (`rm -f` binaire **et** `.o` serveur, puis exiger `CXXLD`). E4.1s vient encore d'en payer le prix :
+  **102 binaires effacés à chaque tour de contre-mutation, sept tours**.
+  ⚠️ **SA CONDITION D'ORDONNANCEMENT — « planifiée après `E4.1x` » — N'EST PAS LEVÉE, ET IL FAUT
+  DIRE POURQUOI PRÉCISÉMENT.** Le **motif écrit** de cette condition est **épuisé** : elle disait
+  « après E4.1x parce que la réparation touche `tests/Makefile.am`, où **huit tickets sérialisés
+  (`E4.1l`→`E4.1s`) appendent chacun leur bloc** » — **ces huit sont tous mergés depuis ce jour**.
+  Mais la **lettre** de la condition tient encore : **E4.1x touche `tests/Makefile.am`** (elle
+  supprime `tests/JanssonResidues_test.cpp`, son bloc `if HAVE_GTEST` et son entrée `TESTS`), et
+  **E4.1x est bloquée derrière E4.6b + E4.6d** — or **E4.6b, E4.6c et E4.6h appendent chacun leur
+  bloc** dans ce même fichier. ⇒ **Attendre E4.1x à la lettre, c'est désormais attendre TOUTE la
+  chaîne E4.6.** **Pour** : le conflit récurrent qui motivait l'attente n'existe plus au rythme
+  d'avant (les tickets E4.6 sont sérialisés entre eux, pas huit d'affilée), et chaque semaine sans
+  T3.36 est une semaine où la protection **repose sur la discipline des briefs, ce qui n'est pas une
+  garantie**. **Contre** : T3.36 **régénère** `tests/Makefile.am`, et tout ticket E4.6 en vol au
+  même moment conflictera sur le fichier dont la résolution naïve **perd le `endif` extérieur** ;
+  et son premier `make check` **peut rougir** — ⚠️ ces rouges seraient des **trouvailles**, pas des
+  régressions, mais ils arrivent au pire moment si une vague E4.6 est en cours.
+
+  **Option B — [`E4.6`](E4.6.md), la refonte des autoscénarios.** Elle est **débloquée sur la
+  surface d'API** (§1.4 : « E4.6 est séquencée après E4.1 » — la chaîne API est close, et E4.6a est
+  **déjà livrée**). Prochain maillon : **E4.6b** (le modèle `AutoScenarioDef` + le codec params),
+  puis `c → (d ‖ e) → (f ‖ g ‖ h)`. **Pour** : c'est E4.6d qui détient **les deux dettes que ce
+  merge vient d'écrire** — la **troncature du NUL** (§6.1) et l'**UTF-8 invalide droppé avec sa
+  clé** — et c'est **E4.6b + E4.6d qui débloquent E4.1x**, donc la clôture de l'épique E4.1 **et**
+  la levée littérale de la condition de T3.36. **Contre** : c'est de loin le plus gros morceau
+  restant (8 sous-tickets), et il se déroulera **sans** le filet de T3.36, donc sous la même
+  discipline manuelle qui vient de coûter 7 × 102 relinks à E4.1s.
+
+  ⛔ **Non tranché ici, délibérément.** Les deux options sont exclusives dans les faits — elles se
+  disputent `tests/Makefile.am`.
+
+
 - **✅ [`E4.1r`](E4.1r.md) MERGÉE — 3 commits de la branche + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`ef02bbd0`**.
   ⭐ **`master` ÉTAIT IMMOBILE sur `6eeefb9f`** = exactement la merge-base ⇒ **ni rebase ni conflit**,
   le `merge --ff-only` est passé tel quel.
