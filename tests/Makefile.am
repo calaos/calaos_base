@@ -4239,3 +4239,79 @@ endif
 TESTS += check-test-deps.sh
 dist_check_SCRIPTS += check-test-deps.sh
 EXTRA_DIST += check-test-deps.py
+
+
+# E4.6b
+#The AutoScenario DEFINITION and its params codec (E4.6.md D1..D4): the
+#params <-> definition round trip, the percent-encoding of '%', '|' and '=',
+#the action whose IO does not exist being KEPT, the orphan `as_*` param being
+#ignored at load and removed at save, and `autoscenario_steps` being the one
+#authoritative key.
+#It also carries the guard rail of the whole epic: E4.6b must NOT re-key the
+#marker that builds an AutoScenario, because re-keying it arms the orphan sweep
+#of ListeRoom.cpp:320-330 on every rule carrying `auto_scenario` (18 of them in
+#configs/raoulh, E4.6.md §5.2). That sweep is E4.6c's to remove.
+#It creates scenarios through the real WS API and plays save/reload cycles, so
+#it needs the E4.0a harness and the same link closure as
+#core/AutoScenarioMigration_test.
+#It compares no golden, but the harness .cpp still needs -DCALAOS_GOLDEN_DIR.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/AutoScenarioDef_test
+check_PROGRAMS += core/AutoScenarioDef_test
+core_AutoScenarioDef_test_SOURCES = core/AutoScenarioDef_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_AutoScenarioDef_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/Scenario \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_AutoScenarioDef_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_AutoScenarioDef_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
