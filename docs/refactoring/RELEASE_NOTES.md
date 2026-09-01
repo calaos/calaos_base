@@ -1077,7 +1077,7 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   par E4.2d (le nouveau `Remove(Rule*)` refuse et logge au lieu de détruire un objet qu'il ne
   possède pas).
 
-## Détail pour les intégrateurs — les événements, `get_home` / `get_io`, l'état des équipements ET les paramètres/plages horaires changent de forme, et cessent de perdre des données en silence (E4.1l, E4.1m, E4.1n, E4.1o)
+## Détail pour les intégrateurs — les événements, `get_home` / `get_io`, l'état des équipements, les paramètres/plages horaires ET les scénarios automatiques changent de forme, et cessent de perdre des données en silence (E4.1l, E4.1m, E4.1n, E4.1o, E4.1p, E4.1q, E4.1r)
 
 > **Rien à faire de votre côté, et aucune application Calaos ne s'en aperçoit.** Cette note existe
 > parce que le changement porte sur des **octets réellement servis** sur l'API JSON (port 5454),
@@ -1093,9 +1093,11 @@ cinq**, toujours aucune sixième — mais c'est **le seul ticket de la série o�
 fourni par le client lui-même**, ce qui lui vaut un encadré à part, plus bas. **E4.1p** y ajoute le
 **lecteur audio** — liste de lecture, temps de lecture, taille de liste, pochette : **les mêmes
 cinq**, aucune sixième, mais avec une **source d'octets nouvelle** et elle aussi encadrée plus bas,
-puisque ce texte ne vient ni du serveur ni du client mais de **votre bibliothèque musicale**. Les
-tickets suivants de la série feront de même. La liste des **réponses** concernées à ce stade est
-donc :
+puisque ce texte ne vient ni du serveur ni du client mais de **votre bibliothèque musicale**.
+**E4.1r** y ajoute les **scénarios automatiques**, et c'est le premier ticket de la série où le
+compte n'est **pas** de cinq : voir l'encadré qui lui est consacré plus bas — il n'en a que
+**trois**, et l'explication est structurelle. Les tickets suivants de la série feront de même. La
+liste des **réponses** concernées à ce stade est donc :
 
 | Réponse | Depuis |
 |---|---|
@@ -1116,6 +1118,9 @@ donc :
 | ⭐ **`set_timerange`** — son accusé de réception | **E4.1o** |
 | ⭐ **`get_playlist`** — la liste de lecture d'un lecteur audio, piste par piste — voir l'encadré qui lui est consacré plus bas | **E4.1p** |
 | ⭐ **`audio` → `get_playlist_size`, `get_time`, `get_playlist_item`, `get_cover_url`** — l'état d'un lecteur audio | **E4.1p** |
+| ⭐ **`audio_db`** — la médiathèque : albums, artistes, genres, années, listes de lecture, radios, dossiers musicaux, informations de piste, statistiques | **E4.1q** |
+| ⭐ **`autoscenario` → `list`, `get`** — la description d'un **scénario automatique** : ses étapes, leurs pauses et leurs actions — voir l'encadré qui lui est consacré plus bas | **E4.1r** |
+| ⭐ **`autoscenario` → `create`, `delete`, `modify`, `add_schedule`, `del_schedule`, `reenable`** — leurs accusés de réception et leurs refus | **E4.1r** |
 
 Ces réponses sont désormais fabriquées par la même bibliothèque JSON que le reste des réponses
 récentes. **Cinq** différences observables, **mesurées octet à octet** ; trois sont purement de
@@ -1160,6 +1165,38 @@ forme, et **deux rendent des données qui étaient perdues en silence** :
   s'arrêtait au premier zéro : `a\0b` partait en `"a"`, et un nom `k\0z` partait sous le nom
   `"k"` — c'est-à-dire **sous un autre nom que celui reçu**, en silence. La valeur est maintenant
   servie entière, le zéro étant écrit `\u0000`.
+
+### ⭐ Les scénarios automatiques : **trois** différences et non cinq, et pourquoi (E4.1r)
+
+`autoscenario list` et `autoscenario get` décrivent un scénario automatique : ses étapes, la pause
+de chaque étape, et les actions de chaque étape. C'est la réponse la plus **imbriquée** de l'API, et
+c'est là que le changement d'ordre des membres se voit le plus :
+
+- l'objet du scénario passe de `id`, `cycle`, `enabled`, `schedule`, `category`, `broken`,
+  `disabled_missing_io`, `missing_ios`, `steps_count`, `steps` à l'ordre **alphabétique** —
+  `broken` d'abord, `steps_count` en dernier ;
+- chaque **étape** passe de `step_pause`, `step_type`, `actions` à `actions`, `step_pause`,
+  `step_type` ;
+- chaque **action** passe de `id`, `action` à `action`, `id`.
+
+⚠️ **L'ORDRE DES ÉTAPES, LUI, NE BOUGE PAS**, et l'ordre des actions à l'intérieur d'une étape non
+plus : ce sont des **tableaux**, et cet ordre-là est le scénario lui-même. Il est vérifié
+explicitement, sur les octets, par la suite de tests livrée avec ce changement.
+
+Les deux autres différences de forme sont les mêmes que partout ailleurs : la **casse** de
+l'échappement d'un accent, et le caractère **DEL** (U+007F) désormais échappé. Sur ce périmètre
+elles ne peuvent venir que d'un endroit : le texte d'une **action** de scénario, qui est fourni par
+le client et renvoyé tel quel.
+
+**En revanche, les deux différences qui RÉCUPÈRENT des données perdues n'ont pas encore lieu ici.**
+Un nom mal encodé ou contenant un octet nul dans un scénario est toujours perdu de la même façon
+qu'avant, parce que la fabrication du contenu d'un scénario n'a pas encore été convertie — elle
+l'est plus tard, par le chantier qui réécrit les scénarios (E4.6). **Rien ne régresse ; c'est le
+gain qui n'est pas encore là.** Ce sera dit ici quand ce sera fait.
+
+Enfin, les accusés de réception (`{"success":"true"}`), les identifiants renvoyés par `create` et
+`add_schedule` (`{"id":"…"}`) et les refus (`{"error":"…"}`) **ne changent pas d'un octet** : ils
+n'ont qu'un seul membre.
 
 ### Ce qui a été balayé, et ce qui ne l'a pas été
 

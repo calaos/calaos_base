@@ -7891,3 +7891,102 @@ liait **déjà** à la surcharge nlohmann de `sendJson()` avant ce ticket. Le ca
 en invariant, avec la mesure et l'erreur écrites dans son commentaire plutôt que discrètement
 effacées. **Une prédiction qu'un cas va rougir n'est pas une preuve ; seul le tour de mesure l'est**
 — ce qui vaut aussi dans l'autre sens, pour un cas qu'on croyait invariant.
+
+## E4.1r — ce qui a ete VU et deliberement PAS corrige (migration mecanique, 2026-09-01)
+
+Q1 a ete tranchee : E4.1r migre les neuf autoscenarios **mecaniquement**, et E4.6d les reecrit
+integralement ensuite. Tout ce qui suit a donc ete **laisse tel quel, expres**. C'est le dossier
+d'entree d'E4.6d.
+
+- **Les deux refus de `buildAutoscenarioCreate()` repondent LES MEMES OCTETS.** Le site « le
+  factory a rendu null / le cast a echoue » et le site « `checkScenarioRules()` a echoue »
+  repondent tous deux `{"error":"scenario creation failed"}`. Seule la ligne de journal les
+  distingue, et un client ne la voit pas. Les deux sont atteignables et sont epingles separement
+  par `core/JsonApiScenarioWireBytes_test` (`CreateWithoutAnyRoomIsRefused`,
+  `CreateWhoseRulesCannotBeBuiltIsRefused`) — **par leur effet de bord, pas par leur payload**.
+  Sur les quatre sites `perr` de la famille, il n'y a donc que **trois** orthographes.
+- **`buildAutoscenarioModify()` mute AVANT de valider.** Elle appelle `deleteRules()` en deuxieme
+  ligne, reconstruit toutes les etapes, applique le nom, la visibilite, la piece, le cycle et le
+  `disabled` — **puis** teste `checkScenarioRules()` et peut repondre
+  `{"error":"scenario modification failed"}`. Quand elle refuse, la configuration a **deja** ete
+  modifiee en memoire et le scenario est laisse sans regles. C'est le « validation avant
+  mutation » qu'E4.6d doit poser.
+- **`buildAutoscenarioModify()` ne sauve pas la configuration sur son chemin d'erreur** —
+  `SaveConfigIO()`/`SaveConfigRule()` sont apres le `return`. L'etat en memoire et l'etat sur
+  disque divergent donc jusqu'au prochain enregistrement.
+- **Le payload de `get` ne peut pas etre renvoye a `modify`** (deja epingle par E4.0c) : `get`
+  emet `enabled`, `modify` lit `disabled`, et `get` n'emet ni `name`, ni `visible`, ni la piece.
+  Non corrige.
+- **`buildAutoscenarioCreate()`/`Modify()` utilisent l'indice du tableau JSON comme numero
+  d'etape** : une etape `end` qui n'est pas la derniere fait perdre en silence les actions de
+  toutes les etapes standard qui la suivent. Non corrige (epingle par E4.0c).
+- **Une action dont l'IO ne resout pas est silencieusement ignoree** a l'ecriture, et l'etape
+  correspondante est rendue vide a la lecture. Non corrige.
+- **`buildAutoscenarioList()` ignore son argument** (`VAR_UNUSED(jdata)`) mais le prend quand
+  meme, pour rester alignee sur les huit autres. Non corrige.
+- **Un `deleteIO()` sur un IO interne d'un scenario VIVANT segfaute.** Trouve en cherchant un
+  chemin vers le refus de `modify` : detruire `scenario_0_is_active` pendant que le scenario
+  existe laisse `AutoScenario::ioIsActive` pendante, et le `modify` suivant la dereference.
+  **Non atteignable par l'API** (aucune commande ne supprime un IO interne de scenario, et le
+  chemin de rechargement reconstruit tout), donc **hors perimetre et non instruit** — mais c'est
+  la meme famille que T3.40 et ca merite un ticket de duree de vie a soi. Le cas de test a ete
+  reecrit pour passer par le fichier de configuration a la place.
+- **`ScenarioNullGuard_test.cpp` garde son include jansson** alors qu'il n'utilise plus un seul
+  symbole jansson. Include mort, laisse en place : le nettoyage des includes est E4.1c/E4.1x, pas
+  ce ticket.
+- **`JsonApi.h` garde son include jansson** alors que son corps ne contient plus **aucun** jeton
+  jansson hors commentaires (16 -> 0). Il tombe avec E4.1s/E4.1x.
+
+## E4.1r — l'adaptateur transitoire a **deux** appelants, et deux est le plancher (2026-09-01)
+
+La fiche E4.1r annonce « un adaptateur transitoire pour **ce seul site** » et pose comme
+acceptation `grep -rn <nom> src` -> **exactement 1**. **La fiche a oublie
+`buildAutoscenarioList()`**, qui appelle elle aussi `Scenario::toJson()` — et l'en-tete de
+`tests/core/JsonApiScenario_test.cpp` le documente noir sur blanc depuis E4.0c (« `it->toJson()`
+sur chaque scenario, donc la liste bouge exactement comme un `get` »).
+
+`Scenario::toJson()` a donc **deux** sites d'appel dans `JsonApi.cpp`, tous deux dans le perimetre
+d'E4.1r, tous deux obliges de traverser les deux bibliotheques. Les trois ecritures possibles
+etaient : deux conversions **en ligne** et zero adaptateur nomme (pire : rien a greper pour E4.6d),
+**deux** adaptateurs (pire encore), ou **un** adaptateur a deux appelants. C'est le troisieme qui a
+ete livre : `janssonScenarioPayloadBridge()`, **1 definition, 2 appelants**, tous deux commentes
+comme tels. Ce n'est **pas** la recidive d'E4.1p (16 appelants la ou un suffisait) : ici deux est
+le plancher structurel, mesure. A corriger dans la fiche plutot que dans le code.
+
+## E4.1r — le NUL embarque est INATTEIGNABLE tant que le dispatch est en jansson (2026-09-01)
+
+Mesure, et ca a tue l'hypothese evidente. On attendait le delta n5 de la serie (le NUL qui ne
+tronque plus) au moins **cote entree** : `jansson_string_get()` construisait une `std::string`
+depuis un `const char*` et tronquait, `jsonStringGet()` garde la chaine entiere. **La question
+n'est jamais posee** : la requete est encore parsee par **jansson** sur les deux transports (le
+dispatch est le perimetre d'E4.1s) et jansson **refuse** un NUL echappe dans une chaine sans
+`JSON_ALLOW_NUL`. Le message est jete avant qu'une seule ligne d'autoscenario tourne — zero
+reponse, zero scenario cree.
+
+**E4.1s en herite** : nlohmann **accepte** un NUL echappe. Le jour ou le parse de requete bascule,
+ces requetes commencent a etre servies, sur **toute** l'API et pas seulement ici. A mesurer la-bas,
+pas a decouvrir. Epingle par `AnEmbeddedNulInAnActionIsRefusedByTheRequestParser`.
+
+## E4.1r — deux des cinq deltas de la serie n'ont PAS lieu, a cause du fichier exclu (2026-09-01)
+
+Tous les tickets de la serie depuis E4.1l rapportent **cinq** deltas. Sur le payload d'un
+autoscenario il n'y en a que **trois** (ordre des cles, casse de l'hexadecimal, echappement de
+`DEL`), et la raison est la meme pour les deux manquants : `IO/Scenario.cpp` est **exclu** (Q5) et
+`Scenario::toJson()` fabrique encore ses chaines avec `json_string(const char *)`.
+
+- **L'UTF-8 invalide est toujours DROPPE AVEC SA CLE**, un etage sous tout ce que ce ticket
+  touche. Il ne devient pas `U+FFFD` ici.
+- **Un NUL embarque tronque toujours** la valeur, au meme endroit.
+
+=> **E4.6d herite des deux**, et c'est lui qui les rendra visibles — pas E4.1s. Un relecteur qui
+cherche « les cinq deltas » sur ce ticket doit en trouver **trois**, et c'est le bon resultat.
+
+## E4.1r — ce que les contre-mutations M3 et M5 disent du filet preexistant (2026-09-01)
+
+Echanger `room_name` et `room_type` dans `buildAutoscenarioCreate()` ne rougit **qu'un seul cas de
+tout l'arbre**, et c'est un cas ecrit par ce ticket (`RoomNameAndRoomTypeAreNotInterchangeable`).
+Les 52 cas et 9 goldens d'E4.0c n'observaient pas la piece dans laquelle le scenario atterrit : ils
+creent tous le scenario dans la **seule** piece de leur maison, donc l'echange y est invisible —
+une « fixture pauvre » **preexistante**, pas introduite ici. Idem pour M5 (les deux orthographes de
+refus echangees) : **trois cas rouges, tous les trois neufs**. Consigne parce que c'est exactement
+l'angle mort qu'E4.6d devra couvrir quand il reecrira ces fonctions.
