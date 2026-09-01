@@ -217,9 +217,8 @@
 
   ➡️ **PROCHAINE ACTION : [`E4.1o`](E4.1o.md)** — `JsonApi` **params + plages horaires**, c'est là
   que le `std::terminate` d'E4.0 (`?param=%ff%80x`) devient atteignable.
-  ⚠️ **Et une décision utilisateur est en attente, NON TRANCHÉE ICI** : [`E4.1r`](E4.1r.md)
-  (autoscénarios, 9 fonctions) est signalée **candidate à l'annulation** au profit d'**E4.6d**, qui
-  les réécrit entièrement. **À arbitrer avant d'y arriver** ; l'agent de merge ne tranche pas.
+  ✅ **La décision utilisateur qui était en attente est TRANCHÉE (2026-09-01)** : [`E4.1r`](E4.1r.md)
+  (autoscénarios, 9 fonctions) est **MAINTENU**, migration **MÉCANIQUE**. Voir [`DECISIONS.md`](DECISIONS.md).
 
 - **✅ [`T3.53`](T3.53.md) MERGÉE — 4 commits de la branche + 1 commit de doc, `--ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`0d445230`**.
   ⭐ **CE MERGE FERME LA PAIRE LA PLUS EXPOSÉE DU SOUS-SYSTÈME WAGO : celle dont les deux types

@@ -989,3 +989,34 @@ injecte), ou la cible du lien pour un `g++` qui est un *shim* ⇒ **`rc=1`**.
 `$(AM_MAKEFLAGS)`. ⚠️ **Et il n'existe pas non plus dans automake 1.18** : la phrase « ce nom existe
 en automake récent » était fausse — **0 occurrence en 1.16.5 comme en 1.18**. L'ajouter aurait été un **no-op qu'aucun diagnostic n'aurait signalé**.
 ⇒ [T3.52](T3.52.md), sous son vrai nom, **portée projet** et **flottement `-j32` déclarés**.
+
+---
+
+## Q1 d'E4.1 — les autoscénarios de `JsonApi.cpp` (2026-09-01)
+
+**TRANCHÉE : [E4.1r](E4.1r.md) est MAINTENU. Migration MÉCANIQUE des 9 fonctions.**
+
+Conforme à la recommandation de la fiche et de `E4.1.md` § Questions ouvertes, Q1.
+
+**Ce que la décision autorise.** [E4.1s](E4.1s.md) supprime les surcharges `sendJson(json_t *)` et
+le chemin de dispatch `json_t*` dans sa foulée, au lieu d'en hériter la contrainte ; `JsonApi.cpp`,
+`JsonApiHandlerHttp.cpp` et `JsonApiHandlerWS.cpp` perdent `#include <jansson.h>` à la fin de la
+chaîne API.
+
+**Ce qu'elle n'autorise pas.** ⛔ **Aucune amélioration, aucun renommage, aucune harmonisation,
+même évidente.** Payload symétrique, `final_step` séparé, validation avant mutation : tout ça reste
+à [E4.6d](E4.6.md), avec son propre filet et sa propre revue. Un diff qui « en profite » double le
+coût de la revue **et** crée un conflit avec E4.6d. ⛔ **Zéro golden `e40c_*` modifié** : E4.6d en
+régénérera 6 **plus tard**, si l'un bouge maintenant c'est une régression, pas une anticipation.
+
+⭐ **La nuance relevée à l'arbitrage, à ne pas perdre.** Le gain n'est pas « toute l'API sur une
+seule bibliothèque » au sens strict : `IO/Scenario.cpp` reste en jansson (décision Q5) et
+`buildAutoscenarioGet` (`JsonApi.cpp:1902`) appelle `sc->toJson()`, qui rend un `json_t*`. **Un
+adaptateur transitoire reste donc nécessaire sur ce seul site jusqu'à E4.6d** — nom greppable,
+commentaire nommant E4.6d, **exactement un appelant** (protocole d'E4.1l). Et [E4.1x](E4.1x.md)
+reste bloqué par E4.6b + E4.6d quoi qu'il arrive : **jansson ne disparaît pas du dépôt avant E4.6**.
+Ce qui se jouait réellement, c'est **1 site d'adaptation** contre **9 fonctions + le double chemin
+d'émission + les surcharges `sendJson(json_t *)`**.
+
+⚠️ **Incohérence de renvoi corrigée au passage** : la fiche `E4.1r.md` et le tableau des vagues
+renvoyaient à « Q3 », alors que l'arbitrage est **Q1** (Q3 porte sur l'ordre des clés d'`io_doc.json`).
