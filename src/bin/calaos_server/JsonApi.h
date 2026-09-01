@@ -200,51 +200,60 @@ public:
     bool decodeSetState(Params &jParam);
     void decodeGetPlaylist(Params &jParam, std::function<void(const Json &)>result_lambda);
 
-    AudioPlayer *getAudioPlayer(const Json &jdata, string &err);
-    /* ⛔ E4.1p. TRANSITIONAL OVERLOAD OWNED BY E4.1q - delete it there. Its
-     * only callers are audioGetDbStats() and the fourteen audioDbGet*, which
-     * processAudioDb() still dispatches with a json_t*. It converts nothing:
-     * both overloads read the same member and hand the same string to
-     * audioPlayerById().
+    /* E4.1q. THE ONLY READER OF THE REQUEST ID LEFT. E4.1p had a second,
+     * transitional json_t* overload because processAudioDb() still dispatched
+     * its sixteen callers with one; E4.1q migrated that dispatcher and DELETED
+     * the overload, which is that ticket's stated acceptance criterion - the
+     * name of this function no longer appears anywhere in src/ next to a
+     * jansson type, and there must be no reason to bring one back.
+     * audioPlayerById()
+     * stays where it is: it is the shared resolution, and it is what guarantees
+     * the two halves of the audio family cannot answer two different refusals.
      */
-    AudioPlayer *getAudioPlayer(json_t *jdata, string &err);
+    AudioPlayer *getAudioPlayer(const Json &jdata, string &err);
     /* T3.19. Answers the refusal and returns true when the player owns no music
      * database. Called by the sixteen audio_db methods IMMEDIATELY BEFORE their
      * get_database() dereference, never at the top of the method - see the
      * comment on the definition in JsonApi.cpp.
      */
     bool audioDbUnavailable(AudioPlayer *player,
-                            const std::function<void(json_t *)> &result_lambda);
+                            const std::function<void(const Json &)> &result_lambda);
     /* ⛔ audioGetDbStats() is NOT an `audio` action: processAudioDb() is what
-     * dispatches it (JsonApiHandlerHttp.cpp:829, JsonApiHandlerWS.cpp:455),
-     * together with the fourteen audioDbGet*. It therefore stays jansson here
-     * and migrates with its dispatcher, in E4.1q - see E4.1p.md. The four
-     * below are the ones processAudio() reaches.
+     * dispatches it (JsonApiHandlerHttp.cpp, JsonApiHandlerWS.cpp), together
+     * with the fourteen audioDbGet*. That is why it belongs to E4.1q and not
+     * to the player ticket; the four below are the ones processAudio() reaches.
      */
-    void audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result_lambda);
+    void audioGetDbStats(const Json &jdata, std::function<void(const Json &)>result_lambda);
     void audioGetPlaylistSize(const Json &jdata, std::function<void(const Json &)>result_lambda);
     void audioGetTime(const Json &jdata, std::function<void(const Json &)>result_lambda);
     void audioGetPlaylistItem(const Json &jdata, std::function<void(const Json &)>result_lambda);
     void audioGetCoverInfo(const Json &jdata, std::function<void(const Json &)>result_lambda);
 
-    json_t *processDbResult(const AudioPlayerData &data);
-    void audioDbGetAlbums(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetArtists(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetYears(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetGenres(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetPlaylists(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetMusicFolder(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetSearch(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetRadios(json_t *jdata, std::function<void(json_t *)>result_lambda);
+    /* E4.1q. The answer shape of FOURTEEN of the fifteen methods below. Its
+     * contract is unchanged and deliberately so - the count marker is read AND
+     * appended to the items array, a count of "0" clears the array but still
+     * emits total_count, and no count at all means NO total_count key rather
+     * than a null. What DID change, declared: "total_count" was inserted before
+     * "items" and nlohmann sorts, so "items" now comes first on the wire.
+     */
+    Json processDbResult(const AudioPlayerData &data);
+    void audioDbGetAlbums(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetArtists(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetYears(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetGenres(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetPlaylists(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetMusicFolder(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetSearch(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetRadios(const Json &jdata, std::function<void(const Json &)>result_lambda);
 
-    void audioDbGetAlbumArtistItem(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetYearAlbums(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetGenreArtists(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetAlbumTitles(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetPlaylistTitles(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetRadioItems(json_t *jdata, std::function<void(json_t *)>result_lambda);
+    void audioDbGetAlbumArtistItem(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetYearAlbums(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetGenreArtists(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetAlbumTitles(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetPlaylistTitles(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetRadioItems(const Json &jdata, std::function<void(const Json &)>result_lambda);
 
-    void audioDbGetTrackInfos(json_t *jdata, std::function<void(json_t *)>result_lambda);
+    void audioDbGetTrackInfos(const Json &jdata, std::function<void(const Json &)>result_lambda);
 
 
 protected:

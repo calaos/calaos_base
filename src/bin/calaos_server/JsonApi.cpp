@@ -1151,21 +1151,6 @@ AudioPlayer *JsonApi::getAudioPlayer(const Json &jdata, string &err)
     return audioPlayerById(jsonStringGet(jdata, "id"), err);
 }
 
-/* ⛔ TRANSITIONAL OVERLOAD, AND ITS OWNER IS E4.1q - DELETE IT THERE.
- *
- * The audio_db family (audioGetDbStats() and the fourteen audioDbGet*) is
- * dispatched by processAudioDb(), which E4.1p does not touch, so it still
- * hands this function a json_t*. This is NOT an adapter between the two JSON
- * representations - nothing is converted, the two readers simply extract the
- * same member from the two documents and hand the SAME string to the SAME
- * resolution. The moment processAudioDb() migrates, this overload has no
- * caller left and goes away with jansson_string_get().
- */
-AudioPlayer *JsonApi::getAudioPlayer(json_t *jdata, string &err)
-{
-    return audioPlayerById(jansson_string_get(jdata, "id"), err);
-}
-
 /* T3.19. AudioPlayer::database is a RAW POINTER the base constructor leaves
  * NULL (AudioPlayer.cpp:28), get_database() (AudioPlayer.h:105) hands it back
  * unguarded, and Squeezebox.cpp:81 is the ONLY assignment in the entire tree.
@@ -1204,25 +1189,27 @@ AudioPlayer *JsonApi::getAudioPlayer(json_t *jdata, string &err)
  * process.
  */
 bool JsonApi::audioDbUnavailable(AudioPlayer *player,
-                                 const std::function<void(json_t *)> &result_lambda)
+                                 const std::function<void(const Json &)> &result_lambda)
 {
     if (player->get_database())
         return false;
 
-    Params p = {{"error", "no music database" }};
-    result_lambda(jansson_from_params(p));
+    //E4.1q. Same single member document as before, built directly instead of
+    //through a one-entry Params: same key, same words, same bytes. The sixteen
+    //methods of the family share this refusal and a byte case asserts they
+    //still do (JsonApiMusicDbWireBytes_test.cpp).
+    result_lambda(Json{{ "error", "no music database" }});
     return true;
 }
 
-void JsonApi::audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioGetDbStats(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
@@ -1249,7 +1236,7 @@ void JsonApi::audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result
         if (alive.expired()) return;
 
         adata.params.Add("audio_action", "get_stats");
-        result_lambda(jansson_from_params(adata.params));
+        result_lambda(adata.params.toNJson());
     });
 }
 
@@ -1372,10 +1359,38 @@ void JsonApi::audioGetCoverInfo(const Json &jdata, std::function<void(const Json
     });
 }
 
-json_t *JsonApi::processDbResult(const AudioPlayerData &data)
+/* E4.1q. TRANSCRIBED FROM ITS JANSSON BODY, NOT RETYPED - every oddity below is
+ * production behaviour of every SqueezeboxDB getter and is pinned by the T3.17c
+ * goldens and by JsonApiMusicDbWireBytes_test.cpp:
+ *
+ *   - the leading Params carrying the "count" marker is read for total_count
+ *     AND appended to the items array, so items[0] of a normal answer is
+ *     {"count":"2"} and not a row;
+ *   - a count of "0" CLEARS the array but STILL emits "total_count":"0";
+ *   - no count anywhere means NO total_count key at all - absent, never null;
+ *   - everything stays a STRING. A count that became a JSON number would break
+ *     the type-strict oracle of the goldens (3 != "3").
+ *
+ * TWO THINGS MOVE, both declared:
+ *   1. KEY ORDER. total_count is still assigned before items, but nlohmann
+ *      sorts, so "items" comes FIRST on the wire from now on. No golden sees it
+ *      - they compare parsed documents - which is exactly why the byte cases
+ *      exist.
+ *   2. INVALID UTF-8. jansson_from_params() dropped the whole pair in silence
+ *      (json_string() answered NULL, json_object_set_new() answered -1 and
+ *      nobody looked); Params::toNJson() keeps the bytes and the emitter's
+ *      error_handler_t::replace turns each bad byte into U+FFFD. An ABSENT KEY
+ *      BECOMES PRESENT, and an embedded NUL no longer truncates. This is the
+ *      most exposed spot of the whole epic for that delta: album, artist,
+ *      genre and FOLDER names are file tags and filesystem paths.
+ */
+Json JsonApi::processDbResult(const AudioPlayerData &data)
 {
-    json_t *ret = json_object();
-    json_t *aret = json_array();
+    Json ret = Json::object();
+    //Json::array(), not a default constructed Json: a default constructed one
+    //is `null`, and an answer with no row at all would emit "items":null
+    //instead of "items":[] - a change no golden would catch.
+    Json aret = Json::array();
     string scount;
 
     const vector<Params> &vp = data.vparams;
@@ -1383,38 +1398,36 @@ json_t *JsonApi::processDbResult(const AudioPlayerData &data)
     {
         if (p.Exists("count"))
             scount = p["count"];
-        json_array_append_new(aret, jansson_from_params(p));
+        aret.push_back(p.toNJson());
     }
 
     if (scount == "0")
-        json_array_clear(aret);
+        aret.clear();
 
     if (!scount.empty())
-        json_object_set_new(ret, "total_count", json_string(scount.c_str()));
-    json_object_set_new(ret, "items", aret);
+        ret["total_count"] = scount;
+    ret["items"] = aret;
 
     return ret;
 }
 
-void JsonApi::audioDbGetAlbums(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetAlbums(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -1469,26 +1482,24 @@ void JsonApi::audioDbGetAlbums(json_t *jdata, std::function<void(json_t *)>resul
     }, from, count);
 }
 
-void JsonApi::audioDbGetAlbumArtistItem(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetAlbumArtistItem(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
-    string artist_id = jansson_string_get(jdata, "artist_id");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
+    string artist_id = jsonStringGet(jdata, "artist_id");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -1509,26 +1520,24 @@ void JsonApi::audioDbGetAlbumArtistItem(json_t *jdata, std::function<void(json_t
     }, from, count, artist_id);
 }
 
-void JsonApi::audioDbGetYearAlbums(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetYearAlbums(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
-    string year = jansson_string_get(jdata, "year");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
+    string year = jsonStringGet(jdata, "year");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -1549,26 +1558,24 @@ void JsonApi::audioDbGetYearAlbums(json_t *jdata, std::function<void(json_t *)>r
     }, from, count, year);
 }
 
-void JsonApi::audioDbGetGenreArtists(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetGenreArtists(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
-    string genre = jansson_string_get(jdata, "genre");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
+    string genre = jsonStringGet(jdata, "genre");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -1589,26 +1596,24 @@ void JsonApi::audioDbGetGenreArtists(json_t *jdata, std::function<void(json_t *)
     }, from, count, genre);
 }
 
-void JsonApi::audioDbGetAlbumTitles(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetAlbumTitles(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
-    string album_id = jansson_string_get(jdata, "album_id");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
+    string album_id = jsonStringGet(jdata, "album_id");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -1629,26 +1634,24 @@ void JsonApi::audioDbGetAlbumTitles(json_t *jdata, std::function<void(json_t *)>
     }, from, count, album_id);
 }
 
-void JsonApi::audioDbGetPlaylistTitles(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetPlaylistTitles(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
-    string pl_id = jansson_string_get(jdata, "playlist_id");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
+    string pl_id = jsonStringGet(jdata, "playlist_id");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -1669,25 +1672,23 @@ void JsonApi::audioDbGetPlaylistTitles(json_t *jdata, std::function<void(json_t 
     }, from, count, pl_id);
 }
 
-void JsonApi::audioDbGetArtists(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetArtists(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -1708,25 +1709,23 @@ void JsonApi::audioDbGetArtists(json_t *jdata, std::function<void(json_t *)>resu
     }, from, count);
 }
 
-void JsonApi::audioDbGetYears(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetYears(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -1747,25 +1746,23 @@ void JsonApi::audioDbGetYears(json_t *jdata, std::function<void(json_t *)>result
     }, from, count);
 }
 
-void JsonApi::audioDbGetGenres(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetGenres(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -1786,25 +1783,23 @@ void JsonApi::audioDbGetGenres(json_t *jdata, std::function<void(json_t *)>resul
     }, from, count);
 }
 
-void JsonApi::audioDbGetPlaylists(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetPlaylists(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -1825,26 +1820,24 @@ void JsonApi::audioDbGetPlaylists(json_t *jdata, std::function<void(json_t *)>re
     }, from, count);
 }
 
-void JsonApi::audioDbGetMusicFolder(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetMusicFolder(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
-    string folder_id = jansson_string_get(jdata, "folder_id");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
+    string folder_id = jsonStringGet(jdata, "folder_id");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -1865,26 +1858,24 @@ void JsonApi::audioDbGetMusicFolder(json_t *jdata, std::function<void(json_t *)>
     }, from, count, folder_id);
 }
 
-void JsonApi::audioDbGetSearch(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetSearch(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
-    string search = jansson_string_get(jdata, "search");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
+    string search = jsonStringGet(jdata, "search");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -1905,25 +1896,23 @@ void JsonApi::audioDbGetSearch(json_t *jdata, std::function<void(json_t *)>resul
     }, from, count, search);
 }
 
-void JsonApi::audioDbGetRadios(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetRadios(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -1944,25 +1933,23 @@ void JsonApi::audioDbGetRadios(json_t *jdata, std::function<void(json_t *)>resul
     }, from, count);
 }
 
-void JsonApi::audioDbGetRadioItems(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetRadioItems(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -1970,9 +1957,9 @@ void JsonApi::audioDbGetRadioItems(json_t *jdata, std::function<void(json_t *)>r
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
-    string radio_id = jansson_string_get(jdata, "radio_id");
-    string item_id = jansson_string_get(jdata, "item_id");
-    string search = jansson_string_get(jdata, "search");
+    string radio_id = jsonStringGet(jdata, "radio_id");
+    string item_id = jsonStringGet(jdata, "item_id");
+    string search = jsonStringGet(jdata, "search");
 
     if (audioDbUnavailable(player, result_lambda))
         return;
@@ -1987,19 +1974,18 @@ void JsonApi::audioDbGetRadioItems(json_t *jdata, std::function<void(json_t *)>r
     }, from, count, radio_id, item_id, search);
 }
 
-void JsonApi::audioDbGetTrackInfos(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetTrackInfos(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(jansson_from_params(p));
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string trackid = jansson_string_get(jdata, "track_id");
+    string trackid = jsonStringGet(jdata, "track_id");
 
     if (audioDbUnavailable(player, result_lambda))
         return;
@@ -2010,7 +1996,7 @@ void JsonApi::audioDbGetTrackInfos(json_t *jdata, std::function<void(json_t *)>r
     {
         if (alive.expired()) return;
 
-        result_lambda(jansson_from_params(data.params));
+        result_lambda(data.params.toNJson());
     }, trackid);
 }
 

@@ -55,10 +55,19 @@
  * the suffix. That is the proof the path is EXERCISED and not merely compiled -
  * a case that had to be edited is a case that ran.
  *
- * Every case carries either ...Today in its NAME (its bytes are the jansson
- * ones and the migration commit rewrites them) or INVARIANT in its comment (its
- * bytes must be identical on both sides). If an INVARIANT ever moves, a VALUE or
- * a STRUCTURE changed - stop and understand why before touching it.
+ * MEASURED: 45 cases, 16 of them written as ...Today. The migration made
+ * FIFTEEN of them fail and NOT ONE of the other thirty, and no other test of
+ * the tree moved - the 145 goldens included. Every case now carries either
+ * MOVED (it was a ...Today that really moved) or INVARIANT in its comment.
+ *
+ * ⚠️ The sixteenth, WsAnUnknownAudioDbActionIsEnveloped, was PREDICTED to move
+ * and did NOT. Kept with its measurement instead of quietly renamed: that else
+ * branch belongs to the transport, not to the dispatcher, and it already
+ * emitted through the nlohmann overload of sendJson() before this ticket. A
+ * prediction that a case will move is not evidence; the run is.
+ *
+ * The INVARIANTS held on both sides. If one of them ever moves, a VALUE or a
+ * STRUCTURE changed - stop and understand why before touching it.
  *
  * ---------------------------------------------------------------------------
  * THE DELTAS, ON THIS PERIMETER
@@ -539,11 +548,11 @@ protected:
  * the array, and the STRING typing of total_count.
  ******************************************************************************/
 
-//...Today: processDbResult() inserts total_count and THEN items, and jansson
-//keeps that insertion order. After the migration nlohmann sorts them, so items
-//comes first, and the WS envelope sorts with them (data before msg). Nothing
-//else in this string may move - not one row, not one member, not one quote.
-TEST_F(JsonApiMusicDbWireBytesTest, WsGetAlbumsWholeAnswerBytesToday)
+//MOVED, as announced: processDbResult() assigns total_count and THEN items,
+//jansson kept that insertion order and nlohmann SORTS, so items comes first;
+//the WS envelope sorts with it (data before msg). Nothing else in this string
+//moved - not one row, not one member, not one quote.
+TEST_F(JsonApiMusicDbWireBytesTest, WsGetAlbumsWholeAnswerBytes)
 {
     addPlayer();
 
@@ -551,13 +560,13 @@ TEST_F(JsonApiMusicDbWireBytesTest, WsGetAlbumsWholeAnswerBytesToday)
     ws.send(wsDbRequest("get_album", PAGE()));
 
     ASSERT_EQ(1u, ws.count());
-    EXPECT_EQ("{\"msg\":\"audio_db\",\"msg_id\":\"1\","
-              "\"data\":{\"total_count\":\"2\",\"items\":" + itemsOf("album") + "}}",
+    EXPECT_EQ("{\"data\":{\"items\":" + itemsOf("album") + ",\"total_count\":\"2\"},"
+              "\"msg\":\"audio_db\",\"msg_id\":\"1\"}",
               ws.lastMessage());
 }
 
-//...Today: the same two keys, no envelope on this transport.
-TEST_F(JsonApiMusicDbWireBytesTest, HttpGetAlbumsWholeAnswerBytesToday)
+//MOVED: the same two keys, no envelope on this transport.
+TEST_F(JsonApiMusicDbWireBytesTest, HttpGetAlbumsWholeAnswerBytes)
 {
     addPlayer();
 
@@ -565,7 +574,7 @@ TEST_F(JsonApiMusicDbWireBytesTest, HttpGetAlbumsWholeAnswerBytesToday)
     req.send(httpDbRequest("get_albums", PAGE()));
 
     EXPECT_EQ("HTTP/1.0 200 OK", req.statusLine());
-    EXPECT_EQ("{\"total_count\":\"2\",\"items\":" + itemsOf("album") + "}",
+    EXPECT_EQ("{\"items\":" + itemsOf("album") + ",\"total_count\":\"2\"}",
               req.body());
 }
 
@@ -619,15 +628,15 @@ TEST_F(JsonApiMusicDbWireBytesTest, TheFifteenPayloadsArePairwiseDistinctOnTheWi
 //INVARIANT. The four methods whose only argument is the paging pair are the
 //easiest pair to confuse, and get_albums / get_artists are the two the ticket
 //sheet names. Their bytes must differ in the total_count AND in every row.
-TEST_F(JsonApiMusicDbWireBytesTest, AlbumsAndArtistsAnswerTwoDifferentPayloadsToday)
+TEST_F(JsonApiMusicDbWireBytesTest, AlbumsAndArtistsAnswerTwoDifferentPayloads)
 {
     addPlayer();
 
     const std::string albums  = httpWire("get_albums",  PAGE());
     const std::string artists = httpWire("get_artists", PAGE());
 
-    EXPECT_EQ("{\"total_count\":\"2\",\"items\":" + itemsOf("album") + "}", albums);
-    EXPECT_EQ("{\"total_count\":\"812\",\"items\":" + itemsOf("artist") + "}", artists);
+    EXPECT_EQ("{\"items\":" + itemsOf("album") + ",\"total_count\":\"2\"}", albums);
+    EXPECT_EQ("{\"items\":" + itemsOf("artist") + ",\"total_count\":\"812\"}", artists);
 
     EXPECT_NE(albums, artists);
     //Different lengths, not merely different text: an exchange moves the size
@@ -637,7 +646,7 @@ TEST_F(JsonApiMusicDbWireBytesTest, AlbumsAndArtistsAnswerTwoDifferentPayloadsTo
 
 //INVARIANT. Same for the two identifier-taking twins that sit next to each
 //other in the dispatcher and read a DIFFERENT member of the request.
-TEST_F(JsonApiMusicDbWireBytesTest, YearAlbumsAndGenreArtistsAnswerTwoDifferentPayloadsToday)
+TEST_F(JsonApiMusicDbWireBytesTest, YearAlbumsAndGenreArtistsAnswerTwoDifferentPayloads)
 {
     addPlayer();
 
@@ -647,8 +656,8 @@ TEST_F(JsonApiMusicDbWireBytesTest, YearAlbumsAndGenreArtistsAnswerTwoDifferentP
     const std::string years  = httpWire("get_year_albums",   y);
     const std::string genres = httpWire("get_genre_artists", g);
 
-    EXPECT_EQ("{\"total_count\":\"412\",\"items\":" + itemsOf("yearalbum") + "}", years);
-    EXPECT_EQ("{\"total_count\":\"53\",\"items\":" + itemsOf("genreartist") + "}", genres);
+    EXPECT_EQ("{\"items\":" + itemsOf("yearalbum") + ",\"total_count\":\"412\"}", years);
+    EXPECT_EQ("{\"items\":" + itemsOf("genreartist") + ",\"total_count\":\"53\"}", genres);
     EXPECT_NE(years, genres);
 }
 
@@ -659,15 +668,15 @@ TEST_F(JsonApiMusicDbWireBytesTest, YearAlbumsAndGenreArtistsAnswerTwoDifferentP
  * shape. Frozen as it is, oddities included.
  ******************************************************************************/
 
-//...Today: total_count and items will swap places. The VALUE "0" and the EMPTY
-//array are the invariant part - a count of "0" clears the rows but STILL emits
+//MOVED: total_count and items swapped places. The VALUE "0" and the EMPTY array
+//are the invariant part - a count of "0" clears the rows but STILL emits
 //total_count.
-TEST_F(JsonApiMusicDbWireBytesTest, AZeroCountClearsTheItemsAndKeepsTotalCountToday)
+TEST_F(JsonApiMusicDbWireBytesTest, AZeroCountClearsTheItemsAndKeepsTotalCount)
 {
     addPlayer();
     db->shape = FakeMusicDb::ZeroCount;
 
-    EXPECT_EQ("{\"total_count\":\"0\",\"items\":[]}",
+    EXPECT_EQ("{\"items\":[],\"total_count\":\"0\"}",
               httpWire("get_artists", PAGE()));
 }
 
@@ -777,21 +786,21 @@ TEST_F(JsonApiMusicDbWireBytesTest, TheWireStaysPureAsciiOnAnAccentedAlbumName)
     EXPECT_FALSE(contains(wire, RAW_E_ACUTE));
 }
 
-//...Today: jansson writes \u00E9 with UPPER case hex digits, nlohmann writes
+//MOVED: jansson wrote \u00E9 with UPPER case hex digits, nlohmann writes
 //\u00e9. Same length, same position, different case.
-TEST_F(JsonApiMusicDbWireBytesTest, HttpAnAccentedAlbumNameIsEscapedUpperCaseToday)
+TEST_F(JsonApiMusicDbWireBytesTest, HttpAnAccentedAlbumNameIsEscapedLowerCase)
 {
     addPlayer();
     db->firstRowName = std::string("Caf") + RAW_E_ACUTE + " Bleu";
 
     const std::string wire = httpWire("get_albums", PAGE());
-    EXPECT_TRUE(contains(wire, std::string("Caf") + ASCII_E_UPPER + " Bleu")) << wire;
-    EXPECT_FALSE(contains(wire, std::string("Caf") + ASCII_E_LOWER + " Bleu"));
+    EXPECT_TRUE(contains(wire, std::string("Caf") + ASCII_E_LOWER + " Bleu")) << wire;
+    EXPECT_FALSE(contains(wire, std::string("Caf") + ASCII_E_UPPER + " Bleu"));
 }
 
-//...Today: the same, over the other transport, because the two emitters are two
-//different functions and one could be migrated without the other.
-TEST_F(JsonApiMusicDbWireBytesTest, WsAnAccentedFolderNameIsEscapedUpperCaseToday)
+//MOVED: the same, over the other transport, because the two emitters are two
+//different functions and one could have been migrated without the other.
+TEST_F(JsonApiMusicDbWireBytesTest, WsAnAccentedFolderNameIsEscapedLowerCase)
 {
     addPlayer();
     db->firstRowName = std::string("Musique priv") + RAW_E_ACUTE + "e";
@@ -803,15 +812,15 @@ TEST_F(JsonApiMusicDbWireBytesTest, WsAnAccentedFolderNameIsEscapedUpperCaseToda
     ASSERT_EQ(1u, ws.count());
     const std::string wire = ws.lastMessage();
     EXPECT_TRUE(isPureAscii(wire)) << wire;
-    EXPECT_TRUE(contains(wire, std::string("Musique priv") + ASCII_E_UPPER + "e")) << wire;
-    EXPECT_FALSE(contains(wire, std::string("Musique priv") + ASCII_E_LOWER + "e"));
+    EXPECT_TRUE(contains(wire, std::string("Musique priv") + ASCII_E_LOWER + "e")) << wire;
+    EXPECT_FALSE(contains(wire, std::string("Musique priv") + ASCII_E_UPPER + "e"));
 }
 
-//...Today: U+007F goes out as a RAW byte under JSON_ENSURE_ASCII and will be
-//escaped from now on - nlohmann escapes every codepoint >= 0x7F. The answer
-//grows by five bytes, and Content-Length follows it, which is why that header
-//is asserted here on both sides of the migration.
-TEST_F(JsonApiMusicDbWireBytesTest, ADelByteInAnAlbumNameIsRawToday)
+//MOVED: U+007F went out as a RAW byte under JSON_ENSURE_ASCII and is escaped
+//from now on - nlohmann escapes every codepoint >= 0x7F. The answer grows by
+//five bytes, and Content-Length follows it, which is why that header is
+//asserted here on both sides of the migration.
+TEST_F(JsonApiMusicDbWireBytesTest, ADelByteInAnAlbumNameIsEscaped)
 {
     addPlayer();
     db->firstRowName = std::string("Del") + RAW_DEL + "ta";
@@ -820,21 +829,21 @@ TEST_F(JsonApiMusicDbWireBytesTest, ADelByteInAnAlbumNameIsRawToday)
     req.send(httpDbRequest("get_albums", PAGE()));
 
     const std::string wire = req.body();
-    EXPECT_TRUE(contains(wire, std::string("Del") + RAW_DEL + "ta")) << wire;
-    EXPECT_FALSE(contains(wire, std::string("Del") + ASCII_DEL + "ta"));
+    EXPECT_TRUE(contains(wire, std::string("Del") + ASCII_DEL + "ta")) << wire;
+    EXPECT_FALSE(contains(wire, std::string("Del") + RAW_DEL + "ta"));
     EXPECT_EQ(Utils::to_string(wire.size()), req.header("Content-Length"));
 }
 
-//...Today: json_string() takes a const char*, so an embedded NUL TRUNCATES the
-//value in silence. nlohmann holds a std::string and will keep it whole.
-TEST_F(JsonApiMusicDbWireBytesTest, AnEmbeddedNulTruncatesAnAlbumNameToday)
+//MOVED: json_string() took a const char*, so an embedded NUL TRUNCATED the
+//value in silence. nlohmann holds a std::string and keeps it whole.
+TEST_F(JsonApiMusicDbWireBytesTest, AnEmbeddedNulNoLongerTruncatesAnAlbumName)
 {
     addPlayer();
     db->firstRowName = std::string("Head\0Tail", 9);
 
     const std::string wire = httpWire("get_albums", PAGE());
-    EXPECT_TRUE(contains(wire, "\"name\":\"Head\"")) << wire;
-    EXPECT_FALSE(contains(wire, std::string("Head") + ASCII_NUL + "Tail"));
+    EXPECT_TRUE(contains(wire, std::string("Head") + ASCII_NUL + "Tail")) << wire;
+    EXPECT_FALSE(contains(wire, "\"name\":\"Head\""));
 }
 
 /*******************************************************************************
@@ -851,20 +860,20 @@ TEST_F(JsonApiMusicDbWireBytesTest, AnEmbeddedNulTruncatesAnAlbumNameToday)
  * a delivered answer, a 200, and an EMPTY closes() list.
  ******************************************************************************/
 
-//...Today, and this one is a STRUCTURE delta: json_string() answers NULL on the
-//bad bytes, json_object_set_new() answers -1 and NOBODY LOOKS, so the "name"
-//member of the poisoned row DISAPPEARS from the answer. After the migration it
-//is present and carries two U+FFFD.
-TEST_F(JsonApiMusicDbWireBytesTest, AnInvalidUtf8AlbumNameIsDroppedToday)
+//MOVED, and this one is a STRUCTURE delta: json_string() answered NULL on the
+//bad bytes, json_object_set_new() answered -1 and NOBODY LOOKED, so the "name"
+//member of the poisoned row DISAPPEARED from the answer. It is now present and
+//carries two U+FFFD.
+TEST_F(JsonApiMusicDbWireBytesTest, AnInvalidUtf8AlbumNameIsNoLongerDropped)
 {
     addPlayer();
     db->firstRowName = INVALID_UTF8_PROBE;
 
     const std::string wire = httpWire("get_albums", PAGE());
 
-    //The whole pair is gone: the row is an id-only object.
-    EXPECT_TRUE(contains(wire, "{\"id\":\"album_1\"}")) << wire;
-    EXPECT_FALSE(contains(wire, rowBytes("album_1", ASCII_FFFD_FFFD_X)));
+    //The pair is delivered: the row is no longer an id-only object.
+    EXPECT_TRUE(contains(wire, rowBytes("album_1", ASCII_FFFD_FFFD_X))) << wire;
+    EXPECT_FALSE(contains(wire, "{\"id\":\"album_1\"}"));
     //The row that was NOT poisoned is untouched either way.
     EXPECT_TRUE(contains(wire, rowBytes("album_2", "album number 2"))) << wire;
 }
@@ -925,9 +934,10 @@ TEST_F(JsonApiMusicDbWireBytesTest, AnInvalidUtf8MusicFolderNameIsDeliveredAndTh
         << req.body();
 }
 
-//...Today: what the folder name BECOMES. The pair is dropped today, it carries
-//two U+FFFD after the migration.
-TEST_F(JsonApiMusicDbWireBytesTest, AnInvalidUtf8MusicFolderNameIsDroppedToday)
+//MOVED: what the folder name BECOMES. The pair was dropped, it now carries two
+//U+FFFD - and the trailing 'x' survives, because replace SUBSTITUTES, it does
+//not truncate.
+TEST_F(JsonApiMusicDbWireBytesTest, AnInvalidUtf8MusicFolderNameIsNoLongerDropped)
 {
     addPlayer();
     db->firstRowName = std::string("Musique") + INVALID_UTF8_PROBE;
@@ -935,16 +945,16 @@ TEST_F(JsonApiMusicDbWireBytesTest, AnInvalidUtf8MusicFolderNameIsDroppedToday)
     Json f = PAGE(); f["folder_id"] = "fold_5";
     const std::string wire = httpWire("get_music_folder", f);
 
-    EXPECT_TRUE(contains(wire, "{\"id\":\"folder_1\"}")) << wire;
-    EXPECT_FALSE(contains(wire, rowBytes("folder_1",
-                                         std::string("Musique") + ASCII_FFFD_FFFD_X)));
+    EXPECT_TRUE(contains(wire, rowBytes("folder_1",
+                                        std::string("Musique") + ASCII_FFFD_FFFD_X))) << wire;
+    EXPECT_FALSE(contains(wire, "{\"id\":\"folder_1\"}"));
 }
 
-//...Today. The fifteenth method does not go through processDbResult() at all,
-//so its escaping is a SEPARATE emitter path and gets its own case: a track
-//title read out of a file tag is exactly as untrustworthy as a folder name.
-//Today the whole "title" pair is dropped and the answer has FOUR members.
-TEST_F(JsonApiMusicDbWireBytesTest, AnInvalidUtf8TrackTitleIsDroppedToday)
+//MOVED. The fifteenth method does not go through processDbResult() at all, so
+//its escaping is a SEPARATE emitter path and gets its own case: a track title
+//read out of a file tag is exactly as untrustworthy as a folder name. The whole
+//"title" pair used to be dropped and the answer had FOUR members; it has five.
+TEST_F(JsonApiMusicDbWireBytesTest, AnInvalidUtf8TrackTitleIsNoLongerDropped)
 {
     addPlayer();
     db->trackTitle = INVALID_UTF8_PROBE;
@@ -954,8 +964,9 @@ TEST_F(JsonApiMusicDbWireBytesTest, AnInvalidUtf8TrackTitleIsDroppedToday)
 
     EXPECT_EQ("HTTP/1.0 200 OK", req.statusLine());
     EXPECT_TRUE(req.closes().empty());
-    EXPECT_EQ("{\"album\":\"Fake album\",\"artist\":\"Fake artist\","
-              "\"duration\":\"245\",\"track_id\":\"trk_77\"}", req.body());
+    EXPECT_EQ(std::string("{\"album\":\"Fake album\",\"artist\":\"Fake artist\","
+                          "\"duration\":\"245\",\"title\":\"") + ASCII_FFFD_FFFD_X +
+              "\",\"track_id\":\"trk_77\"}", req.body());
 }
 
 /*******************************************************************************
@@ -980,8 +991,9 @@ TEST_F(JsonApiMusicDbWireBytesTest, HttpGetStatsAnswersTheDatabaseParamsPlusItsA
               httpWire("get_stats"));
 }
 
-//...Today: only the WS envelope moves, and it moves because it sorts.
-TEST_F(JsonApiMusicDbWireBytesTest, WsGetStatsIsEnvelopedAsAnAudioDbAnswerToday)
+//MOVED: only the WS envelope, and it moved because it sorts. The payload is
+//byte for byte what it was - it is built from a Params, which is a std::map.
+TEST_F(JsonApiMusicDbWireBytesTest, WsGetStatsIsEnvelopedAsAnAudioDbAnswer)
 {
     addPlayer();
 
@@ -989,9 +1001,9 @@ TEST_F(JsonApiMusicDbWireBytesTest, WsGetStatsIsEnvelopedAsAnAudioDbAnswerToday)
     ws.send(wsDbRequest("get_stats", Json::object()));
 
     ASSERT_EQ(1u, ws.count());
-    EXPECT_EQ("{\"msg\":\"audio_db\",\"msg_id\":\"1\","
-              "\"data\":{\"albums\":\"12\",\"artists\":\"7\","
-              "\"audio_action\":\"get_stats\",\"songs\":\"134\"}}",
+    EXPECT_EQ("{\"data\":{\"albums\":\"12\",\"artists\":\"7\","
+              "\"audio_action\":\"get_stats\",\"songs\":\"134\"},"
+              "\"msg\":\"audio_db\",\"msg_id\":\"1\"}",
               ws.lastMessage());
 }
 
@@ -1221,11 +1233,15 @@ TEST_F(JsonApiMusicDbWireBytesTest, AnUnknownAudioDbActionIsAnsweredByTheTranspo
     EXPECT_TRUE(db->calls.empty());
 }
 
-//...Today: the refusal document does not move, its WS envelope does. This
-//branch is the transport's own, and it already answered through the nlohmann
-//overload of sendJson() before this ticket - so if it does NOT move, read the
-//dispatcher again before touching this case.
-TEST_F(JsonApiMusicDbWireBytesTest, WsAnUnknownAudioDbActionIsEnvelopedToday)
+/* ⚠️ NOT a delta, and it was written as one and MEASURED WRONG - kept with its
+ * measurement rather than quietly renamed. This else branch is the transport's
+ * own and it ALREADY answered through the nlohmann overload of sendJson()
+ * before this ticket (the brace-initialised argument binds to the Json
+ * overload, not to the json_t* one), so its envelope was already sorted. It is
+ * an INVARIANT, and the fact that it did not move is the proof the dispatcher
+ * migration did not touch the branch it does not own.
+ */
+TEST_F(JsonApiMusicDbWireBytesTest, WsAnUnknownAudioDbActionIsEnveloped)
 {
     addPlayer();
 
@@ -1237,10 +1253,10 @@ TEST_F(JsonApiMusicDbWireBytesTest, WsAnUnknownAudioDbActionIsEnvelopedToday)
               "\"msg\":\"audio_db\",\"msg_id\":\"1\"}", ws.lastMessage());
 }
 
-//...Today (the two byte strings). The WS/HTTP asymmetry of E4.0f is the
-//INVARIANT part: the payload is the SAME object on both sides, only the
-//wrapping differs, and that must hold before and after.
-TEST_F(JsonApiMusicDbWireBytesTest, TheWsAnswerIsEnvelopedAndTheHttpOneIsNotToday)
+//MOVED (the two byte strings). The WS/HTTP asymmetry of E4.0f is the INVARIANT
+//part: the payload is the SAME object on both sides, only the wrapping differs,
+//and that held before and after.
+TEST_F(JsonApiMusicDbWireBytesTest, TheWsAnswerIsEnvelopedAndTheHttpOneIsNot)
 {
     addPlayer();
 
@@ -1250,10 +1266,9 @@ TEST_F(JsonApiMusicDbWireBytesTest, TheWsAnswerIsEnvelopedAndTheHttpOneIsNotToda
 
     const std::string http = httpWire("get_years", PAGE());
 
-    EXPECT_EQ("{\"msg\":\"audio_db\",\"msg_id\":\"1\","
-              "\"data\":{\"total_count\":\"9\",\"items\":" + itemsOf("year") + "}}",
-              ws.lastMessage());
-    EXPECT_EQ("{\"total_count\":\"9\",\"items\":" + itemsOf("year") + "}", http);
+    EXPECT_EQ("{\"data\":{\"items\":" + itemsOf("year") + ",\"total_count\":\"9\"},"
+              "\"msg\":\"audio_db\",\"msg_id\":\"1\"}", ws.lastMessage());
+    EXPECT_EQ("{\"items\":" + itemsOf("year") + ",\"total_count\":\"9\"}", http);
 
     EXPECT_TRUE(contains(ws.lastMessage(), http));
 }
@@ -1268,8 +1283,8 @@ TEST_F(JsonApiMusicDbWireBytesTest, TheWsAnswerIsEnvelopedAndTheHttpOneIsNotToda
  * proves the document still arrives whole.
  ******************************************************************************/
 
-//...Today on the key order; INVARIANT on the guard.
-TEST_F(JsonApiMusicDbWireBytesTest, ADeferredAnswerReachesALiveClientWholeToday)
+//MOVED on the key order; INVARIANT on the guard.
+TEST_F(JsonApiMusicDbWireBytesTest, ADeferredAnswerReachesALiveClientWhole)
 {
     addPlayer();
     queue.deferred = true;
@@ -1282,9 +1297,8 @@ TEST_F(JsonApiMusicDbWireBytesTest, ADeferredAnswerReachesALiveClientWholeToday)
     ASSERT_TRUE(queue.fireNext());
 
     ASSERT_EQ(1u, ws.count());
-    EXPECT_EQ("{\"msg\":\"audio_db\",\"msg_id\":\"1\","
-              "\"data\":{\"total_count\":\"104\",\"items\":" + itemsOf("genre") + "}}",
-              ws.lastMessage());
+    EXPECT_EQ("{\"data\":{\"items\":" + itemsOf("genre") + ",\"total_count\":\"104\"},"
+              "\"msg\":\"audio_db\",\"msg_id\":\"1\"}", ws.lastMessage());
 }
 
 //INVARIANT. The client leaves while the answer is in flight: nothing is sent,

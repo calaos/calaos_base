@@ -32,6 +32,34 @@
 #include "libuvw.h"
 #include "McpServerManager.h"
 
+namespace
+{
+
+/* E4.1q. jansson_string_get()'s contract, kept BY HAND for a nlohmann document
+ * so that processAudioDb() can dispatch on the parse processApi() ALREADY did:
+ * the DEFAULT on an absent member, on a member that is not a JSON string, and
+ * on a root that is not an object (json_object_get(NULL, k) answered NULL).
+ * `j["k"].get<string>()` does none of that - it throws.
+ *
+ * Identical, deliberately, to the copy JsonApi.cpp carries (E4.1o) and to the
+ * four driver wires: this is a contract E4.1x will fold once
+ * Jansson_Addition.h goes away, not a helper to improve here.
+ */
+inline std::string jsonStringGet(const Json &j, const char *key,
+                                 const std::string &defaultValue = std::string())
+{
+    if (!j.is_object())
+        return defaultValue;
+
+    const Json::const_iterator it = j.find(key);
+    if (it == j.cend() || !it->is_string())
+        return defaultValue;
+
+    return it->get<std::string>();
+}
+
+} //namespace
+
 JsonApiHandlerHttp::JsonApiHandlerHttp(HttpClient *client):
     JsonApi(client)
 {
@@ -222,7 +250,7 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
         else if (jsonParam["action"] == "audio")
             processAudio(jroot, jsonRootDoc);
         else if (jsonParam["action"] == "audio_db")
-            processAudioDb(jroot);
+            processAudioDb(jsonRootDoc);
         else if (jsonParam["action"] == "set_timerange")
             processSetTimerange(jsonRootDoc);
         else if (jsonParam["action"] == "autoscenario")
@@ -776,10 +804,18 @@ void JsonApiHandlerHttp::processAudio(json_t *jdata, const Json &jdataDoc)
          * and its two error payloads are hand built here and covered by no
          * case of the suite (measured: no test in tests/ mentions "unable to
          * get url"). Moving them would sort their keys with nothing to catch a
-         * mistake. It goes with the dispatch, in E4.1s.
+         * mistake. They go with the dispatch, in E4.1s.
+         *
+         * ⚠️ E4.1q: the ONE line that had to move here anyway. This was the
+         * sixteenth caller of the transitional jansson overload of
+         * getAudioPlayer() that E4.1p left for that ticket. It is deleted, so
+         * lookup now reads the SAME member out of the SAME request through the
+         * document processApi() already parsed. It converts nothing and it
+         * answers nothing: the two hand built payloads below are untouched and
+         * still jansson.
          */
         string err;
-        AudioPlayer *player = getAudioPlayer(jdata, err);
+        AudioPlayer *player = getAudioPlayer(jdataDoc, err);
 
         if (!err.empty())
         {
@@ -843,86 +879,95 @@ void JsonApiHandlerHttp::processAudio(json_t *jdata, const Json &jdataDoc)
         sendJson({{"error", "unkown audio_action" }});
 }
 
-void JsonApiHandlerHttp::processAudioDb(json_t *jdata)
+/* E4.1q. THE DOCUMENT IS HOISTED, NOT ADDED - same move as processAudio()
+ * (E4.1p). `jdataDoc` is processApi()'s existing nlohmann parse of the request
+ * body; there is NO second parse and no json_dumps/Json::parse bridge, which is
+ * precisely what would have moved the fate of invalid UTF-8 into this ticket by
+ * accident. Unlike processAudio(), the DISPATCH migrates here too: the sixteen
+ * methods below all take a Json now, so nothing was left for the json_t* to
+ * feed - and that is what makes the transitional jansson overload of
+ * getAudioPlayer(), left behind by E4.1p, disappear.
+ */
+void JsonApiHandlerHttp::processAudioDb(const Json &jdataDoc)
 {
-    string msg = jansson_string_get(jdata, "audio_action");
+    string msg = jsonStringGet(jdataDoc, "audio_action");
     if (msg == "get_albums")
-        audioDbGetAlbums(jdata, [=](json_t *jret)
+        audioDbGetAlbums(jdataDoc, [=](const Json &jret)
         {
             sendJson(jret);
         });
     else if (msg == "get_stats")
-        audioGetDbStats(jdata, [=](json_t *jret)
+        audioGetDbStats(jdataDoc, [=](const Json &jret)
         {
             sendJson(jret);
         });
     else if (msg == "get_artist_album")
-        audioDbGetAlbumArtistItem(jdata, [=](json_t *jret)
+        audioDbGetAlbumArtistItem(jdataDoc, [=](const Json &jret)
         {
             sendJson(jret);
         });
     else if (msg == "get_year_albums")
-        audioDbGetYearAlbums(jdata, [=](json_t *jret)
+        audioDbGetYearAlbums(jdataDoc, [=](const Json &jret)
         {
             sendJson(jret);
         });
     else if (msg == "get_genre_artists")
-        audioDbGetGenreArtists(jdata, [=](json_t *jret)
+        audioDbGetGenreArtists(jdataDoc, [=](const Json &jret)
         {
             sendJson(jret);
         });
     else if (msg == "get_album_titles")
-        audioDbGetAlbumTitles(jdata, [=](json_t *jret)
+        audioDbGetAlbumTitles(jdataDoc, [=](const Json &jret)
         {
             sendJson(jret);
         });
     else if (msg == "get_playlist_titles")
-        audioDbGetPlaylistTitles(jdata, [=](json_t *jret)
+        audioDbGetPlaylistTitles(jdataDoc, [=](const Json &jret)
         {
             sendJson(jret);
         });
     else if (msg == "get_artists")
-        audioDbGetArtists(jdata, [=](json_t *jret)
+        audioDbGetArtists(jdataDoc, [=](const Json &jret)
         {
             sendJson(jret);
         });
     else if (msg == "get_years")
-        audioDbGetYears(jdata, [=](json_t *jret)
+        audioDbGetYears(jdataDoc, [=](const Json &jret)
         {
             sendJson(jret);
         });
     else if (msg == "get_genres")
-        audioDbGetGenres(jdata, [=](json_t *jret)
+        audioDbGetGenres(jdataDoc, [=](const Json &jret)
         {
             sendJson(jret);
         });
     else if (msg == "get_playlists")
-        audioDbGetPlaylists(jdata, [=](json_t *jret)
+        audioDbGetPlaylists(jdataDoc, [=](const Json &jret)
         {
             sendJson(jret);
         });
     else if (msg == "get_music_folder")
-        audioDbGetMusicFolder(jdata, [=](json_t *jret)
+        audioDbGetMusicFolder(jdataDoc, [=](const Json &jret)
         {
             sendJson(jret);
         });
     else if (msg == "get_search")
-        audioDbGetSearch(jdata, [=](json_t *jret)
+        audioDbGetSearch(jdataDoc, [=](const Json &jret)
         {
             sendJson(jret);
         });
     else if (msg == "get_radios")
-        audioDbGetRadios(jdata, [=](json_t *jret)
+        audioDbGetRadios(jdataDoc, [=](const Json &jret)
         {
             sendJson(jret);
         });
     else if (msg == "get_track_infos")
-        audioDbGetTrackInfos(jdata, [=](json_t *jret)
+        audioDbGetTrackInfos(jdataDoc, [=](const Json &jret)
         {
             sendJson(jret);
         });
     else if (msg == "get_radio_items")
-        audioDbGetRadioItems(jdata, [=](json_t *jret)
+        audioDbGetRadioItems(jdataDoc, [=](const Json &jret)
         {
             sendJson(jret);
         });

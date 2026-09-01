@@ -396,14 +396,17 @@ protected:
     }
 
     //The jdata a bare JsonApi method takes, for the lifetime cases that do not
-    //go through a transport. Caller owns the returned reference.
-    static json_t *bareRequest(Json extra)
+    //go through a transport. E4.1q turned the fifteen methods' parameter from a
+    //json_t* into a Json; nothing else about these cases changed, and no
+    //assertion moved - what they observe is the apiAlive GUARD, not the
+    //document.
+    static Json bareRequest(Json extra)
     {
         Params p;
         p.Add("id", PLAYER_ID);
         for (auto it = extra.begin(); it != extra.end(); ++it)
             p.Add(it.key(), it.value().get<std::string>());
-        return jansson_from_params(p);
+        return p.toNJson();
     }
 
     /***************************************************************************
@@ -783,7 +786,7 @@ TEST_F(JsonApiMusicDbTest, DeferredTrackInfosAnswerStillReachesALiveClient)
  * measure it ABSENT here too, for the same reason: not one of the fifteen
  * callback bodies names `player`. Fourteen of them are
  * `result_lambda(processDbResult(data))` and the fifteenth is
- * `result_lambda(data.params.toJson())` - a [=] capture default only captures
+ * `result_lambda(data.params.toNJson())` - a [=] capture default only captures
  * what the body odr-uses, so the pointer is never even captured. The player,
  * and its AudioDB member, are dereferenced exactly once, synchronously, BEFORE
  * the request goes out.
@@ -850,15 +853,14 @@ TEST_F(JsonApiMusicDbTest, ApiGoneBefore##Name##Answer)                        \
     addPlayer();                                                               \
     queue.deferred = true;                                                     \
                                                                                \
-    json_t *jdata = bareRequest(extraFn());                                    \
+    const Json jdata = bareRequest(extraFn());                                 \
     bool answered = false;                                                     \
                                                                                \
     {                                                                          \
         JsonApi api;                                                           \
-        api.apiMethod(jdata, [&](json_t *jret)                                 \
+        api.apiMethod(jdata, [&](const Json &)                                 \
         {                                                                      \
             answered = true;                                                   \
-            json_decref(jret);                                                 \
         });                                                                    \
         ASSERT_EQ(1u, queue.count());                                          \
         /* api dies here, exactly as when the client disconnects */            \
@@ -866,8 +868,6 @@ TEST_F(JsonApiMusicDbTest, ApiGoneBefore##Name##Answer)                        \
                                                                                \
     ASSERT_TRUE(queue.fireNext());                                             \
     EXPECT_FALSE(answered);                                                    \
-                                                                               \
-    json_decref(jdata);                                                        \
 }
 
 DB_GUARD_CASE(GetAlbums,         audioDbGetAlbums,          E_PLAIN)

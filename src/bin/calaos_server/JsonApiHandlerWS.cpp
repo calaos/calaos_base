@@ -31,6 +31,34 @@
 #include "HttpCodes.h"
 #include "WebSocket.h"
 
+namespace
+{
+
+/* E4.1q. jansson_string_get()'s contract, kept BY HAND for a nlohmann document
+ * so that processAudioDb() can dispatch on the parse processApi() ALREADY did:
+ * the DEFAULT on an absent member, on a member that is not a JSON string, and
+ * on a root that is not an object (json_object_get(NULL, k) answered NULL).
+ * `j["k"].get<string>()` does none of that - it throws.
+ *
+ * Identical, deliberately, to the copy JsonApi.cpp carries (E4.1o) and to the
+ * four driver wires: this is a contract E4.1x will fold once
+ * Jansson_Addition.h goes away, not a helper to improve here.
+ */
+inline std::string jsonStringGet(const Json &j, const char *key,
+                                 const std::string &defaultValue = std::string())
+{
+    if (!j.is_object())
+        return defaultValue;
+
+    const Json::const_iterator it = j.find(key);
+    if (it == j.cend() || !it->is_string())
+        return defaultValue;
+
+    return it->get<std::string>();
+}
+
+} //namespace
+
 JsonApiHandlerWS::JsonApiHandlerWS(HttpClient *client):
     JsonApi(client)
 {
@@ -240,7 +268,7 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
         else if (jsonRoot["msg"] == "audio_db")
         {
             if (serviceScope) scopeDenied("audio_db");
-            else processAudioDb(jdata, jsonRoot["msg_id"]);
+            else processAudioDb(jsonDataDoc, jsonRoot["msg_id"]);
         }
         else if (jsonRoot["msg"] == "get_timerange")
             processGetTimerange(jsonData, jsonRoot["msg_id"]);
@@ -457,86 +485,92 @@ void JsonApiHandlerWS::processAudio(json_t *jdata, const Json &jdataDoc, const s
         sendJson("audio", {{"error", "unkown audio_action" }} , client_id);
 }
 
-void JsonApiHandlerWS::processAudioDb(json_t *jdata, const string &client_id)
+/* E4.1q. THE DOCUMENT IS HOISTED, NOT ADDED - see the twin comment on
+ * JsonApiHandlerHttp::processAudioDb(). `jdataDoc` is the "data" member of
+ * processApi()'s existing nlohmann parse, and the DISPATCH migrates with the
+ * sixteen methods it reaches, so this transport no longer needs a json_t* at
+ * all for audio_db.
+ */
+void JsonApiHandlerWS::processAudioDb(const Json &jdataDoc, const string &client_id)
 {
-    string msg = jansson_string_get(jdata, "audio_action");
+    string msg = jsonStringGet(jdataDoc, "audio_action");
     if (msg == "get_album")
-        audioDbGetAlbums(jdata, [=](json_t *jret)
+        audioDbGetAlbums(jdataDoc, [=](const Json &jret)
         {
             sendJson("audio_db", jret, client_id);
         });
     else if (msg == "get_stats")
-        audioGetDbStats(jdata, [=](json_t *jret)
+        audioGetDbStats(jdataDoc, [=](const Json &jret)
         {
             sendJson("audio_db", jret, client_id);
         });
     else if (msg == "get_artist_album")
-        audioDbGetAlbumArtistItem(jdata, [=](json_t *jret)
+        audioDbGetAlbumArtistItem(jdataDoc, [=](const Json &jret)
         {
             sendJson("audio_db", jret, client_id);
         });
     else if (msg == "get_year_albums")
-        audioDbGetYearAlbums(jdata, [=](json_t *jret)
+        audioDbGetYearAlbums(jdataDoc, [=](const Json &jret)
         {
             sendJson("audio_db", jret, client_id);
         });
     else if (msg == "get_genre_artists")
-        audioDbGetGenreArtists(jdata, [=](json_t *jret)
+        audioDbGetGenreArtists(jdataDoc, [=](const Json &jret)
         {
             sendJson("audio_db", jret, client_id);
         });
     else if (msg == "get_album_titles")
-        audioDbGetAlbumTitles(jdata, [=](json_t *jret)
+        audioDbGetAlbumTitles(jdataDoc, [=](const Json &jret)
         {
             sendJson("audio_db", jret, client_id);
         });
     else if (msg == "get_playlist_titles")
-        audioDbGetPlaylistTitles(jdata, [=](json_t *jret)
+        audioDbGetPlaylistTitles(jdataDoc, [=](const Json &jret)
         {
             sendJson("audio_db", jret, client_id);
         });
     else if (msg == "get_artists")
-        audioDbGetArtists(jdata, [=](json_t *jret)
+        audioDbGetArtists(jdataDoc, [=](const Json &jret)
         {
             sendJson("audio_db", jret, client_id);
         });
     else if (msg == "get_years")
-        audioDbGetYears(jdata, [=](json_t *jret)
+        audioDbGetYears(jdataDoc, [=](const Json &jret)
         {
             sendJson("audio_db", jret, client_id);
         });
     else if (msg == "get_genres")
-        audioDbGetGenres(jdata, [=](json_t *jret)
+        audioDbGetGenres(jdataDoc, [=](const Json &jret)
         {
             sendJson("audio_db", jret, client_id);
         });
     else if (msg == "get_playlists")
-        audioDbGetPlaylists(jdata, [=](json_t *jret)
+        audioDbGetPlaylists(jdataDoc, [=](const Json &jret)
         {
             sendJson("audio_db", jret, client_id);
         });
     else if (msg == "get_music_folder")
-        audioDbGetMusicFolder(jdata, [=](json_t *jret)
+        audioDbGetMusicFolder(jdataDoc, [=](const Json &jret)
         {
             sendJson("audio_db", jret, client_id);
         });
     else if (msg == "get_search")
-        audioDbGetSearch(jdata, [=](json_t *jret)
+        audioDbGetSearch(jdataDoc, [=](const Json &jret)
         {
             sendJson("audio_db", jret, client_id);
         });
     else if (msg == "get_radios")
-        audioDbGetRadios(jdata, [=](json_t *jret)
+        audioDbGetRadios(jdataDoc, [=](const Json &jret)
         {
             sendJson("audio_db", jret, client_id);
         });
     else if (msg == "get_track_infos")
-        audioDbGetTrackInfos(jdata, [=](json_t *jret)
+        audioDbGetTrackInfos(jdataDoc, [=](const Json &jret)
         {
             sendJson("audio_db", jret, client_id);
         });
     else if (msg == "get_radio_items")
-        audioDbGetRadioItems(jdata, [=](json_t *jret)
+        audioDbGetRadioItems(jdataDoc, [=](const Json &jret)
         {
             sendJson("audio_db", jret, client_id);
         });
