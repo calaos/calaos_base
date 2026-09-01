@@ -7854,3 +7854,40 @@ suivante, et un témoin qui rougit. **La parade** : copier les `.cpp` du périm�
 pristine **hors de git** au début du script, restaurer par `cp`, et **faire échouer le script** sur
 la première erreur de restauration. Même famille que le piège `_DEPENDENCIES` : l'outil ment en
 silence et le résultat a l'air plausible.
+
+## E4.1q — `processAudioDb()` a **seize** branches, pas quinze, et deux fiches disent quinze (2026-09-01)
+
+**Écart documentaire, sans conséquence de code.** La fiche E4.1q et la ligne de `BOARD.md` parlent
+du « dispatcheur `processAudioDb()` et ses **15 branches** ». Compté au source sur les deux
+transports : **16** — les **quinze** `audioDbGet*` **plus** `get_stats`, qui n'est pas un
+`audioDbGet*` mais est bien dispatché ici. Le périmètre livré est le bon (les seize ont basculé) ;
+c'est le chiffre qui était faux. Consigné pour que le prochain recompte ne conclue pas à un oubli.
+
+## E4.1q — la table de périmètre d'`E4.1s` réclame encore `processAudioDb` (2026-09-01)
+
+`E4.1s.md` liste, pour `JsonApiHandlerWS.cpp`, « `processGetState`/`processGetIO`/
+`processSetTimerange`/`processAudio`/**`processAudioDb`**/`processAutoscenario` (les signatures
+`json_t *jdata`) ». **`processAudioDb` n'a plus de signature `json_t *` sur aucun des deux
+transports** : E4.1q l'a migrée avec ses seize branches, comme sa propre fiche l'exige. La ligne
+d'E4.1s est **périmée**, pas contradictoire — à retirer au moment d'ouvrir E4.1s, sans quoi son
+implémenteur cherchera un `json_t *jdata` qui n'existe plus.
+
+## E4.1q — `Utils::to_string(double)` **n'est pas sur le chemin de la base musicale** (2026-09-01)
+
+La fiche prévient : « `Utils::to_string(double)` encore : les durées de pistes y passent. Ne le
+corrige pas. » **Mesuré : elles n'y passent pas.** Sur ce périmètre, `processDbResult()` ne lit que
+`data.vparams` et `audioDbGetTrackInfos()` que `data.params` — deux `Params`, donc deux
+`map<string,string>` : la durée d'une piste arrive de la base **déjà en chaîne** et n'est jamais
+reformatée. Le seul `double` de la famille audio est le temps de lecture d'`audioGetTime()`, qui
+appartient à E4.1p. La consigne reste bonne (rien n'a été « corrigé ») ; c'est sa justification qui
+ne s'applique pas ici.
+
+## E4.1q — une prédiction de delta fausse, gardée avec sa mesure (2026-09-01)
+
+`WsAnUnknownAudioDbActionIsEnveloped` avait été écrit comme cas `...Today`, dans l'idée que
+l'enveloppe WS de la branche `else` du dispatcheur allait trier à la bascule. **Elle n'a pas
+bougé** : cette branche appartient au transport, pas au dispatcheur, et son argument accoladé se
+liait **déjà** à la surcharge nlohmann de `sendJson()` avant ce ticket. Le cas a été gardé, renommé
+en invariant, avec la mesure et l'erreur écrites dans son commentaire plutôt que discrètement
+effacées. **Une prédiction qu'un cas va rougir n'est pas une preuve ; seul le tour de mesure l'est**
+— ce qui vaut aussi dans l'autre sens, pour un cas qu'on croyait invariant.

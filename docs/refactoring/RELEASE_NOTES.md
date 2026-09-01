@@ -1312,6 +1312,38 @@ bruts.
 ⚠️ **Non vérifié sur une vraie bibliothèque** : la mesure porte sur les octets que le serveur émet,
 avec des pistes fabriquées pour le test. Aucun Squeezebox ni Roon réel n'a été interrogé.
 
+### ⭐ Base musicale : le même retournement, mais sur tout ce qui s'affiche dans le navigateur de musique (E4.1q)
+
+**C'est le lot le plus visible en volume de toute la série.** Les réponses `audio_db` — parcourir
+les albums, les artistes, les années, les genres, les listes de lecture, les **dossiers de musique**,
+les radios, la recherche, les informations d'une piste — sont faites **presque entièrement de texte
+que vous n'avez pas écrit** : des tags de fichiers et des **noms de répertoires**. Tout ce qui est
+dit plus haut sur les lecteurs audio (E4.1p) s'applique donc ici, en bien plus grand.
+
+- **Avant**, un nom d'album, d'artiste ou de dossier mal encodé **disparaissait de la réponse** :
+  l'entrée arrivait sans son champ `name`, indiscernable d'une entrée sans nom, avec un code **200**
+  et rien pour signaler la perte.
+- **Maintenant**, le champ est **conservé**, chaque octet fautif remplacé par `�`, et le code reste
+  **200**. Un album qui apparaissait sans titre apparaîtra avec un titre mutilé — **et visible**.
+- Un nom contenant un **octet nul** n'est plus **coupé** à cet octet ; il arrive entier.
+- ⭐ **Le cas le plus probable est le dossier de musique.** Un système de fichiers ne garantit rien
+  sur l'encodage de ses noms : un répertoire créé sous une locale latin-1 est un répertoire
+  parfaitement légal dont le nom n'est pas de l'UTF-8 valide. C'est ce cas qui est mesuré et épinglé.
+
+**Ce qui change aussi, et qui n'est pas un octet fautif** : dans la réponse d'un parcours, les deux
+champs `total_count` et `items` sortent maintenant **triés** — `items` d'abord, `total_count`
+ensuite, au lieu de l'inverse. **Le tableau `items`, lui, ne bouge pas** : son ordre est celui que
+la base a donné et il a un sens. Tout reste des **chaînes de caractères** : le nombre total
+d'entrées et la durée d'une piste ne deviennent **pas** des nombres JSON. Et une réponse sans
+compteur n'a **toujours pas** de champ `total_count` — il est **absent**, jamais `null`.
+
+ℹ️ **Rien de tout cela n'affecte une bibliothèque normale** : un nom d'album bien encodé, accentué
+ou non, part exactement comme avant, à la casse de l'échappement près, et la réponse reste **de
+l'ASCII pur**.
+
+⚠️ **Non vérifié sur une vraie bibliothèque**, comme pour E4.1p : la mesure porte sur les octets que
+le serveur émet, avec une base de test fabriquée. Aucun Squeezebox ni Roon réel n'a été interrogé.
+
 ### Ce qui pourrait s'en apercevoir
 
 ⚠️ **Ce qui pourrait s'en apercevoir** : un client qui **cherche une sous-chaîne dans le texte
@@ -1330,8 +1362,8 @@ stocké quelque part, il suffit qu'il soit **demandé** (`?param=%ff%80x`).
 *(Les autres réponses de l'API basculeront de la même façon au fil des sous-tickets suivants de la
 série. ⚠️ **Cette note est LA note unique de la série : on l'étend, on ne la duplique pas** —
 E4.1m l'a fait le premier, en ajoutant deux lignes au tableau des réponses concernées et un
-balayage complémentaire, sans réécrire les cinq différences ; E4.1n, E4.1o et E4.1p ont fait de
-même.
+balayage complémentaire, sans réécrire les cinq différences ; E4.1n, E4.1o, E4.1p et E4.1q ont
+fait de même.
 `E4.1s` la relit une dernière fois et la ferme.)*
 
 ## 📦 Empaquetage — l'archive source est de nouveau constructible, et elle porte enfin les licences des bibliothèques embarquées
