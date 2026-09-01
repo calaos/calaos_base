@@ -7755,3 +7755,102 @@ fois et le cas deviendrait vide.
 explicitement de toucher (durcissement d'une ligne, ticket **T3.21**, séparé). La migration en
 `Json` **n'a rien changé** à ce chemin : la ligne est identique, seul le type de la réponse a
 bougé. **T3.21 reste entièrement à faire et n'est pas plus difficile qu'avant.**
+
+## E4.1p — `get_stats` n'est **pas** une action `audio` : la fiche l'avait mal attribuée (2026-09-01)
+
+**Correction de fiche, mesurée, non corrigée dans le code.** `E4.1p.md` range `audioGetDbStats`
+parmi les cinq `audioGet*` du périmètre. Elle n'est pas dispatchée par `processAudio()` mais par
+**`processAudioDb()`** (`JsonApiHandlerHttp.cpp:829`, `JsonApiHandlerWS.cpp:455`), au milieu des
+quatorze `audioDbGet*`. Une requête `action=audio` + `audio_action=get_stats` répond
+`{"error":"unkown audio_action"}` — épinglé par
+`JsonApiAudioWireBytesTest.AudioDbGetStatsAnswersTheDatabaseParamsPlusItsAction`, qui doit passer
+par `action=audio_db`.
+
+⇒ **`audioGetDbStats` et `audioDbUnavailable` restent en jansson en E4.1p et partent avec E4.1q**,
+avec leur dispatcheur. Les migrer isolément obligeait à migrer `processAudioDb()` et ses quinze
+branches, c'est-à-dire E4.1q en entier — l'inverse exact de la raison pour laquelle les deux
+tickets ont été séparés.
+
+## E4.1p — `processDbResult` **ne peut pas** basculer sans ses quatorze appelants (2026-09-01)
+
+**Contradiction interne à `E4.1p.md`, tranchée en faveur de l'acceptation vérifiable, non corrigée
+dans le code.** La fiche dit à la fois « `processDbResult` bascule **ici** » et « les 14
+`audioDbGet*` sont **inchangées** (diff vide sur leurs lignes) ». Les deux sont incompatibles : les
+quatorze font `result_lambda(processDbResult(data))` avec un `result_lambda` de type
+`std::function<void(json_t *)>`, donc un retour `Json` ne compile plus chez elles.
+
+**Trois ponts examinés, les trois rejetés :**
+
+1. **Conversion implicite `Json` → `json_t*`** : n'existe pas. Le constructeur gabarit de
+   `basic_json` est éliminé par SFINAE faute de `from_json` pour un pointeur. ⭐ **Bonne
+   nouvelle, contrairement au `!Json` d'E4.1m/E4.1o** : l'échec est **de compilation**, bruyant,
+   pas un `type_error.302` à l'exécution. Ne pas « réparer » ça en écrivant un `from_json` pour
+   `json_t*` : ça rendrait la conversion **implicite partout dans l'arbre**.
+2. **Pont `dump()` + `json_loads()`** : **change le comportement observable des quatorze fonctions
+   hors périmètre**. `error_handler_t::replace` remplacerait l'UTF-8 invalide par U+FFFD **avant**
+   que jansson ne le voie, donc la suppression silencieuse de la paire disparaîtrait chez E4.1q
+   sans qu'E4.1q ait écrit une ligne.
+3. **Parcours d'arbre écrit à la main** : c'est l'**adaptateur transitoire** que toutes les fiches
+   de la série interdisent, avec sa propre sémantique à prouver.
+
+⇒ **La ligne de dépendance d'`E4.1q.md` (« dur — `processDbResult` y bascule ») est à corriger.**
+La dépendance E4.1q → E4.1p **reste réelle** (sérialisation stricte sur les quatre mêmes fichiers,
+et la surcharge `getAudioPlayer(const Json &)` posée par E4.1p), mais elle ne porte plus sur
+`processDbResult`, qui bascule **en E4.1q, atomiquement avec ses quatorze appelants**.
+
+## E4.1p — la branche `get_cover` de `processAudio` n'est couverte par **aucun** cas de l'arbre (2026-09-01)
+
+**Mesuré, non corrigé, hors périmètre.** `JsonApiHandlerHttp::processAudio()` a une branche
+`audio_action=get_cover` qui rend une **image JPEG** et non du JSON, et qui bâtit à la main deux
+charges d'erreur — `{"success":"false","error_str":"unable to get url"}` et sa jumelle
+`unable to load data from url`. **Zéro occurrence de `unable to get url` dans `tests/`** (mesuré
+sur les sources, pas sur les binaires) : ni golden, ni cas, ni sonde.
+
+C'est pour cette raison que E4.1p ne l'a pas migrée : la faire passer en nlohmann trierait ses deux
+clés (`error_str` avant `success`) **sans le moindre filet**. Elle part avec le dispatch, en
+E4.1s — qui devra **écrire le cas d'abord**. À ne pas confondre avec `processGetCover()`
+(`action=get_cover` au premier niveau), qui a son golden `e40e_http_get_cover_unknown_id.json`.
+
+## E4.1p — deux vocabulaires de refus pour la même condition dans la famille audio (2026-09-01)
+
+**Observation, non corrigée, aucune fiche ne la couvre.** Un identifiant qui n'est pas un lecteur
+audio est refusé de **deux façons différentes** selon l'action :
+
+- `get_playlist` répond `{"success":"false"}` (chemin `playlistNoPlayerAnswer()`, T3.17a) ;
+- toute action `audio` / `audio_db` répond `{"error":"unkown player_id"}`, ou
+  `{"error":"empty player id"}` si le champ est absent, non-chaîne ou vide.
+
+Les deux sont épinglés par des goldens (`t317a_*_get_playlist_unknown_player`,
+`t317b_*_audio_unknown_player`) et par les cas de `JsonApiAudioWireBytes_test` : **c'est du contrat
+de wire, ce n'est pas à « harmoniser » dans un ticket de migration.** Consigné pour que la question
+soit posée une fois, ailleurs, plutôt que redécouverte à chaque ticket de la chaîne.
+
+⚠️ Même famille : la faute d'orthographe **`unkown`** (deux occurrences, `unkown player_id` et
+`unkown audio_action`) est également du contrat de wire. Ne pas la corriger sans note de version.
+
+## E4.1p — écriture morte survivante : `audio_action` ajouté à un `Params` qui n'est jamais lu (2026-09-01)
+
+**Non corrigé, hors périmètre, sans effet observable.** `audioGetPlaylistSize()` et `audioGetTime()`
+font `adata.params.Add("audio_action", "get_playlist_size" / "get_time")` puis construisent une
+**autre** `Params` pour la réponse. L'ajout n'atteint donc jamais le client — c'est ce que les
+goldens `t317b_*_audio_get_playlist_size` / `_get_time` enregistrent (aucun `audio_action` dedans),
+et `JsonApiAudioWireBytes_test` le réasserte au niveau des octets.
+
+La bascule E4.1p a **recopié ces deux lignes verbatim**, avec un commentaire : les retirer serait un
+nettoyage noyé dans un diff de migration, et la règle de la série l'interdit. À faire par le ticket
+qui reprendra cette famille, avec le cas qui va avec.
+
+## ⚠️ Piège d'outillage — `git checkout -- src/` **ne restaure rien** dans un conteneur monté sur un worktree (E4.1p, 2026-09-01)
+
+**Vécu, chiffres jetés et refaits.** Le driver de contre-mutations restaurait les sources entre deux
+tours avec `git checkout -- src/bin/calaos_server/`. Dans le conteneur, le worktree pointe sur
+`/home/raoul/repos/calaos/calaos_base/.git/worktrees/<nom>` — **un chemin qui n'est pas monté** —
+donc git répond `fatal: not a git repository` **et le script continue**. Les six mutations se sont
+**empilées** : M2 tournait sur M1, M5 sur M1+M2+M3+M4, et les ensembles rouges étaient énormes et
+faux (`TOTAL_RED` 49 au lieu de 13).
+
+**Le symptôme qui trahit** : des ensembles rouges qui ne font que **croître** d'une mutation à la
+suivante, et un témoin qui rougit. **La parade** : copier les `.cpp` du périmètre dans un répertoire
+pristine **hors de git** au début du script, restaurer par `cp`, et **faire échouer le script** sur
+la première erreur de restauration. Même famille que le piège `_DEPENDENCIES` : l'outil ment en
+silence et le résultat a l'air plausible.

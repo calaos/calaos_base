@@ -1090,8 +1090,12 @@ et en nom de champ, plus les formes bien et mal encodées). **E4.1n** y ajoute l
 équipements**, remesuré une troisième fois sur sa propre chaîne : **les mêmes cinq**, aucune
 sixième. **E4.1o** y ajoute les **paramètres d'équipement** et les **plages horaires** : **les mêmes
 cinq**, toujours aucune sixième — mais c'est **le seul ticket de la série où le NOM du champ est
-fourni par le client lui-même**, ce qui lui vaut un encadré à part, plus bas. Les tickets suivants
-de la série feront de même. La liste des **réponses** concernées à ce stade est donc :
+fourni par le client lui-même**, ce qui lui vaut un encadré à part, plus bas. **E4.1p** y ajoute le
+**lecteur audio** — liste de lecture, temps de lecture, taille de liste, pochette : **les mêmes
+cinq**, aucune sixième, mais avec une **source d'octets nouvelle** et elle aussi encadrée plus bas,
+puisque ce texte ne vient ni du serveur ni du client mais de **votre bibliothèque musicale**. Les
+tickets suivants de la série feront de même. La liste des **réponses** concernées à ce stade est
+donc :
 
 | Réponse | Depuis |
 |---|---|
@@ -1110,6 +1114,8 @@ de la série feront de même. La liste des **réponses** concernées à ce stade
 | ⭐ **`set_param`** et **`del_param`** — leurs accusés de réception | **E4.1o** |
 | ⭐ **`get_timerange`** — les plages horaires d'un équipement horaire | **E4.1o** |
 | ⭐ **`set_timerange`** — son accusé de réception | **E4.1o** |
+| ⭐ **`get_playlist`** — la liste de lecture d'un lecteur audio, piste par piste — voir l'encadré qui lui est consacré plus bas | **E4.1p** |
+| ⭐ **`audio` → `get_playlist_size`, `get_time`, `get_playlist_item`, `get_cover_url`** — l'état d'un lecteur audio | **E4.1p** |
 
 Ces réponses sont désormais fabriquées par la même bibliothèque JSON que le reste des réponses
 récentes. **Cinq** différences observables, **mesurées octet à octet** ; trois sont purement de
@@ -1275,6 +1281,37 @@ tableaux. Ce qui change, c'est que `months` est désormais écrit **avant** `ran
 Toutes les valeurs restent des **chaînes de caractères** — heures, minutes, secondes, types et
 décalages compris —, elles ne deviennent pas des nombres JSON.
 
+### ⭐ Lecteurs audio : le texte ne vient ni de vous ni du serveur, il vient de votre bibliothèque (E4.1p)
+
+`get_playlist` renvoie un **tableau** `items`, une entrée par piste : **cet ordre est inchangé**,
+c'est celui de la liste de lecture et il a un sens. Ce qui change dans l'objet qui l'entoure, c'est
+que ses trois champs sortent maintenant triés — `count`, `current_track`, `items` au lieu de
+`current_track`, `count`, `items`. Tout reste des **chaînes de caractères** : le numéro de piste
+courante, le nombre de pistes, la durée d'une piste et le temps de lecture ne deviennent **pas** des
+nombres JSON.
+
+**La nouveauté de ce lot, c'est d'où viennent les octets.** Sur toutes les réponses décrites plus
+haut, le texte vient de votre configuration ou de votre requête. Ici, les titres, les artistes, les
+albums et les URL de pochette sont **ce que votre lecteur (Squeezebox, Roon) rapporte**, c'est-à-dire
+en dernier ressort **ce que votre système de fichiers contient** — et un système de fichiers ne
+garantit rien sur l'encodage. Un fichier importé d'un vieux disque, ripé sous un autre système ou
+nommé en latin-1 peut donc porter des octets qui ne sont pas de l'UTF-8 valide.
+
+- **Avant**, un tel titre **disparaissait de la réponse** : la piste arrivait sans son champ
+  `title`, indiscernable d'une piste sans titre, avec un code **200** et rien pour signaler la
+  perte. Une URL de pochette dans ce cas donnait `{}`.
+- **Maintenant**, le champ est **conservé**, chaque octet fautif remplacé par `�`, et le code reste
+  **200**. Une piste dont le titre s'affichait vide s'affichera mutilée — **et visible**.
+- Un titre contenant un **octet nul** n'est plus **coupé** à cet octet ; il arrive entier.
+
+ℹ️ **Rien de tout cela n'affecte une bibliothèque normale** : un titre bien encodé, accentué ou non,
+part exactement comme avant, à la casse de l'échappement près. Et la réponse reste, comme toujours,
+**de l'ASCII pur** : les accents continuent de partir sous la forme `\u00e9`, jamais en octets
+bruts.
+
+⚠️ **Non vérifié sur une vraie bibliothèque** : la mesure porte sur les octets que le serveur émet,
+avec des pistes fabriquées pour le test. Aucun Squeezebox ni Roon réel n'a été interrogé.
+
 ### Ce qui pourrait s'en apercevoir
 
 ⚠️ **Ce qui pourrait s'en apercevoir** : un client qui **cherche une sous-chaîne dans le texte
@@ -1293,7 +1330,8 @@ stocké quelque part, il suffit qu'il soit **demandé** (`?param=%ff%80x`).
 *(Les autres réponses de l'API basculeront de la même façon au fil des sous-tickets suivants de la
 série. ⚠️ **Cette note est LA note unique de la série : on l'étend, on ne la duplique pas** —
 E4.1m l'a fait le premier, en ajoutant deux lignes au tableau des réponses concernées et un
-balayage complémentaire, sans réécrire les cinq différences ; E4.1n et E4.1o ont fait de même.
+balayage complémentaire, sans réécrire les cinq différences ; E4.1n, E4.1o et E4.1p ont fait de
+même.
 `E4.1s` la relit une dernière fois et la ferme.)*
 
 ## 📦 Empaquetage — l'archive source est de nouveau constructible, et elle porte enfin les licences des bibliothèques embarquées
