@@ -254,7 +254,7 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
         else if (jsonParam["action"] == "set_timerange")
             processSetTimerange(jsonRootDoc);
         else if (jsonParam["action"] == "autoscenario")
-            processAutoscenario(jroot);
+            processAutoscenario(jsonRootDoc);
         else
             sendJson({{ "error", "unknown action" }});
     }
@@ -990,9 +990,18 @@ void JsonApiHandlerHttp::processEventLog()
     buildJsonEventLog(jsonParam, [this](Json &j) { sendJson(j); });
 }
 
-void JsonApiHandlerHttp::processAutoscenario(json_t *jroot)
+/* E4.1r. HOISTED, NOT ADDED: the document handed down here is jsonRootDoc,
+ * the nlohmann parse E4.1m already ran on every request body. Zero extra parse,
+ * no json_dumps + Json::parse bridge - the one that would have moved the fate
+ * of invalid UTF-8 by accident.
+ * jsonStringGet() and not jroot["type"].get<string>(): jansson_string_get()
+ * answered the DEFAULT on an absent member, on a member that is not a string
+ * and on a non object root, and an unknown "type" answers NOTHING AT ALL
+ * (frozen bug, E4.0c) - a throw here would be a 500 instead of a silence.
+ */
+void JsonApiHandlerHttp::processAutoscenario(const Json &jroot)
 {
-    string msg = jansson_string_get(jroot, "type");
+    string msg = jsonStringGet(jroot, "type");
     if (msg == "list")
         sendJson(buildAutoscenarioList(jroot));
     else if (msg == "get")

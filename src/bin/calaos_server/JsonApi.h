@@ -176,19 +176,27 @@ public:
     Json buildJsonGetTimerange(const Params &jParam);
     Json buildJsonSetTimerange(const Json &jdata);
 
-    json_t *buildAutoscenarioList(json_t *jdata);
-    json_t *buildAutoscenarioGet(json_t *jdata);
-    json_t *buildAutoscenarioCreate(json_t *jdata);
-    json_t *buildAutoscenarioDelete(json_t *jdata);
-    json_t *buildAutoscenarioModify(json_t *jdata);
-    json_t *buildAutoscenarioAddSchedule(json_t *jdata);
-    json_t *buildAutoscenarioDelSchedule(json_t *jdata);
+    /* E4.1r: the nine autoscenario builders answer a Json. MECHANICAL
+     * migration (Q1 of E4.1.md, settled 2026-09-01): E4.6d rewrites them
+     * whole, nothing here is improved on the way.
+     * Scenario::toJson() still answers a json_t* - IO/Scenario.cpp is excluded
+     * from E4.1 (decision Q5) - so buildAutoscenarioGet() and
+     * buildAutoscenarioList() cross the two libraries through
+     * janssonScenarioPayloadBridge() (JsonApi.cpp), which E4.6d deletes.
+     */
+    Json buildAutoscenarioList(const Json &jdata);
+    Json buildAutoscenarioGet(const Json &jdata);
+    Json buildAutoscenarioCreate(const Json &jdata);
+    Json buildAutoscenarioDelete(const Json &jdata);
+    Json buildAutoscenarioModify(const Json &jdata);
+    Json buildAutoscenarioAddSchedule(const Json &jdata);
+    Json buildAutoscenarioDelSchedule(const Json &jdata);
     /* T3.18. The manual re-enable of a scenario disabled because one of the IOs
      * one of its steps uses disappeared. A command of its own and not a
      * set_param on `disabled_missing_io`, because set_param CANNOT REFUSE:
      * re-enabling a still broken scenario would answer success and change
      * nothing, which is exactly the silent no-op this ticket removes. */
-    json_t *buildAutoscenarioReenable(json_t *jdata);
+    Json buildAutoscenarioReenable(const Json &jdata);
 
     Json buildJsonGetIO(vector<string> iolist);
 

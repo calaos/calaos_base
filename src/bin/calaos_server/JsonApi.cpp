@@ -50,6 +50,49 @@ inline std::string jsonStringGet(const Json &j, const char *key,
     return it->get<std::string>();
 }
 
+/* E4.1r. TRANSITIONAL BRIDGE - REMOVED BY E4.6d, WHICH REWRITES
+ * Scenario::toJson().
+ *
+ * IO/Scenario.cpp is EXCLUDED from E4.1 (decision Q5, 2026-08-24) and
+ * Scenario::toJson() still answers a json_t*. The two builders of this file
+ * that render a scenario payload - buildAutoscenarioGet() and
+ * buildAutoscenarioList() - therefore have to cross the two libraries, and
+ * they do it HERE and nowhere else. Both callers are inside E4.1r's perimeter
+ * and both are structurally required: they are the two call sites of
+ * Scenario::toJson() in the whole file, and neither can be expressed through
+ * the other without changing behaviour, which this ticket must not do.
+ *
+ * grep -rn janssonScenarioPayloadBridge src  ->  1 definition, 2 callers.
+ *
+ * It TAKES OWNERSHIP of its argument. The dump is the one
+ * sendJson(json_t *) did, so the bytes reaching Json::parse() are exactly the
+ * bytes this payload used to put on the wire; what the caller emits afterwards
+ * is nlohmann's dump, which is where the key order, the hexadecimal case and
+ * the escaping of DEL move. Nothing else moves: invalid UTF-8 was already
+ * dropped, and an embedded NUL already truncated, INSIDE the excluded file.
+ *
+ * The two failure exits are unreachable as things stand - Scenario::toJson()
+ * only ever builds objects, arrays and valid strings - and answer an empty
+ * object rather than a null so that a caller cannot serialize a JSON null in
+ * place of a payload.
+ */
+Json janssonScenarioPayloadBridge(json_t *jscenario)
+{
+    char *dumped = json_dumps(jscenario, JSON_COMPACT | JSON_ENSURE_ASCII);
+    json_decref(jscenario);
+
+    if (!dumped)
+        return Json::object();
+
+    Json ret = Json::parse(dumped, nullptr, false);
+    free(dumped);
+
+    if (ret.is_discarded())
+        return Json::object();
+
+    return ret;
+}
+
 /* E4.1o. jansson_decode_object()'s FLATTENING CONTRACT, kept BY HAND: a
  * string as is, a boolean as the WORD "true"/"false", any number through
  * Utils::to_string(double) - a bare ostringstream, frozen on purpose and not
@@ -2152,50 +2195,52 @@ Json JsonApi::buildJsonSetTimerange(const Json &jdata)
     return p.toNJson();
 }
 
-json_t *JsonApi::buildAutoscenarioList(json_t *jdata)
+Json JsonApi::buildAutoscenarioList(const Json &jdata)
 {
     VAR_UNUSED(jdata);
-    json_t *jret = json_object();
-    json_t *jarr = json_array();
+    Json jret;
+    Json jarr = Json::array();
 
     for (auto it: ListeRoom::Instance().getAutoScenarios())
     {
-        json_array_append_new(jarr, it->toJson());
+        //second and last caller of the transitional bridge
+        jarr.push_back(janssonScenarioPayloadBridge(it->toJson()));
     }
 
-    json_object_set_new(jret, "scenarios", jarr);
+    jret["scenarios"] = jarr;
     return jret;
 }
 
-json_t *JsonApi::buildAutoscenarioGet(json_t *jdata)
+Json JsonApi::buildAutoscenarioGet(const Json &jdata)
 {
-    string id = jansson_string_get(jdata, "id");
+    string id = jsonStringGet(jdata, "id");
     Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
     if (!sc || !sc->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
-        return jansson_from_params(p);
+        return p.toNJson();
     }
 
-    return sc->toJson();
+    //first caller of the transitional bridge
+    return janssonScenarioPayloadBridge(sc->toJson());
 }
 
-json_t *JsonApi::buildAutoscenarioCreate(json_t *jdata)
+Json JsonApi::buildAutoscenarioCreate(const Json &jdata)
 {
     Params params;
     params.Add("auto_scenario", Calaos::get_new_scenario_id());
-    params.Add("name", jansson_string_get(jdata, "name", _("New unnamed scenario")));
-    params.Add("visible", jansson_string_get(jdata, "visible", "false"));
-    params.Add("cycle", jansson_string_get(jdata, "cycle", "false"));
-    params.Add("disabled", jansson_string_get(jdata, "disabled", "true"));
+    params.Add("name", jsonStringGet(jdata, "name", _("New unnamed scenario")));
+    params.Add("visible", jsonStringGet(jdata, "visible", "false"));
+    params.Add("cycle", jsonStringGet(jdata, "cycle", "false"));
+    params.Add("disabled", jsonStringGet(jdata, "disabled", "true"));
 
     Room *room = ListeRoom::Instance().searchRoomByNameAndType(
-                     jansson_string_get(jdata, "room_name"),
-                     jansson_string_get(jdata, "room_type"));
+                     jsonStringGet(jdata, "room_name"),
+                     jsonStringGet(jdata, "room_type"));
     if (!room)
     {
-        cWarningDom("network") << "Wrong room: " << jansson_string_get(jdata, "room_name")
-                               << " - " << jansson_string_get(jdata, "room_type");
+        cWarningDom("network") << "Wrong room: " << jsonStringGet(jdata, "room_name")
+                               << " - " << jsonStringGet(jdata, "room_type");
         room = ListeRoom::Instance().get_room(0);
     }
 
@@ -2214,7 +2259,7 @@ json_t *JsonApi::buildAutoscenarioCreate(json_t *jdata)
             ListeRoom::Instance().deleteIO(in);
 
         Params perr = {{ "error", "scenario creation failed" }};
-        return jansson_from_params(perr);
+        return perr.toNJson();
     }
 
     if (!scenario->getAutoScenario()->checkScenarioRules())
@@ -2226,20 +2271,31 @@ json_t *JsonApi::buildAutoscenarioCreate(json_t *jdata)
         ListeRoom::Instance().deleteIO(scenario);
 
         Params perr = {{ "error", "scenario creation failed" }};
-        return jansson_from_params(perr);
+        return perr.toNJson();
     }
 
-    size_t idx;
-    json_t *value;
+    /* E4.1o's transcription of json_array_foreach(), reused verbatim: it ran
+     * json_array_size(NULL) == 0 and never entered the loop, so an absent
+     * "steps", or one that is not an array, stays a NO-OP and NOT an error.
+     * Same one level down for "actions". Frozen, not tidied.
+     */
+    Json jsteps = Json::array();
+    if (jdata.is_object())
+    {
+        const Json::const_iterator it = jdata.find("steps");
+        if (it != jdata.cend() && it->is_array())
+            jsteps = *it;
+    }
 
-    json_array_foreach(json_object_get(jdata, "steps"), idx, value)
+    size_t idx = 0;
+    for (const Json &value: jsteps)
     {
         int index_act;
 
-        if (jansson_string_get(value, "step_type") == "standard")
+        if (jsonStringGet(value, "step_type") == "standard")
         {
             double pause;
-            from_string(jansson_string_get(value, "step_pause"), pause);
+            from_string(jsonStringGet(value, "step_pause"), pause);
             scenario->getAutoScenario()->addStep(pause);
             index_act = idx;
         }
@@ -2248,18 +2304,25 @@ json_t *JsonApi::buildAutoscenarioCreate(json_t *jdata)
             index_act = AutoScenario::END_STEP;
         }
 
-        size_t idx_act;
-        json_t *value_act;
+        Json jactions = Json::array();
+        if (value.is_object())
+        {
+            const Json::const_iterator it = value.find("actions");
+            if (it != value.cend() && it->is_array())
+                jactions = *it;
+        }
 
-        json_array_foreach(json_object_get(value, "actions"), idx_act, value_act)
+        for (const Json &value_act: jactions)
         {
 
-            string id_out = jansson_string_get(value_act, "id");
+            string id_out = jsonStringGet(value_act, "id");
             IOBase *out = ListeRoom::Instance().get_io(id_out);
             if (out)
                 scenario->getAutoScenario()->addStepAction(index_act, out,
-                                                           jansson_string_get(value_act, "action"));
+                                                           jsonStringGet(value_act, "action"));
         }
+
+        idx++;
     }
 
     EventManager::create(CalaosEvent::EventScenarioAdded,
@@ -2270,17 +2333,17 @@ json_t *JsonApi::buildAutoscenarioCreate(json_t *jdata)
     Config::Instance().SaveConfigRule();
 
     Params p = {{ "id", scenario->get_param("id") }};
-    return jansson_from_params(p);
+    return p.toNJson();
 }
 
-json_t *JsonApi::buildAutoscenarioDelete(json_t *jdata)
+Json JsonApi::buildAutoscenarioDelete(const Json &jdata)
 {
-    string id = jansson_string_get(jdata, "id");
+    string id = jsonStringGet(jdata, "id");
     Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
     if (!sc || !sc->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
-        return jansson_from_params(p);
+        return p.toNJson();
     }
 
     sc->getAutoScenario()->deleteAll();
@@ -2296,43 +2359,50 @@ json_t *JsonApi::buildAutoscenarioDelete(json_t *jdata)
     Config::Instance().SaveConfigRule();
 
     Params p = {{ "success", "true" }};
-    return jansson_from_params(p);
+    return p.toNJson();
 }
 
-json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
+Json JsonApi::buildAutoscenarioModify(const Json &jdata)
 {
-    string id = jansson_string_get(jdata, "id");
+    string id = jsonStringGet(jdata, "id");
     Scenario *scenario = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
     if (!scenario || !scenario->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
-        return jansson_from_params(p);
+        return p.toNJson();
     }
 
     scenario->getAutoScenario()->deleteRules();
 
     Params params;
     params.Add("auto_scenario", Calaos::get_new_scenario_id());
-    params.Add("name", jansson_string_get(jdata, "name", _("New unnamed scenario")));
-    params.Add("visible", jansson_string_get(jdata, "visible", "false"));
-    params.Add("cycle", jansson_string_get(jdata, "cycle", "false"));
-    params.Add("disabled", jansson_string_get(jdata, "disabled", "true"));
+    params.Add("name", jsonStringGet(jdata, "name", _("New unnamed scenario")));
+    params.Add("visible", jsonStringGet(jdata, "visible", "false"));
+    params.Add("cycle", jsonStringGet(jdata, "cycle", "false"));
+    params.Add("disabled", jsonStringGet(jdata, "disabled", "true"));
 
     Room *room = ListeRoom::Instance().searchRoomByNameAndType(
-                     jansson_string_get(jdata, "room_name"),
-                     jansson_string_get(jdata, "room_type"));
+                     jsonStringGet(jdata, "room_name"),
+                     jsonStringGet(jdata, "room_type"));
 
-    size_t idx;
-    json_t *value;
+    //same transcription of json_array_foreach() as buildAutoscenarioCreate()
+    Json jsteps = Json::array();
+    if (jdata.is_object())
+    {
+        const Json::const_iterator it = jdata.find("steps");
+        if (it != jdata.cend() && it->is_array())
+            jsteps = *it;
+    }
 
-    json_array_foreach(json_object_get(jdata, "steps"), idx, value)
+    size_t idx = 0;
+    for (const Json &value: jsteps)
     {
         int index_act;
 
-        if (jansson_string_get(value, "step_type") == "standard")
+        if (jsonStringGet(value, "step_type") == "standard")
         {
             double pause;
-            from_string(jansson_string_get(value, "step_pause"), pause);
+            from_string(jsonStringGet(value, "step_pause"), pause);
             scenario->getAutoScenario()->addStep(pause);
             index_act = idx;
         }
@@ -2341,19 +2411,26 @@ json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
             index_act = AutoScenario::END_STEP;
         }
 
-        size_t idx_act;
-        json_t *value_act;
+        Json jactions = Json::array();
+        if (value.is_object())
+        {
+            const Json::const_iterator it = value.find("actions");
+            if (it != value.cend() && it->is_array())
+                jactions = *it;
+        }
 
-        json_array_foreach(json_object_get(value, "actions"), idx_act, value_act)
+        for (const Json &value_act: jactions)
         {
 
-            string id_out = jansson_string_get(value_act, "id");
+            string id_out = jsonStringGet(value_act, "id");
             IOBase *out = ListeRoom::Instance().get_io(id_out);
-            cDebugDom("network") << "scenario: " << scenario << " index_act: " << index_act << " out: " << out << " action: " << jansson_string_get(value_act, "action");
+            cDebugDom("network") << "scenario: " << scenario << " index_act: " << index_act << " out: " << out << " action: " << jsonStringGet(value_act, "action");
             if (out)
                 scenario->getAutoScenario()->addStepAction(index_act, out,
-                                                           jansson_string_get(value_act, "action"));
+                                                           jsonStringGet(value_act, "action"));
         }
+
+        idx++;
     }
 
     //Check for changes
@@ -2412,7 +2489,7 @@ json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
         //rules cannot be rebuilt, answer an error instead of crashing
         cErrorDom("network") << "Scenario modification failed: unable to rebuild the scenario rules";
         Params perr = {{ "error", "scenario modification failed" }};
-        return jansson_from_params(perr);
+        return perr.toNJson();
     }
 
     EventManager::create(CalaosEvent::EventScenarioChanged,
@@ -2423,17 +2500,17 @@ json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
     Config::Instance().SaveConfigRule();
 
     Params p = {{ "success", "true" }};
-    return jansson_from_params(p);
+    return p.toNJson();
 }
 
-json_t *JsonApi::buildAutoscenarioAddSchedule(json_t *jdata)
+Json JsonApi::buildAutoscenarioAddSchedule(const Json &jdata)
 {
-    string id = jansson_string_get(jdata, "id");
+    string id = jsonStringGet(jdata, "id");
     Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
     if (!sc || !sc->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
-        return jansson_from_params(p);
+        return p.toNJson();
     }
 
     sc->getAutoScenario()->addSchedule();
@@ -2446,17 +2523,17 @@ json_t *JsonApi::buildAutoscenarioAddSchedule(json_t *jdata)
     Config::Instance().SaveConfigRule();
 
     Params p = {{ "id", sc->getAutoScenario()->getIOTimeRange()->get_param("id") }};
-    return jansson_from_params(p);
+    return p.toNJson();
 }
 
-json_t *JsonApi::buildAutoscenarioDelSchedule(json_t *jdata)
+Json JsonApi::buildAutoscenarioDelSchedule(const Json &jdata)
 {
-    string id = jansson_string_get(jdata, "id");
+    string id = jsonStringGet(jdata, "id");
     Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
     if (!sc || !sc->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
-        return jansson_from_params(p);
+        return p.toNJson();
     }
 
     sc->getAutoScenario()->deleteSchedule();
@@ -2469,17 +2546,17 @@ json_t *JsonApi::buildAutoscenarioDelSchedule(json_t *jdata)
     Config::Instance().SaveConfigRule();
 
     Params p = {{ "success", "true" }};
-    return jansson_from_params(p);
+    return p.toNJson();
 }
 
-json_t *JsonApi::buildAutoscenarioReenable(json_t *jdata)
+Json JsonApi::buildAutoscenarioReenable(const Json &jdata)
 {
-    string id = jansson_string_get(jdata, "id");
+    string id = jsonStringGet(jdata, "id");
     Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
     if (!sc || !sc->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
-        return jansson_from_params(p);
+        return p.toNJson();
     }
 
     /* T3.18. The refusal is the point of this command: tryReenable() answers
@@ -2492,7 +2569,7 @@ json_t *JsonApi::buildAutoscenarioReenable(json_t *jdata)
     if (!sc->getAutoScenario()->tryReenable(err))
     {
         Params perr = {{ "error", err }};
-        return jansson_from_params(perr);
+        return perr.toNJson();
     }
 
     //The flag lives in io.xml (a param of the Scenario IO), so only that one
@@ -2500,7 +2577,7 @@ json_t *JsonApi::buildAutoscenarioReenable(json_t *jdata)
     Config::Instance().SaveConfigIO();
 
     Params p = {{ "success", "true" }};
-    return jansson_from_params(p);
+    return p.toNJson();
 }
 
 void JsonApi::buildJsonEventLog(const Params &jParam, std::function<void(Json &)> callback)

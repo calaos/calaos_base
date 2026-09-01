@@ -138,25 +138,22 @@ TEST_F(ScenarioNullGuardTest, ApiScenarioCreateAnswersErrorInsteadOfCrashing)
     size_t rulesBefore = ListeRule::Instance().size();
 
     JsonApi api;
-    json_t *jdata = json_pack("{ss}", "name", "T218 scenario");
-    ASSERT_NE(jdata, nullptr);
+    //E4.1r: buildAutoscenarioCreate() reads and answers a Json now. No
+    //assertion of this case changed, only the type carrying them.
+    const Json jdata = Json{{ "name", "T218 scenario" }};
 
     //Crashed before T2.18
-    json_t *jret = api.buildAutoscenarioCreate(jdata);
+    const Json jret = api.buildAutoscenarioCreate(jdata);
 
-    ASSERT_NE(jret, nullptr);
-    json_t *jerr = json_object_get(jret, "error");
-    ASSERT_NE(jerr, nullptr);
-    EXPECT_STRNE(json_string_value(jerr), "");
+    ASSERT_TRUE(jret.is_object());
+    ASSERT_TRUE(jret.contains("error"));
+    EXPECT_NE("", jret.value("error", std::string()));
 
     //The scenario IO and the internal IOs created before the failure must all
     //be gone, only the squatter remains
     EXPECT_EQ(ListeRoom::Instance().get_io_count(), countBefore);
     EXPECT_EQ(ListeRule::Instance().size(), rulesBefore);
     EXPECT_TRUE(ListeRoom::Instance().getAutoScenarios().empty());
-
-    json_decref(jret);
-    json_decref(jdata);
 }
 
 //The nominal API creation must keep working exactly as before.
@@ -165,22 +162,16 @@ TEST_F(ScenarioNullGuardTest, ApiScenarioCreateStillWorks)
     loadConfig();
 
     JsonApi api;
-    json_t *jdata = json_pack("{ss}", "name", "T218 scenario");
-    ASSERT_NE(jdata, nullptr);
+    const Json jdata = Json{{ "name", "T218 scenario" }};
 
-    json_t *jret = api.buildAutoscenarioCreate(jdata);
+    const Json jret = api.buildAutoscenarioCreate(jdata);
 
-    ASSERT_NE(jret, nullptr);
-    EXPECT_EQ(json_object_get(jret, "error"), nullptr);
+    ASSERT_TRUE(jret.is_object());
+    EXPECT_FALSE(jret.contains("error"));
+    ASSERT_TRUE(jret.contains("id"));
 
-    json_t *jid = json_object_get(jret, "id");
-    ASSERT_NE(jid, nullptr);
-
-    IOBase *io = ListeRoom::Instance().get_io(json_string_value(jid));
+    IOBase *io = ListeRoom::Instance().get_io(jret.value("id", std::string()));
     ASSERT_NE(io, nullptr);
     EXPECT_NE(dynamic_cast<Scenario *>(io), nullptr);
     EXPECT_FALSE(ListeRoom::Instance().getAutoScenarios().empty());
-
-    json_decref(jret);
-    json_decref(jdata);
 }

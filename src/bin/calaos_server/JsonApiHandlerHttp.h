@@ -94,7 +94,8 @@ private:
     void processGetIO(json_t *jroot);
     void processGetTimerange();
     void processSetTimerange(const Json &jroot);
-    void processAutoscenario(json_t *jroot);
+    //E4.1r: the document the dispatch already parsed, not a second parse.
+    void processAutoscenario(const Json &jroot);
     void processCamera();
     void processEventLog();
     void processEventPicture();

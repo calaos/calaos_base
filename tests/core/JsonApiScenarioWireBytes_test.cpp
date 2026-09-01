@@ -50,11 +50,22 @@
  * ---------------------------------------------------------------------------
  * DELTA CASES vs INVARIANT CASES - READ BEFORE EDITING
  * ---------------------------------------------------------------------------
- * This file ships in two commits. The first pins the JANSSON bytes, case by
- * case, on an untouched tree, with the suffix ...Today on every case that has
- * to move; the migration commit rewrites exactly those assertions and drops the
- * suffix. A case that had to be edited is a case that ran - that is the proof
- * the path is EXERCISED and not merely compiled.
+ * This file shipped in two commits. The first pinned the JANSSON bytes, case by
+ * case, on an untouched tree, with the suffix ...Today on every case that had
+ * to move; the migration commit rewrote exactly those assertions and dropped
+ * the suffix. A case that had to be edited is a case that ran - that is the
+ * proof the path is EXERCISED and not merely compiled.
+ *
+ * MEASURED: 35 cases, 9 of them written as ...Today. The migration made EIGHT
+ * of them fail and NOT ONE of the other twenty-six, and no other test of the
+ * tree moved - the 145 goldens included.
+ *
+ * ⚠️ The ninth, AScheduledScenarioCarriesItsTimeRangeId, was PREDICTED to move
+ * and did NOT: both its assertions are order independent, and no VALUE of this
+ * perimeter moved. Kept with its measurement rather than quietly renamed.
+ *
+ * The INVARIANTS held on both sides. If one of them ever moves, a VALUE or a
+ * STRUCTURE changed - stop and understand why before touching it.
  *
  * ---------------------------------------------------------------------------
  * THE DELTAS, ON THIS PERIMETER
@@ -357,36 +368,38 @@ protected:
      * escaping cases reuse the same template with a poisoned value.
      * --------------------------------------------------------------- */
 
-    //Scenario::toJson()'s INSERTION order, kept by jansson.
+    //MOVED. Scenario::toJson() INSERTS id, cycle, enabled, schedule, category,
+    //broken, disabled_missing_io, missing_ios, steps_count, steps; jansson kept
+    //that order and nlohmann SORTS. Same inside every step and every action.
     static std::string scenarioWire(const std::string &secondAction = "false")
     {
         return std::string("{")
-             + "\"id\":\"" + SCENARIO_IO_ID + "\","
-               "\"cycle\":\"false\","
-               "\"enabled\":\"false\","
-               "\"schedule\":\"false\","
+             + "\"broken\":\"false\","
                "\"category\":\"other\","
-               "\"broken\":\"false\","
+               "\"cycle\":\"false\","
                "\"disabled_missing_io\":\"false\","
+               "\"enabled\":\"false\","
+               "\"id\":\"" + SCENARIO_IO_ID + "\","
                "\"missing_ios\":\"\","
-               "\"steps_count\":\"2\","
+               "\"schedule\":\"false\","
                "\"steps\":["
-                 "{\"step_pause\":\"1.5\",\"step_type\":\"standard\","
-                   "\"actions\":[{\"id\":\"" + IO_BOOL + "\",\"action\":\"true\"}]},"
-                 "{\"step_pause\":\"0.25\",\"step_type\":\"standard\","
-                   "\"actions\":[{\"id\":\"" + IO_TARGET + "\",\"action\":\"" + secondAction + "\"},"
-                                "{\"id\":\"" + IO_INT + "\",\"action\":\"42\"}]},"
-                 "{\"step_type\":\"end\","
-                   "\"actions\":[{\"id\":\"" + IO_STRING + "\",\"action\":\"done\"}]}"
-               "]}";
+                 "{\"actions\":[{\"action\":\"true\",\"id\":\"" + IO_BOOL + "\"}],"
+                   "\"step_pause\":\"1.5\",\"step_type\":\"standard\"},"
+                 "{\"actions\":[{\"action\":\"" + secondAction + "\",\"id\":\"" + IO_TARGET + "\"},"
+                                "{\"action\":\"42\",\"id\":\"" + IO_INT + "\"}],"
+                   "\"step_pause\":\"0.25\",\"step_type\":\"standard\"},"
+                 "{\"actions\":[{\"action\":\"done\",\"id\":\"" + IO_STRING + "\"}],"
+                   "\"step_type\":\"end\"}"
+               "],"
+               "\"steps_count\":\"2\"}";
     }
 
-    //The WS envelope jansson builds: msg, msg_id, then data.
+    //MOVED. The envelope sorts with the payload: data, msg, msg_id.
     static std::string wsEnvelope(const std::string &payload,
                                   const std::string &msgId = "e41r")
     {
-        return "{\"msg\":\"autoscenario\",\"msg_id\":\"" + msgId + "\","
-               "\"data\":" + payload + "}";
+        return "{\"data\":" + payload + ","
+               "\"msg\":\"autoscenario\",\"msg_id\":\"" + msgId + "\"}";
     }
 };
 
@@ -398,9 +411,10 @@ protected:
  * step, the member order inside an action, and the STRING typing of everything.
  ******************************************************************************/
 
-//MOVES: the ten keys of the payload sort, and so do the three members of each
-//step and the two members of each action, and the WS envelope.
-TEST_F(JsonApiScenarioWireBytesTest, WsAutoscenarioGetWholeAnswerBytesToday)
+//MOVED, as announced: the ten keys of the payload sort, and so do the three
+//members of each step and the two members of each action, and the WS envelope.
+//Not one value moved - not a step, not an action, not a quote.
+TEST_F(JsonApiScenarioWireBytesTest, WsAutoscenarioGetWholeAnswerBytes)
 {
     loadScenarioHouse();
 
@@ -411,8 +425,8 @@ TEST_F(JsonApiScenarioWireBytesTest, WsAutoscenarioGetWholeAnswerBytesToday)
               wsWire(ws, Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }}));
 }
 
-//MOVES: same payload, no envelope on this transport.
-TEST_F(JsonApiScenarioWireBytesTest, HttpAutoscenarioGetWholeAnswerBytesToday)
+//MOVED: same payload, no envelope on this transport.
+TEST_F(JsonApiScenarioWireBytesTest, HttpAutoscenarioGetWholeAnswerBytes)
 {
     loadScenarioHouse();
 
@@ -428,10 +442,10 @@ TEST_F(JsonApiScenarioWireBytesTest, HttpAutoscenarioGetWholeAnswerBytesToday)
     EXPECT_EQ(scenarioWire(), req.body());
 }
 
-//MOVES. buildAutoscenarioList() calls Scenario::toJson() on every scenario, so
+//MOVED. buildAutoscenarioList() calls Scenario::toJson() on every scenario, so
 //the list moves exactly like a get - and it is the SECOND caller of the
 //transitional bridge. Its own wrapper object has a single key and does not.
-TEST_F(JsonApiScenarioWireBytesTest, WsAutoscenarioListWholeAnswerBytesToday)
+TEST_F(JsonApiScenarioWireBytesTest, WsAutoscenarioListWholeAnswerBytes)
 {
     loadScenarioHouse();
 
@@ -442,8 +456,8 @@ TEST_F(JsonApiScenarioWireBytesTest, WsAutoscenarioListWholeAnswerBytesToday)
               wsWire(ws, Json{{ "type", "list" }}));
 }
 
-//MOVES.
-TEST_F(JsonApiScenarioWireBytesTest, HttpAutoscenarioListWholeAnswerBytesToday)
+//MOVED.
+TEST_F(JsonApiScenarioWireBytesTest, HttpAutoscenarioListWholeAnswerBytes)
 {
     loadScenarioHouse();
 
@@ -564,9 +578,10 @@ TEST_F(JsonApiScenarioWireBytesTest, StepsCountAndStepPauseAreQuotedStrings)
     EXPECT_EQ(std::string::npos, wire.find("\"steps_count\":2")) << wire;
 }
 
-//MOVES. The ten keys of the payload, in the order Scenario::toJson() INSERTS
-//them. jansson keeps insertion order, nlohmann sorts.
-TEST_F(JsonApiScenarioWireBytesTest, ThePayloadKeysAreInInsertionOrderToday)
+//MOVED. The ten keys of the payload, ALPHABETICAL now. jansson kept
+//Scenario::toJson()'s insertion order (id, cycle, enabled, schedule, category,
+//broken, disabled_missing_io, missing_ios, steps_count, steps); nlohmann sorts.
+TEST_F(JsonApiScenarioWireBytesTest, ThePayloadKeysAreSorted)
 {
     loadScenarioHouse();
 
@@ -576,9 +591,9 @@ TEST_F(JsonApiScenarioWireBytesTest, ThePayloadKeysAreInInsertionOrderToday)
     const std::string wire = httpWire(Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
 
     const std::vector<std::string> keysInOrder = {
-        "\"id\":", "\"cycle\":", "\"enabled\":", "\"schedule\":", "\"category\":",
-        "\"broken\":", "\"disabled_missing_io\":", "\"missing_ios\":",
-        "\"steps_count\":", "\"steps\":"
+        "\"broken\":", "\"category\":", "\"cycle\":", "\"disabled_missing_io\":",
+        "\"enabled\":", "\"id\":", "\"missing_ios\":", "\"schedule\":",
+        "\"steps\":", "\"steps_count\":"
     };
 
     size_t at = 0;
@@ -611,15 +626,15 @@ TEST_F(JsonApiScenarioWireBytesTest, TheOneKeyAnswersAreAParamsAndDoNotMove)
  * 4. THE WS ENVELOPE
  ******************************************************************************/
 
-//MOVES: msg, msg_id, data -> data, msg, msg_id.
-TEST_F(JsonApiScenarioWireBytesTest, TheWsEnvelopeKeysAreInInsertionOrderToday)
+//MOVED: msg, msg_id, data -> data, msg, msg_id.
+TEST_F(JsonApiScenarioWireBytesTest, TheWsEnvelopeKeysAreSorted)
 {
     loadScenarioHouse();
 
     WsTestSession ws;
 
-    EXPECT_EQ("{\"msg\":\"autoscenario\",\"msg_id\":\"e41r\","
-              "\"data\":{\"scenarios\":[]}}",
+    EXPECT_EQ("{\"data\":{\"scenarios\":[]},"
+              "\"msg\":\"autoscenario\",\"msg_id\":\"e41r\"}",
               wsWire(ws, Json{{ "type", "list" }}));
 }
 
@@ -655,7 +670,7 @@ TEST_F(JsonApiScenarioWireBytesTest, HttpContentLengthFollowsTheBody)
  ******************************************************************************/
 
 //MOVES: é -> é. The wire stays PURE ASCII on both sides.
-TEST_F(JsonApiScenarioWireBytesTest, AnAccentedActionIsEscapedUpperCaseToday)
+TEST_F(JsonApiScenarioWireBytesTest, AnAccentedActionIsEscapedLowerCase)
 {
     loadScenarioHouse();
 
@@ -664,7 +679,8 @@ TEST_F(JsonApiScenarioWireBytesTest, AnAccentedActionIsEscapedUpperCaseToday)
 
     const std::string wire = httpWire(Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
 
-    EXPECT_NE(std::string::npos, wire.find("\"arr\\u00EAt\\u00E9\"")) << wire;
+    EXPECT_NE(std::string::npos, wire.find("\"arr\\u00eat\\u00e9\"")) << wire;
+    EXPECT_EQ(std::string::npos, wire.find("\\u00EA")) << wire;
 
     for (unsigned char c: wire)
         ASSERT_LT(c, 0x80u) << "the autoscenario wire is not pure ASCII any more: " << wire;
@@ -672,7 +688,7 @@ TEST_F(JsonApiScenarioWireBytesTest, AnAccentedActionIsEscapedUpperCaseToday)
 
 //MOVES: the raw 0x7f byte -> , five bytes longer, and Content-Length
 //follows.
-TEST_F(JsonApiScenarioWireBytesTest, ADelByteInAnActionIsRawToday)
+TEST_F(JsonApiScenarioWireBytesTest, ADelByteInAnActionIsEscaped)
 {
     loadScenarioHouse();
 
@@ -681,8 +697,8 @@ TEST_F(JsonApiScenarioWireBytesTest, ADelByteInAnActionIsRawToday)
 
     const std::string wire = httpWire(Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
 
-    EXPECT_NE(std::string::npos, wire.find(std::string("\"a\x7f""b\""))) << wire;
-    EXPECT_EQ(std::string::npos, wire.find("\\u007f")) << wire;
+    EXPECT_NE(std::string::npos, wire.find("\"a\\u007fb\"")) << wire;
+    EXPECT_EQ(std::string::npos, wire.find(std::string("\"a\x7f""b\""))) << wire;
 }
 
 /* INVARIANT, AND A MEASUREMENT THAT KILLED THE OBVIOUS GUESS.
@@ -923,9 +939,12 @@ TEST_F(JsonApiScenarioWireBytesTest, DeleteDelScheduleAndModifyAnswerSuccessTrue
     EXPECT_TRUE(ListeRoom::Instance().getAutoScenarios().empty());
 }
 
-//MOVES. A scheduled scenario carries the id of its time range in "schedule"
-//instead of "false" - the one member of the payload whose VALUE is an id.
-TEST_F(JsonApiScenarioWireBytesTest, AScheduledScenarioCarriesItsTimeRangeIdToday)
+/* ⚠️ PREDICTED TO MOVE AND DID NOT, kept with its measurement instead of being
+ * quietly renamed. A prediction is not evidence; the run is. Both assertions
+ * are order independent - the id of the time range is a VALUE, and no value of
+ * this perimeter moved. The one member of the payload whose value is an id.
+ */
+TEST_F(JsonApiScenarioWireBytesTest, AScheduledScenarioCarriesItsTimeRangeId)
 {
     loadScenarioHouse();
 

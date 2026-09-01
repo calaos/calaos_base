@@ -77,7 +77,8 @@ private:
     void processAudio(json_t *jdata, const Json &jdataDoc, const string &client_id = string());
     void processAudioDb(const Json &jdataDoc, const string &client_id = string());
 
-    void processAutoscenario(json_t *jdata, const string &client_id = string());
+    //E4.1r: the "data" member as a document, not a second parse.
+    void processAutoscenario(const Json &jdata, const string &client_id = string());
 };
 
 #endif // JSONAPIV3_H

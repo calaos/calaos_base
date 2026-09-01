@@ -655,13 +655,13 @@ TEST_F(ScenarioDisabledMissingIoTest, ReenableCommandRefusesWithTheIdsAndSucceed
 
     ApiProbe api;
 
-    json_t *jreq = json_object();
-    json_object_set_new(jreq, "id", json_string(SC_IO));
+    //E4.1r: buildAutoscenarioReenable() answers a Json and reads one. Not one
+    //assertion of this case changed - what it observes is the refusal and the
+    //sticky flag, not the shape of the document.
+    const Json jreq = Json{{ "id", SC_IO }};
 
-    json_t *jrefused = api.buildAutoscenarioReenable(jreq);
-    ASSERT_NE(jrefused, nullptr);
-    const std::string refused = jansson_string_get(jrefused, "error");
-    json_decref(jrefused);
+    const Json jrefused = api.buildAutoscenarioReenable(jreq);
+    const std::string refused = jrefused.value("error", std::string());
 
     EXPECT_EQ("scenario still references missing IOs: " + std::string(TARGET_2), refused);
     EXPECT_TRUE(autoScenario()->isDisabledMissingIo());
@@ -672,25 +672,15 @@ TEST_F(ScenarioDisabledMissingIoTest, ReenableCommandRefusesWithTheIdsAndSucceed
     saveAndReload();
     ASSERT_TRUE(autoScenario()->isDisabledMissingIo());
 
-    json_t *jok = api.buildAutoscenarioReenable(jreq);
-    ASSERT_NE(jok, nullptr);
-    const std::string ok = jansson_string_get(jok, "success");
-    json_decref(jok);
+    const Json jok = api.buildAutoscenarioReenable(jreq);
 
-    EXPECT_EQ("true", ok);
+    EXPECT_EQ("true", jok.value("success", std::string()));
     EXPECT_FALSE(autoScenario()->isDisabledMissingIo());
     EXPECT_EQ(3, runScenario());
 
     //an unknown id is a plain wrong input, like every other autoscenario command
-    json_t *jbad = json_object();
-    json_object_set_new(jbad, "id", json_string("t318_nope"));
-    json_t *jerr = api.buildAutoscenarioReenable(jbad);
-    ASSERT_NE(jerr, nullptr);
-    EXPECT_EQ("wrong input", jansson_string_get(jerr, "error"));
-    json_decref(jerr);
-    json_decref(jbad);
-
-    json_decref(jreq);
+    const Json jerr = api.buildAutoscenarioReenable(Json{{ "id", "t318_nope" }});
+    EXPECT_EQ("wrong input", jerr.value("error", std::string()));
 }
 
 /*******************************************************************************
@@ -805,21 +795,18 @@ TEST_F(ScenarioDisabledMissingIoTest, ModifyDoesNotClearTheDisabledFlag)
     //shows the two params being treated DIFFERENTLY and not just both ignored
     ASSERT_EQ("true", scenarioIo()->get_param("disabled"));
 
-    json_t *jreq = json_object();
-    json_object_set_new(jreq, "id", json_string(SC_IO));
-    json_object_set_new(jreq, "name", json_string("Renamed by the client"));
-    json_object_set_new(jreq, "cycle", json_string("true"));
-    json_object_set_new(jreq, "disabled", json_string("false"));
-    json_object_set_new(jreq, "room_name", json_string(T318_ROOM));
-    json_object_set_new(jreq, "room_type", json_string(T318_ROOM_TYPE));
-    json_object_set_new(jreq, "steps", json_array());
+    //E4.1r: same request, as a document. No assertion changed.
+    const Json jreq = Json{{ "id", SC_IO },
+                           { "name", "Renamed by the client" },
+                           { "cycle", "true" },
+                           { "disabled", "false" },
+                           { "room_name", T318_ROOM },
+                           { "room_type", T318_ROOM_TYPE },
+                           { "steps", Json::array() }};
 
     ApiProbe api;
-    json_t *jret = api.buildAutoscenarioModify(jreq);
-    ASSERT_NE(jret, nullptr);
-    EXPECT_EQ("true", jansson_string_get(jret, "success"));
-    json_decref(jret);
-    json_decref(jreq);
+    const Json jret = api.buildAutoscenarioModify(jreq);
+    EXPECT_EQ("true", jret.value("success", std::string()));
 
     Scenario *sc = scenarioIo();
     ASSERT_NE(sc, nullptr);
@@ -862,20 +849,17 @@ TEST_F(ScenarioDisabledMissingIoTest, TheDisabledParamIsTheSchedulingChoiceAndIs
     //and the two params are NOT the same thing
     EXPECT_EQ("false", j.value("disabled_missing_io", std::string()));
 
-    json_t *jreq = json_object();
-    json_object_set_new(jreq, "id", json_string(SC_IO));
-    json_object_set_new(jreq, "name", json_string("Scenario t318_sc"));
-    json_object_set_new(jreq, "cycle", json_string("false"));
-    json_object_set_new(jreq, "disabled", json_string("false"));
-    json_object_set_new(jreq, "room_name", json_string(T318_ROOM));
-    json_object_set_new(jreq, "room_type", json_string(T318_ROOM_TYPE));
-    json_object_set_new(jreq, "steps", json_array());
+    //E4.1r: same request, as a document. No assertion changed.
+    const Json jreq = Json{{ "id", SC_IO },
+                           { "name", "Scenario t318_sc" },
+                           { "cycle", "false" },
+                           { "disabled", "false" },
+                           { "room_name", T318_ROOM },
+                           { "room_type", T318_ROOM_TYPE },
+                           { "steps", Json::array() }};
 
     ApiProbe api;
-    json_t *jret = api.buildAutoscenarioModify(jreq);
-    ASSERT_NE(jret, nullptr);
-    json_decref(jret);
-    json_decref(jreq);
+    api.buildAutoscenarioModify(jreq);
 
     as = autoScenario();
     ASSERT_NE(as, nullptr);
