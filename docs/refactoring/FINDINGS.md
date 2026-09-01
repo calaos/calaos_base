@@ -8060,3 +8060,76 @@ emise par `dump(-1, ' ', true, replace)`. Rien a corriger dans le code ; a savoi
 final d'E4.1x devra tomber a zero : **il tombera a 2, pas a 0**, sauf a renommer la variable ou a
 raffiner le motif. Consigne pour que la cloture ne parte pas en chasse d'un jansson qui n'existe
 pas.
+
+## T3.36 — le premier `make check` repare est VERT, et il faut dire pourquoi ce n'est pas une preuve (2026-09-01)
+
+La fiche et `ORCHESTRATION.md` annoncaient tous deux que la reparation du relink ferait
+**probablement rougir** des suites qui ne passaient que grace a l'absence de relink, et que ces
+rouges seraient des **trouvailles**. **Il n'y en a eu aucune** : `TOTAL 110 / PASS 108 / SKIP 2 /
+FAIL 0 / ERROR 0` au `make distclean` final, et **0 FAIL** au premier `make check` d'apres
+correctif.
+
+⚠️ **Ce vert ne dit pas que le harnais etait sain ; il dit que la mesure est partie d'un arbre
+entierement reconstruit.** Dans un arbre reconstruit de zero, aucun binaire de test n'est perime :
+il n'y a rien a reveler. Le defaut ne produit un faux vert que dans un cycle **incrementiel** — on
+mute, on rebase, on contre-mute — c'est-a-dire exactement le regime de travail de la serie E4.1, et
+exactement celui que les briefs compensaient a la main. **Le seul rouge que le correctif ait
+produit est celui qu'il devait produire** : `JsonPathSyntax_test` sur le defaut T3.29 reintroduit,
+avec sa ligne `CXXLD` enfin presente.
+
+**Consequence operationnelle** : ne pas lire ce vert comme « il n'y avait rien ». Les faux verts
+passes de la serie ne sont pas rejouables a posteriori — les arbres ou ils sont survenus n'existent
+plus. **Aucun ticket propose** : il n'y a pas de rouge a instruire.
+
+## T3.36 — la convention `_DEPENDENCIES` gardait un VRAI danger, et il fallait le remplacer, pas seulement le retirer (2026-09-01)
+
+Le commentaire *« Built elsewhere, do not let automake turn them into prerequisites »* n'etait pas
+gratuit. `tests/Makefile.am` n'a aucune regle pour les `.o` de `calaos_server` — mais **`make` en a
+une**, sa regle implicite `.cpp.o`, et automake en ajoute une seconde du meme nom. En build
+in-tree, `src/bin/calaos_server/Calaos.cpp` **existe** a cote de son `.o` : declarer l'objet en
+prerequis sans autre precaution autorise `tests/` a le **recompiler avec SES propres drapeaux**
+(`AM_CPPFLAGS` de `tests/`, pas ceux de `src/`) — un objet silencieusement faux, la ou l'ancienne
+forme ne donnait « que » un faux vert.
+
+Le correctif ferme les deux : les objets sont prerequis **et** une regle explicite
+
+```make
+$(CALAOS_SERVER_BUILDDIR)/%.$(OBJEXT):
+	@:
+```
+
+**masque** la regle implicite. Un objet reellement absent ressort alors en erreur d'edition de
+liens **nommant le fichier**, au lieu d'etre recompile de travers. En pratique le cas ne se
+presente pas (`SUBDIRS = src data tests` a la racine, boucle **serie** : `src/` est bati avant
+`tests/`), mais la garde ne coute rien et rend l'invariant lisible.
+
+**A retenir** : quiconque relira ce fichier verra des `.o` d'un autre repertoire en prerequis et se
+demandera pourquoi c'est sur. La reponse est cette regle-la, et elle doit survivre a toute
+regeneration future du fichier.
+
+## T3.36 — `automake` refuse une variable partagee qui finit par `_DEPENDENCIES` (2026-09-01)
+
+La variable partagee qui porte les prerequis de la famille `CORE_TEST_LDADD` s'appelait d'abord
+`CORE_TEST_DEPENDENCIES`. `automake` la prend alors pour une variable **par cible** et avertit :
+`variable 'CORE_TEST_DEPENDENCIES' is defined but no program or library has 'CORE_TEST' as
+canonical name (possible typo)`. Renommee **`CORE_TEST_DEPS`**, l'avertissement disparait.
+
+⚠️ Curiosite mesuree au passage : **`CORE_TEST_LDADD` n'avertit pas**, alors qu'il finit lui aussi
+par un suffixe par-cible. La regle pratique est donc empirique et non deductible : **`_DEPENDENCIES`
+est verifie, `_LDADD` ne l'est pas**. A savoir pour tout futur regroupement dans ce fichier.
+
+## T3.36 — deux overrides `_DEPENDENCIES` sont inoffensifs, et il faut les nommer pour ne pas les « corriger » (2026-09-01)
+
+Sur les **67** overrides `_DEPENDENCIES` de `tests/Makefile.am`, **2 ne relient aucun `.o` de
+`calaos_server`** : **`JanssonResidues_test`** (deja nomme par la fiche) et
+**`StringUtilsFromString_test`** (nouveau, arrive depuis). Leur `_LDADD` ne contient que
+`libcalaos_common.la` et des bibliotheques : l'override n'y retire **rien**, et le laisser tel quel
+est correct. Les compter parmi les suites aveugles donnerait **67 sur 102** au lieu de **65 sur
+102**.
+
+⚠️ **Et le piege de comptage inverse se reproduit a l'echelle d'aujourd'hui** : chercher
+`$(CALAOS_SERVER_BUILDDIR)` **en toutes lettres** dans les `_LDADD` donne **45** — les 20 suites qui
+n'ecrivent que `$(CORE_TEST_LDADD)` relient pourtant les 35 objets de `CORE_SERVER_OBJECTS` sans
+jamais nommer la variable. *(La fiche annoncait le meme ecart a son echelle : 27 pour 47.)*
+**Ce fichier ne se compte qu'en resolvant les variables** — et c'est desormais
+`tests/check-test-deps.py` qui le fait, a chaque `make check`.

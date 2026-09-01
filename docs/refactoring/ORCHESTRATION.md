@@ -8,6 +8,23 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅⭐ [`T3.36`](T3.36.md) LIVRÉE — branche `fix/t3.36`, 2 commits (correctif `7fc427f6`), ⛔ NON MERGÉE, rien poussé.**
+  ⭐ **Le filet de sécurité est réparé : `make` relinke enfin les binaires de test.** Population
+  **re-mesurée** sur `master` = `4498c29a` (les « 47 sur 80 » du titre dataient du 2026-08-25) :
+  `TESTS` **109**, **102 binaires de test**, **67** overrides `_DEPENDENCIES` dont ⭐ **65 AVEUGLES**
+  et 2 inoffensifs ⇒ ⭐ **65 sur 102**. Le piège de comptage se reproduit : le motif littéral
+  `$(CALAOS_SERVER_BUILDDIR)` donne **45** au lieu de 65.
+  ⭐⭐ **Avant/après, MÊME manip, sans aucun `rm -f`** (défaut T3.29 réintroduit, 7 sites de l'ioDoc
+  MQTT) : **AVANT** `CXXLD` de binaires de test = **0**, `TOTAL 109 / PASS 107 / FAIL 0` — **vert
+  sur un défaut réintroduit** ; **APRÈS** **`CXXLD    JsonPathSyntax_test`** présent,
+  `TOTAL 109 / PASS 106 / **FAIL 1** `. Couverture par `touch` des **154** `.o` serveur :
+  **0/65** avant, ⭐ **65/65** après. **Témoin à sémantique nulle : `CXXLD` présent, `FAIL 0`.**
+  ⭐ **ZÉRO rouge découvert** — et `FINDINGS.md` dit pourquoi ce vert n'est pas une preuve.
+  `make distclean` : **`TOTAL 110 / PASS 108 / SKIP 2 / FAIL 0 / ERROR 0`**, `^if*` ≡ `endif`
+  **93/93**, `autoreconf` sans avertissement neuf. Garde neuve **`check-test-deps.sh`**.
+  ⛔⭐ **LA CONSIGNE « `rm -f` binaire + `.o` serveur puis exiger `CXXLD` » EST CADUQUE** — réécrite
+  dans la section « Piège `_DEPENDENCIES` », §RÉPARÉ. **Ne la recopiez plus dans un brief.**
+
 - **✅ [`E4.1s`](E4.1s.md) MERGÉE — 3 commits de la branche + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`d818a391`**.
   ⭐ **`master` ÉTAIT IMMOBILE sur `a26c874e`** = exactement la merge-base ⇒ **ni rebase ni conflit**,
   le `merge --ff-only` est passé tel quel.
@@ -142,6 +159,13 @@
 
   ➡️⭐⭐ **PROCHAINE ACTION — DEUX OPTIONS, ET LE CHOIX EST À L'UTILISATEUR. Ce n'est plus dans
   E4.1.**
+
+  ✅⭐ **OPTION A TRANCHÉE ET LIVRÉE le 2026-09-01 — [`T3.36`](T3.36.md), branche `fix/t3.36`,
+  2 commits, non mergée, rien poussé.** Chiffres **re-mesurés** : **65 suites sur 102** (et non
+  47/80 — 9 tickets E4.1 ont appendu depuis la fiche) ; **65/65** relinkent après correctif ;
+  **aucun rouge découvert** (attendu : la mesure part d'un arbre reconstruit, cf. `FINDINGS.md`).
+  ⇒ **Le débat ci-dessous est CLOS ; il reste comme trace de la décision. Il ne reste que
+  l'Option B.**
 
   **Option A — [`T3.36`](T3.36.md), le relink des suites (`infra`, ⚠️ PRIORITÉ HAUTE).**
   **47 suites sur 80** peuvent répondre **vert sans avoir relié le code modifié** : c'est la **cause
@@ -3343,8 +3367,10 @@
     ⚠️ **Piège de comptage à consigner** : `CORE_TEST_LDADD` **contient** `CORE_SERVER_OBJECTS`,
     donc chercher `$(CALAOS_SERVER_BUILDDIR)` en toutes lettres dans les `_LDADD` donne **27** au
     lieu de 47 — *reproduit à l'identique ici*. C'est la **cause racine des cinq variantes de faux
-    vert / faux rouge** de la série. **Seul contrôle valable, jusqu'à T3.36 : `rm -f tests/<suite>`,
-    puis exiger la ligne `CXXLD <suite>` ET le code de sortie.**
+    vert / faux rouge** de la série. ~~Seul contrôle valable, jusqu'à T3.36 : `rm -f tests/<suite>`,
+    puis exiger la ligne `CXXLD <suite>` ET le code de sortie.~~ ✅ **CADUC depuis T3.36
+    (2026-09-01)** : `make` relinke seul, **on n'efface plus rien** et la ligne `CXXLD` se **lit**
+    au lieu de s'armer — voir « Piège `_DEPENDENCIES` » plus bas, §RÉPARÉ.
 
   - **L'OPTION C, RETENUE ET SÛRE** : journaliser « *did you mean `a/[0]/b` ?* » dans le `catch` de
     la **branche objet** (`MqttCtrl.cpp:151-155`, `WebCtrl.cpp:221-225`). ⭐ **Le faux positif est
@@ -6749,6 +6775,31 @@ sain.
 
 **Règle** : **après tout rebase, `make distclean` avant de conclure quoi que ce soit** sur un
 binaire voisin. À répercuter dans les briefs de sous-tickets.
+
+### ✅⭐ RÉPARÉ par [`T3.36`](T3.36.md) le 2026-09-01 — et la consigne des briefs CHANGE
+
+`tests/Makefile.am` fait désormais de chaque `.o` serveur relié un **prérequis** du binaire de test
+qui le relie : **65 suites sur 102** étaient aveugles, **65 sur 65** relinkent maintenant (mesuré
+par `touch` des 154 `.o` de `calaos_server` : **0** relink avant, **65** après). La démonstration
+avant/après est dans la fiche §8.
+
+⛔ **LA CONSIGNE « chaque brief doit porter `rm -f` du binaire ET des `.o` serveur, puis exiger
+`CXXLD` » EST CADUQUE. Ne la recopiez plus.** Elle a coûté à E4.1s **7 × 102 relinks manuels**, et
+elle ne garantissait rien : c'était de la discipline, pas un invariant. **Ce qui la remplace :**
+
+1. ⛔ **Ne plus effacer les binaires de test ni les `.o` serveur.** `make` relinke tout seul. Un
+   `rm -f` masque désormais l'information utile : il rend la ligne `CXXLD` inconditionnelle, donc
+   inobservable.
+2. ✅ **`CXXLD <binaire>` reste un bon oracle, mais il se LIT au lieu de s'armer.** Après avoir muté
+   une unité de production, la ligne **doit apparaître d'elle-même** pour chaque suite qui relie
+   cet objet — et **pour elles seulement**. Son absence n'est plus un oubli de brief : c'est une
+   **régression du harnais**, et `tests/check-test-deps.sh` (bloc `# T3.36`) la fait rougir en
+   statique, à chaque `make check`.
+3. ✅ **Un brief de contre-mutation demande donc : muter, `make && make check`, lire le `CXXLD` et
+   le code de sortie.** Rien de plus. La restauration reste **une copie vérifiée au `cmp`** — cette
+   règle-là, elle, ne bouge pas (voir plus bas, `git checkout` dans le conteneur).
+4. ⚠️ **`make distclean` après un rebase reste requis** : T3.36 relie `tests/` à `src/`, il ne dit
+   rien de la cohérence des `.o` de `src/` **entre eux**.
 
 ## ⚠️ Outillage — sorties tronquées : `grep` hooké et `docker ps --format` (E4.0f, 2026-08-17)
 
