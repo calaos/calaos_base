@@ -1077,7 +1077,7 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   par E4.2d (le nouveau `Remove(Rule*)` refuse et logge au lieu de détruire un objet qu'il ne
   possède pas).
 
-## Détail pour les intégrateurs — les événements, `get_home` / `get_io`, l'état des équipements, les paramètres/plages horaires ET les scénarios automatiques changent de forme, et cessent de perdre des données en silence (E4.1l, E4.1m, E4.1n, E4.1o, E4.1p, E4.1q, E4.1r)
+## Détail pour les intégrateurs — les événements, `get_home` / `get_io`, l'état des équipements, les paramètres/plages horaires, les scénarios automatiques ET les dernières réponses de l'API changent de forme, et cessent de perdre des données en silence (E4.1l, E4.1m, E4.1n, E4.1o, E4.1p, E4.1q, E4.1r, E4.1s)
 
 > **Rien à faire de votre côté, et aucune application Calaos ne s'en aperçoit.** Cette note existe
 > parce que le changement porte sur des **octets réellement servis** sur l'API JSON (port 5454),
@@ -1121,6 +1121,11 @@ liste des **réponses** concernées à ce stade est donc :
 | ⭐ **`audio_db`** — la médiathèque : albums, artistes, genres, années, listes de lecture, radios, dossiers musicaux, informations de piste, statistiques | **E4.1q** |
 | ⭐ **`autoscenario` → `list`, `get`** — la description d'un **scénario automatique** : ses étapes, leurs pauses et leurs actions — voir l'encadré qui lui est consacré plus bas | **E4.1r** |
 | ⭐ **`autoscenario` → `create`, `delete`, `modify`, `add_schedule`, `del_schedule`, `reenable`** — leurs accusés de réception et leurs refus | **E4.1r** |
+| ⭐ **`config` → `get`** — le **contenu brut** de `io.xml`, `rules.xml` et `local_config.xml`. **La plus grosse réponse de l'API**, et la seule qui reflète des **fichiers utilisateur** : voir l'encadré qui lui est consacré plus bas | **E4.1s** |
+| ⭐ **`config` → `put`** — son accusé de réception | **E4.1s** |
+| ⭐ **`get_mcp_info`** — l'adresse et le jeton du sidecar MCP | **E4.1s** |
+| ⭐ **`get_cover`, `get_camera_pic`, `audio` → `get_cover`** — leurs **refus** (`{"error_str":…,"success":"false"}`) et l'accusé de réception qui porte l'image en base64 | **E4.1s** |
+| ⭐ Le **refus de connexion** en WebSocket (`{"success":"false"}`) | **E4.1s** |
 
 Ces réponses sont désormais fabriquées par la même bibliothèque JSON que le reste des réponses
 récentes. **Cinq** différences observables, **mesurées octet à octet** ; trois sont purement de
@@ -1401,7 +1406,87 @@ série. ⚠️ **Cette note est LA note unique de la série : on l'étend, on ne
 E4.1m l'a fait le premier, en ajoutant deux lignes au tableau des réponses concernées et un
 balayage complémentaire, sans réécrire les cinq différences ; E4.1n, E4.1o, E4.1p et E4.1q ont
 fait de même.
-`E4.1s` la relit une dernière fois et la ferme.)*
+**`E4.1s` l'a relue et la ferme** : c'est le dernier sous-ticket de la chaîne API, et il y a ajouté sa propre section — la déclaration de risque de la casse hexadécimale, et surtout **le changement de surface d'entrée**, qui n'est pas une question de forme et qui n'existait dans aucun des tickets précédents.)*
+
+### ⭐⭐ E4.1s — la bascule est terminée, et elle apporte **une** nouveauté qui n'est pas une question de forme
+
+`E4.1s` est le dernier sous-ticket de la série sur l'API. Il fait passer les **dernières** réponses
+qui échappaient encore à la nouvelle bibliothèque (tableau ci-dessus) — donc, pour elles, **les
+cinq différences décrites plus haut, et aucune sixième**. Mais il change aussi une chose que les
+huit tickets précédents ne touchaient pas : **la façon dont le serveur LIT votre requête**.
+
+#### La déclaration de risque de la casse hexadécimale (elle vaut pour toute la série)
+
+> **La casse hexadécimale des séquences d'échappement JSON change** : un caractère accentué qui
+> sortait `\u00E9` sort désormais `\u00e9`. Le wire reste **ASCII pur**, comme avant. Aucun parseur JSON
+> correct ne voit de différence ; seul un analyseur maison sensible à la casse serait affecté.
+
+**Alternative écartée, et consignée pour qu'elle ne soit pas reprise par inadvertance** : émettre
+les octets UTF-8 bruts, ce qui est le comportement par défaut de la nouvelle bibliothèque. Elle a
+été **rejetée** parce qu'elle cesserait de garantir un flux **ASCII pur** — un changement de forme
+bien plus large, sur des wires (drivers) sans filet de test. Elle reste possible plus tard, **comme
+changement délibéré et déclaré, jamais comme effet de bord d'une migration**.
+
+#### ⛔ CE QUI EST NOUVEAU, ET QUI N'EST PAS UN CHANGEMENT DE FORME : le serveur accepte trois requêtes qu'il refusait
+
+Jusqu'à ce ticket, la requête que vous envoyez était **analysée par l'ancienne bibliothèque**, même
+quand la réponse était déjà fabriquée par la nouvelle. `E4.1s` fait passer cette analyse à la
+nouvelle bibliothèque, et **les deux ne tracent pas la même frontière**. Trois entrées qui étaient
+**refusées** sont désormais **servies** (mesuré, sur les deux transports) :
+
+| Entrée | Avant | Maintenant |
+|---|---|---|
+| Un **octet nul échappé** dans une valeur ou dans un nom de champ : `"a\u0000b"` | requête **refusée** en entier (HTTP : `400`, WebSocket : silence) | **acceptée**, la valeur est stockée **entière** et ressort échappée `\u0000` |
+| Un **entier trop grand** pour tenir sur 64 bits | requête **refusée** en entier | **acceptée**, le nombre devient un réel |
+| Une **imbrication de plus de 2048 niveaux** | requête **refusée** en entier | **acceptée** |
+
+⚠️ **Ce que cela veut dire concrètement** : une requête que votre client envoyait par erreur et qui
+recevait un refus net peut maintenant **être exécutée**. Si votre client s'appuyait sur ce refus
+comme sur une validation, il ne l'a plus.
+
+**Ce qui n'a PAS bougé, et qui est le verrou important** : du **texte mal encodé** dans le corps de
+la requête, un **demi-caractère Unicode** isolé, un **nombre réel hors plage**, et **du contenu
+après la fin du document** sont **toujours refusés**, exactement comme avant. Un **octet nul brut**
+(non échappé) termine toujours la lecture du corps, exactement comme avant. Et une imbrication de
+100 000 niveaux a été mesurée : elle est analysée puis libérée **sans faire tomber le serveur** — ce
+n'est pas un nouveau moyen de le mettre à genoux, c'est une entrée de plus qui est acceptée.
+
+#### ⛔ Un octet nul dans une action de scénario est **tronqué en silence**, et c'est la conséquence directe du point ci-dessus
+
+C'est la seule conséquence **fâcheuse** connue de l'ouverture ci-dessus, et elle est écrite ici
+plutôt que découverte plus tard :
+
+- vous pouvez maintenant faire passer un octet nul dans l'`action` d'une étape de scénario
+  automatique (`autoscenario create` / `modify`), **ce qui était impossible avant** ;
+- l'action est stockée **entière**, mais la réponse d'`autoscenario get` la rend **coupée au
+  premier octet nul** : `a\0b` revient `"a"`. **Silencieusement.**
+
+La cause est dans un fichier que cette série de tickets **n'a pas le droit de modifier**
+(`Scenario::toJson()`), et sa réécriture est prévue par le ticket **E4.6d**. Le comportement est
+**mesuré et épinglé par un test** pour qu'il ne puisse pas passer inaperçu jusque-là.
+⚠️ **En attendant : n'utilisez pas d'octet nul dans une action de scénario.** Rien n'en a besoin, et
+le serveur ne vous préviendra pas.
+
+#### ⛔ `config get` : la plus grosse réponse de l'API, et la seule qui reflète des **fichiers**
+
+`config get` renvoie le **texte brut** de `io.xml`, `rules.xml` et `local_config.xml`. Ce sont des
+**fichiers utilisateur** : ils peuvent contenir n'importe quel octet, et rien en amont ne garantit
+qu'ils soient bien encodés. Trois choses changent pour cette réponse :
+
+- **un fichier mal encodé ne disparaît plus de la réponse.** Si `io.xml` contenait ne serait-ce
+  qu'un octet mal encodé — un nom d'équipement importé d'un outil tiers suffit —, **la paire
+  `"io.xml"` entière était retirée de la réponse, en silence**, avec un `200 OK` et un
+  `"success":"true"` : le client recevait une configuration **indistinguable d'une installation
+  qui n'a pas de `io.xml`**. Le fichier est désormais **présent**, les octets fautifs remplacés
+  par `�` ;
+- les trois noms de fichiers sortent maintenant **triés** (`io.xml`, `local_config.xml`,
+  `rules.xml`) au lieu de l'ordre d'écriture (`io.xml`, `rules.xml`, `local_config.xml`) ;
+- un caractère `DEL` présent dans un fichier de configuration part désormais **échappé**, donc la
+  réponse **grandit** et le `Content-Length` suit.
+
+ℹ️ **La liste blanche de `config put` n'a pas bougé** : seuls `io.xml`, `rules.xml` et
+`local_config.xml` sont acceptés en téléversement, et tout autre nom est refusé — y compris un nom
+qui contiendrait un octet nul, la comparaison portant sur la chaîne entière.
 
 ## 📦 Empaquetage — l'archive source est de nouveau constructible, et elle porte enfin les licences des bibliothèques embarquées
 

@@ -7990,3 +7990,73 @@ creent tous le scenario dans la **seule** piece de leur maison, donc l'echange y
 une « fixture pauvre » **preexistante**, pas introduite ici. Idem pour M5 (les deux orthographes de
 refus echangees) : **trois cas rouges, tous les trois neufs**. Consigne parce que c'est exactement
 l'angle mort qu'E4.6d devra couvrir quand il reecrira ces fonctions.
+
+## E4.1s — la mine du NUL a explose, et voici exactement ce qu'elle a fait (2026-09-01)
+
+E4.1r avait ecrit que le NUL embarque etait **inatteignable de bout en bout** tant que le parse de
+requete restait en jansson, et que **E4.1s en heriterait**. C'est arrive. Mesure, sur les deux
+transports :
+
+- `Json::parse()` **accepte** un `\u0000` echappe, en **valeur** et en **nom de champ**, la ou
+  `json_loads()` avait **deux refus distincts** (`"\u0000 is not allowed without JSON_ALLOW_NUL"`
+  et `"NUL byte in object key not supported"`).
+- A travers les emetteurs qu'E4.1s possede, le zero **traverse entier** : trois octets stockes,
+  trois octets rendus, `\u0000` sur le fil. Epingle par
+  `N_AnEscapedNulInAParamValueIsStoredWholeAndComesBackEscaped` et son jumeau WebSocket.
+- A travers `Scenario::toJson()` (`IO/Scenario.cpp`, **exclu**, Q5) il est **TRONQUE EN SILENCE** :
+  une action `a\0b` revient `"a"`. **C'est atteignable depuis ce ticket et ca ne l'etait pas
+  avant.** Epingle par `AnEmbeddedNulInAnActionIsTruncatedByScenarioToJson`, avec E4.6d nomme dans
+  le commentaire.
+
+**DECISION, prise et assumee : ACCEPTER, EPINGLER, DECLARER.** Aucune garde n'a ete ajoutee sur le
+parse d'entree. Une garde aurait ete un **refus neuf** que la fiche ne demandait pas, et elle aurait
+masque la vraie cause, qui vit dans le fichier exclu. => **E4.6d doit corriger `Scenario::toJson()`,
+et le test ci-dessus rougira le jour ou il le fera** — c'est voulu, il porte la consigne de le
+reecrire.
+
+## E4.1s — le parse d'entree accepte DEUX autres choses qu'il refusait, et la fiche se trompait sur l'une (2026-09-01)
+
+Mesure sur une sonde compilee contre le vrai jansson et le `json.hpp` du depot (3.11.3) :
+
+- **Un entier au-dela d'`int64`** : jansson repondait `"too big integer"` et jetait **tout le
+  document**. nlohmann en fait un `double` (`1.2345678901234568e+29`), que le contrat
+  d'aplatissement transforme ensuite en chaine par `Utils::to_string(double)`. Une requete qui
+  recevait un `400` net est desormais **servie**.
+- **La profondeur d'imbrication.** ⚠️ **La fiche d'E4.1s dit « jansson n'a pas de limite par
+  defaut ». C'EST FAUX** : jansson plafonne a **2048** (`JSON_PARSER_MAX_DEPTH`) et repond
+  `"maximum parsing depth reached"` ; nlohmann n'a **aucune** limite. 2048 passe des deux cotes,
+  2049 ne passait pas et passe maintenant.
+  ⭐ **Et ce n'est PAS un deni de service neuf, mesure plutot que suppose** : 100 000 niveaux sont
+  analyses **puis liberes** sans debordement de pile (json.hpp 3.11.3 detruit iterativement), et le
+  corps reste borne par la taille de la requete HTTP. Ce qui change est ce qui est **accepte**, pas
+  la survie du processus.
+
+**Les verrous, eux, n'ont pas bouge** et c'est epingle case par case : UTF-8 invalide, demi-substitut
+isole, debordement de reel, contenu apres la fin du document. Un NUL **brut** termine toujours le
+corps des deux cotes — `json.hpp` place `'\0'` a cote d'`eof()` dans son lexer, exactement comme
+`json_loads(data.c_str())` s'arretait a la chaine C.
+
+## E4.1s — un cas VERT pour la mauvaise raison, trouve par le tour rouge (2026-09-01)
+
+`P_ANestingDepthAbove2048IsRefusedByTheParserToday`, ecrit dans le commit de caracterisation, est
+reste **VERT** apres la bascule alors qu'il pinnait exactement ce que la bascule changeait. La cause
+n'est pas le parseur : sa premiere moitie envoyait une requete refusee, donc **enregistrait un echec
+de connexion**, et le **LoginThrottle** — pas le parseur — repondait `400` a la seconde moitie.
+
+⚠️ **C'est le piege de la « fixture pauvre » sous sa forme la plus mechante** : le cas passe pour une
+raison qui n'a rien a voir avec ce qu'il pretend mesurer, et rien dans la sortie ne le signale. Il
+n'a ete vu que parce que le tour rouge attendait **14** mouvants et n'en a trouve que **13**.
+=> Corrige : **toute** requete HTTP de `core/JsonApiDispatchWireBytes_test` passe par un helper qui
+vide le throttle d'abord. **A retenir pour toute suite qui enchaine un refus et une acceptation sur
+le meme transport HTTP** — le throttle a sa propre suite (`core/JsonApiThrottleIdentity_test`), il
+n'a pas a etre l'oracle de quelqu'un d'autre.
+
+## E4.1s — le convention de comptage jansson a deux faux positifs, et ils sont dans WebSocket.cpp (2026-09-01)
+
+Le motif `\b(json_\w*|jansson\w*)\b` de la convention d'`ORCHESTRATION.md` compte **2 jetons dans
+`src/bin/calaos_server/WebSocket.cpp`**, un fichier qui n'a **jamais** utilise jansson. Ce sont la
+declaration et l'usage d'une variable locale nommee `json_body`, dans une reponse d'erreur deja
+emise par `dump(-1, ' ', true, replace)`. Rien a corriger dans le code ; a savoir quand le compte
+final d'E4.1x devra tomber a zero : **il tombera a 2, pas a 0**, sauf a renommer la variable ou a
+raffiner le motif. Consigne pour que la cloture ne parte pas en chasse d'un jansson qui n'existe
+pas.
