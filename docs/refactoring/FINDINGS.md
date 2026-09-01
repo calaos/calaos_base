@@ -7691,3 +7691,67 @@ pas le même poids.
 option ouverte pour autant** : la sonde l'exige **vide** et rend `1` sinon. Le partage entre chemins
 différents **n'est pas disponible** aujourd'hui ; il faudra d'abord **auditer** `base_dir`. ⛔ Ce qui
 reste interdit sans condition, c'est le réflexe naturel `hash_dir=false` — le mensonge ①.)*
+
+## E4.1o — le contrat d'aplatissement de `jansson_decode_object` en est à sa **cinquième copie manuelle**, et personne ne les tient ensemble (2026-09-01)
+
+**Hors périmètre, non corrigé.** `jansson_decode_object()` (`src/lib/Jansson_Addition.h`) définit
+quatre règles : chaîne telle quelle, booléen en **mot** `"true"`/`"false"`, nombre par
+`Utils::to_string(double)`, **tout le reste** la chaîne vide **mais la clé ajoutée**. Chaque wire
+qui migre doit le recopier **à la main**, parce que `Params::fromNJson()` lève `type_error.302` sur
+tout ce qui n'est pas une chaîne JSON. À ce jour :
+
+| Copie | Fichier |
+|---|---|
+| 1 | `LuaScript/ScriptWire.h` (`decodeObject`) |
+| 2 | `IO/Reolink/ReolinkWire.h` |
+| 3 | `IO/Wago/WagoWire.h` |
+| 4 | `IO/OLA/OLAWire.h` + `IO/KNX/KNXExternProc_main.h` / `KNXCtrl.cpp` |
+| 5 | **`JsonApi.cpp` (`decodeJsonObject`, E4.1o)** |
+
+Chacune porte sa propre tripwire de test contre `fromNJson()`, ce qui est bien — mais **rien ne
+vérifie que les cinq disent la même chose**. Une divergence sur une seule des quatre règles serait
+silencieuse : chaque tripwire ne regarde que sa copie. ⇒ **À replier en UN seul helper au moment
+où `Jansson_Addition.h` disparaît (E4.1x)**, avec un test unique qui compare les deux
+implémentations sur le même jeu d'entrées. Pas avant : replier maintenant ferait toucher six
+fichiers appartenant à six tickets différents.
+
+## E4.1o — `set_param` et `del_param` répondent **les mêmes octets** : un oracle qui ne lit que la réponse ne distingue pas les deux actions (2026-09-01)
+
+**Trouvé par contre-mutation, corrigé dans le fichier de ce ticket, mais la portée dépasse le
+ticket.** Sur succès les deux répondent `{"success":"true"}` ; sur échec les deux répondent
+`{"error":"wrong io/param"}`. **Échanger leurs deux sites d'appel dans `JsonApiHandlerHttp.cpp`
+laissait la suite verte à un cas près, et par accident** (celui qui, par la forme de sa fixture,
+tombait sur la branche « `value` manquant »).
+
+⚠️ **Ce n'est pas propre à ce ticket** : la même figure existe partout où deux actions voisines
+partagent un accusé de réception générique — `set_state`, `register_push`, les sept
+`autoscenario`. Un ticket qui échange deux de ces sites d'appel ne sera pas attrapé par un oracle
+de réponse. **Règle à répercuter dans les fiches restantes de la série** : pour toute action à
+**effet de bord**, la contre-mutation par échange doit être ancrée sur un cas qui vérifie
+l'**effet**, pas seulement l'accusé de réception. C'est la **13ᵉ** récidive recensée du piège
+« fixture pauvre », et la **première trouvée par l'implémenteur**.
+
+## E4.1o — la moitié jansson de `JsonApiEmissionBytes_test` a dû être retargetée une **deuxième** fois, et il y en aura d'autres (2026-09-01)
+
+**Attendu, prévu par écrit par E4.1m, consigné pour que le suivant ne le prenne pas pour une
+régression.** Le cas
+`TheNlohmannHttpWireIsAsciiOnlyAndEscapesWithLowercaseHex` compare **deux émetteurs HTTP vivants**
+sur la même maison. Sa moitié jansson doit donc viser une action qui atteint **encore** la
+surcharge `sendJson(json_t *)`. Elle visait `get_home` (jusqu'à E4.1m), puis `get_param` (jusqu'à
+E4.1o), et vise maintenant **`config type=get`** — la seule réponse HTTP synchrone restante qui
+soit construite à la main en `json_t*` **et** porte un texte accentué (l'`io.xml` de la maison).
+
+⚠️ **Après `config`, il ne reste presque rien** : `get_mcp_info` (ASCII pur), les sept
+`autoscenario` et la famille `audio`/`audio_db` (asynchrones, et périmètres d'E4.1p/E4.1q).
+⇒ **E4.1r/E4.1s doivent s'attendre à ce que ce cas ne soit plus retargetable du tout**, et c'est
+normal : quand la surcharge jansson disparaît, cette moitié du cas disparaît avec elle. **Ne pas la
+« réparer » en la faisant viser un émetteur nlohmann** — elle mesurerait alors la même chose deux
+fois et le cas deviendrait vide.
+
+## E4.1o — `T3.21` toujours ouvert : `del_param` court-circuite `IOBase::del_param()` (2026-09-01)
+
+**Non corrigé, délibérément.** `JsonApi::buildJsonDelParam()` appelle
+`o->get_params().Delete(...)` au lieu de `IOBase::del_param()`. La fiche E4.1o l'interdit
+explicitement de toucher (durcissement d'une ligne, ticket **T3.21**, séparé). La migration en
+`Json` **n'a rien changé** à ce chemin : la ligne est identique, seul le type de la réponse a
+bougé. **T3.21 reste entièrement à faire et n'est pas plus difficile qu'avant.**

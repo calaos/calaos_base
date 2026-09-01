@@ -1077,7 +1077,7 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   par E4.2d (le nouveau `Remove(Rule*)` refuse et logge au lieu de détruire un objet qu'il ne
   possède pas).
 
-## Détail pour les intégrateurs — les événements, `get_home` / `get_io` ET l'état des équipements changent de forme, et cessent de perdre des données en silence (E4.1l, E4.1m, E4.1n)
+## Détail pour les intégrateurs — les événements, `get_home` / `get_io`, l'état des équipements ET les paramètres/plages horaires changent de forme, et cessent de perdre des données en silence (E4.1l, E4.1m, E4.1n, E4.1o)
 
 > **Rien à faire de votre côté, et aucune application Calaos ne s'en aperçoit.** Cette note existe
 > parce que le changement porte sur des **octets réellement servis** sur l'API JSON (port 5454),
@@ -1088,8 +1088,10 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
 mêmes cinq**, remesurées sur la chaîne d'émission de ce ticket-là (512 sondes d'un octet, en valeur
 et en nom de champ, plus les formes bien et mal encodées). **E4.1n** y ajoute l'**état des
 équipements**, remesuré une troisième fois sur sa propre chaîne : **les mêmes cinq**, aucune
-sixième. Les tickets suivants de la série feront de même. La liste des **réponses** concernées à ce
-stade est donc :
+sixième. **E4.1o** y ajoute les **paramètres d'équipement** et les **plages horaires** : **les mêmes
+cinq**, toujours aucune sixième — mais c'est **le seul ticket de la série où le NOM du champ est
+fourni par le client lui-même**, ce qui lui vaut un encadré à part, plus bas. Les tickets suivants
+de la série feront de même. La liste des **réponses** concernées à ce stade est donc :
 
 | Réponse | Depuis |
 |---|---|
@@ -1104,6 +1106,10 @@ stade est donc :
 | ⭐ **`query`** — l'interrogation d'un paramètre d'équipement | **E4.1n** |
 | ⭐ **`set_state`** — l'accusé de réception (`{"success":"true"}`) | **E4.1n** |
 | ⭐ Les **écrans déportés (RemoteUI)** à la connexion, pour leurs **états initiaux** — voir l'encadré qui leur est consacré plus bas | **E4.1n** |
+| ⭐ **`get_param`** — la lecture d'un paramètre d'équipement — voir l'encadré qui lui est consacré plus bas | **E4.1o** |
+| ⭐ **`set_param`** et **`del_param`** — leurs accusés de réception | **E4.1o** |
+| ⭐ **`get_timerange`** — les plages horaires d'un équipement horaire | **E4.1o** |
+| ⭐ **`set_timerange`** — son accusé de réception | **E4.1o** |
 
 Ces réponses sont désormais fabriquées par la même bibliothèque JSON que le reste des réponses
 récentes. **Cinq** différences observables, **mesurées octet à octet** ; trois sont purement de
@@ -1239,6 +1245,36 @@ que rien n'aurait dû y mettre (voir l'encadré « comment un tel octet arrive-t
 ce qu'un firmware d'écran en fait. Un écran qui affiche une valeur d'état telle quelle montrera le
 caractère `�` là où il ne montrait rien.
 
+### ⛔ `get_param` : c'est la seule réponse dont le NOM du champ est fourni par le client (E4.1o)
+
+Sur toutes les réponses décrites plus haut, le nom des champs est écrit par le serveur. **`get_param`
+est l'exception** : le nom du paramètre demandé est renvoyé **tel quel, en clé**, et il vient de la
+requête. En HTTP il peut être donné en paramètre d'URL, donc **percent-décodé** :
+`?action=get_param&id=<équipement>&param=%ff%80x`.
+
+- **Avant**, ces octets faisaient disparaître la paire entière : la réponse était `{}` avec un code
+  **200**. Le client recevait une réponse vide, valide, et **rien ne lui disait que sa demande avait
+  été amputée**.
+- **Maintenant**, la clé est **conservée**, chaque octet fautif remplacé par `�`, et le code reste
+  **200**. La réponse cesse d'être silencieusement vide.
+
+⚠️ **Un client qui interrogeait un paramètre au nom mal encodé recevait `{}` et voit maintenant une
+paire.** C'est le même retournement que celui décrit plus haut pour le `name` d'un équipement dans
+`get_home`, appliqué à la clé cette fois. La valeur du paramètre suit la même règle : un paramètre
+dont la **valeur** était mal encodée **disparaissait de la réponse**, indiscernable d'un paramètre
+jamais renseigné ; il est désormais servi, mutilé et visible.
+
+ℹ️ **Rien de tout cela n'affecte un nom de paramètre normal** : un nom bien encodé, accentué ou non,
+part exactement comme avant, à la casse de l'échappement près.
+
+### Plages horaires — l'ordre des jours ne bouge pas (E4.1o)
+
+`get_timerange` renvoie un **tableau** `ranges` dont la position d'une entrée **est** son jour de la
+semaine. **Cet ordre est inchangé** : seuls les *membres d'un objet* sont triés, jamais les
+tableaux. Ce qui change, c'est que `months` est désormais écrit **avant** `ranges` dans la réponse.
+Toutes les valeurs restent des **chaînes de caractères** — heures, minutes, secondes, types et
+décalages compris —, elles ne deviennent pas des nombres JSON.
+
 ### Ce qui pourrait s'en apercevoir
 
 ⚠️ **Ce qui pourrait s'en apercevoir** : un client qui **cherche une sous-chaîne dans le texte
@@ -1250,13 +1286,15 @@ reçoivent les mêmes événements et sont dans le même cas.
 ℹ️ **Comment un tel octet arrive-t-il là ?** Par `set_state`, dont les paramètres peuvent être
 donnés en GET : le décodage pourcent (`Utils::url_decode`) ajoute l'octet tel quel à la chaîne,
 donc `%7f`, `%00` et n'importe quelle séquence UTF-8 invalide arrivent intacts jusqu'à l'état d'un
-équipement, **sans traverser aucun parseur JSON**.
+équipement, **sans traverser aucun parseur JSON**. ⭐ **E4.1o a mesuré que le même chemin existe
+pour `get_param`, et qu'il est encore plus court** : le nom du paramètre n'a même pas besoin d'être
+stocké quelque part, il suffit qu'il soit **demandé** (`?param=%ff%80x`).
 
 *(Les autres réponses de l'API basculeront de la même façon au fil des sous-tickets suivants de la
 série. ⚠️ **Cette note est LA note unique de la série : on l'étend, on ne la duplique pas** —
 E4.1m l'a fait le premier, en ajoutant deux lignes au tableau des réponses concernées et un
-balayage complémentaire, sans réécrire les cinq différences. `E4.1s` la relit une dernière fois
-et la ferme.)*
+balayage complémentaire, sans réécrire les cinq différences ; E4.1n et E4.1o ont fait de même.
+`E4.1s` la relit une dernière fois et la ferme.)*
 
 ## 📦 Empaquetage — l'archive source est de nouveau constructible, et elle porte enfin les licences des bibliothèques embarquées
 
