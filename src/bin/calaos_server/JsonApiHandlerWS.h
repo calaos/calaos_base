@@ -67,7 +67,7 @@ private:
     void processGetPlaylist(Params &jsonReq, const string &client_id = string());
     void processGetIO(json_t *jdata, const string &client_id = string());
     void processGetTimerange(const Params &jsonReq, const string &client_id = string());
-    void processSetTimerange(json_t *jdata, const string &client_id = string());
+    void processSetTimerange(const Json &jdata, const string &client_id = string());
     void processEventLog(const Params &jsonReq, const string &client_id = string());
     void processRegisterPush(const Params &jsonReq, const string &client_id = string());
     void processSettings(const Params &jsonReq, const string &client_id = string());

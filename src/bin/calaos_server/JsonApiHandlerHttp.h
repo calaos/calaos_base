@@ -93,7 +93,7 @@ private:
     void processConfig(json_t *jroot);
     void processGetIO(json_t *jroot);
     void processGetTimerange();
-    void processSetTimerange(json_t *jroot);
+    void processSetTimerange(const Json &jroot);
     void processAutoscenario(json_t *jroot);
     void processCamera();
     void processEventLog();

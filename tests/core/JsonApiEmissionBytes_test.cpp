@@ -545,14 +545,15 @@ TEST_F(JsonApiEmissionBytesTest, TheReplaceHandlerAnswersWhereTheBareDumpThrows)
  *   - the jansson half goes through JsonApiHandlerHttp::sendJson(json_t *),
  *     dumped with JSON_ENSURE_ASCII -> the accented IO name of the reference
  *     house comes out as \\u00C9 / \\u00E9, UPPERCASE hex, pure ASCII.
- *     RETARGETED BY E4.1m, and the reason is the ticket itself: this half used
- *     to ask get_home, and get_home is one of the payloads E4.1m moves to the
- *     nlohmann emitter. The probe is now get_param on the SAME accented name,
- *     which still travels through jansson_from_params() and the jansson
- *     overload (buildJsonGetParam belongs to E4.1o). The ORACLE did not move -
- *     only the action that still reaches the jansson emitter did. Every ticket
- *     of the chain that empties this side further has to retarget it again,
- *     until E4.1s deletes the overload and this half of the case with it.
+ *     RETARGETED TWICE, and the reason is the chain itself: this half asked
+ *     get_home until E4.1m and get_param until E4.1o, and both of those
+ *     payloads have moved to the nlohmann emitter. The probe is now `config`
+ *     with type=get, whose answer is built by hand as a json_t* in
+ *     JsonApiHandlerHttp::processConfig() and carries the io.xml of the house -
+ *     the SAME accented name. The ORACLE never moved; only the action that
+ *     still reaches the jansson emitter did. Every ticket of the chain that
+ *     empties this side further has to retarget it again, until E4.1s deletes
+ *     the overload and this half of the case with it.
  *   - eventlog goes through JsonApiHandlerHttp::sendJson(const Json &), which
  *     was a BARE dump() -> the accented io_state came out as RAW UTF-8 BYTES.
  *
@@ -571,22 +572,28 @@ TEST_F(JsonApiEmissionBytesTest, TheReplaceHandlerAnswersWhereTheBareDumpThrows)
  ******************************************************************************/
 TEST_F(JsonApiEmissionBytesTest, TheNlohmannHttpWireIsAsciiOnlyAndEscapesWithLowercaseHex)
 {
-    //--- jansson side: get_param, HTTP ------------------------------------
+    //--- jansson side: config get, HTTP -----------------------------------
     {
         //The house is NOT loaded by the fixture's SetUp(): every case of this
         //harness asks for it explicitly. HOUSE_ACCENTED carries the accented
         //name this half of the case reads.
-        //get_param rather than get_home since E4.1m: it answers
-        //{"name":"<the accented name>"} through jansson_from_params() and the
-        //jansson overload of sendJson(), which is what this half is about.
+        //RETARGETED A SECOND TIME, BY E4.1o, exactly as the header above said
+        //every ticket of the chain would have to: this half asked get_home
+        //until E4.1m and get_param until E4.1o, and buildJsonGetParam() has now
+        //moved to the nlohmann emitter too. `config` with type=get is what is
+        //left: JsonApiHandlerHttp::processConfig() builds a json_t* by hand and
+        //hands it to the jansson overload of sendJson(), and its payload is the
+        //io.xml of the house - which contains the accented name of
+        //HOUSE_ACCENTED, so the ORACLE below did not move either.
+        //The NEXT ticket that empties this side has to retarget it again, until
+        //E4.1s deletes the overload and this half of the case with it.
         loadReferenceHouse();
 
         HttpTestRequest req;
-        req.send(authenticated({{ "action", "get_param" },
-                                { "id", HOUSE_ACCENTED },
-                                { "param", "name" }}));
+        req.send(authenticated({{ "action", "config" },
+                                { "type", "get" }}));
 
-        ASSERT_EQ(1u, req.count()) << "get_param did not answer";
+        ASSERT_EQ(1u, req.count()) << "config did not answer";
         const std::string wire = req.body();
 
         //"<E acute>clairage caf<e acute>" is the name of HOUSE_ACCENTED.

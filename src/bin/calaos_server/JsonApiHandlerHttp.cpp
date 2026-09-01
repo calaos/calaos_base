@@ -84,6 +84,15 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
     json_error_t jerr;
     json_t *jroot = json_loads(data.c_str(), 0, &jerr);
 
+    /* E4.1o: HOISTED, NOT ADDED. E4.1m already parsed `data` a second time with
+     * nlohmann for the redacted log line below; this only gives that parse a
+     * name so buildJsonSetTimerange() can be handed a document instead of a
+     * json_t*. Zero extra parse, and the log line is unchanged.
+     * It stays `null` on the GET-parameter fallback, which is exactly the
+     * branch where set_timerange answers 400 before reaching the dispatch.
+     */
+    Json jsonRootDoc;
+
     if (!jroot || !json_is_object(jroot))
     {
         cDebugDom("network") << "Error loading json : " << jerr.text << ". No JSON, trying with GET parameters.";
@@ -99,7 +108,8 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
     else
     {
         //E4.1m: see the twin line in JsonApiHandlerWS::processApi().
-        cDebugDom("network") << dumpJsonRedacted(Json::parse(data, nullptr, false));
+        jsonRootDoc = Json::parse(data, nullptr, false);
+        cDebugDom("network") << dumpJsonRedacted(jsonRootDoc);
 
         //decode the json root object into jsonParam
         jansson_decode_object(jroot, jsonParam);
@@ -214,7 +224,7 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
         else if (jsonParam["action"] == "audio_db")
             processAudioDb(jroot);
         else if (jsonParam["action"] == "set_timerange")
-            processSetTimerange(jroot);
+            processSetTimerange(jsonRootDoc);
         else if (jsonParam["action"] == "autoscenario")
             processAutoscenario(jroot);
         else
@@ -900,7 +910,7 @@ void JsonApiHandlerHttp::processGetTimerange()
     sendJson(buildJsonGetTimerange(jsonParam));
 }
 
-void JsonApiHandlerHttp::processSetTimerange(json_t *jroot)
+void JsonApiHandlerHttp::processSetTimerange(const Json &jroot)
 {
     sendJson(buildJsonSetTimerange(jroot));
 }

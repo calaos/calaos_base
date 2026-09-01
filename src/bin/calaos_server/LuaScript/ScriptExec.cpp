@@ -128,8 +128,34 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
         {
             Params p;
             decodeDataObject(jroot, p);
-            if (!jsonApi->buildJsonSetParam(p))
-                cWarningDom("lua") << "Failed to decode set_param from Lua Script!";
+
+            /* ⛔ E4.1o - THE MINE E4.1m POSTED, DEFUSED IN THE SAME COMMIT AS
+             * THE SIGNATURE.
+             *
+             * This line used to read `if (!jsonApi->buildJsonSetParam(p))`.
+             * The builder now answers a Json, and JSON_USE_IMPLICIT_CONVERSIONS
+             * is 1 in this tree (src/lib/json.hpp:2813, #ifndef never
+             * overridden, zero -D), so that expression would have COMPILED
+             * WITHOUT A WARNING and thrown type_error.302 at runtime - for all
+             * three possible returns, empty object and null Json included.
+             * It runs in the read callback of an ExternProc, on the uvw loop,
+             * with no try/catch anywhere above it: std::terminate of
+             * calaos_server, triggered by the NOMINAL path of any Lua script
+             * that calls set_param. Same figure as the KNX monitor crash of
+             * E4.1e. F-LINK-1 measured that no test suite reaches this file,
+             * so make check would not have warned either.
+             *
+             * The guard was ALREADY INERT: both branches of the builder answer
+             * a document and it never returns NULL outside OOM, so this warning
+             * has never been printed. The failure has always been reported IN
+             * the document, as {"error": "wrong io/param"}. Reading it is
+             * therefore not only safe, it REPAIRS the check.
+             * Pinned by core/JsonApiParamsWireBytes_test.cpp.
+             */
+            const Json answer = jsonApi->buildJsonSetParam(p);
+            if (answer.contains("error"))
+                cWarningDom("lua") << "Failed to decode set_param from Lua Script: "
+                                   << answer.value("error", std::string());
         }
         else if (mtype == "send_push_notif")
         {

@@ -131,7 +131,25 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
      * the other accepted logs an empty line instead of a redacted document; it
      * is a debug line, and it never reaches a client.
      */
-    cDebugDom("network") << dumpJsonRedacted(Json::parse(data, nullptr, false));
+    const Json jsonRootDoc = Json::parse(data, nullptr, false);
+    cDebugDom("network") << dumpJsonRedacted(jsonRootDoc);
+
+    /* E4.1o: the "data" member as a DOCUMENT, for the one action of this
+     * dispatch that consumes client JSON. HOISTED, NOT ADDED - the parse above
+     * is E4.1m's and already ran on every message. `jdata` (the json_t twin,
+     * a few lines down) stays for everything else; migrating the dispatch
+     * itself is E4.1s.
+     * Json::object() and not a default constructed Json on the absent path:
+     * json_object_get(jroot, "data") answered NULL there, and every reader
+     * below treats a missing member as absent, not as null.
+     */
+    Json jsonDataDoc = Json::object();
+    if (jsonRootDoc.is_object())
+    {
+        const Json::const_iterator it = jsonRootDoc.find("data");
+        if (it != jsonRootDoc.cend())
+            jsonDataDoc = *it;
+    }
 
     //decode the json root object into Params
     jansson_decode_object(jroot, jsonRoot);
@@ -229,7 +247,7 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
         else if (jsonRoot["msg"] == "set_timerange")
         {
             if (serviceScope) scopeDenied("set_timerange");
-            else processSetTimerange(jdata, jsonRoot["msg_id"]);
+            else processSetTimerange(jsonDataDoc, jsonRoot["msg_id"]);
         }
         else if (jsonRoot["msg"] == "autoscenario")
             processAutoscenario(jdata, jsonRoot["msg_id"]);
@@ -518,7 +536,7 @@ void JsonApiHandlerWS::processGetTimerange(const Params &jsonReq, const string &
     sendJson("get_timerange", buildJsonGetTimerange(jsonReq), client_id);
 }
 
-void JsonApiHandlerWS::processSetTimerange(json_t *jdata, const string &client_id)
+void JsonApiHandlerWS::processSetTimerange(const Json &jdata, const string &client_id)
 {
     sendJson("set_timerange", buildJsonSetTimerange(jdata), client_id);
 }

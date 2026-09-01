@@ -29,6 +29,64 @@
 #include <openssl/evp.h>
 #include <openssl/crypto.h>
 
+namespace
+{
+
+/* E4.1o. jansson_string_get()'s contract, kept BY HAND for a nlohmann
+ * document: the DEFAULT on an absent member, on a member that is not a JSON
+ * string, and on a root that is not an object (json_object_get(NULL, k)
+ * answered NULL). `j["k"].get<string>()` does none of that - it throws.
+ */
+inline std::string jsonStringGet(const Json &j, const char *key,
+                                 const std::string &defaultValue = std::string())
+{
+    if (!j.is_object())
+        return defaultValue;
+
+    const Json::const_iterator it = j.find(key);
+    if (it == j.cend() || !it->is_string())
+        return defaultValue;
+
+    return it->get<std::string>();
+}
+
+/* E4.1o. jansson_decode_object()'s FLATTENING CONTRACT, kept BY HAND: a
+ * string as is, a boolean as the WORD "true"/"false", any number through
+ * Utils::to_string(double) - a bare ostringstream, frozen on purpose and not
+ * "fixed" here - and ANY OTHER TYPE (object, array, null) the EMPTY STRING,
+ * WITH THE KEY STILL ADDED. That last clause matters downstream: an absent
+ * key and a key at "" are not the same thing to TimeRange(Params).
+ *
+ * A non object (a null, which is what an absent key parses to, included)
+ * iterates zero times, exactly as json_object_foreach() did on a NULL or on a
+ * non object.
+ *
+ * Identical, deliberately, to ScriptWire::decodeObject() and to the four
+ * driver wires that carry the same helper: this is the fifth copy of a
+ * contract that E4.1x will fold once Jansson_Addition.h goes away.
+ */
+inline void decodeJsonObject(const Json &j, Params &params)
+{
+    if (!j.is_object())
+        return;
+
+    for (Json::const_iterator it = j.cbegin(); it != j.cend(); ++it)
+    {
+        std::string svalue;
+
+        if (it.value().is_string())
+            svalue = it.value().get<std::string>();
+        else if (it.value().is_boolean())
+            svalue = it.value().get<bool>()?"true":"false";
+        else if (it.value().is_number())
+            svalue = Utils::to_string(it.value().get<double>());
+
+        params.Add(it.key(), svalue);
+    }
+}
+
+} //namespace
+
 map<string, LoginThrottle::Entry> LoginThrottle::entries;
 
 void LoginThrottle::purge(double now)
@@ -705,7 +763,29 @@ void JsonApi::buildQuery(const Params &jParam, std::function<void (Json)> result
     result_lambda(res.toNJson());
 }
 
-json_t *JsonApi::buildJsonGetParam(const Params &jParam)
+/* E4.1o. ⛔ THE ONE PLACE WHERE THE HAZARD OF E4.0 BECOMES REACHABLE.
+ *
+ * jParam["param"] is a CLIENT SUPPLIED STRING that this function uses as a
+ * KEY and re-emits. Over HTTP it can carry ARBITRARY BYTES: hef::HfURISyntax
+ * percent-decodes the query before HttpClient.cpp:328-337 splits it, so
+ * `?action=get_param&id=<io>&param=%ff%80x` puts FF 80 'x' in there.
+ *
+ * While this answered a json_t*, jansson refused the key (json_string() ->
+ * NULL, json_object_set_new() -> -1, neither tested) and the client got 200
+ * with a SILENTLY TRUNCATED {}. Now that it answers a Json, nlohmann takes
+ * those bytes into the tree without a word and dump() throws type_error.316 -
+ * std::terminate on a live connection, since nothing catches above
+ * processApi(). The only reason it does not is error_handler_t::replace on
+ * both emitters (JsonApiHandlerHttp.cpp:271, JsonApiHandlerWS.cpp:105).
+ * E4.1b installed it FOR THIS TICKET. Do not remove it, and do not add a
+ * try/catch here instead: the handler treats the cause.
+ *
+ * BEHAVIOUR CHANGE, ASSUMED (user decision of 2026-08-17, declared in
+ * RELEASE_NOTES.md): the pair is no longer DROPPED, it is KEPT with one
+ * U+FFFD per invalid byte. A client that used to lose the param silently now
+ * sees it, mangled and visible.
+ */
+Json JsonApi::buildJsonGetParam(const Params &jParam)
 {
     bool success = true;
     Params ret;
@@ -719,10 +799,15 @@ json_t *JsonApi::buildJsonGetParam(const Params &jParam)
     if (!success)
         ret = {{ "error", "wrong io/param" }};
 
-    return jansson_from_params(ret);
+    return ret.toNJson();
 }
 
-json_t *JsonApi::buildJsonSetParam(const Params &jParam)
+/* E4.1o. ⛔ READ THE ANSWER AS A DOCUMENT, NEVER AS A BOOLEAN.
+ * LuaScript/ScriptExec.cpp calls this one outside of any handler; `if (!ret)`
+ * on a Json compiles silently and throws type_error.302 on the event loop.
+ * The failure is in the document: {"error":"wrong io/param"}.
+ */
+Json JsonApi::buildJsonSetParam(const Params &jParam)
 {
     bool success = true;
     Params ret;
@@ -749,10 +834,10 @@ json_t *JsonApi::buildJsonSetParam(const Params &jParam)
     else
         ret = {{ "success", "true" }};
 
-    return jansson_from_params(ret);
+    return ret.toNJson();
 }
 
-json_t *JsonApi::buildJsonDelParam(const Params &jParam)
+Json JsonApi::buildJsonDelParam(const Params &jParam)
 {
     bool success = true;
     Params ret;
@@ -779,7 +864,7 @@ json_t *JsonApi::buildJsonDelParam(const Params &jParam)
     else
         ret = {{ "success", "true" }};
 
-    return jansson_from_params(ret);
+    return ret.toNJson();
 }
 
 Json JsonApi::buildJsonGetIO(vector<string> iolist)
@@ -1863,17 +1948,36 @@ void JsonApi::audioDbGetTrackInfos(json_t *jdata, std::function<void(json_t *)>r
     }, trackid);
 }
 
-json_t *JsonApi::buildJsonGetTimerange(const Params &jParam)
+/* E4.1o. ⭐ THE ORDER OF "ranges" IS SEMANTIC AND MUST NOT MOVE.
+ *
+ * The array is flattened over the seven days by the ladder below, so the
+ * POSITION of an entry IS its day - it is the only order of this series that
+ * carries meaning. A JSON array stays an array in nlohmann, so the ladder is
+ * transcribed as it was, day by day, and
+ * core/JsonApiParamsWireBytes_test.cpp asserts the resulting order ON THE RAW
+ * BYTES with a fixture whose three days differ.
+ *
+ * What DOES move, declared: "ranges" is inserted first and "months" second,
+ * and nlohmann sorts - so months now comes first on the wire. The nine E4.0c
+ * goldens cannot see it, they compare parsed documents.
+ *
+ * Everything stays a STRING: TimeRange::toParams() fills a Params, which is a
+ * map<string,string>. An hour that became a JSON number would break the
+ * type-strict oracle (3 != "3").
+ */
+Json JsonApi::buildJsonGetTimerange(const Params &jParam)
 {
     InPlageHoraire *o = dynamic_cast<InPlageHoraire *>(ListeRoom::Instance().get_io(jParam["id"]));
     if (!o)
     {
         Params p = {{ "error", "wrong input" }};
-        return jansson_from_params(p);
+        return p.toNJson();
     }
 
-    json_t *ret = json_object();
-    json_t *jarr = json_array();
+    //Json::array(), not a default constructed Json: a default constructed one
+    //is `null`, and an IO with no range at all would answer "ranges":null
+    //instead of "ranges":[] - a change no golden would catch.
+    Json jarr = Json::array();
 
     for (int day = 0;day < 7;day++)
     {
@@ -1886,39 +1990,67 @@ json_t *JsonApi::buildJsonGetTimerange(const Params &jParam)
         if (day == 5) h = o->getSaturday();
         if (day == 6) h = o->getSunday();
         for (uint i = 0;i < h.size();i++)
-            json_array_append_new(jarr, jansson_from_params(h[i].toParams(day)));
+            jarr.push_back(h[i].toParams(day).toNJson());
     }
-
-    json_object_set_new(ret, "ranges", jarr);
 
     stringstream ssmonth;
     ssmonth << o->months;
     string str = ssmonth.str();
     std::reverse(str.begin(), str.end());
-    json_object_set_new(ret, "months", json_string(str.c_str()));
+
+    Json ret = Json::object();
+    ret["ranges"] = jarr;
+    ret["months"] = str;
 
     return ret;
 }
 
-json_t *JsonApi::buildJsonSetTimerange(json_t *jdata)
+/* E4.1o. THE ONLY BUILDER OF THIS CHAIN THAT READS CLIENT JSON.
+ *
+ * The document is handed down by the dispatch, which parses it (that parse is
+ * E4.1s's to migrate, not this ticket's); what changed here is the type
+ * traversed. Two contracts had to be transcribed by hand rather than reached
+ * for:
+ *
+ *  - jansson_string_get() answers the DEFAULT on a member that is not a
+ *    string, and on a NULL/non object root. jsonStringGet() below does the
+ *    same. `jdata["id"]` would have thrown on a numeric id.
+ *  - jansson_decode_object()'s FLATTENING CONTRACT, see decodeJsonObject().
+ *    ⛔ Params::fromNJson() is NOT a substitute: it assigns the json value
+ *    straight into a std::string and throws type_error.302 on anything that
+ *    is not a JSON string. A client sending {"day": 1} is served today and
+ *    would have terminated the process tomorrow. Same tripwire as ScriptWire,
+ *    ReolinkWire, WagoWire, OLAWire and the two KNX ends carry.
+ */
+Json JsonApi::buildJsonSetTimerange(const Json &jdata)
 {
-    string id = jansson_string_get(jdata, "id");
+    string id = jsonStringGet(jdata, "id");
     InPlageHoraire *o = dynamic_cast<InPlageHoraire *>(ListeRoom::Instance().get_io(id));
     if (!o)
     {
         Params p = {{ "error", "wrong input" }};
-        return jansson_from_params(p);
+        return p.toNJson();
     }
 
     o->clear();
 
-    size_t idx;
-    json_t *value;
+    /* json_array_foreach() ran json_array_size(NULL) == 0 and never entered
+     * the loop: an absent "ranges", or one that is not an array, must stay a
+     * no-op and NOT an error - the caller still gets success:true, and
+     * o->clear() above has already run. Frozen, not tidied.
+     */
+    Json jranges = Json::array();
+    if (jdata.is_object())
+    {
+        const Json::const_iterator it = jdata.find("ranges");
+        if (it != jdata.cend() && it->is_array())
+            jranges = *it;
+    }
 
-    json_array_foreach(json_object_get(jdata, "ranges"), idx, value)
+    for (const Json &value: jranges)
     {
         Params p;
-        jansson_decode_object(value, p);
+        decodeJsonObject(value, p);
 
         TimeRange tr(p);
 
@@ -1934,7 +2066,7 @@ json_t *JsonApi::buildJsonSetTimerange(json_t *jdata)
     }
 
     //set months
-    string m = jansson_string_get(jdata, "months");
+    string m = jsonStringGet(jdata, "months");
     if (!m.empty())
     {
         //reverse to have a left to right months representation
@@ -1965,7 +2097,7 @@ json_t *JsonApi::buildJsonSetTimerange(json_t *jdata)
     Config::Instance().SaveConfigRule();
 
     Params p = {{ "success", "true" }};
-    return jansson_from_params(p);
+    return p.toNJson();
 }
 
 json_t *JsonApi::buildAutoscenarioList(json_t *jdata)

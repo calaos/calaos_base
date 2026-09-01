@@ -2170,13 +2170,32 @@ TEST_F(JsonApiSessionTest, Utf8Trap_NlohmannDumpThrowsWhereJanssonDrops)
                           "migration hazard described above is gone";
 }
 
-TEST_F(JsonApiSessionTest, InvalidUtf8InAParamNameIsDroppedAndAnswers200)
+TEST_F(JsonApiSessionTest, InvalidUtf8InAParamNameIsNoLongerDroppedAndStillAnswers200)
 {
-    //Injected through the GET parameter fallback, the only channel that can
-    //carry arbitrary bytes (the JSON parser rejects them outright, see below).
-    //buildJsonGetParam() puts the CLIENT SUPPLIED param name in as a KEY;
-    //jansson refuses the key and the client gets {} with a 200.
-    //E4.0.md:308 predicts a 500 here. It is a 200.
+    /* ⛔ E4.1o TURNED THIS CASE OVER - and E4.1m had announced it here, in this
+     * file, in the comment of the get_home case below: "The two get_param cases
+     * just above still pin the DROP [...] When it does, they turn over the same
+     * way." This is that turn.
+     *
+     * It used to be named InvalidUtf8InAParamNameIsDroppedAndAnswers200 and it
+     * pinned the drop: buildJsonGetParam() put the CLIENT SUPPLIED param name
+     * in as a KEY, jansson refused the key (json_string() -> NULL,
+     * json_object_set_new() -> -1, neither return code tested) and the client
+     * got 200 with an EMPTY object - a truncated answer nobody was told about.
+     *
+     * The builder answers a Json now, so the key goes into the tree and
+     * error_handler_t::replace turns each bad byte into U+FFFD at dump time.
+     * The param comes back MANGLED AND VISIBLE instead of vanishing.
+     * Declared in RELEASE_NOTES.md.
+     *
+     * ⛔ AND THE OTHER HALF OF WHAT THIS CASE WATCHES HAS NOT CHANGED: this is
+     * the injection channel of E4.0 (?param=%ff%80x, percent-decoded before the
+     * split), so without that error handler the same request would throw
+     * type_error.316 out of dump() and terminate the process on a live
+     * connection. The 200, the single response and the empty closes() below are
+     * what prove it does not.
+     * E4.0.md:308 predicted a 500 here. It is still a 200.
+     */
     loadReferenceHouse();
 
     Params get;
@@ -2192,16 +2211,27 @@ TEST_F(JsonApiSessionTest, InvalidUtf8InAParamNameIsDroppedAndAnswers200)
     ASSERT_EQ(1u, req.count());
     EXPECT_EQ("HTTP/1.0 200 OK", req.statusLine())
             << "the 500 path of JsonApiHandlerHttp::sendJson() is NOT taken";
+    //REGENERATED, NAMED, AND ARGUED: this golden pinned the DROP. It is the
+    //only golden of the 145 that this ticket moves, and it moves because the
+    //STRUCTURE changed - an absent key became present. It was regenerated on
+    //its own, never in a batch.
     EXPECT_JSON_GOLDEN("e40e_http_get_param_invalid_utf8_name", req.bodyJson());
     EXPECT_TRUE(req.bodyJson().is_object());
-    EXPECT_TRUE(req.bodyJson().empty());
+    EXPECT_FALSE(req.bodyJson().empty())
+            << "the pair is being dropped again: " << req.body();
+    //One U+FFFD per invalid byte, and the trailing 'x' of the probe untouched.
+    EXPECT_TRUE(has(req.bodyJson(), "\xef\xbf\xbd\xef\xbf\xbd" "x"))
+            << "the mangled key is not the whole probe: " << req.body();
     EXPECT_TRUE(req.closes().empty());
 }
 
-TEST_F(JsonApiSessionTest, InvalidUtf8InAParamValueIsDroppedAndAnswers200)
+TEST_F(JsonApiSessionTest, InvalidUtf8InAParamValueIsNoLongerDroppedAndStillAnswers200)
 {
-    //Same drop, on the VALUE side: the param name survives, its value does not,
-    //so the key vanishes from the answer entirely instead of coming back empty.
+    //E4.1o, the VALUE side of the same turn. It used to be named
+    //InvalidUtf8InAParamValueIsDroppedAndAnswers200: the param name survived,
+    //its value did not, and the key vanished from the answer entirely - a
+    //corrupt param was indistinguishable from one that was never set. It comes
+    //back now, with one U+FFFD per invalid byte.
     loadReferenceHouse();
 
     IOBase *io = ListeRoom::Instance().get_io(HOUSE_INT);
@@ -2215,9 +2245,11 @@ TEST_F(JsonApiSessionTest, InvalidUtf8InAParamValueIsDroppedAndAnswers200)
 
     ASSERT_EQ(1u, req.count());
     EXPECT_EQ("HTTP/1.0 200 OK", req.statusLine());
+    //REGENERATED, NAMED, AND ARGUED, same reason as the case above.
     EXPECT_JSON_GOLDEN("e40e_http_get_param_invalid_utf8_value", req.bodyJson());
-    EXPECT_FALSE(has(req.bodyJson(), "e40e_bad_value"))
-            << "the key came back, so jansson accepted the invalid value";
+    EXPECT_TRUE(has(req.bodyJson(), "e40e_bad_value"))
+            << "the key vanished with its value again: " << req.body();
+    EXPECT_EQ("\xef\xbf\xbd\xef\xbf\xbd" "x", str(req.bodyJson(), "e40e_bad_value"));
 }
 
 TEST_F(JsonApiSessionTest, InvalidUtf8InAnIoNameNoLongerDropsTheNameKeyFromGetHome)
@@ -2237,9 +2269,10 @@ TEST_F(JsonApiSessionTest, InvalidUtf8InAnIoNameNoLongerDropsTheNameKeyFromGetHo
      * its name, mangled and VISIBLE, instead of losing it in silence.
      * Declared in RELEASE_NOTES.md.
      *
-     * The two get_param cases just above still pin the DROP and stay green on
-     * purpose: buildJsonGetParam() belongs to E4.1o and has not migrated yet.
-     * When it does, they turn over the same way.
+     * The two get_param cases just above USED TO pin the drop and stayed green
+     * on purpose, because buildJsonGetParam() belonged to E4.1o and had not
+     * migrated yet. E4.1o HAS MIGRATED IT, and they turned over exactly this
+     * way - see their own comments.
      */
     loadReferenceHouse();
 

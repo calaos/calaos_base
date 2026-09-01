@@ -156,12 +156,25 @@ public:
     void buildJsonStates(const Params &jParam, std::function<void(Json)>result_lambda);
     void buildQuery(const Params &jParam, std::function<void(Json)>result_lambda);
 
-    json_t *buildJsonGetParam(const Params &jParam);
-    json_t *buildJsonSetParam(const Params &jParam);
-    json_t *buildJsonDelParam(const Params &jParam);
+    /* E4.1o. The five of them answer a Json BY VALUE, and buildJsonSetTimerange()
+     * READS one - the only builder of this chain that consumes client JSON.
+     *
+     * ⛔ buildJsonSetParam() IS ALSO CALLED OUTSIDE ANY HANDLER, by
+     * LuaScript/ScriptExec.cpp. Its result must be READ AS A DOCUMENT there:
+     * JSON_USE_IMPLICIT_CONVERSIONS is 1 in this tree, so `if (!answer)`
+     * compiles without a warning on a Json and throws type_error.302 at
+     * runtime, on the uvw loop, with nothing catching it. The failure of these
+     * three builders is reported IN the document, as {"error":"wrong io/param"}.
+     *
+     * The input parsing itself still belongs to the dispatch (E4.1s); what
+     * changed here is only the type buildJsonSetTimerange() traverses.
+     */
+    Json buildJsonGetParam(const Params &jParam);
+    Json buildJsonSetParam(const Params &jParam);
+    Json buildJsonDelParam(const Params &jParam);
 
-    json_t *buildJsonGetTimerange(const Params &jParam);
-    json_t *buildJsonSetTimerange(json_t *jdata);
+    Json buildJsonGetTimerange(const Params &jParam);
+    Json buildJsonSetTimerange(const Json &jdata);
 
     json_t *buildAutoscenarioList(json_t *jdata);
     json_t *buildAutoscenarioGet(json_t *jdata);
