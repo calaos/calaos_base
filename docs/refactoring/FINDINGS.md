@@ -8501,3 +8501,37 @@ partout ailleurs. Zéro ligne de code défensif pour deux pertes de données sil
 ⚠️ **Cela ne dispense pas de T3.58 volet (b)** — décider si le parseur doit *refuser* un NUL en
 entrée reste ouvert, et les deux sont indépendants : un `toJson()` propre porte la valeur entière
 mais ne dit rien de ce que l'API doit accepter.
+
+## E4.1x — cinq copies d'un même contrat de lecture JSON, et personne ne les a repliées (2026-09-03)
+
+`jsonStringGet()` (le défaut sur un membre absent, sur un membre qui n'est pas une chaîne, et sur
+une racine qui n'est pas un objet) et `decodeJsonObject()` (l'aplatissement : chaîne telle quelle,
+booléen en `"true"`/`"false"`, nombre par `Utils::to_string(double)`, tout autre type en chaîne vide
+**avec la clé quand même ajoutée**) existent en **cinq exemplaires identiques** : `JsonApi.cpp`,
+`JsonApiHandlerHttp.cpp`, `JsonApiHandlerWS.cpp`, `LuaScript/ScriptWire.h` et les wires drivers.
+
+Quatre commentaires promettaient que `E4.1x` les replierait « une fois `Jansson_Addition.h` parti ».
+**E4.1x ne le fait pas** : deux des copies vivent dans les deux fichiers de handler que `E4.6e`
+réécrit ensuite, et replier un contrat dans un ticket dont le régime de preuve est « aucun octet ne
+bouge » demanderait son propre filet. Les commentaires disent désormais la duplication au lieu de
+nommer un ticket qui ne l'a pas tenue.
+
+⚠️ **Le risque est que les cinq copies divergent en silence** : rien ne les compare entre elles, et
+le contrat qu'elles reproduisent n'a plus de référence exécutable depuis que la bibliothèque
+d'origine est partie. Un ticket dédié devrait les replier en une seule, avec les cas de
+caractérisation qui existent déjà dans `ScriptWire_test`, `JsonApiParamsWireBytes_test` et
+`JsonApiScenarioWireBytes_test` comme filet.
+
+## E4.1x — le `grep` d'acceptation d'une suppression ne doit pas mesurer la prose (2026-09-03)
+
+Le critère d'acceptation 1 d'E4.1x demandait `grep -rn 'json_t\|jansson' src tests` **à zéro ligne**.
+Il est **inatteignable**, et pas parce que le travail est incomplet : à la clôture il restait **127
+lignes** dans `src/`, **toutes en commentaire** — de la prose qui explique *pourquoi* un contrat
+écrit à la main reproduit exactement ce que faisait la bibliothèque d'avant — plus **un littéral de
+chaîne**, `Utils::getTmpFilename("jpg", "_json_temp")`, que le motif attrape sur `_json_t`.
+
+**La leçon, générale** : sur un ticket de suppression, le critère doit porter sur **le code**, pas
+sur le texte du fichier. La convention de comptage de la série (commentaires, littéraux et
+`#include` blanchis) est le bon instrument — elle rend **2** ici, et les deux sont des faux
+positifs déjà documentés. Un critère écrit sur un `grep` brut oblige soit à mentir sur le résultat,
+soit à effacer des commentaires utiles pour satisfaire un motif.

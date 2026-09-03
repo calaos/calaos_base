@@ -122,10 +122,10 @@ forme. Les conséquences observables (dérivées du code, pas capturées) :
 | Requête WS avec les arguments à la racine (pas de `data`) | `jsonData` reste vide, `jdata` est `nullptr` | `get_state` / `get_io` : enveloppe nue `{"msg":"get_state","msg_id":"7"}` sans clé `data` ([JsonApiHandlerWS.cpp:248-252, 307-311](../src/bin/calaos_server/JsonApiHandlerWS.cpp)) |
 | idem, sur `get_param` / `set_param` / `del_param` | `id` vide → IO introuvable | `{"error":"wrong io/param"}` |
 | idem, sur `set_state` | `id` vide → échec | `{"success":"false"}` |
-| idem, sur `audio` / `audio_db` | `jansson_string_get(nullptr, …)` renvoie `""` | `{"error":"unkown audio_action"}` |
+| idem, sur `audio` / `audio_db` | le lecteur tolérant de `audio_action` renvoie `""` sur une racine qui n'est pas un objet | `{"error":"unkown audio_action"}` |
 | idem, sur `autoscenario` | `type` vide, aucune branche ne correspond | **rien du tout** ([JsonApiHandlerWS.cpp:474-495](../src/bin/calaos_server/JsonApiHandlerWS.cpp)) |
 | idem, sur `query` / `get_states` | `Exists("id")` faux | `{}` |
-| Requête HTTP avec les arguments sous `data` | `jansson_decode_object()` n'aplatit **que les scalaires** : un objet imbriqué devient une chaîne vide ([Jansson_Addition.h:93-111](../src/lib/Jansson_Addition.h)) | `jsonParam["data"] == ""` et **aucun** argument utile → mêmes réponses vides que ci-dessus |
+| Requête HTTP avec les arguments sous `data` | le décodeur aplatissant ne prend **que les scalaires** : un objet imbriqué devient une chaîne vide ([JsonApiHandlerHttp.cpp](../src/bin/calaos_server/JsonApiHandlerHttp.cpp), `decodeJsonObject()`) | `jsonParam["data"] == ""` et **aucun** argument utile → mêmes réponses vides que ci-dessus |
 
 Aucun de ces cas ne renvoie de message d'erreur exploitable. Un client qui
 reçoit `{}` ou une enveloppe nue doit d'abord vérifier qu'il n'a pas inversé les
@@ -188,9 +188,9 @@ Dans ce mode :
 ## Typage sur le fil : tout est une chaîne
 
 Toutes les réponses construites via `Params::toJson()` sérialisent leurs valeurs
-avec `json_string()` sans exception
+en chaînes JSON sans exception
 ([Params.cpp:134-147](../src/lib/Params.cpp)), et les builders qui écrivent
-directement du jansson utilisent eux aussi `json_string()` partout
+leur document à la main écrivent eux aussi des chaînes partout
 (`buildJsonIO`, `buildJsonHome`, `buildJsonState`, `buildJsonCameras`,
 `buildJsonAudio`, `buildJsonStatusInfo`…). Un client ne doit donc **jamais**
 attendre un `true`, un `false` ou un nombre JSON : il reçoit `"true"`,
@@ -224,12 +224,13 @@ Deux conséquences de forme, dérivées du code :
   Un client qui a besoin de la position exacte dans un morceau ne peut pas
   s'appuyer sur `time_elapsed` au-delà de six chiffres.
 - **Ordre des clés** : `Params` est une `map<string,string>`, donc tout objet
-  issu de `Params::toJson()` sort avec ses clés **triées alphabétiquement** ;
-  les objets construits à la main en jansson sortent dans l'ordre d'insertion.
+  issu de `Params::toJson()` sort avec ses clés **triées alphabétiquement** —
+  et les objets construits à la main aussi, `nlohmann::json` étant une `std::map`.
 
 En entrée, en revanche, les booléens et les nombres JSON **sont** acceptés et
-convertis en chaînes par `jansson_decode_object()`
-([Jansson_Addition.h:93-111](../src/lib/Jansson_Addition.h)) : envoyer
+convertis en chaînes par le décodeur aplatissant
+([JsonApiHandlerHttp.cpp](../src/bin/calaos_server/JsonApiHandlerHttp.cpp),
+`decodeJsonObject()`) : envoyer
 `"value": true` ou `"value": 42` fonctionne.
 
 ---

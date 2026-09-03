@@ -14,7 +14,6 @@ Requires:
 
  - gcc >= 7 or clang (C++17)
  - libuv > 1.10
- - jansson > 2.5
  - curl > 7.20.0
  - luajit
  - sigc++ > 2.4.1

@@ -122,8 +122,7 @@ Dépendances **système**, exigées par `configure`
 | Lib | Usage |
 |---|---|
 | libuv (via uvw) | Boucle événementielle async (TCP, timers, pipes) — `uvw` est vendorisé |
-| jansson | Sérialisation JSON de l'API (`JsonApi.cpp`) |
-| nlohmann-json (`json.hpp`) | Sérialisation JSON du cache d'état et de `HistLogger`/`eventlog` — vendorisé, pas une dépendance système |
+| nlohmann-json (`json.hpp`) | Toute la sérialisation JSON : API, cache d'état, `HistLogger`/`eventlog`, wires des extern-procs — vendorisé, pas une dépendance système |
 | sigc++-2.0 | Signaux/slots (connexions entre objets) |
 | libcurl | Téléchargements HTTP (UrlDownloader) |
 | sqlite3 | Base d'historique et tokens push (`HistLogger`) |
@@ -140,9 +139,9 @@ Dépendance **vendorisée** notable : `libmbus`
 Modbus TCP du driver Wago (port 502 par défaut, dérivé,
 [IO/Wago/WagoConfigParse.h:43](../src/bin/calaos_server/IO/Wago/WagoConfigParse.h)).
 
-> **jansson et nlohmann cohabitent encore.** Ce n'est pas un état transitoire non documenté :
-> la migration vers `nlohmann::json` seul est le ticket E4.1, **non fait à ce jour**. Le
-> chemin API (`JsonApi.cpp`) est en jansson, le cache d'état et `eventlog` sont en nlohmann.
+> **Une seule bibliothèque JSON.** `nlohmann::json`, vendorisée en `src/lib/json.hpp` et aliasée
+> `Json`. `jansson` a été retirée de `configure.ac` à la clôture de la série E4.1 : ce n'est plus
+> une dépendance de compilation.
 
 > **TinyXML 2.5.3 + TinyXPath ont été entièrement retirés** (série E4.4, commit `93537ae4`) :
 > ~14 300 lignes de bibliothèque tierce supprimées du dépôt, au profit de pugixml. Les rares

@@ -1549,6 +1549,27 @@ qu'ils soient bien encodés. Trois choses changent pour cette réponse :
 `local_config.xml` sont acceptés en téléversement, et tout autre nom est refusé — y compris un nom
 qui contiendrait un octet nul, la comparaison portant sur la chaîne entière.
 
+## 📦 `jansson` n'est plus une dépendance de compilation
+
+*Pour l'**empaqueteur** et pour qui construit depuis les sources. Rien de ce qui suit ne change le
+comportement du serveur.*
+
+`configure.ac` ne demande plus `jansson >= 2.5` à `pkg-config` : la ligne
+`requirements_calaos_common` ne le liste plus, et `CALAOS_COMMON_LIBS` ne porte plus `-ljansson`.
+**`libjansson-dev` (ou son équivalent) peut être retiré des dépendances de construction du paquet**,
+et le binaire ne se lie plus à `libjansson.so`.
+
+Vérifié en construisant l'arbre complet, `distclean` compris, dans une image où `jansson.h`,
+`jansson_config.h`, `jansson.pc` et `libjansson.so` avaient été effacés et où
+`pkg-config --exists jansson` répond faux : `./autogen.sh && ./configure && make && make check`
+passe, 111 suites, 0 échec.
+
+Tout le JSON du serveur — l'API du port 5454, les événements temps réel, les wires des
+extern-procs, le cache d'état, `eventlog`, `io_doc.json` — passe désormais par la seule
+`nlohmann::json` vendorisée dans `src/lib/json.hpp`. Les changements de forme sur le fil que cette
+bascule a entraînés sont décrits dans les sections précédentes ; celle-ci ne fait que retirer la
+bibliothèque qui n'a plus d'appelant.
+
 ## 📦 Empaquetage — l'archive source est de nouveau constructible, et elle porte enfin les licences des bibliothèques embarquées
 
 *Cette section ne s'adresse pas à l'utilisateur du serveur mais à l'**intégrateur** et à

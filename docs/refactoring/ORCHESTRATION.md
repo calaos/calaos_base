@@ -8,6 +8,60 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅⭐⭐ [`E4.1x`](E4.1x.md) LIVRÉE — l'épique `E4.1` est CLOSE.** Branche `refactor/e4.1x`,
+  **5 commits `refactor` + 1 `docs`**, tête sur `master` `31606a52`. ⛔ **Rien poussé, rien mergé.**
+  ⭐⭐ **C'est le seul ticket du projet qui RETIRE une dépendance externe du `configure.ac`.**
+
+  ⭐ **LA PREUVE QUI COMPTE, ET ELLE A ÉTÉ FAITE.** Le build ne se contente pas d'être vert avec le
+  paquet encore là : il l'est dans un conteneur où `jansson.h`, `jansson_config.h`, `jansson.pc`
+  **et** `libjansson.so` ont été **effacés** et où `pkg-config --exists jansson` répond **faux** —
+  `make distclean` puis `./autogen.sh && ./configure && make -j32 && make check -j16` ⇒
+  **`TOTAL 111 / PASS 109 / SKIP 2 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, **0 `error:`**.
+  ⚠️ **Ne PAS supprimer `libjansson.so.4`** en refaisant la manipulation : `/usr/bin/ld` de Debian
+  s'y lie, et `configure` échoue alors sur « C compiler cannot create executables » — un faux rouge
+  qui n'a rien à voir avec le projet (mesuré).
+
+  ⭐⭐ **LES DEUX MESURES, ET LE CRITÈRE D'ACCEPTATION QUI ÉTAIT FAUX.** La **convention de comptage**
+  (§ plus bas) tombe de **47 à 2** : les deux `json_body` de `WebSocket.cpp`, les faux positifs
+  documentés. ⛔ Mais le critère 1 de la fiche demandait un **`grep` brut à zéro ligne**, et il est
+  **inatteignable** : il reste **127 lignes** dans `src/`, **toutes en commentaire** (la prose qui
+  explique pourquoi `jsonStringGet()`/`decodeJsonObject()` reproduisent à la main l'ancien
+  contrat), plus le littéral `"_json_temp"` de `JsonApiHandlerHttp.cpp:130`, que le motif attrape
+  sur `_json_t`. **Zéro code jansson, dans `src/` comme dans `tests/`** — vérifié appel par appel.
+  Le critère est amendé en place dans `E4.1x.md`, et la leçon est versée aux findings :
+  **un critère de suppression se mesure sur le code, pas sur le texte du fichier.**
+
+  ⭐ **LE TRIPWIRE EST RÉDUIT, PAS ÉTEINT, ET IL ROUGIT ENCORE — trois contre-mutations, chacune
+  seule, restauration vérifiée au `cmp` (rc 0), zéro `rm -f`.**
+  `Tripwire_TheThreeWireEscapingsAreThreeDifferentBytestreams` devient
+  `Tripwire_TheWireIsFormThreeAndNotABareDump` : la **forme 1** perd ses cinq assertions parce
+  qu'elle n'a **plus aucun producteur calculable**, la forme 2 reste comme **contraste**.
+  **M1** (l'émetteur de production `JsonApiHandlerHttp.cpp:365` repasse en `dump()` nu) ⇒ **10
+  suites rouges**, dont `core/JsonApiDispatchWireBytes_test`, et **29 `CXXLD` apparus d'eux-mêmes**
+  (discipline T3.36). **M2** (l'expression `shipped` du tripwire en `dump()` nu) ⇒ **1 seule suite
+  rouge**. **M3** (`shipped` repassé en hexadécimal MAJUSCULE, la forme 1 simulée) ⇒ **1 seule suite
+  rouge**. ⇒ Le tripwire discrimine encore les trois formes **sans jansson**.
+
+  **Ce qui est parti** : `src/lib/Jansson_Addition.h` (7 fonctions, aucun appelant) et ses deux
+  `#include` de production (`IO/ExternProc.h` — rien d'autre n'en venait ; `JsonApi.h` — respellé
+  `Params.h`, qu'il utilisait vraiment) · `jansson >= 2.5` de `configure.ac:51` · les entrées de
+  `src/lib/Makefile.am` et de `po/POTFILES.in` · **`JanssonResidues_test` entier** avec son bloc
+  `if HAVE_GTEST` (**`TESTS` 112 → 111**, aucun autre mouvement) · les cases jansson de
+  `ParamsJson_test`, `JsonApiSession_test` et `JsonApiParamsWireBytes_test`.
+  **Renommage** : `Params::toNJson/fromNJson` → `toJson/fromJson`, **99 sites, 23 fichiers**, plus
+  6 noms de cas gtest — **aucune collision** (les `toJson()` de `CalaosEvent`, `HistEvent`,
+  `KNXValue`, `Scenario`, `FirmwareManifest` sont d'autres classes ; le compilateur est le filet et
+  il est vert).
+
+  ⚠️ **DEUX SOLDES.** (1) **Cinq copies identiques** de `jsonStringGet()`/`decodeJsonObject()`
+  vivent toujours dans `JsonApi.cpp`, les deux handlers, `ScriptWire.h` et les wires drivers ;
+  quatre commentaires promettaient que **ce** ticket les replierait, il ne l'a **pas** fait (deux
+  d'entre elles appartiennent aux fichiers que `E4.6e` réécrit) et les commentaires disent
+  désormais la duplication au lieu de nommer un ticket. Rien ne compare les cinq entre elles →
+  `FINDINGS.md`, ticket dédié recommandé. (2) La **prose jansson** des 20 fichiers reste : elle
+  documente le *pourquoi* des contrats repris à la main, et l'effacer pour satisfaire un `grep`
+  coûterait plus qu'elle ne rapporte.
+
 - **✅⭐⭐ [`E4.6d`](E4.6.md) MERGÉE — 4 commits de la branche + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`4e6b7aef`**.
   ⭐ **`master` ÉTAIT IMMOBILE sur `07782ea8`** = exactement la merge-base ⇒ **ni rebase ni conflit.**
   ⛔ **Rien poussé.** ⭐⭐ **C'est le ticket de la SURFACE D'API** : `autoscenario` rend enfin le
@@ -121,7 +175,8 @@
   Plus **aucun** appelant `json_t *` ne vit dans `IO/Scenario.{cpp,h}`. La ligne de suivi d'E4.1
   « `IO/Scenario.cpp` — exclu, migré par E4.6 » **peut être fermée**.
 
-- ⭐⭐ **PROCHAINE ACTION — DEUX OPTIONS, NON TRANCHÉES. À l'utilisateur de choisir.**
+- ⭐⭐ **PROCHAINE ACTION** — l'option A (`E4.1x`) est **faite** ; reste **[`E4.6e`](E4.6.md)**,
+  puis `f ‖ g ‖ h`. Le débat ci-dessous est conservé pour mémoire.
 
   **Option A — [`E4.1x`](E4.1x.md), la clôture jansson, enfin possible.**
   *Pour* : c'est la **fin d'une épique de 17 sous-tickets** et le seul ticket qui retire une
