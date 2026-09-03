@@ -537,6 +537,39 @@ TEST_F(JsonApiHomeTest, GetIoOmitsTheOptionalKeysOfASparseIo)
             << data[HOUSE_CAMERA_PLAIN].dump();
 }
 
+/* Which of the two scenario markers the generic IO payload publishes.
+ *
+ * The reference IO carries BOTH - `auto_scenario`, the key that still builds
+ * an AutoScenario (IO/Scenario.cpp), and `autoscenario_uid`, the key the
+ * definition is filed under since E4.6b. buildJsonIO() names exactly one of
+ * them in its hard coded list, so the answer is a choice and not a shortage of
+ * data, and this case reads both sides of it.
+ *
+ * >>> TO FLIP (E4.6f, E4.6.md 5.4) <<< the published marker becomes the uid.
+ */
+TEST_F(JsonApiHomeTest, GetIoPublishesOneOfTheTwoScenarioMarkersOfAnIoThatCarriesBoth)
+{
+    loadReferenceHouse();
+
+    IOBase *target = io(HOUSE_ACCENTED);
+    ASSERT_TRUE(target != nullptr);
+    ASSERT_EQ("e40_scenario", target->get_param("auto_scenario"));
+    ASSERT_EQ("as_e40", target->get_param("autoscenario_uid"));
+
+    WsTestSession ws;
+    ws.send(Json{{ "msg", "get_io" },
+                 { "msg_id", "1" },
+                 { "data", {{ "items", Json::array({ HOUSE_ACCENTED }) }} }});
+
+    ASSERT_EQ(1u, ws.count());
+    const Json jio = ws.lastData()[HOUSE_ACCENTED];
+    ASSERT_TRUE(jio.is_object());
+
+    EXPECT_TRUE(jio.contains("auto_scenario")) << jio.dump();
+    EXPECT_EQ("e40_scenario", jio.value("auto_scenario", std::string()));
+    EXPECT_FALSE(jio.contains("autoscenario_uid")) << jio.dump();
+}
+
 TEST_F(JsonApiHomeTest, GetIoEmitsStatusInfoAsANestedObjectWhenTheIoHasSome)
 {
     //status_info is the seventeenth key and the only NESTED object of a

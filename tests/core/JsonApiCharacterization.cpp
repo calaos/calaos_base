@@ -713,10 +713,18 @@ void JsonApiCharacterizationTest::loadReferenceHouse()
     //Everything else in the house stays sparse ON PURPOSE: the contrast inside
     //the same golden is what pins the "absent param -> absent key, never null"
     //contract (JsonApi.cpp:285-286 `continue`).
+    //
+    //E4.6f. It carries BOTH scenario markers, deliberately: E4.6b put
+    //`autoscenario_uid` NEXT TO `auto_scenario`, never in its place, so an IO
+    //of a live configuration really does hold the two at once. Which of them
+    //buildJsonIO() publishes is therefore a CHOICE the payload makes, not an
+    //accident of what the configuration happens to carry - and a witness of
+    //that choice is red on a re-key in either direction.
     cuisine += internalIoXml("InternalString", HOUSE_ACCENTED,
                              "\xc3\x89" "clairage caf\xc3\xa9",
                              "hits=\"12\" chauffage_id=\"e40_heater\" "
                              "unit=\"\xc2\xb0""C\" auto_scenario=\"e40_scenario\" "
+                             "autoscenario_uid=\"as_e40\" "
                              "step=\"0.5\" io_style=\"temperature\" "
                              "value_warning=\"false\"");
 
