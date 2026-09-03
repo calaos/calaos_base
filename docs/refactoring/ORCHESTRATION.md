@@ -8,6 +8,120 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅⭐⭐ [`E4.6h`](E4.6.md) MERGÉE — 3 commits de la branche + 1 commit d'élagage + 1 commit de doc
+  sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de branche
+  **`f03345d1`**, élagage **`0796dd80`**.
+  ⭐ **`master` ÉTAIT IMMOBILE sur `804e765d`** = exactement la merge-base ⇒ **ni rebase ni conflit.**
+  ⛔ **Rien poussé.** **D10 niveaux 1 et 2** : un `config put` destructeur laisse une sauvegarde
+  **restaurable**, et le démarrage qui suit **nomme** ce qui a disparu. ⛔ **Jamais de refus.**
+
+  ⭐⭐ **LA FORME EST FORCÉE — les deux mécanismes lus au source, l'argument de l'auteur TIENT.**
+  `HttpClient::DataWritten()` (`HttpClient.cpp:476-481`) fait `uvw::Loop::getDefault()->stop()` dès
+  que `data_size <= 0 && need_restart` : la boucle s'arrête **dès que la réponse est écrite**. En
+  face, `Config::scheduleConfigAlert()` (`CalaosConfig.cpp:218-234`) arme un
+  `Timer::singleShot(CONFIG_ALERT_DELAY_SEC = 30.0)`. Une alerte émise pendant le `put` serait donc
+  **toujours** jetée par le redémarrage. Le fil d'Ariane n'est **pas** une complication évitable :
+  c'est le seul moyen de faire traverser la trouvaille. ⛔ Et il n'est **pas** un troisième fichier
+  de configuration : `backups/autoscenario_upload.json`, écrit par le serveur pour lui-même,
+  **supprimé (`std::filesystem::remove`) avant toute comparaison**, son absence voulant dire
+  « aucun téléversement à expliquer » — l'invariant des deux fichiers (§1.3) tient.
+
+  ⭐ **LA SAUVEGARDE EST RECHARGÉE PAR LE CHEMIN DE PRODUCTION — OUI.** `CoreFixture::loadConfig()`
+  fait `Config::Instance().LoadConfigIO()` puis `LoadConfigRule()`, **l'ordre exact de `main()`**, et
+  le scénario est relu par la **vraie** API WS `autoscenario get` : 3 étapes, pauses `1.5` / `2.25` /
+  `0.5`, les **deux** actions de l'étape du milieu **dans l'ordre** (`77` puis `42`). Aucun `stat()`,
+  aucun raccourci de test. Second cas : deux téléversements espacés laissent deux sauvegardes, la
+  plus récente rend l'état intermédiaire et la plus ancienne les deux scénarios.
+
+  ⛔ **AUCUN CHEMIN DE REFUS DANS LE DIFF** : `src/` est **+220 / −0** (aucune ligne retirée), et les
+  8 lignes de `JsonApiHandlerHttp.cpp` sont **6 lignes de commentaire + 1 appel + 1 ligne vide**. Le
+  cas debout `TheUploadThatLegitimatelyDeletesAScenarioIsAcceptedAndApplied` mesure les trois
+  propriétés : `success:"true"`, **`error_str` absent**, `io.xml` **et** `rules.xml` **verbatim** sur
+  disque, et la suppression **effective** après redémarrage (1 seul auto-scénario restant).
+
+  ⭐ **VERDICT SUR LE CAS QUI NE ROUGIT SOUS AUCUNE DES SIX MUTATIONS : UTILE, PAS DU BRUIT — et
+  c'est MESURÉ, pas concédé.** `AnOrdinaryStartupWithNoUploadBehindItSaysNothing` **rougit** sous une
+  7ᵉ mutation posée par l'agent de merge (émission inconditionnelle en tête de
+  `reportAutoScenariosLostByUpload()`) : **8 cas rouges**, dont les trois cas « rien à alerter ». Son
+  observable est donc **vivant**. S'il reste vert sous les six mutations de l'auteur, c'est qu'elles
+  mutent toutes la **comparaison** et jamais la **porte d'émission** — il atteste une absence
+  mesurable, ce qui est exactement ce qui rend acceptable de faire tourner ce chemin à **chaque**
+  démarrage. ⛔ **Rien à voir** avec les deux cas vacuants d'E4.6f (`rankOf()` rendant −1, fixture
+  manquante) : ceux-là ne pouvaient rougir sous **aucune** mutation.
+
+  ⭐⭐ **LES CONFIGS RÉELLES, REJOUÉES PAR L'AGENT DE MERGE** (montées `:ro`, sonde jetable greffée
+  sur `AutoScenarioMigration_test` puis retirée, `cmp` rc 0, `git status` vide) :
+
+  | | à l'entrée | après le démarrage | 2ᵉ démarrage |
+  |---|---|---|---|
+  | `raoulh` — règles totales | **125** | **125** | **125** |
+  | `raoulh` — portant `auto_scenario` | **18** | **18** | **18** |
+  | `raoulh` — portant `autoscenario_uid` | **0** | — | — |
+  | `solanora` — règles totales | **82** | **82** | **82** |
+
+  `rules.xml` **identique octet pour octet** entre le 1ᵉʳ et le 2ᵉ enregistrement pour **les deux**
+  configs. ⭐ **ET L'INERTIE EST MESURÉE** : **0** alerte de téléversement dans la file aux deux
+  démarrages ordinaires — sans fil d'Ariane, le chemin ne dit **rien**.
+
+  ⛔⭐ **FINDING DE PERTE DE DONNÉES, NUMÉROTÉ — `T3.64` (proposé, non ouvert).**
+  `Config::BackupFiles()` nomme son dossier `"%d-%m-%Y_%H-%M-%S"` : **deux `config put` dans la même
+  seconde partagent le dossier et le second écrase la copie du premier**, donc l'état d'avant le
+  premier téléversement **n'existe plus nulle part**. Mesuré par l'auteur (sa première version du cas
+  voyait une sauvegarde au lieu de deux ; il attend 1,1 s depuis, commentaire à l'appui), confirmé au
+  merge. Correction hors périmètre (`CalaosConfig.cpp`, tous les appelants de `BackupFiles()`).
+  ⇒ **`FINDINGS.md`**, en tête du finding.
+
+  ⚠️⭐ **À ARBITRER PAR L'UTILISATEUR — DEUX REGISTRES D'ALERTE SUR LE MÊME CANAL.** L'alerte d'E4.6f
+  (`CalaosConfig.cpp:422`) nomme le scénario par son **uid** : `- step of scenario 'as_0' (rule …)`.
+  L'alerte neuve d'E4.6h nomme par le **`name`**, l'uid en repli : `- scenario 'Soirée' (as_0) is
+  gone…`. **Même canal, même mail, deux formulations** — c'est le genre d'incohérence qu'un humain
+  voit tout de suite. L'auteur a lu l'exigence du merge d'E4.6f comme portant sur **sa** alerte et a
+  livré la version conservatrice, l'utilisateur dormant. **Uniformiser coûte peu** (lookup uid → IO
+  scénario → `name`, un balayage de `ListeRoom`, l'uid n'étant indexé nulle part) **mais retourne un
+  témoin d'échange d'E4.6f** (`TheStartupAlertCalls…OnlyARuleTheProjectionWrote`). ⇒ **Décision
+  utilisateur**, détaillée dans `FINDINGS.md`.
+
+  **Le reste, vérifié** : **dépassement de périmètre CONFIRMÉ MINIMAL** — `git diff --stat` sur
+  `src/` rend **exactement 4 fichiers**, et le seul hors §6 est `Config::reportConfigAlert()`, une
+  ligne inline dans `CalaosConfig.h` (parce que `scheduleConfigAlert()` est privée).
+  **Goldens intacts, prouvé par hash d'arbre** : `tests/core/golden` = `4c973d0d93c4fb01…`
+  **identique** entre `804e765d` et `f03345d1`.
+  **`_DEPENDENCIES` à la forme T3.36** : miroir exact du `LDADD` (20 objets serveur +
+  `$(CORE_TEST_DEPS)` + `libcalaos_common.la`), bloc `if HAVE_GTEST` propre en fin de fichier,
+  **append pur `+74/−0`**, équilibre `if HAVE_GTEST` 94 / `endif` 95.
+  **Commit de caractérisation `7dd2a93a` à zéro ligne de `src/`** (`git diff-tree -r` ne rend que
+  `tests/Makefile.am` et le `.cpp` neuf).
+  **Élagage de l'agent de merge (`0796dd80`)** : les 4 blocs de commentaires neufs citaient `E4.6h`,
+  `D10 level N` et `E4.6.md §1.3` — références retirées, **WHY conservé mot pour mot**, bloc de
+  `ListeRoom.h` ramené de 12 à 9 lignes. Aucun autre commentaire du ticket à reprendre.
+  **Build d'intégration** (`make distclean` + `autogen` + `configure` + `make -j32` + `make check
+  -j16`) : **`TOTAL 112 / PASS 110 / SKIP 2 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, RC 0, **un
+  seul** `Testsuite summary`, **0 `error:`**, les deux `SKIP` habituels (`run-python-tests.sh`,
+  `check-ccache-honesty.sh`), `CXXLD core/AutoScenarioUploadGuard_test` **lu** dans le journal (116
+  `CXXLD`). **Rejoué à l'identique après l'élagage** : mêmes chiffres. **`TESTS` 111 → 112 MESURÉ.**
+  Toutes les mutations et la sonde restaurées par **copie vérifiée au `cmp` (rc 0)**, **zéro
+  `rm -f`**, **jamais un `git checkout` dans le conteneur**.
+
+- ⭐⭐ **PROCHAINE ACTION : [`E4.6g`](E4.6.md) — LA DOC, DERNIER SOUS-TICKET DE L'ÉPIQUE E4.6.**
+  `docs/04_scenarios.md` et `docs/03_rules_engine.md` réécrits **contre le modèle neuf** (E4.5b les
+  avait écrits contre l'ancien) **et contre les 4 goldens régénérés par `f`**, pas contre ceux
+  d'avant. Y ramasser aussi le **solde `getEndStepAction(int)`**, mort depuis `E4.6e` : son jumeau
+  `getEndStepActionCount()` a un lecteur (`AutoScenarioRules_test.cpp:722`), lui **n'en a aucun** —
+  à supprimer ou à justifier, mais à trancher.
+
+  ⭐ **CE QUI RESTERA OUVERT APRÈS `E4.6g` — l'épique aura l'air close, elle ne le sera pas tout à
+  fait :**
+  - ⛔ **`T3.61` (proposé, non ouvert) — le re-cléage du marqueur d'IO.** `IO/Scenario.cpp:60` teste
+    toujours `get_param("auto_scenario") != ""`. ⇒ **§5.3 N'EST PAS ATTEINTE**, et
+    `Calaos::get_new_scenario_id()` survit. Coût mesuré : **71 rouges / 7 binaires** (M6 d'E4.6b), et
+    il faut d'abord trancher le sort des deux garde-fous d'E4.6a. **C'est ce ticket, et lui seul, qui
+    rendra vraie §1.1.**
+  - `T3.62` (RemoteUI publie encore `auto_scenario`), `T3.63` (le motif `rankOf()` non gardé),
+    `T3.64` (les sauvegardes horodatées à la seconde), `T3.60` (portée de service côté HTTP) —
+    **tous proposés, aucun ouvert.**
+  - **La question ouverte d'E4.6e** (le sidecar MCP doit-il pouvoir **lire** les scénarios ?) et
+    **les deux registres d'alerte** ci-dessus attendent toutes deux un arbitrage utilisateur.
+
 - **✅⭐⭐ [`E4.6f`](E4.6.md) MERGÉE — 3 commits de la branche + 1 commit de doc sur `master`,
   `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`5e12dae3`**.
   ⭐ **`master` ÉTAIT IMMOBILE sur `1e2766a0`** = exactement la merge-base ⇒ **ni rebase ni conflit.**
@@ -100,13 +214,8 @@
   Toutes les mutations restaurées par **copie vérifiée au `cmp` (rc 0)**, `git status` vide,
   **zéro `rm -f`**, **jamais un `git checkout` dans le conteneur**.
 
-- ⭐ **PROCHAINE ACTION : [`E4.6h`](E4.6.md)** — défense en profondeur, **D10 niveaux 1-2**
-  (`ListeRoom.{h,cpp}`, `JsonApiHandlerHttp.cpp`, `tests/core/AutoScenarioUploadGuard_test.cpp`
-  neuf, `tests/Makefile.am`). ⛔ **Jamais de refus** (niveau 3 écarté). ⭐ **Y porter en exigence
-  explicite le lookup du `name` du scénario dans l'alerte** (ci-dessus) : le canal est le même.
-  ⭐⭐ **`E4.6g` (la DOC) vient en DERNIER, après `h`** : `docs/04_scenarios.md` et
-  `docs/03_rules_engine.md` doivent être réécrits **contre les 4 goldens régénérés par `f`**, pas
-  contre ceux d'avant. Y ramasser aussi le solde `getEndStepAction(int)` (bloc E4.6e ci-dessous).
+- ✅ **Suite d'E4.6f : `E4.6h` est LIVRÉE ET MERGÉE** (bloc en tête). Le lookup du `name` y a été
+  fait pour l'alerte du ticket ; l'alerte d'E4.6f reste sur l'uid ⇒ arbitrage en tête de bloc.
 
 - **✅⭐⭐ [`E4.6e`](E4.6.md) MERGÉE — 3 commits de la branche + 1 commit d'élagage de l'agent de merge
   + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.**

@@ -8745,7 +8745,7 @@ Audit demandé au merge après le §1. Résultats sur tout `tests/` :
 - `roomIndexOf()` (`ListeRoomOwnership_test.cpp:57`) rend -1 lui aussi, mais son résultat est passé
   à `lr.Remove()`, jamais comparé : un -1 y produit un échec, pas un faux vert.
 
-## E4.6h — les sauvegardes de `config put` sont horodatées à la SECONDE, deux envois rapprochés n'en laissent qu'une (2026-09-03)
+## ⛔⭐ `T3.64` (proposé) — E4.6h : les sauvegardes de `config put` sont horodatées à la SECONDE, deux envois rapprochés n'en laissent qu'une (2026-09-03)
 
 `Config::BackupFiles()` (`CalaosConfig.cpp`) nomme son dossier `"%d-%m-%Y_%H-%M-%S"`. Deux
 `config put` **dans la même seconde** écrivent donc dans le **même** dossier, et le second y
@@ -8757,13 +8757,18 @@ recopie la configuration telle qu'elle est **après** le premier : la copie du p
 enchaînait les deux envois et voyait **une** sauvegarde là où le cas en attendait deux. Le cas
 attend maintenant 1,1 s entre les deux, et le commentaire dit pourquoi.
 
+⇒ **ticket proposé `T3.64`** (non ouvert) : donner à `BackupFiles()` un nom de dossier qui ne
+peut pas collisionner (suffixe, ou refus de réutiliser un dossier existant). **C'est un chemin de
+PERTE DE SAUVEGARDE**, pas une gêne cosmétique : l'état d'avant le premier téléversement n'existe
+plus nulle part. Confirmé par l'agent de merge d'E4.6h.
+
 **Portée** : ce n'est pas propre aux scénarios — c'est toute la configuration. En exploitation
 normale deux téléversements sont séparés de bien plus d'une seconde (un humain manipule
 `calaos_installer`), et le défaut ne se voit que sur des envois scriptés en rafale. **Non corrigé
 par E4.6h** : `CalaosConfig.cpp` est hors du périmètre §6, et la correction (un suffixe, ou un
 refus de réutiliser un dossier existant) touche tous les appelants de `BackupFiles()`.
 
-## E4.6h — question laissée ouverte : l'alerte des règles désactivées nomme le scénario par son uid (2026-09-03)
+## ⚠⭐ E4.6h — À ARBITRER PAR L'UTILISATEUR : deux registres d'alerte coexistent sur le même canal (2026-09-03)
 
 `CalaosConfig.cpp:422` (l'alerte E4.2e re-clée par E4.6f) imprime
 `- step of scenario '<uid>' (rule '<nom de la règle>')`. L'uid est ce que le **modèle** range, pas
