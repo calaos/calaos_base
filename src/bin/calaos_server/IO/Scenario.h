@@ -42,7 +42,7 @@ protected:
 
     AutoScenario *auto_scenario;
 
-    /* THE DEFINITION, and it is the datum (E4.6.md D1).
+    /* THE DEFINITION, and it is the datum.
      *
      * Owned, never null. Loaded from the `autoscenario_*` / `as_*` params of
      * this IO when they are there, and written back into them at every
@@ -78,7 +78,7 @@ public:
     AutoScenarioDef *getDefinition() { return auto_scenario_def; }
 
     /* Materializes the definition into this IO's params before the generic
-     * writer serializes them, so io.xml carries the whole model (E4.6.md D2).
+     * writer serializes them, so io.xml carries the whole model.
      * Writes and removes NOTHING when this IO carries no definition.
      */
     virtual bool SaveToXml(pugi::xml_node node) override;
@@ -88,11 +88,10 @@ public:
     /* The API payload, rendered from the DEFINITION and never from the rules:
      * an action whose IO no longer resolves comes out like any other, with
      * resolved="false". Nothing here mutates.
-     *
      * PITFALL: an action value is arbitrary client text and may carry a zero
      * byte. It goes in as a std::string, so the whole value reaches the dump
      * and is escaped there; through a const char * it would be cut at that
-     * byte and the client would be answered 200 OK on an amputated value.
+     * byte and answered 200 OK on an amputated value.
      */
     Json toJson();
 };

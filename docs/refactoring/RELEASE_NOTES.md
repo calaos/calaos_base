@@ -1740,3 +1740,22 @@ suffisait à perdre une action pour toujours.**
 `add_schedule`, `del_schedule`, `reenable`), la sémantique du drapeau collant
 `disabled_missing_io` et de la commande `reenable`, et le fait que tout reste des **chaînes**
 (`"true"`, `"1.5"`) comme dans le reste de l'API Calaos.
+
+**⛔ Deux pièges pour qui migre un client tiers — relevés au merge, à lire avant d'adapter**
+
+- ⛔ **`disabled` n'est plus lu du tout, et son absence n'est pas neutre.** Un client qui continue
+  d'envoyer `{"disabled": "false"}` en croyant activer son scénario ne reçoit **aucune erreur** :
+  la clé est simplement ignorée, `enabled` est absent, et `enabled` **vaut `false` par défaut**.
+  Le scénario est donc créé — ou laissé — **désactivé**, en silence. C'est le seul endroit où
+  l'ancien nom échoue sans le dire ; partout ailleurs le nouveau schéma refuse explicitement.
+- ⛔ **La pièce est désormais obligatoire et vérifiée, sur `create` comme sur `modify`.**
+  Auparavant `create` retombait silencieusement sur **la première pièce de la maison**
+  (`get_room(0)`) quand la pièce nommée n'existait pas, et `modify` tolérait une pièce absente en
+  sautant simplement le déplacement. Les deux **refusent** maintenant, avec
+  `invalid payload: no room "…" of type "…"`. C'est voulu — l'ancien comportement rangeait un
+  scénario dans une pièce arbitraire sans le dire — mais un `modify` partiel (renommer seulement)
+  qui passait avant échoue désormais s'il ne nomme pas correctement la pièce.
+  ⚠️ **Corollaire connu, et c'est la seule brèche de l'aller-retour** : un IO scénario qui
+  n'appartient à **aucune** pièce est émis par `get` avec `room_name` et `room_type` **vides**, et
+  ce document-là, renvoyé tel quel, est **refusé**. L'aller-retour est une identité pour tout
+  scénario rangé dans une pièce, c'est-à-dire tous ceux que l'API sait créer.

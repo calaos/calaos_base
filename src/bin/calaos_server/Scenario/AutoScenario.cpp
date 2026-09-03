@@ -78,10 +78,6 @@ AutoScenario::AutoScenario(IOBase *input):
 
 AutoScenario::~AutoScenario()
 {
-    /* Re-resolved through io_table and not through ioTimeRange: ~Room destroys
-     * its IOs in list order, so the schedule IO may already be gone. A null
-     * answer means "already destroyed, nothing to clean".
-     */
     ListeRoom::Instance().delScenarioCache(ioScenario);
 }
 

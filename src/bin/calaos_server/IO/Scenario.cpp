@@ -51,7 +51,7 @@ Scenario::Scenario(Params &p):
 
     set_param("gui_type", "scenario");
 
-    /* THE MARKER, AND IT IS STILL `auto_scenario` (E4.6.md D2). Re-key it and
+    /* THE MARKER, AND IT IS STILL `auto_scenario`. Re-key it and
      * no AutoScenario is built for an existing scenario: its rules stop being
      * claimed, its definition is never bootstrapped from them, and the whole
      * scenario silently stops existing - 18 rules on configs/raoulh.

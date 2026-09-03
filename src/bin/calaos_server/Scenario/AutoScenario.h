@@ -272,7 +272,7 @@ public:
     void addStepAction(int step, IOBase *out, string action);
     //The final step is a step of its own, not an out of range index: an
     //integer sentinel drifting against a container index is how an action
-    //placed after the final step used to disappear without a word.
+    //placed after the final step disappears without a word.
     void addFinalStepAction(IOBase *out, string action);
     double getStepPause(int step);
     int getStepActionCount(int step);

@@ -8,6 +8,145 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅⭐⭐ [`E4.6d`](E4.6.md) MERGÉE — 4 commits de la branche + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`4e6b7aef`**.
+  ⭐ **`master` ÉTAIT IMMOBILE sur `07782ea8`** = exactement la merge-base ⇒ **ni rebase ni conflit.**
+  ⛔ **Rien poussé.** ⭐⭐ **C'est le ticket de la SURFACE D'API** : `autoscenario` rend enfin le
+  document qu'il accepte, et `IO/Scenario.cpp` sort de jansson.
+
+  ⭐⭐ **LE NUL EMBARQUÉ EST FERMÉ, ET LE CORRECTIF EST UN TYPE — vérifié au source, pas relu.**
+  `jact["value"] = a.value;` (`IO/Scenario.cpp:252`) : un `std::string` là où `master` écrivait
+  `json_string(sa.action.c_str())`, qui s'arrêtait au premier octet nul et répondait **200 OK sur
+  une valeur amputée**. ⭐ **Aucune garde ajoutée, et il n'en faut pas** : les deux transports
+  dumpent déjà en `ensure_ascii` + `error_handler_t::replace`, **préexistants**. Le zéro ressort
+  donc échappé `\u0000` et la valeur reparsée fait bien **3 octets**.
+  ⭐ **Mutation M7 rejouée au merge** (retour au `c_str()`) : **`TOTAL 112 / PASS 109 / FAIL 1`**,
+  et le **seul** cas rouge du dépôt entier est
+  `JsonApiScenarioWireBytesTest.AnEmbeddedNulInAnActionIsTruncatedByScenarioToJson`. **63 `CXXLD`**
+  apparus d'eux-mêmes (discipline T3.36, **zéro `rm -f`**), restauration par **copie vérifiée au
+  `cmp`** (rc 0). ⇒ **La clause d'acceptation de §6.1 est tenue.** La jumelle (UTF-8 invalide droppé
+  avec sa clé) tombe avec, par le même mécanisme.
+
+  ⭐ **LA PARADE D'ALLOCATEURS — la trouvaille qui a failli invalider toute la campagne.** Les
+  allocateurs d'id d'`AutoScenarioDef` sont monotones **à l'échelle du processus** (propriété D3,
+  « jamais recyclé ») — juste pour un serveur, **faux pour un harnais mono-processus** : le
+  `step_id` d'un scénario dépendait du nombre de cas exécutés avant lui, et tout golden le portant
+  devenait **flaky sous `--gtest_shuffle`**. Parade : `AutoScenarioDef::resetIdAllocators()` appelé
+  par `CoreFixture::clearCoreState()`.
+  ⭐ **Éprouvée au merge avec deux seeds NEUFS choisis par le relecteur** (`31337`, `2718`, aucun
+  des cinq de l'auteur) : **16/16 verts** sur les 8 suites, comptes de cas stables.
+  ⭐ **Et la campagne a bien été mesurée APRÈS la parade** — pas par datation mais par **re-mesure** :
+  `resetIdAllocators()` est introduit par **`69474551`, le commit de la réécriture lui-même**, donc
+  aucun état de branche ne porte le schéma neuf sans la parade ; et **M3 rejouée au merge** rend
+  **exactement 4 rouges sur 3 binaires**, le chiffre annoncé, à l'identique.
+  ⚠️ **Avis du relecteur : `resetIdAllocators()` est une API de production dont le seul appelant du
+  dépôt est le harnais. ACCEPTABLE, à reloger sans urgence.** Il est *correct* (`clearCoreState()`
+  détruit rooms et rules avant l'appel ; `loadFromParams()` re-fold chaque id lu, max monotone),
+  mais rien n'empêche un appelant de production de casser l'invariant D3. Un
+  `resetIdAllocatorsForTests()` ou un ami de test rendrait le contrat auto-policé. → **`E4.6e`**.
+
+  ⭐ **SEPT GOLDENS, ET SEPT EXACTEMENT — le brief d'orchestration disait « 6 », il avait TORT, la
+  spéc fait autorité.** `E4.6.md` §8.1 en déclare **7** sur la ligne E4.6d, l'auteur a suivi la
+  spéc. Vérifié **par comparaison de hash d'arbre git**, pas par lecture : `tests/core/golden` =
+  **145 fichiers des deux côtés, aucun ajouté ni retiré**, **7 blobs diffèrent** — exactement
+  `e40c_ws_autoscenario_list`, `_get`, `e40c_http_autoscenario_get`, `_get_scheduled`, `_get_broken`,
+  `_get_hot_deleted`, `_get_repaired` — et les **138 autres sont identiques octet pour octet**.
+
+  ⛔⭐ **UNE AFFIRMATION DE LA SPÉC ÉTAIT FAUSSE, ET ELLE EST MAINTENANT CORRIGÉE EN PLACE.**
+  §8.2 annonçait la **suppression** de `CheckScenarioRulesAbortsWhenInternalIoIsHijacked` et de
+  `ARuleDestroyedUnderTheScenarioBreaksItWithNoMissingId`, et **D4 affirmait que la « troisième
+  paire » devenait structurellement inexprimable**. **Les deux cas restent, et c'est correct** :
+  E4.6c n'a **pas** re-clé le marqueur (les ids internes restent dérivés,
+  `AutoScenario.cpp:519-521`, le squat reste exprimable) et **`isBroken()` a TROIS raisons**, dont
+  la troisième — une de nos règles détruite par un tiers,
+  `generatedRules().size() < expectedRuleCount()` — **ne nomme aucun id**. Donc `broken:"true"` +
+  `missing_ios:""` **reste atteignable**, et c'est **voulu** : c'est le seul signal du cas.
+  ✅ **Corrigé au merge dans `E4.6.md` : D4, D5, la section §3 « La troisième paire » ET les deux
+  lignes de §8.2.** La spéc n'affirme plus le contraire du code livré.
+
+  ⭐ **`category` ET `schedule:"false"` : les deux écarts avec D6 sont MAINTENUS, arbitrage du
+  relecteur.** Ce n'est pas du conservatisme — la rupture d'API est assumée par l'épique et le
+  conservatisme n'y est pas automatiquement bon. C'est que les deux choix **se déduisent des
+  clauses écrites** : le bloc JSON de D6 est un **exemple, pas une liste close** (s'il l'était il
+  faudrait aussi retirer `broken`/`disabled_missing_io`/`missing_ios`, que D5 exige de **garder**) ;
+  `category` est un **dérivé lu seulement**, accepté-et-ignoré à l'écriture, donc il **ne casse pas
+  la symétrie**, qui est la vraie clause ; et le retirer aurait cassé
+  `GetCategoryDoesNotCrashOnASkipListedAction`, que §8.2 déclare « réécrit ». `schedule:"false"`
+  hors planification est le statu quo, non couvert par D6. **Rien à trancher autrement.**
+
+  **Les cinq retraits** : `END_STEP` ✅ (`0xFEDC1234` à **0** occurrence dans `src/` et `tests/`) ·
+  `IOBase::ascenario` ✅ (les 3 sites de remise à zéro partis, remplacé par le **lookup**
+  `autoScenarioOfTimeRange()`, `JsonApi.cpp:291` — relation identique, et il ne peut plus nommer un
+  objet détruit) · `IOBase::auto_sc_mark` ✅ · ⭐ **`Rule::auto_sc_mark` ✅ FAIT** — et le garde-fou
+  d'E4.6b **n'est pas affaibli** : mêmes 2 assertions, aucun `ASSERT_`→`EXPECT_`, et les deux côtés
+  de la comparaison viennent de **conteneurs différents** (le vecteur possédant `ListeRule::rules`
+  vs l'index non-possédant `rules_scenarios`), donc elle n'est pas trivialement vraie. ⚠️ Elle
+  mesure toutefois une propriété **différente** de l'ancienne (le lien au *marqueur et à l'index*,
+  plus le lien à l'*objet AutoScenario*) · `get_new_scenario_id()` ⚠️ **partiel — et l'argument de
+  l'auteur TIENT** : D7 ne demandait que l'appel **mort** de `modify`, qui est parti ; la fonction
+  garde **exactement un appelant**, `buildAutoscenarioCreate()` (`JsonApi.cpp:2407`), et la retirer
+  imposerait de dériver les ids internes de l'uid — donc de **renommer `scenario_0_step` & co.**,
+  changement visible que la fiche ne prescrit pas. ⇒ **Le solde revient à `E4.6f`** (« marqueur
+  re-clé »), qui est le ticket qui porte déjà ce re-cléage.
+
+  **Symétrie, quatre états, assertions** : `AGetModifyGetRoundTripIsAnIdentityOnlyWhileNothingIsMissing`
+  est bien un **échange** — moitié saine de contrôle (vraie avant la réécriture, sans quoi l'autre
+  ne prouverait rien) **et** moitié cassée sur le **même** scénario (`ASSERT_EQ(healthyId, brokenId)`).
+  Les deux références mortes réécrites dans `rules.xml` et le `reenable` qui **refuse en nommant les
+  ids** sont assertis dans `ReadingBackAndEchoing…WithTwoSuccessTrue`, exactement comme §8.6 le dit —
+  rien n'est « annoncé sans être testé ». Les **quatre états de T3.18** rougissent sur **deux** de
+  leurs quatre états sous M3, dans les **deux** témoins. ⭐ **Aucune assertion affaiblie, vérifié
+  mécaniquement** : 0 `ASSERT_`→`EXPECT_` à texte d'arguments identique, 0 `GTEST_SKIP`, 0
+  `DISABLED_`, ordre des cas préservé dans les 9 fichiers, et les **3 seules suppressions**
+  (`RuleLifecycle_test`) sont **déclarées mot pour mot** par §8.2.
+  **Mesuré** : `TESTS` **112 → 112** (`tests/Makefile.am` **intouché**) · **`TOTAL 112 / PASS 110 /
+  SKIP 2 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, RC 0, **1 seul** `Testsuite summary`,
+  0 `error:`, `CXXLD    calaos_server` · commit de caractérisation `e9b0b678` : `git diff-tree` rend
+  **un seul fichier**, un test — **zéro ligne de `src/`**.
+  ✅ **Jansson** : `grep -c janssonScenarioPayloadBridge src` ⇒ **0**, `IO/Scenario.cpp` **57 → 0**,
+  total `src/` **110 → 47** (convention de comptage de ce fichier). Les 47 = `Jansson_Addition.h`
+  **45** + `WebSocket.cpp` **2** (les deux faux positifs `json_body` documentés).
+  ✂️ **Élagué au merge** (commentaires de `src/` seulement, **zéro ligne de code**, `make check`
+  rejoué vert) : 4 références de ticket, 3 tournures d'historique de débogage remises au présent,
+  1 commentaire **orphelin** dans `~AutoScenario()` (il décrivait un code parti avec le
+  back-pointer), et les **2 seuls blocs entièrement ajoutés de plus de 8 lignes** ramenés à 8.
+  Après élagage : **0 offenseur sur 434 lignes ajoutées dans `src/`**.
+  ⚠️ **Trois soldes, aucun bloquant** : ⛔ **`addFinalStepAction()` n'a AUCUN appelant** (morte à la
+  naissance — `create`/`modify` affectent `def->finalStep` directement) ; `getEndStepAction()` /
+  `getEndStepActionCount()` ont perdu leur dernier appelant de production ; **`JsonApi.h:25` inclut
+  encore `Jansson_Addition.h`** alors que `JsonApi.cpp` est à 0 jeton (préexistant, **pas** une
+  régression, mais ça dit qu'`E4.1x` n'est pas à coût nul). → `E4.6e` pour les deux premiers.
+
+- ⭐⭐ **`E4.1x` EST DÉSORMAIS DÉBLOQUÉE — ses DEUX conditions sont tombées** (`E4.6b` `e44c2c3c`
+  a posé la définition sans toucher jansson ; `E4.6d` `4e6b7aef` vient de vider `IO/Scenario.cpp`).
+  Plus **aucun** appelant `json_t *` ne vit dans `IO/Scenario.{cpp,h}`. La ligne de suivi d'E4.1
+  « `IO/Scenario.cpp` — exclu, migré par E4.6 » **peut être fermée**.
+
+- ⭐⭐ **PROCHAINE ACTION — DEUX OPTIONS, NON TRANCHÉES. À l'utilisateur de choisir.**
+
+  **Option A — [`E4.1x`](E4.1x.md), la clôture jansson, enfin possible.**
+  *Pour* : c'est la **fin d'une épique de 17 sous-tickets** et le seul ticket qui retire une
+  dépendance externe du `configure.ac` — un livrable visible et autonome. Il était bloqué depuis
+  E4.1s, sa seule condition vient de tomber, et le laisser dormir fait vieillir le contexte de
+  toute la série E4.1. Le périmètre est **disjoint** de celui d'E4.6 (`src/lib/`, `configure.ac`),
+  donc il ne se marche pas dessus avec la suite de l'épique AutoScenario.
+  *Contre* : le solde mesuré au merge (`JsonApi.h:25`) dit que **ce n'est pas le `grep` à zéro
+  annoncé** ; il reste 45 jetons dans `Jansson_Addition.h` **plus** un include mort à retirer et un
+  renommage `toNJson`→`toJson` qui touche beaucoup de fichiers. Ce n'est pas gratuit.
+
+  **Option B — [`E4.6e`](E4.6.md), dispatch et scope.**
+  *Pour* : c'est la **suite naturelle** d'E4.6d, sur les **mêmes fichiers** et avec le contexte
+  encore chaud ; il ramasse au passage **les trois soldes** ci-dessus (`addFinalStepAction()` mort,
+  les deux accesseurs orphelins, `resetIdAllocators()` à reloger). Il **débloque `E4.6g`** (doc),
+  qui dépend de `E4.6d, E4.6e`. Il est petit : `autoscenario` sous `scopeDenied()` + sous-commande
+  inconnue qui répond une **erreur** au lieu du silence.
+  *Contre* : il **retourne deux cas de caractérisation** (`SetTimerangeIsScopeDeniedButAutoscenarioIsNot`,
+  `WsAutoscenarioWithUnknownTypeAnswersNothing`), donc c'est une **rupture d'API de plus** dans une
+  épique qui en porte déjà six — et elle n'apporte pas de valeur utilisateur, seulement de la
+  cohérence.
+
+  ℹ️ **Les deux sont file-disjoints et pourraient partir en parallèle** si l'on veut deux agents.
+  Suite de l'épique E4.6 après `e` : `f ‖ g ‖ h`.
+
 - **✅⭐⭐ [`E4.6c`](E4.6.md) MERGÉE — 3 commits de la branche + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`c23df1ca`**.
   `master` avait avancé de **5 commits** depuis la merge-base ⇒ **rebase**, qui s'est passé **sans un seul conflit** (les 3 fichiers de recouvrement sont documentaires, `git` les a fusionnés seul ; profil de `BOARD.md` inchangé — **182 lignes à 7 `|`**, T3.39 ✅ et T3.41/42/43 intactes).
   ⛔ **Rien poussé.** ⭐⭐ **C'est le ticket qui SUPPRIME le balayage orphelin** (`ListeRoom::checkAutoScenario()`), le seul code du projet capable de détruire de la donnée utilisateur.
@@ -136,7 +275,7 @@
   `src/lib/Jansson_Addition.h`) ne peut partir tant qu'un appelant `json_t *` vit dans
   `IO/Scenario.{cpp,h}`. E4.6b n'a rien changé de ce côté.
 
-- ⭐⭐ **PROCHAINE ACTION : [`E4.6d`](E4.6.md) — LA SURFACE D'API** (`JsonApi.{cpp,h}`,
+- ✅ **~~PROCHAINE ACTION : [`E4.6d`]~~ — PÉRIMÉ, `E4.6d` est MERGÉE (`4e6b7aef`) et le NUL est fermé. Les deux options de prochaine action sont en tête de fichier.** LA SURFACE D'API (`JsonApi.{cpp,h}`,
   `IO/Scenario.{h,cpp}`), en **`nlohmann::json` natif**. Payload symétrique D6, `final_step` séparé,
   `action.io`/`action.value`/`resolved`, validation **avant** mutation (D7). **6 goldens régénérés
   nommément**, et **6 cas d'E4.6a basculent** (§8.3).

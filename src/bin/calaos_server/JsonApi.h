@@ -176,7 +176,7 @@ public:
     Json buildJsonSetTimerange(const Json &jdata);
 
     /* ONE SCHEMA: what `get` answers is exactly what `create` and `modify`
-     * accept, so a client may send back what it read (E4.6.md D6). The derived
+     * accept, so a client may send back what it read. The derived
      * members - category, broken, disabled_missing_io, missing_ios and the
      * `resolved` of an action - are accepted and ignored on the way in.
      */

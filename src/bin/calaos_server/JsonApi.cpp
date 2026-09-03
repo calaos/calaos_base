@@ -91,18 +91,14 @@ inline void decodeJsonObject(const Json &j, Params &params)
     }
 }
 
-/* ---------------------------------------------------------------------------
- * THE AUTO SCENARIO PAYLOAD, ON THE WAY IN
- *
- * The schema is the one Scenario::toJson() emits, key for key: what a client
- * reads back is what it may send. The derived keys it also reads - id,
- * category, broken, disabled_missing_io, missing_ios, schedule, and the
- * `resolved` of an action - are accepted and ignored here, which is what makes
- * get -> modify -> get an identity instead of a slow amputation.
- *
- * PARSING IS SEPARATE FROM APPLYING, and that is the whole point: create and
- * modify commit nothing until the entire document has been accepted.
- * ------------------------------------------------------------------------ */
+/* The auto scenario payload on the way in. The schema is the one
+ * Scenario::toJson() emits, key for key: what a client reads back is what it
+ * may send. The derived keys it also reads - id, category, broken,
+ * disabled_missing_io, missing_ios, schedule and an action's `resolved` - are
+ * accepted and ignored here, which is what makes get -> modify -> get an
+ * identity instead of a slow amputation. Parsing is separate from applying:
+ * create and modify commit nothing until the whole document is accepted.
+ */
 
 struct ScenarioPayload
 {
@@ -283,10 +279,9 @@ bool parseScenarioPayload(const Json &jdata, ScenarioPayload &out, string &err)
     return true;
 }
 
-/* The auto scenario a time range IO belongs to, or null. A LOOKUP, where a
- * back-pointer on the IO used to answer: that pointer had to be cleared from
- * three places and any one of them missed left it pointing at a destroyed
- * object.
+/* The auto scenario a time range IO belongs to, or null. A LOOKUP and not a
+ * back-pointer on the IO: such a pointer has to be cleared from three places,
+ * and any one of them missed leaves it naming a destroyed object.
  */
 AutoScenario *autoScenarioOfTimeRange(IOBase *o)
 {
@@ -2493,9 +2488,8 @@ Json JsonApi::buildAutoscenarioModify(const Json &jdata)
     }
 
     /* VALIDATE, THEN MUTATE. Everything below this line changes the
-     * configuration; nothing above it does. The old order destroyed the rules
-     * first and discovered a malformed payload afterwards, with the scenario
-     * already gone.
+     * configuration; nothing above it does. The other order destroys the rules
+     * and only then discovers a malformed payload, with the scenario gone.
      */
     ScenarioPayload payload;
     string err;
