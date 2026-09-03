@@ -1682,4 +1682,61 @@ une configuration de production réelle : 125 règles avant, 125 après, à l'oc
 deuxième démarrage.
 
 **Ce qui ne change pas encore** : les anciens scénarios restent des auto-scénarios visibles dans
-l'API, et le format des réponses de l'API `autoscenario` est inchangé. C'est l'étape suivante.
+l'API.
+
+### ⛔ RUPTURE D'API ASSUMÉE : `autoscenario` change de format, et ce que vous lisez est enfin ce que vous pouvez renvoyer (E4.6d)
+
+> ⛔ **Le format des réponses et des requêtes `autoscenario` change, sans compatibilité ascendante
+> et sans convertisseur.** C'est une décision utilisateur : cette API n'a **aucun client**
+> first-party (les 7 dépôts voisins ont été mesurés, `calaos_installer` ne l'appelle jamais), et
+> l'ancien format rendait la perte de données inévitable. Un client tiers qui l'utiliserait doit
+> être adapté.
+
+**Le défaut que ça corrige, et il coûtait cher.** Ce que `autoscenario get` renvoyait n'était **pas**
+ce que `autoscenario modify` acceptait. `get` émettait `enabled` ; `modify` lisait `disabled`, son
+contraire, sous un autre nom. `get` n'émettait ni le nom, ni la visibilité, ni la pièce ; `modify`
+les lisait tous les trois. **Une interface qui relisait un scénario et le renvoyait tel quel le
+renommait en « New unnamed scenario », le rendait invisible et coupait sa planification** — avec
+`success:"true"` et pas un mot d'avertissement.
+
+Pire : une action dont l'IO avait disparu était **escamotée** de la réponse. Le scénario cassé
+était renvoyé amputé, le client renvoyait l'amputation, et le serveur écrivait un scénario
+définitivement privé de cette action — en se déclarant sain au passage. **Relire et renvoyer
+suffisait à perdre une action pour toujours.**
+
+**Ce que ça donne maintenant**
+
+- ⭐ **Un aller-retour est un aller-retour.** `get` → `modify` du **même document** → `get` rend
+  **exactement le même document**, y compris sur un scénario cassé. Rien ne se perd en chemin.
+- **Une action n'est jamais escamotée.** Elle est décrite par `{"io": …, "value": …,
+  "resolved": …}` : nommée par son identifiant, gardée **à sa place** même quand l'IO n'existe
+  plus, et marquée `resolved:"false"`. Un scénario cassé se répare au lieu de s'éroder.
+- **`final_step` est un champ à part.** `steps` contient les étapes et rien d'autre : sa longueur
+  est le nombre d'étapes. L'ancien piège — le tableau `steps` était **plus long d'un** que le
+  `steps_count` qui l'accompagnait, parce que l'étape terminale y était ajoutée artificiellement —
+  n'est plus exprimable. `steps_count` disparaît : un tableau a une longueur.
+- **Chaque étape porte un `step_id`** stable, jamais réutilisé. L'API adresse une étape par son
+  identité, plus par sa position.
+- **`enabled` est le seul nom** du choix « ce scénario suit sa planification », en lecture comme en
+  écriture. `disabled` disparaît de l'API.
+- **`name`, `visible`, `room_name` et `room_type` sont émis** par `get`, donc préservés par un
+  renvoi.
+- **Une requête mal formée est refusée AVANT que quoi que ce soit ne soit touché**, et le refus dit
+  ce qui cloche (pièce inconnue, `steps` qui n'est pas un tableau, pause qui n'est pas un nombre,
+  `step_id` en double, action sans `io`). Auparavant `modify` **détruisait d'abord** toutes les
+  règles du scénario et découvrait ensuite qu'il ne pouvait pas les reconstruire.
+- **`reenable` refuse** un scénario encore cassé, en nommant les identifiants à réparer — au lieu
+  de le relancer amputé.
+
+**Deux valeurs qui étaient silencieusement abîmées ne le sont plus**
+
+- ⭐ **Un octet zéro dans la valeur d'une action était coupé à cet octet, en silence.** Une valeur
+  `a\0b` revenait `"a"`, avec `200 OK` : ni erreur, ni journal, ni clé manquante — juste une valeur
+  plus courte que celle envoyée. Elle traverse maintenant entière.
+- **Une valeur en UTF-8 invalide était supprimée avec sa clé.** Elle est maintenant remplacée par le
+  caractère de remplacement standard, comme partout ailleurs dans l'API depuis la migration JSON.
+
+**Ce qui ne change pas** : les huit sous-commandes (`list`, `get`, `create`, `delete`, `modify`,
+`add_schedule`, `del_schedule`, `reenable`), la sémantique du drapeau collant
+`disabled_missing_io` et de la commande `reenable`, et le fait que tout reste des **chaînes**
+(`"true"`, `"1.5"`) comme dans le reste de l'API Calaos.

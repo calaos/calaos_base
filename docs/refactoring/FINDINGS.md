@@ -8454,3 +8454,50 @@ point fixe de la passe de démarrage, ce qu'aucun test ne disait.
 E4.6c le fait disparaître par construction (le chaînage est calculé à chaque génération, à partir de
 la définition), mais le défaut est réel sur `master` et vaut d'être consigné : **un scénario
 cyclique créé par l'API ne boucle qu'après un redémarrage.**
+
+## E4.6d — les `step_id` du payload rendaient les goldens dépendants de l'ordre d'exécution (2026-09-03)
+
+**La trouvaille la plus coûteuse du ticket, et elle n'a rien à voir avec l'API.** Le schéma neuf
+émet un `step_id` par étape (décision D3 : l'API adresse une étape par son identité, plus par sa
+position). Les allocateurs de `AutoScenarioDef` sont **monotones à l'échelle du processus** et ne
+recyclent jamais — c'est la propriété que D3 demande, et elle est juste **pour un serveur**.
+
+Le harnais de test, lui, charge des dizaines de configurations sans rapport dans **un seul**
+processus. Le `step_id` qu'un scénario reçoit dépendait donc du nombre de cas exécutés avant lui, et
+**tout golden qui le porte devenait flaky sous `--gtest_shuffle`** — de même que les assertions
+d'octets de `core/JsonApiScenarioWireBytes_test`. Le premier golden régénéré portait `s0`/`s1` parce
+qu'il avait été produit sous un `--gtest_filter` ; le même cas dans la suite complète en aurait
+produit d'autres.
+
+**Ce qui aurait dû tirer la sonnette plus tôt** : le fichier de caractérisation d'E4.0c documente
+déjà pourquoi `io_0` et `scenario_0` sont déterministes — « les deux générateurs ne balaient que le
+`ListeRoom` **courant**, que la fixture vide entre les cas ». Un générateur qui ne dépend **pas** de
+l'état courant est précisément celui qui échappe à cette garantie, et la série n'en avait encore
+aucun dans un payload.
+
+**Parade** : `AutoScenarioDef::resetIdAllocators()`, appelé par `CoreFixture::clearCoreState()`.
+Sémantiquement, c'est l'état d'un processus qui vient de démarrer — et le chargement re-fold chaque
+id lu dans les compteurs (`observeUid()` / `observeStepId()`), donc remettre les compteurs à zéro ne
+peut jamais faire redonner un id existant.
+
+**La règle générale, à porter aux tickets suivants** : *tout identifiant émis dans un payload doit
+être une fonction de l'état que la fixture remet à zéro, ou la fixture doit apprendre à le remettre
+à zéro.* Sinon le golden ne mesure pas le payload, il mesure l'ordre des cas — et il le fait en
+silence, en restant vert tant que personne ne mélange.
+
+## E4.6d — `Scenario::toJson()` tronquait un NUL et droppait l'UTF-8 invalide AVEC SA CLÉ : deux deltas, une seule ligne (2026-09-03)
+
+Consigné parce que la **forme** du correctif est instructive. Les deux défauts que §6.1 d'E4.6.md
+attribue à E4.6d — l'octet zéro coupé en silence, et la chaîne invalide supprimée avec sa clé parce
+que ni le retour de `json_string()` ni celui de `json_object_set_new()` n'étaient testés — sont
+**deux symptômes d'un seul choix de type** : `json_string(const char *)`.
+
+En sortant `IO/Scenario.cpp` de jansson, la valeur entre dans le document en `std::string`. Les deux
+transports dumpent déjà avec `ensure_ascii` et `error_handler_t::replace` (les trois invariants
+d'émission posés par E4.1b), donc **aucune garde n'a été ajoutée** : l'octet zéro ressort échappé et
+la chaîne invalide ressort remplacée, parce que c'est ce que fait le sérialiseur qu'on utilise déjà
+partout ailleurs. Zéro ligne de code défensif pour deux pertes de données silencieuses.
+
+⚠️ **Cela ne dispense pas de T3.58 volet (b)** — décider si le parseur doit *refuser* un NUL en
+entrée reste ouvert, et les deux sont indépendants : un `toJson()` propre porte la valeur entière
+mais ne dit rien de ce que l'API doit accepter.
