@@ -894,7 +894,7 @@ TEST_F(JsonApiAutoscenarioDispatchTest, TheHttpDispatcherRoutesTheSameEightSubCo
 }
 
 /*******************************************************************************
- * Service scope. >>> TO FLIP (E4.6e, D8) <<<
+ * Service scope.
  ******************************************************************************/
 
 TEST_F(JsonApiAutoscenarioDispatchTest,
@@ -968,7 +968,7 @@ TEST_F(JsonApiAutoscenarioDispatchTest,
 }
 
 /*******************************************************************************
- * Unknown and absent sub-commands. >>> TO FLIP (E4.6e, D8) <<<
+ * Unknown and absent sub-commands.
  ******************************************************************************/
 
 TEST_F(JsonApiAutoscenarioDispatchTest,
