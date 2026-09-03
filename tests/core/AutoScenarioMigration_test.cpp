@@ -41,14 +41,23 @@
  * COUNTS, so a reader can check them: 19 cases. As shipped by E4.6a, 14
  * carried ">>> TO FLIP <<<" and 5 carried ">>> ✅ PROVE, DO NOT FLIP <<<".
  *
- * ALREADY FLIPPED, and by whom:
- *   - TodayIoXmlCarriesOnlyTheMarkerAndTheDerivedInternalIos -> E4.6b (D2),
- *     2026-09-01. io.xml now carries the definition, exactly as E4.6a
- *     predicted it would. 13 ">>> TO FLIP <<<" left.
- * E4.6b also corrected ONE precondition of loadScenarioWithTwoAmputatedActions()
+ * ALREADY FLIPPED (each carries a "✅ FLIPPED" note saying what it now
+ * measures): TodayIoXmlCarriesOnlyTheMarkerAndTheDerivedInternalIos, then the
+ * six that the rules generator turned around -
+ * RekeyingTheMarkerMakesTheOrphanSweepDestroyEveryRuleOfTheScenario,
+ * TheOrphanSweepDestructionIsPersistedToRulesXmlAtTheFirstStartup,
+ * AStepRuleWhoseConditionValueDoesNotMatchIsDroppedAndThenDestroyed,
+ * AHeaderRuleThatFailsTheMatchIsRecreatedAndTheOriginalDestroyed,
+ * LosingTheMiddleStepRenumbersEveryStepAfterIt and
+ * AnInstallerStyleReloadThatDroppedTheDeadOutputLeavesNoTraceAtAll.
+ * Seven names now say the opposite of what they measure; they are kept because
+ * this file and the table of E4.6.md verify each other by name.
+ * 6 ">>> TO FLIP <<<" left, all owned by the API surface.
+ *
+ * One precondition of loadScenarioWithTwoAmputatedActions() was corrected
  * without touching any case: it asserted that the id of an amputated IO was
  * absent from io.xml as a SUBSTRING, which io.xml can now produce legitimately
- * because the definition keeps the id of an action whose IO disappeared (D4).
+ * because the definition keeps the id of an action whose IO disappeared.
  * It measures the element instead, and asserts the surviving id positively.
  *
  * The five defects E4.6.md asks E4.6a to pin, and where they live here:
@@ -138,6 +147,7 @@
 
 #include "JsonApiCharacterization.h"
 
+#include "ActionStd.h"
 #include "AutoScenario.h"
 #include "CalaosConfig.h"
 #include "ConditionStd.h"
@@ -540,6 +550,21 @@ protected:
         return {};
     }
 
+    //The value the first single-output action of `rule` sets on `ioId`, "" when
+    //there is none.
+    static std::string actionValueOn(Rule *rule, const std::string &ioId)
+    {
+        if (!rule) return {};
+        for (int i = 0;i < rule->get_size_actions();i++)
+        {
+            ActionStd *act = dynamic_cast<ActionStd *>(rule->get_action(i));
+            if (!act || act->get_size() != 1) continue;
+            if (act->get_output_id(0) != ioId) continue;
+            return act->get_params().get_param(ioId);
+        }
+        return {};
+    }
+
     //Number of <calaos:rule> elements of the rules.xml that is on disk NOW.
     size_t ruleCountOnDisk() const
     {
@@ -712,23 +737,13 @@ protected:
 
 TEST_F(AutoScenarioMigrationTest, RekeyingTheMarkerMakesTheOrphanSweepDestroyEveryRuleOfTheScenario)
 {
-    /* >>> TO FLIP (E4.6c, RC1) <<<   defect (a) of E4.6.md §6.
+    /* ✅ FLIPPED. The rules of a scenario whose IO lost its marker SURVIVE:
+     * there is no orphan sweep any more. This is the case that stands between
+     * the 18 rules of configs/raoulh and silent destruction at first startup.
      *
-     * ListeRoom.cpp:324, predicate
-     *     rule->param_exists("auto_scenario") && !rule->isAutoScenario()
-     * Params is an EXACT match (src/lib/Params.cpp:31-37), so on files written
-     * by today's server the left half stays TRUE after a re-key, while the
-     * right half becomes FALSE because nobody adopts the rules any more.
-     * Every rule of the scenario is destroyed, in silence, at the first
-     * startup. On configs/raoulh that is 18 rules.
-     *
-     * THE MEASUREMENT IS AN EXCHANGE, not a neutralization: the SAME two files
-     * are loaded twice, once with the marker on the Scenario IO and once
-     * without it, and nothing else differs. The control half is what proves the
-     * treatment half means something.
-     *
-     * E4.6c removes the sweep entirely (D1). When it does, this case flips to:
-     * the rules SURVIVE the re-key. Flip the expected value, keep the exchange.
+     * The measurement is an EXCHANGE: the same two files loaded twice, once
+     * with the marker on the Scenario IO and once without, nothing else
+     * differing.
      */
     loadMigrationHouse();
 
@@ -773,18 +788,15 @@ TEST_F(AutoScenarioMigrationTest, RekeyingTheMarkerMakesTheOrphanSweepDestroyEve
 
     ListeRoom::Instance().checkAutoScenario();
 
-    EXPECT_EQ(0u, markedRuleCount())
-            << "TODAY the sweep destroys all six. E4.6c must make this zero become six.";
+    EXPECT_EQ(6u, markedRuleCount())
+            << "an unadopted rule was destroyed: the orphan sweep is back";
 }
 
 TEST_F(AutoScenarioMigrationTest, TheOrphanSweepDestructionIsPersistedToRulesXmlAtTheFirstStartup)
 {
-    /* >>> TO FLIP (E4.6c, RC1) <<<   defect (a), the half that makes it fatal.
-     *
-     * checkAutoScenario() ends with SaveConfigRule() (ListeRoom.cpp:341), two
-     * lines below the sweep. The destruction is therefore not a runtime
-     * accident one can recover from by restarting: it is written to disk, at
-     * the first startup, with no user action of any kind.
+    /* ✅ FLIPPED. checkAutoScenario() still ends with SaveConfigRule(), so
+     * whatever it does to the rules is written to disk at the first startup,
+     * with no user action. It now does nothing to them.
      */
     loadMigrationHouse();
 
@@ -804,9 +816,10 @@ TEST_F(AutoScenarioMigrationTest, TheOrphanSweepDestructionIsPersistedToRulesXml
 
     ListeRoom::Instance().checkAutoScenario();
 
-    EXPECT_EQ(0u, ruleCountOnDisk())
-            << "TODAY the six rules are erased from rules.xml. E4.6c must keep them.";
-    EXPECT_EQ(std::string::npos, rulesXmlOnDisk().find(SCENARIO_MARKER));
+    EXPECT_EQ(6u, ruleCountOnDisk())
+            << "the startup pass erased rules from rules.xml";
+    EXPECT_NE(std::string::npos, rulesXmlOnDisk().find(SCENARIO_MARKER))
+            << "the rules kept their marker, they are ordinary rules now";
 }
 
 TEST_F(AutoScenarioMigrationTest, AnUnmarkedScenarioIoStillRunsItsRulesWhenTheButtonIsPressed)
@@ -967,21 +980,12 @@ TEST_F(AutoScenarioMigrationTest, AutoscenarioGetAndListIgnoreAnUnmarkedScenario
 
 TEST_F(AutoScenarioMigrationTest, AStepRuleWhoseConditionValueDoesNotMatchIsDroppedAndThenDestroyed)
 {
-    /* >>> TO FLIP (E4.6c, RC1) <<<
+    /* ✅ FLIPPED, and the name now says the opposite of what happens: the
+     * corrupted step rule is REBUILT from the definition, not dropped.
      *
-     * One character of one condition value of the MIDDLE step rule is changed,
+     * One character of one condition value of the MIDDLE step rule is changed
      * in the file, from "true" to "false" - an EXCHANGE of the two values the
-     * field can take, not a neutralization. Every id still resolves, the rule
-     * still loads, the rules engine still holds it.
-     *
-     * checkScenarioRules() refuses to recognize it (:684), never adopts it, and
-     * NOTHING recreates a step rule - the recreation block at :737-808 covers
-     * button_start/button_stop/step_end/time_start/time_stop only. The orphan
-     * sweep then destroys it and SaveConfigRule() persists that.
-     *
-     * Net result: ONE character in a file silently costs a whole step, for
-     * ever. E4.6c regenerates the rules from the definition instead of
-     * recognizing them, so the file content stops being able to do this.
+     * field can take. It used to cost the whole step, permanently.
      */
     loadMigrationHouse();
 
@@ -1019,34 +1023,38 @@ TEST_F(AutoScenarioMigrationTest, AStepRuleWhoseConditionValueDoesNotMatchIsDrop
 
     AutoScenario *as = autoScenario();
     ASSERT_TRUE(as != nullptr);
-    EXPECT_EQ(2u, as->getRuleSteps().size())
-            << "TODAY the unrecognized step is simply not adopted";
-    EXPECT_EQ(5u, markedRuleCount())
-            << "TODAY the orphan sweep destroyed it. E4.6c must keep three steps.";
-    EXPECT_EQ(5u, ruleCountOnDisk()) << "and the destruction was persisted";
+    EXPECT_EQ(3u, as->getRuleSteps().size()) << "a step was lost to one edited character";
+    EXPECT_EQ(6u, markedRuleCount());
+    EXPECT_EQ(6u, ruleCountOnDisk()) << "and the loss was persisted";
 
-    //And what survived is NOT the middle step: the third one took its place.
-    //(see the renumbering case in section 3)
+    //The edited value is healed: the regenerated rule carries the condition the
+    //definition calls for, not the one that was in the file.
+    EXPECT_EQ("true", conditionValueOn(as->getRuleSteps()[1],
+                                       std::string(SCENARIO_MARKER) + "_is_active"));
+
+    //The three steps are in their declared order, with their declared pauses.
     WsTestSession ws;
     const Json sc = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
-    ASSERT_EQ(3u, sc["steps"].size()) << "two standard steps plus the synthetic end step";
+    ASSERT_EQ(4u, sc["steps"].size()) << "three standard steps plus the synthetic end step";
     EXPECT_EQ("1.5", sc["steps"][0].value("step_pause", std::string()));
-    EXPECT_EQ("0.5", sc["steps"][1].value("step_pause", std::string()))
-            << "the 2.25s step is gone and the 0.5s one slid up: " << sc.dump();
+    EXPECT_EQ("2.25", sc["steps"][1].value("step_pause", std::string())) << sc.dump();
+    EXPECT_EQ("0.5", sc["steps"][2].value("step_pause", std::string()));
+    ASSERT_EQ(3u, sc["steps"][1]["actions"].size());
+    EXPECT_EQ(IO_GHOST_STEP, sc["steps"][1]["actions"][1].value("id", std::string()));
+    EXPECT_EQ("fantome", sc["steps"][1]["actions"][1].value("action", std::string()));
 }
 
 TEST_F(AutoScenarioMigrationTest, AHeaderRuleThatFailsTheMatchIsRecreatedAndTheOriginalDestroyed)
 {
-    /* >>> TO FLIP (E4.6c, RC1) <<<
+    /* ✅ FLIPPED, on the CONTROL half, and that is where the change lives.
      *
-     * The other half of the same cause. A HEADER rule that fails the literal
-     * match is not adopted either - but this one IS recreated (:737-754), so
-     * the scenario ends up with a duplicate for an instant, and then the orphan
-     * sweep destroys the original.
+     * A header rule used to be REPLACED only when it failed the literal match,
+     * and kept otherwise. Nothing is matched any more: both halves of the
+     * exchange now replace it, and both end up with the value the definition
+     * calls for. The file stops being able to decide what a rule contains.
      *
      * EXCHANGE: the button_start action on the step IO is moved from "0" to
-     * "2" - a value the field legitimately takes elsewhere in this very
-     * scenario, not a nonsense marker.
+     * "2" - a value the field legitimately takes elsewhere in this scenario.
      */
     loadMigrationHouse();
 
@@ -1057,29 +1065,56 @@ TEST_F(AutoScenarioMigrationTest, AHeaderRuleThatFailsTheMatchIsRecreatedAndTheO
 
     saveConfig();
     const std::string ioXml = ioXmlOnDisk();
-    std::string rulesXml = rulesXmlOnDisk();
+    const std::string rulesPristine = rulesXmlOnDisk();
 
-    ASSERT_TRUE(retuneHeaderAction(rulesXml, "button_start", "_step", "0", "2"))
+    const std::string stepIoId = std::string(SCENARIO_MARKER) + "_step";
+    const std::string startName = std::string(SCENARIO_MARKER) + "_button_start";
+
+    //--- control: the file is untouched, and the rule is rebuilt all the same
+    clearCoreState();
+    loadConfig(ioXml, rulesPristine);
+    {
+        Rule *original = findRule(startName);
+        ASSERT_TRUE(original != nullptr);
+        ASSERT_EQ(6u, markedRuleCount());
+
+        ListeRoom::Instance().checkAutoScenario();
+
+        AutoScenario *as = autoScenario();
+        ASSERT_TRUE(as != nullptr);
+        ASSERT_TRUE(as->getRuleStart() != nullptr);
+        EXPECT_NE(original, as->getRuleStart())
+                << "a rule was adopted instead of being regenerated";
+        EXPECT_EQ("0", actionValueOn(as->getRuleStart(), stepIoId));
+        EXPECT_EQ(6u, markedRuleCount()) << "the rebuild left a duplicate behind";
+        EXPECT_EQ(3u, as->getRuleSteps().size());
+    }
+
+    //--- treatment: the same file with one action value moved to "2"
+    std::string rulesTuned = rulesPristine;
+    ASSERT_TRUE(retuneHeaderAction(rulesTuned, "button_start", "_step", "0", "2"))
             << "the button_start rule was not found, the fixture moved";
+    ASSERT_NE(rulesPristine, rulesTuned);
 
     clearCoreState();
-    loadConfig(ioXml, rulesXml);
+    loadConfig(ioXml, rulesTuned);
+    {
+        Rule *original = findRule(startName);
+        ASSERT_TRUE(original != nullptr);
+        EXPECT_EQ("2", actionValueOn(original, stepIoId)) << "the edit did not load";
+        ASSERT_EQ(6u, markedRuleCount());
 
-    Rule *original = findRule(std::string(SCENARIO_MARKER) + "_button_start");
-    ASSERT_TRUE(original != nullptr);
-    ASSERT_EQ(6u, markedRuleCount());
+        ListeRoom::Instance().checkAutoScenario();
 
-    ListeRoom::Instance().checkAutoScenario();
-
-    //A button_start is still there - but it is a NEW one, built from scratch
-    //by the recreation block, and the original has been destroyed.
-    AutoScenario *as = autoScenario();
-    ASSERT_TRUE(as != nullptr);
-    ASSERT_TRUE(as->getRuleStart() != nullptr);
-    EXPECT_NE(original, as->getRuleStart())
-            << "TODAY the original is replaced by a rebuilt duplicate";
-    EXPECT_EQ(6u, markedRuleCount()) << "the count is unchanged: one created, one destroyed";
-    EXPECT_EQ(3u, as->getRuleSteps().size()) << "the steps were not collateral damage";
+        AutoScenario *as = autoScenario();
+        ASSERT_TRUE(as != nullptr);
+        ASSERT_TRUE(as->getRuleStart() != nullptr);
+        EXPECT_NE(original, as->getRuleStart());
+        EXPECT_EQ("0", actionValueOn(as->getRuleStart(), stepIoId))
+                << "the edited value survived the rebuild";
+        EXPECT_EQ(6u, markedRuleCount()) << "the count is unchanged: one for one";
+        EXPECT_EQ(3u, as->getRuleSteps().size()) << "the steps were not collateral damage";
+    }
 }
 
 /*******************************************************************************
@@ -1088,18 +1123,11 @@ TEST_F(AutoScenarioMigrationTest, AHeaderRuleThatFailsTheMatchIsRecreatedAndTheO
 
 TEST_F(AutoScenarioMigrationTest, LosingTheMiddleStepRenumbersEveryStepAfterIt)
 {
-    /* >>> TO FLIP (E4.6b/c, RC2) <<<
-     *
-     * The step number is FOUR things at once (E4.6.md §2.4): the index in
-     * ruleSteps, the `auto_scenario_step` param, the value compared against the
-     * _step IO in the rule condition, and the index in the JSON array. None of
-     * them is an identity, and checkScenarioRules() rewrites the third one from
-     * the first at :811-829.
-     *
-     * So destroying the MIDDLE step rule does not leave a hole: the third step
-     * BECOMES the second, its condition is rewritten from `== 2` to `== 1`, and
-     * any client holding "step 2" now points at different actions.
-     * E4.6b gives each step an opaque, stable id and the renumbering disappears.
+    /* ✅ FLIPPED, and the name is now the opposite of what happens: nothing is
+     * renumbered because nothing is lost. The destroyed middle rule is rebuilt
+     * in place from the definition, and the four numberings of a step can no
+     * longer disagree - the param and the condition are written together, from
+     * the same source, at every build.
      */
     loadHealthyScenarioFromDisk();
 
@@ -1108,48 +1136,48 @@ TEST_F(AutoScenarioMigrationTest, LosingTheMiddleStepRenumbersEveryStepAfterIt)
     std::vector<Rule *> steps = as->getRuleSteps();
     ASSERT_EQ(3u, steps.size());
 
-    //identify the three by their pause, which is the only thing that tells them
-    //apart today - and they were chosen to be all different
-    EXPECT_EQ("0", steps[0]->get_param("auto_scenario_step"));
-    EXPECT_EQ("1", steps[1]->get_param("auto_scenario_step"));
-    EXPECT_EQ("2", steps[2]->get_param("auto_scenario_step"));
-    Rule *third = steps[2];
+    const std::string stepIoId = std::string(SCENARIO_MARKER) + "_step";
+    for (int i = 0;i < 3;i++)
+    {
+        EXPECT_EQ(std::to_string(i), steps[i]->get_param("auto_scenario_step"));
+        EXPECT_EQ(std::to_string(i), conditionValueOn(steps[i], stepIoId));
+    }
 
     //destroy the MIDDLE one, the way ListeRule does of its own initiative
     ListeRule::Instance().Remove(steps[1]);
 
-    as = autoScenario();
-    ASSERT_TRUE(as != nullptr);
+    //Until the next build the scenario knows it is short of a rule, and says so
+    //without being able to name an id - the one shape of `broken` that names
+    //nothing.
+    EXPECT_TRUE(as->isBroken());
+    EXPECT_EQ("", as->getMissingIoDescription());
+    EXPECT_EQ(2u, as->getRuleSteps().size());
+
     ASSERT_TRUE(as->checkScenarioRules());
 
     steps = as->getRuleSteps();
-    ASSERT_EQ(2u, steps.size());
-    EXPECT_EQ(third, steps[1]) << "the third step object is still there...";
+    ASSERT_EQ(3u, steps.size()) << "the middle step was not rebuilt";
+    EXPECT_FALSE(as->isBroken());
 
-    /* ...and TODAY three of the four numberings of E4.6.md §2.4 disagree about
-     * what it is. checkScenarioRules() rewrites the CONDITION (:817) and
-     * leaves the PARAM alone, so the very rule that persists as
-     * auto_scenario_step="2" only fires when the _step IO reads 1.
-     * That divergence is the measurement: a mutation that renumbered both
-     * consistently, or neither, fails here.
-     */
-    const std::string stepIoId = std::string(SCENARIO_MARKER) + "_step";
-    EXPECT_EQ("2", third->get_param("auto_scenario_step"))
-            << "the param is NOT renumbered";
-    EXPECT_EQ("1", conditionValueOn(third, stepIoId))
-            << "but the condition IS: " << stepIoId;
-    //the surviving first step is unambiguous, both numbering agree on it
-    EXPECT_EQ("0", steps[0]->get_param("auto_scenario_step"));
-    EXPECT_EQ("0", conditionValueOn(steps[0], stepIoId));
+    for (int i = 0;i < 3;i++)
+    {
+        EXPECT_EQ(std::to_string(i), steps[i]->get_param("auto_scenario_step"))
+                << "step " << i;
+        EXPECT_EQ(std::to_string(i), conditionValueOn(steps[i], stepIoId))
+                << "the param and the condition disagree on step " << i;
+    }
 
-    //the payload agrees: what used to be step 2 now answers at index 1
+    //and the payload is the one of an untouched scenario
     WsTestSession ws;
     const Json sc = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
-    ASSERT_EQ(3u, sc["steps"].size());
-    EXPECT_EQ("0.5", sc["steps"][1].value("step_pause", std::string()));
-    ASSERT_EQ(1u, sc["steps"][1]["actions"].size());
-    EXPECT_EQ(IO_BANNER, sc["steps"][1]["actions"][0].value("id", std::string()));
-    EXPECT_EQ("bonsoir", sc["steps"][1]["actions"][0].value("action", std::string()));
+    ASSERT_EQ(4u, sc["steps"].size());
+    EXPECT_EQ("2.25", sc["steps"][1].value("step_pause", std::string()));
+    ASSERT_EQ(3u, sc["steps"][1]["actions"].size()) << sc["steps"][1].dump();
+    EXPECT_EQ(IO_GHOST_STEP, sc["steps"][1]["actions"][1].value("id", std::string()));
+    EXPECT_EQ("fantome", sc["steps"][1]["actions"][1].value("action", std::string()));
+    EXPECT_EQ("0.5", sc["steps"][2].value("step_pause", std::string()));
+    EXPECT_EQ(IO_BANNER, sc["steps"][2]["actions"][0].value("id", std::string()));
+    EXPECT_EQ("bonsoir", sc["steps"][2]["actions"][0].value("action", std::string()));
 }
 
 TEST_F(AutoScenarioMigrationTest, TheStepsArrayIsOneLongerThanStepsCountBecauseTheEndStepIsSynthetic)
@@ -1645,18 +1673,15 @@ TEST_F(AutoScenarioMigrationTest, ThePayloadTellsTheFourStatesApartAndTwoOfThemD
 
 TEST_F(AutoScenarioMigrationTest, AnInstallerStyleReloadThatDroppedTheDeadOutputLeavesNoTraceAtAll)
 {
-    /* >>> TO FLIP (E4.6b/c, RC9) <<<   defect (e) of E4.6.md §6.
+    /* ✅ FLIPPED, and the flip is total: the amputation now leaves the SAME
+     * trace as no amputation at all. rules.xml is regenerated from the
+     * definition at every load, so what an installer round trip strips out of
+     * it is written back before anything reads it.
      *
-     * The EXCHANGE that gives this case its teeth: the SAME amputation is
-     * loaded twice, and the only difference is whether rules.xml still names
-     * the dead IO.
-     *   - reference kept   -> broken, flag set, missing_ios names it (section 4)
-     *   - reference dropped -> broken FALSE, flag FALSE, missing_ios EMPTY, one
-     *     action fewer, and NOTHING anywhere records that a step was amputated.
-     *
-     * This is the vector that matters in production, and it is the one no API
-     * guard can see. E4.6 closes it by moving the definition out of rules.xml
-     * (D1/D2) and regenerating the rules at every load (D10 level 0).
+     * The exchange is what states it: the two payloads, one from a rules.xml
+     * that still names the dead IO and one from a rules.xml that does not, are
+     * compared to each other and must be identical. This used to be the vector
+     * no server-side guard could see.
      */
     loadMigrationHouse();
 
@@ -1674,6 +1699,8 @@ TEST_F(AutoScenarioMigrationTest, AnInstallerStyleReloadThatDroppedTheDeadOutput
     clearCoreState();
     loadConfig(ioXml, rulesKept);
     ListeRoom::Instance().checkAutoScenario();
+
+    std::string controlPayload;
     {
         WsTestSession ws;
         const Json sc = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
@@ -1681,6 +1708,7 @@ TEST_F(AutoScenarioMigrationTest, AnInstallerStyleReloadThatDroppedTheDeadOutput
         EXPECT_EQ("true", sc.value("disabled_missing_io", std::string()));
         EXPECT_EQ(IO_GHOST_STEP, sc.value("missing_ios", std::string()));
         EXPECT_EQ(2u, sc["steps"][1]["actions"].size());
+        controlPayload = sc.dump();
     }
 
     //--- treatment: the installer regenerated rules.xml without the dead output
@@ -1694,26 +1722,25 @@ TEST_F(AutoScenarioMigrationTest, AnInstallerStyleReloadThatDroppedTheDeadOutput
 
     AutoScenario *as = autoScenario();
     ASSERT_TRUE(as != nullptr);
-    EXPECT_FALSE(as->isBroken())
-            << "TODAY the server sees a perfectly healthy scenario";
-    EXPECT_FALSE(as->isDisabledMissingIo());
-    EXPECT_EQ(3u, as->getRuleSteps().size()) << "the step itself is still there";
+    EXPECT_TRUE(as->isBroken()) << "the amputation is invisible again";
+    EXPECT_TRUE(as->isDisabledMissingIo());
+    EXPECT_EQ(3u, as->getRuleSteps().size());
+
+    //the dead reference is back in rules.xml, put there by the rebuild
+    EXPECT_NE(std::string::npos, rulesXmlOnDisk().find(IO_GHOST_STEP));
 
     WsTestSession ws;
     const Json sc = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
-    EXPECT_EQ("false", sc.value("broken", std::string()));
-    EXPECT_EQ("false", sc.value("disabled_missing_io", std::string()));
-    EXPECT_EQ("", sc.value("missing_ios", std::string()));
-    //two of three actions, exactly like the amputated case - and nothing at all
-    //to tell the two apart
-    ASSERT_EQ(2u, sc["steps"][1]["actions"].size()) << sc["steps"][1].dump();
-    EXPECT_EQ(IO_BLIND, sc["steps"][1]["actions"][0].value("id", std::string()));
-    EXPECT_EQ(IO_VOLUME, sc["steps"][1]["actions"][1].value("id", std::string()));
+    EXPECT_EQ("true", sc.value("broken", std::string()));
+    EXPECT_EQ("true", sc.value("disabled_missing_io", std::string()));
+    EXPECT_EQ(IO_GHOST_STEP, sc.value("missing_ios", std::string()));
+    EXPECT_EQ(controlPayload, sc.dump())
+            << "the two round trips are still distinguishable";
 
-    //and it runs, amputated, with every gate open
-    EXPECT_EQ(3, runScenario());
-    EXPECT_EQ(77, (int)io(IO_BLIND)->get_value_double());
-    EXPECT_EQ(42, (int)io(IO_VOLUME)->get_value_double());
+    //and it does NOT run: the gates hold
+    EXPECT_EQ(0, runScenario());
+    EXPECT_EQ(0, (int)io(IO_BLIND)->get_value_double());
+    EXPECT_EQ(0, (int)io(IO_VOLUME)->get_value_double());
 }
 
 /*******************************************************************************

@@ -22,6 +22,7 @@
 #include <memory>
 
 #include <ListeRule.h>
+#include "AutoScenarioDef.h"
 
 using namespace Calaos;
 
@@ -116,8 +117,12 @@ void ListeRule::Add(Rule *r)
 
     rules.emplace_back(r);
 
-    //Non-owning index, same pointer, kept in sync by Remove()
-    if (r->param_exists("auto_scenario"))
+    /* Non-owning index, same pointer, kept in sync by Remove(). Two keys: a
+     * generated rule carries both, a rule from an older server only the first,
+     * and all of them have to be findable.
+     */
+    if (r->param_exists("auto_scenario") ||
+        r->param_exists(AutoScenarioDef::KEY_UID))
         rules_scenarios.push_back(r);
 
     cDebugDom("rule") << r->get_name() << "," << r->get_type() << ": Ok";
@@ -505,6 +510,22 @@ list<Rule *> ListeRule::getRuleAutoScenario(string auto_scenario)
         if (r->get_param("auto_scenario") == auto_scenario)
             l.push_back(r);
     }
+
+    return l;
+}
+
+list<Rule *> ListeRule::getRulesOfScenarioUid(const string &uid)
+{
+    list<Rule *> l;
+
+    //An empty uid is not an identity: a scenario that has not declared one
+    //owns no generated rule, and matching "" would hand it every rule whose
+    //param happens to be absent.
+    if (uid.empty()) return l;
+
+    for (Rule *r: rules_scenarios)
+        if (r && r->get_param(AutoScenarioDef::KEY_UID) == uid)
+            l.push_back(r);
 
     return l;
 }

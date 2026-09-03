@@ -59,6 +59,11 @@ protected:
      * one of them can own it. getRuleAutoScenario() hands out those same
      * non-owning pointers.
      *
+     * It admits TWO keys, `auto_scenario` and `autoscenario_uid`: a generated
+     * rule carries both, a rule written by an older server only the first.
+     * Narrowing it to the second would make an existing configuration
+     * disappear from every lookup that walks this index.
+     *
      * `in_event` is a non-owning list of IOs owned by their Room (E4.2b),
      * registered by the IO itself (see Add(IOBase*)/Remove(IOBase*)).
      * ---------------------------------------------------------------- */
@@ -207,7 +212,14 @@ public:
     void ExecuteStartRules();
 
     //NON-OWNING pointers into `rules`, in rules_scenarios order.
+    //Matches `auto_scenario`, which every rule of a scenario carries whoever
+    //wrote it.
     list<Rule *> getRuleAutoScenario(string auto_scenario);
+
+    /* Matches `autoscenario_uid`. This is the set the generator destroys before
+     * regenerating: a rule without the uid was written by somebody else.
+     */
+    list<Rule *> getRulesOfScenarioUid(const string &uid);
 
     /* E4.2e. The rules that are loaded but never executed because one of their
      * conditions/actions references an IO that did not exist when the config

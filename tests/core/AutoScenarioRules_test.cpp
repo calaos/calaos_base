@@ -19,11 +19,12 @@
  **
  ******************************************************************************/
 /*******************************************************************************
- * CHARACTERIZATION of what AutoScenario does to the rules of a scenario TODAY.
- * Several of the behaviours pinned below are defects; a characterization case
- * never says "this is right", it says "this is what happens". The four that are
- * meant to be turned around carry a ">>> TO FLIP <<<" note saying what should
- * replace them.
+ * AutoScenario as a GENERATOR: the rules are destroyed and rebuilt from the
+ * definition, never read to learn what the scenario is.
+ *
+ * Four case names below say the OPPOSITE of what they now assert: they were
+ * written against the model this replaces and are kept under their old names so
+ * that the flip is nominal. Each carries a "FLIPPED" note.
  *
  * THE FIXTURE IS RICH ON PURPOSE. Three steps and a final one; three different
  * pauses; six action values that look nothing alike; one IO targeted twice with
@@ -364,12 +365,12 @@ TEST_F(AutoScenarioRulesTest, TwoConsecutiveRebuildsProduceTheSameRulesByteForBy
     const std::string first = serializeAllRules();
     const std::vector<std::string> firstShapes = ruleShapes();
 
-    ASSERT_TRUE(as->checkScenarioRules());
+    ASSERT_TRUE(as->rebuildRules());
     EXPECT_EQ(8, ListeRule::Instance().size()) << "the rebuild left duplicates behind";
     EXPECT_EQ(firstShapes, ruleShapes());
     EXPECT_EQ(first, serializeAllRules()) << "two rebuilds do not agree";
 
-    ASSERT_TRUE(as->checkScenarioRules());
+    ASSERT_TRUE(as->rebuildRules());
     EXPECT_EQ(8, ListeRule::Instance().size());
     EXPECT_EQ(first, serializeAllRules()) << "the third rebuild drifted";
 
@@ -404,11 +405,8 @@ TEST_F(AutoScenarioRulesTest, TheStartupPassIsIdempotentAcrossARebootAndKeepsRul
 
 TEST_F(AutoScenarioRulesTest, ARebuildRecognizesTheExistingRulesAndKeepsThem)
 {
-    /* >>> TO FLIP <<<
-     * A rebuild does not rebuild: it compares each candidate rule to the shape
-     * it expects, condition by condition and action by action, and ADOPTS the
-     * ones that match. The rule objects survive, and the file therefore decides
-     * what the scenario is. It should destroy them and regenerate every one.
+    /* FLIPPED: nothing is recognized and nothing survives. Every rule is
+     * destroyed and regenerated, so the file cannot decide what the scenario is.
      *
      * Liveness tokens, not pointers: the allocator hands the same addresses
      * straight back, so a raw comparison cannot tell a survivor from a fresh
@@ -423,10 +421,10 @@ TEST_F(AutoScenarioRulesTest, ARebuildRecognizesTheExistingRulesAndKeepsThem)
     for (Rule *r: allRules()) before.push_back(r->aliveToken());
     ASSERT_EQ(8u, before.size());
 
-    ASSERT_TRUE(as->checkScenarioRules());
+    ASSERT_TRUE(as->rebuildRules());
 
     for (const std::weak_ptr<bool> &t: before)
-        EXPECT_FALSE(t.expired()) << "TODAY every rule survives the rebuild";
+        EXPECT_TRUE(t.expired()) << "a rule survived the rebuild";
 
     const std::vector<Rule *> after = allRules();
     ASSERT_EQ(8u, after.size());
@@ -443,7 +441,7 @@ TEST_F(AutoScenarioRulesTest, ARebuildRecognizesTheExistingRulesAndKeepsThem)
         std::string(SCENARIO_MARKER) + "_step",
         std::string(SCENARIO_MARKER) + "_time_start",
         std::string(SCENARIO_MARKER) + "_time_stop" };
-    EXPECT_EQ(expected, names);
+    EXPECT_EQ(expected, names) << "the order is the file's, not the generator's";
 }
 
 TEST_F(AutoScenarioRulesTest, TheDefinitionOverwritesWhateverTheRuleFileSaid)
@@ -515,7 +513,7 @@ TEST_F(AutoScenarioRulesTest, AStepNumberIsWrittenOnceAndItsConditionAgreesWithI
     EXPECT_EQ("1", actionValueOn(steps[0], stepIoId));
 
     as->setCycling(false);
-    ASSERT_TRUE(as->checkScenarioRules());
+    ASSERT_TRUE(as->rebuildRules());
     EXPECT_EQ("-1", actionValueOn(as->getRuleSteps()[2], stepIoId));
     EXPECT_EQ(nullptr, as->getRulePlageStop()) << "the cycle rule outlived the cycle flag";
     EXPECT_TRUE(as->getRulePlageStart() != nullptr);
@@ -527,15 +525,11 @@ TEST_F(AutoScenarioRulesTest, AStepNumberIsWrittenOnceAndItsConditionAgreesWithI
 
 TEST_F(AutoScenarioRulesTest, TheOrphanSweepDestroysAnyMarkedRuleNoScenarioAdopted)
 {
-    /* >>> TO FLIP <<<
-     * The startup pass destroys every rule carrying the `auto_scenario` param
-     * that no scenario adopted, and the SaveConfigRule() two lines below
-     * persists it. Nothing distinguishes "a rule of a scenario I rebuilt" from
-     * "somebody else's data": both go.
+    /* FLIPPED: the sweep is gone. A rule carrying no generated uid is somebody
+     * else's data, whatever it claims about itself.
      *
-     * EXCHANGE: two rules identical but for the value of that param - one
-     * claiming this very scenario, one claiming another. Both must survive; both
-     * are destroyed today.
+     * EXCHANGE: two rules identical but for the value of `auto_scenario` - one
+     * claiming this very scenario, one claiming another. Both survive.
      */
     loadRulesHouse();
     {
@@ -562,20 +556,22 @@ TEST_F(AutoScenarioRulesTest, TheOrphanSweepDestroysAnyMarkedRuleNoScenarioAdopt
 
     ListeRoom::Instance().checkAutoScenario();
 
-    EXPECT_TRUE(findRule("e46c_claims_the_scenario") == nullptr)
-            << "TODAY the sweep destroys a rule claiming the scenario";
-    EXPECT_TRUE(findRule("e46c_claims_another") == nullptr)
-            << "TODAY the sweep destroys an unrelated marked rule too";
-    //and it is written to disk straight away
-    EXPECT_EQ(std::string::npos, rulesXmlOnDisk().find("e46c_claims_the_scenario"));
-    EXPECT_EQ(std::string::npos, rulesXmlOnDisk().find("e46c_claims_another"));
+    EXPECT_TRUE(findRule("e46c_claims_the_scenario") != nullptr)
+            << "a rule claiming the scenario was destroyed";
+    EXPECT_TRUE(findRule("e46c_claims_another") != nullptr)
+            << "an unrelated marked rule was destroyed";
+    //and the destruction is not merely deferred to the save
+    saveConfig();
+    EXPECT_NE(std::string::npos, rulesXmlOnDisk().find("e46c_claims_the_scenario"));
+    EXPECT_NE(std::string::npos, rulesXmlOnDisk().find("e46c_claims_another"));
 }
 
 TEST_F(AutoScenarioRulesTest, RulesThatPredateTheDefinitionAreLeftAloneAndNotDuplicated)
 {
-    //No rule carries a definition uid today: the marker on a rule is the
-    //scenario id and nothing else. This is the shape every existing
-    //configuration has, and the one a generator must not touch.
+    /* The shape a configuration written before the generator has: the rules
+     * carry the scenario marker and no uid. The generator must stand down
+     * entirely - not destroy them, and not build a second set beside them.
+     */
     loadRulesHouse();
     {
         WsTestSession ws;
@@ -584,27 +580,23 @@ TEST_F(AutoScenarioRulesTest, RulesThatPredateTheDefinitionAreLeftAloneAndNotDup
     saveConfig();
 
     const std::string ioXml = ioXmlOnDisk();
-    const std::string rulesXml = rulesXmlOnDisk();
+    std::string rulesXml = rulesXmlOnDisk();
+    ASSERT_EQ(6, stripRuleAttribute(rulesXml, AutoScenarioDef::KEY_UID));
+
     clearCoreState();
     loadConfig(ioXml, rulesXml);
     ASSERT_EQ(6, ListeRule::Instance().size());
-    for (Rule *r: allRules())
-        EXPECT_FALSE(r->param_exists(AutoScenarioDef::KEY_UID)) << r->get_name();
-
-    /* The startup pass is NOT a no-op on the file that was just written: the
-     * last step of a cycling scenario is saved chained to -1 and only rewritten
-     * to 0 here, because create() applies the cycle flag before the steps
-     * exist. So the first pass drifts and the ones after it do not.
-     */
     const std::string before = serializeAllRules();
-    ListeRoom::Instance().checkAutoScenario();
-    const std::string after = serializeAllRules();
-    EXPECT_EQ(6, ListeRule::Instance().size());
-    EXPECT_NE(before, after) << "TODAY the first pass rewrites the cycle chaining";
 
     ListeRoom::Instance().checkAutoScenario();
+
+    EXPECT_EQ(6, ListeRule::Instance().size()) << "the untouchable rules were duplicated";
+    EXPECT_EQ(before, serializeAllRules()) << "the generator rewrote rules it did not write";
+
+    //A second startup does not change its mind either.
+    ListeRoom::Instance().checkAutoScenario();
     EXPECT_EQ(6, ListeRule::Instance().size());
-    EXPECT_EQ(after, serializeAllRules());
+    EXPECT_EQ(before, serializeAllRules());
 }
 
 TEST_F(AutoScenarioRulesTest, TheStandDownHoldsWhenNEITHERTheRulesNORTheIoCarryAUid)
@@ -612,7 +604,11 @@ TEST_F(AutoScenarioRulesTest, TheStandDownHoldsWhenNEITHERTheRulesNORTheIoCarryA
     /* The first-boot shape of an existing installation: no uid on the rules,
      * and no definition on the Scenario IO either. It is the case that catches
      * a stand-down written as "the rule carries a uid other than mine", because
-     * on that boot both sides are empty and compare equal.
+     * on that boot both sides are empty and compare equal. Measured on a
+     * production configuration: 125 rules in, 139 out.
+     *
+     * EXCHANGE against the case above, which strips the uid from the rules
+     * only: there the scenario IO still declares one, and that alone hid this.
      */
     loadRulesHouse();
     {
@@ -622,7 +618,8 @@ TEST_F(AutoScenarioRulesTest, TheStandDownHoldsWhenNEITHERTheRulesNORTheIoCarryA
     saveConfig();
 
     std::string ioXml = ioXmlOnDisk();
-    const std::string rulesXml = rulesXmlOnDisk();
+    std::string rulesXml = rulesXmlOnDisk();
+    ASSERT_EQ(6, stripRuleAttribute(rulesXml, AutoScenarioDef::KEY_UID));
     ASSERT_GT(stripDefinitionParams(ioXml), 0);
     ASSERT_EQ(std::string::npos, ioXml.find("autoscenario_uid"));
 
@@ -630,10 +627,16 @@ TEST_F(AutoScenarioRulesTest, TheStandDownHoldsWhenNEITHERTheRulesNORTheIoCarryA
     loadConfig(ioXml, rulesXml);
     ASSERT_EQ(6, ListeRule::Instance().size());
     ASSERT_TRUE(autoScenario() != nullptr) << "the legacy marker no longer builds one";
-    ListeRoom::Instance().checkAutoScenario();
-    EXPECT_EQ(6, ListeRule::Instance().size());
+    const std::string before = serializeAllRules();
 
-    //the save writes a definition back into io.xml, and the next boot is stable
+    ListeRoom::Instance().checkAutoScenario();
+
+    EXPECT_EQ(6, ListeRule::Instance().size()) << "the untouchable rules were duplicated";
+    EXPECT_EQ(before, serializeAllRules());
+
+    /* The save mints a uid into io.xml on its own. The next boot must still
+     * stand down, which is why the test is on the rules and not on it.
+     */
     saveConfig();
     EXPECT_NE(std::string::npos, ioXmlOnDisk().find("autoscenario_uid"));
 
@@ -642,16 +645,14 @@ TEST_F(AutoScenarioRulesTest, TheStandDownHoldsWhenNEITHERTheRulesNORTheIoCarryA
     loadConfig(io2, rules2);
     const std::string beforeBoot2 = serializeAllRules();
     ListeRoom::Instance().checkAutoScenario();
-    EXPECT_EQ(6, ListeRule::Instance().size());
+    EXPECT_EQ(6, ListeRule::Instance().size()) << "the second boot armed the generator";
     EXPECT_EQ(beforeBoot2, serializeAllRules());
 }
 
 TEST_F(AutoScenarioRulesTest, AnAuthoringCallOnRulesThatPredateTheDefinitionLeavesThemUnmarked)
 {
-    /* >>> TO FLIP <<<
-     * Adding a step appends a rule next to the existing ones and marks nothing:
-     * there is no notion of "these rules are mine now". A generator has to take
-     * the whole set over, which is what rewriting a scenario has always meant.
+    /* FLIPPED: the one way out of the stand-down, and it is what rewriting a
+     * scenario has always meant - the whole set is taken over and stamped.
      */
     loadRulesHouse();
     {
@@ -661,7 +662,8 @@ TEST_F(AutoScenarioRulesTest, AnAuthoringCallOnRulesThatPredateTheDefinitionLeav
     saveConfig();
 
     const std::string ioXml = ioXmlOnDisk();
-    const std::string rulesXml = rulesXmlOnDisk();
+    std::string rulesXml = rulesXmlOnDisk();
+    ASSERT_EQ(6, stripRuleAttribute(rulesXml, AutoScenarioDef::KEY_UID));
 
     clearCoreState();
     loadConfig(ioXml, rulesXml);
@@ -672,11 +674,11 @@ TEST_F(AutoScenarioRulesTest, AnAuthoringCallOnRulesThatPredateTheDefinitionLeav
     ASSERT_TRUE(as != nullptr);
     as->addStep(2.5);
 
-    EXPECT_EQ(7, ListeRule::Instance().size());
+    EXPECT_EQ(7, ListeRule::Instance().size()) << "the old rules were kept as well";
     ASSERT_EQ(4u, as->getRuleSteps().size());
     for (Rule *r: allRules())
-        EXPECT_TRUE(r->get_param(AutoScenarioDef::KEY_UID).empty())
-                << "TODAY nothing stamps a rule as generated: " << r->get_name();
+        EXPECT_FALSE(r->get_param(AutoScenarioDef::KEY_UID).empty())
+                << r->get_name() << " was not taken over";
 }
 
 TEST_F(AutoScenarioRulesTest, DeletingAScenarioTakesEveryOneOfItsRulesWithIt)
@@ -731,11 +733,8 @@ TEST_F(AutoScenarioRulesTest, ReadingAScenarioTwiceAnswersTheSameAndChangesNothi
 
 TEST_F(AutoScenarioRulesTest, ARebuildHealsABrokenScenarioByForgettingTheLostStep)
 {
-    /* >>> TO FLIP <<<
-     * A step rule destroyed by a third party is gone for good: the rebuild
-     * cannot put it back, it can only stop noticing it. The scenario comes out
-     * of it healthy and one step shorter, which is the shape of the defect this
-     * whole epic exists for. It should come out of it with three steps again.
+    /* FLIPPED: a step rule destroyed by a third party comes BACK - it is
+     * regenerated from the definition, and the scenario is whole again.
      *
      * The reads are done in BOTH ORDERS on purpose: the payload emits
      * `category` before `broken`, and reading the category compacts the dead
@@ -765,9 +764,9 @@ TEST_F(AutoScenarioRulesTest, ARebuildHealsABrokenScenarioByForgettingTheLostSte
     EXPECT_EQ("true", a.value("broken", std::string())) << a.dump();
     EXPECT_EQ(a.dump(), b.dump()) << "the second read of the payload differs";
 
-    ASSERT_TRUE(as->checkScenarioRules());
-    EXPECT_FALSE(as->isBroken()) << "TODAY the rebuild answers healthy...";
-    EXPECT_EQ(2u, as->getRuleSteps().size()) << "...with one step fewer, for ever";
+    ASSERT_TRUE(as->rebuildRules());
+    EXPECT_FALSE(as->isBroken());
+    EXPECT_EQ(3u, as->getRuleSteps().size()) << "the lost step was not rebuilt";
 }
 
 TEST_F(AutoScenarioRulesTest, AnActionWhoseIoIsGoneIsRegeneratedAndDisablesItsRuleOnly)

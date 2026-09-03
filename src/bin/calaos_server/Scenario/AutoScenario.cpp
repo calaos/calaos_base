@@ -21,68 +21,23 @@
 #include <algorithm>
 
 #include "AutoScenario.h"
+#include "AutoScenarioDef.h"
 #include "EventManager.h"
 using namespace Calaos;
 
-static bool _sortCompStepRule(const RuleRef &s1, const RuleRef &s2)
+namespace
 {
-    Rule *r1 = s1.get();
-    Rule *r2 = s2.get();
 
-    //Dead entries sort last; purgeDeadSteps() runs before every sort, so this
-    //only exists to keep the ordering strict and weak in every case
-    if (!r1) return false;
-    if (!r2) return true;
+//The generated step number, or -1 when the rule does not carry one.
+int stepNumberOf(Rule *r)
+{
+    if (!r || !r->param_exists("auto_scenario_step")) return -1;
 
-    int t1, t2;
-    from_string(r1->get_param("auto_scenario_step"), t1);
-    from_string(r2->get_param("auto_scenario_step"), t2);
-    return (t1 < t2);
+    int n = -1;
+    from_string(r->get_param("auto_scenario_step"), n);
+    return n;
 }
 
-/* Mutates ruleSteps from inside the read accessors (stepRule() ->
- * getStepActionCount()/getStepAction()), and those are called by getCategory()
- * and Scenario::toJson() WHILE they iterate over the indexes of that very
- * vector. It is safe only because nothing in those loops can destroy a Rule:
- * they read, they never touch ListeRule nor delete an IO, so after the first
- * purge every later one is a no-op and no index shifts under the loop. A
- * future caller that can destroy a rule mid-iteration breaks that, and must
- * snapshot getRuleSteps() once instead of re-indexing.
- */
-void AutoScenario::purgeDeadSteps()
-{
-    auto dead = std::remove_if(ruleSteps.begin(), ruleSteps.end(),
-                               [](const RuleRef &s) { return s.get() == nullptr; });
-
-    /* T3.18: remember what is about to be dropped, BEFORE dropping it. This
-     * erase is the only trace a destroyed step rule ever leaves, and it is
-     * triggered by plain reads - see stepRuleDestroyed in the header.
-     */
-    if (dead != ruleSteps.end())
-        stepRuleDestroyed = true;
-
-    ruleSteps.erase(dead, ruleSteps.end());
-}
-
-Rule *AutoScenario::stepRule(int s)
-{
-    purgeDeadSteps();
-
-    if (s < 0 || s >= (int)ruleSteps.size()) return nullptr;
-
-    return ruleSteps[s].get();
-}
-
-vector<Rule *> AutoScenario::getRuleSteps()
-{
-    purgeDeadSteps();
-
-    vector<Rule *> ret;
-    ret.reserve(ruleSteps.size());
-    for (uint i = 0;i < ruleSteps.size();i++)
-        ret.push_back(ruleSteps[i].get());
-
-    return ret;
 }
 
 AutoScenario::AutoScenario(IOBase *input):
@@ -123,16 +78,9 @@ AutoScenario::AutoScenario(IOBase *input):
 
 AutoScenario::~AutoScenario()
 {
-    /* IOBase::ascenario is set on the _schedule IO only (checkScenarioRules())
-     * and used to be left pointing here for ever: the schedule IO is a plain
-     * IO of the room, it outlives the scenario whose IO was deleted, and
-     * JsonApi reads getAutoScenarioPtr() on every IO it serializes.
-     *
-     * The IO is re-resolved through io_table instead of through ioTimeRange:
-     * ~Room destroys its IOs in list order and nothing guarantees the schedule
-     * IO is not already gone when the Scenario (hence this) is destroyed.
-     * IOBase::~IOBase() keeps io_table up to date, so a null answer here means
-     * "already destroyed, nothing to clean".
+    /* Re-resolved through io_table and not through ioTimeRange: ~Room destroys
+     * its IOs in list order, so the schedule IO may already be gone. A null
+     * answer means "already destroyed, nothing to clean".
      */
     IOBase *schedule = ListeRoom::Instance().get_io(scenario_id + "_schedule");
     if (schedule && schedule->getAutoScenarioPtr() == this)
@@ -141,15 +89,106 @@ AutoScenario::~AutoScenario()
     ListeRoom::Instance().delScenarioCache(ioScenario);
 }
 
+AutoScenarioDef *AutoScenario::definition() const
+{
+    return ioScenario? ioScenario->getDefinition(): nullptr;
+}
+
+string AutoScenario::getScenarioUid() const
+{
+    AutoScenarioDef *def = definition();
+    return def? def->uid: string();
+}
+
+list<Rule *> AutoScenario::scenarioRules() const
+{
+    list<Rule *> rules = ListeRule::Instance().getRuleAutoScenario(scenario_id);
+
+    //A generated rule carries both markers, so the legacy lookup above already
+    //returns it. Only a rule stamped with the uid alone has to be added.
+    const string uid = getScenarioUid();
+    if (uid.empty()) return rules;
+
+    for (Rule *r: ListeRule::Instance().getRulesOfScenarioUid(uid))
+        if (std::find(rules.begin(), rules.end(), r) == rules.end())
+            rules.push_back(r);
+
+    return rules;
+}
+
+list<Rule *> AutoScenario::generatedRules() const
+{
+    return ListeRule::Instance().getRulesOfScenarioUid(getScenarioUid());
+}
+
+bool AutoScenario::hasLegacyRules() const
+{
+    /* On the very first startup of a configuration written before the
+     * definition existed, OUR uid is empty too - so the test has to be
+     * "carries no uid at all", never "carries a uid other than ours".
+     */
+    for (Rule *r: scenarioRules())
+        if (r && (!r->param_exists(AutoScenarioDef::KEY_UID) ||
+                  r->get_param(AutoScenarioDef::KEY_UID).empty()))
+            return true;
+
+    return false;
+}
+
+size_t AutoScenario::expectedRuleCount() const
+{
+    AutoScenarioDef *def = definition();
+    if (!def) return 0;
+
+    //button_start, button_stop, step_end, one per step, and the schedule pair
+    size_t n = 3 + def->steps.size();
+    if (ioTimeRange) n += cycle? 2: 1;
+
+    return n;
+}
+
+Rule *AutoScenario::ruleOfType(const string &type) const
+{
+    for (Rule *r: scenarioRules())
+        if (r && r->get_param("auto_scenario_type") == type)
+            return r;
+
+    return nullptr;
+}
+
+vector<Rule *> AutoScenario::getRuleSteps() const
+{
+    vector<Rule *> steps;
+
+    for (Rule *r: scenarioRules())
+        if (r && r->get_param("auto_scenario_type") == "step" &&
+            is_of_type<int>(r->get_param("auto_scenario_step")))
+            steps.push_back(r);
+
+    std::stable_sort(steps.begin(), steps.end(),
+                     [](Rule *a, Rule *b) { return stepNumberOf(a) < stepNumberOf(b); });
+
+    return steps;
+}
+
+Rule *AutoScenario::stepRule(int s) const
+{
+    const vector<Rule *> steps = getRuleSteps();
+
+    if (s < 0 || s >= (int)steps.size()) return nullptr;
+
+    return steps[s];
+}
+
 void AutoScenario::setCycling(bool c)
 {
     if (c == cycle) return;
     cycle = c;
 
-    if (cycle)
-        ioScenario->set_param("cycle", "true");
-    else
-        ioScenario->set_param("cycle", "false");
+    ioScenario->set_param("cycle", cycle? "true": "false");
+
+    AutoScenarioDef *def = definition();
+    if (def) def->cycle = cycle;
 }
 
 void AutoScenario::setDisabled(bool d)
@@ -157,10 +196,10 @@ void AutoScenario::setDisabled(bool d)
     if (d == disabled) return;
     disabled = d;
 
-    if (disabled)
-        ioScenario->set_param("disabled", "true");
-    else
-        ioScenario->set_param("disabled", "false");
+    ioScenario->set_param("disabled", disabled? "true": "false");
+
+    AutoScenarioDef *def = definition();
+    if (def) def->enabled = !disabled;
 }
 
 /* -----------------------------------------------------------------------
@@ -169,42 +208,28 @@ void AutoScenario::setDisabled(bool d)
 
 bool AutoScenario::isBroken() const
 {
-    /* A step whose rule was destroyed under us. Not reachable from the IO
-     * deletion path any more (RuleDetachPolicy::Disable keeps the rule), but it
-     * is still what a Destroy teardown, ~Room, or the orphan sweep of
-     * ListeRoom::checkAutoScenario() (a plain ListeRule::Remove()) leaves
-     * behind.
-     *
-     * TWO reads, and both are needed. The latch first, because getRuleSteps()
-     * COMPACTS the dead entries away and every read accessor triggers that
-     * compaction - Scenario::toJson() emits "category" before "broken", so by
-     * the time the scan below runs the entry it was meant to find is already
-     * gone. The scan second, because the latch is only set once something has
-     * purged, which need not have happened yet.
-     */
-    if (stepRuleDestroyed) return true;
+    AutoScenarioDef *def = definition();
 
-    for (const RuleRef &step: ruleSteps)
+    if (def)
     {
-        if (step.isDangling()) return true;
+        for (const AutoScenarioDefStep &step: def->steps)
+            for (const AutoScenarioDefAction &a: step.actions)
+                if (!a.ioId.empty() && !ListeRoom::Instance().findIO(a.ioId))
+                    return true;
 
-        Rule *rule = step.get();
-        if (rule && rule->isDisabled()) return true;
+        for (const AutoScenarioDefAction &a: def->finalStep.actions)
+            if (!a.ioId.empty() && !ListeRoom::Instance().findIO(a.ioId))
+                return true;
     }
 
-    //And every other rule of the scenario. A null one is NOT a breakage: they
-    //are all null until the first checkScenarioRules(), and the schedule ones
-    //are legitimately absent on a scenario without a schedule.
-    const RuleRef *others[] = { &ruleStart, &ruleStop, &ruleStepEnd,
-                                &rulePlageStart, &rulePlageStop };
+    for (Rule *rule: scenarioRules())
+        if (rule && rule->isDisabled())
+            return true;
 
-    for (const RuleRef *ref: others)
-    {
-        if (ref->isDangling()) return true;
-
-        Rule *rule = ref->get();
-        if (rule && rule->isDisabled()) return true;
-    }
+    //One of our rules was destroyed by a third party. Meaningless before the
+    //first build, where owning no rule is the normal state.
+    if (rulesGenerated && generatedRules().size() < expectedRuleCount())
+        return true;
 
     return false;
 }
@@ -213,29 +238,33 @@ string AutoScenario::getMissingIoDescription() const
 {
     vector<string> ids;
 
-    auto collect = [&ids](const RuleRef &ref)
+    auto add = [&ids](const string &id)
     {
-        Rule *rule = ref.get();
-        if (!rule) return;
-
-        for (const string &id: rule->getMissingIoIds())
-        {
-            if (std::find(ids.begin(), ids.end(), id) != ids.end()) continue;
-            ids.push_back(id);
-        }
+        if (id.empty()) return;
+        if (std::find(ids.begin(), ids.end(), id) != ids.end()) return;
+        ids.push_back(id);
     };
 
-    for (const RuleRef &step: ruleSteps)
-        collect(step);
+    AutoScenarioDef *def = definition();
+    if (def)
+    {
+        for (const AutoScenarioDefStep &step: def->steps)
+            for (const AutoScenarioDefAction &a: step.actions)
+                if (!ListeRoom::Instance().findIO(a.ioId)) add(a.ioId);
 
-    collect(ruleStart);
-    collect(ruleStop);
-    collect(ruleStepEnd);
-    collect(rulePlageStart);
-    collect(rulePlageStop);
+        for (const AutoScenarioDefAction &a: def->finalStep.actions)
+            if (!ListeRoom::Instance().findIO(a.ioId)) add(a.ioId);
+    }
 
-    //Same format as Rule::getMissingIoDescription(), which is what the logs and
-    //the configuration alert of E4.2e already print
+    //Rules come second so that a configuration whose rules predate the
+    //definition still names what it is missing.
+    for (Rule *rule: scenarioRules())
+    {
+        if (!rule) continue;
+        for (const string &id: rule->getMissingIoIds())
+            add(id);
+    }
+
     string desc;
     for (const string &id: ids)
     {
@@ -327,34 +356,17 @@ void AutoScenario::deleteAll()
 {
     cInfoDom("scenario") << "AutoScenario::delete(" << ioScenario->get_param("id") << ")";
 
-    //delete rules. Remove(nullptr) is a no-op, and a rule ListeRule already
-    //destroyed under us resolves to null: same order, same removals as before.
-    ListeRule::Instance().Remove(ruleStart.get());
-    ruleStart.reset();
-    ListeRule::Instance().Remove(ruleStop.get());
-    ruleStop.reset();
-    ListeRule::Instance().Remove(ruleStepEnd.get());
-    ruleStepEnd.reset();
-    ListeRule::Instance().Remove(rulePlageStart.get());
-    rulePlageStart.reset();
-    ListeRule::Instance().Remove(rulePlageStop.get());
-    rulePlageStop.reset();
+    //Every rule of the scenario, legacy ones included: the scenario is being
+    //torn down and nothing else will ever collect them.
+    destroyRules(true);
+    rulesGenerated = false;
 
-    for (uint i = 0;i < ruleSteps.size();i++)
-        ListeRule::Instance().Remove(ruleSteps[i].get());
-    ruleSteps.clear();
+    AutoScenarioDef *def = definition();
+    if (def) def->clear();
 
-    /* delete IOs.
-     *
-     * T3.18: RuleDetachPolicy::Destroy is EXPLICIT on all five, and it is the
-     * right policy here - line "AutoScenario::deleteAll() - IOs internes" of
-     * the deleteIO() census. These are the machinery IOs of the scenario, they
-     * are invisible (visible=false) and no third party can depend on them; the
-     * whole scenario is being torn down, so there is nothing left to disable.
-     * Keeping disabled copies of the rules that drive them would leave rules
-     * nothing ever collects: Rule::setAutoScenario(false) does not exist, so
-     * the auto_scenario sweep of ListeRoom::checkAutoScenario() would miss
-     * them, and the next build would duplicate them.
+    /* Destroy, not Disable: these ids are deterministic and would be recreated
+     * identically, so disabled copies of their rules would be duplicated by the
+     * next build with nothing to collect the originals.
      */
     if (ioIsActive)
         ListeRoom::Instance().deleteIO(ioIsActive, false, RuleDetachPolicy::Destroy);
@@ -370,8 +382,6 @@ void AutoScenario::deleteAll()
     ioTimer = NULL;
     if (ioTimeRange)
     {
-        //Symmetric with checkScenarioRules(): drop the back-pointer before the
-        //IO it lives on is destroyed
         if (ioTimeRange->getAutoScenarioPtr() == this)
             ioTimeRange->setAutoScenarioPtr(nullptr);
         ListeRoom::Instance().deleteIO(ioTimeRange, false, RuleDetachPolicy::Destroy);
@@ -383,16 +393,14 @@ void AutoScenario::deleteRules()
 {
     cInfoDom("scenario") << "AutoScenario::deleteRules(" << ioScenario->get_param("id") << ")";
 
-    //delete rules
-    ListeRule::Instance().Remove(ruleStepEnd.get());
-    ruleStepEnd.reset();
+    AutoScenarioDef *def = definition();
+    if (def)
+    {
+        def->steps.clear();
+        def->finalStep = AutoScenarioDefStep();
+    }
 
-    //recreate empty step rule
-    createRuleStepEnd();
-
-    for (uint i = 0;i < ruleSteps.size();i++)
-        ListeRule::Instance().Remove(ruleSteps[i].get());
-    ruleSteps.clear();
+    rebuildRules(true);
 }
 
 IOBase *AutoScenario::createInput(string type, string id)
@@ -423,41 +431,6 @@ IOBase *AutoScenario::createInput(string type, string id)
     return in;
 }
 
-bool AutoScenario::checkCondition(Rule *rule, IOBase *input, string oper, string value)
-{
-    bool ret = false;
-    for (int i = 0;i < rule->get_size_conds() && !ret;i++)
-    {
-        ConditionStd *cond = dynamic_cast<ConditionStd *>(rule->get_condition(i));
-        if (!cond) continue;
-        if (cond->get_size() != 1) continue;
-        if (cond->get_input(0) != input) continue;
-        if (cond->get_operator().get_param(input->get_param("id")) != oper) continue;
-        if (cond->get_params().get_param(input->get_param("id")) != value) continue;
-
-        ret = true;
-    }
-
-    return ret;
-}
-
-bool AutoScenario::checkAction(Rule *rule, IOBase *output, string value)
-{
-    bool ret = false;
-    for (int i = 0;i < rule->get_size_actions() && !ret;i++)
-    {
-        ActionStd *act = dynamic_cast<ActionStd *>(rule->get_action(i));
-        if (!act) continue;
-        if (act->get_size() != 1) continue;
-        if (act->get_output(0) != output) continue;
-        if (act->get_params().get_param(output->get_param("id")) != value) continue;
-
-        ret = true;
-    }
-
-    return ret;
-}
-
 void AutoScenario::addRuleCondition(Rule *rule, IOBase *input, string oper, string value)
 {
     ConditionStd *cond = new ConditionStd();
@@ -477,110 +450,87 @@ void AutoScenario::addRuleAction(Rule *rule, IOBase *output, string value)
     act->get_params().Add(output->get_param("id"), value);
 }
 
-void AutoScenario::setRuleCondition(Rule *rule, IOBase *input, string oper, string value)
+void AutoScenario::addRuleActionById(Rule *rule, const string &ioId, const string &value)
 {
-    for (int i = 0;i < rule->get_size_conds();i++)
-    {
-        ConditionStd *cond = dynamic_cast<ConditionStd *>(rule->get_condition(i));
-        if (!cond) continue;
-        if (cond->get_size() != 1) continue;
-        if (cond->get_input(0) != input) continue;
-        cond->get_operator().Add(input->get_param("id"), oper);
-        cond->get_params().Add(input->get_param("id"), value);
+    if (!rule || ioId.empty()) return;
 
-        break;
-    }
-}
+    ActionStd *act = new ActionStd();
+    rule->AddAction(act);
 
-void AutoScenario::setRuleAction(Rule *rule, IOBase *output, string value)
-{
-    for (int i = 0;i < rule->get_size_actions();i++)
-    {
-        ActionStd *act = dynamic_cast<ActionStd *>(rule->get_action(i));
-        if (!act) continue;
-        if (act->get_size() != 1) continue;
-        if (act->get_output(0) != output) continue;
-        act->get_params().Add(output->get_param("id"), value);
+    act->Add(ioId);
+    act->get_params().Add(ioId, value);
 
-        break;
-    }
-}
-
-string AutoScenario::getRuleConditionValue(Rule *rule, IOBase *input, string oper)
-{
-    string ret;
-
-    for (int i = 0;i < rule->get_size_conds();i++)
-    {
-        ConditionStd *cond = dynamic_cast<ConditionStd *>(rule->get_condition(i));
-        if (!cond) continue;
-        if (cond->get_size() != 1) continue;
-        if (cond->get_input(0) != input) continue;
-        cond->get_operator().Add(input->get_param("id"), oper);
-
-        ret = cond->get_params().get_param(input->get_param("id"));
-
-        break;
-    }
-
-    return ret;
-}
-
-string AutoScenario::getRuleActionValue(Rule *rule, IOBase *output)
-{
-    string ret;
-
-    for (int i = 0;i < rule->get_size_actions();i++)
-    {
-        ActionStd *act = dynamic_cast<ActionStd *>(rule->get_action(i));
-        if (!act) continue;
-        if (act->get_size() != 1) continue;
-        if (act->get_output(0) != output) continue;
-        ret = act->get_params().get_param(output->get_param("id"));
-
-        break;
-    }
-
-    return ret;
-}
-
-bool AutoScenario::checkScenarioRules()
-{
-    /* get/create needed IOs for rules */
-
-    //clear everything
-    ruleStart.reset();
-    ruleStop.reset();
-    ruleStepEnd.reset();
-    rulePlageStart.reset();
-    rulePlageStop.reset();
-    ruleSteps.clear();
-    /* T3.18: the rules are about to be re-collected from ListeRule, so the
-     * "a step rule died under us" latch describes a set of references that no
-     * longer exists. This is the ONE place it is cleared, and it is a rebuild,
-     * not a refresh: whatever is still missing is re-derived below from
-     * Rule::isDisabled(), which no rebuild can hide.
+    /* AddAction() only collects the unresolved ids the XML loader recorded, so
+     * a rule built in memory has to say it itself, or the engine would run an
+     * action list that is silently one action short.
      */
-    stepRuleDestroyed = false;
-    ioIsActive = NULL;
-    ioScheduleEnabled = NULL;
-    ioStep = NULL;
-    ioTimer = NULL;
-    ioTimeRange = NULL;
+    if (!ListeRoom::Instance().findIO(ioId))
+        rule->markIoMissing(ioId);
+}
 
+string AutoScenario::actionValueOn(Rule *rule, const string &ioId)
+{
+    if (!rule) return string();
+
+    for (int i = 0;i < rule->get_size_actions();i++)
+    {
+        ActionStd *act = dynamic_cast<ActionStd *>(rule->get_action(i));
+        if (!act) continue;
+        if (act->get_size() != 1) continue;
+        if (act->get_output_id(0) != ioId) continue;
+
+        return act->get_params().get_param(ioId);
+    }
+
+    return string();
+}
+
+Rule *AutoScenario::newGeneratedRule(const string &name, const string &autoScenarioType)
+{
+    Rule *rule = new Rule("AutoScenario", name);
+    rule->set_param("auto_scenario", scenario_id);
+    rule->set_param(AutoScenarioDef::KEY_UID, getScenarioUid());
+    rule->set_param("auto_scenario_type", autoScenarioType);
+    rule->setAutoScenario(true);
+    ListeRule::Instance().Add(rule);
+
+    return rule;
+}
+
+void AutoScenario::destroyRules(bool all)
+{
+    const string uid = getScenarioUid();
+
+    //Snapshot first: Remove() mutates the very index the lookup walks.
+    vector<Rule *> doomed;
+    for (Rule *r: all? scenarioRules(): generatedRules())
+        if (r && (all || r->get_param(AutoScenarioDef::KEY_UID) == uid))
+            doomed.push_back(r);
+
+    for (Rule *r: doomed)
+        ListeRule::Instance().Remove(r);
+}
+
+void AutoScenario::declareDefinition()
+{
+    AutoScenarioDef *def = definition();
+    if (!def) return;
+
+    if (def->uid.empty()) def->uid = AutoScenarioDef::newUid();
+
+    def->cycle = cycle;
+    def->enabled = !disabled;
+    def->scheduleIoId = ioTimeRange? ioTimeRange->get_param("id"): string();
+}
+
+bool AutoScenario::prepareInternalIos()
+{
     roomContainer = ListeRoom::Instance().getRoomByIO(ioScenario);
 
-    if (!ioIsActive)
-        ioIsActive = dynamic_cast<Internal *>(createInput("InternalBool", scenario_id + "_is_active"));
-    if (!ioStep)
-        ioStep = dynamic_cast<Internal *>(createInput("InternalInt", scenario_id + "_step"));
-    if (!ioTimer)
-        ioTimer = dynamic_cast<InputTimer *>(createInput("InputTimer", scenario_id + "_timer"));
+    ioIsActive = dynamic_cast<Internal *>(createInput("InternalBool", scenario_id + "_is_active"));
+    ioStep = dynamic_cast<Internal *>(createInput("InternalInt", scenario_id + "_step"));
+    ioTimer = dynamic_cast<InputTimer *>(createInput("InputTimer", scenario_id + "_timer"));
 
-    //Every rule below dereferences these three IOs: without them the rules
-    //cannot be built, abort instead of crashing. createInput() returns null
-    //on a factory/room miss, and the dynamic_cast rejects an existing IO of
-    //the wrong type using one of the internal ids.
     if (!ioIsActive || !ioStep || !ioTimer)
     {
         cErrorDom("scenario") << "AutoScenario (" << scenario_id
@@ -589,329 +539,184 @@ bool AutoScenario::checkScenarioRules()
         return false;
     }
 
-    //Get the PlageHoraire input if the scenario is scheduled
-    ioTimeRange = dynamic_cast<InPlageHoraire *>(ListeRoom::Instance().get_io(scenario_id + "_schedule"));
+    ioTimeRange = dynamic_cast<InPlageHoraire *>(
+                ListeRoom::Instance().get_io(scenario_id + "_schedule"));
+    ioScheduleEnabled = nullptr;
+
+    if (!ioTimeRange) return true;
+
+    ioTimeRange->setAutoScenarioPtr(this);
+
+    ioScheduleEnabled = dynamic_cast<Internal *>(
+                createInput("InternalBool", scenario_id + "_is_schedule_enabled"));
+    if (!ioScheduleEnabled)
+    {
+        cErrorDom("scenario") << "AutoScenario (" << scenario_id
+                              << "): unable to create the schedule enable IO, "
+                              << "aborting rules creation";
+        return false;
+    }
+
+    ioScheduleEnabled->set_value(!disabled); // scenario scheduling is enabled by default
+    ioScheduleEnabled->set_param("save", "true"); //Save the value on disk
+
+    return true;
+}
+
+bool AutoScenario::rebuildRules(bool takeOwnership)
+{
+    //Before any destruction: a refused build must leave everything as it was.
+    if (!prepareInternalIos()) return false;
+
+    if (!takeOwnership && hasLegacyRules())
+    {
+        cInfoDom("scenario") << "AutoScenario (" << scenario_id << "): rules predate "
+                             << "the definition, leaving them untouched";
+        return true;
+    }
+
+    if (!ioTimeRange)
+    {
+        /* Destroy, not Disable: addSchedule() rebuilds the very same id, so a
+         * disabled copy of the schedule rules would be duplicated by the next
+         * build.
+         */
+        Internal *stale = dynamic_cast<Internal *>(
+                    ListeRoom::Instance().get_io(scenario_id + "_is_schedule_enabled"));
+        if (stale)
+            ListeRoom::Instance().deleteIO(stale, false, RuleDetachPolicy::Destroy);
+    }
+
+    declareDefinition();
+    destroyRules(takeOwnership);
+
+    AutoScenarioDef *def = definition();
+    if (!def) return false;
+
+    Rule *rule = newGeneratedRule(scenario_id + "_button_start", "button_start");
+    addRuleCondition(rule, ioScenario, "==", "true");
+    addRuleCondition(rule, ioIsActive, "==", "false");
+    addRuleAction(rule, ioScenario, "false");
+    addRuleAction(rule, ioIsActive, "true");
+    addRuleAction(rule, ioStep, "0");
+    addRuleAction(rule, ioTimer, "0");
+    addRuleAction(rule, ioTimer, "start");
+
+    rule = newGeneratedRule(scenario_id + "_button_stop", "button_stop");
+    addRuleCondition(rule, ioScenario, "==", "true");
+    addRuleCondition(rule, ioIsActive, "==", "true");
+    addRuleAction(rule, ioScenario, "false");
+    addRuleAction(rule, ioStep, "-1");
+    addRuleAction(rule, ioTimer, "0");
+    addRuleAction(rule, ioTimer, "start");
+
+    rule = newGeneratedRule(scenario_id + "_step_end", "step_end");
+    addRuleCondition(rule, ioIsActive, "==", "true");
+    addRuleCondition(rule, ioStep, "==", "-1");
+    addRuleCondition(rule, ioTimer, "==", "true");
+    addRuleAction(rule, ioIsActive, "false");
+    for (const AutoScenarioDefAction &a: def->finalStep.actions)
+        addRuleActionById(rule, a.ioId, a.value);
+
+    for (size_t i = 0;i < def->steps.size();i++)
+    {
+        const AutoScenarioDefStep &step = def->steps[i];
+
+        rule = newGeneratedRule(scenario_id + "_step", "step");
+        rule->set_param("auto_scenario_step", Utils::to_string(i));
+
+        addRuleCondition(rule, ioIsActive, "==", "true");
+        addRuleCondition(rule, ioStep, "==", Utils::to_string(i));
+        addRuleCondition(rule, ioTimer, "==", "true");
+
+        //The chaining. -1 hands over to the step_end rule; a cycling scenario
+        //loops back to 0 instead.
+        string next;
+        if (i + 1 < def->steps.size()) next = Utils::to_string(i + 1);
+        else next = cycle? "0": "-1";
+
+        addRuleAction(rule, ioStep, next);
+        addRuleAction(rule, ioTimer, Utils::to_string(step.pause));
+        addRuleAction(rule, ioTimer, "start");
+
+        for (const AutoScenarioDefAction &a: step.actions)
+            addRuleActionById(rule, a.ioId, a.value);
+    }
+
     if (ioTimeRange)
     {
-        ioTimeRange->setAutoScenarioPtr(this);
-
-        if (!ioScheduleEnabled)
-            ioScheduleEnabled = dynamic_cast<Internal *>(createInput("InternalBool", scenario_id + "_is_schedule_enabled"));
-
-        if (!ioScheduleEnabled)
-        {
-            cErrorDom("scenario") << "AutoScenario (" << scenario_id
-                                  << "): unable to create the schedule enable IO, "
-                                  << "aborting rules creation";
-            return false;
-        }
-
-        ioScheduleEnabled->set_value(!disabled); // scenario scheduling is enabled by default
-        ioScheduleEnabled->set_param("save", "true"); //Save the value on disk
-    }
-    else
-    {
-        //ioScheduleEnabled is not needed if the scenario has no schedule, so
-        //delete it if it exists
-        //It will automatically delete all rules using this input
-        ioScheduleEnabled = dynamic_cast<Internal *>(ListeRoom::Instance().get_io(scenario_id + "_is_schedule_enabled"));
-        if (ioScheduleEnabled)
-        {
-            /* T3.18: Destroy, explicitly - line "_is_schedule_enabled /
-             * deleteSchedule(): demontage REVERSIBLE" of the deleteIO() census.
-             * This id is deterministic and createInput() recreates it
-             * identically the moment a schedule comes back, so the _time_start
-             * / _time_stop rules MUST die here: kept disabled, they would be
-             * duplicated by the next build and nothing would ever collect the
-             * duplicates.
-             */
-            ListeRoom::Instance().deleteIO(ioScheduleEnabled, false,
-                                           RuleDetachPolicy::Destroy);
-            ioScheduleEnabled = nullptr;
-        }
-    }
-
-    /* search needed rules for scenario */
-
-    list<Rule *> srules = ListeRule::Instance().getRuleAutoScenario(scenario_id);
-    list<Rule *>::iterator it = srules.begin();
-
-    for (;it != srules.end();it++)
-    {
-        Rule *rule = *it;
-
-        if (rule->get_param("auto_scenario_type") == "button_start")
-        {
-            if (!checkCondition(rule, ioScenario, "==", "true")) continue;
-            if (!checkCondition(rule, ioIsActive, "==", "false")) continue;
-
-            if (!checkAction(rule, ioScenario, "false")) continue;
-            if (!checkAction(rule, ioIsActive, "true")) continue;
-            if (!checkAction(rule, ioStep, "0")) continue;
-            if (!checkAction(rule, ioTimer, "0")) continue;
-            if (!checkAction(rule, ioTimer, "start")) continue;
-
-            ruleStart = rule;
-            rule->setAutoScenario(true);
-        }
-        else if (rule->get_param("auto_scenario_type") == "button_stop")
-        {
-            if (!checkCondition(rule, ioScenario, "==", "true")) continue;
-            if (!checkCondition(rule, ioIsActive, "==", "true")) continue;
-
-            if (!checkAction(rule, ioScenario, "false")) continue;
-            if (!checkAction(rule, ioStep, "-1")) continue;
-            if (!checkAction(rule, ioTimer, "0")) continue;
-            if (!checkAction(rule, ioTimer, "start")) continue;
-
-            ruleStop = rule;
-            rule->setAutoScenario(true);
-        }
-        else if (rule->get_param("auto_scenario_type") == "step_end")
-        {
-            if (!checkCondition(rule, ioIsActive, "==", "true")) continue;
-            if (!checkCondition(rule, ioStep, "==", "-1")) continue;
-            if (!checkCondition(rule, ioTimer, "==", "true")) continue;
-
-            if (!checkAction(rule, ioIsActive, "false")) continue;
-
-            ruleStepEnd = rule;
-            rule->setAutoScenario(true);
-        }
-        else if (rule->get_param("auto_scenario_type") == "step" &&
-                 is_of_type<int>(rule->get_param("auto_scenario_step")))
-        {
-            if (!checkCondition(rule, ioIsActive, "==", "true")) continue;
-            if (!checkCondition(rule, ioTimer, "==", "true")) continue;
-
-            if (!checkAction(rule, ioTimer, "start")) continue;
-
-            ruleSteps.push_back(rule);
-            rule->setAutoScenario(true);
-        }
-        else if (ioTimeRange && rule->get_param("auto_scenario_type") == "time_start")
-        {
-            if (!checkCondition(rule, ioIsActive, "==", "false")) continue;
-            if (!checkCondition(rule, ioScheduleEnabled, "==", "true")) continue;
-            if (!checkCondition(rule, ioTimeRange, "==", "true")) continue;
-
-            if (!checkAction(rule, ioScenario, "true")) continue;
-
-            rulePlageStart = rule;
-            rule->setAutoScenario(true);
-        }
-        else if (ioTimeRange && cycle && rule->get_param("auto_scenario_type") == "time_stop")
-        {
-            if (!checkCondition(rule, ioIsActive, "==", "true")) continue;
-            if (!checkCondition(rule, ioScheduleEnabled, "==", "true")) continue;
-            if (!checkCondition(rule, ioTimeRange, "==", "false")) continue;
-
-            if (!checkAction(rule, ioTimer, "0")) continue;
-            if (!checkAction(rule, ioTimer, "start")) continue;
-            if (!checkAction(rule, ioStep, "-1")) continue;
-
-            rulePlageStop = rule;
-            rule->setAutoScenario(true);
-        }
-    }
-
-    cDebugDom("scenario") << "AutoScenario Check: " << ioScenario->get_param("id") <<
-                             ", scenario_id: " << scenario_id <<
-                             ", " << srules.size() << " rules checked";
-    cDebugDom("scenario") << "Found " << ruleSteps.size() << " steps, " <<
-                             ((ioTimeRange)?"has schedule, ":"has no schedule, ") <<
-                             ((disabled)?"schedule is disabled ":"schedule is enabled ") <<
-                             ((cycle)?"cycling":"");
-    cDebugDom("scenario") << "Found rules (" <<
-                             "ruleStart:" << ((ruleStart)?"yes":"no") << " - " <<
-                             "ruleStop:" << ((ruleStop)?"yes":"no") << " - " <<
-                             "rulePlageStart:" << ((rulePlageStart)?"yes":"no") << " - " <<
-                             "rulePlageStop:" << ((rulePlageStop)?"yes":"no") << " - " <<
-                             "ruleStepEnd:" << ((ruleStepEnd)?"yes":"no") <<
-                             ")";
-
-    //Create missing rules
-
-    //_button_start and _button_stop rules are only needed if the scenario is visible
-
-    if (!ruleStart)
-    {
-        Rule *rule = new Rule("AutoScenario", scenario_id + "_button_start");
-        rule->set_param("auto_scenario", scenario_id);
-        rule->set_param("auto_scenario_type", "button_start");
-        rule->setAutoScenario(true);
-        ListeRule::Instance().Add(rule);
-
-        addRuleCondition(rule, ioScenario, "==", "true");
-        addRuleCondition(rule, ioIsActive, "==", "false");
-        addRuleAction(rule, ioScenario, "false");
-        addRuleAction(rule, ioIsActive, "true");
-        addRuleAction(rule, ioStep, "0");
-        addRuleAction(rule, ioTimer, "0");
-        addRuleAction(rule, ioTimer, "start");
-
-        ruleStart = rule;
-    }
-
-    if (!ruleStop)
-    {
-        Rule *rule = new Rule("AutoScenario", scenario_id + "_button_stop");
-        rule->set_param("auto_scenario", scenario_id);
-        rule->set_param("auto_scenario_type", "button_stop");
-        rule->setAutoScenario(true);
-        ListeRule::Instance().Add(rule);
-
-        addRuleCondition(rule, ioScenario, "==", "true");
-        addRuleCondition(rule, ioIsActive, "==", "true");
-        addRuleAction(rule, ioScenario, "false");
-        addRuleAction(rule, ioStep, "-1");
-        addRuleAction(rule, ioTimer, "0");
-        addRuleAction(rule, ioTimer, "start");
-
-        ruleStop = rule;
-    }
-
-    createRuleStepEnd();
-
-    if (ioTimeRange && !rulePlageStart)
-    {
-        Rule *rule = new Rule("AutoScenario", scenario_id + "_time_start");
-        rule->set_param("auto_scenario", scenario_id);
-        rule->set_param("auto_scenario_type", "time_start");
-        rule->setAutoScenario(true);
-        ListeRule::Instance().Add(rule);
-
+        rule = newGeneratedRule(scenario_id + "_time_start", "time_start");
         addRuleCondition(rule, ioIsActive, "==", "false");
         addRuleCondition(rule, ioScheduleEnabled, "==", "true");
         addRuleCondition(rule, ioTimeRange, "==", "true");
         addRuleAction(rule, ioScenario, "true");
 
-        rulePlageStart = rule;
-    }
-
-    if (ioTimeRange && cycle && !rulePlageStop)
-    {
-        Rule *rule = new Rule("AutoScenario", scenario_id + "_time_stop");
-        rule->set_param("auto_scenario", scenario_id);
-        rule->set_param("auto_scenario_type", "time_stop");
-        rule->setAutoScenario(true);
-        ListeRule::Instance().Add(rule);
-
-        addRuleCondition(rule, ioIsActive, "==", "true");
-        addRuleCondition(rule, ioScheduleEnabled, "==", "true");
-        addRuleCondition(rule, ioTimeRange, "==", "false");
-        addRuleAction(rule, ioStep, "-1");
-        addRuleAction(rule, ioTimer, "0");
-        addRuleAction(rule, ioTimer, "start");
-
-        rulePlageStop = rule;
-    }
-
-    //Check steps rules, if they are correctly chained and if the last one is calling the final endStep
-    std::sort(ruleSteps.begin(), ruleSteps.end(), _sortCompStepRule);
-
-    for (uint i = 0;i < ruleSteps.size();i++)
-    {
-        Rule *rule = ruleSteps[i].get();
-        if (!rule) continue;
-        setRuleCondition(rule, ioStep, "==", Utils::to_string(i));
-        if (i + 1 >= ruleSteps.size())
+        if (cycle)
         {
-            if (cycle)
-                setRuleAction(rule, ioStep, "0");
-            else
-                setRuleAction(rule, ioStep, "-1");
-        }
-        else
-        {
-            setRuleAction(rule, ioStep, Utils::to_string(i + 1));
+            rule = newGeneratedRule(scenario_id + "_time_stop", "time_stop");
+            addRuleCondition(rule, ioIsActive, "==", "true");
+            addRuleCondition(rule, ioScheduleEnabled, "==", "true");
+            addRuleCondition(rule, ioTimeRange, "==", "false");
+            addRuleAction(rule, ioStep, "-1");
+            addRuleAction(rule, ioTimer, "0");
+            addRuleAction(rule, ioTimer, "start");
         }
     }
+
+    rulesGenerated = true;
 
     return true;
 }
 
 void AutoScenario::addStep(double pause)
 {
-    /* Defence in depth, and NOT the equivalent of checkScenarioRules():
-     * that one RENUMBERS every surviving step (see the chaining loop at the
-     * end of it), addStep() only numbers the new one. On a holed list - a step
-     * whose rule died with no checkScenarioRules() run behind it - the new
-     * rule would take auto_scenario_step/ioStep == ruleSteps.size() while a
-     * survivor already carries that number, and the setRuleAction(last,
-     * ioStep, size()) below would then make the previous step re-trigger
-     * itself. Purging the hole does NOT fix that: only a renumbering does.
-     *
-     * It cannot happen today: the two production callers (JsonApi.cpp:1680
-     * and :1773) call addStep() right after deleteRules() or on a brand new
-     * scenario, so the list is never holed here and this purge never has
-     * anything to remove. It is kept so that a future caller breaking that
-     * sequence does not silently build the collision - and such a caller
-     * would still have to run checkScenarioRules() to renumber.
-     */
-    purgeDeadSteps();
+    AutoScenarioDef *def = definition();
+    if (!def) return;
 
-    int step = ruleSteps.size();
+    AutoScenarioDefStep step;
+    step.stepId = AutoScenarioDef::newStepId();
+    step.pause = pause;
+    def->steps.push_back(step);
 
-    Rule *rule = new Rule("AutoScenario", scenario_id + "_step");
-    rule->set_param("auto_scenario", scenario_id);
-    rule->set_param("auto_scenario_type", "step");
-    rule->set_param("auto_scenario_step", Utils::to_string(step));
-    rule->setAutoScenario(true);
-
-    addRuleCondition(rule, ioIsActive, "==", "true");
-    addRuleCondition(rule, ioStep, "==", Utils::to_string(step));
-    addRuleCondition(rule, ioTimer, "==", "true");
-    addRuleAction(rule, ioStep, "-1");
-    addRuleAction(rule, ioTimer, Utils::to_string(pause));
-    addRuleAction(rule, ioTimer, "start");
-
-    //Correctly chain the last rule
-    if (ruleSteps.size() > 0)
-    {
-        Rule *last = (ruleSteps.end() - 1)->get();
-
-        if (last)
-            setRuleAction(last, ioStep, Utils::to_string(ruleSteps.size()));
-    }
-
-    ListeRule::Instance().Add(rule);
-
-    ruleSteps.push_back(rule);
+    rebuildRules(true);
 }
 
 void AutoScenario::setStepPause(int s, double pause)
 {
-    Rule *step = stepRule(s);
-    if (!step) return;
+    AutoScenarioDef *def = definition();
+    if (!def || s < 0 || s >= (int)def->steps.size()) return;
 
-    setRuleAction(step, ioTimer, Utils::to_string(pause));
+    def->steps[s].pause = pause;
+
+    rebuildRules(true);
 }
 
 void AutoScenario::addStepAction(int s, IOBase *out, string action)
 {
-    purgeDeadSteps();
-    cDebugDom("scenario") << "s == " << s << " ruleSteps.size() == " << ruleSteps.size();
+    AutoScenarioDef *def = definition();
+    if (!def || !out) return;
 
-    Rule *step;
+    AutoScenarioDefAction a;
+    a.ioId = out->get_param("id");
+    a.value = action;
+
     if (s == END_STEP)
-        step = ruleStepEnd.get();
+        def->finalStep.actions.push_back(a);
+    else if (s >= 0 && s < (int)def->steps.size())
+        def->steps[s].actions.push_back(a);
     else
-        step = stepRule(s);
+        return;
 
-    //Out of range, or the rule was destroyed by ListeRule under us
-    if (!step) return;
-
-    addRuleAction(step, out, action);
+    rebuildRules(true);
 }
 
 double AutoScenario::getStepPause(int s)
 {
     Rule *step = stepRule(s);
-    if (!step) return 0.0;
+    if (!step || !ioTimer) return 0.0;
 
     double pause;
-    from_string(getRuleActionValue(step, ioTimer), pause);
+    from_string(actionValueOn(step, ioTimer->get_param("id")), pause);
 
     return pause;
 }
@@ -983,7 +788,7 @@ ScenarioAction AutoScenario::getRealAction(Rule *rule, int action)
 int AutoScenario::getStepActionCount(int s)
 {
     //countRealActions()/getRealAction() answer 0/an empty action for a null
-    //rule, which is what an out of range or destroyed step is now
+    //rule, which is what an out of range or destroyed step is
     return countRealActions(stepRule(s));
 }
 
@@ -994,12 +799,12 @@ ScenarioAction AutoScenario::getStepAction(int s, int action)
 
 int AutoScenario::getEndStepActionCount()
 {
-    return countRealActions(ruleStepEnd.get());
+    return countRealActions(getRuleStepEnd());
 }
 
 ScenarioAction AutoScenario::getEndStepAction(int action)
 {
-    return getRealAction(ruleStepEnd.get(), action);
+    return getRealAction(getRuleStepEnd(), action);
 }
 
 struct SCCategory
@@ -1019,9 +824,9 @@ string AutoScenario::getCategory()
     struct SCCategory catShutter = {0, 1};
     struct SCCategory catOther = {0, 2};
 
-    purgeDeadSteps();
+    const size_t stepCount = getRuleSteps().size();
 
-    for (uint i = 0;i < ruleSteps.size();i++)
+    for (uint i = 0;i < stepCount;i++)
     {
         for (int j = 0;j < getStepActionCount(i);j++)
         {
@@ -1074,53 +879,21 @@ void AutoScenario::addSchedule()
 
     ioTimeRange = dynamic_cast<InPlageHoraire *>(createInput("InPlageHoraire", scenario_id + "_schedule"));
 
-    checkScenarioRules();
+    rebuildRules(true);
 }
 
 void AutoScenario::deleteSchedule()
 {
     if (ioTimeRange)
     {
-        //Symmetric with the setAutoScenarioPtr(this) of checkScenarioRules()
         if (ioTimeRange->getAutoScenarioPtr() == this)
             ioTimeRange->setAutoScenarioPtr(nullptr);
-        /* T3.18: Destroy, explicitly - same census line as the
-         * _is_schedule_enabled teardown above. deleteSchedule() is reversible
-         * (addSchedule() rebuilds the very same _schedule id) and the
-         * _time_start / _time_stop rules have to go with it, or the next
-         * addSchedule() duplicates them.
+        /* Destroy, not Disable: addSchedule() rebuilds the very same id, so
+         * disabled copies of the schedule rules would be duplicated by it.
          */
         ListeRoom::Instance().deleteIO(ioTimeRange, false, RuleDetachPolicy::Destroy);
     }
     ioTimeRange = nullptr;
 
-    checkScenarioRules();
-}
-
-void AutoScenario::createRuleStepEnd()
-{
-    if (!ruleStepEnd)
-    {
-        //The internal IOs are null until checkScenarioRules() succeeded once:
-        //a rule cannot be built over them yet
-        if (!ioIsActive || !ioStep || !ioTimer)
-        {
-            cErrorDom("scenario") << "AutoScenario (" << scenario_id
-                                  << "): missing internal IOs, cannot create the step_end rule";
-            return;
-        }
-
-        Rule *rule = new Rule("AutoScenario", scenario_id + "_step_end");
-        rule->set_param("auto_scenario", scenario_id);
-        rule->set_param("auto_scenario_type", "step_end");
-        rule->setAutoScenario(true);
-        ListeRule::Instance().Add(rule);
-
-        addRuleCondition(rule, ioIsActive, "==", "true");
-        addRuleCondition(rule, ioStep, "==", "-1");
-        addRuleCondition(rule, ioTimer, "==", "true");
-        addRuleAction(rule, ioIsActive, "false");
-
-        ruleStepEnd = rule;
-    }
+    rebuildRules(true);
 }

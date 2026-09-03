@@ -43,61 +43,31 @@ public:
     string action;
 };
 
-/* NON-OWNING reference to a Rule owned by ListeRule.
+/* AutoScenario is a GENERATOR: it destroys the rules it wrote and rebuilds all
+ * of them from AutoScenarioDef, which is the source of truth. Rules are a
+ * projection - never read one to learn what the scenario is.
  *
- * AutoScenario does not own a single one of the rules it points at: they all
- * belong to ListeRule (E4.2d), which destroys them on its own initiative. The
- * path that matters is not even reachable from here:
- * ListeRoom::deleteIO() -> detachIOFromRules() -> ListeRule::RemoveRule(io)
- * destroys *every* rule citing that IO id, and a step rule cites the IO the
- * user picked with addStepAction(). Nothing nulls the back-pointer and nothing
- * re-runs checkScenarioRules() (ListeRoom::checkAutoScenario() only runs once,
- * at startup), so the next get_scenario of the UI read freed memory.
+ * Generated rules carry two markers: `auto_scenario` (the scenario id, which
+ * older readers still expect) and `autoscenario_uid` (the definition uid).
+ * Only the uid decides what may be destroyed; a rule without it was written by
+ * somebody else and is never touched.
  *
- * The token is Rule::aliveToken(), the very same one the asynchronous script
- * conditions use: a weak_ptr held by value, expiring when the Rule is
- * destroyed. get() answers null from that moment on, which is exactly what the
- * next checkScenarioRules() would produce for a rule that no longer exists.
+ * PITFALL - the stand-down. A configuration written before the definition
+ * existed carries rules with no uid and an io.xml with no definition
+ * (configs/raoulh: 18 rules). While one such rule exists the generator does
+ * nothing at all, so those rules survive and no duplicate is built beside them.
+ * The test is on the RULES, not on the definition: a save mints a uid into
+ * io.xml on its own, and that must not be enough to arm the generator over
+ * rules it did not write. Only an explicit authoring call (addStep(),
+ * addStepAction(), deleteRules(), addSchedule()...) takes ownership and
+ * replaces them, which is what `autoscenario modify` has always done.
  */
-class RuleRef
-{
-public:
-    RuleRef() = default;
-    RuleRef(Rule *r) { *this = r; }
-
-    RuleRef &operator=(Rule *r)
-    {
-        rule = r;
-        if (r)
-            token = r->aliveToken();
-        else
-            token.reset();
-        return *this;
-    }
-
-    //Null as soon as the rule has been destroyed (a default-constructed
-    //weak_ptr is expired, so a null rule resolves to null too)
-    Rule *get() const { return token.expired()?nullptr:rule; }
-    explicit operator bool() const { return get() != nullptr; }
-
-    /* T3.18: "a rule WAS referenced here and has since been destroyed", told
-     * apart from "nothing was ever referenced here". get() answers null for
-     * both, which is enough for the readers but not for AutoScenario::isBroken()
-     * - ruleStart & co. are legitimately null before the first
-     * checkScenarioRules() and that is not a breakage.
-     */
-    bool isDangling() const { return rule != nullptr && token.expired(); }
-
-    void reset() { rule = nullptr; token.reset(); }
-
-private:
-    Rule *rule = nullptr;
-    std::weak_ptr<bool> token;
-};
 
 class AutoScenario
 {
 private:
+    //`auto_scenario` param of the Scenario IO. Also the prefix of the derived
+    //ids of the machinery IOs, so it cannot be renamed on its own.
     string scenario_id;
     bool cycle;
     bool disabled;
@@ -122,9 +92,6 @@ private:
      * It is NOT `disabled` (see setDisabled()): that one is a user choice
      * meaning "do not run this scenario on its schedule", it is exposed as
      * "enabled" in the payload and REWRITTEN by every `autoscenario modify`.
-     * Reusing it would let the first modify of any client restart a broken
-     * scenario. The long name is on purpose, it shares a Params with
-     * `disabled` and `auto_scenario`.
      *
      * READ IN THE CONSTRUCTOR, next to cycle/disabled, i.e. BEFORE anything
      * can save: ListeRoom::checkAutoScenario() ends with SaveConfigIO(), so a
@@ -143,48 +110,51 @@ private:
 
     Room *roomContainer;
 
-    //NON-OWNING, see RuleRef: ListeRule owns and may destroy them at any time
-    RuleRef ruleStart, ruleStop, ruleStepEnd;
-    RuleRef rulePlageStart, rulePlageStop;
-    vector<RuleRef> ruleSteps;
-
-    /* T3.18. "A step rule was destroyed under us since the last rules build."
-     *
-     * It has to be LATCHED here and cannot be scanned off ruleSteps, because
-     * purgeDeadSteps() ERASES the dead entry (E4.2f) and every read accessor
-     * calls it - getCategory(), stepRule(), getRuleSteps(). Concretely:
-     * Scenario::toJson() emits "category" BEFORE "broken", and getCategory()
-     * purges, so a plain isDangling() scan answered FALSE for a scenario whose
-     * step rule had just been destroyed - serializing it had wiped the evidence
-     * one key earlier. Gate 1 must not be erasable by a read.
-     *
-     * Still fully DERIVED and never persisted: checkScenarioRules() re-collects
-     * the rules from ListeRule and clears this, so it lives exactly as long as
-     * the ruleSteps it describes, and no client can write it.
+    /* Until the first successful build a scenario legitimately owns no rule at
+     * all, and "fewer rules than declared" must not read as a breakage then.
      */
-    bool stepRuleDestroyed = false;
+    bool rulesGenerated = false;
 
-    /* Drop the steps whose rule has been destroyed, keeping the order of the
-     * survivors. Called by everything that indexes ruleSteps, because that
-     * index IS the step number of the API: a stale size is half the bug (the
-     * UI asks for step N, gets the actions of another one, or of nothing).
-     * Latches stepRuleDestroyed for whatever it drops.
-     */
-    void purgeDeadSteps();
-    //The step rule at the (compacted) index s, null when s is out of range
-    Rule *stepRule(int s);
+    //Owned by the Scenario IO, never null while it lives.
+    AutoScenarioDef *definition() const;
+
+    //Rules are looked up from their owner, never memorized: that is what makes
+    //a dangling back-pointer impossible rather than merely unlikely.
+    list<Rule *> scenarioRules() const;
+    list<Rule *> generatedRules() const;
+    //At least one rule of this scenario carries no uid - see the stand-down.
+    bool hasLegacyRules() const;
+    size_t expectedRuleCount() const;
+    Rule *ruleOfType(const string &type) const;
+
+    Rule *stepRule(int s) const;
 
     IOBase *createInput(string type, string id);
-    bool checkCondition(Rule *rule, IOBase *input, string oper, string value);
-    bool checkAction(Rule *rule, IOBase *output, string value);
+    /* False on a factory miss, or when an IO of the wrong type squats one of
+     * the derived ids. The caller must abort BEFORE destroying anything, so a
+     * refused build leaves the configuration as it found it.
+     */
+    bool prepareInternalIos();
+
     void addRuleCondition(Rule *rule, IOBase *input, string oper, string value);
     void addRuleAction(Rule *rule, IOBase *output, string value);
-    void setRuleCondition(Rule *rule, IOBase *input, string oper, string value);
-    void setRuleAction(Rule *rule, IOBase *output, string value);
-    string getRuleConditionValue(Rule *rule, IOBase *input, string oper);
-    string getRuleActionValue(Rule *rule, IOBase *output);
-    list<IOBase *> getRuleRealActions(Rule *rule);
-    void createRuleStepEnd();
+    /* An unresolved id is KEPT in the rule and the rule is marked as
+     * referencing a missing IO, so the engine skips it instead of running an
+     * amputated action list. Dropping it here is what used to lose it for good.
+     */
+    void addRuleActionById(Rule *rule, const string &ioId, const string &value);
+    static string actionValueOn(Rule *rule, const string &ioId);
+
+    //Ownership passes to ListeRule.
+    Rule *newGeneratedRule(const string &name, const string &autoScenarioType);
+
+    //`all` also takes the rules carrying no uid - only an authoring call may.
+    void destroyRules(bool all);
+
+    void declareDefinition();
+
+    //`takeOwnership` is what an authoring call passes to defeat the stand-down.
+    bool rebuildRules(bool takeOwnership);
 
     //True for the IOs driving the scenario itself (step, timer, is_active,
     //the scenario IO and the schedule flag). Those are never reported as user
@@ -201,10 +171,15 @@ public:
 
     static const int END_STEP = 0xFEDC1234;
 
-    //False when one of the internal scenario IOs could not be created (IO
-    //factory miss, or an existing IO of the wrong type using one of the
-    //internal ids): the rules build is aborted and nothing was created.
-    bool checkScenarioRules();
+    /* Destroys the rules of this scenario and regenerates all of them from the
+     * definition. Idempotent: two consecutive calls produce the same rules.
+     * False when the machinery IOs could not be built, and then nothing was
+     * destroyed either.
+     */
+    bool rebuildRules() { return rebuildRules(false); }
+
+    //Same thing under its historical name; there is nothing left to check.
+    bool checkScenarioRules() { return rebuildRules(false); }
     void deleteAll();
     void deleteRules();
 
@@ -227,15 +202,17 @@ public:
      * client can write it.
      * ---------------------------------------------------------------- */
 
-    /* Gate 1. True when a step rule that was registered here has been
-     * destroyed under us, or when any rule of this scenario (steps, start,
-     * stop, step_end, schedule start/stop) references an IO that does not
-     * resolve - Rule::isDisabled(), the very mechanism of E4.2e.
+    /* Gate 1, a pure read. Three independent reasons, all three needed:
+     *  - an action of the definition names an IO that does not resolve. Being
+     *    definition-derived, no rules.xml round trip can whitewash it;
+     *  - a live rule of the scenario is disabled (an IO deleted at runtime);
+     *  - fewer rules carry our uid than the definition calls for, i.e. one was
+     *    destroyed under us. This is the only reason that names no id.
      */
     bool isBroken() const;
 
-    //The unresolved ids of every rule of this scenario, de-duplicated, in the
-    //E4.2e format ("id_a, id_b"). Empty for a healthy scenario.
+    //The unresolved ids, de-duplicated, "id_a, id_b". Definition first (steps
+    //in order, then the final step), then the live rules.
     string getMissingIoDescription() const;
 
     //Gate 2. Persisted in the `disabled_missing_io` param of the Scenario IO.
@@ -270,6 +247,9 @@ public:
     //it can be mutliple category, like "light-shutter"
     string getCategory();
 
+    //Empty while the scenario has declared nothing.
+    string getScenarioUid() const;
+
     Scenario *getIOScenario() { return ioScenario; }
     Internal *getIOIsActive() { return ioIsActive; }
     Internal *getIOScheduleEnabled() { return ioScheduleEnabled; }
@@ -279,16 +259,15 @@ public:
 
     Room *getRoomContainer() { return roomContainer; }
 
-    /* Same signatures as ever: no caller has to change. They now answer the
-     * *resolution* of the back-pointer, so null (or a compacted list) once
-     * ListeRule has destroyed the rule under us.
+    /* Lookups into ListeRule, not memorized pointers: a rule destroyed by its
+     * owner simply stops being found. None of these mutates anything.
      */
-    Rule *getRuleStart() { return ruleStart.get(); }
-    Rule *getRuleStop() { return ruleStop.get(); }
-    Rule *getRuleStepEnd() { return ruleStepEnd.get(); }
-    Rule *getRulePlageStart() { return rulePlageStart.get(); }
-    Rule *getRulePlageStop() { return rulePlageStop.get(); }
-    vector<Rule *> getRuleSteps();
+    Rule *getRuleStart() const { return ruleOfType("button_start"); }
+    Rule *getRuleStop() const { return ruleOfType("button_stop"); }
+    Rule *getRuleStepEnd() const { return ruleOfType("step_end"); }
+    Rule *getRulePlageStart() const { return ruleOfType("time_start"); }
+    Rule *getRulePlageStop() const { return ruleOfType("time_stop"); }
+    vector<Rule *> getRuleSteps() const;
 
     void addStep(double pause);
     void setStepPause(int step, double pause);

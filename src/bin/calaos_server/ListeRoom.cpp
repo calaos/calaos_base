@@ -317,23 +317,15 @@ void ListeRoom::checkAutoScenario()
             sc->getAutoScenario()->checkScenarioRules();
     }
 
-    list<Rule *> to_remove;
-    for (int i = 0;i < ListeRule::Instance().size();i++)
-    {
-        Rule *rule = ListeRule::Instance().get_rule(i);
-        if (rule->param_exists("auto_scenario") && !rule->isAutoScenario())
-            to_remove.push_back(rule);
-    }
-
-    list<Rule *>::iterator itr = to_remove.begin();
-    for (;itr != to_remove.end();itr++)
-        ListeRule::Instance().Remove(*itr);
-
-    /* T3.18. The startup detection pass, AFTER checkScenarioRules() has
-     * adopted the rules (a scenario has no rules to look at before that) and
-     * BEFORE the two Save below, which are the ones that persist the flag.
-     * No new Save is added: this is the whole reason the pass sits here.
+    /* DO NOT REINTRODUCE A SWEEP HERE. There used to be one, destroying every
+     * rule carrying `auto_scenario` that no AutoScenario had adopted - and
+     * SaveConfigRule() below persisted the destruction, at the first startup,
+     * with no user action. It only made sense while rules were ADOPTED; they
+     * are regenerated now, so an unclaimed rule is somebody else's data, not
+     * an orphan.
      */
+
+    //Before the two Save below, which are what persist the flag.
     refreshBrokenScenarios();
 
     //Resave config, auto scenarios have probably created/deleted ios and rules
