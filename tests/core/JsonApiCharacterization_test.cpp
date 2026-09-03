@@ -48,6 +48,7 @@
 #include "JsonApiCharacterization.h"
 
 #include "EventManager.h"
+#include "ListeRoom.h"
 
 //EXPECT_NONFATAL_FAILURE. The assertions this harness ships must be proven to
 //FAIL when they should, not only to pass when they should.
@@ -622,4 +623,395 @@ TEST_F(JsonApiCharacterizationTestSuite, EventsAreNotDeliveredToASessionThatIsNo
     pumpEventLoop();
 
     EXPECT_EQ(0u, ws.count()) << "expected silence, got: " << ws.lastMessage();
+}
+
+/*******************************************************************************
+ * E4.6e - the autoscenario dispatch itself: routing, service scope, unknown
+ * sub-commands.
+ *
+ * The two handlers own this dispatch and nothing else does. Everything below
+ * is asserted on BOTH transports where both have a path, because the two
+ * dispatchers are separate code reading the sub-command from different places
+ * (WS under "data", HTTP at the root) - an assertion on one proves nothing
+ * about the other.
+ *
+ * ROUTING WITNESS. EachAutoscenarioSubCommandReachesItsOwnBuilder gives each
+ * of the eight sub-commands an observable no other one produces, and drives
+ * them in an order where every step depends on the previous. Two of the eight
+ * answer the same bytes ({"success":"true"} for delete and del_schedule), so
+ * the witness is the EFFECT, not the payload: swapping any two entries of the
+ * routing table leaves the scenario in a state the sequence refuses.
+ ******************************************************************************/
+
+namespace
+{
+
+const char E46E_ROOM_NAME[] = "E4.6e room";
+const char E46E_ROOM_TYPE[] = "salon";
+
+//Prefixed and used nowhere else: Config's IO state cache is process wide and
+//never cleared (CalaosCoreFixture.h).
+const char E46E_BOOL[] = "e46e_bool";
+const char E46E_INT[] = "e46e_int";
+const char E46E_STRING[] = "e46e_string";
+
+//The eight sub-commands, in dispatch order.
+const char *const AUTOSCENARIO_SUBCOMMANDS[] =
+{ "list", "get", "create", "delete", "modify", "add_schedule", "del_schedule",
+  "reenable" };
+
+} //namespace
+
+class JsonApiAutoscenarioDispatchTest: public JsonApiCharacterizationTest
+{
+protected:
+    /* A house of its own: the reference house carries no room the scenario
+     * payload can name, and dragging its two cameras and its Roon player
+     * through a create/delete sequence buys nothing.
+     */
+    void loadScenarioHouse()
+    {
+        std::string ios;
+        ios += internalIoXml("InternalBool", E46E_BOOL, "Bool value");
+        ios += internalIoXml("InternalInt", E46E_INT, "Int value");
+        ios += internalIoXml("InternalString", E46E_STRING, "String value");
+
+        loadConfig(ioXmlDocument(roomXml(E46E_ROOM_NAME, E46E_ROOM_TYPE, ios)),
+                   rulesXmlDocument(std::string()));
+
+        //The load queues one EventIOAdded per IO; drain them so the silence
+        //cases below observe their own absence and not this backlog.
+        pumpEventLoop();
+    }
+
+    static Json wsRequest(const std::string &type, Json data = Json::object(),
+                          const std::string &msgId = "e46e")
+    {
+        if (!type.empty()) data["type"] = type;
+        return Json{{ "msg", "autoscenario" }, { "msg_id", msgId }, { "data", data }};
+    }
+
+    static Json httpRequest(const std::string &type, Json body = Json::object())
+    {
+        body["action"] = "autoscenario";
+        if (!type.empty()) body["type"] = type;
+        return authenticated(body);
+    }
+
+    //Sends one sub-command over WS and answers the "data" member of the single
+    //reply. Fails the calling case when the reply count is not exactly one.
+    Json wsAutoscenario(WsTestSession &ws, const std::string &type,
+                        Json data = Json::object())
+    {
+        ws.clear();
+        ws.send(wsRequest(type, data));
+        EXPECT_EQ(1u, ws.count()) << "autoscenario " << type << " answered "
+                                  << ws.count() << " messages";
+        if (ws.count() != 1) return Json::object();
+        return ws.lastData();
+    }
+
+    /* The definition create and modify share. Two standard steps with
+     * different pauses and different targets, plus a final step: a payload
+     * where every sub-command that rewrites it has something to move.
+     */
+    static Json definitionPayload(const std::string &name)
+    {
+        return Json{
+            { "name", name },
+            { "room_name", E46E_ROOM_NAME },
+            { "room_type", E46E_ROOM_TYPE },
+            { "steps", Json::array({
+                 Json{{ "pause", "1.5" },
+                      { "actions", Json::array({
+                            Json{{ "io", E46E_BOOL }, { "value", "true" }} }) }},
+                 Json{{ "pause", "0.25" },
+                      { "actions", Json::array({
+                            Json{{ "io", E46E_INT }, { "value", "42" }} }) }} }) },
+            { "final_step", Json{{ "actions", Json::array({
+                            Json{{ "io", E46E_STRING }, { "value", "done" }} }) }} }};
+    }
+
+    std::string createScenario(WsTestSession &ws, const std::string &name)
+    {
+        return wsAutoscenario(ws, "create", definitionPayload(name))
+                .value("id", std::string());
+    }
+
+    static bool ioExists(const std::string &id)
+    {
+        return ListeRoom::Instance().get_io(id) != nullptr;
+    }
+
+    static std::string scenarioName(const Json &getPayload)
+    {
+        return getPayload.value("name", std::string());
+    }
+};
+
+/*******************************************************************************
+ * The routing table. PROVE, DO NOT FLIP.
+ ******************************************************************************/
+
+TEST_F(JsonApiAutoscenarioDispatchTest, EachAutoscenarioSubCommandReachesItsOwnBuilder)
+{
+    loadScenarioHouse();
+
+    WsTestSession ws;
+
+    // create - the only sub-command that makes a scenario appear
+    const std::string sid = createScenario(ws, "e46e first");
+    ASSERT_FALSE(sid.empty());
+    ASSERT_TRUE(ioExists(sid));
+
+    // list - the only answer carrying a "scenarios" array
+    Json data = wsAutoscenario(ws, "list");
+    ASSERT_TRUE(data.contains("scenarios")) << data.dump();
+    ASSERT_TRUE(data["scenarios"].is_array());
+    ASSERT_EQ(1u, data["scenarios"].size());
+    EXPECT_EQ(sid, data["scenarios"][0].value("id", std::string()));
+
+    // get - the scenario document, named by its own id
+    data = wsAutoscenario(ws, "get", Json{{ "id", sid }});
+    EXPECT_EQ(sid, data.value("id", std::string()));
+    EXPECT_EQ("e46e first", scenarioName(data));
+    EXPECT_TRUE(data.contains("final_step")) << data.dump();
+
+    // add_schedule - the only one answering the id of an IO it just built
+    data = wsAutoscenario(ws, "add_schedule", Json{{ "id", sid }});
+    const std::string scheduleId = data.value("id", std::string());
+    ASSERT_FALSE(scheduleId.empty()) << data.dump();
+    ASSERT_NE(sid, scheduleId);
+    EXPECT_TRUE(ioExists(scheduleId));
+
+    // del_schedule - the schedule IO goes, the scenario stays
+    data = wsAutoscenario(ws, "del_schedule", Json{{ "id", sid }});
+    EXPECT_JSON_EQ(std::string(R"({"success":"true"})"), data);
+    EXPECT_FALSE(ioExists(scheduleId));
+    EXPECT_TRUE(ioExists(sid));
+
+    // modify - the only one that rewrites the definition in place
+    data = wsAutoscenario(ws, "modify",
+                          [&]{ Json p = definitionPayload("e46e renamed");
+                               p["id"] = sid; return p; }());
+    EXPECT_JSON_EQ(std::string(R"({"success":"true"})"), data);
+    EXPECT_EQ("e46e renamed", scenarioName(wsAutoscenario(ws, "get", Json{{ "id", sid }})));
+
+    // reenable - answers on a healthy scenario and changes nothing
+    data = wsAutoscenario(ws, "reenable", Json{{ "id", sid }});
+    EXPECT_JSON_EQ(std::string(R"({"success":"true"})"), data);
+    EXPECT_EQ("e46e renamed", scenarioName(wsAutoscenario(ws, "get", Json{{ "id", sid }})));
+
+    // create again - a SECOND scenario, so delete has a choice to make
+    const std::string second = createScenario(ws, "e46e second");
+    ASSERT_FALSE(second.empty());
+    ASSERT_NE(sid, second);
+    ASSERT_EQ(2u, wsAutoscenario(ws, "list")["scenarios"].size());
+
+    // delete - the only sub-command that makes a scenario disappear
+    data = wsAutoscenario(ws, "delete", Json{{ "id", second }});
+    EXPECT_JSON_EQ(std::string(R"({"success":"true"})"), data);
+    EXPECT_FALSE(ioExists(second));
+    EXPECT_TRUE(ioExists(sid));
+    EXPECT_EQ(1u, wsAutoscenario(ws, "list")["scenarios"].size());
+}
+
+TEST_F(JsonApiAutoscenarioDispatchTest, TheHttpDispatcherRoutesTheSameEightSubCommands)
+{
+    /* The HTTP dispatcher is code of its own and reads "type" from the ROOT
+     * object. Deleting one of its branches has already been measured to leave
+     * the whole WS side green (T3.18), so each branch is asserted here on this
+     * transport, on the answer only: the effects are the WS case's job.
+     */
+    loadScenarioHouse();
+
+    std::string sid;
+    {
+        WsTestSession ws;
+        sid = createScenario(ws, "e46e http");
+        ASSERT_FALSE(sid.empty());
+    }
+
+    {
+        HttpTestRequest req;
+        req.send(httpRequest("list"));
+        ASSERT_EQ(1u, req.count());
+        ASSERT_TRUE(req.bodyJson().contains("scenarios")) << req.body();
+        EXPECT_EQ(1u, req.bodyJson()["scenarios"].size());
+    }
+    {
+        HttpTestRequest req;
+        req.send(httpRequest("get", Json{{ "id", sid }}));
+        ASSERT_EQ(1u, req.count());
+        EXPECT_EQ("e46e http", scenarioName(req.bodyJson()));
+    }
+    {
+        HttpTestRequest req;
+        req.send(httpRequest("add_schedule", Json{{ "id", sid }}));
+        ASSERT_EQ(1u, req.count());
+        EXPECT_FALSE(req.bodyJson().value("id", std::string()).empty()) << req.body();
+    }
+    {
+        HttpTestRequest req;
+        req.send(httpRequest("del_schedule", Json{{ "id", sid }}));
+        ASSERT_EQ(1u, req.count());
+        EXPECT_JSON_EQ(std::string(R"({"success":"true"})"), req.bodyJson());
+    }
+    {
+        Json p = definitionPayload("e46e http renamed");
+        p["id"] = sid;
+        HttpTestRequest req;
+        req.send(httpRequest("modify", p));
+        ASSERT_EQ(1u, req.count());
+        EXPECT_JSON_EQ(std::string(R"({"success":"true"})"), req.bodyJson());
+    }
+    {
+        HttpTestRequest req;
+        req.send(httpRequest("reenable", Json{{ "id", sid }}));
+        ASSERT_EQ(1u, req.count());
+        EXPECT_JSON_EQ(std::string(R"({"success":"true"})"), req.bodyJson());
+    }
+    {
+        HttpTestRequest req;
+        req.send(httpRequest("create", definitionPayload("e46e http second")));
+        ASSERT_EQ(1u, req.count());
+        EXPECT_FALSE(req.bodyJson().value("id", std::string()).empty()) << req.body();
+    }
+    {
+        HttpTestRequest req;
+        req.send(httpRequest("delete", Json{{ "id", sid }}));
+        ASSERT_EQ(1u, req.count());
+        EXPECT_JSON_EQ(std::string(R"({"success":"true"})"), req.bodyJson());
+        EXPECT_FALSE(ioExists(sid));
+    }
+}
+
+/*******************************************************************************
+ * Service scope. >>> TO FLIP (E4.6e, D8) <<<
+ ******************************************************************************/
+
+TEST_F(JsonApiAutoscenarioDispatchTest,
+       AServiceScopedSessionRunsEveryAutoscenarioSubCommand)
+{
+    /* >>> TO FLIP (E4.6e, D8) <<<
+     * The asymmetry E4.0c measured: autoscenario is the one mutating command
+     * the serviceScope gate does not cover. Every sub-command reaches its
+     * builder for a scoped session; the answers differ, none of them is a
+     * refusal.
+     */
+    loadScenarioHouse();
+
+    for (const char *type: AUTOSCENARIO_SUBCOMMANDS)
+    {
+        WsTestSession ws(true /*authenticated*/, true /*serviceScope*/);
+        ws.send(wsRequest(type, Json{{ "id", "e46e_no_such_scenario" }}));
+
+        ASSERT_EQ(1u, ws.count()) << type << " answered nothing";
+        EXPECT_NE("scope denied", str(ws.lastData(), "error"))
+                << type << " is refused to a service scoped session";
+    }
+}
+
+TEST_F(JsonApiAutoscenarioDispatchTest,
+       AServiceScopedSessionCanDestroyTheScenarioItMayNotSchedule)
+{
+    /* >>> TO FLIP (E4.6e, D8) <<<
+     * The measurement that makes D8 a decision rather than a taste: the SAME
+     * session, in the SAME state, is refused the time range of the scenario's
+     * schedule and allowed to delete the scenario, its schedule included.
+     */
+    loadScenarioHouse();
+
+    std::string sid, scheduleId;
+    {
+        WsTestSession ws;
+        sid = createScenario(ws, "e46e scoped");
+        ASSERT_FALSE(sid.empty());
+        scheduleId = wsAutoscenario(ws, "add_schedule", Json{{ "id", sid }})
+                        .value("id", std::string());
+        ASSERT_FALSE(scheduleId.empty());
+    }
+
+    WsTestSession scoped(true /*authenticated*/, true /*serviceScope*/);
+
+    scoped.send(Json{{ "msg", "set_timerange" }, { "msg_id", "1" },
+                     { "data", {{ "id", scheduleId }, { "months", "111111111111" }} }});
+    ASSERT_EQ(1u, scoped.count());
+    EXPECT_JSON_EQ(std::string(R"({"msg":"set_timerange","msg_id":"1",)"
+                               R"("data":{"error":"scope denied"}})"),
+                   scoped.lastMessage());
+
+    scoped.clear();
+    scoped.send(wsRequest("delete", Json{{ "id", sid }}));
+    ASSERT_EQ(1u, scoped.count());
+    EXPECT_JSON_EQ(std::string(R"({"success":"true"})"), scoped.lastData());
+    EXPECT_FALSE(ioExists(sid)) << "the scoped session really destroyed it";
+    EXPECT_FALSE(ioExists(scheduleId));
+}
+
+/*******************************************************************************
+ * Unknown and absent sub-commands. >>> TO FLIP (E4.6e, D8) <<<
+ ******************************************************************************/
+
+TEST_F(JsonApiAutoscenarioDispatchTest,
+       WsAutoscenarioWithAnUnknownOrAbsentTypeAnswersNothing)
+{
+    /* >>> TO FLIP (E4.6e, D8) <<<
+     * Four shapes of "no branch matches", all silent today: an unknown type,
+     * an empty one, an absent one, and no "data" member at all.
+     */
+    loadScenarioHouse();
+
+    WsTestSession ws;
+
+    ws.send(wsRequest("e46e_not_a_command"));
+    EXPECT_EQ(0u, ws.count()) << "expected silence, got: " << ws.lastMessage();
+
+    ws.send(wsRequest("", Json{{ "type", "" }}));
+    EXPECT_EQ(0u, ws.count()) << "expected silence, got: " << ws.lastMessage();
+
+    ws.send(wsRequest(""));
+    EXPECT_EQ(0u, ws.count()) << "expected silence, got: " << ws.lastMessage();
+
+    ws.send(Json{{ "msg", "autoscenario" }, { "msg_id", "1" }});
+    EXPECT_EQ(0u, ws.count()) << "expected silence, got: " << ws.lastMessage();
+
+    //and the silence is not a late answer
+    pumpEventLoop();
+    EXPECT_EQ(0u, ws.count()) << "expected silence, got: " << ws.lastMessage();
+    EXPECT_TRUE(ws.closes().empty());
+}
+
+TEST_F(JsonApiAutoscenarioDispatchTest,
+       HttpAutoscenarioWithAnUnknownTypeLeavesTheSocketOpen)
+{
+    /* >>> TO FLIP (E4.6e, D8) <<<
+     * The HTTP half, and it is the worse one: no response AND no close, so the
+     * client holds the connection until its own timeout fires. Both halves are
+     * asserted - a fix that answered but forgot the socket, or closed without
+     * answering, has to move both.
+     */
+    loadScenarioHouse();
+
+    {
+        HttpTestRequest unknown;
+        unknown.send(httpRequest("e46e_not_a_command"));
+        EXPECT_EQ(0u, unknown.count());
+        EXPECT_TRUE(unknown.closes().empty());
+    }
+    {
+        HttpTestRequest absent;
+        absent.send(httpRequest(""));
+        EXPECT_EQ(0u, absent.count());
+        EXPECT_TRUE(absent.closes().empty());
+    }
+    {
+        //A WS shaped request sent to HTTP falls in the same hole: "type" lives
+        //under "data" and this dispatcher reads the root.
+        HttpTestRequest wsShaped;
+        wsShaped.send(authenticated(Json{{ "action", "autoscenario" },
+                                         { "data", {{ "type", "list" }} }}));
+        EXPECT_EQ(0u, wsShaped.count());
+        EXPECT_TRUE(wsShaped.closes().empty());
+    }
 }
