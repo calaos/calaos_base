@@ -20,10 +20,33 @@
  ******************************************************************************/
 #include "ListeRoom.h"
 #include "AutoScenario.h"
+#include "AutoScenarioDef.h"
 #include "CalaosConfig.h"
 #include "EventManager.h"
+#include "FileUtils.h"
+
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 
 using namespace Calaos;
+
+namespace
+{
+
+/* NOT a third configuration file, and it must never become one (E4.6.md §1.3,
+ * the "two files everybody knows" invariant): a one shot breadcrumb the server
+ * writes for itself, consumed and deleted at the next startup. Its absence
+ * means "no upload to account for", which is the ordinary case, so losing it
+ * costs an alert and nothing else. It lives under backups/ because that is
+ * where the rest of what a `config put` preserves already goes.
+ */
+string uploadSnapshotPath()
+{
+    return Utils::getConfigFile("backups") + "/autoscenario_upload.json";
+}
+
+}
 
 ListeRoom &ListeRoom::Instance()
 {
@@ -308,6 +331,10 @@ list<Scenario *> ListeRoom::getAutoScenarios()
 
 void ListeRoom::checkAutoScenario()
 {
+    //Before the generator touches anything: what an upload took away is
+    //measured on the configuration exactly as it was loaded.
+    reportAutoScenariosLostByUpload();
+
     list<Scenario *>::iterator it = auto_scenario_cache.begin();
 
     for (;it != auto_scenario_cache.end();it++)
@@ -331,6 +358,145 @@ void ListeRoom::checkAutoScenario()
     //Resave config, auto scenarios have probably created/deleted ios and rules
     Config::Instance().SaveConfigIO();
     Config::Instance().SaveConfigRule();
+}
+
+vector<ListeRoom::KnownAutoScenario> ListeRoom::knownAutoScenarios()
+{
+    vector<KnownAutoScenario> known;
+
+    for (Scenario *sc: auto_scenario_cache)
+    {
+        if (!sc || !sc->getAutoScenario()) continue;
+
+        AutoScenarioDef *def = sc->getDefinition();
+        if (!def || !def->isDefined()) continue;
+
+        known.push_back({ def->uid, sc->get_param("name"), def->steps.size() });
+    }
+
+    return known;
+}
+
+void ListeRoom::snapshotAutoScenariosBeforeUpload()
+{
+    Json scenarios = Json::array();
+    for (const KnownAutoScenario &k: knownAutoScenarios())
+        scenarios.push_back(Json{{ "uid", k.uid },
+                                 { "name", k.name },
+                                 { "steps", k.stepCount }});
+
+    //Written even when there is nothing to record: "the server had no
+    //scenario" is what tells the next startup not to blame the upload for a
+    //house that never had one.
+    const string folder = Utils::getConfigFile("backups");
+    if (!FileUtils::mkpath(folder))
+    {
+        cErrorDom("root") << "snapshotAutoScenariosBeforeUpload(): unable to create "
+                          << folder << ", an upload losing a scenario will go unreported";
+        return;
+    }
+
+    std::ofstream ofs(uploadSnapshotPath().c_str(), std::ios::out | std::ios::trunc);
+    if (!ofs.is_open())
+    {
+        cErrorDom("root") << "snapshotAutoScenariosBeforeUpload(): unable to write "
+                          << uploadSnapshotPath();
+        return;
+    }
+
+    ofs << Json{{ "scenarios", scenarios }}.dump();
+}
+
+void ListeRoom::reportAutoScenariosLostByUpload()
+{
+    const string path = uploadSnapshotPath();
+
+    std::ifstream ifs(path.c_str());
+    if (!ifs.is_open())
+        return; //ordinary startup, no upload behind it
+
+    std::ostringstream content;
+    content << ifs.rdbuf();
+    ifs.close();
+
+    //One shot, whatever the comparison says: a snapshot left behind would
+    //re-announce at every boot a loss the user was already told about and
+    //cannot undo any more.
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+
+    const Json doc = Json::parse(content.str(), nullptr, false);
+    if (doc.is_discarded() || !doc.is_object() || !doc["scenarios"].is_array())
+    {
+        cErrorDom("root") << "reportAutoScenariosLostByUpload(): unreadable snapshot, "
+                          << "the last upload cannot be accounted for";
+        return;
+    }
+
+    vector<KnownAutoScenario> before;
+    for (const Json &entry: doc["scenarios"])
+    {
+        if (!entry.is_object()) continue;
+        before.push_back({ entry.value("uid", string()),
+                           entry.value("name", string()),
+                           entry.value("steps", (size_t)0) });
+    }
+
+    const vector<string> lost = diffLostAutoScenarios(before, knownAutoScenarios());
+    if (lost.empty())
+        return;
+
+    string report = "The configuration that was uploaded no longer carries scenario "
+                    "data this server had:\n";
+    for (const string &line: lost)
+        report += "\n" + line;
+
+    /* Says what was NOT done as much as what was: the upload was applied as
+     * sent, on purpose, and the way back is the backup rather than an undo.
+     */
+    report += "\n\nNothing was refused and nothing was undone: the configuration is "
+              "the one that was uploaded. The one that was in place before it was "
+              "backed up first, under " + Utils::getConfigFile("backups") + ".";
+
+    cError() << lost.size() << " scenario(s) lost by the last configuration upload";
+    Config::Instance().reportConfigAlert(report);
+}
+
+vector<string> ListeRoom::diffLostAutoScenarios(const vector<KnownAutoScenario> &before,
+                                                const vector<KnownAutoScenario> &after)
+{
+    vector<string> lost;
+
+    for (const KnownAutoScenario &was: before)
+    {
+        if (was.uid.empty()) continue;
+
+        const KnownAutoScenario *now = nullptr;
+        for (const KnownAutoScenario &k: after)
+        {
+            if (k.uid != was.uid) continue;
+            now = &k;
+            break;
+        }
+
+        /* The name the user gave it comes first and the uid is the fallback:
+         * an alert naming something only the model recognizes sends the user
+         * looking through io.xml for it.
+         */
+        string named = (now && !now->name.empty())? now->name: was.name;
+        named = named.empty()? "'" + was.uid + "'"
+                             : "'" + named + "' (" + was.uid + ")";
+
+        if (!now)
+            lost.push_back("- scenario " + named +
+                           " is gone from the uploaded configuration");
+        else if (now->stepCount < was.stepCount)
+            lost.push_back("- scenario " + named + " lost " +
+                           std::to_string(was.stepCount - now->stepCount) +
+                           " of its " + std::to_string(was.stepCount) + " steps");
+    }
+
+    return lost;
 }
 
 Room * ListeRoom::searchRoomByNameAndType(string name, string type)

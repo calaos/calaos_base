@@ -622,12 +622,10 @@ TEST_F(AutoScenarioUploadGuardTest, TwoUploadsLeaveTwoBackupsAndTheNewestIsTheSt
 
 TEST_F(AutoScenarioUploadGuardTest, AnUploadThatDropsAKnownScenarioAlertsAtTheNextStartupNamingIt)
 {
-    /* >>> TO FLIP (E4.6h, D10 level 2) <<<
-     *
-     * TODAY: the upload takes a whole scenario away and the server says
-     * nothing at all. The user finds out the day the shutters do not open.
-     * AFTER: one configuration alert, naming 'Soirée' and its uid, and NOT
-     * naming the scenario that survived.
+    /* ✅ FLIPPED by E4.6h. The upload takes a whole scenario away; before this
+     * ticket the server said nothing at all and the user found out the day the
+     * shutters did not open. It now raises exactly ONE alert, naming the
+     * scenario the way the user named it - and not naming the survivor.
      */
     loadHouse();
 
@@ -658,17 +656,28 @@ TEST_F(AutoScenarioUploadGuardTest, AnUploadThatDropsAKnownScenarioAlertsAtTheNe
     ASSERT_TRUE(scenarioIo(eveningId) == nullptr);
     ASSERT_TRUE(scenarioIo(wakeupId) != nullptr) << "the wrong scenario was removed";
 
-    EXPECT_EQ(alertsBefore, alertCount())
-            << "TODAY the loss of a scenario raises nothing: " << lastAlert();
+    ASSERT_EQ(alertsBefore + 1u, alertCount()) << "the loss raised no alert";
+    const std::string report = lastAlert();
+
+    EXPECT_NE(std::string::npos,
+              report.find("- scenario '" + std::string(NAME_EVENING) + "' (" +
+                          eveningUid + ") is gone from the uploaded configuration"))
+            << report;
+
+    //the survivor is named neither by its name nor by its uid
+    EXPECT_EQ(std::string::npos, report.find(NAME_WAKEUP)) << report;
+    EXPECT_EQ(std::string::npos, report.find(wakeupUid)) << report;
+
+    //and the alert says what was NOT done: the upload stands
+    EXPECT_NE(std::string::npos, report.find("Nothing was refused")) << report;
 }
 
 TEST_F(AutoScenarioUploadGuardTest, AnUploadThatTakesAStepAwayFromAKnownScenarioAlertsAndSaysHowMany)
 {
-    /* >>> TO FLIP (E4.6h, D10 level 2) <<<
-     *
-     * The other half of the loss: the scenario is still there, shorter. Today
-     * it is as silent as the disappearance, and it is worse to spot - the
-     * scenario still runs, it just stops doing one of the things it did.
+    /* ✅ FLIPPED by E4.6h. The other half of the loss: the scenario is still
+     * there, shorter. It is the worse of the two to spot - the scenario still
+     * runs, it just stops doing one of the things it did - so the alert has to
+     * say how many steps went, not merely that something changed.
      */
     loadHouse();
 
@@ -681,6 +690,8 @@ TEST_F(AutoScenarioUploadGuardTest, AnUploadThatTakesAStepAwayFromAKnownScenario
     saveConfig();
 
     ASSERT_EQ(3u, stepCountOf(eveningId));
+    const std::string eveningUid = uidOf(eveningId);
+    ASSERT_FALSE(eveningUid.empty());
 
     std::string ioXml = ioXmlOnDisk();
     ASSERT_TRUE(dropLastStepFromIoXml(ioXml, eveningId));
@@ -694,17 +705,21 @@ TEST_F(AutoScenarioUploadGuardTest, AnUploadThatTakesAStepAwayFromAKnownScenario
     ASSERT_EQ(2u, stepCountOf(eveningId)) << "the step was not really taken away";
     ASSERT_EQ(1u, stepCountOf(wakeupId));
 
-    EXPECT_EQ(alertsBefore, alertCount())
-            << "TODAY an amputated scenario raises nothing: " << lastAlert();
+    ASSERT_EQ(alertsBefore + 1u, alertCount()) << "the amputation raised no alert";
+    const std::string report = lastAlert();
+
+    EXPECT_NE(std::string::npos,
+              report.find("- scenario '" + std::string(NAME_EVENING) + "' (" +
+                          eveningUid + ") lost 1 of its 3 steps")) << report;
+    EXPECT_EQ(std::string::npos, report.find("is gone from")) << report;
+    EXPECT_EQ(std::string::npos, report.find(NAME_WAKEUP)) << report;
 }
 
 TEST_F(AutoScenarioUploadGuardTest, AScenarioTheUserNeverNamedIsReportedByItsUid)
 {
-    /* >>> TO FLIP (E4.6h, D10 level 2) <<<
-     *
-     * The fallback of the naming rule. A name is what the user recognizes, so
-     * it comes first; but a scenario whose name is empty must still be named
-     * by something, and the uid is all there is left.
+    /* ✅ FLIPPED by E4.6h. The fallback of the naming rule. A name is what the
+     * user recognizes, so it comes first; but a scenario whose name is empty
+     * must still be named by something, and the uid is all there is left.
      */
     loadHouse();
 
@@ -734,17 +749,22 @@ TEST_F(AutoScenarioUploadGuardTest, AScenarioTheUserNeverNamedIsReportedByItsUid
     const size_t alertsBefore = alertCount();
     rebootOnDiskConfig();
 
-    EXPECT_EQ(alertsBefore, alertCount())
-            << "TODAY nothing is reported, named or not: " << lastAlert();
+    ASSERT_EQ(alertsBefore + 1u, alertCount());
+    const std::string report = lastAlert();
+
+    EXPECT_NE(std::string::npos,
+              report.find("- scenario '" + eveningUid +
+                          "' is gone from the uploaded configuration")) << report;
+    //the uid REPLACED the name, it was not printed next to an empty one
+    EXPECT_EQ(std::string::npos, report.find("scenario '' ")) << report;
 }
 
 TEST_F(AutoScenarioUploadGuardTest, AnUploadThatLosesTwoScenariosNamesBothOfThem)
 {
-    /* >>> TO FLIP (E4.6h, D10 level 2) <<<
-     *
-     * Plural. A report that stops at the first loss is a report that hides the
-     * second one, and the two scenarios of the fixture have nothing in common
-     * on purpose - different names, different step counts.
+    /* ✅ FLIPPED by E4.6h. Plural. A report that stops at the first loss is a
+     * report that hides the second one, and the two scenarios of the fixture
+     * have nothing in common on purpose - different names, different step
+     * counts. One alert carries both lines, in the order they were declared.
      */
     loadHouse();
 
@@ -756,8 +776,10 @@ TEST_F(AutoScenarioUploadGuardTest, AnUploadThatLosesTwoScenariosNamesBothOfThem
     }
     saveConfig();
 
-    ASSERT_FALSE(uidOf(eveningId).empty());
-    ASSERT_FALSE(uidOf(wakeupId).empty());
+    const std::string eveningUid = uidOf(eveningId);
+    const std::string wakeupUid = uidOf(wakeupId);
+    ASSERT_FALSE(eveningUid.empty());
+    ASSERT_FALSE(wakeupUid.empty());
 
     const size_t alertsBefore = alertCount();
     ASSERT_EQ("true", str(uploadConfig(ioXmlDocument(roomXml("Vide", "salon", std::string(), 0)),
@@ -767,17 +789,26 @@ TEST_F(AutoScenarioUploadGuardTest, AnUploadThatLosesTwoScenariosNamesBothOfThem
     ASSERT_TRUE(scenarioIo(eveningId) == nullptr);
     ASSERT_TRUE(scenarioIo(wakeupId) == nullptr);
 
-    EXPECT_EQ(alertsBefore, alertCount())
-            << "TODAY losing everything raises nothing: " << lastAlert();
+    ASSERT_EQ(alertsBefore + 1u, alertCount()) << "two losses must be one alert";
+    const std::string report = lastAlert();
+
+    const size_t evening =
+            report.find("- scenario '" + std::string(NAME_EVENING) + "' (" +
+                        eveningUid + ") is gone from the uploaded configuration");
+    const size_t wakeup =
+            report.find("- scenario '" + std::string(NAME_WAKEUP) + "' (" +
+                        wakeupUid + ") is gone from the uploaded configuration");
+    EXPECT_NE(std::string::npos, evening) << report;
+    EXPECT_NE(std::string::npos, wakeup) << report;
+    EXPECT_LT(evening, wakeup) << "the two lines are in declaration order";
 }
 
 TEST_F(AutoScenarioUploadGuardTest, TheAlertIsRaisedOnceAndTheStartupAfterItIsSilent)
 {
-    /* >>> TO FLIP (E4.6h, D10 level 2) <<<
-     *
-     * A loss is news exactly once. Re-alerting at every boot for something the
-     * user was already told about, and cannot undo any more, turns the channel
-     * into noise - and this channel also carries corrupt-file recovery.
+    /* ✅ FLIPPED by E4.6h. A loss is news exactly once. Re-alerting at every
+     * boot for something the user was already told about, and cannot undo any
+     * more, turns the channel into noise - and this channel also carries the
+     * corrupt-file recovery, which nobody may learn to ignore.
      */
     loadHouse();
 
@@ -803,8 +834,8 @@ TEST_F(AutoScenarioUploadGuardTest, TheAlertIsRaisedOnceAndTheStartupAfterItIsSi
     //a second boot on the very same files, no upload in between
     rebootOnDiskConfig();
 
-    EXPECT_EQ(alertsBefore, afterFirstBoot) << "TODAY the first boot is silent too";
-    EXPECT_EQ(afterFirstBoot, alertCount()) << "the second boot must add nothing";
+    EXPECT_EQ(alertsBefore + 1u, afterFirstBoot) << "the first boot said nothing";
+    EXPECT_EQ(afterFirstBoot, alertCount()) << "the second boot said it again";
 }
 
 /*******************************************************************************

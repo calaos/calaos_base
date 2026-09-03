@@ -171,6 +171,45 @@ public:
     list<Scenario *> getAutoScenarios();
     void checkAutoScenario();
 
+    /* -------------------------------------------------------------------
+     * E4.6h - D10 levels 1 and 2, the upload path.
+     *
+     * A whole configuration uploaded through `config put` can drop a scenario
+     * or shorten one, and the server has no say in it: refusing is ruled out
+     * (deleting a scenario from calaos_installer has to keep working), so all
+     * it owes the user is to SAY what went missing, the day it goes missing.
+     *
+     * It cannot say it during the upload: a successful put restarts the
+     * server as soon as the reply is out, and the alert channel is deferred
+     * by 30s so it fires with the event loop up. The finding therefore has to
+     * cross the restart, which is what the snapshot below is for.
+     * ---------------------------------------------------------------- */
+
+    //One scenario as the server knew it, i.e. what the diff compares.
+    struct KnownAutoScenario
+    {
+        string uid;
+        string name;
+        size_t stepCount = 0;
+    };
+
+    vector<KnownAutoScenario> knownAutoScenarios();
+
+    /* Record the scenarios currently loaded, next to the backup `config put`
+       takes just before overwriting the files. */
+    void snapshotAutoScenariosBeforeUpload();
+
+    /* Read that snapshot back, CONSUME it, and raise one configuration alert
+       naming every scenario the upload dropped or shortened. Consuming is
+       what keeps a loss from being re-announced at every boot afterwards.
+       Does nothing at all when no upload preceded this startup. */
+    void reportAutoScenariosLostByUpload();
+
+    /* The comparison itself, kept pure so it can be read on its own: one
+       human readable line per loss, none when nothing was lost. */
+    static vector<string> diffLostAutoScenarios(const vector<KnownAutoScenario> &before,
+                                                const vector<KnownAutoScenario> &after);
+
     Room * searchRoomByNameAndType(string name,string type);
 
     Room *getRoomByIO(IOBase *o);
