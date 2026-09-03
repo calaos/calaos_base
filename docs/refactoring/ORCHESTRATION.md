@@ -8,9 +8,18 @@
 
 ## 🔁 REPRISE — lire en premier
 
-- **✅⭐⭐ [`E4.1x`](E4.1x.md) LIVRÉE — l'épique `E4.1` est CLOSE.** Branche `refactor/e4.1x`,
-  **5 commits `refactor` + 1 `docs`**, tête sur `master` `31606a52`. ⛔ **Rien poussé, rien mergé.**
-  ⭐⭐ **C'est le seul ticket du projet qui RETIRE une dépendance externe du `configure.ac`.**
+- **✅⭐⭐ [`E4.1x`](E4.1x.md) MERGÉE — 6 commits de la branche + 1 commit de doc sur `master`,
+  `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`3a987c39`**.
+  ⭐ **`master` ÉTAIT IMMOBILE sur `31606a52`** = exactement la merge-base ⇒ **ni rebase ni conflit.**
+  ⛔ **Rien poussé.** ⭐⭐ **C'est le seul ticket du projet qui RETIRE une dépendance externe du
+  `configure.ac` — et avec lui l'épique `E4.1` est CLOSE : le dépôt n'a plus qu'une bibliothèque JSON.**
+
+  ⭐ **CONDITIONS D'ACCEPTATION DE L'ÉPIQUE VÉRIFIÉES UNE À UNE AU MERGE** (`E4.1.md`, § Acceptation) :
+  critère 1 **amendé et l'amendement jugé fondé** · `Jansson_Addition.h` supprimé, absent de tout
+  `Makefile.am` · `jansson >= 2.5` hors de `configure.ac:51` **et build vert sans les fichiers de
+  développement** · aucune régression de l'API 5454 ni des events (111 suites vertes) · **zéro golden
+  modifié sur toute la série** (hash d'arbre `tests/core/golden` **identique** entre `31606a52` et
+  `3a987c39`, 145 blobs de chaque côté) · le blocage `E4.6b`/`E4.6d` est levé. **Toutes remplies.**
 
   ⭐ **LA PREUVE QUI COMPTE, ET ELLE A ÉTÉ FAITE.** Le build ne se contente pas d'être vert avec le
   paquet encore là : il l'est dans un conteneur où `jansson.h`, `jansson_config.h`, `jansson.pc`
@@ -21,10 +30,39 @@
   s'y lie, et `configure` échoue alors sur « C compiler cannot create executables » — un faux rouge
   qui n'a rien à voir avec le projet (mesuré).
 
+  ⭐⭐ **PREUVE REJOUÉE PAR L'AGENT DE MERGE, pas relue.** Même image, `jansson.h`,
+  `jansson_config.h`, `jansson.pc`, `libjansson.so` **et `libjansson.a`** effacés (seuls
+  `libjansson.so.4` / `.so.4.14.0` conservés, cf. l'avertissement ci-dessus) : `find / -name jansson.pc`
+  rend **0**, `pkg-config --exists jansson` rend **rc 1**, et un `gcc … -ljansson` témoin échoue sur
+  **`cannot find -ljansson`**. Le build complet passe alors : `TOTAL 111 / PASS 109 / SKIP 2 / FAIL 0 /
+  ERROR 0`, **0 `error:`** hors celui du témoin, et `CALAOS_COMMON_LIBS` vaut
+  `-luv -lpthread -ldl -lrt -lsigc-2.0 -lcurl -lluajit-5.1 -lsqlite3 -lssl -lcrypto` — **sans
+  `-ljansson`**.
+  ⭐ **Les trois extern-procs conditionnels SONT couverts** — l'auteur ne l'avait pas vérifié :
+  l'image porte `libola` (pkg-config), `eibclient.h` et `mosquitto.h`, et le journal montre
+  `CXXLD calaos_ola`, `CXXLD calaos_knx`, `CXXLD calaos_mqtt`. Le vert couvre donc bien
+  `OLAExternProc_main.cpp`, l'une des 6 unités qui perdaient `<jansson.h>` par `ExternProc.h`.
+  ⭐ **M1 et M3 REJOUÉES au merge**, chacune seule, restauration par **copie vérifiée au `cmp` (rc 0)**
+  et arbre `git status` propre, **zéro `rm -f`** : **M1** ⇒ `PASS 99 / FAIL 10`, les 10 mêmes suites
+  dont `core/JsonApiDispatchWireBytes_test`, **29 `CXXLD` apparus d'eux-mêmes** ; **M3** ⇒
+  `PASS 108 / FAIL 1`, `ParamsJson_test` **seul**. ⇒ **Le tripwire réduit rougit encore, et il rougit
+  juste.** Retour au vert après restauration : `TOTAL 111 / PASS 109 / FAIL 0`.
+  ⭐ **Le sondage du critère amendé est CONFIRMÉ** : 27 lignes lues en contexte sur 19 fichiers, plus
+  une passe exhaustive après blanchiment des commentaires, littéraux et `#include` sur les 524 fichiers
+  de `src/` + `tests/` ⇒ **0 survivante**, **0 `#include` jansson**, **0 `json_t` en position de type**.
+  L'amendement du critère est **fondé** : le `grep` brut mesurait la prose, pas le code.
+  ⚠️ **Deux chiffres de l'auteur étaient inexacts et sont corrigés dans les fiches** : le `grep` brut
+  rend **122** lignes sur `src/` (pas 127) et **296** sur `tests/` ; le renommage compte **~105 sites
+  sur 23 fichiers** (pas 99), dont **15** sous `src/` (pas 13). Sous-comptage, jamais omission :
+  `toNJson`/`fromNJson` rend **zéro** hors archives `docs/refactoring/`, et le renommage est
+  **mécanique prouvé par empreinte** — `md5(sed 's/NJson/Json/g' <blob parent>)` == `md5(<blob>)` pour
+  **les 23 fichiers de code** du commit `86c89de6`. Aucune signature, aucun corps, aucun ordre
+  d'argument touché. Seul `docs/13_utility_lib.md` porte, dans ce commit, de la réécriture de prose.
+
   ⭐⭐ **LES DEUX MESURES, ET LE CRITÈRE D'ACCEPTATION QUI ÉTAIT FAUX.** La **convention de comptage**
   (§ plus bas) tombe de **47 à 2** : les deux `json_body` de `WebSocket.cpp`, les faux positifs
   documentés. ⛔ Mais le critère 1 de la fiche demandait un **`grep` brut à zéro ligne**, et il est
-  **inatteignable** : il reste **127 lignes** dans `src/`, **toutes en commentaire** (la prose qui
+  **inatteignable** : il reste **122 lignes** dans `src/` (et **296** dans `tests/`), **toutes en commentaire** (la prose qui
   explique pourquoi `jsonStringGet()`/`decodeJsonObject()` reproduisent à la main l'ancien
   contrat), plus le littéral `"_json_temp"` de `JsonApiHandlerHttp.cpp:130`, que le motif attrape
   sur `_json_t`. **Zéro code jansson, dans `src/` comme dans `tests/`** — vérifié appel par appel.
@@ -58,9 +96,24 @@
   quatre commentaires promettaient que **ce** ticket les replierait, il ne l'a **pas** fait (deux
   d'entre elles appartiennent aux fichiers que `E4.6e` réécrit) et les commentaires disent
   désormais la duplication au lieu de nommer un ticket. Rien ne compare les cinq entre elles →
-  `FINDINGS.md`, ticket dédié recommandé. (2) La **prose jansson** des 20 fichiers reste : elle
-  documente le *pourquoi* des contrats repris à la main, et l'effacer pour satisfaire un `grep`
-  coûterait plus qu'elle ne rapporte.
+  `FINDINGS.md`, **ticket recommandé `E4.7`** (proposé, non ouvert ; `E4.7` est libre), à lancer
+  **après `E4.6e`** qui réécrit deux des cinq copies. (2) La **prose jansson** des 20 fichiers reste :
+  elle documente le *pourquoi* des contrats repris à la main, et l'effacer pour satisfaire un `grep`
+  coûterait plus qu'elle ne rapporte. (3) ⚠️ **Les images du dépôt installent encore jansson** —
+  `Dockerfile:22` et `:86`, `.devcontainer/Dockerfile:13`, `.github/workflows/ci.yml:23` et `:71`
+  posent `libjansson-dev`/`libjansson4`. Le build n'en a plus besoin ; ces lignes sont du ballast à
+  retirer, sans urgence et hors périmètre de ce ticket.
+
+- ⭐ **PROCHAINE ACTION : [`E4.6e`](E4.6.md).** L'épique `E4.1` étant close, la campagne reprend sur la
+  refonte AutoScenario. **Scope** : les handlers `JsonApiHandlerHttp.cpp` / `JsonApiHandlerWS.cpp` que
+  la chaîne `E4.6` réécrit — c'est pour cela qu'`E4.1x` n'a pas replié les cinq copies de
+  `jsonStringGet()`/`decodeJsonObject()` : deux d'entre elles vivent dans ces deux fichiers.
+  ⚠️ **`E4.6e` doit ramasser TROIS SOLDES laissés par `E4.6d`, à reprendre tels quels dans son brief :**
+  1. **`AutoScenarioDef::resetIdAllocators()` à renommer `…ForTests`** — API de production dont le seul
+     appelant du dépôt est le harnais (`CoreFixture::clearCoreState()`). Correcte aujourd'hui, mais
+     rien n'empêche un appelant de production de casser l'invariant D3 « un id n'est jamais recyclé ».
+  2. **`addFinalStepAction()` : aucun appelant**, ni production ni test.
+  3. **`getEndStepAction()` / `getEndStepActionCount()` : aucun appelant de production** (harnais seul).
 
 - **✅⭐⭐ [`E4.6d`](E4.6.md) MERGÉE — 4 commits de la branche + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`4e6b7aef`**.
   ⭐ **`master` ÉTAIT IMMOBILE sur `07782ea8`** = exactement la merge-base ⇒ **ni rebase ni conflit.**

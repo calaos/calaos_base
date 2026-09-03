@@ -8518,15 +8518,16 @@ nommer un ticket qui ne l'a pas tenue.
 
 ⚠️ **Le risque est que les cinq copies divergent en silence** : rien ne les compare entre elles, et
 le contrat qu'elles reproduisent n'a plus de référence exécutable depuis que la bibliothèque
-d'origine est partie. Un ticket dédié devrait les replier en une seule, avec les cas de
-caractérisation qui existent déjà dans `ScriptWire_test`, `JsonApiParamsWireBytes_test` et
+d'origine est partie. **Ticket recommandé : `E4.7`** (proposé, non ouvert — `E4.7` est libre), à lancer **après `E4.6e`**,
+qui réécrit deux des cinq copies. Il les replierait en une seule, avec les cas de caractérisation
+qui existent déjà dans `ScriptWire_test`, `JsonApiParamsWireBytes_test` et
 `JsonApiScenarioWireBytes_test` comme filet.
 
 ## E4.1x — le `grep` d'acceptation d'une suppression ne doit pas mesurer la prose (2026-09-03)
 
 Le critère d'acceptation 1 d'E4.1x demandait `grep -rn 'json_t\|jansson' src tests` **à zéro ligne**.
-Il est **inatteignable**, et pas parce que le travail est incomplet : à la clôture il restait **127
-lignes** dans `src/`, **toutes en commentaire** — de la prose qui explique *pourquoi* un contrat
+Il est **inatteignable**, et pas parce que le travail est incomplet : à la clôture il restait **122
+lignes** dans `src/` (et 296 dans `tests/`), **toutes en commentaire** — de la prose qui explique *pourquoi* un contrat
 écrit à la main reproduit exactement ce que faisait la bibliothèque d'avant — plus **un littéral de
 chaîne**, `Utils::getTmpFilename("jpg", "_json_temp")`, que le motif attrape sur `_json_t`.
 
