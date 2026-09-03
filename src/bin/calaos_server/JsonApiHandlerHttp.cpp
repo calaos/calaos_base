@@ -770,7 +770,7 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
             //Do a backup before overwriting new files
             Config::Instance().BackupFiles();
 
-            /* E4.6h, D10 level 2. Same instant, same reason: what is about to
+            /* Same instant, same reason as the backup above: what is about to
              * be overwritten is recorded so the startup that follows can name
              * the scenarios this upload takes away. It cannot be said here -
              * a successful put restarts the server as soon as the reply is

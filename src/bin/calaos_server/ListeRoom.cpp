@@ -34,9 +34,9 @@ using namespace Calaos;
 namespace
 {
 
-/* NOT a third configuration file, and it must never become one (E4.6.md §1.3,
- * the "two files everybody knows" invariant): a one shot breadcrumb the server
- * writes for itself, consumed and deleted at the next startup. Its absence
+/* NOT a third configuration file, and it must never become one - io.xml and
+ * rules.xml are the two files everybody knows. This is a one shot breadcrumb
+ * the server writes for itself, consumed and deleted at the next startup. Its absence
  * means "no upload to account for", which is the ordinary case, so losing it
  * costs an alert and nothing else. It lives under backups/ because that is
  * where the rest of what a `config put` preserves already goes.

@@ -79,9 +79,9 @@ public:
     void BackupFiles();
 
     /* Queue a message on the same deferred mail/push channel LoadConfigIO()/
-     * LoadConfigRule() use, for a problem detected outside them. E4.6h needs
-     * it for the scenarios a configuration upload took away, which only the
-     * startup that follows the upload can see.
+     * LoadConfigRule() use, for a problem detected outside them - the
+     * scenarios a configuration upload took away, which only the startup that
+     * follows the upload can see.
      */
     void reportConfigAlert(const string &message) { scheduleConfigAlert(message); }
 

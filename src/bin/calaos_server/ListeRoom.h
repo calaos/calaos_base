@@ -171,19 +171,15 @@ public:
     list<Scenario *> getAutoScenarios();
     void checkAutoScenario();
 
-    /* -------------------------------------------------------------------
-     * E4.6h - D10 levels 1 and 2, the upload path.
-     *
-     * A whole configuration uploaded through `config put` can drop a scenario
+    /* A whole configuration uploaded through `config put` can drop a scenario
      * or shorten one, and the server has no say in it: refusing is ruled out
      * (deleting a scenario from calaos_installer has to keep working), so all
-     * it owes the user is to SAY what went missing, the day it goes missing.
-     *
-     * It cannot say it during the upload: a successful put restarts the
-     * server as soon as the reply is out, and the alert channel is deferred
-     * by 30s so it fires with the event loop up. The finding therefore has to
-     * cross the restart, which is what the snapshot below is for.
-     * ---------------------------------------------------------------- */
+     * it owes the user is to SAY what went missing. It cannot say it during
+     * the upload: a successful put restarts the server as soon as the reply
+     * is out, and the alert channel is deferred by 30s so it fires with the
+     * event loop up. The finding therefore has to cross the restart, which is
+     * what the snapshot below is for.
+     */
 
     //One scenario as the server knew it, i.e. what the diff compares.
     struct KnownAutoScenario
