@@ -454,6 +454,44 @@ bool JsonApi::resolveEventPicture(const string &picUid, string &outPath)
                                       outPath);
 }
 
+bool JsonApi::requestNestingWithinLimit(const string &data)
+{
+    int depth = 0;
+    bool inString = false;
+    bool escaped = false;
+
+    for (unsigned char c: data)
+    {
+        //Both parsers treat 0x00 as end of input, so bytes past it are never
+        //looked at: counting them would refuse a document nobody parses.
+        if (c == '\0')
+            break;
+
+        if (inString)
+        {
+            if (escaped)
+                escaped = false;
+            else if (c == '\\')
+                escaped = true;
+            else if (c == '"')
+                inString = false;
+            continue;
+        }
+
+        if (c == '"')
+            inString = true;
+        else if (c == '{' || c == '[')
+        {
+            if (++depth > MaxRequestNestingDepth)
+                return false;
+        }
+        else if (c == '}' || c == ']')
+            depth--;
+    }
+
+    return true;
+}
+
 /* E4.1m. The redaction walk moved to nlohmann. TWO deliberate choices, both
  * argued in docs/refactoring/E4.1m.md:
  *

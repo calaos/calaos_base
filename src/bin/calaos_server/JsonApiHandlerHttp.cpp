@@ -192,10 +192,7 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
      *       down is this ticket's part, and the case that pins it lives in
      *       tests/core/JsonApiScenarioWireBytes_test.cpp.
      *     - an integer beyond int64: "too big integer" against a double.
-     *     - a nesting depth above 2048: jansson caps at JSON_PARSER_MAX_DEPTH,
-     *       nlohmann has no limit. NOT a crash - 100000 levels parse and
-     *       destruct without a stack overflow, json.hpp destroys iteratively -
-     *       and the body is still bounded by the HTTP request size.
+     *     - a nesting depth above 2048. ⭐ THAT ONE IS BACK, see below.
      *
      *   UNCHANGED, the locks that must NOT move: invalid UTF-8 and a lone
      *   surrogate are refused by BOTH parsers, and so are a real-number
@@ -206,7 +203,21 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
      * The document stays `null` on the GET-parameter fallback, which is exactly
      * the branch where set_timerange answers 400 before reaching the dispatch.
      */
-    Json jsonRootDoc = Json::parse(data, nullptr, false);
+    /* ⛔ THE DEPTH CEILING, RESTORED. It is checked on the TEXT, before the
+     * document exists: the cost this refuses is not the parse (iterative and
+     * cheap) but dumpJsonRedacted() three lines below, which deep-copies the
+     * document, walks it recursively and dumps it INDENTED - quadratic in the
+     * depth, and it runs before checkCredentials(). Measured: 16.8 MB of log
+     * line at 2048 levels, 1.07 GB at 16384, and the stack is gone past 43500.
+     * Refusing here costs 2.5 us on a 4 MiB body.
+     */
+    Json jsonRootDoc;
+
+    if (!requestNestingWithinLimit(data))
+        cWarningDom("network") << "Request nesting deeper than "
+                               << MaxRequestNestingDepth << " levels, refused";
+    else
+        jsonRootDoc = Json::parse(data, nullptr, false);
 
     //Same test as json_is_object() on the jansson tree, and it must STAY an
     //object test: a valid JSON array is not a request either.

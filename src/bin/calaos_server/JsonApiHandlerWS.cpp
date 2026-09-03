@@ -224,12 +224,20 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
      * in tests/core/JsonApiDispatchWireBytes_test.cpp, DECLARED in
      * docs/refactoring/RELEASE_NOTES.md, and spelled out at length on the twin
      * line of JsonApiHandlerHttp::processApi(). In one sentence: an escaped
-     * "\u0000", an integer beyond int64 and a nesting depth above 2048 used to
-     * be REFUSED and are now served; invalid UTF-8, a lone surrogate, a
-     * real-number overflow, trailing garbage and a raw NUL are refused by both
-     * and MUST STAY REFUSED.
+     * "\u0000" and an integer beyond int64 used to be REFUSED and are now
+     * served; invalid UTF-8, a lone surrogate, a real-number overflow,
+     * trailing garbage and a raw NUL are refused by both and MUST STAY
+     * REFUSED. The third widening, an unbounded nesting depth, has been closed
+     * again - see the twin line of JsonApiHandlerHttp::processApi() for what
+     * the ceiling actually protects.
      */
-    const Json jsonRootDoc = Json::parse(data, nullptr, false);
+    Json jsonRootDoc;
+
+    if (!requestNestingWithinLimit(data))
+        cWarningDom("network") << "Request nesting deeper than "
+                               << MaxRequestNestingDepth << " levels, refused";
+    else
+        jsonRootDoc = Json::parse(data, nullptr, false);
 
     if (!jsonRootDoc.is_object())
     {

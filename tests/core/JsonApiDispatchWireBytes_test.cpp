@@ -455,21 +455,24 @@ TEST_F(JsonApiDispatchWireBytesTest, P_AnIntegerBeyondInt64NowTraversesTheParser
             << "the WS parser went back to refusing an integer beyond int64";
 }
 
-TEST_F(JsonApiDispatchWireBytesTest, P_ANestingDepthAbove2048NowTraversesTheParser)
+TEST_F(JsonApiDispatchWireBytesTest, P_ANestingDepthAbove2048IsRefusedAgain)
 {
-    /* ⚠️ CORRECTS THE TICKET SHEET, WHICH SAYS "jansson has no default limit".
-     * MEASURED: jansson caps nesting at 2048 (JSON_PARSER_MAX_DEPTH) and
-     * answers "maximum parsing depth reached"; nlohmann has NO limit at all,
-     * which is the THIRD relaxation of the input surface.
+    /* ⚠️ CORRECTS THE E4.1s SHEET, WHICH SAID "jansson has no default limit".
+     * MEASURED: jansson capped nesting at 2048 (JSON_PARSER_MAX_DEPTH) and
+     * answered "maximum parsing depth reached". nlohmann has no limit of its
+     * own, so E4.1s widened the input surface here; the ceiling has since been
+     * put back on the raw text, before the document is built.
      *
-     * ⭐ AND IT IS NOT A NEW DENIAL OF SERVICE, measured rather than assumed:
-     * 100000 levels parse AND DESTRUCT without a stack overflow (json.hpp
-     * 3.11.3 destroys iteratively), and the body is still bounded by the HTTP
-     * request size. What changed is what is ACCEPTED, not whether the process
-     * survives.
+     * ⛔ AND THE E4.1s NOTE "NOT a new denial of service" WAS HALF RIGHT AND
+     * HALF WRONG. The parse is indeed iterative and survives - but
+     * dumpJsonRedacted(), which runs on every request BEFORE the credentials
+     * are checked, copies the document, walks it recursively and dumps it
+     * indented. Measured: 16.8 MB of log line at 2048 levels, 1.07 GB at
+     * 16384, and a SEGFAULT past 43500. The whole measurement, the ceiling and
+     * the neighbours that frame it live in core/JsonApiRequestGuards_test.
      *
      * ⛔ THIS CASE USED TO PASS FOR THE WRONG REASON, and the red round of the
-     * migration is what exposed it. It sent a refusal first and the probe
+     * E4.1s migration is what exposed it. It sent a refusal first and the probe
      * second, so the LOGIN THROTTLE - not the parser - answered 400 to the
      * second one, and the case stayed green through a bascule that had changed
      * exactly what it claimed to measure. Every HTTP request of this file now
@@ -478,17 +481,16 @@ TEST_F(JsonApiDispatchWireBytesTest, P_ANestingDepthAbove2048NowTraversesThePars
      */
     loadReferenceHouse();
 
-    //2048 levels: accepted by BOTH parsers, so the document reaches the
-    //dispatch and dies on "not an object" - the GET fallback, hence 400. The
-    //INVARIANT half, and the contrast that says the case below moved on the
-    //DEPTH and not on something else.
+    //2048 levels: accepted, so the document reaches the dispatch and dies on
+    //"not an object" - the GET fallback, hence 400. The contrast that says the
+    //case below moved on the DEPTH and not on something else.
     EXPECT_EQ("HTTP/1.0 400 Bad Request", httpStatusFor(nested(2048)));
 
-    //A depth of 2050 inside a real object: refused by jansson, served now.
-    EXPECT_EQ("HTTP/1.0 200 OK",
+    //A depth of 2050 inside a real object: refused, as it was before E4.1s.
+    EXPECT_EQ("HTTP/1.0 400 Bad Request",
               httpStatusFor(httpRawBody("\"action\":\"get_home\",\"probe\":" +
                                         nested(2049))))
-            << "the HTTP parser went back to refusing a nesting depth above 2048";
+            << "the parser went back to serving a nesting depth above 2048";
 }
 
 TEST_F(JsonApiDispatchWireBytesTest, P_InvalidUtf8InTheBodyIsRefusedByBothParsers)

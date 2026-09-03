@@ -24,21 +24,23 @@
  * ---------------------------------------------------------------------------
  * WHY THIS FILE EXISTS NEXT TO core/JsonApiDispatchWireBytes_test
  * ---------------------------------------------------------------------------
- * That file pinned WHAT the parser now accepts, at the door: an escaped NUL in
- * a value and in a key, an integer beyond int64, and a nesting depth above the
- * 2048 the previous parser enforced. It stopped there on purpose.
+ * That file pinned WHAT the parser accepts, at the door: an escaped NUL in a
+ * value and in a key, an integer beyond int64, and - until this file - a
+ * nesting depth above the 2048 the previous parser enforced. It stopped there
+ * on purpose.
  *
  * This file answers the next question - WHERE DOES IT LAND - and it is the
  * question the door cannot answer. Two of the three widenings turn out to be
- * harmless at the door and destructive three layers down, and the third is a
- * cost the single event loop pays on behalf of every other client.
+ * harmless at the door and destructive three layers down; the third turned out
+ * to be a way of taking the process down before the credentials are checked,
+ * and it is the only one this file closes.
  *
  * ---------------------------------------------------------------------------
  * THREE ORACLES, DELIBERATELY DISJOINT
  * ---------------------------------------------------------------------------
- *   D_  NESTING DEPTH. What the parser accepts, what it refuses, and what the
- *       refusal looks like from the client's side. No case here asserts an
- *       escaping, a key order or a stored value.
+ *   D_  NESTING DEPTH, and the ceiling that is back. What the parser accepts,
+ *       what it refuses, and what the refusal looks like from the client's
+ *       side. No case here asserts an escaping, a key order or a stored value.
  *
  *   B_  THE ESCAPED NUL, PAST THE API. Every case here goes through the XML
  *       writer and the configuration on disk, which is the layer nobody had
@@ -238,63 +240,66 @@ TEST_F(JsonApiRequestGuardsTest, D_ADepthOfExactlyTheCapIsServed)
             << "a document exactly at the cap stopped being served: " << body.substr(0, 200);
 }
 
-TEST_F(JsonApiRequestGuardsTest, D_ADepthOfOneAboveTheCapIsServedToday)
+TEST_F(JsonApiRequestGuardsTest, D_ADepthOfOneAboveTheCapIsRefused)
 {
     //One level deeper than the case above, nothing else changed. The pair is
     //what makes the cap a measurement instead of an assertion.
     loadGuardHouse();
 
-    EXPECT_TRUE(isGetHomeAnswer(httpBodyFor(deepGetHome(brackets(JANSSON_DEPTH_CAP)))))
-            << "the parser already refuses a nesting depth above the cap";
+    EXPECT_EQ("HTTP/1.0 400 Bad Request",
+              httpStatusFor(deepGetHome(brackets(JANSSON_DEPTH_CAP))))
+            << "a nesting depth above the cap is served again";
 }
 
-TEST_F(JsonApiRequestGuardsTest, D_NestedObjectsAboveTheCapAreServedToday)
+TEST_F(JsonApiRequestGuardsTest, D_NestedObjectsAboveTheCapAreRefusedToo)
 {
-    //The objects half. A guard that only counted '[' would leave this document
-    //served, which is why it is pinned apart from the brackets one.
+    //The objects half. A count that only looked at '[' would leave this
+    //document served, which is why it is pinned apart from the brackets one.
     loadGuardHouse();
 
-    EXPECT_TRUE(isGetHomeAnswer(httpBodyFor(deepGetHome(braces(JANSSON_DEPTH_CAP)))))
-            << "nested objects above the cap are already refused";
+    EXPECT_EQ("HTTP/1.0 400 Bad Request",
+              httpStatusFor(deepGetHome(braces(JANSSON_DEPTH_CAP))))
+            << "nested objects are not counted";
 
-    //The neighbour just below, which must stay served either way.
+    //The neighbour just below, which must stay served.
     EXPECT_TRUE(isGetHomeAnswer(httpBodyFor(deepGetHome(braces(JANSSON_DEPTH_CAP - 1)))))
             << "nested objects at the cap stopped being served";
 }
 
-TEST_F(JsonApiRequestGuardsTest, D_ADepthOfFourThousandIsServedToday)
+TEST_F(JsonApiRequestGuardsTest, D_ADepthThatUsedToTakeTheProcessDownIsRefused)
 {
-    /* ⭐ THE CASE THAT SAYS WHY A CAP IS WANTED, AND IT IS NOT THE PARSER.
-     * Parsing is cheap and iterative: a hundred thousand levels parse and
-     * destruct in 13 ms without touching the stack. What is not cheap is what
-     * processApi() does NEXT, on every request and BEFORE the credentials are
-     * checked - JsonApi::dumpJsonRedacted(), which deep-COPIES the document,
-     * walks it with a recursive std::function and then dump()s it INDENTED.
+    /* ⭐ THE CASE THAT SAYS WHY THE CAP EXISTS, AND IT COULD NOT BE WRITTEN
+     * BEFORE THE CAP DID. Not because of the parse - a hundred thousand levels
+     * parse and destruct in 13 ms, iteratively, without touching the stack -
+     * but because of what processApi() does NEXT, on every request and BEFORE
+     * the credentials are checked: dumpJsonRedacted() deep-COPIES the
+     * document, walks it with a recursive std::function and dump()s it
+     * INDENTED, which makes the log line quadratic in the depth.
      *
-     * The indentation makes the log line quadratic in the depth. Measured at
-     * -O2 on an 8 MiB stack:
+     * Measured at -O2 on an 8 MiB stack, before the cap:
      *
      *      depth  2048   16.8 MB of log line     served
-     *      depth  4096   67 MB                   served   <- this case
      *      depth 16384   1.07 GB                 served
      *      depth 43000   7.4 GB                  served
      *      depth 44000   -                       SEGFAULT, stack exhausted
      *
-     * ⚠️ THAT IS WHY NO CASE OF THIS FILE GOES ABOVE FOUR THOUSAND while the
-     * cap is absent: a case that did would take the binary down with it. The
-     * ones that do exist live in the commit that adds the cap, because the cap
-     * is what makes them survivable.
+     * A 4 MiB body - the default TransportLimits::DefaultMaxHttpBodySize -
+     * buys two million levels, so both numbers above were one POST away from
+     * any unauthenticated client. The two depths below take the binary down
+     * when the cap is removed; that is exactly what makes them an oracle.
      */
     loadGuardHouse();
 
-    EXPECT_TRUE(isGetHomeAnswer(httpBodyFor(deepGetHome(brackets(4096)))));
+    EXPECT_EQ("HTTP/1.0 400 Bad Request", httpStatusFor(deepGetHome(brackets(100000))));
+    EXPECT_EQ("HTTP/1.0 400 Bad Request", httpStatusFor(deepGetHome(brackets(1000000))));
 }
 
-TEST_F(JsonApiRequestGuardsTest, D_ADeepBodyIsAnsweredWithOneResponseAndNoCloseToday)
+TEST_F(JsonApiRequestGuardsTest, D_TheRefusalIsOneAnswerAndAClosedConnection)
 {
-    /* The refusal-to-be, seen from the client's side. Pinned as it is TODAY -
-     * one 200 and an open socket - so that what the refusal answers instead
-     * can be read as a change and not as a discovery.
+    /* The refusal seen from the client's side. It is the answer an unparsable
+     * body has always produced - one 400, Connection: close, and the socket
+     * closed - because the deep document takes the path a malformed one takes.
+     * Nothing is invented for it, and nothing is left hanging.
      */
     loadGuardHouse();
     clearThrottle();
@@ -302,12 +307,13 @@ TEST_F(JsonApiRequestGuardsTest, D_ADeepBodyIsAnsweredWithOneResponseAndNoCloseT
     HttpTestRequest req;
     req.send(deepGetHome(brackets(JANSSON_DEPTH_CAP)));
 
-    ASSERT_EQ(1u, req.count()) << "the deep body answered twice, or not at all";
-    EXPECT_EQ("HTTP/1.0 200 OK", req.statusLine());
-    EXPECT_TRUE(req.closes().empty());
+    ASSERT_EQ(1u, req.count()) << "the refusal answered twice, or not at all";
+    EXPECT_EQ("HTTP/1.0 400 Bad Request", req.statusLine());
+    EXPECT_EQ("close", req.header("Connection"));
+    EXPECT_EQ(1u, req.closes().size()) << "the socket was left open on a refusal";
 }
 
-TEST_F(JsonApiRequestGuardsTest, D_TheWsParserServesADocumentAboveTheCapToday)
+TEST_F(JsonApiRequestGuardsTest, D_TheWsParserAppliesTheSameCap)
 {
     //The websocket parses in a different function, and a guard that reached
     //only one transport would leave this case green.
@@ -317,12 +323,11 @@ TEST_F(JsonApiRequestGuardsTest, D_TheWsParserServesADocumentAboveTheCapToday)
     ws.send(std::string("{\"msg\":\"get_home\",\"msg_id\":\"1\",\"probe\":") +
             brackets(JANSSON_DEPTH_CAP) + "}");
     pumpEventLoop();
-    ASSERT_EQ(1u, ws.count()) << "the WS parser already refuses a document above the cap";
-    EXPECT_EQ("get_home", ws.lastEnvelope().value("msg", std::string()));
+    EXPECT_EQ(0u, ws.count()) << "the WS parser serves a document above the cap";
 
     //And the session is not torn down for it: an unparsable message has never
-    //closed a websocket, and a cap must not change that.
-    EXPECT_TRUE(ws.closes().empty());
+    //closed a websocket, and the cap does not change that.
+    EXPECT_TRUE(ws.closes().empty()) << "the cap closed a websocket session";
 }
 
 TEST_F(JsonApiRequestGuardsTest, D_TheWsParserStillServesADocumentAtTheCap)
@@ -371,18 +376,19 @@ TEST_F(JsonApiRequestGuardsTest, D_AnEscapedQuoteDoesNotCloseTheString)
             << "an escaped quote was read as the end of the string";
 }
 
-TEST_F(JsonApiRequestGuardsTest, D_AnEscapedBackslashClosesTheStringSoWhatFollowsCountsToday)
+TEST_F(JsonApiRequestGuardsTest, D_AnEscapedBackslashClosesTheStringSoWhatFollowsCounts)
 {
     //And the third: a backslash that escapes a BACKSLASH does not escape the
-    //quote that follows it. Get this wrong in the other direction and a
-    //scanner never leaves the string again, so nothing is ever counted and the
+    //quote that follows it. Get this wrong in the other direction and the
+    //count never leaves the string again, so nothing is ever counted and the
     //cap becomes decorative.
     loadGuardHouse();
 
-    EXPECT_TRUE(isGetHomeAnswer(httpBodyFor(
-                    httpRawBody("\"action\":\"get_home\",\"probe\":\"x\\\\\",\"deep\":" +
-                                brackets(JANSSON_DEPTH_CAP)))))
-            << "this document is already refused";
+    EXPECT_EQ("HTTP/1.0 400 Bad Request",
+              httpStatusFor(httpRawBody("\"action\":\"get_home\",\"probe\":\"x\\\\\",\"deep\":" +
+                                        brackets(JANSSON_DEPTH_CAP))))
+            << "the count stayed inside the string after an escaped backslash "
+               "and counted nothing";
 }
 
 TEST_F(JsonApiRequestGuardsTest, D_ARawNulEndsTheTextForTheDepthCountToo)

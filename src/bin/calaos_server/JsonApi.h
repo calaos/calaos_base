@@ -123,6 +123,21 @@ public:
      */
     static string dumpJsonRedacted(const Json &jroot);
 
+    /* Deepest nesting a request body may carry. nlohmann::json has no limit of
+     * its own and a 4 MiB body buys two million levels, which dumpJsonRedacted()
+     * then copies, walks and serializes INDENTED - quadratic, and it runs before
+     * the credentials are checked. This is the ceiling the previous parser
+     * enforced, so nothing the API has ever accepted is refused by it.
+     */
+    static constexpr int MaxRequestNestingDepth = 2048;
+
+    /* False when the request text nests objects or arrays deeper than
+     * MaxRequestNestingDepth. Reads the raw bytes so the deep document is never
+     * built; braces inside a string are not nesting, and the count stops at the
+     * first zero byte because the lexer does.
+     */
+    static bool requestNestingWithinLimit(const string &data);
+
 
 
     /* API calls helpers */
