@@ -325,7 +325,7 @@ void ListeRoom::checkAutoScenario()
      * an orphan.
      */
 
-    //Before the two Save below, which are what persist the flag.
+    //Must run before the two Save below: they are what persist the flag.
     refreshBrokenScenarios();
 
     //Resave config, auto scenarios have probably created/deleted ios and rules

@@ -8,6 +8,82 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅⭐⭐ [`E4.6c`](E4.6.md) MERGÉE — 3 commits de la branche + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`c23df1ca`**.
+  `master` avait avancé de **5 commits** depuis la merge-base ⇒ **rebase**, qui s'est passé **sans un seul conflit** (les 3 fichiers de recouvrement sont documentaires, `git` les a fusionnés seul ; profil de `BOARD.md` inchangé — **182 lignes à 7 `|`**, T3.39 ✅ et T3.41/42/43 intactes).
+  ⛔ **Rien poussé.** ⭐⭐ **C'est le ticket qui SUPPRIME le balayage orphelin** (`ListeRoom::checkAutoScenario()`), le seul code du projet capable de détruire de la donnée utilisateur.
+
+  ⭐⭐ **LA MESURE QUI COMPTE, REJOUÉE PAR L'AGENT DE MERGE SUR L'ARBRE REBASÉ** — pas relue : les
+  deux configurations de production montées **en lecture seule**, chargées dans le harnais, puis
+  `ListeRoom::checkAutoScenario()` et `SaveConfigRule()`.
+
+  | | entrée | après le démarrage | sur disque | 2ᵉ démarrage |
+  |---|---|---|---|---|
+  | `raoulh` — règles | **125** | **125** | **125** | **125 → 125, identiques** |
+  | `raoulh` — portant `auto_scenario` | **18** | **18** | **18** | **18** |
+  | `raoulh` — sérialisation | — | **identique octet pour octet** (les 18 **et** les 125) | — | identique |
+  | `solanora` — règles | **82** | **82** | **82** | **82 → 82, identiques** |
+
+  ⭐⭐ **LA GARDE, LUE AU SOURCE, ET LA PREUVE QU'ELLE DOIT S'ÉCRIRE AINSI.**
+  `AutoScenario::hasLegacyRules()` teste **« la règle ne porte AUCUN uid »** —
+  `!r->param_exists(KEY_UID) || r->get_param(KEY_UID).empty()` — et **jamais** `!= uid`. La raison
+  est écrite au-dessus, en 3 lignes : **au premier démarrage NOTRE uid est vide aussi**, donc les
+  deux côtés comparent égal et le générateur s'arme sur des règles qu'il n'a pas écrites.
+  ⭐ **Contre-mutation jouée au merge** : la garde réécrite en `get_param(KEY_UID) != getScenarioUid()`
+  ⇒ `raoulh` **125 → 139** (14 doublons), **18 → 32** marquées, **persisté sur disque à 139**, et le
+  2ᵉ démarrage repart de 139. ⭐ **Un SEUL cas rougit** —
+  `TheStandDownHoldsWhenNEITHERTheRulesNORTheIoCarryAUid` (14/15 verts, `exit 1`) : il retire l'uid
+  **des règles ET de l'IO scénario**, et c'est ce qui en fait le seul témoin. Le cas voisin, qui ne
+  le retire que des règles, reste **vert** sous la forme fautive — la fixture pauvre ne voit rien.
+  ⚠️ **La mise en retrait se teste sur les RÈGLES, jamais sur la définition** : une sauvegarde
+  frappe un `autoscenario_uid` dans `io.xml` toute seule, et cela ne doit pas suffire à armer le
+  générateur (épinglé par le 2ᵉ démarrage du même cas).
+
+  ⭐ **CINQ RETRAITS REPORTÉS À `E4.6d`, appelant vérifié au source un par un** :
+
+  | Retrait | Appelant réel | Confirmé ? |
+  |---|---|---|
+  | `AutoScenario::END_STEP` | `JsonApi.cpp:2312`, `:2419` (+ `core/RuleLifecycle_test:390,394`) | ✅ oui |
+  | `Calaos::get_new_scenario_id()` | `JsonApi.cpp:2239`, `:2386` | ✅ oui |
+  | `IOBase::ascenario` | `JsonApi.cpp:2192-2195` (`getAutoScenarioPtr()`) (+ `RuleLifecycle_test:546,553`) | ✅ oui |
+  | `IOBase::auto_sc_mark` | `IO/Scenario.cpp:69` (`setAutoScenario(true)`) — **écrivain**, aucun lecteur de production | ⚠️ écrivain seulement |
+  | `Rule::auto_sc_mark` | **aucun lecteur de production** : écrit par `newGeneratedRule()`, lu par le seul `core/AutoScenarioDef_test:344` | ⛔ **non confirmé** |
+
+  ⛔ **Le cinquième est une dette déguisée, à écrire telle quelle dans le brief d'`E4.6d`** : depuis
+  la suppression du balayage, `Rule::isAutoScenario()` n'a **plus aucun lecteur dans `src/`**. Le
+  retrait n'est pas *impossible*, il est *pénible* — il demande d'éditer `IO/Scenario.cpp` (1 ligne)
+  et le garde-fou d'E4.6b. Les deux derniers bits sont donc **écrits et jamais lus** sur `master`.
+
+  ⭐ **Les 6 bascules d'E4.6a sont faites, et rien n'a été affaibli** — diff de
+  `AutoScenarioMigration_test.cpp` lu ligne à ligne : **19 cas avant, 19 après, mêmes noms, même
+  ordre**, aucun disparu, aucun `ASSERT_`→`EXPECT_`. Seuls les **6 nommés** changent d'attente ;
+  les 13 autres ne sont pas touchés par le diff, `AnUnmarkedScenarioIoStillRunsItsRulesWhenTheButtonIsPressed`
+  compris — **le garde-fou reste vrai**.
+  ⭐ **Sur la réécriture d'`AHeaderRuleThatFailsTheMatchIsRecreatedAndTheOriginalDestroyed` : elle
+  est JUSTE, et elle RENFORCE.** L'ancien cas n'avait qu'un bras (le fichier retouché) et serait
+  resté **vert sans rien mesurer** : le générateur remplace la règle de toute façon. Le bras de
+  **contrôle** ajouté — le **même fichier non retouché** — est celui qui rougit sur l'ancien modèle
+  (la règle y était *adoptée*, donc `original == getRuleStart()`). C'est un contrôle ajouté, pas une
+  attente relâchée.
+
+  **Autres acquis rejoués au merge** : idempotence (`TwoConsecutiveRebuilds…`) **et sa mutation de
+  contrôle** — `setStepPause()` fait rougir la même comparaison (`EXPECT_NE`), donc elle n'est pas
+  vide ; **ordre inverse de lecture bien exercé** (`ARebuildHealsABrokenScenario…` lit `category`
+  puis `broken`, **puis `broken` puis `category`**, mêmes réponses) ; **zéro golden modifié**
+  (`tests/core/golden` = `7f775830` des deux côtés, 145 fichiers) ; commit de caractérisation
+  `ab131083` à **zéro ligne de `src/`** (`git diff-tree`) ; `tests/Makefile.am` = **append pur
+  +65/−0**, `^if HAVE_GTEST` ≡ `^endif`.
+  **Mesuré** : `TESTS` **111 → 112** (`TESTS =` 1 + `TESTS +=` 111) · **`TOTAL 112 / PASS 110 /
+  SKIP 2 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, RC 0, **1 seul** `Testsuite summary`,
+  0 `error:`, `CXXLD    calaos_server` (les 2 `SKIP` attendus : `run-python-tests.sh`,
+  `check-ccache-honesty.sh`).
+  ✅ **Commentaires conformes à la règle neuve** : **472 lignes ajoutées dans `src/`, 0** mentionnant
+  un ticket, une phase, une vague, un emoji ou un « we found » (balayage `python3`) ; **42 blocs de
+  commentaire ajoutés, un seul de 9 lignes** (le piège de la mise en retrait, celui qui ne se déduit
+  pas du code), tous les autres ≤ 6. Le balayage orphelin est remplacé par un **« DO NOT REINTRODUCE
+  A SWEEP HERE » de 6 lignes** qui ne nomme rien. ✂️ **Élagué au merge** : le fragment
+  `//Before the two Save below, which are what persist the flag.` — reste de l'ancien bloc, phrase
+  sans sujet — refait en une ligne complète.
+
 - **✅⭐ [`E4.6b`](E4.6.md) MERGÉE — 3 commits de la branche, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`e44c2c3c`**.
   ⭐ **`master` ÉTAIT IMMOBILE sur `57e5622c`** = exactement la merge-base ⇒ **ni rebase ni conflit**.
   ⛔ **Rien poussé.** **Premier sous-ticket de CODE de la refonte AutoScenario.**
@@ -60,23 +136,22 @@
   `src/lib/Jansson_Addition.h`) ne peut partir tant qu'un appelant `json_t *` vit dans
   `IO/Scenario.{cpp,h}`. E4.6b n'a rien changé de ce côté.
 
-- ⭐⭐ **PROCHAINE ACTION : [`E4.6c`](E4.6.md) — LE GÉNÉRATEUR** (`rebuildRules()` détruit-puis-
-  régénère **depuis** la définition, et la capture d'E4.6b disparaît avec).
-  ⭐⭐ **C'EST `E4.6c` QUI SUPPRIME LE BALAYAGE ORPHELIN** (`ListeRoom.cpp:320-330`) — la seule
-  chose de tout l'épique qui peut détruire de la donnée utilisateur. Tant qu'il est là, **le
-  marqueur `auto_scenario` ne se re-clé pas**.
-  ⭐ **`E4.6c` doit faire basculer 6 cas NOMMÉS d'`E4.6a`** (`E4.6.md` §8.3) :
-  `RekeyingTheMarkerMakesTheOrphanSweepDestroyEveryRuleOfTheScenario`,
-  `TheOrphanSweepDestructionIsPersistedToRulesXmlAtTheFirstStartup`,
-  `AStepRuleWhoseConditionValueDoesNotMatchIsDroppedAndThenDestroyed`,
-  `AHeaderRuleThatFailsTheMatchIsRecreatedAndTheOriginalDestroyed`,
-  `LosingTheMiddleStepRenumbersEveryStepAfterIt`,
-  `AnInstallerStyleReloadThatDroppedTheDeadOutputLeavesNoTraceAtAll`.
-  Les **13 autres** restent verts, et `AnUnmarkedScenarioIoStillRunsItsRulesWhenTheButtonIsPressed`
-  est le garde-fou : il **doit** rester vrai.
-  Suite de l'épique : `c → (d ‖ e) → (f ‖ g ‖ h)`.
-  ⚠️ **`E4.6d` porte TOUJOURS SES DEUX DETTES** écrites au merge d'`E4.1s` — la **troncature du
-  NUL** par `Scenario::toJson()` (§6.1) et l'**UTF-8 invalide droppé avec sa clé**.
+- ⭐⭐ **PROCHAINE ACTION : [`E4.6d`](E4.6.md) — LA SURFACE D'API** (`JsonApi.{cpp,h}`,
+  `IO/Scenario.{h,cpp}`), en **`nlohmann::json` natif**. Payload symétrique D6, `final_step` séparé,
+  `action.io`/`action.value`/`resolved`, validation **avant** mutation (D7). **6 goldens régénérés
+  nommément**, et **6 cas d'E4.6a basculent** (§8.3).
+  ⛔⭐ **`E4.6d` PORTE LA CONTRAINTE DU NUL EMBARQUÉ écrite au merge d'`E4.1s`** — `Scenario::toJson()`
+  **tronque en silence** un NUL embarqué et le chemin est **atteignable depuis E4.1s** : le `toJson()`
+  neuf doit le **porter entier** (`E4.6.md` §6.1). Sa jumelle : l'**UTF-8 invalide droppé avec sa clé**.
+  ⭐ **`E4.6d` doit aussi reporter dans le schéma neuf la discrimination des QUATRE états de T3.18** —
+  les seuls témoins existants sont dans son propre périmètre.
+  ⭐⭐ **`E4.6b` + `E4.6d` débloquent la clôture d'`E4.1x`** (retrait de `src/lib/Jansson_Addition.h`) :
+  `E4.6b` a posé la définition sans toucher jansson, et les **57 jetons `json_t *` restants vivent
+  tous dans `Scenario::toJson()`**, qui appartient à `E4.6d`. Tant qu'un appelant `json_t *` vit dans
+  `IO/Scenario.{cpp,h}`, `E4.1x` ne peut pas partir.
+  ⚠️ **Cinq retraits d'`E4.6c` lui sont reportés** (tableau ci-dessus), dont **`Rule::auto_sc_mark`,
+  qui n'a plus AUCUN lecteur de production** : ce n'est pas « impossible », c'est « pénible ».
+  Suite de l'épique : `d ‖ e`, puis `f ‖ g ‖ h`.
 
 - **✅⭐ [`T3.36`](T3.36.md) MERGÉE — 2 commits de la branche + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`82b63233`** (correctif `7fc427f6`).
   ⭐ **`master` ÉTAIT IMMOBILE sur `4498c29a`** = exactement la merge-base ⇒ **ni rebase ni conflit**.
