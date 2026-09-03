@@ -25,8 +25,7 @@
 
 using namespace Calaos;
 
-Rule::Rule(string type, string name):
-    auto_sc_mark(false)
+Rule::Rule(string type, string name)
 {
     params.Add("type", type);
     params.Add("name", name);

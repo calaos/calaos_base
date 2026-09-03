@@ -27,6 +27,7 @@
 #include "ActionStd.h"
 #include "ConditionStd.h"
 #include "RulesFactory.h"
+#include "AutoScenarioDef.h"
 
 #include <cstdlib>
 #include <fstream>
@@ -259,6 +260,13 @@ void CoreFixture::clearCoreState()
     ListeRoom &rooms = ListeRoom::Instance();
     while (rooms.size() > 0)
         rooms.Remove(0);
+
+    /* The auto scenario id allocators are process wide and this harness runs
+     * dozens of unrelated configurations in one process: without this, the
+     * step ids a scenario is given depend on how many cases ran before, and
+     * every golden carrying one becomes order dependent.
+     */
+    AutoScenarioDef::resetIdAllocators();
 }
 
 void CoreFixture::forgetIOState(const std::string &id)

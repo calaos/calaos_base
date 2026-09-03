@@ -205,6 +205,12 @@ bool AutoScenarioDef::isValidStepId(const std::string &id)
     return true;
 }
 
+void AutoScenarioDef::resetIdAllocators()
+{
+    nextUidCounter = 0;
+    nextStepCounter = 0;
+}
+
 std::string AutoScenarioDef::newUid()
 {
     const std::string uid = "as_" + Utils::to_string(nextUidCounter);

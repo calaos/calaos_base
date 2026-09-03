@@ -23,13 +23,12 @@
 
 #include "Calaos.h"
 #include "IOBase.h"
-#include "Jansson_Addition.h"
 
 namespace Calaos
 {
 
 class AutoScenario;
-/* E4.6b. FORWARD DECLARED, and held by pointer, on purpose: including
+/* FORWARD DECLARED, and held by pointer, on purpose: including
  * AutoScenarioDef.h here would put src/bin/calaos_server/Scenario on the
  * include path of every one of the ~65 test binaries that compile against
  * Scenario.h. Only IO/Scenario.cpp needs the definition.
@@ -43,30 +42,24 @@ protected:
 
     AutoScenario *auto_scenario;
 
-    /* E4.6b - THE DEFINITION, and it is the datum (E4.6.md D1).
+    /* THE DEFINITION, and it is the datum (E4.6.md D1).
      *
      * Owned, never null. Loaded from the `autoscenario_*` / `as_*` params of
      * this IO when they are there, and written back into them at every
      * SaveToXml(), which is how io.xml stops being empty of the model.
-     *
-     * TRANSITIONAL, AND THE SEAM E4.6c CUTS: in E4.6b the rules are still the
-     * source of truth, so the definition is CAPTURED from them at save time
-     * (captureDefinitionFromRules() below). E4.6c reverses the arrow -
-     * rebuildRules() regenerates the rules FROM here - and the capture goes.
      */
     AutoScenarioDef *auto_scenario_def;
 
     /* Refresh the definition from the rules the AutoScenario currently holds.
-     * A no-op when this IO is not an auto scenario.
+     * A no-op when this IO is not an auto scenario, and a no-op as soon as the
+     * definition holds anything of its own: it exists ONLY to give a
+     * configuration written before the definition a first one, so that the
+     * generator and the payload have something to work from.
      *
      * It reads the action ids through ActionStd::get_output_id(), NOT through
      * get_output(): an id that no longer resolves is KEPT (D4). The pointer
      * based accessors of AutoScenario (getStepAction() & co.) drop it, because
-     * isScenarioInternalIO(nullptr) answers true - which is precisely the
-     * amputation of RC3 and must not be reproduced here.
-     *
-     * The uid and the step ids already in the definition are REUSED, so two
-     * consecutive saves of an unchanged scenario write the same bytes.
+     * isScenarioInternalIO(nullptr) answers true.
      */
     void captureDefinitionFromRules();
 
@@ -81,19 +74,27 @@ public:
 
     AutoScenario *getAutoScenario() { return auto_scenario; }
 
-    //E4.6b. The definition. Never null.
+    //The definition. Never null.
     AutoScenarioDef *getDefinition() { return auto_scenario_def; }
 
-    /* E4.6b. Materializes the definition into this IO's params before the
-     * generic writer serializes them, so io.xml carries the whole model
-     * (E4.6.md D2). Writes and removes NOTHING when this IO carries no
-     * definition.
+    /* Materializes the definition into this IO's params before the generic
+     * writer serializes them, so io.xml carries the whole model (E4.6.md D2).
+     * Writes and removes NOTHING when this IO carries no definition.
      */
     virtual bool SaveToXml(pugi::xml_node node) override;
 
     virtual bool get_command_bool() override { return value; }
 
-    json_t *toJson();
+    /* The API payload, rendered from the DEFINITION and never from the rules:
+     * an action whose IO no longer resolves comes out like any other, with
+     * resolved="false". Nothing here mutates.
+     *
+     * PITFALL: an action value is arbitrary client text and may carry a zero
+     * byte. It goes in as a std::string, so the whole value reaches the dump
+     * and is escaped there; through a const char * it would be cut at that
+     * byte and the client would be answered 200 OK on an amputated value.
+     */
+    Json toJson();
 };
 
 }

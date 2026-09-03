@@ -19,131 +19,50 @@
  **
  ******************************************************************************/
 /*******************************************************************************
- * E4.1r - THE BYTES THE AUTOSCENARIO COMMANDS PUT ON THE WIRE, THE ORDER OF THE
- *         STEPS, AND THE FOUR REFUSALS OF create / modify / reenable.
+ * THE BYTES THE AUTOSCENARIO COMMANDS PUT ON THE WIRE, THE ORDER OF THE STEPS,
+ * AND THE REFUSALS OF create / modify / reenable.
  *
  * ---------------------------------------------------------------------------
  * WHY THIS FILE EXISTS
  * ---------------------------------------------------------------------------
- * E4.1r migrates the nine autoscenario builders of JsonApi to nlohmann:
- *
- *      buildAutoscenarioList()         buildAutoscenarioGet()
- *      buildAutoscenarioCreate()       buildAutoscenarioDelete()
- *      buildAutoscenarioModify()       buildAutoscenarioAddSchedule()
- *      buildAutoscenarioDelSchedule()  buildAutoscenarioReenable()
- *      plus processAutoscenario() on BOTH transports
- *
- * and NOTHING ELSE. The migration is MECHANICAL by decision (Q1 of E4.1.md,
- * settled 2026-09-01): E4.6d rewrites these nine functions whole, with its own
- * net and its own review. Anything this file finds worth fixing goes to
- * FINDINGS.md, not into the diff.
- *
- * The regime of proof of the epic, restated because it is the whole reason for
- * this file: the 145 goldens compare PARSED DOCUMENTS. Nine of them (e40c_*)
- * cover the STRUCTURE and the VALUES of this perimeter, and cover them well.
- * NOTHING covers its BYTE dimension until this file exists - not the key order,
- * not the case of a \uXXXX escape, not whether a byte was escaped at all.
+ * The 145 goldens of the suite compare PARSED DOCUMENTS. Seven of them cover
+ * the STRUCTURE and the VALUES of this perimeter, and cover them well. NOTHING
+ * covers its BYTE dimension but this file - not the key order, not the case of
+ * a \uXXXX escape, not whether a byte was escaped at all.
  *
  * Every byte assertion below reads RAW RESPONSE BYTES - HttpTestRequest::body()
  * and WsTestSession::lastMessage(), never bodyJson() / lastData().
  *
  * ---------------------------------------------------------------------------
- * DELTA CASES vs INVARIANT CASES - READ BEFORE EDITING
+ * WHAT THE BYTES SAY
  * ---------------------------------------------------------------------------
- * This file shipped in two commits. The first pinned the JANSSON bytes, case by
- * case, on an untouched tree, with the suffix ...Today on every case that had
- * to move; the migration commit rewrote exactly those assertions and dropped
- * the suffix. A case that had to be edited is a case that ran - that is the
- * proof the path is EXERCISED and not merely compiled.
- *
- * MEASURED: 35 cases, 9 of them written as ...Today. The migration made EIGHT
- * of them fail and NOT ONE of the other twenty-six, and no other test of the
- * tree moved - the 145 goldens included.
- *
- * ⚠️ The ninth, AScheduledScenarioCarriesItsTimeRangeId, was PREDICTED to move
- * and did NOT: both its assertions are order independent, and no VALUE of this
- * perimeter moved. Kept with its measurement rather than quietly renamed.
- *
- * The INVARIANTS held on both sides. If one of them ever moves, a VALUE or a
- * STRUCTURE changed - stop and understand why before touching it.
+ *   KEY ORDER    the payload and the WS envelope are ALPHABETICAL, and so are
+ *                the three members of every action - nlohmann sorts.
+ *   HEX CASE     an accent is escaped lower case (\u00e9).
+ *   DEL (0x7F)   escaped, like every codepoint >= 0x7F: the wire is pure ASCII.
+ *   EMBEDDED NUL carried WHOLE, as \u0000. It used to be cut at the zero byte
+ *                in silence, which is what AnEmbeddedNulInAnActionIs...
+ *                measures - read its comment, it is the most valuable case of
+ *                this file.
  *
  * ---------------------------------------------------------------------------
- * THE DELTAS, ON THIS PERIMETER
+ * THE "POOR FIXTURE" TRAP, AND THE EXCHANGE THIS FILE HAS TO SURVIVE
  * ---------------------------------------------------------------------------
- *   1. KEY ORDER      Scenario::toJson() inserts id, cycle, enabled, schedule,
- *                     category, broken, disabled_missing_io, missing_ios,
- *                     steps_count, steps - in that order, and jansson keeps it.
- *                     nlohmann SORTS: broken comes first and steps_count last.
- *                     Same inside every step (step_pause, step_type, actions ->
- *                     actions, step_pause, step_type) and inside every action
- *                     (id, action -> action, id). The WS envelope sorts with it
- *                     (msg, msg_id, data -> data, msg, msg_id), as it did for
- *                     every other migrated action.
- *                     The one-key answers ({"error":...}, {"id":...},
- *                     {"success":"true"}) do NOT move: they are built from a
- *                     Params, which is a std::map and therefore ALREADY
- *                     alphabetical - and a case says so.
- *   2. HEX CASE       jansson writes an accent UPPER case (é), nlohmann
- *                     lower case (é). Reachable here through the ACTION
- *                     string of a step, which is client supplied and echoed
- *                     back verbatim by get.
- *   3. DEL (0x7F)     jansson writes the raw byte even under JSON_ENSURE_ASCII,
- *                     nlohmann escapes it  - it escapes every codepoint
- *                     >= 0x7F. Same channel.
+ * The counter-mutation this perimeter is judged on is: EXCHANGE TWO STEPS OF
+ * AN AUTOSCENARIO IN THE ANSWER OF get. It is only visible if no two steps of
+ * the fixture answer the same bytes - the "poor fixture" trap, with several
+ * recorded relapses in this series.
  *
- * ---------------------------------------------------------------------------
- * ⭐ THE TWO DELTAS OF THE SERIES THAT DO **NOT** HAPPEN HERE, AND WHY
- * ---------------------------------------------------------------------------
- * Every other ticket of the series reported five deltas. Two of the five are
- * ABSENT from the scenario payload, and the reason is the same for both:
- * IO/Scenario.cpp is EXCLUDED from E4.1 (decision Q5) and Scenario::toJson()
- * still builds its strings with json_string(const char *). The damage is done
- * INSIDE the excluded file, one floor below anything this ticket touches:
- *
- *   - INVALID UTF-8 is still DROPPED WITH ITS KEY (json_string() answers NULL,
- *     json_object_set_new() answers -1, nobody looks). It does not become
- *     U+FFFD here. E4.6d moves that, not E4.1r.
- *   - AN EMBEDDED NUL still TRUNCATES the value at the C string, on the way
- *     out. E4.1r measured that the INPUT side could not be reached at all,
- *     because the REQUEST was still parsed by jansson and jansson REFUSES
- *     "\u0000" in a string unless JSON_ALLOW_NUL is passed.
- *
- *     ⛔⭐⭐ E4.1s MOVED THAT PARSE TO nlohmann, WHICH ACCEPTS IT, and the day
- *     it did the truncation stopped being unreachable. A client CAN now put a
- *     zero byte into an action; it reaches AutoScenario whole, and
- *     Scenario::toJson() cuts it at the first zero byte in silence. The case
- *     AnEmbeddedNulInAnActionIsTruncatedByScenarioToJson below - which used to
- *     pin the refusal and was rewritten by E4.1s - is where that is measured.
- *     ⛔ It is E4.6d's to FIX, not E4.1s's: IO/Scenario.cpp is the excluded
- *     file. Written down in FINDINGS.md and declared in RELEASE_NOTES.md.
- *
- * ---------------------------------------------------------------------------
- * THE TRANSITIONAL BRIDGE, AND ITS SINGLE PURPOSE
- * ---------------------------------------------------------------------------
- * Scenario::toJson() answers a json_t* and stays that way until E4.6d. The
- * migrated builders therefore cross the two libraries once, through
- * janssonScenarioPayloadBridge() (JsonApi.cpp, anonymous namespace), named so
- * that E4.6d finds it with one grep. It is a dump + parse, so the bytes of the
- * scenario payload are jansson's on the way in and nlohmann's on the way out -
- * which is exactly deltas 1, 2 and 3 above and nothing else.
- *
- * ---------------------------------------------------------------------------
- * THE "POOR FIXTURE" TRAP, AND THE EXCHANGE E4.1r.md ASKS FOR BY NAME
- * ---------------------------------------------------------------------------
- * The counter-mutation the ticket sheet names is: EXCHANGE TWO STEPS OF AN
- * AUTOSCENARIO IN THE ANSWER OF get. It is only visible if no two steps of the
- * fixture answer the same bytes - the "poor fixture" trap, 7 recorded relapses
- * in E4.0, and it bit E4.1o and E4.1p as well.
- *
- * The reference scenario below is built so the exchange bites. Its three steps
- * differ on FIVE axes at once:
+ * The reference scenario below is built so the exchange bites. Its two steps
+ * and its final step differ on FIVE axes at once:
  *      step 0   pause 1.5    ONE action    e41r_bool    -> "true"
  *      step 1   pause 0.25   TWO actions   e41r_target  -> "false"
  *                                          e41r_int     -> "42"
- *      end      no pause     ONE action    e41r_string  -> "done"
+ *      final    no pause     ONE action    e41r_string  -> "done"
  * Different pause, different action count, different target ids, different
- * action values, different step_type. TheThreeStepsArePairwiseDistinctOnTheWire
- * asserts that property directly so it cannot rot in silence.
+ * action values, and a step id of its own on each of the two steps.
+ * TheThreeStepsArePairwiseDistinctOnTheWire asserts that property directly so
+ * it cannot rot in silence.
  *
  * Ids are prefixed e41r_. Taken so far: e40_, e40b_ .. e40f_, e41b_, e41n_,
  * e41o_, e41p_, e41q_, t317a_ .. t317f_, t318_, t319_.
@@ -350,18 +269,18 @@ protected:
             { "room_name", E41R_ROOM_NAME },
             { "room_type", E41R_ROOM_TYPE },
             { "steps", Json::array({
-                Json{{ "step_type", "standard" }, { "step_pause", "1.5" },
-                     { "actions", Json::array({ Json{{ "id", IO_BOOL },
-                                                     { "action", "true" }} }) }},
-                Json{{ "step_type", "standard" }, { "step_pause", "0.25" },
-                     { "actions", Json::array({ Json{{ "id", IO_TARGET },
-                                                     { "action", actionOfSecondTarget }},
-                                                Json{{ "id", IO_INT },
-                                                     { "action", "42" }} }) }},
-                Json{{ "step_type", "end" },
-                     { "actions", Json::array({ Json{{ "id", IO_STRING },
-                                                     { "action", "done" }} }) }}
-            }) }}), nullptr, false);
+                Json{{ "pause", "1.5" },
+                     { "actions", Json::array({ Json{{ "io", IO_BOOL },
+                                                     { "value", "true" }} }) }},
+                Json{{ "pause", "0.25" },
+                     { "actions", Json::array({ Json{{ "io", IO_TARGET },
+                                                     { "value", actionOfSecondTarget }},
+                                                Json{{ "io", IO_INT },
+                                                     { "value", "42" }} }) }}
+            }) },
+            { "final_step", Json{{ "actions", Json::array({
+                                      Json{{ "io", IO_STRING },
+                                           { "value", "done" }} }) }} }}), nullptr, false);
 
         return ret.is_object() ? ret.value("data", Json::object()).value("id", std::string())
                                : std::string();
@@ -374,9 +293,12 @@ protected:
      * escaping cases reuse the same template with a poisoned value.
      * --------------------------------------------------------------- */
 
-    //MOVED. Scenario::toJson() INSERTS id, cycle, enabled, schedule, category,
-    //broken, disabled_missing_io, missing_ios, steps_count, steps; jansson kept
-    //that order and nlohmann SORTS. Same inside every step and every action.
+    /* The payload, byte for byte. Keys are alphabetical (nlohmann sorts), and
+     * so are the three members of every action. `step_id` is the identity the
+     * API addresses a step by; the allocator is reset with the rest of the
+     * core state between cases, which is what keeps these bytes reproducible
+     * under --gtest_shuffle.
+     */
     static std::string scenarioWire(const std::string &secondAction = "false")
     {
         return std::string("{")
@@ -385,19 +307,26 @@ protected:
                "\"cycle\":\"false\","
                "\"disabled_missing_io\":\"false\","
                "\"enabled\":\"false\","
+               "\"final_step\":{\"actions\":[{\"io\":\"" + IO_STRING + "\","
+                                              "\"resolved\":\"true\","
+                                              "\"value\":\"done\"}]},"
                "\"id\":\"" + SCENARIO_IO_ID + "\","
                "\"missing_ios\":\"\","
+               "\"name\":\"Sc\\u00e9nario\","
+               "\"room_name\":\"" + E41R_ROOM_NAME + "\","
+               "\"room_type\":\"" + E41R_ROOM_TYPE + "\","
                "\"schedule\":\"false\","
                "\"steps\":["
-                 "{\"actions\":[{\"action\":\"true\",\"id\":\"" + IO_BOOL + "\"}],"
-                   "\"step_pause\":\"1.5\",\"step_type\":\"standard\"},"
-                 "{\"actions\":[{\"action\":\"" + secondAction + "\",\"id\":\"" + IO_TARGET + "\"},"
-                                "{\"action\":\"42\",\"id\":\"" + IO_INT + "\"}],"
-                   "\"step_pause\":\"0.25\",\"step_type\":\"standard\"},"
-                 "{\"actions\":[{\"action\":\"done\",\"id\":\"" + IO_STRING + "\"}],"
-                   "\"step_type\":\"end\"}"
+                 "{\"actions\":[{\"io\":\"" + IO_BOOL + "\",\"resolved\":\"true\","
+                                 "\"value\":\"true\"}],"
+                   "\"pause\":\"1.5\",\"step_id\":\"s0\"},"
+                 "{\"actions\":[{\"io\":\"" + IO_TARGET + "\",\"resolved\":\"true\","
+                                 "\"value\":\"" + secondAction + "\"},"
+                                "{\"io\":\"" + IO_INT + "\",\"resolved\":\"true\","
+                                 "\"value\":\"42\"}],"
+                   "\"pause\":\"0.25\",\"step_id\":\"s1\"}"
                "],"
-               "\"steps_count\":\"2\"}";
+               "\"visible\":\"false\"}";
     }
 
     //MOVED. The envelope sorts with the payload: data, msg, msg_id.
@@ -505,8 +434,10 @@ TEST_F(JsonApiScenarioWireBytesTest, TheThreeStepsArePairwiseDistinctOnTheWire)
                                nullptr, false);
     ASSERT_TRUE(payload.is_object());
     ASSERT_TRUE(payload["steps"].is_array());
-    ASSERT_EQ(3u, payload["steps"].size());
+    ASSERT_EQ(2u, payload["steps"].size());
+    ASSERT_TRUE(payload["final_step"].is_object());
 
+    //the two steps and the final step, three shapes, no two of them alike
     std::set<std::string> wires;
     for (const Json &step: payload["steps"])
     {
@@ -515,19 +446,25 @@ TEST_F(JsonApiScenarioWireBytesTest, TheThreeStepsArePairwiseDistinctOnTheWire)
             << "two steps answer the SAME bytes, an exchange between them would "
                "be invisible: " << wire;
     }
+    EXPECT_TRUE(wires.insert(payload["final_step"].dump()).second);
     EXPECT_EQ(3u, wires.size());
 
-    //and they differ on the five axes the header names, not by luck
-    EXPECT_NE(payload["steps"][0].value("step_pause", std::string()),
-              payload["steps"][1].value("step_pause", std::string()));
+    //and they differ on the axes the header names, not by luck
+    EXPECT_NE(payload["steps"][0].value("pause", std::string()),
+              payload["steps"][1].value("pause", std::string()));
     EXPECT_NE(payload["steps"][0]["actions"].size(),
               payload["steps"][1]["actions"].size());
-    EXPECT_NE(payload["steps"][1].value("step_type", std::string()),
-              payload["steps"][2].value("step_type", std::string()));
+    EXPECT_NE(payload["steps"][0].value("step_id", std::string()),
+              payload["steps"][1].value("step_id", std::string()));
+    //the final step has no identity and no pause at all: it is not a step of
+    //the array that happens to be last
+    EXPECT_FALSE(payload["final_step"].contains("step_id"));
+    EXPECT_FALSE(payload["final_step"].contains("pause"));
 }
 
-//INVARIANT. The steps are on the wire in SCENARIO ORDER, and the end step is
-//last. This is the assertion an exchange of two steps has to break.
+//INVARIANT. The steps are on the wire in SCENARIO ORDER inside `steps`, and
+//the terminal one is not in that array at all. This is the assertion an
+//exchange of two steps has to break.
 TEST_F(JsonApiScenarioWireBytesTest, TheStepsAreOnTheWireInScenarioOrder)
 {
     loadScenarioHouse();
@@ -537,15 +474,21 @@ TEST_F(JsonApiScenarioWireBytesTest, TheStepsAreOnTheWireInScenarioOrder)
 
     const std::string wire = httpWire(Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
 
+    const size_t steps = wire.find("\"steps\":");
     const size_t first = wire.find(IO_BOOL);
     const size_t second = wire.find(IO_TARGET);
-    const size_t third = wire.find(IO_STRING);
+    const size_t final = wire.find(IO_STRING);
 
+    ASSERT_NE(std::string::npos, steps);
     ASSERT_NE(std::string::npos, first);
     ASSERT_NE(std::string::npos, second);
-    ASSERT_NE(std::string::npos, third);
+    ASSERT_NE(std::string::npos, final);
+
+    EXPECT_LT(steps, first) << wire;
     EXPECT_LT(first, second) << wire;
-    EXPECT_LT(second, third) << wire;
+    //`final_step` sorts before `steps`, so the terminal action is on the wire
+    //BEFORE the two steps - it is a member of the payload, not a last step
+    EXPECT_LT(final, steps) << wire;
 }
 
 //INVARIANT. The two actions of the second step keep their request order too:
@@ -566,9 +509,9 @@ TEST_F(JsonApiScenarioWireBytesTest, TheActionsOfAStepAreOnTheWireInRequestOrder
  * 3. TYPING AND KEY ORDER
  ******************************************************************************/
 
-//INVARIANT. Everything is a QUOTED STRING - steps_count and step_pause
-//included. The oracle of the golden suite is type-strict (3 != "3") and the
-//whole API is stringified; a number here is a contract break.
+//INVARIANT. Everything is a QUOTED STRING - the pause included. The oracle of
+//the golden suite is type-strict (3 != "3") and the whole API is stringified;
+//a number here is a contract break.
 TEST_F(JsonApiScenarioWireBytesTest, StepsCountAndStepPauseAreQuotedStrings)
 {
     loadScenarioHouse();
@@ -578,15 +521,15 @@ TEST_F(JsonApiScenarioWireBytesTest, StepsCountAndStepPauseAreQuotedStrings)
 
     const std::string wire = httpWire(Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
 
-    EXPECT_NE(std::string::npos, wire.find("\"steps_count\":\"2\"")) << wire;
-    EXPECT_NE(std::string::npos, wire.find("\"step_pause\":\"1.5\"")) << wire;
-    EXPECT_NE(std::string::npos, wire.find("\"step_pause\":\"0.25\"")) << wire;
-    EXPECT_EQ(std::string::npos, wire.find("\"steps_count\":2")) << wire;
+    EXPECT_NE(std::string::npos, wire.find("\"pause\":\"1.5\"")) << wire;
+    EXPECT_NE(std::string::npos, wire.find("\"pause\":\"0.25\"")) << wire;
+    EXPECT_EQ(std::string::npos, wire.find("\"pause\":1.5")) << wire;
+    //an array has a length: there is no count beside it any more
+    EXPECT_EQ(std::string::npos, wire.find("steps_count")) << wire;
 }
 
-//MOVED. The ten keys of the payload, ALPHABETICAL now. jansson kept
-//Scenario::toJson()'s insertion order (id, cycle, enabled, schedule, category,
-//broken, disabled_missing_io, missing_ios, steps_count, steps); nlohmann sorts.
+//INVARIANT. The keys of the payload are alphabetical - nlohmann sorts, and the
+//whole schema moved under it without that changing.
 TEST_F(JsonApiScenarioWireBytesTest, ThePayloadKeysAreSorted)
 {
     loadScenarioHouse();
@@ -598,8 +541,9 @@ TEST_F(JsonApiScenarioWireBytesTest, ThePayloadKeysAreSorted)
 
     const std::vector<std::string> keysInOrder = {
         "\"broken\":", "\"category\":", "\"cycle\":", "\"disabled_missing_io\":",
-        "\"enabled\":", "\"id\":", "\"missing_ios\":", "\"schedule\":",
-        "\"steps\":", "\"steps_count\":"
+        "\"enabled\":", "\"final_step\":", "\"id\":", "\"missing_ios\":",
+        "\"name\":", "\"room_name\":", "\"room_type\":", "\"schedule\":",
+        "\"steps\":", "\"visible\":"
     };
 
     size_t at = 0;
@@ -707,34 +651,22 @@ TEST_F(JsonApiScenarioWireBytesTest, ADelByteInAnActionIsEscaped)
     EXPECT_EQ(std::string::npos, wire.find(std::string("\"a\x7f""b\""))) << wire;
 }
 
-/* THE MINE OF E4.1s, MEASURED.
+/* ⭐ THE EMBEDDED NUL, AND IT NOW TRAVELS WHOLE.
  *
- * THIS CASE WAS TURNED OVER BY E4.1s, AND IT IS THE ONE PLACE IN THE SUITE
- * WHERE THE CHARGE THAT TICKET DETONATED IS VISIBLE.
+ * This case used to pin a SILENT TRUNCATION: the value was built with
+ * json_string(value.c_str()), which stops at the first zero byte, so a client
+ * that posted `a\0b` got 200 OK and an action worth `a`. No error, no log, no
+ * missing key - the value was simply shorter than what had been sent.
  *
- * It used to be named AnEmbeddedNulInAnActionIsRefusedByTheRequestParser and
- * it pinned a REFUSAL: the request was parsed by jansson on both transports,
- * jansson REFUSES an escaped NUL in a string without JSON_ALLOW_NUL, and the
- * message died before any autoscenario code ran - zero answers, zero scenarios
- * created. E4.1r wrote it down as "the NUL delta of the series does not appear
- * on this perimeter, and E4.1s inherits it".
- *
- * E4.1s MOVED THE REQUEST PARSE TO nlohmann, WHICH ACCEPTS THE ESCAPED NUL.
- * The request is served now, the scenario IS created, and the action string
- * reaches AutoScenario::addStepAction() WHOLE - three bytes.
- *
- * AND THEN Scenario::toJson() TRUNCATES IT AT THE FIRST ZERO BYTE, IN SILENCE.
- * json_string(sa.action.c_str()) stops at the C string, IO/Scenario.cpp is
- * EXCLUDED from E4.1 by decision Q5, and E4.6d is the ticket that rewrites it.
- * The parade of E4.1s was to KNOW this and to WRITE IT DOWN, not to migrate
- * the excluded file on the sly - so this case pins the truncation as the
- * measured behaviour of today, loudly, with the ticket that owns it named.
+ * The payload is built from std::string now and dumped by the transports with
+ * ensure_ascii, so the zero byte comes back out as the escape \u0000 and the
+ * value is the three bytes that went in.
  *
  * The probe is asymmetric on purpose ("a" before the NUL, "b" after): a
- * truncation and a drop and a replacement are three different answers, and a
- * probe that was empty on one side could not tell them apart. The assertion is
- * on the RAW wire and on the parsed value, so "the action is a" cannot be read
- * as "the action is missing".
+ * truncation, a drop and a replacement are three different answers, and a
+ * probe that was empty on one side could not tell them apart. The assertions
+ * are on the RAW wire AND on the parsed value, so "the action is a" cannot be
+ * read as "the action is missing".
  */
 TEST_F(JsonApiScenarioWireBytesTest, AnEmbeddedNulInAnActionIsTruncatedByScenarioToJson)
 {
@@ -750,13 +682,12 @@ TEST_F(JsonApiScenarioWireBytesTest, AnEmbeddedNulInAnActionIsTruncatedByScenari
         { "room_name", E41R_ROOM_NAME },
         { "room_type", E41R_ROOM_TYPE },
         { "steps", Json::array({
-            Json{{ "step_type", "standard" }, { "step_pause", "1" },
-                 { "actions", Json::array({ Json{{ "id", IO_BOOL },
-                                                 { "action", std::string("a\0b", 3) }} }) }}
+            Json{{ "pause", "1" },
+                 { "actions", Json::array({ Json{{ "io", IO_BOOL },
+                                                 { "value", std::string("a\0b", 3) }} }) }}
         }) }}), nullptr, false);
     pumpEventLoop();
 
-    //SERVED, where it used to be dropped before any autoscenario code ran.
     ASSERT_TRUE(ret.is_object()) << "the request parse went back to refusing a NUL";
     ASSERT_EQ(SCENARIO_IO_ID,
               ret.value("data", Json::object()).value("id", std::string()));
@@ -764,18 +695,24 @@ TEST_F(JsonApiScenarioWireBytesTest, AnEmbeddedNulInAnActionIsTruncatedByScenari
 
     const std::string wire = httpWire(Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
 
-    //TRUNCATED, inside the excluded file. Three assertions, because the three
-    //possible answers have to be told apart:
-    //  - the action is "a"          -> truncated at the zero byte  (TODAY)
-    //  - the action is "a\u0000b"   -> carried whole               (E4.6d)
-    //  - no action at all           -> dropped
-    EXPECT_NE(std::string::npos, wire.find("\"action\":\"a\""))
-            << "Scenario::toJson() stopped truncating at the NUL - if that is "
-               "E4.6d landing, this case is the one to rewrite: " << wire;
-    EXPECT_EQ(std::string::npos, wire.find("\\u0000"))
-            << "the NUL now travels whole out of the excluded file: " << wire;
+    //THE THREE POSSIBLE ANSWERS, TOLD APART:
+    //  - the value is "a"          -> truncated at the zero byte
+    //  - the value is "a\u0000b"   -> carried whole   <- what must happen
+    //  - no action at all          -> dropped
+    EXPECT_NE(std::string::npos, wire.find("\"value\":\"a\\u0000b\""))
+            << "the NUL did not survive the payload: " << wire;
+    EXPECT_EQ(std::string::npos, wire.find("\"value\":\"a\""))
+            << "the value was truncated at the zero byte again: " << wire;
     EXPECT_EQ(std::string::npos, wire.find('\0'))
             << "a raw zero byte reached the wire";
+
+    //and the parsed value really is the three bytes that were sent
+    const Json payload = Json::parse(wire, nullptr, false);
+    ASSERT_TRUE(payload.is_object()) << wire;
+    ASSERT_EQ(1u, payload["steps"].size()) << wire;
+    ASSERT_EQ(1u, payload["steps"][0]["actions"].size()) << wire;
+    EXPECT_EQ(std::string("a\0b", 3),
+              payload["steps"][0]["actions"][0].value("value", std::string()));
 }
 
 //INVARIANT. Poison in an action does not kill the connection: the response is
@@ -815,16 +752,30 @@ TEST_F(JsonApiScenarioWireBytesTest, APoisonedActionIsDeliveredAndTheConnectionS
  * tells them apart. Pinned here, reported in FINDINGS.md, E4.6d's to change.
  ******************************************************************************/
 
-//INVARIANT. Refusal (1): no room in the house at all, so get_room(0) answers
-//null and createIO() refuses.
+/* ✅ MOVED. Refusal (1) used to be reached deep inside createIO(): the request
+ * named no room, buildAutoscenarioCreate() fell back on room 0, and on a house
+ * with no room at all createIO() answered null - so the two create refusals
+ * spelled the SAME bytes and only the log told them apart.
+ * The room is validated up front now, before anything is created, and the
+ * refusal names what was not found.
+ */
 TEST_F(JsonApiScenarioWireBytesTest, CreateWithoutAnyRoomIsRefused)
 {
     loadRoomlessHouse();
 
-    EXPECT_EQ("{\"error\":\"scenario creation failed\"}",
+    EXPECT_EQ("{\"error\":\"invalid payload: no room \\\"\\\" of type \\\"\\\"\"}",
               httpWire(Json{{ "type", "create" }, { "name", "no room" }}));
 
     //and nothing was left behind
+    EXPECT_TRUE(ListeRoom::Instance().getAutoScenarios().empty());
+
+    //a house WITH a room refuses just the same when the request names another
+    loadScenarioHouse();
+    EXPECT_EQ("{\"error\":\"invalid payload: no room \\\"nowhere\\\" of type \\\"salon\\\"\"}",
+              httpWire(Json{{ "type", "create" },
+                            { "name", "wrong room" },
+                            { "room_name", "nowhere" },
+                            { "room_type", E41R_ROOM_TYPE }}));
     EXPECT_TRUE(ListeRoom::Instance().getAutoScenarios().empty());
 }
 
@@ -1066,57 +1017,86 @@ TEST_F(JsonApiScenarioWireBytesTest, AWsDataThatIsNotAnObjectAnswersNothing)
     EXPECT_EQ(0u, ws.count());
 }
 
-//INVARIANT. json_array_foreach() ran json_array_size(NULL) == 0 and never
-//entered the loop: an absent "steps", or one that is not an array, is a NO-OP
-//and NOT an error - create still answers an id, modify still answers success.
+/* ✅ MOVED, and this is D7 in one case. A "steps" that is not an array used to
+ * be a silent NO-OP: the scenario was created (or, worse, emptied) and the
+ * client was answered success. It is REFUSED now, and refused BEFORE anything
+ * is touched. An ABSENT "steps" is still a legitimate empty scenario.
+ */
 TEST_F(JsonApiScenarioWireBytesTest, AbsentOrNonArrayStepsAreANoOpAndNotAnError)
 {
     loadScenarioHouse();
 
+    //absent: a scenario with no step, and that is a valid thing to ask for
     EXPECT_EQ(std::string("{\"id\":\"") + SCENARIO_IO_ID + "\"}",
               httpWire(Json{{ "type", "create" },
                             { "name", "no steps" },
                             { "room_name", E41R_ROOM_NAME },
-                            { "room_type", E41R_ROOM_TYPE },
-                            { "steps", "not an array" }}));
+                            { "room_type", E41R_ROOM_TYPE }}));
 
     const std::string wire = httpWire(Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
-    EXPECT_NE(std::string::npos, wire.find("\"steps_count\":\"0\"")) << wire;
+    EXPECT_NE(std::string::npos, wire.find("\"steps\":[]")) << wire;
 
-    EXPECT_EQ("{\"success\":\"true\"}",
+    //not an array: refused, and the scenario is left exactly as it was
+    EXPECT_EQ("{\"error\":\"invalid payload: steps must be an array\"}",
               httpWire(Json{{ "type", "modify" },
                             { "id", SCENARIO_IO_ID },
                             { "name", "still no steps" },
                             { "room_name", E41R_ROOM_NAME },
-                            { "room_type", E41R_ROOM_TYPE }}));
+                            { "room_type", E41R_ROOM_TYPE },
+                            { "steps", "not an array" }}));
+
+    EXPECT_EQ(wire, httpWire(Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }}))
+            << "a refused modify changed the scenario";
 }
 
-//INVARIANT. Same contract one level down: a step whose "actions" is not an
-//array contributes no action, and a step that is not an object at all is read
-//entirely through the defaults - it becomes an END step, because "step_type"
-//reads as absent and absent is not "standard".
+/* ✅ MOVED, same reason one level down. A step that is not an object used to be
+ * read entirely through the defaults and to become an END step - which is how
+ * a typo silently turned a step into the terminal one. Both shapes are refused
+ * now, by name, and nothing is created.
+ */
 TEST_F(JsonApiScenarioWireBytesTest, ANonObjectStepAndANonArrayActionsListAreTolerated)
 {
     loadScenarioHouse();
 
-    EXPECT_EQ(std::string("{\"id\":\"") + SCENARIO_IO_ID + "\"}",
+    EXPECT_EQ("{\"error\":\"invalid payload: step 0: actions must be an array\"}",
               httpWire(Json{{ "type", "create" },
                             { "name", "tolerant" },
                             { "room_name", E41R_ROOM_NAME },
                             { "room_type", E41R_ROOM_TYPE },
                             { "steps", Json::array({
-                                Json{{ "step_type", "standard" }, { "step_pause", "1" },
-                                     { "actions", "not an array" }},
+                                Json{{ "pause", "1" }, { "actions", "not an array" }}
+                            }) }}));
+
+    EXPECT_EQ("{\"error\":\"invalid payload: step 1 is not an object\"}",
+              httpWire(Json{{ "type", "create" },
+                            { "name", "tolerant" },
+                            { "room_name", E41R_ROOM_NAME },
+                            { "room_type", E41R_ROOM_TYPE },
+                            { "steps", Json::array({
+                                Json{{ "pause", "1" }, { "actions", Json::array() }},
                                 Json("a bare string is not an object")
                             }) }}));
 
-    const std::string wire = httpWire(Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
-    EXPECT_NE(std::string::npos, wire.find("\"steps_count\":\"1\"")) << wire;
-    EXPECT_EQ(std::string::npos, wire.find(IO_BOOL)) << wire;
+    //a pause that is not a number is refused too, instead of reading as zero
+    EXPECT_EQ("{\"error\":\"invalid payload: step 0: pause is not a number\"}",
+              httpWire(Json{{ "type", "create" },
+                            { "name", "tolerant" },
+                            { "room_name", E41R_ROOM_NAME },
+                            { "room_type", E41R_ROOM_TYPE },
+                            { "steps", Json::array({
+                                Json{{ "pause", "deux secondes" }}
+                            }) }}));
+
+    //not one of the three left anything behind
+    EXPECT_TRUE(ListeRoom::Instance().getAutoScenarios().empty());
 }
 
-//INVARIANT. An action whose target id does not resolve is SILENTLY DROPPED -
-//frozen bug of E4.0c, pinned here on the bytes.
+/* ✅ FLIPPED. An action whose target id does not resolve used to be SILENTLY
+ * DROPPED at create time - the client was answered success and the action had
+ * never existed. It is KEPT now, in its place, and answered back marked
+ * resolved="false": naming an IO that is not there yet, or not there any more,
+ * is a scenario to repair, not a request to throw half of away.
+ */
 TEST_F(JsonApiScenarioWireBytesTest, AnActionOnAnUnknownIoIsSilentlyDropped)
 {
     loadScenarioHouse();
@@ -1127,15 +1107,21 @@ TEST_F(JsonApiScenarioWireBytesTest, AnActionOnAnUnknownIoIsSilentlyDropped)
                             { "room_name", E41R_ROOM_NAME },
                             { "room_type", E41R_ROOM_TYPE },
                             { "steps", Json::array({
-                                Json{{ "step_type", "standard" }, { "step_pause", "1" },
+                                Json{{ "pause", "1" },
                                      { "actions", Json::array({
-                                         Json{{ "id", "e41r_nope" }, { "action", "true" }},
-                                         Json{{ "id", IO_BOOL }, { "action", "true" }} }) }}
+                                         Json{{ "io", "e41r_nope" }, { "value", "true" }},
+                                         Json{{ "io", IO_BOOL }, { "value", "true" }} }) }}
                             }) }}));
 
     const std::string wire = httpWire(Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
-    EXPECT_EQ(std::string::npos, wire.find("e41r_nope")) << wire;
-    EXPECT_NE(std::string::npos, wire.find(IO_BOOL)) << wire;
+    EXPECT_NE(std::string::npos,
+              wire.find("{\"io\":\"e41r_nope\",\"resolved\":\"false\",\"value\":\"true\"}")) << wire;
+    EXPECT_NE(std::string::npos,
+              wire.find(std::string("{\"io\":\"") + IO_BOOL + "\",\"resolved\":\"true\",\"value\":\"true\"}")) << wire;
+
+    //and the scenario says it is broken, naming what to repair
+    EXPECT_NE(std::string::npos, wire.find("\"broken\":\"true\"")) << wire;
+    EXPECT_NE(std::string::npos, wire.find("\"missing_ios\":\"e41r_nope\"")) << wire;
 }
 
 //INVARIANT. create and modify read room_name and room_type, and they are NOT

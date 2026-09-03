@@ -51,26 +51,17 @@ Scenario::Scenario(Params &p):
 
     set_param("gui_type", "scenario");
 
-    /* THE MARKER, AND IT IS STILL `auto_scenario` - E4.6b DOES NOT RE-KEY IT.
-     *
-     * E4.6.md §5.2, the one thing in the whole epic that can destroy user
-     * data: ListeRoom::checkAutoScenario() (ListeRoom.cpp:320-330) destroys
-     * every rule that carries the `auto_scenario` param and that no
-     * AutoScenario has adopted, then SaveConfigRule() persists it. Re-key this
-     * test and no AutoScenario is built for an existing scenario, nothing
-     * adopts its rules, and the sweep destroys them all - 18 of them on
-     * configs/raoulh - at the first startup, in silence.
-     * The sweep is E4.6c's to remove; until then the marker stays where it is,
-     * and `autoscenario_uid` lives NEXT TO it.
+    /* THE MARKER, AND IT IS STILL `auto_scenario` (E4.6.md D2). Re-key it and
+     * no AutoScenario is built for an existing scenario: its rules stop being
+     * claimed, its definition is never bootstrapped from them, and the whole
+     * scenario silently stops existing - 18 rules on configs/raoulh.
+     * `autoscenario_uid` lives NEXT TO it, never in its place.
      */
     if (get_param("auto_scenario") != "")
-    {
         auto_scenario = new AutoScenario(this);
-        setAutoScenario(true);
-    }
 
-    //E4.6b. The definition, when this IO carries one. Answers false and
-    //changes nothing when it does not.
+    //The definition, when this IO carries one. Answers false and changes
+    //nothing when it does not.
     auto_scenario_def->loadFromParams(get_params());
 
     if (!get_params().Exists("visible")) set_param("visible", "true");
@@ -150,10 +141,17 @@ void Scenario::captureDefinitionFromRules()
 {
     if (!auto_scenario) return;
 
+    /* BOOTSTRAP ONLY. Once the definition holds a uid it IS the source of
+     * truth and the rules are its projection; re-deriving it from them at
+     * every save would put a lossy round trip between the client and the
+     * datum - it is how an action ends up amputated without anybody asking.
+     */
+    if (auto_scenario_def->isDefined()) return;
+
     AutoScenarioDef &def = *auto_scenario_def;
 
-    //Allocated once and then reused for ever: a uid is never recycled (D3).
-    if (def.uid.empty()) def.uid = AutoScenarioDef::newUid();
+    //Allocated once and then reused for ever: a uid is never recycled.
+    def.uid = AutoScenarioDef::newUid();
 
     def.cycle = auto_scenario->isCycling();
     //`enabled` is the old `disabled`, inverted ONCE, here (D6).
@@ -171,12 +169,7 @@ void Scenario::captureDefinitionFromRules()
     for (size_t i = 0;i < stepRules.size();i++)
     {
         AutoScenarioDefStep step;
-        //REUSE the id already held at this position, so two consecutive saves
-        //of an unchanged scenario write the same bytes. E4.6c makes the
-        //identity real (the definition becomes the source); here it is as
-        //stable as a positional model can be.
-        step.stepId = (i < def.steps.size() && !def.steps[i].stepId.empty())?
-                          def.steps[i].stepId: AutoScenarioDef::newStepId();
+        step.stepId = AutoScenarioDef::newStepId();
         step.pause = auto_scenario->getStepPause((int)i);
         collectRuleActions(stepRules[i], machinery, step.actions);
 
@@ -244,91 +237,90 @@ bool Scenario::set_value(bool val)
     return true;
 }
 
-json_t *Scenario::toJson()
+namespace
 {
-    json_t *jret = json_object();
+
+/* One action of the payload. `resolved` is the whole point of naming the IO by
+ * id: an action whose target is gone is still emitted, in its place, so a
+ * client that reads a scenario back and sends it again cannot lose it.
+ */
+Json actionToJson(const AutoScenarioDefAction &a)
+{
+    Json jact = Json::object();
+
+    jact["io"] = a.ioId;
+    jact["value"] = a.value;
+    jact["resolved"] = ListeRoom::Instance().findIO(a.ioId)? "true": "false";
+
+    return jact;
+}
+
+Json actionsToJson(const vector<AutoScenarioDefAction> &actions)
+{
+    Json jacts = Json::array();
+
+    for (const AutoScenarioDefAction &a: actions)
+        jacts.push_back(actionToJson(a));
+
+    return jacts;
+}
+
+}
+
+Json Scenario::toJson()
+{
+    Json jret = Json::object();
 
     if (!auto_scenario)
         return jret;
 
-    json_object_set_new(jret, "id", json_string(get_param("id").c_str()));
-    json_object_set_new(jret, "cycle", json_string(auto_scenario->isCycling()?"true":"false"));
-    json_object_set_new(jret, "enabled", json_string(auto_scenario->isDisabled()?"false":"true"));
-    json_object_set_new(jret, "schedule", json_string(auto_scenario->isScheduled()?
-                                                          auto_scenario->getIOTimeRange()->get_param("id").c_str():
-                                                          "false"));
-    json_object_set_new(jret, "category", json_string(auto_scenario->getCategory().c_str()));
+    const AutoScenarioDef &def = *auto_scenario_def;
+    Room *room = ListeRoom::Instance().getRoomByIO(this);
 
-    /* T3.18 - three keys, and all three are needed. They are READ ONLY:
-     * buildAutoscenarioModify() does not consume any of them.
-     *
-     * "broken" and "disabled_missing_io" DIVERGE ON PURPOSE. broken=false with
-     * the flag still true is "repaired, waiting for a manual re-enable" - the
-     * state the whole ticket exists for, and the one an UI has to turn into a
-     * "re-enable" button. Emit only one of the two and that state becomes
-     * indistinguishable from a healthy scenario, which is the silence T3.18
-     * removes.
+    /* THE ONE SCHEMA: every key below is read back by `autoscenario create`
+     * and `autoscenario modify`, so what a client reads is what it may send.
+     * The derived keys (category and the three below) are accepted and ignored
+     * on the way in, which is what keeps the round trip an identity.
+     */
+    jret["id"] = get_param("id");
+    jret["name"] = get_param("name");
+    jret["room_name"] = room? room->get_name(): string();
+    jret["room_type"] = room? room->get_type(): string();
+    jret["visible"] = get_param("visible") == "true"? "true": "false";
+    jret["cycle"] = auto_scenario->isCycling()? "true": "false";
+    jret["enabled"] = auto_scenario->isDisabled()? "false": "true";
+    jret["schedule"] = auto_scenario->isScheduled()?
+                           auto_scenario->getIOTimeRange()->get_param("id"):
+                           string("false");
+    jret["category"] = auto_scenario->getCategory();
+
+    /* The three keys of the missing-IO arbitration, and all three are needed.
+     * "broken" and "disabled_missing_io" DIVERGE ON PURPOSE: broken=false with
+     * the flag still true is "repaired, waiting for a manual re-enable", the
+     * state a UI has to turn into a button. Emit only one of the two and that
+     * state becomes indistinguishable from a healthy scenario.
      * "missing_ios" is what to repair, empty when there is nothing to.
      */
-    json_object_set_new(jret, "broken",
-                        json_string(auto_scenario->isBroken()?"true":"false"));
-    json_object_set_new(jret, "disabled_missing_io",
-                        json_string(auto_scenario->isDisabledMissingIo()?"true":"false"));
-    json_object_set_new(jret, "missing_ios",
-                        json_string(auto_scenario->getMissingIoDescription().c_str()));
+    jret["broken"] = auto_scenario->isBroken()? "true": "false";
+    jret["disabled_missing_io"] = auto_scenario->isDisabledMissingIo()? "true": "false";
+    jret["missing_ios"] = auto_scenario->getMissingIoDescription();
 
-    json_object_set_new(jret, "steps_count", json_string(Utils::to_string(auto_scenario->getRuleSteps().size()).c_str()));
-
-    json_t *jsteps = json_array();
-
-    for (uint i = 0;i < auto_scenario->getRuleSteps().size();i++)
+    Json jsteps = Json::array();
+    for (const AutoScenarioDefStep &step: def.steps)
     {
-        json_t *jstep = json_object();
-        json_object_set_new(jstep, "step_pause", json_string(Utils::to_string(auto_scenario->getStepPause(i)).c_str()));
-        json_object_set_new(jstep, "step_type", json_string("standard"));
+        Json jstep = Json::object();
 
-        json_t *jacts = json_array();
-        for (int j = 0;j < auto_scenario->getStepActionCount(i);j++)
-        {
-            ScenarioAction sa = auto_scenario->getStepAction(i, j);
+        jstep["step_id"] = step.stepId;
+        jstep["pause"] = Utils::to_string(step.pause);
+        jstep["actions"] = actionsToJson(step.actions);
 
-            //Defensive, same guard as AutoScenario::getCategory(): an index
-            //that does not resolve gives back an empty action
-            if (!sa.io) continue;
-
-            json_t *jact = json_object();
-            json_object_set_new(jact, "id", json_string(sa.io->get_param("id").c_str()));
-            json_object_set_new(jact, "action", json_string(sa.action.c_str()));
-            json_array_append_new(jacts, jact);
-
-        }
-        json_object_set_new(jstep, "actions", jacts);
-
-        json_array_append_new(jsteps, jstep);
+        jsteps.push_back(jstep);
     }
+    jret["steps"] = jsteps;
 
-    //add end step
-    {
-        json_t *jstep = json_object();
-        json_object_set_new(jstep, "step_type", json_string("end"));
-
-        json_t *jacts = json_array();
-        for (int j = 0;j < auto_scenario->getEndStepActionCount();j++)
-        {
-            ScenarioAction sa = auto_scenario->getEndStepAction(j);
-
-            if (!sa.io) continue;
-
-            json_t *jact = json_object();
-            json_object_set_new(jact, "id", json_string(sa.io->get_param("id").c_str()));
-            json_object_set_new(jact, "action", json_string(sa.action.c_str()));
-            json_array_append_new(jacts, jact);
-        }
-        json_object_set_new(jstep, "actions", jacts);
-        json_array_append_new(jsteps, jstep);
-    }
-
-    json_object_set_new(jret, "steps", jsteps);
+    //A FIELD OF ITS OWN, not a last entry of `steps`: len(steps) is the number
+    //of steps, and the +1 invariant the synthetic end step imposed is gone.
+    jret["final_step"] = Json{{ "actions", actionsToJson(def.finalStep.actions) }};
 
     return jret;
 }

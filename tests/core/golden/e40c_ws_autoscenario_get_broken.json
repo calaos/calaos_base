@@ -5,41 +5,51 @@
     "cycle": "false",
     "disabled_missing_io": "true",
     "enabled": "false",
+    "final_step": {
+      "actions": [
+        {
+          "io": "e40c_string",
+          "resolved": "true",
+          "value": "done"
+        }
+      ]
+    },
     "id": "io_0",
     "missing_ios": "e40c_target",
+    "name": "Soirée",
+    "room_name": "E4.0c room",
+    "room_type": "salon",
     "schedule": "false",
     "steps": [
       {
         "actions": [
           {
-            "action": "true",
-            "id": "e40c_bool"
+            "io": "e40c_bool",
+            "resolved": "true",
+            "value": "true"
           }
         ],
-        "step_pause": "1.5",
-        "step_type": "standard"
+        "pause": "1.5",
+        "step_id": "s0"
       },
       {
         "actions": [
           {
-            "action": "42",
-            "id": "e40c_int"
-          }
-        ],
-        "step_pause": "0",
-        "step_type": "standard"
-      },
-      {
-        "actions": [
+            "io": "e40c_target",
+            "resolved": "false",
+            "value": "true"
+          },
           {
-            "action": "done",
-            "id": "e40c_string"
+            "io": "e40c_int",
+            "resolved": "true",
+            "value": "42"
           }
         ],
-        "step_type": "end"
+        "pause": "0",
+        "step_id": "s1"
       }
     ],
-    "steps_count": "2"
+    "visible": "false"
   },
   "msg": "autoscenario",
   "msg_id": "e40c-broken"

@@ -84,7 +84,7 @@
  * the T3.20 review circulate with a ~48 line offset because they were taken in
  * a worktree that adds set_param/del_param overrides to IO/Scenario.cpp. On
  * master that file is 195 lines long and the two escamotage guards are at
- * :158 (standard steps) and :181 (synthetic end step).
+ * the standard steps and the terminal one alike.
  *
  * ---------------------------------------------------------------------------
  * THE FIXTURE IS RICH ON PURPOSE - DO NOT MAKE IT SMALLER
@@ -93,7 +93,7 @@
  * apart - is the most frequent defect of this series (7 recurrences, all found
  * by reviewers, never by implementers). So, deliberately:
  *
- *   - THREE standard steps plus the synthetic end step, never one;
+ *   - THREE standard steps plus the terminal one, never one;
  *   - the missing IO sits in the MIDDLE step and in the MIDDLE of that step's
  *     action list, never at either end, so an off-by-one cannot hide;
  *   - a SECOND missing IO in the end step, also in the middle, so the two
@@ -258,7 +258,7 @@ protected:
     }
 
     /* THE RICH SCENARIO. Read the header before touching it: every asymmetry
-     * of it is load bearing. Three standard steps, a synthetic end step, two
+     * of it is load bearing. Three standard steps, a terminal step, two
      * IOs that will be made to vanish and both of them in the MIDDLE of their
      * action list, three different pauses, six different values.
      * Answers the id of the Scenario IO, "io_0" on a fresh house.
@@ -271,23 +271,22 @@ protected:
             { "room_name", ROOM_NAME_E46A },
             { "room_type", ROOM_TYPE_E46A },
             { "steps", Json::array({
-                Json{{ "step_type", "standard" }, { "step_pause", "1.5" },
+                Json{{ "pause", "1.5" },
                      { "actions", Json::array({
-                         Json{{ "id", IO_LAMP }, { "action", "true" }} }) }},
-                Json{{ "step_type", "standard" }, { "step_pause", "2.25" },
+                         Json{{ "io", IO_LAMP }, { "value", "true" }} }) }},
+                Json{{ "pause", "2.25" },
                      { "actions", Json::array({
-                         Json{{ "id", IO_BLIND }, { "action", "77" }},
-                         Json{{ "id", IO_GHOST_STEP }, { "action", "fantome" }},
-                         Json{{ "id", IO_VOLUME }, { "action", "42" }} }) }},
-                Json{{ "step_type", "standard" }, { "step_pause", "0.5" },
+                         Json{{ "io", IO_BLIND }, { "value", "77" }},
+                         Json{{ "io", IO_GHOST_STEP }, { "value", "fantome" }},
+                         Json{{ "io", IO_VOLUME }, { "value", "42" }} }) }},
+                Json{{ "pause", "0.5" },
                      { "actions", Json::array({
-                         Json{{ "id", IO_BANNER }, { "action", "bonsoir" }} }) }},
-                Json{{ "step_type", "end" },
-                     { "actions", Json::array({
-                         Json{{ "id", IO_SIREN }, { "action", "false" }},
-                         Json{{ "id", IO_GHOST_END }, { "action", "true" }},
-                         Json{{ "id", IO_LAMP }, { "action", "false" }} }) }}
-            }) }});
+                         Json{{ "io", IO_BANNER }, { "value", "bonsoir" }} }) }}
+            }) },
+            { "final_step", Json{{ "actions", Json::array({
+                         Json{{ "io", IO_SIREN }, { "value", "false" }},
+                         Json{{ "io", IO_GHOST_END }, { "value", "true" }},
+                         Json{{ "io", IO_LAMP }, { "value", "false" }} }) }} }});
 
         return ret.value("id", std::string());
     }
@@ -1035,13 +1034,13 @@ TEST_F(AutoScenarioMigrationTest, AStepRuleWhoseConditionValueDoesNotMatchIsDrop
     //The three steps are in their declared order, with their declared pauses.
     WsTestSession ws;
     const Json sc = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
-    ASSERT_EQ(4u, sc["steps"].size()) << "three standard steps plus the synthetic end step";
-    EXPECT_EQ("1.5", sc["steps"][0].value("step_pause", std::string()));
-    EXPECT_EQ("2.25", sc["steps"][1].value("step_pause", std::string())) << sc.dump();
-    EXPECT_EQ("0.5", sc["steps"][2].value("step_pause", std::string()));
+    ASSERT_EQ(3u, sc["steps"].size()) << "the array holds the steps and nothing else";
+    EXPECT_EQ("1.5", sc["steps"][0].value("pause", std::string()));
+    EXPECT_EQ("2.25", sc["steps"][1].value("pause", std::string())) << sc.dump();
+    EXPECT_EQ("0.5", sc["steps"][2].value("pause", std::string()));
     ASSERT_EQ(3u, sc["steps"][1]["actions"].size());
-    EXPECT_EQ(IO_GHOST_STEP, sc["steps"][1]["actions"][1].value("id", std::string()));
-    EXPECT_EQ("fantome", sc["steps"][1]["actions"][1].value("action", std::string()));
+    EXPECT_EQ(IO_GHOST_STEP, sc["steps"][1]["actions"][1].value("io", std::string()));
+    EXPECT_EQ("fantome", sc["steps"][1]["actions"][1].value("value", std::string()));
 }
 
 TEST_F(AutoScenarioMigrationTest, AHeaderRuleThatFailsTheMatchIsRecreatedAndTheOriginalDestroyed)
@@ -1170,28 +1169,26 @@ TEST_F(AutoScenarioMigrationTest, LosingTheMiddleStepRenumbersEveryStepAfterIt)
     //and the payload is the one of an untouched scenario
     WsTestSession ws;
     const Json sc = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
-    ASSERT_EQ(4u, sc["steps"].size());
-    EXPECT_EQ("2.25", sc["steps"][1].value("step_pause", std::string()));
+    ASSERT_EQ(3u, sc["steps"].size());
+    EXPECT_EQ("2.25", sc["steps"][1].value("pause", std::string()));
     ASSERT_EQ(3u, sc["steps"][1]["actions"].size()) << sc["steps"][1].dump();
-    EXPECT_EQ(IO_GHOST_STEP, sc["steps"][1]["actions"][1].value("id", std::string()));
-    EXPECT_EQ("fantome", sc["steps"][1]["actions"][1].value("action", std::string()));
-    EXPECT_EQ("0.5", sc["steps"][2].value("step_pause", std::string()));
-    EXPECT_EQ(IO_BANNER, sc["steps"][2]["actions"][0].value("id", std::string()));
-    EXPECT_EQ("bonsoir", sc["steps"][2]["actions"][0].value("action", std::string()));
+    EXPECT_EQ(IO_GHOST_STEP, sc["steps"][1]["actions"][1].value("io", std::string()));
+    EXPECT_EQ("fantome", sc["steps"][1]["actions"][1].value("value", std::string()));
+    EXPECT_EQ("0.5", sc["steps"][2].value("pause", std::string()));
+    EXPECT_EQ(IO_BANNER, sc["steps"][2]["actions"][0].value("io", std::string()));
+    EXPECT_EQ("bonsoir", sc["steps"][2]["actions"][0].value("value", std::string()));
 }
 
 TEST_F(AutoScenarioMigrationTest, TheStepsArrayIsOneLongerThanStepsCountBecauseTheEndStepIsSynthetic)
 {
-    /* >>> TO FLIP (E4.6d, RC2 / symptom #4) <<<
+    /* ✅ FLIPPED (RC2 / symptom #4). The name is kept because the ticket sheet
+     * cites it; what it measures is the reverse.
      *
-     * `steps_count` is written from getRuleSteps().size() (IO/Scenario.cpp:141)
-     * while the array gains a fourth, SYNTHESIZED entry at :171-190. The
-     * invariant is therefore len(steps) == steps_count + 1, and E4.0f's own
-     * documentation once got it backwards. E4.6d moves the terminal step to a
-     * separate `final_step` field and the trap becomes inexpressible.
-     *
-     * The end step is also the ONLY one with no `step_pause`: pinned here
-     * because it is the shape a client uses to tell the two apart.
+     * `steps_count` used to be written from the rules while the array gained a
+     * fourth, SYNTHESIZED entry, so len(steps) == steps_count + 1 - an
+     * invariant the documentation of this repository once stated backwards.
+     * The terminal step is a field of its own now, `steps_count` is gone, and
+     * the trap is INEXPRESSIBLE: an array has a length.
      */
     loadHealthyScenarioFromDisk();
 
@@ -1199,18 +1196,27 @@ TEST_F(AutoScenarioMigrationTest, TheStepsArrayIsOneLongerThanStepsCountBecauseT
     const Json sc = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
 
     ASSERT_TRUE(sc["steps"].is_array());
-    EXPECT_EQ("3", sc.value("steps_count", std::string()));
-    EXPECT_EQ(4u, sc["steps"].size()) << "TODAY: three real steps plus the synthetic one";
-    EXPECT_EQ(sc["steps"].size(), std::stoul(sc.value("steps_count", std::string("0"))) + 1);
+    EXPECT_FALSE(sc.contains("steps_count")) << "steps_count is back: " << sc.dump();
+    EXPECT_EQ(3u, sc["steps"].size()) << "the three declared steps, and only them";
 
-    for (size_t i = 0;i < 3;i++)
+    for (size_t i = 0;i < sc["steps"].size();i++)
     {
-        EXPECT_EQ("standard", sc["steps"][i].value("step_type", std::string()));
-        EXPECT_TRUE(sc["steps"][i].contains("step_pause")) << "step " << i;
+        EXPECT_FALSE(sc["steps"][i].contains("step_type")) << "step " << i;
+        EXPECT_TRUE(sc["steps"][i].contains("pause")) << "step " << i;
+        EXPECT_FALSE(sc["steps"][i].value("step_id", std::string()).empty())
+                << "step " << i << " carries no identity";
     }
-    EXPECT_EQ("end", sc["steps"][3].value("step_type", std::string()));
-    EXPECT_FALSE(sc["steps"][3].contains("step_pause"))
-            << "the synthetic step carries no pause: " << sc["steps"][3].dump();
+
+    //the terminal step is elsewhere, and it is an object with no pause
+    ASSERT_TRUE(sc["final_step"].is_object()) << sc.dump();
+    EXPECT_FALSE(sc["final_step"].contains("pause"));
+    EXPECT_TRUE(sc["final_step"]["actions"].is_array());
+
+    //the step ids are pairwise distinct: they are the identity the API
+    //addresses a step by, and two equal ones would make that meaningless
+    std::set<std::string> ids;
+    for (const Json &step: sc["steps"])
+        EXPECT_TRUE(ids.insert(step.value("step_id", std::string())).second) << sc.dump();
 }
 
 /*******************************************************************************
@@ -1228,16 +1234,13 @@ TEST_F(AutoScenarioMigrationTest, TheStepsArrayIsOneLongerThanStepsCountBecauseT
 
 TEST_F(AutoScenarioMigrationTest, AStepIsRenderedWithoutTheActionWhoseIoIsGoneAndOnlyMissingIosNamesIt)
 {
-    /* >>> TO FLIP (E4.6d, RC3) <<<   IO/Scenario.cpp:158
+    /* ✅ FLIPPED (RC3). Name kept, meaning reversed.
      *
-     * The middle step had THREE actions and its middle one lost its IO. The
-     * payload answers TWO, in the same order, with no gap, no null, no marker.
-     * The dead id appears in exactly ONE place in the whole document:
-     * missing_ios. The payload therefore names the missing IO in one field and
-     * has erased it from the other - the golden of E4.0c freezes that same
-     * inconsistency (e40c_ws_autoscenario_get_broken.json).
-     *
-     * E4.6d keeps the action and adds "resolved":"false" (D4).
+     * The middle step has THREE actions and its middle one lost its IO. The
+     * payload used to answer TWO, in order, with no gap and no marker, and the
+     * dead id existed in exactly one place: missing_ios. It answers THREE now,
+     * the dead one in ITS PLACE and marked resolved="false" - so a client that
+     * reads and sends back writes the id again instead of erasing it.
      */
     loadScenarioWithTwoAmputatedActions();
 
@@ -1247,25 +1250,28 @@ TEST_F(AutoScenarioMigrationTest, AStepIsRenderedWithoutTheActionWhoseIoIsGoneAn
     WsTestSession ws;
     const Json sc = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
 
-    ASSERT_EQ(4u, sc["steps"].size());
+    ASSERT_EQ(3u, sc["steps"].size());
     const Json middle = sc["steps"][1];
-    EXPECT_EQ("2.25", middle.value("step_pause", std::string()))
+    EXPECT_EQ("2.25", middle.value("pause", std::string()))
             << "wrong step, the payload moved: " << sc.dump();
 
-    ASSERT_EQ(2u, middle["actions"].size())
-            << "TODAY the amputated step answers 2 of its 3 actions: " << middle.dump();
-    EXPECT_EQ(IO_BLIND, middle["actions"][0].value("id", std::string()));
-    EXPECT_EQ("77", middle["actions"][0].value("action", std::string()));
-    EXPECT_EQ(IO_VOLUME, middle["actions"][1].value("id", std::string()));
-    EXPECT_EQ("42", middle["actions"][1].value("action", std::string()));
+    ASSERT_EQ(3u, middle["actions"].size())
+            << "an action was escamoted again: " << middle.dump();
+    EXPECT_EQ(IO_BLIND, middle["actions"][0].value("io", std::string()));
+    EXPECT_EQ("77", middle["actions"][0].value("value", std::string()));
+    EXPECT_EQ("true", middle["actions"][0].value("resolved", std::string()));
 
-    //the dead id is nowhere in the steps, only in missing_ios
-    for (const Json &step: sc["steps"])
-        for (const Json &act: step["actions"])
-            EXPECT_NE(IO_GHOST_STEP, act.value("id", std::string()))
-                    << "the dead id came back into a step: " << step.dump();
+    //IN ITS PLACE, in the middle, with its value: a client re-sending this
+    //document writes the dead reference back rather than dropping it
+    EXPECT_EQ(IO_GHOST_STEP, middle["actions"][1].value("io", std::string()));
+    EXPECT_EQ("fantome", middle["actions"][1].value("value", std::string()));
+    EXPECT_EQ("false", middle["actions"][1].value("resolved", std::string()));
 
-    //E4.2e format, "id_a, id_b", steps first then the header rules
+    EXPECT_EQ(IO_VOLUME, middle["actions"][2].value("io", std::string()));
+    EXPECT_EQ("42", middle["actions"][2].value("value", std::string()));
+    EXPECT_EQ("true", middle["actions"][2].value("resolved", std::string()));
+
+    //E4.2e format, "id_a, id_b", steps first then the final step
     EXPECT_EQ(std::string(IO_GHOST_STEP) + ", " + IO_GHOST_END,
               sc.value("missing_ios", std::string()));
     EXPECT_EQ("true", sc.value("broken", std::string()));
@@ -1274,35 +1280,38 @@ TEST_F(AutoScenarioMigrationTest, AStepIsRenderedWithoutTheActionWhoseIoIsGoneAn
 
 TEST_F(AutoScenarioMigrationTest, TheSyntheticEndStepEscamotesItsDeadActionTheSameWay)
 {
-    /* >>> TO FLIP (E4.6d, RC3) <<<   IO/Scenario.cpp:181
-     *
-     * The SECOND guard, in the synthetic end step's own loop. It is a separate
-     * site and it needs its own witness: a mutation removing only one of the
-     * two would otherwise stay green.
-     * The end step had THREE actions, its MIDDLE one is dead, and the two
+    /* ✅ FLIPPED (RC3). The SECOND site, and it still needs its own witness: a
+     * regression that reintroduced the drop in one of the two loops only would
+     * otherwise stay green.
+     * The final step has THREE actions, its MIDDLE one is dead, and the two
      * survivors target the SAME IO (LAMP) with a different value than the one
-     * step 1 uses on it - so a payload confusing ids with values fails here.
+     * step 0 uses on it - so a payload confusing ids with values fails here.
      */
     loadScenarioWithTwoAmputatedActions();
 
     WsTestSession ws;
     const Json sc = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
 
-    ASSERT_EQ(4u, sc["steps"].size());
-    const Json end = sc["steps"][3];
-    ASSERT_EQ("end", end.value("step_type", std::string()));
+    ASSERT_TRUE(sc["final_step"].is_object()) << sc.dump();
+    const Json end = sc["final_step"];
 
-    ASSERT_EQ(2u, end["actions"].size())
-            << "TODAY the end step answers 2 of its 3 actions: " << end.dump();
-    EXPECT_EQ(IO_SIREN, end["actions"][0].value("id", std::string()));
-    EXPECT_EQ("false", end["actions"][0].value("action", std::string()));
-    EXPECT_EQ(IO_LAMP, end["actions"][1].value("id", std::string()));
-    EXPECT_EQ("false", end["actions"][1].value("action", std::string()))
+    ASSERT_EQ(3u, end["actions"].size())
+            << "an action of the final step was escamoted again: " << end.dump();
+    EXPECT_EQ(IO_SIREN, end["actions"][0].value("io", std::string()));
+    EXPECT_EQ("false", end["actions"][0].value("value", std::string()));
+    EXPECT_EQ("true", end["actions"][0].value("resolved", std::string()));
+
+    EXPECT_EQ(IO_GHOST_END, end["actions"][1].value("io", std::string()));
+    EXPECT_EQ("true", end["actions"][1].value("value", std::string()));
+    EXPECT_EQ("false", end["actions"][1].value("resolved", std::string()));
+
+    EXPECT_EQ(IO_LAMP, end["actions"][2].value("io", std::string()));
+    EXPECT_EQ("false", end["actions"][2].value("value", std::string()))
             << "LAMP is set to true by step 0 and to false here";
 
     //and step 0 still says "true" on the same IO
-    EXPECT_EQ(IO_LAMP, sc["steps"][0]["actions"][0].value("id", std::string()));
-    EXPECT_EQ("true", sc["steps"][0]["actions"][0].value("action", std::string()));
+    EXPECT_EQ(IO_LAMP, sc["steps"][0]["actions"][0].value("io", std::string()));
+    EXPECT_EQ("true", sc["steps"][0]["actions"][0].value("value", std::string()));
 }
 
 /*******************************************************************************
@@ -1315,26 +1324,26 @@ TEST_F(AutoScenarioMigrationTest, TheSyntheticEndStepEscamotesItsDeadActionTheSa
 
 TEST_F(AutoScenarioMigrationTest, ReadingBackAndEchoingThePayloadRestartsAnAmputatedScenarioWithTwoSuccessTrue)
 {
-    /* >>> TO FLIP (E4.6d, RC3 + RC5) <<<   defect (d) of E4.6.md §6.
+    /* ✅ FLIPPED, and it is THE acceptance criterion of the redesign
+     * (E4.6.md §11.3). Name kept, every assertion reversed.
      *
-     * The user does nothing wrong. They read, and they send back what they
-     * read. Four steps, all of them answered by production today:
+     * The user reads, and sends back what they read. What used to happen:
      *
      *   1. the IO of the middle step is gone -> broken, sticky flag set
-     *   2. `get`                             -> the action is ESCAMOTEE
-     *   3. that payload, VERBATIM, to `modify` -> {"success":"true"},
-     *      isBroken() FALSE, missing_ios EMPTY
-     *   4. `reenable`                        -> {"success":"true"}, and the
-     *      scenario RUNS AGAIN, permanently amputated
+     *   2. `get`                             -> the action was ESCAMOTEE
+     *   3. that payload, VERBATIM, to `modify` -> success, isBroken() FALSE,
+     *      missing_ios EMPTY - the scenario whitewashed itself
+     *   4. `reenable`                        -> success, and the scenario ran
+     *      again, permanently amputated
+     *
+     * What happens now: step 3 answers the SAME DOCUMENT as step 2, `broken`
+     * stays TRUE, and step 4 REFUSES naming the ids. Not by an added guard: by
+     * the payload carrying the unresolved action, so there is nothing to lose
+     * on the way round.
      *
      * Verbatim means verbatim: the echo below is the document `get` answered
-     * plus the single key `type`. Nothing else is added - adding "name" or the
-     * room, as an existing case in JsonApiScenario_test does, hides half of
-     * RC5 behind a workaround no real client would know to apply.
-     *
-     * The acceptance criterion of E4.6 (§11.3) is the exact reverse of every
-     * assertion below: step 3 must answer the SAME document as step 2, `broken`
-     * must stay TRUE, and step 4 must REFUSE.
+     * plus the single key `type`. Nothing is added - and nothing needs to be
+     * any more, which is the other half of the change.
      */
     loadScenarioWithTwoAmputatedActions();
 
@@ -1344,16 +1353,15 @@ TEST_F(AutoScenarioMigrationTest, ReadingBackAndEchoingThePayloadRestartsAnAmput
     ASSERT_TRUE(as->isBroken());
     ASSERT_TRUE(as->isDisabledMissingIo());
 
-    //the button is refused while it is broken - the control for step 4
     ASSERT_EQ(0, runScenario()) << "a broken scenario must not run";
     EXPECT_FALSE(io(IO_BLIND)->get_value_bool());
 
     WsTestSession ws;
 
-    //--- 2. get: the payload the UI receives
+    //--- 2. get: the payload the UI receives, dead actions and all
     Json echo = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
-    ASSERT_EQ(4u, echo["steps"].size());
-    ASSERT_EQ(2u, echo["steps"][1]["actions"].size()) << "the amputation, see section 4";
+    ASSERT_EQ(3u, echo["steps"].size());
+    ASSERT_EQ(3u, echo["steps"][1]["actions"].size()) << "the amputation is back";
     EXPECT_EQ(std::string(IO_GHOST_STEP) + ", " + IO_GHOST_END,
               echo.value("missing_ios", std::string()));
 
@@ -1364,62 +1372,71 @@ TEST_F(AutoScenarioMigrationTest, ReadingBackAndEchoingThePayloadRestartsAnAmput
 
     as = autoScenario();
     ASSERT_TRUE(as != nullptr);
-    EXPECT_FALSE(as->isBroken())
-            << "TODAY the round trip whitewashes the scenario. E4.6d must keep it broken.";
-    EXPECT_EQ("", as->getMissingIoDescription());
+    EXPECT_TRUE(as->isBroken()) << "the round trip whitewashed the scenario again";
+    EXPECT_EQ(std::string(IO_GHOST_STEP) + ", " + IO_GHOST_END,
+              as->getMissingIoDescription());
 
-    //the two dead references are gone from the file, for ever
+    //the two dead references are still in the file: the rebuild wrote them back
     saveConfig();
-    EXPECT_EQ(std::string::npos, rulesXmlOnDisk().find(IO_GHOST_STEP));
-    EXPECT_EQ(std::string::npos, rulesXmlOnDisk().find(IO_GHOST_END));
+    EXPECT_NE(std::string::npos, rulesXmlOnDisk().find(IO_GHOST_STEP));
+    EXPECT_NE(std::string::npos, rulesXmlOnDisk().find(IO_GHOST_END));
 
-    //RC5, measured in passing: the echo also renamed and hid the scenario,
-    //because `get` emits neither name nor visible and `modify` reads both.
+    //RC5 closed: the echo no longer renames the scenario nor hides it, because
+    //`get` emits name and visible under the names `modify` reads them by
     Scenario *sc = scenarioIo();
     ASSERT_TRUE(sc != nullptr);
-    EXPECT_NE("Soir\xc3\xa9""e", sc->get_param("name"))
-            << "the name survived the echo, which today it must not";
-    EXPECT_EQ("false", sc->get_param("visible"));
+    EXPECT_EQ("Soir\xc3\xa9""e", sc->get_param("name"))
+            << "the echo renamed the scenario";
+    EXPECT_EQ(sentVerbatim.value("visible", std::string()), sc->get_param("visible"));
 
-    /* --- 4. reenable: accepted, and the mechanism is now asserted rather than
-     * asserted-about. The review proposed that `modify` had already cleared the
-     * flag, which would make tryReenable() take its no-op branch
-     * (AutoScenario.cpp:288-295). MEASURED HERE, AND IT IS NOT WHAT HAPPENS:
-     * `modify` leaves the flag SET - that is exactly what
-     * ScenarioDisabledMissingIo_test::ModifyDoesNotClearTheDisabledFlag pins -
-     * so tryReenable() reaches setDisabledMissingIo(false) and really does lift
-     * gate 2, only because `isBroken()` has been whitewashed at step 3.
-     * The two EXPECTs below are an exchange across the single call, so neither
-     * reading can be mistaken for the other any more.
-     * Acceptance criterion, unchanged: after E4.6d this command must REFUSE,
-     * naming the ids (§11.3, step 4).
-     */
+    //--- 3bis. AND THE DOCUMENT IS THE SAME ONE. The round trip is a round
+    //trip: read, send, read again, node for node.
+    const Json reread = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
+    EXPECT_JSON_EQ(sentVerbatim, reread)
+            << "the payload did not survive its own round trip";
+
+    //--- 4. reenable REFUSES, and it names what to repair
     EXPECT_TRUE(as->isDisabledMissingIo())
-            << "measured: `modify` does NOT clear gate 2, it is still set here";
-    EXPECT_JSON_EQ(std::string(R"({"success":"true"})"),
-                   wsAutoscenario(ws, Json{{ "type", "reenable" }, { "id", SCENARIO_IO_ID }}));
+            << "`modify` does not clear gate 2, and must not";
+    const Json refused = wsAutoscenario(ws, Json{{ "type", "reenable" },
+                                                 { "id", SCENARIO_IO_ID }});
+    EXPECT_EQ("scenario still references missing IOs: "
+              + std::string(IO_GHOST_STEP) + ", " + IO_GHOST_END,
+              refused.value("error", std::string()));
     as = autoScenario();
     ASSERT_TRUE(as != nullptr);
-    EXPECT_FALSE(as->isDisabledMissingIo())
-            << "TODAY reenable really lifts gate 2 on an amputated scenario, "
-               "because step 3 whitewashed gate 1. E4.6d must make it REFUSE.";
+    EXPECT_TRUE(as->isDisabledMissingIo())
+            << "a refused reenable lifted gate 2 all the same";
 
-    //--- and the scenario really runs again, amputated.
-    //Put the ghost IO back first: if the action had survived anywhere, this is
-    //where it would show. It does not - the reference is gone from the rules.
+    //--- and the scenario still does not run
+    EXPECT_EQ(0, runScenario()) << "the amputated scenario was armed again";
+    EXPECT_FALSE(io(IO_BLIND)->get_value_bool());
+
+    //--- put the ghost IO back: the action was never lost, so it comes back to
+    //life on its own, and only the sticky flag is left between here and normal
     ASSERT_TRUE(createInternalIO("InternalString", IO_GHOST_STEP, "Fantome ressuscite") != nullptr);
+    ASSERT_TRUE(createInternalIO("InternalBool", IO_GHOST_END, "Fantome final") != nullptr);
 
-    EXPECT_EQ(3, runScenario()) << "the amputated scenario is armed again";
-    EXPECT_EQ(77, (int)io(IO_BLIND)->get_value_double());
-    EXPECT_EQ(42, (int)io(IO_VOLUME)->get_value_double());
-    EXPECT_EQ("bonsoir", io(IO_BANNER)->get_value_string());
-    EXPECT_EQ("", io(IO_GHOST_STEP)->get_value_string())
-            << "the step lost its action for good, and nothing anywhere says so";
+    const Json back = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
+    EXPECT_EQ("true", back["steps"][1]["actions"][1].value("resolved", std::string()))
+            << "the action did not come back: " << back.dump();
+    EXPECT_EQ("fantome", back["steps"][1]["actions"][1].value("value", std::string()));
 
-    //the document the client sent is still, verbatim, a document production
-    //accepted: kept so a reviewer can see what was echoed
-    EXPECT_TRUE(sentVerbatim.contains("enabled"));
-    EXPECT_FALSE(sentVerbatim.contains("disabled"));
+    /* The definition resolves again immediately; the RULES do not, because the
+     * missing ids they carry are only recomputed when they are rebuilt. That
+     * is the pre-existing live/projection split, and a `modify` - or a restart
+     * - is what closes it.
+     */
+    EXPECT_EQ("true", back.value("broken", std::string()));
+    Json repair = back;
+    repair["type"] = "modify";
+    EXPECT_JSON_EQ(std::string(R"({"success":"true"})"), wsAutoscenario(ws, repair));
+
+    const Json healed = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
+    EXPECT_EQ("false", healed.value("broken", std::string())) << healed.dump();
+    EXPECT_EQ("", healed.value("missing_ios", std::string()));
+    //and gate 2 is STILL up: repairing is not re-enabling
+    EXPECT_EQ("true", healed.value("disabled_missing_io", std::string()));
 }
 
 /*******************************************************************************
@@ -1428,31 +1445,35 @@ TEST_F(AutoScenarioMigrationTest, ReadingBackAndEchoingThePayloadRestartsAnAmput
 
 TEST_F(AutoScenarioMigrationTest, FiveFieldsAreReadByModifyAndNeverEmittedByGet)
 {
-    /* >>> TO FLIP (E4.6d, RC5) <<<
+    /* ✅ FLIPPED (RC5). Name kept, meaning reversed.
      *
-     * toJson() emits 10 keys (IO/Scenario.cpp:115-193);
-     * buildAutoscenarioModify() reads 8 (JsonApi.cpp:2026-2045), FIVE of which
-     * `get` never emits: name, visible, disabled, room_name, room_type. And
-     * `enabled` (emitted) is the NEGATION of `disabled` (read) under another
-     * name. The round trip of this API is not a round trip.
+     * `get` used to emit ten keys and `modify` to read eight, FIVE of which
+     * `get` never emitted: name, visible, disabled, room_name, room_type - and
+     * `enabled` was the negation of `disabled` under another name. Replaying
+     * what one had just received renamed the scenario, hid it and switched its
+     * schedule off, with success:"true".
      *
-     * MEASURED, not read off the source: each of the five is sent with a value
-     * that cannot be mistaken for a default, its effect is observed, and the
-     * payload is then checked to see whether `get` gives it back. It does not.
+     * There is ONE schema now. Every key `get` emits is a key `modify` reads,
+     * `disabled` is gone, and the five are measured coming back with the value
+     * that was sent - not merely present.
      */
     loadHealthyScenarioFromDisk();
 
     WsTestSession ws;
     const Json before = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
 
-    //what `get` emits, exactly - the ten keys
     const std::vector<std::string> emitted = {
-        "id", "cycle", "enabled", "schedule", "category",
-        "broken", "disabled_missing_io", "missing_ios",
-        "steps_count", "steps" };
+        "id", "name", "room_name", "room_type", "visible", "cycle", "enabled",
+        "schedule", "category", "broken", "disabled_missing_io", "missing_ios",
+        "steps", "final_step" };
     for (const std::string &k: emitted)
         EXPECT_TRUE(before.contains(k)) << "get no longer emits " << k;
     EXPECT_EQ(emitted.size(), before.size()) << before.dump();
+
+    //the name under which the schedule choice is read is the one it is
+    //emitted under, and there is no second name for it
+    EXPECT_FALSE(before.contains("disabled"));
+    EXPECT_FALSE(before.contains("steps_count"));
 
     //a second room, so room_name/room_type can be observed changing
     ASSERT_TRUE(addRoom("E4.6a annexe", "chambre") != nullptr);
@@ -1461,12 +1482,12 @@ TEST_F(AutoScenarioMigrationTest, FiveFieldsAreReadByModifyAndNeverEmittedByGet)
     modify["type"] = "modify";
     modify["name"] = "Nom pose par modify";
     modify["visible"] = "true";
-    modify["disabled"] = "false";
+    modify["enabled"] = "true";
     modify["room_name"] = "E4.6a annexe";
     modify["room_type"] = "chambre";
     EXPECT_JSON_EQ(std::string(R"({"success":"true"})"), wsAutoscenario(ws, modify));
 
-    //all five landed
+    //all five landed on the model...
     Scenario *sc = scenarioIo();
     ASSERT_TRUE(sc != nullptr);
     EXPECT_EQ("Nom pose par modify", sc->get_param("name"));
@@ -1477,23 +1498,22 @@ TEST_F(AutoScenarioMigrationTest, FiveFieldsAreReadByModifyAndNeverEmittedByGet)
     EXPECT_EQ("E4.6a annexe", room->get_name());
     EXPECT_EQ("chambre", room->get_type());
 
-    //and none of the five comes back
+    //...and all five come back, with the value that was sent
     const Json after = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
-    for (const char *k: { "name", "visible", "disabled", "room_name", "room_type" })
-        EXPECT_FALSE(after.contains(k))
-                << "TODAY get is silent about " << k << ". E4.6d must emit it.";
-    EXPECT_EQ(emitted.size(), after.size()) << after.dump();
-
-    //`enabled` is the negation of `disabled`, under another name
+    EXPECT_EQ("Nom pose par modify", after.value("name", std::string()));
+    EXPECT_EQ("true", after.value("visible", std::string()));
     EXPECT_EQ("true", after.value("enabled", std::string()));
-    EXPECT_EQ("false", sc->get_param("disabled"));
+    EXPECT_EQ("E4.6a annexe", after.value("room_name", std::string()));
+    EXPECT_EQ("chambre", after.value("room_type", std::string()));
+    EXPECT_EQ(emitted.size(), after.size()) << after.dump();
 }
 
 /*******************************************************************************
  * SECTION 7 - THE "THIRD PAIR": broken TRUE with missing_ios EMPTY
  *
  * The pair broken/missing_ios agrees in every ordinary case, which is why a
- * mutation neutralizing isDangling() once left FIVE binaries green
+ * a mutation neutralizing the detection of a destroyed rule once left FIVE
+ * binaries green
  * (FINDINGS.md, "la troisieme paire de la trappe d'E4.0c"). The one state where
  * they DISAGREE is a rule DESTROYED under the scenario: there is no id left to
  * name, because getMissingIoDescription() (:212-247) only collects through
@@ -1502,15 +1522,16 @@ TEST_F(AutoScenarioMigrationTest, FiveFieldsAreReadByModifyAndNeverEmittedByGet)
 
 TEST_F(AutoScenarioMigrationTest, ARuleDestroyedUnderTheScenarioMakesThePayloadSayBrokenWithNoMissingId)
 {
-    /* >>> TO FLIP (E4.6d, RC1 + RC3) <<<
+    /* ⚠️ STILL GREEN ON ITS HEAD, AND DELIBERATELY SO. The design note said
+     * this state would become unreachable; it did not, and the reason is worth
+     * reading. isBroken() has a third reason - "fewer rules carry our uid than
+     * the definition calls for" - which is the only one that can name no id,
+     * and it is what notices that a third party destroyed one of our rules.
+     * Remove it and a scenario silently stops being whole.
      *
-     * ScenarioDisabledMissingIo_test:432 pins this at the model level and E4.6d
-     * DELETES that case, because D4 makes the state unreachable. The witness is
-     * repeated here at the PAYLOAD level, which is where a client sees it and
-     * where nothing covered it: `broken`:"true" together with `missing_ios`:"".
-     *
-     * When E4.6 lands, "broken implies missing_ios non empty" holds without
-     * exception and this case has to be flipped or removed - deliberately.
+     * ✅ THE TAIL IS FLIPPED: the step does NOT disappear from the payload any
+     * more. The rules are a projection; destroying one of them costs the
+     * scenario its projection, never its definition.
      */
     loadHealthyScenarioFromDisk();
 
@@ -1532,10 +1553,11 @@ TEST_F(AutoScenarioMigrationTest, ARuleDestroyedUnderTheScenarioMakesThePayloadS
     EXPECT_EQ("", sc.value("missing_ios", std::string()))
             << "TODAY there is no id to name. E4.6 makes this state inexpressible.";
 
-    //and the step really is gone from the payload, silently
-    EXPECT_EQ("2", sc.value("steps_count", std::string()));
-    ASSERT_EQ(3u, sc["steps"].size());
-    EXPECT_EQ("0.5", sc["steps"][1].value("step_pause", std::string()));
+    //and the step is STILL THERE, in its place: only the rule was destroyed
+    ASSERT_EQ(3u, sc["steps"].size()) << sc.dump();
+    EXPECT_EQ("2.25", sc["steps"][1].value("pause", std::string()))
+            << "the destroyed rule took the step description with it";
+    EXPECT_EQ(2u, as->getRuleSteps().size()) << "the projection did lose a rule";
 }
 
 TEST_F(AutoScenarioMigrationTest, ThePayloadTellsTheFourStatesApartAndTwoOfThemDisagree)
@@ -1707,7 +1729,11 @@ TEST_F(AutoScenarioMigrationTest, AnInstallerStyleReloadThatDroppedTheDeadOutput
         EXPECT_EQ("true", sc.value("broken", std::string()));
         EXPECT_EQ("true", sc.value("disabled_missing_io", std::string()));
         EXPECT_EQ(IO_GHOST_STEP, sc.value("missing_ios", std::string()));
-        EXPECT_EQ(2u, sc["steps"][1]["actions"].size());
+        //the dead action is STILL THERE, marked unresolved: nothing is
+        //escamoted any more, so the amputation has nowhere to hide
+        ASSERT_EQ(3u, sc["steps"][1]["actions"].size()) << sc.dump();
+        EXPECT_EQ(IO_GHOST_STEP, sc["steps"][1]["actions"][1].value("io", std::string()));
+        EXPECT_EQ("false", sc["steps"][1]["actions"][1].value("resolved", std::string()));
         controlPayload = sc.dump();
     }
 
@@ -1849,12 +1875,12 @@ TEST_F(AutoScenarioMigrationTest, TheBackupLeftByConfigPutIsUsableToGetTheLostSc
 
     WsTestSession ws;
     const Json sc = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
-    ASSERT_EQ(4u, sc["steps"].size());
-    EXPECT_EQ("1.5", sc["steps"][0].value("step_pause", std::string()));
-    EXPECT_EQ("2.25", sc["steps"][1].value("step_pause", std::string()));
-    EXPECT_EQ("0.5", sc["steps"][2].value("step_pause", std::string()));
+    ASSERT_EQ(3u, sc["steps"].size());
+    EXPECT_EQ("1.5", sc["steps"][0].value("pause", std::string()));
+    EXPECT_EQ("2.25", sc["steps"][1].value("pause", std::string()));
+    EXPECT_EQ("0.5", sc["steps"][2].value("pause", std::string()));
     ASSERT_EQ(3u, sc["steps"][1]["actions"].size());
-    EXPECT_EQ("fantome", sc["steps"][1]["actions"][1].value("action", std::string()));
+    EXPECT_EQ("fantome", sc["steps"][1]["actions"][1].value("value", std::string()));
     EXPECT_EQ("false", sc.value("broken", std::string()));
 }
 

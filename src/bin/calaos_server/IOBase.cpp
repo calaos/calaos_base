@@ -45,7 +45,6 @@ IOBase::ScopedDocGen::~ScopedDocGen()
 
 IOBase::IOBase(Params &p, int iotype):
     param(p),
-    auto_sc_mark(false),
     io_type(iotype)
 {
     ioDoc = new IODoc();

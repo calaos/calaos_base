@@ -201,22 +201,21 @@ protected:
              */
             { "cycle", "true" },
             { "steps", Json::array({
-                Json{{ "step_type", "standard" }, { "step_pause", "1.25" },
+                Json{{ "pause", "1.25" },
                      { "actions", Json::array({
-                         Json{{ "id", IO_LAMP }, { "action", "true" }} }) }},
-                Json{{ "step_type", "standard" }, { "step_pause", "3.5" },
+                         Json{{ "io", IO_LAMP }, { "value", "true" }} }) }},
+                Json{{ "pause", "3.5" },
                      { "actions", Json::array({
-                         Json{{ "id", IO_BLIND }, { "action", "31" }},
-                         Json{{ "id", IO_LABEL }, { "action", SEPARATOR_VALUE }},
-                         Json{{ "id", IO_VOLUME }, { "action", "19" }} }) }},
-                Json{{ "step_type", "standard" }, { "step_pause", "0.75" },
+                         Json{{ "io", IO_BLIND }, { "value", "31" }},
+                         Json{{ "io", IO_LABEL }, { "value", SEPARATOR_VALUE }},
+                         Json{{ "io", IO_VOLUME }, { "value", "19" }} }) }},
+                Json{{ "pause", "0.75" },
                      { "actions", Json::array({
-                         Json{{ "id", IO_BANNER }, { "action", "au revoir" }} }) }},
-                Json{{ "step_type", "end" },
-                     { "actions", Json::array({
-                         Json{{ "id", IO_SIREN }, { "action", "false" }},
-                         Json{{ "id", IO_LAMP }, { "action", "false" }} }) }}
-            }) }});
+                         Json{{ "io", IO_BANNER }, { "value", "au revoir" }} }) }}
+            }) },
+            { "final_step", Json{{ "actions", Json::array({
+                         Json{{ "io", IO_SIREN }, { "value", "false" }},
+                         Json{{ "io", IO_LAMP }, { "value", "false" }} }) }} }});
 
         return ret.value("id", std::string());
     }
@@ -334,19 +333,21 @@ TEST_F(AutoScenarioDefTest, TheMarkerThatBuildsAnAutoScenarioIsStillAutoScenario
             << "the legacy marker no longer builds an AutoScenario - the orphan "
                "sweep of ListeRoom.cpp:324 is now armed on every marked rule";
 
-    //and every rule of the scenario is adopted, so the sweep skips them all
-    int marked = 0, adopted = 0;
+    /* And every rule carrying the marker is CLAIMED by this scenario. The bit
+     * Rule used to carry alongside the param is gone - nothing read it - so
+     * the claim is measured where it lives: the param, and the lookup that
+     * turns it into the scenario's rule list.
+     */
+    int marked = 0;
     for (int i = 0;i < ListeRule::Instance().size();i++)
     {
         Rule *r = ListeRule::Instance().get_rule(i);
-        if (!r || !r->param_exists("auto_scenario")) continue;
-        marked++;
-        if (r->isAutoScenario()) adopted++;
+        if (r && r->param_exists("auto_scenario")) marked++;
     }
     EXPECT_GT(marked, 0);
-    EXPECT_EQ(marked, adopted)
-            << marked - adopted << " marked rule(s) are no longer adopted: "
-               "ListeRoom::checkAutoScenario() would destroy them and persist it";
+    EXPECT_EQ((size_t)marked,
+              ListeRule::Instance().getRuleAutoScenario(SCENARIO_MARKER).size())
+            << "a rule carries the marker and yet is not one of this scenario's";
 }
 
 /*******************************************************************************

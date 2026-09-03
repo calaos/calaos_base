@@ -347,57 +347,6 @@ protected:
     }
 };
 
-//getStepActionCount() must only count the actions getStepAction() can return,
-//otherwise the extra indexes resolve to an empty ScenarioAction.
-TEST_F(AutoScenarioLifecycleTest, StepActionCountOnlyCountsReadableActions)
-{
-    AutoScenario *as = makeScenario("sc_count");
-    ASSERT_NE(as, nullptr);
-
-    as->addStep(1.0);
-    ASSERT_EQ(as->getRuleSteps().size(), 1u);
-
-    //A fresh step only holds the scenario machinery (step, timer value, timer
-    //start), none of which is a user action
-    EXPECT_EQ(as->getStepActionCount(0), 0);
-    EXPECT_EQ(as->getStepAction(0, 0).io, nullptr);
-
-    //A real action is reported
-    as->addStepAction(0, io(ID_BOOL_OUT), "true");
-    ASSERT_EQ(as->getStepActionCount(0), 1);
-    EXPECT_EQ(as->getStepAction(0, 0).io, io(ID_BOOL_OUT));
-    EXPECT_EQ(as->getStepAction(0, 0).action, "true");
-
-    //An action targeting one of the scenario's own IOs is skipped by
-    //getStepAction(), so it must not be counted either
-    as->addStepAction(0, as->getIOScenario(), "false");
-    EXPECT_EQ(as->getStepActionCount(0), 1)
-        << "count and getStepAction() disagree, an index resolves to a null io";
-
-    for (int i = 0;i < as->getStepActionCount(0);i++)
-        EXPECT_NE(as->getStepAction(0, i).io, nullptr);
-}
-
-//Same for the end step, which JsonApi walks the same way.
-TEST_F(AutoScenarioLifecycleTest, EndStepActionCountOnlyCountsReadableActions)
-{
-    AutoScenario *as = makeScenario("sc_end");
-    ASSERT_NE(as, nullptr);
-    ASSERT_NE(as->getRuleStepEnd(), nullptr);
-
-    EXPECT_EQ(as->getEndStepActionCount(), 0);
-
-    as->addStepAction(AutoScenario::END_STEP, io(ID_BOOL_OUT), "true");
-    ASSERT_EQ(as->getEndStepActionCount(), 1);
-    EXPECT_EQ(as->getEndStepAction(0).io, io(ID_BOOL_OUT));
-
-    as->addStepAction(AutoScenario::END_STEP, as->getIOStep(), "-1");
-    EXPECT_EQ(as->getEndStepActionCount(), 1);
-
-    for (int i = 0;i < as->getEndStepActionCount();i++)
-        EXPECT_NE(as->getEndStepAction(i).io, nullptr);
-}
-
 //getCategory() walked [0, getStepActionCount()[ and dereferenced sa.io without
 //checking it: with a skip-listed action in the step it crashed on a null
 //pointer.
@@ -458,9 +407,9 @@ TEST_F(AutoScenarioLifecycleTest, DeletingAnIoUsedByAStepDisablesTheStepRule)
     ASSERT_EQ(as->getRuleSteps().size(), 1u);
     EXPECT_EQ(as->getStepPause(0), 1.0);
 
-    //the action itself no longer resolves, so it is not reported as a user
-    //action any more (isScenarioInternalIO(nullptr) answers true) - unchanged,
-    //that is T3.18.md's constat (d)
+    //The pointer based accessors still drop the action whose IO is gone -
+    //they resolve, and there is nothing to resolve to. The DEFINITION keeps
+    //it, which is what the payload renders.
     EXPECT_EQ(as->getStepActionCount(0), 0);
     EXPECT_EQ(as->getStepAction(0, 0).io, nullptr);
     EXPECT_EQ(as->getCategory(), "");
@@ -518,40 +467,27 @@ TEST_F(AutoScenarioLifecycleTest, DeletingAScenarioUsedAsAStepActionIsSafeToSeri
     //get_scenarios on the survivor
     EXPECT_EQ(as->getRuleSteps().size(), 1u);
 
-    json_t *jret = scA->toJson();
-    ASSERT_NE(jret, nullptr);
-    json_t *jsteps = json_object_get(jret, "steps");
-    ASSERT_NE(jsteps, nullptr);
-    //The step survives (empty of its dead action) plus the end step
-    EXPECT_EQ(json_array_size(jsteps), 2u);
-    EXPECT_STREQ(json_string_value(json_object_get(jret, "steps_count")), "1");
-    EXPECT_STREQ(json_string_value(json_object_get(jret, "broken")), "true");
-    EXPECT_STREQ(json_string_value(json_object_get(jret, "disabled_missing_io")), "true");
-    EXPECT_STREQ(json_string_value(json_object_get(jret, "missing_ios")), "io_sc_b");
-    json_decref(jret);
-}
+    /* THE PAYLOAD KEEPS THE DEAD ACTION, and that is the point of naming IOs
+     * by id: the step still carries it, marked resolved="false", so a client
+     * that reads this scenario back and sends it again writes it back instead
+     * of erasing it.
+     */
+    const Json jret = scA->toJson();
+    ASSERT_TRUE(jret.is_object());
+    ASSERT_TRUE(jret["steps"].is_array());
+    ASSERT_EQ(jret["steps"].size(), 1u) << jret.dump();
 
-//The other dangling back-pointer of the pair: IOBase::ascenario is set on the
-//_schedule IO only, and the schedule IO outlives the scenario it points to
-//(deleting the scenario IO does not delete the schedule IO). JsonApi reads it
-//for every IO it serializes.
-TEST_F(AutoScenarioLifecycleTest, DeletingAScheduledScenarioClearsTheScheduleBackPointer)
-{
-    AutoScenario *as = makeScenario("sc_sched");
-    ASSERT_NE(as, nullptr);
+    ASSERT_EQ(jret["steps"][0]["actions"].size(), 1u) << jret.dump();
+    EXPECT_EQ(jret["steps"][0]["actions"][0].value("io", std::string()), "io_sc_b");
+    EXPECT_EQ(jret["steps"][0]["actions"][0].value("resolved", std::string()), "false");
 
-    as->addSchedule();
-    ASSERT_NE(as->getIOTimeRange(), nullptr);
-    ASSERT_EQ(io("sc_sched_schedule"), as->getIOTimeRange());
-    EXPECT_EQ(as->getIOTimeRange()->getAutoScenarioPtr(), as);
+    //the final step is a field of its own, and it is empty here
+    ASSERT_TRUE(jret["final_step"].is_object());
+    EXPECT_EQ(jret["final_step"]["actions"].size(), 0u);
 
-    //Deleting the scenario IO destroys the Scenario, hence the AutoScenario
-    ASSERT_TRUE(deleteIO(io("io_sc_sched")));
-
-    IOBase *schedule = io("sc_sched_schedule");
-    ASSERT_NE(schedule, nullptr) << "the schedule IO went away with the scenario";
-    EXPECT_EQ(schedule->getAutoScenarioPtr(), nullptr)
-        << "the destroyed AutoScenario is still reachable from the schedule IO";
+    EXPECT_EQ(jret.value("broken", std::string()), "true");
+    EXPECT_EQ(jret.value("disabled_missing_io", std::string()), "true");
+    EXPECT_EQ(jret.value("missing_ios", std::string()), "io_sc_b");
 }
 
 /******************************************************************************

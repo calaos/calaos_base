@@ -47,7 +47,7 @@ namespace Calaos
  * sites (AutoScenario::deleteAll()/deleteSchedule(), the schedule-enable IO of
  * checkScenarioRules(), Room::~Room). Those sites rebuild the very same rules
  * right after, and keeping a disabled copy around would produce duplicates that
- * nothing collects (Rule::setAutoScenario(false) does not exist).
+ * nothing collects.
  *
  * It lives in Rule.h and not in ListeRule.h because ListeRoom.h and ListeRule.h
  * include each other: Rule.h is the one header both of them see complete,
@@ -110,7 +110,6 @@ protected:
      * ---------------------------------------------------------------- */
     vector<string> missingIoIds;
 
-    bool auto_sc_mark; //true if rule is used by an auto_scenario
 
     /* Lifetime token for the asynchronous evaluation of the script conditions.
      * Those callbacks are plain std::function held by a detached ScriptExec
@@ -159,8 +158,6 @@ public:
     void set_param(string p, string v) { params.Add(p, v); }
     bool param_exists(string p) { return params.Exists(p); }
 
-    bool isAutoScenario() { return auto_sc_mark; }
-    void setAutoScenario(bool m) { auto_sc_mark = m; }
 
     /* E4.2e. True when at least one condition or action of this rule
      * references an IO that did not exist when the config was read. Such a

@@ -82,10 +82,6 @@ AutoScenario::~AutoScenario()
      * its IOs in list order, so the schedule IO may already be gone. A null
      * answer means "already destroyed, nothing to clean".
      */
-    IOBase *schedule = ListeRoom::Instance().get_io(scenario_id + "_schedule");
-    if (schedule && schedule->getAutoScenarioPtr() == this)
-        schedule->setAutoScenarioPtr(nullptr);
-
     ListeRoom::Instance().delScenarioCache(ioScenario);
 }
 
@@ -381,11 +377,7 @@ void AutoScenario::deleteAll()
         ListeRoom::Instance().deleteIO(ioTimer, false, RuleDetachPolicy::Destroy);
     ioTimer = NULL;
     if (ioTimeRange)
-    {
-        if (ioTimeRange->getAutoScenarioPtr() == this)
-            ioTimeRange->setAutoScenarioPtr(nullptr);
         ListeRoom::Instance().deleteIO(ioTimeRange, false, RuleDetachPolicy::Destroy);
-    }
     ioTimeRange = NULL;
 }
 
@@ -422,9 +414,7 @@ IOBase *AutoScenario::createInput(string type, string id)
 
     //createIO() returns null on an IO factory miss or when no room can hold
     //the IO: propagate the null, the caller has to abort cleanly
-    if (in)
-        in->setAutoScenario(true);
-    else
+    if (!in)
         cErrorDom("scenario") << "createInput(" << type << ", " << id
                               << "): creation failed";
 
@@ -491,7 +481,6 @@ Rule *AutoScenario::newGeneratedRule(const string &name, const string &autoScena
     rule->set_param("auto_scenario", scenario_id);
     rule->set_param(AutoScenarioDef::KEY_UID, getScenarioUid());
     rule->set_param("auto_scenario_type", autoScenarioType);
-    rule->setAutoScenario(true);
     ListeRule::Instance().Add(rule);
 
     return rule;
@@ -544,8 +533,6 @@ bool AutoScenario::prepareInternalIos()
     ioScheduleEnabled = nullptr;
 
     if (!ioTimeRange) return true;
-
-    ioTimeRange->setAutoScenarioPtr(this);
 
     ioScheduleEnabled = dynamic_cast<Internal *>(
                 createInput("InternalBool", scenario_id + "_is_schedule_enabled"));
@@ -695,17 +682,25 @@ void AutoScenario::addStepAction(int s, IOBase *out, string action)
 {
     AutoScenarioDef *def = definition();
     if (!def || !out) return;
+    if (s < 0 || s >= (int)def->steps.size()) return;
 
     AutoScenarioDefAction a;
     a.ioId = out->get_param("id");
     a.value = action;
+    def->steps[s].actions.push_back(a);
 
-    if (s == END_STEP)
-        def->finalStep.actions.push_back(a);
-    else if (s >= 0 && s < (int)def->steps.size())
-        def->steps[s].actions.push_back(a);
-    else
-        return;
+    rebuildRules(true);
+}
+
+void AutoScenario::addFinalStepAction(IOBase *out, string action)
+{
+    AutoScenarioDef *def = definition();
+    if (!def || !out) return;
+
+    AutoScenarioDefAction a;
+    a.ioId = out->get_param("id");
+    a.value = action;
+    def->finalStep.actions.push_back(a);
 
     rebuildRules(true);
 }
@@ -886,8 +881,6 @@ void AutoScenario::deleteSchedule()
 {
     if (ioTimeRange)
     {
-        if (ioTimeRange->getAutoScenarioPtr() == this)
-            ioTimeRange->setAutoScenarioPtr(nullptr);
         /* Destroy, not Disable: addSchedule() rebuilds the very same id, so
          * disabled copies of the schedule rules would be duplicated by it.
          */

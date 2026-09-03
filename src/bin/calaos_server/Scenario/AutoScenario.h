@@ -169,8 +169,6 @@ public:
     AutoScenario(IOBase *input);
     ~AutoScenario();
 
-    static const int END_STEP = 0xFEDC1234;
-
     /* Destroys the rules of this scenario and regenerates all of them from the
      * definition. Idempotent: two consecutive calls produce the same rules.
      * False when the machinery IOs could not be built, and then nothing was
@@ -272,6 +270,10 @@ public:
     void addStep(double pause);
     void setStepPause(int step, double pause);
     void addStepAction(int step, IOBase *out, string action);
+    //The final step is a step of its own, not an out of range index: an
+    //integer sentinel drifting against a container index is how an action
+    //placed after the final step used to disappear without a word.
+    void addFinalStepAction(IOBase *out, string action);
     double getStepPause(int step);
     int getStepActionCount(int step);
     ScenarioAction getStepAction(int step, int action);

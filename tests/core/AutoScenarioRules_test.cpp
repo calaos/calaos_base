@@ -129,22 +129,21 @@ protected:
             { "room_type", ROOM_TYPE_E46C },
             { "cycle", "true" },
             { "steps", Json::array({
-                Json{{ "step_type", "standard" }, { "step_pause", "1.25" },
+                Json{{ "pause", "1.25" },
                      { "actions", Json::array({
-                         Json{{ "id", IO_LAMP }, { "action", "true" }} }) }},
-                Json{{ "step_type", "standard" }, { "step_pause", "3.5" },
+                         Json{{ "io", IO_LAMP }, { "value", "true" }} }) }},
+                Json{{ "pause", "3.5" },
                      { "actions", Json::array({
-                         Json{{ "id", IO_BLIND }, { "action", "64" }},
-                         Json{{ "id", IO_GHOST }, { "action", "bonne nuit" }},
-                         Json{{ "id", IO_VOLUME }, { "action", "23" }} }) }},
-                Json{{ "step_type", "standard" }, { "step_pause", "0.75" },
+                         Json{{ "io", IO_BLIND }, { "value", "64" }},
+                         Json{{ "io", IO_GHOST }, { "value", "bonne nuit" }},
+                         Json{{ "io", IO_VOLUME }, { "value", "23" }} }) }},
+                Json{{ "pause", "0.75" },
                      { "actions", Json::array({
-                         Json{{ "id", IO_BANNER }, { "action", "au lit" }} }) }},
-                Json{{ "step_type", "end" },
-                     { "actions", Json::array({
-                         Json{{ "id", IO_SIREN }, { "action", "false" }},
-                         Json{{ "id", IO_LAMP }, { "action", "false" }} }) }}
-            }) }});
+                         Json{{ "io", IO_BANNER }, { "value", "au lit" }} }) }}
+            }) },
+            { "final_step", Json{{ "actions", Json::array({
+                         Json{{ "io", IO_SIREN }, { "value", "false" }},
+                         Json{{ "io", IO_LAMP }, { "value", "false" }} }) }} }});
 
         return ret.value("id", std::string());
     }

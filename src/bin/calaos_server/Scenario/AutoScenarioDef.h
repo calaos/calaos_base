@@ -197,6 +197,16 @@ public:
     static void observeUid(const std::string &uid);
     static void observeStepId(const std::string &stepId);
 
+    /* Back to the state a freshly started process is in. The counters are
+     * process wide and never recycle, so a caller that drops the whole
+     * configuration and loads another one - which is what a restart does, and
+     * what the test harness does many times in one process - has to say so, or
+     * the ids it hands out depend on what was loaded before.
+     * Loading folds every id it reads back into the counters, so this can
+     * never make an existing id be handed out twice.
+     */
+    static void resetIdAllocators();
+
     /* Load from the params of a Scenario IO. Answers false - and leaves the
      * definition untouched - when KEY_UID is absent, i.e. when this IO carries
      * no definition at all.

@@ -5,26 +5,29 @@
     "cycle": "true",
     "disabled_missing_io": "false",
     "enabled": "false",
+    "final_step": {
+      "actions": []
+    },
     "id": "io_0",
     "missing_ios": "",
+    "name": "Soirée",
+    "room_name": "E4.0c room",
+    "room_type": "salon",
     "schedule": "scenario_0_schedule",
     "steps": [
       {
         "actions": [
           {
-            "action": "true",
-            "id": "e40c_bool"
+            "io": "e40c_bool",
+            "resolved": "true",
+            "value": "true"
           }
         ],
-        "step_pause": "2.5",
-        "step_type": "standard"
-      },
-      {
-        "actions": [],
-        "step_type": "end"
+        "pause": "2.5",
+        "step_id": "s2"
       }
     ],
-    "steps_count": "1"
+    "visible": "false"
   },
   "msg": "autoscenario",
   "msg_id": "e40c-sched"

@@ -29,7 +29,6 @@
 namespace Calaos
 {
 
-class AutoScenario;
 
 
 
@@ -63,15 +62,6 @@ protected:
     StatusInfo status_info;
 
 private:
-    bool auto_sc_mark;
-
-    /* NON-OWNING back-pointer, set on the "<scenario>_schedule" IO only
-     * (AutoScenario::checkScenarioRules()). The schedule IO outlives the
-     * scenario whose IO is deleted, so ~AutoScenario() nulls it back (E4.2f);
-     * before that it stayed dangling and JsonApi read it for every IO.
-     */
-    AutoScenario *ascenario = nullptr;
-
     int io_type = IO_UNKNOWN;
 
     //True when the constructor registered this IO into ListeRoom's io_table:
@@ -147,12 +137,6 @@ public:
 
     virtual bool LoadFromXml(pugi::xml_node node);
     virtual bool SaveToXml(pugi::xml_node node);
-
-    bool isAutoScenario() { return auto_sc_mark; }
-    void setAutoScenario(bool m) { auto_sc_mark = m; }
-
-    void setAutoScenarioPtr(AutoScenario *sc) { ascenario = sc; }
-    AutoScenario *getAutoScenarioPtr() { return ascenario; }
 
     bool isEnabled() { return param["enabled"] == "true"; }
 

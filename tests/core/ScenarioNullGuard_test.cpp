@@ -25,7 +25,7 @@
  * T1.11 made the factory return nullptr on an unknown type or a duplicate id,
  * but two call sites still dereferenced the result blindly:
  *
- *  - AutoScenario::createInput() called setAutoScenario(true) on the returned
+ *  - AutoScenario::createInput() used to mark the returned
  *    pointer, and checkScenarioRules() then built rules over the internal IOs
  *    without checking any of them. A miss (or an existing IO of the wrong
  *    type squatting one of the "<scenario_id>_is_active/_step/_timer" ids,
@@ -162,7 +162,11 @@ TEST_F(ScenarioNullGuardTest, ApiScenarioCreateStillWorks)
     loadConfig();
 
     JsonApi api;
-    const Json jdata = Json{{ "name", "T218 scenario" }};
+    //The room is part of the payload now: `create` refuses a document that
+    //does not name one instead of quietly dropping the scenario into room 0.
+    const Json jdata = Json{{ "name", "T218 scenario" },
+                            { "room_name", ROOM_NAME },
+                            { "room_type", ROOM_TYPE }};
 
     const Json jret = api.buildAutoscenarioCreate(jdata);
 

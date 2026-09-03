@@ -294,13 +294,7 @@ protected:
         Scenario *sc = scenarioIo(ioId);
         if (!sc) return Json::object();
 
-        json_t *j = sc->toJson();
-        char *dump = json_dumps(j, JSON_COMPACT);
-        const std::string s = dump? dump: "{}";
-        free(dump);
-        json_decref(j);
-
-        return Json::parse(s, nullptr, false);
+        return sc->toJson();
     }
 };
 
@@ -433,14 +427,9 @@ TEST_F(ScenarioDisabledMissingIoTest, ARuleDestroyedUnderTheScenarioBreaksItWith
 {
     /* The OTHER half of gate 1: a rule that was registered here and has since
      * been DESTROYED, as opposed to one that survives holding a dead reference.
-     * RuleRef::isDangling() is what tells the two apart, and getRuleSteps()
-     * COMPACTS the dead entries away (E4.2f) - so the compacted list can never
-     * show it and the raw entries have to be read.
-     *
-     * It is reachable in production, and not only defensively:
-     * ListeRoom::checkAutoScenario() sweeps every rule carrying an
-     * `auto_scenario` param that no scenario claimed and calls
-     * ListeRule::Remove() on it - which is exactly what is done here.
+     * The definition still declares three steps, so the scenario knows one of
+     * its rules is missing without being able to name any id for it - that is
+     * the third reason of isBroken(), and the only one that names nothing.
      *
      * >>> AND THIS IS THE THIRD PAIR OF THE PAYLOAD. <<<
      * disabled_missing_io is observed disagreeing with broken and with
@@ -461,12 +450,11 @@ TEST_F(ScenarioDisabledMissingIoTest, ARuleDestroyedUnderTheScenarioBreaksItWith
     ASSERT_NE(step, nullptr);
     ListeRule::Instance().Remove(step);
 
-    /* THE PAYLOAD IS ASKED FIRST, ON PURPOSE, and this order is the assertion.
-     * Scenario::toJson() emits "category" before "broken", and getCategory()
-     * runs purgeDeadSteps(), which ERASES the dead entry (E4.2f). Gate 1 must
-     * survive that: serializing a scenario must not be able to wipe the
-     * evidence that it is broken. It did, until purgeDeadSteps() started
-     * latching what it drops.
+    /* THE PAYLOAD IS ASKED FIRST, ON PURPOSE. Serializing a scenario must not
+     * be able to wipe the evidence that it is broken - it used to, because a
+     * key emitted earlier ran a read accessor that compacted the dead entry
+     * away. No accessor mutates any more, and this order is what keeps saying
+     * so.
      */
     const Json j = toJsonOf();
     EXPECT_EQ("true", j.value("broken", std::string()))
@@ -488,11 +476,10 @@ TEST_F(ScenarioDisabledMissingIoTest, ARuleDestroyedUnderTheScenarioBreaksItWith
     EXPECT_FALSE(targetIsSet(TARGET_1));
 
     //--- and a MACHINERY rule destroyed under us ---------------------------
-    /* The second isDangling() call site, the one over ruleStart/ruleStop/
-     * ruleStepEnd/rulePlageStart/rulePlageStop. A null there is NOT a breakage
-     * (they are all null before the first checkScenarioRules(), and the
-     * schedule ones are legitimately absent), which is exactly why get() alone
-     * cannot answer and isDangling() has to.
+    /* The same thing on a HEADER rule. Owning no rule at all is the normal
+     * state before the first build and must not read as a breakage, which is
+     * why the count is compared against what the definition calls for rather
+     * than against zero.
      */
     clearCoreState();
     loadHouse();
@@ -791,15 +778,16 @@ TEST_F(ScenarioDisabledMissingIoTest, ModifyDoesNotClearTheDisabledFlag)
     saveAmputateAndReload(TARGET_2);
     ASSERT_TRUE(autoScenario()->isDisabledMissingIo());
 
-    //the modify a client sends back: it also flips `disabled`, so the case
-    //shows the two params being treated DIFFERENTLY and not just both ignored
+    //the modify a client sends back: it also flips the schedule choice, so the
+    //case shows the two params being treated DIFFERENTLY and not just both
+    //ignored. `enabled` is the only name that choice has on the wire now.
     ASSERT_EQ("true", scenarioIo()->get_param("disabled"));
 
     //E4.1r: same request, as a document. No assertion changed.
     const Json jreq = Json{{ "id", SC_IO },
                            { "name", "Renamed by the client" },
                            { "cycle", "true" },
-                           { "disabled", "false" },
+                           { "enabled", "true" },
                            { "room_name", T318_ROOM },
                            { "room_type", T318_ROOM_TYPE },
                            { "steps", Json::array() }};
@@ -853,7 +841,7 @@ TEST_F(ScenarioDisabledMissingIoTest, TheDisabledParamIsTheSchedulingChoiceAndIs
     const Json jreq = Json{{ "id", SC_IO },
                            { "name", "Scenario t318_sc" },
                            { "cycle", "false" },
-                           { "disabled", "false" },
+                           { "enabled", "true" },
                            { "room_name", T318_ROOM },
                            { "room_type", T318_ROOM_TYPE },
                            { "steps", Json::array() }};
@@ -877,8 +865,7 @@ TEST_F(ScenarioDisabledMissingIoTest, RemovingAndReAddingAScheduleLeavesNoZombie
      * half of the change. Those sites destroy IOs whose ids are DETERMINISTIC
      * and recreated identically right after: kept disabled, their rules would be
      * duplicated by the next build and nothing would ever collect the
-     * duplicates (Rule::setAutoScenario(false) does not exist, so the
-     * auto_scenario sweep of checkAutoScenario() misses them).
+     * duplicates, and nothing anywhere collects them.
      * Without this case the Disable default is a time bomb.
      */
     loadHouse();
