@@ -8,6 +8,121 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅⭐⭐ [`E4.6e`](E4.6.md) MERGÉE — 3 commits de la branche + 1 commit d'élagage de l'agent de merge
+  + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.**
+  Tête de merge **`679cf380`**.
+  ⭐ **`master` ÉTAIT IMMOBILE sur `8668b3b8`** = exactement la merge-base ⇒ **ni rebase ni conflit.**
+  ⛔ **Rien poussé.** **D8, les deux moitiés** : `autoscenario` passe sous `scopeDenied()`, et un
+  `type` inconnu, vide ou absent reçoit `{"error":"unknown autoscenario type"}` sur les deux
+  transports au lieu du silence — côté HTTP la réponse **libère la socket** (`Connection: Close`).
+
+  ⭐⭐ **QUESTION OUVERTE POUR L'UTILISATEUR — UNE LIGNE À DÉFAIRE SI LA RÉPONSE EST NON.**
+  Le gate porte sur le **message**, donc `autoscenario/list` et `autoscenario/get` — des **lectures** —
+  sont refusés eux aussi aux sessions de service. **Verdict de l'agent de merge : CONFORME à D8, et
+  la conformité a été lue au source, pas admise.** D8 écrit « **`autoscenario`** passe sous
+  `scopeDenied()` », la commande, pas « les mutations d'autoscénario ». Et surtout, **les sept
+  commandes déjà gardées ne distinguent pas les lectures** :
+  - **`audio_db` est le précédent exact** : un message à sous-commandes dont **les douze sous-commandes
+    sont des lectures** (`get_album`, `get_stats`, `get_artists`, …), refusé **en bloc**.
+  - **`eventlog` est une lecture pure** (`buildJsonEventLog()`), refusée **en bloc** elle aussi.
+  - Les paires qui « distinguent » (`get_param`/`set_param`, `get_timerange`/`set_timerange`) le font
+    parce que ce sont **deux messages différents**, jamais deux sous-commandes du même message.
+  ⇒ E4.6e ne crée **aucune exception** ; l'inverse en aurait créé une. **Aucun consommateur mesuré** :
+  `serviceScope = true` n'est écrit qu'à **un seul endroit** (`JsonApiHandlerWS.cpp:752`,
+  `processLoginService()`), atteint par le seul sidecar MCP, dont le passe-plat
+  `CalaosClient.autoscenario()` (`client.py:156-158`) a **zéro appelant** (vérifié sur tout le dépôt).
+  ⭐ **La question reste néanmoins à l'utilisateur : le sidecar MCP doit-il pouvoir LIRE les
+  scénarios ?** Si oui, la parade n'est pas de rouvrir la commande mais de trancher la grammaire
+  d'autorisation (message vs sous-commande) pour toute l'API. En l'état, revenir en arrière coûte
+  **une ligne** de `JsonApiHandlerWS.cpp`, et deux cas nommés la pinnent
+  (`SetTimerangeAndAutoscenarioAreBothScopeDenied`,
+  `AServiceScopedSessionIsRefusedEveryAutoscenarioSubCommand`).
+
+  ⭐ **LES BASCULES HORS PÉRIMÈTRE, RECOMPTÉES — la fiche et le BOARD en annonçaient 5, il y en a 10.**
+  Trois suites hors du périmètre de fichiers déclaré portent des cas dont les assertions changent :
+  `JsonApiSession_test` **4** (`ScopeDeniedAnswersTheSameShapeForTheEightGuardedMessages`,
+  `ScopeDoesNotDenyTheOtherMessages` — les deux par la table `SCOPE_*_MESSAGES`,
+  `AutoscenarioWithAnUnknownTypeIsAnErrorOnBothTransports`,
+  `AutoscenarioWithoutATypeIsAnErrorOnBothTransports`) ·
+  `JsonApiScenario_test` **3** (`SetTimerangeAndAutoscenarioAreBothScopeDenied`,
+  `WsAutoscenarioWithAnUnknownOrMissingTypeIsAnError`, `HttpAutoscenarioWithAnUnknownTypeIsAnError`) ·
+  `JsonApiScenarioWireBytes_test` **3** (`AnUnknownTypeAnswersAnErrorOnBothTransports`,
+  `AWsDataThatIsNotAnObjectReadsAsAnEmptyOne`, `ANumericTypeOrIdIsTreatedAsAbsent`).
+  §6 en nommait **2**, il y en a donc **8 au-delà**. ⭐ **Toutes jugées légitimes, une par une** :
+  ce sont des **attentes retournées**, jamais des assertions affaiblies — un `EXPECT_EQ(0u, count())`
+  devient partout `ASSERT_EQ(1u, count())` **plus** les octets exacts de la réponse. **Aucun cas
+  retiré, aucun ajouté** : les trois suites comptent **56 / 102 / 35 `TEST_F` des deux côtés**, et la
+  comparaison des ensembles de noms ne rend que les **8 renommages**. Deux cas gagnent même un
+  contraste neuf (une session non scopée reçoit toujours sa liste ; le scénario et son planning
+  existent encore après le refus).
+
+  ⭐ **La socket HTTP rougit DANS LES DEUX SENS**, vérifié :
+  `HttpAutoscenarioWithAnUnknownTypeAnswersAndReleasesTheSocket` asserte `ASSERT_EQ(1u, count())`,
+  `"HTTP/1.0 200 OK"`, `header("Connection") == "Close"` **et** le corps. Un correctif qui répondrait
+  **sans libérer** casse l'assertion d'en-tête ; un correctif qui fermerait **sans répondre** casse
+  `count()` à 0. Les deux directions sont couvertes par des assertions distinctes.
+
+  **Les trois soldes d'E4.6d, mesurés** : `resetIdAllocators()` → `resetIdAllocatorsForTests()` ✅
+  (renommage complet, appelant unique `tests/core/CalaosCoreFixture.cpp:269`) ·
+  `addFinalStepAction()` **supprimée** ✅ (**0** occurrence dans tout le dépôt).
+  ⚠️ **`getEndStepAction{,Count}()` : l'argument de conservation ne vaut QUE POUR LA MOITIÉ DE LA
+  PAIRE.** L'en-tête les garde en disant qu'elles sont « le seul observable de l'étape finale » —
+  or `getEndStepActionCount()` a bien **un** lecteur (`AutoScenarioRules_test.cpp:722`, l'empreinte
+  de pureté), mais **`getEndStepAction(int)` n'en a AUCUN**, ni dans `src/` ni dans `tests/`. Elle
+  est morte au sens strict, et la justification écrite ne s'y applique pas. **Non bloquant** (aucun
+  changement de comportement, aucun risque), mais c'est bien « la même dette, déplacée » : soit
+  l'empreinte lit aussi les actions, soit l'accesseur part. **À traiter dans `E4.6g`.**
+
+  **Le témoin relinke, et c'est structurel, pas déclaratif** : `core_JsonApiHome_test_DEPENDENCIES`
+  (bloc `# T3.36` de `tests/Makefile.am`) liste **`JsonApiHandlerWS.$(OBJEXT)` ET
+  `JsonApiHandlerHttp.$(OBJEXT)`** — les deux unités mutées. Toucher l'une ou l'autre relinke le
+  témoin par construction ; son vert sous les cinq mutations prouve donc quelque chose.
+
+  **Zéro golden modifié, prouvé par hash d'arbre** : `tests/core/golden` vaut `3c171646` sur
+  `8668b3b8` **comme** sur `679cf380`, **145 blobs** de chaque côté, **0 fichier golden** dans le diff.
+  **Commit de caractérisation `a0b8e58a` à zéro ligne de `src/`** (`git diff-tree -r … -- src/` rend
+  **vide** ; il ne touche qu'un fichier, `tests/core/JsonApiCharacterization_test.cpp`).
+
+  **Build d'intégration rejoué au merge** (`make distclean` + `autogen` + `configure` + `make -j32` +
+  `make check -j16`) : **`TOTAL 111 / PASS 109 / SKIP 2 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**.
+  Les deux `SKIP` sont les habituels (`run-python-tests.sh`, `check-ccache-honesty.sh`).
+  **`TESTS` 111 → 111 MESURÉ** : `tests/Makefile.am` n'est **pas** dans le diff du ticket.
+
+  **Élagage fait par l'agent de merge** (commit `679cf380`) : les deux bannières de section
+  `>>> TO FLIP (E4.6e, D8) <<<` de `JsonApiCharacterization_test.cpp` nommaient **leur propre
+  ticket** au-dessus de cas **déjà retournés** — un marqueur qui se lit « travail restant ».
+  Le reste des commentaires de `src/` est conforme : WHY only, ≤ 8 lignes, pas d'emoji, pas de phase.
+  *(Les préfixes `E4.6e:` sont laissés : la convention est massive et délibérée dans ce dépôt —
+  plusieurs centaines de références de ticket dans `src/`.)*
+
+  ⭐ **TROIS FINDINGS À TRAITER, avec les numéros de ticket PROPOSÉS (aucun n'est ouvert) :**
+  1. **L'allowlist du sidecar MCP autorise ce que le serveur refuse désormais** —
+     `client.py:25` liste `"autoscenario"`. Sans conséquence mesurable (zéro appelant), mais c'est
+     l'entrée de la question ⭐⭐ ci-dessus. **Arbitrage utilisateur d'abord, ticket ensuite.**
+  2. **`processCamera()` garde exactement le même silence, socket comprise** — pas d'`else`, ni
+     réponse ni fermeture sur un id de caméra **valide** avec un `type` inconnu. Même famille de
+     défaut (« un sous-dispatch sans `else` »), hors D8, et personne n'a recensé combien de
+     sous-dispatchs des deux handlers sont dans ce cas. ⇒ **ticket proposé `T3.59`** : recenser la
+     famille dans les deux handlers, donner l'`else` à chacun, libérer la socket côté HTTP.
+  3. **HTTP n'a toujours AUCUNE notion de portée de service** — `serviceScope` est un membre de
+     `JsonApiHandlerWS` seul ; le transport HTTP ne le connaît pas. L'écart est plus visible depuis
+     E4.6e : le même `autoscenario` est refusé à une session de service en WS et passe intégralement
+     en HTTP. **Aucun ticket ne le porte.** ⇒ **ticket proposé `T3.60`**.
+
+- ⭐ **PROCHAINE ACTION : [`E4.6f`](E4.6.md)** — vague 5, la **périphérie**.
+  **Périmètre** : le **marqueur re-clé dans `buildJsonIO()`** (`JsonApi.cpp:261`) et l'**alerte de
+  configuration re-clée** (`CalaosConfig.cpp:422`, qui teste `param_exists("auto_scenario")` pour
+  nommer le scénario au lieu de la règle — prédicat qui devient **faux** pour les anciennes règles).
+  ⚠️ **`E4.6f` est le PREMIER ticket de la chaîne qui régénère des goldens — quatre, nommément** :
+  `http_get_home.json`, `ws_get_home.json`, `e40b_http_get_io.json`, `e40b_ws_get_io.json`.
+  Le brief doit exiger que chaque régénération soit **justifiée ligne à ligne** (le param
+  `auto_scenario` du payload IO générique) et qu'**aucun autre** des 145 goldens ne bouge.
+  ⛔ **`E4.6f` rouvre `JsonApi.cpp`** : il ne peut pas partager une vague avec `E4.6d` (déjà mergée),
+  et rien d'autre ne doit toucher ce fichier tant qu'il est en vol.
+  ⭐⭐ **`E4.6g` (la DOC) vient en DERNIER, après `f`** : `docs/04_scenarios.md` et
+  `docs/03_rules_engine.md` doivent être réécrits **contre les goldens régénérés par `f`**, pas
+  contre ceux d'aujourd'hui. Y ramasser aussi le solde `getEndStepAction(int)` ci-dessus.
+
 - **✅⭐⭐ [`E4.1x`](E4.1x.md) MERGÉE — 6 commits de la branche + 1 commit de doc sur `master`,
   `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`3a987c39`**.
   ⭐ **`master` ÉTAIT IMMOBILE sur `31606a52`** = exactement la merge-base ⇒ **ni rebase ni conflit.**
@@ -103,17 +218,6 @@
   `Dockerfile:22` et `:86`, `.devcontainer/Dockerfile:13`, `.github/workflows/ci.yml:23` et `:71`
   posent `libjansson-dev`/`libjansson4`. Le build n'en a plus besoin ; ces lignes sont du ballast à
   retirer, sans urgence et hors périmètre de ce ticket.
-
-- ⭐ **PROCHAINE ACTION : [`E4.6e`](E4.6.md).** L'épique `E4.1` étant close, la campagne reprend sur la
-  refonte AutoScenario. **Scope** : les handlers `JsonApiHandlerHttp.cpp` / `JsonApiHandlerWS.cpp` que
-  la chaîne `E4.6` réécrit — c'est pour cela qu'`E4.1x` n'a pas replié les cinq copies de
-  `jsonStringGet()`/`decodeJsonObject()` : deux d'entre elles vivent dans ces deux fichiers.
-  ⚠️ **`E4.6e` doit ramasser TROIS SOLDES laissés par `E4.6d`, à reprendre tels quels dans son brief :**
-  1. **`AutoScenarioDef::resetIdAllocators()` à renommer `…ForTests`** — API de production dont le seul
-     appelant du dépôt est le harnais (`CoreFixture::clearCoreState()`). Correcte aujourd'hui, mais
-     rien n'empêche un appelant de production de casser l'invariant D3 « un id n'est jamais recyclé ».
-  2. **`addFinalStepAction()` : aucun appelant**, ni production ni test.
-  3. **`getEndStepAction()` / `getEndStepActionCount()` : aucun appelant de production** (harnais seul).
 
 - **✅⭐⭐ [`E4.6d`](E4.6.md) MERGÉE — 4 commits de la branche + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`4e6b7aef`**.
   ⭐ **`master` ÉTAIT IMMOBILE sur `07782ea8`** = exactement la merge-base ⇒ **ni rebase ni conflit.**

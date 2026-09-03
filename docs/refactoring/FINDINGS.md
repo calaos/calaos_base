@@ -8579,3 +8579,50 @@ E4.6e. Deux cas de `JsonApiSession_test` l'épinglent (`CameraWithAKnownIdAndAnU
 ⚠️ **La leçon est de forme** : la famille est « un sous-dispatch sans `else` », pas
 « `autoscenario` ». Personne n'a mesuré combien de sous-dispatchs de ces deux fichiers sont dans ce
 cas ; le corriger domaine par domaine au fil des épiques laisse le dernier survivre longtemps.
+
+---
+
+## E4.6e — au merge : numéros de ticket proposés, et une quatrième trouvaille (2026-09-03)
+
+Les trois trouvailles ci-dessus ont été **vérifiées au merge**, pas relues. Deux d'entre elles
+n'étaient portées par **aucun ticket** ; elles le sont désormais, nominativement — **proposés, aucun
+n'est ouvert**.
+
+### `T3.59` (proposé) — la famille « un sous-dispatch sans `else` », recensée puis fermée
+
+Reprend la trouvaille 3 ci-dessus. `JsonApiHandlerHttp::processCamera()` n'a toujours pas d'`else` :
+un id de caméra **valide** avec un `type` inconnu ne reçoit **ni réponse ni fermeture** — le défaut
+exact qu'E4.6e vient de corriger sur `autoscenario`, socket comprise. Deux cas de
+`JsonApiSession_test` l'épinglent (`CameraWithAKnownIdAndAnUnknownTypeIsSilent`,
+`CameraWithoutATypeIsSilent`), donc la bascule est déjà écrite d'avance.
+
+⭐ **Ce que le ticket doit faire, et qui n'a jamais été fait** : **recenser** tous les sous-dispatchs
+des deux handlers, pas seulement corriger `camera`. Personne ne sait combien il en reste. Corriger
+domaine par domaine au fil des épiques est précisément ce qui laisse le dernier survivre des années.
+
+### `T3.60` (proposé) — le transport HTTP n'a aucune notion de portée de service
+
+`serviceScope` est un membre de `JsonApiHandlerWS` **et de lui seul** (`JsonApiHandlerWS.h:52`), écrit
+en un unique point (`:752`, `processLoginService()`). `JsonApiHandlerHttp` ne le connaît pas : les
+huit commandes que le gate refuse en WebSocket passent **intégralement** en HTTP.
+
+⚠️ **L'écart n'est pas neuf, mais E4.6e le rend visible** : le même message `autoscenario` est
+maintenant refusé sur un transport et accepté sur l'autre, et c'est le premier de la liste dont
+l'asymétrie a été mesurée et écrite. **Aucun ticket ne portait ce sujet.** Deux réponses possibles,
+et le ticket doit trancher plutôt que patcher : soit HTTP n'ouvre jamais de session de service et il
+faut l'**écrire et le prouver par un test**, soit il le peut et le gate doit remonter sous le
+dispatch commun.
+
+### 4. `getEndStepAction(int)` n'a aucun lecteur — la justification écrite ne couvre que sa jumelle
+
+`AutoScenario.h:282-283` conserve la paire `getEndStepActionCount()` / `getEndStepAction(int)` avec
+pour raison qu'elles sont « le seul observable » de l'étape finale, laquelle entre dans l'empreinte
+de pureté d'`AutoScenarioRules_test`. **Mesuré : l'argument ne vaut que pour la moitié de la paire.**
+
+- `getEndStepActionCount()` → **un** lecteur, `tests/core/AutoScenarioRules_test.cpp:722`.
+- `getEndStepAction(int)` → **zéro** lecteur, ni dans `src/` ni dans `tests/`.
+
+Ce n'est pas une régression et rien n'en dépend, mais c'est la dette d'E4.6d **déplacée, pas soldée** :
+un accesseur public qu'aucune ligne du dépôt n'appelle, gardé par une phrase qui décrit l'usage de
+l'autre. Deux issues, l'une ou l'autre : l'empreinte de pureté lit **aussi** les actions de l'étape
+finale, ou l'accesseur part. **À trancher dans `E4.6g`.**
