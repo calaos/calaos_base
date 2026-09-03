@@ -8,6 +8,59 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅⭐ [`T3.43`](T3.43.md) / `fix/fwago8` MERGÉE — 3 commits de la branche, `merge --ff-only`,
+  historique linéaire, 0 commit de fusion.** Tête sur `master` : **`6c9e136d`**. ⛔ **Rien poussé.**
+  ⚠️ **REBASE LOURD ASSUMÉ** : la branche datait du **25 août** (merge-base `b7a4c63d`), `master`
+  était à **`2915be20`** — toute la chaîne E4.1, T3.36 et l'épique E4.6 s'étaient intercalées.
+  ⭐ **Zéro recouvrement dans `src/`** : `libmbus` n'avait pas bougé d'une ligne depuis la
+  merge-base, et **le défaut a été revérifié VIVANT sur `master`** avant de merger
+  (`data_count = MBUS_BYTE_RD(bufptr) / 2` sans confrontation à `points_num`, `byte_count` idem
+  côté bobines).
+
+  ⭐ **Trois recouvrements documentaires, tous résolus sans perte :**
+  1. **`T3.43.md` existait déjà sur `master`** (fiche portée sans son code) et les deux versions
+     étaient **identiques, 469 lignes des deux côtés** — la version de `master` est conservée,
+     **aucune duplication**. Idem pour la **ligne de board**, passée **📋 → ✅** au lieu d'être
+     ajoutée une seconde fois.
+  2. **Les deux renvois que `master` avait réparés** vers cette fiche (`FINDINGS.md` « son code
+     n'est pas mergé », et le renvoi de `F-WAGO-9` vers `T3.43 §5.5bis`) sont **mis à jour pour
+     dire l'inverse**, pas supprimés.
+  3. ⛔ **COLLISION DE NUMÉRO DE FINDING** : la branche ouvrait le symétrique du chemin d'ÉCRITURE
+     (`mbus_cmd_addr_mdata()`, 8 octets hors de `mbus_struct`, longueur de trame qui tronque) sous
+     **`F-WAGO-9`** — numéro que **`T3.31` a attribué entre-temps** à la paire adresse/donnée.
+     Renuméroté **`F-WAGO-12`** au merge (F-WAGO-1..11 pris), contenu inchangé, l'origine du
+     renommage est écrite dans l'entrée elle-même.
+
+  ⭐⭐ **LE BLOC `tests/Makefile.am` ÉTAIT PRÉ-T3.36 ET A ÉTÉ RÉÉCRIT.** `MbusResponse_test_LDADD`
+  relie `mbus_cmd.$(OBJEXT)` et `mbus_rqst.$(OBJEXT)` alors que `_DEPENDENCIES` ne listait que
+  `libcalaos_common.la` — et le commentaire qui l'accompagnait **enseignait la règle INVERSE de
+  T3.36** (« Built elsewhere, do not let automake turn them into prerequisites ») plus la consigne
+  caduque du `rm -f`. `_DEPENDENCIES` est désormais le **miroir exact** du `LDADD`, le commentaire
+  est celui des blocs neufs. `tests/Makefile.am` a été **reconstruit** (`git show
+  master:tests/Makefile.am` + append), pas recousu : **préfixe strict prouvé, +26/−0/~0**,
+  `^if HAVE_GTEST` et `^endif` **+1 chacun**, **`TESTS` 112 → 113**. `check-test-deps.sh` : **PASS,
+  69 binaires liant des objets serveur, tous déclarés**.
+
+  **Build d'intégration** `make distclean` + `autogen` + `configure` + `make -j32` +
+  `make check -j16` : **`TOTAL 113 / PASS 111 / SKIP 2 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**,
+  les deux `SKIP` habituels. ⚠️ **Un premier tour a rendu `FAIL 1`** — `check-dist-coverage.sh`
+  butait sur `tests/JanssonResidues_test`, **binaire root laissé par un build d'avant `a3ea32db`**
+  (E4.1x a supprimé ce test). Fichier **non tracké et gitignoré**, donc invisible d'une CI propre :
+  pollution de worktree, pas régression. ⚠️ **Le même résidu traîne dans le worktree principal
+  `calaos_base`** — `check-dist-coverage.sh` y rougira aussi tant qu'il n'est pas retiré.
+
+  ⭐ **Les commentaires de `src/` ont été élagués** : la branche est **antérieure à la règle projet**
+  et portait 5 blocs de 4 à 30 lignes avec numéros de ticket, emojis et récit de mesure. Ramenés à
+  ≤ 8 lignes, WHY seul, sans numéro de ticket — **la substance conservée** (pourquoi refuser plutôt
+  qu'écrêter, pourquoi confronter le compte BRUT et non le compte divisé par 2, pourquoi la taille
+  de `slave_data` reste un contrat d'appelant sur FC 17). **Aucun changement de code.**
+
+  ⚠️ **Ce que ce merge ne ferme PAS** : `F-WAGO-7` (`int count;` / `UWord address;` non initialisés)
+  est intact ; **rien n'a tourné sous ASan ni contre un automate réel** ; `F-WAGO-12` est ouvert et
+  non ticketé. ⭐ **L'arbitrage « `libmbus` n'est PAS patchée » de `F-WAGO-9` a été revérifié : il
+  porte sur le TYPAGE de la paire adresse/donnée, pas sur ce compte** — il ne bloquait pas ce
+  correctif.
+
 - **✅⭐⭐ [`E4.6g`](E4.6.md) MERGÉE — 2 commits de la branche + 1 commit de doc sur `master`,
   `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de branche **`2c241414`**.
   ⭐ **`master` ÉTAIT IMMOBILE sur `196fa792`** = exactement la merge-base ⇒ **ni rebase ni conflit.**
@@ -102,8 +155,7 @@
      (`JsonApiHandlerWS.cpp:365`), et deux cas nommés l'épinglent.
 
   ➡️ **PROCHAINE ACTION — options posées, RIEN N'EST TRANCHÉ, à l'utilisateur de choisir :**
-  - **`fix/fwago8`** (worktree `.wave57/fwago8`, tête `da84bab8`) — branche **prête**, défaut
-    **vérifié vivant** ; ⚠️ son bloc de test est **pré-T3.36** et doit être réécrit avant merge.
+  - ✅ **`fix/fwago8` — MERGÉE (`6c9e136d`), voir le bloc en tête.**
   - **`wip/t3.51-probe-pass4`** (`d1693b19`) — cherry-pick **sans conflit**, mais sa docstring
     documente comme fait un export `CXX`/`CC` dans `AM_TESTS_ENVIRONMENT` **absent de l'arbre**.
   - **[`T3.61`](T3.61.md)** — finir **§5.3** et rendre l'épique E4.6 entière.
