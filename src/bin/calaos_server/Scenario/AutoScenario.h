@@ -273,14 +273,12 @@ public:
     double getStepPause(int step);
     int getStepActionCount(int step);
     ScenarioAction getStepAction(int step, int action);
-    /* Kept without a production caller, on purpose. getCategory() walks the
-     * standard steps only, so nothing in src/ reads the final step's actions
-     * any more; these two stay because they are the ONLY observable of that
-     * step, and dropping the pair would shrink the read-purity fingerprint
-     * that proves an accessor of this class does not mutate.
+    /* Kept without a production caller, on purpose: getCategory() walks the
+     * standard steps only, so this is the ONLY observable of the final step,
+     * and it carries that step in the read-purity fingerprint that proves an
+     * accessor of this class does not mutate.
      */
     int getEndStepActionCount();
-    ScenarioAction getEndStepAction(int action);
 
     void addSchedule();
     void deleteSchedule();

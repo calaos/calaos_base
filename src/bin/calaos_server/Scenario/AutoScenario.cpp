@@ -780,11 +780,6 @@ int AutoScenario::getEndStepActionCount()
     return countRealActions(getRuleStepEnd());
 }
 
-ScenarioAction AutoScenario::getEndStepAction(int action)
-{
-    return getRealAction(getRuleStepEnd(), action);
-}
-
 struct SCCategory
 {
     int count;
