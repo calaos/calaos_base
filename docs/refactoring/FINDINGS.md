@@ -8785,3 +8785,90 @@ livrée.
 **Ce qu'il faudrait pour le faire** : un lookup uid → IO scénario → `name` (un balayage de
 `ListeRoom`, l'uid n'étant indexé nulle part aujourd'hui), et retourner un cas d'E4.6f.
 **Coût** : petit. **Décision** : à l'utilisateur.
+
+## E4.6g — la doc n'était pas obsolète, elle était FAUSSE, et le mécanisme est toujours le même (2026-09-04)
+
+`docs/04_scenarios.md` et `docs/03_rules_engine.md` ont été écrits par E4.5b contre le code de
+`master = aa4821f7`, correctement et avec des `Fichier.cpp:ligne` vérifiés. Six sous-tickets plus
+tard, **13 affirmations enseignaient le contraire du code livré** et **une trentaine de citations
+`Fichier.cpp:ligne` désignaient une autre ligne** — la plupart du temps une ligne qui a l'air
+plausible, ce qui est pire qu'une ligne hors fichier.
+
+Deux enseignements, tous deux généraux :
+
+1. ⭐ **Une doc adossée à des numéros de ligne se périme sans qu'aucun test ne rougisse.** Les
+   décalages de cette passe viennent à 100 % de fichiers qu'E4.6 a rouverts (`JsonApi.cpp` +1416
+   lignes, `AutoScenario.cpp` réécrit, `Rule.h` -5 lignes) — mais aussi de fichiers qu'E4.6 n'a
+   **pas** touchés et qu'un autre ticket a décalés de cinq lignes (`InPlageHoraire.cpp`, T3.25 ;
+   `ActionPush.cpp`, E4.1b). **`make check` était vert du premier au dernier jour.**
+   C'est exactement ce que **T3.32** (`make check-docs`, contrôle ancré des références) doit
+   fermer, et il est **toujours ouvert** : rien n'a vérifié cette passe à part la relecture.
+2. ⚠️ **Un `grep` ne suffit pas à trouver les affirmations fausses.** Les plus dangereuses ne
+   citaient aucun symbole disparu : « un scénario **oublie automatiquement** les étapes dont la
+   règle a disparu » (`RELEASE_NOTES.md`, section E4.2f) est une phrase entièrement en français,
+   qui décrit `purgeDeadSteps()` sans le nommer, et qui affirme aujourd'hui l'**inverse** du
+   comportement livré. Il a fallu relire les trois documents en entier contre le code.
+
+**Les 13 affirmations fausses corrigées**, pour mémoire : l'invariant `len(steps) == steps_count+1`
+et les clés `steps_count`/`step_pause`/`step_type`/`action.id`/`action.action` (disparues) ·
+la compaction `purgeDeadSteps()` et le latch `stepRuleDestroyed` (disparus) · `AutoScenario::END_STEP`
+(disparu) · `Rule::auto_sc_mark` / `isAutoScenario()` (disparus) · le balayage orphelin de
+`checkAutoScenario()` décrit comme actif (supprimé) · « `autoscenario` n'est pas soumis au
+`serviceScope` » (il l'est) · « silence total sur un `type` inconnu » (c'est une erreur) ·
+« `modify` blanchit un scénario amputé » (il ne le peut plus) · « le payload de `get` n'est pas
+ré-injectable dans `modify` » (l'aller-retour est une identité) · « l'index du tableau JSON sert de
+numéro d'étape » (les étapes ont un id) · les commandes `get_scenarios` / `get_scenario`
+(n'existent pas, et n'ont jamais existé) · « un scénario oublie automatiquement les étapes dont la
+règle a disparu » (il les conserve et se signale cassé) · « les deux différences qui récupèrent des
+données perdues n'ont pas encore lieu » (elles ont lieu).
+
+## E4.6g — dépassement de périmètre assumé : `AutoScenario::getEndStepAction(int)` supprimé (2026-09-04)
+
+Solde renvoyé par le merge d'E4.6d puis par celui d'E4.6e. Vérifié à nouveau ici avant de couper :
+**aucun lecteur dans `src/`, aucun dans `tests/`**. Son jumeau `getEndStepActionCount()` en a un,
+`core/AutoScenarioRules_test:722`, dans l'empreinte de pureté de lecture
+`ReadingAScenarioTwiceAnswersTheSameAndChangesNothing`.
+
+E4.6e avait conservé la paire, avec pour raison écrite que « supprimer le seul indexeur laisse un
+compteur qu'on ne peut pas parcourir ». **C'est vrai et ce n'est pas suffisant** : un compteur sans
+indexeur reste un observable utile — c'est précisément l'usage qu'en fait le seul appelant — alors
+qu'un indexeur sans appelant est du code que personne ne compile contre une attente. La symétrie
+d'API n'est pas une raison de garder du code mort ; si un appelant en a besoin un jour, il le
+réécrit en trois lignes.
+
+Le commentaire au-dessus de `getEndStepActionCount()` (`AutoScenario.h:275-280`) a été réduit en
+conséquence : il justifie maintenant **une** fonction, et il dit toujours pourquoi elle survit sans
+appelant de production (`getCategory()` ne parcourt que les étapes standard).
+
+## ⚠️ E4.6g — TRANCHÉ : les noms de cas basculés ne sont PAS renommés (2026-09-04)
+
+Renvoyé à ce ticket par §8.6 (« un lecteur qui `grep` un nom en tire l'inverse de la vérité »).
+Trois exemples au moins : `AnEmbeddedNulInAnActionIsTruncatedByScenarioToJson`,
+`AGetModifyGetRoundTripIsAnIdentityOnlyWhileNothingIsMissing`,
+`ReadingBackAndEchoingThePayloadRestartsAnAmputatedScenarioWithTwoSuccessTrue`.
+
+**Décision : on garde les noms.** Trois raisons, dans cet ordre :
+1. `E4.6.md` **cite ces noms comme critères d'acceptation** (§6.1 nomme le cas du NUL, §8.3, §8.5 et
+   §8.6 en nomment une vingtaine). Renommer invaliderait une page de citations que **rien** ne
+   vérifie — `make check-docs` (T3.32) n'existe pas ;
+2. c'est la convention de la série : un cas de caractérisation **garde son nom** en basculant, ce
+   qui est ce qui permet de le suivre d'un ticket à l'autre ;
+3. chacun porte une bannière `✅ FLIPPED` juste au-dessus de son corps.
+
+**Le risque reste réel** et il est traité là où il coûte le moins : `docs/04_scenarios.md` cite
+désormais ces trois cas **avec un avertissement explicite** disant que le nom décrit le défaut
+d'avant et qu'il ne faut pas en déduire un comportement. Si l'utilisateur préfère le renommage, il
+appartient à un ticket qui mettra à jour `E4.6.md` dans le même commit.
+
+## E4.6g — deux commentaires de `src/` désignent du code disparu (2026-09-04)
+
+Non corrigés : hors du périmètre déclaré (documentation), et sans effet sur le comportement.
+Signalés pour le ticket qui rouvrira ces fichiers.
+
+- `Scenario/AutoScenarioDef.cpp:388` et `AutoScenarioDef.h:184-185` renvoient au « sweep of
+  `ListeRoom.cpp:324` » pour expliquer pourquoi `auto_scenario` n'est jamais touché par le nettoyage
+  des params orphelins. **Ce balayage n'existe plus depuis E4.6c** ; la raison, elle, tient toujours
+  (ne pas toucher aux params d'autrui), mais elle s'appuie sur un site disparu.
+- `AutoScenario.h:179` et `ListeRoom.cpp:344` gardent le nom `checkScenarioRules()`, qui n'est plus
+  qu'un alias de `rebuildRules()` (`AutoScenario.h:180`). Volontaire, mais un lecteur qui cherche
+  « check » ne trouve plus de vérification.

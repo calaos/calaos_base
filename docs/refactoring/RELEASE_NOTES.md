@@ -627,12 +627,16 @@ peut pas être résolu sans intervention humaine. Un scénario qui repartirait t
 peut-être **incomplet** ; la réactivation manuelle force à constater que la séquence est de nouveau
 celle qu'on croit.
 
-> ⚠️ **Rupture de contrat d'API pour les clients.** Le payload de scénario (`get_scenarios` /
-> `get_scenario`, autoscénarios) gagne **trois clés** : `broken` (une étape référence un équipement
-> introuvable), `disabled_missing_io` (le drapeau persistant décrit ci-dessus) et `missing_ios`
-> (les ids concernés). Tout client qui valide strictement la forme de ce payload, ou qui rejette
-> les clés inconnues, doit être mis à jour. Sept fichiers de référence de l'API ont été
-> régénérés en conséquence.
+> ⚠️ **Rupture de contrat d'API pour les clients.** Le payload de scénario — celui que rendent
+> `autoscenario get` et `autoscenario list` — gagne **trois clés** : `broken` (une action référence
+> un équipement introuvable), `disabled_missing_io` (le drapeau persistant décrit ci-dessus) et
+> `missing_ios` (les ids concernés). Tout client qui valide strictement la forme de ce payload, ou
+> qui rejette les clés inconnues, doit être mis à jour.
+>
+> ⛔ **Et ce n'est pas la seule chose qui change dans ce payload : il change ENTIÈREMENT de forme
+> dans cette version.** Les trois clés ci-dessus survivent telles quelles, mais tout le reste est
+> refait — lisez « **RUPTURE D'API ASSUMÉE : `autoscenario` change de format** » plus bas avant
+> d'adapter un client. Sept fichiers de référence de l'API ont été régénérés en conséquence.
 
 ### ⚠️ Scripts Lua — `calaos:waitForIO()` et `calaos:setIOParam()` ne renvoient plus rien (T3.27)
 
@@ -794,18 +798,25 @@ liste vide, pas une erreur — seule l'**absence** de base est refusée.
 ### Scénarios — plus de plantage après suppression d'un scénario utilisé par un autre (E4.2f)
 Supprimer un scénario B dont l'équipement servait d'action d'étape à un scénario A détruisait les
 règles d'étape de A **sans prévenir A** : le scénario A gardait une étape pointant sur de la
-mémoire libérée. Le **premier affichage de la liste des scénarios** ensuite (`get_scenarios` /
-`get_scenario`, c'est-à-dire l'ouverture de l'écran Scénarios dans l'application ou l'installeur)
-relisait cette mémoire — soit un plantage du serveur, soit, pire, un nombre d'étapes et des durées
-de pause fantaisistes affichés à l'utilisateur. Le défaut était **atteignable depuis l'API JSON**,
-sans manipulation particulière : deux actions ordinaires de l'interface suffisaient, et le
-redémarrage du serveur était le seul moyen de retrouver un état sain.
+mémoire libérée. Le **premier affichage de la liste des scénarios** ensuite (`autoscenario list` /
+`autoscenario get`, c'est-à-dire l'ouverture de l'écran Scénarios dans l'application ou
+l'installeur) relisait cette mémoire — soit un plantage du serveur, soit, pire, un nombre d'étapes
+et des durées de pause fantaisistes affichés à l'utilisateur. Le défaut était **atteignable depuis
+l'API JSON**, sans manipulation particulière : deux actions ordinaires de l'interface suffisaient,
+et le redémarrage du serveur était le seul moyen de retrouver un état sain.
 
-Désormais un scénario **oublie automatiquement** les étapes dont la règle a disparu : la liste
-renvoyée à l'interface ne contient plus que les étapes réellement vivantes. Rien à changer dans
-les configurations existantes ; un scénario amputé de cette façon affiche simplement moins
-d'étapes qu'avant la suppression (le traitement complet de ce cas — désactiver le scénario amputé
-plutôt que le raccourcir — est l'objet d'un ticket dédié, T3.18).
+Le plantage n'est plus possible : plus rien ne mémorise un pointeur vers une règle, les règles sont
+retrouvées par recherche au moment où on en a besoin.
+
+⚠️ **La suite de cette note a changé en cours de version, et c'est le bon sens qui a gagné.** Le
+premier correctif faisait *oublier* au scénario les étapes dont la règle avait disparu : la liste
+renvoyée à l'interface ne contenait plus que les étapes vivantes — donc un scénario **raccourci en
+silence**. Ce n'est plus ce qui se passe. L'étape vit maintenant dans la **définition** du scénario,
+pas dans sa règle : détruire la règle ne fait plus disparaître l'étape, le scénario est **signalé
+cassé**, il **ne démarre plus**, et la règle est **reconstruite** au démarrage suivant. Rien n'est
+raccourci, rien n'est oublié. Voir « Un scénario dont une étape a perdu son équipement ne démarre
+plus du tout » ci-dessus et « Les auto-scénarios sont enfin **écrits** dans votre configuration »
+plus bas.
 
 ### Audio — plus de plantage en consultant la playlist d'un lecteur (T3.17a)
 Afficher la playlist d'un lecteur audio (`get_playlist`, c'est-à-dire l'écran Lecteur de
@@ -1245,6 +1256,13 @@ c'est là que le changement d'ordre des membres se voit le plus :
   `step_type` ;
 - chaque **action** passe de `id`, `action` à `action`, `id`.
 
+> ⛔ **Ces noms de champs ne sont plus ceux de la version livrée.** Le paragraphe ci-dessus décrit
+> le seul changement d'**ordre** apporté par la migration JSON, sur le schéma tel qu'il était
+> alors. Le schéma lui-même a ensuite été refait de fond en comble : `steps_count`, `step_pause`
+> et `step_type` **n'existent plus**, et une action s'écrit `io` / `value` / `resolved`. Pour
+> adapter un client, c'est « **RUPTURE D'API ASSUMÉE : `autoscenario` change de format** » qu'il
+> faut lire, pas ce paragraphe. La règle de l'ordre alphabétique des membres, elle, vaut toujours.
+
 ⚠️ **L'ORDRE DES ÉTAPES, LUI, NE BOUGE PAS**, et l'ordre des actions à l'intérieur d'une étape non
 plus : ce sont des **tableaux**, et cet ordre-là est le scénario lui-même. Il est vérifié
 explicitement, sur les octets, par la suite de tests livrée avec ce changement.
@@ -1254,11 +1272,17 @@ l'échappement d'un accent, et le caractère **DEL** (U+007F) désormais échapp
 elles ne peuvent venir que d'un endroit : le texte d'une **action** de scénario, qui est fourni par
 le client et renvoyé tel quel.
 
-**En revanche, les deux différences qui RÉCUPÈRENT des données perdues n'ont pas encore lieu ici.**
-Un nom mal encodé ou contenant un octet nul dans un scénario est toujours perdu de la même façon
-qu'avant, parce que la fabrication du contenu d'un scénario n'a pas encore été convertie — elle
-l'est plus tard, par le chantier qui réécrit les scénarios (E4.6). **Rien ne régresse ; c'est le
-gain qui n'est pas encore là.** Ce sera dit ici quand ce sera fait.
+⭐ **Les deux différences qui RÉCUPÈRENT des données perdues n'avaient pas lieu à ce stade — elles
+ont lieu dans la version livrée.** Ce paragraphe annonçait qu'elles viendraient avec le chantier qui
+réécrit les scénarios ; c'est fait, et voici ce que ça donne, mesuré :
+
+- une valeur d'action portant un **octet nul** était coupée à cet octet, en silence et avec
+  `200 OK`. Elle traverse maintenant **entière**, échappée par le sérialiseur ;
+- une chaîne en **UTF-8 invalide** était supprimée **avec sa clé** — le champ disparaissait du
+  document sans un mot. Elle est maintenant remplacée par le caractère de remplacement standard,
+  comme partout ailleurs dans l'API.
+
+Le détail est dans « RUPTURE D'API ASSUMÉE : `autoscenario` change de format » plus bas.
 
 Enfin, les accusés de réception (`{"success":"true"}`), les identifiants renvoyés par `create` et
 `add_schedule` (`{"id":"…"}`) et les refus (`{"error":"…"}`) **ne changent pas d'un octet** : ils
@@ -1637,7 +1661,8 @@ scénario lui-même, sous la forme d'attributs lisibles :
 
 ```xml
 <calaos:input type="scenario" id="io_18" name="Monter volets matin"
-              autoscenario_uid="as_0" autoscenario_cycle="false" autoscenario_enabled="true"
+              autoscenario_uid="as_0" autoscenario_schema="1"
+              autoscenario_cycle="false" autoscenario_enabled="true"
               autoscenario_steps="s0|s1"
               as_s0_pause="1.5"  as_s0_actions="io_77=up|io_78=up"
               as_s1_pause="0"    as_s1_actions="io_9=42"
@@ -1657,10 +1682,10 @@ scénario lui-même, sous la forme d'attributs lisibles :
 - **C'est lisible et réparable à la main.** Une valeur contenant `%`, `=` ou une barre verticale est
   encodée (`%25`, `%3D`, `%7C`) et redonne exactement les mêmes octets.
 
-**Ce qui ne change pas encore, dans cette version** : ce sont toujours les règles qui **exécutent**
-le scénario. La définition est écrite et conservée, mais rien ne s'en sert encore pour reconstruire
-les règles — c'est l'étape suivante. Aucun comportement visible ne change : vos scénarios se
-déclenchent exactement comme avant, l'API répond exactement comme avant.
+**Ce sont toujours les règles qui exécutent le scénario** — la définition ne remplace pas le moteur,
+elle le nourrit. Ce qui change, et qui est décrit juste en dessous, c'est le **sens de la flèche** :
+les règles sont désormais **fabriquées à partir de** la définition, au lieu que la définition soit
+devinée à partir des règles.
 
 **Rien n'a été supprimé de votre configuration.** L'ancien marqueur `auto_scenario` est laissé
 strictement en place, et le nouvel identifiant vit **à côté** de lui. C'était la condition à tenir :
@@ -1702,8 +1727,10 @@ cette version, le générateur **ne touche à rien du tout** — ni destruction,
 une configuration de production réelle : 125 règles avant, 125 après, à l'octet près, y compris au
 deuxième démarrage.
 
-**Ce qui ne change pas encore** : les anciens scénarios restent des auto-scénarios visibles dans
-l'API.
+**Ce qui ne change pas** : le marqueur qui fait d'un équipement un auto-scénario reste le paramètre
+`auto_scenario` de cet équipement. Les scénarios déjà présents dans votre configuration restent donc
+des auto-scénarios, visibles et modifiables par l'API, exactement comme avant. Le nouvel identifiant
+`autoscenario_uid` vit **à côté** de lui et identifie la **définition**, pas l'équipement.
 
 ### ⛔ RUPTURE D'API ASSUMÉE : `autoscenario` change de format, et ce que vous lisez est enfin ce que vous pouvez renvoyer (E4.6d)
 
