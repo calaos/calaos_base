@@ -2123,3 +2123,136 @@ TEST_F(JsonApiScenarioTest, ABrokenScenarioIsStillListedAndStillModifiable)
     EXPECT_JSON_EQ(std::string(R"({"success":"true"})"),
                    wsAutoscenario(ws, Json{{ "type", "delete" }, { "id", scenarioId }}));
 }
+
+/*******************************************************************************
+ * >>> THE TWO PROPERTIES THE API REWRITE IS JUDGED ON <<<
+ *
+ * Both are written BEFORE the rewrite, against the payload as it is today, and
+ * both survive it: the first because the three keys it reads do not change
+ * name, the second because it flips on purpose and says so.
+ ******************************************************************************/
+
+TEST_F(JsonApiScenarioTest, TheFourStatesAreToldApartByTheApiPayload)
+{
+    /* The four states of the missing-IO arbitration, read through
+     * `autoscenario get` rather than through Scenario::toJson() directly.
+     *
+     * WHY A SECOND WITNESS AND NOT A DUPLICATE. The two states where the keys
+     * DISAGREE - "repaired, waiting for a re-enable" (false/true/"") and
+     * "broken, flag cleared by hand" (true/false/id) - are the only thing that
+     * makes three keys worth emitting instead of one, and every other witness
+     * of that disagreement lives in a file the API rewrite also rewrites. A
+     * flattening of disabled_missing_io into "missing_ios is not empty" is
+     * invisible to every other case of this binary.
+     *
+     * The three keys are asserted ONE BY ONE so that swapping two of them
+     * fails here with their names in the message.
+     */
+    const std::string scenarioId = loadScenarioWithAnAmputatedStep();
+    ASSERT_FALSE(scenarioId.empty());
+
+    WsTestSession ws;
+
+    //--- broken and freshly disabled: true / true / the id ------------------
+    Json sc = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", scenarioId }});
+    EXPECT_EQ("true", sc.value("broken", std::string()));
+    EXPECT_EQ("true", sc.value("disabled_missing_io", std::string()));
+    EXPECT_EQ(IO_TARGET, sc.value("missing_ios", std::string()));
+
+    //--- broken with the flag cleared by hand: TRUE / FALSE / the id --------
+    Scenario *io = scenarioIo(scenarioId);
+    ASSERT_TRUE(io != nullptr && io->getAutoScenario() != nullptr);
+    io->getAutoScenario()->setDisabledMissingIo(false);
+
+    sc = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", scenarioId }});
+    EXPECT_EQ("true", sc.value("broken", std::string()));
+    EXPECT_EQ("false", sc.value("disabled_missing_io", std::string()));
+    EXPECT_EQ(IO_TARGET, sc.value("missing_ios", std::string()));
+
+    //--- repaired, waiting for a re-enable: FALSE / TRUE / "" ---------------
+    //THE state the whole arbitration exists for. The flag has to be put back
+    //by hand here: it is only ever set by the detection pass, and the pass
+    //will not set it again once the IO is there.
+    io->getAutoScenario()->setDisabledMissingIo(true);
+    Params p = {{ "type", "InternalBool" }, { "id", IO_TARGET },
+                { "name", "Target of the second step" }};
+    ASSERT_TRUE(createIO(p, firstRoom()) != nullptr);
+    saveConfig();
+    reloadFromDisk();
+    ListeRoom::Instance().checkAutoScenario();
+    pumpEventLoop();
+
+    WsTestSession repairedWs;
+    sc = wsAutoscenario(repairedWs, Json{{ "type", "get" }, { "id", scenarioId }});
+    EXPECT_EQ("false", sc.value("broken", std::string()));
+    EXPECT_EQ("true", sc.value("disabled_missing_io", std::string()));
+    EXPECT_EQ("", sc.value("missing_ios", std::string()));
+
+    //--- healthy: false / false / "" ---------------------------------------
+    clearCoreState();
+    loadScenarioHouse();
+    WsTestSession fresh;
+    const std::string healthyId = createReferenceScenario(fresh);
+    ASSERT_FALSE(healthyId.empty());
+
+    sc = wsAutoscenario(fresh, Json{{ "type", "get" }, { "id", healthyId }});
+    EXPECT_EQ("false", sc.value("broken", std::string()));
+    EXPECT_EQ("false", sc.value("disabled_missing_io", std::string()));
+    EXPECT_EQ("", sc.value("missing_ios", std::string()));
+}
+
+TEST_F(JsonApiScenarioTest, AGetModifyGetRoundTripIsAnIdentityOnlyWhileNothingIsMissing)
+{
+    /* >>> THE ROUND TRIP, AS AN EXCHANGE. <<<
+     *
+     * Half one, a healthy scenario: get, send the very same document back to
+     * modify, get again - the two payloads are EQUAL. Half two, the same
+     * scenario with one action's IO gone: the two payloads DIFFER, and they
+     * differ by the amputation itself.
+     *
+     * The control half is what makes the measuring half mean something: a
+     * round trip that broke on everything would prove nothing about what it
+     * loses here.
+     *
+     * >>> HALF TWO IS THE ASSERTION THE REWRITE FLIPS. <<< A payload that
+     * carries an unresolved action instead of dropping it makes the two sides
+     * equal, and `broken` stays true across the trip.
+     */
+    loadScenarioHouse();
+
+    WsTestSession ws;
+    const std::string healthyId = createReferenceScenario(ws);
+    ASSERT_FALSE(healthyId.empty());
+
+    Json before = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", healthyId }});
+    Json echo = before;
+    echo["type"] = "modify";
+    ASSERT_JSON_EQ(std::string(R"({"success":"true"})"), wsAutoscenario(ws, echo));
+
+    Json after = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", healthyId }});
+    EXPECT_JSON_EQ(before, after) << "a healthy scenario did not survive its own payload";
+
+    //--- and now the same trip on a scenario that lost an IO ----------------
+    clearCoreState();
+    const std::string brokenId = loadScenarioWithAnAmputatedStep();
+    ASSERT_EQ(healthyId, brokenId);
+
+    WsTestSession brokenWs;
+    before = wsAutoscenario(brokenWs, Json{{ "type", "get" }, { "id", brokenId }});
+    ASSERT_EQ("true", before.value("broken", std::string()));
+    ASSERT_EQ(IO_TARGET, before.value("missing_ios", std::string()));
+
+    echo = before;
+    echo["type"] = "modify";
+    ASSERT_JSON_EQ(std::string(R"({"success":"true"})"), wsAutoscenario(brokenWs, echo));
+
+    after = wsAutoscenario(brokenWs, Json{{ "type", "get" }, { "id", brokenId }});
+
+    EXPECT_NE(before, after)
+            << "reading a broken scenario back and sending it again is now an identity";
+    //and the difference is the loss, named: the scenario declares itself
+    //healthy while an action of it is gone for good
+    EXPECT_EQ("false", after.value("broken", std::string()));
+    EXPECT_EQ("", after.value("missing_ios", std::string()));
+    EXPECT_FALSE(mentionsValue(after, IO_TARGET));
+}
