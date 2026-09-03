@@ -2564,8 +2564,7 @@ endif
 #migration of those two functions and green across it; the single seam is
 #docToJson() in the test itself, no assertion moves.
 #It needs the server core objects for the second half (genDoc instantiates
-#every registered IO type), so it uses the core LDADD, and jansson for the
-#seam, which @CALAOS_COMMON_LIBS@ already carries. Own HAVE_GTEST block so
+#every registered IO type), so it uses the core LDADD. Own HAVE_GTEST block so
 #this stays a pure append at the end of the file.
 if HAVE_GTEST
 TESTS += core/IODocJson_test
@@ -2761,8 +2760,7 @@ endif
 #invalid-UTF-8 error handler): the 145 goldens compare parsed documents and
 #are blind to escaping by construction.
 #Only libcalaos_common code is exercised (Params + the free functions of the
-#wire header), no server object and no fixture; jansson comes with
-#@CALAOS_COMMON_LIBS@. Own HAVE_GTEST block so this stays a pure append at the
+#wire header), no server object and no fixture. Own HAVE_GTEST block so this stays a pure append at the
 #end of the file.
 if HAVE_GTEST
 TESTS += ReolinkWire_test
@@ -2796,7 +2794,7 @@ endif
 #write_multiple_bits/write_multiple_words emitted no "values" array at all;
 #the fix commit of this same ticket flips them, which is what they were for.
 #Only libcalaos_common code is exercised (Params + Utils + the wire header),
-#no server object and no fixture; jansson comes with @CALAOS_COMMON_LIBS@ and
+#no server object and no fixture, and
 #-I.../IO/Wago is already in AM_CPPFLAGS. Own HAVE_GTEST block so this stays a
 #pure append at the end of the file.
 if HAVE_GTEST
@@ -2832,8 +2830,7 @@ endif
 #j.value("sat", 0), which THROWS on two of the five shapes a bridge can send -
 #inside a download callback with no try/catch on the path.
 #Only libcalaos_common code is exercised (Params + Utils + ColorValue + the
-#wire headers), no server object and no fixture; jansson comes with
-#@CALAOS_COMMON_LIBS@. -I.../Audio is already in AM_CPPFLAGS, -I.../IO/Hue is
+#wire headers), no server object and no fixture. -I.../Audio is already in AM_CPPFLAGS, -I.../IO/Hue is
 #not. Own HAVE_GTEST block so this stays a pure append at the end of the file.
 if HAVE_GTEST
 TESTS += SqueezeboxWire_test
@@ -2872,7 +2869,7 @@ endif
 #any kind reaches this wire in production, only two integers.
 #Only libcalaos_common code is exercised (Params + Utils + ColorValue + the
 #wire header), no server object and no fixture, so the _DEPENDENCIES pitfall
-#cannot apply; jansson comes with @CALAOS_COMMON_LIBS@. -I.../IO/OLA is NOT in
+#cannot apply. -I.../IO/OLA is NOT in
 #the global AM_CPPFLAGS, hence the dedicated _CPPFLAGS.
 #NOTE: this test does NOT need libola and is built whether or not calaos_ola
 #is (if HAVE_LIBOLA in src/bin/calaos_server/Makefile.am) - the wire header has
@@ -2975,7 +2972,7 @@ endif
 #path is std::terminate on calaos_script.
 #Only libcalaos_common code is exercised (Params + Utils + the wire header),
 #no server object and no fixture, which also keeps it clear of the
-#_DEPENDENCIES pitfall; jansson comes with @CALAOS_COMMON_LIBS@.
+#_DEPENDENCIES pitfall.
 #Own HAVE_GTEST block so this stays a pure append at the end of the file.
 if HAVE_GTEST
 TESTS += ScriptWire_test
