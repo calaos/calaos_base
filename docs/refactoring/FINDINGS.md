@@ -8420,3 +8420,37 @@ elle-même**, dans le même binaire, selon l'ordre. Corrigé en `as_s_orphan_act
 **valide** que l'allocateur ne peut **jamais** produire, puisqu'il ne frappe que `s<chiffres>`.
 **Une sonde doit être hors de l'espace de nommage d'un allocateur, pas seulement hors des noms
 observés aujourd'hui.**
+
+## E4.6c — un prédicat de garde comparé à une valeur qui est vide des DEUX côtés au premier passage (2026-09-03)
+
+Le générateur de règles ne doit toucher que ce qu'il a écrit, et se met en retrait tant qu'une règle
+du scénario ne porte pas son uid. Écrit de la façon qui vient naturellement —
+`rule->get_param(KEY_UID) != monUid` — le prédicat **ne tient pas au moment exact où il compte** :
+sur une configuration antérieure à la définition, la définition n'existe pas encore, donc `monUid`
+est **vide lui aussi**, les deux côtés comparent égal, et la garde ne se déclenche pas.
+
+Mesuré sur `configs/raoulh` : **125 règles à l'entrée, 139 à la sortie** — rien de détruit, mais
+14 règles construites à côté des 18 existantes, donc chaque scénario joue ses actions deux fois.
+Avec le prédicat correct (« ne porte **aucun** uid »), 125 → 125, octet pour octet.
+
+**La leçon, générale** : une garde qui compare l'état d'autrui à *son propre* état n'est prouvée que
+si le cas de test rend les deux états **différemment vides**. Le premier cas de mise en retrait ne
+retirait l'uid que des **règles** et laissait `autoscenario_uid` sur l'IO scénario : la garde
+fautive y passait, parce qu'un côté était non vide. C'est le « fixture pauvre » de §9.3 d'E4.6.md
+sous une forme qu'aucune des sept récidives précédentes n'avait prise — la pauvreté n'était pas dans
+les **valeurs** de la fixture mais dans le fait qu'**un seul des deux termes de la comparaison**
+était mis à l'épreuve. Le cas qui l'attrape retire l'uid des deux côtés, et il est le seul à rougir.
+
+## E4.6c — `autoscenario create` d'un scénario cyclique écrit un chaînage faux, corrigé au démarrage suivant (2026-09-03)
+
+Sur `master`, `buildAutoscenarioCreate()` appelle `checkScenarioRules()` **avant** d'ajouter les
+étapes, et c'est cette passe-là qui applique le drapeau `cycle` au chaînage de la dernière étape.
+Les étapes sont créées ensuite par `addStep()`, qui chaîne toujours vers `-1`. Résultat : un
+scénario créé avec `cycle:"true"` est **sauvegardé avec sa dernière étape chaînée à `-1`**, donc il
+ne boucle pas — jusqu'au redémarrage suivant, où la boucle de renumérotation de
+`checkScenarioRules()` la réécrit à `0`. Un `rules.xml` fraîchement écrit n'est donc **pas** un
+point fixe de la passe de démarrage, ce qu'aucun test ne disait.
+
+E4.6c le fait disparaître par construction (le chaînage est calculé à chaque génération, à partir de
+la définition), mais le défaut est réel sur `master` et vaut d'être consigné : **un scénario
+cyclique créé par l'API ne boucle qu'après un redémarrage.**

@@ -1645,3 +1645,41 @@ déclenchent exactement comme avant, l'API répond exactement comme avant.
 strictement en place, et le nouvel identifiant vit **à côté** de lui. C'était la condition à tenir :
 le re-clé aurait fait détruire, en silence et au premier démarrage, toutes les règles des scénarios
 existants. (E4.6b)
+
+### Un scénario n'est plus deviné à partir de ses règles : il est reconstruit à partir de sa définition (E4.6c)
+
+Jusqu'ici, à chaque démarrage, le serveur **re-devinait** ce qu'était un auto-scénario en relisant
+`rules.xml` et en comparant chaque règle, condition par condition et valeur par valeur, à la forme
+qu'il attendait. Une règle qu'il ne reconnaissait pas était ignorée — puis détruite, et la
+destruction écrite sur le disque. **Un seul caractère changé dans `rules.xml` coûtait une étape
+entière, définitivement.**
+
+Les règles sont maintenant **régénérées** depuis la définition, à chaque chargement. Ce qui change
+pour vous :
+
+- **Un fichier de règles abîmé se répare tout seul.** Une valeur éditée à la main, une étape dont la
+  condition ne colle plus, une règle supprimée par un outil : tout est réécrit au démarrage suivant,
+  à partir de la définition. Plus rien n'est perdu parce que le serveur « n'a pas reconnu ».
+- ⭐ **Un aller-retour par `calaos_installer` ne peut plus amputer un scénario en silence.**
+  L'installeur laisse tomber, au chargement, toute action dont l'identifiant ne résout plus, puis
+  renvoie un `rules.xml` d'où la référence a simplement disparu. Auparavant le serveur ne pouvait
+  pas le voir : le scénario tournait, amputé, en se déclarant sain. Maintenant l'action est
+  réécrite depuis la définition, le scénario est signalé cassé, l'identifiant manquant est nommé,
+  et le scénario **ne démarre pas** tant qu'il n'est pas réparé et réactivé.
+- **Plus de doublons.** Une règle non reconnue était recréée à côté de l'ancienne ; deux
+  reconstructions successives produisent désormais exactement les mêmes règles.
+- **Les numéros d'étape ne se contredisent plus.** L'ordre d'exécution et le numéro écrit dans le
+  fichier sont produits ensemble, donc ils ne peuvent plus diverger — une étape perdue au milieu ne
+  décale plus les suivantes, elle est simplement reconstruite.
+- **Lire un scénario ne le modifie plus.** Consulter la catégorie ou sérialiser un scénario effaçait
+  auparavant, au passage, la trace du fait qu'il était cassé.
+
+**Rien n'est détruit dans votre configuration.** Le balayage qui supprimait toute règle marquée que
+le serveur n'avait pas su reconnaître **n'existe plus** : une règle qui ne vient pas du générateur
+est la donnée de quelqu'un, pas un déchet. Et tant qu'une seule règle d'un scénario date d'avant
+cette version, le générateur **ne touche à rien du tout** — ni destruction, ni doublon. Vérifié sur
+une configuration de production réelle : 125 règles avant, 125 après, à l'octet près, y compris au
+deuxième démarrage.
+
+**Ce qui ne change pas encore** : les anciens scénarios restent des auto-scénarios visibles dans
+l'API, et le format des réponses de l'API `autoscenario` est inchangé. C'est l'étape suivante.
