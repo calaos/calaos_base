@@ -175,13 +175,10 @@ public:
     Json buildJsonGetTimerange(const Params &jParam);
     Json buildJsonSetTimerange(const Json &jdata);
 
-    /* E4.1r: the nine autoscenario builders answer a Json. MECHANICAL
-     * migration (Q1 of E4.1.md, settled 2026-09-01): E4.6d rewrites them
-     * whole, nothing here is improved on the way.
-     * Scenario::toJson() still answers a json_t* - IO/Scenario.cpp is excluded
-     * from E4.1 (decision Q5) - so buildAutoscenarioGet() and
-     * buildAutoscenarioList() cross the two libraries through
-     * janssonScenarioPayloadBridge() (JsonApi.cpp), which E4.6d deletes.
+    /* ONE SCHEMA: what `get` answers is exactly what `create` and `modify`
+     * accept, so a client may send back what it read (E4.6.md D6). The derived
+     * members - category, broken, disabled_missing_io, missing_ios and the
+     * `resolved` of an action - are accepted and ignored on the way in.
      */
     Json buildAutoscenarioList(const Json &jdata);
     Json buildAutoscenarioGet(const Json &jdata);
