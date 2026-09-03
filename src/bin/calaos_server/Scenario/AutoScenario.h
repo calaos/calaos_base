@@ -270,13 +270,15 @@ public:
     void addStep(double pause);
     void setStepPause(int step, double pause);
     void addStepAction(int step, IOBase *out, string action);
-    //The final step is a step of its own, not an out of range index: an
-    //integer sentinel drifting against a container index is how an action
-    //placed after the final step disappears without a word.
-    void addFinalStepAction(IOBase *out, string action);
     double getStepPause(int step);
     int getStepActionCount(int step);
     ScenarioAction getStepAction(int step, int action);
+    /* Kept without a production caller, on purpose. getCategory() walks the
+     * standard steps only, so nothing in src/ reads the final step's actions
+     * any more; these two stay because they are the ONLY observable of that
+     * step, and dropping the pair would shrink the read-purity fingerprint
+     * that proves an accessor of this class does not mutate.
+     */
     int getEndStepActionCount();
     ScenarioAction getEndStepAction(int action);
 

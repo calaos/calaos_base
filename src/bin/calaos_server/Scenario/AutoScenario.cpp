@@ -688,19 +688,6 @@ void AutoScenario::addStepAction(int s, IOBase *out, string action)
     rebuildRules(true);
 }
 
-void AutoScenario::addFinalStepAction(IOBase *out, string action)
-{
-    AutoScenarioDef *def = definition();
-    if (!def || !out) return;
-
-    AutoScenarioDefAction a;
-    a.ioId = out->get_param("id");
-    a.value = action;
-    def->finalStep.actions.push_back(a);
-
-    rebuildRules(true);
-}
-
 double AutoScenario::getStepPause(int s)
 {
     Rule *step = stepRule(s);

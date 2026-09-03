@@ -205,7 +205,7 @@ bool AutoScenarioDef::isValidStepId(const std::string &id)
     return true;
 }
 
-void AutoScenarioDef::resetIdAllocators()
+void AutoScenarioDef::resetIdAllocatorsForTests()
 {
     nextUidCounter = 0;
     nextStepCounter = 0;

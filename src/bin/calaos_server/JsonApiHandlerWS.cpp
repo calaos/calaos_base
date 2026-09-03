@@ -358,7 +358,13 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
             else processSetTimerange(jsonDataDoc, jsonRoot["msg_id"]);
         }
         else if (jsonRoot["msg"] == "autoscenario")
-            processAutoscenario(jsonDataDoc, jsonRoot["msg_id"]);
+        {
+            //E4.6e: it creates, modifies and DELETES scenarios and rules, so it
+            //belongs with the other mutating commands. A session refused the
+            //time range of a schedule could destroy the scenario owning it.
+            if (serviceScope) scopeDenied("autoscenario");
+            else processAutoscenario(jsonDataDoc, jsonRoot["msg_id"]);
+        }
         else if (jsonRoot["msg"] == "eventlog")
         {
             if (serviceScope) scopeDenied("eventlog");
@@ -673,6 +679,8 @@ void JsonApiHandlerWS::processAutoscenario(const Json &jdata, const string &clie
     //REFUSE, which is why it is a command and not a set_param.
     else if (msg == "reenable")
         sendJson("autoscenario", buildAutoscenarioReenable(jdata), client_id);
+    else
+        sendJson("autoscenario", {{ "error", "unknown autoscenario type" }}, client_id);
 }
 
 void JsonApiHandlerWS::processEventLog(const Params &jsonReq, const string &client_id)

@@ -959,27 +959,29 @@ TEST_F(JsonApiScenarioWireBytesTest, AScheduledScenarioCarriesItsTimeRangeId)
  *    IMPOSED AND jsonStringGet() HAS TO KEEP
  ******************************************************************************/
 
-//INVARIANT. An unknown or missing "type" answers NOTHING AT ALL on both
-//transports - there is no else branch. A frozen bug (E4.0c), and an assertion
-//of absence on a channel that HAS been flushed.
-TEST_F(JsonApiScenarioWireBytesTest, AnUnknownTypeAnswersNoByteAtAll)
+//INVARIANT, FLIPPED BY E4.6e (D8). An unknown or missing "type" answered NO
+//BYTE AT ALL on either transport - there was no else branch. Both dispatchers
+//have one now, and the bytes of the refusal are pinned here like every other
+//wire of this file.
+TEST_F(JsonApiScenarioWireBytesTest, AnUnknownTypeAnswersAnErrorOnBothTransports)
 {
     loadScenarioHouse();
 
+    const std::string wsBytes =
+        R"({"data":{"error":"unknown autoscenario type"},)"
+        R"("msg":"autoscenario","msg_id":"e41r"})";
+
     WsTestSession ws;
+    EXPECT_EQ(wsBytes, wsWire(ws, Json{{ "type", "e41r_not_a_command" }}));
+    EXPECT_EQ(wsBytes, wsWire(ws, Json{{ "id", SCENARIO_IO_ID }}));
+
+    EXPECT_EQ(R"({"error":"unknown autoscenario type"})",
+              httpWire(Json{{ "type", "e41r_not_a_command" }}));
+
+    //and nothing arrives late behind them
     ws.clear();
-    ws.send(wsRequest(Json{{ "type", "e41r_not_a_command" }}));
     pumpEventLoop();
     EXPECT_EQ(0u, ws.count());
-
-    ws.clear();
-    ws.send(wsRequest(Json{{ "id", SCENARIO_IO_ID }}));
-    pumpEventLoop();
-    EXPECT_EQ(0u, ws.count());
-
-    HttpTestRequest req;
-    req.send(httpRequest(Json{{ "type", "e41r_not_a_command" }}));
-    EXPECT_EQ(0u, req.count());
 }
 
 //INVARIANT. A NUMERIC "type" or "id" must read as ABSENT, not throw:
@@ -989,10 +991,9 @@ TEST_F(JsonApiScenarioWireBytesTest, ANumericTypeOrIdIsTreatedAsAbsent)
 {
     loadScenarioHouse();
 
-    //numeric type: no branch matches, no answer
-    HttpTestRequest reqType;
-    reqType.send(httpRequest(Json{{ "type", 3 }}));
-    EXPECT_EQ(0u, reqType.count());
+    //numeric type: reads as absent, so no branch matches and the else answers
+    EXPECT_EQ(R"({"error":"unknown autoscenario type"})",
+              httpWire(Json{{ "type", 3 }}));
 
     //numeric id: the id does not resolve, wrong input - and NOT a crash
     EXPECT_EQ("{\"error\":\"wrong input\"}",
@@ -1002,19 +1003,25 @@ TEST_F(JsonApiScenarioWireBytesTest, ANumericTypeOrIdIsTreatedAsAbsent)
 //INVARIANT. WS reads "data", HTTP reads the ROOT. A WS message whose "data" is
 //not an object must behave as an empty one, exactly like json_object_get() on
 //a non object answered NULL.
-TEST_F(JsonApiScenarioWireBytesTest, AWsDataThatIsNotAnObjectAnswersNothing)
+TEST_F(JsonApiScenarioWireBytesTest, AWsDataThatIsNotAnObjectReadsAsAnEmptyOne)
 {
     loadScenarioHouse();
 
+    //E4.6e: the empty "data" now reaches the else instead of falling out of
+    //the dispatch, so what is asserted is the refusal and not the silence.
+    const std::string wsBytes =
+        R"({"data":{"error":"unknown autoscenario type"},)"
+        R"("msg":"autoscenario","msg_id":"e41r"})";
+
     WsTestSession ws;
     ws.send(Json{{ "msg", "autoscenario" }, { "msg_id", "e41r" }, { "data", 42 }});
-    pumpEventLoop();
-    EXPECT_EQ(0u, ws.count());
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_EQ(wsBytes, ws.lastMessage());
 
     ws.clear();
     ws.send(Json{{ "msg", "autoscenario" }, { "msg_id", "e41r" }});
-    pumpEventLoop();
-    EXPECT_EQ(0u, ws.count());
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_EQ(wsBytes, ws.lastMessage());
 }
 
 /* ✅ MOVED, and this is D7 in one case. A "steps" that is not an array used to

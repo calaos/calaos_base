@@ -25,9 +25,10 @@
  *      login   login_service   settings/change_cred   register_push
  *      get_mcp_info            eventlog               config/get
  *
- * plus every error path of both transports: the seven scope refusals, the
- * "unknown action" and "unkown audio_action" answers, the silences
- * (autoscenario, camera, settings, unknown msg, not logged in), the HTTP 400 on
+ * plus every error path of both transports: the EIGHT scope refusals (E4.6e
+ * added autoscenario), the "unknown action", "unkown audio_action" and
+ * "unknown autoscenario type" answers, the silences (camera, settings, unknown
+ * msg, not logged in), the HTTP 400 on
  * a rejected login, the HTTP 404 of event_picture, the JSON error paths of the
  * six binary (image/jpeg) operations, and the migration traps of E4.0.md:
  * invalid UTF-8, empty strings, very large integers, absent members,
@@ -95,9 +96,9 @@
  *    every eventlog case below sends an explicit numeric per_page.
  *  - the "unkown audio_action" and "unkown camera id" error strings are
  *    misspelled in production, on both transports.
- *  - autoscenario with an unknown or absent type answers NOTHING, on both
- *    transports, and over HTTP does not even close the connection: the client
- *    hangs until its own timeout.
+ *  - autoscenario with an unknown or absent type ANSWERS AN ERROR since E4.6e,
+ *    on both transports. It used to be silent, and over HTTP not even to close
+ *    the connection - the client hung until its own timeout.
  *  - processCamera() with a KNOWN camera id and an unknown "type" is silent for
  *    the same reason (no else branch), while an unknown id does answer.
  *  - settings with an unknown or absent "action" is silent too.
@@ -148,15 +149,15 @@ const char INVALID_UTF8_BYTES[] = { (char)0xff, (char)0x80, 'x', '\0' };
 //Everything the WS handler answers under a service scoped session
 //(JsonApiHandlerWS.cpp:159-221). SEVEN, not the eight E4.0.md announces.
 const char *const SCOPE_DENIED_MESSAGES[] =
-{ "set_param", "del_param", "audio_db", "set_timerange", "eventlog",
-  "register_push", "settings" };
+{ "set_param", "del_param", "audio_db", "set_timerange", "autoscenario",
+  "eventlog", "register_push", "settings" };
 
 //The commands a service scoped session is still allowed to run. Pinning this
 //list is what makes the one above meaningful: without the contrast, renaming a
 //guarded command in production would just move it into this set unnoticed.
 const char *const SCOPE_ALLOWED_MESSAGES[] =
 { "get_home", "get_state", "get_states", "query", "get_param", "set_state",
-  "get_playlist", "get_io", "audio", "get_timerange", "autoscenario" };
+  "get_playlist", "get_io", "audio", "get_timerange" };
 
 }
 
@@ -1448,10 +1449,10 @@ TEST_F(JsonApiSessionTest, ConfigIsHttpOnly)
 }
 
 /*******************************************************************************
- * The seven scope refusals, and the contrast that makes them meaningful
+ * The eight scope refusals, and the contrast that makes them meaningful
  ******************************************************************************/
 
-TEST_F(JsonApiSessionTest, ScopeDeniedAnswersTheSameShapeForTheSevenGuardedMessages)
+TEST_F(JsonApiSessionTest, ScopeDeniedAnswersTheSameShapeForTheEightGuardedMessages)
 {
     loadReferenceHouse();
 
@@ -1494,8 +1495,8 @@ TEST_F(JsonApiSessionTest, ScopeDoesNotDenyTheOtherMessages)
         ws.send(Json{{ "msg", msg }, { "msg_id", "sa" },
                      { "data", {{ "type", "list" }} }});
 
-        //autoscenario/list answers, the others answer their own payload; none
-        //of them is allowed to answer "scope denied".
+        //each answers its own payload; none is allowed to answer "scope
+        //denied".
         EXPECT_EQ(1u, ws.count()) << msg << " answered nothing";
         EXPECT_NE("scope denied", str(ws.lastData(), "error"))
                 << msg << " is refused although it is not in the guarded list";
@@ -1596,39 +1597,42 @@ TEST_F(JsonApiSessionTest, WsIgnoresEveryCommandBeforeLogin)
     }
 }
 
-TEST_F(JsonApiSessionTest, AutoscenarioWithAnUnknownTypeIsSilentOnBothTransports)
+TEST_F(JsonApiSessionTest, AutoscenarioWithAnUnknownTypeIsAnErrorOnBothTransports)
 {
-    //No else branch: JsonApiHandlerWS.cpp:474-491 and
-    //JsonApiHandlerHttp.cpp:880-897. Over HTTP the connection is not even
-    //closed, so the client waits for its own timeout.
+    //FLIPPED BY E4.6e (D8): both dispatchers have an else. This case pinned
+    //the silence, and over HTTP the connection that was not even closed.
     loadReferenceHouse();
 
     WsTestSession ws;
     ws.send(Json{{ "msg", "autoscenario" }, { "msg_id", "1" },
                  { "data", {{ "type", "no_such_type" }} }});
-    pumpEventLoop();
-    EXPECT_EQ(0u, ws.count());
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_EQ("unknown autoscenario type", str(ws.lastData(), "error"));
 
     HttpTestRequest req;
     req.send(authenticated(Json{{ "action", "autoscenario" },
                                 { "type", "no_such_type" }}));
-    EXPECT_EQ(0u, req.count());
-    EXPECT_TRUE(req.closes().empty())
-            << "the silent HTTP path does not even close the connection";
+    ASSERT_EQ(1u, req.count());
+    EXPECT_EQ("unknown autoscenario type", str(req.bodyJson(), "error"));
+    EXPECT_EQ("Close", req.header("Connection"))
+            << "the answer is what releases the socket";
 }
 
-TEST_F(JsonApiSessionTest, AutoscenarioWithoutATypeIsSilentOnBothTransports)
+TEST_F(JsonApiSessionTest, AutoscenarioWithoutATypeIsAnErrorOnBothTransports)
 {
+    //FLIPPED BY E4.6e (D8). Same else, reached by the other road: an absent
+    //member reads as "" and matches no branch.
     loadReferenceHouse();
 
     WsTestSession ws;
     ws.send(Json{{ "msg", "autoscenario" }, { "msg_id", "1" }});
-    pumpEventLoop();
-    EXPECT_EQ(0u, ws.count());
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_EQ("unknown autoscenario type", str(ws.lastData(), "error"));
 
     HttpTestRequest req;
     req.send(authenticated(Json{{ "action", "autoscenario" }}));
-    EXPECT_EQ(0u, req.count());
+    ASSERT_EQ(1u, req.count());
+    EXPECT_EQ("unknown autoscenario type", str(req.bodyJson(), "error"));
 }
 
 TEST_F(JsonApiSessionTest, CameraWithAKnownIdAndAnUnknownTypeIsSilent)

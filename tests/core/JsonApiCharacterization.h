@@ -161,9 +161,11 @@
  * KNOWN DIVERGENCES - FREEZE THEM, DO NOT FIX THEM
  * ---------------------------------------------------------------------------
  *   - audio_db expects "get_albums" over HTTP and "get_album" over WS.
- *   - autoscenario with an unknown "type" answers NOTHING AT ALL (no else
- *     branch, JsonApiHandlerWS.cpp:474-491, JsonApiHandlerHttp.cpp:883-896).
- *     Silence is observable behaviour: assert the message count is zero.
+ *   - autoscenario with an unknown "type" USED TO answer nothing at all, on
+ *     both transports, HTTP not even closing the socket. E4.6e (D8) gave both
+ *     dispatchers an else; the divergence is gone and the cases that pinned it
+ *     are flipped. Silence is still observable behaviour elsewhere in this
+ *     harness: assert the message count is zero.
  *   - buildQuery() tests jParam.Exists("id") but reads jParam["input_id"]
  *     (JsonApi.cpp:641-661).
  *   - the "unkown audio_action" error string is misspelled in production.
@@ -439,7 +441,7 @@ private:
  * Runs the default uvw loop in NOWAIT mode a few times. Needed after
  * EventManager::create() for the queued events to reach the WS sessions; a
  * no-op otherwise. Kept out of the sessions on purpose: a test that pins the
- * ABSENCE of a message (the autoscenario silence, the !loggedin gating) must
+ * ABSENCE of a message (the !loggedin gating, the camera silences) must
  * be able to pump and still observe nothing.
  ******************************************************************************/
 void pumpEventLoop(int iterations = 4);

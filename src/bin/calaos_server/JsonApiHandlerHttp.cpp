@@ -1069,8 +1069,10 @@ void JsonApiHandlerHttp::processEventLog()
  * of invalid UTF-8 by accident.
  * jsonStringGet() and not jroot["type"].get<string>(): jansson_string_get()
  * answered the DEFAULT on an absent member, on a member that is not a string
- * and on a non object root, and an unknown "type" answers NOTHING AT ALL
- * (frozen bug, E4.0c) - a throw here would be a 500 instead of a silence.
+ * and on a non object root, and all three now land in the else below - a
+ * throw here would be a 500 instead of that answer.
+ * E4.6e: the else. Without it this transport sent nothing AND closed nothing,
+ * so the client held the connection until its own timeout.
  */
 void JsonApiHandlerHttp::processAutoscenario(const Json &jroot)
 {
@@ -1093,6 +1095,8 @@ void JsonApiHandlerHttp::processAutoscenario(const Json &jroot)
     //REFUSE, which is why it is a command and not a set_param.
     else if (msg == "reenable")
         sendJson(buildAutoscenarioReenable(jroot));
+    else
+        sendJson({{ "error", "unknown autoscenario type" }});
 }
 
 void JsonApiHandlerHttp::processCamera()

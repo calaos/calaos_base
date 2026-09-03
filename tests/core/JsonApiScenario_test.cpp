@@ -55,17 +55,15 @@
  *    ROOT object. The same document sent to both does not address the same
  *    thing - and for autoscenario it does not even select the same
  *    sub-command, since "type" itself lives there.
- *  - set_timerange is refused to a service-scoped WS session; autoscenario,
- *    which creates, modifies and DELETES scenarios, is not gated at all. HTTP
- *    has no scope notion whatsoever.
+ *  - set_timerange and, since E4.6e, autoscenario are both refused to a
+ *    service-scoped WS session. HTTP has no scope notion whatsoever.
  *
  * ---------------------------------------------------------------------------
  * FROZEN BUGS - pinned on purpose, DO NOT FIX HERE
  * ---------------------------------------------------------------------------
- *  - autoscenario with an unknown (or missing) "type" answers NOTHING AT ALL,
- *    on both transports: there is no else branch. Already listed as a known
- *    divergence in JsonApiCharacterization.h; pinned here as a message count
- *    of zero.
+ *  - autoscenario with an unknown (or missing) "type" answered NOTHING AT ALL
+ *    on both transports until E4.6e gave each dispatcher an else. The cases
+ *    below now pin the error, not the silence.
  *  - set_timerange drops a range whose "day" is not in 1..7 without a word,
  *    and an empty "ranges" wipes every range of the IO (o->clear() runs first).
  ******************************************************************************/
@@ -857,12 +855,14 @@ TEST_F(JsonApiScenarioTest, SetTimerangeRaisesTimeRangeChangedAndScenarioChanged
     EXPECT_TRUE(sawEvent(types, "scenario_changed"));
 }
 
-TEST_F(JsonApiScenarioTest, SetTimerangeIsScopeDeniedButAutoscenarioIsNot)
+TEST_F(JsonApiScenarioTest, SetTimerangeAndAutoscenarioAreBothScopeDenied)
 {
-    //WS only (JsonApiHandlerWS.cpp:200-204). Frozen as it is, and the contrast
-    //is the point: set_timerange is gated for a service-scoped session while
-    //autoscenario - which creates, modifies and DELETES scenarios - is not
-    //gated at all. HTTP has no scope notion whatsoever.
+    //FLIPPED BY E4.6e (D8). This case pinned the asymmetry: set_timerange was
+    //gated for a service-scoped session while autoscenario - which creates,
+    //modifies and DELETES scenarios - was not gated at all. get_timerange is
+    //the contrast that keeps the pair meaningful: a READ of the same IO still
+    //goes through, so the gate is on the command and not on the session.
+    //HTTP has no scope notion whatsoever, here as everywhere.
     loadScenarioHouse();
 
     WsTestSession ws(true /*authenticated*/, true /*serviceScope*/);
@@ -880,7 +880,15 @@ TEST_F(JsonApiScenarioTest, SetTimerangeIsScopeDeniedButAutoscenarioIsNot)
     ws.clear();
     ws.send(wsRequest("autoscenario", Json{{ "type", "list" }}, "3"));
     ASSERT_EQ(1u, ws.count());
-    EXPECT_JSON_EQ(std::string(R"({"scenarios":[]})"), ws.lastData());
+    EXPECT_JSON_EQ(std::string(R"({"msg":"autoscenario","msg_id":"3",)"
+                               R"("data":{"error":"scope denied"}})"),
+                   ws.lastMessage());
+
+    //and the same list on a session that is not service scoped still answers
+    WsTestSession plain;
+    plain.send(wsRequest("autoscenario", Json{{ "type", "list" }}, "4"));
+    ASSERT_EQ(1u, plain.count());
+    EXPECT_JSON_EQ(std::string(R"({"scenarios":[]})"), plain.lastData());
 }
 
 /*******************************************************************************
@@ -1126,14 +1134,14 @@ TEST_F(JsonApiScenarioTest, AutoscenarioPayloadIsIdenticalOnBothTransports)
 }
 
 /*******************************************************************************
- * autoscenario with an unknown type: SILENCE
+ * autoscenario with an unknown type: AN ERROR since E4.6e (D8)
  *
- * Known divergence, already listed in JsonApiCharacterization.h. Neither
- * transport has an else branch, so the client waits for an answer that will
- * never come. Same shape of silence as processCamera() (found by T3.17d).
+ * Both dispatchers now have an else. Until then the client waited for an
+ * answer that never came - the same shape of silence processCamera() still
+ * has (found by T3.17d), which is why the camera cases are NOT flipped here.
  ******************************************************************************/
 
-TEST_F(JsonApiScenarioTest, WsAutoscenarioWithAnUnknownOrMissingTypeAnswersNothingAtAll)
+TEST_F(JsonApiScenarioTest, WsAutoscenarioWithAnUnknownOrMissingTypeIsAnError)
 {
     loadScenarioHouse();
 
@@ -1144,42 +1152,53 @@ TEST_F(JsonApiScenarioTest, WsAutoscenarioWithAnUnknownOrMissingTypeAnswersNothi
      * become a command; the hole itself is unchanged and still frozen here.
      */
     ws.send(wsRequest("autoscenario", Json{{ "type", "e40c_not_a_command" }}));
-    EXPECT_EQ(0u, ws.count()) << "expected silence, got: " << ws.lastMessage();
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_JSON_EQ(std::string(R"({"error":"unknown autoscenario type"})"), ws.lastData());
+    ws.clear();
 
-    //and the brand new sub-command DOES answer, on an unknown id like on any
-    //other autoscenario command: it is not part of the silence
+    //and a REAL sub-command still answers its own error, on an unknown id: the
+    //two refusals must not collapse into one
     ws.send(wsRequest("autoscenario", Json{{ "type", "reenable" }, { "id", "e40c_nope" }}));
-    EXPECT_EQ(1u, ws.count());
+    ASSERT_EQ(1u, ws.count());
     EXPECT_JSON_EQ(std::string(R"({"error":"wrong input"})"), ws.lastData());
     ws.clear();
 
     ws.send(wsRequest("autoscenario", Json{{ "type", "" }}));
-    EXPECT_EQ(0u, ws.count()) << "expected silence, got: " << ws.lastMessage();
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_JSON_EQ(std::string(R"({"error":"unknown autoscenario type"})"), ws.lastData());
+    ws.clear();
 
     ws.send(wsRequest("autoscenario", Json::object()));
-    EXPECT_EQ(0u, ws.count()) << "expected silence, got: " << ws.lastMessage();
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_JSON_EQ(std::string(R"({"error":"unknown autoscenario type"})"), ws.lastData());
+    ws.clear();
 
-    //no data member at all: jansson_string_get(nullptr, "type") answers ""
+    //no data member at all: jsonStringGet() answers "" and lands in the else
     ws.send(Json{{ "msg", "autoscenario" }, { "msg_id", "1" }});
-    EXPECT_EQ(0u, ws.count()) << "expected silence, got: " << ws.lastMessage();
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_JSON_EQ(std::string(R"({"error":"unknown autoscenario type"})"), ws.lastData());
+    ws.clear();
 
-    //and the silence survives a loop pump: nothing is queued, nothing is late
+    //nothing is queued behind the answers
     pumpEventLoop();
-    EXPECT_EQ(0u, ws.count()) << "expected silence, got: " << ws.lastMessage();
+    EXPECT_EQ(0u, ws.count()) << "late answer: " << ws.lastMessage();
 }
 
-TEST_F(JsonApiScenarioTest, HttpAutoscenarioWithAnUnknownTypeAnswersNothingAtAll)
+TEST_F(JsonApiScenarioTest, HttpAutoscenarioWithAnUnknownTypeIsAnError)
 {
-    //The HTTP side of the same hole, and it is worse there: the connection is
-    //left open with no response and no close (JsonApiHandlerHttp.cpp:880-896).
+    //The HTTP side of the same hole, and it was worse there: the connection
+    //was left open with no response and no close. E4.6e answers, and the
+    //answer is what releases the socket.
     loadScenarioHouse();
 
     //T3.18: the probe was "reenable", now a real sub-command. See the WS case.
     HttpTestRequest unknown;
     unknown.send(authenticated(Json{{ "action", "autoscenario" },
                                     { "type", "e40c_not_a_command" }}));
-    EXPECT_EQ(0u, unknown.count());
-    EXPECT_TRUE(unknown.closes().empty());
+    ASSERT_EQ(1u, unknown.count());
+    EXPECT_JSON_EQ(std::string(R"({"error":"unknown autoscenario type"})"),
+                   unknown.bodyJson());
+    EXPECT_EQ("Close", unknown.header("Connection"));
 
     /* T3.18 - the positive half, and it MUST be asserted on this transport too.
      * Request dispatch is per-transport code (this handler reads the ROOT
@@ -1194,12 +1213,14 @@ TEST_F(JsonApiScenarioTest, HttpAutoscenarioWithAnUnknownTypeAnswersNothingAtAll
     ASSERT_EQ(1u, reenable.count()) << "the HTTP dispatcher has no `reenable` branch";
     EXPECT_JSON_EQ(std::string(R"({"error":"wrong input"})"), reenable.bodyJson());
 
-    //A WS shaped request sent to HTTP falls in the very same hole: "type" is
-    //under "data", the root has none, and the server answers nothing.
+    //A WS shaped request sent to HTTP still addresses no sub-command - "type"
+    //is under "data" and the root has none - but it is answered now.
     HttpTestRequest wsShaped;
     wsShaped.send(authenticated(Json{{ "action", "autoscenario" },
                                      { "data", {{ "type", "list" }} }}));
-    EXPECT_EQ(0u, wsShaped.count());
+    ASSERT_EQ(1u, wsShaped.count());
+    EXPECT_JSON_EQ(std::string(R"({"error":"unknown autoscenario type"})"),
+                   wsShaped.bodyJson());
 }
 
 TEST_F(JsonApiScenarioTest, HttpAutoscenarioReenableRefusesAStillBrokenScenarioWithItsIds)

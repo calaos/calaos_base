@@ -35,14 +35,16 @@
  *     (audio / audio_action),
  *   - the error and silence paths are observable (unknown action, unknown
  *     autoscenario type, command before login),
+ *   - E4.6e: the autoscenario dispatch itself - routing, service scope and
+ *     unknown sub-commands - in a section of its own at the end of the file,
  *   - the HTTP transport is drivable with a real HttpClient built on an
  *     unconnected socket, headers included,
  *   - events are delivered once, and only once, the uvw loop is pumped.
  *
- * Everything here records the behaviour that exists today. Two cases pin what
- * are, unambiguously, production bugs (the autoscenario silence, the "unkown
- * audio_action" typo). They are frozen on purpose: fixing a behaviour while
- * characterizing it destroys the reference.
+ * Everything here records the behaviour that exists today. One case still pins
+ * what is, unambiguously, a production bug (the "unkown audio_action" typo),
+ * frozen on purpose: fixing a behaviour while characterizing it destroys the
+ * reference. The autoscenario silence was the second one; E4.6e flipped it.
  ******************************************************************************/
 
 #include "JsonApiCharacterization.h"
@@ -468,13 +470,12 @@ TEST_F(JsonApiCharacterizationTestSuite, WsAudioReachesItsSubDispatch)
                    ws.lastMessage());
 }
 
-TEST_F(JsonApiCharacterizationTestSuite, WsAutoscenarioWithUnknownTypeAnswersNothing)
+TEST_F(JsonApiCharacterizationTestSuite, WsAutoscenarioWithUnknownTypeIsAnError)
 {
-    //KNOWN BUG, FROZEN. processAutoscenario() has no else branch
-    //(JsonApiHandlerWS.cpp:474-491), so an unknown type gets no answer at all,
-    //not even an error. Silence is observable behaviour: the client waits
-    //forever. Pinned here so the migration cannot change it by accident; a fix
-    //belongs to a ticket of its own, after E4.1.
+    //FLIPPED BY E4.6e (D8). This case pinned the silence: no else branch, no
+    //answer, and a client waiting forever. The sub-dispatch now answers like
+    //the audio one two cases above, and the connection is not closed - an
+    //unknown sub-command is a bad request, not a broken session.
     loadReferenceHouse();
 
     WsTestSession ws;
@@ -482,10 +483,16 @@ TEST_F(JsonApiCharacterizationTestSuite, WsAutoscenarioWithUnknownTypeAnswersNot
                  { "msg_id", "8" },
                  { "data", {{ "type", "no_such_type" }} }});
 
-    pumpEventLoop();
-
-    EXPECT_EQ(0u, ws.count()) << "expected silence, got: " << ws.lastMessage();
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_JSON_EQ(std::string(R"({"msg":"autoscenario","msg_id":"8",)"
+                               R"("data":{"error":"unknown autoscenario type"}})"),
+                   ws.lastMessage());
     EXPECT_TRUE(ws.closes().empty());
+
+    //and nothing is queued behind it
+    ws.clear();
+    pumpEventLoop();
+    EXPECT_EQ(0u, ws.count()) << "late answer: " << ws.lastMessage();
 }
 
 TEST_F(JsonApiCharacterizationTestSuite, WsIgnoresEverythingBeforeLogin)
@@ -891,34 +898,43 @@ TEST_F(JsonApiAutoscenarioDispatchTest, TheHttpDispatcherRoutesTheSameEightSubCo
  ******************************************************************************/
 
 TEST_F(JsonApiAutoscenarioDispatchTest,
-       AServiceScopedSessionRunsEveryAutoscenarioSubCommand)
+       AServiceScopedSessionIsRefusedEveryAutoscenarioSubCommand)
 {
-    /* >>> TO FLIP (E4.6e, D8) <<<
-     * The asymmetry E4.0c measured: autoscenario is the one mutating command
-     * the serviceScope gate does not cover. Every sub-command reaches its
-     * builder for a scoped session; the answers differ, none of them is a
-     * refusal.
+    /* FLIPPED BY E4.6e (D8). The gate is on the message, not on the
+     * sub-command, so the eight are refused identically - the READ ones
+     * included, and that is the visible break: `list` and `get` answered a
+     * scoped session until now.
      */
     loadScenarioHouse();
 
     for (const char *type: AUTOSCENARIO_SUBCOMMANDS)
     {
         WsTestSession ws(true /*authenticated*/, true /*serviceScope*/);
-        ws.send(wsRequest(type, Json{{ "id", "e46e_no_such_scenario" }}));
+        ws.send(wsRequest(type, Json{{ "id", "e46e_no_such_scenario" }}, "sd"));
 
         ASSERT_EQ(1u, ws.count()) << type << " answered nothing";
-        EXPECT_NE("scope denied", str(ws.lastData(), "error"))
-                << type << " is refused to a service scoped session";
+        EXPECT_JSON_EQ(std::string(R"({"msg":"autoscenario","msg_id":"sd",)"
+                                   R"("data":{"error":"scope denied"}})"),
+                       ws.lastMessage()) << type;
+        EXPECT_TRUE(ws.closes().empty()) << type;
     }
+
+    //the contrast, and it is what makes the loop above mean anything: the same
+    //requests on a session that is not service scoped still reach the builders
+    WsTestSession plain;
+    plain.send(wsRequest("list"));
+    ASSERT_EQ(1u, plain.count());
+    EXPECT_NE("scope denied", str(plain.lastData(), "error"));
 }
 
 TEST_F(JsonApiAutoscenarioDispatchTest,
-       AServiceScopedSessionCanDestroyTheScenarioItMayNotSchedule)
+       AServiceScopedSessionIsRefusedBothTheScheduleAndTheScenario)
 {
-    /* >>> TO FLIP (E4.6e, D8) <<<
-     * The measurement that makes D8 a decision rather than a taste: the SAME
-     * session, in the SAME state, is refused the time range of the scenario's
-     * schedule and allowed to delete the scenario, its schedule included.
+    /* FLIPPED BY E4.6e (D8). The measurement that made D8 a decision rather
+     * than a taste: the SAME session, in the SAME state, was refused the time
+     * range of the scenario's schedule and allowed to delete the scenario that
+     * owns it. Both halves are now refused, and the refusal is a real one -
+     * the scenario and its schedule are still there afterwards.
      */
     loadScenarioHouse();
 
@@ -942,11 +958,13 @@ TEST_F(JsonApiAutoscenarioDispatchTest,
                    scoped.lastMessage());
 
     scoped.clear();
-    scoped.send(wsRequest("delete", Json{{ "id", sid }}));
+    scoped.send(wsRequest("delete", Json{{ "id", sid }}, "2"));
     ASSERT_EQ(1u, scoped.count());
-    EXPECT_JSON_EQ(std::string(R"({"success":"true"})"), scoped.lastData());
-    EXPECT_FALSE(ioExists(sid)) << "the scoped session really destroyed it";
-    EXPECT_FALSE(ioExists(scheduleId));
+    EXPECT_JSON_EQ(std::string(R"({"msg":"autoscenario","msg_id":"2",)"
+                               R"("data":{"error":"scope denied"}})"),
+                   scoped.lastMessage());
+    EXPECT_TRUE(ioExists(sid)) << "the refusal has to be a refusal, not a message";
+    EXPECT_TRUE(ioExists(scheduleId));
 }
 
 /*******************************************************************************
@@ -954,64 +972,73 @@ TEST_F(JsonApiAutoscenarioDispatchTest,
  ******************************************************************************/
 
 TEST_F(JsonApiAutoscenarioDispatchTest,
-       WsAutoscenarioWithAnUnknownOrAbsentTypeAnswersNothing)
+       WsAutoscenarioWithAnUnknownOrAbsentTypeIsAnError)
 {
-    /* >>> TO FLIP (E4.6e, D8) <<<
-     * Four shapes of "no branch matches", all silent today: an unknown type,
-     * an empty one, an absent one, and no "data" member at all.
+    /* FLIPPED BY E4.6e (D8). Four shapes of "no branch matches", all silent
+     * before this ticket and all answered now: an unknown type, an empty one,
+     * an absent one, and no "data" member at all. The last two matter as much
+     * as the first: jsonStringGet() answers "" for both, so a client that
+     * simply forgot the member used to get nothing back either.
      */
     loadScenarioHouse();
+
+    const Json expected = Json{{ "error", "unknown autoscenario type" }};
 
     WsTestSession ws;
 
-    ws.send(wsRequest("e46e_not_a_command"));
-    EXPECT_EQ(0u, ws.count()) << "expected silence, got: " << ws.lastMessage();
+    for (const Json &request: { wsRequest("e46e_not_a_command"),
+                                wsRequest("", Json{{ "type", "" }}),
+                                wsRequest(""),
+                                Json{{ "msg", "autoscenario" }, { "msg_id", "1" }} })
+    {
+        ws.clear();
+        ws.send(request);
+        ASSERT_EQ(1u, ws.count()) << request.dump();
+        EXPECT_JSON_EQ(expected, ws.lastData()) << request.dump();
+        EXPECT_TRUE(ws.closes().empty()) << request.dump();
+    }
 
-    ws.send(wsRequest("", Json{{ "type", "" }}));
-    EXPECT_EQ(0u, ws.count()) << "expected silence, got: " << ws.lastMessage();
-
-    ws.send(wsRequest(""));
-    EXPECT_EQ(0u, ws.count()) << "expected silence, got: " << ws.lastMessage();
-
-    ws.send(Json{{ "msg", "autoscenario" }, { "msg_id", "1" }});
-    EXPECT_EQ(0u, ws.count()) << "expected silence, got: " << ws.lastMessage();
-
-    //and the silence is not a late answer
+    //nothing is queued behind the answers
+    ws.clear();
     pumpEventLoop();
-    EXPECT_EQ(0u, ws.count()) << "expected silence, got: " << ws.lastMessage();
-    EXPECT_TRUE(ws.closes().empty());
+    EXPECT_EQ(0u, ws.count()) << "late answer: " << ws.lastMessage();
 }
 
 TEST_F(JsonApiAutoscenarioDispatchTest,
-       HttpAutoscenarioWithAnUnknownTypeLeavesTheSocketOpen)
+       HttpAutoscenarioWithAnUnknownTypeAnswersAndReleasesTheSocket)
 {
-    /* >>> TO FLIP (E4.6e, D8) <<<
-     * The HTTP half, and it is the worse one: no response AND no close, so the
-     * client holds the connection until its own timeout fires. Both halves are
-     * asserted - a fix that answered but forgot the socket, or closed without
-     * answering, has to move both.
+    /* FLIPPED BY E4.6e (D8), and this was the worse half: no response AND no
+     * close, so the client held the connection until its own timeout fired.
+     * The response itself is what releases it - "Connection: Close" plus a
+     * body, exactly like every other error of this transport - so the header
+     * is asserted here and not only the payload.
      */
     loadScenarioHouse();
+
+    const Json expected = Json{{ "error", "unknown autoscenario type" }};
 
     {
         HttpTestRequest unknown;
         unknown.send(httpRequest("e46e_not_a_command"));
-        EXPECT_EQ(0u, unknown.count());
-        EXPECT_TRUE(unknown.closes().empty());
+        ASSERT_EQ(1u, unknown.count());
+        EXPECT_EQ("HTTP/1.0 200 OK", unknown.statusLine());
+        EXPECT_EQ("Close", unknown.header("Connection"));
+        EXPECT_JSON_EQ(expected, unknown.bodyJson());
     }
     {
         HttpTestRequest absent;
         absent.send(httpRequest(""));
-        EXPECT_EQ(0u, absent.count());
-        EXPECT_TRUE(absent.closes().empty());
+        ASSERT_EQ(1u, absent.count());
+        EXPECT_JSON_EQ(expected, absent.bodyJson());
     }
     {
-        //A WS shaped request sent to HTTP falls in the same hole: "type" lives
-        //under "data" and this dispatcher reads the root.
+        //A WS shaped request sent to HTTP still addresses nothing - "type"
+        //lives under "data" and this dispatcher reads the root - but it is
+        //answered instead of hanging.
         HttpTestRequest wsShaped;
         wsShaped.send(authenticated(Json{{ "action", "autoscenario" },
                                          { "data", {{ "type", "list" }} }}));
-        EXPECT_EQ(0u, wsShaped.count());
-        EXPECT_TRUE(wsShaped.closes().empty());
+        ASSERT_EQ(1u, wsShaped.count());
+        EXPECT_JSON_EQ(expected, wsShaped.bodyJson());
     }
 }

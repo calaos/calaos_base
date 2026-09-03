@@ -266,7 +266,7 @@ void CoreFixture::clearCoreState()
      * step ids a scenario is given depend on how many cases ran before, and
      * every golden carrying one becomes order dependent.
      */
-    AutoScenarioDef::resetIdAllocators();
+    AutoScenarioDef::resetIdAllocatorsForTests();
 }
 
 void CoreFixture::forgetIOState(const std::string &id)

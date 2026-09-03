@@ -198,14 +198,16 @@ public:
     static void observeStepId(const std::string &stepId);
 
     /* Back to the state a freshly started process is in. The counters are
-     * process wide and never recycle, so a caller that drops the whole
-     * configuration and loads another one - which is what a restart does, and
-     * what the test harness does many times in one process - has to say so, or
-     * the ids it hands out depend on what was loaded before.
+     * process wide and never recycle, so a harness that drops the whole
+     * configuration and loads another one many times in one process has to say
+     * so, or the ids it hands out depend on what ran before.
      * Loading folds every id it reads back into the counters, so this can
      * never make an existing id be handed out twice.
+     * ForTests, and it is not decoration: production has exactly one way to
+     * get here, a restart, and a production caller resetting the counters
+     * under a live configuration is what makes an opaque id ambiguous.
      */
-    static void resetIdAllocators();
+    static void resetIdAllocatorsForTests();
 
     /* Load from the params of a Scenario IO. Answers false - and leaves the
      * definition untouched - when KEY_UID is absent, i.e. when this IO carries
