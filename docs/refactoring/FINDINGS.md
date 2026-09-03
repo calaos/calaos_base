@@ -4940,12 +4940,6 @@ script **rend 0**. Le chiffre de 11 ne comptait que `test_auth.py`.
 exécutés** à chaque passe, jamais le seul code de sortie. Et le correctif de fond est d'installer
 `pytest` dans l'image, ou de faire de son absence un **SKIP explicite (77)** par fichier plutôt
 qu'un silence. Hors périmètre de `T3.25` ; **aucun** des 19 ne touche `from_string`.
-
-⭐ **Recoupement de la revue de [`T3.39`](T3.39.md)** : les **11** cas de `test_auth.py` sont
-exactement ceux du throttle du sidecar MCP, donc du modèle de menace de `F-MCP-XFF-1`. Le trou de
-`/mcp` a donc vécu tout ce temps sans qu'aucune mesure Python ne tourne dessus. Rejoués à la main
-sous un venv avec les vraies dépendances : **11 passent** — le code était bon, c'est la *mesure*
-qui manquait.
 ---
 
 ## T3.37 — l'extraction du parseur de chemin JSON (2026-08-25)
@@ -5540,8 +5534,7 @@ rapport à la CI » ; la CI est plus vide encore, et son silence est du bon type
 
 ⭐ **Corollaire, plus lourd que le défaut initial et NON corrigé : les 42 cas Python ne tournent sur
 AUCUNE machine de CI.** `test_auth.py` — les 11 cas du throttle MCP, le filet de la fiche `F-MCP-XFF-1`
-ouverte par la revue de [T3.39](T3.39.md) (numérotée `T3.42` dans `.wave54/t3.39`, non mergée —
-⚠️ vérifier son numéro au merge, la série en a renuméroté une cette nuit) — n'a jamais été exécuté
+ouverte par la revue de [T3.39](T3.39.md), fiche [T3.42](T3.42.md) — n'a jamais été exécuté
 par un `push`. Le remède tient en une ligne d'`apt` dans
 `ci.yml`, **propriété de `T0.1`** : à ticketer à part.
 
