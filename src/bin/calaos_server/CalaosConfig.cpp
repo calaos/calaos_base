@@ -520,7 +520,7 @@ void Config::loadStateCache()
 
         for (Json::iterator it = jparams.begin(); it != jparams.end(); ++it)
         {
-            cache_params[it.key()] = Params::fromNJson(it.value());
+            cache_params[it.key()] = Params::fromJson(it.value());
         }
     }
     catch (const std::exception &e)
@@ -543,7 +543,7 @@ void Config::saveStateCache()
     Json jparams;
     for (auto it = cache_params.begin();it != cache_params.end(); it++)
     {
-        jparams[it->first] = it->second.toNJson();
+        jparams[it->first] = it->second.toJson();
     }
 
     Json jcache({{ "iostates", cache_states },

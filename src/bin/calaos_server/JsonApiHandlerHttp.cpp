@@ -898,7 +898,7 @@ void JsonApiHandlerHttp::processAudio(const Json &jdataDoc)
         if (!err.empty())
         {
             Params p = {{"error", err }};
-            sendJson(p.toNJson());
+            sendJson(p.toJson());
             return;
         }
 

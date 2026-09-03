@@ -32,7 +32,7 @@ namespace
  * through Utils::to_string(double), anything else is recorded as an empty
  * string, every key present is recorded, and NOTHING EVER THROWS. The natural
  * nlohmann shortcut - assigning a Json straight into a std::string, the way
- * Params::fromNJson() does - throws type_error.302 on a non-string value, from
+ * Params::fromJson() does - throws type_error.302 on a non-string value, from
  * inside processNewMessage(), which has no handler above it: a subprocess
  * sending {"value":{"eis":13}} would take the server down.
  *
@@ -148,7 +148,7 @@ Json KNXValue::toJson() const
                 {"value_float", Utils::to_string(value_float)},
                 {"value_char", Utils::to_string(value_char)},
                 {"value_string", value_string}};
-    return p.toNJson();
+    return p.toJson();
 }
 
 KNXValue KNXValue::fromJson(const Json &jval)
@@ -358,7 +358,7 @@ string knxWriteMessage(const string &group_addr, const KNXValue &value)
     Params p = {{"type", "write"},
                 {"group_addr", group_addr}};
 
-    Json jroot = p.toNJson();
+    Json jroot = p.toJson();
     jroot["value"] = value.toJson();
 
     return jroot.dump(-1, ' ', true, Json::error_handler_t::replace);
@@ -370,7 +370,7 @@ string knxReadMessage(const string &group_addr, int eis)
                 {"group_addr", group_addr},
                 {"eis", Utils::to_string(eis)}};
 
-    return p.toNJson().dump(-1, ' ', true, Json::error_handler_t::replace);
+    return p.toJson().dump(-1, ' ', true, Json::error_handler_t::replace);
 }
 
 void KNXCtrl::writeValue(const string &group_addr, const KNXValue &value)

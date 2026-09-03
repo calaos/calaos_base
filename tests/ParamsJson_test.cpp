@@ -114,7 +114,7 @@ TEST(ParamsJson, Tripwire_TheWireIsFormThreeAndNotABareDump)
     p.Add("k_accent", "\xc3\xa9");                      //e acute, U+00E9
     p.Add("k_ctrl", std::string("a\x1f") + "b\x01" + "c"); //U+001F then U+0001
 
-    Json jn = p.toNJson();
+    Json jn = p.toJson();
 
     //The bare dump: raw UTF-8, no escape at all. Kept as the CONTRAST, so that
     //"the wire moved" cannot be confused with "the wire moved to the right
@@ -183,10 +183,10 @@ TEST(ParamsJson, Params_IterationIsAlphabeticalNotInsertionOrder)
  * The serialized face of Params
  ******************************************************************************/
 
-TEST(ParamsJson, ToNJson_IsAnObjectOfStringsWithTheSameMapping)
+TEST(ParamsJson, ToJson_IsAnObjectOfStringsWithTheSameMapping)
 {
     Params p = richFixture();
-    Json j = p.toNJson();
+    Json j = p.toJson();
     ASSERT_TRUE(j.is_object());
     EXPECT_EQ(8u, j.size());
 
@@ -210,19 +210,19 @@ TEST(ParamsJson, ToNJson_IsAnObjectOfStringsWithTheSameMapping)
     EXPECT_FALSE(j.contains("v_zulu"));
 }
 
-TEST(ParamsJson, ToNJson_EmptyParamsIsAnEmptyObjectNotNull)
+TEST(ParamsJson, ToJson_EmptyParamsIsAnEmptyObjectNotNull)
 {
     Params p;
-    Json j = p.toNJson();
+    Json j = p.toJson();
     EXPECT_TRUE(j.is_object()) << "an empty Params no longer answers {}";
     EXPECT_FALSE(j.is_null());
     EXPECT_TRUE(j.empty());
 }
 
-TEST(ParamsJson, FromNJson_RoundTripsToNJson)
+TEST(ParamsJson, FromJson_RoundTripsToJson)
 {
     Params src = richFixture();
-    Params back = Params::fromNJson(src.toNJson());
+    Params back = Params::fromJson(src.toJson());
 
     ASSERT_EQ(src.size(), back.size());
     for (int i = 0; i < src.size(); i++)
@@ -235,7 +235,7 @@ TEST(ParamsJson, FromNJson_RoundTripsToNJson)
     }
 }
 
-TEST(ParamsJson, FromNJson_ThrowsTypeError302OnANonStringValue)
+TEST(ParamsJson, FromJson_ThrowsTypeError302OnANonStringValue)
 {
     /* Config::readStateCache() (CalaosConfig.cpp:504-529) wraps the whole
      * deserialization in a try/catch precisely because of this: a cache that
@@ -246,16 +246,16 @@ TEST(ParamsJson, FromNJson_ThrowsTypeError302OnANonStringValue)
     bool threw = false;
     try
     {
-        Params::fromNJson(j);
+        Params::fromJson(j);
     }
     catch (const nlohmann::json::type_error &e)
     {
         threw = true;
-        EXPECT_EQ(302, e.id) << "fromNJson threw, but not type_error.302: "
+        EXPECT_EQ(302, e.id) << "fromJson threw, but not type_error.302: "
                              << e.what();
     }
     EXPECT_TRUE(threw)
-            << "fromNJson now coerces a non-string value - the guard of "
+            << "fromJson now coerces a non-string value - the guard of "
                "Config::readStateCache() has lost its reason to exist";
 }
 
@@ -268,7 +268,7 @@ TEST(ParamsJson, Utf8_AnInvalidUtf8ValueIsKeptInTheTreeNotDropped)
     p.Add("k_alpha", "v_alpha");
     p.Add("k_bad", std::string(INVALID_UTF8_BYTES));
 
-    Json jn = p.toNJson();
+    Json jn = p.toJson();
     EXPECT_EQ(2u, jn.size()) << "the invalid-UTF-8 pair was dropped";
     EXPECT_EQ(std::string(INVALID_UTF8_BYTES), jn.value("k_bad", std::string()));
 }
@@ -284,7 +284,7 @@ TEST(ParamsJson, Utf8_NlohmannDumpThrows316AndTheReplaceHandlerYieldsFffd)
     Params p;
     p.Add("k_alpha", "v_alpha");
     p.Add("k_bad", std::string(INVALID_UTF8_BYTES));
-    Json j = p.toNJson();
+    Json j = p.toJson();
 
     bool threw = false;
     try

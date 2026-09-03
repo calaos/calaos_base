@@ -139,7 +139,7 @@ inline std::string buildDataMessage(const std::string &msg_type, const Params &p
 {
     Json jroot;
     jroot["msg"] = msg_type;
-    jroot["data"] = param.toNJson();
+    jroot["data"] = param.toJson();
 
     return dumpJson(jroot);
 }
@@ -199,7 +199,7 @@ inline std::string buildFinishedMessage(bool return_val)
     Params pret = {{ "msg", "finished" },
                    { "return_val", return_val?"true":"false" }};
 
-    return dumpJson(pret.toNJson());
+    return dumpJson(pret.toJson());
 }
 
 /*******************************************************************************
@@ -258,7 +258,7 @@ inline std::string stringGet(const Json &j, const std::string &key,
  * last clause matters downstream: an absent key and a key at "" are not the
  * same thing.
  *
- * Params::fromNJson() is NOT a substitute, measured: it assigns the json value
+ * Params::fromJson() is NOT a substitute, measured: it assigns the json value
  * straight into a std::string, which throws type_error.302 on anything that is
  * not a JSON string - and every IO of a real "execute" context carries a
  * boolean and a number. A tripwire in the test pins that.

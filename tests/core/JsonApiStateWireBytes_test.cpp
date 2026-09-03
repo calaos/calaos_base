@@ -529,7 +529,7 @@ TEST_F(JsonApiStateWireBytesTest, GetStatesKeepsThePairOnInvalidUtf8AsReplacemen
     const std::string wire = req.body();
 
     EXPECT_NE(std::string::npos, keyPos(wire, "zulu"))
-            << "Params::toNJson() keeps what jansson_from_params() dropped in "
+            << "Params::toJson() keeps what jansson_from_params() dropped in "
                "silence. DELTA 3: " << wire;
     EXPECT_NE(std::string::npos, keyPos(wire, "alpha")) << wire;
     EXPECT_EQ(2u, occurrences(wire, ASCII_FFFD)) << wire;

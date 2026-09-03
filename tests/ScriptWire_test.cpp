@@ -908,20 +908,20 @@ TEST(ScriptWire, FlatteningANonObjectAddsNothing)
 }
 
 /*
- * TRIPWIRE - Params::fromNJson() is NOT a substitute for this contract, and
+ * TRIPWIRE - Params::fromJson() is NOT a substitute for this contract, and
  * this case is what stops a later reader from "simplifying" the hand written
- * decoder into it. fromNJson() assigns the json value straight into a
+ * decoder into it. fromJson() assigns the json value straight into a
  * std::string, which throws type_error.302 on anything that is not a JSON
  * string - and the real context of an "execute" message carries a boolean and
  * a number on EVERY IO.
  */
-TEST(ScriptWire, Tripwire_ParamsFromNJsonWouldThrowOnARealContextEntry)
+TEST(ScriptWire, Tripwire_ParamsFromJsonWouldThrowOnARealContextEntry)
 {
     const Json io = Json::parse("{\"id\":\"io_kitchen_light\",\"state\":true,\"delay\":18.5}",
                                 nullptr, false);
     ASSERT_FALSE(io.is_discarded());
 
-    EXPECT_THROW(Params::fromNJson(io), Json::type_error);
+    EXPECT_THROW(Params::fromJson(io), Json::type_error);
 
     //while the wire decoder swallows exactly the same document
     Params p;

@@ -406,7 +406,7 @@ protected:
         p.Add("id", PLAYER_ID);
         for (auto it = extra.begin(); it != extra.end(); ++it)
             p.Add(it.key(), it.value().get<std::string>());
-        return p.toNJson();
+        return p.toJson();
     }
 
     /***************************************************************************
@@ -786,7 +786,7 @@ TEST_F(JsonApiMusicDbTest, DeferredTrackInfosAnswerStillReachesALiveClient)
  * measure it ABSENT here too, for the same reason: not one of the fifteen
  * callback bodies names `player`. Fourteen of them are
  * `result_lambda(processDbResult(data))` and the fifteenth is
- * `result_lambda(data.params.toNJson())` - a [=] capture default only captures
+ * `result_lambda(data.params.toJson())` - a [=] capture default only captures
  * what the body odr-uses, so the pointer is never even captured. The player,
  * and its AudioDB member, are dereferenced exactly once, synchronously, BEFORE
  * the request goes out.

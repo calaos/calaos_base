@@ -160,9 +160,9 @@ Json IODoc::genDocJson()
         //Params is a map<string,string>: every value published here is a JSON
         //STRING, min/max/default of an int or a float included. Typing them
         //would break the type-strict oracle of the test suite (3 != "3").
-        Json jparam = it.second.toNJson();
+        Json jparam = it.second.toJson();
         if (typeFromString(it.second["type"]) == TYPE_LIST)
-            jparam["list_value"] = param_list_value[it.second["name"]].toNJson();
+            jparam["list_value"] = param_list_value[it.second["name"]].toJson();
         array.push_back(jparam);
     }
     ret["parameters"] = array;
@@ -170,14 +170,14 @@ Json IODoc::genDocJson()
     array = Json::array();
     for (const auto &it : m_conditions)
     {
-        array.push_back(it.second.toNJson());
+        array.push_back(it.second.toJson());
     }
     ret["conditions"] = array;
 
     array = Json::array();
     for (const auto &it : m_actions)
     {
-        array.push_back(it.second.toNJson());
+        array.push_back(it.second.toJson());
     }
     ret["actions"] = array;
 

@@ -220,7 +220,7 @@ Json CalaosEvent::toJson() const
         { "event_raw", toString() },
         { "type", Utils::to_string(getType()) },
         { "type_str", typeToString(getType()) },
-        { "data", evParams.toNJson() }
+        { "data", evParams.toJson() }
     };
 }
 

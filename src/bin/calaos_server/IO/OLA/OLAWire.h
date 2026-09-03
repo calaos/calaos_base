@@ -235,7 +235,7 @@ struct ChannelValue
  * significant digits and flips to scientific notation, frozen on purpose - and
  * ANY OTHER TYPE (object, array, null) the EMPTY STRING.
  *
- * Params::fromNJson() is not a substitute: it assigns the json value straight
+ * Params::fromJson() is not a substitute: it assigns the json value straight
  * into a std::string and throws type_error.302 on anything that is not a
  * string - which is EVERY entry of this wire, since they are all integers.
  */

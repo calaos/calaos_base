@@ -35,7 +35,7 @@
  *    are called directly. Everything about the "value" sub-document - which
  *    keys exist, which field lands in which key, how each field is rendered -
  *    is genuinely under test.
- *  - Params::toNJson() (through the seam below, after the port) is production
+ *  - Params::toJson() (through the seam below, after the port) is production
  *    code too, and so is the dump form.
  *  - The envelope builders knxWriteMessage() and knxReadMessage() (declared
  *    in KNXCtrl.h) ARE production code and are called directly.
@@ -405,7 +405,7 @@ TEST(KNXCtrlWire, ValueCharAboveAsciiExactBytes_DECLARED_DELTA)
  * 5. Decoding what a peer may send. jansson_decode_object() accepts strings,
  *    booleans and numbers, stringifies the last two, records every other type
  *    as an empty string, and never throws. nlohmann's natural equivalent -
- *    assigning a Json straight into a std::string, the way Params::fromNJson
+ *    assigning a Json straight into a std::string, the way Params::fromJson
  *    does - THROWS type_error.302 on a non-string, from inside a
  *    messageReceived() that has no handler above it. These cases are what
  *    forces the port to keep the tolerant, non-throwing shape.

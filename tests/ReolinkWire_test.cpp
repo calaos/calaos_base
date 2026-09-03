@@ -365,7 +365,7 @@ TEST(ReolinkWire, InvalidUtf8InAParamDoesNotAbortTheEmission)
  * jansson_decode_object() flattens EVERYTHING into strings: string as is,
  * boolean as "true"/"false", any number through Utils::to_string(double), and
  * ANY OTHER TYPE (object, array, null) into the EMPTY STRING with the key
- * still added. Params::fromNJson() does none of that - see the tripwire at
+ * still added. Params::fromJson() does none of that - see the tripwire at
  * the end of this file - so the migration keeps this contract by hand.
  ******************************************************************************/
 
@@ -550,33 +550,33 @@ TEST(ReolinkWire, DuplicateKeysKeepTheLastOccurrence)
  * TRIPWIRE
  ******************************************************************************/
 
-//WHY THE DECODER IS WRITTEN BY HAND AND NOT AS Params::fromNJson().
+//WHY THE DECODER IS WRITTEN BY HAND AND NOT AS Params::fromJson().
 //
-//Params::fromNJson() assigns each json value straight into a std::string,
+//Params::fromJson() assigns each json value straight into a std::string,
 //which for anything that is not a JSON string throws type_error.302. Every
 //real detection event of ExternProcReolink_main.py carries "channel" (int),
 //"tcp_push_active" (bool) and "callback_duration" (float); the health answer
-//carries two nested objects. Substituting fromNJson() for the flattening
+//carries two nested objects. Substituting fromJson() for the flattening
 //decoder would therefore throw on EVERY camera event, inside an ExternProc
 //callback with no try/catch on the path - std::terminate, driver dead.
 //
 //This case exists so that the next reader who reaches for the "obvious"
 //simplification is told, in one red line, what it costs.
-TEST(ReolinkWire, Tripwire_ParamsFromNJsonIsNotASubstituteForThisDecoder)
+TEST(ReolinkWire, Tripwire_ParamsFromJsonIsNotASubstituteForThisDecoder)
 {
     const Json j = Json::parse(PY_DETECTION_EVENT, nullptr, false);
     ASSERT_FALSE(j.is_discarded());
     ASSERT_TRUE(j.contains("channel"));
 
-    EXPECT_THROW(Params::fromNJson(j), Json::exception)
-            << "Params::fromNJson() stopped throwing on a non-string value: "
+    EXPECT_THROW(Params::fromJson(j), Json::exception)
+            << "Params::fromJson() stopped throwing on a non-string value: "
                "re-measure its contract against jansson_decode_object() before "
                "substituting it here";
 
     //an all-string payload is the ONE case where the two agree
     const Json allStrings = Json::parse("{\"event\":\"detection\","
                                         "\"hostname\":\"h-cam\"}", nullptr, false);
-    Params p = Params::fromNJson(allStrings);
+    Params p = Params::fromJson(allStrings);
     EXPECT_EQ("detection", p["event"]);
     EXPECT_EQ("h-cam", p["hostname"]);
 }

@@ -78,11 +78,11 @@ public:
     void Parse(string str);
 
     string toString() const;
-    Json toNJson() const;
+    Json toJson() const;
 
     void clear() { params.clear(); }
 
-    static Params fromNJson(const Json &j);
+    static Params fromJson(const Json &j);
 };
 
 #endif

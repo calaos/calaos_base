@@ -34,7 +34,7 @@ extern "C" {
  * KNXValue::fromJson). A string stays a string, a boolean becomes
  * "true"/"false", a number goes through Utils::to_string(double), anything else
  * is recorded as an empty string, and NOTHING EVER THROWS - assigning a Json
- * straight into a std::string, the way Params::fromNJson() does, throws
+ * straight into a std::string, the way Params::fromJson() does, throws
  * type_error.302 on a non-string, from inside messageReceived(), which has no
  * handler above it.
  */
@@ -113,7 +113,7 @@ inline string knxEventMessage(const string &group_addr, const string &knx_type,
                 {"group_addr", group_addr},
                 {"knx_type", knx_type}};
 
-    Json j = p.toNJson();
+    Json j = p.toJson();
     if (printValue)
         j["value"] = value.toJson();
 
@@ -124,7 +124,7 @@ inline string knxDisconnectedMessage()
 {
     Params p = {{"type", "disconnected"}};
 
-    return p.toNJson().dump(-1, ' ', true, Json::error_handler_t::replace);
+    return p.toJson().dump(-1, ' ', true, Json::error_handler_t::replace);
 }
 
 class KnxdObj

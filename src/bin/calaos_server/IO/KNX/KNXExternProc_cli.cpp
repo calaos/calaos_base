@@ -498,7 +498,7 @@ Json KNXValue::toJson() const
                 {"value_float", Utils::to_string(value_float)},
                 {"value_char", Utils::to_string(value_char)},
                 {"value_string", value_string}};
-    return p.toNJson();
+    return p.toJson();
 }
 
 KNXValue KNXValue::fromJson(const Json &jval)

@@ -1146,7 +1146,7 @@ TEST_F(JsonApiScenarioWireBytesTest, RoomNameAndRoomTypeAreNotInterchangeable)
 
 /* INVARIANT. Refusal (4), the ONLY refusal of the family whose text is not a
  * literal: it names the ids that no longer resolve. It goes out through
- * Params::toNJson() after the migration instead of jansson_from_params(), and
+ * Params::toJson() after the migration instead of jansson_from_params(), and
  * it is therefore the one refusal of this perimeter whose bytes depend on
  * CONFIGURATION DATA - the realistic poison channel of a refusal.
  */

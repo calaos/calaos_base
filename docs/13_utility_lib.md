@@ -264,9 +264,8 @@ p.clear();
 p.get_item(i, key, value);    //accès indexé
 
 std::string s = p.toString();
-json_t *j = p.toJson();       //jansson
-Json nj = p.toNJson();        //nlohmann
-Params q = Params::fromNJson(nj);
+Json j = p.toJson();
+Params q = Params::fromJson(j);
 ```
 
 ⚠️ **`Params` n'expose ni `begin()` ni `end()`** : un `for (auto &pair : p)` ne compile pas. Le
@@ -710,17 +709,13 @@ les répertoires : `binDirectoryGet()`, `libDirectoryGet()`, `dataDirectoryGet()
 
 ## Ponts JSON
 
-**Fichiers :** [src/lib/Jansson_Addition.h](../src/lib/Jansson_Addition.h),
-[src/lib/Json_Addition.h](../src/lib/Json_Addition.h)
+**Fichiers :** [src/lib/Json_Addition.h](../src/lib/Json_Addition.h)
 
-Deux bibliothèques JSON **cohabitent** dans l'arbre, et ce n'est pas un état transitoire non
-documenté : le chemin de l'API (`JsonApi.cpp`) est en **jansson**, tandis que le cache d'état et
-`eventlog` sont en **nlohmann**. `Params` sait sérialiser vers les deux — `toJson()` renvoie un
-`json_t *`, `toNJson()` un `Json` (dérivé, `src/lib/Params.h:68-69`).
+Une seule bibliothèque JSON dans l'arbre : `nlohmann::json`, vendorisée en
+`src/lib/json.hpp` et aliasée `Json`. `Params` sérialise vers elle et depuis elle —
+`toJson()` renvoie un `Json`, `Params::fromJson()` reconstruit un `Params`
+(dérivé, `src/lib/Params.h:60-64`).
 
-- `Jansson_Addition.h` — accesseurs typés tolérants au-dessus de jansson
-  (`jansson_bool_get()`, `jansson_string_get()`…), qui renvoient une valeur par défaut au lieu de
-  déréférencer un `json_t *` nul (dérivé, `src/lib/Jansson_Addition.h:29-39`).
 - `Json_Addition.h` — un `adl_serializer` nlohmann pour `std::optional<T>` : `nullopt` sérialise
   en `null` et réciproquement (dérivé, `src/lib/Json_Addition.h:24-41`).
 
@@ -768,5 +763,5 @@ Toutes sont déclarées dans [src/lib/Makefile.am](../src/lib/Makefile.am) (dér
 
 **Retirée :** TinyXML 2.5.3 + TinyXPath (E4.4e) — 14 242 lignes, deux CVE, remplacée par pugixml.
 
-**Dépendances système** (non embarquées) : `jansson`, `libcurl`, `libuv`, `sigc++`, `sqlite3`,
+**Dépendances système** (non embarquées) : `libcurl`, `libuv`, `sigc++`, `sqlite3`,
 `openssl`, `lua`/`luajit`.

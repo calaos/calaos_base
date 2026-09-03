@@ -902,7 +902,7 @@ void JsonApi::buildJsonState(vector<string> iolist, std::function<void(Json)> re
 
 void JsonApi::buildJsonStates(const Params &jParam, std::function<void (Json)> result_lambda)
 {
-    /* E4.1n: jansson_from_params() -> Params::toNJson(), which is Json(map).
+    /* E4.1n: jansson_from_params() -> Params::toJson(), which is Json(map).
      * Two consequences, both declared:
      *   - the key order does NOT move. Params IS a std::map, so the jansson
      *     adapter already walked it alphabetically, and so does nlohmann.
@@ -922,7 +922,7 @@ void JsonApi::buildJsonStates(const Params &jParam, std::function<void (Json)> r
         if (!o)
         {
             Params p = {{ "error", "wrong id" }};
-            result_lambda(p.toNJson());
+            result_lambda(p.toJson());
             return;
         }
 
@@ -950,7 +950,7 @@ void JsonApi::buildJsonStates(const Params &jParam, std::function<void (Json)> r
         }
     }
 
-    result_lambda(res.toNJson());
+    result_lambda(res.toJson());
 }
 
 void JsonApi::buildQuery(const Params &jParam, std::function<void (Json)> result_lambda)
@@ -963,7 +963,7 @@ void JsonApi::buildQuery(const Params &jParam, std::function<void (Json)> result
         if (!o)
         {
             Params p = {{ "error", "wrong id" }};
-            result_lambda(p.toNJson());
+            result_lambda(p.toJson());
             return;
         }
 
@@ -972,7 +972,7 @@ void JsonApi::buildQuery(const Params &jParam, std::function<void (Json)> result
             res.Add(it.first, it.second);
     }
 
-    result_lambda(res.toNJson());
+    result_lambda(res.toJson());
 }
 
 /* E4.1o. ⛔ THE ONE PLACE WHERE THE HAZARD OF E4.0 BECOMES REACHABLE.
@@ -1011,7 +1011,7 @@ Json JsonApi::buildJsonGetParam(const Params &jParam)
     if (!success)
         ret = {{ "error", "wrong io/param" }};
 
-    return ret.toNJson();
+    return ret.toJson();
 }
 
 /* E4.1o. ⛔ READ THE ANSWER AS A DOCUMENT, NEVER AS A BOOLEAN.
@@ -1046,7 +1046,7 @@ Json JsonApi::buildJsonSetParam(const Params &jParam)
     else
         ret = {{ "success", "true" }};
 
-    return ret.toNJson();
+    return ret.toJson();
 }
 
 Json JsonApi::buildJsonDelParam(const Params &jParam)
@@ -1076,7 +1076,7 @@ Json JsonApi::buildJsonDelParam(const Params &jParam)
     else
         ret = {{ "success", "true" }};
 
-    return ret.toNJson();
+    return ret.toJson();
 }
 
 Json JsonApi::buildJsonGetIO(vector<string> iolist)
@@ -1448,7 +1448,7 @@ void JsonApi::audioGetDbStats(const Json &jdata, std::function<void(const Json &
         if (alive.expired()) return;
 
         adata.params.Add("audio_action", "get_stats");
-        result_lambda(adata.params.toNJson());
+        result_lambda(adata.params.toJson());
     });
 }
 
@@ -1539,7 +1539,7 @@ void JsonApi::audioGetPlaylistItem(const Json &jdata, std::function<void(const J
     {
         if (alive.expired()) return;
 
-        result_lambda(data.params.toNJson());
+        result_lambda(data.params.toJson());
     });
 }
 
@@ -1590,7 +1590,7 @@ void JsonApi::audioGetCoverInfo(const Json &jdata, std::function<void(const Json
  *      exist.
  *   2. INVALID UTF-8. jansson_from_params() dropped the whole pair in silence
  *      (json_string() answered NULL, json_object_set_new() answered -1 and
- *      nobody looked); Params::toNJson() keeps the bytes and the emitter's
+ *      nobody looked); Params::toJson() keeps the bytes and the emitter's
  *      error_handler_t::replace turns each bad byte into U+FFFD. An ABSENT KEY
  *      BECOMES PRESENT, and an embedded NUL no longer truncates. This is the
  *      most exposed spot of the whole epic for that delta: album, artist,
@@ -1610,7 +1610,7 @@ Json JsonApi::processDbResult(const AudioPlayerData &data)
     {
         if (p.Exists("count"))
             scount = p["count"];
-        aret.push_back(p.toNJson());
+        aret.push_back(p.toJson());
     }
 
     if (scount == "0")
@@ -2208,7 +2208,7 @@ void JsonApi::audioDbGetTrackInfos(const Json &jdata, std::function<void(const J
     {
         if (alive.expired()) return;
 
-        result_lambda(data.params.toNJson());
+        result_lambda(data.params.toJson());
     }, trackid);
 }
 
@@ -2235,7 +2235,7 @@ Json JsonApi::buildJsonGetTimerange(const Params &jParam)
     if (!o)
     {
         Params p = {{ "error", "wrong input" }};
-        return p.toNJson();
+        return p.toJson();
     }
 
     //Json::array(), not a default constructed Json: a default constructed one
@@ -2254,7 +2254,7 @@ Json JsonApi::buildJsonGetTimerange(const Params &jParam)
         if (day == 5) h = o->getSaturday();
         if (day == 6) h = o->getSunday();
         for (uint i = 0;i < h.size();i++)
-            jarr.push_back(h[i].toParams(day).toNJson());
+            jarr.push_back(h[i].toParams(day).toJson());
     }
 
     stringstream ssmonth;
@@ -2280,7 +2280,7 @@ Json JsonApi::buildJsonGetTimerange(const Params &jParam)
  *    string, and on a NULL/non object root. jsonStringGet() below does the
  *    same. `jdata["id"]` would have thrown on a numeric id.
  *  - jansson_decode_object()'s FLATTENING CONTRACT, see decodeJsonObject().
- *    ⛔ Params::fromNJson() is NOT a substitute: it assigns the json value
+ *    ⛔ Params::fromJson() is NOT a substitute: it assigns the json value
  *    straight into a std::string and throws type_error.302 on anything that
  *    is not a JSON string. A client sending {"day": 1} is served today and
  *    would have terminated the process tomorrow. Same tripwire as ScriptWire,
@@ -2293,7 +2293,7 @@ Json JsonApi::buildJsonSetTimerange(const Json &jdata)
     if (!o)
     {
         Params p = {{ "error", "wrong input" }};
-        return p.toNJson();
+        return p.toJson();
     }
 
     o->clear();
@@ -2362,7 +2362,7 @@ Json JsonApi::buildJsonSetTimerange(const Json &jdata)
     Config::Instance().SaveConfigRule();
 
     Params p = {{ "success", "true" }};
-    return p.toNJson();
+    return p.toJson();
 }
 
 Json JsonApi::buildAutoscenarioList(const Json &jdata)
@@ -2385,7 +2385,7 @@ Json JsonApi::buildAutoscenarioGet(const Json &jdata)
     if (!sc || !sc->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
-        return p.toNJson();
+        return p.toJson();
     }
 
     return sc->toJson();
@@ -2396,7 +2396,7 @@ Json JsonApi::buildAutoscenarioCreate(const Json &jdata)
     ScenarioPayload payload;
     string err;
     if (!parseScenarioPayload(jdata, payload, err))
-        return Params({{ "error", err }}).toNJson();
+        return Params({{ "error", err }}).toJson();
 
     Params params;
     params.Add("auto_scenario", Calaos::get_new_scenario_id());
@@ -2419,7 +2419,7 @@ Json JsonApi::buildAutoscenarioCreate(const Json &jdata)
             ListeRoom::Instance().deleteIO(in);
 
         Params perr = {{ "error", "scenario creation failed" }};
-        return perr.toNJson();
+        return perr.toJson();
     }
 
     //The definition IS the scenario: it is written whole, then projected into
@@ -2437,7 +2437,7 @@ Json JsonApi::buildAutoscenarioCreate(const Json &jdata)
         ListeRoom::Instance().deleteIO(scenario);
 
         Params perr = {{ "error", "scenario creation failed" }};
-        return perr.toNJson();
+        return perr.toJson();
     }
 
     EventManager::create(CalaosEvent::EventScenarioAdded,
@@ -2448,7 +2448,7 @@ Json JsonApi::buildAutoscenarioCreate(const Json &jdata)
     Config::Instance().SaveConfigRule();
 
     Params p = {{ "id", scenario->get_param("id") }};
-    return p.toNJson();
+    return p.toJson();
 }
 
 Json JsonApi::buildAutoscenarioDelete(const Json &jdata)
@@ -2458,7 +2458,7 @@ Json JsonApi::buildAutoscenarioDelete(const Json &jdata)
     if (!sc || !sc->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
-        return p.toNJson();
+        return p.toJson();
     }
 
     sc->getAutoScenario()->deleteAll();
@@ -2474,7 +2474,7 @@ Json JsonApi::buildAutoscenarioDelete(const Json &jdata)
     Config::Instance().SaveConfigRule();
 
     Params p = {{ "success", "true" }};
-    return p.toNJson();
+    return p.toJson();
 }
 
 Json JsonApi::buildAutoscenarioModify(const Json &jdata)
@@ -2484,7 +2484,7 @@ Json JsonApi::buildAutoscenarioModify(const Json &jdata)
     if (!scenario || !scenario->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
-        return p.toNJson();
+        return p.toJson();
     }
 
     /* VALIDATE, THEN MUTATE. Everything below this line changes the
@@ -2494,7 +2494,7 @@ Json JsonApi::buildAutoscenarioModify(const Json &jdata)
     ScenarioPayload payload;
     string err;
     if (!parseScenarioPayload(jdata, payload, err))
-        return Params({{ "error", err }}).toNJson();
+        return Params({{ "error", err }}).toJson();
 
     AutoScenario *as = scenario->getAutoScenario();
 
@@ -2552,7 +2552,7 @@ Json JsonApi::buildAutoscenarioModify(const Json &jdata)
         //rules cannot be rebuilt, answer an error instead of crashing
         cErrorDom("network") << "Scenario modification failed: unable to rebuild the scenario rules";
         Params perr = {{ "error", "scenario modification failed" }};
-        return perr.toNJson();
+        return perr.toJson();
     }
 
     EventManager::create(CalaosEvent::EventScenarioChanged,
@@ -2563,7 +2563,7 @@ Json JsonApi::buildAutoscenarioModify(const Json &jdata)
     Config::Instance().SaveConfigRule();
 
     Params p = {{ "success", "true" }};
-    return p.toNJson();
+    return p.toJson();
 }
 
 Json JsonApi::buildAutoscenarioAddSchedule(const Json &jdata)
@@ -2573,7 +2573,7 @@ Json JsonApi::buildAutoscenarioAddSchedule(const Json &jdata)
     if (!sc || !sc->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
-        return p.toNJson();
+        return p.toJson();
     }
 
     sc->getAutoScenario()->addSchedule();
@@ -2585,7 +2585,7 @@ Json JsonApi::buildAutoscenarioAddSchedule(const Json &jdata)
     {
         cErrorDom("network") << "Scenario schedule creation failed for " << id;
         Params perr = {{ "error", "scenario schedule creation failed" }};
-        return perr.toNJson();
+        return perr.toJson();
     }
 
     EventManager::create(CalaosEvent::EventScenarioChanged,
@@ -2596,7 +2596,7 @@ Json JsonApi::buildAutoscenarioAddSchedule(const Json &jdata)
     Config::Instance().SaveConfigRule();
 
     Params p = {{ "id", range->get_param("id") }};
-    return p.toNJson();
+    return p.toJson();
 }
 
 Json JsonApi::buildAutoscenarioDelSchedule(const Json &jdata)
@@ -2606,7 +2606,7 @@ Json JsonApi::buildAutoscenarioDelSchedule(const Json &jdata)
     if (!sc || !sc->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
-        return p.toNJson();
+        return p.toJson();
     }
 
     sc->getAutoScenario()->deleteSchedule();
@@ -2619,7 +2619,7 @@ Json JsonApi::buildAutoscenarioDelSchedule(const Json &jdata)
     Config::Instance().SaveConfigRule();
 
     Params p = {{ "success", "true" }};
-    return p.toNJson();
+    return p.toJson();
 }
 
 Json JsonApi::buildAutoscenarioReenable(const Json &jdata)
@@ -2629,7 +2629,7 @@ Json JsonApi::buildAutoscenarioReenable(const Json &jdata)
     if (!sc || !sc->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
-        return p.toNJson();
+        return p.toJson();
     }
 
     /* The refusal is the point of this command: tryReenable() answers false
@@ -2642,7 +2642,7 @@ Json JsonApi::buildAutoscenarioReenable(const Json &jdata)
     if (!sc->getAutoScenario()->tryReenable(err))
     {
         Params perr = {{ "error", err }};
-        return perr.toNJson();
+        return perr.toJson();
     }
 
     //The flag lives in io.xml (a param of the Scenario IO), so only that one
@@ -2650,7 +2650,7 @@ Json JsonApi::buildAutoscenarioReenable(const Json &jdata)
     Config::Instance().SaveConfigIO();
 
     Params p = {{ "success", "true" }};
-    return p.toNJson();
+    return p.toJson();
 }
 
 void JsonApi::buildJsonEventLog(const Params &jParam, std::function<void(Json &)> callback)

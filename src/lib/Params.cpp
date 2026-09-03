@@ -131,12 +131,12 @@ string Params::toString() const
     return ret;
 }
 
-Json Params::toNJson() const
+Json Params::toJson() const
 {
     return Json(params);
 }
 
-Params Params::fromNJson(const Json &j)
+Params Params::fromJson(const Json &j)
 {
     Params p;
     for (Json::const_iterator it = j.begin(); it != j.end(); ++it)

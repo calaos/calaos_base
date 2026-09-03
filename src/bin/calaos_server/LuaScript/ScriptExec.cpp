@@ -34,7 +34,7 @@
  * why at length: ScriptWire::decodeObject() flattens a value of ANY type into
  * a Params entry - a string as is, a boolean as the WORD "true"/"false", a
  * number through Utils::to_string(double), anything else the empty string WITH
- * THE KEY STILL THERE. Params::fromNJson() is NOT a substitute: it assigns the
+ * THE KEY STILL THERE. Params::fromJson() is NOT a substitute: it assigns the
  * value straight into a std::string and throws type_error.302 on everything
  * that is not a JSON string.
  *
@@ -213,7 +213,7 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
         Params p = {{ "msg", "execute" },
                     { "script", script } };
 
-        Json jroot = p.toNJson();
+        Json jroot = p.toJson();
 
         //send the full calaos context here. (using JsonApi) to the process
         //after connect process to calaos events, and send him event so the process
@@ -221,7 +221,7 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
         jroot["context"] = jsonApi->buildFlatIOList();
 
         //Also append the env to the json. Actually the env can contain which io has triggered the script
-        jroot["env"] = env.toNJson();
+        jroot["env"] = env.toJson();
 
         process->sendMessage(ScriptWire::dumpJson(jroot));
 

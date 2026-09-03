@@ -96,11 +96,11 @@ inline std::string buildRegisterMessage(const ReolinkTypes::Hostname &hostname,
  * "true"/"false", any number through Utils::to_string(double), and ANY OTHER
  * TYPE (object, array, null) the EMPTY STRING, with the key still added.
  *
- * Params::fromNJson() is NOT a substitute, measured: it assigns the json
+ * Params::fromJson() is NOT a substitute, measured: it assigns the json
  * value straight into a std::string, which throws type_error.302 on anything
  * that is not a JSON string. Every detection event of the python driver
  * carries "channel" (int), "tcp_push_active" (bool) and "callback_duration"
- * (float), and the health answer carries two nested objects - so fromNJson()
+ * (float), and the health answer carries two nested objects - so fromJson()
  * would throw on every single camera event, inside a callback with no
  * try/catch on the path. tests/ReolinkWire_test.cpp pins that with a
  * tripwire.
