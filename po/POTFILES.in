@@ -330,7 +330,6 @@
 ./src/lib/exprtk/exprtk_test.cpp
 ./src/lib/FileUtils.cpp
 ./src/lib/FileUtils.h
-./src/lib/Jansson_Addition.h
 ./src/lib/Json_Addition.h
 ./src/lib/libquickmail/quickmail.c
 ./src/lib/libquickmail/quickmail.h

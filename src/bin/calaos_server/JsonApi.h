@@ -22,7 +22,7 @@
 #define JSONAPI_H
 
 #include "Calaos.h"
-#include "Jansson_Addition.h"
+#include "Params.h"
 #include "Room.h"
 #include "AudioPlayer.h"
 

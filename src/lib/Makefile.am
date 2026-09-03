@@ -60,7 +60,6 @@ libcalaos_common_la_SOURCES = \
         Timer.h                                 \
         Logger.cpp                              \
         Logger.h                                \
-        Jansson_Addition.h                      \
         Json_Addition.h                         \
         Params.cpp                              \
         Params.h                                \
