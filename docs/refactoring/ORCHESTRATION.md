@@ -8,6 +8,109 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅⭐⭐ [`E4.6g`](E4.6.md) MERGÉE — 2 commits de la branche + 1 commit de doc sur `master`,
+  `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de branche **`2c241414`**.
+  ⭐ **`master` ÉTAIT IMMOBILE sur `196fa792`** = exactement la merge-base ⇒ **ni rebase ni conflit.**
+  ⛔ **Rien poussé.** **`TESTS` 112 → 112 mesuré** (`tests/Makefile.am` byte-identique entre les deux
+  côtés), build d'intégration `make distclean` + `autogen` + `configure` + `make -j32` +
+  `make check -j16` : **`TOTAL 112 / PASS 110 / SKIP 2 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**,
+  les deux `SKIP` habituels (`run-python-tests.sh`, `check-ccache-honesty.sh`).
+  **145 goldens des deux côtés, 0 modifié / 0 ajouté / 0 retiré** — prouvé par comparaison d'arbre
+  git, pas sur parole.
+
+  ⭐⭐ **CE TICKET N'EST PAS « DE LA DOC PÉRIMÉE » — LA DOC ÉTAIT FAUSSE, ET LE SONDAGE DU MERGE LE
+  CONFIRME.** 13 affirmations enseignaient l'inverse du code livré. **Cinq recontrôlées des deux
+  côtés** au merge : `purgeDeadSteps()`, `stepRuleDestroyed` et `AutoScenario::END_STEP` sont décrits
+  comme vivants sur `master` et ont **0 occurrence** dans `src/` comme dans `tests/` ;
+  `Rule::auto_sc_mark` est listé comme un membre de `Rule` (`03_rules_engine.md:77` de `master`) et
+  n'existe nulle part ; « `autoscenario` n'est pas soumis au `serviceScope` » est démenti par
+  `JsonApiHandlerWS.cpp:360-367`, lu au source ; « silence total sur un `type` inconnu » est démenti
+  par l'`else` de `JsonApiHandlerWS.cpp:682-683`. Les commandes `get_scenarios` / `get_scenario`
+  citées par `RELEASE_NOTES.md` **n'existent dans aucun `src/`**.
+
+  ⭐⭐ **SONDAGE DES CITATIONS — 48 vérifiées une à une, 1 fausse.** Les **328** références
+  `Fichier.cpp:ligne` extractibles des deux documents résolvent toutes vers un fichier tracké
+  **unique** et **aucune ne dépasse la fin de son fichier**. 48 ont été rouvertes et confrontées à la
+  phrase qu'elles appuient (lecture Python numérotée, **jamais** le `grep` hooké) : **une seule
+  fausse**, corrigée au commit de doc — `03_rules_engine.md` affirmait qu'`InputTimer` « appelle
+  `hasChanged()` lui-même à l'expiration », alors que son `hasChanged()` a un **corps vide**
+  (`InputTimer.cpp:186-189`) et que `TimerDone()` appelle `EmitSignalIO()`, c'est-à-dire le **cas 1**
+  (`IOBase.cpp:157-162` → `ListeRule::ExecuteRuleSignal`). ⭐ **Les deux goldens cités `intégral`
+  sont IDENTIQUES OCTET POUR OCTET** au fichier sur disque (`e40c_ws_autoscenario_get.json`,
+  `e40d_ws_timerange_changed.json`), et les **7 affirmations adossées à un golden** ont été
+  revérifiées contre les fichiers eux-mêmes.
+
+  ⭐⭐ **LA TROUVAILLE À NE PAS PERDRE, PORTÉE SUR LA LIGNE `T3.32` DU BOARD** : **la moitié des
+  références décalées venait de fichiers qu'E4.6 n'a JAMAIS touchés** — `InPlageHoraire.cpp` (décalé
+  par T3.25) et `ActionPush.cpp` (par E4.1b), **cinq lignes chacun**. Une référence décalée de cinq
+  lignes **désigne encore du code plausible**, et **`make check` est resté vert du premier au dernier
+  jour**. Aucun ticket ne peut garder ses propres citations : seule une cible transversale
+  (`make check-docs`, **T3.32, toujours ouvert**) le peut.
+
+  **Le reste, vérifié** : `AutoScenario::getEndStepAction(int)` supprimé, **0 lecteur** dans `src/`
+  et `tests/` (`getEndStepActionCount()` survit avec son unique lecteur
+  `AutoScenarioRules_test.cpp:722`) ; commentaire d'`AutoScenario.h:276-280` **conforme à la règle
+  projet** (WHY seul, 5 lignes, aucun numéro de ticket) — rien à élaguer. Les réserves d'E4.6g sont
+  bien **dans les documents** et pas seulement dans le rapport : l'exemple `io.xml` est marqué
+  « **ce n'est pas un fichier capturé** » (`04_scenarios.md:115`), `category` est présentée comme un
+  **dérivé de la projection**, jamais comme un diagnostic (`:315-319`) — **la réserve sur
+  `InPlageHoraire` manquait et a été ajoutée au commit de doc** (encadré de portée en tête de
+  section : citations recalées, contenu **non réaudité**).
+
+  ⭐⭐ **SIX TICKETS PROPOSÉS AU FIL DE LA JOURNÉE ONT ÉTÉ OUVERTS** (numéros vérifiés libres, le plus
+  haut du board était `T3.58` ; aucune fiche n'existait) : **`T3.59`** (`processCamera()` sans
+  `else`, même silence qu'`autoscenario` avant E4.6e, socket comprise — recenser d'abord),
+  **`T3.60`** (HTTP n'a aucune notion de portée de service), **`T3.61`** (le re-cléage du marqueur
+  d'IO — voir ci-dessous), **`T3.62`** (3ᵉ copie non déclarée de la liste des 16 params dans
+  `RemoteUI/RemoteUIWebSocketHandler.cpp:317`, les deux transports divergent), **`T3.63`** (le motif
+  `rankOf()` rendant `-1` pour « absent », un site non gardé), **`T3.64`** (⛔ **perte de
+  sauvegarde** : `BackupFiles()` horodate à la seconde). ⛔ **Fiche courte + ligne de board
+  uniquement — aucun des six n'est instruit.**
+
+  ⛔⭐⭐ **L'ÉPIQUE E4.6 EST MARQUÉE ✅, ET CE ✅ VEUT DIRE « a→h LIVRÉS », PAS « PLUS RIEN À FAIRE ».**
+  **§5.3 n'est PAS atteinte** : `IO/Scenario.cpp:60` teste encore `get_param("auto_scenario")` pour
+  décider qu'un `AutoScenario` est construit, et `Calaos::get_new_scenario_id()` (`Calaos.cpp:48`)
+  survit avec son unique appelant `JsonApi.cpp:2407`. **Les 4 anciens scénarios de `configs/raoulh`
+  restent donc des auto-scénarios visibles dans `autoscenario list`**, et l'affirmation de §1.1
+  d'`E4.6.md` n'est vraie qu'après **[`T3.61`](T3.61.md)**, qui la porte désormais nominativement.
+  `BOARD.md` dit les deux choses sur la ligne de l'épique.
+
+- ⭐ **ÉTAT DES ÉPIQUES AU 2026-09-04 — pour un lecteur qui reprend à froid.**
+  - **[`E4.6`](E4.6.md) (AutoScenario) : LIVRÉE, a→h.** La définition est la donnée et vit dans les
+    params de l'IO scénario au sein d'`io.xml` ; les règles en sont une **projection** régénérée ;
+    les étapes ont un **id opaque**, les actions un `ioId` **jamais escamoté** ; le payload est
+    symétrique et l'aller-retour `get` → `modify` → `get` est une **identité**, cassé compris ;
+    `autoscenario` est sous `scopeDenied()` ; une sous-commande inconnue répond une **erreur** ; le
+    balayage orphelin **n'existe plus** ; un `config put` destructeur laisse une sauvegarde
+    **restaurable** et le démarrage suivant **nomme** ce qui a disparu.
+    ⚠️ **Reste ouvert derrière** : **`T3.61`** (§5.3), `T3.62`, `T3.63`, `T3.64`, `T3.59`, `T3.60`.
+  - **[`E4.1`](E4.1.md) (migration JSON de la surface d'API) : CLOSE.** Plus aucune contrainte
+    jansson ne pèse sur les tickets suivants.
+
+  ⛔⭐ **DEUX ARBITRAGES UTILISATEUR EN ATTENTE — ne pas les trancher à sa place :**
+  1. **Deux registres d'alerte sur le même canal.** L'alerte d'E4.6f (`CalaosConfig.cpp:422`) nomme
+     le scénario par son **uid** (`- step of scenario 'as_0' (rule …)`) ; celle d'E4.6h nomme par le
+     **`name`**, l'uid en repli (`- scenario 'Soirée' (as_0) is gone…`). Même canal, même mail, deux
+     formulations. Uniformiser coûte peu (lookup uid → IO → `name`) **mais retourne un témoin
+     d'échange d'E4.6f** (`TheStartupAlertCalls…OnlyARuleTheProjectionWrote`).
+  2. **Le sidecar MCP doit-il pouvoir LIRE les scénarios ?** Le garde d'E4.6e porte sur le
+     **message**, donc `autoscenario list` / `get` sont refusés aux sessions de service comme le
+     sont `audio_db` et `eventlog` (précédents exacts). **Aucun consommateur mesuré**
+     (`CalaosClient.autoscenario()` a zéro appelant). Si la réponse est « oui », la parade n'est
+     **pas** de rouvrir la commande mais de trancher la grammaire d'autorisation (message vs
+     sous-commande) **pour toute l'API**. Revenir en arrière coûte **une ligne**
+     (`JsonApiHandlerWS.cpp:365`), et deux cas nommés l'épinglent.
+
+  ➡️ **PROCHAINE ACTION — options posées, RIEN N'EST TRANCHÉ, à l'utilisateur de choisir :**
+  - **`fix/fwago8`** (worktree `.wave57/fwago8`, tête `da84bab8`) — branche **prête**, défaut
+    **vérifié vivant** ; ⚠️ son bloc de test est **pré-T3.36** et doit être réécrit avant merge.
+  - **`wip/t3.51-probe-pass4`** (`d1693b19`) — cherry-pick **sans conflit**, mais sa docstring
+    documente comme fait un export `CXX`/`CC` dans `AM_TESTS_ENVIRONMENT` **absent de l'arbre**.
+  - **[`T3.61`](T3.61.md)** — finir **§5.3** et rendre l'épique E4.6 entière.
+  - **[`T3.47`](T3.47.md)** — ⭐ **priorité haute** : les **42 cas Python** de `tests/python/` ne
+    tournent sur **aucune** CI.
+  - **[`T3.58`](T3.58.md)** — ⭐ **priorité haute** : les gardes du parseur de requête JSON.
+
 - **✅⭐⭐ [`E4.6h`](E4.6.md) MERGÉE — 3 commits de la branche + 1 commit d'élagage + 1 commit de doc
   sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de branche
   **`f03345d1`**, élagage **`0796dd80`**.

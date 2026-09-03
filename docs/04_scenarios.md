@@ -781,6 +781,10 @@ parfaitement déclenchable : aucun `AutoScenario` n'est construit, les deux port
 
 **Fichier :** [src/bin/calaos_server/IO/InPlageHoraire.h](../src/bin/calaos_server/IO/InPlageHoraire.h)
 
+> ⚠️ **Portée de cette section.** E4.6 ne touche pas `InPlageHoraire` : ses citations ont été
+> **recalées** contre le fichier actuel, son contenu n'a **pas** été réaudité. Ce qui suit reste
+> l'état écrit par E4.5b, pas une relecture neuve.
+
 IO virtuel de type TBOOL, `true` si l'heure courante tombe dans l'une des plages configurées.
 Enregistré sous le type `"InPlageHoraire"`, avec le type utilisateur **`"TimeRange"`**
 (dérivé, `IO/InPlageHoraire.cpp:27-28`). Toujours `visible="false"`, `gui_type="time_range"`

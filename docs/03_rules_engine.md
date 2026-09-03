@@ -23,8 +23,11 @@ Les règles sont déclenchées par :
    `InputTime.cpp:52`, `InputAnalog.cpp:64`, `InPlageHoraire.cpp:48`) →
    `ListeRule::RunEventLoop()`, armé par un `Timer` de **0,1 s**
    (dérivé, `main.cpp:194`, `ListeRule.cpp:208-221`).
-   ⚠️ **`InputTimer` n'en fait pas partie** : il porte son propre `Timer` et appelle
-   `hasChanged()` lui-même à l'expiration (dérivé, `IO/InputTimer.cpp:140-190`) ;
+   ⚠️ **`InputTimer` n'en fait pas partie**, et il ne passe pas non plus par `hasChanged()` — le
+   sien a un **corps vide** (dérivé, `IO/InputTimer.cpp:186-189`). Il porte son propre `Timer` et,
+   à l'expiration, `TimerDone()` pose `value = "true"` puis appelle `EmitSignalIO()`
+   (dérivé, `IO/InputTimer.cpp:154-156`, `:168-174`) : il retombe donc dans le **cas 1** ci-dessus,
+   via `IOBase::EmitSignalIO()` → `ListeRule::ExecuteRuleSignal(id)` (dérivé, `IOBase.cpp:157-162`) ;
 3. au démarrage, pour les règles portant une `ConditionStart` → `ListeRule::ExecuteStartRules()`
    (dérivé, `ListeRule.cpp:464-487`).
 

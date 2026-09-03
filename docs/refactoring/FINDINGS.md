@@ -8872,3 +8872,22 @@ Signalés pour le ticket qui rouvrira ces fichiers.
 - `AutoScenario.h:179` et `ListeRoom.cpp:344` gardent le nom `checkScenarioRules()`, qui n'est plus
   qu'un alias de `rebuildRules()` (`AutoScenario.h:180`). Volontaire, mais un lecteur qui cherche
   « check » ne trouve plus de vérification.
+
+## ⚠️ E4.6g, au merge — le contrôle mécanique des références NE VOIT PAS l'affirmation fausse (2026-09-04)
+
+Sondage du merge : **48 citations `Fichier.cpp:ligne`** rouvertes et confrontées à la phrase
+qu'elles appuient, sur les 328 extractibles des deux documents. Les 328 résolvent vers un fichier
+tracké **unique** et **aucune ne dépasse la fin de son fichier** — le contrôle mécanique de l'auteur
+tient. **Une seule affirmation fausse trouvée**, et elle est instructive :
+
+`03_rules_engine.md` disait qu'`InputTimer` « appelle `hasChanged()` lui-même à l'expiration
+(dérivé, `IO/InputTimer.cpp:140-190`) ». **L'intervalle cité est le bon fichier, la bonne fonction,
+et il contient bien `hasChanged`** — mais `InputTimer::hasChanged()` a un **corps vide**
+(`:186-189`) et `TimerDone()` appelle `EmitSignalIO()` (`:174`), c'est-à-dire le chemin du signal
+d'IO (`IOBase.cpp:157-162` → `ListeRule::ExecuteRuleSignal`). Corrigé au commit de doc du merge.
+
+⭐ **Ce que ça dit de [T3.32](T3.32.md).** Un contrôle qui rouvre l'intervalle et vérifie qu'il
+existe — ce que l'auteur a fait, correctement — **valide** cette citation. Une ancre de fragment la
+validerait aussi (`hasChanged` est bien là). Seule la relecture humaine de la **phrase contre le
+code** l'attrape. C'est la limite déjà écrite sur la ligne `T3.32` (« la référence plausible qui
+ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'unique livrable.
