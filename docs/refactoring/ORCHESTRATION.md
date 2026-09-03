@@ -8,6 +8,106 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅⭐⭐ [`E4.6f`](E4.6.md) MERGÉE — 3 commits de la branche + 1 commit de doc sur `master`,
+  `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de merge **`5e12dae3`**.
+  ⭐ **`master` ÉTAIT IMMOBILE sur `1e2766a0`** = exactement la merge-base ⇒ **ni rebase ni conflit.**
+  ⛔ **Rien poussé.** La **périphérie** : `buildJsonIO()` publie `autoscenario_uid` au lieu
+  d'`auto_scenario`, et l'alerte de démarrage de `CalaosConfig` est re-clée sur l'uid.
+
+  ⭐⭐ **LES CONFIGS RÉELLES, REJOUÉES PAR L'AGENT DE MERGE** (montées `:ro`, protocole d'E4.6c,
+  sonde jetable greffée sur `AutoScenarioMigration_test` puis retirée, `cmp` rc 0) :
+  `raoulh` **125 → 125 → 125** règles, dont **18 → 18 → 18** portant `auto_scenario` et **0**
+  portant l'uid aux trois relevés ; `solanora` **82 → 82 → 82** (aucune règle marquée) ; et pour
+  les deux, `rules.xml` **identique octet pour octet** entre le 1ᵉʳ et le 2ᵉ enregistrement.
+  **Rien n'est détruit, rien n'est réécrit** — attendu, puisque le ticket ne touche ni le marqueur
+  d'IO ni le générateur, mais mesuré et non supposé.
+
+  ⭐ **LES DEUX TROUS QUE L'AUTEUR A TROUVÉS DANS SES PROPRES TESTS — LES DEUX BOUCHONS TIENNENT.**
+  - **M3 rougit désormais** : `anyScenario = true` déplacé dans l'autre branche ⇒ **1 seule suite,
+    1 seul cas**, `TheScenarioParagraphIsAbsentWhenNoDisabledRuleBelongsToAScenario`. Le cas neuf
+    est bien le **seul** témoin du paragraphe « A SCENARIO is among them ».
+  - **`K_IoObjectKeysAreSortedNotInsertionOrdered` n'est plus vacuant** : sous M1 (les deux
+    marqueurs échangés) il **rougit sur l'`ASSERT_GE` lui-même** —
+    `Expected: (rankOf(keys, k)) >= (0), actual: -1 vs 0`, avec
+    `autoscenario_uid is not in auto_scenario,chauffage_id,…`. ⭐ Et l'`ASSERT_GE` porte sur les
+    **sept** clés des quatre comparaisons (`autoscenario_uid, gui_type, state, hits, id, var_type,
+    type`), donc **les deux rangs de chaque paire**, pas un seul. M1 = **8 rouges / 3 binaires**
+    (`JsonApiHome` 4, `JsonApiModelWireBytes` 2, `JsonApiCharacterization` 2 goldens).
+  ⚠️ **Le motif cherché ailleurs** (finding 8) : `rankOf()` n'existe que dans ce fichier, et le
+  seul autre site non gardé est `K_GetHomeEnvelopeAndItsThreeMembersAreSorted:296-297` — risque
+  faible (clés structurelles), **ticket proposé `T3.63`**, non ouvert, non corrigé ici. Les autres
+  sentinelles `-1` du dépôt sont déjà gardées par un `ASSERT_GE(x, 0)` chez chaque appelant.
+
+  **Les goldens, prouvés par comparaison d'arbre** : `tests/core/golden` passe de `3c171646` à
+  `4c973d0d`, **145 blobs de chaque côté**, **141 couples (sha, chemin) identiques**, **4 touchés**
+  d'une ligne chacun, **0 ajouté, 0 retiré**. Ce sont exactement les quatre de §8.1.
+
+  **L'alerte, les deux formes lues au source** (`CalaosConfig.cpp:431-443`) : la branche uid rend
+  `- step of scenario '<uid>' (rule '<nom>'): missing IO(s) …` et lève `anyScenario` ; l'`else` rend
+  `- rule '<nom>': missing IO(s) …` **sans** rien lever, donc **sans** le paragraphe « A SCENARIO is
+  among them ». Rien n'est masqué : une ligne apparaît toujours pour chaque règle désactivée.
+
+  ⭐ **VERDICT DE L'AGENT DE MERGE SUR L'UID vs LE `name` : ACCEPTABLE EN L'ÉTAT, mais à porter en
+  exigence explicite à `E4.6h`.** L'alerte imprime `as_0`, un identifiant machine — **mais c'est
+  strictement ce que faisait l'ancienne**, qui imprimait `scenario_0`, tout aussi opaque, et la
+  ligne porte de toute façon **aussi** le nom de la règle. **Il n'y a donc aucune régression de
+  lisibilité**, et livrer le lookup dans un ticket dont le périmètre est un échange de clé aurait
+  ajouté un couplage `CalaosConfig` → `ListeRoom` non prescrit. **Mais ni l'un ni l'autre n'est ce
+  que l'utilisateur voit dans son interface**, qui est le `name` de l'IO scénario. `E4.6h` rouvre
+  déjà ce canal (`CalaosConfig.cpp:405-440`) et doit **nommer** un scénario perdu : c'est là que le
+  lookup doit être **exigé**, pas seulement suggéré.
+
+  ⛔⭐ **CE QUE E4.6f NE FAIT PAS, ET LE TICKET QUI MANQUE POUR CLORE L'ÉPIQUE.**
+  **`IO/Scenario.cpp` n'est PAS re-clé** — vérifié au source : `:60` teste toujours
+  `get_param("auto_scenario") != ""` pour décider qu'un `AutoScenario` est construit, avec le
+  commentaire d'E4.6c juste au-dessus. C'est **hors périmètre §6** et les deux acquis d'E4.6a
+  (`AnUnmarkedScenarioIoStillRuns…`, `AutoscenarioGetAndListIgnoreAnUnmarkedScenarioIo`)
+  l'interdisent. ⇒ **§5.3 n'est TOUJOURS PAS atteinte**, et `Calaos::get_new_scenario_id()`
+  (`Calaos.cpp:48`) survit avec son **unique** appelant `JsonApi.cpp:2407`.
+  ⇒ **TICKET PROPOSÉ `T3.61`** (non ouvert) : re-cléage du marqueur d'IO, ce qui suppose de
+  **trancher d'abord le sort des deux garde-fous**, puis de dériver les ids des 5 IOs internes de
+  l'uid. Coût mesuré : **71 rouges / 7 binaires** (M6 d'E4.6b). **C'est ce ticket, et lui seul, qui
+  rendra vraie §1.1** — aujourd'hui les 4 anciens scénarios de `configs/raoulh` sont encore des
+  auto-scénarios et apparaissent dans `autoscenario list`.
+
+  ⚠️ **FINDING NEUF DE L'AGENT DE MERGE — une TROISIÈME copie de la liste des 16 params.**
+  `RemoteUI/RemoteUIWebSocketHandler.cpp:317` porte la même liste, à la main, et publie encore
+  `auto_scenario` dans `remote_ui_config_update`. **Les deux transports divergent désormais** :
+  l'API 5454 publie l'uid, RemoteUI publie le marqueur historique, sur le même équipement. Hors
+  périmètre §6, jamais mentionné par l'auteur, **pas une régression** (RemoteUI publiait déjà
+  l'ancien marqueur) mais une duplication qui rend tout re-cléage incomplet en silence.
+  ⇒ **ticket proposé `T3.62`** (non ouvert).
+
+  **Les 7 cas retournés, comptés des deux côtés — aucun retiré, aucune assertion affaiblie** :
+  `JsonApiHome_test` **53 → 54** (`+1/-0` : le témoin d'échange neuf ; 2 cas existants voient leurs
+  attentes **retournées** sur la clé), `JsonApiModelWireBytes_test` **19 → 19** (ensemble de noms
+  **identique**, 2 cas retournés dont celui qui gagne l'`ASSERT_GE`),
+  `ScenarioDisabledMissingIo_test` **14 → 16** (`+2/-0`). Le garde-fou
+  `AnUnmarkedScenarioIoStillRunsItsRulesWhenTheButtonIsPressed` est **VERT**.
+  **Le témoin W relinke** : `"io_type"`/`"io_style"` réordonnés ⇒ **0 rouge**, et les **4 suites**
+  concernées portent leur `CXXLD` dans le journal de `make check`
+  (`core/JsonApiCharacterization_test`, `core/JsonApiHome_test`, `core/JsonApiModelWireBytes_test`,
+  `core/ScenarioDisabledMissingIo_test`), **62 `CXXLD` au total**, lus et non armés.
+
+  **Commentaires `src/` conformes** (WHY only, 4 et 5 lignes, aucun ticket, aucune phase, aucun
+  emoji) — **aucun élagage nécessaire**. **Commit de caractérisation `f58445b0` à zéro ligne de
+  `src/`** (`git diff-tree -r … -- src/` rend **vide**).
+  **Build d'intégration rejoué au merge** (`make distclean` + `autogen` + `configure` + `make -j32`
+  + `make check -j16`) : **`TOTAL 111 / PASS 109 / SKIP 2 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**,
+  **0 `error:`**, un seul `Testsuite summary`. Les deux `SKIP` sont les habituels
+  (`run-python-tests.sh`, `check-ccache-honesty.sh`). **`TESTS` 111 → 111 MESURÉ** :
+  `tests/Makefile.am` n'est **pas** dans le diff du ticket.
+  Toutes les mutations restaurées par **copie vérifiée au `cmp` (rc 0)**, `git status` vide,
+  **zéro `rm -f`**, **jamais un `git checkout` dans le conteneur**.
+
+- ⭐ **PROCHAINE ACTION : [`E4.6h`](E4.6.md)** — défense en profondeur, **D10 niveaux 1-2**
+  (`ListeRoom.{h,cpp}`, `JsonApiHandlerHttp.cpp`, `tests/core/AutoScenarioUploadGuard_test.cpp`
+  neuf, `tests/Makefile.am`). ⛔ **Jamais de refus** (niveau 3 écarté). ⭐ **Y porter en exigence
+  explicite le lookup du `name` du scénario dans l'alerte** (ci-dessus) : le canal est le même.
+  ⭐⭐ **`E4.6g` (la DOC) vient en DERNIER, après `h`** : `docs/04_scenarios.md` et
+  `docs/03_rules_engine.md` doivent être réécrits **contre les 4 goldens régénérés par `f`**, pas
+  contre ceux d'avant. Y ramasser aussi le solde `getEndStepAction(int)` (bloc E4.6e ci-dessous).
+
 - **✅⭐⭐ [`E4.6e`](E4.6.md) MERGÉE — 3 commits de la branche + 1 commit d'élagage de l'agent de merge
   + 1 commit de doc sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.**
   Tête de merge **`679cf380`**.
@@ -109,7 +209,8 @@
      E4.6e : le même `autoscenario` est refusé à une session de service en WS et passe intégralement
      en HTTP. **Aucun ticket ne le porte.** ⇒ **ticket proposé `T3.60`**.
 
-- ⭐ **PROCHAINE ACTION : [`E4.6f`](E4.6.md)** — vague 5, la **périphérie**.
+- ✅ **[`E4.6f`](E4.6.md) — FAIT ET MERGÉ (`5e12dae3`), voir le bloc en tête.** *(Ce qui suit est le
+  brief d'origine, conservé pour la trace.)* Vague 5, la **périphérie**.
   **Périmètre** : le **marqueur re-clé dans `buildJsonIO()`** (`JsonApi.cpp:261`) et l'**alerte de
   configuration re-clée** (`CalaosConfig.cpp:422`, qui teste `param_exists("auto_scenario")` pour
   nommer le scénario au lieu de la règle — prédicat qui devient **faux** pour les anciennes règles).

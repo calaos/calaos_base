@@ -8689,3 +8689,58 @@ scénario**. Après E4.6f, un client qui voudrait grouper `scenario_0_step` avec
 peut plus par le payload générique. **Mesuré sans conséquence connue** : ces IOs sont
 `visible="false"`, §1.2 a établi qu'aucun consommateur ne lit ce champ, et l'API `autoscenario` rend
 la définition entière. Consigné parce que c'est la seule perte d'information du ticket.
+
+### 6. ⭐ Trouvé au merge — une **troisième copie** de la liste des 16 params, jamais déclarée, publie encore `auto_scenario`
+
+`buildJsonIO()` n'est pas le seul endroit qui construit le payload générique d'un équipement.
+`RemoteUI/RemoteUIWebSocketHandler.cpp:317` en porte une **copie littérale**, la même liste de seize
+noms dans le même ordre, recopiée à la main :
+
+```
+vector<string> params = { "id", "name", …, "state", "auto_scenario", "step", … };
+```
+
+Elle alimente `remote_ui_config_update`, le payload envoyé aux interfaces distantes. E4.6f ne l'a
+pas touchée — elle est hors du périmètre §6, qui ne nomme que `JsonApi.cpp` et `CalaosConfig.cpp` —
+et l'auteur ne la mentionne nulle part. **Conséquence : les deux transports divergent désormais.**
+L'API 5454 publie `autoscenario_uid`, RemoteUI publie `auto_scenario`, sur le même équipement.
+
+Ce n'est pas une régression d'E4.6f (RemoteUI publiait déjà l'ancien marqueur avant), mais c'est une
+**duplication qui a échappé à toute la série** : une liste en dur recopiée est exactement ce qui
+rend un re-cléage incomplet sans que rien ne rougisse. ⇒ **ticket proposé `T3.62`** : recenser les
+copies de la liste de `buildJsonIO()`, les ramener à une seule source, et décider ce que RemoteUI
+doit publier.
+
+### 7. ⛔⭐ Le re-cléage du marqueur d'IO n'a **toujours aucun numéro** — ⇒ ticket proposé `T3.61`
+
+Le §4 ci-dessus décrit le trou ; il ne lui donne pas de nom, et un finding sans numéro se perd.
+Vérifié au source au merge : `IO/Scenario.cpp:60` teste bien `get_param("auto_scenario") != ""`
+pour décider qu'un `AutoScenario` est construit, avec le commentaire d'E4.6c juste au-dessus, et
+`Calaos::get_new_scenario_id()` (`Calaos.cpp:48`) survit avec son **unique** appelant
+`JsonApi.cpp:2407`, qui frappe `auto_scenario` sur un scénario neuf. **§5.3 n'est pas atteinte.**
+
+⇒ **ticket proposé `T3.61`, à ouvrir pour clore l'épique E4.6** : re-cléer le marqueur d'IO sur
+`autoscenario_uid`, ce qui suppose d'abord de **trancher le sort des deux garde-fous d'E4.6a**
+(`AnUnmarkedScenarioIoStillRunsItsRulesWhenTheButtonIsPressed`,
+`AutoscenarioGetAndListIgnoreAnUnmarkedScenarioIo`), puis de dériver les ids des 5 IOs internes de
+l'uid — donc de retirer `get_new_scenario_id()`. Coût mesuré par M6 d'E4.6b : **71 cas rouges sur
+7 binaires**. ⚠️ **C'est ce ticket, et lui seul, qui rend vraie l'affirmation de §1.1** (« les
+anciens scénarios cessent d'être reconnus ») : tant qu'il n'est pas fait, les 4 scénarios de
+`configs/raoulh` restent des auto-scénarios et apparaissent dans `autoscenario list`.
+
+### 8. Le motif `rankOf()`/-1, cherché ailleurs au merge — **un seul autre site**, sans risque immédiat
+
+Audit demandé au merge après le §1. Résultats sur tout `tests/` :
+
+- `rankOf()` n'existe que dans `core/JsonApiModelWireBytes_test.cpp` (3 cas l'utilisent).
+  Le seul site **encore non gardé** est `K_GetHomeEnvelopeAndItsThreeMembersAreSorted:296-297`
+  (`data` < `msg` < `msg_id`), qui compare des rangs sans jamais asserter la présence des clés.
+  Risque **faible** — ces trois clés sont structurelles, pas des params optionnels — mais c'est
+  exactement la même fabrique à cas vacuants. ⇒ **ticket proposé `T3.63`** : y poser le même
+  `ASSERT_GE`, et interdire le motif « comparateur qui rend -1 pour absent » dans les suites de
+  caractérisation.
+- Les autres sentinelles `-1` du dépôt (`pumpUntil()`/`pumpUntilSince()` de `IoLifetimeTimer_test`,
+  `ShutterImpulse_test`) sont **déjà gardées** : chaque appelant fait `ASSERT_GE(x, 0)` avant de
+  comparer, et `ShutterImpulse_test` le documente en toutes lettres.
+- `roomIndexOf()` (`ListeRoomOwnership_test.cpp:57`) rend -1 lui aussi, mais son résultat est passé
+  à `lr.Remove()`, jamais comparé : un -1 y produit un échec, pas un faux vert.

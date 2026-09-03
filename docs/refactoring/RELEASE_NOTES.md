@@ -1856,3 +1856,16 @@ Les autres sont signalées comme des règles ordinaires — **rien n'est masqué
 toujours pour chacune**. Et l'avertissement « *un scénario est concerné : il restera désactivé même
 une fois l'équipement revenu et devra être réactivé à la main* » n'est plus ajouté quand aucun
 scénario n'est en cause : une règle ordinaire, elle, se remet à fonctionner toute seule.
+
+### Les équipements internes d'un scénario perdent leur rattachement visible dans `get_home`
+
+Conséquence directe du renommage ci-dessus, et la **seule perte d'information** de ce changement :
+les 3 à 5 équipements de machinerie qu'un scénario crée pour lui-même (`…_step`, `…_timer`,
+`…_is_active`, `…_schedule`, `…_is_schedule_enabled`) portaient `auto_scenario`, ce qui permettait
+de les rattacher à leur scénario en lisant le payload générique. `autoscenario_uid` ne vit que sur
+l'équipement scénario lui-même : après ce changement, `get_home` et `get_io` ne rattachent plus ces
+équipements à quoi que ce soit.
+
+Ils sont `visible="false"` — l'interface ne les affiche pas — et la commande `autoscenario get`
+rend la définition entière, étapes comprises. **Aucun consommateur connu ne s'appuyait sur ce
+rattachement**, mais un client qui le ferait devrait passer par l'API `autoscenario`.
