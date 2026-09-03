@@ -455,7 +455,7 @@ TEST_F(JsonApiHomeTest, GetIoDescribesTheThreeVariableTypes)
  *
  * ADDED AFTER A REVIEW COUNTER-MUTATION. The first version of this file claimed
  * its goldens "exhibited the absence contract" on eight keys. Six of them -
- * hits, chauffage_id, auto_scenario, step, io_style, value_warning - were in
+ * hits, chauffage_id, autoscenario_uid, step, io_style, value_warning - were in
  * fact absent because NO IO OF THE REFERENCE HOUSE SET THEM. Renaming four of
  * them in JsonApi.cpp:259-262 left all 52 cases green: the net saw nothing.
  * They are real production params (ListeRoom.cpp:276 reads chauffage_id,
@@ -487,7 +487,7 @@ TEST_F(JsonApiHomeTest, GetIoEmitsTheSixteenKeysForAFullyConfiguredIo)
     const std::vector<std::string> keys =
     { "id", "name", "type", "hits", "var_type", "visible",
       "chauffage_id", "rw", "unit", "gui_type", "state",
-      "auto_scenario", "step", "io_type", "io_style",
+      "autoscenario_uid", "step", "io_type", "io_style",
       "value_warning" };
 
     for (const std::string &k: keys)
@@ -500,7 +500,7 @@ TEST_F(JsonApiHomeTest, GetIoEmitsTheSixteenKeysForAFullyConfiguredIo)
     EXPECT_EQ("12", jio.value("hits", std::string()));
     EXPECT_EQ("e40_heater", jio.value("chauffage_id", std::string()));
     EXPECT_EQ("\xc2\xb0""C", jio.value("unit", std::string()));
-    EXPECT_EQ("e40_scenario", jio.value("auto_scenario", std::string()));
+    EXPECT_EQ("as_e40", jio.value("autoscenario_uid", std::string()));
     EXPECT_EQ("0.5", jio.value("step", std::string()));
     EXPECT_EQ("temperature", jio.value("io_style", std::string()));
     EXPECT_EQ("false", jio.value("value_warning", std::string()));
@@ -525,7 +525,7 @@ TEST_F(JsonApiHomeTest, GetIoOmitsTheOptionalKeysOfASparseIo)
     const Json data = ws.lastData();
 
     const Json plain = data[HOUSE_BOOL_IN];
-    for (const char *k: { "hits", "chauffage_id", "unit", "auto_scenario",
+    for (const char *k: { "hits", "chauffage_id", "unit", "autoscenario_uid",
                           "step", "io_style", "value_warning", "status_info" })
         EXPECT_FALSE(plain.contains(k)) << k << " unexpectedly emitted: " << plain.dump();
     EXPECT_TRUE(hasNoNullAnywhere(plain));
@@ -545,7 +545,9 @@ TEST_F(JsonApiHomeTest, GetIoOmitsTheOptionalKeysOfASparseIo)
  * them in its hard coded list, so the answer is a choice and not a shortage of
  * data, and this case reads both sides of it.
  *
- * >>> TO FLIP (E4.6f, E4.6.md 5.4) <<< the published marker becomes the uid.
+ * E4.6f FLIPPED it: the uid is the published one. The legacy key stays on the
+ * IO, and on the internal IOs of every scenario, but it names something the
+ * autoscenario API cannot be asked about.
  */
 TEST_F(JsonApiHomeTest, GetIoPublishesOneOfTheTwoScenarioMarkersOfAnIoThatCarriesBoth)
 {
@@ -565,9 +567,9 @@ TEST_F(JsonApiHomeTest, GetIoPublishesOneOfTheTwoScenarioMarkersOfAnIoThatCarrie
     const Json jio = ws.lastData()[HOUSE_ACCENTED];
     ASSERT_TRUE(jio.is_object());
 
-    EXPECT_TRUE(jio.contains("auto_scenario")) << jio.dump();
-    EXPECT_EQ("e40_scenario", jio.value("auto_scenario", std::string()));
-    EXPECT_FALSE(jio.contains("autoscenario_uid")) << jio.dump();
+    EXPECT_TRUE(jio.contains("autoscenario_uid")) << jio.dump();
+    EXPECT_EQ("as_e40", jio.value("autoscenario_uid", std::string()));
+    EXPECT_FALSE(jio.contains("auto_scenario")) << jio.dump();
 }
 
 TEST_F(JsonApiHomeTest, GetIoEmitsStatusInfoAsANestedObjectWhenTheIoHasSome)

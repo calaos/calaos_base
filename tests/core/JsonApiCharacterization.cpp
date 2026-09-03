@@ -702,7 +702,7 @@ void JsonApiCharacterizationTest::loadReferenceHouse()
     //It is ALSO the only IO of the house carrying every optional param of
     //buildJsonIO() (JsonApi.cpp:258-262). ADDED IN E4.0b AFTER A REVIEW
     //COUNTER-MUTATION: without these attributes, six of the sixteen candidate
-    //keys - hits, chauffage_id, auto_scenario, step, io_style, value_warning -
+    //keys - hits, chauffage_id, autoscenario_uid, step, io_style, value_warning -
     //were absent from every golden of the series because NO IO SET THEM, not
     //because the code chose not to emit them. Renaming any of the six in
     //buildJsonIO() left the whole suite green, which is exactly the silent

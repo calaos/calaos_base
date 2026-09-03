@@ -79,7 +79,7 @@
       "hits": "0",
       "items": [
         {
-          "auto_scenario": "e40_scenario",
+          "autoscenario_uid": "as_e40",
           "chauffage_id": "e40_heater",
           "gui_type": "var_string",
           "hits": "12",

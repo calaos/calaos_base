@@ -530,7 +530,7 @@ protected:
      *     core/JsonApiDispatchWireBytes_test.cpp,
      *   - that SAME IO (HOUSE_ACCENTED) is also the only one setting every
      *     OPTIONAL param of buildJsonIO() - hits, chauffage_id, unit,
-     *     auto_scenario, step, io_style, value_warning - so all sixteen
+     *     autoscenario_uid, step, io_style, value_warning - so all sixteen
      *     candidate keys appear at least once in the goldens. ADDED IN E4.0b
      *     AFTER A REVIEW COUNTER-MUTATION: renaming four of those keys in
      *     JsonApi.cpp used to leave the ENTIRE suite green, because they were

@@ -29,6 +29,7 @@
 #include <filesystem>
 #include "FileUtils.h"
 #include "NotifManager.h"
+#include "AutoScenarioDef.h"
 
 using namespace Calaos;
 
@@ -421,11 +422,17 @@ void Config::LoadConfigRule()
              * the alert exists but does not tell the user that one of their
              * scenarios is dead - and a scenario, unlike a plain rule, will NOT
              * come back on its own once the IO is restored.
+             *
+             * The uid and not `auto_scenario`: the legacy key also sits on
+             * rules no scenario claims any more, and telling the user those are
+             * steps of a scenario sends them looking for one that does not
+             * exist. Only a rule the projection wrote carries the uid.
              */
-            if (rule->param_exists("auto_scenario"))
+            if (rule->param_exists(AutoScenarioDef::KEY_UID))
             {
                 anyScenario = true;
-                report += "\n- step of scenario '" + rule->get_param("auto_scenario") +
+                report += "\n- step of scenario '" +
+                          rule->get_param(AutoScenarioDef::KEY_UID) +
                           "' (rule '" + rule->get_name() + "'): missing IO(s) " +
                           rule->getMissingIoDescription();
             }

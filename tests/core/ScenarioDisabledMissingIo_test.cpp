@@ -983,13 +983,12 @@ TEST_F(ScenarioDisabledMissingIoTest, ThePayloadTellsTheFourStatesApart)
  *    no uid, and no scenario claims it any more since the generator only owns
  *    the rules it wrote.
  *
- * The predicate is `param_exists("auto_scenario")`, so today the alert calls
- * BOTH of them a step of a scenario.
- *
- * >>> TO FLIP (E4.6f, E4.6.md 5.2 / 6) <<< the second one must stop being
- * announced as part of a scenario it no longer belongs to.
+ * The predicate used to be `param_exists("auto_scenario")`, which called BOTH
+ * of them a step of a scenario. E4.6f keys it on the uid: the leftover is
+ * reported, as a plain rule, and no longer sends the user looking for a
+ * scenario that does not exist.
  */
-TEST_F(ScenarioDisabledMissingIoTest, TheStartupAlertCallsEveryRuleCarryingTheLegacyMarkerAStepOfAScenario)
+TEST_F(ScenarioDisabledMissingIoTest, TheStartupAlertCallsAStepOfAScenarioOnlyARuleTheProjectionWrote)
 {
     loadHouse();
     ASSERT_NE(buildReferenceScenario(), nullptr);
@@ -1032,19 +1031,45 @@ TEST_F(ScenarioDisabledMissingIoTest, TheStartupAlertCallsEveryRuleCarryingTheLe
     ASSERT_EQ(alertsBefore + 1u, alerts.size());
     const std::string report = alerts.back();
 
-    //the live scenario is named, by the value of its legacy marker
+    //the live scenario is named, by the uid its definition is filed under
     EXPECT_NE(std::string::npos,
-              report.find("- step of scenario '" + std::string(SC_ID) +
+              report.find("- step of scenario '" + scUid +
                           "' (rule 't318_sc_step')")) << report;
 
-    //and so is the leftover, which belongs to no scenario at all
+    //the leftover is still reported - nothing is hidden - but as what it is
     EXPECT_NE(std::string::npos,
-              report.find("- step of scenario 't318_old_scenario' "
-                          "(rule 't318_legacy_rule')")) << report;
+              report.find("- rule 't318_legacy_rule': missing IO(s) t318_missing"))
+            << report;
     EXPECT_EQ(std::string::npos,
-              report.find("- rule 't318_legacy_rule'")) << report;
+              report.find("step of scenario 't318_old_scenario'")) << report;
 
     //the paragraph that tells the user a scenario stays disabled until it is
     //re-enabled by hand is emitted as soon as one line claimed a scenario
     EXPECT_NE(std::string::npos, report.find("A SCENARIO is among them")) << report;
+}
+
+/* The other half of the same alert: when nothing that got disabled belongs to a
+ * scenario, the report must not say one is among them. The paragraph it guards
+ * tells the user a scenario stays dead until it is re-enabled by hand, which is
+ * false of a plain rule - that one comes back on its own.
+ */
+TEST_F(ScenarioDisabledMissingIoTest, TheScenarioParagraphIsAbsentWhenNoDisabledRuleBelongsToAScenario)
+{
+    const size_t alertsBefore = Config::Instance().getConfigAlerts().size();
+
+    loadConfig(ioXmlDocument(roomXml(T318_ROOM, T318_ROOM_TYPE,
+                                     internalIoXml("InternalBool", TARGET_1, "First"),
+                                     0)),
+               rulesXmlDocument(simpleRuleXml("t318_plain_rule", TARGET_1, "==", "true",
+                                              "t318_never_existed", "true")));
+
+    const std::vector<std::string> &alerts = Config::Instance().getConfigAlerts();
+    ASSERT_EQ(alertsBefore + 1u, alerts.size());
+    const std::string report = alerts.back();
+
+    EXPECT_NE(std::string::npos,
+              report.find("- rule 't318_plain_rule': missing IO(s) t318_never_existed"))
+            << report;
+    EXPECT_EQ(std::string::npos, report.find("step of scenario")) << report;
+    EXPECT_EQ(std::string::npos, report.find("A SCENARIO is among them")) << report;
 }
