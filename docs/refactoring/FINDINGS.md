@@ -8744,3 +8744,39 @@ Audit demandé au merge après le §1. Résultats sur tout `tests/` :
   comparer, et `ShutterImpulse_test` le documente en toutes lettres.
 - `roomIndexOf()` (`ListeRoomOwnership_test.cpp:57`) rend -1 lui aussi, mais son résultat est passé
   à `lr.Remove()`, jamais comparé : un -1 y produit un échec, pas un faux vert.
+
+## E4.6h — les sauvegardes de `config put` sont horodatées à la SECONDE, deux envois rapprochés n'en laissent qu'une (2026-09-03)
+
+`Config::BackupFiles()` (`CalaosConfig.cpp`) nomme son dossier `"%d-%m-%Y_%H-%M-%S"`. Deux
+`config put` **dans la même seconde** écrivent donc dans le **même** dossier, et le second y
+recopie la configuration telle qu'elle est **après** le premier : la copie du premier est
+**écrasée**, et l'état d'avant le premier téléversement n'existe plus nulle part.
+
+**Mesuré, pas déduit** : la première version de
+`AutoScenarioUploadGuardTest::TwoUploadsLeaveTwoBackupsAndTheNewestIsTheStateJustBeforeTheLastOne`
+enchaînait les deux envois et voyait **une** sauvegarde là où le cas en attendait deux. Le cas
+attend maintenant 1,1 s entre les deux, et le commentaire dit pourquoi.
+
+**Portée** : ce n'est pas propre aux scénarios — c'est toute la configuration. En exploitation
+normale deux téléversements sont séparés de bien plus d'une seconde (un humain manipule
+`calaos_installer`), et le défaut ne se voit que sur des envois scriptés en rafale. **Non corrigé
+par E4.6h** : `CalaosConfig.cpp` est hors du périmètre §6, et la correction (un suffixe, ou un
+refus de réutiliser un dossier existant) touche tous les appelants de `BackupFiles()`.
+
+## E4.6h — question laissée ouverte : l'alerte des règles désactivées nomme le scénario par son uid (2026-09-03)
+
+`CalaosConfig.cpp:422` (l'alerte E4.2e re-clée par E4.6f) imprime
+`- step of scenario '<uid>' (rule '<nom de la règle>')`. L'uid est ce que le **modèle** range, pas
+ce que l'**utilisateur** reconnaît. L'alerte neuve d'E4.6h, sur le même canal, nomme au contraire
+par le `name` avec l'uid en repli.
+
+Les deux lignes du même canal ne nomment donc pas la même chose de la même façon. E4.6h **n'a pas
+uniformisé** : `CalaosConfig.cpp` n'est pas dans son périmètre (§6), et le témoin d'échange d'E4.6f
+`TheStartupAlertCalls…OnlyARuleTheProjectionWrote` fige le texte actuel. Le brief demandait le
+lookup du `name` « puisque tu rouvres le même canal », ce qui a été lu comme portant sur l'alerte
+**du ticket** ; l'utilisateur dormait et n'était pas joignable, donc la version conservatrice a été
+livrée.
+
+**Ce qu'il faudrait pour le faire** : un lookup uid → IO scénario → `name` (un balayage de
+`ListeRoom`, l'uid n'étant indexé nulle part aujourd'hui), et retourner un cas d'E4.6f.
+**Coût** : petit. **Décision** : à l'utilisateur.

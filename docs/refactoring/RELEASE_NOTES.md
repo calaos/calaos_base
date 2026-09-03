@@ -1781,6 +1781,48 @@ suffisait à perdre une action pour toujours.**
   ce document-là, renvoyé tel quel, est **refusé**. L'aller-retour est une identité pour tout
   scénario rangé dans une pièce, c'est-à-dire tous ceux que l'API sait créer.
 
+### Le serveur vous dit désormais qu'un téléversement de configuration a fait disparaître un scénario (E4.6h)
+
+**La situation.** `calaos_installer` ne pilote pas les scénarios par l'API : il télécharge
+`io.xml` et `rules.xml`, les régénère **entièrement** depuis son propre modèle, et les renvoie au
+serveur. Tout ce qu'il ne modélise pas disparaît au passage, et le serveur reçoit deux fichiers
+parfaitement cohérents d'où le scénario a simplement été retiré. Jusqu'ici il les écrivait sans
+un mot ; vous le découvriez le jour où les volets ne montaient plus.
+
+**Ce qui change.** Au premier démarrage qui suit un téléversement, le serveur compare ce qu'il
+savait à ce qu'il vient de recevoir. Si un scénario a **disparu**, ou s'il a **perdu des étapes**,
+vous recevez l'alerte de configuration habituelle (mail + notification), **nommant le scénario par
+le nom que vous lui avez donné** :
+
+```
+The configuration that was uploaded no longer carries scenario data this server had:
+
+- scenario 'Soirée' (as_0) is gone from the uploaded configuration
+- scenario 'Réveil' (as_1) lost 2 of its 3 steps
+
+Nothing was refused and nothing was undone: the configuration is the one that was
+uploaded. The one that was in place before it was backed up first, under
+<config>/backups.
+```
+
+**⛔ Rien n'est jamais refusé, et c'est délibéré.** Supprimer un scénario depuis l'installeur est
+une chose légitime : un serveur qui refuserait un téléversement parce qu'il y manque quelque chose
+qu'il connaissait vous enfermerait dans votre configuration précédente. **Le serveur signale, il
+n'arbitre pas.** Le téléversement est appliqué tel qu'il a été envoyé.
+
+**Et la configuration précédente est récupérable.** Elle l'était déjà — un téléversement en fait
+une copie horodatée sous `backups/` **avant** d'écrire quoi que ce soit — mais rien ne l'attestait.
+C'est vérifié maintenant : la sauvegarde est **rechargée** dans les tests et le scénario perdu en
+revient entier, ses étapes, ses pauses et ses actions comprises.
+
+> ⚠️ **Une limite à connaître** : les sauvegardes sont horodatées **à la seconde**. Deux
+> téléversements dans la même seconde partagent le même dossier et le second **écrase** la copie du
+> premier. En pratique deux téléversements consécutifs sont séparés de bien plus d'une seconde,
+> mais si vous scriptez des envois en rafale, espacez-les.
+
+L'alerte est émise **une seule fois**, au démarrage qui suit le téléversement : une perte que vous
+ne pouvez plus annuler n'a pas à vous être répétée à chaque redémarrage.
+
 ---
 
 ## ⚠️ L'API `autoscenario` : deux ruptures visibles, assumées
