@@ -2474,16 +2474,11 @@ core_AutoScenarioMigration_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/S
 endif
 
 
-# E4.1a
-#Characterization of the two JSON faces of Params, written BEFORE the bridge
-#is cut and green across the cut. Params.h is the one header that includes
-#both jansson and nlohmann; E4.1a keeps only the nlohmann face on the class
-#and moves the jansson serialization, verbatim, into the transitional adapter
-#jansson_from_params() of src/lib/Jansson_Addition.h. The only line of the
-#test that the migration touches is the seam paramsToJansson(); no assertion
-#moves. Only libcalaos_common code is exercised (Params + Jansson_Addition),
-#no server object and no fixture. Own HAVE_GTEST block so this stays a pure
-#append at the end of the file.
+#The JSON face of Params: the mapping it serializes to, and the escaping of the
+#dump that feeds the API wire - the one dimension the goldens cannot see, since
+#they compare parsed documents. Only libcalaos_common code is exercised (Params
+#alone), no server object and no fixture. Own HAVE_GTEST block so this stays a
+#pure append at the end of the file.
 if HAVE_GTEST
 TESTS += ParamsJson_test
 check_PROGRAMS += ParamsJson_test
@@ -2813,37 +2808,6 @@ WagoWire_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   -lgtest -lgtest_main
 endif
 
-# E4.1c
-#The two build-only contracts the "dead jansson residues" cleanup rests on,
-#plus the source tripwires that keep the deletions deleted.
-#(A) IO/ExternProc.h must go on handing <jansson.h> to the ten units that take
-#it from there and nowhere else; the deleted `#include <jansson.h>` was
-#redundant with the `#include "Jansson_Addition.h"` on the next line, and it is
-#E4.1x, not E4.1c, that removes the provision itself.
-#(B) json_array_foreach is native to jansson >= 2.5 (configure.ac:51), so the
-##ifndef compat copy deleted from HttpClient.cpp could never fire.
-#This unit includes ExternProc.h and NOTHING else from calaos, so that jansson
-#being visible below proves that header brought it: no server object is linked
-#and none may be, which also keeps it clear of the _DEPENDENCIES pitfall.
-#CALAOS_TOP_SRCDIR lets the tripwire cases read the shipped sources, the same
-#way CALAOS_GOLDEN_DIR feeds the golden comparisons.
-#OWNED BY E4.1x: this suite calls the jansson C API on purpose and pins the
-#Jansson_Addition.h delegation E4.1x removes. It is deleted with jansson, not
-#ported.
-#Own HAVE_GTEST block so this stays a pure append at the end of the file.
-if HAVE_GTEST
-TESTS += JanssonResidues_test
-check_PROGRAMS += JanssonResidues_test
-JanssonResidues_test_SOURCES = JanssonResidues_test.cpp
-JanssonResidues_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -DCALAOS_TOP_SRCDIR='"$(abs_top_srcdir)"'
-JanssonResidues_test_LDADD = @CALAOS_COMMON_LIBS@ \
-                  $(top_builddir)/src/lib/libcalaos_common.la \
-                  -lgtest -lgtest_main
-#Built elsewhere, do not let automake turn them into prerequisites
-JanssonResidues_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
-endif
-
 # E4.1d
 #Characterization of the two THIRD PARTY JSON READERS of the tree: the
 #Logitech Media Server answer Squeezebox.cpp walks for artwork_url, and the
@@ -3042,8 +3006,8 @@ endif
 #SHIPPED packer turns this suite red.
 #⚠️ WagoCtrl.o is in NO test binary and cannot be - write_multiple_bits()
 #returns on !is_connected() before its body, which needs a live modbus socket.
-#The two call sites in WagoCtrl.cpp are covered by SOURCE TRIPWIRES (the
-#JanssonResidues_test pattern, hence CALAOS_TOP_SRCDIR) and by nothing else;
+#The two call sites in WagoCtrl.cpp are covered by SOURCE TRIPWIRES (hence
+#CALAOS_TOP_SRCDIR) and by nothing else;
 #swapping `address` and `nb` there stays green here and needs distinct types,
 #which is T3.31's business.
 #⚠️ Two of its cases DIE instead of failing before the fix - SIGSEGV on
@@ -3078,7 +3042,7 @@ endif
 #calaos_roon (measured in E4.1h, FINDINGS.md:109-113, and the review closed the
 #question)". Every clause about the constructor is true; the conclusion is not.
 #The respawn and the member initialiser were therefore pinned by SOURCE
-#TRIPWIRES over CALAOS_TOP_SRCDIR, the same mechanism JanssonResidues_test uses;
+#TRIPWIRES over CALAOS_TOP_SRCDIR;
 #what was already behavioural is the ioDoc, read off a real RoonPlayer, and the
 #RoonArgs free functions the fix extracts into Audio/RoonArgs.h.
 #It links Audio/RoonPlayer.$(OBJEXT) on top of the core objects. ⛔ T3.27: this

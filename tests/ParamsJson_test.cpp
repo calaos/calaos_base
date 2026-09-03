@@ -20,52 +20,33 @@
  ******************************************************************************/
 
 /*******************************************************************************
- * E4.1a - CHARACTERIZATION of the two JSON faces of Params.
+ * The JSON face of Params, and the byte shape of the wire it feeds.
  *
- * Params is THE bridge of the jansson -> nlohmann migration: src/lib/Params.h
- * is the one header that includes BOTH libraries, and almost every payload of
- * the JSON API crosses it. E4.1a cuts that bridge: Params keeps only its
- * nlohmann face, and the jansson serialization moves out, verbatim, into the
- * transitional adapter of src/lib/Jansson_Addition.h.
- *
- * This file is written BEFORE that move and must stay green across it: it
- * freezes what the jansson face produces today, byte-observable semantics
- * included, so that the move can be proven to be a move and not a rewrite.
- *
- * THE ONE LINE THAT CHANGES AT MIGRATION TIME is paramsToJansson() below - the
- * seam. Every assertion in this file is written against that seam and none of
- * them is touched by the migration commit.
+ * Almost every payload of the JSON API crosses Params, so what this class
+ * serializes to is a contract for the whole API. Two things are pinned:
+ * the mapping itself (an object of STRINGS - a value that became a JSON number
+ * would break the type-strict oracle of the golden suite) and the escaping of
+ * the dump, which no golden can see because the goldens compare parsed
+ * documents.
  *
  * Deliberately NOT asserted: the order of the keys inside a serialized
  * document. The user decision of 2026-08-17 assumes sorted keys
  * (nlohmann::json, not ordered_json) and E4.0's oracle contract compares
- * documents, never strings. The ordering that IS pinned here is the one the
- * adapter depends on and that IS semantic for C++ callers: Params is a
- * std::map, so its iteration is alphabetical, not insertion-ordered.
+ * documents, never strings. The ordering that IS pinned here is the one that
+ * IS semantic for C++ callers: Params is a std::map, so its iteration is
+ * alphabetical, not insertion-ordered.
  ******************************************************************************/
 
 #include <gtest/gtest.h>
-
-#include <jansson.h>
 
 #include <string>
 #include <vector>
 
 #include "Utils.h"
 #include "Params.h"
-#include "Jansson_Addition.h"
 
 namespace
 {
-
-/* THE SEAM. Before E4.1a this was Params::toJson(); it is now the free
- * transitional adapter jansson_from_params() of Jansson_Addition.h. This
- * function body is the ONLY line of this file the migration commit touched -
- * not one assertion moved. */
-json_t *paramsToJansson(const Params &p)
-{
-    return jansson_from_params(p);
-}
 
 /* The invalid sequence used all over the E4.0 series (JsonApiSession_test.cpp:146).
  * 0xff is not a legal UTF-8 lead byte, 0x80 is a bare continuation byte. */
@@ -100,311 +81,76 @@ Params richFixture()
     return p;
 }
 
-std::string janssonValueOf(json_t *obj, const char *key)
-{
-    json_t *v = json_object_get(obj, key);
-    if (!v || !json_is_string(v))
-        return std::string("<absent-or-not-a-string>");
-    return std::string(json_string_value(v));
-}
-
 } //namespace
 
-/*******************************************************************************
- * The jansson face
- ******************************************************************************/
-
-TEST(ParamsJson, ToJansson_IsAnObjectAndEveryValueIsAJsonString)
+TEST(ParamsJson, Tripwire_TheWireIsFormThreeAndNotABareDump)
 {
-    /* 32 json_string and ZERO json_integer/json_real in the whole API today:
-     * an int that became a JSON number would be a contract break, and the
-     * oracle of the golden suite is type-strict (3 != "3"). This is the
-     * assertion that catches a serializer that "helpfully" types its output. */
-    Params p = richFixture();
-    json_t *j = paramsToJansson(p);
-    ASSERT_TRUE(j != nullptr);
-    ASSERT_TRUE(json_is_object(j)) << "Params no longer serializes to a JSON object";
-    EXPECT_EQ(8u, json_object_size(j));
-
-    const char *key;
-    json_t *value;
-    json_object_foreach(j, key, value)
-    {
-        EXPECT_TRUE(json_is_string(value))
-                << "key '" << key << "' is no longer a JSON string";
-        EXPECT_FALSE(json_is_number(value))
-                << "key '" << key << "' became a JSON number";
-        EXPECT_FALSE(json_is_boolean(value))
-                << "key '" << key << "' became a JSON boolean";
-        EXPECT_FALSE(json_is_null(value))
-                << "key '" << key << "' became a JSON null";
-    }
-    json_decref(j);
-}
-
-TEST(ParamsJson, ToJansson_MapsEachKeyToItsOwnValue)
-{
-    /* The anti-swap case: key and value vocabularies are disjoint and no two
-     * values are equal, so a key<->value swap or any value permutation in the
-     * serializer turns this red. */
-    Params p = richFixture();
-    json_t *j = paramsToJansson(p);
-    ASSERT_TRUE(j != nullptr);
-
-    EXPECT_EQ("v_alpha", janssonValueOf(j, "k_alpha"));
-    EXPECT_EQ("v_zulu", janssonValueOf(j, "k_zulu"));
-    EXPECT_EQ("3", janssonValueOf(j, "k_int_like"));
-    EXPECT_EQ("1234.56789", janssonValueOf(j, "k_float_like"));
-    EXPECT_EQ("true", janssonValueOf(j, "k_bool_like"));
-    EXPECT_EQ("null", janssonValueOf(j, "k_null_like"));
-    EXPECT_EQ("", janssonValueOf(j, "k_empty"));
-    EXPECT_EQ("\xc3\xa9\xc3\xa0\xc3\xbc", janssonValueOf(j, "k_accent"));
-
-    //and the values are NOT usable as keys - proves the vocabularies really
-    //are disjoint, so the swap this case is meant to catch is catchable
-    EXPECT_TRUE(json_object_get(j, "v_alpha") == nullptr);
-    EXPECT_TRUE(json_object_get(j, "v_zulu") == nullptr);
-
-    json_decref(j);
-}
-
-TEST(ParamsJson, ToJansson_EmptyParamsIsAnEmptyObjectNotNull)
-{
-    /* JsonApiEvents_test.cpp:648 relies on this: an empty Params answers
-     * json_object(), i.e. {}, never a JSON null and never an array. */
-    Params p;
-    json_t *j = paramsToJansson(p);
-    ASSERT_TRUE(j != nullptr);
-    EXPECT_TRUE(json_is_object(j));
-    EXPECT_FALSE(json_is_null(j));
-    EXPECT_FALSE(json_is_array(j));
-    EXPECT_EQ(0u, json_object_size(j));
-    json_decref(j);
-}
-
-TEST(ParamsJson, ToJansson_EmptyStringValueIsEmittedNotOmitted)
-{
-    /* "absent key" and "empty string" are two different answers in this API
-     * (get_param on an empty param, schedule:"false"). Emitting nothing for an
-     * empty value would silently turn one into the other. */
-    Params p;
-    p.Add("k_empty", "");
-    p.Add("k_alpha", "v_alpha");
-    json_t *j = paramsToJansson(p);
-    ASSERT_TRUE(j != nullptr);
-    ASSERT_EQ(2u, json_object_size(j)) << "the empty-valued pair was dropped";
-    json_t *v = json_object_get(j, "k_empty");
-    ASSERT_TRUE(v != nullptr);
-    EXPECT_TRUE(json_is_string(v));
-    EXPECT_STREQ("", json_string_value(v));
-    json_decref(j);
-}
-
-TEST(ParamsJson, ToJansson_ValidNonAsciiSurvivesAndDumpsAsAsciiEscapes)
-{
-    /* A legal accented value survives the round trip into the jansson tree,
-     * and jansson_to_string() dumps it with JSON_ENSURE_ASCII, so it leaves as
-     * \uXXXX escapes and never as raw UTF-8 bytes. That is what the external
-     * processes (Wago, KNX, Lua) read off the wire today, and none of them is
-     * covered by the golden suite. */
-    Params p;
-    p.Add("k_accent", "\xc3\xa9\xc3\xa0\xc3\xbc");
-    json_t *j = paramsToJansson(p);
-    ASSERT_TRUE(j != nullptr);
-    EXPECT_EQ("\xc3\xa9\xc3\xa0\xc3\xbc", janssonValueOf(j, "k_accent"));
-
-    //jansson_to_string() steals the reference, no decref here
-    std::string dumped = jansson_to_string(j);
-    EXPECT_NE(std::string::npos, dumped.find("\\u00E9"))
-            << "JSON_ENSURE_ASCII no longer escapes non-ASCII as jansson does: "
-            << dumped;
-    EXPECT_EQ(std::string::npos, dumped.find("\xc3\xa9"))
-            << "raw UTF-8 bytes reached the wire: " << dumped;
-}
-
-TEST(ParamsJson, Tripwire_TheThreeWireEscapingsAreThreeDifferentBytestreams)
-{
-    /* TRIPWIRE, AND E4.1s IS THE SUB-TICKET THAT BASCULED IT.
+    /* TRIPWIRE ON THE BYTE SHAPE OF THE WIRE.
      *
-     * Escaping is where this migration changes bytes without changing meaning,
-     * and "semantically identical" is exactly what a golden suite is built to
-     * ignore. The 145 goldens compare PARSED DOCUMENTS and stayed GREEN through
-     * every emitter of the series. This case is one of the two things that did
-     * not: it pins the three forms SEPARATELY, on the RAW dumped string, with
-     * no case normalisation anywhere - normalising here would make the case
-     * pass for a migration that changed the wire, which is the one thing it
-     * exists to prevent, and it is the defect E4.1a had to rewrite it for.
+     * Escaping is the one dimension the golden suite cannot see: the 145
+     * goldens compare PARSED DOCUMENTS, so a dump() that changed every escape
+     * would leave them all green. This case reads the RAW dumped string, with
+     * no case normalisation anywhere - normalising here would let through
+     * exactly the change it exists to catch.
      *
-     * WHAT CHANGED IN E4.1s, AND IN WHICH DIRECTION. The API emitters
-     * (JsonApiHandlerHttp::sendJson(const Json &),
-     * JsonApiHandlerWS::sendJson(const string &, const Json &, const string &),
-     * and JsonApiHandlerWS::sendJsonNoData()) no longer produce FORM 1. They
-     * produce FORM 3, and the exact expression they use is asserted below as
-     * `shipped`:
+     * THE FORM THE API SHIPS, and the expression it ships it with:
      *
      *     dump(-1, SPACE, ensure_ascii = true, Json::error_handler_t::replace)
      *
-     * FORM 2 IS A FAILURE OF THAT TICKET, NOT A VARIANT OF IT. A bare dump()
-     * would also have made this case "go red" against form 1, and an
-     * implementer who only read "the tripwire must move" could take that for
-     * success. So `shipped` is asserted EQUAL to form 3 and DIFFERENT from
-     * BOTH of the others, separately.
+     * Pure ASCII, LOWERCASE hexadecimal. It is spelled out here rather than
+     * called, because this file links only libcalaos_common; the wire half,
+     * which reads a byte a handler really put on a socket, is
+     * Tripwire_TheHttpApiWireIsFormThreeAndNeitherOfTheOtherTwo in
+     * tests/core/JsonApiDispatchWireBytes_test.cpp. Neither one alone is the
+     * whole net on this dimension.
      *
-     * THE WIRE HALF OF THIS TRIPWIRE lives in
-     * tests/core/JsonApiDispatchWireBytes_test.cpp
-     * (Tripwire_TheHttpApiWireIsFormThreeAndNeitherOfTheOtherTwo): this file
-     * links only libcalaos_common and can compare the three FORMS, but it
-     * cannot read a byte a handler really put on a socket. The two together are
-     * the whole net on this dimension. Neither one alone is.
+     * A BARE dump() IS THE FAILURE MODE, not a variant: it emits raw UTF-8 and
+     * every assertion below is written so that swapping the shipped expression
+     * for one turns this case red. An UPPERCASE escape is asserted ABSENT for
+     * the same reason, one library ago it was what the wire carried.
      *
      * All values below are measured, not assumed. */
     Params p;
     p.Add("k_accent", "\xc3\xa9");                      //e acute, U+00E9
     p.Add("k_ctrl", std::string("a\x1f") + "b\x01" + "c"); //U+001F then U+0001
 
-    //--- form 1: jansson + JSON_ENSURE_ASCII, hex UPPERCASE. What the API used
-    //to ship, up to and including E4.1r. jansson_from_params() still builds it
-    //for the call sites outside the API, so it is still measurable here.
-    json_t *j = paramsToJansson(p);
-    ASSERT_TRUE(j != nullptr);
-    const std::string jansson_wire = jansson_to_string(j); //steals the ref
-    EXPECT_NE(std::string::npos, jansson_wire.find("\\u00E9"))
-            << "form 1 changed: " << jansson_wire;
-    EXPECT_EQ(std::string::npos, jansson_wire.find("\\u00e9"))
-            << "jansson started lowercasing its escapes: " << jansson_wire;
-    EXPECT_EQ(std::string::npos, jansson_wire.find("\xc3\xa9"))
-            << "jansson stopped escaping non-ASCII: " << jansson_wire;
-
     Json jn = p.toNJson();
 
-    //--- form 2: nlohmann dump() bare. RAW UTF-8, no escape at all. This is
-    //what a straight port produces, and it differs from form 1 on every
-    //non-ASCII byte. IT IS NOT WHAT E4.1s SHIPPED, and the assertions on
-    //`shipped` below are what makes that falsifiable.
-    const std::string nlohmann_bare = jn.dump();
-    EXPECT_NE(std::string::npos, nlohmann_bare.find("\xc3\xa9"))
-            << "form 2 changed: " << nlohmann_bare;
-    EXPECT_EQ(std::string::npos, nlohmann_bare.find("\\u00E9"))
-            << "nlohmann started escaping non-ASCII: " << nlohmann_bare;
-    EXPECT_EQ(std::string::npos, nlohmann_bare.find("\\u00e9"))
-            << "nlohmann started escaping non-ASCII: " << nlohmann_bare;
+    //The bare dump: raw UTF-8, no escape at all. Kept as the CONTRAST, so that
+    //"the wire moved" cannot be confused with "the wire moved to the right
+    //place".
+    const std::string bare = jn.dump();
+    EXPECT_NE(std::string::npos, bare.find("\xc3\xa9"))
+            << "a bare dump() no longer emits raw UTF-8, this contrast is dead: "
+            << bare;
 
-    //--- form 3: nlohmann dump(ensure_ascii = true). WHAT THE API SHIPS SINCE
-    //E4.1s. The closest port to form 1 - and STILL not byte identical to it,
-    //because the hex is LOWERCASE. This is the case a case-insensitive
-    //assertion would let through while the wire really had changed.
-    const std::string nlohmann_ascii = jn.dump(-1, ' ', true);
-    EXPECT_NE(std::string::npos, nlohmann_ascii.find("\\u00e9"))
-            << "form 3 changed: " << nlohmann_ascii;
-    EXPECT_EQ(std::string::npos, nlohmann_ascii.find("\\u00E9"))
-            << "form 3 became byte identical to jansson - the wire risk this "
-               "tripwire guards is gone, say so explicitly: " << nlohmann_ascii;
-    EXPECT_EQ(std::string::npos, nlohmann_ascii.find("\xc3\xa9"))
-            << "form 3 leaked raw bytes: " << nlohmann_ascii;
-
-    //--- and the three really are three: no two of them are the same string.
-    EXPECT_NE(jansson_wire, nlohmann_bare);
-    EXPECT_NE(jansson_wire, nlohmann_ascii);
-    EXPECT_NE(nlohmann_bare, nlohmann_ascii);
-
-    /* THE VERDICT OF E4.1s: WHICH OF THE THREE THE API PUTS ON THE WIRE.
-     *
-     * `shipped` is the emission expression of BOTH handlers, spelled out here
-     * rather than referred to, because this file cannot link them. The three
-     * invariants of E4.1b travel together and all three are in it: sorted keys
-     * (a nlohmann object IS a std::map), ensure_ascii = true, and
-     * error_handler_t::replace.
-     *
-     * Asserted as an EQUALITY against form 3 and as an INEQUALITY against each
-     * of the other two, separately - so that "the wire moved" can never be
-     * confused with "the wire moved to the right place".
-     */
     const std::string shipped = jn.dump(-1, ' ', true, Json::error_handler_t::replace);
 
-    EXPECT_EQ(nlohmann_ascii, shipped)
-            << "the API emission expression is no longer FORM 3: " << shipped;
-    EXPECT_NE(jansson_wire, shipped)
-            << "the API went back to FORM 1 (jansson, uppercase hex)";
-    EXPECT_NE(nlohmann_bare, shipped)
-            << "the API went to FORM 2 (raw UTF-8 bytes) - that is NOT the "
-               "bascule E4.1s asks for, it is its failure mode";
+    EXPECT_NE(shipped, bare)
+            << "the API emission expression became a bare dump() - raw UTF-8 on "
+               "a wire that has always been ASCII only";
+    EXPECT_EQ(jn.dump(-1, ' ', true), shipped)
+            << "the API emission expression is no longer ensure_ascii: " << shipped;
 
-    /* Control characters: NOT uniformly identical across the two libraries,
-     * contrary to what is easy to assume. Measured: U+001F is \\u001F
-     * under jansson and \\u001f under nlohmann - the case difference
-     * again, because the hex digits contain a LETTER. U+0001 is \\u0001 on
-     * both sides only because its digits contain none. A control-character
-     * check that used U+0001 alone would therefore see no difference and prove
-     * nothing.
-     *
-     * This is also the half the WIRE tripwire cannot carry, and it was
-     * measured there: the only API emitter that reflects client bytes reads
-     * them out of the XML configuration files, and the XML writer does not
-     * carry U+001F or U+0001 at all.
-     */
-    EXPECT_NE(std::string::npos, jansson_wire.find("\\u001F"));
-    EXPECT_NE(std::string::npos, nlohmann_bare.find("\\u001f"));
+    EXPECT_NE(std::string::npos, shipped.find("\\u00e9"))
+            << "the wire stopped escaping non-ASCII in lowercase hexadecimal: "
+            << shipped;
+    EXPECT_EQ(std::string::npos, shipped.find("\\u00E9"))
+            << "the wire went back to an UPPERCASE hexadecimal escape: " << shipped;
+    EXPECT_EQ(std::string::npos, shipped.find("\xc3\xa9"))
+            << "raw UTF-8 bytes reached the wire: " << shipped;
+
+    /* Control characters diverge on the SAME axis, and only when the hexadecimal
+     * contains a letter: U+001F is \u001f here and U+0001 is \u0001 whatever
+     * the case convention. A control-character check written on U+0001 alone
+     * would therefore see nothing and prove nothing. */
     EXPECT_NE(std::string::npos, shipped.find("\\u001f"));
-    EXPECT_EQ(std::string::npos, jansson_wire.find("\\u001f"));
-    EXPECT_EQ(std::string::npos, nlohmann_bare.find("\\u001F"));
     EXPECT_EQ(std::string::npos, shipped.find("\\u001F"));
-    EXPECT_NE(std::string::npos, jansson_wire.find("\\u0001"));
-    EXPECT_NE(std::string::npos, nlohmann_bare.find("\\u0001"));
     EXPECT_NE(std::string::npos, shipped.find("\\u0001"));
 }
 
-TEST(ParamsJson, ToJansson_InvalidUtf8ValueIsSilentlyDroppedAndTheRestSurvives)
-{
-    /* THE trap of the migration, seen from Params (E4.0.md:355).
-     *
-     * jansson refuses the bytes AT CONSTRUCTION: json_string() answers NULL,
-     * json_object_set_new() answers -1, and neither return code is tested. The
-     * pair simply disappears, the object stays well formed and json_dumps()
-     * SUCCEEDS - which is how the API answers 200 with a truncated payload.
-     *
-     * The good pairs around it are asserted too: "dropped the bad one" must
-     * not be confused with "dropped everything". */
-    Params p;
-    p.Add("k_alpha", "v_alpha");
-    p.Add("k_bad", std::string(INVALID_UTF8_BYTES));
-    p.Add("k_zulu", "v_zulu");
-
-    json_t *j = paramsToJansson(p);
-    ASSERT_TRUE(j != nullptr);
-    EXPECT_EQ(2u, json_object_size(j))
-            << "the invalid-UTF-8 pair is no longer silently dropped";
-    EXPECT_TRUE(json_object_get(j, "k_bad") == nullptr);
-    EXPECT_EQ("v_alpha", janssonValueOf(j, "k_alpha"));
-    EXPECT_EQ("v_zulu", janssonValueOf(j, "k_zulu"));
-
-    char *dumped = json_dumps(j, JSON_COMPACT | JSON_ENSURE_ASCII);
-    EXPECT_TRUE(dumped != nullptr)
-            << "json_dumps now fails on a truncated document - the dead 500 "
-               "branch of JsonApiHandlerHttp is reachable again";
-    free(dumped);
-    json_decref(j);
-}
-
-TEST(ParamsJson, ToJansson_InvalidUtf8KeyIsSilentlyDroppedAndTheRestSurvives)
-{
-    /* Same drop, through the key. This is the reachable channel:
-     * HfURISyntax::getQuery() percent-DECODES before HttpClient splits, so
-     * ?param=%ff%80x puts arbitrary bytes in a client-supplied param NAME,
-     * and buildJsonGetParam() makes that name a KEY. */
-    Params p;
-    p.Add(std::string(INVALID_UTF8_BYTES), "v_bad");
-    p.Add("k_alpha", "v_alpha");
-
-    json_t *j = paramsToJansson(p);
-    ASSERT_TRUE(j != nullptr);
-    EXPECT_EQ(1u, json_object_size(j))
-            << "the invalid-UTF-8 key is no longer silently dropped";
-    EXPECT_EQ("v_alpha", janssonValueOf(j, "k_alpha"));
-    json_decref(j);
-}
-
 /*******************************************************************************
- * The Params container itself - what the adapter iterates
+ * The Params container itself - what the serializer walks
  ******************************************************************************/
 
 TEST(ParamsJson, Params_IterationIsAlphabeticalNotInsertionOrder)
@@ -434,7 +180,7 @@ TEST(ParamsJson, Params_IterationIsAlphabeticalNotInsertionOrder)
 }
 
 /*******************************************************************************
- * The nlohmann face - unchanged by E4.1a, and the reason it must be pinned
+ * The serialized face of Params
  ******************************************************************************/
 
 TEST(ParamsJson, ToNJson_IsAnObjectOfStringsWithTheSameMapping)
@@ -513,24 +259,17 @@ TEST(ParamsJson, FromNJson_ThrowsTypeError302OnANonStringValue)
                "Config::readStateCache() has lost its reason to exist";
 }
 
-TEST(ParamsJson, Utf8_JanssonDropsWhereNlohmannKeeps)
+TEST(ParamsJson, Utf8_AnInvalidUtf8ValueIsKeptInTheTreeNotDropped)
 {
-    /* The two faces of the SAME Params, side by side. This is the divergence
-     * the whole migration has to answer for, stated on the bridge itself:
-     * jansson loses the pair, nlohmann keeps it and defers the problem to
-     * dump(). Whoever finishes the migration must make this case change on
-     * purpose, not by accident. */
+    /* The pair survives into the tree and the problem is deferred to dump(),
+     * where the error handler of the case below deals with it. Losing the pair
+     * here instead would answer a truncated payload with a 200. */
     Params p;
     p.Add("k_alpha", "v_alpha");
     p.Add("k_bad", std::string(INVALID_UTF8_BYTES));
 
-    json_t *jj = paramsToJansson(p);
-    ASSERT_TRUE(jj != nullptr);
-    EXPECT_EQ(1u, json_object_size(jj)) << "jansson stopped dropping";
-    json_decref(jj);
-
     Json jn = p.toNJson();
-    EXPECT_EQ(2u, jn.size()) << "nlohmann stopped keeping";
+    EXPECT_EQ(2u, jn.size()) << "the invalid-UTF-8 pair was dropped";
     EXPECT_EQ(std::string(INVALID_UTF8_BYTES), jn.value("k_bad", std::string()));
 }
 
@@ -575,27 +314,10 @@ TEST(ParamsJson, Utf8_NlohmannDumpThrows316AndTheReplaceHandlerYieldsFffd)
 }
 
 /*******************************************************************************
- * E4.1l's SECOND transitional adapter - the Json to jansson one, the mirror of
- * jansson_from_params() above - and its four cases WERE HERE. E4.1m deleted the adapter along with the last thing that needed
- * it: LuaScript/ScriptExec.cpp is migrated whole, so the {msg:"event",
- * data:<event>} message it sends to calaos_script is now assembled and dumped
- * in one library. The greppable name E4.1l gave it answers NOTHING tree wide
- * now, comments included: that grep WAS the protocol, and leaving the token in
- * a tombstone would have kept answering 1 forever.
- *
- * The four cases went with it rather than being retargeted: three of them
- * asserted properties OF THE ADAPTER (that it carried the nested member, that
- * it handed jansson a sorted document, that a bad byte crossed it as U+FFFD)
- * and the fourth was a REPLICA of the call site that pinned the byte stability
- * the adapter bought for one ticket - the very thing E4.1m gives up on
- * purpose, and declares in RELEASE_NOTES.md. Keeping any of them would have
- * pinned the past.
- *
- * What covers that wire now: tests/ScriptWire_test.cpp (E4.1j) covers every
- * shape ScriptExec.cpp uses - dumpJson(), parseMessage(), stringGet(),
- * decodeObject() - and the assembly in between is guarded by the compiler
- * alone. Said plainly rather than glossed over: that lambda only runs after a
- * real calaos_script has been spawned through uvw, and F-LINK-1 is exactly
- * about not calling "linked" what is not "exercised". E4.1m MEASURED it with a
- * marker on the site instead of reasoning about it; see docs/refactoring/E4.1m.md.
+ * The {msg:"event", data:<event>} message LuaScript/ScriptExec.cpp sends to
+ * calaos_script used to be assembled here, through a second adapter, and had
+ * four cases of its own. It is assembled and dumped in one library now, and
+ * tests/ScriptWire_test.cpp covers every shape that call site uses -
+ * dumpJson(), parseMessage(), stringGet(), decodeObject(). The assembly in
+ * between is guarded by the compiler alone.
  ******************************************************************************/

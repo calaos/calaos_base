@@ -51,8 +51,6 @@
 #include "ListeRule.h"
 #include "Scenario.h"
 
-#include <jansson.h>
-
 using namespace Calaos;
 using namespace CalaosTest;
 

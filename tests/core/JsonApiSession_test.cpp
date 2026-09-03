@@ -116,12 +116,6 @@
 
 #include "JsonApiCharacterization.h"
 
-//E4.1s: this unit calls the jansson C API directly, to prove what the
-//OTHER library does. It used to get <jansson.h> transitively through
-//JsonApi.h, whose include was dead and is gone; the dependency is now
-//spelled where it is used. E4.1x deletes both the include and the cases.
-#include <jansson.h>
-
 #include "EventManager.h"
 #include "HistLogger.h"
 #include "McpServerManager.h"
@@ -2109,56 +2103,24 @@ TEST_F(JsonApiSessionTest, AudioDbAcceptsGetAlbumOverWsAndGetAlbumsOverHttp)
 /*******************************************************************************
  * MIGRATION TRAPS
  *
- * The reason this whole series exists. Each of these is a place where jansson
- * and nlohmann do not merely format differently, they BEHAVE differently.
+ * Each of these is a place where the JSON library in use does not merely
+ * format differently from the one before it, it BEHAVES differently.
  ******************************************************************************/
 
-TEST_F(JsonApiSessionTest, Utf8Trap_NlohmannDumpThrowsWhereJanssonDrops)
+TEST_F(JsonApiSessionTest, Utf8Trap_NlohmannDumpThrowsOnInvalidUtf8)
 {
-    /* THE case of E4.0e, and the one E4.1 must read first.
+    /* Invalid UTF-8 goes into the tree without a word and THROWS type_error.316
+     * out of dump(). JsonApiHandlerHttp::sendJson(const Json &) and
+     * JsonApiHandlerWS::sendJson(const string &, const Json &) both dump, and
+     * processApi() has no try/catch, so an unhandled throw here is
+     * std::terminate on a live connection. That is why every emitter of
+     * client-influenced data carries error_handler_t::replace, and this case is
+     * what makes the handler's reason to exist falsifiable.
      *
-     * jansson REFUSES invalid UTF-8 when the value is built: json_string()
-     * answers NULL, json_object_set_new() answers -1, and no caller in
-     * JsonApi.cpp or Params::toJson() checks either return code. The pair is
-     * therefore dropped and the dump SUCCEEDS on a truncated document.
-     *
-     * nlohmann accepts the same bytes into the tree without a word and THROWS
-     * type_error.316 from dump(). JsonApiHandlerHttp::sendJson(const Json &)
-     * and JsonApiHandlerWS::sendJson(const string &, const Json &) both call
-     * dump() bare, and processApi() has no try/catch, so after the migration
-     * this is std::terminate on a live connection.
-     *
-     * E4.1 must therefore install a dump error handler
-     * (nlohmann::detail::error_handler_t::replace or ::ignore) or a try/catch
-     * on every dump of client-influenced data - and it must decide, explicitly,
-     * whether the new behaviour is "drop like today" or "replace with U+FFFD".
-     * Until then this case is the proof the two libraries disagree.
-     */
+     * The id is pinned and not just the class: it is the number the emitters
+     * are greppable by. */
     const std::string bad(INVALID_UTF8_BYTES);
 
-    //jansson: the value is refused at construction.
-    ASSERT_TRUE(json_string(bad.c_str()) == nullptr)
-            << "jansson accepted invalid UTF-8, the drop behaviour below is gone";
-
-    json_t *obj = json_object();
-    ASSERT_NE(0, json_object_set_new(obj, "k", json_string(bad.c_str())))
-            << "json_object_set_new accepted a NULL value";
-    ASSERT_NE(0, json_object_set_new(obj, bad.c_str(), json_string("v")))
-            << "json_object_set_new accepted an invalid key";
-    //The object lost BOTH pairs, and no caller was told.
-    EXPECT_EQ(0u, json_object_size(obj));
-    //...and the dump succeeds on that truncated object, which is why the 500
-    //branch of JsonApiHandlerHttp::sendJson() is never reached.
-    char *dumped = json_dumps(obj, JSON_COMPACT | JSON_ENSURE_ASCII);
-    EXPECT_TRUE(dumped != nullptr)
-            << "json_dumps failed, so the HTTP 500 path IS reachable after all "
-               "- update the file header";
-    free(dumped);
-    json_decref(obj);
-
-    //nlohmann: the value goes in, and dump() throws - type_error 316 exactly,
-    //"invalid UTF-8 byte at index N". The id is pinned and not just the class:
-    //it is the number E4.1 will grep for.
     Json j;
     j["k"] = bad;
     bool threw = false;
@@ -2172,8 +2134,8 @@ TEST_F(JsonApiSessionTest, Utf8Trap_NlohmannDumpThrowsWhereJanssonDrops)
         EXPECT_EQ(316, e.id) << "nlohmann threw, but not with type_error.316: "
                              << e.what();
     }
-    EXPECT_TRUE(threw) << "nlohmann::dump() accepted invalid UTF-8, the whole "
-                          "migration hazard described above is gone";
+    EXPECT_TRUE(threw) << "dump() accepted invalid UTF-8, the error handler "
+                          "installed on every emitter guards nothing";
 }
 
 TEST_F(JsonApiSessionTest, InvalidUtf8InAParamNameIsNoLongerDroppedAndStillAnswers200)
