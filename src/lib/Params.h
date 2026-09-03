@@ -59,10 +59,9 @@ public:
     void get_item(int i, string &key, string &value) const;
     void Delete(std::string key) { params.erase(key); }
 
-    /* E4.1a: read-only iteration over the pairs, so that the transitional
-     * jansson adapter can serialize a Params from the outside. Params is a
-     * std::map, so this walk is alphabetical and NOT insertion ordered;
-     * tests/ParamsJson_test.cpp pins it.
+    /* Read-only iteration over the pairs, so a Params can be serialized from
+     * the outside. Params is a std::map, so this walk is alphabetical and NOT
+     * insertion ordered; tests/ParamsJson_test.cpp pins it.
      *
      * cbegin/cend only, deliberately: adding a begin()/end() pair would
      * make Params look like a container to nlohmann's compatible-type

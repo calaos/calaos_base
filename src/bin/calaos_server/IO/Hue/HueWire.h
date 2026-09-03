@@ -150,7 +150,7 @@ inline int integerOrDefault(const Json &j, const char *key, int def = 0)
 }
 
 /*
- * jansson_bool_get() (Jansson_Addition.h), EXACTLY. Absent key -> def.
+ * the tolerant boolean reader it replaces, EXACTLY. Absent key -> def.
  * Present but not a JSON boolean -> def; in particular the NUMBER 1 and the
  * STRING "true" are not booleans. Never throws, so not get<bool>().
  */

@@ -68,8 +68,8 @@ inline std::string jsonStringGet(const Json &j, const char *key,
  * non object.
  *
  * Identical, deliberately, to ScriptWire::decodeObject() and to the four
- * driver wires that carry the same helper: this is the fifth copy of a
- * contract that E4.1x will fold once Jansson_Addition.h goes away.
+ * driver wires that carry the same helper: five copies of one contract, still
+ * to be folded into one place.
  */
 inline void decodeJsonObject(const Json &j, Params &params)
 {

@@ -41,9 +41,9 @@ namespace
  * on a root that is not an object (json_object_get(NULL, k) answered NULL).
  * `j["k"].get<string>()` does none of that - it throws.
  *
- * Identical, deliberately, to the copy JsonApi.cpp carries (E4.1o) and to the
- * four driver wires: this is a contract E4.1x will fold once
- * Jansson_Addition.h goes away, not a helper to improve here.
+ * Identical, deliberately, to the copy JsonApi.cpp carries and to the four
+ * driver wires: one contract in several copies, to be folded into one place
+ * rather than improved here.
  */
 inline std::string jsonStringGet(const Json &j, const char *key,
                                  const std::string &defaultValue = std::string())
@@ -70,10 +70,9 @@ inline std::string jsonStringGet(const Json &j, const char *key,
  * collapsed duplicate keys at PARSE time (last one wins, measured identical in
  * both libraries).
  *
- * Identical, deliberately, to the copy JsonApi.cpp carries (E4.1o), to the one
- * in JsonApiHandlerWS.cpp and to ScriptWire::decodeObject(): this is a
- * contract E4.1x folds once Jansson_Addition.h goes away, not a helper to
- * improve here.
+ * Identical, deliberately, to the copy JsonApi.cpp carries, to the one in
+ * JsonApiHandlerWS.cpp and to ScriptWire::decodeObject(): one contract in
+ * several copies, to be folded into one place rather than improved here.
  */
 inline void decodeJsonObject(const Json &j, Params &params)
 {

@@ -28,7 +28,7 @@ extern "C" {
 #include <eibclient.h>
 }
 
-/* E4.1e - mirror of jansson_decode_object() (src/lib/Jansson_Addition.h) on top
+/* E4.1e - mirror of the flattening decoder it replaces, on top
  * of nlohmann::json, shared by the two translation units of calaos_knx
  * (KNXExternProc_main.cpp for the message envelope, KNXExternProc_cli.cpp for
  * KNXValue::fromJson). A string stays a string, a boolean becomes

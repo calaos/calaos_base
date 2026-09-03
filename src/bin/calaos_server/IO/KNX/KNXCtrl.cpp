@@ -27,7 +27,7 @@ namespace
 /* E4.1e - the two jansson readers this file used, kept identical in
  * behaviour on top of nlohmann::json.
  *
- * knxDecodeObject() mirrors jansson_decode_object() (src/lib/Jansson_Addition.h):
+ * knxDecodeObject() mirrors the flattening decoder it replaces:
  * a string stays a string, a boolean becomes "true"/"false", a number goes
  * through Utils::to_string(double), anything else is recorded as an empty
  * string, every key present is recorded, and NOTHING EVER THROWS. The natural
