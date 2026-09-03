@@ -8626,3 +8626,66 @@ Ce n'est pas une régression et rien n'en dépend, mais c'est la dette d'E4.6d *
 un accesseur public qu'aucune ligne du dépôt n'appelle, gardé par une phrase qui décrit l'usage de
 l'autre. Deux issues, l'une ou l'autre : l'empreinte de pureté lit **aussi** les actions de l'étape
 finale, ou l'accesseur part. **À trancher dans `E4.6g`.**
+
+## E4.6f — la périphérie du marqueur
+
+### 1. ⭐ `rankOf()` rend `-1`, et `-1` est inférieur à tous les rangs — les cas `K_` étaient vacuants
+
+`core/JsonApiModelWireBytes_test` compare des **rangs de clés** pour prouver que l'objet IO sort
+**trié** et non dans l'ordre d'insertion. `rankOf()` (fichier, section des helpers) rend `-1` quand
+la clé n'est pas là. `EXPECT_LT(rankOf(keys, "auto_scenario"), rankOf(keys, "id"))` reste donc
+**vrai** quand `auto_scenario` **a disparu du payload** : renommer une clé en production laisse le
+cas vert sur une prémisse fausse. Mesuré : la mutation M1 d'E4.6f (les deux marqueurs échangés)
+laissait `K_IoObjectKeysAreSortedNotInsertionOrdered` **vert**.
+
+Corrigé dans le ticket par un `ASSERT_GE(rankOf(keys, k), 0)` sur les sept clés que le cas compare.
+⚠️ **Le même motif est à vérifier partout où `rankOf()` est comparé** — c'est un helper partagé de
+ce fichier, et rien n'oblige les autres cas `K_` à nommer des clés qui existent.
+
+### 2. Le paragraphe « A SCENARIO is among them » n'avait aucun témoin d'absence
+
+`CalaosConfig.cpp` lève `anyScenario` dans la branche « étape de scénario » et ajoute, en fin de
+rapport, un paragraphe qui prévient qu'un scénario **reste mort jusqu'à réactivation manuelle** —
+ce qui est faux d'une règle ordinaire, laquelle revient toute seule. Aucun cas du dépôt ne lisait un
+rapport dans lequel **rien** n'appartenait à un scénario : déplacer `anyScenario = true` dans
+l'autre branche laissait **tout le dépôt vert**. Comblé par
+`ScenarioDisabledMissingIoTest.TheScenarioParagraphIsAbsentWhenNoDisabledRuleBelongsToAScenario`,
+seul témoin de la mutation M3.
+
+### 3. L'alerte nomme le scénario par son **uid**, pas par son nom d'utilisateur — question ouverte
+
+`- step of scenario 'as_0' (rule 't318_sc_step')` : `as_0` est l'identité que le modèle donne au
+scénario depuis E4.6b, et elle est retrouvable dans `io.xml` (`autoscenario_uid="as_0"`, sur
+l'élément qui porte aussi `name="…"`). C'est **strictement l'échange** de ce que faisait l'ancienne
+alerte, qui imprimait `scenario_0` — aussi opaque, sur la même ligne du même fichier. **Mais ni l'un
+ni l'autre n'est ce que l'utilisateur voit dans son interface**, qui est le `name` de l'IO scénario.
+
+La version conservatrice a été livrée (échange de clé, aucun nouveau couplage). **Le lookup par
+`ListeRoom::getAutoScenarios()` pour imprimer le `name` appartient naturellement à
+[`E4.6h`](E4.6.md), qui rouvre déjà ce même canal d'alerte** (§6 : « alerter par le mécanisme
+existant, `CalaosConfig.cpp:405-440` ») et doit de toute façon **nommer** un scénario perdu.
+
+### 4. ⛔ `IO/Scenario.cpp` n'est toujours pas re-clé — §5.3 n'est pas atteinte, et aucun ticket ne la porte
+
+Le marqueur qui **décide qu'un `AutoScenario` est construit** reste `auto_scenario`
+(`IO/Scenario.cpp`, commentaire posé par E4.6c). Conséquences, toujours vraies après E4.6f :
+
+- les **4 anciens scénarios de `configs/raoulh` sont toujours des auto-scénarios** et apparaissent
+  dans `autoscenario list` — le mandat de §1.1 (« ils cessent d'être reconnus ») **n'est pas tenu** ;
+- `Calaos::get_new_scenario_id()` survit avec son unique appelant, `buildAutoscenarioCreate()` ;
+- les ids des 5 IOs internes restent **dérivés** du `scenario_id` (`scenario_0_step` & consorts), donc
+  `ScenarioNullGuard_test::CheckScenarioRulesAbortsWhenInternalIoIsHijacked` reste pertinent.
+
+Le re-cléage coûte **71 cas rouges sur 7 binaires** (M6 d'E4.6b, §8.4) et **fait basculer les deux
+acquis d'E4.6a** que toute la série a traités comme des garde-fous. Ce n'est pas un oubli d'E4.6f :
+c'est un ticket à part entière, qui doit d'abord **trancher** ce que devient le garde-fou. **Aucune
+ligne de §6 ne le porte aujourd'hui.**
+
+### 5. Le marqueur historique disparaît du payload des **IOs internes** — non compensé
+
+`auto_scenario` était recopié sur les 5 IOs de machinerie de chaque scénario (`createInput()`), donc
+`get_home` les rattachait visiblement à leur scénario. `autoscenario_uid` n'est posé **que sur l'IO
+scénario**. Après E4.6f, un client qui voudrait grouper `scenario_0_step` avec son scénario ne le
+peut plus par le payload générique. **Mesuré sans conséquence connue** : ces IOs sont
+`visible="false"`, §1.2 a établi qu'aucun consommateur ne lit ce champ, et l'API `autoscenario` rend
+la définition entière. Consigné parce que c'est la seule perte d'information du ticket.

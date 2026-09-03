@@ -1826,3 +1826,33 @@ erreur, ce qui rend enfin visible une confusion de transport qui passait inaper�
 
 ℹ️ **La même absence de réponse subsiste ailleurs** et n'est pas corrigée ici : `camera` avec un
 identifiant valide et un `type` inconnu reste silencieux, sur HTTP, connexion comprise.
+
+## ⚠️ `get_home` / `get_io` : le champ `auto_scenario` est remplacé par `autoscenario_uid`
+
+Le payload générique d'un équipement portait le champ **`auto_scenario`**. Il ne le porte plus ; il
+porte **`autoscenario_uid`** à la place, et **seuls les équipements de type scénario** en ont un.
+
+**Pourquoi.** `auto_scenario` était un identifiant interne, recopié à l'identique sur les 3 à 5
+équipements de machinerie que chaque scénario crée pour lui-même (`…_step`, `…_timer`, `…_is_active`,
+`…_schedule`, `…_is_schedule_enabled`, tous invisibles dans l'interface). Il apparaissait aussi sur
+des équipements dont l'API scénario ne sait plus rien. Il ne désignait donc pas de façon fiable un
+scénario que l'on puisse lire ou modifier. `autoscenario_uid` est l'identité que la configuration
+donne désormais à une définition de scénario, et elle ne vit que sur l'équipement scénario lui-même.
+
+**Ce que cela change pour un client.** Une lecture de `get_home` ou de `get_io` qui cherchait
+`auto_scenario` ne le trouvera plus. Rien d'autre ne bouge : ni les clés voisines, ni les valeurs,
+ni la règle « un paramètre absent n'émet aucune clé ». **Aucun octet de votre `io.xml` n'est
+modifié** — le paramètre historique reste sur le disque, il n'est simplement plus publié.
+
+## L'alerte de démarrage cesse d'annoncer des scénarios qui n'existent plus
+
+Quand une règle est désactivée au démarrage parce qu'elle référence un équipement disparu, Calaos
+vous envoie un rapport par mail et par notification. Ce rapport nommait **le scénario** plutôt que la
+règle dès que la règle portait le marqueur historique — y compris pour des règles héritées qu'aucun
+scénario ne revendique plus, et il vous envoyait alors chercher un scénario introuvable.
+
+Désormais, seule une règle réellement écrite par un scénario est annoncée comme l'une de ses étapes.
+Les autres sont signalées comme des règles ordinaires — **rien n'est masqué, une ligne apparaît
+toujours pour chacune**. Et l'avertissement « *un scénario est concerné : il restera désactivé même
+une fois l'équipement revenu et devra être réactivé à la main* » n'est plus ajouté quand aucun
+scénario n'est en cause : une règle ordinaire, elle, se remet à fonctionner toute seule.
