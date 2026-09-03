@@ -347,6 +347,8 @@
   le corriger, c'est **borner `byte_count` par la taille demandée et passer cette taille en
   paramètre**, donc toucher sa signature — **⭐ TICKET DÉDIÉ RECOMMANDÉ**, à ne pas glisser dans un
   ticket Wago applicatif.
+  ⭐ **Ce ticket existe : [T3.43](T3.43.md)**, fiche portée sur `master`. ⛔ **Son code n'est pas
+  mergé** (branche `fix/fwago8`) : l'entrée reste donc OUVERTE côté arbre.
 
 - ⚠️ **[F-WAGO-3] — NON CORRIGÉ (durcissement DÉCLARÉ, pas un report) : `string v =
   json_string_value(value)` était un déréférencement de `NULL`.**
@@ -807,8 +809,7 @@
 
   ---
 
-  ✅ **FERMÉ par [T3.39](T3.39.md)** (`4025e2a6`, branche `fix/t3.39`, **non mergée** — merge
-  suspendu à l'accord de l'utilisateur). `TransportLimits::effectiveClientIp()` ne lit
+  ✅ **FERMÉ par [T3.39](T3.39.md)**, mergée sur `master` (`--ff-only`, historique linéaire). `TransportLimits::effectiveClientIp()` ne lit
   `X-Forwarded-For` que si le **pair TCP est le loopback**, via `isTrustedProxyPeer()` :
   `127.0.0.0/8` **entier**, `::1`, et la forme `::ffff:127.x` (test de **préfixe**, jamais de
   containement). **Un seul site**, donc les **deux** appelants — throttle de login des deux
@@ -2475,6 +2476,78 @@ L'argument est désormais **écrit en commentaire à l'endroit de la garde absen
 (`JsonApi.cpp`, `buildJsonEventLog()`), parce qu'une lacune documentaire sur une garde **absente**
 est exactement ce qui pousse un lecteur ultérieur à l'ajouter « au cas où » — ou, pire, à retirer
 celle qui existe en aval en la croyant redondante.
+
+---
+
+## T3.20 — suites
+
+> ⚠️ **La branche `fix/t3.20` a été ENTERRÉE** (refus de `modify` abandonné par décision,
+> `E4.6.md` §Q1 ; D7 livre valider-puis-muter en E4.6d). **Ces mesures-là survivent** : c'est sur
+> elles que s'appuie le raisonnement d'E4.6 Q1. Le code, lui, n'a jamais été mergé.
+
+### ⭐ Le round-trip d'une **UI** ne peut PAS déclencher le refus de `modify` — et c'est voulu
+
+Le constat de `T3.20.md` (étape 1 de la chaîne R3) dit que le client renvoie le payload « **avec
+l'étape morte**, telle qu'elle est rendue par `Scenario::toJson()` ». **Mesuré : ce n'est pas le
+cas.** `Scenario::toJson()` saute les actions dont l'IO ne résout pas (`if (!sa.io) continue;`,
+`IO/Scenario.cpp`), et `JsonApiScenario_test.ABrokenStepSilentlyLosesItsActionFromThePayload` le
+pinne depuis E4.0c : l'étape est rendue **présente mais vide**. Le payload qu'une application relit
+ne **nomme donc jamais** l'id manquant, et le refus de T3.20 — qui porte sur les ids **cités** — ne
+peut pas s'y déclencher.
+
+Conséquence à connaître, et **elle n'est pas un trou** : une application qui réinjecte tel quel ce
+qu'elle vient de lire obtient toujours `success`, le scénario est reconstruit **sans** l'action
+morte, et `isBroken()` retombe à faux. C'est exactement le comportement que le principe de
+conception du ticket **veut** : *le refus porte sur ce qu'on écrit*, et un payload qui ne cite
+aucun IO absent est, par définition, une **réparation** (l'utilisateur laisse tomber l'action).
+Le drapeau `disabled_missing_io` restant collant, le scénario ne repart pas tout seul : il passe en
+« réparé, en attente de réactivation », et c'est `autoscenario reenable` — donc un geste humain
+explicite, après avoir vu `missing_ios` dans le payload (T3.18) — qui conclut.
+
+Ce que le refus attrape réellement, c'est le client qui garde **sa propre copie** du scénario :
+`calaos_installer`, qui lit `rules.xml` où `ActionStd::SaveToXml()` conserve l'id disparu
+**verbatim** (E4.2e). C'est là que « blanchir » était possible sans que personne ne voie rien.
+
+> **Leçon générale : avant d'écrire une validation d'entrée, vérifier ce que la sortie contient
+> réellement.** Une validation calibrée sur un payload que le serveur ne produit jamais protège
+> contre un geste que personne ne fait.
+
+### La bascule de `del_param` fait de `get_params()` la dernière porte ouverte
+
+`JsonApi.cpp` routait `del_param` par `o->get_params().Delete(...)` : la référence **mutable** que
+`IOBase::get_params()` rend publiquement. T3.20 ferme ce site précis, mais **`get_params()` reste
+une porte d'écriture non gardée** pour tout l'arbre — `IOBase.h` l'annonce depuis T1.11 (« *callers
+must not use it to change "id"* »). Recensé après le ticket : plus aucun appelant de `get_params()`
+ne modifie `"id"` ou `"disabled_missing_io"` **hors** de `Scenario::writeDisabledMissingIoParam()`,
+qui est la porte moteur voulue. Le jour où un troisième param protégé apparaîtra, la bonne réponse
+n'est plus une garde par classe mais un `Params` en lecture seule (ou une liste blanche
+centralisée) — cf. « Hors périmètre » de `T3.20.md`.
+
+### Le piège 5 du ticket n'était PAS silencieux — mesuré, contre l'annonce
+
+`T3.20.md` prévenait : oublier la porte moteur ferait de `setDisabledMissingIo()` un no-op
+silencieux, « **et rien ne rougirait** — les tests de T3.18 qui vérifient le drapeau passent par le
+booléen en mémoire ou par `io.xml` ». **Contre-mutation exercée** (porte moteur retirée,
+`setDisabledMissingIo()` repassé par `set_param`/`del_param`, qui refusent désormais) : **8 cas
+rougissent**, dont **cinq de T3.18 lui-même** — `LosingTheIoOfAStepDisablesTheWholeScenario`,
+`FlagSurvivesAStartupSaveReloadCycle`, `ReenableClearsTheFlagOnceTheIoIsBackAndTheScenarioRunsAgain`,
+`ReenableCommandRefusesWithTheIdsAndSucceedsOnceRepaired`, `ThePayloadTellsTheFourStatesApart`.
+
+La raison est exactement celle que le ticket citait comme rassurante et qui ne l'est pas : ces cas
+lisent le drapeau **par `io.xml`**, or c'est justement l'écriture vers `io.xml` que la porte moteur
+porte. Le booléen en mémoire, lui, aurait bien menti — mais aucun de ces cinq cas ne s'en contente.
+
+> **Leçon générale : « le test passe par X, donc il ne verra pas une régression de Y » est une
+> hypothèse, pas un constat.** Elle se vérifie en mutant, pas en lisant. Ici elle était fausse dans
+> le sens favorable ; elle aurait pu l'être dans l'autre.
+
+### Non touché : la renumérotation des étapes placées après l'étape `end`
+
+`AutoscenarioCreateDropsTheActionsOfAStepPlacedAfterTheEndStep` (bug gelé d'E4.0c :
+`index_act = idx` utilise l'index du **tableau JSON** alors que `addStep()` numérote par le nombre
+d'étapes standard déjà créées) est **inchangé** par T3.20. Le helper de validation ne regarde que
+les ids, jamais les index — un payload dont toutes les actions résolvent passe la validation et
+perd quand même ses actions mal indexées, exactement comme avant.
 
 ---
 
@@ -5289,7 +5362,7 @@ lanceur de `make dist` doit penser à `git checkout -- po/`** — piège à comm
   `mbus_cmd_preset_single_register(mbus, slave, register_addr, preset_data)` (`libmbus/mbus.h:114`
   et `:116`) : une permutation **compile en silence** et **force un relais / écrit un registre à
   une adresse arbitraire de l'automate**. C'est la troisième ligne rouge de
-  T3.43 §5.5bis (⚠️ fiche **non mergée**, worktree `.wave57/fwago8`), et T3.31 ne la ferme pas — il ferme les **trois sauts Calaos**
+  [T3.43](T3.43.md) §5.5bis (⭐ fiche portée sur `master` ; **le code de `fix/fwago8` n'est pas mergé**), et T3.31 ne la ferme pas — il ferme les **trois sauts Calaos**
   au-dessus (`WOAnalog` → `WagoMap` → `WagoWire`, puis `WagoExternProc_main` → `WagoCtrl`), pas
   celui-là. **Mesuré comme résiduel** : contre-mutation M5 de T3.31, `mbus_cmd_preset_single_register(mbus, 1, (mbus_uword)val, address)` **compile, rc=0**.
   ⭐ **Et ce n'est PAS une impossibilité technique, contrairement à ce que la première rédaction du
@@ -5298,7 +5371,7 @@ lanceur de `make dist` doit penser à `git checkout -- po/`** — piège à comm
   arrête T3.31, c'est **le coût et la propriété** : sept signatures d'une bibliothèque **tierce
   importée** (`$Id: mbus_conf.h,v 1.1.1.1 2003/…`), déjà divergée d'amont, répartie sur quatre
   fichiers `.c`, et que **rien dans l'arbre n'exécute** — la correction serait vérifiée **par la
-  compilation seule**. T3.43 §3 a refusé le même changement pour la même raison, et un
+  compilation seule**. [T3.43](T3.43.md) §3 a refusé le même changement pour la même raison, et un
   précédent de la même nuit a refusé de patcher `uvw` vendu au profit d'un ticket. **Une voie
   intermédiaire a été envisagée et écartée, mesurée** : une façade C++ typée au-dessus de
   `libmbus` déplacerait le déballage de **sept endroits vers sept endroits** — `WagoCtrl.cpp` est
