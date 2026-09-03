@@ -8536,3 +8536,46 @@ sur le texte du fichier. La convention de comptage de la série (commentaires, l
 `#include` blanchis) est le bon instrument — elle rend **2** ici, et les deux sont des faux
 positifs déjà documentés. Un critère écrit sur un `grep` brut oblige soit à mentir sur le résultat,
 soit à effacer des commentaires utiles pour satisfaire un motif.
+
+## E4.6e — trois trouvailles, aucune corrigée ici (2026-09-03)
+
+### 1. `_ALLOWED_ACTIONS` du sidecar MCP autorise ce que le serveur refuse désormais
+
+`src/bin/calaos_mcp/python/calaos_mcp/client.py:25` liste `"autoscenario"` parmi les actions
+permises à une session de service, et `CalaosClient.autoscenario()` (`:156-158`) est câblé. Depuis
+E4.6e le serveur **refuse** ce message aux sessions de service : l'allowlist cliente et le gate
+serveur ne disent plus la même chose.
+
+**Sans conséquence aujourd'hui, mesuré** : `CalaosClient.autoscenario()` n'a **aucun appelant** —
+aucun outil MCP ne l'invoque (recherche exhaustive dans `src/` et `tests/`), ce qui confirme la
+« surface morte » d'E4.6 §1.2. Un outil MCP écrit contre elle recevrait `{"error":"scope denied"}`.
+
+⚠️ **Ce n'est pas seulement une ligne à supprimer, c'est une question de conception** : faut-il que
+le sidecar puisse lire les scénarios (`list`, `get`) ? Si oui, le gate serveur devrait discriminer
+la sous-commande, ce qu'E4.6e a délibérément refusé de faire (§8.7). **Hors périmètre** — autre
+dépôt logique, et la réponse appartient à l'utilisateur.
+
+### 2. Sortir `resetIdAllocatorsForTests()` de l'API publique n'a pas de voie propre
+
+Le renommage porte l'interdit, mais la fonction reste **publique**. Les deux sorties envisagées et
+écartées :
+
+- **`friend` du fixture** : oblige `src/bin/calaos_server/Scenario/AutoScenarioDef.h` à déclarer un
+  type de `tests/`. La dépendance partirait dans le mauvais sens.
+- **classe imbriquée `Testing`** : ajoute un type public à l'en-tête pour héberger une seule
+  fonction statique, et n'empêche personne de l'appeler depuis `src/`.
+
+⛔ **Ce qu'il ne faut surtout pas faire, c'est la retirer** : sans elle les compteurs d'ids sont
+process-wide et les goldens redeviennent dépendants de l'ordre d'exécution des suites. La parade
+est acquise ; seule sa visibilité reste imparfaite.
+
+### 3. Le silence de `camera` est le même défaut, au même endroit, et il survit
+
+`JsonApiHandlerHttp::processCamera()` n'a toujours pas d'`else` : un identifiant de caméra **valide**
+avec un `type` inconnu ne reçoit **ni réponse ni fermeture**, exactement comme `autoscenario` avant
+E4.6e. Deux cas de `JsonApiSession_test` l'épinglent (`CameraWithAKnownIdAndAnUnknownTypeIsSilent`,
+`CameraWithoutATypeIsSilent`). D8 nommait `autoscenario` seul, donc rien n'a été touché.
+
+⚠️ **La leçon est de forme** : la famille est « un sous-dispatch sans `else` », pas
+« `autoscenario` ». Personne n'a mesuré combien de sous-dispatchs de ces deux fichiers sont dans ce
+cas ; le corriger domaine par domaine au fil des épiques laisse le dernier survivre longtemps.

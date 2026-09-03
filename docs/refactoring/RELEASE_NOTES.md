@@ -1780,3 +1780,49 @@ suffisait à perdre une action pour toujours.**
   n'appartient à **aucune** pièce est émis par `get` avec `room_name` et `room_type` **vides**, et
   ce document-là, renvoyé tel quel, est **refusé**. L'aller-retour est une identité pour tout
   scénario rangé dans une pièce, c'est-à-dire tous ceux que l'API sait créer.
+
+---
+
+## ⚠️ L'API `autoscenario` : deux ruptures visibles, assumées
+
+Deux changements de cette version modifient ce qu'un client reçoit. Aucun consommateur first-party
+n'émet ces commandes — mesuré sur les sept dépôts voisins, sur `calaos_installer` et sur le sidecar
+MCP — mais un client tiers qui les émettrait le verrait.
+
+### 1. `autoscenario` est refusé aux sessions de service
+
+`autoscenario` était **la seule commande de mutation** que le contrôle de portée de service ne
+couvrait pas. Une session à qui l'on refusait d'écrire une plage horaire pouvait **créer, modifier
+et supprimer** des scénarios et leurs règles — y compris la plage horaire qu'on venait de lui
+refuser, en supprimant le scénario qui la porte. Elle rejoint les sept autres commandes protégées
+(`set_param`, `del_param`, `audio_db`, `set_timerange`, `eventlog`, `register_push`, `settings`).
+
+⚠️ **Le refus porte sur la commande entière, pas sur la sous-commande.** `list` et `get` sont donc
+refusés eux aussi, alors qu'ils ne font que lire. C'est délibéré : le contrôle de portée est un
+filtre de message dans tout le reste de l'API, et lui inventer une exception par sous-commande
+créerait une seconde grammaire d'autorisation pour un seul cas.
+
+Une session de service refusée reçoit `{"error": "scope denied"}`, comme pour les sept autres.
+**Ce qui est concerné, mesuré** : les sessions de service sont ouvertes par `login_service`, et le
+seul client qui s'en sert est le **sidecar MCP**. Son passe-plat `autoscenario` existe mais
+**aucun outil MCP ne l'appelle** : à ce jour, rien ne passe en refus.
+**Ce qui n'est PAS concerné** : les sessions administrateur (le `login` ordinaire) et **tout le
+transport HTTP**, qui n'a aucune notion de portée de service.
+
+### 2. Une sous-commande inconnue répond une erreur au lieu de ne rien répondre
+
+Un `type` **inconnu, vide ou absent** ne correspondait à aucune branche du dispatcher, et le
+serveur **ne répondait rien du tout** : ni résultat, ni erreur. Le client attendait une réponse qui
+ne venait jamais. Sur le transport HTTP c'était pire — la connexion n'était même pas fermée, et le
+client la tenait ouverte jusqu'à son propre délai d'expiration.
+
+Les deux transports répondent désormais `{"error": "unknown autoscenario type"}`, et la réponse
+HTTP porte `Connection: Close` comme toutes les autres réponses de ce transport : **la socket n'est
+plus laissée ouverte**.
+
+⚠️ **Cas de figure à connaître** : une requête HTTP construite comme une requête WebSocket — le
+`type` rangé sous `data` au lieu de la racine — recevait ce silence. Elle reçoit maintenant cette
+erreur, ce qui rend enfin visible une confusion de transport qui passait inaperçue.
+
+ℹ️ **La même absence de réponse subsiste ailleurs** et n'est pas corrigée ici : `camera` avec un
+identifiant valide et un `type` inconnu reste silencieux, sur HTTP, connexion comprise.
