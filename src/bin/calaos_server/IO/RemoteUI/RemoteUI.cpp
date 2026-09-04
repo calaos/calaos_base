@@ -580,13 +580,22 @@ void RemoteUI::putIfSet(Json &data, const string &key, const string &value)
         data[key] = value;
 }
 
+void RemoteUI::putBrightnessIfSet(Json &data)
+{
+    //A param the server cannot read is no more a level than an absent one:
+    //both leave the key out, and the device falls back on its own default.
+    int brightness = 0;
+    if (Utils::from_string_or_keep(get_param("brightness"), brightness))
+        data["brightness"] = brightness;
+}
+
 Json RemoteUI::getRemoteUIConfigMessage()
 {
     Json config;
     putIfSet(config, "name", get_param("name"));
     putIfSet(config, "room", get_param("room"));
     putIfSet(config, "theme", get_param("theme"));
-    config["brightness"] = getBrightness();
+    putBrightnessIfSet(config);
     config["timeout"] = getTimeout();
     config["pages"] = pages;
 
@@ -610,16 +619,6 @@ bool RemoteUI::setBrightness(int brightness)
 
     cInfoDom(TAG) << "RemoteUI(" << get_param("id") << "): Brightness set to " << brightness;
     return true;
-}
-
-int RemoteUI::getBrightness()
-{
-    int brightness = 100; // Default value
-    //T3.25: _keep. get_param() returns "" for an absent parameter, and a plain
-    //from_string() would now turn that into brightness 0 - a screen turned off
-    //instead of a screen at full brightness.
-    Utils::from_string_or_keep(get_param("brightness"), brightness);
-    return brightness;
 }
 
 int RemoteUI::getTimeout()

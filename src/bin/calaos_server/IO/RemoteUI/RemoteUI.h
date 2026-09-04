@@ -90,9 +90,14 @@ public:
     //emitted empty.
     static void putIfSet(Json &data, const string &key, const string &value);
 
+    //Same rule for the screen brightness, which is an int on the wire: the
+    //level a screen nobody adjusted runs at belongs to the device, and its
+    //constant lives in the firmware repository, which versions apart from
+    //this one. Writing a copy of it here would freeze today's value.
+    void putBrightnessIfSet(Json &data);
+
     // Actions for rules
     bool setBrightness(int brightness);
-    int getBrightness();
     int getTimeout();
     bool setPage(const string &page_id);
     bool showNotification(const string &message);

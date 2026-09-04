@@ -316,7 +316,7 @@ void RemoteUIWebSocketHandler::sendConfigUpdate()
     Json data = Json::object();
     //See RemoteUI::putIfSet(): an unset param must leave NO key behind.
     RemoteUI::putIfSet(data, "name", authenticated_remote_ui->get_param("name"));
-    data["brightness"] = authenticated_remote_ui->getBrightness();
+    authenticated_remote_ui->putBrightnessIfSet(data);
     //Non-throwing parse: a malformed device-supplied value must not throw
     //out of the timer callback into the event loop (default grid is 3x3)
     data["grid_height"] = parseGridDimension(authenticated_remote_ui->get_param("grid_h"), 3);

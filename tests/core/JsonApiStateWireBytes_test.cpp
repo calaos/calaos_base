@@ -1564,10 +1564,10 @@ protected:
 /*******************************************************************************
  * R7. A SCREEN NOBODY EVER ADJUSTED IS ANSWERED, AND WITH USABLE VALUES.
  *
- * The content is the case, not the arrival: a screen that receives an envelope
- * with no brightness in it is as dark as one that receives nothing. 100 is the
- * default getBrightness() has carried since T3.25; 30 is the value every
- * example in the wire spec shows, and the only one the tree states anywhere.
+ * The content is the case, not the arrival. 30 is the timeout the device holds
+ * itself (main/calaos_protocol.h:137), so naming it costs nothing and the key
+ * stays. Brightness is the opposite: the two repositories disagreed on it, and
+ * the level the screen ends up applying is pinned by RemoteUiBrightnessWireTest.
  ******************************************************************************/
 TEST_F(RemoteUiUnadjustedScreenTest, AnUnadjustedScreenIsAnsweredWithUsableDefaults)
 {
@@ -1577,15 +1577,11 @@ TEST_F(RemoteUiUnadjustedScreenTest, AnUnadjustedScreenIsAnsweredWithUsableDefau
     EXPECT_EQ("remote_ui_config", envelope.value("msg", std::string()));
 
     const Json data = envelope.value("data", Json::object());
-    ASSERT_TRUE(data.contains("brightness")) << "no brightness on the wire";
     ASSERT_TRUE(data.contains("timeout")) << "no timeout on the wire";
 
-    EXPECT_TRUE(data["brightness"].is_number_integer())
-            << "brightness stopped being an int: " << data["brightness"].dump();
     EXPECT_TRUE(data["timeout"].is_number_integer())
             << "timeout stopped being an int: " << data["timeout"].dump();
 
-    EXPECT_EQ(100, data.value("brightness", -1));
     EXPECT_EQ(30, data.value("timeout", -1));
 
     EXPECT_EQ("Screen", data.value("name", std::string()));
@@ -1849,8 +1845,6 @@ TEST_F(RemoteUiUnsetParamsTest, ThePushStillCarriesTheNameThePagesAndTheIos)
 
     EXPECT_EQ(3, data.value("grid_width", -1));
     EXPECT_EQ(3, data.value("grid_height", -1));
-    ASSERT_TRUE(data.contains("brightness"));
-    EXPECT_TRUE(data.at("brightness").is_number_integer());
 }
 
 /*******************************************************************************
