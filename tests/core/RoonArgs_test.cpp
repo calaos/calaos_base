@@ -150,6 +150,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <functional>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -344,6 +345,56 @@ Params roonParams(const std::string &id)
     p.Add("type", "Roon");
     p.Add("zone_id", "");        //stop before RoonCtrl::Instance()
     return p;
+}
+
+/*
+ * The argv the kernel would receive, obtained through the PRODUCTION splitter.
+ *
+ * ⚠️ THIS IS THE ORACLE THAT MATTERS, and a plain EXPECT_EQ on the string
+ * buildArgs() returns is not. The defect is not a wrong string; it is a string
+ * that CUTS INTO ONE ARGUMENT TOO MANY once ExternProcServer::startProcess()
+ * has concatenated it and Utils::CStrArray has re-split it. So the split is
+ * done here by Utils::CStrArray itself - the shipped class - and the cases
+ * below count arguments rather than compare text.
+ *
+ * The concatenation IS spelled out again (startProcess() builds it from a
+ * socket path it picks itself, which no caller can supply), so this helper is
+ * blind to a change in that concatenation. The end-to-end pin of the real
+ * command line is TheRespawnedSidecarIsSpawnedWithTheArgumentsOfTheFirstLaunch
+ * above, which reads back what the kernel handed the child.
+ */
+std::vector<std::string> sidecarArgv(const std::string &args)
+{
+    const std::string cmd = std::string("/usr/bin/calaos_roon")
+                            + " --socket /tmp/roon.sock"
+                            + " --namespace roon "
+                            + args;
+
+    Utils::CStrArray arr(cmd);
+
+    std::vector<std::string> argv;
+    for (std::size_t i = 0; i < arr.count(); i++)
+        argv.push_back(arr.at(i));
+
+    return argv;
+}
+
+//The four arguments startProcess() always emits, before anything a caller adds.
+const std::size_t kFixedArgc = 5;
+
+/*
+ * Everything std::cout receives while fn() runs.
+ *
+ * Logger.cpp:193 writes there and nowhere else, so swapping the streambuf is
+ * enough and no fixture-wide redirection is needed.
+ */
+std::string captureStdout(const std::function<void()> &fn)
+{
+    std::ostringstream sink;
+    std::streambuf *saved = std::cout.rdbuf(sink.rdbuf());
+    fn();
+    std::cout.rdbuf(saved);
+    return sink.str();
 }
 
 /*
@@ -624,6 +675,207 @@ TEST_F(RoonArgsTest, AStaticHostCarriesBothFlags)
               RoonArgs::buildArgs("192.168.7.42", 9331));
     EXPECT_EQ(" --host roon.lan --port 9330",
               RoonArgs::buildArgs("roon.lan", RoonArgs::DefaultPort));
+}
+
+/*
+ * ⭐⭐ THE CONTRACT THE GUARD IS SIZED ON: the sidecar command line is cut on
+ * the SPACE and on no other blank.
+ *
+ * Utils::CStrArray(const string &) calls Utils::split(s, v, " ") and
+ * Utils::split() reaches the delimiter through find_first_of(), so " " is a
+ * character SET OF ONE. A tab, a line feed, a carriage return, a vertical tab
+ * or a form feed inside `host` therefore travels INSIDE its argument and
+ * reaches execvp() whole - there is no shell anywhere on the path
+ * (uvw::ProcessHandle::spawn -> uv_spawn), so nothing else re-reads them.
+ *
+ * ⚠️ This is why RoonArgs::buildArgs() guards on { ' ' } and not on
+ * std::isspace. Should CStrArray ever widen its delimiter set, THIS case goes
+ * red first and the guard has to widen with it; that ordering is the whole
+ * reason the contract is pinned here rather than assumed in a comment.
+ */
+TEST_F(RoonArgsTest, TheSidecarCommandLineIsCutOnTheSpaceAndOnNoOtherBlank)
+{
+    struct Blank
+    {
+        const char *name;
+        char c;
+    };
+
+    const Blank others[] = {
+        { "tab",             '\t' },
+        { "line feed",       '\n' },
+        { "carriage return", '\r' },
+        { "vertical tab",    '\v' },
+        { "form feed",       '\f' },
+    };
+
+    //The space, and the extra argument it makes.
+    {
+        const std::string host = "a b";
+        ASSERT_NE(std::string::npos, host.find(' '))
+            << "fixture does not carry the blank it is named after";
+
+        const std::vector<std::string> argv =
+            sidecarArgv(" --host " + host + " --port 9331");
+
+        ASSERT_EQ(kFixedArgc + 5, argv.size())
+            << "a space inside the host must produce one argument TOO MANY";
+        EXPECT_EQ("--host", argv[kFixedArgc + 0]);
+        EXPECT_EQ("a",      argv[kFixedArgc + 1]);
+        EXPECT_EQ("b",      argv[kFixedArgc + 2]);
+        EXPECT_EQ("--port", argv[kFixedArgc + 3]);
+        EXPECT_EQ("9331",   argv[kFixedArgc + 4]);
+    }
+
+    for (const Blank &b: others)
+    {
+        const std::string host = std::string("a") + b.c + "b";
+        ASSERT_NE(std::string::npos, host.find(b.c))
+            << "fixture for the " << b.name << " does not carry it";
+
+        const std::vector<std::string> argv =
+            sidecarArgv(" --host " + host + " --port 9331");
+
+        ASSERT_EQ(kFixedArgc + 4, argv.size())
+            << "a " << b.name << " inside the host must NOT split the argument";
+        EXPECT_EQ("--host", argv[kFixedArgc + 0]);
+        EXPECT_EQ(host,     argv[kFixedArgc + 1]);
+        EXPECT_NE(std::string::npos, argv[kFixedArgc + 1].find(b.c))
+            << "the " << b.name << " did not survive into the argument, so this "
+               "case proved nothing about it";
+        EXPECT_EQ("--port", argv[kFixedArgc + 2]);
+        EXPECT_EQ("9331",   argv[kFixedArgc + 3]);
+    }
+}
+
+/*
+ * ⭐⭐ THE DEFECT: a host carrying a space must not put a stray argument on the
+ * sidecar command line.
+ *
+ * `mon core` is one typo away from `moncore` and calaos_installer accepts it
+ * without a word. On master it produced
+ *     calaos_roon ... --host mon core --port 9330
+ * and ExternProcRoon_main.py answers `unrecognized arguments: core`,
+ * SystemExit(2) - which the 100 ms respawn of RoonCtrl turns into ~10
+ * fork/exec per second for as long as the configuration stands.
+ *
+ * The two assertions are not the same assertion twice. The string one says
+ * what buildArgs() answers; the argv one says what the KERNEL would receive,
+ * and only that one is about the defect. A future emitter that quoted the host
+ * instead of refusing it would keep the argv count right and fail the first -
+ * which is a design change to argue for, not a regression to hide.
+ */
+TEST_F(RoonArgsTest, AHostCarryingASpaceEmitsNoArgumentAtAll)
+{
+    const char *hosts[] = {
+        "mon core",       //the typo
+        "1.2.3.4 --list", //an option that would reach the sidecar's parser
+        "roon.lan ",      //trailing, invisible in an installer field
+        " roon.lan",      //leading, same
+        " ",              //nothing but the blank: NOT empty(), still refused
+    };
+
+    for (const char *h: hosts)
+    {
+        const std::string host = h;
+        ASSERT_FALSE(host.empty())
+            << "an empty host is the OTHER case (EmptyHostProducesNoArguments"
+               "AtAll); this one must reach the guard, not the empty test";
+        ASSERT_NE(std::string::npos, host.find(' '))
+            << "fixture \"" << host << "\" carries no space, so it cannot say "
+               "anything about the guard";
+
+        const std::string args = RoonArgs::buildArgs(host, RoonArgs::DefaultPort);
+
+        EXPECT_EQ("", args)
+            << "host \"" << host << "\" produced arguments: " << args;
+
+        const std::vector<std::string> argv = sidecarArgv(args);
+
+        EXPECT_EQ(kFixedArgc, argv.size())
+            << "host \"" << host << "\" put " << (argv.size() - kFixedArgc)
+            << " extra argument(s) on the sidecar command line";
+
+        for (const std::string &a: argv)
+        {
+            EXPECT_NE("--host", a) << "for host \"" << host << "\"";
+            EXPECT_NE("core",   a) << "for host \"" << host << "\"";
+            EXPECT_NE("--list", a) << "for host \"" << host << "\"";
+        }
+    }
+}
+
+/*
+ * ⭐ THE OTHER HALF OF "EXACTLY { ' ' }": a tab or a newline is NOT refused.
+ *
+ * Such a host is certainly a mistake, and the sidecar will fail to reach it -
+ * exactly as it fails to reach a well-formed but wrong address like
+ * 192.168.99.99. That failure is the respawn-without-backoff hole (FINDINGS.md,
+ * E4.5d), not this one, and refusing here would silently change the answer for
+ * inputs on which nothing measurable breaks.
+ *
+ * ⚠️ The blank is asserted present in the INPUT and again in the ARGUMENT the
+ * kernel would receive: a future normalisation that trimmed the host would
+ * leave both halves of this case vacuously true otherwise.
+ */
+TEST_F(RoonArgsTest, AHostCarryingATabOrANewlineIsStillHandedOverWhole)
+{
+    const char others[] = { '\t', '\n', '\r', '\v', '\f' };
+
+    for (char c: others)
+    {
+        const std::string host = std::string("roon") + c + "lan";
+        ASSERT_NE(std::string::npos, host.find(c));
+        ASSERT_EQ(std::string::npos, host.find(' '));
+
+        const std::string args = RoonArgs::buildArgs(host, 9331);
+
+        EXPECT_EQ(" --host " + host + " --port 9331", args);
+
+        const std::vector<std::string> argv = sidecarArgv(args);
+
+        ASSERT_EQ(kFixedArgc + 4, argv.size());
+        EXPECT_EQ("--host", argv[kFixedArgc + 0]);
+        EXPECT_EQ(host,     argv[kFixedArgc + 1]);
+        EXPECT_NE(std::string::npos, argv[kFixedArgc + 1].find(c));
+    }
+}
+
+/*
+ * ⭐ THE USER MUST BE TOLD WHICH FIELD IS WRONG.
+ *
+ * Without a line naming it, the whole symptom is "Roon does not work" plus a
+ * log scrolling `process exited, restarting...` - the refusal would be as mute
+ * as the defect it replaces, and harder to diagnose because nothing at all
+ * would be spawned.
+ *
+ * ⚠️ The level is ASSERTED, not assumed. Logger.cpp:164 drops the line when the
+ * domain's maximum is below WARNING; were `roon` ever muted in a test
+ * environment this case would go quietly vacuous, so it goes red instead.
+ */
+TEST_F(RoonArgsTest, TheRefusedHostIsNamedInTheLog)
+{
+    ASSERT_TRUE(Utils::calaosLogger("roon")->isLevelEnabled(Logger::LOG_LEVEL_WARNING))
+        << "the roon domain is muted below WARNING here, so this case cannot "
+           "observe the line it exists to check";
+
+    const std::string logged = captureStdout([]()
+    {
+        RoonArgs::buildArgs("mon core", RoonArgs::DefaultPort);
+    });
+
+    EXPECT_NE(std::string::npos, logged.find("host"))
+        << "the line does not name the faulty field: " << logged;
+    EXPECT_NE(std::string::npos, logged.find("mon core"))
+        << "the line does not quote the refused value: " << logged;
+
+    //An accepted host must stay silent, or the line means nothing.
+    const std::string quiet = captureStdout([]()
+    {
+        RoonArgs::buildArgs("192.168.7.42", 9331);
+    });
+
+    EXPECT_EQ("", quiet) << "a valid host logged: " << quiet;
 }
 
 /*
