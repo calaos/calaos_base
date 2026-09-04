@@ -566,3 +566,204 @@ TEST_F(RemoteUIWidgetCoordinateTest, AWellFormedPageKeepsEveryWidget)
         << "a sound configuration raised a configuration alert";
     EXPECT_TRUE(roundTripIo());
 }
+
+/******************************************************************************
+ * T3.75 — the SIZE attributes of a <calaos:widget>, on the way to the screen.
+ *
+ * T3.70 gave x/y a guard because LoadFromXml() converted them here, in the
+ * server, with a bare std::stoi that took the whole configuration load down.
+ * w/h/width/height were left alone for the reason that they were never
+ * converted here - and that is where it stops being true: the device converts
+ * them itself (calaos_protocol.cpp, PagesConfig::fromJson), and its six stoi
+ * calls sit under a single `catch (const json::exception &)`. std::stoi("")
+ * throws std::invalid_argument, which is not a json::exception, so it leaves
+ * fromJson() and every page of the screen goes with it.
+ *
+ * The four names are all four of them: the device reads `w` OR `width`, `h` OR
+ * `height`. A guard on w/h alone leaves the alias wide open.
+ *
+ * Same answer as T3.70, and for the same reason: the attribute is left OUT
+ * when it does not read as a whole number, the widget lands in the block that
+ * drops an incomplete widget, and the user is told. A size attribute that was
+ * never written at all keeps meaning what it always meant - the device has its
+ * own default of 1x1 - so those widgets are untouched.
+ ******************************************************************************/
+
+namespace
+{
+
+const char *const DEV_SIZE = "t375_screen";
+
+//One <calaos:widget> whose size attributes are injected verbatim, so a case
+//can put anything in them, or leave them out entirely.
+std::string sizedWidgetXml(const std::string &type, const std::string &ioId,
+                           const std::string &sizeAttrs)
+{
+    return std::string("        <calaos:widget type=\"") + type + "\""
+           " io_id=\"" + ioId + "\" x=\"10\" y=\"10\" " + sizeAttrs + "/>\n";
+}
+
+//The four names the device converts, in the order it tries them.
+const char *const SIZE_ATTRS[] = { "w", "h", "width", "height" };
+
+}
+
+class RemoteUIWidgetSizeTest: public RemoteUIDeviceInfoTest
+{
+protected:
+    //A page whose middle widget carries `badSize`, framed by two sound ones -
+    //one in each of the two spellings the device accepts.
+    std::string configWithSize(const std::string &badSize)
+    {
+        std::string widgets = sizedWidgetXml("button", "t375_io_first", "w=\"2\" h=\"1\"");
+        widgets += sizedWidgetXml("thermostat", "t375_io_broken", badSize);
+        widgets += sizedWidgetXml("temp_display", "t375_io_last",
+                                  "width=\"3\" height=\"2\"");
+
+        return roomXml("Salon", "livingroom",
+                       remoteUiXml(DEV_SIZE, pagesXml(widgets)));
+    }
+};
+
+/******************************************************************************
+ * 1. Every one of the four names is guarded, not just the short pair.
+ ******************************************************************************/
+TEST_F(RemoteUIWidgetSizeTest, AnUnreadableSizeDropsTheWidgetWhicheverNameCarriesIt)
+{
+    for (const char *const attr: SIZE_ATTRS)
+    {
+        clearCoreState();
+
+        const std::string blank = std::string(attr) + "=\"\"";
+        ASSERT_NO_THROW(loadIo(configWithSize(blank))) << attr;
+
+        RemoteUI *ui = remoteUi(DEV_SIZE);
+        ASSERT_NE(ui, nullptr) << attr;
+
+        //By identity, not by count.
+        EXPECT_EQ(widgetIoIds(ui),
+                  (std::vector<std::string>{"t375_io_first", "t375_io_last"}))
+            << attr << "=\"\" reaches the screen: the device feeds it to "
+               "std::stoi, throws std::invalid_argument past its json catch, "
+               "and loses every page";
+
+        EXPECT_EQ(widgetOf(ui, "t375_io_broken"), nullptr) << attr;
+        EXPECT_FALSE(ui->hasReferencedIO("t375_io_broken")) << attr;
+    }
+}
+
+/******************************************************************************
+ * 2. A size that is not a number at all goes the same way.
+ ******************************************************************************/
+TEST_F(RemoteUIWidgetSizeTest, ASizeThatIsNotAWholeNumberDropsTheWidget)
+{
+    ASSERT_NO_THROW(loadIo(configWithSize("w=\"large\" h=\"1\"")));
+
+    RemoteUI *ui = remoteUi(DEV_SIZE);
+    ASSERT_NE(ui, nullptr);
+
+    EXPECT_EQ(widgetOf(ui, "t375_io_broken"), nullptr)
+        << "w=\"large\" was handed over as a string the device converts";
+    EXPECT_EQ(widgetIoIds(ui),
+              (std::vector<std::string>{"t375_io_first", "t375_io_last"}));
+}
+
+/******************************************************************************
+ * 3. The user hears about it, on the channel T3.70 already uses.
+ ******************************************************************************/
+TEST_F(RemoteUIWidgetSizeTest, AWidgetDroppedForItsSizeIsReportedOnTheConfigAlertChannel)
+{
+    const size_t alertsBefore = Config::Instance().getConfigAlerts().size();
+
+    ASSERT_NO_THROW(loadIo(configWithSize("w=\"\" h=\"1\"")));
+
+    const std::vector<std::string> &alerts = Config::Instance().getConfigAlerts();
+    ASSERT_EQ(alerts.size(), alertsBefore + 1)
+        << "a screen silently lost a widget";
+
+    const std::string &report = alerts.back();
+    EXPECT_NE(report.find(DEV_SIZE), std::string::npos)
+        << "the alert does not name the screen: " << report;
+    EXPECT_NE(report.find("t375_io_broken"), std::string::npos)
+        << "the alert does not name the widget: " << report;
+    EXPECT_NE(report.find("Home"), std::string::npos)
+        << "the alert does not name the page: " << report;
+
+    saveConfig();
+    EXPECT_EQ(ioXmlOnDisk().find("t375_io_broken"), std::string::npos)
+        << "the widget survived on disk, so the alert would be crying wolf";
+}
+
+/******************************************************************************
+ * 4. A widget that never declared a size is NOT incomplete. INVARIANT.
+ *
+ * w/h have always been optional here, and the device carries its own 1x1
+ * default for them. Dropping those widgets would empty the pages of every
+ * installation that never sized a widget - a far worse bug than the one being
+ * closed. This is the case that says the guard is about an attribute that is
+ * written and unreadable, not about an attribute that is absent.
+ ******************************************************************************/
+TEST_F(RemoteUIWidgetSizeTest, AWidgetWithNoSizeAtAllIsKept)
+{
+    const size_t alertsBefore = Config::Instance().getConfigAlerts().size();
+
+    std::string widgets = sizedWidgetXml("button", "t375_io_first", "w=\"2\" h=\"1\"");
+    widgets += sizedWidgetXml("thermostat", "t375_io_nosize", "");
+    widgets += sizedWidgetXml("temp_display", "t375_io_last", "width=\"3\" height=\"2\"");
+
+    loadIo(roomXml("Salon", "livingroom", remoteUiXml(DEV_SIZE, pagesXml(widgets))));
+
+    RemoteUI *ui = remoteUi(DEV_SIZE);
+    ASSERT_NE(ui, nullptr);
+
+    EXPECT_EQ(widgetIoIds(ui),
+              (std::vector<std::string>{"t375_io_first", "t375_io_nosize", "t375_io_last"}))
+        << "a widget that simply never had a size was dropped";
+
+    const Json *nosize = widgetOf(ui, "t375_io_nosize");
+    ASSERT_NE(nosize, nullptr);
+    EXPECT_FALSE(nosize->contains("w"));
+    EXPECT_FALSE(nosize->contains("h"));
+
+    EXPECT_EQ(Config::Instance().getConfigAlerts().size(), alertsBefore)
+        << "a sound configuration raised a configuration alert";
+}
+
+/******************************************************************************
+ * 5. The control: a well formed size crosses the loader untouched. INVARIANT.
+ *
+ * Value AND JSON type. The wire has carried these four as strings since the
+ * first firmware, which reads them through an is_string() branch; turning them
+ * into numbers here would be a wire change smuggled in with a bug fix.
+ ******************************************************************************/
+TEST_F(RemoteUIWidgetSizeTest, AWellFormedSizeCrossesTheLoaderUnchanged)
+{
+    const size_t alertsBefore = Config::Instance().getConfigAlerts().size();
+
+    ASSERT_NO_THROW(loadIo(configWithSize("w=\"7\" h=\"0\"")));
+
+    RemoteUI *ui = remoteUi(DEV_SIZE);
+    ASSERT_NE(ui, nullptr);
+
+    EXPECT_EQ(widgetIoIds(ui),
+              (std::vector<std::string>{"t375_io_first", "t375_io_broken", "t375_io_last"}))
+        << "a page whose widgets are all well formed lost one";
+
+    //0 is a value the device rejects on its own terms, not an unreadable one:
+    //the loader has no business deciding that here.
+    const Json *middle = widgetOf(ui, "t375_io_broken");
+    ASSERT_NE(middle, nullptr);
+    ASSERT_TRUE(middle->contains("w"));
+    EXPECT_TRUE((*middle)["w"].is_string()) << middle->dump();
+    EXPECT_EQ((*middle)["w"].get<std::string>(), "7");
+    EXPECT_EQ((*middle)["h"].get<std::string>(), "0");
+
+    //And the long spelling is copied just as literally.
+    const Json *last = widgetOf(ui, "t375_io_last");
+    ASSERT_NE(last, nullptr);
+    EXPECT_EQ((*last)["width"].get<std::string>(), "3");
+    EXPECT_EQ((*last)["height"].get<std::string>(), "2");
+
+    EXPECT_EQ(Config::Instance().getConfigAlerts().size(), alertsBefore);
+    EXPECT_TRUE(roundTripIo());
+}

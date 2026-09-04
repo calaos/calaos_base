@@ -810,7 +810,9 @@ public:
     }
 };
 
-std::string remoteUiXml()
+//`extraWidgets` goes into the page after the two ordinary widgets, so a case
+//can declare one the loader is meant to refuse.
+std::string remoteUiXml(const std::string &extraWidgets = std::string())
 {
     std::string x;
     x += "    <calaos:remote_ui type=\"RemoteUI\" id=\"";
@@ -821,6 +823,7 @@ std::string remoteUiXml()
     x += "        <calaos:page name=\"p1\">\n";
     x += std::string("          <calaos:widget type=\"switch\" x=\"0\" y=\"0\" io_id=\"") + IO_ZULU + "\"/>\n";
     x += std::string("          <calaos:widget type=\"switch\" x=\"1\" y=\"0\" io_id=\"") + IO_ALPHA + "\"/>\n";
+    x += extraWidgets;
     x += "        </calaos:page>\n";
     x += "      </calaos:pages>\n";
     x += "    </calaos:remote_ui>\n";
@@ -841,7 +844,8 @@ protected:
 
         //No rule: the default rules.xml references ids this house does not
         //declare, and RulesFactory silently drops a rule whose ids are unknown.
-        loadConfig(ioXmlDocument(roomXml("Salon", "livingroom", remoteUiXml())),
+        loadConfig(ioXmlDocument(roomXml("Salon", "livingroom",
+                                         remoteUiXml(extraWidgetsXml()))),
                    rulesXmlDocument(""));
 
         screen = dynamic_cast<Calaos::RemoteUI *>(ListeRoom::Instance().get_io(REMOTE_UI_ID));
@@ -900,6 +904,9 @@ protected:
         ListeRoom::Instance().addIOHash(pl);
         return pl;
     }
+
+    //What the page declares on top of its two sound widgets.
+    virtual std::string extraWidgetsXml() const { return std::string(); }
 
     std::string lastMessage() const { return sent.empty() ? std::string() : sent.back(); }
 
@@ -1844,4 +1851,195 @@ TEST_F(RemoteUiUnsetParamsTest, ThePushStillCarriesTheNameThePagesAndTheIos)
     EXPECT_EQ(3, data.value("grid_height", -1));
     ASSERT_TRUE(data.contains("brightness"));
     EXPECT_TRUE(data.at("brightness").is_number_integer());
+}
+
+/*******************************************************************************
+ * T3.75 — WHAT THE PAYLOAD CARRIES AS A WIDGET SIZE.
+ *
+ * `pages` is copied from io.xml to the wire as it stands, so a size attribute
+ * written empty by hand crosses the whole server and reaches the device, which
+ * converts it: PagesConfig::fromJson() runs six std::stoi under one
+ * `catch (const json::exception &)`, and std::stoi("") throws
+ * std::invalid_argument. It is not caught, it leaves fromJson(), and the screen
+ * loses every page - not one widget.
+ *
+ * Measured on the payload the device is handed, which is the only observable a
+ * unit test has: the firmware cannot run under make check.
+ ******************************************************************************/
+
+namespace
+{
+
+//A whole number, the way the device reads one: std::stoi on the string form.
+bool readsAsWholeNumber(const Json &v)
+{
+    if (v.is_number_integer())
+        return true;
+    if (!v.is_string())
+        return false;
+
+    int out = 0;
+    return Utils::from_string_or_keep(v.get<std::string>(), out);
+}
+
+//Every geometry attribute of every widget of the payload that the device would
+//feed to std::stoi and fail on, named by its path.
+std::vector<std::string> unreadableGeometryIn(const Json &data)
+{
+    static const char *const GEOMETRY[] = { "x", "y", "w", "h", "width", "height" };
+
+    std::vector<std::string> out;
+    if (!data.contains("pages") || !data["pages"].is_array())
+        return out;
+
+    for (size_t p = 0; p < data["pages"].size(); p++)
+    {
+        const Json &page = data["pages"][p];
+        if (!page.contains("widgets") || !page["widgets"].is_array())
+            continue;
+
+        for (size_t w = 0; w < page["widgets"].size(); w++)
+        {
+            const Json &widget = page["widgets"][w];
+            for (const char *const key: GEOMETRY)
+            {
+                if (widget.contains(key) && !readsAsWholeNumber(widget[key]))
+                    out.push_back("/pages/" + std::to_string(p) + "/widgets/" +
+                                  std::to_string(w) + "/" + key + " = " +
+                                  widget[key].dump());
+            }
+        }
+    }
+    return out;
+}
+
+const char *const IO_SOUND = "t375_io_sound";
+const char *const IO_BLANK = "t375_io_blank";
+
+const Json *widgetOnWire(const Json &data, const std::string &ioId)
+{
+    if (!data.contains("pages") || !data["pages"].is_array())
+        return nullptr;
+    for (const auto &page: data["pages"])
+    {
+        if (!page.contains("widgets") || !page["widgets"].is_array())
+            continue;
+        for (const auto &w: page["widgets"])
+        {
+            if (w.contains("io_id") && w["io_id"] == ioId)
+                return &w;
+        }
+    }
+    return nullptr;
+}
+
+} //namespace
+
+/* The page of this fixture really does carry an incomplete geometry: a widget
+ * whose `w` is written and empty, next to one that is sound. SetUp() asserts
+ * it on the declaration itself, so a fixture somebody later tidies up turns
+ * red instead of making every case below vacuous.
+ */
+class RemoteUiWidgetSizeWireTest: public RemoteUiUnsetParamsTest
+{
+protected:
+    std::string extraWidgetsXml() const override
+    {
+        return std::string("          <calaos:widget type=\"switch\" x=\"2\" y=\"0\""
+                           " w=\"2\" h=\"1\" io_id=\"") + IO_SOUND + "\"/>\n"
+               "          <calaos:widget type=\"switch\" x=\"0\" y=\"1\""
+               " w=\"\" h=\"1\" io_id=\"" + IO_BLANK + "\"/>\n";
+    }
+
+    void SetUp() override
+    {
+        RemoteUiUnsetParamsTest::SetUp();
+
+        const std::string declared = extraWidgetsXml();
+        ASSERT_NE(declared.find("w=\"\""), std::string::npos)
+                << "the fixture no longer declares a widget whose size is "
+                   "written and empty: it stopped measuring anything";
+        ASSERT_NE(declared.find(IO_BLANK), std::string::npos);
+        ASSERT_NE(declared.find(IO_SOUND), std::string::npos);
+    }
+};
+
+/*******************************************************************************
+ * G1. ⭐ NO WIDGET SIZE ON THE WIRE IS SOMETHING THE DEVICE CANNOT CONVERT.
+ *
+ * The six conversions of PagesConfig::fromJson() share one catch that does not
+ * cover std::invalid_argument. One unreadable value out of six, and the screen
+ * shows nothing at all.
+ ******************************************************************************/
+TEST_F(RemoteUiWidgetSizeWireTest, ThePushedConfigurationCarriesNoUnreadableWidgetSize)
+{
+    const Json data = pushPayload();
+    ASSERT_FALSE(data.empty()) << "the screen received no configuration at all";
+
+    const std::vector<std::string> bad = unreadableGeometryIn(data);
+    EXPECT_TRUE(bad.empty())
+            << "the screen is handed " << bad.size() << " widget size(s) it feeds "
+               "to std::stoi and cannot convert, losing every page: "
+            << joined(bad);
+}
+
+/*******************************************************************************
+ * G1bis. AND THE ANSWER TO remote_ui_get_config CARRIES NONE EITHER.
+ ******************************************************************************/
+TEST_F(RemoteUiWidgetSizeWireTest, TheAnsweredConfigurationCarriesNoUnreadableWidgetSize)
+{
+    const Json data = answerPayload();
+    ASSERT_FALSE(data.empty());
+
+    const std::vector<std::string> bad = unreadableGeometryIn(data);
+    EXPECT_TRUE(bad.empty())
+            << "unreadable widget size(s) on the answered payload: " << joined(bad);
+}
+
+/*******************************************************************************
+ * G2. THE T3.73 INVARIANT, WITH A PAGE THAT FINALLY EXERCISES IT.
+ *
+ * T3.73 wrote that `pages` was a pass-through its sweep would catch "if a
+ * fixture carried one", and no fixture did. This is that fixture: the sweep
+ * needed no change to see a blank size, which is worth pinning - it is the
+ * half of the defect that costs nothing extra to hold.
+ ******************************************************************************/
+TEST_F(RemoteUiWidgetSizeWireTest, ThePushedConfigurationStillCarriesNoEmptyValue)
+{
+    const Json data = pushPayload();
+
+    const std::vector<std::string> empties = emptyStringsIn(data);
+    EXPECT_TRUE(empties.empty())
+            << "the screen is handed " << empties.size() << " empty value(s): "
+            << joined(empties);
+}
+
+/*******************************************************************************
+ * G3. THE CONTROL: A SOUND WIDGET REACHES THE SCREEN AS IT ALWAYS DID.
+ *
+ * Value and JSON type, both spellings of the loader's output: a fix that
+ * emptied the pages, or that turned the sizes into numbers, would satisfy G1
+ * and change what every deployed screen receives.
+ ******************************************************************************/
+TEST_F(RemoteUiWidgetSizeWireTest, ASoundWidgetIsPushedUnchangedAndOnlyTheBlankOneIsGone)
+{
+    const Json data = pushPayload();
+
+    const Json *sound = widgetOnWire(data, IO_SOUND);
+    ASSERT_NE(sound, nullptr) << "the sound widget never reached the wire: "
+                              << data.value("pages", Json::array()).dump();
+    EXPECT_TRUE((*sound)["w"].is_string()) << sound->dump();
+    EXPECT_EQ("2", (*sound)["w"].get<std::string>());
+    EXPECT_EQ("1", (*sound)["h"].get<std::string>());
+    EXPECT_TRUE((*sound)["x"].is_number_integer());
+    EXPECT_EQ(2, (*sound)["x"].get<int>());
+
+    EXPECT_EQ(nullptr, widgetOnWire(data, IO_BLANK))
+            << "the widget whose size is blank is still on the wire";
+
+    //The two ordinary widgets of the fixture are untouched by all this.
+    ASSERT_TRUE(data.contains("pages"));
+    ASSERT_EQ(1u, data["pages"].size());
+    EXPECT_NE(nullptr, widgetOnWire(data, IO_ZULU));
+    EXPECT_NE(nullptr, widgetOnWire(data, IO_ALPHA));
 }
