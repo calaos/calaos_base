@@ -1596,11 +1596,17 @@ TEST_F(RemoteUiUnadjustedScreenTest, AnAdjustedScreenStillReceivesItsOwnValues)
 {
     screen->get_params().Add("brightness", "55");
     screen->get_params().Add("timeout", "45");
+    //`room` and `theme` are only keys at all once they are set, so the shape
+    //below is pinned on a screen that carries them.
+    screen->get_params().Add("room", "Salon");
+    screen->get_params().Add("theme", "dark");
 
     const Json data = getConfigEnvelope().value("data", Json::object());
 
     EXPECT_EQ(55, data.value("brightness", -1));
     EXPECT_EQ(45, data.value("timeout", -1));
+    EXPECT_EQ("Salon", data.value("room", std::string()));
+    EXPECT_EQ("dark", data.value("theme", std::string()));
 
     const std::set<std::string> expected = {"brightness", "name", "pages",
                                             "room", "theme", "timeout"};

@@ -545,12 +545,18 @@ Json RemoteUI::getRemoteUIIOStatesMessage(const std::map<string, Json> &io_state
     return data;
 }
 
+void RemoteUI::putIfSet(Json &data, const string &key, const string &value)
+{
+    if (!value.empty())
+        data[key] = value;
+}
+
 Json RemoteUI::getRemoteUIConfigMessage()
 {
     Json config;
-    config["name"] = get_param("name");
-    config["room"] = get_param("room");
-    config["theme"] = get_param("theme");
+    putIfSet(config, "name", get_param("name"));
+    putIfSet(config, "room", get_param("room"));
+    putIfSet(config, "theme", get_param("theme"));
     config["brightness"] = getBrightness();
     config["timeout"] = getTimeout();
     config["pages"] = pages;

@@ -306,30 +306,32 @@ void RemoteUIWebSocketHandler::sendConfigUpdate()
     if (!authenticated_remote_ui)
         return;
 
-    Json data;
-    data["name"] = authenticated_remote_ui->get_param("name");
+    static const char *const screensaverParams[] = {
+        "screensaver_timeout", "screensaver_dimming", "screensaver_mode",
+        "screensaver_clock_timezone", "screensaver_clock_format",
+        "screensaver_clock_show_date", "screensaver_clock_date_format",
+        "screensaver_clock_seconds"
+    };
+
+    Json data = Json::object();
+    //See RemoteUI::putIfSet(): an unset param must leave NO key behind.
+    RemoteUI::putIfSet(data, "name", authenticated_remote_ui->get_param("name"));
     data["brightness"] = authenticated_remote_ui->getBrightness();
     //Non-throwing parse: a malformed device-supplied value must not throw
     //out of the timer callback into the event loop (default grid is 3x3)
     data["grid_height"] = parseGridDimension(authenticated_remote_ui->get_param("grid_h"), 3);
     data["grid_width"] = parseGridDimension(authenticated_remote_ui->get_param("grid_w"), 3);
-    data["screensaver_timeout"] = authenticated_remote_ui->get_param("screensaver_timeout");
-    data["screensaver_dimming"] = authenticated_remote_ui->get_param("screensaver_dimming");
-    data["screensaver_mode"] = authenticated_remote_ui->get_param("screensaver_mode");
-    data["screensaver_clock_timezone"] = authenticated_remote_ui->get_param("screensaver_clock_timezone");
-    data["screensaver_clock_format"] = authenticated_remote_ui->get_param("screensaver_clock_format");
-    data["screensaver_clock_show_date"] = authenticated_remote_ui->get_param("screensaver_clock_show_date");
-    data["screensaver_clock_date_format"] = authenticated_remote_ui->get_param("screensaver_clock_date_format");
-    data["screensaver_clock_seconds"] = authenticated_remote_ui->get_param("screensaver_clock_seconds");
+    for (const char *const param: screensaverParams)
+        RemoteUI::putIfSet(data, param, authenticated_remote_ui->get_param(param));
     data["pages"] = authenticated_remote_ui->getPages();
 
     // Add room information
     Room *room = ListeRoom::Instance().getRoomByIO(authenticated_remote_ui);
     if (room)
     {
-        Json room_json;
-        room_json["name"] = room->get_name();
-        room_json["type"] = room->get_type();
+        Json room_json = Json::object();
+        RemoteUI::putIfSet(room_json, "name", room->get_name());
+        RemoteUI::putIfSet(room_json, "type", room->get_type());
         room_json["hits"] = room->get_hits();
         data["room"] = room_json;
     }

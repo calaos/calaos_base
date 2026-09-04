@@ -84,6 +84,12 @@ public:
     Json getRemoteUIIOStatesMessage(const std::map<string, Json> &io_states);
     Json getRemoteUIConfigMessage();
 
+    //The screen drops the WHOLE configuration payload when a key it converts
+    //carries an empty string, while a key it does not find falls back to the
+    //default it holds itself. Every unset value is therefore omitted, never
+    //emitted empty.
+    static void putIfSet(Json &data, const string &key, const string &value);
+
     // Actions for rules
     bool setBrightness(int brightness);
     int getBrightness();
