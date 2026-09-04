@@ -10032,9 +10032,9 @@ used for owfs initialization. For example you can use -u »*, et `:53-55` y pré
 
 La revue de merge de T3.28a avait relevé `MqttExternProc_main.cpp:183` et `:187-189` (le sidecar
 journalise `argv[1]`). ⭐ **Le site qui compte est ailleurs, et il est plus grave** :
-`IO/ExternProc.cpp:284`, `cInfoDom("process") << "Starting process: " << arr.toString()` — dans le
+`IO/ExternProc.cpp:286`, `cInfoDom("process") << "Starting process: " << arr.toString()` — dans le
 **serveur**, **générique** (tout argument de tout sidecar), et au niveau **INFO** alors que le défaut
-de `debug_level` est **4 = INFO** (`src/lib/ConfigOptions.cpp:602-607`, `.def("4")`). Sur une
+de `debug_level` est **4 = INFO** (`src/lib/ConfigOptions.cpp:602-608`, `.def("4")`). Sur une
 installation de série, personne n'ayant rien allumé, **chaque lancement et chaque relance du sidecar
 MQTT écrivent le mot de passe du courtier**. Relevé **verbatim** dans la sortie de
 `core/ExternProcArgv_test` en écrivant [T3.78](T3.78.md), pas déduit.
@@ -10054,6 +10054,20 @@ de relink. ⇒ **rien dans l'arbre n'observe l'argv d'`OLACtrl`, `WagoMap`, `KNX
 le `*_main` correspondant, pas exercée. ⚠️ `KNXCtrl` **est** construit pour de vrai par
 `core/KnxIo_test`, qui ne lit simplement pas l'argv. Le harnais nécessaire existe désormais
 (`tests/core/ExternProcSpawnHarness.h`, un journal d'argv par nom de sidecar).
+⇒ **ticket proposé [`T3.80`](T3.80.md)**.
+
+⭐ **CONFIRMÉ par la revue de merge de T3.78 (2026-09-05), sur DEUX des quatre au lieu d'un, et par
+une preuve statique sur les deux autres.** Deux contre-mutations indépendantes, restaurations au
+`cmp` (rc 0), `CXXLD` **lus** : **R1** — les deux positionnels de `WagoMap.cpp` **permutés**, donc
+le port là où `WagoExternProc_main.cpp:240` lit l'hôte ⇒ **0 rouge**, avec `CXXLD calaos_server`,
+`core/WagoPortDefault_test`, `core/WagoReadReply_test` et `core/WagoUdpReply_test` **lus** · **R2** —
+drapeau et valeur KNX **recollés** aux **quatre** sites, donc un `--server` que `argvOptionParam()`
+(qui compare un argv **entier**) ne trouve plus ⇒ **0 rouge**, avec `CXX IO/KNX/KNXCtrl.o`,
+`CXXLD calaos_server`, `KNXCtrlWire_test`, `core/KnxIo_test` et `core/IoLifetimeTimer_test` **lus**.
+⛔ **Et pour OLA et Reolink le constat est STATIQUE, donc définitif** : `tests/Makefile.am` ne relie
+`IO/OLA/OLACtrl.$(OBJEXT)` ni `IO/Reolink/ReolinkCtrl.$(OBJEXT)` à **aucun** binaire de test —
+aucune mutation ne pourra jamais y rougir quoi que ce soit. Les six suites qui relient `WagoMap.o`
+ou `KNXCtrl.o` ne mentionnent ni `process_args`, ni `startProcess`, ni un argv (balayage complet).
 
 ⚠️ **Corollaire noté au passage, non corrigé** : un `host` Wago **vide** faisait avaler le champ par
 le redécoupage et le **port** atterrissait dans `argv[1]`, là où `WagoExternProc_main.cpp:240` lit

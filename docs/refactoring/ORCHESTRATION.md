@@ -40,6 +40,99 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
+- **✅⭐⭐ [`T3.78`](T3.78.md) MERGÉE — 4 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête sur `master` : **`c45cdb7e`** (2026-09-05). La branche partait de `fbd743bd` et
+  `master` n'avait pas bougé ⇒ **aucun rebase**. `tests/Makefile.am` : **append pur** (`diff` +45/−0/~0),
+  `^if HAVE_GTEST` 99 → 100 et `^endif` 100 → 101, **`TESTS` 118 → 119 recompté des deux côtés**
+  (`core/ExternProcArgv_test`). Build de merge après `make distclean` :
+  **`TOTAL 119 / PASS 118 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, rc 0, `0 error:`, un seul
+  `Testsuite summary`, `check-test-deps.sh` **PASS**, seul `SKIP` `check-ccache-honesty.sh`.
+  ⛔ **Rien poussé.**
+
+  ⭐⭐ **LE RECENSEMENT SITE PAR SITE EST RECOMPTÉ ET IL EST EXACT — c'était le risque principal du
+  ticket et il ne s'est pas matérialisé.** 16 sites / 8 fichiers, dont 13 sites / 6 fichiers porteurs
+  d'un argument de configuration ; les huit numéros de ligne cités sont ceux de `fbd743bd` et sont
+  **tous justes**. Chaque verdict a été remonté jusqu'au `*_main` correspondant, et non cru :
+  Mqtt **1** (`argc != 2`, `MqttExternProc_main.cpp:171`) · Wago **2** positionnels
+  (`:240` puis `:243`) · KNX **2** et **3** (`argvOptionParam`/`argvOptionCheck` comparent un argv
+  **entier**, `std::find` sur `Utils.cpp:61-72`) · OLA **1**, omis si vide (`:96-97`) · OneWire
+  **UNE LISTE** (`--use-w1` retiré en `:228-232`, `argv[1..]` **recollés** en `:265-267`) · Roon **4**
+  (`argparse`, `ExternProcRoon_main.py:39-45`) · Reolink et Lua **0**. **Aucun écart, aucun argument
+  déplacé, aucun séparateur avalé.** Le cas du `host` Wago **vide** est le seul comportement bizarre
+  et il est **reproduit à l'identique** (`if (!host.empty())`), délibérément.
+
+  ⭐ **LA PORTE C++ EST FERMÉE, ET C'EST PROUVÉ AU COMPILATEUR, PAS AU RAISONNEMENT.** Les trois
+  formes d'avant posées à un site réel — `startProcess(exe, "reolink", "")`,
+  `… , std::string("x"))` et `… , v)` avec `v` une `std::string` lvalue — donnent **trois
+  `error: cannot convert`**. Il n'existe **qu'une** déclaration de `startProcess` dans l'arbre, aucune
+  surcharge, et `std::vector` n'offre aucun constructeur implicite depuis une chaîne (seul
+  `initializer_list` est non-explicite, et il exige des accolades écrites à la main).
+
+  ⛔⭐⭐ **`F-EXTPROC-4` EST CONFIRMÉ, ET IL FAUT LE DIRE SANS MÉNAGEMENT : quatre des huit fichiers
+  appelants viennent d'être refactorés sans le moindre filet.** La revue l'a mesuré sur **deux** des
+  quatre au lieu d'un seul, par des contre-mutations que le développeur n'avait pas tentées :
+  **R1** — les deux positionnels de `WagoMap.cpp` **permutés**, donc le **port** livré là où le
+  sidecar lit l'hôte et réciproquement, Wago entièrement hors service ⇒ **0 rouge**, avec
+  `CXXLD calaos_server`, `core/WagoPortDefault_test`, `core/WagoReadReply_test` et
+  `core/WagoUdpReply_test` **lus** · **R2** — drapeau et valeur KNX **recollés** aux **quatre** sites,
+  donc un `--server` que `argvOptionParam()` ne trouve plus et un mode moniteur qui ne s'arme jamais
+  ⇒ **0 rouge**, avec `CXX IO/KNX/KNXCtrl.o`, `CXXLD calaos_server`, `KNXCtrlWire_test`,
+  `core/KnxIo_test` et `core/IoLifetimeTimer_test` **lus**. ⛔ **Et pour OLA et Reolink, le constat
+  est STATIQUE donc définitif** : `tests/Makefile.am` ne relie `OLACtrl.$(OBJEXT)` ni
+  `ReolinkCtrl.$(OBJEXT)` à **aucun** binaire de test — aucune mutation n'y rougira jamais. ⇒ ticket
+  **[`T3.80`](T3.80.md)** ouvert, le harnais nécessaire existant déjà.
+
+  ⭐ **Ce qui EST épinglé, sidecar par sidecar** : **MQTT** (un vrai `MqttCtrl`, argv relu au noyau,
+  JSON comparé **octet pour octet** à `encodeConfig()` sur **chaque** lancement) · **OneWire** (un
+  vrai `OwCtrl`, témoin de non-régression vert des deux côtés) · **Roon** (`RoonArgs_test` +
+  `RoonSpawnViaPlayer_test`) · **le transport lui-même** (`ExternProc.cpp`). **Wago, KNX, OLA,
+  Reolink : rien.** **4 sur 6 épinglés au transport, 2 sur 6 sidecars à argument sans filet, plus
+  Reolink qui n'en porte pas.**
+
+  ⭐ **Troisième contre-mutation, R3 — un argument VIDE ajouté à la tête fixe**
+  (`{ process, "--socket", …, name, "" }`) : **4 rouges / 3 suites**
+  (`AMqttPasswordCarryingSpacesReachesTheSidecarWhole`,
+  `TheOneWireArgumentListStillReachesTheSidecarAsSeparateArguments`,
+  `TheRespawnedSidecarIsSpawnedWithTheArgumentsOfTheFirstLaunch`,
+  `RoonSpawnViaPlayerTest.TheSidecarIsLaunchedWithTheCoreTheIoWasConfiguredWith`). Le harnais neuf
+  voit donc bien apparaître une **frontière vide**, ce que le journal `"$*"` de T3.28b ne verrait pas.
+  Témoin restauré **vert** 119/118/1/0 avec `CXXLD core/ExternProcArgv_test`, `core/RoonArgs_test` et
+  `core/RoonSpawnViaPlayer_test` **lus**. Restaurations **par copie prouvées au `cmp` (rc 0 × 4)**,
+  mutations et restaurations faites **sur l'hôte**, ⛔ aucun `git` dans le conteneur.
+
+  ⭐⭐ **[`T3.79`](T3.79.md) EST EXACTE, MAILLON PAR MAILLON — c'est un secret en clair sur une
+  installation de série.** (1) `debug_level` a pour défaut **`4`** : `src/lib/ConfigOptions.cpp:608`,
+  `.def("4")` — ⚠️ la fiche citait `602-607`, le bloc va en réalité de **602 à 608**, corrigé.
+  (2) `LOG_LEVEL_INFO` **vaut 4** (`src/lib/Logger.h:104-110`) et le filtre est
+  `if (logData->level > maxLevelPrintable(domain))` (`src/lib/Logger.cpp:164`), donc INFO **passe** ;
+  et `Logger.cpp:107,114` retombent sur `LOG_LEVEL_INFO` même si l'option est absente ou hors bornes.
+  (3) La ligne écrit `arr.toString()`, c'est-à-dire **tout l'argv recollé par des espaces**
+  (`StringUtils.cpp:396-416`), mot de passe compris. ⇒ **exacte, pas exagérée.** Seule correction :
+  après ce merge la ligne est à **`ExternProc.cpp:286`**, plus `:284`.
+
+  ⚠️ **Deux blocs de commentaires neufs de `src/` normalisés à la revue** (`ExternProc.h`,
+  `OWCtrl.cpp`) : ces deux fichiers ne portaient **aucun** marqueur emoji avant le ticket — en
+  ajouter amplifie le style au lieu de le laisser — et le bloc d'en-tête d'`ExternProc.h` dépassait
+  la longueur admise. Contenu inchangé, invariants du tripwire source préservés
+  (`void startProcess(` ×1, `const string &args` ×0). Les quatre autres commentaires neufs
+  (`MqttCtrl`, `OLACtrl`, `WagoMap`, `ExternProc.cpp`) étaient déjà conformes : 1 à 4 lignes, un
+  POURQUOI, aucun numéro de ticket. `RoonArgs.h` portait déjà ces marqueurs sur `master` et son bloc
+  **raccourcit** (22 → 19 lignes).
+
+  ⚠️ **Trois autres écarts documentaires corrigés** : `ow_args` est décrit à `OWTemp.cpp:42-44` et
+  non `:41-42` · le §6 de la fiche annonçait « les **six** sidecars sont bâtis » puis en énumérait
+  **sept** · `M5` est bien **déclarée** de même ensemble que `M1` et n'est donc pas comptée comme une
+  mutation distincte — vérifié, la fiche le dit en toutes lettres.
+
+  ⚠️ **Fausse assurance résiduelle, nommée et acceptée** : le troisième cas
+  (`TripwireSource_TheSidecarArgumentsAreAVectorAndNotAStringToResplit`) épingle une **orthographe**
+  d'`ExternProc.h`, pas un effet — la fiche le dit. Ce qui ferme réellement la classe est le type,
+  et c'est cela que la revue a prouvé au compilateur.
+
+  **État de la session au sortir de ce merge** : `master` = le commit de revue qui porte ce
+  paragraphe, rien de poussé, historique linéaire. Worktree `.wave105/t3.78` supprimé, branche
+  `refactor/t3.78` supprimée.
+
 - **✅⭐⭐ [`T3.74`](T3.74.md) MERGÉE — 4 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **`5d13eeca`** (2026-09-04). La branche partait de `ffe69dae`,
   `master` avait avancé à `4370615d` ⇒ **rebase** des 3 commits : **zéro conflit**, y compris sur les
