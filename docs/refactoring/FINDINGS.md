@@ -4465,8 +4465,11 @@ et **prouvé à l'exécution**. Balayage `python3` de `src/` : **320 sites d'app
 
 - **(a) `IO/Wago/WagoExternProc_main.cpp`, 12 sites — le JUMEAU EXACT du défaut OLA, NON CORRIGÉ.**
   Même forme, même wire interne, même aplatissement en `Params`.
-- **(b) `IO/KNX/KNXExternProc_main.cpp:144-147` et `:157-160`**, plus des accès `tokens[1..2]`
-  **hors bornes**.
+- **(b) `IO/KNX/KNXExternProc_main.cpp:144-147` et `:157-160`.** ⛔ **La mention « plus des accès
+  `tokens[1..2]` hors bornes » qui figurait ici est FAUSSE** — `Utils::split` pade
+  (`StringUtils.cpp:210`), voir l'entrée dédiée ci-dessus. Corrigé par **T3.33**, qui l'a
+  reverifié au source et figé le padding dans un cas
+  (`KNXExternProcAddr.SplitPadsTheTokenListToThree`).
 - **(c) ⚠️ ATTEIGNABLE À DISTANCE — c'est le bloc grave.** `JsonApi.cpp:774/777` passe la chaîne
   **client brute** à `set_value(string)`. Un `{"value":"impulse up "}` atteint
   `IO/OutputShutter.cpp:114` et son `int v` non initialisé dans `ImpulseUp(v)`. Idem
@@ -9731,3 +9734,87 @@ chemins — mais **son cadrage était faux** : aucun écran ne demande sa config
 
 **Non déterminé** : si les écrans déployés tournent bien ce HEAD, et le comportement d'un build
 antérieur.
+
+### T3.33 — les deux sidecars, recensés et refermés ; ⛔ **le chiffre de la fiche est le bon, la conséquence ne l'est plus**
+
+**Recensement fait au source sur `9356fe13`, pas repris de la fiche.**
+
+| Fichier | Destinations `from_string` sans initialiseur | Fiche |
+|---|---|---|
+| `IO/Wago/WagoExternProc_main.cpp` | **12** (6 `address`, 4 `count`, 1 `value`, 1 `vv` de boucle) | 12 ✅ |
+| `IO/KNX/KNXExternProc_main.cpp` | **6** (`a`,`b`,`c` × 2 fonctions) | 6 ✅ |
+
+⭐ **CE QUE T3.25 A DÉJÀ FAIT ET QUE LA FICHE NE POUVAIT PAS SAVOIR.** Depuis T3.25,
+`Utils::from_string()` **écrit sa destination sur TOUS les chemins** (`StringUtils.h`,
+`dest = tmp;` après un `T tmp{}`). Les 18 destinations ne sont donc **plus indéterminées** sur
+`master` : elles valent **0**. **Mesuré**, pas déduit — le commit de caractérisation sème `0x5555`
+dans chaque destination et le motif **ne survit à aucun décodage** (`TheSeededPatternNeverReachesThePlc`,
+`TheSeededComponentsNeverReachTheBus`). ⇒ **le titre « variables jamais écrites » n'est plus exact ;
+le défaut qui reste est « valeur par défaut sur une adresse matérielle », et il est aussi grave.**
+
+**Ce que faisait le sidecar d'un message malformé — MESURÉ, trois régimes distincts :**
+
+1. **JSON illisible / racine non-objet** → `WagoWire::decodeMessage()` rend `false`, journal
+   `cWarningDom("wago")`, `return`. **Déjà correct.** Idem KNX (`is_discarded()`, E4.1e).
+2. **Action inconnue** → aucune branche, `res` vide, **aucune réponse du tout**. Silence délibéré,
+   figé par `AnUnknownActionTouchesNothingAndAnswersNothing`.
+3. ⭐ **Action connue, champ manquant / vide / illisible** → **rien ne le remarquait** : la trame
+   partait sur le bus avec **0**, et le statut renvoyé était **`true`**. C'est le seul des trois
+   régimes qui était faux.
+
+**La convention des sidecars voisins, relevée avant de choisir** : `calaos_ola`
+(`OLAExternProc_main.cpp` + `OLAWire.h`, E4.1f) journalise et **ignore l'entrée** — mais il
+**zéro-initialise** son canal, ce qui est acceptable sur du DMX et ne l'est pas sur un registre
+modbus ni sur un groupe KNX. `calaos_knx` et `calaos_wago` journalisent et `return` sur une trame
+illisible. ⇒ **la convention « journaliser et ignorer » existe, elle est suivie ; le « zéro par
+défaut » d'OLA est explicitement NON suivi** — l'adresse est refusée, jamais remplacée.
+
+**Ce qui a été livré** : `WagoWire::decodeRequest()` (en-tête partagé, donc testable) décode et
+contrôle les six actions ; le sidecar répond un statut en échec (`buildStatusReply`/`buildReadReply`
+selon l'action) **et ne contacte pas l'automate**. Côté KNX les deux convertisseurs deviennent
+`knxGroupAddrFromString()` / `knxPhysicalAddrFromString()`, libres et inline dans l'en-tête, qui
+**laissent `out` intact** en cas de refus ; les `& 0x0F`/`& 0xFF` cessent d'être des gardes.
+
+**F-T333-1 — ⛔ le masque n'était pas une garde, et il envoyait sur un groupe QUI EXISTE.**
+`eKnxGroupAddr("1/2/300")` rendait `1/2/44` (`300 & 0xFF`). Ce n'est pas « une adresse invalide
+ignorée », c'est **une écriture sur une autre adresse valide**. Figé par
+`AnOutOfRangeGroupComponentIsRefusedInsteadOfMasked_DECLARED_DELTA`.
+
+**F-T333-2 — `eKnxPhysicalAddr()` n'avait AUCUN appelant** dans l'arbre (mesuré). Conservé sous sa
+forme neuve parce que le contrat est le même et qu'il est maintenant couvert ; à supprimer le jour
+où quelqu'un décide que le mode moniteur n'en aura jamais besoin.
+
+**F-T333-3 — ⚠️ la forme « entier 16 bits » que `calaos_knx --help` annonce n'a jamais existé.**
+`KNXExternProc_cli.cpp` (doRead) faisait `knx_addr = knx_addr & 0xffff;` — une affectation de
+`knx_addr` à lui-même, alors qu'il vaut 0. Une adresse de groupe donnée en entier partait donc sur
+**0/0/0**. ⛔ **NON corrigé ici** : c'est un chemin **CLI**, il faudrait décider si on implémente la
+forme annoncée ou si on retire la phrase du `--help`. La ligne morte est supprimée et le chemin
+refuse désormais une adresse `x/y/z` malformée ; une adresse **sans `/`** reste traitée comme
+avant (`knx_addr` = 0). **Dit ici plutôt que corrigé en passant.**
+
+**F-T333-4 — la suite `WagoWire_test` n'a pas 31 cas mais 35 sur `master`** (E4.1h en avait écrit
+31, T3.31/T3.46/T3.50 ont ajouté les sondes de typage). `KNXExternProcWire_test` : **18**, conforme
+à la fiche. Après T3.33 : **52** et **27**.
+
+**Contre-mutations, dix, ensembles rouges deux à deux distincts** (`WagoWire_test` et
+`KNXExternProcWire_test` **relinkés** — ligne `CXXLD` exigée à chaque cycle, restauration par
+`cp` + `cmp`, jamais `git checkout` dans le conteneur) :
+
+| # | Mutation | Rouge |
+|---|---|---|
+| M1 | garde retirée, `ReadBits` | `AReadBitsRequestWithNoAddressIsRefused` |
+| M2 | garde retirée, `ReadWords` | `AReadWordsRequestWithAnEmptyAddressIsRefused` |
+| M3 | garde retirée, `WriteBit` | `AWriteBitRequestWithNoAddressIsRefused` |
+| M4 | garde retirée, `WriteBits` | `AWriteBitsRequestWithNoCountIsRefused` |
+| M5 | garde retirée, `WriteWord` | `AWriteWordRequestWithAnUnreadableValueIsRefused` |
+| M6 | garde retirée, entrée de `WriteWords` | `AWriteWordsRequestWithAnUnreadableEntryIsRefused` |
+| M7 | **échange** `address` ↔ `count` au décodage | 9 cas, dont **les 7 cas d'acquis** |
+| M8 | contrôle de plage KNX remplacé par les masques d'origine | `AnOutOfRangeGroupComponentIsRefusedInsteadOfMasked` |
+| M9 | retours de `from_string` ignorés, groupe | 3 cas |
+| M10 | retours de `from_string` ignorés, physique | `APhysicalAddressWithOneComponentIsRefused` |
+| témoin | — | **`TheSeededPatternNeverReachesThePlc` et `TheSeededComponentsNeverReachTheBus` verts sur les 10 cycles**, binaires relinkés à chaque fois |
+
+⚠️ **Le témoin a dû être RÉÉCRIT entre les deux commits, et c'est un piège à consigner** : « le
+motif semé n'atteint jamais le bus » devenait **vacuant** après le correctif (rien n'est décodé, le
+motif reste en place). Il asserte maintenant les **deux** régimes — `if (reached) motif absent;
+else motif intact` — donc quelque chose de vrai et de non vacuant avant **et** après.

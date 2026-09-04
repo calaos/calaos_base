@@ -227,6 +227,48 @@ câblage de cet automate, et signalez-le.
 
 ---
 
+## 🔴 Wago et KNX : une adresse incomplète dans `io.xml` était remplacée par une autre, en silence
+
+### Une adresse manquante ou mal écrite partait quand même sur l'automate ou sur le bus (T3.33)
+
+Les processus qui parlent aux automates Wago (`calaos_wago`) et au bus KNX (`calaos_knx`) reçoivent
+du serveur, pour chaque ordre, l'**adresse** du point à lire ou à écrire. Cette adresse vient de
+votre `io.xml`.
+
+Jusqu'ici, quand cette adresse était **absente, vide ou mal écrite**, aucun des deux ne s'en
+apercevait :
+
+- côté **Wago**, l'ordre partait vers le **registre 0** de l'automate. Sur un automate, le registre
+  0 n'est pas une case vide, c'est un point réel : une lecture y allait chercher n'importe quoi, et
+  une écriture pouvait **actionner un relais** qui n'avait rien à voir avec la commande.
+- côté **KNX**, une adresse de groupe amputée — `1` au lieu de `1/2/3` — était **complétée toute
+  seule** en `1/0/0`, et le télégramme partait sur **un autre groupe** que celui voulu. De même,
+  une composante hors plage (`1/2/300`) n'était pas refusée mais **tronquée** en `1/2/44`, une
+  adresse qui, elle, existe.
+
+Aucun message d'erreur n'était produit dans les deux cas : l'ordre semblait avoir abouti.
+
+> ### Êtes-vous concerné ?
+>
+> Uniquement si votre `io.xml` contient une adresse Wago ou KNX **incomplète ou mal formée** —
+> typiquement une saisie manuelle, une adresse laissée vide, ou une adresse KNX écrite sans ses
+> trois composantes. Une configuration produite par `calaos_installer` et complète n'est pas
+> concernée : **rien ne change** pour elle.
+>
+> Le chemin n'est **pas atteignable depuis le réseau** : ce tube ne transporte que ce que
+> `calaos_server` y met.
+
+**Ce qui change.** L'ordre est **refusé** au lieu d'être exécuté sur une adresse inventée, et le
+refus est **journalisé** avec l'adresse reçue. Côté Wago, le serveur reçoit une réponse d'échec —
+il n'attend donc pas indéfiniment. Les deux processus **continuent de fonctionner** et servent
+normalement les ordres suivants.
+
+⚠️ **Conséquence à connaître** : un équipement dont l'adresse est incomplète dans `io.xml` cessera
+de « fonctionner » — c'est-à-dire cessera d'agir sur le mauvais point. Le journal nomme l'adresse
+fautive, ce qui n'était pas le cas avant.
+
+---
+
 ## 🔴 Caméras Reolink : corruption mémoire à chaque enregistrement de caméra
 
 ### Le serveur écrivait dans de la mémoire libérée dès qu'une caméra Reolink était enregistrée (E4.1i)
