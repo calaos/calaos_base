@@ -385,6 +385,30 @@ recevait avant, sans un octet de différence.
 → **Rien à faire de votre côté.** Si un écran affichait une page blanche alors que ses pages sont
 bien configurées côté serveur, il s'affiche après la mise à jour.
 
+### Une taille de bouton mal écrite faisait disparaître toutes les pages d'un écran (T3.75)
+
+Chaque bouton d'un écran déporté peut porter une taille dans `io.xml` — la largeur et la hauteur
+qu'il occupe dans la grille. Le serveur recopiait ces valeurs **telles quelles** vers l'écran, sans
+jamais les regarder.
+
+Si l'une d'elles était vide ou n'était pas un nombre — une ligne saisie à la main, une largeur
+effacée sans être remplacée — l'écran ne pouvait pas la convertir et **abandonnait toute sa
+configuration**. Pas le bouton fautif : **toutes ses pages, tous ses boutons**. L'écran restait
+vide, et rien du côté serveur ne le disait.
+
+**Ce qui change** : le serveur lit maintenant ces tailles au chargement de la configuration. Un
+bouton dont la taille est écrite mais illisible est **écarté, lui seul**, et vous en êtes averti
+par le même message que pour une position illisible — il nomme l'écran, la page et le bouton
+concerné. Les autres boutons de la page continuent de s'afficher.
+
+Un bouton qui n'a **jamais** eu de taille n'est pas concerné : c'est le cas le plus courant, il
+reste affiché exactement comme avant, et l'écran lui applique sa taille par défaut. Un bouton dont
+la taille est correcte est envoyé sans un octet de différence.
+
+→ **Rien à faire de votre côté.** Si un écran restait vide alors que ses pages sont bien
+configurées, il s'affiche après la mise à jour — moins, éventuellement, un bouton dont la taille
+est à corriger dans `io.xml`, et que le message d'alerte vous nomme.
+
 ## 🔴 Le sidecar MCP ne démarrait pas
 
 ### L'assistant MCP était mort dans les images publiées (T3.23)

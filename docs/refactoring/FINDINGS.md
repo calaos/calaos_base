@@ -9714,6 +9714,29 @@ aucun consommateur.
 Le correctif de [T3.68](T3.68.md) reste juste — le `std::stoi` qu'il supprime sert les deux
 chemins — mais **son cadrage était faux** : aucun écran ne demande sa configuration.
 
+### ✅ [F-RUI-4] La géométrie d'un widget traverse le serveur sans garde — **FERMÉ par [T3.75](T3.75.md)**
+
+`PagesConfig::fromJson()` (`main/calaos_protocol.cpp:64-107`) convertit `x`, `y`, `w`, `width`, `h`
+et `height` par **six `std::stoi()`** sous un **unique `catch (const json::exception &)`**.
+`std::stoi("")` lève `std::invalid_argument`, qui **n'est pas** une `json::exception` : elle sort de
+`fromJson()` et **toutes les pages de l'écran sont perdues**.
+
+Côté serveur, `RemoteUI::LoadFromXml()` recopiait `w`, `h`, `width` et `height` **en chaînes, sans
+garde** — `x`/`y` étaient déjà gardés par [T3.70](T3.70.md), qui fermait un défaut **serveur** (le
+`std::stoi` était alors *ici*) et avait explicitement laissé les quatre autres.
+
+⭐ **Un champ, deux noms** : l'appareil lit `w` **ou**, à défaut, `width`, dans le **même**
+`WidgetConfig::w` ; idem `h`/`height`. Le serveur ne produit que `w`/`h` (0 occurrence de
+`width`/`height` dans `src/`), mais il **émet ce que l'`io.xml` porte** ⇒ l'alias est atteignable,
+et une garde posée sur `w`/`h` seuls ne garde rien.
+
+⭐ **Une taille absente reste légitime** : `w`/`h` ont toujours été facultatifs et l'appareil les
+défaut à `1` depuis son premier commit. Seule une taille **écrite et illisible** écarte le widget.
+
+⭐ **L'invariant de [T3.73](T3.73.md) en attrapait déjà la moitié** — sa réserve « `pages` reste un
+passage à travers » était exacte, il ne manquait qu'une fixture qui en porte un. Il ne voit
+cependant que les chaînes **vides** ; un `w="large"` plante l'écran sans être vide.
+
 ### ✅ Questions fermées par la mesure
 
 - ⭐ **Une clé inconnue est IGNORÉE en silence.** Le parse est *pull-based* (`data.value(k, def)`,
