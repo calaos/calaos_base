@@ -378,6 +378,17 @@ deux : le parse garde son nom, le service du message est nommé
 `unhandled failure while serving <msg>` (dérivé,
 `src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:130-178`).
 
+✅ **Corrigé par [T3.70](refactoring/T3.70.md)** : `LoadFromXml()` convertissait les attributs
+`x`/`y` d'un `<calaos:widget>` par un `std::stoi` nu, et **aucun maillon du chemin de chargement
+n'a de `try`** (`IOFactory::CreateIO()`, `Room::LoadFromXml()`, `Config::LoadConfigIO()`,
+`main()`) — un `x=""` ou un `x="haut"` faisait **terminer le serveur avant sa boucle
+d'événements**, emportant toute la configuration déclarée après. La lecture passe par
+`Utils::from_string_or_keep()` : si la valeur n'est pas un entier entier, l'attribut reste
+**absent** et le widget tombe dans le contrôle voisin qui écarte déjà tout widget sans
+`type`/`x`/`y`. Chaque widget écarté est signalé sur le canal différé mail/push du chargement de
+configuration (`Config::reportConfigAlert()`), avec l'écran, la page et le widget concernés
+(dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:238-289`).
+
 ---
 
 ## RemoteUIOutputRelay

@@ -9208,7 +9208,8 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   laissée telle quelle** — c'est le comportement d'avant, et le changer serait un changement de
   wire hors périmètre.
 
-- ⚠️ **[F-REMOTEUI-3] → ticket [`T3.70`](T3.70.md). Le dernier `std::stoi` non gardé de `src/`.**
+- ✅ **[F-REMOTEUI-3] FERMÉ par [`T3.70`](T3.70.md)** (branche `fix/t3.70`, non poussée, non mergée) — texte d'ouverture conservé ci-dessous, la mesure du mode d'échec est plus bas.
+  ⚠️ **Le dernier `std::stoi` non gardé de `src/`.**
   Balayage complet des conversions lançantes de `src/` **hors bibliothèques tierces**
   (`src/lib/cpptui`, `src/lib/exprtk`) : **5 sites**, dont **4 déjà gardés** par un `try`
   (`IO/RemoteUI/RemoteUI.cpp:332`, `RemoteUI/OtaFirmwareManager.cpp:81`, `IOBase.cpp:226`,
@@ -9261,3 +9262,55 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   intermédiaire de la branche de refonte sur une config réelle, puis en la rechargeant. Si un tel
   fichier existe quelque part, le remède est de retirer les params `autoscenario_*` / `as_*` des 4
   IOs scénario avant de démarrer. **À trancher avant toute publication d'un build intermédiaire.**
+
+## T3.70 — le dernier `std::stoi` non gardé (branche `fix/t3.70`, non poussée)
+
+- ⛔⭐ **[F-REMOTEUI-3] LE MODE D'ÉCHEC N'ÉTAIT PAS CELUI QUE LA FICHE ANNONÇAIT : le serveur ne
+  démarre pas du tout.** L'ouverture disait « lève dans le chargement de la configuration ». Le
+  chemin a été suivi maillon par maillon et **aucun ne porte de `try`** :
+  `RemoteUI::LoadFromXml()` → `IOFactory::CreateIO(node)` (`IOFactory.cpp:65`) →
+  `Room::LoadFromXml()` (`Room.cpp:174`) → `Config::LoadConfigIO()` (`CalaosConfig.cpp:310`) →
+  `main.cpp:150`, où **`grep -c try main.cpp` = 0**. ⇒ `std::invalid_argument` sort de `main()`,
+  `std::terminate()`, **la boucle d'événements n'est jamais atteinte**. Un seul `x=""` ou
+  `x="haut"` dans l'`io.xml` met **toute l'installation** par terre, pas un écran.
+  ⭐ **Mesuré avant correctif** (commit `baeb917a`, zéro ligne de `src/`) : `it throws
+  std::invalid_argument with description "stoi"`, puis `the screen holding the misspelled widget
+  was lost whole` et `the screen of the NEXT ROOM was lost too: the load stopped there` — les deux
+  dernières visibles parce que les cas emploient `EXPECT_NO_THROW` et non `ASSERT_`.
+
+- ⭐ **Le remède ne crée pas de convention : il branche le widget sur celle qui existait déjà.**
+  `Utils::from_string_or_keep()` n'écrit la coordonnée que si toute la chaîne se lit comme un
+  entier ; sinon l'attribut reste **absent** et le widget tombe dans le bloc voisin, écrit avant ce
+  ticket, qui écarte tout widget sans `type`/`x`/`y`. C'est aussi la convention de tout le
+  chargement : `IOFactory::CreateIO()` avertit et ne crée rien sur un `type` inconnu,
+  `Room::LoadFromXml()` ignore les éléments dont il ne connaît pas le nom, `RulesFactory` laisse
+  tomber une condition/action mal formée. ⛔ **« Position à 0 » écartée** : un widget empilé en
+  haut à gauche, indiscernable d'un `x="0"` légitime. ⛔ **« Garder la chaîne brute » écartée** :
+  elle satisferait le `contains("x")` du bloc voisin et enverrait `"x": "haut"` à un appareil qui
+  attend un nombre — changement de wire déguisé.
+
+- ⭐ **Un widget écarté est désormais ANNONCÉ, et l'ancien cas silencieux avec.** Le widget écarté
+  ne revient pas : le `SaveConfigIO()` suivant réécrit la page sans lui. Le `cWarningDom` seul ne
+  suffisait pas, alors le drop dépose **un** message par écran sur le canal différé mail/push du
+  chargement de configuration (`Config::reportConfigAlert()`, public depuis E4.6h, le même que le
+  fichier corrompu d'E4.6f et les règles désactivées d'E4.6h), nommant l'écran, la page et chaque
+  widget. ⚠️ **Élargissement assumé** : un widget sans `type` — écarté en silence depuis toujours —
+  déclenche maintenant la même alerte. Les deux catégories partagent le même chemin après ce
+  ticket ; les distinguer n'aurait servi qu'à préserver un silence.
+
+- ⭐ **Le dépôt possédait DÉJÀ un oracle pour « `x="0"` est une position », et il l'a prouvé.** La
+  contre-mutation M4 (0 traité comme illisible) a fait rougir non seulement le cas de contrôle de
+  ce ticket mais **le témoin `core/JsonApiStateWireBytes_test`** : sa fixture
+  (`JsonApiStateWireBytes_test.cpp:822-823`) pose deux widgets en `x="0" y="0"` et `x="1" y="0"`,
+  et les assertions de wire de [T3.68](T3.68.md) les épinglent. ⚠️ **Conséquence pour la méthode** :
+  il n'existe que **deux** binaires liant `IO/RemoteUI/RemoteUI.o` (`core/RemoteUIDeviceInfo_test`
+  et `core/JsonApiStateWireBytes_test`), donc pour M4 **aucun témoin vert n'était disponible** ; le
+  relink reste prouvé par le `CXXLD` lu et par le fait qu'un binaire périmé n'aurait changé aucun
+  verdict.
+
+- ⚠️ **Ce sur quoi T3.70 reste nu.** (1) Le widget fautif **disparaît définitivement de l'`io.xml`**
+  au premier enregistrement — l'alerte prévient, elle ne restaure pas ; conserver la ligne
+  demanderait un modèle « attributs bruts » que ce loader n'a pas. (2) **`w`/`h` restent des
+  chaînes** sur le wire, comme avant ce ticket : seuls `x`/`y` sont convertis, et rien n'est changé
+  là. (3) **Aucun `io.xml` réel porteur du défaut n'a été observé** ; le cas part d'un fichier
+  construit pour, comme la fiche d'ouverture le demandait.

@@ -257,6 +257,39 @@ automatique et l'API restent identiques.
 
 ---
 
+## 🔴 Une faute de frappe dans la position d'un bouton d'écran empêchait le serveur de démarrer
+
+### Une seule coordonnée illisible et plus rien ne s'allumait (T3.70)
+
+Les écrans tactiles Calaos affichent des pages de boutons, de thermostats, de sondes. Chaque
+élément a une position, deux nombres, enregistrés dans le fichier de configuration des
+équipements.
+
+Jusqu'ici, si l'un de ces deux nombres n'en était pas un — une case laissée vide, un mot à la
+place d'un chiffre, un fichier édité à la main ou importé — **le serveur s'arrêtait au
+démarrage**. Pas l'écran : le serveur. Il lisait les équipements pièce par pièce, tombait sur
+cette position, et s'interrompait là. Tout ce qui était déclaré après — les autres écrans, mais
+aussi les lumières, les volets, le chauffage des pièces suivantes — n'était jamais chargé, et la
+boucle principale n'était jamais atteinte. Le service ne répondait plus du tout, sans qu'aucun
+message n'explique pourquoi.
+
+**Ce qui change** : une position illisible ne fait plus tomber que **l'élément concerné**. Il est
+écarté de la page, exactement comme l'était déjà un élément à qui il manquait son type ou ses
+coordonnées, et **tout le reste de la configuration se charge normalement**. Un `0` reste une
+position parfaitement valable et n'est jamais confondu avec une valeur illisible.
+
+**Et vous êtes prévenu** : quand un écran perd un élément de cette façon, le serveur vous envoie
+un **mail et une notification** — le même canal que pour un fichier de configuration abîmé —
+nommant l'écran, la page et l'élément concerné. C'est important, parce que l'élément écarté ne
+revient pas : au prochain enregistrement de la configuration, il aura disparu du fichier.
+
+Par la même occasion, un élément incomplet qui était jusqu'ici écarté **en silence** (type
+manquant, position absente) déclenche désormais cette même alerte.
+
+→ **Rien à faire de votre côté.** Si votre serveur refusait de démarrer sans explication après une
+modification touchant un écran, c'était peut-être ceci ; il redémarre après la mise à jour, et
+l'alerte vous dira quel élément corriger.
+
 ## 🔴 Un écran tactile jamais réglé restait vide
 
 ### L'écran demandait sa configuration et n'obtenait aucune réponse (T3.68)
