@@ -9219,3 +9219,40 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   remède demande de trancher entre « widget ignoré » — ce que le bloc voisin fait déjà pour un
   `x`/`y` absent — et « position à 0 ». Le mélanger au correctif de `remote_ui_get_config` ferait un
   diff que personne ne relit.
+
+## T3.61 — re-cléage du marqueur d'IO (2026-09-04)
+
+- **[F-T361-1] `Scenario::captureDefinitionFromRules()` est devenu inatteignable.** Ses deux gardes
+  sont `!auto_scenario` puis `auto_scenario_def->isDefined()`. Depuis le re-cléage, un
+  `AutoScenario` n'existe que si l'IO porte `autoscenario_uid`, donc `loadFromParams()` a réussi,
+  donc la définition **est** définie : le second `return` tombe toujours. Le bootstrap
+  « reconstruire une définition à partir de sa projection » ne tourne plus jamais.
+  **Conservé volontairement** (version conservatrice) : c'est la seule fonction du serveur capable
+  de refaire ce chemin, et la supprimer — avec ses deux helpers `scenarioMachineryIds()` et
+  `collectRuleActions()` — est une décision de conception, pas un nettoyage. Le commentaire de
+  `IO/Scenario.h` le dit désormais. **Candidat à un ticket de suppression.**
+
+- **[F-T361-2] La machinerie d'un scénario neuf porte encore `auto_scenario`.**
+  `AutoScenario::createInput()` (`Scenario/AutoScenario.cpp`) frappe les IOs internes avec la clé
+  historique, dont la valeur est maintenant l'uid. Personne ne la lit : c'est l'état inerte que
+  §5.3 d'`E4.6.md` décrit pour la production. **Non re-clé volontairement** — `JsonApi::
+  ioProjectionParams()` publie `autoscenario_uid`, donc la re-cléer ferait apparaître l'uid du
+  scénario sur ses 3 à 5 IOs de machinerie dans `get_home`/`get_io` et dans le payload RemoteUI,
+  et bouger des goldens, pour un param que rien ne consomme. Le retirer entièrement est l'autre
+  option ; elle mérite son propre ticket, avec la question « un outil tiers s'en sert-il pour
+  regrouper les IOs d'un scénario ? ».
+
+- **[F-T361-3] ⚠️⚠️ Le chemin `master intermédiaire → T3.61` duplique les règles — MESURÉ,
+  `configs/raoulh` passe de 125 à 141.** Un serveur bâti sur un `master` d'entre E4.6b et T3.61
+  écrit, au premier enregistrement, un `autoscenario_uid` et un `autoscenario_steps` dans l'`io.xml`
+  d'une config héritée (mesuré aussi : les 4 scénarios de `configs/raoulh` en gagnent 8 à 9 params).
+  Rechargée par T3.61, cette config **est** reconnue comme portant 4 définitions, et le générateur
+  s'arme : il écrit **16 règles neuves à côté des 18 anciennes**, qui portent
+  `auto_scenario="scenario_N"` et qu'il ne trouve plus (`scenarioRules()` cherche l'uid). La mise en
+  retrait d'E4.6c ne se déclenche pas, faute de voir ces règles. **Rien n'est détruit** — les 18
+  survivent — mais les scénarios joueraient leurs actions **deux fois**.
+  **Non traité, et l'état n'est pas atteignable depuis une version publiée** : aucun serveur
+  distribué n'a jamais écrit `autoscenario_uid`. Il n'est atteignable qu'en démarrant un build
+  intermédiaire de la branche de refonte sur une config réelle, puis en la rechargeant. Si un tel
+  fichier existe quelque part, le remède est de retirer les params `autoscenario_*` / `as_*` des 4
+  IOs scénario avant de démarrer. **À trancher avant toute publication d'un build intermédiaire.**

@@ -1839,10 +1839,10 @@ cette version, le générateur **ne touche à rien du tout** — ni destruction,
 une configuration de production réelle : 125 règles avant, 125 après, à l'octet près, y compris au
 deuxième démarrage.
 
-**Ce qui ne change pas** : le marqueur qui fait d'un équipement un auto-scénario reste le paramètre
-`auto_scenario` de cet équipement. Les scénarios déjà présents dans votre configuration restent donc
-des auto-scénarios, visibles et modifiables par l'API, exactement comme avant. Le nouvel identifiant
-`autoscenario_uid` vit **à côté** de lui et identifie la **définition**, pas l'équipement.
+⚠️ **Ce paragraphe disait le contraire jusqu'à T3.61, et il était juste à l'époque.** Le marqueur
+qui fait d'un équipement un auto-scénario **était** le paramètre `auto_scenario`. Depuis T3.61
+c'est `autoscenario_uid` — voir « Vos anciens auto-scénarios deviennent des scénarios ordinaires »
+plus bas.
 
 ### ⛔ RUPTURE D'API ASSUMÉE : `autoscenario` change de format, et ce que vous lisez est enfin ce que vous pouvez renvoyer (E4.6d)
 
@@ -2007,6 +2007,37 @@ erreur, ce qui rend enfin visible une confusion de transport qui passait inaper�
 
 ℹ️ **La même absence de réponse subsiste ailleurs** et n'est pas corrigée ici : `camera` avec un
 identifiant valide et un `type` inconnu reste silencieux, sur HTTP, connexion comprise.
+
+## ⚠️ Vos anciens auto-scénarios deviennent des scénarios ordinaires — ils marchent toujours (T3.61)
+
+> ⛔ **Décision utilisateur, annoncée dès l'ouverture d'E4.6** : « on change les ids et le
+> fonctionnement, les auto-scénarios actuels ne sont plus considérés comme des auto-scénarios ».
+> C'est fait ici.
+
+**Ce qui change.** Ce qui fait d'un équipement un auto-scénario est maintenant le paramètre
+`autoscenario_uid`, l'identité que le serveur donne à une **définition** de scénario. L'ancien
+marqueur `auto_scenario` n'est plus lu par personne.
+
+Concrètement, sur une configuration existante : les scénarios que vous aviez **disparaissent des
+commandes `autoscenario list` et `autoscenario get`**. C'est voulu. Ils avaient été créés par une
+vieille interface qui consommait cette API, et cette API a été entièrement refaite.
+
+**Ce qui ne change pas — et c'est le point important.** Vos scénarios **continuent de fonctionner
+exactement comme avant**, parce que ce qui les fait tourner, ce sont des règles ordinaires :
+
+- un scénario **visible** reste un bouton visible dans l'interface ; un appui le démarre, il
+  déroule ses étapes et se termine comme il l'a toujours fait ;
+- un scénario **invisible déclenché par une plage horaire** continue de partir à son créneau ;
+- rien n'est supprimé : les règles, les équipements internes et les paramètres restent sur le
+  disque, intacts.
+
+**Aucun octet de votre `io.xml` ni de votre `rules.xml` n'est réécrit.** Mesuré sur deux
+configurations de production réelles, montées en lecture seule : 125 règles à l'entrée, 125 après
+le premier démarrage, 125 après le second ; 82 règles pour la seconde configuration, inchangées de
+même. Le paramètre `auto_scenario` reste là où il est, simplement plus personne ne le lit.
+
+**Si vous voulez de nouveau des auto-scénarios**, créez-les avec la commande `autoscenario create`
+de la nouvelle API : ceux-là sont reconnus, listés et modifiables.
 
 ## ⚠️ `get_home` / `get_io` : le champ `auto_scenario` est remplacé par `autoscenario_uid`
 
