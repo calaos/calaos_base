@@ -8,6 +8,69 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅⭐⭐ [`T3.51`](T3.51.md) §10 — LA 4ᵉ PASSE DE LA SONDE `ccache` EST MERGÉE.** Tête sur `master` :
+  **`f93e7471`**. `cherry-pick` du **seul commit de delta** (`d1693b19`, `scripts/ccache-honesty-probe.py`
+  seul) sur un worktree neuf issu de `master`, **zéro conflit** — les trois autres commits de la branche
+  étaient déjà sur `master`. Puis `merge --ff-only`, **historique linéaire, 0 commit de fusion**.
+  ⛔ **Rien poussé.** **`TESTS` 114 → 114** (aucune entrée ajoutée).
+
+  ⭐⭐ **L'apport réel, c'est le canal `CC` : il n'était JAMAIS audité.** L'arbre porte **12 fichiers
+  `.c`** (`IO/Wago/libmbus/` ×4, `lib/libquickmail/` ×4, `lib/llhttp/src/` ×3, `lib/sunset.c`) et
+  `configure.ac` appelle `AC_PROG_CC` autant qu'`AC_PROG_CXX` : **la moitié du build passait sans
+  garde d'honnêteté de cache**, et le `PASS` de la sonde se lisait comme s'il couvrait tout. La sonde
+  audite désormais les **deux** canaux, **nomme le canal** dans chaque message, et **déclare non
+  audité** sur sa propre ligne tout canal sans cache en service.
+
+  ⛔⭐ **Sa docstring MENTAIT, et c'est la docstring qui a été corrigée — PAS l'arbre.** Elle marquait
+  « **PROUVÉ** : `[M]` corrigé par `CXX='$(CXX)'; export CXX;` dans `AM_TESTS_ENVIRONMENT` ».
+  **Relu au merge, sur `master` comme sur la tête de la branche parquée** : `tests/Makefile.am`
+  n'exporte que **`abs_top_srcdir`, `abs_top_builddir` et `PYTHON`** — l'export n'existe **nulle part**.
+  Fabriquer trois lignes d'`AM_TESTS_ENVIRONMENT` non éprouvées pour donner raison à un commentaire
+  aurait été l'inverse de ce que ce dépôt fait. ⇒ **Le mode *fail-open* ⑫ redevient un TODO honnête**
+  (`F-CCACHE-1`, fiche §10.2) : sous `./configure CXX="ccache g++"` la sonde **ne voit pas** ce `CXX`
+  et retombe sur le `g++` du `PATH`. **Les seuls canaux qui marchent** sont le `PATH` (`g++` lien vers
+  `ccache`) et `make CXX="ccache g++"` en ligne de commande, que GNU make exporte lui-même. **Pour
+  fermer** : poser l'export **puis le MESURER** sur un cache menteur — pas avant.
+
+  ⭐ **La sonde a été exercée DANS LES DEUX SENS, 10 cas sur ccache 4.12.3** (table complète en §10.3) :
+  `77` sans cache (`PATH` sans *shims*, `CXX`/`CC` absolus) · **`1` sous `CALAOS_CCACHE_PROBE_STRICT=1`**
+  sur ce même `77` · `0` sur les **deux** canaux (44 réglages publiés, 33 audités, 11 libres, **0
+  inconnue**, 0 exigée disparue, **même empreinte des deux côtés**) · `0` sur le canal `CC` **seul**,
+  avec la ligne qui déclare `CXX` non audité · et **cinq façons de la faire rougir** : `ignore_options=-D*`
+  en configuration, un enrobage honnête à `-p` mais injectant `CCACHE_IGNOREOPTIONS` à la compilation
+  ⭐ **y compris posé sur le SEUL canal `CC`** (invisible avant cette passe), un enrobage **filtrant
+  `hash_dir`** de la sortie de `-p` (clef **exigée disparue**), `CCACHE_READONLY=1` (détecteur mort),
+  et une **clef inconnue** ajoutée à `-p`. ⚠️ **La table figée est explicite, pas un effet de bord** :
+  la clef inconnue rend `1` **en la nommant** et le message dit quoi faire.
+
+  ⭐ **Élagage : 828 → 695 lignes, préambule 223 → 101, `⭐` 12 → 3.** Le préambule dupliquait
+  **mot pour mot** une énumération que le commit désignait lui-même comme « le livrable central de
+  T3.51 » — elle est passée dans la fiche (§10). Retirés aussi : « QUATRE revues successives »,
+  « depuis cette passe », « contre ce qu'écrivaient les deux passes précédentes », les renvois `⑪`/`⑬`
+  (des numéros de fiche dans du code). Gardés : les trois codes de sortie, ce que la **moitié
+  empirique ne peut pas voir**, la mtime figée dans le passé, et le fait que la sonde audite
+  **l'environnement du test, pas celui qui a compilé `src/`**.
+
+  ⚠️ **Compte de `SKIP` MESURÉ : `TOTAL 114 / PASS 112 / SKIP 2 / FAIL 0 / ERROR 0`** — **deux**, pas
+  un. `check-ccache-honesty.sh` (`rc=77`, aucun cache dans l'image, ligne
+  `SONDE-CCACHE: SKIP ... ni sur CXX ni sur CC (CXX=g++, CC=gcc)`) **et** `run-python-tests.sh`
+  (`suites=3/6 cases=23/42`, `ModuleNotFoundError: No module named 'pytest'`). ⭐ **Le second SKIP
+  n'est pas une régression de T3.47** : l'image de dev employée ici est **antérieure** aux
+  `Dockerfile` que T3.47 a modifiés, et **aucune machine du dépôt ne les construit** — c'est
+  exactement [`T3.67`](T3.67.md). Le `1 SKIP` de T3.47 avait été obtenu **sous
+  `CALAOS_PYTHON_TESTS_REQUIRED=1` avec les dépendances installées**.
+
+  ⭐ **Branches et worktrees.** `wip/t3.51-probe-pass4` **SUPPRIMÉE** — son contenu est sur `master`.
+  `tooling/ccache-probe4` supprimée, worktree `.wave89/probe4` effacé (`docker run` ciblé sur le
+  mount exact) et `git worktree prune`.
+
+  ⛔ **PROCHAINE ACTION — options posées, RIEN N'EST TRANCHÉ :**
+  1. [`T3.61`](T3.61.md) — §5.3, ce qui manque pour que l'épique **E4.6** soit entière.
+  2. [`T3.62`](T3.62.md).
+  3. [`T3.66`](T3.66.md) — **corruption XML par le NUL**.
+  4. ⛔ **Deux arbitrages UTILISATEUR en attente, aucun agent ne peut les prendre** : le **sort du
+     NUL** ; et **le sidecar MCP doit-il lire les scénarios**.
+
 - **✅⭐⭐ [`T3.47`](T3.47.md) MERGÉE — 3 commits de la branche + 1 commit d'élagage, `merge --ff-only`,
   historique linéaire, 0 commit de fusion.** Tête sur `master` : **`bcee6aa3`**. ⭐ **`master` ÉTAIT
   IMMOBILE sur `50fa5d04`** = exactement la merge-base ⇒ **ni rebase ni conflit.** ⛔ **Rien poussé.**
@@ -8133,12 +8196,18 @@ et **`tests/check-ccache-honesty.sh` échoue (`rc=1`)**. C'est **voulu** : le d�
 pas sûr, il est seulement courant.
 
 **La sonde ne rend plus jamais PASS ni SKIP sur un mode d'échec** : `0` PASS · `77` **uniquement**
-quand aucun cache n'est en service · `1` pour tout le reste (cache menteur, **une seule** clef de
-configuration non auditée, **détecteur qui ne peut pas mordre**, piège non armé, sonde qui ne compile
-pas, exception). ⭐ **Elle épingle TOUTE la configuration publiée par `ccache -p`** (33 clefs à valeur
+quand aucun cache n'est en service, **ni sur `CXX` ni sur `CC`** · `1` pour tout le reste (cache
+menteur, **une seule** clef de configuration non auditée, **clef exigée DISPARUE de `ccache -p`**,
+détecteur qui ne peut pas mordre, piège non armé, sonde qui ne compile pas, exception).
+⭐ **Elle épingle TOUTE la configuration publiée par `ccache -p`** (33 clefs à valeur
 exigée + 11 libres en 4.12.3 ; 32 + 12 en 4.7.5 ; **0 inconnue**), **exige un succès de cache
-CONSTATÉ**, **auto-vérifie son piège**, et **audite le `ccache` que `CXX` emploie**, pas celui du
-`PATH`. Les lignes sont préfixées
+CONSTATÉ**, **auto-vérifie son piège**, et **audite le `ccache` que `CXX`/`CC` emploient**, pas celui
+du `PATH`. ⭐ **Depuis la 4ᵉ passe elle audite LES DEUX canaux** — `CC` ne l'était jamais, alors que
+l'arbre porte **12 fichiers `.c`** — et un canal sans cache en service est **déclaré non audité**.
+⛔ **Trou ouvert (mode ⑫)** : `AM_TESTS_ENVIRONMENT` n'exporte **pas** `CXX`/`CC`, donc un
+`./configure CXX="ccache g++"` **n'arrive pas jusqu'à la sonde**, qui retombe sur le `g++` du `PATH`.
+Les seuls canaux qui marchent sont le `PATH` et `make CXX=... ` en ligne de commande. Voir
+[T3.51](T3.51.md) §10.2 et `F-CCACHE-1`. Les lignes sont préfixées
 `SONDE-CCACHE: PASS|SKIP|ECHEC` et le SKIP dit en toutes lettres que **ce n'est ni un PASS ni une
 preuve**. `CALAOS_CCACHE_PROBE_STRICT=1` transforme le SKIP en échec — à poser dans **tout arbre qui
 sert à juger une campagne** (condition 7).

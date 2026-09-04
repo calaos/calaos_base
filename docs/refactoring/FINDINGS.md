@@ -9113,3 +9113,24 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   [T3.47](T3.47.md)** : `42/42` exécutés et verts, mesuré dans les deux images, et un `SKIP` sur une
   machine qui doit les exécuter est désormais un **échec de build**, pas une colonne que personne ne
   lit. ⚠️ **La cible `42/42` n'est pas vérifiée chez GitHub** : `push` interdit sur ce ticket.
+
+- ✅ **[F-CCACHE-1] Le canal `CC` n'était pas audité du tout, et la docstring de la sonde déclarait
+  fermé un trou qui restait ouvert.** ⭐ **Deux défauts d'un seul fichier, de nature opposée.**
+  (a) `scripts/ccache-honesty-probe.py` n'auditait que `CXX`. L'arbre porte **12 fichiers `.c`** et
+  `configure.ac` appelle `AC_PROG_CC` : **la moitié du build n'avait aucune garde d'honnêteté de
+  cache**, et rien ne le disait — la sonde imprimait un `PASS` qui se lisait comme couvrant le
+  build. ✅ **Corrigé** ([T3.51](T3.51.md) §10, `f93e7471`) : les deux canaux sont audités, chaque
+  message nomme son canal, et un canal **sans** cache en service est **déclaré non audité** sur sa
+  propre ligne. Mesuré dans les deux sens, dont ⭐ **un enrobage menteur posé sur le SEUL canal `CC`
+  ⇒ `1`** — invisible avant.
+  (b) ⛔ **Le mode *fail-open* ⑫ était marqué « PROUVÉ corrigé » et ne l'était pas.** La docstring
+  citait `CXX='$(CXX)'; export CXX;` dans `AM_TESTS_ENVIRONMENT` ; **vérifié sur `master` comme sur
+  la branche parquée**, `tests/Makefile.am` n'exporte que `abs_top_srcdir`, `abs_top_builddir` et
+  `PYTHON`. ⭐ **Le correctif retenu est de corriger la docstring, PAS de fabriquer l'export** :
+  ajouter trois lignes non éprouvées pour donner raison à un commentaire est l'inverse de la
+  discipline du dépôt. Le trou est réécrit en **TODO ouvert** avec sa mesure de fermeture
+  (§10.2) — **il reste ouvert**.
+  ⚠️ **La leçon dépasse ce cas** : un commentaire qui écrit « PROUVÉ » nomme un fichier ; le seul
+  coût de la vérification est d'ouvrir ce fichier, et c'est ce qui a manqué pendant trois jours.
+  Une passe trouvée **non commitée** dans un worktree n'a été relue par personne — la mettre à
+  l'abri sur une branche a été le bon geste, la merger telle quelle aurait propagé le mensonge.
