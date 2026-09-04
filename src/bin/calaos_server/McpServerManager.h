@@ -88,6 +88,13 @@ public:
     // Service token used by the Python sidecar to authenticate to JsonApi
     // as a scoped service account. Never sent to external clients.
     const std::string &getServiceToken() const { return serviceToken; }
+
+    // Secret the /mcp relay puts on the client identity it writes, and that
+    // the sidecar checks before believing it. Derived from the service token
+    // rather than stored on its own so that no new secret has to travel: both
+    // ends already hold that token and no MCP client ever sees it. Empty when
+    // the service token is missing, which makes the sidecar trust nothing.
+    std::string proxyCredential() const;
 };
 
 }

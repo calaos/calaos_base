@@ -26,6 +26,7 @@
 #include "RemoteUIWebSocketHandler.h"
 #include "RemoteUI/AuthFailureReason.h"
 #include "McpProxyHandler.h"
+#include "McpServerManager.h"
 #include "libuvw.h"
 #include "json.hpp"
 
@@ -122,7 +123,9 @@ void WebSocket::ProcessData(string data)
             //its own pre-connection buffer bound in McpProxyHandler.
             cancelReadTimeout();
 
-            mcpProxy = new McpProxyHandler(client_conn, buffered);
+            mcpProxy = new McpProxyHandler(
+                client_conn, buffered, getClientIp(),
+                McpServerManager::Instance().proxyCredential());
             mcpState = McpRouteState::Proxied;
             return;
         }

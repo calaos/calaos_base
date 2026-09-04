@@ -647,6 +647,24 @@ TransportHardening_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   -lgtest -lgtest_main
 endif
 
+# T3.42
+#/mcp client identity. The sidecar reaches us over a Unix socket, so it has no
+#peer to test and cannot tell a proxy-written X-Forwarded-For from one a LAN
+#client wrote itself; McpRequestFilter is where that decision is taken, on the
+#C++ side where the TCP peer is known. Covers the rewriting of one head and the
+#request-by-request framing of the tunnel that makes it hold for every request
+#of a connection, not just the first. Header-inline, so nothing of the
+#calaos_server binary is linked. Own HAVE_GTEST block so this stays a pure
+#append at the end of the file.
+if HAVE_GTEST
+TESTS += McpRequestFilter_test
+check_PROGRAMS += McpRequestFilter_test
+McpRequestFilter_test_SOURCES = McpRequestFilter_test.cpp
+McpRequestFilter_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
 # T3.4
 #base64 hardening: the vendored decoder (base64.cpp) now strictly validates
 #RFC 4648 input — out-of-alphabet chars (whitespace, NUL, high bytes),

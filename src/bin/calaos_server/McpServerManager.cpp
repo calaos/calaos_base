@@ -29,6 +29,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <openssl/evp.h>
 #include <openssl/rand.h>
 
 namespace Calaos
@@ -39,6 +40,9 @@ namespace {
 constexpr const char *MCP_TOKEN_KEY = "mcp_token";
 constexpr const char *MCP_SERVICE_TOKEN_KEY = "mcp_service_token";
 constexpr const char *MCP_LISTEN_PORT_KEY = "port_api";
+//Domain separation: the derived credential must not be usable as, nor reveal,
+//the service token it comes from.
+constexpr const char *MCP_PROXY_CREDENTIAL_LABEL = "calaos-mcp-proxy-v1|";
 constexpr unsigned short DEFAULT_JSONAPI_PORT = 5454;
 
 // Generate a 64-hex-char token (256 bits) from a cryptographically secure
@@ -136,6 +140,25 @@ void McpServerManager::ensureTokens()
             cInfoDom("mcp") << "generated new mcp_service_token, persisted to local_config.xml";
         }
     }
+}
+
+std::string McpServerManager::proxyCredential() const
+{
+    if (serviceToken.empty())
+        return std::string();
+
+    const std::string material = std::string(MCP_PROXY_CREDENTIAL_LABEL) + serviceToken;
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int len = 0;
+    if (EVP_Digest(material.data(), material.size(), digest, &len,
+                   EVP_sha256(), nullptr) != 1)
+        return std::string();
+
+    std::ostringstream oss;
+    oss << std::hex << std::setfill('0');
+    for (unsigned int i = 0; i < len; i++)
+        oss << std::setw(2) << static_cast<int>(digest[i]);
+    return oss.str();
 }
 
 void McpServerManager::start()

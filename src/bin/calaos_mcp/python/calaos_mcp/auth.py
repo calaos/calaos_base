@@ -11,14 +11,16 @@ automation agent that bursts many tool calls:
                       set 0 to disable banning entirely)
     mcp_ban_seconds   ban duration in seconds               (default 120)
 
-Client identity (F5): in calaos-os, calaos_server always sits behind haproxy,
-and the C++ Unix-socket proxy forwards the request bytes as-is. haproxy
-(`option forwardfor`) APPENDS the real client IP as a NEW X-Forwarded-For
-header LINE after any client-supplied ones; every earlier line/entry is
-attacker-controlled and must not be trusted. We therefore key the
-rate-limiter/ban-list on the last entry of the LAST X-Forwarded-For header
-line (the trusted proxy hop), never the first. Without the header, all requests share one bucket
-(direct Unix-socket access has no per-client identity to offer anyway).
+Client identity (F5): we listen on a Unix socket, so `request.client` is None
+and no request carries a peer we could test. X-Forwarded-For is therefore
+worthless here — port 5454 answers the LAN directly, and such a client writes
+that header itself, choosing its own bucket or a victim's.
+
+The identity comes from X-Calaos-Client instead, written by the C++ /mcp relay
+on every request head after stripping the client's own: it is the only place
+where the TCP peer is known. Its first field is a secret derived from
+mcp_service_token, which no MCP client ever sees, so a forged line is refused
+rather than believed. Requests without a valid one share a single bucket.
 
 The per-IP state is bounded (MAX_TRACKED_IPS) and periodically pruned so a
 client rotating addresses cannot grow memory without limit.
@@ -36,6 +38,11 @@ from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
 LOG = logging.getLogger("calaos_mcp.auth")
+
+# Written by the C++ /mcp relay: "<credential> <client ip>".
+TRUSTED_HEADER = "x-calaos-client"
+# Bucket shared by everything that did not come through the relay.
+UNIDENTIFIED = "unknown"
 
 # Sliding-window length for the rate limiter (seconds)
 _WINDOW_SECONDS = 60.0
@@ -62,19 +69,16 @@ def _reset_state() -> None:
         _last_prune = 0.0
 
 
-def _source_ip(request: Request) -> str:
-    # haproxy (`option forwardfor`) APPENDS A NEW X-Forwarded-For HEADER
-    # LINE — it does not merge into a client-supplied header. headers.get()
-    # returns the FIRST line, which is fully attacker-controlled, so take
-    # the LAST header line (appended by the trusted haproxy hop), then the
-    # LAST comma-entry of that line. All earlier lines/entries are supplied
-    # by the client and can be rotated per request to evade throttling.
-    lines = request.headers.getlist("x-forwarded-for")
-    if lines:
-        last = lines[-1].rsplit(",", 1)[-1].strip()
-        if last:
-            return last
-    return request.client.host if request.client else "unknown"
+def _source_ip(request: Request, credential: str) -> str:
+    # The relay drops every client-written line of this header and appends
+    # exactly one of its own, so a request carrying any other number of them
+    # did not come through it.
+    lines = request.headers.getlist(TRUSTED_HEADER)
+    if credential and len(lines) == 1:
+        received, _, ip = lines[0].partition(" ")
+        if ip and hmac.compare_digest(received, credential):
+            return ip
+    return UNIDENTIFIED
 
 
 def _prune_locked(now: float) -> None:
@@ -119,11 +123,13 @@ def _maybe_prune_locked(now: float) -> None:
 
 class BearerAuthMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, expected_token: str,
+                 proxy_credential: str = "",
                  rate_limit: int = 300,
                  ban_failures: int = 20,
                  ban_seconds: int = 120):
         super().__init__(app)
         self._expected = expected_token
+        self._credential = proxy_credential
         self._rate_limit = rate_limit
         self._ban_failures = ban_failures
         self._ban_seconds = ban_seconds
@@ -133,7 +139,7 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
         if request.url.path in ("/healthz", "/mcp/healthz"):
             return await call_next(request)
 
-        ip = _source_ip(request)
+        ip = _source_ip(request, self._credential)
         now = time.monotonic()
 
         with _lock:

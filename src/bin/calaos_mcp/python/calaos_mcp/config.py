@@ -6,6 +6,7 @@ and connection params from environment variables set by McpServerManager.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import xml.etree.ElementTree as ET
 from functools import lru_cache
@@ -18,11 +19,24 @@ from dataclasses import dataclass
 # without requiring a change in auth.py (owned by another ticket).
 RATE_LIMIT_DISABLED = 1_000_000_000
 
+# Domain separator shared with McpServerManager::proxyCredential(). Both ends
+# derive the relay credential from mcp_service_token instead of carrying yet
+# another secret; the label keeps the derivative unusable as the token itself.
+PROXY_CREDENTIAL_LABEL = b"calaos-mcp-proxy-v1|"
+
+
+def proxy_credential(service_token: str) -> str:
+    if not service_token:
+        return ""
+    return hashlib.sha256(
+        PROXY_CREDENTIAL_LABEL + service_token.encode()).hexdigest()
+
 
 @dataclass(frozen=True)
 class Config:
     mcp_token: str
     service_token: str
+    proxy_credential: str
     socket_path: str
     api_url: str
     log_level: str
@@ -100,6 +114,7 @@ def get_config() -> Config:
     return Config(
         mcp_token=mcp_token,
         service_token=service_token,
+        proxy_credential=proxy_credential(service_token),
         socket_path=socket_path,
         api_url=api_url,
         log_level=log_level.lower(),

@@ -187,10 +187,20 @@ void McpProxyHandler::sendError(std::shared_ptr<uvw::TcpHandle> client,
 }
 
 McpProxyHandler::McpProxyHandler(std::shared_ptr<uvw::TcpHandle> c,
-                                 const std::string &initialBytes)
+                                 const std::string &initialBytes,
+                                 const std::string &peerIp,
+                                 const std::string &credential)
     : client(std::move(c)),
-      pendingToSidecar(initialBytes)
+      filter(peerIp, credential)
 {
+    if (!filter.feed(initialBytes, pendingToSidecar))
+    {
+        cWarningDom("mcp") << "rejecting unframable /mcp request";
+        sendError(client, 400, "Malformed request\n");
+        teardown();
+        return;
+    }
+
     const std::string &path = McpServerManager::Instance().socketPath();
     if (path.empty())
     {
@@ -257,9 +267,19 @@ void McpProxyHandler::onSidecarConnected()
 void McpProxyHandler::onClientData(const std::string &data)
 {
     if (closed) return;
+
+    std::string filtered;
+    if (!filter.feed(data, filtered))
+    {
+        cWarningDom("mcp") << "tearing down /mcp tunnel: unframable request";
+        teardown();
+        return;
+    }
+    if (filtered.empty()) return;
+
     if (!sidecarReady)
     {
-        pendingToSidecar.append(data);
+        pendingToSidecar.append(filtered);
         // Tiny safety bound: refuse to buffer megabytes before the sidecar is
         // even up (would be a DoS vector if the sidecar is wedged).
         if (pendingToSidecar.size() > 1024 * 1024)
@@ -270,7 +290,7 @@ void McpProxyHandler::onClientData(const std::string &data)
         }
         return;
     }
-    writeToSidecar(data);
+    writeToSidecar(filtered);
 }
 
 void McpProxyHandler::onClientClose()

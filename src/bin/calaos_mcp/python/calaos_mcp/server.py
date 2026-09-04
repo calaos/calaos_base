@@ -216,6 +216,7 @@ def create_app() -> FastAPI:
     base_app.add_middleware(
         BearerAuthMiddleware,
         expected_token=cfg.mcp_token,
+        proxy_credential=cfg.proxy_credential,
         rate_limit=cfg.rate_limit,
         ban_failures=cfg.ban_failures,
         ban_seconds=cfg.ban_seconds,

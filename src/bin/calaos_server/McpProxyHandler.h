@@ -22,6 +22,7 @@
 #define S_McpProxyHandler_H
 
 #include "Calaos.h"
+#include "McpRequestFilter.h"
 
 namespace uvw {
 class TcpHandle;
@@ -31,11 +32,12 @@ class PipeHandle;
 namespace Calaos
 {
 
-// Reverse proxy that splices a TCP connection to /mcp/* on the calaos_server
+// Reverse proxy that joins a TCP connection to /mcp/* on the calaos_server
 // HTTP port (5454) with the calaos_mcp Python sidecar listening on a local
-// Unix domain socket. All bytes are forwarded raw in both directions; this
-// process never inspects the HTTP framing beyond the initial request line
-// (used for path validation, see McpProxyHandler::sniffRequest).
+// Unix domain socket. Sidecar to client is a raw splice; client to sidecar
+// goes through McpRequestFilter, which frames the stream request by request so
+// that every head carries the client identity THIS process measured and none
+// the client wrote (see the note in McpRequestFilter.h).
 //
 // One instance is created per TCP connection that targets /mcp; it is
 // destroyed when either end of the splice closes.
@@ -58,8 +60,12 @@ public:
     // out as NotMcp.
     static SniffResult sniffRequest(const std::string &buf);
 
+    // peerIp is the TCP peer of `client`; credential is the secret the
+    // sidecar checks before believing the identity we write.
     McpProxyHandler(std::shared_ptr<uvw::TcpHandle> client,
-                    const std::string &initialBytes);
+                    const std::string &initialBytes,
+                    const std::string &peerIp,
+                    const std::string &credential);
     ~McpProxyHandler();
 
     // Push more bytes received from the client TCP connection to the sidecar.
@@ -88,6 +94,7 @@ private:
     std::shared_ptr<uvw::TcpHandle> client;
     std::shared_ptr<uvw::PipeHandle> sidecar;
 
+    McpRequestFilter::Filter filter;
     std::string pendingToSidecar;
     bool sidecarReady = false;
     bool closed = false;

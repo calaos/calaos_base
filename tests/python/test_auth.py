@@ -1,11 +1,13 @@
-# T1.8 / F5 — rate-limit & ban must not be bypassable via client-controlled
-# X-Forwarded-For, and the per-IP state dicts must stay bounded.
+# T1.8 / F5 — rate-limit & ban must not be bypassable by a client that writes
+# its own identity, and the per-IP state dicts must stay bounded.
 #
-# Deployment model (docs/refactoring/DECISIONS.md): calaos_server always sits
-# behind haproxy in calaos-os. haproxy APPENDS the real client IP as the LAST
-# entry of X-Forwarded-For; any earlier entries are attacker-controlled. The
-# C++ Unix-socket proxy forwards bytes as-is. So the only trustworthy client
-# identity is the last XFF entry.
+# Deployment model (docs/refactoring/DECISIONS.md, docs/15_mcp_server.md): the
+# sidecar listens on a Unix socket, so request.client is None and no header the
+# client can write says anything about where it came from. The C++ /mcp relay
+# is the only place that sees the TCP peer; it strips the client's own
+# X-Calaos-Client lines from every request head and appends one of its own,
+# carrying a credential derived from mcp_service_token. That header, and
+# nothing else, is the identity here.
 import pytest
 
 fastapi = pytest.importorskip("fastapi")
@@ -15,13 +17,15 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 import calaos_mcp.auth as auth
-from calaos_mcp.auth import BearerAuthMiddleware
+from calaos_mcp.auth import BearerAuthMiddleware, UNIDENTIFIED
 
 TOKEN = "sekret-token"
-REAL_IP = "192.0.2.10"  # what haproxy appends (trusted, last entry)
+CRED = "c0ffee" * 10          # stands in for the derived relay credential
+REAL_IP = "192.0.2.10"        # what the relay measured as the TCP peer
 
 
-def make_client(rate_limit=300, ban_failures=20, ban_seconds=120) -> TestClient:
+def make_client(rate_limit=300, ban_failures=20, ban_seconds=120,
+                proxy_credential=CRED) -> TestClient:
     app = FastAPI()
 
     @app.get("/healthz")
@@ -35,6 +39,7 @@ def make_client(rate_limit=300, ban_failures=20, ban_seconds=120) -> TestClient:
     app.add_middleware(
         BearerAuthMiddleware,
         expected_token=TOKEN,
+        proxy_credential=proxy_credential,
         rate_limit=rate_limit,
         ban_failures=ban_failures,
         ban_seconds=ban_seconds,
@@ -56,6 +61,12 @@ def hdr(xff=None, token=TOKEN):
     return h
 
 
+def relayed(ip, token=TOKEN, cred=CRED):
+    """Headers as the C++ relay writes them."""
+    return {"Authorization": f"Bearer {token}",
+            "X-Calaos-Client": f"{cred} {ip}"}
+
+
 def test_healthz_needs_no_auth():
     c = make_client()
     assert c.get("/healthz").status_code == 200
@@ -63,118 +74,12 @@ def test_healthz_needs_no_auth():
 
 def test_valid_token_passes():
     c = make_client()
-    assert c.get("/data", headers=hdr(xff=REAL_IP)).status_code == 200
+    assert c.get("/data", headers=relayed(REAL_IP)).status_code == 200
 
 
 def test_invalid_token_rejected():
     c = make_client()
-    assert c.get("/data", headers=hdr(xff=REAL_IP, token="nope")).status_code == 401
-
-
-def test_ban_not_bypassable_by_rotating_client_xff_prefix():
-    """Attacker rotates the XFF prefix; haproxy appends the real IP last.
-
-    The ban key must be the trusted (last) entry, so rotation must NOT
-    evade the ban.
-    """
-    c = make_client(ban_failures=3, ban_seconds=120)
-    for i in range(3):
-        r = c.get("/data", headers=hdr(xff=f"10.66.{i}.1, {REAL_IP}", token="bad"))
-        assert r.status_code == 401
-    # Banned now — even with a fresh spoofed prefix
-    r = c.get("/data", headers=hdr(xff=f"10.99.99.99, {REAL_IP}", token="bad"))
-    assert r.status_code == 429
-    # A valid token from the banned client is also throttled
-    r = c.get("/data", headers=hdr(xff=f"172.16.0.1, {REAL_IP}"))
-    assert r.status_code == 429
-
-
-def test_rate_limit_not_bypassable_by_rotating_client_xff_prefix():
-    c = make_client(rate_limit=5)
-    for i in range(5):
-        assert c.get("/data", headers=hdr(xff=f"10.0.{i}.1, {REAL_IP}")).status_code == 200
-    assert c.get("/data", headers=hdr(xff=f"10.0.77.1, {REAL_IP}")).status_code == 429
-
-
-def test_distinct_real_clients_get_distinct_buckets():
-    c = make_client(rate_limit=3)
-    for _ in range(3):
-        assert c.get("/data", headers=hdr(xff="192.0.2.1")).status_code == 200
-    # first client throttled...
-    assert c.get("/data", headers=hdr(xff="192.0.2.1")).status_code == 429
-    # ...but a different real client is not
-    assert c.get("/data", headers=hdr(xff="192.0.2.2")).status_code == 200
-
-
-def test_state_dicts_are_bounded():
-    """Even with unlimited distinct client IPs, tracked state stays capped."""
-    c = make_client(rate_limit=300, ban_failures=1, ban_seconds=9999)
-    n = auth.MAX_TRACKED_IPS + 50
-    for i in range(n):
-        ip = f"198.51.{i // 250}.{i % 250}"
-        c.get("/data", headers=hdr(xff=ip, token="bad"))
-    assert len(auth._req_counts) <= auth.MAX_TRACKED_IPS
-    assert len(auth._fail_counts) <= auth.MAX_TRACKED_IPS
-    assert len(auth._ban_until) <= auth.MAX_TRACKED_IPS
-
-
-def test_throttle_keys_on_last_xff_header_line_not_first():
-    """REAL haproxy threat model: `option forwardfor` APPENDS A NEW
-    X-Forwarded-For HEADER LINE after any client-supplied ones — it does not
-    merge. headers.get() would return the first (attacker-controlled) line;
-    the throttle must key on the LAST line instead.
-    """
-    c = make_client(rate_limit=3)
-
-    def dup_hdr(spoof):
-        # duplicate header lines: rotating attacker line first, fixed
-        # haproxy-appended line last
-        return [("Authorization", f"Bearer {TOKEN}"),
-                ("X-Forwarded-For", spoof),
-                ("X-Forwarded-For", REAL_IP)]
-
-    for i in range(3):
-        assert c.get("/data", headers=dup_hdr(f"10.44.{i}.1")).status_code == 200
-    # 4th request with a fresh spoofed first line must still trip the limit
-    assert c.get("/data", headers=dup_hdr("10.99.99.99")).status_code == 429
-    # State must be keyed only on the trusted IP, not the spoofed ones
-    assert REAL_IP in auth._req_counts
-    assert not any(ip.startswith("10.") for ip in auth._req_counts)
-
-
-def test_ban_keys_on_last_xff_header_line():
-    """Same duplicate-header threat model, applied to the ban list."""
-    c = make_client(ban_failures=3, ban_seconds=120)
-
-    def dup_hdr(spoof, token):
-        return [("Authorization", f"Bearer {token}"),
-                ("X-Forwarded-For", spoof),
-                ("X-Forwarded-For", REAL_IP)]
-
-    for i in range(3):
-        assert c.get("/data", headers=dup_hdr(f"10.55.{i}.1", "bad")).status_code == 401
-    # Banned now — rotating the first header line must not evade it
-    assert c.get("/data", headers=dup_hdr("10.77.0.1", "bad")).status_code == 429
-    assert c.get("/data", headers=dup_hdr("10.88.0.1", TOKEN)).status_code == 429
-    assert set(auth._ban_until) == {REAL_IP}
-
-
-def test_rate_limit_zero_disables_throttling():
-    """rate_limit <= 0 means disabled (config.py normalizes it upstream)."""
-    c = make_client(rate_limit=0)
-    for _ in range(20):
-        assert c.get("/data", headers=hdr(xff=REAL_IP)).status_code == 200
-
-
-def test_success_resets_failure_counter():
-    c = make_client(ban_failures=3)
-    for _ in range(2):
-        assert c.get("/data", headers=hdr(xff=REAL_IP, token="bad")).status_code == 401
-    assert c.get("/data", headers=hdr(xff=REAL_IP)).status_code == 200
-    # counter was reset: two more failures do not ban
-    for _ in range(2):
-        assert c.get("/data", headers=hdr(xff=REAL_IP, token="bad")).status_code == 401
-    assert c.get("/data", headers=hdr(xff=REAL_IP)).status_code == 200
+    assert c.get("/data", headers=relayed(REAL_IP, token="nope")).status_code == 401
 
 
 # --- F-MCP-XFF-1 -------------------------------------------------------------
@@ -206,3 +111,91 @@ def test_rotating_forwarded_for_cannot_ban_someone_elses_bucket():
     assert c.get("/data", headers=hdr(xff="10.1.99.7", token="bad")).status_code == 429
     assert list(auth._ban_until) != []
     assert not any(ip.startswith("10.1.") for ip in auth._ban_until)
+
+
+def test_forwarded_for_is_not_an_identity():
+    c = make_client(rate_limit=3)
+    for _ in range(3):
+        assert c.get("/data", headers=hdr(xff="203.0.113.9")).status_code == 200
+    assert list(auth._req_counts) == [UNIDENTIFIED]
+
+
+def test_a_forged_credential_buys_nothing():
+    """A client can write X-Calaos-Client too; it just does not check out."""
+    c = make_client(rate_limit=5)
+    codes = [
+        c.get("/data",
+              headers=relayed(f"10.2.{i}.7", cred="f" * 60)).status_code
+        for i in range(20)
+    ]
+    assert codes.count(200) == 5
+    assert codes.count(429) == 15
+    assert list(auth._req_counts) == [UNIDENTIFIED]
+
+
+def test_a_second_trusted_line_is_refused():
+    """The relay writes exactly one line, so two means one is the client's."""
+    c = make_client(rate_limit=3)
+    headers = [("Authorization", f"Bearer {TOKEN}"),
+               ("X-Calaos-Client", f"{CRED} 198.51.100.4"),
+               ("X-Calaos-Client", f"{CRED} 198.51.100.5")]
+    assert c.get("/data", headers=headers).status_code == 200
+    assert list(auth._req_counts) == [UNIDENTIFIED]
+
+
+def test_distinct_relayed_clients_get_distinct_buckets():
+    """The witness: behind the relay, two real clients keep two buckets."""
+    c = make_client(rate_limit=3)
+    for _ in range(3):
+        assert c.get("/data", headers=relayed("192.0.2.1")).status_code == 200
+    assert c.get("/data", headers=relayed("192.0.2.1")).status_code == 429
+    assert c.get("/data", headers=relayed("192.0.2.2")).status_code == 200
+
+
+def test_ban_keys_on_the_relayed_identity():
+    c = make_client(ban_failures=3, ban_seconds=120)
+    for _ in range(3):
+        assert c.get("/data", headers=relayed(REAL_IP, token="bad")).status_code == 401
+    assert c.get("/data", headers=relayed(REAL_IP, token="bad")).status_code == 429
+    assert c.get("/data", headers=relayed(REAL_IP)).status_code == 429
+    assert set(auth._ban_until) == {REAL_IP}
+    # ...and a different real client is untouched by that ban
+    assert c.get("/data", headers=relayed("192.0.2.99")).status_code == 200
+
+
+def test_no_credential_configured_trusts_nothing():
+    c = make_client(rate_limit=3, proxy_credential="")
+    for _ in range(3):
+        assert c.get("/data", headers=relayed(REAL_IP)).status_code == 200
+    assert c.get("/data", headers=relayed("192.0.2.77")).status_code == 429
+    assert list(auth._req_counts) == [UNIDENTIFIED]
+
+
+def test_state_dicts_are_bounded():
+    """Even with unlimited distinct client IPs, tracked state stays capped."""
+    c = make_client(rate_limit=300, ban_failures=1, ban_seconds=9999)
+    n = auth.MAX_TRACKED_IPS + 50
+    for i in range(n):
+        ip = f"198.51.{i // 250}.{i % 250}"
+        c.get("/data", headers=relayed(ip, token="bad"))
+    assert len(auth._req_counts) <= auth.MAX_TRACKED_IPS
+    assert len(auth._fail_counts) <= auth.MAX_TRACKED_IPS
+    assert len(auth._ban_until) <= auth.MAX_TRACKED_IPS
+
+
+def test_rate_limit_zero_disables_throttling():
+    """rate_limit <= 0 means disabled (config.py normalizes it upstream)."""
+    c = make_client(rate_limit=0)
+    for _ in range(20):
+        assert c.get("/data", headers=relayed(REAL_IP)).status_code == 200
+
+
+def test_success_resets_failure_counter():
+    c = make_client(ban_failures=3)
+    for _ in range(2):
+        assert c.get("/data", headers=relayed(REAL_IP, token="bad")).status_code == 401
+    assert c.get("/data", headers=relayed(REAL_IP)).status_code == 200
+    # counter was reset: two more failures do not ban
+    for _ in range(2):
+        assert c.get("/data", headers=relayed(REAL_IP, token="bad")).status_code == 401
+    assert c.get("/data", headers=relayed(REAL_IP)).status_code == 200
