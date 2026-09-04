@@ -52,8 +52,7 @@ COPY scripts/pyproject-requirements.py scripts/pydeps-conformance-probe.py \
 # build loudly instead of shipping a broken image.
 #
 # The probe then re-reads the .dist-info pip actually laid down: pip can exit
-# 0 and still leave the set incomplete, and until T3.67 nothing compared a
-# published image to its own recipe. Strict here -- an image that does not
+# 0 and still leave the set incomplete. Strict here -- an image that does not
 # carry what it declares must not be published.
 #
 # roonapi and reolink-aio are deliberately not in pyproject.toml: they are
@@ -115,8 +114,7 @@ COPY scripts/pyproject-requirements.py scripts/pydeps-conformance-probe.py \
 # build loudly instead of shipping a broken image.
 #
 # The probe then re-reads the .dist-info pip actually laid down: pip can exit
-# 0 and still leave the set incomplete, and until T3.67 nothing compared a
-# published image to its own recipe. Strict here -- an image that does not
+# 0 and still leave the set incomplete. Strict here -- an image that does not
 # carry what it declares must not be published.
 #
 # roonapi and reolink-aio are deliberately not in pyproject.toml: they are

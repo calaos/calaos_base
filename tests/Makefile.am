@@ -4587,18 +4587,11 @@ core_ScenarioMarkerRekey_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Sta
 endif
 
 # T3.67
-#Rien ne comparait l'image de developpement au Dockerfile qui la construit.
-#Mesure du 2026-09-04 dans l'image publiee : les huit paquets epingles par
-#src/bin/calaos_mcp/pyproject.toml ABSENTS, alors que .devcontainer/Dockerfile
-#les installe depuis T3.23 -- le sidecar MCP ne demarre pas la ou on le
-#developpe, et run-python-tests.sh SKIPPE en annoncant un correctif deja dans
-#le depot. La sonde compare la declaration (le pyproject, expanse par le meme
-#scripts/pyproject-requirements.py que les Dockerfile et la CI) aux .dist-info
-#reellement poses sur le disque.
-#77 par defaut, pour AVERTIR sans bloquer un developpeur dont l'image est en
-#retard ; CALAOS_PYDEPS_STRICT=1 en fait un echec, et c'est ce que posent
-#ci.yml et le build des deux images. Meme motif que check-ccache-honesty.sh.
-#Hors de tout `if HAVE_GTEST` : ni gtest ni binaire construit, et la liste
-#TESTS de master reste un PREFIXE STRICT de celle de la branche.
+#Rien ne comparait l'environnement ou tourne `make check` au jeu Python que
+#src/bin/calaos_mcp/pyproject.toml declare : une image en retard sur sa propre
+#recette ne demarre pas le sidecar et fait skipper run-python-tests.sh.
+#77 par defaut pour AVERTIR sans bloquer, 1 sous CALAOS_PYDEPS_STRICT (ci.yml
+#et le build des images) -- meme motif que check-ccache-honesty.sh.
+#Hors de tout `if HAVE_GTEST` : ni gtest ni binaire construit.
 TESTS += check-pydeps-conformance.sh
 dist_check_SCRIPTS += check-pydeps-conformance.sh

@@ -4,42 +4,28 @@
 Compare les distributions Python REELLEMENT installees pour l'interprete qui
 execute cette sonde au jeu que src/bin/calaos_mcp/pyproject.toml DECLARE.
 
-Ce n'est pas une verification circulaire : la declaration vient du pyproject
-(la recette, via scripts/pyproject-requirements.py -- le meme expanseur que les
-deux Dockerfile et la CI), la realite vient de importlib.metadata, c'est-a-dire
-des .dist-info reellement poses sur le disque. Rien du cote realite n'est
-deduit de la recette.
+Ce n'est pas circulaire : la declaration vient du pyproject (via
+scripts/pyproject-requirements.py, le meme expanseur que les Dockerfile et la
+CI), la realite vient de importlib.metadata, c'est-a-dire des .dist-info
+reellement poses sur le disque. Rien du cote realite n'est deduit de la recette.
 
-Mesure du 2026-09-04 dans l'image de developpement publiee : les huit paquets
-epingles ABSENTS, `colorama` present parce qu'il vient de l'apt. L'image etait
-en retard sur son propre .devcontainer/Dockerfile depuis T3.23 et rien dans le
-depot ne le disait.
-
-Trois codes de sortie :
+Codes de sortie :
 
   0  PASS  -- chaque paquet declare est present, a la version epinglee.
 
-  77 SKIP  -- l'environnement ne porte pas le jeu declare (paquet absent,
-              version differente), ou la declaration n'a pas pu etre lue. La
-              ligne commence par "SONDE-PYDEPS: SKIP" et NOMME chaque ecart :
-              un SKIP ne doit pas pouvoir se lire comme un PASS dans un
-              journal. C'est le defaut voulu -- un developpeur dont l'image
-              est en retard doit etre AVERTI, pas bloque.
+  77 SKIP  -- ecart, ou declaration illisible. Chaque ecart est NOMME : un SKIP
+              ne doit pas pouvoir se lire comme un PASS dans un journal. Defaut
+              voulu -- un developpeur dont l'image est en retard doit etre
+              AVERTI, pas bloque.
 
-  1  ECHEC -- CALAOS_PYDEPS_STRICT=1 : tout ce qui precede rend 1 au lieu de
-              77. A poser partout ou l'environnement DOIT porter le jeu : la
-              CI, et le build des images (une image qui n'installe pas ce que
-              sa recette declare ne doit pas etre publiee). Egalement rendu
-              par une exception imprevue -- une sonde qui plante ne garde
-              rien.
+  1  ECHEC -- sous CALAOS_PYDEPS_STRICT=1, ou sur exception imprevue (une sonde
+              qui plante ne garde rien). A poser la ou l'environnement DOIT
+              porter le jeu : la CI, et le build des images.
 
-Ce que la sonde ne voit PAS, et qui reste nu :
-  - les paquets apt du Dockerfile (build-essential, libola-dev, knxd...) ;
-  - qu'un paquet enregistre s'IMPORTE vraiment (le job mcp-sidecar-deps de
-    ci.yml couvre cet axe pour le sidecar) ;
-  - les contraintes autres que `==` et les requirements a marqueur
-    d'environnement : ils sont audites en PRESENCE seulement, et la sonde le
-    declare sur sa propre ligne.
+Ce que la sonde ne voit PAS, et qui reste nu : les paquets apt du Dockerfile ;
+qu'un paquet enregistre s'IMPORTE vraiment ; les contraintes autres que `==` et
+les requirements a marqueur d'environnement, audites en PRESENCE seulement et
+declares tels quels sur leur propre ligne.
 """
 
 import os

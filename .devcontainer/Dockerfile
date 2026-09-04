@@ -31,10 +31,9 @@ COPY scripts/pyproject-requirements.py scripts/pydeps-conformance-probe.py \
 # --extra test: this is the image `make check` runs in, and without pytest,
 # httpx and fastapi the python suites skip from the inside.
 #
-# The probe then re-reads what pip actually laid down. Strict: an image that
-# does not carry what its recipe declares must not be published. The image in
-# service on 2026-09-04 carried none of the eight pinned packages, and nothing
-# in the repository compared the two.
+# The probe then re-reads what pip actually laid down: pip can exit 0 and still
+# leave the set incomplete. Strict -- an image that does not carry what its
+# recipe declares must not be published.
 RUN python3 /tmp/calaos-pydeps/pyproject-requirements.py --extra test \
         /tmp/calaos-pydeps/pyproject.toml > /tmp/calaos-pydeps/requirements.txt && \
     pip install --no-cache-dir --break-system-packages \

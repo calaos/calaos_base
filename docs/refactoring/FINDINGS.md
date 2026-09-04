@@ -9097,10 +9097,15 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   (`check-pydeps-conformance.sh`, `77` par défaut / `1` sous `CALAOS_PYDEPS_STRICT`), dans `ci.yml`,
   et **dans la chaîne `RUN` des deux `Dockerfile`** — seul point qui empêche la publication d'une
   image en dérive. ⭐ **Mesurée rouge sur la dérive RÉELLE**, nommant **huit** paquets absents : la
-  sonde en a trouvé **un de plus (`websockets`) que l'énumération manuelle ci-dessous**. ⭐ **Trouvaille
-  de T3.67 : `roonapi` et `reolink-aio` SONT présents dans l'image** — aucun paquet Debian ne les
-  fournit, donc **le `pip` de la recette a bien tourné** et a quand même rendu autre chose que le jeu
-  déclaré ; ce n'est pas « une vieille image ». ⛔ **VOLET « reconstruire l'image » TOUJOURS OUVERT** :
+  sonde en a trouvé **un de plus (`websockets`) que l'énumération manuelle ci-dessous**. ⛔ **La « trouvaille »
+  de T3.67 — `roonapi`/`reolink-aio` présents ⇒ « le `pip` de la recette a tourné » ⇒ « ce n'est pas
+  une vieille image » — a été RÉFUTÉE à la revue de merge par datation** : image créée le
+  **2026-05-28 20:29**, `.dist-info` de `/usr/local` tous horodatés `2026-05-28 18:29`, et la ligne
+  `pip install "mcp[cli]" uvicorn fastapi` n'entre dans `.devcontainer/Dockerfile` que le
+  **2026-06-04** (`c57ec9be`) ; `/usr/local` ne contient QUE la clôture transitive de `roonapi` +
+  `reolink-aio` (ni `anyio`, ni `click`, ni `h11`, ni `httpcore`, ni `sniffio`). ⇒ **c'est bien une
+  vieille image**, antérieure au serveur MCP lui-même — le diagnostic d'origine de `F-PYIMG-1` tient,
+  et le remède reste **reconstruire l'image**. ⛔ **VOLET « reconstruire l'image » TOUJOURS OUVERT** :
   `push` interdit et image non republiée sur `T3.67`, la dérive est encore là.
   Constat d'origine : `.devcontainer/Dockerfile` installe depuis `T3.23` le jeu déclaré par
   `src/bin/calaos_mcp/pyproject.toml`. **L'image montée n'en a rien** : mesuré dedans, `mcp`,
