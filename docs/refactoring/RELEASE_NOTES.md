@@ -320,6 +320,29 @@ concerné.
 → **Rien à faire de votre côté.** Si un écran restait désespérément vide après appairage, il
 s'affiche après la mise à jour.
 
+### Et un écran dont l'économiseur d'écran n'avait jamais été réglé n'affichait rien du tout (T3.73)
+
+Le serveur pousse sa configuration à chaque écran déporté : son nom, sa pièce, sa grille, **ses
+pages, ses boutons et les équipements qu'ils commandent**.
+
+Jusqu'ici, cette configuration contenait toujours les huit réglages de l'**économiseur d'écran** —
+délai, atténuation, mode, affichage de l'heure et de la date — **même quand aucun d'eux n'avait
+jamais été réglé**, et ils étaient alors envoyés **vides**. L'écran, en lisant un délai vide, ne
+pouvait pas en faire un nombre, et **abandonnait la configuration entière**. Il ne perdait pas
+seulement son économiseur : il perdait **toutes ses pages et tous ses boutons**, et restait vide.
+
+Là encore, rien dans l'appairage d'un écran neuf n'écrit ces réglages : ils n'existent que si
+quelqu'un a ouvert les réglages de l'écran. **Un écran sorti du carton et laissé tel quel était
+exactement dans ce cas.**
+
+**Ce qui change** : un réglage qui n'a jamais été fait n'est plus envoyé du tout, au lieu d'être
+envoyé vide. L'écran applique alors sa propre valeur par défaut — c'est ce qu'il fait déjà pour un
+réglage qu'il ne reçoit pas. Un écran dont l'économiseur **a** été réglé reçoit exactement ce qu'il
+recevait avant, sans un octet de différence.
+
+→ **Rien à faire de votre côté.** Si un écran affichait une page blanche alors que ses pages sont
+bien configurées côté serveur, il s'affiche après la mise à jour.
+
 ## 🔴 Le sidecar MCP ne démarrait pas
 
 ### L'assistant MCP était mort dans les images publiées (T3.23)

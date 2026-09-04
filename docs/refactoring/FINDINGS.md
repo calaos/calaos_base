@@ -9586,7 +9586,7 @@ Le dépôt de l'écran (`/home/raoul/repos/calaos/calaos_remote_ui`, HEAD `da80d
 entier pour répondre aux questions qu'`E4.6`, `T3.62`, `T3.68` et `T3.69` avaient dû laisser
 ouvertes faute de l'avoir. **Ces entrées remplacent des hypothèses par des mesures.**
 
-### ⛔⭐⭐ [F-RUI-1] Un écran dont l'économiseur n'est pas réglé perd TOUTE sa configuration
+### ✅ [F-RUI-1] Un écran dont l'économiseur n'est pas réglé perd TOUTE sa configuration — **FERMÉ par [T3.73](T3.73.md)**
 
 Le serveur émet `screensaver_timeout` et `screensaver_dimming` en `get_param()` **brut**
 (`RemoteUIWebSocketHandler.cpp:316-317`) : les clés sont **toujours présentes**, et **vides** quand
@@ -9605,6 +9605,29 @@ aussi `stoi("")`, et là ce n'est **pas** une `json::exception` — elle **écha
 
 ⇒ Ticket proposé **`T3.73`**. Le sens du correctif est désormais mesuré : **omettre** côté serveur,
 ou envoyer une valeur que le micrologiciel sait lire.
+
+✅ **FERMÉ par [T3.73](T3.73.md)** (branche `fix/t3.73`, non poussée). **Omettre** a été retenu :
+c'est le seul des deux qui soit prouvé par la mesure — une clé absente retombe sur le défaut du
+micrologiciel, une valeur « que le micrologiciel sait lire » demanderait de deviner laquelle.
+⭐ **Le comptage a été refait au source, et il ne s'arrête pas aux deux clés qui plantent** :
+**11 clés** de la charge étaient posées à partir d'un `get_param()` brut — `name` et les **8**
+`screensaver_*` sur le push, `name`/`room`/`theme` sur la réponse. **Les deux constructeurs sont
+corrigés**, bien que la réponse `remote_ui_config` soit un chemin mort côté appareil (`F-RUI-3`) :
+elle est bâtie sur les mêmes params bruts. `RemoteUI::putIfSet()` porte la règle une seule fois.
+⭐⭐ **L'observable épinglé est le CONTRAT, pas l'appareil** : « aucune valeur de chaîne de la charge
+n'est vide », par un **balayage récursif** et non par une liste de clés — une contre-mutation qui
+ajoute une clé neuve en `get_param()` brut le fait rougir sans que le test la nomme.
+
+⚠️ **Ce que T3.73 laisse ouvert, et qui mérite un arbitrage** :
+- **`pages` reste un passage à travers.** Un attribut de widget écrit vide dans `io.xml` traverse le
+  serveur intact et atteindrait le `stoi` de la géométrie — celui qui **échappe au `catch`** et fait
+  perdre **toutes les pages**. Le remède est côté lecture d'`io.xml` ⇒ famille de
+  [T3.70](T3.70.md), qui n'a traité que `x`/`y`. **Aucun cas ne l'exerce aujourd'hui.**
+- **La documentation du protocole décrit toujours `remote_ui_get_config` comme le chemin nominal**
+  (`src/bin/calaos_server/RemoteUI/remote-ui.md`) alors qu'aucun micrologiciel ne l'emploie. La
+  corriger — ou retirer le message du wire — est une décision d'exploitation, **pas faite**.
+- ⛔ **Non prouvable sans matériel** : que l'écran physique s'affiche effectivement. Ce qui est
+  épinglé est le contrat lu dans le source du micrologiciel.
 
 ### ⚠️ [F-RUI-2] Le défaut `brightness` du serveur contredit celui du micrologiciel
 
