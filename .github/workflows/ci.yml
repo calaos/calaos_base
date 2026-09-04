@@ -52,7 +52,7 @@ jobs:
         # of 42 cases executed behind a green tick the day an install step
         # breaks -- which is exactly how it stayed unnoticed until T3.47.
         env:
-          CALAOS_PYTHON_TESTS_REQUIRED: 1
+          CALAOS_PYTHON_TESTS_REQUIRED: "1"
         run: make check
 
       # if: always(), not if: failure(). The accounting line lives in

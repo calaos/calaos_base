@@ -9080,3 +9080,34 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   renvois vivants recalés (`docs/04_scenarios.md`, `T3.58.md`). ⚠️ **Les fiches `E4.1s.md` et
   `E4.6.md` citent encore le nom d'origine : ce sont des récits d'époque, où le cas assertait bien
   la troncature. Ils n'ont pas été réécrits.**
+
+- **[F-PYIMG-1] L'image de développement publiée est en retard sur son propre `Dockerfile`, et
+  aucune mesure ne le dit.** `.devcontainer/Dockerfile` installe depuis `T3.23` le jeu déclaré par
+  `src/bin/calaos_mcp/pyproject.toml`. **L'image montée n'en a rien** : mesuré dedans, `mcp`,
+  `fastapi`, `uvicorn`, `pydantic`, `starlette` et `httpx` répondent tous `ModuleNotFoundError`
+  (seul `colorama`, qui vient de l'`apt`, est là). ⇒ **le sidecar MCP ne peut pas démarrer dans
+  l'image où on le développe**, et les 11 cas de `test_auth.py` ne pouvaient pas y tourner.
+  ⚠️ **Rien dans le dépôt ne compare l'image publiée à son `Dockerfile`** : la dérive est
+  indétectable jusqu'à ce que quelqu'un `import fastapi`. **Non corrigé** — reconstruire l'image
+  n'est pas dans le périmètre de `T3.47` et coûte une reconstruction complète du devcontainer de
+  l'utilisateur. ⇒ **[T3.47](T3.47.md) §5.1.**
+
+- **[F-CIENV-1] Une variable d'environnement globale de `make check` traverse le méta-oracle qui
+  teste le script qu'elle pilote.** `T3.47` fait de `CALAOS_PYTHON_TESTS_REQUIRED=1` un
+  « ne pas pouvoir exécuter est une erreur ». La variable est posée sur le `make check` entier, donc
+  elle est **héritée** par les sous-invocations de `tests/check-python-tests-reporting.sh` — dont
+  **treize** fabriquent un arbre dont le verdict honnête est `77` et l'assertent. Mesuré au premier
+  `make check` strict : `FAIL: check-python-tests-reporting.sh`, **13 checks rouges**, sur un
+  correctif dont ce n'était pas le sujet. ⭐ **Trouvé uniquement parce que le mode strict a été
+  réellement exercé** ; une relecture de diff ne l'aurait pas vu, et un `push` aurait rougi sur un
+  test sans rapport. ✅ **Corrigé** : le script désarme la variable en tête, `C6` la ré-exporte dans
+  son propre sous-shell. ⚠️ **La leçon dépasse ce cas** : tout futur drapeau d'environnement lu par
+  un script de `TESTS` doit être désarmé par les oracles qui invoquent ce script.
+
+- **[F-PYTEST-1 — seconde couche, fermée]** `T3.44` avait réparé le **rapport** ; les 42 cas ne
+  tournaient toujours **sur aucune machine**. ⭐ **Deux causes distinctes, pas une** : la CI n'a
+  **aucun `python3`** (le harnais court-circuite sur `PYTHON=:`, `0/42`), l'image de dev en a un
+  mais **aucun des modules** (`23/42`, RC 77, les 19 cas manquants nommés). ✅ **Fermée par
+  [T3.47](T3.47.md)** : `42/42` exécutés et verts, mesuré dans les deux images, et un `SKIP` sur une
+  machine qui doit les exécuter est désormais un **échec de build**, pas une colonne que personne ne
+  lit. ⚠️ **La cible `42/42` n'est pas vérifiée chez GitHub** : `push` interdit sur ce ticket.
