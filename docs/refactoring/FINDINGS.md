@@ -948,8 +948,8 @@
     Ce n'est pas un arbitrage, c'est la **même faille non fermée sur l'autre moitié du port 5454**.
 
 - ✅ **F-MCP-XFF-1 — [SÉCURITÉ, FERMÉ par [T3.42](T3.42.md)] le sidecar MCP croyait
-  `X-Forwarded-For` sans aucun test du pair : le rate-limit et le bannissement `/mcp` sont contournables depuis le LAN** (trouvé par
-  la revue de T3.39, **mesuré de bout en bout**, **non corrigé**).
+  `X-Forwarded-For` sans aucun test du pair : le rate-limit et le bannissement `/mcp` étaient contournables depuis le LAN** (trouvé par
+  la revue de T3.39, **mesuré de bout en bout**, **corrigé**).
 
   **Le chemin, mesuré et non repris sur parole** :
   1. `/mcp` est servi **sur le port 5454** — `WebSocket.cpp:74-127` renifle la première requête et,
@@ -1007,9 +1007,14 @@
   lui-même) ; et, comme côté serveur, du code tournant **sur la machine** est loopback et choisit
   encore son seau.
 
-  ⚠️ **Tant que cette entrée est ouverte, la protection annoncée par F-XFF-1 est INCOMPLÈTE**, et
-  la note de version le dit explicitement. Un auto-hébergeur qui lit « les tentatives sont
-  désormais correctement comptées » et laisse `/mcp` exposé **se croirait protégé**.
+  ⭐ **Vérifié au merge avec un vrai client MCP** : le SDK officiel (`mcp` 1.28.1, transport
+  streamable-http) mène une session complète — `initialize`, `notifications/initialized`, flux SSE
+  `GET`, `tools/list`, `tools/call`, `DELETE` de session — à travers le filtre compilé depuis
+  l'arbre, sans un seul `400`, et les six requêtes portent l'identité écrite par le relais. Le SDK
+  n'émet aucune des formes refusées (pas d'`Upgrade`, pas de *trailer*, `Content-Length` partout) ;
+  un corps `chunked` traverse quand même, un `Upgrade` reçoit bien `400`, et deux requêtes
+  **pipelinées** portant chacune un `X-Calaos-Client` client — credential correct compris — sont
+  toutes deux réécrites. **La réserve « aucun client réel exercé » est levée.**
 
 - ⚠️ **F-IP6-1 — [CORRECTION, OUVERT, PRÉEXISTANT, fiche [T3.41](T3.41.md)] `HttpClient::getClientIp()` ne détecte pas la
   famille d'adresse : sur un pair IPv6 il rend `"0.0.0.0"`, jamais l'adresse** (trouvé par la revue
@@ -1043,8 +1048,16 @@
   vers `uv_ip6_name()` ou `uv_ip4_name()`. ⚠️ Le chemin n'est pas atteignable par un test unitaire
   sans socket réelle : **ne pas déclarer « couvert » sans l'avoir mesuré** (dette `F-LINK-1`).
 
-- ⚠️ **F-PYTEST-1 — [FAUX VERT, OUVERT] `tests/python/test_auth.py` est silencieusement SAUTÉ par
-  `make check`, qui reste vert** (trouvé en mesurant F-MCP-XFF-1).
+- ✅ **F-PYTEST-1 — [FAUX VERT, FERMÉ par [T3.47](T3.47.md)] `tests/python/test_auth.py` était
+  silencieusement SAUTÉ par `make check`, qui restait vert** (trouvé en mesurant F-MCP-XFF-1).
+
+  ✅ **FERMÉ.** Le correctif demandé ci-dessous — sortir **77** plutôt que **0** et *affirmer* le
+  nombre de cas exécutés — est livré : `python-suite-runner.py` compte les cas déclarés et les cas
+  exécutés, publie les deux et fait dépendre son code de sortie de leur égalité, et
+  `check-python-tests-reporting.sh` est le méta-oracle qui garde cette propriété. Mesuré au merge
+  de T3.42 : `run-python-tests: suites=6/6 cases=45/45`, `PASS`. La disparition du symptôme (image
+  de développement portant `pytest`) n'aurait pas suffi à fermer l'entrée ; c'est le fait qu'une
+  dépendance manquante produise désormais un `SKIP` visible, jamais un `PASS`, qui la ferme.
   `tests/run-python-tests.sh:50-60` lance `pytest` **s'il est disponible**, sinon retombe sur
   `unittest discover -p 'test_t116_*.py'`. Sur cette machine `/usr/bin/python3 -m pytest` →
   `No module named pytest`, et `tests/run-python-tests.sh.log` du dernier `make check` réel porte :

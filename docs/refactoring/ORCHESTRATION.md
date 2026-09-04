@@ -17,7 +17,11 @@
      ⭐ **`check-pydeps-conformance.sh` PASSE** — il ne reste **qu'un seul** `SKIP`,
      `check-ccache-honesty.sh`, qui est structurel. Les « trois `SKIP` » cités par les fiches
      jusqu'à `T3.70` sont donc **périmés** : sur l'image neuve, la référence est
-     **`TOTAL 117 / PASS 116 / SKIP 1`**. `F-PYIMG-1` n'a plus de symptôme observable en local.
+     **`TOTAL 118 / PASS 117 / SKIP 1`** depuis le merge de `T3.42`. `F-PYIMG-1` n'a plus de
+     symptôme observable en local, et ⭐ **`F-PYTEST-1` est fermé** — non parce que le symptôme a
+     disparu, mais parce qu'une dépendance manquante produit désormais un `SKIP` visible et jamais
+     un `PASS` (`python-suite-runner.py` de `T3.47`, gardé par
+     `check-python-tests-reporting.sh`) ; mesuré : `run-python-tests: suites=6/6 cases=45/45`.
   2. ⭐ **LES TROIS ARBITRAGES SONT TRANCHÉS** — voir [`DECISIONS.md`](DECISIONS.md), section du
      **2026-09-04**. Ne les rouvrez pas, appliquez-les :
      - **L'octet NUL dans l'écrivain XML** (`F-XML-1`) → **tranché : garde dans
@@ -35,6 +39,46 @@
      plus déduit. ⛔ **Il ne reste que le job CI chez GitHub**, jamais exécuté (`push` interdit
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
+
+- **✅⭐⭐ [`T3.42`](T3.42.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête sur `master` : **`30e2e63a`** (2026-09-04). `master` avait avancé à `df791f01`
+  (T3.73) ⇒ **rebase** de `9356fe13` sur `df791f01` : **zéro conflit**, `tests/Makefile.am` inclus
+  (+18/−0, ajout pur). `make distclean` fait avant le build. Build de merge complet :
+  **`TOTAL 118 / PASS 117 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, le seul `SKIP` étant
+  `check-ccache-honesty.sh` ; `check-test-deps.sh` **PASS**, `TESTS` **117 → 118**. ⛔ **Rien
+  poussé.**
+
+  ⭐⭐ **LA RÉSERVE « AUCUN CLIENT MCP RÉEL N'A ÉTÉ EXERCÉ » EST LEVÉE — ET C'EST CE QUI REND LE
+  FILTRE DÉPLOYABLE.** L'image reconstruite porte `mcp` 1.28.1, `httpx`, `fastapi`, `uvicorn`,
+  `starlette` : un stand-in de `McpProxyHandler` a été compilé **contre le `McpRequestFilter.h` de
+  l'arbre** (TCP entrant, socket Unix sortante, sens client → sidecar à travers `Filter`, sens
+  retour en splice brut), placé devant un serveur `FastMCP` en streamable-http enveloppé du **vrai**
+  `BearerAuthMiddleware`, et le **vrai** client du SDK a mené une session complète :
+  `initialize` → `notifications/initialized` → flux SSE `GET /mcp` → `tools/list` → `tools/call` →
+  `DELETE /mcp`. **6 requêtes, 0 × `400`**, chacune portant `X-Calaos-Client: <credential>
+  192.0.2.55` — l'identité **écrite par le relais**. ⭐ **Le SDK n'émet aucune des formes que le
+  filtre refuse** : `Content-Length` sur tous les `POST`, aucun `Upgrade`, aucun *trailer*, pas de
+  pipelining ; le flux SSE n'est pas concerné, le sens sidecar → client n'étant pas filtré.
+  Vérifié en plus, hors SDK : un corps **`chunked`** traverse (corps intact, identité réécrite), un
+  `Upgrade` reçoit bien `400`, et **deux requêtes pipelinées écrites en un seul `send`, portant
+  chacune un `X-Calaos-Client` client avec le credential CORRECT, sont toutes deux réécrites** —
+  c'est exactement l'évasion que la fiche décrit, close au fil.
+
+  ⭐ **Le reste de la revue, revérifié.** `WebSocket.cpp:64-69` renvoie bien sur
+  `mcpProxy->onClientData()` **avant** le bloc de reniflage et l'état `Proxied` n'a aucune
+  transition de retour ⇒ **seule la première requête d'une connexion était lue** : le découpage
+  requête par requête n'est pas du zèle, sans lui le correctif eût été décoratif. **Le credential ne
+  fuit pas** : `mcp_service_token` est `.secret() .generated()` dans `ConfigOptions.cpp:873`
+  (« purement interne, aucun client externe n'en a besoin »), distinct de `mcp_token` que le client
+  détient, aucun des cinq modules de `calaos_mcp/tools/` ne lit la configuration, et l'en-tête n'est
+  écrit que dans le sens aller — le client réel a terminé sa session sans jamais le recevoir.
+  ⭐ **Mesure rejouée** : pair LAN `192.0.2.55` → **200:5 / 429:15, 1 seau** ; **témoin loopback
+  `127.0.0.1` → 200:20 / 429:0, 20 seaux** — la granularité par client derrière haproxy est
+  **préservée**. Les deux dégradations sont écrites dans `RELEASE_NOTES.md` ; celle de la socket
+  Unix est acceptable — le socket est en `0660` et n'est joignable que par du code déjà sur le
+  boîtier, qui de toute façon est loopback et choisissait déjà son seau côté serveur (T3.39 §5).
+  **`F-MCP-SNIFF-1`** reste cohérent : atténué (le filtre rejoue les indicateurs sur chaque en-tête)
+  mais **ouvert**, `sniffRequest()` étant inchangé.
 
 - **✅⭐⭐ [`T3.73`](T3.73.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **`fbaad1e7`** (2026-09-04). ⭐ `master` était **IMMOBILE** sur

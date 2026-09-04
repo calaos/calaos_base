@@ -1239,8 +1239,11 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   et **partage un compteur unique** avec toutes les autres dans ce cas. Et le relais `/mcp` refuse
   désormais les requêtes qu'il ne sait pas découper avec certitude : en-têtes repliés sur
   plusieurs lignes, `Content-Length` en double ou contradictoire avec `Transfer-Encoding`,
-  *trailers* après un corps découpé en morceaux, tentatives de bascule en WebSocket. Aucun client
-  MCP connu n'émet cela ; si le vôtre le fait, il recevra un `400` au lieu d'être proxifié.
+  *trailers* après un corps découpé en morceaux, tentatives de bascule en WebSocket. Le client de
+  référence a été essayé de bout en bout avant la publication — bibliothèque officielle MCP en
+  transport « streamable HTTP », session complète depuis la connexion jusqu'à la fermeture, y
+  compris le flux d'événements : **aucune requête refusée**. Si votre client émet malgré tout une de
+  ces formes, il recevra un `400` au lieu d'être relayé.
 
   ⚠️ **Un cas particulier de configuration.** Si vous avez réglé `listen_address` sur `::` (l'écoute
   IPv6 « toutes interfaces » — ce n'est pas la valeur par défaut et rien dans Calaos ne la pose),
