@@ -9618,11 +9618,31 @@ elle est bâtie sur les mêmes params bruts. `RemoteUI::putIfSet()` porte la rè
 n'est vide », par un **balayage récursif** et non par une liste de clés — une contre-mutation qui
 ajoute une clé neuve en `get_param()` brut le fait rougir sans que le test la nomme.
 
+⭐⭐ **La réserve « rien ne prouve qu'un build antérieur ne réclame pas la clé » est LEVÉE au merge,
+par l'historique du micrologiciel.** `handleConfigUpdate()` lit sa configuration en *pull* **depuis
+le premier commit qui l'écrit** — `e813dfc`, **2025-12-11** : `configJson.value(clé, défaut)`
+d'emblée. Les **14** révisions du fichier ont été relues une à une : **aucune** n'emploie un
+`data["clé"]` nu sur un scalaire optionnel, et les seuls indexages directs du parse (`room`,
+`pages`, `io_items`) sont **tous** gardés par un `contains()`. Les **18 étiquettes** du dépôt vont
+de `waveshare-86-panel-0.0.1-dev.1` (**2026-02-10**) à `waveshare-touchlcd-*` (**2026-05-26**),
+**toutes postérieures** à ce premier commit ⇒ **aucun binaire jamais étiqueté ne peut exiger la
+clé**. Omettre est donc sûr pour un parc réel, et le correctif ne troque **pas** un défaut contre
+un autre.
+
 ⚠️ **Ce que T3.73 laisse ouvert, et qui mérite un arbitrage** :
 - **`pages` reste un passage à travers.** Un attribut de widget écrit vide dans `io.xml` traverse le
   serveur intact et atteindrait le `stoi` de la géométrie — celui qui **échappe au `catch`** et fait
   perdre **toutes les pages**. Le remède est côté lecture d'`io.xml` ⇒ famille de
   [T3.70](T3.70.md), qui n'a traité que `x`/`y`. **Aucun cas ne l'exerce aujourd'hui.**
+  ⭐ **Confirmé au merge, et ça mérite un ticket ⇒ `T3.75` proposé.** Le mécanisme est **vérifié au
+  source** du micrologiciel : `CalaosProtocol::PagesConfig::fromJson()` convertit `x`, `y`, `w`,
+  `h`, `width` et `height` par `std::stoi()` — **six** sites — et sa **seule** clause de rattrapage
+  est `catch (const json::exception &)`. `std::stoi("")` lève `std::invalid_argument`, qui **n'est
+  pas** une `json::exception` : elle **sort de `fromJson()`**, la charge de pages est perdue en
+  entier. C'est **exactement** le mécanisme fermé par `T3.70`, atteint par une **autre porte** :
+  `T3.70` a gardé `x`/`y` à la **lecture d'`io.xml`**, mais `w`/`h`/`width`/`height` restent des
+  chaînes recopiées telles quelles, et ce sont **elles** qui restent nues. Le finding est donc
+  toujours vivant après `T3.73`.
 - **La documentation du protocole décrit toujours `remote_ui_get_config` comme le chemin nominal**
   (`src/bin/calaos_server/RemoteUI/remote-ui.md`) alors qu'aucun micrologiciel ne l'emploie. La
   corriger — ou retirer le message du wire — est une décision d'exploitation, **pas faite**.

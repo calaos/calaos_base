@@ -11,12 +11,13 @@
 - ⭐⭐ **À FROID, DANS CET ORDRE — l'état de la session au 2026-09-04 (l'utilisateur dort, rien
   n'est poussé) :**
 
-  1. ⭐ **PREMIÈRE ACTION AU RÉVEIL : RECONSTRUIRE L'IMAGE DE DÉVELOPPEMENT.** L'image publiée est
-     en retard sur sa recette (`F-PYIMG-1`, toujours ouvert sur ce point). C'est ce qui produit les
-     **trois** `SKIP` — `check-ccache-honesty.sh`, `run-python-tests.sh`,
-     `check-pydeps-conformance.sh` — qui ne sont **pas** une régression. Le troisième retombe dès
-     l'image reconstruite. ⛔ **Aucun `docker build` n'a été fait**, ni par les auteurs ni aux
-     merges.
+  1. ✅⭐ **FAIT — L'IMAGE DE DÉVELOPPEMENT A ÉTÉ RECONSTRUITE, ET LA DÉRIVE EST RÉSORBÉE.** Mesuré
+     au build de merge de [`T3.73`](T3.73.md) sur l'image neuve
+     (`vsc-calaos_base-8a52b90d…:latest`) : **`run-python-tests.sh` PASSE** et
+     ⭐ **`check-pydeps-conformance.sh` PASSE** — il ne reste **qu'un seul** `SKIP`,
+     `check-ccache-honesty.sh`, qui est structurel. Les « trois `SKIP` » cités par les fiches
+     jusqu'à `T3.70` sont donc **périmés** : sur l'image neuve, la référence est
+     **`TOTAL 117 / PASS 116 / SKIP 1`**. `F-PYIMG-1` n'a plus de symptôme observable en local.
   2. ⭐ **LES TROIS ARBITRAGES SONT TRANCHÉS** — voir [`DECISIONS.md`](DECISIONS.md), section du
      **2026-09-04**. Ne les rouvrez pas, appliquez-les :
      - **L'octet NUL dans l'écrivain XML** (`F-XML-1`) → **tranché : garde dans
@@ -28,11 +29,74 @@
      d'écriture non gardés, ticket proposé `T3.71`), `F-XML-3` (`&#01;` non conforme XML 1.0,
      ticket proposé `T3.72`), `F-XML-4` (le `bool` de `set_param()` ignoré là où le refus est
      atteignable).
-  3. ⚠️ **CE QUI RESTE À VÉRIFIER AU PREMIER `push`** : le job CI GitHub **n'a jamais été exécuté**
-     (`push` interdit depuis le début de la série) — en particulier le câblage
-     `CALAOS_PYDEPS_STRICT: "1"` de [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`. Et
-     **aucun `docker build`** n'ayant tourné, l'affirmation « la sonde stricte empêche la
-     publication d'une image non conforme » reste une **déduction**, pas une mesure.
+  3. ⚠️ **CE QUI RESTE À VÉRIFIER AU PREMIER `push` — IL N'EN RESTE PLUS QU'UN.** ✅ Le second point
+     est **tombé** : l'image a été reconstruite et la sonde de conformité **passe** (voir 1), donc
+     « la sonde stricte s'exécute vraiment sur une image conforme » est désormais **mesuré** et non
+     plus déduit. ⛔ **Il ne reste que le job CI chez GitHub**, jamais exécuté (`push` interdit
+     depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
+     [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
+
+- **✅⭐⭐ [`T3.73`](T3.73.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête sur `master` : **`fbaad1e7`** (2026-09-04). ⭐ `master` était **IMMOBILE** sur
+  `9356fe13` = **exactement la merge-base** ⇒ ni rebase ni conflit. ⛔ **Rien poussé.**
+  Build de merge `distclean` complet **sur l'image reconstruite** : **`TOTAL 117 / PASS 116 /
+  SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, `check-test-deps.sh` **PASS**, `TESTS`
+  **117 → 117**, `tests/Makefile.am` **intouché**, goldens `tests/core/golden` = `fe20ab51`
+  identique des deux côtés (145 fichiers, **0** mentionnant `remote_ui`/`screensaver`).
+  Caractérisation `b7bc6edc` à **zéro ligne de `src/`** (1 fichier, `tests/` seul).
+
+  ⭐⭐ **LA RÉSERVE SUR LE PARC RÉEL EST LEVÉE — L'HISTORIQUE DU MICROLOGICIEL A ÉTÉ LU.** L'auteur
+  posait honnêtement qu'« il n'est pas déterminé ce que fait un build antérieur, qui pourrait très
+  bien exiger la clé ». **Mesuré dans `/home/raoul/repos/calaos/calaos_remote_ui` (lecture seule,
+  ⛔ rien écrit)** : `CalaosWebSocketManager::handleConfigUpdate()` est *pull-based* **depuis le
+  tout premier commit qui l'écrit**, `e813dfc` du **2025-12-11** — `configJson.value(clé, défaut)`
+  d'emblée. Les **14** révisions du fichier relues une à une : **aucune** n'emploie un `data["clé"]`
+  nu sur un scalaire optionnel (ce qui, avec nlohmann, lèverait sur clé absente) ; les seuls
+  indexages directs du parse — `room`, `pages`, `io_items` — sont **tous** gardés par un
+  `contains()`. Les **18 étiquettes** du dépôt s'échelonnent de `waveshare-86-panel-0.0.1-dev.1`
+  (**2026-02-10**) à `waveshare-touchlcd-{7,8,10}-0.0.1-dev.1` et `waveshare-86-panel-1.0.1-dev.1`
+  (**2026-05-26**) — **toutes postérieures** à `e813dfc`. ⇒ **aucun binaire jamais étiqueté ne peut
+  exiger la clé** : omettre est sûr pour tout écran déployé, et le correctif **ne troque pas un
+  défaut contre un autre**. C'est la question qu'aucun agent précédent ne pouvait trancher.
+
+  ⭐ **Ce qui a été revérifié au merge.** **Recensement : 11 clés** distinctes posées en
+  `get_param()` brut (`name` compté une fois pour les deux constructeurs, + les 8 `screensaver_*`,
+  + `room`/`theme` de la réponse), **plus 2 clés imbriquées** `room.name`/`room.type` du push —
+  celles-là ne figurent pas dans le tableau de la fiche mais sont bien corrigées et citées dans son
+  texte. `brightness`, `timeout`, `grid_width`, `grid_height` sont **intouchés** (accesseurs `int`,
+  jamais vides) ; **`brightness = 100` reste `T3.74`**. **Une seule règle** : `RemoteUI::putIfSet()`
+  est **une** fonction statique appelée par les deux constructeurs — corriger le chemin **mort**
+  (`getRemoteUIConfigMessage()`) n'est pas du périmètre en trop, c'est ce qu'exige l'unicité de la
+  règle, pour un coût de trois lignes. **Caractérisation rejouée** (les 3 fichiers `src/` de
+  `master` remis par copie) : **4 rouges / 1 vert**, chemins **verbatim** — les 8
+  `/screensaver_*` sur le push, `/room, /theme` sur la réponse — le témoin
+  `ThePushStillCarriesTheNameThePagesAndTheIos` **vert**, et les **41** cas préexistants de la suite
+  verts eux aussi. ⭐⭐ **Contre-mutation B rejouée** : une clé **neuve**, `wallpaper`, posée en
+  `get_param()` brut et **nommée nulle part** dans le test ⇒ **2 rouges**
+  (`ThePushedConfigurationCarriesNoEmptyValue`, `AConfiguredScreensaverIsPublishedUnchanged`),
+  message verbatim `drops the whole configuration: /wallpaper`, `CXXLD
+  core/JsonApiStateWireBytes_test` **lu**. **Le balayage récursif tient donc sa promesse sur la clé
+  future.** ⭐ **La fixture est réelle** : `RemoteUiUnsetParamsTest::SetUp()` fait
+  `ASSERT_FALSE(screen->get_params().Exists(param))` **sur les 8** — une fixture qui les réglerait
+  **rougirait** au lieu de rendre les cas silencieusement vacants. Cas préexistant
+  `AnAdjustedScreenStillReceivesItsOwnValues` **renforcé** (il pose `room`/`theme` et vérifie
+  **leurs valeurs** en plus du jeu de clés, inchangé), **pas affaibli**. Commentaire de
+  `RemoteUI.h` : **4 lignes, WHY only**, sans ticket, phase, emoji ni renvoi au micrologiciel par
+  fichier — conforme. Restaurations par copie **vérifiée au `cmp`** (rc 0 × 4), ⛔ aucun `git` dans
+  le conteneur. `F-RUI-1` **FERMÉ**.
+
+  ⚠️ **CE QUE T3.73 LAISSE OUVERT ⇒ un ticket neuf est proposé, `T3.75`.** Le contenu de `pages`
+  reste un **passage à travers** : un attribut de widget écrit vide dans `io.xml` atteint
+  `CalaosProtocol::PagesConfig::fromJson()`, qui convertit `x`/`y`/`w`/`h`/`width`/`height` par
+  **six** `std::stoi()` sous une **unique** clause `catch (const json::exception &)`.
+  `std::stoi("")` lève `std::invalid_argument`, qui **n'est pas** une `json::exception` : elle
+  **sort de `fromJson()`** et la charge de pages est perdue entière. C'est **le mécanisme même que
+  `T3.70` a fermé, atteint par une autre porte** — `T3.70` n'a gardé que `x`/`y` à la lecture
+  d'`io.xml`, `w`/`h`/`width`/`height` restent des chaînes recopiées telles quelles. **Aucun cas ne
+  l'exerce aujourd'hui. Mon avis d'agent de merge : ça mérite le ticket.** Second point ouvert,
+  moins urgent : `src/bin/calaos_server/RemoteUI/remote-ui.md` décrit toujours
+  `remote_ui_get_config` comme le chemin **nominal** alors qu'aucun micrologiciel ne l'emploie
+  (`F-RUI-3`) — le corriger ou retirer le message du wire est une **décision d'exploitation**.
 
 - **✅⭐⭐ [`T3.69`](T3.69.md) MERGÉE — 4 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **`fbaad93c`** (2026-09-04). ⭐ `master` était **IMMOBILE** sur
