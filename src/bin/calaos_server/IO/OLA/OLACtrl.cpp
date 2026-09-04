@@ -29,14 +29,21 @@ OLACtrl::OLACtrl(const string &universe)
 
     exe = Prefix::Instance().binDirectoryGet() + "/calaos_ola";
 
+    //An unset universe used to vanish in the re-split, and calaos_ola keeps its
+    //own default when no argument reaches it. Passing an empty argv instead
+    //would make it read "" as a universe number.
+    vector<string> args;
+    if (!universe.empty())
+        args.push_back(universe);
+
     process->processExited.connect([=]()
                                        {
                                            //restart process when stopped
                                            cWarningDom("process") << "process exited, restarting...";
-                                           process->startProcess(exe, "ola", universe);
+                                           process->startProcess(exe, "ola", args);
                                        });
 
-    process->startProcess(exe, "ola", universe);
+    process->startProcess(exe, "ola", args);
 }
 
 OLACtrl::~OLACtrl()

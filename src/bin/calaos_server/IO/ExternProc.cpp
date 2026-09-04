@@ -177,11 +177,13 @@ void ExternProcServer::processData(const string &data)
     }
 }
 
-void ExternProcServer::startProcess(const string &process, const string &name, const string &args)
+void ExternProcServer::startProcess(const string &process, const string &name, const vector<string> &args)
 {
     isStarted = false;
     hasFailedStarting = false;
-    string cmd = process + " --socket " + sockpath + " --namespace " + name + " " + args;
+
+    vector<string> cmd = { process, "--socket", sockpath, "--namespace", name };
+    cmd.insert(cmd.end(), args.begin(), args.end());
 
     process_exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
     process_exe->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &)
@@ -280,7 +282,7 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
     };
 
     Utils::CStrArray env(envVars);
-    Utils::CStrArray arr(cmd);
+    Utils::CStrArray arr(cmd);      //vector form: nothing is re-split here
     cInfoDom("process") << "Starting process: " << arr.toString();
     process_exe->spawn(arr.at(0), arr.data(), env.data());
 

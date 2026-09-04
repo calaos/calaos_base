@@ -168,7 +168,7 @@ protected:
 
     ExternProcServer *process;
     string exe;
-    string process_args;
+    vector<string> process_args;
 
     //T1.17: subprocess auto-restart backoff. Without it a driver failing at
     //startup respawns in a tight loop. Counter is reset when the process

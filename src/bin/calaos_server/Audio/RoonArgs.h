@@ -22,6 +22,7 @@
 #define S_ROON_ARGS_H
 
 #include <string>
+#include <vector>
 
 #include "LogSetup.h"
 #include "Params.h"
@@ -122,32 +123,28 @@ inline int portFromParams(const Params &param)
 }
 
 /*
- * The argument string calaos_roon is started with.
+ * The arguments calaos_roon is started with, one per argv.
  *
- * ⭐ AN EMPTY HOST MUST PRODUCE AN EMPTY STRING, and that is the acquis this
- * fix must not break. With no `--host`, the sidecar runs RoonDiscovery
+ * ⭐ AN EMPTY HOST MUST PRODUCE NO ARGUMENT AT ALL, and that is the acquis this
+ * must not break. With no `--host`, the sidecar runs RoonDiscovery
  * (ExternProcRoon_main.py:75-83) and finds the core on the network; that is
- * the default mode, it is what the parameter description promises, and it was
- * working before this ticket. Passing `--port` alone would not help either:
- * get_roon_host() ignores the port entirely unless a host was given.
+ * the default mode, it is what the parameter description promises. Passing
+ * `--port` alone would not help either: get_roon_host() ignores the port
+ * entirely unless a host was given.
  *
- * The leading space and the exact spelling of the two flags are the shipped
- * form, byte for byte - ExternProcServer::startProcess() concatenates this
- * string into one command line and re-splits it before handing it to uvw.
- *
- * ⚠️ A SPACE IN host IS REFUSED, AND THE SET IS EXACTLY { ' ' }, NOT isspace.
- * That re-split is Utils::CStrArray(cmd), i.e. Utils::split(cmd, v, " "), and
- * split() reaches its delimiters through find_first_of() - a character SET of
- * one. A tab or a newline in host therefore travels inside its argument and
- * reaches execvp() whole (there is no shell on the path: uv_spawn); only a
- * space becomes an argument boundary, and the extra argv makes the sidecar
- * exit 2 on argparse and respawn 100 ms later, forever. Widening the set here
- * would refuse hosts on which nothing measurably breaks.
+ * ⚠️ THE SPACE GUARD SURVIVES, AND ITS REASON CHANGED. It was a
+ * transport workaround: startProcess() re-split the command line, so a space
+ * made an extra argv and argparse exited 2 in a 100 ms respawn loop. Nothing
+ * is re-split any more - a host with a space would now travel whole. It is
+ * kept as a POLICY: `mon core` is one typo away from `moncore`, the installer
+ * accepts it without a word, and falling back to discovery serves the user
+ * better than a name that can never resolve. A tab or a newline is still let
+ * through, for the same reason as before: nothing measurable breaks on them.
  */
-inline std::string buildArgs(const std::string &host, int port)
+inline std::vector<std::string> buildArgs(const std::string &host, int port)
 {
     if (host.empty())
-        return std::string();
+        return std::vector<std::string>();
 
     if (host.find(' ') != std::string::npos)
     {
@@ -155,10 +152,10 @@ inline std::string buildArgs(const std::string &host, int port)
                             << "\": the \"host\" parameter cannot contain a "
                                "space. Falling back to autodetection on the "
                                "network.";
-        return std::string();
+        return std::vector<std::string>();
     }
 
-    return " --host " + host + " --port " + Utils::to_string(port);
+    return { "--host", host, "--port", Utils::to_string(port) };
 }
 
 } //namespace RoonArgs

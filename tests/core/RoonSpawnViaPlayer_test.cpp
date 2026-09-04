@@ -109,7 +109,7 @@ namespace
  *  - 9331 is one away from the 9330 default, so "the configured value crossed"
  *    and "a default was substituted" cannot be confused. On 9330 the mutation
  *    RoonCtrl::Instance(host, RoonArgs::DefaultPort) would be INVISIBLE.
- *  - an empty host makes buildArgs() answer "", so a silent emitter would
+ *  - an empty host makes buildArgs() answer an empty list, so a silent emitter would
  *    pass; 192.168.7.42 cannot be mistaken for the port either, should the two
  *    ever be permuted.
  *  - zone_id is NON-EMPTY, which is what carries the constructor past the

@@ -39,7 +39,7 @@ ReolinkCtrl::ReolinkCtrl()
         cWarningDom("reolink") << "Reolink process exited, restarting...";
         connected = false;
         registeredCameras.clear();
-        process->startProcess(exe, "reolink", "");
+        process->startProcess(exe, "reolink");
     });
 
     process->messageReceived.connect([=](const string &msg)

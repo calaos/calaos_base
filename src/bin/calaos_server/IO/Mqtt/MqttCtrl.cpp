@@ -22,7 +22,11 @@ MqttCtrl::MqttCtrl(const Params &params)
     process = new ExternProcServer("mqtt");
     exe = Prefix::Instance().binDirectoryGet() + "/calaos_mqtt";
 
-    string arg = MqttWire::encodeConfig(params);
+    //ONE argument: MqttExternProc_main.cpp demands argc == 2 and parses
+    //argv[1] as the whole broker configuration. It carries the password, where
+    //a space is ordinary use - which is why this site cannot be closed by
+    //refusing the field the way the Roon host was.
+    vector<string> arg = { MqttWire::encodeConfig(params) };
 
     process->processExited.connect([=]()
     {

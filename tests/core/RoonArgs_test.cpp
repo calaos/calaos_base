@@ -99,7 +99,7 @@
  * ⚠️ Stated plainly so nobody credits this suite with more than it has: a
  * source tripwire is still a WEAKER oracle than a behavioural case, and
  * pinning the spelling does not change its nature. It says the call passes
- * `procArgs`; it cannot say `procArgs` HOLDS the right string - the buildArgs()
+ * `procArgs`; it cannot say `procArgs` HOLDS the right arguments - the buildArgs()
  * cases at the bottom do that, on production code, and they would not notice a
  * call site that vanished. The execution case does both at once, which is why
  * it leads now. What NOTHING here can prove is that calaos_roon then does the
@@ -348,22 +348,32 @@ Params roonParams(const std::string &id)
 }
 
 /*
- * The argv the kernel would receive, obtained through the PRODUCTION splitter.
+ * The argv the kernel would receive, assembled the way startProcess() does.
  *
- * ⚠️ THIS IS THE ORACLE THAT MATTERS, and a plain EXPECT_EQ on the string
- * buildArgs() returns is not. The defect is not a wrong string; it is a string
- * that CUTS INTO ONE ARGUMENT TOO MANY once ExternProcServer::startProcess()
- * has concatenated it and Utils::CStrArray has re-split it. So the split is
- * done here by Utils::CStrArray itself - the shipped class - and the cases
- * below count arguments rather than compare text.
+ * ⚠️ THIS IS THE ORACLE THAT MATTERS, and a plain EXPECT_EQ on what buildArgs()
+ * answers is not: what reaches argparse is the argument LIST, and the defect
+ * this suite was written for was a list one item too long.
  *
- * The concatenation IS spelled out again (startProcess() builds it from a
- * socket path it picks itself, which no caller can supply), so this helper is
- * blind to a change in that concatenation. The end-to-end pin of the real
+ * The four fixed arguments ARE spelled out again (startProcess() builds them
+ * around a socket path it picks itself, which no caller can supply), so this
+ * helper is blind to a change in that assembly. The end-to-end pin of the real
  * command line is TheRespawnedSidecarIsSpawnedWithTheArgumentsOfTheFirstLaunch
  * above, which reads back what the kernel handed the child.
  */
-std::vector<std::string> sidecarArgv(const std::string &args)
+std::vector<std::string> sidecarArgv(const std::vector<std::string> &args)
+{
+    std::vector<std::string> argv = {
+        "/usr/bin/calaos_roon", "--socket", "/tmp/roon.sock",
+        "--namespace", "roon",
+    };
+
+    argv.insert(argv.end(), args.begin(), args.end());
+    return argv;
+}
+
+//The command line Utils::CStrArray used to be handed, kept for the one case
+//that characterizes the splitter itself.
+std::vector<std::string> resplitCommandLine(const std::string &args)
 {
     const std::string cmd = std::string("/usr/bin/calaos_roon")
                             + " --socket /tmp/roon.sock"
@@ -481,7 +491,7 @@ TEST_F(RoonArgsTest, TheIoDocStillDeclaresHostOptional)
  * Fixture: 192.168.7.42 and 9331, never the empty host and never the 9330
  * default - on the default port "the configured value was passed" and "a
  * default was substituted" are indistinguishable, and with an empty host
- * buildArgs() answers "" so a silent emitter would pass.
+ * buildArgs() answers an empty list so a silent emitter would pass.
  *
  * ⛔ WHAT THIS STILL DOES NOT PROVE: that calaos_roon does the right thing
  * with those flags. The recorder is a stand-in; no Roon core was involved,
@@ -547,7 +557,7 @@ TEST_F(RoonArgsTest, TheRespawnedSidecarIsSpawnedWithTheArgumentsOfTheFirstLaunc
  *
  * ⚠️ Oracle 2 does NOT make this a behavioural case and must not be read as
  * one. It pins the TEXT of a call, not its effect: it cannot tell you that
- * `procArgs` holds the right string - the buildArgs() cases at the bottom do
+ * `procArgs` holds the right arguments - the buildArgs() cases at the bottom do
  * that, on production code - and it would be satisfied by a `procArgs` that
  * was never assigned. What it does close is the one hole a name-only count
  * leaves wide open, at the cost of one line.
@@ -667,44 +677,40 @@ TEST_F(RoonArgsTest, TripwireSource_ThePortMemberIsInitialisedToTheDefaultPort)
  */
 TEST_F(RoonArgsTest, EmptyHostProducesNoArgumentsAtAll)
 {
-    EXPECT_EQ("", RoonArgs::buildArgs("", 9331));
-    EXPECT_EQ("", RoonArgs::buildArgs("", RoonArgs::DefaultPort));
+    EXPECT_TRUE(RoonArgs::buildArgs("", 9331).empty());
+    EXPECT_TRUE(RoonArgs::buildArgs("", RoonArgs::DefaultPort).empty());
 }
 
 /*
  * ⭐ ACQUIS: a static host carries BOTH flags, in the shipped spelling.
  *
- * Byte for byte, leading space included - ExternProcServer::startProcess()
- * splits this string on the SPACE character and on nothing else (see
- * TheSidecarCommandLineIsCutOnTheSpaceAndOnNoOtherBlank below). The host and
- * the port are chosen so that neither could be mistaken for the other if the
- * two were ever permuted.
+ * Argument for argument. The same four items crossed before startProcess()
+ * stopped re-splitting its command line; only the type of the container
+ * changed. The host and the port are chosen so that neither could be mistaken
+ * for the other if the two were ever permuted.
  */
 TEST_F(RoonArgsTest, AStaticHostCarriesBothFlags)
 {
-    EXPECT_EQ(" --host 192.168.7.42 --port 9331",
-              RoonArgs::buildArgs("192.168.7.42", 9331));
-    EXPECT_EQ(" --host roon.lan --port 9330",
-              RoonArgs::buildArgs("roon.lan", RoonArgs::DefaultPort));
+    const std::vector<std::string> ip = { "--host", "192.168.7.42", "--port", "9331" };
+    const std::vector<std::string> name = { "--host", "roon.lan", "--port", "9330" };
+
+    EXPECT_EQ(ip, RoonArgs::buildArgs("192.168.7.42", 9331));
+    EXPECT_EQ(name, RoonArgs::buildArgs("roon.lan", RoonArgs::DefaultPort));
 }
 
 /*
- * ⭐⭐ THE CONTRACT THE GUARD IS SIZED ON: the sidecar command line is cut on
- * the SPACE and on no other blank.
+ * ⭐ WHAT Utils::CStrArray CUTS ON: the SPACE, and no other blank.
  *
- * Utils::CStrArray(const string &) calls Utils::split(s, v, " ") and
- * Utils::split() reaches the delimiter through find_first_of(), so " " is a
- * character SET OF ONE. A tab, a line feed, a carriage return, a vertical tab
- * or a form feed inside `host` therefore travels INSIDE its argument and
- * reaches execvp() whole - there is no shell anywhere on the path
- * (uvw::ProcessHandle::spawn -> uv_spawn), so nothing else re-reads them.
- *
- * ⚠️ This is why RoonArgs::buildArgs() guards on { ' ' } and not on
- * std::isspace. Should CStrArray ever widen its delimiter set, THIS case goes
- * red first and the guard has to widen with it; that ordering is the whole
- * reason the contract is pinned here rather than assumed in a comment.
+ * ⚠️ THIS CASE NO LONGER DESCRIBES THE SIDECAR COMMAND LINE, AND ITS NAME SAYS
+ * SO. ExternProcServer::startProcess() hands CStrArray a vector now; nothing
+ * on the launch path is re-split, and the space guard of buildArgs() is a
+ * policy rather than a consequence of this contract. What is kept is the
+ * measurement itself: CStrArray(const string &) calls Utils::split(s, v, " ")
+ * and split() reaches its delimiter through find_first_of(), so " " is a
+ * character SET OF ONE - and F-STRSPLIT-1 records that this suite is still the
+ * only place in the tree that pins it.
  */
-TEST_F(RoonArgsTest, TheSidecarCommandLineIsCutOnTheSpaceAndOnNoOtherBlank)
+TEST_F(RoonArgsTest, TheStringSplitterCutsOnTheSpaceAndOnNoOtherBlank)
 {
     struct Blank
     {
@@ -727,7 +733,7 @@ TEST_F(RoonArgsTest, TheSidecarCommandLineIsCutOnTheSpaceAndOnNoOtherBlank)
             << "fixture does not carry the blank it is named after";
 
         const std::vector<std::string> argv =
-            sidecarArgv(" --host " + host + " --port 9331");
+            resplitCommandLine(" --host " + host + " --port 9331");
 
         ASSERT_EQ(kFixedArgc + 5, argv.size())
             << "a space inside the host must produce one argument TOO MANY";
@@ -745,7 +751,7 @@ TEST_F(RoonArgsTest, TheSidecarCommandLineIsCutOnTheSpaceAndOnNoOtherBlank)
             << "fixture for the " << b.name << " does not carry it";
 
         const std::vector<std::string> argv =
-            sidecarArgv(" --host " + host + " --port 9331");
+            resplitCommandLine(" --host " + host + " --port 9331");
 
         ASSERT_EQ(kFixedArgc + 4, argv.size())
             << "a " << b.name << " inside the host must NOT split the argument";
@@ -796,10 +802,12 @@ TEST_F(RoonArgsTest, AHostCarryingASpaceEmitsNoArgumentAtAll)
             << "fixture \"" << host << "\" carries no space, so it cannot say "
                "anything about the guard";
 
-        const std::string args = RoonArgs::buildArgs(host, RoonArgs::DefaultPort);
+        const std::vector<std::string> args =
+            RoonArgs::buildArgs(host, RoonArgs::DefaultPort);
 
-        EXPECT_EQ("", args)
-            << "host \"" << host << "\" produced arguments: " << args;
+        EXPECT_TRUE(args.empty())
+            << "host \"" << host << "\" produced " << args.size()
+            << " argument(s)";
 
         const std::vector<std::string> argv = sidecarArgv(args);
 
@@ -839,9 +847,12 @@ TEST_F(RoonArgsTest, AHostCarryingATabOrANewlineIsStillHandedOverWhole)
         ASSERT_NE(std::string::npos, host.find(c));
         ASSERT_EQ(std::string::npos, host.find(' '));
 
-        const std::string args = RoonArgs::buildArgs(host, 9331);
+        const std::vector<std::string> args = RoonArgs::buildArgs(host, 9331);
 
-        EXPECT_EQ(" --host " + host + " --port 9331", args);
+        const std::vector<std::string> expected = {
+            "--host", host, "--port", "9331",
+        };
+        EXPECT_EQ(expected, args);
 
         const std::vector<std::string> argv = sidecarArgv(args);
 
@@ -1011,8 +1022,10 @@ TEST_F(RoonArgsTest, AStaticallyConfiguredPlayerProducesTheArgumentsOfItsOwnCore
 
     RoonPlayer player(p);
 
-    EXPECT_EQ(" --host 192.168.7.42 --port 9331",
-              RoonArgs::buildArgs(player.hostGet(), player.portGet()));
+    const std::vector<std::string> expected = {
+        "--host", "192.168.7.42", "--port", "9331",
+    };
+    EXPECT_EQ(expected, RoonArgs::buildArgs(player.hostGet(), player.portGet()));
 }
 
 /*

@@ -1093,7 +1093,7 @@ TEST_F(IoLifetimeExternProcTest, ProcessExitedStillFiresWhileTheServerIsAlive)
 
     const auto armed = std::chrono::steady_clock::now();
     freshenLoopClock();
-    srv.startProcess(kNoSuchBinary, "t340", "");
+    srv.startProcess(kNoSuchBinary, "t340");
     ASSERT_EQ(exited, 0)
         << "processExited was emitted synchronously: there is no window at all";
 
@@ -1122,7 +1122,7 @@ TEST_F(IoLifetimeExternProcTest, ProcessExitedDoesNotOutliveTheDeletedServer)
     int exited = 0;
     srv->processExited.connect([&exited]() { exited++; });
 
-    srv->startProcess(kNoSuchBinary, "t340", "");
+    srv->startProcess(kNoSuchBinary, "t340");
     ASSERT_EQ(exited, 0);
 
     store.destroyAndPoison();

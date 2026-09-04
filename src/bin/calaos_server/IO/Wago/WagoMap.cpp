@@ -50,8 +50,14 @@ WagoMap::WagoMap(std::string h, int p):
 
     exe = Prefix::Instance().binDirectoryGet() + "/calaos_wago";
 
-    process_args = host;
-    process_args += " " + Utils::to_string(port);
+    //Two positional arguments the sidecar reads as host then port. An unset
+    //host used to be swallowed by the re-split, which left the PORT in argv[1]
+    //where the sidecar looks for the host; kept as is, that is a defect of
+    //empty configuration and not of argument transport.
+    process_args.clear();
+    if (!host.empty())
+        process_args.push_back(host);
+    process_args.push_back(Utils::to_string(port));
 
     process->messageReceived.connect(sigc::mem_fun(*this, &WagoMap::processNewMessage));
 

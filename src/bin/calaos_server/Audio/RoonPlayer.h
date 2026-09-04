@@ -157,7 +157,7 @@ private:
     string exe;
     //The --host/--port command line, built once in the constructor and reused
     //by every relaunch.
-    string procArgs;
+    vector<string> procArgs;
 
     std::map<string, std::function<void(const RoonPlayerState &)>> subscribeCb;
 

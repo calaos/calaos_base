@@ -104,10 +104,10 @@ KNXCtrl::KNXCtrl(const string host)
     {
         //restart process when stopped
         cWarningDom("process") << "process exited, restarting...";
-        process->startProcess(exe, "knx", string("--server ip:") + host);
+        process->startProcess(exe, "knx", { "--server", "ip:" + host });
     });
 
-    process->startProcess(exe, "knx", string("--server ip:") + host);
+    process->startProcess(exe, "knx", { "--server", "ip:" + host });
 
     //Monitor process
     processMonitor->messageReceived.connect(sigc::mem_fun(*this, &KNXCtrl::processNewMessage));
@@ -116,10 +116,10 @@ KNXCtrl::KNXCtrl(const string host)
     {
         //restart process when stopped
         cWarningDom("process") << "monitor process exited, restarting...";
-        processMonitor->startProcess(exe, "knx", string("--internal-monitor-bus --server ip:") + host);
+        processMonitor->startProcess(exe, "knx", { "--internal-monitor-bus", "--server", "ip:" + host });
     });
 
-    processMonitor->startProcess(exe, "knx", string("--internal-monitor-bus --server ip:") + host);
+    processMonitor->startProcess(exe, "knx", { "--internal-monitor-bus", "--server", "ip:" + host });
 }
 
 KNXCtrl::~KNXCtrl()
