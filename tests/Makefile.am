@@ -4681,3 +4681,48 @@ core_IoParamNulGuard_test_DEPENDENCIES = \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.78
+#⭐ What reaches a sidecar's argv, read back from the KERNEL, through a real
+#controller. ExternProcServer::startProcess() used to take one string,
+#concatenate it into a command line and let Utils::CStrArray re-split it on the
+#space: any configured value carrying a space became several argv. T3.28a
+#closed the Roon case by refusing such a host; that answer does not exist for an
+#MQTT password, where a space is ordinary use.
+#⚠️ NOTHING HERE CALLS startProcess(). The three merges before this one each
+#found a guard exercised only by direct call and never wired to the shipped
+#site; the MQTT case builds a real MqttCtrl and the OneWire case a real OwCtrl,
+#so a mutation of MqttCtrl.cpp or OWCtrl.cpp turns this suite red.
+#⛔ The OneWire case is GREEN ON BOTH SIDES on purpose: `ow_args` is documented
+#as a LIST and OWExternProc_main.cpp joins argv[1..] back together, so its argv
+#must not move. It is the non-regression witness of the ticket.
+#It links IO/Mqtt/MqttCtrl.$(OBJEXT) and IO/OneWire/OWCtrl.$(OBJEXT) on top of
+#the core objects; -I.../IO/OneWire is already in AM_CPPFLAGS, -I.../IO/Mqtt is
+#not (same as MqttIO_test and JsonPathSyntax_test).
+#⚠️ Its own binary, and its own process: both controllers keep respawning their
+#sidecar every 100 ms for the life of the process, and OwCtrl::Instance() is a
+#process-lifetime singleton per argument string. The harness is
+#core/ExternProcSpawnHarness.h; unlike core/RoonSpawnHarness.h its recorder
+#preserves ARGUMENT BOUNDARIES, which is the only thing this suite asks about.
+#CALAOS_TOP_SRCDIR is for the source tripwire on IO/ExternProc.h.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ExternProcArgv_test
+check_PROGRAMS += core/ExternProcArgv_test
+core_ExternProcArgv_test_SOURCES = core/ExternProcArgv_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_ExternProcArgv_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt \
+                  -DCALAOS_TOP_SRCDIR='"$(abs_top_srcdir)"'
+core_ExternProcArgv_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OneWire/OWCtrl.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_ExternProcArgv_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OneWire/OWCtrl.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
