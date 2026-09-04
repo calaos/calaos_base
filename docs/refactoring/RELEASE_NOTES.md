@@ -393,8 +393,9 @@ jamais les regarder.
 
 Si l'une d'elles était vide ou n'était pas un nombre — une ligne saisie à la main, une largeur
 effacée sans être remplacée — l'écran ne pouvait pas la convertir et **abandonnait toute sa
-configuration**. Pas le bouton fautif : **toutes ses pages, tous ses boutons**. L'écran restait
-vide, et rien du côté serveur ne le disait.
+configuration**. Pas le bouton fautif : **toutes ses pages, tous ses boutons**. À l'allumage,
+l'écran restait **vide** ; sur une mise à jour de configuration, il **gardait l'ancienne** et la
+nouvelle était perdue sans un mot. Dans les deux cas, rien du côté serveur ne le disait.
 
 **Ce qui change** : le serveur lit maintenant ces tailles au chargement de la configuration. Un
 bouton dont la taille est écrite mais illisible est **écarté, lui seul**, et vous en êtes averti

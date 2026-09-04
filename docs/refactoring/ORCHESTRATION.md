@@ -40,6 +40,73 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
+- **✅⭐⭐ [`T3.75`](T3.75.md) MERGÉE — 5 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête de la branche sur `master` : **`4dff12bd`** (2026-09-04), suivie du commit de revue. `master` avait avancé à `397e5b7a`
+  (T3.33) ⇒ **rebase** des 3 commits sur `397e5b7a` : **zéro conflit**, y compris sur les trois
+  fichiers documentaires recouvrants. Build de merge `distclean` complet :
+  **`TOTAL 118 / PASS 117 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, `0 error:` au build,
+  `check-test-deps.sh` **PASS**, le seul `SKIP` étant `check-ccache-honesty.sh`. `tests/Makefile.am`
+  **intouché**, goldens `tests/core/golden` = `fe20ab51` des deux côtés. ⛔ **Rien poussé.**
+
+  ⛔⭐ **LE CHIFFRE `TESTS` DE LA FICHE ÉTAIT FAUX — ET C'EST LA MÊME ERREUR QUE POUR LES JETONS
+  JANSSON.** La fiche annonçait `TESTS` **117 → 117**, recopié de la fiche de `T3.73`. Recompté sur
+  la variable `TESTS` de `tests/Makefile.am`, à la merge-base (`c40df10e`) **et** sur `master` :
+  **118 → 118**. `T3.42` avait porté le compte de 117 à 118 **avant** que la branche ne parte, et le
+  `TOTAL 118` du `make check` de la fiche le contredisait déjà dans la fiche elle-même. **Un cardinal
+  se recompte, il ne se recopie pas** — la règle écrite plus bas pour jansson vaut mot pour mot ici.
+
+  ⭐⭐ **UNE FAUSSE ASSURANCE TROUVÉE PAR CONTRE-MUTATION INDÉPENDANTE, ET FERMÉE AU MERGE.**
+  **M6** — *la garde réduite à la chaîne vide* (`!attr_value.empty()` au lieu de
+  `Utils::from_string_or_keep`), un **échange**, et c'est la « correction évidente » qu'un
+  mainteneur écrirait : elle rendait **1 seul rouge** (`ASizeThatIsNotAWholeNumberDropsTheWidget`)
+  et laissait **`core/JsonApiStateWireBytes_test` VERT**. Or c'est ce binaire qui porte l'invariant
+  que la fiche met en avant (« l'observable est la charge poussée »). Diagnostic : la fixture de
+  charge ne déclarait qu'un `w=""`, donc l'invariant neuf n'y était discriminé **que par le cas
+  vide**, celui que le balayage de `T3.73` attrape **déjà** — sa moitié « écrite, non vide et
+  illisible », la seule qui justifie son existence, **n'atteignait jamais la charge**. ⇒ un widget
+  `h="large"` ajouté à `RemoteUiWidgetSizeWireTest` avec l'assert correspondant dans son `SetUp()`
+  (**4ᵉ commit, ajouté à la revue**), et **M6 rejouée : 4 rouges**, dont verbatim
+  `… losing every page: /pages/0/widgets/3/h = "large"`, `ThePushedConfigurationStillCarriesNo
+  EmptyValue` **restant vert**. La complémentarité annoncée est **maintenant** vraie sur la charge.
+
+  ⭐ **Seconde contre-mutation indépendante, M5** — *la taille illisible remplacée par un défaut
+  `"1"`*, exactement l'alternative que la fiche refuse (« ⛔ aucune taille par défaut ») : **4
+  rouges**, les 3 cas de chute de `RemoteUIWidgetSizeTest` et
+  `ASoundWidgetIsPushedUnchangedAndOnlyTheBlankOneIsGone`, **G1/G1bis/G2 verts** — la suite épingle
+  donc bien la **politique** retenue et pas seulement l'absence d'illisible sur le wire. Témoin
+  `core/JsonApiModelWireBytes_test` **19/19** aux deux tours, `CXXLD core/JsonApiModelWireBytes_test`
+  **lu** dans le journal de `make check` à chaque tour. Restaurations par **copie vérifiée au `cmp`**
+  (rc 0 × 3), ⛔ aucun `git` dans le conteneur.
+
+  ⭐ **Les cinq affirmations de la fiche tiennent, vérifiées dans les DEUX dépôts.** Quatre attributs
+  et quatre seulement (`calaos_protocol.cpp:65-109` pour les six `stoi`, `:111-133` pour la `map`
+  `params` où tombe tout le reste) ; `w` **ou** `width` écrits dans le **même** `WidgetConfig::w`,
+  priorité au nom court (`:81-94`) ; défaut `1` depuis le **premier** commit du parse, `368a2b6`
+  (`calaos_protocol.h:50-51`, et 6 branches `is_string()` déjà présentes) ; `x`/`y` déjà gardés sur
+  `master` avant ce ticket ; invariant de `T3.73` appelé tel quel, aucune garde redondante.
+
+  ⚠️ **Deux nuances écrites à la revue, contre la fiche.** (1) L'exception **est attrapée** : les
+  deux appelants de `getParsedPages()` ont un `catch (const std::exception &)`
+  (`main/calaos_page.cpp:47` et `:391`). À la **première** configuration (`:44`) aucune page n'est
+  construite ⇒ écran **vide** ; à une **mise à jour** (`:383`) le `destroyPages()` est **après** le
+  parse ⇒ l'écran garde ses pages **d'avant** et la nouvelle est perdue **en silence**. « Toutes les
+  pages perdues » décrit le premier chemin, pas le second — le défaut reste réel des deux côtés.
+  (2) La garde est **plus stricte que `std::stoi`** : `from_string_or_keep()` exige la chaîne
+  **entière**, donc `w="12abc"` et `w="12 "` écartent le widget alors que `std::stoi` les convertit ;
+  et un `width=""` posé **à côté** d'un `w="2"` valide écarte le widget alors que l'appareil ne
+  convertirait jamais ce `width` (c'est un `else if`). Sur-stricte **dans le bon sens**, jamais
+  laxiste, mais un widget qui traversait hier peut disparaître aujourd'hui sur ces formes.
+
+  ℹ️ **Fausse assurance résiduelle, nommée et acceptée** : `readsAsWholeNumber()` du test appelle le
+  **même** `Utils::from_string_or_keep()` que la production ⇒ il mesure l'accord du wire avec la
+  règle **choisie**, pas avec `std::stoi`, et une dérive du helper passerait des deux côtés à la
+  fois. Le contrepoids existe (`RemoteUIDeviceInfo_test` conclut par **identité des survivants**),
+  et l'écart entre les deux règles est celui décrit ci-dessus. `F-RUI-4` **FERMÉ**.
+
+  **État de la session au sortir de ce merge** : `master` = le commit de revue qui porte ce
+  paragraphe (`docs(t3.75): merge verifie, …`), rien de poussé, historique
+  linéaire. Worktree `.wave102/t3.75` supprimé, branche `fix/t3.75` supprimée.
+
 - **✅⭐⭐ [`T3.33`](T3.33.md) MERGÉE — 4 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **`369e0f25`** (2026-09-04). `master` avait avancé à `c40df10e`
   (T3.73 puis T3.42) ⇒ **rebase** de `9356fe13` sur `c40df10e` : **zéro conflit**, y compris sur
@@ -140,8 +207,8 @@
   `F-T333-4` (recensement des suites corrigé : 35 et 18 sur `master`, pas 31 et 18).
 
   **État de la session au sortir de ce merge** : `master` = **`369e0f25`**, rien de poussé, historique
-  linéaire. Worktree `.wave101/t3.33` supprimé, branche `fix/t3.33` supprimée. ⚠️ `T3.75` est
-  **toujours en cours** dans `.wave102/t3.75` — ne pas y toucher.
+  linéaire. Worktree `.wave101/t3.33` supprimé, branche `fix/t3.33` supprimée. ✅ `T3.75`, alors en
+  cours dans `.wave102/t3.75`, a été **mergée depuis** (entrée ci-dessus).
 
 - **✅⭐⭐ [`T3.42`](T3.42.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **`30e2e63a`** (2026-09-04). `master` avait avancé à `df791f01`

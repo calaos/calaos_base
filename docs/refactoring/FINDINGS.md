@@ -9716,10 +9716,17 @@ chemins — mais **son cadrage était faux** : aucun écran ne demande sa config
 
 ### ✅ [F-RUI-4] La géométrie d'un widget traverse le serveur sans garde — **FERMÉ par [T3.75](T3.75.md)**
 
-`PagesConfig::fromJson()` (`main/calaos_protocol.cpp:64-107`) convertit `x`, `y`, `w`, `width`, `h`
+`PagesConfig::fromJson()` (`main/calaos_protocol.cpp:65-109`) convertit `x`, `y`, `w`, `width`, `h`
 et `height` par **six `std::stoi()`** sous un **unique `catch (const json::exception &)`**.
 `std::stoi("")` lève `std::invalid_argument`, qui **n'est pas** une `json::exception` : elle sort de
-`fromJson()` et **toutes les pages de l'écran sont perdues**.
+`fromJson()` et emporte **toute** la charge de pages.
+
+⚠️ **Précisé à la revue de merge de T3.75** : l'appareil ne tombe pas pour autant. Les deux appelants
+de `getParsedPages()` attrapent en `catch (const std::exception &)` (`main/calaos_page.cpp:47` et
+`:391`). À la **première** configuration (`:44`) aucune page n'est construite ⇒ écran **vide** ; à une
+**mise à jour** (`:383`) le `destroyPages()` est **après** le parse ⇒ l'écran garde ses pages
+**d'avant** et la nouvelle configuration est perdue **en silence**. Le défaut est réel des deux
+côtés ; « toutes les pages perdues » décrit le premier chemin, pas le second.
 
 Côté serveur, `RemoteUI::LoadFromXml()` recopiait `w`, `h`, `width` et `height` **en chaînes, sans
 garde** — `x`/`y` étaient déjà gardés par [T3.70](T3.70.md), qui fermait un défaut **serveur** (le
@@ -9736,6 +9743,12 @@ défaut à `1` depuis son premier commit. Seule une taille **écrite et illisibl
 ⭐ **L'invariant de [T3.73](T3.73.md) en attrapait déjà la moitié** — sa réserve « `pages` reste un
 passage à travers » était exacte, il ne manquait qu'une fixture qui en porte un. Il ne voit
 cependant que les chaînes **vides** ; un `w="large"` plante l'écran sans être vide.
+
+⚠️ **Et la revue de merge a dû fermer cette moitié-là POUR DE BON** : la fixture de charge livrée ne
+déclarait qu'un `w=""`, donc sur le wire l'invariant neuf n'était discriminé que par le cas vide —
+mesuré, une garde réduite à `!attr_value.empty()` rendait **1 rouge** et laissait
+`core/JsonApiStateWireBytes_test` **vert**. Un widget `h="large"` a été ajouté à la fixture ⇒ **4
+rouges** sur la même mutation. Voir [T3.75](T3.75.md), section de revue.
 
 ### ✅ Questions fermées par la mesure
 
