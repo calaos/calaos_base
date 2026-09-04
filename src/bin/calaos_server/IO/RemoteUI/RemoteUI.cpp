@@ -80,6 +80,13 @@ pugi::xml_node legacyRoomDeviceInfo(const pugi::xml_node &remote_ui_node)
     return pugi::xml_node();
 }
 
+//The four names the device converts as a size: it reads `w` or `width`, `h`
+//or `height`, and a guard on the short pair alone leaves the alias open.
+bool isWidgetSizeAttribute(const string &name)
+{
+    return name == "w" || name == "h" || name == "width" || name == "height";
+}
+
 //What the user needs to find the offending line in io.xml. Every field is
 //optional: the widget is being dropped precisely because something is missing.
 string describeWidget(const Json &widget, const Json &page)
@@ -230,6 +237,14 @@ bool RemoteUI::LoadFromXml(pugi::xml_node node)
 
                 Json widget = Json::object();
 
+                //The device runs its six geometry conversions under a single
+                //catch (const json::exception &), which does not cover the
+                //std::invalid_argument of std::stoi(""): one unreadable size
+                //and it loses every page, not one widget. A size that was
+                //never written is a different thing - it has always been
+                //optional here, and the device defaults it to 1.
+                bool unreadable_size = false;
+
                 for (pugi::xml_attribute attr: widget_elem.attributes())
                 {
                     // Convert numeric attributes
@@ -247,13 +262,26 @@ bool RemoteUI::LoadFromXml(pugi::xml_node node)
                         if (Utils::from_string_or_keep(attr_value, coord))
                             widget[attr_name] = coord;
                     }
+                    else if (isWidgetSizeAttribute(attr_name))
+                    {
+                        //Kept as a string: that is what the wire has carried
+                        //since the first firmware, which reads these through an
+                        //is_string() branch. Only the reading is new.
+                        int size = 0;
+                        if (Utils::from_string_or_keep(attr_value, size))
+                            widget[attr_name] = attr_value;
+                        else
+                            unreadable_size = true;
+                    }
                     else
                         widget[attr_name] = attr_value;
                 }
 
-                //Only add widget if it has a type and x/y positions
+                //Only add widget if it has a type, x/y positions, and no size
+                //it declared but nobody can read
                 if (widget.contains("type") &&
-                    widget.contains("x") && widget.contains("y"))
+                    widget.contains("x") && widget.contains("y") &&
+                    !unreadable_size)
                     widgets.push_back(widget);
                 else
                 {
@@ -261,7 +289,8 @@ bool RemoteUI::LoadFromXml(pugi::xml_node node)
                     dropped_widgets.push_back(what);
                     cWarningDom(TAG) << "RemoteUI(" << get_param("id")
                                      << "): Ignoring " << what
-                                     << ", it needs a type and whole number x/y";
+                                     << ", it needs a type, whole number x/y, and "
+                                        "whole number sizes if it declares any";
                 }
             }
 
