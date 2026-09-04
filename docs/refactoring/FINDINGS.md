@@ -9252,7 +9252,12 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   retrait d'E4.6c ne se déclenche pas, faute de voir ces règles. **Rien n'est détruit** — les 18
   survivent — mais les scénarios joueraient leurs actions **deux fois**.
   **Non traité, et l'état n'est pas atteignable depuis une version publiée** : aucun serveur
-  distribué n'a jamais écrit `autoscenario_uid`. Il n'est atteignable qu'en démarrant un build
+  distribué n'a jamais écrit `autoscenario_uid`. ⭐ **Vérifié au merge, pas repris sur parole** :
+  `autoscenario_uid` entre dans `src/` le **2026-09-01** (`3f6aae3c`, E4.6b) et **aucune étiquette
+  du dépôt ne contient ce commit** — la plus récente, `4.4.3-dev.11`, date du 2026-08-24.
+  ⚠️ **En revanche l'état EST atteignable depuis `master` lui-même**, qui écrivait ces params
+  jusqu'au merge de T3.61 : toute configuration démarrée sur un build de développement de la série
+  est concernée. ⛔ **À trancher avant de publier un build intermédiaire de cette série.** Il n'est atteignable qu'en démarrant un build
   intermédiaire de la branche de refonte sur une config réelle, puis en la rechargeant. Si un tel
   fichier existe quelque part, le remède est de retirer les params `autoscenario_*` / `as_*` des 4
   IOs scénario avant de démarrer. **À trancher avant toute publication d'un build intermédiaire.**

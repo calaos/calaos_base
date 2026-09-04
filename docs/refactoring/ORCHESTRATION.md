@@ -8,6 +8,80 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅⭐⭐ [`T3.61`](T3.61.md) MERGÉE — 4 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête sur `master` : **`969d1212`**. `master` était sur **`6841880a`**, merge-base
+  **`166ba0b5`** ⇒ **REBASE** (T3.68 mergée entre-temps) ; un seul conflit, `FINDINGS.md`, résolu en
+  gardant les deux blocs. `tests/Makefile.am` **append pur prouvé** (préfixe strict de `master`,
+  **+71/−0/~0**), `^if` ≡ `^endif` (98/98), **`TESTS` 114 → 115**. Build d'intégration
+  `make distclean` + `autogen` + `configure` + `make -j16` + `make check -j8` :
+  **`TOTAL 115 / PASS 113 / SKIP 2 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, `check-test-deps.sh`
+  **PASS**, les deux `SKIP` habituels de cette image (`check-ccache-honesty.sh`,
+  `run-python-tests.sh` — c'est [`T3.67`](T3.67.md)). **145 goldens, 1 touché**
+  (`e40c_ws_autoscenario_get_scheduled.json`, `scenario_0_schedule` → `as_0_schedule`), commit de
+  caractérisation `318066c4` à **zéro ligne de `src/`**. ⛔ **Rien poussé.**
+
+  ⭐⭐ **§5.3 d'[E4.6](E4.6.md) est ATTEINTE : l'épique est entière, code compris.** Le marqueur d'IO
+  est `autoscenario_uid` et **rien d'autre — aucun repli** sur la clé historique.
+  `get_new_scenario_id()` est supprimé avec son unique appelant. Les 4 anciens scénarios de
+  `configs/raoulh` quittent `autoscenario list`/`get` et **continuent de fonctionner à l'identique**.
+
+  ⭐⭐ **LA DÉCOUVERTE, REJOUÉE AU MERGE SUR LES DEUX CONFIGS MONTÉES EN LECTURE SEULE : l'ancien
+  code ÉCRIVAIT dans un `io.xml` de production, le nouveau n'y écrit plus rien.** Comparaison
+  **attribut par attribut** des **26 IOs du périmètre scénario** de `configs/raoulh` entre le
+  fichier d'entrée et celui que le serveur écrit : **AVANT (master `6841880a`) 4 IOs modifiés** —
+  les 4 IOs scénario, chacun gagnant `autoscenario_uid`, `autoscenario_schema`,
+  `autoscenario_cycle`, `autoscenario_enabled`, `autoscenario_steps`, `as_s<N>_pause`,
+  `as_s<N>_actions`, parfois `autoscenario_schedule`, **et `disabled_missing_io="true"`** ;
+  **APRÈS (T3.61) 0 IO modifié sur 26.** §5.4 recommandait de ne toucher à aucun octet des fichiers
+  de production : **le code d'avant en touchait, et ce ticket est ce qui arrête de le faire.** Les
+  trois chiffres par config sont eux aussi rejoués et identiques des deux côtés : `raoulh`
+  **125 → 125 → 125**, `solanora` **82 → 82 → 82**, `rules.xml` **identique octet pour octet** au
+  2ᵉ enregistrement et **1126 éléments identiques** au fichier d'entrée (`solanora` : 569).
+  ⚠️ Le harnais ne reconstruit que les IOs internes : la comparaison porte sur le **périmètre
+  scénario**, pas sur le fichier entier — mais c'est exactement ce que ce ticket peut toucher.
+
+  ⭐⭐ **Le garde-fou d'E4.6b `TheMarkerThatBuildsAnAutoScenarioIsStillAutoScenario` a été retourné,
+  et l'argument tient — vérifié au source, pas sur parole.** Il défendait le **balayage orphelin**
+  de `ListeRoom.cpp:324` ; ce balayage n'existe plus (`checkAutoScenario()` porte à sa place un
+  commentaire « DO NOT REINTRODUCE A SWEEP HERE »), donc la menace qu'il gardait a disparu avec
+  E4.6c. La propriété qu'il protégeait vraiment — un IO scénario **non marqué** continue de jouer
+  ses règles — vit ailleurs et est **verte** : `AnUnmarkedScenarioIoStillRunsItsRulesWhenTheButtonIsPressed`,
+  **inchangé**, `>>> PROVE, DO NOT FLIP <<<`. Les deux autres bascules arbitrées à la main
+  (`TheStandDownHoldsWhenNEITHERTheRulesNORTheIoCarryAUid`,
+  `TodayIoXmlCarriesOnlyTheMarkerAndTheDerivedInternalIos`) sont saines : la **mise en retrait**
+  reste mesurée par le cas voisin `RulesThatPredateTheDefinitionAreLeftAloneAndNotDuplicated`, où
+  l'IO déclare toujours un uid et où un `AutoScenario` est donc bien construit.
+
+  ⭐ **Contre-mutations rejouées par l'agent de merge** (discipline T3.36 : aucun `rm -f`, `CXXLD`
+  **lu** à chaque tour, restauration par copie **`cmp` rc 0** sur les trois fichiers).
+  `AnUnmarkedScenarioIoStillRunsItsRulesWhenTheButtonIsPressed` : **ROUGE sous M1, M3, M4, VERT sous
+  M2** — les 3 sur 4 annoncés. Et le **singleton de M2** est confirmé :
+  `TheStartupPassKeepsTheEighteenRulesAndTheirLegacyMarker` est **le seul cas** que M2 rougit et que
+  M1 laisse vert (M1 : 3 rouges / 4 verts · M2 : 4 rouges / 3 verts · M3 et M4 : **7/7 verts** sur
+  cette suite). C'est lui qui garantit que le re-cléage **en est un** : faire redevenir reconnu un
+  IO portant l'ANCIEN marqueur le tue, et rien d'autre ne le tue.
+  ⭐ La **fixture anti-vacuité** de §5.3 est **réelle** : chaque cas d'absence appelle
+  `createOneRealScenario()` (un `autoscenario create` par l'API), `ASSERT`e que l'id revient, puis
+  vérifie que **ce scénario-là est listé** avant de lire l'absence des quatre autres.
+
+  ⛔⭐⭐ **`F-T361-3` — NE JAMAIS PUBLIER UN BUILD INTERMÉDIAIRE DE CETTE SÉRIE SANS TRANCHER CE
+  POINT.** Une configuration estampillée par un serveur bâti sur un `master` **d'entre E4.6b et
+  T3.61** passe, au rechargement par T3.61, de **125 à 141 règles** : le générateur écrit 16 règles
+  à côté des 18 anciennes qu'il ne trouve plus. Rien n'est détruit, mais **les scénarios joueraient
+  leurs actions deux fois**. ⭐ **L'inatteignabilité depuis une version publiée a été VÉRIFIÉE, pas
+  reprise** : `autoscenario_uid` entre dans `src/` le **2026-09-01** (`3f6aae3c`, E4.6b) et **aucune
+  étiquette du dépôt ne contient ce commit** — la plus récente, `4.4.3-dev.11`, date du 2026-08-24.
+  ⚠️ **Mais l'état EST atteignable depuis `master` lui-même**, qui écrivait ces params jusqu'à ce
+  merge : toute configuration démarrée sur un build de développement de la série est concernée. Le
+  remède est de retirer les params `autoscenario_*` / `as_*` des IOs scénario avant de démarrer.
+
+  ⭐ **Élagage au merge** : deux commentaires de `src/` portaient un numéro de ticket (`T3.61`) et
+  un récit d'historique, retirés au profit du seul « pourquoi » (commit `969d1212`) ; un commentaire
+  de `core/AutoScenarioMigration_test.cpp` citait encore `get_new_scenario_id()`, qui n'existe plus.
+  ⭐ **Worktree `.wave92/t3.61` effacé** (`docker run` ciblé sur le mount exact), `git worktree prune`,
+  branche `fix/t3.61` supprimée. ⛔ **`.wave93/t3.70` (T3.70 EN COURS), `.review67b` et `.review47`
+  n'ont PAS été touchés.**
+
 - **✅⭐⭐ [`T3.68`](T3.68.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **`befa8297`**. ⭐ **`master` était IMMOBILE sur `166ba0b5`** =
   exactement la merge-base ⇒ **ni rebase ni conflit**. ⛔ **Rien poussé.**
@@ -126,28 +200,22 @@
   branche `fix/t3.62` supprimée. ⛔ **`.review67b` et `.review47` n'ont PAS été touchés** : leurs
   commits ne sont pas des ancêtres de `master`, les effacer perdrait du travail.
 
-- **📋 CE QUI RESTE OUVERT — ⚠️ [`T3.61`](T3.61.md) EST EN VOL** dans
-  `/home/raoul/repos/calaos/.wave92/t3.61` (périmètre `IO/Scenario`, `JsonApi.cpp`). ⛔ **Ne pas
-  entrer dans ce worktree, ne pas le nettoyer, ne rien commiter sur `master` tant qu'il n'a pas
-  atterri.** **Prochaine action** : attendre T3.61, puis reprendre par [`T3.65`](T3.65.md) (défaut
-  de sécurité résiduel, sans arbitrage à demander) ; [`T3.66`](T3.66.md) reste **bloqué sur
-  l'arbitrage du NUL** et [`T3.68`](T3.68.md) laisse **l'arbitrage de `timeout = 30`** ci-dessus.
-  1. [`T3.61`](T3.61.md) — **§5.3, ce qui manque pour que l'épique [E4.6](E4.6.md) soit entière.**
-     Les 8 sous-tickets a→h sont livrés, mais le marqueur d'IO reste `auto_scenario` : les 4 anciens
-     scénarios de `configs/raoulh` sont **toujours** des auto-scénarios visibles dans l'API. Le
-     re-cléer ferait basculer les deux garde-fous d'E4.6a. ⛔ **Lire le ✅ d'E4.6 comme « a→h
-     livrés », pas comme « plus rien à faire ».** ⭐ T3.62 vient de retirer un obstacle : la liste
-     des params publiés n'a plus qu'**une** déclaration, donc un re-cléage atteint les deux
-     transports d'un coup au lieu d'un seul.
-  2. [`T3.70`](T3.70.md) — `F-REMOTEUI-3`, le dernier `std::stoi` non gardé de `src/`
+- **📋 CE QUI RESTE OUVERT — ⚠️ [`T3.70`](T3.70.md) EST EN VOL** dans
+  `/home/raoul/repos/calaos/.wave93/t3.70` (périmètre `RemoteUI/`). ⛔ **Ne pas entrer dans ce
+  worktree, ne pas le nettoyer, ne rien commiter sur `master` tant qu'il n'a pas atterri.**
+  **Prochaine action** : reprendre par [`T3.65`](T3.65.md) (défaut de sécurité résiduel, sans
+  arbitrage à demander) ; [`T3.66`](T3.66.md) reste **bloqué sur l'arbitrage du NUL** et
+  [`T3.68`](T3.68.md) laisse **l'arbitrage de `timeout = 30`** ci-dessus. ⭐ [`T3.61`](T3.61.md) est
+  **mergée** : l'épique [E4.6](E4.6.md) est entière, code compris.
+  1. [`T3.70`](T3.70.md) — `F-REMOTEUI-3`, le dernier `std::stoi` non gardé de `src/`
      (`RemoteUI::LoadFromXml()`), ouvert par le balayage de T3.68.
-  3. [`T3.66`](T3.66.md) — **corruption XML silencieuse par le NUL** (`F-XML-1`). Bloqué sur un
+  2. [`T3.66`](T3.66.md) — **corruption XML silencieuse par le NUL** (`F-XML-1`). Bloqué sur un
      arbitrage utilisateur, ci-dessous.
-  4. [`T3.65`](T3.65.md) — `dumpJsonRedacted()` reste quadratique et tourne avant
+  3. [`T3.65`](T3.65.md) — `dumpJsonRedacted()` reste quadratique et tourne avant
      `checkCredentials()` (`F-JSON-2`). T3.58 a rendu le chemin inatteignable, pas la fonction saine.
-  5. [`T3.67`](T3.67.md) — l'image de développement publiée est en retard sur son propre
+  4. [`T3.67`](T3.67.md) — l'image de développement publiée est en retard sur son propre
      `Dockerfile`, et **rien ne mesure la dérive**.
-  6. [`T3.69`](T3.69.md) — `F-REMOTEUI-2`, l'unification des deux politiques de valeur.
+  5. [`T3.69`](T3.69.md) — `F-REMOTEUI-2`, l'unification des deux politiques de valeur.
 
 - **⛔⭐ LES DEUX ARBITRAGES QUI N'APPARTIENNENT QU'À L'UTILISATEUR — aucun agent ne peut les
   prendre, et rien n'avance sur T3.66 tant que le premier n'est pas tranché.**
