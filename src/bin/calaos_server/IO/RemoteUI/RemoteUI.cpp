@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "RemoteUI.h"
+#include "CalaosConfig.h"
 #include "IOFactory.h"
 #include "RemoteUI/HMACAuthenticator.h"
 #include "RemoteUI/RemoteUISecurityLimits.h"
@@ -77,6 +78,31 @@ pugi::xml_node legacyRoomDeviceInfo(const pugi::xml_node &remote_ui_node)
     }
 
     return pugi::xml_node();
+}
+
+//What the user needs to find the offending line in io.xml. Every field is
+//optional: the widget is being dropped precisely because something is missing.
+string describeWidget(const Json &widget, const Json &page)
+{
+    auto text = [](const Json &j, const char *key) -> string
+    {
+        return j.contains(key) && j[key].is_string() ? j[key].get<string>() : string();
+    };
+
+    string type = text(widget, "type");
+    string desc = "widget" + (type.empty() ? string() : " '" + type + "'");
+
+    string io_id = text(widget, "io_id");
+    if (!io_id.empty())
+        desc += " on io " + io_id;
+
+    string page_name = text(page, "name");
+    if (page_name.empty())
+        page_name = text(page, "id");
+    if (!page_name.empty())
+        desc += " of page '" + page_name + "'";
+
+    return desc;
 }
 
 }
@@ -164,6 +190,7 @@ bool RemoteUI::LoadFromXml(pugi::xml_node node)
     {
         pages = Json::array();
 
+        vector<string> dropped_widgets;
         size_t page_count = 0;
         for (pugi::xml_node page_elem = pages_elem.child("calaos:page");
              page_elem;
@@ -210,7 +237,16 @@ bool RemoteUI::LoadFromXml(pugi::xml_node node)
                     string attr_value = attr.value();
 
                     if (attr_name == "x" || attr_name == "y")
-                        widget[attr_name] = std::stoi(attr_value);
+                    {
+                        //Leaving the attribute OUT hands the widget to the
+                        //check below, this loader's existing answer to a widget
+                        //without coordinates. Keeping the raw string would
+                        //satisfy that check and put a string where the device
+                        //expects a number.
+                        int coord = 0;
+                        if (Utils::from_string_or_keep(attr_value, coord))
+                            widget[attr_name] = coord;
+                    }
                     else
                         widget[attr_name] = attr_value;
                 }
@@ -220,11 +256,33 @@ bool RemoteUI::LoadFromXml(pugi::xml_node node)
                     widget.contains("x") && widget.contains("y"))
                     widgets.push_back(widget);
                 else
-                    cWarningDom(TAG) << "RemoteUI(" << get_param("id") << "): Ignoring widget with missing required attributes";
+                {
+                    string what = describeWidget(widget, page);
+                    dropped_widgets.push_back(what);
+                    cWarningDom(TAG) << "RemoteUI(" << get_param("id")
+                                     << "): Ignoring " << what
+                                     << ", it needs a type and whole number x/y";
+                }
             }
 
             page["widgets"] = widgets;
             pages.push_back(page);
+        }
+
+        //A dropped widget does not come back: the next SaveConfigIO() writes
+        //the page without it. Same deferred mail/push channel the rest of the
+        //configuration load uses, so a screen cannot lose a button in silence.
+        if (!dropped_widgets.empty())
+        {
+            string report = "Screen '" + get_param("id") + "' lost " +
+                            Utils::to_string(dropped_widgets.size()) +
+                            " widget(s) whose io.xml declaration is incomplete. They are "
+                            "gone from the screen and will be gone from io.xml at the "
+                            "next save:";
+            for (const string &w: dropped_widgets)
+                report += "\n- " + w;
+
+            Config::Instance().reportConfigAlert(report);
         }
     }
 
