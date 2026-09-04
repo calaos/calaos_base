@@ -9579,3 +9579,75 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   serait mesurable** : une borne configurable et un cas qui prouve que la sauvegarde la plus
   ancienne encore présente reste **exploitable** après la purge — c'est-à-dire la même assertion
   de contenu que celle de T3.64, jouée après l'élagage.
+
+## Lecture du micrologiciel `calaos_remote_ui` (2026-09-04)
+
+Le dépôt de l'écran (`/home/raoul/repos/calaos/calaos_remote_ui`, HEAD `da80d09`) a été lu en
+entier pour répondre aux questions qu'`E4.6`, `T3.62`, `T3.68` et `T3.69` avaient dû laisser
+ouvertes faute de l'avoir. **Ces entrées remplacent des hypothèses par des mesures.**
+
+### ⛔⭐⭐ [F-RUI-1] Un écran dont l'économiseur n'est pas réglé perd TOUTE sa configuration
+
+Le serveur émet `screensaver_timeout` et `screensaver_dimming` en `get_param()` **brut**
+(`RemoteUIWebSocketHandler.cpp:316-317`) : les clés sont **toujours présentes**, et **vides** quand
+le param n'a jamais été réglé. Le micrologiciel fait `std::stoi()` dessus
+(`main/calaos_websocket_manager.cpp:805,813`) ; `std::stoi("")` lève `invalid_argument`, l'exception
+est attrapée en `:885`, et **la charge de configuration entière est jetée** — pages et widgets
+compris.
+
+⭐ **Atteignable aujourd'hui**, sans rien de spécial : il suffit qu'un écran n'ait pas ses params
+d'économiseur. **C'est la réponse mesurée à la question que `T3.69` avait laissée en arbitrage** —
+émettre un param présent-mais-vide n'est pas une préférence de forme, **ça casse l'appareil**.
+
+**Même famille, autre chemin** : la géométrie d'un widget (`main/calaos_protocol.cpp:68-106`) fait
+aussi `stoi("")`, et là ce n'est **pas** une `json::exception` — elle **échappe au `catch`** de
+`:160` et remonte aux appelants (`calaos_page.cpp:47,391`) ⇒ **toutes les pages perdues**.
+
+⇒ Ticket proposé **`T3.73`**. Le sens du correctif est désormais mesuré : **omettre** côté serveur,
+ou envoyer une valeur que le micrologiciel sait lire.
+
+### ⚠️ [F-RUI-2] Le défaut `brightness` du serveur contredit celui du micrologiciel
+
+`RemoteUI::getBrightness()` retourne **100** par défaut (`IO/RemoteUI/RemoteUI.cpp:582`). Le
+micrologiciel porte **80** (`main/calaos_protocol.h:136`), et sa documentation aussi
+(`doc/remote-ui.md:85-86,258-259,319-320`).
+
+Avant [T3.68](T3.68.md), la charge n'était pas envoyée du tout à un écran non réglé, qui gardait
+donc son 80. Depuis, il reçoit **100**. ⇒ **T3.68 a déplacé la luminosité effective de 80 à 100**
+sur les écrans jamais réglés. Ticket proposé **`T3.74`**.
+
+⭐ **En revanche `timeout = 30` est CORROBORÉ** par le micrologiciel (`calaos_protocol.h:137`) — ce
+choix de T3.68 était juste. ⚠️ Nuance : côté écran, `timeout` est **parsé puis jamais utilisé**,
+aucun consommateur.
+
+### [F-RUI-3] Le chemin `remote_ui_config` est mort côté appareil
+
+`remote_ui_config` **n'a aucune branche** dans le dispatch de l'écran
+(`main/calaos_websocket_manager.cpp:396-414` — seul `remote_ui_config_update` existe), et
+`requestConfig()` (`:284`) **n'est appelé nulle part**. La réponse du serveur à
+`remote_ui_get_config` (`RemoteUIWebSocketHandler.cpp:195`) tomberait donc dans
+`"Unknown message type"`. **L'écran n'attend que le push.**
+
+Le correctif de [T3.68](T3.68.md) reste juste — le `std::stoi` qu'il supprime sert les deux
+chemins — mais **son cadrage était faux** : aucun écran ne demande sa configuration.
+
+### ✅ Questions fermées par la mesure
+
+- ⭐ **Une clé inconnue est IGNORÉE en silence.** Le parse est *pull-based* (`data.value(k, def)`,
+  `data.contains(k)`), sans schéma ni balayage des clés restantes
+  (`main/calaos_websocket_manager.cpp:775-889`). Les clés inconnues d'un widget sont même
+  **délibérément collectées** (`main/calaos_protocol.cpp:111-133`). ⇒ **Le serveur peut ajouter un
+  champ sans casser un écran déployé.**
+- ⭐ **Aucune version de protocole côté appareil non plus.** Seul `APP_VERSION`
+  (`main/version.h:7`), envoyé en en-tête `X-Device-Version` et dans le provisioning ; zéro
+  `protocol_version`/`api_version`/`wire_version`. ⇒ **Confirmé des deux bouts : le serveur ne peut
+  pas servir deux formes, tout changement de wire est global et irréversible.**
+- **`status_info` et `var_type` ne sont JAMAIS lus** par l'écran. `state` l'est, mais seulement dans
+  `remote_ui_io_states` / `io_state` / `event` ; dans les `io_items` de la configuration l'écran ne
+  lit que `id`, `type`, `gui_type`, `name`, `visible`, `rw` et **force `state="false"`**
+  (`:849-857`).
+- **Ni `auto_scenario` ni `autoscenario_uid` ne sont lus** ⇒ le re-cléage de [T3.62](T3.62.md)
+  **n'a rien retiré à l'écran**.
+
+**Non déterminé** : si les écrans déployés tournent bien ce HEAD, et le comportement d'un build
+antérieur.
