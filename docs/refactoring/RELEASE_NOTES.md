@@ -2200,3 +2200,31 @@ la variable, étape de comptabilité — **les cinq à RC 0**, `# TOTAL: 113 / #
 # FAIL: 0` et `suites=6/6 cases=42/42` imprimé **sur un build vert**. Restent nus : la syntaxe
 GitHub Actions elle-même, `actions/checkout@v4`, le vert du job chez GitHub, et **le build réel des
 deux `Dockerfile` modifiés**, qu'aucune machine du dépôt ne construit.
+
+## 🔴 Deux envois de configuration rapprochés détruisaient la sauvegarde de votre configuration d'origine
+
+Avant d'écraser `io.xml`, `rules.xml` et `local_config.xml` avec ce qu'un client lui téléverse
+(`calaos_installer`, principalement), le serveur en range une copie sous
+`<config>/backups/<année>/<mois>/<jour-mois-année_heure-minute-seconde>/`. C'est le seul filet
+qui existe quand un téléversement emporte quelque chose que vous vouliez garder.
+
+Le nom de ce dossier s'arrête à la **seconde**. Deux envois **dans la même seconde** tombaient
+donc dans le **même** dossier — et le second y recopiait la configuration telle qu'elle était
+**après** le premier. La copie de votre configuration **d'origine** était écrasée, et il ne
+restait plus que celle de l'état intermédiaire. Vous croyiez avoir un filet ; vous n'en aviez
+plus.
+
+> ### Êtes-vous concerné ?
+>
+> Uniquement si deux téléversements se suivent **dans la même seconde**. À la main, dans
+> `calaos_installer`, cela n'arrive pas. **En envois scriptés — un déploiement, une migration,
+> une boucle de restauration — c'est le cas normal**, et c'est précisément le moment où la
+> sauvegarde compte.
+
+Le serveur prend maintenant le **premier nom libre** : `…_16-21-51`, puis `…_16-21-51-2`, puis
+`…_16-21-51-3`. Un téléversement isolé produit exactement le même nom de dossier qu'avant, et
+la restauration automatique d'une configuration corrompue au démarrage — qui remonte les
+sauvegardes de la plus récente à la plus ancienne — n'a pas changé.
+
+⚠️ **Rien ne supprime les anciennes sauvegardes**, et ce n'était déjà pas le cas : elles
+s'accumulent sous `<config>/backups`. Si vous téléversez souvent, c'est à surveiller.

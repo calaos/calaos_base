@@ -67,7 +67,19 @@ conf.BackupFiles();
 
 `BackupFiles()` n'a **qu'un seul appelant de production** : le handler HTTP `config`, juste avant
 d'écraser les fichiers de config poussés par un client
-(dérivé, [JsonApiHandlerHttp.cpp:624](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)).
+(dérivé, [JsonApiHandlerHttp.cpp:783](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)).
+
+Le dossier est horodaté **à la seconde**, ce qui ne suffit pas à le rendre unique : jusqu'à T3.64
+deux `config put` dans la même seconde le partageaient, et le second **écrasait** la copie du
+premier — l'état d'avant le premier téléversement était perdu. `BackupFiles()` prend désormais le
+**premier nom libre** de la suite `<date-heure>`, `<date-heure>-2`, `<date-heure>-3`… (borne
+`MAX_BACKUPS_PER_SECOND = 1000`, au-delà la sauvegarde est refusée avec une erreur journalisée).
+Le nom du cas courant — un seul téléversement — est donc inchangé, et le lecteur
+(`findBackupsNewestFirst()`, plus bas) n'est pas concerné : il parcourt l'arborescence en récursif
+et trie par date de modification, **sans jamais parser le nom du dossier**.
+
+⚠️ **Rien ne purge `<config>/backups`** (voir [`refactoring/FINDINGS.md`](refactoring/FINDINGS.md),
+`[F-BACKUP-1]`).
 
 ---
 
@@ -104,7 +116,7 @@ serveur permet de le forcer.
 | `io.xml` | `<config>/io.xml` |
 | `rules.xml` | `<config>/rules.xml` |
 | `local_config.xml` | `<config>/local_config.xml` (+ `local_config.xml.lock`) |
-| Backups | `<config>/backups/<AAAA>/<MM>/<JJ-MM-AAAA_HH-MM-SS>/` |
+| Backups | `<config>/backups/<AAAA>/<MM>/<JJ-MM-AAAA_HH-MM-SS>/`, suffixé `-2`, `-3`… si le nom est déjà pris (T3.64) |
 | Copies de configs corrompues | `<config>/backups/corrupt/<nom>.<AAAAMMJJ-HHMMSS>` |
 | Cache d'état | `<cache>/iostates.cache` |
 | Journal d'événements + tokens push | `<cache>/events.db` |

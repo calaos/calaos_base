@@ -9441,3 +9441,17 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   `check-pydeps-conformance.sh` — un script `dist_check_SCRIPTS` qui rougit si
   `dumpJsonRedacted(` apparaît sous un `cDebugDom` sans `cDebugDomEnabled` au-dessus. **Proposé,
   non écrit** : c'est un choix de convention de dépôt, pas une réparation.
+
+- ⚠️ **[F-BACKUP-1] OUVERT — rien ne purge `<config>/backups`, et T3.64 n'a rien inventé.**
+  Mesuré au source pendant [T3.64](T3.64.md) : aucun code de `src/` ne supprime quoi que ce soit
+  sous `<config>/backups` — ni borne sur le nombre de dossiers, ni sur leur âge, ni sur
+  `backups/corrupt/` (cette dernière limite était déjà consignée dans
+  `docs/11_config_persistence.md`). Chaque `config put` y laisse trois fichiers pour toujours.
+  T3.64 supprime la **collision** de nom, donc **il peut créer un dossier de plus** là où deux
+  téléversements dans la même seconde n'en produisaient qu'un — au pire un par envoi scripté.
+  ⛔ **La purge n'a délibérément pas été écrite dans T3.64** : borner un historique de
+  sauvegardes est un choix d'exploitation (combien de générations, sur quel critère, et que fait
+  le serveur quand le disque est plein), pas une réparation de défaut. **Ce qui manque, et qui
+  serait mesurable** : une borne configurable et un cas qui prouve que la sauvegarde la plus
+  ancienne encore présente reste **exploitable** après la purge — c'est-à-dire la même assertion
+  de contenu que celle de T3.64, jouée après l'élagage.
