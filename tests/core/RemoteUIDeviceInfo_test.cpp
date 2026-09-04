@@ -345,3 +345,224 @@ TEST_F(RemoteUIRelayNumTest, AConfiguredRelayNumIsStillTheOneUsed)
     ASSERT_NE(nullptr, relay);
     EXPECT_EQ(3, relay->getRelayNum());
 }
+
+/*******************************************************************************
+ * T3.70 - the widget coordinates, read with std::stoi and nothing around it.
+ *
+ * LoadFromXml() converted the x/y attributes of a <calaos:widget> with a bare
+ * std::stoi(). It runs under Config::LoadConfigIO(), which main() calls with no
+ * try anywhere on the path: an x="" or an x="haut" in the io.xml threw out of
+ * main() and the server never reached its event loop. Whatever the reason for
+ * the typo - a hand edited file, a config upload, an older writer - the whole
+ * installation went down, not just the screen.
+ *
+ * The file already has an answer for a widget it cannot use: the check right
+ * after the attribute loop drops a widget that has no type or no x/y, with a
+ * warning. These cases pin that a coordinate that is not a whole number lands
+ * there and nowhere else - the widget goes, the page, the screen, the rooms
+ * declared after it and the surviving widgets all stay - and that the user is
+ * told, because the next save writes the page back without the dropped widget.
+ ******************************************************************************/
+
+namespace
+{
+
+const char *const DEV_BAD = "t370_screen_bad";
+const char *const DEV_AFTER = "t370_screen_after";
+
+//One <calaos:widget>. `x` is injected verbatim so a test can put anything in it.
+std::string widgetXml(const std::string &type, const std::string &ioId,
+                      const std::string &x, const std::string &y)
+{
+    return std::string("        <calaos:widget type=\"") + type + "\""
+           " io_id=\"" + ioId + "\""
+           " x=\"" + x + "\" y=\"" + y + "\" w=\"100\" h=\"50\"/>\n";
+}
+
+std::string pagesXml(const std::string &widgets, const std::string &pageName = "Home")
+{
+    std::string x = "      <calaos:pages>\n";
+    x += "        <calaos:page id=\"1\" name=\"" + pageName + "\">\n";
+    x += widgets;
+    x += "        </calaos:page>\n";
+    x += "      </calaos:pages>\n";
+    return x;
+}
+
+//The io_ids of the widgets a page kept, in file order.
+std::vector<std::string> widgetIoIds(const RemoteUI *ui, size_t pageIndex = 0)
+{
+    std::vector<std::string> out;
+    const Json &pages = ui->getPages();
+    if (!pages.is_array() || pages.size() <= pageIndex)
+        return out;
+
+    const Json &page = pages[pageIndex];
+    if (!page.contains("widgets") || !page["widgets"].is_array())
+        return out;
+
+    for (const auto &w: page["widgets"])
+    {
+        if (w.contains("io_id") && w["io_id"].is_string())
+            out.push_back(w["io_id"].get<std::string>());
+    }
+    return out;
+}
+
+const Json *widgetOf(const RemoteUI *ui, const std::string &ioId)
+{
+    const Json &pages = ui->getPages();
+    if (!pages.is_array())
+        return nullptr;
+
+    for (const auto &page: pages)
+    {
+        if (!page.contains("widgets") || !page["widgets"].is_array())
+            continue;
+        for (const auto &w: page["widgets"])
+        {
+            if (w.contains("io_id") && w["io_id"] == ioId)
+                return &w;
+        }
+    }
+    return nullptr;
+}
+
+}
+
+class RemoteUIWidgetCoordinateTest: public RemoteUIDeviceInfoTest
+{
+protected:
+    //A screen whose middle widget carries `badX`, then a SECOND ROOM with a
+    //second screen: everything the aborted load took away with it.
+    std::string configWithBadX(const std::string &badX)
+    {
+        std::string widgets = widgetXml("button", "t370_io_first", "10", "10");
+        widgets += widgetXml("thermostat", "t370_io_broken", badX, "40");
+        widgets += widgetXml("temp_display", "t370_io_last", "120", "10");
+
+        std::string rooms = roomXml("Salon", "livingroom",
+                                    remoteUiXml(DEV_BAD, pagesXml(widgets)));
+        rooms += roomXml("Cuisine", "kitchen", remoteUiXml(DEV_AFTER));
+        return rooms;
+    }
+};
+
+/******************************************************************************
+ * 1. The failure mode: the configuration load itself.
+ ******************************************************************************/
+TEST_F(RemoteUIWidgetCoordinateTest, AnUnreadableWidgetCoordinateDoesNotAbortTheConfigLoad)
+{
+    //Non fatal on purpose: swallowing the throw here is what lets the two
+    //checks below say what the aborted load took away with it.
+    EXPECT_NO_THROW(loadIo(configWithBadX("haut")))
+        << "x=\"haut\" threw out of Config::LoadConfigIO(); main() has no try "
+           "on that path, so the server aborts before its event loop";
+
+    EXPECT_NE(remoteUi(DEV_BAD), nullptr)
+        << "the screen holding the misspelled widget was lost whole";
+    EXPECT_NE(remoteUi(DEV_AFTER), nullptr)
+        << "the screen of the NEXT ROOM was lost too: the load stopped there";
+}
+
+TEST_F(RemoteUIWidgetCoordinateTest, ABlankWidgetCoordinateDoesNotAbortTheConfigLoad)
+{
+    EXPECT_NO_THROW(loadIo(configWithBadX("")))
+        << "x=\"\" threw out of Config::LoadConfigIO()";
+
+    EXPECT_NE(remoteUi(DEV_BAD), nullptr);
+    EXPECT_NE(remoteUi(DEV_AFTER), nullptr);
+}
+
+/******************************************************************************
+ * 2. What becomes of the widget: dropped, and it alone.
+ ******************************************************************************/
+TEST_F(RemoteUIWidgetCoordinateTest, OnlyTheWidgetWithTheUnreadableCoordinateIsDropped)
+{
+    ASSERT_NO_THROW(loadIo(configWithBadX("haut")));
+
+    RemoteUI *ui = remoteUi(DEV_BAD);
+    ASSERT_NE(ui, nullptr);
+
+    //By identity, not by count: "the load did not crash" must not be enough.
+    const std::vector<std::string> kept = widgetIoIds(ui);
+    EXPECT_EQ(kept, (std::vector<std::string>{"t370_io_first", "t370_io_last"}))
+        << "the page did not keep exactly its two well formed widgets";
+
+    EXPECT_EQ(widgetOf(ui, "t370_io_broken"), nullptr)
+        << "the widget with x=\"haut\" was kept; its x is then whatever stoi "
+           "left behind, and the device gets a position nobody wrote";
+
+    //The reference index follows the widget out.
+    EXPECT_TRUE(ui->hasReferencedIO("t370_io_first"));
+    EXPECT_TRUE(ui->hasReferencedIO("t370_io_last"));
+    EXPECT_FALSE(ui->hasReferencedIO("t370_io_broken"));
+
+    //The survivors keep NUMBER coordinates: a widget whose x came back as a
+    //string would still reach the device, with the wrong JSON type.
+    const Json *first = widgetOf(ui, "t370_io_first");
+    ASSERT_NE(first, nullptr);
+    EXPECT_TRUE((*first)["x"].is_number_integer()) << first->dump();
+    EXPECT_EQ((*first)["x"].get<int>(), 10);
+    EXPECT_EQ((*first)["y"].get<int>(), 10);
+}
+
+/******************************************************************************
+ * 3. The user hears about it: the widget does not come back on the next save.
+ ******************************************************************************/
+TEST_F(RemoteUIWidgetCoordinateTest, ADroppedWidgetIsReportedOnTheConfigAlertChannel)
+{
+    const size_t alertsBefore = Config::Instance().getConfigAlerts().size();
+
+    ASSERT_NO_THROW(loadIo(configWithBadX("haut")));
+
+    const std::vector<std::string> &alerts = Config::Instance().getConfigAlerts();
+    ASSERT_EQ(alerts.size(), alertsBefore + 1)
+        << "a screen silently lost a widget: nothing was queued on the mail/push "
+           "channel the rest of the configuration load uses";
+
+    const std::string &report = alerts.back();
+    EXPECT_NE(report.find(DEV_BAD), std::string::npos)
+        << "the alert does not name the screen: " << report;
+    EXPECT_NE(report.find("t370_io_broken"), std::string::npos)
+        << "the alert does not name the widget: " << report;
+    EXPECT_NE(report.find("Home"), std::string::npos)
+        << "the alert does not name the page: " << report;
+
+    //And the drop is definitive: the page is written back without it.
+    saveConfig();
+    EXPECT_EQ(ioXmlOnDisk().find("t370_io_broken"), std::string::npos)
+        << "the widget survived on disk, so the alert would be crying wolf";
+}
+
+/******************************************************************************
+ * 4. The control, green before and after: a sound page loses nothing.
+ ******************************************************************************/
+TEST_F(RemoteUIWidgetCoordinateTest, AWellFormedPageKeepsEveryWidget)
+{
+    const size_t alertsBefore = Config::Instance().getConfigAlerts().size();
+
+    std::string widgets = widgetXml("button", "t370_io_first", "10", "10");
+    widgets += widgetXml("thermostat", "t370_io_zero", "0", "40");
+    widgets += widgetXml("temp_display", "t370_io_last", "120", "10");
+
+    loadIo(roomXml("Salon", "livingroom", remoteUiXml(DEV_BAD, pagesXml(widgets))));
+
+    RemoteUI *ui = remoteUi(DEV_BAD);
+    ASSERT_NE(ui, nullptr);
+
+    EXPECT_EQ(widgetIoIds(ui),
+              (std::vector<std::string>{"t370_io_first", "t370_io_zero", "t370_io_last"}))
+        << "a page whose widgets are all well formed lost one";
+
+    //x="0" is a position, not an absence: it must not be confused with a
+    //coordinate that failed to read.
+    const Json *zero = widgetOf(ui, "t370_io_zero");
+    ASSERT_NE(zero, nullptr);
+    EXPECT_TRUE((*zero)["x"].is_number_integer());
+    EXPECT_EQ((*zero)["x"].get<int>(), 0);
+
+    EXPECT_EQ(Config::Instance().getConfigAlerts().size(), alertsBefore)
+        << "a sound configuration raised a configuration alert";
+    EXPECT_TRUE(roundTripIo());
+}
