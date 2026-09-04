@@ -1307,6 +1307,26 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   désactivée E4.2e, scénario désactivé T3.18).
 
 ## Sécurité & réseau
+- ⭐ **Votre mot de passe de courtier MQTT n'apparaît plus dans les journaux du serveur.** Il y
+  figurait **en clair**, sur une installation neuve, sans que personne ait eu à activer quoi que ce
+  soit : à chaque démarrage de la passerelle MQTT, le serveur écrivait la ligne de commande complète
+  du sidecar, et la configuration du courtier — hôte, port, **utilisateur et mot de passe** — en
+  fait partie. Et comme la passerelle est relancée sans délai quand elle s'arrête, un courtier
+  injoignable faisait réécrire cette ligne **une dizaine de fois par seconde**.
+
+  Ce n'est pas une porte ouverte sur votre installation : qui lit ces journaux est déjà sur le
+  boîtier. ⚠️ **Mais un journal voyage** — il part dans un rapport d'incident, dans une capture
+  d'écran, dans un message d'assistance. Désormais la ligne dit **quel** programme a été lancé,
+  **quelle** passerelle il sert et **combien** d'arguments il a reçus, sans jamais en montrer le
+  contenu : le diagnostic reste possible, y compris compter les relances, et le secret ne part plus.
+  Les deux mêmes lignes du côté de la passerelle MQTT elle-même ont été fermées de la même façon,
+  dont une qui s'affichait **quand la configuration ne se lisait pas**, c'est-à-dire exactement au
+  moment où l'on regarde les journaux.
+
+  ⚠️ **Une réserve honnête** : la configuration reste passée à la passerelle comme un **argument de
+  ligne de commande**, donc visible par un `ps` de n'importe quel compte du boîtier tant que la
+  passerelle tourne. Fermer cela demande de changer la façon dont le serveur parle à ses passerelles
+  et n'est pas fait ici.
 - **TinyXML 2.5.3 (non maintenu, 2 CVE) remplacé par pugixml** — 14 242 lignes de bibliothèque
   tierce retirées du dépôt. Les deux vulnérabilités (plantage du serveur sur XML malformé,
   boucle infinie sur UTF-8 tronqué), atteignables depuis une URL configurée par l'utilisateur via

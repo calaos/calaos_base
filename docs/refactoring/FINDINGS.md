@@ -10074,6 +10074,61 @@ le redécoupage et le **port** atterrissait dans `argv[1]`, là où `WagoExternP
 l'hôte. T3.78 **reproduit** ce comportement plutôt que de le changer en silence : c'est un défaut de
 configuration vide, pas de transport.
 
+### ✅ [F-EXTPROC-5] Le lancement d'un sidecar journalisait l'**argv entier**, mot de passe compris — **FERMÉ par [T3.79](T3.79.md)**
+
+`ExternProcServer::startProcess()` écrivait `cInfoDom("process") << "Starting process: " <<
+arr.toString()`, c'est-à-dire **tout l'argv recollé par des espaces**. `debug_level` vaut **4** par
+défaut (`src/lib/ConfigOptions.cpp:608`), `LOG_LEVEL_INFO` vaut **4** et le filtre est
+`level > maxLevelPrintable(domain)` (`src/lib/Logger.cpp:164`) ⇒ **INFO passe sur une installation
+de série, personne n'ayant rien allumé**. `MqttWire::encodeConfig()` mettant `user` et `password`
+dans l'argument du sidecar MQTT (`MqttWire.h:231-235`), **le mot de passe du courtier partait en
+clair à chaque lancement et à chaque relance** — et sept contrôleurs sur huit relancent sans backoff
+(E4.5d), donc ~10 fois par seconde sur un courtier injoignable.
+
+⭐ **Le recensement qui a tranché l'arbitrage** : sur les sept contrôleurs, **un seul** porte un
+secret dans son argv. Wago (`host`/`port`), KNX (`--server ip:…`), OLA (l'univers), OneWire (les
+arguments owfs), Roon (`--host`/`--port`) et Reolink (**aucun argument**) n'en portent pas ; le
+jeton Roon vit dans un fichier de cache (`Audio/ExternProcRoon_main.py:96,126`) et les identifiants
+Reolink passent par la socket (`IO/Reolink/ReolinkWire.h:85`). ⇒ **une liste de champs à caviarder
+vaudrait UN nom et serait fausse, silencieusement, au premier driver qui en ajoute un** — le
+transport ne voit pas des champs, il voit des `std::string`.
+
+✅ **FERMÉ par [T3.79](T3.79.md)** : la ligne publie désormais le binaire, la socket, l'espace de
+noms et le **nombre** d'arguments — on énumère ce qu'on publie au lieu de deviner ce qu'on cache.
+⛔ **Descendre la ligne en DEBUG a été rejeté ET mesuré** : `CALAOS_LOG_LEVEL` est propagé au sidecar
+et le stdout de l'enfant est réinjecté dans celui du serveur, donc un seul geste ouvrirait les
+**trois** sites dans le même journal ; et la mutation `cInfoDom` ↔ `cDebugDom` donne **2 rouges**,
+dont la mort du diagnostic. Les deux sites du sidecar `calaos_mqtt` (`:183` à **ERROR**, sur le
+chemin d'échec, et `:187-189` à DEBUG) cessent de streamer `argv[1]`.
+⚠️ **Ce qui reste ouvert** : `/proc/<pid>/cmdline` publie toujours l'argv complet à tout compte de
+la machine, pour la vie du sidecar. La fermer demande de passer le secret par la socket ou par
+l'environnement — un **changement de protocole**, à arbitrer.
+
+### ⛔ [F-EXTPROC-6] Le transport journalise la **charge utile** des messages, secrets compris — ticket proposé [`T3.81`](T3.81.md)
+
+`ExternProcServer::sendMessage()` écrit `cDebugDom("process") << "client writing data: " << data`,
+donc la charge utile sortante **entière**. Pour Reolink, c'est le message d'enregistrement de
+caméra, qui porte `username` et `password` **en clair** (`IO/Reolink/ReolinkWire.h:85`).
+⭐ **La consigne est écrite trois fois dans l'arbre et le transport générique la contredit** :
+`ReolinkWire.h` (« Never log the message itself »), `ReolinkCtrl.cpp` (« never log it, here or
+anywhere downstream ») et le sidecar Python qui **caviarde vraiment**
+(`IO/Reolink/ExternProcReolink_main.py:1606-1608`). Le transport ne sait pas ce qu'il transporte.
+Niveau DEBUG, donc pas imprimé par défaut — mais [T3.79](T3.79.md) §3.1 a mesuré que ce n'est pas
+une protection. ⚠️ Même famille, site voisin : la charge utile **entrante** est journalisée de la
+même façon. ⭐ La forme qui reste vraie a un précédent **dans le même fichier** : `processData()`
+journalise `data.size()`.
+
+### ⛔ [F-LOGSECRET-1] Un jeton d'appareil journalisé au niveau **imprimé par défaut** — ticket proposé [`T3.81`](T3.81.md)
+
+`Audio/AVRRose.cpp:126` : `cInfoDom("hifirose") << "Registered with device, roseToken: " <<
+roseToken`. `roseToken` est le jeton d'authentification rendu par l'amplificateur Hifi Rose et porté
+par toutes les requêtes ultérieures (`Audio/hifi_rose_API.md:82,141,293`). À **INFO**, donc
+**imprimé sur une installation de série** : **même gravité** que [F-EXTPROC-5], et trouvé en
+balayant l'arbre pour [T3.79](T3.79.md) §4. ⭐ Le retirer ne coûte **aucun** diagnostic de
+configuration : le jeton est obtenu au vol, il n'est pas dans la configuration, et savoir que
+l'enregistrement a réussi suffit.
+
+
 ### ⚠️ [F-STRSPLIT-1] `Utils::CStrArray` n'a aucun filet propre — ticket proposé `T3.77`
 
 Balayage de **tous** les `.cpp`/`.h` de `tests/` : `tests/core/RoonArgs_test.cpp` est le **seul**
