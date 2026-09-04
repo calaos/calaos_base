@@ -1635,3 +1635,207 @@ TEST_F(RemoteUiUnadjustedScreenTest, AnUnparsableFrameIsStillReportedAsAParseErr
     EXPECT_NE(std::string::npos, logged.find("JSON parse error"))
             << "a truncated frame no longer names the parser: " << logged;
 }
+
+namespace
+{
+
+/* Every place in `doc` that holds an empty string, named by its path. A scan
+ * and not a key list: the next key added to the payload is covered without
+ * anyone remembering to add it here.
+ */
+void collectEmptyStrings(const Json &doc, const std::string &path,
+                         std::vector<std::string> &out)
+{
+    if (doc.is_string())
+    {
+        if (doc.get<std::string>().empty())
+            out.push_back(path.empty()? std::string("<root>"): path);
+    }
+    else if (doc.is_object())
+    {
+        for (Json::const_iterator it = doc.cbegin(); it != doc.cend(); ++it)
+            collectEmptyStrings(it.value(), path + "/" + it.key(), out);
+    }
+    else if (doc.is_array())
+    {
+        for (size_t i = 0; i < doc.size(); i++)
+            collectEmptyStrings(doc[i], path + "/" + std::to_string(i), out);
+    }
+}
+
+std::vector<std::string> emptyStringsIn(const Json &doc)
+{
+    std::vector<std::string> out;
+    collectEmptyStrings(doc, std::string(), out);
+    return out;
+}
+
+//The params a screen only carries once somebody opened its settings.
+const char *const SCREENSAVER_PARAMS[] = {
+    "screensaver_timeout", "screensaver_dimming", "screensaver_mode",
+    "screensaver_clock_timezone", "screensaver_clock_format",
+    "screensaver_clock_show_date", "screensaver_clock_date_format",
+    "screensaver_clock_seconds"
+};
+
+} //namespace
+
+/* The screen of RemoteUiStateBridgeTest is declared with an id, a name, a grid
+ * and its pages, and nothing else - the shape a device has after provisioning
+ * and before anybody opened its settings. Every case below depends on that:
+ * a screen whose params are all filled emits no empty value even on the
+ * unfixed server, and would measure nothing.
+ */
+class RemoteUiUnsetParamsTest: public RemoteUiStateBridgeTest
+{
+protected:
+    void SetUp() override
+    {
+        RemoteUiStateBridgeTest::SetUp();
+
+        for (const char *const param: SCREENSAVER_PARAMS)
+            ASSERT_FALSE(screen->get_params().Exists(param))
+                    << "the fixture now sets " << param << ": it stopped being "
+                       "a screen nobody ever configured";
+    }
+
+    //The payload of the push, which is the only one the device listens to.
+    Json pushPayload()
+    {
+        sent.clear();
+        handler->sendConfigUpdate();
+
+        const Json envelope = Json::parse(lastMessage(), nullptr, false);
+        EXPECT_EQ("remote_ui_config_update", envelope.value("msg", std::string()));
+        return envelope.value("data", Json::object());
+    }
+
+    //The payload of the answer to remote_ui_get_config.
+    Json answerPayload()
+    {
+        sent.clear();
+        handler->processApi("{\"msg\":\"remote_ui_get_config\"}", Params());
+
+        const Json envelope = Json::parse(lastMessage(), nullptr, false);
+        EXPECT_EQ("remote_ui_config", envelope.value("msg", std::string()));
+        return envelope.value("data", Json::object());
+    }
+};
+
+/*******************************************************************************
+ * E1. ⭐⭐ NO VALUE OF THE PUSHED CONFIGURATION IS AN EMPTY STRING.
+ *
+ * The contract the device imposes, and it is one sided: a key it does not find
+ * falls back to a default it carries itself, a key present and empty is fed to
+ * a conversion that throws and takes the WHOLE payload down with it - pages,
+ * widgets and IOs included. So the screen loses everything it is meant to
+ * display because nobody ever opened its settings.
+ *
+ * Written as a sweep of the payload rather than as a list of keys: the day a
+ * ninth screensaver key is added the same way, this is what turns red.
+ ******************************************************************************/
+TEST_F(RemoteUiUnsetParamsTest, ThePushedConfigurationCarriesNoEmptyValue)
+{
+    const Json data = pushPayload();
+    ASSERT_FALSE(data.empty()) << "the screen received no configuration at all";
+
+    const std::vector<std::string> empties = emptyStringsIn(data);
+    EXPECT_TRUE(empties.empty())
+            << "the screen is handed " << empties.size() << " empty value(s) it "
+               "cannot convert, and drops the whole configuration: "
+            << joined(empties) << "\n  payload: " << data.dump();
+}
+
+/*******************************************************************************
+ * E1bis. AND NEITHER DOES THE ANSWER TO remote_ui_get_config.
+ *
+ * The second builder of a configuration payload. No shipped firmware asks for
+ * it today, so this is the cheaper half of the pair - but it is built from the
+ * same raw params and would carry the same empty values to whoever asks.
+ ******************************************************************************/
+TEST_F(RemoteUiUnsetParamsTest, TheAnsweredConfigurationCarriesNoEmptyValue)
+{
+    const Json data = answerPayload();
+    ASSERT_FALSE(data.empty()) << "the screen received no configuration at all";
+
+    const std::vector<std::string> empties = emptyStringsIn(data);
+    EXPECT_TRUE(empties.empty())
+            << "empty value(s) on the answered payload: " << joined(empties)
+            << "\n  payload: " << data.dump();
+}
+
+/*******************************************************************************
+ * E2. THE TWO KEYS THE DEVICE CONVERTS ARE ABSENT, NOT EMPTY AND NOT ZEROED.
+ *
+ * E1 would also be satisfied by sending "0", which is a different bug: the
+ * screen would dim after nothing at all instead of keeping its own timing. The
+ * direction of the answer is the case here, not just the absence of "".
+ ******************************************************************************/
+TEST_F(RemoteUiUnsetParamsTest, AnUnsetScreensaverKeyIsOmittedRatherThanZeroed)
+{
+    const Json data = pushPayload();
+
+    for (const char *const param: SCREENSAVER_PARAMS)
+        EXPECT_FALSE(data.contains(param))
+                << param << " is on the wire although nothing ever set it: "
+                << data[param].dump();
+}
+
+/*******************************************************************************
+ * E3. A SCREEN THAT WAS CONFIGURED STILL RECEIVES ITS SETTINGS. INVARIANT.
+ *
+ * The half that keeps E1 and E2 from passing on a payload that dropped the
+ * screensaver altogether. Values that are not defaults on purpose, checked
+ * byte for byte.
+ ******************************************************************************/
+TEST_F(RemoteUiUnsetParamsTest, AConfiguredScreensaverIsPublishedUnchanged)
+{
+    screen->get_params().Add("screensaver_timeout", "120");
+    screen->get_params().Add("screensaver_dimming", "15");
+    screen->get_params().Add("screensaver_mode", "clock");
+    screen->get_params().Add("screensaver_clock_format", "12");
+
+    const Json data = pushPayload();
+
+    EXPECT_EQ("120", data.value("screensaver_timeout", std::string()));
+    EXPECT_EQ("15", data.value("screensaver_dimming", std::string()));
+    EXPECT_EQ("clock", data.value("screensaver_mode", std::string()));
+    EXPECT_EQ("12", data.value("screensaver_clock_format", std::string()));
+
+    //The four that were left alone stay off the wire.
+    EXPECT_FALSE(data.contains("screensaver_clock_timezone"));
+    EXPECT_FALSE(data.contains("screensaver_clock_show_date"));
+    EXPECT_FALSE(data.contains("screensaver_clock_date_format"));
+    EXPECT_FALSE(data.contains("screensaver_clock_seconds"));
+
+    EXPECT_TRUE(emptyStringsIn(data).empty())
+            << "a configured screen is handed empty values too: "
+            << joined(emptyStringsIn(data));
+}
+
+/*******************************************************************************
+ * E4. THE PUSH STILL CARRIES WHAT THE SCREEN IS MEANT TO DISPLAY.
+ *
+ * The failure mode being closed is TOTAL: the device throws the payload away
+ * whole. A fix that emptied the payload instead of the keys would leave E1
+ * green and the screen just as blank, so the parts that must survive are named
+ * here.
+ ******************************************************************************/
+TEST_F(RemoteUiUnsetParamsTest, ThePushStillCarriesTheNameThePagesAndTheIos)
+{
+    const Json data = pushPayload();
+
+    EXPECT_EQ("Screen", data.value("name", std::string()));
+
+    ASSERT_TRUE(data.contains("pages")) << "the screen got no page list";
+    ASSERT_TRUE(data["pages"].is_array());
+    EXPECT_EQ(1u, data["pages"].size());
+
+    ASSERT_TRUE(data.contains("io_items"));
+    EXPECT_EQ(2u, data["io_items"].size());
+
+    EXPECT_EQ(3, data.value("grid_width", -1));
+    EXPECT_EQ(3, data.value("grid_height", -1));
+    ASSERT_TRUE(data.contains("brightness"));
+    EXPECT_TRUE(data.at("brightness").is_number_integer());
+}
