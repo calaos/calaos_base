@@ -159,7 +159,22 @@ public:
      */
     static const vector<string> &ioProjectionParams();
 
-    void buildJsonIO(IOBase *io, Json &jio);
+    /* Which of the two projections is being built. The params are the same on
+     * both (above); the VALUE policy is not, and neither side can adopt the
+     * other's without moving a wire - 5454 is under golden files, the config
+     * payload is read by a screen that is not upgraded with the server and
+     * negotiates no version. The three differences are declared once, in
+     * buildJsonIO(), instead of in two loops kept in step by hand.
+     * docs/refactoring/T3.69.md holds them and the arbitration they wait on.
+     */
+    enum class IoProjection
+    {
+        Api,            //5454
+        DeviceConfig,   //remote_ui_config_update
+    };
+
+    void buildJsonIO(IOBase *io, Json &jio,
+                     IoProjection projection = IoProjection::Api);
     Json buildJsonRoomIO(Room *room);
 
     /* result is given with a call to a lambda because we may need to wait for

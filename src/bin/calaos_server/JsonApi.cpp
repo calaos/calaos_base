@@ -589,13 +589,17 @@ const vector<string> &JsonApi::ioProjectionParams()
     return params;
 }
 
-void JsonApi::buildJsonIO(IOBase *io, Json &jio)
+void JsonApi::buildJsonIO(IOBase *io, Json &jio, IoProjection projection)
 {
+    const bool device = (projection == IoProjection::DeviceConfig);
+
     for (const string &param: ioProjectionParams())
     {
         string value;
 
-        if (param == "state")
+        //The screen gets its states from remote_ui_io_states, so on its
+        //transport these two are read as plain params like any other.
+        if (!device && param == "state")
         {
             if (io->get_type() == TINT)
                 value = Utils::to_string(io->get_value_double());
@@ -604,7 +608,7 @@ void JsonApi::buildJsonIO(IOBase *io, Json &jio)
             else if (io->get_type() == TSTRING)
                 value = io->get_value_string();
         }
-        else if (param == "var_type")
+        else if (!device && param == "var_type")
         {
             if (io->get_type() == TINT) value = "float";
             else if (io->get_type() == TBOOL) value = "bool";
@@ -615,6 +619,11 @@ void JsonApi::buildJsonIO(IOBase *io, Json &jio)
             if (!io->get_params().Exists(param))
                 continue;
             value = io->get_param(param);
+
+            //A param that exists and is empty is a key on 5454 and no key at
+            //all for the screen.
+            if (device && value.empty())
+                continue;
         }
 
         /* E4.1m. THE `continue` ABOVE IS THE CONTRACT: an absent param emits NO
@@ -629,6 +638,11 @@ void JsonApi::buildJsonIO(IOBase *io, Json &jio)
          */
         jio[param] = value;
     }
+
+    //status_info has never been on the config payload, and it is a nested
+    //object: adding it would change what an already shipped screen receives.
+    if (device)
+        return;
 
     //A null Json means "this IO has no status info" - NOT an empty object,
     //which is truthy and would add "status_info":{} to every IO of the API.

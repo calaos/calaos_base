@@ -343,17 +343,7 @@ void RemoteUIWebSocketHandler::sendConfigUpdate()
         if (io)
         {
             Json io_json;
-            /* The same list as the 5454 projection, declared once in JsonApi:
-             * the value policy differs here (an absent OR empty param is
-             * dropped, and the device gets its states from
-             * remote_ui_io_states) but the param names must not.
-             */
-            for (const string &param: ioProjectionParams())
-            {
-                string val = io->get_param(param);
-                if (!val.empty())
-                    io_json[param] = val;
-            }
+            buildJsonIO(io, io_json, IoProjection::DeviceConfig);
             io_items.push_back(io_json);
         }
     }
