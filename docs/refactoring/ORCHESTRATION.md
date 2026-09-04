@@ -8,6 +8,99 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅⭐⭐ [`T3.47`](T3.47.md) MERGÉE — 3 commits de la branche + 1 commit d'élagage, `merge --ff-only`,
+  historique linéaire, 0 commit de fusion.** Tête sur `master` : **`bcee6aa3`**. ⭐ **`master` ÉTAIT
+  IMMOBILE sur `50fa5d04`** = exactement la merge-base ⇒ **ni rebase ni conflit.** ⛔ **Rien poussé.**
+  **`TESTS` 114 → 114** (aucune entrée ajoutée), et le compte de `SKIP` **a bougé, c'est le point** :
+  image de dev, `make distclean` + `autogen` + `configure` + `make -j32` + `make check -j16`,
+  **avant** `TOTAL 114 / PASS 112 / SKIP 2 / FAIL 0`, **après** (sous `CALAOS_PYTHON_TESTS_REQUIRED=1`)
+  **`TOTAL 114 / PASS 113 / SKIP 1 / FAIL 0`** — le seul `SKIP` restant est `check-ccache-honesty.sh`,
+  et les cas Python passent de **23/42 à 42/42**.
+
+  ⭐ **La cause du défaut n'était PAS unique, et les deux ont été reconstatées séparément au merge.**
+  CI `debian:12` : **aucun `python3`** ⇒ `PYTHON=:` ⇒ le harnais court-circuite **avant** le runner,
+  **0 cas sur 42**. Image de développement : `python3 3.11.2` présent mais `pytest`, `fastapi`,
+  `httpx`, `mcp`, `uvicorn`, `pydantic`, `starlette` **absents** (seul `colorama` est là) ⇒
+  `suites=3/6 cases=23/42`, RC 77, les 19 cas manquants **nommés**. Les deux correctifs diffèrent
+  (`apt` d'un côté, `pip` de l'autre) ; **un ticket qui n'aurait corrigé qu'une des deux causes
+  laissait la moitié du défaut en place.**
+
+  ⭐⭐ **Le cœur : le harnais rougit vraiment quand il ne peut pas exécuter.** `CALAOS_PYTHON_TESTS_REQUIRED=1`
+  transforme **tous** les `77` en `1` ; **éteint par défaut** (arbitrage `DECISIONS.md` sur les
+  dépendances optionnelles), **posé par la CI**, sur le modèle de `CALAOS_CCACHE_PROBE_STRICT` qui
+  existait déjà. **Les quatre mutations ont été rejouées au merge** (`make check TESTS=run-python-tests.sh`,
+  le RC est celui de `make`) : `fastapi` retiré → `5/6 31/42`, **`SKIP` RC 0 en défaut / `FAIL` RC 2
+  en strict** ; `fastapi`+`pytest` retirés → `3/6 23/42`, **`FAIL` RC 2** ; un cas de `test_logger.py`
+  rendu rouge → **`FAIL` RC 2 dans les DEUX modes** ; `PYTHON=:` → **77 en défaut, 1 en strict**.
+  Restauration du cas muté **vérifiée au `cmp`**, contrôle après restauration `PASS 6/6 42/42`.
+
+  ⭐ **`F-CIENV-1` — le finding qui prouve que le correctif a été éprouvé, et son désarmement tient.**
+  La variable **fuyait** du `make check` vers le méta-oracle, dont **13 cas assertent un `77`
+  honnête** ⇒ le premier `make check` strict était parti rouge **sur un sujet sans rapport**.
+  Corrigé par un désarmement (`unset`) **inconditionnel en tête** de
+  `tests/check-python-tests-reporting.sh`, les cas `C6` la ré-exportant dans leur propre sous-shell.
+  ⭐ **Cherché au merge, aucun autre chemin de fuite** : la variable n'est lue que par
+  `run-python-tests.sh` ; le seul appelant de ce script hors automake est ce méta-oracle ; et
+  **aucun script de `TESTS` n'invoque un `make` imbriqué** qui pourrait la réintroduire.
+  `check-python-tests-reporting.sh` est **`PASS`** dans le `make check` strict.
+
+  ⭐ **`pyproject.toml` reste la SOURCE DE VÉRITÉ unique** : extra `[project.optional-dependencies]
+  test` (`pytest`, `httpx`, `colorama` ; `fastapi` vient du jeu d'exécution) et
+  `pyproject-requirements.py --extra NAME` (un extra inconnu est une **erreur**, pas une liste vide —
+  vérifié). **Aucune liste de paquets Python écrite à la main** dans un `Dockerfile` ni dans le
+  workflow. ⚠️ Seul résidu, **antérieur au ticket** : le message d'aide de
+  `tests/python-suite-runner.py` cite `pip3 install pytest fastapi httpx colorama` — c'est un
+  diagnostic, pas un chemin d'installation.
+
+  ⭐ **Le lest `jansson` retiré des images est prouvé, rejoué au merge** : `debian:12` neuf, la liste
+  `apt` de `ci.yml` **verbatim** (donc **sans `libjansson-dev`**), `git archive HEAD` ⇒ build complet
+  OK, `ldd calaos_server` **sans aucun `libjansson`** (seul `libjansson4` arrive en transitif par une
+  autre dépendance), puis `make check` **serial sous la variable** :
+  `TOTAL 113 / PASS 112 / SKIP 1 / FAIL 0`, `run-python-tests: suites=6/6 cases=42/42` **imprimé sur
+  un build vert**, et **`check-extra-dist.sh` réveillé et VERT** — la fiche prévenait que rien ne le
+  garantissait. `113` contre `114` en local : écart attendu (`KNXExternProcWire_test`, `if HAVE_GTEST`
+  → `if HAVE_LIBKNX`).
+
+  ⛔⭐⭐ **CE QUI RESTE À VÉRIFIER AU PREMIER `push` — À REGARDER EN PREMIER.** `git push` est interdit
+  sur ce ticket, donc **le workflow n'a jamais tourné chez GitHub**. Deux angles nus :
+  1. **Le job chez GitHub.** La syntaxe GitHub Actions proprement dite n'est **pas** vérifiée —
+     `if: always()`, la clé `env:` d'une étape, `actions/checkout@v4` : **seule la validité YAML est
+     prouvée** (`yaml.safe_load`, 4 jobs, 7 étapes). Ce qui a été fait à la place : les blocs `run:`
+     du job `build-and-test` extraits et rejoués **verbatim** dans un `debian:12` neuf, **cinq étapes
+     à RC 0**. ⭐ **Au premier `push`, lire le journal du job et y chercher la ligne
+     `run-python-tests: suites=6/6 cases=42/42`** : c'est elle qui dit que les 42 cas ont tourné.
+  2. **Le build réel des deux `Dockerfile` modifiés.** `Dockerfile` (×2 étages) et
+     `.devcontainer/Dockerfile` ont changé (`libjansson` retiré, `--extra test` ajouté) et
+     **aucune machine du dépôt ne les construit** — `ci.yml` n'en bâtit aucun. ⇒ [`T3.67`](T3.67.md).
+
+  ⭐ **Dépassement de périmètre : assumé, argumenté, et l'argument tient.** La fiche disait « rien
+  dans `tests/` » ; l'auteur y a touché (`run-python-tests.sh`, le méta-oracle). C'est justifié :
+  installer `python3` en CI aurait fait passer le compte de 0 à 42 **sans rien changer au fait qu'un
+  `SKIP` reste invisible sur un build vert** — le défaut réparé ici est le silence, et `tests/` est
+  le seul endroit où il cesse.
+
+  ⭐ **Findings de ce ticket** : `F-CIENV-1` (la fuite de la variable, **corrigée**), `F-PYIMG-1`
+  (l'image de dev publiée en retard sur son propre `Dockerfile`, **non corrigée**, ticket proposé
+  **[`T3.67`](T3.67.md)**, fiche courte non instruite), et `F-PYTEST-1` **seconde couche fermée**.
+
+  ⭐ **Élagage fait AU MERGE, commit `bcee6aa3`** : les commentaires neufs de `run-python-tests.sh`,
+  du méta-oracle, de `ci.yml` et de `.devcontainer/Dockerfile` portaient des références de ticket
+  (`T3.47`) et un bloc de 12 lignes — retirées/raccourcies, **substance inchangée, aucun changement
+  de code** (`make check` rejoué après).
+
+  ➡️ **PROCHAINE ACTION — options posées, RIEN N'EST TRANCHÉ, à l'utilisateur de choisir :**
+  - ⛔⭐ **Les deux arbitrages en attente depuis `T3.58`** : le NUL (`F-XML-1` → [`T3.66`](T3.66.md),
+    **recommandé : garde dans `IOBase::set_param()` puis codage XML réversible**) et les entiers
+    (`F-JSON-3`, **recommandé : ne rien changer, documenter**). C'est la seule chose qui *bloque* :
+    ils attendent un « oui » ou un « non », pas du travail.
+  - **`wip/t3.51-probe-pass4`** (`d1693b19`) — cherry-pick **sans conflit**, mais sa docstring
+    documente comme fait un export `CXX`/`CC` dans `AM_TESTS_ENVIRONMENT` **absent de l'arbre**.
+  - **[`T3.61`](T3.61.md)** — finir **§5.3**, pour que l'épique **E4.6 soit entière**.
+  - **[`T3.62`](T3.62.md)** — la 3ᵉ copie RemoteUI, qui porte **aussi** le parse non plafonné
+    (`F-JSON-1`) : deux défauts du même fichier, un seul passage.
+  - **[`T3.66`](T3.66.md)** — la **corruption de configuration par le NUL**, si l'arbitrage ci-dessus
+    tombe côté « oui ».
+
 - **✅⭐⭐ [`T3.58`](T3.58.md) MERGÉE — 3 commits de la branche + 1 commit d'élagage + 1 commit de doc
   sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de branche
   **`7b95f95b`**. ⭐ **`master` ÉTAIT IMMOBILE sur `bf0582a9`** = exactement la merge-base ⇒ **ni

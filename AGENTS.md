@@ -232,6 +232,8 @@ pip3 install -r req.txt --break-system-packages
 
 Install the whole set in **one** pip invocation: `mcp`, `fastapi` and `starlette` are coupled, and resolving them package by package silently picks incompatible combinations.
 
+Add `--extra test` to that command to also get what `tests/python/` needs (`pytest`, `httpx`, `colorama`). Without it `make check` runs 23 of the 42 declared Python cases and reports a SKIP; with `CALAOS_PYTHON_TESTS_REQUIRED=1` — what CI sets — that SKIP is a build failure instead.
+
 `configure` then probes the **API the sidecar actually imports** (not just `import mcp`, which passes with mcp 2.0.0 where `mcp.server.fastmcp` no longer exists) and sets `HAVE_PYTHON_MCP`; if the probe fails it prints the failing import and skips building the sidecar. `calaos_mcp --help` exercises the same import chain with no socket and no config — it is the quickest way to tell whether a built image can start the sidecar at all. See [T3.23](docs/refactoring/T3.23.md).
 
 ---

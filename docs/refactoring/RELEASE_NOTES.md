@@ -1666,7 +1666,13 @@ passe, 111 suites, 0 échec.
 
 Tout le JSON du serveur — l'API du port 5454, les événements temps réel, les wires des
 extern-procs, le cache d'état, `eventlog`, `io_doc.json` — passe désormais par la seule
-`nlohmann::json` vendorisée dans `src/lib/json.hpp`. Les changements de forme sur le fil que cette
+`nlohmann::json` vendorisée dans `src/lib/json.hpp`.
+
+Les recettes du dépôt suivent enfin : ni `Dockerfile` (étages de compilation **et** d'exécution),
+ni `.devcontainer/Dockerfile`, ni le workflow de CI n'installent plus `libjansson-dev` /
+`libjansson4`. Revérifié en construisant l'arbre complet dans un `debian:12` neuf **sans** le
+paquet de développement : `autogen`, `configure`, `make`, `make check` passent, et le binaire
+`calaos_server` ne porte aucune dépendance `libjansson`. Les changements de forme sur le fil que cette
 bascule a entraînés sont décrits dans les sections précédentes ; celle-ci ne fait que retirer la
 bibliothèque qui n'a plus d'appelant.
 
@@ -2053,3 +2059,38 @@ dans le journal du serveur nomme la limite.
   nombre — c'est la mise en forme des nombres, inchangée depuis longtemps. ⭐ **La parade est
   immédiate : envoyez la valeur comme une chaîne de caractères JSON** (`"1234567"` plutôt que
   `1234567`) et elle est enregistrée telle quelle, quel que soit le nombre de chiffres.
+
+## 📦 Intégration continue : les 42 tests Python s'exécutent enfin, et un `SKIP` n'y est plus silencieux
+
+*Pour qui construit depuis les sources ou relit un build de CI. Rien de ce qui suit ne change le
+comportement du serveur.*
+
+`tests/python/` déclare **42 cas** — l'authentification du sidecar MCP, le cadrage des extern-procs
+Python, le filtrage par domaine du journal, le pilote Roon. **Aucune machine de CI ne les
+exécutait**, et le journal d'un build vert ne permettait pas de s'en apercevoir : les deux jobs qui
+lancent `make check` n'installaient aucun `python3`, la seule machine outillée ne lançait jamais
+`make check`, et la ligne de comptabilité partait dans un fichier `.log` que rien n'imprimait tant
+que le build était vert.
+
+Trois changements, mesurés :
+
+- **Les dépendances de test sont déclarées là où le sont déjà celles du sidecar**, dans
+  `src/bin/calaos_mcp/pyproject.toml`, sous un extra `test` (`pytest`, `httpx`, `colorama` ; les
+  suites d'authentification tirent `fastapi` du jeu d'exécution). `pyproject-requirements.py`
+  accepte `--extra NAME`. ⭐ **Aucune liste de paquets Python n'est écrite à la main**, ni dans la
+  CI, ni dans les images : le fichier que surveille Dependabot reste le seul dont on installe.
+- **`.devcontainer/Dockerfile` et le workflow de CI installent ce jeu**, donc `make check` passe de
+  `23/42` cas exécutés — voire `0/42` faute d'interpréteur — à **`42/42`**.
+- ⭐ **Un « je n'ai pas pu exécuter » devient une erreur de build là où ces tests sont
+  obligatoires.** `CALAOS_PYTHON_TESTS_REQUIRED=1` transforme tous les `SKIP` d'impossibilité en
+  échecs. **Éteint par défaut** : un développeur sans `pytest` garde un `SKIP` et un `make check`
+  qui passe. La CI, elle, pose la variable — le jour où une étape d'installation casse, le build
+  rougit au lieu de redevenir vert sur zéro test exécuté.
+
+⛔ **Ce qui n'est pas vérifié, et qu'il faudra regarder au premier `push`** : le workflow **n'a
+jamais tourné chez GitHub**. Ses étapes ont été extraites et rejouées verbatim dans un `debian:12`
+neuf — `apt`, installation depuis `pyproject.toml`, `autogen`/`configure`/`make`, `make check` sous
+la variable, étape de comptabilité — **les cinq à RC 0**, `# TOTAL: 113 / # PASS: 112 / # SKIP: 1 /
+# FAIL: 0` et `suites=6/6 cases=42/42` imprimé **sur un build vert**. Restent nus : la syntaxe
+GitHub Actions elle-même, `actions/checkout@v4`, le vert du job chez GitHub, et **le build réel des
+deux `Dockerfile` modifiés**, qu'aucune machine du dépôt ne construit.

@@ -9090,7 +9090,9 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   ⚠️ **Rien dans le dépôt ne compare l'image publiée à son `Dockerfile`** : la dérive est
   indétectable jusqu'à ce que quelqu'un `import fastapi`. **Non corrigé** — reconstruire l'image
   n'est pas dans le périmètre de `T3.47` et coûte une reconstruction complète du devcontainer de
-  l'utilisateur. ⇒ **[T3.47](T3.47.md) §5.1.**
+  l'utilisateur. ⇒ **[T3.47](T3.47.md) §5.1**, ticket proposé **[T3.67](T3.67.md)** (fiche courte,
+  non instruite). ⛔ **Le vrai sujet n'est pas l'image mais l'absence de mesure** : `ci.yml` ne
+  construit **aucun** des deux `Dockerfile` du dépôt, que `T3.47` a pourtant modifiés.
 
 - **[F-CIENV-1] Une variable d'environnement globale de `make check` traverse le méta-oracle qui
   teste le script qu'elle pilote.** `T3.47` fait de `CALAOS_PYTHON_TESTS_REQUIRED=1` un
