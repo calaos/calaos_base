@@ -9091,7 +9091,18 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   la troncature. Ils n'ont pas été réécrits.**
 
 - **[F-PYIMG-1] L'image de développement publiée est en retard sur son propre `Dockerfile`, et
-  aucune mesure ne le dit.** `.devcontainer/Dockerfile` installe depuis `T3.23` le jeu déclaré par
+  aucune mesure ne le dit.** ⇒ ✅ **VOLET « aucune mesure » FERMÉ par [T3.67](T3.67.md)** :
+  `scripts/pydeps-conformance-probe.py` compare les `.dist-info` réellement posés dans
+  l'environnement à ce que `pyproject.toml` déclare, câblée en entrée `TESTS`
+  (`check-pydeps-conformance.sh`, `77` par défaut / `1` sous `CALAOS_PYDEPS_STRICT`), dans `ci.yml`,
+  et **dans la chaîne `RUN` des deux `Dockerfile`** — seul point qui empêche la publication d'une
+  image en dérive. ⭐ **Mesurée rouge sur la dérive RÉELLE**, nommant **huit** paquets absents : la
+  sonde en a trouvé **un de plus (`websockets`) que l'énumération manuelle ci-dessous**. ⭐ **Trouvaille
+  de T3.67 : `roonapi` et `reolink-aio` SONT présents dans l'image** — aucun paquet Debian ne les
+  fournit, donc **le `pip` de la recette a bien tourné** et a quand même rendu autre chose que le jeu
+  déclaré ; ce n'est pas « une vieille image ». ⛔ **VOLET « reconstruire l'image » TOUJOURS OUVERT** :
+  `push` interdit et image non republiée sur `T3.67`, la dérive est encore là.
+  Constat d'origine : `.devcontainer/Dockerfile` installe depuis `T3.23` le jeu déclaré par
   `src/bin/calaos_mcp/pyproject.toml`. **L'image montée n'en a rien** : mesuré dedans, `mcp`,
   `fastapi`, `uvicorn`, `pydantic`, `starlette` et `httpx` répondent tous `ModuleNotFoundError`
   (seul `colorama`, qui vient de l'`apt`, est là). ⇒ **le sidecar MCP ne peut pas démarrer dans
