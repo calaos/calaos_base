@@ -106,8 +106,10 @@
 
 #include <algorithm>
 #include <chrono>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -447,6 +449,26 @@ protected:
         return out;
     }
 
+    //The folder name Config::BackupFiles() derives from the clock. Two uploads
+    //that read the same stamp are the collision these cases are about.
+    static std::string backupSecondStamp()
+    {
+        const std::time_t t = std::time(nullptr);
+        const std::tm tm = *std::localtime(&t);
+        std::ostringstream ss;
+        ss << std::put_time(&tm, "%d-%m-%Y_%H-%M-%S");
+        return ss.str();
+    }
+
+    //Return at the start of a second, so what follows has a full second of
+    //margin to run inside one stamp instead of hoping for it.
+    static void alignToNextSecond()
+    {
+        const std::string start = backupSecondStamp();
+        while (backupSecondStamp() == start)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+
     static std::string readWholeFile(const std::string &path)
     {
         std::ifstream f(path.c_str());
@@ -573,14 +595,6 @@ TEST_F(AutoScenarioUploadGuardTest, TwoUploadsLeaveTwoBackupsAndTheNewestIsTheSt
     const std::string ioOriginal = ioXmlOnDisk();
     const std::string rulesOriginal = rulesXmlOnDisk();
 
-    /* MEASURED, and it is why this case waits: BackupFiles() names its folder
-     * to the SECOND (CalaosConfig.cpp, "%d-%m-%Y_%H-%M-%S"), so two uploads
-     * inside the same second land in the same folder and the second copy
-     * overwrites the first. Without the wait this case sees one backup, not
-     * two - and an operator would have lost the state before the first upload.
-     */
-    std::this_thread::sleep_for(std::chrono::milliseconds(1100));
-
     //first upload: the evening scenario goes, the wake up one stays
     const std::string marker = markerOf(ioOriginal, eveningId);
     ASSERT_FALSE(marker.empty());
@@ -588,8 +602,6 @@ TEST_F(AutoScenarioUploadGuardTest, TwoUploadsLeaveTwoBackupsAndTheNewestIsTheSt
     ASSERT_GT(removeScenarioFromIoXml(ioOnce, marker), 0);
     ASSERT_GT(removeScenarioFromRulesXml(rulesOnce, marker), 0);
     ASSERT_EQ("true", str(uploadConfig(ioOnce, rulesOnce), "success"));
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(1100));
 
     //second upload: everything goes
     ASSERT_EQ("true", str(uploadConfig(ioXmlDocument(roomXml("Vide", "salon", std::string(), 0)),
@@ -615,6 +627,70 @@ TEST_F(AutoScenarioUploadGuardTest, TwoUploadsLeaveTwoBackupsAndTheNewestIsTheSt
     ASSERT_TRUE(scenarioIo(eveningId) != nullptr);
     EXPECT_EQ(3u, stepCountOf(eveningId));
     ASSERT_TRUE(scenarioIo(wakeupId) != nullptr);
+    EXPECT_EQ(1u, stepCountOf(wakeupId));
+}
+
+TEST_F(AutoScenarioUploadGuardTest, TwoUploadsInsideTheSameSecondStillLeaveTheStateBeforeTheFirstOne)
+{
+    /* ✅ PROVE, DO NOT FLIP - the collision itself. Scripted uploads land
+     * inside the same second, and the backup taken before the FIRST one is the
+     * only copy of a configuration that then exists nowhere else. What is
+     * asserted is its CONTENT, read back through the real Config path: counting
+     * folders would pass on an empty or unreadable one.
+     */
+    loadHouse();
+
+    std::string eveningId, wakeupId;
+    {
+        WsTestSession ws;
+        eveningId = createEveningScenario(ws);
+        wakeupId = createWakeupScenario(ws);
+    }
+    ASSERT_FALSE(eveningId.empty());
+    ASSERT_FALSE(wakeupId.empty());
+    saveConfig();
+
+    const std::string ioOriginal = ioXmlOnDisk();
+    const std::string rulesOriginal = rulesXmlOnDisk();
+    ASSERT_TRUE(backupsOf("io.xml").empty()) << "the case starts with no backup";
+
+    const std::string marker = markerOf(ioOriginal, eveningId);
+    ASSERT_FALSE(marker.empty());
+    std::string ioOnce = ioOriginal, rulesOnce = rulesOriginal;
+    ASSERT_GT(removeScenarioFromIoXml(ioOnce, marker), 0);
+    ASSERT_GT(removeScenarioFromRulesXml(rulesOnce, marker), 0);
+
+    alignToNextSecond();
+    const std::string stamp = backupSecondStamp();
+
+    //first upload: the evening scenario goes. Second: everything goes. No wait
+    //between them - that is the whole point of the case.
+    ASSERT_EQ("true", str(uploadConfig(ioOnce, rulesOnce), "success"));
+    ASSERT_EQ("true", str(uploadConfig(ioXmlDocument(roomXml("Vide", "salon", std::string(), 0)),
+                                       rulesXmlDocument(std::string())), "success"));
+
+    //without this the case would be vacuous: uploads that straddle a second
+    //boundary do not collide and pass whatever BackupFiles() names its folder
+    ASSERT_EQ(stamp, backupSecondStamp()) << "the two uploads did not land in the same second";
+
+    const std::vector<std::string> ioBackups = backupsOf("io.xml");
+    const std::vector<std::string> ruleBackups = backupsOf("rules.xml");
+    ASSERT_EQ(2u, ioBackups.size()) << "the second upload overwrote the backup of the first";
+    ASSERT_EQ(2u, ruleBackups.size());
+
+    //the oldest holds the state before ANY upload, byte for byte
+    EXPECT_EQ(ioOriginal, readWholeFile(ioBackups[1]));
+    EXPECT_EQ(rulesOriginal, readWholeFile(ruleBackups[1]));
+
+    //and it is usable: the real Config path reads both scenarios back out of it
+    clearCoreState();
+    loadConfig(readWholeFile(ioBackups[1]), readWholeFile(ruleBackups[1]));
+    ListeRoom::Instance().checkAutoScenario();
+    ASSERT_TRUE(scenarioIo(eveningId) != nullptr) << "the oldest backup lost the scenario";
+    EXPECT_EQ(NAME_EVENING, scenarioIo(eveningId)->get_param("name"));
+    EXPECT_EQ(3u, stepCountOf(eveningId));
+    ASSERT_TRUE(scenarioIo(wakeupId) != nullptr);
+    EXPECT_EQ(NAME_WAKEUP, scenarioIo(wakeupId)->get_param("name"));
     EXPECT_EQ(1u, stepCountOf(wakeupId));
 }
 
