@@ -9289,6 +9289,11 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
     entrer un **objet imbriqué** là où les `io_items` n'ont jamais porté que des chaînes ; le retirer
     de 5454 ampute l'API. **Non tranché.**
 
+  ⚠️ **La réserve qui a dicté le conservatisme : le dépôt ne contient pas le micrologiciel de
+  l'écran.** Il est donc impossible de prouver ici qu'un écran livré **ignore** une clé inconnue
+  plutôt que de **refuser la trame** — ni la clé vide de la question 1, ni l'objet imbriqué de la
+  question 2. Trancher demande soit le micrologiciel, soit un essai sur un appareil réel.
+
   Les deux décisions se posent maintenant sur **une** ligne de `buildJsonIO()`, et exigeront une note
   de version le jour où elles tombent. Garde-fou en place :
   `RemoteUiConfigProjectionTest.ApartFromTheThreeKnownDeltasBothProjectionsAgree` — chaque delta est

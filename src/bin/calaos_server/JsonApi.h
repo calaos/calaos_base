@@ -164,8 +164,8 @@ public:
      * other's without moving a wire - 5454 is under golden files, the config
      * payload is read by a screen that is not upgraded with the server and
      * negotiates no version. The three differences are declared once, in
-     * buildJsonIO(), instead of in two loops kept in step by hand.
-     * docs/refactoring/T3.69.md holds them and the arbitration they wait on.
+     * buildJsonIO(). Two of them wait on a decision: F-REMOTEUI-2 in
+     * docs/refactoring/FINDINGS.md.
      */
     enum class IoProjection
     {
