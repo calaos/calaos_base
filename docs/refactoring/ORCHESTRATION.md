@@ -34,6 +34,111 @@
      **aucun `docker build`** n'ayant tourné, l'affirmation « la sonde stricte empêche la
      publication d'une image non conforme » reste une **déduction**, pas une mesure.
 
+- **✅⭐⭐ [`T3.69`](T3.69.md) MERGÉE — 4 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête sur `master` : **`fbaad93c`** (2026-09-04). ⭐ `master` était **IMMOBILE** sur
+  `0efe414b` = **exactement la merge-base** ⇒ ni rebase ni conflit. ⛔ **Rien poussé.**
+  Build de merge `distclean` complet : **`TOTAL 117 / PASS 114 / SKIP 3 / FAIL 0 / XFAIL 0 /
+  XPASS 0 / ERROR 0`**, un seul `Testsuite summary`, **0 `error:`**, `check-test-deps.sh` **PASS**,
+  les 3 `SKIP` étant les 3 connus (`run-python-tests.sh`, `check-ccache-honesty.sh`,
+  `check-pydeps-conformance.sh`). `tests/Makefile.am` **intouché**, **`TESTS` 117 → 117** (la suite
+  `RemoteUiConfigProjectionTest` passe de 5 à 12 cas, aucun fichier de test neuf), **zéro golden
+  touché** (`tests/core/golden` = `fe20ab51` des deux côtés). Caractérisation `fb1c744c` à **zéro
+  ligne de `src/`**. Le 4e commit a été ajouté **au merge** : la réserve sur le micrologiciel écrite
+  dans la fiche et dans `FINDINGS.md`, et le renvoi du commentaire d'en-tête de `JsonApi.h` ramené
+  de la fiche de ticket vers le finding.
+
+  ⭐⭐ **UN TICKET D'UNIFICATION QUI NE BOUGE AUCUN WIRE — ET C'EST LE BON RÉSULTAT.** Ce qui est
+  unifié est le **code** : `sendConfigUpdate()` appelle `buildJsonIO(io, jio,
+  IoProjection::DeviceConfig)` au lieu de recopier la boucle, et les trois politiques divergentes
+  deviennent trois conditions dans **une** fonction. ⭐ **L'égalité octet pour octet a été PROUVÉE
+  au merge, pas seulement crue.** Côté 5454 : `device` est faux, les trois conditions neuves sont
+  inertes, et les goldens sont identiques par arbre git. Côté écran, la branche `device` est
+  l'ancienne boucle **terme à terme** — `IOBase::get_param()` délègue à `Params::operator[]` →
+  `get_param_const()`, **qui rend une chaîne vide sur une clé absente** ; donc le
+  `if (!io->get_params().Exists(param)) continue;` et le `if (device && value.empty()) continue;`
+  couvrent exactement les deux cas que l'unique `if (!val.empty())` d'avant écartait, dans le même
+  ordre de liste, et le `if (device) return;` rend le `status_info` que l'ancienne boucle
+  n'ajoutait pas. **Aucune sous-classe d'`IOBase` ne redéfinit `get_param()` ni `get_params()`**
+  (vérifié) : l'équivalence n'a pas de trou par polymorphisme.
+
+  ⭐ **LE DELTA `state`/`var_type` EST JUSTIFIÉ — RECOMPTÉ AU MERGE, ET LA CONCLUSION TIENT.**
+  `set_param("state")`, `Add("state")`, `paramAdd("state")` : **0 site** dans `src/` ; **0 fichier
+  `.xml`** dans tout le dépôt, donc rien sous `data/` non plus. ⚠️ **Le piège de ce comptage est
+  évité** : les nombreux `{ "state", … }` de `src/bin/calaos_server/IO/` sont des params
+  d'**événement** (`EventManager::create(EventIOChanged, …)`), pas des params d'IO — vérifié sur
+  `OutputLight::emitChange()`. ⇒ **aucun IO que le serveur construit ne porte `state` comme param**,
+  l'écran n'en reçoit donc aucun et tient ses états de `remote_ui_io_states`. Côté API le calcul
+  sert des consommateurs réels du dépôt (`calaos_mcp/tools/io.py`, `rooms.py`, `_home.py` lisent
+  `io.get("state", "")`) et **18 `"state": ""`** vivent dans **4** goldens (`ws_get_home.json`,
+  `http_get_home.json`, `e40b_ws_get_io.json`, `e40b_http_get_io.json`). Un delta qui a une raison
+  d'être **des deux côtés** n'est pas une divergence à supprimer.
+
+  ⭐⭐ **LES DEUX QUESTIONS UTILISATEUR — ELLES ATTENDENT, ET ELLES SE POSENT MAINTENANT SUR UNE
+  SEULE LIGNE DE `buildJsonIO()`** (`F-REMOTEUI-2`, fiche `T3.69.md`) :
+
+  1. ❓ **Un param qui EXISTE et est VIDE : émis ou omis ?** 5454 émet `"unit": ""`, l'écran omet la
+     clé. **Vers « omettre »** : 18 valeurs disparaissent de 4 goldens et de la réponse `get_home`
+     d'un client 5454, et le contrat énoncé par le commentaire E4.1m de `buildJsonIO()` est
+     contredit (« an absent param emits NO KEY » — donc un param **présent** en émet une, fût-elle
+     vide). **Vers « émettre »** : des clés vides **neuves** arrivent sur un écran déjà livré.
+  2. ❓ **`status_info` sur l'écran ou non ?** **Vers « émettre »** : un **objet imbriqué** entre
+     dans des `io_items` qui n'ont jamais porté que des chaînes. **Vers « retirer de 5454 »** :
+     l'API perd une information que des clients lisent.
+
+  ⛔⭐ **CE QUI REND CES DEUX QUESTIONS IRRÉVERSIBLES : IL N'EXISTE AUCUNE NÉGOCIATION DE VERSION
+  AVEC L'ÉCRAN — revérifié au merge.** Le serveur **connaît** `device_version` (posée au
+  provisioning, `RemoteUIProvisioningHandler.cpp:183`, ou par l'en-tête `X-Device-Version`,
+  `HMACAuthenticator.cpp:42`) mais son **seul** usage est l'OTA : `RemoteUIManager.cpp:344` et
+  `RemoteUIWebSocketHandler.cpp:108` la passent à `OtaFirmwareManager::checkDeviceForUpdate()`.
+  **Elle ne conditionne aucune trame.** `protocol_version` et `wire_version` : **0 site** ;
+  `api_version` n'existe que comme ABI de module (`CalaosModule.h:65`), rien à voir avec le wire.
+  ⇒ **le serveur ne peut pas servir deux formes** : tout changement de `remote_ui_config_update`
+  est **global et irréversible** pour le parc déjà posé.
+
+  ⚠️ **Et la réserve qui a dicté le conservatisme, écrite au merge dans la fiche ET dans
+  `FINDINGS.md`** : **le dépôt ne contient pas le micrologiciel de l'écran**, donc rien ici ne prouve
+  qu'un écran livré **ignore** une clé inconnue plutôt que de **refuser la trame**. Trancher demande
+  soit le micrologiciel, soit un essai sur un appareil réel.
+
+  ⭐⭐ **LE GARDE-FOU EST RÉEL, PAS DÉCORATIF — c'est le point qu'il fallait juger.**
+  `RemoteUiConfigProjectionTest.ApartFromTheThreeKnownDeltasBothProjectionsAgree` soustrait chaque
+  delta connu de la comparaison, mais **seulement après avoir affirmé qu'il a mordu** : `ASSERT_TRUE`
+  que 5454 porte `state`/`var_type` et `ASSERT_FALSE` que l'écran les porte, idem pour `status_info`,
+  et surtout `ASSERT_FALSE(emptyOn5454.empty())` — « no empty param left: delta 2 is not exercised ».
+  Le delta 2 est d'ailleurs soustrait **par valeur et non par nom**, donc une clé qui deviendrait
+  vide demain est couverte. Ce qui reste doit être égal **clé et octet** (`EXPECT_EQ(api, remote)`).
+  Une fixture qui cesserait d'exercer un delta **rougit** au lieu de comparer deux fois la même
+  chose : le test ne peut pas devenir vacuant en silence. **La fixture porte bien les cinq cas**
+  (vérifié au source) : une valeur `"hello"` **sans** param `state`, un `unit` **présent et vide**
+  (`Params::Add` écrase, donc le `"C"` de `fillEveryProjectedParam()` devient bien `""`), du
+  `status_info` posé, l'IO `alpha` **sans** `status_info` comme moitié d'invariant, et
+  `chauffage_id` **absent** pour distinguer absent de présent-vide.
+
+  🔒 **CONTRE-MUTATIONS REJOUÉES AU MERGE** — restaurations par **copie vérifiée au `cmp` (rc 0)** à
+  chaque tour, ⛔ **aucun `git` dans le conteneur**, ⛔ aucun `rm -f` : **M1** (l'écran cesse de jeter
+  un param vide) ⇒ `{AnEmptyParamIsAKeyOn5454AndNoKeyForTheScreen, R7bis}` — **exactement** l'ensemble
+  annoncé ; **M2** (l'écran calcule `state`/`var_type`) ⇒ `StateAndVarTypeAreComputedFor5454Only`,
+  `TheConfigPayloadReadsStateAsAPlainParam` et R7bis rouges (⚠️ ensemble **plus large** que la fiche,
+  parce que la forme de mutation retenue au merge — `device || param == "state"` — fait prendre la
+  branche calculée à **tous** les params côté écran ; c'est la mutation qui est plus grosse, pas la
+  fiche qui est fausse) ; **M3** (`status_info` part vers l'écran) ⇒
+  `{StatusInfoIsPublishedOn5454Only, R7bis}`, **exactement** l'ensemble annoncé. ⭐ **Témoin** — deux
+  entrées de `ioProjectionParams()` permutées — **VERT, `TOTAL 117 / PASS 114 / FAIL 0`**, avec
+  `CXXLD    core/JsonApiStateWireBytes_test` **LU** dans le journal de `make check` (66 `CXXLD` au
+  total) ⇒ **relink prouvé**, et l'aiguille de la mutation recomptée à **0** après restauration. Le
+  témoin est vert **légitimement** : les deux projections parcourent la même liste et nlohmann ordonne
+  un objet par clé, donc aucun octet ne bouge.
+
+  ✅ **`docs/07_remoteui.md` : correction juste et minimale.** `auto_scenario` → `autoscenario_uid`
+  (re-clé par T3.62 ; `AutoScenarioDef.cpp:31` porte bien cette valeur), et les trois renvois de ligne
+  vérifiés **exacts** au merge : `JsonApi.cpp:576` (`ioProjectionParams()`),
+  `RemoteUIWebSocketHandler.cpp:304-353` (`sendConfigUpdate()`), `:346` (l'appel). ⛔ **Pas de
+  `RELEASE_NOTES`** — et c'est correct : aucun comportement observable ne change. La note de version
+  sera due le jour où l'une des deux questions sera tranchée.
+
+  ⭐ **Worktree `.wave98/t3.69` effacé** (`docker run` ciblé sur le mount exact), `git worktree
+  prune`, branche `fix/t3.69` supprimée. ⛔ **`.review67b` et `.review47` n'ont PAS été touchés.**
+
 - **✅⭐⭐ [`T3.66`](T3.66.md) MERGÉE — 4 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **`c604e9f1`** (2026-09-04). ⭐ `master` était **IMMOBILE** sur
   `01145229` = **exactement la merge-base** ⇒ ni rebase ni conflit. ⛔ **Rien poussé.**

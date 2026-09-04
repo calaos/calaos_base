@@ -9264,10 +9264,14 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   numéro [`T3.68`](T3.68.md). Correctif :
   `from_string_or_keep` sur les deux, avec les défauts de `getBrightness()`.
 
-- 🟡 **[F-REMOTEUI-2] INSTRUIT par [`T3.69`](T3.69.md) (branche `fix/t3.69`, 2026-09-04) — le code
-  est unifié, DEUX DES TROIS DELTAS ATTENDENT UN ARBITRAGE UTILISATEUR.** `buildJsonIO()` prend
-  désormais la projection qu'elle construit et `sendConfigUpdate()` l'appelle : les trois politiques
-  sont trois conditions dans une seule fonction. ⛔ **Aucun wire ne bouge**, et c'est délibéré.
+- 🟡 **[F-REMOTEUI-2] INSTRUIT par [`T3.69`](T3.69.md) — mergé sur `master` en `fbaad93c`
+  (2026-09-04, non poussé). LE VOLET « LISTE » ET LE VOLET « CODE » SONT FERMÉS ; IL RESTE DEUX
+  QUESTIONS UTILISATEUR.** La **liste** des params publiés avait été ramenée à une source unique par
+  [`T3.62`](T3.62.md) ; le **code** l'est maintenant à son tour — `buildJsonIO()` prend la projection
+  qu'elle construit et `sendConfigUpdate()` l'appelle, les trois politiques sont trois conditions
+  dans une seule fonction au lieu de deux boucles tenues en phase à la main. ⛔ **Aucun wire ne
+  bouge**, et c'est délibéré : vérifié au merge, les goldens 5454 sont identiques des deux côtés et
+  la branche `device` reproduit l'ancienne boucle terme à terme.
 
   ⭐ **Mesure décisive : il n'existe AUCUNE négociation de version avec l'écran.** Le serveur connaît
   `device_version` (`RemoteUIProvisioningHandler.cpp:183`, en-tête `X-Device-Version` via
