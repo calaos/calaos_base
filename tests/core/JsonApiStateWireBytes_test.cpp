@@ -116,7 +116,9 @@
 #include "IO/IntValue.h"
 #include "ListeRoom.h"
 
+#include <iostream>
 #include <map>
+#include <sstream>
 #include <string>
 
 using namespace Calaos;
@@ -1303,4 +1305,129 @@ TEST_F(RemoteUiConfigProjectionTest, ADeepFrameLeavesTheSessionUsable)
     ASSERT_EQ(1u, sent.size()) << "the session stopped answering after a deep frame";
     const Json envelope = Json::parse(lastMessage(), nullptr, false);
     EXPECT_EQ("remote_ui_config", envelope.value("msg", std::string()));
+}
+
+namespace
+{
+
+/* The handler reports its failures with cWarningDom, and LogStream ends on
+ * std::cout: swapping the buffer is the only way to read what a device-facing
+ * failure actually blames. Restore in the destructor, gtest writes there too.
+ */
+class CoutCapture
+{
+public:
+    CoutCapture(): saved(std::cout.rdbuf(buffer.rdbuf())) {}
+    ~CoutCapture() { std::cout.rdbuf(saved); }
+    std::string text() const { return buffer.str(); }
+
+private:
+    std::ostringstream buffer;
+    std::streambuf *saved;
+};
+
+} //namespace
+
+/* The screen loaded by RemoteUiStateBridgeTest carries neither `brightness`
+ * nor `timeout` - no write path puts them there, so this is a device that was
+ * provisioned and never adjusted, not a crippled fixture.
+ */
+class RemoteUiUnadjustedScreenTest: public RemoteUiStateBridgeTest
+{
+protected:
+    Json getConfigEnvelope()
+    {
+        sent.clear();
+        handler->processApi("{\"msg\":\"remote_ui_get_config\"}", Params());
+        return Json::parse(lastMessage(), nullptr, false);
+    }
+
+    std::string logOf(const std::string &frame)
+    {
+        CoutCapture capture;
+        handler->processApi(frame, Params());
+        return capture.text();
+    }
+};
+
+/*******************************************************************************
+ * R7. A SCREEN NOBODY EVER ADJUSTED IS ANSWERED, AND WITH USABLE VALUES.
+ *
+ * The content is the case, not the arrival: a screen that receives an envelope
+ * with no brightness in it is as dark as one that receives nothing. 100 is the
+ * default getBrightness() has carried since T3.25; 30 is the value every
+ * example in the wire spec shows, and the only one the tree states anywhere.
+ ******************************************************************************/
+TEST_F(RemoteUiUnadjustedScreenTest, AnUnadjustedScreenIsAnsweredWithUsableDefaults)
+{
+    const Json envelope = getConfigEnvelope();
+
+    ASSERT_TRUE(envelope.is_object()) << "the screen received nothing at all";
+    EXPECT_EQ("remote_ui_config", envelope.value("msg", std::string()));
+
+    const Json data = envelope.value("data", Json::object());
+    ASSERT_TRUE(data.contains("brightness")) << "no brightness on the wire";
+    ASSERT_TRUE(data.contains("timeout")) << "no timeout on the wire";
+
+    EXPECT_TRUE(data["brightness"].is_number_integer())
+            << "brightness stopped being an int: " << data["brightness"].dump();
+    EXPECT_TRUE(data["timeout"].is_number_integer())
+            << "timeout stopped being an int: " << data["timeout"].dump();
+
+    EXPECT_EQ(100, data.value("brightness", -1));
+    EXPECT_EQ(30, data.value("timeout", -1));
+
+    EXPECT_EQ("Screen", data.value("name", std::string()));
+    EXPECT_TRUE(data.contains("pages")) << "the screen got no page list";
+}
+
+/*******************************************************************************
+ * R7bis. AN ADJUSTED SCREEN RECEIVES WHAT IT WAS ADJUSTED TO. INVARIANT.
+ *
+ * The half that keeps R7 from passing on a projection that answers a constant.
+ * Both values differ from the defaults on purpose, and the key set is pinned:
+ * a physical device already reads this payload.
+ ******************************************************************************/
+TEST_F(RemoteUiUnadjustedScreenTest, AnAdjustedScreenStillReceivesItsOwnValues)
+{
+    screen->get_params().Add("brightness", "55");
+    screen->get_params().Add("timeout", "45");
+
+    const Json data = getConfigEnvelope().value("data", Json::object());
+
+    EXPECT_EQ(55, data.value("brightness", -1));
+    EXPECT_EQ(45, data.value("timeout", -1));
+
+    const std::set<std::string> expected = {"brightness", "name", "pages",
+                                            "room", "theme", "timeout"};
+    EXPECT_EQ(expected, keysOf(data)) << "the config payload changed shape";
+}
+
+/*******************************************************************************
+ * R8. A VALID FRAME IS NOT REPORTED AS A PARSE FAILURE.
+ *
+ * The frame below is well formed JSON. Blaming the parser for what happens
+ * after it sends the next reader into the parser for hours; that misdirection
+ * is the defect, on equal footing with the silence.
+ ******************************************************************************/
+TEST_F(RemoteUiUnadjustedScreenTest, AValidFrameIsNeverBlamedOnTheJsonParser)
+{
+    const std::string logged = logOf("{\"msg\":\"remote_ui_get_config\"}");
+
+    EXPECT_EQ(std::string::npos, logged.find("JSON parse error"))
+            << "a well formed frame was reported as a parse failure: " << logged;
+}
+
+/*******************************************************************************
+ * R8bis. AND A FRAME THAT REALLY IS UNPARSABLE STILL SAYS SO. INVARIANT.
+ *
+ * The half that keeps R8 from passing on a handler that simply stopped naming
+ * parse errors.
+ ******************************************************************************/
+TEST_F(RemoteUiUnadjustedScreenTest, AnUnparsableFrameIsStillReportedAsAParseError)
+{
+    const std::string logged = logOf("{\"msg\":");
+
+    EXPECT_NE(std::string::npos, logged.find("JSON parse error"))
+            << "a truncated frame no longer names the parser: " << logged;
 }
