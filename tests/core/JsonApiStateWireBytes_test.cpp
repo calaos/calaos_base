@@ -1915,6 +1915,7 @@ std::vector<std::string> unreadableGeometryIn(const Json &data)
 
 const char *const IO_SOUND = "t375_io_sound";
 const char *const IO_BLANK = "t375_io_blank";
+const char *const IO_WORDY = "t375_io_wordy";
 
 const Json *widgetOnWire(const Json &data, const std::string &ioId)
 {
@@ -1935,10 +1936,14 @@ const Json *widgetOnWire(const Json &data, const std::string &ioId)
 
 } //namespace
 
-/* The page of this fixture really does carry an incomplete geometry: a widget
- * whose `w` is written and empty, next to one that is sound. SetUp() asserts
- * it on the declaration itself, so a fixture somebody later tidies up turns
- * red instead of making every case below vacuous.
+/* The page of this fixture really does carry an incomplete geometry, in BOTH
+ * the shapes the device chokes on, next to one widget that is sound:
+ *   - a size written and EMPTY, which the T3.73 sweep would also see;
+ *   - a size written, NOT empty and still unreadable, which only the sweep
+ *     added here can see. Without it G1 is red exactly where G2 already is,
+ *     and its own half of the defect never reaches the payload.
+ * SetUp() asserts both on the declaration itself, so a fixture somebody later
+ * tidies up turns red instead of making every case below vacuous.
  */
 class RemoteUiWidgetSizeWireTest: public RemoteUiUnsetParamsTest
 {
@@ -1948,7 +1953,9 @@ protected:
         return std::string("          <calaos:widget type=\"switch\" x=\"2\" y=\"0\""
                            " w=\"2\" h=\"1\" io_id=\"") + IO_SOUND + "\"/>\n"
                "          <calaos:widget type=\"switch\" x=\"0\" y=\"1\""
-               " w=\"\" h=\"1\" io_id=\"" + IO_BLANK + "\"/>\n";
+               " w=\"\" h=\"1\" io_id=\"" + IO_BLANK + "\"/>\n"
+               "          <calaos:widget type=\"switch\" x=\"1\" y=\"1\""
+               " w=\"1\" h=\"large\" io_id=\"" + IO_WORDY + "\"/>\n";
     }
 
     void SetUp() override
@@ -1959,7 +1966,11 @@ protected:
         ASSERT_NE(declared.find("w=\"\""), std::string::npos)
                 << "the fixture no longer declares a widget whose size is "
                    "written and empty: it stopped measuring anything";
+        ASSERT_NE(declared.find("h=\"large\""), std::string::npos)
+                << "the fixture no longer declares a size that is written, not "
+                   "empty and unreadable: G1 would only repeat G2";
         ASSERT_NE(declared.find(IO_BLANK), std::string::npos);
+        ASSERT_NE(declared.find(IO_WORDY), std::string::npos);
         ASSERT_NE(declared.find(IO_SOUND), std::string::npos);
     }
 };
@@ -2036,6 +2047,8 @@ TEST_F(RemoteUiWidgetSizeWireTest, ASoundWidgetIsPushedUnchangedAndOnlyTheBlankO
 
     EXPECT_EQ(nullptr, widgetOnWire(data, IO_BLANK))
             << "the widget whose size is blank is still on the wire";
+    EXPECT_EQ(nullptr, widgetOnWire(data, IO_WORDY))
+            << "the widget whose size is a word is still on the wire";
 
     //The two ordinary widgets of the fixture are untouched by all this.
     ASSERT_TRUE(data.contains("pages"));
