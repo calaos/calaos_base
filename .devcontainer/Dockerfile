@@ -28,7 +28,7 @@ COPY scripts/pyproject-requirements.py src/bin/calaos_mcp/pyproject.toml /tmp/ca
 
 # One resolver pass over the whole set — see the comment in ../Dockerfile.
 # --extra test: this is the image `make check` runs in, and without pytest,
-# httpx and fastapi the python suites skip from the inside (T3.47).
+# httpx and fastapi the python suites skip from the inside.
 RUN python3 /tmp/calaos-pydeps/pyproject-requirements.py --extra test \
         /tmp/calaos-pydeps/pyproject.toml > /tmp/calaos-pydeps/requirements.txt && \
     pip install --no-cache-dir --break-system-packages \

@@ -24,18 +24,14 @@
 #                visible in the "# SKIP:" column, never a silent PASS)
 #   1  -> FAIL  (a python test is red, or a suite errored)
 #
-# T3.47 -- CALAOS_PYTHON_TESTS_REQUIRED=1 turns every 77 above into a 1.
+# CALAOS_PYTHON_TESTS_REQUIRED=1 turns every 77 above into a 1. A SKIP is
+# honest but invisible: it lands in a .log nobody reads on a green build, so a
+# CI that silently stops running the 42 cases stays green forever. Where the
+# suites are mandatory, "could not execute" is a build error.
 #
-# A SKIP is honest, but on a machine that is SUPPOSED to run the suites it is
-# not enough: automake writes the SKIP into tests/run-python-tests.sh.log, the
-# console shows one word, and a green build tells the reader nothing about
-# whether the 42 cases ran. That is how CI went from "0 case executed" to
-# "0 case executed" across every push without anyone noticing. On a machine
-# that declares the suites mandatory, "could not execute" is a build error.
-#
-# Off by default: DECISIONS.md (2026-08-25) rules that no optional dependency
-# is made mandatory, so a developer without pytest still gets a SKIP and a
-# working `make check`. CI sets the variable; see .github/workflows/ci.yml.
+# Off by default, per the DECISIONS.md rule that no optional dependency becomes
+# mandatory: a developer without pytest still gets a SKIP and a working
+# `make check`. CI sets the variable.
 #
 # The environment (PYTHON, abs_top_srcdir) is exported by AM_TESTS_ENVIRONMENT
 # in tests/Makefile.am; fall back to sane defaults when run by hand.

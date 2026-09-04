@@ -782,15 +782,11 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# C6 -- T3.47. CALAOS_PYTHON_TESTS_REQUIRED=1 must turn "could not execute"
-# from a SKIP into a FAIL, on EVERY path that produced a 77. C3 and C4 above
-# pin the default (still 77); these pin the strict mode CI runs in.
-#
-# 77 is the right answer on a developer machine and the wrong one on a machine
-# whose whole job is to execute those 42 cases: it is counted in a column
-# nobody reads on a green build, so a CI that silently stops running the suites
-# stays green forever. That is the defect T3.47 exists to close, and it is the
-# only reason this variable exists.
+# C6 -- CALAOS_PYTHON_TESTS_REQUIRED=1 must turn "could not execute" from a
+# SKIP into a FAIL on EVERY path that produced a 77. C3 and C4 above pin the
+# default (still 77); these pin the strict mode CI runs in. 77 is the right
+# answer on a developer machine and the wrong one on a machine whose whole job
+# is to execute those 42 cases.
 # ---------------------------------------------------------------------------
 c6_strict()
 {

@@ -30,9 +30,8 @@ jobs:
       # tests/python/ declares 42 cases and this job used to execute none of
       # them: with no interpreter, AM_PATH_PYTHON sets PYTHON=: and
       # run-python-tests.sh skipped before it could even count. The set comes
-      # from src/bin/calaos_mcp/pyproject.toml (runtime deps + the "test"
-      # extra) and from nowhere else -- the same single source of truth, and
-      # the same single resolver pass, the Dockerfiles use.
+      # from src/bin/calaos_mcp/pyproject.toml and from nowhere else -- same
+      # single source of truth, same single resolver pass, as the Dockerfiles.
       - name: Install the python test dependency set
         run: |
           scripts/pyproject-requirements.py --extra test \
@@ -48,9 +47,9 @@ jobs:
 
       - name: Run tests (make check)
         # Strict: on this job "the python suites could not run" is a build
-        # error, not a skip. Without it the job would go back to reporting 0
-        # of 42 cases executed behind a green tick the day an install step
-        # breaks -- which is exactly how it stayed unnoticed until T3.47.
+        # error, not a skip. Without it the job goes back to reporting 0 of 42
+        # cases executed behind a green tick the day an install step breaks --
+        # which is exactly how it stayed unnoticed for so long.
         env:
           CALAOS_PYTHON_TESTS_REQUIRED: "1"
         run: make check
