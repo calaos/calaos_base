@@ -9737,6 +9737,41 @@ silence, au premier changement d'usine.
 ⛔ **Non prouvable sans matériel** : qu'un écran physique s'allume à 80 %. Ce qui est épinglé est la
 charge émise d'un côté et le source qui la lit de l'autre.
 
+🔒 **REVÉRIFIÉ À LA REVUE DE MERGE (`5d13eeca`) — les deux corrections d'archive sont exactes.**
+(1) Le dépôt du micrologiciel ne porte **aucun** fichier `remote-ui.md`, à aucun chemin : la citation
+`doc/remote-ui.md:85-86,258-259,319-320` de ce finding ne renvoyait à rien. Les trois `80` sont ceux
+de `src/bin/calaos_server/RemoteUI/remote-ui.md` **de ce dépôt** (`:85`, `:546`, `:607` ; `:475` est
+un écran réglé à 90) — relus un à un.
+(2) `data["brightness"] = getBrightness()` est bien apparu sur le **push** avec `350018ca`
+(2025-12-23) et n'y a jamais été retouché depuis ; T3.68 n'a touché que la réponse, le chemin mort.
+
+⭐ **La branche coquille `brigtness` de l'appareil ne change pas la conclusion.**
+`main/calaos_websocket_manager.cpp:794-797` essaie d'abord `data["brigtness"].get<int>()` — un
+indexage **nu, sans défaut ni garde de type** — et ne retombe sur le *pull* que si la clé est absente.
+Vérifié : `brigtness` n'a **jamais** été émis par `calaos_base`, dans aucune révision (`git log -S`
+sur tout l'historique ⇒ 0 commit). La lecture passe donc toujours par
+`data.value("brightness", 80)`, forme présente dans **14/14** révisions depuis `e813dfc`
+(2025-12-11). ⚠️ À connaître tout de même : si un serveur émettait un jour cette clef **en chaîne**,
+le `get<int>()` lèverait et emporterait la charge entière — le mode d'échec de `F-RUI-1`. Défaut
+côté appareil, hors périmètre de ce dépôt.
+
+⚠️ **Fausse assurance trouvée à la revue et FERMÉE (4ᵉ commit).** La suite livrée ne voyait qu'un
+param `brightness` **absent** ou un `"55"` propre : la moitié « écrite et **illisible** » de la garde
+n'atteignait aucune assertion, et une garde réduite à `!get_param("brightness").empty()` laissait la
+suite **entièrement verte** (`CXXLD` des deux binaires lu). Or `" "`, `"abc"`, `"12abc"` et un
+dépassement laissent tous un entier abandonné (0 ou 12) que cette garde-là aurait émis ⇒
+**rétroéclairage à 0** pour trois des quatre, atteignable par un `brightness` écrit à la main dans
+`io.xml`. `ABrightnessTheServerCannotReadLeavesNoKeyEither` balaie les quatre formes sur les **deux**
+charges ; la mutation rejouée rougit ce cas, seul.
+
+ℹ️ **Résiduel nommé et accepté** : `brightnessTheScreenApplies()` du test **recopie la constante 80
+de l'appareil** — c'est précisément ce que le correctif refuse de faire dans `src/`. Le jour où le
+micrologiciel choisit un autre niveau d'usine, `B1`/`B1bis` resteraient **vertes en étant périmées**.
+C'est inhérent : cette constante ne vit pas dans ce dépôt. Le contrepoids est que la **politique**
+(omettre) est tenue par `B2` et par `B5`, qui ne dépendent d'aucune valeur de l'autre dépôt. Et le
+**type entier de la clé sur la réponse** n'est épinglé qu'indirectement (`value<int>()` lèverait) —
+il l'est directement sur le push.
+
 ### [F-RUI-3] Le chemin `remote_ui_config` est mort côté appareil
 
 `remote_ui_config` **n'a aucune branche** dans le dispatch de l'écran

@@ -40,6 +40,90 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
+- **✅⭐⭐ [`T3.74`](T3.74.md) MERGÉE — 4 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête sur `master` : **`5d13eeca`** (2026-09-04). La branche partait de `ffe69dae`,
+  `master` avait avancé à `4370615d` ⇒ **rebase** des 3 commits : **zéro conflit**, y compris sur les
+  quatre fichiers documentaires recouvrants. `make distclean` fait après le rebase.
+  `tests/Makefile.am` **intouché** — **`TESTS` 118 → 118 recompté des deux côtés** ; la branche
+  n'ajoute aucun binaire et **étend** `core/JsonApiStateWireBytes_test` (49 → 55 cas, dont un ajouté
+  par la revue). Goldens `tests/core/golden` = `fe20ab51` identiques des deux côtés.
+  Build de merge : **`TOTAL 118 / PASS 117 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, rc 0,
+  `0 error:`, seul `SKIP` `check-ccache-honesty.sh`. ⛔ **Rien poussé.**
+
+  ⭐⭐ **LE PIVOT DE L'ARBITRAGE EST VÉRIFIÉ, ET IL TIENT — `M2` REJOUÉE PAR LA REVUE.** La fiche
+  tranche (B) « omettre » contre (A) « aligner le serveur sur 80 » en s'appuyant sur le fait que sa
+  mutation `M2` **est** la variante (A) et ne rougit qu'un cas. Rejouée à l'identique sous sa forme
+  fidèle (l'ancien `getBrightness()`, défaut `100` → `80`, clé toujours émise) : rouge
+  **`AnUnsetBrightnessLeavesNoKeyOnEitherPayload` seul** sur la suite livrée, les deux cas qui
+  portent le **niveau appliqué** restant **verts**. Le raisonnement est donc exact et la suite n'est
+  **pas** aveugle à la différence : elle la met dans **une seule case**, `B2`, délibérément, et
+  l'oracle de niveau (`data.value("brightness", 80)`, la lecture même de l'appareil) n'importe pas la
+  règle du correctif. ⚠️ Ce que la mutation prouve est l'**indépendance de l'oracle** ; l'égalité des
+  deux octets, elle, repose sur la lecture du micrologiciel — **revérifiée ici** : forme *pull*
+  `value("brightness", 80)` dans **14/14** révisions depuis `e813dfc` (2025-12-11), **18** étiquettes
+  du 2026-02-10 au 2026-05-26, toutes postérieures.
+
+  ⭐⭐ **UNE FAUSSE ASSURANCE TROUVÉE PAR CONTRE-MUTATION INDÉPENDANTE, ET FERMÉE AU MERGE — et
+  c'est la TROISIÈME NUIT DE SUITE que c'est la même famille : une moitié de règle qui n'atteint
+  aucune assertion.** **M5**, un **échange** que la campagne n'avait pas tenté et que n'importe quel
+  mainteneur écrirait : `if (!get_param("brightness").empty())` à la place du retour de
+  `from_string_or_keep()`. Résultat sur la suite livrée : **0 rouge**, `TOTAL 118 / PASS 117`, avec
+  `CXXLD    core/JsonApiStateWireBytes_test` **et** `CXXLD    core/RemoteUIDeviceInfo_test` **lus** —
+  le vert n'était pas un défaut de relink. Diagnostic : les cinq cas ne voient qu'un param **absent**
+  ou un `"55"` propre ; la moitié « écrite et **illisible** » — la seule qui distingue cette garde
+  d'un test de chaîne vide — n'était exercée par rien. Et son mode d'échec est réel : `" "`, `"abc"`,
+  `"12abc"` et un dépassement laissent tous un entier **abandonné** dans la destination (0 ou 12),
+  que cette garde-là aurait émis ⇒ **rétroéclairage à 0**, écran noir, pour trois des quatre — par un
+  `brightness` écrit à la main dans `io.xml`. ⇒ **4ᵉ commit ajouté à la revue** :
+  `ABrightnessTheServerCannotReadLeavesNoKeyEither`, les quatre formes × les **deux** charges, et
+  **M5 rejouée : 1 rouge**, lui seul. Témoin restauré **vert** 118/117/1/0 (deux tours de contrôle),
+  restaurations **par copie prouvées au `cmp` (rc 0 × 2)**, ⛔ aucun `git` dans le conteneur.
+
+  ⭐ **Le cas d'omission est bien épinglé sur la CHARGE réelle, pas par appel direct.**
+  `pushPayload()` appelle `handler->sendConfigUpdate()` et `answerPayload()` appelle
+  `handler->processApi("{\"msg\":\"remote_ui_get_config\"}")` — les deux **sites de production**.
+  Mesuré en plus : `putBrightnessIfSet` a **0 occurrence dans `tests/`**, et le seul source de
+  `tests/` qui parle de la luminosité de l'écran est `core/JsonApiStateWireBytes_test.cpp` (les cinq
+  autres fichiers qui contiennent le mot visent IPCam, Mqtt ou un chemin JSON). C'est **l'inverse**
+  du trou des deux merges précédents : ici il n'existe **aucun** appel direct à la garde.
+
+  ⭐ **Les affirmations de la fiche tiennent, revérifiées aux deux dépôts.** `getBrightness()` avait
+  exactement **2 appelants**, les deux émissions, **0 dans `tests/`** ⇒ suppression justifiée ·
+  **0 autre consommateur** de la clé (`IPCam`/`Mqtt` sont sans rapport ; `set_brightness` **écrit**
+  le param et envoie un **autre** message) · `timeout = 30` corroboré (`main/calaos_protocol.h:137`)
+  et **intouché** · les trois `80` et le `90` de `RemoteUI/remote-ui.md` sont aux lignes annoncées.
+  ⭐ **La branche coquille `brigtness` (`…manager.cpp:794`) est MORTE pour ce serveur** :
+  `calaos_base` n'a **jamais** émis cette clef, dans aucune révision (`git log -S` sur tout
+  l'historique ⇒ 0 commit), donc la lecture retombe toujours sur le *pull* — la conclusion ne change
+  pas. ⚠️ Elle reste un piège **côté appareil** : `data["brigtness"].get<int>()` est nu, sans défaut
+  ni garde de type.
+
+  ⭐ **Les deux corrections d'archive de `F-RUI-2` sont EXACTES.** (a) Ce n'est pas T3.68 mais
+  **T3.73** qui a rendu le `100` effectif : la ligne du **push** date de `350018ca` (2025-12-23,
+  amont) et n'a jamais bougé, T3.68 n'a touché que la réponse (chemin mort, `F-RUI-3`), et avant
+  T3.73 un écran jamais réglé jetait la charge entière sur `screensaver_timeout: ""`. (b) Le dépôt du
+  micrologiciel ne porte **aucun** `remote-ui.md`, à aucun chemin — la citation `doc/remote-ui.md`
+  ne renvoyait à rien.
+
+  **Les 2 assertions préexistantes déplacées ne laissent rien à découvert.** Les deux fixtures
+  concernées (`RemoteUiUnadjustedScreenTest` et `RemoteUiUnsetParamsTest`) dérivent de
+  `RemoteUiStateBridgeTest`, qui ne pose que `id`/`name`/`type` : **aucune ne réglait `brightness`**,
+  donc ce que les lignes retirées épinglaient est un écran **jamais réglé** — exactement la
+  population que `B1`/`B1bis` (niveau) et `B2` (forme) reprennent, sur les deux charges au lieu
+  d'une, et `B3` reprend présence + valeur + **type entier** pour un écran réglé. Le seul écart :
+  le **type entier sur la réponse** n'est plus épinglé que par le jet de `value<int>()`, non par une
+  assertion. `AnAdjustedScreenStillReceivesItsOwnValues` et son jeu de clés sont **inchangés**.
+
+  ℹ️ **Fausse assurance résiduelle, nommée et acceptée** : l'oracle `brightnessTheScreenApplies()`
+  **recopie dans `tests/` la constante 80 de l'appareil** — ce que le correctif refuse de faire dans
+  `src/`. Si le micrologiciel change de niveau d'usine, `B1`/`B1bis` resteront **vertes en étant
+  périmées**. C'est inhérent (la constante ne vit pas ici) et le contrepoids est que la **politique**
+  est portée par `B2` et `B5`, qui ne dépendent d'aucune valeur de l'autre dépôt.
+
+  **État de la session au sortir de ce merge** : `master` = le commit de revue qui porte ce
+  paragraphe, rien de poussé, historique linéaire. Worktree `.wave104/t3.74` supprimé, branche
+  `fix/t3.74` supprimée.
+
 - **✅⭐⭐ [`T3.28a`](T3.28a.md) MERGÉE — 4 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **`64c07e31`** (2026-09-04). La branche partait de `397e5b7a`,
   `master` avait avancé à `ffe69dae` (T3.75) ⇒ **rebase** des 3 commits : **zéro conflit**, y
