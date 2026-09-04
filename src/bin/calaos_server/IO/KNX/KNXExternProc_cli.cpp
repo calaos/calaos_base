@@ -67,8 +67,8 @@ void KNXProcess::doRead(int argc, char **argv)
         cpt++;
     }
 
-    //T3.33: the "16-bit integer" form the --help text advertises was never
-    //implemented - the else branch below used to and-mask knx_addr with itself.
+    //The "16-bit integer" form the --help text advertises was never implemented:
+    //the else branch here used to and-mask knx_addr with itself.
     if (Utils::strContains(sgroup_addr, "/") &&
         !knxGroupAddrFromString(sgroup_addr, knx_addr))
     {

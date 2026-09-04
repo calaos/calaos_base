@@ -348,24 +348,15 @@ inline bool decodeMessage(const std::string &msg, Params &out,
     return true;
 }
 
-/*******************************************************************************
- * T3.33 - THE REQUEST, DECODED AND CHECKED IN ONE PLACE
+/*
+ * There is no default address and no default count: what follows this decode is
+ * modbus, where address 0 is the first coil of a real PLC and a write to it
+ * drives a relay. A field that is absent, blank, partially readable or out of
+ * its type's range refuses the whole request rather than falling back to zero.
  *
- * The six action branches of calaos_wago used to parse their own fields, each
- * with a pair of locals declared without an initialiser and a from_string()
- * whose return value nobody read. What follows the parse is modbus: an address
- * is a coil or a register of a PLC, and a write to it drives a relay.
- *
- * ⛔ There is NO DEFAULT ADDRESS and NO DEFAULT COUNT. A field that is absent,
- * blank, unreadable, only partially readable or out of the range its type can
- * hold makes the whole request Refused: the sidecar answers a failed status and
- * never touches the bus. Zero is not a safe fallback here - it is the first
- * register.
- *
- * WHY THE CHECK CAN WORK AT ALL: since T3.25, Utils::from_string() answers
- * false on every one of those inputs (it used to answer TRUE on a blank string
- * while writing nothing). Before T3.25 no guard written here could have fired.
- ******************************************************************************/
+ * The check can only work because Utils::from_string() now answers false on
+ * every one of those inputs; it used to answer true on a blank string.
+ */
 
 struct Request
 {
@@ -425,10 +416,9 @@ inline bool decodeCount(const Params &request, Request &out)
 }
 
 /*
- * `values` is the array decodeMessage() filled from the same parse.
- *
- * The six cases are written out rather than merged: a guard removed from one
- * of them must turn ONE set of tests red, not four.
+ * `values` is the array decodeMessage() filled from the same parse. The six
+ * cases are written out rather than merged so that a guard removed from one of
+ * them turns a single set of tests red.
  */
 inline Decoded decodeRequest(const Params &request, const std::vector<std::string> &values,
                              Request &out)

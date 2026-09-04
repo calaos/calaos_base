@@ -73,9 +73,9 @@ void WagoProcess::messageReceived(const string &msg)
     if (decoded == WagoWire::Decoded::NoSuchAction)
         return;
 
-    /* T3.33 - a field we could not read is NOT a zero. calaos_server is told
-     * the request failed and the PLC is never contacted; answering nothing
-     * would leave the pending command of WagoMap hanging forever. */
+    /* A field we could not read is not a zero. calaos_server is told the
+     * request failed and the PLC is never contacted; answering nothing would
+     * leave the pending command of WagoMap hanging forever. */
     if (decoded == WagoWire::Decoded::Refused)
     {
         cError() << "Refusing " << jsonData["action"] << " request " << jsonData["id"]
@@ -182,7 +182,7 @@ void WagoProcess::messageReceived(const string &msg)
         cDebug() << "Writing " << req.wordValue << " to address " << req.address
                  << " (PLC: " << wago_host << ")";
 
-        /* T3.31 - THE pair of F-WAGO-7: two UWord side by side on a WRITE.
+        /* The pair of F-WAGO-7: two UWord side by side on a WRITE.
          * Permuting them used to compile in silence and preset an arbitrary
          * register of the PLC. The wrapping below is the one place left where
          * a human names which is which. */

@@ -127,23 +127,17 @@ inline string knxDisconnectedMessage()
     return p.toJson().dump(-1, ' ', true, Json::error_handler_t::replace);
 }
 
-/*******************************************************************************
- * T3.33 - THE TWO ADDRESS DECODERS, WHICH CAN NOW SAY NO
+/*
+ * Whatever these answer is the group EIBSendGroup() writes to, so they refuse
+ * instead of inventing. Utils::split() pads its token list up to `max`, so "1"
+ * yields {"1", "", ""}: no out of bounds read, but two components nobody gave.
+ * The old & 0x0F / & 0xFF were a mask and not a guard - "1/2/300" wrote to
+ * 1/2/44, a group that exists. `out` is left untouched on a refusal so that a
+ * caller ignoring the return value cannot pick up a fabricated address.
  *
- * Whatever these answer is what EIBSendGroup() writes to. They used to answer
- * an address unconditionally: Utils::split() PADS its token list up to `max`
- * (StringUtils.cpp:210), so "1" yields {"1", "", ""} - no out of bounds read,
- * but two components that nobody gave were invented and the telegram went to
- * ANOTHER GROUP.
- *
- * ⛔ The & 0x0F / & 0xFF of the old bodies were never a guard, only a mask:
- * "1/2/300" wrote to 1/2/44. A component outside its layout is REFUSED here,
- * not truncated, and `out` is left alone so a caller that ignores the answer
- * cannot pick up a fabricated address.
- *
- * They live in this header, and not in KNXExternProc_main.cpp, because that
- * translation unit ends on EXTERN_PROC_CLIENT_MAIN and no test can link it.
- ******************************************************************************/
+ * They sit in this header because KNXExternProc_main.cpp ends on
+ * EXTERN_PROC_CLIENT_MAIN and no test can link that translation unit.
+ */
 
 //Group address, 5/3/8 layout: main/middle/sub.
 inline bool knxGroupAddrFromString(const string &group_addr, eibaddr_t &out)
