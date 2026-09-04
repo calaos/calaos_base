@@ -8,6 +8,82 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅⭐⭐ [`T3.67`](T3.67.md) MERGÉE — 4 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête sur `master` : **`9dfbb35c`** (2026-09-04). ⭐ `master` était **IMMOBILE** sur
+  `ac0965d8` = **exactement la merge-base** ⇒ ni rebase ni conflit. `tests/Makefile.am` **append pur
+  prouvé** (+10/−0/~0, préfixe strict de `master`, `^if HAVE_GTEST`/`^endif` inchangés 97/98),
+  **`TESTS` 115 → 116**, `Makefile.am` racine touché d'**une ligne** (la sonde dans `EXTRA_DIST` :
+  elle est exécutée par un script `dist_check_SCRIPTS`, elle doit voyager dans le tarball).
+  ⛔ **Rien poussé, aucun `docker build`, image NON republiée.**
+
+  ⭐⭐ **LE `SKIP` PASSE DE 2 À 3, ET C'EST LE LIVRABLE.** Build d'intégration `make distclean` +
+  `autogen` + `configure` + `make -j16` + `make check -j8` :
+  **`TOTAL 116 / PASS 113 / SKIP 3 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, un seul
+  `Testsuite summary`, **0 `error:`**. Le troisième `SKIP` est `check-pydeps-conformance.sh`, et il
+  **dit, paquet par paquet nommé, que l'image ne porte pas ce que sa recette déclare** :
+  `mcp fastapi uvicorn websockets pydantic starlette pytest httpx` — **huit**, dont `websockets` que
+  le relevé manuel de `F-PYIMG-1` n'avait pas vu. **Il retombera à 2 dès l'image reconstruite.**
+  ⭐ **C'est bien un `SKIP` (`rc=77`), pas un échec** — règle du dépôt : *averti, pas bloqué*, motif
+  `check-ccache-honesty.sh` — **et le mode strict fait bien échouer** : `CALAOS_PYDEPS_STRICT=1`
+  rend `rc=1`, vérifié au merge. C'est ce que posent `ci.yml` et les trois blocs `RUN` des deux
+  `Dockerfile` (**l'étage `runner` de production, qui duplique le bloc `pip`, est traité**).
+
+  ⭐ **La sonde vérifie la VERSION, pas seulement la présence — rejoué au merge.** `httpx==0.27.2`
+  installé par-dessus le pin `0.28.1` ⇒ `VERSION httpx installe en 0.27.2, epingle en 0.28.1`,
+  `rc=77` / strict `rc=1`. C'est le mode d'échec réel du 2026-08-24 (`mcp 2.0.0` malgré le pin)
+  qu'une sonde de simple présence aurait manqué. `starlette` désinstallé ⇒ `ABSENT starlette`. Et
+  après installation conforme du jeu déclaré : **`PASS`, 9/9 à la version épinglée**.
+  ⭐ **Anti-circularité vérifiée au source** : la déclaration vient de `pyproject.toml` expansé par
+  `scripts/pyproject-requirements.py` — le **même** expanseur que les `Dockerfile` et la CI — et la
+  réalité vient de `importlib.metadata.distributions()`, les `.dist-info` sur le disque. **Aucune
+  liste de dépendances écrite à la main nulle part.**
+
+  ⛔⭐ **UNE AFFIRMATION CENTRALE DE LA FICHE ÉTAIT FAUSSE ET A ÉTÉ CORRIGÉE AU MERGE.** T3.67
+  concluait de la présence de `roonapi`/`reolink-aio` dans l'image que **le `pip` de la recette
+  actuelle avait tourné en rendant autre chose**, donc que ce n'était *pas* « une vieille image ».
+  La datation dit l'inverse : image créée le **2026-05-28 20:29**, `.dist-info` de
+  `/usr/local/lib/python3.11/dist-packages` **tous** horodatés `2026-05-28 18:29`, et la ligne
+  `pip install "mcp[cli]" uvicorn fastapi` n'entre dans `.devcontainer/Dockerfile` que le
+  **2026-06-04** (`c57ec9be`), une semaine plus tard ; les lignes `roonapi` (2025-02-16) et
+  `reolink-aio` (2025-06-28) préexistaient, et `/usr/local` ne porte **que** leur clôture transitive
+  — ni `anyio`, ni `click`, ni `h11`, ni `httpcore`, ni `sniffio`. ⇒ **c'est bien une vieille
+  image**, plus vieille même que `F-PYIMG-1` ne le supposait : **antérieure au serveur MCP
+  lui-même**. La conclusion pratique redevient celle d'origine — **reconstruire**, pas « comprendre
+  pourquoi le pip diverge ». `T3.67.md` et `FINDINGS.md` ont été corrigés en ce sens.
+
+  ⚠️⭐ **« La publication d'une image en dérive est empêchée » reste une DÉDUCTION, pas une
+  mesure** — dit franchement ici parce que la fiche l'énonçait comme un fait. **Aucun `docker
+  build`** n'a été fait, ni par l'auteur ni au merge. Ce qui est établi : la sonde est dans la
+  chaîne `&&` **avant** le `rm -rf`, elle rend `1` en strict sur un environnement en dérive, et
+  Docker fait échouer un `RUN` non nul — c'est une garantie de sémantique du shell, pas un build
+  observé. ⭐ **Ce qui a pu être mesuré au merge l'a été** : la chaîne `RUN` du
+  `.devcontainer/Dockerfile` **rejouée verbatim** (expanseur + `pip install -r … roonapi
+  reolink-aio` + sonde stricte + `rm -rf`) rend **0**, la sonde dit `PASS`, le `rm -rf` est atteint
+  ⇒ **le garde-fou neuf ne casse pas le build de l'image**. Restent hors mesure le `COPY` et l'étage
+  `runner` de production. Le câblage `ci.yml` n'a **jamais** tourné chez GitHub (`push` interdit).
+
+  **Ce que le contrôle NE couvre PAS est écrit dans la fiche (§2.3)**, pas seulement dans un
+  rapport : paquets `apt`, le fait qu'un paquet enregistré s'*importe* réellement, les transitives
+  non épinglées, les contraintes autres que `==` (auditées en présence seule et **déclarées telles
+  quelles** sur leur propre ligne), et `roonapi`/`reolink-aio`, hors `pyproject` par choix
+  [T3.23](T3.23.md).
+
+  `F-PYIMG-1` : volet **« rien ne le mesure » FERMÉ**, volet **« reconstruire l'image » OUVERT**.
+  ⭐ **Worktree `.wave95/t3.67` effacé** (`docker run` ciblé sur le mount exact), `git worktree
+  prune`, branche `fix/t3.67` supprimée. ⛔ **`.wave94/t3.65` (T3.65 en cours), `.review67b` et
+  `.review47` n'ont PAS été touchés.**
+
+- **⭐⭐ CE QUE L'UTILISATEUR DOIT FAIRE AU RÉVEIL : RECONSTRUIRE SON IMAGE DE DÉVELOPPEMENT.**
+  Rien d'autre ne referme le second volet de `F-PYIMG-1`. Tant que ce n'est pas fait, chaque
+  `make check` continuera de nommer les **huit** paquets manquants (`mcp fastapi uvicorn websockets
+  pydantic starlette pytest httpx`), le troisième `SKIP` restera là, le sidecar MCP ne démarrera pas
+  là où on le développe, et les tests Python resteront à **23 cas sur 42**. L'image en service date
+  du **2026-05-28** et est **antérieure au serveur MCP** ; les correctifs de [T3.47](T3.47.md) et le
+  jeu déclaré depuis [T3.23](T3.23.md) n'y sont jamais entrés. Après reconstruction, le `SKIP`
+  retombe à **2** et `check-pydeps-conformance.sh` passe au vert **de lui-même** — c'est le signal
+  d'arrivée. ⚠️ Le build de l'image exécute désormais la sonde en mode strict : s'il échoue, c'est
+  la recette qui ne tient pas ses pins, et ce serait la première fois qu'on le voit.
+
 - **✅⭐⭐ [`T3.70`](T3.70.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **`ba4a3e66`** (2026-09-04). `master` était sur **`e7f1eb6f`**,
   branche faite sur **`6841880a`** ⇒ **REBASE** (T3.61 mergée entre-temps) ; **un seul conflit,

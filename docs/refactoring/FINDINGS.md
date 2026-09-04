@@ -9095,8 +9095,9 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   `scripts/pydeps-conformance-probe.py` compare les `.dist-info` réellement posés dans
   l'environnement à ce que `pyproject.toml` déclare, câblée en entrée `TESTS`
   (`check-pydeps-conformance.sh`, `77` par défaut / `1` sous `CALAOS_PYDEPS_STRICT`), dans `ci.yml`,
-  et **dans la chaîne `RUN` des deux `Dockerfile`** — seul point qui empêche la publication d'une
-  image en dérive. ⭐ **Mesurée rouge sur la dérive RÉELLE**, nommant **huit** paquets absents : la
+  et **dans la chaîne `RUN` des deux `Dockerfile`** (3 blocs, l'étage `runner` compris) — le seul des
+  trois points qui puisse empêcher la publication d'une image en dérive, ⚠️ **par déduction de la
+  sémantique `&&` : aucun `docker build` n'a été fait**. ⭐ **Mesurée rouge sur la dérive RÉELLE**, nommant **huit** paquets absents : la
   sonde en a trouvé **un de plus (`websockets`) que l'énumération manuelle ci-dessous**. ⛔ **La « trouvaille »
   de T3.67 — `roonapi`/`reolink-aio` présents ⇒ « le `pip` de la recette a tourné » ⇒ « ce n'est pas
   une vieille image » — a été RÉFUTÉE à la revue de merge par datation** : image créée le
