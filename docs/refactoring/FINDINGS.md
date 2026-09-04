@@ -9264,7 +9264,38 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   numéro [`T3.68`](T3.68.md). Correctif :
   `from_string_or_keep` sur les deux, avec les défauts de `getBrightness()`.
 
-- ⚠️ **[F-REMOTEUI-2] → ticket [`T3.69`](T3.69.md). Les deux projections d'un IO ne suivent pas la même politique de valeur, et
+- 🟡 **[F-REMOTEUI-2] INSTRUIT par [`T3.69`](T3.69.md) (branche `fix/t3.69`, 2026-09-04) — le code
+  est unifié, DEUX DES TROIS DELTAS ATTENDENT UN ARBITRAGE UTILISATEUR.** `buildJsonIO()` prend
+  désormais la projection qu'elle construit et `sendConfigUpdate()` l'appelle : les trois politiques
+  sont trois conditions dans une seule fonction. ⛔ **Aucun wire ne bouge**, et c'est délibéré.
+
+  ⭐ **Mesure décisive : il n'existe AUCUNE négociation de version avec l'écran.** Le serveur connaît
+  `device_version` (`RemoteUIProvisioningHandler.cpp:183`, en-tête `X-Device-Version` via
+  `HMACAuthenticator.cpp:42`) mais son **seul** usage est l'OTA (`RemoteUIManager.cpp:344`) : elle ne
+  conditionne aucune trame. `protocol_version` / `api_version` / `wire_version` dans le protocole
+  RemoteUI : **0 site**. ⇒ le serveur ne peut pas servir deux formes ; tout changement de
+  `remote_ui_config_update` est **global et irréversible** pour le parc déjà posé.
+
+  - **Delta `state`/`var_type` : JUSTIFIÉ, refermé sans changement.** `set_param("state")` /
+    `Add("state")` / `paramAdd("state")` : **0 site** dans `src/`, rien sous `data/` — aucun IO que
+    le serveur construit ne porte ces noms comme params, donc **l'écran n'en reçoit aucun** et tient
+    ses états de `remote_ui_io_states`. Côté 5454 le calcul sert des consommateurs réels
+    (`calaos_mcp/tools/io.py:25`, `rooms.py:53`, `_home.py:12` ; 18 `"state": ""` dans 4 goldens).
+    **Un delta justifié n'est pas une divergence à supprimer.**
+  - ❓ **QUESTION UTILISATEUR 1 — param présent mais vide.** 5454 émet `"unit": ""`, l'écran omet la
+    clé. Niveler vers « omettre » retire 18 valeurs de 4 goldens et contredit le contrat E4.1m ;
+    niveler vers « émettre » pose des clés vides neuves sur un écran déjà livré. **Non tranché.**
+  - ❓ **QUESTION UTILISATEUR 2 — `status_info`.** L'ajouter au payload de configuration y fait
+    entrer un **objet imbriqué** là où les `io_items` n'ont jamais porté que des chaînes ; le retirer
+    de 5454 ampute l'API. **Non tranché.**
+
+  Les deux décisions se posent maintenant sur **une** ligne de `buildJsonIO()`, et exigeront une note
+  de version le jour où elles tombent. Garde-fou en place :
+  `RemoteUiConfigProjectionTest.ApartFromTheThreeKnownDeltasBothProjectionsAgree` — chaque delta est
+  affirmé avoir mordu **avant** d'être soustrait, le reste doit être égal octet pour octet, une
+  quatrième politique rougit.
+
+- 📜 **[F-REMOTEUI-2, énoncé d'origine] Les deux projections d'un IO ne suivent pas la même politique de valeur, et
   une seule des deux est justifiée.** `buildJsonIO()` calcule `state` et `var_type` à partir de la
   valeur de l'IO, émet une **chaîne vide** pour un param présent mais vide, et ajoute
   `status_info` ; `sendConfigUpdate()` lit `state` et `var_type` **comme des params** (donc

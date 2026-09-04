@@ -338,12 +338,25 @@ attrapée et ignorée avec un avertissement, sans réponse d'erreur
 `ota_update`** — ces six noms figuraient dans ce document avant la revue E4.5e ; aucun n'est émis.
 
 Clés de `remote_ui_config_update` (dérivé,
-`src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:265-312`) : `name`, `brightness`,
+`src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:304-353`) : `name`, `brightness`,
 `grid_height`, `grid_width`, les huit `screensaver_*`, `pages`, `room`
-(`name`/`type`/`hits`, seulement si la pièce est trouvée), et `io_items` — un tableau où chaque
-IO ne porte que les paramètres **non vides** parmi
-`id`, `name`, `type`, `hits`, `var_type`, `visible`, `chauffage_id`, `rw`, `unit`, `gui_type`,
-`state`, `auto_scenario`, `step`, `io_type`, `io_style`, `value_warning` (`:302`).
+(`name`/`type`/`hits`, seulement si la pièce est trouvée), et `io_items` — un tableau projeté par
+`JsonApi::buildJsonIO(io, jio, IoProjection::DeviceConfig)` (`:346`).
+
+Les noms de params sont ceux de l'API 5454, déclarés une seule fois par
+`JsonApi::ioProjectionParams()` (`JsonApi.cpp:576`) : `id`, `name`, `type`, `hits`, `var_type`,
+`visible`, `chauffage_id`, `rw`, `unit`, `gui_type`, `state`, `autoscenario_uid`, `step`, `io_type`,
+`io_style`, `value_warning`. ⚠️ **La politique de valeur, elle, n'est pas la même que sur 5454** —
+trois différences, et l'appareil ne négocie aucune version de protocole, donc aucune ne peut être
+nivelée par le serveur seul ([T3.69](refactoring/T3.69.md)) :
+
+| | 5454 | `io_items` |
+|---|---|---|
+| `state`, `var_type` | calculés depuis la valeur et le type de l'IO | lus comme des params — et aucun IO construit par le serveur n'en porte, donc l'écran n'en reçoit pas |
+| param qui existe et est vide | émis (`"unit": ""`) | omis |
+| `status_info` | objet imbriqué ajouté | jamais |
+
+L'écran tient ses états de `remote_ui_io_states`, pas de sa configuration.
 
 Clés de `remote_ui_fw_update_available` (dérivé,
 `src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:260-270`) : `hardware_id`, `version`,
