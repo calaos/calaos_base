@@ -1995,6 +1995,18 @@ donne désormais à une définition de scénario, et elle ne vit que sur l'équi
 ni la règle « un paramètre absent n'émet aucune clé ». **Aucun octet de votre `io.xml` n'est
 modifié** — le paramètre historique reste sur le disque, il n'est simplement plus publié.
 
+### Les écrans RemoteUI reçoivent le même champ (T3.62)
+
+Le payload de configuration envoyé aux écrans distants (`remote_ui_config_update`) décrit lui aussi
+chaque équipement, et il portait **encore `auto_scenario`** alors que l'API 5454 publiait déjà
+`autoscenario_uid` : sur le même équipement, les deux transports ne nommaient pas le scénario de la
+même façon. Ils le nomment maintenant pareil. La liste des champs publiés est écrite **une seule
+fois** dans le serveur, de sorte qu'un futur renommage atteigne les deux d'un coup.
+
+**Ce que cela change pour un écran.** Un firmware qui lisait `auto_scenario` dans le payload de
+configuration ne le trouvera plus ; il trouve `autoscenario_uid` à la place. Aucun autre champ ne
+bouge, et l'`io.xml` n'est pas modifié.
+
 ## L'alerte de démarrage cesse d'annoncer des scénarios qui n'existent plus
 
 Quand une règle est désactivée au démarrage parce qu'elle référence un équipement disparu, Calaos

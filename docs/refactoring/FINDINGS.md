@@ -9000,8 +9000,17 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   effectivement journalisé, et/ou la dumper **non indentée**. Les deux sont indépendantes du
   plafond, et l'une des deux suffit à ramener les 16,8 Mo à quelques kilo-octets.
 
-- ⛔ **[F-JSON-1] `RemoteUIWebSocketHandler::processApi()` contourne le plafond de profondeur.**
-  `RemoteUI/RemoteUIWebSocketHandler.cpp:128` fait son **propre** `Json::parse(data)` — sous
+- ✅ **[F-JSON-1] FERMÉ par [`T3.62`](T3.62.md) (2026-09-04).** Le parse local de
+  `RemoteUIWebSocketHandler::processApi()` est gardé par `requestNestingWithinLimit(data)` : au-delà
+  de 2048 niveaux le document n'est plus construit du tout, le parent émet l'unique refus, la
+  session reste ouverte et répond à la trame suivante. **Seuil exercé des deux côtés** dans
+  `core/JsonApiStateWireBytes_test` (`AFrameAtTheCapIsServed` / `AFrameAboveTheCapIsRefusedByThe
+  LocalParse`), sur la branche **locale** du handler (`remote_ui_get_config`) et non sur celle du
+  parent : une garde posée seulement chez le parent laisse le premier cas rouge. Ce qui suit est le
+  relevé d'origine, gardé pour la mesure.
+
+  ⛔ **[F-JSON-1, relevé d'origine] `RemoteUIWebSocketHandler::processApi()` contourne le plafond.**
+  `RemoteUI/RemoteUIWebSocketHandler.cpp:128` faisait son **propre** `Json::parse(data)` — sous
   `try`/`catch`, donc pas de `terminate` — **avant** de déléguer à `JsonApiHandlerWS::processApi()`
   (`:157`). Le plafond de T3.58 vit dans le parent : sur une socket RemoteUI, un document profond
   est donc **parsé une fois à plein tarif** avant que quoi que ce soit ne le refuse. Le correctif
@@ -9134,3 +9143,32 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   coût de la vérification est d'ouvrir ce fichier, et c'est ce qui a manqué pendant trois jours.
   Une passe trouvée **non commitée** dans un worktree n'a été relue par personne — la mettre à
   l'abri sur une branche a été le bon geste, la merger telle quelle aurait propagé le mensonge.
+
+## T3.62 — la projection RemoteUI (2026-09-04)
+
+- ⛔⭐ **[F-REMOTEUI-1] `remote_ui_get_config` est SANS RÉPONSE sur tout écran dont l'`io.xml`
+  n'a ni `brightness` ni `timeout`, et le journal accuse le mauvais coupable.**
+  `RemoteUI::getRemoteUIConfigMessage()` (`IO/RemoteUI/RemoteUI.cpp:496-497`) lit ces deux params
+  par un **`std::stoi` nu** : `get_param()` rend `""` pour un param absent, `std::stoi("")` lève
+  `std::invalid_argument`, et l'exception remonte dans le `try` de
+  `RemoteUIWebSocketHandler::processApi()` — celui qui existe pour les erreurs de parse. L'écran ne
+  reçoit **rien**, et la ligne écrite est `RemoteUIWebSocketHandler: JSON parse error: stoi`, qui
+  désigne une trame parfaitement valide. ⚠️ **Mesuré, pas raisonné** : la fixture de
+  `RemoteUiConfigProjectionTest` ne recevait aucune réponse tant qu'elle n'a pas posé les deux
+  params, et le journal du binaire porte la ligne mot pour mot. Le jumeau `getBrightness()`
+  (`:522`) fait pourtant déjà la bonne chose (`from_string_or_keep`, défaut 100), et
+  `sendConfigUpdate()` passe par `parseGridDimension()` pour la même raison. **Non corrigé** :
+  `IO/RemoteUI/RemoteUI.cpp` est hors du périmètre déclaré de T3.62. Correctif :
+  `from_string_or_keep` sur les deux, avec les défauts de `getBrightness()`.
+
+- ⚠️ **[F-REMOTEUI-2] Les deux projections d'un IO ne suivent pas la même politique de valeur, et
+  une seule des deux est justifiée.** `buildJsonIO()` calcule `state` et `var_type` à partir de la
+  valeur de l'IO, émet une **chaîne vide** pour un param présent mais vide, et ajoute
+  `status_info` ; `sendConfigUpdate()` lit `state` et `var_type` **comme des params** (donc
+  quasiment jamais présents) et **laisse tomber tout param vide**. T3.62 ramène la **liste** à une
+  source unique — c'est elle qui avait divergé — mais **pas la politique**, parce que l'unifier
+  changerait la charge utile envoyée à un **appareil physique** non mis à jour en même temps que le
+  serveur : trois deltas, dont un objet imbriqué (`status_info`). ⇒ **Ticket proposé** : décider ce
+  que l'écran doit recevoir (il reçoit déjà ses états par `remote_ui_io_states`, donc `state` et
+  `var_type` y sont probablement du bruit), puis faire appeler `buildJsonIO()` par
+  `sendConfigUpdate()` — avec une note de version, parce que c'est un changement de wire.
