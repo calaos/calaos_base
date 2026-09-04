@@ -40,6 +40,78 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
+- **✅⭐⭐ [`T3.79`](T3.79.md) MERGÉE — 4 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête sur `master` : **le commit de revue qui porte ce paragraphe** (2026-09-05). La
+  branche partait de `83deee66` et `master` n'avait pas bougé ⇒ **aucun rebase**. `tests/Makefile.am` :
+  **append pur** (`diff` +37/−0/~0), `^if HAVE_GTEST` 100 → 101 et `^endif` 101 → 102,
+  **`TESTS` 119 → 120 recompté des deux côtés** (`core/ExternProcLogSecret_test`). Build de merge
+  après `make distclean` : **`TOTAL 120 / PASS 119 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**,
+  rc 0, **0 `error:`**, un seul `Testsuite summary`, `check-test-deps.sh` **PASS**, seul `SKIP`
+  `check-ccache-honesty.sh`. ⛔ **Rien poussé.**
+
+  ⭐⭐ **LE RECENSEMENT DES SEPT CONTRÔLEURS EST RECOMPTÉ ET IL EST EXACT — c'est lui, et lui seul,
+  qui justifie d'avoir écarté le caviardage.** 16 sites de `startProcess()` dans **8 fichiers**
+  (les sept contrôleurs plus `LuaScript/ScriptExec.cpp`, qui ne passe aucun argument). **MQTT seul**
+  porte un secret dans son argv (`MqttWire.h:231-235` → `MqttCtrl.cpp:29`) ; Wago `host`/`port`,
+  KNX `--server ip:<host>`, OLA l'univers, OneWire les arguments owfs, Roon `--host`/`--port`,
+  **Reolink aucun argument**. Le jeton Roon est bien dans un **fichier de cache**
+  (`ExternProcRoon_main.py:96,126`) et les identifiants Reolink bien dans **la socket**
+  (`ReolinkWire.h:85`, `buildRegisterMessage()`). **Aucun écart.** ⇒ une liste de champs à caviarder
+  vaudrait **un** nom.
+
+  ⭐ **Les trois autres affirmations tiennent, vérifiées aux sources.** (2) `CALAOS_LOG_LEVEL` est
+  bien mis dans l'environnement de l'enfant par `startProcess()` et le stdout de l'enfant est bien
+  réinjecté dans `std::cout` du serveur (`pipe->on<uvw::DataEvent>`) ⇒ **(C) ne protège pas**.
+  (3) `MqttExternProc_main.cpp` streamait bien `argv[1]` à **`cError()`**, soit `LOG_LEVEL_ERROR` = 2
+  contre un défaut de 4 ⇒ **imprimé par défaut, sur le chemin d'échec**. (7) **les deux secrets de
+  [`T3.81`](T3.81.md) sont exacts** : `AVRRose.cpp:126` journalise `roseToken` à **INFO, imprimé par
+  défaut** — même gravité que le défaut fermé ici — et `ExternProcServer::sendMessage()` journalise
+  la charge sortante entière, donc le mot de passe caméra Reolink, à DEBUG. Les trois citations de
+  consigne (`ReolinkWire.h:65`, `ReolinkCtrl.cpp:162`, le caviardage Python) sont **verbatim**.
+
+  ⭐⭐ **LA LACUNE M4 QUE LE DÉVELOPPEUR DÉCLARAIT EST FERMÉE ICI, EN UNE ASSERTION** (4ᵉ commit) :
+  le compte annoncé est comparé à ce que **le noyau** a reçu, moins la tête fixe de cinq argv que
+  `startProcess()` préfixe. **M4 rejouée : 1 rouge**, verbatim `the journal does not announce
+  (1 argument(s)) for the 6 argv the kernel received`.
+
+  ⭐ **Trois contre-mutations indépendantes, par échange, que le développeur n'avait pas faites.**
+  **R2** — la ligne réduite **garde tous ses champs sûrs** et gagne `" last=" + args.back()`, le
+  « juste un champ de plus » qu'un mainteneur écrit : **1 rouge**,
+  `TheMqttBrokerPasswordNeverReachesTheLog` ⇒ la garde est épinglée **sur le secret**, pas sur la
+  forme de l'ancienne ligne, et elle part bien du **vrai chemin de lancement** (un vrai `MqttCtrl`,
+  `std::cout` capturé, aucun appel direct à `startProcess()`).
+  ⛔⭐ **R1 et R3 mesurent la même chose et ils sont à 0 rouge : AUCUN CHEMIN D'ERREUR N'EST GARDÉ
+  CONTRE UNE REFUITE DE L'ARGV, DES DEUX CÔTÉS.** **R1** — le site 2 du sidecar restream `argv[1]`
+  **sous un autre nom** (`const char *cfg = argv[1];`), donc à ERROR, imprimé par défaut, réinjecté
+  dans le journal du serveur : le tripwire compte `<< argv[1]` et reste vert, `CXXLD calaos_mqtt`
+  **lu**. **R3** — le `once<uvw::ErrorEvent>` de `startProcess()` republie la ligne de commande
+  entière à **CRITICAL** : rien ne bronche, `CXXLD calaos_server` et
+  `CXXLD core/ExternProcLogSecret_test` **lus**. ⇒ tant que le secret est dans l'argv, tout site qui
+  touche l'argv est un site de fuite, **en nombre non borné**, et aucun tripwire de plus ne les
+  couvre. Témoin restauré **vert** 120/119/1/0 après `distclean`, restaurations **par copie prouvées
+  au `cmp` (rc 0 × 4)**, mutations et restaurations **sur l'hôte**, ⛔ aucun `git` dans le conteneur.
+
+  ⛔⭐⭐ **CE QUE CE TICKET NE FERME PAS, ET IL FAUT LE DIRE SANS EUPHÉMISME : il ferme la fuite PAR
+  LES JOURNAUX, pas la fuite PAR L'ARGV — et la mesure est PIRE que l'énoncé.**
+  `/proc/<pid>/cmdline` est en mode **444** et un compte **sans aucun rapport** avec le propriétaire
+  du processus relit l'argv **verbatim**, mot de passe compris (mesuré dans l'image de dev, `/proc`
+  monté **sans `hidepid`**, un utilisateur `probe` lisant l'argv d'un processus de `root`). Ce n'est
+  donc pas « lisible par le même utilisateur » : c'est **lisible par tout compte de la machine**, et
+  un `ps` suffit. `/proc/<pid>/environ` est en **400** et lui est refusé ⇒ l'environnement est
+  strictement meilleur que l'argv face à un autre compte, la socket meilleure que les deux, et la
+  forme existe déjà dans l'arbre (Reolink). ⇒ ticket **[`T3.82`](T3.82.md)** ouvert, finding
+  `F-EXTPROC-7` — il neutraliserait **du même coup** R1 et R3, et son périmètre est borné à
+  `calaos_mqtt` par le recensement. ⚠️ **Arbitrage utilisateur requis** (changement de protocole).
+
+  ℹ️ **Rien d'autre à corriger** : aucun emoji ajouté à un fichier qui n'en portait pas
+  (`ExternProc.cpp` et `MqttExternProc_main.cpp` restent à **0** des deux côtés), les commentaires
+  neufs de `src/` font 2 et 7 lignes et ne portent ni ticket ni numéro de ligne, et les deux lignes
+  de `BOARD.md` hors gabarit (`T3.35`, `T3.37`) sont **antérieures** à cette branche.
+
+  **État de la session au sortir de ce merge** : `master` = le commit de revue qui porte ce
+  paragraphe, rien de poussé, historique linéaire. Worktree `.wave106/t3.79` supprimé, branche
+  `fix/t3.79` supprimée.
+
 - **✅⭐⭐ [`T3.78`](T3.78.md) MERGÉE — 4 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **`c45cdb7e`** (2026-09-05). La branche partait de `fbd743bd` et
   `master` n'avait pas bougé ⇒ **aucun rebase**. `tests/Makefile.am` : **append pur** (`diff` +45/−0/~0),

@@ -10100,9 +10100,40 @@ et le stdout de l'enfant est réinjecté dans celui du serveur, donc un seul ges
 **trois** sites dans le même journal ; et la mutation `cInfoDom` ↔ `cDebugDom` donne **2 rouges**,
 dont la mort du diagnostic. Les deux sites du sidecar `calaos_mqtt` (`:183` à **ERROR**, sur le
 chemin d'échec, et `:187-189` à DEBUG) cessent de streamer `argv[1]`.
-⚠️ **Ce qui reste ouvert** : `/proc/<pid>/cmdline` publie toujours l'argv complet à tout compte de
-la machine, pour la vie du sidecar. La fermer demande de passer le secret par la socket ou par
-l'environnement — un **changement de protocole**, à arbitrer.
+⚠️ **Ce qui reste ouvert, et c'est `F-EXTPROC-7`** : `/proc/<pid>/cmdline` publie toujours l'argv
+complet, et la revue de merge l'a **mesuré** — mode **444**, relu **verbatim** par un compte tiers.
+Ce finding est **fermé pour les journaux, pas pour l'argv**.
+
+### ⛔ [F-EXTPROC-7] Le secret du courtier est dans l'**argv**, donc lisible par **tout compte** du boîtier — ticket proposé [`T3.82`](T3.82.md)
+
+`MqttWire::encodeConfig()` met `user` et `password` dans l'argument remis au noyau par
+`startProcess()`. [T3.79](T3.79.md) a fermé la fuite **par les journaux** ; celle-ci survit intacte.
+
+⭐ **Mesuré à la revue de merge de T3.79, et l'énoncé courant le sous-estimait.** Dans l'image de
+développement, `/proc` monté **sans `hidepid`** :
+
+| Fichier | Mode | Lu par un compte tiers ? |
+|---|---|---|
+| `/proc/<pid>/cmdline` | **444** | ⛔ **OUI**, argv relu **verbatim**, mot de passe compris |
+| `/proc/<pid>/environ` | **400** | non |
+
+Ce n'est donc pas « lisible par le même utilisateur » : c'est **lisible par n'importe quel compte de
+la machine**, pour toute la vie du sidecar, et un `ps` suffit. ⇒ l'argv ne protège de personne ·
+l'environnement protège d'un autre compte, ni du même UID ni de `root` · la socket ne laisse rien
+dans `/proc`. ⭐ **La forme existe déjà dans l'arbre** : Reolink passe ses identifiants caméra par
+la socket (`IO/Reolink/ReolinkWire.h:85`).
+
+⛔ **Et c'est la seule fermeture possible d'une classe entière** : la revue a mesuré **deux chemins
+d'erreur à découvert, 0 rouge chacun** — le site 2 de `MqttExternProc_main.cpp` (**ERROR**, imprimé
+par défaut, chemin d'échec, réinjecté dans le journal du serveur) se rouvre par une simple
+**reformulation** (`const char *cfg = argv[1];`) que le tripwire `<< argv[1]` ne voit pas, et le
+`once<uvw::ErrorEvent>` de `startProcess()` peut republier la ligne de commande entière à
+**CRITICAL**. Tant que le secret est dans l'argv, tout site qui touche l'argv est un site de fuite,
+en nombre non borné, et **aucun tripwire supplémentaire ne les couvre tous**.
+
+⭐ **Périmètre borné** : sur les sept contrôleurs, **MQTT seul** porte un secret dans son argv
+(recensement de [T3.79](T3.79.md) §2, **recompté à la revue, aucun écart**), donc le changement de
+protocole se limite à `calaos_mqtt`. ⚠️ **Arbitrage utilisateur requis.**
 
 ### ⛔ [F-EXTPROC-6] Le transport journalise la **charge utile** des messages, secrets compris — ticket proposé [`T3.81`](T3.81.md)
 
