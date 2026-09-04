@@ -10044,7 +10044,7 @@ elle est lisible dans `/proc/<pid>/cmdline` par tout compte de la machine, pour 
 Seule la sortir de l'argv (socket ou environnement) la fermerait — changement de protocole des
 sidecars, **arbitrage utilisateur**. ⇒ **[`T3.79`](T3.79.md)**, fiché, **non corrigé**.
 
-### ⛔ [F-EXTPROC-4] Quatre appelants de `startProcess()` ne sont épinglés par RIEN — mesuré
+### ✅ [F-EXTPROC-4] Quatre appelants de `startProcess()` ne sont épinglés par RIEN — **FERMÉ par [T3.80](T3.80.md)**
 
 Contre-mutation **M6** de [T3.78](T3.78.md), au site OLA : l'univers vide devient un `argv[1]` vide
 que `from_string("")` lit ⇒ **0 rouge**, `TOTAL 119 / PASS 118 / FAIL 0`, avec
@@ -10073,6 +10073,51 @@ ou `KNXCtrl.o` ne mentionnent ni `process_args`, ni `startProcess`, ni un argv (
 le redécoupage et le **port** atterrissait dans `argv[1]`, là où `WagoExternProc_main.cpp:240` lit
 l'hôte. T3.78 **reproduit** ce comportement plutôt que de le changer en silence : c'est un défaut de
 configuration vide, pas de transport.
+
+✅ **FERMÉ par [T3.80](T3.80.md)** : `core/SidecarArgv_test` construit un vrai `WagoMap`, un vrai
+`KNXCtrl`, un vrai `OLACtrl` et un vrai `ReolinkCtrl`, laisse tourner leur relance et relit l'argv
+que **le noyau** a remis à l'enfant. `tests/Makefile.am` relie enfin `IO/OLA/OLACtrl.$(OBJEXT)` et
+`IO/Reolink/ReolinkCtrl.$(OBJEXT)`, que **rien** ne reliait — c'est la moitié structurelle du
+finding, et elle ne pouvait se fermer que là. ⭐ **Les quatre mesures à 0 rouge ont été rejouées et
+rougissent toutes** :
+
+| Contre-mutation, **par échange** | Avant | Après |
+|---|---|---|
+| **R1** positionnels Wago **permutés** | 0 rouge | **1 rouge** |
+| **R2** drapeau et valeur KNX **recollés** aux 4 sites | 0 rouge | **2 rouges** |
+| **R3** garde OLA **inversée** (M6 et davantage) | 0 rouge | **2 rouges** |
+| **R4** espace de noms Reolink **échangé** dans les arguments, au site de relance | 0 rouge | **1 rouge** |
+
+Plus **R5** (garde Wago **inversée**) : **2 rouges**, ensemble **distinct** de R1. Les cinq
+ensembles rouges sont deux à deux distincts, restaurations **prouvées au `cmp` (rc 0 × 6)**, témoin
+vert **`TOTAL 121 / PASS 120 / SKIP 1 / FAIL 0 / ERROR 0`** avec les `CXXLD` **lus**.
+⛔ **Le contraste est le résultat** : sous R1 les trois binaires Wago préexistants ont relinké
+(`CXXLD` lus) et sont restés **verts**, et sous R2 les trois binaires KNX aussi. Les six suites qui
+construisent ces contrôleurs pour de vrai ne regardent toujours pas leur argv.
+⚠️ **Ce que le filet ne dit toujours pas** : que les sidecars **font** quelque chose de correct avec
+cet argv. Les enregistreurs sont des bouchons — aucun bus KNX, aucun automate, aucune caméra, aucun
+`olad`.
+
+### ⛔ [F-EXTPROC-8] Le sidecar **moniteur KNX** est lancé sous l'espace de noms `knx` — ticket proposé [`T3.84`](T3.84.md)
+
+`KNXCtrl` tient deux `ExternProcServer` — `new ExternProcServer("knx")` et
+`new ExternProcServer("knx_monitor")` — et lance **les deux** avec le **même** nom : les quatre
+`startProcess(exe, "knx", …)` de `IO/KNX/KNXCtrl.cpp`. ⭐ **Seul écart de l'arbre**, recompté sur les
+**16** sites des 8 fichiers appelants : partout ailleurs le préfixe de l'`ExternProcServer` et le nom
+passé à `startProcess()` sont le même mot.
+
+⛔ **Rien de fonctionnel** : la socket vient de `--socket` et les deux sockets diffèrent bien (le
+préfixe `knx_monitor` est dans `sockpath`). Dans `ExternProcClient`, `name` ne sert qu'à
+`initLogger(name.c_str())`.
+⚠️ **Ce qui est perdu est le diagnostic que [T3.79](T3.79.md) venait de construire** : les deux
+sidecars KNX journalisent sous le domaine `knx`, `CALAOS_LOG_DOMAINS` ne peut pas isoler le
+moniteur, leur stdout est réinjecté dans celui du serveur, et la ligne de lancement réduite — qui
+publie l'espace de noms **précisément pour qu'une boucle de relance reste lisible** — imprime
+`--namespace knx` des deux côtés.
+
+Trouvé en écrivant [T3.80](T3.80.md), **fiché et non corrigé** : T3.80 est un ticket de
+caractérisation. ⚠️ `core/SidecarArgv_test` vérifie `argv[4]` sur **chaque** lancement, donc la
+correction **fera rougir** la suite — c'est la trace attendue de la décision.
 
 ### ✅ [F-EXTPROC-5] Le lancement d'un sidecar journalisait l'**argv entier**, mot de passe compris — **FERMÉ par [T3.79](T3.79.md)**
 
