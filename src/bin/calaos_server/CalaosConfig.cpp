@@ -40,6 +40,10 @@ namespace
 //notification infrastructure usable) before sending a corruption alert
 constexpr double CONFIG_ALERT_DELAY_SEC = 30.0;
 
+//Bound on the suffix search in BackupFiles(); reaching it means something
+//other than a burst of uploads is writing there.
+constexpr int MAX_BACKUPS_PER_SECOND = 1000;
+
 //Outcome of loading one XML config file, also feeds the corruption alert
 struct XmlLoadResult
 {
@@ -643,7 +647,22 @@ void Config::BackupFiles()
     ss << std::put_time(&tm, "%d-%m-%Y_%H-%M-%S");
     string dateTime = ss.str();
 
-    string folder = backFolder + "/" + year + "/" + month + "/" + dateTime;
+    const string base = backFolder + "/" + year + "/" + month + "/" + dateTime;
+
+    //A second is not fine enough: scripted uploads collide inside one, and
+    //reusing the folder would overwrite the copy of the state before the
+    //first of them - the only copy that still exists anywhere. Suffix rather
+    //than a finer stamp so the usual folder name stays the plain date-time.
+    string folder = base;
+    for (int i = 2;i <= MAX_BACKUPS_PER_SECOND && FileUtils::exists(folder);i++)
+        folder = base + "-" + std::to_string(i);
+
+    if (FileUtils::exists(folder))
+    {
+        cError() << "Unable to pick a free backup folder next to " << base << ", skipping backup...";
+        return;
+    }
+
     if (!FileUtils::mkpath(folder))
     {
         cError() << "Unable to create backup folder (" << folder << "), skipping backup...";
