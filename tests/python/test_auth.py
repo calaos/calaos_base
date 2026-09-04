@@ -175,3 +175,34 @@ def test_success_resets_failure_counter():
     for _ in range(2):
         assert c.get("/data", headers=hdr(xff=REAL_IP, token="bad")).status_code == 401
     assert c.get("/data", headers=hdr(xff=REAL_IP)).status_code == 200
+
+
+# --- F-MCP-XFF-1 -------------------------------------------------------------
+# The two cases below rotate X-Forwarded-For on every request. That rotation is
+# the whole point: a fixed key trips the limiter no matter what the middleware
+# trusts, so a case that does not rotate proves nothing.
+#
+# The sidecar is reached over a Unix socket, so request.client is None and no
+# peer check like the C++ one (TransportLimits::isTrustedProxyPeer) can be
+# written here: whatever the sidecar believes has to be written by the relay.
+
+
+def test_rotating_forwarded_for_cannot_escape_the_rate_limit():
+    c = make_client(rate_limit=5)
+    codes = [
+        c.get("/data", headers=hdr(xff=f"10.0.{i}.7")).status_code
+        for i in range(20)
+    ]
+    assert codes.count(200) == 5
+    assert codes.count(429) == 15
+
+
+def test_rotating_forwarded_for_cannot_ban_someone_elses_bucket():
+    c = make_client(ban_failures=3, ban_seconds=120)
+    for i in range(3):
+        assert c.get("/data", headers=hdr(xff=f"10.1.{i}.7", token="bad")).status_code == 401
+    # A fourth failure under yet another forged address must still be the same
+    # bucket, hence banned.
+    assert c.get("/data", headers=hdr(xff="10.1.99.7", token="bad")).status_code == 429
+    assert list(auth._ban_until) != []
+    assert not any(ip.startswith("10.1.") for ip in auth._ban_until)
