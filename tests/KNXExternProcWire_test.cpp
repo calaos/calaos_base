@@ -65,7 +65,11 @@ using std::string;
  * EXTERN_PROC_CLIENT_MAIN(KNXProcess), which defines the main() of calaos_knx
  * and would fight gtest_main for the entry point.
  *
- * The four helpers are pure bit shuffling on a 16 bit KNX address, they have
+ * T3.33 moved the two ADDRESS DECODERS out of that object into the header, as
+ * free functions the suite now calls for real; only the two formatters below
+ * are still members, and cli.o still references them.
+ *
+ * The two helpers are pure bit shuffling on a 16 bit KNX address, they have
  * nothing to do with JSON, and nothing in this file reaches them - no test
  * here calls doRead, doWrite or doMonitorBus. They are defined once, loudly,
  * so that the linker is satisfied AND so that a test that ever did reach them
@@ -81,18 +85,6 @@ string KNXProcess::knxGroupAddr(eibaddr_t)
 {
     ADD_FAILURE() << "stub: link KNXExternProc_main.o to use knxGroupAddr";
     return string();
-}
-
-eibaddr_t KNXProcess::eKnxGroupAddr(const string &)
-{
-    ADD_FAILURE() << "stub: link KNXExternProc_main.o to use eKnxGroupAddr";
-    return 0;
-}
-
-eibaddr_t KNXProcess::eKnxPhysicalAddr(const string &)
-{
-    ADD_FAILURE() << "stub: link KNXExternProc_main.o to use eKnxPhysicalAddr";
-    return 0;
 }
 
 namespace
@@ -562,33 +554,17 @@ const eibaddr_t T33_SEED_GROUP = 44373;
 //1.5.85, the same three components through the physical layout.
 const eibaddr_t T33_SEED_PHYS  = 0x1555;
 
+//T3.33 fix commit: both bodies were the verbatim copy of
+//KNXExternProc_main.cpp:140-164; they now forward to the shipped decoders, so
+//a mutation of the production text turns this suite red.
 bool seamGroupAddr(const string &group_addr, eibaddr_t &out)
 {
-    std::vector<string> tokens;
-    Utils::split(group_addr, tokens, "/", 3);
-    int a = T33_SEED, b = T33_SEED, c = T33_SEED;
-    Utils::from_string(tokens[0], a);
-    Utils::from_string(tokens[1], b);
-    Utils::from_string(tokens[2], c);
-    out = (eibaddr_t)(((a & 0x01F) << 11) |
-                      ((b & 0x07) << 8) |
-                      (c & 0xFF));
-    //Production has no way to say no: the signature returns the address alone.
-    return true;
+    return knxGroupAddrFromString(group_addr, out);
 }
 
 bool seamPhysicalAddr(const string &addr, eibaddr_t &out)
 {
-    std::vector<string> tokens;
-    Utils::split(addr, tokens, ".", 3);
-    int a = T33_SEED, b = T33_SEED, c = T33_SEED;
-    Utils::from_string(tokens[0], a);
-    Utils::from_string(tokens[1], b);
-    Utils::from_string(tokens[2], c);
-    out = (eibaddr_t)(((a & 0x0F) << 12) |
-                      ((b & 0x0F) << 8) |
-                      (c & 0xFF));
-    return true;
+    return knxPhysicalAddrFromString(addr, out);
 }
 
 } //namespace
@@ -617,43 +593,50 @@ TEST(KNXExternProcAddr, SplitPadsTheTokenListToThree)
     EXPECT_EQ("3/4", tokens[2]);
 }
 
-TEST(KNXExternProcAddr, AGroupAddressWithOneComponentStillReachesTheBus_DECLARED_DELTA)
+TEST(KNXExternProcAddr, AGroupAddressWithOneComponentIsRefused_DECLARED_DELTA)
 {
     eibaddr_t out = T33_SEED_GROUP;
 
-    //DECLARED DELTA 5 - the fix commit reads EXPECT_FALSE.
-    EXPECT_TRUE(seamGroupAddr("1", out)) << "characterization: nothing refuses it";
-    EXPECT_EQ(1 << 11, out) << "and 1 is written as group 1/0/0";
-    EXPECT_NE(T33_SEED_GROUP, out);
+    //DECLARED DELTA 5, moved: the two components nobody gave are refused.
+    EXPECT_FALSE(seamGroupAddr("1", out));
+    EXPECT_EQ(T33_SEED_GROUP, out) << "and `out` is left exactly as the caller had it";
 }
 
-TEST(KNXExternProcAddr, AnOutOfRangeGroupComponentIsMaskedInsteadOfRefused_DECLARED_DELTA)
+TEST(KNXExternProcAddr, AnOutOfRangeGroupComponentIsRefusedInsteadOfMasked_DECLARED_DELTA)
 {
     eibaddr_t out = T33_SEED_GROUP;
 
-    //DECLARED DELTA 6. ⭐ The masks are not a guard: 300 & 0xFF is 44, so a
-    //write meant for a group that does not exist lands on 1/2/44, which does.
-    EXPECT_TRUE(seamGroupAddr("1/2/300", out));
-    EXPECT_EQ((1 << 11) | (2 << 8) | 44, out);
+    //DECLARED DELTA 6, moved. ⭐ The masks were not a guard: 300 & 0xFF is 44,
+    //so a write meant for a group that does not exist landed on 1/2/44, which
+    //does. Out of range is now refused, not truncated.
+    EXPECT_FALSE(seamGroupAddr("1/2/300", out));
+    EXPECT_EQ(T33_SEED_GROUP, out);
+    EXPECT_FALSE(seamGroupAddr("32/0/0", out));
+    EXPECT_FALSE(seamGroupAddr("0/8/0", out));
+    EXPECT_FALSE(seamGroupAddr("-1/0/0", out));
+    EXPECT_FALSE(seamGroupAddr("1/2/3/4", out)) << "the fourth component lands whole in tokens[2]";
 }
 
-TEST(KNXExternProcAddr, AnEmptyGroupAddressStillReachesTheBus_DECLARED_DELTA)
+TEST(KNXExternProcAddr, AnEmptyGroupAddressIsRefused_DECLARED_DELTA)
 {
     eibaddr_t out = T33_SEED_GROUP;
 
-    //DECLARED DELTA 7. An io.xml with no group address writes to group 0/0/0.
-    EXPECT_TRUE(seamGroupAddr("", out));
-    EXPECT_EQ(0, out);
+    //DECLARED DELTA 7, moved. An io.xml with no group address used to write to
+    //group 0/0/0.
+    EXPECT_FALSE(seamGroupAddr("", out));
+    EXPECT_EQ(T33_SEED_GROUP, out);
 }
 
-TEST(KNXExternProcAddr, APhysicalAddressWithOneComponentStillResolves_DECLARED_DELTA)
+TEST(KNXExternProcAddr, APhysicalAddressWithOneComponentIsRefused_DECLARED_DELTA)
 {
     eibaddr_t out = T33_SEED_PHYS;
 
-    //DECLARED DELTA 8. eKnxPhysicalAddr() has no caller in the tree today -
-    //measured - so this one is a contract, not a live path.
-    EXPECT_TRUE(seamPhysicalAddr("1", out));
-    EXPECT_EQ(1 << 12, out);
+    //DECLARED DELTA 8, moved. The physical decoder has no caller in the tree
+    //today - measured - so this one is a contract, not a live path.
+    EXPECT_FALSE(seamPhysicalAddr("1", out));
+    EXPECT_EQ(T33_SEED_PHYS, out);
+    EXPECT_FALSE(seamPhysicalAddr("16.0.0", out));
+    EXPECT_FALSE(seamPhysicalAddr("0.16.0", out));
 }
 
 /* ⭐ THE WITNESS. Green before AND after the fix. It says the seeded pattern is
@@ -668,12 +651,17 @@ TEST(KNXExternProcAddr, TheSeededComponentsNeverReachTheBus)
     for (const char *const a: addrs)
     {
         eibaddr_t group = T33_SEED_GROUP;
-        seamGroupAddr(a, group);
-        EXPECT_NE(T33_SEED_GROUP, group) << a;
+        if (seamGroupAddr(a, group))
+            EXPECT_NE(T33_SEED_GROUP, group) << a;
+        else
+            EXPECT_EQ(T33_SEED_GROUP, group)
+                << a << ": a refused address must not be written to `out`";
 
         eibaddr_t phys = T33_SEED_PHYS;
-        seamPhysicalAddr(a, phys);
-        EXPECT_NE(T33_SEED_PHYS, phys) << a;
+        if (seamPhysicalAddr(a, phys))
+            EXPECT_NE(T33_SEED_PHYS, phys) << a;
+        else
+            EXPECT_EQ(T33_SEED_PHYS, phys) << a;
     }
 }
 
@@ -703,4 +691,21 @@ TEST(KNXExternProcAddr, AWellFormedPhysicalAddressStillResolves)
 
     ASSERT_TRUE(seamPhysicalAddr("15.15.255", out));
     EXPECT_EQ(0xFFFF, out);
+}
+
+/* A refused address must not poison the next one: the decoder holds no state,
+ * and calaos_knx serves every telegram of the installation through it. */
+TEST(KNXExternProcAddr, ARefusedAddressDoesNotPoisonTheNextOne)
+{
+    const char *const refused[] = { "", "1", "1/2", "1/2/300", "x/y/z" };
+
+    for (const char *const a: refused)
+    {
+        eibaddr_t bad = T33_SEED_GROUP;
+        ASSERT_FALSE(seamGroupAddr(a, bad)) << a;
+
+        eibaddr_t good = T33_SEED_GROUP;
+        EXPECT_TRUE(seamGroupAddr("7/3/129", good)) << a;
+        EXPECT_EQ((7 << 11) | (3 << 8) | 129, good) << a;
+    }
 }

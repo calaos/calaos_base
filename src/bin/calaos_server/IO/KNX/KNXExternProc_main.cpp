@@ -137,32 +137,6 @@ string KNXProcess::knxGroupAddr(eibaddr_t addr)
     return s.str();
 }
 
-eibaddr_t KNXProcess::eKnxPhysicalAddr(const string &addr)
-{
-    vector<string> tokens;
-    Utils::split(addr, tokens, ".", 3);
-    int a, b, c;
-    Utils::from_string(tokens[0], a);
-    Utils::from_string(tokens[1], b);
-    Utils::from_string(tokens[2], c);
-    return ((a & 0x0F) << 12) |
-           ((b & 0x0F) << 8) |
-           (c & 0xFF);
-}
-
-eibaddr_t KNXProcess::eKnxGroupAddr(const string &group_addr)
-{
-    vector<string> tokens;
-    Utils::split(group_addr, tokens, "/", 3);
-    int a, b, c;
-    Utils::from_string(tokens[0], a);
-    Utils::from_string(tokens[1], b);
-    Utils::from_string(tokens[2], c);
-    return ((a & 0x01F) << 11) |
-           ((b & 0x07) << 8) |
-           (c & 0xFF);
-}
-
 int KNXProcess::procMain()
 {
     connectKnxd();
@@ -266,7 +240,13 @@ void KNXProcess::writeKnxValue(const string &group_addr, const KNXValue &value)
 {
     cDebug() << "Writing KNX value to " << group_addr;
 
-    eibaddr_t knx_addr = eKnxGroupAddr(group_addr);
+    eibaddr_t knx_addr = 0;
+    if (!knxGroupAddrFromString(group_addr, knx_addr))
+    {
+        cError() << "Refusing to write to malformed KNX group address: " << group_addr;
+        return;
+    }
+
     vector<uint8_t> data;
 
     if (!value.toKnxData(data))
@@ -291,7 +271,12 @@ void KNXProcess::sendReadKnxCommand(const string &group_addr)
         return;
     }
 
-    eibaddr_t knx_addr = eKnxGroupAddr(group_addr);
+    eibaddr_t knx_addr = 0;
+    if (!knxGroupAddrFromString(group_addr, knx_addr))
+    {
+        cError() << "Refusing to read from malformed KNX group address: " << group_addr;
+        return;
+    }
 
     if (EIBOpenT_Group(eibobj->sock, knx_addr, 1) == -1)
     {

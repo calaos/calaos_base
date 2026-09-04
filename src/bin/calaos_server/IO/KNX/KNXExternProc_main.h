@@ -127,6 +127,68 @@ inline string knxDisconnectedMessage()
     return p.toJson().dump(-1, ' ', true, Json::error_handler_t::replace);
 }
 
+/*******************************************************************************
+ * T3.33 - THE TWO ADDRESS DECODERS, WHICH CAN NOW SAY NO
+ *
+ * Whatever these answer is what EIBSendGroup() writes to. They used to answer
+ * an address unconditionally: Utils::split() PADS its token list up to `max`
+ * (StringUtils.cpp:210), so "1" yields {"1", "", ""} - no out of bounds read,
+ * but two components that nobody gave were invented and the telegram went to
+ * ANOTHER GROUP.
+ *
+ * ⛔ The & 0x0F / & 0xFF of the old bodies were never a guard, only a mask:
+ * "1/2/300" wrote to 1/2/44. A component outside its layout is REFUSED here,
+ * not truncated, and `out` is left alone so a caller that ignores the answer
+ * cannot pick up a fabricated address.
+ *
+ * They live in this header, and not in KNXExternProc_main.cpp, because that
+ * translation unit ends on EXTERN_PROC_CLIENT_MAIN and no test can link it.
+ ******************************************************************************/
+
+//Group address, 5/3/8 layout: main/middle/sub.
+inline bool knxGroupAddrFromString(const string &group_addr, eibaddr_t &out)
+{
+    vector<string> tokens;
+    Utils::split(group_addr, tokens, "/", 3);
+
+    int main_group = 0, middle_group = 0, sub_group = 0;
+    if (!Utils::from_string(tokens[0], main_group) ||
+        !Utils::from_string(tokens[1], middle_group) ||
+        !Utils::from_string(tokens[2], sub_group))
+        return false;
+
+    if (main_group < 0 || main_group > 31 ||
+        middle_group < 0 || middle_group > 7 ||
+        sub_group < 0 || sub_group > 255)
+        return false;
+
+    out = (eibaddr_t)((main_group << 11) | (middle_group << 8) | sub_group);
+
+    return true;
+}
+
+//Physical address, 4/4/8 layout: area.line.device.
+inline bool knxPhysicalAddrFromString(const string &addr, eibaddr_t &out)
+{
+    vector<string> tokens;
+    Utils::split(addr, tokens, ".", 3);
+
+    int area = 0, line = 0, device = 0;
+    if (!Utils::from_string(tokens[0], area) ||
+        !Utils::from_string(tokens[1], line) ||
+        !Utils::from_string(tokens[2], device))
+        return false;
+
+    if (area < 0 || area > 15 ||
+        line < 0 || line > 15 ||
+        device < 0 || device > 255)
+        return false;
+
+    out = (eibaddr_t)((area << 12) | (line << 8) | device);
+
+    return true;
+}
+
 class KnxdObj
 {
 public:
@@ -167,8 +229,6 @@ protected:
 
     string knxPhysicalAddr(eibaddr_t addr);
     string knxGroupAddr(eibaddr_t addr);
-    eibaddr_t eKnxGroupAddr(const string &group_addr);
-    eibaddr_t eKnxPhysicalAddr(const string &addr);
 
     string eibserver;
     EIBConnection *eibsock = nullptr;

@@ -67,10 +67,14 @@ void KNXProcess::doRead(int argc, char **argv)
         cpt++;
     }
 
-    if (Utils::strContains(sgroup_addr, "/"))
-        knx_addr = eKnxGroupAddr(sgroup_addr.c_str());
-    else
-        knx_addr = knx_addr & 0xffff;
+    //T3.33: the "16-bit integer" form the --help text advertises was never
+    //implemented - the else branch below used to and-mask knx_addr with itself.
+    if (Utils::strContains(sgroup_addr, "/") &&
+        !knxGroupAddrFromString(sgroup_addr, knx_addr))
+    {
+        cError() << "Invalid KNX group address: " << sgroup_addr;
+        return;
+    }
 
     //send a read command
     if (EIBOpenT_Group(eibobj->sock, knx_addr, 1) == -1)
@@ -135,8 +139,12 @@ void KNXProcess::doWrite(int argc, char **argv)
         return;
     }
 
-    if (Utils::strContains(sgroup_addr, "/"))
-        knx_addr = eKnxGroupAddr(sgroup_addr);
+    if (Utils::strContains(sgroup_addr, "/") &&
+        !knxGroupAddrFromString(sgroup_addr, knx_addr))
+    {
+        cError() << "Invalid KNX group address: " << sgroup_addr;
+        return;
+    }
 
     KNXValue kvalue = KNXValue::fromString(eis, value);
     vector<uint8_t> data;

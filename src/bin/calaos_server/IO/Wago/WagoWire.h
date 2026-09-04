@@ -348,6 +348,161 @@ inline bool decodeMessage(const std::string &msg, Params &out,
     return true;
 }
 
+/*******************************************************************************
+ * T3.33 - THE REQUEST, DECODED AND CHECKED IN ONE PLACE
+ *
+ * The six action branches of calaos_wago used to parse their own fields, each
+ * with a pair of locals declared without an initialiser and a from_string()
+ * whose return value nobody read. What follows the parse is modbus: an address
+ * is a coil or a register of a PLC, and a write to it drives a relay.
+ *
+ * ⛔ There is NO DEFAULT ADDRESS and NO DEFAULT COUNT. A field that is absent,
+ * blank, unreadable, only partially readable or out of the range its type can
+ * hold makes the whole request Refused: the sidecar answers a failed status and
+ * never touches the bus. Zero is not a safe fallback here - it is the first
+ * register.
+ *
+ * WHY THE CHECK CAN WORK AT ALL: since T3.25, Utils::from_string() answers
+ * false on every one of those inputs (it used to answer TRUE on a blank string
+ * while writing nothing). Before T3.25 no guard written here could have fired.
+ ******************************************************************************/
+
+struct Request
+{
+    enum Command
+    {
+        None,
+        ReadBits,
+        WriteBit,
+        WriteBits,
+        ReadWords,
+        WriteWord,
+        WriteWords,
+    };
+
+    Command command = None;
+    //The 0x200 offset of the OUTPUT image is folded in, so this is the address
+    //that goes to modbus, not the one that travelled on the wire.
+    Utils::UWord address = 0;
+    int count = 0;
+    Utils::UWord wordValue = 0;
+    bool bitValue = false;
+    std::vector<bool> bits;
+    std::vector<Utils::UWord> words;
+};
+
+enum class Decoded
+{
+    //No action we implement. The sidecar has always answered SILENCE here, and
+    //that is not the same thing as a refusal.
+    NoSuchAction,
+    Refused,
+    Ok,
+};
+
+//Which of the two reply builders answers a command - the refusal path needs it
+//before any field has been decoded.
+inline bool commandExpectsReadReply(Request::Command command)
+{
+    return command == Request::ReadBits || command == Request::ReadWords;
+}
+
+inline bool decodeAddress(const Params &request, Request &out)
+{
+    if (!Utils::from_string(request["address"], out.address))
+        return false;
+
+    const std::string action = request["action"];
+    if (action == "read_output_bits" || action == "read_output_words")
+        out.address = (Utils::UWord)(out.address + 0x200);
+
+    return true;
+}
+
+inline bool decodeCount(const Params &request, Request &out)
+{
+    return Utils::from_string(request["count"], out.count);
+}
+
+/*
+ * `values` is the array decodeMessage() filled from the same parse.
+ *
+ * The six cases are written out rather than merged: a guard removed from one
+ * of them must turn ONE set of tests red, not four.
+ */
+inline Decoded decodeRequest(const Params &request, const std::vector<std::string> &values,
+                             Request &out)
+{
+    const std::string action = request["action"];
+
+    if (action == "read_bits" || action == "read_output_bits")
+        out.command = Request::ReadBits;
+    else if (action == "read_words" || action == "read_output_words")
+        out.command = Request::ReadWords;
+    else if (action == "write_bit")
+        out.command = Request::WriteBit;
+    else if (action == "write_bits")
+        out.command = Request::WriteBits;
+    else if (action == "write_word")
+        out.command = Request::WriteWord;
+    else if (action == "write_words")
+        out.command = Request::WriteWords;
+    else
+        return Decoded::NoSuchAction;
+
+    switch (out.command)
+    {
+    case Request::ReadBits:
+        if (!decodeAddress(request, out) || !decodeCount(request, out))
+            return Decoded::Refused;
+        break;
+
+    case Request::ReadWords:
+        if (!decodeAddress(request, out) || !decodeCount(request, out))
+            return Decoded::Refused;
+        break;
+
+    case Request::WriteBit:
+        if (!decodeAddress(request, out))
+            return Decoded::Refused;
+        //Anything that is not the word "true" is false, as it always was.
+        out.bitValue = request["value"] == "true";
+        break;
+
+    case Request::WriteBits:
+        if (!decodeAddress(request, out) || !decodeCount(request, out))
+            return Decoded::Refused;
+        for (const std::string &v: values)
+            out.bits.push_back(v == "true");
+        break;
+
+    case Request::WriteWord:
+        if (!decodeAddress(request, out) ||
+            !Utils::from_string(request["value"], out.wordValue))
+            return Decoded::Refused;
+        break;
+
+    case Request::WriteWords:
+        if (!decodeAddress(request, out) || !decodeCount(request, out))
+            return Decoded::Refused;
+        for (const std::string &v: values)
+        {
+            Utils::UWord word = 0;
+            //One unreadable entry refuses the WHOLE frame: the others would
+            //still be written, at the right addresses, around a hole.
+            if (!Utils::from_string(v, word))
+                return Decoded::Refused;
+            out.words.push_back(word);
+        }
+        break;
+
+    case Request::None:
+        break;
+    }
+
+    return Decoded::Ok;
+}
+
 } //namespace WagoWire
 
 #endif //S_WAGO_WIRE_H
