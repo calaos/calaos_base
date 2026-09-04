@@ -120,10 +120,17 @@ void AVRRose::registerDevice()
         try
         {
             Json jdoc = Json::parse(data);
+            /* The token authenticates every later request and is obtained on
+             * the fly, so nothing of the diagnosis needs its value - only
+             * whether the device answered and whether it handed one over. A
+             * journal leaves the box; this token does not have to.
+             */
             if (jdoc.contains("data") && jdoc["data"].contains("deviceRoseToken"))
                 roseToken = jdoc["data"]["deviceRoseToken"].get<string>();
+            else
+                cWarningDom("hifirose") << "Registration answer carried no device token";
 
-            cInfoDom("hifirose") << "Registered with device, roseToken: " << roseToken;
+            cInfoDom("hifirose") << "Registered with device " << host;
 
             // Reset notification timer after successful registration
             lastNotifTime = std::chrono::steady_clock::now();

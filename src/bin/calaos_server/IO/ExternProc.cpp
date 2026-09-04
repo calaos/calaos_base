@@ -31,6 +31,7 @@
 ExternProcServer::ExternProcServer(string pathprefix)
 {
     int pid = getpid();
+    procName = pathprefix;
     sockpath = "/tmp/calaos_proc_";
     sockpath += Utils::createRandomUuid() + "_";
     sockpath += pathprefix + "_" + Utils::to_string(pid);
@@ -139,7 +140,17 @@ void ExternProcServer::sendMessage(const string &data)
         ExternProcMessage msg(data);
         string frame = msg.getRawData();
 
-        cDebugDom("process") << "client writing data: " << data;
+        /* Only what can never be a secret. The payload is whatever a driver
+         * chose to put in it, and ReolinkCtrl hands the camera password over
+         * as one of its fields; naming what IS published stays true when a
+         * driver adds a credential, where a list of field names to withhold
+         * goes silently wrong - the transport sees a string, not fields. The
+         * sidecar, the frame type and the byte count keep a stalled or a
+         * truncated exchange readable, which is what this line is read for.
+         */
+        cDebugDom("process") << "client writing data to " << procName
+                             << ": opcode " << msg.getOpcode()
+                             << ", " << data.size() << " bytes";
 
         int dataSize = frame.length();
         auto dataWrite = std::unique_ptr<char[]>(new char[dataSize]);
@@ -158,7 +169,13 @@ void ExternProcServer::processData(const string &data)
     {
         if (currentFrame.isValid())
         {
-            cDebugDom("process") << "Got a new frame : " << currentFrame.getPayload();
+            //Same reason as the outgoing side, and ReolinkCtrl says it of
+            //this very direction: it is the mirror of a channel that carries
+            //credentials, so it refuses to log the message it receives.
+            cDebugDom("process") << "Got a new frame from " << procName
+                                 << ": opcode " << currentFrame.getOpcode()
+                                 << ", " << currentFrame.getPayload().size()
+                                 << " bytes";
 
             messageReceived.emit(currentFrame.getPayload());
 

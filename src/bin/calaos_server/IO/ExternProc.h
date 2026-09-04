@@ -58,6 +58,10 @@ public:
     bool isValid() const { return isvalid; }
     string getPayload() const { return payload; }
 
+    //The frame type as it was read from the wire, so a journal can name the
+    //kind of frame that was exchanged without naming its content.
+    int getOpcode() const { return opcode; }
+
     //true when the framing was violated (oversized announced length).
     //The stream is not trustable anymore, callers should drop the connection.
     bool hasError() const { return has_error; }
@@ -124,6 +128,7 @@ private:
     std::shared_ptr<uvw::PipeHandle> ipcServer, pipe, pipe_stderr;
 
     string sockpath;
+    string procName;
     string recv_buffer;
     ExternProcMessage currentFrame;
     std::shared_ptr<uvw::ProcessHandle> process_exe;
