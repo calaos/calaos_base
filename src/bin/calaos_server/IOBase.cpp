@@ -78,14 +78,31 @@ IOBase::~IOBase()
     delete ioDoc;
 }
 
-void IOBase::set_param(std::string opt, std::string val)
+bool IOBase::set_param(std::string opt, std::string val)
 {
+    /* A zero byte does not survive the trip to io.xml: XmlUtils::setAttribute()
+     * resolves the name and writes the value through pugixml's C string API,
+     * which cuts at the zero. A cut NAME lands on whatever attribute the
+     * prefix happens to spell - "name\0squat" becomes name, and the IO is
+     * renamed on disk - and nothing says so until the next reload. Refuse at
+     * the model boundary; the file is what is being protected, and it is
+     * reached from more places than this one.
+     */
+    if (opt.find('\0') != std::string::npos ||
+        val.find('\0') != std::string::npos)
+    {
+        cErrorDom("iobase") << "set_param(): refusing a parameter carrying a "
+                            << "zero byte on IO '" << param["id"]
+                            << "', it would not survive the write to io.xml";
+        return false;
+    }
+
     if (opt == "id")
     {
         if (param.Exists("id"))
         {
             if (param["id"] == val)
-                return; //no-op, not an error
+                return true; //no-op, not an error
 
             //Refuse: io_table is keyed on "id", changing it here would
             //leave a stale hash entry (lookups by the new id fail, and the
@@ -95,17 +112,17 @@ void IOBase::set_param(std::string opt, std::string val)
                                 << param["id"] << "' to '" << val
                                 << "', the IO id is immutable once created "
                                 << "(use renameId() to rename an IO)";
-            return;
+            return false;
         }
 
         //id set for the first time after construction (unusual: all the
         //normal creation paths put "id" in the constructor Params). Go
         //through renameId() so the io_table entry follows the key change.
-        renameId(val);
-        return;
+        return renameId(val);
     }
 
     param.Add(opt, val);
+    return true;
 }
 
 void IOBase::del_param(std::string opt)

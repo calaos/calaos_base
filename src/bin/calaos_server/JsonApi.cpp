@@ -1070,6 +1070,7 @@ Json JsonApi::buildJsonGetParam(const Params &jParam)
 Json JsonApi::buildJsonSetParam(const Params &jParam)
 {
     bool success = true;
+    bool refused = false;
     Params ret;
 
     IOBase *o = ListeRoom::Instance().get_io(jParam["id"]);
@@ -1079,17 +1080,27 @@ Json JsonApi::buildJsonSetParam(const Params &jParam)
     {
         if (jParam["param"].empty() || jParam["value"].empty())
             success = false;
+        else if (!o->set_param(jParam["param"], jParam["value"]))
+        {
+            /* T3.66. The refusals of set_param() used to be invisible here:
+             * the answer said success and the event announced a change that
+             * had not happened. They get their own message rather than
+             * "wrong io/param", which says the IO or the param was not found.
+             */
+            refused = true;
+            success = false;
+        }
         else
         {
-            o->set_param(jParam["param"], jParam["value"]);
-
             EventManager::create(CalaosEvent::EventIOChanged,
             { { "id", o->get_param("id") },
               { jParam["param"], jParam["value"] } });
         }
     }
 
-    if (!success)
+    if (refused)
+        ret = {{ "error", "param refused" }};
+    else if (!success)
         ret = {{ "error", "wrong io/param" }};
     else
         ret = {{ "success", "true" }};
@@ -2548,7 +2559,11 @@ Json JsonApi::buildAutoscenarioModify(const Json &jdata)
 
     if (payload.name != scenario->get_param("name"))
     {
-        scenario->set_param("name", payload.name);
+        /* Still nothing has been mutated at this point, so a refused name can
+         * leave by the same door as a malformed payload. Below it cannot.
+         */
+        if (!scenario->set_param("name", payload.name))
+            return Params({{ "error", "invalid payload: name refused" }}).toJson();
 
         EventManager::create(CalaosEvent::EventIOChanged,
                              { { "id", scenario->get_param("id") },

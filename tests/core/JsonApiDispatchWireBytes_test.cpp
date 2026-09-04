@@ -120,7 +120,8 @@
  *   ACTION truncates the value on the way out. That case is pinned where it
  *   belongs, in core/JsonApiScenarioWireBytes_test.cpp, and it is E4.6d's to
  *   fix - NOT this ticket's. This file pins the other half: through the
- *   emitters E4.1s owns, the NUL travels WHOLE, as \u0000.
+ *   emitters E4.1s owns the NUL travelled WHOLE; since T3.66 the write is
+ *   refused at the model boundary and the door itself is unchanged.
  *
  * ---------------------------------------------------------------------------
  * WHERE THE FORM 3 BASCULE IS ACTUALLY OBSERVABLE, MEASURED
@@ -211,7 +212,6 @@ const std::string TWO_REPLACEMENTS = "\xef\xbf\xbd\xef\xbf\xbd";
 //A value with an embedded NUL. Built with an explicit length: a plain string
 //literal would stop at the NUL and the probe would BE the truncation it is
 //meant to detect.
-const std::string NUL_INSIDE = std::string("a\0b", 3);
 
 bool contains(const std::string &haystack, const std::string &needle)
 {
@@ -636,63 +636,62 @@ TEST_F(JsonApiDispatchWireBytesTest, P_TheGetParameterFallbackStillServesTheRequ
  * N_ - THE EMBEDDED NUL, once it is through the door.
  ******************************************************************************/
 
-TEST_F(JsonApiDispatchWireBytesTest, N_AnEscapedNulInAParamValueIsStoredWholeAndComesBackEscaped)
+TEST_F(JsonApiDispatchWireBytesTest, N_AnEscapedNulInAParamValueIsRefusedByTheModel)
 {
     /* ⛔⭐⭐ THE MINE, END TO END, on the shortest path that ECHOES the value
      * back: set_param stores it on the IO, get_param reads it out again.
      *
-     * This case was N_AnEscapedNulInAParamValueIsRefusedToday and it pinned the
-     * refusal: the request died in the parser and NOTHING was written.
+     * THREE STATES, AND THIS CASE HAS BEEN THROUGH ALL OF THEM.
+     *   jansson         - the request died in the PARSER, nothing was written;
+     *   E4.1s           - the parser let it through and set_param stored the
+     *                     three bytes whole, which is where io.xml lost them;
+     *   T3.66 (here)    - the parser still lets it through, and the refusal is
+     *                     at the MODEL boundary, IOBase::set_param().
      *
-     * THE MEASURED VERDICT, and it is the one E4.1s owns: through the emitters
-     * this ticket leaves behind, the NUL travels WHOLE. Three bytes are stored,
-     * three bytes come back, and the wire spells the zero byte \u0000 - it is
-     * not truncated, not dropped, not replaced. THE DECISION IS TO ACCEPT IT
-     * and to say so: no guard is added, because a guard would be a new refusal
-     * this ticket was not asked to invent, and because the place where the NUL
-     * still does damage is Scenario::toJson(), inside the file E4.1 excludes.
-     *
-     * Every assertion is on the length as well as on the content: "a" and
-     * "a\0b" compare EQUAL through a const char *, which is exactly the
-     * confusion this case exists to prevent.
+     * The difference between the first and the third is what this case is for:
+     * the door is still open - the same body carrying the NUL in a FOREIGN key
+     * is still served (P_AnEscapedNulInAKeyNowTraversesTheParser) - and it is
+     * the write that refuses, by name, with an answer of its own.
      */
     loadReferenceHouse();
 
     IOBase *io = ListeRoom::Instance().get_io(HOUSE_STRING);
     ASSERT_TRUE(io != nullptr);
 
-    EXPECT_EQ("HTTP/1.0 200 OK",
-              httpStatusFor(httpRawBody(std::string("\"action\":\"set_param\",\"id\":\"") +
-                                        HOUSE_STRING + "\",\"param\":\"e41s_nul\","
-                                        "\"value\":\"a\\u0000b\"")))
-            << "set_param went back to refusing an escaped NUL";
+    clearThrottle();
+    HttpTestRequest req;
+    req.send(httpRawBody(std::string("\"action\":\"set_param\",\"id\":\"") +
+                         HOUSE_STRING + "\",\"param\":\"e41s_nul\","
+                         "\"value\":\"a\\u0000b\""));
+    ASSERT_EQ(1u, req.count());
 
-    //Stored WHOLE: three bytes, not the one byte a C string would have kept.
-    ASSERT_TRUE(io->get_params().Exists("e41s_nul"));
-    EXPECT_EQ(NUL_INSIDE, io->get_param("e41s_nul"));
-    EXPECT_EQ(3u, io->get_param("e41s_nul").size())
-            << "the value was truncated at the zero byte on the way in";
+    //Served, not rejected: the refusal is a document, not a transport error.
+    EXPECT_EQ("HTTP/1.0 200 OK", req.statusLine())
+            << "the parser went back to refusing an escaped NUL";
+    EXPECT_TRUE(contains(req.body(), "\"error\":\"param refused\"")) << req.body();
 
-    //And back out, on the RAW wire, as the escape - never as a raw zero byte
-    //and never truncated.
+    //Nothing was stored, so nothing can be truncated later.
+    EXPECT_FALSE(io->get_params().Exists("e41s_nul"))
+            << "the value reached the model after all";
+
+    //And get_param answers the empty string for a param that is not there -
+    //never the one byte a C string would have kept.
     clearThrottle();
     HttpTestRequest back;
     back.send(authenticated(Json{{ "action", "get_param" },
                                  { "id", HOUSE_STRING },
                                  { "param", "e41s_nul" }}));
     ASSERT_EQ(1u, back.count());
-    EXPECT_TRUE(contains(back.body(), std::string("\"a") + ASCII_NUL + "b\""))
-            << back.body();
+    EXPECT_EQ(std::string(), str(back.bodyJson(), "e41s_nul")) << back.body();
     EXPECT_EQ(std::string::npos, back.body().find('\0'))
             << "a raw zero byte reached the wire";
-    EXPECT_EQ(NUL_INSIDE, str(back.bodyJson(), "e41s_nul"));
 }
 
-TEST_F(JsonApiDispatchWireBytesTest, N_AnEscapedNulInAWsRequestIsStoredWholeAndComesBackEscaped)
+TEST_F(JsonApiDispatchWireBytesTest, N_AnEscapedNulInAWsRequestIsRefusedByTheModelToo)
 {
     //The websocket half of the same door. Kept separate from the HTTP one
     //because the two transports parse in two different functions and a
-    //migration that forgot one of them would leave the other case green.
+    //change that forgot one of them would leave the other case green.
     loadReferenceHouse();
 
     IOBase *io = ListeRoom::Instance().get_io(HOUSE_STRING);
@@ -703,26 +702,23 @@ TEST_F(JsonApiDispatchWireBytesTest, N_AnEscapedNulInAWsRequestIsStoredWholeAndC
             HOUSE_STRING + "\",\"param\":\"e41s_wsnul\",\"value\":\"a\\u0000b\"}}");
     pumpEventLoop();
 
-    /* TWO messages, and the second is not noise: set_param raises an
-     * EventIOChanged, this session is subscribed to it since its constructor,
-     * and the event carries the value. So the NUL reaches the EVENT wire as
-     * well as the answer - one more emitter, and it is asserted below rather
-     * than tolerated. On the jansson tree this count was ZERO: the message
-     * died in the parser and no event was ever raised.
+    /* ONE message, and the count is the assertion. A write raises an
+     * EventIOChanged and this session is subscribed to it, so a refusal that
+     * still announced the change would be caught here and nowhere else. On the
+     * jansson tree the count was ZERO - the message died in the parser - so
+     * the three states really are three different numbers.
      */
-    ASSERT_EQ(2u, ws.count()) << "the WS set_param went back to refusing a NUL";
-    EXPECT_TRUE(contains(ws.lastMessage(), std::string("\"a") + ASCII_NUL + "b\""))
-            << "the event wire lost the NUL: " << ws.lastMessage();
+    ASSERT_EQ(1u, ws.count()) << "the refusal still announced a change";
+    EXPECT_TRUE(contains(ws.lastMessage(), "\"error\":\"param refused\""))
+            << ws.lastMessage();
 
-    ASSERT_TRUE(io->get_params().Exists("e41s_wsnul"));
-    EXPECT_EQ(NUL_INSIDE, io->get_param("e41s_wsnul"));
-    EXPECT_EQ(3u, io->get_param("e41s_wsnul").size());
+    EXPECT_FALSE(io->get_params().Exists("e41s_wsnul"));
 
     ws.clear();
     ws.send(Json{{ "msg", "get_param" }, { "msg_id", "2" },
                  { "data", {{ "id", HOUSE_STRING }, { "param", "e41s_wsnul" }} }});
     ASSERT_EQ(1u, ws.count());
-    EXPECT_TRUE(contains(ws.lastMessage(), std::string("\"a") + ASCII_NUL + "b\""))
+    EXPECT_FALSE(contains(ws.lastMessage(), std::string("\"a") + ASCII_NUL + "b\""))
             << ws.lastMessage();
     EXPECT_EQ(std::string::npos, ws.lastMessage().find('\0'))
             << "a raw zero byte reached the wire";

@@ -109,8 +109,14 @@ public:
      * io_table consistent.
      * Note: get_params() still hands out a mutable Params reference, callers
      * must not use it to change "id" (a full read-only API is out of scope
-     * of T1.11). */
-    virtual void set_param(std::string opt, std::string val);
+     * of T1.11).
+     *
+     * Answers false when the write was REFUSED, and nothing was changed. A
+     * caller that reports success to a client has to read it: the two
+     * refusals ("id", and a zero byte in the name or the value) are silent
+     * otherwise. Setting a param to the value it already has is not a
+     * refusal. */
+    virtual bool set_param(std::string opt, std::string val);
     virtual std::string get_param(std::string opt) { return param[opt]; }
     virtual Params &get_params() { return param; }
     virtual bool param_exists(std::string opt) { return param.Exists(opt); }

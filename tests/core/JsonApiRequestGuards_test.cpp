@@ -96,10 +96,6 @@ const char T358_IO_STRING[] = "t358_string";
 //The id production hands out for the FIRST scenario of a fresh house.
 const char T358_SCENARIO_IO_ID[] = "io_0";
 
-//A value with an embedded NUL, built with an explicit length: a plain literal
-//would stop at the zero byte and the probe would BE the truncation it detects.
-const std::string NUL_INSIDE = std::string("head\0tail", 9);
-
 //The nesting the previous parser refused, and the two neighbours that frame it.
 const int JANSSON_DEPTH_CAP = 2048;
 
@@ -409,76 +405,73 @@ TEST_F(JsonApiRequestGuardsTest, D_ARawNulEndsTheTextForTheDepthCountToo)
 /*******************************************************************************
  * B_ - THE ESCAPED NUL, PAST THE API AND INTO THE CONFIGURATION.
  *
- * ⛔ NO GUARD IS ADDED ON THIS. Accepting the escaped NUL was decided when the
- * parser was changed, and the payload writer was then reworked so the byte
- * travels WHOLE through the API. These cases pin where it stops travelling.
+ * The parser still accepts the escaped NUL - that was decided when it was
+ * changed, and the payload writer was reworked so the byte travels WHOLE
+ * through the API. What T3.66 added is a guard at the MODEL boundary,
+ * IOBase::set_param(), so the byte never reaches io.xml. These cases pin where
+ * it stops travelling; the disk half of them moved from "truncated" to
+ * "refused", the autoscenario one below did NOT, and that difference is the
+ * point.
  ******************************************************************************/
 
-TEST_F(JsonApiRequestGuardsTest, B_ANulInAParamValueIsTruncatedWhenItIsWrittenToIoXml)
+TEST_F(JsonApiRequestGuardsTest, B_ANulInAParamValueIsRefusedBeforeItReachesIoXml)
 {
-    /* ⭐ THE LAYER NOBODY HAD MEASURED. The API carries the three bytes in and
-     * the three bytes out; io.xml gets ONE. XmlUtils::setAttribute() ends in
-     * pugi::xml_attribute::set_value(value.c_str()), and a C string stops at
-     * the zero byte - the same shape of defect as the payload truncation that
-     * was fixed, one layer lower and still there.
+    /* ⭐ THE LAYER NOBODY HAD MEASURED. The API carries the nine bytes in and
+     * the nine bytes out, and io.xml used to get FOUR: XmlUtils::setAttribute()
+     * ends in pugi::xml_attribute::set_value(value.c_str()) and a C string
+     * stops at the zero byte. T3.66 refuses the write instead.
      *
      * The probe is asymmetric ("head" before the zero byte, "tail" after) so a
-     * truncation, a drop and a replacement are three different answers.
+     * truncation, a drop and a refusal are three different answers.
      */
     loadGuardHouse();
 
+    //A refusal, not a transport error: the request is well formed and served.
     ASSERT_EQ("HTTP/1.0 200 OK", setParamRaw(T358_IO_STRING, "t358_nul",
                                              "\"head\\u0000tail\""));
 
     IOBase *io = ListeRoom::Instance().get_io(T358_IO_STRING);
     ASSERT_TRUE(io != nullptr);
-    ASSERT_EQ(NUL_INSIDE, io->get_param("t358_nul"));
-    ASSERT_EQ(9u, io->get_param("t358_nul").size()) << "the value was already short in memory";
+    EXPECT_FALSE(io->param_exists("t358_nul")) << "the value was stored anyway";
 
     saveConfig();
     const std::string xml = ioXmlOnDisk();
 
-    EXPECT_TRUE(contains(xml, "t358_nul=\"head\""))
-            << "the attribute is not the truncated value either: " << xml;
-    EXPECT_FALSE(contains(xml, "tail"))
-            << "everything after the zero byte survived after all: " << xml;
+    EXPECT_FALSE(contains(xml, "t358_nul"))
+            << "the parameter reached the configuration: " << xml;
+    EXPECT_FALSE(contains(xml, "head"))
+            << "a truncated value reached the configuration: " << xml;
     EXPECT_EQ(std::string::npos, xml.find('\0'))
             << "a raw zero byte was written into the configuration file";
 }
 
-TEST_F(JsonApiRequestGuardsTest, B_TheTruncationIsInvisibleUntilTheConfigurationIsReloaded)
+TEST_F(JsonApiRequestGuardsTest, B_NothingComesBackFromTheConfigurationForARefusedValue)
 {
-    /* The part that makes it worth a finding rather than a footnote: nothing
-     * observable changes when the file is written. The API keeps answering the
-     * nine bytes it was given, and the amputation only surfaces at the next
-     * start of the server - by which time the request that caused it is long
-     * gone from any log.
+    /* What made it worth a finding rather than a footnote: nothing observable
+     * changed when the file was written, and the amputation surfaced only at
+     * the next start of the server. The reload is therefore still the oracle -
+     * what changed is what it answers.
      */
     loadGuardHouse();
 
     ASSERT_EQ("HTTP/1.0 200 OK", setParamRaw(T358_IO_STRING, "t358_nul",
                                              "\"head\\u0000tail\""));
     saveConfig();
-
-    EXPECT_EQ(NUL_INSIDE,
-              ListeRoom::Instance().get_io(T358_IO_STRING)->get_param("t358_nul"))
-            << "writing the file changed the value in memory";
-
     reloadFromDisk();
 
     IOBase *io = ListeRoom::Instance().get_io(T358_IO_STRING);
     ASSERT_TRUE(io != nullptr) << "the IO did not survive the reload";
-    EXPECT_EQ(std::string("head"), io->get_param("t358_nul"))
-            << "the value that came back is not the truncated one";
+    EXPECT_FALSE(io->param_exists("t358_nul"))
+            << "a value came back from the configuration: " << io->get_param("t358_nul");
 }
 
-TEST_F(JsonApiRequestGuardsTest, B_ANulInAParamNameOverwritesTheNeighbourItTruncatesInto)
+TEST_F(JsonApiRequestGuardsTest, B_ANulInAParamNameNoLongerOverwritesTheNeighbour)
 {
     /* ⭐ THE WORST OF THE THREE, and it needs the NUL in the NAME rather than
      * in the value. pugi::xml_node::attribute(name.c_str()) truncates the same
-     * way, so a param called "name\0anything" is written as the attribute
-     * "name" - and "name" is the IO's display name. One request renames an IO
-     * on disk without ever touching the name in memory.
+     * way, so a param called "name\0anything" used to be written as the
+     * attribute "name" - and "name" is the IO's display name. One request
+     * renamed an IO on disk without ever touching the name in memory.
      */
     loadGuardHouse();
 
@@ -489,23 +482,23 @@ TEST_F(JsonApiRequestGuardsTest, B_ANulInAParamNameOverwritesTheNeighbourItTrunc
     ASSERT_EQ("HTTP/1.0 200 OK", setParamRaw(T358_IO_STRING, "name\\u0000squat",
                                              "\"squatted\""));
 
-    //In memory the two params coexist: Params is a std::map and the keys differ.
     EXPECT_EQ(std::string("String value"), io->get_param("name"));
-    EXPECT_EQ(std::string("squatted"), io->get_param(std::string("name\0squat", 10)));
+    EXPECT_FALSE(io->param_exists(std::string("name\0squat", 10)))
+            << "the squatting param is in memory, only the write was refused";
 
     saveConfig();
     const std::string xml = ioXmlOnDisk();
 
-    EXPECT_TRUE(contains(xml, "name=\"squatted\""))
-            << "the squatting attribute is not on disk: " << xml;
-    EXPECT_FALSE(contains(xml, "name=\"String value\""))
-            << "the real name survived, so this case measures nothing: " << xml;
+    EXPECT_TRUE(contains(xml, "name=\"String value\""))
+            << "the real name did not survive: " << xml;
+    EXPECT_FALSE(contains(xml, "squatted"))
+            << "the squatting value is on disk: " << xml;
 
     reloadFromDisk();
     IOBase *back = ListeRoom::Instance().get_io(T358_IO_STRING);
     ASSERT_TRUE(back != nullptr);
-    EXPECT_EQ(std::string("squatted"), back->get_param("name"))
-            << "the IO came back with its original name after all";
+    EXPECT_EQ(std::string("String value"), back->get_param("name"))
+            << "the IO came back renamed";
 }
 
 TEST_F(JsonApiRequestGuardsTest, B_ANulInAnAutoscenarioActionCutsTheWholeEncodedStep)
