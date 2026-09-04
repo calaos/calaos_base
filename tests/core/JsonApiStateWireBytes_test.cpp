@@ -2056,3 +2056,135 @@ TEST_F(RemoteUiWidgetSizeWireTest, ASoundWidgetIsPushedUnchangedAndOnlyTheBlankO
     EXPECT_NE(nullptr, widgetOnWire(data, IO_ZULU));
     EXPECT_NE(nullptr, widgetOnWire(data, IO_ALPHA));
 }
+
+/*******************************************************************************
+ * T3.74 — WHAT BRIGHTNESS THE SCREEN ENDS UP APPLYING.
+ *
+ * The device reads this key in pull mode and defaults to 80 when it is absent
+ * (calaos_remote_ui, main/calaos_websocket_manager.cpp:797, and the same form
+ * in all 14 revisions of that file since 2025-12-11); the value it reads is
+ * fed straight to the backlight (main/screensaver.cpp:309,344). The server was
+ * naming 100 for a screen nobody ever adjusted, so the observable below is the
+ * level the backlight is driven to, not the presence of a key.
+ ******************************************************************************/
+
+namespace
+{
+
+//What the device ends up with, modelled on its own read: data.value(k, 80).
+int brightnessTheScreenApplies(const Json &data)
+{
+    return data.value("brightness", 80);
+}
+
+} //namespace
+
+/* The screen of RemoteUiUnsetParamsTest carries no `brightness` param: only
+ * set_brightness writes one, so this is a device provisioned and never
+ * adjusted. The assert keeps a later cleanup of the fixture from making every
+ * case below vacuous instead of red.
+ */
+class RemoteUiBrightnessWireTest: public RemoteUiUnsetParamsTest
+{
+protected:
+    void SetUp() override
+    {
+        RemoteUiUnsetParamsTest::SetUp();
+
+        ASSERT_FALSE(screen->get_params().Exists("brightness"))
+                << "the fixture now sets brightness: it stopped being a screen "
+                   "nobody ever adjusted";
+    }
+};
+
+/*******************************************************************************
+ * B1. ⭐⭐ AN UNADJUSTED SCREEN IS DRIVEN AT THE LEVEL IT WOULD PICK ALONE.
+ *
+ * The case that decides the ticket, and it is stated on the level rather than
+ * on the key: it is satisfied by omitting the key AND by sending 80, so it
+ * cannot be met by restating the fix. What it refuses is the server naming a
+ * third value nobody chose.
+ ******************************************************************************/
+TEST_F(RemoteUiBrightnessWireTest, AnUnadjustedScreenIsPushedTheLevelItWouldPickAlone)
+{
+    const Json data = pushPayload();
+    ASSERT_FALSE(data.empty()) << "the screen received no configuration at all";
+
+    EXPECT_EQ(80, brightnessTheScreenApplies(data))
+            << "the backlight is driven to a level nothing in either repository "
+               "states; payload key: "
+            << (data.contains("brightness")? data["brightness"].dump()
+                                           : std::string("<absent>"));
+}
+
+/*******************************************************************************
+ * B1bis. AND THE SAME ON THE ANSWER TO remote_ui_get_config.
+ *
+ * No shipped firmware asks for this one (it has no branch in the device
+ * dispatch), but it is built from the same param and would carry the same
+ * level to whoever asks.
+ ******************************************************************************/
+TEST_F(RemoteUiBrightnessWireTest, AnUnadjustedScreenIsAnsweredTheLevelItWouldPickAlone)
+{
+    const Json data = answerPayload();
+    ASSERT_FALSE(data.empty()) << "the screen received no configuration at all";
+
+    EXPECT_EQ(80, brightnessTheScreenApplies(data))
+            << "answered brightness key: "
+            << (data.contains("brightness")? data["brightness"].dump()
+                                           : std::string("<absent>"));
+}
+
+/*******************************************************************************
+ * B2. AND THE KEY IS ABSENT, NOT A COPY OF THE DEVICE CONSTANT.
+ *
+ * 80 lives in the firmware repository, which versions apart from this one. A
+ * server that writes it out would keep sending 80 the day the device picks
+ * another level - the very drift being closed here. So the shape is a case of
+ * its own, on top of B1.
+ ******************************************************************************/
+TEST_F(RemoteUiBrightnessWireTest, AnUnsetBrightnessLeavesNoKeyOnEitherPayload)
+{
+    EXPECT_FALSE(pushPayload().contains("brightness"))
+            << "the push states a brightness although nothing ever set one";
+    EXPECT_FALSE(answerPayload().contains("brightness"))
+            << "the answer states a brightness although nothing ever set one";
+}
+
+/*******************************************************************************
+ * B3. A SCREEN THAT WAS ADJUSTED IS PUSHED ITS OWN LEVEL. INVARIANT.
+ *
+ * The half that keeps B1 and B2 from passing on a payload that dropped the
+ * key for everybody. 55 is neither default on purpose, and the JSON type is
+ * pinned too: the device feeds a string to a get<int>() that throws, and the
+ * throw takes the whole configuration down.
+ ******************************************************************************/
+TEST_F(RemoteUiBrightnessWireTest, AnAdjustedBrightnessStillReachesTheScreen)
+{
+    screen->get_params().Add("brightness", "55");
+
+    const Json data = pushPayload();
+    ASSERT_TRUE(data.contains("brightness")) << "the adjusted level never arrived";
+    EXPECT_TRUE(data["brightness"].is_number_integer()) << data["brightness"].dump();
+    EXPECT_EQ(55, brightnessTheScreenApplies(data));
+
+    const Json answered = answerPayload();
+    ASSERT_TRUE(answered.contains("brightness"));
+    EXPECT_EQ(55, brightnessTheScreenApplies(answered));
+}
+
+/*******************************************************************************
+ * B4. `timeout` IS LEFT EXACTLY WHERE IT IS. INVARIANT.
+ *
+ * The server default and the device default agree on 30
+ * (main/calaos_protocol.h:137), so there is nothing to close there, and the
+ * key must not be swept away by a fix aimed at its neighbour.
+ ******************************************************************************/
+TEST_F(RemoteUiBrightnessWireTest, TheAnsweredConfigStillStatesItsTimeout)
+{
+    const Json data = answerPayload();
+
+    ASSERT_TRUE(data.contains("timeout")) << "timeout left the wire";
+    EXPECT_TRUE(data["timeout"].is_number_integer()) << data["timeout"].dump();
+    EXPECT_EQ(30, data.value("timeout", -1));
+}
