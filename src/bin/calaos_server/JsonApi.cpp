@@ -2447,7 +2447,7 @@ Json JsonApi::buildAutoscenarioCreate(const Json &jdata)
         return Params({{ "error", err }}).toJson();
 
     Params params;
-    params.Add("auto_scenario", Calaos::get_new_scenario_id());
+    params.Add(AutoScenarioDef::KEY_UID, AutoScenarioDef::newUid());
     params.Add("name", payload.name);
     params.Add("visible", payload.visible? "true": "false");
     params.Add("cycle", payload.cycle? "true": "false");

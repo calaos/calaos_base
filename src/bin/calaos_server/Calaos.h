@@ -39,7 +39,6 @@ typedef struct _BlinkInfo
 
 #ifndef UTILS
 std::string get_new_id(std::string prefix);
-std::string get_new_scenario_id();
 #endif
 
 //This class only counts all IO at start and wait for them

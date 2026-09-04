@@ -172,7 +172,7 @@ protected:
                     { "id", ioId },
                     { "name", "Scenario " + scId },
                     { "disabled", "true" },
-                    { "auto_scenario", scId }};
+                    { "autoscenario_uid", scId }};
 
         Scenario *sc = dynamic_cast<Scenario *>(createIO(p));
         if (!sc || !sc->getAutoScenario()) return nullptr;

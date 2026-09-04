@@ -47,27 +47,31 @@ public:
  * of them from AutoScenarioDef, which is the source of truth. Rules are a
  * projection - never read one to learn what the scenario is.
  *
- * Generated rules carry two markers: `auto_scenario` (the scenario id, which
- * older readers still expect) and `autoscenario_uid` (the definition uid).
- * Only the uid decides what may be destroyed; a rule without it was written by
- * somebody else and is never touched.
+ * Generated rules carry two markers, both holding the definition uid:
+ * `auto_scenario`, which older readers still expect, and `autoscenario_uid`.
+ * Only the second decides what may be destroyed; a rule without it was written
+ * by somebody else and is never touched.
  *
- * PITFALL - the stand-down. A configuration written before the definition
- * existed carries rules with no uid and an io.xml with no definition
- * (configs/raoulh: 18 rules). While one such rule exists the generator does
- * nothing at all, so those rules survive and no duplicate is built beside them.
- * The test is on the RULES, not on the definition: a save mints a uid into
- * io.xml on its own, and that must not be enough to arm the generator over
- * rules it did not write. Only an explicit authoring call (addStep(),
- * addStepAction(), deleteRules(), addSchedule()...) takes ownership and
- * replaces them, which is what `autoscenario modify` has always done.
+ * PITFALL - the stand-down. While one rule of the scenario carries no uid the
+ * generator does nothing at all, so those rules survive and no duplicate is
+ * built beside them. The test is on the RULES, not on the definition: a save
+ * mints a uid into io.xml on its own, and that must not be enough to arm the
+ * generator over rules it did not write. Only an explicit authoring call
+ * (addStep(), addStepAction(), deleteRules(), addSchedule()...) takes ownership
+ * and replaces them, which is what `autoscenario modify` has always done.
+ * Since T3.61 a configuration written before the definition no longer builds
+ * an AutoScenario at all, so it never reaches this path; what does is a rule
+ * stamped by hand or by a third party with our uid in the legacy key.
  */
 
 class AutoScenario
 {
 private:
-    //`auto_scenario` param of the Scenario IO. Also the prefix of the derived
-    //ids of the machinery IOs, so it cannot be renamed on its own.
+    /* The `autoscenario_uid` param of the Scenario IO, read from the param and
+     * not from the definition because the definition is not loaded yet when
+     * this runs. Also the prefix of the derived ids of the machinery IOs
+     * (`<uid>_step` & co.), so it cannot be renamed on its own.
+     */
     string scenario_id;
     bool cycle;
     bool disabled;

@@ -45,34 +45,6 @@ std::string Calaos::get_new_id(std::string prefix)
     return ret;
 }
 
-std::string Calaos::get_new_scenario_id()
-{
-    int cpt = 0;
-    bool found = true;
-    list<Scenario *> autosc = ListeRoom::Instance().getAutoScenarios();
-
-    while (found && autosc.size() > 0)
-    {
-        list<Scenario *>::iterator it = autosc.begin();
-
-        bool found2 = false;
-        for (;it != autosc.end() && !found2;it++)
-        {
-            Scenario *sc = *it;
-            if (sc->get_param("auto_scenario") == "scenario_" + Utils::to_string(cpt))
-                found2 = true;
-        }
-
-        if (found2)
-            cpt++;
-        else
-            found = false;
-    }
-
-    string ret = "scenario_" + Utils::to_string(cpt);
-    return ret;
-}
-
 StartReadRules::StartReadRules():
     count_io(0)
 {

@@ -333,7 +333,7 @@ protected:
         Params p = { { "type", "Scenario" },
                      { "id", "io_" + scenarioId },
                      { "name", "Scenario " + scenarioId },
-                     { "auto_scenario", scenarioId } };
+                     { "autoscenario_uid", scenarioId } };
 
         Scenario *sc = dynamic_cast<Scenario *>(createIO(p));
         if (!sc)
@@ -439,7 +439,7 @@ TEST_F(AutoScenarioLifecycleTest, DeletingAScenarioUsedAsAStepActionIsSafeToSeri
     Params pb = { { "type", "Scenario" },
                   { "id", "io_sc_b" },
                   { "name", "Scenario sc_b" },
-                  { "auto_scenario", "sc_b" } };
+                  { "autoscenario_uid", "sc_b" } };
     Scenario *scB = dynamic_cast<Scenario *>(createIO(pb));
     ASSERT_NE(scB, nullptr);
     ASSERT_NE(scB->getAutoScenario(), nullptr);

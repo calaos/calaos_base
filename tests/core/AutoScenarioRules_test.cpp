@@ -69,8 +69,10 @@ const char IO_VOLUME[] = "e46c_volume";  //int,    "23"
 const char IO_BANNER[] = "e46c_banner";  //string, "au lit"
 const char IO_SIREN[] = "e46c_siren";    //bool,   "false" in the final step
 
+//T3.61: the marker IS the definition uid, and it is the prefix of the
+//machinery ids. "as_0" is what newUid() hands out on a reset allocator.
 const char SCENARIO_IO_ID[] = "io_0";
-const char SCENARIO_MARKER[] = "scenario_0";
+const char SCENARIO_MARKER[] = "as_0";
 
 std::string houseIosXml()
 {
@@ -600,14 +602,22 @@ TEST_F(AutoScenarioRulesTest, RulesThatPredateTheDefinitionAreLeftAloneAndNotDup
 
 TEST_F(AutoScenarioRulesTest, TheStandDownHoldsWhenNEITHERTheRulesNORTheIoCarryAUid)
 {
-    /* The first-boot shape of an existing installation: no uid on the rules,
-     * and no definition on the Scenario IO either. It is the case that catches
-     * a stand-down written as "the rule carries a uid other than mine", because
-     * on that boot both sides are empty and compare equal. Measured on a
-     * production configuration: 125 rules in, 139 out.
+    /* ✅ FLIPPED BY T3.61, and the flip makes the property stronger.
+     *
+     * This is the first-boot shape of an existing installation: no uid on the
+     * rules, and no definition on the Scenario IO either. It used to catch a
+     * stand-down written as "the rule carries a uid other than mine", because
+     * on that boot both sides were empty and compared equal (measured on a
+     * production configuration: 125 rules in, 139 out).
+     *
+     * Since the marker IS the uid, that shape is no longer an auto scenario at
+     * all: nothing is generated, so there is nothing to stand down FROM. The
+     * six rules survive both boots and io.xml gains nothing - which is the
+     * contract of E4.6.md §5.3 and §5.4 measured here on the same fixture.
      *
      * EXCHANGE against the case above, which strips the uid from the rules
-     * only: there the scenario IO still declares one, and that alone hid this.
+     * only: there the scenario IO still declares one, an AutoScenario IS built,
+     * and the stand-down is what keeps its rules alive.
      */
     loadRulesHouse();
     {
@@ -625,7 +635,8 @@ TEST_F(AutoScenarioRulesTest, TheStandDownHoldsWhenNEITHERTheRulesNORTheIoCarryA
     clearCoreState();
     loadConfig(ioXml, rulesXml);
     ASSERT_EQ(6, ListeRule::Instance().size());
-    ASSERT_TRUE(autoScenario() != nullptr) << "the legacy marker no longer builds one";
+    ASSERT_TRUE(scenarioIo() != nullptr) << "the IO itself is still there";
+    ASSERT_TRUE(autoScenario() == nullptr) << "an IO with no uid is not an auto scenario";
     const std::string before = serializeAllRules();
 
     ListeRoom::Instance().checkAutoScenario();
@@ -633,11 +644,9 @@ TEST_F(AutoScenarioRulesTest, TheStandDownHoldsWhenNEITHERTheRulesNORTheIoCarryA
     EXPECT_EQ(6, ListeRule::Instance().size()) << "the untouchable rules were duplicated";
     EXPECT_EQ(before, serializeAllRules());
 
-    /* The save mints a uid into io.xml on its own. The next boot must still
-     * stand down, which is why the test is on the rules and not on it.
-     */
+    //and the save mints NOTHING into io.xml: there is no definition to write
     saveConfig();
-    EXPECT_NE(std::string::npos, ioXmlOnDisk().find("autoscenario_uid"));
+    EXPECT_EQ(std::string::npos, ioXmlOnDisk().find("autoscenario_uid"));
 
     const std::string io2 = ioXmlOnDisk(), rules2 = rulesXmlOnDisk();
     clearCoreState();

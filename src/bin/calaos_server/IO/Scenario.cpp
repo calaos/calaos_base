@@ -45,19 +45,20 @@ Scenario::Scenario(Params &p):
     ioDoc->conditionAdd("true", _("Event triggered when scenario is started"));
     ioDoc->actionAdd("changed", _("Event triggered on any change"));
 
-    ioDoc->paramAdd("auto_scenario", _("Internal use only for Auto Scenario. read only."), IODoc::TYPE_STRING, false, string(), true);
+    ioDoc->paramAdd(AutoScenarioDef::KEY_UID, _("Internal use only for Auto Scenario. read only."), IODoc::TYPE_STRING, false, string(), true);
 
     cInfoDom("output") << "Scenario::Scenario(" << get_param("id") << "): Ok";
 
     set_param("gui_type", "scenario");
 
-    /* THE MARKER, AND IT IS STILL `auto_scenario`. Re-key it and
-     * no AutoScenario is built for an existing scenario: its rules stop being
-     * claimed, its definition is never bootstrapped from them, and the whole
-     * scenario silently stops existing - 18 rules on configs/raoulh.
-     * `autoscenario_uid` lives NEXT TO it, never in its place.
+    /* THE MARKER, and it is the definition uid. An IO carrying only the legacy
+     * `auto_scenario` is deliberately NOT an auto scenario any more (E4.6.md
+     * 5.3): it stays an ordinary, triggerable scenario button and its rules
+     * stay ordinary rules. Nothing here may fall back on the legacy key -
+     * doing so would put the four scenarios of configs/raoulh back into the
+     * API this epic took them out of.
      */
-    if (get_param("auto_scenario") != "")
+    if (get_param(AutoScenarioDef::KEY_UID) != "")
         auto_scenario = new AutoScenario(this);
 
     //The definition, when this IO carries one. Answers false and changes

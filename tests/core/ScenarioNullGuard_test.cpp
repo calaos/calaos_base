@@ -98,7 +98,7 @@ TEST_F(ScenarioNullGuardTest, CheckScenarioRulesAbortsWhenInternalIoIsHijacked)
     Params p = { { "type", "Scenario" },
                  { "id", "io_sc_t218" },
                  { "name", "sc t218" },
-                 { "auto_scenario", "sc_t218" } };
+                 { "autoscenario_uid", "sc_t218" } };
     Scenario *sc = dynamic_cast<Scenario *>(createIO(p));
     ASSERT_NE(sc, nullptr);
 
@@ -126,9 +126,9 @@ TEST_F(ScenarioNullGuardTest, ApiScenarioCreateAnswersErrorInsteadOfCrashing)
 {
     loadConfig();
 
-    //The first auto scenario created gets the id "scenario_0"
+    //The first auto scenario created gets the uid "as_0"
     Params hijack = { { "type", "InputTimer" },
-                      { "id", "scenario_0_is_active" },
+                      { "id", "as_0_is_active" },
                       { "name", "hijack" } };
     ASSERT_NE(createIO(hijack), nullptr);
 

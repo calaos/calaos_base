@@ -268,9 +268,12 @@ protected:
         return out;
     }
 
-    //The legacy `auto_scenario` marker of a scenario IO: it is what the
-    //internal IOs and the generated rules carry too, so it is the handle on
-    //"everything that belongs to this scenario" in both files at once.
+    /* The marker of a scenario IO. Since T3.61 it is the definition uid, and
+     * the machinery IOs and the generated rules carry that same value - the
+     * machinery under the legacy key, which is the one place the server still
+     * writes it (E4.6.md §5.3). It is therefore still the handle on
+     * "everything that belongs to this scenario" in both files at once.
+     */
     static std::string markerOf(const std::string &xml, const std::string &ioId)
     {
         pugi::xml_document doc;
@@ -278,7 +281,7 @@ protected:
 
         for (pugi::xml_node io: ioNodes(doc))
             if (std::string(io.attribute("id").value()) == ioId)
-                return io.attribute("auto_scenario").value();
+                return io.attribute(AutoScenarioDef::KEY_UID).value();
         return {};
     }
 
@@ -295,7 +298,11 @@ protected:
         int removed = 0;
         for (pugi::xml_node io: ioNodes(doc))
         {
-            if (std::string(io.attribute("auto_scenario").value()) != marker) continue;
+            //Either key: the scenario IO carries the uid, its machinery the
+            //legacy one, and both hold the same value.
+            if (std::string(io.attribute("auto_scenario").value()) != marker &&
+                std::string(io.attribute(AutoScenarioDef::KEY_UID).value()) != marker)
+                continue;
             io.parent().remove_child(io);
             removed++;
         }

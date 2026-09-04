@@ -51,7 +51,7 @@ AutoScenario::AutoScenario(IOBase *input):
 {
     cInfoDom("scenario") << "AutoScenario::AutoScenario(" << input->get_param("id") << "): Ok";
 
-    scenario_id = input->get_param("auto_scenario");
+    scenario_id = input->get_param(AutoScenarioDef::KEY_UID);
     cycle = (input->get_param("cycle") == "true")?true:false;
     disabled = (input->get_param("disabled") == "true")?true:false;
 

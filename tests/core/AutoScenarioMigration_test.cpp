@@ -149,6 +149,7 @@
 
 #include "ActionStd.h"
 #include "AutoScenario.h"
+#include "AutoScenarioDef.h"
 #include "CalaosConfig.h"
 #include "ConditionStd.h"
 #include "EventManager.h"
@@ -191,9 +192,11 @@ const char IO_BANNER[] = "e46a_banner";        //string, "bonsoir"
 const char IO_SIREN[] = "e46a_siren";          //bool, "false" in the end step
 const char IO_GHOST_END[] = "e46a_ghost_end";  //bool, VANISHES, middle of the end step
 
-//What production hands out for the FIRST scenario of a fresh house
+//What production hands out for the FIRST scenario of a fresh house. Since
+//T3.61 the marker is the definition uid, and it is what the machinery ids are
+//derived from.
 const char SCENARIO_IO_ID[] = "io_0";
-const char SCENARIO_MARKER[] = "scenario_0";
+const char SCENARIO_MARKER[] = "as_0";
 
 //A param name that lives OUTSIDE every namespace E4.6 will ever populate
 //(`autoscenario_*` and `as_*`, E4.6.md D2). It cannot become a real name.
@@ -336,12 +339,11 @@ protected:
         return false;
     }
 
-    /* Remove the `auto_scenario` param FROM THE SCENARIO IO ONLY. This is the
-     * migration of E4.6.md §5: the marker is re-keyed, so
-     * Scenario::Scenario() (IO/Scenario.cpp:48) no longer builds an
-     * AutoScenario for this IO. Everything else - the internal IOs, the rules -
-     * is left exactly as it is on disk, which is the whole point: the
-     * production files are NOT rewritten by the migration (§5.4).
+    /* Remove the MARKER from the scenario IO only - since T3.61 the marker is
+     * `autoscenario_uid`. Scenario::Scenario() then builds no AutoScenario for
+     * this IO. Everything else - the machinery IOs, the rules, the other
+     * definition params - is left exactly as it is on disk, which is the whole
+     * point: the production files are NOT rewritten by the migration (§5.4).
      */
     static bool unmarkScenarioIoInXml(std::string &xml)
     {
@@ -351,7 +353,7 @@ protected:
         for (pugi::xml_node io: ioNodes(doc))
         {
             if (std::string(io.attribute("type").value()) != "scenario") continue;
-            if (!io.remove_attribute("auto_scenario")) return false;
+            if (!io.remove_attribute(AutoScenarioDef::KEY_UID)) return false;
             xml = serialize(doc);
             return true;
         }
@@ -1904,12 +1906,13 @@ TEST_F(AutoScenarioMigrationTest, TodayIoXmlCarriesOnlyTheMarkerAndTheDerivedInt
      * the header of this file requires: nothing is weakened, the direction is
      * reversed and the reason is written down.
      *
-     * What stays untouched, and it matters more than the flip: the LEGACY
-     * marker `auto_scenario` is still there and still what builds the
-     * AutoScenario. `autoscenario_uid` lives NEXT TO it, in a namespace of its
-     * own. That separation is what keeps the orphan sweep of ListeRoom.cpp:324
-     * from finding an unadopted rule (E4.6.md §5.2), and it is why the three
-     * internal IOs below still carry the old marker too.
+     * ✅ FLIPPED AGAIN BY T3.61, on the marker half. `autoscenario_uid` is now
+     * what builds the AutoScenario, and a scenario this server writes carries
+     * that key ALONE. The legacy key survives where a user's file already had
+     * it - and on the machinery IOs below, which is the one place the server
+     * still writes it; nothing reads it there (E4.6.md §5.3).
+     * The orphan sweep the old wording defended against was removed by E4.6c,
+     * which is what made the re-key safe.
      *
      * The name is kept on purpose: this case is cited by name in E4.6.md §8.3
      * and in the E4.6b brief, and renaming it would break the link between the
@@ -1922,7 +1925,8 @@ TEST_F(AutoScenarioMigrationTest, TodayIoXmlCarriesOnlyTheMarkerAndTheDerivedInt
     //the marker, on the Scenario IO
     Scenario *sc = scenarioIo();
     ASSERT_TRUE(sc != nullptr);
-    EXPECT_EQ(SCENARIO_MARKER, sc->get_param("auto_scenario"));
+    EXPECT_EQ(SCENARIO_MARKER, sc->get_param("autoscenario_uid"));
+    EXPECT_FALSE(sc->param_exists("auto_scenario"));
     EXPECT_EQ("scenario", sc->get_param("type"));
     EXPECT_EQ("false", sc->get_param("cycle"));
     EXPECT_TRUE(sc->get_params().Exists("disabled"));
@@ -1948,10 +1952,9 @@ TEST_F(AutoScenarioMigrationTest, TodayIoXmlCarriesOnlyTheMarkerAndTheDerivedInt
         EXPECT_NE(std::string::npos, xml.find(needle))
                 << "io.xml does not carry " << needle << ": D2 did not land";
 
-    //and the uid is the NEW marker, next to - never instead of - the old one
+    //and the uid IS the marker: the ids of the machinery are derived from it
     EXPECT_TRUE(sc->param_exists("autoscenario_uid"));
-    EXPECT_EQ(SCENARIO_MARKER, sc->get_param("auto_scenario"))
-            << "the legacy marker was re-keyed: the orphan sweep is now armed";
+    EXPECT_EQ(SCENARIO_MARKER, sc->getDefinition()->uid);
 
     /* `auto_scenario_step` is the PROJECTION's numbering (E4.6.md §2.4(b)) and
      * it stays in rules.xml only: the definition addresses its steps by opaque

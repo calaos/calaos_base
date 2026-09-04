@@ -107,9 +107,10 @@ const char IO_SIREN[] = "e46b_siren";      //bool, "false", final step only
 //leading or trailing case fails here.
 const char SEPARATOR_VALUE[] = "a|b=c%d|e";
 
-//What production hands out for the FIRST scenario of a fresh house
+//What production hands out for the FIRST scenario of a fresh house. Since
+//T3.61 the marker is the definition uid.
 const char SCENARIO_IO_ID[] = "io_0";
-const char SCENARIO_MARKER[] = "scenario_0";
+const char SCENARIO_MARKER[] = "as_0";
 
 //An id that names NO IO. It is written into a definition and must come back
 //out of it unchanged (D4): a codec that resolves ids would lose it.
@@ -312,26 +313,29 @@ protected:
 
 TEST_F(AutoScenarioDefTest, TheMarkerThatBuildsAnAutoScenarioIsStillAutoScenario)
 {
-    /* >>> PROVE, DO NOT FLIP <<<
+    /* ✅ FLIPPED BY T3.61, DELIBERATELY, and this comment is the whole reason
+     * the case is kept rather than deleted.
      *
-     * IO/Scenario.cpp:48 tests get_param("auto_scenario") != "". THAT test is
-     * what makes ListeRoom::checkAutoScenario() adopt the rules of the
-     * scenario, and an adopted rule is one the orphan sweep of
-     * ListeRoom.cpp:324 does NOT destroy.
+     * E4.6b wrote it as a tripwire against re-keying the constructor, because
+     * back then the orphan sweep of ListeRoom.cpp:324 destroyed the rules of a
+     * scenario nobody had adopted - 18 rules of configs/raoulh. E4.6c REMOVED
+     * that sweep, so the danger the tripwire guarded no longer exists, and the
+     * re-key is what E4.6.md §5.3 asks for.
      *
-     * E4.6b introduces `autoscenario_uid` NEXT TO the legacy marker; it must
-     * not replace it. This case is the tripwire: if a future E4.6b commit
-     * re-keys the constructor, the second half goes red here BEFORE the 18
-     * rules of configs/raoulh are destroyed in production.
+     * What is measured is now the other half: `autoscenario_uid` is the marker
+     * that builds an AutoScenario, and the rules it stamps are still claimed by
+     * it. The property the tripwire really protected - a scenario IO that is
+     * NOT an auto scenario keeps running its rules - lives in
+     * core/AutoScenarioMigration_test::AnUnmarkedScenarioIoStillRunsItsRules...
+     * and in core/ScenarioMarkerRekey_test, and it is green.
      */
     loadRichScenarioFromDisk();
 
     Scenario *sc = scenarioIo();
     ASSERT_TRUE(sc != nullptr);
-    EXPECT_EQ(SCENARIO_MARKER, sc->get_param("auto_scenario"));
+    EXPECT_EQ(SCENARIO_MARKER, sc->get_param(AutoScenarioDef::KEY_UID));
     ASSERT_TRUE(sc->getAutoScenario() != nullptr)
-            << "the legacy marker no longer builds an AutoScenario - the orphan "
-               "sweep of ListeRoom.cpp:324 is now armed on every marked rule";
+            << "the uid marker no longer builds an AutoScenario";
 
     /* And every rule carrying the marker is CLAIMED by this scenario. The bit
      * Rule used to carry alongside the param is gone - nothing read it - so
@@ -398,8 +402,12 @@ TEST_F(AutoScenarioDefTest, TheScenarioIoCarriesTheWholeDefinitionInIoXml)
     EXPECT_EQ(std::string(IO_SIREN) + "=false|" + IO_LAMP + "=false",
               sc->get_param("as_final_actions"));
 
-    //and the LEGACY marker is untouched, in a namespace of its own
-    EXPECT_EQ(SCENARIO_MARKER, sc->get_param("auto_scenario"));
+    /* T3.61: a scenario written by this server carries ONE marker, the uid.
+     * The legacy key is not written any more - it survives only where a user's
+     * file already had it, and there nobody reads it.
+     */
+    EXPECT_EQ(SCENARIO_MARKER, sc->get_param(AutoScenarioDef::KEY_UID));
+    EXPECT_FALSE(sc->param_exists("auto_scenario"));
 }
 
 TEST_F(AutoScenarioDefTest, ThePausesAndTheActionValuesAreInIoXmlToo)

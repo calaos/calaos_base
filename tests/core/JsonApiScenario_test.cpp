@@ -106,8 +106,10 @@ const char IO_RANGE[] = "e40c_range";        //InPlageHoraire, standalone
 
 //The scenario ids production hands out for the FIRST scenario of a fresh house
 const char SCENARIO_IO_ID[] = "io_0";
-const char SCENARIO_ID[] = "scenario_0";
-const char SCENARIO_SCHEDULE_ID[] = "scenario_0_schedule";
+//T3.61: the marker of a created scenario is its definition uid, and the
+//machinery ids are derived from it.
+const char SCENARIO_ID[] = "as_0";
+const char SCENARIO_SCHEDULE_ID[] = "as_0_schedule";
 
 /* A time range with content on three days, deliberately asymmetric on every
  * axis so that no mutation of buildJsonGetTimerange()/TimeRange::toParams() can
@@ -1265,14 +1267,14 @@ TEST_F(JsonApiScenarioTest, AutoscenarioCreateAnswersTheIdOfTheNewScenarioIo)
                                              { "room_name", E40C_ROOM_NAME },
                                              { "room_type", E40C_ROOM_TYPE }});
 
-    //exactly one key, the id of the created IO - not the auto_scenario id
+    //exactly one key, the id of the created IO - not the scenario uid
     ASSERT_TRUE(ret.is_object());
     EXPECT_EQ(1u, ret.size()) << ret.dump();
     EXPECT_EQ(SCENARIO_IO_ID, ret.value("id", std::string()));
 
     Scenario *sc = scenarioIo(SCENARIO_IO_ID);
     ASSERT_TRUE(sc != nullptr);
-    EXPECT_EQ(SCENARIO_ID, sc->get_param("auto_scenario"));
+    EXPECT_EQ(SCENARIO_ID, sc->get_param("autoscenario_uid"));
     //the defaults of buildAutoscenarioCreate() (JsonApi.cpp:1685-1689)
     EXPECT_EQ("false", sc->get_param("visible"));
     EXPECT_EQ("false", sc->get_param("cycle"));
@@ -2071,7 +2073,7 @@ TEST_F(JsonApiScenarioTest, ABrokenScenarioIsStillListedAndStillModifiable)
     ASSERT_EQ(1u, list["scenarios"].size());
     EXPECT_EQ(scenarioId, list["scenarios"][0].value("id", std::string()));
 
-    EXPECT_JSON_EQ(std::string(R"({"id":"scenario_0_schedule"})"),
+    EXPECT_JSON_EQ(std::string(R"({"id":"as_0_schedule"})"),
                    wsAutoscenario(ws, Json{{ "type", "add_schedule" }, { "id", scenarioId }}));
     EXPECT_JSON_EQ(std::string(R"({"success":"true"})"),
                    wsAutoscenario(ws, Json{{ "type", "del_schedule" }, { "id", scenarioId }}));

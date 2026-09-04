@@ -13,7 +13,7 @@
     "name": "Soirée",
     "room_name": "E4.0c room",
     "room_type": "salon",
-    "schedule": "scenario_0_schedule",
+    "schedule": "as_0_schedule",
     "steps": [
       {
         "actions": [

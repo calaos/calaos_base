@@ -121,7 +121,12 @@ std::string scenarioIoXml(const std::string &id, const std::string &marker,
            attr("name", name) + attr("auto_scenario", marker) +
            attr("cycle", "false") + attr("enabled", "true") +
            attr("gui_type", "scenario") + attr("io_type", "inout") +
-           attr("log_history", "true") +
+           /* The production files say log_history="true". It is set to false
+            * here and only here: it drives HistLogger, whose sqlite database
+            * lives outside the fixture's private directories, and a scenario
+            * starting would try to write it. Nothing measured below reads it.
+            */
+           attr("log_history", "false") +
            attr("visible", visible? "true": "false") + " />\n";
 }
 
@@ -423,11 +428,12 @@ TEST_F(ScenarioMarkerRekeyTest, TheProductionShapedHouseLoadsItsFourScenariosAnd
  * SECTION 2 - THE API SURFACE. The four leave it, and a real one stays in it
  ******************************************************************************/
 
-TEST_F(ScenarioMarkerRekeyTest, AutoscenarioListStillCarriesTheFourLegacyScenarios)
+TEST_F(ScenarioMarkerRekeyTest, AutoscenarioListNoLongerCarriesTheFourLegacyScenarios)
 {
-    /* >>> TO FLIP (T3.61) <<<
-     * §5.3, third line: after the re-key the four are ABSENT from
-     * `autoscenario list`. That is the goal of the ticket.
+    /* ✅ FLIPPED, and the flip is the goal of the ticket - §5.3, third line.
+     * The four expectations below were EXPECT_TRUE before the re-key and the
+     * list had five entries; same measurement, turned around. The case was
+     * renamed with it: nothing cites the old name yet.
      *
      * The list is read WITH a freshly created scenario in it, so the absence
      * is never read off an empty array.
@@ -444,18 +450,23 @@ TEST_F(ScenarioMarkerRekeyTest, AutoscenarioListStillCarriesTheFourLegacyScenari
             << "a scenario created through the API must be listed - without this "
                "half, every absence below would pass on an empty list";
 
-    EXPECT_TRUE(listed(ids, SC0_IO));
-    EXPECT_TRUE(listed(ids, SC1_IO));
-    EXPECT_TRUE(listed(ids, SC2_IO));
-    EXPECT_TRUE(listed(ids, SC3_IO));
-    EXPECT_EQ(5u, ids.size());
+    EXPECT_FALSE(listed(ids, SC0_IO));
+    EXPECT_FALSE(listed(ids, SC1_IO));
+    EXPECT_FALSE(listed(ids, SC2_IO));
+    EXPECT_FALSE(listed(ids, SC3_IO));
+    EXPECT_EQ(1u, ids.size());
+
+    //and all four IOs are still perfectly there
+    for (const char *id: { SC0_IO, SC1_IO, SC2_IO, SC3_IO })
+        EXPECT_TRUE(scenarioIo(id) != nullptr) << id;
 }
 
-TEST_F(ScenarioMarkerRekeyTest, AutoscenarioGetStillAnswersOnTheFourLegacyScenarios)
+TEST_F(ScenarioMarkerRekeyTest, AutoscenarioGetRefusesTheFourLegacyScenariosAndAnswersOnARealOne)
 {
-    /* >>> TO FLIP (T3.61) <<<
-     * The `get` half of the same line of §5.3. The control is the freshly
-     * created scenario: `get` must keep answering on it.
+    /* ✅ FLIPPED, `get` half of the same line of §5.3. It used to answer the
+     * payload of each of the four; it answers "wrong input" now. The control -
+     * `get` on the freshly created scenario - is unchanged and green on both
+     * sides, so a `get` that had simply stopped working would not pass here.
      */
     loadProductionShapedHouse();
 
@@ -468,11 +479,9 @@ TEST_F(ScenarioMarkerRekeyTest, AutoscenarioGetStillAnswersOnTheFourLegacyScenar
             << "get must answer on a real scenario, on both sides of the re-key";
 
     for (const char *id: { SC0_IO, SC1_IO, SC2_IO, SC3_IO })
-    {
-        const Json got = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", id }});
-        EXPECT_EQ(std::string(id), got.value("id", std::string()))
+        EXPECT_JSON_EQ(std::string(R"({"error":"wrong input"})"),
+                       wsAutoscenario(ws, Json{{ "type", "get" }, { "id", id }}))
                 << "autoscenario get " << id;
-    }
 }
 
 /*******************************************************************************
@@ -599,20 +608,19 @@ TEST_F(ScenarioMarkerRekeyTest, TheStartupPassKeepsTheEighteenRulesAndTheirLegac
             << "the second startup rewrote io.xml";
 }
 
-TEST_F(ScenarioMarkerRekeyTest, TheStartupPassMintsADefinitionIntoIoXmlForEachLegacyScenario)
+TEST_F(ScenarioMarkerRekeyTest, TheStartupPassWritesNoDefinitionIntoIoXmlForTheLegacyScenarios)
 {
-    /* >>> TO FLIP (T3.61) <<<
-     * The io.xml half of §5.4. TODAY the four are still auto scenarios, so the
-     * first save captures a definition out of their rules and writes an
-     * `autoscenario_uid` (and a step list) into io.xml for each of them - a
-     * production file gaining four elements nobody asked for.
+    /* ✅ FLIPPED, the io.xml half of §5.4 and the measurement that decides the
+     * ticket. Before the re-key the four were still auto scenarios, so the
+     * first save captured a definition out of their rules and wrote an
+     * `autoscenario_uid` and a step list into io.xml for each of them - four
+     * counts of 4 below, on a production file nobody asked to rewrite. They
+     * are 0 now: no AutoScenario is built, so nothing is captured and nothing
+     * is written.
      *
-     * After the re-key no AutoScenario is built for them, so the save writes
-     * NOTHING: the count below goes to zero.
-     *
-     * The legacy `auto_scenario` params are counted on the same file and on
-     * both sides: they are the ones §5.3 leaves in place, orphaned and inert.
-     * Four scenario IOs and sixteen machinery IOs carry one.
+     * The legacy `auto_scenario` params are counted on the same file and read
+     * the same on both sides: they are the ones §5.3 leaves in place, orphaned
+     * and inert. Four scenario IOs and sixteen machinery IOs carry one.
      */
     loadProductionShapedHouse();
     ASSERT_EQ(0u, countOccurrences(productionShapedIoXml(), "autoscenario_uid"));
@@ -621,9 +629,12 @@ TEST_F(ScenarioMarkerRekeyTest, TheStartupPassMintsADefinitionIntoIoXmlForEachLe
 
     const std::string ioXml = ioXmlOnDisk();
 
-    EXPECT_EQ(4u, countOccurrences(ioXml, "autoscenario_uid="))
-            << "a definition was minted into io.xml for each legacy scenario";
-    EXPECT_EQ(4u, countOccurrences(ioXml, "autoscenario_steps="));
+    EXPECT_EQ(0u, countOccurrences(ioXml, "autoscenario_"))
+            << "the startup pass wrote a definition into a file that had none";
+    EXPECT_EQ(0u, countOccurrences(ioXml, "as_"))
+            << "the startup pass wrote a step param into io.xml";
+    EXPECT_EQ(0u, countOccurrences(ioXml, "disabled_missing_io"))
+            << "the startup pass stamped a scenario flag onto an ordinary IO";
 
     EXPECT_EQ(20u, countOccurrences(ioXml, "auto_scenario=\"scenario_"))
             << "the legacy marker must survive on all twenty IOs, untouched";
