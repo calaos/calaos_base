@@ -23,6 +23,7 @@
 
 #include <string>
 
+#include "LogSetup.h"
 #include "Params.h"
 #include "Utils.h"
 
@@ -131,13 +132,31 @@ inline int portFromParams(const Params &param)
  * get_roon_host() ignores the port entirely unless a host was given.
  *
  * The leading space and the exact spelling of the two flags are the shipped
- * form, byte for byte - ExternProcServer::startProcess() splits this string on
- * whitespace before handing it to uvw.
+ * form, byte for byte - ExternProcServer::startProcess() concatenates this
+ * string into one command line and re-splits it before handing it to uvw.
+ *
+ * ⚠️ A SPACE IN host IS REFUSED, AND THE SET IS EXACTLY { ' ' }, NOT isspace.
+ * That re-split is Utils::CStrArray(cmd), i.e. Utils::split(cmd, v, " "), and
+ * split() reaches its delimiters through find_first_of() - a character SET of
+ * one. A tab or a newline in host therefore travels inside its argument and
+ * reaches execvp() whole (there is no shell on the path: uv_spawn); only a
+ * space becomes an argument boundary, and the extra argv makes the sidecar
+ * exit 2 on argparse and respawn 100 ms later, forever. Widening the set here
+ * would refuse hosts on which nothing measurably breaks.
  */
 inline std::string buildArgs(const std::string &host, int port)
 {
     if (host.empty())
         return std::string();
+
+    if (host.find(' ') != std::string::npos)
+    {
+        cWarningDom("roon") << "Ignoring the configured Roon host \"" << host
+                            << "\": the \"host\" parameter cannot contain a "
+                               "space. Falling back to autodetection on the "
+                               "network.";
+        return std::string();
+    }
 
     return " --host " + host + " --port " + Utils::to_string(port);
 }

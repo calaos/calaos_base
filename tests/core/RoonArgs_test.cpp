@@ -666,8 +666,10 @@ TEST_F(RoonArgsTest, EmptyHostProducesNoArgumentsAtAll)
  * ⭐ ACQUIS: a static host carries BOTH flags, in the shipped spelling.
  *
  * Byte for byte, leading space included - ExternProcServer::startProcess()
- * splits this string on whitespace. The host and the port are chosen so that
- * neither could be mistaken for the other if the two were ever permuted.
+ * splits this string on the SPACE character and on nothing else (see
+ * TheSidecarCommandLineIsCutOnTheSpaceAndOnNoOtherBlank below). The host and
+ * the port are chosen so that neither could be mistaken for the other if the
+ * two were ever permuted.
  */
 TEST_F(RoonArgsTest, AStaticHostCarriesBothFlags)
 {
