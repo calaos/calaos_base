@@ -283,7 +283,19 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
 
     Utils::CStrArray env(envVars);
     Utils::CStrArray arr(cmd);      //vector form: nothing is re-split here
-    cInfoDom("process") << "Starting process: " << arr.toString();
+
+    /* Only what can never be a secret. An argument is any field a driver
+     * chose to put there, and MqttWire hands the broker password over as one
+     * of them; naming what IS published stays true when a driver adds a
+     * credential, where a list of names to hide goes silently wrong. The
+     * count keeps a cut or an extra argv visible, and the namespace plus one
+     * line per launch keep a respawn loop readable.
+     */
+    cInfoDom("process") << "Starting process: " << cmd[0]
+                        << " --socket " << sockpath
+                        << " --namespace " << name
+                        << " (" << args.size() << " argument(s))";
+
     process_exe->spawn(arr.at(0), arr.data(), env.data());
 
     if (!hasFailedStarting)

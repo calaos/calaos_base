@@ -180,13 +180,13 @@ bool MqttProcess::setup(int &argc, char **&argv)
 
     if (!MqttWire::decodeMessage(argv[1], p))
     {
-        cError() << "Unable to parse configuration: " << argv[1];
+        //argv[1] is the broker configuration and it carries the password:
+        //the server pipes this stdout back into its own journal.
+        cError() << "Unable to parse configuration";
         return false;
     }
 
-    cDebugDom("mqtt") << "argc " << argc << " |  " <<
-        argv[0] << " " <<
-        argv[1] << " ";
+    cDebugDom("mqtt") << "argc " << argc << " |  " << argv[0];
 
     if (p.Exists("host"))
         host = p["host"];
