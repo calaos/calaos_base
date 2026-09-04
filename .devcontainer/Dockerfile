@@ -10,7 +10,7 @@ RUN mkdir -p $HOME /build /opt
 RUN apt-get update -qq && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
         build-essential wget git curl \
-        libsigc++-2.0-dev libjansson-dev libcurl4-openssl-dev libluajit2-5.1-dev libsqlite3-dev \
+        libsigc++-2.0-dev libcurl4-openssl-dev libluajit2-5.1-dev libsqlite3-dev \
         libcurl4-openssl-dev libusb-dev libow-dev imagemagick libev-dev libusb-1.0-0-dev \
         libpugixml-dev \
         knxd knxd-dev googletest libuv1-dev libmosquitto-dev libmosquittopp-dev \
@@ -27,7 +27,9 @@ RUN apt-get update -qq && \
 COPY scripts/pyproject-requirements.py src/bin/calaos_mcp/pyproject.toml /tmp/calaos-pydeps/
 
 # One resolver pass over the whole set — see the comment in ../Dockerfile.
-RUN python3 /tmp/calaos-pydeps/pyproject-requirements.py \
+# --extra test: this is the image `make check` runs in, and without pytest,
+# httpx and fastapi the python suites skip from the inside (T3.47).
+RUN python3 /tmp/calaos-pydeps/pyproject-requirements.py --extra test \
         /tmp/calaos-pydeps/pyproject.toml > /tmp/calaos-pydeps/requirements.txt && \
     pip install --no-cache-dir --break-system-packages \
         -r /tmp/calaos-pydeps/requirements.txt roonapi reolink-aio && \

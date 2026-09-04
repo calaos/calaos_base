@@ -22,6 +22,20 @@ dependencies = [
     "starlette==1.3.1",
 ]
 
+# What tests/python/ needs on top of the runtime set. Kept here, and not in a
+# hand-written apt/pip list in the CI workflow or the Dockerfiles, for the same
+# reason as the runtime set: the file Dependabot watches must be the file every
+# build path installs from. pytest alone is not enough -- test_auth.py
+# importorskips fastapi and httpx, the extern-proc and logger suites
+# importorskip colorama, and an importorskip that fires is a case that did not
+# run.
+[project.optional-dependencies]
+test = [
+    "pytest==9.1.1",
+    "httpx==0.28.1",
+    "colorama==0.4.6",
+]
+
 [project.urls]
 Homepage = "https://github.com/calaos/calaos_base"
 

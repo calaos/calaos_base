@@ -100,6 +100,13 @@ LAUNCHER="$abs_top_srcdir/tests/run-python-tests.sh"
 RUNNER="$abs_top_srcdir/tests/python-suite-runner.py"
 PYDIR="$abs_top_srcdir/tests/python"
 
+# Every case below (C6 excepted) fabricates a tree whose HONEST verdict is 77,
+# and asserts it. CI exports CALAOS_PYTHON_TESTS_REQUIRED=1 for the whole
+# `make check`, which would inherit into these sub-invocations and turn all of
+# them into 1. C6 re-exports it in its own subshell.
+CALAOS_PYTHON_TESTS_REQUIRED=
+unset CALAOS_PYTHON_TESTS_REQUIRED
+
 nb_fail=0
 
 fail()
@@ -772,6 +779,58 @@ PY_EOF
 else
     echo "check-python-tests-reporting: C5c/C5l skipped, pytest is not importable" \
          "under $COUNTPY"
+fi
+
+# ---------------------------------------------------------------------------
+# C6 -- T3.47. CALAOS_PYTHON_TESTS_REQUIRED=1 must turn "could not execute"
+# from a SKIP into a FAIL, on EVERY path that produced a 77. C3 and C4 above
+# pin the default (still 77); these pin the strict mode CI runs in.
+#
+# 77 is the right answer on a developer machine and the wrong one on a machine
+# whose whole job is to execute those 42 cases: it is counted in a column
+# nobody reads on a green build, so a CI that silently stops running the suites
+# stays green forever. That is the defect T3.47 exists to close, and it is the
+# only reason this variable exists.
+# ---------------------------------------------------------------------------
+c6_strict()
+{
+    label=$1
+    expected=$2
+    shift 2
+    c6log="$tmpdir/c6.log"
+    (
+        CALAOS_PYTHON_TESTS_REQUIRED=1; export CALAOS_PYTHON_TESTS_REQUIRED
+        eval "$@"
+        "$LAUNCHER"
+    ) >"$c6log" 2>&1
+    c6rc=$?
+    if [ "$c6rc" -ne "$expected" ]; then
+        fail "$label: expected exit $expected under" \
+             "CALAOS_PYTHON_TESTS_REQUIRED=1, got $c6rc"
+        sed -n '1,20p' "$c6log" >&2
+    fi
+}
+
+c6_strict "C6a (no interpreter)" 1 \
+    'abs_top_srcdir="$abs_top_srcdir"; export abs_top_srcdir; PYTHON=:; export PYTHON'
+c6_strict "C6b (no tests/python)" 1 \
+    'abs_top_srcdir="$emptytree"; export abs_top_srcdir'
+c6_strict "C6c (PYTHON not runnable)" 1 \
+    'abs_top_srcdir="$abs_top_srcdir"; export abs_top_srcdir; PYTHON="$tmpdir/no-such-interpreter"; export PYTHON'
+
+# C6d -- the real tree, whatever this machine has installed. The verdict may
+# legitimately be PASS (every case ran) or FAIL (something did not run, or a
+# case is red); it must never be SKIP. This is the invariant CI relies on.
+c6dlog="$tmpdir/c6d.log"
+(
+    abs_top_srcdir="$abs_top_srcdir"; export abs_top_srcdir
+    CALAOS_PYTHON_TESTS_REQUIRED=1; export CALAOS_PYTHON_TESTS_REQUIRED
+    "$LAUNCHER"
+) >"$c6dlog" 2>&1
+c6drc=$?
+if [ "$c6drc" -eq 77 ]; then
+    fail "C6d: the launcher returned 77 on the real tree under" \
+         "CALAOS_PYTHON_TESTS_REQUIRED=1; strict mode must never skip"
 fi
 
 if [ "$nb_fail" -ne 0 ]; then

@@ -19,7 +19,7 @@ RUN mkdir -p $HOME /build /opt
 RUN apt-get update -qq && \
     apt-get install -y \
         build-essential wget git curl \
-        libsigc++-2.0-dev libjansson-dev libcurl4-openssl-dev libluajit2-5.1-dev libsqlite3-dev \
+        libsigc++-2.0-dev libcurl4-openssl-dev libluajit2-5.1-dev libsqlite3-dev \
         libcurl4-openssl-dev libow-dev imagemagick libev-dev libpugixml-dev \
         knxd knxd-dev googletest libuv1-dev libmosquitto-dev libmosquittopp-dev \
         libola-dev ola \
@@ -83,7 +83,7 @@ ENV LANG=C.UTF-8
 
 RUN apt -y update && \
     apt -y upgrade && \
-    apt-get install -yq --no-install-recommends libuv1 curl libsigc++-2.0-0v5 libjansson4 \
+    apt-get install -yq --no-install-recommends libuv1 curl libsigc++-2.0-0v5 \
         libluajit2-5.1-dev libsqlite3-0 libusb-1.0 imagemagick libow-3.2 libev4 unzip zip knxd \
         libmosquitto1 libmosquittopp1 libowcapi-3.2 libcurl4 libpugixml1v5 ola python3 python3-pip python3-colorama openssl
 

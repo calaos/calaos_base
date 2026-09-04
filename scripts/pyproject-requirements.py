@@ -16,7 +16,12 @@ single `pip install -r`, so the resolver sees the whole set at once: mcp,
 fastapi and starlette are tightly coupled and resolving them one package at a
 time silently picks incompatible combinations.
 
-Usage: pyproject-requirements.py <path/to/pyproject.toml>
+With --extra NAME (repeatable) the named [project.optional-dependencies] group
+is appended to the same list, so that one resolver pass still sees the whole
+set. An unknown extra is an error, not an empty list: a typo must not quietly
+install less than the caller asked for.
+
+Usage: pyproject-requirements.py [--extra NAME]... <path/to/pyproject.toml>
 """
 
 import sys
@@ -24,17 +29,41 @@ import tomllib
 
 
 def main(argv):
-    if len(argv) != 2:
-        sys.stderr.write("usage: %s <pyproject.toml>\n" % argv[0])
+    extras = []
+    args = []
+    rest = argv[1:]
+    while rest:
+        arg = rest.pop(0)
+        if arg == "--extra":
+            if not rest:
+                sys.stderr.write("--extra needs a name\n")
+                return 2
+            extras.append(rest.pop(0))
+        elif arg.startswith("--extra="):
+            extras.append(arg.split("=", 1)[1])
+        else:
+            args.append(arg)
+
+    if len(args) != 1:
+        sys.stderr.write("usage: %s [--extra NAME]... <pyproject.toml>\n" % argv[0])
         return 2
 
-    with open(argv[1], "rb") as fd:
+    with open(args[0], "rb") as fd:
         data = tomllib.load(fd)
 
-    deps = data.get("project", {}).get("dependencies", [])
+    project = data.get("project", {})
+    deps = list(project.get("dependencies", []))
     if not deps:
-        sys.stderr.write("%s declares no [project].dependencies\n" % argv[1])
+        sys.stderr.write("%s declares no [project].dependencies\n" % args[0])
         return 1
+
+    optional = project.get("optional-dependencies", {})
+    for extra in extras:
+        if extra not in optional:
+            sys.stderr.write("%s declares no [project.optional-dependencies].%s\n"
+                             % (args[0], extra))
+            return 1
+        deps.extend(optional[extra])
 
     for dep in deps:
         print(dep)

@@ -20,11 +20,25 @@ jobs:
           DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
               build-essential pkg-config \
               autoconf automake libtool autopoint gettext \
-              libsigc++-2.0-dev libjansson-dev libcurl4-openssl-dev \
+              libsigc++-2.0-dev libcurl4-openssl-dev \
               libluajit2-5.1-dev libsqlite3-dev libssl-dev libuv1-dev \
               libpugixml-dev \
               libgtest-dev \
+              python3 python3-pip \
               git
+
+      # tests/python/ declares 42 cases and this job used to execute none of
+      # them: with no interpreter, AM_PATH_PYTHON sets PYTHON=: and
+      # run-python-tests.sh skipped before it could even count. The set comes
+      # from src/bin/calaos_mcp/pyproject.toml (runtime deps + the "test"
+      # extra) and from nowhere else -- the same single source of truth, and
+      # the same single resolver pass, the Dockerfiles use.
+      - name: Install the python test dependency set
+        run: |
+          scripts/pyproject-requirements.py --extra test \
+              src/bin/calaos_mcp/pyproject.toml > /tmp/requirements.txt
+          cat /tmp/requirements.txt
+          pip install --no-cache-dir --break-system-packages -r /tmp/requirements.txt
 
       - name: Build
         run: |
@@ -33,7 +47,27 @@ jobs:
           make -j$(nproc)
 
       - name: Run tests (make check)
+        # Strict: on this job "the python suites could not run" is a build
+        # error, not a skip. Without it the job would go back to reporting 0
+        # of 42 cases executed behind a green tick the day an install step
+        # breaks -- which is exactly how it stayed unnoticed until T3.47.
+        env:
+          CALAOS_PYTHON_TESTS_REQUIRED: 1
         run: make check
+
+      # if: always(), not if: failure(). The accounting line lives in
+      # tests/run-python-tests.sh.log, which the failure-only dump below never
+      # prints on a green build, so "42 cases executed" and "0 cases executed"
+      # looked identical from the job log.
+      - name: Python suite accounting
+        if: always()
+        run: |
+          if [ -f tests/run-python-tests.sh.log ]; then
+            grep -E '^(run-python-tests|SKIP|FAIL):' tests/run-python-tests.sh.log \
+              || cat tests/run-python-tests.sh.log
+          else
+            echo "no tests/run-python-tests.sh.log: make check did not reach the suite"
+          fi
 
       - name: Show test logs on failure
         if: failure()
@@ -68,7 +102,7 @@ jobs:
           DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
               build-essential pkg-config \
               autoconf automake libtool autopoint gettext \
-              libsigc++-2.0-dev libjansson-dev libcurl4-openssl-dev \
+              libsigc++-2.0-dev libcurl4-openssl-dev \
               libluajit2-5.1-dev libsqlite3-dev libssl-dev libuv1-dev \
               libpugixml-dev \
               libgtest-dev \

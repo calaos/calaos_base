@@ -24,15 +24,40 @@
 #                visible in the "# SKIP:" column, never a silent PASS)
 #   1  -> FAIL  (a python test is red, or a suite errored)
 #
+# T3.47 -- CALAOS_PYTHON_TESTS_REQUIRED=1 turns every 77 above into a 1.
+#
+# A SKIP is honest, but on a machine that is SUPPOSED to run the suites it is
+# not enough: automake writes the SKIP into tests/run-python-tests.sh.log, the
+# console shows one word, and a green build tells the reader nothing about
+# whether the 42 cases ran. That is how CI went from "0 case executed" to
+# "0 case executed" across every push without anyone noticing. On a machine
+# that declares the suites mandatory, "could not execute" is a build error.
+#
+# Off by default: DECISIONS.md (2026-08-25) rules that no optional dependency
+# is made mandatory, so a developer without pytest still gets a SKIP and a
+# working `make check`. CI sets the variable; see .github/workflows/ci.yml.
+#
 # The environment (PYTHON, abs_top_srcdir) is exported by AM_TESTS_ENVIRONMENT
 # in tests/Makefile.am; fall back to sane defaults when run by hand.
 
 : "${PYTHON:=python3}"
 
+skip_or_fail()
+{
+    if test "x$CALAOS_PYTHON_TESTS_REQUIRED" = "x1"; then
+        echo "FAIL: $1"
+        echo "FAIL: CALAOS_PYTHON_TESTS_REQUIRED=1 -- the python suites are"
+        echo "FAIL: mandatory here; not being able to execute them is an error,"
+        echo "FAIL: not a skip."
+        exit 1
+    fi
+    echo "SKIP: $1"
+    exit 77
+}
+
 # AM_PATH_PYTHON sets PYTHON=: when no interpreter was found.
 if test "x$PYTHON" = "x:"; then
-    echo "SKIP: no python3 interpreter detected at configure time"
-    exit 77
+    skip_or_fail "no python3 interpreter detected at configure time"
 fi
 
 if test -z "$abs_top_srcdir"; then
@@ -41,8 +66,7 @@ fi
 
 pydir="$abs_top_srcdir/tests/python"
 if test ! -d "$pydir"; then
-    echo "SKIP: $pydir not found"
-    exit 77
+    skip_or_fail "$pydir not found"
 fi
 
 runner="$abs_top_srcdir/tests/python-suite-runner.py"
@@ -52,8 +76,7 @@ if test ! -f "$runner"; then
 fi
 
 if ! "$PYTHON" -c "import sys" >/dev/null 2>&1; then
-    echo "SKIP: \$PYTHON ($PYTHON) is not runnable"
-    exit 77
+    skip_or_fail "\$PYTHON ($PYTHON) is not runnable"
 fi
 
 # Never write bytecode or caches: during "make distcheck" the source tree is
@@ -61,4 +84,11 @@ fi
 PYTHONDONTWRITEBYTECODE=1
 export PYTHONDONTWRITEBYTECODE
 
-exec "$PYTHON" "$runner" "$pydir"
+"$PYTHON" "$runner" "$pydir"
+rc=$?
+
+if test "$rc" -eq 77; then
+    skip_or_fail "the runner could not execute every declared case (see above)"
+fi
+
+exit "$rc"
