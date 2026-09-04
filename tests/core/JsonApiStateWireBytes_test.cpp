@@ -2182,3 +2182,38 @@ TEST_F(RemoteUiBrightnessWireTest, TheAnsweredConfigStillStatesItsTimeout)
     EXPECT_TRUE(data["timeout"].is_number_integer()) << data["timeout"].dump();
     EXPECT_EQ(30, data.value("timeout", -1));
 }
+
+/*******************************************************************************
+ * B5. A LEVEL THE SERVER CANNOT READ IS NOT A LEVEL EITHER. INVARIANT.
+ *
+ * The half of the rule that B1..B4 leave untouched: they only ever see an
+ * absent param or a clean "55". A brightness written by hand in io.xml can be
+ * anything, and the guard must treat what it cannot read exactly like what is
+ * not there - otherwise the value that lands on the wire is the zero the
+ * conversion left behind, and the device drives its backlight to 0.
+ *
+ * Each entry fails the read for a different reason: blank, unreadable, partial
+ * read (the conversion DOES leave 12 behind), and overflow (it leaves a
+ * saturated value behind). A guard that only tested the string for emptiness
+ * would pass every case above and turn all four of these into a dark screen.
+ ******************************************************************************/
+TEST_F(RemoteUiBrightnessWireTest, ABrightnessTheServerCannotReadLeavesNoKeyEither)
+{
+    for (const char *const written: { " ", "abc", "12abc", "99999999999999999999" })
+    {
+        screen->get_params().Add("brightness", written);
+
+        const Json data = pushPayload();
+        EXPECT_FALSE(data.contains("brightness"))
+                << "brightness=\"" << written << "\" reached the wire as "
+                << data["brightness"].dump();
+        EXPECT_EQ(80, brightnessTheScreenApplies(data))
+                << "the backlight is driven by a value nobody wrote, from "
+                   "brightness=\"" << written << "\"";
+
+        const Json answered = answerPayload();
+        EXPECT_FALSE(answered.contains("brightness"))
+                << "brightness=\"" << written << "\" reached the answer as "
+                << answered["brightness"].dump();
+    }
+}
