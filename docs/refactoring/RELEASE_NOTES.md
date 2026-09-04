@@ -349,11 +349,13 @@ Le journal du serveur, lui, annonçait une **erreur de lecture du message JSON**
 l'écran. Le message était pourtant parfaitement correct : l'erreur était ailleurs, et cette ligne
 envoyait chercher au mauvais endroit.
 
-**Ce qui change** : l'écran reçoit sa configuration. Quand un réglage n'a jamais été fait, il
-reçoit une valeur par défaut : **luminosité 100 %** — celle que le serveur applique déjà partout
-ailleurs pour cet écran — et **durée 30**, la valeur que tous les exemples de la documentation du
-protocole emploient. Un écran dont les réglages ont été faits reçoit exactement ce qu'il recevait
-avant, sans un octet de différence.
+**Ce qui change** : l'écran reçoit sa configuration. Quand la durée d'extinction n'a jamais été
+réglée, il reçoit **30**, la valeur que tous les exemples de la documentation du protocole emploient
+et celle que l'écran emploie déjà lui-même. Un écran dont les réglages ont été faits reçoit
+exactement ce qu'il recevait avant, sans un octet de différence.
+
+> ⚠️ Cette note annonçait aussi une **luminosité par défaut de 100 %**. C'était une erreur, corrigée
+> depuis : voir « Un écran jamais réglé s'allumait à 100 % » ci-dessous (T3.74).
 
 Et le journal ne met plus une erreur de lecture JSON sur le dos d'un message valide : ce qui échoue
 pendant le **traitement** d'un message est désormais annoncé comme tel, avec le nom du message
@@ -409,6 +411,32 @@ la taille est correcte est envoyé sans un octet de différence.
 → **Rien à faire de votre côté.** Si un écran restait vide alors que ses pages sont bien
 configurées, il s'affiche après la mise à jour — moins, éventuellement, un bouton dont la taille
 est à corriger dans `io.xml`, et que le message d'alerte vous nomme.
+
+### Un écran jamais réglé s'allumait à 100 % au lieu de sa luminosité d'usine (T3.74)
+
+La luminosité d'un écran déporté est un réglage : elle n'existe que si quelqu'un l'a choisie. Le
+serveur, lui, en envoyait une **de toute façon** — **100 %** — même à un écran dont personne n'avait
+jamais touché ce réglage. L'écran applique immédiatement la luminosité qu'on lui envoie : il
+s'allumait donc à fond, alors que sa valeur d'usine est **80 %**, et que c'est aussi la valeur que la
+documentation du protocole Calaos affiche dans tous ses exemples.
+
+Le symptôme n'était visible que depuis peu : jusqu'à la correction précédente, un écran jamais réglé
+**abandonnait la configuration entière** et n'appliquait donc jamais ce 100 %. En réparant cela, on
+a rendu ce 100 % effectif.
+
+**Ce qui change** : une luminosité qui n'a jamais été réglée n'est plus envoyée du tout. L'écran
+applique alors **sa propre valeur d'usine**, sans que le serveur ait à la connaître — ce qui évite
+que les deux se contredisent à nouveau le jour où elle change. Un écran dont la luminosité **a** été
+réglée reçoit exactement ce qu'il recevait avant, sans un octet de différence.
+
+> ### Êtes-vous concerné ?
+>
+> Seulement si vous avez un écran déporté dont la luminosité n'a **jamais** été réglée — depuis
+> Calaos Home, depuis les réglages de l'écran, ou par une règle. Il s'allumera **moins fort**
+> qu'avant la mise à jour : à sa valeur d'usine, 80 %, au lieu de 100 %.
+
+→ **Si vous préfériez le 100 %**, réglez la luminosité de l'écran une fois : elle sera envoyée et
+respectée comme avant. La durée d'extinction, elle, ne change pas.
 
 ## 🔴 Le sidecar MCP ne démarrait pas
 

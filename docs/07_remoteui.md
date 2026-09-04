@@ -338,8 +338,9 @@ attrapée et ignorée avec un avertissement, sans réponse d'erreur
 `ota_update`** — ces six noms figuraient dans ce document avant la revue E4.5e ; aucun n'est émis.
 
 Clés de `remote_ui_config_update` (dérivé,
-`src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:304-353`) : `name`, `brightness`,
-`grid_height`, `grid_width`, les huit `screensaver_*`, `pages`, `room`
+`src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:304-353`) : `name`, `brightness`
+(⚠️ **seulement s'il est réglé**, T3.74), `grid_height`, `grid_width`, les huit `screensaver_*`,
+`pages`, `room`
 (`name`/`type`/`hits`, seulement si la pièce est trouvée), et `io_items` — un tableau projeté par
 `JsonApi::buildJsonIO(io, jio, IoProjection::DeviceConfig)` (`:346`).
 
@@ -384,9 +385,11 @@ Clés de `remote_ui_fw_update_available` (dérivé,
 `brightness` et `timeout` par un `std::stoi` nu sur des paramètres **ni déclarés ni défaultés**, et
 l'exception, avalée par le `catch` de `processApi()`, était journalisée en « JSON parse error » —
 l'appareil ne recevait **aucune** réponse `remote_ui_config`. Les deux passent maintenant par
-`getBrightness()` (défaut **100**, T3.25) et `getTimeout()` (défaut **30**, la valeur de tous les
-exemples de `RemoteUI/remote-ui.md` ; dérivé,
-`src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:522-540`). Le `try` de `processApi()` est coupé en
+`getTimeout()` (défaut **30**, corroboré par le micrologiciel, `main/calaos_protocol.h:137`).
+⚠️ **`getBrightness()` (défaut 100) a été SUPPRIMÉ par [T3.74](refactoring/T3.74.md)** : ce défaut
+contredisait le 80 de l'appareil et de la spécification de wire. `brightness` n'est plus posé que
+lorsque le param est réglé et lisible (`RemoteUI::putBrightnessIfSet()`), et l'écran retombe sinon
+sur sa propre valeur (dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:583-590`). Le `try` de `processApi()` est coupé en
 deux : le parse garde son nom, le service du message est nommé
 `unhandled failure while serving <msg>` (dérivé,
 `src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:130-178`).

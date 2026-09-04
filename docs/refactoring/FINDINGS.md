@@ -9689,7 +9689,7 @@ un autre.
 - ⛔ **Non prouvable sans matériel** : que l'écran physique s'affiche effectivement. Ce qui est
   épinglé est le contrat lu dans le source du micrologiciel.
 
-### ⚠️ [F-RUI-2] Le défaut `brightness` du serveur contredit celui du micrologiciel
+### ✅ [F-RUI-2] Le défaut `brightness` du serveur contredit celui du micrologiciel — **FERMÉ par [T3.74](T3.74.md)**
 
 `RemoteUI::getBrightness()` retourne **100** par défaut (`IO/RemoteUI/RemoteUI.cpp:582`). Le
 micrologiciel porte **80** (`main/calaos_protocol.h:136`), et sa documentation aussi
@@ -9702,6 +9702,40 @@ sur les écrans jamais réglés. Ticket proposé **`T3.74`**.
 ⭐ **En revanche `timeout = 30` est CORROBORÉ** par le micrologiciel (`calaos_protocol.h:137`) — ce
 choix de T3.68 était juste. ⚠️ Nuance : côté écran, `timeout` est **parsé puis jamais utilisé**,
 aucun consommateur.
+
+✅ **FERMÉ par [T3.74](T3.74.md)** (branche `fix/t3.74`, non poussée). **Omettre** a été retenu, comme
+pour les clés d'économiseur de [T3.73](T3.73.md), et le param n'était plus que le **dernier** de la
+charge encore émis avec une valeur inventée.
+
+⛔⭐ **DEUX AFFIRMATIONS DE CE FINDING ÉTAIENT FAUSSES, ET LA MESURE LES CORRIGE.**
+(1) **Ce n'est pas T3.68 qui a mis 100 sur le wire vivant.**
+`data["brightness"] = getBrightness()` est sur le **push** — le seul chemin qu'un écran écoute
+(`F-RUI-3`) — depuis `350018ca` (**2025-12-23**, un commit amont), et `getBrightness()` y portait
+`100` dès ce jour-là ; T3.68 n'a touché que la réponse `remote_ui_config`, c'est-à-dire le chemin
+**mort**. ⭐ **Le ticket qui a fait ATTERRIR ce 100 est `T3.73`** : avant elle, un écran jamais
+réglé jetait la charge entière (`F-RUI-1`) et gardait donc son 80. Le défaut est bien réel et bien
+neuf pour l'utilisateur — son auteur n'est pas celui désigné ici.
+(2) **`doc/remote-ui.md` du micrologiciel n'existe pas** : le dépôt de l'écran ne porte aucun `.md`
+de protocole. Les `80` cités sont ceux de la spécification de **ce** dépôt
+(`src/bin/calaos_server/RemoteUI/remote-ui.md:85`, `:546`, `:607`) — ce qui rend l'écart plus fort,
+pas moins : le serveur contredisait **sa propre** documentation.
+
+⭐ **Ce que la mesure a établi, et qui a tranché (A) contre (B) :** le parse de l'appareil est *pull*
+(`data.value("brightness", 80)`, `main/calaos_websocket_manager.cpp:797`) **dans les 14 révisions**
+du fichier, depuis le premier commit qui lit la clé (`e813dfc`, **2025-12-11**), **antérieur aux 18
+étiquettes** du dépôt (2026-02-10 → 2026-05-26) ; **aucun autre consommateur** ne lit la clé, ni dans
+`src/` ni côté appareil (`ScreenSaver::applyConfig()` lit le **champ** de la structure, déjà défauté
+à 80, `main/screensaver.cpp:309,344`) ; et `getBrightness()` n'avait **que deux appelants**, les deux
+émissions — il est **supprimé**, le `100` quitte l'arbre au lieu d'être déplacé.
+
+⭐⭐ **Les deux corrections donnent le MÊME octet au rétroéclairage** (clé absente ⇒ 80 ; clé à 80
+⇒ 80), et ce n'est pas une déduction : la contre-mutation **M2 EST la variante (A)**, et elle laisse
+**verts** les deux cas qui portent le niveau appliqué. Ce qui les départage est donc ailleurs — (A)
+recopierait dans ce dépôt une constante qui vit dans l'autre, et rejouerait ce même défaut, en
+silence, au premier changement d'usine.
+
+⛔ **Non prouvable sans matériel** : qu'un écran physique s'allume à 80 %. Ce qui est épinglé est la
+charge émise d'un côté et le source qui la lit de l'autre.
 
 ### [F-RUI-3] Le chemin `remote_ui_config` est mort côté appareil
 
