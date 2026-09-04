@@ -40,6 +40,109 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
+- **✅⭐⭐ [`T3.33`](T3.33.md) MERGÉE — 4 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête sur `master` : **`369e0f25`** (2026-09-04). `master` avait avancé à `c40df10e`
+  (T3.73 puis T3.42) ⇒ **rebase** de `9356fe13` sur `c40df10e` : **zéro conflit**, y compris sur
+  les trois fichiers documentaires recouvrants (`BOARD.md`, `FINDINGS.md`, `RELEASE_NOTES.md`) —
+  git a fusionné des régions disjointes. `tests/Makefile.am` **non touché** par la branche : elle
+  n'ajoute aucune entrée `TESTS` et **étend deux suites existantes** (`WagoWire_test` 35 → 52,
+  `KNXExternProcWire_test` 18 → 27). `make distclean` fait avant le build. Build de merge complet :
+  **`TOTAL 118 / PASS 117 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, le seul `SKIP` étant
+  `check-ccache-honesty.sh` ; `check-test-deps.sh` **PASS** ; ⭐ **`CXXLD calaos_wago` ET
+  `CXXLD calaos_knx`** relevés dans le journal — les deux binaires conditionnels sont bien
+  construits, donc la moitié KNX du ticket n'est pas orpheline. Un 4ᵉ commit `style(t3.33)` a été
+  ajouté au merge : les bannières de commentaires de `src/` (≈15 lignes, marqueurs décoratifs,
+  étiquettes de ticket) ont été **élaguées** à la règle du projet ; aucune ligne de code touchée.
+
+  ⭐⭐ **LE TICKET A CORRIGÉ LE DIAGNOSTIC DE SA PROPRE FICHE, ET LA CORRECTION TIENT — REJOUÉE
+  ICI.** La fiche annonçait « variables jamais écrites » ⇒ **périmé depuis [`T3.25`](T3.25.md)** :
+  `from_string()` fait `T tmp{}; …; dest = tmp;` — `dest` est écrit **sur tous les chemins**.
+  Pré-semis rejoué au merge, hors des tests, en compilant les corps **verbatim** de l'ancien
+  `eKnxGroupAddr()` avec `a = b = c = 0x5555` contre le vrai `StringUtils.cpp` :
+
+  | entrée | a, b, c après `from_string` | adresse émise |
+  |---|---|---|
+  | `""` | 0, 0, 0 | **0** = `0/0/0` |
+  | `"x/y/z"` | 0, 0, 0 | **0** = `0/0/0` |
+  | `"1"` | 1, 0, 0 | 2048 = `1/0/0` |
+  | `"1/2"` | 1, 2, 0 | 2560 = `1/2/0` |
+  | `"1/2/300"` | 1, 2, 300 | **2604 = `1/2/44`** |
+
+  Le motif `0x5555` (qui, masqué, donnerait `21/5/85` = 44373) **ne survit à aucun décodage**.
+  ⇒ **Rien d'indéterminé n'atteignait le bus ; ce qui l'atteignait était ZÉRO** — registre modbus
+  **0**, groupe KNX **`0/0/0`**, deux adresses matérielles réelles. Le défaut se requalifie en
+  « **valeur par défaut sur une adresse matérielle** », et le titre de la ligne `BOARD.md` porte
+  cette correction. `Utils::split()` **complète** sa liste jusqu'à `max` (`StringUtils.cpp:210`),
+  donc l'« accès hors bornes » qu'annonçait `FINDINGS.md` **n'existait pas** — `F-T333-1` le dit.
+
+  ⛔⭐ **LA TROUVAILLE QUI VAUT LE TICKET : les `& 0x0F` / `& 0xFF` n'étaient pas des gardes.**
+  Vérifié au source **et** au calcul ci-dessus : `1/2/300` était **masqué** en **`1/2/44`**, un
+  groupe **qui existe**. Une saisie hors bornes dans `io.xml` n'échouait donc pas — elle
+  **commandait silencieusement le mauvais équipement**. C'est strictement pire qu'un refus
+  manquant, et c'est ce qui justifie l'entrée `RELEASE_NOTES`.
+
+  **Trois régimes sur un message malformé, un seul change.** JSON illisible → journal + `return`
+  (inchangé, figé par `MalformedJsonTouchesNothing`) ; action inconnue → **silence total**
+  (inchangé, figé par `AnUnknownActionTouchesNothingAndAnswersNothing`) ; action connue + champ
+  manquant → la trame **partait**, adresse **0**, statut `true` ⇒ **désormais refusée**. Le
+  correctif ne touche que le troisième. **Écart assumé avec OLA** : le `ChannelValue cv = {0,0}`
+  de `calaos_ola` est **délibérément non suivi** — un zéro par défaut est tolérable sur DMX, jamais
+  sur un registre modbus ni sur un groupe KNX. **Cet arbitrage est le bon.** Wago répond un statut
+  en échec (sinon la commande de `WagoMap` reste pendante à jamais) ; KNX laisse sa sortie
+  **intacte** (`out` non écrit sur refus) — les deux sont figés par des assertions.
+
+  ⭐ **LE TÉMOIN RÉÉCRIT APRÈS VACUITÉ EST RÉEL, PAS DÉCORATIF — et c'est la première fois qu'un
+  auteur attrape le piège sur lui-même.** `TheSeededComponentsNeverReachTheBus` et
+  `TheSeededPatternNeverReachesThePlc` disaient `EXPECT_NE(seed, out)` après un appel dont le
+  retour était ignoré : après correctif, `out` n'étant plus écrit du tout, l'assertion serait
+  devenue **vacuante à l'envers**. Réécrits, ils asservissent **les deux régimes** : accepté ⇒
+  `EXPECT_NE(seed, …)`, refusé ⇒ `EXPECT_EQ(seed, …)` « a refused address must not be written to
+  `out` ». Sur les six entrées listées c'est la branche « refusé » qui court, et elle **rougirait**
+  si le décodeur écrivait sa sortie. Assertion vivante.
+
+  **Sidecar vivant après refus** : `TheDispatchKeepsServingAfterASequenceOfRefusals` enchaîne
+  **6 refus** puis, à chaque tour, une trame bien formée qui atteint le bus avec **son** adresse et
+  **sa** valeur. **Non-régression** : **7 acquis Wago** (dont les deux offsets `0x200` du
+  read_output) + **2 KNX**, verts. Contrôlé au diff : **les seules lignes retirées de `tests/` sont
+  les 2 bouchons `ADD_FAILURE` devenus obsolètes** (les décodeurs ne sont plus des membres) et une
+  ligne de commentaire — **aucune assertion préexistante modifiée ni affaiblie**.
+
+  ⛔⭐ **LA LACUNE DÉCLARÉE — VERDICT : PARTIELLEMENT UNE FAUSSE ASSURANCE, ET LE POINT EXACT EST
+  NOMMABLE.** Le `switch` de `WagoProcess::messageReceived()` n'est linké par aucun test (la TU
+  finit sur `EXTERN_PROC_CLIENT_MAIN`), et `wagoDispatch()` en **reproduit la forme**. **Ce qui
+  est faux dans l'inquiétude** : le correctif lui-même — `WagoWire::decodeRequest()`,
+  `decodeAddress()`, `decodeCount()` — est du **code de production, dans l'en-tête, appelé pour de
+  vrai** par la suite ; les gardes sont donc réellement exercées, et les 10 contre-mutations le
+  prouvent. **Ce qui est vrai** : le **câblage** autour du décodage n'est couvert par rien, et il y
+  a un trou **nommable et mesuré** — `WagoWire::commandExpectsReadReply()` n'est référencé **que**
+  par `WagoExternProc_main.cpp` (mesuré : **0 occurrence dans `tests/`**). Le ternaire
+  `commandExpectsReadReply(req.command) ? buildReadReply(…, false, {}) : buildStatusReply(…, false)`
+  du chemin de refus pourrait être **inversé sans qu'aucun test ne rougisse** — le harnais réduit
+  ce choix à `replied = true; replyStatus = false`. **⇒ Ticket proposé, `T3.76`** : couvrir
+  `commandExpectsReadReply()` et le sélecteur de réponse du chemin de refus (soit par une suite
+  directe sur l'en-tête, soit en extrayant la réponse de refus dans une fonction de `WagoWire.h`) ;
+  le même trou existe côté KNX pour `writeKnxValue()`/`sendReadKnxCommand()`. **Sévérité : moyenne
+  — pas de fausse assurance sur le défaut corrigé, fausse assurance sur la réponse rendue.**
+
+  **`RELEASE_NOTES` ajoutée CONTRE l'avis de la fiche — arbitrage APPROUVÉ.** L'entrée est
+  justifiée : le champ fautif vient d'`io.xml`, donc d'une saisie utilisateur ; l'effet (commander
+  un **autre groupe qui existe**) était invisible ; et le comportement **change visiblement** après
+  mise à jour — un équipement mal adressé cessera d'agir sur le mauvais point. C'est exactement le
+  critère d'une note de version, et le paragraphe « Conséquence à connaître » le dit sans détour.
+
+  **Quatre findings neufs consignés** : `F-T333-1` (le masque qui commandait un groupe existant,
+  et la **correction d'une affirmation fausse** de `FINDINGS.md` sur un « accès hors bornes » qui
+  n'existait pas), `F-T333-2` (`eKnxPhysicalAddr()` sans aucun appelant, conservé sous contrat),
+  ⭐ `F-T333-3` (**la forme « entier 16 bits » annoncée par le `--help` de `calaos_knx` n'a jamais
+  existé** — `knx_addr = knx_addr & 0xffff;` était une affectation à soi-même sur un `knx_addr`
+  valant 0 ⇒ l'adresse partait sur `0/0/0` ; **NON corrigé ici, décision à prendre : implémenter la
+  forme ou retirer la phrase du `--help`** ; une adresse sans `/` se comporte comme avant),
+  `F-T333-4` (recensement des suites corrigé : 35 et 18 sur `master`, pas 31 et 18).
+
+  **État de la session au sortir de ce merge** : `master` = **`369e0f25`**, rien de poussé, historique
+  linéaire. Worktree `.wave101/t3.33` supprimé, branche `fix/t3.33` supprimée. ⚠️ `T3.75` est
+  **toujours en cours** dans `.wave102/t3.75` — ne pas y toucher.
+
 - **✅⭐⭐ [`T3.42`](T3.42.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **`30e2e63a`** (2026-09-04). `master` avait avancé à `df791f01`
   (T3.73) ⇒ **rebase** de `9356fe13` sur `df791f01` : **zéro conflit**, `tests/Makefile.am` inclus
