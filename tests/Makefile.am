@@ -4726,3 +4726,40 @@ core_ExternProcArgv_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCt
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.79
+#⭐ What a sidecar launch WRITES TO THE JOURNAL, on a stock install.
+#startProcess() logged the whole argv re-joined by spaces through
+#cInfoDom("process"); `debug_level` defaults to 4, LOG_LEVEL_INFO is 4, and
+#MqttWire::encodeConfig() puts the broker password in the argument that IS that
+#argv. The broker password therefore went out in clear with nothing switched on,
+#once per launch and once per respawn.
+#⚠️ NOTHING HERE CALLS startProcess(): a real MqttCtrl is built and std::cout is
+#captured across its first launch and its respawn, so a mutation of
+#IO/ExternProc.cpp turns this suite red.
+#⛔ The second case is the counterweight - deleting the line would also pass the
+#first one, and the journal must still name the sidecar and count its
+#relaunches. The third is a source tripwire on the sidecar's own two logging
+#sites, which no test process can execute: calaos_mqtt is a separate binary and
+#returns on connectSocket() before reaching them.
+#Same link shape and same process-scoped harness as core/ExternProcArgv_test:
+#-I.../IO/Mqtt is not in AM_CPPFLAGS, and CALAOS_TOP_SRCDIR feeds the tripwire.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ExternProcLogSecret_test
+check_PROGRAMS += core/ExternProcLogSecret_test
+core_ExternProcLogSecret_test_SOURCES = core/ExternProcLogSecret_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_ExternProcLogSecret_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt \
+                  -DCALAOS_TOP_SRCDIR='"$(abs_top_srcdir)"'
+core_ExternProcLogSecret_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_ExternProcLogSecret_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
