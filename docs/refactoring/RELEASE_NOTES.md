@@ -299,6 +299,35 @@ automatique et l'API restent identiques.
 
 ---
 
+## 🔴 Un espace dans un mot de passe MQTT empêchait la passerelle de démarrer, sans fin
+
+### Le pilote redémarrait dix fois par seconde, indéfiniment (T3.78)
+
+Les pilotes Calaos qui parlent à un équipement extérieur — MQTT, KNX, Wago, OneWire, OLA, Roon —
+tournent dans un programme séparé que le serveur lance et relance. Les réglages que vous avez
+saisis (adresse du courtier, identifiants, univers DMX…) lui sont passés au lancement.
+
+Jusqu'ici, ces réglages étaient assemblés en **une seule ligne**, puis **redécoupés sur les
+espaces** avant d'être remis au programme. Conséquence : **tout espace dans une valeur de votre
+configuration était pris pour une séparation**. Le pilote recevait alors un réglage de plus qu'il
+n'en attend, ne comprenait pas ce qu'on lui donnait, s'arrêtait aussitôt — et le serveur le
+relançait **100 ms plus tard**, à l'identique. Soit une dizaine de démarrages ratés par seconde,
+aussi longtemps que le réglage restait en place, avec un journal qui défile.
+
+Le cas le plus fréquent est le **mot de passe MQTT** : un espace y est parfaitement légitime, et
+rien nulle part ne prévenait. Le symptôme visible était « le MQTT ne marche pas », sans plus.
+
+**Ce qui change** : les réglages ne sont plus jamais recollés puis redécoupés. Chacun est remis au
+pilote tel que vous l'avez saisi, espaces compris. Un mot de passe, un nom de fichier ou un chemin
+contenant des espaces traverse désormais **intact**.
+
+**Ce qui ne change pas** : le paramètre `ow_args` des sondes OneWire est, lui, **une liste**
+d'options `owfs` séparées par des espaces — c'est ce que sa description annonce. Il continue d'être
+compris exactement comme avant, à l'octet près.
+
+→ **Rien à faire de votre côté.** Si vous aviez contourné le problème en retirant les espaces d'un
+mot de passe, vous pouvez le remettre tel qu'il est chez votre courtier.
+
 ## 🔴 Une faute de frappe dans la position d'un bouton d'écran empêchait le serveur de démarrer
 
 ### Une seule coordonnée illisible et plus rien ne s'allumait (T3.70)

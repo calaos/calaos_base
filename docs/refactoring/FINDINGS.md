@@ -9943,7 +9943,7 @@ donc sur `{ ' ' }` seul, et le contrat du découpeur est **épinglé** plutôt q
 `" \t\n\r\v\f"` — une classe de `src/lib` que **tout** l'arbre traverse — ne fait rougir que
 **`core/RoonArgs_test`**. **Aucune autre suite de l'arbre n'épingle sur quoi `CStrArray` découpe.**
 
-### Les appelants de `startProcess()` — 16 sites, 8 fichiers
+### Les appelants de `startProcess()` — 16 sites, 8 fichiers (recomptés à l'identique par [T3.78](T3.78.md), verdict site par site dans sa fiche §2)
 
 **13 sites sur 16, dans 6 fichiers, portent un argument venant de la configuration** :
 `WagoMap.cpp` (2, `get_param("host")` + port) · `MqttCtrl.cpp` (2, un JSON de `host`, `port`,
@@ -9953,7 +9953,7 @@ seul gardé**). **3 sites sur 16, dans 2 fichiers, n'en portent aucun** : `Reoli
 `ScriptExec.cpp` (1). Les « six sidecars » de la fiche sont donc exactement `calaos_wago`,
 `calaos_mqtt`, `calaos_knx`, `calaos_ola`, `calaos_1wire`, `calaos_roon`.
 
-### ⛔ [F-EXTPROC-1] Le même défaut sur un **mot de passe MQTT** — pire que celui de Roon
+### ✅ [F-EXTPROC-1] Le même défaut sur un **mot de passe MQTT** — pire que celui de Roon — **FERMÉ par [T3.78](T3.78.md)**
 
 `MqttWire::encodeConfig()` sérialise `host`, `port`, `keepalive`, `user` et `password` en **un
 seul** JSON compact passé comme **un seul** argument ; `MqttExternProc_main.cpp:171` exige
@@ -9963,9 +9963,18 @@ JSON en deux argv ⇒ `"Unable to read configuration"`, sortie, **même boucle d
 **Pourquoi c'est plus grave que le cas Roon** : un mot de passe contenant un espace est un **usage
 normal**, pas une faute de frappe. Et la parade de T3.28a — refuser le champ — serait ici **pire
 que le défaut** : on refuserait une configuration légitime. **Seule la correction (3)
-(`vector<string>` dans `ExternProcServer`) ferme ce cas.** ⛔ **Ouvert sur `master`.**
+(`vector<string>` dans `ExternProcServer`) ferme ce cas.**
 
-### ⚠️ [F-EXTPROC-2] `ow_args` rend la correction (3) NON mécanique
+✅ **FERMÉ par [T3.78](T3.78.md).** `startProcess()` prend un `vector<string>` et l'ancienne surface
+a disparu : une `std::string` ne s'y convertit pas, donc tout appelant de la forme d'avant est une
+**erreur de compilation**. Mesuré **à travers un vrai `MqttCtrl`**, pas par appel direct : un mot de
+passe `mon mot de passe` donnait **argv 9** (⇒ `argc 5`) et donne **argv 6** (⇒ `argc 2`, ce
+qu'exige `MqttExternProc_main.cpp:171`), le JSON comparé **octet pour octet** à `encodeConfig()` sur
+**chaque** lancement, respawn compris — `core/ExternProcArgv_test.
+AMqttPasswordCarryingSpacesReachesTheSidecarWhole`. Une mutation posée **au site expédié**
+(`MqttCtrl.cpp`, l'argument redécoupé) le fait rougir.
+
+### ✅ [F-EXTPROC-2] `ow_args` rend la correction (3) NON mécanique — **TRAITÉ par [T3.78](T3.78.md)**
 
 Le paramètre `ow_args` de `OWTemp` est **documenté** comme une liste d'arguments owfs
 (*« Additional parameter used for owfs initialization. For example you can use -u… »*) et
@@ -9973,6 +9982,18 @@ Le paramètre `ow_args` de `OWTemp` est **documenté** comme une liste d'argumen
 **porteur**. ⇒ (3) ne peut pas être un `vector<string>{args}` appliqué en bloc : ce champ demande
 son propre arbitrage (garder un découpage explicite, ou basculer son ioDoc sur une liste). C'est
 le vrai coût du ticket (3), et il ne se voit pas dans le compte des appelants.
+
+✅ **TRAITÉ par [T3.78](T3.78.md) : arbitrage retenu = GARDER LE DÉCOUPAGE, et le rendre EXPLICITE au
+site.** `OwCtrl` appelle `Utils::split(args, procArgs, " ")` lui-même, là où l'intention se lit, au
+lieu de la subir dans le transport ; l'ioDoc n'est pas touché. **Non-régression prouvée trois fois** :
+(a) analytiquement — `split()` saute les délimiteurs de tête, regroupe les runs et ne produit jamais
+de jeton vide, donc découper la concaténation le long d'un délimiteur **est** la concaténation des
+découpages ; (b) par mesure — le corps **verbatim** de `Utils::split()` compilé hors des tests,
+**13 entrées** (chaîne vide, blancs seuls, runs, espace finale, tabulation, saut de ligne) ⇒
+**0 différence** ; (c) au site de production — un vrai `OwCtrl` dont l'argv est relu au noyau
+(`TheOneWireArgumentListStillReachesTheSidecarAsSeparateArguments`, **vert des deux côtés du
+correctif** : c'est le témoin de non-régression). Le port mécanique que ce finding annonçait
+(`vector<string>{args}`) a été **rejoué en contre-mutation M2** : **1 rouge**, ce cas-là.
 
 ### Ce qu'un passage en `vector<string>` toucherait
 
@@ -10006,6 +10027,38 @@ avec la correction (3), ou avant.
 used for owfs initialization. For example you can use -u »*, et `:53-55` y préfixe `"--use-w1 "`
 **espace compris**. Le découpage y est **porteur**, donc (3) ne peut pas envelopper `args` dans un
 `vector<string>` d'un seul élément sans casser ce champ.
+
+### ⛔ [F-EXTPROC-3] Le mot de passe MQTT part **en clair dans le journal du serveur** — ticket `T3.79`
+
+La revue de merge de T3.28a avait relevé `MqttExternProc_main.cpp:183` et `:187-189` (le sidecar
+journalise `argv[1]`). ⭐ **Le site qui compte est ailleurs, et il est plus grave** :
+`IO/ExternProc.cpp:284`, `cInfoDom("process") << "Starting process: " << arr.toString()` — dans le
+**serveur**, **générique** (tout argument de tout sidecar), et au niveau **INFO** alors que le défaut
+de `debug_level` est **4 = INFO** (`src/lib/ConfigOptions.cpp:602-607`, `.def("4")`). Sur une
+installation de série, personne n'ayant rien allumé, **chaque lancement et chaque relance du sidecar
+MQTT écrivent le mot de passe du courtier**. Relevé **verbatim** dans la sortie de
+`core/ExternProcArgv_test` en écrivant [T3.78](T3.78.md), pas déduit.
+
+⚠️ **Quatrième exposition, hors journal** : la configuration étant un argument de ligne de commande,
+elle est lisible dans `/proc/<pid>/cmdline` par tout compte de la machine, pour la vie du sidecar.
+Seule la sortir de l'argv (socket ou environnement) la fermerait — changement de protocole des
+sidecars, **arbitrage utilisateur**. ⇒ **[`T3.79`](T3.79.md)**, fiché, **non corrigé**.
+
+### ⛔ [F-EXTPROC-4] Quatre appelants de `startProcess()` ne sont épinglés par RIEN — mesuré
+
+Contre-mutation **M6** de [T3.78](T3.78.md), au site OLA : l'univers vide devient un `argv[1]` vide
+que `from_string("")` lit ⇒ **0 rouge**, `TOTAL 119 / PASS 118 / FAIL 0`, avec
+`CXXLD    calaos_server` et `CXXLD    core/ExternProcArgv_test` **lus** — le vert n'est pas un défaut
+de relink. ⇒ **rien dans l'arbre n'observe l'argv d'`OLACtrl`, `WagoMap`, `KNXCtrl` ni
+`ReolinkCtrl`.** Leur conversion en `vector<string>` a été faite **au raisonnement** et relue contre
+le `*_main` correspondant, pas exercée. ⚠️ `KNXCtrl` **est** construit pour de vrai par
+`core/KnxIo_test`, qui ne lit simplement pas l'argv. Le harnais nécessaire existe désormais
+(`tests/core/ExternProcSpawnHarness.h`, un journal d'argv par nom de sidecar).
+
+⚠️ **Corollaire noté au passage, non corrigé** : un `host` Wago **vide** faisait avaler le champ par
+le redécoupage et le **port** atterrissait dans `argv[1]`, là où `WagoExternProc_main.cpp:240` lit
+l'hôte. T3.78 **reproduit** ce comportement plutôt que de le changer en silence : c'est un défaut de
+configuration vide, pas de transport.
 
 ### ⚠️ [F-STRSPLIT-1] `Utils::CStrArray` n'a aucun filet propre — ticket proposé `T3.77`
 
