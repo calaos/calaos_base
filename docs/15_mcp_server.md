@@ -27,7 +27,8 @@ Principes de conception :
 > ⚠️ Contrairement aux drivers `ExternProc` (voir [12_extern_proc.md](12_extern_proc.md)
 > et [14_python_extern_proc.md](14_python_extern_proc.md)), `calaos_mcp`
 > n'utilise **pas** le framing binaire IPC. C'est un serveur HTTP
-> (FastMCP/uvicorn) sur socket Unix, proxifié en octets bruts par le C++.
+> (FastMCP/uvicorn) sur socket Unix, proxifié par le C++ — brut dans le sens
+> sidecar → client, découpé requête par requête dans l'autre (T3.42).
 
 ---
 
@@ -47,7 +48,7 @@ Principes de conception :
    │    └── WebSocket::ProcessData  ── sniff 1re ligne ──┐
    │         ├── /api        → JsonApiHandlerWS          │
    │         ├── /api/v3/... → RemoteUIWebSocketHandler  │
-   │         └── /mcp/*      → McpProxyHandler ──────────┤ octets bruts
+   │         └── /mcp/*      → McpProxyHandler ──────────┤ (McpRequestFilter)
    │                                                     ▼
    │                                   $CALAOS_CACHE_PATH/mcp.sock (0660)
    │                                                     ▲ uvicorn (fd=…)
@@ -161,7 +162,7 @@ valeurs (`McpProxyHandler.h:45-52`) :
 | Verdict | Traitement (`WebSocket.cpp:78-141`) |
 |---|---|
 | `NotEnoughData` | on attend d'autres octets ; au-delà de la limite de sniff, la connexion repart en HTTP normal |
-| `Mcp` | bascule en mode proxy : le timeout de lecture HTTP est annulé, tout est splicé en brut dans les deux sens (supporte les réponses SSE longues du Streamable HTTP) |
+| `Mcp` | bascule en mode proxy : le timeout de lecture HTTP est annulé. Sidecar → client est splicé en brut (supporte les réponses SSE longues du Streamable HTTP) ; client → sidecar passe par `McpRequestFilter` |
 | `InvalidPath` | `400 Bad Request` + fermeture (mitigation S5, anti path-traversal vers `/api`) |
 | `Smuggling` | `400 Bad Request` + fermeture (mitigation S8) |
 | `NotMcp` | la connexion repart dans le flux JsonApi / WebSocket normal |
@@ -180,6 +181,22 @@ anti-smuggling plutôt que d'être bloquée (`:141-154`).
 `detectSmuggling()` (`:61-107`) refuse trois formes : **deux `Content-Length`** ou plus, un
 `Transfer-Encoding` **accompagné** d'un `Content-Length`, et un `Transfer-Encoding` dont la
 valeur n'est ni `chunked` ni `identity`.
+
+### McpRequestFilter
+**Fichier :** [McpRequestFilter.h](../src/bin/calaos_server/McpRequestFilter.h) (header inline,
+testé par `tests/McpRequestFilter_test.cpp` sans lier le binaire serveur)
+
+Le sens client → sidecar n'est pas splicé en brut : il est **découpé requête par requête**, et
+chaque en-tête est réécrit (voir *auth.py — identité du client* plus bas pour le pourquoi). Le
+découpage est nécessaire à la garantie, pas décoratif : `WebSocket::ProcessData` renvoie sur
+`onClientData()` **avant** le bloc de reniflage, donc seule la première requête d'une connexion
+était lue, et assainir une seule fois se contourne par une requête pipelinée.
+
+Le filtre suit `Content-Length` et `Transfer-Encoding: chunked` pour sauter les corps sans
+jamais les relire comme des en-têtes. Ce qu'il ne sait pas découper avec certitude **abat la
+connexion** (`400`) : en-tête replié (obs-fold), `Content-Length` en double ou accompagné d'un
+`Transfer-Encoding`, `Transfer-Encoding` inconnu, *trailer* après un corps découpé, `Upgrade`,
+bloc d'en-têtes dépassant 8 KiB sans fin. Aucun client MCP connu n'émet ces formes.
 
 L'authentification Bearer **n'est pas** faite par le proxy : elle est déléguée
 au sidecar Python, ce qui évite de dupliquer la logique. `McpProxyHandler::sendError()` sert
@@ -371,35 +388,40 @@ DNS-rebinding de FastMCP est désactivée car le seul point d'entrée est le pro
 (`hmac.compare_digest`, S7, `auth.py:159-165`). Un échec renvoie `401` avec
 `WWW-Authenticate: Bearer` (`:183-184`).
 
-**Identité du client (T1.8).** Le proxy C++ transmet les octets du client tels quels, et
-haproxy (`option forwardfor`) **ajoute une nouvelle ligne d'en-tête** `X-Forwarded-For`
-**après** celles fournies par le client — il ne fusionne pas. Le sidecar prend donc la
-**dernière entrée de la dernière ligne** : le saut de proxy de confiance. Tout ce qui
-précède est fourni par le client et peut être tourné à chaque requête pour échapper au
-throttle (intégral, `auth.py:65-77`) :
+**Identité du client (T1.8, refondue par T3.42).** ⛔ **Le sidecar n'a aucun moyen de la
+déduire lui-même.** Il écoute sur un socket Unix : `request.client` vaut **`None`** — mesuré
+sur les versions épinglées et en dernières versions, en `httpx(uds=)` comme en octets HTTP/1.1
+bruts. Il n'existe donc **aucun pair** à confronter, et un `X-Forwarded-For` reçu là est
+indiscernable d'un en-tête que le client a écrit lui-même : le port 5454 répond aussi
+directement au LAN. Le sidecar lisait cet en-tête ⇒ n'importe quel client choisissait son seau
+de throttle, ou celui d'une victime (**F-MCP-XFF-1**).
+
+L'identité vient donc du **relais**, seul endroit qui voit le pair TCP. `McpRequestFilter`
+retire de **chaque** en-tête de requête les lignes `X-Calaos-Client` du client et pose la
+sienne, `"<credential> <ip>"` (intégral, `auth.py:72-81`) :
 
 ```python
-def _source_ip(request: Request) -> str:
-    # haproxy (`option forwardfor`) APPENDS A NEW X-Forwarded-For HEADER
-    # LINE — it does not merge into a client-supplied header. headers.get()
-    # returns the FIRST line, which is fully attacker-controlled, so take
-    # the LAST header line (appended by the trusted haproxy hop), then the
-    # LAST comma-entry of that line. All earlier lines/entries are supplied
-    # by the client and can be rotated per request to evade throttling.
-    lines = request.headers.getlist("x-forwarded-for")
-    if lines:
-        last = lines[-1].rsplit(",", 1)[-1].strip()
-        if last:
-            return last
-    return request.client.host if request.client else "unknown"
+def _source_ip(request: Request, credential: str) -> str:
+    # The relay drops every client-written line of this header and appends
+    # exactly one of its own, so a request carrying any other number of them
+    # did not come through it.
+    lines = request.headers.getlist(TRUSTED_HEADER)
+    if credential and len(lines) == 1:
+        received, _, ip = lines[0].partition(" ")
+        if ip and hmac.compare_digest(received, credential):
+            return ip
+    return UNIDENTIFIED
 ```
 
-Sans l'en-tête, **toutes les requêtes partagent un seul seau** — un accès direct au socket
-Unix n'offre de toute façon aucune identité par client. C'est la même règle que celle
-appliquée côté C++ par `TransportLimits::effectiveClientIp()` (`HttpClient.h:136-155`)
-— ⚠️ mais **pour le seul plafond `max_connections_per_ip`**
-(`HttpClient.cpp:200-203`). Ne pas généraliser : le **throttle de login** du serveur, lui,
-n'emprunte pas ce chemin, voir la réserve du § Sécurité ci-dessous.
+Le `credential` est dérivé de `mcp_service_token` — `SHA-256("calaos-mcp-proxy-v1|" + token)`,
+calculé des deux côtés (`McpServerManager::proxyCredential()`, `config.py:proxy_credential()`).
+Aucun client MCP ne voit ce jeton, donc une ligne forgée ne peut pas passer le test **même si
+le découpage du relais laissait un jour passer une ligne cliente**. Tout ce qui n'a pas
+d'identité valide partage **un seul seau** (`"unknown"`).
+
+⚠️ **Conséquence à connaître** : une requête qui joindrait le socket Unix **sans** passer par
+le relais (donc depuis le boîtier — le socket est en `0660`) n'a pas d'identité et tombe dans
+ce seau partagé.
 
 **Réglages du throttle** — lus dans `local_config.xml`, donc modifiables par
 l'installateur. Ce ne sont **pas** des constantes (dérivé, `config.py:86-91`,

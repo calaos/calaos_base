@@ -947,7 +947,7 @@
   - ⛔ **ET CE QUI N'EST PAS ACCEPTÉ, ajouté par la revue de T3.39** : **F-MCP-XFF-1** ci-dessous.
     Ce n'est pas un arbitrage, c'est la **même faille non fermée sur l'autre moitié du port 5454**.
 
-- ⚠️⚠️ **F-MCP-XFF-1 — [SÉCURITÉ, OUVERT, fiche [T3.42](T3.42.md)] le sidecar MCP croit
+- ✅ **F-MCP-XFF-1 — [SÉCURITÉ, FERMÉ par [T3.42](T3.42.md)] le sidecar MCP croyait
   `X-Forwarded-For` sans aucun test du pair : le rate-limit et le bannissement `/mcp` sont contournables depuis le LAN** (trouvé par
   la revue de T3.39, **mesuré de bout en bout**, **non corrigé**).
 
@@ -987,6 +987,25 @@
   pair n'est pas le loopback, **sur chaque requête du tunnel** — le sidecar garde alors sa règle
   actuelle sans une ligne de Python à changer. Alternative moins invasive à peser : refuser
   `/mcp` aux pairs non-loopback (mais `/mcp` depuis le LAN peut être légitime).
+
+  ✅ **FERMÉ (T3.42).** ⛔ **La forme de correctif proposée ci-dessus était la bonne, mais pas
+  suffisante seule** : le relais peut poser un `X-Forwarded-For`, un client aussi, et le sidecar
+  n'a aucun moyen de les distinguer. Livré : `McpRequestFilter` (`McpRequestFilter.h`, header
+  inline) **découpe le tunnel requête par requête** dans le sens client → sidecar, retire de
+  **chaque** en-tête la ligne `X-Calaos-Client` du client et pose la sienne — identité
+  `TransportLimits::effectiveClientIp()` de **cette** requête, précédée d'un **credential dérivé
+  de `mcp_service_token`** (SHA-256, étiquette de séparation de domaine) qu'aucun client MCP ne
+  voit. Le sidecar **ne lit plus `X-Forwarded-For` du tout**. Ce qui ne se découpe pas avec
+  certitude (repli d'en-tête, `Content-Length` ambigu, *trailers*, `Upgrade`) **abat la
+  connexion**. Mesuré de bout en bout, octets du vrai filtre C++ rejoués dans le vrai
+  `BearerAuthMiddleware`, `rate_limit=5`, 20 requêtes à en-tête **tourné** :
+  · pair LAN `192.0.2.55` → **200 : 5 · 429 : 15**, **un seul** seau (`192.0.2.55`)
+  · pair loopback (haproxy) → **200 : 20 · 429 : 0**, **20** seaux ⇒ la granularité derrière le
+  proxy est intacte.
+  **Ce qui reste, et qui est accepté** : une requête qui joindrait la socket Unix sans passer par
+  le relais n'a pas d'identité et tombe dans un seau partagé (socket `0660`, donc du boîtier
+  lui-même) ; et, comme côté serveur, du code tournant **sur la machine** est loopback et choisit
+  encore son seau.
 
   ⚠️ **Tant que cette entrée est ouverte, la protection annoncée par F-XFF-1 est INCOMPLÈTE**, et
   la note de version le dit explicitement. Un auto-hébergeur qui lit « les tentatives sont
@@ -1048,7 +1067,12 @@
 
 - ⚠️ **F-MCP-SNIFF-1 — [SÉCURITÉ, OUVERT, PRÉEXISTANT] la détection de smuggling de `/mcp` se
   contourne avec ~8 Kio de bourrage d'en-têtes** (trouvé en mesurant F-MCP-XFF-1, **hors périmètre
-  T3.39**, non corrigé).
+  T3.39**, `sniffRequest()` **non corrigé**).
+  ⚠️ **Atténué depuis T3.42, entrée maintenue ouverte** : le filtre du relais rejoue les mêmes
+  indicateurs (`Content-Length` en double, `Content-Length` + `Transfer-Encoding`) sur **chaque**
+  en-tête et abat la connexion au-delà de 8 Kio sans fin de bloc, donc le bourrage mesuré
+  n'atteint plus le sidecar. `sniffRequest()` lui-même rend toujours `Mcp` sans contrôle dans ce
+  cas, et la branche morte `"/mcp?"` est toujours là.
   `McpProxyHandler::sniffRequest()` (`:144-156`) ne cherche `detectSmuggling()` que s'il a **vu**
   la fin du bloc d'en-têtes ; si `\r\n\r\n` n'est pas trouvé **et** que le tampon dépasse
   `SNIFF_LIMIT` (**8192**, `:34`), il rend `Mcp` **sans aucun contrôle**. Vérifié en compilant le
