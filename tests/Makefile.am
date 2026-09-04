@@ -4763,3 +4763,49 @@ core_ExternProcLogSecret_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/M
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.80
+#The argv of the four sidecars nothing was watching: Wago, KNX, OLA and
+#Reolink. The vector conversion of startProcess() left MQTT, OneWire and Roon
+#pinned by a case that reads the argv the KERNEL handed the child, and these
+#four with nothing - and for OLA and Reolink the gap was STRUCTURAL: no test
+#binary linked IO/OLA/OLACtrl.$(OBJEXT) nor IO/Reolink/ReolinkCtrl.$(OBJEXT),
+#so no mutation of either could ever be red. This binary is what links them.
+#NOTHING HERE CALLS startProcess(): each fixture builds the production
+#controller (WagoMap, KNXCtrl, OLACtrl, ReolinkCtrl), lets its respawn run and
+#reads the spawn journal back, so a mutation of any of those four .cpp turns
+#this suite red.
+#Stand-in sidecars: no KNX bus, no Wago PLC, no camera, no olad. What is
+#pinned is the argument list, not what anyone does with it.
+#The harness is core/ExternProcSpawnHarness.h, whose recorder preserves
+#ARGUMENT BOUNDARIES - the only thing this suite asks about.
+#-I.../IO/Wago is already in AM_CPPFLAGS; IO/KNX, IO/OLA and IO/Reolink are
+#not (same as core/KnxIo_test for the first).
+#Its own binary, and its own process: the four controllers respawn their
+#sidecar for the life of the process and park timers on the default loop.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/SidecarArgv_test
+check_PROGRAMS += core/SidecarArgv_test
+core_SidecarArgv_test_SOURCES = core/SidecarArgv_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_SidecarArgv_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/KNX \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/OLA \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Reolink
+core_SidecarArgv_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OLA/OLACtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkCtrl.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_SidecarArgv_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OLA/OLACtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkCtrl.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
