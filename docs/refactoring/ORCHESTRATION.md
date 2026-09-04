@@ -93,7 +93,7 @@
   le **seul** source de `tests/` à mentionner `Utils::CStrArray` — vérifié par balayage de tous les
   `.cpp`/`.h` de `tests/`. Une classe de `src/lib` traversée par tout l'arbre n'a donc **aucun filet
   propre** : élargir son délimiteur ne rougit qu'une suite, et elle appartient à un autre ticket.
-  ⇒ **ticket proposé `T3.76`** (suite de caractérisation de `Utils::split`/`CStrArray`), fiché
+  ⇒ **ticket proposé `T3.77`** (suite de caractérisation de `Utils::split`/`CStrArray`), fiché
   `F-STRSPLIT-1` dans `FINDINGS.md`.
 
   **État de la session au sortir de ce merge** : `master` = le commit de revue qui porte ce

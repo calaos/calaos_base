@@ -9938,7 +9938,7 @@ used for owfs initialization. For example you can use -u »*, et `:53-55` y pré
 **espace compris**. Le découpage y est **porteur**, donc (3) ne peut pas envelopper `args` dans un
 `vector<string>` d'un seul élément sans casser ce champ.
 
-### ⚠️ [F-STRSPLIT-1] `Utils::CStrArray` n'a aucun filet propre — ticket proposé `T3.76`
+### ⚠️ [F-STRSPLIT-1] `Utils::CStrArray` n'a aucun filet propre — ticket proposé `T3.77`
 
 Balayage de **tous** les `.cpp`/`.h` de `tests/` : `tests/core/RoonArgs_test.cpp` est le **seul**
 source de l'arbre à mentionner `CStrArray`, et il ne le fait que **depuis T3.28a**. Les trois
