@@ -103,17 +103,15 @@ public:
     void sendMessage(const string &data);
 
     /*
-     * ⚠️ A VECTOR, AND NEVER A STRING TO RE-SPLIT.
+     * A VECTOR, AND NEVER A STRING TO RE-SPLIT.
      *
-     * This used to take one string, concatenate it into a command line and let
-     * Utils::CStrArray cut it back on the space - no quoting, no escaping - so
-     * any configured value carrying a space became several argv, the sidecar
-     * exited on its argument check and the 100 ms respawn relaunched it
-     * forever. An MQTT password is the case that has no other answer: refusing
-     * a space there would refuse a legitimate configuration.
-     *
-     * Callers that genuinely pass a LIST (OneWire's owfs arguments) say so by
-     * building the vector themselves, where the intent is readable.
+     * This used to take one string, concatenate it into a command line and
+     * let Utils::CStrArray cut it back on the space - no quoting, no
+     * escaping - so any configured value carrying a space became several
+     * argv, the sidecar exited on its argument check and the 100 ms respawn
+     * relaunched it forever. An MQTT password is the case with no other
+     * answer: refusing a space there would refuse a legitimate configuration.
+     * A caller that genuinely passes a LIST builds the vector itself.
      */
     void startProcess(const string &process, const string &name, const vector<string> &args = vector<string>());
     void terminate();

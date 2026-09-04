@@ -28,12 +28,11 @@ OwCtrl::OwCtrl(const string &args)
 
     exe = Prefix::Instance().binDirectoryGet() + "/calaos_1wire";
 
-    //⚠️ THE ONE SITE WHERE THE SPLIT ON SPACES IS LOAD BEARING, AND IT STAYS.
-    //`ow_args` is documented as a LIST of owfs arguments (OWTemp.cpp:41-42),
-    //OWTemp prefixes "--use-w1 " to it space included, and
-    //OWExternProc_main.cpp joins argv[1..] back into one owfs init string.
-    //Utils::split() drops empty tokens, so runs of spaces and a trailing one
-    //give the same argv as before.
+    //THE ONE SITE WHERE THE SPLIT ON SPACES IS LOAD BEARING, AND IT STAYS.
+    //`ow_args` is documented as a LIST of owfs arguments, OWTemp prefixes
+    //"--use-w1 " to it space included, and OWExternProc_main.cpp joins
+    //argv[1..] back into one owfs init string. Utils::split() drops empty
+    //tokens, so runs of spaces and a trailing one give the same argv as before.
     vector<string> procArgs;
     Utils::split(args, procArgs, " ");
 
