@@ -2155,16 +2155,55 @@ dans le journal du serveur nomme la limite.
 ### Deux points restés ouverts, et dits ici plutôt que découverts plus tard
 
 - **Un octet nul dans une valeur de paramètre est perdu quand la configuration est écrite sur
-  disque.** L'API le transporte entier, mais le fichier `io.xml` le coupe au zéro, **sans rien
-  dire** : la valeur en mémoire et la valeur enregistrée diffèrent, et l'écart n'apparaît qu'au
-  **redémarrage suivant**. Le même mécanisme peut faire **renommer** un équipement, ou faire
-  disparaître la deuxième action d'une étape d'auto-scénario. ⚠️ **En attendant un correctif :
-  n'envoyez pas d'octet nul dans un nom ou une valeur de paramètre.**
+  disque.** ✅ **Corrigé depuis — voir la section suivante (T3.66).**
 - **Un nombre entier de plus de six chiffres perd sa précision** en devenant un paramètre :
   `1234567` est enregistré `1.23457e+06`. Ce n'est pas nouveau et ce n'est pas lié à la taille du
   nombre — c'est la mise en forme des nombres, inchangée depuis longtemps. ⭐ **La parade est
   immédiate : envoyez la valeur comme une chaîne de caractères JSON** (`"1234567"` plutôt que
   `1234567`) et elle est enregistrée telle quelle, quel que soit le nombre de chiffres.
+
+## 🔴 Un caractère invisible dans un paramètre pouvait **renommer un équipement** dans votre configuration (T3.66)
+
+Un paramètre d'équipement est enregistré dans `io.xml` comme un attribut : `name="Lampe salon"`.
+Le nom du paramètre et sa valeur y sont écrits tels que l'API les a reçus.
+
+Il existe un caractère que ce format ne sait pas écrire : l'**octet nul**, le caractère de code
+zéro. Il ne s'affiche pas, il ne se voit dans aucune interface, et une application peut l'envoyer
+sans le vouloir — un tampon mal terminé, une chaîne recopiée avec sa marque de fin. Quand il
+arrivait dans un paramètre, le serveur **coupait l'écriture à cet endroit** sans rien dire.
+
+Le résultat le plus grave n'était pas la perte du reste de la valeur, mais ce qui arrivait quand
+c'était le **nom du paramètre** qui portait ce caractère. Un paramètre appelé `name` + octet nul +
+n'importe quoi était écrit comme le paramètre **`name`** — c'est-à-dire le **nom d'affichage de
+l'équipement**. ⚠️ **Une seule requête pouvait donc renommer un équipement dans le fichier de
+configuration**, en écrasant son vrai nom.
+
+**Et rien ne se voyait.** Le serveur répondait « succès », l'interface continuait d'afficher
+l'ancien nom, le journal restait muet. L'équipement ne changeait de nom qu'**au redémarrage
+suivant** — c'est-à-dire des jours plus tard, quand plus personne ne pouvait faire le lien avec la
+requête qui l'avait causé.
+
+**C'est fermé.** Le serveur **refuse désormais** d'enregistrer un paramètre dont le nom ou la valeur
+contient un octet nul. Rien n'est écrit, rien n'est écrasé, et le refus est **dit**.
+
+**Ce que vous verrez** : la commande `set_param` répond `{"error":"param refused"}` au lieu de
+`{"success":"true"}`, sur les deux transports (HTTP et WebSocket), et une ligne du journal du
+serveur nomme l'équipement concerné. Aucun événement de changement n'est plus envoyé aux
+applications connectées pour une écriture qui n'a pas eu lieu. La modification d'un auto-scénario
+dont le nom porterait ce caractère répond de la même façon qu'un formulaire invalide, **sans rien
+modifier**.
+
+**Aucune configuration existante n'est concernée** : un fichier `io.xml` ne peut pas contenir cet
+octet, et aucune commande valide n'en envoie.
+
+### Un point restant, dit ici plutôt que découvert plus tard
+
+- **La création d'un auto-scénario n'est pas couverte de la même façon que sa modification.** La
+  **valeur d'une action** d'auto-scénario, et le **nom** donné à la création, peuvent encore porter
+  cet octet et être tronqués à l'enregistrement. C'est délibéré : ce chemin transporte
+  volontairement l'octet de bout en bout dans l'API — c'est un choix fait précédemment et assumé —
+  et le fermer changerait ce comportement-là. ⚠️ **En attendant : n'envoyez pas d'octet nul dans le
+  nom ni dans les actions d'un auto-scénario.**
 
 ## 📦 Intégration continue : les 42 tests Python s'exécutent enfin, et un `SKIP` n'y est plus silencieux
 

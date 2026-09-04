@@ -9036,7 +9036,16 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   n'appelle `dumpJsonRedacted()`** — vérifié : cette fonction n'a que **deux** appelants, les deux
   `processApi()` gardés par ce ticket — donc aucun ne porte le défaut quadratique. **Non mesurés.**
 
-- ⭐⭐ **[F-XML-1] L'écrivain XML coupe toute valeur — et tout NOM de paramètre — au premier octet
+- ✅ **[F-XML-1] FERMÉ par [`T3.66`](T3.66.md)** (2026-09-04). La garde est dans
+  `IOBase::set_param()`, à la frontière du **modèle** : un **nom** ou une **valeur** portant un
+  `\0` est refusé **avant** d'atteindre `io.xml`, `set_param()` rend `bool`, et l'API répond
+  `{"error":"param refused"}` au lieu d'annoncer un succès. **Prouvé en rechargeant la
+  configuration** — l'IO n'est plus renommé, l'attribut voisin est intact. ⛔ **Le parseur n'a pas
+  été touché** : le NUL échappé traverse toujours la porte et l'API entière là où E4.6d l'a rendu
+  traversant. ⚠️ **Deux chemins d'écriture restent hors garde** — voir `F-XML-2` ci-dessous, c'est
+  la limite haute voulue. Le constat d'origine est conservé tel quel :
+
+- ⭐⭐ **[F-XML-1, constat d'origine] L'écrivain XML coupe toute valeur — et tout NOM de paramètre — au premier octet
   nul, en silence, et la mémoire diverge du disque jusqu'au redémarrage.**
   `XmlUtils::setAttribute()` (`src/lib/XmlUtils.h:89`) finit sur
   `pugi::xml_attribute::set_value(value.c_str())`, et résout le nom par
@@ -9062,10 +9071,43 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   l'écrivain **et** son décodage dans le lecteur, ou une **garde dans `IOBase::set_param()`**.
   **Options chiffrées et recommandation argumentée dans [`T3.58.md`](T3.58.md), volet (b).**
   ⛔ **Aucune n'a été implémentée : la décision revient à l'utilisateur.**
-  ⇒ **Ticket proposé [`T3.66`](T3.66.md)** : le codage réversible de l'octet nul dans l'écrivain XML
-  et son décodage dans le lecteur. ⚠️ **C'est de la corruption de configuration silencieuse, pas une
-  gêne d'API** : un nom de paramètre porteur d'un zéro renomme l'IO, une action d'autoscénario
-  ampute son étape, et rien ne se voit avant le redémarrage suivant.
+  ⇒ ✅ **Tranché et livré par [`T3.66`](T3.66.md)** : ni codage XML, ni refus au parse — **garde
+  dans `IOBase::set_param()`**, sur décision utilisateur du 2026-09-04
+  ([`DECISIONS.md`](DECISIONS.md)).
+
+- ⚠️ **[F-XML-2] `set_param()` n'est pas le seul chemin d'écriture d'un paramètre d'IO, et les deux
+  autres restent hors de la garde de [`T3.66`](T3.66.md) — délibérément.**
+  `IOBase::SaveToXml()` écrit **tout** le `param` de l'IO ; y arrivent, sans passer par
+  `set_param()` :
+  - `AutoScenarioDef::saveToParams()` (`AutoScenarioDef.cpp:348`), appelé depuis
+    `Scenario::SaveToXml()` (`IO/Scenario.cpp:186-192`), qui empaquette les actions d'une étape
+    **au moment de la sauvegarde** — c'est le **troisième cas de `F-XML-1`**, et il n'est **pas**
+    fermé ;
+  - `ListeRoom::createIO(Params, Room*)` depuis `buildAutoscenarioCreate()`
+    (`JsonApi.cpp:2457`), qui porte le **nom** du scénario ;
+  - plus généralement `get_params()`, qui rend une référence **mutable**.
+
+  ⭐ **Pourquoi c'est laissé** : les fermer imposerait un refus dans `parseScenarioPayload()`, et ce
+  refus **ferait basculer le cas d'E4.6d** `AnEmbeddedNulInAnActionIsCarriedWholeByScenarioToJson`,
+  qui a travaillé pour que l'octet traverse l'API **entière**. La garde serait posée **trop haut**.
+  ⚠️ **Conséquence assumée et visible** : `autoscenario modify` **refuse** un nom porteur d'un zéro,
+  `autoscenario create` en écrit une version **tronquée**. Les deux sont épinglés par
+  `B_ANulInAnAutoscenarioActionCutsTheWholeEncodedStep`, resté **vert exprès**.
+  ⇒ **Rouvrir seulement si quelqu'un décide que le NUL ne doit plus traverser l'autoscénario non
+  plus** ; c'est alors E4.6d qu'on rediscute, pas cette garde-ci.
+
+- ℹ️ **[F-XML-3] Les autres contrôles C0 ne cassent pas l'écriture, mais `io.xml` cesse d'être du
+  XML 1.0 conforme.** **Mesuré** par
+  `core/IoParamNulGuard_test::M_AnotherC0ControlByteIsEscapedAndSurvivesTheRoundTrip` : un `0x01`
+  dans une valeur est écrit **`t366_ctrl="head&#01;tail"`** — une **référence de caractère**, pas
+  l'octet brut — rien n'est coupé, aucun attribut voisin n'est touché, et l'aller-retour par le
+  disque est **fidèle**. ⇒ **le zéro est bien le seul octet qui casse l'écriture**, parce qu'il est
+  le seul qui termine la chaîne C avec laquelle `setAttribute()` résout le nom.
+  ⚠️ **Ce qui reste faux** : XML 1.0 n'a aucune façon d'écrire un contrôle C0, donc `&#01;` est une
+  référence qu'**aucun outil XML conforme n'est tenu d'accepter**. `pugixml` relit ce qu'il a
+  écrit ; un éditeur tiers ouvrant `io.xml` peut refuser. ⛔ **Non élargi par [`T3.66`](T3.66.md)** :
+  ce serait refuser des octets que l'API accepte aujourd'hui, sur un chemin que personne n'a
+  signalé.
 
 - **[F-JSON-3] La perte de précision sur les nombres n'est pas au parseur, elle est au contrat
   d'aplatissement, et elle mord bien en deçà d'`int64`.** `Utils::to_string(double)`
