@@ -520,3 +520,187 @@ TEST(KNXExternProcWire, RawNonUtf8BusBytesAreReplacedInsteadOfCrashing_DECLARED_
         EXPECT_LT((unsigned int)(unsigned char)c, 0x80u);
     EXPECT_FALSE(Json::parse(msg, nullptr, false).is_discarded());
 }
+
+/*******************************************************************************
+ * T3.33 - THE TWO ADDRESS DECODERS, and what they put on the KNX bus.
+ *
+ * eKnxGroupAddr() is the last thing that runs before EIBSendGroup(): whatever
+ * it answers IS the group that gets written. Nothing in this repository ever
+ * exercised it.
+ *
+ * ⛔ THE FINDING THAT OPENED THIS PERIMETER WAS WRONG, and the case
+ * SplitPadsTheTokenListToThree exists so that nobody "re-fixes" it: it
+ * announced an OUT OF BOUNDS read of tokens[1]/tokens[2] on an address with
+ * fewer than three components. Utils::split() PADS its list up to `max`
+ * (StringUtils.cpp:210), so with max = 3 the vector always carries three
+ * entries and there is no out of bounds access and no segfault. The real
+ * defect is quieter: the padding is "", the components that were never given
+ * are invented, and the write lands on ANOTHER GROUP.
+ *
+ * THE SEAM, same discipline as the four above: the two bodies below are copied
+ * VERBATIM from KNXExternProc_main.cpp:140-164, because that translation unit
+ * ends on EXTERN_PROC_CLIENT_MAIN and cannot be linked here. The fix commit
+ * replaces both bodies with a call into the production header. Assertions that
+ * move with it are flagged _DECLARED_DELTA.
+ *
+ * ⭐ 0x5555 IN a, b AND c. Production declares `int a, b, c;` with no
+ * initialiser; an uninitialised int is very often 0, so a test that only says
+ * "not 3" passes by accident. Seeding them with 21845 - the value calaos_ola
+ * put on a DMX channel through this same defect - makes an unwritten component
+ * name itself: 21845 masks down to 21/5/85, group address 44373.
+ ******************************************************************************/
+
+#include <vector>
+#include "Utils.h"
+
+namespace
+{
+
+const int       T33_SEED       = 0x5555;
+//21/5/85, what a group address made of three never-written components reads as.
+const eibaddr_t T33_SEED_GROUP = 44373;
+//1.5.85, the same three components through the physical layout.
+const eibaddr_t T33_SEED_PHYS  = 0x1555;
+
+bool seamGroupAddr(const string &group_addr, eibaddr_t &out)
+{
+    std::vector<string> tokens;
+    Utils::split(group_addr, tokens, "/", 3);
+    int a = T33_SEED, b = T33_SEED, c = T33_SEED;
+    Utils::from_string(tokens[0], a);
+    Utils::from_string(tokens[1], b);
+    Utils::from_string(tokens[2], c);
+    out = (eibaddr_t)(((a & 0x01F) << 11) |
+                      ((b & 0x07) << 8) |
+                      (c & 0xFF));
+    //Production has no way to say no: the signature returns the address alone.
+    return true;
+}
+
+bool seamPhysicalAddr(const string &addr, eibaddr_t &out)
+{
+    std::vector<string> tokens;
+    Utils::split(addr, tokens, ".", 3);
+    int a = T33_SEED, b = T33_SEED, c = T33_SEED;
+    Utils::from_string(tokens[0], a);
+    Utils::from_string(tokens[1], b);
+    Utils::from_string(tokens[2], c);
+    out = (eibaddr_t)(((a & 0x0F) << 12) |
+                      ((b & 0x0F) << 8) |
+                      (c & 0xFF));
+    return true;
+}
+
+} //namespace
+
+/* ⭐ THE FACT THAT INVALIDATES THE ORIGINAL FINDING. Frozen explicitly, and
+ * deliberately asserted on Utils::split() itself rather than through the
+ * decoders, so that it stays true no matter what they become. */
+TEST(KNXExternProcAddr, SplitPadsTheTokenListToThree)
+{
+    std::vector<string> tokens;
+    Utils::split("1", tokens, "/", 3);
+    ASSERT_EQ(3u, tokens.size()) << "no out of bounds read: split() pads";
+    EXPECT_EQ("1", tokens[0]);
+    EXPECT_EQ("", tokens[1]);
+    EXPECT_EQ("", tokens[2]);
+
+    tokens.clear();
+    Utils::split("", tokens, "/", 3);
+    EXPECT_EQ(3u, tokens.size());
+
+    //And what it does with a FOURTH component: the remainder lands whole in
+    //the last token, which is why "1/2/3/4" is refusable on the token alone.
+    tokens.clear();
+    Utils::split("1/2/3/4", tokens, "/", 3);
+    ASSERT_EQ(3u, tokens.size());
+    EXPECT_EQ("3/4", tokens[2]);
+}
+
+TEST(KNXExternProcAddr, AGroupAddressWithOneComponentStillReachesTheBus_DECLARED_DELTA)
+{
+    eibaddr_t out = T33_SEED_GROUP;
+
+    //DECLARED DELTA 5 - the fix commit reads EXPECT_FALSE.
+    EXPECT_TRUE(seamGroupAddr("1", out)) << "characterization: nothing refuses it";
+    EXPECT_EQ(1 << 11, out) << "and 1 is written as group 1/0/0";
+    EXPECT_NE(T33_SEED_GROUP, out);
+}
+
+TEST(KNXExternProcAddr, AnOutOfRangeGroupComponentIsMaskedInsteadOfRefused_DECLARED_DELTA)
+{
+    eibaddr_t out = T33_SEED_GROUP;
+
+    //DECLARED DELTA 6. ⭐ The masks are not a guard: 300 & 0xFF is 44, so a
+    //write meant for a group that does not exist lands on 1/2/44, which does.
+    EXPECT_TRUE(seamGroupAddr("1/2/300", out));
+    EXPECT_EQ((1 << 11) | (2 << 8) | 44, out);
+}
+
+TEST(KNXExternProcAddr, AnEmptyGroupAddressStillReachesTheBus_DECLARED_DELTA)
+{
+    eibaddr_t out = T33_SEED_GROUP;
+
+    //DECLARED DELTA 7. An io.xml with no group address writes to group 0/0/0.
+    EXPECT_TRUE(seamGroupAddr("", out));
+    EXPECT_EQ(0, out);
+}
+
+TEST(KNXExternProcAddr, APhysicalAddressWithOneComponentStillResolves_DECLARED_DELTA)
+{
+    eibaddr_t out = T33_SEED_PHYS;
+
+    //DECLARED DELTA 8. eKnxPhysicalAddr() has no caller in the tree today -
+    //measured - so this one is a contract, not a live path.
+    EXPECT_TRUE(seamPhysicalAddr("1", out));
+    EXPECT_EQ(1 << 12, out);
+}
+
+/* ⭐ THE WITNESS. Green before AND after the fix. It says the seeded pattern is
+ * doing its job: since T3.25 from_string() writes its destination on every
+ * path, so 21845 no longer survives a failed decode. If this turns red,
+ * from_string() has gone back to leaving `dest` alone and the three
+ * uninitialised components of both decoders are live again. */
+TEST(KNXExternProcAddr, TheSeededComponentsNeverReachTheBus)
+{
+    const char *const addrs[] = { "", "1", "1/", "//", "x/y/z", "1/2" };
+
+    for (const char *const a: addrs)
+    {
+        eibaddr_t group = T33_SEED_GROUP;
+        seamGroupAddr(a, group);
+        EXPECT_NE(T33_SEED_GROUP, group) << a;
+
+        eibaddr_t phys = T33_SEED_PHYS;
+        seamPhysicalAddr(a, phys);
+        EXPECT_NE(T33_SEED_PHYS, phys) << a;
+    }
+}
+
+/* THE ACQUIS - the non-regression half. Both layouts, both ends of their
+ * range, and they must answer exactly this before and after the fix. */
+TEST(KNXExternProcAddr, AWellFormedGroupAddressStillResolves)
+{
+    eibaddr_t out = T33_SEED_GROUP;
+
+    ASSERT_TRUE(seamGroupAddr("1/2/3", out));
+    EXPECT_EQ((1 << 11) | (2 << 8) | 3, out);
+
+    ASSERT_TRUE(seamGroupAddr("0/0/0", out));
+    EXPECT_EQ(0, out);
+
+    //The widest address the 5/3/8 layout can carry.
+    ASSERT_TRUE(seamGroupAddr("31/7/255", out));
+    EXPECT_EQ(0xFFFF, out);
+}
+
+TEST(KNXExternProcAddr, AWellFormedPhysicalAddressStillResolves)
+{
+    eibaddr_t out = T33_SEED_PHYS;
+
+    ASSERT_TRUE(seamPhysicalAddr("1.2.3", out));
+    EXPECT_EQ((1 << 12) | (2 << 8) | 3, out);
+
+    ASSERT_TRUE(seamPhysicalAddr("15.15.255", out));
+    EXPECT_EQ(0xFFFF, out);
+}

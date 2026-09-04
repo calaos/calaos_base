@@ -1215,3 +1215,399 @@ TEST(WagoWire, TheWrapperShapeIsTheThingThatCloses)
     //is_convertible_v is exactly copy-initialisation, which is what {a}
     //performs at a call site.
 }
+
+/*******************************************************************************
+ * T3.33 - WHAT calaos_wago HANDS TO THE PLC.
+ *
+ * Everything above this line is about the BYTES of the wire. This block is
+ * about the six ARGUMENT TUPLES that leave calaos_wago and enter WagoCtrl,
+ * i.e. modbus, i.e. the relays - and nothing held any of that before.
+ *
+ * WHY A SEAM AND NOT THE PRODUCTION CODE, measured rather than assumed:
+ * WagoProcess::messageReceived() is a protected member of a class declared in
+ * WagoExternProc_main.cpp, and that translation unit ends on
+ * EXTERN_PROC_CLIENT_MAIN(WagoProcess), which defines the main() of
+ * calaos_wago. It cannot be linked next to gtest_main. So the characterization
+ * commit carries the decode VERBATIM here, and the fix commit rewires
+ * wagoDispatch() onto WagoWire::decodeRequest() - the same move E4.1h made for
+ * the builders. Every assertion that moves with the rewiring is flagged
+ * _DECLARED_DELTA in place.
+ *
+ * ⭐ THE PRE-SEEDED PATTERN, and why this suite cannot do without it.
+ * Production declares six pairs of locals with NO INITIALISER and hands them
+ * to Utils::from_string(). An uninitialised int is very often 0 in practice,
+ * so a test that only checks "the address is not 4242" passes by accident. The
+ * destinations here are therefore fields of BusCall PRE-SEEDED at 0x5555 -
+ * 21845, the DMX channel calaos_ola drove through this exact defect - which is
+ * a value no part of this wire ever produces. An assertion that names 0x5555
+ * can only be answered by the decode.
+ ******************************************************************************/
+
+namespace
+{
+
+const UWord T33_SEED_ADDRESS = 0x5555;
+const int   T33_SEED_COUNT   = 0x5555;
+const UWord T33_SEED_VALUE   = 0x5555;
+
+//Neither zero (what a naive initialisation would produce) nor a substring of
+//the count or of the value.
+const UWord T33_ADDRESS = 0x2A3F;
+const int   T33_COUNT   = 6;
+const UWord T33_VALUE   = 0x1234;
+
+//The whole of what calaos_wago is about to put on modbus, plus whether it got
+//that far at all and what it answered calaos_server.
+struct BusCall
+{
+    bool reached = false;
+    string call;
+    UWord address = T33_SEED_ADDRESS;
+    int count = T33_SEED_COUNT;
+    UWord wordValue = T33_SEED_VALUE;
+    bool bitValue = false;
+    vector<bool> bits;
+    vector<UWord> words;
+
+    bool replied = false;
+    bool replyStatus = true;
+};
+
+/* Body copied VERBATIM from WagoExternProc_main.cpp:56-255, with the six
+ * wago->... calls replaced by a record of the arguments they were about to
+ * hand to modbus, and the two reply builders by a record of the status. The
+ * modbus calls are assumed to succeed: what is under test is what is HANDED to
+ * them, not what they answer. */
+void wagoDispatch(const string &msg, BusCall &bus)
+{
+    Params jsonData;
+    vector<string> values;
+
+    if (!WagoWire::decodeMessage(msg, jsonData, &values))
+        return;
+
+    if (jsonData["action"] == "read_bits" ||
+        jsonData["action"] == "read_output_bits")
+    {
+        Utils::from_string(jsonData["address"], bus.address);
+        Utils::from_string(jsonData["count"], bus.count);
+
+        UWord offset = 0;
+        if (jsonData["action"] == "read_output_bits")
+            offset = 0x200;
+
+        bus.address = (UWord)(bus.address + offset);
+        bus.reached = true;
+        bus.call = "read_bits";
+        bus.replied = true;
+    }
+    else if (jsonData["action"] == "write_bit")
+    {
+        bus.bitValue = jsonData["value"] == "true";
+
+        Utils::from_string(jsonData["address"], bus.address);
+
+        bus.reached = true;
+        bus.call = "write_single_bit";
+        bus.replied = true;
+    }
+    else if (jsonData["action"] == "write_bits")
+    {
+        Utils::from_string(jsonData["address"], bus.address);
+        Utils::from_string(jsonData["count"], bus.count);
+
+        for (const string &v: values)
+            bus.bits.push_back(v == "true");
+
+        bus.reached = true;
+        bus.call = "write_multiple_bits";
+        bus.replied = true;
+    }
+    else if (jsonData["action"] == "read_words" ||
+             jsonData["action"] == "read_output_words")
+    {
+        Utils::from_string(jsonData["address"], bus.address);
+        Utils::from_string(jsonData["count"], bus.count);
+
+        UWord offset = 0;
+        if (jsonData["action"] == "read_output_words")
+            offset = 0x200;
+
+        bus.address = (UWord)(bus.address + offset);
+        bus.reached = true;
+        bus.call = "read_words";
+        bus.replied = true;
+    }
+    else if (jsonData["action"] == "write_word")
+    {
+        Utils::from_string(jsonData["address"], bus.address);
+        Utils::from_string(jsonData["value"], bus.wordValue);
+
+        bus.reached = true;
+        bus.call = "write_single_word";
+        bus.replied = true;
+    }
+    else if (jsonData["action"] == "write_words")
+    {
+        Utils::from_string(jsonData["address"], bus.address);
+        Utils::from_string(jsonData["count"], bus.count);
+
+        for (const string &v: values)
+        {
+            UWord vv;
+            Utils::from_string(v, vv);
+            bus.words.push_back(vv);
+        }
+
+        bus.reached = true;
+        bus.call = "write_multiple_words";
+        bus.replied = true;
+    }
+}
+
+//A request built key by key, so that a key can be left OUT or left EMPTY -
+//neither of which the eight production builders can express.
+string rawRequest(const string &body)
+{
+    return "{" + body + "}";
+}
+
+} //namespace
+
+/*------------------------------------------------------------------------------
+ * ⭐ THE DEFECT, one case per action branch. Six branches, six disjoint sets:
+ * removing the guard of one branch turns exactly one of these red.
+ *----------------------------------------------------------------------------*/
+
+TEST(WagoWireBus, AReadBitsRequestWithNoAddressStillReachesThePlc_DECLARED_DELTA)
+{
+    BusCall bus;
+    wagoDispatch(rawRequest("\"action\":\"read_bits\",\"id\":\"x\",\"count\":\"6\""), bus);
+
+    //DECLARED DELTA 1 - the fix commit reads EXPECT_FALSE(bus.reached).
+    EXPECT_TRUE(bus.reached) << "characterization: the frame is sent anyway";
+    EXPECT_EQ(0, bus.address) << "and it is sent to modbus register 0";
+    EXPECT_NE(T33_SEED_ADDRESS, bus.address);
+}
+
+TEST(WagoWireBus, AReadWordsRequestWithAnEmptyAddressStillReachesThePlc_DECLARED_DELTA)
+{
+    BusCall bus;
+    wagoDispatch(rawRequest("\"action\":\"read_words\",\"id\":\"x\",\"address\":\"\",\"count\":\"6\""), bus);
+
+    //DECLARED DELTA 2. ⭐ The key is PRESENT and EMPTY - the real shape, since
+    //Params::operator[] answers "" for an absent key too.
+    EXPECT_TRUE(bus.reached);
+    EXPECT_EQ(0, bus.address);
+    EXPECT_NE(T33_SEED_ADDRESS, bus.address);
+}
+
+TEST(WagoWireBus, AWriteBitRequestWithNoAddressStillDrivesACoil_DECLARED_DELTA)
+{
+    BusCall bus;
+    wagoDispatch(rawRequest("\"action\":\"write_bit\",\"id\":\"x\",\"value\":\"true\""), bus);
+
+    //DECLARED DELTA 3. This one WRITES: coil 0 of the PLC is a physical relay.
+    EXPECT_TRUE(bus.reached);
+    EXPECT_EQ("write_single_bit", bus.call);
+    EXPECT_EQ(0, bus.address);
+    EXPECT_TRUE(bus.bitValue);
+}
+
+TEST(WagoWireBus, AWriteBitsRequestWithNoCountStillReachesThePlc_DECLARED_DELTA)
+{
+    BusCall bus;
+    wagoDispatch(rawRequest("\"action\":\"write_bits\",\"id\":\"x\",\"address\":\"10815\","
+                            "\"values\":[\"true\",\"false\"]"), bus);
+
+    //DECLARED DELTA 4.
+    EXPECT_TRUE(bus.reached);
+    EXPECT_EQ(0, bus.count);
+    EXPECT_NE(T33_SEED_COUNT, bus.count);
+}
+
+TEST(WagoWireBus, AWriteWordRequestWithAnUnreadableValueStillPresetsARegister_DECLARED_DELTA)
+{
+    BusCall bus;
+    wagoDispatch(rawRequest("\"action\":\"write_word\",\"id\":\"x\",\"address\":\"10815\","
+                            "\"value\":\"nope\""), bus);
+
+    //DECLARED DELTA 5. The address is the one that was asked for, the PAYLOAD
+    //is invented.
+    EXPECT_TRUE(bus.reached);
+    EXPECT_EQ(T33_ADDRESS, bus.address);
+    EXPECT_EQ(0, bus.wordValue);
+    EXPECT_NE(T33_SEED_VALUE, bus.wordValue);
+}
+
+TEST(WagoWireBus, AWriteWordsRequestWithAnUnreadableEntryStillPresetsRegisters_DECLARED_DELTA)
+{
+    BusCall bus;
+    wagoDispatch(rawRequest("\"action\":\"write_words\",\"id\":\"x\",\"address\":\"10815\","
+                            "\"count\":\"3\",\"values\":[\"11\",\"nope\",\"333\"]"), bus);
+
+    //DECLARED DELTA 6.
+    EXPECT_TRUE(bus.reached);
+    ASSERT_EQ(3u, bus.words.size());
+    EXPECT_EQ(11, bus.words[0]);
+    EXPECT_EQ(0, bus.words[1]) << "the unreadable entry becomes register content";
+    EXPECT_EQ(333, bus.words[2]);
+}
+
+/*------------------------------------------------------------------------------
+ * ⭐ THE WITNESS. Green before AND after the fix, and it is the one that says
+ * the pre-seeded pattern is doing its job: T3.25 made from_string() write its
+ * destination on every path, so 0x5555 no longer survives a failed decode.
+ * If this ever turns red, from_string() has gone back to leaving `dest` alone
+ * and every uninitialised local of this file is live again.
+ *----------------------------------------------------------------------------*/
+TEST(WagoWireBus, TheSeededPatternNeverReachesThePlc)
+{
+    const char *const bodies[] = {
+        "\"action\":\"read_bits\",\"id\":\"x\"",
+        "\"action\":\"read_words\",\"id\":\"x\",\"address\":\"\",\"count\":\"\"",
+        "\"action\":\"write_bit\",\"id\":\"x\"",
+        "\"action\":\"write_bits\",\"id\":\"x\"",
+        "\"action\":\"write_word\",\"id\":\"x\"",
+        "\"action\":\"write_words\",\"id\":\"x\",\"values\":[\"\"]",
+    };
+
+    //Only the ADDRESS is decoded by all six branches, so it is the only field
+    //this loop can ask about: a branch that never looks at "count" leaves the
+    //seed in place for the good reason.
+    for (const char *const body: bodies)
+    {
+        BusCall bus;
+        wagoDispatch(rawRequest(body), bus);
+
+        EXPECT_NE(T33_SEED_ADDRESS, bus.address) << body;
+    }
+
+    BusCall reads;
+    wagoDispatch(rawRequest("\"action\":\"read_words\",\"id\":\"x\",\"count\":\"\""), reads);
+    EXPECT_NE(T33_SEED_COUNT, reads.count);
+
+    BusCall writes;
+    wagoDispatch(rawRequest("\"action\":\"write_word\",\"id\":\"x\",\"value\":\"\""), writes);
+    EXPECT_NE(T33_SEED_VALUE, writes.wordValue);
+
+    BusCall multi;
+    wagoDispatch(rawRequest("\"action\":\"write_words\",\"id\":\"x\",\"values\":[\"\"]"), multi);
+    for (UWord w: multi.words)
+        EXPECT_NE(T33_SEED_VALUE, w);
+}
+
+/*------------------------------------------------------------------------------
+ * THE ACQUIS. A well formed request behaves exactly as it always has - the
+ * non-regression half, and it counts as much as the six above.
+ *----------------------------------------------------------------------------*/
+
+TEST(WagoWireBus, AWellFormedReadBitsRequestIsUnchanged)
+{
+    BusCall bus;
+    wagoDispatch(WagoWire::buildReadBitsRequest(FX_ID, WagoTypes::Address(T33_ADDRESS),
+                                                WagoTypes::Count(T33_COUNT)), bus);
+
+    EXPECT_TRUE(bus.reached);
+    EXPECT_EQ("read_bits", bus.call);
+    EXPECT_EQ(T33_ADDRESS, bus.address);
+    EXPECT_EQ(T33_COUNT, bus.count);
+    EXPECT_TRUE(bus.replied);
+}
+
+//The 0x200 output image offset is applied by calaos_wago and never travels on
+//the wire. It is the one arithmetic this dispatch does.
+TEST(WagoWireBus, AWellFormedReadOutputBitsRequestStillGetsTheOutputOffset)
+{
+    BusCall bus;
+    wagoDispatch(WagoWire::buildReadOutputBitsRequest(FX_ID, WagoTypes::Address(T33_ADDRESS),
+                                                      WagoTypes::Count(T33_COUNT)), bus);
+
+    EXPECT_TRUE(bus.reached);
+    EXPECT_EQ(T33_ADDRESS + 0x200, bus.address);
+    EXPECT_EQ(T33_COUNT, bus.count);
+}
+
+TEST(WagoWireBus, AWellFormedReadOutputWordsRequestStillGetsTheOutputOffset)
+{
+    BusCall bus;
+    wagoDispatch(WagoWire::buildReadOutputWordsRequest(FX_ID, WagoTypes::Address(T33_ADDRESS),
+                                                       WagoTypes::Count(T33_COUNT)), bus);
+
+    EXPECT_TRUE(bus.reached);
+    EXPECT_EQ("read_words", bus.call);
+    EXPECT_EQ(T33_ADDRESS + 0x200, bus.address);
+}
+
+TEST(WagoWireBus, AWellFormedWriteBitRequestIsUnchanged)
+{
+    BusCall bus;
+    wagoDispatch(WagoWire::buildWriteBitRequest(FX_ID, WagoTypes::Address(T33_ADDRESS),
+                                                WagoTypes::BitValue(true)), bus);
+
+    EXPECT_TRUE(bus.reached);
+    EXPECT_EQ("write_single_bit", bus.call);
+    EXPECT_EQ(T33_ADDRESS, bus.address);
+    EXPECT_TRUE(bus.bitValue);
+}
+
+TEST(WagoWireBus, AWellFormedWriteWordRequestIsUnchanged)
+{
+    BusCall bus;
+    wagoDispatch(WagoWire::buildWriteWordRequest(FX_ID, WagoTypes::Address(T33_ADDRESS),
+                                                 WagoTypes::WordValue(T33_VALUE)), bus);
+
+    EXPECT_TRUE(bus.reached);
+    EXPECT_EQ("write_single_word", bus.call);
+    EXPECT_EQ(T33_ADDRESS, bus.address);
+    EXPECT_EQ(T33_VALUE, bus.wordValue);
+}
+
+TEST(WagoWireBus, AWellFormedWriteBitsRequestIsUnchanged)
+{
+    BusCall bus;
+    wagoDispatch(WagoWire::buildWriteBitsRequest(FX_ID, WagoTypes::Address(T33_ADDRESS),
+                                                 WagoTypes::Count(T33_COUNT),
+                                                 requestBitValues()), bus);
+
+    EXPECT_TRUE(bus.reached);
+    EXPECT_EQ(T33_ADDRESS, bus.address);
+    EXPECT_EQ(T33_COUNT, bus.count);
+    EXPECT_EQ(requestBitValues(), bus.bits);
+}
+
+TEST(WagoWireBus, AWellFormedWriteWordsRequestIsUnchanged)
+{
+    BusCall bus;
+    wagoDispatch(WagoWire::buildWriteWordsRequest(FX_ID, WagoTypes::Address(T33_ADDRESS),
+                                                  WagoTypes::Count(T33_COUNT),
+                                                  requestWordValues()), bus);
+
+    EXPECT_TRUE(bus.reached);
+    EXPECT_EQ(T33_ADDRESS, bus.address);
+    EXPECT_EQ(T33_COUNT, bus.count);
+    EXPECT_EQ(requestWordValues(), bus.words);
+}
+
+//An action nobody implements has always been answered with SILENCE - no bus
+//call and no reply at all. Pinned so that adding a refusal path cannot turn
+//this into a spurious failed status.
+TEST(WagoWireBus, AnUnknownActionTouchesNothingAndAnswersNothing)
+{
+    BusCall bus;
+    wagoDispatch(rawRequest("\"action\":\"reboot_plc\",\"id\":\"x\",\"address\":\"10815\""), bus);
+
+    EXPECT_FALSE(bus.reached);
+    EXPECT_FALSE(bus.replied);
+}
+
+//Malformed JSON is refused by decodeMessage() and the sidecar returns without
+//dispatching. Pinned here because the T3.33 refusal path must not change it.
+TEST(WagoWireBus, MalformedJsonTouchesNothing)
+{
+    BusCall bus;
+    wagoDispatch("{\"action\":\"write_bit\"", bus);
+
+    EXPECT_FALSE(bus.reached);
+    EXPECT_FALSE(bus.replied);
+}
