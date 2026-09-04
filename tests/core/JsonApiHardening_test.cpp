@@ -31,6 +31,7 @@
 
 #include "JsonApi.h"
 #include "FileUtils.h"
+#include "LogSetup.h"
 
 #include <fstream>
 #include <sys/stat.h>
@@ -284,6 +285,108 @@ TEST(JsonApiRedact, RedactedDumpDoesNotThrowOnInvalidUtf8)
     EXPECT_NE(dump.find("head"), std::string::npos) << dump;
     EXPECT_NE(dump.find("tail"), std::string::npos) << dump;
     EXPECT_NE(dump.find("readable"), std::string::npos) << dump;
+}
+
+/* T3.65 - THE WHOLE SENSITIVE LIST, ONE KEY AT A TIME.
+ *
+ * The four cases above name six of the eleven keys the list carries: dropping
+ * "passwd", "pass", "old_password", "new_password" or "secret" from it used to
+ * leave the whole suite green. Every key gets its own probe value here so that
+ * removing any single one of them names itself in the failure.
+ */
+TEST(JsonApiRedact, MasksEveryKeyOfTheSensitiveList)
+{
+    const std::vector<std::string> sensitive =
+    { "cn_pass", "password", "passwd", "pass", "token", "old_pw", "new_pw",
+      "old_password", "new_password", "secret", "authorization" };
+
+    Json j;
+    for (const std::string &key: sensitive)
+        j[key] = "LEAK_" + key + "_LEAK";
+
+    //A key that CONTAINS a sensitive name without being one: the match is on
+    //the whole key, and a substring match would mask this one too.
+    j["passenger"] = "readable_passenger";
+    j["action"] = "get_home";
+
+    const std::string dump = JsonApi::dumpJsonRedacted(j);
+
+    for (const std::string &key: sensitive)
+    {
+        //Both halves, always: "the secret is gone" alone would also pass on a
+        //dump that dropped the pair, and "the pair is there" alone would pass
+        //on a dump that never masked anything.
+        EXPECT_EQ(dump.find("LEAK_" + key + "_LEAK"), std::string::npos)
+                << key << " reached the log in clear: " << dump;
+        EXPECT_NE(dump.find("\"" + key + "\": \"***\""), std::string::npos)
+                << key << " is masked, or it is dropped: " << dump;
+    }
+
+    EXPECT_NE(dump.find("\"passenger\": \"readable_passenger\""), std::string::npos)
+            << "the key match became a substring match: " << dump;
+    EXPECT_NE(dump.find("\"action\": \"get_home\""), std::string::npos) << dump;
+}
+
+/******************************************************************************
+ * What the log level does with the redacted request line (T3.65)
+ ******************************************************************************/
+
+/* THE PREMISE OF T3.65, AND THE ONLY PLACE IT IS FALSIFIABLE.
+ *
+ * LogStream appends whatever is streamed into it and looks at the level only
+ * in its DESTRUCTOR: `cDebugDom(d) << expensive()` pays for expensive() at
+ * every level, and prints it at one. dumpJsonRedacted() is that expensive
+ * argument on the request path, and this case pins that at the level a stock
+ * install runs (debug_level defaults to 4, INFO), nothing of it is ever
+ * printed.
+ *
+ * std::cout is captured by its streambuf, not by the file descriptor: Logger
+ * writes through the stream object and a redirected fd would also swallow what
+ * the test framework prints.
+ */
+namespace
+{
+
+class CoutCapture
+{
+public:
+    CoutCapture(): previous(std::cout.rdbuf(captured.rdbuf())) {}
+    ~CoutCapture() { std::cout.rdbuf(previous); }
+
+    CoutCapture(const CoutCapture &) = delete;
+    CoutCapture &operator=(const CoutCapture &) = delete;
+
+    std::string str() const { return captured.str(); }
+
+private:
+    std::ostringstream captured;
+    std::streambuf *previous;
+};
+
+} //namespace
+
+TEST(JsonApiRequestLog, TheNetworkDomainPrintsNothingAtDebugLevel)
+{
+    std::string debugOutput, infoOutput;
+
+    {
+        CoutCapture capture;
+        cDebugDom("network") << "T365_DEBUG_MARKER";
+        debugOutput = capture.str();
+    }
+
+    //The control: the very same domain, one level up, DOES print. Without it
+    //this case would also pass on a capture that swallows everything.
+    {
+        CoutCapture capture;
+        cInfoDom("network") << "T365_INFO_MARKER";
+        infoOutput = capture.str();
+    }
+
+    EXPECT_EQ(debugOutput.find("T365_DEBUG_MARKER"), std::string::npos)
+            << "the default log level is no longer INFO: " << debugOutput;
+    EXPECT_NE(infoOutput.find("T365_INFO_MARKER"), std::string::npos)
+            << infoOutput;
 }
 
 /******************************************************************************
