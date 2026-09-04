@@ -9009,6 +9009,24 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   `JsonApi::requestNestingWithinLimit(data)`. **Non fait** : hors du périmètre déclaré de T3.58, et
   ce fichier est déjà le sujet de `T3.62`.
 
+  ⭐⭐ **CE CONTOURNEMENT N'EST PAS UN CHEMIN PRÉ-AUTHENTIFICATION — lu de bout en bout au merge, et
+  c'est ce qui rend le renvoi à `T3.62` acceptable.** Le handler n'est installé comme `jsonApi` de la
+  socket que si `authenticateConnection()` a rendu `true` (`WebSocket.cpp:283-286`) ; sur un échec il
+  est **détruit** et le handshake répond 401/403/429 puis ferme (`WebSocket.cpp:290-333`). Cette
+  authentification est un **HMAC sur un secret partagé** provisionné : en-têtes obligatoires,
+  `Bearer` non vide, fenêtre d'horodatage, limitation de débit, nonce de 64 caractères non rejouable,
+  token connu, puis `RemoteUI::validateHMAC()` (`HMACAuthenticator.cpp:58-99`,
+  `RemoteUIManager::validateAuthenticationWithReason()`). ⇒ **`processApi()` de RemoteUI n'est
+  atteignable qu'après authentification forte**, et le plantage `F-JSON-2` reste **inatteignable par
+  un client non authentifié**. Ce qu'un appareil RemoteUI **légitime** peut encore faire, c'est
+  imposer **un** parse profond (allocation, pas la ligne de journal quadratique) — nuisance, pas
+  déni de service pré-auth.
+
+  ⚠️ **Deux autres `Json::parse()` sont, eux, VRAIMENT pré-authentification et n'ont pas de
+  plafond** : `RemoteUI/RemoteUIProvisioningHandler.cpp:103` et le chemin MCP. **Ni l'un ni l'autre
+  n'appelle `dumpJsonRedacted()`** — vérifié : cette fonction n'a que **deux** appelants, les deux
+  `processApi()` gardés par ce ticket — donc aucun ne porte le défaut quadratique. **Non mesurés.**
+
 - ⭐⭐ **[F-XML-1] L'écrivain XML coupe toute valeur — et tout NOM de paramètre — au premier octet
   nul, en silence, et la mémoire diverge du disque jusqu'au redémarrage.**
   `XmlUtils::setAttribute()` (`src/lib/XmlUtils.h:89`) finit sur
@@ -9035,6 +9053,10 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   l'écrivain **et** son décodage dans le lecteur, ou une **garde dans `IOBase::set_param()`**.
   **Options chiffrées et recommandation argumentée dans [`T3.58.md`](T3.58.md), volet (b).**
   ⛔ **Aucune n'a été implémentée : la décision revient à l'utilisateur.**
+  ⇒ **Ticket proposé [`T3.66`](T3.66.md)** : le codage réversible de l'octet nul dans l'écrivain XML
+  et son décodage dans le lecteur. ⚠️ **C'est de la corruption de configuration silencieuse, pas une
+  gêne d'API** : un nom de paramètre porteur d'un zéro renomme l'IO, une action d'autoscénario
+  ampute son étape, et rien ne se voit avant le redémarrage suivant.
 
 - **[F-JSON-3] La perte de précision sur les nombres n'est pas au parseur, elle est au contrat
   d'aplatissement, et elle mord bien en deçà d'`int64`.** `Utils::to_string(double)`
@@ -9053,5 +9075,8 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   (`tests/core/JsonApiScenarioWireBytes_test.cpp:671`) **asserte désormais l'inverse de son nom** :
   E4.6d a réécrit son corps pour exiger que le NUL traverse **entier**, ce qui est le bon
   comportement — mais le nom est resté celui de l'état tronqué. Un lecteur pressé conclura que la
-  troncature vit encore. **Non renommé** : fichier hors périmètre de T3.58. Renommage suggéré :
-  `AnEmbeddedNulInAnActionIsCarriedWholeByScenarioToJson`.
+  troncature vit encore. ✅ **RENOMMÉ au merge de T3.58** en
+  `AnEmbeddedNulInAnActionIsCarriedWholeByScenarioToJson` (une ligne, corps inchangé), avec ses deux
+  renvois vivants recalés (`docs/04_scenarios.md`, `T3.58.md`). ⚠️ **Les fiches `E4.1s.md` et
+  `E4.6.md` citent encore le nom d'origine : ce sont des récits d'époque, où le cas assertait bien
+  la troncature. Ils n'ont pas été réécrits.**

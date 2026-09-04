@@ -192,7 +192,7 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
      *       down is this ticket's part, and the case that pins it lives in
      *       tests/core/JsonApiScenarioWireBytes_test.cpp.
      *     - an integer beyond int64: "too big integer" against a double.
-     *     - a nesting depth above 2048. ⭐ THAT ONE IS BACK, see below.
+     *     - a nesting depth above 2048. That one is back, see below.
      *
      *   UNCHANGED, the locks that must NOT move: invalid UTF-8 and a lone
      *   surrogate are refused by BOTH parsers, and so are a real-number
@@ -203,7 +203,7 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
      * The document stays `null` on the GET-parameter fallback, which is exactly
      * the branch where set_timerange answers 400 before reaching the dispatch.
      */
-    /* ⛔ THE DEPTH CEILING, RESTORED. It is checked on the TEXT, before the
+    /* The depth ceiling, restored. It is checked on the TEXT, before the
      * document exists: the cost this refuses is not the parse (iterative and
      * cheap) but dumpJsonRedacted() three lines below, which deep-copies the
      * document, walks it recursively and dumps it INDENTED - quadratic in the

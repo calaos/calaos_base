@@ -668,7 +668,7 @@ TEST_F(JsonApiScenarioWireBytesTest, ADelByteInAnActionIsEscaped)
  * are on the RAW wire AND on the parsed value, so "the action is a" cannot be
  * read as "the action is missing".
  */
-TEST_F(JsonApiScenarioWireBytesTest, AnEmbeddedNulInAnActionIsTruncatedByScenarioToJson)
+TEST_F(JsonApiScenarioWireBytesTest, AnEmbeddedNulInAnActionIsCarriedWholeByScenarioToJson)
 {
     loadScenarioHouse();
 

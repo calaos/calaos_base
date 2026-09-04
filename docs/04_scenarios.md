@@ -1134,6 +1134,5 @@ dans ses params, par les deux index non-possédants de `ListeRule` — `getRuleA
    qu'au chargement). L'écriture ne prend effet qu'au reboot, alors que la lecture est immédiate.
 8. **La valeur d'une action est du texte quelconque**, octet zéro compris : elle traverse
    `toJson()` **entière** et ressort échappée par le dump (dérivé, `IO/Scenario.h:88-95`,
-   `IO/Scenario.cpp:252`, épinglé par `tests/core/JsonApiScenarioWireBytes_test.cpp:671`, dont le nom
-  `AnEmbeddedNulInAnActionIsTruncatedByScenarioToJson` décrit le défaut d'avant — il asserte
-  aujourd'hui que la valeur passe entière).
+   `IO/Scenario.cpp:252`, épinglé par `tests/core/JsonApiScenarioWireBytes_test.cpp:671`,
+  `AnEmbeddedNulInAnActionIsCarriedWholeByScenarioToJson`).
