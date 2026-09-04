@@ -275,6 +275,10 @@ TEST_F(ExternProcLogSecretTest, TheMqttBrokerPasswordNeverReachesTheLog)
  * is the symptom that put the previous three tickets on the table. This case
  * is red exactly when the diagnosis dies, and green under the mutation that
  * restores the leak.
+ *
+ * The announced argument COUNT is checked against what the kernel received,
+ * because a count that is compared to nothing is decoration: swapping
+ * args.size() for cmd.size() used to publish 6 where 1 was true, in silence.
  */
 TEST_F(ExternProcLogSecretTest, TheLogStillNamesTheSidecarAndCountsItsRelaunches)
 {
@@ -301,6 +305,22 @@ TEST_F(ExternProcLogSecretTest, TheLogStillNamesTheSidecarAndCountsItsRelaunches
     EXPECT_NE(std::string::npos, obs.log.find("--namespace mqtt"))
         << "the journal does not say which namespace the sidecar serves: "
         << obs.log;
+
+    //A count nobody compares to anything is a number, not a measurement. The
+    //5 is the fixed head startProcess() prepends - exe, --socket, <path>,
+    //--namespace, <name> - so what the kernel received minus that head is
+    //what the driver actually handed over.
+    ASSERT_LE(static_cast<size_t>(5), obs.spawns[0].size())
+        << "the kernel did not receive even the fixed head of the command "
+           "line, so the announced count cannot be checked against anything";
+
+    const std::string announced_count =
+        "(" + std::to_string(obs.spawns[0].size() - 5) + " argument(s))";
+
+    EXPECT_NE(std::string::npos, obs.log.find(announced_count))
+        << "the journal does not announce " << announced_count << " for the "
+        << obs.spawns[0].size() << " argv the kernel received: a dropped or "
+           "an extra argument would leave no trace at all. Log: " << obs.log;
 }
 
 /*
