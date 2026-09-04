@@ -9090,11 +9090,25 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   ⭐ **Pourquoi c'est laissé** : les fermer imposerait un refus dans `parseScenarioPayload()`, et ce
   refus **ferait basculer le cas d'E4.6d** `AnEmbeddedNulInAnActionIsCarriedWholeByScenarioToJson`,
   qui a travaillé pour que l'octet traverse l'API **entière**. La garde serait posée **trop haut**.
+  ⛔⭐ **CORRIGÉ AU MERGE DE [`T3.66`](T3.66.md) — l'argument ci-dessus est VRAI pour la moitié
+  ACTIONS et TROP LARGE pour la moitié NOM.** Vérifié au source : le cas d'E4.6d
+  `AnEmbeddedNulInAnActionIsCarriedWholeByScenarioToJson` pose le NUL dans une **action**, et son
+  `name` vaut `"nul"` — propre. **Aucun cas d'E4.6d ne pose un NUL dans un NOM de scénario.**
+  Fermer `buildAutoscenarioCreate()` sur le seul **nom** (`params.Add("name", payload.name)` puis
+  `createIO()`, `JsonApi.cpp:2461-2468`) **ne demanderait donc pas de toucher à
+  `parseScenarioPayload()`** et ne ferait basculer aucun cas. C'est la moitié **actions** — celle
+  qui traverse `saveToParams()` — qui est réellement bloquée par E4.6d.
+
   ⚠️ **Conséquence assumée et visible** : `autoscenario modify` **refuse** un nom porteur d'un zéro,
-  `autoscenario create` en écrit une version **tronquée**. Les deux sont épinglés par
-  `B_ANulInAnAutoscenarioActionCutsTheWholeEncodedStep`, resté **vert exprès**.
-  ⇒ **Rouvrir seulement si quelqu'un décide que le NUL ne doit plus traverser l'autoscénario non
-  plus** ; c'est alors E4.6d qu'on rediscute, pas cette garde-ci.
+  `autoscenario create` en écrit une version **tronquée**. ⛔ **Et ce demi-chemin n'est épinglé par
+  AUCUN test** : `B_ANulInAnAutoscenarioActionCutsTheWholeEncodedStep`, resté **vert exprès**,
+  mesure l'**action**, pas le nom (la phrase « les deux sont épinglés par » de la première rédaction
+  était fausse). Le résidu reste modeste — un nom d'affichage **tronqué**, donc une VALEUR, sans
+  squat de l'attribut voisin — mais l'API refuse ici et tronque là, sans que rien ne le mesure.
+  ⇒ **Ticket proposé [`T3.71`](T3.71.md)** : refuser le zéro sur le seul **nom** dans
+  `buildAutoscenarioCreate()`, avant `createIO()`, et l'épingler. La moitié **actions** reste
+  ouverte et ne se rouvre que si quelqu'un décide que le NUL ne doit plus traverser l'autoscénario
+  non plus ; c'est alors E4.6d qu'on rediscute, pas cette garde-ci.
 
 - ℹ️ **[F-XML-3] Les autres contrôles C0 ne cassent pas l'écriture, mais `io.xml` cesse d'être du
   XML 1.0 conforme.** **Mesuré** par
@@ -9107,7 +9121,35 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   référence qu'**aucun outil XML conforme n'est tenu d'accepter**. `pugixml` relit ce qu'il a
   écrit ; un éditeur tiers ouvrant `io.xml` peut refuser. ⛔ **Non élargi par [`T3.66`](T3.66.md)** :
   ce serait refuser des octets que l'API accepte aujourd'hui, sur un chemin que personne n'a
-  signalé.
+  signalé. ✅ **Confirmé au merge** : U+0001 n'appartient pas à la production `Char` de XML 1.0,
+  donc `&#01;` est une référence à un caractère que la grammaire interdit — aucun analyseur
+  conforme n'est tenu de l'accepter. ⇒ **Ticket proposé [`T3.72`](T3.72.md)**, priorité basse et
+  **arbitrage utilisateur requis** : le fermer veut dire refuser des octets que l'API transporte
+  aujourd'hui.
+
+- ⚠️⭐ **[F-XML-4] Le `bool` neuf de `IOBase::set_param()` est lu par 2 appelants sur ~100, et
+  3 des sites qui l'ignorent sont atteignables par des octets venus de l'extérieur.** Recompté au
+  merge de [`T3.66`](T3.66.md) : **~100 appels** dans `src/`, **2 testent le retour**
+  (`JsonApi::buildJsonSetParam()`, `JsonApi::buildAutoscenarioModify()`). ⭐ **La quasi-totalité des
+  ~98 autres passe des littéraux internes** (`set_param("gui_type", "light")`, `"visible"`,
+  `"log_history"`, …) : le refus y est **impossible par construction**, et l'ignorer est légitime.
+  **Trois sites sortent de ce lot** :
+  - `IO/IntValue.cpp:379` — `Internal::Save()`, cas `TSTRING` : `set_param("value", svalue)` où
+    `svalue` vient de `set_value()`, donc de l'API. ⚠️ **Le plus net** : la ligne suivante fait
+    `Config::SaveValueIO(get_param("id"), get_param("value"))`. Le refus laisse `param["value"]`
+    **inchangé**, si bien que le cache d'état persiste **l'ANCIENNE valeur** au lieu de la nouvelle.
+    Avant le correctif il persistait une valeur **tronquée** ; dans les deux cas c'est muet.
+  - `RemoteUI/RemoteUIProvisioningHandler.cpp:174-185` — `device_type`, `device_manufacturer`,
+    `device_platform`, `device_version`, `mac_address` viennent du corps JSON de l'appareil qui se
+    provisionne ; le refus est un **no-op silencieux** et la réponse reste un succès.
+  - `RemoteUI/RemoteUIWebSocketHandler.cpp:77,82` — mêmes clés depuis les en-têtes de la connexion.
+
+  ⭐ **Ce n'est pas une régression** : sur ces trois sites l'octet est en position de **VALEUR**, donc
+  l'ancien comportement était une troncature, jamais le squat d'attribut qui renommait un IO. La
+  garde **supprime la corruption du fichier partout** ; ce qui reste est un **silence côté
+  appelant**, exactement le motif que [`T3.25`](T3.25.md) a mesuré sur `Utils::from_string()`
+  (310 sites sur 319 ignorant le retour). ⇒ **À instruire avec [`T3.71`](T3.71.md)** : décider, site
+  par site, si le refus doit remonter à l'appelant ou rester un no-op journalisé.
 
 - **[F-JSON-3] La perte de précision sur les nombres n'est pas au parseur, elle est au contrat
   d'aplatissement, et elle mord bien en deçà d'`int64`.** `Utils::to_string(double)`

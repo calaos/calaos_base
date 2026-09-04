@@ -17,21 +17,84 @@
      `check-pydeps-conformance.sh` — qui ne sont **pas** une régression. Le troisième retombe dès
      l'image reconstruite. ⛔ **Aucun `docker build` n'a été fait**, ni par les auteurs ni aux
      merges.
-  2. **Les trois arbitrages qui appartiennent à l'utilisateur, aucun n'est tranché :**
-     - **L'octet NUL dans l'écrivain XML** (`XmlUtils::setAttribute()`, `F-XML-1`) → ticket
-       [`T3.66`](T3.66.md), **fiche courte, non instruite**. Corruption silencieuse : une valeur
-       tronquée, un nom de param porteur d'un zéro qui **écrase l'attribut voisin**. Recommandé :
-       garde dans `IOBase::set_param()` d'abord ; **le refus au parse est déconseillé**.
-     - **La lecture des scénarios par le sidecar MCP** — quelle surface le serveur MCP a le droit
-       de lire, décision de produit, pas de défaut à réparer.
-     - **L'indentation du journal** : `dump(4, …)` → `dump(-1, …)` rendrait `dumpJsonRedacted()`
-       linéaire, mais **change une forme délibérément épinglée par E4.1m** (deux cas nommés).
-       Consigné `F-JSON-2`, non pris.
+  2. ⭐ **LES TROIS ARBITRAGES SONT TRANCHÉS** — voir [`DECISIONS.md`](DECISIONS.md), section du
+     **2026-09-04**. Ne les rouvrez pas, appliquez-les :
+     - **L'octet NUL dans l'écrivain XML** (`F-XML-1`) → **tranché : garde dans
+       `IOBase::set_param()`**, ni codage XML ni refus au parse. ✅ **Livré et mergé**
+       ([`T3.66`](T3.66.md), `c604e9f1`), `F-XML-1` **FERMÉ**.
+     - **La lecture des scénarios par le sidecar MCP** → tranché (décision de produit).
+     - **L'indentation du journal** (`F-JSON-2`) → tranché.
+     ⚠️ **Ce qui reste ouvert n'est PAS un arbitrage mais trois findings** : `F-XML-2` (chemins
+     d'écriture non gardés, ticket proposé `T3.71`), `F-XML-3` (`&#01;` non conforme XML 1.0,
+     ticket proposé `T3.72`), `F-XML-4` (le `bool` de `set_param()` ignoré là où le refus est
+     atteignable).
   3. ⚠️ **CE QUI RESTE À VÉRIFIER AU PREMIER `push`** : le job CI GitHub **n'a jamais été exécuté**
      (`push` interdit depuis le début de la série) — en particulier le câblage
      `CALAOS_PYDEPS_STRICT: "1"` de [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`. Et
      **aucun `docker build`** n'ayant tourné, l'affirmation « la sonde stricte empêche la
      publication d'une image non conforme » reste une **déduction**, pas une mesure.
+
+- **✅⭐⭐ [`T3.66`](T3.66.md) MERGÉE — 4 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête sur `master` : **`c604e9f1`** (2026-09-04). ⭐ `master` était **IMMOBILE** sur
+  `01145229` = **exactement la merge-base** ⇒ ni rebase ni conflit. ⛔ **Rien poussé.**
+  Build de merge `distclean` complet : **`TOTAL 117 / PASS 114 / SKIP 3 / FAIL 0 / XFAIL 0 /
+  XPASS 0 / ERROR 0`**, un seul `Testsuite summary`, **0 `error:`**, `check-test-deps.sh` **PASS**,
+  les 3 `SKIP` étant les 3 connus. Goldens `fe20ab51` **identiques des deux côtés**,
+  `tests/Makefile.am` **append pur** (+68/−0/~0, préfixe strict de `master`).
+  Le 4e commit a été ajouté **au merge** : hygiène de commentaire (`WHY only`, le préfixe `T3.66.`
+  retiré du commentaire de `buildJsonSetParam()`).
+
+  ⭐⭐ **CE QUE DEVIENT LE `bool` NEUF DE `IOBase::set_param()` — la question que l'histoire de ce
+  dépôt rendait obligatoire ([`T3.25`](T3.25.md) : 310 retours ignorés sur 319).** Recompté au
+  merge : **~100 appelants** dans `src/`, **2 seulement testent le retour** —
+  `JsonApi::buildJsonSetParam()` (répond `{"error":"param refused"}`, et **n'émet plus**
+  l'`EventIOChanged`) et `JsonApi::buildAutoscenarioModify()` (sort par la porte du payload
+  malformé, **avant toute mutation**). ⭐ **Les ~98 autres passent des littéraux internes**
+  (`"gui_type"`, `"visible"`, `"log_history"`, …) : le refus y est **impossible par construction**,
+  et l'ignorer est **légitime**. ⚠️ **Trois sites font exception, et c'est `F-XML-4`** :
+  `IO/IntValue.cpp:379` (`Internal::Save()`, `TSTRING` — le refus laisse `param["value"]` intact et
+  la ligne suivante persiste donc l'**ANCIENNE** valeur via `SaveValueIO()`),
+  `RemoteUI/RemoteUIProvisioningHandler.cpp:174-185` et
+  `RemoteUI/RemoteUIWebSocketHandler.cpp:77,82`. ⭐ **Aucun n'est une régression** : l'octet y est en
+  position de **valeur**, donc l'ancien comportement était une troncature, jamais le squat
+  d'attribut qui renommait un IO. Ce qui reste est un **silence côté appelant**, pas une corruption.
+
+  ⭐ **Les deux refus `id` de [T1.11](T1.11.md) sont bien devenus audibles** — l'id immuable rend
+  `false`, la branche « premier id » propage `renameId()` — **et ça ne casse rien** :
+  `core/IOIdIntegrity_test` reste vert, ses appels ignorent le retour et assertent l'état.
+
+  ⚠️⭐ **LA DIVERGENCE `create` / `modify`, ET LE JUGEMENT PORTÉ AU MERGE.** `autoscenario modify`
+  **refuse** désormais un nom porteur d'un zéro ; `autoscenario create` en écrit une version
+  **tronquée**. C'est une incohérence d'API **NEUVE**. ⛔ **L'argument de l'auteur a été vérifié au
+  source et il est TROP LARGE** : il tient pour la moitié **actions** (elles passent par
+  `AutoScenarioDef::saveToParams()`, les fermer imposerait un refus dans `parseScenarioPayload()`,
+  ce qui ferait basculer `AnEmbeddedNulInAnActionIsCarriedWholeByScenarioToJson`) mais **PAS pour la
+  moitié nom** : ce cas d'E4.6d a un `name` propre (`"nul"`), **aucun cas d'E4.6d ne pose un NUL dans
+  un NOM de scénario**, et `buildAutoscenarioCreate()` pourrait refuser le nom **avant**
+  `createIO()` (`JsonApi.cpp:2461-2468`) sans toucher au parseur partagé. ⛔ **Et ce demi-chemin
+  n'est épinglé par AUCUN test** : `B_ANulInAnAutoscenarioActionCutsTheWholeEncodedStep` mesure
+  l'action, pas le nom — la phrase « les deux sont épinglés par » a été **corrigée dans
+  `FINDINGS.md`** au merge. ⭐ **Verdict : MERGE ACCEPTÉ** — pas de régression, le résidu est un nom
+  d'affichage tronqué (une valeur, donc pas de squat de voisin), et fermer `create` sortirait de la
+  frontière que l'utilisateur a tranchée. **Mais l'incohérence mérite un ticket** ⇒ `T3.71` proposée.
+
+  ⭐⭐ **LA PREUVE PASSE BIEN PAR LE DISQUE, ET M1 REPRODUIT LA CORRUPTION.** Rejoué au merge :
+  après correctif, `reloadFromDisk()` rend `name="String value"` et l'élément de l'IO ne porte
+  **qu'un seul** ` name="`. Sous **M1** (garde `if (false && …)`) : **10 cas rouges / 3 suites**
+  (5 `IoParamNulGuard`, 3 `JsonApiRequestGuards`, 2 `JsonApiDispatchWireBytes`), et le cas de
+  référence échoue en disant `back->get_param("name")` **= `"squatted"`** — **l'IO revient du disque
+  RENOMMÉ**, ce n'est donc pas un simple code de retour qui bascule. **Témoin** (les deux moitiés de
+  la garde échangées) : **0 rouge**, `TOTAL 117 / PASS 114 / FAIL 0`, avec `CXX IOBase.o` et les
+  **trois** `CXXLD` lus dans le journal ⇒ relink prouvé. Restaurations par **copie vérifiée au
+  `cmp` (rc 0)**, aucun `rm -f`, aucun `git` dans le conteneur.
+
+  ⛔ **AUCUN cas d'E4.6d n'a basculé et le parseur n'est pas touché** : le diff `src/` est **3
+  fichiers** (`IOBase.cpp`, `IOBase.h`, `JsonApi.cpp`) ; `JsonApiScenarioWireBytes_test`,
+  `B_ANulInAnAutoscenarioActionCutsTheWholeEncodedStep` et les deux `P_…TraversesTheParser` restent
+  **verts**. ✅ **`&#01;` non conforme XML 1.0 : CONFIRMÉ** — U+0001 n'est pas dans la production
+  `Char` de XML 1.0, donc aucun analyseur conforme n'est tenu d'accepter cette référence, même si
+  `pugixml` relit ce qu'il écrit (`F-XML-3`, ticket proposé `T3.72`, **arbitrage utilisateur** :
+  le fermer refuserait des octets que l'API transporte aujourd'hui).
 
 - **✅⭐⭐ [`T3.64`](T3.64.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **`2d6db6f5`** (2026-09-04). ⭐ `master` était **IMMOBILE** sur

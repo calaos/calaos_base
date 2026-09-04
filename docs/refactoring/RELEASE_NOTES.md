@@ -2204,6 +2204,12 @@ octet, et aucune commande valide n'en envoie.
   volontairement l'octet de bout en bout dans l'API — c'est un choix fait précédemment et assumé —
   et le fermer changerait ce comportement-là. ⚠️ **En attendant : n'envoyez pas d'octet nul dans le
   nom ni dans les actions d'un auto-scénario.**
+- **Ailleurs, le refus est appliqué mais pas remonté.** Quelques écritures internes ne regardent pas
+  la réponse du refus : la valeur d'une variable de type texte qui porterait cet octet **conserve la
+  valeur précédente** à l'enregistrement (avant, elle en enregistrait une version coupée), et
+  l'enregistrement des informations d'un écran distant lors de son appairage **ignore** simplement
+  le champ concerné. ⭐ **Dans tous les cas le fichier de configuration reste sain** — c'est le point
+  de ce correctif ; ce qui manque est un message, pas une protection.
 
 ## 📦 Intégration continue : les 42 tests Python s'exécutent enfin, et un `SKIP` n'y est plus silencieux
 
