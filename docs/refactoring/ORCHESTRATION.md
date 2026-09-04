@@ -8,6 +8,126 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **⛔⭐⭐ LE DÉFAUT LE PLUS ACTIONNABLE DE LA SÉRIE — [`T3.68`](T3.68.md) (`F-REMOTEUI-1`),
+  trouvé en chemin par T3.62, NON CORRIGÉ.** `remote_ui_get_config` **ne reçoit aucune réponse** sur
+  tout écran dont l'`io.xml` ne porte ni `brightness` ni `timeout`.
+  `RemoteUI::getRemoteUIConfigMessage()` (`IO/RemoteUI/RemoteUI.cpp:496-497`) lit ces deux params par
+  un **`std::stoi` nu** ; `get_param()` rend `""` pour un param absent, `std::stoi("")` lève, et
+  l'exception est **avalée par le `try` de `RemoteUIWebSocketHandler::processApi()`** — celui qui
+  existe pour les erreurs de parse. Le serveur journalise alors
+  `RemoteUIWebSocketHandler: JSON parse error: stoi` **sur une trame parfaitement valide**.
+
+  ⭐ **Pourquoi c'est le premier à traiter** : il est atteignable par un **appareil physique
+  légitime** (un écran provisionné et jamais réglé n'a pas ces params — aucun chemin d'écriture ne
+  les impose), et le message de journal **désigne la mauvaise cause**, donc il envoie chercher le
+  défaut dans le parseur JSON. **Les trois constats ont été revérifiés au source au merge.** Le
+  correctif est court et le modèle existe déjà à trois pas : `getBrightness()` (`:522`) fait la
+  bonne chose depuis T3.25 (`from_string_or_keep`, défaut 100) et `sendConfigUpdate()` passe par
+  `parseGridDimension()` pour la même raison. ⚠️ La fixture `RemoteUiConfigProjectionTest` pose
+  aujourd'hui les deux params **pour contourner ce défaut** : le ticket doit poser le cas sans eux.
+
+- **✅⭐ [`T3.62`](T3.62.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit de
+  fusion.** Tête sur `master` : **`e792073d`**. ⭐ **`master` était IMMOBILE sur `b2ef62a6`** =
+  exactement la merge-base ⇒ **ni rebase ni conflit**. ⛔ **Rien poussé.**
+  **`TESTS` 114 → 114** (5 cas neufs dans une suite existante, aucun bloc `tests/Makefile.am`
+  touché). Build d'intégration `make distclean` + `autogen` + `configure` + `make -j32` +
+  `make check -j16` : **`TOTAL 114 / PASS 112 / SKIP 2 / FAIL 0 / ERROR 0`**, RC 0, **un seul**
+  `Testsuite summary`, **0 `error:`**, `CXXLD    calaos_server` lu, `check-test-deps.sh` **PASS**.
+  Les **deux `SKIP` sont les habituels de cette image** (`check-ccache-honesty.sh` — aucun cache —
+  et `run-python-tests.sh` — image antérieure aux `Dockerfile` de T3.47, c'est [`T3.67`](T3.67.md)) :
+  **ce n'est pas une régression.** **Zéro golden touché**, prouvé par arbre git
+  (`tests/core/golden` = `4c973d0d` des deux côtés, 145 fichiers) ; commit de caractérisation
+  `5a8b6b32` à **zéro ligne de `src/`**.
+
+  ⭐⭐ **Ce que le ticket tranche, et c'est le bon arbitrage : la LISTE est factorisable, la
+  POLITIQUE DE VALEUR ne l'est pas.** La liste des 16 params publiés est ramenée à **une**
+  déclaration, `JsonApi::ioProjectionParams()`, lue par les deux projections — c'est elle qui avait
+  divergé, et c'est pourquoi le re-cléage du marqueur de scénario n'avait atteint qu'un transport.
+  Les **trois deltas de politique ont été revérifiés au source au merge** : `state`/`var_type`
+  **calculés** dans `buildJsonIO()` et lus comme des **params** dans `sendConfigUpdate()` · param
+  présent mais vide **émis** d'un côté (`jio[param] = value` après le `Exists()`), **omis** de
+  l'autre (`if (!val.empty())`) · `status_info` ajouté du seul côté 5454. Unifier changerait donc la
+  charge utile reçue par un **appareil physique** non mis à jour en même temps que le serveur :
+  l'unification est **chiffrée et proposée**, pas écartée en silence — [`T3.69`](T3.69.md)
+  (`F-REMOTEUI-2`). `RELEASE_NOTES.md` déclare explicitement le changement de wire RemoteUI et ce
+  qu'un firmware qui lisait `auto_scenario` ne trouvera plus.
+
+  ⭐ **`F-JSON-1` est FERMÉ, et les DEUX branches sont couvertes** — c'est le point qui a été
+  revérifié au merge, parce que c'est là que le correctif pouvait être incomplet. Le parse **local**
+  de `processApi()` est désormais gardé par `requestNestingWithinLimit(data)` ; la branche de
+  **délégation** l'est par le parent lui-même (`JsonApiHandlerWS.cpp:236`, qui refuse et n'entre
+  jamais dans `Json::parse`) — donc un document au-delà de 2048 niveaux n'est construit par
+  **aucun** des deux chemins, le parent émet l'**unique** refus, et la session reste ouverte.
+  Seuil exercé sur la branche locale : **2048 servie, 2049 refusée**, aucun `closeConnection`, la
+  trame suivante répondue. ⚠️ **Résidu, hors périmètre et hors `F-JSON-1`** :
+  `RemoteUIProvisioningHandler.cpp:103` et le chemin MCP parsent toujours sans plafond — c'est la
+  liste non auditée de [T3.58](T3.58.md), et eux sont **pré-authentification**.
+
+  ⭐ **Le garde-fou et sa preuve.** `TheTwoProjectionsOfAnIoPublishTheSameKeys` projette le même IO
+  — **16 params non vides, les DEUX marqueurs** — des deux côtés et compare les jeux de clés ; il
+  compare vraiment (16 clés de chaque côté, `status_info` retiré parce qu'il n'appartient pas à la
+  liste partagée, ce qui ne le rend pas vacuant). La contre-mutation **M3** — marqueurs échangés
+  dans la liste **partagée** — rougit la suite RemoteUI **et** trois suites de l'API pendant que ce
+  cas-là **reste vert** : c'est exact, et c'est bien la preuve que le re-cléage atteint les deux
+  transports d'un coup, puisque le comparateur bouge des deux côtés à la fois. Témoin
+  `core/RemoteUIDeviceInfo_test` : **0 rouge aux trois tours**, `CXXLD` lu à chaque tour, et son
+  `_DEPENDENCIES` liste bien les deux objets mutés (`RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT)`
+  en clair, `JsonApi.$(OBJEXT)` via `$(CORE_TEST_DEPS)` → `$(CORE_SERVER_OBJECTS)` — vérifié).
+
+  ⭐ **Worktree `.wave90/t3.62` effacé** (`docker run` ciblé sur le mount exact), `git worktree prune`,
+  branche `fix/t3.62` supprimée. ⛔ **`.review67b` et `.review47` n'ont PAS été touchés** : leurs
+  commits ne sont pas des ancêtres de `master`, les effacer perdrait du travail.
+
+- **📋 CE QUI RESTE OUVERT — rien n'est en vol, aucun agent n'est en cours.**
+  1. [`T3.61`](T3.61.md) — **§5.3, ce qui manque pour que l'épique [E4.6](E4.6.md) soit entière.**
+     Les 8 sous-tickets a→h sont livrés, mais le marqueur d'IO reste `auto_scenario` : les 4 anciens
+     scénarios de `configs/raoulh` sont **toujours** des auto-scénarios visibles dans l'API. Le
+     re-cléer ferait basculer les deux garde-fous d'E4.6a. ⛔ **Lire le ✅ d'E4.6 comme « a→h
+     livrés », pas comme « plus rien à faire ».** ⭐ T3.62 vient de retirer un obstacle : la liste
+     des params publiés n'a plus qu'**une** déclaration, donc un re-cléage atteint les deux
+     transports d'un coup au lieu d'un seul.
+  2. [`T3.68`](T3.68.md) — `F-REMOTEUI-1`, en tête de ce bloc.
+  3. [`T3.66`](T3.66.md) — **corruption XML silencieuse par le NUL** (`F-XML-1`). Bloqué sur un
+     arbitrage utilisateur, ci-dessous.
+  4. [`T3.65`](T3.65.md) — `dumpJsonRedacted()` reste quadratique et tourne avant
+     `checkCredentials()` (`F-JSON-2`). T3.58 a rendu le chemin inatteignable, pas la fonction saine.
+  5. [`T3.67`](T3.67.md) — l'image de développement publiée est en retard sur son propre
+     `Dockerfile`, et **rien ne mesure la dérive**.
+  6. [`T3.69`](T3.69.md) — `F-REMOTEUI-2`, l'unification des deux politiques de valeur.
+
+- **⛔⭐ LES DEUX ARBITRAGES QUI N'APPARTIENNENT QU'À L'UTILISATEUR — aucun agent ne peut les
+  prendre, et rien n'avance sur T3.66 tant que le premier n'est pas tranché.**
+  1. **Le sort du NUL.** `XmlUtils::setAttribute()` coupe au premier octet nul : une valeur de param
+     contenant un `\0` est **tronquée en silence** dans `io.xml`, donc la configuration relue n'est
+     plus celle qu'on a écrite. ⭐ **Ce qui est recommandé** : une **garde dans
+     `IOBase::set_param()`**, qui refuse ou assainit la valeur à l'entrée du modèle, là où on sait
+     encore de quoi on parle et où le refus peut être rendu à l'appelant. ⛔ **Ce qui est
+     déconseillé** : refuser le NUL **au parse** de la requête — le NUL est légal dans une chaîne
+     JSON, le refus dégraderait des chemins qui n'écrivent rien, et il déplacerait le défaut au lieu
+     de le fermer. **Trancher entre les deux est une décision de produit, pas de code.**
+  2. **Le sidecar MCP doit-il pouvoir LIRE les scénarios ?** Le gate de portée (`scopeDenied()`,
+     E4.6h) refuse `autoscenario` au sidecar — et il refuse **aussi les lectures**, pas seulement
+     les écritures. C'est peut-être exactement ce qu'on veut, ou une restriction accidentelle héritée
+     du fait qu'une seule commande couvre les deux. **Personne d'autre que l'utilisateur ne peut
+     dire si un assistant a le droit de voir les scénarios de la maison.**
+
+- **⚠️⭐ CE QUI RESTE À VÉRIFIER AU PREMIER `push` — rien de tout cela n'a jamais tourné.**
+  Le dépôt n'a **rien poussé** depuis le début de la série, donc deux choses n'ont **aucune mesure**
+  et ne peuvent pas en avoir avant un `push` :
+  1. **le job CI chez GitHub** (`.github/workflows/ci.yml`) — il a été modifié plusieurs fois
+     (T3.47 y pose `CALAOS_PYTHON_TESTS_REQUIRED=1`, le lest `jansson` en a été retiré) et **il n'a
+     jamais été exécuté par GitHub** ; les vérifications faites l'ont été **localement**, en rejouant
+     sa liste `apt` à la main dans un `debian:12` neuf ;
+  2. **le build réel des deux `Dockerfile`** (`Dockerfile` et `.devcontainer/Dockerfile`) — T3.47 les
+     a corrigés, **aucune machine du dépôt ne les bâtit** (`ci.yml` ne les construit pas), et l'image
+     publiée employée par tous les builds d'intégration est **antérieure** à ces corrections. C'est
+     [`T3.67`](T3.67.md), et c'est ce qui explique le `SKIP` de `run-python-tests.sh`.
+  ⛔ **Attendre le premier `push` pour conclure quoi que ce soit sur ces deux points.**
+
+- ⤵️ **Les blocs qui suivent sont l'historique des merges précédents, du plus récent au plus ancien.**
+  Ils restent exacts sur leur propre sujet ; leurs listes « PROCHAINE ACTION » sont **périmées** —
+  celle qui fait foi est ci-dessus.
+
 - **✅⭐⭐ [`T3.51`](T3.51.md) §10 — LA 4ᵉ PASSE DE LA SONDE `ccache` EST MERGÉE.** Tête sur `master` :
   **`f93e7471`**. `cherry-pick` du **seul commit de delta** (`d1693b19`, `scripts/ccache-honesty-probe.py`
   seul) sur un worktree neuf issu de `master`, **zéro conflit** — les trois autres commits de la branche

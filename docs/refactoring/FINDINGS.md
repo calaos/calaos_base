@@ -9146,7 +9146,7 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
 
 ## T3.62 — la projection RemoteUI (2026-09-04)
 
-- ⛔⭐ **[F-REMOTEUI-1] `remote_ui_get_config` est SANS RÉPONSE sur tout écran dont l'`io.xml`
+- ⛔⭐ **[F-REMOTEUI-1] → ticket [`T3.68`](T3.68.md). `remote_ui_get_config` est SANS RÉPONSE sur tout écran dont l'`io.xml`
   n'a ni `brightness` ni `timeout`, et le journal accuse le mauvais coupable.**
   `RemoteUI::getRemoteUIConfigMessage()` (`IO/RemoteUI/RemoteUI.cpp:496-497`) lit ces deux params
   par un **`std::stoi` nu** : `get_param()` rend `""` pour un param absent, `std::stoi("")` lève
@@ -9158,17 +9158,18 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   params, et le journal du binaire porte la ligne mot pour mot. Le jumeau `getBrightness()`
   (`:522`) fait pourtant déjà la bonne chose (`from_string_or_keep`, défaut 100), et
   `sendConfigUpdate()` passe par `parseGridDimension()` pour la même raison. **Non corrigé** :
-  `IO/RemoteUI/RemoteUI.cpp` est hors du périmètre déclaré de T3.62. Correctif :
+  `IO/RemoteUI/RemoteUI.cpp` est hors du périmètre déclaré de T3.62, le défaut porte le
+  numéro [`T3.68`](T3.68.md). Correctif :
   `from_string_or_keep` sur les deux, avec les défauts de `getBrightness()`.
 
-- ⚠️ **[F-REMOTEUI-2] Les deux projections d'un IO ne suivent pas la même politique de valeur, et
+- ⚠️ **[F-REMOTEUI-2] → ticket [`T3.69`](T3.69.md). Les deux projections d'un IO ne suivent pas la même politique de valeur, et
   une seule des deux est justifiée.** `buildJsonIO()` calcule `state` et `var_type` à partir de la
   valeur de l'IO, émet une **chaîne vide** pour un param présent mais vide, et ajoute
   `status_info` ; `sendConfigUpdate()` lit `state` et `var_type` **comme des params** (donc
   quasiment jamais présents) et **laisse tomber tout param vide**. T3.62 ramène la **liste** à une
   source unique — c'est elle qui avait divergé — mais **pas la politique**, parce que l'unifier
   changerait la charge utile envoyée à un **appareil physique** non mis à jour en même temps que le
-  serveur : trois deltas, dont un objet imbriqué (`status_info`). ⇒ **Ticket proposé** : décider ce
+  serveur : trois deltas, dont un objet imbriqué (`status_info`). ⇒ **Ticket [`T3.69`](T3.69.md)** : décider ce
   que l'écran doit recevoir (il reçoit déjà ses états par `remote_ui_io_states`, donc `state` et
   `var_type` y sont probablement du bruit), puis faire appeler `buildJsonIO()` par
   `sendConfigUpdate()` — avec une note de version, parce que c'est un changement de wire.
