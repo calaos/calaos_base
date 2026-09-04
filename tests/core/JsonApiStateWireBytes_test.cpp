@@ -1187,6 +1187,29 @@ protected:
         return jio;
     }
 
+    //The same projection untouched. R7 needs status_info: it is one of the
+    //three points the two sides disagree on, so trimming it away would make
+    //that case measure nothing.
+    Json apiProjectionRaw(IOBase *io)
+    {
+        Json jio = Json::object();
+        handler->buildJsonIO(io, jio);
+        return jio;
+    }
+
+    /* The IO the value policies are measured on, and it is built to make each
+     * of them BITE: a non empty VALUE but no `state` param, a param that
+     * EXISTS and is EMPTY, and status info. An IO whose params are all filled
+     * and which carries no status info makes the two projections agree for
+     * reasons of its own, and every case below would pass on an unchanged wire.
+     */
+    void makePolicyProbe(ProbeIO *io)
+    {
+        io->setRawString("hello");
+        io->get_params().Add("unit", "");
+        io->setStatusInfo(Calaos::IOBase::StatusType::BatteryLevel, 42.0);
+    }
+
     //One remote_ui_get_config frame whose "probe" member nests `levels` arrays.
     //The root object is a level of its own, so the document is levels + 1 deep.
     static std::string deepGetConfig(int levels)
@@ -1249,6 +1272,192 @@ TEST_F(RemoteUiConfigProjectionTest, ConfigUpdatePublishesTheDefinitionUid)
             << "the screen no longer hears the published marker";
     EXPECT_FALSE(remote.contains("auto_scenario"))
             << "the two transports name the same scenario differently";
+}
+
+/*******************************************************************************
+ * R7. THE THREE VALUE POLICIES THE TWO PROJECTIONS DO NOT SHARE.
+ *
+ * The list of params is declared once (R5); the VALUE each side publishes for
+ * one param is not, and the three differences below are pinned AS THEY ARE.
+ * None of them can be levelled without moving a wire: the 5454 side is under
+ * golden files, the config side is read by a physical screen that is not
+ * upgraded with the server and negotiates no version - see
+ * docs/refactoring/T3.69.md.
+ ******************************************************************************/
+
+/* P1. `state` and `var_type` are COMPUTED on 5454 and READ AS PARAMS here.
+ *
+ * The probe has a value and no `state` param, so the two sides answer
+ * differently for the same key on the same IO. The screen is not left blind by
+ * this: it gets its states from remote_ui_io_states, pinned by R1.
+ */
+TEST_F(RemoteUiConfigProjectionTest, StateAndVarTypeAreComputedFor5454Only)
+{
+    fillEveryProjectedParam(zulu);
+    zulu->get_params().Delete("state");
+    zulu->get_params().Delete("var_type");
+    makePolicyProbe(zulu);
+
+    const Json remote = remoteUiProjection(IO_ZULU);
+    ASSERT_TRUE(remote.is_object()) << "the config payload carried no entry for " << IO_ZULU;
+    const Json api = apiProjectionRaw(zulu);
+
+    EXPECT_EQ("hello", api.value("state", std::string()))
+            << "5454 stopped computing the state from the value of the IO";
+    EXPECT_EQ("string", api.value("var_type", std::string()));
+
+    EXPECT_FALSE(remote.contains("state"))
+            << "the config payload started carrying a state the screen never had";
+    EXPECT_FALSE(remote.contains("var_type"));
+}
+
+/* P1bis. AND THE PARAM READ IS A REAL READ, NOT AN ABSENCE. INVARIANT.
+ *
+ * No IO the server builds carries `state` as a param - `set_param("state")` is
+ * 0 site in src/ - so an io.xml written by hand is the only way this branch
+ * ever fires. It fires: the screen is handed the param, 5454 the computed
+ * value, and the same key names two different things on the two wires.
+ */
+TEST_F(RemoteUiConfigProjectionTest, TheConfigPayloadReadsStateAsAPlainParam)
+{
+    makePolicyProbe(zulu);
+    zulu->get_params().Add("state", "written-by-hand");
+
+    const Json remote = remoteUiProjection(IO_ZULU);
+    ASSERT_TRUE(remote.is_object());
+
+    EXPECT_EQ("written-by-hand", remote.value("state", std::string()))
+            << "the config payload stopped reading `state` as a param";
+    EXPECT_EQ("hello", apiProjectionRaw(zulu).value("state", std::string()))
+            << "5454 started trusting the param over the value";
+}
+
+/* P2. A PARAM THAT EXISTS AND IS EMPTY IS A KEY ON 5454 AND NO KEY HERE.
+ *
+ * `unit` is added empty, so this is the present-but-empty case and not the
+ * absent one - the two are indistinguishable in the config payload, which
+ * never asks whether the param exists.
+ */
+TEST_F(RemoteUiConfigProjectionTest, AnEmptyParamIsAKeyOn5454AndNoKeyForTheScreen)
+{
+    makePolicyProbe(zulu);
+    ASSERT_TRUE(zulu->get_params().Exists("unit")) << "the empty param was not added";
+
+    const Json remote = remoteUiProjection(IO_ZULU);
+    ASSERT_TRUE(remote.is_object());
+    const Json api = apiProjectionRaw(zulu);
+
+    ASSERT_TRUE(api.contains("unit")) << "5454 stopped publishing an empty param";
+    EXPECT_EQ("", api.value("unit", std::string("absent")));
+    EXPECT_FALSE(remote.contains("unit"))
+            << "the screen started receiving empty keys it never had";
+}
+
+/* P2bis. AN ABSENT PARAM IS NO KEY ON EITHER SIDE. INVARIANT.
+ *
+ * The half of the pair that keeps P2 from passing on an absence: without it a
+ * projection that dropped every `unit` would leave P2 green.
+ */
+TEST_F(RemoteUiConfigProjectionTest, AnAbsentParamIsNoKeyOnEitherSide)
+{
+    makePolicyProbe(zulu);
+    ASSERT_FALSE(zulu->get_params().Exists("chauffage_id"));
+
+    const Json remote = remoteUiProjection(IO_ZULU);
+    ASSERT_TRUE(remote.is_object());
+
+    EXPECT_FALSE(apiProjectionRaw(zulu).contains("chauffage_id"))
+            << "an absent param must emit NO key, never a null and never an empty string";
+    EXPECT_FALSE(remote.contains("chauffage_id"));
+}
+
+/* P3. status_info IS A 5454 OBJECT, AND THE CONFIG PAYLOAD HAS NEVER HAD IT.
+ *
+ * The probe carries status info on purpose: on an IO that has none, both sides
+ * omit the key and this case measures nothing.
+ */
+TEST_F(RemoteUiConfigProjectionTest, StatusInfoIsPublishedOn5454Only)
+{
+    makePolicyProbe(zulu);
+    ASSERT_TRUE(zulu->hasStatusInfo()) << "the probe carries no status info";
+
+    const Json remote = remoteUiProjection(IO_ZULU);
+    ASSERT_TRUE(remote.is_object());
+    const Json api = apiProjectionRaw(zulu);
+
+    ASSERT_TRUE(api.contains("status_info")) << "5454 stopped publishing status_info";
+    EXPECT_TRUE(api["status_info"].is_object());
+    EXPECT_FALSE(remote.contains("status_info"))
+            << "the screen started receiving a nested object it never had";
+}
+
+/* P3bis. AN IO WITHOUT STATUS INFO GETS NO KEY ANYWHERE. INVARIANT.
+ *
+ * A null Json means "no status info" and NOT an empty object, which is truthy
+ * and would put "status_info":{} on every IO of the API.
+ */
+TEST_F(RemoteUiConfigProjectionTest, AnIoWithoutStatusInfoGetsNoKeyOnEitherSide)
+{
+    ASSERT_FALSE(alpha->hasStatusInfo());
+
+    const Json remote = remoteUiProjection(IO_ALPHA);
+    ASSERT_TRUE(remote.is_object()) << "the config payload carried no entry for " << IO_ALPHA;
+
+    EXPECT_FALSE(apiProjectionRaw(alpha).contains("status_info"));
+    EXPECT_FALSE(remote.contains("status_info"));
+}
+
+/*******************************************************************************
+ * R7bis. ⭐ THE GUARD RAIL AGAINST A FOURTH POLICY.
+ *
+ * R5 compares the KEYS of the two projections; this compares the VALUES, on an
+ * IO built so that all three known deltas fire. Each delta is asserted to have
+ * fired before it is subtracted - a fixture that stopped exercising one would
+ * turn this red rather than let the comparison pass on nothing - and what is
+ * left must agree key for key AND byte for byte. A fourth divergence, whichever
+ * side introduces it, lands here.
+ ******************************************************************************/
+TEST_F(RemoteUiConfigProjectionTest, ApartFromTheThreeKnownDeltasBothProjectionsAgree)
+{
+    fillEveryProjectedParam(zulu);
+    zulu->get_params().Delete("state");
+    zulu->get_params().Delete("var_type");
+    makePolicyProbe(zulu);
+
+    const Json remote = remoteUiProjection(IO_ZULU);
+    ASSERT_TRUE(remote.is_object());
+    Json api = apiProjectionRaw(zulu);
+
+    //Delta 1: computed on 5454, absent here.
+    ASSERT_TRUE(api.contains("state") && api.contains("var_type"));
+    ASSERT_FALSE(remote.contains("state") || remote.contains("var_type"));
+    api.erase("state");
+    api.erase("var_type");
+
+    //Delta 3: a nested object on 5454 only.
+    ASSERT_TRUE(api.contains("status_info"));
+    ASSERT_FALSE(remote.contains("status_info"));
+    api.erase("status_info");
+
+    //Delta 2: a param that exists and is empty. Subtracted by VALUE and not by
+    //name, so a key that turns empty tomorrow is covered too; the screen side
+    //is checked to hold none, which is what makes the subtraction one sided.
+    std::vector<std::string> emptyOn5454;
+    for (Json::const_iterator it = api.cbegin(); it != api.cend(); ++it)
+        if (it.value().is_string() && it.value().get<std::string>().empty())
+            emptyOn5454.push_back(it.key());
+    ASSERT_FALSE(emptyOn5454.empty()) << "no empty param left: delta 2 is not exercised";
+    for (const std::string &key: emptyOn5454)
+    {
+        EXPECT_FALSE(remote.contains(key))
+                << "the screen received an empty key: " << key;
+        api.erase(key);
+    }
+
+    EXPECT_EQ(api, remote)
+            << "a fourth value policy separates the two projections\n"
+            << "  5454:     " << api.dump() << "\n"
+            << "  RemoteUI: " << remote.dump();
 }
 
 /*******************************************************************************
