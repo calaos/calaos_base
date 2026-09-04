@@ -257,6 +257,35 @@ automatique et l'API restent identiques.
 
 ---
 
+## 🔴 Un écran tactile jamais réglé restait vide
+
+### L'écran demandait sa configuration et n'obtenait aucune réponse (T3.68)
+
+Un écran déporté Calaos demande sa configuration au serveur dès qu'il se connecte : son nom, sa
+pièce, son thème, sa luminosité, sa liste de pages.
+
+Jusqu'ici, cette demande ne recevait **aucune réponse** si personne n'avait **jamais** réglé la
+luminosité de cet écran ni sa durée d'extinction. Ce n'est pas un cas tordu : rien, dans
+l'appairage d'un écran neuf, n'écrit ces deux réglages — ils n'existent que si quelqu'un y a
+touché. Un écran sorti du carton, appairé et laissé tel quel était donc exactement dans ce cas.
+L'écran attendait, et le serveur passait à autre chose.
+
+Le journal du serveur, lui, annonçait une **erreur de lecture du message JSON** envoyé par
+l'écran. Le message était pourtant parfaitement correct : l'erreur était ailleurs, et cette ligne
+envoyait chercher au mauvais endroit.
+
+**Ce qui change** : l'écran reçoit sa configuration. Quand un réglage n'a jamais été fait, il
+reçoit la valeur par défaut — **luminosité 100 %**, **durée 30**, celles que la documentation du
+protocole a toujours annoncées. Un écran dont les réglages ont été faits reçoit exactement ce
+qu'il recevait avant, sans un octet de différence.
+
+Et le journal ne met plus une erreur de lecture JSON sur le dos d'un message valide : ce qui échoue
+pendant le **traitement** d'un message est désormais annoncé comme tel, avec le nom du message
+concerné.
+
+→ **Rien à faire de votre côté.** Si un écran restait désespérément vide après appairage, il
+s'affiche après la mise à jour.
+
 ## 🔴 Le sidecar MCP ne démarrait pas
 
 ### L'assistant MCP était mort dans les images publiées (T3.23)

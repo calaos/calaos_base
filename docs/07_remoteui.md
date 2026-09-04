@@ -367,13 +367,16 @@ Clés de `remote_ui_fw_update_available` (dérivé,
   (dérivé, `src/bin/calaos_server/RemoteUI/RemoteUIManager.cpp:401-402`) ; le retrait vérifie
   l'identité du pointeur pour ne pas déréférencer un handler déjà remplacé (`:416`).
 
-⚠️ **Défaut connu, non corrigé** : `RemoteUI::getRemoteUIConfigMessage()` fait
-`std::stoi(get_param("brightness"))` et `std::stoi(get_param("timeout"))` sur des paramètres
-**ni déclarés ni défaultés** (dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:496-497`).
-Sur un appareil qui ne les porte pas, `stoi` lève ; l'exception est avalée par le
-`catch (const std::exception &e)` de `processApi`, qui la journalise en « JSON parse error »
-(`RemoteUIWebSocketHandler.cpp:151-154`) — l'appareil ne reçoit **aucune** réponse
-`remote_ui_config`.
+✅ **Corrigé par [T3.68](refactoring/T3.68.md)** : `getRemoteUIConfigMessage()` lisait
+`brightness` et `timeout` par un `std::stoi` nu sur des paramètres **ni déclarés ni défaultés**, et
+l'exception, avalée par le `catch` de `processApi()`, était journalisée en « JSON parse error » —
+l'appareil ne recevait **aucune** réponse `remote_ui_config`. Les deux passent maintenant par
+`getBrightness()` (défaut **100**, T3.25) et `getTimeout()` (défaut **30**, la valeur de tous les
+exemples de `RemoteUI/remote-ui.md` ; dérivé,
+`src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:522-540`). Le `try` de `processApi()` est coupé en
+deux : le parse garde son nom, le service du message est nommé
+`unhandled failure while serving <msg>` (dérivé,
+`src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:130-178`).
 
 ---
 

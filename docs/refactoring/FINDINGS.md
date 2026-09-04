@@ -9146,6 +9146,7 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
 
 ## T3.62 — la projection RemoteUI (2026-09-04)
 
+- ✅ **[F-REMOTEUI-1] FERMÉ par [T3.68](T3.68.md)** (voir la section T3.68 en fin de fichier).
 - ⛔⭐ **[F-REMOTEUI-1] → ticket [`T3.68`](T3.68.md). `remote_ui_get_config` est SANS RÉPONSE sur tout écran dont l'`io.xml`
   n'a ni `brightness` ni `timeout`, et le journal accuse le mauvais coupable.**
   `RemoteUI::getRemoteUIConfigMessage()` (`IO/RemoteUI/RemoteUI.cpp:496-497`) lit ces deux params
@@ -9173,3 +9174,42 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   que l'écran doit recevoir (il reçoit déjà ses états par `remote_ui_io_states`, donc `state` et
   `var_type` y sont probablement du bruit), puis faire appeler `buildJsonIO()` par
   `sendConfigUpdate()` — avec une note de version, parce que c'est un changement de wire.
+
+## T3.68 — le silence de `remote_ui_get_config` (2026-09-04)
+
+- ✅ **[F-REMOTEUI-1] FERMÉ.** `getRemoteUIConfigMessage()` passe par `getBrightness()` et par un
+  `getTimeout()` neuf, tous deux bâtis sur `Utils::from_string_or_keep()` — non lançants. Un écran
+  provisionné et jamais réglé reçoit sa configuration. ⭐ **Reproduit avant correction** : le commit
+  de caractérisation rougit sur `"the screen received nothing at all"` et sur la ligne
+  `[WRN] remote_ui (RemoteUIWebSocketHandler.cpp:160) … JSON parse error: stoi`.
+
+- ⚠️ **Le défaut de `timeout` n'est étayé par AUCUN code, et c'est consigné plutôt que masqué.**
+  `set_param("timeout")` : **0 site** dans tout `src/` ; `ioDoc` ne déclare pas le param ; le dépôt
+  ne contient pas le micrologiciel de l'écran. **30** est la seule valeur que l'arbre énonce — tous
+  les exemples de `src/bin/calaos_server/RemoteUI/remote-ui.md` (modèle d'`io.xml`, réponse de
+  provisioning, réponse REST) la portent. Retenue faute de mieux, **déclarée dans la fiche et dans
+  le code**. `brightness` = 100 est d'un autre statut : c'est le défaut que `getBrightness()` porte
+  depuis [T3.25](T3.25.md), et le correctif **appelle** cette fonction au lieu de recopier le
+  nombre. ⭐ **Le sens même de `timeout` n'est écrit nulle part** (extinction ? veille ?).
+
+- ⭐ **Ce que le `try` de `processApi()` masquait EN PLUS du `stoi`.** Il englobait tout le service
+  du message, pas seulement le parse : les **écritures d'état déclenchées par une trame
+  `remote_ui_relay_state`** (`handleRelayState()` → `RemoteUIOutputRelay::updateStateFromDevice()`,
+  donc le moteur de règles et ce qu'il appelle) et la **sérialisation de la réponse** dans
+  `sendJson()`. Toute exception venue de là était journalisée « JSON parse error ». Le `try` est
+  coupé en deux : le parse garde son nom, le reste est nommé
+  `unhandled failure while serving <msg>`. ⚠️ **La chute vers le parent après une exception est
+  laissée telle quelle** — c'est le comportement d'avant, et le changer serait un changement de
+  wire hors périmètre.
+
+- ⚠️ **[F-REMOTEUI-3] → ticket [`T3.70`](T3.70.md). Le dernier `std::stoi` non gardé de `src/`.**
+  Balayage complet des conversions lançantes de `src/` **hors bibliothèques tierces**
+  (`src/lib/cpptui`, `src/lib/exprtk`) : **5 sites**, dont **4 déjà gardés** par un `try`
+  (`IO/RemoteUI/RemoteUI.cpp:332`, `RemoteUI/OtaFirmwareManager.cpp:81`, `IOBase.cpp:226`,
+  `JsonApi.cpp:435`). Le cinquième, `IO/RemoteUI/RemoteUI.cpp:213`, convertit les attributs `x`/`y`
+  d'un widget dans `LoadFromXml()` **sans aucun `try` sur le chemin** : un `x=""` ou un `x="haut"`
+  dans l'`io.xml` lève dans le chargement de la configuration. ⛔ **Non corrigé ici, et
+  volontairement** : le mode d'échec est le chargement, pas la réponse due à un appareil, et le
+  remède demande de trancher entre « widget ignoré » — ce que le bloc voisin fait déjà pour un
+  `x`/`y` absent — et « position à 0 ». Le mélanger au correctif de `remote_ui_get_config` ferait un
+  diff que personne ne relit.
