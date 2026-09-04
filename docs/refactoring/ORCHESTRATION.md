@@ -8,6 +8,67 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅⭐⭐ [`T3.65`](T3.65.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête sur `master` : **`45daa238`** (2026-09-04). `master` était sur **`4f094fb7`**,
+  merge-base **`ac0965d8`** ⇒ **REBASE** (T3.67 mergée entre-temps) — **aucun conflit**, pas même
+  documentaire, et **zéro recouvrement `src/`** (T3.67 : Docker/CI/scripts/`tests/` ; T3.65 :
+  `src/lib/Logger*`, `LogSetup.h`, `JsonApi.h`, les deux handlers). `tests/Makefile.am`
+  **intouché**, **`TESTS` 116 → 116**, **zéro golden** (`tests/core/golden` = `fe20ab51` des deux
+  côtés), caractérisation `a8ce4650` à **zéro ligne de `src/`**. Build d'intégration `distclean` +
+  `autogen` + `configure` + `make -j32` + `make check -j16` : **`TOTAL 116 / PASS 113 / SKIP 3 /
+  FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, un seul `Testsuite summary`, **0 `error:`**,
+  `check-test-deps.sh` **PASS**. ⚠️ Les **trois** `SKIP` sont ceux de cette image
+  (`check-ccache-honesty.sh`, `run-python-tests.sh`, `check-pydeps-conformance.sh` — c'est
+  [`T3.67`](T3.67.md), **pas une régression**). ⛔ **Rien poussé.**
+
+  ⭐⭐ **LE RÉSULTAT N'EST PAS CELUI QUE LE TICKET CHERCHAIT : la ligne de journal rédigée n'était
+  pas conditionnelle, elle était construite à chaque requête et JETÉE.** Vérifié au source au
+  merge : `LogStream::operator<<` (`src/lib/Logger.h:81-85`) accumule dans son `ostringstream`
+  **sans jamais demander le niveau**, et `~LogStream` (`Logger.cpp:157`) est le **seul** endroit
+  qui compare — au destructeur, quand tout est déjà payé. Le défaut de `debug_level` vaut **4
+  (INFO)**, `LOG_LEVEL_DEBUG` vaut 5 ⇒ sur un serveur de série, `cDebugDom("network") <<
+  dumpJsonRedacted(...)` payait la copie profonde, la rédaction récursive et le `dump(4, …)`
+  **indenté**, **avant `checkCredentials()`**, pour une ligne que personne n'imprime.
+  ⇒ **Le correctif est un garde de niveau, pas une réécriture** : `Logger::maxLevel()` /
+  `isLevelEnabled()` (⭐ sur `master` d'avant, **aucun prédicat de niveau n'existait dans le
+  dépôt** : le niveau n'était demandable par personne), la macro `cDebugDomEnabled()`, et les deux
+  appelants passés sous garde. ⛔ **`JsonApi.cpp` n'a pas une ligne touchée.** L'ajout à `Logger`
+  fait **13 lignes** et n'a aucun effet de bord sur les autres domaines : `maxLevel()` délègue au
+  `maxLevelPrintable()` statique qui servait déjà au destructeur — prédicat et journal lisent la
+  **même** table.
+
+  ⭐ **LE GAIN, REJOUÉ AU MERGE sur l'arbre rebasé** (garde retiré puis remis, restaurations `cmp`
+  rc 0, jamais un `git` dans le conteneur), même binaire, mêmes entrées, un processus par cas :
+  requête HTTP **servie au plafond** (2047 niveaux, la plus profonde que T3.58 accepte)
+  **32,3 ms / pic RSS 76,3 Mo → 0,51 ms / pic 13,4 Mo** ; requête ordinaire **1,28 → 1,29 ms** ;
+  ⭐⭐ et `dumpJsonRedacted()` rend **16 769 061 octets identiques avant et après** — **la sortie
+  n'a pas bougé d'un octet**. C'est la mesure qui compte : l'optimisation n'a rien changé
+  d'observable.
+
+  ⭐ **TROUVAILLE DE TEST, mesurée par mutation** : **5 des 11 noms** de la liste sensible
+  (`passwd`, `pass`, `old_password`, `new_password`, `secret`) n'étaient épinglés par **rien** —
+  échanger `"secret"` contre un littéral de `cErrorDom()` du même fichier laissait la suite
+  **verte** sur `master`. `JsonApiRedact.MasksEveryKeyOfTheSensitiveList` balaie les **onze**,
+  chacun avec sa propre valeur-sonde et **les deux moitiés** de l'assertion (le secret est parti
+  **et** la paire masquée est là), plus un contrôle `"passenger"` qui refuse le match par
+  sous-chaîne — vérifié au merge contre `JsonApi.cpp:520-522` et le `find()` sur la clé entière.
+  Campagne : **5 contre-mutations par échange**, témoin `M5` à **0 rouge** avec relink prouvé
+  (`CXX JsonApi.o`, `JsonApi.o` 09:50:25 < binaire 09:54:12), deux emboîtements **déclarés**
+  (M2 ⊂ M1, M3 ⊂ M6).
+
+  ⚠️⭐ **CE QUE RIEN N'ÉPINGLE, ET LE JUGEMENT PORTÉ AU MERGE : le garde peut être RETIRÉ sans
+  qu'un cas bronche.** L'auteur le déclare franchement. **Accepté en l'état, avec une réserve** :
+  le garde ne change rien d'observable (même journal, même wire, même octet), donc aucun oracle de
+  sortie ne peut le voir, et un oracle de **coût** (temps ou pic RSS) serait instable en
+  intégration continue — ce n'est pas ce qu'il faut écrire. ⭐ **Ce qu'il faudrait, et qui serait
+  déterministe : une sonde STATIQUE**, dans la famille de `tests/check-test-deps.sh` et de
+  `check-pydeps-conformance.sh` — un script `dist_check_SCRIPTS` qui rougit si `dumpJsonRedacted(`
+  apparaît sous un `cDebugDom` sans `cDebugDomEnabled` au-dessus. **Proposée, NON écrite** : c'est
+  une convention de dépôt, donc un choix qui appartient à l'utilisateur.
+
+  ⭐ **Worktree `.wave94/t3.65` effacé** (`docker run` ciblé sur le mount exact), `git worktree
+  prune`, branche `fix/t3.65` supprimée. ⛔ **`.review67b` et `.review47` n'ont PAS été touchés.**
+
 - **✅⭐⭐ [`T3.67`](T3.67.md) MERGÉE — 4 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **`9dfbb35c`** (2026-09-04). ⭐ `master` était **IMMOBILE** sur
   `ac0965d8` = **exactement la merge-base** ⇒ ni rebase ni conflit. `tests/Makefile.am` **append pur
@@ -137,35 +198,29 @@
 - **📋⭐ ÉTAT FINAL DE LA SESSION — À LIRE POUR REPRENDRE À FROID.** ✅ **Aucun ticket en vol,
   aucun worktree de travail ouvert** : `git worktree list` ne doit montrer que `calaos_base`
   (master), `.review47/t3.25` et `.review67b/ccache`. ⛔ **Ces deux derniers ne sont PAS des
-  ancêtres de `master` — ne pas les effacer** (deux agents l'ont refusé, ils avaient raison).
-  L'arbre de travail est propre, `master` = **`ba4a3e66`**, et **rien n'a jamais été poussé**.
+  ancêtres de `master` — ne pas les effacer** (plusieurs agents l'ont refusé, ils avaient raison).
+  L'arbre de travail est propre, `master` = **`45daa238`**, et **rien n'a jamais été poussé**.
 
   **Les deux épiques sont CLOSES.** [E4.1](E4.1.md) (sortie de jansson) et [E4.6](E4.6.md)
   **§5.3 comprise** : le marqueur d'IO de scénario est `autoscenario_uid` et rien d'autre, sans
   repli, code compris. Il ne reste **rien d'ouvert au niveau épique** ; tout ce qui suit est de la
   **phase 3**, ticket par ticket, et **aucun n'est bloquant pour les autres**.
 
-  **Ce qui reste ouvert** — 20 tickets 📋 dans [`BOARD.md`](BOARD.md) (T3.21, T3.22, T3.26, T3.32,
-  T3.33, T3.38, T3.41, T3.42, T3.52, T3.54, T3.55, T3.57, T3.59, T3.60, T3.63, T3.64, T3.65, T3.66,
-  T3.67, T3.69). Les cinq qui ont un intérêt immédiat, dans l'ordre conseillé :
-  1. [`T3.65`](T3.65.md) — `dumpJsonRedacted()` reste **quadratique** et tourne **avant**
-     `checkCredentials()` (`F-JSON-2`). T3.58 a rendu le chemin inatteignable, pas la fonction
-     saine. ⭐ **Le seul qui ne demande aucun arbitrage : commencer par là.**
-  2. [`T3.66`](T3.66.md) — **corruption XML silencieuse par le NUL** (`F-XML-1`). ⛔ **Bloqué** sur
-     l'arbitrage du NUL, ci-dessous : ne rien commencer avant.
-  3. [`T3.69`](T3.69.md) — `F-REMOTEUI-2`, l'unification des deux politiques de valeur des deux
+  **Ce qui reste ouvert** — **18 tickets 📋** dans [`BOARD.md`](BOARD.md) (T3.21, T3.22, T3.26,
+  T3.32, T3.33, T3.38, T3.41, T3.42, T3.52, T3.54, T3.55, T3.57, T3.59, T3.60, T3.63, T3.64, T3.66,
+  T3.69). Les trois qui ont un intérêt immédiat, dans l'ordre conseillé :
+  1. [`T3.64`](T3.64.md) — `BackupFiles()` horodate **à la seconde** : deux sauvegardes dans la
+     même seconde s'écrasent. ⭐ **Le seul qui ne demande aucun arbitrage : commencer par là.**
+  2. [`T3.69`](T3.69.md) — `F-REMOTEUI-2`, l'unification des deux politiques de valeur des deux
      projections d'un IO. ⚠️ Change une charge utile reçue par un **appareil physique**.
-  4. [`T3.67`](T3.67.md) — l'image de développement publiée est en retard sur son propre
-     `Dockerfile`, et **rien ne mesure la dérive** ; c'est l'origine du `SKIP` de
-     `run-python-tests.sh` à chaque build d'intégration.
-  5. [`T3.64`](T3.64.md) — `BackupFiles()` horodate **à la seconde** : deux sauvegardes dans la même
-     seconde s'écrasent.
+  3. [`T3.66`](T3.66.md) — **corruption XML silencieuse par le NUL** (`F-XML-1`). ⛔ **Bloqué** sur
+     l'arbitrage du NUL, ci-dessous : ne rien commencer avant.
   ⚠️ **Réserve laissée ouverte par [T3.68](T3.68.md)** : `timeout = 30` est une valeur **inventée**
   qui part vers un appareil physique (détail dans le bloc T3.68 plus bas) — arbitrage utilisateur,
   le correctif n'a pas été modifié.
   ⚠️ **La ligne de board de [T3.62](T3.62.md) se dit « LIVRÉE, non mergée » alors qu'elle est
-  mergée** (`166ba0b5`) : coquille documentaire repérée à ce merge, non corrigée pour ne pas
-  toucher une ligne hors périmètre.
+  mergée** (`166ba0b5`) : coquille documentaire, non corrigée pour ne pas toucher une ligne hors
+  périmètre.
 
 - **⛔⭐⭐ `F-T361-3` — INTERDICTION DE PUBLIER UN BUILD INTERMÉDIAIRE DE CETTE SÉRIE tant que ce
   point n'est pas tranché.** Une configuration estampillée par un serveur bâti sur un `master`
@@ -177,7 +232,7 @@
   build de développement de la série est concernée. Remède : retirer les params `autoscenario_*` /
   `as_*` des IOs scénario avant de démarrer. Détail complet dans le bloc T3.61 plus bas.
 
-- **⛔⭐ LES DEUX ARBITRAGES QUI N'APPARTIENNENT QU'À L'UTILISATEUR — aucun agent ne peut les
+- **⛔⭐ LES TROIS ARBITRAGES QUI N'APPARTIENNENT QU'À L'UTILISATEUR — aucun agent ne peut les
   prendre, et rien n'avance sur T3.66 tant que le premier n'est pas tranché.**
   1. **Le sort du NUL.** `XmlUtils::setAttribute()` coupe au premier octet nul : une valeur de param
      contenant un `\0` est **tronquée en silence** dans `io.xml`, donc la configuration relue n'est
@@ -192,6 +247,15 @@
      les écritures. C'est peut-être exactement ce qu'on veut, ou une restriction accidentelle héritée
      du fait qu'une seule commande couvre les deux. **Personne d'autre que l'utilisateur ne peut
      dire si un assistant a le droit de voir les scénarios de la maison.**
+  3. **La ligne de journal rédigée doit-elle rester INDENTÉE ?** ([T3.65](T3.65.md), `F-JSON-2`.)
+     Le garde de niveau ferme le chemin par défaut, mais `JsonApi::dumpJsonRedacted()` reste
+     **quadratique** le jour où `debug_domains network:5` est vraiment allumé : 16,8 Mo de ligne
+     pour une requête au plafond. ⭐ **Le correctif tient en un caractère** — `dump(4, …)` →
+     `dump(-1, …)` — et il **défait une forme délibérément épinglée par deux cas nommés d'E4.1m** :
+     `JsonApiRedact.RedactedDumpKeepsRawUtf8AndStaysIndented` (« c'est encore la forme INDENT(4)
+     qu'un humain lit ») et `JsonApiRedact.HidesCredentialFieldsWhateverTheKeyCase` (qui asserte
+     `"CN_Pass": "***"`, séparateur indenté compris). **Lisibilité du journal contre coût quand le
+     débogage est allumé : décision de produit, non prise pendant que l'utilisateur dormait.**
 
 - **⚠️⭐ CE QUI RESTE À VÉRIFIER AU PREMIER `push` — rien de tout cela n'a jamais tourné.**
   Le dépôt n'a **rien poussé** depuis le début de la série, donc deux choses n'ont **aucune mesure**

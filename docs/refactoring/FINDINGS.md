@@ -9393,3 +9393,51 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   au site d'appel n'est vérifié par personne** : une faute de frappe y ferait taire le garde sans
   rien casser. (3) **Aucune mesure sur une vraie box** : tous les chiffres viennent du conteneur de
   développement.
+
+## T3.65 mergée — ce que le merge a vérifié, et ce qui reste ouvert (2026-09-04)
+
+- ⭐⭐ **[F-JSON-2] PARTIELLEMENT FERMÉ.** Le chemin est **inatteignable** depuis l'API
+  (plafond 2048, [T3.58](T3.58.md)) **et** la ligne rédigée n'est **plus construite pour rien**
+  (le garde, T3.65). ⚠️ **Ce qui reste ouvert : la fonction est toujours quadratique** le jour où
+  `debug_domains network:5` est réellement allumé — 16,8 Mo par requête au plafond.
+  **Le correctif restant tient en un caractère**, `dump(4, …)` → `dump(-1, …)` dans
+  `JsonApi::dumpJsonRedacted()`, et c'est une **décision de produit** : deux cas nommés épinglent
+  la forme indentée — `JsonApiRedact.RedactedDumpKeepsRawUtf8AndStaysIndented` (« c'est encore la
+  forme INDENT(4) qu'un humain lit ») et `JsonApiRedact.HidesCredentialFieldsWhateverTheKeyCase`
+  (qui asserte `"CN_Pass": "***"`, séparateur indenté compris). Défaire une forme documentée par
+  `E4.1m` n'appartient pas à un agent. **Arbitrage prêt, non pris.**
+
+- 🔒 **La prémisse a été revérifiée au source au merge, et elle tient.** `LogStream::operator<<`
+  (`src/lib/Logger.h:81-85`) écrit dans son `ostringstream` **sans demander le niveau** ;
+  `~LogStream` (`Logger.cpp:157`) est le **seul** endroit qui compare, et il sort avant même de
+  formater. Sur `master` d'avant le ticket, `grep` de `isLevelEnabled|maxLevel` dans `Logger.h`
+  rendait **0** : le niveau n'était **demandable par personne**. L'ajout est de **13 lignes** au
+  total, sans effet de bord — `maxLevel()` délègue au `maxLevelPrintable()` statique qui servait
+  déjà au destructeur, donc le prédicat et le journal lisent **la même table de domaines**.
+
+- 🔒 **Mesures rejouées au merge**, garde retiré puis remis (restaurations `cmp` rc 0), même
+  binaire, mêmes entrées, un processus par cas : requête HTTP servie au plafond
+  **32,3 ms / pic RSS 76,3 Mo → 0,51 ms / pic 13,4 Mo** ; requête ordinaire **1,28 → 1,29 ms** ;
+  ⭐ `dumpJsonRedacted()` rend **16 769 061 octets identiques** avant et après — **la sortie n'a
+  pas bougé d'un octet**, ce qui est la preuve que l'optimisation n'a rien changé d'observable.
+
+- ⚠️ **[F-LOG-1] OUVERT — et le recensement a été refait au merge, pas cru sur parole.**
+  `src/` porte **468** sites `cDebug()` / `cDebugDom()`, dont **141** évaluent un appel dans leur
+  argument. Tous rendent une chaîne bornée (`get_param()`, `Utils::to_string()`, `.size()`,
+  `what()`) **sauf un** : `src/bin/calaos_server/Audio/Squeezebox.cpp:792`,
+  `cDebug() << SqueezeboxWire::prettyPrint(json)`, qui est un `dump(4, ' ', …)` **indenté et non
+  gardé**, payé à chaque réponse du serveur LMS. ⇒ **même forme que le défaut de T3.65, tout autre
+  ordre de grandeur** : le document vient d'un appareil du réseau local, il n'est pas imbriqué, et
+  aucun chemin pré-authentification n'en dépend. **Consigné ici comme note, pas ouvert en ticket** ;
+  le prédicat neuf (`cDebugDomEnabled()`) est disponible si quelqu'un veut le garder.
+
+- ⚠️ **[F-LOG-1, ce que rien n'épingle] Le garde peut être retiré sans qu'un cas bronche.** Jugé au
+  merge et **accepté en l'état, avec une réserve** : le garde ne change **rien** d'observable —
+  même journal, même wire, même octet — donc aucun oracle de sortie ne peut le voir, et un oracle
+  de **coût** (temps ou pic mémoire) serait instable en intégration continue. Ce qui EST épinglé :
+  `isLevelEnabled()` répond exactement ce que `~LogStream` imprime, à chaque niveau
+  (`JsonApiRequestLog.TheDebugGuardAnswersWhatTheLogPrints`). ⭐ **Ce qui manque, et qui serait
+  déterministe** : une **sonde statique** dans la famille de `tests/check-test-deps.sh` et de
+  `check-pydeps-conformance.sh` — un script `dist_check_SCRIPTS` qui rougit si
+  `dumpJsonRedacted(` apparaît sous un `cDebugDom` sans `cDebugDomEnabled` au-dessus. **Proposé,
+  non écrit** : c'est un choix de convention de dépôt, pas une réparation.
