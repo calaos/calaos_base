@@ -9346,3 +9346,50 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   chaînes** sur le wire, comme avant ce ticket : seuls `x`/`y` sont convertis, et rien n'est changé
   là. (3) **Aucun `io.xml` réel porteur du défaut n'a été observé** ; le cas part d'un fichier
   construit pour, comme la fiche d'ouverture le demandait.
+
+## T3.65 — la ligne de journal rédigée, construite pour rien (2026-09-04)
+
+- ⭐⭐ **[F-LOG-1] `LogStream` évalue TOUT ce qu'on lui donne et ne décide qu'au destructeur.**
+  Ce n'est pas propre à `dumpJsonRedacted()` : c'est le contrat de **toutes** les macros
+  `cDebugDom()` du dépôt. `LogStream::operator<<` (`src/lib/Logger.h:82`) écrit dans un
+  `ostringstream` sans rien demander, et `~LogStream` (`Logger.cpp:157`) compare enfin
+  `logData->level` au plafond du domaine. ⇒ **un argument coûteux est payé à tous les niveaux et
+  imprimé à un seul.** Le niveau par défaut est `4` (INFO), `LOG_LEVEL_DEBUG` vaut 5 : sur un
+  serveur de série, **tout argument de `cDebugDom()` est construit puis jeté**.
+
+  ⭐ **Mesuré sur le chemin de requête** : à 2048 niveaux — la profondeur que T3.58 laisse passer —
+  une requête HTTP coûtait **37,7 ms et 77,7 Mo de pic RSS** pour une ligne de journal que personne
+  ne lit ; après le garde, **0,45 ms et 13 Mo**. Une requête ordinaire ne bouge pas (0,19 ms).
+  **`dumpJsonRedacted()` n'a pas été touchée** : elle rend les mêmes **16 769 109 octets** sur le
+  document à 2048 niveaux.
+
+  ⚠️ **T3.65 n'a gardé QUE ses deux appels.** `cDebugDom()` est utilisé partout ailleurs sans
+  garde, et le prédicat neuf (`Logger::isLevelEnabled()`, macro `cDebugDomEnabled()`) est
+  disponible pour les autres sites coûteux. **Aucun autre site n'a été recensé ni mesuré.**
+
+- ⚠️ **[F-JSON-2, ce qui reste] `dumpJsonRedacted()` reste quadratique quand le débogage est
+  vraiment allumé.** Le garde ferme le chemin par défaut ; il ne rend pas la fonction linéaire.
+  Avec `debug_domains network:5`, une requête à 2048 niveaux produit **toujours** 16,8 Mo de ligne,
+  recopiés une fois de plus dans l'`ostringstream` du `LogStream` avant d'atteindre `stdout`.
+  **Le correctif restant tient en un caractère** — `dump(4, …)` → `dump(-1, …)` — et il est **une
+  décision de produit**, pas une réparation : deux cas nommés épinglent la forme indentée
+  (`JsonApiRedact.RedactedDumpKeepsRawUtf8AndStaysIndented`, qui dit « c'est encore la forme
+  INDENT(4) qu'un humain lit », et `HidesCredentialFieldsWhateverTheKeyCase`, qui asserte
+  `"CN_Pass": "***"`). ⛔ **Non fait : l'utilisateur n'a pas été consulté, et `E4.1m` avait
+  documenté ce choix de forme.**
+
+- ⭐ **[F-TEST] Cinq des onze noms de la liste sensible n'étaient épinglés par rien.**
+  `"passwd"`, `"pass"`, `"old_password"`, `"new_password"` et `"secret"` pouvaient disparaître de
+  `dumpJsonRedacted()` **sans faire rougir un seul cas**. Mesuré par contre-mutation : échanger
+  `"secret"` contre un littéral de message de journal du même fichier laissait la suite **verte**
+  avant ce ticket. `JsonApiRedact.MasksEveryKeyOfTheSensitiveList` balaie les onze, avec un contrôle
+  (`"passenger"`) qui refuse le match par sous-chaîne.
+
+- ⚠️ **Ce sur quoi T3.65 reste nu.** (1) **Le garde lui-même n'est pas épinglé par un cas** : il ne
+  change **rien** d'observable — même journal, même wire — et seule la mesure le voit. Ce qui est
+  épinglé, c'est que `isLevelEnabled()` répond **exactement** ce que `~LogStream` imprime, à chaque
+  niveau (`JsonApiRequestLog.TheDebugGuardAnswersWhatTheLogPrints`). Un mutant qui **retire** le
+  garde reste vert ; un mutant qui **ment** sur le niveau rougit. (2) **Le domaine `"network"` écrit
+  au site d'appel n'est vérifié par personne** : une faute de frappe y ferait taire le garde sans
+  rien casser. (3) **Aucune mesure sur une vraie box** : tous les chiffres viennent du conteneur de
+  développement.
