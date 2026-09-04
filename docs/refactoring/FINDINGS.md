@@ -9177,11 +9177,17 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
 
 ## T3.68 — le silence de `remote_ui_get_config` (2026-09-04)
 
-- ✅ **[F-REMOTEUI-1] FERMÉ.** `getRemoteUIConfigMessage()` passe par `getBrightness()` et par un
+- ✅ **[F-REMOTEUI-1] FERMÉ — mergé sur `master` en `befa8297` (2026-09-04).** `getRemoteUIConfigMessage()` passe par `getBrightness()` et par un
   `getTimeout()` neuf, tous deux bâtis sur `Utils::from_string_or_keep()` — non lançants. Un écran
   provisionné et jamais réglé reçoit sa configuration. ⭐ **Reproduit avant correction** : le commit
   de caractérisation rougit sur `"the screen received nothing at all"` et sur la ligne
   `[WRN] remote_ui (RemoteUIWebSocketHandler.cpp:160) … JSON parse error: stoi`.
+
+  🔒 **Rejoué à la revue de merge** : les trois fichiers `src/` de `master` remis en place, le cas
+  `AnUnadjustedScreenIsAnsweredWithUsableDefaults` rougit sur `the screen received nothing at all`
+  et `AValidFrameIsNeverBlamedOnTheJsonParser` sur la ligne `JSON parse error: stoi` — **les deux
+  moitiés d'invariant (55/45, trame tronquée) restent vertes**, elles ne dépendent pas du correctif.
+  Restauration par copie **vérifiée au `cmp`** (rc 0 ×3), `std::stoi(get_param` **0 site**.
 
 - ⚠️ **Le défaut de `timeout` n'est étayé par AUCUN code, et c'est consigné plutôt que masqué.**
   `set_param("timeout")` : **0 site** dans tout `src/` ; `ioDoc` ne déclare pas le param ; le dépôt

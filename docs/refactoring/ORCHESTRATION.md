@@ -8,23 +8,71 @@
 
 ## 🔁 REPRISE — lire en premier
 
-- **⛔⭐⭐ LE DÉFAUT LE PLUS ACTIONNABLE DE LA SÉRIE — [`T3.68`](T3.68.md) (`F-REMOTEUI-1`),
-  trouvé en chemin par T3.62, NON CORRIGÉ.** `remote_ui_get_config` **ne reçoit aucune réponse** sur
-  tout écran dont l'`io.xml` ne porte ni `brightness` ni `timeout`.
-  `RemoteUI::getRemoteUIConfigMessage()` (`IO/RemoteUI/RemoteUI.cpp:496-497`) lit ces deux params par
-  un **`std::stoi` nu** ; `get_param()` rend `""` pour un param absent, `std::stoi("")` lève, et
-  l'exception est **avalée par le `try` de `RemoteUIWebSocketHandler::processApi()`** — celui qui
-  existe pour les erreurs de parse. Le serveur journalise alors
-  `RemoteUIWebSocketHandler: JSON parse error: stoi` **sur une trame parfaitement valide**.
+- **✅⭐⭐ [`T3.68`](T3.68.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête sur `master` : **`befa8297`**. ⭐ **`master` était IMMOBILE sur `166ba0b5`** =
+  exactement la merge-base ⇒ **ni rebase ni conflit**. ⛔ **Rien poussé.**
+  `remote_ui_get_config` répond désormais sur un écran provisionné et **jamais réglé** :
+  `getRemoteUIConfigMessage()` passe par `getBrightness()` (défaut **100**) et par un `getTimeout()`
+  neuf (défaut **30**), tous deux sur `Utils::from_string_or_keep()`, non lançants. `F-REMOTEUI-1`
+  **fermé**. **`TESTS` 114 → 114** (4 cas neufs dans une suite existante, `tests/Makefile.am`
+  **intouché**). Build d'intégration `make distclean` + `autogen` + `configure` + `make -j16` +
+  `make check -j8` : **`TOTAL 114 / PASS 112 / SKIP 2 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**,
+  **un seul** `Testsuite summary`, **0 `error:`**, `CXXLD calaos_server` lu, `check-test-deps.sh`
+  **PASS**. Les deux `SKIP` sont **les habituels de cette image** (`check-ccache-honesty.sh`,
+  `run-python-tests.sh` — c'est [`T3.67`](T3.67.md)) : **pas une régression.** **Zéro golden touché**
+  (`tests/core/golden` = `4c973d0d` des deux côtés) ; commit de caractérisation à **zéro ligne de
+  `src/`**.
 
-  ⭐ **Pourquoi c'est le premier à traiter** : il est atteignable par un **appareil physique
-  légitime** (un écran provisionné et jamais réglé n'a pas ces params — aucun chemin d'écriture ne
-  les impose), et le message de journal **désigne la mauvaise cause**, donc il envoie chercher le
-  défaut dans le parseur JSON. **Les trois constats ont été revérifiés au source au merge.** Le
-  correctif est court et le modèle existe déjà à trois pas : `getBrightness()` (`:522`) fait la
-  bonne chose depuis T3.25 (`from_string_or_keep`, défaut 100) et `sendConfigUpdate()` passe par
-  `parseGridDimension()` pour la même raison. ⚠️ La fixture `RemoteUiConfigProjectionTest` pose
-  aujourd'hui les deux params **pour contourner ce défaut** : le ticket doit poser le cas sans eux.
+  ⭐ **La reproduction AVANT correctif a été rejouée au merge, pas seulement citée.** Les trois
+  fichiers `src/` de `master` remis en place (copie, jamais un `git` dans le conteneur) :
+  `AnUnadjustedScreenIsAnsweredWithUsableDefaults` rougit sur **`the screen received nothing at
+  all`** et `AValidFrameIsNeverBlamedOnTheJsonParser` sur **`[WRN] remote_ui
+  (RemoteUIWebSocketHandler.cpp:160) … JSON parse error: stoi`** — **2 rouges / 2 verts**, les deux
+  moitiés d'invariant (55/45 · trame tronquée) restant vertes parce qu'elles ne dépendent pas du
+  correctif. Témoin `core/RemoteUIDeviceInfo_test` : **7/7**, `CXXLD` lu sur cette mutation, son
+  `_DEPENDENCIES` listant bien **`IO/RemoteUI/RemoteUI.$(OBJEXT)` et
+  `RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT)`**. Restauration **`cmp` rc 0 sur les trois fichiers**,
+  `std::stoi(get_param` **0 site**.
+
+  ⭐ **La chute vers le parent est inchangée, et c'est ce qui garantit qu'aucun wire ne bouge.** Le
+  `try` unique est coupé en deux : le parse échoue ⇒ `parsed = false` ⇒ on saute le service ⇒
+  `JsonApiHandlerWS::processApi()` est appelé, exactement comme avant ; le service lève ⇒ `catch`
+  ⇒ même délégation. Il ne reste **que `Json::parse`** de lançant dans le `try` du parse. ⚠️ Les
+  trois lignes déplacées **hors** de tout `try` (`contains`, `is_string`, la conversion en `string`)
+  ne lèvent qu'après leurs propres gardes — noté, pas bloquant.
+
+  ⭐⭐ ⚠️ **RÉSERVE — ARBITRAGE UTILISATEUR : `timeout` = 30 est une valeur INVENTÉE qui part vers
+  un appareil physique.** `set_param("timeout")` : **0 site**, `ioDoc` ne déclare pas le param, le
+  dépôt ne contient pas le micrologiciel ; **30** n'est que la valeur de tous les exemples de
+  `RemoteUI/remote-ui.md`. **L'agent de merge a tranché POUR l'envoi, et voici sur quoi** :
+  (a) `getRemoteUIConfigMessage()` a **toujours** émis une charge de **forme fixe** — `name`, `room`
+  et `theme` en sortent en **chaîne vide** quand le param manque, jamais omis ; omettre `timeout`
+  introduirait une forme que ce message n'a jamais eue, pour les seuls écrans jamais réglés.
+  (b) `brightness` = 100 est **déjà** un défaut serveur du même statut sur **ce même message** depuis
+  T3.25 ; omettre l'un et pas l'autre serait incohérent. (c) L'écran ne reçoit **rien du tout**
+  aujourd'hui : toute charge bien formée est un progrès strict, alors qu'une clé absente laisserait
+  un micrologiciel la lire en `0` — durée nulle, comportement inconnaissable. ⚠️ **Ce qui reste
+  vrai contre** : le serveur **impose** un réglage que personne n'a choisi, et un micrologiciel qui
+  **persiste** ce qu'il reçoit se retrouverait avec un 30 d'origine Calaos. **Remède propre, à
+  trancher par l'utilisateur** : déclarer `timeout` dans `ioDoc` avec défaut 30 (il devient un
+  réglage documenté et éditable au lieu d'un implicite), ou confirmer 30 auprès du micrologiciel.
+  ⛔ **Le correctif n'a PAS été modifié par l'agent de merge.**
+  ⚠️ **Deuxième réserve, mineure** : depuis que `get_config` ne lève plus, **le chemin `catch` du
+  service n'est exercé par aucun cas réel** — M4 le mesure par **injection**. Acceptable : le `catch`
+  est un filet, pas un comportement, et le nommer correctement est ce que le ticket promettait. Un
+  cas dédié resterait souhaitable (une trame `remote_ui_relay_state` dont l'écriture d'état lève) —
+  **proposé, non écrit**.
+
+  ⭐ **Balayage des jumeaux recompté à la revue** : `std::stoi(get_param(...))` nu = **2 sites**, les
+  **deux** corrigés. Le « 5 sites, 4 gardés » de la fiche est le **périmètre RemoteUI** ; repo-wide,
+  `src/` hors `src/lib/` porte **8** conversions lançantes restantes, **7 gardées**, et
+  `RemoteUI.cpp:213` (`x`/`y` d'un widget dans `LoadFromXml()`) est bien **la seule non gardée** —
+  la conclusion de la fiche tient, et elle est même plus forte que ce qu'elle affirme. Ouvert en
+  [`T3.70`](T3.70.md) / `F-REMOTEUI-3` (fiche + ligne de board présentes).
+
+  ⭐ **Worktree `.wave91/t3.68` effacé** (`docker run` ciblé sur le mount exact), `git worktree prune`,
+  branche `fix/t3.68` supprimée. ⛔ **`.wave92/t3.61` (T3.61 EN COURS), `.review67b` et `.review47`
+  n'ont PAS été touchés.**
 
 - **✅⭐ [`T3.62`](T3.62.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit de
   fusion.** Tête sur `master` : **`e792073d`**. ⭐ **`master` était IMMOBILE sur `b2ef62a6`** =
@@ -78,7 +126,12 @@
   branche `fix/t3.62` supprimée. ⛔ **`.review67b` et `.review47` n'ont PAS été touchés** : leurs
   commits ne sont pas des ancêtres de `master`, les effacer perdrait du travail.
 
-- **📋 CE QUI RESTE OUVERT — rien n'est en vol, aucun agent n'est en cours.**
+- **📋 CE QUI RESTE OUVERT — ⚠️ [`T3.61`](T3.61.md) EST EN VOL** dans
+  `/home/raoul/repos/calaos/.wave92/t3.61` (périmètre `IO/Scenario`, `JsonApi.cpp`). ⛔ **Ne pas
+  entrer dans ce worktree, ne pas le nettoyer, ne rien commiter sur `master` tant qu'il n'a pas
+  atterri.** **Prochaine action** : attendre T3.61, puis reprendre par [`T3.65`](T3.65.md) (défaut
+  de sécurité résiduel, sans arbitrage à demander) ; [`T3.66`](T3.66.md) reste **bloqué sur
+  l'arbitrage du NUL** et [`T3.68`](T3.68.md) laisse **l'arbitrage de `timeout = 30`** ci-dessus.
   1. [`T3.61`](T3.61.md) — **§5.3, ce qui manque pour que l'épique [E4.6](E4.6.md) soit entière.**
      Les 8 sous-tickets a→h sont livrés, mais le marqueur d'IO reste `auto_scenario` : les 4 anciens
      scénarios de `configs/raoulh` sont **toujours** des auto-scénarios visibles dans l'API. Le
@@ -86,7 +139,8 @@
      livrés », pas comme « plus rien à faire ».** ⭐ T3.62 vient de retirer un obstacle : la liste
      des params publiés n'a plus qu'**une** déclaration, donc un re-cléage atteint les deux
      transports d'un coup au lieu d'un seul.
-  2. [`T3.68`](T3.68.md) — `F-REMOTEUI-1`, en tête de ce bloc.
+  2. [`T3.70`](T3.70.md) — `F-REMOTEUI-3`, le dernier `std::stoi` non gardé de `src/`
+     (`RemoteUI::LoadFromXml()`), ouvert par le balayage de T3.68.
   3. [`T3.66`](T3.66.md) — **corruption XML silencieuse par le NUL** (`F-XML-1`). Bloqué sur un
      arbitrage utilisateur, ci-dessous.
   4. [`T3.65`](T3.65.md) — `dumpJsonRedacted()` reste quadratique et tourne avant

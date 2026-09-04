@@ -275,9 +275,10 @@ l'écran. Le message était pourtant parfaitement correct : l'erreur était aill
 envoyait chercher au mauvais endroit.
 
 **Ce qui change** : l'écran reçoit sa configuration. Quand un réglage n'a jamais été fait, il
-reçoit la valeur par défaut — **luminosité 100 %**, **durée 30**, celles que la documentation du
-protocole a toujours annoncées. Un écran dont les réglages ont été faits reçoit exactement ce
-qu'il recevait avant, sans un octet de différence.
+reçoit une valeur par défaut : **luminosité 100 %** — celle que le serveur applique déjà partout
+ailleurs pour cet écran — et **durée 30**, la valeur que tous les exemples de la documentation du
+protocole emploient. Un écran dont les réglages ont été faits reçoit exactement ce qu'il recevait
+avant, sans un octet de différence.
 
 Et le journal ne met plus une erreur de lecture JSON sur le dos d'un message valide : ce qui échoue
 pendant le **traitement** d'un message est désormais annoncé comme tel, avec le nom du message
