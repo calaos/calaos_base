@@ -678,6 +678,30 @@ tests, c'est que Calaos transmet bien l'adresse et le port configurés, et qu'il
 chaque relance. Si un problème de connexion subsiste chez vous après la mise à jour, il est
 ailleurs — signalez-le.
 
+### Et un troisième défaut, plus ancien : une **espace** dans le champ `host` (T3.28a)
+
+Ce défaut-là **existait avant** les deux ci-dessus et n'a rien à voir avec eux.
+
+Si votre champ `host` contenait une **espace** — `mon core` au lieu de `moncore`, ou simplement
+une espace en trop collée à la fin d'une adresse — le processus `calaos_roon` **refusait de
+démarrer**, s'arrêtait aussitôt, était relancé un dixième de seconde plus tard, et recommençait.
+Indéfiniment. Le symptôme visible était « Roon ne fonctionne pas » accompagné d'un journal qui
+défilait sans fin. Rien, ni dans `calaos_installer` ni dans le serveur, ne vous disait que le
+champ était en cause.
+
+**Ce qui change** : une espace dans `host` est maintenant **refusée**, et le journal de
+`calaos_server` écrit une ligne qui **nomme le paramètre et cite la valeur refusée**. Le lecteur
+repasse alors en **recherche automatique du core sur le réseau** — le mode par défaut — au lieu
+de tourner en boucle. Vous gardez donc un Roon qui fonctionne pendant que vous corrigez la saisie.
+
+**Ce que vous avez à faire** : si votre lecteur Roon ne trouvait pas votre core alors que le champ
+`host` était rempli, **relisez ce champ**. Une espace invisible en fin de saisie suffit.
+
+⚠️ Une **tabulation** ou un **retour à la ligne** dans ce même champ ne sont **pas** refusés : ils
+ne provoquaient pas ce défaut-là. Une telle valeur reste évidemment une adresse invalide : le
+lecteur ne trouvera pas votre core, exactement comme avec n'importe quelle adresse fausse — nous
+n'avons pas voulu refuser en passant des saisies sur lesquelles rien de mesurable ne cassait.
+
 ---
 
 ## 🔴 Le serveur pouvait tomber après une modification de configuration

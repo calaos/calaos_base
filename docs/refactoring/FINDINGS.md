@@ -9854,3 +9854,65 @@ avant (`knx_addr` = 0). **Dit ici plutôt que corrigé en passant.**
 motif semé n'atteint jamais le bus » devenait **vacuant** après le correctif (rien n'est décodé, le
 motif reste en place). Il asserte maintenant les **deux** régimes — `if (reached) motif absent;
 else motif intact` — donc quelque chose de vrai et de non vacuant avant **et** après.
+
+## T3.28a — le blanc qui coupe un argv, et la classe qui reste ouverte (2026-09-04)
+
+Recensement fait **au source sur `397e5b7a`**, pas repris de la fiche.
+
+**⭐ Ce que la mesure a corrigé dans l'énoncé de départ.** La fiche T3.28a — et le commentaire de
+`RoonArgs.h` lui-même — disaient « `startProcess()` redécoupe sur **l'espace** » d'un côté et
+« splits this string on **whitespace** » de l'autre. Les deux ne peuvent pas être vrais.
+`Utils::CStrArray(const string &)` appelle `Utils::split(s, v, " ")`, et `Utils::split()` atteint
+ses délimiteurs par **`find_first_of` / `find_first_not_of`** : le troisième argument est un
+**ensemble de caractères** à **un seul membre**, `U+0020`. ⇒ **tabulation, saut de ligne, retour
+chariot, tabulation verticale et saut de page ne coupent rien** — ils restent dans leur argument
+jusqu'à `execv`, et aucun shell ne les relit (`uv_spawn`, pas `system()`). La garde livrée porte
+donc sur `{ ' ' }` seul, et le contrat du découpeur est **épinglé** plutôt que supposé
+(`TheSidecarCommandLineIsCutOnTheSpaceAndOnNoOtherBlank`).
+
+**⚠️ Mesuré par contre-mutation, et pas cherché** : échanger le délimiteur de `CStrArray` pour
+`" \t\n\r\v\f"` — une classe de `src/lib` que **tout** l'arbre traverse — ne fait rougir que
+**`core/RoonArgs_test`**. **Aucune autre suite de l'arbre n'épingle sur quoi `CStrArray` découpe.**
+
+### Les appelants de `startProcess()` — 16 sites, 8 fichiers
+
+**13 sites sur 16, dans 6 fichiers, portent un argument venant de la configuration** :
+`WagoMap.cpp` (2, `get_param("host")` + port) · `MqttCtrl.cpp` (2, un JSON de `host`, `port`,
+`keepalive`, `user`, `password`) · `KNXCtrl.cpp` (4, `get_param("host")`) · `OLACtrl.cpp` (2,
+`get_param("universe")`) · `OWCtrl.cpp` (2, `get_param("ow_args")`) · `RoonPlayer.cpp` (1, **le
+seul gardé**). **3 sites sur 16, dans 2 fichiers, n'en portent aucun** : `ReolinkCtrl.cpp` (2) et
+`ScriptExec.cpp` (1). Les « six sidecars » de la fiche sont donc exactement `calaos_wago`,
+`calaos_mqtt`, `calaos_knx`, `calaos_ola`, `calaos_1wire`, `calaos_roon`.
+
+### ⛔ [F-EXTPROC-1] Le même défaut sur un **mot de passe MQTT** — pire que celui de Roon
+
+`MqttWire::encodeConfig()` sérialise `host`, `port`, `keepalive`, `user` et `password` en **un
+seul** JSON compact passé comme **un seul** argument ; `MqttExternProc_main.cpp:171` exige
+**`argc == 2`** et lit `argv[1]`. Un espace dans n'importe laquelle de ces cinq valeurs coupe le
+JSON en deux argv ⇒ `"Unable to read configuration"`, sortie, **même boucle de relance à 100 ms**.
+
+**Pourquoi c'est plus grave que le cas Roon** : un mot de passe contenant un espace est un **usage
+normal**, pas une faute de frappe. Et la parade de T3.28a — refuser le champ — serait ici **pire
+que le défaut** : on refuserait une configuration légitime. **Seule la correction (3)
+(`vector<string>` dans `ExternProcServer`) ferme ce cas.** ⛔ **Ouvert sur `master`.**
+
+### ⚠️ [F-EXTPROC-2] `ow_args` rend la correction (3) NON mécanique
+
+Le paramètre `ow_args` de `OWTemp` est **documenté** comme une liste d'arguments owfs
+(*« Additional parameter used for owfs initialization. For example you can use -u… »*) et
+`OWTemp.cpp:52-55` y préfixe `"--use-w1 "` **avec l'espace**. Le découpage sur l'espace y est
+**porteur**. ⇒ (3) ne peut pas être un `vector<string>{args}` appliqué en bloc : ce champ demande
+son propre arbitrage (garder un découpage explicite, ou basculer son ioDoc sur une liste). C'est
+le vrai coût du ticket (3), et il ne se voit pas dans le compte des appelants.
+
+### Ce qu'un passage en `vector<string>` toucherait
+
+**14 fichiers** : `IO/ExternProc.h` + `IO/ExternProc.cpp` (la concaténation et
+`Utils::CStrArray arr(cmd)` cèdent la place au constructeur `CStrArray(vector<string>)` **qui
+existe déjà**, `StringUtils.cpp:385`) · les **8** appelants · les **2** assembleurs qui rendent
+aujourd'hui une chaîne (`Audio/RoonArgs.h`, `IO/Mqtt/MqttWire.h`) · **2** fichiers de test
+(`tests/core/IoLifetimeTimer_test.cpp` `:1096` et `:1125` appellent `startProcess()` directement ;
+`tests/core/RoonArgs_test.cpp` porte une tripwire source qui épingle **l'épellation littérale**
+`process->startProcess(exe, "roon", procArgs);` et rougira sur toute nouvelle signature).
+**Aucun** des six `*_main` de sidecar n'est touché : l'argv qu'ils reçoivent est identique, c'est
+le chemin qui l'amène qui cesse de le recomposer.
