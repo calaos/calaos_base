@@ -53,8 +53,8 @@ protected:
     /* Refresh the definition from the rules the AutoScenario currently holds.
      * A no-op when this IO is not an auto scenario, and a no-op as soon as the
      * definition holds anything of its own.
-     * Since the marker IS the uid (T3.61) an auto scenario always has a loaded
-     * definition, so both guards hold and this bootstrap no longer runs; it is
+     * The marker IS the uid, so an auto scenario always has a loaded
+     * definition: both guards hold and this bootstrap no longer runs. It is
      * kept because it is the only thing that could ever rebuild a definition
      * from a projection, and removing it is a decision of its own.
      *

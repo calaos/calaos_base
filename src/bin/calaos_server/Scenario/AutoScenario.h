@@ -59,9 +59,9 @@ public:
  * generator over rules it did not write. Only an explicit authoring call
  * (addStep(), addStepAction(), deleteRules(), addSchedule()...) takes ownership
  * and replaces them, which is what `autoscenario modify` has always done.
- * Since T3.61 a configuration written before the definition no longer builds
- * an AutoScenario at all, so it never reaches this path; what does is a rule
- * stamped by hand or by a third party with our uid in the legacy key.
+ * A configuration written before the definition builds no AutoScenario at
+ * all, so it never reaches this path; what does is a rule stamped by hand or
+ * by a third party with our uid in the legacy key.
  */
 
 class AutoScenario
