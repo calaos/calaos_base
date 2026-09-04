@@ -586,6 +586,15 @@ TEST_F(RoonArgsTest, TripwireSource_TheRespawnLaunchesThroughTheSameCallSite)
            "`process->startProcess(exe, \"roon\", procArgs);`. A launch with "
            "no arguments, or with a different string, is the defect T3.28 "
            "fixes - and counting the call NAME alone cannot see it";
+
+    //Where `procArgs` COMES FROM. The two oracles above pin the launch and the
+    //argument's NAME; both stay green - measured - if the constructor stops
+    //calling buildArgs() and concatenates the host itself, guard and all.
+    EXPECT_EQ(1, countOccurrences(code, "procArgs = RoonArgs::buildArgs(host, port);"))
+        << "the launch argument must be built by RoonArgs::buildArgs(): it is "
+           "the only emitter that refuses a host carrying a space, and a call "
+           "site that concatenates the host itself puts the extra argv back on "
+           "the command line without a single behavioural case going red";
 }
 
 /*
