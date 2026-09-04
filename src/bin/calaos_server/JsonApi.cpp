@@ -1082,10 +1082,10 @@ Json JsonApi::buildJsonSetParam(const Params &jParam)
             success = false;
         else if (!o->set_param(jParam["param"], jParam["value"]))
         {
-            /* T3.66. The refusals of set_param() used to be invisible here:
-             * the answer said success and the event announced a change that
-             * had not happened. They get their own message rather than
-             * "wrong io/param", which says the IO or the param was not found.
+            /* A refusal gets its own message: "wrong io/param" means the IO or
+             * the param was not FOUND, and a client retrying on that would
+             * look for the wrong cause. No EventIOChanged either - announcing
+             * a change that did not happen is what made this silent.
              */
             refused = true;
             success = false;
