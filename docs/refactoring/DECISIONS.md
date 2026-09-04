@@ -1020,3 +1020,57 @@ d'émission + les surcharges `sendJson(json_t *)`**.
 
 ⚠️ **Incohérence de renvoi corrigée au passage** : la fiche `E4.1r.md` et le tableau des vagues
 renvoyaient à « Q3 », alors que l'arbitrage est **Q1** (Q3 porte sur l'ordre des clés d'`io_doc.json`).
+
+---
+
+## Trois arbitrages du 2026-09-04
+
+### Le NUL embarqué → ✅ **GARDE DANS `IOBase::set_param()`**
+
+**Tranché : la garde va à la frontière du modèle, pas au parse.** Un nom ou une valeur portant un
+zéro est refusé **avant d'atteindre le disque**.
+
+**Pourquoi là.** T3.58 a mesuré que l'API porte le NUL entier — **c'est l'écriture XML qui coupe** :
+`XmlUtils::setAttribute()` finit sur `set_value(c_str())`, donc un **nom** de param contenant un
+zéro **écrase l'attribut voisin** (si c'est `name`, l'IO est renommé) et une action d'autoscénario
+emporte le reste de son étape. **Invisible jusqu'au redémarrage.**
+
+⛔ **Le refus au parse est écarté** : il défait E4.6d, qui a travaillé pour que le NUL traverse
+l'API entier (`std::string` au lieu de `json_string(c_str())`), **et il ne protège pas le disque**
+des autres chemins d'écriture.
+⛔ **Corriger l'encodage XML d'abord est écarté aussi** : le remède évident, `set_value(ptr, size)`
+de pugixml, **a été mesuré et ne change rien** ; il faudrait encoder le zéro nous-mêmes, ce qui
+change ce que contiennent les fichiers de configuration.
+
+→ Livré par [T3.66](T3.66.md).
+
+### La lecture des scénarios par le sidecar MCP → ✅ **LAISSÉ TEL QUEL**
+
+Depuis [E4.6e](E4.6.md), `autoscenario` est sous `scopeDenied()`, et le gate porte sur le
+**message** : `list` et `get` sont donc refusés aussi aux sessions de service.
+
+**Conforme à D8, et ne crée aucune exception** — deux précédents exacts : **`audio_db`** est un
+message à sous-commandes dont les **douze sont des lectures**, refusé en bloc ; **`eventlog`** est
+une lecture pure, refusée en bloc. Les paires qui distinguent lecture et écriture (`get_param` /
+`set_param`, `get_timerange` / `set_timerange`) le font parce que ce sont **deux messages**, jamais
+deux sous-commandes du même. Distinguer ici aurait créé l'exception.
+
+**Mesuré** : la seule source de session `serviceScope` est le sidecar MCP, et son passe-plat
+`CalaosClient.autoscenario()` a **zéro appelant**. Personne ne perd rien.
+
+⇒ À rouvrir seulement si un assistant doit un jour **lire** les scénarios ; il faudrait alors
+découper le gate par sous-commande **et** décider du sort d'`audio_db` et d'`eventlog`.
+
+### L'indentation du journal de rédaction → ✅ **INDENTATION CONSERVÉE**
+
+`dumpJsonRedacted()` reste quadratique **quand le débogage réseau est réellement allumé**. La rendre
+linéaire imposerait `dump(-1, …)` au lieu de `dump(4, …)`, ce qui **fait basculer deux cas nommés**
+d'E4.1m — `RedactedDumpKeepsRawUtf8AndStaysIndented` et `HidesCredentialFieldsWhateverTheKeyCase`.
+
+**Tranché : on garde.** Depuis [T3.65](T3.65.md), le coût n'existe **que** si un opérateur allume
+délibérément `debug_domains network:5` — c'est un choix, pas un chemin subi. Le gain ne profiterait
+qu'à une session de débogage volontaire, et l'indentation est précisément ce qui rend ce journal
+lisible.
+
+⇒ **`F-JSON-2` peut être clos** : le chemin est inatteignable depuis l'API (plafond de 2048), la
+construction n'a plus lieu quand personne ne lit (T3.65), et ce qui reste est un coût assumé.
