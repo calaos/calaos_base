@@ -9916,3 +9916,40 @@ aujourd'hui une chaîne (`Audio/RoonArgs.h`, `IO/Mqtt/MqttWire.h`) · **2** fich
 `process->startProcess(exe, "roon", procArgs);` et rougira sur toute nouvelle signature).
 **Aucun** des six `*_main` de sidecar n'est touché : l'argv qu'ils reçoivent est identique, c'est
 le chemin qui l'amène qui cesse de le recomposer.
+
+### ⭐ Ce que la **revue de merge** a mesuré elle-même (2026-09-04)
+
+**`F-EXTPROC-1` est EXACT — re-vérifié aux sources, pas repris de la fiche.** `MqttWire.h:221`
+(`encodeConfig()`) met `user` et `password` dans **un seul** JSON ; `MqttCtrl.cpp:31` et `:63` le
+passent en **un seul** `args` ; `ExternProc.cpp:184` le concatène et `:283` le redécoupe par
+`Utils::CStrArray` ; `MqttExternProc_main.cpp:171` exige **`argc == 2`** — et c'est bien 2, la
+classe de base ayant retiré `--socket` et `--namespace` (`ExternProc.cpp:429-436`, `argc -= 2`
+deux fois). Un espace dans le mot de passe donne donc `argc == 3` ⇒ `"Unable to read
+configuration"` ⇒ sortie ⇒ **relance à 100 ms sans fin**. La conclusion « refuser le champ serait
+pire que le défaut » **tient** : l'espace y est un usage normal.
+
+⚠️ **Une trouvaille de plus, faite en vérifiant celle-ci** : `MqttExternProc_main.cpp:187-189`
+journalise `argv[1]` — **le JSON de configuration en clair, mot de passe compris** — sous
+`cDebugDom("mqtt")`. Le même `argv[1]` repart en clair dans le message d'erreur de `:183`. À traiter
+avec la correction (3), ou avant.
+
+**`F-EXTPROC-2` est EXACT.** `OWTemp.cpp:41-42` documente `ow_args` comme *« Additional parameter
+used for owfs initialization. For example you can use -u »*, et `:53-55` y préfixe `"--use-w1 "`
+**espace compris**. Le découpage y est **porteur**, donc (3) ne peut pas envelopper `args` dans un
+`vector<string>` d'un seul élément sans casser ce champ.
+
+### ⚠️ [F-STRSPLIT-1] `Utils::CStrArray` n'a aucun filet propre — ticket proposé `T3.76`
+
+Balayage de **tous** les `.cpp`/`.h` de `tests/` : `tests/core/RoonArgs_test.cpp` est le **seul**
+source de l'arbre à mentionner `CStrArray`, et il ne le fait que **depuis T3.28a**. Les trois
+autres suites qui touchent `Utils::split` (`IOControllers_test`, `JsonPathSyntax_test`,
+`KNXExternProcWire_test`) lui passent **leurs propres délimiteurs** et ne disent donc rien du `" "`
+que `CStrArray` code en dur. ⇒ élargir le délimiteur d'une classe de `src/lib` que **tout** l'arbre
+traverse ne fait rougir qu'une seule suite, et cette suite appartient à un ticket Roon. La lacune
+n'est **pas** de T3.28a — qui l'a au contraire révélée — et mérite sa propre suite de
+caractérisation (`split` avec `max`, le remplissage final `while (tokens.size() < max)`, l'absence
+de tout échappement, et les deux constructeurs de `CStrArray`).
+
+ℹ️ Corollaire pour la correction (3) : `Utils::escape_space()` existe (`StringUtils.cpp:350`) et
+**n'est pas une porte de sortie** — `Utils::split()` ne connaît ni backslash ni guillemet, donc un
+`mon\ core` échappé produirait `mon\` **et** `core`, soit le défaut plus un hôte corrompu.

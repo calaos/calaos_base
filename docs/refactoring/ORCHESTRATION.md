@@ -40,6 +40,66 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
+- **✅⭐⭐ [`T3.28a`](T3.28a.md) MERGÉE — 4 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête sur `master` : **`64c07e31`** (2026-09-04). La branche partait de `397e5b7a`,
+  `master` avait avancé à `ffe69dae` (T3.75) ⇒ **rebase** des 3 commits : **zéro conflit**, y
+  compris sur les quatre fichiers documentaires recouvrants. `make distclean` fait après le rebase.
+  `tests/Makefile.am` **intouché** — **`TESTS` 118 → 118 recompté des deux côtés**, la branche
+  n'ajoute aucune entrée et **étend** `core/RoonArgs_test` (**14 → 18 cas** ; la revue a ajouté
+  un oracle DANS un cas existant, pas un cas).
+  Build de merge : **`TOTAL 118 / PASS 117 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**,
+  rc 0, `0 error:`, `check-test-deps.sh` **PASS**, seul `SKIP` `check-ccache-honesty.sh`.
+  ⛔ **Rien poussé.**
+
+  ⭐⭐ **UNE FAUSSE ASSURANCE TROUVÉE PAR CONTRE-MUTATION INDÉPENDANTE, ET FERMÉE AU MERGE — et
+  c'est LA MÊME QU'AU MERGE DE T3.28, une ligne plus haut.** **M4**, un **échange** que le
+  développeur n'avait pas tenté : dans `RoonCtrl`, `procArgs = RoonArgs::buildArgs(host, port)`
+  échangé contre la concaténation équivalente **privée de la garde**
+  (`host.empty() ? "" : " --host " + host + " --port " + to_string(port)`). Résultat :
+  **0 rouge**, `TOTAL 118 / PASS 117`, avec `CXXLD    core/RoonArgs_test` **et**
+  `CXXLD    core/RoonSpawnViaPlayer_test` **lus** — donc le vert n'était pas un défaut de relink.
+  Diagnostic : la garde n'était exercée que par **appel direct** à `buildArgs()` ; aucun cas ne
+  reliait le **site de production** au refus, et `AStaticallyConfiguredPlayerProducesTheArguments
+  OfItsOwnCore` appelle `buildArgs()` **depuis le test**, pas depuis `RoonCtrl`. La revue de T3.28
+  avait déjà fermé le trou jumeau une ligne plus bas (l'argument du `startProcess`) par un oracle
+  de tripwire source ; **l'affectation de `procArgs` juste au-dessus était restée ouverte**.
+  ⇒ **4ᵉ commit ajouté à la revue** : troisième oracle dans
+  `TripwireSource_TheRespawnLaunchesThroughTheSameCallSite`, et **M4 rejouée : 1 suite rouge**
+  (`core/RoonArgs_test`). Témoin restauré **vert** 118/117/1/0, restauration **par copie prouvée au
+  `cmp` (rc 0)**, ⛔ aucun `git` dans le conteneur.
+
+  ⭐ **Les six affirmations de la fiche tiennent, vérifiées aux sources.** Repli = chaîne vide ⇒
+  `RoonDiscovery` (`ExternProcRoon_main.py:75-83`, `args.host` à `None`, le sidecar démarre) ·
+  `Utils::split()` atteint ses délimiteurs par `find_first_of` et `CStrArray` lui passe `" "`,
+  **un ensemble d'un seul caractère** (`StringUtils.cpp:379-383` et le corps de `split`) ⇒ garder
+  sur `{ ' ' }` est la bonne portée · le **témoin** `find(' ')`↔`find(" ")` est **étiqueté comme
+  tel** dans la fiche et jamais compté comme couverture · `AStaticHostCarriesBothFlags`
+  **inchangé byte pour byte** (279 octets des deux côtés, `cmp` rc 0) · `TESTS` 118 → 118 et
+  `core/RoonArgs_test` 14 → 18 · **recensement recompté à l'identique** :
+  **16 sites de `startProcess()` dans 8 fichiers**, dont **13 sites / 6 fichiers** portant un
+  argument de configuration.
+
+  ⭐ **`F-EXTPROC-1` est EXACT, et c'est un défaut de sécurité ouvert sur `master`.** Chaîne
+  re-parcourue : `MqttWire.h:221` `encodeConfig()` met `user` et `password` dans **un seul** JSON ·
+  `MqttCtrl.cpp:31` et `:63` le passent en **un seul** `args` · `ExternProc.cpp:184` le concatène et
+  `:283` le redécoupe par `CStrArray` · `MqttExternProc_main.cpp:171` exige **`argc == 2`** (la base
+  en a retiré 4, `ExternProc.cpp:429-436`) ⇒ un espace dans un mot de passe donne `argc == 3`,
+  `"Unable to read configuration"`, sortie, **relance à 100 ms sans fin**. Refuser le champ serait
+  bien **pire que le défaut** : un espace y est un usage normal. ⚠️ **Et une trouvaille de plus, à
+  la relecture** : `MqttExternProc_main.cpp:187-189` **journalise `argv[1]` en clair**, mot de passe
+  compris.
+
+  ⚠️ **Fausse assurance résiduelle, nommée et NON fermée ici** : `tests/core/RoonArgs_test.cpp` est
+  le **seul** source de `tests/` à mentionner `Utils::CStrArray` — vérifié par balayage de tous les
+  `.cpp`/`.h` de `tests/`. Une classe de `src/lib` traversée par tout l'arbre n'a donc **aucun filet
+  propre** : élargir son délimiteur ne rougit qu'une suite, et elle appartient à un autre ticket.
+  ⇒ **ticket proposé `T3.76`** (suite de caractérisation de `Utils::split`/`CStrArray`), fiché
+  `F-STRSPLIT-1` dans `FINDINGS.md`.
+
+  **État de la session au sortir de ce merge** : `master` = le commit de revue qui porte ce
+  paragraphe, rien de poussé, historique linéaire. Worktree `.wave103/t3.28a` supprimé, branche
+  `fix/t3.28a` supprimée.
+
 - **✅⭐⭐ [`T3.75`](T3.75.md) MERGÉE — 5 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête de la branche sur `master` : **`4dff12bd`** (2026-09-04), suivie du commit de revue. `master` avait avancé à `397e5b7a`
   (T3.33) ⇒ **rebase** des 3 commits sur `397e5b7a` : **zéro conflit**, y compris sur les trois
