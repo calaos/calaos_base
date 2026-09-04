@@ -24,15 +24,24 @@ RUN apt-get update -qq && \
 # out here. A dev container that resolves a different set from the image is how
 # "works on my machine" gets shipped. The build context is the repository root
 # (see devcontainer.json), which is what makes these paths resolvable.
-COPY scripts/pyproject-requirements.py src/bin/calaos_mcp/pyproject.toml /tmp/calaos-pydeps/
+COPY scripts/pyproject-requirements.py scripts/pydeps-conformance-probe.py \
+     src/bin/calaos_mcp/pyproject.toml /tmp/calaos-pydeps/
 
 # One resolver pass over the whole set — see the comment in ../Dockerfile.
 # --extra test: this is the image `make check` runs in, and without pytest,
 # httpx and fastapi the python suites skip from the inside.
+#
+# The probe then re-reads what pip actually laid down. Strict: an image that
+# does not carry what its recipe declares must not be published. The image in
+# service on 2026-09-04 carried none of the eight pinned packages, and nothing
+# in the repository compared the two.
 RUN python3 /tmp/calaos-pydeps/pyproject-requirements.py --extra test \
         /tmp/calaos-pydeps/pyproject.toml > /tmp/calaos-pydeps/requirements.txt && \
     pip install --no-cache-dir --break-system-packages \
         -r /tmp/calaos-pydeps/requirements.txt roonapi reolink-aio && \
+    CALAOS_PYDEPS_STRICT=1 \
+        python3 /tmp/calaos-pydeps/pydeps-conformance-probe.py --extra test \
+        /tmp/calaos-pydeps/pyproject.toml && \
     rm -rf /tmp/calaos-pydeps
 
 RUN npm install -g @anthropic-ai/claude-code

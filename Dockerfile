@@ -41,7 +41,8 @@ RUN mkdir -p /opt/share/calaos/app
 #
 # Copy the manifest (not the whole tree: this layer must only be invalidated
 # when the dependencies change) and expand it into a requirements list.
-COPY scripts/pyproject-requirements.py src/bin/calaos_mcp/pyproject.toml /tmp/calaos-pydeps/
+COPY scripts/pyproject-requirements.py scripts/pydeps-conformance-probe.py \
+     src/bin/calaos_mcp/pyproject.toml /tmp/calaos-pydeps/
 
 # One single pip invocation for everything, on purpose. mcp, fastapi and
 # starlette are coupled (fastapi 0.115.12 requires starlette>=0.40,<0.47), and
@@ -49,6 +50,11 @@ COPY scripts/pyproject-requirements.py src/bin/calaos_mcp/pyproject.toml /tmp/ca
 # separate passes lets a later pass silently upgrade a package an earlier one
 # pinned. Resolving the whole set at once makes an incompatibility fail the
 # build loudly instead of shipping a broken image.
+#
+# The probe then re-reads the .dist-info pip actually laid down: pip can exit
+# 0 and still leave the set incomplete, and until T3.67 nothing compared a
+# published image to its own recipe. Strict here -- an image that does not
+# carry what it declares must not be published.
 #
 # roonapi and reolink-aio are deliberately not in pyproject.toml: they are
 # optional integrations of calaos_server (extern procs), not sidecar runtime
@@ -58,6 +64,9 @@ RUN python3 /tmp/calaos-pydeps/pyproject-requirements.py \
     cat /tmp/calaos-pydeps/requirements.txt && \
     pip install --no-cache-dir --break-system-packages \
         -r /tmp/calaos-pydeps/requirements.txt roonapi reolink-aio && \
+    CALAOS_PYDEPS_STRICT=1 \
+        python3 /tmp/calaos-pydeps/pydeps-conformance-probe.py \
+        /tmp/calaos-pydeps/pyproject.toml && \
     rm -rf /tmp/calaos-pydeps
 
 ENV PKG_CONFIG_PATH="/opt/lib/pkgconfig"
@@ -95,7 +104,8 @@ RUN apt -y update && \
 #
 # Copy the manifest (not the whole tree: this layer must only be invalidated
 # when the dependencies change) and expand it into a requirements list.
-COPY scripts/pyproject-requirements.py src/bin/calaos_mcp/pyproject.toml /tmp/calaos-pydeps/
+COPY scripts/pyproject-requirements.py scripts/pydeps-conformance-probe.py \
+     src/bin/calaos_mcp/pyproject.toml /tmp/calaos-pydeps/
 
 # One single pip invocation for everything, on purpose. mcp, fastapi and
 # starlette are coupled (fastapi 0.115.12 requires starlette>=0.40,<0.47), and
@@ -103,6 +113,11 @@ COPY scripts/pyproject-requirements.py src/bin/calaos_mcp/pyproject.toml /tmp/ca
 # separate passes lets a later pass silently upgrade a package an earlier one
 # pinned. Resolving the whole set at once makes an incompatibility fail the
 # build loudly instead of shipping a broken image.
+#
+# The probe then re-reads the .dist-info pip actually laid down: pip can exit
+# 0 and still leave the set incomplete, and until T3.67 nothing compared a
+# published image to its own recipe. Strict here -- an image that does not
+# carry what it declares must not be published.
 #
 # roonapi and reolink-aio are deliberately not in pyproject.toml: they are
 # optional integrations of calaos_server (extern procs), not sidecar runtime
@@ -112,6 +127,9 @@ RUN python3 /tmp/calaos-pydeps/pyproject-requirements.py \
     cat /tmp/calaos-pydeps/requirements.txt && \
     pip install --no-cache-dir --break-system-packages \
         -r /tmp/calaos-pydeps/requirements.txt roonapi reolink-aio && \
+    CALAOS_PYDEPS_STRICT=1 \
+        python3 /tmp/calaos-pydeps/pydeps-conformance-probe.py \
+        /tmp/calaos-pydeps/pyproject.toml && \
     rm -rf /tmp/calaos-pydeps
 
 # Clean up APT when done.

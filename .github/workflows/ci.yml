@@ -52,6 +52,11 @@ jobs:
         # which is exactly how it stayed unnoticed for so long.
         env:
           CALAOS_PYTHON_TESTS_REQUIRED: "1"
+          # Same reasoning one layer down: the step above installs the declared
+          # set, so "the set is not there" means the install silently stopped
+          # working. Unset, check-pydeps-conformance.sh skips instead of
+          # failing, so a developer whose image is behind is warned, not blocked.
+          CALAOS_PYDEPS_STRICT: "1"
         run: make check
 
       # if: always(), not if: failure(). The accounting line lives in
