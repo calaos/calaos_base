@@ -129,15 +129,34 @@ void RemoteUIWebSocketHandler::processApi(const string &data, const Params &para
      */
     if (requestNestingWithinLimit(data))
     {
+        /* The parse and the handling are guarded apart because they fail for
+         * unrelated reasons and a reader acts on the name: a handler that
+         * throws on a well formed frame used to be logged as a parse error,
+         * which sends the next reader into the parser. The handling guard is
+         * the wide one - it covers the state writes a relay frame triggers and
+         * the serialisation of the answer - so what it catches is only ever
+         * named as unhandled.
+         */
+        Json message;
+        bool parsed = false;
+
         // Check for RemoteUI-specific messages first
         try
         {
-            Json message = Json::parse(data);
+            message = Json::parse(data);
+            parsed = true;
+        }
+        catch (const std::exception &e)
+        {
+            cWarningDom(TAG) << "RemoteUIWebSocketHandler: JSON parse error: " << e.what();
+        }
 
-            if (message.contains("msg") && message["msg"].is_string())
+        if (parsed && message.contains("msg") && message["msg"].is_string())
+        {
+            string msg_type = message["msg"];
+
+            try
             {
-                string msg_type = message["msg"];
-
                 // Handle RemoteUI-specific messages
                 if (msg_type == "remote_ui_get_config")
                 {
@@ -154,10 +173,12 @@ void RemoteUIWebSocketHandler::processApi(const string &data, const Params &para
                     return;
                 }
             }
-        }
-        catch (const std::exception &e)
-        {
-            cWarningDom(TAG) << "RemoteUIWebSocketHandler: JSON parse error: " << e.what();
+            catch (const std::exception &e)
+            {
+                //Falls through to the parent, as it always has on this path.
+                cWarningDom(TAG) << "RemoteUIWebSocketHandler: unhandled failure while serving "
+                                 << msg_type << ": " << e.what();
+            }
         }
     }
 

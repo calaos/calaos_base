@@ -1127,16 +1127,11 @@ protected:
         handler->closeConnection.connect([this](int code, const std::string &reason)
         { closeEvents.push_back(std::make_pair(code, reason)); });
 
-        /* ⚠️ NOT DECORATION. RemoteUI::getRemoteUIConfigMessage() reads
-         * `brightness` and `timeout` through a bare std::stoi, so on a screen
-         * whose XML omits either of them remote_ui_get_config throws - and the
-         * throw is swallowed by the handler's own catch, which then logs it as
-         * a JSON parse error. Without these two the local branch this fixture
-         * exists to measure answers nothing, for a reason that has nothing to
-         * do with parsing. Reported as a finding, not fixed here.
+        /* The screen is left exactly as the XML declares it - without
+         * `brightness` and without `timeout`. Until T3.68 the two had to be
+         * added here or the local branch answered nothing at all, so their
+         * absence is now part of what R6bis and R6ter measure.
          */
-        screen->get_params().Add("brightness", "80");
-        screen->get_params().Add("timeout", "30");
     }
 
     /* Every param either projection knows about, all of them non empty, and

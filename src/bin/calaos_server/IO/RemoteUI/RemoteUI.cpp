@@ -493,8 +493,8 @@ Json RemoteUI::getRemoteUIConfigMessage()
     config["name"] = get_param("name");
     config["room"] = get_param("room");
     config["theme"] = get_param("theme");
-    config["brightness"] = std::stoi(get_param("brightness"));
-    config["timeout"] = std::stoi(get_param("timeout"));
+    config["brightness"] = getBrightness();
+    config["timeout"] = getTimeout();
     config["pages"] = pages;
 
     return config;
@@ -527,6 +527,16 @@ int RemoteUI::getBrightness()
     //instead of a screen at full brightness.
     Utils::from_string_or_keep(get_param("brightness"), brightness);
     return brightness;
+}
+
+int RemoteUI::getTimeout()
+{
+    //30 is what every example of the wire format shows (RemoteUI/remote-ui.md);
+    //nothing in the tree writes this param, so a screen that was provisioned
+    //and never adjusted has no other source for it.
+    int timeout = 30;
+    Utils::from_string_or_keep(get_param("timeout"), timeout);
+    return timeout;
 }
 
 bool RemoteUI::setPage(const string &page_id)
