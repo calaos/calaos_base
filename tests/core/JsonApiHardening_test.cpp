@@ -389,6 +389,63 @@ TEST(JsonApiRequestLog, TheNetworkDomainPrintsNothingAtDebugLevel)
             << infoOutput;
 }
 
+namespace
+{
+
+//One log line on the "network" domain, at a level chosen at run time.
+void logNetworkAt(int level, const std::string &marker)
+{
+    switch (level)
+    {
+    case Logger::LOG_LEVEL_CRITICAL: cCriticalDom("network") << marker; break;
+    case Logger::LOG_LEVEL_ERROR: cErrorDom("network") << marker; break;
+    case Logger::LOG_LEVEL_WARNING: cWarningDom("network") << marker; break;
+    case Logger::LOG_LEVEL_INFO: cInfoDom("network") << marker; break;
+    case Logger::LOG_LEVEL_DEBUG: cDebugDom("network") << marker; break;
+    default: FAIL() << "no macro for level " << level;
+    }
+}
+
+} //namespace
+
+/* THE GUARD OF T3.65 IS ONLY WORTH ANYTHING IF IT ANSWERS WHAT THE DESTRUCTOR
+ * WOULD HAVE ANSWERED. It is asked one level too early, from the call site, so
+ * this case asks BOTH and compares them, at every level the logger knows.
+ *
+ * The two counters at the end are what keeps it honest: a predicate stuck on
+ * true and a predicate stuck on false both agree with the log at SOME level,
+ * and only a case that sees printed and silent levels in the same run can tell
+ * them apart.
+ */
+TEST(JsonApiRequestLog, TheDebugGuardAnswersWhatTheLogPrints)
+{
+    Logger *logger = Utils::calaosLogger("network");
+    ASSERT_TRUE(logger != nullptr);
+
+    int printedLevels = 0, silentLevels = 0;
+
+    for (int level = Logger::LOG_LEVEL_CRITICAL; level <= Logger::LOG_LEVEL_DEBUG; level++)
+    {
+        const std::string marker = "T365_LEVEL_" + std::to_string(level);
+        std::string output;
+
+        {
+            CoutCapture capture;
+            logNetworkAt(level, marker);
+            output = capture.str();
+        }
+
+        const bool printed = output.find(marker) != std::string::npos;
+        EXPECT_EQ(logger->isLevelEnabled(level), printed)
+                << "level " << level << ": the guard and the log disagree";
+
+        printed? printedLevels++: silentLevels++;
+    }
+
+    EXPECT_GT(printedLevels, 0) << "no level printed: the comparison is vacuous";
+    EXPECT_GT(silentLevels, 0) << "every level printed: the comparison is vacuous";
+}
+
 /******************************************************************************
  * Login throttle (F3)
  ******************************************************************************/

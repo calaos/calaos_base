@@ -154,6 +154,11 @@ static int maxLevelPrintable(string domain)
     return logger_domains["default"];
 }
 
+int Logger::maxLevel() const
+{
+    return maxLevelPrintable(domainName);
+}
+
 LogStream::~LogStream()
 {
     if (logData->level > maxLevelPrintable(logData->domain))

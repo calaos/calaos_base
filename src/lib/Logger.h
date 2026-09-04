@@ -131,6 +131,14 @@ public:
         return LogStream(domainName, file, function, line, LOG_LEVEL_WARNING);
     }
 
+    /* The ceiling configured for this domain, and the test a caller has to
+     * make BEFORE building an expensive argument: LogStream streams whatever
+     * it is given and only compares the levels in its destructor, so
+     * `cDebugDom(d) << expensive()` pays for expensive() at every level.
+     */
+    int maxLevel() const;
+    bool isLevelEnabled(int level) const { return level <= maxLevel(); }
+
     static bool isColorEnabled();
 };
 

@@ -119,15 +119,20 @@ public:
     static bool resolveEventPicture(const string &picUid, string &outPath);
 
     /* json dump for the logs, with the value of every credential field replaced
-     * by ***. Never log a request before it has gone through this.
+     * by ***. Never log a request before it has gone through this, and never
+     * call it without cDebugDomEnabled() first: it deep-copies the document and
+     * serializes it INDENTED, which costs 16.8 MB on a document at
+     * MaxRequestNestingDepth.
      */
     static string dumpJsonRedacted(const Json &jroot);
 
     /* Deepest nesting a request body may carry. nlohmann::json has no limit of
      * its own and a 4 MiB body buys two million levels, which dumpJsonRedacted()
-     * then copies, walks and serializes INDENTED - quadratic, and it runs before
-     * the credentials are checked. This is the ceiling the previous parser
-     * enforced, so nothing the API has ever accepted is refused by it.
+     * then copies, walks and serializes INDENTED - quadratic, on a path that
+     * runs before the credentials are checked. The dump is only built when the
+     * network domain is really at debug level, but the ceiling holds whatever
+     * the level: it is the one the previous parser enforced, so nothing the API
+     * has ever accepted is refused by it.
      */
     static constexpr int MaxRequestNestingDepth = 2048;
 

@@ -207,9 +207,9 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
      * document exists: the cost this refuses is not the parse (iterative and
      * cheap) but dumpJsonRedacted() three lines below, which deep-copies the
      * document, walks it recursively and dumps it INDENTED - quadratic in the
-     * depth, and it runs before checkCredentials(). Measured: 16.8 MB of log
-     * line at 2048 levels, 1.07 GB at 16384, and the stack is gone past 43500.
-     * Refusing here costs 2.5 us on a 4 MiB body.
+     * depth, on a path that runs before checkCredentials(). Measured: 16.8 MB
+     * of log line at 2048 levels, 1.07 GB at 16384, and the stack is gone past
+     * 43500. Refusing here costs 2.5 us on a 4 MiB body.
      */
     Json jsonRootDoc;
 
@@ -234,7 +234,8 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
     }
     else
     {
-        cDebugDom("network") << dumpJsonRedacted(jsonRootDoc);
+        if (cDebugDomEnabled("network"))
+            cDebugDom("network") << dumpJsonRedacted(jsonRootDoc);
 
         //decode the json root object into jsonParam
         decodeJsonObject(jsonRootDoc, jsonParam);

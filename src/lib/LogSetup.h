@@ -36,6 +36,10 @@
 #define cErrorDom(domain) LoggerError(Utils::calaosLogger(domain))
 #define cCriticalDom(domain) LoggerCritical(Utils::calaosLogger(domain))
 
+//Guard a debug line whose argument costs something to build: the argument of
+//`<<` is evaluated whatever the level is.
+#define cDebugDomEnabled(domain) (Utils::calaosLogger(domain)->isLevelEnabled(Logger::LOG_LEVEL_DEBUG))
+
 //-----------------------------------------------------------------------------
 namespace Utils
 {

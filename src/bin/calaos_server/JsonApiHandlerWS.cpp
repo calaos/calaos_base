@@ -247,7 +247,8 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
         return;
     }
 
-    cDebugDom("network") << dumpJsonRedacted(jsonRootDoc);
+    if (cDebugDomEnabled("network"))
+        cDebugDom("network") << dumpJsonRedacted(jsonRootDoc);
 
     /* E4.1s: the "data" member as a POINTER, because ABSENT and `"data": null`
      * are two different answers here. json_object_get() gave NULL for the
