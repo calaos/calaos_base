@@ -4809,3 +4809,40 @@ core_SidecarArgv_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.81
+#⭐ What the sidecar TRANSPORT writes about the messages it carries.
+#ExternProcServer::sendMessage() streamed the whole outgoing payload and
+#processData() the whole incoming one. The Reolink camera registration carries
+#`username` and `password` in clear, so the transport published them - while
+#ReolinkWire.h says "Never log the message itself", ReolinkCtrl.cpp says "never
+#log it, here or anywhere downstream", and the python end really redacts. The
+#transport contradicted all three because it sees a string, not fields.
+#⚠️ NOTHING HERE CALLS sendMessage(): a real ReolinkCtrl is built, a peer
+#connects to the unix socket its ExternProcServer bound - which is all a sidecar
+#is - and announces itself, so a mutation of IO/ExternProc.cpp turns this suite
+#red.
+#⛔ The second case is the counterweight: deleting the lines would also pass the
+#first one, and a journal must still say that a message was exchanged, with
+#which sidecar, of which frame type and of what size. The fourth is a source
+#tripwire on Audio/AVRRose.cpp, whose device token no test process can reach:
+#that line needs a stubbed HTTPS answer from the amplifier.
+#No core fixture here - the controller needs no config model, and main() has to
+#raise debug_level before the first log line of the process (the Logger domain
+#map is filled once and never re-read). CALAOS_TOP_SRCDIR feeds the tripwire.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ExternProcPayloadSecret_test
+check_PROGRAMS += core/ExternProcPayloadSecret_test
+core_ExternProcPayloadSecret_test_SOURCES = core/ExternProcPayloadSecret_test.cpp
+core_ExternProcPayloadSecret_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Reolink \
+                  -DCALAOS_TOP_SRCDIR='"$(abs_top_srcdir)"'
+core_ExternProcPayloadSecret_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkCtrl.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_ExternProcPayloadSecret_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkCtrl.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
