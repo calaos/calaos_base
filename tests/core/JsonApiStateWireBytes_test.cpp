@@ -722,13 +722,17 @@ TEST_F(JsonApiStateWireBytesTest, SetStateWsEnvelopePutsDataFirst)
  ******************************************************************************/
 
 #include "RemoteUIWebSocketHandler.h"
+#include "AutoScenarioDef.h"
 #include "IO/RemoteUI/RemoteUI.h"
 #include "AudioPlayer.h"
 #include "HttpClient.h"
 #include "libuvw.h"
 
+#include <algorithm>
 #include <deque>
+#include <iterator>
 #include <memory>
+#include <set>
 #include <vector>
 
 namespace
@@ -1051,4 +1055,246 @@ TEST_F(RemoteUiStateBridgeTest, InitialStatesSurviveTheHandlerDyingMidFlight)
     EXPECT_TRUE(player->pending.empty());
     //...and nothing was ever written to the socket.
     EXPECT_EQ(0u, sent.size());
+}
+
+/*******************************************************************************
+ * R5/R6 - THE CONFIG PAYLOAD AND THE HANDLER'S OWN PARSE.
+ *
+ * remote_ui_config_update projects every referenced IO a SECOND time, next to
+ * the projection JsonApi::buildJsonIO() publishes on 5454. The two lists of
+ * params were written twice, so the re-key of the scenario marker landed on one
+ * transport only: on the same equipment the API says `autoscenario_uid` and the
+ * screen still hears `auto_scenario`.
+ *
+ * processApi() parses the frame itself before delegating, and that parse is
+ * outside the nesting ceiling the parent enforces. Reachable only after the
+ * HMAC handshake, so the cost is one allocation imposed by a provisioned
+ * device, not an anonymous denial of service - which is why it could wait.
+ ******************************************************************************/
+
+namespace
+{
+
+//Nested arrays as raw TEXT: a document built with Json and dumped would nest
+//no deeper than the builder went.
+std::string bracketNest(int levels)
+{
+    std::string s;
+    s.reserve(2 * static_cast<size_t>(levels));
+    for (int i = 0; i < levels; i++) s += '[';
+    for (int i = 0; i < levels; i++) s += ']';
+    return s;
+}
+
+//Spelled out rather than read from JsonApi::MaxRequestNestingDepth: a case that
+//takes the ceiling from the code under test moves with it and pins nothing.
+const int REQUEST_DEPTH_CAP = 2048;
+
+std::set<std::string> keysOf(const Json &object)
+{
+    std::set<std::string> keys;
+    for (Json::const_iterator it = object.cbegin(); it != object.cend(); ++it)
+        keys.insert(it.key());
+    return keys;
+}
+
+std::vector<std::string> difference(const std::set<std::string> &a,
+                                    const std::set<std::string> &b)
+{
+    std::vector<std::string> out;
+    std::set_difference(a.cbegin(), a.cend(), b.cbegin(), b.cend(),
+                        std::back_inserter(out));
+    return out;
+}
+
+std::string joined(const std::vector<std::string> &v)
+{
+    std::string s;
+    for (const std::string &e: v) { if (!s.empty()) s += ", "; s += e; }
+    return s.empty()? std::string("<none>"): s;
+}
+
+} //namespace
+
+class RemoteUiConfigProjectionTest: public RemoteUiStateBridgeTest
+{
+protected:
+    void SetUp() override
+    {
+        RemoteUiStateBridgeTest::SetUp();
+        handler->closeConnection.connect([this](int code, const std::string &reason)
+        { closeEvents.push_back(std::make_pair(code, reason)); });
+
+        /* ⚠️ NOT DECORATION. RemoteUI::getRemoteUIConfigMessage() reads
+         * `brightness` and `timeout` through a bare std::stoi, so on a screen
+         * whose XML omits either of them remote_ui_get_config throws - and the
+         * throw is swallowed by the handler's own catch, which then logs it as
+         * a JSON parse error. Without these two the local branch this fixture
+         * exists to measure answers nothing, for a reason that has nothing to
+         * do with parsing. Reported as a finding, not fixed here.
+         */
+        screen->get_params().Add("brightness", "80");
+        screen->get_params().Add("timeout", "30");
+    }
+
+    /* Every param either projection knows about, all of them non empty, and
+     * BOTH scenario markers. A param that is absent is dropped by both sides
+     * for reasons of their own, so an IO carrying only some of them would make
+     * the two key sets agree without proving anything.
+     */
+    void fillEveryProjectedParam(IOBase *io)
+    {
+        Params &p = io->get_params();
+        p.Add("hits", "7");
+        p.Add("var_type", "string");
+        p.Add("visible", "true");
+        p.Add("chauffage_id", "ch1");
+        p.Add("rw", "true");
+        p.Add("unit", "C");
+        p.Add("gui_type", "text");
+        p.Add("state", "on");
+        p.Add("auto_scenario", "as_legacy");
+        p.Add(Calaos::AutoScenarioDef::KEY_UID, "as_0");
+        p.Add("step", "1");
+        p.Add("io_type", "input");
+        p.Add("io_style", "flat");
+        p.Add("value_warning", "9");
+    }
+
+    //The io_items entry the screen receives for one IO.
+    Json remoteUiProjection(const std::string &ioId)
+    {
+        sent.clear();
+        handler->sendConfigUpdate();
+
+        const Json envelope = Json::parse(lastMessage(), nullptr, false);
+        if (!envelope.is_object())
+            return Json();
+
+        const Json items = envelope.value("data", Json::object()).value("io_items", Json::array());
+        for (const Json &item: items)
+            if (item.value("id", std::string()) == ioId)
+                return item;
+
+        return Json();
+    }
+
+    //The projection 5454 publishes for the same IO. status_info is dropped:
+    //it is a nested object the config payload has never carried, and it is not
+    //part of the param list the two sides share.
+    Json apiProjection(IOBase *io)
+    {
+        Json jio = Json::object();
+        handler->buildJsonIO(io, jio);
+        jio.erase("status_info");
+        return jio;
+    }
+
+    //One remote_ui_get_config frame whose "probe" member nests `levels` arrays.
+    //The root object is a level of its own, so the document is levels + 1 deep.
+    static std::string deepGetConfig(int levels)
+    {
+        return std::string("{\"msg\":\"remote_ui_get_config\",\"probe\":") +
+               bracketNest(levels) + "}";
+    }
+
+    std::vector<std::pair<int, std::string>> closeEvents;
+};
+
+/*******************************************************************************
+ * R5. THE TWO PROJECTIONS OF THE SAME IO PUBLISH DIFFERENT KEYS.
+ *
+ * ⚠️ TO FLIP. The two lists are one list after the fix and the two key sets
+ * must become equal; until then this case records exactly what diverges, so
+ * that the fix has something to move.
+ ******************************************************************************/
+TEST_F(RemoteUiConfigProjectionTest, TheTwoProjectionsOfAnIoDisagreeOnOneKey)
+{
+    fillEveryProjectedParam(zulu);
+
+    const Json remote = remoteUiProjection(IO_ZULU);
+    ASSERT_TRUE(remote.is_object()) << "the config payload carried no entry for " << IO_ZULU;
+
+    const Json api = apiProjection(zulu);
+    ASSERT_TRUE(api.is_object());
+
+    const std::set<std::string> remoteKeys = keysOf(remote);
+    const std::set<std::string> apiKeys = keysOf(api);
+
+    const std::vector<std::string> onlyRemote = difference(remoteKeys, apiKeys);
+    const std::vector<std::string> onlyApi = difference(apiKeys, remoteKeys);
+
+    EXPECT_EQ(std::vector<std::string>{ "auto_scenario" }, onlyRemote)
+            << "only in the RemoteUI payload: " << joined(onlyRemote);
+    EXPECT_EQ(std::vector<std::string>{ Calaos::AutoScenarioDef::KEY_UID }, onlyApi)
+            << "only in the 5454 payload: " << joined(onlyApi);
+}
+
+/*******************************************************************************
+ * R5bis. THE MARKER THE SCREEN ACTUALLY HEARS.
+ *
+ * ⚠️ TO FLIP. Read through AutoScenarioDef::KEY_UID and not through a literal:
+ * the next re-key then moves this case with the code instead of leaving it
+ * green on a name nothing publishes any more.
+ ******************************************************************************/
+TEST_F(RemoteUiConfigProjectionTest, ConfigUpdateStillPublishesTheLegacyMarker)
+{
+    fillEveryProjectedParam(zulu);
+
+    const Json remote = remoteUiProjection(IO_ZULU);
+    ASSERT_TRUE(remote.is_object());
+
+    EXPECT_TRUE(remote.contains("auto_scenario"));
+    EXPECT_FALSE(remote.contains(Calaos::AutoScenarioDef::KEY_UID))
+            << "the screen would already hear the published marker";
+}
+
+/*******************************************************************************
+ * R6. THE HANDLER'S OWN PARSE AND THE NESTING CEILING.
+ *
+ * ⚠️ TO FLIP. One above the ceiling is built and served here because the parse
+ * happens before the parent is reached at all.
+ ******************************************************************************/
+TEST_F(RemoteUiConfigProjectionTest, AFrameAboveTheCapIsParsedByTheLocalParse)
+{
+    handler->processApi(deepGetConfig(REQUEST_DEPTH_CAP), Params());
+
+    ASSERT_EQ(1u, sent.size()) << "the local parse refused a frame above the cap";
+    const Json envelope = Json::parse(lastMessage(), nullptr, false);
+    EXPECT_EQ("remote_ui_config", envelope.value("msg", std::string()));
+}
+
+/*******************************************************************************
+ * R6bis. AND THE FRAME JUST BELOW THE LINE IS SERVED. INVARIANT.
+ *
+ * The half of the pair that keeps the other one from passing on an empty
+ * transport: a ceiling that refused everything would leave R6 green.
+ ******************************************************************************/
+TEST_F(RemoteUiConfigProjectionTest, AFrameAtTheCapIsServed)
+{
+    handler->processApi(deepGetConfig(REQUEST_DEPTH_CAP - 1), Params());
+
+    ASSERT_EQ(1u, sent.size()) << "a frame at the cap stopped being served";
+    const Json envelope = Json::parse(lastMessage(), nullptr, false);
+    EXPECT_EQ("remote_ui_config", envelope.value("msg", std::string()));
+}
+
+/*******************************************************************************
+ * R6ter. A REFUSAL LEAVES THE SESSION ALONE. INVARIANT ON BOTH SIDES.
+ *
+ * An unparsable frame has never closed a RemoteUI socket, and the ceiling must
+ * not start: the device would reconnect, re-authenticate and resend.
+ ******************************************************************************/
+TEST_F(RemoteUiConfigProjectionTest, ADeepFrameLeavesTheSessionUsable)
+{
+    handler->processApi(deepGetConfig(REQUEST_DEPTH_CAP), Params());
+    sent.clear();
+
+    EXPECT_TRUE(closeEvents.empty()) << "the deep frame closed the session";
+
+    handler->processApi("{\"msg\":\"remote_ui_get_config\"}", Params());
+
+    ASSERT_EQ(1u, sent.size()) << "the session stopped answering after a deep frame";
+    const Json envelope = Json::parse(lastMessage(), nullptr, false);
+    EXPECT_EQ("remote_ui_config", envelope.value("msg", std::string()));
 }
