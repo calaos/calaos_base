@@ -8,6 +8,123 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅⭐⭐ [`T3.58`](T3.58.md) MERGÉE — 3 commits de la branche + 1 commit d'élagage + 1 commit de doc
+  sur `master`, `merge --ff-only`, historique linéaire, 0 commit de fusion.** Tête de branche
+  **`7b95f95b`**. ⭐ **`master` ÉTAIT IMMOBILE sur `bf0582a9`** = exactement la merge-base ⇒ **ni
+  rebase ni conflit.** ⛔ **Rien poussé.** **`TESTS` 113 → 114 mesuré**, build d'intégration
+  `make distclean` + `autogen` + `configure` + `make -j32` + `make check -j16` :
+  **`TOTAL 114 / PASS 112 / SKIP 2 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, les deux `SKIP`
+  habituels. **145 goldens, hash d'arbre `git ls-tree` identique des deux côtés.**
+  `check-test-deps.sh` **PASS**, `tests/Makefile.am` **préfixe strict de `master` prouvé au `cmp`**
+  (append pur), `^if HAVE_GTEST` == `^endif` (97/97), `_DEPENDENCIES` **miroir exact du `LDADD`**.
+
+  ⭐⭐⭐ **`F-JSON-2` — LE PLANTAGE DISTANT PRÉ-AUTHENTIFICATION EST FERMÉ, ET LE CONTOURNEMENT
+  `RemoteUI` A ÉTÉ LU DE BOUT EN BOUT AVANT DE L'ADMETTRE.** Le défaut : `processApi()` appelle
+  `dumpJsonRedacted()` sur **chaque** requête et **avant `checkCredentials()`** — copie profonde
+  récursive, `std::function` récursive, `dump(4, …)` **indenté**, donc quadratique. Mesuré à `-O2`,
+  pile 8 Mio : **16,8 Mo** de ligne de journal à 2048 niveaux, **1,07 Go** à 16 384, **7,4 Go** à
+  43 000, **SEGFAULT à 44 000** ; un corps de 4 Mio — le plafond par défaut — achète **deux millions**
+  de niveaux. Le plafond de 2048 posé par ce ticket sur les **deux** `processApi()` rend ce chemin
+  **inatteignable depuis l'API**.
+
+  ⭐ **`F-JSON-1` (`RemoteUIWebSocketHandler::processApi()` fait son propre `Json::parse(data)` avant
+  de déléguer) EST RÉEL, MAIS IL EST POST-AUTHENTIFICATION — vérifié au source, pas supposé.** Le
+  handler n'est installé comme `jsonApi` de la socket que si `authenticateConnection()` a rendu
+  `true` (`WebSocket.cpp:283-286`) ; sur un échec il est **détruit**, le handshake répond
+  401/403/429 avec `Connection: close` et se termine (`:290-333`). L'authentification est un **HMAC
+  sur un secret partagé provisionné** : en-têtes obligatoires, `Bearer` non vide, fenêtre
+  d'horodatage, limitation de débit par IP, **nonce de 64 caractères non rejouable**, token connu,
+  puis `RemoteUI::validateHMAC()` (`HMACAuthenticator.cpp:58-99`,
+  `RemoteUIManager::validateAuthenticationWithReason()`). ⇒ **aucun octet attaquant n'atteint ce
+  parse sans authentification forte**, et le correctif d'une ligne **n'a PAS été appliqué** : le
+  renvoi à [`T3.62`](T3.62.md) est le bon arbitrage, et la fiche `T3.62` porte désormais ce défaut
+  nominativement. Ce qu'un appareil RemoteUI **légitime** peut encore imposer, c'est **un** parse
+  profond (allocation), pas la ligne de journal quadratique. ⚠️ **`dumpJsonRedacted()` n'a que DEUX
+  appelants** — les deux `processApi()` gardés — donc aucun autre `Json::parse()` du dépôt ne porte
+  le défaut quadratique ; `RemoteUIProvisioningHandler.cpp:103` et le chemin MCP sont, eux,
+  vraiment pré-auth et **non plafonnés**, mais **non mesurés**.
+
+  ⛔⭐⭐ **DEUX RECOMMANDATIONS EN ATTENTE D'ARBITRAGE UTILISATEUR — aucune garde n'a été posée, et
+  c'était la consigne : caractériser et recommander, pas imposer.** Vérifié au diff : `src/` est
+  **+82 / −10**, et il n'y contient **rien** sur le NUL ni sur les entiers.
+  1. **Le NUL (`F-XML-1`, ticket proposé [`T3.66`](T3.66.md)).** L'API porte l'octet **entier**
+     (acquis E4.1s + E4.6d), mais `XmlUtils::setAttribute()` (`src/lib/XmlUtils.h:89`) finit sur
+     `set_value(c_str())` : la **valeur** est tronquée sur disque, un **nom** de param porteur d'un
+     zéro **écrase l'attribut voisin** (`name` ⇒ l'IO change de nom), et une action d'autoscénario
+     **emporte le reste de son étape** (le codec E4.6b empaquette l'étape dans un attribut et
+     n'échappe pas le zéro). ⚠️ **Invisible jusqu'au redémarrage** : c'est de la **corruption de
+     configuration**. `set_value(ptr, size)` de `pugixml` **ne change rien** (mesuré).
+     **Recommandé : garde dans `IOBase::set_param()` d'abord, codage XML réversible ensuite ; le
+     refus au parse est DÉCONSEILLÉ** (il défait E4.6d et ne protège pas le disque).
+  2. **Les entiers (`F-JSON-3`).** La perte de précision **n'est pas au parseur** :
+     `Utils::to_string(double)` (`src/lib/StringUtils.h:301`) est un `ostringstream` nu à six
+     chiffres significatifs, donc `1234567` est stocké `"1.23457e+06"` **exactement comme** `1e29`.
+     **Recommandé : ne rien changer, documenter** — une garde sur les entiers hors `int64` fermerait
+     une fenêtre dans un mur qui n'existe pas, et l'échappatoire existe déjà (les mêmes chiffres
+     **en chaîne JSON** arrivent exacts).
+
+  ⭐ **Findings neufs de ce ticket** : `F-JSON-1` (contournement RemoteUI, post-auth, → `T3.62`),
+  `F-JSON-2` (le plantage, fermé côté API, la fonction reste quadratique → **`T3.65`**), `F-XML-1`
+  (la corruption de configuration → **`T3.66`**), `F-JSON-3` (la précision des nombres, recommandé
+  sans suite), `F-TEST-3` (un nom de test qui mentait). **Deux fiches courtes ouvertes**,
+  [`T3.65`](T3.65.md) et [`T3.66`](T3.66.md), **non instruites**.
+
+  ⭐ **Élagage et correction faits AU MERGE, dans le commit d'élagage `7b95f95b` :** les deux
+  commentaires neufs de `JsonApiHandlerHttp.cpp` portaient des emojis (« ⭐ THAT ONE IS BACK »,
+  « ⛔ THE DEPTH CEILING, RESTORED ») — retirés, **substance inchangée, aucun changement de code** ;
+  et `F-TEST-3` a été **corrigé** :
+  `AnEmbeddedNulInAnActionIsTruncatedByScenarioToJson` renommé
+  `AnEmbeddedNulInAnActionIsCarriedWholeByScenarioToJson` (corps inchangé), avec ses **deux renvois
+  vivants recalés** (`docs/04_scenarios.md`, `T3.58.md`). ⚠️ **`E4.1s.md` et `E4.6.md` gardent le nom
+  d'origine : ce sont des récits d'époque, où le cas assertait bien la troncature. Non réécrits.**
+
+  ⭐ **Ce qui a été revérifié au merge et qui tient** : le plafond **2048** est exactement l'ancien
+  `JSON_PARSER_MAX_DEPTH` de jansson, donc **rien de ce que l'API a jamais accepté n'est refusé** ;
+  le comptage se fait sur le **texte brut**, avant que le document existe, et saute les chaînes
+  (accolades dans une chaîne, guillemet échappé, antislash échappé, arrêt au NUL brut : **quatre**
+  cas nommés, chacun portant 5 000 crochets pour qu'aucun ne passe par hasard) ; le refus est
+  **propre des deux côtés** — HTTP **une seule** réponse `400` + `Connection: close` + socket fermée
+  (`D_TheRefusalIsOneAnswerAndAClosedConnection` asserte les trois), WS **aucune** réponse,
+  `closes()` **vide**, session intacte ; le **seuil est encadré** : 2048 servi / 2049 refusé, en
+  **tableaux ET en objets** sur HTTP, en tableaux sur WS. ⚠️ **Le seul angle non couvert** : des
+  **objets** au seuil sur **WebSocket** — le prédicat est partagé, l'axe « objets » est couvert sur
+  HTTP, donc c'est une omission bénigne, mais elle est réelle.
+
+  ⭐ **Jugement sur la campagne de contre-mutations (9 tours) : elle couvre les axes du parseur, et
+  la réserve de l'auteur est honnête.** M3 (`escaped`) est bien un **singleton contenu dans M2**
+  (`inString`) et n'apporte pas d'axe propre ; c'est **M6** (l'échange d'ORDRE des deux branches de
+  la machine à échapper) qui apporte l'axe manquant et fait rougir le cas de l'antislash. Les axes
+  effectivement touchés : la comparaison du seuil (M1), l'entrée en chaîne (M2), la sortie de chaîne
+  (M6), la branche de garde côté WS (M4, **415** cas / **27** binaires), l'écriture XML (M7b), le
+  contrat d'aplatissement (M8). ⚠️ **Angle mort restant** : rien ne mute la **décrémentation** sur
+  `}`/`]`, donc un compteur qui ne redescendrait jamais ne rougirait aucun cas — un document large
+  mais plat serait alors refusé à tort, et aucune fixture ne le verrait.
+  ⭐ **Le témoin M5 rend 0 rouge ET son relink est PROUVÉ** : `JsonApi.$(OBJEXT)` est dans
+  `$(CORE_TEST_LDADD)` **et** dans `$(CORE_TEST_DEPS)`, le journal porte **`CXX JsonApi.o`** puis
+  **`CXXLD core/JsonApiRequestGuards_test`**, `FAIL: 0` — c'est un zéro mesuré, pas un `_DEPENDENCIES`
+  qui bloque le relink.
+  ⭐ **M7 rend 0 rouge et c'est bien une MESURE, pas une mutation qui ne mordait pas** : M7b, sur **le
+  même site**, avec la même fixture, fait rougir **3** cas. Le zéro de M7 dit donc quelque chose sur
+  `pugixml` (il stocke et écrit par chaîne C quoi qu'on lui passe), pas sur le harnais.
+
+  ⚠️ **Ce que ce merge ne ferme PAS** : `dumpJsonRedacted()` **reste quadratique** et 2048 niveaux —
+  **acceptés** — coûtent encore 16,8 Mo transitoires par requête non authentifiée (`T3.65`) ; la
+  corruption XML au NUL est **intacte** (`T3.66`) ; le parse local de RemoteUI est **intact**
+  (`T3.62`) ; **pas d'ASan**, pas de fuzzer sur le pré-comptage, pas de rejeu sur une vraie box ; le
+  Lua et les extern-procs n'ont **pas** été recensés comme consommateurs du NUL.
+
+  ➡️ **PROCHAINE ACTION — options posées, RIEN N'EST TRANCHÉ, à l'utilisateur de choisir :**
+  - ⛔⭐ **Arbitrer les deux recommandations ci-dessus** (le NUL → `T3.66` ; les entiers → ne rien
+    faire). C'est la seule chose qui *bloque* : les deux volets restants de `T3.58` attendent un
+    « oui » ou un « non », pas du travail.
+  - **[`T3.47`](T3.47.md)** — ⭐ **priorité haute** : les **42 cas Python** de `tests/python/` ne
+    tournent sur **aucune** CI.
+  - **[`T3.61`](T3.61.md)** — finir **§5.3** et rendre l'épique E4.6 entière.
+  - **[`T3.62`](T3.62.md)** — la 3ᵉ copie RemoteUI, qui porte **aussi** le parse non plafonné
+    (`F-JSON-1`) : deux défauts du même fichier, un seul passage.
+  - **`wip/t3.51-probe-pass4`** (`d1693b19`) — cherry-pick **sans conflit**, mais sa docstring
+    documente comme fait un export `CXX`/`CC` dans `AM_TESTS_ENVIRONMENT` **absent de l'arbre**.
+
 - **✅⭐ [`T3.43`](T3.43.md) / `fix/fwago8` MERGÉE — 3 commits de la branche, `merge --ff-only`,
   historique linéaire, 0 commit de fusion.** Tête sur `master` : **`6c9e136d`**. ⛔ **Rien poussé.**
   ⚠️ **REBASE LOURD ASSUMÉ** : la branche datait du **25 août** (merge-base `b7a4c63d`), `master`
