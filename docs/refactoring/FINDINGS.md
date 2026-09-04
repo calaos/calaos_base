@@ -8973,3 +8973,85 @@ existe — ce que l'auteur a fait, correctement — **valide** cette citation. U
 validerait aussi (`hasChanged` est bien là). Seule la relecture humaine de la **phrase contre le
 code** l'attrape. C'est la limite déjà écrite sur la ligne `T3.32` (« la référence plausible qui
 ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'unique livrable.
+
+## T3.58 — les gardes du parseur de requête JSON (2026-09-04)
+
+- ⭐⭐ **[F-JSON-2] `JsonApi::dumpJsonRedacted()` fait tomber `calaos_server` sur un document
+  profond, AVANT le contrôle des identifiants — et ce n'est pas le parseur.** C'est la trouvaille
+  de T3.58, et elle **corrige une affirmation d'E4.1s** (« ce n'est PAS un déni de service neuf :
+  100 000 niveaux parsent et se détruisent sans débordement de pile »). E4.1s avait mesuré
+  `Json::parse()` **seule**, et cette mesure-là est juste. Mais `processApi()` appelle ensuite
+  `dumpJsonRedacted(jsonRootDoc)` (`JsonApi.cpp:491`) sur **chaque** requête, et l'argument est
+  évalué quel que soit le niveau de journal. Cette fonction fait **trois** parcours récursifs :
+
+  1. `Json copy = jroot;` — la copie profonde de `basic_json` est récursive ;
+  2. la `std::function<void(Json &)> redact` qui se rappelle elle-même ;
+  3. `copy.dump(4, …)` — le sérialiseur de `nlohmann` est récursif **et** indenté.
+
+  L'indentation rend la sortie **quadratique en la profondeur**. Mesuré à `-O2`, pile 8 Mio :
+  **16,8 Mo** de ligne de journal à 2048 niveaux, **1,07 Go** à 16 384, **7,4 Go** à 43 000, et
+  **SEGFAULT à 44 000** (pile épuisée dans la copie profonde ; la trace montre 640 000 trames pour
+  100 000 niveaux). Sur une box réelle c'est l'OOM qui tue avant, vers 16 000 niveaux.
+
+  ⭐ **T3.58 rend ce chemin inatteignable depuis l'API** (plafond de profondeur à 2048 sur les deux
+  transports) **mais ne corrige pas la fonction**. Elle reste quadratique, et 2048 niveaux — qui
+  restent **acceptés** — coûtent toujours 16,8 Mo transitoires par requête non authentifiée.
+  ⇒ **Ticket proposé `T3.65`** : ne construire la ligne rédigée que si le domaine `network` est
+  effectivement journalisé, et/ou la dumper **non indentée**. Les deux sont indépendantes du
+  plafond, et l'une des deux suffit à ramener les 16,8 Mo à quelques kilo-octets.
+
+- ⛔ **[F-JSON-1] `RemoteUIWebSocketHandler::processApi()` contourne le plafond de profondeur.**
+  `RemoteUI/RemoteUIWebSocketHandler.cpp:128` fait son **propre** `Json::parse(data)` — sous
+  `try`/`catch`, donc pas de `terminate` — **avant** de déléguer à `JsonApiHandlerWS::processApi()`
+  (`:157`). Le plafond de T3.58 vit dans le parent : sur une socket RemoteUI, un document profond
+  est donc **parsé une fois à plein tarif** avant que quoi que ce soit ne le refuse. Le correctif
+  tient en une ligne — garder ce parse local derrière le même prédicat
+  `JsonApi::requestNestingWithinLimit(data)`. **Non fait** : hors du périmètre déclaré de T3.58, et
+  ce fichier est déjà le sujet de `T3.62`.
+
+- ⭐⭐ **[F-XML-1] L'écrivain XML coupe toute valeur — et tout NOM de paramètre — au premier octet
+  nul, en silence, et la mémoire diverge du disque jusqu'au redémarrage.**
+  `XmlUtils::setAttribute()` (`src/lib/XmlUtils.h:89`) finit sur
+  `pugi::xml_attribute::set_value(value.c_str())`, et résout le nom par
+  `node.attribute(name.c_str())` / `append_attribute(name.c_str())`. Trois conséquences mesurées
+  par `core/JsonApiRequestGuards_test`, oracle `B_` :
+
+  | Entrée | En mémoire | Dans `io.xml` | Au redémarrage |
+  |---|---|---|---|
+  | une valeur `head` + zéro + `tail` | 9 octets | `t358_nul="head"` | la valeur **est** `head` |
+  | un **nom** `name` + zéro + `squat` | deux params distincts | l'attribut `name` **écrasé** | l'IO a **changé de nom** |
+  | une action d'autoscénario `a` + zéro + `b` | l'étape entière | `as_s0_actions="t358_string=a"` | l'étape est **amputée** de sa 2ᵉ action |
+
+  ⭐ **Le troisième cas est un effet de structure** : le codec de params d'`E4.6b` empaquette
+  **toutes** les actions d'une étape dans un seul attribut, séparées par `|`, et son
+  percent-encoding échappe `%`, `|` et `=` — **pas l'octet nul**. Un zéro dans la première action
+  emporte tout le reste de l'étape.
+
+  ⚠️ **Le correctif n'est PAS « passer la longueur »** : `pugixml` 1.14 a bien
+  `set_value(const char_t *, size_t)`, et **le substituer ne change strictement rien** (mesuré,
+  suite verte 114/114, les trois cas `B_` compris) — `pugixml` stocke et écrit par chaîne C de bout
+  en bout. Et il ne pourrait pas l'être : un octet zéro brut dans un fichier XML est du XML
+  invalide, que `pugixml` refuserait de relire. Le vrai correctif est un **codage réversible** dans
+  l'écrivain **et** son décodage dans le lecteur, ou une **garde dans `IOBase::set_param()`**.
+  **Options chiffrées et recommandation argumentée dans [`T3.58.md`](T3.58.md), volet (b).**
+  ⛔ **Aucune n'a été implémentée : la décision revient à l'utilisateur.**
+
+- **[F-JSON-3] La perte de précision sur les nombres n'est pas au parseur, elle est au contrat
+  d'aplatissement, et elle mord bien en deçà d'`int64`.** `Utils::to_string(double)`
+  (`src/lib/StringUtils.h:301`) est un `ostringstream` nu : sa précision par défaut est de **six
+  chiffres significatifs**. Mesuré à travers `set_param` : `1234567` est stocké `"1.23457e+06"`,
+  `9223372036854775807` devient `"9.22337e+18"`, et l'entier hors `int64` de la note d'E4.1s
+  devient `"1.23457e+29"` — **exactement le même mécanisme**. Seul `42` survit intact.
+  ⇒ **Une garde sur les entiers hors `int64` fermerait une fenêtre dans un mur qui n'existe pas.**
+  ⭐ **Et l'échappatoire existe déjà, mesurée** : les mêmes trente chiffres envoyés comme **chaîne
+  JSON** sont stockés exacts, parce que tout param est une chaîne une fois stocké.
+  `Utils::to_string(double)` est **gelée exprès** et épinglée par des goldens : la rouvrir est un
+  ticket à elle seule. **Recommandation dans [`T3.58.md`](T3.58.md), volet (c).**
+
+- **[F-TEST-3] Le nom d'un cas d'E4.6d ment sur ce que le cas asserte.**
+  `AnEmbeddedNulInAnActionIsTruncatedByScenarioToJson`
+  (`tests/core/JsonApiScenarioWireBytes_test.cpp:671`) **asserte désormais l'inverse de son nom** :
+  E4.6d a réécrit son corps pour exiger que le NUL traverse **entier**, ce qui est le bon
+  comportement — mais le nom est resté celui de l'état tronqué. Un lecteur pressé conclura que la
+  troncature vit encore. **Non renommé** : fichier hors périmètre de T3.58. Renommage suggéré :
+  `AnEmbeddedNulInAnActionIsCarriedWholeByScenarioToJson`.

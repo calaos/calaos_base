@@ -1598,7 +1598,7 @@ nouvelle bibliothèque, et **les deux ne tracent pas la même frontière**. Troi
 |---|---|---|
 | Un **octet nul échappé** dans une valeur ou dans un nom de champ : `"a\u0000b"` | requête **refusée** en entier (HTTP : `400`, WebSocket : silence) | **acceptée**, la valeur est stockée **entière** et ressort échappée `\u0000` |
 | Un **entier trop grand** pour tenir sur 64 bits | requête **refusée** en entier | **acceptée**, le nombre devient un réel |
-| Une **imbrication de plus de 2048 niveaux** | requête **refusée** en entier | **acceptée** |
+| Une **imbrication de plus de 2048 niveaux** | requête **refusée** en entier | ⭐ **refusée de nouveau** — voir la section T3.58 ci-dessous |
 
 ⚠️ **Ce que cela veut dire concrètement** : une requête que votre client envoyait par erreur et qui
 recevait un refus net peut maintenant **être exécutée**. Si votre client s'appuyait sur ce refus
@@ -1607,9 +1607,10 @@ comme sur une validation, il ne l'a plus.
 **Ce qui n'a PAS bougé, et qui est le verrou important** : du **texte mal encodé** dans le corps de
 la requête, un **demi-caractère Unicode** isolé, un **nombre réel hors plage**, et **du contenu
 après la fin du document** sont **toujours refusés**, exactement comme avant. Un **octet nul brut**
-(non échappé) termine toujours la lecture du corps, exactement comme avant. Et une imbrication de
-100 000 niveaux a été mesurée : elle est analysée puis libérée **sans faire tomber le serveur** — ce
-n'est pas un nouveau moyen de le mettre à genoux, c'est une entrée de plus qui est acceptée.
+(non échappé) termine toujours la lecture du corps, exactement comme avant. ⚠️ **La phrase qui suivait ici affirmait qu'une imbrication de 100 000 niveaux
+« ne fait pas tomber le serveur ». C'ÉTAIT FAUX**, et c'est corrigé plus bas : la mesure ne portait
+que sur l'analyse du document, pas sur ce que le serveur en fait juste après. Voir la section
+**T3.58**, qui referme cette porte.
 
 #### ⛔ Un octet nul dans une action de scénario est **tronqué en silence**, et c'est la conséquence directe du point ci-dessus
 
@@ -2013,3 +2014,42 @@ l'équipement scénario lui-même : après ce changement, `get_home` et `get_io`
 Ils sont `visible="false"` — l'interface ne les affiche pas — et la commande `autoscenario get`
 rend la définition entière, étapes comprises. **Aucun consommateur connu ne s'appuyait sur ce
 rattachement**, mais un client qui le ferait devrait passer par l'API `autoscenario`.
+
+## 🔴 Une requête profondément imbriquée pouvait faire tomber le serveur, sans mot de passe (T3.58)
+
+Depuis le changement de bibliothèque d'analyse JSON (voir plus haut), le serveur acceptait une
+requête **imbriquée aussi profondément qu'on voulait** : un corps de requête ordinaire, de quelques
+mégaoctets, pouvait contenir **deux millions de niveaux** de tableaux emboîtés.
+
+Le problème n'était pas la lecture du document — elle est rapide et sans danger. Il était dans la
+**ligne de journal** que le serveur prépare pour **chaque** requête, *avant même de vérifier le mot
+de passe*. Cette ligne est mise en forme avec de l'indentation, et l'indentation d'un document très
+profond grossit de façon **explosive** : à 2 048 niveaux elle pèse déjà 16 Mo, à 16 000 niveaux plus
+d'un gigaoctet. Au-delà, **le serveur tombait**.
+
+Concrètement : n'importe qui pouvant joindre le port de l'API — **sans identifiants** — pouvait
+arrêter `calaos_server` avec une seule requête.
+
+**C'est fermé.** Le serveur refuse désormais une requête imbriquée de plus de **2 048 niveaux**,
+exactement la limite que l'ancienne bibliothèque appliquait avant la migration. **Aucune requête
+que l'API a déjà acceptée dans une version publiée n'est concernée** : une requête réelle dépasse
+rarement la dizaine de niveaux.
+
+**Ce que vous verrez si vous dépassez cette limite** : en HTTP, un `400 Bad Request` et la
+connexion fermée — le même refus qu'un corps illisible ; en WebSocket, aucune réponse et la session
+qui reste ouverte, là aussi comme pour un message illisible. Dans les deux cas, un avertissement
+dans le journal du serveur nomme la limite.
+
+### Deux points restés ouverts, et dits ici plutôt que découverts plus tard
+
+- **Un octet nul dans une valeur de paramètre est perdu quand la configuration est écrite sur
+  disque.** L'API le transporte entier, mais le fichier `io.xml` le coupe au zéro, **sans rien
+  dire** : la valeur en mémoire et la valeur enregistrée diffèrent, et l'écart n'apparaît qu'au
+  **redémarrage suivant**. Le même mécanisme peut faire **renommer** un équipement, ou faire
+  disparaître la deuxième action d'une étape d'auto-scénario. ⚠️ **En attendant un correctif :
+  n'envoyez pas d'octet nul dans un nom ou une valeur de paramètre.**
+- **Un nombre entier de plus de six chiffres perd sa précision** en devenant un paramètre :
+  `1234567` est enregistré `1.23457e+06`. Ce n'est pas nouveau et ce n'est pas lié à la taille du
+  nombre — c'est la mise en forme des nombres, inchangée depuis longtemps. ⭐ **La parade est
+  immédiate : envoyez la valeur comme une chaîne de caractères JSON** (`"1234567"` plutôt que
+  `1234567`) et elle est enregistrée telle quelle, quel que soit le nombre de chiffres.
