@@ -8,6 +8,132 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **✅⭐⭐ [`T3.70`](T3.70.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête sur `master` : **`ba4a3e66`** (2026-09-04). `master` était sur **`e7f1eb6f`**,
+  branche faite sur **`6841880a`** ⇒ **REBASE** (T3.61 mergée entre-temps) ; **un seul conflit,
+  `FINDINGS.md`**, résolu en gardant les deux blocs ; **zéro recouvrement `src/`** avec T3.61
+  (T3.61 : `IO/Scenario`, `JsonApi`, `AutoScenario` ; T3.70 : `IO/RemoteUI/RemoteUI.cpp`).
+  `tests/Makefile.am` **intouché**, **`TESTS` 115 → 115**, **zéro golden** (`tests/core/golden` =
+  `4c973d0d` des deux côtés, 145 fichiers), caractérisation `eb5cb1e4` à **zéro ligne de `src/`**.
+  Build d'intégration `make distclean` + `autogen` + `configure` + `make -j32` + `make check -j16` :
+  **`TOTAL 115 / PASS 113 / SKIP 2 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, un seul
+  `Testsuite summary`, **0 `error:`**, `check-test-deps.sh` **PASS**, les deux `SKIP` habituels de
+  cette image (`check-ccache-honesty.sh`, `run-python-tests.sh` — c'est [`T3.67`](T3.67.md)).
+  ⛔ **Rien poussé.**
+
+  ⭐⭐ **LE DÉFAUT EMPÊCHAIT LE SERVEUR DE DÉMARRER, et la reproduction a été REJOUÉE AU MERGE sur
+  l'arbre rebasé.** `RemoteUI::LoadFromXml()` convertissait les `x`/`y` d'un `<calaos:widget>` par
+  un `std::stoi` nu, et **aucun maillon du chemin ne porte de `try`** — `IOFactory::CreateIO()`,
+  `Room::LoadFromXml()`, `Config::LoadConfigIO()`, `main()` (`grep -c try main.cpp` = **0** ; le
+  seul `try` de `CalaosConfig.cpp` est dans `loadStateCache()`, hors chemin). M1 (le `std::stoi` nu
+  remis par copie, jamais un `git` dans le conteneur) rend les trois lignes mot pour mot :
+  `it throws std::invalid_argument with description "stoi"`, `the screen holding the misspelled
+  widget was lost whole`, `the screen of the NEXT ROOM was lost too: the load stopped there` —
+  **4 rouges / 1 vert**, témoin `core/JsonApiStateWireBytes_test` **PASS**, `CXXLD` lu sur les deux
+  binaires, restauration **`cmp` rc 0**. Un `x=""` ou `x="haut"` mettait donc **toute
+  l'installation** par terre, chauffage et volets compris.
+
+  ⭐ **Le remède ne crée aucune convention neuve — vérifié sur `master` (`6841880a`), pas sur
+  parole** : le bloc qui écarte un widget sans `type`/`x`/`y` **préexiste** au ticket.
+  `Utils::from_string_or_keep()` n'écrit la coordonnée que si **toute** la chaîne se lit comme un
+  entier (blanc, mot, lecture partielle « 12abc », débordement ⇒ attribut **absent**), et le widget
+  tombe dans ce bloc. Chaque écran qui perd des widgets dépose **un** message nommant écran, page et
+  widget sur le canal différé mail/push (`Config::reportConfigAlert()`, public depuis E4.6h,
+  `CalaosConfig.{h,cpp}` **non touché**). ⚠️ **Élargissement assumé et déclaré dans
+  `RELEASE_NOTES.md`** : le widget sans `type`, écarté **en silence depuis toujours**, alerte
+  désormais lui aussi.
+
+  ⛔ **Une affirmation de la fiche était FAUSSE et a été corrigée au merge.** T3.70 écrivait qu'il
+  n'existe que **deux** binaires liant `IO/RemoteUI/RemoteUI.o`, donc aucun témoin vert possible
+  pour M4 : il y en a **30** (comptés dans `tests/Makefile.am` ; T3.36 les fait tous relinker). Ce
+  qui est vrai, et qui suffit : **deux sources seulement construisent un `<calaos:widget>`**, donc
+  aucun témoin **exerçant le chemin muté** ne pouvait rester vert — mais 28 témoins de spécificité
+  étaient disponibles et n'ont pas été lus. ⭐ **La découverte, elle, tient et a été vérifiée au
+  source** : `JsonApiStateWireBytes_test.cpp:821-822` pose des widgets en `x="0" y="0"` que les
+  assertions de wire de T3.68 épinglent — le dépôt possédait **déjà** un oracle pour « 0 est une
+  position », indépendant de ce ticket. Un témoin qui rougit reste un signal d'alarme **par
+  défaut** ; ici l'alarme a été instruite jusqu'à la fixture, et elle dit la vérité.
+
+  ⭐ **Worktree `.wave93/t3.70` effacé** (`docker run` ciblé sur le mount exact), `git worktree prune`,
+  branche `fix/t3.70` supprimée. ⛔ **`.review67b` et `.review47` n'ont PAS été touchés** : leurs
+  commits ne sont pas des ancêtres de `master`.
+
+- **📋⭐ ÉTAT FINAL DE LA SESSION — À LIRE POUR REPRENDRE À FROID.** ✅ **Aucun ticket en vol,
+  aucun worktree de travail ouvert** : `git worktree list` ne doit montrer que `calaos_base`
+  (master), `.review47/t3.25` et `.review67b/ccache`. ⛔ **Ces deux derniers ne sont PAS des
+  ancêtres de `master` — ne pas les effacer** (deux agents l'ont refusé, ils avaient raison).
+  L'arbre de travail est propre, `master` = **`ba4a3e66`**, et **rien n'a jamais été poussé**.
+
+  **Les deux épiques sont CLOSES.** [E4.1](E4.1.md) (sortie de jansson) et [E4.6](E4.6.md)
+  **§5.3 comprise** : le marqueur d'IO de scénario est `autoscenario_uid` et rien d'autre, sans
+  repli, code compris. Il ne reste **rien d'ouvert au niveau épique** ; tout ce qui suit est de la
+  **phase 3**, ticket par ticket, et **aucun n'est bloquant pour les autres**.
+
+  **Ce qui reste ouvert** — 20 tickets 📋 dans [`BOARD.md`](BOARD.md) (T3.21, T3.22, T3.26, T3.32,
+  T3.33, T3.38, T3.41, T3.42, T3.52, T3.54, T3.55, T3.57, T3.59, T3.60, T3.63, T3.64, T3.65, T3.66,
+  T3.67, T3.69). Les cinq qui ont un intérêt immédiat, dans l'ordre conseillé :
+  1. [`T3.65`](T3.65.md) — `dumpJsonRedacted()` reste **quadratique** et tourne **avant**
+     `checkCredentials()` (`F-JSON-2`). T3.58 a rendu le chemin inatteignable, pas la fonction
+     saine. ⭐ **Le seul qui ne demande aucun arbitrage : commencer par là.**
+  2. [`T3.66`](T3.66.md) — **corruption XML silencieuse par le NUL** (`F-XML-1`). ⛔ **Bloqué** sur
+     l'arbitrage du NUL, ci-dessous : ne rien commencer avant.
+  3. [`T3.69`](T3.69.md) — `F-REMOTEUI-2`, l'unification des deux politiques de valeur des deux
+     projections d'un IO. ⚠️ Change une charge utile reçue par un **appareil physique**.
+  4. [`T3.67`](T3.67.md) — l'image de développement publiée est en retard sur son propre
+     `Dockerfile`, et **rien ne mesure la dérive** ; c'est l'origine du `SKIP` de
+     `run-python-tests.sh` à chaque build d'intégration.
+  5. [`T3.64`](T3.64.md) — `BackupFiles()` horodate **à la seconde** : deux sauvegardes dans la même
+     seconde s'écrasent.
+  ⚠️ **Réserve laissée ouverte par [T3.68](T3.68.md)** : `timeout = 30` est une valeur **inventée**
+  qui part vers un appareil physique (détail dans le bloc T3.68 plus bas) — arbitrage utilisateur,
+  le correctif n'a pas été modifié.
+  ⚠️ **La ligne de board de [T3.62](T3.62.md) se dit « LIVRÉE, non mergée » alors qu'elle est
+  mergée** (`166ba0b5`) : coquille documentaire repérée à ce merge, non corrigée pour ne pas
+  toucher une ligne hors périmètre.
+
+- **⛔⭐⭐ `F-T361-3` — INTERDICTION DE PUBLIER UN BUILD INTERMÉDIAIRE DE CETTE SÉRIE tant que ce
+  point n'est pas tranché.** Une configuration estampillée par un serveur bâti sur un `master`
+  **d'entre E4.6b et T3.61** passe, au rechargement par un `master` d'aujourd'hui, de **125 à 141
+  règles** : le générateur écrit 16 règles à côté des 18 anciennes qu'il ne reconnaît plus. Rien
+  n'est détruit, mais **les scénarios joueraient leurs actions deux fois**. L'inatteignabilité
+  depuis une **version publiée** a été vérifiée (aucune étiquette du dépôt ne contient `3f6aae3c`),
+  ⚠️ **mais l'état est atteignable depuis `master` lui-même** : toute configuration démarrée sur un
+  build de développement de la série est concernée. Remède : retirer les params `autoscenario_*` /
+  `as_*` des IOs scénario avant de démarrer. Détail complet dans le bloc T3.61 plus bas.
+
+- **⛔⭐ LES DEUX ARBITRAGES QUI N'APPARTIENNENT QU'À L'UTILISATEUR — aucun agent ne peut les
+  prendre, et rien n'avance sur T3.66 tant que le premier n'est pas tranché.**
+  1. **Le sort du NUL.** `XmlUtils::setAttribute()` coupe au premier octet nul : une valeur de param
+     contenant un `\0` est **tronquée en silence** dans `io.xml`, donc la configuration relue n'est
+     plus celle qu'on a écrite. ⭐ **Ce qui est recommandé** : une **garde dans
+     `IOBase::set_param()`**, qui refuse ou assainit la valeur à l'entrée du modèle, là où on sait
+     encore de quoi on parle et où le refus peut être rendu à l'appelant. ⛔ **Ce qui est
+     déconseillé** : refuser le NUL **au parse** de la requête — le NUL est légal dans une chaîne
+     JSON, le refus dégraderait des chemins qui n'écrivent rien, et il déplacerait le défaut au lieu
+     de le fermer. **Trancher entre les deux est une décision de produit, pas de code.**
+  2. **Le sidecar MCP doit-il pouvoir LIRE les scénarios ?** Le gate de portée (`scopeDenied()`,
+     E4.6h) refuse `autoscenario` au sidecar — et il refuse **aussi les lectures**, pas seulement
+     les écritures. C'est peut-être exactement ce qu'on veut, ou une restriction accidentelle héritée
+     du fait qu'une seule commande couvre les deux. **Personne d'autre que l'utilisateur ne peut
+     dire si un assistant a le droit de voir les scénarios de la maison.**
+
+- **⚠️⭐ CE QUI RESTE À VÉRIFIER AU PREMIER `push` — rien de tout cela n'a jamais tourné.**
+  Le dépôt n'a **rien poussé** depuis le début de la série, donc deux choses n'ont **aucune mesure**
+  et ne peuvent pas en avoir avant un `push` :
+  1. **le job CI chez GitHub** (`.github/workflows/ci.yml`) — il a été modifié plusieurs fois
+     (T3.47 y pose `CALAOS_PYTHON_TESTS_REQUIRED=1`, le lest `jansson` en a été retiré) et **il n'a
+     jamais été exécuté par GitHub** ; les vérifications faites l'ont été **localement**, en rejouant
+     sa liste `apt` à la main dans un `debian:12` neuf ;
+  2. **le build réel des deux `Dockerfile`** (`Dockerfile` et `.devcontainer/Dockerfile`) — T3.47 les
+     a corrigés, **aucune machine du dépôt ne les bâtit** (`ci.yml` ne les construit pas), et l'image
+     publiée employée par tous les builds d'intégration est **antérieure** à ces corrections. C'est
+     [`T3.67`](T3.67.md), et c'est ce qui explique le `SKIP` de `run-python-tests.sh`.
+  ⛔ **Attendre le premier `push` pour conclure quoi que ce soit sur ces deux points.**
+
+- ⤵️ **Les blocs qui suivent sont l'historique des merges précédents, du plus récent au plus ancien.**
+  Ils restent exacts sur leur propre sujet ; leurs listes « PROCHAINE ACTION » sont **périmées** —
+  celle qui fait foi est ci-dessus.
+
 - **✅⭐⭐ [`T3.61`](T3.61.md) MERGÉE — 4 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **`969d1212`**. `master` était sur **`6841880a`**, merge-base
   **`166ba0b5`** ⇒ **REBASE** (T3.68 mergée entre-temps) ; un seul conflit, `FINDINGS.md`, résolu en
@@ -199,56 +325,6 @@
   ⭐ **Worktree `.wave90/t3.62` effacé** (`docker run` ciblé sur le mount exact), `git worktree prune`,
   branche `fix/t3.62` supprimée. ⛔ **`.review67b` et `.review47` n'ont PAS été touchés** : leurs
   commits ne sont pas des ancêtres de `master`, les effacer perdrait du travail.
-
-- **📋 CE QUI RESTE OUVERT — ⚠️ [`T3.70`](T3.70.md) EST EN VOL** dans
-  `/home/raoul/repos/calaos/.wave93/t3.70` (périmètre `RemoteUI/`). ⛔ **Ne pas entrer dans ce
-  worktree, ne pas le nettoyer, ne rien commiter sur `master` tant qu'il n'a pas atterri.**
-  **Prochaine action** : reprendre par [`T3.65`](T3.65.md) (défaut de sécurité résiduel, sans
-  arbitrage à demander) ; [`T3.66`](T3.66.md) reste **bloqué sur l'arbitrage du NUL** et
-  [`T3.68`](T3.68.md) laisse **l'arbitrage de `timeout = 30`** ci-dessus. ⭐ [`T3.61`](T3.61.md) est
-  **mergée** : l'épique [E4.6](E4.6.md) est entière, code compris.
-  1. [`T3.70`](T3.70.md) — `F-REMOTEUI-3`, le dernier `std::stoi` non gardé de `src/`
-     (`RemoteUI::LoadFromXml()`), ouvert par le balayage de T3.68.
-  2. [`T3.66`](T3.66.md) — **corruption XML silencieuse par le NUL** (`F-XML-1`). Bloqué sur un
-     arbitrage utilisateur, ci-dessous.
-  3. [`T3.65`](T3.65.md) — `dumpJsonRedacted()` reste quadratique et tourne avant
-     `checkCredentials()` (`F-JSON-2`). T3.58 a rendu le chemin inatteignable, pas la fonction saine.
-  4. [`T3.67`](T3.67.md) — l'image de développement publiée est en retard sur son propre
-     `Dockerfile`, et **rien ne mesure la dérive**.
-  5. [`T3.69`](T3.69.md) — `F-REMOTEUI-2`, l'unification des deux politiques de valeur.
-
-- **⛔⭐ LES DEUX ARBITRAGES QUI N'APPARTIENNENT QU'À L'UTILISATEUR — aucun agent ne peut les
-  prendre, et rien n'avance sur T3.66 tant que le premier n'est pas tranché.**
-  1. **Le sort du NUL.** `XmlUtils::setAttribute()` coupe au premier octet nul : une valeur de param
-     contenant un `\0` est **tronquée en silence** dans `io.xml`, donc la configuration relue n'est
-     plus celle qu'on a écrite. ⭐ **Ce qui est recommandé** : une **garde dans
-     `IOBase::set_param()`**, qui refuse ou assainit la valeur à l'entrée du modèle, là où on sait
-     encore de quoi on parle et où le refus peut être rendu à l'appelant. ⛔ **Ce qui est
-     déconseillé** : refuser le NUL **au parse** de la requête — le NUL est légal dans une chaîne
-     JSON, le refus dégraderait des chemins qui n'écrivent rien, et il déplacerait le défaut au lieu
-     de le fermer. **Trancher entre les deux est une décision de produit, pas de code.**
-  2. **Le sidecar MCP doit-il pouvoir LIRE les scénarios ?** Le gate de portée (`scopeDenied()`,
-     E4.6h) refuse `autoscenario` au sidecar — et il refuse **aussi les lectures**, pas seulement
-     les écritures. C'est peut-être exactement ce qu'on veut, ou une restriction accidentelle héritée
-     du fait qu'une seule commande couvre les deux. **Personne d'autre que l'utilisateur ne peut
-     dire si un assistant a le droit de voir les scénarios de la maison.**
-
-- **⚠️⭐ CE QUI RESTE À VÉRIFIER AU PREMIER `push` — rien de tout cela n'a jamais tourné.**
-  Le dépôt n'a **rien poussé** depuis le début de la série, donc deux choses n'ont **aucune mesure**
-  et ne peuvent pas en avoir avant un `push` :
-  1. **le job CI chez GitHub** (`.github/workflows/ci.yml`) — il a été modifié plusieurs fois
-     (T3.47 y pose `CALAOS_PYTHON_TESTS_REQUIRED=1`, le lest `jansson` en a été retiré) et **il n'a
-     jamais été exécuté par GitHub** ; les vérifications faites l'ont été **localement**, en rejouant
-     sa liste `apt` à la main dans un `debian:12` neuf ;
-  2. **le build réel des deux `Dockerfile`** (`Dockerfile` et `.devcontainer/Dockerfile`) — T3.47 les
-     a corrigés, **aucune machine du dépôt ne les bâtit** (`ci.yml` ne les construit pas), et l'image
-     publiée employée par tous les builds d'intégration est **antérieure** à ces corrections. C'est
-     [`T3.67`](T3.67.md), et c'est ce qui explique le `SKIP` de `run-python-tests.sh`.
-  ⛔ **Attendre le premier `push` pour conclure quoi que ce soit sur ces deux points.**
-
-- ⤵️ **Les blocs qui suivent sont l'historique des merges précédents, du plus récent au plus ancien.**
-  Ils restent exacts sur leur propre sujet ; leurs listes « PROCHAINE ACTION » sont **périmées** —
-  celle qui fait foi est ci-dessus.
 
 - **✅⭐⭐ [`T3.51`](T3.51.md) §10 — LA 4ᵉ PASSE DE LA SONDE `ccache` EST MERGÉE.** Tête sur `master` :
   **`f93e7471`**. `cherry-pick` du **seul commit de delta** (`d1693b19`, `scripts/ccache-honesty-probe.py`

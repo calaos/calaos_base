@@ -9208,7 +9208,7 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   laissée telle quelle** — c'est le comportement d'avant, et le changer serait un changement de
   wire hors périmètre.
 
-- ✅ **[F-REMOTEUI-3] FERMÉ par [`T3.70`](T3.70.md)** (branche `fix/t3.70`, non poussée, non mergée) — texte d'ouverture conservé ci-dessous, la mesure du mode d'échec est plus bas.
+- ✅ **[F-REMOTEUI-3] FERMÉ par [`T3.70`](T3.70.md) — mergé sur `master` en `ba4a3e66` (2026-09-04), non poussé** — texte d'ouverture conservé ci-dessous, la mesure du mode d'échec est plus bas.
   ⚠️ **Le dernier `std::stoi` non gardé de `src/`.**
   Balayage complet des conversions lançantes de `src/` **hors bibliothèques tierces**
   (`src/lib/cpptui`, `src/lib/exprtk`) : **5 sites**, dont **4 déjà gardés** par un `try`
@@ -9263,7 +9263,7 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   fichier existe quelque part, le remède est de retirer les params `autoscenario_*` / `as_*` des 4
   IOs scénario avant de démarrer. **À trancher avant toute publication d'un build intermédiaire.**
 
-## T3.70 — le dernier `std::stoi` non gardé (branche `fix/t3.70`, non poussée)
+## T3.70 — le dernier `std::stoi` non gardé (mergée sur `master` en `ba4a3e66`, 2026-09-04)
 
 - ⛔⭐ **[F-REMOTEUI-3] LE MODE D'ÉCHEC N'ÉTAIT PAS CELUI QUE LA FICHE ANNONÇAIT : le serveur ne
   démarre pas du tout.** L'ouverture disait « lève dans le chargement de la configuration ». Le
@@ -9303,10 +9303,25 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   ce ticket mais **le témoin `core/JsonApiStateWireBytes_test`** : sa fixture
   (`JsonApiStateWireBytes_test.cpp:822-823`) pose deux widgets en `x="0" y="0"` et `x="1" y="0"`,
   et les assertions de wire de [T3.68](T3.68.md) les épinglent. ⚠️ **Conséquence pour la méthode** :
-  il n'existe que **deux** binaires liant `IO/RemoteUI/RemoteUI.o` (`core/RemoteUIDeviceInfo_test`
-  et `core/JsonApiStateWireBytes_test`), donc pour M4 **aucun témoin vert n'était disponible** ; le
-  relink reste prouvé par le `CXXLD` lu et par le fait qu'un binaire périmé n'aurait changé aucun
-  verdict.
+  ⛔ **cette phrase était fausse et la revue de merge l'a mesurée** :
+  **30** binaires de test lient `IO/RemoteUI/RemoteUI.$(OBJEXT)` (comptés dans `tests/Makefile.am`,
+  T3.36 les fait tous relinker), pas deux. Ce qui est vrai : **deux sources seulement construisent
+  un `<calaos:widget>`** (`tests/core/RemoteUIDeviceInfo_test.cpp`,
+  `tests/core/JsonApiStateWireBytes_test.cpp`), donc aucun témoin vert **exerçant le chemin muté**
+  n'existait pour M4 — mais 28 autres binaires liant l'objet muté auraient servi de témoin de
+  spécificité, et n'ont pas été lus. Le relink reste prouvé par le `CXXLD` lu et par le changement
+  de verdict. ⭐ **La découverte, elle, tient** : l'oracle « 0 est une position » préexistait bien à
+  ce ticket.
+
+- 🔒 **Rejoué à la revue de merge, sur l'arbre REBASÉ.** Le `std::stoi` nu de `master` remis en
+  place par copie (jamais un `git` dans le conteneur), `make -j32` puis les deux suites :
+  `CXXLD core/RemoteUIDeviceInfo_test` et `CXXLD core/JsonApiStateWireBytes_test` **lus**,
+  **4 rouges / 1 vert** dans la suite du ticket et le témoin **PASS**. Les trois lignes de la
+  reproduction sont revenues mot pour mot : `it throws std::invalid_argument with description
+  "stoi"`, `the screen holding the misspelled widget was lost whole`, `the screen of the NEXT ROOM
+  was lost too: the load stopped there`. Restauration **`cmp` rc 0**, `std::stoi(attr_value)`
+  **0 site**. Le bloc voisin qui écarte un widget sans `type`/`x`/`y` a été **lu sur `master`
+  (`6841880a`)** : il préexiste au ticket, la convention n'est pas inventée.
 
 - ⚠️ **Ce sur quoi T3.70 reste nu.** (1) Le widget fautif **disparaît définitivement de l'`io.xml`**
   au premier enregistrement — l'alerte prévient, elle ne restaure pas ; conserver la ligne
