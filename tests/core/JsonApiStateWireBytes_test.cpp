@@ -1061,14 +1061,14 @@ TEST_F(RemoteUiStateBridgeTest, InitialStatesSurviveTheHandlerDyingMidFlight)
  * R5/R6 - THE CONFIG PAYLOAD AND THE HANDLER'S OWN PARSE.
  *
  * remote_ui_config_update projects every referenced IO a SECOND time, next to
- * the projection JsonApi::buildJsonIO() publishes on 5454. The two lists of
- * params were written twice, so the re-key of the scenario marker landed on one
- * transport only: on the same equipment the API says `autoscenario_uid` and the
- * screen still hears `auto_scenario`.
+ * the projection JsonApi::buildJsonIO() publishes on 5454. The list of params
+ * had been written twice, so the re-key of the scenario marker landed on one
+ * transport only and the same equipment named the same scenario two ways. The
+ * list is declared once now; R5 is what turns red the day a copy comes back.
  *
- * processApi() parses the frame itself before delegating, and that parse is
- * outside the nesting ceiling the parent enforces. Reachable only after the
- * HMAC handshake, so the cost is one allocation imposed by a provisioned
+ * processApi() parses the frame itself before delegating, so the nesting
+ * ceiling of the parent did not cover that parse. Reachable only after the HMAC
+ * handshake, so what it cost was one allocation imposed by a provisioned
  * device, not an anonymous denial of service - which is why it could wait.
  ******************************************************************************/
 
@@ -1202,13 +1202,15 @@ protected:
 };
 
 /*******************************************************************************
- * R5. THE TWO PROJECTIONS OF THE SAME IO PUBLISH DIFFERENT KEYS.
+ * R5. THE TWO PROJECTIONS OF THE SAME IO PUBLISH THE SAME KEYS.
  *
- * ⚠️ TO FLIP. The two lists are one list after the fix and the two key sets
- * must become equal; until then this case records exactly what diverges, so
- * that the fix has something to move.
+ * ⭐ THE GUARD RAIL AGAINST THE NEXT DIVERGENCE. The list of params is declared
+ * once now, so a re-key cannot land on one transport only - but a second copy
+ * can always be written back in, and this is what turns red when it is. It
+ * needs an IO carrying EVERY projected param, both markers included: an IO with
+ * only some of them makes the two key sets agree for reasons of its own.
  ******************************************************************************/
-TEST_F(RemoteUiConfigProjectionTest, TheTwoProjectionsOfAnIoDisagreeOnOneKey)
+TEST_F(RemoteUiConfigProjectionTest, TheTwoProjectionsOfAnIoPublishTheSameKeys)
 {
     fillEveryProjectedParam(zulu);
 
@@ -1224,44 +1226,47 @@ TEST_F(RemoteUiConfigProjectionTest, TheTwoProjectionsOfAnIoDisagreeOnOneKey)
     const std::vector<std::string> onlyRemote = difference(remoteKeys, apiKeys);
     const std::vector<std::string> onlyApi = difference(apiKeys, remoteKeys);
 
-    EXPECT_EQ(std::vector<std::string>{ "auto_scenario" }, onlyRemote)
+    EXPECT_TRUE(onlyRemote.empty())
             << "only in the RemoteUI payload: " << joined(onlyRemote);
-    EXPECT_EQ(std::vector<std::string>{ Calaos::AutoScenarioDef::KEY_UID }, onlyApi)
+    EXPECT_TRUE(onlyApi.empty())
             << "only in the 5454 payload: " << joined(onlyApi);
 }
 
 /*******************************************************************************
  * R5bis. THE MARKER THE SCREEN ACTUALLY HEARS.
  *
- * ⚠️ TO FLIP. Read through AutoScenarioDef::KEY_UID and not through a literal:
- * the next re-key then moves this case with the code instead of leaving it
- * green on a name nothing publishes any more.
+ * The IO below carries BOTH markers, so this is a choice and not an absence:
+ * the legacy key is on the IO and stays off the wire. Read through
+ * AutoScenarioDef::KEY_UID and not through a literal, so the next re-key moves
+ * this case with the code instead of staying green on a name nothing
+ * publishes any more.
  ******************************************************************************/
-TEST_F(RemoteUiConfigProjectionTest, ConfigUpdateStillPublishesTheLegacyMarker)
+TEST_F(RemoteUiConfigProjectionTest, ConfigUpdatePublishesTheDefinitionUid)
 {
     fillEveryProjectedParam(zulu);
 
     const Json remote = remoteUiProjection(IO_ZULU);
     ASSERT_TRUE(remote.is_object());
 
-    EXPECT_TRUE(remote.contains("auto_scenario"));
-    EXPECT_FALSE(remote.contains(Calaos::AutoScenarioDef::KEY_UID))
-            << "the screen would already hear the published marker";
+    EXPECT_TRUE(remote.contains(Calaos::AutoScenarioDef::KEY_UID))
+            << "the screen no longer hears the published marker";
+    EXPECT_FALSE(remote.contains("auto_scenario"))
+            << "the two transports name the same scenario differently";
 }
 
 /*******************************************************************************
- * R6. THE HANDLER'S OWN PARSE AND THE NESTING CEILING.
+ * R6. THE HANDLER'S OWN PARSE IS UNDER THE NESTING CEILING TOO.
  *
- * ⚠️ TO FLIP. One above the ceiling is built and served here because the parse
- * happens before the parent is reached at all.
+ * remote_ui_get_config is answered by the LOCAL branch, before the parent is
+ * reached at all: a silence here means the ceiling was applied to that parse
+ * and not merely to the parent's, which is the whole point of the case.
  ******************************************************************************/
-TEST_F(RemoteUiConfigProjectionTest, AFrameAboveTheCapIsParsedByTheLocalParse)
+TEST_F(RemoteUiConfigProjectionTest, AFrameAboveTheCapIsRefusedByTheLocalParse)
 {
     handler->processApi(deepGetConfig(REQUEST_DEPTH_CAP), Params());
 
-    ASSERT_EQ(1u, sent.size()) << "the local parse refused a frame above the cap";
-    const Json envelope = Json::parse(lastMessage(), nullptr, false);
-    EXPECT_EQ("remote_ui_config", envelope.value("msg", std::string()));
+    EXPECT_EQ(0u, sent.size())
+            << "the local parse served a frame above the cap: " << lastMessage();
 }
 
 /*******************************************************************************
@@ -1274,13 +1279,14 @@ TEST_F(RemoteUiConfigProjectionTest, AFrameAtTheCapIsServed)
 {
     handler->processApi(deepGetConfig(REQUEST_DEPTH_CAP - 1), Params());
 
-    ASSERT_EQ(1u, sent.size()) << "a frame at the cap stopped being served";
+    ASSERT_EQ(1u, sent.size()) << "a frame at the cap stopped being served by "
+                                  "the local branch";
     const Json envelope = Json::parse(lastMessage(), nullptr, false);
     EXPECT_EQ("remote_ui_config", envelope.value("msg", std::string()));
 }
 
 /*******************************************************************************
- * R6ter. A REFUSAL LEAVES THE SESSION ALONE. INVARIANT ON BOTH SIDES.
+ * R6ter. A REFUSAL LEAVES THE SESSION ALONE.
  *
  * An unparsable frame has never closed a RemoteUI socket, and the ceiling must
  * not start: the device would reconnect, re-authenticate and resend.

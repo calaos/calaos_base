@@ -147,6 +147,13 @@ public:
     Json buildJsonAudio();
     Json buildFlatIOList();
 
+    /* The params an IO projection publishes, and the ONE declaration of that
+     * list. RemoteUI projects the same params on its own transport with its own
+     * value policy; a second copy of the list is how the last re-key of the
+     * scenario marker reached one transport and not the other.
+     */
+    static const vector<string> &ioProjectionParams();
+
     void buildJsonIO(IOBase *io, Json &jio);
     Json buildJsonRoomIO(Room *room);
 

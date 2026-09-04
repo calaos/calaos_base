@@ -573,20 +573,25 @@ JsonApi::~JsonApi()
 {
 }
 
-void JsonApi::buildJsonIO(IOBase *io, Json &jio)
+const vector<string> &JsonApi::ioProjectionParams()
 {
     /* The published scenario marker is the definition uid, not `auto_scenario`.
      * The legacy key survives on IOs the server no longer treats as scenarios
      * at all - and on the internal IOs of every scenario - so publishing it
      * names something the API cannot be asked about.
      */
-    vector<string> params =
+    static const vector<string> params =
     { "id", "name", "type", "hits", "var_type", "visible",
       "chauffage_id", "rw", "unit", "gui_type", "state",
       AutoScenarioDef::KEY_UID, "step", "io_type", "io_style",
       "value_warning" };
 
-    for (string &param: params)
+    return params;
+}
+
+void JsonApi::buildJsonIO(IOBase *io, Json &jio)
+{
+    for (const string &param: ioProjectionParams())
     {
         string value;
 

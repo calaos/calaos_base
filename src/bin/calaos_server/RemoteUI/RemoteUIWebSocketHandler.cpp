@@ -122,35 +122,43 @@ void RemoteUIWebSocketHandler::processApi(const string &data, const Params &para
     if (data.empty())
         return;
 
-    // Check for RemoteUI-specific messages first
-    try
+    /* This parse is the handler's own and runs BEFORE the parent's, so the
+     * nesting ceiling the parent enforces does not cover it: gate it here or a
+     * document above the ceiling is built once at full price anyway. The parent
+     * emits the single refusal, so nothing is logged twice.
+     */
+    if (requestNestingWithinLimit(data))
     {
-        Json message = Json::parse(data);
-
-        if (message.contains("msg") && message["msg"].is_string())
+        // Check for RemoteUI-specific messages first
+        try
         {
-            string msg_type = message["msg"];
+            Json message = Json::parse(data);
 
-            // Handle RemoteUI-specific messages
-            if (msg_type == "remote_ui_get_config")
+            if (message.contains("msg") && message["msg"].is_string())
             {
-                cDebugDom(TAG) << "RemoteUIWebSocketHandler: Handling remote_ui_get_config";
-                handleGetConfig();
-                return;
-            }
+                string msg_type = message["msg"];
 
-            if (msg_type == "remote_ui_relay_state")
-            {
-                cDebugDom(TAG) << "RemoteUIWebSocketHandler: Handling remote_ui_relay_state";
-                if (message.contains("data"))
-                    handleRelayState(message["data"]);
-                return;
+                // Handle RemoteUI-specific messages
+                if (msg_type == "remote_ui_get_config")
+                {
+                    cDebugDom(TAG) << "RemoteUIWebSocketHandler: Handling remote_ui_get_config";
+                    handleGetConfig();
+                    return;
+                }
+
+                if (msg_type == "remote_ui_relay_state")
+                {
+                    cDebugDom(TAG) << "RemoteUIWebSocketHandler: Handling remote_ui_relay_state";
+                    if (message.contains("data"))
+                        handleRelayState(message["data"]);
+                    return;
+                }
             }
         }
-    }
-    catch (const std::exception &e)
-    {
-        cWarningDom(TAG) << "RemoteUIWebSocketHandler: JSON parse error: " << e.what();
+        catch (const std::exception &e)
+        {
+            cWarningDom(TAG) << "RemoteUIWebSocketHandler: JSON parse error: " << e.what();
+        }
     }
 
     // Delegate all other messages to parent class (JsonApiHandlerWS)
@@ -314,8 +322,12 @@ void RemoteUIWebSocketHandler::sendConfigUpdate()
         if (io)
         {
             Json io_json;
-            vector<string> params = { "id", "name", "type", "hits", "var_type", "visible", "chauffage_id", "rw", "unit", "gui_type", "state", "auto_scenario", "step", "io_type", "io_style", "value_warning" };
-            for (const string &param : params)
+            /* The same list as the 5454 projection, declared once in JsonApi:
+             * the value policy differs here (an absent OR empty param is
+             * dropped, and the device gets its states from
+             * remote_ui_io_states) but the param names must not.
+             */
+            for (const string &param: ioProjectionParams())
             {
                 string val = io->get_param(param);
                 if (!val.empty())
