@@ -2201,7 +2201,7 @@ la variable, étape de comptabilité — **les cinq à RC 0**, `# TOTAL: 113 / #
 GitHub Actions elle-même, `actions/checkout@v4`, le vert du job chez GitHub, et **le build réel des
 deux `Dockerfile` modifiés**, qu'aucune machine du dépôt ne construit.
 
-## 🔴 Deux envois de configuration rapprochés détruisaient la sauvegarde de votre configuration d'origine
+## 🔴 Deux téléversements rapprochés ne se volent plus leur sauvegarde
 
 Avant d'écraser `io.xml`, `rules.xml` et `local_config.xml` avec ce qu'un client lui téléverse
 (`calaos_installer`, principalement), le serveur en range une copie sous

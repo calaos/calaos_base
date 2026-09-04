@@ -8,6 +8,125 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- ⭐⭐ **À FROID, DANS CET ORDRE — l'état de la session au 2026-09-04 (l'utilisateur dort, rien
+  n'est poussé) :**
+
+  1. ⭐ **PREMIÈRE ACTION AU RÉVEIL : RECONSTRUIRE L'IMAGE DE DÉVELOPPEMENT.** L'image publiée est
+     en retard sur sa recette (`F-PYIMG-1`, toujours ouvert sur ce point). C'est ce qui produit les
+     **trois** `SKIP` — `check-ccache-honesty.sh`, `run-python-tests.sh`,
+     `check-pydeps-conformance.sh` — qui ne sont **pas** une régression. Le troisième retombe dès
+     l'image reconstruite. ⛔ **Aucun `docker build` n'a été fait**, ni par les auteurs ni aux
+     merges.
+  2. **Les trois arbitrages qui appartiennent à l'utilisateur, aucun n'est tranché :**
+     - **L'octet NUL dans l'écrivain XML** (`XmlUtils::setAttribute()`, `F-XML-1`) → ticket
+       [`T3.66`](T3.66.md), **fiche courte, non instruite**. Corruption silencieuse : une valeur
+       tronquée, un nom de param porteur d'un zéro qui **écrase l'attribut voisin**. Recommandé :
+       garde dans `IOBase::set_param()` d'abord ; **le refus au parse est déconseillé**.
+     - **La lecture des scénarios par le sidecar MCP** — quelle surface le serveur MCP a le droit
+       de lire, décision de produit, pas de défaut à réparer.
+     - **L'indentation du journal** : `dump(4, …)` → `dump(-1, …)` rendrait `dumpJsonRedacted()`
+       linéaire, mais **change une forme délibérément épinglée par E4.1m** (deux cas nommés).
+       Consigné `F-JSON-2`, non pris.
+  3. ⚠️ **CE QUI RESTE À VÉRIFIER AU PREMIER `push`** : le job CI GitHub **n'a jamais été exécuté**
+     (`push` interdit depuis le début de la série) — en particulier le câblage
+     `CALAOS_PYDEPS_STRICT: "1"` de [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`. Et
+     **aucun `docker build`** n'ayant tourné, l'affirmation « la sonde stricte empêche la
+     publication d'une image non conforme » reste une **déduction**, pas une mesure.
+
+- **✅⭐⭐ [`T3.64`](T3.64.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête sur `master` : **`2d6db6f5`** (2026-09-04). ⭐ `master` était **IMMOBILE** sur
+  `1c351bee` = **exactement la merge-base** ⇒ ni rebase ni conflit. ⛔ **Rien poussé.**
+
+  ⛔ **C'était une PERTE DE SAUVEGARDE, pas une gêne cosmétique.** `Config::BackupFiles()`
+  (`CalaosConfig.cpp`) nommait son dossier `"%d-%m-%Y_%H-%M-%S"` : deux `config put` **dans la même
+  seconde** partageaient le dossier, le second y recopiait la configuration telle qu'elle est
+  **après** le premier, et l'état d'avant le premier téléversement n'existait **plus nulle part**.
+  La sauvegarde avant écrasement est le **niveau 1** de la défense en profondeur d'E4.6h — la seule
+  protection contre un téléversement destructeur, et le seul appelant de production est
+  `JsonApiHandlerHttp.cpp:783`, sur le chemin `config put`.
+
+  ⭐⭐ **LA PREUVE LA PLUS PARLANTE, REJOUÉE AU MERGE : E4.6h avait dû insérer deux
+  `sleep_for(1100ms)` pour que ses deux sauvegardes coexistent — c'est comme ça que le défaut avait
+  été découvert. Ce ticket les RETIRE, et le cas passe sans elles.** Vérifié au source (les deux
+  attentes et le commentaire qui les expliquait sont absents du fichier) et **rejoué par mutation** :
+  sous **M1** — la recherche de nom libre remplacée par `folder = base`, c'est-à-dire **l'état exact
+  de `src/` au commit de caractérisation `67afb8e9`** — les **DEUX** cas rougissent,
+  `TwoUploadsLeaveTwoBackupsAndTheNewestIsTheStateJustBeforeTheLastOne` **privé de ses attentes** et
+  le cas neuf `TwoUploadsInsideTheSameSecondStillLeaveTheStateBeforeTheFirstOne`. La caractérisation
+  était donc bien rouge **des deux côtés**, et `67afb8e9` est à **zéro ligne de `src/`** (vérifié).
+
+  ⭐ **L'ANTI-VACUITÉ EST LE POINT FIN DU TICKET, ET ELLE EST BIEN LÀ.** Le cas neuf s'aligne sur une
+  frontière de seconde (`alignToNextSecond()`), envoie deux `config put` **sans aucune attente**,
+  puis asserte `ASSERT_EQ(stamp, backupSecondStamp())` — **l'horodatage n'a pas changé entre les
+  deux envois**. Sans cette ligne, deux envois à cheval sur une seconde produiraient deux dossiers
+  **même sur le code cassé** et le cas serait **vert sur le défaut**. L'assertion finale porte sur le
+  **CONTENU** de la sauvegarde la **plus ancienne** — octet pour octet, puis **rechargée par le vrai
+  chemin `Config`** (`loadConfig()` + `checkAutoScenario()`, les deux scénarios relus par nom et
+  nombre de pas). **Compter les dossiers aurait passé sur une sauvegarde vide.**
+
+  ⭐ **« LE DOSSIER EST LU, MAIS PAS SON NOM » — vérifié au source au merge.**
+  `findBackupsNewestFirst()` (`CalaosConfig.cpp:56-89`) parcourt `<config>/backups` en **récursif**,
+  ne retient que les fichiers dont le `filename()` vaut le nom de config cherché, et **trie par
+  `last_write_time`**. Il **ne parse jamais** le nom du dossier — c'est ce qui rend la forme du nom
+  libre, et c'est pourquoi le correctif ne casse aucun lecteur (les seules autres occurrences de
+  `backups` dans `src/` sont `backups/corrupt/` et `backups/autoscenario_upload.json`, écrits par le
+  serveur pour lui-même).
+
+  **LA FORME RETENUE, ET LE JUGEMENT PORTÉ AU MERGE : premier nom libre** `<date-heure>`, `-2`,
+  `-3`…, borné à `MAX_BACKUPS_PER_SECOND = 1000` avec `cError` + refus au-delà. ✅ **Bon choix face à
+  l'alternative évidente (millisecondes dans le nom)** : le nom du cas courant — un téléversement
+  isolé — reste **exactement** `JJ-MM-AAAA_HH-MM-SS`, lisible tel quel par un opérateur, et la
+  garantie est une **absence** de collision, pas une probabilité faible. **La borne ne peut pas
+  boucler** : `for (int i = 2;i <= 1000 && exists(folder);i++)` a un compteur strictement croissant
+  et un plafond constant ⇒ au plus 999 tours, puis le `if` qui suit refuse proprement.
+
+  ⚠️ **Une dépendance NEUVE, non écrite mais bénigne** : l'ordre des deux sauvegardes d'une même
+  seconde repose désormais sur la résolution **sous-seconde** de `mtime` (ns sur ext4/overlayfs), là
+  où les attentes de 1,1 s la rendaient inutile. `std::sort` n'étant pas stable, un système de
+  fichiers à `mtime` à la seconde rendrait `backups[1]` indéterminé.
+
+  ⭐ **CAMPAGNE DE CONTRE-MUTATION REJOUÉE AU MERGE** (restaurations par **copie vérifiée au `cmp`**,
+  rc **0** à chaque tour, ⛔ jamais un `git` dans le conteneur) — **ensembles rouges deux à deux
+  distincts** : **M1** (résolution à la seconde) ⇒ `{core/AutoScenarioUploadGuard_test}` ; **M2**
+  (copie de `rules.xml` neutralisée) ⇒ `{UploadGuard, AutoScenarioMigration,
+  CalaosConfigRobustness}` ; **M3** (`BackupFiles()` déplacé **après** la boucle d'écriture de
+  `processConfig()`) ⇒ `{UploadGuard, AutoScenarioMigration}`. ⭐ **Le témoin
+  `core/CalaosConfigRobustness_test` est VERT sous M1 et M3 avec sa ligne `CXXLD
+  core/CalaosConfigRobustness_test` LUE dans le journal de `make check`** (elle apparaît d'elle-même,
+  `rm -f` caduc), **et ROUGE sous M2** — un témoin qui ne rougit nulle part ne prouve pas son propre
+  relink ; celui-ci prouve qu'il regarde bien le même objet. Rebuild final : les trois suites vertes.
+
+  ⛔ **`[F-BACKUP-1]` OUVERT — aucune purge n'existe sous `<config>/backups`, ni par nombre ni par
+  âge, et T3.64 ne l'a PAS inventée.** Vérifié au merge : les six seules références à `backups` dans
+  `src/` écrivent ou lisent, **aucune ne supprime**. Consigné en `FINDINGS.md` et signalé dans
+  `docs/11_config_persistence.md` et les notes de version. ⚠️ **Jugement du merge : l'absence de
+  purge devient PLUS gênante maintenant**, parce que le correctif transforme une collision
+  (un dossier) en accumulation (un dossier **par envoi**) — un déploiement scripté qui rejouait
+  10 `config put` dans la seconde en laissait 1, il en laisse 10. Ce n'est pas urgent (trois petits
+  XML par dossier) mais c'est **une régression d'occupation assumée**, et le bon moment pour la
+  borner est maintenant. ⭐ **Ticket PROPOSÉ, NON ÉCRIT** : borne configurable + un cas qui prouve
+  que la sauvegarde la plus ancienne **encore présente** reste exploitable après l'élagage —
+  la même assertion de contenu que T3.64, jouée après la purge. C'est un choix d'exploitation
+  (combien de générations, sur quel critère, que faire disque plein) : il appartient à l'utilisateur.
+
+  ⚠️ **DEUX LACUNES — non écrites par l'auteur, AJOUTÉES À LA FICHE AU MERGE (§ « Ce que rien
+  n'épingle »)** : (a) le chemin d'épuisement de la borne n'est couvert par **aucun** cas ; (b)
+  l'alignement laisse **~980 ms** de marge ⇒ **flake possible sous charge extrême**. ✅ **Acceptable**
+  — et c'est justement l'assertion anti-vacuité qui la rend **bruyante** : le cas **échoue en nommant
+  la cause** au lieu de passer à vide, ce qui est le mode d'échec qu'on veut. Le dépôt a déjà chassé
+  une flake d'horloge (`F-FLAKY-1`) ; un ré-alignement + rejeu au lieu de l'`ASSERT` dur la
+  supprimerait tout à fait, mais l'`ASSERT` ne ment jamais, et c'est ce qui compte.
+
+  **Build d'intégration `make distclean` + `autogen` + `configure` + `make -j32` + `make check -j16`
+  : `TOTAL 116 / PASS 113 / SKIP 3 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, un seul
+  `Testsuite summary`, **0 `error:`**, `check-test-deps.sh` **PASS**. `tests/Makefile.am`
+  **intouché**, **`TESTS` 116 → 116**, **zéro golden touché**. `docs/11_config_persistence.md`
+  corrigé et **juste** (la référence `JsonApiHandlerHttp.cpp:624` était périmée, `:783` est bien la
+  ligne de `BackupFiles()`). Les trois `SKIP` sont ceux de l'image en dérive — **pas une régression**.
+
+  ⭐ **Worktree `.wave96/t3.64` effacé** (`docker run` ciblé sur le mount exact), `git worktree
+  prune`, branche `fix/t3.64` supprimée. ⛔ **`.review67b` et `.review47` n'ont PAS été touchés.**
+
 - **✅⭐⭐ [`T3.65`](T3.65.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **`45daa238`** (2026-09-04). `master` était sur **`4f094fb7`**,
   merge-base **`ac0965d8`** ⇒ **REBASE** (T3.67 mergée entre-temps) — **aucun conflit**, pas même
