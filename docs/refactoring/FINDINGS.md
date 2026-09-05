@@ -10508,7 +10508,7 @@ l'ancien comportement (**14 rouges**) ; capteurs par **borne** sur la plus longu
 quatre formes, sur un jeton produit par le générateur livré, recouvrement fortuit **mesuré à ≤ 4** et
 borne abaissée à 1 pour le prouver.
 
-### 📋 [F-HTTPIN-4] Le contenu d'un fichier de configuration REFUSÉ sortait entier, et le site n'est tenu par aucun test — ticket proposé `T3.95`
+### ✅ [F-HTTPIN-4] FERMÉ par [`T3.92`](T3.92.md) (revue) — le contenu d'un fichier de configuration REFUSÉ sortait entier, et le site n'était tenu par aucun test
 
 `JsonApiHandlerHttp.cpp`, branche « file content is not XML » de `config`/`put`, publiait
 `filecontent` **entier** à DEBUG, sans passer par le moindre réducteur : c'est le fichier que le
@@ -10523,6 +10523,17 @@ faudrait épingler** : un binaire de test à lui seul, avec des identifiants con
 de configuration jetable et un seul cas — ou bien découper la branche de refus dans une fonction que
 l'on peut exercer sans traverser le redémarrage. ⚠️ **Contrepoids** : savoir *quel* fichier a été
 refusé et *pourquoi* est le diagnostic, et il survit à la réduction.
+
+✅⭐ **Fermé le 2026-09-05 à la revue de merge, et « structurel » était faux.** Le téléversement n'a
+pas besoin d'être **accepté** pour que la branche soit atteinte : `setNeedRestart(true)` n'est armé
+que `if (ret)`, et une seconde entrée de `config_files` sous un nom qui n'est pas un des trois
+fichiers met `ret` à faux **sans toucher à la boucle de fichiers**. Un cas ordinaire de la suite
+existante suffit donc — identifiants du `local_config.xml` fraîchement semé, une entrée `io.xml` au
+contenu non XML qui porte l'aiguille, une entrée au nom invalide qui désarme le redémarrage. Cas
+`TheContentOfARefusedConfigFileIsNotRepublished`, deux anti-vacuités (la requête **a** authentifié,
+le contenu **a** été refusé pour n'être pas du XML) ; la contre-mutation qui republie le contenu
+entier passe de **0 rouge sur 128** à **1 rouge qui nomme le site et ses 26 octets**.
+⇒ **`T3.95` est sans objet, ne l'ouvrez pas.**
 
 ### 📋 [F-HTTPIN-3] Les sept sites qui publient une donnée entrante à un niveau imprimé par défaut ne sont tenus par **aucun** test — ticket proposé `T3.93`
 
@@ -10786,7 +10797,19 @@ assertions, sur le chemin HTTP **entrant**) · `UrlDownloaderLogUrl_test.cpp` (`
 ⚠️ **Une réserve mesurée d'avance** : `UrlDownloaderLogUrl_test` fabrique des URL portant un port
 **éphémère**, donc du matériau aléatoire **dans la sonde** — ce que les trois suites de `T3.94`
 n'avaient pas. L'égalité peut y être instable et sa stabilité doit être mesurée avant d'être écrite.
-⛔ `core/HttpRequestLogSecret_test.cpp` appartient au périmètre de fichiers de [`T3.92`](T3.92.md).
+
+⛔⭐ **RECENSEMENT CORRIGÉ ET AGGRAVÉ À LA REVUE DE [`T3.92`](T3.92.md) (2026-09-05).** Ce ticket
+touchait `HttpRequestLogSecret_test` et **ne l'a pas calibré** : le plafond y reste écrit à la main,
+et la suite passe de **7** à **13** assertions bornées — plus que les deux autres réunies, sur le
+chemin HTTP **entrant**. Le total du finding est donc **19** assertions, pas 13.
+
+⭐ **Et l'angle mort n'est plus une déduction, il est mesuré sur ce capteur-là.** Borne abaissée à 1 :
+recouvrement fortuit maximum **4** sur toute la suite (10 cas rouges sur 17, chacun disant son
+chiffre) ⇒ un plafond re-dérivé vaudrait **5**, il vaut **8**. Contre-mutation qui **ajoute** sept
+octets de chaque valeur retenue à la ligne, tous les littéraux de forme conservés : **0 rouge dans la
+suite à socket**, y compris sur le téléversement **non authentifié** qui rend alors sept octets du
+`mcp_token` émis par ce serveur. Les deux seuls rouges de l'arbre viennent de la suite à appel direct
+et **par accident de fixture** (deux valeurs de 5 octets tiennent sous la fenêtre).
 
 **Aucun ticket ouvert.**
 

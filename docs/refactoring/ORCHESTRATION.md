@@ -40,18 +40,98 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-05, fin de nuit) — À LIRE EN PREMIER À FROID.**
-  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de
-  **`7d7ed72b`** (`test(t3.89)`). `TESTS` = **128**, référence de build après `make distclean` :
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-05) — À LIRE EN PREMIER À FROID.**
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`c4ae9c43`**
+  (`test(t3.92)`). `TESTS` = **128**, référence de build après `make distclean` :
   **`TOTAL 128 / PASS 127 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
   `check-ccache-honesty.sh`. ⛔ **RIEN N'A ÉTÉ POUSSÉ DE TOUTE LA SÉRIE.**
+
+  **Tickets ouverts** : [`T3.88`](T3.88.md), `T3.91` (proposé, fiche non écrite),
+  [`T3.93`](T3.93.md), [`T3.96`](T3.96.md). ⭐ **`T3.95` est SANS OBJET** — le trou qui le motivait a
+  été fermé à la revue de `T3.92`, ne l'ouvrez pas. ⚠️ Numéros **pris** : `T3.76` → `T3.96`, le
+  prochain libre est **`T3.97`**.
 
   **Ce qui attend l'utilisateur, et rien d'autre :**
   1. ⛔ **Le job CI chez GitHub n'a jamais tourné** — `push` interdit depuis le début de la série.
      C'est le seul point de vérification qui reste ouvert depuis `T3.67`.
-  2. ⚠️⭐ **[`T3.81`](T3.81.md) reste le seul correctif de sécurité de la série sans entrée dans
-     `RELEASE_NOTES.md`**, alors que ses sœurs en ont une. **Arbitrage utilisateur — reconduit sans
-     être tranché**, ni par la revue de `T3.87`, ni par celle de `T3.90`, ni par celle-ci.
+  2. ⛔⭐ **Deux arbitrages de CONCEPTION que lui seul peut trancher**, parce qu'ils changent un
+     comportement livré et non un journal :
+     - **[`T3.82`](T3.82.md)** — sortir le mot de passe de l'`argv` du sous-processus, c'est-à-dire
+       **changer par où il transite** ;
+     - **`T3.72`** (proposé, `F-XML-3`, fiche non écrite) — **refuser des octets que l'API accepte
+       aujourd'hui** (`&#01;`, non conforme XML 1.0).
+  ℹ️ **La note de version de [`T3.81`](T3.81.md) a été écrite : cette question est CLOSE**, ne la
+  reconduisez plus.
+
+- **✅⭐⭐ [`T3.92`](T3.92.md) MERGÉE (2026-09-05) — 3 commits de branche + 2 commits de revue,
+  `merge --ff-only`, historique linéaire, 0 commit de fusion.** La branche partait de `d1ab6857` et
+  `master` était à `a2ee2307` ⇒ **rebase**, **sans un seul conflit** : `T3.94` n'a touché que trois
+  suites de test, `tests/Makefile.am` est intouché des deux côtés et `TESTS` reste **128**. Build de
+  merge après `make distclean` : **`TOTAL 128 / PASS 127 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 /
+  ERROR 0`**, rc 0, **0 `error:`**, un seul `Testsuite summary` par exécution, **4 `make check`
+  complets** sur l'arbre final (plus 6 pendant la campagne de contre-mutation) — aucune instabilité
+  sur les égalités de calibration que `T3.94` vient d'introduire. ⛔ **Rien poussé.**
+
+  ⭐ **L'ARGUMENT CENTRAL TIENT, VÉRIFIÉ AUX SOURCES.** `buildJsonSetParam()` lit `id`, `param` et
+  `value` : le secret d'un IO voyage bien sous la clef **`value`**, et le mot « password » est la
+  **valeur** de `param`. Aucune des trois clefs ne peut entrer dans une liste de noms sans caviarder
+  tout `set_param` légitime — c'est ce qui justifie d'avoir **supprimé** la liste au lieu de
+  l'allonger. Les **6** commandes porteuses de secret recomptées, les **2** évasions confirmées
+  (`config`/`put`, clefs = noms de fichiers ; `set_param`). ✅ **Aucun piège laissé** :
+  `dumpJsonRedacted` n'a plus **ni appelant ni commentaire** dans `src/` ou `tests/` — et la sonde
+  statique qui l'aurait nommée (envisagée au merge de `T3.65`) **n'a jamais été écrite**, donc rien
+  ne désigne plus une fonction morte comme la bonne. ✅ **Le vidage avant authentification** : sur
+  websocket le `login` **est** le corps décrit, il n'y a pas d'« après » ; et la ligne ne publiant
+  plus que le vocabulaire du serveur, ce qui rendait le placement dangereux a disparu avec le
+  contenu — le maintenir est correct.
+
+  ⛔⭐ **UN TROU DÉCLARÉ « STRUCTUREL » QUI NE L'ÉTAIT PAS, FERMÉ AVANT LE MERGE.** La fiche
+  proposait `T3.95` pour le second site (le contenu d'un fichier refusé) en le disant hors de portée :
+  la branche court après `checkCredentials()` et un `config`/`put` accepté redémarre le serveur, ce
+  qu'un harnais à boucle partagée ne survit pas. ⭐ **Mais `setNeedRestart(true)` n'est armé que
+  `if (ret)`**, et une seconde entrée de `config_files` sous un nom qui n'est pas un des trois
+  fichiers met `ret` à faux **sans toucher à la boucle de fichiers** : la branche est atteignable, le
+  redémarrage ne s'arme jamais. Cas écrit, la contre-mutation M6 passe de **0 rouge sur 128** à **1**
+  qui nomme le site et ses **26** octets. `F-HTTPIN-4` **FERMÉ**, **`T3.95` sans objet**.
+  ⭐ **La leçon pour les briefs** : *« aucun cas n'est possible » est une affirmation sur le code, pas
+  sur le harnais — on la vérifie en lisant la condition qui l'arme.*
+
+  ⛔⭐ **LE CAPTEUR N'EST PAS CALIBRÉ, ET LE COÛT EST MESURÉ SUR LUI.**
+  `HttpRequestLogSecret_test` — celui-là même que `F-LOGSECRET-8` nomme — garde un `kMaxEcho` écrit à
+  la main, et cette branche y **ajoute** cinq assertions bornées, portant la suite à **13** : plus que
+  les deux autres capteurs non calibrés réunis, sur le chemin HTTP **entrant**. Borne abaissée à 1
+  par la revue : recouvrement fortuit maximum **4** (10 cas rouges sur 17, chacun disant son chiffre)
+  ⇒ un plafond re-dérivé vaudrait **5**, il vaut **8**. ⭐ **Et la contre-mutation qui rend l'angle
+  mort visible** : sept octets de **chaque** valeur retenue **ajoutés** à la ligne, tous les littéraux
+  de forme conservés ⇒ **0 rouge dans la suite à socket**, y compris sur le téléversement **non
+  authentifié** qui rend alors sept octets du `mcp_token` émis par ce serveur. Les deux seuls rouges
+  de l'arbre viennent de la suite à appel direct, **par accident de fixture**. ⇒ `F-LOGSECRET-8`
+  élargi à **19** assertions ; [`T3.96`](T3.96.md) monte en priorité.
+
+  ✅ **Un invariant repris** : le vidage supprimé demandait à `dump()` un `error_handler_t::replace`
+  et disait pourquoi ; le réducteur neuf l'avait laissé tomber en gardant la place avant
+  l'authentification. Mesuré sur le `json.hpp` livré : l'analyseur **écarte** toute forme mal formée,
+  donc les deux appelants livrés ne peuvent pas atteindre le `type_error.316` — un troisième
+  appelant, oui. Remis, avec son cas, rouge sans le correctif.
+
+  ⚠️ **Une affirmation invalidée** : « aucun autre site ne republie un corps de l'API JSON » est trop
+  large. Deux sites publient encore une **valeur** venue du corps, tous deux **après**
+  `checkCredentials()` : `decodeSetState()` republie la valeur de `set_state` **verbatim à WARNING**
+  — niveau imprimé sur un boîtier neuf — et la branche « picture not found » publie `pic_uid` à
+  DEBUG. ⚠️ **Et une incohérence de traitement** : le réducteur nettoie les octets de commande d'un
+  **nom** de clef pour qu'il ne forge pas une ligne, mais le site voisin sort `skey` **brut** à ERROR.
+
+  **Contre-mutations de revue, indépendantes de celles de la fiche, toutes par ÉCHANGE, `make check`
+  réel à chaque tour, restaurations prouvées `cmp` rc 0 **et** horodatage effectivement modifié** :
+  websocket seul, la fuite **ajoutée** au diagnostic (**2 rouges**, les deux cas websocket, 24 et 17
+  octets rendus) ; l'ensemble routé élargi à `value` (**2 rouges** disjoints, un par suite) ; la
+  fenêtre de 7 octets ci-dessus (**0 rouge** côté socket) ; l'`error_handler` retiré (**1 rouge**
+  qui se nomme). ⚠️ **Un piège d'outillage confirmé au passage** : `make` seul **ne reconstruit pas**
+  les binaires de test (`check_PROGRAMS`), donc un tour mesuré sans `make check` relit un binaire
+  périmé — exactement la famille des faux verts de `_DEPENDENCIES`.
+
+  **État** : `master` = le commit de revue qui porte ce paragraphe. Worktree `.wave115/t3.92`
+  supprimé, branche `fix/t3.92` supprimée.
 
 - **✅⭐⭐ [`T3.94`](T3.94.md) MERGÉE (2026-09-05) — `merge --ff-only`, historique linéaire.** Le
   plafond des trois capteurs à borne est désormais **re-dérivé par la suite à chaque exécution**
