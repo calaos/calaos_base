@@ -182,7 +182,9 @@ struct SidecarRun
     bool exited = false;
     long exitedAfterMs = 0;
     //-1 until the child has been reaped, and only the raw launcher below can
-    //fill it: ExternProcServer::processExited carries no status at all.
+    //fill it: ExternProcServer::processExited carries no status at all. It also
+    //stays -1 when the child died on a signal, which is why the cases ask for a
+    //status ABOVE zero: "not zero" would take a crash for a reported failure.
     int exitCode = -1;
     std::string log;
 };
@@ -745,7 +747,7 @@ TEST_F(MqttSidecarConfigWaitTest, AnUnreachableBrokerEndsTheSidecarWithACauseAnd
 
     ASSERT_TRUE(r.exited)
         << "the sidecar stayed alive with a broker it never reached. Log: " << r.log;
-    EXPECT_NE(0, r.exitCode)
+    EXPECT_GT(r.exitCode, 0)
         << "the sidecar left with status " << r.exitCode
         << ": calaos_server cannot tell this from a clean shutdown, and neither "
            "can whoever reads the journal. Log: " << r.log;
@@ -783,7 +785,7 @@ TEST_F(MqttSidecarConfigWaitTest, ARefusedPortIsNamedARefusalAndNotAnUnrelatedEr
         << "the sidecar never reached the connection error at all, so what "
            "this case asserts below would say nothing. Log: " << r.log;
 
-    EXPECT_NE(0, r.exitCode)
+    EXPECT_GT(r.exitCode, 0)
         << "a broker that refuses the connection is not a clean shutdown. Log: "
         << r.log;
     EXPECT_TRUE(logCarries(r, "Connection refused"))
@@ -845,7 +847,7 @@ TEST_F(MqttSidecarConfigWaitTest, ABrokerThatDropsMidSessionEndsTheSidecarWithAC
         << "the sidecar left on its configuration deadline, so it never got as "
            "far as the broker. Log: " << r.log;
 
-    EXPECT_NE(0, r.exitCode)
+    EXPECT_GT(r.exitCode, 0)
         << "the sidecar left with status " << r.exitCode
         << " after its broker went away, which calaos_server cannot tell from "
            "a clean shutdown. Log: " << r.log;
