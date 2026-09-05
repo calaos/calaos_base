@@ -269,6 +269,23 @@ TEST(JsonApiRequestDescription, ANewlineInAKeyCannotForgeALogLine)
     EXPECT_NE(dump.find("evil.injected"), std::string::npos) << dump;
 }
 
+TEST(JsonApiRequestDescription, AByteThatIsNotUtf8DoesNotThrowOutOfTheReducer)
+{
+    //dump() answers type_error.316 on such a byte, and the reducer is public,
+    //static and reached before the credentials are checked. The two shipped
+    //callers hand a parsed document, which the parser never lets one into; a
+    //caller that builds its own from bytes it read is the case this pins.
+    Json j;
+    j["cn_pass"] = std::string("secret\xC3here");
+
+    std::string dump;
+    ASSERT_NO_THROW(dump = JsonApi::describeRequestForLog(j));
+
+    EXPECT_NE(dump.find("cn_pass["), std::string::npos) << dump;
+    EXPECT_EQ(dump.find("secret"), std::string::npos)
+            << "the bytes are published while being called withheld: " << dump;
+}
+
 TEST(JsonApiRequestDescription, TheOutputIsBoundedWhateverTheDocument)
 {
     //The line is built on every request, before the credentials are checked,

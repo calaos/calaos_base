@@ -641,9 +641,15 @@ string JsonApi::describeRequestForLog(const Json &jroot)
     out << "api request ";
     describeValue(jroot, out, 0, budget);
 
-    //Two bodies that differ only in what is withheld must not render the same
-    //line, or a journal cannot say which request it is looking at.
-    out << " #" << Utils::logTag(jroot.dump());
+    /* Two bodies that differ only in what is withheld must not render the same
+     * line, or a journal cannot say which request it is looking at. The error
+     * handler is not decoration: dump() throws type_error.316 on a byte that is
+     * not UTF-8, and this function is public and static. The two callers hand a
+     * parsed document, which cannot hold one - a third caller building a Json
+     * from bytes of its own could, on a path that runs before the credentials
+     * are checked. Nothing valid changes byte. */
+    out << " #" << Utils::logTag(jroot.dump(-1, ' ', false,
+                                            Json::error_handler_t::replace));
 
     return out.str();
 }
