@@ -10463,6 +10463,18 @@ imprimé par défaut — dont l'**identité du client**, qui derrière haproxy e
 l'`X-Forwarded-For` que le client a écrit, à WARNING sur six sites. Aucune ne porte un secret
 distribué par ce dépôt.
 
+⚠️⭐ **Complément de la revue de merge (2026-09-05) — la réduction de la cible dépendait
+d'abord de ce que la requête portait, corrigé avant le merge.** `Utils::requestTargetForLog()`
+renvoyait à `Utils::urlForLog()` dès que la cible contenait `://` **où que ce soit**, et
+`urlForLog()` republie verbatim tout ce qui précède le schéma. Une cible ordinaire dont un
+paramètre porte une URL repartait donc **entière** :
+`/api.php?cn_user=operateur&cn_pass=motdepasse&next=http://a.b/c` rendait
+`/api.php?cn_user=operateur&cn_pass=motdepasse&next=http://a.b [path 1seg/2B] #…`. ⭐ **Même mode
+d'échec que l'extrait de trame** : une règle indexée sur l'endroit où un octet se trouve. Le test
+porte désormais sur la **position** du schéma (nom de schéma RFC 3986, rien de `/?#` devant), et un
+dixième cas l'épingle. Contre-mutation par échange (position ↔ présence) : **1 rouge**, *the journal
+gives back **99** consecutive bytes* contre un plafond de 8.
+
 ### 📋 [F-HTTPIN-2] Le **corps** d'une requête sort par une liste de onze noms — ticket [`T3.92`](T3.92.md)
 
 `JsonApi::dumpJsonRedacted()` (`JsonApi.cpp:518`) publie le corps entier d'une requête après avoir
@@ -10478,6 +10490,28 @@ jetons, part au journal**. ⚠️ Un second site le refait sans même passer par
 `tests/core/HttpRequestLogSecret_test.cpp` monte un vrai `HttpServer` et relit `std::cout` — le cas
 décisif est **une clef qui n'est dans aucune liste**, un cas écrit sur `cn_pass` serait vert des deux
 côtés.
+
+### 📋 [F-HTTPIN-3] Les sept sites qui publient une donnée entrante à un niveau imprimé par défaut ne sont tenus par **aucun** test — ticket proposé `T3.93`
+
+[`T3.90`](T3.90.md) §2.2 recense sept familles qui publient une donnée choisie par le client à un
+niveau `≤ 4`, donc **imprimé sur un boîtier neuf**, et argumente qu'aucune ne porte un secret que ce
+dépôt distribue. ⭐ **L'argument a été vérifié site par site par la revue et il tient** : ces lignes
+publient une adresse de client, un chemin de fichier statique déjà découpé, une raison de fermeture,
+un nom de clef sur un chemin authentifié.
+
+⛔ **Mais c'est une propriété du code d'aujourd'hui, et rien ne la tient.** Mesuré : la
+contre-mutation qui remplace `req_url.getPath()` par `parse_url` à la ligne du refus de poignée de
+main (`WebSocket.cpp:267`) fait publier **la cible brute, requête comprise, à WARNING** — et rend
+⛔ **0 rouge sur les 127 suites**, relink lu (`CXXLD calaos_server`, `CXXLD WebSocketAccept_test`,
+`CXXLD core/HttpRequestLogSecret_test`). Le jour où l'une de ces sept lignes glissera vers la donnée
+complète, la fuite partira **sans qu'on ait rien allumé** et rien ne rougira.
+
+⭐ **Ce qu'il faudrait épingler** : un cas par famille sur le harnais existant
+(`tests/core/HttpRequestLogSecret_test.cpp` monte un vrai `HttpServer` et relit `std::cout`) — une
+poignée de main refusée, une requête `/debug/…` en traversée, un `config put` à clef inventée — et
+dans chacun **borner la plus longue suite d'octets** de la cible que la ligne rend, jamais chercher
+un nom. ⚠️ **Contrepoids** : ces lignes existent pour dire d'où vient un abus, l'adresse et le
+chemin découpé doivent survivre.
 
 ### ✅ [F-LOGSECRET-2] FERMÉ par [`T3.85`](T3.85.md) — un chemin d'erreur republiait à **ERROR** une chaîne fabriquée par le sidecar
 

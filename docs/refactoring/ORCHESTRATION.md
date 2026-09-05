@@ -40,6 +40,72 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
+- **✅⭐⭐ [`T3.90`](T3.90.md) MERGÉE — 3 commits de la branche + 2 commits de revue, `merge --ff-only`,
+  historique linéaire, 0 commit de fusion.** Tête sur `master` : **le commit de revue qui porte ce
+  paragraphe** (2026-09-05) ; le commit de revue qui le précède est un **correctif de production**
+  (§ le trou ci-dessous), pas de la documentation. La branche partait de `d97206e0`, qui était
+  **déjà** la tête de `master` ⇒ **aucun rebase, aucun conflit `tests/Makefile.am`**. Build de merge
+  sur `master` après
+  `make distclean` : **`TOTAL 127 / PASS 126 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**,
+  rc 0, **0 `error:`**, un seul `Testsuite summary`, **10 cas** exécutés dans
+  `core/HttpRequestLogSecret_test`, les sept `check-*` **PASS**, seul `SKIP`
+  `check-ccache-honesty.sh`. ⛔ **Rien poussé.**
+
+  ⭐ **TOUT CE QUE LA FICHE AFFIRME TIENT, VÉRIFIÉ AUX SOURCES.** Le **niveau** d'abord, parce que
+  c'est lui qui borne la gravité : `Logger::maxLevelPrintable()` retombe sur `LOG_LEVEL_INFO = 4` et
+  ne consulte **jamais** le `.def("4")` de `ConfigOptions.cpp` tant que l'option n'a pas été écrite
+  ⇒ `network` **imprime à WARNING et pas à DEBUG**, les trois sites fermés sont tous `cDebugDom`,
+  donc **rien ne partait sur un boîtier neuf**. La fiche d'origine disait DEBUG et avait raison ; ce
+  que la mesure ajoute est le **plafond**, et le refus de gonfler le ticket est justifié.
+
+  ⭐ **Le troisième site est réel, et pire que décrit.** `src/lib/WebSocketFrame.cpp:315` rendait les
+  40 premiers octets de la charge utile de **toute** trame texte, à chaque trame valide — et la
+  charge y est **déjà DÉMASQUÉE** (`processMask()` court à l'assemblage de la trame) : c'était du
+  **clair**, pas du XOR. C'est bien **un capteur qui dépend d'une longueur écrit dans le code de
+  production**, et il courait **avant** `dumpJsonRedacted`.
+
+  ✅ **Les sept familles de §2.2 vérifiées une par une** : aucune ne porte un secret distribué par ce
+  dépôt. Les deux refus de chemin publient `req_url.getPath()` **après** découpe, donc sans la
+  requête ; `skey` est un nom de clef sur un chemin qui court **après** `checkCredentials()`.
+  ✅ **La forme est bien l'inverse d'une liste de noms**, un en-tête d'autorisation inconnu tombe
+  dans la branche `[NB]`. ✅ **Le trou de [`T3.92`](T3.92.md) est confirmé** : `config`/`put` lit
+  `config_files`, dont les clefs sont `io.xml`, `rules.xml`, `local_config.xml` — aucune des onze —
+  et `local_config.xml` porte `mcp_token`/`mcp_service_token`, `io.xml` les mots de passe de caméra.
+  ⚠️ Et le vidage court **avant** `checkCredentials()`.
+
+  ⛔⭐ **MAIS UN TROU RESTAIT DANS LE CORRECTIF, TROUVÉ ET FERMÉ AVANT LE MERGE.**
+  `Utils::requestTargetForLog()` renvoyait à `Utils::urlForLog()` dès que la cible contenait `://`
+  **où que ce soit** — or `urlForLog()` republie **verbatim** tout ce qui précède le schéma. Une
+  cible de forme ordinaire dont un paramètre porte une URL repartait donc **entière** :
+  `/api.php?cn_user=operateur&cn_pass=motdepasse&next=http://a.b/c` rendait
+  `/api.php?cn_user=operateur&cn_pass=motdepasse&next=http://a.b [path 1seg/2B] #…`, mot de passe
+  compris. ⭐ **C'est exactement le mode d'échec que ce ticket ferme ailleurs** : une règle indexée
+  sur l'endroit où un octet se trouve — et **aucune aiguille de la suite ne contient `://`**, donc
+  la garde était aveugle. Le test porte désormais sur la **position** du schéma (nom de schéma
+  RFC 3986, rien de `/?#` devant) ; **dixième cas** `AUrlInsideTheQueryDoesNotUnreduceTheTarget`,
+  `TESTS` reste **127**.
+
+  ⭐ **Trois contre-mutations de revue, par échange, distinctes des sept de la fiche** :
+  **R1** (position ↔ présence du schéma) **1 rouge**, *the journal gives back **99** consecutive
+  bytes of a query string that happens to carry a url* contre un plafond de 8 · ⭐ **R2** (la ligne
+  de trame ↔ **la charge utile en base64**) **1 rouge**, **32** octets, soit exactement le base64 de
+  l'aiguille ⇒ **la chasse en quatre formes mord**, une recherche du clair seul serait restée verte ·
+  ⚠️ **R3** (`getPath()` ↔ `parse_url` au refus de poignée de main, **une des sept familles**) ⇒ la
+  cible **brute** publiée à **WARNING**, donc sur un boîtier neuf, et ⛔ **0 rouge sur les 127
+  suites**. Les sept familles sont **argumentées en prose et tenues par aucun test** : `F-HTTPIN-3`,
+  ticket proposé **[`T3.93`](T3.93.md)**. Restaurations prouvées au `cmp` **rc 0 × 4** *et* par un
+  horodatage effectivement modifié ; `CXXLD libcalaos_common.la`, `calaos_server`,
+  `WebSocketAccept_test` et `core/HttpRequestLogSecret_test` **lus**.
+
+  ✅ **Capteur éprouvé par la revue** : le plafond est `EXPECT_LT(echo, 8)`, donc **un extrait de
+  7 octets passe** — la fiche le dit et c'est exact. ✅ **Aucune autre fixture fausse** : le seul cas
+  qui pouvait se faire aider par l'adresse de l'objet `HttpClient` est bien comparé sur la ligne de
+  requête, repérée par le **chemin** et non par une formule que le ticket introduit.
+
+  ⚠️⭐ **QUESTION EN ATTENTE, RECONDUITE SANS ÊTRE TRANCHÉE** : [`T3.81`](T3.81.md) reste **sans
+  entrée dans `RELEASE_NOTES.md`** alors que ses sœurs de la même série en ont une. Arbitrage
+  utilisateur — ni la revue de `T3.87` ni celle-ci ne se l'arrogent.
+
 - **✅⭐⭐ [`T3.87`](T3.87.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **le commit de revue qui porte ce paragraphe** (2026-09-05). La
   branche partait de `3cb98228` et `master` était à `d4a87864` ⇒ **rebase**, avec le conflit d'append
@@ -9941,10 +10007,41 @@ et le chiffre ne mesure pas ce qu'on croit.
    (rc attendu **0**), ou un comptage stable de l'aiguille (`grep -c` du motif muté ⇒ **0**).
    ⛔ **Une restauration non vérifiée n'est pas une restauration** : c'est exactement l'hypothèse
    que ce piège prend en défaut.
+   ⚠️ **Et un `cmp` rc 0 ne suffit pas non plus** : si la copie a gardé l'horodatage de l'original,
+   `make` ne recompile pas. Voir la section suivante.
 
 ℹ️ Les opérations `git` **de lecture d'index** (`git status`, `git diff`) échouent de la même façon
 dans le conteneur : leur silence n'est pas une preuve d'arbre propre. **Le `git` de vérité est celui
 de l'hôte, dans le worktree.**
+
+## ⛔⭐ Outillage — UNE RESTAURATION QUI GARDE LA DATE NE RESTAURE RIEN NON PLUS (T3.90, 2026-09-05)
+
+**Troisième membre de la même famille que `_DEPENDENCIES` et que le `git checkout` dans le
+conteneur : l'outil rend un chiffre, et le chiffre ne mesure pas ce qu'on croit.**
+
+Vécu en `T3.90` : la campagne de contre-mutation restaurait ses fichiers par `shutil.copy2`, qui
+copie le contenu **et l'horodatage**. Le fichier redevenait donc identique à l'original — le `cmp`
+passait, rc 0, la vérification exigée par la règle du `git checkout` était satisfaite — mais `make`
+voyait l'objet muté **plus récent** que la source restaurée et **ne recompilait pas**. La mutation
+restait dans le binaire pendant que le fichier se relisait propre, et **les mutations
+s'accumulaient en silence**. Toute la campagne a dû être jetée et refaite.
+
+⚠️ **Pourquoi le `cmp` ne suffit pas** : il prouve que le **contenu** est revenu, pas que la
+**compilation** en tiendra compte. `make` ne compare pas des contenus, il compare des dates.
+
+**Parade — la règle de restauration gagne une seconde moitié :**
+
+1. ⛔ **Copier SANS les métadonnées.** `cp --no-preserve=timestamps`, `shutil.copy` (jamais
+   `copy2`), `cat orig > cible`. Puis **reposer la date à maintenant** (`touch`).
+2. ✅ **Prouver les DEUX** : `cmp -s orig cible` ⇒ rc **0**, **et** un `stat -c %Y` qui a
+   effectivement bougé par rapport à l'avant-restauration.
+3. ✅ **L'oracle de secours reste `CXXLD`** — et il vaut aussi pour la restauration : si le tour
+   « arbre restauré » ne relinke rien, c'est que rien n'a été recompilé, donc que rien n'a été
+   restauré du point de vue du binaire.
+
+⚠️ **Et le symptôme est le même que celui du `git checkout` dans le conteneur** : un cumul de
+mutations rougit **plus**, donc le résultat a l'air *meilleur*. Rien dans la sortie ne signale
+l'anomalie.
 
 ## ⭐ Mesure — la convention de comptage des jetons jansson (fixée au merge d'E4.1q, 2026-09-01)
 
