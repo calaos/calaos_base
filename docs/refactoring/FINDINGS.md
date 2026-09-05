@@ -10953,7 +10953,7 @@ stabilité était faux. La plus longue suite hexadécimale d'une fixture ne fait
 construction : un uuid de socket de 32 hex rendrait l'égalité rouge avec une probabilité ≈ 2·10⁻⁸
 par exécution. Stable en pratique (90 exécutions + 6 `make check`), **pas** par construction.
 
-### ⛔ [F-LOGSECRET-8] Trois AUTRES capteurs à borne, même défaut, jamais recensés — ticket proposé [`T3.96`](T3.96.md)
+### ✅ [F-LOGSECRET-8] Trois AUTRES capteurs à borne, même défaut, jamais recensés — **FERMÉ** par [`T3.96`](T3.96.md)
 
 Balayé en fermant [`T3.94`](T3.94.md) : `F-LOGSECRET-7` recensait **trois** capteurs à borne là où
 `tests/` en porte **six**. Les trois autres portent **13 assertions bornées** et un plafond écrit à la
@@ -10978,7 +10978,42 @@ suite à socket**, y compris sur le téléversement **non authentifié** qui ren
 `mcp_token` émis par ce serveur. Les deux seuls rouges de l'arbre viennent de la suite à appel direct
 et **par accident de fixture** (deux valeurs de 5 octets tiennent sous la fenêtre).
 
-**Aucun ticket ouvert.**
+⛔⭐ **RECENSEMENT REFAIT ET CORRIGÉ UNE SECONDE FOIS À LA LIVRAISON DE [`T3.96`](T3.96.md)
+(2026-09-05).** Le parc ne porte pas six capteurs à borne mais **huit**, et pas 19 assertions bornées
+mais **29** : `T3.88` et `T3.93` en ont ajouté deux **nées calibrées** (`core/DriverAnswerSecret`
+plafond 5, `core/IncomingLogStockLevel` plafond 4), et `HttpRequestLogSecret` en porte **12** et non
+13. ⇒ **5 calibrées / 3 aveugles**, les trois aveugles portant **18 des 29** assertions.
+
+**Recouvrements re-mesurés et fenêtres, sur l'arbre corrigé** : `HttpRequestLogSecret` plafond **8**,
+recouvrement **4** (`conn`) ⇒ fenêtre **3** · `UrlDownloaderLogUrl` **8** / **3** (`er:`) ⇒ **4** ·
+`UrlDownloaderLogSecret` **12** / **3** (`ose`) ⇒ **8**. Démontré par trois mutations publiant
+7, 7 et 11 octets : **0 rouge** dans les trois suites avant la calibration, **4, 3 et 3** cas après.
+
+⛔ **La réserve de la fiche visait le mauvais coupable.** Le port éphémère vit dans l'**autorité** de
+l'URL, que les sondes ne mesurent pas. Ce qui rendait l'égalité instable, c'est que les **aiguilles se
+terminaient par une queue hexadécimale** alors que le journal publie ses **propres** identifiants dans
+cet alphabet (adresse d'objet, empreinte de requête) : **1 rouge sur 200** mesuré. Fixture dé-hexée
+⇒ **500 exécutions du cas de calibration, 120 des binaires, 5 `make check` : aucune dérive.**
+
+**Fermé.** Ticket ouvert en sortie : `F-LOGSECRET-9` (`T3.99` proposé).
+
+### ⚠️ [F-LOGSECRET-9] Rien ne garde la propriété de fixture dont dépend la stabilité des égalités de plafond — ticket proposé `T3.99`
+
+Trouvé en livrant [`T3.96`](T3.96.md). Une égalité `plafond == recouvrement + 1` n'est stable que si
+l'aléa que le journal produit lui-même ne peut pas apparier une aiguille : concrètement, si la plus
+longue suite **purement hexadécimale** de chaque sonde reste **sous** le recouvrement déterministe.
+C'est vrai des huit suites aujourd'hui — mesuré **4, 3 et 3** pour les trois calibrées par `T3.96` —
+et **rien ne le garde**.
+
+⚠️ **Le symptôme d'une régression serait le pire à diagnostiquer** : un rouge de calibration
+**intermittent**, à 5·10⁻⁴ près par exécution, sur une suite que personne n'a touchée. Simulé sur le
+seul document que `T3.96` n'a pas pu dé-hexer (le jeton de 64 caractères du générateur livré) :
+collision à 5 octets **7,6·10⁻⁴** par échange, à 8 **< 5·10⁻⁶** — c'est pourquoi ce document-là garde
+un plafond de **8**, écrit à la main, que rien ne re-dérive (`kMaxDrawnEcho`).
+
+⇒ Ce qu'il faudrait : `tests/check-echo-ceilings.py` sait déjà lire les fichiers ; il pourrait
+exiger, pour chaque plafond épinglé, que le fichier porte un cas qui borne la plus longue suite
+hexadécimale de ses sondes sous ce plafond. **Aucun ticket ouvert.**
 
 ### ⚠️ [F-LOGSECRET-5] Trois lignes du domaine `mqtt` publient encore **une valeur lue dans le payload**, à WARNING
 
