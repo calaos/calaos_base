@@ -10595,7 +10595,7 @@ de **lecture** de tout IO MQTT qui nomme un `path`. Garde d'exécution
 
 ---
 
-### ⛔ [F-LOGSECRET-4] Neuf publications de `e.what()` dont le message **cite l'entrée refusée**, à un niveau imprimé par défaut — ticket proposé [`T3.89`](T3.89.md)
+### ✅ [F-LOGSECRET-4] FERMÉ par [`T3.89`](T3.89.md) — neuf publications de `e.what()` dont le message **cite l'entrée refusée**, à un niveau imprimé par défaut
 
 Recensé en fermant [`T3.86`](T3.86.md), dont le site OneWire était exactement ce cas. Le mécanisme
 n'est **pas** lisible dans le fichier fautif : rien n'y est concaténé, c'est la **bibliothèque** qui
@@ -10658,6 +10658,49 @@ sans publier `e.what()`, et ce qui remonte jusqu'à eux ne cite pas l'entrée.
 (remettre un corps mal formé au pair `AVRRose` et relire `std::cout`), le harnais des trois derniers
 correctifs s'y transpose, et l'arbitrage y est le même qu'ici : la taille et le domaine survivent,
 le message de la bibliothèque non.
+
+**Fermé** : les neuf sites publient le **code d'erreur**, l'**octet où l'analyseur s'est arrêté** et
+la **taille** du document, par un point de passage unique, `Utils::jsonErrorForLog()`
+(`src/lib/StringUtils.cpp`, à côté d'`urlForLog`). ⭐ **La bibliothèque expose bien la position et le
+type séparément du texte cité** — `nlohmann::json::parse_error` porte `.byte` et `.id`, et
+`json::exception` porte `.id` pour toutes ses sous-classes : le diagnostic survit **entier** sans un
+octet de l'entrée. ⭐ **Ce que chaque document peut porter a été mesuré avant de choisir** : quatre
+sites portent un secret ou des octets choisis par un tiers (le jeton de l'amplificateur, le port de
+notification **ouvert à tout le réseau local**, la trame websocket du panneau déporté dont la classe
+mère lit `cn_user`/`cn_pass`, la réponse d'un service web tiers), et **cinq sont fermés sur la seule
+provenance** — dont ⚠️ **le cache d'états, où la fiche supposait à tort des identifiants** : vérifié
+aux deux écrivains et à leurs quatre appelants, il ne porte que des valeurs d'IO et de la
+comptabilité interne.
+⭐ **L'arbre avait déjà tranché la question une fois** : `JsonApiHandlerWS::processApi()` parse avec
+la forme **non lançante** et n'écrit que `Error loading json` à DEBUG ; la sous-classe
+`RemoteUIWebSocketHandler::processApi()` ajoutait **devant** un parse lançant et en publiait le
+message à WARNING.
+Garde d'exécution (`tests/core/ParseErrorSecret_test.cpp`, **23 cas**) : les quatre sites de
+l'amplificateur sont nourris par un **vrai pair TLS** levé par la suite, le site de notification par
+un client TCP sur le port d'écoute, le site websocket par l'appel de `WebSocket.cpp` mot pour mot,
+les trois sites de fichier par un vrai fichier — le cache d'états par le **constructeur** de
+`Config`. Niveau mesuré dans un enfant forké, assertions bornant **la plus longue suite d'octets
+rendue** (33 à 53 sur `master`) et aiguilles présentes **en clair et encodées**, la recherche du
+clair restant ⛔ **verte sur les neuf**.
+
+⛔ **Ce que le correctif ne ferme PAS** : la **classe**. Rien n'empêche un dixième `<< e.what()` —
+voir `F-LOGSECRET-6`.
+
+### ⛔ [F-LOGSECRET-6] Rien n'interdit un dixième `e.what()` dans une macro de journal — ticket proposé `T3.91`
+
+Relevé en fermant [`T3.89`](T3.89.md). Les neuf sites passent désormais par
+`Utils::jsonErrorForLog()`, qui a sa propre garde d'exécution, mais **le point de passage n'est pas
+obligatoire** : un `catch` écrit demain qui streame `e.what()` rouvre la classe en une ligne, et
+aucune assertion de l'arbre ne la verrait — c'est précisément le mode d'échec de `F-LOGSECRET-4`,
+dont le mécanisme n'était lisible dans aucun des fichiers fautifs.
+
+Ce qui la fermerait est une **sonde statique** de la forme de `tests/check-test-deps.sh`
+([`T3.36`](T3.36.md)) : interdire `.what()` à l'intérieur d'une macro de journal hors d'une liste de
+sites **énumérés**. ⚠️ Elle porterait sur les **35** `e.what()` de l'arbre, dont les onze de
+`HistLogger.cpp` (sqlite, requêtes paramétrées) et ceux de `src/bin/calaos_server/Http*` que
+[`T3.90`](T3.90.md) réécrit.
+
+**Aucun ticket ouvert.**
 
 ### ⚠️ [F-LOGSECRET-5] Trois lignes du domaine `mqtt` publient encore **une valeur lue dans le payload**, à WARNING
 

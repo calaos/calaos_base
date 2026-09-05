@@ -1350,6 +1350,22 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   ligne de commande**, donc visible par un `ps` de n'importe quel compte du boîtier tant que la
   passerelle tourne. Fermer cela demande de changer la façon dont le serveur parle à ses passerelles
   et n'est pas fait ici.
+- ⭐ **Le message d'erreur d'un document illisible ne recopie plus le document.** Quand un
+  équipement, un service web ou un panneau déporté répond quelque chose que Calaos ne sait pas lire,
+  le serveur écrivait dans le journal **le message de l'analyseur JSON** — et ce message **cite le
+  morceau du document sur lequel il a buté**, tel quel. Personne n'avait écrit cette recopie : elle
+  vient de la bibliothèque, ce qui explique qu'elle ait survécu aux corrections précédentes.
+
+  ⚠️ **Et certains de ces documents sont des secrets** : la réponse d'enregistrement de
+  l'amplificateur Hifi Rose contient le jeton d'appareil, la réponse d'un service web interrogé par
+  une IO Web contient ce que ce service renvoie, et le port de notification de l'amplificateur
+  accepte le message de **n'importe qui sur votre réseau local**. Ces lignes étaient imprimées **sur
+  une installation neuve**, sans que personne ait rien activé.
+
+  Désormais la ligne dit **quel** document a échoué, **quelle** erreur l'analyseur a rencontrée, **à
+  quel octet** il s'est arrêté et **quelle taille** faisait le document. Le diagnostic est au moins
+  aussi utile — la position est ce qui permet de retrouver la faute dans le document — et il ne part
+  plus avec un octet de son contenu.
 - ⭐ **Les réponses des appareils et services HTTP ne sont plus recopiées dans les journaux.** Tout
   ce que Calaos interroge en HTTP — amplificateur Hifi Rose, caméras, pont Hue, base de données
   influxdb, station de surveillance Synology, services de notification, et les adresses que vous
