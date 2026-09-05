@@ -1414,6 +1414,24 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   Et si vous cherchiez auparavant une adresse complète dans un journal pour la rejouer à la main,
   ce n'est plus possible : il faut la relire dans `io.xml`.
 
+- ⭐ **Le jeton de votre amplificateur Hifi Rose n'est plus écrit dans les journaux, et ce qui part
+  vers les passerelles non plus.** Deux endroits, découverts en fermant les précédents. Le premier :
+  à chaque fois que Calaos s'enregistrait auprès de l'amplificateur, il écrivait le **jeton
+  d'appareil** que celui-ci venait de lui remettre — **sur une installation neuve, sans que personne
+  ait rien activé**. Ce jeton est ce qui autorise à piloter l'ampli. Le second : tout message que le
+  serveur envoie à l'une de ses passerelles était recopié entier, dans les deux sens — et celui
+  destiné à la passerelle Reolink transporte **le nom d'utilisateur et le mot de passe de vos
+  caméras**.
+
+  Désormais la ligne dit **quelle** passerelle, **quel type** de message et **combien d'octets**,
+  sans son contenu ; et du côté de l'amplificateur, elle nomme l'appareil. ⭐ Le diagnostic y gagne
+  même quelque chose : quand l'amplificateur répond **sans** jeton, Calaos le dit maintenant, alors
+  que ce cas était jusque-là parfaitement invisible.
+
+  ⚠️ **Une réserve honnête** : cette correction protège ce que le serveur **écrit lui-même**. Un
+  message d'erreur venu d'une bibliothèque tierce pouvait encore emporter le même secret par une
+  autre porte — c'est ce que ferment les deux corrections suivantes.
+
 - ⭐ **Le message d'erreur d'une caméra Reolink ne peut plus emporter vos identifiants de caméra
   dans les journaux.** Quand la passerelle Reolink n'arrivait pas à joindre une caméra, elle
   renvoyait au serveur le texte d'erreur produit par la **bibliothèque tierce** qui venait
