@@ -10705,7 +10705,7 @@ occurrences de `<ident>.what()` sous `src/` hors `json.hpp`, `exprtk/` et `sqlit
 
 **Aucun ticket ouvert.**
 
-### ⛔ [F-LOGSECRET-7] Le plafond des capteurs à borne est un nombre écrit à la main que rien ne re-mesure — ticket proposé [`T3.94`](T3.94.md)
+### ✅ [F-LOGSECRET-7] Le plafond des capteurs à borne est un nombre écrit à la main que rien ne re-mesure — **FERMÉ** par [`T3.94`](T3.94.md)
 
 Mesuré à la revue de merge de [`T3.89`](T3.89.md). **Trois** suites bornent la plus longue suite
 d'octets de l'entrée que le journal rend — `core/ControllerFrameSecret_test` (**10**),
@@ -10721,10 +10721,32 @@ de la fixture** : la même revue a trouvé les neuf documents de `T3.89` partage
 `Libelle":"`, **exactement dix octets**, soit la borne elle-même — une modification de fixture peut
 élargir la fenêtre aveugle sans qu'aucune assertion ne bouge.
 
-Ce qui la fermerait : **asserter le recouvrement lui-même** (plafond = maximum observé + 1) et la
-**disjonction des documents de la fixture**. ⚠️ Cela ne ferme pas la fenêtre, seulement sa
-**dérive silencieuse** : un capteur à borne ne peut pas descendre sous le bruit que le journal a le
-droit d'écrire.
+✅ **FERMÉ par [`T3.94`](T3.94.md).** Chaque suite mesure désormais, à chaque exécution, la plus
+longue suite d'octets que son propre journal rend sur **toutes** les sondes que le plafond couvre, et
+épingle `plafond == maximum + 1` ; un second cas borne la plus longue suite commune à deux documents
+de la fixture. **Recouvrement réel re-mesuré** : **8** (`manifest`), **7** (`payload`), **12**
+(`192.168.7.51`) ⇒ plafonds re-dérivés **9**, **8**, **13** — les trois étaient trop larges de 2, 3
+et 4 octets. ⭐ **La mutation de 9 octets au site de notification, qui donnait 0 rouge sur 128,
+rougit maintenant** ce site et sa calibration. ⭐ **Et une dérive à la BAISSE** (la ligne mqtt cesse
+de nommer `payload`, aucun octet de secret publié) rougit **un seul cas dans tout l'arbre, la
+calibration** — rien d'autre ne la voit.
+
+⚠️ **Ce qui reste ouvert** : la fenêtre est resserrée, pas fermée (8, 7, 12 octets passent encore) ;
+un capteur à borne ne peut pas descendre sous le bruit que le journal a le droit d'écrire. Et le
+plafond reste **global à la suite**, pas par site.
+
+### ⛔ [F-LOGSECRET-8] Trois AUTRES capteurs à borne, même défaut, jamais recensés — ticket proposé [`T3.96`](T3.96.md)
+
+Balayé en fermant [`T3.94`](T3.94.md) : `F-LOGSECRET-7` recensait **trois** capteurs à borne là où
+`tests/` en porte **six**. Les trois autres portent **13 assertions bornées** et un plafond écrit à la
+main que rien ne re-mesure : ⛔ `core/HttpRequestLogSecret_test.cpp` (`kMaxEcho` = **8**, **7**
+assertions, sur le chemin HTTP **entrant**) · `UrlDownloaderLogUrl_test.cpp` (`kMaxUrlEcho` = **8**,
+4) · `UrlDownloaderLogSecret_test.cpp` (`kMaxBodyEcho` = **12**, 2).
+
+⚠️ **Une réserve mesurée d'avance** : `UrlDownloaderLogUrl_test` fabrique des URL portant un port
+**éphémère**, donc du matériau aléatoire **dans la sonde** — ce que les trois suites de `T3.94`
+n'avaient pas. L'égalité peut y être instable et sa stabilité doit être mesurée avant d'être écrite.
+⛔ `core/HttpRequestLogSecret_test.cpp` appartient au périmètre de fichiers de [`T3.92`](T3.92.md).
 
 **Aucun ticket ouvert.**
 
