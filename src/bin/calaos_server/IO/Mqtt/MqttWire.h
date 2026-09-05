@@ -218,11 +218,24 @@ inline void resolveBroker(const Params &params,
 
 /*
  * The key that tells the broker configuration from a publish request. Both
- * directions of this wire are flat objects, and a configuration whose three
- * broker fields all sat on their defaults would otherwise read as a publish on
- * topic "".
+ * kinds of server-to-sidecar message are flat objects with no field in common,
+ * so without a positive marker the sidecar could only guess: a publish request
+ * arriving first would be applied as a configuration sitting entirely on its
+ * defaults - 127.0.0.1:1883, no credentials - and the sidecar would talk to the
+ * wrong broker in silence. Same shape as ReolinkWire::buildRegisterMessage(),
+ * which carries "action":"register" for a wire that has only one kind.
  */
 inline const char *configAction() { return "config"; }
+
+/*
+ * How long calaos_mqtt waits for that first message before giving up. HERE and
+ * not in the sidecar, so that the bound a test holds it to is the bound it
+ * really uses: a copy on each side can drift, and a drift would fail on the
+ * harness clock instead of on the code. The server writes the configuration
+ * the moment it accepts the connection, so anything above a second is already
+ * unreachable; what is left is the margin a loaded box needs.
+ */
+inline int configWaitMs() { return 5000; }
 
 /*
  * The broker configuration, sent as the FIRST MESSAGE OF THE SOCKET and never

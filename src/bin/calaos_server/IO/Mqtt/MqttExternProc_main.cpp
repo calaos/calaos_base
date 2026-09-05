@@ -110,16 +110,14 @@ void MqttClient::on_error()
 }
 
 /*
- * How long this sidecar waits for the broker configuration before giving up.
- *
- * ⚠️ Not a comfort margin: it is what a PARTIAL UPDATE needs. A calaos_server
- * older than this binary hands the configuration in the argv, which this build
- * no longer reads, so nothing ever arrives on the socket. Without a deadline
- * that is an idle process and a silent journal - with it, one printed line per
- * relaunch. The configuration is written by the server the moment it accepts
- * the connection, so anything above a second is already unreachable.
+ * The deadline is not a comfort margin: it is what a PARTIAL UPDATE needs. A
+ * calaos_server older than this binary hands the configuration in the argv,
+ * which this build no longer reads, so nothing ever arrives on the socket.
+ * Without a deadline that is an idle process and a silent journal - with it,
+ * one printed line per relaunch. Its value lives in MqttWire.h so that no copy
+ * of it can drift away from the one the tests hold this binary to.
  */
-static const int kConfigWaitMs = 5000;
+static const int kConfigWaitMs = MqttWire::configWaitMs();
 
 class MqttProcess: public ExternProcClient
 {

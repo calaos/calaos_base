@@ -57,9 +57,15 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/un.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <chrono>
+#include <csignal>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <sstream>
@@ -133,11 +139,12 @@ Params brokerParams(int port)
 }
 
 /*
- * How long the shipped sidecar waits for its configuration before giving up.
- * Kept in step with kConfigWaitMs of IO/Mqtt/MqttExternProc_main.cpp; a case
- * that outran it would fail on the harness's clock instead of on the code.
+ * How long the shipped sidecar waits for its configuration before giving up -
+ * READ FROM THE SHIPPED DECLARATION, never spelled again here. A second copy
+ * of a bound is a bound that can drift, and a drift fails the case on the
+ * harness's clock instead of on the code.
  */
-const int kSidecarWaitMs = 5000;
+const int kSidecarWaitMs = MqttWire::configWaitMs();
 
 struct SidecarRun
 {
@@ -213,6 +220,134 @@ SidecarRun runSidecar(const std::vector<std::string> &messages, int budgetMs)
     return out;
 }
 
+/*
+ * The same sidecar, spawned WITHOUT ExternProcServer so that the bytes of the
+ * socket can be cut where the test wants them.
+ *
+ * ExternProcServer only ever offers a whole message, so nothing driven through
+ * it can say what happens when a configuration arrives in two reads - and a
+ * unix stream promises nothing about where a write ends up being cut. This
+ * writes the frames by hand, in the chunks it is given: one byte of opcode,
+ * four of big endian length, then the payload, which is the framing of
+ * IO/ExternProc.cpp and is pinned there.
+ */
+std::string frameOf(const std::string &payload)
+{
+    std::string f;
+    f += char(0x21);                                   //TypeMessage
+    const uint32_t n = static_cast<uint32_t>(payload.size());
+    f += char((n >> 24) & 0xFF);
+    f += char((n >> 16) & 0xFF);
+    f += char((n >> 8) & 0xFF);
+    f += char(n & 0xFF);
+    f += payload;
+    return f;
+}
+
+SidecarRun runSidecarRaw(const std::vector<std::string> &chunks, int budgetMs)
+{
+    SidecarRun out;
+
+    char dir[] = "/tmp/calaos_rawwaitXXXXXX";
+    if (::mkdtemp(dir) == NULL)
+        return out;
+    const std::string sockpath = std::string(dir) + "/s";
+
+    const int srv = ::socket(AF_UNIX, SOCK_STREAM, 0);
+    struct sockaddr_un addr;
+    ::memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    ::strncpy(addr.sun_path, sockpath.c_str(), sizeof(addr.sun_path) - 1);
+    if (srv < 0 || ::bind(srv, (struct sockaddr *)&addr, sizeof(addr)) != 0 ||
+        ::listen(srv, 1) != 0)
+    {
+        if (srv >= 0) ::close(srv);
+        return out;
+    }
+
+    int pipefd[2];
+    if (::pipe(pipefd) != 0)
+    {
+        ::close(srv);
+        return out;
+    }
+
+    const std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
+    const pid_t pid = ::fork();
+    if (pid == 0)
+    {
+        ::close(pipefd[0]);
+        ::dup2(pipefd[1], 1);
+        ::dup2(pipefd[1], 2);
+        ::execl(CALAOS_MQTT_SIDECAR, CALAOS_MQTT_SIDECAR,
+                "--socket", sockpath.c_str(), "--namespace", "mqtt", (char *)NULL);
+        ::_exit(127);
+    }
+    ::close(pipefd[1]);
+
+    const int cli = ::accept(srv, NULL, NULL);
+    if (cli >= 0)
+    {
+        for (std::size_t i = 0; i < chunks.size(); i++)
+        {
+            if (::send(cli, chunks[i].data(), chunks[i].size(), MSG_NOSIGNAL) < 0)
+                break;
+            //A pause between two chunks is what makes them two READS on the
+            //other side; without it the kernel may hand them over as one and
+            //the case would measure nothing.
+            if (i + 1 < chunks.size())
+                ::usleep(250 * 1000);
+        }
+    }
+
+    //Drain the child's stdout while waiting for it, so that a sidecar which
+    //fills the pipe cannot deadlock this loop instead of failing the case.
+    const int flags = ::fcntl(pipefd[0], F_GETFL, 0);
+    ::fcntl(pipefd[0], F_SETFL, flags | O_NONBLOCK);
+
+    int status = 0;
+    while (std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::steady_clock::now() - t0).count() < budgetMs)
+    {
+        char buf[4096];
+        const ssize_t n = ::read(pipefd[0], buf, sizeof(buf));
+        if (n > 0)
+            out.log.append(buf, buf + n);
+
+        if (::waitpid(pid, &status, WNOHANG) == pid)
+        {
+            out.exited = true;
+            out.exitedAfterMs = static_cast<long>(
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::steady_clock::now() - t0).count());
+            break;
+        }
+        ::usleep(20 * 1000);
+    }
+
+    if (!out.exited)
+    {
+        ::kill(pid, SIGKILL);
+        ::waitpid(pid, &status, 0);
+    }
+
+    for (;;)
+    {
+        char buf[4096];
+        const ssize_t n = ::read(pipefd[0], buf, sizeof(buf));
+        if (n <= 0)
+            break;
+        out.log.append(buf, buf + n);
+    }
+
+    ::close(pipefd[0]);
+    if (cli >= 0) ::close(cli);
+    ::close(srv);
+    ::unlink(sockpath.c_str());
+    ::rmdir(dir);
+    return out;
+}
+
 bool logCarries(const SidecarRun &r, const std::string &needle)
 {
     return r.log.find(needle) != std::string::npos;
@@ -264,6 +399,14 @@ protected:
  */
 TEST_F(MqttSidecarConfigWaitTest, AConfigurationThatNeverArrivesEndsTheSidecarAfterItHasWaited)
 {
+    //The two bounds below separate "waited then gave up" from "left at once"
+    //only while the announced wait is long enough to tell them apart. Reading
+    //the bound from the shipped declaration removes the drift; it does not
+    //remove a declaration shrunk to nothing, which would make them vacuous.
+    ASSERT_GE(kSidecarWaitMs, 1000)
+        << "the announced wait is " << kSidecarWaitMs
+        << " ms, too short for the two bounds of this case to mean anything";
+
     const SidecarRun r = runSidecar(std::vector<std::string>(), kSidecarWaitMs * 3);
 
     ASSERT_TRUE(r.exited)
@@ -350,6 +493,93 @@ TEST_F(MqttSidecarConfigWaitTest, ASecondConfigurationIsRefusedAndTheSidecarStay
     EXPECT_FALSE(logCarries(r, "mot de passe"))
         << "the sidecar published its own configuration while refusing the "
            "duplicate. Log: " << r.log;
+
+    ::close(listener);
+}
+
+/*
+ * The FIRST message is refused when it is not the configuration.
+ *
+ * Both kinds of server-to-sidecar message are flat json objects, so the only
+ * thing that tells them apart is the "action" key. Without a case here, that
+ * key is decided by MqttWire alone and nothing says the sidecar reads it: a
+ * build that took whatever came first for its configuration would talk to
+ * 127.0.0.1:1883 with no credentials, in silence, and every case of this tree
+ * would stay green - measured, by dropping the check and finding no red.
+ */
+TEST_F(MqttSidecarConfigWaitTest, APublishRequestArrivingFirstIsRefusedAndNotTakenForAConfiguration)
+{
+    const std::string publish = MqttWire::encodeMessage("maison/salon/store/set", "OPEN");
+
+    Params shape;
+    ASSERT_TRUE(MqttWire::decodeMessage(publish, shape));
+    ASSERT_FALSE(shape.Exists("action"))
+        << "a publish request now carries the configuration marker, so this "
+           "case can no longer say anything: " << publish;
+
+    const SidecarRun r = runSidecar(std::vector<std::string>(1, publish), kSidecarWaitMs * 3);
+
+    ASSERT_TRUE(r.exited)
+        << "a publish request sent before any configuration left the sidecar "
+           "running: it took it for a configuration on its defaults and is "
+           "talking to the wrong broker. Log: " << r.log;
+    EXPECT_LT(r.exitedAfterMs, kSidecarWaitMs)
+        << "the sidecar sat on the deadline instead of answering the message "
+           "it had already received. Log: " << r.log;
+    EXPECT_TRUE(logCarries(r, "Expected the broker configuration as the first message"))
+        << "nothing says the first message was not the configuration. Log: "
+        << r.log;
+    EXPECT_FALSE(logCarries(r, "maison/salon/store/set"))
+        << "the sidecar published the message it refused. Log: " << r.log;
+}
+
+/*
+ * A configuration cut in two READS is still one configuration.
+ *
+ * A unix stream promises nothing about where a write is cut, and this is the
+ * one message whose loss is silent: the sidecar would give up on its deadline
+ * and the relaunch loop would turn for ever with the server writing the
+ * configuration correctly every time. Nothing driven through ExternProcServer
+ * can say this - it only ever offers whole messages - so the frame is written
+ * by hand, split INSIDE its five byte header and again inside its payload.
+ *
+ * ⚠️ The two-chunk split is asserted to be a real one before it is used: a cut
+ * that fell outside the frame, or a frame short enough to have no inside,
+ * would make this case green while measuring one write.
+ */
+TEST_F(MqttSidecarConfigWaitTest, AConfigurationCutAcrossTwoReadsIsStillAssembled)
+{
+    int port = 0;
+    const int listener = openLoopbackListener(port);
+    ASSERT_GE(listener, 0) << "could not open a loopback listener";
+
+    const std::string wire = frameOf(MqttWire::encodeConfig(brokerParams(port)));
+    const std::string::size_type cut = 3;   //inside the 5 byte header
+
+    ASSERT_GT(wire.size(), cut + 1)
+        << "the frame is too short to be cut inside";
+    ASSERT_EQ(0x21, static_cast<unsigned char>(wire[0]))
+        << "the hand written frame does not carry the opcode IO/ExternProc.cpp "
+           "expects, so a green here would mean the sidecar ignored it";
+
+    std::vector<std::string> chunks;
+    chunks.push_back(wire.substr(0, cut));
+    chunks.push_back(wire.substr(cut));
+
+    const SidecarRun r = runSidecarRaw(chunks, kSidecarWaitMs + 2000);
+
+    EXPECT_FALSE(r.exited)
+        << "the sidecar left after " << r.exitedAfterMs
+        << " ms although its whole configuration had been written: a "
+           "configuration cut between two reads is lost, and the relaunch loop "
+           "that follows is silent on the server side. Log: " << r.log;
+    EXPECT_FALSE(logCarries(r, "waiting for its configuration"))
+        << "the sidecar gave up on its deadline, i.e. it never assembled the "
+           "two halves of the frame. Log: " << r.log;
+    EXPECT_TRUE(logCarries(r, "Connect to : 127.0.0.1"))
+        << "nothing says the configuration was applied at all. Log: " << r.log;
+    EXPECT_FALSE(logCarries(r, "mot de passe"))
+        << "the sidecar published the configuration it assembled. Log: " << r.log;
 
     ::close(listener);
 }

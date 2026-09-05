@@ -112,6 +112,52 @@ int countOccurrences(const std::string &haystack, const std::string &needle)
     return n;
 }
 
+/*
+ * Drop comments and the inside of literals, so a tripwire that forbids a
+ * SPELLING answers about the code and not about the prose around it. A
+ * tripwire that goes red because someone described the defect it guards is a
+ * tripwire the next maintainer disarms, and this one forbids `argv[` in the
+ * very file whose comments explain why the argv is empty.
+ */
+std::string stripCommentsAndLiterals(const std::string &src)
+{
+    std::string out;
+    out.reserve(src.size());
+
+    enum { Code, Line, Block, Str, Chr } st = Code;
+
+    for (std::string::size_type i = 0; i < src.size(); i++)
+    {
+        const char c = src[i];
+        const char n = (i + 1 < src.size())?src[i + 1]:'\0';
+
+        switch (st)
+        {
+        case Code:
+            if (c == '/' && n == '/') { st = Line;  i++; }
+            else if (c == '/' && n == '*') { st = Block; i++; }
+            else if (c == '"')  { st = Str; out += c; }
+            else if (c == '\'') { st = Chr; out += c; }
+            else out += c;
+            break;
+        case Line:
+            if (c == '\n') { st = Code; out += c; }
+            break;
+        case Block:
+            if (c == '*' && n == '/') { st = Code; i++; out += ' '; }
+            else if (c == '\n') out += c;
+            break;
+        case Str:
+        case Chr:
+            if (c == '\\') { i++; }
+            else if ((st == Str && c == '"') || (st == Chr && c == '\'')) { st = Code; out += c; }
+            break;
+        }
+    }
+
+    return out;
+}
+
 //Collapse runs of whitespace so a tripwire matches any layout of the same
 //tokens instead of going red on a re-indent. Same helper, same reason, as
 //core/ExternProcArgv_test.cpp.
@@ -336,19 +382,38 @@ TEST_F(ExternProcLogSecretTest, TheLogStillNamesTheSidecarAndCountsItsRelaunches
  * ⚠️ The file is asserted to still be the one that defines setup(), so that a
  * rename or a move cannot make the count zero and this case vacuously green.
  *
+ * ⚠️ COMMENTS ARE NOT CODE, and this one reads only the code. The file's own
+ * comments explain why the argv is empty; counting them too would make the
+ * tripwire red on a maintainer who described the defect, which is the kind of
+ * red that gets a tripwire deleted rather than obeyed. The stripper is
+ * exercised on a fixture first, so that a stripper that returned nothing at
+ * all could not make this case vacuously green.
+ *
  * ⚠️ A spelling, not an effect - with the weakness that implies. What the
  * sidecar really does with the configuration it now waits for is
  * core/MqttSidecarConfigWait_test, which runs the shipped binary.
  */
 TEST_F(ExternProcLogSecretTest, TripwireSource_TheMqttSidecarReadsNoArgumentAtAll)
 {
+    const std::string probe =
+        "//a comment naming argv[1]\n"
+        "/* a block naming argv[2] */\n"
+        "const char *s = \"a literal naming argv[3]\";\n"
+        "int n = argv[4];\n";
+    const std::string stripped = collapseWhitespace(stripCommentsAndLiterals(probe));
+    ASSERT_EQ(1, countOccurrences(stripped, "argv["))
+        << "the comment and literal stripper does not keep exactly the one "
+           "occurrence that is code: " << stripped;
+    ASSERT_NE(std::string::npos, stripped.find("int n = argv[4];"))
+        << "the stripper ate the code it was meant to keep: " << stripped;
+
     const std::string relative = "src/bin/calaos_server/IO/Mqtt/MqttExternProc_main.cpp";
 
     std::string raw;
     ASSERT_TRUE(readShippedSource(relative, raw))
         << "could not read " << relative;
 
-    const std::string code = collapseWhitespace(raw);
+    const std::string code = collapseWhitespace(stripCommentsAndLiterals(raw));
 
     ASSERT_LE(1, countOccurrences(code, "bool MqttProcess::setup(int &argc, char **&argv)"))
         << relative << " no longer defines setup(): this tripwire is pointing "
