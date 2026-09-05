@@ -10695,7 +10695,7 @@ la ligne `x-forwarded-for` brute il rend **0 rouge** dans la suite neuve. Il rou
 RemoteUI, les deux lignes d'étranglement du transport websocket et l'identifiant de scénario de
 `JsonApi.cpp` ne sont atteints par **aucun** cas — ils tiennent par argument, pas par mesure.
 
-### 📋 [F-HTTPIN-5] Trois sites post-authentification republient une valeur du corps d'une requête, dont un à un niveau imprimé par défaut — ticket proposé [`T3.97`](T3.97.md)
+### ✅ [F-HTTPIN-5] FERMÉ par [`T3.97`](T3.97.md) — trois sites post-authentification republiaient une valeur du corps d'une requête, dont un à un niveau imprimé par défaut
 
 Les deux premiers sont **mesurés par la revue de merge** de [`T3.92`](T3.92.md), qui a invalidé
 l'affirmation « aucun autre site ne republie un corps de l'API JSON » ; le troisième a été trouvé en
@@ -10723,6 +10723,51 @@ de [`T3.92`](T3.92.md) : publier la **forme** (longueur, dernier octet nommé), 
 ⭐ **Le harnais existe et il est neuf** : `tests/core/IncomingLogStockLevel_test.cpp` atteint déjà le
 premier site par une vraie requête sur la socket, et son foin est déjà « ce qu'un boîtier neuf
 imprime ». Les trois sites courent **après** `checkCredentials()`.
+
+⭐ **Fermé, et les trois niveaux sont MESURÉS** : `decodeSetState` à **WARNING = 3**, donc imprimé
+sans que personne n'allume rien ; `pic_uid` à **DEBUG = 5**, donc jamais ; et le `cout` de
+`buildJsonSetTimerange` **hors de l'échelle** — aucun `debug_level` n'a prise dessus. Les trois
+courent **après** `checkCredentials()`, et la fiche le dit au lieu de gonfler sa sévérité.
+
+**L'arbitrage a été tranché par la mesure** : la ligne de `set_state` existait pour montrer la
+valeur fautive, elle publie désormais la **forme** — `(22B, ends on SP) #526a86df` : la longueur, le
+séparateur **nommé** dans le vocabulaire fermé de `Utils::BLANK_CHARS`, et l'empreinte salée de
+`T3.92`. Contre-mutation qui retire la forme ⇒ **2 rouges** : le diagnostic est tenu par des
+assertions. L'identifiant d'IO reste en clair parce que `get_io()` vient de le retrouver — c'est un
+nom de la configuration, pas une chaîne inventée par le client.
+
+⛔⭐ **Le `cout` nu publiait bien plus que « jour et heures »** : `decodeJsonObject()` recopie
+**toutes** les clefs de l'objet dans `Params` et `Params::toString()` les rend toutes — **20 octets
+sur 20** d'une clef inventée récupérés dans le foin « boîtier neuf ». Il est devenu un `cDebugDom`
+qui dit enfin **sur quel IO** la plage atterrit et ne publie que les six bornes, bornées.
+⭐ **Et convertir ne suffisait pas** : `Params::toString()` est multi-lignes, les lignes de
+continuation n'ont **aucun marqueur de niveau**, donc le rendu **sur une seule ligne** est porteur
+(mutation ⇒ 2 rouges). `pic_uid` est laissé tel quel — il **est** le diagnostic, il n'est pas un
+secret que ce dépôt distribue — et tenu par un cas qui mesure son **niveau** (mutation vers WARNING
+⇒ 1 rouge).
+
+⚠️ **Ce que la fermeture laisse derrière elle** : le plafond de 8 octets posé sur chaque borne
+d'horaire n'est tenu par **rien** (mutation qui les déborne ⇒ **0 rouge sur 131 suites**), et
+l'empreinte de `set_state` n'est tenue par aucun cas. Voir [`T3.97`](T3.97.md) §7.
+
+### 📋 [F-LOGRAW-1] `ExternProc` relaie la sortie de ses six sidecars hors de tout journal — ticket proposé [`T3.101`](T3.101.md)
+
+Relevé par le **recensement des écritures nues** de [`T3.97`](T3.97.md) §3, qui a balayé tout `src/`
+suivi par git, commentaires et littéraux retirés, arbres vendorés exclus : **19** écritures nues sur
+le chemin d'exécution du serveur, dont **10** publient une donnée d'exécution. **Une seule** était
+sur un chemin d'API et `T3.97` l'a fermée. Des neuf restantes, **2** sont le relais d'`ExternProc`
+(`std::cout << process_stdout.substr(...)`, et l'équivalent sur `stderr`), **4** sont dans
+`Lua_stackDump()`, une fonction **qu'aucun appelant de l'arbre n'appelle**, et **3** sont des
+messages de démarrage de `ConfigStore` qui courent avant toute requête.
+
+⛔ **Ce qui rend le relais différent des huit autres** : ce qui le traverse n'est pas décidé là mais
+dans **six** sidecars, le seul filtre de niveau qui s'applique est celui **de l'enfant**, et une
+écriture nue côté enfant ne rencontre rien du tout. Le relais efface aussi le domaine et le niveau :
+une ligne de pilote arrive dans le journal du serveur sans marqueur.
+
+⚠️ **C'est un arbitrage, pas un correctif** : le relais est ce qui rend un sidecar débogable, et le
+fermer touche les six pilotes. Forme candidate : passer par le journal du parent sur le domaine
+`process`, qui existe déjà et est utilisé **deux lignes plus haut**.
 
 ### ✅ [F-LOGSECRET-2] FERMÉ par [`T3.85`](T3.85.md) — un chemin d'erreur republiait à **ERROR** une chaîne fabriquée par le sidecar
 

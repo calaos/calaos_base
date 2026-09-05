@@ -1307,6 +1307,38 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   désactivée E4.2e, scénario désactivé T3.18).
 
 ## Sécurité & réseau
+- ⭐ **La valeur qu'un `set_state` refuse n'est plus recopiée dans le journal d'une installation
+  neuve.** Quand un client demande à écrire une valeur qui s'arrête sur son séparateur — une
+  commande à laquelle il manque son argument — Calaos refuse, et il écrivait la valeur fautive
+  **entre guillemets**, telle quelle. ⛔ **Cette ligne-là est imprimée sans que personne n'ait rien
+  allumé** : elle est au niveau « avertissement », qu'une installation neuve affiche. Or `set_state`
+  écrit **n'importe quelle** valeur de **n'importe quel** objet : c'est la même forme que le
+  changement de paramètre dont le mot de passe voyageait déjà par là.
+
+  Désormais la ligne dit **quel objet**, **quelle commande**, et **pourquoi** : la longueur de la
+  valeur, le blanc sur lequel elle s'est arrêtée — **nommé** (espace, tabulation, retour à la
+  ligne…), parce que ce ne sont pas les mêmes erreurs de programmation côté client — et une
+  empreinte qui permet de dire que deux refus portent sur la même valeur. Le nom de l'objet reste
+  lisible : c'est un nom de **votre** configuration, que Calaos vient de retrouver, pas une chaîne
+  inventée par le client.
+
+  ⚠️ **Deux réserves honnêtes.** Ce chemin est **authentifié** : il faut déjà des identifiants
+  valides pour l'atteindre, et rien ne dit qu'un secret y transitait — ce qui est établi est qu'une
+  valeur **quelconque** en sortait, à un niveau affiché par défaut. Et si vous lisiez cette ligne
+  pour voir la valeur fautive, vous ne la verrez plus : c'est le prix, assumé, et la longueur avec
+  le séparateur nommé disent la même faute autrement.
+- ⭐ **Une plage horaire ajoutée n'écrit plus rien en dehors du journal.** À chaque plage horaire
+  qu'un client envoyait, Calaos écrivait sur sa sortie standard **le contenu complet** de l'objet
+  reçu — champ par champ, et pas seulement les six bornes dont une plage est faite : **tout** ce que
+  le client avait mis dedans. ⛔ **Et ce n'était pas une ligne de journal** : aucun niveau ne la
+  filtrait, donc aucun réglage de journalisation ne pouvait la faire taire.
+
+  C'est désormais une ligne de journal ordinaire, au niveau « détaillé » — donc absente d'une
+  installation neuve — qui dit **sur quel objet** la plage atterrit, ce qu'elle ne disait même pas
+  avant, et qui ne publie que le jour et les deux bornes.
+
+  ⚠️ **Réserve** : une valeur que vous rangeriez vous-même sous l'un des six noms de bornes reste
+  écrite telle quelle quand les journaux détaillés sont activés.
 - ⭐ **Le jeton de session de vos caméras Synology n'apparaît plus dans le journal d'une
   installation neuve.** Quand Calaos se connecte à une Surveillance Station, il envoie votre
   identifiant et votre mot de passe et reçoit en retour un **jeton de session** — la clef qui donne
