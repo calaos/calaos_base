@@ -1074,3 +1074,57 @@ lisible.
 
 ⇒ **`F-JSON-2` peut être clos** : le chemin est inatteignable depuis l'API (plafond de 2048), la
 construction n'a plus lieu quand personne ne lit (T3.65), et ce qui reste est un coût assumé.
+
+---
+
+## Quatre arbitrages du 2026-09-05
+
+Posés à l'utilisateur en fin de session, après la série des secrets dans les journaux.
+
+### 1. Le `push` → ⏸ **DIFFÉRÉ, une seule fois, à la fin du backlog**
+
+La CI GitHub n'a jamais tourné sur les 88 commits de la série. Ce qu'elle seule peut vérifier : la
+**syntaxe du workflow** et le **build réel des deux `Dockerfile`** — les étapes `run:` ont été
+rejouées à la main dans un conteneur neuf, ce qui n'est pas la même chose.
+
+**Tranché : on ne pousse pas encore.** On finit le backlog, puis un seul `push`. Le premier job
+cumulera davantage, mais on évite les allers-retours de CI sur un arbre qui bouge encore.
+⇒ Rien ne change pour les agents : **`push` interdit** jusqu'à nouvel ordre.
+
+### 2. [`T3.82`](T3.82.md) — le secret du courtier MQTT → ✅ **PAR LA SOCKET**
+
+Mesuré : `/proc/<pid>/cmdline` est en **444** et un compte **tiers** relit l'argv verbatim ; un `ps`
+suffit. L'environnement (400) protège d'un autre compte mais ni du même UID ni de `root`.
+
+**Tranché : la socket.** Le sidecar se connecte d'abord, le serveur lui envoie sa configuration en
+premier message — rien ne reste dans `/proc`. ⭐ **La forme existe déjà dans l'arbre** :
+`ReolinkWire::buildRegisterMessage()` fait exactement cela, ce qui écarte l'argument du coût.
+
+⚠️ **Ce que ça déplace, et qu'il faut écrire** : le sidecar attend sa configuration au lieu de la
+trouver dans `main()`, donc le chemin d'échec « configuration illisible » change de place, et le
+contrat du sidecar change des deux côtés.
+
+### 3. [`T3.72`](T3.72.md) — `&#01;` n'est pas du XML 1.0 conforme → ✅ **REFUS À L'ÉCRITURE**
+
+U+0001 n'appartient pas à la production `Char` de XML 1.0 : `&#01;` est une référence à un caractère
+que la grammaire interdit, et **aucun analyseur conforme n'est tenu de l'accepter**. `pugixml` relit
+ce qu'il écrit, donc Calaos s'en sort ; un éditeur tiers ouvrant `io.xml` peut refuser.
+
+**Tranché : on refuse à l'écriture.** ⛔ **Rupture de compatibilité assumée** — l'API cesse
+d'accepter des octets qu'elle transporte aujourd'hui. Motif : un `io.xml` non conforme est un
+fichier que son propriétaire ne peut pas ouvrir avec ses propres outils, et personne ne saisit
+sciemment un caractère de contrôle dans un paramètre.
+
+⚠️ **Écarté explicitement** : remplacer par U+FFFD, comme `Config::saveStateCache()` le fait
+ailleurs. Rien ne serait refusé et le fichier redeviendrait conforme, mais **la valeur changerait en
+silence** — un refus visible vaut mieux qu'une substitution muette sur un chemin d'écriture.
+
+### 4. `T3.71` — `create` tronque, `modify` refuse → ✅ **ALIGNER SUR LE REFUS**
+
+Sur un nom d'auto-scénario portant un octet nul, `buildAutoscenarioCreate()` écrit une version
+**tronquée** là où `modify` **refuse**. L'API se contredit, et ce demi-chemin n'est épinglé par
+aucun test.
+
+**Tranché : `create` refuse comme `modify`.** Même famille que l'arbitrage 3 et même motif : ce sont
+des noms que personne ne saisit à la main, et une API qui refuse ici et tronque là est plus
+surprenante que celle qui refuse partout.
