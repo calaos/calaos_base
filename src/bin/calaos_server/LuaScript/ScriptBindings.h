@@ -59,9 +59,6 @@ private:
 int Lua_print(lua_State *L);
 void Lua_DebugHook(lua_State *L, lua_Debug *ar);
 
-//This is for debugging purpose only
-void Lua_stackDump(lua_State *L);
-
 class Lua_Calaos: sigc::trackable
 {
 private:
