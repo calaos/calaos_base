@@ -5184,3 +5184,24 @@ core_IncomingLogStockLevel_test_DEPENDENCIES = $(INCOMING_LOG_STOCK_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.88
+if HAVE_GTEST
+#The Synology camera driver on top of the core objects: its own object plus
+#IPCam.o, already in CORE_SERVER_OBJECTS. Nothing else is needed - the driver
+#talks to the network through UrlDownloader, which lives in libcalaos_common.
+DRIVER_ANSWER_TEST_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/SynoSurveillanceStation.$(OBJEXT)
+
+TESTS += core/DriverAnswerSecret_test
+check_PROGRAMS += core/DriverAnswerSecret_test
+core_DriverAnswerSecret_test_SOURCES = core/DriverAnswerSecret_test.cpp
+core_DriverAnswerSecret_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_DriverAnswerSecret_test_LDADD = $(DRIVER_ANSWER_TEST_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_DriverAnswerSecret_test_DEPENDENCIES = $(DRIVER_ANSWER_TEST_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
