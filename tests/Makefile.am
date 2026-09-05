@@ -4849,3 +4849,26 @@ core_ExternProcPayloadSecret_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Re
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.83
+#What the HTTP transport writes about the answers it carries: a real transfer
+#against a loopback HTTP peer whose response body carries a needle, the log of
+#the shipped code captured from std::cout, and the counterweight (status and
+#body size) that keeps a journal usable. A forked child that never raised the
+#level measures what a stock install prints for the urlutils domain, which the
+#suite itself cannot see: its own main() raises debug_level before the first
+#log line (the Logger domain map is filled once and never re-read), and that
+#also forbids gtest_main here.
+#Only libcalaos_common is linked: UrlDownloader lives in src/lib and every
+#driver of the tree reaches this line through it.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += UrlDownloaderLogSecret_test
+check_PROGRAMS += UrlDownloaderLogSecret_test
+UrlDownloaderLogSecret_test_SOURCES = UrlDownloaderLogSecret_test.cpp
+UrlDownloaderLogSecret_test_CPPFLAGS = $(AM_CPPFLAGS)
+UrlDownloaderLogSecret_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest
+endif
