@@ -2606,6 +2606,16 @@ Json JsonApi::buildAutoscenarioCreate(const Json &jdata)
     if (!parseScenarioPayload(jdata, payload, err))
         return Params({{ "error", err }}).toJson();
 
+    /* The name goes to io.xml inside the Params createIO() hands whole to the
+     * IO constructor: set_param() is never called, so the guard at the model
+     * boundary cannot reach this one and it needs its own. Same answer as
+     * `modify`, which refuses through that guard - the two verbs used to
+     * disagree on the same name, one refusing and the other writing a version
+     * of it cut at the zero byte.
+     */
+    if (!XmlUtils::isWritableAsAttribute(payload.name))
+        return Params({{ "error", "invalid payload: name refused" }}).toJson();
+
     Params params;
     params.Add(AutoScenarioDef::KEY_UID, AutoScenarioDef::newUid());
     params.Add("name", payload.name);

@@ -1010,7 +1010,14 @@ TEST_F(JsonApiDispatchWireBytesTest, Tripwire_TheWsApiWireIsAlreadyFormThree)
 
     IOBase *io = ListeRoom::Instance().get_io(HOUSE_STRING);
     ASSERT_TRUE(io != nullptr);
-    io->set_param("e41s_probe", std::string("e41s-") + "\xc3\xa9" + "-\x1f-\x01-\x7f-end");
+    /* Planted through the mutable parameter map and not through set_param():
+     * the oracle here is the EMITTER - what the wire does with bytes it is
+     * given - and set_param() is only the fixture. It refuses the C0 controls
+     * that XML 1.0 cannot write, which would make this case measure that guard
+     * instead of the encoding. A suite of its own measures the guard.
+     */
+    io->get_params().Add("e41s_probe",
+                         std::string("e41s-") + "\xc3\xa9" + "-\x1f-\x01-\x7f-end");
 
     WsTestSession ws;
     ws.send(Json{{ "msg", "get_param" }, { "msg_id", "1" },

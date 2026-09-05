@@ -78,22 +78,52 @@ IOBase::~IOBase()
     delete ioDoc;
 }
 
+namespace
+{
+
+//U+XXXX rather than the byte itself: naming it keeps a control character out
+//of the log line that complains about it.
+std::string codePointName(int byte)
+{
+    static const char HEX[] = "0123456789ABCDEF";
+    std::string name = "U+00";
+    name += HEX[(byte >> 4) & 0xf];
+    name += HEX[byte & 0xf];
+    return name;
+}
+
+} //namespace
+
 bool IOBase::set_param(std::string opt, std::string val)
 {
-    /* A zero byte does not survive the trip to io.xml: XmlUtils::setAttribute()
-     * resolves the name and writes the value through pugixml's C string API,
-     * which cuts at the zero. A cut NAME lands on whatever attribute the
-     * prefix happens to spell - "name\0squat" becomes name, and the IO is
-     * renamed on disk - and nothing says so until the next reload. Refuse at
-     * the model boundary; the file is what is being protected, and it is
-     * reached from more places than this one.
+    /* io.xml is XML 1.0, and the C0 controls the grammar has no spelling for
+     * are refused here, at the model boundary. The zero byte is the worst of
+     * them - it ends the C string XmlUtils::setAttribute() resolves the name
+     * with, so "name\0squat" lands on the neighbouring attribute and renames
+     * the IO - but the others are not harmless either: pugixml writes them as
+     * `&#01;`, which only pugixml has to read back, and the owner of the file
+     * can no longer open it with his own tools.
+     * ⛔ The refusal is HERE and not in the writer: the writer also re-records
+     * what an older Calaos wrote, and such a configuration must stay saveable.
      */
-    if (opt.find('\0') != std::string::npos ||
-        val.find('\0') != std::string::npos)
+    const int badOpt = XmlUtils::firstUnwritableByte(opt);
+    const int badVal = XmlUtils::firstUnwritableByte(val);
+    if (badOpt >= 0)
     {
-        cErrorDom("iobase") << "set_param(): refusing a parameter carrying a "
-                            << "zero byte on IO '" << param["id"]
-                            << "', it would not survive the write to io.xml";
+        //The name is not echoed - it is the thing carrying the byte.
+        cErrorDom("iobase") << "set_param(): refusing a parameter on IO '"
+                            << param["id"] << "': its name carries the control "
+                            << "character " << codePointName(badOpt)
+                            << ", which XML 1.0 cannot write into io.xml";
+        return false;
+    }
+    if (badVal >= 0)
+    {
+        cErrorDom("iobase") << "set_param(): refusing the parameter '" << opt
+                            << "' on IO '" << param["id"] << "': its value "
+                            << "carries the control character "
+                            << codePointName(badVal)
+                            << ", which XML 1.0 cannot write into io.xml";
         return false;
     }
 

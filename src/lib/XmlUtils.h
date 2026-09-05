@@ -100,6 +100,46 @@ inline void setAttribute(pugi::xml_node node, const std::string &name, int value
 }
 
 /*
+ * 2b. What an attribute is allowed to carry, asked BEFORE the write.
+ * XML 1.0 (Fifth Edition) §2.2:
+ *   Char ::= #x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD]
+ *            | [#x10000-#x10FFFF]
+ * so every C0 control but tab, line feed and carriage return is outside the
+ * grammar. setAttribute() above does not refuse them: pugixml emits `&#01;`,
+ * a reference to a character no conforming parser has to accept, and reads its
+ * own back - the file round trips through pugixml and through nothing else.
+ *
+ * ⛔ This predicate does NOT belong inside setAttribute(). The writer also
+ * re-records what an older Calaos wrote, and a configuration that already
+ * carries such a byte must stay saveable; callers put it in front of the
+ * values they are about to ACCEPT, never in front of the ones they merely
+ * carry back out.
+ *
+ * The scan is byte wise on purpose: a C0 byte never occurs inside a multi byte
+ * UTF-8 sequence, so no decoding is needed to be exact here.
+ */
+inline bool isWritableAsAttribute(const std::string &text)
+{
+    for (unsigned char c: text)
+    {
+        if (c < 0x20 && c != '\t' && c != '\n' && c != '\r')
+            return false;
+    }
+    return true;
+}
+
+//The first byte the predicate above rejects, for a message that says which.
+inline int firstUnwritableByte(const std::string &text)
+{
+    for (unsigned char c: text)
+    {
+        if (c < 0x20 && c != '\t' && c != '\n' && c != '\r')
+            return c;
+    }
+    return -1;
+}
+
+/*
  * 3. Text and CDATA are the same thing to the callers.
  * TinyXML stored both in a TiXmlText and the config reader fished it out with
  * dynamic_cast<TiXmlText *>(node->FirstChild()); the pugixml equivalent is a
