@@ -311,8 +311,11 @@ string WebSocketFrame::toString()
       << " Continue:" << (isContinuationFrame()?'1':'0')
       << " isText:" << (getOpcode() == OpCodeText?'1':'0')
       << " payloadSize:" << payload_length;
-    if (isTextFrame())
-        s << " " << (payload.size() > 40?payload.substr(0, 40):payload);
+
+    //No excerpt of the payload here. This line is written for EVERY frame that
+    //arrives, the payload of a text frame is the api request itself - the
+    //credentials of a client logging in - and it reaches this point before the
+    //json handler has built its redacted dump.
 
     return s.str();
 }

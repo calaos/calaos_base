@@ -65,6 +65,17 @@ std::string maskUrlCredentials(const std::string &url);
  * can be told to be the same call. The tag is salted per process on purpose:
  * an unsalted digest would let a reader confirm a guessed URL against it. */
 std::string urlForLog(const std::string &url);
+
+/* WHAT MAY BE PUBLISHED OF THE TARGET OF AN INCOMING REQUEST. The mirror of
+ * urlForLog for the other direction, and the split is not the same one: here
+ * the authority is our own and identifies nothing, while the PATH is the whole
+ * diagnosis - it is what the route table of this server is matched against.
+ * The QUERY is where a credential arrives (api.php takes cn_user/cn_pass as
+ * GET parameters), so it is rendered as a shape and never as data, with the
+ * same per-process tag so that two requests differing only there stay tellable
+ * apart. An absolute target (a proxy-style request line) is handed to
+ * urlForLog, which knows about userinfo. */
+std::string requestTargetForLog(const std::string &target);
 std::string escape_space(const std::string &s);
 
 enum CaseSensitivity { CaseInsensitive, CaseSensitive };

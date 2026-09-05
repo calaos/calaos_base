@@ -590,3 +590,43 @@ std::string Utils::urlForLog(const std::string &url)
 
     return out.str();
 }
+
+std::string Utils::requestTargetForLog(const std::string &target)
+{
+    //A proxy-style absolute target carries an authority, and possibly a
+    //userinfo: that shape is already reduced next door.
+    if (target.find("://") != string::npos)
+        return urlForLog(target);
+
+    ostringstream out;
+
+    string rest = target;
+    string fragment;
+    const auto hash = rest.find('#');
+    if (hash != string::npos)
+    {
+        fragment = rest.substr(hash + 1);
+        rest.erase(hash);
+    }
+
+    string query;
+    const auto q = rest.find('?');
+    if (q != string::npos)
+    {
+        query = rest.substr(q + 1);
+        rest.erase(q);
+    }
+
+    out << (rest.empty()? string("/"): rest);
+
+    if (!query.empty())
+        out << " [query " << countParts(query, '&') << "p/" << query.size() << "B]";
+    if (!fragment.empty())
+        out << " [fragment " << fragment.size() << "B]";
+
+    const string withheld = query + fragment;
+    if (!withheld.empty())
+        out << " #" << urlTag(withheld);
+
+    return out.str();
+}

@@ -28,7 +28,57 @@
 #include "HttpCodes.h"
 #include "libuvw.h"
 
+#include <algorithm>
+#include <set>
+
 using namespace Calaos;
+
+namespace
+{
+
+/* WHAT MAY BE PUBLISHED OF AN INCOMING REQUEST HEADER, enumerated the other
+ * way round from a redaction list: the value of a header this server routes on
+ * is protocol grammar, everything else is rendered as a name and a byte count.
+ * The failure direction is the whole point - the next authorization header
+ * nobody here has heard of is withheld because it is not in this set, not
+ * published because nobody thought to forbid it. The carriers are real and
+ * this repository makes them: the bearer get_mcp_info hands out with the
+ * instruction to send it back here, the one HMACAuthenticator reads, a
+ * browser session cookie. */
+const std::set<string> &loggableHeaderValues()
+{
+    static const std::set<string> v =
+    { "connection", "content-length", "content-type", "host",
+      "sec-websocket-version", "upgrade" };
+    return v;
+}
+
+string headersForLog(const unordered_map<string, string> &headers)
+{
+    vector<string> names;
+    names.reserve(headers.size());
+    for (const auto &h: headers)
+        names.push_back(h.first);
+
+    //An unordered_map has no order of its own, and a line that reshuffles
+    //itself between two requests cannot be compared with the previous one.
+    std::sort(names.begin(), names.end());
+
+    stringstream out;
+    for (size_t i = 0;i < names.size();i++)
+    {
+        out << (i? ", ": "") << names[i];
+
+        if (loggableHeaderValues().count(names[i]))
+            out << "=" << headers.at(names[i]);
+        else
+            out << "[" << headers.at(names[i]).size() << "B]";
+    }
+
+    return out.str();
+}
+
+}
 
 //Only used here, to refuse a request body bigger than
 //TransportLimits::maxHttpBodySize()
@@ -274,9 +324,12 @@ int HttpClient::processHeaders(const string &request)
     //Finally parsing of request is done, we can search for
     //a response for the requested path
 
-    cDebugDom("network") << "Client headers: HTTP/" << Utils::to_string(parser->http_major) << "." << Utils::to_string(parser->http_minor) << " " << parse_url;
-    for (auto it = request_headers.begin();it!= request_headers.end();++it)
-        cDebugDom("network") << it->first << ": " << it->second;
+    cDebugDom("network") << "Client request: HTTP/"
+            << (int)parser->http_major << "." << (int)parser->http_minor << " "
+            << llhttp_method_name((llhttp_method_t)request_method) << " "
+            << Utils::requestTargetForLog(parse_url);
+    cDebugDom("network") << "Client headers (" << request_headers.size()
+            << "): " << headersForLog(request_headers);
 
     //Handle CORS here
     if (request_headers.find("origin") != request_headers.end())
