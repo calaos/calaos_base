@@ -3111,8 +3111,6 @@ endif
 #linker: one case connects a live AF_UNIX socket and decodes the set_param
 #frame the binding emits, which is what turns the io.set_param(value,key)
 #permutation red.
-#⚠️ _DEPENDENCIES carries libcalaos_common.la only (T3.36): a change to
-#ScriptBindings.cpp does not relink this binary on its own.
 #Own HAVE_GTEST block so this stays a pure append at the end of the file.
 if HAVE_GTEST
 TESTS += LuaCalaosApi_test
