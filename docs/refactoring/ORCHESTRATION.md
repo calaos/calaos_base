@@ -40,7 +40,102 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-05) — À LIRE EN PREMIER À FROID.**
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-05, APRÈS LE MERGE DE [`T3.96`](T3.96.md)) — LE
+  DERNIER MERGE PRÉVU. À LIRE EN PREMIER À FROID.**
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`5a4c821f`**
+  (`test(t3.96)`) et de **`ca1631a3`** (branche `test/t3.96`). `TESTS` = **131**, référence de build
+  après `make distclean` : **`TOTAL 131 / PASS 130 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 /
+  ERROR 0`**, seul `SKIP` `check-ccache-honesty.sh`. ⛔ **RIEN N'A ÉTÉ POUSSÉ DE TOUTE LA SÉRIE.**
+
+  **Tickets ouverts, une ligne chacun :**
+  - `T3.91` — proposé, fiche non écrite.
+  - [`T3.97`](T3.97.md) — trois sites post-authentification republient une valeur du corps d'une
+    requête, dont un à **WARNING** (imprimé par défaut) et un `cout` **nu**, hors de tout filtre de
+    niveau.
+  - **`T3.99`** (neuf, `F-LOGSECRET-9`) — les **cinq** suites déjà calibrées n'ont pas le cas qui
+    garde la propriété de fixture dont dépend la stabilité de leur égalité ;
+    `core/ControllerFrameSecret` y porte une portée hexadécimale de **8**, c'est-à-dire **son
+    plafond**. Les trois suites de `T3.96` sont, elles, gardées.
+  - `T3.72` et `T3.82` : voir ci-dessous, ce sont des arbitrages, pas des tickets à lancer.
+  ⚠️ Numéros **pris** : `T3.76` → `T3.99`. Le prochain libre est **`T3.100`**.
+
+  **Ce qui attend l'utilisateur, et rien d'autre :**
+  1. ⛔ **Le job CI chez GitHub n'a JAMAIS tourné** — `push` interdit depuis le début de la série,
+     donc aucune de ces 24 fiches n'a été vue par la CI. C'est le seul point de vérification ouvert
+     depuis `T3.67`.
+  2. ⛔ **[`T3.82`](T3.82.md)** — sortir le mot de passe de l'`argv` du sous-processus, c'est-à-dire
+     **changer par où il transite**. Comportement livré, arbitrage de conception.
+  3. ⛔ **`T3.72`** (proposé, `F-XML-3`) — **refuser des octets que l'API accepte aujourd'hui**
+     (`&#01;`, non conforme XML 1.0). Comportement livré, arbitrage de conception.
+
+- **✅⭐⭐ [`T3.96`](T3.96.md) MERGÉE (2026-09-05) — 2 commits de branche + 2 commits de revue,
+  `merge --ff-only`, historique linéaire, aucun rebase (la branche partait de la tête), aucun
+  conflit.** **Zéro ligne de `src/`** ; `tests/Makefile.am` gagne un bloc en **append pur**
+  (**+8 / −0**) et `TESTS` passe **130 → 131**. Build après `make distclean` :
+  **`TOTAL 131 / PASS 130 / SKIP 1 / FAIL 0`**, rc 0, **0 `error:`**, **5 `make check` complets** sur
+  l'arbre livré et **5 de plus** sur l'arbre de la revue, tous identiques. ⛔ **Rien poussé.**
+
+  ⭐ **LE RECENSEMENT EST EXACT AU CHIFFRE PRÈS, RECOMPTÉ À LA MAIN** : `tests/` porte **8** capteurs
+  à borne et **29** assertions bornées (2/2/2/4/1/12/4/2), **5 calibrées / 3 aveugles**, les aveugles
+  en portant **18** dont **12** sur le chemin entrant. Les deux recensements antérieurs (six
+  capteurs, 19 assertions) étaient périmés **des deux côtés**.
+
+  ⭐⭐ **LA FENÊTRE EST MESURÉE, ET LA MUTATION A ÉTÉ REJOUÉE DANS LES DEUX SENS PAR LA REVUE.**
+  Deux des trois recouvrements re-mesurés **hors du binaire** (journal capturé, plus longue
+  sous-chaîne recalculée en Python) : **3** (`ose`) et **4** (`conn`, présent partout parce que la
+  ligne réduite publie le nom `connection`). La mutation qui ajoute **11 octets** du corps de réponse
+  à la ligne `Response body:` rend **3 + 2** rouges sur les `tests/` de la branche et ⛔ **0 dans les
+  trois suites** sur ceux de `master` — le seul rouge d'avant venant de `core/DriverAnswerSecret`,
+  **déjà calibrée**, qui voit à 5 ce que la suite dont c'est le sujet ne voit pas à 12.
+
+  ⛔⭐⭐ **DEUX AFFIRMATIONS DE LA FICHE INVALIDÉES, LES DEUX CORRIGÉES AVANT LE MERGE.**
+  (a) **« stable par construction »** était **le même argument que la revue de `T3.94` avait déjà
+  invalidé.** La portée de l'aléa n'avait été mesurée que sur les aiguilles **littérales**, alors que
+  la mesure regarde aussi leurs formes **encodées** : le base64 de `kRefusedContentSecret` portait
+  **5** octets hexadécimaux (`c290a`), **un de plus** que le recouvrement déterministe ⇒ la loterie
+  était réduite (~5·10⁻³ ⇒ ~2·10⁻⁵ par exécution), **pas fermée**. Littéral changé et **un cas par
+  suite** borne désormais la portée hexadécimale de **chaque forme mesurée** ; rouge sans le
+  correctif (`actual: 5 vs 5`). ⭐ **La leçon, à recopier dans les briefs** : *c'est le motif
+  d'encodage qui porte le recouvrement possible, pas le littéral — et une propriété « par
+  construction » se prouve en bornant tout ce que la mesure regarde, pas seulement ce qu'on a écrit
+  à la main.*
+  (b) **« la sonde échoue du bon côté, faux rouge jamais faux vert » est FAUX** : épingler le plafond
+  contre un **littéral** (`EXPECT_EQ(plafond, std::string("abc").size() + 1)`) laisse l'arbre
+  **entièrement vert, sonde comprise** — `make check` réel, `TOTAL 131 / FAIL 0`. `#if 0` et
+  `DISABLED_` de même. Elle ferme « un plafond qu'**aucune ligne ne prétend** re-dériver ».
+
+  ⭐ **LE POINT UNIQUE EXISTE ET IL MORD, MAIS SA PORTÉE EST UN NOM.** `check-echo-ceilings.sh`
+  nomme bien les **3** plafonds nus de `master` (8 vus, 3 non tenus). La revue a élargi sa
+  reconnaissance de déclaration au **type**, à la **constance** et à la **place sur la ligne** ; il
+  reste qu'un plafond appelé autrement que `kMax…Echo` lui est **invisible**, et qu'elle n'est
+  **exercée par aucun cas** — comme toute sa famille. Voir la section « Les sondes STATIQUES de
+  `tests/` » plus bas.
+
+  ✅ **`kMaxDrawnEcho` = 8, hors égalité, est acceptable** : le document est **tiré** par le
+  générateur livré, il n'a donc pas de recouvrement à re-mesurer mais une probabilité, et la sonde le
+  tient explicitement **au-dessus** d'un plafond épinglé. La fenêtre ne se rouvre pas par la bande
+  parce que ce plafond-là ne couvre **que** le jeton tiré, jamais une valeur choisie par un client.
+
+  ⚠️ **Une réserve chiffrée par la revue** : la disjonction garde les documents **entre eux**, jamais
+  contre le **vocabulaire du journal**. Mesuré, `kInventedKeySecret` partage **8** octets
+  (`grimoire`) avec une ligne d'un échange voisin, et la forme décodée de `kQueryPassword` en partage
+  **5** — sans conséquence, chaque aiguille n'étant mesurée que contre le journal de son propre
+  échange, mais la marge est d'**un** octet.
+
+  **Contre-mutations de revue, indépendantes des sept de la fiche, toutes par ÉCHANGE, `make check`
+  réel à chaque tour, restaurations par copie sans métadonnées prouvées `cmp` rc 0 **et** horodatage
+  effectivement déplacé, aucun `git` dans le conteneur** : ⭐⭐ **R1 attaque la sonde statique** —
+  épinglage remplacé par une égalité contre un littéral ⇒ ⛔ **0 rouge**, `CXXLD
+  UrlDownloaderLogSecret_test` lu (le faux vert ci-dessus) · ⭐ **R2 rejoue la fenêtre du corps de
+  réponse dans les deux sens** ⇒ **3 + 2** après, **0** avant · ⭐ **R3 remet le littéral de fixture
+  d'origine** ⇒ **1** rouge, le cas neuf, qui nomme `c290a`. Stabilité éprouvée à part :
+  **100 / 100** exécutions du cas de calibration du chemin entrant à **4**, **200 / 200** de celui du
+  corps de réponse à **3**, plafond abaissé à 1 pour qu'il dise son chiffre.
+
+  **État** : `master` = le commit de revue qui porte ce paragraphe. Worktree `.wave119/t3.96`
+  supprimé, branche `test/t3.96` supprimée.
+
+- ⭐⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-05, avant `T3.96`) — conservé pour l'historique.**
   Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`4f807a79`**
   (`fix(t3.88)`). `TESTS` = **130**, référence de build après `make distclean` :
   **`TOTAL 130 / PASS 129 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
@@ -10293,6 +10388,28 @@ elle ne garantissait rien : c'était de la discipline, pas un invariant. **Ce qu
    règle-là, elle, ne bouge pas (voir plus bas, `git checkout` dans le conteneur).
 4. ⚠️ **`make distclean` après un rebase reste requis** : T3.36 relie `tests/` à `src/`, il ne dit
    rien de la cohérence des `.o` de `src/` **entre eux**.
+
+## ⭐ Les sondes STATIQUES de `tests/` — ce que chacune refuse, et ce qu'aucune ne voit
+
+Elles ne compilent rien et coûtent des millisecondes ; chacune ferme une **classe** là où le reste
+de l'arbre ne tient que ses membres un à un. Les connaître évite d'écrire une suite qu'elles
+refuseront — ou pire, une suite qu'elles laisseront passer.
+
+| Sonde | Ce qu'elle refuse |
+|---|---|
+| `check-test-deps.sh` | un objet serveur **relié** par un binaire de test sans être un **prérequis** de ce binaire (le faux vert de `_DEPENDENCIES`) |
+| `check-extra-dist.sh` / `check-dist-coverage.sh` | un fichier nommé par le harnais mais absent de la distribution, et l'inverse |
+| `check-config-docs.sh` / `check-config-options.sh` | une option de configuration livrée sans documentation |
+| ⭐ `check-echo-ceilings.sh` (2026-09-05) | un **plafond d'écho** de `tests/` que rien ne re-dérive : il doit être **épinglé** par un `EXPECT_EQ(<plafond>, <mesure>.size() + 1)` du même fichier, ou tenu **au-dessus** d'un plafond épinglé par un `EXPECT_GT`. 9 plafonds vus, 9 tenus |
+
+⛔ **Ce que `check-echo-ceilings.sh` ne voit pas, et qu'il faut dire au brief suivant** : elle lit la
+**forme**, jamais la mesure. Un épinglage contre un **littéral**, sous `#if 0` ou dans un cas
+`DISABLED_` la laisse **verte** — mesuré. Et **le nom est le contrat** : un plafond appelé autrement
+que `kMax…Echo` lui est **invisible** (le type, la constance et la place sur la ligne, eux, ne
+comptent plus depuis la revue de `T3.96`).
+
+ℹ️ **Aucune de ces sondes n'est elle-même exercée par un cas** — la famille n'a pas d'auto-test.
+Une contre-mutation est le seul moyen de savoir qu'une d'elles parle encore.
 
 ## ⚠️ Outillage — sorties tronquées : `grep` hooké et `docker ps --format` (E4.0f, 2026-08-17)
 

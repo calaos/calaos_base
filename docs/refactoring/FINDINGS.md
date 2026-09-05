@@ -11013,7 +11013,29 @@ un plafond de **8**, écrit à la main, que rien ne re-dérive (`kMaxDrawnEcho`)
 
 ⇒ Ce qu'il faudrait : `tests/check-echo-ceilings.py` sait déjà lire les fichiers ; il pourrait
 exiger, pour chaque plafond épinglé, que le fichier porte un cas qui borne la plus longue suite
-hexadécimale de ses sondes sous ce plafond. **Aucun ticket ouvert.**
+hexadécimale de ses sondes sous ce plafond.
+
+⛔⭐ **RÉDUIT ET EN PARTIE FERMÉ À LA REVUE DE MERGE DE [`T3.96`](T3.96.md) (2026-09-05) — et la
+propriété était FAUSSE telle qu'elle était livrée.** La portée de l'aléa n'avait été mesurée que sur
+les aiguilles **littérales**. Or `longestEchoRun` mesure aussi la forme décodée en pourcents, la
+forme **base64** et la forme décodée du base64 : ce sont des aiguilles à part entière. Mesuré hors du
+binaire sur les quinze documents du chemin entrant, le base64 de `kRefusedContentSecret` portait
+**`c290a`**, **5** octets hexadécimaux — **un de plus** que le recouvrement déterministe de 4. La
+loterie n'était donc pas fermée mais réduite d'environ deux ordres de grandeur (~5·10⁻³ ⇒ ~2·10⁻⁵ par
+exécution). ⭐ **C'est le même mode d'échec que la revue de `T3.94` avait déjà nommé** : *c'est le
+motif d'encodage qui porte le recouvrement possible, pas le littéral.*
+
+✅ **Fermé pour les trois suites de `T3.96`** : le littéral fautif est changé et **chacune des trois
+porte un cas** qui borne, sous son plafond, la plus longue suite hexadécimale de **chaque forme
+mesurée** de chaque document. Rouge sans le correctif (`actual: 5 vs 5`, l'ensemble nomme le document
+et les octets).
+
+⚠️ **Ce qui reste, et devient `T3.99`** : les **cinq** suites déjà calibrées n'ont pas ce cas.
+Mesuré : `core/SidecarErrorSecret` portée **4** / plafond 13, `core/DriverAnswerSecret` **4** / 5,
+`core/IncomingLogStockLevel` **3** / 4 — tenues, sans marge pour les deux dernières — et ⛔
+`core/ControllerFrameSecret` **8** / **8** : la portée hexadécimale d'un littéral encodé y **égale**
+le plafond, donc un appariement complet le ferait rougir. C'est exactement le « 8 » que la revue de
+`T3.94` avait nommé. La forme générale du correctif reste celle envisagée ci-dessus.
 
 ### ⚠️ [F-LOGSECRET-5] Trois lignes du domaine `mqtt` publient encore **une valeur lue dans le payload**, à WARNING
 
