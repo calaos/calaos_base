@@ -1349,6 +1349,25 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   ⚠️ **Une réserve honnête** : les **en-têtes** de réponse sont toujours écrits en entier, et
   l'adresse appelée n'est nettoyée que d'une courte liste de noms de paramètres — une clef d'API
   placée ailleurs dans l'adresse y figure encore. Ces deux points ne sont pas fermés ici.
+
+- ⭐ **Le message d'erreur d'une caméra Reolink ne peut plus emporter vos identifiants de caméra
+  dans les journaux.** Quand la passerelle Reolink n'arrivait pas à joindre une caméra, elle
+  renvoyait au serveur le texte d'erreur produit par la **bibliothèque tierce** qui venait
+  d'essayer de s'y connecter **avec votre nom d'utilisateur et votre mot de passe** — et le serveur
+  le recopiait tel quel dans son journal, **sur une installation neuve, sans que personne ait rien
+  activé**. Personne ne contrôlait ce texte : il vient d'une dépendance, et rien ne l'empêchait d'y
+  citer l'adresse d'authentification, le compte ou la réponse de la caméra.
+
+  ⛔ **Une caméra injoignable reste diagnosticable, et c'est le point important** : le journal dit
+  toujours qu'une erreur est survenue, **de quelle nature** (échec de connexion, délai dépassé),
+  **sur quelle caméra**, et **combien d'octets** de texte la passerelle avait envoyés sans que le
+  serveur les imprime. Ce qui a disparu, c'est le texte libre — pas le diagnostic. La passerelle
+  elle-même n'écrit plus que le **type** de l'erreur, jamais son message : son journal atterrit
+  dans celui du serveur.
+
+  ⚠️ **Une réserve honnête** : d'autres passerelles (MQTT, KNX, Lua, OneWire) recopient encore le
+  message qu'elles n'ont pas su lire, en entier, à un niveau lui aussi imprimé par défaut. C'est
+  un travail distinct, non fait ici.
 - **TinyXML 2.5.3 (non maintenu, 2 CVE) remplacé par pugixml** — 14 242 lignes de bibliothèque
   tierce retirées du dépôt. Les deux vulnérabilités (plantage du serveur sur XML malformé,
   boucle infinie sur UTF-8 tronqué), atteignables depuis une URL configurée par l'utilisateur via

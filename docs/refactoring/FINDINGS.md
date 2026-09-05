@@ -10328,7 +10328,7 @@ publiés** (statut, `Content-Type`, `Content-Length`, `Location`) et de ne rendr
 autres. ⛔ Le harnais existe : `tests/UrlDownloaderLogSecret_test.cpp` monte déjà un pair HTTP dont
 la réponse est choisie — lui faire poser un `Set-Cookie` est une ligne.
 
-### ⛔ [F-LOGSECRET-2] Un chemin d'erreur republie à **ERROR** une chaîne fabriquée par le sidecar — ticket proposé [`T3.85`](T3.85.md)
+### ✅ [F-LOGSECRET-2] FERMÉ par [`T3.85`](T3.85.md) — un chemin d'erreur republiait à **ERROR** une chaîne fabriquée par le sidecar
 
 `IO/Reolink/ReolinkCtrl.cpp` recopie `p["message"]` dans `cErrorDom("reolink")`. Le sidecar y met
 `f"Failed to connect to camera {hostname}: {str(e)}"`, c'est-à-dire **le texte d'une exception de la
@@ -10341,3 +10341,34 @@ site de fuite.* ⚠️ Le coût en diagnostic est réel — c'est *le* message q
 pas — donc l'arbitrage est à faire, et la forme qui garde les deux est que **le sidecar cesse
 d'emballer `str(e)`**. ⛔ Le harnais existe : `tests/core/ExternProcPayloadSecret_test.cpp` a déjà un
 vrai `ReolinkCtrl` et un pair sur sa socket ; la garde serait **d'exécution**, pas orthographique.
+
+✅ **Fermé le 2026-09-05.** Le serveur ne republie plus rien de ce que le sidecar écrit : il publie
+un **code de sa propre liste** (`ReolinkWire::isKnownErrorCode()`), une **caméra que ce contrôleur a
+lui-même enregistrée**, et le **nombre d'octets écartés**. ⭐ **Recopier le code que l'émetteur envoie
+ne suffisait pas, et c'est mesuré** : la contre-mutation qui accepte tout code donne **2 rouges** —
+sinon l'émetteur choisit toujours ce que le journal dit. Le sidecar cesse d'emballer `str(e)` dans
+la trame **et** sur son propre stdout, que le serveur réinjecte dans le sien.
+⭐ **Recensement des six points d'émission de `message` côté sidecar : un seul porte du texte libre**
+(`ExternProcReolink_main.py:1507`), et c'est celui que le serveur imprimait ; les cinq autres sont
+des littéraux ou des gabarits écrits ici. Épinglé par `core/SidecarErrorSecret_test` à travers un
+vrai `ReolinkCtrl` et un pair sur sa socket unix, avec le niveau par défaut **mesuré** dans un
+enfant forké (`reolink` imprime à ERROR, pas à DEBUG).
+⛔ **Non fermé, et nommé** : `ReolinkCtrl.cpp:79` publie `event_data` entier à DEBUG, et le
+changement du sidecar Python n'est épinglé par aucun test (`tests/python/` ne peut pas importer ce
+module sans `reolink_aio`, et un `importskip` serait un vert muet).
+
+### ⛔ [F-LOGSECRET-3] Quatre contrôleurs republient la **trame brute entière** de leur sidecar, à un niveau **imprimé par défaut** — ticket proposé [`T3.86`](T3.86.md)
+
+Trouvé en balayant les sept contrôleurs pour [`T3.85`](T3.85.md) §3. Sur leur chemin d'échec de
+parsage, `IO/Mqtt/MqttCtrl.cpp:44`, `IO/KNX/KNXCtrl.cpp:325`, `LuaScript/ScriptExec.cpp:104` et
+`IO/OneWire/OWCtrl.cpp:91` écrivent la charge utile entrante **entière**. ⛔ **À WARNING, donc
+imprimé sur une installation de série** (`LOG_LEVEL_WARNING` = 3 passe le repli `LOG_LEVEL_INFO` = 4
+de `Logger::maxLevelPrintable()`) : **au-dessus** du niveau de la fuite que [`T3.81`](T3.81.md) a
+fermée, et au même niveau d'exposition que celle de [`T3.85`](T3.85.md).
+⚠️ **Le cas OneWire ne cite même pas la trame** : la ligne streame `e.what()`, mais l'exception a été
+construite deux lignes plus haut en y concaténant `msg` — un capteur orthographié sur `<< msg` y
+serait aveugle, exactement la classe que T3.85 §6 a mesurée ailleurs.
+⭐ **Le précédent existe deux fois dans l'arbre** : `IO/Wago/WagoMap.cpp:194` ne publie rien de la
+trame, et `IO/Reolink/ReolinkCtrl.cpp:53` publie `msg.size()`. ⚠️ Le coût en diagnostic est réel — une
+trame illisible est le moment où l'on veut voir les octets — donc l'arbitrage est à faire.
+⚠️ Voisin plus bas, même forme : `IO/Reolink/ReolinkCtrl.cpp:79` publie `event_data` entier à DEBUG.
