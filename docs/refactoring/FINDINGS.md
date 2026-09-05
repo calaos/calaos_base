@@ -10735,6 +10735,13 @@ calibration** — rien d'autre ne la voit.
 un capteur à borne ne peut pas descendre sous le bruit que le journal a le droit d'écrire. Et le
 plafond reste **global à la suite**, pas par site.
 
+⛔⭐ **Corrigé à la revue de merge** : le bornage « structurel » de l'aléa donné à l'appui de la
+stabilité était faux. La plus longue suite hexadécimale d'une fixture ne fait pas 6 caractères mais
+**8** — le `%20` de l'encodage en pourcents précède chaque jeton de 6 hex (`207f31c9`, `208f3a2c`…).
+⚠️ `ControllerFrameSecret` (recouvrement 7, plafond 8) n'est donc **pas** hors d'atteinte par
+construction : un uuid de socket de 32 hex rendrait l'égalité rouge avec une probabilité ≈ 2·10⁻⁸
+par exécution. Stable en pratique (90 exécutions + 6 `make check`), **pas** par construction.
+
 ### ⛔ [F-LOGSECRET-8] Trois AUTRES capteurs à borne, même défaut, jamais recensés — ticket proposé [`T3.96`](T3.96.md)
 
 Balayé en fermant [`T3.94`](T3.94.md) : `F-LOGSECRET-7` recensait **trois** capteurs à borne là où

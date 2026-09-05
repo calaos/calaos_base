@@ -53,6 +53,36 @@
      `RELEASE_NOTES.md`**, alors que ses sœurs en ont une. **Arbitrage utilisateur — reconduit sans
      être tranché**, ni par la revue de `T3.87`, ni par celle de `T3.90`, ni par celle-ci.
 
+- **✅⭐⭐ [`T3.94`](T3.94.md) MERGÉE (2026-09-05) — `merge --ff-only`, historique linéaire.** Le
+  plafond des trois capteurs à borne est désormais **re-dérivé par la suite à chaque exécution**
+  (`plafond == maximum + 1`, une **égalité**, plus une disjonction de fixture). `F-LOGSECRET-7`
+  **FERMÉ**, `F-LOGSECRET-8` ouvert ([`T3.96`](T3.96.md)). Zéro ligne de `src/`, `tests/Makefile.am`
+  intouché, `TESTS` **128 → 128**.
+
+  **Ce que la revue de merge a re-mesuré indépendamment** (journaux réels vidés dans un fichier, plus
+  longue sous-chaîne recalculée **hors du C++ de la suite**) : recouvrements **8 · 7 · 12** et
+  disjonctions **6 · 5 · 5**, **exactement** les chiffres de la fiche ; 90 exécutions de binaires + 6
+  `make check` complets, tout vert.
+
+  ⛔⭐ **Deux affirmations corrigées, à retenir pour les briefs :**
+  1. **Un bornage « structurel » de l'aléa se vérifie sur les octets, pas sur l'intention.** La fiche
+     bornait la plus longue suite hexadécimale d'une fixture à **6** ; elle vaut **8**, parce que le
+     `%20` de l'encodage en pourcents précède chaque jeton de 6 hex (`207f31c9`, `208f3a2c`…). La
+     conclusion tenait pour deux suites sur trois, pas pour la troisième.
+  2. **Une contre-mutation par ÉCHANGE peut rougir pour une raison qui n'est pas celle qu'on
+     mesure.** Le « 0 rouge sur 128 » de la fenêtre de 9 octets n'est vrai que si la mutation
+     **garde** la ligne de diagnostic ; jouée comme un remplacement, elle rougit d'abord le
+     **contrepoids**, qui perd la position et la taille. Quand on mesure un capteur de fuite,
+     **ajouter** la fuite, ne pas remplacer le diagnostic par elle.
+
+  ⭐ **Et le résultat qui justifie ce genre de dispositif** : aveugler la mesure elle-même
+  (`longestEchoRun` plafonnée à 6 octets, `src/` intact) — une cécité qui rend **six** assertions de
+  fuite préexistantes incapables de voir une fuite — rougit **3 cas dans tout l'arbre, et ce sont les
+  trois calibrations**. Rien d'autre ne la voit.
+
+  **État** : `master` = le commit de revue qui porte ce paragraphe. Worktree `.wave116/t3.94`
+  supprimé, branche `test/t3.94` supprimée. ⚠️ Numéros **pris** : `T3.76` → `T3.96`.
+
   **Tickets ouverts, une ligne chacun** — aucun n'est commencé, aucune branche n'existe :
   - [`T3.88`](T3.88.md) 📋 — le bloc d'en-têtes de réponse et les six drivers qui republient un corps
     entier (`F-URLDL-3`).
@@ -63,9 +93,10 @@
     court **avant** `checkCredentials()` (`F-HTTPIN-2`).
   - [`T3.93`](T3.93.md) 📋 — les sept familles de journalisation **entrante** ne sont tenues par
     **aucun test** : une mutation y rend 0 rouge (`F-HTTPIN-3`).
-  - [`T3.94`](T3.94.md) 📋 — **neuf de la nuit** : le plafond des trois capteurs à borne est une
-    constante que rien ne re-mesure ; 9 octets d'un justificatif encodé passent, 0 rouge sur 128
-    (`F-LOGSECRET-7`).
+  - [`T3.96`](T3.96.md) 📋 — **le plus récent** : trois AUTRES capteurs à borne
+    (`HttpRequestLogSecret`, `UrlDownloaderLogUrl`, `UrlDownloaderLogSecret`), **13** assertions
+    bornées, plafond que rien ne re-mesure (`F-LOGSECRET-8`). ⛔ `HttpRequestLogSecret` appartient
+    au périmètre de [`T3.92`](T3.92.md).
   - Plus anciens et inchangés : `F-XML-2` / `F-XML-3` / `F-XML-4`, `F-LOGSECRET-5` (trois lignes
     `mqtt`), `F-URLDL-2` §libcurl (`errorBuf` concaténé verbatim à WARNING), exprtk qui cite
     l'expression de règle.
