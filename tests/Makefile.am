@@ -4986,3 +4986,88 @@ UrlDownloaderLogUrl_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest
 endif
+
+# T3.90
+#What the server publishes of the requests it RECEIVES. Once a request was
+#parsed, HttpClient wrote its target raw and then the VALUE of every header it
+#carried, one line each. The carriers are made by this repository itself: the
+#bearer get_mcp_info hands out with the instruction to send it back in
+#Authorization, the second bearer HMACAuthenticator reads beside its nonce and
+#its signature, and the session cookie of a browser. api.php takes
+#cn_user/cn_pass as GET parameters, so a login carries its password in the
+#target too.
+#NOTHING HERE CALLS processHeaders(): a real HttpServer listens on loopback, an
+#ordinary socket sends the bytes of a real request and libuv delivers them, so
+#a mutation of src/bin/calaos_server/HttpClient.cpp or of src/lib/StringUtils.cpp
+#turns these cases red.
+#One planted header has a name that appears NOWHERE in this tree: a guard
+#spelled on the names known today stays green on every other case and red on
+#that one, which is the argument against a redaction list. Every leak assertion
+#bounds the longest RUN the journal gives back, in four forms (raw,
+#percent-decoded, base64-decoded, base64-encoded) and in two haystacks (the
+#journal, and the journal with the whitespace removed, so a value cut across
+#two lines is not a way through).
+#One case takes the REFUSAL branch (a login refused for its credentials), one
+#takes the websocket handshake, which carries the same headers, and one sends a
+#real masked text frame over that handshake: the frame line rendered the first
+#forty bytes of the payload, which is the api request of a websocket client,
+#before the json handler ever built its redacted dump. Two are the
+#counterweight: which request arrived and which headers it carried, and two
+#requests differing only in their query still rendering as two lines. The last
+#forks a child that never raises the level, and pins BOTH directions: these
+#lines are cDebugDom, so a stock box prints none of them.
+#Same server objects as core/RemoteUIDeviceInfo_test: HttpClient drags the
+#whole websocket/OTA/RemoteUI side of the server with it.
+#No core fixture: the refused paths need no config model, and main() has to
+#raise debug_level before the first log line of the process (the Logger domain
+#map is filled once and never re-read).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/HttpRequestLogSecret_test
+check_PROGRAMS += core/HttpRequestLogSecret_test
+core_HttpRequestLogSecret_test_SOURCES = core/HttpRequestLogSecret_test.cpp
+core_HttpRequestLogSecret_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI
+core_HttpRequestLogSecret_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_HttpRequestLogSecret_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
