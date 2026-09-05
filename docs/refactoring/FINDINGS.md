@@ -10185,7 +10185,7 @@ en nombre non borné, et **aucun tripwire supplémentaire ne les couvre tous**.
 (recensement de [T3.79](T3.79.md) §2, **recompté à la revue, aucun écart**), donc le changement de
 protocole se limite à `calaos_mqtt`. ⚠️ **Arbitrage utilisateur requis.**
 
-### ⛔ [F-EXTPROC-6] Le transport journalise la **charge utile** des messages, secrets compris — ticket proposé [`T3.81`](T3.81.md)
+### ✅ [F-EXTPROC-6] FERMÉ par [`T3.81`](T3.81.md) — le transport journalise la **charge utile** des messages, secrets compris
 
 `ExternProcServer::sendMessage()` écrit `cDebugDom("process") << "client writing data: " << data`,
 donc la charge utile sortante **entière**. Pour Reolink, c'est le message d'enregistrement de
@@ -10199,7 +10199,15 @@ une protection. ⚠️ Même famille, site voisin : la charge utile **entrante**
 même façon. ⭐ La forme qui reste vraie a un précédent **dans le même fichier** : `processData()`
 journalise `data.size()`.
 
-### ⛔ [F-LOGSECRET-1] Un jeton d'appareil journalisé au niveau **imprimé par défaut** — ticket proposé [`T3.81`](T3.81.md)
+✅ **Fermé le 2026-09-05.** Les deux sens sont corrigés : le transport publie le sidecar, le type de
+trame et le nombre d'octets, jamais la charge. ⭐ **Le recensement des onze émetteurs côté serveur a
+tranché le caviardage comme au §2 de T3.79** — un seul porte un identifiant (Reolink), et Lua fait
+passer du **texte libre de configuration**, donc une liste de champs serait fausse au premier
+driver qui en ajoute un. ⚠️ **Et le caviardage Python de Reolink, la seule règle de ce genre en
+service dans l'arbre, est déjà incomplet chez lui** : deux noms, premier niveau seulement. Épinglé
+par `core/ExternProcPayloadSecret_test` à travers un vrai `ReolinkCtrl`.
+
+### ✅ [F-LOGSECRET-1] FERMÉ par [`T3.81`](T3.81.md) — un jeton d'appareil journalisé au niveau **imprimé par défaut**
 
 `Audio/AVRRose.cpp:126` : `cInfoDom("hifirose") << "Registered with device, roseToken: " <<
 roseToken`. `roseToken` est le jeton d'authentification rendu par l'amplificateur Hifi Rose et porté
@@ -10209,6 +10217,11 @@ balayant l'arbre pour [T3.79](T3.79.md) §4. ⭐ Le retirer ne coûte **aucun** 
 configuration : le jeton est obtenu au vol, il n'est pas dans la configuration, et savoir que
 l'enregistrement a réussi suffit.
 
+✅ **Fermé le 2026-09-05.** La ligne nomme l'appareil et non le jeton, et une réponse **sans** jeton
+— jusque-là parfaitement invisible — devient un avertissement. ⛔ **Tenu par un tripwire de source,
+et le prix en est mesuré** : la contre-mutation qui recopie le jeton sous un autre nom
+(`const string issued = roseToken;`) donne **0 rouge**. Atteindre la ligne à l'exécution demande une
+réponse HTTPS bouchonnée de l'amplificateur.
 
 ### ⚠️ [F-STRSPLIT-1] `Utils::CStrArray` n'a aucun filet propre — ticket proposé `T3.77`
 
@@ -10225,3 +10238,15 @@ de tout échappement, et les deux constructeurs de `CStrArray`).
 ℹ️ Corollaire pour la correction (3) : `Utils::escape_space()` existe (`StringUtils.cpp:350`) et
 **n'est pas une porte de sortie** — `Utils::split()` ne connaît ni backslash ni guillemet, donc un
 `mon\ core` échappé produirait `mon\` **et** `core`, soit le défaut plus un hôte corrompu.
+
+### ⛔ [F-URLDL-1] `UrlDownloader` publie **tout corps de réponse HTTP** — ticket proposé [`T3.83`](T3.83.md)
+
+`src/lib/UrlDownloader.cpp:692` : `cDebugDom("urlutils") << "Response data: " << m_downloadedData`.
+Le corps entier, quel que soit le driver qui a lancé le transfert. Même famille que [F-EXTPROC-6] :
+un transport générique qui journalise ce qu'il ne comprend pas. ⭐ Trouvé en balayant l'arbre pour
+[`T3.81`](T3.81.md) §4 : **le corps qui passe par là est celui d'où `AVRRose` extrait le jeton
+Hifi Rose**, donc T3.81 ferme le site qui journalisait la valeur et celui-ci publie le document
+dont elle vient. ⚠️ **Le site croit déjà se protéger** : le même fichier caviarde les identifiants
+d'**URL** partout (`Utils::maskUrlCredentials`, `:446,477,733`) et jamais le corps. ⚠️ Le
+recensement des autres drivers HTTP qui y passent **reste à faire**, et le coût en diagnostic est
+réel — le corps est ce qu'on lit pour comprendre un décodage qui échoue.
