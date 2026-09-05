@@ -221,28 +221,33 @@ const char *const kBrokerPassword = "mot de passe du courtier";
  * reach a journal is any RUN of the frame, wherever it was cut, so the log is
  * asked how much it gives back.
  */
-size_t longestEcho(const std::string &log, const std::string &text)
+std::string longestEchoRun(const std::string &log, const std::string &text)
 {
-    size_t best = 0;
+    std::string best;
     for (size_t i = 0; i < text.size(); i++)
     {
-        size_t len = best + 1;
+        size_t len = best.size() + 1;
         while (i + len <= text.size() &&
                log.find(text.substr(i, len)) != std::string::npos)
         {
-            best = len;
+            best = text.substr(i, len);
             len++;
         }
     }
     return best;
 }
 
-/* Above the incidental overlap, MEASURED at 7 with the ceiling temporarily
- * lowered to 1: the word `payload`, which the read path line names and the
- * mqtt frame uses as a key. The rest is 2 to 4, part of it a lucky hex run of
- * the socket uuid. Far below any excerpt of a frame worth publishing.
+size_t longestEcho(const std::string &log, const std::string &text)
+{
+    return longestEchoRun(log, text).size();
+}
+
+/* One above the overlap the corrected tree really produces, and the suite
+ * re-measures that overlap at every run rather than trusting this line: see
+ * the calibration case at the end of the file for why a ceiling nobody
+ * re-measures drifts in both directions.
  */
-const size_t kMaxEcho = 10;
+const size_t kMaxEcho = 8;
 
 //Whether SOME single line carries all three needles. Looking for them anywhere
 //in the log would be satisfied by three unrelated lines.
@@ -848,6 +853,87 @@ TEST_F(StockLevelTest, AStockInstallPrintsTheseParseFailureLines)
             << "the " << wires()[i].domain << " domain prints at DEBUG on a "
                "stock install: every other line of this controller, the frame "
                "dumps included, leaves with the journal too";
+    }
+}
+
+/*
+ * THE CEILING ITSELF, HELD TO WHAT THIS SUITE MEASURES AT EVERY RUN.
+ *
+ * A bounded sensor is only as narrow as the number above the noise it was cut
+ * for, and that number drifts both ways with nobody watching: a fixture that
+ * gains a shared word widens the blind window while every assertion stays
+ * green, and a ceiling left wider than the run it was cut for is blind space
+ * no one asked for. Pinning the equality turns both into a red that says which
+ * number to write, and makes ONE more byte of echo than the tree really
+ * produces a failure - well under the ceiling the cases above enforce.
+ */
+class EchoCeilingTest: public ::testing::Test {};
+
+TEST_F(EchoCeilingTest, TheCeilingIsHeldToTheOverlapThisSuiteMeasures)
+{
+    const Observation &obs = theObservation();
+    ASSERT_TRUE(obs.installed) << "could not set up the CALAOS_BIN_PREFIX sandbox";
+
+    //A measure that cannot report a run reads as a clean zero everywhere below.
+    ASSERT_EQ("bcdef", longestEchoRun("zzbcdefzz", "abcdefg"));
+    ASSERT_EQ("", longestEchoRun("zzz", "abc"));
+
+    std::string worst, worstLabel;
+    const auto keep = [&worst, &worstLabel](const std::string &run,
+                                            const std::string &label)
+    {
+        if (run.size() > worst.size())
+        {
+            worst = run;
+            worstLabel = label;
+        }
+    };
+
+    for (const Wire &w: wires())
+    {
+        ASSERT_TRUE(w.peerConnected)
+            << "no peer reached the " << w.ns << " socket, so the overlap this "
+               "case exists to pin was not produced at all";
+        keep(longestEchoRun(obs.log, w.frame), w.domain);
+    }
+    keep(longestEchoRun(obs.log, mqttReadPayload()), "mqtt read path");
+
+    EXPECT_EQ(kMaxEcho, worst.size() + 1)
+        << "the ceiling is " << kMaxEcho << " while this tree gives back at "
+           "most " << worst.size() << " bytes of a frame, at " << worstLabel
+        << ", on the run \"" << worst << "\". Everything between the two is a "
+           "window this suite cannot see into: either a leak has widened the "
+           "overlap, or the fixture has, and the ceiling to write is "
+        << (worst.size() + 1) << ".";
+}
+
+/*
+ * THE FIXTURE, HELD TO THE SAME CEILING.
+ *
+ * A run two frames share is republished by whichever wire leaks first, so it
+ * raises the bound of every neighbour that carries it: the red set then names
+ * the fixture instead of the wire.
+ */
+TEST_F(EchoCeilingTest, NoTwoFramesShareARunTheCeilingWouldNotAbsorb)
+{
+    struct Doc { std::string label; std::string text; };
+    std::vector<Doc> docs;
+    for (size_t i = 0; i < wires().size(); i++)
+        docs.push_back({ std::string(wires()[i].domain) + " #" + std::to_string(i),
+                         wires()[i].frame });
+    docs.push_back({ "mqtt read path", mqttReadPayload() });
+
+    for (size_t i = 0; i < docs.size(); i++)
+    {
+        for (size_t j = i + 1; j < docs.size(); j++)
+        {
+            const std::string run = longestEchoRun(docs[i].text, docs[j].text);
+            EXPECT_LT(run.size(), kMaxEcho)
+                << docs[i].label << " and " << docs[j].label << " share \""
+                << run << "\", " << run.size() << " bytes, which the ceiling of "
+                << kMaxEcho << " does not absorb: a leak at either one reddens "
+                   "the bound of the other and the red set stops naming a wire.";
+        }
     }
 }
 

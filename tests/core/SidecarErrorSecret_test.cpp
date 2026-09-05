@@ -151,26 +151,33 @@ const char *const kParseFailureMarker = "Error parsing json message";
  * so the log is asked how much it gives back and a ceiling is fixed instead of
  * a secret being named.
  */
-size_t longestEcho(const std::string &log, const std::string &text)
+std::string longestEchoRun(const std::string &log, const std::string &text)
 {
-    size_t best = 0;
+    std::string best;
     for (size_t i = 0; i < text.size(); i++)
     {
-        size_t len = best + 1;
+        size_t len = best.size() + 1;
         while (i + len <= text.size() &&
                log.find(text.substr(i, len)) != std::string::npos)
         {
-            best = len;
+            best = text.substr(i, len);
             len++;
         }
     }
     return best;
 }
 
-//Above the incidental overlap, measured at 12 - the vendor text quotes the
-//camera address, and that address is a value this end publishes on its own -
-//and far below any excerpt of the text worth publishing.
-const size_t kMaxEcho = 16;
+size_t longestEcho(const std::string &log, const std::string &text)
+{
+    return longestEchoRun(log, text).size();
+}
+
+/* One above the overlap the corrected tree really produces - the vendor text
+ * quotes the camera address, and that address is a value this end publishes on
+ * its own. The suite re-measures that overlap at every run rather than
+ * trusting this line: see the calibration case at the end of the file.
+ */
+const size_t kMaxEcho = 13;
 
 int countOccurrences(const std::string &haystack, const std::string &needle)
 {
@@ -720,6 +727,72 @@ TEST_F(SidecarErrorSecretTest, AStockInstallPrintsTheReolinkErrorLine)
         << "the reolink domain prints at DEBUG on a stock install: every other "
            "line of this controller, the event dumps included, leaves with the "
            "journal too";
+}
+
+/*
+ * THE CEILING ITSELF, HELD TO WHAT THIS SUITE MEASURES AT EVERY RUN.
+ *
+ * A bounded sensor is only as narrow as the number above the noise it was cut
+ * for, and that number drifts both ways with nobody watching: a fixture that
+ * gains a shared word widens the blind window while every assertion stays
+ * green, and a ceiling left wider than the run it was cut for is blind space
+ * no one asked for. Pinning the equality turns both into a red that says which
+ * number to write, and makes ONE more byte of echo than the tree really
+ * produces a failure - well under the ceiling the cases above enforce.
+ */
+TEST_F(SidecarErrorSecretTest, TheCeilingIsHeldToTheOverlapThisSuiteMeasures)
+{
+    const Observation &obs = theObservation();
+    ASSERT_TRUE(obs.installed) << "could not set up the CALAOS_BIN_PREFIX sandbox";
+    ASSERT_TRUE(obs.bothErrorsSeen)
+        << "fewer than two error lines were written, so the overlap this case "
+           "exists to pin was not produced at all: " << obs.log;
+    ASSERT_TRUE(obs.parseFailureSeen)
+        << "no parse failure was reported, so the unreadable frame produced no "
+           "overlap to pin: " << obs.log;
+
+    //A measure that cannot report a run reads as a clean zero everywhere below.
+    ASSERT_EQ("bcdef", longestEchoRun("zzbcdefzz", "abcdefg"));
+    ASSERT_EQ("", longestEchoRun("zzz", "abc"));
+
+    std::string worst, worstLabel;
+    const char *const texts[] = { kVendorText, kUnreadableText };
+    const char *const labels[] = { "vendor text", "unreadable frame" };
+
+    for (size_t i = 0; i < 2; i++)
+    {
+        const std::string run = longestEchoRun(obs.log, texts[i]);
+        if (run.size() > worst.size())
+        {
+            worst = run;
+            worstLabel = labels[i];
+        }
+    }
+
+    EXPECT_EQ(kMaxEcho, worst.size() + 1)
+        << "the ceiling is " << kMaxEcho << " while this tree gives back at "
+           "most " << worst.size() << " bytes of what the sidecar wrote, on the "
+           "" << worstLabel << ", run \"" << worst << "\". Everything between "
+           "the two is a window this suite cannot see into: either a leak has "
+           "widened the overlap, or the fixture has, and the ceiling to write "
+           "is " << (worst.size() + 1) << ".";
+}
+
+/*
+ * THE FIXTURE, HELD TO THE SAME CEILING.
+ *
+ * A run the two texts share is republished by whichever path leaks first, so
+ * it raises the bound of the other: the red set then names the fixture instead
+ * of the path.
+ */
+TEST_F(SidecarErrorSecretTest, TheTwoTextsShareNoRunTheCeilingWouldNotAbsorb)
+{
+    const std::string run = longestEchoRun(kVendorText, kUnreadableText);
+    EXPECT_LT(run.size(), kMaxEcho)
+        << "the vendor text and the unreadable frame share \"" << run << "\", "
+        << run.size() << " bytes, which the ceiling of " << kMaxEcho
+        << " does not absorb: a leak on either path reddens the bound of the "
+           "other and the red set stops naming a path.";
 }
 
 /*

@@ -243,29 +243,33 @@ std::vector<Site> &sites()
  * decides where it cuts. What must not reach a journal is any RUN of the
  * document, wherever it was cut, so the log is asked how much it gives back.
  */
-size_t longestEcho(const std::string &log, const std::string &text)
+std::string longestEchoRun(const std::string &log, const std::string &text)
 {
-    size_t best = 0;
+    std::string best;
     for (size_t i = 0; i < text.size(); i++)
     {
-        size_t len = best + 1;
+        size_t len = best.size() + 1;
         while (i + len <= text.size() &&
                log.find(text.substr(i, len)) != std::string::npos)
         {
-            best = len;
+            best = text.substr(i, len);
             len++;
         }
     }
     return best;
 }
 
-/* Above the incidental overlap, MEASURED at 8 with the ceiling lowered to 1 for
- * one round: the word `manifest`, which the manifest line names as part of the
- * file it read and the document uses as a key fragment. The other eight sites
- * are between 4 and 6, and the reducer itself between 2 and 3. Far below any
- * excerpt of a refused document worth publishing.
+size_t longestEcho(const std::string &log, const std::string &text)
+{
+    return longestEchoRun(log, text).size();
+}
+
+/* One above the overlap the corrected tree really produces, and the suite
+ * re-measures that overlap at every run rather than trusting this line: see
+ * the calibration case at the end of the file for why a ceiling nobody
+ * re-measures drifts in both directions.
  */
-const size_t kMaxEcho = 10;
+const size_t kMaxEcho = 9;
 
 bool someLineHasAll(const std::string &log, const std::string &a,
                     const std::string &b, const std::string &c)
@@ -1025,6 +1029,94 @@ TEST_F(StockLevelTest, AStockInstallPrintsTheseParseFailureLines)
         EXPECT_FALSE((probe.answer[i + 1] & 0x2) != 0)
             << "this domain prints at DEBUG on a stock install, so the level "
                "this suite reads is not the one a shipped box uses";
+    }
+}
+
+/*
+ * THE CEILING ITSELF, HELD TO WHAT THIS SUITE MEASURES AT EVERY RUN.
+ *
+ * A bounded sensor is only as narrow as the number above the noise it was cut
+ * for, and that number drifts both ways with nobody watching: a fixture that
+ * gains a shared word widens the blind window while every assertion stays
+ * green, and a ceiling left wider than the run it was cut for is blind space
+ * no one asked for. Pinning the equality turns both into a red that says which
+ * number to write, and makes ONE more byte of echo than the tree really
+ * produces a failure - well under the ceiling the cases above enforce.
+ */
+TEST_F(ParseErrorFixtureTest, TheCeilingIsHeldToTheOverlapThisSuiteMeasures)
+{
+    const Observation &obs = theObservation();
+    ASSERT_TRUE(obs.installed) << "the sandbox could not be created";
+
+    //A measure that cannot report a run reads as a clean zero everywhere below.
+    ASSERT_EQ("bcdef", longestEchoRun("zzbcdefzz", "abcdefg"));
+    ASSERT_EQ("", longestEchoRun("zzz", "abc"));
+
+    std::string worst, worstLabel;
+    const auto keep = [&worst, &worstLabel](const std::string &run,
+                                            const std::string &label)
+    {
+        if (run.size() > worst.size())
+        {
+            worst = run;
+            worstLabel = label;
+        }
+    };
+
+    for (const Site &s: sites())
+    {
+        ASSERT_TRUE(s.fed)
+            << s.label << " was never handed its document, so the overlap this "
+               "case exists to pin was not produced at all";
+        keep(longestEchoRun(obs.log, s.input), s.label);
+    }
+
+    //The reducer is held to the same ceiling, so it belongs to the same
+    //measurement.
+    for (const Site &s: sites())
+    {
+        try
+        {
+            nlohmann::json::parse(s.input);
+            FAIL() << "these bytes parse cleanly, so this case measures nothing";
+        }
+        catch (const nlohmann::json::parse_error &e)
+        {
+            keep(longestEchoRun(Utils::jsonErrorForLog(e, s.input.size()), s.input),
+                 std::string("reducer/") + s.label);
+        }
+    }
+
+    EXPECT_EQ(kMaxEcho, worst.size() + 1)
+        << "the ceiling is " << kMaxEcho << " while this tree gives back at "
+           "most " << worst.size() << " bytes of a document, at " << worstLabel
+        << ", on the run \"" << worst << "\". Everything between the two is a "
+           "window this suite cannot see into: either a leak has widened the "
+           "overlap, or the fixture has, and the ceiling to write is "
+        << (worst.size() + 1) << ".";
+}
+
+/*
+ * THE FIXTURE, HELD TO THE SAME CEILING.
+ *
+ * A run two documents share is republished by whichever site leaks first, so
+ * it raises the bound of every neighbour that carries it: the red set then
+ * names the fixture instead of the site. A shared key suffix is enough, and
+ * nothing about the documents makes it visible when reading them.
+ */
+TEST_F(ParseErrorFixtureTest, NoTwoDocumentsShareARunTheCeilingWouldNotAbsorb)
+{
+    for (size_t i = 0; i < sites().size(); i++)
+    {
+        for (size_t j = i + 1; j < sites().size(); j++)
+        {
+            const std::string run = longestEchoRun(sites()[i].input, sites()[j].input);
+            EXPECT_LT(run.size(), kMaxEcho)
+                << sites()[i].label << " and " << sites()[j].label << " share \""
+                << run << "\", " << run.size() << " bytes, which the ceiling of "
+                << kMaxEcho << " does not absorb: a leak at either one reddens "
+                   "the bound of the other and the red set stops naming a site.";
+        }
     }
 }
 
