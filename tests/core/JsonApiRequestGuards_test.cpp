@@ -268,9 +268,11 @@ TEST_F(JsonApiRequestGuardsTest, D_ADepthThatUsedToTakeTheProcessDownIsRefused)
      * BEFORE THE CAP DID. Not because of the parse - a hundred thousand levels
      * parse and destruct in 13 ms, iteratively, without touching the stack -
      * but because of what processApi() does NEXT, on every request and BEFORE
-     * the credentials are checked: dumpJsonRedacted() deep-COPIES the
-     * document, walks it with a recursive std::function and dump()s it
-     * INDENTED, which makes the log line quadratic in the depth.
+     * the credentials are checked: the redacted dump that used to run there
+     * deep-COPIED the document, walked it with a recursive std::function and
+     * dump()ed it INDENTED, which made the log line quadratic in the depth.
+     * The reducer that replaced it is bounded, and the cap stays for the walks
+     * that are not.
      *
      * Measured at -O2 on an 8 MiB stack, before the cap:
      *

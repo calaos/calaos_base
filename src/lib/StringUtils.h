@@ -69,6 +69,12 @@ std::string maskUrlCredentials(const std::string &url);
  * an unsalted digest would let a reader confirm a guessed URL against it. */
 std::string urlForLog(const std::string &url);
 
+/* A name for bytes that are NOT published, so that two lines can be told to be
+ * the same call. Salted once per process: an unsalted digest would let a reader
+ * confirm a guessed value by hashing the guess, which is the whole reason the
+ * bytes were withheld. Worthless outside the process, and meant to be. */
+std::string logTag(const std::string &withheld);
+
 /* WHAT MAY BE PUBLISHED OF THE TARGET OF AN INCOMING REQUEST. The mirror of
  * urlForLog for the other direction, and the split is not the same one: here
  * the authority is our own and identifies nothing, while the PATH is the whole

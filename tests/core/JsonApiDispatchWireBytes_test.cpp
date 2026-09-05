@@ -465,10 +465,10 @@ TEST_F(JsonApiDispatchWireBytesTest, P_ANestingDepthAbove2048IsRefusedAgain)
      *
      * ⛔ AND THE E4.1s NOTE "NOT a new denial of service" WAS HALF RIGHT AND
      * HALF WRONG. The parse is indeed iterative and survives - but
-     * dumpJsonRedacted(), which runs on every request BEFORE the credentials
-     * are checked, copies the document, walks it recursively and dumps it
-     * indented. Measured: 16.8 MB of log line at 2048 levels, 1.07 GB at
-     * 16384, and a SEGFAULT past 43500. The whole measurement, the ceiling and
+     * the redacted dump that used to run on every request BEFORE the
+     * credentials are checked copied the document, walked it recursively and
+     * dumped it indented. Measured: 16.8 MB of log line at 2048 levels, 1.07 GB
+     * at 16384, and a SEGFAULT past 43500. The whole measurement, the ceiling and
      * the neighbours that frame it live in core/JsonApiRequestGuards_test.
      *
      * ⛔ THIS CASE USED TO PASS FOR THE WRONG REASON, and the red round of the

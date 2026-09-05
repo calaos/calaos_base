@@ -205,11 +205,9 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
      */
     /* The depth ceiling, restored. It is checked on the TEXT, before the
      * document exists: the cost this refuses is not the parse (iterative and
-     * cheap) but dumpJsonRedacted() three lines below, which deep-copies the
-     * document, walks it recursively and dumps it INDENTED - quadratic in the
-     * depth, on a path that runs before checkCredentials(). Measured: 16.8 MB
-     * of log line at 2048 levels, 1.07 GB at 16384, and the stack is gone past
-     * 43500. Refusing here costs 2.5 us on a 4 MiB body.
+     * cheap) but the walks below it, on a path that runs before
+     * checkCredentials(): the stack is gone past 43500 levels. Refusing here
+     * costs 2.5 us on a 4 MiB body.
      */
     Json jsonRootDoc;
 
@@ -235,7 +233,7 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
     else
     {
         if (cDebugDomEnabled("network"))
-            cDebugDom("network") << dumpJsonRedacted(jsonRootDoc);
+            cDebugDom("network") << describeRequestForLog(jsonRootDoc);
 
         //decode the json root object into jsonParam
         decodeJsonObject(jsonRootDoc, jsonParam);
@@ -809,8 +807,12 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
 
                     if (!Utils::strStartsWith(filecontent, "<?xml"))
                     {
-                        cErrorDom("network") << "Error, file content for " << skey << " is not XML, skipping...";
-                        cDebugDom("network") << filecontent;
+                        //The content itself is the upload: local_config.xml
+                        //carries mcp_token, io.xml every camera password of the
+                        //install. What was refused is knowable without it.
+                        cErrorDom("network") << "Error, file content for " << skey
+                                             << " is not XML (" << filecontent.size()
+                                             << " bytes), skipping...";
                         continue;
                     }
 

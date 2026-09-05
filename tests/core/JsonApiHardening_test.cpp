@@ -127,109 +127,122 @@ TEST(JsonApiIntParam, RejectsOutOfRangeValues)
  * Redaction of the credentials in the logs (F4)
  ******************************************************************************/
 
-/* E4.1m ported these to nlohmann with the function. The ORACLE did not move:
- * a secret must not be readable and everything else must stay readable. Two
- * things were ADDED, both of them about what the port could have broken and
- * nothing else could see:
+/* WHAT REPLACED THE REDACTION LIST, AND WHY THE ORACLE HAD TO MOVE WITH IT.
  *
- *  - RedactedDumpKeepsRawUtf8AndStaysIndented pins the FORM of this dump. It
- *    is the one dump() of the epic that deliberately does NOT set
- *    ensure_ascii, because it feeds a LOG and that log has never been ASCII:
- *    the previous call asked for INDENT(4) alone. Measured on a probe built
- *    against both libraries: with ensure_ascii = false the two forms agree byte
- *    for byte. This case is what makes that decision falsifiable - flip the
- *    flag and it reddens.
- *  - RedactedDumpDoesNotThrowOnInvalidUtf8 pins error_handler_t::replace. A
- *    bare dump() throws type_error.316 and nothing catches it above
- *    processApi(): that is std::terminate on a live connection, on a document
- *    the client wrote.
+ * The old cases asked "is this secret masked" of a list of eleven names. That
+ * question has no good answer: config/put uploads local_config.xml under a key
+ * that is a FILE NAME, and no list of credential names had a reason to carry
+ * it. The oracle is the other way round now - a value is published only when
+ * its key is one this server routes on, so a key nobody here has heard of is
+ * withheld BECAUSE it is unknown, and a case can say so by inventing one.
+ *
+ * These cases exercise the reducer directly, which is exactly what they cannot
+ * prove on their own: the guard on the real path is in
+ * tests/core/HttpRequestLogSecret_test.cpp, over a socket.
  */
 
-TEST(JsonApiRedact, HidesCredentialFields)
+TEST(JsonApiRequestDescription, PublishesTheRoutingWordsAndNothingElse)
 {
-    //Insertion order is NOT alphabetical, and the visible and the masked field
-    //carry values from disjoint vocabularies: exchanging "cn_pass" and
-    //"cn_user" in the sensitive list has to redden both halves of this case.
     Json j;
     j["cn_user"] = "admin";
     j["cn_pass"] = "sup3rs3cr3t";
     j["action"] = "get_home";
 
-    const std::string dump = JsonApi::dumpJsonRedacted(j);
+    const std::string dump = JsonApi::describeRequestForLog(j);
 
     EXPECT_EQ(dump.find("sup3rs3cr3t"), std::string::npos) << dump;
-    EXPECT_NE(dump.find("***"), std::string::npos) << dump;
-    //Everything that is not a secret is still readable
-    EXPECT_NE(dump.find("get_home"), std::string::npos) << dump;
-    EXPECT_NE(dump.find("admin"), std::string::npos) << dump;
+    EXPECT_EQ(dump.find("admin"), std::string::npos)
+            << "a value nothing routes on is published: " << dump;
+
+    //Both halves: the pair must be NAMED, not dropped, or an integrator can no
+    //longer see what its client sent.
+    EXPECT_NE(dump.find("cn_pass[11B]"), std::string::npos) << dump;
+    EXPECT_NE(dump.find("cn_user[5B]"), std::string::npos) << dump;
+    EXPECT_NE(dump.find("action=get_home"), std::string::npos) << dump;
 }
 
-TEST(JsonApiRedact, HidesCredentialFieldsWhateverTheKeyCase)
+TEST(JsonApiRequestDescription, AKeyNobodyHereHasHeardOfIsWithheldBecauseItIsUnknown)
 {
-    //THE ONLY ORACLE OF THE TREE ON THE CASE FOLD. The whole sensitive list is
-    //spelled in lower case, so the masking depends ENTIRELY on the
-    //Utils::str_to_lower() applied to the key in dumpJsonRedacted(): drop that
-    //one call and "CN_Pass" and "Authorization" stop being masked IN SILENCE,
-    //with the whole rest of the suite still green. Both keys are realistic: a
-    //client is free to spell its own field however it likes, and
-    //"Authorization" is spelled with a capital A everywhere HTTP is written.
-    //
-    //⚠️ Each assertion comes in PAIRS - the secret is GONE and the pair is
-    //STILL THERE, masked. A "find(secret) == npos" alone would also pass on a
-    //dump that dropped the field altogether, which is a different bug and not
-    //the one this case is about.
+    //THE CASE THE ELEVEN NAMES COULD NOT HAVE. Three carriers that no
+    //redaction list of this tree ever named, and one of them is the shape the
+    //API itself uploads: a file name.
+    Json files;
+    files["local_config.xml"] = "<?xml version=\"1.0\"?><calaos><mcp_token>LEAK_MCP_TOKEN_LEAK</mcp_token></calaos>";
+
     Json j;
-    j["CN_Pass"] = "M1XED_CASE_SECRET_THAT_MUST_NOT_REACH_THE_LOG";
-    j["Authorization"] = "Bearer C4P1TAL_A_TOKEN_THAT_MUST_NOT_REACH_THE_LOG";
+    j["action"] = "config";
+    j["type"] = "put";
+    j["config_files"] = files;
+    j["x_calaos_future_auth"] = "LEAK_FUTURE_LEAK";
+
+    const std::string dump = JsonApi::describeRequestForLog(j);
+
+    EXPECT_EQ(dump.find("LEAK_MCP_TOKEN_LEAK"), std::string::npos)
+            << "the file this server writes its own tokens into is in the log: " << dump;
+    EXPECT_EQ(dump.find("LEAK_FUTURE_LEAK"), std::string::npos)
+            << "a key no list of this tree names is published in clear: " << dump;
+
+    //The counterweight, in the same case: which command, which sub-command,
+    //and which files it carried are all still readable.
+    EXPECT_NE(dump.find("action=config"), std::string::npos) << dump;
+    EXPECT_NE(dump.find("type=put"), std::string::npos) << dump;
+    EXPECT_NE(dump.find("local_config.xml"), std::string::npos) << dump;
+}
+
+TEST(JsonApiRequestDescription, TheSecretOfSetParamTravelsUnderTheKeyValue)
+{
+    //set_param is why a list of key NAMES cannot work even in principle: the
+    //word "password" is the VALUE of `param` here, and the camera credential
+    //sits under `value`. Neither key can be added to any list without losing
+    //every legitimate set_param.
+    Json j;
+    j["action"] = "set_param";
+    j["id"] = "io_cam_1";
+    j["param"] = "password";
+    j["value"] = "LEAK_CAMERA_PASSWORD_LEAK";
+
+    const std::string dump = JsonApi::describeRequestForLog(j);
+
+    EXPECT_EQ(dump.find("LEAK_CAMERA_PASSWORD_LEAK"), std::string::npos) << dump;
+    EXPECT_EQ(dump.find("io_cam_1"), std::string::npos) << dump;
+    EXPECT_NE(dump.find("action=set_param"), std::string::npos) << dump;
+    EXPECT_NE(dump.find("value[25B]"), std::string::npos) << dump;
+}
+
+TEST(JsonApiRequestDescription, TheSetIsCaseSensitiveSoAFoldCannotWidenIt)
+{
+    //Folding the key would only ever ADD to what is published, and this set is
+    //allowed to narrow and nothing else.
+    Json j;
     j["Action"] = "get_home";
+    j["MSG"] = "login";
 
-    const std::string dump = JsonApi::dumpJsonRedacted(j);
+    const std::string dump = JsonApi::describeRequestForLog(j);
 
-    EXPECT_EQ(dump.find("M1XED_CASE_SECRET_THAT_MUST_NOT_REACH_THE_LOG"),
-              std::string::npos)
-            << "the case fold is gone from dumpJsonRedacted(): " << dump;
-    EXPECT_NE(dump.find("\"CN_Pass\": \"***\""), std::string::npos)
-            << "masked, not dropped - the pair must survive: " << dump;
-
-    EXPECT_EQ(dump.find("C4P1TAL_A_TOKEN_THAT_MUST_NOT_REACH_THE_LOG"),
-              std::string::npos)
-            << "the case fold is gone from dumpJsonRedacted(): " << dump;
-    EXPECT_NE(dump.find("\"Authorization\": \"***\""), std::string::npos)
-            << "masked, not dropped - the pair must survive: " << dump;
-
-    //And a NON credential key in mixed case is still fully readable: the fold
-    //must not be an excuse to mask everything.
-    EXPECT_NE(dump.find("\"Action\": \"get_home\""), std::string::npos) << dump;
+    EXPECT_EQ(dump.find("get_home"), std::string::npos) << dump;
+    EXPECT_EQ(dump.find("login"), std::string::npos) << dump;
+    EXPECT_NE(dump.find("Action[8B]"), std::string::npos) << dump;
 }
 
-TEST(JsonApiRedact, HidesNestedAndServiceSecrets)
+TEST(JsonApiRequestDescription, ARoutingWordTooLongToBeGrammarIsWithheldToo)
 {
-    Json data;
-    data["cn_pass"] = "wspassword";
-    data["token"] = "deadbeefservicetoken";
-    data["old_pw"] = "oldpassword";
-    data["new_pw"] = "newpassword";
-
+    //`action` is published, so it would otherwise be a channel of its own: a
+    //client that puts four kilobytes there would have them written out.
     Json j;
-    j["msg"] = "login";
-    j["data"] = data;
+    j["action"] = std::string(64, 'z');
 
-    const std::string dump = JsonApi::dumpJsonRedacted(j);
+    const std::string dump = JsonApi::describeRequestForLog(j);
 
-    EXPECT_EQ(dump.find("wspassword"), std::string::npos) << dump;
-    EXPECT_EQ(dump.find("deadbeefservicetoken"), std::string::npos) << dump;
-    EXPECT_EQ(dump.find("oldpassword"), std::string::npos) << dump;
-    EXPECT_EQ(dump.find("newpassword"), std::string::npos) << dump;
-    EXPECT_NE(dump.find("login"), std::string::npos) << dump;
+    EXPECT_EQ(dump.find(std::string(64, 'z')), std::string::npos) << dump;
+    EXPECT_NE(dump.find("action[64B]"), std::string::npos) << dump;
 }
 
-TEST(JsonApiRedact, HandlesNullAndArrays)
+TEST(JsonApiRequestDescription, HandlesNullAndArrays)
 {
-    //nullptr still answers the empty string: a null Json is the translation of
-    //the null pointer the jansson version refused, and the two callers can
-    //hand one over whenever a non throwing parse discards a bad message.
-    EXPECT_EQ(JsonApi::dumpJsonRedacted(nullptr), std::string());
-    EXPECT_EQ(JsonApi::dumpJsonRedacted(Json::parse("not json", nullptr, false)),
+    //nullptr still answers the empty string: a null Json is what either caller
+    //holds whenever a non throwing parse discards a bad message.
+    EXPECT_EQ(JsonApi::describeRequestForLog(nullptr), std::string());
+    EXPECT_EQ(JsonApi::describeRequestForLog(Json::parse("not json", nullptr, false)),
               std::string());
 
     Json item;
@@ -237,108 +250,80 @@ TEST(JsonApiRedact, HandlesNullAndArrays)
     Json j;
     j["items"] = Json::array({ item });
 
-    const std::string dump = JsonApi::dumpJsonRedacted(j);
+    const std::string dump = JsonApi::describeRequestForLog(j);
 
     EXPECT_EQ(dump.find("insidearray"), std::string::npos) << dump;
-    EXPECT_NE(dump.find("***"), std::string::npos) << dump;
+    EXPECT_NE(dump.find("items[1"), std::string::npos) << dump;
 }
 
-TEST(JsonApiRedact, RedactedDumpKeepsRawUtf8AndStaysIndented)
+TEST(JsonApiRequestDescription, ANewlineInAKeyCannotForgeALogLine)
 {
-    //THE DELIBERATE EXCEPTION of E4.1m to invariant 3 of the epic, and the
-    //only oracle that can see it. The value is a VALID code point, so no error
-    //handler ever looks at it: this case is sensitive to ensure_ascii ONLY.
+    //A key goes on a log LINE, and nothing downstream recovers from a second
+    //one appearing inside it.
     Json j;
-    j["name"] = "caf\xc3\xa9";
+    j["evil\ninjected"] = "x";
 
-    const std::string dump = JsonApi::dumpJsonRedacted(j);
+    const std::string dump = JsonApi::describeRequestForLog(j);
 
-    EXPECT_NE(dump.find("caf\xc3\xa9"), std::string::npos)
-            << "the log stopped carrying raw UTF-8: " << dump;
-    EXPECT_EQ(dump.find("\\u00e9"), std::string::npos)
-            << "ensure_ascii was turned on: the log bytes changed for nothing";
-    EXPECT_EQ(dump.find("\\u00E9"), std::string::npos) << dump;
-    //And it is still the INDENT(4) shape a human reads, not a compact line.
-    EXPECT_NE(dump.find("\n    \"name\""), std::string::npos) << dump;
+    EXPECT_EQ(dump.find('\n'), std::string::npos) << dump;
+    EXPECT_NE(dump.find("evil.injected"), std::string::npos) << dump;
 }
 
-TEST(JsonApiRedact, RedactedDumpDoesNotThrowOnInvalidUtf8)
+TEST(JsonApiRequestDescription, TheOutputIsBoundedWhateverTheDocument)
 {
-    //The probe is a byte pair that can never become valid UTF-8, so this case
-    //is sensitive to the error handler ONLY. It asserts BOTH halves, so that
-    //`strict` and `ignore` cannot redden the same assertion:
-    //  - the call RETURNS (strict throws type_error.316 out of it),
-    //  - and the bytes were REPLACED, not dropped (that is `ignore`).
-    Json j;
-    j["good"] = "readable";
-    j["bad"] = std::string("head\xff\x80tail");
-
-    std::string dump;
-    ASSERT_NO_THROW(dump = JsonApi::dumpJsonRedacted(j))
-            << "a bare dump() or a strict handler is back on the log path";
-
-    //U+FFFD is EF BF BD in UTF-8, and there is one per bad byte.
-    EXPECT_NE(dump.find("\xef\xbf\xbd\xef\xbf\xbd"), std::string::npos) << dump;
-    EXPECT_EQ(dump.find("\xff\x80"), std::string::npos)
-            << "the invalid bytes reached the log untouched";
-    //Not a truncation: both ends of the value and the sibling pair survive.
-    EXPECT_NE(dump.find("head"), std::string::npos) << dump;
-    EXPECT_NE(dump.find("tail"), std::string::npos) << dump;
-    EXPECT_NE(dump.find("readable"), std::string::npos) << dump;
-}
-
-/* T3.65 - THE WHOLE SENSITIVE LIST, ONE KEY AT A TIME.
- *
- * The four cases above name six of the eleven keys the list carries: dropping
- * "passwd", "pass", "old_password", "new_password" or "secret" from it used to
- * leave the whole suite green. Every key gets its own probe value here so that
- * removing any single one of them names itself in the failure.
- */
-TEST(JsonApiRedact, MasksEveryKeyOfTheSensitiveList)
-{
-    const std::vector<std::string> sensitive =
-    { "cn_pass", "password", "passwd", "pass", "token", "old_pw", "new_pw",
-      "old_password", "new_password", "secret", "authorization" };
-
-    Json j;
-    for (const std::string &key: sensitive)
-        j[key] = "LEAK_" + key + "_LEAK";
-
-    //A key that CONTAINS a sensitive name without being one: the match is on
-    //the whole key, and a substring match would mask this one too.
-    j["passenger"] = "readable_passenger";
-    j["action"] = "get_home";
-
-    const std::string dump = JsonApi::dumpJsonRedacted(j);
-
-    for (const std::string &key: sensitive)
+    //The line is built on every request, before the credentials are checked,
+    //on a body allowed to nest 2048 levels: the old dump cost 16.8 MB there.
+    Json deep = "leaf";
+    for (int i = 0; i < 400; i++)
     {
-        //Both halves, always: "the secret is gone" alone would also pass on a
-        //dump that dropped the pair, and "the pair is there" alone would pass
-        //on a dump that never masked anything.
-        EXPECT_EQ(dump.find("LEAK_" + key + "_LEAK"), std::string::npos)
-                << key << " reached the log in clear: " << dump;
-        EXPECT_NE(dump.find("\"" + key + "\": \"***\""), std::string::npos)
-                << key << " is masked, or it is dropped: " << dump;
+        Json wrap;
+        wrap["k" + std::to_string(i)] = deep;
+        deep = wrap;
     }
 
-    EXPECT_NE(dump.find("\"passenger\": \"readable_passenger\""), std::string::npos)
-            << "the key match became a substring match: " << dump;
-    EXPECT_NE(dump.find("\"action\": \"get_home\""), std::string::npos) << dump;
+    Json wide;
+    for (int i = 0; i < 400; i++)
+        wide["w" + std::to_string(i)] = "value";
+    wide["nested"] = deep;
+
+    const std::string dump = JsonApi::describeRequestForLog(wide);
+
+    EXPECT_LT(dump.size(), (size_t)2048)
+            << "the line grows with the document again: " << dump.size() << " bytes";
+    EXPECT_NE(dump.find("..."), std::string::npos)
+            << "nothing says the description was cut: " << dump;
+}
+
+TEST(JsonApiRequestDescription, TwoBodiesDifferingOnlyInWhatIsWithheldRenderDifferently)
+{
+    //A reduction that renders every config upload identically leaves a reader
+    //unable to say which one arrived. Same shape, same byte counts, same keys.
+    Json a, b;
+    a["action"] = "config";
+    a["type"] = "put";
+    a["config_files"] = Json{{ "io.xml", "<?xml?><a>aaaa</a>" }};
+    b = a;
+    b["config_files"] = Json{{ "io.xml", "<?xml?><a>bbbb</a>" }};
+
+    const std::string da = JsonApi::describeRequestForLog(a);
+    const std::string db = JsonApi::describeRequestForLog(b);
+
+    ASSERT_EQ(da.size(), db.size()) << da << "\n" << db;
+    EXPECT_NE(da, db)
+            << "two different uploads render the same line:\n" << da << "\n" << db;
 }
 
 /******************************************************************************
- * What the log level does with the redacted request line (T3.65)
+ * What the log level does with the request line (T3.65)
  ******************************************************************************/
 
 /* THE PREMISE OF T3.65, AND THE ONLY PLACE IT IS FALSIFIABLE.
  *
  * LogStream appends whatever is streamed into it and looks at the level only
  * in its DESTRUCTOR: `cDebugDom(d) << expensive()` pays for expensive() at
- * every level, and prints it at one. dumpJsonRedacted() is that expensive
- * argument on the request path, and this case pins that at the level a stock
- * install runs (debug_level defaults to 4, INFO), nothing of it is ever
- * printed.
+ * every level, and prints it at one. describeRequestForLog() is that argument
+ * on the request path, and this case pins that at the level a stock install
+ * runs (debug_level defaults to 4, INFO), nothing of it is ever printed.
  *
  * std::cout is captured by its streambuf, not by the file descriptor: Logger
  * writes through the stream object and a redirected fd would also swallow what

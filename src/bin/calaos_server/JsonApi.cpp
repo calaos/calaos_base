@@ -492,72 +492,160 @@ bool JsonApi::requestNestingWithinLimit(const string &data)
     return true;
 }
 
-/* E4.1m. The redaction walk moved to nlohmann. TWO deliberate choices, both
- * argued in docs/refactoring/E4.1m.md:
- *
- * (a) THE PARAMETER IS A Json, NOT THE RAW REQUEST TEXT. The two callers parse
- *     the client's message anyway; they hand a document, not a string, so this
- *     function keeps having exactly one job.
- *
- * (b) ensure_ascii IS FALSE HERE, and NOWHERE ELSE IN THE EPIC. This output is
- *     a LOG LINE, not a wire, and it has NEVER been ASCII: the previous dump
- *     asked for INDENT(4) only, so an accented device name has always been
- *     written in raw UTF-8 in calaos_server's log. Escaping it now would change
- *     the bytes of a stream the epic does not migrate, which is precisely what
- *     invariant 3 exists to forbid; the same reasoning already exempts
- *     lib/ConfigOptions.cpp, bin/tools/calaos_config.cpp and CalaosConfig.cpp,
- *     the three other indented dumps of the tree. MEASURED, on a probe
- *     compiled against both libraries: with ensure_ascii = false the two
- *     dumps agree BYTE FOR BYTE on ASCII, on U+00E9 and on U+007F. So this
- *     migration changes NOTHING in the log, and
- *     core/JsonApiModelWireBytes_test has no case here for that reason.
- *     error_handler_t::replace IS applied: it is the invariant that stops a
- *     dump() from throwing type_error.316 on a live connection, and it costs
- *     no byte on anything that is valid.
- */
-string JsonApi::dumpJsonRedacted(const Json &jroot)
+namespace
 {
-    static const vector<string> sensitive =
-    { "cn_pass", "password", "passwd", "pass", "token", "old_pw", "new_pw",
-      "old_password", "new_password", "secret", "authorization" };
 
-    //A null Json is the translation of the null pointer this used to refuse,
-    //and a discarded one is what a non throwing parse answers on garbage.
+/* WHAT MAY BE PUBLISHED OF AN INCOMING REQUEST BODY, enumerated the other way
+ * round from a redaction list: the value of a field this server ROUTES on is
+ * protocol grammar, every other value is a byte count. The failure direction is
+ * the whole point - config/put uploads local_config.xml, io.xml and rules.xml
+ * under keys that are FILE NAMES, and no list of credential names had a reason
+ * to carry them, while local_config.xml is where this server writes mcp_token
+ * and io.xml where an install keeps its camera and broker passwords. set_param
+ * is the same shape one level down: the secret travels under the key `value`
+ * and the word "password" is the value of `param`.
+ *
+ * The lookup is CASE SENSITIVE, unlike the list it replaces: folding widens
+ * what is published, and this set may only ever narrow it. */
+const std::set<string> &loggableRequestValues()
+{
+    static const std::set<string> v =
+    { "action", "msg", "msg_id", "type", "hardware" };
+    return v;
+}
+
+/* Every word this server routes on is under twenty bytes; nothing longer is
+ * grammar, and this runs before the credentials are checked. */
+constexpr size_t MaxLoggedValue = 40;
+constexpr size_t MaxLoggedName = 48;
+//A body nests 2048 levels deep by permission, and this line is built at every
+//request: what bounds the cost is the budget, not the document.
+constexpr int MaxDescribeDepth = 4;
+constexpr size_t MaxDescribeEntries = 64;
+
+//A key or a routing word goes on a log LINE: a control byte in it would forge
+//one, and there is no reading of the rest that recovers from that.
+string logToken(const string &s, size_t cap)
+{
+    string out;
+    out.reserve(std::min(s.size(), cap));
+
+    for (size_t i = 0; i < s.size() && i < cap; i++)
+        out.push_back((static_cast<unsigned char>(s[i]) < 0x20 || s[i] == 0x7f)? '.': s[i]);
+
+    if (s.size() > cap)
+        out += "~";
+
+    return out;
+}
+
+void describeValue(const Json &j, ostringstream &out, int depth, size_t &budget);
+
+void describeMembers(const Json &j, ostringstream &out, int depth, size_t &budget)
+{
+    size_t written = 0;
+
+    for (Json::const_iterator it = j.cbegin(); it != j.cend(); ++it)
+    {
+        if (budget == 0)
+        {
+            out << (written? ", ...": "...");
+            return;
+        }
+        budget--;
+
+        if (written++)
+            out << ", ";
+
+        out << logToken(it.key(), MaxLoggedName);
+
+        const bool routed = loggableRequestValues().count(it.key()) > 0;
+
+        if (routed && !it.value().is_structured())
+        {
+            const string v = it.value().is_string()? it.value().get<string>()
+                                                   : it.value().dump();
+            if (v.size() <= MaxLoggedValue)
+            {
+                out << "=" << logToken(v, MaxLoggedValue);
+                continue;
+            }
+        }
+
+        describeValue(it.value(), out, depth, budget);
+    }
+}
+
+void describeItems(const Json &j, ostringstream &out, int depth, size_t &budget)
+{
+    size_t written = 0;
+
+    for (Json::const_iterator it = j.cbegin(); it != j.cend(); ++it)
+    {
+        if (budget == 0)
+        {
+            out << (written? ", ...": "...");
+            return;
+        }
+        budget--;
+
+        if (written++)
+            out << ", ";
+
+        describeValue(*it, out, depth, budget);
+    }
+}
+
+void describeValue(const Json &j, ostringstream &out, int depth, size_t &budget)
+{
+    if (j.is_object())
+    {
+        out << "{" << j.size();
+        if (!j.empty() && depth + 1 < MaxDescribeDepth)
+        {
+            out << ": ";
+            describeMembers(j, out, depth + 1, budget);
+        }
+        out << "}";
+        return;
+    }
+
+    if (j.is_array())
+    {
+        out << "[" << j.size();
+        if (!j.empty() && depth + 1 < MaxDescribeDepth)
+        {
+            out << ": ";
+            describeItems(j, out, depth + 1, budget);
+        }
+        out << "]";
+        return;
+    }
+
+    const string v = j.is_string()? j.get<string>(): j.dump();
+    out << "[" << v.size() << "B]";
+}
+
+}
+
+string JsonApi::describeRequestForLog(const Json &jroot)
+{
+    //A null Json is what the two callers hold when a non throwing parse
+    //discarded the message, and there is nothing to describe about it.
     if (jroot.is_null() || jroot.is_discarded())
         return string();
 
-    Json copy = jroot;
+    ostringstream out;
+    size_t budget = MaxDescribeEntries;
 
-    std::function<void(Json &)> redact = [&](Json &j)
-    {
-        if (j.is_array())
-        {
-            for (Json &value: j)
-                redact(value);
-            return;
-        }
+    out << "api request ";
+    describeValue(jroot, out, 0, budget);
 
-        if (!j.is_object())
-            return;
+    //Two bodies that differ only in what is withheld must not render the same
+    //line, or a journal cannot say which request it is looking at.
+    out << " #" << Utils::logTag(jroot.dump());
 
-        //The keys are collected first and rewritten after the walk: writing
-        //into the object while iterating it invalidates the iterator.
-        vector<string> keys;
-        for (Json::iterator it = j.begin(); it != j.end(); ++it)
-        {
-            if (std::find(sensitive.begin(), sensitive.end(), Utils::str_to_lower(it.key())) != sensitive.end())
-                keys.push_back(it.key());
-            else
-                redact(it.value());
-        }
-
-        for (const string &k: keys)
-            j[k] = "***";
-    };
-
-    redact(copy);
-
-    return copy.dump(4, ' ', false, Json::error_handler_t::replace);
+    return out.str();
 }
 
 JsonApi::JsonApi(HttpClient *client):

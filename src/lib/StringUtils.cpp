@@ -511,20 +511,6 @@ uint64_t urlTagSalt()
     return salt;
 }
 
-std::string urlTag(const std::string &withheld)
-{
-    uint64_t h = 14695981039346656037ULL ^ urlTagSalt();
-    for (unsigned char c: withheld)
-    {
-        h ^= c;
-        h *= 1099511628211ULL;
-    }
-
-    char buf[16];
-    snprintf(buf, sizeof(buf), "%08x", static_cast<unsigned>(h >> 32));
-    return buf;
-}
-
 //RFC 3986 scheme: an alpha, then alphanumerics and "+-." and nothing else.
 bool isSchemeName(const std::string &s)
 {
@@ -558,6 +544,20 @@ size_t countParts(const std::string &s, char sep)
 
 } // namespace
 
+std::string Utils::logTag(const std::string &withheld)
+{
+    uint64_t h = 14695981039346656037ULL ^ urlTagSalt();
+    for (unsigned char c: withheld)
+    {
+        h ^= c;
+        h *= 1099511628211ULL;
+    }
+
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%08x", static_cast<unsigned>(h >> 32));
+    return buf;
+}
+
 std::string Utils::urlForLog(const std::string &url)
 {
     ostringstream out;
@@ -566,7 +566,7 @@ std::string Utils::urlForLog(const std::string &url)
     if (schemeEnd == string::npos)
     {
         //Nothing here identifies a host, so nothing of it is rendered.
-        out << "<url " << url.size() << "B> #" << urlTag(url);
+        out << "<url " << url.size() << "B> #" << logTag(url);
         return out.str();
     }
 
@@ -611,7 +611,7 @@ std::string Utils::urlForLog(const std::string &url)
 
     const string withheld = userinfo + url.substr(authEnd);
     if (!withheld.empty())
-        out << " #" << urlTag(withheld);
+        out << " #" << logTag(withheld);
 
     return out.str();
 }
@@ -657,7 +657,7 @@ std::string Utils::requestTargetForLog(const std::string &target)
 
     const string withheld = query + fragment;
     if (!withheld.empty())
-        out << " #" << urlTag(withheld);
+        out << " #" << logTag(withheld);
 
     return out.str();
 }
