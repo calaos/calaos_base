@@ -59,9 +59,12 @@
  * python end logs too. The second case is that counterweight.
  *
  * ⛔ WHAT THIS DOES NOT PROVE: no camera and no journal of a real install are
- * involved, and the hifi rose token of the fourth case is held by a source
- * tripwire - reaching that line needs a stubbed HTTPS answer from the
- * amplifier, which no harness of this tree provides.
+ * involved, and the hifi rose registration of the fourth case is read in the
+ * shipped source - reaching that line needs a stubbed HTTPS answer from the
+ * amplifier, which no harness of this tree provides. What the fourth case
+ * reads there is the LIST of what the handler publishes, not the absence of
+ * one name: a guard spelled on the identifier was measured blind to the answer
+ * body it is extracted from.
  *
  * The two levels the severity rests on are measured by the last case, in a
  * forked child: this process raises the level in its own main() and can no
@@ -673,22 +676,24 @@ TEST_F(ExternProcPayloadSecretTest, AnIncomingFieldTheServerNeverReadsIsNotDumpe
 }
 
 /*
- * The hifi rose device token, held by a SPELLING and not by an effect.
+ * WHAT THE REGISTRATION ANSWER HANDLER OF Audio/AVRRose.cpp PUBLISHES.
  *
- * Reaching AVRRose::registerDevice()'s answer handler needs a stubbed HTTPS
- * response from the amplifier, which no harness of this tree provides. What
- * is checked instead is that no logging statement of the shipped file streams
- * the token, whatever the layout: the statements are cut on the semicolon of
- * a whitespace-collapsed copy, so a line break inside one changes nothing.
+ * Reaching that handler at runtime needs a stubbed HTTPS answer from the
+ * amplifier - postRequest() forces https:// and the only test server of this
+ * tree speaks clear HTTP - so what is read is the shipped source. But it is
+ * read the way the fix itself is written: the operands each logging statement
+ * of the handler streams must all be values THIS end names.
  *
- * ⚠️ The file is asserted to still MENTION roseToken first: a rename or a move
- * would otherwise make this case vacuously green.
+ * ⛔ A guard spelled on `roseToken` was measured blind twice: to a copy under
+ * another name, and to `<< data`, the whole answer body the token is read
+ * from, republished at INFO. Neither cites the identifier, so neither was
+ * seen. Enumerating what may be published has no such blind side.
  *
- * ⛔ Its blind spot, named: a copy under another name (`auto t = roseToken;`)
- * then streamed would pass. That is the same class as the tripwires that hold
- * the sidecar mains, and it is not closable by one more spelling.
+ * ⚠️ Known false red, and a loud one: a statement is cut on the semicolon of a
+ * whitespace-collapsed copy and split on `<<`, so a string literal containing
+ * either would be reported as an offender. It names the operand it refuses.
  */
-TEST_F(ExternProcPayloadSecretTest, TripwireSource_TheHifiRoseTokenIsNeverStreamedToALogLine)
+TEST_F(ExternProcPayloadSecretTest, TripwireSource_TheRegistrationAnswerPublishesOnlyWhatThisEndNames)
 {
     const std::string relative = "src/bin/calaos_server/Audio/AVRRose.cpp";
 
@@ -697,48 +702,115 @@ TEST_F(ExternProcPayloadSecretTest, TripwireSource_TheHifiRoseTokenIsNeverStream
 
     const std::string code = collapseWhitespace(raw);
 
-    ASSERT_LE(1, countOccurrences(code, "roseToken"))
-        << relative << " no longer mentions roseToken at all: this tripwire is "
-           "pointing at the wrong file and proves nothing";
+    //The handler, delimited by the call that installs it and by the next
+    //member function: outside it, `data` is a request body and publishing it
+    //is a different question.
+    const std::string::size_type begin = code.find("postRequest(\"device_connected\"");
+    const std::string::size_type stop = code.find("void AVRRose::reregisterIfNeeded");
+
+    ASSERT_NE(std::string::npos, begin)
+        << relative << " no longer posts device_connected: this tripwire is "
+           "pointing at nothing";
+    ASSERT_NE(std::string::npos, stop)
+        << relative << " no longer defines reregisterIfNeeded(): the window "
+           "this case reads has no end and would cover the whole file";
+    ASSERT_LT(begin, stop) << "the registration handler moved after "
+                             "reregisterIfNeeded(): the window is empty";
+
+    const std::string window = code.substr(begin, stop - begin);
+
+    ASSERT_NE(std::string::npos, window.find("roseToken"))
+        << "the device token is no longer read in this handler, so the window "
+           "is not the one this case is about";
 
     static const char *const kLogMacros[] = {
         "cDebugDom(", "cInfoDom(", "cWarningDom(", "cErrorDom(", "cCriticalDom(",
         "cDebug()", "cInfo()", "cWarning()", "cError()", "cCritical()"
     };
 
-    std::vector<std::string> offenders;
-    std::string::size_type start = 0;
-    while (start < code.size())
-    {
-        std::string::size_type end = code.find(';', start);
-        if (end == std::string::npos)
-            end = code.size();
+    /*
+     * What a journal may carry out of this handler: literal text, the device
+     * this server was configured for, and the parse error of an answer that is
+     * not JSON at all. Everything else is a value that came from the wire.
+     */
+    static const char *const kPublishable[] = { "host", "e.what()" };
 
-        const std::string statement = code.substr(start, end - start);
+    std::vector<std::string> offenders;
+    int examined = 0;
+
+    std::string::size_type start = 0;
+    while (start < window.size())
+    {
+        std::string::size_type end = window.find(';', start);
+        if (end == std::string::npos)
+            end = window.size();
+
+        const std::string statement = window.substr(start, end - start);
         start = end + 1;
 
-        if (statement.find("roseToken") == std::string::npos)
-            continue;
-
+        bool logs = false;
         for (const char *macro: kLogMacros)
         {
             if (statement.find(macro) != std::string::npos)
             {
-                offenders.push_back(statement);
+                logs = true;
                 break;
             }
         }
+        if (!logs)
+            continue;
+
+        std::string::size_type op = statement.find("<<");
+        if (op == std::string::npos)
+            continue;
+
+        examined++;
+
+        while (op != std::string::npos)
+        {
+            const std::string::size_type next = statement.find("<<", op + 2);
+            std::string operand = statement.substr(
+                op + 2, next == std::string::npos? std::string::npos : next - op - 2);
+            op = next;
+
+            while (!operand.empty() && operand[0] == ' ')
+                operand.erase(0, 1);
+            while (!operand.empty() && operand[operand.size() - 1] == ' ')
+                operand.erase(operand.size() - 1);
+
+            if (operand.size() >= 2 && operand[0] == '"' &&
+                operand[operand.size() - 1] == '"')
+                continue;
+
+            bool named = false;
+            for (const char *ok: kPublishable)
+            {
+                if (operand == ok)
+                {
+                    named = true;
+                    break;
+                }
+            }
+
+            if (!named)
+                offenders.push_back(operand);
+        }
     }
+
+    ASSERT_LE(2, examined)
+        << "fewer than two logging statements were found in the registration "
+           "handler: this case would pass on a window that no longer contains "
+           "the lines it is about";
 
     std::string report;
     for (const std::string &s: offenders)
         report += "\n  " + s;
 
     EXPECT_TRUE(offenders.empty())
-        << "a logging statement of " << relative << " streams the device "
-           "token. cInfoDom prints on a stock install - debug_level defaults "
-           "to 4 and LOG_LEVEL_INFO is 4 - so the token leaves with the "
-           "journal, at every registration:" << report;
+        << "a logging statement of the registration handler of " << relative
+        << " publishes a value this end did not name. The answer of "
+           "device_connected is the document the device token is read from, "
+           "and cInfoDom prints on a stock install:" << report;
 }
 
 /*

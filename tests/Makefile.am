@@ -4872,3 +4872,37 @@ UrlDownloaderLogSecret_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest
 endif
+
+# T3.85
+#What a controller republishes of an error frame its SIDECAR built.
+#ReolinkCtrl copied p["message"] into cErrorDom("reolink"). The python end
+#fills that key on its connection failure path with the text of an exception
+#raised by the camera library, by the call that had just authenticated with the
+#camera credentials: nothing in this tree constrains it, and ERROR prints on a
+#stock install - one level above the leak T3.81 closed.
+#NOTHING HERE CALLS THE MESSAGE HANDLER: a real ReolinkCtrl is built, a peer
+#connects to the unix socket its ExternProcServer bound and sends framed error
+#messages, so a mutation of IO/Reolink/ReolinkCtrl.cpp turns these cases red.
+#The second case is the counterweight - an unreachable camera is a common
+#failure and this line is what reports it, so the kind, the camera and the size
+#of what was withheld must survive. The third forks a child that never raises
+#the level: this suite raises it in its own main() and could not otherwise see
+#that the line prints on a stock install.
+#No core fixture: the controller needs no config model, and main() has to raise
+#debug_level before the first log line of the process (the Logger domain map is
+#filled once and never re-read).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/SidecarErrorSecret_test
+check_PROGRAMS += core/SidecarErrorSecret_test
+core_SidecarErrorSecret_test_SOURCES = core/SidecarErrorSecret_test.cpp
+core_SidecarErrorSecret_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Reolink
+core_SidecarErrorSecret_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkCtrl.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_SidecarErrorSecret_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkCtrl.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
