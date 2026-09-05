@@ -10287,7 +10287,7 @@ corps que le journal rend. ⚠️ **Ce qui reste ouvert du côté du filet** : a
 transport n'est exercé — le corps republié à WARNING sur la branche non-2xx donne **0 rouge**, et
 WARNING est imprimé par défaut. Le niveau annoncé est confirmé **DEBUG**.
 
-### ⛔ [F-URLDL-2] Ce que `UrlDownloader` publie **à côté du corps**, et les drivers qui le republient — ticket proposé [`T3.87`](T3.87.md)
+### ✅ [F-URLDL-2] FERMÉ (pour l'URL) par [`T3.87`](T3.87.md) — ce que `UrlDownloader` publie **à côté du corps**
 
 Trouvé en mesurant [`T3.83`](T3.83.md), qui a fermé le corps et **pas** ces trois canaux.
 
@@ -10327,6 +10327,77 @@ comprendre une redirection ou un type de contenu inattendu — et T3.83 s'appuie
 publiés** (statut, `Content-Type`, `Content-Length`, `Location`) et de ne rendre que le **nom** des
 autres. ⛔ Le harnais existe : `tests/UrlDownloaderLogSecret_test.cpp` monte déjà un pair HTTP dont
 la réponse est choisie — lui faire poser un `Set-Cookie` est une ligne.
+
+✅ **Le point 2 est FERMÉ le 2026-09-05 par [`T3.87`](T3.87.md).** ⛔ **Les points 1 et 3 restent
+ouverts sur `master`** et sont repris tels quels sous **`F-URLDL-3`** ⇒ [`T3.88`](T3.88.md).
+
+⭐ **L'arbitrage a été tranché PAR LA MESURE, pas par doctrine.** Les huit lignes du transport qui
+publiaient une URL ont été relues une par une : ⛔ **la ligne d'achèvement (`Finished with status
+code:` puis `Response body: N bytes`) ne porte NI l'URL NI l'adresse de l'objet**, donc deux
+transferts concurrents y sont **déjà** indiscernables. ⇒ **corréler une requête et sa réponse n'est
+pas un service que cette URL rendait**, et ses deux usages réels — quel appareil, l'appel a-t-il
+abouti — sont rendus par l'**hôte**. Le transport publie désormais schéma, hôte et port, et le reste
+comme une **forme** (segments, paramètres, octets) plus une **empreinte salée par processus** des
+seuls octets retenus ; l'empreinte existe parce qu'un pont à douze lampes donne douze URL qui ne
+diffèrent que par un segment de chemin.
+
+⭐ **Le recensement dit pourquoi allonger la liste ne pouvait pas tenir** : **les quatre formes
+coexistent dans l'arbre** et la liste n'en couvrait qu'**une et demie** — **CHEMIN 3** lancements
+(Hue), **REQUÊTE 4** (`Foscam.cpp:128,130` ; `SynoSurveillanceStation.cpp:175,210`), **5
+polymorphes** résolus en **IDENTIFIANTS `user:pass@`** chez Axis (5 sites) et Planet (**23** appels à
+`camGet()` depuis un userinfo fabriqué en `Planet.cpp:123`), **EN-TÊTE 2** (`DataLogger.cpp:58,202`),
+**LIBRE 4**, **aucun secret 6**. ⚠️ **Et « 22 traversent la ligne » est le chiffre de `F-URLDL-1`** :
+les deux téléchargements vers un fichier évitent la ligne du **corps**, pas celle du
+**constructeur**, qui journalise inconditionnellement ⇒ **24** traversent la ligne fermée ici.
+
+⭐ **`maskUrlCredentials` n'est pas touchée, et c'est mesuré** : **21 assertions** de deux suites
+épinglent sa sortie exacte (14 dans `IPCamUrl_test`, 7 dans `UrlDownloader_test`). Ses deux appelants
+de journal passent à `Utils::urlForLog` ⇒ elle survit **sans appelant de production**, un commentaire
+pour seule barrière. **Dix sites** publiant une URL sont convertis, dont **cinq imprimés par défaut**
+et `IPCam.cpp:118` à **ERROR** ; `WebCtrl.cpp:434` et `SynoSurveillanceStation.cpp:268` publiaient
+l'URL **brute**.
+
+⭐ **Le capteur ne dépend ni d'un nom ni d'une longueur** : il borne la plus longue **suite d'octets**
+de la partie porteuse de l'URL que le journal rend, **et la cherche aussi percent-décodée** —
+recouvrement fortuit **3**, plafond **8**, **118** sur `master`. **Le chemin d'échec est exercé** (le
+pair accepte et n'écrit rien ⇒ la ligne WARNING), et le niveau par défaut est **mesuré** dans un
+enfant forké : `urlutils` **imprime à INFO** sur un boîtier neuf.
+
+⛔⭐ **Une contre-mutation a mesuré 0 rouge et corrigé la fixture** : le cas « deux points d'accès du
+même hôte » montait **deux** pairs, donc deux ports éphémères, et l'empreinte les distinguait toute
+seule — il passait pour une raison sans rapport avec ce qu'il prétendait mesurer. Même famille que
+les 0 rouge des revues de T3.83 et T3.85. Corrigé : un seul pair, plusieurs connexions, égalité des
+autorités assurée ; la même mutation rend **1 rouge**.
+
+### ⛔ [F-URLDL-3] Le bloc d'en-têtes de réponse, et six drivers qui republient un corps entier — ticket proposé [`T3.88`](T3.88.md)
+
+Ce sont les points 1 et 3 de `F-URLDL-2`, **repris tels quels** : [`T3.87`](T3.87.md) n'a fermé que
+l'URL.
+
+1. ⛔ **Le bloc d'en-têtes de réponse sort en entier**, ligne à ligne (`getResponseHeaders()` fait
+   `cDebugDom("urlutils") << line`) : `Set-Cookie`, `WWW-Authenticate` avec son nonce, un
+   `Authorization` en écho. ⭐ **Et `Location:` d'une redirection EST une URL, publiée brute**, alors
+   que le réducteur existe désormais (`Utils::urlForLog`). ⚠️ La méthode est **publique** et
+   `SynoSurveillanceStation` la rappelle depuis son callback ⇒ tout le bloc sort **une seconde
+   fois**. ⚠️ Contrepoids obligatoire : T3.83 §4 s'appuie explicitement sur `Content-Type`.
+2. ⛔ **Six sites de drivers republient un corps de réponse entier, dont trois au-dessus de
+   DEBUG** : `IPCam/SynoSurveillanceStation.cpp:302` (**WARNING**, échec de parsage de
+   `parseJsonResult()`, appelée par `login()` — le corps qui porte le `sid`), `:189` (**WARNING**),
+   `IO/Hue/HueOutputLightRGB.cpp:71,78` (**ERROR**), puis `:82,137,157` et `IO/Web/WebCtrl.cpp:437`
+   à DEBUG.
+
+⚠️ **L'arbitrage n'est pas celui de T3.87** : Hue publie le corps **parce qu'il n'a pas su le lire**,
+donc la taille seule ne dit pas pourquoi. Il faut d'abord savoir ce qu'un intégrateur lit vraiment
+sur ce chemin, et ce n'est pas mesuré.
+
+### ⚠️ [F-HTTPIN-1] Le serveur HTTP **entrant** publie tous les en-têtes reçus, `Authorization` compris — aucun ticket
+
+`src/bin/calaos_server/HttpClient.cpp:277-279` : `cDebugDom("network")` écrit la cible de la requête
+puis **chaque** en-tête reçu. Un client qui s'authentifie auprès de `calaos_server` voit donc son
+`Authorization` recopié dans le journal. Trouvé en recensant les publications d'URL pour
+[`T3.87`](T3.87.md), **fiché sans ticket** : c'est la classe **entrante**, distincte de tout ce que
+`F-URLDL-*` couvre. ⚠️ DEBUG (5) donc au-dessus du repli 4 : **pas imprimé sur un boîtier neuf**,
+mais c'est le niveau qu'un utilisateur allume avant de coller un journal dans un rapport de bogue.
 
 ### ✅ [F-LOGSECRET-2] FERMÉ par [`T3.85`](T3.85.md) — un chemin d'erreur republiait à **ERROR** une chaîne fabriquée par le sidecar
 

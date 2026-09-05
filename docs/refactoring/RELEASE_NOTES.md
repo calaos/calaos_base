@@ -1346,9 +1346,34 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   vide, tronquée, ou d'un type inattendu — ce pour quoi on lit ces lignes — sans que le contenu
   parte avec.
 
-  ⚠️ **Une réserve honnête** : les **en-têtes** de réponse sont toujours écrits en entier, et
-  l'adresse appelée n'est nettoyée que d'une courte liste de noms de paramètres — une clef d'API
-  placée ailleurs dans l'adresse y figure encore. Ces deux points ne sont pas fermés ici.
+  ⚠️ **Une réserve honnête** : les **en-têtes** de réponse sont toujours écrits en entier. Ce point
+  n'est pas fermé ici.
+
+- ⭐ **La clef d'API de votre pont Philips Hue n'apparaît plus dans les journaux du serveur.** Elle y
+  figurait **en clair**, sur une installation neuve, sans que personne ait eu à activer quoi que ce
+  soit — et **toutes les deux secondes**, à chaque interrogation du pont par Calaos.
+
+  Calaos nettoyait bien les adresses qu'il écrit dans ses journaux, mais seulement en cherchant une
+  courte liste de **noms de paramètres** (`usr`, `pwd`, `password`, …) **après le point
+  d'interrogation** de l'adresse. Or le pont Hue ne met pas sa clef là : il la met **dans le chemin**
+  de l'adresse, `http://<pont>/api/<votre clef>/lights/3`. Rien ne la voyait, et l'adresse partait
+  entière. Les caméras Axis et Planet, qui placent leurs identifiants au tout début de l'adresse,
+  étaient couvertes ; les jetons nommés `token` ou `api_key`, non.
+
+  ⚠️ **Ce n'est pas une porte ouverte sur votre installation** : qui lit ces journaux est déjà sur le
+  boîtier. Mais un journal voyage — rapport d'incident, capture d'écran, message d'assistance — et
+  avec la clef d'API du pont on **allume, éteint et reconfigure toutes vos lampes**.
+
+  Désormais Calaos écrit **l'adresse de l'appareil** (protocole, hôte, port) et, du reste de
+  l'adresse, seulement sa **forme** : combien de segments, combien de paramètres, combien d'octets,
+  et une **étiquette courte** qui permet de reconnaître deux appels à la même adresse dans un même
+  journal sans révéler laquelle. On voit toujours **quel appareil** a été appelé, **si l'appel a
+  abouti** et **quelles lignes parlent du même appel** — y compris sur les lignes d'échec, qui
+  s'affichent, elles, sur une installation neuve. Ce qui a disparu, c'est le contenu de l'adresse.
+
+  ⚠️ **Une réserve honnête** : la **longueur** du chemin est publiée, donc la longueur de la clef.
+  Et si vous cherchiez auparavant une adresse complète dans un journal pour la rejouer à la main,
+  ce n'est plus possible : il faut la relire dans `io.xml`.
 
 - ⭐ **Le message d'erreur d'une caméra Reolink ne peut plus emporter vos identifiants de caméra
   dans les journaux.** Quand la passerelle Reolink n'arrivait pas à joindre une caméra, elle
