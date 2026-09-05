@@ -94,7 +94,7 @@ public:
         cInfoDom("rule.action") << "Need to download camera ("
                                 << camera->get_param("name")
                                 << ") attachment";
-        cDebugDom("rule.action") << "DL URL: " << Utils::maskUrlCredentials(camera->getPictureUrl())
+        cDebugDom("rule.action") << "DL URL: " << Utils::urlForLog(camera->getPictureUrl())
                                  << " to " << destFile;
 
         auto dl = std::make_shared<Download>();

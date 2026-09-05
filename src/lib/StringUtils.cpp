@@ -24,6 +24,7 @@
 
 #include <algorithm>
 #include <iomanip>
+#include <random>
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
@@ -483,4 +484,109 @@ std::string Utils::maskUrlCredentials(const std::string &url)
     }
 
     return out;
+}
+
+namespace
+{
+
+/* Stable for the life of the process and worthless outside it: two lines of
+ * one journal can be told to be the same call, and no reader can confirm a
+ * guessed URL against a tag by hashing the guess. */
+uint64_t urlTagSalt()
+{
+    static const uint64_t salt = []()
+    {
+        std::random_device rd;
+        return (static_cast<uint64_t>(rd()) << 32) ^ static_cast<uint64_t>(rd());
+    }();
+    return salt;
+}
+
+std::string urlTag(const std::string &withheld)
+{
+    uint64_t h = 14695981039346656037ULL ^ urlTagSalt();
+    for (unsigned char c: withheld)
+    {
+        h ^= c;
+        h *= 1099511628211ULL;
+    }
+
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%08x", static_cast<unsigned>(h >> 32));
+    return buf;
+}
+
+size_t countParts(const std::string &s, char sep)
+{
+    size_t n = 0;
+    for (size_t pos = 0; pos < s.size();)
+    {
+        size_t next = s.find(sep, pos);
+        if (next == std::string::npos)
+            next = s.size();
+        if (next > pos)
+            n++;
+        pos = next + 1;
+    }
+    return n;
+}
+
+} // namespace
+
+std::string Utils::urlForLog(const std::string &url)
+{
+    ostringstream out;
+
+    const auto schemeEnd = url.find("://");
+    if (schemeEnd == string::npos)
+    {
+        //Nothing here identifies a host, so nothing of it is rendered.
+        out << "<url " << url.size() << "B> #" << urlTag(url);
+        return out.str();
+    }
+
+    const size_t authStart = schemeEnd + 3;
+    size_t authEnd = url.find_first_of("/?#", authStart);
+    if (authEnd == string::npos)
+        authEnd = url.size();
+
+    const string authority = url.substr(authStart, authEnd - authStart);
+    const auto at = authority.rfind('@');
+    const string userinfo = (at == string::npos)? string(): authority.substr(0, at);
+    const string hostPort = (at == string::npos)? authority: authority.substr(at + 1);
+
+    string rest = url.substr(authEnd);
+    string fragment;
+    const auto hash = rest.find('#');
+    if (hash != string::npos)
+    {
+        fragment = rest.substr(hash + 1);
+        rest.erase(hash);
+    }
+
+    string query;
+    const auto q = rest.find('?');
+    if (q != string::npos)
+    {
+        query = rest.substr(q + 1);
+        rest.erase(q);
+    }
+    const string &path = rest;
+
+    out << url.substr(0, authStart) << hostPort;
+
+    if (!userinfo.empty())
+        out << " [userinfo " << userinfo.size() << "B]";
+    if (!path.empty())
+        out << " [path " << countParts(path, '/') << "seg/" << path.size() << "B]";
+    if (!query.empty())
+        out << " [query " << countParts(query, '&') << "p/" << query.size() << "B]";
+    if (!fragment.empty())
+        out << " [fragment " << fragment.size() << "B]";
+
+    const string withheld = userinfo + url.substr(authEnd);
+    if (!withheld.empty())
+        out << " #" << urlTag(withheld);
+
+    return out.str();
 }

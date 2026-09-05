@@ -33,7 +33,7 @@ Foscam::Foscam(Params &p):
     //travel in cleartext on the wire — this is a camera firmware limitation,
     //not something calaos can fix. Deploy these cameras on a trusted/isolated
     //network segment or behind an HTTPS reverse proxy. On the calaos side,
-    //never log these URLs without IPCam::maskUrlCredentials().
+    //never log these URLs without Utils::urlForLog().
     //(The user-visible ioDoc description is left untouched on purpose: the
     //string is translated in po/, which this ticket does not own.)
     ioDoc->descriptionBaseSet(_("Foscam IP Camera/Encoder. Camera can be viewed directly inside calaos and used in rules."));

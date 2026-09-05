@@ -443,7 +443,7 @@ UrlDownloader::UrlDownloader(string url, bool autodelete) :
     m_url(url),
     m_autodelete(autodelete)
 {
-    cInfoDom("urlutils") << "UrlDownloader: " << Utils::maskUrlCredentials(url);
+    cInfoDom("urlutils") << "UrlDownloader: " << Utils::urlForLog(url);
 }
 
 UrlDownloader::~UrlDownloader()
@@ -474,7 +474,7 @@ void UrlDownloader::cancel()
         return;
     m_cancelled = true;
 
-    cDebugDom("urlutils") << "UrlDownloader(" << this << ") cancel " << Utils::maskUrlCredentials(m_url);
+    cDebugDom("urlutils") << "UrlDownloader(" << this << ") cancel " << Utils::urlForLog(m_url);
 
     //The consumer asked out: nothing must fire after this point
     m_signalComplete.clear();
@@ -519,7 +519,7 @@ bool UrlDownloader::start()
     m_headerData.clear();
     statusCode = 0;
 
-    const string logUrl = Utils::maskUrlCredentials(m_url);
+    const string logUrl = Utils::urlForLog(m_url);
 
     auto conn = new UrlDownloaderCurlConn;
     conn->easy = curl_easy_init();
@@ -720,7 +720,7 @@ void UrlDownloader::dataCb(const char *data, int size)
         m_downloadedData.append(data, std::min(static_cast<size_t>(size), room));
         if (m_downloadedData.size() >= m_bufferMaxSize)
             cWarningDom("urlutils") << "Download buffer cap (" << m_bufferMaxSize
-                                    << " bytes) reached for " << Utils::maskUrlCredentials(m_url)
+                                    << " bytes) reached for " << Utils::urlForLog(m_url)
                                     << ", data is streamed but no longer accumulated";
     }
 
@@ -735,7 +735,7 @@ void UrlDownloader::Destroy()
         return;
     destroyScheduled = true;
 
-    cDebugDom("urlutils") << "UrlDownloader(" << this << ") Launch idler to destroy " << Utils::maskUrlCredentials(m_url);
+    cDebugDom("urlutils") << "UrlDownloader(" << this << ") Launch idler to destroy " << Utils::urlForLog(m_url);
     //T3.40: this is NOT the use-after-free pattern of the sweep even though
     //it looks like one. The idler does not USE the object, it is the
     //object's own deferred destruction: `this` must still be alive when the

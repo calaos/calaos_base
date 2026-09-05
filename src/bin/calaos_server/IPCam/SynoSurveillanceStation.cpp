@@ -265,7 +265,7 @@ void SynoSurveillanceStation::getApiInfo(const string &api, const string &method
             Utils::replace_str(u, "%4", method);
             Utils::replace_str(u, "%5", version);
 
-            cDebugDom("syno.ss") << "API URL is: " << u;
+            cDebugDom("syno.ss") << "API URL is: " << Utils::urlForLog(u);
 
             cb({u});
         }

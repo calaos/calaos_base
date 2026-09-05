@@ -432,7 +432,7 @@ void WebCtrl::setValue(string value)
     fdownloader->httpPost(string(), data);
 
     cDebug() << "Set value with param : "
-             << url << " | "
+             << Utils::urlForLog(url) << " | "
              << param.get_param("request_type") << " | "
              << data << " | "
              << data_type;

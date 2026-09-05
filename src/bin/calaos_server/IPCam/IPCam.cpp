@@ -93,6 +93,9 @@ bool IPCam::SaveToXml(pugi::xml_node node)
 
 std::string IPCam::maskUrlCredentials(const std::string &url)
 {
+    //Kept as the masker it always was, but no log line uses it any more: it
+    //knows the userinfo and ten query names and cannot see a secret carried
+    //by a path segment. What goes to a journal goes through Utils::urlForLog.
     //T2.17: implementation moved to src/lib (Utils::maskUrlCredentials) so
     //UrlDownloader can mask the URLs it logs too; contract unchanged
     return Utils::maskUrlCredentials(url);
@@ -115,7 +118,7 @@ void IPCam::downloadSnapshot(std::function<void(const string &)> dataCb)
             }
             else
             {
-                cErrorDom("network") << "Failed to get image for camera at url: " << maskUrlCredentials(getPictureUrl()) << " failed with code: " << status;
+                cErrorDom("network") << "Failed to get image for camera at url: " << Utils::urlForLog(getPictureUrl()) << " failed with code: " << status;
                 snapshotDataCb({});
             }
         });

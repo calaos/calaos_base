@@ -53,6 +53,18 @@ std::string escape_quotes(const std::string &s);
  * case-insensitive). Moved from IPCam (which now delegates here) so
  * UrlDownloader can mask every URL it logs. */
 std::string maskUrlCredentials(const std::string &url);
+
+/* WHAT MAY BE PUBLISHED OF A URL. Scheme, host and port say which device a
+ * transfer talks to and can never be a secret. Everything after them can be
+ * one, in any shape - a Hue bridge carries its API key as a path SEGMENT, a
+ * session id travels as a query value, a camera puts its password in the
+ * userinfo - and no list of parameter names decides which; maskUrlCredentials
+ * above knows two shapes out of three and is not a log reducer. So the rest is
+ * rendered as a shape (segments, parameters, byte counts) and never as data,
+ * plus a tag that is stable for one URL inside one process so that two lines
+ * can be told to be the same call. The tag is salted per process on purpose:
+ * an unsalted digest would let a reader confirm a guessed URL against it. */
+std::string urlForLog(const std::string &url);
 std::string escape_space(const std::string &s);
 
 enum CaseSensitivity { CaseInsensitive, CaseSensitive };
