@@ -10737,8 +10737,10 @@ assertions. L'identifiant d'IO reste en clair parce que `get_io()` vient de le r
 nom de la configuration, pas une chaîne inventée par le client.
 
 ⛔⭐ **Le `cout` nu publiait bien plus que « jour et heures »** : `decodeJsonObject()` recopie
-**toutes** les clefs de l'objet dans `Params` et `Params::toString()` les rend toutes — **20 octets
-sur 20** d'une clef inventée récupérés dans le foin « boîtier neuf ». Il est devenu un `cDebugDom`
+**toutes** les clefs de l'objet dans `Params` et `Params::toString()` les rend toutes — ⛔ **18
+octets sur 18** d'une clef inventée récupérés dans le foin « boîtier neuf » (~~20 sur 20~~ : chiffre
+**corrigé et re-mesuré par la revue de merge**, l'aiguille fait 18 octets ; et **19 sur 19** d'une
+seconde valeur plantée sous `start_hour`). Il est devenu un `cDebugDom`
 qui dit enfin **sur quel IO** la plage atterrit et ne publie que les six bornes, bornées.
 ⭐ **Et convertir ne suffisait pas** : `Params::toString()` est multi-lignes, les lignes de
 continuation n'ont **aucun marqueur de niveau**, donc le rendu **sur une seule ligne** est porteur
@@ -10746,28 +10748,50 @@ continuation n'ont **aucun marqueur de niveau**, donc le rendu **sur une seule l
 secret que ce dépôt distribue — et tenu par un cas qui mesure son **niveau** (mutation vers WARNING
 ⇒ 1 rouge).
 
-⚠️ **Ce que la fermeture laisse derrière elle** : le plafond de 8 octets posé sur chaque borne
-d'horaire n'est tenu par **rien** (mutation qui les déborne ⇒ **0 rouge sur 131 suites**), et
-l'empreinte de `set_state` n'est tenue par aucun cas. Voir [`T3.97`](T3.97.md) §7.
+⭐ **Le seul trou déclaré a été FERMÉ EN REVUE DE MERGE.** Le plafond de 8 octets posé sur chaque
+borne d'horaire n'était tenu par **rien** — la mutation qui les déborne rendait **0 rouge sur 131
+suites** — et la cause était structurelle : la ligne est à DEBUG, or le foin que toutes les autres
+bornes de cette suite mesurent est le journal **privé de ses lignes `[DBG]`**. Un cas neuf lit le
+journal **complet** et exige les deux moitiés (valeur coupée à son plafond **avec** son marqueur de
+troncature, et aucun préfixe plus long) ⇒ la mutation rend désormais **1 rouge**, et la même sur
+`start_hour` seule aussi.
+
+⚠️ **Ce que la fermeture laisse derrière elle**, confirmé par contre-mutation en revue : l'empreinte
+de `set_state` n'est tenue par **aucun** cas (la rendre indépendante de la valeur ⇒ 0 rouge), et le
+séparateur nommé n'est asseré que pour `SP` (effondrer le vocabulaire de `blankName` ⇒ 0 rouge).
+Ni l'un ni l'autre ne publie d'octet du client. Voir [`T3.97`](T3.97.md) §7.
 
 ### 📋 [F-LOGRAW-1] `ExternProc` relaie la sortie de ses six sidecars hors de tout journal — ticket proposé [`T3.101`](T3.101.md)
 
 Relevé par le **recensement des écritures nues** de [`T3.97`](T3.97.md) §3, qui a balayé tout `src/`
-suivi par git, commentaires et littéraux retirés, arbres vendorés exclus : **19** écritures nues sur
-le chemin d'exécution du serveur, dont **10** publient une donnée d'exécution. **Une seule** était
+suivi par git, commentaires et littéraux retirés, arbres vendorés exclus : ⛔ **13** écritures nues
+sur le chemin d'exécution du serveur (~~19~~ : recompté de zéro en revue de merge, la liste
+d'exclusion oubliait `uri_parser`, dont les 6 `printf` sont des littéraux fixes), dont **10**
+publient une donnée d'exécution — **ce sous-total, lui, est confirmé**. **Une seule** était
 sur un chemin d'API et `T3.97` l'a fermée. Des neuf restantes, **2** sont le relais d'`ExternProc`
 (`std::cout << process_stdout.substr(...)`, et l'équivalent sur `stderr`), **4** sont dans
-`Lua_stackDump()`, une fonction **qu'aucun appelant de l'arbre n'appelle**, et **3** sont des
-messages de démarrage de `ConfigStore` qui courent avant toute requête.
+`Lua_stackDump()`, et **3** sont des messages de `ConfigStore`.
+
+⭐ **`Lua_stackDump()` : suppression, pas ticket** — quatre vérifications concordantes en revue de
+merge : deux occurrences textuelles dans tout l'arbre, aucun objet ne porte de référence indéfinie
+vers son symbole, et elle est **structurellement inappelable depuis Lua** (signature
+`void(lua_State *)` là où `lua_CFunction` est `int (*)(lua_State *)`). La supprimer retire **4 des
+13** sites de la famille sans changer un comportement.
+⚠️ **`ConfigStore`** : « au démarrage » est vrai, mais **par les gardes de ses appelants** et non par
+la position du site — `flushConfigErrors` est appelée de six endroits, et les quatre qui passent le
+drapeau qui la fait écrire sont tous gardés « une fois par processus ».
 
 ⛔ **Ce qui rend le relais différent des huit autres** : ce qui le traverse n'est pas décidé là mais
-dans **six** sidecars, le seul filtre de niveau qui s'applique est celui **de l'enfant**, et une
+dans **sept** familles de sidecars — dont le pont **lua**, où un `ExternProcServer` est créé **par
+exécution de script de règle**, donc sur un chemin chaud —, le seul filtre de niveau qui s'applique est celui **de l'enfant**, et une
 écriture nue côté enfant ne rencontre rien du tout. Le relais efface aussi le domaine et le niveau :
 une ligne de pilote arrive dans le journal du serveur sans marqueur.
 
 ⚠️ **C'est un arbitrage, pas un correctif** : le relais est ce qui rend un sidecar débogable, et le
 fermer touche les six pilotes. Forme candidate : passer par le journal du parent sur le domaine
-`process`, qui existe déjà et est utilisé **deux lignes plus haut**.
+`process`, qui existe déjà et est utilisé **deux lignes plus haut**. ⭐ **Le modèle est déjà dans
+l'arbre** : `McpServerManager::flushStreamBuffer()` fait le même découpage ligne à ligne pour le
+sidecar MCP, mais passe par le journal **et** caviarde ce qui ressemble à un jeton.
 
 ### ✅ [F-LOGSECRET-2] FERMÉ par [`T3.85`](T3.85.md) — un chemin d'erreur republiait à **ERROR** une chaîne fabriquée par le sidecar
 

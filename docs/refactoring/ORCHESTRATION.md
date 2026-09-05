@@ -40,8 +40,51 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-05, APRÈS LE MERGE DE [`T3.99`](T3.99.md)) — LE
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-05, APRÈS LE MERGE DE [`T3.97`](T3.97.md)) — LE
   DERNIER MERGE DE LA SESSION. À LIRE EN PREMIER À FROID.**
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`eb8105f0`**
+  (branche `fix/t3.97`, 4 commits : 3 du développeur + 1 de la revue de merge). `TESTS` = **131**,
+  `tests/Makefile.am` **intouché**, référence de build après `make distclean` :
+  **`TOTAL 131 / PASS 130 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
+  `check-ccache-honesty.sh`, **0 `error:`**, mesuré **3 fois d'affilée**.
+  ⛔ **RIEN N'A ÉTÉ POUSSÉ DE TOUTE LA SÉRIE.**
+
+  ⭐⭐ **LES QUATRE ARBITRAGES DU 2026-09-05 SONT TRANCHÉS** — voir [`DECISIONS.md`](DECISIONS.md),
+  section « Quatre arbitrages du 2026-09-05 ». **Ne les rouvrez pas, appliquez-les :**
+  1. **Le `push`** → ⏸ **DIFFÉRÉ à la fin du backlog**, en une seule fois. ⛔ **`push` interdit
+     jusqu'à nouvel ordre**, y compris pour un agent qui croirait bien faire.
+  2. [`T3.82`](T3.82.md) → ✅ **PAR LA SOCKET** (le sidecar se connecte, le serveur lui envoie sa
+     configuration en premier message ; forme déjà dans l'arbre avec
+     `ReolinkWire::buildRegisterMessage()`). ⏳ **En cours** sur `fix/t3.82`.
+  3. [`T3.72`](T3.72.md) → ✅ **REFUS À L'ÉCRITURE** de `&#01;`, rupture de compatibilité assumée.
+  4. `T3.71` → ✅ **ALIGNER `create` SUR LE REFUS** de `modify`.
+  ⭐ **`T3.72` et `T3.71` restent à écrire, et ils s'écrivent ENSEMBLE** : c'est la même décision à
+  deux étages — refuser plutôt que transformer en silence — et les séparer ferait relire deux fois
+  le même arbitrage.
+
+  **Tickets ouverts, une ligne chacun :**
+  - `T3.91` — proposé, fiche non écrite.
+  - **`T3.100`** — la fixture d'une suite calibrée est un objet **contraint** et rien ne le dit à qui
+    y ajoutera un document ; le filet rougit **après** coup. ⭐ **Le coût a été payé une fois de
+    plus** dans `T3.97` (une aiguille inversée atteignait le plafond au premier jet).
+  - **`T3.101`** — `ExternProc` relaie hors de tout journal ce que ses **sept** familles de sidecars
+    impriment ; **2** des 10 écritures nues qui publient une donnée d'exécution, et de loin les plus
+    larges.
+  - **`T3.102`** (neuf, ouvert à la revue de `T3.97`) — `Lua_stackDump()` est du **code mort dur**
+    (structurellement inappelable depuis Lua) et porte **4** des 13 écritures nues du chemin serveur :
+    **à supprimer**, pas à ficher.
+  - `T3.71` et `T3.72` : **tranchés** (ci-dessus), restent à écrire, **ensemble**.
+  ⚠️ Numéros **pris** : `T3.76` → `T3.102`. Le prochain libre est **`T3.103`**.
+
+  **Ce qui attend l'utilisateur, et rien d'autre :**
+  1. ⛔ **Le job CI chez GitHub n'a JAMAIS tourné.** Le `push` est **différé, pas refusé** : il se
+     fera **en une fois, à la fin du backlog** (arbitrage 1). C'est le seul point de vérification
+     ouvert depuis `T3.67`.
+  2. ⏳ **`T3.82` est en cours** sur `fix/t3.82`, selon l'arbitrage 2.
+  3. 📋 **`T3.71` + `T3.72` à écrire ensemble**, selon les arbitrages 3 et 4.
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-05, APRÈS LE MERGE DE [`T3.99`](T3.99.md)) — conservé pour
+  l'historique.**
   Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`f8dc2ce1`** et
   **`f9cf9aad`** (branche `test/t3.99`). `TESTS` = **131**, référence de build après
   `make distclean` : **`TOTAL 131 / PASS 130 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul
@@ -119,6 +162,119 @@
      **changer par où il transite**. Comportement livré, arbitrage de conception.
   3. ⛔ **`T3.72`** (proposé, `F-XML-3`) — **refuser des octets que l'API accepte aujourd'hui**
      (`&#01;`, non conforme XML 1.0). Comportement livré, arbitrage de conception.
+
+- **✅⭐⭐ [`T3.97`](T3.97.md) MERGÉE (2026-09-05) — 3 commits de branche + 1 commit de test de revue
+  + 1 commit de doc de revue, `rebase master` (la branche partait de `ed4432ea`, deux commits de doc
+  derrière), **aucun conflit**, `merge --ff-only`, historique linéaire.** **Zéro ligne de
+  `tests/Makefile.am`**, `TESTS` **131 → 131**, `src/` : **1 fichier, +46 / −3**. Build après
+  `make distclean` : **`TOTAL 131 / PASS 130 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**,
+  rc 0, **0 `error:`**, **3 `make check` d'affilée identiques**, `CXXLD` **122** au premier dont
+  `core/IncomingLogStockLevel_test` **lu**. ⛔ **Rien poussé.**
+
+  ⭐ **LES TROIS NIVEAUX ANNONCÉS SONT VRAIS, VÉRIFIÉS AU SOURCE ET PAS SUR PAROLE.** `Logger.cpp` :
+  le repli de `maxLevelPrintable()` est `LOG_LEVEL_INFO = 4` **dans les deux branches** (option
+  absente ou non entière, et valeur hors bornes) ⇒ `cWarningDom` = 3 **passe**, `cDebugDom` = 5
+  **non**, et le `cout` nu n'entre jamais dans `LogStream::~LogStream()`, donc aucun niveau ne le
+  filtre. Le troisième n'est pas « un cran plus bas », il est **hors de l'échelle**, et la fiche a
+  raison de le dire ainsi.
+
+  ⭐⭐ **LE RAISONNEMENT SUR LES CONTINUATIONS EST EXACT, ET C'EST LE POINT SUBTIL DU TICKET.**
+  Vérifié aux deux bouts : `Params::toString()` construit `"Params::toString():\n"` puis une ligne
+  `"\t" + clef + ":" + valeur + "\n"` **par clef** ; et `LogStream::~LogStream()` préfixe le
+  marqueur `[WRN]`/`[DBG]` **une seule fois**, puis écrit `logData->stream.str()` **verbatim**. Un
+  objet multi-lignes collé dans une entrée produit donc des lignes **sans aucun marqueur de niveau**,
+  que le foin « boîtier neuf » de la suite (qui écarte les lignes portant `[DBG]`) **garde**. Le
+  rendu sur une seule ligne n'est pas cosmétique. ⚠️ La fiche est **honnête** sur la portée de ce
+  rouge : il mesure la propriété du foin, pas une fuite d'un boîtier réel — dans le `Logger` livré,
+  l'entrée entière est supprimée à INFO.
+
+  ⛔⭐ **UN CHIFFRE DE LA FICHE INVALIDÉ ET RE-MESURÉ.** « **20 octets sur 20** d'une clef inventée »
+  était **impossible** : l'aiguille fait **18** octets. Mesuré en remettant le `cout` de `master`
+  (contre-mutation de revue R1) : le foin rend **18 sur 18** — la valeur entière — et, sur une
+  seconde valeur plantée sous `start_hour`, **19 sur 19**. La **substance** survit intacte (le `cout`
+  rendait tout ce qu'on lui donnait, sous une clef inventée comme sous une clef du vocabulaire), mais
+  le nombre était faux. Corrigé dans la fiche, `FINDINGS.md` et `BOARD.md`.
+
+  ⛔⭐⭐ **LE TROU DÉCLARÉ (`M6`) EST FERMÉ ICI, ET IL SE FERMAIT À PEU DE FRAIS.** Le développeur
+  livrait un plafond de 8 octets sur chacune des six bornes d'une plage horaire **en écrivant qu'il
+  n'était tenu par rien** (`M6` ⇒ 0 rouge sur 131 suites) : une garde livrée sciemment sans filet.
+  ⭐ **La cause est structurelle, et c'est ce qui la rendait invisible** : la ligne est à **DEBUG**,
+  or le foin que toutes les autres bornes de cette suite mesurent est le journal **privé de ses
+  lignes `[DBG]`** — une fuite d'**une seule ligne** y est donc invisible par construction, et c'est
+  exactement pourquoi `M3` (multi-lignes) rougissait quand `M6` (une ligne) ne rougissait pas.
+  Le cas neuf `AnOverlongTimeRangeBoundIsCutToItsCap` lit le journal **complet**, plante sous
+  `start_hour` une valeur plus longue que le plafond, et exige les **deux** moitiés : la valeur
+  **coupée à son plafond avec son marqueur de troncature** — sans quoi une ligne qui aurait cessé
+  d'imprimer ses bornes passerait, cinquième façon de mentir — et **aucun préfixe plus long**.
+  Mesuré : `M6` rejouée rend **1 rouge**, et la même mutation sur `start_hour` **seule** aussi.
+  ⭐ *La leçon générale, à recopier : quand un foin est un SOUS-ENSEMBLE du journal, une garde posée
+  sur une ligne exclue de ce sous-ensemble n'est tenue par rien, et le 0 rouge ressemble exactement à
+  une équivalence.*
+
+  ✅ **L'ARBITRAGE « ID D'IO EN CLAIR » EST APPROUVÉ, ET LA GARDE VÉRIFIÉE.** Les deux lignes ne
+  courent que si `get_io()` **vient de retrouver** l'IO — la seconde renvoie même une erreur avant —
+  donc l'identifiant publié est byte-à-byte un nom de la configuration de l'installation, pas une
+  chaîne que le client choisit. ⚠️ **Le corollaire, qui n'est pas écrit** : il n'est ni plafonné ni
+  nettoyé de ses octets de commande, donc un identifiant de configuration portant un octet de
+  contrôle forgerait une ligne — l'attaquant ne peut pas le choisir, mais l'installateur peut le
+  saisir. Réserve, pas objection.
+
+  ✅ **AUCUNE VALEUR DU CLIENT N'ATTEINT LE JOURNAL PAR AUCUN DES TROIS CHEMINS**, vérifié ligne à
+  ligne : `logToken(·, cap)` **borne** puis remplace tout octet `< 0x20` et `0x7f` par un point, donc
+  ni continuation ni ligne forgée ; `Utils::logTag` ne rend que 8 chiffres hexadécimaux d'une
+  empreinte **salée par processus** ; et l'indexation `value[value.size() - 1]` est **gardée** par
+  `setStateValueLostItsArgument()`, qui teste `!value.empty()` avant — le `default: return "?"` de
+  `blankName` est donc inatteignable, et sûr s'il l'était.
+
+  **Contre-mutations de revue, indépendantes des six de la fiche, toutes par ÉCHANGE, `make check`
+  réel à chaque tour, restaurations par copie sans métadonnées prouvées `cmp` rc 0 **et** horodatage
+  effectivement déplacé, aucun `git` dans le conteneur** : **R1** — le `cout << p.toString()` de
+  `master` remis ⇒ **3** cas (la plage, **la borne neuve**, la calibration), échos **18/18** et
+  **19/19**, plafond demandé **20** · ⭐ **R2** — `M6` rejouée après le cas neuf ⇒ **1** · **R3** —
+  `start_hour` **seule** débornée ⇒ **1**, le cas tient le **champ** et pas l'expression · ⚠️ **R4**
+  — le vocabulaire de `blankName` **effondré** (chaque blanc rendu `"SP"`) ⇒ ⛔ **0** : le séparateur
+  nommé n'est asseré que pour `SP`, la suite n'envoyant qu'un espace · ⚠️ **R5** — l'empreinte rendue
+  indépendante de la valeur ⇒ ⛔ **0**, ce qui **confirme** le résidu que la fiche déclarait.
+  **Témoin** : arbre restauré ⇒ **0 rouge**, `131 / 130 / 1 / 0`, **3** `make check` identiques,
+  **76** `CXXLD` au premier tour dont `core/IncomingLogStockLevel_test` **lu**.
+
+  ⛔ **LE RECENSEMENT DES ÉCRITURES NUES A ÉTÉ REFAIT DE ZÉRO, ET SON TOTAL ÉTAIT FAUX.** **19 → 13**
+  sur le chemin d'exécution du serveur : la liste d'exclusion du ticket oubliait un dixième arbre
+  tiers, `src/lib/uri_parser/hef_uri_syntax.cpp` (namespace `hef`, compilé dans `libcalaos_common`),
+  qui porte **exactement 6** `printf(`. ⭐ **Les 6 sont des littéraux fixes**, donc le sous-total qui
+  décide — **10 publiant une donnée d'exécution** — est **le même dans les deux méthodes**, et les
+  familles `2` (le journal) et `238` (points d'entrée, 8 fichiers) sont confirmées **au site près**.
+  ⭐ **Les 4 sans appelant méritent une SUPPRESSION, pas un ticket de correction** ⇒ **`T3.102`
+  ouvert** : `Lua_stackDump()` est **structurellement inappelable depuis Lua** — sa signature est
+  `void(lua_State *)` là où `lua_CFunction` est `int (*)(lua_State *)`, elle n'est dans aucune des
+  quatre tables de liaison de l'arbre, et aucun objet ne porte de référence indéfinie vers son
+  symbole. La supprimer retire **4 des 13** sites sans changer un comportement, et laisse `T3.101`
+  seul en face des **2** qui comptent. ⚠️ **`T3.101` durci** : ce ne sont pas six familles de
+  sidecars mais **sept**, dont le pont **lua** où un `ExternProcServer` est créé **par exécution de
+  script de règle** — chemin chaud — et le correctif a **un modèle dans l'arbre**,
+  `McpServerManager::flushStreamBuffer()`. ⚠️ **`ConfigStore`** : « au démarrage » est vrai, mais par
+  les **gardes de ses appelants**, pas par la position du site.
+
+  ⭐ **LES DEUX CALIBRATIONS DE `core/IncomingLogStockLevel` VÉRIFIÉES APRÈS LES AIGUILLES.**
+  `plafond == pire + 1` ⇒ **4 == 3 + 1**, inchangé ; portée hexadécimale de **chaque forme mesurée**
+  de **13** aiguilles (12 + celle de la revue) ⇒ pire **3**, recalculée hors du binaire avant même de
+  compiler pour choisir la mienne. Les deux autres calibrations de fixture (disjonction entre
+  aiguilles, et contre les champs que les lignes publient) restent vertes. ⛔ **La marge vaut UN
+  octet et elle est structurelle.**
+
+  ⛔ **UNE AUTRE AFFIRMATION INVALIDÉE, ET LE BON ARGUMENT MIS À LA PLACE.** La fiche écrivait que le
+  plafond n'a pas été relevé « et que `check-echo-ceilings.sh` l'aurait refusé de toute façon » :
+  **faux**. Le filet lit la **forme** — le plafond est-il épinglé par une égalité, sa portée
+  hexadécimale bornée sous lui — et **jamais la valeur** ; un plafond relevé à 5 aurait gardé son
+  `EXPECT_EQ(5, 4 + 1)` et sa borne, donc serait **passé vert**. Ce qui interdit de le relever est
+  plus fort : le nombre mesure un recouvrement **fortuit**, or celui-là ne l'était pas — une aiguille
+  dont la forme inversée entre dans une phrase du journal est une **fixture fausse**, la quatrième
+  façon de mentir, et relever le plafond aurait élargi la fenêtre aveugle de **toutes** les aiguilles
+  pour absorber le défaut d'une seule.
+
+  **État** : `master` = le commit de revue qui porte ce paragraphe. Worktree `.wave121/t3.97`
+  supprimé, branche `fix/t3.97` supprimée. ⚠️ `.wave122/t3.82` **laissé intact** (agent en vol).
+
 
 - **✅⭐⭐ [`T3.99`](T3.99.md) MERGÉE (2026-09-05) — 2 commits de branche + 1 commit de revue,
   `merge --ff-only`, historique linéaire, aucun rebase (la branche partait de la tête), aucun conflit.**
