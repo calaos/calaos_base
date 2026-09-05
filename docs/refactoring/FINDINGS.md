@@ -10376,7 +10376,7 @@ première serait appliquée **comme une configuration sur ses défauts**, en sil
 nécessaire, et son usage **côté sidecar** est désormais tenu par un cas (il ne l'était par rien :
 mesuré **0 rouge** en la retirant).
 
-### ⛔ [F-EXTPROC-9] `calaos_mqtt` sort avec le code **0 et sans une ligne** quand la connexion au courtier échoue en asynchrone — ticket proposé `T3.103`
+### ✅ [F-EXTPROC-9] FERMÉ par [`T3.103`](T3.103.md) — `calaos_mqtt` sortait avec le code **0 et sans une ligne** quand la connexion au courtier échouait en asynchrone
 
 Mesuré en écrivant [`T3.82`](T3.82.md), sur le binaire livré, contre un serveur bouchonné.
 
@@ -10407,6 +10407,33 @@ le couple. `MqttCtrl` imprime `process exited, restarting...` à **WARNING** à 
 la cadence de 100 ms de la relance sans backoff : ce n'est pas du silence, c'est **du bruit sans
 cause**, dix lignes par seconde qui ne disent jamais pourquoi. Pas meilleur, différent — et c'est
 la forme que le ticket devra traiter.
+
+✅ **Fermé le 2026-09-05.** ⭐ **Un TROISIÈME cas, absent de la fiche, a été mesuré et il se comporte
+comme le premier** : le courtier qui **tombe en cours de session** (CONNACK rendu, puis la connexion
+lâchée) — `EXIT=0` à 704 ms, une seule ligne. C'est le cas fréquent en production. Les trois sont
+désormais **non nuls et nommés** : `Network is unreachable (errno 101)` · `Connection refused
+(errno 111)` · `The connection was lost.`
+
+⭐ **Le descripteur est rendu ET `EBADF` cesse d'être une fin normale, et les deux ont été mesurés
+seuls** : rendre le descripteur sans plus donne un sidecar qui **tourne à vide pour toujours** — plus
+silencieux et strictement pire, puisque rien ne reconnecte côté sidecar ; ne refuser qu'`EBADF`
+nomme `Bad file descriptor`, c'est-à-dire le symptôme de la comptabilité du sidecar, et laisse un
+descripteur fermé dans le `select()` qu'un `open()` ultérieur peut se voir réattribuer.
+⚠️ **Mesuré aussi** : sur les trois cas c'est **toujours** le code de retour de `mosquitto_loop()`
+qui mord, jamais `EBADF` — le filet vaut pour la classe, pas pour ces cas-là. Et `EINTR` cessait la
+boucle des **sept** familles de sidecars avec un statut 0.
+
+⚠️ **Le second défaut est plus précis que « la mauvaise table »** : `mosqpp::strerror(MOSQ_ERR_ERRNO)`
+rend **déjà** `strerror(errno)`. La faute était **l'argument** — `strerror(res)` là où `res` est un
+code de retour. Recensement de l'arbre : **59** appels à `strerror`, **55** sur un `errno`, **4**
+sur une table dédiée correcte (`hstrerror`, `curl_*_strerror`), et **exactement 2** mal posés, tous
+deux dans ce fichier, tous deux corrigés — le second étant `on_connect()`, où un code CONNACK **5**
+(mot de passe du courtier faux) sortait `Input/output error`, **à DEBUG**.
+
+⛔ **Ce qui reste ouvert, et ça dépasse MQTT ⇒ [`T3.105`](T3.105.md)** : `processExited` est un
+`sigc::signal<void>` **sans statut**, et les **neuf** abonnés de l'arbre relancent à l'identique quel
+que soit le code de sortie. `T3.103` fait **nommer** un statut non nul par le transport, à WARNING,
+pour les sept familles ; il ne fait **rien décider** au serveur.
 
 ### ✅ [F-EXTPROC-6] FERMÉ par [`T3.81`](T3.81.md) — le transport journalise la **charge utile** des messages, secrets compris
 

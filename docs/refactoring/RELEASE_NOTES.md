@@ -328,6 +328,62 @@ compris exactement comme avant, à l'octet près.
 → **Rien à faire de votre côté.** Si vous aviez contourné le problème en retirant les espaces d'un
 mot de passe, vous pouvez le remettre tel qu'il est chez votre courtier.
 
+## 🔴 « Le MQTT ne marche pas » — un journal qui défile sans jamais dire pourquoi
+
+### Courtier éteint, mauvaise adresse, coupure réseau : la passerelle repartait en boucle, muette (T3.103)
+
+La passerelle MQTT de Calaos tourne dans un programme séparé que le serveur lance et **relance dès
+qu'il s'arrête**. Quand ce programme n'arrivait pas à joindre votre courtier, il s'arrêtait en
+annonçant… **une fin normale**. Le serveur le relançait aussitôt, il échouait de nouveau, et ainsi
+de suite **une dizaine de fois par seconde**.
+
+Ce que vous voyiez dans le journal, c'était donc une seule ligne, répétée sans fin :
+
+```
+process exited, restarting...
+```
+
+**Jamais l'adresse, jamais le port, jamais la raison.** Le symptôme est le même pour un courtier
+éteint, une adresse mal saisie, un mot de passe faux ou un câble débranché — et rien ne permettait
+de les distinguer. C'est ce que la plupart des gens décrivent par « le MQTT ne marche pas ».
+
+Trois situations sont concernées, et **les trois** étaient dans ce cas :
+
+- votre **courtier est éteint** ou son adresse est injoignable ;
+- votre courtier **tombe** ou perd le réseau **pendant que la maison tourne** — le cas le plus
+  fréquent, et celui qui arrive sans prévenir ;
+- **cas particulier** : quand le **port** était simplement fermé, un message sortait bien… mais il
+  disait `Error connecting : Bad address`, une phrase qui parle de mémoire et **désigne la mauvaise
+  cause**. On cherchait un défaut de la machine là où il n'y avait qu'un courtier qui n'écoutait pas.
+
+**Ce qui change.** La passerelle **dit ce qui s'est passé**, avec l'adresse et le port de votre
+courtier :
+
+```
+Lost the connection to the broker 192.168.1.20:1883 : Connection refused (errno 111)
+Lost the connection to the broker 192.168.1.20:1883 : Network is unreachable (errno 101)
+Lost the connection to the broker 192.168.1.20:1883 : The connection was lost.
+```
+
+Et si votre courtier **refuse vos identifiants**, il le dit désormais aussi, en clair
+(`The broker refused the connection : Connection Refused: not authorised.`) — auparavant ce
+message-là n'apparaissait **jamais**, quel que soit votre niveau de journalisation.
+
+Enfin, le serveur **nomme** un programme extérieur qui s'arrête sur une erreur, pour **tous** les
+pilotes de ce type (MQTT, KNX, Wago, OneWire, OLA, Roon, Reolink) :
+`mqtt exited with status 1`. Un arrêt voulu, lui, reste silencieux.
+
+> ### ⚠️ Ce que cette version ne corrige PAS
+>
+> **La relance reste aussi rapide qu'avant** : une dizaine de tours par seconde tant que le courtier
+> ne répond pas. Le journal ne défile donc pas moins — **il défile en disant pourquoi**, ce qui est
+> la différence entre « ça ne marche pas » et « votre courtier refuse la connexion sur
+> 192.168.1.20:1883 ». Ralentir la relance est un chantier distinct, qui concerne les sept familles
+> de pilotes et pas seulement MQTT.
+
+→ **Rien à faire de votre côté.** Si vous aviez un MQTT « qui ne marche pas » sans savoir pourquoi,
+la réponse est maintenant dans le journal du serveur.
+
 ## 🔴 Une faute de frappe dans la position d'un bouton d'écran empêchait le serveur de démarrer
 
 ### Une seule coordonnée illisible et plus rien ne s'allumait (T3.70)
