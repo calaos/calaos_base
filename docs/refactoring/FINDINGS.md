@@ -10380,7 +10380,7 @@ journal du sidecar Reolink (surveillance, rappels d'événements, ordonnancement
 ERROR. Ils ne sont pas sur un appel qui vient de s'authentifier, mais le texte reste celui d'une
 dépendance et il atterrit dans le journal du serveur.
 
-### ⛔ [F-LOGSECRET-3] Quatre contrôleurs republient la **trame brute entière** de leur sidecar, à un niveau **imprimé par défaut** — ticket proposé [`T3.86`](T3.86.md)
+### ✅ [F-LOGSECRET-3] FERMÉ par [`T3.86`](T3.86.md) — quatre contrôleurs republiaient la **trame brute entière** de leur sidecar, à un niveau **imprimé par défaut**
 
 Trouvé en balayant les sept contrôleurs pour [`T3.85`](T3.85.md) §3. Sur leur chemin d'échec de
 parsage, `IO/Mqtt/MqttCtrl.cpp:44`, `IO/KNX/KNXCtrl.cpp:325`, `LuaScript/ScriptExec.cpp:104` et
@@ -10395,3 +10395,53 @@ serait aveugle, exactement la classe que T3.85 §6 a mesurée ailleurs.
 trame, et `IO/Reolink/ReolinkCtrl.cpp:53` publie `msg.size()`. ⚠️ Le coût en diagnostic est réel — une
 trame illisible est le moment où l'on veut voir les octets — donc l'arbitrage est à faire.
 ⚠️ Voisin plus bas, même forme : `IO/Reolink/ReolinkCtrl.cpp:79` publie `event_data` entier à DEBUG.
+
+**Fermé** : les cinq sites publient le domaine du contrôleur, le fait qu'une trame n'a pas pu être
+lue, et **sa taille**. ⭐ **Ce que porte chaque trame a été mesuré avant de choisir** : le `payload`
+MQTT et le `set_param` Lua peuvent porter un secret, **KNX et OneWire non** — ils sont fermés sur la
+**provenance**, la ligne n'étant atteinte que par des octets qui ne sont pas ceux que ce dépôt
+fabrique. ⛔⭐ **Le cas OneWire fuyait deux fois** : la concaténation, et le message de `nlohmann`
+lui-même, qui cite le jeton sur lequel il a buté (**46 octets, dont l'identifiant encodé en
+pourcents, sans que rien n'ait été concaténé**). ⛔ **Un cinquième site absent de la fiche d'origine**
+a été trouvé et fermé : `IO/Mqtt/MqttCtrl.cpp:131`, le payload entier **sans domaine**, sur le chemin
+de **lecture** de tout IO MQTT qui nomme un `path`. Garde d'exécution
+(`tests/core/ControllerFrameSecret_test.cpp`), niveau mesuré dans un enfant forké, assertions bornant
+**la plus longue suite d'octets rendue** et aiguilles présentes **en clair et encodées**.
+
+---
+
+### ⛔ [F-LOGSECRET-4] Quatorze publications de `e.what()` dont le message peut **citer l'entrée refusée**, à un niveau imprimé par défaut
+
+Recensé en fermant [`T3.86`](T3.86.md), dont le site OneWire était exactement ce cas. Le mécanisme
+n'est **pas** lisible dans le fichier fautif : rien n'y est concaténé, c'est la **bibliothèque** qui
+met l'entrée dans son message. Mesuré sur `nlohmann` :
+
+```
+[json.exception.parse_error.101] ... invalid string: forbidden character after backslash;
+last read: '"nfs://t5:capteur%20jeton%2008b7f5@169.254.9.6/\q'
+```
+
+⇒ le **jeton de chaîne entier**, identifiant encodé en pourcents compris.
+
+Comptage sur l'arbre, hors bibliothèques vendorisées : **35** publications de `e.what()`,
+⛔ **toutes à un niveau imprimé par défaut** (`cWarning`, `cError`, `cCritical` ; **aucune** à
+DEBUG). **16** sont dans un `catch` dont le `try` parse ou indexe une donnée d'exécution ; une est
+fermée par `T3.86`, une appartient déjà à [`T3.87`](T3.87.md)
+(`IPCam/SynoSurveillanceStation.cpp:302`, qui publie en outre `data` entier). **Restent 14** :
+
+`CalaosConfig.cpp:539` · `RemoteUI/FirmwareManifest.cpp:116` ·
+`RemoteUI/RemoteUIWebSocketHandler.cpp:151,219` · `IO/JsonPath.h:229,242` ·
+`IO/Web/WebCtrl.cpp:190,291,297` · `Audio/AVRRose.cpp:140,363,386,405` ·
+`Audio/AVRRoseNotifServer.cpp:226`.
+
+⭐ **Le plus lourd est `Audio/AVRRose.cpp:140`** : le `catch` du parsage de la réponse
+`device_connected`, **le corps d'où sort `deviceRoseToken`** — le jeton que [`T3.81`](T3.81.md) a
+retiré du journal et que [`T3.83`](T3.83.md) a retiré du transport. ⚠️ La différence avec les fuites
+déjà fermées est qu'il faut **un corps mal formé** pour l'atteindre : la gravité tient au fait que
+c'est précisément le chemin qu'un pair qui déraille emprunte.
+
+ℹ️ Les **11** sites de `HistLogger.cpp` sont hors classe : exceptions sqlite sur des requêtes
+**paramétrées**, le message ne porte aucune valeur liée. Et **19** autres `.what()` de l'arbre sont
+des `uvw::ErrorEvent` — une chaîne d'erreur libuv, sans donnée d'appelant.
+
+**Aucun ticket ouvert.**

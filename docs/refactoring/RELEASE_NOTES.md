@@ -1365,9 +1365,36 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   elle-même n'écrit plus que le **type** de l'erreur, jamais son message : son journal atterrit
   dans celui du serveur.
 
-  ⚠️ **Une réserve honnête** : d'autres passerelles (MQTT, KNX, Lua, OneWire) recopient encore le
-  message qu'elles n'ont pas su lire, en entier, à un niveau lui aussi imprimé par défaut. C'est
-  un travail distinct, non fait ici.
+  ⚠️ **La réserve qui figurait ici — « d'autres passerelles (MQTT, KNX, Lua, OneWire) recopient
+  encore le message qu'elles n'ont pas su lire » — est levée** : voir l'entrée suivante.
+
+- ⭐ **Une passerelle qui se met à parler de travers ne fait plus fuir ce qu'elle envoie.** Quand le
+  serveur reçoit d'une de ses passerelles — MQTT, KNX, Lua, OneWire — un message qu'il n'arrive pas
+  à lire, il en recopiait **le contenu entier** dans son journal, **sur une installation neuve, sans
+  que personne ait rien activé**.
+
+  ⚠️ **Et deux de ces quatre canaux transportent, en fonctionnement normal, des choses qui vous
+  appartiennent** : ce qui arrive par MQTT est ce qu'un appareil ou un service tiers a publié sur un
+  sujet auquel vous êtes abonné — cela peut être un jeton, une clef, une adresse avec des
+  identifiants dedans ; et ce qui arrive de la passerelle Lua contient les valeurs que vos scripts
+  écrivent dans les paramètres de vos équipements, mot de passe de caméra compris. Les deux autres
+  (KNX, OneWire) ne portent que des relevés et des adresses de bus — mais **précisément, quand le
+  serveur n'arrive pas à lire le message, il ne sait pas non plus ce qu'il contient**.
+
+  ⛔ **Une passerelle qui déraille reste visible, et c'est le point important** : le journal dit
+  toujours qu'un message illisible est arrivé, **de quelle passerelle**, et **de quelle taille**.
+  Une passerelle bavarde et une passerelle muette ne se ressemblent pas. Ce qui a disparu, c'est le
+  contenu — pas le diagnostic.
+
+  ⭐ **Un cinquième endroit, trouvé au passage, est fermé aussi** : quand une IO MQTT lit une valeur
+  dans un message dont vous avez donné le chemin, et que ce message n'est pas du JSON, le serveur
+  écrivait lui aussi le message entier. Celui-là ne demandait aucune panne de passerelle — il
+  suffisait qu'un appareil publie autre chose que ce qui était attendu, ce qui est ordinaire. La
+  ligne dit maintenant quelle passerelle et combien d'octets.
+
+  ⚠️ **Une réserve honnête** : avec les journaux détaillés activés, ces mêmes passerelles écrivent
+  toujours le contenu des messages qu'elles ont **bien** lus. Ce n'est pas imprimé sur une
+  installation neuve, et ce n'est pas fermé ici.
 - **TinyXML 2.5.3 (non maintenu, 2 CVE) remplacé par pugixml** — 14 242 lignes de bibliothèque
   tierce retirées du dépôt. Les deux vulnérabilités (plantage du serveur sur XML malformé,
   boucle infinie sur UTF-8 tronqué), atteignables depuis une URL configurée par l'utilisateur via
