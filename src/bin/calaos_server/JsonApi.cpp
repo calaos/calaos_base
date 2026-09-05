@@ -1306,6 +1306,22 @@ static bool setStateValueLostItsArgument(const string &value)
     return !value.empty() && blanks.find(value[value.size() - 1]) != string::npos;
 }
 
+//A trailing tab and a trailing newline are different mistakes to whoever wrote
+//the client, and the vocabulary is closed to Utils::BLANK_CHARS.
+static const char *blankName(char c)
+{
+    switch (c)
+    {
+    case ' ': return "SP";
+    case '\t': return "TAB";
+    case '\n': return "LF";
+    case '\v': return "VT";
+    case '\f': return "FF";
+    case '\r': return "CR";
+    default: return "?";
+    }
+}
+
 bool JsonApi::decodeSetState(Params &jParam)
 {
     bool success = true;
@@ -1315,9 +1331,20 @@ bool JsonApi::decodeSetState(Params &jParam)
         success = false;
     else if (setStateValueLostItsArgument(jParam["value"]))
     {
+        /* The SHAPE of the value, not its bytes: set_state writes any value of
+         * any io and this level prints on a box nobody configured. A refusal
+         * owes which io, which command and why - the length and the blank it
+         * stopped on say why, and the tag tells two refusals of one value from
+         * two of different ones. The io id stays in clear because get_io() has
+         * just matched it: a name of this install's configuration, not a string
+         * the client invented.
+         */
+        const string value = jParam["value"];
         cWarningDom("network") << "set_state refused for io " << jParam["id"]
-                               << ": the value ends on its separator (\""
-                               << jParam["value"] << "\"), which is a command "
+                               << ": the value ends on its separator ("
+                               << value.size() << "B, ends on "
+                               << blankName(value[value.size() - 1]) << ") #"
+                               << Utils::logTag(value) << ", which is a command "
                                << "with no argument";
         success = false;
     }
@@ -2485,7 +2512,21 @@ Json JsonApi::buildJsonSetTimerange(const Json &jdata)
 
         TimeRange tr(p);
 
-        cout << "Adding timerange: " << p.toString() << endl;
+        /* A bare cout answered to no level at all, so nothing an installer
+         * sets could quiet it. And Params keeps EVERY key of the object the
+         * client sent, not the six a range is made of, so whatever was put
+         * beside them went out too. Bounded because a bound is one or two
+         * digits: anything longer is not one, and a control byte in it would
+         * forge a second line.
+         */
+        cDebugDom("network") << "Adding timerange on io " << id
+                             << ": day " << logToken(p["day"], 8) << " "
+                             << logToken(p["start_hour"], 8) << ":"
+                             << logToken(p["start_min"], 8) << ":"
+                             << logToken(p["start_sec"], 8) << " -> "
+                             << logToken(p["end_hour"], 8) << ":"
+                             << logToken(p["end_min"], 8) << ":"
+                             << logToken(p["end_sec"], 8);
 
         if (p["day"] == "1") o->AddMonday(tr);
         if (p["day"] == "2") o->AddTuesday(tr);
