@@ -40,6 +40,83 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
+- **✅⭐⭐ [`T3.85`](T3.85.md) MERGÉE — 5 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête sur `master` : **le commit de revue qui porte ce paragraphe** (2026-09-05). La
+  branche partait de `b00684f4` et `master` était à `4e646c84` ⇒ **rebase**, avec le conflit d'append
+  attendu sur `tests/Makefile.am` (T3.83 y avait appendu elle aussi).
+  ⭐ **Résolu par RÉGÉNÉRATION, jamais par édition de marqueur** — `git show master:tests/Makefile.am`
+  en entier + append **verbatim** de la queue de la branche (extraite comme le suffixe strict de sa
+  base) — et **prouvé append pur** : `diff` **+34 / −0 / ~0**, `master` **préfixe strict octet à
+  octet** (2073 octets ajoutés, 4875 → 4909 lignes), `^if` 105 → 106 ≡ `^endif` 105 → 106
+  (`^if HAVE_GTEST` 104 → 105), **profondeur finale 0, minimum 0, jamais négative**. ⚠️ Le commit de
+  revue rajoute deux lignes de commentaire **à l'intérieur du bloc `# T3.85`** : le préfixe strict de
+  `master` reste vrai. Trois autres conflits documentaires (`BOARD.md`, `FINDINGS.md`,
+  `RELEASE_NOTES.md`) résolus en gardant **les deux versants**, **6 colonnes / 7 barres** revérifiées
+  sur toutes les lignes `T3.8x`.
+  ⭐ **`TESTS` 123 → 124 recompté des deux côtés** — la fiche annonçait `122 → 123` **depuis sa
+  base**, corrigé. Build de merge après `make distclean` : **`TOTAL 124 / PASS 123 / SKIP 1 /
+  FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, rc 0, **0 `error:`**, un seul `Testsuite summary`,
+  `check-test-deps.sh` **PASS**, seul `SKIP` `check-ccache-honesty.sh`. ⛔ **Rien poussé.**
+
+  ⛔⭐⭐ **LE VICE MESURÉ UNE HEURE PLUS TÔT AU MERGE DE `T3.83` ÉTAIT LÀ AUSSI — MESURÉ, PUIS CORRIGÉ
+  DANS LA BRANCHE.** La fiche annonçait « ce qui est asserté est ce que `std::cout` du serveur
+  reçoit ». Vrai, mais les assertions cherchaient des **valeurs choisies d'avance** : le texte
+  entier, le mot de passe en clair, le code et le nom d'hôte fabriqués. Au site de production, la
+  ligne d'erreur **gardant tous ses champs sûrs** : `+ " head=" << p["message"].substr(0, 24)` ⇒
+  ⛔ **0 rouge**, et `+ " tail=" << substr(size - 24)` ⇒ ⛔ **0 rouge** — la tête emporte le compte que
+  le texte nomme, la **queue** emporte `operateur-camera:mon%20mot%20de%20passe@…`, les identifiants
+  **encodés en pourcents**, que la recherche du mot de passe en clair ne voit pas. ⇒ chaque assertion
+  de fuite **borne désormais la plus longue suite d'octets** du texte du sidecar que le journal rend ;
+  les deux mêmes échanges donnent **1 rouge** chacun, **recouvrement fortuit mesuré 12** (l'adresse de
+  la caméra, citée par le texte du fournisseur et publiée légitimement) contre un plafond de **16**.
+
+  ⛔⭐ **ET LE CHEMIN D'ÉCHEC DE PARSAGE DU MÊME FIL N'ÉTAIT PAS EXERCÉ** — troisième fois de la nuit
+  qu'un chemin d'échec manque au filet (T3.79 forme 2, T3.83, ici). La suite ne remettait au
+  contrôleur que des trames lisibles : `cWarningDom("reolink") << msg` au lieu de `msg.size()` ⇒
+  ⛔ **0 rouge**. Un **quatrième cas** envoie une trame illisible portant une aiguille et exige la
+  taille sur la ligne d'échec ; la même mutation rend **1 rouge**. C'est aussi le harnais que
+  [`T3.86`](T3.86.md) §5 réclamait.
+
+  ⛔⭐⭐ **LE MÊME SECRET PARTAIT ENCORE, UN SITE PLUS LOIN — TROUVÉ ET FERMÉ DANS LA BRANCHE.** La
+  fiche dit « le sidecar a un second site sur le même chemin […] les deux sont fermés ». Il y en
+  avait **trois** : la boucle de **reconnexion** (`ExternProcReolink_main.py:1049`) écrit
+  `{str(e)}` de l'exception levée par l'appel qui **se ré-authentifie avec les mêmes identifiants**,
+  à **ERROR**, sur le stdout que le serveur réinjecte dans le sien. Le correctif d'origine ne fermait
+  que la **première** connexion. ⚠️ **Douze autres `str(e)`** subsistent dans ce fichier, hors d'un
+  appel qui s'authentifie : **nommés, aucun ticket ouvert**, fichés sous `F-LOGSECRET-2`.
+
+  ⭐ **Les deux mutations que T3.81 mesurait à 0 rouge ont été REJOUÉES par la revue et rendent 1
+  rouge chacune** : `V2` (la ligne d'enregistrement d'`AVRRose` gagne `<< data`, le corps d'où sort le
+  jeton, **à INFO**) ⇒ **1 rouge nommant `data`** · `R1` (`const string issued = roseToken;` puis
+  streamé) ⇒ **1 rouge nommant `issued`**. Plus `C3` (`isRegisteredHostname()` toujours vrai, le
+  pendant de `M4` côté nom d'hôte) ⇒ **1 rouge**. Restaurations **par copie prouvées au `cmp`
+  (rc 0 × 3 après chaque tour)**, mutations et restaurations **sur l'hôte**, ⛔ aucun `git` dans le
+  conteneur, `CXX IO/Reolink/ReolinkCtrl.o` + `CXXLD calaos_server` + `CXXLD
+  core/SidecarErrorSecret_test` **lus** à chaque tour.
+
+  ⭐ **Vérifié aux sources, la fiche a raison** : `p["message"]` n'a **qu'un** lecteur dans l'arbre ;
+  le serveur ne publie le code que par `ReolinkWire::isKnownErrorCode()` et le nom d'hôte que par ses
+  propres enregistrements ; un `code` ou un `hostname` non-chaîne est aplati en `""` par
+  `decodeMessage()` donc retombe sur `unspecified`/`unknown` ; les **quatre WARNING** de
+  [`T3.86`](T3.86.md) sont exacts, y compris le `e.what()` de OneWire construit avec la trame, et
+  **imprimés par défaut** (3 ≤ repli 4) ⇒ **`T3.86` est ouvert sur `master` et bien fiché**.
+  ⭐ **Compatibilité du contrat dans les DEUX sens** : *serveur neuf ↔ sidecar ancien* ⇒
+  `unspecified` / `unknown`, prose comptée jamais imprimée — **dégradé, jamais fuyant** ; *sidecar
+  neuf ↔ serveur ancien* ⇒ l'ancien serveur imprime `p["message"]` absent, ligne **vide** : pas de
+  fuite, mais **le diagnostic disparaît entièrement**. Les deux bouts sont livrés ensemble ; une mise
+  à jour partielle est silencieuse dans ce sens-là.
+
+  ⭐⭐ **QUESTION EN ATTENTE POUR L'UTILISATEUR — RECONDUITE, LA REVUE NE TRANCHE TOUJOURS PAS.**
+  **`T3.81` reste sans entrée dans `RELEASE_NOTES.md`**, alors que `T3.79` (`034c4f3f`), `T3.83` et
+  `T3.85` en ont chacune une. **Quatre correctifs de sécurité, trois notes de publication.**
+  **Faut-il écrire pour `T3.81` la note qui manque** — un jeton d'appareil audio qui partait **au
+  niveau imprimé par défaut**, et un mot de passe de caméra qui partait dès DEBUG ? **Non tranché
+  ici.**
+
+  **État de la session au sortir de ce merge** : `master` = le commit de revue qui porte ce
+  paragraphe, rien de poussé, historique linéaire. Worktree `.wave109/t3.85` supprimé, branche
+  `fix/t3.85` supprimée.
+
 - **✅⭐⭐ [`T3.83`](T3.83.md) MERGÉE — 4 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **le commit de revue qui porte ce paragraphe** (2026-09-05). La
   branche partait de `b00684f4` et `master` n'avait pas bougé ⇒ **aucun rebase**.

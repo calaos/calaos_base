@@ -10357,6 +10357,29 @@ enfant forké (`reolink` imprime à ERROR, pas à DEBUG).
 changement du sidecar Python n'est épinglé par aucun test (`tests/python/` ne peut pas importer ce
 module sans `reolink_aio`, et un `importskip` serait un vert muet).
 
+⛔⭐ **La revue de merge a mesuré que le capteur dépendait d'une LONGUEUR, et l'a corrigé.** Les
+assertions cherchaient le texte entier, le mot de passe, le code et le nom d'hôte fabriqués — donc
+seulement les tranches pour lesquelles elles étaient orthographiées. Au site de production, la ligne
+d'erreur gardant tous ses champs sûrs et gagnant `head=` `p["message"].substr(0, 24)` ⇒ **0 rouge**
+(elle emporte le compte que le texte nomme), et `tail=` `substr(size - 24)` ⇒ **0 rouge** (elle
+emporte les identifiants que l'URL encode en pourcents, que la recherche du mot de passe en clair ne
+voit pas). Les cas bornent désormais **la plus longue suite d'octets** du texte du sidecar que le
+journal rend, recouvrement fortuit **mesuré 12** contre un plafond de **16** ; les deux mêmes
+échanges rendent **1 rouge** chacun. Même classe que le vice mesuré au merge de
+[`T3.83`](T3.83.md).
+
+⛔⭐ **Le même secret partait encore, un site plus loin, et la revue l'a fermé** : la boucle de
+reconnexion du sidecar écrivait `{str(e)}` de l'exception levée par l'appel qui **se
+ré-authentifie avec les mêmes identifiants**, à **ERROR**, sur son propre stdout que le serveur
+réinjecte dans le sien. Le correctif d'origine n'avait fermé que le chemin de **première**
+connexion. La classification (`classify_connection_error`) qui accompagne la ligne est écrite ici,
+donc rien du diagnostic ne part avec le texte.
+
+⚠️ **Nommé, non corrigé, aucun ticket ouvert** : douze autres `str(e)` subsistent dans les lignes de
+journal du sidecar Reolink (surveillance, rappels d'événements, ordonnancement), dont plusieurs à
+ERROR. Ils ne sont pas sur un appel qui vient de s'authentifier, mais le texte reste celui d'une
+dépendance et il atterrit dans le journal du serveur.
+
 ### ⛔ [F-LOGSECRET-3] Quatre contrôleurs republient la **trame brute entière** de leur sidecar, à un niveau **imprimé par défaut** — ticket proposé [`T3.86`](T3.86.md)
 
 Trouvé en balayant les sept contrôleurs pour [`T3.85`](T3.85.md) §3. Sur leur chemin d'échec de
