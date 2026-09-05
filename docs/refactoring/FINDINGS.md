@@ -10997,7 +10997,7 @@ cet alphabet (adresse d'objet, empreinte de requête) : **1 rouge sur 200** mesu
 
 **Fermé.** Ticket ouvert en sortie : `F-LOGSECRET-9` (`T3.99` proposé).
 
-### ⚠️ [F-LOGSECRET-9] Rien ne garde la propriété de fixture dont dépend la stabilité des égalités de plafond — ticket proposé `T3.99`
+### ✅ [F-LOGSECRET-9] Rien ne gardait la propriété de fixture dont dépend la stabilité des égalités de plafond — **FERMÉ** par [`T3.99`](T3.99.md)
 
 Trouvé en livrant [`T3.96`](T3.96.md). Une égalité `plafond == recouvrement + 1` n'est stable que si
 l'aléa que le journal produit lui-même ne peut pas apparier une aiguille : concrètement, si la plus
@@ -11036,6 +11036,35 @@ Mesuré : `core/SidecarErrorSecret` portée **4** / plafond 13, `core/DriverAnsw
 `core/ControllerFrameSecret` **8** / **8** : la portée hexadécimale d'un littéral encodé y **égale**
 le plafond, donc un appariement complet le ferait rougir. C'est exactement le « 8 » que la revue de
 `T3.94` avait nommé. La forme générale du correctif reste celle envisagée ci-dessus.
+
+✅⭐⭐ **FERMÉ par [`T3.99`](T3.99.md) (2026-09-05) — et le compte était FAUX : trois suites étaient à
+marge nulle, pas une.** Re-mesuré de première main dans les binaires, borne abaissée à 1 pour que
+chaque document et chaque forme disent leur run : `core/ControllerFrameSecret` **8 / 8** (confirmé),
+`core/DriverAnswerSecret` **5 / 5** (annoncé 4 / 5), `core/IncomingLogStockLevel` **4 / 4** (annoncé
+3 / 4), et `core/ParseErrorSecret` **8 / 9**, que le tableau d'entrée ne citait pas. ⭐ **Les deux
+écarts viennent du même endroit que le trou d'origine** : la mesure portait sur le **littéral**.
+`hamac 82m glaieul` porte **2** octets hexadécimaux en clair, **4** une fois url-encodé (`2082`) ou
+privé de ses blancs (`ac82`) ; et en pourcents, un délimiteur json vaut **deux** caractères
+hexadécimaux, donc `"code":403` vaut **cinq** (`3A403`).
+
+✅ **Les trois marges nulles sont fermées par le document, aucun plafond touché.** Preuve que la marge
+existait : un identifiant hexadécimal tiré (`#207f31c9`) **ajouté** à une ligne de refus de `MqttCtrl`
+rend la calibration de `ControllerFrameSecret` **rouge** sur la fixture de `master` (`8 vs 8`, run
+`207f31c9`) et **0 rouge** sur la fixture livrée.
+
+✅ **Et la classe est fermée** : `tests/check-echo-ceilings.sh` exige de chaque plafond épinglé un cas
+bornant la portée hexadécimale de **chaque forme mesurée** — sur `master` elle rend
+`9 checked, 5 unheld` et nomme les cinq suites. ⭐ **Trois des quatre faux verts qu'elle admettait sont
+fermés** (épinglage contre un littéral, `#if 0`, `DISABLED_`), le quatrième (`GTEST_SKIP()`) est laissé
+ouvert délibérément — `REQUIRE_CURL()` en fait un usage légitime. ⭐ **Elle porte un auto-test** de dix
+fichiers écrits pour être refusés, joué avant chaque balayage : la première sonde statique de `tests/`
+à en avoir un.
+
+⚠️ **Ce qui reste ouvert et n'a pas de ticket** : la marge vaut **un octet** dans six suites sur huit,
+et c'est structurel — le plafond est `recouvrement + 1`, donc une portée égale au recouvrement est au
+maximum admissible. Un octet de recouvrement gagné par une ligne de journal et la propriété redevient
+fausse ; ce qui change, c'est qu'elle rougira au premier `make check` en nommant le document, la forme
+et les octets.
 
 ### ⚠️ [F-LOGSECRET-5] Trois lignes du domaine `mqtt` publient encore **une valeur lue dans le payload**, à WARNING
 
