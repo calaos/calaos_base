@@ -62,24 +62,33 @@ HueOutputLightRGB::HueOutputLightRGB(Params &p):
                 HueWire::LightState st;
                 const HueWire::Decode decoded = HueWire::decodeLightState(downloadedData, st);
 
+                /* WHAT MAY BE PUBLISHED OF AN ANSWER THIS DRIVER COULD NOT
+                 * READ. The api key of the bridge is a path SEGMENT of the
+                 * url this answer replies to, and an error page served by
+                 * anything that is not a bridge quotes the path it was asked
+                 * for. What leaves says which light, why the read failed and
+                 * on how many bytes; the tag names the document so two lines
+                 * can be told to be the same answer. */
                 if (decoded == HueWire::Decode::Malformed)
                 {
-                    //jansson gave an error.source/text/line here; nlohmann's
-                    //non-throwing parse has no message to give, so the answer
-                    //itself is logged instead - the same thing the two
-                    //"Protocol changed ?" lines below already log.
-                    cErrorDom("hue") << "Json received malformed : " << downloadedData;
+                    cErrorDom("hue") << "Light " << m_idHue
+                                     << ": malformed answer from the bridge ("
+                                     << downloadedData.size() << " bytes) #"
+                                     << Utils::logTag(downloadedData);
                     return;
                 }
                 if (decoded != HueWire::Decode::Ok)
                 {
-                    //NotAnObject and NoState logged the same line before and
-                    //still do
-                    cErrorDom("hue") << "Protocol changed ? date received : " << downloadedData;
+                    cErrorDom("hue") << "Light " << m_idHue << ": protocol changed ? "
+                                     << (decoded == HueWire::Decode::NotAnObject?
+                                         "the answer is not an object":
+                                         "the answer carries no state")
+                                     << " (" << downloadedData.size() << " bytes) #"
+                                     << Utils::logTag(downloadedData);
                     return;
                 }
 
-                cDebugDom("hue") << "State: " << st.on << " Hue : " << st.hue << " Bri: " << st.bri << " Hue : " << st.hue << "Data : " << downloadedData;
+                cDebugDom("hue") << "State: " << st.on << " Hue : " << st.hue << " Bri: " << st.bri << " Sat: " << st.sat << " (" << downloadedData.size() << " bytes) #" << Utils::logTag(downloadedData);
 
                 const HueWire::StateUpdate update = HueWire::toStateUpdate(st);
                 updateHueState(update.color, update.on);
@@ -134,7 +143,8 @@ void HueOutputLightRGB::setOff()
     dl->bodyDataSet("{\"on\":false}");
     dl->m_signalCompleteData.connect([&](const string &downloadedData, int status)
     {
-        cDebugDom("hue") << "datareceived: " << downloadedData;
+        cDebugDom("hue") << "state set, answer: " << downloadedData.size()
+                         << " bytes #" << Utils::logTag(downloadedData);
     });
 
     dl->httpPut();
@@ -154,7 +164,8 @@ void HueOutputLightRGB::setColor(const ColorValue &c)
     dl->m_signalCompleteData.connect([&](const string &downloadedData, int status)
     {
         VAR_UNUSED(status);
-        cDebugDom("hue") << "datareceived: " << downloadedData;
+        cDebugDom("hue") << "state set, answer: " << downloadedData.size()
+                         << " bytes #" << Utils::logTag(downloadedData);
     });
 
     dl->httpPut();

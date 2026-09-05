@@ -432,10 +432,12 @@ void WebCtrl::setValue(string value)
     fdownloader->setHeader("Content-Type", data_type);
     fdownloader->httpPost(string(), data);
 
+    //The body is user configuration, and what a web service wants in it is
+    //decided there: an api key is as ordinary a field as a set point.
     cDebug() << "Set value with param : "
              << Utils::urlForLog(url) << " | "
              << param.get_param("request_type") << " | "
-             << data << " | "
+             << data.size() << " bytes #" << Utils::logTag(data) << " | "
              << data_type;
 
 }

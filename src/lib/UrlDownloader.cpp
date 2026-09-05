@@ -437,6 +437,34 @@ size_t headerCb(char *buffer, size_t size, size_t nitems, void *userdata)
     return len;
 }
 
+/* WHAT MAY BE PUBLISHED OF A RESPONSE HEADER. The block is written by the
+ * other end and what a name means is decided there: a session cookie, the
+ * nonce of a challenge, an authorization echoed back all arrive under names
+ * this end has never heard of. So the VALUES that leave are enumerated - each
+ * of them describes the message and can never hold a credential - Location
+ * goes through the url reducer because it is one, and everything else keeps
+ * its name and gives up its value. An unknown name is reduced, never
+ * published: that is the whole difference with a list of secrets to hide. */
+string headerForLog(const string &name, const string &value)
+{
+    static const std::set<string> publishable = {
+        "accept-ranges", "connection", "content-encoding", "content-length",
+        "content-range", "content-type", "retry-after", "transfer-encoding",
+    };
+
+    string lower = name;
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                   [](unsigned char c) { return static_cast<char>(tolower(c)); });
+
+    if (lower == "location" || lower == "content-location")
+        return name + ": " + Utils::urlForLog(value);
+
+    if (publishable.count(lower))
+        return name + ": " + value;
+
+    return name + ": [" + Utils::to_string(value.size()) + "B] #" + Utils::logTag(value);
+}
+
 } // namespace
 
 UrlDownloader::UrlDownloader(string url, bool autodelete) :
@@ -770,10 +798,10 @@ content-length: 49219
 
     while (std::getline(infile, line))
     {
-        cDebugDom("urlutils") << line;
-
         if (Utils::strStartsWith(line, "HTTP/"))
         {
+            cDebugDom("urlutils") << line;
+
             vector<string> tok;
             Utils::split(line, tok, " ", 3);
             Utils::from_string(tok[1], statusCode);
@@ -783,7 +811,13 @@ content-length: 49219
         {
             vector<string> tok;
             Utils::split(line, tok, ":", 2);
-            headers.Add(Utils::trim(tok[0]), Utils::trim(tok[1]));
+            const string name = Utils::trim(tok[0]);
+            const string value = Utils::trim(tok[1]);
+            headers.Add(name, value);
+
+            //The blank line between two blocks of a redirect is not a header
+            if (!name.empty() || !value.empty())
+                cDebugDom("urlutils") << headerForLog(name, value);
         }
     }
 

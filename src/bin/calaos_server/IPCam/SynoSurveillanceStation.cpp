@@ -185,8 +185,11 @@ void SynoSurveillanceStation::getSnapshot(std::function<void(const string &data)
             auto headers = dl->getResponseHeaders();
             contentType = headers["Content-Type"];
             cDebugDom("syno.ss") << "Headers Content-Type: " << contentType;
+            //Whatever a nas answers instead of an image is a document of its
+            //own, and the request that asked for it carried the session id
             if (contentType != "image/jpeg")
-                cWarning() << "GetSnapshot failed: " << data;
+                cWarning() << "Syno: GetSnapshot answered " << contentType
+                           << " instead of an image (" << data.size() << " bytes)";
         }
         else
         {
@@ -280,27 +283,43 @@ void SynoSurveillanceStation::getApiInfo(const string &api, const string &method
 
 Json SynoSurveillanceStation::parseJsonResult(const string &data, bool &error)
 {
-    Json jdoc;
+    /* WHAT MAY BE PUBLISHED OF AN ANSWER THIS DRIVER COULD NOT READ. login()
+     * reads its session id out of this very document, so the answer is a
+     * credential of the nas as often as it is a diagnosis. What leaves is the
+     * step that refused it - a literal of this file - and its size; the
+     * message of a nlohmann exception is not usable either, it quotes the
+     * bytes it choked on.
+     *
+     * The three refusals stay inside the try: reading `success` as a boolean
+     * throws on a string or a null, and a throw here is a throw in a download
+     * callback with no try/catch anywhere on the path. */
+    const char *refused = nullptr;
+    error = true;
+
     try
     {
-        error = false;
-        jdoc = Json::parse(data);
+        Json jdoc = Json::parse(data);
+
         if (!jdoc.is_object())
-            throw (invalid_argument(string("Json is not an object")));
-
-        if (!jdoc["success"])
-            throw (invalid_argument(string("success is false")));
-
-        Json jdata = jdoc["data"];
-        if (!jdata.is_object())
-            throw (invalid_argument(string("Json is not an object")));
-
-        return jdata;
+            refused = "the answer is not an object";
+        else if (!jdoc["success"])
+            refused = "the nas reported a failure";
+        else if (!jdoc["data"].is_object())
+            refused = "the answer carries no data block";
+        else
+        {
+            error = false;
+            return jdoc["data"];
+        }
     }
     catch (const std::exception &e)
     {
-        cWarning() << "Syno: Error parsing '" << data << "':" << e.what();
-        error = true;
+        cWarning() << "Syno: cannot read the answer: "
+                   << Utils::jsonErrorForLog(e, data.size());
         return {};
     }
+
+    cWarning() << "Syno: cannot read the answer: " << refused
+               << " (" << data.size() << " bytes)";
+    return {};
 }
