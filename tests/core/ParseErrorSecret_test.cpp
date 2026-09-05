@@ -112,10 +112,9 @@ namespace
  * THE NINE SITES, AND WHAT THE DOCUMENT HANDED TO EACH CAN CARRY.
  *
  * `plain` sits before the refused token and never leaves; `encoded` sits
- * inside it and is what the parser quotes back. Every skeleton uses its own
- * key names so that a leak on one site cannot lift the run measured on
- * another - the red sets of a mutation are only readable if they are
- * independent.
+ * inside it and is what the parser quotes back. No two documents share a run
+ * of consequence, key names and locators included, so the red set of a
+ * mutation names the site it hit instead of its neighbours.
  */
 struct Site
 {
@@ -135,9 +134,10 @@ struct Site
  * The malformation is an invalid escape INSIDE the second string, so the token
  * the parser quotes back starts at that string and carries `encoded`.
  *
- * Every document gets its OWN key names and its OWN locator: a shared skeleton
- * makes a leak on one site redden the bound of another, and a red set is only
- * readable as "which site" if the documents share no run worth publishing.
+ * No two documents may share a run anywhere near the ceiling below, key names
+ * included: a shared skeleton makes a leak on one site redden the bound of
+ * six others, and a red set is only readable as "which site" when nothing but
+ * json punctuation is common to two of them. Measured across the nine: 6.
  */
 std::string refusedDocument(const std::string &keyPlain, const std::string &plain,
                             const std::string &keySecret, const std::string &encoded,
@@ -164,24 +164,24 @@ std::vector<Site> &sites()
         v.push_back({ "rose_get_current_state", "hifirose",
                       "Error parsing get_current_state",
                       "etat courant 4b71ee", "etat%20courant%204b71ee",
-                      refusedDocument("etatLibelle", "etat courant 4b71ee",
-                                      "etatJeton", "etat%20courant%204b71ee",
+                      refusedDocument("etatNom", "etat courant 4b71ee",
+                                      "etatCle", "etat%20courant%204b71ee",
                                       "ftp://e3:", "10.9.4.2"),
                       "hifirose" });
 
         v.push_back({ "rose_get_control_info", "hifirose",
                       "Error parsing get_control_info",
                       "reglage volume 91c0da", "reglage%20volume%2091c0da",
-                      refusedDocument("reglageLibelle", "reglage volume 91c0da",
-                                      "reglageJeton", "reglage%20volume%2091c0da",
+                      refusedDocument("reglageTitre", "reglage volume 91c0da",
+                                      "reglageMot", "reglage%20volume%2091c0da",
                                       "ldap://w2:", "192.168.55.3"),
                       "hifirose" });
 
         v.push_back({ "rose_mute_state_get", "hifirose",
                       "Error parsing mute.state.get",
                       "silence ampli 27fa63", "silence%20ampli%2027fa63",
-                      refusedDocument("silenceLibelle", "silence ampli 27fa63",
-                                      "silenceJeton", "silence%20ampli%2027fa63",
+                      refusedDocument("silenceRef", "silence ampli 27fa63",
+                                      "silenceSceau", "silence%20ampli%2027fa63",
                                       "smb://y6:", "203.0.113.7"),
                       "hifirose" });
 
@@ -189,8 +189,8 @@ std::vector<Site> &sites()
         v.push_back({ "rose_notification", "hifirose",
                       "Failed to parse notification JSON from",
                       "avis borne 5e08b1", "avis%20borne%205e08b1",
-                      refusedDocument("avisLibelle", "avis borne 5e08b1",
-                                      "avisJeton", "avis%20borne%205e08b1",
+                      refusedDocument("avisTag", "avis borne 5e08b1",
+                                      "avisPin", "avis%20borne%205e08b1",
                                       "ow://r4:", "172.31.8.4"),
                       "127.0.0.1" });
 
@@ -199,8 +199,8 @@ std::vector<Site> &sites()
         v.push_back({ "remoteui_websocket", "remote_ui",
                       "JSON parse error",
                       "session distante 6d34c9", "session%20distante%206d34c9",
-                      refusedDocument("sessionLibelle", "session distante 6d34c9",
-                                      "sessionJeton", "session%20distante%206d34c9",
+                      refusedDocument("sessionAlias", "session distante 6d34c9",
+                                      "sessionBadge", "session%20distante%206d34c9",
                                       "nfs://t5:", "198.51.100.9"),
                       "remote_ui" });
 
@@ -208,16 +208,16 @@ std::vector<Site> &sites()
         v.push_back({ "webctrl_document", "",
                       "Error parsing",
                       "service tiers 3a95f7", "service%20tiers%203a95f7",
-                      refusedDocument("serviceLibelle", "service tiers 3a95f7",
-                                      "serviceJeton", "service%20tiers%203a95f7",
+                      refusedDocument("serviceEnseigne", "service tiers 3a95f7",
+                                      "serviceGage", "service%20tiers%203a95f7",
                                       "sftp://k8:", "10.200.6.5"),
                       "webctrl_doc.json" });
 
         v.push_back({ "firmware_manifest", "ota",
                       "Failed to parse manifest",
                       "manifeste micro 82be40", "manifeste%20micro%2082be40",
-                      refusedDocument("manifesteLibelle", "manifeste micro 82be40",
-                                      "manifesteJeton", "manifeste%20micro%2082be40",
+                      refusedDocument("manifesteRubrique", "manifeste micro 82be40",
+                                      "manifesteChiffre", "manifeste%20micro%2082be40",
                                       "rtsp://m1:", "169.254.9.6"),
                       "manifest.json" });
 
