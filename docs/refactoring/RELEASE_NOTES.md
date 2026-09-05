@@ -1687,12 +1687,35 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   compris le flux d'événements : **aucune requête refusée**. Si votre client émet malgré tout une de
   ces formes, il recevra un `400` au lieu d'être relayé.
 
-  ⚠️ **Un cas particulier de configuration.** Si vous avez réglé `listen_address` sur `::` (l'écoute
-  IPv6 « toutes interfaces » — ce n'est pas la valeur par défaut et rien dans Calaos ne la pose),
-  le serveur ne sait pas lire l'adresse de ses clients dans ce mode, et **tous vos utilisateurs
-  retombent dans un compteur unique**, comme dans le cas du proxy déporté ci-dessus. Aucune
-  identité n'est usurpable pour autant — le serveur refuse de faire confiance plutôt que de se
-  tromper. Repassez à `0.0.0.0` (la valeur par défaut) en attendant le correctif.
+  ✅ **La réserve qui figurait ici sur `listen_address = "::"` est levée** : l'écoute IPv6 fonctionne
+  et le serveur y reconnaît chacun de ses clients. Voir l'entrée suivante, qui est la vraie
+  histoire — et une bien moins rassurante.
+- ⛔ **`listen_address` : une adresse IPv6 n'était pas appliquée, et le serveur écoutait sur toutes
+  vos interfaces.**
+
+  **À vérifier immédiatement si — et seulement si — vous avez écrit une adresse IPv6 dans
+  `listen_address`** (par exemple `::1` ou `::`). Ce n'est pas la valeur par défaut et rien dans
+  Calaos ne la pose : une installation qui n'a jamais touché ce réglage n'est pas concernée.
+
+  **Ce qui se passait.** Le réglage sert à confiner le serveur à une seule adresse. Une valeur IPv6
+  n'était pas comprise, et au lieu de refuser de démarrer — ce que la documentation du réglage
+  annonçait — le serveur retombait **silencieusement** sur « toutes les interfaces ». Autrement dit,
+  quelqu'un qui avait écrit `listen_address = ::1` pour n'accepter que les connexions venant de la
+  machine elle-même obtenait exactement l'inverse : **l'API et le service de découverte étaient
+  joignables depuis tout le réseau**, sans qu'aucune ligne de journal ne le signale.
+
+  **Ce qui change.** Une adresse IPv6 est désormais appliquée telle qu'elle est écrite, sur l'API
+  HTTP/WebSocket **comme** sur la découverte UDP. ⚠️ **Si vous aviez posé une adresse IPv6 en
+  croyant restreindre votre serveur, il était ouvert : traitez ce réglage comme n'ayant jamais été
+  actif** — vérifiez vos accès et vos mots de passe avant de conclure que rien ne s'est passé. Et
+  après la mise à jour, votre serveur va effectivement se restreindre : si vous vous connectiez à
+  lui en IPv4 pendant qu'il croyait écouter en `::1`, cet accès va cesser.
+
+  **En prime.** Sur une écoute IPv6 ou double pile, le serveur lisait `0.0.0.0` à la place de
+  l'adresse de ses clients : tous se retrouvaient dans un compteur unique — le ralentissement après
+  mot de passe erroné de l'un pénalisait tous les autres — et les journaux ne nommaient personne.
+  C'est corrigé aussi : chaque client est de nouveau identifié, et les lignes du journal qui
+  disent d'où vient une connexion refusée donnent l'adresse réelle.
 - **En-têtes HTTP** limités à 32 Kio → `431` (auparavant illimité jusqu'au timeout).
 - **TLS** : la vérification des certificats reste **désactivée par défaut** pour tous les
   équipements configurés par l'utilisateur (caméras HTTPS auto-signées, devices LAN) — aucune

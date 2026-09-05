@@ -1016,9 +1016,36 @@
   **pipelinées** portant chacune un `X-Calaos-Client` client — credential correct compris — sont
   toutes deux réécrites. **La réserve « aucun client réel exercé » est levée.**
 
-- ⚠️ **F-IP6-1 — [CORRECTION, OUVERT, PRÉEXISTANT, fiche [T3.41](T3.41.md)] `HttpClient::getClientIp()` ne détecte pas la
-  famille d'adresse : sur un pair IPv6 il rend `"0.0.0.0"`, jamais l'adresse** (trouvé par la revue
-  de T3.39, **mesuré**, **non corrigé** — le défaut précède T3.39).
+- ✅ **F-IP6-1 — [CORRECTION, FERMÉ par [T3.41](T3.41.md), PRÉEXISTANT] `HttpClient::getClientIp()` ne détectait pas la
+  famille d'adresse : sur un pair IPv6 il rendait `"0.0.0.0"`, jamais l'adresse** (trouvé par la
+  revue de T3.39, **mesuré**, le défaut précède T3.39).
+
+  ✅ **FERMÉ.** `details::address<I>()` teste désormais `ss_family` (divergence assumée d'uvw
+  amont), et les trois lecteurs de pair de l'arbre passent par `Calaos::tcpPeerAddress()`, qui
+  **démappe** `::ffff:x.y.z.w`. ⭐ **La branche `::1` de `isTrustedProxyPeer()` est vivante et
+  tenue** ; la branche `::ffff:127.x` reste de la défense en profondeur, et la note de
+  `HttpClient.h` le dit exactement au lieu de laisser croire aux trois.
+
+  ⭐⭐ **Le recensement que la fermeture a produit, et qui sert à qui touchera cette valeur** :
+  `getClientIp()` est l'identité de **six** décisions de sécurité — plafond de connexions par
+  source, backoff de login des deux transports JSON API, étranglement du sidecar MCP, limite de
+  débit **et liste noire** du provisionnement RemoteUI, limite de débit de l'authentification HMAC
+  (WS **et** OTA HTTP), et la porte de privilège `OtaHttpHandler::isLocalhost()` du `rescan` de
+  micrologiciel — plus deux lignes de journal. **Cinq d'entre elles sont des clés de seau.**
+
+  ⭐ **Le seau partagé est MESURÉ, pas déduit** (contre-mutation M5 de T3.41 : la lecture de master
+  remise sur un serveur qui écoute vraiment en IPv6, deux pairs IPv6 distincts se refusent l'un
+  l'autre au plafond réglé à 1). ⭐ **Mais toutes ces gardes échouent en FERMETURE** avec
+  `"0.0.0.0"` : `isTrustedProxyPeer("0.0.0.0")` est faux donc l'en-tête est **écarté**, un seau
+  partagé **resserre** la limite au lieu de l'ouvrir, et `isLocalhost("0.0.0.0")` **refuse** le
+  rescan. ⇒ **F-IP6-1 était un défaut de DISPONIBILITÉ, pas de sécurité.** Le défaut de sécurité de
+  ce chemin est `F-IP6-2`, ci-dessous, et c'est lui qui cachait celui-ci.
+
+  ⚠️ **Le choix sur les adresses mappées n'a PAS été arbitré par `isTrustedProxyPeer()`** — mesuré :
+  elle accepte les deux orthographes, elle est neutre. Il l'a été par `OtaHttpHandler::isLocalhost()`,
+  qui **ignore** la forme mappée, et par le fait qu'une clé de seau doit désigner un client et non
+  une configuration d'écoute. *À recopier : « quelle fonction décide » se lit à la source de toutes
+  les fonctions concernées, pas de celle que le brief nomme.*
 
   **La cause** : `uvw`'s `details::address<I>()` (`src/lib/uvw/src/uvw/util.hpp:384-398`) demande le
   pair dans un `sockaddr_storage` puis le **`reinterpret_cast` en `sockaddr_in` sans regarder
@@ -1044,9 +1071,44 @@
     c'est une régression de **disponibilité**, pas un trou de sécurité — **mais c'en est une contre
     master pour cette valeur**, et elle est écrite plutôt que tue.
 
-  **Forme du correctif** : appeler `uv_tcp_getpeername()` soi-même, tester `ss_family`, et router
-  vers `uv_ip6_name()` ou `uv_ip4_name()`. ⚠️ Le chemin n'est pas atteignable par un test unitaire
-  sans socket réelle : **ne pas déclarer « couvert » sans l'avoir mesuré** (dette `F-LINK-1`).
+  **Correctif livré** : le test de `ss_family` a été posé dans `details::address<I>()` plutôt que
+  dans `getClientIp()` — `uvw::Handle::fileno()` existe et est public, mais il rend un descripteur
+  **non initialisé** quand `uv_fileno()` échoue, et lire `getpeername()` sur un entier quelconque
+  aurait échangé un défaut d'identité contre un pire.
+
+  ⭐ **Exercé, pas déclaré couvert** : `core/PeerAddressFamily_test` monte un vrai `HttpServer` sur
+  `::`, s'y connecte depuis `::1` et depuis deux adresses de 127.0.0.0/8, et **mesure le plafond de
+  connexions par source** — pas une chaîne. ⚠️ **Sa fixture se vérifie elle-même** (`getsockname` du
+  bout client de chaque socket) : sans ce garde-fou, la contre-mutation qui inverse la famille
+  d'écoute laisse les cas IPv6 **verts** faute de client à mesurer. *Le foin qui exclut ce qu'on
+  cherche, attrapé par un cas dédié.*
+
+- ⛔ **F-IP6-2 — [SÉCURITÉ, OUVERT ET FERMÉ par [T3.41](T3.41.md), PRÉEXISTANT] toute valeur IPv6 de
+  `listen_address` écoutait en réalité sur `0.0.0.0` : `listen_address = "::1"` ouvrait le serveur
+  sur TOUTES les interfaces.**
+
+  **La cause** : `uvw::TcpHandle::bind()` (et `UDPHandle::bind()`) est **templaté sur la famille et
+  vaut `IPv4` par défaut** ; `HttpServer` et `UDPServer` l'appelaient sans paramètre de famille.
+  `uv_ip4_addr()` **`memset` sa sortie et y pose `AF_INET` + le port AVANT** de rendre l'erreur de
+  lecture du littéral, et **uvw jette ce code de retour**. Mesuré sur la libuv de l'image :
+
+  ```
+  uv_ip4_addr("::", 5454, &a)  ->  rc=-22 (EINVAL)  family=2 (AF_INET)  addr=0.0.0.0  port=5454
+  ```
+
+  **Conséquences** :
+  - ⛔ **défaut OUVRANT** : l'opérateur qui restreint son écoute obtient l'inverse de ce qu'il
+    demande, **et sur les deux serveurs** — l'API HTTP/WebSocket et la découverte UDP ;
+  - la documentation de la clé promettait le contraire (« une adresse qui n'existe pas sur la
+    machine empêche le serveur de démarrer ») ;
+  - ⭐ **il rendait `F-IP6-1` entièrement latent** : aucune valeur de `listen_address` ne produisait
+    un pair non-`AF_INET`, donc la réserve `"::"` de `RELEASE_NOTES.md` **décrivait un symptôme que
+    personne ne pouvait observer**.
+
+  ✅ **FERMÉ** : la famille est choisie sur le littéral (`Calaos::isIpv6Literal()`), aux deux sites.
+  ⚠️ **Ce qui RESTE ouvert et n'a pas été mesuré** : une `listen_address` qui n'est **ni** IPv4 **ni**
+  IPv6 (faute de frappe, nom d'hôte) écoute toujours `0.0.0.0` sans une ligne — même mécanique, même
+  effet ouvrant ⇒ [T3.106](T3.106.md).
 
 - ✅ **F-PYTEST-1 — [FAUX VERT, FERMÉ par [T3.47](T3.47.md)] `tests/python/test_auth.py` était
   silencieusement SAUTÉ par `make check`, qui restait vert** (trouvé en mesurant F-MCP-XFF-1).
