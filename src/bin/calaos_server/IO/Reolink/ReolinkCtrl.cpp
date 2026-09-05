@@ -67,7 +67,25 @@ ReolinkCtrl::ReolinkCtrl()
             }
             else if (p["status"] == "error")
             {
-                cErrorDom("reolink") << "Reolink process error: " << p["message"];
+                /* The sidecar fills "message" with the text of an exception
+                 * raised by the camera library, by the call that had just
+                 * authenticated with the camera credentials. Nothing in this
+                 * tree constrains it and ERROR prints on a stock install, so
+                 * only values this end can name cross: a code of the wire
+                 * vocabulary and a camera this controller registered itself.
+                 * The size of what was dropped stays, so a sidecar sending
+                 * prose and one sending nothing do not look the same. */
+                const string code = p["code"];
+                const string hostname = p["hostname"];
+
+                cErrorDom("reolink") << "Reolink process error: "
+                                     << (ReolinkWire::isKnownErrorCode(code)? code
+                                                                            : string("unspecified"))
+                                     << ", camera "
+                                     << (isRegisteredHostname(hostname)? hostname
+                                                                       : string("unknown"))
+                                     << " (" << p["message"].size()
+                                     << " bytes withheld)";
             }
         }
         else if (p.Exists("event") && p.Exists("hostname") && p.Exists("event_type"))
@@ -152,6 +170,19 @@ void ReolinkCtrl::unregisterCamera(RegistrationId id)
         registeredCameras.erase(camera_key);
         cDebugDom("reolink") << "Last callback removed for camera " << camera_key;
     }
+}
+
+bool ReolinkCtrl::isRegisteredHostname(const string &hostname) const
+{
+    bool known = false;
+
+    registry.forEachRegistration([&](const ReolinkEventRegistry::CameraRegistration &reg)
+    {
+        if (reg.hostname == hostname)
+            known = true;
+    });
+
+    return known;
 }
 
 void ReolinkCtrl::doRegisterCamera(const ReolinkEventRegistry::CameraRegistration &reg)

@@ -56,6 +56,10 @@ private:
 
     //T3.31 - one registration, not four loose strings: there is no order
     //left to get wrong between here and the wire.
+    //Whether a hostname is one this controller registered. What a sidecar
+    //echoes back is not, on its own, a value this end can vouch for.
+    bool isRegisteredHostname(const string &hostname) const;
+
     void doRegisterCamera(const ReolinkEventRegistry::CameraRegistration &reg);
     void registerAllCameras();
 

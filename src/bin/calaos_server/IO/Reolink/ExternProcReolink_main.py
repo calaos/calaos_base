@@ -1497,14 +1497,21 @@ class ReolinkClient(ExternProcClient):
             cErrorDom("reolink")(f"Timeout connecting to camera {hostname}")
             error_msg = {
                 "status": "error",
-                "message": f"Timeout connecting to camera {hostname}"
+                "code": "camera_connect_timeout",
+                "hostname": hostname
             }
             self.send_message(json.dumps(error_msg))
         except Exception as e:
-            cErrorDom("reolink")(f"Failed to connect to camera {hostname}: {str(e)}")
+            # str(e) is written by the camera library, on the call that just
+            # authenticated with the camera credentials, and the server pipes
+            # this stdout into its own. The class name is the most this end
+            # can say about it without letting a dependency choose what a
+            # journal carries.
+            cErrorDom("reolink")(f"Failed to connect to camera {hostname}: {type(e).__name__}")
             error_msg = {
                 "status": "error",
-                "message": f"Failed to connect to camera {hostname}: {str(e)}"
+                "code": "camera_connect_failed",
+                "hostname": hostname
             }
             self.send_message(json.dumps(error_msg))
 

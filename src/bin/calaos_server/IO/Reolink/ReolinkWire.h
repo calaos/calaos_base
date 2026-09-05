@@ -89,6 +89,19 @@ inline std::string buildRegisterMessage(const ReolinkTypes::Hostname &hostname,
 }
 
 /*
+ * The error codes this end knows. The sidecar builds its error frames around
+ * an exception raised by the camera library, by the call that had just
+ * authenticated: that text is not ours to shape and must not reach a journal.
+ * A code can, because this list is what gives it a meaning - a code that is
+ * not in it names nothing and is published as nothing.
+ */
+inline bool isKnownErrorCode(const std::string &code)
+{
+    return code == "camera_connect_failed" ||
+           code == "camera_connect_timeout";
+}
+
+/*
  * Flatten one message from the external process into a Params.
  *
  * This is jansson_decode_object()'s contract, kept BY HAND and on purpose:
