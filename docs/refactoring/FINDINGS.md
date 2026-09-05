@@ -10828,7 +10828,7 @@ de `set_state` n'est tenue par **aucun** cas (la rendre indépendante de la vale
 séparateur nommé n'est asseré que pour `SP` (effondrer le vocabulaire de `blankName` ⇒ 0 rouge).
 Ni l'un ni l'autre ne publie d'octet du client. Voir [`T3.97`](T3.97.md) §7.
 
-### 📋 [F-LOGRAW-1] `ExternProc` relaie la sortie de ses six sidecars hors de tout journal — ticket proposé [`T3.101`](T3.101.md)
+### 📋 [F-LOGRAW-1] `ExternProc` relaie la sortie de ses six sidecars hors de tout journal — ticket proposé [`T3.101`](T3.101.md), **partiellement réduit** par [`T3.102`](T3.102.md)
 
 Relevé par le **recensement des écritures nues** de [`T3.97`](T3.97.md) §3, qui a balayé tout `src/`
 suivi par git, commentaires et littéraux retirés, arbres vendorés exclus : ⛔ **13** écritures nues
@@ -10839,11 +10839,27 @@ sur un chemin d'API et `T3.97` l'a fermée. Des neuf restantes, **2** sont le re
 (`std::cout << process_stdout.substr(...)`, et l'équivalent sur `stderr`), **4** sont dans
 `Lua_stackDump()`, et **3** sont des messages de `ConfigStore`.
 
-⭐ **`Lua_stackDump()` : suppression, pas ticket** — quatre vérifications concordantes en revue de
-merge : deux occurrences textuelles dans tout l'arbre, aucun objet ne porte de référence indéfinie
-vers son symbole, et elle est **structurellement inappelable depuis Lua** (signature
-`void(lua_State *)` là où `lua_CFunction` est `int (*)(lua_State *)`). La supprimer retire **4 des
-13** sites de la famille sans changer un comportement.
+✅ **`Lua_stackDump()` : SUPPRIMÉE par [`T3.102`](T3.102.md)**, et les quatre vérifications y ont été
+**refaites** — dont la décisive, mesurée cette fois contre le `lua.h` du **LuaJIT 2.1.0-beta3**
+réellement lié : ses **cinq** types de rappel sont `lua_CFunction`, `lua_Reader`, `lua_Writer`,
+`lua_Alloc` et `lua_Hook`, et **aucun** n'a la forme `void (*)(lua_State *)`. Un cinquième chemin a
+été cherché (macro, `#ifdef`, appel commenté, script, `dlsym` sous le `-rdynamic` du serveur) :
+**aucun**.
+
+⛔ **Deux chiffres de cette fiche étaient faux et `T3.102` les corrige.** (1) La fonction portait
+**six** écritures nues, pas quatre — deux sont des littéraux fixes (le séparateur et le `\n`) ;
+le total de la famille baisse donc de 6, le sous-total « publiant une donnée » de 4. (2) Le **13** et
+le **10** ci-dessus sont ceux d'**avant** le correctif de `T3.97`, qui a lui-même retiré un site :
+sur l'arbre livré la famille comptait **12** et le sous-total **9**. Recompté à la même convention
+(qui reproduit exactement le `2` de `Logger.cpp` et le `238` des huit points d'entrée), il reste
+après `T3.102` **6** sites, dont **5** publiant une donnée d'exécution — les 2 d'`ExternProc` et
+les 3 de `ConfigStore`. ⭐ **`LuaScript/` est à zéro.**
+
+⛔ **Et ces quatre sites n'étaient pas dans le binaire `calaos_server`** : `ScriptBindings.cpp` est
+dans `calaos_script_SOURCES`, jamais dans `calaos_server_SOURCES` (mesuré au `nm`). Le classement
+« chemin d'exécution du serveur » est juste opérationnellement — le serveur lance ce sidecar par
+exécution de script de règle — et faux au binaire près. ⭐ Ironie utile : si la fonction avait eu un
+appelant, ses `printf` seraient sortis par le relais d'`ExternProc`, c'est-à-dire par `T3.101`.
 ⚠️ **`ConfigStore`** : « au démarrage » est vrai, mais **par les gardes de ses appelants** et non par
 la position du site — `flushConfigErrors` est appelée de six endroits, et les quatre qui passent le
 drapeau qui la fait écrire sont tous gardés « une fois par processus ».
@@ -11228,3 +11244,53 @@ lire. ⚠️ Mais l'argument de provenance de T3.86 vaut ici aussi : *un payload
 appareil tiers a publié*, et rien n'oblige un appareil à mettre un nombre sous `battery_path`.
 
 **Aucun ticket ouvert.**
+
+## T3.102 — voisinage de la suppression de `Lua_stackDump()` (2026-09-05)
+
+### ⚠️ [F-DEADCFG-1] `#ifdef CALAOS_INSTALLER` dans `ScriptBindings.cpp` : une branche qui n'est définie nulle part et **ne compilerait pas** ici
+
+Trouvée en cherchant le « cinquième chemin » de [`T3.102`](T3.102.md) — c'est-à-dire un `#ifdef` qui
+aurait pu rendre `Lua_stackDump()` vivante dans une configuration de build. Elle n'en entourait pas
+la fonction supprimée, mais **le corps de `Lua_print()`** :
+
+```cpp
+#ifdef CALAOS_INSTALLER
+    LuaPrinter::Instance().Print(QString::fromUtf8(msg.c_str()));
+#else
+    cInfoDom("script.lua") << "LuaPrint: "<< msg;
+#endif
+```
+
+⛔ **`CALAOS_INSTALLER` n'a qu'une seule occurrence dans tout le dépôt : celle-ci.** Ni `configure.ac`,
+ni un `Makefile.am`, ni un `.m4`, ni un en-tête ne le définissent — aucune configuration de ce dépôt
+n'active cette branche. ⭐ **Et elle ne le pourrait pas** : `LuaPrinter` n'existe nulle part dans
+l'arbre suivi par git, et `QString` non plus — la branche appelle deux symboles absents, donc
+l'activer serait une **erreur de compilation**, pas un changement de comportement.
+
+⇒ C'est presque certainement le point de partage avec le dépôt `calaos_installer` (Qt), qui compile
+ce même fichier avec sa propre chaîne. **Non supprimé délibérément** : le retirer casserait
+silencieusement un dépôt qui n'est pas celui-ci, et rien ici ne permet de le vérifier.
+⚠️ **Ce que ça coûte quand même** : c'est une branche que ce dépôt ne peut ni construire ni tester,
+et rien dans le fichier ne dit à qui la lit qu'elle appartient à un autre arbre. **Aucun ticket
+ouvert** — la forme utile serait un commentaire d'une ligne au-dessus du `#ifdef`, pas une
+suppression.
+
+### ⚠️ [F-TESTDOC-1] Un commentaire de `tests/Makefile.am` annonce l'inverse de ce que le fichier fait dix lignes plus bas
+
+Au-dessus du bloc `LuaCalaosApi_test`, `tests/Makefile.am` porte :
+
+> `⚠️ _DEPENDENCIES carries libcalaos_common.la only (T3.36): a change to ScriptBindings.cpp does not
+> relink this binary on its own.`
+
+⛔ **C'est faux depuis [`T3.36`](T3.36.md), et le fichier se contredit lui-même** : la déclaration
+`LuaCalaosApi_test_DEPENDENCIES` située quinze lignes plus bas liste bien
+`$(CALAOS_SERVER_BUILDDIR)/LuaScript/ScriptBindings.$(OBJEXT)`, et le commentaire immédiatement
+au-dessus d'elle dit l'inverse du premier (« the linked server objects are prerequisites, so touching
+one relinks this binary »). ⭐ **Mesuré, pas déduit** : les trois tours de `T3.102` qui modifient
+`ScriptBindings.cpp` lisent `CXXLD LuaCalaosApi_test` **à chaque fois**.
+
+⚠️ **Pourquoi ça compte** : c'est un avertissement périmé de la famille `_DEPENDENCIES`, et il pousse
+dans la **mauvaise** direction — un agent qui le croit tiendra une mesure valide pour un faux vert,
+ou ajoutera un `rm -f` que la consigne d'`ORCHESTRATION.md` interdit désormais. **Non corrigé ici** :
+`T3.102` s'interdit de toucher `tests/Makefile.am`. **Aucun ticket ouvert** — c'est trois mots à
+retirer au prochain ticket qui ouvrira ce fichier.
