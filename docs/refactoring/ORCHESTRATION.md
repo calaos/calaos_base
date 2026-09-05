@@ -40,8 +40,60 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-05, APRÈS LE MERGE DE [`T3.82`](T3.82.md)) — LE
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-05, APRÈS LE MERGE DE [`T3.102`](T3.102.md)) — LE
   DERNIER MERGE DE LA SESSION. À LIRE EN PREMIER À FROID.**
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`ead0d3c1`**
+  (branche `cleanup/t3.102`, 3 commits : 2 du développeur + 1 de la revue de merge). `TESTS` =
+  **133**, référence de build après `make distclean` :
+  **`TOTAL 133 / PASS 132 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
+  `check-ccache-honesty.sh`, **0 `error:`**, **11 `CXXLD`** au `make -j32` et **124** au
+  `make check -j16`, mesuré **4 fois**, dont **2 après `make distclean`**.
+  ⛔ **RIEN N'A ÉTÉ POUSSÉ DE TOUTE LA SÉRIE.**
+
+  ⭐⭐ **LES QUATRE ARBITRAGES DU 2026-09-05 — leur état à cette heure :**
+  1. **Le `push`** → ⏸ **TOUJOURS DIFFÉRÉ** à la fin du backlog, en une seule fois.
+     ⛔ **`push` interdit jusqu'à nouvel ordre**, y compris pour un agent qui croirait bien faire.
+  2. [`T3.82`](T3.82.md) → ✅ **PAR LA SOCKET** — ✅ **FAIT et MERGÉ** (`376e987e`).
+  3. [`T3.72`](T3.72.md) → ✅ **REFUS À L'ÉCRITURE** de `&#01;` — ⏳ **EN COURS** sur `fix/t3.72`.
+  4. `T3.71` → ✅ **ALIGNER `create` SUR LE REFUS** de `modify` — ⏳ **en cours AVEC `T3.72`** :
+     c'est la même décision à deux étages, elles ne se séparent pas.
+
+  **Tickets ouverts, une ligne chacun :**
+  - `T3.91` — proposé, fiche non écrite.
+  - **`T3.100`** — la fixture d'une suite calibrée est un objet **contraint** et rien ne le dit à qui
+    y ajoutera un document ; le filet rougit **après** coup.
+  - **`T3.101`** — `ExternProc` relaie hors de tout journal ce que ses **sept** familles de sidecars
+    impriment. ⭐ **Il est maintenant SEUL en face des 2 sites qui comptent** : le recensement
+    recompté par `T3.102` donne **6** sites sur le chemin serveur, dont **5** publiant une donnée —
+    2 d'`ExternProc`, 3 de `ConfigStore` — et **`LuaScript/` est à ZÉRO**.
+  - **`T3.103`** — `calaos_mqtt` sort avec le code 0 et sans une ligne quand la connexion au courtier
+    échoue en asynchrone (`F-EXTPROC-9`).
+  - `T3.71` et `T3.72` : **en cours ensemble** sur `fix/t3.72`.
+  ⚠️ Numéros **pris** : `T3.76` → `T3.103`. Le prochain libre est **`T3.104`**.
+
+  ⭐ **CE QUE LA REVUE DE `T3.102` LAISSE DERRIÈRE ELLE, ET QUI SERT AUX SUIVANTS :**
+  - ⭐⭐ **Pour juger une SUPPRESSION, le `0 rouge` de la contre-mutation à l'envers ne vaut rien
+    seul.** Il ne distingue pas « rien ne tenait cette fonction » de « rien ne tient ce fichier ».
+    **La mesure qui le rend lisible est une seconde contre-mutation sur une fonction VOISINE ET
+    VIVANTE du même fichier** : ici `Lua_Calaos::getIOParam()` vidée ⇒ **1 rouge**, donc le fichier
+    est sous filet, donc le `0` de la fonction morte est une absence de couverture réelle.
+    *À recopier dans tout brief de suppression de code mort.*
+  - ⭐ **Le « n-ième chemin » d'une preuve de code mort inclut les DÉPÔTS FRÈRES.** `calaos_installer`
+    compile un `ScriptBindings.cpp` du même nom — mais c'est une **copie tracée chez lui**, pas ce
+    fichier-ci. La question à poser n'est donc pas « qui appelle ? » mais « ce fichier est-il partagé
+    ou dupliqué ? ». Ici : **dupliqué**, et les deux copies ont déjà divergé (`F-DEADCFG-1`).
+  - ⛔ **`F-TESTDOC-1` FERMÉ** : `tests/Makefile.am` portait un avertissement `_DEPENDENCIES`
+    **faux depuis `T3.36`**, à quinze lignes d'une déclaration qui le démentait. Deux lignes retirées.
+    *Un faux avertissement posé à côté du piège lui-même est ce qui a coûté 65 suites sur 102.*
+
+  **Ce qui attend l'utilisateur, et rien d'autre :**
+  1. ⛔ **Le job CI chez GitHub n'a JAMAIS tourné.** Le `push` est **différé, pas refusé** : il se
+     fera **en une fois, à la fin du backlog** (arbitrage 1). C'est le seul point de vérification
+     ouvert depuis `T3.67`.
+  2. ⏳ **`T3.72` + `T3.71` sont en cours ensemble** sur `fix/t3.72`, selon les arbitrages 3 et 4.
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-05, APRÈS LE MERGE DE [`T3.82`](T3.82.md)) — conservé
+  pour l'historique.**
   Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`37f2065b`**
   (branche `fix/t3.82`, 4 commits : 3 du développeur + 1 de la revue de merge). `TESTS` = **133**
   (`core/MqttConfigTransport_test` et `core/MqttSidecarConfigWait_test`), référence de build après
@@ -215,6 +267,58 @@
      **changer par où il transite**. Comportement livré, arbitrage de conception.
   3. ⛔ **`T3.72`** (proposé, `F-XML-3`) — **refuser des octets que l'API accepte aujourd'hui**
      (`&#01;`, non conforme XML 1.0). Comportement livré, arbitrage de conception.
+
+- **✅⭐⭐ [`T3.102`](T3.102.md) MERGÉE (2026-09-05) — 2 commits de branche + 1 commit de revue,
+  `rebase master` (la branche partait de `76d8e6a1`), **un conflit sur `BOARD.md`** (`master` ajoutait
+  la ligne `T3.103` sous la ligne `T3.102` que la branche réécrivait — résolu en gardant **les deux**),
+  `merge --ff-only`, historique linéaire.** `src/` : **0 ajout / 34 retraits**, deux fichiers ;
+  `tests/Makefile.am` touché **par la revue seule** (2 lignes de commentaire). `TESTS` **133 → 133**.
+  Build après `make distclean` : **`TOTAL 133 / PASS 132 / SKIP 1 / FAIL 0 / ERROR 0`**, **4 `make
+  check`** identiques dont 2 après `distclean`, **0 `error:`**, **11 `CXXLD`** au `make`, **124** au
+  `make check`. ⛔ **Rien poussé.**
+
+  ⭐⭐ **LA PREUVE STRUCTURELLE REFAITE DEPUIS L'IMAGE, ET ELLE TIENT.** `pkg-config --modversion
+  luajit` rend **2.1.0-beta3** ; `/usr/include/luajit-2.1/lua.h:53` porte
+  `typedef int (*lua_CFunction) (lua_State *L);`. ⚠️ **Une imprécision corrigée** : LuaJIT expose
+  **six** types de rappel, pas cinq — la fiche n'avait lu que `lua.h`, `lauxlib.h` et `luaconf.h`, et
+  `luajit.h:70` en porte un sixième (`luaJIT_profile_callback`). **Sans effet** : aucun des six n'a la
+  forme `void (*)(lua_State *)`, `luaL_Reg` ne porte qu'un `lua_CFunction`, et `lua_pushcfunction`
+  est une macro sur `lua_pushcclosure`. La suppression est sûre pour cette raison-là, pas pour les
+  comptages textuels.
+
+  ⭐⭐ **UN SIXIÈME CHEMIN CHERCHÉ — TROUVÉ, PUIS FERMÉ, ET LA LEÇON EST GÉNÉRALE.** Le dépôt frère
+  `calaos_installer` compile un `ScriptBindings.cpp` du même nom. **Ce n'est pas ce fichier-ci** :
+  c'est une **copie tracée chez lui** (`src/common/LuaScript/`, Lua 5.1.4 vendoré), qui porte elle
+  aussi la fonction et **aucun appelant**. ⭐ *La question à poser devant un `#ifdef` d'un autre
+  produit n'est pas « qui appelle ? » mais « ce fichier est-il partagé ou dupliqué ? ».* Ici :
+  **dupliqué**, et les deux copies ont déjà divergé — ce qui **prouve** ce que `F-DEADCFG-1`
+  supposait (`LuaPrinter` est bien dans `calaos_installer/src/DialogScriptEditor.{h,cpp}`).
+
+  ✅⭐ **LA CORRECTION DE CADRAGE EST EXACTE, ET ELLE COMPTE POUR `T3.101`.** `ScriptBindings.cpp`
+  est dans `calaos_script_SOURCES`, **jamais** dans `calaos_server_SOURCES`. Vérifié sans lire le
+  harnais : en cherchant `Calaos::Lua_print(lua_State*)` dans **tous** les exécutables de l'arbre, il
+  en sort **exactement trois** — `calaos_script`, `LuaSandbox_test`, `LuaCalaosApi_test` — et
+  `calaos_server` n'en est pas. La fiche d'ouverture, issue de la revue de `T3.97`, décrivait donc le
+  mauvais binaire : ces sites n'auraient pu parler que **par le relais des sidecars**, c'est-à-dire
+  par le sujet même de `T3.101`.
+
+  ⭐⭐⭐ **LA CONTRE-MUTATION QUI MANQUAIT, ET C'EST ELLE QUI DONNE SON SENS AU `0 ROUGE`.** Le tour de
+  la fiche (fonction remise ⇒ **0 rouge sur 133**, symbole retrouvé au `nm`) a été rejoué et confirmé.
+  Mais un `0` ne distingue pas « rien ne tenait cette fonction » de « rien ne tient ce fichier ». La
+  revue a donc vidé une fonction **voisine et VIVANTE** du même fichier, `Lua_Calaos::getIOParam()`
+  réduite à `return 0;` ⇒ ⭐ **1 rouge**, `LuaCalaosApi_test`, avec `CXXLD LuaSandbox_test` et
+  `CXXLD LuaCalaosApi_test` lus. **Témoin** : arbre restauré ⇒ **0 rouge**, `133 / 132 / 1 / 0`.
+  Restaurations par copie **sans métadonnées** puis `touch`, prouvées `cmp` **rc 0** *et* horodatage
+  effectivement déplacé ; aucun `git` dans le conteneur.
+
+  ⭐ **`F-TESTDOC-1` VÉRIFIÉ, FAUX, ET CORRIGÉ ICI.** Le commentaire de `tests/Makefile.am` annonçait
+  qu'une modification de `ScriptBindings.cpp` ne relinke pas `LuaCalaosApi_test` ; le `_DEPENDENCIES`
+  quinze lignes plus bas liste cet objet, et les trois tours de contre-mutation lisent le `CXXLD` à
+  chaque fois. Deux lignes retirées, `if HAVE_GTEST`/`endif` **113 / 114 des deux côtés**.
+
+  **État** : `master` = le commit de revue qui porte ce paragraphe. Worktree `.wave124/t3.102`
+  supprimé, branche `cleanup/t3.102` supprimée. ⚠️ `.wave123/t3.72` **laissé intact** (agent en vol).
+
 
 - **✅⭐⭐ [`T3.97`](T3.97.md) MERGÉE (2026-09-05) — 3 commits de branche + 1 commit de test de revue
   + 1 commit de doc de revue, `rebase master` (la branche partait de `ed4432ea`, deux commits de doc

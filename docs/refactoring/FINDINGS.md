@@ -11267,15 +11267,20 @@ n'active cette branche. ⭐ **Et elle ne le pourrait pas** : `LuaPrinter` n'exis
 l'arbre suivi par git, et `QString` non plus — la branche appelle deux symboles absents, donc
 l'activer serait une **erreur de compilation**, pas un changement de comportement.
 
-⇒ C'est presque certainement le point de partage avec le dépôt `calaos_installer` (Qt), qui compile
-ce même fichier avec sa propre chaîne. **Non supprimé délibérément** : le retirer casserait
-silencieusement un dépôt qui n'est pas celui-ci, et rien ici ne permet de le vérifier.
+⇒ C'est le point de partage avec le dépôt `calaos_installer` (Qt). ⭐ **Vérifié à la revue de merge,
+plus supposé** : `calaos_installer` porte `LuaPrinter` dans `src/DialogScriptEditor.{h,cpp}` et une
+**copie tracée** de ce fichier sous `src/common/LuaScript/`, avec son propre Lua 5.1.4 vendoré.
+⚠️ **Et c'est une duplication, pas un partage** : les deux copies ont déjà divergé (LuaJIT et
+`cInfoDom` ici, Lua 5.1.4 et Qt là-bas), rien ne les synchronise, et rien dans l'un ne nomme l'autre.
+**Non supprimé délibérément** : le retirer casserait silencieusement un dépôt qui n'est pas celui-ci.
+ℹ️ La copie de `calaos_installer` porte, elle aussi, `Lua_stackDump` en **deux** occurrences et aucun
+appelant — la suppression faite ici ne peut donc rien y casser.
 ⚠️ **Ce que ça coûte quand même** : c'est une branche que ce dépôt ne peut ni construire ni tester,
 et rien dans le fichier ne dit à qui la lit qu'elle appartient à un autre arbre. **Aucun ticket
 ouvert** — la forme utile serait un commentaire d'une ligne au-dessus du `#ifdef`, pas une
 suppression.
 
-### ⚠️ [F-TESTDOC-1] Un commentaire de `tests/Makefile.am` annonce l'inverse de ce que le fichier fait dix lignes plus bas
+### ✅ [F-TESTDOC-1] Un commentaire de `tests/Makefile.am` annonçait l'inverse de ce que le fichier fait dix lignes plus bas — **FERMÉ** à la revue de merge de [`T3.102`](T3.102.md)
 
 Au-dessus du bloc `LuaCalaosApi_test`, `tests/Makefile.am` porte :
 
@@ -11291,6 +11296,10 @@ one relinks this binary »). ⭐ **Mesuré, pas déduit** : les trois tours de `
 
 ⚠️ **Pourquoi ça compte** : c'est un avertissement périmé de la famille `_DEPENDENCIES`, et il pousse
 dans la **mauvaise** direction — un agent qui le croit tiendra une mesure valide pour un faux vert,
-ou ajoutera un `rm -f` que la consigne d'`ORCHESTRATION.md` interdit désormais. **Non corrigé ici** :
-`T3.102` s'interdit de toucher `tests/Makefile.am`. **Aucun ticket ouvert** — c'est trois mots à
-retirer au prochain ticket qui ouvrira ce fichier.
+ou ajoutera un `rm -f` que la consigne d'`ORCHESTRATION.md` interdit désormais. Un faux avertissement
+posé à côté du piège lui-même est exactement ce qui a coûté **65 suites sur 102** à ce projet.
+
+✅ **CORRIGÉ à la revue de merge de [`T3.102`](T3.102.md)** : les deux lignes fausses sont retirées.
+L'énoncé juste était déjà présent au-dessus de la déclaration `_DEPENDENCIES` — il n'y avait rien à
+écrire, seulement à ne plus dire le contraire. `if HAVE_GTEST` / `endif` : **113 / 114** des deux
+côtés, inchangés ; aucun `TESTS`, aucun binaire, aucun `LDADD` touché.
