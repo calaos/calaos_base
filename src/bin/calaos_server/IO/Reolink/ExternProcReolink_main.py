@@ -1046,7 +1046,12 @@ class ReolinkClient(ExternProcClient):
             except Exception as e:
                 error_type = self.classify_connection_error(e)
                 strategy = self.get_retry_strategy(error_type)
-                cErrorDom("reolink")(f"Failed to reconnect to camera {hostname} (attempt {retry_count + 1}): {str(e)} - Type: {error_type}")
+                # Same exposure as the initial connection path: this exception
+                # comes from the call that just authenticated with the camera
+                # credentials, and the server pipes this stdout into its own.
+                # error_type is a classification written here, so nothing of
+                # the diagnosis is lost with the text.
+                cErrorDom("reolink")(f"Failed to reconnect to camera {hostname} (attempt {retry_count + 1}): {type(e).__name__} - Type: {error_type}")
                 circuit_breaker.record_failure()
 
                 # Adapt retry strategy based on error type
