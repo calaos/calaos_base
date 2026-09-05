@@ -11066,6 +11066,17 @@ maximum admissible. Un octet de recouvrement gagné par une ligne de journal et 
 fausse ; ce qui change, c'est qu'elle rougira au premier `make check` en nommant le document, la forme
 et les octets.
 
+⭐ **Confirmé à la relecture de merge (2026-09-05).** Trois des quatre portées re-mesurées **hors des
+binaires**, en Python sur les littéraux de `master` : **8** (`207f31c9`), **5** (`3A403`), **4**
+(`ac82`), plus `core/ParseErrorSecret` **8 / 9** — la correction de la fiche de sortie est exacte et
+la fiche d'entrée se trompait deux fois. **Aucun des neuf plafonds n'a bougé.** La preuve de marge a
+été rejouée dans les deux sens (même mutation de `src/` : 2 rouges sur la fixture de `master`, 0 sur
+celle livrée), et `9 checked, 5 unheld` reproduit en pointant la sonde livrée sur `master`.
+⭐ **L'auto-test de la sonde attrape ce que son balayage ne voit pas** : l'exclusion des cas
+`DISABLED_` retirée laisse l'arbre livré **vert** et fait rougir le seul auto-test.
+⇒ **`T3.100`** ouvert pour le seul manque qui reste : la fixture d'une suite calibrée est un objet
+**contraint**, et rien ne le dit à qui y ajoutera un document.
+
 ### ⚠️ [F-LOGSECRET-5] Trois lignes du domaine `mqtt` publient encore **une valeur lue dans le payload**, à WARNING
 
 Relevé à la revue de [`T3.86`](T3.86.md), qui les nomme sans les fermer.

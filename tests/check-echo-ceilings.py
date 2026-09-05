@@ -198,8 +198,8 @@ def problems_for(text, rel):
     return problems, len(decls)
 
 
-#Files written to be refused, each for one reason, plus the two shapes that
-#must be accepted. `held` is how many of the file's ceilings come out held.
+#Eight files written to be refused, each for one reason, plus the two shapes
+#that must be accepted. `held` is how many of the file's ceilings come out held.
 SELF_TESTS = [
     ("a bare ceiling", 0, "nothing re-derives", """
 const size_t kMaxEcho = 8;
@@ -276,8 +276,10 @@ def self_test():
         print("FAIL: self-test: " + b)
     if bad:
         return False
-    print("PASS: self-test, %d written-to-be-refused files, each read as meant"
-          % len(SELF_TESTS))
+    print("PASS: self-test, %d files written to be refused and %d to be "
+          "accepted, each read as meant"
+          % (sum(1 for t in SELF_TESTS if t[2]),
+             sum(1 for t in SELF_TESTS if not t[2])))
     return True
 
 

@@ -40,8 +40,60 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-05, APRÈS LE MERGE DE [`T3.96`](T3.96.md)) — LE
-  DERNIER MERGE PRÉVU. À LIRE EN PREMIER À FROID.**
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-05, APRÈS LE MERGE DE [`T3.99`](T3.99.md)) — LE
+  DERNIER MERGE DE LA SESSION. À LIRE EN PREMIER À FROID.**
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`f8dc2ce1`** et
+  **`f9cf9aad`** (branche `test/t3.99`). `TESTS` = **131**, référence de build après
+  `make distclean` : **`TOTAL 131 / PASS 130 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul
+  `SKIP` `check-ccache-honesty.sh`. ⛔ **RIEN N'A ÉTÉ POUSSÉ DE TOUTE LA SÉRIE.**
+
+  **Tickets ouverts, une ligne chacun :**
+  - `T3.91` — proposé, fiche non écrite.
+  - [`T3.97`](T3.97.md) — trois sites post-authentification republient une valeur du corps d'une
+    requête, dont un à **WARNING** (imprimé par défaut) et un `cout` **nu**, hors de tout filtre.
+  - **`T3.100`** (neuf, ouvert à la revue de `T3.99`) — la fixture d'une suite calibrée est un objet
+    **contraint** (aucune forme mesurée ne doit porter une suite hexadécimale aussi longue que le
+    recouvrement) et rien ne le dit à qui y ajoutera un document ; le filet rougit **après** coup.
+  - `T3.72` et `T3.82` : ce sont des **arbitrages** pour l'utilisateur, pas des tickets à lancer.
+  ⚠️ Numéros **pris** : `T3.76` → `T3.100`. Le prochain libre est **`T3.101`**.
+
+  **Ce qui attend l'utilisateur, et rien d'autre :**
+  1. ⛔ **Le job CI chez GitHub n'a JAMAIS tourné** — `push` interdit depuis le début de la série,
+     donc aucune de ces fiches n'a été vue par la CI. C'est le seul point de vérification ouvert
+     depuis `T3.67`, et **il faut son accord pour le `push`**.
+  2. ⛔ **[`T3.82`](T3.82.md)** — sortir le mot de passe de l'`argv` du sous-processus suppose de
+     **changer par où il transite**. Comportement livré : arbitrage de conception.
+  3. ⛔ **`T3.72`** (proposé, `F-XML-3`) — le fermer **refuserait des octets que l'API accepte
+     aujourd'hui** (`&#01;`, non conforme XML 1.0) : rupture de compatibilité, arbitrage de conception.
+
+  ⭐⭐ **LES FILETS NEUFS DE LA SESSION — ce qui surveille désormais le prochain agent :**
+  - ⭐ **`tests/check-echo-ceilings.sh`** (statique, `TESTS` compris) : tout plafond `kMax…Echo` de
+    `tests/` doit être **épinglé** par un `EXPECT_EQ(<plafond>, <mesure>.size() + 1)` du même fichier
+    (ou tenu **au-dessus** d'un plafond épinglé par un `EXPECT_GT`), **et** — depuis `T3.99` — voir la
+    **portée hexadécimale** de chaque forme mesurée de ses documents bornée sous ce plafond. Un
+    épinglage contre un **littéral**, sous `#if 0`, dans un cas `DISABLED_` ou hors d'un cas gtest est
+    lu comme **absent**. ⭐ **Elle porte un auto-test** — 8 fichiers écrits pour être refusés, 2 pour
+    être acceptés, joués **avant** chaque balayage : la seule sonde statique de `tests/` qui en ait un.
+    ⚠️ Ce qu'elle ne voit **pas** : un `GTEST_SKIP()` dans le cas porteur (délibéré, `REQUIRE_CURL()`),
+    un plafond nommé autrement, un plafond déclaré dans un `.h`, et la **mesure** elle-même (elle lit
+    la forme).
+  - ⭐ **Les calibrations par ÉGALITÉ dans huit suites** (`UrlDownloaderLogSecret`,
+    `UrlDownloaderLogUrl`, `core/HttpRequestLogSecret`, `core/ControllerFrameSecret`,
+    `core/DriverAnswerSecret`, `core/IncomingLogStockLevel`, `core/ParseErrorSecret`,
+    `core/SidecarErrorSecret`) : `plafond == recouvrement + 1`, re-dérivé à chaque exécution.
+    ⛔ **La marge vaut UN octet dans six suites sur huit, et c'est structurel** : un octet de
+    recouvrement gagné par une ligne de journal et la propriété redevient fausse. ⛔ **Ne jamais
+    « réparer » un rouge de calibration en relevant le plafond** — c'est l'inverse de ce que ces
+    filets existent pour dire.
+  - ⭐ **LES CINQ FAÇONS DONT UN TEST PEUT MENTIR, mesurées cette session** — à opposer à toute suite
+    neuve : (1) la garde exercée **par appel direct** au lieu du vrai chemin ; (2) le capteur
+    **orthographié** sur un nom connu au lieu de rendre ce qu'il a mesuré ; (3) la **longueur mal
+    bornée** — une aiguille dont la forme **encodée** porte plus que le littéral ; (4) la **fixture
+    fausse** — une liste de documents qui dérive entre les cas qui la lisent ; (5) la **présence** là
+    où il faut une **position**, qu'on ferme par une auto-vérification de la mesure en tête du cas.
+
+- ⭐⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-05, APRÈS LE MERGE DE [`T3.96`](T3.96.md)) — conservé pour
+  l'historique.**
   Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`5a4c821f`**
   (`test(t3.96)`) et de **`ca1631a3`** (branche `test/t3.96`). `TESTS` = **131**, référence de build
   après `make distclean` : **`TOTAL 131 / PASS 130 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 /
@@ -67,6 +119,60 @@
      **changer par où il transite**. Comportement livré, arbitrage de conception.
   3. ⛔ **`T3.72`** (proposé, `F-XML-3`) — **refuser des octets que l'API accepte aujourd'hui**
      (`&#01;`, non conforme XML 1.0). Comportement livré, arbitrage de conception.
+
+- **✅⭐⭐ [`T3.99`](T3.99.md) MERGÉE (2026-09-05) — 2 commits de branche + 1 commit de revue,
+  `merge --ff-only`, historique linéaire, aucun rebase (la branche partait de la tête), aucun conflit.**
+  **Zéro ligne de `src/`**, `tests/Makefile.am` **intouché**, `TESTS` **131 → 131**. Build après
+  `make distclean` : **`TOTAL 131 / PASS 130 / SKIP 1 / FAIL 0`**, rc 0, **0 `error:`**, **9 `make
+  check` complets** identiques (5 après `make distclean`). ⛔ **Rien poussé.**
+
+  ⭐⭐ **IL Y AVAIT TROIS MARGES NULLES, PAS UNE — ET LA FICHE D'ENTRÉE (écrite par l'orchestrateur)
+  SE TROMPAIT DEUX FOIS.** Trois des quatre portées **re-mesurées hors des binaires** par la revue, en
+  Python sur les littéraux de `master` avec `url_encode`/base64/renversement/suppression des blancs
+  réimplémentés d'après `src/lib/StringUtils.cpp` : `core/ControllerFrameSecret` **8 / 8**
+  (`207f31c9`), `core/DriverAnswerSecret` **5 / 5** (`3A403`, annoncé 4 / 5),
+  `core/IncomingLogStockLevel` **4 / 4** (`ac82`, annoncé 3 / 4), et `core/ParseErrorSecret`
+  **8 / 9**, **absent du tableau d'entrée**. ⭐ **La leçon, à recopier dans les briefs** : *le
+  recouvrement est porté par la FORME MESURÉE, jamais par le littéral — un délimiteur json vaut deux
+  caractères hexadécimaux une fois encodé en pourcents, et un littéral privé de ses blancs joint deux
+  runs que le clair tient séparés.*
+
+  ✅ **Fermées par le DOCUMENT : aucun des neuf plafonds n'a bougé** (valeurs comparées une à une entre
+  les deux arbres). ⭐ **Preuve de marge rejouée dans les deux sens par la revue** : `#207f31c9` ajouté
+  à la ligne de refus de `MqttCtrl` ⇒ **2 rouges** sur la fixture de `master` (calibration à `8 vs 8`
+  sur le run `207f31c9`, plus un cas de fuite), **0 rouge** sur la fixture livrée avec **la même**
+  mutation de `src/`.
+
+  ⭐⭐ **LA SONDE A ENFIN UN AUTO-TEST, ET IL ATTRAPE CE QUE SON BALAYAGE NE VOIT PAS.** Contre-mutation
+  de revue **R1** : l'exclusion des cas `DISABLED_` retirée de `check-echo-ceilings.py`. L'arbre livré
+  n'ayant aucun cas `DISABLED_`, **le balayage reste vert** — seul l'auto-test rougit et nomme les deux
+  fichiers. C'est la première sonde statique de `tests/` à en porter un. ⚠️ Une imprécision corrigée :
+  **8** fichiers écrits pour être refusés et **2** pour être acceptés, pas dix refusés.
+
+  ⭐ **Trois faux verts sur quatre fermés, le quatrième est un arbitrage JUSTE.** Littéral · `#if 0` ·
+  `DISABLED_` : verts sur la sonde de `master`, **rouges** sur la livrée (mesuré des deux côtés).
+  `GTEST_SKIP()` reste vert — et c'est le bon choix : les cas porteurs de `core/DriverAnswerSecret`,
+  `UrlDownloaderLogSecret` et `UrlDownloaderLogUrl` ouvrent **tous les trois** sur `REQUIRE_CURL()`,
+  qui est un `GTEST_SKIP()`. ⚠️ Reste ouvert : un `GTEST_SKIP()` **inconditionnel** passerait aussi.
+
+  **Autres contre-mutations de revue, par ÉCHANGE, `make check` réel à chaque tour, restaurations
+  prouvées `cmp` rc 0 **et** horodatage déplacé, aucun `git` dans le conteneur** : **R2** — la fixture
+  de `core/ParseErrorSecret`, **seule suite calibrée que la fiche n'avait jamais mutée**, poussée de 8
+  à 9 ⇒ **1 rouge** qui rend le document, la forme et le compte · **R3** — `longestHexRun` **aveuglée**
+  (premier run au lieu du plus long) ⇒ **1 rouge**, l'auto-vérification en tête du cas
+  (`"beef"` attendu, `"b"` obtenu) : *la cinquième façon de mentir est fermée par une mesure, pas par
+  une intention*. **Témoin** : deux lignes interverties dans `Utils::url_encode` ⇒ **0 rouge**,
+  `CXXLD` **11** au `make -j32` et **121** au `make check`, lues.
+
+  ⛔ **Ce que le ticket laisse derrière lui, et pourquoi c'est acceptable** : la marge vaut **un octet
+  dans six suites sur huit**, structurellement (plafond = recouvrement + 1). L'égalité n'est pas trop
+  serrée, elle est **exacte** — toute marge ajoutée serait un permis de fuite de sa taille. Ce qui
+  manquait n'était pas de l'air mais un rouge **déterministe et explicite**, et c'est ce qui est
+  livré. Le coût réel est ailleurs : la fixture d'une suite calibrée est désormais un objet
+  **contraint** et rien ne le dit à qui y ajoutera un document ⇒ **`T3.100`**.
+
+  **État** : `master` = le commit de revue qui porte ce paragraphe. Worktree `.wave120/t3.99`
+  supprimé, branche `test/t3.99` supprimée.
 
 - **✅⭐⭐ [`T3.96`](T3.96.md) MERGÉE (2026-09-05) — 2 commits de branche + 2 commits de revue,
   `merge --ff-only`, historique linéaire, aucun rebase (la branche partait de la tête), aucun
@@ -10400,16 +10506,26 @@ refuseront — ou pire, une suite qu'elles laisseront passer.
 | `check-test-deps.sh` | un objet serveur **relié** par un binaire de test sans être un **prérequis** de ce binaire (le faux vert de `_DEPENDENCIES`) |
 | `check-extra-dist.sh` / `check-dist-coverage.sh` | un fichier nommé par le harnais mais absent de la distribution, et l'inverse |
 | `check-config-docs.sh` / `check-config-options.sh` | une option de configuration livrée sans documentation |
-| ⭐ `check-echo-ceilings.sh` (2026-09-05) | un **plafond d'écho** de `tests/` que rien ne re-dérive : il doit être **épinglé** par un `EXPECT_EQ(<plafond>, <mesure>.size() + 1)` du même fichier, ou tenu **au-dessus** d'un plafond épinglé par un `EXPECT_GT`. 9 plafonds vus, 9 tenus |
+| ⭐ `check-echo-ceilings.sh` (2026-09-05, élargie par `T3.99`) | un **plafond d'écho** de `tests/` que rien ne re-dérive : il doit être **épinglé** par un `EXPECT_EQ(<plafond>, <mesure>.size() + 1)` du même fichier, ou tenu **au-dessus** d'un plafond épinglé par un `EXPECT_GT` — **et**, s'il est épinglé, voir la **portée hexadécimale** de chaque forme mesurée de ses documents bornée sous lui par un `EXPECT_LT` d'un cas qui appelle une mesure `…HexRun`. 9 plafonds vus, 9 tenus |
 
 ⛔ **Ce que `check-echo-ceilings.sh` ne voit pas, et qu'il faut dire au brief suivant** : elle lit la
-**forme**, jamais la mesure. Un épinglage contre un **littéral**, sous `#if 0` ou dans un cas
-`DISABLED_` la laisse **verte** — mesuré. Et **le nom est le contrat** : un plafond appelé autrement
-que `kMax…Echo` lui est **invisible** (le type, la constance et la place sur la ligne, eux, ne
-comptent plus depuis la revue de `T3.96`).
+**forme**, jamais la mesure — elle ne distingue pas un bornage qui parcourt toutes les formes d'un qui
+n'en parcourt qu'une, ni une mesure aveuglée. ✅ **Trois des quatre faux verts mesurés à la revue de
+`T3.96` sont FERMÉS par `T3.99`** : épinglage contre un **littéral**, sous `#if 0`, dans un cas
+`DISABLED_` — vérifié des deux côtés à la revue de `T3.99`. ⛔ **Le quatrième reste ouvert
+délibérément** : un `GTEST_SKIP()` dans le cas porteur la laisse verte, parce que `REQUIRE_CURL()` en
+est un et ouvre les cas porteurs de trois des huit suites — l'interdire rendrait la sonde rouge sur un
+arbre sain. Et **le nom est le contrat** : un plafond appelé autrement que `kMax…Echo` lui est
+**invisible**, une mesure nommée autrement que `…HexRun` n'est pas reconnue, un plafond déclaré dans un
+`.h` n'est pas lu, et un épinglage écrit **hors d'un cas gtest** est lu comme absent.
 
-ℹ️ **Aucune de ces sondes n'est elle-même exercée par un cas** — la famille n'a pas d'auto-test.
-Une contre-mutation est le seul moyen de savoir qu'une d'elles parle encore.
+⭐ **`check-echo-ceilings.sh` est la SEULE de la famille à porter un auto-test** (depuis `T3.99`) :
+8 fichiers écrits pour être refusés et 2 pour être acceptés, passés à la même fonction d'analyse que
+l'arbre réel, **avant** chaque balayage. ⭐ **Mesuré à la revue** : en retirant l'exclusion des cas
+`DISABLED_`, l'arbre livré reste **vert** et seul l'auto-test rougit — c'est exactement le trou qu'il
+bouche. ℹ️ **Les autres sondes de la famille n'en ont toujours pas** (`check-test-deps.sh`,
+`check-extra-dist.sh`, `check-config-docs.sh`) : pour elles, une contre-mutation reste le seul moyen de
+savoir qu'elles parlent encore.
 
 ## ⚠️ Outillage — sorties tronquées : `grep` hooké et `docker ps --format` (E4.0f, 2026-08-17)
 
