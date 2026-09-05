@@ -40,6 +40,106 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
+- **✅⭐⭐ [`T3.86`](T3.86.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête sur `master` : **le commit de revue qui porte ce paragraphe** (2026-09-05). La
+  branche partait de `3cb98228` et `master` n'avait pas bougé ⇒ **aucun rebase**.
+  `tests/Makefile.am` : **append pur prouvé octet à octet** (`master` est le préfixe exact des 4957
+  lignes de la branche, 312 542 → 315 424 octets), `^if HAVE_GTEST` 105 → 106 ≡ `^endif` 106 → 107,
+  **`TESTS` 124 → 125 recompté des deux côtés**. Build de merge après `make distclean` :
+  **`TOTAL 125 / PASS 124 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, rc 0, **0 `error:`**,
+  un seul `Testsuite summary`, seul `SKIP` `check-ccache-honesty.sh`. ⛔ **Rien poussé.**
+
+  ⭐⭐ **LE RAISONNEMENT DE « PROVENANCE » SUR KNX ET ONEWIRE TIENT — vérifié aux deux sidecars, pas
+  cru.** `KNXExternProc_main.cpp` n'émet que `knxEventMessage(<adresse de groupe>, <mot d'une liste
+  fermée : read/response/write>, <valeur de bus>)` et `knxDisconnectedMessage()` ;
+  `OWExternProc_main.cpp` n'émet que `{id, value, device_type}` remplis par owfs. ⇒ **aucun secret
+  détenu par ce dépôt ne traverse ces deux fils**, et le développeur a raison de dire qu'il les
+  ferme sur la **provenance** et non sur un secret démontré. ⚠️ **La seule nuance** : « JAMAIS » se
+  lit *aucun secret de l'installation*, pas *rien d'un tiers* — une valeur KNX de type chaîne est
+  écrite par un autre appareil du bus. Les quatre cas sont donc traités à l'identique **à raison**,
+  et la fiche le dit au lieu de l'habiller.
+
+  ⛔⭐ **LE CINQUIÈME SITE EST CONFIRMÉ, ET IL EST BIEN PLUS GRAVE QUE LES QUATRE DU TICKET.** Les
+  quatre ne sont atteints que par une **dérive du fil** — un sidecar sérialise toujours du json
+  valide, donc la ligne ne part qu'en cas de désynchronisation ou de corruption.
+  `MqttCtrl::getValueJson()`, lui, est atteint dès qu'un appareil publie **autre chose que du json**
+  sur un sujet qu'une IO nomme : c'est le chemin de **lecture** ordinaire, et le payload entier
+  partait à WARNING **sans même un domaine**.
+
+  ⭐⭐ **LE SECOND CANAL ONEWIRE EST REPRODUIT À LA SOURCE PAR LA REVUE**, sur la trame exacte de la
+  suite : `parse error at line 1, column 104 … last read: '"nfs://t5:capteur%20jeton%2008b7f5@169.254.9.6/\q'`
+  ⇒ **49 octets de l'entrée, l'identifiant encodé en pourcents compris, sans que ce dépôt n'ait rien
+  concaténé** — et ⛔ **la recherche de l'aiguille en clair y reste AVEUGLE**. Retirer la
+  concaténation n'aurait fermé que la moitié du site. ⚠️ **La fiche annonçait 46 octets et
+  `column 100`** : recompté, **49** et `column 104`, corrigé dans `T3.86.md`, `FINDINGS.md` et
+  `BOARD.md` (le `BOARD` se contredisait lui-même — il citait 46 puis « la borne 49 vs 10 »).
+
+  ⛔⭐ **LE BALAYAGE EST RECOMPTÉ : les chiffres sont exacts, la CLASSIFICATION ne l'est pas.**
+  **7** `throw <Type>(...)` hors bibliothèques vendorisées sur `master` (`CalaosConfig.cpp:522`,
+  `SynoSurveillanceStation.cpp:289,292,296`, `ConfigStore.cpp:778,780`, plus celui-ci) — **un seul
+  concatène**, exact. **35** `e.what()` sur `master` (34 sur la branche), **19** `ev.what()` de
+  `uvw::ErrorEvent` écartés, **aucune à DEBUG** — exact. ⚠️ **Mais « 16 dans un `catch` autour d'un
+  parse » mélange deux choses** : le seul critère qui morde est *la bibliothèque remet-elle des
+  octets de l'entrée dans son message*, et **seul le `parse_error` de `nlohmann` le fait** —
+  `out_of_range.403` cite la **clef** cherchée (le chemin configuré), `type_error` ne cite rien,
+  `pugi::xpath_exception` cite l'**expression**. Reclassés : **9** des 14 portent le risque, 5 non
+  (`JsonPath.h:229,242`, `WebCtrl.cpp:291,297`, `RemoteUIWebSocketHandler.cpp:219`).
+  ⭐ **La tête est confirmée** : `AVRRose.cpp:140` est bien le `catch` d'un `Json::parse(data)` du
+  corps d'où sort `deviceRoseToken`, à WARNING. ⇒ **`F-LOGSECRET-4` MÉRITE UN TICKET, pas une
+  fiche** : la classe est fermable par le même harnais et sa tête porte un secret déjà retiré deux
+  fois ailleurs. **Ticket ouvert : [`T3.89`](T3.89.md)**, `BOARD.md` et `FINDINGS.md` à jour.
+
+  ⭐⭐ **L'ÉPREUVE DU CAPTEUR : L'AVEU DU DÉVELOPPEUR EST EXACT ET MESURÉ.** **V1** — le site KNX
+  garde tous ses champs sûrs et gagne `head=` de **9** octets ⇒ ⛔ **0 rouge**. Le plafond de 10
+  admet donc bien une suite de 9, comme la fiche le déclare : le trou est réel, étroit, et **dit**.
+  Il est borné par le recouvrement fortuit mesuré à 7, qu'aucun plafond plus bas ne pourrait
+  franchir sans rendre la suite instable.
+
+  ⭐ **Quatre contre-mutations indépendantes, dont deux visant les contrôleurs « qui ne peuvent
+  jamais fuir » — par échange, `cmp` rc 0 × 4, `CXX`/`CXXLD` lus, `make check` RÉEL à chaque tour,
+  ⛔ aucun `git` dans le conteneur** : **V1** (KNX, `head=` 9) **0 rouge** · **V2** (KNX, `tail=`
+  **14**) **1 rouge**, le cas KNX **seul**, verbatim *the journal gives back 14 consecutive bytes of
+  a frame this end could not read* — et ⭐ **les deux recherches d'aiguille y restent VERTES** :
+  c'est **la borne, et elle seule**, qui porte le cas, exactement ce que le troisième piège de la
+  nuit exigeait · **V3** (chemin de lecture MQTT, `head=` **16**) **1 rouge**, le cas
+  `TheMqttReadPathDoesNotQuoteThePayload` seul · **V4** (OneWire, `tail=` **14**) **2 rouges**, les
+  **deux** fils 1-Wire ⇒ les deux branches d'échec sont réellement nourries, la seconde n'est pas
+  décorative. Ensembles **deux à deux disjoints**. Témoin final **vert** 125/124/1/0 avec
+  `CXXLD core/ControllerFrameSecret_test` **lu**.
+
+  ✅ **L'APPEL DIRECT À `getValue()` EST ACCEPTABLE ICI, et ce n'est pas le piège n° 1.** Ce que le
+  piège vise est une garde exercée par un chemin que la production ne prend pas. Or
+  `ctrl->getValue(get_params(), err, …)` **est** l'entrée de production, mot pour mot :
+  `MqttInputString`, `MqttInputSwitch`, `MqttOutputLight` et `MqttOutputShutter` l'appellent ainsi.
+  Le payload, lui, arrive par le **vrai fil** et l'anti-vacuité le relit par le chemin vide avant de
+  mesurer. **V3** le confirme : la garde mesurée est bien celle de `getValueJson()`.
+
+  ⚠️ **LES TROIS `cWarningDom("mqtt")` FUIENT BIEN, ET ILS SONT FICHÉS AU LIEU D'ÊTRE TUS** —
+  `MqttCtrl.cpp:594,690,746` publient la **valeur** trouvée à `battery_path` /
+  `wireless_signal_path` / `uptime_path` quand elle n'est pas un nombre, à WARNING. ⭐ **Ce n'est pas
+  la classe du ticket** : ce qui part n'est pas la trame que le serveur **n'a pas su lire**, mais une
+  **feuille désignée par un chemin que l'utilisateur a écrit lui-même**, et cette valeur est
+  précisément ce que la ligne existe pour faire lire. ⚠️ Mais l'argument de provenance vaut aussi
+  ici, et rien n'oblige un appareil à mettre un nombre sous `battery_path` ⇒ nouveau finding
+  **`F-LOGSECRET-5`**, **aucun ticket ouvert**. Le ticket ferme donc bien ce qu'il annonce ; ce qui
+  reste est nommé.
+
+  ⭐ **Commentaires de production conformes** : aucun emoji, aucun numéro de ticket, aucun numéro de
+  ligne cité dans les quatre fichiers de `src/` touchés ; blocs de 2 à 5 lignes, tous sur le
+  POURQUOI.
+
+  ⭐⭐ **QUESTION EN ATTENTE POUR L'UTILISATEUR — RECONDUITE, LA REVUE NE TRANCHE TOUJOURS PAS.**
+  **`T3.81` reste sans entrée dans `RELEASE_NOTES.md`**, alors que `T3.79` (`034c4f3f`), `T3.83`,
+  `T3.85` et maintenant `T3.86` en ont chacune une. **Cinq correctifs de sécurité, quatre notes de
+  publication.** **Faut-il écrire pour `T3.81` la note qui manque** — un jeton d'appareil audio qui
+  partait **au niveau imprimé par défaut**, et un mot de passe de caméra qui partait dès DEBUG ?
+  **Non tranché ici.**
+
+  **État de la session au sortir de ce merge** : `master` = le commit de revue qui porte ce
+  paragraphe, rien de poussé, historique linéaire. Worktree `.wave112/t3.86` supprimé, branche
+  `fix/t3.86` supprimée. ⚠️ `.wave111/t3.87` (`fix/t3.87`, `e6fc4e31`) est **intact** — non touché
+  par ce merge.
+
 - **✅⭐⭐ [`T3.85`](T3.85.md) MERGÉE — 5 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **le commit de revue qui porte ce paragraphe** (2026-09-05). La
   branche partait de `b00684f4` et `master` était à `4e646c84` ⇒ **rebase**, avec le conflit d'append

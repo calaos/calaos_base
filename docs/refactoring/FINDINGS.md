@@ -10401,8 +10401,8 @@ lue, et **sa taille**. ⭐ **Ce que porte chaque trame a été mesuré avant de 
 MQTT et le `set_param` Lua peuvent porter un secret, **KNX et OneWire non** — ils sont fermés sur la
 **provenance**, la ligne n'étant atteinte que par des octets qui ne sont pas ceux que ce dépôt
 fabrique. ⛔⭐ **Le cas OneWire fuyait deux fois** : la concaténation, et le message de `nlohmann`
-lui-même, qui cite le jeton sur lequel il a buté (**46 octets, dont l'identifiant encodé en
-pourcents, sans que rien n'ait été concaténé**). ⛔ **Un cinquième site absent de la fiche d'origine**
+lui-même, qui cite le jeton sur lequel il a buté (**49 octets, dont l'identifiant encodé en
+pourcents, sans que rien n'ait été concaténé** — recompté à la revue, la fiche annonçait 46). ⛔ **Un cinquième site absent de la fiche d'origine**
 a été trouvé et fermé : `IO/Mqtt/MqttCtrl.cpp:131`, le payload entier **sans domaine**, sur le chemin
 de **lecture** de tout IO MQTT qui nomme un `path`. Garde d'exécution
 (`tests/core/ControllerFrameSecret_test.cpp`), niveau mesuré dans un enfant forké, assertions bornant
@@ -10410,7 +10410,7 @@ de **lecture** de tout IO MQTT qui nomme un `path`. Garde d'exécution
 
 ---
 
-### ⛔ [F-LOGSECRET-4] Quatorze publications de `e.what()` dont le message peut **citer l'entrée refusée**, à un niveau imprimé par défaut
+### ⛔ [F-LOGSECRET-4] Neuf publications de `e.what()` dont le message **cite l'entrée refusée**, à un niveau imprimé par défaut — ticket proposé [`T3.89`](T3.89.md)
 
 Recensé en fermant [`T3.86`](T3.86.md), dont le site OneWire était exactement ce cas. Le mécanisme
 n'est **pas** lisible dans le fichier fautif : rien n'y est concaténé, c'est la **bibliothèque** qui
@@ -10443,5 +10443,49 @@ c'est précisément le chemin qu'un pair qui déraille emprunte.
 ℹ️ Les **11** sites de `HistLogger.cpp` sont hors classe : exceptions sqlite sur des requêtes
 **paramétrées**, le message ne porte aucune valeur liée. Et **19** autres `.what()` de l'arbre sont
 des `uvw::ErrorEvent` — une chaîne d'erreur libuv, sans donnée d'appelant.
+
+⛔⭐ **AFFINÉ À LA REVUE DU MERGE — le critère qui compte n'est pas « parse ou indexe » mais
+« la bibliothèque peut-elle remettre des octets de l'entrée dans son message »**, et **seul le
+`parse_error` de `nlohmann` le fait** : son `out_of_range.403` cite la **clef** cherchée (donc le
+chemin configuré, pas la charge utile), son `type_error` ne cite **rien**, et une
+`pugi::xpath_exception` cite l'**expression**, pas le document. Reclassés sous ce critère, les 14
+se coupent en deux :
+
+- **9 portent réellement le risque** — leur `try` contient un `Json::parse()` d'une donnée
+  d'exécution : `Audio/AVRRose.cpp:140,363,386,405` · `Audio/AVRRoseNotifServer.cpp:226` ·
+  `RemoteUI/RemoteUIWebSocketHandler.cpp:151` · `IO/Web/WebCtrl.cpp:190` ·
+  `RemoteUI/FirmwareManifest.cpp:116` · `CalaosConfig.cpp:539`.
+- **5 ne le portent pas** : `IO/JsonPath.h:229,242` (`at()` sur une clef venant du chemin
+  configuré) · `IO/Web/WebCtrl.cpp:291,297` (pugixml, l'expression) ·
+  `RemoteUI/RemoteUIWebSocketHandler.cpp:219` (`get<int>()`, message sans donnée).
+
+⚠️ **Le message de `nlohmann` est vérifié à la source par la revue**, sur la trame exacte de la
+suite : `last read` rend **49 octets** de l'entrée, l'identifiant **encodé en pourcents** compris, et
+⛔ **une recherche de l'aiguille en clair y reste aveugle**.
+
+ℹ️ Trois `catch` fourre-tout ont été examinés et **écartés** — `RemoteUI/OtaHttpHandler.cpp:112`,
+`RemoteUI/RemoteUIProvisioningHandler.cpp:80`, `RemoteUI/RemoteUIWebSocketHandler.cpp:180` : leur
+`try` traite bien de la donnée d'exécution, mais le `Json::parse()` du corps est capté **plus bas**
+sans publier `e.what()`, et ce qui remonte jusqu'à eux ne cite pas l'entrée.
+
+⇒ **La classe reste réelle et sa tête l'est aussi** (`Audio/AVRRose.cpp:140`), mais elle compte
+**9 sites**, pas 14. **Ticket proposé : [`T3.89`](T3.89.md)** — la garde y est d'exécution
+(remettre un corps mal formé au pair `AVRRose` et relire `std::cout`), le harnais des trois derniers
+correctifs s'y transpose, et l'arbitrage y est le même qu'ici : la taille et le domaine survivent,
+le message de la bibliothèque non.
+
+### ⚠️ [F-LOGSECRET-5] Trois lignes du domaine `mqtt` publient encore **une valeur lue dans le payload**, à WARNING
+
+Relevé à la revue de [`T3.86`](T3.86.md), qui les nomme sans les fermer.
+`IO/Mqtt/MqttCtrl.cpp:594`, `:690` et `:746` publient `"<valeur>" read from path <chemin> is not a
+number` quand la valeur trouvée à `battery_path` / `wireless_signal_path` / `uptime_path` n'est pas
+un nombre. La valeur vient du payload d'un tiers, et WARNING est imprimé sur une installation de
+série.
+
+⭐ **Ce n'est pas la même classe que les cinq sites fermés** : ce qui part n'est pas la trame que le
+serveur n'a **pas su lire**, mais **une feuille désignée par un chemin que l'utilisateur a écrit
+lui-même** en déclarant l'IO — et la valeur est précisément ce que la ligne existe pour faire
+lire. ⚠️ Mais l'argument de provenance de T3.86 vaut ici aussi : *un payload MQTT est ce qu'un
+appareil tiers a publié*, et rien n'oblige un appareil à mettre un nombre sous `battery_path`.
 
 **Aucun ticket ouvert.**
