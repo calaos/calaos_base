@@ -5281,3 +5281,52 @@ core_MqttSidecarConfigWait_test_LDADD = $(CORE_TEST_LDADD)
 core_MqttSidecarConfigWait_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.41
+#Which client the server thinks it is talking to when the peer is not AF_INET.
+#Same link set as core/IncomingLogStockLevel_test: HttpClient drags the whole
+#websocket/OTA/RemoteUI side of the server with it.
+#NOTHING HERE CALLS getClientIp(): a real HttpServer is bound to `::`, ordinary
+#sockets connect to it from ::1 and from two addresses of 127.0.0.0/8, and what
+#is asserted is which of them the per-source connection cap lets in. A guard
+#exercised by a direct call proves that the guard works, never that the path
+#reaches it.
+#No core fixture: no io is needed, and main() has to set the cap before the
+#first read of the option (cached once) and raise debug_level before the first
+#log line of the process.
+#⚠️ Exits 77 - and so SKIPS - on a kernel without IPv6, where the listening
+#socket of the fixture cannot exist. Measured present in the development image.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/PeerAddressFamily_test
+check_PROGRAMS += core/PeerAddressFamily_test
+core_PeerAddressFamily_test_SOURCES = core/PeerAddressFamily_test.cpp
+core_PeerAddressFamily_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI
+PEER_ADDRESS_FAMILY_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT)
+core_PeerAddressFamily_test_LDADD = $(PEER_ADDRESS_FAMILY_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_PeerAddressFamily_test_DEPENDENCIES = $(PEER_ADDRESS_FAMILY_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
