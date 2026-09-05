@@ -1307,6 +1307,29 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   désactivée E4.2e, scénario désactivé T3.18).
 
 ## Sécurité & réseau
+- ⭐ **Le serveur n'écrit plus dans son journal les jetons d'authentification que ses clients lui
+  envoient — ni ceux qu'il leur a lui-même donnés.** Dès que les journaux détaillés étaient activés,
+  chaque requête reçue faisait écrire son adresse complète puis **la valeur de chacun de ses
+  en-têtes**, une ligne par en-tête. Or ce sont précisément les en-têtes qui portent les secrets :
+  le jeton que Calaos remet à un client MCP **en lui disant de le renvoyer là**, celui d'un écran
+  RemoteUI, et le cookie de session de votre navigateur. Et comme la page de connexion accepte
+  aussi le mot de passe **dans l'adresse**, une tentative de connexion refusée écrivait ce mot de
+  passe en clair.
+
+  ⚠️ **Ce n'était pas imprimé sur une installation neuve** — il fallait avoir monté le niveau de
+  journalisation — donc c'est un cran moins grave que les corrections voisines. Mais c'est
+  exactement ce qu'on fait **avant** d'envoyer un journal à l'assistance.
+
+  Désormais la ligne dit **quelle requête est arrivée** (la méthode, le chemin), **ce qu'elle
+  portait** (le nom de chaque en-tête et la taille de sa valeur — savoir qu'un jeton était présent
+  est ce qui sert au diagnostic, sa valeur ne l'a jamais été) et **si elle a été acceptée**. La
+  partie « ? … » de l'adresse, où arrivent les mots de passe, est remplacée par son nombre de
+  paramètres et sa taille. Deux requêtes qui ne diffèrent que par cette partie restent
+  distinguables.
+
+  ⚠️ **Une réserve honnête** : le **corps** d'une requête, lui, continue de passer par un
+  caviardage qui reconnaît onze noms de champs — un secret rangé sous un autre nom y échappe.
+  C'est un chantier à part.
 - ⭐ **Votre mot de passe de courtier MQTT n'apparaît plus dans les journaux du serveur.** Il y
   figurait **en clair**, sur une installation neuve, sans que personne ait eu à activer quoi que ce
   soit : à chaque démarrage de la passerelle MQTT, le serveur écrivait la ligne de commande complète

@@ -10411,7 +10411,7 @@ les deux empreintes **diffèrent**. Non écrite ici : la revue ne s'est pas donn
 le périmètre du ticket.
 
 
-### 📋 [F-HTTPIN-1] Le serveur HTTP **entrant** publie tous les en-têtes reçus, `Authorization` compris — ticket [`T3.90`](T3.90.md)
+### ✅ [F-HTTPIN-1] FERMÉ par [`T3.90`](T3.90.md) — le serveur HTTP **entrant** publiait tous les en-têtes reçus, `Authorization` compris
 
 `src/bin/calaos_server/HttpClient.cpp:277-279` : `cDebugDom("network")` écrit la cible de la requête
 puis **chaque** en-tête reçu. Un client qui s'authentifie auprès de `calaos_server` voit donc son
@@ -10428,6 +10428,56 @@ second Bearer accompagné de son nonce et de son HMAC ; les cookies de session d
 passent par la même boucle. ⚠️ **Et la cible (`parse_url`) est publiée brute** sur la ligne qui
 précède, alors que `Utils::urlForLog` existe depuis `T3.87`. ⭐ **C'est la seule famille ENTRANTE de
 la série** : les six correctifs de sécurité de la nuit ferment tous des secrets sortants.
+
+✅ **Fermé le 2026-09-05.** La ligne publie désormais **la méthode, le chemin, la forme de la
+requête** (nombre de paramètres, octets, empreinte salée par processus) et, pour chaque en-tête,
+**son nom et la taille de sa valeur** — sauf pour les **six** en-têtes sur lesquels ce serveur
+**route**, dont la valeur sort. ⭐ **Ce n'est pas une liste de noms sensibles, c'est son inverse, et
+la différence est la direction de l'échec** : un en-tête inconnu est **retenu** au lieu d'être
+publié. Mesuré — la contre-mutation qui remplace l'énumération par la liste de caviardage
+(`authorization`, `cookie`, `proxy-authorization`) rougit **sur l'en-tête dont le nom n'existe
+nulle part dans l'arbre**.
+
+⭐ **Le niveau a été MESURÉ avant de choisir, et il borne la gravité** : enfant forké avant que le
+`main()` de la suite ne lève le niveau, sur une configuration vierge — `network` **imprime à
+WARNING** et ⛔ **n'imprime pas à DEBUG**. ⇒ **la fuite ne partait pas sur une installation de
+série**, un cran sous [`T3.87`](T3.87.md). Ce qui justifie le ticket est la **nature** du secret
+(des jetons fabriqués par ce dépôt) et le **périmètre** (toute requête parsée, poignée de main
+WebSocket comprise, par le même code).
+
+⭐ **Un troisième site, absent de la fiche d'origine, fermé avec les deux autres** :
+`src/lib/WebSocketFrame.cpp:315` rendait **les 40 premiers octets de la charge utile de toute trame
+texte**, c'est-à-dire la requête d'API d'un client WebSocket — **avant** que `dumpJsonRedacted` n'ait
+rien caviardé. Ce qui sortait d'un mot de passe dépendait de sa **position** dans le document :
+**un capteur qui dépend d'une longueur, écrit dans le code de production**.
+
+⚠️ **Nuance mesurée sur le porteur MCP** : `McpProxyHandler::sniffRequest()` ne regarde que la
+**première ligne de requête de la connexion**, et une connexion `/mcp` devient un tunnel brut qui ne
+journalise aucune donnée. Un client MCP qui parle `/mcp` d'emblée **ne traversait pas cette ligne** ;
+il la traversait dès que la connexion avait servi autre chose d'abord. Le porteur est réel mais
+**conditionnel**, contrairement au Bearer RemoteUI et aux cookies, qui la traversaient à chaque
+requête.
+
+⛔ **Non fermé, et nommé** : **sept familles** publient encore une donnée entrante à un niveau
+imprimé par défaut — dont l'**identité du client**, qui derrière haproxy est la dernière entrée de
+l'`X-Forwarded-For` que le client a écrit, à WARNING sur six sites. Aucune ne porte un secret
+distribué par ce dépôt.
+
+### 📋 [F-HTTPIN-2] Le **corps** d'une requête sort par une liste de onze noms — ticket [`T3.92`](T3.92.md)
+
+`JsonApi::dumpJsonRedacted()` (`JsonApi.cpp:518`) publie le corps entier d'une requête après avoir
+caviardé la valeur des clefs appartenant à une liste de **onze** noms, sur les **deux** transports
+(`JsonApiHandlerHttp.cpp:238`, `JsonApiHandlerWS.cpp:251`), à DEBUG. ⭐ **C'est exactement la forme
+que la revue de [`T3.87`](T3.87.md) a enterrée et que [`T3.90`](T3.90.md) a refusée** — et le trou
+est ouvert par l'API de ce dépôt elle-même : `action: config`, `type: put` téléverse les fichiers de
+configuration **sous des clefs qui sont des noms de fichiers**, et ⛔ **`local_config.xml` est le
+fichier où ce serveur écrit `mcp_token`, `mcp_service_token` et `calaos_password`**. La clef
+s'appelle `local_config.xml` ; elle n'est dans aucune des onze ⇒ **le fichier entier, avec tous ses
+jetons, part au journal**. ⚠️ Un second site le refait sans même passer par le réducteur
+(`JsonApiHandlerHttp.cpp:813`, `filecontent` entier). ⛔ **Le harnais existe** :
+`tests/core/HttpRequestLogSecret_test.cpp` monte un vrai `HttpServer` et relit `std::cout` — le cas
+décisif est **une clef qui n'est dans aucune liste**, un cas écrit sur `cn_pass` serait vert des deux
+côtés.
 
 ### ✅ [F-LOGSECRET-2] FERMÉ par [`T3.85`](T3.85.md) — un chemin d'erreur republiait à **ERROR** une chaîne fabriquée par le sidecar
 
