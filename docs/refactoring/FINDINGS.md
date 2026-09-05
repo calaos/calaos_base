@@ -10576,9 +10576,14 @@ lignes `CXXLD`** lues.
 ✅ **L'affirmation « aucune des sept ne porte un secret distribué par ce dépôt » est confirmée**, et
 ⭐ **deux affirmations de [`T3.90`](T3.90.md) sont corrigées au passage** : la « raison de fermeture »
 publiée à WARNING est un **littéral d'une liste fermée de ce dépôt** (le membre `closeReason` de
-`WebSocketFrame` n'est affecté que par dix littéraux ; la raison du client sort à **DEBUG**), et deux
-des six sites d'identité (`OtaHttpHandler`, `RemoteUIManager`) publient le **pair TCP** et non
-l'`X-Forwarded-For`.
+`WebSocketFrame` n'est affecté que par neuf affectations de huit littéraux distincts ; la raison du
+client sort à **DEBUG**), et deux des six sites d'identité (`OtaHttpHandler`, `RemoteUIManager`)
+publient le **pair TCP** et non l'`X-Forwarded-For`. ⭐ **Les deux corrections ont été re-vérifiées
+aux sources à la revue de merge, elles sont exactes, et [`T3.90`](T3.90.md) a été corrigée.**
+⛔ **Ce que le filet couvre : 10 des 16 sites.** Les six autres tiennent par argument, et l'un
+d'eux — l'étranglement du transport websocket — a été éprouvé par mutation à la revue : élargi à
+la ligne `x-forwarded-for` brute il rend **0 rouge** dans la suite neuve. Il rougit
+`core/JsonApiThrottleIdentity_test`, mais sur le **seau d'étranglement**, pas sur le journal.
 ⛔ **Non fermé, et nommé** : le site de la famille d'identité dans `trackPerIpCap()`, les deux sites
 RemoteUI, les deux lignes d'étranglement du transport websocket et l'identifiant de scénario de
 `JsonApi.cpp` ne sont atteints par **aucun** cas — ils tiennent par argument, pas par mesure.

@@ -41,15 +41,15 @@
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
 - ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-05) — À LIRE EN PREMIER À FROID.**
-  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`c4ae9c43`**
-  (`test(t3.92)`). `TESTS` = **128**, référence de build après `make distclean` :
-  **`TOTAL 128 / PASS 127 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`bad3f820`**
+  (`docs(t3.93)`). `TESTS` = **129**, référence de build après `make distclean` :
+  **`TOTAL 129 / PASS 128 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
   `check-ccache-honesty.sh`. ⛔ **RIEN N'A ÉTÉ POUSSÉ DE TOUTE LA SÉRIE.**
 
   **Tickets ouverts** : [`T3.88`](T3.88.md), `T3.91` (proposé, fiche non écrite),
-  [`T3.93`](T3.93.md), [`T3.96`](T3.96.md). ⭐ **`T3.95` est SANS OBJET** — le trou qui le motivait a
-  été fermé à la revue de `T3.92`, ne l'ouvrez pas. ⚠️ Numéros **pris** : `T3.76` → `T3.96`, le
-  prochain libre est **`T3.97`**.
+  [`T3.96`](T3.96.md), [`T3.97`](T3.97.md). ⭐ **`T3.95` est SANS OBJET** — le trou qui le motivait a
+  été fermé à la revue de `T3.92`, ne l'ouvrez pas. ⚠️ Numéros **pris** : `T3.76` → `T3.97`,
+  `T3.98` est **réservé** à une vague en vol ⇒ le prochain libre est **`T3.99`**.
 
   **Ce qui attend l'utilisateur, et rien d'autre :**
   1. ⛔ **Le job CI chez GitHub n'a jamais tourné** — `push` interdit depuis le début de la série.
@@ -62,6 +62,67 @@
        aujourd'hui** (`&#01;`, non conforme XML 1.0).
   ℹ️ **La note de version de [`T3.81`](T3.81.md) a été écrite : cette question est CLOSE**, ne la
   reconduisez plus.
+
+- **✅⭐⭐ [`T3.93`](T3.93.md) MERGÉE (2026-09-05) — 2 commits de branche + 1 commit de revue,
+  `merge --ff-only`, historique linéaire, aucun rebase, aucun conflit.** La branche partait de
+  `ac01db87`, qui était la tête. **Zéro ligne de `src/`** : `tests/Makefile.am` gagne un bloc
+  `if HAVE_GTEST` en **append pur** (+42/−0, `^if HAVE_GTEST` 109 → 110, `^endif` 110 → 111) et
+  `TESTS` passe **128 → 129**. Build après `make distclean` : **`TOTAL 129 / PASS 128 / SKIP 1 /
+  FAIL 0`**, rc 0, **0 `error:`**, **3 `make check` complets** verts sur l'arbre final — l'égalité de
+  calibration neuve ne flotte pas. ⛔ **Rien poussé.**
+
+  ⭐⭐ **LE TICKET EST UN FILET, ET LA FICHE NE PRÉTEND PAS AUTRE CHOSE.** Aucune des sept familles
+  ne porte un secret que ce dépôt distribue — re-vérifié aux sources par la revue. Ce que le ticket
+  apporte est la mesure : la contre-mutation qui republie la cible brute au refus de poignée de main
+  rendait **0 rouge sur 128 suites**, elle en rend **2**, et le cas nomme les octets rendus.
+
+  ⭐⭐ **DEUX AFFIRMATIONS DE [`T3.90`](T3.90.md) CORRIGÉES — LES DEUX SONT EXACTES, ET `T3.90` A ÉTÉ
+  CORRIGÉE À SON TOUR.** (a) La ligne du refus de trame ne publie **pas** la raison du client : le
+  membre `closeReason` de `WebSocketFrame` n'est affecté que par **neuf affectations de huit
+  littéraux distincts** écrits ici, et `parseCloseCodeReason()` n'écrit que ses paramètres de sortie
+  — la raison du client sort à **DEBUG**. (b) Les deux sites RemoteUI reçoivent `getClientIp()`,
+  c'est-à-dire le **pair de la connexion**, jamais un en-tête. ⇒ la sévérité que `T3.90` annonçait
+  pour cette famille était **surestimée**.
+
+  ⭐ **LA TROUVAILLE DE DISPOSITIF, COMPRISE ET VÉRIFIÉE — à réemployer.** Le binaire lève son propre
+  niveau à DEBUG pour prouver qu'un octet est bien arrivé, puis **mesure ses bornes sur le
+  sous-ensemble des lignes dont le marqueur n'est pas `[DBG]`**. C'est correct parce que DEBUG est le
+  **seul** niveau au-dessus du repli `LOG_LEVEL_INFO` et que son marqueur est exactement celui-là :
+  le foin **est** ce qu'imprime un boîtier neuf. Élargir le foin ne peut produire qu'un rouge.
+  ⚠️ Cécité résiduelle jugée sans portée : un contenu choisi par le client qui porterait le texte
+  `[DBG]` sortirait du foin.
+
+  **Contre-mutations de revue, indépendantes de celles de la fiche, toutes par ÉCHANGE, `make check`
+  réel à chaque tour, restaurations par copie sans métadonnées prouvées `cmp` rc 0 **et** horodatage
+  effectivement déplacé, aucun `git` dans le conteneur** : ⭐ **R1** élargit l'identité du transport
+  websocket — la famille que la fiche déclare **non couverte** — à la ligne `x-forwarded-for` brute
+  ⇒ ⛔ **0 rouge dans la suite neuve**, donc *le trou déclaré est réel* ; il rougit 3 cas de
+  `core/JsonApiThrottleIdentity_test`, mais sur la propriété de **seau d'étranglement**, pas sur ce
+  que la ligne publie. ⭐ **R2** élargit le refus de chemin `/debug/`, couvert et non muté par la
+  fiche ⇒ **2 rouges**. ⭐ **R3 éprouve le capteur** en abaissant le plafond d'un tour (4 → 3) ⇒
+  **6 rouges dont la calibration, qui nomme le nombre à écrire : 4** — l'**égalité** re-dérive donc
+  bien le recouvrement fortuit (**3**) à chaque exécution, elle n'est pas décorative. **M1 rejoué**
+  reproduit exactement le chiffre d'avant le ticket (**0 sur les 128 autres suites**) et voit la
+  fuite sous sa forme **encodée en pourcents**, celle qu'un sondage sur le texte clair aurait dite
+  verte. Témoin vert, `CXXLD` lu.
+
+  ⚠️ **M5 rejoué, et sa lecture durcie.** La fiche déclarait honnêtement que M5 rougit par le
+  **contrepoids** et non par la fuite ; la revue ajoute pourquoi c'est structurel : au site de cette
+  famille le refus RSV est prononcé **avant qu'un seul octet de charge soit lu**, donc l'aiguille
+  « charge de la trame » y est une borne qu'**aucun élargissement de cette ligne ne peut rougir**.
+  Elle est portée par l'échange, pas par le site — les cinq aiguilles voyageuses du même cas, elles,
+  le sont — et M7 mesure seul la fuite de la famille. ⭐ **La leçon** : *une contre-mutation qui
+  rougit par le contrepoids ne valide pas la borne qu'elle visait ; il faut dire laquelle des deux
+  moitiés du cas elle a exercée.*
+
+  ⛔ **CE QUE LE FILET COUVRE : 10 SITES SUR 16**, les six autres tenus par argument. La fiche le
+  disait en §7 ; la revue l'a **hissé en tête**. `F-HTTPIN-3` **FERMÉ**, `F-HTTPIN-5` ouvert
+  ([`T3.97`](T3.97.md)) : trois sites post-authentification republient une valeur du corps, dont un
+  à WARNING, et ⭐ **un `cout` nu vérifié** — une écriture sur la sortie standard hors de toute macro
+  de journal, donc **hors de tout filtre de niveau**, une classe à part.
+
+  **État** : `master` = le commit de revue qui porte ce paragraphe. Worktree `.wave118/t3.93`
+  supprimé, branche `test/t3.93` supprimée.
 
 - **✅⭐⭐ [`T3.92`](T3.92.md) MERGÉE (2026-09-05) — 3 commits de branche + 2 commits de revue,
   `merge --ff-only`, historique linéaire, 0 commit de fusion.** La branche partait de `d1ab6857` et
