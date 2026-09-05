@@ -689,7 +689,12 @@ void UrlDownloader::completeCb()
     }
     else
     {
-        cDebugDom("urlutils") << "Response data: " << m_downloadedData;
+        /* Never the body: this transport carries the answers of every HTTP
+         * driver of the tree and holds a std::string, not fields - it cannot
+         * tell a light state from a device token, an authorization listing or
+         * a session id. What is published is what can never be a secret; the
+         * content type is on the header lines just above. */
+        cDebugDom("urlutils") << "Response body: " << m_downloadedData.size() << " bytes";
 
         m_signalCompleteData.emit(m_downloadedData, statusCode);
         m_signalComplete.emit(statusCode);
