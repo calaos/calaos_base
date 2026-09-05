@@ -33,6 +33,13 @@
  * time range. None of them carries a secret this repository distributes -
  * that was established site by site, and re-established here.
  *
+ * Three more lines of the same path are held here for a different reason, and
+ * they run AFTER the credentials are checked: the value a refused set_state
+ * asked to write, which is any value of any io and printed a level a stock
+ * install shows; the trace of a time range being added, which was not a log
+ * line at all but a bare write to stdout no level could filter; and the id of a
+ * picture that was not found, which is held for its LEVEL alone.
+ *
  * So this is not a leak being closed. It is a net: every one of those lines
  * renders ONE designated field, and the request that reaches it is stuffed
  * with credentials everywhere else - in the query string, in the headers, in
@@ -159,6 +166,20 @@ const char *const kBodySecret = "chalut73v-orfraie";
 const char *const kUploadContentSecret = "brebis50k-cygne";
 const char *const kFramePayloadSecret = "cyprin68d-wagon";
 const char *const kCloseReasonSecret = "hublot24f-jonque";
+
+/*
+ * The three values of the post-authentication path. set_state writes ANY value
+ * of ANY io, so the value of a refused one is the same shape as the password a
+ * set_param carries; the time range one sits under a key of the client's own
+ * choosing inside a range object, which Params carries whole; the picture id is
+ * measured for its LEVEL rather than for its bytes.
+ *
+ * Sent with a trailing blank, which is what the refusal is about: the needle is
+ * the value without it, so a line giving the value back gives the needle back.
+ */
+const char *const kSetStateValueSecret = "tourmaline19s-mistral";
+const char *const kTimeRangeFieldSecret = "volubilis47n-pavot";
+const char *const kPictureUidSecret = "quenouille62t-glycine";
 
 /*
  * THE DESIGNATED FIELDS. Each is what one family is allowed to render, and
@@ -634,9 +655,12 @@ struct Runs
     Exchange uploadBadContent;
     Exchange setState;
     Exchange setTimerange;
+    Exchange eventPicture;
 
-    //The first login is only there to open the backoff window: a stock install
-    //prints nothing at all about it, so it carries no bound and no overlap.
+    //Two exchanges carry no bound and no overlap, for the same reason: a stock
+    //install prints nothing at all about them. The first login only opens the
+    //backoff window, and the only line an unknown picture id produces is a
+    //debug one - which is the whole point of the case that reads it.
     std::vector<const Exchange *> measured() const
     {
         return { &loginThrottled, &webappPath, &debugPath, &handshakeRefused,
@@ -703,13 +727,28 @@ const Runs &theRuns()
 
         LoginThrottle::clear();
         r.setState = exchange(jsonPost(apiBody(std::string("\"action\":\"set_state\",\"id\":\"") +
-                                               kIoId + "\",\"value\":\"etat \""),
+                                               kIoId + "\",\"value\":\"" +
+                                               kSetStateValueSecret + " \""),
                                        credentialHeaders()));
 
+        //One range with the six bounds a range is made of, plus a seventh key
+        //nothing in this tree names: Params keeps every key of the object, so
+        //what is published of a range is published of anything put beside it.
         LoginThrottle::clear();
-        r.setTimerange = exchange(jsonPost(apiBody(std::string("\"action\":\"set_timerange\",\"id\":\"") +
-                                                   kTimeRangeId + "\",\"months\":\"" +
-                                                   kMonthsMark + "\""),
+        {
+            std::ostringstream fields;
+            fields << "\"action\":\"set_timerange\",\"id\":\"" << kTimeRangeId
+                   << "\",\"months\":\"" << kMonthsMark << "\",\"ranges\":[{"
+                   << "\"day\":\"1\",\"start_hour\":\"21\",\"start_min\":\"37\","
+                   << "\"start_sec\":\"11\",\"end_hour\":\"22\",\"end_min\":\"41\","
+                   << "\"end_sec\":\"09\","
+                   << "\"x-calaos-plage-inconnue\":\"" << kTimeRangeFieldSecret << "\"}]";
+            r.setTimerange = exchange(jsonPost(apiBody(fields.str()), credentialHeaders()));
+        }
+
+        LoginThrottle::clear();
+        r.eventPicture = exchange(jsonPost(apiBody(std::string("\"action\":\"event_picture\",\"pic_uid\":\"") +
+                                                   kPictureUidSecret + "\""),
                                            credentialHeaders()));
 
         return r;
@@ -746,6 +785,9 @@ std::vector<Needle> allNeedles()
     n.push_back({ "the content of an uploaded config file", kUploadContentSecret });
     n.push_back({ "the payload of a refused frame", kFramePayloadSecret });
     n.push_back({ "the close reason of the client", kCloseReasonSecret });
+    n.push_back({ "the value a refused set_state asked to write", kSetStateValueSecret });
+    n.push_back({ "a field the client put beside a time range", kTimeRangeFieldSecret });
+    n.push_back({ "the picture id the client asked for", kPictureUidSecret });
     return n;
 }
 
@@ -1096,10 +1138,40 @@ TEST_F(IncomingLogStockLevelTest, ARefusedSetStatePublishesTheIoIdAndNotTheRestO
 
     std::vector<Needle> needles = travellingNeedles();
     needles.push_back({ "the value of a body key this tree has never heard of", kBodySecret });
+    needles.push_back({ "the value the client asked set_state to write", kSetStateValueSecret });
     expectNoRunSurvives(ex, needles, "the set_state refusal");
 
     EXPECT_TRUE(someLineHasAll(stock, {"set_state refused", kIoId}))
         << "the refusal no longer names the io it refused:\n" << stock;
+}
+
+/*
+ * AND THE HALF OF THAT REFUSAL THAT MUST NOT DIE WITH THE BOUND.
+ *
+ * Withholding the value passes the bound above and leaves an integrator with a
+ * line that says a value was refused and nothing else. What a refusal owes is
+ * WHICH io, WHICH command and WHY - and "why" here is a shape: how long the
+ * value was and which blank it stopped on, a trailing tab and a trailing
+ * newline being different mistakes. All of it on ONE line: a diagnosis
+ * scattered over the journal is not one.
+ */
+TEST_F(IncomingLogStockLevelTest, ARefusedSetStateStillSaysWhichIoAndWhy)
+{
+    const Exchange &ex = theRuns().setState;
+
+    ASSERT_TRUE(ex.connected) << "no connection to the server, this case measures nothing";
+
+    //The value really did travel, or the refusal below is about nothing.
+    ASSERT_NE(std::string::npos, ex.sent.find(kSetStateValueSecret))
+        << "the request does not carry the value this case is written for";
+
+    const std::string stock = ex.stock();
+    const std::string size = std::to_string(std::string(kSetStateValueSecret).size() + 1) + "B";
+
+    EXPECT_TRUE(someLineHasAll(stock, {"set_state refused", kIoId, size, "ends on SP"}))
+        << "the refusal no longer says on one line which io, how long the value "
+           "was and which blank it stopped on, so nothing is left to act on:\n"
+        << stock;
 }
 
 /*
@@ -1128,6 +1200,64 @@ TEST_F(IncomingLogStockLevelTest, ARefusedMonthParameterPublishesItselfAndNothin
     std::reverse(reversed.begin(), reversed.end());
     EXPECT_TRUE(someLineHasAll(stock, {"wrong parameters for months", reversed}))
         << "the refusal no longer names the parameter it refused:\n" << stock;
+}
+
+/*
+ * THE TRACE OF A TIME RANGE BEING ADDED, WHICH WAS NOT A LOG LINE AT ALL.
+ *
+ * A bare write to stdout is a class of its own: no level filters it, so
+ * debug_level has no hold on it and no configuration can quiet it. What it
+ * carried is not a range but the whole Params bag of the object the client
+ * sent, key by key, so a field put beside the six bounds went out with them.
+ * The haystack of this suite catches it for free - a line with no level marker
+ * is a line a stock install prints.
+ */
+TEST_F(IncomingLogStockLevelTest, AnAddedTimeRangeIsNotWrittenOutsideTheJournal)
+{
+    const Exchange &ex = theRuns().setTimerange;
+
+    ASSERT_TRUE(ex.connected) << "no connection to the server, this case measures nothing";
+
+    //The loop body ran: this text exists at exactly one site of the tree.
+    ASSERT_NE(std::string::npos, ex.log.find("Adding timerange"))
+        << "no range was added, so the site this case is written for never "
+           "ran:\n" << ex.log;
+
+    std::vector<Needle> needles = travellingNeedles();
+    needles.push_back({ "a field the client put beside the six bounds of a range",
+                        kTimeRangeFieldSecret });
+    needles.push_back({ "the value of a body key this tree has never heard of", kBodySecret });
+    expectNoRunSurvives(ex, needles, "the timerange trace");
+
+    //And the half a bound would let die - which io the range landed on, which
+    //this trace never said while it was writing the whole bag out.
+    EXPECT_TRUE(someLineHasAll(ex.log, {"Adding timerange", kTimeRangeId}))
+        << "the trace does not say which io the range was added to, which is "
+           "the one thing an integrator reads it for:\n" << ex.log;
+}
+
+/*
+ * THE PICTURE ID OF A LOOKUP THAT FAILED. Nothing is withheld here and nothing
+ * needs to be: the id is what the line is about, it is not a secret this
+ * repository distributes, and the whole guarantee is the LEVEL. This case is
+ * what turns that guarantee into a red the day somebody raises it.
+ */
+TEST_F(IncomingLogStockLevelTest, AnUnknownPictureIdStaysOffTheLinesAStockBoxPrints)
+{
+    const Exchange &ex = theRuns().eventPicture;
+
+    ASSERT_TRUE(ex.connected) << "no connection to the server, this case measures nothing";
+
+    //Anti-vacuity, and the point of the case: the id did reach the lookup and
+    //the process did write it somewhere.
+    ASSERT_NE(std::string::npos, ex.log.find(kPictureUidSecret))
+        << "the picture id never reached the resolver, so this case measures "
+           "nothing:\n" << ex.log;
+
+    std::vector<Needle> needles = travellingNeedles();
+    needles.push_back({ "the picture id the client asked for", kPictureUidSecret });
+    needles.push_back({ "the value of a body key this tree has never heard of", kBodySecret });
+    expectNoRunSurvives(ex, needles, "the picture lookup");
 }
 
 /*
