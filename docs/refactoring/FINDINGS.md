@@ -10475,7 +10475,7 @@ porte désormais sur la **position** du schéma (nom de schéma RFC 3986, rien d
 dixième cas l'épingle. Contre-mutation par échange (position ↔ présence) : **1 rouge**, *the journal
 gives back **99** consecutive bytes* contre un plafond de 8.
 
-### 📋 [F-HTTPIN-2] Le **corps** d'une requête sort par une liste de onze noms — ticket [`T3.92`](T3.92.md)
+### ✅ [F-HTTPIN-2] FERMÉ par [`T3.92`](T3.92.md) — le **corps** d'une requête sortait par une liste de onze noms
 
 `JsonApi::dumpJsonRedacted()` (`JsonApi.cpp:518`) publie le corps entier d'une requête après avoir
 caviardé la valeur des clefs appartenant à une liste de **onze** noms, sur les **deux** transports
@@ -10490,6 +10490,39 @@ jetons, part au journal**. ⚠️ Un second site le refait sans même passer par
 `tests/core/HttpRequestLogSecret_test.cpp` monte un vrai `HttpServer` et relit `std::cout` — le cas
 décisif est **une clef qui n'est dans aucune liste**, un cas écrit sur `cn_pass` serait vert des deux
 côtés.
+
+✅ **Fermé le 2026-09-05.** `dumpJsonRedacted()` est **supprimée**, pas laissée en place sans
+appelant : `JsonApi::describeRequestForLog()` la remplace et elle est construite **comme la ligne
+d'en-têtes de la même requête** que `T3.90` a posée — un ensemble **fermé** de champs routés
+(`action`, `msg`, `msg_id`, `type`, `hardware`) publie sa valeur, **tout le reste** est un nom, un
+compte d'octets et une empreinte salée. Une clef inconnue est retenue **parce qu'elle est inconnue**.
+⭐ **Le recensement des appelants a montré DEUX commandes hors de la liste et pas une** : `config`
+/`put` (clefs = noms de fichiers) et ⭐ **`set_param`, où le mot « password » est la VALEUR de `param`
+et le secret vit sous `value`** — deux clefs qu'aucune liste ne peut prendre sans caviarder tout
+`set_param` légitime. ⛔ **Le vidage RESTE avant `checkCredentials()`, et c'est mesuré** : sur le
+websocket il n'y a pas d'« après » (le `login` **est** le corps décrit), et la contre-mutation qui le
+déplace sur HTTP rend **5 rouges** disant tous « le corps n'est décrit nulle part » — la ligne
+mourrait exactement sur les requêtes refusées, celles qu'on débogue. Ce qui rendait le placement
+dangereux était le contenu. Six contre-mutations par échange, dont une qui remet **exactement**
+l'ancien comportement (**14 rouges**) ; capteurs par **borne** sur la plus longue suite d'octets, en
+quatre formes, sur un jeton produit par le générateur livré, recouvrement fortuit **mesuré à ≤ 4** et
+borne abaissée à 1 pour le prouver.
+
+### 📋 [F-HTTPIN-4] Le contenu d'un fichier de configuration REFUSÉ sortait entier, et le site n'est tenu par aucun test — ticket proposé `T3.95`
+
+`JsonApiHandlerHttp.cpp`, branche « file content is not XML » de `config`/`put`, publiait
+`filecontent` **entier** à DEBUG, sans passer par le moindre réducteur : c'est le fichier que le
+client vient de téléverser, donc `local_config.xml` ou `io.xml` avec tous leurs jetons, refusé pour
+la seule raison qu'il ne commence pas par `<?xml`. ✅ **Corrigé par [`T3.92`](T3.92.md)** : la ligne
+publie la taille. ⛔ **Mais elle n'est tenue par AUCUNE assertion, et c'est mesuré** : la
+contre-mutation qui la remet rend **0 rouge sur 128 suites**. La raison est structurelle — le site
+est derrière un `config`/`put` **accepté**, qui écrit les trois fichiers puis **redémarre le
+serveur** (`setNeedRestart(true)` ⇒ `uvw::Loop::stop()`), et le harnais
+`tests/core/HttpRequestLogSecret_test.cpp` partage une seule boucle entre tous ses cas. ⭐ **Ce qu'il
+faudrait épingler** : un binaire de test à lui seul, avec des identifiants configurés, un répertoire
+de configuration jetable et un seul cas — ou bien découper la branche de refus dans une fonction que
+l'on peut exercer sans traverser le redémarrage. ⚠️ **Contrepoids** : savoir *quel* fichier a été
+refusé et *pourquoi* est le diagnostic, et il survit à la réduction.
 
 ### 📋 [F-HTTPIN-3] Les sept sites qui publient une donnée entrante à un niveau imprimé par défaut ne sont tenus par **aucun** test — ticket proposé `T3.93`
 

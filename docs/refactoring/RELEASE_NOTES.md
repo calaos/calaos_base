@@ -1327,9 +1327,37 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   paramètres et sa taille. Deux requêtes qui ne diffèrent que par cette partie restent
   distinguables.
 
-  ⚠️ **Une réserve honnête** : le **corps** d'une requête, lui, continue de passer par un
-  caviardage qui reconnaît onze noms de champs — un secret rangé sous un autre nom y échappe.
-  C'est un chantier à part.
+  ⚠️ **Une réserve honnête** : le **corps** d'une requête, lui, passait encore par un caviardage qui
+  reconnaissait onze noms de champs — un secret rangé sous un autre nom y échappait. C'était un
+  chantier à part, et c'est l'objet de l'entrée suivante.
+- ⭐ **Téléverser votre configuration n'écrit plus vos jetons dans le journal du serveur.** Quand
+  vous envoyez `io.xml`, `rules.xml` et `local_config.xml` depuis l'installateur ou depuis un script,
+  ces fichiers voyagent **à l'intérieur** de la requête. Le serveur en recopiait alors le contenu
+  entier dans son journal : `local_config.xml` est précisément le fichier où il range **ses propres
+  jetons** — celui du service MCP, celui du sidecar — et `io.xml` où vivent **les mots de passe de
+  vos caméras et de votre courtier**. Le mot de passe de la requête elle-même était bien masqué ; ce
+  qu'il enveloppait ne l'était pas.
+
+  ⛔ **Et il n'était pas nécessaire d'être authentifié pour que la ligne parte** : le serveur
+  décrivait le contenu de la requête **avant** de vérifier l'identifiant. Une requête refusée
+  écrivait quand même ce qu'elle transportait.
+
+  ⚠️ **Comme pour l'entrée ci-dessus, rien de tout cela n'était imprimé sur une installation neuve** :
+  il fallait avoir monté le niveau de journalisation. Mais c'est exactement ce qu'on fait pour mettre
+  au point un client de l'API — et c'est ce moment-là qui écrivait les jetons.
+
+  Désormais la ligne dit **quelle commande** est arrivée, **avec quelle sous-commande**, **quels
+  champs** la requête portait et **combien d'octets** chacun pesait, sans jamais en montrer le
+  contenu : on lit qu'un téléversement de `config` a apporté `io.xml`, `local_config.xml` et
+  `rules.xml`, avec leurs tailles. Deux téléversements différents restent distinguables. Le principe
+  a changé de sens : le serveur n'essaie plus de **deviner ce qu'il doit cacher**, il **énumère ce
+  qu'il a le droit de publier** — le vocabulaire de son propre protocole. Un champ dont il n'a jamais
+  entendu parler est retenu **parce qu'il est inconnu**.
+
+  ⚠️ **Une réserve honnête, deux même** : le **nom** de chaque champ reste publié — c'est ce qui rend
+  la ligne utile, et aucune commande de Calaos ne range de secret dans un nom, mais un client qui le
+  ferait ne serait pas protégé. Et la valeur d'un paramètre d'objet (`param`) n'est plus lisible : on
+  voit qu'un `set_param` est passé et sur quel objet, plus lequel de ses réglages.
 - ⭐ **Votre mot de passe de courtier MQTT n'apparaît plus dans les journaux du serveur.** Il y
   figurait **en clair**, sur une installation neuve, sans que personne ait eu à activer quoi que ce
   soit : à chaque démarrage de la passerelle MQTT, le serveur écrivait la ligne de commande complète
