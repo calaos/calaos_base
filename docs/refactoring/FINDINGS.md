@@ -10249,7 +10249,7 @@ de tout échappement, et les deux constructeurs de `CStrArray`).
 **n'est pas une porte de sortie** — `Utils::split()` ne connaît ni backslash ni guillemet, donc un
 `mon\ core` échappé produirait `mon\` **et** `core`, soit le défaut plus un hôte corrompu.
 
-### ⛔ [F-URLDL-1] `UrlDownloader` publie **tout corps de réponse HTTP** — ticket proposé [`T3.83`](T3.83.md)
+### ✅ [F-URLDL-1] FERMÉ par [`T3.83`](T3.83.md) — `UrlDownloader` publiait **tout corps de réponse HTTP**
 
 `src/lib/UrlDownloader.cpp:692` : `cDebugDom("urlutils") << "Response data: " << m_downloadedData`.
 Le corps entier, quel que soit le driver qui a lancé le transfert. Même famille que [F-EXTPROC-6] :
@@ -10260,6 +10260,52 @@ dont elle vient. ⚠️ **Le site croit déjà se protéger** : le même fichier
 d'**URL** partout (`Utils::maskUrlCredentials`, `:446,477,733`) et jamais le corps. ⚠️ Le
 recensement des autres drivers HTTP qui y passent **reste à faire**, et le coût en diagnostic est
 réel — le corps est ce qu'on lit pour comprendre un décodage qui échoue.
+
+✅ **Fermé le 2026-09-05.** Le transport publie le **statut** et la **taille** du corps, jamais le
+corps ; le type de contenu reste sur les lignes d'en-tête juste au-dessus. ⭐ **Le recensement des
+quinze sites d'appel a tranché le caviardage comme en T3.79 et T3.81, mais par l'excès inverse** :
+là-bas **un seul** émetteur portait un secret, ici il y en a **quatre**, de quatre protocoles
+différents — le jeton Hifi Rose (`Audio/AVRRose.cpp:421`), la liste des autorisations influxdb v2
+(`DataLogger.cpp:58`), l'identifiant de session Synology (`IPCam/SynoSurveillanceStation.cpp:210`),
+et les URL libres de Lua et du Web IO. Une liste de champs sensibles devrait couvrir quatre
+vocabulaires aujourd'hui et tous ceux de demain ; le transport ne voit qu'une `std::string`, qui est
+parfois un JPEG. ⭐ **Niveau MESURÉ dans un enfant forké** (`AStockInstallDoesNotPrintTheUrlutilsDebugLines`) :
+`urlutils` **imprime à INFO** et **n'imprime pas à DEBUG** sur une installation de série — la fuite
+était donc **un cran sous** le niveau par défaut, contrairement à F-LOGSECRET-1. Épinglé par
+`UrlDownloaderLogSecret_test` sur un **transfert HTTP réel**. ⚠️ **Ce qui reste ouvert est fiché en
+`F-URLDL-2`** : le bloc d'en-têtes de réponse, le masquage d'URL par liste de dix noms, et six sites
+de drivers qui republient un corps entier — trois d'entre eux **au-dessus** de DEBUG.
+
+### ⛔ [F-URLDL-2] Ce que `UrlDownloader` publie **à côté du corps**, et les drivers qui le republient — ticket proposé [`T3.87`](T3.87.md)
+
+Trouvé en mesurant [`T3.83`](T3.83.md), qui a fermé le corps et **pas** ces trois canaux.
+
+1. ⛔ **Le bloc d'en-têtes de réponse sort en entier**, ligne à ligne : `getResponseHeaders()` fait
+   `cDebugDom("urlutils") << line` pour **chaque** ligne. `Set-Cookie`, `WWW-Authenticate` avec son
+   nonce, un `Authorization` renvoyé en écho y passent verbatim, au **même niveau et dans le même
+   domaine** que la fuite que T3.83 vient de fermer. ⚠️ Et la méthode est **publique** :
+   `SynoSurveillanceStation` la rappelle depuis son callback, ce qui **republie tout le bloc une
+   seconde fois**.
+2. ⭐ **L'URL n'est masquée que par une liste de dix noms, et seulement dans sa requête.**
+   `Utils::maskUrlCredentials` couvre `usr, pwd, user, username, password, passwd, account,
+   loginuse, loginpas, _sid` — **ni `token`, ni `api_key`, ni `apikey`, ni `key`, ni
+   `access_token`**. Et elle ne touche pas le **chemin** : la clef d'API du pont Hue est un segment
+   de chemin (`http://<host>/api/<clef>/lights/<id>`), donc elle part **en clair** sur la ligne
+   `"UrlDownloader: "`, qui est à **INFO** — **imprimée sur une installation de série**, un cran
+   **au-dessus** de ce que T3.83 a fermé. ⭐ C'est la démonstration, dans le même fichier, de ce que
+   la doctrine dit d'une liste de secrets : elle est fausse dès qu'on regarde ailleurs.
+3. ⚠️ **Six sites de drivers republient un corps de réponse entier**, dont **trois au-dessus de
+   DEBUG** : `IPCam/SynoSurveillanceStation.cpp:302` (**WARNING**, sur l'échec de parsage de
+   `parseJsonResult()`, appelée par `login()` — donc le corps qui porte le `sid`), `:189`
+   (**WARNING**), `IO/Hue/HueOutputLightRGB.cpp:71,78` (**ERROR**), puis `:82,137,157` et
+   `IO/Web/WebCtrl.cpp:434` (qui publie en prime l'URL **non masquée**) à DEBUG.
+
+⚠️ **Le coût en diagnostic est réel pour le point 1** : les en-têtes sont ce qu'on lit pour
+comprendre une redirection ou un type de contenu inattendu — et T3.83 s'appuie explicitement sur
+`Content-Type` comme contrepoids. La forme qui garde les deux est **d'énumérer les en-têtes
+publiés** (statut, `Content-Type`, `Content-Length`, `Location`) et de ne rendre que le **nom** des
+autres. ⛔ Le harnais existe : `tests/UrlDownloaderLogSecret_test.cpp` monte déjà un pair HTTP dont
+la réponse est choisie — lui faire poser un `Set-Cookie` est une ligne.
 
 ### ⛔ [F-LOGSECRET-2] Un chemin d'erreur republie à **ERROR** une chaîne fabriquée par le sidecar — ticket proposé [`T3.85`](T3.85.md)
 

@@ -1327,6 +1327,28 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   ligne de commande**, donc visible par un `ps` de n'importe quel compte du boîtier tant que la
   passerelle tourne. Fermer cela demande de changer la façon dont le serveur parle à ses passerelles
   et n'est pas fait ici.
+- ⭐ **Les réponses des appareils et services HTTP ne sont plus recopiées dans les journaux.** Tout
+  ce que Calaos interroge en HTTP — amplificateur Hifi Rose, caméras, pont Hue, base de données
+  influxdb, station de surveillance Synology, services de notification, et les adresses que vous
+  appelez depuis un script Lua ou une IO Web — passe par le même téléchargeur interne. Celui-ci
+  écrivait dans le journal **la réponse entière**, telle quelle, dès que les journaux détaillés
+  étaient activés.
+
+  ⚠️ **Et certaines de ces réponses sont des secrets** : la réponse d'enregistrement de
+  l'amplificateur contient le jeton que Calaos utilise ensuite pour lui parler, celle de la station
+  Synology contient l'identifiant de session ouverte avec vos identifiants de caméra, celle
+  d'influxdb peut contenir un jeton d'accès à votre base. Ce n'était pas imprimé sur une
+  installation neuve — il fallait avoir monté le niveau de détail — mais c'est précisément ce qu'on
+  fait **avant de coller un journal dans un rapport d'incident**.
+
+  Désormais la ligne dit **combien d'octets** ont été reçus, sous le **code de statut** et le
+  **type de contenu** qui étaient déjà là : on voit toujours qu'une réponse est arrivée, si elle est
+  vide, tronquée, ou d'un type inattendu — ce pour quoi on lit ces lignes — sans que le contenu
+  parte avec.
+
+  ⚠️ **Une réserve honnête** : les **en-têtes** de réponse sont toujours écrits en entier, et
+  l'adresse appelée n'est nettoyée que d'une courte liste de noms de paramètres — une clef d'API
+  placée ailleurs dans l'adresse y figure encore. Ces deux points ne sont pas fermés ici.
 - **TinyXML 2.5.3 (non maintenu, 2 CVE) remplacé par pugixml** — 14 242 lignes de bibliothèque
   tierce retirées du dépôt. Les deux vulnérabilités (plantage du serveur sur XML malformé,
   boucle infinie sur UTF-8 tronqué), atteignables depuis une URL configurée par l'utilisateur via
