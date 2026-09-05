@@ -19,6 +19,12 @@
  **
  ******************************************************************************/
 #include "ExternProc.h"
+
+#include <sys/select.h>
+
+#include <cerrno>
+#include <chrono>
+#include <cstring>
 #include <unordered_map>
 
 #include <mosquittopp.h>
@@ -103,6 +109,18 @@ void MqttClient::on_error()
     cErrorDom("mqtt") << "Error";
 }
 
+/*
+ * How long this sidecar waits for the broker configuration before giving up.
+ *
+ * ⚠️ Not a comfort margin: it is what a PARTIAL UPDATE needs. A calaos_server
+ * older than this binary hands the configuration in the argv, which this build
+ * no longer reads, so nothing ever arrives on the socket. Without a deadline
+ * that is an idle process and a silent journal - with it, one printed line per
+ * relaunch. The configuration is written by the server the moment it accepts
+ * the connection, so anything above a second is already unreachable.
+ */
+static const int kConfigWaitMs = 5000;
+
 class MqttProcess: public ExternProcClient
 {
 public:
@@ -115,7 +133,16 @@ public:
     virtual ~MqttProcess();
 
 protected:
-    MqttClient *m_client;
+    MqttClient *m_client = nullptr;
+
+    /* The configuration arrives asynchronously, but every way it can fail
+     * belongs to setup(): messageReceived() records the verdict here and
+     * awaitConfiguration() turns it into the false that ends the process. */
+    enum ConfigState { ConfigWaiting, ConfigApplied, ConfigRefused };
+    ConfigState m_configState = ConfigWaiting;
+
+    bool awaitConfiguration();
+    bool applyConfiguration(const Params &p);
 
     //needs to be reimplemented
     virtual void readTimeout();
@@ -139,54 +166,120 @@ void MqttProcess::messageReceived(const string &msg)
 {
     Params p;
 
+    /* Never the message itself, only its size. What travels here is either a
+     * broker message or the broker configuration, and the configuration
+     * carries the password - while calaos_server pipes this stdout straight
+     * into its own journal. */
     if (!MqttWire::decodeMessage(msg, p))
     {
-        cWarningDom("mqtt") << "Error parsing json from sub process: " << msg;
+        if (m_configState == ConfigWaiting)
+        {
+            cError() << "Unable to parse the configuration sent by calaos_server ("
+                     << msg.size() << " bytes)";
+            m_configState = ConfigRefused;
+        }
+        else
+        {
+            cWarningDom("mqtt") << "Error parsing json message from calaos_server ("
+                                << msg.size() << " bytes)";
+        }
+        return;
+    }
+
+    const bool isConfig = p.Exists("action") && p["action"] == MqttWire::configAction();
+
+    if (m_configState == ConfigWaiting)
+    {
+        if (!isConfig)
+        {
+            cError() << "Expected the broker configuration as the first message, got "
+                     << msg.size() << " bytes";
+            m_configState = ConfigRefused;
+            return;
+        }
+
+        m_configState = applyConfiguration(p)? ConfigApplied : ConfigRefused;
+        return;
+    }
+
+    if (isConfig)
+    {
+        /* Applying it would move a live client to another broker under the
+         * same client id, and leaving on it would give the backoff-less
+         * relaunch of calaos_server a second way in. */
+        cWarningDom("mqtt") << "A second broker configuration was received and ignored";
         return;
     }
 
     //the strings, not their c_str(): a payload may carry a NUL byte
     m_client->publishTopic(p["topic"], p["payload"]);
-    // cDebugDom("mqtt") << "Message recieved : " << msg;
 }
 
-bool MqttProcess::setup(int &argc, char **&argv)
+/*
+ * Wait for the configuration, which is the first message calaos_server writes
+ * on the socket.
+ *
+ * It used to be the first argument - where /proc/<pid>/cmdline, mode 444,
+ * published the broker password to every account of the machine. Waiting for
+ * it HERE rather than in the message handler is what keeps the failure on the
+ * path it was already on: setup() answers false, main() returns 1, and the
+ * server relaunches.
+ */
+bool MqttProcess::awaitConfiguration()
+{
+    const int fd = getSocketFd();
+    const std::chrono::steady_clock::time_point deadline =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(kConfigWaitMs);
+
+    while (m_configState == ConfigWaiting)
+    {
+        const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+
+        if (now >= deadline)
+        {
+            cError() << "Gave up waiting for its configuration after "
+                     << kConfigWaitMs << " ms. calaos_server sends it on the "
+                        "socket as the first message; a server that still "
+                        "passes it as an argument is older than this sidecar.";
+            return false;
+        }
+
+        const long remain = static_cast<long>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count());
+
+        struct timeval tv;
+        tv.tv_sec = remain / 1000;
+        tv.tv_usec = (remain % 1000) * 1000;
+
+        fd_set events;
+        FD_ZERO(&events);
+        FD_SET(fd, &events);
+
+        const int ret = select(fd + 1, &events, NULL, NULL, &tv);
+
+        if (ret < 0)
+        {
+            if (errno == EINTR)
+                continue;
+            cError() << "Error while waiting for its configuration: " << strerror(errno);
+            return false;
+        }
+
+        if (ret > 0 && !processSocketRecv())
+        {
+            cError() << "calaos_server closed the connection before sending a configuration";
+            return false;
+        }
+    }
+
+    return m_configState == ConfigApplied;
+}
+
+bool MqttProcess::applyConfiguration(const Params &p)
 {
     string host = "127.0.0.1";
     int port = 1883;
-    string username = "";
-    string password = "";
     int keepalive = 120;
-
-    cDebugDom("mqtt") << "Mqtt external process";
-
-    if (!connectSocket())
-    {
-        cError() << "process cannot connect to calaos_server";
-        return false;
-    }
-
-    mosqpp::lib_init();
-
-    if (argc != 2)
-    {
-        cError() << "Unable to read configuration";
-        return false;
-    }
-
-    m_client = new MqttClient("calaos_" + Utils::createRandomUuid());
-
-    Params p;
-
-    if (!MqttWire::decodeMessage(argv[1], p))
-    {
-        //argv[1] is the broker configuration and it carries the password:
-        //the server pipes this stdout back into its own journal.
-        cError() << "Unable to parse configuration";
-        return false;
-    }
-
-    cDebugDom("mqtt") << "argc " << argc << " |  " << argv[0];
 
     if (p.Exists("host"))
         host = p["host"];
@@ -205,26 +298,53 @@ bool MqttProcess::setup(int &argc, char **&argv)
     }
     cDebugDom("mqtt") << "Connecting to broker " << host << ":" << port;
 
-    int res = m_client->connect_async(host.c_str(), port, keepalive);
+    const int res = m_client->connect_async(host.c_str(), port, keepalive);
 
     switch (res)
     {
     case MOSQ_ERR_INVAL:
-    {
         cErrorDom("mqtt") << "Error connecting to host : " << host;
         return false;
-    }
     case MOSQ_ERR_SUCCESS:
         /* Connect ok ! */
         cInfoDom("mqtt") << "Connect to : " << host << "socket " << m_client->socket();
         appendFd(m_client->socket());
-        break;
+        return true;
     default:
-    {
         cErrorDom("mqtt") << "Error connecting : " << strerror(res);
         return false;
     }
+}
+
+bool MqttProcess::setup(int &argc, char **&argv)
+{
+    cDebugDom("mqtt") << "Mqtt external process";
+
+    /* This sidecar takes NO argument. The broker configuration used to be the
+     * first one, password included, where any account of the machine could
+     * read it back from /proc/<pid>/cmdline. An argument here means a
+     * calaos_server older than this binary, handing the configuration over a
+     * channel this build never reads - named rather than ignored, because the
+     * alternative is a process waiting for a message nobody will send. */
+    if (argc > 1)
+    {
+        cError() << "This sidecar takes no argument and was given " << (argc - 1)
+                 << ": calaos_server is older than calaos_mqtt";
+        return false;
     }
+
+    if (!connectSocket())
+    {
+        cError() << "process cannot connect to calaos_server";
+        return false;
+    }
+
+    mosqpp::lib_init();
+
+    m_client = new MqttClient("calaos_" + Utils::createRandomUuid());
+
+    if (!awaitConfiguration())
+        return false;
 
     m_client->messageRcv([=](const struct mosquitto_message *m)
     {

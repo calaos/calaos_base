@@ -22,17 +22,23 @@ MqttCtrl::MqttCtrl(const Params &params)
     process = new ExternProcServer("mqtt");
     exe = Prefix::Instance().binDirectoryGet() + "/calaos_mqtt";
 
-    //ONE argument: MqttExternProc_main.cpp demands argc == 2 and parses
-    //argv[1] as the whole broker configuration. It carries the password, where
-    //a space is ordinary use - which is why this site cannot be closed by
-    //refusing the field the way the Roon host was.
-    vector<string> arg = { MqttWire::encodeConfig(params) };
+    /* NO ARGUMENT AT ALL. The broker configuration carries the password and
+     * /proc/<pid>/cmdline is mode 444, so it goes over the socket as the first
+     * message - the channel ReolinkCtrl already uses for its camera
+     * credentials. It is written again on every connection because a
+     * relaunched sidecar starts out knowing nothing. */
+    const Params cfg = params;
+
+    process->processConnected.connect([=]()
+    {
+        process->sendMessage(MqttWire::encodeConfig(cfg));
+    });
 
     process->processExited.connect([=]()
     {
         //restart process when stopped
         cWarningDom("process") << "process exited, restarting...";
-        process->startProcess(exe, "mqtt", arg);
+        process->startProcess(exe, "mqtt");
     });
 
     process->messageReceived.connect([=](const string &msg)
@@ -70,7 +76,7 @@ MqttCtrl::MqttCtrl(const Params &params)
         }
     });
 
-    process->startProcess(exe, "mqtt", arg);
+    process->startProcess(exe, "mqtt");
 }
 
 MqttCtrl::~MqttCtrl()

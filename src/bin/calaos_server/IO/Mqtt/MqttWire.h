@@ -216,14 +216,33 @@ inline void resolveBroker(const Params &params,
         keepalive = params["keepalive"];
 }
 
-//The broker configuration handed to calaos_mqtt as argv[1]. Credentials are
-//emitted only when BOTH of them are set.
+/*
+ * The key that tells the broker configuration from a publish request. Both
+ * directions of this wire are flat objects, and a configuration whose three
+ * broker fields all sat on their defaults would otherwise read as a publish on
+ * topic "".
+ */
+inline const char *configAction() { return "config"; }
+
+/*
+ * The broker configuration, sent as the FIRST MESSAGE OF THE SOCKET and never
+ * as an argument: /proc/<pid>/cmdline is world readable, so a password in the
+ * argv is readable by every account of the machine for the whole life of the
+ * sidecar. Same shape as ReolinkWire::buildRegisterMessage(), which hands the
+ * camera credentials over the same channel.
+ *
+ * Credentials are emitted only when BOTH of them are set.
+ *
+ * NOTE for whoever adds logging here: this message carries the broker password
+ * IN CLEAR. Never log the message itself, on either end.
+ */
 inline std::string encodeConfig(const Params &params)
 {
     std::string host, port, keepalive;
     resolveBroker(params, host, port, keepalive);
 
     Json root;
+    root["action"] = configAction();
     root["host"] = host;
     root["port"] = port;
     root["keepalive"] = keepalive;
