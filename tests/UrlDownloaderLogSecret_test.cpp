@@ -286,6 +286,37 @@ bool someLineHasAll(const std::string &log, const std::vector<std::string> &need
 }
 
 /*
+ * THE LONGEST RUN OF THE ANSWER THE JOURNAL ECHOES BACK.
+ *
+ * Looking for the token is looking for a value chosen in advance, and a value
+ * search only sees the slice it was spelled for: a line that publishes the
+ * first or the last bytes of the same answer carries the answer and cites no
+ * needle. What must never reach a journal is any RUN of the body, wherever it
+ * was cut - so the log is asked how much of the body it gives back, and the
+ * case fixes a ceiling instead of naming a secret.
+ */
+size_t longestBodyEcho(const std::string &log, const std::string &body)
+{
+    size_t best = 0;
+    for (size_t i = 0; i < body.size(); i++)
+    {
+        size_t len = best + 1;
+        while (i + len <= body.size() &&
+               log.find(body.substr(i, len)) != std::string::npos)
+        {
+            best = len;
+            len++;
+        }
+    }
+    return best;
+}
+
+//Above the incidental overlap between the answer and what the transport
+//legitimately prints (the host and the path of the URL share words with it),
+//and far below any excerpt worth publishing.
+const size_t kMaxBodyEcho = 12;
+
+/*
  * WHAT A BOX PRINTS WITH NOBODY TOUCHING ANYTHING, measured in a child.
  *
  * The Logger fills its domain map once and never re-reads it: a process that
@@ -455,6 +486,10 @@ TEST(UrlDownloaderLogSecret, TheResponseBodyNeverReachesTheLog)
         << "the device token of the response body is in the journal:\n" << ex.log;
     EXPECT_EQ(std::string::npos, ex.log.find(kResponseBody))
         << "the whole response body is in the journal:\n" << ex.log;
+    EXPECT_LT(longestBodyEcho(ex.log, kResponseBody), kMaxBodyEcho)
+        << "the journal gives back " << longestBodyEcho(ex.log, kResponseBody)
+        << " consecutive bytes of the response body, which no line of this "
+           "transport has any business publishing:\n" << ex.log;
 }
 
 /*
@@ -476,6 +511,9 @@ TEST(UrlDownloaderLogSecret, ABodyNoConsumerAskedForIsNotDumpedEither)
     EXPECT_EQ(std::string::npos, ex.log.find(kDeviceToken))
         << "the device token is in the journal of a transfer whose caller only "
            "connected m_signalComplete:\n" << ex.log;
+    EXPECT_LT(longestBodyEcho(ex.log, kResponseBody), kMaxBodyEcho)
+        << "the journal gives back " << longestBodyEcho(ex.log, kResponseBody)
+        << " consecutive bytes of a body no consumer asked for:\n" << ex.log;
 }
 
 /*
