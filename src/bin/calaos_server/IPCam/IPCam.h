@@ -87,11 +87,10 @@ public:
             UrlDownloader::get(url);
     }
 
-    //T3.3: mask credentials embedded in a camera URL so it can be logged
-    //safely. Handles userinfo passwords (http://user:secret@host/...) and the
-    //values of known credential query parameters (Foscam usr/pwd, Synology
-    //account/passwd/_sid, generic user/username/password/loginuse/loginpas).
-    //Any URL a camera driver hands to a log statement must go through this.
+    //Masks the userinfo password and the values of ten known credential query
+    //names. NOT a log reducer: it cannot see a secret carried by a path
+    //segment, and it returns the URL untouched when there is no query at all.
+    //Anything headed for a journal goes through Utils::urlForLog instead.
     static std::string maskUrlCredentials(const std::string &url);
 
     virtual bool SaveToXml(pugi::xml_node node) override;

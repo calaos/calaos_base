@@ -10390,7 +10390,28 @@ l'URL.
 donc la taille seule ne dit pas pourquoi. Il faut d'abord savoir ce qu'un intégrateur lit vraiment
 sur ce chemin, et ce n'est pas mesuré.
 
-### ⚠️ [F-HTTPIN-1] Le serveur HTTP **entrant** publie tous les en-têtes reçus, `Authorization` compris — aucun ticket
+### ⚠️ [F-URLDL-4] Le **sel par processus** de l'empreinte d'URL n'est gardé par aucune assertion — aucun ticket
+
+`Utils::urlForLog` ne publie du reste d'une URL qu'une forme et une empreinte, et cette empreinte
+est **salée par un tirage de `std::random_device`** fait une fois par processus. Le sel est la seule
+chose qui empêche un lecteur de journal de **confirmer une URL devinée** en la hachant : sans lui,
+l'empreinte devient un oracle d'égalité utilisable hors du journal où elle apparaît.
+
+⛔ **Mesuré par la revue de merge de [`T3.87`](T3.87.md)** : la contre-mutation qui retire le sel
+(`^ urlTagSalt()` supprimé du hachage) rend ⛔ **0 rouge** sur `make check` complet. Aucun des six
+cas ne compare deux processus, et l'empreinte reste stable pour une URL donnée — ce que toutes les
+assertions demandent. La propriété est **écrite dans le commentaire de `StringUtils.h`, dans la
+fiche et dans les notes de version, et n'a pas de capteur**.
+
+⚠️ **Ce n'est pas une fuite** : le code livré EST salé. C'est un **piège pour le prochain
+mainteneur** — quiconque « simplifie » le hachage, ou remplace `std::random_device` par une
+constante pour rendre l'empreinte reproductible entre deux exécutions, verra la suite rester verte.
+⭐ **La garde tient en un cas** : forker un enfant, lui faire réduire la **même** URL, et exiger que
+les deux empreintes **diffèrent**. Non écrite ici : la revue ne s'est pas donné le droit d'étendre
+le périmètre du ticket.
+
+
+### 📋 [F-HTTPIN-1] Le serveur HTTP **entrant** publie tous les en-têtes reçus, `Authorization` compris — ticket [`T3.90`](T3.90.md)
 
 `src/bin/calaos_server/HttpClient.cpp:277-279` : `cDebugDom("network")` écrit la cible de la requête
 puis **chaque** en-tête reçu. Un client qui s'authentifie auprès de `calaos_server` voit donc son
@@ -10398,6 +10419,15 @@ puis **chaque** en-tête reçu. Un client qui s'authentifie auprès de `calaos_s
 [`T3.87`](T3.87.md), **fiché sans ticket** : c'est la classe **entrante**, distincte de tout ce que
 `F-URLDL-*` couvre. ⚠️ DEBUG (5) donc au-dessus du repli 4 : **pas imprimé sur un boîtier neuf**,
 mais c'est le niveau qu'un utilisateur allume avant de coller un journal dans un rapport de bogue.
+
+⭐ **VÉRIFIÉ À LA SOURCE PAR LA REVUE DE MERGE DE `T3.87` (2026-09-05), ET TICKETÉ
+[`T3.90`](T3.90.md).** Les trois porteurs sont réels et ce dépôt les fabrique lui-même :
+`JsonApiHandlerHttp.cpp` remet le jeton Bearer du serveur MCP sur `get_mcp_info` **avec pour
+consigne explicite de le renvoyer dans `Authorization`** ; `RemoteUI/HMACAuthenticator.cpp` lit un
+second Bearer accompagné de son nonce et de son HMAC ; les cookies de session d'un navigateur
+passent par la même boucle. ⚠️ **Et la cible (`parse_url`) est publiée brute** sur la ligne qui
+précède, alors que `Utils::urlForLog` existe depuis `T3.87`. ⭐ **C'est la seule famille ENTRANTE de
+la série** : les six correctifs de sécurité de la nuit ferment tous des secrets sortants.
 
 ### ✅ [F-LOGSECRET-2] FERMÉ par [`T3.85`](T3.85.md) — un chemin d'erreur republiait à **ERROR** une chaîne fabriquée par le sidecar
 

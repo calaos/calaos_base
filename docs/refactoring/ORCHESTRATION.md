@@ -40,6 +40,124 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
+- **✅⭐⭐ [`T3.87`](T3.87.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête sur `master` : **le commit de revue qui porte ce paragraphe** (2026-09-05). La
+  branche partait de `3cb98228` et `master` était à `d4a87864` ⇒ **rebase**, avec le conflit d'append
+  attendu sur `tests/Makefile.am` (T3.86 y avait appendu elle aussi).
+  ⭐ **Résolu par RÉGÉNÉRATION, jamais par édition de marqueur** — `git show master:tests/Makefile.am`
+  en entier + append **verbatim** de la queue de la branche (extraite comme le suffixe strict de sa
+  base, elle-même prouvée préfixe octet à octet) — et **prouvé append pur** : `diff` **+31 / −0 /
+  ~0**, **hunk unique `4957a4958,4988`**, `master` **préfixe strict octet à octet** (1750 octets
+  ajoutés, 315 424 → 317 174 ; 4957 → 4988 lignes), `^if` 107 → 108 ≡ `^endif` 107 → 108
+  (`^if HAVE_GTEST` 106 → 107), **profondeur finale 0, minimum 0, jamais négative**. Un seul autre
+  conflit (`BOARD.md`), résolu en gardant **les deux versants** — `T3.86` ✅ de master, `T3.87` ✅ et
+  `T3.88` 📋 de la branche, `T3.89` 📋 de master — **6 colonnes / 7 barres** revérifiées sur toutes
+  les lignes `T3.8x` (les deux seules lignes hors forme, `T3.35` et `T3.37`, sont **préexistantes sur
+  master** : elles portent un `|` littéral dans leur texte).
+  ⭐ **`TESTS` 125 → 126 recompté des deux côtés** — la fiche annonçait `124 → 125` **depuis sa
+  base**, corrigé. Build de merge après `make distclean` : **`TOTAL 126 / PASS 125 / SKIP 1 /
+  FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, rc 0, **0 `error:`**, un seul `Testsuite summary`,
+  `check-test-deps.sh` **PASS**, seul `SKIP` `check-ccache-honesty.sh`, et les **6 cas de la suite
+  neuve réellement exécutés** (aucun `GTEST_SKIP` dans son log). ⛔ **Rien poussé.**
+
+  ⭐⭐ **LE PIVOT DE L'ARBITRAGE TIENT, VÉRIFIÉ À LA LIGNE ET NON CRU.** `completeCb()` n'écrit que
+  `Finished with status code: <n>` puis `Response body: N bytes` : **ni l'URL, ni `this`** — alors
+  que `cancel()` et `Launch idler to destroy` portent `this`, eux. Deux transferts concurrents sont
+  donc **déjà** indiscernables sur leur ligne de résultat ⇒ corréler requête et réponse n'était pas
+  un service rendu par cette URL, et l'option (B) ne coûte rien de ce côté. ⭐ **L'empreinte améliore
+  même ce point** : la ligne de constructeur ne portait aucun identifiant d'objet, le `#tag` est ce
+  qui la relie désormais aux lignes de démarrage, d'échec et d'annulation du même transfert.
+
+  ⭐ **LE RECENSEMENT EST RECOMPTÉ ET EXACT.** **20** `new UrlDownloader` hors `src/lib` + **4**
+  appels aux fabriques statiques — et il n'y en a **pas d'autres** dans l'arbre : `Foscam.cpp:128,130`
+  et `IPCam.h:85,87`. **3 + 4 + 5 + 2 + 4 + 6 = 24.** Les identifiants `user:pass@` sont bien la
+  forme la plus répandue et la seule que la liste de dix noms couvrait entièrement ; le **chemin**,
+  où vit la clef Hue, n'avait aucun défenseur.
+
+  ⭐ **LE SEL EST RÉEL ET CALCULÉ AU BON ENDROIT** : `std::random_device` tiré **une fois par
+  processus**, et l'empreinte porte `userinfo + chemin + requête + fragment`, c'est-à-dire **les
+  seuls octets retenus** — l'hôte publié n'y entre pas.
+  ⛔⭐ **MAIS IL N'EST GARDÉ PAR AUCUNE ASSERTION, ET C'EST MESURÉ.** Contre-mutation **R2** (le
+  `^ urlTagSalt()` retiré du hachage) ⇒ ⛔ **0 rouge** : aucun cas ne compare deux processus, et une
+  empreinte non salée reste stable pour une URL donnée, ce que toutes les assertions demandent. La
+  propriété qui justifie le sel — *une empreinte nue laisserait confirmer une URL devinée* — est
+  écrite dans `StringUtils.h`, dans la fiche et dans les notes de version, et **n'a pas de capteur**.
+  Nouveau finding **`F-URLDL-4`**, **aucun ticket ouvert** ; la garde tient en un cas (forker, réduire
+  la **même** URL, exiger deux empreintes différentes), non écrite pour ne pas étendre le périmètre.
+
+  ⭐ **R1 — LA CONTRE-MUTATION QUI VISE LA FORME QU'UN SEUL APPELANT ILLUSTRE.** `hostPort` ↔
+  `authority` au site de production, c'est-à-dire **l'userinfo republié** : la forme d'Axis (5 sites)
+  et de Planet (23 appels) ⇒ **2 rouges**, verbatim *the journal gives back **33** consecutive bytes
+  of the userinfo of the url*, sur le chemin de succès **et** sur la ligne d'échec. ⭐⭐ **Et le cas
+  orthographié y reste VERT** — `TheApiKeyOfThePathNeverReachesTheLog` cherche la forme **décodée**,
+  le journal rendait la forme **encodée** : le mot de passe entier passait sous une assertion écrite
+  pour lui. ⇒ c'est **la borne, et elle seule**, qui tient la forme la plus répandue de l'arbre.
+  Restaurations **par copie prouvées au `cmp` (rc 0 × 2)**, mutations et restaurations **sur l'hôte**,
+  ⛔ aucun `git` dans le conteneur, `CXX StringUtils.lo` + `CXXLD libcalaos_common.la` +
+  `CXXLD UrlDownloaderLogUrl_test` **lus** à chaque tour, `make check` **réel** à chaque tour, témoin
+  final **vert** 126/125/1/0.
+
+  ⛔⭐ **LE PIÈGE DE LA FONCTION MORTE ÉTAIT DÉJÀ ARMÉ — DÉSARMÉ PAR CE COMMIT.** La fiche dit que
+  `maskUrlCredentials` survit publique, testée et sans appelant de production, avec un commentaire
+  pour seule barrière. ⚠️ **Le commentaire allait dans l'autre sens** : la déclaration
+  d'`IPCam::maskUrlCredentials` disait encore *« Any URL a camera driver hands to a log statement
+  must go through this »* — exactement la consigne à ne plus suivre, en tête de la seule déclaration
+  qu'un pilote de caméra lit. Celui de `Foscam.cpp` avait été mis à jour, celui-là non. **Corrigé
+  ici** (commentaire seul, aucun changement de comportement) : il dit ce que la fonction sait faire,
+  ce qu'elle **ne voit pas**, et que tout ce qui part au journal passe par `Utils::urlForLog`.
+  ⚠️ **La forme durable reste à trancher** — retirer les deux fonctions et leurs deux suites, ou les
+  rendre privées. Non tranché ici : c'est du périmètre. ⭐ **Recompté** : **22** assertions les
+  épinglent, pas 21 (15 dans `IPCamUrl_test`, 7 dans `MaskUrlCredentialsLib`).
+
+  ✅ **LA LONGUEUR PUBLIÉE EST ACCEPTABLE ICI, ET LA RÉSERVE EST AILLEURS QUE LÀ OÙ LA FICHE LA MET.**
+  La longueur d'une clef de pont Hue est une **constante de protocole** : elle ne réduit aucun espace
+  de recherche que l'attaquant n'avait pas déjà par la documentation du fabricant. ⚠️ **Ce qui mord
+  vraiment, c'est `[userinfo 33B]`** — un mot de passe est de longueur **choisie par l'utilisateur**,
+  et sa longueur est une information réelle. Elle reste le prix du contrepoids : sans compte d'octets,
+  deux appareils cessent d'être distinguables autrement que par l'empreinte.
+
+  ⚠️ **DEUX FAUSSES ASSURANCES RÉSIDUELLES, NOMMÉES, NON FERMÉES.** (1) **`REQUIRE_CURL()`** saute les
+  cinq cas réseau si le **binaire** `curl` manque du `PATH`, alors que le transport n'utilise que la
+  **bibliothèque** — et un `GTEST_SKIP` est invisible pour `make check`, le binaire sortant 0 ⇒ suite
+  **verte et muette** sur une image sans `curl(1)`. Vérifié : `/usr/bin/curl` est présent sur l'image
+  et les 6 cas s'exécutent. Motif hérité des suites voisines. (2) **`conn->errorBuf`** est concaténé
+  **verbatim** sur la ligne `Transfer failed for`, à **WARNING** donc imprimée par défaut : libcurl y
+  écrit des hôtes, des ports, des protocoles — pas de chemin ni de requête — mais **rien dans cet
+  arbre ne le contraint**, c'est du texte d'une dépendance. Même famille que le `e.what()` de
+  [`T3.89`](T3.89.md).
+
+  ⛔⭐⭐ **`F-HTTPIN-1` EST EXACT, VÉRIFIÉ À LA SOURCE, ET TICKETÉ [`T3.90`](T3.90.md).**
+  `HttpClient.cpp:277-279` publie `parse_url` puis la **valeur** de **chaque** en-tête reçu, sans
+  liste et sans exception. Les porteurs sont réels et ce dépôt les fabrique lui-même : le jeton
+  Bearer que `JsonApiHandlerHttp.cpp` remet sur `get_mcp_info` **en disant explicitement de le
+  renvoyer dans `Authorization`**, le Bearer lu par `RemoteUI/HMACAuthenticator.cpp` avec son nonce
+  et son HMAC, les cookies de session. ⭐ **C'est la seule famille ENTRANTE de la série** — les six
+  correctifs de sécurité de la nuit ferment tous des secrets **sortants**. ⚠️ `cDebugDom` = 5 > repli
+  4 ⇒ **pas imprimé sur un boîtier neuf**, un cran de gravité en moins que T3.87.
+
+  ✅ **AUCUNE FIXTURE FAUSSE RESTANTE TROUVÉE.** Le cas `TwoEndpointsOfTheSameHostAreStillTellableApart`
+  que le développeur a réparé contre lui-même est désormais correct : un **seul** pair pour les deux
+  appels, égalité des deux autorités **assertée** avant comparaison, autorité **blanchie** dans la
+  ligne comparée, chemins de même longueur et de même nombre de segments ⇒ seule l'empreinte peut les
+  distinguer. ⚠️ Une faiblesse mineure subsiste sans être une fausse fixture : le contrepoids cherche
+  le littéral `"200"` sur une ligne du domaine, et l'empreinte est **8 chiffres hexadécimaux tirés
+  au sort à chaque exécution** — elle peut contenir `200` (≈ 0,3 % par tour). Ce n'est pas une fuite,
+  c'est une flakiness théorique du contrepoids.
+
+  ⭐ **Commentaires de production conformes** : aucun emoji, aucun numéro de ticket, aucun numéro de
+  ligne cité dans les huit fichiers de `src/` touchés (branche + commit de revue).
+
+  ⭐⭐ **QUESTION EN ATTENTE POUR L'UTILISATEUR — RECONDUITE, LA REVUE NE TRANCHE TOUJOURS PAS.**
+  **`T3.81` reste sans entrée dans `RELEASE_NOTES.md`**, alors que `T3.79` (`034c4f3f`), `T3.83`,
+  `T3.85`, `T3.86` et maintenant `T3.87` en ont chacune une. **Six correctifs de sécurité, cinq notes
+  de publication.** **Faut-il écrire pour `T3.81` la note qui manque** — un jeton d'appareil audio qui
+  partait **au niveau imprimé par défaut**, et un mot de passe de caméra qui partait dès DEBUG ?
+  **Non tranché ici.**
+
+  **État de la session au sortir de ce merge** : `master` = le commit de revue qui porte ce
+  paragraphe, rien de poussé, historique linéaire. Worktree `.wave111/t3.87` supprimé, branche
+  `fix/t3.87` supprimée. ⚠️ Numéros **pris** : `T3.76` → `T3.90`.
+
 - **✅⭐⭐ [`T3.86`](T3.86.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **le commit de revue qui porte ce paragraphe** (2026-09-05). La
   branche partait de `3cb98228` et `master` n'avait pas bougé ⇒ **aucun rebase**.
