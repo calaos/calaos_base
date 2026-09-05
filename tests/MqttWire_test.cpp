@@ -306,9 +306,10 @@ TEST(MqttWireForm, ServerSideWireIsPinnedByteForByte)
               wire);
 }
 
-//DELTA D1/D2 - the broker configuration handed to calaos_mqtt as argv[1].
-//Values are deliberately anti alphabetical on insertion (host, port,
-//keepalive, user, password) so that a change of key ordering is visible.
+//DELTA D1/D2 - the broker configuration, the first message calaos_server
+//writes on the socket. Values are deliberately anti alphabetical on insertion
+//(host, port, keepalive, user, password) so that a change of key ordering is
+//visible. "action" is what tells this message from a publish request.
 TEST(MqttWireForm, BrokerConfigWireIsPinnedByteForByte)
 {
     Params cfg;
@@ -320,8 +321,8 @@ TEST(MqttWireForm, BrokerConfigWireIsPinnedByteForByte)
 
     //Was, under jansson: insertion order and UPPER case hex:
     //  {"host":...,"port":...,"keepalive":...,"user":"cal\\u00E9os","password":"s\\u20ACcret"}
-    EXPECT_EQ("{\"host\":\"192.168.1.42\",\"keepalive\":\"45\",\"password\":\"s\\u20accret\","
-              "\"port\":\"8883\",\"user\":\"cal\\u00e9os\"}",
+    EXPECT_EQ("{\"action\":\"config\",\"host\":\"192.168.1.42\",\"keepalive\":\"45\","
+              "\"password\":\"s\\u20accret\",\"port\":\"8883\",\"user\":\"cal\\u00e9os\"}",
               wireEncodeConfig(cfg));
 }
 
@@ -343,7 +344,8 @@ TEST(MqttWireForm, BrokerConfigOmitsCredentialsWhenOnlyOneOfThemIsSet)
 TEST(MqttWireForm, AnEmptyConfigFallsBackOnTheThreeBuiltInDefaults)
 {
     const Params none;
-    EXPECT_EQ("{\"host\":\"127.0.0.1\",\"keepalive\":\"120\",\"port\":\"1883\"}",
+    EXPECT_EQ("{\"action\":\"config\",\"host\":\"127.0.0.1\",\"keepalive\":\"120\","
+              "\"port\":\"1883\"}",
               wireEncodeConfig(none));
 }
 
@@ -356,7 +358,8 @@ TEST(MqttWireForm, AnEmptyValueDoesNotOverrideItsDefault)
     cfg.Add("port", "");
     cfg.Add("keepalive", "7");
 
-    EXPECT_EQ("{\"host\":\"127.0.0.1\",\"keepalive\":\"7\",\"port\":\"1883\"}",
+    EXPECT_EQ("{\"action\":\"config\",\"host\":\"127.0.0.1\",\"keepalive\":\"7\","
+              "\"port\":\"1883\"}",
               wireEncodeConfig(cfg));
 }
 
@@ -424,8 +427,8 @@ TEST(MqttWireForm, AnInvalidCredentialIsReplacedNotDropped)
 
     string wire;
     ASSERT_NO_THROW(wire = wireEncodeConfig(cfg));
-    EXPECT_EQ("{\"host\":\"10.0.0.7\",\"keepalive\":\"120\",\"password\":\"s3cret\","
-              "\"port\":\"1883\",\"user\":\"ra\\ufffd\\ufffdul\"}",
+    EXPECT_EQ("{\"action\":\"config\",\"host\":\"10.0.0.7\",\"keepalive\":\"120\","
+              "\"password\":\"s3cret\",\"port\":\"1883\",\"user\":\"ra\\ufffd\\ufffdul\"}",
               wire);
 }
 
@@ -443,7 +446,8 @@ TEST(MqttWireForm, BrokerConfigOmitsCredentialsWhenOnlyThePasswordIsSet)
     EXPECT_EQ(string::npos, wire.find("orphan"));
     EXPECT_EQ(string::npos, wire.find("\"password\""));
     EXPECT_EQ(string::npos, wire.find("\"user\""));
-    EXPECT_EQ("{\"host\":\"10.0.0.8\",\"keepalive\":\"90\",\"port\":\"1884\"}", wire);
+    EXPECT_EQ("{\"action\":\"config\",\"host\":\"10.0.0.8\",\"keepalive\":\"90\","
+              "\"port\":\"1884\"}", wire);
 }
 
 /* ========================================================================= *

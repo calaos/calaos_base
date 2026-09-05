@@ -38,6 +38,12 @@
  * configuration", exits, and the 100 ms respawn of ExternProcServer relaunches
  * it, forever.
  *
+ * ⚠️ THE MQTT HALF HAS SINCE MOVED OFF THE argv ALTOGETHER. The broker
+ * configuration is now the first message of the socket, because
+ * /proc/<pid>/cmdline published its password to every account of the machine;
+ * what is left here is that the launch carries nothing of its own. Where the
+ * configuration goes instead is core/MqttConfigTransport_test.
+ *
  * ---------------------------------------------------------------------------
  * ⚠️ WHY EVERY CASE HERE GOES THROUGH A REAL CONTROLLER
  * ---------------------------------------------------------------------------
@@ -226,26 +232,22 @@ void assertRecordable(const std::string &s, const char *what)
 class ExternProcArgvTest: public CoreFixture {};
 
 /*
- * ⭐⭐ THE CASE THIS SUITE EXISTS FOR: an MQTT password containing spaces
- * reaches calaos_mqtt as ONE argument.
+ * ⭐⭐ THE MQTT SIDECAR IS LAUNCHED WITH NOTHING OF ITS OWN.
  *
- * RED on master, and for the right reason: `mon mot de passe` puts three extra
- * argv on the command line, calaos_mqtt sees argc 5 where
- * MqttExternProc_main.cpp:171 demands 2, and the sidecar dies and respawns
- * every 100 ms for as long as the broker stays configured. T3.28a's answer -
- * refuse the field - is not available here: a space in a password is normal
- * use, and refusing it would be worse than the defect.
+ * The broker configuration used to be argv[1] - and it carries the password,
+ * which /proc/<pid>/cmdline (mode 444) then published to every account of the
+ * machine for the whole life of the sidecar. It travels on the socket now, so
+ * what this case pins is that the argument list is EXACTLY the fixed head.
  *
  * ⚠️ EVERY LAUNCH IS CHECKED, NOT "AT LEAST ONE". The respawn is the half that
- * kept the defect alive; an assertion happy with one good line would be green
- * on a first launch that is right followed by respawns that are wrong.
+ * kept the previous defect alive; an assertion happy with one good line would
+ * be green on a first launch that is right followed by respawns that are wrong.
  *
- * ⚠️ The argument is compared to MqttWire::encodeConfig() BYTE FOR BYTE rather
- * than searched for the password: an emitter that quoted, escaped or truncated
- * the JSON on its way out would keep the argument count right and still hand
- * the sidecar something it cannot parse.
+ * ⚠️ ANTI-VACUITY: the configuration is asserted to still carry the password
+ * before anything is spawned, so that a green here cannot mean "the field was
+ * dropped". Where it goes instead is core/MqttConfigTransport_test.
  */
-TEST_F(ExternProcArgvTest, AMqttPasswordCarryingSpacesReachesTheSidecarWhole)
+TEST_F(ExternProcArgvTest, TheMqttSidecarIsLaunchedWithNoArgumentOfItsOwn)
 {
     ASSERT_TRUE(ExternProcSpawn::install("calaos_mqtt"))
         << "could not set up the CALAOS_BIN_PREFIX sandbox";
@@ -256,12 +258,10 @@ TEST_F(ExternProcArgvTest, AMqttPasswordCarryingSpacesReachesTheSidecarWhole)
 
     ASSERT_NE(std::string::npos, password.find(' '))
         << "the fixture password carries no space, so this case cannot say "
-           "anything about the defect it is named after";
+           "anything about the defect it grew out of";
     ASSERT_NE(std::string::npos, encoded.find(password))
         << "encodeConfig() did not carry the password at all, so a green here "
            "would mean nothing: " << encoded;
-    ASSERT_NE(std::string::npos, encoded.find(' '))
-        << "the encoded configuration carries no space: nothing could be cut";
     assertRecordable(encoded, "the encoded MQTT configuration");
 
     ASSERT_TRUE(theMqttCtrl() != nullptr);
@@ -284,22 +284,17 @@ TEST_F(ExternProcArgvTest, AMqttPasswordCarryingSpacesReachesTheSidecarWhole)
     {
         const std::vector<std::string> &argv = spawns[i];
 
-        ASSERT_EQ(kFixedArgc + 1, argv.size())
+        ASSERT_EQ(kFixedArgc, argv.size())
             << "launch #" << (i + 1) << " of " << spawns.size()
-            << ": the broker configuration was cut into "
-            << (argv.size() - kFixedArgc) << " arguments. calaos_mqtt reads "
-               "argv[1] and demands argc == 2 "
-               "(MqttExternProc_main.cpp:171), so it exits and is respawned "
-               "100 ms later, forever.";
+            << ": the sidecar was handed " << (argv.size() - kFixedArgc)
+            << " argument(s). The broker configuration belongs on the socket, "
+               "not in a command line every account of the box can read.";
 
         EXPECT_EQ("--namespace", argv[3]);
         EXPECT_EQ("mqtt",        argv[4]);
-        EXPECT_EQ(encoded, argv[kFixedArgc])
-            << "launch #" << (i + 1) << ": the broker configuration did not "
-               "cross whole";
-        EXPECT_EQ(2u, argv.size() - kStrippedByBase)
+        EXPECT_EQ(1u, argv.size() - kStrippedByBase)
             << "launch #" << (i + 1) << ": calaos_mqtt would see argc "
-            << (argv.size() - kStrippedByBase) << " and demands 2";
+            << (argv.size() - kStrippedByBase) << " and takes no argument";
     }
 }
 

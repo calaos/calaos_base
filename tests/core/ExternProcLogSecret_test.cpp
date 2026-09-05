@@ -324,18 +324,23 @@ TEST_F(ExternProcLogSecretTest, TheLogStillNamesTheSidecarAndCountsItsRelaunches
 }
 
 /*
- * The sidecar's own two sites, held by a SPELLING and not by an effect.
+ * ⭐ THE CLASS IS CLOSED BY CONSTRUCTION, and this states it.
  *
- * calaos_mqtt is a separate binary and returns on connectSocket() before it
- * ever reaches them, so they cannot be executed from a test process. One is a
- * cError() on the parse failure path, printed at the default level; the other
- * a cDebugDom("mqtt"), one flag away. Both streamed argv[1], which IS the
- * broker configuration.
+ * The sidecar used to stream argv[1] - the broker JSON, password included - at
+ * two sites, one of them on the failure path and printed by default. Removing
+ * those two lines only ever held two lines: any reformulation reopened the
+ * leak, and the number of sites that could touch an argv is not bounded. What
+ * closes the class is that the configuration is no longer in the argv at all,
+ * so the sidecar reads NO argument.
  *
- * ⚠️ The file is asserted to still MENTION argv[1] first: a rename or a move
- * would otherwise make the count zero and the case vacuously green.
+ * ⚠️ The file is asserted to still be the one that defines setup(), so that a
+ * rename or a move cannot make the count zero and this case vacuously green.
+ *
+ * ⚠️ A spelling, not an effect - with the weakness that implies. What the
+ * sidecar really does with the configuration it now waits for is
+ * core/MqttSidecarConfigWait_test, which runs the shipped binary.
  */
-TEST_F(ExternProcLogSecretTest, TripwireSource_TheMqttSidecarNeverStreamsItsConfigurationArgument)
+TEST_F(ExternProcLogSecretTest, TripwireSource_TheMqttSidecarReadsNoArgumentAtAll)
 {
     const std::string relative = "src/bin/calaos_server/IO/Mqtt/MqttExternProc_main.cpp";
 
@@ -345,14 +350,14 @@ TEST_F(ExternProcLogSecretTest, TripwireSource_TheMqttSidecarNeverStreamsItsConf
 
     const std::string code = collapseWhitespace(raw);
 
-    ASSERT_LE(1, countOccurrences(code, "argv[1]"))
-        << relative << " no longer mentions argv[1] at all: this tripwire is "
-           "pointing at the wrong file and proves nothing";
+    ASSERT_LE(1, countOccurrences(code, "bool MqttProcess::setup(int &argc, char **&argv)"))
+        << relative << " no longer defines setup(): this tripwire is pointing "
+           "at the wrong file and proves nothing";
 
-    EXPECT_EQ(0, countOccurrences(code, "<< argv[1]"))
-        << "the sidecar streams its configuration argument to a log. argv[1] "
-           "is the broker JSON, password included, and the server pipes the "
-           "sidecar's stdout back into its own (IO/ExternProc.cpp).";
+    EXPECT_EQ(0, countOccurrences(code, "argv["))
+        << "the sidecar reads an argument again. The broker configuration is "
+           "what used to be there, /proc/<pid>/cmdline is mode 444, and every "
+           "site that touches an argv carrying a secret is a leak site.";
 }
 
 /*

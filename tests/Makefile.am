@@ -5213,3 +5213,73 @@ endif
 TESTS += check-echo-ceilings.sh
 dist_check_SCRIPTS += check-echo-ceilings.sh
 EXTRA_DIST += check-echo-ceilings.py
+
+# T3.82
+#⭐ BY WHICH CHANNEL the broker credentials reach calaos_mqtt. The broker
+#configuration was argv[1] and it carries `user` and `password`;
+#/proc/<pid>/cmdline is mode 444, so an account with no relation to the owner of
+#the process read that argv back verbatim, for the whole life of the sidecar,
+#and `ps` was enough. T3.79 closed the leak by the JOURNAL - this is the leak by
+#the KERNEL, which no log hygiene can reach.
+#⚠️ NOTHING HERE CALLS startProcess() NOR sendMessage(): one real MqttCtrl is
+#built from a real Params, its respawn is let run, and what is read back is the
+#argv the KERNEL handed the child - then the socket that same controller
+#listens on, connected to from the path the launch itself published.
+#⚠️ The needle is measured in TWO forms, the literal and the one the emitter
+#really writes: the wire is JSON with ensure_ascii, so a quote and an accent do
+#not look on the wire like they look in the source.
+#Same link shape and same process-scoped harness as core/ExternProcArgv_test:
+#-I.../IO/Mqtt is not in AM_CPPFLAGS.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/MqttConfigTransport_test
+check_PROGRAMS += core/MqttConfigTransport_test
+core_MqttConfigTransport_test_SOURCES = core/MqttConfigTransport_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_MqttConfigTransport_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt
+core_MqttConfigTransport_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_MqttConfigTransport_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.82
+#⭐ What the REAL calaos_mqtt does now that its configuration comes by socket.
+#Moving the credentials off the argv moves the "configuration unreadable"
+#failure with them: it was an argc test in main(), it is a wait on a socket, and
+#a wait has three ways to go wrong an argument did not have - never arrives,
+#arrives twice, arrives malformed. The first is what a PARTIAL UPDATE looks
+#like, a server older than its sidecar.
+#⭐ calaos_mqtt has a main(), so nothing links it and nothing can call into it:
+#every earlier statement about it in this tree is a source tripwire, i.e. a
+#spelling. Here an ExternProcServer spawns the SHIPPED BINARY, writes on the
+#socket what a controller would write, and reads back the sidecar's own stdout,
+#which the server pipes into its own.
+#CALAOS_MQTT_SIDECAR names that binary. It is built only under
+#HAVE_LIBMOSQUITTO, so the fixture SKIPS rather than fails when it is absent -
+#which keeps the number of TESTS the same in every configuration.
+#⚠️ Every wait is bounded on the wall clock: a regression must be able to fail
+#a case, never to hang `make check`.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/MqttSidecarConfigWait_test
+check_PROGRAMS += core/MqttSidecarConfigWait_test
+core_MqttSidecarConfigWait_test_SOURCES = core/MqttSidecarConfigWait_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_MqttSidecarConfigWait_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt \
+                  -DCALAOS_MQTT_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_mqtt"'
+core_MqttSidecarConfigWait_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_MqttSidecarConfigWait_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
