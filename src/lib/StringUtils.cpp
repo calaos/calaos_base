@@ -23,6 +23,7 @@
 #include <base64.h>
 
 #include <algorithm>
+#include <cctype>
 #include <iomanip>
 #include <random>
 #include <stdio.h>
@@ -516,6 +517,22 @@ std::string urlTag(const std::string &withheld)
     return buf;
 }
 
+//RFC 3986 scheme: an alpha, then alphanumerics and "+-." and nothing else.
+bool isSchemeName(const std::string &s)
+{
+    if (s.empty() || !isalpha(static_cast<unsigned char>(s[0])))
+        return false;
+
+    for (char c: s)
+    {
+        if (!isalnum(static_cast<unsigned char>(c)) &&
+            c != '+' && c != '-' && c != '.')
+            return false;
+    }
+
+    return true;
+}
+
 size_t countParts(const std::string &s, char sep)
 {
     size_t n = 0;
@@ -593,9 +610,15 @@ std::string Utils::urlForLog(const std::string &url)
 
 std::string Utils::requestTargetForLog(const std::string &target)
 {
-    //A proxy-style absolute target carries an authority, and possibly a
-    //userinfo: that shape is already reduced next door.
-    if (target.find("://") != string::npos)
+    /* A proxy-style absolute target carries an authority, and possibly a
+     * userinfo: that shape is already reduced next door. What decides is the
+     * POSITION of the scheme, never its presence - a query parameter carrying
+     * a url puts a "://" in an ordinary origin-form target too, and reading
+     * that one as an authority publishes everything in front of it, the
+     * credential included. */
+    const auto scheme = target.find("://");
+    if (scheme != string::npos && isSchemeName(target.substr(0, scheme)) &&
+        target.find_first_of("/?#") >= scheme)
         return urlForLog(target);
 
     ostringstream out;

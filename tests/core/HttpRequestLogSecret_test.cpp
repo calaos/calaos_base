@@ -744,6 +744,44 @@ TEST_F(HttpRequestLogSecretTest, TheCredentialOfARefusedLoginIsNotRepublished)
 }
 
 /*
+ * THE REDUCTION MUST NOT DEPEND ON WHAT THE QUERY CARRIES.
+ *
+ * A target is reduced as an absolute one when it opens with a scheme, and what
+ * decides that is a POSITION. A client that passes a url as a parameter puts a
+ * "://" inside an ordinary origin-form target, and a test on the mere presence
+ * of those three bytes reads the query as an authority and publishes
+ * everything in front of it - here, the password api.php takes as a GET
+ * parameter. Same failure shape as the excerpt in the frame line: a rule keyed
+ * on where a byte happens to sit.
+ */
+TEST_F(HttpRequestLogSecretTest, AUrlInsideTheQueryDoesNotUnreduceTheTarget)
+{
+    const std::string target = loginTarget(kQueryPassword) +
+                               "&next=http://ailleurs.invalide/suite";
+    const Exchange ex = exchange(buildRequest(target, credentialHeaders()));
+
+    ASSERT_TRUE(ex.connected) << "no connection to the server, this case measures nothing";
+    ASSERT_NE(std::string::npos, ex.wire.find("://"))
+        << "the target sent carries no url in its query, this case measures nothing";
+    ASSERT_NE(std::string::npos, ex.log.find("network"))
+        << "nothing of the network domain was printed:\n" << ex.log;
+
+    const size_t at = target.find('?');
+    ASSERT_NE(std::string::npos, at);
+    const std::string query = target.substr(at + 1);
+
+    const size_t echo = longestEcho(ex.log, query);
+    EXPECT_LT(echo, kMaxEcho)
+        << "the journal gives back " << echo
+        << " consecutive bytes of a query string that happens to carry a url, "
+           "so what is withheld depends on what the client put in it:\n" << ex.log;
+
+    //The counterweight: the path is still named, url in the query or not.
+    EXPECT_TRUE(someLineHasAll(ex.log, {"network", "/api.php"}))
+        << "no network line names the path of the request that arrived:\n" << ex.log;
+}
+
+/*
  * THE WEBSOCKET HANDSHAKE. It carries the same headers - the RemoteUI socket
  * authenticates with the same bearer, its nonce and its signature - and the
  * question is whether it is read by the same code or by another one.
