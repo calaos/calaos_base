@@ -138,6 +138,11 @@ const char *const kCookieValue = "id_session=Zc3fH9yGq5AeUi1oPr0M; Path=/; HttpO
 //published, everything after it is what must never come back.
 const char *const kRedirectTail = "/relocated?ticket=Sw6tXn4KvB2jDh8LzC5F";
 
+//The tail of a header value the other end chose to fold over two lines. The
+//continuation carries no colon, so nothing on it is a name.
+const char *const kFoldedSecret = "Kp7wR2mVt9XbN4qL6zHs";
+const char *const kFoldedValue = "relay=Kp7wR2mVt9XbN4qL6zHs; Max-Age=600";
+
 //Substituted by the peer with its own authority at send time: the port is
 //only known once the socket is bound, and the redirect has to point at it.
 const char *const kAuthorityMark = "@@PEER@@";
@@ -641,6 +646,61 @@ HeaderRun &headerRun()
     return run;
 }
 
+/*
+ * ONE TRANSFER WHOSE PEER FOLDS A HEADER VALUE OVER TWO LINES.
+ *
+ * Obsolete since RFC 7230 and still what a peer may send: the continuation
+ * line reaches the block with no colon on it, which is the one shape where
+ * what the journal takes for a name is really the tail of a value.
+ */
+struct FoldedRun
+{
+    bool ran = false;
+    bool completed = false;
+    int status = -1;
+    std::string log;
+};
+
+FoldedRun &foldedRun()
+{
+    static FoldedRun run;
+    static bool done = false;
+    if (done)
+        return run;
+    done = true;
+
+    const std::string answer =
+        std::string("HTTP/1.1 200 OK\r\n"
+                    "Set-Cookie: sid=a\r\n\t") + kFoldedValue + "\r\n"
+        "Content-Type: image/jpeg\r\n"
+        "Content-Length: 4\r\n"
+        "Connection: close\r\n\r\n"
+        "\xff\xd8\xff\xd9";
+
+    HttpPeer peer({ answer });
+    if (peer.port <= 0)
+        return run;
+
+    run.log = captureStdout([&]()
+    {
+        UrlDownloader dl("http://" + peer.authority() + "/folded", false);
+        dl.m_signalCompleteData.connect([&](const std::string &, int s)
+        {
+            run.status = s;
+            run.completed = true;
+        });
+
+        if (!dl.httpGet())
+            return;
+
+        runLoopUntil([&]() { return run.completed; }, 15000);
+        drainLoop();
+    });
+
+    run.ran = true;
+    return run;
+}
+
 //Every bounded probe of this suite, so that the ceiling and the fixture are
 //held to the same measurement.
 struct Probe
@@ -656,6 +716,7 @@ std::vector<Probe> probes()
         { "syno login answer", kLoginBody, &synoRun().log },
         { "response header Set-Cookie", kCookieValue, &headerRun().log },
         { "response header Location", kRedirectTail, &headerRun().log },
+        { "folded header continuation", kFoldedValue, &foldedRun().log },
     };
 }
 
@@ -782,6 +843,40 @@ TEST(DriverAnswerSecret, ARedirectTargetIsReducedLikeAnyOtherUrl)
         << "the journal gives back " << longestEcho(run.log, kRedirectTail)
         << " consecutive bytes of the bearing part of a redirect target (\""
         << longestEchoAnyShape(run.log, kRedirectTail) << "\"):\n" << run.log;
+}
+
+/*
+ * THE HEADER BLOCK: THE HALF OF A HEADER THAT IS NOT A VALUE.
+ *
+ * Enumerating what may be published decides on the name, and a folded
+ * continuation has none: taken for a name it is published whole, which is the
+ * head of a cookie withheld and its tail given back on the next line. It stays
+ * a line - dropping it would blind the block instead of reducing it.
+ */
+TEST(DriverAnswerSecret, AFoldedHeaderValueIsNotPublishedAsIfItWereAName)
+{
+    REQUIRE_CURL();
+
+    const FoldedRun &run = foldedRun();
+    ASSERT_TRUE(run.ran) << "the peer never came up, this case measures nothing";
+    ASSERT_TRUE(run.completed) << "the transfer never completed, this case measures nothing";
+    ASSERT_EQ(200, run.status);
+
+    //Anti-vacuity: the folded header reached the block, and the continuation
+    //is still reported, so a green means withheld and never "not printed".
+    ASSERT_TRUE(someLineHasAll(run.log, { "urlutils", "Set-Cookie" }))
+        << "no urlutils line mentions the folded Set-Cookie the peer sent, so "
+           "finding nothing of it in this log proves nothing:\n" << run.log;
+    ASSERT_TRUE(someLineHasAll(run.log, { "urlutils", "folded" }))
+        << "the continuation line is not reported at all, so the block is "
+           "blind to a folded header rather than withholding it:\n" << run.log;
+
+    EXPECT_EQ(std::string::npos, run.log.find(kFoldedSecret))
+        << "the tail of a folded header value is in the journal:\n" << run.log;
+    EXPECT_LT(longestEcho(run.log, kFoldedValue), kMaxEcho)
+        << "the journal gives back " << longestEcho(run.log, kFoldedValue)
+        << " consecutive bytes of a folded header value (\""
+        << longestEchoAnyShape(run.log, kFoldedValue) << "\"):\n" << run.log;
 }
 
 /*

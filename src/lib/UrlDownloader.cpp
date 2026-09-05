@@ -816,7 +816,17 @@ content-length: 49219
             headers.Add(name, value);
 
             //The blank line between two blocks of a redirect is not a header
-            if (!name.empty() || !value.empty())
+            if (name.empty() && value.empty())
+                continue;
+
+            /* A line with no colon is the folded tail of the value above it,
+             * and a name is only a name when a colon says so: read as one, the
+             * tail of a cookie leaves under the very rule that withholds its
+             * head. */
+            if (line.find(':') == string::npos)
+                cDebugDom("urlutils") << "[folded " << name.size() << "B] #"
+                                      << Utils::logTag(name);
+            else
                 cDebugDom("urlutils") << headerForLog(name, value);
         }
     }
