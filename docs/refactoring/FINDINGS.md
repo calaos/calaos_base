@@ -9145,13 +9145,41 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   mesure l'**action**, pas le nom (la phrase « les deux sont épinglés par » de la première rédaction
   était fausse). Le résidu reste modeste — un nom d'affichage **tronqué**, donc une VALEUR, sans
   squat de l'attribut voisin — mais l'API refuse ici et tronque là, sans que rien ne le mesure.
-  ⇒ **Ticket proposé [`T3.71`](T3.71.md)** : refuser le zéro sur le seul **nom** dans
+  ⇒ ✅ **MOITIÉ NOM FERMÉE par [`T3.71`](T3.71.md)** (2026-09-05, livrée avec
+  [`T3.72`](T3.72.md) dans les mêmes commits) : `buildAutoscenarioCreate()` consulte
+  `XmlUtils::isWritableAsAttribute(payload.name)` **avant `createIO()`** et rend le **même document**
+  que `modify` (`{"error":"invalid payload: name refused"}`). ⭐ **Le défaut a été reproduit avant
+  d'être corrigé** : sur `"nul\0squat"`, `create` répondait `{"data":{"id":"io_0"}}` et `io.xml`
+  portait `name="nul"`. ⭐ **Et la garde de `T3.72` ne l'absorbait pas** — mesuré par contre-mutation :
+  `createIO()` reçoit le `Params` **entier**, `set_param()` n'est jamais appelé sur ce chemin.
+  ⛔ **La moitié ACTIONS reste ouverte**, épinglée comme telle par un cas témoin **vert des deux
+  côtés** (`S_AnActionCarryingAControlByteStillCrossesTheApi`) : elle ne se rouvre que si quelqu'un
+  décide que le NUL ne doit plus traverser l'autoscénario, et c'est alors E4.6d qu'on rediscute.
+  ⇒ **`F-XML-2` reste OUVERT sur cette moitié-là.**
+
+  *Rédaction d'origine de la proposition* : refuser le zéro sur le seul **nom** dans
   `buildAutoscenarioCreate()`, avant `createIO()`, et l'épingler. La moitié **actions** reste
   ouverte et ne se rouvre que si quelqu'un décide que le NUL ne doit plus traverser l'autoscénario
   non plus ; c'est alors E4.6d qu'on rediscute, pas cette garde-ci.
 
-- ℹ️ **[F-XML-3] Les autres contrôles C0 ne cassent pas l'écriture, mais `io.xml` cesse d'être du
-  XML 1.0 conforme.** **Mesuré** par
+- ✅ **[F-XML-3] FERMÉ par [`T3.72`](T3.72.md)** (2026-09-05). Sur l'arbitrage utilisateur du même
+  jour : **refus à l'écriture**, rupture de compatibilité assumée. `XmlUtils::isWritableAsAttribute()`
+  dit ce qu'une valeur d'attribut a le droit de porter — la production `Char` de XML 1.0 (5ᵉ éd., §2.2)
+  — et deux appelants le consultent : `IOBase::set_param()` (élargi de l'octet nul à
+  `[#x00-#x08]` ∪ `{#x0B,#x0C}` ∪ `[#x0E-#x1F]`) et `JsonApi::buildAutoscenarioCreate()`.
+  ⭐ **`#x9`, `#xA`, `#xD` restent acceptés — ils SONT des `Char` — et `#x7F` aussi** (seul XML 1.1 le
+  restreint). ⭐⭐ **Ce que ça NE change PAS, et c'était le vrai risque** : une `io.xml` existante qui
+  porte déjà `&#01;` **se charge et se ré-enregistre à l'identique** — `IOFactory::readParams()` fait
+  `Add()` et `IOBase::SaveToXml()` écrit sans consulter la garde. Seule une valeur **neuve** venue de
+  l'API est refusée. C'est l'**endroit** de la garde (le modèle, pas le sérialiseur) qui l'obtient, et
+  la contre-mutation qui la déplace dans `setAttribute()` fait rougir le cas qui le dit.
+  ⛔ **Ce qui reste** : la moitié **actions** de `F-XML-2` (ci-dessus) écrit toujours `&#01;`, donc
+  une maison qui s'en sert garde une `io.xml` non conforme ; et les points de code non-`Char`
+  **au-dessus** de `#x7F` (`#xFFFE`, `#xFFFF`, demi-surrogates) ne sont pas vus. Voir
+  [`T3.72.md`](T3.72.md) §9.
+
+- ℹ️ **[F-XML-3, constat d'origine] Les autres contrôles C0 ne cassent pas l'écriture, mais `io.xml`
+  cesse d'être du XML 1.0 conforme.** **Mesuré** par
   `core/IoParamNulGuard_test::M_AnotherC0ControlByteIsEscapedAndSurvivesTheRoundTrip` : un `0x01`
   dans une valeur est écrit **`t366_ctrl="head&#01;tail"`** — une **référence de caractère**, pas
   l'octet brut — rien n'est coupé, aucun attribut voisin n'est touché, et l'aller-retour par le
@@ -9168,7 +9196,12 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   aujourd'hui.
 
 - ⚠️⭐ **[F-XML-4] Le `bool` neuf de `IOBase::set_param()` est lu par 2 appelants sur ~100, et
-  3 des sites qui l'ignorent sont atteignables par des octets venus de l'extérieur.** Recompté au
+  3 des sites qui l'ignorent sont atteignables par des octets venus de l'extérieur.**
+  ⚠️ **RAYON ÉLARGI par [`T3.72`](T3.72.md)** (2026-09-05, non corrigé) : la garde ne refuse plus le
+  seul octet nul mais **29 points de code**, si bien que l'ensemble des entrées produisant un **no-op
+  muet** aux trois sites ci-dessous grandit d'autant. Ce n'est pas une régression neuve — c'est le même
+  défaut avec une porte plus large — et `T3.72` le dit dans sa section « nu » plutôt que de le laisser
+  découvrir. ⇒ **`F-XML-4` reste OUVERT.** Recompté au
   merge de [`T3.66`](T3.66.md) : **~100 appels** dans `src/`, **2 testent le retour**
   (`JsonApi::buildJsonSetParam()`, `JsonApi::buildAutoscenarioModify()`). ⭐ **La quasi-totalité des
   ~98 autres passe des littéraux internes** (`set_param("gui_type", "light")`, `"visible"`,

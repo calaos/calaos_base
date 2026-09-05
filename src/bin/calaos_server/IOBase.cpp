@@ -103,7 +103,7 @@ bool IOBase::set_param(std::string opt, std::string val)
      * the IO - but the others are not harmless either: pugixml writes them as
      * `&#01;`, which only pugixml has to read back, and the owner of the file
      * can no longer open it with his own tools.
-     * ⛔ The refusal is HERE and not in the writer: the writer also re-records
+     * The refusal is HERE and not in the writer: the writer also re-records
      * what an older Calaos wrote, and such a configuration must stay saveable.
      */
     const int badOpt = XmlUtils::firstUnwritableByte(opt);

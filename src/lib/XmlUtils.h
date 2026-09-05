@@ -109,7 +109,7 @@ inline void setAttribute(pugi::xml_node node, const std::string &name, int value
  * a reference to a character no conforming parser has to accept, and reads its
  * own back - the file round trips through pugixml and through nothing else.
  *
- * ⛔ This predicate does NOT belong inside setAttribute(). The writer also
+ * This predicate does NOT belong inside setAttribute(). The writer also
  * re-records what an older Calaos wrote, and a configuration that already
  * carries such a byte must stay saveable; callers put it in front of the
  * values they are about to ACCEPT, never in front of the ones they merely

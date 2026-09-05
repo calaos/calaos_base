@@ -2684,6 +2684,86 @@ octet, et aucune commande valide n'en envoie.
   le champ concerné. ⭐ **Dans tous les cas le fichier de configuration reste sain** — c'est le point
   de ce correctif ; ce qui manque est un message, pas une protection.
 
+## ⚠️ Votre `io.xml` redevient un fichier XML ordinaire — et l'API refuse désormais des caractères qu'elle acceptait (T3.72, T3.71)
+
+**C'est une rupture de compatibilité, volontaire.** Lisez le paragraphe « Que faire si votre
+configuration en porte déjà » plus bas avant de mettre à jour.
+
+Un paramètre d'équipement est enregistré dans `io.xml` comme un attribut : `name="Lampe salon"`.
+Le format de ce fichier est du XML 1.0, et le XML 1.0 **ne sait pas écrire** les caractères de
+contrôle — ces caractères invisibles de code 0 à 31 qui servaient autrefois à piloter des
+imprimantes et des terminaux.
+
+Jusqu'ici, quand l'un d'eux arrivait dans un paramètre par l'API, Calaos l'écrivait quand même,
+sous la forme `&#01;`. **C'est une écriture qu'aucun outil XML n'est obligé d'accepter.** Calaos
+relisait la sienne sans broncher, si bien que rien ne se voyait — mais un éditeur XML, un script
+Python, un outil de sauvegarde ou n'importe quel programme tiers ouvrant votre `io.xml` avait le
+droit de le rejeter comme **invalide**. Autrement dit : votre fichier de configuration cessait
+d'être un fichier que vous pouviez ouvrir avec vos propres outils.
+
+**Ce qui change.** Le serveur **refuse désormais d'enregistrer** un paramètre dont le nom ou la
+valeur porte un de ces caractères. Précisément : **tous les caractères de contrôle de code 0 à 31,
+sauf la tabulation, le saut de ligne et le retour chariot** — ces trois-là sont autorisés par le
+XML et restent acceptés. Le caractère de code 127 (`DEL`) reste accepté lui aussi.
+
+**Ce que vous verrez** :
+
+- la commande `set_param` répond `{"error":"param refused"}` au lieu de `{"success":"true"}`, sur
+  les deux transports (HTTP et WebSocket) ;
+- une ligne du journal du serveur nomme **l'équipement**, **le champ** en cause (le nom du
+  paramètre ou sa valeur) et **le caractère** par son code, par exemple `U+0001` — jamais le
+  caractère lui-même, qui rendrait la ligne illisible ;
+- aucun événement de changement n'est envoyé pour une écriture qui n'a pas eu lieu.
+
+**La création d'un auto-scénario s'aligne sur sa modification (T3.71).** Jusqu'ici, un nom
+d'auto-scénario portant un octet nul était **refusé** par la commande `modify` mais **écrit en
+version tronquée** par la commande `create` : la même valeur, deux réponses différentes selon le
+verbe. Les deux répondent maintenant la même chose,
+`{"error":"invalid payload: name refused"}`, et **rien n'est créé**.
+
+> ### Que faire si votre configuration en porte déjà
+>
+> **Rien d'urgent, et rien ne casse.** Un `io.xml` qui contient déjà un `&#01;` :
+>
+> - **se charge normalement** — le caractère est lu comme avant, l'équipement et son paramètre
+>   sont intacts ;
+> - **se ré-enregistre à l'identique** — les sauvegardes automatiques, les modifications d'autres
+>   équipements, les redémarrages : tout continue d'écrire le fichier comme avant, ce caractère
+>   compris. ⭐ **Votre configuration ne devient pas impossible à enregistrer.**
+>
+> La seule chose que vous ne pourrez plus faire, c'est **réécrire ce paramètre-là avec un
+> caractère de contrôle dedans**. Si vous voulez rendre votre fichier conforme, réenvoyez la
+> valeur de ce paramètre **sans** le caractère invisible ; c'est la seule action nécessaire, et
+> elle est facultative.
+>
+> **Comment savoir si vous êtes concerné** : cherchez la chaîne `&#0` dans votre `io.xml`. Si elle
+> n'y est pas — le cas de très loin le plus courant — cette note ne vous concerne pas du tout.
+
+> ### Qui pouvait envoyer un tel caractère
+>
+> **Aucune application Calaos** : ni Calaos Home, ni l'interface web, ni `calaos_installer`, ni
+> les écrans tactiles. Personne ne saisit sciemment un caractère de contrôle dans un paramètre.
+> En pratique cela concernait un **script**, une **automatisation maison** ou une **intégration
+> tierce** recopiant une chaîne avec sa marque de fin, ou lisant un champ dans un tampon mal
+> terminé — c'est-à-dire un accident, jamais une intention.
+
+### Un point restant, dit ici plutôt que découvert plus tard
+
+- ⛔ **La valeur d'une ACTION d'auto-scénario n'est toujours pas couverte.** Les actions d'une
+  étape sont empaquetées dans un seul paramètre au moment de la sauvegarde, par un chemin que
+  cette protection ne traverse pas, et ce chemin transporte volontairement le caractère de bout en
+  bout dans l'API — c'est un choix fait précédemment et assumé. ⚠️ **En attendant : n'envoyez pas
+  de caractère de contrôle dans la valeur d'une action d'auto-scénario**, sinon votre `io.xml`
+  restera non conforme.
+- **Ailleurs, le refus est appliqué mais pas remonté**, et cela concerne désormais tous ces
+  caractères et plus seulement l'octet nul : la valeur d'une variable de type texte qui en
+  porterait un **conserve la valeur précédente** à l'enregistrement, et l'enregistrement des
+  informations d'un écran distant lors de son appairage **ignore** simplement le champ concerné.
+  ⭐ **Dans tous les cas le fichier de configuration reste sain** ; ce qui manque est un message,
+  pas une protection.
+- **`rules.xml` n'est pas concerné par ce correctif.** Les noms de règles et les valeurs de leurs
+  conditions et actions peuvent encore porter ces caractères.
+
 ## 📦 Intégration continue : les 42 tests Python s'exécutent enfin, et un `SKIP` n'y est plus silencieux
 
 *Pour qui construit depuis les sources ou relit un build de CI. Rien de ce qui suit ne change le
