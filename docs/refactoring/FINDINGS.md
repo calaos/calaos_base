@@ -10535,7 +10535,7 @@ le contenu **a** été refusé pour n'être pas du XML) ; la contre-mutation qui
 entier passe de **0 rouge sur 128** à **1 rouge qui nomme le site et ses 26 octets**.
 ⇒ **`T3.95` est sans objet, ne l'ouvrez pas.**
 
-### 📋 [F-HTTPIN-3] Les sept sites qui publient une donnée entrante à un niveau imprimé par défaut ne sont tenus par **aucun** test — ticket proposé `T3.93`
+### ✅ [F-HTTPIN-3] FERMÉ par [`T3.93`](T3.93.md) — les sept sites qui publient une donnée entrante à un niveau imprimé par défaut n'étaient tenus par **aucun** test
 
 [`T3.90`](T3.90.md) §2.2 recense sept familles qui publient une donnée choisie par le client à un
 niveau `≤ 4`, donc **imprimé sur un boîtier neuf**, et argumente qu'aucune ne porte un secret que ce
@@ -10556,6 +10556,61 @@ poignée de main refusée, une requête `/debug/…` en traversée, un `config p
 dans chacun **borner la plus longue suite d'octets** de la cible que la ligne rend, jamais chercher
 un nom. ⚠️ **Contrepoids** : ces lignes existent pour dire d'où vient un abus, l'adresse et le
 chemin découpé doivent survivre.
+
+✅ **Fermé le 2026-09-05, par un filet et non par un correctif : `src/` est intouché.**
+`tests/core/IncomingLogStockLevel_test.cpp`, **14 cas**, `TESTS` **128 → 129**. Chaque famille est
+atteinte par une **vraie requête sur la socket** d'un `HttpServer` réel ; aucun cas n'appelle une
+fonction de journalisation ni un gestionnaire.
+⭐ **La trouvaille de dispositif** : le foin est un **sous-ensemble** du journal. Le binaire lève son
+niveau à DEBUG pour pouvoir prouver qu'un octet est bien arrivé, et **toute borne est mesurée sur les
+lignes dont le marqueur de niveau n'est pas `[DBG]`** — c'est-à-dire sur ce qu'une installation que
+personne n'a configurée imprime. Le niveau de repli est **mesuré dans un enfant forké**, pour les
+**trois** domaines traversés (`network`, `websocket`, `mcp`) et dans les **deux** sens.
+Chaque ligne ne rend qu'**un champ désigné** — l'adresse du saut mandataire, le chemin découpé, le
+nom de clef, l'identifiant d'IO — et la requête qui l'atteint porte des identifiants **partout
+ailleurs** : requête d'URL, en-têtes, corps, charge de trame. ⭐ **La mutation qui rendait 0 rouge sur
+128 suites** (republier `parse_url` au refus de poignée de main) **en rend 2 maintenant**.
+Recouvrement fortuit **mesuré 3**, plafond **4**, re-dérivé par une **ÉGALITÉ** à chaque exécution.
+**7 contre-mutations par échange**, ensembles rouges deux à deux distincts, témoin vert avec **36
+lignes `CXXLD`** lues.
+✅ **L'affirmation « aucune des sept ne porte un secret distribué par ce dépôt » est confirmée**, et
+⭐ **deux affirmations de [`T3.90`](T3.90.md) sont corrigées au passage** : la « raison de fermeture »
+publiée à WARNING est un **littéral d'une liste fermée de ce dépôt** (le membre `closeReason` de
+`WebSocketFrame` n'est affecté que par dix littéraux ; la raison du client sort à **DEBUG**), et deux
+des six sites d'identité (`OtaHttpHandler`, `RemoteUIManager`) publient le **pair TCP** et non
+l'`X-Forwarded-For`.
+⛔ **Non fermé, et nommé** : le site de la famille d'identité dans `trackPerIpCap()`, les deux sites
+RemoteUI, les deux lignes d'étranglement du transport websocket et l'identifiant de scénario de
+`JsonApi.cpp` ne sont atteints par **aucun** cas — ils tiennent par argument, pas par mesure.
+
+### 📋 [F-HTTPIN-5] Trois sites post-authentification republient une valeur du corps d'une requête, dont un à un niveau imprimé par défaut — ticket proposé [`T3.97`](T3.97.md)
+
+Les deux premiers sont **mesurés par la revue de merge** de [`T3.92`](T3.92.md), qui a invalidé
+l'affirmation « aucun autre site ne republie un corps de l'API JSON » ; le troisième a été trouvé en
+écrivant [`T3.93`](T3.93.md). Les trois sont **vérifiés aux sources et dans un journal réel** par
+[`T3.93`](T3.93.md), et **fichés sans être corrigés**.
+
+⛔ **`JsonApi.cpp:1318` (`decodeSetState`) republie la valeur de `set_state` VERBATIM à WARNING.** Le
+repli de `Logger::maxLevelPrintable()` est `LOG_LEVEL_INFO` = 4, donc la ligne est **imprimée sans
+que personne n'ait rien allumé** — mesuré, lu tel quel dans le journal de
+`core/IncomingLogStockLevel_test` : `set_state refused for io … the value ends on its separator
+("etat ")`. Or `set_state` écrit **n'importe quelle** valeur de **n'importe quel** IO : c'est la même
+forme que le `set_param` fermé par [`T3.92`](T3.92.md) — le mot « password » y est la **valeur** de
+`param`, le secret voyage sous `value` — sauf qu'ici la valeur sort **après** le réducteur, donc hors
+de sa portée, et **un cran plus bas dans l'échelle des niveaux**.
+
+`JsonApiHandlerHttp.cpp:1314` publie `jsonParam["pic_uid"]` à DEBUG, donc pas sur un boîtier neuf.
+
+⚠️ **`JsonApi.cpp:2487` écrit `cout << "Adding timerange: " << p.toString() << endl`** : un `cout`
+**brut**, hors du journal, donc **hors de tout filtre de niveau** — `debug_level` n'a aucune prise
+dessus. Il republie l'objet décodé de chaque plage horaire envoyée par un client.
+
+⚠️ **L'arbitrage n'est pas évident** : la première ligne existe parce que la valeur se termine sur son
+séparateur, et un opérateur a besoin de voir la valeur fautive. La forme qui garde les deux est celle
+de [`T3.92`](T3.92.md) : publier la **forme** (longueur, dernier octet nommé), pas les octets.
+⭐ **Le harnais existe et il est neuf** : `tests/core/IncomingLogStockLevel_test.cpp` atteint déjà le
+premier site par une vraie requête sur la socket, et son foin est déjà « ce qu'un boîtier neuf
+imprime ». Les trois sites courent **après** `checkCredentials()`.
 
 ### ✅ [F-LOGSECRET-2] FERMÉ par [`T3.85`](T3.85.md) — un chemin d'erreur republiait à **ERROR** une chaîne fabriquée par le sidecar
 
