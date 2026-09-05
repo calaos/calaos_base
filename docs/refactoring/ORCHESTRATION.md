@@ -10618,6 +10618,20 @@ s'accumulaient en silence**. Toute la campagne a dû être jetée et refaite.
 mutations rougit **plus**, donc le résultat a l'air *meilleur*. Rien dans la sortie ne signale
 l'anomalie.
 
+## ⭐ Outillage — `distcheck` est utilisable, à condition de le paralléliser soi-même
+
+`make distcheck` ne propage **pas** `-jN` : la recette lance douze `make` récursifs et n'y passe que
+`$(AM_MAKEFLAGS)`. Le drapeau `AM_DISTCHECK_MAKEFLAGS` que l'on croit pouvoir poser **n'existe dans
+aucune version d'automake** — l'ajouter est un no-op silencieux, et rien ne le signale.
+
+```sh
+make distcheck AM_MAKEFLAGS=-j32
+```
+
+**Mesuré une fois** (⚠️ non re-mesuré) : **2995 s → 348 s**, un facteur **8,6**. C'est la différence
+entre « on ne le lance jamais » et « on le lance avant une release ».
+⛔ **La CI ne lance ni `dist` ni `distcheck`** — c'est donc une commande d'humain, pas un filet.
+
 ## ⭐ Mesure — la convention de comptage des jetons jansson (fixée au merge d'E4.1q, 2026-09-01)
 
 **Le problème** : la série publie un « jetons jansson `src/` » à chaque merge, mais la commande
