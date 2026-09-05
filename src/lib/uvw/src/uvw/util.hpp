@@ -350,6 +350,7 @@ struct IpTraits<IPv4> {
     using NameFuncType = int(*)(const Type *, char *, std::size_t);
     static constexpr AddrFuncType addrFunc = &uv_ip4_addr;
     static constexpr NameFuncType nameFunc = &uv_ip4_name;
+    static constexpr int family = AF_INET;
     static constexpr auto sinPort(const Type *addr) { return addr->sin_port; }
 };
 
@@ -361,6 +362,7 @@ struct IpTraits<IPv6> {
     using NameFuncType = int(*)(const Type *, char *, std::size_t);
     static constexpr AddrFuncType addrFunc = &uv_ip6_addr;
     static constexpr NameFuncType nameFunc = &uv_ip6_name;
+    static constexpr int family = AF_INET6;
     static constexpr auto sinPort(const Type *addr) { return addr->sin6_port; }
 };
 
@@ -389,7 +391,13 @@ Addr address(F &&f, const H *handle) noexcept {
 
     int err = std::forward<F>(f)(handle, reinterpret_cast<sockaddr *>(&ssto), &len);
 
-    if(0 == err) {
+    //CALAOS PATCH, diverges from upstream. Without the family test the cast
+    //below reinterprets a sockaddr_in6 as a sockaddr_in, and uv_ip4_name()
+    //renders the first four bytes of sin6_flowinfo: every IPv6 peer comes back
+    //as the non-empty string "0.0.0.0", which no caller can tell from a real
+    //address. An empty Addr now means "not this family", so a caller that wants
+    //either must ask for both.
+    if(0 == err && ssto.ss_family == IpTraits<I>::family) {
         typename IpTraits<I>::Type *aptr = reinterpret_cast<typename IpTraits<I>::Type *>(&ssto);
         addr = address<I>(aptr);
     }

@@ -135,9 +135,11 @@ inline uint64_t parseLimit(const std::string &value, uint64_t def,
 //and the only hop we can recognise is the reverse proxy beside us: it reaches
 //calaos_server over the loopback (haproxy backend `server calaos-server
 //127.0.0.1:5454`). Any other peer is a client speaking about itself.
-//All three spellings must match - 127.0.0.0/8 ENTIRE, ::1, ::ffff:127.x - or
-//haproxy itself loses its trust on a dual-stack host, silently. PREFIX, never
-//containment: "10.127.0.5" is an ordinary LAN address.
+//All three spellings are accepted - 127.0.0.0/8 ENTIRE, ::1, ::ffff:127.x -
+//or haproxy itself loses its trust on a dual-stack host, silently. Only the
+//first two arrive from a TCP peer, because tcpPeerAddress() unmaps an
+//IPv4-mapped one; the third holds for a caller that read an address elsewhere.
+//PREFIX, never containment: "10.127.0.5" is an ordinary LAN address.
 inline bool isTrustedProxyPeer(const std::string &peerIp)
 {
     if (peerIp == "::1")
@@ -511,6 +513,10 @@ public:
     string buildHttpResponse(string code, Params &headers, string body);
     string buildHttpResponseFromFile(string code, Params &headers, string fileName);
 
+    //The TCP peer as a bare literal: no brackets, no port, no zone, and an
+    //IPv4-mapped peer unmapped, so one client keys one bucket whether the
+    //server was bound to an IPv4 address or to a dual-stack one. "unknown"
+    //when the handle has no peer to read.
     //Virtual so that a test can inject a peer address: the real one comes from
     //a connected socket. No production subclass overrides it.
     virtual string getClientIp() const;

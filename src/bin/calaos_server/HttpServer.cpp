@@ -32,7 +32,14 @@ HttpServer::HttpServer(int p):
 
     auto loop = uvw::Loop::getDefault();
     handleSrv = loop->resource<uvw::TcpHandle>();
-    handleSrv->bind(listenAddr, port);
+
+    //An IPv6 listen_address bound with the default template silently listens
+    //on 0.0.0.0 - see isIpv6Literal().
+    if (Calaos::isIpv6Literal(listenAddr))
+        handleSrv->bind<uvw::IPv6>(listenAddr, port);
+    else
+        handleSrv->bind<uvw::IPv4>(listenAddr, port);
+
     handleSrv->listen();
 
     handleSrv->on<uvw::ListenEvent>([this](const uvw::ListenEvent &, uvw::TcpHandle &)
@@ -64,7 +71,7 @@ HttpServer::~HttpServer()
 
 void HttpServer::addConnection(const std::shared_ptr<uvw::TcpHandle> &client)
 {
-    string ipAddr = client->peer().ip;
+    string ipAddr = Calaos::tcpPeerAddress(*client);
     cDebugDom("network")
             << "Got a new connection from address "
             << ipAddr;

@@ -44,7 +44,7 @@ AVRRoseNotifServer::AVRRoseNotifServer()
         auto client = uvw::Loop::getDefault()->resource<uvw::TcpHandle>();
         srv.accept(*client);
 
-        string remoteIP = client->peer().ip;
+        string remoteIP = Calaos::tcpPeerAddress(*client);
         cDebugDom("hifirose") << "Notification connection from " << remoteIP;
 
         // Accumulate data in a shared buffer

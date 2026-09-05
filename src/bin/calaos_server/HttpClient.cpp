@@ -757,18 +757,12 @@ string HttpClient::getClientIp() const
 
     try
     {
-        auto addr = client_conn->peer<uvw::IPv4>();
-        if (!addr.ip.empty())
-            return addr.ip;
-
-        // Try IPv6 if IPv4 failed
-        auto addr6 = client_conn->peer<uvw::IPv6>();
-        if (!addr6.ip.empty())
-            return addr6.ip;
+        const string ip = Calaos::tcpPeerAddress(*client_conn);
+        if (!ip.empty())
+            return ip;
     }
     catch (...)
     {
-        // If both fail, return unknown
     }
 
     return "unknown";

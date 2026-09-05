@@ -59,7 +59,12 @@ void UDPServer::createUdpSocket()
     if (listenAddr == "")
         listenAddr = "0.0.0.0";
 
-    handleSrv->bind(listenAddr, port, uvw::UDPHandle::Bind::REUSEADDR);
+    //An IPv6 listen_address bound with the default template silently listens
+    //on 0.0.0.0 - see isIpv6Literal().
+    if (Calaos::isIpv6Literal(listenAddr))
+        handleSrv->bind<uvw::IPv6>(listenAddr, port, uvw::UDPHandle::Bind::REUSEADDR);
+    else
+        handleSrv->bind<uvw::IPv4>(listenAddr, port, uvw::UDPHandle::Bind::REUSEADDR);
     handleSrv->recv();
 }
 
