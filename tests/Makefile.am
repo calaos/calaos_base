@@ -4955,3 +4955,34 @@ core_ControllerFrameSecret_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.87
+#What the HTTP transport publishes of the ADDRESS it calls. Every URL it
+#logged went through a masker that knew ten query parameter names and returned
+#untouched when the URL had no query at all: a Hue bridge carries its API key
+#as a PATH segment, so nothing was masked, and the constructor line is a
+#cInfoDom - the level a box ships with. The key left with the journal every
+#two seconds on a stock install.
+#NOTHING HERE CALLS THE REDUCER: a real UrlDownloader is built on a URL shaped
+#like the one HueOutputLightRGB builds, a real loopback peer answers it, so a
+#mutation of src/lib/StringUtils.cpp or of a log line of
+#src/lib/UrlDownloader.cpp turns these cases red.
+#The sensor bounds the longest RUN of the credential-bearing part of the URL
+#the journal gives back, in the raw and in the percent-decoded form, instead of
+#looking for a value chosen in advance. One case takes the FAILURE branch (the
+#peer accepts and answers nothing), which republishes the same URL at WARNING.
+#Two cases are the counterweight: which device answered and whether it did,
+#and two endpoints of the same host with paths of the same length still
+#rendering as two different lines. The last forks a child that never raises
+#the level, this suite raising it in its own main().
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += UrlDownloaderLogUrl_test
+check_PROGRAMS += UrlDownloaderLogUrl_test
+UrlDownloaderLogUrl_test_SOURCES = UrlDownloaderLogUrl_test.cpp
+UrlDownloaderLogUrl_test_CPPFLAGS = $(AM_CPPFLAGS)
+UrlDownloaderLogUrl_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest
+endif
