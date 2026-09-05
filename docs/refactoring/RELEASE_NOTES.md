@@ -1446,10 +1446,34 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   dont une qui s'affichait **quand la configuration ne se lisait pas**, c'est-à-dire exactement au
   moment où l'on regarde les journaux.
 
-  ⚠️ **Une réserve honnête** : la configuration reste passée à la passerelle comme un **argument de
-  ligne de commande**, donc visible par un `ps` de n'importe quel compte du boîtier tant que la
-  passerelle tourne. Fermer cela demande de changer la façon dont le serveur parle à ses passerelles
-  et n'est pas fait ici.
+  ⚠️ **La réserve que portait cette entrée est levée** : la configuration restait passée à la
+  passerelle comme un **argument de ligne de commande**, donc visible par un `ps` de n'importe quel
+  compte du boîtier. C'est l'objet de l'entrée suivante.
+- ⭐ **Votre mot de passe de courtier MQTT n'est plus lisible par n'importe quel compte du
+  boîtier.** L'entrée précédente l'a retiré des journaux ; il restait à un endroit qu'aucun réglage
+  de journalisation n'atteint : la **ligne de commande** de la passerelle MQTT. Le serveur y plaçait
+  la configuration complète du courtier — hôte, port, **utilisateur et mot de passe** — et le
+  système publie la ligne de commande de tout processus à **tout le monde**. Un compte créé pour
+  l'occasion, sans aucun rapport avec celui qui fait tourner Calaos, la relit telle quelle ; un
+  simple `ps` suffit, et cela vaut pendant toute la durée de vie de la passerelle.
+
+  Désormais la passerelle **se connecte d'abord au serveur, qui lui envoie sa configuration par ce
+  canal privé**, comme il le fait déjà pour les identifiants de vos caméras Reolink. La ligne de
+  commande ne porte plus que le nom du programme, la socket et le nom de la passerelle — trois
+  valeurs qui ne viennent d'aucun de vos fichiers de configuration et ne peuvent donc rien contenir
+  de vous.
+
+  ⚠️ **Une réserve honnête, et elle est importante** : c'est un **changement de contrat entre le
+  serveur et sa passerelle**, des deux côtés. Les deux moitiés sont livrées ensemble, mais si une
+  mise à jour n'en installe qu'une, **la passerelle MQTT ne démarrera pas** tant que l'autre moitié
+  n'aura pas suivi. Les deux cas ont été vérifiés et **aucun n'échoue en silence** : le journal dit
+  en toutes lettres laquelle des deux est en retard sur l'autre, et le secret n'est publié dans
+  aucun des deux cas.
+
+  ⚠️ **Et un détail de comportement** : une passerelle qui n'a rien reçu au bout de cinq secondes
+  s'arrête en le disant, et le serveur la relance. Si votre serveur est plus ancien que sa
+  passerelle, vous verrez donc une relance toutes les cinq secondes accompagnée d'un message clair,
+  au lieu de l'ancienne relance silencieuse dix fois par seconde.
 - ⭐ **Le message d'erreur d'un document illisible ne recopie plus le document.** Quand un
   équipement, un service web ou un panneau déporté répond quelque chose que Calaos ne sait pas lire,
   le serveur écrivait dans le journal **le message de l'analyseur JSON** — et ce message **cite le

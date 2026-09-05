@@ -10154,7 +10154,7 @@ chemin d'échec, et `:187-189` à DEBUG) cessent de streamer `argv[1]`.
 complet, et la revue de merge l'a **mesuré** — mode **444**, relu **verbatim** par un compte tiers.
 Ce finding est **fermé pour les journaux, pas pour l'argv**.
 
-### ⛔ [F-EXTPROC-7] Le secret du courtier est dans l'**argv**, donc lisible par **tout compte** du boîtier — ticket proposé [`T3.82`](T3.82.md)
+### ✅ [F-EXTPROC-7] FERMÉ par [`T3.82`](T3.82.md) — le secret du courtier était dans l'**argv**, donc lisible par **tout compte** du boîtier
 
 `MqttWire::encodeConfig()` met `user` et `password` dans l'argument remis au noyau par
 `startProcess()`. [T3.79](T3.79.md) a fermé la fuite **par les journaux** ; celle-ci survit intacte.
@@ -10184,6 +10184,50 @@ en nombre non borné, et **aucun tripwire supplémentaire ne les couvre tous**.
 ⭐ **Périmètre borné** : sur les sept contrôleurs, **MQTT seul** porte un secret dans son argv
 (recensement de [T3.79](T3.79.md) §2, **recompté à la revue, aucun écart**), donc le changement de
 protocole se limite à `calaos_mqtt`. ⚠️ **Arbitrage utilisateur requis.**
+
+✅ **Fermé le 2026-09-05, par la socket** (arbitrage utilisateur, [`DECISIONS.md`](DECISIONS.md)). Le
+sidecar se connecte, le serveur lui écrit sa configuration **en premier message** — la forme de
+`ReolinkWire::buildRegisterMessage()`, reprise et non inventée, avec une clef `action` en plus parce
+que MQTT a **deux** types de message serveur → sidecar. **Recensement recompté sur l'arbre livré :
+plus aucun sidecar ne porte un secret dans son argv.** Ce qui reste au lancement est le binaire, la
+socket et l'espace de noms, **dont aucun ne vient d'`io.xml`**.
+
+⭐ **Et la classe est fermée par CONSTRUCTION, pas par des lignes** : les deux chemins d'erreur que la
+revue de `T3.79` avait mesurés à **0 rouge** — la reformulation `const char *cfg = argv[1];` et le
+`once<uvw::ErrorEvent>` republiant la ligne de commande à CRITICAL — n'ont plus de secret à publier.
+Le tripwire de source passe de « le sidecar ne streame pas `argv[1]` » à « **il ne lit aucun
+argument** ».
+
+⚠️ **Le prix, mesuré et assumé** : le contrat du sidecar change **des deux côtés** et le chemin
+d'échec « configuration illisible » quitte le contrôle d'`argc` pour une attente bornée à 5 s. Les
+trois chemins d'échec de cette attente sont mesurés sur le binaire livré ([`T3.82`](T3.82.md) §4) :
+**jamais** et **malformée** terminent le processus, donc bouclent par la relance sans backoff
+(E4.5d) — mais le premier à **une relance toutes les 5 s** et chaque tour imprime sa cause ;
+**deux fois** ne boucle pas. Compatibilité mesurée dans **les deux sens** : chaque direction échoue
+bruyamment, aucune ne dégrade en silence, aucune ne publie le secret.
+
+### ⛔ [F-EXTPROC-9] `calaos_mqtt` sort avec le code **0 et sans une ligne** quand la connexion au courtier échoue en asynchrone — ticket proposé `T3.103`
+
+Mesuré en écrivant [`T3.82`](T3.82.md), sur le binaire livré, contre un serveur bouchonné.
+
+`MqttProcess` enregistre le descripteur de mosquitto par `appendFd()` et ne le retire jamais. Quand
+la connexion TCP au courtier échoue **après** que `connect_async()` a répondu `MOSQ_ERR_SUCCESS` —
+c'est-à-dire pour tout hôte injoignable, le cas courant d'un courtier éteint — la bibliothèque ferme
+ce descripteur, `select()` de `ExternProcClient::run()` rend **`EBADF`**, la boucle `break`, et
+`procMain()` répond **0**.
+
+⛔ **Le serveur relance alors le sidecar sans backoff (E4.5d) et RIEN n'est écrit** : ni le sidecar,
+qui n'a pas d'erreur à publier, ni le serveur, dont `processExited` ne regarde pas le statut. C'est
+une boucle de relance **muette**, la pire forme du trou d'E4.5d.
+**Mesuré** : `EXIT=0` sur `192.0.2.42:1883` (TEST-NET-1), une seule ligne de journal en tout,
+`Connect to : 192.0.2.42socket 6`.
+
+⚠️ **Même site, second défaut** : le diagnostic de l'autre branche appelle `strerror()` sur un **code
+`MOSQ_ERR_*`**, jamais sur un `errno`. Un port refusé donne `Error connecting : Bad address`
+(`MOSQ_ERR_ERRNO` vaut 14, et `strerror(14)` est `EFAULT`).
+
+⭐ **Les deux sont sur `master` et [`T3.82`](T3.82.md) ne les touche pas** : ils sont dans le `switch`
+que ce ticket a déplacé sans le modifier, et ils sont antérieurs à la série.
 
 ### ✅ [F-EXTPROC-6] FERMÉ par [`T3.81`](T3.81.md) — le transport journalise la **charge utile** des messages, secrets compris
 
