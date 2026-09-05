@@ -114,6 +114,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cctype>
 #include <cstring>
 #include <functional>
 #include <iostream>
@@ -197,7 +198,7 @@ const char *const kWsInventedSecret = "philtrezephyr";
 //The content of a file an upload offers and the server refuses. Unlike the
 //four above on the same measure: worst run shared with anything else of the
 //fixture, 3 bytes.
-const char *const kRefusedContentSecret = "grelotmyosotiscerfeuil";
+const char *const kRefusedContentSecret = "grelotglycinecerfeuil";
 
 /*
  * Above the incidental overlap between a planted value and what the reduced
@@ -255,9 +256,10 @@ std::string longestRun(const std::string &hay, const std::string &needle)
     return best;
 }
 
-//Every form the same bytes can reach a journal in, and a haystack with the
-//whitespace taken out so that a value split over two lines is still one run.
-std::string longestEchoRun(const std::string &log, const std::string &secret)
+//Every form the same bytes can reach a journal in. Named apart from the
+//measure because a case bounds them too: what is measured is what has to be
+//held away from the alphabet the journal draws in.
+std::vector<std::string> echoForms(const std::string &secret)
 {
     std::vector<std::string> forms{ secret };
 
@@ -275,6 +277,34 @@ std::string longestEchoRun(const std::string &log, const std::string &secret)
     if (!encoded.empty() && encoded != secret)
         forms.push_back(encoded);
 
+    return forms;
+}
+
+//The longest run of the journal's own alphabet a needle carries: an address
+//and a fingerprint are printed in it, so such a run can be matched by bytes
+//nobody chose.
+std::string longestHexRun(const std::string &s)
+{
+    std::string best, cur;
+    for (const char c: s)
+    {
+        if (::isxdigit(static_cast<unsigned char>(c)))
+        {
+            cur += c;
+            if (cur.size() > best.size())
+                best = cur;
+        }
+        else
+            cur.clear();
+    }
+    return best;
+}
+
+//A haystack with the whitespace taken out so that a value split over two
+//lines is still one run.
+std::string longestEchoRun(const std::string &log, const std::string &secret)
+{
+    const std::vector<std::string> forms = echoForms(secret);
     const std::string flat = stripSpace(log);
 
     std::string best;
@@ -299,6 +329,34 @@ std::string longestEchoRun(const std::string &log, const std::string &secret)
 size_t longestEcho(const std::string &log, const std::string &secret)
 {
     return longestEchoRun(log, secret).size();
+}
+
+//The documents the ceiling covers, in one place: two cases read them, and a
+//list that drifts between them would hold one property on a fixture the other
+//no longer measures.
+struct Doc { std::string label; std::string text; };
+
+std::vector<Doc> plantedDocuments()
+{
+    std::string basicPlain = kBasicPlain;
+
+    return {
+        { "the bearer token", kBearerToken },
+        { "the session cookie", kSessionCookie },
+        { "the value of the unknown header", kFutureAuthValue },
+        { "the hmac nonce", kHmacNonce },
+        { "the hmac signature", kHmacSignature },
+        { "the user agent mark", kUserAgentMark },
+        { "the query password", kQueryPassword },
+        { "the Basic credential", basicPlain },
+        { "the base64 of the Basic credential", Utils::Base64_encode(basicPlain) },
+        { "the websocket frame password", kWsFramePassword },
+        { "the websocket invented value", kWsInventedSecret },
+        { "the camera password of io.xml", kCameraSecret },
+        { "the value of the invented key", kInventedKeySecret },
+        { "the credential of set_param", kSetParamSecret },
+        { "the content of the refused file", kRefusedContentSecret },
+    };
 }
 
 std::string captureStdout(const std::function<void()> &fn)
@@ -1483,26 +1541,7 @@ TEST_F(HttpRequestLogSecretTest, TheCeilingIsHeldToTheOverlapThisSuiteMeasures)
  */
 TEST_F(HttpRequestLogSecretTest, NoTwoPlantedValuesShareARunTheCeilingWouldNotAbsorb)
 {
-    std::string basicPlain = kBasicPlain;
-
-    struct Doc { std::string label; std::string text; };
-    const std::vector<Doc> docs = {
-        { "the bearer token", kBearerToken },
-        { "the session cookie", kSessionCookie },
-        { "the value of the unknown header", kFutureAuthValue },
-        { "the hmac nonce", kHmacNonce },
-        { "the hmac signature", kHmacSignature },
-        { "the user agent mark", kUserAgentMark },
-        { "the query password", kQueryPassword },
-        { "the Basic credential", basicPlain },
-        { "the base64 of the Basic credential", Utils::Base64_encode(basicPlain) },
-        { "the websocket frame password", kWsFramePassword },
-        { "the websocket invented value", kWsInventedSecret },
-        { "the camera password of io.xml", kCameraSecret },
-        { "the value of the invented key", kInventedKeySecret },
-        { "the credential of set_param", kSetParamSecret },
-        { "the content of the refused file", kRefusedContentSecret },
-    };
+    const std::vector<Doc> docs = plantedDocuments();
 
     for (size_t i = 0; i < docs.size(); i++)
     {
@@ -1515,6 +1554,33 @@ TEST_F(HttpRequestLogSecretTest, NoTwoPlantedValuesShareARunTheCeilingWouldNotAb
                 << kMaxEcho << " does not absorb: a leak at either one reddens "
                    "the bound of the other and the red set stops naming a "
                    "carrier.";
+        }
+    }
+}
+
+/*
+ * THE ALPHABET THE JOURNAL DRAWS IN, HELD OUT OF THE FIXTURE.
+ *
+ * The equality above is only reproducible if the bytes nobody chose cannot
+ * lengthen a run: an object address and a request fingerprint are printed in
+ * hexadecimal, so a needle carrying a hexadecimal run as long as the measured
+ * overlap makes the ceiling a lottery, and its red an intermittent one nobody
+ * can reproduce. The ENCODED forms count too - the measure looks at them, so
+ * they are needles as much as the plain bytes are.
+ */
+TEST_F(HttpRequestLogSecretTest, NoPlantedValueCarriesTheJournalsAlphabetThatFar)
+{
+    for (const Doc &d: plantedDocuments())
+    {
+        for (const std::string &form: echoForms(d.text))
+        {
+            const std::string run = longestHexRun(form);
+            EXPECT_LT(run.size(), kMaxEcho)
+                << d.label << " carries \"" << run << "\", " << run.size()
+                << " bytes of the alphabet the journal draws its own "
+                   "identifiers in, which the ceiling of " << kMaxEcho
+                << " does not absorb: a draw can match them and the equality "
+                   "above becomes a lottery.";
         }
     }
 }

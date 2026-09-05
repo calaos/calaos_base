@@ -95,6 +95,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
+#include <cctype>
 #include <cstring>
 #include <functional>
 #include <iostream>
@@ -355,6 +356,26 @@ std::string longestRun(const std::string &log, const std::string &secret)
 }
 
 //Both forms, because the same bytes reach a journal percent-encoded or not.
+//The longest run of the journal's own alphabet a needle carries: an address
+//and a fingerprint are printed in it, so such a run can be matched by bytes
+//nobody chose.
+std::string longestHexRun(const std::string &s)
+{
+    std::string best, cur;
+    for (const char c: s)
+    {
+        if (::isxdigit(static_cast<unsigned char>(c)))
+        {
+            cur += c;
+            if (cur.size() > best.size())
+                best = cur;
+        }
+        else
+            cur.clear();
+    }
+    return best;
+}
+
 std::string longestEchoRun(const std::string &log, const std::string &secret)
 {
     std::string best = longestRun(log, secret);
@@ -831,6 +852,35 @@ TEST(UrlDownloaderLogUrl, TheCeilingIsHeldToTheOverlapThisSuiteMeasures)
  * same url. A run they share is republished by whichever half leaks first, so
  * it raises the bound of the other and the red set stops naming a half.
  */
+/*
+ * THE ALPHABET THE JOURNAL DRAWS IN, HELD OUT OF THE FIXTURE.
+ *
+ * The equality above is only reproducible if the bytes nobody chose cannot
+ * lengthen a run: an object address and a url fingerprint are printed in
+ * hexadecimal, so a needle carrying a hexadecimal run as long as the measured
+ * overlap makes the ceiling a lottery, and its red an intermittent one nobody
+ * can reproduce.
+ */
+TEST(UrlDownloaderLogUrl, NeitherHalfOfTheUrlCarriesTheJournalsAlphabetThatFar)
+{
+    const std::string userinfo = std::string("oper:") + kUserinfoPassword;
+    const std::string pathAndQuery = huePath("3") + "?" + queryString();
+
+    for (const std::string &part: { userinfo, pathAndQuery })
+    {
+        for (const std::string &form: { part, Utils::url_decode(part) })
+        {
+            const std::string run = longestHexRun(form);
+            EXPECT_LT(run.size(), kMaxUrlEcho)
+                << "the url carries \"" << run << "\", " << run.size()
+                << " bytes of the alphabet the journal draws its own "
+                   "identifiers in, which the ceiling of " << kMaxUrlEcho
+                << " does not absorb: a draw can match them and the equality "
+                   "above becomes a lottery.";
+        }
+    }
+}
+
 TEST(UrlDownloaderLogUrl, TheTwoHalvesOfTheUrlShareNoRunTheCeilingWouldNotAbsorb)
 {
     const std::string userinfo = std::string("oper:") + kUserinfoPassword;

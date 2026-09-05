@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""T3.96: every bounded-echo ceiling of tests/ must be held by the suite itself.
+"""Every bounded-echo ceiling of tests/ must be held by the suite itself.
 
 A handful of suites do not look for a secret by name: they bound the longest
 run of the input the journal gives back, against a ceiling.  The number is not
@@ -7,24 +7,18 @@ a setting, it is the incidental overlap between the fixture and the lines the
 code is entitled to print - and that overlap moves with the fixture.  Written
 by hand and revisited by nobody, the ceiling drifts: too wide, and a leak of
 everything under it is invisible; too narrow, and the suite reddens on noise.
-T3.94 fixed the shape - the suite re-measures the overlap at every run and
-pins `ceiling == worst + 1` - and three suites carried it.  Three more were
-written afterwards without it, which is the whole point of this file: the
-shape spreads one suite at a time, and nothing but a static check makes the
-NEXT one carry it.
 
-The rule, per declared ceiling:
+The rule, per declared ceiling: it is PINNED - some EXPECT_EQ/ASSERT_EQ in the
+same file compares it to a re-measured `<something>.size() + 1` - or it is HELD
+above a pinned ceiling of the same file by an EXPECT_GT.  A document nobody
+chose - a token drawn by the shipped generator, in the same alphabet as the
+identifiers the journal draws for itself - has no overlap to re-measure, only a
+probability; pinning it would put a lottery inside an equality.  Such a ceiling
+is legitimate, but only as a stated margin above one that IS pinned.  Anything
+else is a ceiling nothing re-derives, which is the defect.
 
-  * it is pinned, i.e. some EXPECT_EQ/ASSERT_EQ in the same file compares it
-    to a re-measured `<something>.size() + 1`; or
-  * it is held above a pinned ceiling of the same file by an EXPECT_GT/
-    ASSERT_GT.  A document nobody chose - a token drawn by the shipped
-    generator, in the same alphabet as the identifiers the journal draws for
-    itself - has no overlap to re-measure, only a probability; pinning it
-    would put a lottery inside an equality.  Such a ceiling is legitimate, but
-    only as a stated margin above one that IS pinned.
-
-Anything else is a ceiling nothing re-derives, which is the defect.
+This check reads the SHAPE and never the measure: it cannot tell a calibration
+that replays every probe from one that replays a single one.
 
 Exit codes follow the automake simple-test protocol: 0 PASS, 1 FAIL.
 """
@@ -33,8 +27,11 @@ import os
 import re
 import sys
 
-#`const size_t kMaxEcho = 8;` and its kin, wherever a bounded sensor lives.
-DECL = re.compile(r'^\s*(?:static\s+)?(?:const|constexpr)\s+size_t\s+'
+#`const size_t kMaxEcho = 8;` and its kin. The name is the contract; the type
+#and the constness are not, so neither narrows what gets checked.
+DECL = re.compile(r'(?:^|[{;])\s*(?:static\s+)?(?:const\s+|constexpr\s+)?'
+                  r'(?:std::)?(?:size_t|uint\d+_t|unsigned\s+\w+|unsigned|'
+                  r'int|long|auto)\s+'
                   r'(k[A-Za-z0-9_]*Echo)\s*=\s*(\d+)\s*;', re.M)
 
 

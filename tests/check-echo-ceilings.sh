@@ -1,17 +1,12 @@
 #!/bin/sh
-# T3.96 -- a bounded-echo ceiling must be re-derived by its own suite.
+# Why this exists: the shape that keeps a bounded-echo ceiling honest - the
+# suite re-measures the incidental overlap and pins `ceiling == worst + 1` -
+# spreads one suite at a time, and every suite written in between carries a
+# constant nobody revisits. This is the only place where the class is closed
+# rather than each member of it.
 #
-# Why this exists: the shape that keeps such a ceiling honest (the suite
-# re-measures the incidental overlap and pins `ceiling == worst + 1`) spreads
-# one suite at a time, and every suite written in between carries a constant
-# nobody revisits. Three suites had the shape and three did not, six months
-# apart, with nothing in the tree able to tell them apart. This check can: it
-# is the only place where the class is closed rather than each member of it.
-#
-# Exit codes follow the automake simple-test protocol:
-#   0  -> PASS (every ceiling is pinned, or held above a pinned one)
-#   77 -> SKIP (no usable python3)
-#   1  -> FAIL (at least one ceiling is re-derived by nothing)
+# Exit codes follow the automake simple-test protocol: 0 PASS, 77 SKIP (no
+# usable python3), 1 FAIL (at least one ceiling is re-derived by nothing).
 #
 # PYTHON and abs_top_srcdir are exported by AM_TESTS_ENVIRONMENT in
 # tests/Makefile.am; fall back to sane defaults when run by hand.

@@ -81,6 +81,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
+#include <cctype>
 #include <cstring>
 #include <functional>
 #include <iostream>
@@ -314,6 +315,26 @@ std::string longestBodyEchoRun(const std::string &log, const std::string &body)
             best = body.substr(i, len);
             len++;
         }
+    }
+    return best;
+}
+
+//The longest run of the journal's own alphabet a needle carries: an address
+//and a fingerprint are printed in it, so such a run can be matched by bytes
+//nobody chose.
+std::string longestHexRun(const std::string &s)
+{
+    std::string best, cur;
+    for (const char c: s)
+    {
+        if (::isxdigit(static_cast<unsigned char>(c)))
+        {
+            cur += c;
+            if (cur.size() > best.size())
+                best = cur;
+        }
+        else
+            cur.clear();
     }
     return best;
 }
@@ -642,6 +663,25 @@ TEST(UrlDownloaderLogSecret, TheCeilingIsHeldToTheOverlapThisSuiteMeasures)
            "the two is a window this suite cannot see into: either a leak has "
            "widened the overlap, or the fixture has, and the ceiling to write "
            "is " << (worst.size() + 1) << ".";
+}
+
+/*
+ * THE ALPHABET THE JOURNAL DRAWS IN, HELD OUT OF THE FIXTURE.
+ *
+ * The equality above is only reproducible if the bytes nobody chose cannot
+ * lengthen a run: an object address and a url fingerprint are printed in
+ * hexadecimal, so a body carrying a hexadecimal run as long as the measured
+ * overlap makes the ceiling a lottery, and its red an intermittent one nobody
+ * can reproduce.
+ */
+TEST(UrlDownloaderLogSecret, TheResponseBodyDoesNotCarryTheJournalsAlphabetThatFar)
+{
+    const std::string run = longestHexRun(kResponseBody);
+    EXPECT_LT(run.size(), kMaxBodyEcho)
+        << "the response body carries \"" << run << "\", " << run.size()
+        << " bytes of the alphabet the journal draws its own identifiers in, "
+           "which the ceiling of " << kMaxBodyEcho << " does not absorb: a "
+           "draw can match them and the equality above becomes a lottery.";
 }
 
 /*
