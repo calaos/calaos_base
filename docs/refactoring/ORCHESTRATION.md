@@ -40,8 +40,61 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-05, APRÈS LE MERGE DE [`T3.97`](T3.97.md)) — LE
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-05, APRÈS LE MERGE DE [`T3.82`](T3.82.md)) — LE
   DERNIER MERGE DE LA SESSION. À LIRE EN PREMIER À FROID.**
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`37f2065b`**
+  (branche `fix/t3.82`, 4 commits : 3 du développeur + 1 de la revue de merge). `TESTS` = **133**
+  (`core/MqttConfigTransport_test` et `core/MqttSidecarConfigWait_test`), référence de build après
+  `make distclean` : **`TOTAL 133 / PASS 132 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**,
+  seul `SKIP` `check-ccache-honesty.sh`, **0 `error:`**, **11 `CXXLD`**, mesuré **3 fois d'affilée**.
+  ⛔ **RIEN N'A ÉTÉ POUSSÉ DE TOUTE LA SÉRIE.**
+
+  ⭐⭐ **OÙ EN SONT LES QUATRE ARBITRAGES DU 2026-09-05** ([`DECISIONS.md`](DECISIONS.md), section
+  « Quatre arbitrages du 2026-09-05 ») :
+  1. **Le `push`** → ⏸ **toujours DIFFÉRÉ à la fin du backlog**, en une seule fois.
+     ⛔ **`push` interdit jusqu'à nouvel ordre**, y compris pour un agent qui croirait bien faire.
+  2. [`T3.82`](T3.82.md) → ✅ **FAIT ET MERGÉ.** Le secret du courtier a quitté l'argv, il passe par
+     la socket en premier message. `F-EXTPROC-7` **FERMÉ**.
+  3. [`T3.72`](T3.72.md) (**refus à l'écriture** de `&#01;`) → ⏳ **RESTE À ÉCRIRE.**
+  4. `T3.71` (**aligner `create` sur le refus** de `modify`) → ⏳ **RESTE À ÉCRIRE.**
+  ⭐⭐ **`T3.72` et `T3.71` s'écrivent ENSEMBLE, et c'est une consigne, pas une préférence** : c'est
+  **la même décision à deux étages** — refuser plutôt que transformer en silence. Le prochain agent
+  doit **mesurer si la garde de l'un absorbe l'autre** plutôt qu'empiler deux gardes : les séparer
+  ferait relire deux fois le même arbitrage et risquerait deux refus redondants sur le même chemin.
+
+  **Tickets ouverts, une ligne chacun :**
+  - `T3.91` — proposé, fiche non écrite.
+  - **`T3.100`** — la fixture d'une suite calibrée est un objet **contraint** et rien ne le dit à qui
+    y ajoutera un document ; le filet rougit **après** coup.
+  - **`T3.101`** — `ExternProc` relaie hors de tout journal ce que ses **sept** familles de sidecars
+    impriment ; **2** des 10 écritures nues qui publient une donnée d'exécution.
+  - **`T3.102`** — `Lua_stackDump()` est du **code mort dur** (structurellement inappelable depuis
+    Lua) et porte **4** des 13 écritures nues du chemin serveur : **à supprimer**, pas à ficher.
+  - **`T3.103`** (neuf, ouvert à la revue de `T3.82`, `F-EXTPROC-9`) — `calaos_mqtt` sort avec le
+    code **0 et sans une ligne** quand la connexion au courtier échoue en asynchrone (`select()`
+    rend `EBADF` sur un descripteur mosquitto jamais retiré de `userFds`) ⇒ la relance sans backoff
+    tourne dix fois par seconde en n'imprimant que `process exited, restarting...`, **du bruit sans
+    cause**. Même site : `strerror()` appelé sur un code `MOSQ_ERR_*` et non sur un `errno`.
+    ⚠️ **Le numéro `T3.101` que la branche s'était attribué était déjà pris** ; c'est `T3.103`.
+  - `T3.71` et `T3.72` : **tranchés**, restent à écrire, **ENSEMBLE** (ci-dessus).
+  ⚠️ Numéros **pris** : `T3.76` → `T3.103`. Le prochain libre est **`T3.104`**.
+
+  **Ce qui attend l'utilisateur, et rien d'autre :**
+  1. ⛔ **Le job CI chez GitHub n'a JAMAIS tourné.** Le `push` est **différé, pas refusé** : il se
+     fera **en une fois, à la fin du backlog** (arbitrage 1). C'est le seul point de vérification
+     ouvert depuis `T3.67`.
+  2. 📋 **`T3.71` + `T3.72` à écrire ensemble**, selon les arbitrages 3 et 4.
+
+  ⭐ **CE QUE LA REVUE DE `T3.82` AJOUTE À LA LISTE DES FILETS** : `core/MqttSidecarConfigWait_test`
+  est la **première suite de la série qui EXÉCUTE un sidecar livré** au lieu d'épingler une
+  orthographe — elle le lance par un vrai `ExternProcServer` **et**, pour le cas du cadrage, par un
+  lanceur qui **écrit les octets à la main** afin de couper une trame où elle veut. ⛔ **La leçon à
+  recopier** : un serveur de test qui n'écrit qu'en une fois ne dit **rien** du message partiel, et
+  une garde exercée **par appel direct** sur l'encodeur ne dit rien de l'usage que le sidecar en
+  fait — les deux ont été mesurées ici à **0 rouge** avant d'être fermées.
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-05, APRÈS LE MERGE DE [`T3.97`](T3.97.md)) — conservé pour
+  l'historique.**
   Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`eb8105f0`**
   (branche `fix/t3.97`, 4 commits : 3 du développeur + 1 de la revue de merge). `TESTS` = **131**,
   `tests/Makefile.am` **intouché**, référence de build après `make distclean` :

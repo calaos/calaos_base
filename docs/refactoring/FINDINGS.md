@@ -10206,6 +10206,20 @@ trois chemins d'échec de cette attente sont mesurés sur le binaire livré ([`T
 **deux fois** ne boucle pas. Compatibilité mesurée dans **les deux sens** : chaque direction échoue
 bruyamment, aucune ne dégrade en silence, aucune ne publie le secret.
 
+⭐⭐ **CONFIRMÉ À LA REVUE DE MERGE, sur le binaire livré et hors des suites** (serveur bouchonné écrit
+pour la revue, cadrage à la main) : recensement des **16** sites de `startProcess()` recompté, aucun
+écart — Wago passe `host`/`port`, KNX `--server ip:<host>`, OLA l'univers, OneWire `ow_args`, Roon
+`--host`/`--port`, Reolink et Lua rien ; **aucun secret nulle part**. Argv de `calaos_mqtt` relu :
+binaire, `--socket`, `--namespace`, **zéro argument**, aucun des trois ne venant d'`io.xml`.
+⭐ **Et le refus du cas « serveur ancien » est plus fort que la fiche ne le dit** : il tombe **avant
+`connectSocket()`**, donc le sidecar ne lit ni ne publie la configuration qu'il a pourtant dans son
+argv. ⛔ **Le motif écrit pour la clef `action` était faux et a été corrigé** : `resolveBroker()`
+matérialise toujours les trois défauts, donc une configuration « toute par défaut » porte quand même
+ses trois clefs ; le cas atteignable est **l'inverse** — sans `action`, une publication arrivée la
+première serait appliquée **comme une configuration sur ses défauts**, en silence. La clef reste
+nécessaire, et son usage **côté sidecar** est désormais tenu par un cas (il ne l'était par rien :
+mesuré **0 rouge** en la retirant).
+
 ### ⛔ [F-EXTPROC-9] `calaos_mqtt` sort avec le code **0 et sans une ligne** quand la connexion au courtier échoue en asynchrone — ticket proposé `T3.103`
 
 Mesuré en écrivant [`T3.82`](T3.82.md), sur le binaire livré, contre un serveur bouchonné.
@@ -10228,6 +10242,15 @@ une boucle de relance **muette**, la pire forme du trou d'E4.5d.
 
 ⭐ **Les deux sont sur `master` et [`T3.82`](T3.82.md) ne les touche pas** : ils sont dans le `switch`
 que ce ticket a déplacé sans le modifier, et ils sont antérieurs à la série.
+
+⭐ **Les deux re-mesurés à la revue de merge, verbatim** : `EXIT=0` après **23 ms** sur
+`192.0.2.42:1883`, journal du sidecar réduit à `Connect to : 192.0.2.42socket 6` ; et
+`Error connecting : Bad address` sur un port refusé.
+⛔ **Une précision, et elle change le mot** : « boucle **muette** » vaut pour le **sidecar**, pas pour
+le couple. `MqttCtrl` imprime `process exited, restarting...` à **WARNING** à chaque tour, donc à
+la cadence de 100 ms de la relance sans backoff : ce n'est pas du silence, c'est **du bruit sans
+cause**, dix lignes par seconde qui ne disent jamais pourquoi. Pas meilleur, différent — et c'est
+la forme que le ticket devra traiter.
 
 ### ✅ [F-EXTPROC-6] FERMÉ par [`T3.81`](T3.81.md) — le transport journalise la **charge utile** des messages, secrets compris
 
