@@ -108,10 +108,15 @@ namespace
  * "just a bit of context" of it is really quoting the secret. The body is
  * shaped after the answer AVRRose::registerDevice() reads: the token is a
  * value inside the document, never a header and never a URL.
+ *
+ * The token ends in no hexadecimal tail. The journal publishes identifiers of
+ * its own in that alphabet - an object address, a url fingerprint - so a
+ * hexadecimal needle can be matched by bytes the journal drew at random, which
+ * turns the ceiling into a lottery no run of the suite reproduces.
  */
-const char *const kDeviceToken = "jeton-appareil-8f3a2c17e9b04d56";
+const char *const kDeviceToken = "jeton-appareil-quinzieme-solstice";
 const char *const kResponseBody =
-    "{\"deviceRoseToken\":\"jeton-appareil-8f3a2c17e9b04d56\","
+    "{\"deviceRoseToken\":\"jeton-appareil-quinzieme-solstice\","
     "\"result\":\"ok\",\"modelName\":\"RS520\"}";
 
 bool haveCurl()
@@ -295,26 +300,35 @@ bool someLineHasAll(const std::string &log, const std::vector<std::string> &need
  * was cut - so the log is asked how much of the body it gives back, and the
  * case fixes a ceiling instead of naming a secret.
  */
-size_t longestBodyEcho(const std::string &log, const std::string &body)
+//The run itself and not its length: a failure that cites the bytes says
+//whether what came back is a secret or a word the transport is entitled to.
+std::string longestBodyEchoRun(const std::string &log, const std::string &body)
 {
-    size_t best = 0;
+    std::string best;
     for (size_t i = 0; i < body.size(); i++)
     {
-        size_t len = best + 1;
+        size_t len = best.size() + 1;
         while (i + len <= body.size() &&
                log.find(body.substr(i, len)) != std::string::npos)
         {
-            best = len;
+            best = body.substr(i, len);
             len++;
         }
     }
     return best;
 }
 
+size_t longestBodyEcho(const std::string &log, const std::string &body)
+{
+    return longestBodyEchoRun(log, body).size();
+}
+
 //Above the incidental overlap between the answer and what the transport
 //legitimately prints (the host and the path of the URL share words with it),
-//and far below any excerpt worth publishing.
-const size_t kMaxBodyEcho = 12;
+//and far below any excerpt worth publishing. The number is not a decision:
+//the ceiling case below re-measures that overlap at every run and pins the
+//equality, so a ceiling wider than the tree produces is a red.
+const size_t kMaxBodyEcho = 4;
 
 /*
  * WHAT A BOX PRINTS WITH NOBODY TOUCHING ANYTHING, measured in a child.
@@ -563,6 +577,71 @@ TEST(UrlDownloaderLogSecret, AStockInstallDoesNotPrintTheUrlutilsDebugLines)
         << "the urlutils domain prints at DEBUG on a stock install: the "
            "response body left with the journal of every box, with no operator "
            "having switched anything on";
+}
+
+/*
+ * THE CEILING ITSELF, HELD TO WHAT THIS SUITE MEASURES AT EVERY RUN.
+ *
+ * A bounded sensor is only as narrow as the number above the noise it was cut
+ * for, and that number drifts both ways with nobody watching: a fixture that
+ * gains a word shared with the transport lines widens the blind window while
+ * every assertion above stays green, and a ceiling left wider than the run
+ * this tree really produces is blind space nobody asked for. Pinning the
+ * equality turns both into a red that says which number to write.
+ *
+ * No companion case holds the fixture apart here, and the reason is worth
+ * knowing: the ceiling covers ONE document. The two others of the same
+ * exchange - the posted body and the path - share "{"device" and "device"
+ * with the answer BY THE SHAPE OF THE REAL API (POST /device_connected,
+ * {"deviceName":...} answered with a deviceRoseToken), so holding them apart
+ * would mean an unfaithful fixture. The consequence is named instead: were
+ * the transport ever to republish the request body, the bound above would
+ * redden on eight bytes that are not the answer.
+ */
+TEST(UrlDownloaderLogSecret, TheCeilingIsHeldToTheOverlapThisSuiteMeasures)
+{
+    REQUIRE_CURL();
+
+    //A measure that cannot report a run reads as a clean zero everywhere else.
+    ASSERT_EQ("bcdef", longestBodyEchoRun("zzbcdefzz", "abcdefg"));
+    ASSERT_EQ("", longestBodyEchoRun("zzz", "abc"));
+
+    std::string worst, worstLabel;
+    const auto keep = [&worst, &worstLabel](const std::string &run,
+                                            const std::string &label)
+    {
+        if (run.size() > worst.size())
+        {
+            worst = run;
+            worstLabel = label;
+        }
+    };
+
+    const struct { const char *label; bool connectData; } probes[] = {
+        { "a caller that asked for the body", true },
+        { "a caller that only connected m_signalComplete", false },
+    };
+
+    for (const auto &p: probes)
+    {
+        const Exchange ex = runPost(p.connectData);
+        ASSERT_TRUE(ex.completed)
+            << "the transfer of " << p.label << " never completed, so the "
+               "overlap this case exists to pin was not produced at all";
+        ASSERT_NE(std::string::npos, ex.log.find("urlutils"))
+            << "nothing of the urlutils domain was printed for " << p.label
+            << ", so the overlap measured here is not the one the cases above "
+               "are bounded against";
+        keep(longestBodyEchoRun(ex.log, kResponseBody), p.label);
+    }
+
+    EXPECT_EQ(kMaxBodyEcho, worst.size() + 1)
+        << "the ceiling is " << kMaxBodyEcho << " while this tree gives back at "
+           "most " << worst.size() << " bytes of the response body, for "
+        << worstLabel << ", on the run \"" << worst << "\". Everything between "
+           "the two is a window this suite cannot see into: either a leak has "
+           "widened the overlap, or the fixture has, and the ceiling to write "
+           "is " << (worst.size() + 1) << ".";
 }
 
 /*

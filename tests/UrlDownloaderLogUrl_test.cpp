@@ -126,10 +126,15 @@ namespace
  *
  * Every case asserts the URL it just built really carries them before
  * concluding anything about the journal.
+ *
+ * None of them ends in a hexadecimal tail. The journal publishes identifiers
+ * of its own in that alphabet - an object address, a url fingerprint - so a
+ * hexadecimal needle can be matched by bytes the journal drew at random, which
+ * turns the ceiling into a lottery no run of the suite reproduces.
  */
-const char *const kPathApiKey = "cle-api-pont-7d41e9b2ac635f08";
-const char *const kQueryToken = "jeton-requete-6b0f52d8e1a94c37";
-const char *const kUserinfoPassword = "mot%20de%20passe%20operateur";
+const char *const kPathApiKey = "cle-api-pont-hirondelle";
+const char *const kQueryToken = "jeton-requete-marjolaine";
+const char *const kUserinfoPassword = "sesame%20du%20portier";
 
 const char *const kResponseBody = "{\"state\":{\"on\":true,\"bri\":180}}";
 
@@ -330,17 +335,19 @@ bool someLineHasAll(const std::string &log, const std::vector<std::string> &need
     return false;
 }
 
-//Longest run of `secret` the log gives back, wherever that run was cut.
-size_t longestRun(const std::string &log, const std::string &secret)
+//Longest run of `secret` the log gives back, wherever that run was cut. The
+//run itself and not its length: a failure that cites the bytes says whether
+//what came back is a credential or a word the transport is entitled to.
+std::string longestRun(const std::string &log, const std::string &secret)
 {
-    size_t best = 0;
+    std::string best;
     for (size_t i = 0; i < secret.size(); i++)
     {
-        size_t len = best + 1;
+        size_t len = best.size() + 1;
         while (i + len <= secret.size() &&
                log.find(secret.substr(i, len)) != std::string::npos)
         {
-            best = len;
+            best = secret.substr(i, len);
             len++;
         }
     }
@@ -348,21 +355,33 @@ size_t longestRun(const std::string &log, const std::string &secret)
 }
 
 //Both forms, because the same bytes reach a journal percent-encoded or not.
+std::string longestEchoRun(const std::string &log, const std::string &secret)
+{
+    std::string best = longestRun(log, secret);
+    const std::string decoded = Utils::url_decode(secret);
+    if (decoded != secret)
+    {
+        const std::string other = longestRun(log, decoded);
+        if (other.size() > best.size())
+            best = other;
+    }
+    return best;
+}
+
 size_t longestEcho(const std::string &log, const std::string &secret)
 {
-    const std::string decoded = Utils::url_decode(secret);
-    size_t best = longestRun(log, secret);
-    if (decoded != secret)
-        best = std::max(best, longestRun(log, decoded));
-    return best;
+    return longestEchoRun(log, secret).size();
 }
 
 /*
  * Above the incidental overlap between the secret-bearing part of the URL and
  * what the transport legitimately publishes (a byte count and a port share
  * digits with it), and far below any excerpt of a credential worth having.
+ * The number is not a decision: the ceiling case below re-measures that
+ * overlap at every run and pins the equality, so a ceiling wider than the tree
+ * produces is a red instead of a setting nobody revisits.
  */
-const size_t kMaxUrlEcho = 8;
+const size_t kMaxUrlEcho = 4;
 
 struct DefaultLevelProbe
 {
@@ -726,6 +745,103 @@ TEST(UrlDownloaderLogUrl, AStockInstallPrintsTheUrlutilsInfoLines)
         << "the urlutils domain does not print at INFO on a stock install, so "
            "this binary is not measuring the shipped level and the severity of "
            "this ticket cannot be read from it";
+}
+
+/*
+ * THE CEILING ITSELF, HELD TO WHAT THIS SUITE MEASURES AT EVERY RUN.
+ *
+ * A bounded sensor is only as narrow as the number above the noise it was cut
+ * for, and that number drifts both ways with nobody watching: a fixture that
+ * gains a word shared with the lines the transport is entitled to print
+ * widens the blind window while every assertion above stays green, and a
+ * ceiling left wider than the run this tree really produces is blind space
+ * nobody asked for. Pinning the equality turns both into a red that says which
+ * number to write.
+ *
+ * The two probes are the two branches: the answered transfer, read on the
+ * whole journal, and the failed one, read on the failure LINE - the same
+ * haystacks the cases above are bounded against, and not a wider one.
+ */
+TEST(UrlDownloaderLogUrl, TheCeilingIsHeldToTheOverlapThisSuiteMeasures)
+{
+    REQUIRE_CURL();
+
+    //A measure that cannot report a run reads as a clean zero everywhere else.
+    ASSERT_EQ("bcdef", longestRun("zzbcdefzz", "abcdefg"));
+    ASSERT_EQ("", longestRun("zzz", "abc"));
+
+    std::string worst, worstLabel;
+    const auto keep = [&worst, &worstLabel](const std::string &run,
+                                            const std::string &label)
+    {
+        if (run.size() > worst.size())
+        {
+            worst = run;
+            worstLabel = label;
+        }
+    };
+
+    const auto partsOf = [](const std::string &url)
+    {
+        const size_t at = url.find('@');
+        const size_t pathStart = url.find('/', at);
+        const size_t scheme = std::string("http://").size();
+        return std::make_pair(url.substr(scheme, at - scheme),
+                              url.substr(pathStart));
+    };
+
+    const Exchange ok = runGet("3", true);
+    ASSERT_TRUE(ok.completed)
+        << "the answered transfer never completed, so the overlap this case "
+           "exists to pin was not produced at all";
+    ASSERT_NE(std::string::npos, ok.log.find("urlutils"))
+        << "nothing of the urlutils domain was printed, so the overlap "
+           "measured here is not the one the cases above are bounded against";
+
+    const auto okParts = partsOf(ok.url);
+    keep(longestEchoRun(ok.log, okParts.first), "the userinfo, answered transfer");
+    keep(longestEchoRun(ok.log, okParts.second), "the path and query, answered transfer");
+
+    const Exchange ko = runGet("3", false);
+    ASSERT_TRUE(ko.completed)
+        << "the failed transfer never completed, so half the probes of this "
+           "case were not produced at all";
+    const std::string failure = lineContaining(ko.log, "Transfer failed");
+    ASSERT_FALSE(failure.empty())
+        << "no failure line was printed, so half the probes of this case were "
+           "not produced at all:\n" << ko.log;
+
+    const auto koParts = partsOf(ko.url);
+    keep(longestEchoRun(failure, koParts.first), "the userinfo, failure line");
+    keep(longestEchoRun(failure, koParts.second), "the path and query, failure line");
+
+    EXPECT_EQ(kMaxUrlEcho, worst.size() + 1)
+        << "the ceiling is " << kMaxUrlEcho << " while this tree gives back at "
+           "most " << worst.size() << " bytes of the credential part of the "
+           "url, at " << worstLabel << ", on the run \"" << worst << "\". "
+           "Everything between the two is a window this suite cannot see into: "
+           "either a leak has widened the overlap, or the fixture has, and the "
+           "ceiling to write is " << (worst.size() + 1) << ".";
+}
+
+/*
+ * THE FIXTURE, HELD TO THE SAME CEILING.
+ *
+ * The userinfo and the path both carry a credential and both travel in the
+ * same url. A run they share is republished by whichever half leaks first, so
+ * it raises the bound of the other and the red set stops naming a half.
+ */
+TEST(UrlDownloaderLogUrl, TheTwoHalvesOfTheUrlShareNoRunTheCeilingWouldNotAbsorb)
+{
+    const std::string userinfo = std::string("oper:") + kUserinfoPassword;
+    const std::string pathAndQuery = huePath("3") + "?" + queryString();
+
+    const std::string run = longestEchoRun(userinfo, pathAndQuery);
+    EXPECT_LT(run.size(), kMaxUrlEcho)
+        << "the userinfo and the path and query of the url share \"" << run
+        << "\", " << run.size() << " bytes, which the ceiling of " << kMaxUrlEcho
+        << " does not absorb: a leak at either one reddens the bound of the "
+           "other and the red set stops naming a half.";
 }
 
 /*

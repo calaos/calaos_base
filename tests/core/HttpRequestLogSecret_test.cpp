@@ -152,12 +152,20 @@ namespace
 //reduced line legitimately publishes, and "...-websocket-..." shared eleven
 //bytes with "sec-websocket-key" - incidental overlap, not a leak, and it would
 //have set the ceiling instead of the secret.
-const char *const kBearerToken = "jeton-porteur-4f7a1c93e5d20b68";
-const char *const kSessionCookie = "biscuit-9d3e7b415c8a06f2ab7c";
-const char *const kFutureAuthValue = "cle-que-nul-ne-connait-1c0d84f6b95e";
-const char *const kHmacNonce = "alea-du-boitier-5e8b03a7d6142f9c";
-const char *const kHmacSignature = "empreinte-du-boitier-2f47c1e0b83d6a95";
-const char *const kUserAgentMark = "marque-du-mobile-0b6d92f4a7e35c81";
+//They must also be pairwise unlike EACH OTHER, and two pairs were not: a
+//shared word makes a leak at one carrier redden the bound of the other, and
+//the red set stops naming a carrier. The disjunction case below holds it.
+//And none of them ends in a hexadecimal tail any more. The journal publishes
+//identifiers of its own in that alphabet - an object address, a request
+//fingerprint - so a hexadecimal needle can be matched by bytes the journal
+//drew at random, which turns the ceiling into a lottery no run of the suite
+//reproduces.
+const char *const kBearerToken = "jeton-porteur-quatorze-anemones";
+const char *const kSessionCookie = "biscuit-mirliton-vespral";
+const char *const kFutureAuthValue = "cle-que-nul-ne-connait-lampyre";
+const char *const kHmacNonce = "alea-tirage-hulotte-pivoine";
+const char *const kHmacSignature = "empreinte-scellee-tulipier";
+const char *const kUserAgentMark = "marque-du-mobile-genepi";
 
 //Percent-encoded on purpose: a search for the plain form does not see it, and
 //that is how a tail of URL walked past the guard of a sibling ticket.
@@ -165,12 +173,12 @@ const char *const kQueryPassword = "mot%20de%20passe%20du%20portier%20de%20nuit"
 
 //The other spelling of an Authorization header. Its value is base64, so a
 //journal can give the secret back in a form no search for the plain text sees.
-const char *const kBasicPlain = "operateur:sesame-du-portier-8c25f10b";
+const char *const kBasicPlain = "huissier:antienne-glaieul";
 
 //The credential of a websocket login, placed at the head of the frame on
 //purpose: the frame line rendered a fixed-length EXCERPT of the payload, so
 //how much of a secret it gave back depended on where the secret sat.
-const char *const kWsFramePassword = "sesame-du-portier-3f81b2";
+const char *const kWsFramePassword = "cadenas-vigie-ombelle";
 
 /*
  * WHAT AN UPLOAD CARRIES, IN THE THREE PLACES NO LIST OF NAMES REACHED.
@@ -181,23 +189,39 @@ const char *const kWsFramePassword = "sesame-du-portier-3f81b2";
  * ceiling. A common suffix here would let one needle raise the bound of the
  * others and turn a leak into a green.
  */
-const char *const kCameraSecret = "brumaire7b3e9d15c4alpaga";
-const char *const kInventedKeySecret = "grimoire4a6c81f2e9chataigne";
-const char *const kSetParamSecret = "talisman9e2b40d7a1nenuphar";
-const char *const kWsInventedSecret = "philtre6a2f70d3e8";
+const char *const kCameraSecret = "brumairependulealpaga";
+const char *const kInventedKeySecret = "grimoirevolubilischataigne";
+const char *const kSetParamSecret = "talismanverjusnenuphar";
+const char *const kWsInventedSecret = "philtrezephyr";
 
 //The content of a file an upload offers and the server refuses. Unlike the
 //four above on the same measure: worst run shared with anything else of the
 //fixture, 3 bytes.
-const char *const kRefusedContentSecret = "grelot7f2a9c04e1b6cerfeuil";
+const char *const kRefusedContentSecret = "grelotmyosotiscerfeuil";
 
 /*
  * Above the incidental overlap between a planted value and what the reduced
  * lines legitimately publish (byte counts, a port, a hexadecimal tag share
  * characters with them) and far below any excerpt of a credential worth
- * having. The overlap is measured, not assumed - see the fiche.
+ * having. The number is not a decision: the ceiling case at the end of this
+ * file replays every probe the ceiling covers, re-measures that overlap and
+ * pins the equality, so a ceiling wider than the tree produces is a red
+ * instead of a setting nobody revisits.
  */
-const size_t kMaxEcho = 8;
+const size_t kMaxEcho = 5;
+
+/*
+ * AND THE ONE DOCUMENT NOBODY CHOSE NEEDS A WIDER ONE.
+ *
+ * The generated token is 64 hexadecimal characters, the alphabet the journal
+ * draws its own identifiers in, and neither side is under the control of this
+ * fixture. Its overlap is therefore not a quantity to re-measure but a
+ * probability, and no equality can pin it: at 5 the two would collide about
+ * once in thirteen hundred exchanges, at 8 less than once in ten million.
+ * That margin, and not slack, is what the difference between the two ceilings
+ * buys.
+ */
+const size_t kMaxDrawnEcho = 8;
 
 std::string stripSpace(const std::string &s)
 {
@@ -212,16 +236,19 @@ std::string stripSpace(const std::string &s)
 }
 
 //Longest run of `needle` the haystack gives back, wherever that run was cut.
-size_t longestRun(const std::string &hay, const std::string &needle)
+//The run itself and not its length: a failure that cites the bytes says
+//whether what came back is a credential or a word the reduced lines are
+//entitled to publish.
+std::string longestRun(const std::string &hay, const std::string &needle)
 {
-    size_t best = 0;
+    std::string best;
     for (size_t i = 0; i < needle.size(); i++)
     {
-        size_t len = best + 1;
+        size_t len = best.size() + 1;
         while (i + len <= needle.size() &&
                hay.find(needle.substr(i, len)) != std::string::npos)
         {
-            best = len;
+            best = needle.substr(i, len);
             len++;
         }
     }
@@ -230,7 +257,7 @@ size_t longestRun(const std::string &hay, const std::string &needle)
 
 //Every form the same bytes can reach a journal in, and a haystack with the
 //whitespace taken out so that a value split over two lines is still one run.
-size_t longestEcho(const std::string &log, const std::string &secret)
+std::string longestEchoRun(const std::string &log, const std::string &secret)
 {
     std::vector<std::string> forms{ secret };
 
@@ -250,17 +277,28 @@ size_t longestEcho(const std::string &log, const std::string &secret)
 
     const std::string flat = stripSpace(log);
 
-    size_t best = 0;
+    std::string best;
+    const auto keep = [&best](const std::string &run)
+    {
+        if (run.size() > best.size())
+            best = run;
+    };
+
     for (const std::string &f: forms)
     {
         if (f.empty())
             continue;
-        best = std::max(best, longestRun(log, f));
+        keep(longestRun(log, f));
         const std::string ff = stripSpace(f);
         if (!ff.empty())
-            best = std::max(best, longestRun(flat, ff));
+            keep(longestRun(flat, ff));
     }
     return best;
+}
+
+size_t longestEcho(const std::string &log, const std::string &secret)
+{
+    return longestEchoRun(log, secret).size();
 }
 
 std::string captureStdout(const std::function<void()> &fn)
@@ -978,21 +1016,22 @@ TEST_F(HttpRequestLogSecretTest, AConfigUploadDoesNotHandBackTheTokensThisServer
         << "nothing of the body of the upload was described at all, so this "
            "case does not exercise the line it is written for:\n" << ex.log;
 
-    const std::vector<std::pair<std::string, std::string>> carried = {
-        { "the mcp_token this server generated", emittedToken() },
-        { "the camera password of io.xml", kCameraSecret },
-        { "the value of a key no list of this tree names", kInventedKeySecret },
+    struct Carried { std::string what; std::string value; size_t ceiling; };
+    const std::vector<Carried> carried = {
+        { "the mcp_token this server generated", emittedToken(), kMaxDrawnEcho },
+        { "the camera password of io.xml", kCameraSecret, kMaxEcho },
+        { "the value of a key no list of this tree names", kInventedKeySecret, kMaxEcho },
     };
 
     for (const auto &c: carried)
     {
-        ASSERT_NE(std::string::npos, ex.wire.find(c.second))
-            << "the upload does not carry " << c.first << ", this case measures nothing";
+        ASSERT_NE(std::string::npos, ex.wire.find(c.value))
+            << "the upload does not carry " << c.what << ", this case measures nothing";
 
-        const size_t echo = longestEcho(ex.log, c.second);
-        EXPECT_LT(echo, kMaxEcho)
+        const size_t echo = longestEcho(ex.log, c.value);
+        EXPECT_LT(echo, c.ceiling)
             << "the journal gives back " << echo << " consecutive bytes of "
-            << c.first << ":\n" << ex.log;
+            << c.what << ":\n" << ex.log;
     }
 
     //Named, because an unreadable failure is a useless failure.
@@ -1029,14 +1068,19 @@ TEST_F(HttpRequestLogSecretTest, AnUploadRefusedForItsCredentialsIsDescribedAnyw
         << "the body of an unauthenticated upload is not described at all, so "
            "this case measures nothing:\n" << ex.log;
 
-    for (const std::string &value: { emittedToken(), std::string(kCameraSecret),
-                                     std::string(kInventedKeySecret) })
-    {
-        ASSERT_NE(std::string::npos, ex.wire.find(value))
-            << "the upload does not carry " << value << ", this case measures nothing";
+    const std::vector<std::pair<std::string, size_t>> carried = {
+        { emittedToken(), kMaxDrawnEcho },
+        { kCameraSecret, kMaxEcho },
+        { kInventedKeySecret, kMaxEcho },
+    };
 
-        const size_t echo = longestEcho(ex.log, value);
-        EXPECT_LT(echo, kMaxEcho)
+    for (const auto &c: carried)
+    {
+        ASSERT_NE(std::string::npos, ex.wire.find(c.first))
+            << "the upload does not carry " << c.first << ", this case measures nothing";
+
+        const size_t echo = longestEcho(ex.log, c.first);
+        EXPECT_LT(echo, c.second)
             << "the journal of an UNAUTHENTICATED upload gives back " << echo
             << " consecutive bytes of a secret of the install:\n" << ex.log;
     }
@@ -1265,6 +1309,214 @@ TEST_F(HttpRequestLogSecretTest, TwoRequestsDifferingOnlyInTheirQueryAreStillTel
         << "two requests differing only in their query render the same journal "
            "line, so a reader cannot tell which one arrived:\n"
         << lineA << "\n" << lineB;
+}
+
+/*
+ * THE CEILING ITSELF, HELD TO WHAT THIS SUITE MEASURES AT EVERY RUN.
+ *
+ * A bounded sensor is only as narrow as the number above the noise it was cut
+ * for, and that number drifts both ways with nobody watching: a fixture that
+ * gains a word shared with what the reduced lines legitimately publish widens
+ * the blind window while every assertion above stays green, and a ceiling left
+ * wider than the run this tree really produces is blind space nobody asked
+ * for. Pinning the equality turns both into a red that says which number to
+ * write.
+ *
+ * The probes are replayed here rather than accumulated from the cases above:
+ * a measure that depends on which cases ran, and in which order, would be the
+ * first thing a --gtest_filter breaks.
+ */
+TEST_F(HttpRequestLogSecretTest, TheCeilingIsHeldToTheOverlapThisSuiteMeasures)
+{
+    //A measure that cannot report a run reads as a clean zero everywhere else.
+    ASSERT_EQ("bcdef", longestRun("zzbcdefzz", "abcdefg"));
+    ASSERT_EQ("", longestRun("zzz", "abc"));
+
+    std::string worst, worstLabel;
+    const auto keep = [&worst, &worstLabel](const std::string &run,
+                                            const std::string &label)
+    {
+        if (run.size() > worst.size())
+        {
+            worst = run;
+            worstLabel = label;
+        }
+    };
+
+    //One failed login blocks the address for a second, and a request the
+    //throttle turned back never reaches the branch whose overlap is wanted.
+    const auto fresh = []()
+    {
+        LoginThrottle::clear();
+        drainLoop(20);
+    };
+
+    const std::string loginWire = loginTarget(kQueryPassword);
+    const std::string urlInQuery = loginWire + "&next=http://ailleurs.invalide/suite";
+    const std::string query = loginWire.substr(loginWire.find('?') + 1);
+
+    std::string basicPlain = kBasicPlain;
+    const std::string basicEncoded = Utils::Base64_encode(basicPlain);
+    ASSERT_FALSE(basicEncoded.empty()) << "the fixture could not build a Basic credential";
+    auto basicHeaders = credentialHeaders();
+    basicHeaders[0] = { "Authorization", "Basic " + basicEncoded };
+
+    const std::string wsLogin =
+        std::string("{\"cn_pass\":\"") + kWsFramePassword + "\",\"msg\":\"login\"}";
+    const std::string wsBody =
+        std::string("{\"msg\":\"login\",\"msg_id\":\"7\",\"data\":{\"grimoire\":\"") +
+        kWsInventedSecret + "\"}}";
+
+    std::ostringstream refused;
+    refused << "{\"cn_user\":\"user\",\"cn_pass\":\"pass\","
+            << "\"action\":\"config\",\"type\":\"put\",\"config_files\":{"
+            << "\"io.xml\":\"" << kRefusedContentSecret << "\","
+            << "\"pas-un-fichier\":\"x\"}}";
+
+    const std::vector<std::string> uploaded = { kCameraSecret, kInventedKeySecret };
+
+    struct Probe
+    {
+        const char *label;
+        std::string request;
+        //The CLEAR payload of a websocket frame, empty for an ordinary http
+        //exchange. Clear and not masked, because the fixture check below has
+        //to find the planted value in what the client sent, and a client frame
+        //is masked on the wire.
+        std::string payload;
+        std::vector<std::string> values;    //measured, and folded into the equality
+        //Documents drawn in the journal's own alphabet: bounded, never folded
+        //into the equality, for the reason kMaxDrawnEcho carries.
+        std::vector<std::string> drawn;
+        std::vector<std::string> onWire;    //asserted present; empty means `values`
+        const char *witness;        //what the log must carry for the probe to count
+    };
+
+    const std::vector<Probe> probes = {
+        { "the headers of a refused login", buildRequest(loginWire, credentialHeaders()),
+          "", plantedValues(), {}, {}, "network" },
+        { "the query of a refused login", buildRequest(loginWire, credentialHeaders()),
+          "", { query }, {}, {}, "Login failed" },
+        //Only the base64 travels; the plain form is measured all the same
+        //because a journal can hand the secret back decoded.
+        { "a Basic credential", buildRequest("/api.php", basicHeaders),
+          "", { basicEncoded, kBasicPlain }, {}, { basicEncoded }, "network" },
+        { "a query that carries a url", buildRequest(urlInQuery, credentialHeaders()),
+          "", { urlInQuery.substr(urlInQuery.find('?') + 1) }, {}, {}, "network" },
+        { "the headers of a websocket handshake", buildRequest("/api", websocketHeaders()),
+          "", plantedValues(), {}, {}, "Upgrading connection to WebSocket" },
+        { "the head of a websocket login frame", buildRequest("/api", websocketHeaders()),
+          wsLogin, { kWsFramePassword }, {}, {}, "Got a new frame" },
+        { "the body of a websocket request", buildRequest("/api", websocketHeaders()),
+          wsBody, { kWsInventedSecret }, {}, {}, "grimoire" },
+        { "an authenticated config upload", jsonPost(configPutBody(true)),
+          "", uploaded, { emittedToken() }, {}, "config_files" },
+        { "an unauthenticated config upload", jsonPost(configPutBody(false)),
+          "", uploaded, { emittedToken() }, {}, "config_files" },
+        { "a set_param", jsonPost(setParamBody()), "", { kSetParamSecret }, {}, {}, "param" },
+        { "the content of a refused config file", jsonPost(refused.str()),
+          "", { kRefusedContentSecret }, {}, {}, "is not XML" },
+    };
+
+    for (const Probe &p: probes)
+    {
+        fresh();
+        const Exchange ex = p.payload.empty()
+                                ? exchange(p.request)
+                                : websocketExchange(p.request,
+                                                    maskedTextFrame(p.payload));
+
+        ASSERT_TRUE(ex.connected)
+            << "no connection to the server for " << p.label << ", so the "
+               "overlap this case exists to pin was not produced at all";
+        ASSERT_NE(std::string::npos, ex.log.find(p.witness))
+            << "the journal of " << p.label << " does not carry \"" << p.witness
+            << "\", so the branch its bound is written for was never taken and "
+               "the overlap measured here is not the one the cases above are "
+               "bounded against:\n" << ex.log;
+
+        const std::string &sent = p.payload.empty() ? ex.wire : p.payload;
+        for (const std::string &v: p.onWire.empty() ? p.values : p.onWire)
+        {
+            ASSERT_NE(std::string::npos, sent.find(v))
+                << "what was sent for " << p.label << " does not carry " << v
+                << ", so this probe measures nothing";
+        }
+        for (const std::string &v: p.values)
+            keep(longestEchoRun(ex.log, v), p.label);
+
+        for (const std::string &v: p.drawn)
+        {
+            ASSERT_NE(std::string::npos, sent.find(v))
+                << "what was sent for " << p.label << " does not carry the "
+                   "generated token, so this probe measures nothing";
+            const std::string run = longestEchoRun(ex.log, v);
+            EXPECT_LT(run.size(), kMaxDrawnEcho)
+                << "the journal of " << p.label << " gives back \"" << run
+                << "\", " << run.size() << " bytes of the token this server "
+                   "generated.";
+        }
+    }
+
+    //The margin the drawn document needs, held apart from the measured one:
+    //collapsing the two would put a lottery inside the equality below.
+    EXPECT_GT(kMaxDrawnEcho, kMaxEcho)
+        << "the ceiling of the document nobody chose is no wider than the one "
+           "the equality pins, so the hexadecimal the journal draws for itself "
+           "can reach it";
+
+    EXPECT_EQ(kMaxEcho, worst.size() + 1)
+        << "the ceiling is " << kMaxEcho << " while this tree gives back at "
+           "most " << worst.size() << " bytes of a value a client sent, at "
+        << worstLabel << ", on the run \"" << worst << "\". Everything between "
+           "the two is a window this suite cannot see into: either a leak has "
+           "widened the overlap, or the fixture has, and the ceiling to write "
+           "is " << (worst.size() + 1) << ".";
+}
+
+/*
+ * THE FIXTURE, HELD TO THE SAME CEILING.
+ *
+ * A run two planted values share is republished by whichever carrier leaks
+ * first, so it raises the bound of every other one: the red set then names the
+ * fixture instead of the carrier.
+ */
+TEST_F(HttpRequestLogSecretTest, NoTwoPlantedValuesShareARunTheCeilingWouldNotAbsorb)
+{
+    std::string basicPlain = kBasicPlain;
+
+    struct Doc { std::string label; std::string text; };
+    const std::vector<Doc> docs = {
+        { "the bearer token", kBearerToken },
+        { "the session cookie", kSessionCookie },
+        { "the value of the unknown header", kFutureAuthValue },
+        { "the hmac nonce", kHmacNonce },
+        { "the hmac signature", kHmacSignature },
+        { "the user agent mark", kUserAgentMark },
+        { "the query password", kQueryPassword },
+        { "the Basic credential", basicPlain },
+        { "the base64 of the Basic credential", Utils::Base64_encode(basicPlain) },
+        { "the websocket frame password", kWsFramePassword },
+        { "the websocket invented value", kWsInventedSecret },
+        { "the camera password of io.xml", kCameraSecret },
+        { "the value of the invented key", kInventedKeySecret },
+        { "the credential of set_param", kSetParamSecret },
+        { "the content of the refused file", kRefusedContentSecret },
+    };
+
+    for (size_t i = 0; i < docs.size(); i++)
+    {
+        for (size_t j = i + 1; j < docs.size(); j++)
+        {
+            const std::string run = longestRun(docs[i].text, docs[j].text);
+            EXPECT_LT(run.size(), kMaxEcho)
+                << docs[i].label << " and " << docs[j].label << " share \""
+                << run << "\", " << run.size() << " bytes, which the ceiling of "
+                << kMaxEcho << " does not absorb: a leak at either one reddens "
+                   "the bound of the other and the red set stops naming a "
+                   "carrier.";
+        }
+    }
 }
 
 /*

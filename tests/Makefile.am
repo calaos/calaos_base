@@ -5205,3 +5205,11 @@ core_DriverAnswerSecret_test_DEPENDENCIES = $(DRIVER_ANSWER_TEST_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.96: a bounded-echo ceiling must be re-derived by its own suite. Half the
+# suites that carry one had the shape that keeps it honest and half did not,
+# because the shape spreads by hand, one suite at a time. This is the only
+# place that holds the class rather than each member of it.
+TESTS += check-echo-ceilings.sh
+dist_check_SCRIPTS += check-echo-ceilings.sh
+EXTRA_DIST += check-echo-ceilings.py
