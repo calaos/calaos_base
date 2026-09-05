@@ -22,13 +22,21 @@
 
 #include <base64.h>
 
+#include "json.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <iomanip>
 #include <random>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <typeinfo>
+
+#ifdef __GNUG__
+#include <cxxabi.h>
+#endif
 
 using namespace Utils;
 using namespace std;
@@ -652,4 +660,56 @@ std::string Utils::requestTargetForLog(const std::string &target)
         out << " #" << urlTag(withheld);
 
     return out.str();
+}
+
+static string exceptionTypeName(const std::exception &e)
+{
+    const char *raw = typeid(e).name();
+
+#ifdef __GNUG__
+    int status = 0;
+    char *readable = abi::__cxa_demangle(raw, nullptr, nullptr, &status);
+    if (status == 0 && readable)
+    {
+        const string named(readable);
+        free(readable);
+        return named;
+    }
+#endif
+
+    return raw;
+}
+
+std::string Utils::jsonErrorForLog(const std::exception &e, std::size_t inputSize)
+{
+    ostringstream out;
+
+    if (const nlohmann::json::parse_error *pe =
+            dynamic_cast<const nlohmann::json::parse_error *>(&e))
+        out << "json parse error " << pe->id << " at byte " << pe->byte;
+    else if (const nlohmann::json::exception *je =
+                 dynamic_cast<const nlohmann::json::exception *>(&e))
+        out << "json error " << je->id;
+    else
+        out << exceptionTypeName(e);
+
+    out << " (" << inputSize << " bytes)";
+
+    return out.str();
+}
+
+std::string Utils::jsonErrorForLog(const std::exception &e, std::istream &parsed)
+{
+    //The parse consumed the stream, so its length is the size of the document
+    //and asking the stream is the only way to have it after the fact. The
+    //failure bits are put back: a caller may still test the stream.
+    std::streamsize size = 0;
+    const std::ios::iostate state = parsed.rdstate();
+
+    parsed.clear();
+    if (parsed.seekg(0, std::ios::end))
+        size = static_cast<std::streamsize>(parsed.tellg());
+    parsed.clear(state);
+
+    return jsonErrorForLog(e, size < 0? 0: static_cast<std::size_t>(size));
 }

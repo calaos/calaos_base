@@ -187,7 +187,8 @@ string WebCtrl::getValueJson(string path, string filename, bool &err)
     catch (const std::exception &e)
     {
         err = true;
-        cWarning() << "Error parsing " << filename << ":" << e.what();
+        cWarning() << "Error parsing " << filename << ": "
+                   << Utils::jsonErrorForLog(e, ifs);
         return string();
     }
 

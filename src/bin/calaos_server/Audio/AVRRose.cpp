@@ -137,7 +137,8 @@ void AVRRose::registerDevice()
         }
         catch (const std::exception &e)
         {
-            cWarningDom("hifirose") << "Failed to parse device_connected response: " << e.what();
+            cWarningDom("hifirose") << "Failed to parse device_connected response: "
+                                    << Utils::jsonErrorForLog(e, data.size());
             // Retry registration after a delay
             Timer::singleShot(10.0, [this, wtag]()
             {
@@ -360,7 +361,8 @@ void AVRRose::pollStatus(std::function<void()> nextCb)
         }
         catch (const std::exception &e)
         {
-            cWarningDom("hifirose") << "Error parsing get_current_state: " << e.what();
+            cWarningDom("hifirose") << "Error parsing get_current_state: "
+                                    << Utils::jsonErrorForLog(e, data.size());
             deviceReachable = false;
             if (nextCb)
                 nextCb();
@@ -383,7 +385,8 @@ void AVRRose::pollStatus(std::function<void()> nextCb)
             }
             catch (const std::exception &e)
             {
-                cWarningDom("hifirose") << "Error parsing get_control_info: " << e.what();
+                cWarningDom("hifirose") << "Error parsing get_control_info: "
+                                        << Utils::jsonErrorForLog(e, dataRes.size());
             }
 
             // Get mute state
@@ -402,7 +405,8 @@ void AVRRose::pollStatus(std::function<void()> nextCb)
                 }
                 catch (const std::exception &e)
                 {
-                    cWarningDom("hifirose") << "Error parsing mute.state.get: " << e.what();
+                    cWarningDom("hifirose") << "Error parsing mute.state.get: "
+                                            << Utils::jsonErrorForLog(e, muteRes.size());
                 }
 
                 if (nextCb)

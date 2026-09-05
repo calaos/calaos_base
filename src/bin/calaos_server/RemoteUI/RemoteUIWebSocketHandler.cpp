@@ -148,7 +148,8 @@ void RemoteUIWebSocketHandler::processApi(const string &data, const Params &para
         }
         catch (const std::exception &e)
         {
-            cWarningDom(TAG) << "RemoteUIWebSocketHandler: JSON parse error: " << e.what();
+            cWarningDom(TAG) << "RemoteUIWebSocketHandler: JSON parse error: "
+                             << Utils::jsonErrorForLog(e, data.size());
         }
 
         if (parsed && message.contains("msg") && message["msg"].is_string())

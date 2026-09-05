@@ -81,6 +81,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <stdexcept>
 #include <functional>
 #include <map>
 #include <sstream>
@@ -97,6 +98,7 @@
 #include "Logger.h"
 #include "Params.h"
 #include "RemoteUIWebSocketHandler.h"
+#include "StringUtils.h"
 #include "WebCtrl.h"
 #include "json.hpp"
 #include "libuvw.h"
@@ -129,13 +131,20 @@ struct Site
     size_t errorByte = 0;  //where nlohmann says it stopped, computed here
 };
 
+/*
+ * The malformation is an invalid escape INSIDE the second string, so the token
+ * the parser quotes back starts at that string and carries `encoded`.
+ *
+ * Every document gets its OWN key names and its OWN locator: a shared skeleton
+ * makes a leak on one site redden the bound of another, and a red set is only
+ * readable as "which site" if the documents share no run worth publishing.
+ */
 std::string refusedDocument(const std::string &keyPlain, const std::string &plain,
-                            const std::string &keySecret, const std::string &encoded)
+                            const std::string &keySecret, const std::string &encoded,
+                            const std::string &locator, const std::string &host)
 {
-    //The malformation is an invalid escape INSIDE the second string, so the
-    //token the parser quotes back starts at that string and carries `encoded`.
     return "{\"" + keyPlain + "\":\"" + plain + "\",\"" + keySecret + "\":\"" +
-           "nfs://t7:" + encoded + "@169.254.9.6/\\q\"}";
+           locator + encoded + "@" + host + "/\\q\"}";
 }
 
 std::vector<Site> &sites()
@@ -156,29 +165,33 @@ std::vector<Site> &sites()
                       "Error parsing get_current_state",
                       "etat courant 4b71ee", "etat%20courant%204b71ee",
                       refusedDocument("etatLibelle", "etat courant 4b71ee",
-                                      "etatJeton", "etat%20courant%204b71ee"),
+                                      "etatJeton", "etat%20courant%204b71ee",
+                                      "ftp://e3:", "10.9.4.2"),
                       "hifirose" });
 
         v.push_back({ "rose_get_control_info", "hifirose",
                       "Error parsing get_control_info",
                       "reglage volume 91c0da", "reglage%20volume%2091c0da",
                       refusedDocument("reglageLibelle", "reglage volume 91c0da",
-                                      "reglageJeton", "reglage%20volume%2091c0da"),
+                                      "reglageJeton", "reglage%20volume%2091c0da",
+                                      "ldap://w2:", "192.168.55.3"),
                       "hifirose" });
 
         v.push_back({ "rose_mute_state_get", "hifirose",
                       "Error parsing mute.state.get",
                       "silence ampli 27fa63", "silence%20ampli%2027fa63",
                       refusedDocument("silenceLibelle", "silence ampli 27fa63",
-                                      "silenceJeton", "silence%20ampli%2027fa63"),
+                                      "silenceJeton", "silence%20ampli%2027fa63",
+                                      "smb://y6:", "203.0.113.7"),
                       "hifirose" });
 
         //Inbound: anything on the LAN can post to the notification port.
         v.push_back({ "rose_notification", "hifirose",
                       "Failed to parse notification JSON from",
-                      "notification bord 5e08b1", "notification%20bord%205e08b1",
-                      refusedDocument("notifLibelle", "notification bord 5e08b1",
-                                      "notifJeton", "notification%20bord%205e08b1"),
+                      "avis borne 5e08b1", "avis%20borne%205e08b1",
+                      refusedDocument("avisLibelle", "avis borne 5e08b1",
+                                      "avisJeton", "avis%20borne%205e08b1",
+                                      "ow://r4:", "172.31.8.4"),
                       "127.0.0.1" });
 
         //Inbound: a websocket text frame, which on this transport is where a
@@ -187,7 +200,8 @@ std::vector<Site> &sites()
                       "JSON parse error",
                       "session distante 6d34c9", "session%20distante%206d34c9",
                       refusedDocument("sessionLibelle", "session distante 6d34c9",
-                                      "sessionJeton", "session%20distante%206d34c9"),
+                                      "sessionJeton", "session%20distante%206d34c9",
+                                      "nfs://t5:", "198.51.100.9"),
                       "remote_ui" });
 
         //A document a third party web service answered, downloaded to a file.
@@ -195,14 +209,16 @@ std::vector<Site> &sites()
                       "Error parsing",
                       "service tiers 3a95f7", "service%20tiers%203a95f7",
                       refusedDocument("serviceLibelle", "service tiers 3a95f7",
-                                      "serviceJeton", "service%20tiers%203a95f7"),
+                                      "serviceJeton", "service%20tiers%203a95f7",
+                                      "sftp://k8:", "10.200.6.5"),
                       "webctrl_doc.json" });
 
         v.push_back({ "firmware_manifest", "ota",
                       "Failed to parse manifest",
                       "manifeste micro 82be40", "manifeste%20micro%2082be40",
                       refusedDocument("manifesteLibelle", "manifeste micro 82be40",
-                                      "manifesteJeton", "manifeste%20micro%2082be40"),
+                                      "manifesteJeton", "manifeste%20micro%2082be40",
+                                      "rtsp://m1:", "169.254.9.6"),
                       "manifest.json" });
 
         //The state cache this daemon writes itself, and ioparams is where the
@@ -243,12 +259,13 @@ size_t longestEcho(const std::string &log, const std::string &text)
     return best;
 }
 
-/* Above the incidental overlap, MEASURED with the ceiling lowered to 1 for one
- * round: the runs the journal shares with a document it is allowed to publish
- * are punctuation and short key fragments. Far below any excerpt of a refused
- * document worth publishing.
+/* Above the incidental overlap, MEASURED at 8 with the ceiling lowered to 1 for
+ * one round: the word `manifest`, which the manifest line names as part of the
+ * file it read and the document uses as a key fragment. The other eight sites
+ * are between 4 and 6, and the reducer itself between 2 and 3. Far below any
+ * excerpt of a refused document worth publishing.
  */
-const size_t kMaxEcho = 12;
+const size_t kMaxEcho = 10;
 
 bool someLineHasAll(const std::string &log, const std::string &a,
                     const std::string &b, const std::string &c)
@@ -920,6 +937,68 @@ TEST_F(ParseErrorFixtureTest, TheThreeFileSitesReallyReadTheDocumentThatWasPlant
         << "WebCtrl answered a value for a document that does not parse";
     EXPECT_FALSE(obs.manifestLoaded)
         << "the manifest loader accepted a document that is not json";
+}
+
+/*
+ * THE ONE PLACE ALL NINE NOW GO THROUGH, held to the same rule directly.
+ *
+ * The nine lines above prove what the sites publish today. This one holds the
+ * reducer itself: it is what a tenth catch block will call, and a reducer that
+ * gave a slice back would reopen the class in one line without touching any of
+ * the nine.
+ */
+TEST_F(ParseErrorFixtureTest, TheReducerGivesBackNothingOfWhatItWasHanded)
+{
+    for (const Site &s: sites())
+    {
+        SCOPED_TRACE(s.label);
+
+        std::string reduced;
+        size_t seenByte = 0;
+        try
+        {
+            nlohmann::json::parse(s.input);
+            FAIL() << "these bytes parse cleanly, so this case measures nothing";
+        }
+        catch (const nlohmann::json::parse_error &e)
+        {
+            seenByte = e.byte;
+            reduced = Utils::jsonErrorForLog(e, s.input.size());
+        }
+
+        ASSERT_NE(std::string::npos, s.input.find(s.encoded));
+
+        EXPECT_EQ(std::string::npos, reduced.find(s.plain)) << reduced;
+        EXPECT_EQ(std::string::npos, reduced.find(s.encoded)) << reduced;
+
+        const size_t echo = longestEcho(reduced, s.input);
+        EXPECT_LT(echo, kMaxEcho)
+            << "the reducer gives back " << echo << " consecutive bytes of what "
+               "it was handed: " << reduced;
+
+        EXPECT_NE(std::string::npos, reduced.find("byte " + std::to_string(seenByte)))
+            << reduced;
+        EXPECT_NE(std::string::npos,
+                  reduced.find(std::to_string(s.input.size()) + " bytes")) << reduced;
+    }
+}
+
+/*
+ * The catch blocks are spelled on std::exception, so what arrives is not always
+ * a json error - one of the nine has a throw of its own two lines above it.
+ * Naming the type is the most that can be said of an exception whose message
+ * this tree does not control.
+ */
+TEST_F(ParseErrorFixtureTest, TheReducerNeverPublishesTheMessageOfAnythingElse)
+{
+    const std::string secret = "message%20porteur%20de%20secret";
+    const std::invalid_argument thrown("cache refused: " + secret);
+
+    const std::string reduced = Utils::jsonErrorForLog(thrown, 41);
+
+    EXPECT_EQ(std::string::npos, reduced.find(secret)) << reduced;
+    EXPECT_NE(std::string::npos, reduced.find("invalid_argument")) << reduced;
+    EXPECT_NE(std::string::npos, reduced.find("41 bytes")) << reduced;
 }
 
 class StockLevelTest: public ::testing::Test {};

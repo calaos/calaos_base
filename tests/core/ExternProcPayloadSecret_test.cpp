@@ -730,10 +730,18 @@ TEST_F(ExternProcPayloadSecretTest, TripwireSource_TheRegistrationAnswerPublishe
 
     /*
      * What a journal may carry out of this handler: literal text, the device
-     * this server was configured for, and the parse error of an answer that is
-     * not JSON at all. Everything else is a value that came from the wire.
+     * this server was configured for, and the REDUCED form of a parse failure.
+     *
+     * ⛔ `e.what()` used to stand in this list, on the ground that a parse
+     * error names no field of the answer. It names none, and it quotes the
+     * slice the parser choked on - the token value included - so the list was
+     * enumerating the leak on the allowed side. Only the reducer may stand
+     * here: it publishes the error id, the byte and the size, never a byte of
+     * what it was handed.
      */
-    static const char *const kPublishable[] = { "host", "e.what()" };
+    static const char *const kPublishable[] = {
+        "host", "Utils::jsonErrorForLog(e, data.size())"
+    };
 
     std::vector<std::string> offenders;
     int examined = 0;

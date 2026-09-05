@@ -223,7 +223,8 @@ void AVRRoseNotifServer::processHttpRequest(const string &remoteIP, const string
     }
     catch (const std::exception &e)
     {
-        cWarningDom("hifirose") << "Failed to parse notification JSON from " << remoteIP << ": " << e.what();
+        cWarningDom("hifirose") << "Failed to parse notification JSON from " << remoteIP
+                                << ": " << Utils::jsonErrorForLog(e, body.size());
         return;
     }
 

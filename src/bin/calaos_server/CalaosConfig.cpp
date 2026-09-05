@@ -536,7 +536,8 @@ void Config::loadStateCache()
     }
     catch (const std::exception &e)
     {
-        cWarning() << "Error parsing " << file << ": " << e.what()
+        cWarning() << "Error parsing " << file << ": "
+                   << Utils::jsonErrorForLog(e, cacheStream)
                    << " - starting with an empty state cache";
         cache_states.clear();
         cache_params.clear();

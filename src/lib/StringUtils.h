@@ -25,6 +25,9 @@
 #include <vector>
 #include <sstream>
 #include <locale>
+#include <cstddef>
+#include <exception>
+#include <istream>
 #include <ctype.h>
 
 //-----------------------------------------------------------------------------
@@ -76,6 +79,17 @@ std::string urlForLog(const std::string &url);
  * apart. An absolute target (a proxy-style request line) is handed to
  * urlForLog, which knows about userinfo. */
 std::string requestTargetForLog(const std::string &target);
+
+/* WHAT MAY BE PUBLISHED OF A DOCUMENT A PARSER REFUSED. The message of a
+ * nlohmann exception QUOTES THE INPUT - `last read: '<the token it choked
+ * on>'` - so e.what() carries bytes this end has by definition failed to
+ * understand, and what they are is not knowable where the catch sits. That is
+ * also why no sensor spelled on the name of a secret sees them leave. The id,
+ * the byte the parser stopped at and the size are computed by the library and
+ * copied from nothing: which failure, where, on how much. Anything else is
+ * named by its TYPE, a compile time constant. */
+std::string jsonErrorForLog(const std::exception &e, std::size_t inputSize);
+std::string jsonErrorForLog(const std::exception &e, std::istream &parsed);
 std::string escape_space(const std::string &s);
 
 enum CaseSensitivity { CaseInsensitive, CaseSensitive };

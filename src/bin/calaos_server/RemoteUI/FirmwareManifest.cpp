@@ -45,15 +45,17 @@ bool FirmwareManifest::loadFromFile(const string &manifestPath)
     else
         directory = ".";
 
+    //Opened outside the try so the failure line can ask the stream how big
+    //the document was: the parser's own message is not publishable.
+    std::ifstream file(manifestPath);
+    if (!file.is_open())
+    {
+        cWarningDom(TAG) << "Failed to open manifest file: " << manifestPath;
+        return false;
+    }
+
     try
     {
-        std::ifstream file(manifestPath);
-        if (!file.is_open())
-        {
-            cWarningDom(TAG) << "Failed to open manifest file: " << manifestPath;
-            return false;
-        }
-
         Json manifest = Json::parse(file);
 
         // Parse required fields
@@ -113,7 +115,8 @@ bool FirmwareManifest::loadFromFile(const string &manifestPath)
     }
     catch (const std::exception &e)
     {
-        cWarningDom(TAG) << "Failed to parse manifest " << manifestPath << ": " << e.what();
+        cWarningDom(TAG) << "Failed to parse manifest " << manifestPath << ": "
+                         << Utils::jsonErrorForLog(e, file);
         return false;
     }
 }
