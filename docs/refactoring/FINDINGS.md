@@ -9155,6 +9155,13 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   ⛔ **La moitié ACTIONS reste ouverte**, épinglée comme telle par un cas témoin **vert des deux
   côtés** (`S_AnActionCarryingAControlByteStillCrossesTheApi`) : elle ne se rouvre que si quelqu'un
   décide que le NUL ne doit plus traverser l'autoscénario, et c'est alors E4.6d qu'on rediscute.
+  ⭐⛔ **ET ELLE EST PLUS LARGE QUE `io.xml` — mesuré à la revue de merge de `T3.72`** : la valeur
+  d'action devient aussi l'attribut `val` d'une action de règle (`ActionStd::SaveToXml()`), donc
+  **`rules.xml` porte le même `&#01;`**. Le témoin l'asserte désormais sur les **deux** fichiers.
+  ⇒ ce n'est pas « `rules.xml` n'est pas gardé » comme trou séparé : `JsonApi` n'a **aucun verbe
+  d'écriture de règle** (les règles viennent de `calaos_installer`), et cette moitié-ci est le seul
+  chemin par lequel des octets d'un tiers y arrivent. La fermer ferme les deux fichiers —
+  [`T3.104`](T3.104.md).
   ⇒ **`F-XML-2` reste OUVERT sur cette moitié-là.**
 
   *Rédaction d'origine de la proposition* : refuser le zéro sur le seul **nom** dans
@@ -9178,9 +9185,10 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   **au-dessus** de `#x7F` (`#xFFFE`, `#xFFFF`, demi-surrogates) ne sont pas vus. Voir
   [`T3.72.md`](T3.72.md) §9.
 
-- ℹ️ **[F-XML-3, constat d'origine] Les autres contrôles C0 ne cassent pas l'écriture, mais `io.xml`
-  cesse d'être du XML 1.0 conforme.** **Mesuré** par
-  `core/IoParamNulGuard_test::M_AnotherC0ControlByteIsEscapedAndSurvivesTheRoundTrip` : un `0x01`
+- ℹ️ **[F-XML-3, constat d'origine — le cas qui le mesurait N'EXISTE PLUS]** Les autres contrôles C0
+  ne cassaient pas l'écriture, mais `io.xml` cessait d'être du XML 1.0 conforme. **Mesuré** à l'époque par
+  `core/IoParamNulGuard_test::M_AnotherC0ControlByteIsEscapedAndSurvivesTheRoundTrip`, ⚠️ **supprimé par**
+  **[`T3.72`](T3.72.md)** : il épinglait le comportement que la rupture retire. Ce qu'il décrivait — un `0x01`
   dans une valeur est écrit **`t366_ctrl="head&#01;tail"`** — une **référence de caractère**, pas
   l'octet brut — rien n'est coupé, aucun attribut voisin n'est touché, et l'aller-retour par le
   disque est **fidèle**. ⇒ **le zéro est bien le seul octet qui casse l'écriture**, parce qu'il est
@@ -9201,7 +9209,10 @@ ment »), mesurée une fois de plus, sur un ticket dont l'exactitude était l'un
   seul octet nul mais **29 points de code**, si bien que l'ensemble des entrées produisant un **no-op
   muet** aux trois sites ci-dessous grandit d'autant. Ce n'est pas une régression neuve — c'est le même
   défaut avec une porte plus large — et `T3.72` le dit dans sa section « nu » plutôt que de le laisser
-  découvrir. ⇒ **`F-XML-4` reste OUVERT.** Recompté au
+  découvrir. ⭐ **Vérifié à la revue de merge** : les trois sites sont bien sur des chemins
+  d'écriture atteignables de l'extérieur, mais `set_param()` **journalise chaque refus** sur ses deux
+  branches — ce qui manque là-bas est la **réponse au client**, pas la trace, et le fichier de
+  configuration reste sain dans tous les cas. ⇒ **`F-XML-4` reste OUVERT.** Recompté au
   merge de [`T3.66`](T3.66.md) : **~100 appels** dans `src/`, **2 testent le retour**
   (`JsonApi::buildJsonSetParam()`, `JsonApi::buildAutoscenarioModify()`). ⭐ **La quasi-totalité des
   ~98 autres passe des littéraux internes** (`set_param("gui_type", "light")`, `"visible"`,

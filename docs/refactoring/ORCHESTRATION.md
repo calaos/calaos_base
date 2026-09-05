@@ -29,10 +29,10 @@
        ([`T3.66`](T3.66.md), `c604e9f1`), `F-XML-1` **FERMÉ**.
      - **La lecture des scénarios par le sidecar MCP** → tranché (décision de produit).
      - **L'indentation du journal** (`F-JSON-2`) → tranché.
-     ⚠️ **Ce qui reste ouvert n'est PAS un arbitrage mais trois findings** : `F-XML-2` (chemins
-     d'écriture non gardés, ticket proposé `T3.71`), `F-XML-3` (`&#01;` non conforme XML 1.0,
-     ticket proposé `T3.72`), `F-XML-4` (le `bool` de `set_param()` ignoré là où le refus est
-     atteignable).
+     ⚠️ **Ce qui restait ouvert n'était PAS un arbitrage mais trois findings** : `F-XML-2`, `F-XML-3`,
+     `F-XML-4`. ✅ **Depuis** : `F-XML-3` **FERMÉ** par [`T3.72`](T3.72.md) et la moitié **NOM** de
+     `F-XML-2` par [`T3.71`](T3.71.md) ; il reste la moitié **actions** de `F-XML-2`
+     ([`T3.104`](T3.104.md)) et `F-XML-4`, dont le rayon s'est **élargi**.
   3. ⚠️ **CE QUI RESTE À VÉRIFIER AU PREMIER `push` — IL N'EN RESTE PLUS QU'UN.** ✅ Le second point
      est **tombé** : l'image a été reconstruite et la sonde de conformité **passe** (voir 1), donc
      « la sonde stricte s'exécute vraiment sur une image conforme » est désormais **mesuré** et non
@@ -40,8 +40,63 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-05, APRÈS LE MERGE DE [`T3.102`](T3.102.md)) — LE
-  DERNIER MERGE DE LA SESSION. À LIRE EN PREMIER À FROID.**
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-05, APRÈS LE MERGE DE [`T3.72`](T3.72.md) +
+  [`T3.71`](T3.71.md)) — LE DERNIER MERGE DE LA SESSION. À LIRE EN PREMIER À FROID.**
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`8aa61619`**
+  (branche `fix/t3.72`, **5 commits** : 3 du développeur + 2 de la revue de merge). `TESTS` =
+  **133**, référence de build après `make distclean` :
+  **`TOTAL 133 / PASS 132 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
+  `check-ccache-honesty.sh`, **0 `error:`**, **11 `CXXLD`** au `make -j32` et **124** au
+  `make check -j16`, **3 `make check` d'affilée identiques**.
+  ⛔ **RIEN N'A ÉTÉ POUSSÉ DE TOUTE LA SÉRIE.**
+
+  ⭐⭐ **LES QUATRE ARBITRAGES DU 2026-09-05 — leur état à cette heure, TOUS RÉSOLUS SAUF LE PREMIER :**
+  1. **Le `push`** → ⏸ **TOUJOURS DIFFÉRÉ** à la fin du backlog, en une seule fois.
+     ⛔ **`push` interdit jusqu'à nouvel ordre**, y compris pour un agent qui croirait bien faire.
+  2. [`T3.82`](T3.82.md) → ✅ **PAR LA SOCKET** — ✅ **FAIT et MERGÉ** (`376e987e`).
+  3. [`T3.72`](T3.72.md) → ✅ **REFUS À L'ÉCRITURE** de `&#01;` — ✅ **FAIT et MERGÉ.** `F-XML-3`
+     **FERMÉ**. Rupture de compatibilité assumée, entrée dans [`RELEASE_NOTES.md`](RELEASE_NOTES.md).
+  4. `T3.71` → ✅ **ALIGNER `create` SUR LE REFUS** — ✅ **FAIT et MERGÉ**, dans les mêmes commits.
+     Moitié **NOM** de `F-XML-2` fermée ; moitié **actions** ouverte à dessein ⇒ [`T3.104`](T3.104.md).
+
+  **Tickets ouverts, une ligne chacun :**
+  - `T3.91` — proposé, fiche non écrite.
+  - **`T3.100`** — la fixture d'une suite calibrée est un objet **contraint** et rien ne le dit à qui
+    y ajoutera un document ; le filet rougit **après** coup.
+  - **`T3.101`** — `ExternProc` relaie hors de tout journal ce que ses **sept** familles de sidecars
+    impriment ; **seul en face des 2 sites qui comptent**.
+  - **[`T3.103`](T3.103.md)** — `calaos_mqtt` sort avec le code 0 et sans une ligne quand la connexion au courtier
+    échoue en asynchrone (`F-EXTPROC-9`).
+  - **[`T3.104`](T3.104.md)** — ⛔ **la moitié ACTIONS de `F-XML-2`**, seul chemin par lequel des octets d'un tiers
+    arrivent encore dans `io.xml` **et** dans `rules.xml`. **Rouvre un arbitrage** (E4.6d) : décision
+    utilisateur avant écriture.
+  ⚠️ Numéros **pris** : `T3.76` → `T3.104`. Le prochain libre est **`T3.105`**.
+
+  ⭐ **CE QUE LA REVUE DE `T3.72` LAISSE DERRIÈRE ELLE, ET QUI SERT AUX SUIVANTS :**
+  - ⭐⭐ **« Un seul prédicat, deux appelants » est une phrase à VÉRIFIER À LA SOURCE, jamais à
+    croire.** Ici il y avait **deux copies de la règle** à trois lignes d'écart, et les deux appelants
+    n'appelaient pas la même. La contre-mutation qui l'a montré est celle qu'aucune campagne ne fait
+    spontanément : **changer *une* exception dans *une seule* des deux copies**. Elle donnait **0
+    rouge sur 133 suites**. *À recopier dans tout brief qui pose un prédicat partagé : mutez chaque
+    corps séparément, pas la règle en général.*
+  - ⭐ **Une garde de sérialiseur posée dans la classe de base ne garde presque rien** :
+    `IOBase::SaveToXml()` est **surchargée** par `IntValue`, `InPlageHoraire`, `IPCam`,
+    `AudioPlayer`, `AVReceiver`, `RemoteUI`, et chaque surcharge **recopie** la boucle
+    `get_params()` → `setAttribute()`. Mesuré : la mutation qui garde la seule classe de base laisse
+    le cas de la configuration héritée **vert**.
+  - ⛔ **Le quatrième faux vert de campagne de mutation est consigné** : `| head` sur un harnais qui
+    restaure ⇒ SIGPIPE avant la restauration, avec les `cmp rc=0` du tour **précédent** à l'écran.
+    Section propre plus bas, à côté de ses trois frères.
+
+  **Ce qui attend l'utilisateur, et rien d'autre :**
+  1. ⛔ **Le job CI chez GitHub n'a JAMAIS tourné.** Le `push` est **différé, pas refusé** : il se
+     fera **en une fois, à la fin du backlog** (arbitrage 1). C'est le seul point de vérification
+     ouvert depuis `T3.67`.
+  2. ⛔ **[`T3.104`](T3.104.md) demande une décision** avant d'être écrit : fermer la moitié actions
+     de `F-XML-2`, c'est rediscuter E4.6d.
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-05, APRÈS LE MERGE DE [`T3.102`](T3.102.md)) — conservé
+  pour l'historique.**
   Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`ead0d3c1`**
   (branche `cleanup/t3.102`, 3 commits : 2 du développeur + 1 de la revue de merge). `TESTS` =
   **133**, référence de build après `make distclean` :
@@ -10930,6 +10985,33 @@ s'accumulaient en silence**. Toute la campagne a dû être jetée et refaite.
 ⚠️ **Et le symptôme est le même que celui du `git checkout` dans le conteneur** : un cumul de
 mutations rougit **plus**, donc le résultat a l'air *meilleur*. Rien dans la sortie ne signale
 l'anomalie.
+
+## ⛔⭐ Outillage — TRONQUER LA SORTIE D'UN HARNAIS AVEC `head` LE TUE AVANT SA RESTAURATION (T3.72, 2026-09-05)
+
+**Quatrième membre de la même famille que `_DEPENDENCIES`, que le `git checkout` dans le conteneur
+et que la restauration qui garde sa date : l'outil rend un chiffre, et le chiffre ne mesure pas ce
+qu'on croit.**
+
+Vécu en `T3.72` : le harnais de contre-mutation était appelé à travers un `| head` pour n'en lire
+que le résumé. `head` ferme le tuyau dès qu'il a ses lignes, le script prend un **SIGPIPE** et
+**meurt avant d'exécuter sa restauration** — en ayant tout de même affiché, avant de mourir, les
+lignes `cmp rc=0` du tour **précédent**. La mutation reste donc dans l'arbre pendant que la sortie
+lue affirme qu'elle en est sortie.
+
+⚠️ **Pourquoi c'est le même piège** : la preuve de restauration exigée par les deux sections
+ci-dessus est **présente à l'écran** et **fausse**, parce qu'elle date d'un tour antérieur. Un `cmp`
+du tour d'avant est exactement le faux témoignage que ce protocole existe pour interdire, et le
+symptôme est le même — les mutations s'empilent, donc l'ensemble rouge grossit et le résultat a l'air
+*meilleur*.
+
+**Parade — trois règles :**
+
+1. ⛔ **Ne jamais tronquer la sortie d'un script qui restaure.** Ni `| head`, ni `| head -n`, ni un
+   lecteur qui ferme tôt.
+2. ✅ **Filtrer avec `tail`**, qui lit tout avant d'écrire, ou écrire le journal complet dans un
+   fichier et le relire ensuite.
+3. ✅ **Après tout tour de campagne, un `git status` sur l'HÔTE**, dans le worktree : c'est ce qui a
+   rattrapé le coup, et c'est la seule vérification qui ne dépend d'aucune sortie du harnais.
 
 ## ⭐ Outillage — `distcheck` est utilisable, à condition de le paralléliser soi-même
 

@@ -2761,8 +2761,12 @@ verbe. Les deux répondent maintenant la même chose,
   informations d'un écran distant lors de son appairage **ignore** simplement le champ concerné.
   ⭐ **Dans tous les cas le fichier de configuration reste sain** ; ce qui manque est un message,
   pas une protection.
-- **`rules.xml` n'est pas concerné par ce correctif.** Les noms de règles et les valeurs de leurs
-  conditions et actions peuvent encore porter ces caractères.
+- **`rules.xml` n'est pas concerné par ce correctif** — et c'est le même point que celui du dessus
+  vu depuis l'autre fichier : la valeur d'une action d'auto-scénario devient aussi une valeur
+  d'action de règle, si bien qu'elle arrive **dans `rules.xml` également**. Aucune commande de
+  l'API n'écrit de règle autrement (les règles sont écrites par `calaos_installer`), donc la seule
+  chose à éviter reste la même : **pas de caractère de contrôle dans la valeur d'une action
+  d'auto-scénario**.
 
 ## 📦 Intégration continue : les 42 tests Python s'exécutent enfin, et un `SKIP` n'y est plus silencieux
 
