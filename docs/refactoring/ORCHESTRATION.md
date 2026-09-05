@@ -40,6 +40,84 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
+- **✅⭐⭐ [`T3.81`](T3.81.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête sur `master` : **le commit de revue qui porte ce paragraphe** (2026-09-05). La
+  branche partait de `65cb137a` et `master` était à `f2a5462b` ⇒ **rebase**, avec le conflit
+  d'append attendu sur `tests/Makefile.am` (T3.80 y avait appendu elle aussi).
+  ⭐ **Résolu par RÉGÉNÉRATION, jamais par édition de marqueur** — `git show master:tests/Makefile.am`
+  en entier + append **verbatim** de la queue de la branche — et **prouvé append pur** : `diff`
+  **+37 / −0 / ~0**, **hunk unique** `4811a4812,4848`, `master` **préfixe strict** octet à octet,
+  `^if` 103 → 104 ≡ `^endif` 103 → 104 (`^if HAVE_GTEST` 102 → 103), **profondeur finale 0, minimum
+  0, jamais négative**. Second conflit sur `BOARD.md` (ligne T3.80 des deux côtés), résolu ligne à
+  ligne, **6 colonnes / 7 barres** revérifiées sur toutes les lignes `T3.8x`.
+  ⭐ **`TESTS` 121 → 122 recompté des deux côtés** — la fiche annonçait `120 → 121` **depuis sa
+  base**, corrigé. Build de merge après `make distclean` : **`TOTAL 122 / PASS 121 / SKIP 1 /
+  FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, rc 0, **0 `error:`**, un seul `Testsuite summary`,
+  `check-test-deps.sh` **PASS**, seul `SKIP` `check-ccache-honesty.sh`. ⛔ **Rien poussé.**
+
+  ⭐⭐ **LE POINT FAIBLE ANNONCÉ DE LA LIVRAISON EST FERMÉ ICI.** La suite posait `debug_level=5`
+  dans son propre `main()` et ne mesurait donc **rien** du niveau par défaut — alors que le défaut
+  fermé était précisément « imprimé au niveau par défaut ». Un cas neuf **forke un enfant avant que
+  le niveau ne soit levé** (la table de domaines du `Logger` se remplit une fois et n'est jamais
+  relue : c'est la seule façon de l'observer dans le même binaire), et épingle **les deux moitiés de
+  la gravité** : `hifirose` **imprime à INFO** sur un boîtier neuf, `process` **n'imprime pas à
+  DEBUG**. Les deux étaient de la prose partout ailleurs dans la fiche.
+
+  ⛔⭐ **UNE AFFIRMATION EST INVALIDÉE — et c'est la citation du mécanisme du niveau par défaut.**
+  Le niveau d'un boîtier neuf ne vient **pas** de `.def("4")` de `ConfigOptions.cpp` quand l'option
+  n'a jamais été écrite : `Utils::get_config_option()` prend en second argument **`no_logger_out`**,
+  pas « rendre le défaut », et ne consulte donc **jamais** le registre `ConfigOptions`. Il vient du
+  repli **`LOG_LEVEL_INFO` codé dans `Logger::maxLevelPrintable()`**. Mesuré : `.def("4")` ↔
+  `.def("5")` ⇒ **0 rouge** sur la sonde de niveau (2 rouges ailleurs) ; le repli du `Logger` ↔
+  `LOG_LEVEL_DEBUG` ⇒ **rouge**. **La conclusion tient, la citation non.**
+
+  ⭐ **Trois contre-mutations de la revue, par échange, au site de production, `cmp` rc 0 × 4,
+  `CXXLD` lus, ⛔ aucun `git` dans le conteneur** : **V1** (repli de niveau du `Logger`) **1 rouge**
+  dans la suite, verbatim *the process domain prints at DEBUG on a stock install* · ⛔⭐ **V2** — la
+  ligne d'enregistrement d'`AVRRose` **garde tous ses champs sûrs** et gagne `<< data`, c'est-à-dire
+  le **corps de réponse entier**, celui d'où le jeton est extrait, **à INFO donc au niveau imprimé
+  par défaut** — ⛔ **0 rouge**. **C'est pire que la lacune `R1` que la fiche déclarait** : `R1`
+  recopiait le jeton sous un autre nom, `V2` ne le nomme même pas ; le tripwire est orthographié sur
+  l'**identifiant** et ne voit pas une valeur qui ne le cite pas. ⇒ **la classe « le jeton n'atteint
+  aucun journal » n'est pas fermée**, et elle se ferme du côté de [`T3.83`](T3.83.md) · **V3**
+  (`procName` vidé) **1 rouge**, **et elle a corrigé le contrepoids** : l'assertion « le journal dit
+  QUEL sidecar » cherchait `reolink` **n'importe où** dans la sortie, or le mot y figure déjà cinq
+  fois sans rapport avec l'échange (chemin de socket, `--namespace`, domaine du contrôleur) — la
+  mutation aurait été **verte**. Le nom doit désormais être **sur la ligne de transport elle-même**,
+  dans les deux sens.
+
+  ⭐ **Recensement RECOMPTÉ et corrigé** : **18** appels côté serveur répartis sur **sept**
+  composants (+6 par le relais `RoonCtrl::sendMessage()`), **13** côté sidecar. « Seize appels dont
+  onze » ne se reproduit sous aucune convention ; en revanche **les sept composants sont exhaustifs**
+  et **un seul porte un identifiant** (Reolink), Lua faisant passer du texte libre de configuration.
+  ⚠️ **Le caviardage Python est incomplet EN RÈGLE, pas EN SERVICE** : deux noms et premier niveau —
+  exact — mais le seul message que le serveur envoie à ce sidecar est `register`, plat, et ses deux
+  clefs sont couvertes. L'argument reste bon, il est **structurel** et non empirique ; la fiche le
+  disait « observé en service », c'est corrigé.
+
+  ⚠️ **Le troisième chemin d'erreur est confirmé, et le secret PEUT y passer** : `ReolinkCtrl`
+  republie à **ERROR** la clef `message` que le sidecar a remplie avec
+  `f"Failed to connect to camera {hostname}: {str(e)}"` — le texte d'une exception de la
+  bibliothèque caméra tierce, levée par l'appel qui vient d'essayer de s'authentifier **avec les
+  identifiants**. Rien ne contraint ce texte et ERROR est imprimé par défaut ⇒ **ticket
+  [`T3.85`](T3.85.md)**, finding `F-LOGSECRET-2`. ✅ **`T3.83` vérifié exact** (`AVRRose::postRequest()`
+  passe bien par `UrlDownloader` sur la branche qui publie `m_downloadedData`), ⚠️ mais à **DEBUG**,
+  un cran sous le défaut fermé ici — même famille, périmètre bien plus large.
+
+  ⭐⭐ **QUESTION EN ATTENTE POUR L'UTILISATEUR — À TRANCHER, LA REVUE NE TRANCHE PAS.** Telle qu'elle
+  a été posée : *« ni T3.79 ni T3.81 n'ont ajouté d'entrée à `RELEASE_NOTES.md`, par cohérence entre
+  elles. Deux correctifs de sécurité sans note de publication — à trancher pour les deux
+  ensemble. »* ⛔ **Vérifié aux sources, la prémisse est fausse pour moitié** : **`T3.79` A BIEN
+  ajouté une note** (`034c4f3f`, 20 lignes, section « Sécurité & réseau », « Votre mot de passe de
+  courtier MQTT n'apparaît plus dans les journaux »). **Seule `T3.81` n'en a pas.** La question
+  devient donc : **faut-il écrire pour `T3.81` la note qui manque, sur le modèle de celle de
+  `T3.79`** — un jeton d'appareil audio qui partait au niveau par défaut, et un mot de passe de
+  caméra qui partait dès que DEBUG était allumé ? **Non tranché ici.**
+
+  **État de la session au sortir de ce merge** : `master` = le commit de revue qui porte ce
+  paragraphe, rien de poussé, historique linéaire. Worktree `.wave107/t3.81` supprimé, branche
+  `fix/t3.81` supprimée.
+
 - **✅⭐⭐ [`T3.80`](T3.80.md) MERGÉE — 2 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **le commit de revue qui porte ce paragraphe** (2026-09-05). La
   branche partait de `65cb137a` et `master` n'avait pas bougé ⇒ **aucun rebase**.

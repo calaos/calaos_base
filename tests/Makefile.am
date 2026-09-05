@@ -4826,7 +4826,10 @@ endif
 #first one, and a journal must still say that a message was exchanged, with
 #which sidecar, of which frame type and of what size. The fourth is a source
 #tripwire on Audio/AVRRose.cpp, whose device token no test process can reach:
-#that line needs a stubbed HTTPS answer from the amplifier.
+#that line needs a stubbed HTTPS answer from the amplifier. The fifth forks a
+#child that never raises the level, because the two severities this ticket
+#rests on - INFO printed on a stock install, DEBUG not - cannot be observed by
+#a process that has already raised it.
 #No core fixture here - the controller needs no config model, and main() has to
 #raise debug_level before the first log line of the process (the Logger domain
 #map is filled once and never re-read). CALAOS_TOP_SRCDIR feeds the tripwire.

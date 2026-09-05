@@ -62,6 +62,10 @@
  * involved, and the hifi rose token of the fourth case is held by a source
  * tripwire - reaching that line needs a stubbed HTTPS answer from the
  * amplifier, which no harness of this tree provides.
+ *
+ * The two levels the severity rests on are measured by the last case, in a
+ * forked child: this process raises the level in its own main() and can no
+ * longer see the one a box ships with.
  ******************************************************************************/
 
 #include <gtest/gtest.h>
@@ -72,6 +76,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/un.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <chrono>
@@ -146,6 +151,21 @@ int countOccurrences(const std::string &haystack, const std::string &needle)
     return n;
 }
 
+//Whether SOME single line carries both needles. The sidecar name also appears
+//on the launch line of every run, so looking for it anywhere in the log would
+//be satisfied by a line that has nothing to do with the exchange.
+bool someLineHasBoth(const std::string &log, const std::string &a, const std::string &b)
+{
+    std::istringstream in(log);
+    std::string line;
+    while (std::getline(in, line))
+    {
+        if (line.find(a) != std::string::npos && line.find(b) != std::string::npos)
+            return true;
+    }
+    return false;
+}
+
 //Collapse runs of whitespace so a source tripwire matches any layout of the
 //same tokens instead of going red on a re-indent, and so a statement spread
 //over several lines is one string. Same helper, same reason, as
@@ -172,6 +192,90 @@ std::string collapseWhitespace(const std::string &src)
     }
 
     return out;
+}
+
+/*
+ * ⚠️ WHAT A BOX PRINTS WITH NOBODY TOUCHING ANYTHING, measured in a child.
+ *
+ * The Logger fills its domain map once, from debug_level, and never re-reads
+ * it: a process that has raised the level can no longer observe the default.
+ * The child never raises it, so it sees the shipped one - and it has to be
+ * forked before this process has an event loop or a spawned sidecar to
+ * duplicate.
+ */
+struct DefaultLevelProbe
+{
+    bool ran = false;
+    bool infoPrinted = false;
+    bool debugPrinted = false;
+};
+
+DefaultLevelProbe &defaultLevelProbe()
+{
+    static DefaultLevelProbe probe;
+    return probe;
+}
+
+void measureStockLogLevel()
+{
+    int fds[2];
+    if (::pipe(fds) != 0)
+        return;
+
+    const pid_t pid = ::fork();
+    if (pid < 0)
+    {
+        ::close(fds[0]);
+        ::close(fds[1]);
+        return;
+    }
+
+    if (pid == 0)
+    {
+        ::close(fds[0]);
+
+        unsigned char answer = 0;
+        char tmpl[] = "/tmp/calaos_payloadsecret_stock_XXXXXX";
+        const char *base = ::mkdtemp(tmpl);
+        if (base)
+        {
+            const std::string cfg = std::string(base) + "/config";
+            const std::string cache = std::string(base) + "/cache";
+            ::mkdir(cfg.c_str(), 0700);
+            ::mkdir(cache.c_str(), 0700);
+
+            //Nothing is set afterwards: this is a stock install.
+            Utils::initConfigOptions(const_cast<char *>(cfg.c_str()),
+                                     const_cast<char *>(cache.c_str()), true);
+
+            answer = 0x4;
+            if (Utils::calaosLogger("hifirose")->isLevelEnabled(Logger::LOG_LEVEL_INFO))
+                answer |= 0x1;
+            if (Utils::calaosLogger("process")->isLevelEnabled(Logger::LOG_LEVEL_DEBUG))
+                answer |= 0x2;
+        }
+
+        if (::write(fds[1], &answer, 1) != 1)
+            answer = 0;
+        ::close(fds[1]);
+        _exit(0);
+    }
+
+    ::close(fds[1]);
+
+    unsigned char answer = 0;
+    const ssize_t got = ::read(fds[0], &answer, 1);
+    ::close(fds[0]);
+
+    int status = 0;
+    ::waitpid(pid, &status, 0);
+
+    if (got == 1 && (answer & 0x4))
+    {
+        defaultLevelProbe().ran = true;
+        defaultLevelProbe().infoPrinted = (answer & 0x1) != 0;
+        defaultLevelProbe().debugPrinted = (answer & 0x2) != 0;
+    }
 }
 
 std::string captureStdout(const std::function<void()> &fn)
@@ -507,9 +611,12 @@ TEST_F(ExternProcPayloadSecretTest, TheLogStillNamesTheSidecarAndSizesItsFrames)
     EXPECT_LE(1, countOccurrences(obs.log, kFrameMarker))
         << "nothing at all is written when a frame arrives from a sidecar. "
            "Log: " << obs.log;
-    EXPECT_NE(std::string::npos, obs.log.find(kNamespace))
-        << "the journal does not say WHICH sidecar the message was exchanged "
-           "with: " << obs.log;
+    EXPECT_TRUE(someLineHasBoth(obs.log, kWriteMarker, kNamespace))
+        << "the line written when a message LEAVES does not say which sidecar "
+           "it left for: " << obs.log;
+    EXPECT_TRUE(someLineHasBoth(obs.log, kFrameMarker, kNamespace))
+        << "the line written when a frame ARRIVES does not say which sidecar "
+           "it came from: " << obs.log;
 
     //The size of the registration message, which is what the transport can
     //publish about a payload it does not understand.
@@ -578,8 +685,8 @@ TEST_F(ExternProcPayloadSecretTest, AnIncomingFieldTheServerNeverReadsIsNotDumpe
  * would otherwise make this case vacuously green.
  *
  * ⛔ Its blind spot, named: a copy under another name (`auto t = roseToken;`)
- * then streamed would pass. That is the same class as the sidecar tripwires of
- * T3.79 and it is not closable by one more spelling.
+ * then streamed would pass. That is the same class as the tripwires that hold
+ * the sidecar mains, and it is not closable by one more spelling.
  */
 TEST_F(ExternProcPayloadSecretTest, TripwireSource_TheHifiRoseTokenIsNeverStreamedToALogLine)
 {
@@ -635,6 +742,35 @@ TEST_F(ExternProcPayloadSecretTest, TripwireSource_TheHifiRoseTokenIsNeverStream
 }
 
 /*
+ * ⭐ THE TWO LEVELS THIS TICKET RESTS ON, MEASURED INSTEAD OF ASSERTED.
+ *
+ * "The token leaves on a stock install" and "the payload lines only leave once
+ * an operator turns DEBUG on" are the two halves of the severity, and both
+ * were prose everywhere else in this suite - which raises the level in its own
+ * main() and can therefore observe neither. A child that never raised it is
+ * asked instead. Lower the shipped default and the second half goes red; raise
+ * it and the first half survives while the payload lines start leaving on
+ * their own.
+ */
+TEST_F(ExternProcPayloadSecretTest, AStockInstallPrintsTheTokenLineAndNotThePayloadLines)
+{
+    const DefaultLevelProbe &probe = defaultLevelProbe();
+
+    ASSERT_TRUE(probe.ran)
+        << "the stock-level child could not be forked or answered nothing, so "
+           "this case measures no level at all";
+
+    EXPECT_TRUE(probe.infoPrinted)
+        << "the hifirose domain does not print at INFO on a stock install, so "
+           "the line this ticket emptied was never the default-level defect it "
+           "is filed as";
+    EXPECT_FALSE(probe.debugPrinted)
+        << "the process domain prints at DEBUG on a stock install: the two "
+           "transport lines are then the same severity as the token line was, "
+           "and the payload leaves with no operator having switched anything on";
+}
+
+/*
  * Own main instead of gtest_main, for two reasons.
  *
  * DEBUG has to be on before the first log line of the process: the domain map
@@ -648,6 +784,10 @@ TEST_F(ExternProcPayloadSecretTest, TripwireSource_TheHifiRoseTokenIsNeverStream
  */
 int main(int argc, char **argv)
 {
+    //Before anything raises the level, and before there is a loop or a child
+    //to duplicate.
+    measureStockLogLevel();
+
     ::testing::InitGoogleTest(&argc, argv);
 
     char tmpl[] = "/tmp/calaos_payloadsecret_cfg_XXXXXX";

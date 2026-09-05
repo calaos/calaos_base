@@ -10223,6 +10223,16 @@ et le prix en est mesuré** : la contre-mutation qui recopie le jeton sous un au
 (`const string issued = roseToken;`) donne **0 rouge**. Atteindre la ligne à l'exécution demande une
 réponse HTTPS bouchonnée de l'amplificateur.
 
+⛔⭐ **Et la revue de merge a mesuré PIRE que cela** : la ligne de succès qui gagne `<< data` — le
+**corps de réponse entier**, celui d'où le jeton est extrait — republie le secret **à INFO, donc au
+niveau imprimé par défaut**, et donne **0 rouge**. Le tripwire est orthographié sur l'identifiant
+`roseToken` et ne voit pas une valeur qui ne le cite pas. ⇒ ce qui est tenu est **la ligne**, pas la
+classe « le jeton n'atteint aucun journal » ; la classe se ferme du côté de [`T3.83`](T3.83.md).
+ℹ️ **Précision de mécanisme, mesurée** : le niveau d'un boîtier neuf ne vient **pas** du `.def("4")`
+de `ConfigOptions.cpp` quand l'option n'a jamais été écrite — `Utils::get_config_option()` prend en
+second argument `no_logger_out`, pas « rendre le défaut » — mais du repli `LOG_LEVEL_INFO` codé dans
+`Logger::maxLevelPrintable()`. La conclusion est la même, la citation non.
+
 ### ⚠️ [F-STRSPLIT-1] `Utils::CStrArray` n'a aucun filet propre — ticket proposé `T3.77`
 
 Balayage de **tous** les `.cpp`/`.h` de `tests/` : `tests/core/RoonArgs_test.cpp` est le **seul**
@@ -10250,3 +10260,17 @@ dont elle vient. ⚠️ **Le site croit déjà se protéger** : le même fichier
 d'**URL** partout (`Utils::maskUrlCredentials`, `:446,477,733`) et jamais le corps. ⚠️ Le
 recensement des autres drivers HTTP qui y passent **reste à faire**, et le coût en diagnostic est
 réel — le corps est ce qu'on lit pour comprendre un décodage qui échoue.
+
+### ⛔ [F-LOGSECRET-2] Un chemin d'erreur republie à **ERROR** une chaîne fabriquée par le sidecar — ticket proposé [`T3.85`](T3.85.md)
+
+`IO/Reolink/ReolinkCtrl.cpp` recopie `p["message"]` dans `cErrorDom("reolink")`. Le sidecar y met
+`f"Failed to connect to camera {hostname}: {str(e)}"`, c'est-à-dire **le texte d'une exception de la
+bibliothèque caméra tierce**, levée par l'appel qui vient d'essayer de s'authentifier **avec les
+identifiants de la caméra**. Rien dans l'arbre ne contraint ce texte — il traverse une dépendance —
+et ⛔ **il sort à ERROR, donc imprimé sur une installation de série**, un cran **au-dessus** de la
+fuite que [`T3.81`](T3.81.md) vient de fermer. ⭐ C'est le cas concret de la phrase que T3.79 et T3.81
+déclarent toutes deux à 0 rouge : *tant qu'un chemin touche la donnée, tout site qui la touche est un
+site de fuite.* ⚠️ Le coût en diagnostic est réel — c'est *le* message quand une caméra ne répond
+pas — donc l'arbitrage est à faire, et la forme qui garde les deux est que **le sidecar cesse
+d'emballer `str(e)`**. ⛔ Le harnais existe : `tests/core/ExternProcPayloadSecret_test.cpp` a déjà un
+vrai `ReolinkCtrl` et un pair sur sa socket ; la garde serait **d'exécution**, pas orthographique.
