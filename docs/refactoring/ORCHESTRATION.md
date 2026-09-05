@@ -40,6 +40,95 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-05, fin de nuit) — À LIRE EN PREMIER À FROID.**
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de
+  **`7d7ed72b`** (`test(t3.89)`). `TESTS` = **128**, référence de build après `make distclean` :
+  **`TOTAL 128 / PASS 127 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
+  `check-ccache-honesty.sh`. ⛔ **RIEN N'A ÉTÉ POUSSÉ DE TOUTE LA SÉRIE.**
+
+  **Ce qui attend l'utilisateur, et rien d'autre :**
+  1. ⛔ **Le job CI chez GitHub n'a jamais tourné** — `push` interdit depuis le début de la série.
+     C'est le seul point de vérification qui reste ouvert depuis `T3.67`.
+  2. ⚠️⭐ **[`T3.81`](T3.81.md) reste le seul correctif de sécurité de la série sans entrée dans
+     `RELEASE_NOTES.md`**, alors que ses sœurs en ont une. **Arbitrage utilisateur — reconduit sans
+     être tranché**, ni par la revue de `T3.87`, ni par celle de `T3.90`, ni par celle-ci.
+
+  **Tickets ouverts, une ligne chacun** — aucun n'est commencé, aucune branche n'existe :
+  - [`T3.88`](T3.88.md) 📋 — le bloc d'en-têtes de réponse et les six drivers qui republient un corps
+    entier (`F-URLDL-3`).
+  - `T3.91` 📋 — **proposé, fiche non écrite** : sonde statique interdisant `.what()`
+    dans une macro de journal hors d'une liste énumérée (`F-LOGSECRET-6`) ; c'est ce qui fermerait
+    la **classe** que `T3.89` n'a fermée qu'aux neuf sites.
+  - [`T3.92`](T3.92.md) 📋 — le **corps** d'une requête sort par une liste de onze noms, et le vidage
+    court **avant** `checkCredentials()` (`F-HTTPIN-2`).
+  - [`T3.93`](T3.93.md) 📋 — les sept familles de journalisation **entrante** ne sont tenues par
+    **aucun test** : une mutation y rend 0 rouge (`F-HTTPIN-3`).
+  - [`T3.94`](T3.94.md) 📋 — **neuf de la nuit** : le plafond des trois capteurs à borne est une
+    constante que rien ne re-mesure ; 9 octets d'un justificatif encodé passent, 0 rouge sur 128
+    (`F-LOGSECRET-7`).
+  - Plus anciens et inchangés : `F-XML-2` / `F-XML-3` / `F-XML-4`, `F-LOGSECRET-5` (trois lignes
+    `mqtt`), `F-URLDL-2` §libcurl (`errorBuf` concaténé verbatim à WARNING), exprtk qui cite
+    l'expression de règle.
+
+- **✅⭐⭐ [`T3.89`](T3.89.md) MERGÉE — 3 commits de la branche + 1 commit de revue (`test`) + le
+  commit de revue qui porte ce paragraphe, `merge --ff-only`, historique linéaire, 0 commit de
+  fusion.** La branche partait de `d97206e0` et `master` était à `8c346c99` ⇒ **rebase**, avec le
+  conflit d'append attendu sur `tests/Makefile.am` (`T3.90` y avait appendu).
+  ⭐ **Résolu par RÉGÉNÉRATION** — `git show master:tests/Makefile.am` en entier + append
+  **verbatim** de la queue de branche (extraite comme suffixe strict de sa base, elle-même prouvée
+  préfixe octet à octet) — et **prouvé append pur** : **+71 / −0 / ~0**, `master` **préfixe strict
+  octet à octet** du résultat, `^if HAVE_GTEST` **108 → 109** et `^endif` **109 → 110**, profondeur
+  finale **0**, minimum **0**, **jamais négative**, **128** noms de test **uniques** = 127 + 1.
+  ⚠️ **Deux conflits de plus, non prévus par le brief** : `src/lib/StringUtils.h` et `.cpp`, où
+  `T3.90` a posé `requestTargetForLog()` **au même endroit** que `jsonErrorForLog()` — résolus en
+  gardant **les deux versants**, aucun réducteur réécrit. Un troisième sur `BOARD.md` (les deux
+  côtés changeaient la ligne `T3.89`), **6 colonnes / 7 barres** revérifiées.
+  ⭐ **`TESTS` 127 → 128 recompté des deux côtés** — la fiche annonçait `126 → 127` **depuis sa
+  base**, corrigé dans la fiche. Build de merge après `make distclean` :
+  **`TOTAL 128 / PASS 127 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, rc 0, **0 `error:`**,
+  un seul `Testsuite summary`, `check-test-deps.sh` **PASS**. ⛔ **Rien poussé.**
+
+  ⭐ **CE QUE LA FICHE AFFIRME TIENT, VÉRIFIÉ AUX SOURCES.** `AVRRoseNotifServer` **bind `0.0.0.0`**
+  sur `NOTIF_PORT` (9284), `listen()`, et `processHttpRequest()` parse le corps de **tout**
+  `POST /device_state_noti` **sans la moindre authentification** — c'est bien le point le plus
+  exposé de la livraison. La classe mère du site websocket lit `cn_user`/`cn_pass` d'un message
+  `login` **sur ce même transport** (`JsonApiHandlerWS.cpp:293`). La coupure **4 + 5** tient, et
+  ⭐ **la fiche d'origine avait bien tort sur le cache d'états** : les deux écrivains n'y rangent que
+  des valeurs d'IO et de la comptabilité de volet. ⚠️ Avec **deux corrections de comptage** : ils ont
+  **six** sites d'appel dans **cinq** fichiers (pas quatre), et l'un d'eux (`IO/IntValue.cpp`) range
+  la valeur d'un IO `Internal` — de type chaîne, c'est ce qu'une règle ou un script Lua y a écrit.
+
+  ⛔⭐ **UNE FIXTURE FAUSSE RESTAIT, ET ELLE EST CORRIGÉE AVANT LE MERGE.** Les neuf documents
+  avaient des **préfixes** de clef distincts mais un **suffixe commun** : `Libelle":"` fait
+  **exactement dix octets**, soit la borne elle-même. Un extrait de **tête** d'un document relevait
+  donc la borne de **six** voisins. Les quatre échanges de la fiche ne l'avaient pas vu parce qu'ils
+  publiaient soit la **queue**, soit le document du seul site hors gabarit.
+  **Mesuré, par échange, à `get_control_info` — l'un des cinq sites dits fermés sur la seule
+  provenance** : `dataRes.substr(0, 20)` ⇒ **7 cas de fuite + 1 contrepoids** rouges ; clefs rendues
+  deux à deux distinctes (plus longue suite commune à deux documents **13 → 6**), **la même
+  mutation ⇒ 2** rouges, et ils **nomment le site**.
+
+  ⛔⭐ **LA FENÊTRE DE ≤9 OCTETS ÉPROUVÉE SUR DE VRAIS OCTETS DE JUSTIFICATIF.** Neuf octets de
+  l'aiguille **encodée en pourcents** publiés au site de notification — le seul joignable **sans
+  authentification** depuis tout le réseau local — donnent **0 rouge sur 128 suites**. Borne
+  abaissée à 9 le temps d'un tour : **1** rouge, `gives back 9 consecutive bytes`, ce qui prouve
+  **d'un coup** que les octets étaient bien arrivés au journal et que le recouvrement fortuit de
+  **tous les autres** sites est **≤ 8**. ⇒ nouveau finding `F-LOGSECRET-7`, ticket proposé
+  **[`T3.94`](T3.94.md)**.
+
+  ✅ **Le tripwire de [`T3.81`](T3.81.md) rangeait bien `e.what()` du côté AUTORISÉ de sa liste** —
+  vérifié, et la liste corrigée ne laisse plus passer que le réducteur.
+  ✅ **Pas de test de présence là où il faudrait une position** dans le correctif : il ne fait
+  **aucune analyse de chaîne** — le tri est un `dynamic_cast` de **type**, `id` et `byte` sont
+  recopiés de la bibliothèque. Les deux recherches d'aiguille du capteur sont bien des tests de
+  présence, mais elles sont **déclarées décoratives** et ce qui porte chaque cas est la **borne**.
+  ⚠️ **Un chiffre invalidé et corrigé** : les « **55** `.what()` / **35** `e.what()` » de la fiche ne
+  se reproduisent sous aucun jeu d'exclusions — **47** = 19 `ev` + 27 `e` + 1 `event` (hors
+  `json.hpp`, `exprtk/`, `sqlite_modern_cpp/`) ; le tri des 14 sites n'en dépend pas.
+  Restaurations prouvées au `cmp` **rc 0** *et* par un horodatage **effectivement modifié** ;
+  `CXX Audio/AVRRose.o`, `CXX Audio/AVRRoseNotifServer.o`, `CXXLD calaos_server` et
+  `CXXLD core/ParseErrorSecret_test` **lus** à chaque tour.
+
 - **✅⭐⭐ [`T3.90`](T3.90.md) MERGÉE — 3 commits de la branche + 2 commits de revue, `merge --ff-only`,
   historique linéaire, 0 commit de fusion.** Tête sur `master` : **le commit de revue qui porte ce
   paragraphe** (2026-09-05) ; le commit de revue qui le précède est un **correctif de production**
@@ -222,7 +311,7 @@
 
   **État de la session au sortir de ce merge** : `master` = le commit de revue qui porte ce
   paragraphe, rien de poussé, historique linéaire. Worktree `.wave111/t3.87` supprimé, branche
-  `fix/t3.87` supprimée. ⚠️ Numéros **pris** : `T3.76` → `T3.90`.
+  `fix/t3.87` supprimée. ⚠️ Numéros **pris** : `T3.76` → `T3.94`.
 
 - **✅⭐⭐ [`T3.86`](T3.86.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **le commit de revue qui porte ce paragraphe** (2026-09-05). La

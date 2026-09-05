@@ -10669,13 +10669,14 @@ sites portent un secret ou des octets choisis par un tiers (le jeton de l'amplif
 notification **ouvert à tout le réseau local**, la trame websocket du panneau déporté dont la classe
 mère lit `cn_user`/`cn_pass`, la réponse d'un service web tiers), et **cinq sont fermés sur la seule
 provenance** — dont ⚠️ **le cache d'états, où la fiche supposait à tort des identifiants** : vérifié
-aux deux écrivains et à leurs quatre appelants, il ne porte que des valeurs d'IO et de la
-comptabilité interne.
+aux deux écrivains et à leurs **six** sites d'appel, il ne porte que des valeurs d'IO et de la
+comptabilité interne. ⚠️ Une réserve mesurée à la revue de merge : un IO `Internal` de type chaîne
+avec `save="true"` y range la valeur qu'une règle ou un script Lua lui a donnée.
 ⭐ **L'arbre avait déjà tranché la question une fois** : `JsonApiHandlerWS::processApi()` parse avec
 la forme **non lançante** et n'écrit que `Error loading json` à DEBUG ; la sous-classe
 `RemoteUIWebSocketHandler::processApi()` ajoutait **devant** un parse lançant et en publiait le
 message à WARNING.
-Garde d'exécution (`tests/core/ParseErrorSecret_test.cpp`, **23 cas**) : les quatre sites de
+Garde d'exécution (`tests/core/ParseErrorSecret_test.cpp`, **22 cas**) : les quatre sites de
 l'amplificateur sont nourris par un **vrai pair TLS** levé par la suite, le site de notification par
 un client TCP sur le port d'écoute, le site websocket par l'appel de `WebSocket.cpp` mot pour mot,
 les trois sites de fichier par un vrai fichier — le cache d'états par le **constructeur** de
@@ -10696,9 +10697,34 @@ dont le mécanisme n'était lisible dans aucun des fichiers fautifs.
 
 Ce qui la fermerait est une **sonde statique** de la forme de `tests/check-test-deps.sh`
 ([`T3.36`](T3.36.md)) : interdire `.what()` à l'intérieur d'une macro de journal hors d'une liste de
-sites **énumérés**. ⚠️ Elle porterait sur les **35** `e.what()` de l'arbre, dont les onze de
+sites **énumérés**. ⚠️ Elle porterait sur les **27** `e.what()` de l'arbre (recomptés à la revue de merge : **47**
+occurrences de `<ident>.what()` sous `src/` hors `json.hpp`, `exprtk/` et `sqlite_modern_cpp/`, soit
+19 `ev`, 27 `e`, 1 `event`), dont les onze de
 `HistLogger.cpp` (sqlite, requêtes paramétrées) et ceux de `src/bin/calaos_server/Http*` que
 [`T3.90`](T3.90.md) réécrit.
+
+**Aucun ticket ouvert.**
+
+### ⛔ [F-LOGSECRET-7] Le plafond des capteurs à borne est un nombre écrit à la main que rien ne re-mesure — ticket proposé [`T3.94`](T3.94.md)
+
+Mesuré à la revue de merge de [`T3.89`](T3.89.md). **Trois** suites bornent la plus longue suite
+d'octets de l'entrée que le journal rend — `core/ControllerFrameSecret_test` (**10**),
+`core/SidecarErrorSecret_test` (**16**), `core/ParseErrorSecret_test` (**10**). C'est la bonne
+forme : un capteur orthographié sur la valeur d'un secret est aveugle par construction quand c'est
+la bibliothèque qui décide où elle coupe. Mais le plafond est une **constante**, justifiée par un
+recouvrement fortuit **mesuré une fois, à la main**, et rien ne le re-mesure.
+
+⛔ **La fenêtre est ouverte et rien ne la montre** : neuf octets de l'aiguille **encodée en
+pourcents** publiés au site de notification de l'amplificateur — joignable **sans authentification**
+depuis tout le réseau local — laissent **128 suites sur 128 vertes**. ⛔ **Et le recouvrement dépend
+de la fixture** : la même revue a trouvé les neuf documents de `T3.89` partageant encore
+`Libelle":"`, **exactement dix octets**, soit la borne elle-même — une modification de fixture peut
+élargir la fenêtre aveugle sans qu'aucune assertion ne bouge.
+
+Ce qui la fermerait : **asserter le recouvrement lui-même** (plafond = maximum observé + 1) et la
+**disjonction des documents de la fixture**. ⚠️ Cela ne ferme pas la fenêtre, seulement sa
+**dérive silencieuse** : un capteur à borne ne peut pas descendre sous le bruit que le journal a le
+droit d'écrire.
 
 **Aucun ticket ouvert.**
 
