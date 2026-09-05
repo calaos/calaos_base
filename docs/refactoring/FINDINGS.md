@@ -10432,9 +10432,35 @@ rougit à **68 octets** ⇒ la chasse en trois formes mord là où un capteur or
 rougit (statut, type de contenu, cible de redirection) ⇒ le diagnostic est tenu par un test.
 
 ⛔ **Ce qui reste nu** : `Location:` **relative** n'est réduite qu'en `<url NB> #empreinte` — la
-forme du chemin est perdue là où elle est gardée pour une cible absolue ; les cinq sites Hue et le
-corps envoyé du Web IO sont fermés **par lecture**, une mutation y rendrait **0 rouge** ; la
-**ligne de statut** sort brute, sa phrase de raison est choisie par le pair.
+forme du chemin est perdue là où elle est gardée pour une cible absolue ; ⭐ **sept des neuf sites
+fermés sont tenus par LECTURE** — les cinq Hue, le corps envoyé du Web IO et, **relevé à la revue**,
+le refus d'instantané de Synology, que la suite n'atteint jamais parce qu'elle s'arrête à la
+connexion refusée ; **mesuré**, une mutation à Hue et une au refus d'instantané rendent **0 rouge**
+l'une comme l'autre. La **ligne de statut** sort brute, sa phrase de raison est choisie par le pair —
+arbitré à la revue et laissé tel quel : octets du pair, jamais un secret de ce boîtier, et à un
+niveau non imprimé sur un boîtier neuf.
+
+⛔⭐ **UN TROU RESTAIT DANS LE CORRECTIF, FERMÉ AVANT LE MERGE — et c'est le mode d'échec de la
+doctrine elle-même.** Une liste de ce qu'on publie décide sur le **nom** de l'en-tête ; une valeur
+que le pair **replie sur deux lignes** arrive en continuation **sans deux-points**, donc découpée sur
+`":"` elle tombe tout entière dans le nom. La tête d'un cookie était retenue et sa queue rendue
+**verbatim** sur la ligne suivante — **49 octets consécutifs mesurés** :
+`id_session=Zc3fH9yGq5AeUi1oPr0M; Path=/; HttpOnly: [0B] #8e296def`. ⭐ **La leçon** : *une
+énumération ne vaut que si ce sur quoi elle décide est bien ce que son nom prétend être.* Corrigé —
+une ligne sans deux-points sort par sa taille et son empreinte, et **reste une ligne** ; neuvième cas
+de la suite, rouge sans le correctif.
+
+⭐ **Le refus de fermer `F-URLDL-5` (`errorBuf`) éprouvé à la revue par un scénario que la fiche ne
+liste pas** : l'URL de ce dépôt porte les identifiants de caméra dans son **userinfo**, et sur
+`http://admin:<mot de passe>@<hôte introuvable>/api/...?key=...` libcurl 7.88.1 ne rend que
+`Could not resolve host: <hôte>` — ni userinfo, ni chemin, ni requête. ⚠️ **Nuance** : le nom d'hôte
+rendu peut être **choisi par le pair** via sa cible de redirection (180 octets mesurés), pas
+seulement le nôtre.
+
+⭐ **L'ÉGALITÉ DE CALIBRATION ÉPROUVÉE DANS LES DEUX SENS.** La fiche l'abaisse (5 → 4 ⇒ 3 rouges) ;
+la revue la **relève** (5 → 6) ⇒ **1 seul rouge**, la calibration, qui nomme le nombre à écrire :
+**5**. Abaisser montre que la borne mord, relever montre que c'est une **égalité** — c'est cette
+seconde moitié qui manquait aux campagnes précédentes.
 
 ### 📋 [F-URLDL-5] `conn->errorBuf` de libcurl est concaténé verbatim à WARNING — **mesuré non porteur**, aucun ticket
 

@@ -41,15 +41,16 @@
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
 - ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-05) — À LIRE EN PREMIER À FROID.**
-  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`bad3f820`**
-  (`docs(t3.93)`). `TESTS` = **129**, référence de build après `make distclean` :
-  **`TOTAL 129 / PASS 128 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`4f807a79`**
+  (`fix(t3.88)`). `TESTS` = **130**, référence de build après `make distclean` :
+  **`TOTAL 130 / PASS 129 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
   `check-ccache-honesty.sh`. ⛔ **RIEN N'A ÉTÉ POUSSÉ DE TOUTE LA SÉRIE.**
 
-  **Tickets ouverts** : [`T3.88`](T3.88.md), `T3.91` (proposé, fiche non écrite),
-  [`T3.96`](T3.96.md), [`T3.97`](T3.97.md). ⭐ **`T3.95` est SANS OBJET** — le trou qui le motivait a
-  été fermé à la revue de `T3.92`, ne l'ouvrez pas. ⚠️ Numéros **pris** : `T3.76` → `T3.97`,
-  `T3.98` est **réservé** à une vague en vol ⇒ le prochain libre est **`T3.99`**.
+  **Tickets ouverts** : `T3.91` (proposé, fiche non écrite), [`T3.96`](T3.96.md),
+  [`T3.97`](T3.97.md). ✅ **[`T3.88`](T3.88.md) est MERGÉE**, elle n'est plus ouverte.
+  ⭐ **`T3.95` est SANS OBJET** — le trou qui le motivait a été fermé à la revue de `T3.92`, ne
+  l'ouvrez pas. ⚠️ Numéros **pris** : `T3.76` → `T3.97`, `T3.98` est **réservé** à une vague en vol
+  ⇒ le prochain libre est **`T3.99`**.
 
   **Ce qui attend l'utilisateur, et rien d'autre :**
   1. ⛔ **Le job CI chez GitHub n'a jamais tourné** — `push` interdit depuis le début de la série.
@@ -62,6 +63,86 @@
        aujourd'hui** (`&#01;`, non conforme XML 1.0).
   ℹ️ **La note de version de [`T3.81`](T3.81.md) a été écrite : cette question est CLOSE**, ne la
   reconduisez plus.
+
+- **✅⭐⭐ [`T3.88`](T3.88.md) MERGÉE (2026-09-05) — 3 commits de branche + 1 commit de revue
+  (production) + le commit de revue qui porte ce paragraphe, `merge --ff-only`, historique linéaire,
+  0 commit de fusion.** La branche partait de `ac01db87` et `master` était à `f4e35bf1` ⇒ **rebase**,
+  avec le conflit d'append attendu sur `tests/Makefile.am` (`T3.93` y avait appendu).
+  ⭐ **Résolu par RÉGÉNÉRATION** — `git show master:tests/Makefile.am` en entier + append **verbatim**
+  de la queue de branche, extraite comme suffixe strict de sa base, elle-même prouvée préfixe octet à
+  octet — et **prouvé append pur** : **hunk unique**, **+21 / −0 / ~0**, `master` **préfixe strict
+  octet à octet** (331 013 → 332 018 octets, 5 186 → 5 207 lignes), `^if HAVE_GTEST` **110 → 111** ≡
+  `^endif` **111 → 112**, **profondeur finale 0, minimum 0, jamais négative**, **130** noms de `TESTS`
+  **uniques** = 129 + 1. Aucun autre conflit : `BOARD.md` et `FINDINGS.md` se sont fusionnés seuls.
+  ⭐ **`TESTS` 129 → 130 recompté des deux côtés** — la fiche annonçait `128 → 129` **depuis sa base**,
+  corrigé dans la fiche. Build de merge après `make distclean` : **`TOTAL 130 / PASS 129 / SKIP 1 /
+  FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, rc 0, **0 `error:`**, un seul `Testsuite summary`,
+  **3 `make check` complets identiques** sur l'arbre final, `check-test-deps.sh` **PASS**, les **9 cas
+  de la suite neuve réellement exécutés**. ⛔ **Rien poussé.**
+
+  ⭐⭐ **LE POINT GRAVE EST RÉEL ET ATTEINT PAR LE VRAI CHEMIN.** Rien n'appelle `parseJsonResult()`
+  ni `getResponseHeaders()` à la main : la suite construit un `SynoSurveillanceStation`, appelle
+  `downloadSnapshot()`, et un pair sur la boucle locale répond aux **deux** requêtes que le driver
+  émet. `downloadSnapshot()` → `getApiInfo()` → `tryLogin()` → `login()` → `parseJsonResult()`, relu
+  à la source ; la suite **exige** que la seconde requête porte `method=Login` **et** `passwd=` avant
+  de conclure, et la réponse de `login()` est bien le document qui porte le `sid`. Le **niveau** est
+  mesuré dans un enfant forké et le cas passe : défaut à **WARNING** et **ERROR** oui, DEBUG non ;
+  `hue` à **ERROR** oui ; `urlutils` à DEBUG **non**.
+
+  ⛔⭐ **UN TROU RESTAIT DANS LE CORRECTIF, FERMÉ AVANT LE MERGE — ET C'EST LE MODE D'ÉCHEC DE LA
+  DOCTRINE ELLE-MÊME.** Une liste de **ce qu'on publie** décide sur le **nom** de l'en-tête. Une
+  valeur que le pair **replie sur deux lignes** arrive en continuation **sans deux-points** : découpée
+  sur `":"`, elle tombait tout entière dans le nom. La tête d'un cookie était retenue et sa queue
+  rendue **verbatim** sur la ligne suivante — **49 octets consécutifs mesurés**,
+  `id_session=Zc3fH9yGq5AeUi1oPr0M; Path=/; HttpOnly: [0B] #8e296def`. ⭐ **La leçon, à recopier dans
+  les briefs** : *une énumération ne vaut que si ce sur quoi elle décide est bien ce que son nom
+  prétend être.* Corrigé — une ligne sans deux-points sort par sa **taille et son empreinte** et
+  **reste une ligne** (l'effacer aveuglerait le bloc au lieu de le réduire) ; **neuvième cas** avec
+  son aiguille propre, ajoutée à l'ensemble que la calibration re-mesure, `TESTS` reste **130** ;
+  correctif retiré, cas gardé ⇒ **2 rouges**.
+
+  ⭐⭐ **L'ÉGALITÉ DE CALIBRATION ÉPROUVÉE DANS LES DEUX SENS — la moitié qui manquait aux campagnes
+  précédentes.** La fiche **abaisse** le plafond (5 → 4 ⇒ **3 rouges**, `actual: 4 vs 4`, suites
+  fortuites `code` et `ocat`) ; la revue le **relève** (5 → 6) ⇒ ⭐ **1 seul rouge**, la calibration,
+  qui nomme le nombre à écrire : **5**. *Abaisser montre que la borne mord ; seul relever montre que
+  c'est une **égalité** et non une borne à sens unique.* À demander désormais aux trois suites
+  calibrées.
+
+  **Contre-mutations de revue, indépendantes des six de la fiche, toutes par ÉCHANGE, `make check`
+  réel à chaque tour, restaurations par copie sans métadonnées prouvées `cmp` rc 0 **et** horodatage
+  effectivement déplacé, aucun `git` dans le conteneur** : ⭐ **R1** élargit Hue `Decode::Malformed`
+  au corps entier — **un des sites que la fiche dit fermés par lecture** ⇒ ⛔ **0 rouge**, *la
+  déclaration est honnête* · ⛔⭐ **R2** élargit le **refus d'instantané de Synology** ⇒ ⛔ **0 rouge**
+  aussi, et **la fiche ne le déclarait pas** : la suite s'arrête à la connexion refusée et n'atteint
+  jamais `getSnapshot()` ⇒ **sept des neuf sites fermés sont tenus par lecture**, pas six · **R3**
+  rejoue M5 (valeur en **base64**) ⇒ **2 rouges**, **68 octets**,
+  `aWRfc2Vzc2lvbj1aYzNmSDl5R3E1QWVVaTFvUHIwTTsgUGF0aD0vOyBIdHRwT25seQ==`, et ⭐ **l'assertion sur le
+  clair reste VERTE** — seule la borne rougit · **R4** rejoue M6 ⇒ **3 rouges** · **R5** fait replier
+  le cookie par le pair, **sans muter une ligne de `src/`** ⇒ **2 rouges**, le trou ci-dessus.
+  Témoin **0 rouge** avec `CXXLD core/DriverAnswerSecret_test` **lu**.
+
+  ✅⭐ **LE REFUS DE FERMER `conn->errorBuf` EST JUSTIFIÉ, ET ÉPROUVÉ PAR UN SCÉNARIO QUE LA FICHE NE
+  LISTE PAS.** L'URL de ce dépôt porte les identifiants de caméra dans son **userinfo** : sur
+  `http://admin:<mot de passe>@<hôte introuvable>/api/...?key=...`, libcurl 7.88.1 ne rend que
+  `Could not resolve host: <hôte>` — **ni userinfo, ni chemin, ni requête**. ⚠️ **Une nuance à la
+  réserve** : le nom d'hôte qui ressort peut être **choisi par le pair** via sa cible de redirection
+  (180 octets rendus, mesurés) — ce sont les octets du pair, jamais un secret de ce boîtier, mais
+  « déjà publié par `urlForLog` » n'est exact que pour **notre** hôte.
+
+  ✅ **Deux arbitrages confirmés.** La **ligne de statut brute** est acceptable : sa phrase de raison
+  est choisie par le pair, mais ce sont ses octets et non un secret d'ici, et le retour à la ligne
+  étant le séparateur, aucune ligne ne peut en forger une seconde ; elle sort à `urlutils` DEBUG, non
+  imprimé sur un boîtier neuf. **`Location:` relative** est laissée en réduction grossière à raison :
+  `Utils::requestTargetForLog()` rend bien cette forme mais **publie le chemin verbatim** — or le
+  chemin d'une cible de redirection est exactement ce qui peut porter un jeton.
+
+  ⚠️ **Recompte** : le tableau des sites fermés a **8 lignes** mais **9 sites de journal** (les deux
+  `datareceived` de Hue partagent une ligne) ; celui des sites fichés en a **8**, non 7.
+  ⛔ **`F-URLDL-4` inchangé** : le sel de `logTag` n'a toujours **aucun capteur**, et cette branche
+  s'appuie dessus à six sites de plus sans en écrire un.
+
+  **État** : `master` = le commit de revue qui porte ce paragraphe. Worktree `.wave117/t3.88`
+  supprimé, branche `fix/t3.88` supprimée.
 
 - **✅⭐⭐ [`T3.93`](T3.93.md) MERGÉE (2026-09-05) — 2 commits de branche + 1 commit de revue,
   `merge --ff-only`, historique linéaire, aucun rebase, aucun conflit.** La branche partait de
