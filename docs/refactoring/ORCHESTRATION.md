@@ -40,8 +40,112 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-05, APRÈS LE MERGE DE [`T3.41`](T3.41.md)) — LE
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.103`](T3.103.md)) — LE
   DERNIER MERGE DE LA SESSION. À LIRE EN PREMIER À FROID.**
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`40421cf0`**
+  (branche `fix/t3.103`, **4 commits** : 3 du développeur + 1 de la revue de merge). `TESTS` =
+  **134**, `tests/Makefile.am` **INTOUCHÉ** (aucun conflit au rebase), référence de build après
+  `make distclean` : **`TOTAL 134 / PASS 133 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul
+  `SKIP` `check-ccache-honesty.sh`, **0 `error:`**, **11 `CXXLD`** au `make -j32` et **125** au
+  `make check -j16`, **six `make check` identiques** (3 en témoin + 3 après le resserrement de la
+  revue). ⛔ **RIEN N'A ÉTÉ POUSSÉ DE TOUTE LA SÉRIE.**
+
+  ⭐⭐ **CE QUE LE TICKET FERME.** `calaos_mqtt` sortait avec **le code 0 et une seule ligne** quand
+  la connexion au courtier échouait **après** que `connect_async()` eut répondu succès — donc pour
+  tout courtier éteint **et** pour tout courtier qui **tombe en cours de session**, le cas fréquent en
+  production, absent de la fiche jusqu'ici. Le serveur relançait dix fois par seconde en n'imprimant
+  que `process exited, restarting...` : **du bruit sans cause**. Les quatre chemins ont été **rejoués
+  sur le binaire livré par un harnais indépendant de la suite**, `master` puis livré : `EXIT=0` muet
+  → `EXIT=1` nommant la cause (`Network is unreachable (errno 101)` · `The connection was lost.` ·
+  `Connection refused (errno 111)` au lieu de `Bad address` · `Connection Refused: not authorised.`
+  pour un mot de passe faux, qui **n'apparaissait jamais**). `F-EXTPROC-9` **FERMÉ**.
+
+  ⛔⭐⭐ **DEUX AFFIRMATIONS DE LA FICHE INVALIDÉES PAR LA REVUE, à ne pas perdre :**
+  1. **« `appendFd()` est publique et six autres familles s'en servent » est FAUX** : `appendFd()` a
+     **un seul appelant dans tout l'arbre**, `MqttExternProc_main.cpp`. Le filet `EBADF` est gardé
+     pour un point d'extension public, pas pour des appelants existants — et le `select()` des cinq
+     autres sidecars C++ **ne peut pas échouer** aujourd'hui.
+  2. **`EINTR` n'est atteignable par aucun sidecar livré** : aucun n'installe de gestionnaire de
+     signal, et un `SIGSTOP`/`SIGCONT` sur `calaos_script` ne fait sortir sa boucle **ni avant ni
+     après** le correctif (mesuré des deux côtés). « Un signal suffisait » décrivait le code, pas le
+     produit.
+  *À recopier : « la boucle commune des sept familles » ne veut pas dire « sept familles concernées »
+  tant qu'on n'a pas compté les APPELANTS du point d'extension.*
+
+  ⭐⭐ **CE QUE LES CONTRE-MUTATIONS DE LA REVUE ONT MESURÉ — quatre, aucune du développeur :**
+  1. ⛔⭐ **La copie de `userFds` remise en référence ⇒ 0 rouge sur 134.** La correction
+     d'invalidation d'itérateur — la plus dangereuse du ticket, sur le chemin commun des sidecars —
+     **n'est tenue par rien**, et c'est explicable : le seul `handleFdSet()` qui appelle `removeFd()`
+     sort par `break` juste après, donc l'itérateur n'est jamais incrémenté. La correction est juste ;
+     elle protège un chemin que l'arbre livré n'emprunte pas.
+  2. ⛔ **`EINTR`↔`EBADF` ⇒ 0 rouge sur 134** (voir l'invalidation 2 ci-dessus).
+  3. ⛔ **`calaos_wago`, `calaos_1wire` et `calaos_script` sortant AVANT leur boucle principale ⇒
+     0 rouge sur 134.** **Aucune famille de sidecar autre que MQTT n'est tenue par un cas** : les
+     suites qui parlent d'elles installent un **enregistreur shell** à leur nom, pas le binaire livré.
+  4. **Témoin** : deux instructions indépendantes de `run()` échangées ⇒ 0 rouge, **`CXXLD` des sept
+     sidecars et de `calaos_server` lus à chaque tour**.
+
+  ⭐ **L'EXCEPTION `_DEPENDENCIES` EST JUSTIFIÉE, ET C'EST MESURÉ** — dans une configuration bâtie
+  **sans libmosquitto** : la référence y reste `134 / 133 / 1 / 0` (la suite s'exécute et
+  `GTEST_SKIP()` ses neuf cas) ; l'entrée non conditionnelle casse bien le `check_PROGRAMS`, non par
+  un « no rule to make target » mais par la **règle de liaison implicite** de `make` ; ⭐ **et elle
+  serait inerte même là où elle bâtit**, parce que la suite n'est pas *reliée* au sidecar, elle
+  l'*exécute* — `_DEPENDENCIES` fait relier un binaire de test, jamais reconstruire un prérequis.
+  Le trou n'est d'ailleurs pas ouvert : `SUBDIRS = src data tests` et `check-am: all-am`, **mesuré**
+  qu'un `make check` de tête recompile `MqttExternProc_main.o` et relinke `calaos_mqtt` avant de
+  descendre dans `tests/`. **`tests/Makefile.am` reste intouché, et c'est le bon choix.**
+
+  ✅ **CE QUE LA REVUE A CORRIGÉ DANS LE CODE** : trois `EXPECT_NE(0, r.exitCode)` →
+  `EXPECT_GT(r.exitCode, 0)`. Le lanceur brut écrit `-1` quand l'enfant meurt **sur un signal** :
+  « différent de zéro » prenait un sidecar qui plante pour un sidecar qui signale sa panne.
+
+  ⛔⭐ **UN CINQUIÈME PIÈGE D'OUTILLAGE, rencontré ici** : un répertoire d'instantané **réutilisé**
+  d'une campagne antérieure (garde `[ -f … ] || cp`, fichiers nommés par `basename`) fait « restaurer »
+  la forme d'**un autre tour**. Les preuves exigées — `cmp` rc 0, horodatage déplacé, pas de `| head` —
+  étaient toutes **vraies** : elles comparaient au mauvais original. Rattrapé par le `git status` sur
+  l'**hôte**, deux tours jetés et refaits. Section propre plus bas, à côté de ses quatre frères.
+
+  **Tickets ouverts, une ligne chacun :**
+  - `T3.91` — proposé, fiche non écrite.
+  - **`T3.100`** — la fixture d'une suite calibrée est un objet **contraint** et rien ne le dit à qui
+    y ajoutera un document ; le filet rougit **après** coup.
+  - **[`T3.101`](T3.101.md)** — arbitrage, ci-dessous.
+  - **[`T3.104`](T3.104.md)** — arbitrage, ci-dessous.
+  - **[`T3.105`](T3.105.md)** (ouvert par `T3.103`) — faire **décider** le serveur sur le statut de
+    sortie : `processExited` est un `sigc::signal<void>` et ses **neuf** abonnés (recomptés :
+    `MqttCtrl`, `WagoMap`, `ReolinkCtrl`, `KNXCtrl` ×2, `OLACtrl`, `OWCtrl`, `ScriptExec`,
+    `RoonPlayer`, dans 8 fichiers) relancent à l'identique. **Arbitrage**, ci-dessous.
+  - **[`T3.106`](T3.106.md)** — `isLocalhost()` sans filet (**mesuré 0 rouge**) **et** la
+    `listen_address` invalide (arbitrage, ci-dessous).
+  - **[`T3.107`](T3.107.md)** — `F-IP6-3`, la lecture UDP.
+  - **[`T3.108`](T3.108.md)** (neuf, ouvert par la revue de `T3.103`) — `run()` rend un `bool` que
+    **cinq `procMain()` sur six jettent**, et **aucune famille autre que MQTT n'est tenue par un cas**.
+    ⭐ Un cas sur une deuxième famille se pose **à peu de frais** (`calaos_script` est bâti sans
+    condition, son `setup()` ne fait que `connectSocket()`, le lanceur brut de la suite MQTT
+    s'applique tel quel) : **ce qui manque est un sujet, pas un harnais**.
+  ⚠️ Numéros **pris** : `T3.76` → `T3.108`. Le prochain libre est **`T3.109`**.
+
+  ⭐⭐ **LES ARBITRAGES QUI ATTENDENT L'UTILISATEUR — c'est la file d'attente, et rien d'autre :**
+  1. ⛔ **Le `push`** → ⏸ **TOUJOURS DIFFÉRÉ** à la fin du backlog, en une seule fois. **Le job CI
+     chez GitHub n'a JAMAIS tourné.** ⚠️ Attente précise : `core/PeerAddressFamily_test` rendra `SKIP`
+     sur un exécuteur sans IPv6, et la référence y sera `SKIP 2`.
+  2. **[`T3.60`](T3.60.md)** — le transport HTTP n'a **aucune notion de portée de service** : les huit
+     commandes que `serviceScope` refuse en WebSocket passent **intégralement** en HTTP. Trancher,
+     pas patcher.
+  3. **[`T3.101`](T3.101.md)** — le relais des sidecars : `ExternProc` relaie hors de tout journal ce
+     que ses **sept** familles impriment ; **seul en face des 2 sites qui comptent**.
+  4. **[`T3.104`](T3.104.md)** — `rules.xml`, la moitié **ACTIONS** de `F-XML-2`. Rouvre E4.6d.
+  5. **(b) de [`T3.106`](T3.106.md)** — une `listen_address` **invalide** : refuser de démarrer (au
+     risque d'un boîtier injoignable après une faute de frappe) ou retomber sur `0.0.0.0` **en le
+     disant**. ⚠️ Quel que soit le choix, **l'écoute des `ErrorEvent` doit être posée AVANT le
+     `bind`**, sinon le refus lui-même sera muet.
+  6. **[`T3.105`](T3.105.md)** — faire **décider** le serveur sur le statut de sortie d'un sidecar.
+     Porter le statut dans `processExited` change la signature d'un signal et **neuf** points
+     d'abonnement dans huit fichiers ; « au bout de combien d'échecs cesse-t-on ? » est une décision
+     de produit, et **ne jamais cesser** est défendable sur un boîtier sans opérateur.
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-05, APRÈS LE MERGE DE [`T3.41`](T3.41.md)) — conservé
+  pour l'historique.**
   Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`0c108fc4`**
   (branche `fix/t3.41`, **4 commits** : 3 du développeur + 1 de la revue de merge). `TESTS` =
   **134** (`core/PeerAddressFamily_test`), référence de build après `make distclean` :
@@ -11124,6 +11228,31 @@ symptôme est le même — les mutations s'empilent, donc l'ensemble rouge gross
    fichier et le relire ensuite.
 3. ✅ **Après tout tour de campagne, un `git status` sur l'HÔTE**, dans le worktree : c'est ce qui a
    rattrapé le coup, et c'est la seule vérification qui ne dépend d'aucune sortie du harnais.
+
+## ⛔⭐ Outillage — UN INSTANTANÉ RÉUTILISÉ RESTAURE UN AUTRE TOUR (T3.103, 2026-09-06)
+
+**Cinquième membre de la famille de `_DEPENDENCIES`, du `git checkout` dans le conteneur, de la
+restauration qui garde sa date et du `| head` : l'outil rend un chiffre, et le chiffre ne mesure pas
+ce qu'on croit.**
+
+Vécu à la revue de `T3.103` : le harnais rangeait ses originaux dans un répertoire de travail
+partagé, en le gardant s'il existait déjà (`[ -f … ] || cp`). Ce répertoire portait encore les
+fichiers d'une campagne antérieure sur les **mêmes noms de base**. L'instantané n'a donc pas été
+pris, et la restauration a écrit dans l'arbre la forme d'**un autre tour** — ici `ExternProc.cpp`
+sans la copie de `userFds`. Les deux tours suivants ont mesuré un arbre qui n'était pas le leur.
+
+⚠️ **Et les preuves exigées par les trois sections ci-dessus étaient toutes VRAIES** : `cmp` rc 0,
+horodatage déplacé, aucun `| head`. Elles comparaient au mauvais original. Une preuve de
+restauration ne vaut que ce que vaut l'original auquel elle compare.
+
+**Parade — trois règles :**
+
+1. ⛔ **Ne jamais réutiliser un répertoire d'instantané.** Un chemin par campagne, effacé avant de
+   commencer ; jamais de `|| cp` qui saute la copie quand le fichier est déjà là.
+2. ✅ **Nommer les instantanés par leur chemin complet**, pas par `basename` : deux `ExternProc.cpp`
+   de deux tickets se recouvrent silencieusement.
+3. ✅ **`git status` sur l'HÔTE après chaque tour**, comme pour le `| head` — c'est encore ce qui l'a
+   rattrapé, et c'est toujours la seule vérification qui ne dépend d'aucune sortie du harnais.
 
 ## ⭐ Outillage — `distcheck` est utilisable, à condition de le paralléliser soi-même
 

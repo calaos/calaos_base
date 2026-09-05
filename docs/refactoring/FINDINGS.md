@@ -10425,10 +10425,28 @@ boucle des **sept** familles de sidecars avec un statut 0.
 
 ⚠️ **Le second défaut est plus précis que « la mauvaise table »** : `mosqpp::strerror(MOSQ_ERR_ERRNO)`
 rend **déjà** `strerror(errno)`. La faute était **l'argument** — `strerror(res)` là où `res` est un
-code de retour. Recensement de l'arbre : **59** appels à `strerror`, **55** sur un `errno`, **4**
-sur une table dédiée correcte (`hstrerror`, `curl_*_strerror`), et **exactement 2** mal posés, tous
-deux dans ce fichier, tous deux corrigés — le second étant `on_connect()`, où un code CONNACK **5**
-(mot de passe du courtier faux) sortait `Input/output error`, **à DEBUG**.
+code de retour. Recensement de l'arbre **recompté à la revue de merge**, commentaires et littéraux
+exclus : sur `master`, **58** appels — 35 `strerror(errno)`, 15 `strerror(err)` avec `int err = errno;`
+au même site (15/15 relus), 6 sur une table dédiée correcte (`hstrerror` ×2, `curl_easy_strerror` ×2,
+`curl_multi_strerror`, `uv_strerror` vendorisé) — et **exactement 2** mal posés, tous deux dans ce
+fichier, tous deux corrigés ; sur l'arbre livré, **59** appels et **0** mal posé. Le second était
+`on_connect()`, où un code CONNACK **5** (mot de passe du courtier faux) sortait `Input/output error`,
+**à DEBUG**. ⚠️ La répartition « 59 / 55 / 4 / 2 » publiée d'abord ici faisait **61** et mêlait le
+total d'après au détail d'avant.
+
+⛔⭐ **CE QUE LA REVUE DE MERGE A INVALIDÉ, ET QUI CHANGE LA PORTÉE DU CORRECTIF :**
+- **`appendFd()` a UN SEUL appelant dans tout l'arbre**, `MqttExternProc_main.cpp`. « Six autres
+  familles s'en servent » est faux : le filet `EBADF` vaut pour un point d'extension public, pas pour
+  des appelants existants. Corollaire : le `select()` des cinq autres sidecars C++ **ne peut pas
+  échouer** aujourd'hui.
+- **`EINTR` n'est atteignable par aucun sidecar livré** : aucun n'installe de gestionnaire de signal,
+  et un `SIGSTOP`/`SIGCONT` sur `calaos_script` ne fait sortir sa boucle **ni avant ni après** le
+  correctif (mesuré des deux côtés). Le correctif est bon ; « un signal suffisait » décrivait le code,
+  pas le produit.
+- **Ni la copie de `userFds` ni la branche `EINTR` ne sont tenues par un cas** (contre-mutations de la
+  revue, 0 rouge sur 134 chacune), et **aucune famille autre que MQTT n'est tenue par quoi que ce
+  soit** (les trois sidecars bâtis sans condition sortant avant leur boucle ⇒ 0 rouge). ⇒
+  [`T3.108`](T3.108.md).
 
 ⛔ **Ce qui reste ouvert, et ça dépasse MQTT ⇒ [`T3.105`](T3.105.md)** : `processExited` est un
 `sigc::signal<void>` **sans statut**, et les **neuf** abonnés de l'arbre relancent à l'identique quel

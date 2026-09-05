@@ -380,6 +380,11 @@ pilotes de ce type (MQTT, KNX, Wago, OneWire, OLA, Roon, Reolink) :
 > la différence entre « ça ne marche pas » et « votre courtier refuse la connexion sur
 > 192.168.1.20:1883 ». Ralentir la relance est un chantier distinct, qui concerne les sept familles
 > de pilotes et pas seulement MQTT.
+>
+> **Et cela ne vaut, pour l'instant, que pour MQTT.** La ligne du serveur (`… exited with status 1`)
+> apparaît pour n'importe lequel de ces programmes ; mais **seul** le programme MQTT sait aujourd'hui
+> annoncer une panne de liaison par son code d'arrêt. Un pilote KNX, Wago, OneWire ou OLA qui perdrait
+> le contact resterait aussi discret qu'avant.
 
 → **Rien à faire de votre côté.** Si vous aviez un MQTT « qui ne marche pas » sans savoir pourquoi,
 la réponse est maintenant dans le journal du serveur.
