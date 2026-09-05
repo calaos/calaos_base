@@ -118,17 +118,6 @@ inline void setAttribute(pugi::xml_node node, const std::string &name, int value
  * The scan is byte wise on purpose: a C0 byte never occurs inside a multi byte
  * UTF-8 sequence, so no decoding is needed to be exact here.
  */
-inline bool isWritableAsAttribute(const std::string &text)
-{
-    for (unsigned char c: text)
-    {
-        if (c < 0x20 && c != '\t' && c != '\n' && c != '\r')
-            return false;
-    }
-    return true;
-}
-
-//The first byte the predicate above rejects, for a message that says which.
 inline int firstUnwritableByte(const std::string &text)
 {
     for (unsigned char c: text)
@@ -137,6 +126,15 @@ inline int firstUnwritableByte(const std::string &text)
             return c;
     }
     return -1;
+}
+
+/* One body, not two: the two callers ask different questions of the SAME rule,
+ * and a second copy of the condition would let the write path and the scenario
+ * name drift apart without anything going red.
+ */
+inline bool isWritableAsAttribute(const std::string &text)
+{
+    return firstUnwritableByte(text) < 0;
 }
 
 /*

@@ -820,4 +820,10 @@ TEST_F(IoParamNulGuardTest, S_AnActionCarryingAControlByteStillCrossesTheApi)
     saveConfig();
     EXPECT_TRUE(contains(ioXmlOnDisk(), "&#01;"))
             << "the action byte no longer reaches the file: " << ioXmlOnDisk();
+
+    /* And it reaches rules.xml as well, through the rule the scenario builds:
+     * "rules.xml is not guarded" is not a gap of its own here, it is this same
+     * open half seen from the other file. Measured rather than argued.
+     */
+    EXPECT_TRUE(contains(rulesXmlOnDisk(), "&#01;")) << rulesXmlOnDisk();
 }
