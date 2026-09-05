@@ -181,6 +181,10 @@ const char *const kSetStateValueSecret = "tourmaline19s-mistral";
 const char *const kTimeRangeFieldSecret = "volubilis47n-pavot";
 const char *const kPictureUidSecret = "quenouille62t-glycine";
 
+//Longer than the cap a range bound is rendered under: a value that fits the cap
+//cannot tell a bound from no bound at all.
+const char *const kTimeRangeBoundSecret = "narcisse73p-mouette";
+
 /*
  * THE DESIGNATED FIELDS. Each is what one family is allowed to render, and
  * each is asserted present: this is the half a bound alone would let die.
@@ -742,7 +746,13 @@ const Runs &theRuns()
                    << "\"day\":\"1\",\"start_hour\":\"21\",\"start_min\":\"37\","
                    << "\"start_sec\":\"11\",\"end_hour\":\"22\",\"end_min\":\"41\","
                    << "\"end_sec\":\"09\","
-                   << "\"x-calaos-plage-inconnue\":\"" << kTimeRangeFieldSecret << "\"}]";
+                   << "\"x-calaos-plage-inconnue\":\"" << kTimeRangeFieldSecret << "\"},{"
+                   //A second range whose start_hour is not a bound at all. The
+                   //six that stayed open take whatever the client sends, and a
+                   //closed bag says nothing about what goes through them.
+                   << "\"day\":\"2\",\"start_hour\":\"" << kTimeRangeBoundSecret
+                   << "\",\"start_min\":\"07\",\"start_sec\":\"03\","
+                   << "\"end_hour\":\"08\",\"end_min\":\"05\",\"end_sec\":\"02\"}]";
             r.setTimerange = exchange(jsonPost(apiBody(fields.str()), credentialHeaders()));
         }
 
@@ -788,6 +798,7 @@ std::vector<Needle> allNeedles()
     n.push_back({ "the value a refused set_state asked to write", kSetStateValueSecret });
     n.push_back({ "a field the client put beside a time range", kTimeRangeFieldSecret });
     n.push_back({ "the picture id the client asked for", kPictureUidSecret });
+    n.push_back({ "a value the client put under a range bound", kTimeRangeBoundSecret });
     return n;
 }
 
@@ -1234,6 +1245,40 @@ TEST_F(IncomingLogStockLevelTest, AnAddedTimeRangeIsNotWrittenOutsideTheJournal)
     EXPECT_TRUE(someLineHasAll(ex.log, {"Adding timerange", kTimeRangeId}))
         << "the trace does not say which io the range was added to, which is "
            "the one thing an integrator reads it for:\n" << ex.log;
+}
+
+/*
+ * AND THE CAP ON A BOUND, WHICH THE BAG BEING CLOSED SAYS NOTHING ABOUT.
+ *
+ * The six fields a range is made of stay open to whatever the client sends,
+ * and the only thing between one of them and a whole value on a line is the
+ * cap it is rendered under. Read on the FULL journal: the line is a debug one,
+ * so the stock subset every other bound of this suite measures cannot see it,
+ * and a cap held only there is a cap held by nothing.
+ */
+TEST_F(IncomingLogStockLevelTest, AnOverlongTimeRangeBoundIsCutToItsCap)
+{
+    const Exchange &ex = theRuns().setTimerange;
+
+    ASSERT_TRUE(ex.connected) << "no connection to the server, this case measures nothing";
+
+    const std::string planted(kTimeRangeBoundSecret);
+    ASSERT_NE(std::string::npos, ex.sent.find(planted))
+        << "the request does not carry the bound this case is written for";
+
+    ASSERT_NE(std::string::npos, ex.log.find("Adding timerange"))
+        << "no range was added, so the site this case is written for never "
+           "ran:\n" << ex.log;
+
+    //Cut AND rendered: plain absence is also what a line that stopped printing
+    //its bounds looks like, and that would pass a bound alone.
+    EXPECT_NE(std::string::npos, ex.log.find(planted.substr(0, 8) + "~"))
+        << "the trace no longer renders a range bound cut at its cap, so the "
+           "bound below would pass on a line that says nothing:\n" << ex.log;
+
+    EXPECT_EQ(std::string::npos, ex.log.find(planted.substr(0, 9)))
+        << "a value the client put under a range bound comes back longer than "
+           "the cap that field is rendered under:\n" << ex.log;
 }
 
 /*
