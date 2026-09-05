@@ -40,6 +40,93 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
+- **✅⭐⭐ [`T3.83`](T3.83.md) MERGÉE — 4 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête sur `master` : **le commit de revue qui porte ce paragraphe** (2026-09-05). La
+  branche partait de `b00684f4` et `master` n'avait pas bougé ⇒ **aucun rebase**.
+  `tests/Makefile.am` : **append pur prouvé octet à octet** (`master` est le préfixe exact des 4874
+  lignes de la branche), `^if HAVE_GTEST` 103 → 104 ≡ `^endif` 104 → 105, **`TESTS` 122 → 123
+  recompté des deux côtés**. Build de merge après `make distclean` : **`TOTAL 123 / PASS 122 /
+  SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, rc 0, **0 `error:`**, un seul
+  `Testsuite summary`, `check-test-deps.sh` **PASS**, seul `SKIP` `check-ccache-honesty.sh`.
+  ⛔ **Rien poussé.**
+
+  ⛔⭐⭐ **LE VICE QUE LA REVUE DE `T3.81` AVAIT MESURÉ UNE HEURE PLUS TÔT ÉTAIT ENCORE LÀ, EN PLUS
+  FIN — MESURÉ, PUIS CORRIGÉ DANS LA BRANCHE (4ᵉ commit).** La fiche annonçait « le capteur constate
+  ce qui SORT, il ne cherche pas un nom ». À moitié seulement : les assertions portaient sur la
+  **valeur** du jeton, donc elles ne voyaient **que la tranche pour laquelle elles étaient
+  orthographiées**. Au site de production, la ligne réduite gardant tous ses champs sûrs :
+  `+ " head=" << substr(0, 64)` (**`M2` du développeur, rejouée en témoin**) ⇒ **2 rouges**, mais
+  `+ " head=" << substr(0, 24)` ⇒ ⛔ **0 rouge** et `+ " tail=" << substr(size - 24)` ⇒ ⛔ **0
+  rouge**. Le jeton fait **31 octets et commence au 21ᵉ** : `M2` ne rougissait que parce que
+  **64 ≥ 51**. Vingt-quatre octets du corps de **chaque** réponse partaient au journal sans qu'une
+  assertion bouge. ⇒ les deux cas de fuite bornent désormais **la plus longue suite d'octets du corps
+  que le journal rend** au lieu de nommer un secret ; les deux mêmes échanges donnent **2 rouges**
+  chacun (*the journal gives back 24 consecutive bytes*), **recouvrement fortuit mesuré 6 octets**
+  contre un plafond de **12**.
+
+  ⭐ **Deux autres contre-mutations de la revue, et elles ne disent pas la même chose.** La **ligne
+  d'en-têtes** — première ligne de `getResponseHeaders()`, une **autre fonction** — échangée pour
+  publier le corps entier : **2 rouges** ⇒ la garde regarde **le journal**, pas un site. ⛔ Le corps
+  republié à **WARNING** sur la branche **non-2xx** de `completeCb()`, donc **imprimé par défaut**,
+  un cran **au-dessus** de ce que le ticket ferme : **0 rouge** ⇒ **aucun chemin d'échec du transport
+  n'est exercé**, le pair de la fixture ne répond jamais autre chose que `200`. **Forme 2 de
+  [`T3.79`](T3.79.md)**, cette fois du côté du filet. ✅ **Le contrepoids n'est pas vide** : `M3`
+  rejouée donne **1 rouge et un seul**. Restaurations **par copie prouvées au `cmp` (rc 0 × 5)**,
+  mutations et restaurations **sur l'hôte**, ⛔ aucun `git` dans le conteneur, `CXXLD
+  UrlDownloaderLogSecret_test` **lu** à chaque tour, témoin final **vert** 123/122/1/0.
+
+  ⚠️ **Piège d'outillage rencontré et à consigner** : **`make -j32` seul ne relie PAS les
+  `check_PROGRAMS`.** Un binaire de test exécuté après un `make` sans `make check` porte encore
+  l'objet du tour précédent — la mesure est fausse et **rien ne le signale**. Même famille que le
+  faux vert de `_DEPENDENCIES`. Un tour de mesure se fait **toujours** en `make -j32 && make check
+  -j16`.
+
+  ⛔⭐ **LE RECENSEMENT EST SOUS-ÉVALUÉ, ET L'ARGUMENT S'EN TROUVE RENFORCÉ.** « Treize des quinze
+  sites d'appel » ne se reproduit sous aucune convention, et **le tableau du §2 se contredit
+  lui-même** : il porte **seize** lignes, dont **quatorze** hors téléchargement fichier. Recompté
+  aux sources hors `src/lib` : **20 `new UrlDownloader`** + **4 appels aux fabriques statiques**
+  (`IPCam::camGet()`, arrêt PTZ `Foscam`) ⇒ **24 lancements**, dont 2 vont dans un fichier ⇒ **22
+  traversent la ligne fautive** (**22 / 20** en comptant les deux fabriques comme un site logique
+  chacune ; **13** si l'on compte les **fichiers** appelants — c'est probablement l'origine du
+  chiffre). ⇒ **plus il y a d'émetteurs, moins une liste de champs sensibles peut être exhaustive**.
+  ⭐ **Les quatre porteurs de secret sont exacts**, vérifiés au code qui **lit** la réponse
+  (`jdoc["data"]["deviceRoseToken"]`, `GET /api/v2/authorizations`, `jdata["sid"]`, les URL libres
+  de Lua et du Web IO).
+
+  ⛔ **LE NIVEAU EST BIEN `DEBUG`, ET LA FICHE A RAISON CONTRE LE BRIEF DE RELECTURE.** Le brief
+  annonçait « la fuite est à INFO » : **c'est faux et la fiche ne l'a jamais dit**. Elle dit que le
+  domaine `urlutils` **imprime à INFO** et **n'imprime pas à DEBUG** — la ligne fautive est un
+  `cDebugDom`, elle **ne partait donc pas sur un boîtier neuf**. Reconfirmé aux sources :
+  `LOG_LEVEL_DEBUG` (5) > repli `LOG_LEVEL_INFO` (4) de `Logger::maxLevelPrintable()`, et le filtre
+  est `level > maxLevelPrintable(domain)`. ⇒ **gravité d'un cran sous T3.79 et T3.81 ; ce qui la
+  porte ici est le périmètre.**
+
+  ⛔⭐⭐ **[`T3.87`](T3.87.md) EST CONFIRMÉ MAILLON PAR MAILLON, IL EST PLUS GRAVE QUE CE QUI VIENT
+  D'ÊTRE FERMÉ, ET IL RESTE OUVERT SUR `master`.** `Utils::maskUrlCredentials` est bien une liste de
+  **dix** noms sans `token` ni `api_key` ni `key`, et ⭐ **elle retourne avant toute analyse quand
+  l'URL ne porte pas de `?`** — elle ne regarde donc **jamais** le chemin. `HueOutputLightRGB`
+  construit `"http://" + m_host + "/api/" + m_api + "/lights/" + m_idHue`, où `m_api` **est** la clef
+  d'API du pont (paramètre `api` d'`io.xml`), et le constructeur d'`UrlDownloader` publie cette URL
+  par `cInfoDom("urlutils")` ⇒ **la clef d'API Hue part en clair, à INFO, sur une installation de
+  série, à chaque tour d'une minuterie de 2 s.** Les six autres sites sont vérifiés : `cWarning()`
+  du `catch` de `parseJsonResult()` (atteint depuis `login()`, donc le corps qui porte le `sid`,
+  ⚠️ sur échec de parsage seulement), `cWarning()` de l'instantané Synology hors `image/jpeg`, **deux
+  `cErrorDom("hue")`** ; `WARNING` = 3 et `ERROR` = 2, tous deux sous le défaut de 4 ⇒ **imprimés
+  sans que personne n'allume rien**. **Aucun ticket ouvert par cette revue** — le trou de filet du
+  chemin d'échec est fiché sous `F-URLDL-2`.
+
+  ⭐⭐ **QUESTION EN ATTENTE POUR L'UTILISATEUR — À TRANCHER, LA REVUE NE TRANCHE PAS.**
+  **`T3.81` n'a ajouté aucune entrée à `RELEASE_NOTES.md`**, alors que `T3.79` en a une
+  (`034c4f3f`, « Votre mot de passe de courtier MQTT n'apparaît plus dans les journaux ») et que
+  `T3.83` en a une aussi (livrée dans cette branche). **Trois correctifs de sécurité, deux notes de
+  publication.** La question posée au merge de `T3.81` reste donc entière : **faut-il écrire pour
+  `T3.81` la note qui manque** — un jeton d'appareil audio qui partait **au niveau imprimé par
+  défaut**, et un mot de passe de caméra qui partait dès DEBUG ? **Non tranché ici.**
+
+  **État de la session au sortir de ce merge** : `master` = le commit de revue qui porte ce
+  paragraphe, rien de poussé, historique linéaire. Worktree `.wave110/t3.83` supprimé, branche
+  `fix/t3.83` supprimée. ⚠️ `.wave109/t3.85` (`fix/t3.85`) est **intact** — non touché par ce merge.
+
 - **✅⭐⭐ [`T3.81`](T3.81.md) MERGÉE — 3 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **le commit de revue qui porte ce paragraphe** (2026-09-05). La
   branche partait de `65cb137a` et `master` était à `f2a5462b` ⇒ **rebase**, avec le conflit

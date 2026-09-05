@@ -10276,6 +10276,17 @@ parfois un JPEG. ⭐ **Niveau MESURÉ dans un enfant forké** (`AStockInstallDoe
 `F-URLDL-2`** : le bloc d'en-têtes de réponse, le masquage d'URL par liste de dix noms, et six sites
 de drivers qui republient un corps entier — trois d'entre eux **au-dessus** de DEBUG.
 
+⭐ **Revue de merge (2026-09-05)** — le recensement est **sous-évalué** : l'arbre porte **24
+lancements** hors `src/lib` (20 `new UrlDownloader` + 4 appels aux fabriques statiques), dont **22**
+traversaient la ligne fautive, contre « treize des quinze » annoncés — l'argument contre le
+caviardage en sort **renforcé**. ⛔⭐ **Le capteur cherchait une valeur connue d'avance** : la ligne
+réduite gagnant les **24** premiers octets du corps, ou ses 24 derniers, donnait **0 rouge** — seul
+un extrait assez large pour contenir le jeton entier (31 octets, commençant au 21ᵉ) rougissait.
+**Corrigé dans la branche** : les cas de fuite bornent désormais la plus longue suite d'octets du
+corps que le journal rend. ⚠️ **Ce qui reste ouvert du côté du filet** : aucun **chemin d'échec** du
+transport n'est exercé — le corps republié à WARNING sur la branche non-2xx donne **0 rouge**, et
+WARNING est imprimé par défaut. Le niveau annoncé est confirmé **DEBUG**.
+
 ### ⛔ [F-URLDL-2] Ce que `UrlDownloader` publie **à côté du corps**, et les drivers qui le republient — ticket proposé [`T3.87`](T3.87.md)
 
 Trouvé en mesurant [`T3.83`](T3.83.md), qui a fermé le corps et **pas** ces trois canaux.
@@ -10299,6 +10310,16 @@ Trouvé en mesurant [`T3.83`](T3.83.md), qui a fermé le corps et **pas** ces tr
    `parseJsonResult()`, appelée par `login()` — donc le corps qui porte le `sid`), `:189`
    (**WARNING**), `IO/Hue/HueOutputLightRGB.cpp:71,78` (**ERROR**), puis `:82,137,157` et
    `IO/Web/WebCtrl.cpp:434` (qui publie en prime l'URL **non masquée**) à DEBUG.
+
+⭐ **Revue de merge (2026-09-05) — le point 2 est confirmé maillon par maillon, et il est PLUS
+GRAVE que `F-URLDL-1`.** `Utils::maskUrlCredentials` **retourne avant toute analyse quand l'URL ne
+porte pas de `?`**, donc elle ne regarde jamais le chemin ; `HueOutputLightRGB` construit
+`"http://" + m_host + "/api/" + m_api + "/lights/" + m_idHue` où `m_api` est le paramètre `api`
+d'`io.xml` ; et le constructeur d'`UrlDownloader` publie l'URL par `cInfoDom("urlutils")`, soit le
+repli d'un boîtier neuf. ⇒ **la clef d'API du pont Hue part en clair, à INFO, sur une installation
+de série, à chaque tour d'une minuterie de 2 s.** Les niveaux du point 3 sont vérifiés eux aussi :
+`WARNING` vaut 3 et `ERROR` vaut 2, tous deux sous le défaut de 4 ⇒ **imprimés sans que personne
+n'allume rien**.
 
 ⚠️ **Le coût en diagnostic est réel pour le point 1** : les en-têtes sont ce qu'on lit pour
 comprendre une redirection ou un type de contenu inattendu — et T3.83 s'appuie explicitement sur
