@@ -46,10 +46,21 @@
  * A regression must be able to fail a case, never to hang `make check`. Every
  * wait below has a deadline and a case that says what it was waiting for.
  *
- * ⛔ WHAT THIS DOES NOT PROVE: that the sidecar talks to a broker. No broker
- * is involved - the only case that configures one points it at a loopback
- * socket that completes the handshake and then says nothing, which is the
- * state a stock install is in while its broker is silent.
+ * ---------------------------------------------------------------------------
+ * ⭐ AND WHAT IT DOES WHEN THE BROKER IS NOT THERE
+ * ---------------------------------------------------------------------------
+ * The three ways a broker goes missing are three different code paths and
+ * only one of them used to be visible: a refused port fails inside
+ * connect_async() and is named (wrongly, but named), while an unreachable host
+ * and a broker that drops mid-session fail AFTER connect_async() has answered
+ * success - libmosquitto closes its socket, and the descriptor the sidecar
+ * registered in its main loop is stale from then on. All three are exercised
+ * here against the shipped binary, and each one is pinned on BOTH halves of
+ * what an operator needs: a non zero exit status and a line naming the cause.
+ *
+ * ⛔ WHAT THIS DOES NOT PROVE: that the sidecar talks to a real broker. The
+ * only case that gets as far as a session uses four hand written bytes of
+ * CONNACK; nothing here publishes or subscribes.
  ******************************************************************************/
 
 #include <gtest/gtest.h>
@@ -127,15 +138,35 @@ int openLoopbackListener(int &port)
     return fd;
 }
 
-Params brokerParams(int port)
+Params brokerParamsAt(const std::string &host, int port)
 {
     Params p;
-    p.Add("host", "127.0.0.1");
+    p.Add("host", host);
     p.Add("port", Utils::to_string(port));
     p.Add("keepalive", "45");
     p.Add("user", "courtier-utilisateur");
     p.Add("password", "mot de passe");
     return p;
+}
+
+Params brokerParams(int port)
+{
+    return brokerParamsAt("127.0.0.1", port);
+}
+
+/*
+ * A loopback port that answers nothing at all: bound and listened to so that
+ * the kernel really handed it out, then closed, so a connect to it is refused
+ * on the spot instead of racing another service that might own it.
+ */
+int closedLoopbackPort()
+{
+    int port = 0;
+    const int fd = openLoopbackListener(port);
+    if (fd < 0)
+        return -1;
+    ::close(fd);
+    return port;
 }
 
 /*
@@ -150,6 +181,9 @@ struct SidecarRun
 {
     bool exited = false;
     long exitedAfterMs = 0;
+    //-1 until the child has been reaped, and only the raw launcher below can
+    //fill it: ExternProcServer::processExited carries no status at all.
+    int exitCode = -1;
     std::string log;
 };
 
@@ -231,6 +265,94 @@ SidecarRun runSidecar(const std::vector<std::string> &messages, int budgetMs)
  * four of big endian length, then the payload, which is the framing of
  * IO/ExternProc.cpp and is pinned there.
  */
+/*
+ * A four byte broker, pumped from the same loop that watches the child.
+ *
+ * ⚠️ It is a FIXTURE WITH AN ORACLE, not a decoration: the cases that use it
+ * assert that it really saw a CONNECT and really answered a CONNACK before it
+ * dropped the connection. Without that, a sidecar which never reached the
+ * broker at all would produce the same exit as one whose session collapsed,
+ * and the case would be measuring the wrong failure.
+ *
+ * Single threaded on purpose - the sidecar is a separate process, so a state
+ * machine driven every few milliseconds is enough and nothing here can race.
+ */
+struct FakeBroker
+{
+    int listenFd = -1;
+    int port = 0;
+    int conn = -1;
+    bool sawConnect = false;
+    bool sentConnack = false;
+    bool dropped = false;
+    long holdMs = 400;              //how long the session lives after CONNACK
+    //CONNACK return code: 0 accepts the session, 5 is the refusal a wrong
+    //broker password produces
+    int connackRc = 0;
+    std::chrono::steady_clock::time_point connackAt;
+};
+
+void setNonBlocking(int fd)
+{
+    const int fl = ::fcntl(fd, F_GETFL, 0);
+    ::fcntl(fd, F_SETFL, fl | O_NONBLOCK);
+}
+
+bool openFakeBroker(FakeBroker &b)
+{
+    b.listenFd = openLoopbackListener(b.port);
+    if (b.listenFd < 0)
+        return false;
+    setNonBlocking(b.listenFd);
+    return true;
+}
+
+void pumpFakeBroker(FakeBroker &b)
+{
+    if (b.listenFd < 0 || b.dropped)
+        return;
+
+    if (b.conn < 0)
+    {
+        const int c = ::accept(b.listenFd, NULL, NULL);
+        if (c < 0)
+            return;
+        b.conn = c;
+        setNonBlocking(b.conn);
+    }
+
+    if (!b.sentConnack)
+    {
+        char buf[512];
+        const ssize_t n = ::recv(b.conn, buf, sizeof(buf), 0);
+        if (n <= 0)
+            return;
+        b.sawConnect = true;
+        //MQTT 3.1.1 CONNACK, session not present, then the return code
+        const char connack[4] = { 0x20, 0x02, 0x00, char(b.connackRc) };
+        b.sentConnack = ::send(b.conn, connack, sizeof(connack), MSG_NOSIGNAL) == 4;
+        b.connackAt = std::chrono::steady_clock::now();
+        return;
+    }
+
+    const long alive = static_cast<long>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - b.connackAt).count());
+    if (alive >= b.holdMs)
+    {
+        ::close(b.conn);
+        b.conn = -1;
+        b.dropped = true;
+    }
+}
+
+void closeFakeBroker(FakeBroker &b)
+{
+    if (b.conn >= 0) ::close(b.conn);
+    if (b.listenFd >= 0) ::close(b.listenFd);
+    b.conn = b.listenFd = -1;
+}
+
 std::string frameOf(const std::string &payload)
 {
     std::string f;
@@ -244,7 +366,8 @@ std::string frameOf(const std::string &payload)
     return f;
 }
 
-SidecarRun runSidecarRaw(const std::vector<std::string> &chunks, int budgetMs)
+SidecarRun runSidecarRaw(const std::vector<std::string> &chunks, int budgetMs,
+                         FakeBroker *broker = NULL)
 {
     SidecarRun out;
 
@@ -314,15 +437,19 @@ SidecarRun runSidecarRaw(const std::vector<std::string> &chunks, int budgetMs)
         if (n > 0)
             out.log.append(buf, buf + n);
 
+        if (broker)
+            pumpFakeBroker(*broker);
+
         if (::waitpid(pid, &status, WNOHANG) == pid)
         {
             out.exited = true;
+            out.exitCode = WIFEXITED(status)? WEXITSTATUS(status): -1;
             out.exitedAfterMs = static_cast<long>(
                 std::chrono::duration_cast<std::chrono::milliseconds>(
                     std::chrono::steady_clock::now() - t0).count());
             break;
         }
-        ::usleep(20 * 1000);
+        ::usleep(5 * 1000);
     }
 
     if (!out.exited)
@@ -582,6 +709,200 @@ TEST_F(MqttSidecarConfigWaitTest, AConfigurationCutAcrossTwoReadsIsStillAssemble
         << "the sidecar published the configuration it assembled. Log: " << r.log;
 
     ::close(listener);
+}
+
+/*
+ * ⭐⭐ AN UNREACHABLE BROKER - the stock case of a box whose broker is simply
+ * not switched on.
+ *
+ * connect_async() answers SUCCESS here: the TCP connect is only STARTED, and
+ * it fails afterwards, inside libmosquitto, which closes its socket. The
+ * descriptor the sidecar handed to its main loop is stale from that instant.
+ *
+ * ⚠️ THE FIXTURE IS CHECKED BEFORE IT IS BELIEVED. A documentation address
+ * (RFC 5737 TEST-NET-1) can fail either way depending on the machine's
+ * routing: synchronously, inside connect_async(), which is the OTHER path and
+ * is already loud on master; or asynchronously, which is this one. The line
+ * that connect_async() prints when it answered success is what tells them
+ * apart, so it is asserted first - without it this case could go green while
+ * measuring the path it is not about.
+ *
+ * RED on master: exit status 0, and a journal whose only line is that same
+ * "Connect to :". The server relaunches with no backoff and prints
+ * "process exited, restarting..." at WARNING every turn, so what an operator
+ * gets is ten lines a second that never say why.
+ */
+TEST_F(MqttSidecarConfigWaitTest, AnUnreachableBrokerEndsTheSidecarWithACauseAndANonZeroStatus)
+{
+    const std::string wire = frameOf(MqttWire::encodeConfig(brokerParamsAt("192.0.2.42", 1883)));
+
+    const SidecarRun r = runSidecarRaw(std::vector<std::string>(1, wire), kSidecarWaitMs + 3000);
+
+    ASSERT_TRUE(logCarries(r, "Connect to : 192.0.2.42"))
+        << "connect_async() did not answer success on this machine, so the "
+           "failure was synchronous and this case is measuring the wrong path. "
+           "Log: " << r.log;
+
+    ASSERT_TRUE(r.exited)
+        << "the sidecar stayed alive with a broker it never reached. Log: " << r.log;
+    EXPECT_NE(0, r.exitCode)
+        << "the sidecar left with status " << r.exitCode
+        << ": calaos_server cannot tell this from a clean shutdown, and neither "
+           "can whoever reads the journal. Log: " << r.log;
+    EXPECT_TRUE(logCarries(r, "Lost the connection to the broker"))
+        << "nothing in the journal names the broker as the reason the sidecar "
+           "left. Log: " << r.log;
+    EXPECT_FALSE(logCarries(r, "mot de passe"))
+        << "the sidecar published its broker password while reporting the "
+           "failure. Log: " << r.log;
+}
+
+/*
+ * ⭐ A REFUSED PORT - and the message must name the refusal.
+ *
+ * This one fails INSIDE connect_async(), which answers MOSQ_ERR_ERRNO. That
+ * code is 14, and reading it with ::strerror() - the errno table - gives
+ * EFAULT, "Bad address": a diagnosis that sends the operator looking for a
+ * memory fault instead of a broker that is not listening.
+ *
+ * RED on master on the message alone: the status was already non zero here,
+ * which is precisely why this path was never the one that hurt.
+ */
+TEST_F(MqttSidecarConfigWaitTest, ARefusedPortIsNamedARefusalAndNotAnUnrelatedErrno)
+{
+    const int port = closedLoopbackPort();
+    ASSERT_GT(port, 0) << "could not reserve a loopback port";
+
+    const std::string wire = frameOf(MqttWire::encodeConfig(brokerParamsAt("127.0.0.1", port)));
+
+    const SidecarRun r = runSidecarRaw(std::vector<std::string>(1, wire), kSidecarWaitMs + 3000);
+
+    ASSERT_TRUE(r.exited)
+        << "the sidecar stayed alive on a refused port. Log: " << r.log;
+    ASSERT_TRUE(logCarries(r, "Error connecting"))
+        << "the sidecar never reached the connection error at all, so what "
+           "this case asserts below would say nothing. Log: " << r.log;
+
+    EXPECT_NE(0, r.exitCode)
+        << "a broker that refuses the connection is not a clean shutdown. Log: "
+        << r.log;
+    EXPECT_TRUE(logCarries(r, "Connection refused"))
+        << "the journal does not name the refusal. Log: " << r.log;
+    EXPECT_FALSE(logCarries(r, "Bad address"))
+        << "the journal blames a memory fault for a broker that is not "
+           "listening: the mosquitto return code was read with the errno "
+           "table. Log: " << r.log;
+    EXPECT_FALSE(logCarries(r, "mot de passe"))
+        << "the sidecar published its broker password while reporting the "
+           "failure. Log: " << r.log;
+}
+
+/*
+ * ⭐⭐ THE BROKER GOES AWAY MID SESSION - the frequent one in production, and
+ * the one no ticket had looked at.
+ *
+ * The session is real as far as this end is concerned: the fixture reads the
+ * CONNECT packet and answers a CONNACK, so libmosquitto is connected, then it
+ * drops the connection. libmosquitto closes its socket exactly as it does for
+ * a connect that failed late, and the sidecar is left with the same stale
+ * descriptor - which is why this case and the unreachable one above must both
+ * be here: they are the same defect reached from two different states.
+ *
+ * ⚠️ ANTI VACUITY IN THE FIXTURE, NOT IN THE LOG: what proves the session
+ * existed is that the broker saw a CONNECT and sent its CONNACK, and both are
+ * asserted. Reading it from the sidecar's journal instead would need the
+ * DEBUG level, i.e. a different haystack from the one every other case here
+ * measures.
+ *
+ * RED on master: exit status 0, not one line about the broker.
+ */
+TEST_F(MqttSidecarConfigWaitTest, ABrokerThatDropsMidSessionEndsTheSidecarWithACauseAndANonZeroStatus)
+{
+    FakeBroker broker;
+    ASSERT_TRUE(openFakeBroker(broker)) << "could not open the fake broker";
+
+    const std::string wire =
+        frameOf(MqttWire::encodeConfig(brokerParamsAt("127.0.0.1", broker.port)));
+
+    const SidecarRun r =
+        runSidecarRaw(std::vector<std::string>(1, wire), kSidecarWaitMs + 3000, &broker);
+
+    EXPECT_TRUE(broker.sawConnect)
+        << "the fake broker never received a CONNECT, so no session was ever "
+           "established and this case is measuring a connect failure. Log: "
+        << r.log;
+    ASSERT_TRUE(broker.sentConnack)
+        << "the fake broker never answered a CONNACK, so nothing here says "
+           "what happens to an ESTABLISHED session. Log: " << r.log;
+    ASSERT_TRUE(broker.dropped)
+        << "the fake broker never dropped the connection. Log: " << r.log;
+
+    ASSERT_TRUE(r.exited)
+        << "the sidecar kept running with a broker that had gone away: it "
+           "polls a descriptor libmosquitto has closed and nothing reconnects. "
+           "Log: " << r.log;
+    EXPECT_FALSE(logCarries(r, "waiting for its configuration"))
+        << "the sidecar left on its configuration deadline, so it never got as "
+           "far as the broker. Log: " << r.log;
+
+    EXPECT_NE(0, r.exitCode)
+        << "the sidecar left with status " << r.exitCode
+        << " after its broker went away, which calaos_server cannot tell from "
+           "a clean shutdown. Log: " << r.log;
+    EXPECT_TRUE(logCarries(r, "Lost the connection to the broker"))
+        << "nothing in the journal names the broker as the reason the sidecar "
+           "left. Log: " << r.log;
+    EXPECT_FALSE(logCarries(r, "mot de passe"))
+        << "the sidecar published its broker password while reporting the "
+           "failure. Log: " << r.log;
+
+    closeFakeBroker(broker);
+}
+
+/*
+ * ⭐ A BROKER THAT REFUSES THE CREDENTIALS SAYS SO, AT A LEVEL A STOCK INSTALL
+ * PRINTS.
+ *
+ * The CONNACK return code is not an errno and never was. Read with the errno
+ * table, code 5 - "not authorised", i.e. the wrong broker password, the single
+ * likeliest configuration mistake here - came out as "Input/output error", and
+ * it came out at DEBUG, so on a stock install it came out not at all.
+ *
+ * ⚠️ This case says nothing about the exit status on purpose: what a refused
+ * CONNACK must produce is a NAME, and keeping the two subjects apart is what
+ * makes a mutation of either table land on one case rather than on all of them.
+ */
+TEST_F(MqttSidecarConfigWaitTest, ABrokerRefusingTheCredentialsNamesTheRefusal)
+{
+    FakeBroker broker;
+    ASSERT_TRUE(openFakeBroker(broker)) << "could not open the fake broker";
+    broker.connackRc = 5;           //not authorised
+    broker.holdMs = 4000;           //the sidecar leaves on its own, long before
+
+    const std::string wire =
+        frameOf(MqttWire::encodeConfig(brokerParamsAt("127.0.0.1", broker.port)));
+
+    const SidecarRun r =
+        runSidecarRaw(std::vector<std::string>(1, wire), kSidecarWaitMs + 3000, &broker);
+
+    ASSERT_TRUE(broker.sentConnack)
+        << "the fake broker never answered a CONNACK, so nothing here was "
+           "refused at all. Log: " << r.log;
+
+    EXPECT_TRUE(logCarries(r, "The broker refused the connection"))
+        << "a broker that turned the credentials down left no trace an "
+           "operator can read. Log: " << r.log;
+    EXPECT_TRUE(logCarries(r, "not authorised"))
+        << "the journal does not say WHICH refusal the broker answered, which "
+           "is the difference between a wrong password and a broker that does "
+           "not speak this protocol version. Log: " << r.log;
+    EXPECT_FALSE(logCarries(r, "Input/output error"))
+        << "the CONNACK code was read with the errno table. Log: " << r.log;
+    EXPECT_FALSE(logCarries(r, "mot de passe"))
+        << "the sidecar published its broker password while reporting the "
+           "refusal. Log: " << r.log;
+
+    closeFakeBroker(broker);
 }
 
 /*
