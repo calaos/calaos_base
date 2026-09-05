@@ -10369,7 +10369,7 @@ seule — il passait pour une raison sans rapport avec ce qu'il prétendait mesu
 les 0 rouge des revues de T3.83 et T3.85. Corrigé : un seul pair, plusieurs connexions, égalité des
 autorités assurée ; la même mutation rend **1 rouge**.
 
-### ⛔ [F-URLDL-3] Le bloc d'en-têtes de réponse, et six drivers qui republient un corps entier — ticket proposé [`T3.88`](T3.88.md)
+### ✅ [F-URLDL-3] FERMÉ par [`T3.88`](T3.88.md) — le bloc d'en-têtes de réponse, et les sites qui republient un corps entier
 
 Ce sont les points 1 et 3 de `F-URLDL-2`, **repris tels quels** : [`T3.87`](T3.87.md) n'a fermé que
 l'URL.
@@ -10389,6 +10389,87 @@ l'URL.
 ⚠️ **L'arbitrage n'est pas celui de T3.87** : Hue publie le corps **parce qu'il n'a pas su le lire**,
 donc la taille seule ne dit pas pourquoi. Il faut d'abord savoir ce qu'un intégrateur lit vraiment
 sur ce chemin, et ce n'est pas mesuré.
+
+✅ **FERMÉ le 2026-09-05 par [`T3.88`](T3.88.md)** — 8 sites fermés, `TESTS` **128 → 129**.
+
+⭐ **Le point 2 était plus large que ce qui est écrit ci-dessus.** `parseJsonResult()` publiait le
+corps **et** `e.what()` de nlohmann, et elle est appelée par `login()` **et** par `getApiInfo()` :
+la réponse de `login()` **est** le document qui porte le `sid`, la session ouverte avec les
+identifiants de caméra d'`io.xml`. Quatre chemins y mènent — pas un objet, `success` faux, pas de
+bloc `data`, toute exception de `Json::parse` — et le **niveau est mesuré dans un enfant forké** :
+le domaine par défaut imprime à **WARNING** et à **ERROR** sur un boîtier neuf, le domaine `hue`
+à **ERROR**, `urlutils` **pas** à DEBUG.
+
+⭐ **La forme est l'INVERSE d'une liste de secrets, et c'est ce qui la distingue des deux listes qui
+ont échoué.** `getResponseHeaders()` énumère **ce qu'il a le droit de publier** — huit noms qui
+décrivent le message (`accept-ranges`, `connection`, `content-encoding`, `content-length`,
+`content-range`, `content-type`, `retry-after`, `transfer-encoding`), plus la ligne de statut brute
+— passe `Location`/`Content-Location` par **`Utils::urlForLog`** parce que ce sont des URL, et rend
+tout le reste comme `nom: [NB] #empreinte`, comparaison **insensible à la casse**. Un en-tête
+inconnu est retenu **parce qu'il est inconnu**. Aucun réducteur parallèle : `urlForLog` et `logTag`
+existaient.
+
+⭐ **L'argument Hue est mesurable et il n'est pas « le pont met un secret dans sa réponse »** : la
+clef d'API du pont est un **segment de chemin** de l'URL interrogée (acquis de `F-URLDL-2` §2), et
+ce qui répond à cette adresse quand ce n'est pas un pont sert une page d'erreur qui **cite le chemin
+demandé**.
+
+⭐ **Le capteur ne dépend ni d'un nom ni d'une longueur** (`tests/core/DriverAnswerSecret_test.cpp`,
+suite **neuve**, disjointe de `UrlDownloaderLog*_test` que [`T3.96`](T3.96.md) va réécrire) : il
+borne la plus longue **suite d'octets** du document que le journal rend, cherchée **sous trois
+formes** (clair, pourcents, base64) ; **recouvrement fortuit 4**, plafond **5** épinglé par une
+**ÉGALITÉ** re-dérivée à chaque exécution, **abaissé à 4** ⇒ **3 rouges** disant `actual: 4 vs 4`.
+Les deux suites de 4 sont de vrais accidents : `code` (*status code:* contre `"code":403`) et `ocat`
+(*Location:* contre `/relocated`). **Par le vrai chemin** : le pair répond aux deux requêtes de
+`downloadSnapshot()` et la suite exige `method=Login` **et** `passwd=` sur le fil avant de conclure.
+**Un seul pair, deux connexions** : rien n'y passe en distinguant deux ports éphémères.
+
+⭐ **Six contre-mutations par échange, ensembles rouges deux à deux distincts**, témoin à 0 rouge,
+restaurations prouvées `cmp` rc 0 **et** horodatage effectivement modifié. Les deux qui comptent :
+**M5** publie la valeur du cookie **en base64**, la recherche du clair reste **verte** et la borne
+rougit à **68 octets** ⇒ la chasse en trois formes mord là où un capteur orthographié serait aveugle ;
+**M4** efface le nom et les valeurs énumérées ⇒ **aucune** fuite ne rougit, le **contrepoids**
+rougit (statut, type de contenu, cible de redirection) ⇒ le diagnostic est tenu par un test.
+
+⛔ **Ce qui reste nu** : `Location:` **relative** n'est réduite qu'en `<url NB> #empreinte` — la
+forme du chemin est perdue là où elle est gardée pour une cible absolue ; les cinq sites Hue et le
+corps envoyé du Web IO sont fermés **par lecture**, une mutation y rendrait **0 rouge** ; la
+**ligne de statut** sort brute, sa phrase de raison est choisie par le pair.
+
+### 📋 [F-URLDL-5] `conn->errorBuf` de libcurl est concaténé verbatim à WARNING — **mesuré non porteur**, aucun ticket
+
+`src/lib/UrlDownloader.cpp`, branche d'échec de `checkMultiInfo()` : le tampon de
+`CURLOPT_ERRORBUFFER` est concaténé tel quel à la ligne *Transfer failed for …*, à **WARNING**, donc
+**imprimé sur un boîtier neuf**. C'est le §libcurl de `F-URLDL-2`, resté ouvert de ticket en ticket
+parce que personne n'avait regardé ce que libcurl y écrit vraiment.
+
+⭐ **Mesuré à [`T3.88`](T3.88.md), pas déduit** — 9 scénarios contre **libcurl 7.88.1**, une aiguille
+placée à chaque endroit atteignable par un pair : schéma non supporté en redirection, cible de
+redirection malformée, hôte introuvable, `Content-Length` menteur, ligne de statut illisible,
+`WWW-Authenticate: Digest` cassé, `chunked` cassé, `Content-Encoding` inconnu, et un **mot de passe
+d'userinfo** dans la cible de redirection. **L'aiguille n'en est jamais ressortie.** Les seules
+données venues du distant sont un **nom d'hôte** (`Could not resolve host: X`) et un **nom de
+schéma** (`Protocol "gopher" not supported`) — deux choses que `Utils::urlForLog` publie **par
+construction**.
+
+⇒ **Fiché, non corrigé** : caviarder le tampon coûterait le diagnostic le plus utile de la ligne
+(*transfer closed with N bytes remaining*, *Illegal or missing hexadecimal sequence*) contre une
+fuite que la mesure ne trouve pas. ⚠️ **La réserve** : ce sont les chaînes de format de **libcurl**,
+pas les nôtres ; une version future peut en ajouter une qui cite davantage, et **aucun test ne
+l'observerait**.
+
+### 📋 [F-URLDL-6] `AVRRose` publie encore une URL brute — **ne porte rien**, aucun ticket
+
+`src/bin/calaos_server/Audio/AVRRose.cpp`, `getRequest()` et `postRequest()` :
+`cDebugDom("hifirose") << "GET " << url` où `url` est `https://hôte:port/<urlPath>` **non réduite**.
+[`T3.87`](T3.87.md) a converti dix sites et manqué ces deux-là.
+
+✅ **Recensé à [`T3.88`](T3.88.md) : rien ne peut y transiter.** `urlPath` est un **littéral** aux
+trois appelants (`get_current_state`, `get_control_info`, `mute.state.get`) — ni requête, ni
+userinfo, ni segment variable — et le corps publié à la même ligne est `{"connectIP": <ip locale>}`.
+Le jeton de l'appareil, lui, ne passe pas par là (il voyage en en-tête et n'est jamais journalisé
+depuis [`T3.83`](T3.83.md)). ⇒ **fiché pour cohérence de forme, pas pour une fuite.** Niveau DEBUG,
+donc pas imprimé sur un boîtier neuf.
 
 ### ⚠️ [F-URLDL-4] Le **sel par processus** de l'empreinte d'URL n'est gardé par aucune assertion — aucun ticket
 

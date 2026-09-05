@@ -1307,6 +1307,46 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   désactivée E4.2e, scénario désactivé T3.18).
 
 ## Sécurité & réseau
+- ⭐ **Le jeton de session de vos caméras Synology n'apparaît plus dans le journal d'une
+  installation neuve.** Quand Calaos se connecte à une Surveillance Station, il envoie votre
+  identifiant et votre mot de passe et reçoit en retour un **jeton de session** — la clef qui donne
+  accès aux images de vos caméras jusqu'à la déconnexion. Si le NAS répondait quelque chose que
+  Calaos ne savait pas relire — une autre version de DSM, un refus accompagné de son bloc de
+  session, une page intercalée par un équipement du réseau — le pilote écrivait **la réponse
+  entière** dans le journal, jeton compris.
+
+  ⛔ **Et cette ligne-là était imprimée sans que personne n'ait rien allumé** : elle est écrite au
+  niveau « avertissement », qu'une installation neuve affiche. C'est la différence avec les
+  corrections voisines, qui demandaient d'avoir monté le niveau de journalisation.
+
+  Désormais la ligne dit **à quelle étape** la réponse a été refusée — elle n'est pas un objet, le
+  NAS signale un échec, le bloc de données manque, la lecture a échoué — et **combien d'octets**
+  elle pesait. On voit toujours qu'une connexion a échoué et pourquoi ; on ne voit plus ce que le
+  NAS avait répondu. Même traitement pour l'instantané refusé, pour les lampes Philips Hue (dont
+  deux messages d'erreur étaient eux aussi imprimés sur une installation neuve) et pour le corps
+  d'une requête d'objet Web, qui est de la configuration que vous écrivez vous-même.
+- ⭐ **Les en-têtes d'une réponse HTTP ne sont plus recopiés un par un dans le journal.** Chaque
+  téléchargement — caméra, pont Hue, ampli, service web d'un objet ou d'un script — écrivait
+  **toutes** les lignes d'en-tête que l'autre bout avait envoyées. Or c'est là que voyagent les
+  cookies de session, les défis d'authentification et leur usage unique, et un jeton renvoyé en
+  écho. L'adresse d'une redirection y passait **entière**, alors même que Calaos sait depuis peu
+  réduire une adresse avant de l'écrire.
+
+  ⚠️ **Ce n'était pas imprimé sur une installation neuve** — il faut avoir monté le niveau de
+  journalisation — mais c'est exactement ce qu'on fait avant de joindre un journal à une demande
+  d'assistance.
+
+  Désormais la ligne de statut reste entière, le **type** et la **taille** du contenu restent
+  lisibles — ce sont eux qu'on lit pour comprendre une négociation ratée — une redirection dit
+  toujours **vers quel appareil** elle pointe, et tout le reste garde son **nom** en perdant sa
+  valeur. Le principe est le même que pour le téléversement de configuration : Calaos n'essaie pas
+  de deviner quel en-tête cache un secret, il **énumère ceux dont la valeur ne peut pas en être un**.
+  Un en-tête dont il n'a jamais entendu parler est retenu **parce qu'il est inconnu**.
+
+  ⚠️ **Une réserve honnête, deux même** : une redirection écrite en adresse **relative** (sans nom
+  d'hôte) est réduite plus grossièrement qu'une adresse complète — on en connaît la taille, plus la
+  forme. Et la phrase qui accompagne le code de statut (« Not Found », « Found »…) est choisie par
+  l'appareil d'en face et reste recopiée telle quelle.
 - ⭐ **Le serveur n'écrit plus dans son journal les jetons d'authentification que ses clients lui
   envoient — ni ceux qu'il leur a lui-même donnés.** Dès que les journaux détaillés étaient activés,
   chaque requête reçue faisait écrire son adresse complète puis **la valeur de chacun de ses
