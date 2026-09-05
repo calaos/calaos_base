@@ -5071,3 +5071,74 @@ core_HttpRequestLogSecret_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/HttpClie
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.89
+#What nine catch blocks publish of a document the parser refused. Each streams
+#e.what() of a nlohmann exception raised by Json::parse() of a runtime
+#document, at a level a stock box prints: nothing is concatenated at any of
+#them, the LIBRARY puts the input back into its message as
+#`last read: '<token>'`. The heaviest is the registration answer of the HiFi
+#Rose amplifier, the body deviceRoseToken comes out of.
+#NOTHING HERE CALLS A REDUCER, AND NOTHING FAKES A TRANSPORT: the four
+#amplifier sites are fed by a real TLS peer this suite brings up (openssl is
+#already a hard dependency of the tree), so libcurl, the loop and AVRRose are
+#the production ones; the notification site is fed by a plain client on the
+#notification port; the websocket site is entered through the call
+#WebSocket.cpp makes on a text frame; and the three file sites are handed a
+#real file through their public entry point, the state cache through the
+#Config constructor that reads it.
+#Every leak assertion bounds the longest RUN of the document the journal gives
+#back instead of naming a value: the parser decides where it cuts, so each
+#needle sits in the document in clear OUTSIDE the refused token and percent
+#encoded INSIDE it, and the clear search is expected to stay green.
+#The second case is the counterweight - a parse failure must still say where
+#the parser stopped and on how many bytes, both compared to values measured
+#here. The last forks a child that never touched a configuration: this suite
+#reads what a STOCK box prints and cannot raise the level.
+#No core fixture: none of these nine sites needs a config model.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+PARSE_ERROR_TEST_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRDenon.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRMarantz.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVROnkyo.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRPioneer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRYamaha.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVReceiver.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRRose.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRRoseNotifServer.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebCtrl.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT)
+
+TESTS += core/ParseErrorSecret_test
+check_PROGRAMS += core/ParseErrorSecret_test
+core_ParseErrorSecret_test_SOURCES = core/ParseErrorSecret_test.cpp
+core_ParseErrorSecret_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI
+core_ParseErrorSecret_test_LDADD = $(PARSE_ERROR_TEST_OBJECTS) \
+                  $(CORE_TEST_LDADD) \
+                  -lssl -lcrypto
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_ParseErrorSecret_test_DEPENDENCIES = $(PARSE_ERROR_TEST_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
