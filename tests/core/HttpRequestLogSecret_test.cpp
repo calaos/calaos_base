@@ -186,6 +186,11 @@ const char *const kInventedKeySecret = "grimoire4a6c81f2e9chataigne";
 const char *const kSetParamSecret = "talisman9e2b40d7a1nenuphar";
 const char *const kWsInventedSecret = "philtre6a2f70d3e8";
 
+//The content of a file an upload offers and the server refuses. Unlike the
+//four above on the same measure: worst run shared with anything else of the
+//fixture, 3 bytes.
+const char *const kRefusedContentSecret = "grelot7f2a9c04e1b6cerfeuil";
+
 /*
  * Above the incidental overlap between a planted value and what the reduced
  * lines legitimately publish (byte counts, a port, a hexadecimal tag share
@@ -1059,6 +1064,53 @@ TEST_F(HttpRequestLogSecretTest, TheCredentialSetParamCarriesUnderValueIsNotRepu
     EXPECT_LT(echo, kMaxEcho)
         << "the journal gives back " << echo << " consecutive bytes of the "
            "credential set_param carries under the key `value`:\n" << ex.log;
+}
+
+/*
+ * THE OTHER SITE OF THE SAME UPLOAD, AND HOW A CASE REACHES IT.
+ *
+ * A config file whose content is not XML was republished WHOLE, outside the
+ * reducer, at error level - the level a stock box prints. The branch is behind
+ * an upload that authenticated, and an accepted upload restarts the server,
+ * which is what kept it untested on a harness whose loop is shared by every
+ * case. It does not have to be accepted: a second entry under a name that is
+ * not one of the three config files makes the reply a failure, so the restart
+ * never arms, while the refused content is still read and still logged.
+ */
+TEST_F(HttpRequestLogSecretTest, TheContentOfARefusedConfigFileIsNotRepublished)
+{
+    //The credentials a freshly seeded local_config.xml carries, which is what
+    //the temporary configuration of this binary is.
+    std::ostringstream body;
+    body << "{\"cn_user\":\"user\",\"cn_pass\":\"pass\","
+         << "\"action\":\"config\",\"type\":\"put\",\"config_files\":{"
+         << "\"io.xml\":\"" << kRefusedContentSecret << "\","
+         << "\"pas-un-fichier\":\"x\"}}";
+
+    const Exchange ex = exchange(jsonPost(body.str()));
+
+    ASSERT_TRUE(ex.connected) << "no connection to the server, this case measures nothing";
+    ASSERT_NE(std::string::npos, ex.wire.find(kRefusedContentSecret))
+        << "the upload does not carry the content, this case measures nothing";
+
+    //Anti-vacuity, and it is the whole difficulty of this case: the upload has
+    //to have been ACCEPTED as far as the file loop, or the site is never
+    //reached and a green says nothing.
+    ASSERT_EQ(std::string::npos, ex.log.find("Login failed"))
+        << "the upload never authenticated, so the refusing branch was never "
+           "reached and this case measures nothing:\n" << ex.log;
+    ASSERT_NE(std::string::npos, ex.log.find("is not XML"))
+        << "the content was not refused for not being XML, so this case does "
+           "not exercise the site it is written for:\n" << ex.log;
+
+    const size_t echo = longestEcho(ex.log, kRefusedContentSecret);
+    EXPECT_LT(echo, kMaxEcho)
+        << "the journal gives back " << echo << " consecutive bytes of the "
+           "content of a refused upload:\n" << ex.log;
+
+    //The counterweight: what was refused stays knowable without its bytes.
+    EXPECT_NE(std::string::npos, ex.log.find("io.xml"))
+        << "the log does not say which file was refused:\n" << ex.log;
 }
 
 /*
