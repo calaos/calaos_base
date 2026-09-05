@@ -81,6 +81,7 @@
 #include <unistd.h>
 
 #include <chrono>
+#include <cctype>
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
@@ -116,6 +117,13 @@ namespace
  * The needles share as little text as possible with each other so that a leak
  * on one wire cannot redden the case of another - the red sets of a mutation
  * are only readable if they are independent.
+ *
+ * And none of them ends in a hexadecimal tail. The journal publishes
+ * identifiers of its own in that alphabet - an object address, a request
+ * fingerprint - so a hexadecimal run in a needle can be matched by bytes
+ * nobody chose, which turns the ceiling into a lottery no run reproduces. The
+ * percent encoded form carries that risk more than the clear one: `%20` in
+ * front of a hexadecimal word lengthens the run by two.
  */
 struct Wire
 {
@@ -135,26 +143,26 @@ std::vector<Wire> &wires()
 {
     static std::vector<Wire> w = {
         { "mqtt", "calaos_mqtt", "mqtt",
-          "courtier abonne 7f31c9", "courtier%20abonne%207f31c9",
-          "{\"topic\":\"maison/portail\",\"payload\":\"courtier abonne 7f31c9 "
-          "mqtt://q1:courtier%20abonne%207f31c9@10.9.4.2/\"" },
+          "courtier abonne pivoine", "courtier%20abonne%20pivoine",
+          "{\"topic\":\"maison/portail\",\"payload\":\"courtier abonne pivoine "
+          "mqtt://q1:courtier%20abonne%20pivoine@10.9.4.2/\"" },
 
         { "knx", "calaos_knx", "knx_monitor",
-          "passerelle bus 4a20de", "passerelle%20bus%204a20de",
-          "{\"type\":\"event\",\"group_addr\":\"1/2/3\",\"value\":\"passerelle bus 4a20de "
-          "ldap://w2:passerelle%20bus%204a20de@192.168.55.3/\"" },
+          "passerelle bus tourmaline", "passerelle%20bus%20tourmaline",
+          "{\"type\":\"event\",\"group_addr\":\"1/2/3\",\"value\":\"passerelle bus tourmaline "
+          "ldap://w2:passerelle%20bus%20tourmaline@192.168.55.3/\"" },
 
         { "lua", "calaos_script", "lua",
-          "consigne parametre 9c53ab", "consigne%20parametre%209c53ab",
-          "{\"msg\":\"set_param\",\"data\":{\"champ\":\"consigne parametre 9c53ab "
-          "ftp://e3:consigne%20parametre%209c53ab@172.31.8.4/\"" },
+          "consigne parametre vermeil", "consigne%20parametre%20vermeil",
+          "{\"msg\":\"set_param\",\"data\":{\"champ\":\"consigne parametre vermeil "
+          "ftp://e3:consigne%20parametre%20vermeil@172.31.8.4/\"" },
 
         //Valid json, wrong shape: the branch where the exception used to be
         //built by concatenating the frame into its own message.
         { "1wire", "calaos_1wire", "1wire",
-          "sonde tableau 62e1d4", "sonde%20tableau%2062e1d4",
-          "{\"identifiant\":\"28.AAA\",\"releve\":\"sonde tableau 62e1d4\","
-          "\"lien\":\"ow://r4:sonde%20tableau%2062e1d4@10.200.6.5/\"}" },
+          "sonde tableau grelinette", "sonde%20tableau%20grelinette",
+          "{\"identifiant\":\"28.AAA\",\"releve\":\"sonde tableau grelinette\","
+          "\"lien\":\"ow://r4:sonde%20tableau%20grelinette@10.200.6.5/\"}" },
 
         /* Not json at all, and the malformation is inside a string: nothing is
          * concatenated here, the PARSER quotes the token it choked on. The
@@ -163,9 +171,9 @@ std::vector<Wire> &wires()
          * credential leaves.
          */
         { "1wire", "calaos_1wire", "1wire",
-          "capteur jeton 08b7f5", "capteur%20jeton%2008b7f5",
-          "[{\"rom\":\"3B.BBB\",\"mesure\":\"capteur jeton 08b7f5\","
-          "\"url\":\"nfs://t5:capteur%20jeton%2008b7f5@169.254.9.6/\\q\"}]" },
+          "capteur jeton velours", "capteur%20jeton%20velours",
+          "[{\"rom\":\"3B.BBB\",\"mesure\":\"capteur jeton velours\","
+          "\"url\":\"nfs://t5:capteur%20jeton%20velours@169.254.9.6/\\q\"}]" },
     };
 
     return w;
@@ -184,8 +192,8 @@ std::vector<Wire> &wires()
  * point every MqttInput* and MqttOutput* calls.
  */
 const char *const kReadTopic   = "maison/collecteur";
-const char *const kReadPlain   = "graphe brut 5d0e42";
-const char *const kReadEncoded = "graphe%20brut%205d0e42";
+const char *const kReadPlain   = "graphe brut myrtille";
+const char *const kReadEncoded = "graphe%20brut%20myrtille";
 
 std::string mqttReadPayload()
 {
@@ -240,6 +248,41 @@ std::string longestEchoRun(const std::string &log, const std::string &text)
 size_t longestEcho(const std::string &log, const std::string &text)
 {
     return longestEchoRun(log, text).size();
+}
+
+//Every document the ceiling covers, in one place: three cases read them, and a
+//list that drifts between them would hold one property on a fixture the others
+//no longer measure.
+struct Doc { std::string label; std::string text; };
+
+std::vector<Doc> measuredDocuments()
+{
+    std::vector<Doc> docs;
+    for (size_t i = 0; i < wires().size(); i++)
+        docs.push_back({ std::string(wires()[i].domain) + " #" + std::to_string(i),
+                         wires()[i].frame });
+    docs.push_back({ "mqtt read path", mqttReadPayload() });
+    return docs;
+}
+
+//The longest run of the journal's own alphabet a frame carries: an address and
+//a fingerprint are printed in it, so such a run can be matched by bytes nobody
+//chose.
+std::string longestHexRun(const std::string &s)
+{
+    std::string best, cur;
+    for (const char c: s)
+    {
+        if (::isxdigit(static_cast<unsigned char>(c)))
+        {
+            cur += c;
+            if (cur.size() > best.size())
+                best = cur;
+        }
+        else
+            cur.clear();
+    }
+    return best;
 }
 
 /* One above the overlap the corrected tree really produces, and the suite
@@ -894,9 +937,10 @@ TEST_F(EchoCeilingTest, TheCeilingIsHeldToTheOverlapThisSuiteMeasures)
         ASSERT_TRUE(w.peerConnected)
             << "no peer reached the " << w.ns << " socket, so the overlap this "
                "case exists to pin was not produced at all";
-        keep(longestEchoRun(obs.log, w.frame), w.domain);
     }
-    keep(longestEchoRun(obs.log, mqttReadPayload()), "mqtt read path");
+
+    for (const Doc &d: measuredDocuments())
+        keep(longestEchoRun(obs.log, d.text), d.label);
 
     EXPECT_EQ(kMaxEcho, worst.size() + 1)
         << "the ceiling is " << kMaxEcho << " while this tree gives back at "
@@ -916,12 +960,7 @@ TEST_F(EchoCeilingTest, TheCeilingIsHeldToTheOverlapThisSuiteMeasures)
  */
 TEST_F(EchoCeilingTest, NoTwoFramesShareARunTheCeilingWouldNotAbsorb)
 {
-    struct Doc { std::string label; std::string text; };
-    std::vector<Doc> docs;
-    for (size_t i = 0; i < wires().size(); i++)
-        docs.push_back({ std::string(wires()[i].domain) + " #" + std::to_string(i),
-                         wires()[i].frame });
-    docs.push_back({ "mqtt read path", mqttReadPayload() });
+    const std::vector<Doc> docs = measuredDocuments();
 
     for (size_t i = 0; i < docs.size(); i++)
     {
@@ -934,6 +973,34 @@ TEST_F(EchoCeilingTest, NoTwoFramesShareARunTheCeilingWouldNotAbsorb)
                 << kMaxEcho << " does not absorb: a leak at either one reddens "
                    "the bound of the other and the red set stops naming a wire.";
         }
+    }
+}
+
+/*
+ * THE ALPHABET THE JOURNAL DRAWS IN, HELD OUT OF THE FIXTURE.
+ *
+ * The equality above is only reproducible if the bytes nobody chose cannot
+ * lengthen a run: an object address and a request fingerprint are printed in
+ * hexadecimal, so a frame carrying a hexadecimal run as long as the measured
+ * overlap makes the ceiling a lottery, and its red an intermittent one nobody
+ * can reproduce. What is bounded is the form the measure really hunts - the
+ * frame as it goes on the wire, percent encoding included - and not the needle
+ * a human wrote: it is the encoding pattern that carries the possible overlap.
+ */
+TEST_F(EchoCeilingTest, NoFrameCarriesTheJournalsAlphabetThatFar)
+{
+    //A measure that cannot report a run reads as a clean zero below.
+    ASSERT_EQ("beef", longestHexRun("zzbeefzz"));
+    ASSERT_EQ("", longestHexRun("zz"));
+
+    for (const Doc &d: measuredDocuments())
+    {
+        const std::string run = longestHexRun(d.text);
+        EXPECT_LT(run.size(), kMaxEcho)
+            << d.label << " carries \"" << run << "\", " << run.size()
+            << " bytes of the alphabet the journal draws its own identifiers "
+               "in, which the ceiling of " << kMaxEcho << " does not absorb: a "
+               "draw can match them and the equality above becomes a lottery.";
     }
 }
 

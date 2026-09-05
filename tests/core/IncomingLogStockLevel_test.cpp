@@ -105,6 +105,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstring>
 #include <functional>
@@ -137,6 +138,14 @@ namespace
  * whichever line widens first and raises the bound of the other, so the red
  * set would name the fixture instead of the site. Held to the ceiling by a
  * case of its own.
+ *
+ * None of them carries a long run of hexadecimal, in any of the forms the
+ * measure hunts. The journal publishes identifiers of its own in that
+ * alphabet, so such a run can be matched by bytes nobody chose and the ceiling
+ * becomes a lottery. The forms are where this bites: url encoding puts `%20`
+ * in front of a word, and taking the blanks out joins two runs that the clear
+ * text keeps apart - a digit after a space is four hexadecimal bytes either
+ * way.
  */
 const char *const kForwardedSecret = "kiwi7b3-nymphea";
 const char *const kBearerSecret = "opale91x-pyrite";
@@ -144,7 +153,7 @@ const char *const kCookieSecret = "murmure46q-zythum";
 const char *const kUnknownHeaderSecret = "griffon05w-douve";
 
 //Percent-encoded on the wire: a search for the plain form does not see it.
-const char *const kQuerySecret = "hamac 82m glaieul";
+const char *const kQuerySecret = "hamac m82 glaieul";
 
 const char *const kBodySecret = "chalut73v-orfraie";
 const char *const kUploadContentSecret = "brebis50k-cygne";
@@ -241,25 +250,35 @@ std::vector<std::string> formsOf(const std::string &secret)
     return forms;
 }
 
+//Every form the measure hunts: formsOf() and, for each, the same bytes with
+//the blanks taken out. Named apart so that the case bounding what a needle may
+//carry reads the same set the measure searches for - a form the measure knows
+//and the bound does not is a bound on the wrong string.
+std::vector<std::string> measuredForms(const std::string &secret)
+{
+    std::vector<std::string> out;
+    for (const std::string &f: formsOf(secret))
+    {
+        if (f.empty())
+            continue;
+        out.push_back(f);
+        const std::string ff = stripSpace(f);
+        if (!ff.empty() && ff != f)
+            out.push_back(ff);
+    }
+    return out;
+}
+
 std::string longestEchoRun(const std::string &log, const std::string &secret)
 {
     const std::string flat = stripSpace(log);
 
     std::string best;
-    for (const std::string &f: formsOf(secret))
+    for (const std::string &f: measuredForms(secret))
     {
-        if (f.empty())
-            continue;
-
-        std::string run = longestRun(log, f);
-        if (run.size() > best.size())
-            best = run;
-
-        const std::string ff = stripSpace(f);
-        if (ff.empty())
-            continue;
-
-        run = longestRun(flat, ff);
+        //A form with its blanks taken out is hunted in a journal with its own
+        //taken out: that is what makes a value folded over two lines one run.
+        const std::string run = longestRun(f == stripSpace(f) ? flat : log, f);
         if (run.size() > best.size())
             best = run;
     }
@@ -269,6 +288,26 @@ std::string longestEchoRun(const std::string &log, const std::string &secret)
 size_t longestEcho(const std::string &log, const std::string &secret)
 {
     return longestEchoRun(log, secret).size();
+}
+
+//The longest run of the journal's own alphabet a form carries: an address and
+//a request fingerprint are printed in it, so such a run can be matched by
+//bytes nobody chose.
+std::string longestHexRun(const std::string &s)
+{
+    std::string best, cur;
+    for (const char c: s)
+    {
+        if (::isxdigit(static_cast<unsigned char>(c)))
+        {
+            cur += c;
+            if (cur.size() > best.size())
+                best = cur;
+        }
+        else
+            cur.clear();
+    }
+    return best;
 }
 
 /*
@@ -1184,6 +1223,38 @@ TEST_F(IncomingLogStockLevelTest, NoPlantedValueSharesARunWithAFieldTheLinesMayP
                 << " bytes, with \"" << field << "\", which the lines of this "
                 "path publish by design: the ceiling would absorb a real "
                 "widening.";
+        }
+    }
+}
+
+/*
+ * AND THE FIXTURE HELD OUT OF THE ALPHABET THE JOURNAL DRAWS IN.
+ *
+ * The equality above is only reproducible if the bytes nobody chose cannot
+ * lengthen a run: an object address and a request fingerprint are printed in
+ * hexadecimal, so a value carrying a hexadecimal run as long as the measured
+ * overlap makes the ceiling a lottery, and its red an intermittent one nobody
+ * can reproduce. Every form the measure hunts is bounded and not only the
+ * literal: url encoding and taking the blanks out both lengthen a run the
+ * clear text keeps short.
+ */
+TEST_F(IncomingLogStockLevelTest, NoPlantedValueCarriesTheJournalsAlphabetThatFar)
+{
+    //A measure that cannot report a run reads as a clean zero below.
+    ASSERT_EQ("beef", longestHexRun("zzbeefzz"));
+    ASSERT_EQ("", longestHexRun("zz"));
+
+    for (const Needle &n: allNeedles())
+    {
+        for (const std::string &form: measuredForms(n.value))
+        {
+            const std::string run = longestHexRun(form);
+            EXPECT_LT(run.size(), kMaxEcho)
+                << n.label << " carries \"" << run << "\", " << run.size()
+                << " bytes of the alphabet the journal draws its own "
+                   "identifiers in, which the ceiling of " << kMaxEcho
+                << " does not absorb: a draw can match them and the equality "
+                   "above becomes a lottery. The form is \"" << form << "\".";
         }
     }
 }

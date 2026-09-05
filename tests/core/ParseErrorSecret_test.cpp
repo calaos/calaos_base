@@ -77,6 +77,7 @@
 #include <openssl/x509.h>
 
 #include <atomic>
+#include <cctype>
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
@@ -262,6 +263,26 @@ std::string longestEchoRun(const std::string &log, const std::string &text)
 size_t longestEcho(const std::string &log, const std::string &text)
 {
     return longestEchoRun(log, text).size();
+}
+
+//The longest run of the journal's own alphabet a document carries: an address
+//and a fingerprint are printed in it, so such a run can be matched by bytes
+//nobody chose.
+std::string longestHexRun(const std::string &s)
+{
+    std::string best, cur;
+    for (const char c: s)
+    {
+        if (::isxdigit(static_cast<unsigned char>(c)))
+        {
+            cur += c;
+            if (cur.size() > best.size())
+                best = cur;
+        }
+        else
+            cur.clear();
+    }
+    return best;
 }
 
 /* One above the overlap the corrected tree really produces, and the suite
@@ -1117,6 +1138,35 @@ TEST_F(ParseErrorFixtureTest, NoTwoDocumentsShareARunTheCeilingWouldNotAbsorb)
                 << kMaxEcho << " does not absorb: a leak at either one reddens "
                    "the bound of the other and the red set stops naming a site.";
         }
+    }
+}
+
+/*
+ * THE ALPHABET THE JOURNAL DRAWS IN, HELD OUT OF THE FIXTURE.
+ *
+ * The equality above is only reproducible if the bytes nobody chose cannot
+ * lengthen a run: an object address and a request fingerprint are printed in
+ * hexadecimal, so a document carrying a hexadecimal run as long as the
+ * measured overlap makes the ceiling a lottery, and its red an intermittent
+ * one nobody can reproduce. What is bounded is the form the measure really
+ * hunts - the document as it is handed over, percent encoding included - and
+ * not the needle a human wrote: `%20` in front of a hexadecimal word lengthens
+ * the run by two, which is how such a run gets into a fixture unnoticed.
+ */
+TEST_F(ParseErrorFixtureTest, NoDocumentCarriesTheJournalsAlphabetThatFar)
+{
+    //A measure that cannot report a run reads as a clean zero below.
+    ASSERT_EQ("beef", longestHexRun("zzbeefzz"));
+    ASSERT_EQ("", longestHexRun("zz"));
+
+    for (const Site &s: sites())
+    {
+        const std::string run = longestHexRun(s.input);
+        EXPECT_LT(run.size(), kMaxEcho)
+            << s.label << " carries \"" << run << "\", " << run.size()
+            << " bytes of the alphabet the journal draws its own identifiers "
+               "in, which the ceiling of " << kMaxEcho << " does not absorb: a "
+               "draw can match them and the equality above becomes a lottery.";
     }
 }
 

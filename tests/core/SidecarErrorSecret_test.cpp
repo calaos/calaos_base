@@ -76,6 +76,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <cctype>
 #include <chrono>
 #include <csignal>
 #include <cstdlib>
@@ -84,6 +85,7 @@
 #include <functional>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "ConfigStore.h"
 #include "ExternProc.h"
@@ -170,6 +172,39 @@ std::string longestEchoRun(const std::string &log, const std::string &text)
 size_t longestEcho(const std::string &log, const std::string &text)
 {
     return longestEchoRun(log, text).size();
+}
+
+//The longest run of the journal's own alphabet a document carries: an address
+//and a fingerprint are printed in it, so such a run can be matched by bytes
+//nobody chose.
+std::string longestHexRun(const std::string &s)
+{
+    std::string best, cur;
+    for (const char c: s)
+    {
+        if (::isxdigit(static_cast<unsigned char>(c)))
+        {
+            cur += c;
+            if (cur.size() > best.size())
+                best = cur;
+        }
+        else
+            cur.clear();
+    }
+    return best;
+}
+
+//The two documents the ceiling covers, in one place: two cases read them,
+//and a list that drifts between them would hold one property on a fixture the
+//other no longer measures.
+struct Doc { const char *label; const char *text; };
+
+std::vector<Doc> measuredDocuments()
+{
+    return {
+        { "vendor text", kVendorText },
+        { "unreadable frame", kUnreadableText },
+    };
 }
 
 /* One above the overlap the corrected tree really produces - the vendor text
@@ -756,16 +791,13 @@ TEST_F(SidecarErrorSecretTest, TheCeilingIsHeldToTheOverlapThisSuiteMeasures)
     ASSERT_EQ("", longestEchoRun("zzz", "abc"));
 
     std::string worst, worstLabel;
-    const char *const texts[] = { kVendorText, kUnreadableText };
-    const char *const labels[] = { "vendor text", "unreadable frame" };
-
-    for (size_t i = 0; i < 2; i++)
+    for (const Doc &d: measuredDocuments())
     {
-        const std::string run = longestEchoRun(obs.log, texts[i]);
+        const std::string run = longestEchoRun(obs.log, d.text);
         if (run.size() > worst.size())
         {
             worst = run;
-            worstLabel = labels[i];
+            worstLabel = d.label;
         }
     }
 
@@ -793,6 +825,36 @@ TEST_F(SidecarErrorSecretTest, TheTwoTextsShareNoRunTheCeilingWouldNotAbsorb)
         << run.size() << " bytes, which the ceiling of " << kMaxEcho
         << " does not absorb: a leak on either path reddens the bound of the "
            "other and the red set stops naming a path.";
+}
+
+/*
+ * THE ALPHABET THE JOURNAL DRAWS IN, HELD OUT OF THE FIXTURE.
+ *
+ * The equality above is only reproducible if the bytes nobody chose cannot
+ * lengthen a run: an object address and a request fingerprint are printed in
+ * hexadecimal, so a text carrying a hexadecimal run as long as the measured
+ * overlap makes the ceiling a lottery, and its red an intermittent one nobody
+ * can reproduce. What is bounded is the form the measure really hunts - the
+ * text as the sidecar wrote it, percent encoding included - and not the needle
+ * a human wrote: `%20` in front of a hexadecimal word lengthens the run by
+ * two, which is how such a run gets into a fixture unnoticed.
+ */
+TEST_F(SidecarErrorSecretTest, NeitherTextCarriesTheJournalsAlphabetThatFar)
+{
+    //A measure that cannot report a run reads as a clean zero below.
+    ASSERT_EQ("beef", longestHexRun("zzbeefzz"));
+    ASSERT_EQ("", longestHexRun("zz"));
+
+    for (const Doc &d: measuredDocuments())
+    {
+        const std::string run = longestHexRun(d.text);
+        EXPECT_LT(run.size(), kMaxEcho)
+            << "the " << d.label << " carries \"" << run << "\", "
+            << run.size() << " bytes of the alphabet the journal draws its own "
+               "identifiers in, which the ceiling of " << kMaxEcho << " does "
+               "not absorb: a draw can match them and the equality above "
+               "becomes a lottery.";
+    }
 }
 
 /*

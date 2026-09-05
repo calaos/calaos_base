@@ -107,10 +107,18 @@ namespace
  * raise the bound of its neighbours - the calibration case at the end holds
  * them to that. Each sits inside a document shaped like the one the real end
  * sends, so that a mutation quoting "a bit of context" is quoting a secret.
+ *
+ * None of the documents carries a long run of hexadecimal, in any of the three
+ * shapes the measure hunts. The journal publishes identifiers of its own in
+ * that alphabet, so such a run can be matched by bytes nobody chose and the
+ * ceiling becomes a lottery. The shapes are where this bites: percent encoding
+ * turns every json delimiter into two hexadecimal characters, so a three digit
+ * number next to one of them is already five - which is why the refusal is
+ * carried by `success` and not by a numeric code the reader never looks at.
  */
-const char *const kSynoSid = "Jv8mQ2xR7pLd4NsT6bWk";
-const char *const kCookieSecret = "Zc3fH9yGq5AeUi1oPr0M";
-const char *const kRedirectToken = "Sw6tXn4KvB2jDh8LzC5F";
+const char *const kSynoSid = "LyknSKuYnhoKeu2XeWp4";
+const char *const kCookieSecret = "i8FzcoMdG55wRqsByrIDn";
+const char *const kRedirectToken = "FyXNa3SZsoTmDLHxMgFu";
 
 const char *const kSynoUser = "surveillant";
 const char *const kSynoPassword = "motdepasse-camera-4417";
@@ -128,20 +136,20 @@ const char *const kApiInfoBody =
  * answer precisely when it could not read it.
  */
 const char *const kLoginBody =
-    "{\"error\":{\"code\":403},\"data\":{\"sid\":\"Jv8mQ2xR7pLd4NsT6bWk\"},"
-    "\"success\":false}";
+    "{\"error\":{\"motif\":\"refus du nas\"},"
+    "\"data\":{\"sid\":\"LyknSKuYnhoKeu2XeWp4\"},\"success\":false}";
 
 //The value of a Set-Cookie the header block used to print verbatim.
-const char *const kCookieValue = "id_session=Zc3fH9yGq5AeUi1oPr0M; Path=/; HttpOnly";
+const char *const kCookieValue = "id_session=i8FzcoMdG55wRqsByrIDn; Path=/; HttpOnly";
 
 //The bearing part of a redirect target: the authority is what may be
 //published, everything after it is what must never come back.
-const char *const kRedirectTail = "/relocated?ticket=Sw6tXn4KvB2jDh8LzC5F";
+const char *const kRedirectTail = "/relocated?ticket=FyXNa3SZsoTmDLHxMgFu";
 
 //The tail of a header value the other end chose to fold over two lines. The
 //continuation carries no colon, so nothing on it is a name.
-const char *const kFoldedSecret = "Kp7wR2mVt9XbN4qL6zHs";
-const char *const kFoldedValue = "relay=Kp7wR2mVt9XbN4qL6zHs; Max-Age=600";
+const char *const kFoldedSecret = "uEoHYyJH4SJo0ogtRdqN";
+const char *const kFoldedValue = "relay=uEoHYyJH4SJo0ogtRdqN; Secure";
 
 //Substituted by the peer with its own authority at send time: the port is
 //only known once the socket is bound, and the redirect has to point at it.
@@ -411,6 +419,26 @@ std::string longestEchoAnyShape(const std::string &log, const std::string &text)
 size_t longestEcho(const std::string &log, const std::string &text)
 {
     return longestEchoAnyShape(log, text).size();
+}
+
+//The longest run of the journal's own alphabet a shape carries: an address and
+//a request fingerprint are printed in it, so such a run can be matched by
+//bytes nobody chose.
+std::string longestHexRun(const std::string &s)
+{
+    std::string best, cur;
+    for (const char c: s)
+    {
+        if (::isxdigit(static_cast<unsigned char>(c)))
+        {
+            cur += c;
+            if (cur.size() > best.size())
+                best = cur;
+        }
+        else
+            cur.clear();
+    }
+    return best;
 }
 
 /* One above the overlap this tree really produces, and the suite re-measures
@@ -1000,6 +1028,39 @@ TEST(DriverAnswerSecret, NoTwoDocumentsShareARunTheCeilingWouldNotAbsorb)
                 << "\", " << run.size() << " bytes, which the ceiling of "
                 << kMaxEcho << " does not absorb: a leak at either one reddens "
                    "the bound of the other and the red set stops naming a site.";
+        }
+    }
+}
+
+/*
+ * THE ALPHABET THE JOURNAL DRAWS IN, HELD OUT OF THE FIXTURE.
+ *
+ * The equality above is only reproducible if the bytes nobody chose cannot
+ * lengthen a run: an object address and a request fingerprint are printed in
+ * hexadecimal, so a document carrying a hexadecimal run as long as the
+ * measured overlap makes the ceiling a lottery, and its red an intermittent
+ * one nobody can reproduce. Every shape the measure hunts is bounded and not
+ * only the literal: percent encoding and base64 both draw in that alphabet on
+ * their own, so a document with none of it in clear can still carry five bytes
+ * of it once encoded.
+ */
+TEST(DriverAnswerSecret, NoDocumentCarriesTheJournalsAlphabetThatFar)
+{
+    //A measure that cannot report a run reads as a clean zero below.
+    ASSERT_EQ("beef", longestHexRun("zzbeefzz"));
+    ASSERT_EQ("", longestHexRun("zz"));
+
+    for (const Probe &p: probes())
+    {
+        for (const std::string &shape: everyShapeOf(p.document))
+        {
+            const std::string run = longestHexRun(shape);
+            EXPECT_LT(run.size(), kMaxEcho)
+                << p.label << " carries \"" << run << "\", " << run.size()
+                << " bytes of the alphabet the journal draws its own "
+                   "identifiers in, which the ceiling of " << kMaxEcho
+                << " does not absorb: a draw can match them and the equality "
+                   "above becomes a lottery. The shape is \"" << shape << "\".";
         }
     }
 }

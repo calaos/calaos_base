@@ -8,6 +8,10 @@
 # Exit codes follow the automake simple-test protocol: 0 PASS, 77 SKIP (no
 # usable python3), 1 FAIL (at least one ceiling is re-derived by nothing).
 #
+# The script self-tests before it scans, on files written to be refused: this
+# family of probes has no other exercise, and one that has gone silent looks
+# exactly like a clean tree.
+#
 # PYTHON and abs_top_srcdir are exported by AM_TESTS_ENVIRONMENT in
 # tests/Makefile.am; fall back to sane defaults when run by hand.
 
