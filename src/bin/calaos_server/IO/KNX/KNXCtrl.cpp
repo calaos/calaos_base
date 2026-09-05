@@ -322,7 +322,10 @@ void KNXCtrl::processNewMessage(const string &msg)
 
     if (jroot.is_discarded() || !jroot.is_object())
     {
-        cWarningDom("knx") << "Error parsing json from sub process. Raw message: " << msg;
+        //The bytes of a frame this end could not read come from the same
+        //sender as those of one it can, and WARNING prints on a stock install.
+        cWarningDom("knx") << "Error parsing json message from sub process ("
+                           << msg.size() << " bytes)";
         return;
     }
 

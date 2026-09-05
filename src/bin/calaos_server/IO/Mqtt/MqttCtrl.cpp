@@ -41,7 +41,13 @@ MqttCtrl::MqttCtrl(const Params &params)
 
         if (!MqttWire::decodeMessage(msg, p))
         {
-            cWarningDom("mqtt") << "Error parsing json: " << msg;
+            //A frame this end could not read was written by the same sender as
+            //one it can, and an mqtt payload is whatever a third party device
+            //published. WARNING prints on a stock install, so only the size
+            //crosses: it is what separates a sidecar talking nonsense from one
+            //that has gone quiet.
+            cWarningDom("mqtt") << "Error parsing json message from sub process ("
+                                << msg.size() << " bytes)";
             return;
         }
 
@@ -128,7 +134,10 @@ string MqttCtrl::getValueJson(const Params &params, string path, string payload,
     if (root.is_discarded())
     {
         err = true;
-        cWarning() << "Error parsing " << payload;
+        //Not a drift of the wire: any device publishing something that is not
+        //json on a topic an IO names lands here, on an ordinary read.
+        cWarningDom("mqtt") << "Error parsing mqtt payload ("
+                            << payload.size() << " bytes)";
         return string();
     }
 

@@ -97,11 +97,11 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
         Json jroot;
         if (!ScriptWire::parseMessage(msg, jroot))
         {
-            //The parser detail the previous error text carried has no
-            //equivalent in a non throwing parse, so it is gone; the raw
-            //message next to it is what a reader actually needs. Same choice
-            //as WagoWire, ReolinkWire and ScriptWire itself.
-            cWarningDom("lua") << "Error parsing json from sub process. Raw message: " << msg;
+            //A set_param value on this wire is whatever a script wrote into
+            //an IO parameter, a password included, and WARNING prints on a
+            //stock install: only the size of what could not be read crosses.
+            cWarningDom("lua") << "Error parsing json message from sub process ("
+                               << msg.size() << " bytes)";
             return;
         }
 

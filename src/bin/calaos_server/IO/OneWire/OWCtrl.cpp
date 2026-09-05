@@ -79,17 +79,17 @@ shared_ptr<OwCtrl> OwCtrl::Instance(const string &args)
 
 void OwCtrl::processNewMessage(const string &msg)
 {
-    Json jroot;
-    try
+    /* Non throwing parse, and the parser's own message does not reach the
+     * journal either: it quotes the token it choked on, so publishing
+     * e.what() published the frame even on the branch where nothing was
+     * concatenated into it. WARNING prints on a stock install.
+     */
+    Json jroot = Json::parse(msg, nullptr, false);
+
+    if (jroot.is_discarded() || !jroot.is_array())
     {
-        jroot = Json::parse(msg);
-        if (!jroot.is_array())
-            throw (invalid_argument(string("Json is not an array: ") + msg));
-    }
-    catch (const std::exception &e)
-    {
-        cWarningDom("1wire") << "Error parsing json from sub process: " << e.what();
-        cDebugDom("1wire") << msg;
+        cWarningDom("1wire") << "Error parsing json message from sub process ("
+                             << msg.size() << " bytes)";
         return;
     }
 
