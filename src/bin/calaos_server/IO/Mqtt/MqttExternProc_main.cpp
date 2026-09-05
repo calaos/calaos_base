@@ -75,7 +75,20 @@ void MqttClient::publishTopic(const string topic, const string payload)
 
 void MqttClient::on_connect(int rc)
 {
-    cDebugDom("mqtt") << "Connected with code "  << rc << " : " << strerror(rc);
+    /* rc is a CONNACK code, not an errno: read with the errno table a broker
+     * refusing the credentials answered "No such file or directory". And a
+     * refused CONNACK is what a wrong password looks like, so it belongs to
+     * the level a stock install prints. */
+    if (rc)
+    {
+        cErrorDom("mqtt") << "The broker refused the connection : "
+                          << mosqpp::connack_string(rc);
+    }
+    else
+    {
+        cDebugDom("mqtt") << "Connected with code " << rc << " : "
+                          << mosqpp::connack_string(rc);
+    }
 
     if (!rc)
     {
@@ -110,6 +123,20 @@ void MqttClient::on_error()
 }
 
 /*
+ * The two error tables of this file overlap without agreeing, and reading one
+ * with the other is how a refused port came out as "Bad address": ::strerror()
+ * answers EFAULT for 14, which is MOSQ_ERR_ERRNO. That one code is the one
+ * that means "the cause is in errno", so it is the only one handed to the
+ * errno table - every other code belongs to libmosquitto's own.
+ */
+static string brokerErrorText(int rc, int sysErrno)
+{
+    if (rc == MOSQ_ERR_ERRNO)
+        return string(::strerror(sysErrno)) + " (errno " + Utils::to_string(sysErrno) + ")";
+    return mosqpp::strerror(rc);
+}
+
+/*
  * The deadline is not a comfort margin: it is what a PARTIAL UPDATE needs. A
  * calaos_server older than this binary hands the configuration in the argv,
  * which this build no longer reads, so nothing ever arrives on the socket.
@@ -139,8 +166,18 @@ protected:
     enum ConfigState { ConfigWaiting, ConfigApplied, ConfigRefused };
     ConfigState m_configState = ConfigWaiting;
 
+    /* The descriptor libmosquitto is using, kept because appendFd() takes it
+     * and only the caller can give it back: once the library closes it, a
+     * select() on it answers EBADF, and the number can be handed to an
+     * unrelated open() in between. */
+    int m_brokerFd = -1;
+    string m_broker;
+    int m_exitCode = 0;
+
     bool awaitConfiguration();
     bool applyConfiguration(const Params &p);
+    bool pumpBroker();
+    void brokerLost(int rc, int sysErrno);
 
     //needs to be reimplemented
     virtual void readTimeout();
@@ -157,7 +194,41 @@ MqttProcess::~MqttProcess()
 
 void MqttProcess::readTimeout()
 {
-    m_client->loop(0, 1);
+    pumpBroker();
+}
+
+/*
+ * Two halves, and neither is enough alone. Giving the descriptor back keeps
+ * the loop from polling a number the library no longer owns; ending loudly is
+ * what makes the failure reach an operator. Only giving it back would leave a
+ * sidecar idling for ever: nothing reconnects here, the server does, and it
+ * only knows how to do that by relaunching us.
+ */
+bool MqttProcess::pumpBroker()
+{
+    const int rc = m_client->loop(0, 1);
+    const int sysErrno = errno;
+
+    if (rc == MOSQ_ERR_SUCCESS)
+        return true;
+
+    brokerLost(rc, sysErrno);
+    return false;
+}
+
+void MqttProcess::brokerLost(int rc, int sysErrno)
+{
+    if (m_brokerFd >= 0)
+    {
+        removeFd(m_brokerFd);
+        m_brokerFd = -1;
+    }
+
+    cErrorDom("mqtt") << "Lost the connection to the broker " << m_broker
+                      << " : " << brokerErrorText(rc, sysErrno);
+
+    m_exitCode = 1;
+    quitLoop();
 }
 
 void MqttProcess::messageReceived(const string &msg)
@@ -294,9 +365,13 @@ bool MqttProcess::applyConfiguration(const Params &p)
     {
         m_client->username_pw_set(p["user"].c_str(), p["password"].c_str());
     }
-    cDebugDom("mqtt") << "Connecting to broker " << host << ":" << port;
+    m_broker = host + ":" + Utils::to_string(port);
+    cDebugDom("mqtt") << "Connecting to broker " << m_broker;
 
     const int res = m_client->connect_async(host.c_str(), port, keepalive);
+    //before anything else can overwrite it, and MOSQ_ERR_ERRNO is the only
+    //answer that carries its cause there rather than in its own code
+    const int sysErrno = errno;
 
     switch (res)
     {
@@ -304,12 +379,16 @@ bool MqttProcess::applyConfiguration(const Params &p)
         cErrorDom("mqtt") << "Error connecting to host : " << host;
         return false;
     case MOSQ_ERR_SUCCESS:
-        /* Connect ok ! */
-        cInfoDom("mqtt") << "Connect to : " << host << "socket " << m_client->socket();
-        appendFd(m_client->socket());
+        /* The TCP connect is only STARTED here. It can still fail afterwards,
+         * inside the library, which then closes this very descriptor - see
+         * brokerLost(). */
+        m_brokerFd = m_client->socket();
+        cInfoDom("mqtt") << "Connect to : " << host << "socket " << m_brokerFd;
+        appendFd(m_brokerFd);
         return true;
     default:
-        cErrorDom("mqtt") << "Error connecting : " << strerror(res);
+        cErrorDom("mqtt") << "Error connecting to the broker " << m_broker
+                          << " : " << brokerErrorText(res, sysErrno);
         return false;
     }
 }
@@ -355,15 +434,17 @@ bool MqttProcess::setup(int &argc, char **&argv)
 
 bool MqttProcess::handleFdSet(int fd)
 {
-    // cDebugDom("mqtt") << "Data received : " << fd;
-    m_client->loop(0, 1);
-    return true;
+    return pumpBroker();
 }
 
 int MqttProcess::procMain()
 {
-    run(200);
-    return 0;
+    const bool ok = run(200);
+
+    if (m_exitCode != 0)
+        return m_exitCode;
+
+    return ok? 0: 1;
 }
 
 EXTERN_PROC_CLIENT_MAIN(MqttProcess)

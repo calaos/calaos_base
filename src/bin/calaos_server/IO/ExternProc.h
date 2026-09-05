@@ -166,8 +166,14 @@ protected:
     //return false to stop main loop, true otherwise
     virtual bool handleFdSet(int fd) { return true; }
 
-    //minimal mainloop
-    void run(int timeoutms = 5000);
+    /* Minimal mainloop. Answers false when it ended on a failed select(),
+     * which is never a normal end: a descriptor of the set was closed behind
+     * the loop's back. Answering success there is what turns that into a
+     * relaunch loop with nothing in any journal to explain it. */
+    bool run(int timeoutms = 5000);
+
+    //end run() from a callback that has no way to answer false
+    void quitLoop() { loopQuit = true; }
 
     //append FD to be monitored by main loop
     void appendFd(int fd);
@@ -189,6 +195,7 @@ private:
     ExternProcMessage currentFrame;
 
     list<int> userFds;
+    bool loopQuit = false;
 };
 
 #define EXTERN_PROC_CLIENT_CTOR(class_name) \

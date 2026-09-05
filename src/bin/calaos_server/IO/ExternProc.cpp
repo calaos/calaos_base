@@ -205,7 +205,16 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
     process_exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
     process_exe->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &)
     {
-        cDebugDom("process") << "ExternProcess exited: " << ev.status;
+        /* The status is the only thing a sidecar can say once it is gone, and
+         * every controller of this tree relaunches without looking at it. At
+         * DEBUG it was invisible on a stock install, so a sidecar failing ten
+         * times a second read as "process exited, restarting..." and nothing
+         * else. A clean stop still says nothing: terminate() signals the
+         * child, which leaves status 0. */
+        if (ev.status != 0)
+            cWarningDom("process") << procName << " exited with status " << ev.status;
+        else
+            cDebugDom("process") << "ExternProcess exited: " << ev.status;
         process_exe->close();
         //T3.40: 100 ms with a raw `this`, and the server IS deleted inside
         //that window - ~RoonPlayer, ~KNXCtrl, ~WagoMap, ~OLACtrl, ~OWCtrl all
@@ -558,10 +567,11 @@ bool ExternProcClient::processSocketRecv()
     return true;
 }
 
-void ExternProcClient::run(int timeoutms)
+bool ExternProcClient::run(int timeoutms)
 {
-    bool quitloop = false;
-    while (!quitloop)
+    bool ok = true;
+    loopQuit = false;
+    while (!loopQuit)
     {
         fd_set events;
         struct timeval tv;
@@ -582,32 +592,54 @@ void ExternProcClient::run(int timeoutms)
 
         int ret = select(maxfd + 1, &events, NULL, NULL, &tv);
 
+        if (ret < 0)
+        {
+            if (errno == EINTR)
+                continue;
+
+            /* NOT a normal end. EBADF here means a descriptor given by
+             * appendFd() was closed by whoever owns it without being removed,
+             * and the set has been polling a number that no longer belongs to
+             * anyone - or worse, that a later open() has handed to something
+             * else. Leaving quietly with a success status is what turns that
+             * into a relaunch loop nobody can read. */
+            cError() << "Main loop select() failed: " << strerror(errno);
+            ok = false;
+            break;
+        }
+
         if (ret == 0)
             readTimeout();
-        else if (ret < 0)
-            break;
 
         if (FD_ISSET(sockfd, &events))
         {
             if (!processSocketRecv())
-                quitloop = true;
+                loopQuit = true;
         }
 
-        if (!quitloop)
+        if (!loopQuit)
         {
-            for (int fd: userFds)
+            /* A COPY, and it is not an optimisation to undo: handleFdSet() is
+             * where a sidecar learns its descriptor is dead, so removeFd() from
+             * inside it is the expected move - and erasing from the list being
+             * walked leaves the iterator on a freed node. */
+            const list<int> pollable = userFds;
+
+            for (int fd: pollable)
             {
                 if (FD_ISSET(fd, &events))
                 {
                     if (!handleFdSet(fd))
                     {
-                        quitloop = true;
+                        loopQuit = true;
                         break;
                     }
                 }
             }
         }
     }
+
+    return ok;
 }
 
 void ExternProcClient::sendMessage(const string &data)
