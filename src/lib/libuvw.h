@@ -35,28 +35,15 @@
 namespace Calaos
 {
 
-/* The peer address of an accepted TCP handle, in the single spelling the rest
- * of the tree compares against: a bare literal, no brackets, no port, no zone,
- * and an IPv4-mapped peer given as its dotted quad.
- *
- * The unmapping is not cosmetic: a dual-stack listen hands back
- * `::ffff:192.0.2.7` for the client an IPv4 listen calls `192.0.2.7`, so
- * without it the identity of every per-client bucket, and every localhost test
- * of the tree, would depend on which address the server was told to bind. Only
- * inet_ntop writes these bytes and it renders a mapped address in the dotted
- * form, so the textual test is exact; the second condition rejects anything
- * else beginning the same way.
- *
- * An empty answer means the handle has no connected peer.
- */
 /* Whether a configured listen address must be bound with the IPv6 form of
  * uvw's bind().
  *
- * ⚠️ Asking is not optional. bind() is templated on the family and defaults to
+ * Asking is not optional. bind() is templated on the family and defaults to
  * IPv4; uv_ip4_addr() zeroes its output BEFORE reporting that it could not
- * parse the literal, and uvw drops that return code. Binding an IPv6 literal
- * with the default template therefore binds 0.0.0.0 without a word - it WIDENS
- * to every interface a listen the operator wrote to narrow to one.
+ * parse the literal, and uvw drops that return code. An IPv6 literal bound
+ * with the default template therefore binds 0.0.0.0 without a word: it WIDENS
+ * to every interface a listen the operator wrote to narrow to one. A literal
+ * that is neither family still does - nothing here closes that half.
  */
 inline bool isIpv6Literal(const std::string &ip)
 {
@@ -64,6 +51,16 @@ inline bool isIpv6Literal(const std::string &ip)
     return inet_pton(AF_INET6, ip.c_str(), &a) == 1;
 }
 
+/* The peer of an accepted TCP handle, in the one spelling the rest of the tree
+ * compares against: a bare literal, no brackets, no port, no zone, and an
+ * IPv4-mapped peer given as its dotted quad. Empty means no connected peer.
+ *
+ * The unmapping is not cosmetic: a dual-stack listen hands back
+ * `::ffff:192.0.2.7` where an IPv4 listen says `192.0.2.7`, so without it the
+ * identity of every per-client bucket would depend on which address the server
+ * was told to bind. inet_ntop is the only writer of these bytes and it renders
+ * a mapped address in the dotted form, so the textual test is exact.
+ */
 inline std::string tcpPeerAddress(const uvw::TcpHandle &handle)
 {
     const std::string v6 = handle.peer<uvw::IPv6>().ip;

@@ -40,8 +40,120 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-05, APRÈS LE MERGE DE [`T3.72`](T3.72.md) +
-  [`T3.71`](T3.71.md)) — LE DERNIER MERGE DE LA SESSION. À LIRE EN PREMIER À FROID.**
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-05, APRÈS LE MERGE DE [`T3.41`](T3.41.md)) — LE
+  DERNIER MERGE DE LA SESSION. À LIRE EN PREMIER À FROID.**
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`0c108fc4`**
+  (branche `fix/t3.41`, **4 commits** : 3 du développeur + 1 de la revue de merge). `TESTS` =
+  **134** (`core/PeerAddressFamily_test`), référence de build après `make distclean` :
+  **`TOTAL 134 / PASS 133 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
+  `check-ccache-honesty.sh`, **0 `error:`**, **11 `CXXLD`** au `make -j32` et **125** au
+  `make check -j16`, **4 `make check` identiques** (3 en témoin + le contrôle de la campagne de
+  revue). ⛔ **RIEN N'A ÉTÉ POUSSÉ DE TOUTE LA SÉRIE.**
+
+  ⭐⭐ **LE DÉFAUT LE PLUS GRAVE DE LA SÉRIE A ÉTÉ TROUVÉ ET FERMÉ ICI, et il faut le savoir avant
+  tout le reste.** `uvw::bind()` est templaté sur la famille et vaut **IPv4 par défaut** ;
+  `uv_ip4_addr()` **remplit sa sortie de zéros AVANT** de signaler qu'il n'a pas su lire le
+  littéral, et uvw jette ce code. ⇒ **toute adresse IPv6 dans `listen_address` liait en réalité
+  `0.0.0.0`** : un opérateur qui écrivait `::1` pour se confiner à la boucle locale ouvrait son
+  serveur sur **toutes** ses interfaces, `HttpServer` **et** `UDPServer`, sans une ligne.
+  **Re-mesuré maillon par maillon à la revue**, `getsockname()` brut sur le descripteur :
+  `bind(défaut)` de `"::1"` ⇒ `AF_INET 0.0.0.0`, connexion IPv4 **acceptée** ; après correctif ⇒
+  `AF_INET6 ::1`, connexion IPv4 **refusée**. ⚠️ **Nuance de direction** : `"::"` n'était pas
+  élargi mais **rétréci** (un client IPv6 ne pouvait pas entrer) ; c'est une adresse IPv6
+  **précise** qui était élargie. Entrée en **tête** de la section sécurité de
+  [`RELEASE_NOTES.md`](RELEASE_NOTES.md), avec qui est concerné et quoi vérifier.
+
+  ⭐ **`F-IP6-1` était ENTIÈREMENT LATENT** — vérifié : aucune valeur de `listen_address` ne
+  produisait un pair non-`AF_INET`, donc la réserve `"::"` de `RELEASE_NOTES.md` décrivait un
+  symptôme inobservable. Elle n'a pas été *complétée*, elle a été **corrigée aux deux endroits où
+  elle figurait** — le développeur avait levé celle du bas et laissé intact le préambule
+  « DEUX RÉSERVES » qui la portait encore.
+  ⭐ **Les six gardes échouent bien toutes en FERMETURE** avec `"0.0.0.0"` — vérifié garde par garde
+  à la source, et il n'existe **aucune** exemption fondée sur l'adresse ailleurs dans `src/`.
+
+  ⭐⭐ **CE QUE LES CONTRE-MUTATIONS DE LA REVUE ONT MESURÉ — trois, aucune du développeur :**
+  1. ⛔⭐ **La porte de PRIVILÈGE `OtaHttpHandler::isLocalhost()` n'est tenue par RIEN** : ses quatre
+     orthographes échangées ⇒ **0 rouge sur 134 suites** (36 `CXXLD` lus, la mutation était bien
+     dans les binaires). **Et c'est elle qui a arbitré le démappage de `T3.41`.** Une porte de
+     privilège qui décide d'un choix de conception sans être tenue est une fausse assurance ⇒
+     [`T3.106`](T3.106.md), enrichi de la mesure. *La moitié acceptation s'y ferme à peu de frais
+     — la suite neuve relie déjà l'objet et part d'une vraie socket ; la moitié refus demande un
+     pair hors boucle locale et ne s'y ferme pas.*
+  2. Les deux familles de `bind` de `UDPServer` échangées ⇒ **0 rouge** : la moitié UDP du
+     correctif est un raisonnement, pas une mesure — la fiche le disait, personne ne l'avait mesuré.
+  3. `"::ffff:"`→`"::fffe:"` dans `isTrustedProxyPeer()` ⇒ **`TransportHardening` seule** : la
+     branche mappée n'est tenue que par un **appel direct**, et plus aucun pair TCP ne la produit —
+     la note de `HttpClient.h` dit donc vrai, et elle a été resserrée pour ne plus laisser croire
+     qu'un appelant de ce genre existe aujourd'hui.
+
+  ⛔⭐ **UN DÉFAUT RÉVÉLÉ PAR LE CORRECTIF LUI-MÊME, à ne pas perdre** (`F-IP6-3`,
+  [`T3.107`](T3.107.md)) : `UDPHandle::recv()` et `send()` restent templatés `IPv4`, et le rappel de
+  `recv()` emploie l'**autre** surcharge de `details::address<I>()` — celle qui prend un
+  `sockaddr *` — que la divergence CALAOS ne touche pas. **Mesuré** sous `listen_address = "::1"` :
+  un datagramme venu de `[::1]` est remis à `processRequest()` avec `remoteIp = "0.0.0.0"` ⇒ plus
+  aucune réponse `CALAOS_IP` (installer, application mobile, écrans) et **entrées Wago/KNX perdues**
+  (`ip == host` ne correspond à rien). Les deux échouent **en fermeture**, mais c'est une régression
+  contre master pour cette valeur, et elle est écrite dans les notes de version.
+  *À recopier dans tout brief : quand une bibliothèque expose la même fonction en deux surcharges,
+  patcher l'une ne patche pas l'autre — et un correctif qui rend un chemin ATTEIGNABLE réveille tout
+  ce qui dormait derrière lui.*
+
+  ⭐ **LE `exit 77` EST UN SKIP PROPRE, ET IL NE COUVRE PAS TOUT** — vérifié : `main()` sort `77`
+  (avant tout `RUN_ALL_TESTS`, code `SKIP` d'automake) quand une socket `AF_INET6` ne peut pas être
+  **créée** ou quand un `bind` sur `::` échoue. ⚠️ **Un noyau qui a IPv6 SANS `::1` sur `lo` passe
+  cette porte et le premier cas ROUGIT** (il lit `connected` et `status` de chaque client), ce qui
+  est le bon comportement : le filet ne devient jamais un vert muet, il devient un `SKIP` visible ou
+  un rouge. ⛔ **Sur une CI sans IPv6 la référence deviendra `TOTAL 134 / PASS 132 / SKIP 2`** — et
+  **le job CI n'a toujours jamais tourné**, donc c'est à lire au premier `push`.
+
+  ⭐⭐ **LES QUATRE ARBITRAGES DU 2026-09-05 — TOUS RÉSOLUS SAUF LE PREMIER :**
+  1. **Le `push`** → ⏸ **TOUJOURS DIFFÉRÉ** à la fin du backlog, en une seule fois.
+     ⛔ **`push` interdit jusqu'à nouvel ordre**, y compris pour un agent qui croirait bien faire.
+  2. [`T3.82`](T3.82.md) → ✅ **PAR LA SOCKET** — ✅ **FAIT et MERGÉ** (`376e987e`).
+  3. [`T3.72`](T3.72.md) → ✅ **REFUS À L'ÉCRITURE** de `&#01;` — ✅ **FAIT et MERGÉ.** `F-XML-3` fermé.
+  4. `T3.71` → ✅ **ALIGNER `create` SUR LE REFUS** — ✅ **FAIT et MERGÉ**, dans les mêmes commits.
+
+  ⭐⭐ **LES ARBITRAGES NEUFS QUI ATTENDENT L'UTILISATEUR — c'est la file d'attente :**
+  1. **[`T3.60`](T3.60.md) — le transport HTTP n'a aucune notion de portée de service.** Les huit
+     commandes que `serviceScope` refuse en WebSocket passent **intégralement** en HTTP.
+     **Trancher, pas patcher** : soit HTTP n'ouvre jamais de session de service et il faut l'écrire
+     **et le prouver par un test**, soit il le peut et le garde remonte sous le dispatch commun.
+  2. **[`T3.101`](T3.101.md) — le relais des sidecars.** `ExternProc` relaie hors de tout journal ce
+     que ses **sept** familles de sidecars impriment ; **seul en face des 2 sites qui comptent**.
+  3. **[`T3.104`](T3.104.md) — `rules.xml`.** La moitié **ACTIONS** de `F-XML-2`, seul chemin par
+     lequel des octets d'un tiers arrivent encore dans `io.xml` **et** dans `rules.xml`. Rouvre
+     l'arbitrage E4.6d.
+  4. **(b) de [`T3.106`](T3.106.md) — une `listen_address` invalide.** Refuser de démarrer (ce que
+     la documentation promet, au risque d'un boîtier injoignable après une faute de frappe) ou
+     retomber sur `0.0.0.0` **en le disant**. ⚠️ **Trois formes mesurées, pas une** : illisible
+     (⇒ `0.0.0.0`, port normal, **encore ouvert aujourd'hui**), IPv6 (fermée par `T3.41`), et
+     **IPv4 valide mais absente de la machine** — son `ErrorEvent` est publié **avant** que
+     `HttpServer` n'ait posé son auditeur, donc perdu, puis `listen()` auto-lie sur **`0.0.0.0` et
+     un port TIRÉ AU HASARD**. ⚠️ Quel que soit le choix, **l'écoute des `ErrorEvent` doit être
+     posée AVANT le `bind`**, sinon le refus lui-même sera muet.
+
+  **Tickets ouverts, une ligne chacun :**
+  - `T3.91` — proposé, fiche non écrite.
+  - **`T3.100`** — la fixture d'une suite calibrée est un objet **contraint** et rien ne le dit à qui
+    y ajoutera un document ; le filet rougit **après** coup.
+  - **[`T3.101`](T3.101.md)** — arbitrage, ci-dessus.
+  - **[`T3.103`](T3.103.md)** — `calaos_mqtt` sort avec le code 0 et sans une ligne quand la connexion
+    au courtier échoue en asynchrone (`F-EXTPROC-9`). ⏳ **En cours** sur `fix/t3.103`
+    (`.wave125/t3.103`, non mergée à l'heure de ce paragraphe) ; elle s'est attribué **`T3.105`**.
+  - **[`T3.104`](T3.104.md)** — arbitrage, ci-dessus.
+  - **[`T3.106`](T3.106.md)** — `isLocalhost()` sans filet (**mesuré 0 rouge**) **et** la
+    `listen_address` invalide (arbitrage, ci-dessus).
+  - **[`T3.107`](T3.107.md)** (neuf, ouvert par la revue de `T3.41`) — `F-IP6-3`, la lecture UDP.
+  ⚠️ Numéros **pris** : `T3.76` → `T3.107`. Le prochain libre est **`T3.108`**.
+
+  **Ce qui attend l'utilisateur, et rien d'autre :**
+  1. ⛔ **Le job CI chez GitHub n'a JAMAIS tourné.** Le `push` est **différé, pas refusé**
+     (arbitrage 1). ⚠️ **Il porte désormais une attente précise** : `core/PeerAddressFamily_test`
+     rendra `SKIP` sur un exécuteur sans IPv6, et la référence y sera `SKIP 2`.
+  2. ⛔ **Les quatre arbitrages neufs ci-dessus**, dans cet ordre.
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-05, APRÈS LE MERGE DE [`T3.72`](T3.72.md) +
+  [`T3.71`](T3.71.md)) — conservé pour l'historique.**
   Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`8aa61619`**
   (branche `fix/t3.72`, **5 commits** : 3 du développeur + 2 de la revue de merge). `TESTS` =
   **133**, référence de build après `make distclean` :

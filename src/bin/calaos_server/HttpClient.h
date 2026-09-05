@@ -137,8 +137,9 @@ inline uint64_t parseLimit(const std::string &value, uint64_t def,
 //127.0.0.1:5454`). Any other peer is a client speaking about itself.
 //All three spellings are accepted - 127.0.0.0/8 ENTIRE, ::1, ::ffff:127.x -
 //or haproxy itself loses its trust on a dual-stack host, silently. Only the
-//first two arrive from a TCP peer, because tcpPeerAddress() unmaps an
-//IPv4-mapped one; the third holds for a caller that read an address elsewhere.
+//first two can reach here from a TCP peer, because tcpPeerAddress() unmaps an
+//IPv4-mapped one; the third is kept for a caller that would read an address
+//from somewhere else, and no such caller exists today.
 //PREFIX, never containment: "10.127.0.5" is an ordinary LAN address.
 inline bool isTrustedProxyPeer(const std::string &peerIp)
 {

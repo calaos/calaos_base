@@ -1307,6 +1307,54 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   désactivée E4.2e, scénario désactivé T3.18).
 
 ## Sécurité & réseau
+- ⛔⭐ **`listen_address` : une adresse IPv6 n'était pas appliquée, et le serveur écoutait sur
+  toutes vos interfaces.**
+
+  **À vérifier maintenant, et seulement si vous avez écrit vous-même une valeur dans
+  `listen_address`.** La valeur par défaut est `0.0.0.0` et rien dans Calaos ne la change : une
+  installation qui n'a jamais touché ce réglage n'est pas concernée.
+
+  **Ce qui se passait.** Ce réglage sert à confiner le serveur à une seule adresse. Une valeur que
+  le serveur ne savait pas lire n'était pas refusée — la documentation du réglage annonce qu'une
+  adresse impossible empêche le serveur de démarrer, ce n'est pas ce qui arrivait : le serveur
+  retombait **silencieusement** sur « toutes les interfaces », sans une ligne de journal. Une
+  **adresse IPv6** était exactement ce cas. Quelqu'un qui avait écrit `listen_address = ::1` pour
+  n'accepter que les connexions venant de la machine elle-même obtenait donc **l'inverse de ce
+  qu'il demandait** : l'API HTTP/WebSocket **et** le service de découverte UDP étaient joignables
+  depuis tout le réseau.
+
+  ⚠️ **Si c'était votre cas, votre serveur était ouvert. Traitez ce réglage comme n'ayant jamais
+  été actif** : vérifiez vos accès et changez vos mots de passe avant de conclure que rien ne s'est
+  passé. Si votre boîtier n'a jamais été joignable que depuis votre réseau local, un pare-feu ou un
+  routeur vous protégeait — pas Calaos.
+
+  **Ce qui change.** Une adresse IPv6 est désormais appliquée telle qu'elle est écrite, sur les
+  deux serveurs. ⚠️ **Votre serveur va donc se restreindre pour de bon** : si vous l'atteigniez en
+  IPv4 pendant qu'il croyait n'écouter que sur `::1`, cet accès va cesser à la mise à jour.
+  ⚠️ **Et si vous posez une adresse IPv6, le service de découverte UDP ne répondra plus** — ni à
+  `calaos_installer`, ni à l'application mobile, ni aux écrans, et les entrées Wago/KNX poussées en
+  UDP seront ignorées. Il écoute bien à la bonne adresse, mais il ne sait pas encore lire l'adresse
+  d'un correspondant IPv6 : c'est le prochain morceau, et il n'est pas livré ici.
+
+  ⛔ **Ce qui n'est PAS corrigé, et qui vous concerne de la même façon.** Les deux autres façons
+  d'écrire une valeur que le serveur ne sait pas appliquer produisent **toujours** une écoute sur
+  toutes les interfaces, en silence :
+  - une **faute de frappe** ou un **nom d'hôte** (`localhost`, `calaos.local`, `192.168.1.300`) :
+    le serveur écoute sur toutes vos interfaces, sur le port normal ;
+  - une adresse IPv4 **bien écrite mais absente de la machine** (celle que la documentation promet
+    de refuser) : le serveur écoute sur toutes vos interfaces **et sur un port tiré au hasard**,
+    donc plus personne ne le trouve à l'endroit attendu.
+
+  ⇒ **Tant que ce n'est pas fermé : vérifiez la valeur de `listen_address` caractère par
+  caractère**, et si vous n'en avez pas l'usage, laissez `0.0.0.0` et confiez le confinement à
+  votre pare-feu.
+
+  **En prime.** Sur une écoute IPv6 ou double pile, le serveur lisait `0.0.0.0` à la place de
+  l'adresse de ses clients : tous se retrouvaient dans un compteur unique — le ralentissement après
+  mot de passe erroné de l'un pénalisait tous les autres — et les journaux ne nommaient personne.
+  C'est corrigé aussi : chaque client est de nouveau identifié, et les lignes du journal qui disent
+  d'où vient une connexion refusée donnent l'adresse réelle. ⚠️ Personne ne pouvait l'observer
+  jusqu'ici, puisque l'écoute IPv6 n'avait jamais lieu.
 - ⭐ **La valeur qu'un `set_state` refuse n'est plus recopiée dans le journal d'une installation
   neuve.** Quand un client demande à écrire une valeur qui s'arrête sur son séparateur — une
   commande à laquelle il manque son argument — Calaos refuse, et il écrivait la valeur fautive
@@ -1624,8 +1672,11 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   ⚠️ **DEUX RÉSERVES, à lire AVANT le reste de cette entrée** — elles sont détaillées plus bas :
   **(1)** cette protection **ne couvre PAS l'assistant MCP** (`/mcp`, servi sur le même port) :
   **ne le considérez pas comme protégé par cette version** ;
-  **(2)** si vous avez réglé `listen_address` sur **`::`** (ce n'est pas la valeur par défaut),
-  **tous vos utilisateurs partagent un compteur unique** — repassez à `0.0.0.0`.
+  **(2)** si vous avez écrit une **adresse IPv6** dans `listen_address`, lisez d'abord la
+  **première entrée de cette section** : ce réglage n'était pas appliqué du tout.
+  ⚠️ **La réserve qui figurait ici — « avec `::`, tous vos utilisateurs partagent un compteur
+  unique » — était fausse**, et pas seulement incomplète : avec `::`, le serveur n'écoutait pas
+  en IPv6, aucun client ne pouvait donc être dans ce cas.
 
   **Ce qui changeait le comportement.** Les deux protections ci-dessus — le ralentissement après
   mot de passe erroné et la limite de connexions — identifient un client par l'en-tête
@@ -1687,35 +1738,9 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   compris le flux d'événements : **aucune requête refusée**. Si votre client émet malgré tout une de
   ces formes, il recevra un `400` au lieu d'être relayé.
 
-  ✅ **La réserve qui figurait ici sur `listen_address = "::"` est levée** : l'écoute IPv6 fonctionne
-  et le serveur y reconnaît chacun de ses clients. Voir l'entrée suivante, qui est la vraie
-  histoire — et une bien moins rassurante.
-- ⛔ **`listen_address` : une adresse IPv6 n'était pas appliquée, et le serveur écoutait sur toutes
-  vos interfaces.**
-
-  **À vérifier immédiatement si — et seulement si — vous avez écrit une adresse IPv6 dans
-  `listen_address`** (par exemple `::1` ou `::`). Ce n'est pas la valeur par défaut et rien dans
-  Calaos ne la pose : une installation qui n'a jamais touché ce réglage n'est pas concernée.
-
-  **Ce qui se passait.** Le réglage sert à confiner le serveur à une seule adresse. Une valeur IPv6
-  n'était pas comprise, et au lieu de refuser de démarrer — ce que la documentation du réglage
-  annonçait — le serveur retombait **silencieusement** sur « toutes les interfaces ». Autrement dit,
-  quelqu'un qui avait écrit `listen_address = ::1` pour n'accepter que les connexions venant de la
-  machine elle-même obtenait exactement l'inverse : **l'API et le service de découverte étaient
-  joignables depuis tout le réseau**, sans qu'aucune ligne de journal ne le signale.
-
-  **Ce qui change.** Une adresse IPv6 est désormais appliquée telle qu'elle est écrite, sur l'API
-  HTTP/WebSocket **comme** sur la découverte UDP. ⚠️ **Si vous aviez posé une adresse IPv6 en
-  croyant restreindre votre serveur, il était ouvert : traitez ce réglage comme n'ayant jamais été
-  actif** — vérifiez vos accès et vos mots de passe avant de conclure que rien ne s'est passé. Et
-  après la mise à jour, votre serveur va effectivement se restreindre : si vous vous connectiez à
-  lui en IPv4 pendant qu'il croyait écouter en `::1`, cet accès va cesser.
-
-  **En prime.** Sur une écoute IPv6 ou double pile, le serveur lisait `0.0.0.0` à la place de
-  l'adresse de ses clients : tous se retrouvaient dans un compteur unique — le ralentissement après
-  mot de passe erroné de l'un pénalisait tous les autres — et les journaux ne nommaient personne.
-  C'est corrigé aussi : chaque client est de nouveau identifié, et les lignes du journal qui
-  disent d'où vient une connexion refusée donnent l'adresse réelle.
+  ✅ **La réserve qui figurait ici sur `listen_address = "::"` est levée**, et elle était fausse :
+  avec `::`, le serveur n'écoutait pas en IPv6. L'écoute IPv6 fonctionne maintenant, et le serveur
+  y reconnaît chacun de ses clients — voir la **première entrée de cette section**.
 - **En-têtes HTTP** limités à 32 Kio → `431` (auparavant illimité jusqu'au timeout).
 - **TLS** : la vérification des certificats reste **désactivée par défaut** pour tous les
   équipements configurés par l'utilisateur (caméras HTTPS auto-signées, devices LAN) — aucune

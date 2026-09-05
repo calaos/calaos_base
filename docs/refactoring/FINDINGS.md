@@ -1106,9 +1106,59 @@
     personne ne pouvait observer**.
 
   ✅ **FERMÉ** : la famille est choisie sur le littéral (`Calaos::isIpv6Literal()`), aux deux sites.
-  ⚠️ **Ce qui RESTE ouvert et n'a pas été mesuré** : une `listen_address` qui n'est **ni** IPv4 **ni**
-  IPv6 (faute de frappe, nom d'hôte) écoute toujours `0.0.0.0` sans une ligne — même mécanique, même
-  effet ouvrant ⇒ [T3.106](T3.106.md).
+
+  ⭐ **La chaîne a été re-mesurée maillon par maillon à la revue de merge**, sur la libuv de l'image
+  (1.44.2), en lisant la socket d'écoute par un `getsockname()` **brut sur le descripteur** — donc
+  sans passer par l'uvw qu'on juge :
+
+  ```
+  uv_ip4_addr("::1")  -> rc=-22  family=AF_INET  addr=0.0.0.0
+  bind(défaut) listen_address="::1"           -> socket AF_INET 0.0.0.0 : connexion IPv4 ACCEPTÉE
+  bind(famille) listen_address="::1"          -> socket AF_INET6 ::1    : connexion IPv4 REFUSÉE
+  ```
+
+  ⇒ le défaut ouvrant **et** sa fermeture sont l'un et l'autre observés, pas déduits.
+  ⚠️ **Nuance de direction, qui corrige la formulation reçue** : `"::"` n'était pas *élargi* mais
+  **rétréci** (`0.0.0.0` n'accepte pas l'IPv6, un client IPv6 ne pouvait pas entrer). L'élargissement
+  ne concerne qu'une adresse IPv6 **précise** — `::1` ou l'adresse d'une seule interface.
+
+  ⛔ **Ce qui RESTE ouvert — désormais MESURÉ, et non plus supposé** ⇒ [T3.106](T3.106.md) :
+  - une `listen_address` qui n'est **ni** IPv4 **ni** IPv6 (faute de frappe, nom d'hôte) : mesuré
+    `bind("nonsense-typo")` → socket **`AF_INET 0.0.0.0`**, connexion IPv4 **acceptée**, sans une
+    ligne. Même mécanique, même effet ouvrant, **toujours vrai après ce correctif** ;
+  - ⭐ **et une adresse IPv4 bien formée mais ABSENTE de la machine** — le cas que la documentation
+    de la clé promet nommément de refuser. Mesuré : `bind<IPv4>("10.99.99.99")` échoue
+    (`EADDRNOTAVAIL`), `uvw` publie un `ErrorEvent` **avant** que `HttpServer` n'ait posé son
+    `once<ErrorEvent>` (il le pose après `bind()` et `listen()`), l'erreur est donc **perdue**, et
+    `listen()` **auto-lie le handle** : socket **`AF_INET 0.0.0.0` sur un port TIRÉ AU HASARD**.
+    Ni refus, ni journal, ni port attendu.
+
+- ⛔ **F-IP6-3 — [DISPONIBILITÉ, OUVERT, RÉVÉLÉ par [T3.41](T3.41.md)] sous une `listen_address`
+  IPv6, `UDPServer` se lie à la bonne famille mais ne sait pas lire ses correspondants : la
+  découverte ne répond plus et les entrées Wago/KNX poussées en UDP sont ignorées.**
+
+  La correction de `F-IP6-2` ne portait que sur le `bind`. `UDPHandle::recv()` — comme `send()` —
+  est **templaté sur la famille et vaut `IPv4` par défaut**, et son rappel emploie l'**autre**
+  surcharge de `details::address<I>()`, celle qui prend un `sockaddr *` : la divergence CALAOS ne
+  la touche pas. Un datagramme IPv6 est donc relu comme un `sockaddr_in`.
+
+  **Mesuré** (image de dev, `listen_address = "::1"`, un vrai datagramme envoyé depuis `[::1]`) :
+
+  ```
+  expéditeur réel        [::1]:45552
+  ce que processRequest() reçoit :  remoteIp="0.0.0.0"  remotePort=45552
+  ```
+
+  **Conséquences, toutes en FERMETURE** : `TCPSocket::GetLocalIPFor("0.0.0.0")` ne trouve pas
+  d'interface ⇒ la réponse `CALAOS_IP` n'est jamais envoyée (`calaos_installer`, l'application
+  mobile et les écrans ne trouvent plus le boîtier) ; et `WIDigitalBase::ReceiveFromWago()` compare
+  `ip == host` ⇒ **aucune** entrée Wago/KNX poussée ne correspond, elles sont silencieusement
+  perdues. Rien n'est attribué au mauvais équipement.
+
+  ⚠️ **Ce n'est pas une régression sur la configuration livrée** (`0.0.0.0`, écoute IPv4 : chemin
+  inchangé), mais **c'en est une contre master pour une `listen_address` IPv6** — où le service
+  fonctionnait, précisément parce que le `bind` IPv6 n'avait jamais lieu. Écrit dans
+  [`RELEASE_NOTES.md`](RELEASE_NOTES.md) plutôt que tu. ⇒ [T3.107](T3.107.md).
 
 - ✅ **F-PYTEST-1 — [FAUX VERT, FERMÉ par [T3.47](T3.47.md)] `tests/python/test_auth.py` était
   silencieusement SAUTÉ par `make check`, qui restait vert** (trouvé en mesurant F-MCP-XFF-1).
