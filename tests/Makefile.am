@@ -4885,9 +4885,11 @@ endif
 #messages, so a mutation of IO/Reolink/ReolinkCtrl.cpp turns these cases red.
 #The second case is the counterweight - an unreachable camera is a common
 #failure and this line is what reports it, so the kind, the camera and the size
-#of what was withheld must survive. The third forks a child that never raises
-#the level: this suite raises it in its own main() and could not otherwise see
-#that the line prints on a stock install.
+#of what was withheld must survive. The third holds the other failure path of
+#the same wire, a frame this end cannot parse at all, to the same rule. The
+#fourth forks a child that never raises the level: this suite raises it in its
+#own main() and could not otherwise see that the line prints on a stock
+#install.
 #No core fixture: the controller needs no config model, and main() has to raise
 #debug_level before the first log line of the process (the Logger domain map is
 #filled once and never re-read).

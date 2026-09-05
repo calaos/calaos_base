@@ -51,6 +51,15 @@
  * happened, on which controller, of which nature, and for which camera - all
  * of them values this end can name, none of them text a dependency wrote.
  *
+ * The third case holds the other failure path of the same wire to both rules
+ * at once: a frame this end cannot parse carries bytes from the same sender,
+ * and an unreadable frame must still be reported with its size.
+ *
+ * Every leak assertion here bounds the longest RUN of the sidecar text the
+ * journal gives back, not the presence of a value chosen in advance: a line
+ * publishing the head or the tail of that text was measured to leave a value
+ * search green while carrying the account the text names.
+ *
  * WHAT THIS DOES NOT PROVE: no camera and no journal of a real install are
  * involved. The stand-in sidecar is a shell script that sleeps, so the python
  * side of the same wire is not exercised by anything here.
@@ -108,6 +117,11 @@ const char *const kVendorText =
 const char *const kVendorCode = "jeton-de-code-fabrique-par-le-sidecar";
 const char *const kVendorHost = "hote-jamais-enregistre-par-ce-controleur";
 
+//The needle of the frame that does not parse at all. A frame this end cannot
+//read is written by the same sender as one it can.
+const char *const kUnreadableText =
+    "mot-de-passe-dans-une-trame-que-le-serveur-ne-sait-pas-lire";
+
 const char *const kCameraHost     = "192.168.7.51";
 const char *const kCameraUser     = "operateur-camera";
 const char *const kCameraPassword = "mon mot de passe camera";
@@ -123,6 +137,40 @@ const char *const kNamespace   = "reolink";
 //The marker of the line under test, and nothing else: it must not be a word
 //that also appears on a launch line or on a registration line.
 const char *const kErrorMarker = "Reolink process error";
+
+//The marker of the line written for a frame that does not parse.
+const char *const kParseFailureMarker = "Error parsing json message";
+
+/*
+ * THE LONGEST RUN OF A SIDECAR TEXT THE JOURNAL GIVES BACK.
+ *
+ * Looking for the whole text is looking for a value chosen in advance, and a
+ * value search only sees the slice it was spelled for: a line publishing the
+ * first or the last bytes of the same text carries the text and cites no
+ * needle. What must not reach a journal is any RUN of it, wherever it was cut,
+ * so the log is asked how much it gives back and a ceiling is fixed instead of
+ * a secret being named.
+ */
+size_t longestEcho(const std::string &log, const std::string &text)
+{
+    size_t best = 0;
+    for (size_t i = 0; i < text.size(); i++)
+    {
+        size_t len = best + 1;
+        while (i + len <= text.size() &&
+               log.find(text.substr(i, len)) != std::string::npos)
+        {
+            best = len;
+            len++;
+        }
+    }
+    return best;
+}
+
+//Above the incidental overlap, measured at 12 - the vendor text quotes the
+//camera address, and that address is a value this end publishes on its own -
+//and far below any excerpt of the text worth publishing.
+const size_t kMaxEcho = 16;
 
 int countOccurrences(const std::string &haystack, const std::string &needle)
 {
@@ -407,12 +455,21 @@ std::string wellFormedErrorFrame()
            "\",\"hostname\":\"" + kCameraHost + "\"}";
 }
 
+//Not JSON at all, and carrying a needle: what a controller does with a frame
+//it cannot read is a failure path of its own, and it is the path a sidecar
+//reaches first when the two ends drift apart.
+std::string unreadableFrame()
+{
+    return std::string("{\"status\":\"error\",\"message\":\"") + kUnreadableText;
+}
+
 struct Observation
 {
     bool installed = false;
     bool peerConnected = false;
     bool connectedSeen = false;
     bool bothErrorsSeen = false;
+    bool parseFailureSeen = false;
     std::string sockpath;
     std::string log;
 };
@@ -473,6 +530,12 @@ const Observation &theObservation()
             obs->bothErrorsSeen = pumpLoopUntil([&sink]()
             {
                 return countOccurrences(sink.str(), kErrorMarker) >= 2;
+            }, 5000);
+
+            sidecar.sendFrame(unreadableFrame());
+            obs->parseFailureSeen = pumpLoopUntil([&sink]()
+            {
+                return countOccurrences(sink.str(), kParseFailureMarker) >= 1;
             }, 5000);
         }
     }
@@ -543,6 +606,14 @@ TEST_F(SidecarErrorSecretTest, NothingTheSidecarWroteInAnErrorFrameReachesTheLog
     EXPECT_EQ(std::string::npos, obs.log.find(host))
         << "a hostname no camera of this controller was registered under is "
            "republished verbatim. Log: " << obs.log;
+
+    //Searching for the whole text only sees the slice it is spelled for: a
+    //line publishing the head or the tail of the same text was measured to
+    //leave every assertion above green while carrying the account it names.
+    EXPECT_LT(longestEcho(obs.log, text), kMaxEcho)
+        << "the journal gives back " << longestEcho(obs.log, text)
+        << " consecutive bytes of the text the sidecar wrote, which no line of "
+           "this controller has a reason to carry. Log: " << obs.log;
 }
 
 /*
@@ -578,6 +649,51 @@ TEST_F(SidecarErrorSecretTest, TheLogStillSaysWhichCameraFailedAndOfWhatKind)
         << "the line written for the frame this end could not name does not "
            "say that " << withheld << " bytes were dropped: a sidecar sending "
            "prose and one sending nothing look the same. Log: " << obs.log;
+}
+
+/*
+ * THE OTHER FAILURE PATH OF THE SAME WIRE: A FRAME THAT DOES NOT PARSE.
+ *
+ * The two cases above only ever hand the controller frames it can read, so
+ * they say nothing about what it writes when it cannot - and that is the path
+ * two ends reach first when they drift apart. The bytes of an unreadable frame
+ * were written by the same sender as the ones of a readable one, so they are
+ * held to the same rule, and the counterweight is the same too: a sidecar that
+ * has started talking nonsense must not become invisible.
+ */
+TEST_F(SidecarErrorSecretTest, AFrameThisEndCannotReadIsReportedWithoutBeingQuoted)
+{
+    ASSERT_TRUE(Utils::calaosLogger(kNamespace)->isLevelEnabled(Logger::LOG_LEVEL_WARNING))
+        << "the reolink domain is muted below WARNING here, so this case cannot "
+           "observe the line it exists to check";
+
+    const std::string frame = unreadableFrame();
+    const std::string text = kUnreadableText;
+
+    ASSERT_NE(std::string::npos, frame.find(text))
+        << "the frame does not carry the needle at all, so a green here would "
+           "mean nothing: " << frame;
+
+    const Observation &obs = theObservation();
+    ASSERT_TRUE(obs.installed) << "could not set up the CALAOS_BIN_PREFIX sandbox";
+    ASSERT_TRUE(obs.parseFailureSeen)
+        << "no parse failure was reported at all, so this case cannot say "
+           "whether the frame would have been quoted: " << obs.log;
+
+    EXPECT_EQ(std::string::npos, obs.log.find(text))
+        << "the payload of a frame this end could not read is in the journal. "
+           "Nothing constrains it: it is written by the same sender as the "
+           "frames that do parse. Log: " << obs.log;
+    EXPECT_LT(longestEcho(obs.log, text), kMaxEcho)
+        << "the journal gives back " << longestEcho(obs.log, text)
+        << " consecutive bytes of a frame this end could not read. Log: "
+        << obs.log;
+
+    const std::string size = std::to_string(frame.size());
+    EXPECT_TRUE(someLineHasAll(obs.log, kParseFailureMarker, kNamespace, size))
+        << "the line written for an unreadable frame does not say how many "
+           "bytes it was: a sidecar that has started talking nonsense is then "
+           "indistinguishable from one that has gone quiet. Log: " << obs.log;
 }
 
 /*
