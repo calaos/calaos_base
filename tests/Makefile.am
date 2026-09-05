@@ -4908,3 +4908,50 @@ core_SidecarErrorSecret_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Reolink
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.86
+#What four controllers republish of a frame they could not parse.
+#MqttCtrl, KNXCtrl, ScriptExec and OwCtrl each wrote the whole incoming payload
+#into a cWarningDom() on their parse failure path, and WARNING prints on a
+#stock install. The bytes of a frame that does not parse come from the same
+#sender as the bytes of one that does; an mqtt payload is whatever a broker
+#publishes and a Lua set_param value is whatever a script writes into an IO
+#parameter, a camera password included.
+#NOTHING HERE CALLS A MESSAGE HANDLER: the four controllers are really built, a
+#peer connects to the unix socket each ExternProcServer bound and sends a
+#framed payload that does not parse, so a mutation of any of the four turns
+#these cases red.
+#The onewire wire is fed twice, on its two distinct failure branches: a frame
+#that parses but is not an array reached an exception built by concatenating
+#the frame into its message, a frame that does not parse reaches one whose
+#message quotes the token the parser choked on. A sensor spelled on `<< msg`
+#is blind to both.
+#Every leak assertion bounds the longest RUN of the frame the journal gives
+#back instead of naming a value, and each needle sits in its frame in clear and
+#percent encoded.
+#The second case is the counterweight - an unreadable frame must still be
+#reported, with its controller and its size. The third forks a child that never
+#touched a configuration: this suite reads what a STOCK box prints and cannot
+#raise the level without pulling in DEBUG dumps it does not close.
+#No core fixture: these controllers need no config model.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ControllerFrameSecret_test
+check_PROGRAMS += core/ControllerFrameSecret_test
+core_ControllerFrameSecret_test_SOURCES = core/ControllerFrameSecret_test.cpp
+core_ControllerFrameSecret_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/KNX \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire
+core_ControllerFrameSecret_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OneWire/OWCtrl.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_ControllerFrameSecret_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OneWire/OWCtrl.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
