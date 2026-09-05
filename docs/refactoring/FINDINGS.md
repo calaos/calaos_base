@@ -10109,11 +10109,16 @@ passé à `startProcess()` sont le même mot.
 ⛔ **Rien de fonctionnel** : la socket vient de `--socket` et les deux sockets diffèrent bien (le
 préfixe `knx_monitor` est dans `sockpath`). Dans `ExternProcClient`, `name` ne sert qu'à
 `initLogger(name.c_str())`.
-⚠️ **Ce qui est perdu est le diagnostic que [T3.79](T3.79.md) venait de construire** : les deux
-sidecars KNX journalisent sous le domaine `knx`, `CALAOS_LOG_DOMAINS` ne peut pas isoler le
-moniteur, leur stdout est réinjecté dans celui du serveur, et la ligne de lancement réduite — qui
-publie l'espace de noms **précisément pour qu'une boucle de relance reste lisible** — imprime
-`--namespace knx` des deux côtés.
+⚠️ **Ce qui est perdu est un diagnostic, et un seul** : les deux sidecars KNX appellent
+`initLogger("knx")`, donc ils journalisent sous le même domaine, `CALAOS_LOG_DOMAINS` ne peut pas
+isoler le moniteur, et leur stdout est réinjecté dans celui du serveur.
+
+⛔⭐ **Corrigé à la revue de merge de [T3.80](T3.80.md) : « une boucle de relance est indiscernable »
+était FAUX.** Mesuré dans le journal du binaire neuf, **trois** champs séparent déjà les deux
+sidecars — le `--socket` de la ligne réduite porte le préfixe `knx_monitor`, le compte d'arguments
+vaut **2** pour la commande et **3** pour le moniteur, et les deux avertissements de relance
+côté serveur sont deux textes distincts. Le finding reste réel, il est **mineur** : ce qui manque
+est un domaine de journal propre, pas la lisibilité d'une relance.
 
 Trouvé en écrivant [T3.80](T3.80.md), **fiché et non corrigé** : T3.80 est un ticket de
 caractérisation. ⚠️ `core/SidecarArgv_test` vérifie `argv[4]` sur **chaque** lancement, donc la

@@ -40,6 +40,78 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
+- **✅⭐⭐ [`T3.80`](T3.80.md) MERGÉE — 2 commits, `merge --ff-only`, historique linéaire, 0 commit
+  de fusion.** Tête sur `master` : **le commit de revue qui porte ce paragraphe** (2026-09-05). La
+  branche partait de `65cb137a` et `master` n'avait pas bougé ⇒ **aucun rebase**.
+  `tests/Makefile.am` : **append pur** (`diff` +46/−0/~0 — les 4765 lignes de `master` sont le
+  préfixe exact des 4811 de la branche), `^if` 102 → 103 ≡ `^endif` 102 → 103, profondeur finale
+  **0**, minimum **0**, **`TESTS` 120 → 121 recompté des deux côtés** (`core/SidecarArgv_test`).
+  Build de merge après `make distclean` : **`TOTAL 121 / PASS 120 / SKIP 1 / FAIL 0 / XFAIL 0 /
+  XPASS 0 / ERROR 0`**, rc 0, **0 `error:`**, un seul `Testsuite summary`, `check-test-deps.sh`
+  **PASS**, seul `SKIP` `check-ccache-honesty.sh`. ⛔ **Rien poussé.**
+
+  ⭐⭐ **LA PROPRIÉTÉ CENTRALE DU TICKET TIENT, ET C'EST LA PREMIÈRE FOIS DE LA SÉRIE QU'ELLE TIENT
+  DU PREMIER COUP : il n'y a AUCUN appel direct déguisé.** `startProcess` n'apparaît nulle part dans
+  `core/SidecarArgv_test.cpp` hors commentaires. Les quatre fixtures passent par les fabriques de
+  production — `WagoMap::Instance()`, `KNXCtrl::Instance()`, `OLACtrl::Instance()`,
+  `ReolinkCtrl::Instance()` — qui sont toutes des registres de **durée de vie processus**, donc
+  l'objet construit **est** celui qui relance ; ce qui est relu est le journal du bac à sable écrit
+  par l'enfant lui-même, c'est-à-dire l'argv **que le noyau lui a remis**. Six merges de cette nuit
+  ont trouvé une garde exercée seulement par appel direct ; **celui-ci n'y retombe pas**.
+
+  ⭐ **Deux mutations du développeur rejouées, dont une sur OLA.** **R3** (garde OLA inversée) :
+  **2 rouges**, les deux cas OLA. **R1** (positionnels Wago permutés) : **1 rouge**,
+  `TheHostAndThePortCrossAsTwoPositionalsInThatOrder`. Les deux conformes à la fiche. ⛔ **Et le
+  contraste annoncé est constaté au journal** : sous R1, `core/WagoPortDefault_test`,
+  `core/WagoReadReply_test` et `core/WagoUdpReply_test` ont **relinké** (`CXXLD` lus) et sont restés
+  **verts** — ils construisent un vrai `WagoMap` sans jamais regarder son argv.
+
+  ⭐⭐ **Deux contre-mutations indépendantes de la revue, visant les DEUX contrôleurs qui n'étaient
+  reliés à rien — elles posent la question que la fiche ne pose pas : la suite lit-elle CHAQUE
+  lancement ?** **V1** — la relance OLA perd son argument (`startProcess(exe, "ola", args)` ↔
+  `startProcess(exe, "ola")`) : **1 rouge**, verbatim `the configured universe crossed on the first
+  launch only`. **V2** — le lancement **initial** Reolink gagne un positionnel
+  (`startProcess(exe, "reolink")` ↔ `… , { "reolink" })`, exactement ce qu'`argparse` refuse
+  par `exit(2)`) : **1 rouge**, `NothingIsSentAfterTheNamespace`. ⇒ le filet mord aux **deux bouts**
+  du respawn, pas seulement sur la dernière ligne du journal.
+
+  ⭐ **La vacuité a été attaquée et elle rougit** : relance Reolink **retirée** au site de
+  production ⇒ un seul lancement ⇒ la suite **échoue dans son `SetUp()`**, verbatim
+  `calaos_reolink was launched 1 time(s): without the respawn this suite says nothing about what
+  the second launch carries`, en 8 s de budget mur et sans jamais pendre. L'exigence de **deux**
+  lancements n'est pas décorative. Restaurations **par copie prouvées au `cmp` (rc 0 × 5)**,
+  mutations et restaurations **sur l'hôte**, ⛔ aucun `git` dans le conteneur, arbre reconfirmé
+  propre par le `git` de l'hôte, témoin final **vert** 121/120/1/0 avec
+  `CXXLD core/SidecarArgv_test` **lu**.
+
+  ⛔⭐ **UNE AFFIRMATION DE [`T3.84`](T3.84.md) EST INVALIDÉE, ET LA FICHE, `FINDINGS.md` ET
+  `BOARD.md` SONT CORRIGÉS ICI.** « Une boucle de relance du moniteur KNX est indiscernable de celle
+  du processus de commande » est **faux** : le journal des tours de mesure montre les deux côte à
+  côte et **trois** champs les séparent déjà — le `--socket` de la ligne réduite porte le préfixe
+  `knx_monitor`, le compte d'arguments vaut **2** contre **3**, et côté serveur les deux
+  avertissements de relance sont deux textes distincts à deux sites distincts de `KNXCtrl.cpp`.
+  `F-EXTPROC-8` **reste réel** — les deux sidecars appellent `initLogger("knx")`, donc
+  `CALAOS_LOG_DOMAINS` ne les sépare pas — mais **le ticket est mineur**, et sa justification
+  centrale était la mauvaise.
+
+  ⭐ **Les cinq contrats de sidecar sont revérifiés aux sources livrées** : positionnels `argc > 1`
+  / `argc > 2` (Wago) · `std::find` sur un argv **entier** pour `argvOptionCheck`/`argvOptionParam`
+  (KNX) · `if (argc > 1) from_string(argv[1], universe)` (OLA) · `ArgumentParser` avec `--socket` et
+  `--namespace` **seuls** et `parse_args()`, non `parse_known_args()` (Reolink, donc `SystemExit(2)`
+  sur tout supplément). **Aucun écart.** **Zéro ligne de `src/`** au diff, et le fichier de test neuf
+  ne porte **ni emoji, ni numéro de ticket, ni numéro de ligne**.
+
+  ⚠️ **Une seule imprécision, laissée telle quelle** : le commentaire qui justifie l'adresse
+  TEST-NET-1 dit qu'elle évite une collision sur le `WAGO_LISTEN_PORT` fixe, mais le **second**
+  `WagoMap` a un `host` vide et se lie donc à l'adresse générique. L'échec de liaison retombe sur un
+  `ErrorEvent` déjà traité et ne touche pas le journal d'argv ; deux `make check -j16` complets sont
+  verts. **Aucun ticket ouvert par cette revue.**
+
+  **État de la session au sortir de ce merge** : `master` = le commit de revue qui porte ce
+  paragraphe, rien de poussé, historique linéaire. Worktree `.wave108/t3.80` supprimé, branche
+  `test/t3.80` supprimée. ⚠️ `.wave107/t3.81` (`fix/t3.81`) est **intact** — non touché par ce
+  merge.
+
 - **✅⭐⭐ [`T3.79`](T3.79.md) MERGÉE — 4 commits, `merge --ff-only`, historique linéaire, 0 commit
   de fusion.** Tête sur `master` : **le commit de revue qui porte ce paragraphe** (2026-09-05). La
   branche partait de `83deee66` et `master` n'avait pas bougé ⇒ **aucun rebase**. `tests/Makefile.am` :
