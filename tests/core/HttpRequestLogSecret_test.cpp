@@ -84,10 +84,23 @@
  * into production code. One case sends a real masked frame over a real
  * handshake and bounds what comes back.
  *
+ * AND THE BODY WENT OUT THE SAME WAY THE HEADERS DID
+ * ---------------------------------------------------------------------------
+ * The body of an api request was published through a list of eleven credential
+ * NAMES, on both transports, before the credentials were checked. The API of
+ * this repository opens that list itself: config/put uploads local_config.xml,
+ * io.xml and rules.xml under keys that are FILE NAMES, and local_config.xml is
+ * where this server writes the mcp_token it hands out. set_param is the same
+ * shape one level down - the word "password" is the VALUE of `param` and the
+ * camera credential sits under `value`. The cases below send those requests
+ * over the socket, one of them with no credentials at all, and bound what
+ * comes back of a token this repository generated itself.
+ *
  * WHAT THIS DOES NOT PROVE: no journal of a real install is read, the MCP
  * bearer is planted by the fixture rather than obtained from get_mcp_info, and
- * the http request body is not this suite's subject - it goes out through
- * JsonApi::dumpJsonRedacted, which is a list of names.
+ * the upload is never ACCEPTED by any case - a successful config/put restarts
+ * the server, so the branch that used to publish a non-XML file content whole
+ * is reached by no case here.
  ******************************************************************************/
 
 #include <gtest/gtest.h>
@@ -111,6 +124,7 @@
 #include <vector>
 
 #include "ConfigStore.h"
+#include "HMACAuthenticator.h"
 #include "HttpServer.h"
 #include "JsonApi.h"
 #include "LogSetup.h"
@@ -157,6 +171,20 @@ const char *const kBasicPlain = "operateur:sesame-du-portier-8c25f10b";
 //purpose: the frame line rendered a fixed-length EXCERPT of the payload, so
 //how much of a secret it gave back depended on where the secret sat.
 const char *const kWsFramePassword = "sesame-du-portier-3f81b2";
+
+/*
+ * WHAT AN UPLOAD CARRIES, IN THE THREE PLACES NO LIST OF NAMES REACHED.
+ *
+ * The three values are pairwise unlike on purpose: the longest run two of them
+ * share, and the longest run any of them shares with what the reduced lines
+ * legitimately publish, are measured in the fiche and both sit far under the
+ * ceiling. A common suffix here would let one needle raise the bound of the
+ * others and turn a leak into a green.
+ */
+const char *const kCameraSecret = "brumaire7b3e9d15c4alpaga";
+const char *const kInventedKeySecret = "grimoire4a6c81f2e9chataigne";
+const char *const kSetParamSecret = "talisman9e2b40d7a1nenuphar";
+const char *const kWsInventedSecret = "philtre6a2f70d3e8";
 
 /*
  * Above the incidental overlap between a planted value and what the reduced
@@ -508,6 +536,63 @@ std::string loginTarget(const std::string &password)
     return std::string("/api.php?cn_user=operateur&cn_pass=") + password;
 }
 
+/*
+ * A TOKEN THIS REPOSITORY GENERATED, not a literal typed into a test. The
+ * generator is the shipped one - the same CSPRNG and the same 64 hex chars
+ * McpServerManager writes into local_config.xml - so what the cases below plant
+ * in the uploaded file is the shape of the real secret and not a stand-in.
+ */
+const std::string &emittedToken()
+{
+    static const std::string token = HMACAuthenticator::generateNonce();
+    return token;
+}
+
+//The body of a real config/put: the three file names the server accepts, and
+//the tokens and camera passwords a real install keeps in them.
+std::string configPutBody(bool withCredentials)
+{
+    std::ostringstream body;
+    body << "{";
+    if (withCredentials)
+        body << "\"cn_user\":\"operateur\",\"cn_pass\":\"" << kQueryPassword << "\",";
+    body << "\"action\":\"config\",\"type\":\"put\",\"msg_id\":\"42\","
+         << "\"" << "x-calaos-clef-inventee" << "\":\"" << kInventedKeySecret << "\","
+         << "\"config_files\":{"
+         << "\"local_config.xml\":\"<?xml version=\\\"1.0\\\"?><calaos>"
+         << "<mcp_token>" << emittedToken() << "</mcp_token>"
+         << "<mcp_service_token>" << emittedToken() << "</mcp_service_token>"
+         << "</calaos>\","
+         << "\"io.xml\":\"<?xml version=\\\"1.0\\\"?><calaos>"
+         << "<calaos:input password=\\\"" << kCameraSecret << "\\\" />"
+         << "</calaos>\","
+         << "\"rules.xml\":\"<?xml version=\\\"1.0\\\"?><calaos/>\""
+         << "}}";
+    return body.str();
+}
+
+//The other shape of the same hole, one level down: the word "password" is the
+//VALUE of `param` here, so no list of key names can reach the credential.
+std::string setParamBody()
+{
+    std::ostringstream body;
+    body << "{\"action\":\"set_param\",\"id\":\"io_camera_portail\","
+         << "\"param\":\"password\",\"value\":\"" << kSetParamSecret << "\"}";
+    return body.str();
+}
+
+std::string jsonPost(const std::string &body)
+{
+    std::ostringstream req;
+    req << "POST /api.php HTTP/1.1\r\n";
+    req << "Host: 127.0.0.1:" << serverPort() << "\r\n";
+    req << "Content-Type: application/json\r\n";
+    req << "Content-Length: " << body.size() << "\r\n";
+    req << "Connection: close\r\n";
+    req << "\r\n" << body;
+    return req.str();
+}
+
 struct DefaultLevelProbe
 {
     bool ran = false;
@@ -853,6 +938,212 @@ TEST_F(HttpRequestLogSecretTest, TheHeadOfAWebsocketPayloadIsNotRenderedEither)
     EXPECT_TRUE(someLineHasAll(ex.log, {"websocket", "payloadSize:"}))
         << "the frame line no longer says anything about the frame that "
            "arrived:\n" << ex.log;
+}
+
+/*
+ * THE UPLOAD THAT HANDS THE SERVER ITS OWN SECRETS BACK.
+ *
+ * config/put is not a hypothetical carrier: it is how a configuration reaches
+ * this server, and it carries local_config.xml - the file into which this same
+ * server writes the mcp_token it hands out on get_mcp_info - under a key that
+ * is a FILE NAME. io.xml travels in the same body and holds the camera and
+ * broker passwords of the install. Neither key was in any list of credential
+ * names, and none ever would have been.
+ *
+ * The token planted here is generated by the shipped generator, so the case
+ * bounds what the journal gives back of a secret this repository emitted.
+ */
+TEST_F(HttpRequestLogSecretTest, AConfigUploadDoesNotHandBackTheTokensThisServerEmitted)
+{
+    const std::string body = configPutBody(true);
+    const Exchange ex = exchange(jsonPost(body));
+
+    ASSERT_TRUE(ex.connected) << "no connection to the server, this case measures nothing";
+    ASSERT_FALSE(emittedToken().empty())
+        << "the shipped generator produced no token, this case measures nothing";
+    ASSERT_NE(std::string::npos, ex.log.find("network"))
+        << "nothing of the network domain was printed, so finding no secret in "
+           "this log proves nothing:\n" << ex.log;
+
+    //Anti-vacuity: the body really was parsed and really was described, so a
+    //green below means withheld and not "never read".
+    //Whole log, not one line: the shape of the description is what this ticket
+    //changes, and an anti-vacuity check that depends on it measures nothing.
+    ASSERT_NE(std::string::npos, ex.log.find("config_files"))
+        << "nothing of the body of the upload was described at all, so this "
+           "case does not exercise the line it is written for:\n" << ex.log;
+
+    const std::vector<std::pair<std::string, std::string>> carried = {
+        { "the mcp_token this server generated", emittedToken() },
+        { "the camera password of io.xml", kCameraSecret },
+        { "the value of a key no list of this tree names", kInventedKeySecret },
+    };
+
+    for (const auto &c: carried)
+    {
+        ASSERT_NE(std::string::npos, ex.wire.find(c.second))
+            << "the upload does not carry " << c.first << ", this case measures nothing";
+
+        const size_t echo = longestEcho(ex.log, c.second);
+        EXPECT_LT(echo, kMaxEcho)
+            << "the journal gives back " << echo << " consecutive bytes of "
+            << c.first << ":\n" << ex.log;
+    }
+
+    //Named, because an unreadable failure is a useless failure.
+    EXPECT_EQ(std::string::npos, ex.log.find(emittedToken()))
+        << "the token this server writes into local_config.xml is in its own "
+           "journal, verbatim:\n" << ex.log;
+}
+
+/*
+ * AND IT DOES NOT NEED TO BE AUTHENTICATED FOR THE LINE TO LEAVE.
+ *
+ * The description of the body runs BEFORE checkCredentials(), so anyone who can
+ * reach the port can put bytes of their choosing into this server's journal,
+ * and could read this server's own tokens back out of it. The body carries no
+ * credential at all here, and the case asserts BOTH halves: the request was
+ * refused, and it was described anyway.
+ */
+TEST_F(HttpRequestLogSecretTest, AnUploadRefusedForItsCredentialsIsDescribedAnyway)
+{
+    const std::string body = configPutBody(false);
+    ASSERT_EQ(std::string::npos, body.find("cn_pass"))
+        << "the body carries a credential, so this case is not the "
+           "unauthenticated one it claims to be";
+
+    const Exchange ex = exchange(jsonPost(body));
+
+    ASSERT_TRUE(ex.connected) << "no connection to the server, this case measures nothing";
+
+    //Anti-vacuity, both halves: never authenticated, and described all the same.
+    ASSERT_FALSE(lineContaining(ex.log, "Login failed").empty())
+        << "the request was not refused for its credentials, so this case does "
+           "not exercise the pre-authentication path:\n" << ex.log;
+    ASSERT_NE(std::string::npos, ex.log.find("config_files"))
+        << "the body of an unauthenticated upload is not described at all, so "
+           "this case measures nothing:\n" << ex.log;
+
+    for (const std::string &value: { emittedToken(), std::string(kCameraSecret),
+                                     std::string(kInventedKeySecret) })
+    {
+        ASSERT_NE(std::string::npos, ex.wire.find(value))
+            << "the upload does not carry " << value << ", this case measures nothing";
+
+        const size_t echo = longestEcho(ex.log, value);
+        EXPECT_LT(echo, kMaxEcho)
+            << "the journal of an UNAUTHENTICATED upload gives back " << echo
+            << " consecutive bytes of a secret of the install:\n" << ex.log;
+    }
+}
+
+/*
+ * THE SAME HOLE ONE LEVEL DOWN, AND THE ARGUMENT AGAINST A LIST OF NAMES IN
+ * ITS PUREST FORM. set_param writes any parameter of any IO, so the credential
+ * of a camera arrives under the key `value` while the word "password" is the
+ * VALUE of `param`. Adding either key to a list would withhold every
+ * legitimate set_param; leaving them out publishes the credential.
+ */
+TEST_F(HttpRequestLogSecretTest, TheCredentialSetParamCarriesUnderValueIsNotRepublished)
+{
+    const Exchange ex = exchange(jsonPost(setParamBody()));
+
+    ASSERT_TRUE(ex.connected) << "no connection to the server, this case measures nothing";
+    ASSERT_NE(std::string::npos, ex.wire.find(kSetParamSecret))
+        << "the request does not carry the credential, this case measures nothing";
+    ASSERT_NE(std::string::npos, ex.log.find("param"))
+        << "nothing of the body was described at all, this case measures "
+           "nothing:\n" << ex.log;
+
+    const size_t echo = longestEcho(ex.log, kSetParamSecret);
+    EXPECT_LT(echo, kMaxEcho)
+        << "the journal gives back " << echo << " consecutive bytes of the "
+           "credential set_param carries under the key `value`:\n" << ex.log;
+}
+
+/*
+ * THE SECOND TRANSPORT READS THE SAME BODIES THROUGH THE SAME REDUCER, and the
+ * websocket dispatch has no "after the credentials" to move to: the login IS
+ * the body being described. A key nobody here has heard of, inside `data`.
+ */
+TEST_F(HttpRequestLogSecretTest, TheBodyOfAWebsocketRequestIsHeldByTheSameGuard)
+{
+    const std::string payload =
+        std::string("{\"msg\":\"login\",\"msg_id\":\"7\",\"data\":{\"grimoire\":\"") +
+        kWsInventedSecret + "\"}}";
+    ASSERT_LT(payload.size(), (size_t)126)
+        << "the fixture only builds short frames";
+
+    const Exchange ex = websocketExchange(buildRequest("/api", websocketHeaders()),
+                                          maskedTextFrame(payload));
+
+    ASSERT_TRUE(ex.connected) << "no connection to the server, this case measures nothing";
+    ASSERT_NE(std::string::npos, ex.log.find("Got a new frame"))
+        << "no frame was read at all, this case measures nothing:\n" << ex.log;
+    ASSERT_NE(std::string::npos, ex.log.find("grimoire"))
+        << "the body of the frame is not described at all, so this case does "
+           "not exercise the websocket reducer:\n" << ex.log;
+
+    const size_t echo = longestEcho(ex.log, kWsInventedSecret);
+    EXPECT_LT(echo, kMaxEcho)
+        << "the journal gives back " << echo << " consecutive bytes of a value "
+           "a websocket client sent under a key this tree has never heard "
+           "of:\n" << ex.log;
+}
+
+/*
+ * THE HALF THE REDUCTION KILLS FIRST, ON THE BODY. An integrator reads this
+ * line to see what its client actually sent: which command, which sub-command,
+ * which files an upload carried. All three survive, and two uploads that differ
+ * only in the bytes that are withheld must still render as two different lines.
+ */
+TEST_F(HttpRequestLogSecretTest, TheLogStillSaysWhichApiCommandArrivedAndWithWhatShape)
+{
+    const Exchange ex = exchange(jsonPost(configPutBody(true)));
+
+    ASSERT_TRUE(ex.connected) << "no connection to the server, this case measures nothing";
+
+    EXPECT_TRUE(someLineHasAll(ex.log, {"network", "config", "put"}))
+        << "no network line says which command and which sub-command arrived:\n" << ex.log;
+    EXPECT_TRUE(someLineHasAll(ex.log, {"network", "config_files", "local_config.xml", "io.xml"}))
+        << "no network line names the files the upload carried, so an "
+           "integrator cannot see what its client sent:\n" << ex.log;
+    EXPECT_TRUE(someLineHasAll(ex.log, {"network", "x-calaos-clef-inventee"}))
+        << "no network line names the key this tree has never heard of, so an "
+           "operator cannot see what an unknown client sent:\n" << ex.log;
+}
+
+TEST_F(HttpRequestLogSecretTest, TwoUploadsDifferingOnlyInWhatIsWithheldAreStillTellableApart)
+{
+    //Same keys, same shape, same byte counts: only the withheld bytes differ.
+    const std::string a =
+        "{\"action\":\"config\",\"type\":\"put\","
+        "\"config_files\":{\"io.xml\":\"<?xml?><a>aaaaaaaa</a>\"}}";
+    const std::string b =
+        "{\"action\":\"config\",\"type\":\"put\","
+        "\"config_files\":{\"io.xml\":\"<?xml?><a>bbbbbbbb</a>\"}}";
+    ASSERT_EQ(a.size(), b.size())
+        << "the two bodies do not have the same length, so telling them apart "
+           "would prove nothing about the reduced form";
+
+    const Exchange first = exchange(jsonPost(a));
+    LoginThrottle::clear();
+    const Exchange second = exchange(jsonPost(b));
+
+    ASSERT_TRUE(first.connected && second.connected)
+        << "a connection failed, this case measures nothing";
+
+    //Found by a word BOTH forms publish, not by a wording this ticket
+    //introduces: a case that reddens on a renamed prefix says nothing.
+    const std::string lineA = lineContaining(first.log, "config_files");
+    const std::string lineB = lineContaining(second.log, "config_files");
+
+    ASSERT_FALSE(lineA.empty()) << "no line describes the body at all:\n" << first.log;
+    ASSERT_FALSE(lineB.empty()) << "no line describes the body at all:\n" << second.log;
+
+    EXPECT_NE(lineA, lineB)
+        << "two different uploads render the same journal line, so a reader "
+           "cannot tell which one arrived:\n" << lineA << "\n" << lineB;
 }
 
 /*
