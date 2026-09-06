@@ -40,8 +40,106 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.106`](T3.106.md)) — LE
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.60`](T3.60.md)) — LE
   DERNIER MERGE DE LA SESSION. À LIRE EN PREMIER À FROID.**
+
+  ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION** : il déclenche un **build de
+  développement qui est déployé**. **Aucun agent ne pousse, jamais.** ⛔ **RIEN N'A ÉTÉ POUSSÉ DE
+  TOUTE LA SÉRIE.**
+
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de la branche
+  `fix/t3.60` (**4 commits** : 3 du développeur + 1 de la revue de merge), rebasée de `59e807b3` sur
+  `ea3ceeab`. `TESTS` = **137**, référence de build après `make distclean` :
+  **`TOTAL 137 / PASS 136 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
+  `check-ccache-honesty.sh`, **0 `error:`**, **trois `make check` identiques** après `distclean`.
+  ⚠️ **Le flottement de `core/MqttSidecarConfigWait_test` (famille `F-FLAKY-1`) s'est reproduit une
+  fois sur les huit tours de cette session**, pendant un tour de contre-mutation ; vert partout
+  ailleurs, sans rapport avec ce ticket.
+
+  ⚠️ **`tests/Makefile.am` était bien en conflit**, résolu par **régénération** : `master` est
+  **préfixe strict octet à octet** du résultat, **+50/−0/~0**, `^if` **118** ≡ `^endif` **118**,
+  profondeur finale **0**. ⛔ **Un second conflit, `add/add` sur `docs/refactoring/T3.109.md`** :
+  voir la collision de numéros ci-dessous.
+
+  ⭐⭐ **CE QUE LE TICKET FERME.** La portée de service est une propriété de la **session**, plus du
+  transport. Les **huit** commandes qu'une session de service se voit refuser (`set_param`,
+  `del_param`, `audio_db`, `set_timerange`, `autoscenario`, `eventlog`, `register_push`, `settings`)
+  sont refusées quel que soit le transport, par **une** règle lue une fois par dispatch : la liste,
+  la charge utile, le prédicat, la ligne de journal et l'émission descendent dans `JsonApi` ; un
+  transport ne fournit plus que l'**enveloppe**. Huit gardes semées dans la chaîne WS deviennent
+  **une**, l'HTTP en gagne **une**, posée au-dessus de toute sa table.
+
+  ⭐⭐ **CE QUE LA REVUE A MESURÉ, ET QUI SERT AUX SUIVANTS :**
+  1. ⭐ **« Ce n'est pas une rupture » tient, et les quatre maillons ont été vérifiés un par un** :
+     `serviceScope` écrit en **un** site · `login_service` n'a **qu'un émetteur** hors `tests/`,
+     `calaos_mcp/client.py`, en **WebSocket** · le dispatch HTTP ne connaît pas le verbe · et
+     `McpProxyHandler` ne nomme ni `JsonApi` ni `processApi`, le seul constructeur de
+     `JsonApiHandlerHttp` étant `HttpClient.cpp`. ⇒ entrée de **non-rupture** dans
+     [`RELEASE_NOTES.md`](RELEASE_NOTES.md), et non de rupture.
+     *À recopier : « quel transport ? » ne se répond pas au nom de la classe. Il faut compter les
+     ÉMETTEURS du message qui ouvre l'état, pas les lecteurs de l'état.*
+  2. ⛔⭐⭐ **UNE ANCRE ANTI-VACUITÉ QUI DEMANDE UN VERBE HORS DE LA RÈGLE NE MESURE PAS LA RÈGLE, ET
+     C'EST LA TROUVAILLE DE LA REVUE.** Le cas qui prouvait « le serveur n'est pas mort » demandait
+     `get_home`, que la règle ne nomme pas : une garde refusant les huit à **toute** session, scopée
+     ou non, le laissait vert. Mesuré en échangeant le test de session contre une constante — la
+     suite livrée rougissait **par le dispatch appelé à la main**, jamais par la socket. Un cas
+     ajouté (deux des huit, en administrateur, sur la **vraie socket**) rougit sous cette mutation.
+     *À recopier : le foin d'une anti-vacuité doit être PRIS DANS l'aiguille, sinon il l'exclut.*
+  3. ⚠️ **La garde HTTP n'est reliée au chemin réel que pour sa moitié « sert ».** Sa moitié
+     « refuse » reste **inatteignable par une vraie requête** tant qu'aucun transport HTTP n'ouvrira
+     de session de service : c'est le prix assumé de l'arbitrage, écrit **en tête de fiche**.
+  4. ✅ **La contre-mutation la plus fine du développeur a été REJOUÉE** (`settings` ↔ `get_home`) :
+     **7 cas / 2 binaires**, exactement, et `TheEightAreRefusedOverARealServiceScopedWebsocket` reste
+     **VERT** — il parcourt la règle livrée, donc il refuse fidèlement le mauvais nom. C'est
+     `TheRuleHoldsExactlyTheEightNamedCommands`, qui compare à une liste écrite à la main, qui
+     l'attrape. Le faux vert annoncé est réel et il est fermé.
+  5. ⭐ **La garde est UNIQUE, recomptée** : une liste, une charge utile, un prédicat, un émetteur de
+     refus, **deux appels**. Aucune seconde copie de l'un des cinq — la leçon de `T3.72` est tenue.
+  6. ⛔⭐ **DEUX TICKETS ONT PORTÉ LE MÊME NUMÉRO, et seul le rebase l'a dit.** `T3.60` a ouvert sa
+     suite en `T3.109` pendant que la revue de `T3.106` prenait le même numéro sur `master`. Le
+     `CONFLICT (add/add)` l'a révélé ; sans fichier, la collision serait passée dans `BOARD.md`.
+     ⇒ **un numéro se prend au MERGE, pas à l'écriture**, et la ligne « numéros pris » se relit sur
+     `master`.
+
+  ⭐ **CE QUE LES CONTRE-MUTATIONS DE LA REVUE ONT MESURÉ — deux, aucune du développeur :**
+  - la garde HTTP **descendue sous la table de dispatch** ⇒ **2 cas / 1 binaire** : la suite mesure
+    bien la **position**, pas la seule présence (cinq des huit échappent à une garde posée trop bas) ;
+  - le test de session **échangé contre une constante** ⇒ **372 cas / 25 binaires**, dont le cas neuf
+    sur la vraie socket ;
+  - **témoin** arbre restauré ⇒ **0** rouge sur 137, **`CXXLD` 83 lus** à chaque tour muté.
+
+  ⭐⭐ **LES TICKETS OUVERTS — DEUX COMPTES SÉPARÉS, et c'est le premier qui compte pour l'utilisateur.**
+
+  **(a) Backlog du 4 septembre — 10 tickets encore ouverts** ([`T3.60`](T3.60.md) **en sort**) :
+  `T3.21`, `T3.22`, `T3.25a`, `T3.32`, `T3.38`, `T3.54`, `T3.55`, `T3.57`, `T3.59`, `T3.63`.
+
+  **(b) Ouverts PAR LES REVUES pendant la série — 9** : `T3.91` (proposé, fiche non écrite),
+  `T3.100`, [`T3.101`](T3.101.md), [`T3.104`](T3.104.md), [`T3.105`](T3.105.md),
+  [`T3.107`](T3.107.md), [`T3.108`](T3.108.md), [`T3.109`](T3.109.md),
+  [`T3.111`](T3.111.md) **(neuf, ouvert par ce ticket et RENUMÉROTÉ au merge)**.
+  ⚠️ Numéros **pris** : `T3.76` → `T3.109`, plus `T3.111`. **`T3.110` n'est attribué à rien** — c'est
+  le prochain libre, et le trou est délibéré (voir la collision ci-dessus).
+
+  **[`T3.111`](T3.111.md) en une ligne** : la liste des huit vient d'une **table de dispatch**, pas
+  d'une décision — `config` (qui rend `io.xml`, `rules.xml` et `local_config.xml` en clair et les
+  réécrit) et `get_mcp_info` (qui rend le jeton porteur du proxy) n'y sont pas. ⛔ Rien n'est
+  exploitable aujourd'hui ; c'est une **décision de produit** avant une ligne de code.
+  ⚠️ **`config` n'a délibérément PAS été ajouté ici** : l'arbitrage du 6 septembre portait sur la
+  **portée** de la garde, pas sur sa liste ; l'ajouter aurait été inerte et aurait tranché sans le
+  dire.
+
+  ⭐⭐ **CE QUI ATTEND L'UTILISATEUR, ET RIEN D'AUTRE :**
+  1. ⛔ **Le `push`** — livraison, pas vérification. Le job CI chez GitHub n'a **jamais** tourné.
+     ⚠️ Attente précise : `SKIP 4` sur un exécuteur sans IPv6.
+  2. **[`T3.101`](T3.101.md)**, **[`T3.104`](T3.104.md)**, **[`T3.105`](T3.105.md)** — arbitrages
+     **déjà tranchés** le 2026-09-06 ([`DECISIONS.md`](DECISIONS.md), « Cinq arbitrages du
+     2026-09-06 ») : ils restent **à écrire**, pas à rediscuter.
+  3. **[`T3.111`](T3.111.md)** — la seule question neuve : une session de service a-t-elle le droit
+     de lire la configuration ? de l'écrire ? de lire le jeton du proxy ?
+
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-06, APRÈS LE MERGE DE [`T3.106`](T3.106.md)) — conservé
+  pour l'historique.**
 
   ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION** : il déclenche un **build de
   développement qui est déployé**. Ce n'est pas une étape qu'on avance pour « voir si la CI passe ».

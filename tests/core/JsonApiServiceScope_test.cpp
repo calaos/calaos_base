@@ -649,6 +649,34 @@ TEST_F(JsonApiServiceScopeTest, NoHttpEntryOpensAServiceSession)
             << "an admin HTTP session is refused, the guard leaks out of the scope";
 }
 
+/*
+ * The guard sits on the path a real HTTP client takes, and only the scope
+ * decides. The anti-vacuity above asks get_home, which the rule never names: a
+ * guard that refused the eight to EVERY session would leave it green. These two
+ * are named by the rule and served by the main dispatch table, so a rule that
+ * stopped reading the scope reddens here, over a socket.
+ */
+TEST_F(JsonApiServiceScopeTest, TheEightAreStillServedToAnAdminOverARealSocket)
+{
+    for (const char *command: { "set_param", "del_param" })
+    {
+        ASSERT_NE(JsonApi::serviceScopeDeniedCommands().end(),
+                  std::find(JsonApi::serviceScopeDeniedCommands().begin(),
+                            JsonApi::serviceScopeDeniedCommands().end(), string(command)))
+                << command << " is not in the guarded set, so this case measures nothing";
+
+        LoginThrottle::clear();
+        const HttpExchange ex = httpExchange(httpPost(
+            authenticated(Json{{ "action", command }, { "id", "no_such_io" }}).dump()));
+        ASSERT_TRUE(ex.connected) << "no connection to the server";
+
+        const Json body = parse(httpBody(ex.response));
+        ASSERT_TRUE(body.is_object()) << command << " answered " << ex.response;
+        EXPECT_NE("scope denied", str(body, "error"))
+                << command << " is refused to an admin over a real HTTP request";
+    }
+}
+
 /*******************************************************************************
  * The HTTP half of the rule
  *

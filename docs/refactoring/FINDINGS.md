@@ -11577,3 +11577,30 @@ sont non vides**, et un `ConfigStore` neuf porte déjà `cn_user`. Le `LoginThro
 ensuite la deuxième requête en refus pour une raison qui n'a rien à voir avec ce qu'on mesure —
 donc un `400` qu'on attribue au sujet du test. Coûté une passe de mise au point dans `T3.60`.
 **Pas un défaut du produit** ; une note pour le harnais suivant.
+
+### ⭐ [F-SCOPE-4] Une ancre anti-vacuité qui demande un verbe HORS de la règle laisse la règle non mesurée (revue de merge)
+
+`NoHttpEntryOpensAServiceSession` refermait ses trois refus par une requête admin **servie** sur la
+vraie socket, pour prouver que le serveur n'était pas mort. Le verbe choisi était `get_home` — que la
+règle **ne nomme pas**. Une garde qui aurait refusé les huit à **toute** session, scopée ou non,
+laissait donc l'ancre verte : le foin excluait précisément ce qu'on cherchait.
+
+Mesuré : en échangeant le test de session contre une constante (toute session devient scopée), la
+suite livrée par le développeur rougissait **par le dispatch appelé à la main**, jamais par la
+socket. Le cas ajouté à la revue — deux des huit, demandés en administrateur sur la vraie socket —
+rougit sous cette mutation, et rattache ainsi la moitié « sert » de la garde HTTP au chemin réel.
+
+⚠️ **La moitié « refuse » reste hors de portée d'une vraie requête** et le restera tant qu'aucun
+transport HTTP n'ouvrira de session de service : c'est le prix assumé de l'arbitrage, écrit en tête
+de fiche.
+
+### ⚠️ [F-BOARD-1] Deux tickets ont porté le même numéro, et seul le rebase l'a dit (revue de merge)
+
+`T3.60` a ouvert sa suite sous le numéro `T3.109` alors que la revue de `T3.106` venait de le
+prendre, sur `master`, pour un sujet sans rapport. Les deux branches vivaient en parallèle ; rien
+dans l'arbre de travail du développeur ne pouvait le lui apprendre. C'est le `CONFLICT (add/add)` du
+rebase qui l'a révélé — s'il n'y avait pas eu de fichier, la collision serait passée dans `BOARD.md`
+en deux lignes voisines au même numéro.
+
+**Parade** : un ticket ouvert par une fiche prend son numéro **au merge**, pas à l'écriture ; et la
+ligne « numéros pris » de `ORCHESTRATION.md` se relit sur `master`, jamais sur la branche.

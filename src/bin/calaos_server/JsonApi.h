@@ -339,7 +339,6 @@ protected:
      */
     bool serviceScope = false;
 
-    //True when this session must be refused command.
     bool serviceScopeDenies(const string &command) const;
 
     /* Refuses command when this session is service scoped, and hands the
