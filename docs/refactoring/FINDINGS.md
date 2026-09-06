@@ -11681,3 +11681,47 @@ ligne « numéros pris » de `ORCHESTRATION.md` se relit sur `master`, jamais su
   n'atteint l'enfant. Le bon argument est l'**étendue** : `debug_level` monte **tous** les domaines
   du processus, et une suite dont les assertions demandent qu'un secret soit **absent** est celle
   qu'un foin élargi affaiblit. Fiche et commentaire corrigés au merge.
+
+## T3.63 — les fabriques à cas vacuants qui restent, et celle qui est fermée
+
+⭐ **Fermée par [`T3.63`](T3.63.md)** : un comparateur de position rend « pas trouvé » sous la forme
+d'un entier ordinaire — `-1` au-dessous de tout rang, `npos` au-dessus de toute position — que la
+comparaison d'ordre **accepte**. `tests/check-order-sentinels.sh` refuse désormais qu'une telle
+valeur occupe le plateau acceptant sans être exclue de sa sentinelle par une assertion du même cas.
+**Recompté sur `5d2ae798` : 49 emplacements, 39 gardés, 10 non gardés** — la fiche d'ouverture n'en
+annonçait qu'**un**, parce qu'elle ne comptait que la forme `-1`.
+
+- ⚠️ **[F-VACUOUS-1] Un `npos` peut produire un vert PAR DÉBORDEMENT, et là il ne rougit plus.**
+  `tests/core/HttpRequestLogSecret_test.cpp`, cas `TheHeadOfAWebsocketPayloadIsNotRenderedEither` :
+  `ASSERT_LT(payload.find(k) + strlen(k), (size_t)40)`. Aiguille absente ⇒ `npos + strlen(k)`
+  **enroule** vers `strlen(k) - 1`, et la borne est satisfaite. L'assertion est écrite comme une
+  vérification de fixture — « le secret tient bien dans les quarante premiers octets » — et c'est
+  exactement le genre d'assertion qu'on ne relit jamais. **Latent seulement** : la charge est bâtie
+  littéralement dans le cas. ⇒ [`T3.115`](T3.115.md).
+
+- ⛔ **[F-VACUOUS-2] Trois formes que `check-order-sentinels.sh` ne peut pas tenir**, mesurées au même
+  balayage et laissées ouvertes **délibérément** :
+  1. **Les ordres d'itérateurs.** `tests/core/JsonApiScenario_test.cpp` compare deux `std::find()`
+     dans le même vecteur ; l'absent rend `end()`, qui joue le rôle de `npos`. Aujourd'hui gardé par
+     deux `ASSERT_TRUE(sawEvent(…))`. La polarité tient au conteneur, pas au texte : une sonde
+     textuelle ne peut pas décider de quel côté `end()` tombe.
+  2. **La sentinelle « zéro ».** `pickFreePort()` (`tests/core/JsonApiServiceScope_test.cpp`) rend
+     `0` pour un échec, et `0` est au-dessous de tout port réel. Gardé à son unique site. Troisième
+     polarité ; l'ajouter ferait crier la sonde sur tout `EXPECT_LT(0, …)` de l'arbre.
+  3. **La mesure aveugle.** `EXPECT_LT(longestEcho(journal, secret), kMaxEcho)` est vert quand le
+     journal est **vide** : `0` satisfait toute borne. Même famille — une valeur « rien vu » que la
+     comparaison accepte — mais aucun ordre de positions n'y est en jeu. C'est le trou que
+     `check-echo-ceilings.sh` déclare déjà ne pas voir, et **aucune** des trois sondes statiques ne
+     le ferme.
+
+- ℹ️ **[F-VACUOUS-3] Le mode d'échec INVERSE, à ne pas confondre.** `tests/core/SidecarArgv_test.cpp`
+  déréférence `shapes.find(x)->second` : une clé absente n'y produit pas un faux vert mais un
+  comportement indéfini. Cité pour que le prochain balayage ne le range pas dans cette classe.
+
+- ⭐ **À recopier — ce que la démonstration a appris** : au site que la fiche d'ouverture nommait, la
+  démonstration **ne se produit pas**. `K_GetHomeEnvelopeAndItsThreeMembersAreSorted` : la seule clé
+  dont la disparition satisfait ses deux `EXPECT_LT` est `data`, et le cas lit ensuite `doc["data"]`
+  sur un `ordered_json` **const**, ce qui avorte. *L'assertion était vacuante, le cas ne l'était pas.*
+  ⇒ **un audit de vacuité qui s'arrête à l'assertion surestime le risque ; un qui s'arrête au cas le
+  sous-estime.** La classe se reproduit en revanche, verte sur `master`, aux deux sites `msg_id` que
+  le recomptage a trouvés — et ceux-là, personne ne les avait vus.
