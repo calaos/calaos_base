@@ -1128,3 +1128,66 @@ aucun test.
 **Tranché : `create` refuse comme `modify`.** Même famille que l'arbitrage 3 et même motif : ce sont
 des noms que personne ne saisit à la main, et une API qui refuse ici et tronque là est plus
 surprenante que celle qui refuse partout.
+
+---
+
+## Cinq arbitrages du 2026-09-06
+
+Posés à l'utilisateur après la série des journaux et la mesure de `T3.41`.
+
+### 1. [`T3.60`](T3.60.md) — la portée de service en HTTP → ✅ **LA GARDE REMONTE SOUS LE DISPATCH**
+
+Les **huit** commandes qu'une session de service se voit refuser en WebSocket passaient
+**intégralement** en HTTP : `serviceScope` est un membre de `JsonApiHandlerWS` et de lui seul.
+
+**Tranché : la portée de service devient une propriété de la session, pas du transport.**
+Écarté : « écrire et prouver qu'HTTP n'ouvre jamais de session de service » — ça ferme la question
+par une démonstration qui devra être refaite à chaque évolution du transport ; et « laisser et
+documenter », seul choix qui aurait laissé un écart de sécurité connu ouvert.
+
+⚠️ **À mesurer AVANT d'écrire** : un client HTTP ouvre-t-il aujourd'hui une session de service et
+emploie-t-il l'une des huit ? Si oui, c'est une rupture et elle doit être nommée.
+
+### 2. [`T3.101`](T3.101.md) — le relais des sidecars → ✅ **DANS LE JOURNAL, AU NIVEAU DEBUG**
+
+Tout ce que les sept familles impriment était recopié sur la sortie standard du serveur, **hors de
+son journal** : le seul filtre applicable était celui de l'enfant, `debug_level` n'avait aucune prise.
+
+**Tranché : chaque ligne d'un sidecar devient une ligne de journal ordinaire**, avec son domaine et
+un niveau que l'utilisateur contrôle. Par défaut le serveur se tait ; le débogage reste possible en
+montant la verbosité. Écarté : un interrupteur dédié, qui rendrait un sidecar déraillant **invisible**
+tant que personne n'y pense.
+
+⚠️ **À traiter** : une ligne très longue ou binaire doit être bornée. Voir les capteurs à borne
+(`check-echo-ceilings.sh`).
+
+### 3. [`T3.105`](T3.105.md) — la relance des sidecars → ✅ **RALENTIR, SANS JAMAIS ABANDONNER**
+
+Neuf abonnés relancent à l'identique toutes les 100 ms, sans regarder le statut de sortie que
+[`T3.103`](T3.103.md) vient de rendre significatif.
+
+**Tranché : délai croissant à chaque échec, plafonné (100 ms → 30 s), aucun abandon.** Un courtier
+éteint puis rallumé se rattrape seul, et le journal cesse de défiler. Écarté : abandonner après N
+échecs — il faudrait alors une action humaine pour relancer, donc un verbe d'API à écrire et une
+panne silencieuse de plus. Écarté aussi : ne ralentir qu'après une mort précoce — plus fin, mais plus
+de code pour un gain que rien ne mesure.
+
+⭐ **Ce ticket ferme aussi le trou d'E4.5d**, qui dépassait MQTT depuis le début.
+
+### 4. [`T3.104`](T3.104.md) — la moitié « actions » → ✅ **REFUSER À LA SOURCE, COMME `T3.72`**
+
+**Tranché : la garde se pose sur la valeur d'action au moment où l'API l'accepte**, pas dans
+l'écriture des règles. Cohérent avec l'arbitrage 3 du 2026-09-05, et ⛔ **ça n'empêche pas de
+ré-enregistrer un fichier ancien** — c'est précisément l'écueil que `T3.72` avait évité et que poser
+la garde dans `Rules/` aurait rouvert.
+
+⚠️ Le vrai porteur reste `calaos_installer`, un autre dépôt : la limite doit être écrite.
+
+### 5. [`T3.106`](T3.106.md) — les deux restes de `T3.41` → ✅ **RETOMBER EN LE DISANT**
+
+(b) Une `listen_address` illisible **retombe sur `0.0.0.0`, avec un avertissement qui nomme la valeur
+refusée**. Écarté : refuser de démarrer — une faute de frappe deviendrait une panne totale, et un
+boîtier domotique qui ne démarre plus est pire qu'un boîtier trop ouvert qui le dit.
+
+(a) N'est **pas** un arbitrage : la porte de privilège non tenue se ferme, et les deux règles de
+boucle locale de l'arbre (`/24` ici, `/8` là) doivent dire la même chose ou expliquer pourquoi non.
