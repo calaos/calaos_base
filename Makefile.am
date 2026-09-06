@@ -84,11 +84,25 @@ po/remove-potcdate.sin
 
 endif
 
+# check-docs is NOT in check_SCRIPTS, NOT in TESTS, and NOT a dependency of
+# check -- on purpose, and a "fix" that wires it in would undo the decision it
+# implements. Documentation references rot at every refactoring of the files
+# they point at; a red that appears in `make check` for that reason gets
+# disarmed within weeks, and a check one disarms is worth less than no check
+# at all. The recipe swallows the exit status for the same reason: the script's
+# own status is real and a reviewer reads it, the build never does.
+# Run it at every documentation review -- that is where it pays.
+.PHONY: check-docs
+check-docs:
+	@$(PYTHON) $(top_srcdir)/scripts/check-docs.py $(top_srcdir) || \
+	  echo "check-docs: reported above, non-blocking on purpose"
+
 EXTRA_DIST = \
 AUTHORS \
 COPYING \
 README.md \
 autogen.sh \
+scripts/check-docs.py \
 scripts/pyproject-requirements.py \
 scripts/pydeps-conformance-probe.py \
 scripts/ccache-honesty-probe.py \
