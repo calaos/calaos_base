@@ -5583,3 +5583,53 @@ core_IoDocRgbBounds_test_DEPENDENCIES = $(IO_DOC_RGB_BOUNDS_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.59
+#The default branch of a sub-dispatch, measured on a REAL socket: a real
+#HttpServer bound on loopback, real connections, real answers read back from
+#the wire. A direct call to processApi() cannot see what this ticket is about -
+#the answer is what releases the socket (sendJson() sets Connection: Close and
+#HttpClient force-closes half a second later), and requestReadTimeout() covers
+#only the delay BEFORE the first request is parsed.
+#The hoarding case gives itself its own per-source bucket through an
+#X-Forwarded-For line - loopback is a trusted hop - so its small ceiling cannot
+#be reached by a slot borrowed from another case of this file.
+#Same server objects as core/JsonApiServiceScope_test: HttpClient drags the
+#whole websocket/OTA/RemoteUI side of the server with it. IPCam.o is already in
+#CORE_SERVER_OBJECTS.
+#No core fixture: main() has to configure the credentials, the per-source cap
+#and the camera before the singletons cache them.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+SUB_DISPATCH_DEFAULT_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT)
+TESTS += core/JsonApiSubDispatchDefault_test
+check_PROGRAMS += core/JsonApiSubDispatchDefault_test
+core_JsonApiSubDispatchDefault_test_SOURCES = core/JsonApiSubDispatchDefault_test.cpp
+core_JsonApiSubDispatchDefault_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI
+core_JsonApiSubDispatchDefault_test_LDADD = $(SUB_DISPATCH_DEFAULT_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_JsonApiSubDispatchDefault_test_DEPENDENCIES = $(SUB_DISPATCH_DEFAULT_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif

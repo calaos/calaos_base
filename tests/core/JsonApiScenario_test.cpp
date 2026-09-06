@@ -1139,8 +1139,8 @@ TEST_F(JsonApiScenarioTest, AutoscenarioPayloadIsIdenticalOnBothTransports)
  * autoscenario with an unknown type: AN ERROR since E4.6e (D8)
  *
  * Both dispatchers now have an else. Until then the client waited for an
- * answer that never came - the same shape of silence processCamera() still
- * has (found by T3.17d), which is why the camera cases are NOT flipped here.
+ * answer that never came - the same shape of silence processCamera() had until
+ * T3.59 closed the last two sites of the family.
  ******************************************************************************/
 
 TEST_F(JsonApiScenarioTest, WsAutoscenarioWithAnUnknownOrMissingTypeIsAnError)

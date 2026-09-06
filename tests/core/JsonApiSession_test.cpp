@@ -26,9 +26,10 @@
  *      get_mcp_info            eventlog               config/get
  *
  * plus every error path of both transports: the EIGHT scope refusals (E4.6e
- * added autoscenario), the "unknown action", "unkown audio_action" and
- * "unknown autoscenario type" answers, the silences (camera, settings, unknown
- * msg, not logged in), the HTTP 400 on
+ * added autoscenario), the "unknown action", "unkown audio_action",
+ * "unknown autoscenario type", "unknown camera type" and
+ * "unknown settings action" answers, the silences that are left (unknown msg,
+ * not logged in), the HTTP 400 on
  * a rejected login, the HTTP 404 of event_picture, the JSON error paths of the
  * six binary (image/jpeg) operations, and the migration traps of E4.0.md:
  * invalid UTF-8, empty strings, very large integers, absent members,
@@ -99,9 +100,9 @@
  *  - autoscenario with an unknown or absent type ANSWERS AN ERROR since E4.6e,
  *    on both transports. It used to be silent, and over HTTP not even to close
  *    the connection - the client hung until its own timeout.
- *  - processCamera() with a KNOWN camera id and an unknown "type" is silent for
- *    the same reason (no else branch), while an unknown id does answer.
- *  - settings with an unknown or absent "action" is silent too.
+ *  - camera with a KNOWN id and an unknown "type", and settings with an
+ *    unknown or absent "action", answer an error since T3.59 - same else, same
+ *    shape. Over HTTP camera did not even close the socket.
  *  - get_mcp_info is HTTP only. docs/08_http_api.md:281 announces it as "HTTP
  *    or WS"; over WS it is silently ignored.
  *  - login_service never grants access while mcp_service_token is unset, but
@@ -860,25 +861,29 @@ TEST_F(JsonApiSessionTest, SettingsChangeCredWithAWrongOldPasswordIsRefused)
     EXPECT_TRUE(JsonApi::checkCredentials(apiUser(), apiPassword()));
 }
 
-TEST_F(JsonApiSessionTest, SettingsWithAnUnknownActionIsSilent)
+TEST_F(JsonApiSessionTest, SettingsWithAnUnknownActionIsAnError)
 {
-    //processSettings() has no else branch (JsonApiHandlerWS.cpp:512-524).
+    //FLIPPED BY T3.59: processSettings() has an else now. The socket was never
+    //at stake on this transport, the client waiting on the msg_id was.
     WsTestSession ws;
     ws.send(Json{{ "msg", "settings" }, { "msg_id", "1" },
                  { "data", {{ "action", "reset_factory" }} }});
 
     pumpEventLoop();
-    EXPECT_EQ(0u, ws.count());
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_EQ("unknown settings action", str(ws.lastData(), "error"));
     EXPECT_TRUE(ws.closes().empty());
 }
 
-TEST_F(JsonApiSessionTest, SettingsWithoutAnActionMemberIsSilent)
+TEST_F(JsonApiSessionTest, SettingsWithoutAnActionMemberIsAnError)
 {
+    //FLIPPED BY T3.59.
     WsTestSession ws;
     ws.send(Json{{ "msg", "settings" }, { "msg_id", "1" }});
 
     pumpEventLoop();
-    EXPECT_EQ(0u, ws.count());
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_EQ("unknown settings action", str(ws.lastData(), "error"));
 }
 
 TEST_F(JsonApiSessionTest, SettingsReadsItsArgumentsUnderDataOnlyOverWs)
@@ -893,7 +898,9 @@ TEST_F(JsonApiSessionTest, SettingsReadsItsArgumentsUnderDataOnlyOverWs)
                  { "new_user", "x" }, { "new_pw", "y" }});
 
     pumpEventLoop();
-    EXPECT_EQ(0u, ws.count());
+    //T3.59: the asymmetry is visible now instead of silent.
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_EQ("unknown settings action", str(ws.lastData(), "error"));
     //The credentials were NOT changed.
     EXPECT_TRUE(JsonApi::checkCredentials(apiUser(), apiPassword()));
 }
@@ -1637,11 +1644,11 @@ TEST_F(JsonApiSessionTest, AutoscenarioWithoutATypeIsAnErrorOnBothTransports)
     EXPECT_EQ("unknown autoscenario type", str(req.bodyJson(), "error"));
 }
 
-TEST_F(JsonApiSessionTest, CameraWithAKnownIdAndAnUnknownTypeIsSilent)
+TEST_F(JsonApiSessionTest, CameraWithAKnownIdAndAnUnknownTypeIsAnError)
 {
-    //processCamera() answers on an unknown id but has no else for an unknown
-    //type (JsonApiHandlerHttp.cpp:899-1025), so a valid camera with a typo in
-    //"type" hangs the client.
+    //FLIPPED BY T3.59, same else and same shape as autoscenario above. This
+    //case pinned the silence, and with it a connection this transport never
+    //closed - the answer is what releases it.
     loadReferenceHouse();
 
     HttpTestRequest req;
@@ -1649,19 +1656,24 @@ TEST_F(JsonApiSessionTest, CameraWithAKnownIdAndAnUnknownTypeIsSilent)
                                 { "id", HOUSE_CAMERA_PLAIN },
                                 { "type", "get_thumbnail" }}));
 
-    EXPECT_EQ(0u, req.count());
-    EXPECT_TRUE(req.closes().empty());
+    ASSERT_EQ(1u, req.count());
+    EXPECT_EQ("unknown camera type", str(req.bodyJson(), "error"));
+    EXPECT_EQ("Close", req.header("Connection"))
+            << "the answer is what releases the socket";
 }
 
-TEST_F(JsonApiSessionTest, CameraWithoutATypeIsSilent)
+TEST_F(JsonApiSessionTest, CameraWithoutATypeIsAnError)
 {
+    //FLIPPED BY T3.59. Same else, reached by the other road: an absent member
+    //reads as "" and matches no branch.
     loadReferenceHouse();
 
     HttpTestRequest req;
     req.send(authenticated(Json{{ "action", "camera" },
                                 { "id", HOUSE_CAMERA_PLAIN }}));
 
-    EXPECT_EQ(0u, req.count());
+    ASSERT_EQ(1u, req.count());
+    EXPECT_EQ("unknown camera type", str(req.bodyJson(), "error"));
 }
 
 /*******************************************************************************

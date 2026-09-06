@@ -264,12 +264,11 @@ TEST_F(JsonApiCameraSnapshotTest, MissingCameraAnswersJsonError)
     EXPECT_JSON_EQ(expected, req.body());
 }
 
-/* KNOWN DIVERGENCE, pinned as it is: processCamera() has no else branch
- * (JsonApiHandlerHttp.cpp:909-999). A known camera with an unknown "type"
- * answers NOTHING AT ALL - same shape of silence as autoscenario. Silence is
- * observable behaviour, so it is asserted.
+/* FLIPPED BY T3.59: processCamera() has an else now. The camera half of the
+ * assertion is what the else must NOT break - a refused type still asks the
+ * camera for nothing.
  */
-TEST_F(JsonApiCameraSnapshotTest, UnknownTypeAnswersNothingAtAll)
+TEST_F(JsonApiCameraSnapshotTest, UnknownTypeAnswersAnErrorAndAsksTheCameraForNothing)
 {
     FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
 
@@ -280,7 +279,9 @@ TEST_F(JsonApiCameraSnapshotTest, UnknownTypeAnswersNothingAtAll)
                                { "id", CAMERA_ID },
                            }));
 
-    EXPECT_EQ(0u, req.count());
+    ASSERT_EQ(1u, req.count());
+    const Json expected = Json{{ "error", "unknown camera type" }};
+    EXPECT_JSON_EQ(expected, req.body());
     EXPECT_EQ(0, camera->downloadCount);
 }
 
