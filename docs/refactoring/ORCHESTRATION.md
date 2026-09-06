@@ -40,8 +40,155 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.54`](T3.54.md) +
-  [`T3.55`](T3.55.md)) — LE DERNIER MERGE DE LA SESSION. À LIRE EN PREMIER À FROID.**
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.38`](T3.38.md)) — LE
+  DERNIER MERGE DE LA SESSION. À LIRE EN PREMIER À FROID.**
+
+  ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION** : il déclenche un **build de
+  développement qui est déployé**. **Aucun agent ne pousse, jamais.** ⛔ **RIEN N'A ÉTÉ POUSSÉ DE
+  TOUTE LA SÉRIE.**
+
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de la branche
+  `fix/t3.38` (**4 commits** : 3 du développeur + 1 de la revue de merge), `merge --ff-only`,
+  historique linéaire, **0 commit de fusion**. ⭐ `master` était **IMMOBILE** sur `0d9073a3` =
+  exactement la merge-base ⇒ **ni rebase ni conflit** ; `tests/Makefile.am` a quand même été prouvé
+  **préfixe strict octet à octet** (`cmp` rc **0** sur les 353 739 octets de `master`),
+  **+39/−0/~0**, `^if` **121** ≡ `^endif` **121** (dont un `HAVE_LIBKNX` hérité). `TESTS` = **141**,
+  référence après `make distclean` : **`TOTAL 141 / PASS 140 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 /
+  ERROR 0`**, seul `SKIP` `check-ccache-honesty.sh`, **0 `error:`**, **11 `CXXLD`** au `make -j32`,
+  **deux campagnes de trois `make check`** après `distclean` (avant et après le commit de revue).
+  **145 goldens intacts**, `msgfmt -c` **rc 0** sur les **9** catalogues suivis, **delta d'entrées
+  `fuzzy` nul**.
+  ⚠️ **`core/MqttSidecarConfigWait_test` a flanché 4 fois sur les 11 `make check` de la revue**,
+  toujours **seule**, et **jamais** dans la campagne finale de trois tours sur `master`, verte aux
+  trois : `F-FLAKY-2` / [`T3.112`](T3.112.md), antérieur. ⛔ **Aucun `make check` n'a
+  été relancé pour faire disparaître un rouge.**
+
+  ⭐⭐ **CE QUE LE TICKET FERME, ET IL A CHANGÉ DE NATURE.** La fiche d'ouverture annonçait « deux
+  chaînes qui mentent, deux minutes de travail ». C'est faux, et la revue l'a vérifié de bout en
+  bout : **rien dans `calaos_server` ne relit un `min`/`max`** — ils quittent `IODoc` par
+  `genDocJson()`/`genDocMd()` **seulement**, `IOBase::set_param()` ne les consulte pas — donc la
+  borne publiée est **la seule barrière existante**, et pour le rouge elle était ouverte à **9999**.
+  Mesuré contre la vraie `libola` **0.10.9** de l'image : `Blackout()` ⇒ `Size=512`,
+  `SetChannel(512)`, `(513)` et `(9999)` **ignorés en silence**, `Size` inchangé, la trame part
+  quand même ⇒ **le rouge ne s'allume jamais et rien ne le dit**. C'est un défaut **observable par
+  l'utilisateur**, d'où l'entrée dans [`RELEASE_NOTES.md`](RELEASE_NOTES.md).
+
+  ⭐⭐⭐ **CE QUE LA REVUE A MESURÉ, ET QUI DÉPASSE LE TICKET :**
+  1. ⭐ **Le recensement des 508 appels `ioDoc` tombe juste À L'UNITÉ** — 508 / 62 fichiers / 65
+     bornes, ventilation par fonction identique aux onze chiffres publiés. ⚠️ **À condition de
+     chercher DEUX receveurs** : l'aiguille `ioDoc->` en manque **13**, écrits `doc->` dans
+     `KNXIo.cpp` et `WagoIOBase.h`. **Forme 2 = 3** recomptée par familles d'antonymes
+     (`x`/`y`, `h`/`w`, `up`/`down`, `sub`/`pub`, couleurs, …), les **34** autres paires de frères
+     de l'arbre relues une à une et **toutes justes** ; **forme 3 = 5**.
+     *À recopier : c'est le premier recensement de fiche de la série qui n'était pas faux d'un
+     facteur deux à dix. Ce qui l'a rendu juste est le découpage à la profondeur de parenthèse ;
+     ce qui a failli le rendre faux est le nom du receveur.*
+  2. ⚠️ **Une nuance à porter dans [`T3.120`](T3.120.md) §3** : `eis` n'est refusé à `0` que sur le
+     chemin d'**écriture** (`KNXProcess::doWrite`). Sur le chemin de **lecture**,
+     `KNXValue::setValue()` traite `eis == 0` comme « **déduire le type de la longueur de la
+     donnée** » et y répond pour les tailles 1, 2, 3, 4, 5 et 15. La borne n'est fausse **que pour
+     les sorties**.
+  3. ⭐ **`DmxBuffer::SetChannel()` rend `void`** — vérifié au compilateur : la première écriture de
+     la sonde de mesure, qui lisait un `bool`, **ne compile pas**. Le silence n'est donc pas une
+     négligence de l'appelant, **il est dans la signature**.
+  4. ⛔⭐⭐ **LE FILET FERME LA FORME 1 ET NE VOIT PAS LA FORME 3 — c'est la trouvaille de la revue**
+     ⇒ `F-IODOC-3` / [`T3.121`](T3.121.md). Contre-mutation **CM-1** : les **quatre** bornes de
+     canal DMX portées **ensemble** à `0..1024` — une valeur que `libola` **jette**, mesurée —
+     laissent `make check` **entièrement vert sur 141**, la suite neuve comprise. Le §6.2 de la
+     fiche l'*annonçait* ; c'est désormais un chiffre.
+     *À recopier : un oracle en relation ferme la borne recopiée de la voisine et rien d'autre. La
+     borne qui ment à l'unisson lui est invisible, et c'est justement la forme qu'un recensement
+     trouve le plus souvent.*
+  5. ⛔⭐⭐ **LA BORNE AURAIT PU MORDRE, ET LE MODÈLE EST DÉJÀ DANS L'ARBRE.** `ConfigOptions`
+     publie la même paire `min`/`max` dans le JSON de l'interface **et la fait respecter** — hors
+     plage ⇒ refus avec message. Deux systèmes de configuration cohabitent, d'apparence identique
+     côté client, **un seul avec une garde**. Et côté `IODoc`, sur **65** bornes : **1** nomme une
+     constante que son consommateur lit aussi (`GpioCtrl::DEBOUNCE_TIME_MAX`, dans l'appel
+     lui-même), **1 famille** est re-dérivée à la main (`WagoConfigParse::valueValid()`), **63**
+     sont des littéraux nus.
+  6. ⚠️ **LE DÉCOUPAGE EST JUSTE POUR TROIS QUARTS.** Ficher la décision DMX (`T3.120` §2) et les
+     deux bornes d'autres sous-systèmes est le bon réflexe. **Mais `grid_h`/`grid_w` aurait dû
+     partir avec le ticket** : défaut **établi par le code** (`grid_h`→`grid_height`),
+     **observable** (deux nombres saisis à l'envers), **aucun arbitrage**, **même travail à la ligne
+     près** — et le motif invoqué ne tient pas à la mesure, la branche concurrente `fix/t3.59` ne
+     touche **aucun** fichier de `IO/RemoteUI/`. ⇒ **`T3.120` §1 en premier.**
+  7. ✅ **`RELEASE_NOTES` vérifié contre l'en-tête du fichier**, et **complété par la revue** : la
+     limite y était trop discrète. Elle est maintenant écrite **en tête de fiche** et **dans le
+     corps de la note** — un `io.xml` **écrit à la main** avec la valeur impossible reste **accepté
+     sans un mot**, avant comme après ; ce qui change est que `calaos_installer` refuse la
+     **saisie**.
+
+  ⭐ **CE QUE LES CONTRE-MUTATIONS DE LA REVUE ONT MESURÉ — deux neuves, plus la remise du défaut
+  et le témoin :**
+  - **R1** *la remise du défaut de `master`, les 2 lignes telles quelles* ⇒ `core/IoDocRgbBounds_test`
+    **seule**, **4 cas sur 6**, exactement les quatre annoncés ;
+  - ⭐ **M5 rejouée** *(`channel_green` ⇄ `channel_blue` échangés en entier)* ⇒ **1** cas,
+    `EachChannelDescriptionNamesItsOwnColour`, **les trois cas de borne VERTS** ;
+  - ⛔⭐ **CM-1** *(neuve, vise la forme 3 : les 4 bornes de canal à `0..1024`)* ⇒ ensemble rouge
+    **VIDE**, suite neuve **6 OK sur 6** ;
+  - ⭐ **CM-2** *(neuve : `universe` ⇄ `channel` échangés dans `OLAOutputLightDimmer.cpp`, le fichier
+    de la contre-épreuve)* ⇒ `TheRgbChannelsAgreeWithTheSingleChannelDriver` **seul** — la 3ᵉ
+    relation mord **des deux côtés** ;
+  - **témoin** : l'**ordre de déclaration** de `path_x` et `path_y` échangé, charges intactes ⇒
+    ensemble rouge **VIDE**, `CXXLD core/IoDocRgbBounds_test` **lu aux 5 tours**.
+  Instantané **neuf** nommé par **chemin complet**, restauration par écriture **sans métadonnées**
+  puis `utime`, prouvée par `cmp` **rc 0** **et** par un horodatage effectivement déplacé aux **15**
+  restaurations, sortie **jamais tronquée** par un lecteur qui ferme tôt, `git status` sur l'**HÔTE**
+  **vide** après chacun des 5 tours, `make -j32 && make check -j16` **complet** avant chaque mesure.
+
+  ⭐⭐ **M5 N'OUVRE PAS UNE SEPTIÈME FAÇON DE MENTIR : C'EST LA QUATRIÈME, SOUS UNE FORME NEUVE.**
+  La quatrième de la liste canonique est la **fixture fausse** — une donnée d'essai qu'une
+  coïncidence de valeurs rend incapable de distinguer le défaut. C'est exactement M5 : les deux
+  canaux **partagent leur borne**, donc les permuter ne change **aucun nombre**.
+  ⭐ **Ce qui est neuf est que la fixture n'appartient pas au test.** Les listes précédentes
+  désamorçaient ce piège en **choisissant** mieux la donnée (« trois octets deux à deux distincts,
+  dernier octet non nul ») ; ici c'est impossible, la donnée mesurée **est le document livré** et sa
+  dégénérescence est ce que le ticket vient d'installer.
+  *À recopier : quand la fixture est la donnée de production et qu'elle est dégénérée par
+  construction, on ne corrige pas la fixture — on ajoute un capteur sur ce qui reste distinct.*
+
+  ⭐⭐ **LES TICKETS OUVERTS — DEUX COMPTES SÉPARÉS, et c'est le premier qui compte pour
+  l'utilisateur.**
+
+  **(a) Backlog du 4 septembre — 5 tickets encore ouverts** ([`T3.38`](T3.38.md) **en sort**) :
+  `T3.21`, `T3.22`, `T3.25a`, `T3.32`, `T3.59`.
+  ⏳ **Un seul est EN COURS** au moment de ce paragraphe, sur une branche **non mergée** :
+  `T3.59` (`.wave133/t3.59`, `fix/t3.59`, tête `36c2f687`, **3 fichiers de docs modifiés et
+  `T3.119.md` non suivi**). Ce worktree a été laissé **intact**, ciblé par **mount** et jamais
+  approché autrement.
+
+  **(b) Ouverts PAR LES REVUES pendant la série — 17** (deux entrent, aucun ne sort) : `T3.91`
+  (proposé, fiche non écrite), `T3.100`, [`T3.104`](T3.104.md), [`T3.105`](T3.105.md),
+  [`T3.107`](T3.107.md), [`T3.108`](T3.108.md), [`T3.109`](T3.109.md), [`T3.110`](T3.110.md),
+  [`T3.111`](T3.111.md), [`T3.112`](T3.112.md), [`T3.113`](T3.113.md), [`T3.115`](T3.115.md),
+  [`T3.116`](T3.116.md), [`T3.117`](T3.117.md), [`T3.118`](T3.118.md),
+  [`T3.120`](T3.120.md) **(entrée avec le ticket)**,
+  [`T3.121`](T3.121.md) **(neuve, ouverte par cette revue)**.
+  ⚠️ Numéros **pris** : `T3.76` → `T3.121`. ⛔ **`T3.114` est un TROU périmé, à ne pas réutiliser.**
+  ⛔ **`T3.119` est pris sur `fix/t3.59`, NON MERGÉE** : un numéro se prend au merge, mais il est
+  écrit et il ne faut pas le reprendre. **Prochain libre : `T3.122`.**
+
+  **[`T3.121`](T3.121.md) en une ligne** : sur 65 bornes d'`ioDoc`, **63** sont des littéraux
+  qu'aucune ligne de code ne re-dérive, et les quatre bornes DMX portées ensemble à une valeur que
+  `libola` jette laissent l'arbre **entièrement vert** ; le modèle qui manque existe déjà à côté
+  (`ConfigOptions` valide sa plage, `WagoConfigParse` la re-dérive). Trois issues — garde,
+  constante partagée, sonde statique — dont **une seule** change un comportement.
+
+  ⭐⭐ **CE QUI ATTEND L'UTILISATEUR, ET RIEN D'AUTRE :**
+  1. ⛔ **Le `push`** — livraison, pas vérification. Le job CI chez GitHub n'a **jamais** tourné.
+     ⚠️ Attente précise : `SKIP 4` sur un exécuteur sans IPv6.
+  2. ⭐ **[`T3.120`](T3.120.md) §2** — **le DMX est-il indexé à partir de 0 ou de 1 ?** Décision de
+     produit sur 4 sites : **A** doc seule (`0..511`), **B** convention DMX (`1..512` + `-1` à
+     l'émission, ⛔ décale toutes les installations), **C** laisser. Recommandation **A**. Et
+     **`T3.120` §1** (`grid_h`/`grid_w`) est un correctif sans arbitrage, à passer en premier.
+  3. **[`T3.121`](T3.121.md)** — poser ou non une garde sur les bornes d'`ioDoc` : l'issue A change
+     un comportement, les deux autres non.
+  4. **[`T3.113`](T3.113.md)**, **[`T3.104`](T3.104.md)**, **[`T3.105`](T3.105.md)** et
+     **[`T3.111`](T3.111.md)** — inchangés, voir l'état de sortie précédent.
+
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-06, APRÈS LE MERGE DE [`T3.54`](T3.54.md) +
+  [`T3.55`](T3.55.md)) — conservé pour l'historique.**
 
   ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION** : il déclenche un **build de
   développement qui est déployé**. **Aucun agent ne pousse, jamais.** ⛔ **RIEN N'A ÉTÉ POUSSÉ DE

@@ -3149,10 +3149,15 @@ canal au-delà de l'univers. La trame partait quand même, avec le vert et le bl
 > Aucun message n'apparaissait nulle part : ni dans `calaos_installer`, ni dans le journal du
 > serveur, ni dans celui du pilote.
 
-**Ce qui change.** Le canal rouge est désormais annoncé sur la même plage que le vert et le bleu,
-donc `calaos_installer` refuse la saisie au lieu de la laisser passer. ⚠️ **Une configuration déjà
-enregistrée n'est pas corrigée** : si votre canal rouge dépasse 511, il faut le rééditer — et
-c'est justement maintenant que l'interface vous le dira.
+**Ce qui change, et ce qui ne change pas.** Le canal rouge est désormais annoncé sur la même plage
+que le vert et le bleu, donc `calaos_installer` **refuse la saisie** au lieu de la laisser passer.
+
+> ⚠️ **C'est la seule chose qui change, et il faut le dire clairement.** Le serveur, lui, **n'a
+> toujours aucune limite** sur ce numéro : un fichier de configuration **modifié à la main** — ou
+> une configuration **déjà enregistrée** avec un canal rouge au-dessus de 511 — est **accepté
+> exactement comme avant, sans le moindre message**, et le rouge restera éteint. Rien n'est
+> corrigé automatiquement : si votre canal rouge dépasse 511, il faut **le rééditer dans
+> `calaos_installer`** — et c'est justement maintenant que l'interface vous le dira.
 
 ### Au passage : la documentation du paramètre `path_y` d'un éclairage RGB en MQTT
 

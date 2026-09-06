@@ -12014,3 +12014,51 @@ aucun nombre**. Seul le cas qui exige que la description de `channel_red` dise �
 *À recopier : quand deux champs partagent leur valeur, l'échange se lit dans ce qui les NOMME, pas
 dans ce qui les borne. Un oracle en relation ferme le « recopié de la ligne voisine » ; il ne
 ferme pas la permutation de deux frères équivalents, et il faut un second capteur pour ça.*
+
+### F-IODOC-3 ⛔⭐ Une borne d'`ioDoc` ne mord nulle part — 63 littéraux sur 65, alors que l'arbre sait déjà la faire mordre
+
+Ouvert par la **revue de merge** de [`T3.38`](T3.38.md). Sur les **65** déclarations bornées de
+l'arbre : **1** nomme une constante que son consommateur lit aussi (`debounce`, borné par
+`GpioCtrl::DEBOUNCE_TIME_MAX` dans l'appel lui-même), **1 famille** est re-dérivée à la main côté
+code (`WagoConfigParse::valueValid()` refait le `0..65535` des `paramAddInt` Wago et le dit dans son
+commentaire), et les **63** autres sont des littéraux qu'aucune ligne de code ne re-dérive.
+
+⭐ **Et le modèle manquant est déjà dans l'arbre** : `ConfigOptions` publie la même paire `min`/`max`
+dans le JSON de l'interface **et la fait respecter** — une valeur hors plage y est refusée avec un
+message. Deux systèmes de configuration cohabitent, d'apparence identique côté client, dont un seul
+a une garde. ⇒ [`T3.121`](T3.121.md).
+
+**Mesuré, pas déduit** (contre-mutation CM-1 de la revue) : les **quatre** bornes de canal DMX
+portées **ensemble** à `0..1024` — valeur que `libola` jette en silence — laissent `make check`
+**entièrement vert sur 141**, `core/IoDocRgbBounds_test` comprise. Un oracle en relation ferme la
+borne recopiée de la ligne voisine ; il ne voit pas la borne qui ment à l'unisson, c'est-à-dire
+exactement la forme que `F-IODOC-2` recense.
+
+### ⭐⭐ Ce que la revue de `T3.38` a corrigé au recensement, et ce qu'elle a confirmé
+
+- ✅ **Les 508 appels / 62 fichiers / 65 bornes sont exacts à l'unité**, et la ventilation par
+  fonction l'est aussi. ⚠️ **Le balayage qui les trouve doit chercher DEUX receveurs** : `ioDoc->`
+  en manque **13**, écrits `doc->` dans `KNXIo.cpp` et `WagoIOBase.h`.
+- ✅ **Forme 2 = 3**, recomptée par familles d'antonymes sur toutes les paires de paramètres frères
+  de l'arbre ; les 34 autres paires sont justes, relues une à une.
+- ⚠️ **Forme 3 = 5, mais `eis` demande une nuance** : `0` n'est refusé que sur le chemin
+  d'**écriture**. Sur le chemin de **lecture**, `KNXValue::setValue()` traite `eis == 0` comme
+  « déduire le type de la longueur de la donnée » et y répond pour les tailles 1, 2, 3, 4, 5 et 15.
+  La borne n'est fausse **que pour les sorties**.
+- ⭐ **`DmxBuffer::SetChannel()` rend `void`** — vérifié au compilateur, la première écriture de la
+  sonde de mesure ne compilait pas. Le silence n'est pas une négligence de l'appelant : il est dans
+  la signature, il n'y a aucune valeur de retour à ignorer.
+
+### ⭐⭐ M5 n'ouvre pas une septième façon de mentir : c'est la QUATRIÈME, sous une forme nouvelle
+
+La quatrième de la liste canonique est la **fixture fausse** — une donnée d'essai qu'une coïncidence
+de valeurs rend incapable de distinguer le défaut. C'est exactement M5 : les deux canaux **partagent
+leur borne**, donc les permuter **ne change aucun nombre**.
+
+⭐ **Ce qui est neuf est que la fixture n'appartient pas au test.** Les listes précédentes
+désamorçaient ce piège en **choisissant** mieux la donnée (« trois octets deux à deux distincts,
+dernier octet non nul »). Ici c'est impossible : la donnée mesurée **est le document livré**, et sa
+dégénérescence — deux frères à la même valeur — est ce que le ticket vient d'installer. La seule
+parade est un **second capteur sur un champ que les frères ne partagent pas**.
+*À recopier : quand la fixture est la donnée de production et qu'elle est dégénérée par
+construction, on ne corrige pas la fixture — on ajoute un capteur sur ce qui reste distinct.*
