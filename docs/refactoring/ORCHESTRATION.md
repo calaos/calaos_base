@@ -12242,6 +12242,9 @@ refuseront — ou pire, une suite qu'elles laisseront passer.
 | `check-config-docs.sh` / `check-config-options.sh` | une option de configuration livrée sans documentation |
 | ⭐ `check-echo-ceilings.sh` (2026-09-05, élargie par `T3.99`) | un **plafond d'écho** de `tests/` que rien ne re-dérive : il doit être **épinglé** par un `EXPECT_EQ(<plafond>, <mesure>.size() + 1)` du même fichier, ou tenu **au-dessus** d'un plafond épinglé par un `EXPECT_GT` — **et**, s'il est épinglé, voir la **portée hexadécimale** de chaque forme mesurée de ses documents bornée sous lui par un `EXPECT_LT` d'un cas qui appelle une mesure `…HexRun`. **10 plafonds vus, 10 tenus** (2026-09-06, `T3.101`) |
 | ⭐⭐ `check-order-sentinels.sh` (2026-09-06, `T3.63`) | une assertion d'ordre dont le **plateau acceptant** — le côté **bas** pour une sentinelle négative, le côté **haut** pour `npos` — porte une valeur qu'aucune assertion **du même cas** n'exclut de sa sentinelle en **nommant la même expression** (`ASSERT_GE(<elle>, 0)`, `ASSERT_NE(std::string::npos, <elle>)`). Un comparateur de position répond « pas trouvé » par un entier ordinaire que le `<` **accepte** : le cas passe au VERT exactement quand la clé qu'il garde disparaît de la charge. **51 emplacements vus, 51 gardés** (2026-09-06, après la revue de `T3.63` ; **49 / 39 / 10** avant elle, et les 10 sont ce que le ticket a fermé) |
+| ⭐ `check-docs.py` (2026-09-06, `T3.32`) — ⚠️ **la seule qui ne soit PAS dans `make check`** | une référence `Fichier.cpp:ligne` de `docs/*.md` dont l'**ancre** — le fragment cité entre parenthèses et backticks juste après, forme que l'arbre écrit **déjà 81 fois** — n'est plus à la ligne annoncée ; et une ligne au-delà de la fin du fichier. **Ancre optionnelle**, blancs normalisés, jamais d'égalité de ligne entière. Auto-test de **28 corpus** (14 refusés, 13 acceptés, 1 aux compteurs épinglés), joué **avant** chaque balayage. **1472 citations vues, 4 mortes, 0 faux rouge** (2026-09-06). ⛔ **Elle est NON BLOQUANTE et HORS de `make check` — c'est la décision du ticket, pas un oubli** : une doc rougissant à chaque refactoring finirait désarmée. **À lancer à chaque revue de doc** : `make check-docs` |
+
+⛔⭐ **Ce que `check-docs.py` ne voit pas, et qu'il faut dire au brief suivant** : elle ferme la référence **périmée**, jamais la référence **fausse**. Une ligne qui existe et contient bien le fragment alors que le mécanisme décrit est ailleurs est **ACCEPTÉE** — une ancre l'aurait *validée* ; et une affirmation fausse qui ne cite rien n'a **rien à ancrer**. Ce sont les deux défauts de la dernière revue de doc, et les deux figurent dans son auto-test comme cas **acceptés**. ⚠️ **Elle est aussi presque déchargée** : **2 ancres sur 1472 citations** — l'ancrage est le travail des revues, dans l'ordre de dérive mesuré (`04_scenarios` 68, `08_http_api` 36, `07_remoteui` 32 citations désignant une ligne vide ou une accolade seule, **266 en tout, 18,4 %**). ⛔ `docs/refactoring/` est **hors périmètre** : une fiche est un relevé daté, et **62 de ses 72 ancres sont déjà périmées** — les contrôler produirait des centaines de rouges qui ne sont pas des défauts.
 
 ⛔ **Ce que `check-echo-ceilings.sh` ne voit pas, et qu'il faut dire au brief suivant** : elle lit la
 **forme**, jamais la mesure — elle ne distingue pas un bornage qui parcourt toutes les formes d'un qui
@@ -12268,9 +12271,11 @@ suites qui en portent un laisse **toutes** leurs bornes vertes — aucun capteur
 cinq suites sur huit épinglent la mesure **profonde** par `ASSERT_EQ("bcdef", longestEchoRun(…))` et
 `ASSERT_EQ("", longestEchoRun(…))`. **Aucune** ne le fait pour la fonction que les bornes appellent.
 
-⭐ **DEUX sondes de la famille portent un auto-test**, et elles sont les seules :
-`check-echo-ceilings.sh` depuis `T3.99` (8 fichiers écrits pour être refusés, 2 pour être acceptés)
-et `check-order-sentinels.sh` depuis `T3.63` (**21** fichiers : **12 refusés, 9 acceptés**),
+⭐ **TROIS sondes de la famille portent un auto-test**, et elles sont les seules :
+`check-echo-ceilings.sh` depuis `T3.99` (8 fichiers écrits pour être refusés, 2 pour être acceptés),
+`check-order-sentinels.sh` depuis `T3.63` (**21** fichiers : **12 refusés, 9 acceptés**) et
+`check-docs.py` depuis `T3.32` (**28** corpus : **14 refusés, 13 acceptés**, plus un aux compteurs
+épinglés — les compteurs sont son produit, et rien d'autre ne les tient),
 passés à la même fonction d'analyse que l'arbre réel, **avant** chaque balayage. ⭐ **Mesuré à la revue** : en retirant l'exclusion des cas
 `DISABLED_`, l'arbre livré reste **vert** et seul l'auto-test rougit — c'est exactement le trou qu'il
 bouche. ℹ️ **Les autres sondes de la famille n'en ont toujours pas** (`check-test-deps.sh`,
