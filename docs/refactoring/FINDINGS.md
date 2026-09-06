@@ -11947,6 +11947,45 @@ annonçait qu'**un**, parce qu'elle ne comptait que la forme `-1`.
   `UrlDownloader` et les neuf objets AVR, et lie `uv_tcp_connect`/`uv_write` »). ⇒ relier l'objet de
   production tel quel n'est pas une ligne de `LDADD` ; c'est un ticket.
 
+- ⭐⭐ **[T3.59 — LE RECENSEMENT DES SOUS-DISPATCHS DES DEUX HANDLERS, et il en restait TROIS
+  muets, pas un.]** Balayé sur la **forme** (« chaîne de `if / else if` qui choisit une
+  sous-commande ») et non sur un nom : **13 sites**, **8** dans `JsonApiHandlerHttp`, **5** dans
+  `JsonApiHandlerWS`, ⚠️ **`JsonApi.cpp` n'en porte AUCUN** — c'est un fichier de constructeurs, ses
+  chaînes de `==` portent sur des valeurs (type d'IO, jour de la semaine), jamais sur une
+  sous-commande. **10 avaient déjà une branche par défaut** (dont deux posées par E4.6e), **3 étaient
+  silencieux** — `processCamera()` (HTTP), `processSettings()` (WS), et la **racine** du dispatch WS —,
+  **1 n'a pas d'`else` sans être muet** : `processPolling()` répond `{}`, l'objet vide construit avant
+  la chaîne tombant dans le `sendJson()` qui la suit.
+  *À recopier : « pas de branche par défaut » et « silencieux » ne sont pas la même mesure, et un
+  recensement qui confond les deux se trompe dans les deux sens.*
+
+- ⛔⭐ **[T3.59 — LE SILENCE HTTP EST UN DESCRIPTEUR QUI N'EST JAMAIS RENDU, et le plafond par
+  source le compte.]** `requestReadTimeout()` (30 s) **ne couvre que le délai AVANT que la première
+  requête soit analysée** : une requête qui atteint un sous-dispatch est analysée depuis longtemps,
+  aucune minuterie ne la surveille plus. La seule chose qui ferme une connexion inactive est la
+  minuterie de 500 ms armée en construisant une réponse portant `Connection: Close` — **pas de
+  réponse, pas de minuterie**. Mesuré : un client peut ainsi immobiliser
+  `maxConnectionsPerIp` = **50** connexions, c'est-à-dire **tout son propre budget** (sa 51ᵉ requête
+  reçoit un **429**), et deux sources prennent les `maxConnections` = **100** places globales (503
+  pour tout le monde). La fuite est donc **bornée** : c'est un auto-déni de service d'abord.
+  *À recopier : un délai d'expiration de lecture ne protège pas d'un silence applicatif — il n'est
+  plus armé quand le silence commence.*
+
+- ⚠️ **[T3.59 — le compte de la fiche d'ouverture était bas d'un tiers, sur le site qu'elle avait
+  elle-même mesuré.]** Elle annonçait « **deux** cas épinglent déjà le silence de `camera` » : il y en
+  avait **trois**, le troisième dans `JsonApiCameraSnapshot_test` (T3.17d). Et le silence de
+  `processSettings()` était **déjà nommé en toutes lettres** dans l'en-tête de `JsonApiSession_test`
+  avec **deux cas** de plus, sans que la fiche le voie.
+  *Troisième recensement de fiche pris en défaut de la série, après `T3.55` (84 annoncés / 150 réels)
+  et `T3.63` (1 / 10). Compter soi-même n'est pas une précaution, c'est la mesure.*
+
+- ⛔ **[T3.59 — `poll_listen` répond un objet vide sur un `type` inconnu, et rien ne distingue cette
+  réponse d'un `register` qui aurait échoué.]** `JsonApiHandlerHttp::processPolling()` n'a pas de
+  branche par défaut ; son `Json::object()` initial traverse la chaîne intact jusqu'au
+  `sendJson(jret)` final. Ce n'est pas un silence — la socket est libérée — donc ce n'est pas le
+  défaut que `T3.59` ferme, et le ticket ne le change pas. Épinglé tel quel par
+  `PollListenWithAnUnknownTypeAnswersAnEmptyObject`.
+
 ## T3.38 — le recensement des `ioDoc` de l'arbre entier (2026-09-06)
 
 **508 appels `ioDoc->…` dans 62 fichiers**, dont **405** nommés+décrits et **65** bornés

@@ -2772,8 +2772,37 @@ plus laissée ouverte**.
 `type` rangé sous `data` au lieu de la racine — recevait ce silence. Elle reçoit maintenant cette
 erreur, ce qui rend enfin visible une confusion de transport qui passait inaperçue.
 
-ℹ️ **La même absence de réponse subsiste ailleurs** et n'est pas corrigée ici : `camera` avec un
-identifiant valide et un `type` inconnu reste silencieux, sur HTTP, connexion comprise.
+ℹ️ **La même absence de réponse subsistait ailleurs** et n'était pas corrigée ici : `camera` avec un
+identifiant valide et un `type` inconnu, et `settings` avec une action inconnue. **T3.59 les a fermés**,
+voir ci-dessous.
+
+## ⚠️ Les deux dernières commandes qui ne répondaient rien répondent une erreur (T3.59)
+
+Deux commandes de l'API restaient muettes quand on leur donnait une sous-commande qu'elles ne
+connaissaient pas — la même absence de réponse que celle qu'`autoscenario` avait déjà perdue :
+
+- **`camera`** (HTTP) avec un identifiant de caméra **valide** et un `type` inconnu ou absent :
+  ni résultat, ni erreur. Le client attendait une réponse qui ne venait jamais. Il répond désormais
+  `{"error": "unknown camera type"}`.
+- **`settings`** (WebSocket) avec une `action` inconnue ou absente : idem. Il répond désormais
+  `{"error": "unknown settings action"}`.
+
+⭐ **Sur HTTP ce n'était pas seulement une attente du côté client.** Le délai d'expiration de lecture
+du serveur ne couvre que le temps qu'une requête met à **arriver** ; une fois la requête lue, plus
+rien ne surveille la connexion, et c'est la **réponse** qui la libère. Une requête `camera` restée
+sans réponse laissait donc une connexion ouverte **indéfiniment**, occupant une des places que le
+serveur réserve à votre adresse. Un client — ou un script — qui répétait cette requête pouvait
+occuper **ses cinquante places** et se voir alors refuser ses requêtes suivantes avec un
+« trop de connexions », **sans comprendre pourquoi**. C'est ce symptôme-là qui disparaît : la réponse
+porte `Connection: Close`, et la place est rendue tout de suite.
+
+> ### Êtes-vous concerné ?
+>
+> Seulement si un de vos outils envoie une sous-commande que le serveur ne connaît pas — une faute
+> de frappe, une commande d'une version plus récente, ou une requête HTTP construite comme une
+> requête WebSocket. Aucune application Calaos n'en envoie. **Rien ne change pour une commande
+> valide** : les deux nouvelles réponses ne sont produites que là où il n'y avait rien du tout, donc
+> aucun client existant ne perd une réponse qu'il recevait.
 
 ## ⚠️ Vos anciens auto-scénarios deviennent des scénarios ordinaires — ils marchent toujours (T3.61)
 
