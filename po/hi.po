@@ -1083,7 +1083,7 @@ msgstr ""
 msgid ""
 "The path where to found the Y (X/Y Color space) value in the mqtt payload. "
 "If payload if JSON, informations will be extracted depending on the path. "
-"for example color/y, try to read the x value from the color object."
+"for example color/y, try to read the y value from the color object."
 msgstr ""
 
 #: src/bin/calaos_server/IO/Mqtt/MqttOutputLightRGB.cpp:45

@@ -40,7 +40,7 @@ MqttOutputLightRGB::MqttOutputLightRGB(Params &p):
                               "with the color (integer value or #RRGGBB string value) to be sent."),
                     IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("path_x", _("The path where to found the X (X/Y Color space) value in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example color/x, try to read the x value from the color object."), IODoc::TYPE_STRING, true);
-    ioDoc->paramAdd("path_y", _("The path where to found the Y (X/Y Color space) value in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example color/y, try to read the x value from the color object."), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("path_y", _("The path where to found the Y (X/Y Color space) value in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example color/y, try to read the y value from the color object."), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("path_brightness", _("The path where to found the brightness value in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example 'brightness'"), IODoc::TYPE_STRING, true);
 
     subscribeTopicSub([this]() { readValue(); });
