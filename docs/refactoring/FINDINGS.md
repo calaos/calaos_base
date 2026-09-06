@@ -11835,7 +11835,7 @@ annonçait qu'**un**, parce qu'elle ne comptait que la forme `-1`.
 
 ## T3.54 + T3.55 — les deux dernières paires adjacentes et nues de la chaîne de typage
 
-- ⭐⭐ **[Confirmation — l'atténuation de `T3.54` TIENT, et elle est maintenant MESURÉE.** La fiche
+- ⭐⭐ **Confirmation — l'atténuation de `T3.54` TIENT, et elle est maintenant MESURÉE.** La fiche
   disait qu'une permutation des deux arguments au site d'appel de `WagoBits::setBufferBit()` serait
   *« très probablement »* rougie par un test existant, sans que personne l'ait mutée. **Mutée sur
   l'arbre `5d2ae798` intégral** (`src/` **et** `tests/` de `master`, pour qu'aucun cas neuf ne
@@ -11872,15 +11872,21 @@ annonçait qu'**un**, parce qu'elle ne comptait que la forme `-1`.
   types **distincts** couverte par un test et une paire de types **identiques** que rien n'atteint.
   Sur l'arbre typé, la même mutation **ne compile plus**.
 
-- ⚠️ **[F-SQUEEZE-1] `Audio/RoonPlayer` porte 14 sites de la même forme, liés à RIEN.** Ses 7
-  callbacks `(bool status, string request, string result, AudioPlayerData data)` sont **déclarés**
-  (`RoonPlayer.h`) et **définis** (`RoonPlayer.cpp`), et **enregistrés nulle part** : chacun
-  n'apparaît **qu'une seule fois** dans le `.cpp`, sa propre définition, et aucune ligne de l'arbre
-  ne prend son adresse. ⇒ **le typage de [`T3.55`](T3.55.md) ne les atteint pas et ne pouvait pas
-  les atteindre** — ils ne se lient à aucune fente, donc rien ne les force à changer et rien ne
-  pourrait refuser une permutation à l'intérieur. **Même situation exactement que la définition
-  morte de [`T3.53`](T3.53.md) §2.2.** Fiché, **non touché** : leur sort est un changement de
-  périmètre, pas un durcissement de type.
+- ⚠️ **[F-SQUEEZE-1] `Audio/RoonPlayer` porte 14 sites de la même forme, qu'aucune fente ne lie.**
+  Ses 7 callbacks `(bool status, string request, string result, AudioPlayerData data)` sont
+  **déclarés** (`RoonPlayer.h`) et **définis** (`RoonPlayer.cpp`), et **aucune ligne de l'arbre ne
+  prend leur adresse** : `sigc::mem_fun` ne les nomme **jamais** (2 `mem_fun` dans le fichier,
+  aucun des deux sur eux). ⇒ **le typage de [`T3.55`](T3.55.md) ne les atteint pas et ne pouvait
+  pas les atteindre.** Fiché, **non touché** : leur sort est un changement de périmètre, pas un
+  durcissement de type.
+  ⛔ **Corrigé à la revue de merge : « chacun n'apparaît qu'une seule fois, sa propre définition »
+  était FAUX.** Chacun des 7 apparaît **deux** fois — sa définition **et un appel direct**, sur le
+  chemin d'erreur de sa propre requête : `get_volume_cb(true, "", "", data);` et ses six jumeaux.
+  Ils ne sont donc pas du code mort, ils sont du code **appelé sans passer par une fente**.
+  ⭐ **Et ce que la correction change est à l'avantage du constat** : leur unique appelant passe
+  **deux littéraux vides** aux deux positions adjacentes, si bien qu'une permutation y est un
+  no-op **textuel**. La paire y est nue **et** vacante — c'est la raison pour laquelle rien ne
+  pourrait la mesurer, pas l'absence d'appelant.
 
 - ⚠️ **[Trois déclarations mortes de plus dans la chaîne Squeezebox, confirmées.]**
   `get_album_cover_id_cb` (`Squeezebox.h`) — l'écart entre 27 déclarations et 26 définitions dans ce
@@ -11898,3 +11904,45 @@ annonçait qu'**un**, parce qu'elle ne comptait que la forme `-1`.
   AudioPlayerData)` — trois types distincts — et supprimerait la paire **par effacement**, pour
   ~98 lignes et **zéro corps touché**. **Non retenu** : jeter une information que le contrat
   transporte est une décision de **produit**. ⇒ [`T3.113`](T3.113.md).
+
+- ⭐⭐ **[Revue de merge — LES DEUX MESURES QUI DÉCIDENT DES TICKETS ONT ÉTÉ REJOUÉES SUR `master`
+  À 140 SUITES, et elles tiennent toutes les deux.** Permutation au site d'appel de `packBits` :
+  **compile, 0 `error:`**, `TOTAL 140 / PASS 138 / SKIP 1 / FAIL 1`, **`WagoBits_test` seule**,
+  **les 5 cas nommés**. Permutation à l'émission Squeezebox : **compile, 0 `error:`**,
+  `TOTAL 140 / PASS 139 / SKIP 1 / FAIL 0` — **zéro rouge**. Sur l'arbre livré, les deux **ne
+  compilent plus** (`could not convert 'WagoBits::BitState' to 'WagoBits::BitIndex'` ;
+  `cannot convert 'SqueezeResult' to 'sigc::type_trait_take_t<SqueezeRequest>'`). Et le
+  RED→GREEN des 5 cas neufs a été rejoué en portant les deux fichiers de `tests/` sur `master`
+  intact : **3 rouges dans `Squeezebox_test`, 2 dans `WagoBits_test`, aucune autre suite**.
+  *À recopier : la même mutation formelle rougit 5 cas d'un côté et zéro de l'autre — c'est la
+  différence entre une paire de types distincts qu'un test atteint et une paire de types
+  identiques que rien n'exécute.*
+
+- ⛔⭐⭐ **[Revue de merge — LE CONTOURNEMENT `W3` N'EST PLUS DÉCLARÉ, IL EST MESURÉ, ET IL COÛTE
+  DIFFÉREMMENT DES DEUX CÔTÉS.** Envelopper la **mauvaise** variable a été joué aux deux sites
+  d'appel, ce que la fiche n'avait pas fait.
+  Côté Wago — `setBufferBit(&out[0], BitIndex(values[i]), BitState(i))` — **compile, 0 `error:`**,
+  et rougit **exactement les 5 mêmes cas** que la permutation nue sur `master` : le type n'y ajoute
+  **aucun** rouge, c'est la suite comportementale de `packBits` qui tient le site, comme avant.
+  Côté Squeezebox — `sig.emit(status, SqueezeRequest(cmd.result), SqueezeResult(cmd.request), …)` —
+  **compile, 0 `error:`**, et l'ensemble rouge est **VIDE** sur 140 (le seul rouge du tour est
+  `F-FLAKY-2`). ⇒ **le seul site que le typage de `T3.55` ne peut pas protéger est aussi le seul
+  que rien n'exécute** ⇒ [`T3.118`](T3.118.md).
+  *À recopier : une enveloppe déplace la faute du site d'appel vers l'endroit où un humain nomme
+  la valeur ; ce que ça vaut se mesure en demandant ce qui rougit QUAND l'humain se trompe là.*
+
+- ⚠️ **[Revue de merge — la raison écrite pour laisser `countIsWritable(int, size_t)` nue est
+  FAUSSE ; la décision, elle, tient.]** La fiche invoque « un avertissement de rétrécissement que
+  le projet ne demande pas ». **Mesuré** : `countIsWritable(values.size(), nb)` dans `packBits`
+  compile avec **0 `error:` et 0 `warning:` provenant de `WagoBits.h`** sous les drapeaux du
+  projet — la permutation y est **exactement aussi silencieuse** que celle qui vient d'être typée.
+  Ce qui la tient est ce qui tenait l'autre avant le typage : **la suite**, et elle mord
+  (**3 cas** rouges). La paire reste nue par **périmètre**, pas parce qu'un compilateur veillerait.
+
+- ⛔ **[Revue de merge — `F-LINK-1` ne se relie PAS à peu de frais, et c'est chiffré.]**
+  `nm -Cu Audio/Squeezebox.o` : **168** symboles indéfinis, dont `Calaos::SqueezeboxDB::SqueezeboxDB`,
+  `UrlDownloader::httpPost`, `Calaos::ListeRoom::Instance`, `EventManager::create`, `Timer::Timer`,
+  `IODoc::*`, `Calaos::Registrar`, `Calaos::AudioPlayer` et `Calaos::IOBase`. Le harnais avait déjà
+  **refusé cet objet par écrit** pour `core/JsonApiCharacterization_test` (« il traîne `SqueezeboxDB`,
+  `UrlDownloader` et les neuf objets AVR, et lie `uv_tcp_connect`/`uv_write` »). ⇒ relier l'objet de
+  production tel quel n'est pas une ligne de `LDADD` ; c'est un ticket.

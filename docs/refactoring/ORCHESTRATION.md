@@ -40,8 +40,131 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.57`](T3.57.md)) — LE
-  DERNIER MERGE DE LA SESSION. À LIRE EN PREMIER À FROID.**
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.54`](T3.54.md) +
+  [`T3.55`](T3.55.md)) — LE DERNIER MERGE DE LA SESSION. À LIRE EN PREMIER À FROID.**
+
+  ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION** : il déclenche un **build de
+  développement qui est déployé**. **Aucun agent ne pousse, jamais.** ⛔ **RIEN N'A ÉTÉ POUSSÉ DE
+  TOUTE LA SÉRIE.**
+
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de la branche
+  `fix/t3.54` (**4 commits** : 3 du développeur + 1 de la revue de merge), `merge --ff-only`,
+  historique linéaire, **0 commit de fusion**. Rebasée de `5d2ae798` sur `bbd496cc` — **deux
+  merges** —, deux conflits, **`BOARD.md`** et **`FINDINGS.md`**, tous deux en fin de section et
+  résolus en **gardant les deux côtés**. ⭐ **`tests/Makefile.am` n'est pas touché par la branche**
+  (vérifié après rebase) : **rien à régénérer**, aucun `endif` à recoudre. `TESTS` = **140**,
+  référence de build après `make distclean` : **`TOTAL 140 / PASS 139 / SKIP 1 / FAIL 0 / XFAIL 0 /
+  XPASS 0 / ERROR 0`**, seul `SKIP` `check-ccache-honesty.sh`, **0 `error:`**, **11 `CXXLD`** au
+  `make -j32`, **deux campagnes de trois `make check`** après `distclean` (avant et après le commit
+  de revue ; au tour final, le **premier** des trois porte le flottement décrit juste au-dessous et
+  les deux autres sont identiques à la référence).
+  ⚠️ **`core/MqttSidecarConfigWait_test` a flanché 3 fois sur les 13 `make check` de la revue**,
+  toujours **seul** : `F-FLAKY-2` / [`T3.112`](T3.112.md), antérieur. ⛔ **Aucun `make check` n'a
+  été relancé pour faire disparaître un rouge.**
+
+  ⭐⭐ **CE QUE LES DEUX TICKETS FERMENT — et ce sont deux paires de nature opposée.** `T3.54` donne
+  un type à `(index, état)` de `WagoBits::setBufferBit()`, deux scalaires qui se convertissent
+  **dans les deux sens** ; `T3.55` en donne un à `(requête, réponse)` de la fente Squeezebox, deux
+  `std::string` du **MÊME** type. La première paire est **atténuée par un test**, la seconde par
+  **rien du tout**, et la revue a mesuré les deux au lieu de les déduire.
+
+  ⭐⭐⭐ **CE QUE LA REVUE A MESURÉ, ET QUI DÉPASSE LES TICKETS :**
+  1. ⭐ **Les deux mesures qui décident ont été rejouées sur `master` à 140 suites.** Permutation
+     au site d'appel de `packBits` : **compile (0 `error:`)**, `TOTAL 140 / PASS 138 / FAIL 1`,
+     `WagoBits_test` **seule**, **les 5 cas nommés** ⇒ l'atténuation de `T3.54` **tient**, le ticket
+     est bien du **confort de type**. Permutation à l'émission Squeezebox : **compile
+     (0 `error:`)**, `TOTAL 140 / PASS 139 / FAIL 0` — **zéro rouge**. Sur l'arbre livré, les deux
+     **ne compilent plus**.
+     *À recopier : la même mutation formelle rougit 5 cas d'un côté et zéro de l'autre. C'est ce
+     couple de chiffres, et lui seul, qui dit ce que chaque typage vaut.*
+  2. ⭐⭐ **Le périmètre de `T3.55` était FAUX d'un facteur deux, et le recomptage indépendant le
+     confirme : 150 sites / 4 fichiers, pas 84 / 2.** La fiche d'origine avait balayé le **nom du
+     `typedef`** ; ce qui se lie à une fente sigc++ n'en porte pas le nom, ce sont des membres de
+     la bonne **FORME**. Recompté sur la forme : `Squeezebox` 27/26/28, `SqueezeboxDB` 23/21/22,
+     `RoonPlayer` 7/7/**0**, **rien d'autre dans `src/`** — et les **84** de la fiche se retrouvent
+     **exactement** comme `Squeezebox` seul (2 + 27 + 26 + 28 + 1).
+     *À recopier : « le nom du typedef n'apparaît que dans deux fichiers » n'est pas « le défaut ne
+     vit que dans deux fichiers ». Pour une fente sigc++, le balayage qui compte est celui de la
+     FORME des paramètres.*
+  3. ⛔⭐⭐ **LE SEUL SITE QUE LE TYPAGE DE `T3.55` NE PEUT PAS PROTÉGER EST LE SEUL QUE RIEN
+     N'EXÉCUTE — c'est la trouvaille de la revue** ⇒ [`T3.118`](T3.118.md). Envelopper la
+     **mauvaise** variable à l'unique émission (`SqueezeRequest(cmd.result)`,
+     `SqueezeResult(cmd.request)`) **compile** et donne un ensemble rouge **VIDE** sur 140. La même
+     faute d'enveloppe côté Wago rougit **5 cas**, parce que ce site-là est exécuté. Et
+     `F-LINK-1` **ne se relie pas à peu de frais** : `nm -Cu Audio/Squeezebox.o` ⇒ **168** symboles
+     indéfinis (`SqueezeboxDB`, `UrlDownloader::httpPost`, `ListeRoom::Instance`,
+     `EventManager::create`, `Timer`, `IODoc`, `Registrar`, `AudioPlayer`, `IOBase`), et
+     `tests/Makefile.am` **refuse déjà cet objet par écrit**.
+     *À recopier : une enveloppe déplace la faute vers l'endroit où un humain nomme la valeur. Ce
+     qu'elle vaut se mesure en demandant ce qui rougit QUAND l'humain se trompe là.*
+  4. ⚠️ **La raison écrite pour laisser `countIsWritable(int, size_t)` nue est FAUSSE ; la décision
+     tient.** La fiche invoque un avertissement de rétrécissement : **il n'existe pas** — la
+     permutation compile avec **0 `warning:`** venu de `WagoBits.h` sous les drapeaux du projet.
+     Ce qui la tient est la **suite** (3 cas rouges), exactement comme pour la paire qui vient
+     d'être typée. Elle reste nue par **périmètre**.
+  5. ⚠️ **Une affirmation corrigée** : les 7 callbacks `RoonPlayer` de `F-SQUEEZE-1` n'apparaissent
+     **pas** une seule fois chacun — ils sont **appelés directement**
+     (`get_volume_cb(true, "", "", data)`). Ce n'est pas du code mort. Le point porteur reste vrai
+     et se renforce : **rien ne prend leur adresse** (0 `mem_fun`), et leur unique appelant passe
+     **deux littéraux vides**, donc la paire y est nue **et vacante**.
+  6. ✅ **`RELEASE_NOTES` vérifié contre l'en-tête du fichier** — qui n'accepte que ce qu'un
+     utilisateur observe, plantage ou comportement erratique compris. Les deux tickets durcissent
+     des sites **déjà écrits dans le bon ordre** : rien n'a jamais mal fonctionné. **Aucune entrée
+     due**, l'affirmation du développeur tient. C'est l'inverse de `T3.57`, où la fiche disait
+     « rien » et où il y en avait une.
+
+  ⭐ **CE QUE LES CONTRE-MUTATIONS DE LA REVUE ONT MESURÉ — trois, aucune du développeur, plus le
+  témoin :**
+  - ⛔ *la mauvaise variable enveloppée, côté Wago* : `BitIndex(values[i])` / `BitState(i)` ⇒
+    **compile**, **5 rouges**, exactement les mêmes que la permutation nue ⇒ le typage n'ajoute
+    **aucun** rouge sur le seul site existant ;
+  - ⛔⭐ *la mauvaise variable enveloppée, côté Squeezebox* : à l'unique émission ⇒ **compile**,
+    ensemble rouge **VIDE** sur 140 ;
+  - ⚠️ *la paire laissée nue* : `countIsWritable(values.size(), nb)` ⇒ **compile, 0 `warning:`**,
+    **3 rouges** ;
+  - **témoin** : les deux structures de rôle échangées d'**ordre de déclaration** ⇒ ensemble rouge
+    **VIDE**, `CXXLD calaos_server` lu au `make` et **1 `CXXLD`** au `make check`.
+  Restaurations par recopie **sans métadonnées** puis `touch`, prouvées par `cmp` **rc 0** **et**
+  par un horodatage effectivement déplacé, `git status` sur l'**hôte** après chaque tour,
+  instantané **neuf** nommé par **chemin complet**, aucune sortie tronquée par un lecteur qui ferme
+  tôt, `make -j32 && make check -j16` reconstruit avant chaque mesure.
+
+  ⭐⭐ **LES TICKETS OUVERTS — DEUX COMPTES SÉPARÉS, et c'est le premier qui compte pour
+  l'utilisateur.**
+
+  **(a) Backlog du 4 septembre — 6 tickets encore ouverts** ([`T3.54`](T3.54.md) **et**
+  [`T3.55`](T3.55.md) **en sortent**) : `T3.21`, `T3.22`, `T3.25a`, `T3.32`, `T3.38`, `T3.59`.
+  ⭐ **Aucun n'est en cours** : il ne reste **aucune branche non mergée**, aucun worktree de travail.
+
+  **(b) Ouverts PAR LES REVUES pendant la série — 15** (deux entrent, aucun ne sort) : `T3.91`
+  (proposé, fiche non écrite), `T3.100`, [`T3.104`](T3.104.md), [`T3.105`](T3.105.md),
+  [`T3.107`](T3.107.md), [`T3.108`](T3.108.md), [`T3.109`](T3.109.md), [`T3.110`](T3.110.md),
+  [`T3.111`](T3.111.md), [`T3.112`](T3.112.md), [`T3.113`](T3.113.md) **(entrée avec le ticket)**,
+  [`T3.115`](T3.115.md), [`T3.116`](T3.116.md), [`T3.117`](T3.117.md),
+  [`T3.118`](T3.118.md) **(neuf, ouvert par cette revue)**.
+  ⚠️ Numéros **pris** : `T3.76` → `T3.118`. ⛔ **`T3.114` est un TROU périmé, à ne pas réutiliser.**
+  **Prochain libre : `T3.119`.**
+
+  **[`T3.118`](T3.118.md) en une ligne** : le chemin de réponse Squeezebox n'est exécuté par rien,
+  donc l'unique émission — le seul endroit où un humain nomme les deux rôles — peut être écrite à
+  l'envers sans qu'une seule suite rougisse ; à relier, ou mieux, à **extraire** vers une fonction
+  libre comme `T3.28`/`T3.30` l'ont fait côté Wago.
+
+  ⭐⭐ **CE QUI ATTEND L'UTILISATEUR, ET RIEN D'AUTRE :**
+  1. ⛔ **Le `push`** — livraison, pas vérification. Le job CI chez GitHub n'a **jamais** tourné.
+     ⚠️ Attente précise : `SKIP 4` sur un exécuteur sans IPv6.
+  2. **[`T3.113`](T3.113.md)** — question de produit **neuve** : les 47 paramètres `request` de la
+     chaîne Squeezebox sont morts (0 lecture sur 47 corps, mesuré deux fois). Les garder, ou les
+     retirer — ce qui supprimerait la paire **par effacement** pour ~98 lignes.
+  3. **[`T3.104`](T3.104.md)** et **[`T3.105`](T3.105.md)** — arbitrages **déjà tranchés** le
+     2026-09-06 ([`DECISIONS.md`](DECISIONS.md), « Cinq arbitrages du 2026-09-06 ») : ils restent
+     **à écrire**, pas à rediscuter.
+  4. **[`T3.111`](T3.111.md)** — une session de service a-t-elle le droit de lire la configuration ?
+     de l'écrire ? de lire le jeton du proxy ?
+
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-06, APRÈS LE MERGE DE [`T3.57`](T3.57.md)) — conservé
+  pour l'historique.**
 
   ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION** : il déclenche un **build de
   développement qui est déployé**. **Aucun agent ne pousse, jamais.** ⛔ **RIEN N'A ÉTÉ POUSSÉ DE
