@@ -323,3 +323,70 @@ jobs:
         run: |
           pip show mcp fastapi starlette uvicorn websockets pydantic \
               | grep -E '^(Name|Version):'
+
+  dependabot-config:
+    name: Dependabot manifest coverage
+    runs-on: ubuntu-latest
+    container: debian:12
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 python3-yaml
+
+      - name: Every watched directory must hold a manifest
+        run: |
+          python3 - <<'PY'
+          import pathlib, sys, yaml
+
+          # A dependabot entry pointing at a directory with no manifest is
+          # accepted by GitHub and simply watches nothing -- there is no error,
+          # no PR, and no way to tell that apart from "no update available".
+          # Renaming or moving a manifest is therefore silent, and this repo has
+          # already shipped a manifest that no build path read.
+          MANIFESTS = {
+              "npm": ("package.json",),
+              "pip": ("pyproject.toml", "requirements.txt", "setup.py",
+                      "setup.cfg", "Pipfile"),
+              "docker": ("Dockerfile",),
+              "github-actions": (".github/workflows",),
+          }
+
+          root = pathlib.Path(".")
+          cfg = yaml.safe_load((root / ".github/dependabot.yml").read_text())
+          errors = []
+
+          if cfg.get("version") != 2:
+              errors.append(f"version is {cfg.get('version')!r}, expected 2")
+
+          updates = cfg.get("updates") or []
+          if not updates:
+              errors.append("no update entry at all")
+
+          for entry in updates:
+              eco = entry.get("package-ecosystem")
+              names = MANIFESTS.get(eco)
+              if names is None:
+                  errors.append(f"{eco!r}: unknown ecosystem, extend MANIFESTS")
+                  continue
+              dirs = entry.get("directories") or [entry.get("directory", "/")]
+              for d in dirs:
+                  if "*" in d:
+                      continue
+                  path = root / d.lstrip("/")
+                  if not path.is_dir():
+                      errors.append(f"{eco} {d}: directory does not exist")
+                  elif not any((path / n).exists() for n in names):
+                      errors.append(
+                          f"{eco} {d}: none of {', '.join(names)} found")
+                  else:
+                      print(f"ok  {eco:15} {d}")
+
+          for e in errors:
+              print(f"FAIL {e}", file=sys.stderr)
+          sys.exit(1 if errors else 0)
+          PY

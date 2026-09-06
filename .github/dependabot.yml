@@ -1,5 +1,12 @@
 version: 2
 
+# Every merge into master is a release, not a check: docker-publish-dev.yml
+# triggers on push to master with no dependency on the test workflow, bumps the
+# version, creates a git tag, pushes ghcr.io/calaos/calaos_base:dev and
+# dispatches a Debian package build to calaos/pkgdebs. One pull request per
+# package is therefore one release cycle per package, which is why every
+# ecosystem below travels as a single grouped pull request -- security updates
+# included, since open-pull-requests-limit does not apply to those.
 updates:
   # data/debug is the developer-only debug web page.
   # Its runtime assets are pre-built and committed under data/debug/dist/, so the
@@ -18,3 +25,31 @@ updates:
     open-pull-requests-limit: 5
     allow:
       - dependency-type: "production"
+    groups:
+      debug-web-assets:
+        patterns: ["*"]
+      debug-web-assets-security:
+        applies-to: "security-updates"
+        patterns: ["*"]
+
+  # The MCP sidecar is the only Python component of the tree that runs in
+  # production: it fronts the Calaos API behind bearer auth. Its pins are exact
+  # and every build path installs from this file, so nothing reaches an image
+  # without a pull request here.
+  #
+  # mcp, fastapi and starlette constrain each other, and Dependabot raises a
+  # vulnerable package in isolation: starlette alone once resolved to nothing
+  # installable. Grouping fixes that for version updates only — it never makes
+  # Dependabot raise a package that is not itself vulnerable — so a security
+  # pull request on this manifest still needs its resolution checked by hand.
+  - package-ecosystem: "pip"
+    directory: "/src/bin/calaos_mcp"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 2
+    groups:
+      mcp-sidecar:
+        patterns: ["*"]
+      mcp-sidecar-security:
+        applies-to: "security-updates"
+        patterns: ["*"]
