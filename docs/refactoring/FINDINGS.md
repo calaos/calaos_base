@@ -11725,3 +11725,34 @@ annonçait qu'**un**, parce qu'elle ne comptait que la forme `-1`.
   ⇒ **un audit de vacuité qui s'arrête à l'assertion surestime le risque ; un qui s'arrête au cas le
   sous-estime.** La classe se reproduit en revanche, verte sur `master`, aux deux sites `msg_id` que
   le recomptage a trouvés — et ceux-là, personne ne les avait vus.
+
+### Ce que la revue de merge de `T3.63` a ajouté (2026-09-06)
+
+- ⛔⭐ **[F-VACUOUS-4] UN AUTO-TEST NE VAUT QUE LA COUVERTURE DE SES FICHIERS, et trois décisions de
+  `check-order-sentinels.sh` n'en avaient aucune.** Mesuré par échange, sur la sonde **livrée** :
+  les deux formes de commentaire échangées dans son masquage ⇒ **43 des 49 emplacements
+  disparaissent, les 10 vraies plaintes avec, et `make check` reste VERT sur 139**, auto-test
+  compris ; `RETURNS_POSITION` rétréci d'un jeton ⇒ la famille `keyPos()` cesse d'être reconnue,
+  **10 plaintes → 8**, muet des deux côtés ; et son test d'équilibre de parenthèses comptait les
+  crochets écrits **dans un littéral**, si bien qu'une aiguille comme `find("{\"data\"")` rendait
+  l'emplacement **invisible** — deux emplacements de `WagoBits_test.cpp` l'étaient déjà.
+  ✅ **Fermé au merge** : équilibre corrigé (**51** emplacements vus, 51 gardés) et **5 fichiers
+  d'auto-test de plus** (21 : 12 refusés, 9 acceptés), chacun pinçant une des trois décisions.
+  *À recopier : une sonde à auto-test se contre-mute là où l'auto-test ne regarde pas — le masquage
+  lexical et la reconnaissance des comparateurs, pas la règle qu'elle énonce.*
+
+- ⭐ **[F-VACUOUS-2.3 — mesuré, et il devient [`T3.116`](T3.116.md)] La mesure aveugle n'est pas une
+  hypothèse.** L'emballage `longestEcho()` rendu aveugle (`return 0;`) dans les **sept** suites qui
+  en portent un laisse **toutes** leurs bornes vertes : aucun capteur à borne ne rougit sur 139,
+  **8 `CXXLD` lus**. ⭐ **Et la parade est déjà écrite dans l'arbre, sur l'autre fonction** : cinq
+  suites sur huit épinglent la mesure **profonde** par `ASSERT_EQ("bcdef", longestEchoRun(…))` et
+  `ASSERT_EQ("", longestEchoRun(…))` ; **aucune** ne le fait pour la fonction que les bornes
+  appellent, et trois suites n'épinglent ni l'une ni l'autre — `core/HttpRequestLogSecret` porte à
+  elle seule **13** appels de l'emballage.
+
+- ℹ️ **La sonde ne dépend pas de son auto-test pour être JUSTE.** Auto-test court-circuité sur une
+  sonde saine, le balayage refuse toujours les mêmes 10 et accepte les mêmes 39. Ce que l'auto-test
+  apporte est un **diagnostic** : sur une sonde cassée (plateaux acceptants échangés) il rougit sur
+  4 de ses fichiers et le balayage n'est jamais atteint ; court-circuité, le balayage seul porte
+  **7 accusations FAUSSES** contre `TcpSocket_test`, `WagoBits_test` et `MqttSidecarConfigWait_test`.
+  *Il ne rend pas la sonde correcte, il empêche une sonde cassée d'accuser des innocents.*

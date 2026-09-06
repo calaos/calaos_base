@@ -40,8 +40,131 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.101`](T3.101.md)) — LE
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.63`](T3.63.md)) — LE
   DERNIER MERGE DE LA SESSION. À LIRE EN PREMIER À FROID.**
+
+  ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION** : il déclenche un **build de
+  développement qui est déployé**. **Aucun agent ne pousse, jamais.** ⛔ **RIEN N'A ÉTÉ POUSSÉ DE
+  TOUTE LA SÉRIE.**
+
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de la branche
+  `test/t3.63` (**3 commits** : 2 du développeur + 1 de la revue de merge), `merge --ff-only`,
+  historique linéaire, **0 commit de fusion**. ⭐ `master` était **IMMOBILE** sur `5d2ae798` =
+  exactement la merge-base ⇒ **ni rebase ni conflit** ; `tests/Makefile.am` a quand même été prouvé
+  **préfixe strict octet à octet**, **+8/−0/~0**, `^if` **119** ≡ `^endif` **119**, profondeur finale
+  **0**. `TESTS` = **139**, référence de build après `make distclean` :
+  **`TOTAL 139 / PASS 138 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
+  `check-ccache-honesty.sh`, **0 `error:`**, **11 `CXXLD`** au `make -j32` et **129** au premier
+  `make check -j16`, **deux campagnes de trois `make check`** après `distclean` (avant et après le
+  correctif de revue).
+  ⚠️ **`core/MqttSidecarConfigWait_test` a flanché 3 fois sur les 12 `make check` de la revue**,
+  toujours **seul**, jamais dans une suite d'ordre ni à borne : `F-FLAKY-2` /
+  [`T3.112`](T3.112.md), antérieur. ⛔ **Aucun `make check` n'a été relancé pour faire disparaître un
+  rouge.**
+
+  ⭐⭐ **CE QUE LE TICKET FERME.** Un comparateur de position répond « pas trouvé » par un entier
+  **ordinaire**, et la comparaison d'ordre l'**accepte** : `-1` est au-dessous de tout rang, `npos`
+  au-dessus de toute position, si bien que le cas passe au VERT **exactement quand** la clé qu'il
+  garde disparaît de la charge. ⭐ **La fiche d'ouverture annonçait UN site non gardé ; il y en avait
+  DIX** — elle ne comptait que la forme `-1` et ignorait son miroir. `tests/check-order-sentinels.sh`
+  ferme la **classe** : dans le plateau qui accepte, la valeur comparée doit être exclue de sa
+  sentinelle par une assertion **du même cas**, nommant **la même expression**.
+
+  ⭐⭐⭐ **CE QUE LA REVUE A MESURÉ, ET QUI DÉPASSE LE TICKET :**
+  1. ✅ **Le recomptage tient** : **49 emplacements / 39 gardés / 10 non gardés** reproduits sur
+     `5d2ae798`, les 10 plaintes relues une par une et toutes vraies, les 39 gardés relus par un
+     second passage écrit à part. **Zéro faux rouge.**
+  2. ⭐ **La démonstration a été rejouée DANS LES DEUX SENS**, même mutation de production
+     (`jroot["msg_id"]` → `jroot["msgid"]`, les 2 sites de `sendJson()`), **fichier de test échangé
+     entre les deux tours** : celui de `master` ⇒ `GetStateWsEnvelopePutsDataFirst` **`[ OK ]`** ;
+     celui de la branche ⇒ **rouge**, en nommant `keyPos(wire, "msg_id")`. **19 rouges sur 139** aux
+     deux tours, et les deux ensembles diffèrent d'**exactement un membre** : `master` fait rougir la
+     **sonde** et laisse la suite verte, la branche l'inverse.
+     *À recopier : la seule preuve qu'une garde sert est la mesure où le même défaut de production
+     donne un VERT d'un côté et un ROUGE de l'autre. Le site que la fiche nomme n'est pas forcément
+     celui où elle se produit — ici il était déjà rouge, pour une autre raison.*
+  3. ⛔⭐⭐ **TROIS DÉCISIONS DE LA SONDE N'AVAIENT AUCUN FICHIER D'AUTO-TEST, ET LES CASSER ÉTAIT
+     MUET — c'est la trouvaille de la revue.** Les deux formes de commentaire échangées dans son
+     masquage ⇒ **43 de ses 49 emplacements et ses 10 vraies plaintes disparaissent, et `make check`
+     reste VERT sur 139**, auto-test compris ; le motif qui reconnaît un comparateur de position
+     rétréci d'un jeton ⇒ la famille `keyPos()` cesse d'être vue, **10 plaintes → 8**, muet aussi ;
+     et son équilibre de parenthèses comptait les crochets écrits **dans un littéral**, rendant
+     **invisible** toute aiguille comme `find("{\"data\"")` — deux emplacements de `WagoBits_test.cpp`
+     l'étaient déjà. ✅ **Corrigés au merge** : **51 emplacements vus, 51 gardés**, et **5 fichiers
+     d'auto-test de plus** (21 : **12 refusés, 9 acceptés**), chacune des trois mutations rougissant
+     désormais l'auto-test (`F-VACUOUS-4`).
+     *À recopier : une sonde à auto-test se contre-mute là où l'auto-test ne regarde pas — le
+     masquage lexical et la reconnaissance des comparateurs, jamais la règle qu'elle énonce.*
+  4. ℹ️ **La sonde ne dépend PAS de son auto-test pour être JUSTE**, et l'aveu du développeur est
+     exact. Auto-test court-circuité sur une sonde saine, le balayage refuse les mêmes 10 et accepte
+     les mêmes 39. Sur une sonde **cassée** (plateaux acceptants échangés) l'auto-test rougit sur 4 de
+     ses fichiers et le balayage n'est jamais atteint ; court-circuité, le balayage seul porte
+     **7 accusations FAUSSES** contre `TcpSocket_test`, `WagoBits_test` et
+     `MqttSidecarConfigWait_test`. ⇒ **il ne rend pas la sonde correcte, il empêche une sonde cassée
+     d'accuser des innocents.** Le supprimer est donc acceptable au sens strict et déraisonnable en
+     pratique.
+  5. ✅ **La strictesse — elle lit l'assertion, pas le cas — est le bon compromis, et son prix est
+     mesuré.** `Beta` et `Gamma` sont bien dans un cas qu'un `EXPECT_TRUE(contains(wire, …))` voisin
+     fait déjà rougir. Reconnaître ce prédicat voudrait dire reconnaître n'importe lequel. ⚠️ **Le prix
+     à dire** : son compte **surestime** le nombre de cas vacuants — **10 assertions pour 8 cas**.
+  6. ⛔⭐⭐ **LA « MESURE AVEUGLE » TOUCHE BIEN TOUS LES CAPTEURS À BORNE DE LA SÉRIE, ET AUCUNE DES
+     TROIS SONDES NE LA VOIT** ⇒ [`T3.116`](T3.116.md). L'emballage `longestEcho()` rendu aveugle
+     (`return 0;`) dans les **sept** suites qui en portent un laisse **toutes** leurs bornes vertes :
+     aucun capteur à borne ne rougit sur 139, **8 `CXXLD` lus**. ⭐ **La parade est déjà écrite dans
+     l'arbre, mais sur l'AUTRE fonction** : cinq suites sur huit épinglent la mesure **profonde** par
+     `ASSERT_EQ("bcdef", longestEchoRun(…))` et `ASSERT_EQ("", longestEchoRun(…))` ; **aucune** ne le
+     fait pour la fonction que les bornes appellent, et trois n'épinglent ni l'une ni l'autre —
+     `core/HttpRequestLogSecret` porte à elle seule **13** appels de l'emballage.
+
+  ⭐ **CE QUE LES CONTRE-MUTATIONS DE LA REVUE ONT MESURÉ — deux, aucune du développeur, plus le
+  témoin :**
+  - ⭐ *contre la sonde* : les deux formes de commentaire de son masquage échangées, sur la sonde
+    **livrée** ⇒ **0 rouge sur 139** — elle est aveugle et se tait ; le même échange après le
+    correctif de revue ⇒ **1 rouge**, `check-order-sentinels.sh`, par son auto-test ;
+  - ⛔ *la mesure aveugle* : l'emballage d'écho rendu aveugle dans **7** suites ⇒ **0 rouge de
+    capteur à borne** (le seul rouge du tour est le flottement connu) ;
+  - **témoin** : deux `ASSERT_NE` indépendants de `HttpPlaylistItemsAreOnTheWireInPlayerOrder`
+    échangés d'ordre ⇒ **0 rouge**, `CXXLD core/JsonApiAudioWireBytes_test` **lu**.
+  Restaurations par recopie **sans métadonnées** puis `touch`, prouvées par `cmp` **rc 0** **et** par
+  un horodatage effectivement déplacé, `git status` sur l'**hôte** après chaque tour, instantané
+  **neuf** par tour nommé par **chemin complet**, aucune sortie tronquée, `make -j32 && make check
+  -j16` reconstruit avant chaque mesure.
+
+  ⭐⭐ **LES TICKETS OUVERTS — DEUX COMPTES SÉPARÉS, et c'est le premier qui compte pour l'utilisateur.**
+
+  **(a) Backlog du 4 septembre — 9 tickets encore ouverts** ([`T3.63`](T3.63.md) **en sort**) :
+  `T3.21`, `T3.22`, `T3.25a`, `T3.32`, `T3.38`, `T3.54`, `T3.55`, `T3.57`, `T3.59`.
+  ⏳ **Trois sont EN COURS** au moment de ce paragraphe, sur des branches **non mergées** :
+  `T3.54` + `T3.55` (`.wave130/t3.54`, `fix/t3.54`, 3 commits) et `T3.57` (`.wave131/t3.57`,
+  `fix/t3.57`, 3 commits). Les deux worktrees ont été laissés **intacts** et sont **propres**.
+
+  **(b) Ouverts PAR LES REVUES pendant la série — 12** (deux entrent, aucun ne sort) : `T3.91`
+  (proposé, fiche non écrite), `T3.100`, [`T3.104`](T3.104.md), [`T3.105`](T3.105.md),
+  [`T3.107`](T3.107.md), [`T3.108`](T3.108.md), [`T3.109`](T3.109.md), [`T3.110`](T3.110.md),
+  [`T3.111`](T3.111.md), [`T3.112`](T3.112.md), [`T3.115`](T3.115.md) **(ouvert par le ticket)**,
+  [`T3.116`](T3.116.md) **(neuf, ouvert par cette revue)**.
+  ⚠️ Numéros **pris** : `T3.76` → `T3.116`, **sans trou**. Prochain libre : **`T3.117`**.
+  ⛔ **`T3.113` et `T3.114` sont déjà pris sur des branches NON MERGÉES** (`fix/t3.54` et
+  `fix/t3.57`) : un numéro se prend au merge, mais ceux-là sont écrits et il ne faut pas les
+  reprendre.
+
+  **[`T3.116`](T3.116.md) en une ligne** : les capteurs à borne de la série disent tous
+  `EXPECT_LT(longestEcho(journal, secret), kMaxEcho)`, et une mesure qui rend **0** les satisfait
+  tous — mesuré, **0 rouge sur 139** avec l'emballage aveuglé dans sept suites. La parade (deux
+  assertions littérales sur la mesure) existe déjà dans cinq suites, mais sur l'**autre** fonction.
+
+  ⭐⭐ **CE QUI ATTEND L'UTILISATEUR, ET RIEN D'AUTRE :**
+  1. ⛔ **Le `push`** — livraison, pas vérification. Le job CI chez GitHub n'a **jamais** tourné.
+     ⚠️ Attente précise : `SKIP 4` sur un exécuteur sans IPv6.
+  2. **[`T3.104`](T3.104.md)** et **[`T3.105`](T3.105.md)** — arbitrages **déjà tranchés** le
+     2026-09-06 ([`DECISIONS.md`](DECISIONS.md), « Cinq arbitrages du 2026-09-06 ») : ils restent
+     **à écrire**, pas à rediscuter.
+  3. **[`T3.111`](T3.111.md)** — la seule question de produit : une session de service a-t-elle le
+     droit de lire la configuration ? de l'écrire ? de lire le jeton du proxy ?
+
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-06, APRÈS LE MERGE DE [`T3.101`](T3.101.md)) — conservé
+  pour l'historique.**
 
   ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION** : il déclenche un **build de
   développement qui est déployé**. **Aucun agent ne pousse, jamais.** ⛔ **RIEN N'A ÉTÉ POUSSÉ DE
@@ -11401,6 +11524,7 @@ refuseront — ou pire, une suite qu'elles laisseront passer.
 | `check-extra-dist.sh` / `check-dist-coverage.sh` | un fichier nommé par le harnais mais absent de la distribution, et l'inverse |
 | `check-config-docs.sh` / `check-config-options.sh` | une option de configuration livrée sans documentation |
 | ⭐ `check-echo-ceilings.sh` (2026-09-05, élargie par `T3.99`) | un **plafond d'écho** de `tests/` que rien ne re-dérive : il doit être **épinglé** par un `EXPECT_EQ(<plafond>, <mesure>.size() + 1)` du même fichier, ou tenu **au-dessus** d'un plafond épinglé par un `EXPECT_GT` — **et**, s'il est épinglé, voir la **portée hexadécimale** de chaque forme mesurée de ses documents bornée sous lui par un `EXPECT_LT` d'un cas qui appelle une mesure `…HexRun`. **10 plafonds vus, 10 tenus** (2026-09-06, `T3.101`) |
+| ⭐⭐ `check-order-sentinels.sh` (2026-09-06, `T3.63`) | une assertion d'ordre dont le **plateau acceptant** — le côté **bas** pour une sentinelle négative, le côté **haut** pour `npos` — porte une valeur qu'aucune assertion **du même cas** n'exclut de sa sentinelle en **nommant la même expression** (`ASSERT_GE(<elle>, 0)`, `ASSERT_NE(std::string::npos, <elle>)`). Un comparateur de position répond « pas trouvé » par un entier ordinaire que le `<` **accepte** : le cas passe au VERT exactement quand la clé qu'il garde disparaît de la charge. **51 emplacements vus, 51 gardés** (2026-09-06, après la revue de `T3.63` ; **49 / 39 / 10** avant elle, et les 10 sont ce que le ticket a fermé) |
 
 ⛔ **Ce que `check-echo-ceilings.sh` ne voit pas, et qu'il faut dire au brief suivant** : elle lit la
 **forme**, jamais la mesure — elle ne distingue pas un bornage qui parcourt toutes les formes d'un qui
@@ -11420,13 +11544,44 @@ tient, et **toute la suite reste verte**. ⇒ un plafond épinglé ne dit **rien
 nombre de lignes, ni le facteur de multiplication d'une seule. Le brief qui pose une borne d'écho
 doit demander séparément ce qui tient le **débit**.
 
-⭐ **`check-echo-ceilings.sh` est la SEULE de la famille à porter un auto-test** (depuis `T3.99`) :
-8 fichiers écrits pour être refusés et 2 pour être acceptés, passés à la même fonction d'analyse que
-l'arbre réel, **avant** chaque balayage. ⭐ **Mesuré à la revue** : en retirant l'exclusion des cas
+⛔⭐ **ET LA MESURE ELLE-MÊME N'EST PLUS UNE HYPOTHÈSE : elle est mesurée** (revue de `T3.63`,
+[`T3.116`](T3.116.md)). L'emballage `longestEcho()` rendu aveugle (`return 0;`) dans les **sept**
+suites qui en portent un laisse **toutes** leurs bornes vertes — aucun capteur à borne ne rougit sur
+139, **8 `CXXLD` lus**. ⭐ La parade est déjà écrite dans l'arbre, mais sur l'**autre** fonction :
+cinq suites sur huit épinglent la mesure **profonde** par `ASSERT_EQ("bcdef", longestEchoRun(…))` et
+`ASSERT_EQ("", longestEchoRun(…))`. **Aucune** ne le fait pour la fonction que les bornes appellent.
+
+⭐ **DEUX sondes de la famille portent un auto-test**, et elles sont les seules :
+`check-echo-ceilings.sh` depuis `T3.99` (8 fichiers écrits pour être refusés, 2 pour être acceptés)
+et `check-order-sentinels.sh` depuis `T3.63` (**21** fichiers : **12 refusés, 9 acceptés**),
+passés à la même fonction d'analyse que l'arbre réel, **avant** chaque balayage. ⭐ **Mesuré à la revue** : en retirant l'exclusion des cas
 `DISABLED_`, l'arbre livré reste **vert** et seul l'auto-test rougit — c'est exactement le trou qu'il
 bouche. ℹ️ **Les autres sondes de la famille n'en ont toujours pas** (`check-test-deps.sh`,
 `check-extra-dist.sh`, `check-config-docs.sh`) : pour elles, une contre-mutation reste le seul moyen de
 savoir qu'elles parlent encore.
+
+⛔⭐ **ET UN AUTO-TEST NE VAUT QUE LA COUVERTURE DE SES FICHIERS — mesuré à la revue de `T3.63`.**
+Une sonde se contre-mute **là où son auto-test ne regarde pas**, c'est-à-dire dans son **masquage
+lexical** et dans sa **reconnaissance des comparateurs**, jamais dans la règle qu'elle énonce (celle-là
+est justement ce que les fichiers pincent). Trois échanges sur `check-order-sentinels.sh` livrée
+étaient **muets des deux côtés** : les deux formes de commentaire échangées ⇒ **43 de ses 49
+emplacements et ses 10 vraies plaintes disparaissent, `make check` reste VERT** ; un jeton retiré au
+motif qui reconnaît un comparateur de position ⇒ la famille `keyPos()` cesse d'être vue, **10 plaintes
+→ 8** ; et son équilibre de parenthèses comptait les crochets écrits **dans un littéral**, rendant
+invisible toute aiguille comme `find("{\"data\"")`. Les trois sont fermés par cinq fichiers de plus.
+⚠️ **Ce que l'auto-test apporte n'est PAS la justesse** : court-circuité sur une sonde saine, le
+balayage refuse exactement les mêmes emplacements. Il empêche une sonde **cassée** d'accuser des
+innocents — mesuré : la même sonde mutée rougit sur 4 de ses fichiers et n'atteint jamais le
+balayage ; auto-test court-circuité, le balayage seul porte **7 accusations FAUSSES**.
+
+⛔⭐ **CE QUE `check-order-sentinels.sh` NE VOIT PAS, et qu'il faut dire au brief suivant** : elle lit
+**un fichier à la fois** (un comparateur déclaré dans un `.h` lui est invisible, et tous ses sites
+d'appel avec lui) · elle connaît **deux** sentinelles, l'arbre en porte une troisième (`pickFreePort()`
+rend `0`) · les ordres d'**itérateurs** lui échappent, leur polarité tenant au conteneur et non au
+texte · un `find()` **enfoui dans une expression arithmétique** ne lui est pas un opérande
+([`T3.115`](T3.115.md)) · et elle lit **l'assertion, pas le cas**, donc son compte **surestime** le
+nombre de cas vacuants (10 assertions pour 8 cas au balayage de `T3.63`). ⛔ Elle ne dit rien non plus
+d'une **mesure aveugle** — voir juste au-dessus, et [`T3.116`](T3.116.md).
 
 ## ⚠️ Outillage — sorties tronquées : `grep` hooké et `docker ps --format` (E4.0f, 2026-08-17)
 
