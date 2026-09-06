@@ -12229,3 +12229,92 @@ construction, on ne corrige pas la fixture — on ajoute un capteur sur ce qui r
   passer les citations non résolues de **26 à 15** pour **une seule** accusation de plus — et
   celle-là est vraie (`__init__.py:17`, le fichier en a 8). Les 26 silences ne cachent donc pas un
   trou.
+
+---
+
+## T3.21 + T3.25a — quatre mesures, et une prémisse de fiche qui était périmée
+
+### ⭐⭐ `F-UB-1` (fermé à l'ouverture) — le comportement indéfini annoncé n'existait plus, et c'est la SONDE qui le dit
+
+`T3.25a` §1 annonçait un **débordement d'entier signé** sur `impulse_action_time + impulse_time`.
+`T3.34`, mergé entre-temps, calcule la somme en `double` aux **quatre** sites des deux classes de
+volet. La fiche était donc en défaut — **le cinquième recensement de fiche pris en défaut de la
+série**, après `T3.55`, `T3.63`, `T3.59` et `T3.21` lui-même (§ ci-dessous).
+
+⭐ **Ce qui rend la mesure porteuse n'est pas le zéro, c'est le deux.** Un balayage sous
+`-fsanitize=signed-integer-overflow` qui ne trouve rien ne prouve rien : il peut ne rien trouver
+parce que le code est sain, ou parce que le chemin n'est pas atteint, ou parce que la sonde n'est pas
+armée. La campagne a donc **remis la somme en `int`** et remesuré :
+
+| Arbre | `runtime error` |
+|---|---|
+| livré | **0** |
+| somme remise en `int` | **2**, `signed integer overflow: 2147483647 + 35 cannot be represented in type 'int'` |
+
+*À recopier : une mesure d'ABSENCE ne vaut que si l'on a fait rougir la même sonde sur le même
+chemin dans le même tour. Sinon on publie le silence d'un outil, pas l'état du code.*
+
+⚠️ **Et le corollaire qui dérange** : le débordement de `T3.34` n'était **pas** invisible à un
+`make check` vert. Sous la sonde, `ShutterImpulseLifetimeTest.PlainOutOfRangeImpulseLeavesNoTimerArmedForEver`
+rougit **aussi** — la somme repassée négative arme une minuterie que libuv ne déclenchera jamais.
+Un comportement indéfini **peut** avoir un capteur observable ; ne pas le supposer invisible.
+
+### ⭐ `F-SHUT-1` (fermé) — le refus doit se mesurer par sa CONSÉQUENCE, et une conséquence se mesure par contraste
+
+Le scénario « grande valeur ⇒ le volet part en course complète » est **observable par le
+propriétaire de l'installation** : aucune minuterie d'arrêt n'est armée, le volet va à sa butée, et
+le serveur répond `{"success":"true"}` pendant ce temps.
+
+⭐ **Un seul volet ne suffit pas à le mesurer.** « Le volet n'a pas été vu s'arrêter dans le budget »
+est aussi la réponse d'une boucle que personne ne pompe, d'un oracle cassé, ou d'une machine trop
+lente. `AnOverflowingImpulseSendsNoShutterOnItsFullTravel` pilote donc **deux volets de la même
+fixture dans un seul cas et un seul budget** : le premier reçoit une impulsion bien formée et **est
+vu s'arrêter**, le second reçoit la valeur démesurée. C'est la première jambe qui rend la seconde
+porteuse.
+*À recopier : une assertion « rien ne s'est produit » n'est porteuse que si le MÊME tour montre que
+quelque chose de comparable, lui, s'est bien produit.*
+
+⚠️ **Et la fixture voisine ne pouvait pas héberger ce cas.** `core/SetStateGarbage_test` fixe
+`time="0"` **délibérément**, précisément pour qu'aucune minuterie ne soit jamais armée : une fixture
+qui n'arme rien ne peut pas voir une course complète. C'est la **quatrième** façon de mentir — la
+fausse fixture — sous sa variante « la fixture était juste pour son ticket et fausse pour le
+suivant ».
+
+### ⭐ `F-T321-1` (fermé) — « une ligne » et « deux appelants », deux fois faux dans la même phrase
+
+La fiche d'ouverture de `T3.21` annonçait « **correctif d'une ligne**, aucun appelant cassé (seuls
+`InputString.cpp:37` et `InputAnalog.cpp:99` appellent `del_param` par ailleurs) ».
+
+- **Trois** autres appelants, pas deux : `Scenario/AutoScenario.cpp` était omis. Recompté par un
+  balayage sur la **forme** (`del_param` **et** `Params::Delete`), pas sur un nom — la même méthode
+  que le recensement juste de `T3.38` et de `T3.59`.
+- **Une ligne ne suffit pas**, et la raison se nomme : `del_param()` rendait `void`. ⛔ **Une garde
+  muette ne peut pas dire non** — rebrancher l'appel sans lui donner une réponse aurait rendu
+  `{"success":"true"}` pour un refus, c'est-à-dire le défaut d'origine déplacé d'un cran.
+
+*À recopier : un correctif « d'une ligne » sur une garde EXISTANTE se vérifie en demandant d'abord
+ce que la garde peut DIRE. Une garde qui rend `void` ne se rebranche pas, elle se complète.*
+
+### ⭐ `F-ANALOG-1` (fermé) — `Exists()` prouve la clef, jamais le nombre, et le renommage PERSISTE sa décision
+
+`InputAnalog::readConfig()` : un `period=` ou un `interval=` **présent et vide** donnait une période
+de **0**, donc `if (sec >= frequency)` toujours vrai, donc `readValue()` **à chaque tour de la boucle
+de règles** — mesuré, **20 lectures en 20 tours**. Sur une entrée Wago, 1-Wire ou Web c'est une
+scrutation permanente du matériel : pas une valeur fausse, une **charge**.
+
+⭐ **Et la branche de renommage est la seule des trois à écrire** : elle lisait `frequency` dans le
+membre puis sérialisait ce membre dans `period`. Mesuré sur `master` : `period="0"` **dans la
+configuration**. Le défaut survivait au redémarrage et **survivait au paramètre qui l'avait causé**.
+*À recopier : trier les défauts de lecture de configuration selon qu'ils sont RELUS ou ÉCRITS. Un
+défaut qui repart sur le disque n'est pas de la même famille que celui qui se recalcule au démarrage.*
+
+⚠️ **Ce qui n'est pas décidé** : un `period="0"` écrit à la main vaut toujours « à chaque tour ».
+C'est dans le sens documenté du paramètre ; le refuser serait une décision de produit.
+
+### ⚠️ `F-FLAKY-2` a reparu — deux fois, et sur les deux tours où le fichier muté ne le concerne pas
+
+`core/MqttSidecarConfigWait_test` a flanché aux tours **CM-5** et **CM-6** de la campagne, toujours
+seul, toujours sur `AnUnreachableBrokerEndsTheSidecarWithACauseAndANonZeroStatus`. CM-5 ne mute que
+`JsonApi.cpp` : le lien de cause est exclu, c'est bien `F-FLAKY-2` / [`T3.112`](T3.112.md).
+⛔ **Aucun `make check` n'a été relancé pour l'effacer.** Il n'a flanché à **aucun** des cinq
+`make check` de l'arbre livré.

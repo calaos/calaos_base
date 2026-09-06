@@ -62,17 +62,15 @@ Les variateurs d'éclairage avaient la même faiblesse sur leurs commandes à ar
 > pendant », **sans rien derrière**. C'est le cas qui lisait une durée **jamais initialisée**, et
 > c'est celui-là qui est fermé.
 >
-> **Une commande complète mais absurde n'est pas concernée**, et il faut le dire : une durée
+> **Une commande complète mais absurde n'était pas concernée**, et il fallait le dire : une durée
 > **numériquement trop grande** pour être représentée — par exemple `impulse up 99999999999999999999` —
-> **passe la validation** (elle n'est pas tronquée), et le serveur la ramène à la plus grande durée
-> représentable. **Le scénario « très grande valeur ⇒ le volet monte jusqu'à sa butée » reste donc
-> ouvert par ce chemin-là.** Il n'est pas nouveau, il n'est pas aggravé, et il demande une commande
-> qu'aucune application Calaos ne produit — mais il n'est **pas** fermé par cette version, et la
-> version précédente de cette note laissait croire le contraire.
+> **passait la validation** (elle n'est pas tronquée), et le serveur la ramenait à la plus grande
+> durée représentable. Le scénario « très grande valeur ⇒ le volet monte jusqu'à sa butée » restait
+> donc ouvert par ce chemin-là.
 >
-> Le correctif durable est identifié et tient en deux lignes par commande dans l'équipement
-> lui-même (rejeter l'argument s'il n'est pas un nombre lisible, plutôt que de le deviner) ; il est
-> **suivi séparément** parce qu'il touche un fichier en cours de modification par un autre travail.
+> ✅ **CE CHEMIN EST FERMÉ DEPUIS** — voir la section suivante. Le correctif durable annoncé ici a
+> été livré : l'équipement rejette maintenant l'argument quand ce n'est pas un nombre lisible, au
+> lieu de le deviner.
 
 > ⚠️ **Un changement de comportement à connaître si vous scriptez l'API.** Le refus ci-dessus
 > porte sur **toute** valeur de `set_state` qui **se termine par une espace ou une tabulation**,
@@ -81,6 +79,76 @@ Les variateurs d'éclairage avaient la même faiblesse sur leurs commandes à ar
 > type **texte** ne peut plus être réglée à une valeur **finissant par une espace** (`"note "`)
 > par cette commande — retirez l'espace de fin, ou ajoutez un caractère après. Les espaces au
 > **début** et **à l'intérieur** de la valeur sont conservées comme avant.
+
+### ✅ Et une durée d'impulsion **démesurée** ne fait plus partir le volet jusqu'à sa butée (T3.25a)
+
+C'est l'autre moitié du même problème, laissée ouverte par la correction précédente et **fermée
+maintenant**.
+
+Si la durée envoyée avec « monte pendant … » était un nombre **trop grand pour être représenté** —
+vingt chiffres, par exemple — la commande n'était pas tronquée, donc elle **passait**. Le serveur la
+ramenait alors silencieusement à la plus grande durée qu'il sait écrire, soit environ **vingt-cinq
+jours**. Cette durée dépassant la course du volet, **aucune minuterie d'arrêt n'était armée du
+tout** : au lieu de l'à-coup demandé, **le volet partait jusqu'à sa butée** — et le serveur répondait
+`success: true` pendant ce temps. La durée inventée était en plus **publiée dans l'état de
+l'équipement**, où les applications connectées la lisaient.
+
+**Ce qui change.** L'argument d'une commande d'impulsion est maintenant vérifié **dans l'équipement
+lui-même**, et pas seulement à l'entrée de l'API. Il doit se lire **entièrement** comme un nombre
+entier ; sinon la commande est refusée (`success: false`) et **rien n'est touché** — ni le relais, ni
+l'état publié. Cela vaut pour les deux sens (« monte pendant », « descend pendant »), pour les deux
+familles de volets, et **par tous les chemins** : l'API, une règle, un scénario, un script Lua.
+
+> **Ce qui n'est pas refusé, et c'est voulu** : une durée **grande mais parfaitement lisible**
+> (`impulse up 2147483647`) reste une commande légale, et elle enverra bien le volet jusqu'à sa
+> butée — c'est ce qui a été demandé. Seul ce qui **ne se lit pas** est refusé.
+
+> **Un petit changement de comportement pour les intégrations** : une commande d'impulsion dont
+> l'argument est **partiellement** lisible (`impulse up 12abc`) était exécutée comme `12`. Elle est
+> maintenant refusée.
+
+### ✅ Une entrée analogique dont la période d'échantillonnage est mal renseignée ne scrute plus le matériel en permanence (T3.25a)
+
+Les entrées analogiques (température, consommation, capteurs Wago, 1-Wire, Web…) sont relues à
+intervalle réglable, par le paramètre `period` (en millisecondes) ou `interval` (en secondes). La
+documentation dit : **si ce n'est pas renseigné, 15 secondes**.
+
+Jusqu'ici, le serveur vérifiait que le paramètre **existait**, jamais qu'il contenait un nombre. Un
+`period` **présent mais vide**, ou contenant du texte, donnait donc une période de **zéro** — c'est-à-dire
+**une lecture du matériel à chaque tour de la boucle de règles**, en continu. Ce n'est pas une valeur
+fausse affichée, c'est une **charge permanente** sur le bus ou sur l'équipement interrogé.
+
+⚠️ **Et le cas le plus gênant s'écrivait sur le disque.** Les installations anciennes portent un
+paramètre `frequency`, que le serveur renomme automatiquement en `period` au démarrage. Quand cette
+valeur ancienne n'était pas lisible, le serveur **enregistrait `period="0"` dans le fichier de
+configuration** : la scrutation permanente **survivait au redémarrage**, et survivait même à la
+suppression du paramètre d'origine.
+
+**Ce qui change.** Toute valeur qui ne se lit pas entièrement comme un nombre — vide, du texte, un
+nombre suivi de lettres, un nombre hors limites — retombe sur les **15 secondes documentées**, et
+c'est cette valeur-là qui est écrite dans la configuration lors du renommage.
+
+> **Une période de `0` écrite explicitement continue de vouloir dire « à chaque tour ».** C'est dans
+> le sens documenté du paramètre, et cela n'a pas été changé.
+
+### ✅ L'identifiant d'un équipement ne peut plus être supprimé par l'API (T3.21)
+
+L'identifiant (`id`) d'un équipement est la clef par laquelle le serveur le retrouve. Le changer
+après coup est refusé depuis longtemps — mais **le supprimer** ne l'était pas : la commande générique
+de suppression de paramètre l'acceptait, répondait **`success: true`**, et l'équipement se retrouvait
+publié **sans identifiant**. Concrètement : il était toujours là, il fonctionnait toujours, mais
+**plus aucune application ne pouvait l'adresser**, et l'événement annonçant la suppression le
+désignait lui aussi par un identifiant vide. Il fallait recharger la configuration pour le retrouver.
+
+**Ce qui change.** La commande est maintenant refusée, avec exactement la même réponse que la
+tentative de **modification** de l'identifiant (`param refused`), sur les deux transports (WebSocket
+et HTTP). Supprimer n'importe quel **autre** paramètre continue de fonctionner à l'identique — y
+compris ceux dont le nom contient `id`, comme `chauffage_id`.
+
+> **Êtes-vous concerné ?** Aucune application Calaos n'envoie cette commande. Elle vient d'un script,
+> d'une automatisation maison ou d'un outil de configuration qui construit ses messages lui-même.
+> Il fallait un compte authentifié ; ce n'était pas une prise de contrôle, mais un équipement pouvait
+> devenir invisible aux applications jusqu'au rechargement suivant.
 
 ### Effets de bord bénéfiques de la même correction
 
