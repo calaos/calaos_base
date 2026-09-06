@@ -107,6 +107,16 @@ familles de volets, et **par tous les chemins** : l'API, une règle, un scénari
 > l'argument est **partiellement** lisible (`impulse up 12abc`) était exécutée comme `12`. Elle est
 > maintenant refusée.
 
+> ⚠️ **Ce que cette version ne corrige PAS, et il faut le dire.** La vérification porte sur les deux
+> commandes d'**impulsion**. Les volets « intelligents » (ceux qui savent se placer à un
+> pourcentage d'ouverture) acceptent **trois autres commandes qui prennent un nombre** —
+> « place-toi à … % », « monte de … % », « descends de … % » — et **celles-là ne sont pas
+> vérifiées**. Un nombre trop grand y est toujours ramené silencieusement à sa plus grande valeur,
+> la position visée devient absurde, et la valeur inventée est **publiée dans l'état de
+> l'équipement**, où les applications connectées la lisent. Aucun volet ne part à sa butée par ce
+> chemin — le calcul de position, lui, n'a jamais débordé — mais la commande n'est pas refusée.
+> C'est suivi séparément.
+
 ### ✅ Une entrée analogique dont la période d'échantillonnage est mal renseignée ne scrute plus le matériel en permanence (T3.25a)
 
 Les entrées analogiques (température, consommation, capteurs Wago, 1-Wire, Web…) sont relues à

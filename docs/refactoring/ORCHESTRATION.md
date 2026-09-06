@@ -40,7 +40,218 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.32`](T3.32.md)) —
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.21`](T3.21.md) +
+  [`T3.25a`](T3.25a.md)) — À LIRE EN PREMIER À FROID.**
+
+  ⭐⭐⭐ **LE BACKLOG D'ORIGINE DU 4 SEPTEMBRE EST À ZÉRO.** `T3.21` et `T3.25a` étaient les deux
+  derniers. ⛔ **Aucun ticket du backlog d'origine n'est en vol, aucune branche n'est en attente.**
+
+  ⚠️ **Et le compte a été RECOMPTÉ au merge, parce qu'il circulait faux.** Le brief de cette revue
+  annonçait « quinze, dont 13 fermés et 2 écartés ». **Ce quinze n'est reconstructible nulle part
+  dans ce fichier.** Ce que le fichier porte, et qui se vérifie ligne à ligne, c'est une liste de
+  **onze**, énumérée la première fois au bloc « 11 tickets encore ouverts » : `T3.21`, `T3.22`,
+  `T3.25a`, `T3.32`, `T3.38`, `T3.54`, `T3.55`, `T3.57`, `T3.59`, `T3.60`, `T3.63`. Elle s'est vidée
+  **un état de sortie après l'autre** — `T3.60`, puis `T3.63`, `T3.57`, `T3.54` + `T3.55`, `T3.38`,
+  `T3.59`, `T3.22`, `T3.32`, et enfin `T3.21` + `T3.25a` — et **les onze sont fermés avec un
+  correctif livré**. Les **2 écartés par décision** du même lot, [`T3.20`](T3.20.md) (absorbé par
+  [`E4.6`](E4.6.md), branche supprimée, analyse conservée) et [`T3.26`](T3.26.md) (le downgrade OTA
+  est le comportement **voulu**), en étaient sortis **avant** que le compte `(a)` ne commence à être
+  tenu ; ils n'y ont donc jamais figuré. ⇒ **11 fermés + 2 écartés = 13**, et non 15.
+  *À recopier : un compte cumulé qui n'a pas d'énumération dans le fichier n'est pas un compte, c'est
+  un souvenir. Le dernier état de sortie d'une série est le pire endroit pour en publier un.*
+
+  ⛔⭐⭐⭐ **CE QUI COMPTE LE PLUS, ET C'EST MESURÉ, PAS DÉDUIT : POUSSER PUBLIE SANS ATTENDRE LES
+  TESTS.** Inchangé depuis la mesure de [`T3.22`](T3.22.md) :
+  `.github/workflows/docker-publish-dev.yml` part sur `on: push: branches: [master]`, son **unique**
+  job n'a **ni `needs:` ni `if:`**, l'arbre ne porte **aucun** `workflow_run`, et les tests vivent
+  dans un **autre** fichier de workflow. ⇒ **le premier `push` incrémentera la version, créera un tag
+  git, publiera `ghcr.io/calaos/calaos_base:dev` et le tag versionné, et dispatchera un `build_deb`
+  vers `calaos/pkgdebs` — que `build-and-test` soit vert, rouge, ou encore en cours.** La garde reste
+  à poser et c'est une décision de l'utilisateur ([`T3.125`](T3.125.md) B et C), ⚠️ **pas avant
+  [`T3.112`](T3.112.md)**.
+  ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION. Aucun agent ne pousse, jamais.**
+  ⛔ **RIEN N'A ÉTÉ POUSSÉ DE TOUTE LA SÉRIE.**
+
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de la branche
+  `fix/t3.21` (**3 commits** : 3 du développeur, plus 1 de la revue de merge), `merge --ff-only`,
+  historique linéaire, **0 commit de fusion**. Rebasée de `099f15fa` sur `7462398b` ⇒ **un seul**
+  conflit, `FINDINGS.md`, résolu en **gardant les deux côtés** ; `tests/Makefile.am` et `BOARD.md`
+  se sont fusionnés seuls, les deux autres conflits attendus n'ont pas eu lieu.
+  ⭐ **`tests/Makefile.am` prouvé append pur** : `master` **préfixe exact octet à octet**
+  (359 431 octets), **+173/−0/~0**, `^if*` **122 → 125** ≡ `^endif` **122 → 125**.
+  `TESTS` **142 → 145**, référence après `make distclean` : **`TOTAL 145 / PASS 144 / SKIP 1 /
+  FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, **145 `.trs`** recomptés, seul `SKIP`
+  `check-ccache-honesty.sh`, **0 `error:`**, **146 `CXXLD`** au `make -j32`, **un seul** bloc
+  `Testsuite summary` par tour, **trois `make check` consécutifs identiques** sur l'arbre final.
+  ⚠️ **`core/MqttSidecarConfigWait_test` a flanché 2 fois sur les 11 `make check` complets de cette
+  revue**, toujours **seul** et toujours sur `AnUnreachableBrokerEndsTheSidecarWithACauseAndANonZero
+  Status` — les deux fois dans la **même** campagne de deux tours consécutifs, et jamais dans les
+  trois tours de référence finaux ni dans les cinq tours de contre-mutation. C'est `F-FLAKY-2` /
+  [`T3.112`](T3.112.md), **antérieur** : le ticket ne touche aucune ligne du sidecar MQTT.
+  ⛔ **Aucun `make check` n'a été relancé pour faire disparaître ce rouge.**
+
+  ⭐⭐ **CE QUE LES DEUX TICKETS FERMENT.**
+  - **`T3.21`** : `buildJsonDelParam()` court-circuitait `IOBase::del_param()` en passant par la
+    référence `Params` mutable que `get_params()` distribue ⇒ la garde d'immuabilité de `"id"`
+    n'était atteignable depuis **aucun** des deux transports. Le client recevait
+    `{"success":"true"}`, l'IO était publié avec un `"id"` **vide** que plus personne ne pouvait
+    adresser, et l'`EventIOPropertyDelete` le nommait par cette même chaîne vide. ⭐ **« Une ligne »
+    ne tenait pas** : `del_param()` rendait `void`, et une garde muette ne peut pas dire non ⇒
+    `void`→`bool` et **4 sites**.
+  - **`T3.25a`** : une durée d'impulsion **hors bornes** (`impulse up 99999999999999999999`) ne
+    finit pas sur son séparateur, franchissait la garde de `T3.25`, saturait à `INT_MAX` ⇒ **aucune
+    minuterie d'arrêt armée** et le volet partait sur **sa course entière** avec un succès sur le
+    fil. Garde **dans l'IO**, deux lignes par grammaire, **4 sites**. Et `InputAnalog` : un
+    `period=`/`interval=` **présent et vide** donnait une période de **0**, donc une lecture du
+    matériel à **chaque tour** de la boucle de règles, que la branche de renommage **écrivait dans
+    `io.xml`**.
+
+  ⭐⭐⭐ **CE QUE LA REVUE A MESURÉ, ET QUI DÉPASSE LES DEUX TICKETS :**
+  1. ⭐⭐ **LA PRÉMISSE PÉRIMÉE EST REFAITE, ET C'EST LE DEUX QUI PORTE LA MESURE, PAS LE ZÉRO.**
+     `-fsanitize=signed-integer-overflow` sur les **4** binaires de la famille volet ⇒
+     **`TOTAL 4 / PASS 4`, 0 `runtime error`** sur l'arbre livré. La somme remise en `int` aux
+     **4** sites (`(double)a + (double)b` → `(double)(a + b)`) ⇒ **exactement 2** `runtime error`,
+     `signed integer overflow: 2147483647 + 35 cannot be represented in type 'int'`, aux **deux**
+     sites d'`OutputShutter.cpp` — `OutputShutterSmart` n'est jamais atteint, exactement comme la
+     fiche le déclare — et **1** cas rouge, `ShutterImpulseLifetimeTest.PlainOutOfRangeImpulseLeaves
+     NoTimerArmedForEver`. ⇒ le débordement que `T3.34` a fermé **avait** un capteur observable.
+     *À recopier : une mesure d'ABSENCE ne vaut que si l'on a fait rougir la même sonde sur le même
+     chemin dans le même tour. Sinon on publie le silence d'un outil, pas l'état du code.*
+  2. ⭐⭐ **LA COURSE COMPLÈTE EST REJOUÉE, ET LE CONTRASTE FONCTIONNE.** La garde du volet simple
+     retirée, `AnOverflowingImpulseSendsNoShutterOnItsFullTravel` rend les **deux** symptômes
+     annoncés — `victim->relayPulses` attendu 0 **obtenu 1**, `pumpUntilSince(..., victim->isStopped,
+     1200 ms)` **obtenu -1** — pendant que la **première jambe du même cas**, le volet témoin, est
+     bien vue s'arrêter dans le même budget. C'est ce qui rend la seconde jambe porteuse : « n'a pas
+     été vu s'arrêter » tout seul serait aussi la réponse d'une boucle que personne ne pompe.
+  3. ⭐⭐ **LA COMPARAISON CROISÉE EST ÉPROUVÉE DANS LES DEUX SENS, ce qu'un seul tour ne peut pas
+     faire.** Renommer le message de refus de `buildJsonSetParam()` **seul** ⇒ le cas croisé
+     `TheRefusalIsTheOneSetParamAlreadyGivesForTheSameKey` est **le seul rouge** de son fichier,
+     tous ses littéraux restent verts. Le renommer **des deux côtés** ⇒ le cas croisé reste **VERT**
+     et **3** littéraux rougissent. Un littéral recopié aurait rougi aux deux tours ; un cas vacuant
+     aurait été vert aux deux.
+     *À recopier : une assertion « ces deux réponses sont la même » se prouve par la PAIRE de tours.*
+  4. ⭐ **LE POINT DE PASSAGE EST VÉRIFIÉ, PAS CRU.** `set_value(std::string)` n'est défini que dans
+     `OutputShutter.cpp` et `OutputShutterSmart.cpp` pour toute la famille : **aucune** des 7 classes
+     matérielles (Wago ×2, Gpio ×2, KNX ×2, Mqtt ×1) ne le redéfinit, leurs gabarits
+     (`WOVoletBase`, `ThinIo`, `GpioOutputShutterBase`, `MqttIOBase`, `KNXIo`) ne redéfinissant que
+     `set_value_real()` et `readConfig()`. Les deux sites de base les couvrent toutes les sept.
+     ⚠️ Les deux classes `MySensors*OutputShutter*` que l'arbre de travail semble porter **n'existent
+     plus** : seuls des `.o` périmés en gardent le nom.
+  5. ⭐ **LE RECENSEMENT DE `T3.21` EST RECOMPTÉ ET TOMBE JUSTE.** `del_param()` a **3** appelants
+     hors du site du ticket (`AutoScenario.cpp`, `InputString.cpp`, `InputAnalog.cpp`) — la fiche
+     d'ouverture en annonçait 2 —, **aucune** sous-classe ne le redéfinit, et il reste **6**
+     `Params::Delete()` ailleurs, tous hors des paramètres d'un IO vivant. ⚠️ **Ordinal corrigé au
+     merge** : c'est le **sixième** recensement de fiche pris en défaut de la série et non le
+     cinquième — le cinquième est celui de la revue de `T3.32`, mergée entre-temps.
+  6. ⛔⭐⭐ **ET LA GRAMMAIRE DÉCLARÉE NON GARDÉE EST PIRE QUE FICHÉE** ⇒ `F-SHUT-2`, versé à
+     [`T3.123`](T3.123.md) §1. Échanger les **deux directions** des grammaires en pourcentage
+     d'`OutputShutterSmart` — l'`up <n>` fait descendre le volet, le `down <n>` le fait monter,
+     `cmd_state` inchangé — laisse `make check` **entièrement vert : `TOTAL 145 / PASS 144`, 0 cas
+     rouge**, avec **90 `CXXLD`** lus. ⇒ **le sens de marche du volet n'est épinglé nulle part** sur
+     cette classe, et poser la garde de deux lignes fermerait la saturation en laissant ce trou-là
+     entier.
+     *À recopier : avant d'écrire « X n'est pas gardé », échanger deux branches de X. « Pas gardé
+     contre une valeur » et « pas mesuré du tout » ne se réparent pas par le même geste.*
+  7. ⛔⭐ **UNE GARDE NOMINATIVE NE GARDE QU'UN NOM** ⇒ [`T3.124`](T3.124.md), **neuve**. `"id"` est
+     la seule clef que le modèle protège, et `"type"` en est une autre : `ListeRoom::createIO()`
+     rend `nullptr` **en silence** quand elle manque et `IOFactory::CreateIO()` rend `nullptr` sur un
+     type inconnu ⇒ un `del_param(io, "type")` répond `{"success":"true"}` et l'IO **disparaît de
+     l'installation au prochain chargement**. ⚠️ `buildJsonDelParam()` ne sauvegarde pas lui-même,
+     mais **7** appels de `SaveConfigIO()` dans `JsonApi.cpp` le feront pour lui.
+     ⛔ **Le cycle sauvegarde → redémarrage → chargement n'a PAS été joué** : le mécanisme est établi
+     par balayage, la conséquence est à mesurer par le ticket.
+  8. ✅ **LE ROUGE DE DÉPART EST RECOMPTÉ CONTRE LES FICHIERS DE PRODUCTION DE `master`** : **5 / 7 /
+     6 = 18** cas rouges dans les trois filets neufs, plus **2** dans les deux suites modifiées (le
+     cas renommé et `PlainOutOfRangeImpulseLeavesNoTimerArmedForEver`). Le compte annoncé tombe juste.
+  9. ✅ **LES ENTRÉES `RELEASE_NOTES.md` DISENT CE QUE L'UTILISATEUR OBSERVE, ET LA LIMITE.** Le volet
+     qui part à sa butée sur une durée démesurée ; la scrutation permanente d'une entrée analogique
+     qui **survit au redémarrage** ; l'équipement qui devient inadressable. Et les deux limites sont
+     écrites : une durée **grande mais lisible** (`impulse up 2147483647`) reste une commande légale
+     qui enverra le volet à sa butée, et un `period="0"` **écrit à la main** veut toujours dire « à
+     chaque tour ».
+  10. ✅ **LE CONTRAT DE TEST CHANGÉ A DÉSORMAIS SA TRACE LÀ OÙ ON LA CHERCHE.**
+      `AnImpulseWithNoDurationIsDefaultedToZero` devient `AnImpulseWithNoDurationIsRefusedByTheIo` ;
+      la trace était dans `T3.25a.md` §5.3 et dans l'en-tête du cas, mais **pas** dans
+      [`T3.25.md`](T3.25.md), qui cite l'ancien nom **3 fois** et que l'on consulte le premier. Une
+      note y renvoie maintenant. La mention d'`ORCHESTRATION.md` reste telle quelle : c'est un relevé
+      daté.
+
+  ⭐ **CE QUE LES CONTRE-MUTATIONS DE LA REVUE ONT MESURÉ — quatre neuves, plus deux rejeux et le
+  témoin :**
+  - ⭐⭐ **CR-1** *(le message de refus de `buildJsonSetParam()` seul renommé)* ⇒ **10 cas / 3
+    binaires**, dont **le seul** de `DelParamIdGuard_test` est le cas croisé ;
+  - ⭐⭐ **CR-2** *(le même message renommé des deux côtés)* ⇒ **12 cas / 3 binaires**, le cas croisé
+    **VERT** et **3** littéraux rouges — la paire CR-1/CR-2 est ce qui prouve le croisement ;
+  - ⛔⭐⭐ **CR-3** *(les deux directions des grammaires en pourcentage d'`OutputShutterSmart`
+    échangées)* ⇒ **0 cas rouge, `make check` entièrement vert** ⇒ `F-SHUT-2` ;
+  - **CR-4** *(la garde d'impulsion retirée dans la seule classe `Smart`)* ⇒ **1 cas / 1 binaire**,
+    `TheSmartShutterRefusesTheSameTwoGrammars` ;
+  - **CM-UB rejouée** *(la somme remise en `int` aux 4 sites, sous sanitizer)* ⇒ **2 `runtime
+    error`**, **1 cas rouge** ;
+  - **CM-CT rejouée** *(la garde d'impulsion retirée dans le volet simple)* ⇒ les **deux** symptômes
+    de la course complète, dans le même cas et le même budget que le témoin ;
+  - **témoin** *(les 6 fichiers réécrits à l'identique, horodatage déplacé)* ⇒ **0 rouge**,
+    `TOTAL 145 / PASS 144`, **90 `CXXLD`** lus : le relink est vivant, donc le vert est porteur.
+  Mutation et restauration **sur l'HÔTE**, jamais un `git` dans le conteneur ; instantané **neuf**
+  hors de l'arbre, nommé par **chemin complet**, jamais réutilisé ; restauration par écriture **sans
+  métadonnées** puis `utime`, prouvée par `cmp` **rc 0** **et** par un horodatage **effectivement
+  déplacé** aux **7** restaurations ; sortie **jamais tronquée** ; `git status` sur l'**HÔTE**
+  **vide** après chaque tour. ⚠️ **Le harnais a été éprouvé contre le 6ᵉ piège AVANT de servir** :
+  aiguille absente ⇒ refus d'écrire, fichier **identique au sha256 près**.
+
+  ⭐⭐ **LES TICKETS OUVERTS — DEUX COMPTES SÉPARÉS, et le premier est désormais à ZÉRO.**
+
+  **(a) Backlog du 4 septembre — 0 ticket ouvert.** Les **onze** de la liste tenue dans ce fichier
+  sont **fermés avec un correctif livré** : [`T3.21`](T3.21.md), [`T3.22`](T3.22.md),
+  [`T3.25a`](T3.25a.md), [`T3.32`](T3.32.md), [`T3.38`](T3.38.md), [`T3.54`](T3.54.md),
+  [`T3.55`](T3.55.md), [`T3.57`](T3.57.md), [`T3.59`](T3.59.md), [`T3.60`](T3.60.md),
+  [`T3.63`](T3.63.md). Les **deux** du même lot **écartés par décision** — [`T3.20`](T3.20.md) et
+  [`T3.26`](T3.26.md) — en étaient sortis avant que ce compte ne soit tenu. ⇒ **11 + 2 = 13**, et le
+  « quinze » qui circulait n'est reconstructible nulle part (voir le recompte en tête de ce bloc).
+  ⛔ **Aucune branche en vol, aucun worktree en attente.**
+
+  **(b) Ouverts PAR LES REVUES pendant la série — 24** (deux entrent, aucun ne sort) : `T3.91`
+  (proposé, fiche non écrite), `T3.100`, [`T3.104`](T3.104.md), [`T3.105`](T3.105.md),
+  [`T3.107`](T3.107.md), [`T3.108`](T3.108.md), [`T3.109`](T3.109.md), [`T3.110`](T3.110.md),
+  [`T3.111`](T3.111.md), [`T3.112`](T3.112.md), [`T3.113`](T3.113.md), [`T3.115`](T3.115.md),
+  [`T3.116`](T3.116.md), [`T3.117`](T3.117.md), [`T3.118`](T3.118.md), [`T3.119`](T3.119.md),
+  [`T3.120`](T3.120.md), [`T3.121`](T3.121.md), [`T3.122`](T3.122.md),
+  [`T3.123`](T3.123.md) **(entrée avec la livraison, élargie par cette revue)**,
+  [`T3.124`](T3.124.md) **(neuve, ouverte par cette revue)**, [`T3.125`](T3.125.md),
+  [`T3.126`](T3.126.md), [`T3.127`](T3.127.md).
+  ⚠️ Numéros **pris** : `T3.76` → `T3.127`. ⛔ **`T3.114` est un TROU périmé, à ne pas réutiliser.**
+  **Prochain libre : `T3.128`.**
+
+  ⭐⭐ **CE QUI ATTEND L'UTILISATEUR, ET RIEN D'AUTRE :**
+  1. ⛔⭐⭐ **Le `push` — et on sait EXACTEMENT ce qu'il fait.** Il **publie** : version incrémentée,
+     tag git, `ghcr.io/calaos/calaos_base:dev` + tag versionné, `build_deb` dispatché vers
+     `calaos/pkgdebs` — **sans attendre le moindre test**, et sans qu'un rouge ne le retienne.
+     ⚠️ Attente précise sur le job CI, qui n'a **jamais** tourné : `SKIP 4` sur un exécuteur sans
+     IPv6, et **`core/MqttSidecarConfigWait_test` visible en rouge par intermittence** — il a flanché
+     2 fois sur 11 à cette revue. **À décider par l'utilisateur seul.**
+  2. ⛔ **[`T3.125`](T3.125.md) B et C** — poser la garde. ⚠️ **Pas avant [`T3.112`](T3.112.md)** :
+     le flottement ferait **manquer des livraisons**. L'issue **A** est **faite**.
+  3. ⚠️ **`F-FLAKY-2` / [`T3.112`](T3.112.md)** — `core/MqttSidecarConfigWait_test` flanche par
+     intermittence, **toujours seul**. **2 fois sur 11** à cette revue, 0 sur 4 à celle de `T3.32`,
+     1 sur 4 à celle de `T3.22`, 4 sur 11 à celle de `T3.38`. ⛔ **Aucun `make check` n'a jamais été
+     relancé pour effacer un rouge.**
+  4. ⭐ **[`T3.120`](T3.120.md) §2** — **le DMX est-il indexé à partir de 0 ou de 1 ?** Décision de
+     produit sur 4 sites ; recommandation **A** (doc seule). `T3.120` §1 est un correctif sans
+     arbitrage, à passer en premier.
+  5. **[`T3.119`](T3.119.md)** — répondre ou non sur la **racine** du dispatch websocket : trois
+     arbitrages, dont un de **sécurité**.
+  6. **[`T3.124`](T3.124.md)** et **[`T3.123`](T3.123.md)** — les deux neuves de cette revue, toutes
+     deux de la famille « la garde ferme un nom, pas une classe ».
+  7. **[`T3.127`](T3.127.md)**, **[`T3.126`](T3.126.md)**, **[`T3.122`](T3.122.md)**,
+     **[`T3.121`](T3.121.md)**, **[`T3.113`](T3.113.md)**, **[`T3.104`](T3.104.md)**,
+     **[`T3.105`](T3.105.md)** et **[`T3.111`](T3.111.md)** — inchangés, voir les états de sortie
+     précédents.
+  8. ⚠️ **Les 12 alertes Dependabot du passage du 2026-08-24 sont toujours OUVERTES**, dont les 2
+     `immutable` à *dismiss* — geste **utilisateur**.
+
+
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-06, APRÈS LE MERGE DE [`T3.32`](T3.32.md)) —
   À LIRE EN PREMIER À FROID.**
 
   ⛔⭐⭐⭐ **CE QUI COMPTE LE PLUS, ET C'EST MESURÉ, PAS DÉDUIT : POUSSER PUBLIE SANS ATTENDRE LES

@@ -12238,8 +12238,10 @@ construction, on ne corrige pas la fixture — on ajoute un capteur sur ce qui r
 
 `T3.25a` §1 annonçait un **débordement d'entier signé** sur `impulse_action_time + impulse_time`.
 `T3.34`, mergé entre-temps, calcule la somme en `double` aux **quatre** sites des deux classes de
-volet. La fiche était donc en défaut — **le cinquième recensement de fiche pris en défaut de la
-série**, après `T3.55`, `T3.63`, `T3.59` et `T3.21` lui-même (§ ci-dessous).
+volet. La fiche était donc en défaut — **le sixième recensement de fiche pris en défaut de la
+série** (ordinal corrigé au merge : le **cinquième** est celui de la revue de [`T3.32`](T3.32.md),
+mergée entre l'écriture de ce paragraphe et son arrivée sur `master`), après `T3.55`, `T3.63`,
+`T3.59` et deux autres — et `T3.21` lui-même en ajoute un septième (§ ci-dessous).
 
 ⭐ **Ce qui rend la mesure porteuse n'est pas le zéro, c'est le deux.** Un balayage sous
 `-fsanitize=signed-integer-overflow` qui ne trouve rien ne prouve rien : il peut ne rien trouver
@@ -12311,6 +12313,71 @@ défaut qui repart sur le disque n'est pas de la même famille que celui qui se 
 ⚠️ **Ce qui n'est pas décidé** : un `period="0"` écrit à la main vaut toujours « à chaque tour ».
 C'est dans le sens documenté du paramètre ; le refuser serait une décision de produit.
 
+
+### ⭐⭐ Revue de merge — la comparaison croisée est éprouvée DANS LES DEUX SENS, et c'est ce qui la distingue d'un littéral
+
+`T3.21` §4 affirme que `TheRefusalIsTheOneSetParamAlreadyGivesForTheSameKey` compare les **deux
+réponses entre elles** et non chacune à un littéral. Une affirmation pareille ne se relit pas, elle
+se mesure — et il faut **deux** tours, parce qu'un seul ne sépare pas les deux hypothèses :
+
+| Tour | Mutation | Le cas croisé | Les cas à littéral du même fichier |
+|---|---|---|---|
+| **CR-1** | le message de refus de `buildJsonSetParam()` **seul** renommé | ⛔ **ROUGE, et seul rouge du fichier** | **verts** |
+| **CR-2** | le **même** message renommé **des deux côtés** | ✅ **VERT** | ⛔ **3 rouges** |
+
+Un littéral recopié aurait rougi aux deux tours ; un cas vacuant aurait été vert aux deux. Le
+croisement est donc réel : il voit les deux moitiés d'une règle **diverger**, et rien d'autre.
+*À recopier : une assertion « ces deux réponses sont la même » se prouve par la paire de tours
+— casser un côté DOIT rougir, casser les deux à l'identique DOIT rester vert. Un seul tour ne
+distingue pas une comparaison croisée d'un littéral bien choisi.*
+
+### ⛔⭐⭐ `F-SHUT-2` — la grammaire NON gardée d'`OutputShutterSmart` n'a pas seulement une saturation : elle n'a **aucun capteur du tout**
+
+`T3.25a` §8 et [`T3.123`](T3.123.md) §1 fichent les grammaires en pourcentage d'`OutputShutterSmart`
+(`set <n>`, `up <n>`, `down <n>`) comme **sans garde** contre la saturation. La revue a mesuré ce que
+ce « sans garde » coûte réellement, par une contre-mutation que le développeur n'avait pas faite :
+**échanger les deux directions** de ces grammaires — l'`up <n>` fait descendre le volet, le
+`down <n>` le fait monter, `cmd_state` inchangé.
+
+⇒ **`make check` reste VERT : `TOTAL 145 / PASS 144 / FAIL 0`, 0 cas rouge**, avec **90 `CXXLD`**
+lus, donc le relink est vivant et le vert est porteur.
+
+Ce n'est donc pas seulement une valeur absurde qui peut sortir par là : **le sens de marche du volet
+n'est épinglé nulle part** sur cette classe. Un correctif futur qui poserait la garde de deux lignes
+fermerait la saturation et laisserait ce trou-là entier.
+*À recopier : avant d'écrire « X n'est pas gardé », échanger deux branches de X. « Pas gardé contre
+une valeur » et « pas mesuré du tout » ne se réparent pas par le même geste.*
+
+### ⭐ Revue de merge — les trois autres mesures, refaites et non relues
+
+- **La prémisse périmée** : `-fsanitize=signed-integer-overflow` sur les **4** binaires de la famille
+  volet ⇒ **`TOTAL 4 / PASS 4`, 0 `runtime error`** sur l'arbre livré ; la somme remise en `int` aux
+  **4** sites ⇒ **exactement 2** `runtime error`, `2147483647 + 35 cannot be represented in type
+  'int'`, aux **deux** sites d'`OutputShutter.cpp` — `OutputShutterSmart` n'est jamais atteint, comme
+  la fiche le déclare — et **1** cas rouge, `ShutterImpulseLifetimeTest.PlainOutOfRangeImpulseLeaves
+  NoTimerArmedForEver`. **Le zéro et le deux, dans le même tour d'outil.**
+- **La course complète** : la garde du volet simple retirée, `AnOverflowingImpulseSendsNoShutterOn
+  ItsFullTravel` rend les **deux** symptômes annoncés — `victim->relayPulses` attendu 0 **obtenu 1**,
+  et `pumpUntilSince(..., victim->isStopped, 1200 ms)` **obtenu -1** — pendant que la **première**
+  jambe du même cas, le volet témoin, est bien vue s'arrêter dans le même budget. Le contraste
+  fonctionne.
+- **Le point de passage** : `set_value(std::string)` n'est défini que dans `OutputShutter.cpp` et
+  `OutputShutterSmart.cpp` pour toute la famille. Balayage de **tous** les `.h`/`.cpp` suivis de
+  `src/bin/calaos_server` : **aucune** des 7 classes matérielles (Wago ×2, Gpio ×2, KNX ×2, Mqtt ×1)
+  ne le redéfinit — leurs gabarits (`WOVoletBase`, `ThinIo`, `GpioOutputShutterBase`, `MqttIOBase`,
+  `KNXIo`) ne redéfinissent que `set_value_real()` et `readConfig()`. Les deux sites de base les
+  couvrent toutes les sept. ⚠️ Les deux classes `MySensors*OutputShutter*` citées par de vieux
+  artefacts de compilation **n'existent plus dans l'arbre** : seuls des `.o` périmés en portent le
+  nom.
+- **Le recensement de `T3.21` recompté** : `del_param()` a **3** appelants hors du site du ticket
+  (`AutoScenario.cpp`, `InputString.cpp`, `InputAnalog.cpp`) — la fiche d'ouverture en annonçait 2 —,
+  **aucune** sous-classe ne le redéfinit, et il reste **6** `Params::Delete()` ailleurs, tous hors des
+  paramètres d'un IO vivant. Les deux comptes de la fiche livrée tombent juste.
+- **Le rouge de départ** : les fichiers de production ramenés à `master`, tests de la branche en
+  place ⇒ **5 / 7 / 6 = 18** cas rouges dans les trois filets neufs, plus **2** dans les deux suites
+  modifiées (le cas renommé et `PlainOutOfRangeImpulseLeavesNoTimerArmedForEver`). Le compte annoncé
+  tombe juste.
+
 ### ⚠️ `F-FLAKY-2` a reparu — deux fois, et sur les deux tours où le fichier muté ne le concerne pas
 
 `core/MqttSidecarConfigWait_test` a flanché aux tours **CM-5** et **CM-6** de la campagne, toujours
@@ -12318,3 +12385,12 @@ seul, toujours sur `AnUnreachableBrokerEndsTheSidecarWithACauseAndANonZeroStatus
 `JsonApi.cpp` : le lien de cause est exclu, c'est bien `F-FLAKY-2` / [`T3.112`](T3.112.md).
 ⛔ **Aucun `make check` n'a été relancé pour l'effacer.** Il n'a flanché à **aucun** des cinq
 `make check` de l'arbre livré.
+
+⭐ **Recompté à la revue de merge, et le taux est plus haut qu'aux revues précédentes** : sur les
+**11** `make check` complets de cette revue, il a flanché **2 fois**, toutes deux dans la **même**
+campagne de deux tours consécutifs, toujours **seul** et toujours sur le même cas
+(`r.exited` faux, « the sidecar stayed alive with a broker it never reached »). Les **trois** tours
+de référence finaux et les **cinq** tours de contre-mutation sont à `PASS 144`. ⛔ **Aucun `make
+check` n'a été relancé pour faire disparaître ce rouge** : les deux tours rouges étaient les deux
+tours prévus, et le tour suivant était une contre-mutation, pas une reprise. ⚠️ **L'utilisateur le
+verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre les tests.
