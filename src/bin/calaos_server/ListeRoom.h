@@ -168,6 +168,15 @@ public:
 
     void addScenarioCache(Scenario *sc);
     void delScenarioCache(Scenario *sc);
+
+    /* Told by Room just before it destroys one of its IOs, or destroys itself.
+       An AutoScenario holds raw pointers to the five IOs that drive it and to
+       the room they live in, and refreshBrokenScenarios() below reads those
+       IOs back at the end of EVERY deletion - a scenario sharing a machinery
+       IO with the one being deleted would be read through a freed pointer.
+       Sweeps, so no registration has to be kept in step with them. */
+    void forgetIOInAutoScenarios(IOBase *io);
+    void forgetRoomInAutoScenarios(Room *room);
     list<Scenario *> getAutoScenarios();
     void checkAutoScenario();
 

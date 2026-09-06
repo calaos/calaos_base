@@ -377,6 +377,22 @@ void AutoScenario::deleteAll()
     ioTimeRange = NULL;
 }
 
+void AutoScenario::forgetIO(IOBase *io)
+{
+    if (!io) return;
+
+    if (ioIsActive == io) ioIsActive = nullptr;
+    if (ioScheduleEnabled == io) ioScheduleEnabled = nullptr;
+    if (ioStep == io) ioStep = nullptr;
+    if (ioTimer == io) ioTimer = nullptr;
+    if (ioTimeRange == io) ioTimeRange = nullptr;
+}
+
+void AutoScenario::forgetRoom(Room *room)
+{
+    if (room && roomContainer == room) roomContainer = nullptr;
+}
+
 void AutoScenario::deleteRules()
 {
     cInfoDom("scenario") << "AutoScenario::deleteRules(" << ioScenario->get_param("id") << ")";

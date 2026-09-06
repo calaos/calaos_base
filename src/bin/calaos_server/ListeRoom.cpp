@@ -600,6 +600,28 @@ bool ListeRoom::deleteIO(IOBase *io, bool modify, RuleDetachPolicy policy)
     return ret;
 }
 
+void ListeRoom::forgetIOInAutoScenarios(IOBase *io)
+{
+    if (!io) return;
+
+    for (Scenario *sc: auto_scenario_cache)
+    {
+        AutoScenario *as = sc? sc->getAutoScenario(): nullptr;
+        if (as) as->forgetIO(io);
+    }
+}
+
+void ListeRoom::forgetRoomInAutoScenarios(Room *room)
+{
+    if (!room) return;
+
+    for (Scenario *sc: auto_scenario_cache)
+    {
+        AutoScenario *as = sc? sc->getAutoScenario(): nullptr;
+        if (as) as->forgetRoom(room);
+    }
+}
+
 void ListeRoom::refreshBrokenScenarios()
 {
     //A copy: setDisabledMissingIo() raises events and stopBrokenRun() sets IOs,

@@ -185,6 +185,16 @@ public:
     void deleteAll();
     void deleteRules();
 
+    /* Drop whichever of the machinery members names this object, because it is
+     * about to be destroyed. Called by Room, which owns the IOs and the rooms;
+     * the scenario IO is not concerned, an AutoScenario belongs to it and
+     * cannot outlive it.
+     * Every read of the five is already null guarded, so forgetting one leaves
+     * a scenario that does less rather than one that reads freed memory.
+     */
+    void forgetIO(IOBase *io);
+    void forgetRoom(Room *room);
+
     string getScenarioId() { return scenario_id; }
     bool isCycling() { return cycle; }
     bool isDisabled() { return disabled; }

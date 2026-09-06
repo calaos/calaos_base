@@ -347,6 +347,7 @@ TEST_F(ScenarioInternalIoLifetimeTest,
     Room *home = ListeRoom::Instance().getRoomByIO(scenarioIo(SC_A_IO));
     ASSERT_NE(nullptr, home);
     ASSERT_NE(home, other);
+    ASSERT_EQ(home, as->getRoomContainer());
 
     home->RemoveIOFromRoom(scenarioIo(SC_A_IO));
     other->AddIO(scenarioIo(SC_A_IO));
@@ -365,6 +366,8 @@ TEST_F(ScenarioInternalIoLifetimeTest,
     EXPECT_EQ(nullptr, as->getIOTimer());
     EXPECT_EQ(nullptr, as->getIOTimeRange());
     EXPECT_EQ(nullptr, as->getIOScheduleEnabled());
+    //the sixth back-pointer, the one addSchedule() would build into
+    EXPECT_EQ(nullptr, as->getRoomContainer());
 }
 
 /* ---------------------------------------------------------------------------

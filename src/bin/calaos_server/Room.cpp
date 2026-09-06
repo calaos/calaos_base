@@ -35,6 +35,11 @@ Room::Room(string _name, string _type, int _hits):
 
 Room::~Room()
 {
+    //Before any IO goes: an AutoScenario elsewhere may still name this room,
+    //and `autoscenario modify` really does move a scenario IO out of the room
+    //that keeps its machinery.
+    ListeRoom::Instance().forgetRoomInAutoScenarios(this);
+
     //E4.2b: the room owns its IOs, so destroying it destroys them. The rule
     //bookkeeping that ListeRoom::deleteIO() used to run on our behalf still
     //has to happen, and in the same order (rules dropped first, then the
@@ -96,6 +101,12 @@ void Room::RemoveIO(int pos, bool del)
     //but the whole point of this ticket is that the window should not exist.
     std::unique_ptr<IOBase> owned = std::move(ios[pos]);
     ios.erase(ios.begin() + pos);
+
+    //The auto scenarios hold raw pointers to the IOs that drive them. This is
+    //the one place every destruction goes through, transfers excepted - and a
+    //transfer must NOT be forgotten, the IO goes on living.
+    if (del)
+        ListeRoom::Instance().forgetIOInAutoScenarios(owned.get());
 
     //del == false is an ownership TRANSFER to the caller, not a discreet
     //removal: the caller goes on using the IO and becomes responsible for
