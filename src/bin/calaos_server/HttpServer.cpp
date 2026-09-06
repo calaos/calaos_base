@@ -41,7 +41,8 @@ HttpServer::HttpServer(int p):
     auto loop = uvw::Loop::getDefault();
     handleSrv = loop->resource<uvw::TcpHandle>();
 
-    if (!Calaos::bindListenAddress(*handleSrv, listenAddr, port))
+    bool bound = Calaos::bindListenAddress(*handleSrv, listenAddr, port);
+    if (!bound)
     {
         cWarningDom("network") << "listen_address \"" << listenAddr
                                << "\" is not an address of this machine, "
@@ -52,10 +53,23 @@ HttpServer::HttpServer(int p):
         //next.
         handleSrv->close();
         handleSrv = loop->resource<uvw::TcpHandle>();
-        Calaos::bindListenAddress(*handleSrv, "0.0.0.0", port);
+        bound = Calaos::bindListenAddress(*handleSrv, "0.0.0.0", port);
     }
 
+    //libuv holds EADDRINUSE back from bind() and hands it to listen() instead,
+    //so a bind that answered yes can still have nowhere to land - a second
+    //server started on the same port is the ordinary way in. Same rule as the
+    //bind: subscribe first, or the failure is published to nobody and the line
+    //at the end of this constructor announces a port this process never got.
+    auto listenErr = handleSrv->on<uvw::ErrorEvent>(
+                         [&bound](const uvw::ErrorEvent &, uvw::TcpHandle &)
+                         { bound = false; });
     handleSrv->listen();
+    handleSrv->erase(listenErr);
+
+    if (!bound)
+        cErrorDom("network") << "port " << port << " cannot be bound, the API "
+                             << "is answering on no address at all";
 
     handleSrv->on<uvw::ListenEvent>([this](const uvw::ListenEvent &, uvw::TcpHandle &)
     {
@@ -75,7 +89,8 @@ HttpServer::HttpServer(int p):
     });
 
     cDebugDom("network") << "Init TCP Server";
-    cInfoDom("network")  << "Listening on port " << port;
+    if (bound)
+        cInfoDom("network")  << "Listening on port " << port;
 }
 
 HttpServer::~HttpServer()

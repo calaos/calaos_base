@@ -1135,7 +1135,31 @@
     suite**, donc constaté et non déduit : `192.0.2.1` → port demandé **41909**, port obtenu
     **43483** ; `2001:db8::1` → **56629** demandé, **44217** obtenu, famille `AF_INET6`, adresse
     `::`. ✅ L'auditeur est désormais posé **avant** le `bind`, et le repli garde le **port
-    configuré**.
+    configuré**. ⭐ **Re-mesuré à la revue de merge**, en remettant les cinq fichiers de production
+    dans leur forme de `master` sur l'arbre livré : `192.0.2.1` → **59841** demandé / **39467**
+    obtenu ; `2001:db8::1` → **59535** / **44519**, famille `AF_INET6`, adresse `::`. Chiffres
+    différents, mécanisme identique — c'est donc bien le mécanisme qui est mesuré.
+
+  ⛔⭐ **UNE QUATRIÈME FORME, TROUVÉE ET FERMÉE À LA REVUE DE MERGE de [T3.106](T3.106.md) : le
+  repli lui-même échoue.** Quand l'adresse configurée est absente **et** que le port est déjà tenu
+  par quelqu'un d'autre, le `bind` élargi échoue à son tour. Deux raisons se cumulaient :
+  - ⛔ **libuv RETIENT `EADDRINUSE` au `bind` et ne le rend qu'au `listen()`/`recv()`.** Un helper
+    qui écoute l'`ErrorEvent` autour du seul `bind` rend donc **vrai** sur le mode d'échec le plus
+    banal d'un serveur — le port est déjà pris ;
+  - ⛔ et l'auditeur du `listen()` était, lui, toujours posé **après** le `listen()`.
+
+  **Mesuré** (`SO_ACCEPTCONN` sur `/proc/self/fd`) : **zéro** socket en écoute, **zéro** ligne
+  d'erreur, et le constructeur imprimait quand même `Listening on port <N>`. ✅ **Fermé** : auditeur
+  avant le `listen()`, échec **nommé**, et la ligne d'annonce n'est plus imprimée quand rien
+  n'écoute. Tenu par `AFallbackThatCannotBindEitherSaysSoAndClaimsNothing`, dont la contre-mutation
+  (auditeur remis après le `listen()`) rougit.
+  ⚠️ `UDPServer` n'a pas le défaut : son `once<ErrorEvent>` est posé **avant** le `bind`.
+
+  ✅⭐ **ET LA MOITIÉ UDP N'EST PLUS UN RAISONNEMENT** — c'était la réserve `R2` de la revue de
+  `T3.41` (les deux familles de `bind` de `UDPServer` échangées ⇒ 0 rouge). La revue de merge de
+  `T3.106` a lié `UDPServer.$(OBJEXT)` au harnais (aucune référence non résolue) : le même enfant
+  construit aussi le serveur de découverte, sa socket est lue au `getsockname()`, et la
+  contre-mutation qui lui fait ignorer l'adresse configurée **rougit**.
 
 - ⛔ **F-IP6-3 — [DISPONIBILITÉ, OUVERT, RÉVÉLÉ par [T3.41](T3.41.md)] sous une `listen_address`
   IPv6, `UDPServer` se lie à la bonne famille mais ne sait pas lire ses correspondants : la

@@ -5333,8 +5333,10 @@ endif
 
 #T3.106: where the server ends up listening when listen_address cannot be
 #applied. Three forms - unreadable, well formed but absent from the machine,
-#IPv6 - and the port they land on, read off the descriptor by SO_ACCEPTCONN and
-#getsockname() rather than taken from the library that got it wrong.
+#IPv6 - plus the case where the widened fallback finds the port taken, and the
+#port they land on, read off the descriptor by SO_ACCEPTCONN and getsockname()
+#rather than taken from the library that got it wrong. The discovery socket of
+#the same child is read the same way, which is why UDPServer is linked in.
 #One process per value: HttpServer binds once per process, so each case is a
 #fork() that configures itself and reports.
 #⚠️ Exits 77 - and so SKIPS - on a kernel without IPv6, and on a machine that
@@ -5348,6 +5350,7 @@ core_ListenAddressFallback_test_SOURCES = core/ListenAddressFallback_test.cpp
 core_ListenAddressFallback_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
                   -I$(top_srcdir)/src/bin/calaos_server/RemoteUI
 LISTEN_ADDRESS_FALLBACK_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)                        \
                   $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
                   $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
                   $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
@@ -5380,9 +5383,10 @@ endif
 #suite binds itself: the IPv6 loopback, an IPv4-mapped loopback, 127.1.0.1 (the
 #/8 the two loopback rules used to disagree about), and a real interface
 #address, which is the only source that measures the gate closing.
-#⚠️ Exits 77 - and so SKIPS - on a kernel without IPv6, on a machine where
-#127.0.0.0/8 is not local in its entirety, and on one with no non-loopback IPv4
-#address, where the refusal half has no peer to come from.
+#⚠️ Exits 77 - and so SKIPS - on a kernel without IPv6 or without ::1 on the
+#loopback, and on a machine with no non-loopback IPv4 address, where the
+#refusal half has no peer to come from. A machine where 127.0.0.0/8 is not
+#local in its entirety turns the fixture case RED, never quietly green.
 #Own HAVE_GTEST block so this stays a pure append at the end of the file.
 if HAVE_GTEST
 TESTS += core/OtaRescanGate_test

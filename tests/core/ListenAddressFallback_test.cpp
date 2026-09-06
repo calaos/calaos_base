@@ -41,6 +41,12 @@
  *     on a port nobody chose - its owner included. "It stopped answering" is
  *     the whole symptom, and no line explained it.
  *
+ * And one floor below the third: the widening itself can fail, on a port
+ * something else already holds. libuv keeps that refusal back from bind() and
+ * hands it to listen(), so the code has to listen for it there too. Nothing
+ * is bound then, which is honest - as long as it is not announced as a
+ * successful listen.
+ *
  * ---------------------------------------------------------------------------
  * WHY EACH CASE IS A SEPARATE PROCESS
  * ---------------------------------------------------------------------------
@@ -80,11 +86,14 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "HttpServer.h"
 #include "Logger.h"
+#include "UDPServer.h"
 #include "libuvw.h"
 
 namespace
@@ -108,6 +117,12 @@ struct Outcome
     std::string addr;
     int port = 0;
     int asked = 0;
+    //The discovery socket of the same child, read the same way. It answers the
+    //same configuration key and had never been measured at all.
+    int udpFamily = 0;
+    std::string udpAddr;
+    int udpPort = 0;
+    int udpAsked = 0;
     std::string log;
 };
 
@@ -227,6 +242,96 @@ void describeListener(int &listeners, int &family, std::string &addr, int &port)
     closedir(d);
 }
 
+//The datagram socket UDPServer just opened: the one file descriptor of this
+//type that was not there a moment ago. Same reading as the listening socket -
+//the kernel is asked, not the library.
+int newDatagramFd(const std::vector<int> &before)
+{
+    int found = -1;
+    DIR *d = opendir("/proc/self/fd");
+    if (!d)
+        return -1;
+
+    const int skip = dirfd(d);
+    struct dirent *e;
+    while ((e = readdir(d)) != nullptr)
+    {
+        const int fd = atoi(e->d_name);
+        if (fd <= 0 || fd == skip)
+            continue;
+
+        int type = 0;
+        socklen_t len = sizeof(type);
+        if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &type, &len) != 0 ||
+            type != SOCK_DGRAM)
+            continue;
+
+        if (std::find(before.begin(), before.end(), fd) == before.end())
+            found = fd;
+    }
+    closedir(d);
+    return found;
+}
+
+std::vector<int> datagramFds()
+{
+    std::vector<int> out;
+    DIR *d = opendir("/proc/self/fd");
+    if (!d)
+        return out;
+
+    const int skip = dirfd(d);
+    struct dirent *e;
+    while ((e = readdir(d)) != nullptr)
+    {
+        const int fd = atoi(e->d_name);
+        if (fd <= 0 || fd == skip)
+            continue;
+
+        int type = 0;
+        socklen_t len = sizeof(type);
+        if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &type, &len) == 0 &&
+            type == SOCK_DGRAM)
+            out.push_back(fd);
+    }
+    closedir(d);
+    return out;
+}
+
+void describeSocket(int fd, int &family, std::string &addr, int &port)
+{
+    family = 0;
+    port = 0;
+    addr.clear();
+    if (fd < 0)
+        return;
+
+    sockaddr_storage ss;
+    socklen_t sl = sizeof(ss);
+    memset(&ss, 0, sizeof(ss));
+    if (getsockname(fd, reinterpret_cast<sockaddr *>(&ss), &sl) != 0)
+        return;
+
+    char text[INET6_ADDRSTRLEN] = { 0 };
+    if (ss.ss_family == AF_INET6)
+    {
+        const sockaddr_in6 *a = reinterpret_cast<const sockaddr_in6 *>(&ss);
+        inet_ntop(AF_INET6, &a->sin6_addr, text, sizeof(text));
+        port = ntohs(a->sin6_port);
+    }
+    else if (ss.ss_family == AF_INET)
+    {
+        const sockaddr_in *a = reinterpret_cast<const sockaddr_in *>(&ss);
+        inet_ntop(AF_INET, &a->sin_addr, text, sizeof(text));
+        port = ntohs(a->sin_port);
+    }
+    else
+        return;
+
+    family = ss.ss_family;
+    addr = text;
+}
+
 std::string slurp(const std::string &path)
 {
     std::ifstream in(path.c_str());
@@ -235,7 +340,10 @@ std::string slurp(const std::string &path)
     return out.str();
 }
 
-Outcome measure(const std::string &listenAddress, int tag)
+//`occupy` holds the wildcard port before the child starts, so that the
+//fallback bind fails in its turn: the one path where widening cannot save the
+//listen either.
+Outcome measure(const std::string &listenAddress, int tag, bool occupy = false)
 {
     Outcome r;
 
@@ -249,12 +357,36 @@ Outcome measure(const std::string &listenAddress, int tag)
     ::mkdir(cache.c_str(), 0700);
 
     r.asked = reservePort();
-    if (r.asked <= 0)
+    r.udpAsked = reservePort();
+    if (r.asked <= 0 || r.udpAsked <= 0)
         return r;
+
+    int squat = -1;
+    if (occupy)
+    {
+        squat = socket(AF_INET, SOCK_STREAM, 0);
+        sockaddr_in a;
+        memset(&a, 0, sizeof(a));
+        a.sin_family = AF_INET;
+        a.sin_addr.s_addr = htonl(INADDR_ANY);
+        a.sin_port = htons((uint16_t)r.asked);
+        if (squat < 0 ||
+            bind(squat, reinterpret_cast<sockaddr *>(&a), sizeof(a)) != 0 ||
+            listen(squat, 1) != 0)
+        {
+            if (squat >= 0)
+                close(squat);
+            r.asked = 0;
+            return r;
+        }
+    }
 
     const pid_t pid = fork();
     if (pid == 0)
     {
+        if (squat >= 0)
+            close(squat);
+
         const int lf = open(logPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
         if (lf >= 0)
         {
@@ -268,40 +400,58 @@ Outcome measure(const std::string &listenAddress, int tag)
         Utils::set_config_option("listen_address", listenAddress);
 
         HttpServer::Instance(r.asked);
+
+        const std::vector<int> beforeUdp = datagramFds();
+        UDPServer discovery(r.udpAsked);
+        (void)discovery;
         std::cout.flush();
 
         int listeners = 0, family = 0, port = 0;
         std::string addr;
         describeListener(listeners, family, addr, port);
 
+        int uFamily = 0, uPort = 0;
+        std::string uAddr;
+        describeSocket(newDatagramFd(beforeUdp), uFamily, uAddr, uPort);
+
         FILE *o = fopen(outPath.c_str(), "w");
         if (o)
         {
-            fprintf(o, "%d %d %s %d\n", listeners, family,
-                    addr.empty()? "-": addr.c_str(), port);
+            fprintf(o, "%d %d %s %d %d %s %d\n", listeners, family,
+                    addr.empty()? "-": addr.c_str(), port,
+                    uFamily, uAddr.empty()? "-": uAddr.c_str(), uPort);
             fclose(o);
         }
         _exit(0);
     }
 
     if (pid < 0)
+    {
+        if (squat >= 0)
+            close(squat);
         return r;
+    }
 
     int status = 0;
     waitpid(pid, &status, 0);
+    if (squat >= 0)
+        close(squat);
 
     std::istringstream in(slurp(outPath));
-    std::string addr;
-    in >> r.listeners >> r.family >> addr >> r.port;
+    std::string addr, uAddr;
+    in >> r.listeners >> r.family >> addr >> r.port
+       >> r.udpFamily >> uAddr >> r.udpPort;
     if (addr != "-")
         r.addr = addr;
+    if (uAddr != "-")
+        r.udpAddr = uAddr;
     r.log = slurp(logPath);
     return r;
 }
 
 struct Runs
 {
-    Outcome wildcard, presentV4, presentV6, unreadable, absentV4, absentV6;
+    Outcome wildcard, presentV4, presentV6, unreadable, absentV4, absentV6, taken;
 };
 
 const Runs &theRuns()
@@ -315,6 +465,7 @@ const Runs &theRuns()
         r.unreadable = measure(kUnreadable, 3);
         r.absentV4 = measure(kAbsentV4, 4);
         r.absentV6 = measure(kAbsentV6, 5);
+        r.taken = measure(kAbsentV4, 6, true);
         return r;
     }();
     return runs;
@@ -323,6 +474,9 @@ const Runs &theRuns()
 //The one phrase every fallback line carries, so a case cannot pass on a
 //warning that names something else.
 const char *const kFallbackTail = "listening on 0.0.0.0 (every interface) instead";
+
+//What the server says when even the widened bind found the port taken.
+const char *const kNothingListening = "is answering on no address at all";
 
 } //namespace
 
@@ -343,8 +497,12 @@ TEST(ListenAddressFallback, EveryCaseBuiltExactlyOneListeningSocket)
     EXPECT_EQ(1, r.absentV4.listeners);
     EXPECT_EQ(1, r.absentV6.listeners);
 
+    //And the one child that could not bind at all owns none.
+    EXPECT_EQ(0, r.taken.listeners);
+
     EXPECT_LT(0, r.wildcard.asked);
     EXPECT_LT(0, r.absentV4.asked);
+    EXPECT_LT(0, r.taken.asked);
 }
 
 /*
@@ -424,6 +582,71 @@ TEST(ListenAddressFallback, AnAbsentIpv6AddressKeepsTheConfiguredPort)
     EXPECT_NE(std::string::npos, r.absentV6.log.find(kAbsentV6))
             << "the fallback did not name the value it refused";
     EXPECT_NE(std::string::npos, r.absentV6.log.find(kFallbackTail));
+}
+
+/*
+ * FORM 2, ONE FLOOR DOWN: the widening itself fails, because the port is
+ * already held. There is then no address left to fall back to, and the server
+ * ends up listening on nothing at all. That is the honest outcome - but the
+ * whole point of this ticket is that it must not be announced as a success,
+ * and "Listening on port N" is exactly what used to follow.
+ */
+TEST(ListenAddressFallback, AFallbackThatCannotBindEitherSaysSoAndClaimsNothing)
+{
+    const Runs &r = theRuns();
+
+    EXPECT_EQ(0, r.taken.listeners)
+            << "the port was held, yet a listening socket appeared";
+
+    EXPECT_NE(std::string::npos, r.taken.log.find(kNothingListening))
+            << "the server was left deaf without a word";
+    EXPECT_EQ(std::string::npos,
+              r.taken.log.find("Listening on port " + std::to_string(r.taken.asked)))
+            << "the log announced a port the server does not have";
+}
+
+/*
+ * THE DISCOVERY SERVER, WHICH READS THE SAME KEY AND WHICH NOTHING HAD EVER
+ * MEASURED. It is the half of the listen an installer, a mobile application
+ * and the wall screens use to find the box at all; its family was chosen by
+ * reasoning and by nothing else.
+ */
+TEST(ListenAddressFallback, TheDiscoveryPortBindsTheFamilyItWasAsked)
+{
+    const Runs &r = theRuns();
+
+    EXPECT_EQ(AF_INET, r.wildcard.udpFamily);
+    EXPECT_EQ("0.0.0.0", r.wildcard.udpAddr);
+    EXPECT_EQ(r.wildcard.udpAsked, r.wildcard.udpPort);
+
+    EXPECT_EQ(AF_INET, r.presentV4.udpFamily);
+    EXPECT_EQ("127.0.0.1", r.presentV4.udpAddr);
+    EXPECT_EQ(r.presentV4.udpAsked, r.presentV4.udpPort);
+
+    EXPECT_EQ(AF_INET6, r.presentV6.udpFamily);
+    EXPECT_EQ("::1", r.presentV6.udpAddr);
+    EXPECT_EQ(r.presentV6.udpAsked, r.presentV6.udpPort);
+}
+
+/*
+ * And it widens the same way, on the same port, for the same reasons: a box
+ * whose discovery answers nobody is a box nobody can configure.
+ */
+TEST(ListenAddressFallback, TheDiscoveryPortWidensLikeTheApiPort)
+{
+    const Runs &r = theRuns();
+
+    EXPECT_EQ(AF_INET, r.unreadable.udpFamily);
+    EXPECT_EQ("0.0.0.0", r.unreadable.udpAddr);
+    EXPECT_EQ(r.unreadable.udpAsked, r.unreadable.udpPort);
+
+    EXPECT_EQ(AF_INET, r.absentV4.udpFamily);
+    EXPECT_EQ("0.0.0.0", r.absentV4.udpAddr);
+    EXPECT_EQ(r.absentV4.udpAsked, r.absentV4.udpPort);
+
+    EXPECT_EQ(AF_INET, r.absentV6.udpFamily);
+    EXPECT_EQ("0.0.0.0", r.absentV6.udpAddr);
+    EXPECT_EQ(r.absentV6.udpAsked, r.absentV6.udpPort);
 }
 
 int main(int argc, char **argv)

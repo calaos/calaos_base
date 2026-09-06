@@ -51,7 +51,8 @@
  * WHAT THIS SUITE ASSUMES OF THE MACHINE, out loud, because a case green for
  * the wrong reason is worse than a red one, and main() skips (77) rather than
  * let a case assert on nothing:
- *   - the kernel has IPv6 and a dual-stack socket can be bound;
+ *   - the kernel has IPv6, ::1 is on the loopback, and a dual-stack socket can
+ *     be bound;
  *   - net.ipv6.bindv6only is 0, so the `::` listen also takes IPv4 - checked,
  *     not assumed: the fixture case reads the local end of every client socket;
  *   - 127.0.0.0/8 is local in its entirety, so 127.1.0.1 can be bound;
@@ -434,6 +435,27 @@ int main(int argc, char **argv)
         std::cerr << "no IPv6 on this machine, nothing to measure" << std::endl;
         return 77;
     }
+
+    //A kernel can carry IPv6 and still have no ::1 on the loopback. It passes
+    //the door above, and every case here would then measure a client that
+    //never connected rather than the gate.
+    const int loop6 = socket(AF_INET6, SOCK_STREAM, 0);
+    sockaddr_in6 l6;
+    memset(&l6, 0, sizeof(l6));
+    l6.sin6_family = AF_INET6;
+    l6.sin6_addr = in6addr_loopback;
+    l6.sin6_port = 0;
+    const bool haveLoopback6 =
+        loop6 >= 0 && bind(loop6, reinterpret_cast<sockaddr *>(&l6), sizeof(l6)) == 0;
+    if (loop6 >= 0)
+        close(loop6);
+    if (!haveLoopback6)
+    {
+        close(probe);
+        std::cerr << "no ::1 on the loopback, nothing to measure" << std::endl;
+        return 77;
+    }
+
     sockaddr_in6 pa;
     memset(&pa, 0, sizeof(pa));
     pa.sin6_family = AF_INET6;

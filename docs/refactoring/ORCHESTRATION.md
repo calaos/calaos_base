@@ -40,14 +40,112 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.103`](T3.103.md)) — LE
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.106`](T3.106.md)) — LE
+  DERNIER MERGE DE LA SESSION. À LIRE EN PREMIER À FROID.**
+
+  ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION** : il déclenche un **build de
+  développement qui est déployé**. Ce n'est pas une étape qu'on avance pour « voir si la CI passe ».
+  **Aucun agent ne pousse, jamais.** ⛔ **RIEN N'A ÉTÉ POUSSÉ DE TOUTE LA SÉRIE.**
+
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`6df51f1b`**
+  (branche `fix/t3.106`, **4 commits** : 3 du développeur + 1 de la revue de merge). `TESTS` =
+  **136**, référence de build après `make distclean` :
+  **`TOTAL 136 / PASS 135 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
+  `check-ccache-honesty.sh`, **0 `error:`**, **11 `CXXLD`** au `make -j32` et **127** au premier
+  `make check -j16`, **trois `make check` identiques** après `distclean` (et sept au total sur la
+  campagne). ⚠️ **Un flottement observé une fois sur sept** : `core/MqttSidecarConfigWait_test`,
+  suite à attentes de 5 à 7 secondes, a flanché pendant qu'un build voisin occupait la machine ;
+  verte les six autres fois et à chacun des tours de campagne. Famille `F-FLAKY-1`, sans rapport
+  avec ce ticket.
+
+  ⚠️ **`tests/Makefile.am` n'a PAS été en conflit** — `master` n'y avait pas touché depuis la base.
+  Le conflit annoncé était sur `BOARD.md` (deux lignes de tableau). La propriété a été prouvée quand
+  même : `master:tests/Makefile.am` est **préfixe strict octet à octet**, `+87/−0/~0`, `^if` **117**
+  == `^endif` **117**, profondeur finale **0**.
+
+  ⭐⭐ **CE QUE LE TICKET FERME.** Les **trois** formes d'une `listen_address` inapplicable ont un
+  comportement **choisi et observable** : illisible ⇒ `0.0.0.0` sur le port normal en **nommant la
+  valeur refusée** ; valide mais absente de la machine ⇒ `0.0.0.0` **sur le port configuré**, alors
+  qu'elle partait auparavant sur un **port tiré au hasard** ; IPv6 ⇒ fermée depuis `T3.41`. Et la
+  **seule porte de privilège** de l'arbre indexée sur l'adresse du pair — le `rescan` de
+  micrologiciel — est tenue **dans les deux sens**.
+
+  ⭐⭐ **CE QUE LA REVUE A MESURÉ, ET QUI SERT AUX SUIVANTS :**
+  1. ⭐ **Le port aléatoire est reproduit sur `master`**, socket relue au `getsockname()` :
+     `192.0.2.1` ⇒ **59841** demandé / **39467** obtenu ; `2001:db8::1` ⇒ **59535** / **44519**, et
+     sur une socket **`AF_INET6 ::`** — donc double pile, sur un port que personne n'a choisi.
+  2. ⛔⭐⭐ **LE REPLI N'ÉTAIT PAS LE DERNIER ÉTAGE, ET C'EST LA TROUVAILLE DE LA REVUE.**
+     **libuv RETIENT `EADDRINUSE` au `bind` et ne le rend qu'au `listen()`/`recv()`.** Un helper qui
+     n'écoute l'`ErrorEvent` qu'autour du `bind` rend donc **vrai** sur le mode d'échec le plus banal
+     d'un serveur — le port est déjà pris. Mesuré : **zéro** socket en écoute, **zéro** ligne, et
+     `Listening on port <N>` imprimé quand même. Corrigé (auditeur avant le `listen()`, échec nommé,
+     annonce supprimée) et **tenu par un cas**.
+     *À recopier : « l'auditeur avant le `bind` » ne suffit pas — une bibliothèque peut déplacer
+     l'erreur d'un appel à l'autre. Il faut la chercher là où elle est RENDUE, pas là où elle naît.*
+  3. ⛔ **`isLocalhost()` ne contredisait pas `T3.41`.** Le « 0 rouge sur 134 » de `T3.41` disait que
+     la moitié refus n'était atteignable par **aucune suite d'alors** ; la suite neuve produit ce
+     pair en se connectant à une **adresse d'interface de la machine elle-même**. Les deux moitiés
+     sont mesurées : la mutation des quatre orthographes rougit 3 cas, et une règle qui accepterait
+     aussi le LAN en rougit un autre.
+     *À recopier : « la mesure X a donné 0 rouge » date de l'arbre où elle a été prise. Ce n'est pas
+     une propriété du code, c'est une propriété de la suite.*
+  4. ✅ **`UDPServer` n'est plus un raisonnement** — la réserve `R2` de la revue de `T3.41` est
+     fermée : **un objet de plus** au harnais (`UDPServer.$(OBJEXT)`, lié sans une référence non
+     résolue), le même enfant construit le serveur de découverte, sa socket est lue au
+     `getsockname()`, et la contre-mutation qui lui fait ignorer l'adresse configurée rougit.
+  5. ⚠️ **L'élargissement de la boucle locale à `127.0.0.0/8` est justifié et nommé.** RFC 1122, et
+     `isTrustedProxyPeer()` disait **déjà** `/8` — c'était le `/24` de la porte qui était l'exception
+     non expliquée. Un rescan depuis `127.1.0.1` est désormais accepté : **c'est un élargissement de
+     privilège, mais borné à la machine elle-même**, `127.0.0.0/8` n'étant routable de nulle part.
+     Entrée dédiée dans [`RELEASE_NOTES.md`](RELEASE_NOTES.md).
+  6. ⛔ **Sixième cousin des cinq pièges d'outillage** : un harnais qui restaure ses **sources** et
+     rend la main laisse les **objets** du tour précédent dans l'arbre. Toute mesure prise avant le
+     `make` suivant mesure le tour d'avant — deux constats de dépendance machine ont été pris ainsi
+     puis refaits. Le `cmp` et l'horodatage étaient vrais ; le binaire, non.
+
+  ⭐ **CE QUE DONNE L'ABSENCE D'UNE DÉPENDANCE MACHINE — mesuré, pas déduit.** Aucune case n'est un
+  vert muet : c'est un `SKIP` visible ou un rouge.
+  - sans IPv6 du tout ⇒ `PeerAddressFamily`, `ListenAddressFallback` et `OtaRescanGate` en `SKIP` ⇒
+    **la référence CI sera `TOTAL 136 / PASS 132 / SKIP 4`** ;
+  - IPv6 **sans `::1`** ⇒ les deux suites neuves en `SKIP 77` (la porte d'`OtaRescanGate` a été
+    alignée sur celle de sa sœur à la revue), et `PeerAddressFamily` **rouge** — choix assumé de
+    `T3.41`, et désormais le seul rouge possible de la famille ;
+  - sans adresse IPv4 hors boucle locale ⇒ `OtaRescanGate` seul en `SKIP` ;
+  - `127.0.0.0/8` incomplet ⇒ **rouge** au cas de fixture, jamais un vert.
+
+  ⭐⭐ **LES TICKETS OUVERTS — DEUX COMPTES SÉPARÉS, et c'est le premier qui compte pour l'utilisateur.**
+
+  **(a) Backlog du 4 septembre — 11 tickets encore ouverts** (aucun n'a bougé cette session) :
+  `T3.21`, `T3.22`, `T3.25a`, `T3.32`, `T3.38`, `T3.54`, `T3.55`, `T3.57`, `T3.59`,
+  [`T3.60`](T3.60.md), `T3.63`.
+
+  **(b) Ouverts PAR LES REVUES pendant la série — 8** : `T3.91` (proposé, fiche non écrite),
+  `T3.100`, [`T3.101`](T3.101.md), [`T3.104`](T3.104.md), [`T3.105`](T3.105.md),
+  [`T3.107`](T3.107.md), [`T3.108`](T3.108.md), [`T3.109`](T3.109.md) **(neuf, ouvert par cette
+  revue)**.
+  ⚠️ Numéros **pris** : `T3.76` → `T3.109`. Le prochain libre est **`T3.110`**.
+
+  **[`T3.109`](T3.109.md) en une ligne** : `AVRRoseNotifServer` lie **`0.0.0.0` en dur** sur le port
+  9284 — `listen_address` ne le confine donc pas — et pose son auditeur d'`ErrorEvent` **après** le
+  `bind` et après le `listen` ; `ExternProcServer` fait `bind` + `listen` **sans aucun auditeur**.
+  ⚠️ `WagoMap` est le contre-exemple : il pose le sien **avant** le `bind`.
+
+  ⭐⭐ **CE QUI ATTEND L'UTILISATEUR, ET RIEN D'AUTRE :**
+  1. ⛔ **Le `push`** — livraison, pas vérification. Le job CI chez GitHub n'a **jamais** tourné.
+     ⚠️ Attente précise : `SKIP 4` sur un exécuteur sans IPv6.
+  2. **[`T3.60`](T3.60.md)**, **[`T3.101`](T3.101.md)**, **[`T3.104`](T3.104.md)**,
+     **[`T3.105`](T3.105.md)** — arbitrages **déjà tranchés** le 2026-09-06
+     ([`DECISIONS.md`](DECISIONS.md), « Cinq arbitrages du 2026-09-06 ») : ils restent **à écrire**,
+     pas à rediscuter.
+
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-06, APRÈS LE MERGE DE [`T3.103`](T3.103.md)) — conservé pour l'historique. LE
 
   ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION** (précisé par l'utilisateur le
   2026-09-06) : il déclenche un **build de développement qui est déployé**. Ce n'est donc pas une
   étape qu'on peut avancer pour « voir si la CI passe ». Il attend la fin des tickets. **Aucun agent
   ne pousse, jamais.**
 
-  DERNIER MERGE DE LA SESSION. À LIRE EN PREMIER À FROID.**
   Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`40421cf0`**
   (branche `fix/t3.103`, **4 commits** : 3 du développeur + 1 de la revue de merge). `TESTS` =
   **134**, `tests/Makefile.am` **INTOUCHÉ** (aucun conflit au rebase), référence de build après

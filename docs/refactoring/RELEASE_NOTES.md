@@ -1439,6 +1439,17 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   ligne, votre serveur n'est PAS confiné** : corrigez la valeur, ou laissez `0.0.0.0` et confiez le
   confinement à votre pare-feu.
 
+  ⭐ **Et le cas où le port lui-même est déjà pris ne ment plus non plus.** Si quelque chose d'autre
+  occupe le port de l'API — un second `calaos_server` resté en vie, un autre logiciel — le serveur
+  n'écoutait sur rien du tout tout en écrivant `Listening on port 5454`. Il écrit désormais :
+
+  ```
+  port 5454 cannot be bound, the API is answering on no address at all
+  ```
+
+  et il n'annonce plus un port qu'il n'a pas. C'est la même règle que ci-dessus, appliquée au
+  dernier étage : ce qui rate se dit.
+
 - ⚠️ **Rescan des micrologiciels : la boucle locale, c'est tout `127.0.0.0/8`.** L'appel qui
   demande au serveur de relire son dossier de micrologiciels n'est accepté que depuis la machine
   elle-même. Il comparait l'adresse de l'appelant à `127.0.0.x` seulement, alors que le reste du
