@@ -1732,13 +1732,34 @@ d'E4.2e** (qui détient `ListeRule.cpp`), afin que la passe puisse le couvrir au
   premier et `~AutoScenario` ne touche plus aucune `Rule`. **Rien ne teste cet invariant** :
   réordonner ces deux lignes réintroduit un accès à un singleton détruit, silencieusement.
   À épingler par un test, ou à rendre explicite autrement qu'un ordre de déclaration.
-- **Back-pointers mesurés inoffensifs — NE PAS convertir** : `AutoScenario.h:54-59`
-  (`ioScenario`, `ioIsActive`, `ioScheduleEnabled`, `ioStep`, `ioTimer`, `ioTimeRange`),
-  `AutoScenario.h:61` `roomContainer`, `AutoScenario.h:42` `ScenarioAction::io`,
-  `IO/Scenario.h:38` `auto_scenario`. Les seuls appelants de `deleteIO()` sur ces IOs sont
-  `AutoScenario` lui-même et chacun annule le membre juste après ; il n'existe aucune API JSON
-  de suppression d'IO générique. Les convertir = ~40 sites réécrits pour zéro danger réel.
-  Consigné pour qu'un futur passage ne « complète » pas la conversion par symétrie.
+  ⭐⭐ **CE N'EST PLUS LATENT, C'EST MESURÉ** (2026-09-06, [T3.57](T3.57.md)) : sous
+  `--enable-asan`, **`core/IncomingLogStockLevel_test` sort en 1** après avoir passé ses 19 cas —
+  *heap-use-after-free*, `~ListeRoom` → `~Room` → `ListeRoom::detachIOFromRules()` →
+  `ListeRule::Remove()` parcourt le `vector<IOBase *>` dont `~ListeRule` a **déjà libéré** le
+  tableau. Un binaire de test n'a pas le `main()` du serveur, donc il n'a pas l'ordre de
+  déclaration qui sauve. **Rejoué sur `master`** : même rapport, même adresse — **antérieur**, et
+  le seul rouge du `make check` sous ASan.
+- **Back-pointers — NE PAS convertir**, et ⛔⭐ **LA RAISON ÉCRITE ICI ÉTAIT FAUSSE ; corrigée le
+  2026-09-06 par [T3.57](T3.57.md).** La consigne, elle, **tient toujours** : convertir coûterait
+  **~104 sites** dans `AutoScenario.cpp` (recomptés : `ioScenario` 19, `ioIsActive` 18,
+  `ioScheduleEnabled` 12, `ioStep` 15, `ioTimer` 20, `ioTimeRange` 17, `roomContainer` 3 — les
+  « ~40 » d'E4.2f étaient sous-estimés) que **E4.6c doit de toute façon retirer**.
+  ⛔ **Ce qui est faux, c'est « pour zéro danger réel ».** La phrase mesurait **qui détruit** ces
+  IOs — et cette moitié est encore vraie, recensée appelant par appelant en T3.57. Mais **T3.18 a
+  mis `ListeRoom::refreshBrokenScenarios()` à la fin de CHAQUE `deleteIO()`**, et
+  `AutoScenario::stopBrokenRun()` y **lit** `ioIsActive` puis **écrit** `ioStep` et `ioTimer` pour
+  **tous** les scénarios vivants : le danger vient désormais de **qui les LIT**, pas de qui les
+  détruit, et le pointeur pendant est déréférencé **dans le `deleteIO()` lui-même**.
+  ⭐ **Et une porte existe, ce n'est pas un chemin de modèle** : rien ne refuse un
+  `autoscenario_uid` dupliqué dans `io.xml`, deux scénarios partagent alors une seule machinerie,
+  et `autoscenario delete` sur l'un détruit celle de l'autre ([T3.117](T3.117.md)).
+  ✅ **Fermé par T3.57 SANS conversion** : `Room::RemoveIO(del=true)` et `~Room` préviennent les
+  scénarios avant de détruire (`AutoScenario::forgetIO()`/`forgetRoom()`). **Ne convertissez
+  toujours pas** — et ne recopiez plus « zéro danger réel ».
+  ℹ️ Deux des neuf noms de la liste d'origine n'étaient pas des back-pointers :
+  `ScenarioAction::io` est une **valeur de retour** construite sur place par `getRealAction()`, et
+  `ioScenario` / `IO/Scenario.h:38 auto_scenario` sont des liens de **propriété** — `~AutoScenario`
+  déréférence `ioScenario`, donc il ne doit surtout pas être annulé.
 
 ## E4.0 — inventaire de l'API JSON (mesures)
 
@@ -8435,6 +8456,12 @@ d'entree d'E4.6d.
   chemin de rechargement reconstruit tout), donc **hors perimetre et non instruit** — mais c'est
   la meme famille que T3.40 et ca merite un ticket de duree de vie a soi. Le cas de test a ete
   reecrit pour passer par le fichier de configuration a la place.
+  ✅⭐ **INSTRUIT ET CORRIGE le 2026-09-06 par [T3.57](T3.57.md), et deux points ci-dessus sont a
+  rectifier** : (1) le segfault n'attend pas « le `modify` suivant », il tombe **dans le
+  `deleteIO()` lui-meme**, par `refreshBrokenScenarios()` → `stopBrokenRun()` ; (2)
+  ⛔ **« non atteignable par l'API » est faux** — rien ne refuse un `autoscenario_uid` duplique dans
+  `io.xml`, deux scenarios partagent alors une seule machinerie, et `autoscenario delete` sur l'un
+  detruit celle de l'autre ([T3.117](T3.117.md)).
 - **`ScenarioNullGuard_test.cpp` garde son include jansson** alors qu'il n'utilise plus un seul
   symbole jansson. Include mort, laisse en place : le nettoyage des includes est E4.1c/E4.1x, pas
   ce ticket.
@@ -11756,3 +11783,28 @@ annonçait qu'**un**, parce qu'elle ne comptait que la forme `-1`.
   4 de ses fichiers et le balayage n'est jamais atteint ; court-circuité, le balayage seul porte
   **7 accusations FAUSSES** contre `TcpSocket_test`, `WagoBits_test` et `MqttSidecarConfigWait_test`.
   *Il ne rend pas la sonde correcte, il empêche une sonde cassée d'accuser des innocents.*
+
+## T3.57 — durée de vie des IOs de machinerie de scénario (2026-09-06)
+
+- ⭐⭐ **Le segfault est DANS `deleteIO()`, pas dans l'opération suivante.** `gdb` sur `master` :
+  `AutoScenario::stopBrokenRun()` ← `ListeRoom::refreshBrokenScenarios()` ← `ListeRoom::deleteIO()`.
+  ASan, même arbre : *heap-use-after-free*, **READ of size 8**, libéré par `Internal::~Internal()`
+  ← `Room::RemoveIO()` ← `delete_io()` ← **le même `deleteIO()`**. *À recopier : une note qui dit
+  « et l'opération suivante déréférence » n'a pas été jouée sous debugger ; celle-ci l'a été et le
+  chemin était plus court d'un cran.*
+- ⭐ **`Room::RemoveIO(pos, del)` avec `del == true` est LE point de passage de toute destruction
+  d'IO** : `~Room` et `ListeRoom::delete_io()` y passent, donc `ListeRoom::deleteIO()` aussi.
+  ⛔ **Sauf `delete_io(io, del=false)`**, qui rend la propriété à l'appelant : celui-ci détruit hors
+  de `Room`, et rien ne le tient. Aucun appelant de production aujourd'hui, deux suites de `tests/`.
+  Mesuré par contre-mutation : poser le désenregistrement dans `~Room` **au lieu de** `RemoveIO()`
+  laisse les **quatre** cas passant par `deleteIO()` rouges et ne garde que celui de la pièce.
+- **`ScenarioAction::io` n'est pas un membre** : `getRealAction()` renvoie la structure par valeur.
+  Et `AutoScenario::ioScenario` est un lien de **propriété** — `~AutoScenario` le déréférence, donc
+  il ne doit surtout pas être annulé par un balayage de destruction.
+- ⭐ **`core/JsonApiScenario_test` tient déjà une part de cet invariant** : échanger les cibles
+  d'affectation `ioStep` ⇄ `ioTimer` dans le désenregistrement la fait rougir, alors que rien dans
+  cette suite ne parle de durée de vie. La suite neuve n'est pas seule à garder la propriété.
+- **Les deux configurations réelles portent ZÉRO auto-scénario** depuis le re-cléage de `T3.61` :
+  toute mesure de coût qui les prend telles quelles parcourt une liste **vide** et ne mesure rien.
+  Bornage du cas non vide en ajoutant 20 scénarios avant la destruction : 134 IOs × 20 scénarios
+  démolis en **0,55 ms**, contre **0,55 ms** sans le balayage.
