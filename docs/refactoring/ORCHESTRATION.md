@@ -40,8 +40,192 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.59`](T3.59.md)) —
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.22`](T3.22.md)) —
   À LIRE EN PREMIER À FROID.**
+
+  ⛔⭐⭐⭐ **CE QUI COMPTE LE PLUS, ET C'EST DÉSORMAIS MESURÉ, PAS DÉDUIT : POUSSER PUBLIE SANS
+  ATTENDRE LES TESTS.** `.github/workflows/docker-publish-dev.yml` part sur `on: push: branches:
+  [master]`. Son **unique** job n'a **ni `needs:` ni `if:`**, l'arbre entier ne porte **aucun**
+  `workflow_run`, et les tests vivent dans un **autre** fichier de workflow (`ci.yml`) — donc hors de
+  portée d'un `needs:`, qui ne franchit pas la frontière d'un fichier. Les deux workflows partent du
+  **même** événement et tournent **en parallèle**. ⇒ **le premier `push` incrémentera la version,
+  créera un tag git, publiera `ghcr.io/calaos/calaos_base:dev` et le tag versionné, et dispatchera un
+  `build_deb` vers `calaos/pkgdebs` — que `build-and-test` soit vert, rouge, ou encore en cours.**
+  Recompté indépendamment à la revue : `workflow_run` **0 occurrence dans tout `.github/`**, `needs:`
+  **0 dans les trois workflows**, `if:` **0 dans `docker-publish-dev.yml`** (les 4 de l'arbre sont
+  dans `ci.yml`).
+  ⛔⭐ **Et le fichier affirmait le contraire.** `docker-publish-dev.yml:16` portait le commentaire
+  `# run only when code is compiling and tests are passing`. C'est plus grave que l'absence de garde :
+  quelqu'un l'a lu et s'est cru protégé. ✅ **Corrigé dans ce merge** — le fichier dit maintenant
+  pourquoi rien ne le garde ; **texte seul**, les deux versions donnent des documents YAML **égaux**
+  une fois parsés. ⛔ **La garde elle-même reste à poser et c'est une décision de l'utilisateur**
+  ([`T3.125`](T3.125.md) : **A fait**, restent **B** `workflow_run` et **C** protection de branche —
+  et **pas avant [`T3.112`](T3.112.md)**, sans quoi le flottement ferait **manquer des livraisons**).
+
+  ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION.** **Aucun agent ne pousse, jamais.**
+  ⛔ **RIEN N'A ÉTÉ POUSSÉ DE TOUTE LA SÉRIE.**
+
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de la branche
+  `chore/t3.22` (**3 commits** : 2 du développeur + 1 de la revue de merge), `merge --ff-only`,
+  historique linéaire, **0 commit de fusion**. ⭐ `master` était **IMMOBILE** sur `099f15fa` =
+  exactement la merge-base ⇒ **ni rebase ni conflit**, et `tests/Makefile.am` **n'est pas touché**
+  (le diff ne sort pas de `.github/` et `docs/`) — rien à régénérer, aucun `endif` à recoudre.
+  `TESTS` = **142**, référence après `make distclean` : **`TOTAL 142 / PASS 141 / SKIP 1 / FAIL 0 /
+  XFAIL 0 / XPASS 0 / ERROR 0`**, **142 `.trs`** recomptés sur l'hôte, seul `SKIP`
+  `check-ccache-honesty.sh`, **0 `error:`**, **11 `CXXLD`** au `make -j32`, **un seul** bloc
+  `Testsuite summary` à chaque tour. **Deux campagnes de deux `make check`** après `distclean`
+  (branche avant le merge, puis `master` après le commit de revue).
+  ⚠️ **`core/MqttSidecarConfigWait_test` a flanché 1 fois sur les 4 `make check` de cette revue**,
+  **seul** et au **premier** tour de la campagne finale (`TOTAL 142 / PASS 140 / FAIL 1`) ; les trois
+  autres tours sont à `PASS 141`. C'est `F-FLAKY-2` / [`T3.112`](T3.112.md), **antérieur** — le
+  ticket ne touche aucune ligne compilée. ⛔ **Aucun `make check` n'a été relancé pour faire
+  disparaître ce rouge** : le second tour était le second des deux prévus, pas une reprise.
+
+  ⭐⭐ **CE QUE LE TICKET FERME.** Le manifeste pip du sidecar (`src/bin/calaos_mcp/pyproject.toml`)
+  n'était déclaré **nulle part** — `.github/dependabot.yml` ne portait **qu'une** entrée, `npm` sur
+  `/data/debug`, **sans aucun groupe**. Il porte désormais l'entrée `pip`, et **un groupe
+  `patterns: ["*"]` par écosystème doublé d'une variante `applies-to: "security-updates"**. Comme un
+  merge est une publication, une PR par paquet était **un cycle étiquette + image + paquet Debian par
+  paquet** : c'est ce fait, et lui seul, qui rend le regroupement **nécessaire** plutôt que
+  confortable.
+
+  ⭐⭐⭐ **CE QUE LA REVUE A MESURÉ, ET QUI DÉPASSE LE TICKET :**
+  1. ⛔⭐⭐ **LA LIMITE RÉELLE DU TICKET, RECOMPTÉE ET PASSÉE EN TÊTE DE FICHE.** Le manifeste épingle
+     **9 paquets sur 9** (`[project].dependencies` **6** + `[project.optional-dependencies].test`
+     **3**). Mais le `Dockerfile` n'étend **pas** l'extra `test` pour l'image, et sa **même**
+     invocation `pip` ajoute `roonapi` et `reolink-aio` **sans borne de version, hors de tout
+     manifeste** ⇒ **sur les 8 paquets pip que l'image publiée porte, 6 sont surveillés et 2 sont
+     invisibles**. Ce sont pourtant deux imports d'exécution réels
+     (`Audio/ExternProcRoon_main.py`, `IO/Reolink/ExternProcReolink_main.py`). ⭐ **Et l'écosystème
+     `docker` ne les rattraperait pas** : Dependabot n'y lit que les étiquettes de `FROM`, jamais un
+     `RUN pip install`. Le mode d'échec de `F-DEP-1` est **réduit de six paquets à deux, pas fermé**.
+     *À recopier : le compte qui décide n'est pas « combien le manifeste épingle-t-il » mais
+     « combien l'image installe-t-elle que le manifeste ne nomme pas ».*
+  2. ⛔⭐⭐ **LE CONTRÔLE DE CI MORD, ET IL EST CASSABLE EN SILENCE — c'est la trouvaille de la revue**
+     ⇒ `F-DEP-9` / [`T3.126`](T3.126.md). Les **4 mutations** du développeur et son témoin sont
+     **exacts**, rejoués sur le script **ré-extrait du YAML du workflow**. Mais deux
+     contre-mutations **du contrôle lui-même** — jamais de la règle qu'il énonce — le rendent muet :
+     **`"."` ajouté au n-uplet `pip` de sa table `MANIFESTS`** ⇒ un répertoire déclaré **sans
+     manifeste** passe à **rc 0**, avec une sortie sur l'arbre livré **identique au caractère près** ;
+     **`sys.exit(1 if errors else 0)` → `sys.exit(0)`** ⇒ **les quatre** défauts passent.
+     ⇒ **NON, l'absence d'auto-test n'est pas acceptable ici**, et c'est la norme du dépôt qui le
+     dit : les deux sondes de la famille qui en portent un (`check-echo-ceilings.sh`,
+     `check-order-sentinels.sh`) l'ont **précisément** parce que cette mesure-là avait été faite à la
+     revue de `T3.63`.
+     *À recopier : une sonde se contre-mute dans sa TABLE DE RECONNAISSANCE, pas dans sa règle. Un
+     jeton y suffit, et la sortie sur l'arbre sain ne bouge pas d'un caractère.*
+  3. ⛔⭐ **ET LE CONTRÔLE, NON MUTÉ, EST AVEUGLE AU DÉFAUT LE PLUS COÛTEUX.** Il accepte (rc 0) :
+     `applies-to: "security-update"` (typo), une clef mal orthographiée sur une entrée, un `directory`
+     portant un `*` derrière lequel il n'y a rien, un manifeste présent qui ne déclare rien, un
+     manifeste qui est un **répertoire**. Les deux premiers sont ce que Dependabot punit en
+     **ignorant le fichier entier** — donc en emportant **aussi la surveillance npm existante**. Le
+     validateur de schéma les attrape (**1 erreur** chacun) mais n'a été passé qu'**à la main, une
+     fois**.
+  4. ✅ **Les vérifications (a) et (c) sont refaites et tiennent.** Schéma SchemaStore
+     `dependabot-2.0.json` (Draft 7) via `jsonschema` 4.23.0 : **0 erreur** sur le fichier livré,
+     **0 erreur** sur celui de `master` (témoin). ⭐ **Et la revue a prouvé en plus que le validateur
+     MORD**, ce que le développeur n'avait pas fait : clef inventée sur une entrée ⇒ 1 erreur, clef
+     inventée dans un groupe ⇒ 1 erreur, `applies-to` au singulier ⇒ 1 erreur — `update` et le membre
+     de `groups` sont bien `additionalProperties: false`. Comparaison champ à champ : **aucune entrée
+     perdue**, et `npm@/data/debug` ressort `removed=none changed=none added=['groups']`, commentaire
+     **verbatim**.
+  5. ⭐ **LE MOTIF DU DOUBLON DE GROUPE TIENT, MAIS CE N'EST PAS TOUT À FAIT CELUI QUI EST ÉCRIT.**
+     Ce qui rend le second groupe **nécessaire** est qu'un groupe **sans** `applies-to` vaut
+     `version-updates` **seul** : sans lui, une PR de sécurité arrive **par paquet**, donc par cycle
+     de publication. Que `open-pull-requests-limit` ne couvre pas les *security updates* est **vrai**
+     et va dans le même sens, mais c'est un **renfort, pas la cause**. ⇒ **le doublon n'est pas du
+     bruit.**
+  6. ✅ **L'arbitrage sur `multi-ecosystem-groups` tient.** La clef existe bien au schéma
+     (`multi-ecosystem-groups` au premier niveau, `multi-ecosystem-group` par entrée), le gain est
+     bien d'**un seul** cycle mensuel, et l'argument d'exposition **opposée** entre les deux
+     écosystèmes est celui qui décide. Rien à rouvrir.
+  7. ⛔⭐ **LA FAUSSE ASSURANCE EST ICI D'UN GENRE PARTICULIER : RIEN DE CE TICKET N'EST EXERCÉ PAR
+     `make check`.** Le vert à 142 est **exact et sans rapport**. Concrètement : une régression de
+     `dependabot.yml` n'est vue que **chez GitHub**, et seulement pour la moitié « manifeste
+     absent » ; une régression **du contrôle lui-même** n'est vue **nulle part** ; et quoi qu'il
+     arrive **aucun rouge ne retient une publication**.
+  8. ✅ **Aucune entrée `RELEASE_NOTES.md` due**, vérifié contre l'en-tête du fichier — qui n'accepte
+     que ce qu'un **utilisateur** observe. Ce ticket ne change **aucune ligne de `src/`** et **aucun
+     comportement du produit** : il change la fréquence des PR d'un robot et le texte d'un
+     commentaire de CI. Rien n'a jamais mal fonctionné pour un utilisateur de Calaos.
+
+  ⭐ **CE QUE LES CONTRE-MUTATIONS DE LA REVUE ONT MESURÉ — deux neuves contre le contrôle de CI,
+  plus une campagne d'acceptation :**
+  - ⛔⭐ **CR-1** *(`"."` ajouté au n-uplet `pip` de la table `MANIFESTS`)* ⇒ le contrôle **accepte**
+    un répertoire déclaré sans manifeste, sortie sur l'arbre livré **identique au caractère près** ;
+  - ⛔ **CR-2** *(`sys.exit(1 if errors else 0)` → `sys.exit(0)`)* ⇒ **les 4** défauts passent ;
+  - **CR-3** *(contrôle non muté, 5 configurations qu'il devrait refuser)* ⇒ **5 acceptations**,
+    dont **2** que le schéma attrape et qui coûteraient la surveillance npm **existante** ;
+  - **témoin** : le contrôle livré ⇒ **rc 0** et deux `ok` sur l'arbre, **rc 1** aux 4 mutations.
+  Mutation et restauration **sur l'HÔTE** (jamais un `git` dans le conteneur), instantané **neuf**
+  nommé par **chemin complet** et jamais réutilisé, restauration par écriture **sans métadonnées**
+  puis `utime`, prouvée par `cmp` **rc 0** **et** par un horodatage **effectivement déplacé** aux
+  **2** restaurations, sortie **jamais tronquée** par un lecteur qui ferme tôt, `git status` sur
+  l'**HÔTE** **vide** après la campagne.
+
+  ⭐⭐ **LES TICKETS OUVERTS — DEUX COMPTES SÉPARÉS, et c'est le premier qui compte pour
+  l'utilisateur.**
+
+  **(a) Backlog du 4 septembre — 3 tickets encore ouverts** ([`T3.22`](T3.22.md) **en sort**) :
+  `T3.21`, `T3.25a`, `T3.32`.
+  ⏳ **Deux sont EN COURS** au moment de ce paragraphe, sur des branches **non mergées** : `T3.21`
+  (`.wave135/t3.21`, `fix/t3.21`, **0 commit**, 8 fichiers modifiés dans `src/` et `tests/`) et
+  `T3.32` (`.wave136/t3.32`, `infra/t3.32`, **0 commit**, `Makefile.am` modifié et
+  `scripts/check-docs.py` non suivi). Les deux worktrees ont été laissés **intacts**, ciblés par
+  **mount** et jamais approchés autrement. ⚠️ **`T3.25a` n'est PAS en cours** : aucune branche,
+  aucun worktree — sa fiche existe et rien d'autre.
+
+  **(b) Ouverts PAR LES REVUES pendant la série — 21** (deux entrent, aucun ne sort) : `T3.91`
+  (proposé, fiche non écrite), `T3.100`, [`T3.104`](T3.104.md), [`T3.105`](T3.105.md),
+  [`T3.107`](T3.107.md), [`T3.108`](T3.108.md), [`T3.109`](T3.109.md), [`T3.110`](T3.110.md),
+  [`T3.111`](T3.111.md), [`T3.112`](T3.112.md), [`T3.113`](T3.113.md), [`T3.115`](T3.115.md),
+  [`T3.116`](T3.116.md), [`T3.117`](T3.117.md), [`T3.118`](T3.118.md), [`T3.119`](T3.119.md),
+  [`T3.120`](T3.120.md), [`T3.121`](T3.121.md), [`T3.122`](T3.122.md),
+  [`T3.125`](T3.125.md) **(entrée avec le ticket)**,
+  [`T3.126`](T3.126.md) **(neuve, ouverte par cette revue)**.
+  ⚠️ Numéros **pris** : `T3.76` → `T3.126`. ⛔ **`T3.114` est un TROU périmé, à ne pas réutiliser.**
+  ⛔ **`T3.123` et `T3.124` sont RÉSERVÉS par les deux agents en vol** (`fix/t3.21`, `infra/t3.32`) :
+  **aucune fiche n'existe encore**, dans aucun worktree, mais ils ne doivent pas être repris.
+  **Prochain libre : `T3.127`.**
+
+  **[`T3.126`](T3.126.md) en une ligne** : le contrôle de CI que `T3.22` vient d'écrire refuse bien
+  les quatre défauts qu'il annonce, mais **un jeton dans sa table de reconnaissance** lui fait
+  accepter celui pour lequel il existe — sans changer d'un caractère sa sortie sur l'arbre sain —,
+  il accepte **non muté** cinq configurations qu'il devrait refuser, et il **ne tourne pas dans
+  `make check`**.
+
+  ⭐⭐ **CE QUI ATTEND L'UTILISATEUR, ET RIEN D'AUTRE :**
+  1. ⛔⭐⭐ **Le `push` — et on sait maintenant EXACTEMENT ce qu'il fait.** Il **publie** : version
+     incrémentée, tag git, `ghcr.io/calaos/calaos_base:dev` + tag versionné, `build_deb` dispatché
+     vers `calaos/pkgdebs` — **sans attendre le moindre test**, et sans qu'un rouge ne le retienne.
+     Ce n'est plus une prudence, c'est une mesure. ⚠️ Attente précise sur le job CI, qui n'a **jamais**
+     tourné : `SKIP 4` sur un exécuteur sans IPv6, et `core/MqttSidecarConfigWait_test` visible en
+     rouge par intermittence. **À décider par l'utilisateur seul.**
+  2. ⛔ **[`T3.125`](T3.125.md) B et C** — poser la garde (`workflow_run`, ou protection de branche
+     sur `master`). ⚠️ **Pas avant [`T3.112`](T3.112.md)** : le flottement ferait **manquer des
+     livraisons**. L'issue **A** (le commentaire faux) est **faite**.
+  3. ⚠️ **`F-FLAKY-2` / [`T3.112`](T3.112.md)** — `core/MqttSidecarConfigWait_test` flanche par
+     intermittence, **toujours seul**. Il a flanché **1 fois sur les 4** `make check` de cette revue,
+     et **4 fois sur 11** à celle de `T3.38` : **l'utilisateur le verra en CI**, et ce n'est pas une
+     régression de la série. ⛔⭐ **Et il faut le lire avec le point 1** : si la garde `T3.125` B
+     était posée aujourd'hui, ce flottement ferait **manquer des livraisons** une fois sur quelques
+     merges. ⛔ **Aucun `make check` n'a jamais été relancé pour effacer un
+     rouge.**
+  4. ⭐ **[`T3.120`](T3.120.md) §2** — **le DMX est-il indexé à partir de 0 ou de 1 ?** Décision de
+     produit sur 4 sites : **A** doc seule (`0..511`), **B** convention DMX (`1..512` + `-1` à
+     l'émission, ⛔ décale toutes les installations), **C** laisser. Recommandation **A**. Et
+     **`T3.120` §1** (`grid_h`/`grid_w`) est un correctif sans arbitrage, à passer en premier.
+  5. **[`T3.119`](T3.119.md)** — répondre ou non sur la **racine** du dispatch websocket : trois
+     arbitrages, dont un de **sécurité**.
+  6. **[`T3.126`](T3.126.md)**, **[`T3.122`](T3.122.md)**, **[`T3.121`](T3.121.md)**,
+     **[`T3.113`](T3.113.md)**, **[`T3.104`](T3.104.md)**, **[`T3.105`](T3.105.md)** et
+     **[`T3.111`](T3.111.md)** — inchangés, voir les états de sortie précédents.
+  7. ⚠️ **Les 12 alertes Dependabot du passage du 2026-08-24 sont toujours OUVERTES**, dont les 2
+     `immutable` à *dismiss* — geste **utilisateur**.
+
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-06, APRÈS LE MERGE DE [`T3.59`](T3.59.md)) — conservé
+  pour l'historique.**
 
   ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION** : il déclenche un **build de
   développement qui est déployé**. **Aucun agent ne pousse, jamais.** ⛔ **RIEN N'A ÉTÉ POUSSÉ DE

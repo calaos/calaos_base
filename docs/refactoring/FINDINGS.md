@@ -805,6 +805,38 @@
   invisibles**. À traiter avec `F-DEP-3` (même garde), ou en les déclarant dans un manifeste que le
   `Dockerfile` développe déjà.
 
+  ⭐ **Vérifié à la revue de merge**, en parsant les trois workflows plutôt qu'à l'œil :
+  `workflow_run` **0 occurrence dans tout `.github/`**, `needs:` **0 dans les trois workflows**,
+  `if:` **0 dans `docker-publish-dev.yml`** (les 4 de l'arbre sont dans `ci.yml`). Le compte pip
+  aussi : `[project].dependencies` **6** + `[project.optional-dependencies].test` **3** = **9
+  épinglés sur 9** au manifeste ; le `Dockerfile` n'étend **pas** l'extra `test` pour l'image, donc
+  l'image porte **6** paquets déclarés + `roonapi` + `reolink-aio` = **8**, dont **2 hors de tout
+  manifeste**. ✅ **La moitié « commentaire menteur » est FERMÉE** par la revue de merge de
+  [`T3.22`](T3.22.md) (issue A de [`T3.125`](T3.125.md)) — texte seul, YAML parsé inchangé. Restent
+  ouvertes la publication non gardée et les deux paquets invisibles.
+
+- 🟠 **[F-DEP-9] Le contrôle `dependabot-config` n'a pas d'auto-test, et il est aveugle au défaut le
+  plus coûteux du fichier qu'il garde.** Mesuré à la revue de merge de [`T3.22`](T3.22.md) §10.3–10.4,
+  script **ré-extrait du YAML du workflow**.
+
+  **(1) Cassable en silence.** Deux contre-mutations du contrôle lui-même — jamais de la règle qu'il
+  énonce : `"."` ajouté au n-uplet `pip` de sa table `MANIFESTS` ⇒ un répertoire déclaré **sans
+  manifeste** passe à **rc 0**, et la sortie sur l'arbre livré est **identique au caractère près** ;
+  `sys.exit(1 if errors else 0)` → `sys.exit(0)` ⇒ **les quatre** défauts passent. ⭐ C'est la forme
+  mesurée à la revue de `T3.63` : une sonde se casse dans son **masquage lexical** et sa
+  **reconnaissance**, là où un auto-test ne regarde pas. Les deux sondes de la famille qui en portent
+  un (`check-echo-ceilings.sh`, `check-order-sentinels.sh`) l'ont précisément pour cette raison.
+  ⚠️ **Aggravation propre à celui-ci** : il ne tourne pas dans `make check`, donc rien en local ne
+  peut le voir tomber.
+
+  **(2) Aveugle au fichier non parsable.** Contrôle **non muté**, il accepte (rc 0) : un
+  `applies-to: "security-update"` (typo), une clef mal orthographiée sur une entrée, un `directory`
+  portant un `*` derrière lequel il n'y a rien, un manifeste présent qui ne déclare rien, un
+  manifeste qui est un répertoire. ⛔ Les deux premiers sont le mode d'échec le plus coûteux —
+  Dependabot **ignore le fichier entier** quand il ne le parse pas, ce qui emporte **aussi la
+  surveillance npm existante**. Le validateur de schéma SchemaStore les attrape (**1 erreur**
+  chacun), mais il n'a été passé **qu'à la main, une fois**. ⇒ [`T3.126`](T3.126.md).
+
 
 
 ## Résolus

@@ -13,7 +13,10 @@ jobs:
   # define job to build and publish docker image
   build-and-push-docker-image:
     name: Build Docker image and push to repositories
-    # run only when code is compiling and tests are passing
+    # Nothing gates this job: the tests live in a separate workflow, which a
+    # needs: cannot reach, and no workflow_run links the two. Merging into
+    # master therefore tags, publishes and dispatches a package build whatever
+    # the test run is doing.
     runs-on: ubuntu-latest
 
     # steps to perform in job
