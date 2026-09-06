@@ -693,6 +693,13 @@ void JsonApiHandlerWS::processSettings(const Params &jsonReq, const string &clie
                     { "success", ok?"true":"false" }};
         sendJson("settings", ret, client_id);
     }
+    /* Same else, same shape as the autoscenario dispatch above. It costs no
+     * descriptor here - a websocket outlives its messages - but a client that
+     * waits on a msg_id waits for ever, and one wire deserves one answer for
+     * one unknown sub-command.
+     */
+    else
+        sendJson("settings", {{ "error", "unknown settings action" }}, client_id);
 }
 
 void JsonApiHandlerWS::processLoginService(const Params &jsonData, const string &client_id)

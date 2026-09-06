@@ -1255,6 +1255,15 @@ void JsonApiHandlerHttp::processCamera()
             cameraDl->httpGet();
         }
     }
+    /* Same else, same reason, as the autoscenario dispatch above: on this
+     * transport the ANSWER is what releases the socket - sendJson() sets
+     * Connection: Close and HttpClient force-closes half a second later.
+     * Without it the request is fully parsed, so requestReadTimeout() no
+     * longer applies, and the connection stays counted against
+     * maxConnectionsPerIp() until the peer gives up.
+     */
+    else
+        sendJson({{ "error", "unknown camera type" }});
 }
 
 void JsonApiHandlerHttp::releaseCameraDl()
