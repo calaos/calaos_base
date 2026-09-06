@@ -916,13 +916,14 @@ TEST_F(MqttSidecarConfigWaitTest, ABrokerRefusingTheCredentialsNamesTheRefusal)
  * pumping. teardown() gives back the children and the unix sockets that
  * ~ExternProcServer never got to unlink.
  *
- * ⚠️ And the sidecar's journal now reaches this process as DEBUG lines of the
- * `process` domain instead of a bare copy onto std::cout, so the domain has to
- * be raised for the log these cases read to exist at all. Only the domain:
- * debug_level is what the CHILD is given, and raising that would put its own
- * DEBUG lines in the log the secret assertions below read. It happens HERE
- * because Logger fills its domain map once, lazily, and never re-reads it -
- * and CoreFixture re-initialises the configuration before every case.
+ * ⚠️ The sidecar's journal now reaches this process as DEBUG lines of the
+ * `process` domain instead of a bare copy onto std::cout, so that domain has
+ * to be raised for the log these cases read to exist at all. The domain and
+ * not debug_level: the level raises EVERY domain of this process, and cases
+ * asserting that a secret is ABSENT are the ones a wider haystack weakens.
+ * It happens HERE because Logger fills its domain map once, lazily, and never
+ * re-reads it - and CoreFixture re-initialises the configuration before every
+ * case, so nothing set here reaches the spawned child either.
  */
 int main(int argc, char **argv)
 {

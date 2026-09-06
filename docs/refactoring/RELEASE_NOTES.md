@@ -444,12 +444,26 @@ sont affichés à la fermeture du tuyau, suivis de `[no end of line]`.
 > utile quand vous cherchez un problème *dans* un pilote, et excessif quand vous voulez seulement
 > revoir ce qu'il dit.
 
+### 🔴 Au passage : un pilote qui n'allait jamais à la ligne faisait grossir le serveur sans fin
+
+Ce n'était pas ce que le correctif visait, et c'est ce qu'il a trouvé. Tant qu'un programme externe
+n'envoyait **aucun** passage à la ligne, le serveur **n'affichait rien** et **gardait tout** : il
+accumulait en mémoire, indéfiniment, tout ce que ce programme écrivait.
+
+**Mesuré sur la version précédente** : un pilote qui écrit **16 Mo** sans passer à la ligne fait
+grossir la mémoire du serveur de **16,6 Mo** — au rythme du pilote, sans plafond, et rien n'apparaît
+dans le journal. Sur un boîtier qui tourne des semaines, un pilote qui déraille de cette façon finit
+par manger la mémoire de la machine.
+
+**Corrigé** : la coupure à 512 octets vide le tampon au lieu de le laisser grossir. Sur la même
+mesure, la mémoire du serveur ne bouge plus que de **0,5 Mo**, et le contenu, lui, **sort** —
+découpé et marqué `[no end of line]`.
+
 > ### ⚠️ Ce que cette version ne fait PAS
 >
 > **Une ligne très longue est coupée à 512 octets**, et elle le dit (`[+N bytes cut]`). Un pilote qui
 > déverse des données binaires sans jamais passer à la ligne est également coupé au même endroit
-> (`[no end of line]`) — auparavant, ce flux-là n'était **jamais** affiché et la mémoire du serveur
-> grossissait tant que le programme tournait.
+> (`[no end of line]`).
 >
 > **Le contenu n'est pas retouché** : les octets sont recopiés tels quels, à la longueur près. Un
 > pilote qui imprimerait un mot de passe l'imprimerait toujours — mais désormais seulement si vous

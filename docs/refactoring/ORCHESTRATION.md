@@ -40,8 +40,116 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.60`](T3.60.md)) — LE
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.101`](T3.101.md)) — LE
   DERNIER MERGE DE LA SESSION. À LIRE EN PREMIER À FROID.**
+
+  ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION** : il déclenche un **build de
+  développement qui est déployé**. **Aucun agent ne pousse, jamais.** ⛔ **RIEN N'A ÉTÉ POUSSÉ DE
+  TOUTE LA SÉRIE.**
+
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de la branche
+  `fix/t3.101` (**4 commits** : 3 du développeur + 1 de la revue de merge), rebasée de `59e807b3` sur
+  `537cdc82`. `TESTS` = **138**, référence de build après `make distclean` :
+  **`TOTAL 138 / PASS 137 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
+  `check-ccache-honesty.sh`, **0 `error:`**, **quatre `make check` identiques** après `distclean`.
+  ⚠️ **Le flottement s'est reproduit deux fois sur les huit tours**, dans un autre fichier que celui
+  que `F-FLAKY-1` nomme — voir `F-FLAKY-2` et [`T3.112`](T3.112.md) — et **aucun `make check` n'a été
+  relancé pour faire disparaître un rouge**.
+
+  ⚠️ **`tests/Makefile.am` était bien en conflit**, résolu par **régénération** : `master` est
+  **préfixe strict octet à octet** du résultat, **+40/−0/~0**, `^if` **119** ≡ `^endif` **119**,
+  profondeur finale **0**. Aucun autre conflit.
+
+  ⭐⭐ **CE QUE LE TICKET FERME.** Ce que les **sept** familles de sidecars impriment (plus Roon)
+  n'est plus recopié tel quel hors du journal : chaque ligne devient une ligne DEBUG du domaine
+  `process`, nommée par le **préfixe** de son `ExternProcServer` — ce qui distingue enfin les **deux**
+  sidecars KNX, que le `--namespace` ne distinguait pas. Par défaut le serveur se tait ;
+  `debug_domains process:5` rend tout. Arbitrage utilisateur du 2026-09-06 (n° 2).
+
+  ⭐⭐⭐ **CE QUE LA REVUE A MESURÉ, ET QUI DÉPASSE LE TICKET :**
+  1. ⭐⭐ **LA FUITE DE MÉMOIRE EST RÉELLE, ET ELLE EST DE 1 POUR 1.** Reproduite **sur `master`**
+     avec un vrai contrôleur et un sidecar qui déverse **16 MiO sans un seul `\n`**, sortie comptée
+     puis **jetée** (un `ostringstream` aurait gardé l'écho dans la mémoire mesurée) :
+     **RSS du parent +17 016 Kio** pour 16 384 Kio reçus, **17 869 octets publiés**. Même harnais, un
+     seul fichier échangé contre celui de la branche : **+536 Kio** et **18 989 644 octets** publiés
+     en tranches de 512. ⇒ **le tampon retient tout ce que l'enfant écrit, au rythme de l'enfant,
+     sans plafond.** La borne de 512 octets n'est pas un confort de lisibilité, c'est ce qui ferme la
+     fuite (`F-LOGRAW-2`, entrée dédiée dans [`RELEASE_NOTES.md`](RELEASE_NOTES.md)).
+     *À recopier : pour mesurer ce qu'un relais RETIENT, il faut jeter ce qu'il PUBLIE — sinon le
+     harnais mesure sa propre mémoire et les deux côtés se ressemblent.*
+  2. ✅ **Le recensement a été recompté sur les HUIT binaires**, pas deux : six C++ ⇒ **6 lignes nues
+     + 2 `[ERR]`** sur `stdout`, **0 octet** sur `stderr`, **identiques octet à octet** aux niveaux 4
+     et 5 ; deux Python ⇒ **4 lignes portant des séquences ANSI**, `stderr` vide. Le tableau tient.
+  3. ✅ **La dernière ligne avant un plantage a été rejouée des deux côtés**, même harnais : perdue
+     **0 sur 3** morts sur `master`, publiée **3 sur 3** après.
+  4. ✅ **CM-1 et CM-3 rejouées à l'identique.** CM-1 ⇒ **exactement les 7 cas annoncés**, et le
+     plafond **reste VERT** — l'aveu du développeur est vrai, et c'est ce qui rend CM-3 nécessaire.
+     CM-3 ⇒ **1 seul rouge, le plafond**, `513` contre `1025`. `check-echo-ceilings.sh` passe bien de
+     **9 à 10** plafonds tenus (exécutée des deux côtés).
+  5. ✅ **La réparation de la suite cassée est JUSTE, sa raison écrite était FAUSSE.** Le réglage
+     retiré ⇒ **exactement 4 rouges**, les 4 cas qui passent par `ExternProcServer`. Mais la variante
+     `debug_level = 5` laisse la suite **verte, 9 sur 9** : `CoreFixture` ré-initialise la
+     configuration avant chaque cas, donc **aucun** des deux réglages n'atteint l'enfant. Le bon
+     argument est l'**étendue** — `debug_level` monte **tous** les domaines, et une suite qui assure
+     qu'un secret est **absent** est celle qu'un foin élargi affaiblit. Fiche et commentaire corrigés
+     (`F-LOGRAW-5`).
+     *À recopier : une raison qui n'a pas été mesurée est une hypothèse, même quand la décision
+     qu'elle justifie est la bonne.*
+  6. ⛔ **[`T3.110`](T3.110.md) NE SE FERME PAS ICI, et pas parce que ce serait long** : vider les
+     deux tampons et fermer `pipe_stderr` tient en cinq lignes, **le filet non** — aucun cas de
+     l'arbre ne détruit un `ExternProcServer`, et la suite neuve sort par `_exit()` précisément pour
+     ne pas le faire. ⚠️ **Un fait ajouté au ticket** : les gestionnaires de fin et d'erreur de
+     `pipe_stderr` capturent désormais `this` là où ils ne capturaient rien, et ce tuyau n'est jamais
+     fermé.
+
+  ⭐ **CE QUE LES CONTRE-MUTATIONS DE LA REVUE ONT MESURÉ — trois, aucune du développeur, DEUX
+  VERTES :**
+  - ⭐ *volume* : la borne de ligne ↔ la taille du bloc de lecture (512 → 65536) ⇒ **2 rouges**
+    (le plafond, et le cas qui exige que la coupure se dise) — une ligne de 64 Kio ne peut pas entrer
+    entière dans le journal sans qu'un rouge le dise ;
+  - ⛔ *volume* : ce qu'une ligne trop longue **consomme** ↔ ce qu'elle a **publié** ⇒ **0 rouge**.
+    Une ligne d'enfant devient ⌈longueur / 512⌉ lignes de journal et **toute la suite reste verte** :
+    la borne tient la longueur d'**une** ligne, **rien ne tient le rapport « une ligne d'enfant → une
+    ligne de journal »** (`F-LOGRAW-3`). Mesuré : 16 MiO d'enfant ⇒ **19 Mo de journal** (×1,16,
+    ~37 000 lignes), à DEBUG sur le seul domaine `process` ;
+  - ⛔ les deux tampons échangés aux **quatre** sites de fin de tuyau ⇒ **0 rouge** : mutant
+    équivalent en pratique (les deux tuyaux d'un enfant mort finissent **ensemble**), mais il montre
+    que **la fin d'UN SEUL des deux tuyaux n'est tenue par rien** (`F-LOGRAW-4`) ;
+  - **témoin** : les deux `read()` de tuyau échangés ⇒ **0** rouge sur 138, **88 `CXXLD` lus**.
+
+  ⭐⭐ **LES TICKETS OUVERTS — DEUX COMPTES SÉPARÉS, et c'est le premier qui compte pour l'utilisateur.**
+
+  **(a) Backlog du 4 septembre — 10 tickets encore ouverts, INCHANGÉ** (`T3.101` n'en faisait pas
+  partie) : `T3.21`, `T3.22`, `T3.25a`, `T3.32`, `T3.38`, `T3.54`, `T3.55`, `T3.57`, `T3.59`,
+  `T3.63`.
+
+  **(b) Ouverts PAR LES REVUES pendant la série — 10** ([`T3.101`](T3.101.md) **en sort**, deux
+  entrent) : `T3.91` (proposé, fiche non écrite), `T3.100`, [`T3.104`](T3.104.md),
+  [`T3.105`](T3.105.md), [`T3.107`](T3.107.md), [`T3.108`](T3.108.md), [`T3.109`](T3.109.md),
+  [`T3.110`](T3.110.md) **(ouvert par ce ticket)**, [`T3.111`](T3.111.md),
+  [`T3.112`](T3.112.md) **(neuf, ouvert par cette revue)**.
+  ⚠️ Numéros **pris** : `T3.76` → `T3.112`, **sans trou**. Prochain libre : **`T3.113`**.
+
+  **[`T3.112`](T3.112.md) en une ligne** : `core/MqttSidecarConfigWait_test` borne une mort de sidecar
+  à l'**horloge murale** ; mesuré des deux côtés du merge, `master` échoue **5 fois sur 10 à vide**,
+  la branche 1 sur 10 sous charge. Antérieur, sans rapport avec le relais, même **forme** que
+  `F-FLAKY-1`. ⛔ Ne pas allonger le budget : rendre la **fixture** déterministe.
+
+  ⭐⭐ **CE QUI ATTEND L'UTILISATEUR, ET RIEN D'AUTRE :**
+  1. ⛔ **Le `push`** — livraison, pas vérification. Le job CI chez GitHub n'a **jamais** tourné.
+     ⚠️ Attente précise : `SKIP 4` sur un exécuteur sans IPv6.
+  2. **[`T3.104`](T3.104.md)** et **[`T3.105`](T3.105.md)** — arbitrages **déjà tranchés** le
+     2026-09-06 ([`DECISIONS.md`](DECISIONS.md), « Cinq arbitrages du 2026-09-06 ») : ils restent
+     **à écrire**, pas à rediscuter.
+  3. **[`T3.111`](T3.111.md)** — la seule question de produit : une session de service a-t-elle le
+     droit de lire la configuration ? de l'écrire ? de lire le jeton du proxy ?
+  4. ⚠️ **Une rupture visible est livrée** : par défaut le serveur ne montre plus ce que ses pilotes
+     externes impriment. `debug_domains process:5` rend tout — c'est écrit dans
+     [`RELEASE_NOTES.md`](RELEASE_NOTES.md).
+
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-06, APRÈS LE MERGE DE [`T3.60`](T3.60.md)) — conservé
+  pour l'historique.**
 
   ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION** : il déclenche un **build de
   développement qui est déployé**. **Aucun agent ne pousse, jamais.** ⛔ **RIEN N'A ÉTÉ POUSSÉ DE
@@ -11292,7 +11400,7 @@ refuseront — ou pire, une suite qu'elles laisseront passer.
 | `check-test-deps.sh` | un objet serveur **relié** par un binaire de test sans être un **prérequis** de ce binaire (le faux vert de `_DEPENDENCIES`) |
 | `check-extra-dist.sh` / `check-dist-coverage.sh` | un fichier nommé par le harnais mais absent de la distribution, et l'inverse |
 | `check-config-docs.sh` / `check-config-options.sh` | une option de configuration livrée sans documentation |
-| ⭐ `check-echo-ceilings.sh` (2026-09-05, élargie par `T3.99`) | un **plafond d'écho** de `tests/` que rien ne re-dérive : il doit être **épinglé** par un `EXPECT_EQ(<plafond>, <mesure>.size() + 1)` du même fichier, ou tenu **au-dessus** d'un plafond épinglé par un `EXPECT_GT` — **et**, s'il est épinglé, voir la **portée hexadécimale** de chaque forme mesurée de ses documents bornée sous lui par un `EXPECT_LT` d'un cas qui appelle une mesure `…HexRun`. 9 plafonds vus, 9 tenus |
+| ⭐ `check-echo-ceilings.sh` (2026-09-05, élargie par `T3.99`) | un **plafond d'écho** de `tests/` que rien ne re-dérive : il doit être **épinglé** par un `EXPECT_EQ(<plafond>, <mesure>.size() + 1)` du même fichier, ou tenu **au-dessus** d'un plafond épinglé par un `EXPECT_GT` — **et**, s'il est épinglé, voir la **portée hexadécimale** de chaque forme mesurée de ses documents bornée sous lui par un `EXPECT_LT` d'un cas qui appelle une mesure `…HexRun`. **10 plafonds vus, 10 tenus** (2026-09-06, `T3.101`) |
 
 ⛔ **Ce que `check-echo-ceilings.sh` ne voit pas, et qu'il faut dire au brief suivant** : elle lit la
 **forme**, jamais la mesure — elle ne distingue pas un bornage qui parcourt toutes les formes d'un qui
@@ -11304,6 +11412,13 @@ est un et ouvre les cas porteurs de trois des huit suites — l'interdire rendra
 arbre sain. Et **le nom est le contrat** : un plafond appelé autrement que `kMax…Echo` lui est
 **invisible**, une mesure nommée autrement que `…HexRun` n'est pas reconnue, un plafond déclaré dans un
 `.h` n'est pas lu, et un épinglage écrit **hors d'un cas gtest** est lu comme absent.
+
+⛔⭐ **Et un trou de plus, mesuré à la revue de `T3.101` : elle ne voit que la LONGUEUR D'UNE ligne.**
+Une contre-mutation qui fait consommer à une ligne trop longue seulement ce qu'elle a publié la
+transforme en ⌈longueur / borne⌉ lignes de journal — le recouvrement mesuré ne bouge pas, l'égalité
+tient, et **toute la suite reste verte**. ⇒ un plafond épinglé ne dit **rien** du volume : ni le
+nombre de lignes, ni le facteur de multiplication d'une seule. Le brief qui pose une borne d'écho
+doit demander séparément ce qui tient le **débit**.
 
 ⭐ **`check-echo-ceilings.sh` est la SEULE de la famille à porter un auto-test** (depuis `T3.99`) :
 8 fichiers écrits pour être refusés et 2 pour être acceptés, passés à la même fonction d'analyse que

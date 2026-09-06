@@ -11631,3 +11631,53 @@ en deux lignes voisines au même numéro.
 
 **Parade** : un ticket ouvert par une fiche prend son numéro **au merge**, pas à l'écriture ; et la
 ligne « numéros pris » de `ORCHESTRATION.md` se relit sur `master`, jamais sur la branche.
+
+## T3.101 — revue de merge (2026-09-06)
+
+- ⭐⭐ **[F-LOGRAW-2] Un flux d'enfant SANS AUCUNE FIN DE LIGNE n'était jamais publié ET grossissait
+  sans borne — FERMÉ par [`T3.101`](T3.101.md), et ce n'est pas ce que le ticket visait.**
+  Reproduit et mesuré **sur `master`** par la revue, avec un vrai contrôleur et un sidecar qui déverse
+  **16 MiO sans un seul `\n`**, la sortie comptée puis jetée : **RSS du parent +17 016 Kio** pour
+  16 384 Kio reçus, **17 869 octets publiés** (les seules lignes « Stdout data received »).
+  ⭐ **Même harnais, un seul fichier échangé contre celui de la branche** : **+536 Kio**, et
+  **18 989 644 octets** publiés en tranches de 512. ⇒ le tampon **retient tout ce que l'enfant écrit,
+  au rythme de l'enfant**, sans plafond, tant qu'il tourne. La borne de 512 octets n'est donc pas un
+  confort de lisibilité : c'est ce qui ferme la fuite. Entrée dédiée dans
+  [`RELEASE_NOTES.md`](RELEASE_NOTES.md).
+
+- ⛔ **[F-LOGRAW-3] Rien ne tient le rapport « une ligne d'enfant → une ligne de journal ».**
+  Contre-mutation de revue (ce qu'une ligne trop longue **consomme** ↔ ce qu'elle a **publié**) :
+  une ligne d'enfant devient ⌈longueur / 512⌉ lignes de journal et **`core/SidecarOutputJournal_test`
+  reste ENTIÈREMENT VERT**. La borne tient la longueur d'**une** ligne, le plafond épinglé la
+  re-dérive, mais le **volume** n'est tenu par rien — ni le nombre de lignes (déclaré nu par la
+  fiche), ni maintenant le facteur de multiplication. ⚠️ **À DEBUG sur le seul domaine `process`**,
+  donc là seulement où quelqu'un l'a demandé : mesuré, 16 MiO d'enfant ⇒ **19 Mo de journal**
+  (×1,16, ~37 000 lignes).
+
+- ⚠️ **[F-LOGRAW-4] Les deux vidages de fin de tuyau ne sont tenus que par leur UNION.**
+  Contre-mutation de revue (les deux tampons échangés aux quatre sites de fin de tuyau) ⇒ **0 rouge**.
+  C'est un mutant équivalent en pratique — les deux tuyaux d'un enfant qui meurt arrivent en fin de
+  fichier **ensemble**, donc chaque tampon est vidé par l'autre gestionnaire. **Ce qu'aucun cas ne
+  tient, c'est la fin d'UN SEUL des deux tuyaux** (un enfant qui ferme sa sortie standard et continue
+  de tourner).
+
+- ⚠️ **[F-FLAKY-2] `core/MqttSidecarConfigWait_test` a une borne d'HORLOGE MURALE sur un délai de
+  connexion TCP** — même famille que `F-FLAKY-1`, autre fichier.
+  `AnUnreachableBrokerEndsTheSidecarWithACauseAndANonZeroStatus` attend qu'un sidecar visant une
+  adresse de documentation (RFC 5737) meure dans le budget annoncé ; quand la pile ne rend pas
+  l'erreur à temps, `r.exited` est faux. **Mesuré des deux côtés du merge, 10 exécutions chacun** :
+  `master` **5 échecs sur 10 à vide, 2 sur 10 sous charge** ; la branche **0 sur 10 à vide, 1 sur 10
+  sous charge**. ⛔ **Sans rapport avec le relais** : ce cas lance son sidecar par un `fork`/`exec`
+  à lui et ne construit aucun `ExternProcServer`. ⇒ [`T3.112`](T3.112.md).
+  ⚠️ **Il est apparu deux fois sur les huit `make check` de la revue** et **aucun `make check` n'a été
+  relancé pour faire disparaître un rouge** : les tours concernés sont nommés dans
+  [`T3.101`](T3.101.md) §10.
+
+- ⛔ **[F-LOGRAW-5] La raison écrite pour `debug_domains` plutôt que `debug_level` était fausse, la
+  décision non.** La fiche disait que monter `debug_level` remettrait les lignes DEBUG du sidecar
+  dans le journal que les assertions de secret relisent. **Mesuré : la variante `debug_level = 5`
+  laisse `core/MqttSidecarConfigWait_test` vert, 9 cas sur 9** — `CoreFixture` ré-initialise la
+  configuration avant chaque cas, donc **ni l'un ni l'autre** des réglages posés dans `main()`
+  n'atteint l'enfant. Le bon argument est l'**étendue** : `debug_level` monte **tous** les domaines
+  du processus, et une suite dont les assertions demandent qu'un secret soit **absent** est celle
+  qu'un foin élargi affaiblit. Fiche et commentaire corrigés au merge.
