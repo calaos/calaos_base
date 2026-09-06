@@ -11057,7 +11057,7 @@ de `set_state` n'est tenue par **aucun** cas (la rendre indépendante de la vale
 séparateur nommé n'est asseré que pour `SP` (effondrer le vocabulaire de `blankName` ⇒ 0 rouge).
 Ni l'un ni l'autre ne publie d'octet du client. Voir [`T3.97`](T3.97.md) §7.
 
-### 📋 [F-LOGRAW-1] `ExternProc` relaie la sortie de ses six sidecars hors de tout journal — ticket proposé [`T3.101`](T3.101.md), **partiellement réduit** par [`T3.102`](T3.102.md)
+### ✅ [F-LOGRAW-1] `ExternProc` relaie la sortie de ses sept familles de sidecars hors de tout journal — **FERMÉ pour le relais** par [`T3.101`](T3.101.md), **réduit** avant lui par [`T3.102`](T3.102.md)
 
 Relevé par le **recensement des écritures nues** de [`T3.97`](T3.97.md) §3, qui a balayé tout `src/`
 suivi par git, commentaires et littéraux retirés, arbres vendorés exclus : ⛔ **13** écritures nues
@@ -11104,6 +11104,33 @@ fermer touche les six pilotes. Forme candidate : passer par le journal du parent
 `process`, qui existe déjà et est utilisé **deux lignes plus haut**. ⭐ **Le modèle est déjà dans
 l'arbre** : `McpServerManager::flushStreamBuffer()` fait le même découpage ligne à ligne pour le
 sidecar MCP, mais passe par le journal **et** caviarde ce qui ressemble à un jeton.
+
+✅ **Fermé pour le relais le 2026-09-06 par [`T3.101`](T3.101.md)**, sur l'arbitrage utilisateur du
+même jour : chaque ligne d'un sidecar est une ligne de journal DEBUG du domaine `process`, nommée par
+le **préfixe** de son `ExternProcServer` — ce qui distingue les deux sidecars KNX, que le
+`--namespace` ne distinguait pas ([`T3.84`](T3.84.md)). ⛔ **La famille passe de 5 sites publiant une
+donnée d'exécution à 3**, les trois de `ConfigStore`.
+
+⭐ **Le recensement des sept familles a été fait, binaire par binaire, et il corrige la fiche sur
+trois points.** (1) ⛔ **Aucun** des huit sidecars livrés (les sept familles plus Roon) n'écrit sur sa
+sortie d'erreur : la moitié `stderr` du relais ne portait rien, et reste un point d'extension, pas un
+chemin chaud. (2) ⭐ **Les six sidecars C++ sortent 6 lignes NUES de `ConfigStore`, identiques au
+niveau 4 et au niveau 5** — la phrase « une écriture nue côté enfant ne rencontre rien du tout » n'est
+plus une déduction, elle est mesurée. (3) Les deux sidecars Python sortent 4 lignes de journal
+**portant des séquences ANSI** (le parent leur passe `CALAOS_FORCE_COLOR`) : une ligne relayée peut
+donc porter des octets d'échappement.
+
+⭐ **Une conséquence non prévue, et c'est la mesure la plus honnête du coût** :
+`core/MqttSidecarConfigWait_test` relisait **vraiment** le relais nu pour lire le journal du vrai
+`calaos_mqtt`, et **4 de ses cas sont tombés** au premier tour vert. Réparé par
+`debug_domains = process:5` dans son `main()` — **jamais** `debug_level`, qui est ce que le parent
+donne à l'**enfant** et qui remettrait les lignes DEBUG du sidecar dans le journal que ses assertions
+de secret relisent.
+
+⛔ **Ce qui reste ouvert et qui n'était pas fiché** : `~ExternProcServer` ferme `pipe` **sans vider**
+`process_stdout` et **ne ferme pas `pipe_stderr`** du tout ⇒ [`T3.110`](T3.110.md). Ce n'est pas la
+fenêtre du plantage — celle-là est fermée, l'`EndEvent` du tuyau publie les derniers mots d'un enfant
+mort en plein mot — mais celle où le **parent** part le premier, et le chemin chaud y est `lua`.
 
 ### ✅ [F-LOGSECRET-2] FERMÉ par [`T3.85`](T3.85.md) — un chemin d'erreur republiait à **ERROR** une chaîne fabriquée par le sidecar
 

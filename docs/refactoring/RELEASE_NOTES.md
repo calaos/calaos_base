@@ -389,6 +389,79 @@ pilotes de ce type (MQTT, KNX, Wago, OneWire, OLA, Roon, Reolink) :
 → **Rien à faire de votre côté.** Si vous aviez un MQTT « qui ne marche pas » sans savoir pourquoi,
 la réponse est maintenant dans le journal du serveur.
 
+## 🔴 Ce que les pilotes externes impriment n'est plus recopié tel quel dans le journal du serveur
+
+### Une **rupture visible** pour qui débogue un pilote : par défaut, le serveur se tait (T3.101)
+
+Sept familles de pilotes Calaos tournent dans un programme séparé que le serveur lance : **MQTT,
+KNX** (qui en lance **deux**, la commande et le moniteur de bus)**, Wago, OneWire, OLA, Reolink**, et
+le **pont Lua** — ce dernier relancé à **chaque exécution de script de règle**. (Le pilote **Roon**
+emprunte le même chemin.)
+
+Jusqu'ici, tout ce que ces programmes imprimaient était **recopié tel quel** sur la sortie du
+serveur, ligne par ligne, **en dehors de son journal**. Trois conséquences :
+
+- **Votre niveau de journalisation n'avait aucune prise dessus.** `debug_level` réglé au plus bas ne
+  changeait rien : le seul filtre qui s'appliquait était celui du programme *enfant*. Certaines de
+  ces lignes ne rencontraient d'ailleurs **aucun** filtre — six lignes par pilote au démarrage sont
+  écrites hors de toute journalisation, et sortaient **identiques quel que soit le réglage**.
+- **La ligne arrivait anonyme** : ni niveau, ni domaine, ni le nom du pilote qui parlait. Impossible
+  de la distinguer d'un message du serveur lui-même, et impossible de la filtrer.
+- **Les derniers mots d'un pilote qui plante étaient perdus.** S'il s'arrêtait au milieu d'une ligne,
+  sans passer à la ligne, cette ligne — *celle qui dit pourquoi il s'est arrêté* — n'était **jamais**
+  affichée.
+
+**Ce qui change.** Chaque ligne d'un pilote externe est devenue une ligne de journal ordinaire,
+au niveau **DEBUG**, dans le domaine **`process`**, et elle **nomme le pilote et le flux** :
+
+```
+[DBG] process mqtt stdout: Connected to broker 192.168.1.20:1883
+[DBG] process knx_monitor stdout: Write from 1.1.4 to 0/1/7
+[DBG] process wago stderr: cannot open /dev/ttyUSB0
+```
+
+⭐ Les **deux** programmes KNX sont désormais distinguables (`knx` et `knx_monitor`), ce qu'aucun
+réglage ne permettait auparavant.
+
+⭐ Et les **derniers mots avant un plantage sortent maintenant**, même sans passage à la ligne : ils
+sont affichés à la fermeture du tuyau, suivis de `[no end of line]`.
+
+> ### ⚠️ Comment retrouver ce que vous voyiez avant
+>
+> **Par défaut, le serveur ne montre plus rien de ce que ces programmes impriment.** C'est voulu, et
+> c'est une rupture pour qui s'appuyait dessus.
+>
+> Pour tout revoir, **montez le seul domaine `process`** — c'est le réglage à préférer :
+>
+> ```
+> calaos_config set debug_domains process:5
+> ```
+>
+> Vous pouvez y ajouter d'autres domaines, séparés par des virgules (`process:5,mqtt:5`).
+>
+> ⚠️ **`debug_level 5` n'est pas la même chose.** Ce réglage-là est **aussi** celui que le serveur
+> transmet aux programmes enfants : il rend le serveur bavard **et** chaque pilote bavard. C'est
+> utile quand vous cherchez un problème *dans* un pilote, et excessif quand vous voulez seulement
+> revoir ce qu'il dit.
+
+> ### ⚠️ Ce que cette version ne fait PAS
+>
+> **Une ligne très longue est coupée à 512 octets**, et elle le dit (`[+N bytes cut]`). Un pilote qui
+> déverse des données binaires sans jamais passer à la ligne est également coupé au même endroit
+> (`[no end of line]`) — auparavant, ce flux-là n'était **jamais** affiché et la mémoire du serveur
+> grossissait tant que le programme tournait.
+>
+> **Le contenu n'est pas retouché** : les octets sont recopiés tels quels, à la longueur près. Un
+> pilote qui imprimerait un mot de passe l'imprimerait toujours — mais désormais seulement si vous
+> avez monté le niveau.
+>
+> **Le nombre de lignes n'est pas limité.** Un pilote bavard peut toujours remplir un journal, mais
+> seulement là où vous l'avez demandé.
+
+→ **À faire de votre côté** *si et seulement si* vous lisez la sortie d'un pilote externe pour
+déboguer : ajoutez `debug_domains process:5`. Dans tous les autres cas, rien à faire — votre journal
+est simplement plus propre.
+
 ## 🔴 Une faute de frappe dans la position d'un bouton d'écran empêchait le serveur de démarrer
 
 ### Une seule coordonnée illisible et plus rien ne s'allumait (T3.70)
