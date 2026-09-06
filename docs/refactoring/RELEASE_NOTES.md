@@ -3129,3 +3129,33 @@ lieu d'emporter le serveur avec lui.
 deux scénarios qui le partagent partagent aussi leurs règles. La suppression de l'un laisse donc
 l'autre vide, sans que vous l'ayez demandé. Refuser ou re-cléer le doublon au chargement reste à
 faire.
+
+## Éclairage DMX (OLA) : le canal **rouge** acceptait un numéro que le matériel ne peut pas recevoir (T3.38)
+
+Un projecteur RGB piloté par OLA se configure avec trois numéros de canal DMX, un par couleur.
+`calaos_installer` vous propose, pour chacun, la plage de valeurs que le serveur déclare accepter.
+
+Pour le **vert** et le **bleu**, cette plage s'arrêtait à 512 — le nombre de canaux d'un univers
+DMX. Pour le **rouge**, elle allait jusqu'à **9999**, par recopie de la ligne voisine qui décrit
+l'univers. Rien ensuite ne rattrapait la saisie : le serveur transmettait le numéro tel quel au
+pilote OLA, qui le passait à la bibliothèque `libola` — laquelle **ignore silencieusement** tout
+canal au-delà de l'univers. La trame partait quand même, avec le vert et le bleu corrects.
+
+> ### Étiez-vous concerné ?
+>
+> Seulement si vous aviez saisi un canal rouge **supérieur à 511**. Le symptôme est alors très
+> particulier : la lampe s'allume, elle prend bien les composantes verte et bleue, et **le rouge
+> ne répond jamais** — donc toutes vos couleurs sont fausses, dans le même sens, en permanence.
+> Aucun message n'apparaissait nulle part : ni dans `calaos_installer`, ni dans le journal du
+> serveur, ni dans celui du pilote.
+
+**Ce qui change.** Le canal rouge est désormais annoncé sur la même plage que le vert et le bleu,
+donc `calaos_installer` refuse la saisie au lieu de la laisser passer. ⚠️ **Une configuration déjà
+enregistrée n'est pas corrigée** : si votre canal rouge dépasse 511, il faut le rééditer — et
+c'est justement maintenant que l'interface vous le dira.
+
+### Au passage : la documentation du paramètre `path_y` d'un éclairage RGB en MQTT
+
+La description affichée par `calaos_installer` pour `path_y` annonçait « lit la valeur **x** »,
+alors que l'exemple donné juste à côté (`color/y`) était correct. La phrase est corrigée. Aucun
+comportement ne change ; c'est le texte qui vous était lu au moment où vous en aviez besoin.

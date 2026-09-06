@@ -4699,7 +4699,7 @@ Vérifié au compilateur sur `master` `3357e4f7` (`#include "Jansson_Addition.h"
 `master`. **Après E4.1f, il reste DEUX unités** : `LuaScript/ScriptBindings.cpp` et
 `LuaScript/ScriptExtern_main.cpp`. À recompter au moment d'E4.1x plutôt qu'à le lire.
 
-### F-OLA-6 Une incohérence hors périmètre, signalée et non corrigée — **confirmée par la revue**
+### F-OLA-6 ✅ **FERMÉ** par [`T3.38`](T3.38.md) — une incohérence hors périmètre, signalée et non corrigée — **confirmée par la revue**
 
 `OLAOutputLightRGB.cpp` déclare `channel_red` sur `0..9999` alors que `channel_green` et
 `channel_blue` sont sur `0..512` (comme le canal d'`OLAOutputLightDimmer`). Un univers DMX512 a 512
@@ -11946,3 +11946,71 @@ annonçait qu'**un**, parce qu'elle ne comptait que la forme `-1`.
   **refusé cet objet par écrit** pour `core/JsonApiCharacterization_test` (« il traîne `SqueezeboxDB`,
   `UrlDownloader` et les neuf objets AVR, et lie `uv_tcp_connect`/`uv_write` »). ⇒ relier l'objet de
   production tel quel n'est pas une ligne de `LDADD` ; c'est un ticket.
+
+## T3.38 — le recensement des `ioDoc` de l'arbre entier (2026-09-06)
+
+**508 appels `ioDoc->…` dans 62 fichiers**, dont **405** nommés+décrits et **65** bornés
+(balayage `python3` sur les fichiers suivis de `src/`, arguments découpés à la profondeur de
+parenthèse, littéraux concaténés recollés — jamais `grep`). La fiche de `T3.38` annonçait **deux**
+chaînes ; les trois formes de mensonge cherchées en donnent **1 + 3 + 5**.
+
+- ✅ **`F-OLA-6` FERMÉ** par [`T3.38`](T3.38.md) — `channel_red` passe de `0..9999` à `0..512`.
+  ⭐ Et le constat qui manquait au finding : **rien dans `calaos_server` ne relit un `min`/`max`**.
+  Ils quittent `IODoc` par `genDocJson()`/`genDocMd()` **seulement** ; `IOBase::set_param()` ne les
+  consulte pas ; **0 lecteur de `"min"`/`"max"` hors `IODoc.cpp`** dans tout l'arbre. La borne
+  publiée est donc **la seule barrière existante**, pas un commentaire.
+
+### F-IODOC-1 ⭐ `grid_h` et `grid_w` publient chacun la description de l'autre — `IO/RemoteUI/RemoteUI.cpp`
+
+`grid_h` est documenté « Grid **horizontal** size » et `grid_w` « Grid **vertical** size ».
+**Le code tranche** : `RemoteUIWebSocketHandler.cpp` remplit `data["grid_height"]` depuis
+`get_param("grid_h")` et `data["grid_width"]` depuis `get_param("grid_w")`. Les deux phrases sont
+**échangées**, donc le défaut est symétrique et ne se rattrape pas par tâtonnement : un installeur
+qui pose un bandeau 4 colonnes × 2 lignes saisit les deux nombres à l'envers, et une grille carrée
+le cache entièrement. **Non corrigé par `T3.38`** (hors de son périmètre `IO/OLA/` + `IO/Mqtt/`)
+⇒ [`T3.120`](T3.120.md).
+
+### F-IODOC-2 ⛔ Trois familles de bornes contredisent ce que le code accepte — **5 déclarations**
+
+| Site | La doc promet | Le code accepte |
+|---|---|---|
+| `OLA/OLAOutputLightDimmer.cpp` `channel`, `OLA/OLAOutputLightRGB.cpp` `channel_green`/`channel_blue` | `0..512` | `0..511` |
+| `KNX/KNXBase.cpp` `eis` | `0..15` | `1..15` (`KNXExternProc_cli.cpp` refuse `eis < 1` à **3** endroits) |
+| `IO/InputTimer.cpp` `msec` | `0..999` | plancher de **50 ms** sur le total (`if (msec < 50) msec = 50;`) |
+
+⭐ **La borne DMX est MESURÉE, pas déduite** — programme lié à la `libola` de l'image, exécuté
+dans le conteneur : `Blackout()` ⇒ `Size=512` ; `SetChannel(511, 200)` ⇒ `Get(511)=200` ;
+`SetChannel(512, 201)` ⇒ **`Get(512)=0`** ; `SetChannel(9999, 202)` ⇒ **`Get(9999)=0`**, aucune
+exception, aucune valeur de retour, et `SendDmx()` part quand même. **`512` est documenté comme
+valide et ne fait rien.**
+⛔ **Non corrigé** : le nombre d'`io.xml` sert d'**indice de tampon** (base 0) alors que tous les
+manuels de projecteur numérotent à partir de **1**. Passer `0..512` à `0..511` bénit la base 0
+dans la documentation ; passer à `1..512` avec un `-1` à l'émission décale **toutes** les
+installations existantes. C'est un arbitrage de produit sur **4 sites** ⇒ [`T3.120`](T3.120.md).
+
+### Ce que le recensement N'A PAS trouvé, et qui vaut d'être écrit
+
+- **Forme 1 (borne recopiée de la ligne voisine) : un seul site dans tout l'arbre**, celui de la
+  fiche. Les autres égalités entre déclarations voisines sont justes, vérifiées une à une
+  (`port_web`≡`port_cli`, `gpio_down`≡`gpio_up`, `sec`≡`min`, `var`≡`port`, `var_down`≡`var_up`,
+  `time_down`≡`time_up`, les trois triplets de `WODaliRVB` cohérents avec `WODali`).
+  ⭐ **Et la contre-épreuve du défaut était à un répertoire de distance** :
+  `OLAOutputLightDimmer.cpp` écrit la même paire `universe`/`channel` en `0..9999`/`0..512`.
+- **Aucune description ne renvoie à un paramètre inexistant** : 5 candidats bruts sur 161 noms
+  connus, **5 faux positifs** (clés JSON d'exemple, un fragment d'URL).
+- ⚠️ **`WODali`/`WODaliRVB` déclarent leurs adresses sur `1..612`** là où une adresse courte DALI
+  va de 0 à 63. Le chiffre est **suspect** mais il n'entre dans aucune des trois formes : il est
+  cohérent sur les **4** sites, et **aucune garde de l'arbre ne le contredit** — la valeur part en
+  chaîne dans une commande `WAGO_DALI_*` vers un processus externe. À instruire avec le matériel,
+  pas depuis le code.
+
+### ⭐⭐ Le résultat de contre-mutation de T3.38 qui vaut au-delà du ticket
+
+**Échanger les déclarations complètes de `channel_green` et `channel_blue`** — deux canaux DMX
+entiers permutés — laisse **les trois cas de borne VERTS**. C'est arithmétique et ça n'a rien à
+voir avec la forme du test : les deux canaux **partagent leur borne**, donc l'échange **ne change
+aucun nombre**. Seul le cas qui exige que la description de `channel_red` dise « red » et jamais
+« green » ni « blue » voit la permutation, parce que les **couleurs**, elles, ont bougé.
+*À recopier : quand deux champs partagent leur valeur, l'échange se lit dans ce qui les NOMME, pas
+dans ce qui les borne. Un oracle en relation ferme le « recopié de la ligne voisine » ; il ne
+ferme pas la permutation de deux frères équivalents, et il faut un second capteur pour ça.*
