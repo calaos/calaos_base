@@ -5519,3 +5519,28 @@ endif
 TESTS += check-order-sentinels.sh
 dist_check_SCRIPTS += check-order-sentinels.sh
 EXTRA_DIST += check-order-sentinels.py
+
+# T3.57
+#No AutoScenario may name an IO that has been destroyed. The five machinery
+#members are read back by ListeRoom::refreshBrokenScenarios(), which every IO
+#deletion runs, so a stale one is dereferenced inside the deletion itself.
+#Most cases destroy through ListeRoom::deleteIO() directly (model cases); the
+#API reachable one goes through a duplicated `autoscenario_uid` in io.xml,
+#which makes two live scenarios share one machinery, and then through
+#buildAutoscenarioDelete() - JsonApi.o is already in CORE_SERVER_OBJECTS, no
+#extra link closure is needed.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ScenarioInternalIoLifetime_test
+check_PROGRAMS += core/ScenarioInternalIoLifetime_test
+core_ScenarioInternalIoLifetime_test_SOURCES = core/ScenarioInternalIoLifetime_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ScenarioInternalIoLifetime_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/Scenario
+core_ScenarioInternalIoLifetime_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_ScenarioInternalIoLifetime_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
