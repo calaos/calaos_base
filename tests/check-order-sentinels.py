@@ -218,14 +218,25 @@ def split_args(s):
 
 
 def balanced(s):
-    depth = 0
-    for c in s:
-        if c in '([{':
+    """Bracket depth of `s`, blind to what a string or char literal holds.
+
+    A needle is allowed to carry an unmatched bracket - find("ubyte[") - and
+    counting it would leave the whole slot unclassified, hence unseen.
+    """
+    depth, i, n = 0, 0, len(s)
+    while i < n:
+        c = s[i]
+        if c in '"\'':
+            i += 1
+            while i < n and s[i] != c:
+                i += 2 if s[i] == '\\' else 1
+        elif c in '([{':
             depth += 1
         elif c in ')]}':
             depth -= 1
             if depth < 0:
                 return False
+        i += 1
     return depth == 0
 
 
@@ -412,6 +423,34 @@ TEST(S, C) { EXPECT_GE(shapes.find(what)->second, 2); }
 """),
     ("a > whose accepting side is the left one", 0, "accepting side", """
 TEST(S, C) { EXPECT_GT(w.find("a"), floor); }
+"""),
+    ("a file-local helper that hands a position back", 0, "accepting side", """
+size_t keyPos(const std::string &w, const char *k)
+{ return w.find(std::string("\\"") + k + "\\":"); }
+TEST(S, C) { EXPECT_LT(keyPos(w, "data"), keyPos(w, "msg_id")); }
+"""),
+    ("the same helper, ruled out first", 1, None, """
+size_t keyPos(const std::string &w, const char *k)
+{ return w.find(std::string("\\"") + k + "\\":"); }
+TEST(S, C) { ASSERT_NE(std::string::npos, keyPos(w, "msg_id"));
+             EXPECT_LT(keyPos(w, "data"), keyPos(w, "msg_id")); }
+"""),
+    ("a needle carrying an unmatched bracket", 0, "accepting side", """
+TEST(S, C) { EXPECT_LT(w.find("a"), w.find("ubyte[")); }
+"""),
+    ("a guard the compiler never sees, on a line comment", 0, "accepting side", """
+TEST(S, C) { //ASSERT_NE(std::string::npos, w.find("b"));
+             EXPECT_LT(w.find("a"), w.find("b")); }
+"""),
+    ("a guard inside a block comment that spans two lines", 0, "accepting side", """
+TEST(S, C) { /* what this case would need is
+             ASSERT_NE(std::string::npos, w.find("b")); */
+             EXPECT_LT(w.find("a"), w.find("b")); }
+"""),
+    ("a line comment standing between the guard and the comparison", 1, None, """
+TEST(S, C) { ASSERT_NE(std::string::npos, w.find("b"));
+             //b is what this case is about
+             EXPECT_LT(w.find("a"), w.find("b")); }
 """),
 ]
 
