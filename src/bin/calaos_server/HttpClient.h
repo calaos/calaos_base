@@ -131,17 +131,17 @@ inline uint64_t parseLimit(const std::string &value, uint64_t def,
     return v;
 }
 
-//An X-Forwarded-For line is worth exactly as much as the hop that wrote it,
-//and the only hop we can recognise is the reverse proxy beside us: it reaches
-//calaos_server over the loopback (haproxy backend `server calaos-server
-//127.0.0.1:5454`). Any other peer is a client speaking about itself.
+//Whether a peer address is this machine talking to itself.
 //All three spellings are accepted - 127.0.0.0/8 ENTIRE, ::1, ::ffff:127.x -
-//or haproxy itself loses its trust on a dual-stack host, silently. Only the
+//or a dual-stack host would answer differently to the same caller. Only the
 //first two can reach here from a TCP peer, because tcpPeerAddress() unmaps an
 //IPv4-mapped one; the third is kept for a caller that would read an address
 //from somewhere else, and no such caller exists today.
+//The loopback is 127.0.0.0/8, as RFC 1122 defines it, and both decisions taken
+//on this question ask it HERE: two prefixes in two files disagreed about
+//127.1.0.1, one calling it the machine itself and the other a stranger.
 //PREFIX, never containment: "10.127.0.5" is an ordinary LAN address.
-inline bool isTrustedProxyPeer(const std::string &peerIp)
+inline bool isLoopbackPeer(const std::string &peerIp)
 {
     if (peerIp == "::1")
         return true;
@@ -152,6 +152,15 @@ inline bool isTrustedProxyPeer(const std::string &peerIp)
                            peerIp;
 
     return v4.compare(0, 4, "127.") == 0;
+}
+
+//An X-Forwarded-For line is worth exactly as much as the hop that wrote it,
+//and the only hop we can recognise is the reverse proxy beside us: it reaches
+//calaos_server over the loopback (haproxy backend `server calaos-server
+//127.0.0.1:5454`). Any other peer is a client speaking about itself.
+inline bool isTrustedProxyPeer(const std::string &peerIp)
+{
+    return isLoopbackPeer(peerIp);
 }
 
 //The client identity of a proxied connection. calaos_server sits behind

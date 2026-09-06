@@ -31,6 +31,7 @@
 #include <arpa/inet.h>
 
 #include <string>
+#include <utility>
 
 namespace Calaos
 {
@@ -42,13 +43,67 @@ namespace Calaos
  * IPv4; uv_ip4_addr() zeroes its output BEFORE reporting that it could not
  * parse the literal, and uvw drops that return code. An IPv6 literal bound
  * with the default template therefore binds 0.0.0.0 without a word: it WIDENS
- * to every interface a listen the operator wrote to narrow to one. A literal
- * that is neither family still does - nothing here closes that half.
+ * to every interface a listen the operator wrote to narrow to one.
  */
 inline bool isIpv6Literal(const std::string &ip)
 {
     struct in6_addr a;
     return inet_pton(AF_INET6, ip.c_str(), &a) == 1;
+}
+
+/* inet_pton, not inet_aton: the shorthand forms the latter accepts ("127.1",
+ * "0x7f.0.0.1") would bind something other than what is written.
+ */
+inline bool isIpv4Literal(const std::string &ip)
+{
+    struct in_addr a;
+    return inet_pton(AF_INET, ip.c_str(), &a) == 1;
+}
+
+//One phrase for both fallbacks and both servers, so a log can be searched for it.
+static const char kWidenedListen[] = "listening on 0.0.0.0 (every interface) instead";
+
+/* The address to actually bind, and - through refused - the configured value
+ * when it is not usable at all.
+ *
+ * Widening rather than refusing to start is a product choice: a typo in a
+ * configuration file must not turn a home automation box into a brick. It is
+ * only defensible while it is said out loud, which is what refused is for.
+ */
+inline std::string listenAddressOrWildcard(const std::string &configured,
+                                           std::string &refused)
+{
+    if (configured.empty() || isIpv4Literal(configured) || isIpv6Literal(configured))
+        return configured.empty()? std::string("0.0.0.0"): configured;
+
+    refused = configured;
+    return "0.0.0.0";
+}
+
+/* Binds handle to ip:port and answers whether it landed there.
+ *
+ * The listener has to exist BEFORE bind(): uvw publishes the failure the
+ * instant it happens, so an owner subscribing afterwards never hears it. And
+ * an unheard failure is not a refusal - listen() and recv() do not check, they
+ * let libuv auto-bind the handle on the wildcard address AND AN EPHEMERAL
+ * PORT. A server on a port nobody chose is worse than one bound too wide:
+ * its own operator cannot find it either.
+ */
+template<typename H, typename... Opts>
+bool bindListenAddress(H &handle, const std::string &ip, unsigned int port,
+                       Opts &&...opts)
+{
+    bool bound = true;
+    auto conn = handle.template on<uvw::ErrorEvent>(
+                    [&bound](const uvw::ErrorEvent &, H &) { bound = false; });
+
+    if (isIpv6Literal(ip))
+        handle.template bind<uvw::IPv6>(ip, port, std::forward<Opts>(opts)...);
+    else
+        handle.template bind<uvw::IPv4>(ip, port, std::forward<Opts>(opts)...);
+
+    handle.erase(conn);
+    return bound;
 }
 
 /* The peer of an accepted TCP handle, in the one spelling the rest of the tree

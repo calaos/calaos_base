@@ -27,18 +27,33 @@ HttpServer::HttpServer(int p):
     port(p)
 {
     auto listenAddr = Utils::get_config_option("listen_address");
-    if (listenAddr == "")
-        listenAddr = "0.0.0.0";
+
+    //Both fallbacks name the value they refused. An operator who narrowed the
+    //listen and got every interface instead can only tell from the log: the
+    //socket looks exactly like a deliberate 0.0.0.0.
+    string refused;
+    listenAddr = Calaos::listenAddressOrWildcard(listenAddr, refused);
+    if (!refused.empty())
+        cWarningDom("network") << "listen_address \"" << refused
+                               << "\" is not an IP address, "
+                               << Calaos::kWidenedListen;
 
     auto loop = uvw::Loop::getDefault();
     handleSrv = loop->resource<uvw::TcpHandle>();
 
-    //An IPv6 listen_address bound with the default template silently listens
-    //on 0.0.0.0 - see isIpv6Literal().
-    if (Calaos::isIpv6Literal(listenAddr))
-        handleSrv->bind<uvw::IPv6>(listenAddr, port);
-    else
-        handleSrv->bind<uvw::IPv4>(listenAddr, port);
+    if (!Calaos::bindListenAddress(*handleSrv, listenAddr, port))
+    {
+        cWarningDom("network") << "listen_address \"" << listenAddr
+                               << "\" is not an address of this machine, "
+                               << Calaos::kWidenedListen;
+
+        //A second bind on the same handle would not do: libuv keeps the socket
+        //it opened for the refused family and reuses it whatever address comes
+        //next.
+        handleSrv->close();
+        handleSrv = loop->resource<uvw::TcpHandle>();
+        Calaos::bindListenAddress(*handleSrv, "0.0.0.0", port);
+    }
 
     handleSrv->listen();
 

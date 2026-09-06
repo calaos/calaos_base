@@ -264,11 +264,10 @@ string OtaHttpHandler::getClientIP() const
 
 bool OtaHttpHandler::isLocalhost() const
 {
-    string ip = getClientIP();
-    return (ip == "127.0.0.1" ||
-            ip == "::1" ||
-            ip == "localhost" ||
-            ip.find("127.0.0.") == 0);
+    //The same rule as the trusted-proxy hop, and for the same reason: this is
+    //the one gate keyed on the peer address that GRANTS something, so a peer
+    //this tree calls the machine itself elsewhere must not be a stranger here.
+    return TransportLimits::isLoopbackPeer(getClientIP());
 }
 
 bool OtaHttpHandler::authenticateRequest()

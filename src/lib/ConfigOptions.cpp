@@ -500,8 +500,9 @@ std::vector<ConfigOption> buildTable()
         .label(N_("Listen address"))
         .doc(N_("Local address the HTTP/WebSocket API and the UDP discovery server bind to. "
                 "0.0.0.0 accepts connections on every interface; set a single address to "
-                "confine the server to one network. An address that does not exist on the "
-                "machine prevents the server from starting."))
+                "confine the server to one network. A value that is not an IP address, or an "
+                "address that does not exist on the machine, falls back to 0.0.0.0 and logs a "
+                "warning naming the refused value."))
         .def("0.0.0.0")
         .restartRequired());
 

@@ -41,30 +41,50 @@ UDPServer::~UDPServer()
 void UDPServer::createUdpSocket()
 {
     auto loop = uvw::Loop::getDefault();
-    handleSrv = loop->resource<uvw::UDPHandle>();
 
-    handleSrv->on<uvw::UDPDataEvent>([this](const uvw::UDPDataEvent &ev, auto &)
+    auto subscribe = [this]()
     {
-        string s(ev.data.get(), ev.length);
-        this->processRequest(s, ev.sender.ip, ev.sender.port);
-    });
+        handleSrv->on<uvw::UDPDataEvent>([this](const uvw::UDPDataEvent &ev, auto &)
+        {
+            string s(ev.data.get(), ev.length);
+            this->processRequest(s, ev.sender.ip, ev.sender.port);
+        });
 
-    handleSrv->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &h)
-    {
-        h.stop();
-        cErrorDom("network") << "UDP server error: " << ev.what();
-    });
+        handleSrv->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &h)
+        {
+            h.stop();
+            cErrorDom("network") << "UDP server error: " << ev.what();
+        });
+    };
 
     auto listenAddr = Utils::get_config_option("listen_address");
-    if (listenAddr == "")
-        listenAddr = "0.0.0.0";
 
-    //An IPv6 listen_address bound with the default template silently listens
-    //on 0.0.0.0 - see isIpv6Literal().
-    if (Calaos::isIpv6Literal(listenAddr))
-        handleSrv->bind<uvw::IPv6>(listenAddr, port, uvw::UDPHandle::Bind::REUSEADDR);
-    else
-        handleSrv->bind<uvw::IPv4>(listenAddr, port, uvw::UDPHandle::Bind::REUSEADDR);
+    string refused;
+    listenAddr = Calaos::listenAddressOrWildcard(listenAddr, refused);
+    if (!refused.empty())
+        cWarningDom("network") << "listen_address \"" << refused
+                               << "\" is not an IP address, "
+                               << Calaos::kWidenedListen;
+
+    handleSrv = loop->resource<uvw::UDPHandle>();
+    subscribe();
+
+    if (!Calaos::bindListenAddress(*handleSrv, listenAddr, port,
+                                   uvw::UDPHandle::Bind::REUSEADDR))
+    {
+        cWarningDom("network") << "listen_address \"" << listenAddr
+                               << "\" is not an address of this machine, "
+                               << Calaos::kWidenedListen;
+
+        //A second bind on the same handle would not do: libuv keeps the socket
+        //it opened for the refused family. The subscriptions go with the handle.
+        handleSrv->close();
+        handleSrv = loop->resource<uvw::UDPHandle>();
+        subscribe();
+        Calaos::bindListenAddress(*handleSrv, "0.0.0.0", port,
+                                  uvw::UDPHandle::Bind::REUSEADDR);
+    }
+
     handleSrv->recv();
 }
 
