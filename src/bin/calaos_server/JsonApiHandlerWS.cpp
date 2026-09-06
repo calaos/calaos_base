@@ -319,12 +319,9 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
     }
     else if (loggedin) //only process other api if loggedin
     {
-        // S2: messages blocked for service-scoped sessions.
-        auto scopeDenied = [&](const string &msg)
-        {
-            cWarningDom("mcp") << "service scope denied action: " << msg;
-            sendJson(msg, scopeDeniedAnswer(), jsonRoot["msg_id"]);
-        };
+        if (refuseServiceScope(jsonRoot["msg"], [&](const Json &answer)
+            { sendJson(jsonRoot["msg"], answer, jsonRoot["msg_id"]); }))
+            return;
 
         if (jsonRoot["msg"] == "get_home")
             processGetHome(jsonData, jsonRoot["msg_id"]);
@@ -337,15 +334,9 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
         else if (jsonRoot["msg"] == "get_param")
             processGetParam(jsonData, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "set_param")
-        {
-            if (serviceScope) scopeDenied("set_param");
-            else processSetParam(jsonData, jsonRoot["msg_id"]);
-        }
+            processSetParam(jsonData, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "del_param")
-        {
-            if (serviceScope) scopeDenied("del_param");
-            else processDelParam(jsonData, jsonRoot["msg_id"]);
-        }
+            processDelParam(jsonData, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "set_state")
             processSetState(jsonData, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "get_playlist")
@@ -355,37 +346,19 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
         else if (jsonRoot["msg"] == "audio")
             processAudio(jsonDataDoc, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "audio_db")
-        {
-            if (serviceScope) scopeDenied("audio_db");
-            else processAudioDb(jsonDataDoc, jsonRoot["msg_id"]);
-        }
+            processAudioDb(jsonDataDoc, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "get_timerange")
             processGetTimerange(jsonData, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "set_timerange")
-        {
-            if (serviceScope) scopeDenied("set_timerange");
-            else processSetTimerange(jsonDataDoc, jsonRoot["msg_id"]);
-        }
+            processSetTimerange(jsonDataDoc, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "autoscenario")
-        {
-            if (serviceScope) scopeDenied("autoscenario");
-            else processAutoscenario(jsonDataDoc, jsonRoot["msg_id"]);
-        }
+            processAutoscenario(jsonDataDoc, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "eventlog")
-        {
-            if (serviceScope) scopeDenied("eventlog");
-            else processEventLog(jsonData, jsonRoot["msg_id"]);
-        }
+            processEventLog(jsonData, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "register_push")
-        {
-            if (serviceScope) scopeDenied("register_push");
-            else processRegisterPush(jsonData, jsonRoot["msg_id"]);
-        }
+            processRegisterPush(jsonData, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "settings")
-        {
-            if (serviceScope) scopeDenied("settings");
-            else processSettings(jsonData, jsonRoot["msg_id"]);
-        }
+            processSettings(jsonData, jsonRoot["msg_id"]);
 
 //        else if (jsonParam["action"] == "get_cover")
 //            processGetCover();

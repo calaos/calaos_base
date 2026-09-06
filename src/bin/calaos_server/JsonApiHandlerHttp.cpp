@@ -265,6 +265,14 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
 
     LoginThrottle::registerSuccess(ip);
 
+    /* Above the whole table, and above the JSON-body requirement three of the
+     * eight sit behind: a session that may not run a command must not learn
+     * from the refusal whether its body was well formed.
+     */
+    if (refuseServiceScope(jsonParam["action"], [&](const Json &answer)
+        { sendJson(answer); }))
+        return;
+
     //check action now
     if (jsonParam["action"] == "get_home")
         processGetHome();
