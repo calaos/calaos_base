@@ -291,10 +291,20 @@ service à portée restreinte (`serviceScope`). Voir
 Le token est comparé à l'option `mcp_service_token` de `local_config.xml`
 (`McpServerManager::getServiceToken()`). Un token non configuré n'accorde jamais
 l'accès ([JsonApiHandlerWS.cpp:530-566](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
-En session `serviceScope`, 7 messages sont refusés avec
-`{"msg":"<msg>","data":{"error":"scope denied"}}` : `set_param`, `del_param`,
-`audio_db`, `set_timerange`, `eventlog`, `register_push`, `settings`
-([JsonApiHandlerWS.cpp:159-221](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
+En session `serviceScope`, **8** messages sont refusés : `set_param`, `del_param`,
+`audio_db`, `set_timerange`, `autoscenario`, `eventlog`, `register_push`,
+`settings` (`JsonApi::serviceScopeDeniedCommands()`).
+
+⭐ **La portée est une propriété de la session, pas du transport.** Les huit sont
+refusées quel que soit le transport par lequel la session a été ouverte, et la
+charge utile du refus est **la même** des deux côtés — seule l'enveloppe change :
+`{"msg":"<msg>","msg_id":"<le vôtre>","data":{"error":"scope denied"}}` en
+WebSocket, `{"error":"scope denied"}` en HTTP.
+
+ℹ️ **Aujourd'hui aucune session HTTP ne peut être en portée de service** :
+`login_service` n'existe que sur la WebSocket, et le proxy `/mcp` ne construit
+aucune session d'API. La garde côté HTTP existe pour le transport qui ouvrira une
+session de service ensuite.
 
 ---
 
@@ -313,8 +323,8 @@ et [JsonApiHandlerWS.cpp:116-229](../src/bin/calaos_server/JsonApiHandlerWS.cpp)
 | `get_states` | ✅ | ✅ | toutes les valeurs d'un IO |
 | `query` | ✅ | ✅ | ⚠️ voir « pièges » |
 | `get_param` | ✅ | ✅ | |
-| `set_param` | ✅ | ✅ | WS : `scope denied` en session service |
-| `del_param` | ✅ | ✅ | WS : `scope denied` en session service |
+| `set_param` | ✅ | ✅ | `scope denied` en session service |
+| `del_param` | ✅ | ✅ | `scope denied` en session service |
 | `set_state` | ✅ | ✅ | WS : muet sans `msg_id` |
 | `get_playlist` | ✅ | ✅ | |
 | `get_timerange` | ✅ | ✅ | |

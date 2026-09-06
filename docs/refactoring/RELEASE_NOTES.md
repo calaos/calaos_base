@@ -1368,6 +1368,29 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   désactivée E4.2e, scénario désactivé T3.18).
 
 ## Sécurité & réseau
+- ℹ️ **Le compte de service du sidecar MCP est désormais restreint sur TOUS les transports — et
+  ce n'est PAS une rupture.**
+
+  **Personne n'a rien à faire, et rien ne cesse de fonctionner.** C'est écrit ici parce qu'une
+  restriction d'autorisation mérite d'être annoncée même quand elle ne casse rien, et parce que la
+  vérification qui le montre a été faite plutôt que supposée.
+
+  **Ce qui se passait.** Le sidecar MCP ne se connecte pas avec vos identifiants d'administrateur :
+  il ouvre une session de **service**, à laquelle huit commandes sont refusées — modification et
+  suppression de paramètres, base musicale, plages horaires, auto-scénarios, journal d'événements,
+  enregistrement de notifications push, et changement d'identifiants. Ce refus n'existait que sur
+  la connexion WebSocket : la notion appartenait au transport, pas à la session.
+
+  **Ce qui change.** Elle appartient maintenant à la session : les huit sont refusées quel que soit
+  le chemin par lequel la session a été ouverte, avec **le même message d'erreur** sur les deux
+  transports.
+
+  **Pourquoi cela ne casse rien, mesuré.** Une session de service ne s'ouvre aujourd'hui que par le
+  message `login_service`, qui n'existe que sur la WebSocket, et le seul programme qui l'envoie est
+  le sidecar MCP — qui parle en WebSocket. Aucune requête HTTP ne peut être en portée de service, ni
+  directement ni à travers le proxy `/mcp`. La restriction ne retire donc **aucune** possibilité à
+  un client existant ; elle est là pour le transport qui ouvrira une session de service ensuite.
+
 - ⛔⭐ **`listen_address` : une adresse IPv6 n'était pas appliquée, et le serveur écoutait sur
   toutes vos interfaces.**
 

@@ -11532,3 +11532,48 @@ posé à côté du piège lui-même est exactement ce qui a coûté **65 suites 
 L'énoncé juste était déjà présent au-dessus de la déclaration `_DEPENDENCIES` — il n'y avait rien à
 écrire, seulement à ne plus dire le contraire. `if HAVE_GTEST` / `endif` : **113 / 114** des deux
 côtés, inchangés ; aucun `TESTS`, aucun binaire, aucun `LDADD` touché.
+
+## T3.60 — la portée de service (2026-09-06)
+
+### ⭐ [F-SCOPE-1] La liste des huit décrit ce que la WebSocket refusait, pas ce qu'une portée de service devrait refuser — `config` en est absente
+
+⇒ **Ticket ouvert : [`T3.111`](T3.111.md).**
+
+La règle déplacée par [`T3.60`](T3.60.md) porte exactement les huit commandes que
+`JsonApiHandlerWS` gardait. **Elle est fidèle, et c'est le problème** : elle a été composée à partir
+de la table de dispatch d'un transport, jamais à partir de la question « que peut faire une session
+de service ». `config` — `type=get` rend `io.xml`, `rules.xml` et `local_config.xml` **en clair**,
+`type=put` les **réécrit** — n'y figure pas, parce que le code correspondant est **commenté** dans
+`JsonApiHandlerWS::processApi()`. C'est la seule raison.
+
+⚠️ **Conséquence directe et aujourd'hui latente** : maintenant que la garde suit la session, une
+session de service ouverte un jour sur le transport HTTP serait refusée un `set_param` sur un seul
+paramètre **et autorisée à téléverser `local_config.xml` entier** — qui contient le jeton de service
+lui-même. Les six autres commandes que seul HTTP dispatche (`poll_listen`, `get_cover`,
+`get_camera_pic`, `camera`, `event_picture`, `get_mcp_info`) posent la même question en moins grave,
+`get_mcp_info` exceptée : elle rend le **jeton porteur** du proxy MCP.
+
+⛔ **Ce n'est pas un défaut exploitable aujourd'hui** — aucune session HTTP ne peut être en portée de
+service (mesuré dans `T3.60.md` §1) — mais c'est un trou **par construction** dans la liste, et il
+s'ouvrira le jour où la portée deviendra atteignable ailleurs. La question à trancher est de
+produit : *une session de service est-elle autorisée à lire et écrire la configuration ?*
+
+### ⚠️ [F-SCOPE-2] Une session de service reçoit tous les événements de la maison, et un boîtier RemoteUI reçoit toute l'API
+
+Deux constats faits en marge, **ni l'un ni l'autre refermés**, aucun ticket ouvert :
+
+- `JsonApiHandlerWS::handleEvents()` ne teste que `loggedin`, jamais la portée. Le cloisonnement
+  n'est appliqué qu'à la moitié requête/réponse. `docs/15_mcp_server.md` le dit déjà, et un cas de
+  `core/JsonApiEvents_test` l'épingle : c'est un comportement écrit, pas une découverte.
+- `RemoteUIWebSocketHandler` dérive de `JsonApiHandlerWS`, hérite donc de la garde, et **n'entre
+  jamais dans la portée** : un boîtier authentifié par HMAC dispose de la surface d'API complète, les
+  huit comprises. À rapprocher de `F-REMOTEUI-2`.
+
+### ⚠️ [F-SCOPE-3] `checkCredentials()` préfère `cn_user`/`cn_pass`, et la configuration livrée les pose
+
+Un harnais qui écrit `calaos_user`/`calaos_password` pour s'authentifier laisse **toutes** ses
+requêtes non authentifiées : `checkCredentials()` bascule sur `cn_user`/`cn_pass` **dès que les deux
+sont non vides**, et un `ConfigStore` neuf porte déjà `cn_user`. Le `LoginThrottle` transforme
+ensuite la deuxième requête en refus pour une raison qui n'a rien à voir avec ce qu'on mesure —
+donc un `400` qu'on attribue au sujet du test. Coûté une passe de mise au point dans `T3.60`.
+**Pas un défaut du produit** ; une note pour le harnais suivant.

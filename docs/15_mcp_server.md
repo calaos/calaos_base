@@ -239,9 +239,12 @@ Réponse d'un token invalide (capturé,
 }
 ```
 
-Dans la portée service, **sept** commandes sont refusées (`JsonApiHandlerWS.cpp:177-221`) :
-`set_param`, `del_param`, `audio_db`, `set_timerange`, `eventlog`, `register_push`,
-`settings`. Le refus prend la forme d'un message dont le `msg` est **le nom de l'action
+Dans la portée service, **huit** commandes sont refusées
+(`JsonApi::serviceScopeDeniedCommands()`) : `set_param`, `del_param`, `audio_db`,
+`set_timerange`, `autoscenario`, `eventlog`, `register_push`, `settings`. La portée est une
+propriété de la **session**, pas du transport : les huit sont refusées quel que soit le chemin par
+lequel la session a été ouverte, et la charge utile du refus est la même partout — seule
+l'enveloppe change. Le refus prend la forme d'un message dont le `msg` est **le nom de l'action
 refusée**, et dont le `data` porte `error` **sans** clé `success` (capturé,
 `tests/core/golden/e40e_ws_scope_denied.json`, intégral — ici pour `set_param`) :
 
@@ -255,30 +258,27 @@ refusée**, et dont le `data` porte `error` **sans** clé `success` (capturé,
 }
 ```
 
-#### ⚠️ Deux écarts de portée mesurés, gelés, à connaître
+#### ⚠️ Deux écarts de portée mesurés, à connaître
 
 Ce sont des **limites réelles du cloisonnement**, pas des détails d'implémentation. Elles
-sont mesurées, pas déduites, et corriger l'une ou l'autre changerait un comportement visible
-client — d'où le gel.
+sont mesurées, pas déduites.
 
 1. **Une session `serviceScope` reçoit TOUS les événements de la maison.**
-   `JsonApiHandlerWS::handleEvents()` (`:53-60`) ne teste **que** `loggedin` et **jamais**
-   `serviceScope`. Le cloisonnement n'est appliqué qu'à la moitié requête/réponse de l'API,
-   pas à la moitié push. Concrètement : le sidecar, à qui l'on **refuse** de lire les
-   paramètres, la base audio ou le journal d'événements, **reçoit malgré tout le flux temps
-   réel complet** — ids d'IO et valeurs d'état compris, donc l'essentiel de ce que le refus
-   était censé protéger. Mesuré par E4.0d.
+   `JsonApiHandlerWS::handleEvents()` ne teste **que** `loggedin` et **jamais** `serviceScope`.
+   Le cloisonnement n'est appliqué qu'à la moitié requête/réponse de l'API, pas à la moitié
+   push. Concrètement : le sidecar, à qui l'on **refuse** de lire les paramètres, la base audio
+   ou le journal d'événements, **reçoit malgré tout le flux temps réel complet** — ids d'IO et
+   valeurs d'état compris, donc l'essentiel de ce que le refus était censé protéger. Mesuré par
+   E4.0d, toujours ouvert.
 
-2. **`autoscenario` n'est pas soumis au `serviceScope`.** La commande n'est pas dans la liste
-   des sept (`:205-206` : elle appelle `processAutoscenario` sans garde), alors qu'elle
-   **crée, modifie et supprime** des scénarios ainsi que leurs règles associées. Une session
-   de scope service à qui l'on refuse d'écrire une plage horaire peut donc **détruire des
-   scénarios**. L'asymétrie est mesurée.
+2. **La liste des huit vient d'une table de dispatch, pas d'une décision.** `config` — qui rend
+   `io.xml`, `rules.xml` et `local_config.xml` en clair et les réécrit — n'y figure pas, parce
+   que son code est commenté côté WebSocket. Aucune session de service ne peut l'atteindre
+   aujourd'hui, mais le trou est dans la liste. Ouvert en `T3.111`.
 
 > Le sidecar Python n'exploite ni l'un ni l'autre : il n'ouvre aucun abonnement d'événement
-> autre que l'invalidation de son cache, et **aucun de ses 9 tools n'émet `autoscenario`**
-> (voir § « Surface morte » plus bas). Le point 2 reste un trou de contrôle d'accès côté
-> serveur, pas une capacité offerte au LLM.
+> autre que l'invalidation de son cache, et **aucun de ses 9 tools n'émet `autoscenario`** —
+> que le serveur refuse désormais (voir § « Surface morte » plus bas).
 
 ---
 
