@@ -11832,3 +11832,69 @@ annonçait qu'**un**, parce qu'elle ne comptait que la forme `-1`.
 - ⚠️ **Une non-régression mesurée sur des configurations qui n'exercent pas le chemin corrigé ne
   prouve que l'absence de coût.** Les deux maisons du dépôt portent zéro auto-scénario ; la mesure
   est bonne pour ce qu'elle mesure, et ne dit **rien** de la correction.
+
+## T3.54 + T3.55 — les deux dernières paires adjacentes et nues de la chaîne de typage
+
+- ⭐⭐ **[Confirmation — l'atténuation de `T3.54` TIENT, et elle est maintenant MESURÉE.** La fiche
+  disait qu'une permutation des deux arguments au site d'appel de `WagoBits::setBufferBit()` serait
+  *« très probablement »* rougie par un test existant, sans que personne l'ait mutée. **Mutée sur
+  l'arbre `5d2ae798` intégral** (`src/` **et** `tests/` de `master`, pour qu'aucun cas neuf ne
+  pollue l'ensemble rouge) : la permutation **compile en silence** (`rc=0`, 0 `error:`) et fait
+  rougir **`WagoBits_test` et elle seule**, **5 cas sur 21**,
+  `TOTAL 138 / PASS 136 / SKIP 1 / FAIL 1`. ⇒ le ticket **reste petit** et son correctif est un
+  **confort de type**. ⛔ **Mais le filet est `packBits`, pas `setBufferBit`** : le nom n'apparaît
+  dans **aucun** test, la couverture est **indirecte**, et un **second** appelant n'hériterait de
+  rien. ⇒ [`T3.54`](T3.54.md).
+  *À recopier : une atténuation déduite se mesure avant d'être invoquée — celle-ci a tenu, ce qui
+  ne rend pas la mesure inutile : elle a montré que le filet couvre UN site, pas la fonction.*
+
+- ⛔⭐⭐ **[F-SQUEEZE-2] LE PÉRIMÈTRE DE `T3.55` ÉTAIT FAUX, ET C'EST LE BUILD QUI L'A DIT.** La
+  fiche écrivait : *« un balayage de tout `src/` trouve `SqueezeRequest_cb` /
+  `SqueezeRequest_signal` dans **2 fichiers seulement** »*. **La phrase est exacte et la question
+  était mauvaise** : ce qui se lie à cette fente n'en porte pas le nom, ce sont des fonctions
+  membres de la bonne **FORME**, prises par `sigc::mem_fun`. Retyper les deux `typedef` a produit
+  **une** erreur de compilation, et elle nommait `SqueezeboxDB`. **Balayage refait sur la forme**
+  `(bool …, string …, string …, AudioPlayerData …)` : `Audio/SqueezeboxDB.{h,cpp}` porte **23
+  déclarations, 21 définitions, 22 enregistrements** — tous liés à la fente, tous absents du
+  recensement. ⇒ **150 sites et 4 fichiers**, contre les **84 sites et 2 fichiers** annoncés.
+  *À recopier, et c'est la même classe que l'infirmation R2 du merge de `T3.50` : une portée de
+  balayage doit être écrite avec la phrase qu'elle porte. « Le nom du `typedef` n'apparaît que dans
+  deux fichiers » n'est pas « le défaut ne vit que dans deux fichiers ». Pour une fente sigc++, le
+  balayage qui compte est celui de la FORME des paramètres, pas celui du nom du `typedef`.*
+
+- ⭐⭐ **[La cécité de `T3.55` n'est plus une analogie de forme, elle est MESURÉE.]** La fiche
+  affirmait *« par analogie de forme avec T3.53 »* que la permutation compile en silence, et
+  déclarait ne pas l'avoir vérifiée. **Vérifiée** : `sig.emit(status, cmd.request, cmd.result, …)`
+  → `(…, cmd.result, cmd.request, …)` sur `master` compile avec **0 `error:`** et laisse
+  **`TOTAL 138 / PASS 137 / FAIL 0`** — **zéro rouge**. ⭐ **Le contraste avec `T3.54` est le fait
+  utile** : la **même** mutation formelle — permuter deux arguments adjacents à leur site — rougit
+  **5 cas** côté Wago et **zéro** côté Squeezebox. C'est toute la différence entre une paire de
+  types **distincts** couverte par un test et une paire de types **identiques** que rien n'atteint.
+  Sur l'arbre typé, la même mutation **ne compile plus**.
+
+- ⚠️ **[F-SQUEEZE-1] `Audio/RoonPlayer` porte 14 sites de la même forme, liés à RIEN.** Ses 7
+  callbacks `(bool status, string request, string result, AudioPlayerData data)` sont **déclarés**
+  (`RoonPlayer.h`) et **définis** (`RoonPlayer.cpp`), et **enregistrés nulle part** : chacun
+  n'apparaît **qu'une seule fois** dans le `.cpp`, sa propre définition, et aucune ligne de l'arbre
+  ne prend son adresse. ⇒ **le typage de [`T3.55`](T3.55.md) ne les atteint pas et ne pouvait pas
+  les atteindre** — ils ne se lient à aucune fente, donc rien ne les force à changer et rien ne
+  pourrait refuser une permutation à l'intérieur. **Même situation exactement que la définition
+  morte de [`T3.53`](T3.53.md) §2.2.** Fiché, **non touché** : leur sort est un changement de
+  périmètre, pas un durcissement de type.
+
+- ⚠️ **[Trois déclarations mortes de plus dans la chaîne Squeezebox, confirmées.]**
+  `get_album_cover_id_cb` (`Squeezebox.h`) — l'écart entre 27 déclarations et 26 définitions dans ce
+  fichier —, plus `getRandoms_cb` et `getRandomType_cb` (`SqueezeboxDB.h`) — l'écart entre 23 et 21.
+  **Déclarées, jamais définies, jamais enregistrées.** ⛔ **Aucune supprimée** : `T3.53` §7.4 a
+  refusé le même geste pour la même raison, c'est un arbitrage à part.
+
+- ⭐ **[La sonde au site de `T3.55` re-mesurée par un instrument DIFFÉRENT, et les deux concordent.]**
+  La fiche avait mesuré `result` lu par les 26 implémentations et `request` par aucune, au
+  `-Wunused-parameter`. Le script de retypage refusait de continuer s'il trouvait `request` lu dans
+  un corps : **47 corps parcourus** (`SqueezeboxDB.cpp` inclus), **0 lecture de `request`**,
+  **49 lectures du second paramètre** (26 + 23). ⇒ **47 analyseurs sur 47** liraient la commande
+  envoyée à la place de la réponse reçue. ⭐ **Et cette asymétrie ouvre un remède que `T3.53` ne
+  pouvait pas avoir** : **retirer** le paramètre mort ferait de la fente `(bool, string,
+  AudioPlayerData)` — trois types distincts — et supprimerait la paire **par effacement**, pour
+  ~98 lignes et **zéro corps touché**. **Non retenu** : jeter une information que le contrat
+  transporte est une décision de **produit**. ⇒ [`T3.113`](T3.113.md).
