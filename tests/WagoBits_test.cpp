@@ -91,6 +91,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 using namespace std;
@@ -563,4 +564,111 @@ TEST(WagoBits, ShippedReadWordsRefusesANonPositiveCountBeforeAllocating)
     EXPECT_LT(compact.find(GUARD_STATEMENT, fn), alloc)
         << "read_words() allocates a register buffer on a count it never "
            "checked - libmbus then writes up to 127 response words into it";
+}
+
+/*----------------------------------------------------------------------------
+ * ⭐ THE PAIR (bit index, bit state) OF setBufferBit(), ASKED OF THE TYPE
+ * SYSTEM.
+ *
+ * The behavioural cases above already redden when the two arguments are
+ * swapped at the packBits() call site - measured, and it is why this block is
+ * a type contract and not a second behavioural probe. What they cannot see is
+ * a SECOND caller: setBufferBit() is public in this header, `int` and `bool`
+ * convert both ways, and the next call written anywhere gets no net at all.
+ *
+ * ⚠️ Every EXPECT_FALSE below passes for free against a function that accepts
+ * nothing, so each one is paired with a control that must stay TRUE. The
+ * parameter types are read OUT of the shipped signature rather than named, so
+ * a rename breaks the build instead of quietly disarming the case.
+ *--------------------------------------------------------------------------*/
+
+namespace
+{
+
+template<typename F> struct SetterArgs;
+
+template<typename A, typename B>
+struct SetterArgs<void (*)(unsigned char *, A, B)>
+{
+    using Index = A;
+    using State = B;
+};
+
+using Setter = decltype(&WagoBits::setBufferBit);
+using IndexArg = SetterArgs<Setter>::Index;
+using StateArg = SetterArgs<Setter>::State;
+
+//The yardstick: two bare scalars really do go either way round in silence.
+//A LOCAL type, so it answers the same before and after the typing.
+using ABareSetter = void (*)(unsigned char *, int, bool);
+
+//Positive control for the `explicit` line.
+struct AnImplicitWrapper
+{
+    int v;
+    AnImplicitWrapper(int i): v(i) {}
+};
+
+//Positive control for the implicit-conversion-back line: without it, an
+//is_convertible_v answering FALSE to everything would pass that line for free.
+struct ALeakyWrapper
+{
+    int v;
+    explicit ALeakyWrapper(int i): v(i) {}
+    operator int() const { return v; }
+};
+
+} //anonymous namespace
+
+TEST(WagoBits, ABitIndexAndABitStateAreNotTwoInterchangeableScalars)
+{
+    EXPECT_TRUE((std::is_invocable_v<ABareSetter, unsigned char *, bool, int>))
+        << "the yardstick is broken: a bare (int, bool) pair no longer takes "
+           "its two arguments the wrong way round, so nothing below measures "
+           "anything";
+
+    EXPECT_TRUE((std::is_invocable_v<Setter, unsigned char *, IndexArg,
+                                     StateArg>))
+        << "the correctly ordered call is refused - every EXPECT_FALSE in "
+           "this file is passing for free";
+
+    EXPECT_FALSE((std::is_invocable_v<Setter, unsigned char *, StateArg,
+                                      IndexArg>))
+        << "setBufferBit() still takes its index and its state either way "
+           "round: a permuted call writes every requested bit into bit 0 or "
+           "bit 1 of the first byte and the modbus frame leaves wrong";
+
+    EXPECT_FALSE((std::is_invocable_v<Setter, unsigned char *, int, bool>))
+        << "a bare (int, bool) pair still reaches setBufferBit(), so the next "
+           "caller written inherits no net";
+}
+
+TEST(WagoBits, TheIndexAndStateWrapperShapeIsWhatCloses)
+{
+    EXPECT_TRUE((std::is_convertible_v<int, AnImplicitWrapper>))
+        << "the control for the explicit lines below no longer converts";
+    EXPECT_TRUE((std::is_convertible_v<ALeakyWrapper, int>))
+        << "the control for the leak lines below no longer leaks";
+
+    //Without `explicit` a bare scalar becomes an index or a state on its own
+    //and every permutation type-checks again exactly as before.
+    EXPECT_TRUE((std::is_constructible_v<IndexArg, int>));
+    EXPECT_FALSE((std::is_convertible_v<int, IndexArg>))
+        << "a bare int is still an index";
+    EXPECT_TRUE((std::is_constructible_v<StateArg, bool>));
+    EXPECT_FALSE((std::is_convertible_v<bool, StateArg>))
+        << "a bare bool is still a state";
+
+    //No common base and no sibling conversion: two unrelated types.
+    EXPECT_FALSE((std::is_convertible_v<IndexArg, StateArg>))
+        << "an index still converts into a state";
+    EXPECT_FALSE((std::is_convertible_v<StateArg, IndexArg>))
+        << "a state still converts into an index";
+
+    //A conversion back re-arms every permutation the explicit constructor
+    //just closed.
+    EXPECT_FALSE((std::is_convertible_v<IndexArg, int>))
+        << "an index still decays to a bare int";
+    EXPECT_FALSE((std::is_convertible_v<StateArg, bool>))
+        << "a state still decays to a bare bool";
 }
