@@ -552,8 +552,15 @@ TEST_F(JsonApiAudioWireBytesTest, HttpPlaylistItemsAreOnTheWireInPlayerOrder)
     EXPECT_LT(b, c);
 
     //The durations follow their own track, and they have three widths.
-    EXPECT_LT(wire.find("\"61\""), wire.find("\"122\""));
-    EXPECT_LT(wire.find("\"122\""), wire.find("\"183\""));
+    const size_t d61 = wire.find("\"61\"");
+    const size_t d122 = wire.find("\"122\"");
+    const size_t d183 = wire.find("\"183\"");
+
+    ASSERT_NE(std::string::npos, d61) << wire;
+    ASSERT_NE(std::string::npos, d122) << wire;
+    ASSERT_NE(std::string::npos, d183) << wire;
+    EXPECT_LT(d61, d122);
+    EXPECT_LT(d122, d183);
 }
 
 //INVARIANT. Params is a std::map: the five members of a track come out
@@ -926,8 +933,15 @@ TEST_F(JsonApiAudioWireBytesTest, ADeferredPlaylistIsAnsweredWholeAndInOrder)
     EXPECT_TRUE(contains(wire, trackBytes("First",  "Ann", "61",  "track_a", "Alpha"))) << wire;
     EXPECT_TRUE(contains(wire, trackBytes("Second", "Bob", "122", "track_b", "Beta")))  << wire;
     EXPECT_TRUE(contains(wire, trackBytes("Third",  "Cid", "183", "track_c", "Gamma"))) << wire;
-    EXPECT_LT(wire.find("Alpha"), wire.find("Beta"));
-    EXPECT_LT(wire.find("Beta"), wire.find("Gamma"));
+    const size_t alpha = wire.find("Alpha");
+    const size_t beta = wire.find("Beta");
+    const size_t gamma = wire.find("Gamma");
+
+    ASSERT_NE(std::string::npos, alpha) << wire;
+    ASSERT_NE(std::string::npos, beta) << wire;
+    ASSERT_NE(std::string::npos, gamma) << wire;
+    EXPECT_LT(alpha, beta);
+    EXPECT_LT(beta, gamma);
     EXPECT_TRUE(contains(wire, "\"count\":\"3\"")) << wire;
 }
 

@@ -318,6 +318,7 @@ TEST_F(JsonApiStateWireBytesTest, GetStateWsEnvelopePutsDataFirst)
 
     ASSERT_NE(std::string::npos, keyPos(wire, "msg")) << wire;
     ASSERT_NE(std::string::npos, keyPos(wire, "data")) << wire;
+    ASSERT_NE(std::string::npos, keyPos(wire, "msg_id")) << wire;
 
     EXPECT_LT(keyPos(wire, "data"), keyPos(wire, "msg"))
             << "the nlohmann envelope sorts to data, msg, msg_id: " << wire;

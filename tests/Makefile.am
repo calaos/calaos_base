@@ -5511,3 +5511,11 @@ core_SidecarOutputJournal_test_DEPENDENCIES = $(SIDECAR_OUTPUT_JOURNAL_OBJECTS) 
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.63: an ordering assertion must not accept the "not found" answer of the
+# helper it compares. A rank helper says -1 and a position helper says npos;
+# either sits on one side of a `<` and satisfies it, so the case turns green
+# precisely when the key it guards disappears from the payload.
+TESTS += check-order-sentinels.sh
+dist_check_SCRIPTS += check-order-sentinels.sh
+EXTRA_DIST += check-order-sentinels.py

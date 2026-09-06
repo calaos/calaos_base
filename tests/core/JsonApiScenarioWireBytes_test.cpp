@@ -502,7 +502,12 @@ TEST_F(JsonApiScenarioWireBytesTest, TheActionsOfAStepAreOnTheWireInRequestOrder
     ASSERT_EQ(SCENARIO_IO_ID, createReferenceScenario(ws));
 
     const std::string wire = httpWire(Json{{ "type", "get" }, { "id", SCENARIO_IO_ID }});
-    EXPECT_LT(wire.find(IO_TARGET), wire.find(IO_INT)) << wire;
+    const size_t target = wire.find(IO_TARGET);
+    const size_t counter = wire.find(IO_INT);
+
+    ASSERT_NE(std::string::npos, target) << wire;
+    ASSERT_NE(std::string::npos, counter) << wire;
+    EXPECT_LT(target, counter) << wire;
 }
 
 /*******************************************************************************
