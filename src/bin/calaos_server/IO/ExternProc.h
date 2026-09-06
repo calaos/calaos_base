@@ -140,6 +140,7 @@ private:
     bool hasFailedStarting = false;
 
     void processData(const string &data);
+    void relayChildOutput(string &buf, const char *stream, bool atEof);
 };
 
 class ExternProcClient: public sigc::trackable

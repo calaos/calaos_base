@@ -86,6 +86,8 @@
 #include "CalaosCoreFixture.h"
 #include "ExternProcSpawnHarness.h"
 #include "ExternProc.h"
+#include "LogSetup.h"
+#include "Logger.h"
 #include "MqttWire.h"
 #include "Params.h"
 #include "libuvw.h"
@@ -913,9 +915,34 @@ TEST_F(MqttSidecarConfigWaitTest, ABrokerRefusingTheCredentialsNamesTheRefusal)
  * spawned child and closes libuv handles on a loop this binary has stopped
  * pumping. teardown() gives back the children and the unix sockets that
  * ~ExternProcServer never got to unlink.
+ *
+ * ⚠️ And the sidecar's journal now reaches this process as DEBUG lines of the
+ * `process` domain instead of a bare copy onto std::cout, so the domain has to
+ * be raised for the log these cases read to exist at all. Only the domain:
+ * debug_level is what the CHILD is given, and raising that would put its own
+ * DEBUG lines in the log the secret assertions below read. It happens HERE
+ * because Logger fills its domain map once, lazily, and never re-reads it -
+ * and CoreFixture re-initialises the configuration before every case.
  */
 int main(int argc, char **argv)
 {
+    char cfgTmpl[] = "/tmp/calaos_mqttwait_cfg_XXXXXX";
+    const char *cfgBase = ::mkdtemp(cfgTmpl);
+    if (cfgBase)
+    {
+        const std::string cfg = std::string(cfgBase) + "/config";
+        const std::string cache = std::string(cfgBase) + "/cache";
+        ::mkdir(cfg.c_str(), 0700);
+        ::mkdir(cache.c_str(), 0700);
+
+        Utils::initConfigOptions(const_cast<char *>(cfg.c_str()),
+                                 const_cast<char *>(cache.c_str()), true);
+        Utils::set_config_option("debug_domains", "process:5");
+    }
+
+    //Freeze the map before CoreFixture points the configuration elsewhere.
+    Utils::calaosLogger("process")->isLevelEnabled(Logger::LOG_LEVEL_DEBUG);
+
     ::testing::InitGoogleTest(&argc, argv);
     const int ret = RUN_ALL_TESTS();
 

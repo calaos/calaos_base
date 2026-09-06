@@ -25,8 +25,16 @@
 #include <sys/param.h>
 #include "libuvw.h"
 #include "Timer.h"
+#include <algorithm>
 
 #define READBUFSIZE 65536
+
+/* A pipe hands over chunks, never lines, and a child that dumps binary or
+ * dies mid-word never sends an end of line at all. Past this many bytes the
+ * buffer is published and cut rather than kept growing, so no single line of
+ * a sidecar can push the rest of a journal out of view.
+ */
+static const size_t kSidecarLineMax = 512;
 
 ExternProcServer::ExternProcServer(string pathprefix)
 {
@@ -194,6 +202,45 @@ void ExternProcServer::processData(const string &data)
     }
 }
 
+/* What a sidecar prints becomes an ordinary journal line.
+ *
+ * The only filter its output ever met was the CHILD's level; debug_level on
+ * this side had no grip on it, and the line arrived with neither domain nor
+ * level, indistinguishable from a bare write of the server itself.
+ *
+ * procName names the speaker, never the --namespace given to startProcess():
+ * KNX runs two sidecars and hands both of them the same one.
+ */
+void ExternProcServer::relayChildOutput(string &buf, const char *stream, bool atEof)
+{
+    while (!buf.empty())
+    {
+        const size_t nl = buf.find('\n');
+        string note;
+        size_t take, drop;
+
+        if (nl != string::npos)
+        {
+            take = std::min(nl, kSidecarLineMax);
+            drop = nl + 1;
+            if (nl > kSidecarLineMax)
+                note = " [+" + Utils::to_string(nl - kSidecarLineMax) + " bytes cut]";
+        }
+        else if (buf.size() > kSidecarLineMax || atEof)
+        {
+            take = std::min(buf.size(), kSidecarLineMax);
+            drop = take;
+            note = " [no end of line]";
+        }
+        else
+            return;
+
+        cDebugDom("process") << procName << " " << stream << ": "
+                             << buf.substr(0, take) << note;
+        buf.erase(0, drop);
+    }
+}
+
 void ExternProcServer::startProcess(const string &process, const string &name, const vector<string> &args)
 {
     isStarted = false;
@@ -247,26 +294,39 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
     // Configure stderr pipe
     process_exe->stdio(*pipe_stderr, ff);
 
-    //When pipes are closed, remove them and close them
-    auto cleanup_pipe = [](const auto &, auto &cl) { cl.close(); };
-    pipe->once<uvw::EndEvent>(cleanup_pipe);
-    pipe->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &, auto &cl) { cl.stop(); });
-    pipe_stderr->once<uvw::EndEvent>(cleanup_pipe);
-    pipe_stderr->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &, auto &cl) { cl.stop(); });
+    /* When pipes are closed, remove them and close them - after emptying what
+     * they still hold. End of file is the only moment a child's last words can
+     * be known to be complete, and a child that dies mid-word leaves them
+     * without the end of line the loop above waits for: they are the ones that
+     * say why it died.
+     */
+    pipe->once<uvw::EndEvent>([this](const auto &, auto &cl)
+    {
+        relayChildOutput(process_stdout, "stdout", true);
+        cl.close();
+    });
+    pipe->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &, auto &cl)
+    {
+        relayChildOutput(process_stdout, "stdout", true);
+        cl.stop();
+    });
+    pipe_stderr->once<uvw::EndEvent>([this](const auto &, auto &cl)
+    {
+        relayChildOutput(process_stderr, "stderr", true);
+        cl.close();
+    });
+    pipe_stderr->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &, auto &cl)
+    {
+        relayChildOutput(process_stderr, "stderr", true);
+        cl.stop();
+    });
 
     // Handler for stdout
     pipe->on<uvw::DataEvent>([this](uvw::DataEvent &ev, auto &)
     {
         cDebugDom("process") << "Stdout data received: " << ev.length;
         process_stdout.append(string(ev.data.get(), ev.length));
-
-        auto pos = process_stdout.find_first_of("\n");
-        while (pos != std::string::npos)
-        {
-            std::cout << process_stdout.substr(0, pos) << "\n";
-            process_stdout.erase(0, pos + 1);
-            pos = process_stdout.find_first_of("\n");
-        }
+        relayChildOutput(process_stdout, "stdout", false);
     });
 
     // Handler for stderr
@@ -274,14 +334,7 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
     {
         cDebugDom("process") << "Stderr data received: " << ev.length;
         process_stderr.append(string(ev.data.get(), ev.length));
-
-        auto pos = process_stderr.find_first_of("\n");
-        while (pos != std::string::npos)
-        {
-            std::cerr << process_stderr.substr(0, pos) << "\n";
-            process_stderr.erase(0, pos + 1);
-            pos = process_stderr.find_first_of("\n");
-        }
+        relayChildOutput(process_stderr, "stderr", false);
     });
 
     auto parentEnvVar = [](const string &var)
