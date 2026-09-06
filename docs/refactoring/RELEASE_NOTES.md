@@ -3091,3 +3091,41 @@ sauvegardes de la plus récente à la plus ancienne — n'a pas changé.
 
 ⚠️ **Rien ne supprime les anciennes sauvegardes**, et ce n'était déjà pas le cas : elles
 s'accumulent sous `<config>/backups`. Si vous téléversez souvent, c'est à surveiller.
+
+## 🔴 Supprimer un scénario automatique pouvait arrêter le serveur (T3.57)
+
+Chaque scénario automatique s'appuie sur cinq équipements internes que le serveur crée pour lui :
+son indicateur « en cours », son étape courante, sa minuterie et, s'il a un horaire, sa plage
+horaire et son interrupteur d'horaire. Ces équipements ne sont pas visibles dans l'interface ;
+leurs identifiants sont dérivés du marqueur `autoscenario_uid` que porte le scénario dans
+`io.xml`.
+
+Rien ne vérifiait que ce marqueur était **unique**. Deux scénarios portant le même
+`autoscenario_uid` — ce que produit un `io.xml` recopié, fusionné à la main, ou dupliqué par un
+outil de migration — **se partageaient donc la même machinerie** : le second n'en créait pas, il
+adoptait celle du premier. La configuration se chargeait sans une seule alerte.
+
+À partir de là, un simple `autoscenario delete` sur l'un des deux — une commande ordinaire de
+l'API, envoyée par `calaos_installer` comme par n'importe quel client — détruisait les
+équipements internes que l'**autre** utilisait encore, puis relisait immédiatement ces mêmes
+équipements pour vérifier quels scénarios venaient d'être cassés. **`calaos_server` s'arrêtait
+brutalement**, au milieu de la suppression.
+
+> ### Êtes-vous concerné ?
+>
+> Uniquement si votre `io.xml` contient **deux scénarios avec le même `autoscenario_uid`**.
+> Aucune commande de l'API n'en produit : chaque scénario créé par Calaos reçoit un marqueur
+> neuf. Cela suppose donc un fichier **édité à la main**, **assemblé à partir de deux
+> installations**, ou **restauré partiellement**. Rare, mais rien ne l'interdisait et rien ne
+> le signalait — et la panne, elle, était immédiate et totale.
+
+**Ce qui change.** Un équipement qui disparaît prévient désormais les scénarios qui s'appuient sur
+lui, avant d'être détruit ; il en va de même pour une pièce entière qu'on supprime. La suppression
+d'un scénario répond donc normalement, et le serveur reste debout. Le second scénario se retrouve
+sans machinerie et marqué comme désactivé faute d'équipements — ce qui était déjà son sort — au
+lieu d'emporter le serveur avec lui.
+
+⚠️ **Ce que cette version ne corrige PAS** : un `autoscenario_uid` en double reste **accepté**, et
+deux scénarios qui le partagent partagent aussi leurs règles. La suppression de l'un laisse donc
+l'autre vide, sans que vous l'ayez demandé. Refuser ou re-cléer le doublon au chargement reste à
+faire.

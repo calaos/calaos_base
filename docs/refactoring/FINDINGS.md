@@ -11808,3 +11808,27 @@ annonçait qu'**un**, parce qu'elle ne comptait que la forme `-1`.
   toute mesure de coût qui les prend telles quelles parcourt une liste **vide** et ne mesure rien.
   Bornage du cas non vide en ajoutant 20 scénarios avant la destruction : 134 IOs × 20 scénarios
   démolis en **0,55 ms**, contre **0,55 ms** sans le balayage.
+
+### Ce que la revue de merge y a ajouté (2026-09-06)
+
+- ⭐⭐ **Le maillon qui rend la porte réelle n'était pas écrit** : `scenario_id` **est**
+  l'`autoscenario_uid`, et les cinq ids de machinerie en dérivent par suffixe. C'est de là que
+  vient le partage — pas d'un hasard de nommage. Un ticket qui voudra refuser le doublon doit
+  savoir que l'uid n'est pas qu'un marqueur : c'est la **clef de la machinerie**.
+- ⭐ **Une contre-mutation qui ne rougit nulle part est une information, pas un échec.** Le garde
+  `if (del)` retiré du désenregistrement — donc l'oubli appliqué aussi au chemin de **transfert** —
+  laisse `make check` **entièrement vert sur 140**. Le « rien ne le tient » que la fiche déclarait
+  est désormais **mesuré**. *À recopier : une propriété qu'on documente comme nue se mesure comme
+  les autres ; la déclarer ne coûte rien, la mesurer dit si le jour où elle aura un appelant on le
+  saura.*
+- ⛔ **Un binaire qui meurt ne rend pas d'ensemble rouge.** Comparer deux campagnes « cas par cas »
+  quand la moitié des cas segfaute demande **une exécution filtrée par cas** des deux côtés —
+  sinon la campagne compare un premier mort à un autre premier mort. C'est ce qui a permis de
+  vérifier que la contre-mutation du développeur rend **exactement** le comportement de `master`.
+- ✅ **Le nouvel appel ne crée pas de danger d'extinction**, et la raison est dans `~ListeRoom` :
+  il vide `rooms` **dans son corps**, donc ses membres — dont le cache de scénarios que le balayage
+  parcourt — sont encore vivants quand `~Room` s'exécute. C'est ce qui distingue ce balayage de
+  l'appel voisin à la liste de règles, qui, lui, touche un **autre** singleton déjà détruit.
+- ⚠️ **Une non-régression mesurée sur des configurations qui n'exercent pas le chemin corrigé ne
+  prouve que l'absence de coût.** Les deux maisons du dépôt portent zéro auto-scénario ; la mesure
+  est bonne pour ce qu'elle mesure, et ne dit **rien** de la correction.

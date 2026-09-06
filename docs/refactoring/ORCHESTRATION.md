@@ -40,8 +40,123 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.63`](T3.63.md)) — LE
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.57`](T3.57.md)) — LE
   DERNIER MERGE DE LA SESSION. À LIRE EN PREMIER À FROID.**
+
+  ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION** : il déclenche un **build de
+  développement qui est déployé**. **Aucun agent ne pousse, jamais.** ⛔ **RIEN N'A ÉTÉ POUSSÉ DE
+  TOUTE LA SÉRIE.**
+
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de la branche
+  `fix/t3.57` (**4 commits** : 3 du développeur + 1 de la revue de merge), `merge --ff-only`,
+  historique linéaire, **0 commit de fusion**. Rebasée de `5d2ae798` sur `1922a100` ;
+  `tests/Makefile.am` **régénéré** — `master` **préfixe strict prouvé au `cmp` (rc 0)**,
+  **+25/−0/~0**, `^if` **120** ≡ `^endif` **120**, profondeur finale **0** — et deux conflits de
+  docs en fin de fichier. `TESTS` = **140**, référence de build après `make distclean` :
+  **`TOTAL 140 / PASS 139 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
+  `check-ccache-honesty.sh`, **0 `error:`**, **trois `make check`** après `distclean`.
+  ⚠️ **`core/MqttSidecarConfigWait_test` a flanché 3 fois sur les 8 `make check` de la revue**
+  (dont le deuxième des trois du build de merge), toujours **seul**, toujours sur
+  `AnUnreachableBrokerEndsTheSidecarWithACauseAndANonZeroStatus` : `F-FLAKY-2` /
+  [`T3.112`](T3.112.md), antérieur. ⛔ **Aucun `make check` n'a été relancé pour faire disparaître
+  un rouge.**
+
+  ⭐⭐ **CE QUE LE TICKET FERME, ET IL A CHANGÉ DE NATURE.** La fiche d'ouverture disait
+  « **NON ATTEIGNABLE PAR L'API**, ce n'est pas une urgence, c'est une dureté de type qui manque ».
+  C'est faux, et la revue l'a vérifié de bout en bout : `scenario_id` **est**
+  l'`autoscenario_uid`, les cinq ids de machinerie en dérivent par suffixe, `createInput()`
+  commence par `get_io()`, et **rien nulle part ne refuse un uid dupliqué** dans `io.xml`. Deux
+  scénarios le partageant partagent donc **une seule machinerie**, et `autoscenario delete` —
+  commande ordinaire, politique par défaut, donc le balayage final de `deleteIO()` **est**
+  atteint — détruit celle du jumeau puis la relit. **Ce n'est pas une dureté de type manquante :
+  c'est un plantage du serveur atteignable par une configuration que rien ne refuse**, et c'est
+  pour ça qu'il y a désormais une entrée dans [`RELEASE_NOTES.md`](RELEASE_NOTES.md) là où la
+  fiche concluait « rien ».
+
+  ⭐⭐⭐ **CE QUE LA REVUE A MESURÉ, ET QUI DÉPASSE LE TICKET :**
+  1. ⭐ **Le segfault a été REPRODUIT sous ASan**, sur les cinq fichiers de `master` remis en place
+     dans l'arbre livré : *heap-use-after-free*, **READ of size 8**, `stopBrokenRun()` ←
+     `refreshBrokenScenarios()` ← `deleteIO()`, **libéré par** `Internal::~Internal()` ←
+     `Room::RemoveIO()` ← `delete_io()` ← **le même `deleteIO()`**. Le libérateur et le lecteur
+     sont bien dans un seul appel.
+     *À recopier : une note qui dit « et l'opération suivante déréférence » n'a pas été jouée sous
+     debugger. Celle-ci l'a été, et le chemin était plus court d'un cran.*
+  2. ⭐ **CM-1 rejouée et comparée à `master` CAS PAR CAS** — dix exécutions **filtrées** de chaque
+     côté, parce qu'un binaire qui meurt au deuxième cas ne rend pas d'ensemble rouge : les deux
+     listes sont **identiques**, `4 SIGSEGV + 1 rouge + 5 verts`, mêmes cas, mêmes codes de sortie.
+     *À recopier : dès qu'une contre-mutation fait segfauter, la campagne se mesure par cas
+     filtré, sinon elle compare deux premiers morts.*
+  3. ⛔⭐ **LE CHEMIN `del=false` EST NU, ET C'EST MAINTENANT MESURÉ, PAS DÉCLARÉ.** Le garde
+     `if (del)` **retiré** du désenregistrement — donc l'oubli appliqué aussi au chemin de
+     **transfert de propriété** — laisse `make check` **entièrement vert sur 140**. Aucun appelant
+     de production ne l'emprunte aujourd'hui ; le jour où il en aura un, **rien ne le dira**.
+     *À recopier : une propriété qu'une fiche documente comme nue se mesure comme les autres.*
+  4. ✅ **Le point de passage est complet pour la production** : `~Room` passe par
+     `RemoveIO(0, true)` pour chacun de ses IOs, donc il n'échappe pas au désenregistrement, et
+     les deux seuls chemins qui l'évitent sont des **transferts**, où oublier serait faux. Et le
+     nouvel appel n'ajoute **aucun** danger à l'extinction : `~ListeRoom` vide `rooms` dans son
+     **corps**, donc le cache de scénarios que le balayage parcourt est encore vivant.
+  5. ✅ **Le défaut d'ordre de destruction à l'extinction est bien ANTÉRIEUR et il ne masque rien** :
+     rejoué sous ASan sur les cinq fichiers de `master`, `core/IncomingLogStockLevel_test` passe
+     ses 19 cas puis sort en 1 avec la **même** trace (`~ListeRule` a libéré le tableau que
+     `ListeRule::Remove()` parcourt, appelé depuis `~Room`). La branche ne touche pas `ListeRule`.
+  6. ⚠️ **CE QUE LA NON-RÉGRESSION SUR CONFIGS RÉELLES NE PROUVE PAS.** Les deux maisons portent
+     **zéro** auto-scénario : le balayage y parcourt une liste **vide**, donc **le chemin corrigé
+     n'y est jamais exercé**. La mesure vaut comme preuve d'**absence de coût**, et **pas du tout**
+     comme preuve de correction. Le développeur le dit lui-même, et c'est le bon aveu.
+
+  ⭐ **CE QUE LES CONTRE-MUTATIONS DE LA REVUE ONT MESURÉ — deux, aucune du développeur, plus le
+  témoin :**
+  - ⛔ *le chemin de transfert* : garde `if (del)` retiré ⇒ **0 rouge sur 140** ;
+  - ⭐ *le membre que lit le balayage* : `ioIsActive` ⇄ `ioScheduleEnabled` échangés comme cibles
+    d'affectation dans `forgetIO()` (le développeur n'avait échangé que `ioStep` ⇄ `ioTimer`) ⇒
+    **SIGSEGV** de la suite neuve dès son deuxième cas ;
+  - **témoin** : les deux affectations indépendantes `ioTimer`/`ioTimeRange` permutées ⇒ ensemble
+    rouge **VIDE**, **85 `CXXLD`** lus.
+  Restaurations par recopie **sans métadonnées** puis `touch`, prouvées par `cmp` **rc 0** **et**
+  par un horodatage effectivement déplacé, `git status` sur l'**hôte** après chaque tour,
+  instantané **neuf** nommé par **chemin complet**, aucune sortie tronquée par un lecteur qui
+  ferme tôt, `make -j32 && make check -j16` reconstruit avant chaque mesure.
+
+  ⭐⭐ **LES TICKETS OUVERTS — DEUX COMPTES SÉPARÉS, et c'est le premier qui compte pour
+  l'utilisateur.**
+
+  **(a) Backlog du 4 septembre — 8 tickets encore ouverts** ([`T3.57`](T3.57.md) **en sort**) :
+  `T3.21`, `T3.22`, `T3.25a`, `T3.32`, `T3.38`, `T3.54`, `T3.55`, `T3.59`.
+  ⏳ **Deux sont EN COURS** au moment de ce paragraphe, sur une branche **non mergée** :
+  `T3.54` + `T3.55` (`.wave130/t3.54`, `fix/t3.54`, tête `a8e12c0b`). Ce worktree a été laissé
+  **intact** et il est **propre**.
+
+  **(b) Ouverts PAR LES REVUES pendant la série — 13** (un entre, aucun ne sort) : `T3.91`
+  (proposé, fiche non écrite), `T3.100`, [`T3.104`](T3.104.md), [`T3.105`](T3.105.md),
+  [`T3.107`](T3.107.md), [`T3.108`](T3.108.md), [`T3.109`](T3.109.md), [`T3.110`](T3.110.md),
+  [`T3.111`](T3.111.md), [`T3.112`](T3.112.md), [`T3.115`](T3.115.md), [`T3.116`](T3.116.md),
+  [`T3.117`](T3.117.md) **(neuf, ouvert par ce ticket)**.
+  ⚠️ Numéros **pris** : `T3.76` → `T3.117`. ⛔ **`T3.113` est pris sur `fix/t3.54`, NON MERGÉE** :
+  un numéro se prend au merge, mais il est écrit et il ne faut pas le reprendre.
+  ⛔ **`T3.114` est un TROU, à ne pas réutiliser** : `fix/t3.57` se l'était réservé avant que
+  `T3.115` et `T3.116` n'atterrissent sur `master`, et son ticket a été renuméroté `T3.117` au
+  merge.
+  **Prochain libre : `T3.118`.**
+
+  **[`T3.117`](T3.117.md) en une ligne** : rien ne refuse un `autoscenario_uid` dupliqué dans
+  `io.xml` ; deux scénarios le partageant partagent **la machinerie et les règles**, et
+  `destroyRules()` de l'un détruit celles de l'autre. `T3.57` rend la suppression **non fatale**,
+  il ne rend pas la configuration saine. Arbitrage : refuser · re-cléer · charger sans
+  `AutoScenario`.
+
+  ⭐⭐ **CE QUI ATTEND L'UTILISATEUR, ET RIEN D'AUTRE :**
+  1. ⛔ **Le `push`** — livraison, pas vérification. Le job CI chez GitHub n'a **jamais** tourné.
+     ⚠️ Attente précise : `SKIP 4` sur un exécuteur sans IPv6.
+  2. **[`T3.104`](T3.104.md)** et **[`T3.105`](T3.105.md)** — arbitrages **déjà tranchés** le
+     2026-09-06 ([`DECISIONS.md`](DECISIONS.md), « Cinq arbitrages du 2026-09-06 ») : ils restent
+     **à écrire**, pas à rediscuter.
+  3. **[`T3.111`](T3.111.md)** — la seule question de produit : une session de service a-t-elle le
+     droit de lire la configuration ? de l'écrire ? de lire le jeton du proxy ?
+
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-06, APRÈS LE MERGE DE [`T3.63`](T3.63.md)) — conservé
+  pour l'historique.**
 
   ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION** : il déclenche un **build de
   développement qui est déployé**. **Aucun agent ne pousse, jamais.** ⛔ **RIEN N'A ÉTÉ POUSSÉ DE
