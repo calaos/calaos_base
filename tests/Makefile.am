@@ -5544,3 +5544,42 @@ core_ScenarioInternalIoLifetime_test_LDADD = $(CORE_TEST_LDADD)
 core_ScenarioInternalIoLifetime_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.38
+#The ioDoc bounds of the two RGB drivers. Nothing in calaos_server reads a
+#min/max: they leave IODoc through genDocJson() only, so they are the whole
+#guard between an installer and a DMX channel libola will drop in silence.
+#The cases are written in relation - the three channels against each other and
+#against OLAOutputLightDimmer's single channel - because the defect they pin is
+#a bound copied from the neighbouring line, and a constant would stop biting
+#the day the bound moves.
+#Both drivers reach a controller that spawns an external helper; it does not
+#exist next to the binary, so uv_spawn fails cleanly (same as core/KnxIo_test,
+#custom main() included).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/IoDocRgbBounds_test
+check_PROGRAMS += core/IoDocRgbBounds_test
+core_IoDocRgbBounds_test_SOURCES = core/IoDocRgbBounds_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_IoDocRgbBounds_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/OLA \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt
+IO_DOC_RGB_BOUNDS_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OLA/OLACtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OLA/OLAOutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OLA/OLAOutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttBrokerslist.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttOutputLightRGB.$(OBJEXT)
+core_IoDocRgbBounds_test_LDADD = $(IO_DOC_RGB_BOUNDS_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_IoDocRgbBounds_test_DEPENDENCIES = $(IO_DOC_RGB_BOUNDS_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
