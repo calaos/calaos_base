@@ -155,17 +155,18 @@ bool IOBase::set_param(std::string opt, std::string val)
     return true;
 }
 
-void IOBase::del_param(std::string opt)
+bool IOBase::del_param(std::string opt)
 {
     if (opt == "id")
     {
         cErrorDom("iobase") << "del_param(): refusing to delete the id '"
                             << param["id"] << "', the IO id is immutable "
                             << "(io_table is keyed on it)";
-        return;
+        return false;
     }
 
     param.Delete(opt);
+    return true;
 }
 
 bool IOBase::renameId(const std::string &newId)

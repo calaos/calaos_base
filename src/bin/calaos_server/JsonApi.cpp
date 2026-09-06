@@ -1260,6 +1260,7 @@ Json JsonApi::buildJsonSetParam(const Params &jParam)
 Json JsonApi::buildJsonDelParam(const Params &jParam)
 {
     bool success = true;
+    bool refused = false;
     Params ret;
 
     IOBase *o = ListeRoom::Instance().get_io(jParam["id"]);
@@ -1269,17 +1270,28 @@ Json JsonApi::buildJsonDelParam(const Params &jParam)
     {
         if (jParam["param"].empty())
             success = false;
+        /* Through IOBase and not through the mutable Params it hands out:
+         * the immutability of "id" is a rule of the model, and reaching past
+         * the model is what made it unreachable from both transports. */
+        else if (!o->del_param(jParam["param"]))
+        {
+            //The two messages of buildJsonSetParam(), and for its reason:
+            //"wrong io/param" means NOT FOUND, and a client retrying on that
+            //would look for the wrong cause.
+            refused = true;
+            success = false;
+        }
         else
         {
-            o->get_params().Delete(jParam["param"]);
-
             EventManager::create(CalaosEvent::EventIOPropertyDelete,
             { { "id", o->get_param("id") },
               { "param", jParam["param"] } });
         }
     }
 
-    if (!success)
+    if (refused)
+        ret = {{ "error", "param refused" }};
+    else if (!success)
         ret = {{ "error", "wrong io/param" }};
     else
         ret = {{ "success", "true" }};

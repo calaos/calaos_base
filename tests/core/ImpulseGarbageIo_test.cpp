@@ -25,7 +25,9 @@
  * what the API boundary refuses. This file calls set_value() directly, the way
  * every IN-PROCESS caller does - a rule action, a scenario step, a Lua binding -
  * and pins what Utils::from_string() alone buys: a DEFINED duration instead of
- * whatever was on the stack.
+ * whatever was on the stack. ⚠️ Since T3.25a the shutter grammars go one step
+ * further and REFUSE an argument that does not read as an int - see the note
+ * on the renamed case below.
  *
  * ---------------------------------------------------------------------------
  * WHY THIS IS A SEPARATE BINARY, AND IT IS NOT COSMETIC
@@ -202,28 +204,33 @@ TEST_F(ImpulseGarbageIoTest, AWellFormedImpulseIsUntouched)
     EXPECT_EQ(1, sh->upPulses);
 }
 
-TEST_F(ImpulseGarbageIoTest, AnImpulseWithNoDurationIsDefaultedToZero)
+/* ⚠️ RENAMED, AND THE CONTRACT UNDER IT CHANGED - T3.25a.
+ *
+ * T3.25 left this case reading AnImpulseWithNoDurationIsDefaultedToZero: the
+ * IO fell back on a DEFINED duration of 0 while only the API boundary refused
+ * the shape. T3.25a moved the rule down into the IO, where every in-process
+ * writer meets it, and a command that lost its argument is now refused there
+ * too. The old name is cited by docs/refactoring/T3.25.md; the rename is
+ * recorded in docs/refactoring/T3.25a.md rather than left to be discovered.
+ */
+TEST_F(ImpulseGarbageIoTest, AnImpulseWithNoDurationIsRefusedByTheIo)
 {
-    //RED BEFORE THE FIX.
-    //
-    //⚠️ THE ONE NON-DETERMINISTIC RED OF THIS TICKET, said plainly: before the
-    //fix `v` is INDETERMINATE, so this case is red for every value except the
-    //one where the stack happens to hold 0. It is primed with a well formed
-    //"impulse up 4242" first so the slot is very likely to read back something
-    //unmistakable - measured, it read -1857613792, not 4242, because the
-    //logging and cache work between the two calls rewrites the frame. Either
-    //way it is not 0, and that is all the case needs; but an indeterminate
-    //value cannot be asserted against with certainty, and pretending otherwise
-    //would be the lie this whole ticket is about.
+    //RED BEFORE T3.25, and its red was THE ONE NON-DETERMINISTIC RED of that
+    //ticket: `v` was INDETERMINATE, so the case was red for every value except
+    //the one where the stack happened to hold 0. It is still primed with a
+    //well formed "impulse up 4242" first, for the same reason and for one
+    //more: the published state must be the last command that WAS carried out.
     T325bShutter *sh = makeShutter();
     ASSERT_NE(nullptr, sh);
 
     EXPECT_TRUE(sh->set_value(std::string("impulse up 4242")));
     ASSERT_EQ("impulse up 4242", sh->get_command_string());
 
-    EXPECT_TRUE(sh->set_value(std::string("impulse up ")));
-    EXPECT_EQ("impulse up 0", sh->get_command_string())
-            << "the IO must fall back on a DEFINED duration";
+    EXPECT_FALSE(sh->set_value(std::string("impulse up ")))
+            << "a command whose argument is missing must be refused by the IO "
+               "as well, not carried out on a duration nobody chose";
+    EXPECT_EQ("impulse up 4242", sh->get_command_string())
+            << "the refused command overwrote the published state";
 }
 
 TEST_F(ImpulseGarbageIoTest, ADimmerImpulseWithNoDurationArmsNoTimer)

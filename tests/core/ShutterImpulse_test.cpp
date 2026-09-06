@@ -815,10 +815,12 @@ TEST_F(ShutterImpulseLifetimeTest, PlainImpulseStopDoesNotOutliveTheDeletedIo)
  *    uv_timer_start, which clamps the overflowing deadline to (uint64_t)-1.
  *    The timer NEVER fires and stays armed: the shutter runs its full
  *    course, and one libuv handle holding the IO leaks per command.
- *  - Utils::from_string saturates an out-of-range value to INT_MAX, so
- *    "impulse down 99999999999999999999" makes INT_MAX + impulse_time
- *    overflow a signed int - undefined behaviour, wrapping negative, which
- *    lands on the same never-firing armed handle.
+ *  - Utils::from_string saturates an out-of-range value to INT_MAX, and the
+ *    sum used to be computed in int - undefined behaviour, wrapping
+ *    negative, which landed on the same never-firing armed handle. The sum
+ *    is a double since this ticket; T3.25a then made the IO refuse the
+ *    out-of-range spelling outright, so the largest duration that still
+ *    READS as an int is what exercises the top of the range from here.
  *
  * The oracle is the loop itself: once the IO is gone and the close callbacks
  * have run, the number of armed timer handles must be back where it started.
@@ -866,9 +868,17 @@ TEST_F(ShutterImpulseLifetimeTest, PlainOutOfRangeImpulseLeavesNoTimerArmedForEv
         Params p = plainParams("t334_plain_huge");
         PlainShutterProbe sh(p);
 
+        //T3.25a: a duration that does not READ as an int is refused outright
+        //and never reaches the deadline arithmetic at all. The top of the
+        //range is still reachable, by asking for it in a spelling that reads.
+        EXPECT_FALSE(sh.set_value("impulse down 99999999999999999999"));
+        EXPECT_EQ(sh.impulseDownCalls, 0);
+
         const auto issued = std::chrono::steady_clock::now();
         freshenLoopClock();
-        ASSERT_TRUE(sh.set_value("impulse down 99999999999999999999"));
+        ASSERT_TRUE(sh.set_value(
+            "impulse down " +
+            Utils::to_string(std::numeric_limits<int>::max())));
         EXPECT_EQ(sh.impulseDownMs, std::numeric_limits<int>::max());
         ASSERT_FALSE(sh.isStopped()) << "shutter never started moving";
 

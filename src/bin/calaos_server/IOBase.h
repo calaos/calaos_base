@@ -109,18 +109,24 @@ public:
      * io_table consistent.
      * Note: get_params() still hands out a mutable Params reference, callers
      * must not use it to change "id" (a full read-only API is out of scope
-     * of T1.11).
+     * of T1.11). ⛔ Going through it is how the JSON API used to delete an id
+     * while the io_table stayed keyed on it: an IO nobody can address any
+     * more, and an unregister that no longer finds itself.
      *
      * Answers false when the write was REFUSED, and nothing was changed. A
      * caller that reports success to a client has to read it: the two
      * refusals ("id", and a zero byte in the name or the value) are silent
      * otherwise. Setting a param to the value it already has is not a
-     * refusal. */
+     * refusal.
+     *
+     * del_param() answers the same way, and for the same reason: its only
+     * refusal is silent otherwise. Deleting a param that was never there is
+     * not a refusal. */
     virtual bool set_param(std::string opt, std::string val);
     virtual std::string get_param(std::string opt) { return param[opt]; }
     virtual Params &get_params() { return param; }
     virtual bool param_exists(std::string opt) { return param.Exists(opt); }
-    virtual void del_param(std::string opt);
+    virtual bool del_param(std::string opt);
 
     /* Controlled rename hook: atomically changes the "id" param AND the
      * io_table key (unregister/re-register through ListeRoom). Fails (and

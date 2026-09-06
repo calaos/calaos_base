@@ -169,6 +169,16 @@ bool OutputShutterSmart::set_value(std::string val)
     else if (Utils::strStartsWith(val, kImpulseUpPrefix))
     {
         val.erase(0, kImpulseUpPrefix.length());
+        /* T3.25a: the duration is READ here, so it is refused here.
+         * Utils::from_string() publishes a SATURATED value on an out of range
+         * input and answers false; ignoring that answer handed ImpulseUp()
+         * INT_MAX, which is above the full travel of any shutter - so no stop
+         * was armed at all and a nudge became a complete open or close, with
+         * a success on the wire. The API boundary cannot hold this line:
+         * set_state writes any value of any IO and would have to refuse text.
+         */
+        if (!Utils::is_of_type<int>(val))
+            return false;
         int v;
         from_string(val, v);
         ImpulseUp(v);
@@ -176,6 +186,8 @@ bool OutputShutterSmart::set_value(std::string val)
     else if (Utils::strStartsWith(val, kImpulseDownPrefix))
     {
         val.erase(0, kImpulseDownPrefix.length());
+        if (!Utils::is_of_type<int>(val))
+            return false;
         int v;
         from_string(val, v);
         ImpulseDown(v);
