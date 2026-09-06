@@ -5421,3 +5421,53 @@ core_OtaRescanGate_test_DEPENDENCIES = $(OTA_RESCAN_GATE_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.60
+#The service scope, on both transports. The websocket half runs on a REAL
+#HttpServer bound on loopback: real socket, real handshake, real login_service
+#against the token McpServerManager holds, real masked frames - a guard
+#exercised by a direct call says nothing about the path a client takes.
+#The HTTP half cannot be driven that way, and that is the finding rather than a
+#shortcut: no HTTP entry opens a service session, which is itself a case here.
+#Its guard is exercised on the shipped handler with a real HttpClient.
+#Every loop walks the shipped rule AND pins its exact content, so a rule that
+#loses a name reddens instead of shrinking the loop.
+#Same server objects as core/HttpRequestLogSecret_test: HttpClient drags the
+#whole websocket/OTA/RemoteUI side of the server with it.
+#No core fixture: the refusals happen above every model, and main() has to
+#configure the credentials and the service token before the singletons cache
+#them.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+SERVICE_SCOPE_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT)
+TESTS += core/JsonApiServiceScope_test
+check_PROGRAMS += core/JsonApiServiceScope_test
+core_JsonApiServiceScope_test_SOURCES = core/JsonApiServiceScope_test.cpp
+core_JsonApiServiceScope_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI
+core_JsonApiServiceScope_test_LDADD = $(SERVICE_SCOPE_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_JsonApiServiceScope_test_DEPENDENCIES = $(SERVICE_SCOPE_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif

@@ -47,9 +47,6 @@ protected:
     void sendJsonNoData(const string &msg_type, const string &client_id = string());
 
     bool loggedin = false;
-    // Set to true when the session was opened with login_service (S2).
-    // Restricts the set of allowed messages to a read+control subset.
-    bool serviceScope = false;
 
 private:
     //Source address of the client, "unknown" when there is no connection

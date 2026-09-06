@@ -112,6 +112,20 @@ public:
      */
     static bool isValidIntParam(const string &value, int minValue, int maxValue);
 
+    /* THE COMMANDS A SERVICE SCOPED SESSION MAY NOT RUN, and the only copy of
+     * that list. The scope belongs to the SESSION, not to the transport that
+     * opened it, so a transport that learns to open one inherits the refusal
+     * instead of having to remember it. A second copy of an authorisation rule
+     * behaves like a rule nothing tests.
+     */
+    static const vector<string> &serviceScopeDeniedCommands();
+
+    /* The refusal payload, and it is deliberately the same on every transport:
+     * a client that got a different shape from each would learn which one it is
+     * talking to from an error it is not allowed to distinguish.
+     */
+    static Json scopeDeniedAnswer();
+
     /* Resolves the picture of a push event to a path inside the push_pictures
      * cache directory. False when picUid tries to escape the directory or when
      * the file does not exist, and the caller must then answer a 404.
@@ -318,6 +332,22 @@ protected:
      * cannot answer two different refusals.
      */
     AudioPlayer *audioPlayerById(const string &id, string &err);
+
+    /* Set when the session was opened with login_service. It restricts the set
+     * of allowed commands to a read+control subset; see the list above for why
+     * it lives here rather than in a transport class.
+     */
+    bool serviceScope = false;
+
+    //True when this session must be refused command.
+    bool serviceScopeDenies(const string &command) const;
+
+    /* Refuses command when this session is service scoped, and hands the
+     * refusal payload to answer. One rule, one log line, one payload; a
+     * transport supplies nothing but the envelope it wraps the payload in.
+     */
+    bool refuseServiceScope(const string &command,
+                            const std::function<void(const Json &)> &answer);
 
     HttpClient *httpClient = nullptr;
 

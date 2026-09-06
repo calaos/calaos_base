@@ -323,7 +323,7 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
         auto scopeDenied = [&](const string &msg)
         {
             cWarningDom("mcp") << "service scope denied action: " << msg;
-            sendJson(msg, {{ "error", "scope denied" }}, jsonRoot["msg_id"]);
+            sendJson(msg, scopeDeniedAnswer(), jsonRoot["msg_id"]);
         };
 
         if (jsonRoot["msg"] == "get_home")
@@ -368,9 +368,6 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
         }
         else if (jsonRoot["msg"] == "autoscenario")
         {
-            //E4.6e: it creates, modifies and DELETES scenarios and rules, so it
-            //belongs with the other mutating commands. A session refused the
-            //time range of a schedule could destroy the scenario owning it.
             if (serviceScope) scopeDenied("autoscenario");
             else processAutoscenario(jsonDataDoc, jsonRoot["msg_id"]);
         }

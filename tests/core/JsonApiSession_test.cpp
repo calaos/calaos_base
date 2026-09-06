@@ -146,8 +146,9 @@ namespace
 //0x80 is a lone continuation byte.
 const char INVALID_UTF8_BYTES[] = { (char)0xff, (char)0x80, 'x', '\0' };
 
-//Everything the WS handler answers under a service scoped session
-//(JsonApiHandlerWS.cpp:159-221). SEVEN, not the eight E4.0.md announces.
+//The eight commands a service scoped session is refused. Written out here
+//rather than read from JsonApi::serviceScopeDeniedCommands(): a rule and the
+//suite that holds it must not be the same list.
 const char *const SCOPE_DENIED_MESSAGES[] =
 { "set_param", "del_param", "audio_db", "set_timerange", "autoscenario",
   "eventlog", "register_push", "settings" };
@@ -1503,10 +1504,11 @@ TEST_F(JsonApiSessionTest, ScopeDoesNotDenyTheOtherMessages)
     }
 }
 
-TEST_F(JsonApiSessionTest, ScopeRefusalIsAWsOnlyNotion)
+TEST_F(JsonApiSessionTest, AnHttpSessionIsAlwaysAdminScoped)
 {
-    //The HTTP transport has no serviceScope at all: the same command a scoped
-    //WS session is refused goes straight through over HTTP.
+    //The HTTP transport carries the guard but has no verb that enters the
+    //scope, so every request it serves is an admin one and none of the eight
+    //may be refused on it. core/JsonApiServiceScope_test pins that absence.
     loadReferenceHouse();
 
     HttpTestRequest req;

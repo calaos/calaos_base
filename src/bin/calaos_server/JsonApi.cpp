@@ -33,6 +33,7 @@
 #include <cerrno>
 #include <cmath>
 #include <cstdlib>
+#include <algorithm>
 #include <set>
 
 namespace
@@ -440,6 +441,46 @@ bool JsonApi::isValidIntParam(const string &value, int minValue, int maxValue)
     }
 
     return v >= minValue && v <= maxValue;
+}
+
+const vector<string> &JsonApi::serviceScopeDeniedCommands()
+{
+    /* Every one of them writes: configuration params, the audio database, a
+     * schedule, a scenario and its rules, the event log, a push registration,
+     * the credentials themselves.
+     */
+    static const vector<string> denied =
+    { "set_param", "del_param", "audio_db", "set_timerange", "autoscenario",
+      "eventlog", "register_push", "settings" };
+
+    return denied;
+}
+
+Json JsonApi::scopeDeniedAnswer()
+{
+    return Json{{ "error", "scope denied" }};
+}
+
+bool JsonApi::serviceScopeDenies(const string &command) const
+{
+    if (!serviceScope)
+        return false;
+
+    const vector<string> &denied = serviceScopeDeniedCommands();
+
+    return std::find(denied.begin(), denied.end(), command) != denied.end();
+}
+
+bool JsonApi::refuseServiceScope(const string &command,
+                                 const std::function<void(const Json &)> &answer)
+{
+    if (!serviceScopeDenies(command))
+        return false;
+
+    cWarningDom("mcp") << "service scope denied action: " << command;
+    answer(scopeDeniedAnswer());
+
+    return true;
 }
 
 bool JsonApi::resolveEventPicture(const string &picUid, string &outPath)
