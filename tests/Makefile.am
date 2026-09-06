@@ -5471,3 +5471,43 @@ core_JsonApiServiceScope_test_DEPENDENCIES = $(SERVICE_SCOPE_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.101
+#What the server does with what its sidecars print.
+#ExternProcServer copied every complete line of a child's stdout onto its own
+#std::cout and every line of its stderr onto std::cerr, verbatim: the only
+#level filter such a line met was the CHILD's, the line carried neither domain
+#nor level, and a child that died mid-word lost its last words in the buffer.
+#The haystack of every case is the WHOLE standard output and standard error of
+#the process, captured at the streambuf - taking "the lines of the journal"
+#would make a line written outside the journal invisible by construction.
+#Three shipped controllers really spawn: OwCtrl, WagoMap and KNXCtrl, the last
+#because it runs TWO sidecars under ONE --namespace. A fourth, OLACtrl, is
+#built in a forked child to measure what a stock install hears - Logger fills
+#its domain map once and this process raises the level.
+#Stand-in sidecars: no PLC, no KNX bus, no owfs. They print and sleep.
+#-I.../IO/Wago is already in AM_CPPFLAGS; IO/KNX, IO/OLA and IO/OneWire are not.
+#Its own binary, and its own process: the controllers respawn their sidecar for
+#the life of the process and park timers on the default loop.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/SidecarOutputJournal_test
+check_PROGRAMS += core/SidecarOutputJournal_test
+core_SidecarOutputJournal_test_SOURCES = core/SidecarOutputJournal_test.cpp
+core_SidecarOutputJournal_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/KNX \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/OLA \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire
+SIDECAR_OUTPUT_JOURNAL_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT)     \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OLA/OLACtrl.$(OBJEXT)     \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OneWire/OWCtrl.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT)
+core_SidecarOutputJournal_test_LDADD = $(SIDECAR_OUTPUT_JOURNAL_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_SidecarOutputJournal_test_DEPENDENCIES = $(SIDECAR_OUTPUT_JOURNAL_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
