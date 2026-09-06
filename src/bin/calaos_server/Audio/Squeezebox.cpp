@@ -405,7 +405,7 @@ void Squeezebox::processMessage(bool status, string msg)
         {
             SqueezeRequest_signal sig;
             sig.connect(cmd.callback);
-            sig.emit(status, cmd.request, cmd.result, cmd.user_data);
+            sig.emit(status, SqueezeRequest(cmd.request), SqueezeResult(cmd.result), cmd.user_data);
         }
 
         squeeze_commands.pop();
@@ -558,10 +558,10 @@ void Squeezebox::get_songinfo(AudioRequest_cb callback, AudioPlayerData user_dat
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_songinfo_cb), data);
 }
 
-void Squeezebox::get_songinfo_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_songinfo_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
 
     string path = p["2"];
 
@@ -571,10 +571,10 @@ void Squeezebox::get_songinfo_cb(bool status, string request, string result, Aud
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_songinfo_cb2), data);
 }
 
-void Squeezebox::get_songinfo_cb2(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_songinfo_cb2(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
 
     Params infos;
 
@@ -641,11 +641,11 @@ void Squeezebox::get_title(AudioRequest_cb callback, AudioPlayerData user_data)
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_title_cb), data);
 }
-void Squeezebox::get_title_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_title_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     string cmd;
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
 
     if (p["2"] == "1")
         cmd = id + " title ?";
@@ -654,10 +654,10 @@ void Squeezebox::get_title_cb(bool status, string request, string result, AudioP
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_title2_cb), data);
 }
-void Squeezebox::get_title2_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_title2_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
 
     data.get_chain_data().svalue = url_decode2(p["2"]);
 
@@ -678,11 +678,11 @@ void Squeezebox::get_artist(AudioRequest_cb callback, AudioPlayerData user_data)
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_artist_cb), data);
 }
-void Squeezebox::get_artist_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_artist_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     string cmd;
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
 
     if (p["2"] == "1")
         cmd = id + " artist ?";
@@ -691,10 +691,10 @@ void Squeezebox::get_artist_cb(bool status, string request, string result, Audio
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_artist2_cb), data);
 }
-void Squeezebox::get_artist2_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_artist2_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
 
     data.get_chain_data().svalue = url_decode2(p["2"]);
 
@@ -715,10 +715,10 @@ void Squeezebox::get_album(AudioRequest_cb callback, AudioPlayerData user_data)
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_album_cb), data);
 }
-void Squeezebox::get_album_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_album_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
 
     data.get_chain_data().svalue = url_decode2(p["2"]);
 
@@ -824,11 +824,11 @@ void Squeezebox::get_album_cover_std(AudioPlayerData data)
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_album_cover_std_cb), data);
 }
-void Squeezebox::get_album_cover_std_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_album_cover_std_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     string cmd;
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
     string path = p["2"];
 
     cmd = "songinfo 0 100 url:";
@@ -836,10 +836,10 @@ void Squeezebox::get_album_cover_std_cb(bool status, string request, string resu
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_album_cover_std2_cb), data);
 }
-void Squeezebox::get_album_cover_std2_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_album_cover_std2_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     vector<string> tokens;
-    split(result, tokens);
+    split(result.v, tokens);
     for_each(tokens.begin(), tokens.end(), UrlDecode());
 
     string aid = "";
@@ -888,11 +888,11 @@ void Squeezebox::get_playlist_album_cover(int item, AudioRequest_cb callback, Au
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_playlist_album_cover_cb), data);
 }
-void Squeezebox::get_playlist_album_cover_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_playlist_album_cover_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     string cmd;
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
     string path = p["4"];
 
     cmd = "songinfo 0 100 url:";
@@ -900,10 +900,10 @@ void Squeezebox::get_playlist_album_cover_cb(bool status, string request, string
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_playlist_album_cover2_cb), data);
 }
-void Squeezebox::get_playlist_album_cover2_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_playlist_album_cover2_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     vector<string> tokens;
-    split(result, tokens);
+    split(result.v, tokens);
     for_each(tokens.begin(), tokens.end(), UrlDecode());
 
     string aid = "";
@@ -942,10 +942,10 @@ void Squeezebox::get_genre(AudioRequest_cb callback, AudioPlayerData user_data)
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_genre_cb), data);
 }
-void Squeezebox::get_genre_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_genre_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
 
     data.get_chain_data().svalue = url_decode2(p["2"]);
 
@@ -966,10 +966,10 @@ void Squeezebox::get_current_time(AudioRequest_cb callback, AudioPlayerData user
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_current_time_cb), data);
 }
 
-void Squeezebox::get_current_time_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_current_time_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
 
     if (is_of_type<double>(url_decode2(p["2"])))
         from_string(url_decode2(p["2"]), data.get_chain_data().dvalue);
@@ -1002,10 +1002,10 @@ void Squeezebox::get_duration(AudioRequest_cb callback, AudioPlayerData user_dat
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_duration_cb), data);
 }
 
-void Squeezebox::get_duration_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_duration_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
 
     if (is_of_type<double>(url_decode2(p["2"])))
         from_string(url_decode2(p["2"]), data.get_chain_data().dvalue);
@@ -1029,10 +1029,10 @@ void Squeezebox::get_sleep(AudioRequest_cb callback, AudioPlayerData user_data)
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_sleep_cb), data);
 }
 
-void Squeezebox::get_sleep_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_sleep_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
 
     if (is_of_type<int>(url_decode2(p["2"])))
         from_string(url_decode2(p["2"]), data.get_chain_data().ivalue);
@@ -1056,10 +1056,10 @@ void Squeezebox::get_status(AudioRequest_cb callback, AudioPlayerData user_data)
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_status_cb), data);
 }
 
-void Squeezebox::get_status_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_status_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
 
     data.get_chain_data().svalue = url_decode2(p["2"]);
 
@@ -1089,10 +1089,10 @@ void Squeezebox::get_sync_status(AudioRequest_cb callback, AudioPlayerData user_
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_sync_status_cb), data);
 }
 
-void Squeezebox::get_sync_status_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_sync_status_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
 
     vector<Params> &results = data.get_chain_data().vparams;
 
@@ -1141,10 +1141,10 @@ void Squeezebox::get_playlist_size(AudioRequest_cb callback, AudioPlayerData use
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_playlist_size_cb), data);
 }
 
-void Squeezebox::get_playlist_size_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_playlist_size_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
 
     if (is_of_type<int>(url_decode2(p["3"])))
         from_string(url_decode2(p["3"]), data.get_chain_data().ivalue);
@@ -1168,10 +1168,10 @@ void Squeezebox::get_playlist_current(AudioRequest_cb callback, AudioPlayerData 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_playlist_current_cb), data);
 }
 
-void Squeezebox::get_playlist_current_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_playlist_current_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
 
     if (is_of_type<int>(url_decode2(p["3"])))
         from_string(url_decode2(p["3"]), data.get_chain_data().ivalue);
@@ -1197,10 +1197,10 @@ void Squeezebox::get_playlist_item(int index, AudioRequest_cb callback, AudioPla
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_playlist_item_cb), data);
 }
 
-void Squeezebox::get_playlist_item_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_playlist_item_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
 
     string path = url_decode2(p["4"]);
 
@@ -1208,10 +1208,10 @@ void Squeezebox::get_playlist_item_cb(bool status, string request, string result
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_playlist_item2_cb), data);
 }
-void Squeezebox::get_playlist_item2_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_playlist_item2_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
 
     //It's probably a remote stream, get infos with specific commands
     if (p.size() <= 5)
@@ -1238,10 +1238,10 @@ void Squeezebox::get_playlist_item2_cb(bool status, string request, string resul
     sig.connect(data.callback);
     sig.emit(data.get_chain_data());
 }
-void Squeezebox::get_playlist_item3_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_playlist_item3_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
 
     data.get_chain_data().params.Add("artist", url_decode2(p["4"]));
 
@@ -1266,10 +1266,10 @@ void Squeezebox::get_playlist_item4_cb(AudioPlayerData data)
         sig.emit(data.get_chain_data());
     }
 }
-void Squeezebox::get_playlist_item5_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_playlist_item5_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
 
     data.get_chain_data().params.Add("title", url_decode2(p["2"]));
 
@@ -1292,10 +1292,10 @@ void Squeezebox::get_playlist_basic_info(int index, AudioRequest_cb callback, Au
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_playlist_info_cb), data);
 }
 
-void Squeezebox::get_playlist_info_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_playlist_info_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
 
     string key = url_decode2(p["2"]);
     string val = url_decode2(p["4"]);
@@ -1526,10 +1526,10 @@ void Squeezebox::get_volume(AudioRequest_cb callback, AudioPlayerData user_data)
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_volume_cb), data);
 }
 
-void Squeezebox::get_volume_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_volume_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data)
 {
     Params p;
-    p.Parse(result);
+    p.Parse(result.v);
 
     if (is_of_type<int>(url_decode2(p["3"])))
         from_string(url_decode2(p["3"]), data.get_chain_data().ivalue);
@@ -1561,12 +1561,12 @@ void Squeezebox::getSynchronizeList(AudioRequest_cb callback, AudioPlayerData us
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_sync_list_cb), data);
 }
 
-void Squeezebox::get_sync_list_cb(bool status, string request, string res, AudioPlayerData data)
+void Squeezebox::get_sync_list_cb(bool status, SqueezeRequest request, SqueezeResult res, AudioPlayerData data)
 {
     vector<Params> &result = data.get_chain_data().vparams;
 
     vector<string> tokens;
-    split(res, tokens);
+    split(res.v, tokens);
 
     if (tokens.size() > 0)
     {

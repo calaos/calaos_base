@@ -109,14 +109,35 @@ inline bool countIsWritable(int nb, size_t available)
     return nb > 0 && (size_t)nb <= available;
 }
 
+/* One type per role for the two arguments below. `int` and `bool` convert
+ * BOTH ways, so an index and a state handed over in the wrong order used to
+ * type-check in silence: every requested bit then landed in bit 0 or bit 1 of
+ * the first byte and the frame left for the PLC wrong.
+ *
+ * Same shape as WagoTypes: one field, explicit, by value, no common base, no
+ * conversion back - each of those, dropped, re-arms the permutation. Declared
+ * here rather than in WagoTypes.h because this header depends on <vector>
+ * alone, and its suite links no server object precisely because of that. */
+struct BitIndex
+{
+    int v;
+    explicit BitIndex(int i): v(i) {}
+};
+
+struct BitState
+{
+    bool v;
+    explicit BitState(bool b): v(b) {}
+};
+
 /* Set or clear one bit of a coil buffer, addressed by its ABSOLUTE index.
  * The byte/offset split happens here and nowhere else. */
-inline void setBufferBit(unsigned char *buf, int bit, bool val)
+inline void setBufferBit(unsigned char *buf, BitIndex bit, BitState val)
 {
-    unsigned char &byte = buf[bit / 8];
-    const unsigned char mask = (unsigned char)(0x01u << (bit % 8));
+    unsigned char &byte = buf[bit.v / 8];
+    const unsigned char mask = (unsigned char)(0x01u << (bit.v % 8));
 
-    if (val)
+    if (val.v)
         byte = (unsigned char)(byte | mask);
     else
         byte = (unsigned char)(byte & (unsigned char)(~mask));
@@ -135,7 +156,7 @@ inline bool packBits(int nb, const std::vector<bool> &values,
     out.assign((size_t)coilBufferSize(nb), 0);
 
     for (int i = 0; i < nb; i++)
-        setBufferBit(&out[0], i, values[i]);
+        setBufferBit(&out[0], BitIndex(i), BitState(values[i]));
 
     return true;
 }
