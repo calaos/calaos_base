@@ -41,6 +41,12 @@
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
 - ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.103`](T3.103.md)) — LE
+
+  ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION** (précisé par l'utilisateur le
+  2026-09-06) : il déclenche un **build de développement qui est déployé**. Ce n'est donc pas une
+  étape qu'on peut avancer pour « voir si la CI passe ». Il attend la fin des tickets. **Aucun agent
+  ne pousse, jamais.**
+
   DERNIER MERGE DE LA SESSION. À LIRE EN PREMIER À FROID.**
   Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`40421cf0`**
   (branche `fix/t3.103`, **4 commits** : 3 du développeur + 1 de la revue de merge). `TESTS` =

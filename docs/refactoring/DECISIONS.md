@@ -1083,6 +1083,13 @@ Posés à l'utilisateur en fin de session, après la série des secrets dans les
 
 ### 1. Le `push` → ⏸ **DIFFÉRÉ, une seule fois, à la fin du backlog**
 
+⛔⭐ **PRÉCISION DE L'UTILISATEUR (2026-09-06), ET ELLE CHANGE LA NATURE DE LA DÉCISION** :
+pousser ne lance pas seulement des tests — **ça déclenche un build de développement qui est
+déployé**. Le `push` n'est donc **pas** une vérification bon marché qu'on pourrait faire tôt pour
+dégrossir : c'est une **livraison**. Il attend la fin des tickets, sans exception, et il reste
+**interdit aux agents**.
+
+
 La CI GitHub n'a jamais tourné sur les 88 commits de la série. Ce qu'elle seule peut vérifier : la
 **syntaxe du workflow** et le **build réel des deux `Dockerfile`** — les étapes `run:` ont été
 rejouées à la main dans un conteneur neuf, ce qui n'est pas la même chose.
