@@ -1397,18 +1397,8 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   UDP seront ignorées. Il écoute bien à la bonne adresse, mais il ne sait pas encore lire l'adresse
   d'un correspondant IPv6 : c'est le prochain morceau, et il n'est pas livré ici.
 
-  ⛔ **Ce qui n'est PAS corrigé, et qui vous concerne de la même façon.** Les deux autres façons
-  d'écrire une valeur que le serveur ne sait pas appliquer produisent **toujours** une écoute sur
-  toutes les interfaces, en silence :
-  - une **faute de frappe** ou un **nom d'hôte** (`localhost`, `calaos.local`, `192.168.1.300`) :
-    le serveur écoute sur toutes vos interfaces, sur le port normal ;
-  - une adresse IPv4 **bien écrite mais absente de la machine** (celle que la documentation promet
-    de refuser) : le serveur écoute sur toutes vos interfaces **et sur un port tiré au hasard**,
-    donc plus personne ne le trouve à l'endroit attendu.
-
-  ⇒ **Tant que ce n'est pas fermé : vérifiez la valeur de `listen_address` caractère par
-  caractère**, et si vous n'en avez pas l'usage, laissez `0.0.0.0` et confiez le confinement à
-  votre pare-feu.
+  ✅ **Les deux autres façons d'écrire une valeur inapplicable sont fermées elles aussi** — voir
+  l'entrée suivante. Elles restent un élargissement de l'écoute, mais elles ne sont plus muettes.
 
   **En prime.** Sur une écoute IPv6 ou double pile, le serveur lisait `0.0.0.0` à la place de
   l'adresse de ses clients : tous se retrouvaient dans un compteur unique — le ralentissement après
@@ -1416,6 +1406,47 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   C'est corrigé aussi : chaque client est de nouveau identifié, et les lignes du journal qui disent
   d'où vient une connexion refusée donnent l'adresse réelle. ⚠️ Personne ne pouvait l'observer
   jusqu'ici, puisque l'écoute IPv6 n'avait jamais lieu.
+- ⛔⭐ **`listen_address` : une valeur que le serveur ne sait pas appliquer ne le fait plus
+  disparaître en silence — et le cas du PORT TIRÉ AU HASARD est fermé.**
+
+  **À lire si vous avez écrit vous-même une valeur dans `listen_address`.** Le défaut par défaut
+  (`0.0.0.0`) n'est pas concerné.
+
+  **Ce qui se passait.** Deux valeurs que le serveur ne savait pas appliquer le laissaient démarrer
+  sans une ligne de journal :
+  - une **faute de frappe** ou un **nom d'hôte** (`localhost`, `calaos.local`, `192.168.1.300`) :
+    le serveur écoutait sur toutes vos interfaces, sur le port normal. Vous croyiez l'avoir
+    confiné ; il ne l'était pas ;
+  - ⭐ une adresse **bien écrite mais absente de la machine** — précisément celle que la
+    documentation du réglage promettait de refuser : le serveur écoutait sur toutes vos interfaces
+    **ET SUR UN PORT TIRÉ AU HASARD**, différent à chaque démarrage. **C'est le cas le plus
+    déroutant** : votre serveur « ne répond plus » alors qu'il tourne, `calaos_installer` et
+    l'application mobile ne le trouvent pas, le port 5454 est fermé, et rien nulle part ne dit
+    pourquoi. Si vous avez déjà vécu cela après avoir touché à `listen_address` — par exemple parce
+    que la box a changé le plan d'adressage de votre réseau, et que l'adresse que vous aviez écrite
+    n'existe plus sur la machine — c'était cela.
+
+  **Ce qui change.** Dans les deux cas le serveur retombe sur `0.0.0.0`, **sur le port configuré**,
+  et **écrit un avertissement qui nomme la valeur refusée** :
+
+  ```
+  listen_address "192.168.1.42" is not an address of this machine, listening on 0.0.0.0 (every interface) instead
+  ```
+
+  ⚠️ **Le choix est assumé, et il n'est pas de refuser de démarrer** : une faute de frappe dans un
+  fichier de configuration ne doit pas transformer un boîtier domotique en brique injoignable.
+  L'écoute reste donc élargie — mais elle le dit, et le port ne bouge plus. ⇒ **si vous voyez cette
+  ligne, votre serveur n'est PAS confiné** : corrigez la valeur, ou laissez `0.0.0.0` et confiez le
+  confinement à votre pare-feu.
+
+- ⚠️ **Rescan des micrologiciels : la boucle locale, c'est tout `127.0.0.0/8`.** L'appel qui
+  demande au serveur de relire son dossier de micrologiciels n'est accepté que depuis la machine
+  elle-même. Il comparait l'adresse de l'appelant à `127.0.0.x` seulement, alors que le reste du
+  serveur considère — à juste titre — l'ensemble de `127.0.0.0/8` comme la machine elle-même. Un
+  appel venu de `127.1.0.1`, qui est bien la machine, était donc refusé. Les deux endroits posent
+  désormais la même question au même endroit. **Aucun élargissement vers l'extérieur** : une adresse
+  hors de la boucle locale est refusée exactement comme avant.
+
 - ⭐ **La valeur qu'un `set_state` refuse n'est plus recopiée dans le journal d'une installation
   neuve.** Quand un client demande à écrire une valeur qui s'arrête sur son séparateur — une
   commande à laquelle il manque son argument — Calaos refuse, et il écrivait la valeur fautive

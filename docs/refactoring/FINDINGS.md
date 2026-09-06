@@ -1122,16 +1122,20 @@
   **rétréci** (`0.0.0.0` n'accepte pas l'IPv6, un client IPv6 ne pouvait pas entrer). L'élargissement
   ne concerne qu'une adresse IPv6 **précise** — `::1` ou l'adresse d'une seule interface.
 
-  ⛔ **Ce qui RESTE ouvert — désormais MESURÉ, et non plus supposé** ⇒ [T3.106](T3.106.md) :
-  - une `listen_address` qui n'est **ni** IPv4 **ni** IPv6 (faute de frappe, nom d'hôte) : mesuré
-    `bind("nonsense-typo")` → socket **`AF_INET 0.0.0.0`**, connexion IPv4 **acceptée**, sans une
-    ligne. Même mécanique, même effet ouvrant, **toujours vrai après ce correctif** ;
-  - ⭐ **et une adresse IPv4 bien formée mais ABSENTE de la machine** — le cas que la documentation
-    de la clé promet nommément de refuser. Mesuré : `bind<IPv4>("10.99.99.99")` échoue
-    (`EADDRNOTAVAIL`), `uvw` publie un `ErrorEvent` **avant** que `HttpServer` n'ait posé son
-    `once<ErrorEvent>` (il le pose après `bind()` et `listen()`), l'erreur est donc **perdue**, et
-    `listen()` **auto-lie le handle** : socket **`AF_INET 0.0.0.0` sur un port TIRÉ AU HASARD**.
-    Ni refus, ni journal, ni port attendu.
+  ✅⭐ **LES DEUX AUTRES FORMES SONT FERMÉES par [T3.106](T3.106.md)** — elles étaient MESURÉES ici,
+  et le sont de nouveau, cette fois par un cas de l'arbre (`core/ListenAddressFallback_test`, qui
+  lit la socket d'écoute au `getsockname()` sur le descripteur, un `fork` par valeur) :
+  - une `listen_address` qui n'est **ni** IPv4 **ni** IPv6 (faute de frappe, nom d'hôte) : elle
+    élargit toujours l'écoute — **arbitrage utilisateur du 2026-09-06 : retomber en le disant**,
+    parce qu'une faute de frappe ne doit pas rendre un boîtier domotique injoignable — mais elle
+    n'est plus muette : l'avertissement **nomme la valeur refusée** ;
+  - ⭐ **et une adresse bien formée mais ABSENTE de la machine.** Le mécanisme est confirmé :
+    `uvw` publie l'`ErrorEvent` **avant** que `HttpServer` n'ait posé son auditeur, l'erreur est
+    perdue, et `listen()` **auto-lie le handle**. Mesuré sur master **avec le port demandé par la
+    suite**, donc constaté et non déduit : `192.0.2.1` → port demandé **41909**, port obtenu
+    **43483** ; `2001:db8::1` → **56629** demandé, **44217** obtenu, famille `AF_INET6`, adresse
+    `::`. ✅ L'auditeur est désormais posé **avant** le `bind`, et le repli garde le **port
+    configuré**.
 
 - ⛔ **F-IP6-3 — [DISPONIBILITÉ, OUVERT, RÉVÉLÉ par [T3.41](T3.41.md)] sous une `listen_address`
   IPv6, `UDPServer` se lie à la bonne famille mais ne sait pas lire ses correspondants : la
