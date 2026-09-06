@@ -12198,3 +12198,34 @@ dégénérescence — deux frères à la même valeur — est ce que le ticket v
 parade est un **second capteur sur un champ que les frères ne partagent pas**.
 *À recopier : quand la fixture est la donnée de production et qu'elle est dégénérée par
 construction, on ne corrige pas la fixture — on ajoute un capteur sur ce qui reste distinct.*
+
+---
+
+## ⭐ Revue de merge de `T3.32` — une sonde qui n'accuse rien parce que rien ne l'alimente (2026-09-06)
+
+- ⛔⭐ **[F-DOCS-1] `scripts/check-docs.py` : son auto-test n'épingle nulle part qu'elle ait LU
+  quelque chose.** Les 28 corpus appellent `scan()` **directement**, la liste des documents en
+  argument ; la sélection du corpus réel — le `os.listdir()` de `main()` — n'est exercée par aucun
+  d'eux. Mesuré par un **échange d'opérandes** dans cette sélection, `n.endswith('.md')` →
+  `'.md'.endswith(n)` : la sonde rend **`0`**, ne porte **aucune** des 4 plaintes de l'arbre, et son
+  auto-test **PASSE** en annonçant ses 14 refus et ses 13 acceptations. Le seul reste est le résumé,
+  `0 references over 0 documents`, que personne n'est tenu de lire puisque la cible est non
+  bloquante **par décision**. ⇒ [`T3.127`](T3.127.md).
+
+  ⭐ **C'est une troisième forme, distincte des deux déjà fichées.** À la revue de `T3.63`, une sonde
+  se cassait dans son **masquage lexical** ; à celle de `T3.22`, dans sa **table de reconnaissance**.
+  Ici la règle est intacte, la reconnaissance est intacte, et c'est **l'entrée** qui a disparu.
+  *À recopier : un auto-test qui reçoit son corpus en argument ne dit rien de la façon dont le corpus
+  réel est choisi — et c'est le seul endroit où une sonde peut devenir muette sans se tromper une
+  seule fois.*
+
+- ⚠️ **Mutant équivalent déclaré** : les deux opérandes de `cited_span()` échangés
+  (`nums[0] <= nums[1]` → `nums[1] <= nums[0]`) rendent **exactement la base** — 4 plaintes,
+  auto-test vert. L'**intérieur** d'un intervalle cité n'est lu ni par un corpus ni par une ancre de
+  l'arbre : les deux seules ancres de `docs/*.md` visent une ligne unique.
+
+- ✅ **Le refus de deviner est gardé, et son prix est mesuré.** `len(found) == 1` → `>= 1` est
+  **refusé par l'auto-test** (2 corpus). Mesuré au-delà de lui, sur l'arbre réel, deviner ferait
+  passer les citations non résolues de **26 à 15** pour **une seule** accusation de plus — et
+  celle-là est vraie (`__init__.py:17`, le fichier en a 8). Les 26 silences ne cachent donc pas un
+  trou.

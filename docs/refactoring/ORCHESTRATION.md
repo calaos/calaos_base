@@ -40,8 +40,178 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.22`](T3.22.md)) —
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.32`](T3.32.md)) —
   À LIRE EN PREMIER À FROID.**
+
+  ⛔⭐⭐⭐ **CE QUI COMPTE LE PLUS, ET C'EST MESURÉ, PAS DÉDUIT : POUSSER PUBLIE SANS ATTENDRE LES
+  TESTS.** `.github/workflows/docker-publish-dev.yml` part sur `on: push: branches: [master]`, son
+  **unique** job n'a **ni `needs:` ni `if:`**, l'arbre ne porte **aucun** `workflow_run`, et les tests
+  vivent dans un **autre** fichier de workflow. ⇒ **le premier `push` incrémentera la version, créera
+  un tag git, publiera `ghcr.io/calaos/calaos_base:dev` et le tag versionné, et dispatchera un
+  `build_deb` vers `calaos/pkgdebs` — que `build-and-test` soit vert, rouge, ou encore en cours.**
+  La garde reste à poser et c'est une décision de l'utilisateur ([`T3.125`](T3.125.md) B et C),
+  ⚠️ **pas avant [`T3.112`](T3.112.md)**.
+  ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION. Aucun agent ne pousse, jamais.**
+  ⛔ **RIEN N'A ÉTÉ POUSSÉ DE TOUTE LA SÉRIE.**
+
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de la branche
+  `infra/t3.32` (**3 commits** : 2 du développeur + 1 de la revue de merge), `merge --ff-only`,
+  historique linéaire, **0 commit de fusion**. Rebasée de `099f15fa` sur `450a3326` **sans conflit** —
+  le diff ne sort pas de `docs/`, `Makefile.am` et `scripts/`, et ⭐ **`tests/Makefile.am` est
+  identique octet à octet à `master`** : rien à régénérer, aucun `endif` à recoudre.
+  ⛔ **ZÉRO ligne de `src/` et zéro ligne de `tests/`**, vérifié.
+  `TESTS` **142 → 142**, référence après `make distclean` : **`TOTAL 142 / PASS 141 / SKIP 1 / FAIL 0 /
+  XFAIL 0 / XPASS 0 / ERROR 0`**, **142 `.trs`** recomptés, seul `SKIP` `check-ccache-honesty.sh`,
+  **0 `error:`**, **11 `CXXLD`** au `make -j32`, **un seul** bloc `Testsuite summary` par tour,
+  **3 `make check` consécutifs identiques** plus **un quatrième** sous l'arbre volontairement cassé.
+  ⭐ **`core/MqttSidecarConfigWait_test` n'a flanché à AUCUN des 4** : `F-FLAKY-2` /
+  [`T3.112`](T3.112.md) reste **ouverte et antérieure**. ⛔ **Aucun `make check` n'a été relancé pour
+  faire disparaître un rouge.**
+
+  ⭐⭐ **CE QUE LE TICKET LIVRE.** `make check-docs` — `scripts/check-docs.py`, cible de la racine.
+  Une référence `Fichier.cpp:ligne` de `docs/*.md` qui porte une **ancre** (le fragment cité entre
+  parenthèses et backticks juste après) doit toujours la trouver à la ligne annoncée ; une ligne
+  au-delà de la fin du fichier est refusée. Ancre **optionnelle**, blancs normalisés, jamais d'égalité
+  de ligne entière. ⛔ **NON BLOQUANTE et HORS de `make check` — c'est la décision, pas un oubli.**
+
+  ⭐⭐⭐ **CE QUE LA REVUE A MESURÉ, ET QUI DÉPASSE LE TICKET :**
+  1. ⭐⭐ **LES DEUX CHIFFRES QUI ONT DÉCIDÉ DE LA CONCEPTION SONT RECOMPTÉS ET TIENNENT.** Les ancres
+     déjà écrites dans `docs/` : **63 périmées sur 73 résolvables, 86,3 %** (fiche : 62/72, 86 %). Les
+     citations qui désignent une ligne vide ou une accolade seule : **249 sur 1443, 17,3 %** avec ma
+     définition (fiche : 266 / 1445, 18,4 %) — **même classement par document, à la place près**
+     (`04_scenarios`, `08_http_api`, `07_remoteui`) ; l'écart tient à ce qu'on appelle « accolade
+     seule », pas au fait. ⇒ **l'arbitrage « non bloquante » tient**, et il est même prouvé plus
+     directement que par ces taux : **la sonde rend `1` sur l'arbre tel qu'il est livré**. Une cible
+     bloquante serait rouge **le jour de sa livraison**.
+  2. ⭐⭐ **LE RECENSEMENT DE LA FICHE MANQUAIT UNE FORME ENTIÈRE, ET C'EST LE CINQUIÈME DE LA SÉRIE.**
+     Les **continuations** — `` `:69-76` `` seul, qui hérite du fichier nommé juste avant — existent
+     bien et pèsent **260 groupes / 435 numéros sur 1472, soit 17,7 %**, recomptées **à l'unité** par
+     un balayage indépendant (nommées : **1212 groupes / 2105 numéros**, là où la fiche d'origine
+     écrivait 1109 / 2074). ⭐ **Et ce n'est pas une subtilité** : la troisième des quatre plaintes de
+     l'arbre est une continuation (`` `:479-500` `` héritant de `ScriptBindings.cpp`).
+     *À recopier : les quatre faux recensements précédents avaient compté un **nom** ; celui-ci a
+     compté une **syntaxe** et manqué la syntaxe voisine qui n'en répète pas le nom.*
+  3. ✅ **LA FORME D'ANCRE N'EST PAS INVENTÉE.** `` `Fichier.cpp:N` (`fragment`) `` est écrite **76
+     fois** en ligne stricte, **84** en comptant les variantes repliée et derrière un lien markdown,
+     **100** avec les ancres de continuation. Le « 81 » de la fiche est dans la fourchette. Imposer
+     une syntaxe neuve à ~1470 citations aurait été un non-départ ; ce n'est pas ce qui est fait.
+  4. ⛔⭐ **LA CONTRAINTE DU TICKET EST REMESURÉE, PAS RELUE.** 5 références mortes ajoutées à
+     `docs/00_overview.md` ⇒ la sonde porte **9** plaintes (4 + 5), le **script** rend **`1`**, la
+     **cible** rend **`0`**, et `make check` reste **`TOTAL 142 / PASS 141`** en ne mentionnant
+     `check-docs` **0 fois** dans son journal ; `make -n check` **0 fois** aussi.
+  5. ✅ **LES 4 PLAINTES DE L'ARBRE SONT VRAIES TOUTES LES QUATRE, 0 faux rouge.** `Calaos.cpp` a
+     **63** lignes pour un `:81-91` · `Rule.cpp` **375** pour un `:376` · `ScriptBindings.cpp` **479**
+     pour un `:500` · et l'ancre `SetTimerangeAndAutoscenarioAreBothScopeDenied` de
+     `JsonApiScenario_test.cpp:858` est bien à **:860** — la ligne 858 est un `}`, exactement le
+     symptôme que le ticket décrit, et la sonde **dit où aller** (`-- found at :860`).
+  6. ⭐ **LA SONDE A ÉTÉ ÉPROUVÉE PAR LA REVUE, PAS SEULEMENT RELUE.** Six corpus écrits ici :
+     **3 refusés** — un nom **élidé** dont l'ancre a disparu (chemin qu'aucun des 28 n'ancre), le
+     numéro **du milieu** d'une liste hors bornes, une ancre décalée atteinte à travers un lien
+     markdown — et **3 acceptés** — une ancre pleine de métacaractères (`if (a[0] == *b) { c(); }`,
+     comparée **littéralement**), une ancre sous-chaîne stricte d'une ligne plus longue, une mention
+     nue sans numéro. **Les six ont été lus comme voulu.**
+  7. ⛔⭐⭐ **ET LE TROU EST CELUI QU'ON ATTENDAIT : LA SONDE N'ACCUSE RIEN SI RIEN NE L'ALIMENTE**
+     ⇒ `F-DOCS-1` / [`T3.127`](T3.127.md). Ses **28 corpus appellent `scan()` directement**, la liste
+     des documents **en argument** — donc **rien** n'exerce la sélection du corpus réel. Un **échange
+     d'opérandes** à cet endroit (`n.endswith('.md')` → `'.md'.endswith(n)`) la rend muette :
+     **rc 0**, **0 plainte** là où l'arbre en porte 4, **et l'auto-test PASSE**. Il ne reste que le
+     résumé, `0 references over 0 documents`, que personne n'est tenu de lire puisque la cible est non
+     bloquante par décision.
+     *À recopier : un auto-test qui reçoit son corpus en argument ne dit rien de la façon dont le
+     corpus réel est choisi — c'est le seul endroit où une sonde devient muette sans se tromper une
+     seule fois. Troisième forme après le masquage lexical (`T3.63`) et la table de reconnaissance
+     (`T3.22`).*
+  8. ⭐ **LA COUVERTURE NON AMORCÉE EST LE BON DÉCOUPAGE, PAS UN TROU DE LIVRAISON.** **2 ancres sur
+     1472** : la sonde est **armée et déchargée**. Mais poser une ancre, c'est **lire le code et
+     décider quel fragment cite le mécanisme** — c'est le geste d'une revue de doc, pas d'un ticket
+     d'outillage, et ancrer d'un coup les 266 citations dérivées serait 266 lectures de code sans
+     relecteur. ⚠️ **Ce qui manque n'est donc pas un ancrage massif mais un ordre de marche** : les
+     revues de doc d'E4.5/E4.6 ancrent ce qu'elles relisent, dans l'ordre `04_scenarios` (68),
+     `08_http_api` (36), `07_remoteui` (32). ⇒ issue **C** de [`T3.127`](T3.127.md).
+  9. ✅ **Le 6ᵉ piège d'outillage était dans la FICHE SEULE ; il est désormais dans ce fichier**, à sa
+     place, à la suite des cinq autres — un harnais qui ouvre le fichier en écriture **avant** de
+     calculer sa mutation le **vide** si l'aiguille est absente, et toutes les preuves de restauration
+     restent **vraies** en comparant à un original nul.
+  10. ✅ **Aucune entrée `RELEASE_NOTES.md` due** : outillage interne, aucune ligne de `src/`, aucun
+     comportement de produit. Vérifié contre l'en-tête du fichier, qui n'accepte que ce qu'un
+     **utilisateur** observe.
+
+  ⭐ **CE QUE LES CONTRE-MUTATIONS DE LA REVUE ONT MESURÉ — trois neuves, plus le témoin :**
+  - ⛔⭐ **CR-1** *(les deux opérandes de la sélection du corpus échangés)* ⇒ **rc 0, 0 plainte, et
+    l'auto-test PASSE** — la sonde accepte les 4 références mortes de l'arbre ;
+  - **CR-2** *(`len(found) == 1` → `>= 1`, deviner au lieu de se taire)* ⇒ **refusée par l'auto-test**
+    (2 corpus) ; mesurée **au-delà** de lui, deviner ferait passer les non résolues de **26 à 15**
+    pour **une** accusation de plus, laquelle est **vraie** ⇒ les 26 silences ne cachent rien ;
+  - **CR-3** *(les opérandes de `cited_span()` échangés)* ⇒ **mutant équivalent, déclaré** : l'intérieur
+    d'un intervalle cité n'est lu ni par un corpus ni par une des 2 ancres de l'arbre ;
+  - **témoin** *(réécriture à l'identique, horodatage déplacé)* ⇒ **exactement la base**, 4 plaintes.
+  Mutation et restauration **sur l'HÔTE**, instantané **neuf** hors de l'arbre nommé par **chemin
+  complet**, restauration par écriture **sans métadonnées** puis `utime`, prouvée par `cmp` **rc 0**
+  **et** par un horodatage **effectivement déplacé** aux **4** restaurations, sortie **jamais
+  tronquée**, `git status` sur l'**HÔTE** **vide** après chacune. ⚠️ **Le harnais de la revue a été
+  éprouvé contre le 6ᵉ piège AVANT de servir** : aiguille absente ⇒ refus d'écrire, fichier
+  **identique au sha256 près**.
+
+  ⭐⭐ **LES TICKETS OUVERTS — DEUX COMPTES SÉPARÉS, et c'est le premier qui compte pour
+  l'utilisateur.**
+
+  **(a) Backlog du 4 septembre — 2 tickets encore ouverts** ([`T3.32`](T3.32.md) **en sort**) :
+  `T3.21` et `T3.25a`.
+  ⏳ **`T3.21` est EN COURS** sur une branche **non mergée** : `.wave135/t3.21`, `fix/t3.21`,
+  **0 commit**, **12 fichiers modifiés** et **5 non suivis** au moment de ce paragraphe — dont
+  `tests/Makefile.am` (⚠️ le conflit du `endif` est à attendre à son merge, **résoudre par
+  RÉGÉNÉRATION**) et **`BOARD.md` + `FINDINGS.md`**, que le commit de revue ci-dessus vient aussi de
+  toucher (⚠️ **deux conflits de docs à attendre, à résoudre en gardant les deux côtés**). Il a déjà
+  écrit `T3.21.md` et **`T3.123.md`**. Worktree laissé **intact**, ciblé par **mount** et jamais
+  approché autrement.
+  ⚠️ **`T3.25a` n'est PAS en cours** : aucune branche, aucun worktree — sa fiche existe et rien
+  d'autre. ⇒ **il ne reste plus qu'un seul ticket du backlog d'origine qui ne soit pas en vol.**
+
+  **(b) Ouverts PAR LES REVUES pendant la série — 22** (un entre, aucun ne sort) : `T3.91`
+  (proposé, fiche non écrite), `T3.100`, [`T3.104`](T3.104.md), [`T3.105`](T3.105.md),
+  [`T3.107`](T3.107.md), [`T3.108`](T3.108.md), [`T3.109`](T3.109.md), [`T3.110`](T3.110.md),
+  [`T3.111`](T3.111.md), [`T3.112`](T3.112.md), [`T3.113`](T3.113.md), [`T3.115`](T3.115.md),
+  [`T3.116`](T3.116.md), [`T3.117`](T3.117.md), [`T3.118`](T3.118.md), [`T3.119`](T3.119.md),
+  [`T3.120`](T3.120.md), [`T3.121`](T3.121.md), [`T3.122`](T3.122.md), [`T3.125`](T3.125.md),
+  [`T3.126`](T3.126.md), [`T3.127`](T3.127.md) **(neuve, ouverte par cette revue)**.
+  ⚠️ Numéros **pris** : `T3.76` → `T3.127`. ⛔ **`T3.114` est un TROU périmé, à ne pas réutiliser.**
+  ⛔ **`T3.123` est RÉSERVÉ par l'agent en vol** (`fix/t3.21`) : aucune fiche n'existe encore, mais il
+  ne doit pas être repris. ⭐ **`T3.124` est LIBÉRÉ** — il était réservé par `infra/t3.32`, qui vient
+  d'être mergé sans l'employer. **Prochains libres : `T3.124`, puis `T3.128`.**
+
+  **[`T3.127`](T3.127.md) en une ligne** : les 28 corpus de `check-docs.py` reçoivent leur liste de
+  documents **en argument**, donc rien n'épingle qu'elle ait **lu** quelque chose — un échange
+  d'opérandes dans la sélection du corpus la rend muette, **auto-test vert**.
+
+  ⭐⭐ **CE QUI ATTEND L'UTILISATEUR, ET RIEN D'AUTRE :**
+  1. ⛔⭐⭐ **Le `push` — et on sait EXACTEMENT ce qu'il fait.** Il **publie** : version incrémentée,
+     tag git, `ghcr.io/calaos/calaos_base:dev` + tag versionné, `build_deb` dispatché vers
+     `calaos/pkgdebs` — **sans attendre le moindre test**, et sans qu'un rouge ne le retienne.
+     ⚠️ Attente précise sur le job CI, qui n'a **jamais** tourné : `SKIP 4` sur un exécuteur sans
+     IPv6, et `core/MqttSidecarConfigWait_test` visible en rouge par intermittence.
+     **À décider par l'utilisateur seul.**
+  2. ⛔ **[`T3.125`](T3.125.md) B et C** — poser la garde. ⚠️ **Pas avant [`T3.112`](T3.112.md)** :
+     le flottement ferait **manquer des livraisons**. L'issue **A** est **faite**.
+  3. ⚠️ **`F-FLAKY-2` / [`T3.112`](T3.112.md)** — `core/MqttSidecarConfigWait_test` flanche par
+     intermittence, **toujours seul**. **0 fois sur les 4** `make check` de cette revue, 1 sur 4 à
+     celle de `T3.22`, 4 sur 11 à celle de `T3.38` : **l'utilisateur le verra en CI**, et ce n'est pas
+     une régression de la série. ⛔ **Aucun `make check` n'a jamais été relancé pour effacer un
+     rouge.**
+  4. ⭐ **[`T3.120`](T3.120.md) §2** — **le DMX est-il indexé à partir de 0 ou de 1 ?** Décision de
+     produit sur 4 sites ; recommandation **A** (doc seule). `T3.120` §1 est un correctif sans
+     arbitrage, à passer en premier.
+  5. **[`T3.119`](T3.119.md)** — répondre ou non sur la **racine** du dispatch websocket : trois
+     arbitrages, dont un de **sécurité**.
+  6. **[`T3.127`](T3.127.md)**, **[`T3.126`](T3.126.md)**, **[`T3.122`](T3.122.md)**,
+     **[`T3.121`](T3.121.md)**, **[`T3.113`](T3.113.md)**, **[`T3.104`](T3.104.md)**,
+     **[`T3.105`](T3.105.md)** et **[`T3.111`](T3.111.md)** — inchangés, voir les états de sortie
+     précédents.
+  7. ⚠️ **Les 12 alertes Dependabot du passage du 2026-08-24 sont toujours OUVERTES**, dont les 2
+     `immutable` à *dismiss* — geste **utilisateur**.
+
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-06, APRÈS LE MERGE DE [`T3.22`](T3.22.md)) — conservé
+  pour l'historique.**
 
   ⛔⭐⭐⭐ **CE QUI COMPTE LE PLUS, ET C'EST DÉSORMAIS MESURÉ, PAS DÉDUIT : POUSSER PUBLIE SANS
   ATTENDRE LES TESTS.** `.github/workflows/docker-publish-dev.yml` part sur `on: push: branches:
@@ -12107,6 +12277,9 @@ voient que les IOs internes.
 ## Procédure de merge (déléguée à un subagent)
 
 1. Revue diff → verdict.
+   ⭐ **Si le diff touche `docs/*.md`** : `make check-docs` (`T3.32`), et **ancrer** les références
+   que la revue relit — la sonde est armée mais presque déchargée, et c'est la revue qui la charge.
+   ⚠️ Elle est **non bloquante** : son verdict se **lit**, il ne rougit nulle part tout seul.
 2. `git rebase master` dans le worktree.
 3. Résoudre le conflit `tests/Makefile.am` (voir pattern ci-dessous).
 4. Build docker d'intégration (attendre `N/N` verts, N = nb de tests courant).
@@ -12245,6 +12418,23 @@ refuseront — ou pire, une suite qu'elles laisseront passer.
 | ⭐ `check-docs.py` (2026-09-06, `T3.32`) — ⚠️ **la seule qui ne soit PAS dans `make check`** | une référence `Fichier.cpp:ligne` de `docs/*.md` dont l'**ancre** — le fragment cité entre parenthèses et backticks juste après, forme que l'arbre écrit **déjà 81 fois** — n'est plus à la ligne annoncée ; et une ligne au-delà de la fin du fichier. **Ancre optionnelle**, blancs normalisés, jamais d'égalité de ligne entière. Auto-test de **28 corpus** (14 refusés, 13 acceptés, 1 aux compteurs épinglés), joué **avant** chaque balayage. **1472 citations vues, 4 mortes, 0 faux rouge** (2026-09-06). ⛔ **Elle est NON BLOQUANTE et HORS de `make check` — c'est la décision du ticket, pas un oubli** : une doc rougissant à chaque refactoring finirait désarmée. **À lancer à chaque revue de doc** : `make check-docs` |
 
 ⛔⭐ **Ce que `check-docs.py` ne voit pas, et qu'il faut dire au brief suivant** : elle ferme la référence **périmée**, jamais la référence **fausse**. Une ligne qui existe et contient bien le fragment alors que le mécanisme décrit est ailleurs est **ACCEPTÉE** — une ancre l'aurait *validée* ; et une affirmation fausse qui ne cite rien n'a **rien à ancrer**. Ce sont les deux défauts de la dernière revue de doc, et les deux figurent dans son auto-test comme cas **acceptés**. ⚠️ **Elle est aussi presque déchargée** : **2 ancres sur 1472 citations** — l'ancrage est le travail des revues, dans l'ordre de dérive mesuré (`04_scenarios` 68, `08_http_api` 36, `07_remoteui` 32 citations désignant une ligne vide ou une accolade seule, **266 en tout, 18,4 %**). ⛔ `docs/refactoring/` est **hors périmètre** : une fiche est un relevé daté, et **62 de ses 72 ancres sont déjà périmées** — les contrôler produirait des centaines de rouges qui ne sont pas des défauts.
+
+⛔⭐⭐ **ET LE TROU QUI COMPTE, MESURÉ À LA REVUE DE `T3.32` : RIEN N'ÉPINGLE QU'ELLE AIT LU QUELQUE
+CHOSE** (`F-DOCS-1` / [`T3.127`](T3.127.md)). Ses **28 corpus appellent `scan()` directement**, avec la
+liste des documents **en argument** : la sélection du corpus réel — le `os.listdir()` de `main()` — n'est
+exercée par **aucun** d'eux. Un **échange d'opérandes** à cet endroit (`n.endswith('.md')` →
+`'.md'.endswith(n)`) la rend muette : **rc 0**, **0 plainte** là où l'arbre en porte 4, et **l'auto-test
+PASSE** en annonçant ses 14 refus et ses 13 acceptations. Il ne reste que le résumé — `0 references over 0
+documents` — que personne n'est tenu de lire, puisque la cible est non bloquante par décision.
+⭐ **C'est une TROISIÈME forme, distincte des deux déjà fichées** : à `T3.63` une sonde se cassait dans son
+**masquage lexical**, à `T3.22` dans sa **table de reconnaissance** ; ici la règle est intacte, la
+reconnaissance est intacte, et c'est **l'entrée** qui a disparu.
+*À recopier : un auto-test qui reçoit son corpus en argument ne dit rien de la façon dont le corpus réel est
+choisi — et c'est le seul endroit où une sonde devient muette sans se tromper une seule fois.*
+ℹ️ Deux mesures mineures de la même campagne : les opérandes de `cited_span()` échangés sont un **mutant
+équivalent déclaré** (l'intérieur d'un intervalle cité n'est lu par aucun corpus ni par aucune des 2 ancres
+de `docs/*.md`) ; et `len(found) == 1` → `>= 1` est bien **refusé par l'auto-test**, deviner ferait passer
+les non résolues de **26 à 15** pour **une** accusation de plus, vraie — les 26 silences ne cachent rien.
 
 ⛔ **Ce que `check-echo-ceilings.sh` ne voit pas, et qu'il faut dire au brief suivant** : elle lit la
 **forme**, jamais la mesure — elle ne distingue pas un bornage qui parcourt toutes les formes d'un qui
@@ -12447,6 +12637,35 @@ restauration ne vaut que ce que vaut l'original auquel elle compare.
    de deux tickets se recouvrent silencieusement.
 3. ✅ **`git status` sur l'HÔTE après chaque tour**, comme pour le `| head` — c'est encore ce qui l'a
    rattrapé, et c'est toujours la seule vérification qui ne dépend d'aucune sortie du harnais.
+
+## ⛔⭐ Outillage — UN HARNAIS QUI OUVRE AVANT DE CALCULER VIDE LE FICHIER (T3.32, 2026-09-06)
+
+**Sixième membre de la famille de `_DEPENDENCIES`, du `git checkout` dans le conteneur, de la
+restauration qui garde sa date, du `| head` et de l'instantané réutilisé : l'outil rend un chiffre, et
+le chiffre ne mesure pas ce qu'on croit.**
+
+Vécu en `T3.32` : le harnais de contre-mutation ouvrait le fichier **en écriture avant** de calculer
+sa mutation. Ouvrir en `'w'` **tronque immédiatement** ; l'aiguille était absente, l'exception est
+partie **après** la troncature, et le fichier de travail s'est retrouvé **vide**. Le tour suivant en a
+pris un **instantané vide**, et tout ce qui a suivi a comparé à un original nul.
+
+⚠️ **Et les preuves exigées par les quatre sections ci-dessus étaient toutes VRAIES** : `cmp` rc 0,
+horodatage déplacé, aucun `| head`, instantané non réutilisé. Elles comparaient à **rien**. C'est la
+même leçon que l'instantané réutilisé, poussée d'un cran : *une preuve de restauration ne vaut que ce
+que vaut l'original auquel elle compare — y compris quand cet original est vide.*
+
+**Parade — trois règles :**
+
+1. ⛔ **Calculer la nouvelle forme AVANT d'ouvrir en écriture.** Lire, compter l'aiguille, construire
+   le texte de sortie, **puis seulement** ouvrir. Un `open(p, 'w')` placé avant le calcul détruit le
+   fichier à la première surprise.
+2. ✅ **Compter l'aiguille et refuser d'écrire si le compte n'est pas celui attendu.** Un harnais qui
+   n'a rien à muter doit **s'arrêter**, pas écrire quelque chose.
+3. ✅ **Refuser de prendre un instantané vide**, et snapshoter **hors de l'arbre, avant la première
+   mutation** — jamais entre deux tours. ⭐ **Et éprouver le harnais contre ce piège avant de s'en
+   servir** : lui donner une aiguille absente, et vérifier que le fichier est **identique au sha256
+   près** après le refus. C'est un geste de dix secondes ; la campagne de `T3.32` a dû être reprise
+   faute de l'avoir fait.
 
 ## ⭐ Outillage — `distcheck` est utilisable, à condition de le paralléliser soi-même
 
