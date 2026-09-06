@@ -40,8 +40,156 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.38`](T3.38.md)) — LE
-  DERNIER MERGE DE LA SESSION. À LIRE EN PREMIER À FROID.**
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.59`](T3.59.md)) —
+  À LIRE EN PREMIER À FROID.**
+
+  ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION** : il déclenche un **build de
+  développement qui est déployé**. **Aucun agent ne pousse, jamais.** ⛔ **RIEN N'A ÉTÉ POUSSÉ DE
+  TOUTE LA SÉRIE.**
+
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de la branche
+  `fix/t3.59` (**4 commits** : 3 du développeur + 1 de la revue de merge), `merge --ff-only`,
+  historique linéaire, **0 commit de fusion**. Rebasée de `0d9073a3` sur `f3d95d98` ⇒ **trois
+  conflits**, `tests/Makefile.am`, `FINDINGS.md` et `BOARD.md`. ⭐ **`tests/Makefile.am` résolu par
+  RÉGÉNÉRATION et prouvé append pur** : `master` **préfixe exact octet à octet** (355 984 octets),
+  **+50/−0/~0**, `^if` **121 → 122** ≡ `^endif` **121 → 122** (dont un `HAVE_LIBKNX` hérité) ; les
+  deux conflits de docs sont en fin de section et résolus en **gardant les deux côtés**.
+  `TESTS` **141 → 142**, toutes uniques, un seul ajout (`core/JsonApiSubDispatchDefault_test`).
+  Référence après `make distclean` : **`TOTAL 142 / PASS 141 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 /
+  ERROR 0`**, seul `SKIP` `check-ccache-honesty.sh`, **0 `error:`**, **11 `CXXLD`** au `make -j32`,
+  **142 `.trs`** = les 142 entrées `TESTS` recomptées, **trois `make check`** consécutifs identiques,
+  **un seul** bloc `Testsuite summary` à chacun.
+  ⭐ **`core/MqttSidecarConfigWait_test` n'a flanché à AUCUN des 6 `make check` de cette revue**
+  (trois de référence, trois de campagne) : `F-FLAKY-2` / [`T3.112`](T3.112.md) reste **ouverte et
+  antérieure**. ⛔ **Aucun `make check` n'a été relancé pour faire disparaître un rouge.**
+
+  ⭐⭐ **CE QUE LE TICKET FERME.** La famille « un sous-dispatch sans `else` » : une sous-commande
+  qu'un domaine ne connaît pas ne recevait **rien**, et sur HTTP la connexion n'était même pas
+  libérée. Deux sites fermés (`processCamera()` côté HTTP, `processSettings()` côté WS), la forme
+  reprise **à l'identique** d'[`E4.6e`](E4.6.md) §8.7 — payload `{"error":"unknown <domaine>
+  <clef>"}`, orthographe `unknown` et non la typo gelée `unkown`, **en-tête de fermeture asserté** et
+  pas seulement le payload.
+
+  ⭐⭐⭐ **CE QUE LA REVUE A MESURÉ, ET QUI DÉPASSE LE TICKET :**
+  1. ⭐⭐ **Le recensement des 13 sous-dispatchs tombe juste À L'UNITÉ**, recompté par un balayage
+     indépendant des chaînes `if / else if` comparant à un littéral : **13 sites**, **8 HTTP / 5
+     WS**, **10 avec branche par défaut**, **3 muets** (`camera`, `settings`, et la **racine** WS),
+     **1 sans branche mais non muet** (`processPolling()`, qui répond `{}`) — et les **treize**
+     comptes de branches coïncident un à un (19/5/3/2/5/16/8/2 · 2+18/4/16/8/1). ⚠️ Le piège de
+     lecture : le `else` visible dans `processPolling()` appartient à un `if (!res)` **interne**, pas
+     à la chaîne de sous-commandes. ⭐ **`JsonApi.cpp` n'en porte aucun**, vérifié : sa seule chaîne
+     d'aspect voisin itère sur des **noms de paramètre** et porte déjà un `else`.
+     *À recopier : c'est le DEUXIÈME recensement de fiche exact de la série, après `T3.38`. Ce qui
+     l'a rendu juste est d'avoir compté la FORME et non le nom ; les trois faux (`T3.55`, `T3.63`, et
+     le compte de cas de la fiche d'ouverture de ce ticket même) avaient tous compté un nom.*
+  2. ⭐ **LE SEAU DE CONNEXIONS TIENT, ET LA FUITE EST BIEN BORNÉE** — vérifié dans le code, pas
+     déduit de la fiche. La minuterie de lecture est **annulée avant le dispatch**, la place n'est
+     rendue qu'à la destruction du client, et ⭐ **un client distant NE PEUT PAS choisir son seau** :
+     l'en-tête de transfert n'est lu **que** si le pair TCP est la boucle locale. ⇒ **50, son propre
+     budget**, puis `429` ; deux sources prennent les **100** globales ⇒ `503` pour tout le monde.
+     **L'auteur du déni est la première victime.** ⚠️ **Une réserve, antérieure et écrite dans le
+     code** : du code tournant **sur la machine** passe par la boucle locale et n'est borné que par
+     les 100 globales — limite documentée du modèle de confiance, ni créée ni aggravée ici.
+  3. ⛔⭐⭐ **L'EN-TÊTE DE FERMETURE EST UN TÉMOIN PAR PROCURATION — c'est la trouvaille de la revue**
+     ⇒ [`T3.122`](T3.122.md). Contre-mutation **CR-1** : les **deux affectations** de `conn_close`
+     échangées dans `HttpClient::buildHttpResponse()` — une réponse portant `Connection: Close` ne
+     ferme plus, une réponse sans lui ferme de force. Ensemble rouge de l'arbre entier : **1 cas /
+     1 binaire**, `TheAnswerReturnsThePerSourceSlotSoTheNextRequestIsServed`, **le cas que ce ticket
+     vient d'ajouter** ; **sur `master` avant lui il aurait été VIDE**. ⛔ **Toutes** les assertions
+     d'en-tête restent **vertes**, y compris les deux dont le nom promet la libération de la socket
+     et leur jumeau d'`E4.6e` §8.7. Et la moitié symétrique — le **maintien** de connexion — n'est
+     épinglée dans **aucun sens**.
+     *À recopier : un nom de cas qui promet un effet et une assertion qui lit le texte annonçant cet
+     effet sont deux choses différentes. La question n'est pas « qu'est-ce que la réponse DIT ? »
+     mais « qu'est-ce que le serveur FAIT ensuite ? ».*
+  4. ✅⭐ **L'hypothèse de trou de la revue sur le câblage de confiance était FAUSSE, et c'est une
+     bonne nouvelle.** **CR-2** — les **deux arguments** d'`effectiveClientIp()` échangés au site
+     d'appel — donne **13 cas / 3 binaires** (`JsonApiThrottleIdentity_test`,
+     `PeerAddressFamily_test`, `IncomingLogStockLevel_test`), dont
+     `AForgedHeaderFromTheLanCannotChooseItsBucket`. La règle sur laquelle repose tout le point 2 est
+     donc **déjà gardée**. ⚠️ **La suite neuve y reste verte** : le mérite est aux cas antérieurs, il
+     ne faut pas le lui attribuer.
+  5. ⚠️ **LES PAYLOADS PAR DÉFAUT SONT DÉGÉNÉRÉS, et c'est ce qui rend l'ordre circulaire porteur.**
+     Sur les neuf branches, **quatre** répondent la même chaîne `unkown audio_action` et **deux** la
+     même `unknown autoscenario type` ⇒ apparier deux de celles-là serait **un no-op textuel** —
+     exactement la variante neuve du mensonge n° 4 relevée à la revue de `T3.38`. L'ordre circulaire
+     de `M3` l'évite explicitement ; sa valeur est **là**, pas dans le nombre 44.
+  6. ⭐ **LE DÉCOUPAGE EST JUSTE, ET CE N'EST PAS LE CAS DE FIGURE DE `T3.38` §1.** Le critère y
+     était : défaut établi par le code, observable, **aucun arbitrage**, même travail à la ligne
+     près. Ici les deux premiers sont réunis, les deux derniers **non** : la chaîne des dix-huit est
+     **imbriquée dans un `else if (loggedin)`**, donc un `else` à cet endroit laisse muet le message
+     inconnu envoyé **avant `login`** — et y répondre **révélerait** quelles commandes le serveur
+     connaît, avant toute authentification. **Deux `else`, deux politiques, la seconde est une
+     décision de sécurité.** ⇒ [`T3.119`](T3.119.md) est bien un ticket séparé.
+  7. ✅ **`RELEASE_NOTES` vérifié contre l'en-tête du fichier**, et **complété par la revue** : la
+     note disait ce que l'utilisateur observe (un client qui attend indéfiniment) et la moitié
+     « son propre budget » de la limite ; l'autre moitié manquait — **deux sources suffisent à
+     prendre les 100 places globales et le serveur refuse alors tout le monde**, symptôme qu'un
+     utilisateur subit **sans en être l'auteur**.
+  8. ⭐ **Aucun appel direct au dispatch** : les deux seules occurrences de `processApi` et
+     `processCamera` dans la suite neuve sont **dans des commentaires**. Tout passe par une socket
+     réelle, et c'est nécessaire — la chose mesurée n'est pas ce que le dispatch retourne (il ne
+     retourne rien) mais ce qu'il advient de la **connexion**.
+
+  ⭐ **CE QUE LES CONTRE-MUTATIONS DE LA REVUE ONT MESURÉ — deux neuves, plus le témoin :**
+  - ⛔⭐ **CR-1** *(les deux affectations de `conn_close` échangées)* ⇒ **1** cas, le cas du
+    descripteur **seul**, toutes les assertions d'en-tête vertes ;
+  - ✅ **CR-2** *(les deux arguments d'`effectiveClientIp()` échangés au site d'appel)* ⇒ **13** cas /
+    **3** binaires, la suite neuve **verte** ;
+  - **témoin** : les deux fichiers réécrits **à l'identique**, horodatage déplacé ⇒ ensemble rouge
+    **VIDE**, `TOTAL 142 / PASS 141`, **88 `CXXLD`** lus au `make check` — le relink est vivant et le
+    vert est donc porteur.
+  Mutation et restauration **sur l'HÔTE** (jamais un `git` dans le conteneur), instantané **neuf**
+  nommé par **chemin complet**, restauration par écriture **sans métadonnées** puis `utime`, prouvée
+  par une **égalité de contenu** **et** par un horodatage **effectivement déplacé** aux **6**
+  restaurations, sortie **jamais tronquée** par un lecteur qui ferme tôt, `git status` sur l'**HÔTE**
+  **vide** après chacun des 3 tours, `make -j32 && make check -j16` **complet avant chaque mesure**.
+
+  ⭐⭐ **LES TICKETS OUVERTS — DEUX COMPTES SÉPARÉS, et c'est le premier qui compte pour
+  l'utilisateur.**
+
+  **(a) Backlog du 4 septembre — 4 tickets encore ouverts** ([`T3.59`](T3.59.md) **en sort**) :
+  `T3.21`, `T3.22`, `T3.25a`, `T3.32`.
+  ⭐ **Aucun n'est en cours** : il ne reste **aucune branche non mergée**, aucun worktree de travail.
+
+  **(b) Ouverts PAR LES REVUES pendant la série — 19** (deux entrent, aucun ne sort) : `T3.91`
+  (proposé, fiche non écrite), `T3.100`, [`T3.104`](T3.104.md), [`T3.105`](T3.105.md),
+  [`T3.107`](T3.107.md), [`T3.108`](T3.108.md), [`T3.109`](T3.109.md), [`T3.110`](T3.110.md),
+  [`T3.111`](T3.111.md), [`T3.112`](T3.112.md), [`T3.113`](T3.113.md), [`T3.115`](T3.115.md),
+  [`T3.116`](T3.116.md), [`T3.117`](T3.117.md), [`T3.118`](T3.118.md), [`T3.120`](T3.120.md),
+  [`T3.121`](T3.121.md), [`T3.119`](T3.119.md) **(entrée avec le ticket)**,
+  [`T3.122`](T3.122.md) **(neuve, ouverte par cette revue)**.
+  ⚠️ Numéros **pris** : `T3.76` → `T3.122`. ⛔ **`T3.114` est un TROU périmé, à ne pas réutiliser.**
+  **Prochain libre : `T3.123`.**
+
+  **[`T3.122`](T3.122.md) en une ligne** : la minuterie de fermeture forcée d'une connexion HTTP
+  répondue n'a **qu'un seul** capteur dans tout l'arbre — celui que `T3.59` vient d'ajouter —, et le
+  **maintien** de connexion n'en a **aucun** ; trois issues, **aucune ligne de `src/`**.
+
+  ⭐⭐ **CE QUI ATTEND L'UTILISATEUR, ET RIEN D'AUTRE :**
+  1. ⛔ **Le `push`** — **c'est une LIVRAISON**, pas une vérification : il déclenche un build de
+     développement qui est **déployé**. Rien n'a été poussé de toute la série, et le job CI chez
+     GitHub n'a **jamais** tourné. ⚠️ Attente précise : `SKIP 4` sur un exécuteur sans IPv6.
+     **À différer jusqu'à la fin des tickets, puis à décider par l'utilisateur seul.**
+  2. ⚠️ **`F-FLAKY-2` / [`T3.112`](T3.112.md)** — `core/MqttSidecarConfigWait_test` flanche par
+     intermittence sur `AnUnreachableBrokerEndsTheSidecarWithACauseAndANonZeroStatus`, **toujours
+     seul**. Il n'a pas flanché une seule fois aux 6 `make check` de cette revue, mais il a flanché
+     **4 fois sur 11** à celle de `T3.38` : **l'utilisateur le verra en CI**, et ce n'est pas une
+     régression de la série. ⛔ **Aucun `make check` n'a jamais été relancé pour effacer un rouge.**
+  3. ⭐ **[`T3.120`](T3.120.md) §2** — **le DMX est-il indexé à partir de 0 ou de 1 ?** Décision de
+     produit sur 4 sites : **A** doc seule (`0..511`), **B** convention DMX (`1..512` + `-1` à
+     l'émission, ⛔ décale toutes les installations), **C** laisser. Recommandation **A**. Et
+     **`T3.120` §1** (`grid_h`/`grid_w`) est un correctif sans arbitrage, à passer en premier.
+  4. **[`T3.119`](T3.119.md)** — répondre ou non sur la **racine** du dispatch websocket : trois
+     arbitrages, dont un de **sécurité** (répondre avant `login` révélerait quelles commandes le
+     serveur connaît).
+  5. **[`T3.121`](T3.121.md)**, **[`T3.113`](T3.113.md)**, **[`T3.104`](T3.104.md)**,
+     **[`T3.105`](T3.105.md)** et **[`T3.111`](T3.111.md)** — inchangés, voir les états de sortie
+     précédents.
+
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-06, APRÈS LE MERGE DE [`T3.38`](T3.38.md)) — conservé pour
+  l'historique.**
 
   ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION** : il déclenche un **build de
   développement qui est déployé**. **Aucun agent ne pousse, jamais.** ⛔ **RIEN N'A ÉTÉ POUSSÉ DE

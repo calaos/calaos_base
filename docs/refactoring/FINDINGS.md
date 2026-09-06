@@ -11986,6 +11986,46 @@ annonçait qu'**un**, parce qu'elle ne comptait que la forme `-1`.
   défaut que `T3.59` ferme, et le ticket ne le change pas. Épinglé tel quel par
   `PollListenWithAnUnknownTypeAnswersAnEmptyObject`.
 
+- ⛔⭐⭐ **[Revue de merge de T3.59 — L'EN-TÊTE DE FERMETURE EST UN TÉMOIN PAR PROCURATION, et le
+  maintien de connexion n'est épinglé dans AUCUN sens.]** ⇒ [`T3.122`](T3.122.md).
+  `HttpClient::buildHttpResponse()` écrit l'en-tête `Connection` **puis** en déduit `conn_close`, le
+  drapeau qui arme la minuterie de fermeture de 500 ms. Les **deux affectations** de ce drapeau
+  échangées — une réponse portant `Connection: Close` ne ferme plus, une réponse sans lui ferme de
+  force —, l'ensemble rouge de l'arbre entier est **1 cas / 1 binaire** :
+  `TheAnswerReturnsThePerSourceSlotSoTheNextRequestIsServed`, **le cas que `T3.59` vient d'ajouter**.
+  ⛔ **Sur `master` avant ce ticket il aurait été VIDE.** Et **toutes** les assertions d'en-tête
+  restent **vertes**, y compris les deux dont le nom promet la libération de la socket et leur
+  jumeau d'`E4.6e` §8.7. ⚠️ Ce n'est **pas** un défaut de production — les deux lignes sont dérivées
+  l'une de l'autre — mais la propriété sur laquelle repose toute la gravité de `T3.59` n'avait
+  **aucun** capteur avant lui, et sa moitié symétrique n'en a toujours pas.
+  *À recopier : un nom de cas qui promet un effet et une assertion qui lit le texte annonçant cet
+  effet sont deux choses différentes. La question à poser n'est pas « qu'est-ce que la réponse
+  DIT ? » mais « qu'est-ce que le serveur FAIT ensuite ? » — et seule une contre-mutation sur le
+  faire les sépare.*
+
+- ✅⭐ **[Revue de merge de T3.59 — la règle de confiance qui BORNE la fuite est déjà gardée, et
+  l'hypothèse de trou était fausse.]** `effectiveClientIp()` ne lit l'en-tête de transfert que si le
+  pair TCP est la boucle locale ; c'est ce qui empêche un client distant de se donner autant de
+  seaux qu'il veut, et donc ce qui rend la fuite de `T3.59` **bornée à 50** au lieu d'illimitée. La
+  fonction pure est testée à part, mais **l'ordre de ses arguments au site d'appel** ne l'était
+  peut-être pas : les deux **échangés**, l'ensemble rouge est **13 cas / 3 binaires**
+  (`JsonApiThrottleIdentity_test`, `PeerAddressFamily_test`, `IncomingLogStockLevel_test`), dont
+  `AForgedHeaderFromTheLanCannotChooseItsBucket`. ⚠️ **La suite neuve de `T3.59` y reste verte** —
+  son astuce d'identité continue de lui donner son seau —, le mérite revient entièrement aux cas
+  antérieurs.
+  *À recopier : « la fonction est pure et testée » ne dit rien du câblage de ses arguments. Ici le
+  câblage était gardé ; le vérifier a coûté un tour et a converti une réserve en mesure.*
+
+- ⚠️ **[Revue de merge de T3.59 — les payloads par défaut des deux transports sont DÉGÉNÉRÉS, et
+  c'est ce qui rend l'ordre circulaire porteur.]** Sur les neuf branches par défaut, **quatre**
+  répondent la même chaîne `unkown audio_action` (`processAudio` et `processAudioDb`, des deux
+  côtés) et **deux** la même `unknown autoscenario type`. Apparier deux de celles-là dans une
+  permutation serait **un no-op textuel** — la variante neuve du mensonge n° 4 relevée à la revue de
+  `T3.38` : *un test peut être aveugle à une permutation qui ne change aucune valeur*. L'ordre
+  circulaire de `M3` l'évite explicitement, et c'est **là** qu'est sa valeur, pas dans le nombre 44.
+  *À recopier : quand une famille de payloads porte des doublons, ce n'est pas la mutation qui
+  choisit la couverture — c'est le choix de l'ordre, et il doit être écrit.*
+
 ## T3.38 — le recensement des `ioDoc` de l'arbre entier (2026-09-06)
 
 **508 appels `ioDoc->…` dans 62 fichiers**, dont **405** nommés+décrits et **65** bornés

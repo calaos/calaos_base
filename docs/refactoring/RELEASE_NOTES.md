@@ -2796,6 +2796,12 @@ occuper **ses cinquante places** et se voir alors refuser ses requêtes suivante
 « trop de connexions », **sans comprendre pourquoi**. C'est ce symptôme-là qui disparaît : la réponse
 porte `Connection: Close`, et la place est rendue tout de suite.
 
+⚠️ **Et vous pouviez en être la victime sans en être l'auteur.** Le serveur garde cent places au
+total. Deux machines qui accumulaient ainsi des connexions les prenaient toutes, et le serveur
+répondait alors « trop de connexions » à **tout le monde** — y compris aux appareils et aux
+applications qui n'avaient rien fait de particulier. C'était borné, jamais illimité, mais deux
+scripts maladroits suffisaient.
+
 > ### Êtes-vous concerné ?
 >
 > Seulement si un de vos outils envoie une sous-commande que le serveur ne connaît pas — une faute
