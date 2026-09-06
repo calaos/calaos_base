@@ -780,6 +780,31 @@
   hors bande le 2026-08-24, qui a permis de valider la montée coordonnée
   mcp/starlette/fastapi — elle devrait être automatique.
 
+- 🟠 **[F-DEP-8] La publication ne dépend d'aucun test, et le fichier prétend le contraire — plus
+  deux paquets pip que Dependabot ne peut pas atteindre.** Mesuré à [T3.22](T3.22.md) en parsant
+  les trois workflows.
+
+  **(1) Publication non gardée.** `.github/workflows/docker-publish-dev.yml` déclare
+  `on: push: branches: [master]` ; son unique job n'a **ni `needs:`, ni `if:`**, et l'arbre ne porte
+  **aucun** `workflow_run`. Les tests sont dans un **autre** fichier de workflow, donc hors de
+  portée d'un `needs:`. ⇒ tout merge incrémente la version, crée un tag, publie
+  `ghcr.io/calaos/calaos_base:dev` et dispatche un `build_deb`, **que `build-and-test` soit vert,
+  rouge ou en cours**. ⚠️ Et `docker-publish-dev.yml:16` porte le commentaire
+  `# run only when code is compiling and tests are passing` : il énonce une garantie que le fichier
+  n'implémente pas. ⇒ **[T3.125](T3.125.md)** — corriger le commentaire est sans risque, poser un
+  `workflow_run` ou une protection de branche est un **changement de livraison** (et le flottement
+  `F-FLAKY-2` en ferait manquer).
+
+  **(2) Deux paquets hors de tout manifeste.** `Dockerfile:58-64` (et son jumeau du stage `runner`)
+  installe `roonapi` et `reolink-aio` **sans borne de version**, délibérément hors du
+  `pyproject.toml`. Ce sont pourtant deux imports d'exécution réels
+  (`Audio/ExternProcRoon_main.py`, `IO/Reolink/ExternProcReolink_main.py`). Aucun manifeste ne les
+  nomme ⇒ **aucune entrée `dependabot.yml` ne peut les surveiller**, et la résolution du jour reste
+  libre de les casser — le mode d'échec exact de `F-DEP-1`, réduit de six paquets à deux mais **non
+  fermé**. Sur les 8 paquets pip de l'image livrée : **6 épinglés et surveillés, 2 flottants et
+  invisibles**. À traiter avec `F-DEP-3` (même garde), ou en les déclarant dans un manifeste que le
+  `Dockerfile` développe déjà.
+
 
 
 ## Résolus
