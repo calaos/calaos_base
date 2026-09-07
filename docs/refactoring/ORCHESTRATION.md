@@ -43,6 +43,73 @@
      liste de ce que seul le premier `push` tranchera compte **sept** points, et son mode d'échec est
      le **silence**. Elle est énumérée en tête de l'état de sortie ci-dessous.
 
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-07, APRÈS LE MERGE DE [`T3.117`](T3.117.md)) — À LIRE
+  EN PREMIER À FROID.**
+
+  ⭐⭐⭐ **LE `push` N'ATTEND PLUS QUE DEUX TICKETS : [`T3.109`](T3.109.md) ET
+  [`T3.107`](T3.107.md).** Les quatre de la décision du 2026-09-07 étaient `T3.117`, `T3.105`,
+  `T3.109`, `T3.107` ; **`T3.117` sort de la liste avec ce merge**, et **`T3.105` sort avec le sien** —
+  ⚠️ **livré et en cours de merge par un agent en parallèle au moment où ces lignes sont écrites** :
+  s'il n'est pas encore sur `master` quand vous lisez, c'est le seul point à revérifier.
+  ⛔ **Le `push` reste une LIVRAISON : aucun agent ne pousse, jamais.** Tout le reste de ce qui suit —
+  ce que le premier `push` seul tranchera, ce que le vert de la CI ne couvre pas, la protection de
+  branche — est **inchangé** et se lit dans l'état de sortie de `T3.116`, juste en dessous.
+
+  ⭐⭐⭐ **(a) LE BACKLOG D'ORIGINE DU 4 SEPTEMBRE EST TOUJOURS À ZÉRO.** Rien n'y est revenu :
+  `T3.117` n'en fait pas partie, il vient de la décision de produit du 2026-09-07. Le compte de `(a)`
+  reste **11 fermés + 2 écartés = 13**, énumérable ligne à ligne dans les états de sortie conservés
+  plus bas.
+
+  ⭐⭐ **(b) CE QUE LES REVUES ONT OUVERT, ET OÙ ÇA EN EST.** Cette revue en ajoute **un** :
+  [`T3.137`](T3.137.md) (`set_param` accepte n'importe quelle clef, y compris celles que le serveur
+  dérive — `F-SCEN-2`), **renuméroté au merge** parce que `T3.134` avait été pris entre-temps par la
+  fiche ouverte à la revue de `T3.116`. ⚠️ **Numéros pris : `T3.76` → `T3.137`** (`T3.135` et `T3.136`
+  sont réservés par les revues en vol) ; **`T3.114` est un trou** ; le prochain libre est **`T3.138`**.
+
+  ⭐⭐ **CE QUE LA REVUE DE `T3.117` A MESURÉ :**
+
+  1. ⭐⭐ **LA PERTE DE FONCTION EST SILENCIEUSE ET ELLE PRÉCÈDE TOUTE SUPPRESSION** — vérifiée à la
+     ligne d'assertion, pas déduite. La garde retirée, le cas qui ne fait qu'**appuyer sur un bouton**
+     rougit : `A's button ran no step`, `A's own target did not move`. Aucun `broken`, aucun
+     `disabled_missing_io`. **6 cas rouges**, les deux plafonds verts. Les notes de version le disent
+     ainsi.
+  2. ⭐⭐ **LA PLACE DE LA GARDE EST JUSTIFIÉE PAR LA MESURE, ET `ALT` A ÉTÉ REJOUÉE
+     INDÉPENDAMMENT ⇒ bien 9 rouges**, dont ⭐⭐ le plafond `BothScenariosOfADuplicatedUidStillLoad` :
+     refuser au chargement fait **sortir** le second scénario de l'API — l'écueil de
+     [`T3.72`](T3.72.md), *refuser à l'écriture, jamais à la relecture*.
+  3. ⛔⭐ **DEUX CONTRE-MUTATIONS NEUVES, ET L'UNE DÉPLACE UNE PHRASE DE LA FICHE :**
+     - **le parcours du modèle inversé** (c'est le **dernier** de l'`io.xml` qui garde l'uid) ⇒
+       **5 cas / 2 suites rouges**. ⇒ « qui garde l'uid est arbitraire » vaut pour le **produit**, pas
+       pour l'arbre : le choix *premier vu* **est tenu** (`F-SCEN-5`) ;
+     - ⛔ **l'identifiant neuf ne venant plus de l'allocateur** (`newUid()` ⇄ `uid + "_dup"`, unique
+       dans la passe mais libre de rien) ⇒ ⛔ **0 rouge**. La sûreté du remède — l'allocateur semé
+       au-delà de tout uid du fichier — n'est tenue que par la **lecture** (`F-SCEN-4`). **Nu.**
+     - ℹ️ la passe déplacée **avant** `reportAutoScenariosLostByUpload()` ⇒ **0 rouge** : l'ordre des
+       deux annonces de démarrage n'est tenu par rien.
+  4. ✅ **Les deux mutants à 0 du développeur sont des ÉQUIVALENTS, pas un trou** : `declareDefinition()`
+     et `saveToParams()` re-dérivent les trois lignes avant que quoi que ce soit ne les lise.
+  5. ⚠️ **`T3.57` a été mise à jour, et le chiffre est MESURÉ** : sa `CM-1` historique rejouée par
+     exécutions **filtrées** rend **3 `SIGSEGV` + 1 rouge = 4** et non 5, la porte du `SharedUidTest`
+     étant fermée. Sa fiche ne le disait pas.
+  6. ⛔⭐⭐ **LE 9ᵉ PIÈGE D'OUTILLAGE EST INSTALLÉ CI-DESSOUS** (§ pièges) : *un harnais qui relit le
+     fichier pour chaque édition efface ses propres éditions*. Il n'était que dans `FINDINGS.md`.
+     ⭐ **C'est le plus dangereux des neuf** : les huit autres font **grossir** l'ensemble rouge — un
+     cumul a l'air *meilleur* mais reste visible — celui-ci le fait **rétrécir jusqu'au vide**, et un
+     ensemble vide se publie comme « mutant équivalent, déclaré en Nu », c'est-à-dire comme un
+     **résultat**. La campagne finale du ticket a été **entièrement rejouée** après correction et elle
+     est propre : ses quatre ensembles non vides sont deux à deux distincts et les deux ensembles vides
+     sont expliqués par du code re-dérivé, ce que la revue a vérifié en lisant les re-dérivations.
+
+  ⚠️ **Harnais de cette revue** : mutation et restauration sur l'**HÔTE**, aucun `git` dans le
+  conteneur ; harnais **et** instantanés sous un répertoire au nom du relecteur (**8ᵉ**), un chemin
+  par tour, réutilisation **refusée** (constaté en service), instantané vide refusé (**5ᵉ**) ; texte
+  de sortie calculé **avant** toute ouverture en écriture, compte d'aiguille faux ⇒ refus d'écrire
+  (**6ᵉ**) ; restauration sans métadonnées puis `utime`, dans un `finally` (**7ᵉ**), prouvée par `cmp`
+  **rc 0** **et** un horodatage **effectivement déplacé** aux **9** restaurations ; journal complet
+  dans un fichier (**4ᵉ**) ; `git status` de l'**HÔTE** **vide** après chaque tour. ⭐ **Éprouvé avant
+  de servir, le 9ᵉ compris** : les trois formes du 6ᵉ ⇒ sha256 identique, **et deux éditions d'un même
+  fichier survivent toutes les deux**.
+
 - ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-07, APRÈS LE MERGE DE [`T3.116`](T3.116.md), DERNIER DES QUATRE PRIORITAIRES) — À LIRE
   EN PREMIER À FROID.**
 
@@ -266,14 +333,16 @@
     l'arbre est dans ce cas. Restreindre le balayage aux corps de cas garde l'auto-test **vert** et
     perd cette mesure en silence. **Un douzième fichier d'auto-test la ferme** ; à joindre à la
     prochaine touche de la sonde plutôt qu'à porter seul.
-  - **`T3.135`** est le prochain numéro libre. ⚠️ Numéros **pris** : `T3.76` → `T3.134` ; `T3.114`
-    est un **trou**.
+  - **`T3.138`** est le prochain numéro libre. ⚠️ Numéros **pris** : `T3.76` → `T3.137` (`T3.135` et
+    `T3.136` sont réservés par les revues en vol, `T3.137` par la revue de `T3.117`) ; `T3.114` est un
+    **trou**.
   - Les autres (`T3.84`, `T3.100`, `T3.104`, `T3.105`, `T3.107` → `T3.111`, `T3.113`, `T3.115` →
     `T3.131`) sont inchangés — voir `BOARD.md`.
 
   **Ce qui attend l'utilisateur :**
   0. ⭐⭐⭐ **LE `push` EST AUTORISÉ, MAIS PAS ENCORE DÛ — la décision du 2026-09-07 le conditionne à
-     QUATRE tickets, et ce sont des tickets de PRODUIT, pas de filet** : [`T3.117`](T3.117.md)
+     QUATRE tickets, et ce sont des tickets de PRODUIT, pas de filet** — ⚠️ **relire d'abord l'état
+     de sortie de `T3.117` en tête : il n'en reste que DEUX, `T3.109` et `T3.107`** : [`T3.117`](T3.117.md)
      (`autoscenario_uid` dupliqué), [`T3.109`](T3.109.md) (deux mises en écoute liées en dur),
      [`T3.105`](T3.105.md) (sidecars relancés toutes les 100 ms sans lire leur statut de sortie),
      [`T3.107`](T3.107.md) (`UDPServer` sourd sous une `listen_address` IPv6). Voir
@@ -13570,6 +13639,41 @@ arrêtée sur une `KeyError` — mais **rien dans la sortie ne l'aurait signalé
 avait été un *autre harnais du même nom* plutôt qu'un script incompatible. C'est le 5ᵉ piège
 (l'instantané réutilisé) déplacé d'un cran. **Parade** : un répertoire au nom du **ticket**, jamais
 la racine du scratch partagé — pour les instantanés **et pour le harnais**.
+
+## ⛔⭐⭐ Outillage — LE 9ᵉ : UN HARNAIS QUI RELIT LE FICHIER À CHAQUE ÉDITION EFFACE SES PROPRES ÉDITIONS (T3.117, 2026-09-07)
+
+**Neuvième membre de la famille de `_DEPENDENCIES`, et le plus subtil de la série : l'outil rend un
+chiffre, et le chiffre ne mesure pas ce qu'on croit.**
+
+Vécu en `T3.117` : `apply_edits()` relisait le fichier **depuis le disque pour chaque édition**, puis
+écrivait chaque résultat séparément. Sur deux éditions **du même fichier**, la seconde écriture
+**effaçait** la première. Or une contre-mutation « déplacer un appel » est *retirer ici* **+**
+*remettre là* : seul *remettre là* a survécu, l'arbre mesuré appelait la passe **deux fois** — dont
+une au bon endroit — et le tour est revenu **VERT**. Deux tours sont ainsi rentrés verts à tort, et
+la campagne entière a dû être rejouée.
+
+⚠️ **Et les preuves exigées par les HUIT sections ci-dessus étaient TOUTES vraies** : `cmp` rc 0,
+horodatage effectivement déplacé, instantané neuf jamais réutilisé, aucun `| head`, `git status` de
+l'hôte vide, restauration hors de tout `set -e`, et la ligne de compilation du fichier muté bien
+présente au journal. **Le fichier muté EST celui qui a compilé** ; c'est la *mutation* qui n'était
+pas celle que le descripteur annonçait. *Une preuve de restauration ne dit rien de ce qui a été
+écrit **entre** l'instantané et elle.*
+
+⛔ **Pourquoi c'est le plus dangereux des neuf** : les huit autres font *grossir* l'ensemble rouge
+(cumul de mutations), ce qui a l'air *meilleur* mais reste visible si on cherche. Celui-ci le fait
+**rétrécir jusqu'au vide** — et un ensemble rouge vide se publie comme « mutant équivalent,
+déclaré en Nu », c'est-à-dire comme un **résultat**, pas comme une anomalie.
+
+**Parade — trois règles :**
+
+1. ⛔ **Toutes les éditions d'un fichier se chaînent sur LE MÊME texte en mémoire**, et le fichier
+   n'est ouvert en écriture **qu'une fois**, à la fin. Jamais une relecture par édition.
+2. ⭐ **L'auto-test du harnais porte une forme de plus : deux éditions d'un même fichier doivent
+   TOUTES DEUX survivre.** Les trois formes du 6ᵉ piège (aiguille absente · compte faux · lot
+   partiel) ne l'attrapent pas — elles vérifient toutes que **rien** n'a été écrit.
+3. ✅ **Un tour de contre-mutation qui rend 0 rouge se relit AVANT d'être publié** : rejouer les
+   éditions sur une copie hors de l'arbre et **lire la forme obtenue**. Un mutant équivalent se
+   déclare ; un mutant qui n'a pas eu lieu se corrige.
 
 ## ⭐ Outillage — `distcheck` est utilisable, à condition de le paralléliser soi-même
 

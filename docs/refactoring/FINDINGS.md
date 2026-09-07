@@ -12872,3 +12872,21 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   elle — et un « vert » sur une contre-mutation qu'on croit destructrice doit être soupçonné avant
   d'être publié.* **Parade** : éditions **séquentielles par fichier**, et un auto-test de harnais qui
   porte une quatrième forme — *deux éditions d'un même fichier doivent TOUTES DEUX survivre*.
+  ✅ **Installé dans [`ORCHESTRATION.md`](ORCHESTRATION.md) § pièges d'outillage à la revue de merge**,
+  comme **9ᵉ** membre de la famille — avec ce qui le rend le plus dangereux des neuf : les huit autres
+  font **grossir** l'ensemble rouge (le cumul a l'air *meilleur*), celui-ci le fait **rétrécir jusqu'au
+  vide**, et un ensemble vide se publie comme « mutant équivalent », c'est-à-dire comme un résultat.
+
+- ⛔⭐ **[F-SCEN-4] L'identifiant neuf du re-cléage n'est tenu par rien — mesuré à la revue de merge.**
+  `AutoScenarioDef::newUid()` remplacé par une clef dérivée (`<uid>_dup`), unique dans la passe mais
+  garantie libre par **rien** ⇒ ⛔ **0 rouge sur 149**. La sûreté du remède repose sur le fait que
+  l'allocateur est semé au-delà de tout uid du fichier — c'est vrai, c'est lu, et **aucun cas ne
+  l'épingle**. Une clef dérivée qui heurterait un scénario du même `io.xml`, ou un troisième scénario
+  partageant le même uid, passerait entière. *À recopier : une garantie qui tient à l'appelée et non à
+  l'appel se perd au premier remaniement.*
+
+- ⭐ **[F-SCEN-5] « Qui garde l'uid est arbitraire » vaut pour le produit, pas pour l'arbre.** Le
+  parcours du modèle **inversé** — c'est le dernier scénario de l'`io.xml` qui garde l'uid, le premier
+  qui est re-clé — rougit **5 cas / 2 suites**. Le choix *premier vu* est donc **tenu**, et il ne peut
+  plus changer sans réécrire ces cas. ℹ️ En revanche l'**ordre** de la passe par rapport à
+  `reportAutoScenariosLostByUpload()` n'est tenu par rien (déplacement ⇒ 0 rouge).
