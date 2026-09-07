@@ -180,6 +180,16 @@ public:
     list<Scenario *> getAutoScenarios();
     void checkAutoScenario();
 
+    /* Everything a scenario owns is DERIVED from `autoscenario_uid` - the five
+       machinery IOs are `<uid>_is_active` & co., the generated rules are looked
+       up by uid - and nothing refuses a duplicate in io.xml. The second one
+       seen gets a fresh uid, so both keep working and nothing leaves the file.
+       RUN ON THE WHOLE MODEL, AFTER THE FILE IS LOADED AND BEFORE ANY REBUILD.
+       That ordering is the safety: newUid() is past every uid observeUid() has
+       been shown, so a fresh one cannot land on a scenario not read yet, and no
+       machinery exists yet to be orphaned. */
+    void rekeyDuplicateAutoScenarioUids();
+
     /* A whole configuration uploaded through `config put` can drop a scenario
      * or shorten one, and the server has no say in it: refusing is ruled out
      * (deleting a scenario from calaos_installer has to keep working), so all

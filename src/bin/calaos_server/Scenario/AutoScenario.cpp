@@ -377,6 +377,30 @@ void AutoScenario::deleteAll()
     ioTimeRange = NULL;
 }
 
+void AutoScenario::rekeyUid(const string &newUid)
+{
+    if (newUid.empty() || !ioScenario) return;
+
+    cWarningDom("scenario") << "AutoScenario (" << scenario_id << "): this identifier "
+                            << "is already taken by another scenario, moving to "
+                            << newUid;
+
+    scenario_id = newUid;
+    ioScenario->set_param(AutoScenarioDef::KEY_UID, newUid);
+
+    AutoScenarioDef *def = definition();
+    if (!def) return;
+
+    def->uid = newUid;
+
+    /* The schedule IO is `<uid>_schedule` and it belongs to whoever kept the
+     * uid: this scenario was reading its twin's, or naming one that the
+     * derived id no longer reaches. Left as it is, the key would publish
+     * another scenario's IO as this one's schedule.
+     */
+    def->scheduleIoId.clear();
+}
+
 void AutoScenario::forgetIO(IOBase *io)
 {
     if (!io) return;

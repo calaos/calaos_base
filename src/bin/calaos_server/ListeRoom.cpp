@@ -27,6 +27,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <set>
 #include <sstream>
 
 using namespace Calaos;
@@ -335,6 +336,9 @@ void ListeRoom::checkAutoScenario()
     //measured on the configuration exactly as it was loaded.
     reportAutoScenariosLostByUpload();
 
+    //and before the generator DERIVES anything from a uid two scenarios share
+    rekeyDuplicateAutoScenarioUids();
+
     list<Scenario *>::iterator it = auto_scenario_cache.begin();
 
     for (;it != auto_scenario_cache.end();it++)
@@ -358,6 +362,57 @@ void ListeRoom::checkAutoScenario()
     //Resave config, auto scenarios have probably created/deleted ios and rules
     Config::Instance().SaveConfigIO();
     Config::Instance().SaveConfigRule();
+}
+
+void ListeRoom::rekeyDuplicateAutoScenarioUids()
+{
+    std::set<string> claimed;
+    vector<string> repaired;
+
+    for (Scenario *sc: auto_scenario_cache)
+    {
+        AutoScenario *as = sc? sc->getAutoScenario(): nullptr;
+        if (!as) continue;
+
+        const string uid = as->getScenarioId();
+        if (uid.empty()) continue;
+        if (claimed.insert(uid).second) continue;
+
+        /* FIRST SEEN KEEPS THE UID. Which one that is comes from the order of
+         * io.xml, and it has to be arbitrary: the two are indistinguishable,
+         * their machinery IOs and their rules carry the same derived names on
+         * disk. Keeping one of them is what makes the pair separable at all.
+         */
+        const string fresh = AutoScenarioDef::newUid();
+        as->rekeyUid(fresh);
+        claimed.insert(fresh);
+
+        repaired.push_back("- \"" + sc->get_param("name") + "\" (" +
+                           sc->get_param("id") + "), which shared the identifier " +
+                           uid + ", now has its own: " + fresh);
+    }
+
+    if (repaired.empty()) return;
+
+    /* SAID, because the repair is not free and the user is the only one who
+     * can finish it: the rules of the pair were interchangeable on disk, so
+     * the one that was re-keyed comes back with the steps of its own
+     * definition and WITHOUT the schedule it was reading off its twin.
+     */
+    string report = "Several automatic scenarios carried the same internal "
+                    "identifier in io.xml. They were sharing one set of internal "
+                    "IOs and one set of rules, and deleting any one of them would "
+                    "have taken the others down with it.\n";
+    for (const string &line: repaired)
+        report += "\n" + line;
+    report += "\n\nNothing was removed from the configuration. A scenario that was "
+              "re-identified keeps its own steps and actions; if it had a schedule "
+              "it was in fact using the one of the scenario it collided with, and "
+              "that schedule has to be set again.";
+
+    cError() << repaired.size() << " automatic scenario(s) shared an identifier "
+             << "with another one and were re-identified";
+    Config::Instance().reportConfigAlert(report);
 }
 
 vector<ListeRoom::KnownAutoScenario> ListeRoom::knownAutoScenarios()

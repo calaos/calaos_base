@@ -195,6 +195,14 @@ public:
     void forgetIO(IOBase *io);
     void forgetRoom(Room *room);
 
+    /* Move this scenario onto another identifier, param and definition
+     * included. ONLY ListeRoom::rekeyDuplicateAutoScenarioUids() may call it,
+     * and only before the first rebuild: the machinery ids and the generated
+     * rule names are derived from the uid, so calling it on a scenario that
+     * already built them orphans all ten of them at once.
+     */
+    void rekeyUid(const string &newUid);
+
     string getScenarioId() { return scenario_id; }
     bool isCycling() { return cycle; }
     bool isDisabled() { return disabled; }
