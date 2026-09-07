@@ -198,6 +198,39 @@ protected:
     Timer *udp_timeout_timer;
     std::shared_ptr<uvw::UDPHandle> handleSrv;
 
+    /* T3.156. WAGO_DALI_GET reads the group flag from its third parameter
+     * only from the 3.0 PLC program on. Before 3.0, GET_PARAM_DINT has no
+     * "parameter missing" guard, so a third field is not ignored: the older
+     * programs read that position as the DMX read address, and a real 0 or 1
+     * there takes a DMX fixture out of its own branch.
+     *
+     * ⚠️ The flag is therefore WITHHELD until the PLC has said which program
+     * it runs, and it stays withheld if the answer never comes. A DALI read
+     * that keeps its two parameters is what every version has always been
+     * sent; guessing 3.0 would turn a lost datagram into a broken DMX read.
+     */
+    enum PlcVersionState { PLC_VERSION_PENDING, PLC_VERSION_KNOWN, PLC_VERSION_UNKNOWN };
+    PlcVersionState plc_version_state = PLC_VERSION_PENDING;
+    int plc_version_major = 0;
+    int plc_version_minor = 0;
+
+    struct DaliGetRequest
+    {
+        string line;
+        string address;
+        string group;
+        WagoUdp_cb callback;
+    };
+
+    /* Reads handed over before the version was known. ⛔ Every one of them
+     * MUST leave: its owner counted itself into StartReadRules BEFORE calling
+     * SendDaliGetCommand(), and only the reply - or the 2s timeout - of the
+     * frame built from it gives that count back. */
+    vector<DaliGetRequest> pending_dali_gets;
+
+    void plcVersionReply_cb(bool status, WagoTypes::UdpCommand command, WagoTypes::UdpResult result);
+    void sendDaliGet(const DaliGetRequest &req);
+
     void createUdpSocket();
 
     void processNewMessage(const string &msg);
@@ -260,6 +293,20 @@ public:
     //Send a command through the timer
     void SendUDPCommand(string cmd, WagoUdp_cb callback);
     void SendUDPCommand(string cmd);
+
+    //First PLC program whose WAGO_DALI_GET reads a group flag in third
+    //position, and whose GET_PARAM_DINT returns 0 for a parameter it does
+    //not find. Both halves arrive together, in 3.0.
+    static const int DALI_GROUP_MAJOR = 3;
+    static const int DALI_GROUP_MINOR = 0;
+
+    /* Queue one DALI state read. The group flag is appended only when this
+     * PLC is known to be 3.0 or later; until the version query answers, the
+     * request waits here rather than going out with a flag the older programs
+     * would read as something else. */
+    void SendDaliGetCommand(string line, string address, string group, WagoUdp_cb callback);
+
+    bool plcDaliGetCarriesGroup() const;
 
     /* Private stuff used by C callbacks */
     void udpRequest_cb(bool status, string res);

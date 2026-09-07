@@ -75,19 +75,20 @@ WODaliRVB::WODaliRVB(Params &_p):
     if (!get_params().Exists("ggroup")) set_param("ggroup", "0");
     if (!get_params().Exists("bgroup")) set_param("bgroup", "0");
 
-    /* The group flag sits AFTER the address here and BEFORE it in
-     * WAGO_DALI_SET. That asymmetry is the PLC protocol, not a typo. */
-    //reqd initial state
-    string cmd;
-    cmd = "WAGO_DALI_GET " + get_param("rline") + " " + get_param("raddress") +
-          " " + get_param("rgroup");
-    WagoMap::Instance(host, port).SendUDPCommand(cmd, sigc::mem_fun(*this, &WODaliRVB::WagoUDPCommandRed_cb));
-    cmd = "WAGO_DALI_GET " + get_param("gline") + " " + get_param("gaddress") +
-          " " + get_param("ggroup");
-    WagoMap::Instance(host, port).SendUDPCommand(cmd, sigc::mem_fun(*this, &WODaliRVB::WagoUDPCommandGreen_cb));
-    cmd = "WAGO_DALI_GET " + get_param("bline") + " " + get_param("baddress") +
-          " " + get_param("bgroup");
-    WagoMap::Instance(host, port).SendUDPCommand(cmd, sigc::mem_fun(*this, &WODaliRVB::WagoUDPCommandBlue_cb));
+    /* The three frames are built by WagoMap, not here: whether they may carry
+     * the group flag at all depends on the PLC program version, which is not
+     * known yet when this constructor runs. ⛔ Each of the three addIO() below
+     * is given back by its own callback and by nothing else, so the three
+     * calls must reach the wire on every path - including the one where the
+     * version never answers. */
+    //read initial state
+    WagoMap &map = WagoMap::Instance(host, port);
+    map.SendDaliGetCommand(get_param("rline"), get_param("raddress"), get_param("rgroup"),
+                           sigc::mem_fun(*this, &WODaliRVB::WagoUDPCommandRed_cb));
+    map.SendDaliGetCommand(get_param("gline"), get_param("gaddress"), get_param("ggroup"),
+                           sigc::mem_fun(*this, &WODaliRVB::WagoUDPCommandGreen_cb));
+    map.SendDaliGetCommand(get_param("bline"), get_param("baddress"), get_param("bgroup"),
+                           sigc::mem_fun(*this, &WODaliRVB::WagoUDPCommandBlue_cb));
 
     Calaos::StartReadRules::Instance().addIO();
     Calaos::StartReadRules::Instance().addIO();

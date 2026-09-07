@@ -43,6 +43,10 @@ WagoMap::WagoMap(std::string h, int p):
 
     createUdpSocket();
 
+    //Asked once per PLC, before anything else can be queued, because the
+    //answer decides the shape of every DALI state read sent to this host.
+    SendUDPCommand("WAGO_GET_VERSION", sigc::mem_fun(*this, &WagoMap::plcVersionReply_cb));
+
     heartbeat_timer = new Timer(0.1, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::WagoHeartBeatTick));
     mbus_heartbeat_timer = new Timer(10.0, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::WagoModbusHeartBeatTick));
 
@@ -421,6 +425,91 @@ void WagoMap::SendUDPCommand(string command)
         if (udp_timer) delete udp_timer;
         udp_timer = new Timer(50. / 1000., (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::UDPCommand_cb));
     }
+}
+
+bool WagoMap::plcDaliGetCarriesGroup() const
+{
+    if (plc_version_state != PLC_VERSION_KNOWN)
+        return false;
+
+    if (plc_version_major != DALI_GROUP_MAJOR)
+        return plc_version_major > DALI_GROUP_MAJOR;
+    return plc_version_minor >= DALI_GROUP_MINOR;
+}
+
+void WagoMap::sendDaliGet(const DaliGetRequest &req)
+{
+    /* The flag sits AFTER the address here and BEFORE it in WAGO_DALI_SET.
+     * That asymmetry is the 3.0 protocol, not a typo - and it is also why the
+     * two-parameter form below is not "the same frame minus a field" for an
+     * older PLC: before 3.0 the second parameter IS the flag. */
+    string cmd = "WAGO_DALI_GET " + req.line + " " + req.address;
+    if (plcDaliGetCarriesGroup())
+        cmd += " " + req.group;
+
+    SendUDPCommand(cmd, req.callback);
+}
+
+void WagoMap::SendDaliGetCommand(string line, string address, string group, WagoUdp_cb callback)
+{
+    DaliGetRequest req;
+    req.line = line;
+    req.address = address;
+    req.group = group;
+    req.callback = callback;
+
+    if (plc_version_state == PLC_VERSION_PENDING)
+    {
+        pending_dali_gets.push_back(req);
+        return;
+    }
+
+    sendDaliGet(req);
+}
+
+void WagoMap::plcVersionReply_cb(bool status, WagoTypes::UdpCommand, WagoTypes::UdpResult result)
+{
+    //Anything that is not a version we could read leaves the PLC on the
+    //conservative side, where the DALI read keeps the two parameters every
+    //program has always accepted.
+    plc_version_state = PLC_VERSION_UNKNOWN;
+
+    if (status)
+    {
+        vector<string> tokens;
+        split(result.v, tokens);
+
+        //"WAGO_GET_VERSION <H>.<L> <model>". ⚠️ The model is NOT usable: the
+        //seven 3.0 programs all announce 750-849 whatever module they run on.
+        if (tokens.size() >= 2 && tokens[0] == "WAGO_GET_VERSION")
+        {
+            vector<string> parts;
+            split(tokens[1], parts, ".");
+            if (parts.size() == 2 &&
+                Utils::is_of_type<int>(parts[0]) &&
+                Utils::is_of_type<int>(parts[1]))
+            {
+                Utils::from_string(parts[0], plc_version_major);
+                Utils::from_string(parts[1], plc_version_minor);
+                plc_version_state = PLC_VERSION_KNOWN;
+            }
+        }
+    }
+
+    cDebugDom("wago") << "PLC program version for " << host << ": "
+                      << (plc_version_state == PLC_VERSION_KNOWN ?
+                          Utils::to_string(plc_version_major) + "." + Utils::to_string(plc_version_minor) :
+                          string("unknown"))
+                      << ", DALI reads carry the group flag: " << plcDaliGetCarriesGroup();
+
+    /* Drained whatever the answer was. A request left here would take a
+     * StartReadRules count with it and the server would never run its start
+     * rules. Swapped out first: sendDaliGet() enqueues, and the state is no
+     * longer PENDING, so nothing can come back into this list. */
+    vector<DaliGetRequest> deferred;
+    deferred.swap(pending_dali_gets);
+    for (const DaliGetRequest &req: deferred)
+        sendDaliGet(req);
 }
 
 void WagoMap::udpRequest_cb(bool status, string res)
