@@ -351,6 +351,21 @@ valide**, sinon HTTP 400 + fermeture
 Message WS inconnu (session authentifiée) → **aucune réponse**, il n'y a pas de
 branche `else` ([JsonApiHandlerWS.cpp:156-229](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
 
+⚠️ **« Paramètres dérivés refusés » a une contrepartie, et elle n'est pas une
+faille : `config` / `put` reste ouvert sous la MÊME authentification.** Le refus
+de `set_param` / `del_param` ne rend pas les paramètres de définition
+inatteignables ; il rend leur écriture **bruyante**. `config put` réécrit un
+fichier entier, produit un instantané et demande un redémarrage du serveur, là
+où `set_param` écrivait **en silence**, sans trace et sans que rien ne change à
+l'écran. C'est ce qui justifie la garde : elle ne ferme pas une porte, elle
+supprime le chemin muet.
+
+ℹ️ La garde est un **préfixe**, pas une liste : toute clef commençant par
+`autoscenario_` est refusée sur **n'importe quel** IO, et pas seulement sur un
+scénario ni seulement pour les clefs que la définition produit aujourd'hui. Rien
+d'autre dans `src/` n'utilise ce préfixe, donc la portée élargie est sans effet
+mesurable ; elle est plus large que ce que le tableau laisse lire.
+
 ---
 
 ## Sous-actions

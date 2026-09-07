@@ -591,7 +591,11 @@ TEST_F(AutoScenarioUidUniquenessTest, TheGenericSetParamCommandNoLongerWritesThe
     const Json reply = api.buildJsonSetParam(Params{{ "id", SC_B_IO },
                                                     { "param", AutoScenarioDef::KEY_UID },
                                                     { "value", SC_A_UID }});
-    EXPECT_NE(std::string(), reply.value("error", std::string())) << reply.dump();
+    /* "param refused" and not "wrong io/param": the second is the NOT FOUND
+     * answer, and it is what this same call would return for a misspelled io
+     * or param, so a loose EXPECT_NE would stay green on a guard that never
+     * ran. */
+    EXPECT_EQ(std::string("param refused"), reply.value("error", std::string())) << reply.dump();
     EXPECT_EQ(std::string(SC_B_UID), uidOf(SC_B_IO));
 
     //It really is the generic route and not a scenario one: the same command
