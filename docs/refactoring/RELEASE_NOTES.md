@@ -668,6 +668,13 @@ mqtt failed 3 time(s) in a row (last exit status 0), holding the relaunch 0.4s
 sont arrêtés par le même mécanisme du système, et cet arrêt-là n'est toujours pas compté comme un
 échec.
 
+⛔ **Limite connue, et elle n'est pas corrigée** : ce que le serveur reconnaît, c'est le **type**
+d'arrêt, pas **qui l'a demandé**. Si un outil extérieur — un `killall`, un script d'exploitation,
+un gestionnaire de services — arrête un de ces programmes, le serveur le prend pour un arrêt
+volontaire : il le relance **sans ralentir** et **sans rien écrire au journal**. Un outil qui
+recommencerait en boucle retrouverait donc exactement le comportement d'avant cette version.
+*(Suivi : T3.153.)*
+
 ⚠️ **Ce qui reste** : les passerelles **KNX, Wago, OneWire, OLA** et l'exécuteur de scripts
 annoncent encore une fin normale quand elles perdent leur bus **en cours de service** — un chantier
 du côté de ces programmes, distinct de celui-ci.

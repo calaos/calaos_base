@@ -13279,3 +13279,34 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   `respawn_failures = 0;` ajouté dans `terminate()` ⇒ ⛔ **0 cas rouge** — **ni le comportement
   actuel ni son contraire** n'est tenu, et l'écart vaut jusqu'à une demi-minute d'attente en
   production. ⇒ [`T3.144`](T3.144.md).
+
+- ⛔⭐⭐ **[F-EXTPROC-16] L'exemption `SIGTERM` porte sur la VALEUR du signal, jamais sur son
+  origine** (mesuré par la revue de merge de [`T3.138`](T3.138.md), lot 147).
+  `crashed = termSignal != 0 && termSignal != SIGTERM` (`ExternProc.cpp:285`), et la ligne d'alerte
+  `was killed by signal N` (`:359`) est gardée par la même condition. Un `killall -TERM`, un
+  superviseur ou systemd qui tue un sidecar est donc exempté **de la rampe ET du journal** : le
+  serveur lit comme volontaire un arrêt que personne, chez lui, n'a demandé — un tiers qui tue en
+  boucle retrouve exactement le comportement d'avant [`T3.105`](T3.105.md).
+  **Sonde `CM-PROV`** (exemption conditionnée à la génération) ⇒ ⛔ **0 cas rouge** : aucun cas
+  n'observe la provenance. ⚠️ **Rien ne le nommait** — ni le code (son commentaire dit « SIGTERM is
+  what terminate() sends », ce qui est vrai et ne dit rien de la réciproque), ni la fiche, ni les
+  notes de version. ⭐ **Fermable** : `terminate()` incrémente déjà `respawn_generation`
+  (`:147`) avant d'envoyer son signal. ⇒ [`T3.153`](T3.153.md), qui recoupe l'arbitrage de
+  [`T3.144`](T3.144.md).
+  *À recopier : exempter une VALEUR, c'est exempter tout le monde qui sait l'écrire.*
+
+- ⛔ **[F-EXTPROC-17] Trois propriétés à 0 rouge ne vivaient que dans la prose d'une fiche**
+  (rejouées et confirmées par la revue de merge de [`T3.138`](T3.138.md), lot 147) : la **garde de
+  génération** (`CR-2`), le texte **`holding the relaunch`** (`CR-3`), et la ligne neuve
+  **`was killed by signal N`**. Les trois mutations ont été réécrites indépendamment et relues
+  **hors de l'arbre** avant publication ⇒ ni re-dérivation, ni artefact de harnais (9ᵉ piège) : ce
+  sont de vrais trous. ⭐ **Le pire est le troisième** — `RELEASE_NOTES.md` cite
+  `mqtt was killed by signal 11` **mot pour mot**, dans un bloc de code, alors qu'aucun cas ne tient
+  cette ligne. ⇒ [`T3.154`](T3.154.md).
+  *À recopier : une chaîne citée verbatim dans les notes de version est une promesse ; si aucun cas
+  ne la tient, la documentation devient le seul oracle — et elle ne rougit jamais.*
+
+  ⚠️ **Réserve non bloquante, du même tour** : `EXPECT_GE(launched, 2)` et `EXPECT_GE(failures, 2)`
+  (`core/ExternProcCrashBackoff_test.cpp:290`, `:293`) sont des bornes **basses** sur des comptes,
+  donc sensibles à la charge **dans le mauvais sens** — faux **rouge** possible, faux vert non.
+  Marge mesurée **× 5**.
