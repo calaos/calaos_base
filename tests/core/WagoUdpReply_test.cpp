@@ -364,6 +364,16 @@ protected:
                     { "visible", "true" }};
         return createIO(p);
     }
+
+    /* T3.156: the WagoMap constructor asks WAGO_GET_VERSION first and holds
+     * every DALI read until that answer lands, so the version query is what
+     * sits at the head of the queue. A case that means to exercise the DALI
+     * reply has to let it go by first, otherwise its datagram is attributed
+     * to the version and the ballast is never handed anything. */
+    void settleVersion(const std::string &host) const
+    {
+        Calaos::WagoMap::Instance(host, 502).udpRequest_cb(true, "WAGO_GET_VERSION 3.0 750-849");
+    }
 };
 
 /* ⭐ The DALI GET branch of WODali::WagoUDPCommand_cb is REACHED and taken.
@@ -382,6 +392,7 @@ TEST_F(WagoUdpReplyExerciseTest, ADaliGetReplyReallyReachesTheBallast)
     //expectation below would pass without the callback ever running.
     ASSERT_EQ("0", dali->get_value_string());
 
+    settleVersion(host);
     Calaos::WagoMap::Instance(host, 502).udpRequest_cb(true, DALI_REPLY_ON);
 
     EXPECT_EQ("100", dali->get_value_string())
@@ -398,6 +409,7 @@ TEST_F(WagoUdpReplyExerciseTest, ADaliGetReplyOfZeroLeavesTheBallastOff)
     Calaos::IOBase *dali = makeDali(host, "t353_dali_off", "1", "61");
     ASSERT_NE(nullptr, dali);
 
+    settleVersion(host);
     Calaos::WagoMap::Instance(host, 502).udpRequest_cb(true, DALI_REPLY_OFF);
 
     EXPECT_EQ("0", dali->get_value_string())
@@ -414,6 +426,7 @@ TEST_F(WagoUdpReplyExerciseTest, AFailedDaliReplyLeavesTheBallastAlone)
 
     const std::string before = dali->get_value_string();
 
+    settleVersion(host);
     Calaos::WagoMap::Instance(host, 502).udpRequest_cb(false, DALI_REPLY_ON);
 
     EXPECT_EQ(before, dali->get_value_string())
@@ -423,12 +436,11 @@ TEST_F(WagoUdpReplyExerciseTest, AFailedDaliReplyLeavesTheBallastAlone)
 /* ⭐ THE ONE THAT SHOWS THE PERMUTATION IS A LIVE WRONG VALUE.
  *
  * Each channel of WODaliRVB reads tokens[2] of the RESULT as its level. Under
- * a permutation split() is handed the COMMAND instead - "WAGO_DALI_GET 1 61"
- * - whose tokens[2] is the DALI ADDRESS of the channel. The address is then
- * stored as the level: red 61 instead of 77, green 62 instead of 77, blue 63
- * instead of 77. Both programs produce a colour; they produce DIFFERENT
- * colours, which is exactly why a behavioural test can separate them here and
- * could not on the T3.50 pair. */
+ * a permutation split() is handed the COMMAND instead - "WAGO_DALI_GET 1 61 0"
+ * - whose tokens[2] is the GROUP FLAG, so the three channels store 0 and the
+ * light comes back OFF instead of "#C4C413". Both programs produce an answer;
+ * they produce DIFFERENT answers, which is exactly why a behavioural test can
+ * separate them here and could not on the T3.50 pair. */
 TEST_F(WagoUdpReplyExerciseTest, ADaliRVBChannelTakesItsLevelFromTheResult)
 {
     const std::string host = hostFor("54");
@@ -443,6 +455,7 @@ TEST_F(WagoUdpReplyExerciseTest, ADaliRVBChannelTakesItsLevelFromTheResult)
     //The three queued GETs are answered in the order they were queued:
     //red (address 61), green (62), blue (63). All three get the SAME reply,
     //so a channel that read its own address would stand out immediately.
+    settleVersion(host);
     map.udpRequest_cb(true, DALI_REPLY_ON);
     map.udpRequest_cb(true, DALI_REPLY_ON);
     map.udpRequest_cb(true, DALI_REPLY_ON);
