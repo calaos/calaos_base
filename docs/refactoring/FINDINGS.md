@@ -11745,8 +11745,9 @@ ligne « numéros pris » de `ORCHESTRATION.md` se relit sur `master`, jamais su
   tient, c'est la fin d'UN SEUL des deux tuyaux** (un enfant qui ferme sa sortie standard et continue
   de tourner).
 
-- ⚠️ **[F-FLAKY-2] `core/MqttSidecarConfigWait_test` a une borne d'HORLOGE MURALE sur un délai de
-  connexion TCP** — même famille que `F-FLAKY-1`, autre fichier.
+- ⚠️ **[F-FLAKY-2, FERMÉ par [`T3.112`](T3.112.md) — voir la section datée du 2026-09-07 en fin de
+  fichier, qui mesure la CAUSE et corrige le taux publié ici] `core/MqttSidecarConfigWait_test` a une
+  borne d'HORLOGE MURALE sur un délai de connexion TCP** — même famille que `F-FLAKY-1`, autre fichier.
   `AnUnreachableBrokerEndsTheSidecarWithACauseAndANonZeroStatus` attend qu'un sidecar visant une
   adresse de documentation (RFC 5737) meure dans le budget annoncé ; quand la pile ne rend pas
   l'erreur à temps, `r.exited` est faux. **Mesuré des deux côtés du merge, 10 exécutions chacun** :
@@ -12394,3 +12395,76 @@ de référence finaux et les **cinq** tours de contre-mutation sont à `PASS 144
 check` n'a été relancé pour faire disparaître ce rouge** : les deux tours rouges étaient les deux
 tours prévus, et le tour suivant était une contre-mutation, pas une reprise. ⚠️ **L'utilisateur le
 verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre les tests.
+
+## T3.112 — `F-FLAKY-2` **FERMÉ** : le budget n'était pas trop court, le verdict était pris hors de l'arbre (2026-09-07)
+
+- ⭐⭐ **[F-FLAKY-2, FERMÉ par [`T3.112`](T3.112.md)] — une adresse RFC 5737 ne mesure pas un
+  sidecar, elle mesure la table de routage de la machine.** `AnUnreachableBrokerEndsTheSidecarWith
+  ACauseAndANonZeroStatus` attendait qu'un `calaos_mqtt` visant `192.0.2.42` meure dans 8 000 ms.
+  ⭐ **Mesuré, 300 `connect()` non bloquants depuis le conteneur** : l'erreur (`ENETUNREACH` dans
+  tous les cas) arrive à **≈ 4 ms 286 fois**, **≈ 1 s 6 fois**, **≈ 2 à 4 s 6 fois**, **≥ 5 s
+  2 fois**. ⇒ **c'est l'échelle de retransmission du SYN — 1 s, 2 s, 4 s, 8 s — et le budget du cas
+  était posé sur un de ses barreaux.** Allonger le budget vise le barreau suivant.
+  ⭐⭐ **ET LES DEUX ROUGES SE PRODUISENT À LA DEMANDE, SANS TOUCHER UNE LIGNE DE CODE** — seule la
+  table de routage du conteneur change : `192.0.2.0/24` renvoyé vers une interface `dummy` (le SYN
+  part et disparaît) ⇒ **3 échecs / 3**, `r.exited` faux à 8 019 ms, avec le message exact que ce
+  journal relève depuis trois revues ; `ip route add blackhole 192.0.2.0/24` ⇒ l'échec devient
+  **synchrone** et c'est l'**autre** ancre du cas qui rougit, **3 échecs / 3**. Même machine, même
+  charge, même binaire.
+  ⛔ **Corollaire de méthode, et il vaut au-delà de ce cas** : *un flottement dont la cause est hors
+  de l'arbre n'a pas de taux — il a un taux par machine et par instant.* Sur le réseau du jour, le
+  cas rendait **0 échec sur 100 à vide et 0 sur 30 sous charge**, là où la revue de `T3.101` avait
+  mesuré **5 sur 10**. Les deux chiffres sont vrais. **Une campagne de comptage seule aurait conclu
+  « plus de défaut » sur un arbre inchangé** ; ce qui prouve quelque chose, c'est la reproduction à
+  la demande.
+  ⭐ **Le remède est côté test, ZÉRO ligne de `src/`** : le pair est désormais sur la boucle locale
+  et appartient au fichier — il lit le CONNECT puis raccroche **avant** son CONNACK, ce qui produit
+  la même perte asynchrone (descripteur enregistré par `connect_async()`, puis fermé par la
+  bibliothèque) **au premier tour de boucle**. **0 échec / 40 à vide, 0 / 25 sous charge**, durées
+  **27 à 43 ms** au lieu de **22 à 8 019 ms** ; et **0 / 3 sous chacun des deux routages forcés** qui
+  rougissaient 3 fois sur 3.
+  ✅ **Les trois moitiés sont gardées** — la mort, la cause, le statut — et trois assertions
+  s'ajoutent (pas de session acceptée, CONNECT vu, pas de sortie sur le délai de configuration).
+  ⛔ **Ce qui est PERDU, et il faut le dire** : une vraie panne de routage n'est plus jouée. Le texte
+  que le sidecar imprime pour ces codes reste épinglé par `ARefusedPortIsNamedARefusalAndNotAn
+  UnrelatedErrno`, seul défaut que ce chemin ait jamais eu.
+
+- ⭐ **[F-FLAKY-2] La contre-mutation qui compte est celle qui REMET le défaut d'origine, et elle
+  rougit.** Les deux issues de `pumpBroker()` échangées — un courtier sain déclaré perdu, un
+  courtier perdu déclaré sain — c'est-à-dire *« le sidecar survit à une perte asynchrone du
+  courtier »*, le défaut même que ce cas existe pour tenir ⇒ **4 cas rouges**, dont le cas
+  déterministe. ⚠️ **C'est la vérification qui sépare une fixture rendue déterministe d'une fixture
+  rendue muette** : un cas déterministe *en cessant de mesurer* aurait été vert là. Deux autres
+  échanges, ensembles rouges deux à deux distincts : les deux titres de journal du courtier
+  échangés ⇒ **3** ; les deux réponses de `procMain()` échangées ⇒ **2**. Témoin (les 2 fichiers
+  réécrits à l'identique, horodatage déplacé) ⇒ **0 rouge**, **2 `CXXLD`** lus.
+
+- ⚠️ **[F-FLAKY-1 — mis à jour : la famille est RECENSÉE, et son dernier membre EXPOSÉ vient de
+  tomber]** `F-FLAKY-1` est fermé depuis [`T3.49`](T3.49.md) pour son fichier
+  (`core/ShutterImpulse_test`), mais la **forme** — un `EXPECT` posé juste après une échéance
+  d'horloge murale que rien ne garantit — n'avait jamais été comptée dans tout `tests/`.
+  ⭐ **Balayage de `T3.112`** : **52** `sleep_for`/`usleep`/`time.sleep` bruts dans **30** fichiers ;
+  **171** attentes à budget en millisecondes dans **28** fichiers (`runLoopUntil` 54, `waitUntil`
+  33, `pumpLoopFor` 32, `pumpUntilSince` 23, `pumpLoopUntil` 21, `pumpUntil` 4, `goIdleFor` 4 — et
+  **aucun harnais partagé**, chaque fichier redéfinit le sien, sauf `ExternProcSpawnHarness.h` et
+  `RoonSpawnHarness.h`) ; ~**70** adresses non-loopback en dur dans **18** fichiers.
+  ⭐⭐ **Une seule de ces ~70 adresses était réellement COMPOSÉE** — donnée à un `connect()` plutôt
+  qu'analysée comme une chaîne ou vouée à `EADDRNOTAVAIL` : `192.0.2.42`, celle de `F-FLAKY-2`.
+  **Elle disparaît, et il n'en reste aucune.**
+  ⚠️ **Le sous-ensemble encore EXPOSÉ est de 16 cas, tous de la même famille** : `UrlDownloader_test`
+  (6), `UrlDownloaderLogUrl_test` (6), `UrlDownloaderLogSecret_test` (4) attendent un **`curl`
+  forké** par `runLoopUntil(…, 15000)`. ⛔ **Aucun n'a jamais été vu rouge** et la marge est de deux
+  ordres de grandeur — c'est une **forme** à retirer, pas un rouge à éteindre ⇒
+  [`T3.128`](T3.128.md), **neuve**. Le reste des 171 attentes est **non exposé** : l'événement
+  attendu est produit dans le même processus par une boucle que le test pompe.
+  ⛔ **Et rien ne défend l'arbre contre le retour d'une adresse hors boucle locale** : le balayage
+  est un relevé daté, pas une sonde. Une sonde statique de la famille de `check-order-sentinels.sh`
+  fermerait la classe — **non écrite**.
+
+- ⭐ **[F-FLAKY-2 → `T3.125`] Ce ticket est le prérequis de la seule garde qui protégerait les
+  livraisons.** `docker-publish-dev.yml` publie sans attendre le moindre test (`F-DEP-8`), et
+  [`T3.125`](T3.125.md) B et C — poser un `workflow_run` ou une protection de branche — étaient
+  explicitement **bloqués** par ce flottement : conditionner la publication à une CI verte fait
+  **manquer des livraisons** tant qu'une suite échoue par intermittence. ⚠️ **La CI n'a toujours
+  jamais tourné** : ce ticket retire la seule raison connue pour laquelle elle aurait clignoté, il
+  ne dit rien des `SKIP 4` attendus sur un exécuteur sans IPv6.
