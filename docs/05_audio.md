@@ -496,7 +496,19 @@ Serveur **HTTP** de notifications push pour les amplis HiFi Rose : il **écoute 
 toutes les instances `AVRRose`**
 (dérivé, [Audio/AVRRoseNotifServer.h:37-45](../src/bin/calaos_server/Audio/AVRRoseNotifServer.h)).
 
-⚠️ Ce port doit être joignable **depuis l'ampli** pour que les changements d'état remontent.
+⚠️ Ce port doit être joignable **depuis l'ampli** : le sens du protocole est *appareil →
+serveur*, c'est l'ampli qui ouvre la connexion — [Audio/AVRRose.cpp:35](../src/bin/calaos_server/Audio/AVRRose.cpp)
+(`Push notifications are sent by the device to our HTTP server on port 9284.`).
+
+L'adresse liée suit `listen_address`, comme l'API et le serveur de découverte —
+[Audio/AVRRoseNotifServer.cpp:41](../src/bin/calaos_server/Audio/AVRRoseNotifServer.cpp)
+(`auto listenAddr = Utils::get_config_option("listen_address");`). La valeur livrée est
+`0.0.0.0`, donc seule une installation qui a **explicitement** restreint la clé est concernée.
+Une adresse que l'ampli ne peut pas joindre coûte le push, pas la fonction : l'état continue
+d'être rafraîchi par le sondage de repli — [Audio/AVRRose.cpp:30](../src/bin/calaos_server/Audio/AVRRose.cpp)
+(`const double POLL_INTERVAL = 30.0;`) — et l'ampli est réinscrit après un silence de
+[Audio/AVRRose.h:50](../src/bin/calaos_server/Audio/AVRRose.h)
+(`static constexpr double NOTIF_TIMEOUT = 90.0;`).
 
 ⚠️ Les transferts sortants d'`AVRRose` sont **toujours non vérifiés en TLS** et n'exposent aucune
 option `insecure` (dérivé, [Audio/AVRRose.cpp:414,440](../src/bin/calaos_server/Audio/AVRRose.cpp)).

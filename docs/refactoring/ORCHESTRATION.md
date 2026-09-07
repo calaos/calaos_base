@@ -43,8 +43,101 @@
      liste de ce que seul le premier `push` tranchera compte **sept** points, et son mode d'échec est
      le **silence**. Elle est énumérée en tête de l'état de sortie ci-dessous.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-07, APRÈS LE MERGE DE [`T3.105`](T3.105.md)) — À LIRE
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-07, APRÈS LE MERGE DE [`T3.109`](T3.109.md)) — À LIRE
   EN PREMIER À FROID.**
+
+  ⭐⭐⭐⭐ **LE `push` N'ATTEND PLUS AUCUN TICKET.** Les **quatre** de la décision du 2026-09-07 sont
+  sur `master` : `T3.117`, `T3.105`, `T3.107` (mergé avec sa revue à `e2e3533a`) et `T3.109` avec ce
+  merge — les quatre lignes de `BOARD.md` sont ✅, vérifié une à une. ⛔ **Le `push` reste une
+  LIVRAISON : aucun agent ne pousse, jamais — il attend l'utilisateur, et lui seul.**
+  ⛔ **RIEN N'A ÉTÉ POUSSÉ DE TOUTE LA SÉRIE.**
+
+  **Tête de `master`** : le commit de revue qui porte ce paragraphe, à la suite de la branche
+  `fix/t3.109` (**3 commits**), elle-même à la suite de **`e2e3533a`** ; `merge --ff-only`,
+  historique linéaire, **0 commit de fusion**. ⭐ **Aucun rebase et aucun conflit** : la branche
+  était déjà sur la tête de `master`, donc `tests/Makefile.am` n'a pas eu à être régénéré (son bloc
+  `# T3.109` est un append pur **+37 / −0 / ~0**, `^if` **130** ≡ `^endif` **130**, dont un
+  `HAVE_LIBKNX`). ⭐ `git grep -nE '^(<<<<<<< |>>>>>>> |=======$)'` **VIDE** sur tout l'arbre.
+  **`TESTS` 150 → 151.** Référence après `make distclean` :
+  **`TOTAL 151 / PASS 150 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
+  `check-ccache-honesty.sh`, **0 `error:`**, **un seul** bloc `Testsuite summary`, **151 `CXXLD`**.
+
+  ⭐⭐ **CE QUE LA REVUE DE `T3.109` A MESURÉ ELLE-MÊME :**
+
+  1. ⭐⭐ **L'ARBITRAGE DU CONFINEMENT TIENT, ET SON PÉRIMÈTRE EST ÉTROIT.** Le sens du protocole est
+     vérifié à la source — `AVRRose.cpp:35` dit *« Push notifications are sent by the device to our
+     HTTP server on port 9284 »* et `docs/05_audio.md` le disait déjà : **c'est l'ampli qui se
+     connecte à nous**. Le repli **existe vraiment** et ne dépend pas de l'écoute : `pollTimer` est
+     armé inconditionnellement dans le constructeur d'`AVRRose` à `POLL_INTERVAL = 30 s`, il appelle
+     `pollStatus()` qui est **sortant** (HTTPS vers l'ampli, port 9283), et c'est lui qui appelle
+     `reregisterIfNeeded()` (`NOTIF_TIMEOUT = 90 s`). ⭐⭐ **LE DÉFAUT DE `listen_address` EST
+     `0.0.0.0`, MESURÉ** (`ConfigOptions.cpp` `.def("0.0.0.0")`, et
+     `listenAddressOrWildcard("")` rend `0.0.0.0`) — **A ne change donc rien pour une installation
+     qui n'a jamais écrit la clé**, et n'affecte que l'opérateur qui a explicitement demandé le
+     confinement. ✅ **Contrepartie dite deux fois, et la seconde est TENUE** : la phrase de
+     `docs/16_config_options.md` est **générée** depuis `ConfigOptions.cpp` et `check-config-docs.sh`
+     (dans `TESTS`, **PASS**) refuse toute dérive — elle ne peut pas mentir toute seule.
+  2. ✅ **LES CINQ ENSEMBLES ROUGES SONT REFAITS PAR LA REVUE, MUTATIONS ÉCRITES INDÉPENDAMMENT, ET
+     ILS TOMBENT SUR LES MÊMES CHIFFRES** : CM0 ⇒ **5**, CM1 ⇒ **3**, CM2 ⇒ **1**, CM3 ⇒ **2**,
+     CM4 ⇒ **1**, témoin M0 ⇒ **0** avec `CXXLD core/NotifAndPipeListen_test` **lu**. Deux à deux
+     distincts, revérifiés ensemble par ensemble.
+  3. ⭐ **LE PORT ÉPHÉMÈRE EST VRAI, ET CHIFFRÉ** : sous CM3 (échec du `bind` publié à personne, forme
+     `master`), l'adresse absente donne `0.0.0.0:45547` et non « pas de socket ».
+     `TheNotificationPortIsTheOneTheDeviceIsToldToUse` l'attrape. C'est déjà écrit à la source
+     (`libuvw.h`, `T3.106`) et refermé ici.
+  4. ✅ **LES 10 CAS PEUVENT TOUS ROUGIR**, y compris les quatre contrepoids que les cinq
+     contre-mutations laissent verts : quatre sondes de plus l'ont montré — écoute confinée par
+     défaut ⇒ `TheDefaultListenStaysOnEveryInterface` ; chemin de tube changé ⇒
+     `AnOrdinarySidecarPipeListensUnderTheAdvertisedPath` ; `listenHandle` remis à zéro avant le
+     `bind` (SIGSEGV dans l'enfant) ⇒ `EveryChildRanToTheEndAndWroteItsAnswer` **et**
+     `EveryChildOwnedTheListenerItsCaseDescribes` ; `listen()` retiré ⇒ ces deux-là aussi.
+     ⭐ **Le contrepoids « un enfant mort se lit comme zéro socket » MORD**, c'est le point fort de
+     la suite.
+  5. ✅ **L'ÉCHEC DU TUBE EST NOMMÉ QUEL QU'EN SOIT LE MOTIF**, et ce n'est plus une déduction : la
+     revue a rejoué le cas avec une **cause de système de fichiers** (répertoire inexistant ⇒
+     `ENOENT`, même famille qu'un `/tmp` en lecture seule) au lieu de l'épuisement de descripteurs
+     ⇒ **0 socket, la ligne `cannot listen on` présente, le cas VERT**. L'auditeur est posé avant le
+     `bind` et n'inspecte pas `errno`, donc la propriété est structurelle.
+  6. ⛔⭐ **CE QUE LA REVUE A TROUVÉ ET QUE LE RAPPORT NE DISAIT PAS** : `resource<>()` rend
+     `nullptr` quand `init()` échoue (`loop.hpp:250-254`) et **les 45 sites de l'arbre déréférencent
+     sans regarder**. 44 sont sûrs **par accident** (les `uv_*_init` concernés n'ouvrent aucun
+     descripteur) ; ⛔ **le 45ᵉ ne l'est pas** — `UrlDownloader.cpp:333` passe par
+     `uv_poll_init_socket`, qui échoue, et `:337` déréférence. ⇒ `F-UVW-1` /
+     [`T3.141`](T3.141.md). C'est la question que `T3.109` déclarait explicitement non sondée ;
+     elle est sondée, et la réponse n'est pas « non ».
+  7. ⚠️ **Deux réserves non bloquantes.** `ASidecarPipeThatCouldNotListenSaysSo` n'épingle **pas**
+     l'absence de la ligne de succès, là où son jumeau côté notification le fait — un site qui
+     imprimerait les deux lignes resterait vert. Et le bloc `# T3.109` de `tests/Makefile.am` ainsi
+     que l'en-tête de la suite portent des emojis : c'est la **convention établie** de ces deux
+     fichiers (47 occurrences dans `tests/Makefile.am`, 40 fichiers sur 91 dans `tests/core/`), pas
+     une infraction isolée. ✅ **`src/` est propre** : zéro emoji, zéro numéro de ticket, zéro
+     phase, zéro historique de debug dans les commentaires ajoutés.
+  8. ⭐ **`make check-docs` : la revue a CHARGÉ la sonde.** Les quatre références sur lesquelles
+     l'arbitrage repose sont désormais **ancrées** dans `docs/05_audio.md` (sens du protocole,
+     `listen_address`, `POLL_INTERVAL`, `NOTIF_TIMEOUT`) ⇒ **2 → 6 ancrées**. Les **4 périmées** et
+     **26 non résolues** sont **identiques à `master` avant le merge** : la branche n'en crée
+     aucune. ⚠️ `docs/refactoring/` reste hors du corpus (18 documents) — les fiches ne sont
+     ancrées par rien.
+
+  **(b) Tickets ouverts par cette revue :**
+  - **`T3.141`** (neuve) — `F-UVW-1`, ci-dessus.
+  - **`T3.140`** (ouverte par le ticket) — `connectIP` et l'adresse liée dérivées séparément, rien
+    ne les compare.
+  - **`T3.142`** est le prochain numéro libre. ⚠️ Numéros **pris** : `T3.76` → `T3.141` ; `T3.114`
+    est un **trou**.
+
+  **Ce qui attend l'utilisateur :**
+  0. ⭐⭐⭐⭐ **Le `push` n'attend plus qu'une décision de l'utilisateur** : les quatre tickets de
+     produit sont livrés. C'est le premier `push` de toute la série, et les **sept** points qu'il
+     seul tranchera sont énumérés dans l'état de sortie de `T3.125`.
+  1. ⛔ **Le job CI chez GitHub n'a JAMAIS tourné** — la liste des **sept** points que seul le premier
+     `push` tranchera est inchangée, voir l'état de sortie précédent.
+  2. ⭐ **La protection de branche (issue C) reste à poser**, à la main de l'utilisateur.
+  3. ⚠️ **`T3.109` change un comportement produit**, même si son périmètre est étroit : à annoncer
+     tel quel dans les notes de version (elles le disent déjà, encadré compris).
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-07, APRÈS LE MERGE DE [`T3.105`](T3.105.md)) — conservé pour
+  l'historique.**
 
   ⭐⭐⭐ **EN TÊTE : LE `push` N'ATTEND PLUS QUE DEUX TICKETS — [`T3.109`](T3.109.md) ET
   [`T3.107`](T3.107.md). [`T3.105`](T3.105.md) EN SORT.** La décision du 2026-09-07

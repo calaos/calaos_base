@@ -1361,6 +1361,22 @@
   toutes les interfaces. Il l'a documenté dans la clé, il ne l'a pas rendu observable au démarrage.
   ⇒ [T3.140](T3.140.md).
 
+- ⛔ **F-UVW-1 — [ROBUSTESSE, OUVERT, mesuré par la revue de merge de [T3.109](T3.109.md)]
+  `resource<>()` rend `nullptr` quand `init()` échoue, et aucun des 45 sites ne le regarde.**
+
+  `uvw::Loop::resource<R>()` fait `ptr = ptr->init() ? ptr : nullptr` (`loop.hpp:250-254`).
+  L'arbre l'appelle **45 fois** hors `uvw/` et déréférence le retour **45 fois** sans un test.
+
+  ⭐ **44 de ces sites sont sûrs par accident** : `uv_tcp_init`, `uv_pipe_init`, `uv_udp_init`,
+  `uv_timer_init`, `uv_async_init`, `uv_idle_init`, `uv_signal_init` n'ouvrent aucun descripteur
+  sur Linux et ne peuvent pas échouer. ⛔ **Le 45ᵉ, non** : `UrlDownloader.cpp:333` demande un
+  `PollHandle` sur une socket que libcurl vient de rendre, donc `uv_poll_init_socket`
+  (`poll.hpp:91-95`), qui échoue pour `EINVAL`, `EBADF` ou un descripteur déjà surveillé —
+  et `:337` déréférence quatre lignes plus bas. Le mode d'échec est un **SIGSEGV du serveur**,
+  sur le chemin de tout téléchargement HTTP.
+
+  ⚠️ **Établi par lecture, jamais provoqué en service.** ⇒ [T3.141](T3.141.md).
+
 - ⛔ **F-UDP-3 — [COUVERTURE, OUVERT, mesuré par la revue de merge de [T3.107](T3.107.md)] une
   assertion manquante rétrécit l'ensemble rouge de M3.**
 
