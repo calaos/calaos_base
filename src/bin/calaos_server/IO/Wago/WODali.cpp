@@ -65,7 +65,7 @@ WODali::WODali(Params &_p):
 
     /* The frame is built by WagoMap, not here: whether it may carry the group
      * flag at all depends on the PLC program version, which is not known yet
-     * when this constructor runs. ⛔ The addIO() below is given back by the
+     * when this constructor runs. The addIO() below is given back by the
      * callback and by nothing else, so this call must reach the wire on every
      * path - including the one where the version never answers. */
     WagoMap::Instance(host, port).SendDaliGetCommand(get_param("line"), get_param("address"),

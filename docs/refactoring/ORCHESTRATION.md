@@ -115,9 +115,9 @@
 
   **(b) Tickets ouverts par ce lot :** `T3.151`, `T3.152` (revue de `T3.135`), `T3.153`, `T3.154`
   (revue de `T3.138`), `T3.155` (revue de `T3.131`) — **fiche + ligne `BOARD.md` à 6 colonnes pour
-  chacun**, vérifiées une à une. ⚠️ Numéros **pris** : `T3.76` → `T3.163` ; `T3.114` est un **trou** ;
-  **`T3.164` est le prochain numéro libre**. `T3.158`, `T3.159`, `T3.162` et `T3.163` sont ouverts
-  par la livraison de [`T3.156`](T3.156.md).
+  chacun**, vérifiées une à une. ⚠️ Numéros **pris** : `T3.76` → `T3.164` ; `T3.114` est un **trou** ;
+  **`T3.165` est le prochain numéro libre**. `T3.158`, `T3.159`, `T3.162` et `T3.163` sont ouverts
+  par la livraison de [`T3.156`](T3.156.md), `T3.164` par sa **revue de merge**.
 
   ⭐⭐ **`T3.156` A REÇU UN ARBITRAGE DE L'UTILISATEUR ET IL EST APPLIQUÉ (2026-09-07).** Le drapeau
   de groupe n'est ajouté à `WAGO_DALI_GET` que **si l'automate a annoncé 3.0 ou plus**.
@@ -129,8 +129,10 @@
   identiques sur les constantes de version, `WAGO_GET_VERSION` et `WAGO_DALI_GET` — l'arbitrage
   tient pour la 3.0 entière, **889 compris**. Deux divergences hors 3.0, aucune ne le touche
   ([`T3.162`](T3.162.md), [`T3.163`](T3.163.md)).
-  ⚠️ **La DISPOSITION de la trame change à la 3.0** : avant, c'est `<line> <group> <address>`,
-  drapeau **avant** l'adresse. ⛔ **Rien n'a atteint un automate réel.**
+  ⚠️ **Le paramètre du DRAPEAU change de place à la 3.0** (`p2` → `p3`), pas celui de l'adresse :
+  `bShortAddress := DINT_TO_BYTE(p2)` dans les huit versions. ⛔ **Corrigé à la revue de merge** —
+  il n'existe aucune disposition `<line> <group> <address>` à envoyer à un 2.x, elle y ferait lire
+  le drapeau comme adresse. ⛔ **Rien n'a atteint un automate réel.**
 
   ⭐⭐ **UN 10ᵉ PIÈGE D'OUTILLAGE EST INSTALLÉ** (§ pièges) : *un horodatage remis EN ARRIÈRE est un
   horodatage qui a bougé*. La règle du 3ᵉ piège se lit désormais **« horodatage déplacé VERS

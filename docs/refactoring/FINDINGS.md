@@ -13490,19 +13490,22 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   ⚠️ **Ce que la fermeture ne dit pas** : la relecture DMX de 2.0–2.3 continue de ne fonctionner que
   par l'**accident** d'aliasing — on a cessé de le casser, on ne l'a pas réparé.
 
-- ⭐⭐ **F-DALI-6 — [MESURÉ] la DISPOSITION de `WAGO_DALI_GET` change à la 3.0, et le serveur
-  n'envoie le groupe nulle part avant.**
+- ⭐⭐ **F-DALI-9 — [MESURÉ] le PARAMÈTRE du drapeau de `WAGO_DALI_GET` change à la 3.0 ; celui de
+  l'ADRESSE, non.**
 
-  Relevé sur les **30** `.pro` : en 1.7–2.3 le gestionnaire lit `p2` comme **drapeau** et (à partir
-  de 2.0) `p3` comme **adresse** — soit `WAGO_DALI_GET <line> <group> <address>`, drapeau **avant**
-  l'adresse, comme `WAGO_DALI_SET`. La **3.0 a interverti les deux** (`p3` = drapeau,
-  `IF (p2 < 99)`). ⇒ sur un 2.x, la trame à deux paramètres du serveur écrit l'**adresse** là où
-  l'automate lit le drapeau : `IF (p2 = 1) THEN dali_group := TRUE` attribue un groupe à tout
-  ballast d'adresse courte **1**. Latent (`dali_group` n'est relu nulle part sur ce chemin, cf.
-  `F-DALI-3`), mais **la relecture d'un groupe DALI est inatteignable sur 2.0–2.3**.
-  ⇒ [T3.162](T3.162.md).
+  Relevé sur les **30** `.pro`, ⚠️ **et refait à la revue de merge : la première rédaction annonçait
+  une trame `<line> <group> <address>` attendue avant la 3.0, et c'était faux.** Avant 3.0 le
+  gestionnaire dérive `dali_group` de `p2` (`IF (p2 = 1)` — **écriture morte**, `F-DALI-6`) et pose
+  sa frontière DALI/DMX sur `p3` ; en 3.0 les deux ont **échangé**. ⛔ Mais **l'adresse courte est
+  en deuxième position dans les HUIT versions** : `DALIDimmValue(bShortAddress := DINT_TO_BYTE(p2))`
+  partout. Le régime à deux paramètres marche donc **parce que** le serveur met l'adresse dans le
+  champ que l'automate lit vraiment comme adresse. ⛔ Il n'existe **aucune** trame
+  `<line> <group> <address>` attendue par un `GET` antérieur à la 3.0, et l'envoyer à un 2.x y
+  ferait lire le drapeau comme adresse courte : **toutes** ses relectures d'état DALI tomberaient
+  sur le ballast 0 ou 1. ⇒ la relecture d'un groupe DALI est inatteignable sur 1.7–2.3 et le
+  restera côté serveur ; le correctif est dans `calaos_wago`. ⇒ [T3.162](T3.162.md).
 
-- ⚠️ **F-DALI-7 — [MESURÉ] le MODÈLE annoncé par `WAGO_GET_VERSION` est faux.**
+- ⚠️ **F-DALI-10 — [MESURÉ] le MODÈLE annoncé par `WAGO_GET_VERSION` est faux.**
 
   Le 3ᵉ champ de la réponse est une constante en dur recopiée avec le fichier : les **sept**
   programmes 3.0 (`841`·`849`·`880`·`881`·`889`·`891`·`893`) répondent **tous** `750-849`, et quatre
@@ -13511,20 +13514,37 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   `T3.156` ne lit que le champ de VERSION**, jamais le modèle, et la version est cohérente sur les
   **29** programmes qui portent la commande. ⇒ [T3.163](T3.163.md).
 
-- ⚠️ **F-WAGO-12 — [MESURÉ, PRÉEXISTANT] l'attribution des réponses UDP est POSITIONNELLE.**
+- ⚠️ **F-WAGO-13 — [MESURÉ, PRÉEXISTANT] l'attribution des réponses UDP est POSITIONNELLE.**
 
   `WagoMap::udpRequest_cb()` porte **tout** datagramme entrant au compte de `udp_commands.front()`,
   sans jamais comparer la réponse à la commande. La file est sérielle (une commande en vol,
   expiration à 2 s), donc l'attribution est juste tant que l'automate répond dans l'ordre — ce que
   rien ne vérifie. L'arbitrage de `T3.156` ajoute **une** commande à répondre au démarrage, donc une
-  occasion de plus de mal attribuer. ⭐ **La dégradation va vers le sûr** : un datagramme étranger lu
-  comme une version donne « inconnue », donc la trame à deux paramètres. Aucun ticket ouvert : le
-  symptôme demande un automate.
+  occasion de plus de mal attribuer. ⚠️ **La dégradation ne va vers le sûr que dans UN sens** — un
+  datagramme étranger lu comme une version donne « inconnue », donc la trame à deux paramètres —
+  ⛔ **et pas dans l'autre** : voir `F-WAGO-14`. (Renuméroté à la revue de merge : `F-WAGO-12` était
+  déjà pris par le débordement de `mbus_cmd_addr_mdata()`.)
+
+- ⛔⭐⭐ **F-WAGO-14 — [JOUÉ dans l'arbre, revue de merge de T3.156] une réponse `WAGO_GET_VERSION`
+  arrivée APRÈS son expiration est lue comme un état DALI, et le luminaire s'affiche ALLUMÉ.**
+
+  Le sens que `F-WAGO-13` ne couvre pas. Passé les 2 s, la requête de version a été dépilée et la
+  tête de file est la **première lecture DALI** : le datagramme de version lui est porté.
+  `WODali::WagoUDPCommand_cb()` filtre sur la **commande** (qui est bien un `WAGO_DALI_GET`) puis lit
+  `tokens[1]` du **résultat** — `"3.0"`, qui n'est pas `"0"` ⇒ **`value = 100`, `emitChange()`**.
+  ⭐ **Mesuré, pas déduit** : un cas de sonde de la revue, pilotant la vraie `UDPCommandTimeout_cb`
+  puis la vraie `udpRequest_cb`, relit le ballast à **`100`** au lieu de `0`. Un **doublon** de
+  réponse de version produit le même effet. ⛔ C'est exactement le symptôme que `T3.156` existe pour
+  supprimer, cette fois sur un ballast quelconque. ⇒ [T3.164](T3.164.md). ⛔ **Rien n'a atteint un
+  automate** : la fréquence de la fenêtre est inconnue.
 
 - ⭐ **F-TEST-DALI-1 — [MESURÉ] un cas de `core/WagoUdpReply_test` était vert pour la mauvaise
   raison.** En insérant la requête de version en tête de file, deux cas de cette suite sont passés au
   rouge (leur datagramme était attribué à la version) — mais un troisième,
   `ADaliGetReplyOfZeroLeavesTheBallastOff`, est resté **vert** : la valeur qu'il attend, `"0"`, est
   aussi la valeur de départ du ballast. Il ne distinguait donc pas « le rappel a converti la réponse »
-  de « le rappel n'a jamais été appelé ». Corrigé en même temps. *Un capteur qui ne mesure rien passe
-  pour un capteur qui ne trouve rien.*
+  de « le rappel n'a jamais été appelé ». ⚠️ **Et il ne les
+  distingue toujours pas** (relevé à la revue de merge) : seul le passage de la version a été ajouté,
+  la valeur attendue reste la valeur de départ. Ce qui tient réellement la branche est son jumeau
+  positif `ADaliGetReplyReallyReachesTheBallast`, qui porte une sentinelle explicite.
+  *Un capteur qui ne mesure rien passe pour un capteur qui ne trouve rien.*

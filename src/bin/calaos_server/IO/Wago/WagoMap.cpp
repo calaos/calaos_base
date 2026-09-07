@@ -440,9 +440,10 @@ bool WagoMap::plcDaliGetCarriesGroup() const
 void WagoMap::sendDaliGet(const DaliGetRequest &req)
 {
     /* The flag sits AFTER the address here and BEFORE it in WAGO_DALI_SET.
-     * That asymmetry is the 3.0 protocol, not a typo - and it is also why the
-     * two-parameter form below is not "the same frame minus a field" for an
-     * older PLC: before 3.0 the second parameter IS the flag. */
+     * That asymmetry is the 3.0 protocol, not a typo. An older program takes
+     * the short address from this same second field, so dropping the third
+     * one leaves its read exactly as it has always been; moving the address
+     * out of second position to make room for a flag would not. */
     string cmd = "WAGO_DALI_GET " + req.line + " " + req.address;
     if (plcDaliGetCarriesGroup())
         cmd += " " + req.group;
@@ -479,7 +480,7 @@ void WagoMap::plcVersionReply_cb(bool status, WagoTypes::UdpCommand, WagoTypes::
         vector<string> tokens;
         split(result.v, tokens);
 
-        //"WAGO_GET_VERSION <H>.<L> <model>". ⚠️ The model is NOT usable: the
+        //"WAGO_GET_VERSION <H>.<L> <model>". The model is NOT usable: the
         //seven 3.0 programs all announce 750-849 whatever module they run on.
         if (tokens.size() >= 2 && tokens[0] == "WAGO_GET_VERSION")
         {

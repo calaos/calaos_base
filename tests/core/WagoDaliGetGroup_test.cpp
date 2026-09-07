@@ -34,7 +34,9 @@
  * protocol, and the write must not be "fixed" to match the read.
  *
  * AND THE READ ONLY TAKES THE FLAG FROM 3.0 ON. Before that program the
- * frame is "<line> <group> <address>" - flag SECOND - and GET_PARAM_DINT has
+ * handler derives its flag from the SECOND field, the one that already
+ * carries the short address, and never looks at what it derived - so no
+ * position of that frame is a flag. GET_PARAM_DINT also has
  * no guard for a parameter it cannot find, so a third field is not ignored:
  * the pre-3.0 programs read that position as the DMX read address, where a
  * real 0 or 1 takes a DMX fixture out of its own branch. The server therefore
@@ -84,10 +86,10 @@
  *   - Nothing here reaches a PLC. That the flag is read at all, that a real
  *     automate answers WAGO_GET_VERSION at all, and what a 753-647 then
  *     answers, all need the hardware.
- *   - A pre-3.0 PLC still never learns about a group: its read wants the flag
- *     in SECOND position and the server does not send it there. Withholding
- *     the flag keeps that installation exactly as it is today, it does not
- *     make its group reads work.
+ *   - A pre-3.0 PLC still never learns about a group: its read has no field
+ *     in which a flag is ever read back. Withholding the flag keeps that
+ *     installation exactly as it is today, it does not make its group reads
+ *     work - and no other frame shape would either.
  *   - The three `*line` parameters of WODaliRVB still have no default, so an
  *     io.xml without them emits an empty field the way an absent group used
  *     to. Out of this file's reach and untouched by it.

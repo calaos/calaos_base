@@ -77,7 +77,7 @@ WODaliRVB::WODaliRVB(Params &_p):
 
     /* The three frames are built by WagoMap, not here: whether they may carry
      * the group flag at all depends on the PLC program version, which is not
-     * known yet when this constructor runs. ⛔ Each of the three addIO() below
+     * known yet when this constructor runs. Each of the three addIO() below
      * is given back by its own callback and by nothing else, so the three
      * calls must reach the wire on every path - including the one where the
      * version never answers. */
