@@ -12576,12 +12576,35 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   **déclaré**, et c'est la seule raison de le préférer. *À recopier : quand on remplace une liste par
   un critère, mesurer la liste — sinon on publie une élégance, pas une couverture.*
 
+- ⭐ **[revue de merge] La conséquence de la SECONDE famille structurelle est densément mesurée ;
+  ce qui manque est le chemin d'API.** Contre-mutation neuve **CR-A** : `autoscenario_uid` et
+  `autoscenario_steps` **échangés** dans `AutoScenarioDef::loadFromParams()` — une définition revient
+  du disque sans ses étapes — rougit **61 cas sur 8 binaires**. ⇒ un cas qui jouerait
+  `del_param(io, "autoscenario_uid")` + `saveConfig()` + `reloadFromDisk()` atterrirait sur des
+  assertions **qui existent déjà** : `F-STRUCT-1` se ferme, côté scénario, par quelques lignes de
+  test et non par un filet neuf. *À recopier : « rien ne le garde » et « rien ne le mesure » sont
+  deux constats différents, et on ne les répare pas au même prix.*
+
+- ⭐ **[revue de merge] Les deux moitiés de la garde ont chacune leur oracle.** Contre-mutation neuve
+  **CR-B** : les deux arguments du candidat de `set_param()` **échangés** (`Add(val, opt)`) rendent la
+  moitié `set_param` aveugle et **2 cas rouges seulement**, `ATypeNoDriverRegistersIsRefusedLikeA
+  MissingOne` et le cas croisé — les littéraux `del_param` restent verts. ⇒ aucune des deux moitiés
+  ne se repose sur les capteurs de l'autre, ce qu'une contre-mutation du seul prédicat partagé
+  (CM-1) ne pouvait pas dire.
+
+- ✅ **[revue de merge] La rupture d'API assumée n'a pas de victime dans `calaos_installer`.**
+  Dépôt frère lu : **0 occurrence** de `del_param`, aucun verbe de l'API JSON en écriture de
+  paramètre, et un unique canal réseau d'écriture qui pousse `io.xml`/`rules.xml` **entiers**. Son
+  éditeur générique clef/valeur refuse déjà `type` en suppression **et** en modification, et n'est
+  ouvert que pour les pièces et les règles ; les valeurs de `type` viennent de listes fermées
+  alimentées par l'`iodoc`. ⇒ la rupture reste vraie pour un script tiers, et pour lui seul.
+
 - ⭐ **La quatrième manière de mentir s'est produite, et seule l'exécution sur l'arbre NON corrigé
   l'a dit.** Le cas qui lit les octets d'`io.xml` cherchait `type="` dans le nœud — sous-chaîne de
   `gui_type="` **et** de `io_type="`, que tout nœud d'IO porte. Il était **VERT sur `master`**, où
   l'attribut a réellement disparu. L'aiguille porte désormais son espace de tête.
 
-- ⛔⭐ **[F-TOOL-7] Un harnais de contre-mutation rangé dans le scratchpad PARTAGÉ de la session se
+- ⛔⭐ **[F-TOOL-1] Un harnais de contre-mutation rangé dans le scratchpad PARTAGÉ de la session se
   fait écraser par un agent voisin.** Vécu ici entre les tours CM-5 et CM-6 : un agent concurrent a
   écrit son propre `cm.py` par-dessus. Aucune mesure faussée — la campagne s'est arrêtée sur une
   `KeyError` au lieu de muter, et les sha256 des instantanés, de `HEAD` et de l'arbre coïncidaient
@@ -12589,3 +12612,7 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   harnais du même nom* plutôt qu'un script incompatible. C'est le 5ᵉ piège (l'instantané réutilisé)
   déplacé d'un cran : *le harnais lui-même se nomme par un chemin qui lui appartient, et n'a rien à
   faire dans un répertoire que d'autres agents écrivent.*
+  ⚠️ **Numérotation corrigée à la revue** : la fiche l'appelait `F-TOOL-7`, mais aucun `F-TOOL-1`
+  à `F-TOOL-6` n'existe dans cet arbre — c'est le **premier** de sa famille de findings. Et dans la
+  série des pièges d'outillage d'`ORCHESTRATION.md` il est le **huitième**, pas le septième : le
+  septième est le harnais qui meurt avant sa restauration sous `set -e` (revue de `T3.112`).

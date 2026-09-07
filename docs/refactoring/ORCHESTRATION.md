@@ -40,8 +40,152 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-07, APRÈS LE MERGE DE [`T3.112`](T3.112.md)) — À LIRE
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-07, APRÈS LE MERGE DE [`T3.124`](T3.124.md)) — À LIRE
   EN PREMIER À FROID.**
+
+  ⭐⭐⭐ **(a) LE BACKLOG D'ORIGINE DU 4 SEPTEMBRE EST TOUJOURS À ZÉRO.** Rien n'y est revenu :
+  `T3.124` n'en fait pas partie, il vient de `(b)`, les tickets **ouverts par les revues** — celle
+  de `T3.21` + `T3.25a`, précisément. Le compte de `(a)` reste **11 fermés + 2 écartés = 13**,
+  énumérable ligne à ligne deux états de sortie plus bas.
+
+  ⭐⭐⭐ **ET [`T3.125`](T3.125.md) B ET C RESTENT DÉBLOQUÉS** depuis `T3.112` : plus aucune suite ne
+  clignote, donc conditionner la publication à une CI verte ne ferait plus manquer de livraison.
+  ⛔ **Cela ne change rien au fait mesuré** : `docker-publish-dev.yml` part sur
+  `on: push: branches: [master]`, son unique job n'a **ni `needs:` ni `if:`**, et **pousser PUBLIE
+  sans attendre les tests**. ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION. Aucun agent ne
+  pousse, jamais.** ⛔ **RIEN N'A ÉTÉ POUSSÉ DE TOUTE LA SÉRIE.**
+
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`7ccf1da6`**
+  (branche `fix/t3.124`, **3 commits du développeur**, plus 1 de la revue de merge),
+  `merge --ff-only`, historique linéaire, **0 commit de fusion**. Rebasée de `3b092759` sur
+  `ed921c1f` ⇒ **un seul** conflit, `FINDINGS.md`, résolu en **gardant les deux côtés** ;
+  ⭐ **`tests/Makefile.am` s'est fusionné seul et est prouvé append pur** : `master` **préfixe exact
+  octet à octet** (371 342 octets), **+74/−0/~0**, `^if` **125 → 126** ≡ `^endif` **125 → 126**.
+  `TESTS` **145 → 146**. Référence après `make distclean` : **`TOTAL 146 / PASS 145 / SKIP 1 /
+  FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, **146 `.trs`**, seul `SKIP` `check-ccache-honesty.sh`,
+  **0 `error:`**, **147 `CXXLD`** (11 au `make -j32`, 136 au `make check`), **un seul** bloc
+  `Testsuite summary` par tour, **trois `make check` consécutifs identiques**.
+  ⭐ `core/MqttSidecarConfigWait_test` n'a flanché à **aucun** des **10** `make check` complets de
+  cette revue. ⛔ **Aucun `make check` n'a été relancé pour effacer un rouge.**
+
+  ⭐⭐ **CE QUE LE TICKET FERME.** `IOBase::set_param()`/`del_param()` ne protégeaient que le nom
+  `"id"`. `"type"` est le seul paramètre que le chargeur lit **avant que l'objet existe** — et le
+  chemin qui compte est `Room::LoadFromXml()` → `IOFactory::CreateIO(pugi::xml_node)`, **pas**
+  `ListeRoom::createIO()` que la fiche d'ouverture nommait (⚠️ **septième recensement de fiche pris
+  en défaut de la série**). Un `del_param(io, "type")` répondait `{"success":"true"}`, le nœud était
+  réécrit sans son attribut, et l'équipement était **absent** au chargement suivant.
+  ⭐ **Forme retenue : un CRITÈRE, pas une liste de noms** — `IOBase` demande à
+  `IOFactory::canCreate()` si l'IO serait encore reconstructible, refuse la seule **transition**, et
+  `CreateIO(xml_node)` emprunte la **même** `registryKey()`.
+
+  ⭐⭐ **CE QUE LA REVUE A MESURÉ, ET QUI DÉPASSE LE TICKET :**
+  1. ⭐⭐ **LA PERTE EST REFAITE, ET C'EST L'ALLER-RETOUR DISQUE QUI PORTE LA MESURE.** Les quatre
+     fichiers de production ramenés à `master`, `make check` complet : **1 binaire rouge**,
+     **7 cas rouges / 5 verts** — le compte annoncé. Le journal du **second** chargement porte
+     `: Unknown Input type !` avec un nom de type **VIDE** et la ligne `internalint: Ok` du premier
+     chargement **a disparu** ; le nœud réécrit est `<calaos:internal enabled="true"
+     gui_type="var_int" id="e40_int" io_type="inout" name="Int value" rw="false" save="false"
+     visible="true" />`, **sans `type`** ; `get_io()` rend `nullptr`. ⇒ *l'équipement est absent, et
+     ce que l'exploitant voit passer est un avertissement qui ne nomme rien.*
+  2. ⭐⭐ **LA MESURE DU DÉVELOPPEUR EST HONNÊTE, ET L'ARBITRAGE TIENT QUAND MÊME.** Sa
+     contre-mutation **CM-5** remplace le critère par la liste `opt == "type"` et ne rend **qu'UN
+     cas rouge** ; il le publie tel quel. Le critère n'est donc pas plus **large** sur cet arbre.
+     ⭐ **La revue partage l'arbitrage** — mais pas pour la portée : pour la **dérivation**. La
+     garde et le chargeur passent par la **même fonction**, donc un paramètre que `registryKey()`
+     se mettrait à lire est couvert **sans que personne ait à s'en souvenir** ; une liste n'a aucun
+     lien de ce genre, et cette session a déjà enterré la forme « liste de noms » deux fois
+     ([`T3.87`](T3.87.md), [`T3.92`](T3.92.md)). Le cas gagné n'est pas décoratif non plus : il
+     **tranche l'issue B par la mesure** au lieu d'une politique. ⇒ **oui, un critère qui ne gagne
+     qu'un cas vaut dix lignes et une copie de `map`, quand ce qu'il achète est de ne pas pouvoir
+     dériver.**
+     *À recopier : quand on remplace une liste par un critère, mesurer la liste — puis dire si l'on
+     paie pour de la couverture ou pour un lien.*
+  3. ⛔⭐⭐ **LA CLEF DU CACHE D'ÉTATS N'A TOUJOURS AUCUN CAPTEUR — REJOUÉ.** Les deux opérandes de
+     `get_param("id") + "_" + get_param("type")` **échangés** dans `IOBase` laissent `make check`
+     **entièrement vert : `TOTAL 146 / PASS 145`, 0 cas rouge**, **96 `CXXLD`** lus. ⇒ `T3.129` est
+     **réel**, et la limite est désormais **en tête** de [`T3.124.md`](T3.124.md), plus en note.
+  4. ⭐ **LA SECONDE FAMILLE STRUCTURELLE EST ATTEIGNABLE — ET CE QUI LUI MANQUE N'EST PAS UN
+     CAPTEUR.** `del_param(io, "autoscenario_uid")` passe le critère (`canCreate()` répond oui sans
+     lui) : c'est un **deuxième chemin de perte**, ouvert. Mais la contre-mutation neuve **CR-A**
+     — `autoscenario_uid` et `autoscenario_steps` **échangés** dans
+     `AutoScenarioDef::loadFromParams()` — rougit **61 cas sur 8 binaires** : la **conséquence** est
+     densément épinglée sur le chemin de chargement. ⇒ un cas qui joue `del_param` + `saveConfig()`
+     + `reloadFromDisk()` atterrit sur des assertions **qui existent déjà**, et c'est la première
+     issue de [`T3.129`](T3.129.md), pas la troisième.
+     *À recopier : « rien ne le garde » et « rien ne le mesure » sont deux constats différents, et
+     on ne les répare pas au même prix.*
+  5. ⭐ **LES DEUX MOITIÉS DE LA GARDE ONT CHACUNE LEUR ORACLE.** Contre-mutation neuve **CR-B** :
+     les deux arguments du candidat de `set_param()` échangés (`Add(val, opt)`) ⇒ **2 cas / 1
+     binaire**, `ATypeNoDriverRegistersIsRefusedLikeAMissingOne` et le cas croisé ; les littéraux
+     `del_param` restent **verts**. Une contre-mutation du seul prédicat partagé (CM-1) ne pouvait
+     pas le dire.
+  6. ⭐ **LA RÉPONSE CROISÉE EST REJOUÉE, PREMIER SENS.** Le message de refus de
+     `buildJsonSetParam()` **seul** renommé ⇒ **12 cas / 4 binaires**, le **cas croisé rouge des
+     deux côtés** (`StructuralParamGuard_test` et `DelParamIdGuard_test`) pendant que les littéraux
+     `del_param` restent **verts**. La paire annoncée par la fiche tombe juste.
+  7. ✅ **LES 7 SAUVEGARDES SONT VÉRIFIÉES UNE À UNE, ET TOUTES DISPATCHÉES PAR LES DEUX
+     TRANSPORTS** (`set_timerange` + les six verbes `autoscenario`, retrouvés dans
+     `JsonApiHandlerWS.cpp` **et** `JsonApiHandlerHttp.cpp`). ℹ️ **Trois** appels de plus hors du
+     fichier et non deux : `JsonApiHandlerHttp.cpp`, `ListeRoom.cpp` et
+     `RemoteUI/RemoteUIProvisioningHandler.cpp` — corrigé dans la fiche.
+  8. ✅ **LA RUPTURE D'API ASSUMÉE N'A PAS DE VICTIME DANS `calaos_installer`.** Dépôt frère lu :
+     **0 occurrence** de `del_param`, aucun verbe de l'API JSON en écriture de paramètre, et un
+     unique canal réseau d'écriture qui pousse `io.xml`/`rules.xml` **entiers** par `api.php`. Son
+     éditeur générique clef/valeur refuse déjà `type` **en suppression et en modification**, et
+     n'est ouvert que pour les pièces et les règles. ⇒ **aucun chemin réel ne casse** ; la rupture
+     reste vraie pour un script tiers, et pour lui seul.
+  9. ⚠️ **UNE PROPRIÉTÉ QUE PERSONNE N'AVAIT ÉCRITE** : la force de la garde suit le **registre
+     lié**. Dans un binaire qui ne relie que quelques pilotes, `canCreate(before)` répond non et la
+     garde est **inerte en silence** — inoffensif, et sans effet en production où `calaos_server`
+     relie tout, mais c'est pourquoi un filet de cette garde doit relier la même fermeture que les
+     suites `JsonApi*`.
+  10. ⚠️ **NUMÉROTATION CORRIGÉE** : le finding d'outillage de la fiche s'appelait `F-TOOL-7` alors
+      qu'aucun `F-TOOL-1` à `F-TOOL-6` n'existe dans l'arbre. Renommé **`F-TOOL-1`**, et son
+      ordinal dans la série des pièges d'outillage est le **huitième**, pas le septième — le
+      septième est le harnais qui meurt avant sa restauration sous `set -e` (revue de `T3.112`).
+
+  ⭐ **CE QUE LES CONTRE-MUTATIONS DE LA REVUE ONT MESURÉ — deux neuves, deux rejeux, le témoin :**
+  - ⭐ **CR-A** *(`autoscenario_uid` ↔ `autoscenario_steps` dans `loadFromParams()`)* ⇒ **61 cas /
+    8 binaires** ;
+  - ⭐ **CR-B** *(`candidate.Add(opt, val)` → `Add(val, opt)`)* ⇒ **2 cas / 1 binaire** ;
+  - **CM-6 rejouée** *(les deux opérandes de la clef du cache d'états)* ⇒ **0 cas rouge**,
+    `TOTAL 146 / PASS 145`, **96 `CXXLD`** ;
+  - **CM-3 rejouée** *(le refus de `buildJsonSetParam()` seul renommé)* ⇒ **12 cas / 4 binaires** ;
+  - **la perte** *(les 4 fichiers de production ramenés à `master`)* ⇒ **7 cas / 1 binaire** ;
+  - **témoin** *(les 2 fichiers réécrits à l'identique, horodatage déplacé)* ⇒ **0 rouge**,
+    `TOTAL 146 / PASS 145`, **96 `CXXLD`** lus : le relink est vivant, donc le vert porte.
+  Mutation et restauration **sur l'HÔTE**, jamais un `git` dans le conteneur ; ⭐ **harnais rangé
+  sous un répertoire au nom du ticket**, jamais à la racine du scratch partagé (`F-TOOL-1`) ;
+  instantané **neuf** hors de l'arbre, pris **avant** la première mutation, nommé par **chemin
+  complet**, réutilisation **refusée** et instantané vide **refusé** ; restauration par écriture
+  **sans métadonnées** puis `utime`, prouvée par `cmp` **rc 0** **et** par un horodatage
+  **effectivement déplacé** aux **30** restaurations ; sortie **jamais tronquée** ; `git status` sur
+  l'**HÔTE** **vide** après chaque tour. ⚠️ **Le harnais a été éprouvé AVANT de servir** contre le
+  6ᵉ piège dans ses **deux** formes (aiguille absente, puis compte d'aiguille faux ⇒ refus d'écrire,
+  fichier **identique au sha256 près**) **et** contre le 4ᵉ en version `set -e` — un tour rendu
+  délibérément rouge au milieu du pilote : la restauration a lieu quand même, `cmp` rc 0 et
+  horodatage déplacé.
+
+  **Tickets ouverts par les revues — `(b)`, une ligne chacun :**
+  - **`T3.129`** (neuve, ouverte par la livraison de `T3.124`) — `F-STRUCT-1` : la seconde famille
+    structurelle (`autoscenario_uid`, espace `as_*`), hors du critère et **atteignable**, et la clef
+    du cache d'états que **rien** n'épingle. ⚠️ Ordonner après [`T3.123`](T3.123.md) pour les deux
+    sites `OutputShutter*`, ou s'en tenir à celui d'`IOBase`.
+  - **`T3.131`** est le prochain numéro libre. ⚠️ Numéros **pris** : `T3.76` → `T3.130` (`T3.130`
+    vient de la branche `fix/t3.123`, **non mergée**) ; `T3.114` est un **trou**.
+  - Les autres (`T3.91`, `T3.100`, `T3.102`, `T3.104`, `T3.107`, `T3.109`, `T3.111`, `T3.115`
+    → `T3.128`) sont inchangés — voir `BOARD.md`.
+
+  **Ce qui attend l'utilisateur :**
+  1. ⛔ **Le job CI chez GitHub n'a JAMAIS tourné**, et le `push` reste **différé**. C'est le seul
+     point de vérification ouvert depuis `T3.67`.
+  2. ⭐ **[`T3.125`](T3.125.md) B et C sont DÉBLOQUÉS** et redeviennent une décision d'utilisateur :
+     poser un `workflow_run` ou une protection de branche pour que la publication attende les tests.
+  3. ⛔ **`fix/t3.123` est en vol** dans `.wave140/t3.123` (3 commits, arbre propre, basée sur
+     `3b092759` ⇒ rebase attendu) et porte `T3.130.md`, qui n'a pas encore de ligne dans `BOARD.md`.
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-07, APRÈS LE MERGE DE [`T3.112`](T3.112.md)) — conservé
+  pour l'historique.**
 
   ⭐⭐⭐ **(a) LE BACKLOG D'ORIGINE DU 4 SEPTEMBRE EST TOUJOURS À ZÉRO.** Rien n'y est revenu :
   `T3.112` n'en fait pas partie, il vient de `(b)`, les tickets **ouverts par les revues**. Le compte
@@ -13006,6 +13150,28 @@ que vaut l'original auquel elle compare — y compris quand cet original est vid
    servir** : lui donner une aiguille absente, et vérifier que le fichier est **identique au sha256
    près** après le refus. C'est un geste de dix secondes ; la campagne de `T3.32` a dû être reprise
    faute de l'avoir fait.
+
+## ⛔⭐ Outillage — LE 7ᵉ ET LE 8ᵉ : `set -e` TUE LA RESTAURATION, ET UN SCRATCH PARTAGÉ ÉCRASE LE HARNAIS
+
+**Septième et huitième membres de la famille de `_DEPENDENCIES` : l'outil rend un chiffre, et le
+chiffre ne mesure pas ce qu'on croit.**
+
+**7ᵉ (revue de `T3.112`, 2026-09-07) — `set -e` dans un pilote de contre-mutation.** Le pilote de
+tour portait un `set -e` : au premier tour rouge — et un tour de contre-mutation est **fait** pour
+être rouge — le `docker run` a rendu un code non nul et le script est **mort avant sa restauration**,
+laissant l'arbre muté. Même famille que le `| head` du 4ᵉ : *le harnais meurt entre la mesure et la
+remise en état.* **Parade** : un pilote de contre-mutation se conduit en `set +e`, et sa restauration
+ne doit dépendre d'**aucun** code de sortie — un `finally`, jamais une ligne qui suit.
+*À recopier : dans un harnais de contre-mutation, `set -e` n'est pas une sécurité, c'est un piège —
+le seul code de sortie qu'on attend est un échec.*
+
+**8ᵉ (`T3.124`, 2026-09-07) — le harnais lui-même dans un répertoire partagé.** Le harnais vivait
+dans le scratchpad **partagé** de la session ; un agent voisin y a écrit son propre `cm.py`
+**par-dessus**, entre deux tours. Aucune mesure n'a été faussée cette fois — la campagne s'est
+arrêtée sur une `KeyError` — mais **rien dans la sortie ne l'aurait signalé** si le fichier écrasé
+avait été un *autre harnais du même nom* plutôt qu'un script incompatible. C'est le 5ᵉ piège
+(l'instantané réutilisé) déplacé d'un cran. **Parade** : un répertoire au nom du **ticket**, jamais
+la racine du scratch partagé — pour les instantanés **et pour le harnais**.
 
 ## ⭐ Outillage — `distcheck` est utilisable, à condition de le paralléliser soi-même
 
