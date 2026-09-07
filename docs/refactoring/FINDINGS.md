@@ -12540,3 +12540,52 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   même littéral `192.0.2.42`**, mais son sidecar est remplacé par le script enregistreur
   d'`ExternProcSpawnHarness.h` — l'adresse ne quitte jamais la trame de configuration. Un balayage
   **textuel** en aurait compté deux ; ce qui décide, c'est le sort du littéral, pas sa présence.
+
+## T3.124 — la garde du modèle, mesurée jusqu'au disque (2026-09-07)
+
+- ⭐⭐ **[F-STRUCT-1] La clef du cache d'états n'est épinglée par RIEN, et deux paramètres
+  structurels restent hors de toute garde.** `T3.124` ferme la famille que la **fabrique** consulte
+  (`type`) en demandant à `IOFactory` si l'IO serait encore reconstructible après l'écriture. Deux
+  trous mesurés au même passage :
+  - **La clef du cache d'états** — `get_param("id") + "_" + get_param("type")`, construite **trois
+    fois** dans l'arbre (`IOBase`, `OutputShutter`, `OutputShutterSmart`) sans constante partagée.
+    **Contre-mutation CM-6** : les deux opérandes **échangés** dans `IOBase` laissent `make check`
+    **entièrement vert — `TOTAL 146 / PASS 145`, 0 cas rouge**, 90 `CXXLD` lus. La position
+    persistée des volets et l'étranglement des notifications de batterie sont indexés dessus.
+  - **La seconde famille de paramètres structurels** — `autoscenario_uid` et l'espace `as_*` sont
+    relus par `AutoScenarioDef::loadFromParams()`, **pas** par `IOFactory` : `canCreate()` répond
+    oui sans eux, donc `del_param(io, "autoscenario_uid")` répond toujours `{"success":"true"}` et
+    l'IO revient du disque **sans sa définition de scénario**. ⛔ Établi **par lecture** : le cycle
+    disque a été joué pour `type`, pas pour celui-là.
+  ⇒ [`T3.129`](T3.129.md). ⚠️ `OutputShutter*` appartient à [`T3.123`](T3.123.md) : ordonner après
+  lui, ou se limiter au site d'`IOBase`.
+
+- ⭐ **La fiche d'ouverture de `T3.124` nomme le mauvais site de chargement** — septième recensement
+  de fiche pris en défaut de la série. Elle attribue la perte à `ListeRoom::createIO()`, qui sert la
+  **création** (`autoscenario create`, `JsonApi`). Une `io.xml` est relue par
+  `Room::LoadFromXml()` → `IOFactory::CreateIO(pugi::xml_node)`. Les deux perdent l'IO, mais c'est le
+  second qui porte la perte de données, et c'est le seul qui journalise quelque chose — avec un nom
+  de type **vide**, ce qui ne nomme pas l'équipement perdu.
+
+- ⭐⭐ **La liste de noms et le critère refusent la même chose, À UNE MIGRATION PRÈS — et c'est tout
+  ce que la mesure départage.** La contre-mutation **CM-5** remplace le critère
+  (`IOFactory::canCreate()` sur les paramètres candidats) par la liste nominative (`opt == "type"`)
+  et rend **un seul cas rouge** : celui qui change le type d'un IO vers un **autre type
+  enregistré**, que la liste refuserait et que le critère accepte parce que rien n'est perdu. Le
+  critère n'est donc pas plus **large** sur cet arbre ; il est **dérivé du chargeur** au lieu d'être
+  **déclaré**, et c'est la seule raison de le préférer. *À recopier : quand on remplace une liste par
+  un critère, mesurer la liste — sinon on publie une élégance, pas une couverture.*
+
+- ⭐ **La quatrième manière de mentir s'est produite, et seule l'exécution sur l'arbre NON corrigé
+  l'a dit.** Le cas qui lit les octets d'`io.xml` cherchait `type="` dans le nœud — sous-chaîne de
+  `gui_type="` **et** de `io_type="`, que tout nœud d'IO porte. Il était **VERT sur `master`**, où
+  l'attribut a réellement disparu. L'aiguille porte désormais son espace de tête.
+
+- ⛔⭐ **[F-TOOL-7] Un harnais de contre-mutation rangé dans le scratchpad PARTAGÉ de la session se
+  fait écraser par un agent voisin.** Vécu ici entre les tours CM-5 et CM-6 : un agent concurrent a
+  écrit son propre `cm.py` par-dessus. Aucune mesure faussée — la campagne s'est arrêtée sur une
+  `KeyError` au lieu de muter, et les sha256 des instantanés, de `HEAD` et de l'arbre coïncidaient
+  encore — mais **rien dans la sortie ne l'aurait signalé** si le fichier écrasé avait été un *autre
+  harnais du même nom* plutôt qu'un script incompatible. C'est le 5ᵉ piège (l'instantané réutilisé)
+  déplacé d'un cran : *le harnais lui-même se nomme par un chemin qui lui appartient, et n'a rien à
+  faire dans un répertoire que d'autres agents écrivent.*

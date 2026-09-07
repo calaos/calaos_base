@@ -7,6 +7,47 @@
 > l'utilisateur observe alors, c'est le symptôme, et il a besoin de savoir qu'il a disparu.
 > Ordre : impact décroissant.
 
+## 🔴 Un équipement pouvait DISPARAÎTRE de l'installation, et seulement au redémarrage suivant
+
+### Supprimer le paramètre `type` d'un équipement le faisait s'évaporer (T3.124)
+
+Chaque équipement d'une installation Calaos porte un paramètre `type` : c'est lui qui dit au serveur
+**quel pilote** construire au chargement de la configuration — `InternalInt`, `OutputWago`,
+`StandardMjpeg`… La commande générique de suppression de paramètre acceptait de le supprimer, et
+répondait **`success: true`**.
+
+Sur le moment, rien ne se voyait : l'équipement continuait de fonctionner, les règles qui le citaient
+tournaient encore. Mais le serveur enregistre la configuration à l'occasion de **plusieurs autres
+commandes** — modifier une plage horaire, créer ou modifier un scénario automatique… — et il
+enregistre ce qu'il a en mémoire. La ligne de l'équipement était alors réécrite **sans son `type`**.
+
+**Au redémarrage suivant, l'équipement n'était plus là.** Pas en panne, pas injoignable : **absent**.
+Il ne figurait plus dans aucune application, la pièce qui le contenait ne le montrait plus, et les
+règles qui le nommaient étaient abandonnées avec lui. Le journal ne portait qu'une ligne
+d'avertissement, sans nom d'équipement — impossible de savoir lequel avait été perdu. La seule sortie
+était de le recréer à la main, ou de repartir d'une sauvegarde de la configuration.
+
+Remplacer le `type` par une valeur qu'aucun pilote ne connaît coûtait exactement la même chose.
+
+**Ce qui change.** Le serveur refuse désormais toute écriture qui le rendrait incapable de
+reconstruire l'équipement au démarrage suivant, avec la même réponse que le refus voisin
+(`param refused`), sur les deux transports (WebSocket et HTTP). La question n'est pas posée sur le
+**nom** du paramètre mais sur le **résultat** : le serveur demande à sa fabrique de pilotes si elle
+saurait encore construire l'équipement, et n'accepte que si oui.
+
+> **Ce qui reste possible, volontairement.** Changer le `type` d'un équipement vers **un autre type
+> que le serveur connaît** reste accepté : rien n'est perdu, et c'est la seule façon de faire migrer
+> un équipement d'un pilote vers un autre.
+
+> **Ce que cela ne couvre pas.** Un fichier `io.xml` **édité à la main** ou écrit par un outil tiers
+> sans `type` perd toujours l'équipement au chargement, et le journal ne sait toujours pas le nommer.
+> La protection porte sur les écritures qui passent par le serveur, pas sur le fichier.
+
+> **Êtes-vous concerné ?** Aucune application Calaos n'envoie cette commande. Elle vient d'un script,
+> d'une automatisation maison ou d'un outil de configuration qui construit ses messages lui-même.
+> Il fallait un compte authentifié. La perte était **différée** — elle ne se manifestait qu'à un
+> redémarrage, parfois des jours plus tard — ce qui la rendait très difficile à relier à sa cause.
+
 ## 🔴 Volets et variateurs : une commande incomplète pouvait déclencher un mouvement que personne n'avait demandé
 
 ### Un volet pouvait partir en course complète sur une commande d'impulsion **tronquée** (T3.25)
