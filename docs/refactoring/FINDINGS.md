@@ -12890,3 +12890,43 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   qui est re-clé — rougit **5 cas / 2 suites**. Le choix *premier vu* est donc **tenu**, et il ne peut
   plus changer sans réécrire ces cas. ℹ️ En revanche l'**ordre** de la passe par rapport à
   `reportAutoScenariosLostByUpload()` n'est tenu par rien (déplacement ⇒ 0 rouge).
+
+## T3.105 — la relance des sidecars (2026-09-07)
+
+- ⛔⭐⭐ **[F-EXTPROC-10] La rampe de relance de `WagoMap` ne monte JAMAIS, et son alarme n'imprime
+  jamais.** C'est la seule rampe par abonné de l'arbre (1 / 2 / 3 / 5 s, plafond 5 s, plus un
+  `still failing after N attempts` à chaque multiple de **10**), et elle remet son compteur à zéro
+  sur `processConnected`. Or `processConnected` est la **socket IPC**, pas l'automate :
+  `setup()` de `calaos_wago` appelle `connectSocket()` en **première instruction**. Tout lancement
+  qui atteint le binaire reconnecte donc et remet le compteur à zéro ⇒ **le délai vaut constamment
+  1,0 s** (2, 3 et 5 sont inatteignables) et **l'alarme des 10 tentatives n'imprime jamais**. La
+  rampe ne monte que quand le sidecar **ne démarre pas du tout**, c'est-à-dire là où elle sert le
+  moins. ⇒ [`T3.136`](T3.136.md), laissée intacte par `T3.105` (elle est épinglée par
+  `ExternProcDrivers_test`). ⚠️ Les deux délais **s'additionnent** : le régime permanent de la
+  famille Wago est de **31,1 s** là où les autres sont à 30,1 s.
+  *À recopier : un signal de « ça va mieux » doit prouver que le TRAVAIL a repris, pas que le
+  transport est branché — sinon un compteur d'échecs se remet à zéro à chaque échec.*
+
+- ⛔⭐⭐ **[F-EXTPROC-11] Cinq familles de sidecars sur sept ne peuvent PAS ralentir, parce qu'elles
+  ne savent pas échouer.** Mesuré à la source en écrivant `T3.105` : `procMain()` de `calaos_wago`,
+  `calaos_1wire`, `calaos_knx`, `calaos_ola` et `calaos_script` rend **`0` inconditionnellement** —
+  c'est [`T3.108`](T3.108.md), vu ici par l'autre bout. La rampe de relance décide sur le statut ;
+  un automate ou un bus perdu **en cours de service** laisse donc un statut 0, la rampe repart à
+  zéro, et ces cinq familles gardent la cadence de 100 ms **malgré** le correctif. Ce qui ralentit
+  vraiment aujourd'hui : `calaos_mqtt` (depuis [`T3.103`](T3.103.md)), un `setup()` qui échoue (les
+  six familles C++, statut 1 par `EXTERN_PROC_CLIENT_MAIN`), un `uv_spawn` qui échoue, et une
+  exception non rattrapée d'un sidecar Python.
+  *À recopier : une décision prise sur une valeur ne vaut que ce que vaut la valeur — corriger le
+  lecteur ne sert à rien tant que cinq écrivains sur six répondent la même chose quoi qu'il arrive.*
+
+- ⛔⭐ **[F-TOOL-1] Le 4ᵉ piège mord AUSSI en python, et il mord DANS le `finally`.** Le harnais de
+  contre-mutation de `T3.105` respectait les sept règles connues — restauration dans un `finally`,
+  pas de `set -e`, instantané neuf nommé par chemin complet, calcul avant ouverture — et il est
+  quand même mort avant sa restauration sous `| head -4` : le `print()` de sa propre ligne
+  « RESTAURATION » a levé `BrokenPipeError` **à l'intérieur du `finally`**, laissant l'arbre muté.
+  La parade « restaurer dans un `finally` » ne suffit donc pas : **le journal doit être incapable de
+  tuer le harnais**. Écrire dans un fichier d'abord, et n'écrire sur le terminal que dans un
+  `try/except`. Mesuré des deux côtés : avant, `cmp` sans rc 0 et fichier muté ; après, `cmp` rc 0,
+  horodatage déplacé, arbre propre.
+  *À recopier : ce qui tue un harnais entre la mesure et la remise en état n'est pas toujours la
+  commande mesurée — ici c'était sa propre trace.*

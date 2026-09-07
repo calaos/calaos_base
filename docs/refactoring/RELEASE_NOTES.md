@@ -530,11 +530,8 @@ pilotes de ce type (MQTT, KNX, Wago, OneWire, OLA, Roon, Reolink) :
 
 > ### ⚠️ Ce que cette version ne corrige PAS
 >
-> **La relance reste aussi rapide qu'avant** : une dizaine de tours par seconde tant que le courtier
-> ne répond pas. Le journal ne défile donc pas moins — **il défile en disant pourquoi**, ce qui est
-> la différence entre « ça ne marche pas » et « votre courtier refuse la connexion sur
-> 192.168.1.20:1883 ». Ralentir la relance est un chantier distinct, qui concerne les sept familles
-> de pilotes et pas seulement MQTT.
+> ✅ **La relance était aussi rapide qu'avant** — une dizaine de tours par seconde tant que le
+> courtier ne répondait pas. **C'est réglé dans la même version** : voir la note suivante.
 >
 > **Et cela ne vaut, pour l'instant, que pour MQTT.** La ligne du serveur (`… exited with status 1`)
 > apparaît pour n'importe lequel de ces programmes ; mais **seul** le programme MQTT sait aujourd'hui
@@ -543,6 +540,60 @@ pilotes de ce type (MQTT, KNX, Wago, OneWire, OLA, Roon, Reolink) :
 
 → **Rien à faire de votre côté.** Si vous aviez un MQTT « qui ne marche pas » sans savoir pourquoi,
 la réponse est maintenant dans le journal du serveur.
+
+## 🔴 Un pilote extérieur qui n'arrive pas à démarrer ne fait plus défiler le journal
+
+### Courtier éteint : de 564 relances par minute à 2 (T3.105)
+
+Le serveur lance ses pilotes extérieurs — MQTT, KNX, Wago, OneWire, OLA, Roon, Reolink — dans des
+programmes séparés, et **les relance dès qu'ils s'arrêtent**. Quand l'un d'eux ne pouvait pas
+démarrer du tout, par exemple parce que votre courtier MQTT était éteint, il s'arrêtait aussitôt et
+repartait **environ toutes les 110 millisecondes**, indéfiniment.
+
+**Mesuré, sur la passerelle MQTT livrée, contre un courtier qui ne répond pas** : **564 lancements
+par minute** et **19 lignes de journal par seconde**. Sur un boîtier ordinaire, avec le niveau de
+journalisation par défaut, c'est un journal qui défile trop vite pour être lu — et une machine qui
+crée un processus dix fois par seconde pour rien.
+
+**Ce qui change.** Le serveur regarde désormais **comment** le programme s'est arrêté, et espace ses
+relances quand il échoue : **100 ms, puis 200, 400, 800 ms, 1,6 s… jusqu'à 30 secondes**. En une
+minute environ, le rythme passe de dix relances par seconde à **une toutes les 30 secondes**, soit
+**2 lancements par minute et une ligne de journal toutes les 10 secondes**.
+
+⭐ **Il n'abandonne jamais.** C'est délibéré : un boîtier domotique n'a pas d'opérateur pour
+relancer quoi que ce soit à la main. Rallumez votre courtier et la maison se rattrape toute seule,
+au plus tard **30 secondes** plus tard, sans que vous ayez à toucher au serveur.
+
+⭐ **Et le journal dit maintenant la cause ET l'attente**, sur une seule ligne :
+
+```
+mqtt exited with status 1 after 0.009s
+mqtt failed 12 time(s) in a row (last exit status 1), holding the relaunch 30s
+```
+
+**Deux précisions qui comptent :**
+
+- **Un arrêt volontaire n'est pas un échec.** Quand vous arrêtez le serveur ou rechargez votre
+  configuration, les programmes sont arrêtés proprement : rien n'est ralenti, et le démarrage
+  suivant est immédiat, exactement comme avant.
+- **Un programme qui a servi ne repart pas au ralenti.** S'il a tourné au moins 30 secondes avant de
+  mourir, le compte repart de zéro : une passerelle qui fonctionnait depuis une heure est relancée
+  **tout de suite**, pas une demi-minute plus tard.
+
+> ### ⚠️ Ce que cette version ne corrige PAS
+>
+> **Cela ne ralentit que les programmes qui savent dire qu'ils ont échoué.** Aujourd'hui, ce sont la
+> passerelle **MQTT**, n'importe lequel des sept qui n'arrive pas à démarrer (mauvais arguments,
+> binaire absent), et les deux pilotes Python (Roon, Reolink) en cas d'erreur interne. Les
+> passerelles **KNX, Wago, OneWire, OLA** et l'exécuteur de scripts annoncent encore une fin normale
+> même quand elles ont perdu leur bus : si l'une d'elles perd le contact **en cours de service**,
+> elle continue d'être relancée au rythme d'avant. C'est un chantier distinct, du côté des programmes
+> eux-mêmes.
+>
+> **Ce que vous imprimez depuis vos propres pilotes n'est pas concerné** : cela reste muet par
+> défaut, comme depuis la note ci-dessous.
+
+→ **Rien à faire de votre côté.**
 
 ## 🔴 Ce que les pilotes externes impriment n'est plus recopié tel quel dans le journal du serveur
 
