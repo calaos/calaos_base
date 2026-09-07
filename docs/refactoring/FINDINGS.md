@@ -13310,3 +13310,46 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   (`core/ExternProcCrashBackoff_test.cpp:290`, `:293`) sont des bornes **basses** sur des comptes,
   donc sensibles à la charge **dans le mauvais sens** — faux **rouge** possible, faux vert non.
   Marge mesurée **× 5**.
+
+
+## Bug rapporté par l'utilisateur — la lecture d'état DALI (2026-09-07)
+
+- ⛔ **F-DALI-1 — [CORRECTION, OUVERT, lu et non exécuté] `WAGO_DALI_GET` perd le drapeau de groupe
+  que `WAGO_DALI_SET` transmet.**
+
+  L'écriture envoie `WAGO_DALI_SET <line> <group> <address> <val> <fade>` ; la lecture envoie
+  `WAGO_DALI_GET <line> <address>`. L'automate attend le drapeau en **3ᵉ** position et
+  `GET_PARAM_DINT` rend **0** pour un paramètre absent, franchement. La réponse est donc bâtie sur
+  `DaliSendValue647[]` (ballasts, `1..64`) au lieu de `DaliSendValueGrp647[]` (groupes, `1..16`).
+
+  ⭐ **L'ordre des paramètres diffère entre les deux commandes** — drapeau avant l'adresse à
+  l'écriture, après à la lecture — et le programme automate porte le même commentaire hésitant
+  `(* Short addr or group? *)` aux deux endroits.
+
+  ⚠️ **Ce que la forme du symptôme apprend** : le serveur ne lit jamais un niveau
+  (`tokens[1] == "0"` sinon **100**), donc l'état est **binaire** et tout non-zéro devient « allumé ».
+  Et le chemin de timeout laisse le défaut `0 = éteint` — ⭐ **un automate muet donnerait « éteinte » :
+  c'est ce qui exclut la panne de communication et impose une réponse reçue mais fausse.**
+  ⇒ [T3.156](T3.156.md).
+
+- ⛔ **F-DALI-2 — [FIABILITÉ, OUVERT] l'état d'une sortie DALI est lu UNE FOIS, à la construction, et
+  jamais corrigé.**
+
+  `WAGO_DALI_GET` n'est émis que depuis quatre constructeurs (`WODali.cpp:61`,
+  `WODaliRVB.cpp:72/74/76`). Le battement périodique n'envoie que `WAGO_SET_SERVER_IP` et
+  `WAGO_HEARTBEAT` ; les trames `WAGO INT` entrantes n'atteignent que les **entrées**. Une lecture
+  fausse au démarrage le reste jusqu'à une action manuelle — ce qui transforme un défaut ponctuel en
+  défaut permanent, et explique le « tout le temps au reboot » du rapport utilisateur.
+  ⇒ [T3.156](T3.156.md) §4.
+
+- ⛔ **F-DALI-3 — [CORRECTION, OUVERT] le champ `address` porte trois sémantiques que la lecture ne
+  distingue pas.**
+
+  Adresse courte DALI, numéro de groupe DALI, adresse DMX au-delà de 100 — une seule valeur, trois
+  sens, et aucun moyen de savoir lequel au retour. Conséquences mesurées à la lecture : la relecture
+  DMX lit son adresse dans le paramètre jamais émis (`p3 - 100` ⇒ sous-débordement, **tout DMX** est
+  touché), et la frontière DALI/DMX diffère entre les deux gestionnaires (`p3 > 99` à l'écriture,
+  `p2 < 99` à la lecture) ⇒ l'adresse 99 serait écrite en DALI et relue en DMX.
+
+  Recoupe la zone d'ombre déjà consignée plus haut : « `WODali` déclare ses adresses sur `1..612` là
+  où une adresse courte DALI va de 0 à 63 ». ⇒ [T3.157](T3.157.md).
