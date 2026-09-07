@@ -6011,3 +6011,40 @@ core_ExternProcRespawnBackoff_test_LDADD = $(CORE_TEST_LDADD)
 core_ExternProcRespawnBackoff_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.109
+#The two remaining listens nothing read back: the HiFi Rose notification port
+#(bound on 0.0.0.0 whatever listen_address said, ErrorEvent subscribed AFTER
+#bind and after listen) and the sidecar pipe (bind + listen with no ErrorEvent
+#at all). Both are read off the DESCRIPTOR - SO_ACCEPTCONN among /proc/self/fd,
+#then getsockname() - and never from the line the constructor printed, which is
+#the very thing that lied.
+#One process per case: both objects bind at construction on the process-wide
+#libuv loop and the notification port is a compile-time constant.
+#⚠️ Exits 77 - and so SKIPS - on a kernel without IPv6, on a machine that has
+#configured 192.0.2.1, and on a machine already holding port 9284, where the
+#notification cases would measure another process's socket.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/NotifAndPipeListen_test
+check_PROGRAMS += core/NotifAndPipeListen_test
+core_NotifAndPipeListen_test_SOURCES = core/NotifAndPipeListen_test.cpp
+core_NotifAndPipeListen_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+NOTIF_AND_PIPE_LISTEN_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVReceiver.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRDenon.$(OBJEXT)           \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRMarantz.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVROnkyo.$(OBJEXT)           \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRPioneer.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRYamaha.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRRose.$(OBJEXT)            \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRRoseNotifServer.$(OBJEXT)
+core_NotifAndPipeListen_test_LDADD = $(NOTIF_AND_PIPE_LISTEN_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_NotifAndPipeListen_test_DEPENDENCIES = $(NOTIF_AND_PIPE_LISTEN_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
