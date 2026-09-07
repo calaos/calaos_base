@@ -43,6 +43,87 @@
      liste de ce que seul le premier `push` tranchera compte **sept** points, et son mode d'échec est
      le **silence**. Elle est énumérée en tête de l'état de sortie ci-dessous.
 
+- ⭐⭐⭐⭐ **ÉTAT DE SORTIE — [`T3.156`](T3.156.md) MERGÉE (2026-09-07), SEULE DANS SA FENÊTRE. À LIRE
+  EN PREMIER À FROID.**
+
+  **Tête de `master`** : la branche `fix/t3.156` (**6 commits** + **1 commit de revue**), rebasée sur
+  **`c5132514`** puis `merge --ff-only` — historique **linéaire**, **0 commit de fusion**.
+  ⚠️ **`master` a bougé PENDANT la revue** (deux commits `docs(t3.160)`, `272425e7` → `c5132514`),
+  contre la règle « ne pas commiter sur `master` pendant une fenêtre de merge » : la branche a donc
+  été **rebasée deux fois** et le cycle `distclean` + trois `make check` **refait** après le second.
+  ⛔ **RIEN N'A ÉTÉ POUSSÉ.** Le rebase a conflité sur `BOARD.md` et `FINDINGS.md` (des deux côtés
+  des ajouts en fin de section : les deux côtés conservés) ; ⭐ **`tests/Makefile.am` n'a PAS
+  conflité** — `master` ne l'avait pas touché — et son bloc `# T3.156` est un **append pur
+  +62 / −0 / ~0**, `master` **préfixe strict au BYTE**, `^if` **135** ≡ `^endif` **135**.
+  ⭐ `git grep -nE '^(<<<<<<< |>>>>>>> |=======$)'` **VIDE sur tout l'arbre**. **`TESTS` 155 → 156.**
+  Référence après `make distclean` + `autogen` + `configure` :
+  **`TOTAL 156 / PASS 155 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
+  `check-ccache-honesty.sh`, **trois `make check` aux résumés identiques**, **0 `error:`**,
+  **un seul** bloc `Testsuite summary` par tour, **156 `CXXLD`** au premier `make -j32`.
+
+  ⭐⭐ **CE QUE LA REVUE DE MERGE A MESURÉ ELLE-MÊME :**
+
+  1. ⛔⭐⭐ **`T3.162` ÉTAIT FAUSSE, ET SA DEMANDE AURAIT CASSÉ LES INSTALLATIONS 2.x.** La fiche
+     annonçait une trame `WAGO_DALI_GET <line> <group> <address>` attendue avant la 3.0. Remesuré
+     par la revue sur `1.7`, `2.0`, `2.3` et `3.0` : ⛔ **l'adresse courte est en deuxième position
+     dans les HUIT versions** — `DALIDimmValue(bShortAddress := DINT_TO_BYTE(p2))` partout. Ce qui a
+     bougé à la 3.0, c'est le paramètre du **drapeau** (`p2` → `p3`) et celui de la **frontière DMX**
+     (`p3` → `p2`). Envoyer la « bonne disposition » à un 2.x y ferait lire le **drapeau** comme
+     adresse courte. ⭐ **La fiche `T3.158`, elle, avait juste** (« `p2` est l'adresse courte, pas un
+     drapeau ») : les deux fiches du même commit se contredisaient. `T3.162`, sa ligne `BOARD.md`,
+     `F-DALI-9` et le §17 de `T3.156` sont **refaits**.
+     ⭐ **L'arbitrage n'est pas ébranlé, il est renforcé** : le régime à deux paramètres marche
+     **parce que** le serveur met l'adresse dans le champ que l'automate lit vraiment comme adresse,
+     et le test de groupe sur `p2` est une **écriture morte** avant la 3.0.
+  2. ⛔⭐⭐ **UNE RÉPONSE `WAGO_GET_VERSION` EN RETARD ALLUME LE LUMINAIRE — JOUÉ, PAS DÉDUIT.**
+     Sonde de la revue : la version expire (vraie `UDPCommandTimeout_cb`), la lecture DALI part, puis
+     le datagramme de version arrive et lui est attribué (la file est **positionnelle**). `tokens[1]`
+     vaut `"3.0"`, qui n'est pas `"0"` ⇒ **`value = 100`** — relu à `'100'` au lieu de `'0'`. Un
+     **doublon** de réponse de version fait la même chose. ⛔ **C'est le symptôme même de `T3.156`**,
+     cette fois sur un ballast quelconque. ⇒ `F-WAGO-14` / [`T3.164`](T3.164.md). ⚠️ Le §19 de
+     `T3.156` (« la dégradation va vers le sûr ») ne vaut **que dans un sens** ; corrigé.
+  3. ✅⭐ **LA BARRIÈRE DE DÉMARRAGE TIENT — pas de 9ᵉ chemin.** `CM7` rejouée indépendamment ⇒
+     **exactement 4 rouges, tous des cas de barrière**, aucun cas de trame. Quatre chemins de plus
+     sondés par la revue et **tous verts** : deux hôtes dont un muet, réponse de version **doublée**,
+     réponse **après** l'expiration, réponse de version sans aucune lecture en attente. L'invariant
+     est structurel : `SendUDPCommand()` est **asynchrone** (file + minuteur de 50 ms), donc aucun
+     rappel ne peut courir avant l'`addIO()` qui le suit, et `deferred.swap()` rend le vidage
+     **idempotent**. ⚠️ Seul le **destructeur** de `WagoMap` abandonne `pending_dali_gets` — comme il
+     abandonne déjà `udp_commands` ; c'est l'arrêt du serveur, sans conséquence.
+  4. ✅ **LA SONDE MORD.** `pendingIOCount()` figé à `0` ⇒ **5 rouges**, dont
+     `TheBarrierCounterIsAliveAndReturnsToItsLevel` lui-même. Le capteur n'est pas un capteur mort.
+  5. ✅ **LES 7 ENSEMBLES ROUGES SONT REFAITS PAR LA REVUE, MUTATIONS ÉCRITES INDÉPENDAMMENT, ET ILS
+     TOMBENT SUR LES MÊMES CHIFFRES** : **5 / 10 / 2 / 19 / 6 / 10 / 4**, **21 paires deux à deux
+     distinctes**, **0 identique**, aucun ensemble vide, témoin `M0` **0 rouge** avec
+     `CXXLD core/WagoDaliGetGroup_test` **lu à chacun des 9 tours**. ⭐ Les deux coïncidences de
+     cardinal annoncées par la fiche sont vraies : `CM2` et `CM6` rougissent 10 cas chacune, mais
+     `CM2` laisse `AStateReadWaitsForThePlcToSayWhatItRuns` vert et `CM6` laisse
+     `ABallastBuiltAfterTheVersionIsSettledStillBalances` vert.
+  6. ⚠️ **DEUX FICHIERS DE FINDINGS PORTAIENT DES IDENTIFIANTS DÉJÀ PRIS** : `F-DALI-6`, `F-DALI-7`
+     et `F-WAGO-12` étaient réutilisés par la livraison. Renumérotés en `F-DALI-9`, `F-DALI-10` et
+     `F-WAGO-13`.
+  7. ⚠️ **`F-TEST-DALI-1` n'était pas refermé** : `ADaliGetReplyOfZeroLeavesTheBallastOff` attend
+     toujours `"0"`, qui **est** la valeur de départ du ballast — il reste vert si le rappel ne court
+     pas du tout. Ce qui tient la branche est son jumeau positif, à sentinelle. Écrit dans la fiche
+     et dans `FINDINGS.md` ; **non corrigé** pour ne pas toucher un test à la fenêtre de merge.
+  8. ⚠️ **COMMENTAIRES `src/`** : la livraison y avait posé **5 emojis** et **un numéro de ticket**
+     (`/* T3.156. …`), et un bloc de 11 lignes. ⛔ Retirés / resserrés à la revue — **aucune ligne de
+     code n'a bougé**. ⚠️ Une affirmation du commentaire était **fausse** (« its owner counted itself
+     into StartReadRules BEFORE calling SendDaliGetCommand() » : le code appelle `SendDaliGetCommand()`
+     **avant** `addIO()`) ; réécrite. ℹ️ Pour mémoire, `src/` porte déjà **401 emojis dans 32
+     fichiers** hérités : la règle vaut pour le code neuf, elle ne fait pas de ce dépôt un dépôt
+     propre.
+  9. ✅ **COÛT DU DÉMARRAGE BORNÉ** : la requête de version ajoute **un** aller-retour par couple
+     hôte/port, soit **+2 s au pire par automate muet**, et les hôtes sont indépendants (une file et
+     un minuteur par `WagoMap`), donc ce n'est **pas** cumulatif. ⚠️ Ce délai frappe la **première
+     commande de tout IO Wago** de cet hôte, pas seulement DALI.
+ 10. ✅ **`T3.159` EST RÉELLEMENT FERMÉE, MESURÉ** : aucun `.pro` < 3.0 ne peut annoncer 3.0 (les
+     `CALAOS_VERSION_H`/`_L` des **30** fichiers relevés un à un par la revue), le seuil est épinglé
+     dans les deux sens (2.9 non / 3.0 oui, et `CM2` l'inverse ⇒ 10 rouges), et la trame envoyée à un
+     2.x est **byte pour byte** celle de `master`. ⭐ La garde `IF found = 0` **existe bien en 3.0 et
+     pas en 2.3** : la lecture d'aliasing est corroborée à la source.
+ 11. ⚠️ **`make check-docs` : verdict LU, non bloquant.** `docs/refactoring/` reste hors du corpus.
+
 - ⭐⭐⭐⭐ **ÉTAT DE SORTIE — LOT 147, QUATRE MERGES DANS UNE SEULE FENÊTRE (2026-09-07). À LIRE EN
   PREMIER À FROID.**
 
