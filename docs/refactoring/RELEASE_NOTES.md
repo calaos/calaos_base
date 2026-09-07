@@ -617,14 +617,39 @@ mqtt failed 12 time(s) in a row (last exit status 1), holding the relaunch 30s
 > elle continue d'être relancée au rythme d'avant. C'est un chantier distinct, du côté des programmes
 > eux-mêmes.
 >
-> **Et un programme qui PLANTE n'est pas ralenti non plus** — cela vaut pour les sept, MQTT compris.
-> Le système ne rapporte pas de code d'erreur pour un programme tué par une faute de segmentation ou
-> par le noyau à court de mémoire : le serveur le lit comme un arrêt normal. Un pilote qui plante en
-> boucle fait donc encore défiler le journal au rythme d'avant. C'est corrigé séparément.
+> ✅ **Un programme qui PLANTE est ralenti depuis (T3.138).** Voir juste en dessous.
 
 Mesuré, même boucle et même fenêtre de 5 secondes : un programme qui **échoue en annonçant une
 erreur** passe de 588 à 72 relances par minute puis à 2 au régime établi ; un programme qui **sort
-normalement** ou qui **plante** reste à ~580 des deux côtés.
+normalement** reste à ~580 des deux côtés.
+
+### Un pilote qui PLANTE est ralenti lui aussi (T3.138)
+
+Un programme tué par une faute de segmentation, par un `abort()` ou par le noyau à court de mémoire
+ne rend **aucun code d'erreur** : le système signale l'arrêt autrement, et le serveur le lisait comme
+un arrêt normal. Un pilote qui plantait en boucle gardait donc exactement le rythme d'avant — et
+cela valait pour **les sept**, la passerelle MQTT comprise, c'est-à-dire la seule que la version
+précédente ralentissait vraiment.
+
+**Mesuré**, même boucle de relance et même fenêtre de 1,6 seconde, avec un pilote de remplacement qui
+se fait tuer à chaque démarrage : **16 lancements** avant, **4** après — le plafond que la rampe
+autorise dans cette fenêtre. Au régime établi, c'est la même montée jusqu'à 30 secondes que
+ci-dessus.
+
+Le journal nomme désormais la cause :
+
+```
+mqtt was killed by signal 11 after 0.004s
+mqtt failed 3 time(s) in a row (last exit status 0), holding the relaunch 0.4s
+```
+
+⚠️ **L'arrêt volontaire reste un arrêt volontaire** : quand vous arrêtez le serveur, les programmes
+sont arrêtés par le même mécanisme du système, et cet arrêt-là n'est toujours pas compté comme un
+échec.
+
+⚠️ **Ce qui reste** : les passerelles **KNX, Wago, OneWire, OLA** et l'exécuteur de scripts
+annoncent encore une fin normale quand elles perdent leur bus **en cours de service** — un chantier
+du côté de ces programmes, distinct de celui-ci.
 >
 > **Ce que vous imprimez depuis vos propres pilotes n'est pas concerné** : cela reste muet par
 > défaut, comme depuis la note ci-dessous.

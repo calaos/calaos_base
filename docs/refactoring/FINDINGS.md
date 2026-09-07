@@ -13179,3 +13179,31 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   (`Scenario::SaveToXml`), donc avant elle il n'y a rien à lire non plus.
   *À recopier : un capteur qui ne mesure rien passe pour un capteur qui ne trouve rien — ici deux
   fois, et pour deux raisons différentes.*
+
+- ✅⭐⭐ **[F-EXTPROC-12 / F-EXTPROC-13] FERMÉS par [`T3.138`](T3.138.md)** — la rampe voit un
+  plantage, et l'origine de l'uptime est tenue. `nextFailureCount()` prend le signal en quatrième
+  paramètre ; un échec est compté dès qu'il n'est ni 0 ni `SIGTERM`. `CR-1` rejouée passe de
+  **0 rouge** à **1** : le cas neuf conduit la vraie boucle jusqu'à une attente que la rampe
+  **calcule elle-même** et exige que la durée de service reste **sous** elle.
+  ⭐ **L'instrument est un COMPTE, pas un débit** : forme `master` **16 lancements** dans une fenêtre
+  de 1600 ms, arbre livré **4** — borne par le haut, donc la charge ne peut que la rendre plus
+  facile à tenir, jamais plus difficile.
+  *À recopier : quand la propriété mesurée est une CADENCE, publier des « lancements par minute »
+  c'est publier une lecture d'horloge murale ; le même fait se dit en comptant les événements d'une
+  fenêtre fixe, et ce chiffre-là survit à une machine partagée.*
+
+- ⛔ **[F-EXTPROC-14] Deux chemins vers la même fonction ne sont pas la même mesure.**
+  `ExternProc.cpp` appelle `noteChildGone()` depuis l'`ExitEvent` **et** depuis l'`ErrorEvent` d'un
+  `spawn()` qui n'a jamais abouti (binaire absent). Le second est retiré ⇒ ⛔ **0 cas rouge**
+  (`TOTAL 151`, `106 CXXLD` lus), alors que la production le commente comme « the cheapest way there
+  is to loop forever » et que les notes de version l'annoncent nommément.
+  ⇒ [`T3.143`](T3.143.md). *À recopier : un cas qui prend le premier chemin ne dit rien du second,
+  et le harnais qui sert au premier peut être inutilisable sur le second — ici aucun enfant ne
+  démarre, donc aucun journal n'est écrit.*
+
+- ⛔ **[F-EXTPROC-15] Un compteur remis à zéro par un chemin ASYNCHRONE ne l'est pas pour l'appelant
+  SYNCHRONE qui suit.** `terminate()` ne touche pas `respawn_failures` ; la remise à zéro arrive par
+  l'`ExitEvent` du `SIGTERM`, après le `startProcess()` qu'un contrôleur enchaîne. Mesuré :
+  `respawn_failures = 0;` ajouté dans `terminate()` ⇒ ⛔ **0 cas rouge** — **ni le comportement
+  actuel ni son contraire** n'est tenu, et l'écart vaut jusqu'à une demi-minute d'attente en
+  production. ⇒ [`T3.144`](T3.144.md).
