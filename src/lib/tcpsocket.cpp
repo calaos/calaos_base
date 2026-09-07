@@ -650,6 +650,48 @@ std::string TCPSocket::GetLocalIPFor(std::string ip_search)
 {
     string ip;
 
+    //An IPv6 correspondent has to be answered with an address it can reach,
+    //and neither branch below can produce one: the dotted quad is not routable
+    //to it, and the interface fallback reads SIOCGIFADDR, which only ever
+    //knows IPv4.
+    struct in6_addr a6;
+    if (inet_pton(AF_INET6, ip_search.c_str(), &a6) == 1)
+    {
+        int sock6 = socket(AF_INET6, SOCK_DGRAM, 0);
+        if (sock6 < 0)
+        {
+            cErrorDom("network") << "Can't create socket";
+            return ip;
+        }
+
+        struct sockaddr_in6 serv6;
+        memset(&serv6, 0, sizeof(serv6));
+        serv6.sin6_family = AF_INET6;
+        serv6.sin6_addr = a6;
+        serv6.sin6_port = htons(80);
+
+        if (connect(sock6, (const struct sockaddr *)&serv6, sizeof(serv6)) == 0)
+        {
+            struct sockaddr_in6 name6;
+            socklen_t namelen6 = sizeof(name6);
+            memset(&name6, 0, sizeof(name6));
+            getsockname(sock6, (struct sockaddr *)&name6, &namelen6);
+
+            char buffer6[100];
+            memset(&buffer6, 0, 100);
+            const char *p6 = inet_ntop(AF_INET6, &name6.sin6_addr, buffer6, 100);
+            if (p6)
+                ip = buffer6;
+            else
+                cErrorDom("network") << "Can't get IP: " << strerror(errno);
+        }
+
+        cDebugDom("network") << "Using local ip address: " << ip << " for ip: " << ip_search;
+        close(sock6);
+
+        return ip;
+    }
+
     //check if the string is a correct ip address
     struct sockaddr_in sa;
     int result = inet_pton(AF_INET, ip_search.c_str(), &(sa.sin_addr));

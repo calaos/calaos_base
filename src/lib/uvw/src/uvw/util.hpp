@@ -406,6 +406,30 @@ Addr address(F &&f, const H *handle) noexcept {
 }
 
 
+//CALAOS PATCH, diverges from upstream. The template parameter of recv() is a
+//guess about the sender; the kernel already said which family the datagram
+//came from. Casting on the guess does not fail loudly, it RENDERS: an IPv6
+//sender read as a sockaddr_in comes back as the plausible, non-empty
+//"0.0.0.0", which no caller can tell from a real address, and the port lands
+//right by an accident of layout, so the mistake looks like a working read.
+//When the guess was right this answers exactly what upstream answered.
+inline Addr sender(const sockaddr *addr) noexcept {
+    if(addr == nullptr) {
+        return Addr{};
+    }
+
+    if(addr->sa_family == IpTraits<IPv6>::family) {
+        return address<IPv6>(reinterpret_cast<const IpTraits<IPv6>::Type *>(addr));
+    }
+
+    if(addr->sa_family == IpTraits<IPv4>::family) {
+        return address<IPv4>(reinterpret_cast<const IpTraits<IPv4>::Type *>(addr));
+    }
+
+    return Addr{};
+}
+
+
 template<typename F, typename... Args>
 std::string tryRead(F &&f, Args&&... args) noexcept {
     std::size_t size = DEFAULT_SIZE;

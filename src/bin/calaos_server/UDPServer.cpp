@@ -47,7 +47,8 @@ void UDPServer::createUdpSocket()
         handleSrv->on<uvw::UDPDataEvent>([this](const uvw::UDPDataEvent &ev, auto &)
         {
             string s(ev.data.get(), ev.length);
-            this->processRequest(s, ev.sender.ip, ev.sender.port);
+            this->processRequest(s, Calaos::unmappedLiteral(ev.sender.ip),
+                                 ev.sender.port);
         });
 
         handleSrv->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &h)
@@ -102,7 +103,8 @@ void UDPServer::processRequest(const string &request, const string &remoteIp, un
             string packet = "CALAOS_IP ";
             packet += ip;
 
-            handleSrv->send(remoteIp, remotePort, (char *)packet.c_str(), packet.length());
+            Calaos::sendDatagram(*handleSrv, remoteIp, remotePort,
+                                 (char *)packet.c_str(), packet.length());
             cDebugDom("network") << "Sending answer: " << packet;
         }
         else

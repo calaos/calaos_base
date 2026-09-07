@@ -106,29 +106,70 @@ bool bindListenAddress(H &handle, const std::string &ip, unsigned int port,
     return bound;
 }
 
-/* The peer of an accepted TCP handle, in the one spelling the rest of the tree
- * compares against: a bare literal, no brackets, no port, no zone, and an
- * IPv4-mapped peer given as its dotted quad. Empty means no connected peer.
+static const char kMappedPrefix[] = "::ffff:";
+
+/* An IPv4-mapped literal reduced to its dotted quad, everything else returned
+ * as it stands.
  *
  * The unmapping is not cosmetic: a dual-stack listen hands back
  * `::ffff:192.0.2.7` where an IPv4 listen says `192.0.2.7`, so without it the
- * identity of every per-client bucket would depend on which address the server
- * was told to bind. inet_ntop is the only writer of these bytes and it renders
- * a mapped address in the dotted form, so the textual test is exact.
+ * identity of a correspondent - a per-client bucket, a configured Wago host -
+ * would depend on which address the server was told to bind. inet_ntop is the
+ * only writer of these bytes and it renders a mapped address in the dotted
+ * form, so the textual test is exact.
+ */
+inline std::string unmappedLiteral(const std::string &ip)
+{
+    const std::string mapped(kMappedPrefix);
+    if (ip.compare(0, mapped.size(), mapped) == 0 &&
+        ip.find(':', mapped.size()) == std::string::npos)
+        return ip.substr(mapped.size());
+    return ip;
+}
+
+/* The inverse, and it is needed on the way out: an AF_INET6 descriptor refuses
+ * a sockaddr_in with ENETUNREACH, so a dotted quad has to travel mapped.
+ */
+inline std::string mappedLiteral(const std::string &ip)
+{
+    if (isIpv4Literal(ip))
+        return kMappedPrefix + ip;
+    return ip;
+}
+
+/* The peer of an accepted TCP handle, in the one spelling the rest of the tree
+ * compares against: a bare literal, no brackets, no port, no zone, and an
+ * IPv4-mapped peer given as its dotted quad. Empty means no connected peer.
  */
 inline std::string tcpPeerAddress(const uvw::TcpHandle &handle)
 {
     const std::string v6 = handle.peer<uvw::IPv6>().ip;
     if (!v6.empty())
-    {
-        static const std::string mapped("::ffff:");
-        if (v6.compare(0, mapped.size(), mapped) == 0 &&
-            v6.find(':', mapped.size()) == std::string::npos)
-            return v6.substr(mapped.size());
-        return v6;
-    }
+        return unmappedLiteral(v6);
 
     return handle.peer<uvw::IPv4>().ip;
+}
+
+/* Answers on the family the socket is bound to, not on the family the
+ * destination literal happens to read in.
+ *
+ * send() is templated like bind() and defaults to IPv4, and uv_ip4_addr()
+ * zeroes its output before reporting it could not read an IPv6 literal - so a
+ * reply leaves an IPv6 socket as a sockaddr_in and is refused. That costs more
+ * than the one datagram: the refusal is published on the handle, and an owner
+ * that stops the handle on ErrorEvent stops receiving anything at all.
+ *
+ * The family is read from the handle rather than remembered beside it, which
+ * only works because sock<IPv6>() is empty on an AF_INET descriptor.
+ */
+template<typename H>
+void sendDatagram(H &handle, const std::string &ip, unsigned int port,
+                  char *data, unsigned int len)
+{
+    if (handle.template sock<uvw::IPv6>().ip.empty())
+        handle.template send<uvw::IPv4>(ip, port, data, len);
+    else
+        handle.template send<uvw::IPv6>(mappedLiteral(ip), port, data, len);
 }
 
 }
