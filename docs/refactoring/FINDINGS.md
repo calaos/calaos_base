@@ -12829,3 +12829,46 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   `run.log`, `obs.log`, `failure`, `stock`, `reduced`) et **0** un appel, pour **10** couples
   (suite, nom) distincts. L'anti-vacuité coûte une dizaine d'assertions, pas 39, et le lien lexical
   que la sonde suit déjà suffit à la tenir.
+
+## T3.117 — un identifiant dupliqué, et le harnais qui a menti sur sa propre mutation (2026-09-07)
+
+- ⭐⭐ **[F-SCEN-1] Un `autoscenario_uid` dupliqué rendait un des deux scénarios INERTE, sans
+  suppression et sans un mot.** La fiche d'instruction ne portait que la moitié « suppression ». Or
+  la passe de démarrage reconstruit dans l'ordre du fichier et `rebuildRules()` commence par
+  `destroyRules()`, **qui détruit par uid** : la reconstruction du second détruit les règles que le
+  premier vient de générer et régénère les siennes sous **les mêmes noms**. Mesuré : les deux
+  scénarios sont listés, `autoscenario get` rend à chacun **sa propre** définition, et **le bouton de
+  l'un n'exécute aucun pas**. Aucun drapeau `broken`, aucun `disabled_missing_io` — à définitions de
+  même taille `expectedRuleCount()` tombe juste, puisqu'il compte les règles de l'autre. ✅ **FERMÉ**
+  par [T3.117](T3.117.md) (re-cléage du second, sur le modèle entier, avant toute dérivation).
+
+- ⛔ **[F-SCEN-2] `set_param` écrit `autoscenario_uid` sur n'importe quel IO, et rien ne l'en
+  empêche.** `IOBase::set_param()` n'a **aucune liste blanche de clefs** : seuls `id` et les deux
+  gardes (octets non écrivables en XML, IO que la fabrique ne saurait plus construire) refusent
+  quelque chose. La commande est atteignable sur les **trois** transports — WebSocket, HTTP et Lua.
+  ⚠️ Elle est **inerte sur le moment** (l'`AutoScenario` est bâti par le constructeur de l'IO), donc
+  le doublon n'apparaît qu'au démarrage suivant — ce qui est précisément pourquoi une garde posée sur
+  un verbe de création ne l'aurait jamais vue. `T3.117` **répare** au démarrage suivant ; il ne
+  **refuse** pas à l'écriture. → [T3.137](T3.137.md).
+
+- ⛔ **[F-SCEN-3] Trois lignes du correctif de `T3.117` ne sont tenues par rien**, mesurées à 0 rouge
+  par deux contre-mutations par échange. `declareDefinition()` ré-alloue un uid dès que `def->uid` est
+  vide et réécrit `scheduleIoId` depuis `ioTimeRange` au premier `rebuildRules()`, et
+  `saveToParams()` réécrit le param `autoscenario_uid` depuis `def->uid` au premier enregistrement —
+  que la passe de démarrage fait elle-même. Les trois valeurs sont **re-dérivées avant d'être lues**.
+  Elles restent parce que la fenêtre entre le re-cléage et l'enregistrement est réelle et que
+  `buildJsonIO()` publie la clef ; mais rien ne rougirait si elles disparaissaient.
+
+- ⛔⭐⭐ **[F-TOOL-1] NEUVIÈME membre de la famille `_DEPENDENCIES` : un harnais de contre-mutation qui
+  relit le fichier POUR CHAQUE ÉDITION efface ses propres éditions.** Vécu en `T3.117` : deux éditions
+  du même fichier étaient calculées chacune depuis le contenu du disque, puis écrites séparément — la
+  seconde écrasait la première. Une contre-mutation « déplacer un appel » (= *retirer ici* + *remettre
+  là*) a donc été mesurée avec seulement *remettre là* : l'arbre appelait la passe **deux fois**, dont
+  une au bon endroit, et le tour est revenu **VERT**. ⚠️ **Les preuves des huit pièges étaient TOUTES
+  vraies** : `cmp` rc 0, horodatage déplacé, instantané neuf jamais réutilisé, aucun `| head`,
+  `git status` de l'hôte vide, et la ligne `CXX ListeRoom.o` bien présente. Le fichier muté **est**
+  celui qui a compilé ; c'est la mutation qui n'était pas celle que le descripteur annonçait.
+  *À recopier : une preuve de restauration ne dit rien de ce qui a été écrit **entre** l'instantané et
+  elle — et un « vert » sur une contre-mutation qu'on croit destructrice doit être soupçonné avant
+  d'être publié.* **Parade** : éditions **séquentielles par fichier**, et un auto-test de harnais qui
+  porte une quatrième forme — *deux éditions d'un même fichier doivent TOUTES DEUX survivre*.

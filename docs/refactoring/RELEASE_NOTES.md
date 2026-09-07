@@ -3315,10 +3315,58 @@ d'un scénario répond donc normalement, et le serveur reste debout. Le second s
 sans machinerie et marqué comme désactivé faute d'équipements — ce qui était déjà son sort — au
 lieu d'emporter le serveur avec lui.
 
-⚠️ **Ce que cette version ne corrige PAS** : un `autoscenario_uid` en double reste **accepté**, et
-deux scénarios qui le partagent partagent aussi leurs règles. La suppression de l'un laisse donc
-l'autre vide, sans que vous l'ayez demandé. Refuser ou re-cléer le doublon au chargement reste à
-faire.
+⚠️ **Ce que cette version-là ne corrigeait PAS**, et qui l'est maintenant : voir juste en dessous.
+
+## 🔴 Deux scénarios au même identifiant interne : l'un ne faisait plus rien, et supprimer l'autre le vidait (T3.117)
+
+C'est la suite de l'entrée ci-dessus, et elle va plus loin que la panne.
+
+Chaque scénario automatique porte dans `io.xml` un identifiant interne, `autoscenario_uid`. **Tout**
+ce qui appartient au scénario en dérive : ses cinq équipements internes, et les règles que le serveur
+génère pour lui. Rien ne vérifiait que cet identifiant était unique.
+
+**Ce qui se passait, avant même toute suppression.** Au démarrage, le serveur reconstruit les
+scénarios l'un après l'autre, et chacun commence par effacer les règles portant son identifiant. Deux
+scénarios partageant un identifiant se marchaient donc dessus : le second effaçait les règles que le
+premier venait de générer. Résultat, **l'un des deux ne faisait plus rien du tout**. Il restait
+affiché dans l'application, avec ses étapes et ses actions, parfaitement normal en apparence — mais
+appuyer sur son bouton ne déclenchait rien. Aucun message, aucun signalement, aucune trace dans le
+journal.
+
+Et ensuite, comme décrit plus haut, supprimer l'un des deux détruisait les équipements internes que
+l'autre utilisait encore.
+
+**Ce qui change.** Au démarrage, le serveur détecte les identifiants partagés et **donne au second un
+identifiant neuf**. Les deux scénarios repartent alors chacun avec ses propres équipements internes
+et ses propres règles, et fonctionnent tous les deux. **Rien n'est retiré de votre configuration** :
+les étapes, les actions et les noms sont conservés, et le fichier est réenregistré avec les deux
+identifiants distincts — le démarrage suivant n'a plus rien à réparer.
+
+Une **notification de configuration** (mail et push, comme les autres alertes de démarrage) vous dit
+quels scénarios étaient concernés et quel identifiant chacun porte désormais.
+
+> ### ⚠️ Une chose est à refaire à la main : la programmation horaire
+>
+> Si le scénario qui a reçu un identifiant neuf avait un **horaire**, il faut le **reprogrammer**. Ce
+> n'était pas le sien : il lisait la plage horaire de l'autre scénario, celle-là même dont il
+> partageait l'identifiant. Il repart donc sans horaire, et la notification le dit. Tout le reste —
+> étapes, pauses, actions, nom, pièce — est intact.
+
+> ### Êtes-vous concerné ?
+>
+> Uniquement si votre `io.xml` contient deux scénarios avec le même `autoscenario_uid`. Aucune
+> commande de création de Calaos n'en produit : chaque scénario créé reçoit un identifiant neuf,
+> choisi au-delà de tous ceux que le fichier contient déjà. Cela suppose un fichier **édité à la
+> main**, **assemblé à partir de deux installations**, **restauré partiellement**, ou envoyé par
+> `config put` depuis un outil tiers.
+
+> ### Ce que cette version ne fait toujours pas
+>
+> La commande générique d'écriture de paramètre (`set_param`) accepte toujours d'écrire
+> `autoscenario_uid` sur n'importe quel équipement, y compris avec la valeur d'un autre scénario.
+> L'écriture ne se voit pas sur le moment ; c'est le démarrage suivant qui la répare, en re-identifiant
+> le doublon et en vous prévenant. De même, `config put` n'inspecte pas l'`io.xml` qu'il reçoit —
+> c'est volontaire : refuser un envoi de configuration casserait le déploiement.
 
 ## Éclairage DMX (OLA) : le canal **rouge** acceptait un numéro que le matériel ne peut pas recevoir (T3.38)
 
