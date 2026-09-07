@@ -13502,6 +13502,44 @@ donner **+N/−0/~0** — zéro ligne retirée, zéro ligne modifiée. Enfin l'�
 Backlog wave 4 (candidats) : **T1.8, T1.10, T1.14, T1.16, T1.17, T1.19** — majoritairement
 Python / drivers, donc largement file-disjoints.
 
+## ⭐ Développement en PARALLÈLE — les quatre règles qui le rendent possible (2026-09-07)
+
+Constat chiffré du 2026-09-07 : sur un cycle, un développement coûte ~50 min et **une revue de merge
+en coûte 95 à 113**. La revue vaut deux développements parce qu'elle **rejoue** la campagne de
+contre-mutations au lieu de la lire — c'est délibéré, l'auto-rapport d'un agent ne se croit pas. Le
+levier n'est donc pas d'alléger la preuve, c'est de cesser de sérialiser ce qui n'a pas à l'être.
+
+1. **Plusieurs agents de développement de front, sur des fichiers disjoints.** Les merges, eux,
+   restent sérialisés : un seul `master`, `--ff-only`. C'est le goulot, et il ne se parallélise pas.
+2. ⛔ **Builds en `-j12`, pas `-j32`.** Et surtout : **aucune mesure qui dépend d'une horloge murale
+   n'est valide sous cette charge** — durée, débit, timeout, « lancements par minute ». Un brief qui
+   demande une telle mesure doit exiger soit une charge basse vérifiée par `uptime` et citée, soit
+   un instrument qui compte des **événements** plutôt que des secondes. C'est le piège de `T3.112`
+   et l'objet de `T3.128` ; sous quatre agents, il se déclenche tout seul.
+3. ⭐ **Chaque agent écrit sa PROPRE suite de test dans un fichier neuf**, il ne modifie pas une
+   suite partagée. Mesuré à `T3.109` : deux rebases successifs sur une branche qui touchait la même
+   zone que `T3.107` (+426 lignes) ont coûté **zéro conflit**, uniquement parce que la suite était à
+   part. Le seul conflit qui reste est celui de `tests/Makefile.am`, dont la recette de
+   **régénération** est connue.
+4. ⭐ **Réserver à chaque agent des numéros de ticket distincts, nommés dans son brief.** La
+   parallélisation rend la collision certaine, pas probable : trois collisions en une journée
+   (`T3.134` → `T3.137`, `T3.137` → `T3.138`, `T3.141` pris par une revue sous le nez d'un agent de
+   dév). Un numéro se revérifie **au moment d'ouvrir la fiche**, jamais au moment de la lire.
+
+### Revue graduée selon le risque
+
+Le rejeu intégral de la campagne se justifie pour un ticket dont le correctif **atteint un
+utilisateur**. Pour la dette de test et les sondes, il ne se justifie pas : lire le diff, builder,
+un `make check`, et **vérifier les ensembles rouges dans les journaux de l'agent** au lieu de les
+rejouer. ⚠️ La frontière se décide **avant** de lancer la revue, et elle s'écrit dans le brief : une
+revue qui décide elle-même d'alléger sa preuve n'est plus une revue.
+
+### Grouper les merges
+
+Réviser N branches, puis **une seule fenêtre de merge** : un `distclean` + rebuild au lieu de N.
+Mesuré le 2026-09-07 : trois merges lancés de front ont produit **deux doubles-rebases**, chacun
+imposant `distclean`, rebuild complet et trois `make check` — près d'une heure perdue.
+
 ## Règle — ne pas commiter sur master pendant une fenêtre de merge
 
 Constat du merge E4.2f+E4.0a (2026-08-16) : l'orchestrateur a commité 3 commits de docs

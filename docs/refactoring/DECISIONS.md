@@ -1255,3 +1255,21 @@ ne livre pas, mais **une CI qui ne tourne pas du tout ne livre pas non plus, en 
 
 ⛔ **La consigne « aucun agent ne pousse » reste entière** : c'est l'orchestrateur qui poussera, une
 fois les quatre mergés, et il l'annoncera avant.
+
+
+## 2026-09-07 — l'utilisateur demande trois changements de cadence, et le `push`
+
+Question posée : « pourquoi c'est tellement long ? ». Réponse chiffrée sur un cycle réel — dév.
+T3.109 **50 min**, merges T3.117 **42 min**, T3.107 **95 min**, T3.105 **113 min**. La revue coûte
+deux développements. Trois changements **tranchés et appliqués** : développements en parallèle sur
+fichiers disjoints, revue **graduée selon le risque**, merges **groupés**. Le détail et les gardes
+qui les rendent sûrs sont dans `ORCHESTRATION.md`.
+
+⭐ **Le `push` est autorisé sans condition résiduelle** : « push quand T3.109 est mergé ». Il l'est
+(`486c590a`), les quatre tickets de la décision du matin sont sur `master`.
+
+⛔ **Et une consigne neuve, qui prime sur la reprise du travail** : **après le `push`, surveiller la
+CI jusqu'à sa conclusion avant toute autre chose.** L'ordre réel est `push` → `ci.yml` → *si vert
+seulement* → publication de `ghcr.io/calaos/calaos_base:dev`. Une CI rouge ne déploie rien — mais
+`T3.133` établit que les quatre conditions de cette garde ne sont tenues par aucun capteur : ce
+`push` est donc aussi le premier test de la garde elle-même.
