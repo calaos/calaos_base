@@ -13384,12 +13384,33 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   ⭐ Un volet occupe **deux bits relais, à 0 au repos** : recopier une image au repos est inoffensif.
   ⇒ [T3.160](T3.160.md) §4.
 
-- ⛔ **F-WAGO-3 — [FIABILITÉ, OUVERT] personne ne réaffirme l'image de sortie au retour du serveur.**
+- ⛔ **F-WAGO-3 — [FIABILITÉ, OUVERT] les volets n'ont aucun point de resynchronisation au retour du
+  serveur.**
 
-  `netOutStandard` n'est écrite que par Modbus : figée pendant la panne, elle est réécrite telle
-  quelle au retour, **ré-excitant tout relais de volet actif au moment du crash**. Côté serveur,
-  `WOVoletBase::voletInit()` ne lit ni n'écrit rien, `WODigital` **adopte** l'état du PLC au lieu de
-  le réaffirmer, et `WAGO_SET_OUTPUT` n'est utilisé que par `src/bin/tools/wago_test.cpp`.
+  ⚠️ **Rédaction corrigée.** Une première analyse concluait que le retour « restaurait un passé » et
+  ré-excitait tout : **c'était surinterprété**. `netOutStandard` vit en mémoire PLC, le reboot ne
+  l'efface pas, et `WODigital` (`WODigital.cpp:62-67`) **relit** ce bit à la reconnexion — le serveur
+  adopte donc sa propre image d'avant le reboot, ce qui est cohérent et correspond à ce que
+  l'utilisateur observe. ⭐ Avec « `calaos_server` a toujours priorité », **la bascule retour est
+  correcte telle quelle**.
 
-  ⚠️ **Une seule des deux bascules suffit à faire bouger un volet** : ce défaut est indépendant de
-  `F-WAGO-1` et se corrige séparément. ⇒ [T3.161](T3.161.md).
+  Reste **un seul** cas : `WOVoletBase::voletInit()` (`WagoIOBase.h:224-230`) ne lit ni n'écrit rien
+  et n'a aucun point de resync ⇒ un volet dont le relais était excité au crash est **ré-excité au
+  retour**. Étroit — il faut que le serveur meure pendant un mouvement — mais réel.
+
+  ⚠️ **Même famille structurelle que `F-DALI-2`** : un état lu une fois, ou pas du tout, et jamais
+  rafraîchi. Pas le même code, le même oubli. ⇒ [T3.161](T3.161.md).
+
+- ⭐⭐ **F-WAGO-4 — [MÉCANISME, expliqué] `ManageOutput` est purement ÉVÉNEMENTIEL, donc le miroir est
+  la SEULE chose qui tienne une sortie allumée en mode dégradé.**
+
+  `TELERUPTEUR`, `VOLET` et `TELERUPTEUR_DALI*` n'appellent `SetOutput()` que sous
+  `IF (event[cpt].ON = TRUE)` ; `NONE:` ne fait rien ; **seul `DIRECT` réaffirme un niveau à chaque
+  cycle**. Or la boucle d'écriture dégradée est **inconditionnelle sur toute la plage** et ne
+  consulte jamais `output_type[]`. Là où le miroir ne va pas, la table vaut **0** et ce zéro est
+  publié : la table dégradée ne restaure pas un ancien état, **elle écrit du zéro**.
+
+  ⭐ **Corollaire qui ferme le dossier** : une sortie **non déclarée** tombe en `NONE:` et conserve la
+  valeur miroitée, republiée inchangée à chaque cycle. **La config dégradée n'a donc pas besoin
+  d'être à jour pour que la bascule soit inoffensive** — ce qui répond à l'objection de fond, « le
+  mode dégradé n'est pas souvent à jour chez les utilisateurs ». ⇒ [T3.160](T3.160.md) §2 bis.
