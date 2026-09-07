@@ -40,8 +40,137 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-06, APRÈS LE MERGE DE [`T3.21`](T3.21.md) +
-  [`T3.25a`](T3.25a.md)) — À LIRE EN PREMIER À FROID.**
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-07, APRÈS LE MERGE DE [`T3.112`](T3.112.md)) — À LIRE
+  EN PREMIER À FROID.**
+
+  ⭐⭐⭐ **(a) LE BACKLOG D'ORIGINE DU 4 SEPTEMBRE EST TOUJOURS À ZÉRO.** Rien n'y est revenu :
+  `T3.112` n'en fait pas partie, il vient de `(b)`, les tickets **ouverts par les revues**. Le compte
+  de `(a)` reste **11 fermés + 2 écartés = 13**, énumérable ligne à ligne dans l'état de sortie
+  précédent.
+
+  ⭐⭐⭐ **ET LA CONSÉQUENCE QUI COMPTE LE PLUS : [`T3.125`](T3.125.md) B et C SONT DÉBLOQUÉS.**
+  Conditionner la publication à une CI verte était impossible tant qu'une suite clignotait — la garde
+  aurait fait **manquer des livraisons**. `T3.112` était le seul rouge intermittent de l'arbre, et il
+  est fermé. ⛔ **Cela ne change rien au fait mesuré** : `docker-publish-dev.yml` part sur
+  `on: push: branches: [master]`, son unique job n'a **ni `needs:` ni `if:`**, et **pousser PUBLIE
+  sans attendre les tests**. ⛔⭐ **LE `push` EST UNE LIVRAISON, PAS UNE VÉRIFICATION. Aucun agent ne
+  pousse, jamais.** ⛔ **RIEN N'A ÉTÉ POUSSÉ DE TOUTE LA SÉRIE.**
+
+  Tête de `master` : **le commit de revue qui porte ce paragraphe**, à la suite de **`031228f7`**
+  (branche `test/t3.112`, **3 commits** : 2 du développeur, plus 1 de la revue de merge),
+  `merge --ff-only`, historique linéaire, **0 commit de fusion**. **Aucun rebase** : la branche
+  partait déjà de `3b092759`. ⭐ **`tests/Makefile.am` prouvé INTOUCHÉ** — `cmp` rc **0** entre
+  `master:tests/Makefile.am` et celui de la branche —, `^if` **125** ≡ `^endif` **125**, `TESTS`
+  **145 → 145**. ⭐ **Zéro ligne de `src/`** (`git diff --name-only` : **0** fichier sous `src/`).
+  Référence après `make distclean` : **`TOTAL 145 / PASS 144 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 /
+  ERROR 0`**, **145 `.trs`**, seul `SKIP` `check-ccache-honesty.sh`, **0 `error:`**, **146 `CXXLD`**
+  au build complet (11 au `make`, 135 au `make check`), **un seul** bloc `Testsuite summary` par
+  tour, **six `make check` verts** sur l'arbre livré (5 de référence + le témoin).
+  ⭐⭐ **`core/MqttSidecarConfigWait_test` n'a plus flanché une seule fois** — c'est le rouge
+  intermittent des onze `make check` de la revue précédente.
+
+  ⭐⭐ **CE QUE LA REVUE A MESURÉ, ET QUI DÉPASSE LE TICKET :**
+  1. ⭐⭐ **LES DEUX ROUGES REVIENNENT À LA DEMANDE, ET LA REVUE LES A REFAITS TOUS LES DEUX.** Sur le
+     binaire de `master`, dans un conteneur `--cap-add=NET_ADMIN`, sans toucher une ligne : SYN
+     renvoyé vers une interface `dummy` ⇒ **3 rouges / 3**, `r.exited` faux à **8 018-8 019 ms** ;
+     `ip route add blackhole 192.0.2.0/24` ⇒ **3 rouges / 3** à **22-23 ms**, sur l'**autre** ancre
+     (« this case is measuring the wrong path », `errno 22`). Le binaire livré, sous les **mêmes**
+     deux routages : **3 verts / 3** à 27-31 ms, et la **suite entière 9/9 trois fois** sous le
+     routage `dummy`. ⇒ *le verdict était pris hors de l'arbre, et il ne l'est plus.*
+  2. ⭐⭐ **L'ÉCHELLE DE RETRANSMISSION EST REFAITE, ET LA QUEUE EST BIEN PLUS LOURDE QUE FICHÉE.**
+     300 `connect()` non bloquants, même image, même adresse : **128 < 50 ms**, **85 ≈ 1 s**,
+     **65 à 2-4 s**, **22 ≥ 5 s** dont **11 au-delà de 12 s**, **289 `ENETUNREACH`**. La fiche
+     annonçait 286/6/6/2 ; les deux relevés sont vrais et c'est **exactement le point du ticket** —
+     un flottement dont la cause est hors de l'arbre n'a pas de taux. ⭐ Le mécanisme se lit dans les
+     chiffres : l'adresse est routée vers la passerelle, l'ICMP *unreachable* est **limité en débit**,
+     et le SYN retransmis à 1 s, 2 s, 4 s… ⇒ **le budget de 8 s est bien posé entre deux barreaux**.
+     *À recopier : mesurer une queue en RAFALE et en ISOLATION ne donne pas la même queue ; publier
+     un taux sans dire lequel des deux, c'est publier un souvenir.*
+  3. ⛔⭐ **DEUX DES TROIS ASSERTIONS NEUVES SONT DES ORACLES, LA TROISIÈME EST UNE REFORMULATION.**
+     `EXPECT_FALSE(logCarries(r, "waiting for its configuration"))` ne peut **jamais** être
+     l'assertion qui parle : toute ligne portant ce texte vient d'un `awaitConfiguration()` qui a
+     rendu `false`, donc d'un `setup()` qui abandonne **avant** de connecter — l'ancre
+     `ASSERT_TRUE(logCarries(r, "Connect to : …"))` qui la précède a déjà arrêté le cas. Mesuré :
+     l'échéance de configuration inversée ⇒ **1 seul cas rouge**, et c'est
+     `AConfigurationThatNeverArrivesEndsTheSidecarAfterItHasWaited`, jamais celui-ci. Elle ne nuit
+     pas — elle documente —, mais **elle ne compte pas comme un capteur**.
+  4. ⭐ **LE CAS EXIGE ENCORE UNE VRAIE PERTE, ET CE N'EST PAS UN DÉCOR.** Le pair local qui ferme son
+     **auditeur** au lieu de sa **connexion** — la connexion acceptée reste donc ouverte — rend
+     **exactement** le rouge historique : `r.exited` faux à **8 028 ms**, *« the sidecar stayed alive
+     with a broker it never reached »*. ⇒ un bouchon qui ne perd rien ne donne pas un vert, et le
+     budget de 8 s sert encore de garde-fou contre une régression qui **pendrait** `make check`.
+  5. ⭐ **LE « UNE SEULE ADRESSE COMPOSÉE » EST RECOMPTÉ, ET IL TOMBE JUSTE.** Balayage indépendant
+     des **80** littéraux non-loopback de `tests/` (RFC 5737/3849, `example.*`) sur **15** fichiers :
+     tous sont des en-têtes `X-Forwarded-For`, des charges comparées en mémoire, de l'argv de
+     sidecars bouchonnés, ou voués à un `bind()` `EADDRNOTAVAIL`. Tous les vrais `connect()` de
+     `tests/` visent `INADDR_LOOPBACK`, `in6addr_loopback` ou `AF_UNIX`. ⇒ **il n'en reste aucune**,
+     et la seule qui l'était disparaît avec ce ticket. ⚠️ **Le piège à nommer pour la suite** :
+     `core/MqttConfigTransport_test.cpp` porte **le même littéral `192.0.2.42`**, mais son sidecar
+     est remplacé par le script enregistreur d'`ExternProcSpawnHarness.h` — l'adresse ne quitte
+     jamais la trame de configuration. Un balayage textuel seul aurait compté deux composées.
+  6. ⚠️ **CE QUI EST PERDU EST ACCEPTABLE, ET C'EST DIT.** La vraie panne de routage
+     (`ENETUNREACH` / `ETIMEDOUT`) n'est plus jouée. Ce qui la rendait utile — la confusion
+     table-`errno` / table-mosquitto dans `brokerErrorText()` — reste épinglé par
+     `ARefusedPortIsNamedARefusalAndNotAnUnrelatedErrno`, qui exige `"Connection refused"` et refuse
+     `"Bad address"`. Et le chemin **asynchrone** que le cas existe pour tenir est atteint à
+     l'identique : `connect_async()` a répondu SUCCESS, le descripteur est enregistré, la
+     bibliothèque le ferme ensuite. ⇒ **le cas n'a pas cessé de mesurer, il a cessé de demander au
+     réseau la permission de mesurer.**
+
+  ⭐ **CE QUE LES CONTRE-MUTATIONS DE LA REVUE ONT MESURÉ — trois neuves, plus le rejeu et le témoin :**
+  - ⭐⭐ **CR-A** *(les deux issues du courtier local échangées : il répond son CONNACK là où il
+    devait raccrocher)* ⇒ **3 cas / 1 binaire**, et dans le cas neuf **le seul rouge est
+    `ASSERT_FALSE(broker.sentConnack)`** — les trois moitiés d'origine restent vertes, parce qu'une
+    session établie puis perdue tue aussi le sidecar. ⇒ **l'assertion neuve est bien l'oracle qui
+    sépare ce cas de son voisin**, et c'est la parade à la *fixture fausse* ;
+  - ⭐⭐ **CR-B** *(le courtier ferme son auditeur au lieu de sa connexion)* ⇒ **1 cas / 1 binaire**,
+    `r.exited` faux à **8 028 ms** — le rouge historique, à la demande ;
+  - ⭐ **CR-C** *(l'échéance de configuration inversée)* ⇒ **1 cas / 1 binaire**, et **ce n'est pas
+    celui-ci** ⇒ la troisième assertion neuve est masquée (point 3) ;
+  - **CM-1 rejouée** *(les deux issues de `pumpBroker()` échangées)* ⇒ **4 cas**, exactement ceux que
+    la fiche annonce. ⚠️ **Précision corrigée au merge** : dans le cas neuf, l'assertion qui parle
+    est la **cause** (`"Lost the connection to the broker"` absent), pas la **mort** — le sidecar
+    meurt bel et bien, par l'`EBADF` du descripteur périmé, et ce qu'un opérateur perd est la ligne
+    qui dit pourquoi. C'est **le défaut d'origine**, et le cas déterministe le rougit ;
+  - **témoin** *(les 2 fichiers réécrits à l'identique, horodatage déplacé)* ⇒ **0 rouge**,
+    `TOTAL 145 / PASS 144`, **2 `CXXLD`** lus (`calaos_mqtt`, `core/MqttSidecarConfigWait_test`),
+    sha256 des deux fichiers **identiques aux originaux** : le relink est vivant, donc le vert porte.
+  Mutation et restauration **sur l'HÔTE**, jamais un `git` dans le conteneur ; instantané **neuf**
+  hors de l'arbre, nommé par **chemin complet**, jamais réutilisé ; restauration par écriture **sans
+  métadonnées** puis `utime`, prouvée par `cmp` **rc 0** **et** par un horodatage **effectivement
+  déplacé** aux **4** restaurations ; sortie **jamais tronquée** ; `git status` sur l'**HÔTE** **vide**
+  après chaque tour. ⚠️ **Le harnais a été éprouvé contre le 6ᵉ piège AVANT de servir**, dans ses
+  **deux** formes — aiguille absente, puis compte d'aiguille faux : refus d'écrire, fichier
+  **identique au sha256 près** les deux fois.
+  ⛔⭐ **ET LE HARNAIS S'EST FAIT PRENDRE PAR LE 4ᵉ PIÈGE, EN VERSION `set -e`.** Le pilote de tour
+  portait un `set -e` : au premier tour rouge — et un tour de contre-mutation est **fait** pour être
+  rouge — le `docker run` a rendu un code non nul et le script est **mort avant sa restauration**,
+  laissant l'arbre muté. C'est la même famille que le `| head` de `T3.72` : *le harnais meurt entre
+  la mesure et la remise en état*. Rattrapé par le `git status` sur l'HÔTE, exactement comme les deux
+  fois précédentes. **Parade** : un pilote de contre-mutation se conduit en `set +e`, et sa
+  restauration ne doit dépendre d'**aucun** code de sortie.
+  *À recopier : dans un harnais de contre-mutation, `set -e` n'est pas une sécurité, c'est un piège —
+  le seul code de sortie qu'on attend est un échec.*
+
+  **Tickets ouverts par les revues — `(b)`, une ligne chacun :**
+  - **`T3.128`** (neuve, ouverte par le balayage de ce ticket) — les **16** cas `UrlDownloader*`
+    attendent un `curl` **forké** sur `runLoopUntil(…, 15000)` ; **jamais vus rouges**, marge de deux
+    ordres de grandeur : une **forme** à retirer, pas un rouge à éteindre.
+  - **`T3.131`** est le prochain numéro libre. ⚠️ Numéros **pris** : `T3.76` → `T3.128` ; `T3.114`
+    est un **trou**.
+  - Les autres (`T3.91`, `T3.100`, `T3.102`, `T3.104`, `T3.107`, `T3.109`, `T3.111`, `T3.115`
+    → `T3.127`) sont inchangés — voir `BOARD.md`.
+
+  **Ce qui attend l'utilisateur :**
+  1. ⛔ **Le job CI chez GitHub n'a JAMAIS tourné**, et le `push` reste **différé**. C'est le seul
+     point de vérification ouvert depuis `T3.67`.
+  2. ⭐ **[`T3.125`](T3.125.md) B et C sont DÉBLOQUÉS** et redeviennent une décision d'utilisateur :
+     poser un `workflow_run` ou une protection de branche pour que la publication attende les tests.
+  3. ⚠️ **Rien ne défend l'arbre contre le retour d'une adresse hors boucle locale** : le balayage
+     de `T3.112` §7 est un relevé daté, pas une sonde. La classe reste ouverte.
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-06, APRÈS LE MERGE DE [`T3.21`](T3.21.md) +
+  [`T3.25a`](T3.25a.md)) — conservé pour l'historique.**
 
   ⭐⭐⭐ **LE BACKLOG D'ORIGINE DU 4 SEPTEMBRE EST À ZÉRO.** `T3.21` et `T3.25a` étaient les deux
   derniers. ⛔ **Aucun ticket du backlog d'origine n'est en vol, aucune branche n'est en attente.**

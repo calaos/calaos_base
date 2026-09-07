@@ -12468,3 +12468,75 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   **manquer des livraisons** tant qu'une suite échoue par intermittence. ⚠️ **La CI n'a toujours
   jamais tourné** : ce ticket retire la seule raison connue pour laquelle elle aurait clignoté, il
   ne dit rien des `SKIP 4` attendus sur un exécuteur sans IPv6.
+
+## T3.112 — ce que la revue de merge a mesuré en plus, et les deux corrections (2026-09-07)
+
+- ⭐⭐ **[F-FLAKY-2, FERMÉ] Les deux rouges ont été refaits par la revue, sur le binaire de `master`,
+  et ils reviennent à la demande.** Conteneur `--cap-add=NET_ADMIN`, sans toucher une ligne :
+  `192.0.2.0/24` renvoyé vers une interface `dummy` ⇒ **3 rouges / 3**, `r.exited` faux à
+  **8 018-8 019 ms** ; `ip route add blackhole 192.0.2.0/24` ⇒ **3 rouges / 3** à **22-23 ms**, sur
+  l'**autre** ancre. Le binaire livré, sous les **mêmes** deux routages : **3 verts / 3**, et la
+  **suite entière 9/9 trois fois** sous le routage `dummy`.
+  *À recopier : ce qui prouve qu'un flottement est compris n'est pas un taux « après » à zéro, c'est
+  la capacité à rallumer le rouge d'origine à volonté et à le voir s'éteindre sur l'arbre corrigé.*
+
+- ⛔⭐ **[F-FLAKY-2] La queue de l'échelle de retransmission dépend de la façon dont on la mesure —
+  et c'est une correction de la fiche, pas un désaccord.** Refaite par la revue, 300 `connect()` non
+  bloquants sur la même image et la même adresse : **128 < 50 ms**, **85 ≈ 1 s**, **65 à 2-4 s**,
+  **22 ≥ 5 s** dont **11 au-delà de 12 s** ; **289 `ENETUNREACH`**. La fiche annonce **286/6/6/2**.
+  Les deux relevés sont vrais : en **rafale**, l'ICMP *unreachable* est limité en débit et le SYN
+  part sur son échelle (1 s, 2 s, 4 s, 8 s) ; **en isolation**, l'erreur revient en 4 ms. ⇒ le
+  raisonnement du ticket tient — **le budget de 8 s est posé entre deux barreaux** — et le corollaire
+  se durcit : *un taux publié sans dire s'il a été mesuré en rafale ou en isolation ne se compare à
+  rien.*
+
+- ⛔⭐ **[F-FLAKY-2] Une assertion neuve sur trois est MASQUÉE par l'ancre qui la précède, et ne peut
+  jamais parler.** `EXPECT_FALSE(logCarries(r, "waiting for its configuration"))` : toute ligne
+  portant ce texte vient d'un `awaitConfiguration()` qui a rendu `false`, donc d'un `setup()` qui
+  abandonne **avant** de connecter ⇒ l'`ASSERT_TRUE(logCarries(r, "Connect to : …"))` placée avant
+  elle a déjà arrêté le cas. **Mesuré** : l'échéance de configuration inversée ⇒ **1 seul cas
+  rouge**, `AConfigurationThatNeverArrivesEndsTheSidecarAfterItHasWaited`, jamais celui-ci. Elle ne
+  nuit pas, elle documente — mais **elle ne compte pas comme un capteur**, et la fiche est corrigée.
+  *À recopier : une assertion placée après un `ASSERT` qui exclut déjà son cas d'échec n'est pas un
+  oracle de plus, c'est un commentaire exécutable. Compter les assertions gagnées sans vérifier
+  laquelle peut parler, c'est publier de l'assurance.*
+
+- ⭐⭐ **[F-FLAKY-2] Le cas déterministe exige encore une VRAIE perte — mesuré par une
+  contre-mutation que la fiche n'avait pas faite.** Le courtier local qui ferme son **auditeur** au
+  lieu de sa **connexion** — donc la connexion acceptée reste ouverte, et il n'y a plus rien à
+  perdre — rend **exactement** le rouge historique : `r.exited` faux à **8 028 ms**, *« the sidecar
+  stayed alive with a broker it never reached »*. ⇒ **un bouchon qui ne perd rien ne donne pas un
+  vert** ; la fixture n'est pas un décor, et le budget de 8 s reste utile comme garde-fou contre une
+  régression qui **pendrait** `make check` au lieu de le faire rougir.
+  ⭐ Et la contre-mutation jumelle **CR-A** — le courtier répond son CONNACK là où il devait
+  raccrocher — laisse les **trois moitiés d'origine vertes** (une session établie puis perdue tue
+  aussi le sidecar) et ne rougit que sur `ASSERT_FALSE(broker.sentConnack)` : **l'assertion neuve est
+  bien l'oracle qui sépare ce cas de son voisin**, c'est-à-dire la parade à la *fixture fausse*.
+
+- ⚠️ **[F-FLAKY-2] Précision sur CM-1, corrigée au merge.** La fiche écrit que CM-1 dit que le cas
+  « voit encore la **mort** ». Rejouée : les 4 cas annoncés rougissent bien, mais dans le cas neuf
+  l'assertion qui parle est la **cause** — `"Lost the connection to the broker"` absent — pendant que
+  `r.exited` reste vrai. Le sidecar meurt quand même, par l'`EBADF` du descripteur périmé que
+  `brokerLost()` n'a plus retiré ; ce qu'un opérateur perd est **la ligne qui dit pourquoi**. C'est
+  bien le défaut d'origine, et le cas déterministe le rougit — mais par son autre moitié.
+
+- ⛔⭐ **[F-HARNESS] Un pilote de contre-mutation en `set -e` meurt entre la mesure et la
+  restauration — septième membre de la famille du `| head`.** Vécu à cette revue : le pilote portait
+  `set -e`, le premier tour rouge — et un tour de contre-mutation est *fait* pour être rouge — a
+  rendu un code de sortie non nul au `docker run`, et le script s'est arrêté **avant** sa
+  restauration, laissant l'arbre muté. Rattrapé par le `git status` sur l'**HÔTE**, exactement comme
+  les deux fois précédentes. **Parade** : `set +e` dans un pilote de contre-mutation, et une
+  restauration qui ne dépend d'**aucun** code de sortie.
+  *À recopier : dans un harnais de contre-mutation, `set -e` n'est pas une sécurité — le seul code de
+  sortie qu'on attend est un échec.*
+
+- ⚠️ **[F-FLAKY-1] Le recensement des adresses est recompté, et un piège de comptage est nommé.**
+  Balayage indépendant : **80** littéraux non-loopback (RFC 5737/3849, `example.*`) dans **15**
+  fichiers de `tests/`, **aucun** donné à un `connect()` sur la branche livrée — en-têtes
+  `X-Forwarded-For`, charges comparées en mémoire, argv de sidecars bouchonnés, `bind()` voués à
+  `EADDRNOTAVAIL`. Tous les vrais `connect()` visent `INADDR_LOOPBACK`, `in6addr_loopback` ou
+  `AF_UNIX`. ⇒ le « une seule composée » du ticket **tombe juste**.
+  ⛔ **Le piège à nommer pour le prochain balayage** : `core/MqttConfigTransport_test.cpp` porte **le
+  même littéral `192.0.2.42`**, mais son sidecar est remplacé par le script enregistreur
+  d'`ExternProcSpawnHarness.h` — l'adresse ne quitte jamais la trame de configuration. Un balayage
+  **textuel** en aurait compté deux ; ce qui décide, c'est le sort du littéral, pas sa présence.
