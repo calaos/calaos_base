@@ -34,6 +34,27 @@ Et chaque échec est signalé, non plus seulement le premier. Le cas où c'est l
 ne fonctionne plus arrête toujours la réception — mais il dit maintenant ce qu'il emporte, au lieu
 de laisser une ligne que rien n'explique.
 
+> ⛔ **NON CORRIGÉ, ET À CONNAÎTRE — le serveur peut envoyer de la mémoire à qui la lui demande.**
+> Quand plusieurs demandes de découverte arrivent **coup sur coup**, seule la première reçoit la
+> bonne réponse : les suivantes partent avec le contenu d'une zone de mémoire déjà libérée, une
+> vingtaine d'octets qui ne sont plus l'adresse du boîtier mais **ce que le serveur venait d'y
+> ranger**. Mesuré, reproductible, et **présent aussi dans les versions précédentes** — ce n'est pas
+> une régression de cette version.
+>
+> ⚠️ **Ce que cela veut dire concrètement** : n'importe quel appareil du réseau local peut le
+> déclencher, **sans identifiant ni mot de passe**, puisque la découverte du boîtier répond à tout
+> le monde par construction — et recommencer autant de fois qu'il veut. Le contenu divulgué n'est
+> pas choisi par l'attaquant, mais il n'est borné par rien.
+>
+> **En attendant le correctif**, la parade est celle de tout service en clair sur le LAN : ne pas
+> exposer le port de découverte (UDP 4646) hors du réseau de confiance, et ne pas l'ouvrir sur
+> Internet. *(Suivi : T3.142.)*
+
+> ⚠️ **Un effet de bord de cette correction** : le serveur écrit désormais **une ligne de journal
+> par réponse qui ne peut pas partir**, sans plafond. Un correspondant devenu injoignable qui
+> continue d'être sollicité peut donc faire défiler le journal. C'est le prix, provisoire, d'avoir
+> retiré l'arrêt qui servait aussi de silence. *(Suivi : T3.152.)*
+
 ## 🔴 Un équipement pouvait DISPARAÎTRE de l'installation, et seulement au redémarrage suivant
 
 ### Supprimer le paramètre `type` d'un équipement le faisait s'évaporer (T3.124)

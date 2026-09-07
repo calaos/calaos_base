@@ -1399,6 +1399,60 @@
   est morte — c'est exactement le résultat qu'il ne faut pas publier comme un succès.
   ⇒ [T3.139](T3.139.md).
 
+- ⛔⭐⭐ **F-UDP-4 — [SÉCURITÉ, OUVERT, mesuré par la revue de merge du lot 147, 2026-09-07] le
+  serveur ÉMET de la mémoire libérée vers un pair du réseau local non authentifié.**
+
+  `uvw::UDPHandle::send(…, char *, …)` (`udp.hpp:396-401`) construit sa requête avec un
+  **suppresseur qui ne fait rien** : le tampon n'est ni copié ni possédé.
+  `UDPServer::processRequest()` lui donne le `c_str()` d'une `string` **locale**. Tant que la file
+  d'envoi est vide, `uv__udp_sendmsg` part avant le retour ; dès qu'un envoi est déjà en attente, la
+  requête est mise en file et lue au tour de boucle suivant, quand la `string` n'existe plus.
+
+  **Mesuré** : trois `CALAOS_DISCOVER` envoyés dos à dos — une lecture en rafale de libuv en avale
+  jusqu'à **32**, donc les trois réponses sont postées dans le même tour. La **1ʳᵉ** réponse est
+  correcte ; les **2ᵉ et 3ᵉ** sont **19 octets de tas libéré**, émis **au correspondant**
+  (`e28d1eb1ba5500004050…` au lieu de `CALAOS_IP <adresse>`). ⭐ **Sans ASan** — le défaut ne demande
+  aucun outil pour se produire, seulement pour être nommé. ⭐ **À l'identique sur `master`** ⇒
+  **préexistant** : [T3.135](T3.135.md) ne l'introduit pas et n'y change rien, il le rend seulement
+  observable.
+
+  ⛔ **La gravité n'est pas « plantage possible ».** C'est une **divulgation de mémoire du serveur
+  vers un pair du LAN**, déclenchable par la **découverte UDP** — le seul verbe servi **sans
+  authentification** —, répétable à volonté, et dont le contenu dépend de ce que l'allocateur vient
+  de libérer. ⇒ [T3.142](T3.142.md).
+  *À recopier : « non mesuré » et « inoffensif » ne sont pas la même phrase ; ici la mesure coûtait
+  trois datagrammes.*
+
+- ⛔ **F-UDP-5 — [ROBUSTESSE, OUVERT, ouvert PAR le correctif de [T3.135](T3.135.md), lot 147] un
+  chemin de journal non borné et piloté par le réseau.**
+
+  `once<uvw::ErrorEvent>` est devenu `on<>` — c'est le bon geste, un boîtier perdant deux
+  correspondants n'en signalait qu'un (`M2` ⇒ 3 cas rouges) — mais l'auditeur n'a **aucun plafond** :
+  **100 réponses refusées produisent 100 lignes `[ERR]`**, une par datagramme, et le nombre de
+  datagrammes est décidé par qui parle sur le réseau local, sans authentification.
+
+  ⚠️ `master` écrivait une ligne puis appelait `h.stop()` : le défaut de disponibilité que `T3.135`
+  corrige était aussi, **par accident**, sa propre borne. Le correctif retire l'arrêt et ne met rien
+  à la place. ⭐ C'est la **même forme** que celle que [T3.105](T3.105.md) vient de fermer sur les
+  relances de sidecar. ⇒ [T3.152](T3.152.md).
+
+- ⛔ **F-UDP-6 — [COUVERTURE, OUVERT, mesuré par la revue de merge du lot 147] le câblage
+  `processRequest → sendTo` n'est épinglé par aucun cas.**
+
+  La contre-mutation `M6` de [T3.135](T3.135.md) annonçait *« le site d'envoi de `master` »* ; elle
+  retire la **comptabilisation**, pas l'**appel**. La mutation que ce libellé annonçait — le site
+  d'envoi de `master` **remis littéralement** dans `processRequest()` — laisse
+  `core/UdpSendFailureIsolation_test` **9/9 verte**. Les neuf cas entrent par le transport, aucun ne
+  part d'une requête reçue pour exiger qu'une réponse soit **postée**. ⇒ [T3.151](T3.151.md).
+  *À recopier : une contre-mutation qui remet « la forme `master` » d'un site doit remettre ce que le
+  site FAIT, pas ce qu'on en a extrait pour mesurer — sinon on épingle son propre instrument.*
+
+  ⭐ **Et une bonne nouvelle du même tour** : la « fenêtre de mauvaise attribution » que `T3.135`
+  déclarait non mesurée n'a **aucun producteur connu**. Une socket UDP **non connectée** ne reçoit
+  pas les ICMP — sonde noyau : la lecture rend `EAGAIN`, jamais `ECONNREFUSED` —, et la socket du
+  serveur n'est jamais `connect()`ée. Ce n'est donc pas un risque de taille inconnue ; c'est aussi
+  pourquoi [T3.149](T3.149.md) est difficile à fermer par un cas.
+
 - ✅ **F-PYTEST-1 — [FAUX VERT, FERMÉ par [T3.47](T3.47.md)] `tests/python/test_auth.py` était
   silencieusement SAUTÉ par `make check`, qui restait vert** (trouvé en mesurant F-MCP-XFF-1).
 
