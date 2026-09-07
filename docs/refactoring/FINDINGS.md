@@ -13314,8 +13314,8 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
 
 ## Bug rapporté par l'utilisateur — la lecture d'état DALI (2026-09-07)
 
-- ⛔ **F-DALI-1 — [CORRECTION, OUVERT, lu et non exécuté] `WAGO_DALI_GET` perd le drapeau de groupe
-  que `WAGO_DALI_SET` transmet.**
+- ✅ **F-DALI-1 — [CORRECTION, FERMÉ par [T3.156](T3.156.md)] `WAGO_DALI_GET` perdait le drapeau de
+  groupe que `WAGO_DALI_SET` transmet.**
 
   L'écriture envoie `WAGO_DALI_SET <line> <group> <address> <val> <fade>` ; la lecture envoie
   `WAGO_DALI_GET <line> <address>`. L'automate attend le drapeau en **3ᵉ** position et
@@ -13414,3 +13414,63 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   valeur miroitée, republiée inchangée à chaque cycle. **La config dégradée n'a donc pas besoin
   d'être à jour pour que la bascule soit inoffensive** — ce qui répond à l'objection de fond, « le
   mode dégradé n'est pas souvent à jour chez les utilisateurs ». ⇒ [T3.160](T3.160.md) §2 bis.
+## T3.156 livrée — ce que la relecture des huit programmes automate a corrigé (2026-09-07)
+
+- ⛔⭐⭐ **F-DALI-4 — [RÉGRESSION OUVERTE PAR NOTRE PROPRE CORRECTIF, déduit] avant la 3.0, un
+  paramètre ABSENT ne vaut pas `0` : il aliase le dernier champ présent.**
+
+  `GET_PARAM_DINT` découpe par `str := DELETE(str, FIND(str, ' '), 1)` **sans garde**. Quand `FIND`
+  rend `0`, la découpe ne retire rien et la fonction convertit le dernier champ resté. Sur
+  `WAGO_DALI_GET 1 105`, `p3` valait donc **105**, l'adresse — et non `0` comme le supposait
+  l'instruction de `T3.156`. ⭐ **La 3.0 a ajouté la garde manquante**
+  (`IF found = 0 THEN GET_PARAM_DINT := 0; RETURN;`), ce qui corrobore la lecture.
+
+  ⇒ En **2.0–2.3**, où `IF (p3 < 99)` est la **frontière DALI/DMX** et où `dmx_read_addr :=
+  DINT_TO_BYTE(p3 - 100)` alimente le chemin de réponse, la relecture DMX ne fonctionnait que par
+  **cet accident**. Le drapeau de groupe occupant désormais `p3`, la branche DMX y devient
+  **inatteignable**. ⛔ Aucun porteur connu (l'installation instruite est en 3.0), mais c'est une
+  régression que nous ouvrons. ⇒ [T3.159](T3.159.md).
+
+  ⚠️ **Et cela corrige une imprécision de [T3.157](T3.157.md)** : `WAGO_DALI_GET` teste
+  `IF (p2 < 99)` **en 3.0 seulement** ; en 2.0–2.3 le même gestionnaire teste `IF (p3 < 99)`. Les
+  deux versions ne posent pas la frontière sur le même paramètre.
+
+  ⛔ **Le nu** : la sémantique de `DELETE(str, 0, 1)` de la bibliothèque CoDeSys 2.3 est **déduite**
+  de la lecture du texte ST, jamais exécutée. L'autre issue possible (une chaîne vide) change la
+  description du symptôme et **pas** le verdict.
+
+- ✅ **F-DALI-5 — [CORRECTION, FERMÉ par [T3.156](T3.156.md)] un champ VIDE fait lire l'automate
+  au-delà de la chaîne.**
+
+  `GET_PARAM_DINT` convertit par `FOR i := 0 TO INT_TO_BYTE(LEN(str) - 1)`. Sur un champ vide,
+  `LEN(str) - 1` vaut `-1`, `INT_TO_BYTE(-1)` vaut **255**, et la boucle lit **256 octets au-delà**
+  de la chaîne : la valeur rendue est arbitraire. ⇒ Un `io.xml` sans `group` produisait déjà
+  `WAGO_DALI_SET <line>  <address> <val> <fade>` — champ vide en 2ᵉ position — **avant** notre
+  correctif. Le défaut `set_param("group", "0")` ferme les deux trames d'un seul geste.
+  ⭐ **C'est ce qui a tranché le choix du défaut** : une « lecture sûre » laissant un champ vide sur
+  le `GET` aurait été **pire que le bug d'origine**.
+
+- ⛔ **F-DALI-6 — [CORRECTION, OUVERT, autre dépôt] en 1.7–2.3, `WAGO_DALI_GET` dérive `dali_group`
+  de `p2`, qui y est l'ADRESSE.**
+
+  `IF (p2 = 1) THEN dali_group := TRUE` — copier-coller depuis `WAGO_DALI_SET`, où `p2` est bien le
+  drapeau. ⚠️ **Écriture morte dans ces sept versions** : `dali_group` n'y est relu nulle part sur
+  le chemin de réponse du `GET`, son seul lecteur est `Dali_switch(xGroup := ...)` du gestionnaire
+  `SET`, qui le réaffecte avant usage. Réel dans le code, latent dans le comportement, et **corrigé
+  de fait en 3.0** par le déménagement vers `p3`. ⇒ [T3.158](T3.158.md).
+
+- ✅ **F-DALI-7 — [MESURE] la troncature de trame est exclue des deux côtés.**
+
+  Serveur : aucun tampon fixe (`std::string`, `send(..., length() + 1)`, `WagoMap.cpp:480` ;
+  réception `string(ev.data.get(), ev.length)`, `WagoMap.cpp:156-160`). Automate, identique aux huit
+  versions : `buffer: ARRAY[1..1500] OF BYTE`, `cmd: STRING(255)`, et la borne la plus stricte du
+  chemin, `str: STRING` nu de `GET_PARAM_DINT` ⇒ **80**. Le `WAGO_DALI_GET` allongé fait **20**
+  octets au cas courant et **22** au pire, contre `WAGO_DALI_SET` **26** et `WAGO_SET_SERVER_IP`
+  **34** **déjà en service** : argument **a fortiori**.
+
+- ⚠️ **F-DALI-8 — [FIABILITÉ, OUVERT] `WODaliRVB` ne pose de défaut pour AUCUN de ses paramètres.**
+
+  `WODali` pose `line` et `fade_time` (et désormais `group`) ; `WODaliRVB` ne posait rien du tout, et
+  `T3.156` ne lui a ajouté que les trois `*group`. Un `io.xml` sans `rline` produit donc encore
+  `WAGO_DALI_GET  11 0` — champ vide en 1ʳᵉ position, exactement le piège de `F-DALI-5`. Préexistant,
+  hors du rayon de `T3.156`, non couvert par sa suite (déclaré dans son en-tête).

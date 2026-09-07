@@ -55,6 +55,37 @@ de laisser une ligne que rien n'explique.
 > continue d'être sollicité peut donc faire défiler le journal. C'est le prix, provisoire, d'avoir
 > retiré l'arrêt qui servait aussi de silence. *(Suivi : T3.152.)*
 
+## 🔴 Un luminaire DALI adressé en GROUPE s'affichait allumé à chaque démarrage
+
+### Le serveur demandait l'état d'un ballast là où il fallait demander celui d'un groupe (T3.156)
+
+Un luminaire DALI déclaré avec `group="1"` — c'est-à-dire adressé par un **numéro de groupe** et
+non par l'adresse d'un ballast — apparaissait **allumé** dans l'interface à chaque démarrage du
+serveur, alors qu'il était éteint. Systématiquement, et sans jamais se corriger : l'état d'un
+luminaire DALI n'est lu **qu'une fois**, au démarrage, et rien ne repasse derrière.
+
+La commande d'**allumage** transmettait bien à l'automate qu'il s'agissait d'un groupe. La commande
+de **relecture d'état**, elle, l'omettait. L'automate lisait donc l'état du *ballast* portant ce
+numéro — un autre luminaire, ou aucun — et le serveur affichait cet état-là. Comme il ne lit pas un
+niveau mais seulement « à zéro ou pas », tout ce qui n'était pas exactement zéro devenait
+« allumé à 100 % ».
+
+Les luminaires déclarés `group="0"` n'ont jamais été touchés : pour eux la question omise avait par
+chance la bonne réponse par défaut. C'est ce qui rendait le défaut si difficile à voir — dans une
+installation de quatorze luminaires DALI, treize allaient bien.
+
+Corrigé pour le luminaire simple comme pour les trois canaux d'un luminaire RVB.
+
+> ⚠️ **Ce que cela demande de votre côté.** La correction est côté serveur, mais elle ne suffit
+> qu'avec une borne DALI **753-647** et un automate en version **3.0**. Sur une borne **750-641**,
+> le programme de l'automate ne sait pas relire un groupe du tout — il faudra le mettre à jour. Et
+> si votre automate est en version **2.0 à 2.3** et que vous utilisez du **DMX** (adresses ≥ 100),
+> la relecture d'état DMX cessera de fonctionner. *(Suivi : T3.159.)*
+
+> ⭐ **Au passage** : un équipement DALI dont la configuration ne mentionnait pas du tout le
+> paramètre `group` envoyait à l'automate un champ **vide**, que celui-ci interprétait n'importe
+> comment. Il reçoit désormais un `0` explicite — sur la relecture d'état comme sur la commande.
+
 ## 🔴 Un équipement pouvait DISPARAÎTRE de l'installation, et seulement au redémarrage suivant
 
 ### Supprimer le paramètre `type` d'un équipement le faisait s'évaporer (T3.124)

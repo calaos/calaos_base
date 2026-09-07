@@ -115,8 +115,10 @@
 
   **(b) Tickets ouverts par ce lot :** `T3.151`, `T3.152` (revue de `T3.135`), `T3.153`, `T3.154`
   (revue de `T3.138`), `T3.155` (revue de `T3.131`) — **fiche + ligne `BOARD.md` à 6 colonnes pour
-  chacun**, vérifiées une à une. ⚠️ Numéros **pris** : `T3.76` → `T3.155` ; `T3.114` est un **trou** ;
-  **`T3.156` est le prochain numéro libre**.
+  chacun**, vérifiées une à une. ⚠️ Numéros **pris** : `T3.76` → `T3.159` ; `T3.114` est un **trou** ;
+  **`T3.160` est le prochain numéro libre**. `T3.158` et `T3.159` sont ouverts par la livraison de
+  [`T3.156`](T3.156.md) — dont `T3.159` est une **régression que ce correctif ouvre lui-même** sur
+  les automates 2.0–2.3 en DMX.
 
   ⭐⭐ **UN 10ᵉ PIÈGE D'OUTILLAGE EST INSTALLÉ** (§ pièges) : *un horodatage remis EN ARRIÈRE est un
   horodatage qui a bougé*. La règle du 3ᵉ piège se lit désormais **« horodatage déplacé VERS
