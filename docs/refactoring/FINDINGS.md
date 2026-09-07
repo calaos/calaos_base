@@ -13353,3 +13353,43 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
 
   Recoupe la zone d'ombre déjà consignée plus haut : « `WODali` déclare ses adresses sur `1..612` là
   où une adresse courte DALI va de 0 à 63 ». ⇒ [T3.157](T3.157.md).
+
+
+## Bug rapporté par l'utilisateur — la bascule mode dégradé de l'automate (2026-09-07)
+
+- ⛔ **F-WAGO-1 — [RÉGRESSION, OUVERT, lu et non exécuté] le miroir serveur→dégradé est faux depuis
+  la 1.8 : il n'écrit pas ce qu'il croit écrire, et les sorties non couvertes gardent 0.**
+
+  Dans `PLC_PRG`, `j := j + 2` s'exécute **avant** les deux lignes de recopie : `OutArrState[0..1]`
+  n'est jamais synchronisé et chaque tour recopie le mot d'après celui qu'il vient d'écrire. Et la
+  recopie indexe `OutArrState` en **relatif** là où `SetOutput()` et la branche dégradée l'indexent
+  en **absolu** (`start_addr_out / 8 + …`) : dès qu'un module analogique de sortie précède le premier
+  digital, tout le rack est décalé.
+
+  ⭐ **La 1.7 était correcte** : `FOR i := start_addr_out/8 TO 512 DO byOutArr[i] := OutArrState[i]`
+  et l'exact inverse — pleine largeur, absolu, **bidirectionnel**. La 1.8, en déplaçant l'image
+  serveur de `%QB0` vers `%IB512`/`netOutStandard`, a cassé l'aller et **supprimé le retour**. Le
+  bloc est identique octet pour octet de 1.8 à 3.0. ⇒ [T3.160](T3.160.md).
+
+- ⛔ **F-WAGO-2 — [FIABILITÉ, OUVERT] le danger de la bascule est un NIVEAU LATCHÉ rejoué, pas un
+  front — et un seul type de sortie y est exposé.**
+
+  ⭐ **L'hypothèse du front parasite est réfutée** : `event[cpt](IN := GetInput(…))` vit dans
+  `SendInput`, appelé à chaque cycle **dans les deux modes**, donc aucun `R_TRIG` ne gèle. Le seul
+  type dangereux est le **`VOLET` simple** : son `SetOutput(… MONTE/DESCENTE)` est **à l'intérieur**
+  du `IF (event[cpt].ON)`, donc les bits relais restent latchés entre deux appuis et rien ne les fera
+  retomber avant un appui. `VOLET_IMPULSE` est sûr (son `SetOutput` est hors du garde) ; le
+  télérupteur aussi (il n'agit que sur `event.ON`).
+
+  ⭐ Un volet occupe **deux bits relais, à 0 au repos** : recopier une image au repos est inoffensif.
+  ⇒ [T3.160](T3.160.md) §4.
+
+- ⛔ **F-WAGO-3 — [FIABILITÉ, OUVERT] personne ne réaffirme l'image de sortie au retour du serveur.**
+
+  `netOutStandard` n'est écrite que par Modbus : figée pendant la panne, elle est réécrite telle
+  quelle au retour, **ré-excitant tout relais de volet actif au moment du crash**. Côté serveur,
+  `WOVoletBase::voletInit()` ne lit ni n'écrit rien, `WODigital` **adopte** l'état du PLC au lieu de
+  le réaffirmer, et `WAGO_SET_OUTPUT` n'est utilisé que par `src/bin/tools/wago_test.cpp`.
+
+  ⚠️ **Une seule des deux bascules suffit à faire bouger un volet** : ce défaut est indépendant de
+  `F-WAGO-1` et se corrige séparément. ⇒ [T3.161](T3.161.md).
