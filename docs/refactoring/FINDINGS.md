@@ -795,6 +795,12 @@
   `workflow_run` ou une protection de branche est un **changement de livraison** (et le flottement
   `F-FLAKY-2` en ferait manquer).
 
+  ✅ **(1) FERMÉE par [T3.125](T3.125.md)** : `docker-publish-dev.yml` part désormais sur
+  `on: workflow_run: workflows: [ "Build and Test" ]`, le job exige `conclusion == 'success'`, et un
+  contrôle mécanique (`.github/check-workflow-gating.py`, auto-test 10/5) refuse un nom cité
+  inexistant. ⛔ **Rien de tout cela n'a jamais tourné chez GitHub** — voir la section « Nu » de la
+  fiche.
+
   **(2) Deux paquets hors de tout manifeste.** `Dockerfile:58-64` (et son jumeau du stage `runner`)
   installe `roonapi` et `reolink-aio` **sans borne de version**, délibérément hors du
   `pyproject.toml`. Ce sont pourtant deux imports d'exécution réels
@@ -12695,3 +12701,27 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   à `F-TOOL-6` n'existe dans cet arbre — c'est le **premier** de sa famille de findings. Et dans la
   série des pièges d'outillage d'`ORCHESTRATION.md` il est le **huitième**, pas le septième : le
   septième est le harnais qui meurt avant sa restauration sous `set -e` (revue de `T3.112`).
+
+- 🟡 **[F-DEP-10] `docker-publish.yml:25` porte encore le commentaire faux que `T3.22` avait corrigé
+  dans l'autre fichier.** Relevé à [T3.125](T3.125.md). La ligne
+  `# run only when code is compiling and tests are passing` annonce une garde qu'aucun `needs:` ni
+  aucun `if:` n'implémente — c'est mot pour mot celle qui a ouvert `F-DEP-8`, et elle survit dans le
+  workflow qui publie le **plus** : `:latest` et un paquet **non** prerelease. Elle est moins
+  dangereuse ici, parce que le déclencheur est un `workflow_dispatch` manuel : c'est un humain qui
+  décide. ⚠️ Mais un humain qui lit cette ligne croit que la CI le retiendra. ⇒ soit corriger le
+  texte, soit poser la garde ; le ticket ne l'a **pas** touché, pour que sa vérification « aucun
+  autre workflow modifié » reste probante.
+
+- 🟡 **[F-DEP-11] Chaque publication relance la CI complète.** Relevé à [T3.125](T3.125.md).
+  `docker-publish-dev.yml` crée un tag git, et le `on: push:` de `ci.yml` n'a **aucun** filtre de
+  ref : une poussée de tag déclenche donc tous ses jobs. Coût préexistant. ⚠️ Depuis le
+  conditionnement c'est aussi une **source de déclenchement** du workflow de publication, écartée
+  par `branches: [ master ]` — le `head_branch` d'une exécution née d'un tag est le nom du tag.
+  ⛔ **Non observé** : c'est l'un des points que seul le premier `push` tranchera.
+
+- ⚠️ **[F-DOCS-2] Un marqueur de conflit `<<<<<<< HEAD` a survécu dans `BOARD.md`.** Trouvé à
+  [T3.125](T3.125.md), ligne 293, introduit par la résolution « les deux côtés gardés » du merge de
+  `T3.123` (`d0123b42`). Le fichier est du Markdown : rien ne le compile, rien ne le rougit, et
+  `check-docs.py` ne lit que les citations `Fichier.cpp:ligne`. Retiré ici. *À recopier : une
+  résolution qui garde les deux côtés se relit en cherchant les trois marqueurs, pas seulement en
+  vérifiant que le contenu attendu est là.*
