@@ -26,6 +26,7 @@
 #include "libuvw.h"
 #include "Timer.h"
 #include <algorithm>
+#include <limits>
 
 #define READBUFSIZE 65536
 
@@ -126,6 +127,10 @@ ExternProcServer::~ExternProcServer()
 
 void ExternProcServer::terminate()
 {
+    //A held relaunch armed before this call would spawn a child into a
+    //controller that has just stopped wanting one.
+    respawn_generation++;
+
     if (client)
         client->stop();
 
@@ -241,7 +246,80 @@ void ExternProcServer::relayChildOutput(string &buf, const char *stream, bool at
     }
 }
 
+double ExternProcServer::respawnDelay(int failures)
+{
+    if (failures <= 0)
+        return 0.0;
+
+    //Doubling by repeated multiplication rather than a power: the loop leaves
+    //as soon as the ceiling is reached, so an absurd failure count costs a
+    //handful of turns and can never overflow into infinity.
+    double delay = kRespawnDelayMin;
+    for (int i = 1; i < failures && delay < kRespawnDelayMax; i++)
+        delay *= 2.0;
+
+    return std::min(delay, kRespawnDelayMax);
+}
+
+int ExternProcServer::nextFailureCount(int failures, int64_t status, double ranSeconds)
+{
+    if (status == 0)
+        return 0;
+
+    if (failures < 0)
+        failures = 0;
+
+    if (ranSeconds >= kRespawnResetSeconds)
+        return 1;
+
+    //The delay has been at its ceiling for a very long time by then, and
+    //wrapping would send it back to the bottom.
+    if (failures == std::numeric_limits<int>::max())
+        return failures;
+
+    return failures + 1;
+}
+
+void ExternProcServer::noteChildGone(int64_t status)
+{
+    last_run_seconds = std::chrono::duration<double>(
+                std::chrono::steady_clock::now() - spawned_at).count();
+    last_exit_status = status;
+    respawn_failures = nextFailureCount(respawn_failures, status, last_run_seconds);
+}
+
 void ExternProcServer::startProcess(const string &process, const string &name, const vector<string> &args)
+{
+    const double hold = respawnDelay(respawn_failures);
+
+    respawn_generation++;
+
+    if (hold <= 0.0)
+    {
+        spawnProcess(process, name, args);
+        return;
+    }
+
+    /* The one line that says why the relaunch is late AND how late. Its two
+     * halves are what a respawn loop never had: the cause has existed since
+     * the sidecars learned to answer with a status, and the wait is what turns
+     * a journal scrolling ten times a second into one line every half minute.
+     */
+    cWarningDom("process") << procName << " failed " << respawn_failures
+                           << " time(s) in a row (last exit status "
+                           << last_exit_status << "), holding the relaunch "
+                           << hold << "s";
+
+    const unsigned generation = respawn_generation;
+    alive.singleShot(hold, [this, generation, process, name, args]()
+    {
+        if (generation != respawn_generation)
+            return;
+        spawnProcess(process, name, args);
+    });
+}
+
+void ExternProcServer::spawnProcess(const string &process, const string &name, const vector<string> &args)
 {
     isStarted = false;
     hasFailedStarting = false;
@@ -252,14 +330,15 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
     process_exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
     process_exe->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &)
     {
-        /* The status is the only thing a sidecar can say once it is gone, and
-         * every controller of this tree relaunches without looking at it. At
+        /* The status is the only thing a sidecar can say once it is gone. At
          * DEBUG it was invisible on a stock install, so a sidecar failing ten
          * times a second read as "process exited, restarting..." and nothing
          * else. A clean stop still says nothing: terminate() signals the
          * child, which leaves status 0. */
+        noteChildGone(ev.status);
         if (ev.status != 0)
-            cWarningDom("process") << procName << " exited with status " << ev.status;
+            cWarningDom("process") << procName << " exited with status " << ev.status
+                                   << " after " << last_run_seconds << "s";
         else
             cDebugDom("process") << "ExternProcess exited: " << ev.status;
         process_exe->close();
@@ -273,6 +352,9 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
     process_exe->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &)
     {
         if (!isStarted) hasFailedStarting = true;
+        //A spawn that never happened is a failure like any other: a missing
+        //binary is the cheapest way there is to loop forever.
+        noteChildGone(ev.code()? ev.code() : -1);
         cCriticalDom("process") << "Process error: " << ev.what();
         process_exe->close();
         //T3.40: same window as the ExitEvent above, and both can be armed in
@@ -375,6 +457,7 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
                         << " --namespace " << name
                         << " (" << args.size() << " argument(s))";
 
+    spawned_at = std::chrono::steady_clock::now();
     process_exe->spawn(arr.at(0), arr.data(), env.data());
 
     if (!hasFailedStarting)

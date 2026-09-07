@@ -25,6 +25,8 @@
 #include "Calaos.h"
 #include "Timer.h"
 
+#include <chrono>
+
 namespace uvw {
 //Forward declare classes here to prevent long build time
 //because of uvw.hpp being header only
@@ -120,6 +122,38 @@ public:
     void startProcess(const string &process, const string &name, const vector<string> &args = vector<string>());
     void terminate();
 
+    /*
+     * RELAUNCH THROTTLING, HERE AND NOT IN THE EIGHT CONTROLLERS THAT RESPAWN.
+     *
+     * processExited carries nothing, so every subscriber relaunched at the
+     * same cadence whatever the sidecar answered: a broker that is switched
+     * off cost a launch every ~110 ms, forever. The status is read on this
+     * side already, so the ramp needs neither a new signature nor a decision
+     * from any of them. What is held is the SPAWN and not the signal: a
+     * controller must still learn AT ONCE that its sidecar is gone, or its
+     * disconnect notice and its device lists go stale for as long as the hold.
+     */
+    static constexpr double kRespawnDelayMin = 0.1;
+    static constexpr double kRespawnDelayMax = 30.0;
+
+    /* A run at least this long is a new incident and not the same one
+     * repeating, so it starts the ramp over - a sidecar that served for an
+     * hour must not be picked up at the ceiling. Equal to the ceiling on
+     * purpose: one number, and no window in which a child could die often
+     * enough to escape the ramp yet still be looping. */
+    static constexpr double kRespawnResetSeconds = kRespawnDelayMax;
+
+    //Hold before the launch that follows `failures` consecutive failures.
+    static double respawnDelay(int failures);
+
+    //A zero status is a voluntary stop - terminate() signals the child, and a
+    //SIGTERM leaves status 0 - so it never counts as a failure.
+    static int nextFailureCount(int failures, int64_t status, double ranSeconds);
+
+    int respawnFailures() const { return respawn_failures; }
+    int64_t lastExitStatus() const { return last_exit_status; }
+    double lastRunSeconds() const { return last_run_seconds; }
+
     sigc::signal<void, const string &> messageReceived;
     sigc::signal<void> processExited;
     sigc::signal<void> processConnected;
@@ -139,8 +173,22 @@ private:
     bool isStarted = false;
     bool hasFailedStarting = false;
 
+    int respawn_failures = 0;
+    int64_t last_exit_status = 0;
+    double last_run_seconds = 0.0;
+    std::chrono::steady_clock::time_point spawned_at =
+            std::chrono::steady_clock::now();
+
+    //Bumped by anything that makes a pending held launch obsolete, so the
+    //deferred callback can tell it is answering for a launch nobody wants
+    //anymore. terminate() is the case that matters: without it a controller
+    //that stops still gets a child up to half a minute later.
+    unsigned respawn_generation = 0;
+
     void processData(const string &data);
     void relayChildOutput(string &buf, const char *stream, bool atEof);
+    void spawnProcess(const string &process, const string &name, const vector<string> &args);
+    void noteChildGone(int64_t status);
 };
 
 class ExternProcClient: public sigc::trackable
