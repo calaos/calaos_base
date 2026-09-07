@@ -323,8 +323,8 @@ et [JsonApiHandlerWS.cpp:116-229](../src/bin/calaos_server/JsonApiHandlerWS.cpp)
 | `get_states` | ✅ | ✅ | toutes les valeurs d'un IO |
 | `query` | ✅ | ✅ | ⚠️ voir « pièges » |
 | `get_param` | ✅ | ✅ | |
-| `set_param` | ✅ | ✅ | `scope denied` en session service |
-| `del_param` | ✅ | ✅ | `scope denied` en session service |
+| `set_param` | ✅ | ✅ | `scope denied` en session service ; paramètres dérivés refusés |
+| `del_param` | ✅ | ✅ | `scope denied` en session service ; paramètres dérivés refusés |
 | `set_state` | ✅ | ✅ | WS : muet sans `msg_id` |
 | `get_playlist` | ✅ | ✅ | |
 | `get_timerange` | ✅ | ✅ | |
@@ -805,7 +805,9 @@ tandis que `getMissingIoDescription()` ne collecte rien d'une `RuleRef` nulle
 ne capture ce coin.)
 
 ⚠️ **`disabled_missing_io` reste néanmoins écrivable par `set_param`
-aujourd'hui**, et l'écriture est **asymétrique** : elle atteint la
+aujourd'hui** — [`T3.137`](refactoring/T3.137.md) ferme les paramètres de la
+**définition** (`autoscenario_*` et `as_<étape>_pause` / `_actions`), et laisse
+celui-ci délibérément ouvert, et l'écriture est **asymétrique** : elle atteint la
 configuration mais **pas** le booléen en mémoire, si bien qu'un scénario sain
 marqué à la main continue de tourner **jusqu'au redémarrage**, où il se retrouve
 désactivé. C'est un défaut connu, tranché mais **non implémenté** (`T3.20` :
@@ -813,7 +815,7 @@ le paramètre deviendra en lecture seule côté API). Un client ne doit pas s'en
 servir : la seule écriture supportée est `autoscenario reenable`.
 
 **La réactivation est manuelle et peut être refusée.** Elle n'est pas un
-`set_param` — un `set_param` ne sait pas refuser — mais une commande à part
+`set_param` — un `set_param` ne sait pas refuser *ce paramètre-là* — mais une commande à part
 entière, `autoscenario` / `type: "reenable"`, disponible sur les **deux**
 transports ([JsonApiHandlerHttp.cpp:897-901](../src/bin/calaos_server/JsonApiHandlerHttp.cpp),
 [JsonApiHandlerWS.cpp:491-495](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
@@ -927,6 +929,7 @@ elles contiennent une faute de frappe historique (`unkown` au lieu de
 | `wrong item` | [JsonApi.cpp:1089](../src/bin/calaos_server/JsonApi.cpp) | `item` absent ou non entier |
 | `wrong from/count` | 14 occurrences dans les builders `audio_db` | `from`/`count` absents ou non entiers |
 | `wrong io/param` | [JsonApi.cpp:675, 703, 733](../src/bin/calaos_server/JsonApi.cpp) | `get_param`/`set_param`/`del_param` : IO ou param invalide |
+| `param refused` | [JsonApi.cpp:1270, 1313](../src/bin/calaos_server/JsonApi.cpp) (`ret = {{ "error", "param refused" }};`) | `set_param`/`del_param` : le modèle ou l'API refuse cette clef — `id`, un paramètre structurel, un octet illisible en XML, ou un paramètre de définition de scénario. **Distinct de `wrong io/param`**, qui veut dire *introuvable* |
 | `wrong id` | [JsonApi.cpp:609, 650](../src/bin/calaos_server/JsonApi.cpp) | `get_states` / `query` : IO introuvable |
 | `wrong input` | [JsonApi.cpp:1777, 1815, 1898, 2004, 2030, 2157, 2180, 2203](../src/bin/calaos_server/JsonApi.cpp) | plage horaire ou scénario introuvable |
 | `scenario creation failed` | [JsonApi.cpp:1938, 1950](../src/bin/calaos_server/JsonApi.cpp) | |

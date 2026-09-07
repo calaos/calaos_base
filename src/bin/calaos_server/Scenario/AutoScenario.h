@@ -217,9 +217,9 @@ public:
      *
      * and both are needed. Gate 1 alone would clear itself as soon as the IO
      * came back (refused by the user's arbitration); gate 2 alone would be
-     * forgeable, since set_param/del_param accept any (io, param) pair without
-     * a whitelist. Gate 1 is LIVE, derived and not stored anywhere, so no
-     * client can write it.
+     * forgeable - the params of the definition are refused at the API, this
+     * one deliberately is not. Gate 1 is LIVE, derived and not stored
+     * anywhere, so no client can write it.
      * ---------------------------------------------------------------- */
 
     /* Gate 1, a pure read. Three independent reasons, all three needed:

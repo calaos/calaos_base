@@ -368,7 +368,8 @@ Un scénario démarre **si et seulement si** `!isBroken()` **ET** `!isDisabledMi
 | Survit au reboot | non | **oui** |
 
 Sans la porte 1, la porte 2 serait **forgeable** : `set_param` / `del_param` acceptent n'importe
-quel couple (io, paramètre) sans liste blanche. Sans la porte 2, la désactivation
+quel couple (io, paramètre) **sauf** les paramètres de la définition, refusés depuis
+[`T3.137`](refactoring/T3.137.md) — et `disabled_missing_io` n'en fait délibérément pas partie. Sans la porte 2, la désactivation
 **s'effacerait toute seule** au retour de l'IO — ce que l'arbitrage utilisateur refuse
 (dérivé, `AutoScenario.h:191-201`).
 

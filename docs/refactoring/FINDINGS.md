@@ -13136,3 +13136,46 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
 
   ⭐ C'est la forme CI de *« un capteur qui ne mesure rien passe pour un capteur qui ne trouve
   rien »*. ⇒ [T3.150](T3.150.md).
+
+## T3.137 — `set_param` accepte n'importe quelle clef, y compris celles que le serveur dérive
+
+- ✅⭐⭐ **[F-SCEN-2, FERMÉ] Le remède à une liste de noms n'est pas une liste blanche : c'est de
+  demander l'ensemble à ce qui le PRODUIT.** `set_param` / `del_param` acceptaient toute clef sur
+  tout IO, `autoscenario_uid` compris. Le recensement des clients — `calaos_installer`,
+  `calaos_mobile`, `calaos_remote_ui`, `calaos_windex`, scripts Lua — trouve **zéro** appel légitime
+  à `set_param`, et surtout : **aucune source de l'arbre ne peut énumérer ce qui est écrivable**
+  (l'éditeur de propriétés de l'installateur crée n'importe quelle clef, un script Lua choisit la
+  sienne, chaque pilote a les siennes). Une liste blanche aurait donc été **devinée**. L'ensemble
+  **dérivé**, lui, a exactement un producteur — `AutoScenarioDef::isDefinitionParam()`, la même
+  fonction qui décide ce que `saveToParams()` a le droit de supprimer et de re-dériver.
+  ⭐ **Confirmation indépendante** : `calaos_installer` implémente **déjà** le même refus de son côté
+  (`DialogListProperties.cpp`, préfixes `autoscenario_` et `as_`).
+  *À recopier : quand on ne peut pas énumérer ce qu'on publie, on n'a pas le droit de deviner ce
+  qu'on cache — mais on a souvent le droit de demander à celui qui dérive.*
+
+- ⛔ **[F-SCEN-3] Un IO `Scenario` SANS définition ne voit aucun de ses paramètres re-dérivé, et un
+  seul attribut le promeut en autoscénario.** `AutoScenarioDef::saveToParams()` rend la main quand
+  l'uid est vide, donc ce qu'on écrit sur un scénario écrit à la main part **tel quel** dans
+  `io.xml` ; au démarrage suivant `loadFromParams()` répond `true` et le générateur **possède** ses
+  règles. La garde d'API de `T3.137` ferme le chemin client ; **le `config put` et le fichier édité
+  restent ouverts**, et la réparation de `T3.117` ne répare que le **doublon** — un uid **frais** ne
+  déclenche rien. ⇒ [`T3.145`](T3.145.md).
+  *À recopier : « le serveur re-dérive de toute façon » est vrai d'un objet DÉFINI et faux du même
+  objet vide — et c'est l'objet vide qui traverse le disque.*
+
+- ⛔ **[F-LUA-1] Le troisième transport de `set_param` n'est mesuré par aucun cas.** WS, HTTP et Lua
+  partagent `buildJsonSetParam()`, mais `tests/LuaCalaosApi_test.cpp` observe `setIOParam` sur un
+  espion : il mesure la trame émise, jamais ce que le serveur en fait, et la ligne d'appel de
+  `ScriptExec` n'est couverte par rien. Sur les trois transports de `T3.137`, **deux** sont mesurés
+  et le troisième est **déduit d'une lecture du code**. ⇒ [`T3.146`](T3.146.md).
+  *À recopier : « les trois transports passent par la même fonction » est une lecture, pas une
+  mesure — et c'est exactement la phrase qui dispense d'écrire le cas.*
+
+- ⚠️ **[mesure] `get_io` publie une PROJECTION FIXE, et une seule clef de définition en fait
+  partie.** `JsonApi::ioProjectionParams()` énumère 16 paramètres ; `autoscenario_uid` y est, les
+  cinq autres clefs `autoscenario_*` et tout l'espace `as_*` n'y sont pas. Deux conséquences pour
+  qui écrit une suite : un cas qui lit une clef de définition dans `get_io` mesure **l'absence**,
+  pas la valeur ; et la définition ne descend dans les `Params` de l'IO qu'à la **sauvegarde**
+  (`Scenario::SaveToXml`), donc avant elle il n'y a rien à lire non plus.
+  *À recopier : un capteur qui ne mesure rien passe pour un capteur qui ne trouve rien — ici deux
+  fois, et pour deux raisons différentes.*
