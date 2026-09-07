@@ -64,8 +64,7 @@ OutputShutterSmart::OutputShutterSmart(Params &p):
     ioDoc->actionAdd("up 5", _("Open the shutter by X percent"));
     ioDoc->actionAdd("down 5", _("Close the shutter by X percent"));
     ioDoc->actionAdd("calibrate", _("Start calibration on shutter. This opens fully the shutter and resets all internal position values. Use this if shutter sync is lost."));
-    ioDoc->actionAdd("set_state true", _("Update internal shutter state without starting real action. This is useful when having updating the shutter state from an external source."));
-    ioDoc->actionAdd("set_state false", _("Update internal shutter state without starting real action. This is useful when having updating the shutter state from an external source."));
+    ioDoc->actionAdd("set_state 50", _("Update internal shutter position, in percent, without starting real action. This is useful when having updating the shutter state from an external source."));
 
     set_param("gui_type", "shutter_smart");
 
@@ -269,18 +268,23 @@ bool OutputShutterSmart::set_value(std::string val)
     {
         val.erase(0, 10);
 
-        if (Utils::is_of_type<int>(val))
-        {
-            int percent;
-            Utils::from_string(val, percent);
-            if (percent < 0) percent = 0;
-            if (percent > 100) percent = 100;
-            cmd_state = "set " + Utils::to_string(percent);
+        /* Answering true while doing nothing is a third answer where the five
+         * other grammars of this class have two, and it is what let the two
+         * forms this IO used to document - set_state true, set_state false -
+         * be accepted and silently ignored. The documented form is a
+         * percentage; anything else is refused like everywhere else. */
+        if (!Utils::is_of_type<int>(val))
+            return false;
 
-            double new_position = (double)percent * (double)time_up / 100.;
-            writePosition(new_position);
-            sens = SHUTTER_STOP;
-        }
+        int percent;
+        Utils::from_string(val, percent);
+        if (percent < 0) percent = 0;
+        if (percent > 100) percent = 100;
+        cmd_state = "set " + Utils::to_string(percent);
+
+        double new_position = (double)percent * (double)time_up / 100.;
+        writePosition(new_position);
+        sens = SHUTTER_STOP;
 
         updateCache();
     }
