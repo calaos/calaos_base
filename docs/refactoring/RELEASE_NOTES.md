@@ -7,6 +7,33 @@
 > l'utilisateur observe alors, c'est le symptôme, et il a besoin de savoir qu'il a disparu.
 > Ordre : impact décroissant.
 
+## 🔴 Le boîtier pouvait devenir sourd — découverte, entrées Wago et KNX — sur une seule réponse perdue
+
+### Un correspondant injoignable arrêtait toute la réception UDP (T3.135)
+
+Trois choses arrivent au serveur sur la même socket UDP : la découverte du boîtier
+(`CALAOS_DISCOVER`, ce dont se servent l'application mobile, les écrans muraux et l'installateur
+pour le trouver), les entrées Wago poussées et les entrées KNX poussées.
+
+Il suffisait qu'**une** réponse ne puisse pas partir — un correspondant qui a demandé quelque chose
+puis est devenu injoignable, une route perdue, une interface descendue — pour que le serveur
+**cesse d'écouter les trois**, jusqu'au redémarrage. Rien ne se voyait sur le moment : le serveur
+tournait, l'interface web répondait, les règles s'exécutaient. Simplement, plus aucune entrée Wago
+ou KNX poussée n'arrivait, et le boîtier était devenu introuvable sur le réseau. Le journal portait
+une ligne, `UDP server error`, qui ne nommait ni la découverte, ni Wago, ni KNX, ni le
+correspondant en cause.
+
+Désormais une réponse qui ne peut pas partir ne coûte que cette réponse. Elle est journalisée en
+nommant le correspondant qu'on n'a pas pu joindre **et** le port qui, lui, continue d'écouter :
+
+```
+UDP send to 192.0.2.1:47192 failed: invalid argument, still listening on port 4646
+```
+
+Et chaque échec est signalé, non plus seulement le premier. Le cas où c'est la socket elle-même qui
+ne fonctionne plus arrête toujours la réception — mais il dit maintenant ce qu'il emporte, au lieu
+de laisser une ligne que rien n'explique.
+
 ## 🔴 Un équipement pouvait DISPARAÎTRE de l'installation, et seulement au redémarrage suivant
 
 ### Supprimer le paramètre `type` d'un équipement le faisait s'évaporer (T3.124)

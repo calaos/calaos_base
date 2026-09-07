@@ -1285,8 +1285,8 @@
   `ReceiveFromWago()` (`ip == host`) n'écrit rien. Le journal affirmait donc que l'entrée était
   arrivée, au moment même où elle n'allait nulle part.
 
-- ⛔ **F-UDP-1 — [DISPONIBILITÉ, OUVERT, mesuré par [T3.107](T3.107.md)] un envoi UDP qui échoue
-  arrête la RÉCEPTION, pour la vie du processus.**
+- ✅ **F-UDP-1 — [DISPONIBILITÉ, FERMÉ par [T3.135](T3.135.md), mesuré par [T3.107](T3.107.md)]
+  un envoi UDP qui échoue arrête la RÉCEPTION, pour la vie du processus.**
 
   `UDPHandle::send()` publie son `ErrorEvent` **sur le handle**, et le `once<ErrorEvent>` de
   `UDPServer::createUdpSocket()` y appelle `h.stop()` — sans se réarmer, puisque c'est un `once`.
@@ -1297,6 +1297,16 @@
   ⚠️ **`T3.107` a retiré la CAUSE, pas la règle** : plus aucun envoi n'est refusé par sa propre
   famille, mais un correspondant devenu injoignable entre sa requête et la réponse (route perdue,
   interface descendue) produit le même `ErrorEvent`. ⇒ [T3.135](T3.135.md).
+
+  ✅ **Fermé le 2026-09-07.** La perte est reproduite au socket, sans défaut de famille : un serveur
+  lié à `127.0.0.1` répondant à `192.0.2.1`, que le noyau refuse de router (`EINVAL`). Après une
+  seule réponse refusée, l'entrée KNX suivante, la réponse à `CALAOS_DISCOVER` et l'entrée Wago
+  d'après valaient toutes les trois le sentinelle `-`. ⭐ **L'arbre ne distingue PAS les deux échecs
+  au rappel** — même événement, même charge, publiés au même endroit, et `send()` ne rend pas sa
+  requête : la distinction se fait sur les datagrammes dont uvw doit encore une complétion. Un envoi
+  raté nomme son correspondant et n'arrête rien ; seule une erreur sans envoi en attente arrête
+  encore, en disant ce qu'elle emporte. ⛔ **Cette branche-là n'est mesurée par rien**
+  ⇒ [`T3.149`](T3.149.md), et le tampon d'envoi non possédé ⇒ [`T3.142`](T3.142.md).
 
 - ⛔ **F-UDP-2 — [ROBUSTESSE, OUVERT, mesuré par la revue de merge de [T3.107](T3.107.md)] l'adresse
   vide que `details::sender()` peut rendre n'est distinguée par personne.**
