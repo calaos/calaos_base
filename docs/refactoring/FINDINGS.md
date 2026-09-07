@@ -13548,3 +13548,40 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   la valeur attendue reste la valeur de départ. Ce qui tient réellement la branche est son jumeau
   positif `ADaliGetReplyReallyReachesTheBallast`, qui porte une sentinelle explicite.
   *Un capteur qui ne mesure rien passe pour un capteur qui ne trouve rien.*
+
+
+## Réflexion DALI 753-647 — ce qui en sort de mesurable (2026-09-07)
+
+Le dossier complet, **qui n'engage aucun travail**, est dans
+[`WAGO_DALI_647.md`](WAGO_DALI_647.md). Deux constats méritent d'être ici, parce qu'ils sont
+mesurés et qu'ils dépassent la réflexion.
+
+- ⚠️ **F-DALI-11 — [HYPOTHÈSE, À SURVEILLER] un ballast dont le niveau n'est pas encore connu
+  s'affiche ALLUMÉ.**
+
+  La définition de `FbMaster753_647` (extraite de CoDeSys par l'auteur du firmware) initialise
+  `abActualLevel : ARRAY [0..96] OF BYTE := 97(255)` — **255 = `MASK` en DALI, « inconnu »** — et
+  interroge la base au démarrage (`xQueryActualValue := TRUE`), ce qui prend du temps. L'automate met
+  son jeton à `1` dès que le niveau est ≠ 0, et `WODali.cpp:100-107` traduit tout ce qui n'est pas
+  `"0"` en **100 %**. Or [T3.156](T3.156.md) §4 a établi que l'état n'est lu **qu'une fois, à la
+  construction**, et jamais rafraîchi.
+
+  ⇒ **Course possible** entre la lecture de démarrage du serveur et l'interrogation de la base par la
+  borne. ⚠️ **Ce n'est pas le défaut rapporté par l'utilisateur** : celui-ci ne frappait qu'un
+  luminaire, celui-ci les frapperait tous. À regarder **seulement si** des luminaires apparaissent
+  encore allumés à tort une fois `T3.156` en service. **Non mesuré, non ticketé.**
+
+- ⭐ **F-DALI-12 — [MÉTHODE, acquis] l'information « je ne sais pas » existe en bas et est détruite
+  en haut.**
+
+  La bibliothèque distingue « inconnu » (`255`) de « éteint » (`0`) ; `calaos_server` ne le peut pas,
+  son état est **binaire**. Toute unification des chemins DALI qui n'aurait pas d'abord rendu cette
+  distinction représentable **propagerait** le défaut : un chemin unifié interrogeant une borne
+  absente afficherait « allumé » au lieu de « inconnu ».
+
+  ⛔ **Et la leçon de méthode du dossier** : sur ce firmware, une **lecture attentive du ST conduit à
+  la conclusion inverse de la vérité**. Le garde `IF CONFIG_DALI_647 = TRUE` couvre le seul site
+  d'appel, les variables sont locales, aucune tâche dédiée n'existe — tout dit que la borne absente
+  est inoffensive, et le **banc dit le contraire**. Les neuf `.lib` du dépôt ne contiennent **aucun**
+  ST (zéro `END_VAR`), les `.EXP` ne sont que des visualisations, et l'implémentation est hors
+  d'atteinte pour toujours. **Ici, la mesure bat la lecture, et il faut le supposer par défaut.**
