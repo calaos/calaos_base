@@ -1,8 +1,15 @@
 name: Build and Publish dev docker image
 
+# Publication waits for the tests. workflow_run is the only link GitHub
+# offers between two workflow files, and the tests live in another one, out of
+# reach of a needs:. The quoted string must match the name: of .github/workflows/ci.yml
+# exactly: a typo does not fail, it just never triggers, and nothing is ever
+# published again. .github/check-workflow-gating.py refuses that silently-dead form.
 on:
-    push:
-      branches: [ master ]
+  workflow_run:
+    workflows: [ "Build and Test" ]
+    types: [ completed ]
+    branches: [ master ]
 
 env:
   REGISTRY_IMAGE: ghcr.io/calaos/calaos_base
@@ -13,16 +20,28 @@ jobs:
   # define job to build and publish docker image
   build-and-push-docker-image:
     name: Build Docker image and push to repositories
-    # Nothing gates this job: the tests live in a separate workflow, which a
-    # needs: cannot reach, and no workflow_run links the two. Merging into
-    # master therefore tags, publishes and dispatches a package build whatever
-    # the test run is doing.
+    # types: [completed] fires on a FAILED run too, so without the conclusion
+    # test the trigger would gate nothing at all. event == 'push' keeps a fork
+    # pull request from reaching this job, which runs with the repository
+    # secrets. The sha equality skips the run when master has already moved:
+    # negz/create-tag tags github.sha, which this event resolves on the default
+    # branch and not on the commit that was tested -- tagging and shipping an
+    # untested commit is worse than shipping too early. The newer commit
+    # publishes through its own run.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_sha == github.sha
     runs-on: ubuntu-latest
 
     # steps to perform in job
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          # A workflow_run run defaults to the default branch, not to the commit
+          # whose tests just passed.
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Calaos Action Bump Version
         id: calaos_version

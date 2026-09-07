@@ -324,6 +324,26 @@ jobs:
           pip show mcp fastapi starlette uvicorn websockets pydantic \
               | grep -E '^(Name|Version):'
 
+  # A workflow_run gate breaks by never firing: GitHub matches the quoted
+  # workflow by its name:, and an unmatched name is not an error. Nothing else
+  # in the tree would notice that publication had simply stopped.
+  workflow-gating:
+    name: Workflow gating check
+    runs-on: ubuntu-latest
+    container: debian:12
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 python3-yaml
+
+      - name: Every workflow_run gate must be able to fire, and only on green
+        run: python3 .github/check-workflow-gating.py
+
   dependabot-config:
     name: Dependabot manifest coverage
     runs-on: ubuntu-latest
