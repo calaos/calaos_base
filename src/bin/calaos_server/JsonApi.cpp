@@ -298,6 +298,24 @@ AutoScenario *autoScenarioOfTimeRange(IOBase *o)
     return nullptr;
 }
 
+/* The params of a scenario definition are DERIVED, and derived from one place:
+ * AutoScenarioDef re-emits the whole set at every save and deletes the ones it
+ * did not produce. A client write is therefore either erased at the next save
+ * or, for the uid, hands a second scenario the key everything it owns is
+ * derived from - inert until the next start, which is where the duplicate then
+ * has to be repaired.
+ * The set is ASKED of the class that derives it rather than spelled out here,
+ * the same way the structural guard asks IOFactory: a key the definition gains
+ * is refused with nobody having to remember it. The refusal is at the API and
+ * not in IOBase, because IOBase is what the derivation itself writes through.
+ * `disabled`, `cycle`, `visible` and `disabled_missing_io` are deliberately
+ * NOT in it: they are live state a client is meant to set.
+ */
+bool isDerivedScenarioParam(const std::string &key)
+{
+    return AutoScenarioDef::isDefinitionParam(key);
+}
+
 } //namespace
 
 map<string, LoginThrottle::Entry> LoginThrottle::entries;
@@ -1229,7 +1247,8 @@ Json JsonApi::buildJsonSetParam(const Params &jParam)
     {
         if (jParam["param"].empty() || jParam["value"].empty())
             success = false;
-        else if (!o->set_param(jParam["param"], jParam["value"]))
+        else if (isDerivedScenarioParam(jParam["param"]) ||
+                 !o->set_param(jParam["param"], jParam["value"]))
         {
             /* A refusal gets its own message: "wrong io/param" means the IO or
              * the param was not FOUND, and a client retrying on that would
@@ -1273,7 +1292,8 @@ Json JsonApi::buildJsonDelParam(const Params &jParam)
         /* Through IOBase and not through the mutable Params it hands out:
          * the immutability of "id" is a rule of the model, and reaching past
          * the model is what made it unreachable from both transports. */
-        else if (!o->del_param(jParam["param"]))
+        else if (isDerivedScenarioParam(jParam["param"]) ||
+                 !o->del_param(jParam["param"]))
         {
             //The two messages of buildJsonSetParam(), and for its reason:
             //"wrong io/param" means NOT FOUND, and a client retrying on that
