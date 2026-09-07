@@ -25,6 +25,8 @@
 #include <tcpsocket.h>
 #include <WagoMap.h>
 
+#include <deque>
+
 namespace uvw {
 //Forward declare classes here to prevent long build time
 //because of uvw.hpp being header only
@@ -36,6 +38,10 @@ class UDPServer
 protected:
     int port;
     std::shared_ptr<uvw::UDPHandle> handleSrv;
+    //Correspondents of the datagrams uvw still owes a completion for, oldest
+    //first. See createUdpSocket(): it is the only thing that tells a refused
+    //send from a broken socket.
+    std::deque<std::string> pendingSends;
 
     void createUdpSocket();
     void sendTo(const string &ip, unsigned int remotePort, const string &packet);

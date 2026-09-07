@@ -51,10 +51,10 @@ void UDPServer::createUdpSocket()
                                  ev.sender.port);
         });
 
-        handleSrv->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &h)
+        handleSrv->on<uvw::SendEvent>([this](const uvw::SendEvent &, uvw::UDPHandle &)
         {
-            h.stop();
-            cErrorDom("network") << "UDP server error: " << ev.what();
+            if (!pendingSends.empty())
+                pendingSends.pop_front();
         });
     };
 
@@ -68,6 +68,7 @@ void UDPServer::createUdpSocket()
                                << Calaos::kWidenedListen;
 
     handleSrv = loop->resource<uvw::UDPHandle>();
+    pendingSends.clear();
     subscribe();
 
     if (!Calaos::bindListenAddress(*handleSrv, listenAddr, port,
@@ -81,10 +82,44 @@ void UDPServer::createUdpSocket()
         //it opened for the refused family. The subscriptions go with the handle.
         handleSrv->close();
         handleSrv = loop->resource<uvw::UDPHandle>();
+        pendingSends.clear();
         subscribe();
         Calaos::bindListenAddress(*handleSrv, "0.0.0.0", port,
                                   uvw::UDPHandle::Bind::REUSEADDR);
     }
+
+    /* Only now, and never before the binds above: a bind that fails is recovered
+     * a few lines up, and this listener would announce a loss that did not
+     * happen.
+     *
+     * uvw republishes the failure of a send request on the HANDLE, as the very
+     * ErrorEvent a failed receive uses, so the callback cannot tell the two
+     * apart on its own: the datagrams still owed a completion do it. A refused
+     * send is one correspondent's business and must cost nothing else; stopping
+     * the handle costs every input the box has, so the one case that still does
+     * it says what it takes away. A receive that fails while a send is
+     * outstanding is charged to the send - the only ambiguity left, and it errs
+     * towards listening on.
+     */
+    handleSrv->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &h)
+    {
+        if (!pendingSends.empty())
+        {
+            const string peer = pendingSends.front();
+            pendingSends.pop_front();
+            cErrorDom("network") << "UDP send to " << peer << " failed: "
+                                 << ev.what() << ", still listening on port "
+                                 << port;
+            return;
+        }
+
+        h.stop();
+        cErrorDom("network") << "UDP server error: " << ev.what();
+        cErrorDom("network") << "no longer listening on port " << port
+                             << ": discovery (CALAOS_DISCOVER), Wago inputs "
+                                "(WAGO INT) and KNX inputs (WAGO KNX) stop here "
+                                "until the server is restarted";
+    });
 
     handleSrv->recv();
 }
@@ -92,6 +127,7 @@ void UDPServer::createUdpSocket()
 void UDPServer::sendTo(const string &ip, unsigned int remotePort,
                        const string &packet)
 {
+    pendingSends.push_back(ip + ":" + Utils::to_string(remotePort));
     Calaos::sendDatagram(*handleSrv, ip, remotePort,
                          (char *)packet.c_str(), packet.length());
 }
