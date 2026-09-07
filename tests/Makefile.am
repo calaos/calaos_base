@@ -6224,3 +6224,30 @@ core_DerivedParamGuard_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Stand
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.138
+#⭐ A sidecar that CRASHES, and where its uptime is counted from.
+#A child killed by SIGSEGV, SIGABRT or the OOM killer leaves exit status 0
+#under Linux, so a ramp deciding on the status alone let every crash loop keep
+#the cadence of before the ramp. And the reset rule reads a duration whose
+#origin nothing held: counted from the request instead of the spawn, the hold
+#itself becomes service time and the ramp stops biting at the ceiling.
+#⚠️ Launches are COUNTED in a fixed window and bounded from above; the single
+#duration read is bounded against a hold of 0.8 s and carries its own floor.
+#⛔ Own binary and own process, like core/ExternProcRespawnBackoff_test: the
+#loop respawns a stand-in for as long as the process lives, and the sandbox of
+#core/ExternProcSpawnHarness.h must outlive the cases.
+if HAVE_GTEST
+TESTS += core/ExternProcCrashBackoff_test
+check_PROGRAMS += core/ExternProcCrashBackoff_test
+core_ExternProcCrashBackoff_test_SOURCES = core/ExternProcCrashBackoff_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_ExternProcCrashBackoff_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ExternProcCrashBackoff_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_ExternProcCrashBackoff_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
