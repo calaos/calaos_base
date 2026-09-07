@@ -1230,3 +1230,28 @@ est voulu » était défendable tant que le commentaire du fichier ne prétendai
 
 ⚠️ **Ce que ça ne change PAS** : le `push` reste **une livraison**. Conditionner la publication à la
 CI ne la rend pas gratuite — ça garantit seulement qu'on ne livre pas du rouge.
+
+---
+
+## 2026-09-07 — le `push` est autorisé, une fois quatre tickets faits
+
+**Décision de l'utilisateur.** Le `push` — donc la **livraison** — part **quand ces quatre-là sont
+mergés**, et pas avant :
+
+| | |
+|---|---|
+| [`T3.117`](T3.117.md) | rien ne refuse un `autoscenario_uid` dupliqué ; supprimer un scénario détruit la machinerie de l'autre |
+| [`T3.109`](T3.109.md) | deux mises en écoute lient toutes les interfaces **en dur** — `listen_address` ne les confine pas |
+| [`T3.105`](T3.105.md) | le serveur relance ses sidecars toutes les 100 ms sans jamais lire leur statut de sortie |
+| [`T3.107`](T3.107.md) | sous une `listen_address` IPv6, `UDPServer` se lie bien mais ne lit plus ses correspondants |
+
+⛔ **Les 21 autres tickets ouverts ne bloquent pas le `push`** — dix sont mineurs ou des arbitrages,
+sept sont des filets qu'aucun utilisateur ne peut observer, quatre sont de l'outillage.
+
+⚠️ **Ce que ce `push` déclenche, et qui n'a jamais tourné** : la CI GitHub, pour la première fois de
+toute la série. Depuis [`T3.125`](T3.125.md), **la publication attend qu'elle passe** — donc un rouge
+ne livre pas, mais **une CI qui ne tourne pas du tout ne livre pas non plus, en silence**.
+⭐ La liste de ce que seul ce `push` peut trancher est en tête de l'ÉTAT DE SORTIE d'`ORCHESTRATION.md`.
+
+⛔ **La consigne « aucun agent ne pousse » reste entière** : c'est l'orchestrateur qui poussera, une
+fois les quatre mergés, et il l'annoncera avant.
