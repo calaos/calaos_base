@@ -6251,3 +6251,65 @@ core_ExternProcCrashBackoff_test_LDADD = $(CORE_TEST_LDADD)
 core_ExternProcCrashBackoff_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.156
+#The CONTENT of the DALI state-read frame. WODali/WODaliRVB build
+#"WAGO_DALI_GET <line> <address>" and drop the group flag the matching write
+#carries, so a ballast addressed as a DALI GROUP reads back another ballast's
+#state at every server start.
+#Why a suite of its own rather than a case in core/WagoUdpReply_test: that file
+#drives the REPLY path and is green on the broken program. The defect is in the
+#frame the constructor EMITS, so every case here reads WagoMap's pending UDP
+#queue and asserts on the POSITION of each token - "the frame contains 1" is
+#already true before the fix, since line is 1.
+#The addresses are 7/11/22/33, never 0 or 1: swapping the address and the flag
+#changes no value when the address is itself a flag value, and the suite would
+#be blind to that permutation.
+#Same link closure and LDADD as core/WagoUdpReply_test: it builds a production
+#WODali and WODaliRVB through IOFactory, so it links the Wago server objects
+#and lives under core/ with the fixture.
+#Built elsewhere: the server objects come from another Makefile, so only
+#libcalaos_common.la may appear in _DEPENDENCIES (the -DEPENDENCIES pitfall).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WagoDaliGetGroup_test
+check_PROGRAMS += core/WagoDaliGetGroup_test
+core_WagoDaliGetGroup_test_SOURCES = core/WagoDaliGetGroup_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_WagoDaliGetGroup_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoDaliGetGroup_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT)                      \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT)                     \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT)                \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_WagoDaliGetGroup_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
