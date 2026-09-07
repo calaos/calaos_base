@@ -143,15 +143,17 @@ public:
     //Hold before the launch that follows `failures` consecutive failures.
     static double respawnDelay(int failures);
 
-    //A zero status is a voluntary stop - terminate() signals the child, and a
-    //SIGTERM leaves status 0 - so it never counts as a failure.
-    //Every death by signal leaves status 0 too, SIGSEGV included, so a child
-    //that crashes is NOT slowed down. Telling the two apart needs the signal
-    //number, which ExitEvent carries and nothing here reads yet.
-    static int nextFailureCount(int failures, int64_t status, double ranSeconds);
+    /* A zero status alone is NOT a voluntary stop: under Linux a child killed
+     * by SIGSEGV, SIGABRT or the OOM killer leaves status 0 as well, so
+     * deciding on the status alone lets every crash keep the old cadence. The
+     * signal tells the two apart, and SIGTERM is excluded because that is
+     * exactly what terminate() sends. */
+    static int nextFailureCount(int failures, int64_t status, int termSignal,
+                                double ranSeconds);
 
     int respawnFailures() const { return respawn_failures; }
     int64_t lastExitStatus() const { return last_exit_status; }
+    int lastTermSignal() const { return last_term_signal; }
     double lastRunSeconds() const { return last_run_seconds; }
 
     sigc::signal<void, const string &> messageReceived;
@@ -175,6 +177,7 @@ private:
 
     int respawn_failures = 0;
     int64_t last_exit_status = 0;
+    int last_term_signal = 0;
     double last_run_seconds = 0.0;
     std::chrono::steady_clock::time_point spawned_at =
             std::chrono::steady_clock::now();
@@ -188,7 +191,7 @@ private:
     void processData(const string &data);
     void relayChildOutput(string &buf, const char *stream, bool atEof);
     void spawnProcess(const string &process, const string &name, const vector<string> &args);
-    void noteChildGone(int64_t status);
+    void noteChildGone(int64_t status, int termSignal);
 };
 
 class ExternProcClient: public sigc::trackable

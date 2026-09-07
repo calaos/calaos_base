@@ -218,36 +218,36 @@ TEST_F(ExternProcRespawnBackoffTest, AVoluntaryStopIsNotAFailure)
 {
     //terminate() signals the child, and a SIGTERM leaves status 0. Counting it
     //would make every ordinary shutdown push the next start into the ramp.
-    EXPECT_EQ(0, ExternProcServer::nextFailureCount(0, 0, 0.0));
-    EXPECT_EQ(0, ExternProcServer::nextFailureCount(9, 0, 0.0))
+    EXPECT_EQ(0, ExternProcServer::nextFailureCount(0, 0, 0, 0.0));
+    EXPECT_EQ(0, ExternProcServer::nextFailureCount(9, 0, 0, 0.0))
         << "a clean exit after nine failures left the ramp where it was";
-    EXPECT_EQ(0, ExternProcServer::nextFailureCount(9, 0, 3600.0));
+    EXPECT_EQ(0, ExternProcServer::nextFailureCount(9, 0, 0, 3600.0));
 }
 
 TEST_F(ExternProcRespawnBackoffTest, ConsecutiveFailuresClimb)
 {
-    EXPECT_EQ(1, ExternProcServer::nextFailureCount(0, 1, 0.0));
-    EXPECT_EQ(2, ExternProcServer::nextFailureCount(1, 1, 0.0));
-    EXPECT_EQ(10, ExternProcServer::nextFailureCount(9, kStandInExitCode, 0.0));
+    EXPECT_EQ(1, ExternProcServer::nextFailureCount(0, 1, 0, 0.0));
+    EXPECT_EQ(2, ExternProcServer::nextFailureCount(1, 1, 0, 0.0));
+    EXPECT_EQ(10, ExternProcServer::nextFailureCount(9, kStandInExitCode, 0, 0.0));
 
     //Just under the reset: the failure that follows a run of almost long
     //enough is still the same incident.
     EXPECT_EQ(10, ExternProcServer::nextFailureCount(
-                      9, 1, ExternProcServer::kRespawnResetSeconds - 0.001));
+                      9, 1, 0, ExternProcServer::kRespawnResetSeconds - 0.001));
 }
 
 TEST_F(ExternProcRespawnBackoffTest, ARunLongEnoughStartsTheRampOver)
 {
     //The point of the whole rule: a sidecar that worked for an hour and then
     //died must be picked up at once, not at the ceiling it left behind.
-    EXPECT_EQ(1, ExternProcServer::nextFailureCount(9, 1, 3600.0));
+    EXPECT_EQ(1, ExternProcServer::nextFailureCount(9, 1, 0, 3600.0));
     EXPECT_DOUBLE_EQ(ExternProcServer::kRespawnDelayMin,
                      ExternProcServer::respawnDelay(
-                         ExternProcServer::nextFailureCount(40, 1, 3600.0)))
+                         ExternProcServer::nextFailureCount(40, 1, 0, 3600.0)))
         << "an hour of service still costs the next relaunch the ceiling";
 
     EXPECT_EQ(1, ExternProcServer::nextFailureCount(
-                     9, 1, ExternProcServer::kRespawnResetSeconds));
+                     9, 1, 0, ExternProcServer::kRespawnResetSeconds));
 
     EXPECT_DOUBLE_EQ(ExternProcServer::kRespawnDelayMax,
                      ExternProcServer::kRespawnResetSeconds)

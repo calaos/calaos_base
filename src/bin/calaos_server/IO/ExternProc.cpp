@@ -26,6 +26,7 @@
 #include "libuvw.h"
 #include "Timer.h"
 #include <algorithm>
+#include <csignal>
 #include <limits>
 
 #define READBUFSIZE 65536
@@ -275,9 +276,15 @@ double ExternProcServer::respawnDelay(int failures)
     return std::min(delay, kRespawnDelayMax);
 }
 
-int ExternProcServer::nextFailureCount(int failures, int64_t status, double ranSeconds)
+int ExternProcServer::nextFailureCount(int failures, int64_t status,
+                                       int termSignal, double ranSeconds)
 {
-    if (status == 0)
+    //A crash carries no status of its own: the kernel reports status 0 and the
+    //signal separately, so a SIGSEGV is indistinguishable from a clean stop
+    //until the signal is read. SIGTERM is what terminate() sends.
+    const bool crashed = termSignal != 0 && termSignal != SIGTERM;
+
+    if (status == 0 && !crashed)
         return 0;
 
     if (failures < 0)
@@ -294,12 +301,14 @@ int ExternProcServer::nextFailureCount(int failures, int64_t status, double ranS
     return failures + 1;
 }
 
-void ExternProcServer::noteChildGone(int64_t status)
+void ExternProcServer::noteChildGone(int64_t status, int termSignal)
 {
     last_run_seconds = std::chrono::duration<double>(
                 std::chrono::steady_clock::now() - spawned_at).count();
     last_exit_status = status;
-    respawn_failures = nextFailureCount(respawn_failures, status, last_run_seconds);
+    last_term_signal = termSignal;
+    respawn_failures = nextFailureCount(respawn_failures, status, termSignal,
+                                        last_run_seconds);
 }
 
 void ExternProcServer::startProcess(const string &process, const string &name, const vector<string> &args)
@@ -346,8 +355,11 @@ void ExternProcServer::spawnProcess(const string &process, const string &name, c
          * times a second read as "process exited, restarting..." and nothing
          * else. A clean stop still says nothing: terminate() signals the
          * child, which leaves status 0. */
-        noteChildGone(ev.status);
-        if (ev.status != 0)
+        noteChildGone(ev.status, ev.signal);
+        if (ev.signal != 0 && ev.signal != SIGTERM)
+            cWarningDom("process") << procName << " was killed by signal " << ev.signal
+                                   << " after " << last_run_seconds << "s";
+        else if (ev.status != 0)
             cWarningDom("process") << procName << " exited with status " << ev.status
                                    << " after " << last_run_seconds << "s";
         else
@@ -365,7 +377,7 @@ void ExternProcServer::spawnProcess(const string &process, const string &name, c
         if (!isStarted) hasFailedStarting = true;
         //A spawn that never happened is a failure like any other: a missing
         //binary is the cheapest way there is to loop forever.
-        noteChildGone(ev.code()? ev.code() : -1);
+        noteChildGone(ev.code()? ev.code() : -1, 0);
         cCriticalDom("process") << "Process error: " << ev.what();
         process_exe->close();
         //T3.40: same window as the ExitEvent above, and both can be armed in
@@ -468,6 +480,9 @@ void ExternProcServer::spawnProcess(const string &process, const string &name, c
                         << " --namespace " << name
                         << " (" << args.size() << " argument(s))";
 
+    /* Here and not at the head of startProcess(): the reset rule credits a
+     * child with the time it SERVED, and a hold counted as service would let
+     * every relaunch at the ceiling clear the ramp. */
     spawned_at = std::chrono::steady_clock::now();
     process_exe->spawn(arr.at(0), arr.data(), env.data());
 
