@@ -1717,13 +1717,13 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   **Ce qui change.** Une adresse IPv6 est désormais appliquée telle qu'elle est écrite, sur les
   deux serveurs. ⚠️ **Votre serveur va donc se restreindre pour de bon** : si vous l'atteigniez en
   IPv4 pendant qu'il croyait n'écouter que sur `::1`, cet accès va cesser à la mise à jour.
-  ⚠️ **Et si vous posez une adresse IPv6, le service de découverte UDP ne répondra plus** — ni à
-  `calaos_installer`, ni à l'application mobile, ni aux écrans, et les entrées Wago/KNX poussées en
-  UDP seront ignorées. Il écoute bien à la bonne adresse, mais il ne sait pas encore lire l'adresse
-  d'un correspondant IPv6 : c'est le prochain morceau, et il n'est pas livré ici.
+  ✅ **La découverte UDP suit maintenant** : la réserve qui figurait ici — « si vous posez une
+  adresse IPv6, le service de découverte ne répondra plus » — **est levée**. Voir l'entrée
+  ci-dessous, qui dit ce qui était perdu et comment cela se voyait.
 
   ✅ **Les deux autres façons d'écrire une valeur inapplicable sont fermées elles aussi** — voir
-  l'entrée suivante. Elles restent un élargissement de l'écoute, mais elles ne sont plus muettes.
+  l'entrée sur le port tiré au hasard, plus bas. Elles restent un élargissement de l'écoute, mais
+  elles ne sont plus muettes.
 
   **En prime.** Sur une écoute IPv6 ou double pile, le serveur lisait `0.0.0.0` à la place de
   l'adresse de ses clients : tous se retrouvaient dans un compteur unique — le ralentissement après
@@ -1731,6 +1731,51 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   C'est corrigé aussi : chaque client est de nouveau identifié, et les lignes du journal qui disent
   d'où vient une connexion refusée donnent l'adresse réelle. ⚠️ Personne ne pouvait l'observer
   jusqu'ici, puisque l'écoute IPv6 n'avait jamais lieu.
+- ⛔⭐⭐ **Sur une écoute IPv6, le boîtier devenait INTROUVABLE et vos entrées Wago/KNX
+  disparaissaient sans un mot — puis il cessait d'écouter tout court.**
+
+  **À lire seulement si vous avez écrit une adresse IPv6 dans `listen_address`** (`::1`, `::`, une
+  adresse de votre réseau). La valeur par défaut est `0.0.0.0` et n'est pas concernée : rien ne
+  change pour une installation qui n'a jamais touché ce réglage.
+
+  **Ce qui se passait.** Le serveur se liait bien à l'adresse demandée, mais il **relisait de
+  travers** l'adresse de qui lui parlait : tout correspondant IPv6 lui apparaissait comme
+  `0.0.0.0`. Trois conséquences, toutes muettes ou presque :
+
+  - ⛔ **Le boîtier ne répondait plus au « qui est là ? » du réseau.** `calaos_installer`,
+    l'application mobile et les écrans muraux trouvent le serveur par un seul mécanisme, une
+    question envoyée en UDP à laquelle il répond avec son adresse. Il ne répondait plus. Il n'y a
+    pas de seconde route : le boîtier était **introuvable**, alors qu'il tournait.
+  - ⛔ **Toutes les entrées Wago et KNX poussées en UDP étaient perdues.** Un interrupteur,
+    un détecteur, un contact : le message arrivait, le serveur ne trouvait à quel équipement
+    l'attribuer et **n'écrivait rien**. Pire, le journal affichait quand même
+    `received input 7 state=1` — il vous disait donc que l'information était arrivée, au moment
+    précis où elle n'allait nulle part. Rien n'était attribué au **mauvais** équipement, c'est la
+    seule bonne nouvelle.
+  - ⛔⭐ **Et à la première question du réseau, le serveur cessait d'écouter l'UDP pour de bon.**
+    Sa réponse partait sur la mauvaise famille d'adresse, l'échec arrêtait sa réception, et plus
+    rien n'arrivait ensuite — même des équipements qui n'avaient rien demandé — jusqu'au
+    redémarrage. Une ligne au journal, `UDP server error: network is unreachable`, qui ne nomme ni
+    Wago, ni KNX, ni la découverte.
+
+  ⚠️ **C'est le pire mode de panne qui soit à diagnostiquer** : le serveur tourne, l'API HTTP
+  répond, les journaux ont l'air normaux, et pourtant « ça ne marche plus » sans cause visible.
+  Si vous avez vécu cela après avoir mis une adresse IPv6 dans `listen_address` — vos boutons
+  Wago sans effet, vos applications qui ne trouvent plus le boîtier — c'était cela.
+
+  ⚠️ **Ce défaut et la correction de l'écoute partent dans la MÊME version, et c'est important** :
+  aucune version publiée ne l'a jamais eu. Jusqu'ici une adresse IPv6 n'était pas appliquée du tout,
+  le serveur écoutait en IPv4, et ce chemin n'était jamais pris ; c'est la correction de l'écoute
+  qui l'a rendu atteignable, et il est refermé avant qu'elle ne vous parvienne. Il est décrit ici
+  parce qu'une écoute IPv6 devient utilisable pour la première fois, et qu'il faut savoir ce qui a
+  été fermé avec elle.
+
+  **Ce qui change.** L'adresse d'un correspondant est lue dans la famille que le système annonce,
+  la réponse part sur la famille de la socket, et un correspondant IPv6 reçoit une adresse qu'il
+  peut réellement joindre. Sur une écoute **double pile** (`::`), un équipement IPv4 est de nouveau
+  nommé par son adresse habituelle (`192.168.1.42`, et non `::ffff:192.168.1.42`) : vos `host`
+  configurés correspondent sans rien changer.
+
 - ⛔⭐ **`listen_address` : une valeur que le serveur ne sait pas appliquer ne le fait plus
   disparaître en silence — et le cas du PORT TIRÉ AU HASARD est fermé.**
 

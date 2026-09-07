@@ -1224,7 +1224,7 @@
   construit aussi le serveur de découverte, sa socket est lue au `getsockname()`, et la
   contre-mutation qui lui fait ignorer l'adresse configurée **rougit**.
 
-- ⛔ **F-IP6-3 — [DISPONIBILITÉ, OUVERT, RÉVÉLÉ par [T3.41](T3.41.md)] sous une `listen_address`
+- ✅ **F-IP6-3 — [DISPONIBILITÉ, FERMÉ par [T3.107](T3.107.md)] sous une `listen_address`
   IPv6, `UDPServer` se lie à la bonne famille mais ne sait pas lire ses correspondants : la
   découverte ne répond plus et les entrées Wago/KNX poussées en UDP sont ignorées.**
 
@@ -1250,6 +1250,53 @@
   inchangé), mais **c'en est une contre master pour une `listen_address` IPv6** — où le service
   fonctionnait, précisément parce que le `bind` IPv6 n'avait jamais lieu. Écrit dans
   [`RELEASE_NOTES.md`](RELEASE_NOTES.md) plutôt que tu. ⇒ [T3.107](T3.107.md).
+
+  ✅ **FERMÉ par [T3.107](T3.107.md)**, et **deux affirmations ci-dessus étaient fausses** :
+
+  1. ⛔ **`GetLocalIPFor("0.0.0.0")` ne rend PAS vide.** Mesuré : `inet_pton(AF_INET, "0.0.0.0")`
+     vaut **1**, le noyau ramène le `connect()` sur `0.0.0.0` à la boucle locale, et la fonction
+     rend **`"127.0.0.1"`**. La réponse était donc **tentée**, avec un `sockaddr_in` qu'un
+     descripteur `AF_INET6` refuse (`ENETUNREACH`, mesuré).
+  2. ⛔⭐ **Et la conséquence réelle est plus lourde que celle qui était écrite.** `send()` publie
+     son échec **sur le handle**, où le `once<ErrorEvent>` de `UDPServer` appelle `h.stop()` : le
+     **premier `CALAOS_DISCOVER` arrêtait la réception pour la vie du processus**, entrées Wago et
+     KNX comprises, y compris celles de correspondants qui n'avaient rien demandé. Une seule ligne
+     au journal, qui ne nomme ni Wago, ni la découverte. ⇒ l'amplificateur est fiché à part,
+     **`F-UDP-1`** ci-dessous, parce qu'il survit au correctif.
+
+  ⭐ **Le correctif n'est pas de GARDER la seconde surcharge, et c'est mesuré.** Sur les **7** appels
+  de `address<I>(const IpTraits<I>::Type *)` dans l'arbre, **2 seulement sont exposés** — les deux
+  de `recvCallback<I>` ; les 4 de `uv_interface_addresses()` testent `sin_family` eux-mêmes, le
+  septième est à l'intérieur de la surcharge gardée. Et la garder rendrait une `Addr` **vide** :
+  honnête, toujours inutilisable. Le paramètre `I` de `recv()` est **une supposition qu'un
+  propriétaire n'a aucun moyen de garder en phase avec son `bind`** ⇒ `details::sender()` lit la
+  famille que le noyau a annoncée, ce qui ferme la seconde porte **par construction** à ses deux
+  seuls sites exposés. *À recopier : une surcharge qui reçoit un pointeur déjà typé ne peut pas se
+  défendre ; c'est son APPELANT qui doit cesser de deviner.*
+
+  ⭐ **Un troisième étage, trouvé en rendant la lecture juste** : `TCPSocket::GetLocalIPFor()` ne
+  connaît que l'IPv4 — repli `SIOCGIFADDR`, qui n'a pas de réponse IPv6 — et rendait `""` pour un
+  correspondant `::1`. Fermé ici aussi. Le garde du correctif est tenu **des deux côtés** : la
+  contre-mutation qui échange le test de littéral IPv6 contre celui d'IPv4 rougit la suite neuve
+  **et** `core/ParseErrorSecret_test`, qui exerce `AVRRose` sur un hôte IPv4.
+
+  ⛔⭐ **Et le mode d'échec était pire que silencieux** : `processRequest()` imprime
+  `received input N state=X` **avant** d'émettre le signal, tandis que le non-appariement de
+  `ReceiveFromWago()` (`ip == host`) n'écrit rien. Le journal affirmait donc que l'entrée était
+  arrivée, au moment même où elle n'allait nulle part.
+
+- ⛔ **F-UDP-1 — [DISPONIBILITÉ, OUVERT, mesuré par [T3.107](T3.107.md)] un envoi UDP qui échoue
+  arrête la RÉCEPTION, pour la vie du processus.**
+
+  `UDPHandle::send()` publie son `ErrorEvent` **sur le handle**, et le `once<ErrorEvent>` de
+  `UDPServer::createUdpSocket()` y appelle `h.stop()` — sans se réarmer, puisque c'est un `once`.
+  Un envoi raté est l'affaire d'**un** correspondant ; il coûte ici **toute** la réception :
+  découverte, `WAGO INT`, `WAGO KNX`, jusqu'au redémarrage. Une ligne d'erreur, qui ne nomme rien
+  de ce qui est perdu.
+
+  ⚠️ **`T3.107` a retiré la CAUSE, pas la règle** : plus aucun envoi n'est refusé par sa propre
+  famille, mais un correspondant devenu injoignable entre sa requête et la réponse (route perdue,
+  interface descendue) produit le même `ErrorEvent`. ⇒ [T3.135](T3.135.md).
 
 - ✅ **F-PYTEST-1 — [FAUX VERT, FERMÉ par [T3.47](T3.47.md)] `tests/python/test_auth.py` était
   silencieusement SAUTÉ par `make check`, qui restait vert** (trouvé en mesurant F-MCP-XFF-1).
