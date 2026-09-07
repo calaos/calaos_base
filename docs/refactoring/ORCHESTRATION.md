@@ -43,7 +43,7 @@
      liste de ce que seul le premier `push` tranchera compte **sept** points, et son mode d'échec est
      le **silence**. Elle est énumérée en tête de l'état de sortie ci-dessous.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-07, APRÈS LE MERGE DE [`T3.125`](T3.125.md)) — À LIRE
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-07, APRÈS LE MERGE DE [`T3.116`](T3.116.md), DERNIER DES QUATRE PRIORITAIRES) — À LIRE
   EN PREMIER À FROID.**
 
   ⭐⭐⭐ **CE QUI CHANGE À VOTRE PREMIER `push`, EN CLAIR.** Jusqu'ici, pousser sur `master`
@@ -53,7 +53,7 @@
   commit poussé. C'est la décision du 2026-09-07 (`DECISIONS.md`), issue **B**.
 
   **Ce que le vert couvre** : compilation sur `debian:12` (pugixml **système 1.13**, jamais le
-  vendored 1.14 des builds locaux) et les **147** suites de `make check` avec
+  vendored 1.14 des builds locaux) et les **148** suites de `make check` avec
   `CALAOS_PYTHON_TESTS_REQUIRED=1` et `CALAOS_PYDEPS_STRICT=1` — sondes statiques et suites Python
   comprises — plus `mcp-sidecar-deps`, `dependabot-config` et le neuf `workflow-gating`.
 
@@ -64,7 +64,7 @@
   CI) · `format-check` est `if: github.event_name == 'pull_request'`, donc **sauté sur une poussée**,
   et un job sauté laisse l'exécution en `success` · `coverage` est `continue-on-error: true`, donc
   son échec ne rougit rien. ⇒ **la garde est réelle mais elle n'est pas totale : elle vaut
-  exactement ce que valent les 147, et rien de l'emballage.**
+  exactement ce que valent les 148, et rien de l'emballage.**
 
   ⛔⭐⭐ **ET CE QUI NE SERA VÉRIFIÉ QU'À CE MOMENT-LÀ — la liste, parce que le mode d'échec est le
   SILENCE :** ⑴ que le `workflow_run` se déclenche **du tout** (il n'est honoré que depuis la branche
@@ -84,12 +84,76 @@
   qu'une publication réussie est récente, ou la **protection de branche** (issue **C**, réglage
   d'interface qu'un agent ne peut pas poser).
 
-  ⭐⭐⭐ **(a) LE BACKLOG D'ORIGINE DU 4 SEPTEMBRE EST TOUJOURS À ZÉRO.** Rien n'y est revenu :
-  `T3.125` n'en fait pas partie, il vient de `(b)` — ouvert par la mesure de [`T3.22`](T3.22.md) puis
-  débloqué par [`T3.112`](T3.112.md). Le compte de `(a)` reste **11 fermés + 2 écartés = 13**,
-  énumérable ligne à ligne dans les états de sortie conservés plus bas.
+  ⭐⭐⭐ **(a) LE BACKLOG D'ORIGINE DU 4 SEPTEMBRE EST TOUJOURS À ZÉRO — et il l'est à la fermeture
+  des quatre prioritaires.** Rien n'y est revenu : ni `T3.125` ni `T3.116` n'en font partie, tous
+  deux viennent de `(b)`, les tickets **ouverts par les revues**. Le compte de `(a)` reste
+  **11 fermés + 2 écartés = 13**, énumérable ligne à ligne dans les états de sortie conservés plus
+  bas.
 
-  ⭐⭐ **CE QUE LA REVUE A MESURÉ, ET QUI DÉPASSE LE TICKET :**
+
+  ⭐⭐ **CE QUE LA REVUE DE `T3.116` A MESURÉ — le dernier des quatre prioritaires :**
+
+  1. ✅ **LE PARC RECOMPTÉ À LA MAIN CONFIRME LE RECOMPTAGE DU TICKET, CHIFFRE POUR CHIFFRE** : **9**
+     suites à plafond pour **10** plafonds, **8** emballages (dont `longestBodyEcho`, que le
+     recensement par nom de la fiche d'entrée avait manqué), **39** appels, **6** suites sur 9
+     épinglant la mesure profonde, ⛔ **0** sur 8 épinglant l'emballage. ⚠️ **Une seule imprécision
+     corrigée** : les deux suites dites « qui n'épinglent rien » épinglent bien leur `longestRun`
+     interne ; ce qu'elles n'épinglent pas est `longestEchoRun` **et** `longestHexRun`.
+  2. ✅ **L'AVEUGLEMENT REJOUÉ, ET LA COUVERTURE AVEC** : sur l'arbre **sans** les ancres, les huit
+     emballages rendus `return 0;` ⇒ **aucun binaire gtest rouge**, le seul rouge est la sonde neuve ;
+     sur l'arbre livré, la même mutation ⇒ **8 binaires / 8 cas**, un par suite. `check-echo-ceilings.sh`
+     verte à tous les tours.
+  3. ✅ **LES 13 PLAINTES DU PREMIER BALAYAGE RELUES UNE À UNE : les 13 sont vraies**, et le balayage
+     est reproduit à l'identique (**13 / 25 mesures / 139 fichiers** avant, **0 / 25 / 139** après).
+  4. ⭐⭐ **LA RÈGLE D'EXEMPTION ÉPROUVÉE PAR LA MESURE, PAS PAR LE RAISONNEMENT.** La sonde exempte
+     **cinq** mesures de l'arbre — celles qu'aucune borne unilatérale ne lit. Chacune aveuglée à son
+     tour ⇒ **1 binaire / 1 cas rouge à chaque fois**. ⇒ **pas de trou par conception dans cet arbre.**
+     ⛔ **Mais sa reconnaissance de « unilatéral » est plus étroite que la notion** : elle ne connaît
+     que `(EXPECT|ASSERT)_(LT|LE)(<mesure>, <plafond>)`. Une borne **retournée**
+     (`EXPECT_GT(<plafond>, <mesure>)`) ou **emballée** (`EXPECT_TRUE(<mesure> < <plafond>)`) est
+     tout aussi unilatérale et lui est **invisible — la mesure n'est même pas comptée**. Vérifié :
+     **aucun site de l'arbre** n'est dans ce cas (l'unique `EXPECT_GT` sur un plafond compare deux
+     plafonds entre eux).
+  5. ⛔ **L'ENTRÉE AVEUGLE REJOUÉE — 0 rouge, confirmé** : le foin remplacé par `std::string()` aux
+     **39** sites, ancres intactes ⇒ `TOTAL 148 / PASS 147 / FAIL 0`. ⭐ **Et elle se ferme à peu de
+     frais, contrairement à ce que la fiche neuve craignait** : **39 foins sur 39 sont des
+     identifiants** (`ex.log`, `run.log`, `obs.log`, `failure`, `stock`, `reduced`), **0** est un
+     appel — soit **10** couples (suite, nom) distincts, donc une dizaine d'assertions et non 39, et
+     un lien lexical que la sonde sait déjà suivre.
+  6. ✅ **LE TROU DE `T3.32` EST BIEN FERMÉ, ET IL EST BLOQUANT ICI.** Les deux formes essayées — les
+     opérandes du filtre de corpus échangés, et le balayage pointé sur un répertoire inexistant — font
+     **rougir** la sonde (rc 1), là où la même faute rendait `check-docs.py` muette.
+  7. ⭐ **CE QUE LES CONTRE-MUTATIONS NEUVES DE LA REVUE ONT MESURÉ :**
+     - ✅ **CM-4 rejouée** (les deux moitiés d'un épinglage interverties) : **l'auto-test rougit sur 6
+       de ses 11 fichiers** et le balayage rend **0 plainte sur 139 fichiers** — l'aveu du ticket est
+       exact ;
+     - ⛔⭐ **CR-α, neuve** *(le balayage restreint aux corps de cas gtest, les corps d'aide écartés)* :
+       **auto-test VERT**, arbre livré **vert**, et pourtant **une mesure réelle disparaît**
+       silencieusement (25 → 24 ; 13 → 12 plaintes sur l'arbre d'avant) — celle de
+       `core/IncomingLogStockLevel`, dont l'unique borne vit dans un corps d'aide. **Aucun des 11
+       fichiers de l'auto-test ne porte de borne hors d'un cas** : c'est la classe de `T3.63`, une
+       sonde qui se casse là où son auto-test ne regarde pas. **Un douzième fichier la fermerait** ;
+     - ⭐ **CR-β, neuve** *(les deux paramètres des huit emballages intervertis)* : ⛔ **0 rouge**, 9
+       `CXXLD`. **Mutant équivalent en valeur** — les mesures sont des plus longues sous-chaînes
+       communes, donc symétriques — mais **les deux littéraux des ancres sont eux-mêmes symétriques**
+       (`5` et `0` dans les deux sens) : une ancre de cette forme ne saurait pas non plus distinguer
+       une mesure **asymétrique**. *Quel argument est le foin n'est tenu par rien* — même nudité qu'au
+       point 5 ;
+     - ℹ️ **deux équivalents déclarés** : `ASSERT_LT` retiré du motif de borne, et le masquage des
+       commentaires `//` retiré ⇒ balayage **identique** (25 / 13) et auto-test vert, parce qu'aucun
+       site de l'arbre n'emploie ces formes.
+
+  ⚠️ **Harnais de la revue** : mutation et restauration **sur l'HÔTE**, ⛔ aucun `git` dans le
+  conteneur ; harnais **et** instantanés sous un répertoire au nom du ticket (**8ᵉ** piège), un chemin
+  d'instantané par campagne, jamais réutilisé, instantané vide **refusé** ; écriture des octets seuls
+  puis `utime`, prouvée par `cmp` **rc 0** **et** un horodatage **effectivement déplacé** aux **56**
+  restaurations ; restauration dans un `finally`, jamais sous `set -e` (**7ᵉ**) ; sortie jamais
+  tronquée (**4ᵉ**) ; `git status` de l'**HÔTE** **vide** après chaque tour. **Éprouvé avant de
+  servir** : les **trois** formes du **6ᵉ** piège (aiguille absente · compte faux · aiguille absente
+  après une substitution réussie) ⇒ refus d'écrire, fichier identique au **sha256** près les trois
+  fois, et un tour délibérément mort après mutation ⇒ restauration quand même.
+
+  ⭐⭐ **CE QUE LA REVUE DE `T3.125` A MESURÉ, ET QUI DÉPASSE LE TICKET :**
 
   1. ⭐ **LE NOM CITÉ EST EXACT, VÉRIFIÉ EN HEXADÉCIMAL.** `name:` de `ci.yml` et la chaîne citée par
      `docker-publish-dev.yml` : `4275696c6420616e642054657374` **des deux côtés**, une seule entrée,
@@ -136,7 +200,7 @@
      intact pour que la vérification « aucun autre workflow modifié » reste probante.
   8. ⚠️ **RIEN DE CE TICKET N'EST EXERCÉ PAR `make check`** — c'est sa fausse assurance propre. Le
      contrôle vit dans un job de CI (l'image de dev n'a pas PyYAML : `ModuleNotFoundError`, mesuré),
-     donc casser le nom cité ne rencontre **rien** en local ⇒ [`T3.132`](T3.132.md). Les 147 restent
+     donc casser le nom cité ne rencontre **rien** en local ⇒ [`T3.132`](T3.132.md). Les 148 restent
      ce qu'elles étaient : elles ne disent rien de `.github/`.
 
   ⭐ **CE QUE LES CONTRE-MUTATIONS DE LA REVUE ONT MESURÉ — cinq neuves, quatre rejeux, deux témoins :**
@@ -167,18 +231,20 @@
   tôt** (`| head -4`) : les sept tours ont eu lieu, les restaurations aussi, le journal complet est
   écrit dans un fichier et l'arbre est resté propre.
 
-  **Tête de `master`** : le commit de revue qui porte ce paragraphe, à la suite de **`61d82b56`**
-  (branche `infra/t3.125`, **2 commits**), `merge --ff-only`, historique linéaire, **0 commit de
-  fusion**. **Rebase d'un commit** ; ⭐ **le conflit `BOARD.md` attendu ne s'est pas produit** — les
-  deux côtés supprimaient **la même ligne** (le marqueur orphelin `<<<<<<< HEAD` de `950702c7`), et
-  git l'a résolu seul. ⭐ **Vérifié : `git grep -nE '^(<<<<<<< |>>>>>>> |=======$)'` est VIDE** sur
-  tout l'arbre. ⛔ **Le diff ne touche que `.github/` et `docs/`** — **0** fichier sous `src/` ou
-  `tests/`, `tests/Makefile.am` **intouché**, `TESTS` **147 → 147**.
-  Référence après `make distclean` : **`TOTAL 147 / PASS 146 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 /
-  ERROR 0`**, seul `SKIP` `check-ccache-honesty.sh`, **0 `error:`**, **148 `CXXLD`** (11 au
-  `make -j32`, 137 au `make check`), **un seul** bloc `Testsuite summary` par tour, **deux** `make
-  check` aux résumés **identiques**. `make check-docs` (non bloquant) : **1472 citations, 4
-  périmées**, les mêmes quatre qu'avant le ticket.
+  **Tête de `master`** : le commit de revue qui porte ce paragraphe, à la suite de la branche
+  `test/t3.116` (**2 commits**), elle-même à la suite de **`bebe7275`** ; `merge --ff-only`,
+  historique linéaire, **0 commit de fusion**. **Rebase de deux commits** au-dessus de trois merges.
+  ⭐ **Conflits résolus : `FINDINGS.md`** (les deux côtés gardés) **et `T3.132.md`** — collision
+  `add/add` de **numéro de ticket** : la fiche neuve de la branche s'appelait `T3.132`, numéro déjà
+  pris sur `master` par la livraison de `T3.125`. Elle est devenue **[`T3.134`](T3.134.md)**, et ses
+  six renvois avec elle. ⚠️ `tests/Makefile.am` **n'a pas conflité** ; il est vérifié quand même —
+  **append pur +8 / −0 / ~0** contre `master`, et `^if` **127** ≡ `^endif` **127**.
+  ⭐ **Vérifié : `git grep -nE '^(<<<<<<< |>>>>>>> |=======$)'` est VIDE** sur tout l'arbre.
+  ⛔ **Le diff ne touche que `tests/` et `docs/`** — **0** ligne sous `src/`, vérifié fichier par
+  fichier. **`TESTS` 147 → 148.**
+  Référence après `make distclean` : **`TOTAL 148 / PASS 147 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 /
+  ERROR 0`**, seul `SKIP` `check-ccache-honesty.sh`, **0 `error:`**, **un seul** bloc
+  `Testsuite summary` par tour, **cinq** `make check` aux résumés **identiques**.
 
   **Tickets ouverts par les revues — `(b)`, une ligne chacun :**
   - **`T3.133`** (neuve, ouverte par cette revue) — `F-DEP-12` : les **quatre** conditions dont la
@@ -189,7 +255,18 @@
   - **`T3.132`** (portée par la branche) — les **deux** contrôles de `.github/` ne tournent pas dans
     `make check` (l'image n'a pas PyYAML). Quatre issues ; aucune ne change ce que la CI décide,
     seulement **où** on l'apprend.
-  - **`T3.134`** est le prochain numéro libre. ⚠️ Numéros **pris** : `T3.76` → `T3.133` ; `T3.114`
+  - **`T3.134`** (neuve, portée par `T3.116`) — le **foin vide** : le premier argument des **39**
+    bornes d'écho remplacé par `std::string()` laisse **0 rouge**, et les quatre anti-vacuités de
+    l'arbre gardent l'observation, jamais l'argument. ⭐ **La revue l'a chiffrée** : **39 foins sur 39
+    sont des identifiants**, **0** est un appel — **10** couples (suite, nom) distincts, donc une
+    dizaine d'assertions suffisent, et la crainte inscrite dans son issue **3** ne vaut pas pour cet
+    arbre.
+  - ⛔ **Ouvert par la revue de `T3.116`, sans fiche** : l'auto-test de `check-echo-measures.py` ne
+    porte **aucun** fichier dont la borne vive **hors** d'un cas gtest, alors qu'un site réel de
+    l'arbre est dans ce cas. Restreindre le balayage aux corps de cas garde l'auto-test **vert** et
+    perd cette mesure en silence. **Un douzième fichier d'auto-test la ferme** ; à joindre à la
+    prochaine touche de la sonde plutôt qu'à porter seul.
+  - **`T3.135`** est le prochain numéro libre. ⚠️ Numéros **pris** : `T3.76` → `T3.134` ; `T3.114`
     est un **trou**.
   - Les autres (`T3.84`, `T3.100`, `T3.104`, `T3.105`, `T3.107` → `T3.111`, `T3.113`, `T3.115` →
     `T3.131`) sont inchangés — voir `BOARD.md`.
@@ -203,8 +280,13 @@
   2. ⭐ **La protection de branche (issue C) reste à poser, à la main de l'utilisateur.** Plus forte —
      elle empêche un rouge d'**entrer** au lieu de l'empêcher de publier — mais c'est un réglage
      d'interface, invisible dans le dépôt.
-  3. ⚠️ **`test/t3.116` est en vol** dans `.wave141/t3.116` (aucun commit, arbre modifié sous
-     `tests/`, un build en cours) — laissé **intact** par cette revue.
+  3. ✅ **AUCUNE BRANCHE N'EST PLUS EN VOL.** `test/t3.116` était la dernière ; elle est mergée, son
+     worktree `.wave141/t3.116` est démonté et `.wave141/` est vide. **`git worktree list` ne montre
+     plus que `master`.**
+  4. ⚠️ **Ce que le vert local NE dit pas, et que le `push` seul tranchera** — c'est la liste des
+     **sept** points énumérée en tête de cet état, plus la reconstruction de l'image (`PyYAML`,
+     [`T3.132`](T3.132.md)) : `make check` **148 / 148** ne parle que de `src/` et de `tests/`. Les
+     deux contrôles de `.github/` ne tournent **qu'en CI**, donc **qu'après** ce `push`.
 
 - ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-07, APRÈS LE MERGE DE [`T3.123`](T3.123.md)) — conservé, à lire
   EN PREMIER À FROID.**
@@ -13183,7 +13265,7 @@ refuseront — ou pire, une suite qu'elles laisseront passer.
 | `check-extra-dist.sh` / `check-dist-coverage.sh` | un fichier nommé par le harnais mais absent de la distribution, et l'inverse |
 | `check-config-docs.sh` / `check-config-options.sh` | une option de configuration livrée sans documentation |
 | ⭐ `check-echo-ceilings.sh` (2026-09-05, élargie par `T3.99`) | un **plafond d'écho** de `tests/` que rien ne re-dérive : il doit être **épinglé** par un `EXPECT_EQ(<plafond>, <mesure>.size() + 1)` du même fichier, ou tenu **au-dessus** d'un plafond épinglé par un `EXPECT_GT` — **et**, s'il est épinglé, voir la **portée hexadécimale** de chaque forme mesurée de ses documents bornée sous lui par un `EXPECT_LT` d'un cas qui appelle une mesure `…HexRun`. **10 plafonds vus, 10 tenus** (2026-09-06, `T3.101`) |
-| ⭐⭐ `check-echo-measures.sh` (2026-09-07, `T3.116`) | une **mesure** qu'une borne d'écho lit d'un seul côté (`EXPECT_LT(m, kMax…Echo)`) et que rien n'épingle **des deux côtés** dans un cas vivant du même fichier : `ASSERT_EQ("bcdef", m(…))` **et** `ASSERT_EQ("", m(…))`. Une borne unilatérale est satisfaite par « rien », donc une mesure aveuglée rend **toute** la famille verte ; la calibration `EXPECT_EQ(k, worst.size() + 1)` étant **bilatérale**, la mesure qu'elle seule lit est exemptée. **25 mesures vues sur 139 fichiers, 25 tenues** (2026-09-07 ; **13 non tenues** au premier balayage, les 13 vraies). ⭐ **Auto-test de 11 fichiers (7 refusés, 4 acceptés) — plus deux cas sur la SÉLECTION DU CORPUS** (arbre vide, arbre d'un fichier), et `main()` refuse un balayage qui n'a lu aucun fichier : la seule de la famille dont l'auto-test regarde son **entrée** |
+| ⭐⭐ `check-echo-measures.sh` (2026-09-07, `T3.116`) | une **mesure** qu'une borne d'écho lit d'un seul côté (`EXPECT_LT(m, kMax…Echo)`) et que rien n'épingle **des deux côtés** dans un cas vivant du même fichier : `ASSERT_EQ("bcdef", m(…))` **et** `ASSERT_EQ("", m(…))`. Une borne unilatérale est satisfaite par « rien », donc une mesure aveuglée rend **toute** la famille verte ; la calibration `EXPECT_EQ(k, worst.size() + 1)` étant **bilatérale**, la mesure qu'elle seule lit est exemptée — ⭐ **exemption éprouvée à la revue : les 5 mesures exemptées de l'arbre, aveuglées une à une, rougissent 1 binaire / 1 cas chacune**. **25 mesures vues sur 139 fichiers, 25 tenues** (2026-09-07 ; **13 non tenues** au premier balayage, les 13 vraies, relues une à une à la revue). ⭐ **Auto-test de 11 fichiers (7 refusés, 4 acceptés) — plus deux cas sur la SÉLECTION DU CORPUS** (arbre vide, arbre d'un fichier), et `main()` refuse un balayage qui n'a lu aucun fichier : la seule de la famille dont l'auto-test regarde son **entrée**, et le trou de `T3.32` y est **bloquant** |
 | ⭐⭐ `check-order-sentinels.sh` (2026-09-06, `T3.63`) | une assertion d'ordre dont le **plateau acceptant** — le côté **bas** pour une sentinelle négative, le côté **haut** pour `npos` — porte une valeur qu'aucune assertion **du même cas** n'exclut de sa sentinelle en **nommant la même expression** (`ASSERT_GE(<elle>, 0)`, `ASSERT_NE(std::string::npos, <elle>)`). Un comparateur de position répond « pas trouvé » par un entier ordinaire que le `<` **accepte** : le cas passe au VERT exactement quand la clé qu'il garde disparaît de la charge. **51 emplacements vus, 51 gardés** (2026-09-06, après la revue de `T3.63` ; **49 / 39 / 10** avant elle, et les 10 sont ce que le ticket a fermé) |
 | ⭐ `check-docs.py` (2026-09-06, `T3.32`) — ⚠️ **la seule qui ne soit PAS dans `make check`** | une référence `Fichier.cpp:ligne` de `docs/*.md` dont l'**ancre** — le fragment cité entre parenthèses et backticks juste après, forme que l'arbre écrit **déjà 81 fois** — n'est plus à la ligne annoncée ; et une ligne au-delà de la fin du fichier. **Ancre optionnelle**, blancs normalisés, jamais d'égalité de ligne entière. Auto-test de **28 corpus** (14 refusés, 13 acceptés, 1 aux compteurs épinglés), joué **avant** chaque balayage. **1472 citations vues, 4 mortes, 0 faux rouge** (2026-09-06). ⛔ **Elle est NON BLOQUANTE et HORS de `make check` — c'est la décision du ticket, pas un oubli** : une doc rougissant à chaque refactoring finirait désarmée. **À lancer à chaque revue de doc** : `make check-docs` |
 
@@ -13233,6 +13315,19 @@ de **6** à **9** binaires rouges. ⛔ **L'autre moitié reste ouverte et elle e
 remplacé par `std::string()` aux **39** sites de borne — mesure intacte, ancres vertes — laisse
 `TOTAL 148 / FAIL 0`, **0 rouge** ⇒ [`T3.134`](T3.134.md).
 *À recopier : épingler ce qu'un capteur SAIT FAIRE ne dit rien de ce qu'on lui DONNE.*
+
+⛔⭐ **CE QUE `check-echo-measures.sh` NE VOIT PAS, et qu'il faut dire au brief suivant** (mesuré à sa
+revue de merge) : elle ne reconnaît comme borne unilatérale que
+`(EXPECT|ASSERT)_(LT|LE)(<mesure>, <plafond>)` — une borne **retournée** (`EXPECT_GT(<plafond>,
+<mesure>)`) ou **emballée** (`EXPECT_TRUE(<mesure> < <plafond>)`) est tout aussi unilatérale et lui
+est invisible, la mesure n'étant même pas comptée (aucun site de l'arbre n'est dans ce cas) · elle
+lit **un fichier à la fois**, et le **nom** reste le contrat des deux côtés (`kMax…Echo` et
+`longest…`) · elle épingle ce qu'une mesure **sait faire**, jamais ce qu'on lui **donne**
+([`T3.134`](T3.134.md)) · et **quel argument est le foin n'est tenu par rien** : les deux littéraux
+des ancres sont symétriques, donc intervertir les paramètres d'une mesure ne rougit nulle part.
+⛔ Son **auto-test** ne porte aucun fichier dont la borne vive **hors** d'un cas gtest, alors qu'un
+site réel de l'arbre est dans ce cas — restreindre le balayage aux corps de cas le laisse **vert** et
+perd cette mesure en silence ; c'est la classe de `T3.63`, et un douzième fichier la ferme.
 
 ⭐ **QUATRE sondes de la famille portent un auto-test**, et elles sont les seules :
 `check-echo-measures.sh` depuis `T3.116` (**11** fichiers : 7 refusés, 4 acceptés — ⭐ **et deux cas

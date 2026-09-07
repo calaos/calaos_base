@@ -12795,3 +12795,37 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   suites ⇒ **6 binaires rouges**, exactement celles qui l'épinglent, et **3 muettes**. C'est la règle
   que la sonde énonce, et elle explique pourquoi cinq suites étaient déjà protégées sans que
   personne l'ait décidé.
+
+- ⭐ **[revue de merge] La règle d'exemption tient — mesurée, pas raisonnée — mais sa RECONNAISSANCE
+  est plus étroite que la notion qu'elle énonce.** Les **cinq** mesures que `check-echo-measures.sh`
+  exempte (celles qu'aucune borne unilatérale ne lit) ont été aveuglées une à une : **1 binaire / 1
+  cas rouge à chaque fois**. ⛔ En revanche la sonde ne reconnaît comme unilatérale que
+  `(EXPECT|ASSERT)_(LT|LE)(<mesure>, <plafond>)` : une borne **retournée**
+  (`EXPECT_GT(<plafond>, <mesure>)`) ou **emballée** (`EXPECT_TRUE(<mesure> < <plafond>)`) est tout
+  aussi unilatérale et lui est invisible — la mesure n'est même pas comptée. Aucun site de l'arbre
+  n'est dans ce cas. *À recopier : une sonde énonce une notion et reconnaît une forme ; ce sont deux
+  périmètres, et c'est l'écart entre eux qui se mesure.*
+
+- ⛔⭐ **[F-TEST-5] Un auto-test de sonde ne couvre que les FORMES qu'il écrit, et celle qui manque
+  ici est un site réel.** Contre-mutation neuve à la revue de `T3.116` : le balayage de
+  `check-echo-measures.py` restreint aux corps de **cas gtest** — les corps d'aide écartés — laisse
+  l'**auto-test vert** et l'arbre livré **vert**, tout en perdant en silence une mesure réelle (25 →
+  24 ; 13 → 12 plaintes sur l'arbre d'avant), celle de `core/IncomingLogStockLevel`, dont l'unique
+  borne vit dans une fonction d'aide. **Aucun** des 11 fichiers de l'auto-test ne porte de borne hors
+  d'un cas. C'est exactement la classe fichée à `T3.63` — une sonde se casse là où son auto-test ne
+  regarde pas — et **un douzième fichier la ferme**.
+
+- ⭐ **[mesure] Une ancre littérale épingle une VALEUR, jamais un RÔLE : les paramètres des huit
+  emballages intervertis ⇒ 0 rouge.** Les mesures d'écho sont des plus longues sous-chaînes
+  communes, donc symétriques : la permutation est un **mutant équivalent en valeur**. Mais les deux
+  littéraux choisis par les ancres sont eux-mêmes **symétriques** (`5` dans les deux sens, `0` dans
+  les deux sens), donc une ancre de cette forme ne distinguerait pas non plus une mesure
+  **asymétrique**. *À recopier : quel argument est le foin n'est tenu par rien — c'est la même
+  nudité que le foin vide, prise par l'autre bout.*
+
+- ⭐ **[mesure] Le foin vide se ferme à peu de frais, et la fiche neuve le craignait à tort.**
+  [`T3.134`](T3.134.md) redoutait qu'un foin sans nom (`ex.stock()`) empêche la règle statique.
+  Compté : les **39** opérandes de foin des huit suites sont **39 identifiants** (`ex.log`,
+  `run.log`, `obs.log`, `failure`, `stock`, `reduced`) et **0** un appel, pour **10** couples
+  (suite, nom) distincts. L'anti-vacuité coûte une dizaine d'assertions, pas 39, et le lien lexical
+  que la sonde suit déjà suffit à la tenir.
