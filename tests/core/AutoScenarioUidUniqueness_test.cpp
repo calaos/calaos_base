@@ -577,12 +577,13 @@ TEST_F(AutoScenarioUidUniquenessTest, TheApiAllocatorNeverHandsOutAUidTheFileAlr
         ADD_FAILURE() << "creating a scenario raised a configuration alert: " << m;
 }
 
-/* The one API route that DOES write the attribute, and it is not the scenario
- * verbs: `set_param` takes any (io, param) pair. It is inert until the next
- * start - the AutoScenario is built by the IO constructor - which is exactly
- * why the guard has to live on the startup pass and not on a creation verb.
+/* `set_param` took any (io, param) pair, so it was the one API route that
+ * wrote the attribute, and the pinned answer here USED TO BE the write going
+ * through. It is refused since T3.137; the startup pass is still where the
+ * guard has to be, because a hand edited file and a config put reach the same
+ * duplicate without ever calling this.
  */
-TEST_F(AutoScenarioUidUniquenessTest, TheGenericSetParamCommandStillWritesTheUidAttribute)
+TEST_F(AutoScenarioUidUniquenessTest, TheGenericSetParamCommandNoLongerWritesTheUidAttribute)
 {
     loadTwoScenariosWithDistinctUids();
 
@@ -590,11 +591,11 @@ TEST_F(AutoScenarioUidUniquenessTest, TheGenericSetParamCommandStillWritesTheUid
     const Json reply = api.buildJsonSetParam(Params{{ "id", SC_B_IO },
                                                     { "param", AutoScenarioDef::KEY_UID },
                                                     { "value", SC_A_UID }});
-    ASSERT_EQ(std::string(), reply.value("error", std::string())) << reply.dump();
-    EXPECT_EQ(std::string(SC_A_UID), uidOf(SC_B_IO));
+    EXPECT_NE(std::string(), reply.value("error", std::string())) << reply.dump();
+    EXPECT_EQ(std::string(SC_B_UID), uidOf(SC_B_IO));
 
     //It really is the generic route and not a scenario one: the same command
-    //is refused on the id, which is the only key that has a guard of its own.
+    //is refused on the id, which has a guard of its own.
     const Json refused = api.buildJsonSetParam(Params{{ "id", SC_B_IO },
                                                       { "param", "id" },
                                                       { "value", "io_t3117_other" }});
