@@ -12755,3 +12755,43 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   `.github/workflows/ci.yml`. Un `workflow_run` citant `"ci.yml"` contre un workflow sans `name:` est
   donc **accepté** alors qu'il ne se déclencherait jamais. Étroit — il faut deux fautes — et fermé
   par une ligne. Issue **C** de [T3.133](T3.133.md).
+
+## T3.116 — la mesure d'écho aveugle, et le foin vide (2026-09-07)
+
+- ⛔⭐⭐ **[F-LOGSECRET-10] Un foin VIDE satisfait les huit bornes d'écho, et aucune anti-vacuité de
+  l'arbre ne le voit.** [`T3.116`](T3.116.md) ferme la moitié « la mesure est cassée » — chaque
+  mesure qu'une borne lit est épinglée par deux littéraux, et `check-echo-measures.sh` tient la
+  classe. La seconde moitié est **mesurée ouverte** : le premier argument remplacé par
+  `std::string()` aux **39** sites de borne des huit suites, mesure intacte et ancres vertes, laisse
+  `TOTAL 148 / PASS 147 / SKIP 1 / FAIL 0`, ⛔ **0 rouge**. Les quatre anti-vacuités de l'arbre
+  (`ASSERT_TRUE(obs.parseFailureSeen)`, `ASSERT_NE(npos, ex.log.find("network"))`,
+  `ASSERT_FALSE(stock.empty())`, `ASSERT_TRUE(onTheWire)`) gardent **l'observation**, jamais
+  **l'argument que la borne reçoit** — entre les deux il y a une expression, et rien ne la tient.
+  ⇒ [`T3.134`](T3.134.md). *À recopier : épingler ce qu'un capteur SAIT FAIRE ne dit rien de ce
+  qu'on lui DONNE ; ce sont deux aveuglements, et une seule parade n'en ferme qu'un.*
+
+- ⛔⭐ **[F-TEST-4] Un recensement qui cherche un NOM manque ce qui porte un autre nom, et le
+  huitième recensement de fiche de la série est pris en défaut par là.** La fiche d'entrée de
+  `T3.116` annonçait **sept** suites portant l'emballage d'écho ; il y en a **huit** —
+  `UrlDownloaderLogSecret` appelle le sien `longestBodyEcho`, et sa borne a exactement la même
+  propriété. Le recomptage corrige aussi **12** appels et non 13 pour `core/HttpRequestLogSecret`
+  (la treizième occurrence est la **définition**) et **deux** suites qui n'épinglent rien du tout au
+  lieu de trois. ⭐ **La sonde livrée n'a pas ce défaut par construction** : elle part des **bornes**
+  qu'elle trouve et remonte à la mesure qu'elles lisent, au lieu de chercher un nom — c'est
+  précisément ce qui a fait sortir `longestBodyEcho`. *À recopier : un recensement par nom mesure
+  l'orthographe qu'on avait en tête, pas le parc.*
+
+- ⭐ **[revue interne] Un auto-test de sonde qui n'exerce pas la SÉLECTION DE SON CORPUS ne dit rien
+  de son silence — et c'est réparable en deux cas.** `check-echo-measures.py` appelle son propre
+  balayage (`scan()`) sur un répertoire **vide** puis sur un répertoire d'**un** fichier écrit pour
+  être refusé, et `main()` refuse un balayage qui n'a lu aucun fichier. C'est le trou de
+  `check-docs.py` ([`T3.127`](T3.127.md)) fermé au moment d'écrire la sonde plutôt qu'après ; les
+  quatre sondes antérieures passent toujours leur corpus **en argument**.
+
+- ⭐ **[mesure] Ce qui distingue une borne à protéger d'une borne qui se garde toute seule : le
+  nombre de côtés.** `EXPECT_LT(m, k)` est **unilatérale** — « rien » la satisfait — tandis que la
+  calibration `EXPECT_EQ(k, worst.size() + 1)` est **bilatérale** : une mesure aveuglée la déplace
+  autant qu'une mesure élargie. Mesuré des deux côtés : `longestHexRun` rendue `""` dans les neuf
+  suites ⇒ **6 binaires rouges**, exactement celles qui l'épinglent, et **3 muettes**. C'est la règle
+  que la sonde énonce, et elle explique pourquoi cinq suites étaient déjà protégées sans que
+  personne l'ait décidé.
