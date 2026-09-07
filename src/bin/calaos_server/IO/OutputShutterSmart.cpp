@@ -195,14 +195,14 @@ bool OutputShutterSmart::set_value(std::string val)
     else if (val.compare(0, 4, "set ") == 0)
     {
         val.erase(0, 4);
-        /* T3.25a's rule, on the grammars that carry a percentage: the argument
-         * is READ here, so it is refused here. Utils::from_string() publishes
-         * a SATURATED value on an out of range input and answers false;
-         * ignoring that answer aimed the shutter at a position no travel can
-         * reach, so the end timer landed hundreds of days away and the relay
-         * stayed energized with nothing left to stop it. The saturated number
-         * also survives as the command state whenever Up()/Down() return
-         * early, and updateCache() carries it across a restart. */
+        /* Same rule as the impulse grammars above, on the ones that carry a
+         * percentage: the argument is READ here, so it is refused here.
+         * Utils::from_string() publishes a SATURATED value on an out of range
+         * input and answers false; ignoring that answer aimed the shutter at a
+         * position no travel can reach, so the end timer landed hundreds of
+         * days away and the relay stayed energized with nothing left to stop
+         * it. The saturated number also survives as the command state whenever
+         * Up()/Down() return early, and updateCache() outlives a restart. */
         if (!Utils::is_of_type<int>(val))
             return false;
         int percent;

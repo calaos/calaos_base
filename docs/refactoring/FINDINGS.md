@@ -12383,6 +12383,51 @@ deux `"set 2147483647"`.
 est servie aux applications, nommer LE champ, et vérifier qu'aucune écriture ultérieure ne la
 recouvre sur le chemin normal.*
 
+### ⭐ Revue de merge de `T3.123` — la classe entière refaite, et ce que l'oracle ne couvre pas encore
+
+⭐⭐ **`M-RELAY` est refaite sur `master` (`5a68cb53`), worktree jetable, `make distclean` puis build
+complet : 0 cas rouge**, `TOTAL 146 / PASS 145 / SKIP 1 / FAIL 0`, **147 `CXXLD`**. Croiser les deux
+bornes physiques dans `Up()` **et** `Down()` fait tourner le moteur à l'envers pour **toutes** les
+commandes de la classe, et rien dans l'arbre ne le dit. ⇒ le trou était bien celui de la **classe
+entière**, et non des trois grammaires.
+
+⭐ **Et ce 0 rouge est porteur, parce que le même arbre sait rougir** : contrôle positif sur le même
+fichier et le même worktree, `ImpulseUp(v)` ↔ `ImpulseDown(v)` ⇒ **8 cas rouges**
+(`core/ShutterImpulse_test`).
+⛔ **Deux cécités de plus, mesurées en passant sur `master`** : le littéral `"stop "` de
+`get_value_string()` renommé ⇒ **0 rouge** ; ses mots `"up"` / `"down"` échangés ⇒ **0 rouge**. La
+position servie par `OutputShutterSmart` n'était épinglée nulle part — le filet neuf ferme les deux
+(le littéral renommé y rend **2 cas rouges**).
+
+⭐⭐ **L'oracle voit le mouvement, et rien d'autre.** `CM-1` rejouée ⇒ **3 cas** nommés
+(`AnUpByPercentOpensTheShutter`, `ADownByPercentClosesTheShutter`,
+`ASetBelowThePositionOpensAndASetAboveItCloses`) ; `CM-4` ⇒ **2 cas**, les deux qui passent par `Up()` ;
+la **perte** (les trois gardes retirées) ⇒ **6 cas**, exactement ceux que la fiche énumère ; le
+**témoin** — le fichier réécrit **octet pour octet**, horodatage déplacé — ⇒ **0 rouge** avec
+**5 `CXXLD`** lus. *Une permutation qui ne change aucune valeur rougit ; une réécriture qui n'en
+change aucune non plus ne rougit pas.* C'est la 7ᵉ façon de mentir, et elle est fermée pour ces trois
+grammaires.
+
+⛔⭐ **CE QUI RESTE OUVERT, ET CE N'EST PAS CE QUE LA FICHE DISAIT.** « Les grammaires sans nombre sont
+couvertes par accident par `CM-4` » ne vaut que pour les **bornes partagées** ; l'**aiguillage**, lui,
+n'est couvert que pour les impulsions. Mesuré sur l'arbre livré, deux contre-mutations neuves qui ne
+changent aucune valeur : `UpWait()` ↔ `DownWait()` ⇒ ⛔ **0 cas rouge** ; `ImpulseUp(v)` ↔
+`ImpulseDown(v)` ⇒ **8 cas rouges**. ⇒ **les trois mots nus `up`, `down`, `toggle` n'ont toujours aucun
+capteur de direction**, et ils partent avec un numéro plutôt qu'avec une ligne de « Nu »
+(`T3.131`), avec le `set_state <n>` qui répond `true` sans rien faire.
+*À recopier : « couvert par accident » se vérifie, et il se vérifie au NIVEAU où la mutation est
+possible — une borne partagée et un aiguillage ne sont pas le même endroit.*
+
+✅ **Les deux moitiés de la saturation sont vérifiées dans le code, pas seulement par le filet** : le
+champ `state` est `get_value_string()`, dont `writePosition()` borne la matière à `[0, time_up]` ⇒ le
+nombre saturé **ne peut pas** en sortir ; `cmd_state` part par `updateCache()` dans
+`Config::SaveValueParams("<id>_<type>")`, que le constructeur **relit**, et `Rules/ActionStd.cpp` en
+lit `get_command_string()` pour toute sortie `TSTRING` — les deux classes de volet en sont. Le chemin
+d'échec précoce est `Down()` qui rend la main sur `pos >= total_time`, donc un volet **à 100 %**.
+✅ **Et un volet part bien à sa butée par ce chemin** : depuis 25 %, `Down()` passe la garde, ferme sa
+borne et arme `timer_end` à **42 949 672 s ≈ 497 jours**. La note de version antérieure disait le
+contraire ; elle est corrigée.
+
 ### ⭐ Revue de merge — les trois autres mesures, refaites et non relues
 
 - **La prémisse périmée** : `-fsanitize=signed-integer-overflow` sur les **4** binaires de la famille

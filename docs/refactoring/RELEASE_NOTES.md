@@ -184,6 +184,10 @@ vaut **par tous les chemins** — l'API, une règle, un scénario, un script Lua
 > ces commandes à 0–100 % serait un changement de comportement à part entière : aujourd'hui
 > « descends de 200 % » veut dire « ferme complètement ».
 
+> **Le sens de marche, lui, ne change pas.** Un volet qui part du mauvais côté serait tout aussi
+> visible qu'un volet qui part à sa butée, et c'est pourquoi il est désormais vérifié — mais il
+> n'était pas cassé : cette version ajoute de ce côté-là une vérification, pas une correction.
+
 > ⚠️ **Deux précisions qui corrigent ce que la note précédente affirmait.** Le nombre inventé ne
 > partait **pas** dans l'état que les applications affichent : celui-là est la position du volet, et
 > elle a toujours été bornée à la course. Il partait dans la **mémoire d'état** et dans les règles,

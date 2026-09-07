@@ -40,8 +40,127 @@
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-07, APRÈS LE MERGE DE [`T3.124`](T3.124.md)) — À LIRE
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-07, APRÈS LE MERGE DE [`T3.123`](T3.123.md)) — À LIRE
   EN PREMIER À FROID.**
+
+  ⭐⭐⭐ **(a) LE BACKLOG D'ORIGINE DU 4 SEPTEMBRE EST TOUJOURS À ZÉRO.** Rien n'y est revenu :
+  `T3.123` n'en fait pas partie, il vient de `(b)`, les tickets **ouverts par les revues** — celle de
+  `T3.21` + `T3.25a`, puis élargi par la revue de merge de `T3.21` (`F-SHUT-2`). Le compte de `(a)`
+  reste **11 fermés + 2 écartés = 13**, énumérable ligne à ligne trois états de sortie plus bas.
+
+  ⭐⭐ **CE QUE LA REVUE A MESURÉ, ET QUI DÉPASSE LE TICKET :**
+
+  1. ⭐⭐ **LE TROU ÉTAIT CELUI DE LA CLASSE ENTIÈRE, ET C'EST REFAIT SUR `master`.** Worktree jetable
+     sur `5a68cb53`, `make distclean` puis build complet : croiser les **deux bornes physiques** dans
+     `Up()` **et** `Down()` — le moteur tourne à l'envers pour **toutes** les commandes de la classe —
+     laisse `TOTAL 146 / PASS 145 / SKIP 1 / FAIL 0`, **0 cas rouge**, **147 `CXXLD`**. La fiche
+     annonçait « trois grammaires sans capteur » ; c'était **la classe**.
+  2. ⭐ **ET CE `0` EST PORTEUR, PARCE QUE LE MÊME ARBRE SAIT ROUGIR.** Contrôle **positif** sur le même
+     fichier et le même worktree : `ImpulseUp(v)` ↔ `ImpulseDown(v)` ⇒ **8 cas rouges**
+     (`core/ShutterImpulse_test`). ⛔ **Deux cécités de plus, mesurées en passant sur `master`** : le
+     littéral `"stop "` de `get_value_string()` renommé ⇒ **0 rouge** ; ses mots `"up"` / `"down"`
+     échangés ⇒ **0 rouge**. La position servie par la classe n'était épinglée nulle part.
+     *À recopier : un « 0 rouge » ne vaut que si l'on a montré, sur le MÊME arbre, une mutation qui en
+     produit — sinon on a mesuré un harnais, pas un trou.*
+  3. ⭐⭐ **L'ORACLE VOIT LE MOUVEMENT, ET RIEN D'AUTRE.** `CM-1` rejouée ⇒ **3 cas** nommés ; `CM-4` ⇒
+     **2 cas**, les deux qui passent par `Up()` ; la **perte** (les trois gardes retirées) ⇒ **6 cas**,
+     exactement ceux que la fiche énumère ; le **témoin** — le fichier réécrit **octet pour octet**,
+     horodatage déplacé — ⇒ **0 rouge**, **5 `CXXLD`** lus. Une permutation qui ne change aucune valeur
+     rougit ; une réécriture qui n'en change aucune non plus ne rougit pas. La **7ᵉ façon de mentir**
+     est fermée pour ces trois grammaires.
+  4. ⛔⭐ **LE « COUVERT PAR ACCIDENT » EST PRIS EN DÉFAUT, ET C'EST LE TICKET NEUF.** La fiche écrivait
+     que `CM-4` couvrait « par accident » les grammaires **sans nombre**. Cela ne vaut que pour les
+     **bornes partagées** : l'**aiguillage** n'est couvert que pour les impulsions. Mesuré sur l'arbre
+     livré, deux échanges qui **ne changent aucune valeur** : `UpWait()` ↔ `DownWait()` ⇒ ⛔ **0 cas
+     rouge** ; `ImpulseUp(v)` ↔ `ImpulseDown(v)` ⇒ **8 cas rouges**. ⇒ les **trois mots nus** `up`,
+     `down`, `toggle` n'ont **aucun** capteur de direction ⇒ [`T3.131`](T3.131.md), **neuve**.
+     *À recopier : « couvert par accident » se vérifie AU NIVEAU où la mutation est possible — une
+     borne partagée et un aiguillage ne sont pas le même endroit.*
+  5. ✅ **LES DEUX MOITIÉS DE LA SATURATION SONT VÉRIFIÉES DANS LE CODE**, pas seulement par le filet :
+     le champ `state` est `get_value_string()`, dont `writePosition()` borne la matière à
+     `[0, time_up]` ⇒ le nombre saturé **ne peut pas** en sortir ; `cmd_state` part par `updateCache()`
+     dans `Config::SaveValueParams("<id>_<type>")`, que le **constructeur relit**, et
+     `Rules/ActionStd.cpp` en lit `get_command_string()` pour toute sortie `TSTRING` — les deux classes
+     de volet en sont. Le chemin d'échec précoce est `Down()` qui rend la main sur `pos >= total_time`,
+     donc un volet **à 100 %**. ✅ **Et un volet part bien à sa butée par ce chemin** : depuis 25 %,
+     `Down()` passe la garde, ferme sa borne et arme `timer_end` à **42 949 672 s ≈ 497 jours**. La
+     note de version antérieure disait le contraire ; elle est **corrigée**.
+  6. ⚠️ **RECENSEMENT RECOMPTÉ.** `OutputShutterSmart` tombe juste tel quel : **11** branches, **6** à
+     nombre, **3** nues, fermées ici. `OutputShutter` porte **7** branches de dispatch, et l'on
+     n'atteint « 8 grammaires » qu'en comptant `set_state up` et `set_state down` séparément — le reste
+     de la ligne est exact (**2** à nombre, toutes deux gardées, **0** nue).
+  7. ⚠️ **DÉCOUPAGE.** Borner les trois grammaires à `[0, 100]` reste dehors à bon droit : c'est une
+     décision de produit. En revanche deux lignes de « ⛔ Nu » décrivaient des défauts du **même**
+     `set_value()` que le ticket venait de réécrire — le sens des trois mots nus, et le `set_state <n>`
+     qui répond `true` sans rien faire. Une ligne de « Nu » n'est pas suivie : elles partent avec un
+     numéro (`T3.131`).
+
+  ⭐ **CE QUE LES CONTRE-MUTATIONS DE LA REVUE ONT MESURÉ — deux neuves, trois rejeux, deux contrôles,
+  le témoin :**
+  - ⭐⭐ **M-RELAY rejouée sur `master`** *(les deux bornes croisées dans `Up()` et `Down()`)* ⇒ **0
+    cas rouge**, `TOTAL 146 / PASS 145`, **147 `CXXLD`** ;
+  - ⭐⭐ **CR-A** *(`UpWait()` ↔ `DownWait()`, neuve)* ⇒ ⛔ **0 cas rouge**, `TOTAL 147 / PASS 146` ;
+  - ⭐⭐ **CR-B** *(`ImpulseUp(v)` ↔ `ImpulseDown(v)`, neuve)* ⇒ **8 cas / 1 binaire**, et la même sur
+    `master` ⇒ **8 cas** : c'est le **contrôle positif** des deux arbres ;
+  - **CM-1 rejouée** ⇒ **3 cas** ; **CM-4 rejouée** ⇒ **2 cas** ; **la perte** *(les trois gardes
+    retirées)* ⇒ **6 cas / 1 binaire**, exactement l'énumération de la fiche ;
+  - ⛔ **contrôles de cécité sur `master`** : littéral `"stop "` renommé ⇒ **0 rouge** ; mots `"up"` /
+    `"down"` de `get_value_string()` échangés ⇒ **0 rouge**. Le même littéral renommé sur l'arbre
+    livré ⇒ **2 cas rouges** ;
+  - **témoin** *(le fichier réécrit à l'identique, horodatage déplacé)* ⇒ **0 rouge**,
+    `TOTAL 147 / PASS 146`, **5 `CXXLD`** lus : le relink est vivant, donc le vert porte.
+  Mutation et restauration **sur l'HÔTE**, jamais un `git` dans le conteneur ; ⭐ **harnais ET
+  instantanés rangés sous un répertoire au nom du ticket**, jamais à la racine du scratch partagé ;
+  instantanés **neufs**, hors de l'arbre, nommés par **chemin complet**, réutilisation **refusée** et
+  instantané vide **refusé** ; restauration par écriture **sans métadonnées** puis `utime`, prouvée par
+  `cmp` **rc 0** **et** par un horodatage **effectivement déplacé** aux **14** restaurations ; sortie
+  **jamais tronquée** ; `git status` sur l'**HÔTE** relu après chaque tour.
+  ⚠️ **Le harnais a été éprouvé AVANT de servir** contre le **6ᵉ** piège dans ses **trois** formes
+  (aiguille absente ; compte d'aiguille faux ; aiguille absente **après** une première substitution
+  réussie ⇒ refus d'écrire, fichier **identique au sha256 près** les trois fois), contre les **4ᵉ et
+  7ᵉ** (un tour délibérément rouge dont la sortie est **tronquée par un lecteur qui ferme tôt** : la
+  restauration a lieu quand même, `cmp` rc 0 et horodatage déplacé, et le journal complet est écrit
+  dans un fichier), et rangé hors du scratch partagé pour le **8ᵉ**.
+
+  **Tête de `master`** : le commit de revue qui porte ce paragraphe, à la suite de **`d0123b42`**
+  (branche `fix/t3.123`, **3 commits**), `merge --ff-only`, historique linéaire, **0 commit de
+  fusion**. ⭐ **Rebase de deux merges**, **trois conflits** : `tests/Makefile.am` par **régénération**
+  (`master` **entier** + append **verbatim** du bloc `# T3.123`) — `master` **préfixe exact octet à
+  octet**, **+73/−0/~0**, `^if` **126 → 127** ≡ `^endif` **126 → 127** — puis `BOARD.md` et
+  `FINDINGS.md`, **les deux côtés gardés** (la branche ramenait l'état d'avant `T3.112` et `T3.124`).
+  ⭐ **`TESTS` 146 → 147.** Référence après `make distclean` : **`TOTAL 147 / PASS 146 / SKIP 1 /
+  FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP` `check-ccache-honesty.sh`, **0 `error:`**,
+  **148 `CXXLD`** au build complet, **un seul** bloc `Testsuite summary` par tour, **trois** `make
+  check` aux résumés identiques, journaux `.log`/`.trs` effacés entre chaque tour.
+  `make check-docs` (non bloquant) : **1472 citations, 4 périmées**, les mêmes quatre qu'avant le
+  ticket. ⚠️ **`T3.130.md` arrivait sans ligne de `BOARD.md`** — ajoutée au merge, avec celle de
+  `T3.131`.
+
+  **Tickets ouverts par les revues — `(b)`, une ligne chacun :**
+  - **`T3.130`** (portée par la branche) — l'arbitrage du **désenregistrement sur un id vide**, reporté
+    par `T3.21` puis par `T3.123`. Trois issues : ASan seulement · assertion dans `delIOHash()` · rien.
+  - **`T3.131`** (neuve, ouverte par cette revue) — le **sens des grammaires sans nombre** (`up`,
+    `down`, `toggle`) que **rien** ne tient, mesuré à **0 rouge** ; et `set_state <n>` qui répond
+    `true` **sans rien faire**, avec une documentation que le code ne traite pas.
+  - **`T3.132`** est le prochain numéro libre. ⚠️ Numéros **pris** : `T3.76` → `T3.131` ; `T3.114`
+    est un **trou**.
+  - Les autres (`T3.91`, `T3.100`, `T3.102`, `T3.104`, `T3.107`, `T3.109`, `T3.111`, `T3.115`
+    → `T3.129`) sont inchangés — voir `BOARD.md`.
+
+  **Ce qui attend l'utilisateur :**
+  1. ⛔ **Le job CI chez GitHub n'a JAMAIS tourné**, et le `push` reste **différé**. C'est le seul
+     point de vérification ouvert depuis `T3.67`. ⛔⭐ **Et pousser PUBLIE sans attendre les tests** :
+     `docker-publish-dev.yml` part sur `on: push: branches: [master]`, son unique job n'a **ni
+     `needs:` ni `if:`**. **Le `push` est une LIVRAISON, pas une vérification — aucun agent ne pousse.**
+     ⛔ **RIEN N'A ÉTÉ POUSSÉ DE TOUTE LA SÉRIE.**
+  2. ⭐ **[`T3.125`](T3.125.md) B et C sont DÉBLOQUÉS** depuis `T3.112`, et redeviennent une décision
+     d'utilisateur : poser un `workflow_run` ou une protection de branche pour que la publication
+     attende les tests.
+  3. ✅ **Aucune branche n'est en vol.** `fix/t3.123` est mergée, son worktree `.wave140/t3.123` est
+     nettoyé.
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-07, APRÈS LE MERGE DE [`T3.124`](T3.124.md)) — conservé
+  pour l'historique.**
 
   ⭐⭐⭐ **(a) LE BACKLOG D'ORIGINE DU 4 SEPTEMBRE EST TOUJOURS À ZÉRO.** Rien n'y est revenu :
   `T3.124` n'en fait pas partie, il vient de `(b)`, les tickets **ouverts par les revues** — celle
