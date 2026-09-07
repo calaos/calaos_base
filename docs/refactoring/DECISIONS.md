@@ -1198,3 +1198,35 @@ boîtier domotique qui ne démarre plus est pire qu'un boîtier trop ouvert qui 
 
 (a) N'est **pas** un arbitrage : la porte de privilège non tenue se ferme, et les deux règles de
 boucle locale de l'arbre (`/24` ici, `/8` là) doivent dire la même chose ou expliquer pourquoi non.
+
+---
+
+## 2026-09-07 — [`T3.125`](T3.125.md) : la publication est conditionnée à la CI
+
+### ✅ **CONDITIONNER LE WORKFLOW DE PUBLICATION À UNE CI VERTE** (issue B)
+
+**Le fait mesuré**, par [`T3.22`](T3.22.md) puis confirmé à sa revue : `docker-publish-dev.yml` part
+sur `push` vers `master`, son unique job n'a **ni `needs:` ni `if:`**, l'arbre ne porte **aucun**
+`workflow_run`, et les tests vivent dans un **autre fichier** de workflow — donc hors de portée d'un
+`needs:`. ⇒ **tout merge publie** (version, étiquette git, image `ghcr.io`, paquet Debian) **quel que
+soit l'état de la CI**. ⛔ Et la ligne 16 du fichier **affirmait le contraire** — corrigée au merge de
+`T3.22`.
+
+**Tranché : la publication attend que les tests passent.** Le réglage vit **dans le dépôt**, donc il
+est versionné, relisible et se défait par une pull request comme le reste.
+
+⚠️ **Ce que ça change, et qui est le but** : une CI rouge **bloque la livraison**. Et si une suite
+redevient instable, **plus rien ne publie** tant qu'elle n'est pas réparée.
+⭐ **C'est précisément pourquoi [`T3.112`](T3.112.md) passait avant** : conditionner sur une CI qui
+échoue une fois sur trois aurait installé une garde qui bloque au hasard. La cause y a été trouvée
+(l'échelle de retransmission du SYN, budget posé au milieu de la queue) et le rouge est reproductible
+à la demande.
+
+⛔ **Écarté : la protection de branche seule** (issue C) — plus forte, puisqu'elle bloque le merge en
+amont, mais c'est un **réglage d'interface invisible dans le dépôt**, et un agent ne peut pas le
+poser. Reste disponible en complément, à la main de l'utilisateur.
+⛔ **Écarté : ne rien faire** — le motif « c'est une image de développement, publier à chaque merge
+est voulu » était défendable tant que le commentaire du fichier ne prétendait pas le contraire.
+
+⚠️ **Ce que ça ne change PAS** : le `push` reste **une livraison**. Conditionner la publication à la
+CI ne la rend pas gratuite — ça garantit seulement qu'on ne livre pas du rouge.
