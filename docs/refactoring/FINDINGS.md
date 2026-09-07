@@ -1298,6 +1298,31 @@
   famille, mais un correspondant devenu injoignable entre sa requête et la réponse (route perdue,
   interface descendue) produit le même `ErrorEvent`. ⇒ [T3.135](T3.135.md).
 
+- ⛔ **F-UDP-2 — [ROBUSTESSE, OUVERT, mesuré par la revue de merge de [T3.107](T3.107.md)] l'adresse
+  vide que `details::sender()` peut rendre n'est distinguée par personne.**
+
+  Le patch Calaos rend un `Addr{}` sur `addr == nullptr` et sur une famille inconnue. `UDPServer`
+  est son seul consommateur dans l'arbre et ne teste pas cette vacuité : un `remoteIp` vide
+  traverserait `ip == host` sans la satisfaire — donc sans un mot — puis partirait dans un envoi
+  que le noyau refuserait.
+
+  ⚠️ **Inatteignable en UDP aujourd'hui** : le noyau fournit toujours un `sockaddr` avec un
+  datagramme reçu, et les deux familles couvrent tout ce que l'arbre lie. Ce n'est pas un symptôme,
+  c'est une **hypothèse non écrite** — et la série a déjà montré ce que deviennent les hypothèses
+  que rien ne tient. ⇒ [T3.139](T3.139.md).
+
+- ⛔ **F-UDP-3 — [COUVERTURE, OUVERT, mesuré par la revue de merge de [T3.107](T3.107.md)] une
+  assertion manquante rétrécit l'ensemble rouge de M3.**
+
+  `TheServerStillReadsAfterAnsweringADiscovery` exige l'absence de `UDP server error` pour `::1` et
+  `::`, **pas pour `127.0.0.1`**, alors que la contre-mutation M3 la produit aussi sur cette forme.
+  Le cas voit donc moins que ce qu'il pourrait voir.
+
+  ⚠️ **Le critère de clôture n'est pas « l'assertion est ajoutée »** mais « M3 rejouée fait
+  **grossir** l'ensemble rouge ». Un ensemble inchangé après ajout veut dire que l'assertion neuve
+  est morte — c'est exactement le résultat qu'il ne faut pas publier comme un succès.
+  ⇒ [T3.139](T3.139.md).
+
 - ✅ **F-PYTEST-1 — [FAUX VERT, FERMÉ par [T3.47](T3.47.md)] `tests/python/test_auth.py` était
   silencieusement SAUTÉ par `make check`, qui restait vert** (trouvé en mesurant F-MCP-XFF-1).
 
