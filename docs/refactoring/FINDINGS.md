@@ -1311,6 +1311,56 @@
   c'est une **hypothèse non écrite** — et la série a déjà montré ce que deviennent les hypothèses
   que rien ne tient. ⇒ [T3.139](T3.139.md).
 
+- ✅ **F-ROSE-1 — [CONFINEMENT, FERMÉ par [T3.109](T3.109.md)] le port de notification HiFi Rose
+  ignorait `listen_address`.**
+
+  `AVRRoseNotifServer` liait `"0.0.0.0"` en dur sur le port 9284, construit dès qu'une
+  configuration porte un ampli AVRRose. Mesuré au descripteur : `listen_address = 127.0.0.1` ⇒
+  socket `AF_INET 0.0.0.0:9284`. Un opérateur qui narrowait son écoute gardait un port ouvert sur
+  son LAN, **sans une ligne**.
+
+  ✅ **FERMÉ** : l'adresse vient de la clé, par les mêmes deux aides que l'API et la découverte
+  (`listenAddressOrWildcard`, `bindListenAddress`). ⚠️ **Le confinement a un prix, et il est dit
+  deux fois** : l'ampli pousse *vers* ce port, donc une adresse qu'il ne peut pas joindre ramène
+  l'état au sondage de repli de 30 s — la ligne d'écoute nomme l'adresse liée, et
+  `docs/16_config_options.md` porte la phrase.
+
+- ✅ **F-ROSE-2 — [SILENCE, FERMÉ par [T3.109](T3.109.md)] le serveur de notifications annonçait
+  une écoute qu'il n'avait pas.**
+
+  L'auditeur d'`ErrorEvent` était posé **après** le `bind` et après le `listen`. Mesuré, port 9284
+  tenu par un tiers : **0 socket d'écoute** dans le processus, et
+  `Push notification server listening on port 9284` **présente** au journal. La fiche l'affirmait ;
+  c'est vrai.
+
+  ✅ **FERMÉ** : auditeur avant le `bind`, piège d'erreur autour du `listen` (libuv retient
+  `EADDRINUSE` du `bind` pour le rendre au `listen`), et la ligne de succès n'est imprimée que si
+  l'écoute a eu lieu — sinon une ligne d'erreur qui nomme ce qui est perdu.
+
+- ✅ **F-EXTPROC-14 — [SILENCE, FERMÉ par [T3.109](T3.109.md)] le tube des sidecars ne lisait
+  aucune erreur du tout.**
+
+  `bind(sockpath)` puis `listen()` sans **aucun** `ErrorEvent`. Mesuré sous épuisement de
+  descripteurs : `uv_pipe_bind` rend `EMFILE`, `uv_listen` rend `EINVAL`, **0 socket d'écoute**, et
+  la seule trace était une ligne de débogage annonçant le chemin sur lequel rien n'écoutait. Aucun
+  sidecar — les sept familles — ne peut alors se connecter.
+
+  ✅ **FERMÉ** : un auditeur avant le `bind`, effacé après le `listen`, et une ligne d'erreur qui
+  nomme le chemin et la famille de sidecar qui ne se connectera jamais.
+
+- ⛔ **F-ROSE-3 — [ROBUSTESSE, OUVERT, ouvert PAR le correctif de [T3.109](T3.109.md)] l'adresse
+  annoncée à l'ampli et l'adresse liée ne sont comparées par personne.**
+
+  `AVRRose::registerDevice()` publie `connectIP = TCPSocket::GetLocalIPFor(host)`, dérivé de la
+  route vers l'ampli ; l'adresse liée vient désormais de `listen_address`. Deux calculs, deux
+  endroits, aucune comparaison. Sous `listen_address = 127.0.0.1` l'inscription réussit, l'ampli
+  tente, la connexion est refusée, l'état retombe sur le sondage de 30 s — et les deux moitiés de
+  l'explication sont au journal, à deux endroits que personne ne rapproche.
+
+  ⚠️ **C'est le correctif qui rend l'écart possible** : avant lui, l'écoute était toujours sur
+  toutes les interfaces. Il l'a documenté dans la clé, il ne l'a pas rendu observable au démarrage.
+  ⇒ [T3.140](T3.140.md).
+
 - ⛔ **F-UDP-3 — [COUVERTURE, OUVERT, mesuré par la revue de merge de [T3.107](T3.107.md)] une
   assertion manquante rétrécit l'ensemble rouge de M3.**
 

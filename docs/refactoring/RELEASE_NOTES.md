@@ -1249,6 +1249,36 @@ volets (`OutputShutter` et `OutputShutterSmart`) sont couverts.
 
 ## ⚠️ Comportements qui changent sur une installation existante
 
+### `listen_address` confine désormais AUSSI le port de notification HiFi Rose (T3.109)
+
+`listen_address` est la clé qui dit au serveur sur quelle adresse écouter, et sa documentation
+promet de « confiner le serveur à un réseau ». Elle ne s'appliquait qu'à l'API HTTP/WebSocket et au
+serveur de découverte. Le **port 9284**, sur lequel un amplificateur HiFi Rose pousse ses
+notifications, était lié à **toutes les interfaces** quoi qu'on écrive — un opérateur qui narrowait
+son écoute gardait donc un port ouvert sur son LAN, et rien au journal ne le disait.
+
+**Ce qui change.** Le port de notification suit la clé, exactement comme l'API et la découverte
+(même repli nommé sur `0.0.0.0` quand la valeur n'est pas une adresse de la machine), et la ligne
+qui annonce l'écoute **nomme l'adresse liée**.
+
+> ⚠️ **Ce que cela coûte, si vous avez un ampli HiFi Rose ET une `listen_address` restreinte.**
+> C'est l'ampli qui se connecte au serveur pour le notifier. Si vous liez une adresse qu'il ne peut
+> pas joindre — `127.0.0.1`, ou une interface qui n'est pas la sienne — il ne pourra plus pousser.
+> **Rien n'est perdu** : l'état de l'ampli continue d'être rafraîchi par le sondage de repli, toutes
+> les 30 secondes au lieu de l'instant. Le défaut livré reste `0.0.0.0`, donc **une installation qui
+> n'a jamais touché à cette clé ne change pas**.
+
+### Deux écoutes qui échouaient en silence le disent enfin (T3.109)
+
+Si le port 9284 était déjà pris — deux serveurs sur la même machine, ou un voisin — le serveur de
+notifications imprimait quand même *« Push notification server listening on port 9284 »* alors qu'il
+n'écoutait **rien du tout**. Et le tube par lequel les pilotes externes (Wago, KNX, MQTT, OneWire,
+DMX, Reolink, Roon) se reconnectent au serveur ne relisait pas non plus son résultat : un `/tmp`
+plein, en lecture seule, ou un serveur à court de descripteurs rendait l'écoute muette et **aucun
+de ces pilotes ne pouvait plus se connecter**, sans un mot.
+
+Les deux nomment désormais l'échec au lieu de l'annoncer comme un succès.
+
 ### Une règle dont un équipement a disparu ne s'exécute plus (décision utilisateur)
 Jusqu'ici, si un IO référencé par une règle était supprimé ou renommé, la condition qui le visait
 était **rejetée au chargement** et la règle continuait de tourner **amputée**, donc plus
