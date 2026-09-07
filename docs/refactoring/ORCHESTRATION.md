@@ -39,8 +39,174 @@
      plus déduit. ⛔ **Il ne reste que le job CI chez GitHub**, jamais exécuté (`push` interdit
      depuis le début de la série) — en particulier le câblage `CALAOS_PYDEPS_STRICT: "1"` de
      [`T3.67`](T3.67.md) sur le `make check` de `build-and-test`.
+     ⚠️ **ÉLARGI PAR [`T3.125`](T3.125.md)** : depuis que la publication est conditionnée à la CI, la
+     liste de ce que seul le premier `push` tranchera compte **sept** points, et son mode d'échec est
+     le **silence**. Elle est énumérée en tête de l'état de sortie ci-dessous.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-07, APRÈS LE MERGE DE [`T3.123`](T3.123.md)) — À LIRE
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-07, APRÈS LE MERGE DE [`T3.125`](T3.125.md)) — À LIRE
+  EN PREMIER À FROID.**
+
+  ⭐⭐⭐ **CE QUI CHANGE À VOTRE PREMIER `push`, EN CLAIR.** Jusqu'ici, pousser sur `master`
+  **publiait immédiatement** : version incrémentée, étiquette git, image `ghcr.io/calaos/calaos_base`
+  en `:dev` et `:<version>`, et un `build_deb` dispatché vers `calaos/pkgdebs` — **sans attendre le
+  moindre test**. Depuis ce merge, **la publication attend que `Build and Test` soit verte** sur le
+  commit poussé. C'est la décision du 2026-09-07 (`DECISIONS.md`), issue **B**.
+
+  **Ce que le vert couvre** : compilation sur `debian:12` (pugixml **système 1.13**, jamais le
+  vendored 1.14 des builds locaux) et les **147** suites de `make check` avec
+  `CALAOS_PYTHON_TESTS_REQUIRED=1` et `CALAOS_PYDEPS_STRICT=1` — sondes statiques et suites Python
+  comprises — plus `mcp-sidecar-deps`, `dependabot-config` et le neuf `workflow-gating`.
+
+  ⛔ **Ce que le vert NE couvre PAS — recompté à la revue, six points :** aucun `Dockerfile` n'est
+  construit par la CI (le seul build d'image est l'étape de publication elle-même) · ni `make dist`
+  ni `make distcheck` · **aucun analyseur mémoire** (`--enable-asan` n'est câblé dans aucun job) ·
+  `make check-docs` **nulle part** (hors de `make check` par décision de `T3.32`, et absent de la
+  CI) · `format-check` est `if: github.event_name == 'pull_request'`, donc **sauté sur une poussée**,
+  et un job sauté laisse l'exécution en `success` · `coverage` est `continue-on-error: true`, donc
+  son échec ne rougit rien. ⇒ **la garde est réelle mais elle n'est pas totale : elle vaut
+  exactement ce que valent les 147, et rien de l'emballage.**
+
+  ⛔⭐⭐ **ET CE QUI NE SERA VÉRIFIÉ QU'À CE MOMENT-LÀ — la liste, parce que le mode d'échec est le
+  SILENCE :** ⑴ que le `workflow_run` se déclenche **du tout** (il n'est honoré que depuis la branche
+  par défaut ; le premier `push` est celui qui l'y installe) · ⑵ ce que vaut réellement `github.sha`
+  sous `workflow_run` (la garde est écrite pour être juste dans les deux résolutions documentées ; une
+  **troisième** ferait que **plus rien ne publie**) · ⑶ que le `head_branch` d'une poussée de tag
+  porte bien le nom du tag, donc que la boucle est coupée par `branches: [ master ]` · ⑷ que
+  `secrets.ACTION_DISPATCH` reste lisible sous ce déclencheur · ⑸ que le job `workflow-gating`
+  s'installe (`python3-yaml` de `debian:12`, jamais joué) · ⑹ le câblage `CALAOS_PYDEPS_STRICT: "1"`
+  de [`T3.67`](T3.67.md), point ouvert depuis · ⑺ les **12** dépréciations de *runner* relevées par
+  actionlint : antérieures à ce ticket, mais si elles font échouer le job de publication, c'est
+  maintenant dans une chaîne où plus rien d'autre ne publie.
+  ⛔ **Et si la publication s'arrête, RIEN dans le dépôt ne le dira** : le mode d'échec est
+  l'**absence** d'exécution, pas un job rouge. Les seuls signaux sont hors dépôt et passifs —
+  l'onglet *Actions* sans exécution du workflow de publication, `:dev` qui cesse de bouger, aucune
+  étiquette git neuve. Le seul filet réel serait **extérieur** : un workflow `schedule` qui vérifie
+  qu'une publication réussie est récente, ou la **protection de branche** (issue **C**, réglage
+  d'interface qu'un agent ne peut pas poser).
+
+  ⭐⭐⭐ **(a) LE BACKLOG D'ORIGINE DU 4 SEPTEMBRE EST TOUJOURS À ZÉRO.** Rien n'y est revenu :
+  `T3.125` n'en fait pas partie, il vient de `(b)` — ouvert par la mesure de [`T3.22`](T3.22.md) puis
+  débloqué par [`T3.112`](T3.112.md). Le compte de `(a)` reste **11 fermés + 2 écartés = 13**,
+  énumérable ligne à ligne dans les états de sortie conservés plus bas.
+
+  ⭐⭐ **CE QUE LA REVUE A MESURÉ, ET QUI DÉPASSE LE TICKET :**
+
+  1. ⭐ **LE NOM CITÉ EST EXACT, VÉRIFIÉ EN HEXADÉCIMAL.** `name:` de `ci.yml` et la chaîne citée par
+     `docker-publish-dev.yml` : `4275696c6420616e642054657374` **des deux côtés**, une seule entrée,
+     aucun blanc de fin. C'était le mode d'échec le plus probable, et il est écarté.
+  2. ⭐⭐ **LA LECTURE DU CONTEXTE D'EXÉCUTION EST JUSTE, ET ELLE EST VÉRIFIÉE À LA SOURCE.** La
+     documentation GitHub donne, pour `workflow_run` : `GITHUB_SHA` = *« Last commit on default
+     branch »*, `GITHUB_REF` = *« Default branch »*, et *« this event will only trigger a workflow run
+     if the workflow file exists on the default branch »*. `negz/create-tag@v1` déclare **trois**
+     entrées — `token`, `version`, `message` — et **aucune** pour le commit ; son `src/main.ts` écrit
+     `object: github.context.sha`. ⇒ **épingler le `checkout` ne suffisait pas** : sans l'égalité des
+     sha, l'étiquette et le paquet se poseraient sur un commit **non testé**. La garde est nécessaire
+     et bien placée. *À recopier : un `ref:` de `checkout` n'épingle que ce qu'on lit — les actions
+     qui écrivent lisent le contexte, pas l'arbre.*
+  3. ⭐⭐ **LA PORTE DES SECRETS EST FERMÉE, ET LE RAISONNEMENT TIENT.** `ci.yml` tourne
+     `on: pull_request:` **sans filtre**, donc aussi sur les PR de fork ; leur complétion lève un
+     `workflow_run` **dans le dépôt de base**, avec `secrets.ACTION_DISPATCH` lisible.
+     `branches: [ master ]` filtre le `head_branch`, qui pour une PR de fork est le nom de la branche
+     **du fork** — `master` y passe. Seul `workflow_run.event == 'push'` refuse le cas, et l'égalité
+     des sha le double.
+  4. ⛔⭐⭐ **ET LE TROU QUI COMPTE : LES DEUX CONDITIONS LES PLUS DIFFICILES NE SONT TENUES PAR
+     RIEN** (`F-DEP-12` / [`T3.133`](T3.133.md)). Le contrôle refuse **exactement** les trois formes
+     qu'il annonce — contrôle positif : les 4 contre-mutations du ticket ⇒ **1 plainte chacune**,
+     témoin **0**. **Cinq contre-mutations neuves ⇒ 0 plainte** : `event == 'push'` retiré (la porte
+     des secrets se rouvre) · `head_sha == github.sha` retiré (on étiquette un commit non testé) ·
+     `branches: [ master ]` retiré (boucle de publication par le tag qu'elle crée) · `ref:` du
+     `checkout` retiré (image construite sur la branche par défaut) · le job `workflow-gating`
+     **entier** retiré. *À recopier : un contrôle mécanique dit ce qu'il refuse ; il ne dit jamais ce
+     qu'il laisse passer.*
+  5. ⛔ **`actionlint` NE TYPECHECK PAS `github.event.*`** (`F-DEP-13`). Il type l'objet `github`
+     (`github.evnt` ⇒ plainte) et les types d'activité (`types: [ compleeted ]` ⇒ plainte), mais
+     `event` y vaut `object` : `conclusion` mal orthographié passe **sans un mot**, et la garde
+     devient alors toujours fausse. ✅ C'est le contrôle du dépôt qui l'attrape (1 plainte). ⚠️ Le
+     « 12 avant / 12 après » de la fiche est le compte **sans `shellcheck`** ; avec, il y en a **14**
+     — les listes restent identiques des deux côtés dans les deux configurations, donc **0 diagnostic
+     neuf**, ce qui était le point.
+  6. ✅ **L'AUTO-TEST RÉPOND JUSTE DES DEUX CÔTÉS, ÉPROUVÉ PAR DEUX CAS NEUFS** : un **second job non
+     conditionné** dans le fichier de publication ⇒ **refusé** ; un `on:` en forme de **liste** sur le
+     workflow de garde — forme que ses 15 jeux ne couvrent pas — ⇒ **accepté**. ⚠️ Une faiblesse
+     étroite relevée en passant (`F-DEP-14`) : `declared_name()` retombe sur le **nom de base**
+     (`ci.yml`) là où GitHub retombe sur le **chemin** (`.github/workflows/ci.yml`).
+  7. ✅ **LES QUATRE COMMENTAIRES NEUFS SONT VRAIS**, vérifiés un à un — et ce n'est pas rien au même
+     endroit : c'est ce ticket qui vient de fermer `F-DEP-8`, un commentaire qui annonçait une garde
+     inexistante. ⚠️ Le même mensonge **survit** dans `docker-publish.yml:25` (`F-DEP-10`), laissé
+     intact pour que la vérification « aucun autre workflow modifié » reste probante.
+  8. ⚠️ **RIEN DE CE TICKET N'EST EXERCÉ PAR `make check`** — c'est sa fausse assurance propre. Le
+     contrôle vit dans un job de CI (l'image de dev n'a pas PyYAML : `ModuleNotFoundError`, mesuré),
+     donc casser le nom cité ne rencontre **rien** en local ⇒ [`T3.132`](T3.132.md). Les 147 restent
+     ce qu'elles étaient : elles ne disent rien de `.github/`.
+
+  ⭐ **CE QUE LES CONTRE-MUTATIONS DE LA REVUE ONT MESURÉ — cinq neuves, quatre rejeux, deux témoins :**
+  - ⭐⭐ **CR-1** *(`workflow_run.event == 'push'` retiré de l'`if:` — la porte des secrets)* ⇒ ⛔ **0
+    plainte**, rc 0 ;
+  - ⭐⭐ **CR-2** *(`head_sha == github.sha` retiré)* ⇒ ⛔ **0 plainte**, rc 0 ;
+  - ⭐ **CR-3** *(`branches: [ master ]` retiré du déclencheur)* ⇒ ⛔ **0 plainte** ;
+  - ⭐ **CR-4** *(le job `workflow-gating` entier retiré de `ci.yml`)* ⇒ ⛔ **0 plainte** ;
+  - ⭐ **CR-5** *(`ref: workflow_run.head_sha` retiré du `checkout`)* ⇒ ⛔ **0 plainte** ;
+  - ✅ **CR-7** *(`conclusion` → `conclusoin`)* ⇒ **1 plainte** — ce qu'actionlint laisse passer ;
+  - ✅ **CR-8** *(l'`if:` entier retiré)* ⇒ **1 plainte** ;
+  - **contrôle positif, les 4 du développeur rejouées** : A (nom cité `Build and Tests`), B
+    (`conclusion` retiré), C (`ci.yml` renommé `Build & Test`), D (`paths:` posé sur `ci.yml`) ⇒
+    **1 plainte chacune, rc 1** — donc les cinq **0** ci-dessus portent : la même sonde, sur le même
+    arbre, sait rougir ;
+  - **témoins** : arbre livré ⇒ **0 plainte, rc 0** ; fichier réécrit **octet pour octet** avec
+    horodatage déplacé ⇒ **0 plainte**.
+  Mutation et restauration **sur l'HÔTE** ; ⭐ **harnais ET instantanés sous un répertoire au nom du
+  ticket**, jamais à la racine du scratch partagé (**8ᵉ** piège) ; **un chemin d'instantané par
+  campagne** (trois campagnes, trois chemins), noms par **chemin complet**, réutilisation **refusée**
+  et instantané vide **refusé** ; restauration par `copyfile` **sans métadonnées** puis `utime`,
+  prouvée par `cmp` **rc 0** **et** par un horodatage **effectivement déplacé** aux **12**
+  restaurations ; restauration dans un `finally`, jamais sous `set -e` (**7ᵉ**) ; `git status` sur
+  l'**HÔTE** **vide** après chaque tour.
+  ⚠️ **Le harnais a été éprouvé AVANT de servir** : contre le **6ᵉ** piège dans ses deux formes
+  (aiguille absente ; compte d'aiguille faux ⇒ refus d'écrire, fichiers **identiques au sha256 près**
+  les quatre fois) et contre le **4ᵉ** — la campagne entière lancée à travers un lecteur qui **ferme
+  tôt** (`| head -4`) : les sept tours ont eu lieu, les restaurations aussi, le journal complet est
+  écrit dans un fichier et l'arbre est resté propre.
+
+  **Tête de `master`** : le commit de revue qui porte ce paragraphe, à la suite de **`61d82b56`**
+  (branche `infra/t3.125`, **2 commits**), `merge --ff-only`, historique linéaire, **0 commit de
+  fusion**. **Rebase d'un commit** ; ⭐ **le conflit `BOARD.md` attendu ne s'est pas produit** — les
+  deux côtés supprimaient **la même ligne** (le marqueur orphelin `<<<<<<< HEAD` de `950702c7`), et
+  git l'a résolu seul. ⭐ **Vérifié : `git grep -nE '^(<<<<<<< |>>>>>>> |=======$)'` est VIDE** sur
+  tout l'arbre. ⛔ **Le diff ne touche que `.github/` et `docs/`** — **0** fichier sous `src/` ou
+  `tests/`, `tests/Makefile.am` **intouché**, `TESTS` **147 → 147**.
+  Référence après `make distclean` : **`TOTAL 147 / PASS 146 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 /
+  ERROR 0`**, seul `SKIP` `check-ccache-honesty.sh`, **0 `error:`**, **148 `CXXLD`** (11 au
+  `make -j32`, 137 au `make check`), **un seul** bloc `Testsuite summary` par tour, **deux** `make
+  check` aux résumés **identiques**. `make check-docs` (non bloquant) : **1472 citations, 4
+  périmées**, les mêmes quatre qu'avant le ticket.
+
+  **Tickets ouverts par les revues — `(b)`, une ligne chacun :**
+  - **`T3.133`** (neuve, ouverte par cette revue) — `F-DEP-12` : les **quatre** conditions dont la
+    garde de publication dépend (`event == 'push'`, `head_sha == github.sha`, `branches: [ master ]`,
+    le `ref:` du `checkout`) ne sont tenues **par rien**, mesuré à **0 plainte** chacune ; plus
+    `F-DEP-13` (actionlint ne typecheck pas `github.event.*`) et `F-DEP-14` (`declared_name()`
+    retombe sur le nom de base).
+  - **`T3.132`** (portée par la branche) — les **deux** contrôles de `.github/` ne tournent pas dans
+    `make check` (l'image n'a pas PyYAML). Quatre issues ; aucune ne change ce que la CI décide,
+    seulement **où** on l'apprend.
+  - **`T3.134`** est le prochain numéro libre. ⚠️ Numéros **pris** : `T3.76` → `T3.133` ; `T3.114`
+    est un **trou**.
+  - Les autres (`T3.84`, `T3.100`, `T3.104`, `T3.105`, `T3.107` → `T3.111`, `T3.113`, `T3.115` →
+    `T3.131`) sont inchangés — voir `BOARD.md`.
+
+  **Ce qui attend l'utilisateur :**
+  1. ⛔ **Le job CI chez GitHub n'a JAMAIS tourné**, et le `push` reste **différé**. ⭐ **Ce qui
+     change** : pousser ne publie plus tout seul — la publication attend le vert. ⛔ **Mais le `push`
+     reste une LIVRAISON, pas une vérification** : c'est lui qui installe le déclencheur et qui,
+     s'il est vert, publie. **Aucun agent ne pousse, jamais.** ⛔ **RIEN N'A ÉTÉ POUSSÉ DE TOUTE LA
+     SÉRIE.**
+  2. ⭐ **La protection de branche (issue C) reste à poser, à la main de l'utilisateur.** Plus forte —
+     elle empêche un rouge d'**entrer** au lieu de l'empêcher de publier — mais c'est un réglage
+     d'interface, invisible dans le dépôt.
+  3. ⚠️ **`test/t3.116` est en vol** dans `.wave141/t3.116` (aucun commit, arbre modifié sous
+     `tests/`, un build en cours) — laissé **intact** par cette revue.
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-07, APRÈS LE MERGE DE [`T3.123`](T3.123.md)) — conservé, à lire
   EN PREMIER À FROID.**
 
   ⭐⭐⭐ **(a) LE BACKLOG D'ORIGINE DU 4 SEPTEMBRE EST TOUJOURS À ZÉRO.** Rien n'y est revenu :

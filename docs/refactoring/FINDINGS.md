@@ -12725,3 +12725,33 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   `check-docs.py` ne lit que les citations `Fichier.cpp:ligne`. Retiré ici. *À recopier : une
   résolution qui garde les deux côtés se relit en cherchant les trois marqueurs, pas seulement en
   vérifiant que le contenu attendu est là.*
+
+- ⛔⭐⭐ **[F-DEP-12] Les deux conditions les plus difficiles de la garde de publication ne sont
+  tenues par rien.** Mesuré à la revue de merge de [T3.125](T3.125.md) ⇒ [T3.133](T3.133.md).
+  `.github/check-workflow-gating.py` refuse **exactement** les trois formes qu'il annonce — contrôle
+  positif : les quatre contre-mutations du ticket rendent **1 plainte chacune**, témoin **0**. Cinq
+  contre-mutations **neuves** sur le même arbre rendent **0 plainte** : `workflow_run.event ==
+  'push'` retiré (⛔ la **porte des secrets** se rouvre : la complétion d'une PR de fork lève un
+  `workflow_run` sur le dépôt de base, avec `secrets.ACTION_DISPATCH`) · `head_sha == github.sha`
+  retiré (⛔ `negz/create-tag@v1` étiquette alors un commit **non testé**) · `branches: [ master ]`
+  retiré (⛔ **boucle** : le tag que la publication crée redevient déclenchant) · `ref:` du
+  `checkout` retiré (⛔ l'image se construit sur la branche par défaut, pas sur l'arbre testé) · le
+  job `workflow-gating` **entier** retiré. ⇒ ces quatre lignes ne sont tenues **que par le fichier
+  lui-même**, ni en local ([T3.132](T3.132.md)) ni en CI. *À recopier : un contrôle mécanique dit ce
+  qu'il refuse ; il ne dit jamais ce qu'il laisse passer.*
+
+- ⚠️ **[F-DEP-13] `actionlint` ne typecheck pas `github.event.*`.** Mesuré à la revue de merge de
+  [T3.125](T3.125.md). Il type l'objet `github` (`github.evnt` ⇒ plainte) et les types d'activité
+  (`types: [ compleeted ]` ⇒ plainte), mais `event` y vaut `object` : `workflow_run.conclusion` mal
+  orthographié passe **sans un mot**, et la garde devient alors toujours fausse — donc plus rien ne
+  publie, silencieusement. ✅ Le contrôle du dépôt l'attrape (mesuré : 1 plainte) ; l'analyseur, non.
+  ⚠️ Le « 12 diagnostics avant / 12 après » de la fiche est le compte d'un `actionlint` **sans
+  `shellcheck`** ; avec, il y en a **14** (deux `SC2046` préexistants dans `ci.yml`) — les listes
+  restent identiques des deux côtés dans les deux configurations.
+
+- ⚠️ **[F-DEP-14] `declared_name()` retombe sur le nom de base, GitHub sur le chemin.** Relevé à la
+  revue de merge de [T3.125](T3.125.md). Quand un workflow n'a pas de `name:`,
+  `.github/check-workflow-gating.py` l'enregistre sous `ci.yml`, alors que GitHub le nomme
+  `.github/workflows/ci.yml`. Un `workflow_run` citant `"ci.yml"` contre un workflow sans `name:` est
+  donc **accepté** alors qu'il ne se déclencherait jamais. Étroit — il faut deux fautes — et fermé
+  par une ligne. Issue **C** de [T3.133](T3.133.md).
