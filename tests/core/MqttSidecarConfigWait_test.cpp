@@ -51,12 +51,19 @@
  * ---------------------------------------------------------------------------
  * The three ways a broker goes missing are three different code paths and
  * only one of them used to be visible: a refused port fails inside
- * connect_async() and is named (wrongly, but named), while an unreachable host
- * and a broker that drops mid-session fail AFTER connect_async() has answered
- * success - libmosquitto closes its socket, and the descriptor the sidecar
- * registered in its main loop is stale from then on. All three are exercised
- * here against the shipped binary, and each one is pinned on BOTH halves of
- * what an operator needs: a non zero exit status and a line naming the cause.
+ * connect_async() and is named (wrongly, but named), while a broker that hangs
+ * up before its CONNACK and one that drops mid-session fail AFTER
+ * connect_async() has answered success - libmosquitto closes its socket, and
+ * the descriptor the sidecar registered in its main loop is stale from then
+ * on. All three are exercised here against the shipped binary, and each one is
+ * pinned on BOTH halves of what an operator needs: a non zero exit status and
+ * a line naming the cause.
+ *
+ * ⛔ EVERY PEER HERE IS ON THE LOOPBACK AND OWNED BY THIS FILE. Nothing waits
+ * on an address the machine has to route: a route decides whether a connect
+ * fails inside connect_async() or after it, and how long "after" takes, so an
+ * off-box address makes the verdict a property of the network rather than of
+ * the sidecar.
  *
  * ⛔ WHAT THIS DOES NOT PROVE: that the sidecar talks to a real broker. The
  * only case that gets as far as a session uses four hand written bytes of
@@ -272,11 +279,12 @@ SidecarRun runSidecar(const std::vector<std::string> &messages, int budgetMs)
 /*
  * A four byte broker, pumped from the same loop that watches the child.
  *
- * ⚠️ It is a FIXTURE WITH AN ORACLE, not a decoration: the cases that use it
- * assert that it really saw a CONNECT and really answered a CONNACK before it
- * dropped the connection. Without that, a sidecar which never reached the
- * broker at all would produce the same exit as one whose session collapsed,
- * and the case would be measuring the wrong failure.
+ * ⚠️ It is a FIXTURE WITH AN ORACLE, not a decoration: every case using it
+ * asserts how far the exchange got - a CONNECT read, and a CONNACK either sent
+ * or deliberately withheld - before believing what the sidecar did. Without
+ * that, a sidecar which never reached the broker at all would produce the same
+ * exit as one whose session collapsed, and the case would be measuring the
+ * wrong failure.
  *
  * Single threaded on purpose - the sidecar is a separate process, so a state
  * machine driven every few milliseconds is enough and nothing here can race.
@@ -289,6 +297,11 @@ struct FakeBroker
     bool sawConnect = false;
     bool sentConnack = false;
     bool dropped = false;
+    //false drops the connection on the CONNECT instead of answering it, which
+    //is what a listening socket owned by something that is not a broker does.
+    //The session is then never established, and the failure reaches the sidecar
+    //through the descriptor connect_async() already handed to its main loop.
+    bool answersConnack = true;
     long holdMs = 400;              //how long the session lives after CONNACK
     //CONNACK return code: 0 accepts the session, 5 is the refusal a wrong
     //broker password produces
@@ -332,6 +345,13 @@ void pumpFakeBroker(FakeBroker &b)
         if (n <= 0)
             return;
         b.sawConnect = true;
+        if (!b.answersConnack)
+        {
+            ::close(b.conn);
+            b.conn = -1;
+            b.dropped = true;
+            return;
+        }
         //MQTT 3.1.1 CONNACK, session not present, then the return code
         const char connack[4] = { 0x20, 0x02, 0x00, char(b.connackRc) };
         b.sentConnack = ::send(b.conn, connack, sizeof(connack), MSG_NOSIGNAL) == 4;
@@ -716,39 +736,67 @@ TEST_F(MqttSidecarConfigWaitTest, AConfigurationCutAcrossTwoReadsIsStillAssemble
 }
 
 /*
- * ⭐⭐ AN UNREACHABLE BROKER - the stock case of a box whose broker is simply
- * not switched on.
+ * ⭐⭐ A BROKER THAT IS NOT THERE - the stock case of a box whose broker is
+ * simply not switched on.
  *
  * connect_async() answers SUCCESS here: the TCP connect is only STARTED, and
  * it fails afterwards, inside libmosquitto, which closes its socket. The
  * descriptor the sidecar handed to its main loop is stale from that instant.
+ * That is the defect, and it is reached from two states - this one, where no
+ * session was ever established, and the mid-session case below.
  *
- * ⚠️ THE FIXTURE IS CHECKED BEFORE IT IS BELIEVED. A documentation address
- * (RFC 5737 TEST-NET-1) can fail either way depending on the machine's
- * routing: synchronously, inside connect_async(), which is the OTHER path and
- * is already loud on master; or asynchronously, which is this one. The line
- * that connect_async() prints when it answered success is what tells them
- * apart, so it is asserted first - without it this case could go green while
- * measuring the path it is not about.
+ * ⛔ THE FAILURE IS PRODUCED ON THE LOOPBACK, NOT LOOKED FOR ON THE NETWORK.
+ * The obvious spelling of "not there" is a documentation address (RFC 5737),
+ * and it makes the verdict a property of the machine's routing table: an
+ * unrouted address fails inside connect_async(), which is the OTHER path; a
+ * routed one fails afterwards, but only when the kernel's SYN ladder draws an
+ * answer - measured on this tree at 4 ms, 1 s, 2 s, 4 s and beyond, and any
+ * budget short enough to still catch a sidecar that survives sits somewhere on
+ * that ladder. A peer that reads the CONNECT and hangs up produces the same
+ * asynchronous loss on the first turn of the loop, from an event this file
+ * owns.
+ *
+ * ⚠️ WHAT THE ORACLES ARE FOR. `sawConnect` says the sidecar really got as far
+ * as speaking MQTT, so a sidecar that died on its configuration deadline
+ * cannot pass this; `!sentConnack` says no session was ever accepted, which is
+ * what separates this case from the mid-session one; and the "Connect to :"
+ * line says connect_async() answered success, i.e. that the loss really was
+ * asynchronous.
  *
  * RED on master: exit status 0, and a journal whose only line is that same
  * "Connect to :". The server relaunches with no backoff and prints
  * "process exited, restarting..." at WARNING every turn, so what an operator
  * gets is ten lines a second that never say why.
  */
-TEST_F(MqttSidecarConfigWaitTest, AnUnreachableBrokerEndsTheSidecarWithACauseAndANonZeroStatus)
+TEST_F(MqttSidecarConfigWaitTest, ABrokerLostBeforeItsConnackEndsTheSidecarWithACauseAndANonZeroStatus)
 {
-    const std::string wire = frameOf(MqttWire::encodeConfig(brokerParamsAt("192.0.2.42", 1883)));
+    FakeBroker broker;
+    broker.answersConnack = false;
+    ASSERT_TRUE(openFakeBroker(broker)) << "could not open the fake broker";
 
-    const SidecarRun r = runSidecarRaw(std::vector<std::string>(1, wire), kSidecarWaitMs + 3000);
+    const std::string wire =
+        frameOf(MqttWire::encodeConfig(brokerParamsAt("127.0.0.1", broker.port)));
 
-    ASSERT_TRUE(logCarries(r, "Connect to : 192.0.2.42"))
-        << "connect_async() did not answer success on this machine, so the "
-           "failure was synchronous and this case is measuring the wrong path. "
-           "Log: " << r.log;
+    const SidecarRun r =
+        runSidecarRaw(std::vector<std::string>(1, wire), kSidecarWaitMs + 3000, &broker);
+
+    ASSERT_TRUE(logCarries(r, "Connect to : 127.0.0.1"))
+        << "connect_async() did not answer success, so the failure was "
+           "synchronous and this case is measuring the wrong path. Log: "
+        << r.log;
+    ASSERT_TRUE(broker.sawConnect)
+        << "the fake broker never received a CONNECT, so the sidecar never got "
+           "as far as the broker at all. Log: " << r.log;
+    ASSERT_FALSE(broker.sentConnack)
+        << "the fake broker accepted the session, so this case is measuring an "
+           "ESTABLISHED session going away, which is the case below. Log: "
+        << r.log;
 
     ASSERT_TRUE(r.exited)
         << "the sidecar stayed alive with a broker it never reached. Log: " << r.log;
+    EXPECT_FALSE(logCarries(r, "waiting for its configuration"))
+        << "the sidecar left on its configuration deadline, so it never got as "
+           "far as the broker. Log: " << r.log;
     EXPECT_GT(r.exitCode, 0)
         << "the sidecar left with status " << r.exitCode
         << ": calaos_server cannot tell this from a clean shutdown, and neither "
@@ -759,6 +807,8 @@ TEST_F(MqttSidecarConfigWaitTest, AnUnreachableBrokerEndsTheSidecarWithACauseAnd
     EXPECT_FALSE(logCarries(r, "mot de passe"))
         << "the sidecar published its broker password while reporting the "
            "failure. Log: " << r.log;
+
+    closeFakeBroker(broker);
 }
 
 /*
