@@ -43,6 +43,89 @@
      liste de ce que seul le premier `push` tranchera compte **sept** points, et son mode d'échec est
      le **silence**. Elle est énumérée en tête de l'état de sortie ci-dessous.
 
+- ⭐⭐⭐⭐ **ÉTAT DE SORTIE — LOT 147, QUATRE MERGES DANS UNE SEULE FENÊTRE (2026-09-07). À LIRE EN
+  PREMIER À FROID.**
+
+  **Ordre des merges, un par un, chacun rebasé puis `merge --ff-only`** :
+  [`T3.131`](T3.131.md) → [`T3.135`](T3.135.md) → [`T3.137`](T3.137.md) → [`T3.138`](T3.138.md),
+  historique **linéaire**, **0 commit de fusion**. Les **quatre** avaient besoin d'un rebase (trois
+  sur `e2e3533a`, `T3.135` sur `de3253cd`) et les **quatre** ont conflité sur `tests/Makefile.am`.
+  ⛔ **RIEN N'A ÉTÉ POUSSÉ** — le `push` reste une livraison qui attend l'utilisateur.
+
+  ⭐ **`tests/Makefile.am` : RÉGÉNÉRÉ à chaque fois, jamais un marqueur édité.**
+  `git show master:tests/Makefile.am` en entier + append verbatim du bloc `# TX.Y` de la branche,
+  puis **append pur prouvé deux fois** — `diff` et `master` **préfixe strict au BYTE** (`head -c` +
+  `cmp`) :
+
+  | branche | bloc | append | `^if` ≡ `^endif` | `make check` de son tour |
+  |---|---|---|---|---|
+  | `T3.131` | `# T3.131` | **+72 / −0 / ~0** | 131 ≡ 131 | `TOTAL 152 / PASS 151 / SKIP 1 / FAIL 0` |
+  | `T3.135` | `# T3.135` | **+33 / −0 / ~0** | 132 ≡ 132 | `TOTAL 153 / PASS 152 / SKIP 1 / FAIL 0` |
+  | `T3.137` | `# T3.137` | **+71 / −0 / ~0** | 133 ≡ 133 | `TOTAL 154 / PASS 153 / SKIP 1 / FAIL 0` |
+  | `T3.138` | `# T3.138` | **+27 / −0 / ~0** | **134 ≡ 134** | `TOTAL 155 / PASS 154 / SKIP 1 / FAIL 0` |
+
+  ⚠️ **LES QUATRE FICHES ANNONÇAIENT `TESTS 150 → 151`, ET C'ÉTAIT FAUX PARTOUT** — mesure d'**avant
+  rebase**. Chacune porte **une** suite de plus sur un `master` à **151**, donc **`151 → 152`**, et
+  c'est ce qui est écrit maintenant dans les fiches, les lignes `BOARD.md` et `FINDINGS.md`.
+  ⚠️ **La colonne de droite ci-dessus est autre chose** : c'est le tour de merge **réel** de chaque
+  branche, dans une fenêtre groupée où `master` monte de 151 à 155. Les deux lectures sont vraies ;
+  ne pas les confondre.
+
+  **Référence finale, après `make distclean`** :
+  **`TOTAL 155 / PASS 154 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
+  `check-ccache-honesty.sh`, **trois `make check` aux résumés identiques**, **0 `error:`**,
+  **un seul** bloc `Testsuite summary` par tour.
+  ⭐ `git grep -nE '^(<<<<<<< |>>>>>>> |=======$)'` **VIDE sur tout l'arbre**.
+
+  **Ce que les quatre revues ont exigé, et qui est appliqué ici — aucune ligne de `src/` n'a bougé
+  à ce titre**, à une exception de test près (l'assertion resserrée de `T3.137`) :
+
+  1. ⛔⭐⭐ **[`T3.142`](T3.142.md) N'EST PLUS UNE LECTURE, ET SA GRAVITÉ MONTE.** Trois
+     `CALAOS_DISCOVER` dos à dos — une lecture en rafale en avale jusqu'à 32 — donnent une 1ʳᵉ
+     réponse correcte puis **19 octets de tas libéré émis au correspondant** aux 2ᵉ et 3ᵉ
+     (`e28d1eb1ba5500004050…`), **sans ASan**, **à l'identique sur `master`** ⇒ **préexistant**.
+     C'est une **divulgation de mémoire vers un pair LAN non authentifié**, déclenchable par la
+     découverte UDP. Écrit dans la fiche, `BOARD.md`, `FINDINGS.md` (`F-UDP-4`) et
+     `RELEASE_NOTES.md`.
+  2. ⛔ **`M6` de `T3.135` est relibellé** — il retirait la comptabilisation, pas l'appel. La
+     mutation que son libellé annonçait laisse la suite **9/9 VERTE** ⇒ le câblage de production
+     `processRequest → sendTo` n'est épinglé par **aucun** cas (`F-UDP-6`, [`T3.151`](T3.151.md)).
+     Et le correctif **ouvre** un chemin de journal non borné piloté par le réseau (`F-UDP-5`,
+     [`T3.152`](T3.152.md)). ⭐ **En revanche la « fenêtre de mauvaise attribution » n'a AUCUN
+     producteur connu** : une socket UDP non connectée ne reçoit pas les ICMP (sonde noyau :
+     `EAGAIN`, jamais `ECONNREFUSED`).
+  3. ⛔⭐⭐ **L'exemption `SIGTERM` de `T3.138` porte sur la VALEUR du signal, pas sur son ORIGINE**
+     — `killall -TERM`, superviseur, systemd : exemptés de la rampe **et** de la ligne d'alerte.
+     Sonde `CM-PROV` ⇒ **0 rouge**. Fermable (`terminate()` incrémente déjà `respawn_generation`).
+     `F-EXTPROC-16` / [`T3.153`](T3.153.md), qui recoupe l'arbitrage de [`T3.144`](T3.144.md).
+     Les **trois** trous à 0 rouge de sa prose (`CR-2`, `CR-3`, `was killed by signal N`) sont
+     **rejoués, confirmés** et rattachés à `F-EXTPROC-17` / [`T3.154`](T3.154.md) — ⭐ le pire est le
+     troisième, que `RELEASE_NOTES.md` cite **mot pour mot**.
+  4. ⚠️ **`T3.137` : « producteur unique » ne vaut que pour l'ensemble de DÉFINITION.** `auth_token`
+     / `device_secret` et `cycle` / `disabled` / `disabled_missing_io` sont dérivés **et** écrivables
+     par l'API. La garde est un **préfixe** `autoscenario_` sur **n'importe quel** IO (0 collision
+     mesurée). ⭐ **Et la contrepartie est dite avec le refus** dans `docs/08_http_api.md` :
+     `config put` atteint les mêmes clefs **sous la même authentification**, mais il est **bruyant**
+     (sauvegarde + instantané + redémarrage) là où `set_param` était **muet** — c'est ce qui justifie
+     la garde.
+  5. ⚠️ **`T3.131` : trois origines indépendantes, pas quatre.** Le `io_doc.md` livré par
+     l'installeur est **engendré** depuis l'ioDoc du code. Et cet artefact, commité dans **l'autre
+     dépôt**, annonce encore `set_state true` pour les trois variantes `…ShutterSmart`
+     ⇒ [`T3.155`](T3.155.md).
+
+  **(b) Tickets ouverts par ce lot :** `T3.151`, `T3.152` (revue de `T3.135`), `T3.153`, `T3.154`
+  (revue de `T3.138`), `T3.155` (revue de `T3.131`) — **fiche + ligne `BOARD.md` à 6 colonnes pour
+  chacun**, vérifiées une à une. ⚠️ Numéros **pris** : `T3.76` → `T3.155` ; `T3.114` est un **trou** ;
+  **`T3.156` est le prochain numéro libre**.
+
+  ⭐⭐ **UN 10ᵉ PIÈGE D'OUTILLAGE EST INSTALLÉ** (§ pièges) : *un horodatage remis EN ARRIÈRE est un
+  horodatage qui a bougé*. La règle du 3ᵉ piège se lit désormais **« horodatage déplacé VERS
+  L'AVANT »** ; le test est `>`, jamais `!=`. La revue de `T3.137` s'est fait prendre par son propre
+  harnais, l'a attrapé, et a refait sa sonde.
+
+  ⚠️ **`make check-docs` : verdict LU, non bloquant.** `docs/refactoring/` reste hors du corpus
+  (les fiches ne sont ancrées par rien).
+
 - ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-07, APRÈS LE MERGE DE [`T3.109`](T3.109.md)) — À LIRE
   EN PREMIER À FROID.**
 
@@ -2584,7 +2667,7 @@
 
   ⛔⭐ **UN CINQUIÈME PIÈGE D'OUTILLAGE, rencontré ici** : un répertoire d'instantané **réutilisé**
   d'une campagne antérieure (garde `[ -f … ] || cp`, fichiers nommés par `basename`) fait « restaurer »
-  la forme d'**un autre tour**. Les preuves exigées — `cmp` rc 0, horodatage déplacé, pas de `| head` —
+  la forme d'**un autre tour**. Les preuves exigées — `cmp` rc 0, horodatage déplacé vers l'avant, pas de `| head` —
   étaient toutes **vraies** : elles comparaient au mauvais original. Rattrapé par le `git status` sur
   l'**hôte**, deux tours jetés et refaits. Section propre plus bas, à côté de ses quatre frères.
 
@@ -13798,7 +13881,10 @@ s'accumulaient en silence**. Toute la campagne a dû être jetée et refaite.
 1. ⛔ **Copier SANS les métadonnées.** `cp --no-preserve=timestamps`, `shutil.copy` (jamais
    `copy2`), `cat orig > cible`. Puis **reposer la date à maintenant** (`touch`).
 2. ✅ **Prouver les DEUX** : `cmp -s orig cible` ⇒ rc **0**, **et** un `stat -c %Y` qui a
-   effectivement bougé par rapport à l'avant-restauration.
+   effectivement bougé **VERS L'AVANT** par rapport à l'avant-restauration.
+   ⛔ **« Bougé » ne suffit pas, et c'est le 10ᵉ piège** : un horodatage remis **en arrière** est un
+   horodatage qui a bougé, et il empêche `make` de reconstruire tout autant qu'un horodatage figé.
+   La comparaison est `>`, jamais `!=`.
 3. ✅ **L'oracle de secours reste `CXXLD`** — et il vaut aussi pour la restauration : si le tour
    « arbre restauré » ne relinke rien, c'est que rien n'a été recompilé, donc que rien n'a été
    restauré du point de vue du binaire.
@@ -13847,7 +13933,7 @@ pris, et la restauration a écrit dans l'arbre la forme d'**un autre tour** — 
 sans la copie de `userFds`. Les deux tours suivants ont mesuré un arbre qui n'était pas le leur.
 
 ⚠️ **Et les preuves exigées par les trois sections ci-dessus étaient toutes VRAIES** : `cmp` rc 0,
-horodatage déplacé, aucun `| head`. Elles comparaient au mauvais original. Une preuve de
+horodatage déplacé vers l'avant, aucun `| head`. Elles comparaient au mauvais original. Une preuve de
 restauration ne vaut que ce que vaut l'original auquel elle compare.
 
 **Parade — trois règles :**
@@ -13871,7 +13957,7 @@ partie **après** la troncature, et le fichier de travail s'est retrouvé **vide
 pris un **instantané vide**, et tout ce qui a suivi a comparé à un original nul.
 
 ⚠️ **Et les preuves exigées par les quatre sections ci-dessus étaient toutes VRAIES** : `cmp` rc 0,
-horodatage déplacé, aucun `| head`, instantané non réutilisé. Elles comparaient à **rien**. C'est la
+horodatage déplacé vers l'avant, aucun `| head`, instantané non réutilisé. Elles comparaient à **rien**. C'est la
 même leçon que l'instantané réutilisé, poussée d'un cran : *une preuve de restauration ne vaut que ce
 que vaut l'original auquel elle compare — y compris quand cet original est vide.*
 
@@ -13923,7 +14009,7 @@ une au bon endroit — et le tour est revenu **VERT**. Deux tours sont ainsi ren
 la campagne entière a dû être rejouée.
 
 ⚠️ **Et les preuves exigées par les HUIT sections ci-dessus étaient TOUTES vraies** : `cmp` rc 0,
-horodatage effectivement déplacé, instantané neuf jamais réutilisé, aucun `| head`, `git status` de
+horodatage effectivement déplacé vers l'avant, instantané neuf jamais réutilisé, aucun `| head`, `git status` de
 l'hôte vide, restauration hors de tout `set -e`, et la ligne de compilation du fichier muté bien
 présente au journal. **Le fichier muté EST celui qui a compilé** ; c'est la *mutation* qui n'était
 pas celle que le descripteur annonçait. *Une preuve de restauration ne dit rien de ce qui a été
@@ -13944,6 +14030,42 @@ déclaré en Nu », c'est-à-dire comme un **résultat**, pas comme une anomalie
 3. ✅ **Un tour de contre-mutation qui rend 0 rouge se relit AVANT d'être publié** : rejouer les
    éditions sur une copie hors de l'arbre et **lire la forme obtenue**. Un mutant équivalent se
    déclare ; un mutant qui n'a pas eu lieu se corrige.
+
+## ⛔⭐ Outillage — LE 10ᵉ : UN HORODATAGE REMIS EN ARRIÈRE EST UN HORODATAGE QUI A BOUGÉ (revue de `T3.137`, 2026-09-07)
+
+**Dixième membre de la famille de `_DEPENDENCIES`, et la moitié manquante du 3ᵉ piège : l'outil rend
+un chiffre, et le chiffre ne mesure pas ce qu'on croit.**
+
+Vécu à la **revue de `T3.137`**, lot 147. Le harnais restaurait ses fichiers en **remettant leur
+horodatage d'origine** — pas en le préservant à la `copy2` du 3ᵉ piège, mais en le **reposant
+explicitement**, donc **en arrière** par rapport au fichier muté qu'il remplaçait. La preuve exigée
+par le 3ᵉ piège était satisfaite à la lettre : `stat -c %Y` avait **bougé**. Mais il avait bougé du
+mauvais côté, `make` a vu l'objet **plus récent** que la source restaurée, et **n'a rien
+recompilé** : la mesure suivante portait sur un binaire d'**avant**.
+
+⚠️ **La règle du 3ᵉ piège se lisait « horodatage déplacé ».** C'est ce mot qui est en défaut :
+`make` ne compare pas des différences, il compare des **ordres**. Un horodatage déplacé en arrière
+est aussi inerte qu'un horodatage figé — et il passe la vérification.
+
+⭐ **La revue s'est prise elle-même**, puis l'a attrapé : sa première sonde était contaminée, elle a
+été **refaite proprement** et c'est la seconde qui est publiée. C'est le geste à copier — un tour
+dont on ne peut pas expliquer le résultat se refait avant d'être écrit.
+
+**Parade — la règle du 3ᵉ piège gagne une direction :**
+
+1. ⛔ **Le test est `>`, jamais `!=`.** « L'horodatage a changé » ne prouve rien ; ce qu'il faut est
+   `mtime(après) > mtime(avant)`, et le plus simple reste un `touch` **sans argument** après la
+   copie — jamais un `touch -r`, jamais un `utime()` qui repose une date lue avant la mutation.
+2. ✅ **L'oracle de secours reste `CXXLD`**, et il est décisif ici : un tour « arbre restauré » qui
+   ne relinke **rien** n'a rien recompilé, donc n'a rien restauré du point de vue du binaire —
+   quelle que soit ce que dit `stat`.
+3. ✅ **Partout où la consigne est écrite, elle se lit désormais « horodatage déplacé VERS
+   L'AVANT ».** La formulation courte était **latente dans toute la série** : elle n'a mordu qu'ici
+   parce qu'il a fallu un harnais qui repose une date au lieu d'en préserver une.
+
+⛔ **Le symptôme est celui du 3ᵉ piège** : la mutation reste dans le binaire pendant que le fichier
+se relit propre, donc les mutations s'accumulent et l'ensemble rouge **grossit** — le résultat a
+l'air *meilleur*.
 
 ## ⭐ Outillage — `distcheck` est utilisable, à condition de le paralléliser soi-même
 

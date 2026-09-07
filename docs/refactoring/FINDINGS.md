@@ -13267,7 +13267,7 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
 - ⛔ **[F-EXTPROC-14] Deux chemins vers la même fonction ne sont pas la même mesure.**
   `ExternProc.cpp` appelle `noteChildGone()` depuis l'`ExitEvent` **et** depuis l'`ErrorEvent` d'un
   `spawn()` qui n'a jamais abouti (binaire absent). Le second est retiré ⇒ ⛔ **0 cas rouge**
-  (`TOTAL 151`, `106 CXXLD` lus), alors que la production le commente comme « the cheapest way there
+  (`TOTAL 152`, `106 CXXLD` lus), alors que la production le commente comme « the cheapest way there
   is to loop forever » et que les notes de version l'annoncent nommément.
   ⇒ [`T3.143`](T3.143.md). *À recopier : un cas qui prend le premier chemin ne dit rien du second,
   et le harnais qui sert au premier peut être inutilisable sur le second — ici aucun enfant ne
