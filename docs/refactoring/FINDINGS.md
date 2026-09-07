@@ -12332,7 +12332,7 @@ croisement est donc réel : il voit les deux moitiés d'une règle **diverger**,
 — casser un côté DOIT rougir, casser les deux à l'identique DOIT rester vert. Un seul tour ne
 distingue pas une comparaison croisée d'un littéral bien choisi.*
 
-### ⛔⭐⭐ `F-SHUT-2` — la grammaire NON gardée d'`OutputShutterSmart` n'a pas seulement une saturation : elle n'a **aucun capteur du tout**
+### ✅⭐⭐ `F-SHUT-2` (fermé) — la grammaire NON gardée d'`OutputShutterSmart` n'avait pas seulement une saturation : elle n'avait **aucun capteur du tout**
 
 `T3.25a` §8 et [`T3.123`](T3.123.md) §1 fichent les grammaires en pourcentage d'`OutputShutterSmart`
 (`set <n>`, `up <n>`, `down <n>`) comme **sans garde** contre la saturation. La revue a mesuré ce que
@@ -12348,6 +12348,40 @@ n'est épinglé nulle part** sur cette classe. Un correctif futur qui poserait l
 fermerait la saturation et laisserait ce trou-là entier.
 *À recopier : avant d'écrire « X n'est pas gardé », échanger deux branches de X. « Pas gardé contre
 une valeur » et « pas mesuré du tout » ne se réparent pas par le même geste.*
+
+⭐⭐ **FERMÉ par [`T3.123`](T3.123.md), et le trou était PLUS LARGE que ce paragraphe ne le disait.**
+La même mutation rejouée sur `master` avant d'écrire une ligne rend bien **0 cas rouge**
+(`TOTAL 145 / PASS 144`, **4 `CXXLD`** — les quatre binaires qui relient `OutputShutterSmart.o`, donc
+le relink est vivant). Mais une **seconde** mutation, sur un worktree `master` jetable, va plus loin :
+croiser les **deux bornes physiques** dans `Up()` et `Down()` — `setOutputUp(true)` devient
+`setOutputDown(true)` et réciproquement, ce qui fait tourner le moteur à l'envers pour **toutes** les
+commandes de la classe, `up`, `down`, `toggle` et les deux impulsions comprises — laisse `make check`
+**entièrement vert lui aussi** : **0 cas rouge**, **146 `CXXLD`**. ⇒ ce n'était pas le sens de marche
+des trois grammaires qui n'était pas mesuré, c'était **celui de la classe entière**.
+
+⭐ **L'oracle qui ferme les deux, et pourquoi ce n'en est pas un de plus qui relit le code.** Épingler
+`sens == SHUTTER_UP` n'aurait relu que l'énumération que la branche mutée vient elle-même d'écrire.
+`core/ShutterPercentGrammar_test` regarde à la place les deux choses qui existent **hors de la
+logique** : la **borne alimentée**, comptée séparément pour chaque côté — ⚠️ `core/ImpulseOverflow_test`
+les **additionne** dans un compteur unique et ne peut donc pas les distinguer —, et la **position
+servie par `get_state`, échantillonnée à chaque tour de boucle pendant le mouvement**, dont l'excursion
+entière est épinglée depuis une position **décentrée** (75 % pour une ouverture, 25 % pour une
+fermeture). L'asymétrie est ce qui rend l'oracle porteur : les deux directions produisent des états de
+même forme et de mêmes nombres, seul le **mouvement** diffère.
+⭐ **La paire de tours prouve la fermeture** : la mutation qui rendait **0** rouge en rend **3**, et le
+croisement des bornes dans `Up()` seul en rend **2**.
+
+⚠️ **Et le recensement de la saturation, lui, était faux dans les deux sens.** Mesuré : le
+`2147483647` **ne sort jamais** par le champ `state` — celui-là est `get_value_string()`, et
+`writePosition()` borne la position à la course. Il sort par le **cache d'état** (`updateCache()`,
+relu au démarrage suivant) et par `Rules/ActionStd.cpp`, et seulement quand `Up()`/`Down()` sortent
+tôt : sur le chemin ordinaire, `cmd_state` est **réécrit** en un `"up"`/`"down"` nu deux instructions
+plus loin. Il a fallu commander depuis **100 %** — un volet qui n'a plus de course devant lui — pour
+que la valeur survive, et elle survit : `get_command_string()` et `cached["cmd_state"]` valent tous
+deux `"set 2147483647"`.
+*À recopier : « l'état publié » n'est pas un canal, c'en est plusieurs. Avant d'écrire qu'une valeur
+est servie aux applications, nommer LE champ, et vérifier qu'aucune écriture ultérieure ne la
+recouvre sur le chemin normal.*
 
 ### ⭐ Revue de merge — les trois autres mesures, refaites et non relues
 

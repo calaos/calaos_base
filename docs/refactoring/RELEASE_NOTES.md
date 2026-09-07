@@ -148,15 +148,47 @@ familles de volets, et **par tous les chemins** : l'API, une règle, un scénari
 > l'argument est **partiellement** lisible (`impulse up 12abc`) était exécutée comme `12`. Elle est
 > maintenant refusée.
 
-> ⚠️ **Ce que cette version ne corrige PAS, et il faut le dire.** La vérification porte sur les deux
-> commandes d'**impulsion**. Les volets « intelligents » (ceux qui savent se placer à un
-> pourcentage d'ouverture) acceptent **trois autres commandes qui prennent un nombre** —
-> « place-toi à … % », « monte de … % », « descends de … % » — et **celles-là ne sont pas
-> vérifiées**. Un nombre trop grand y est toujours ramené silencieusement à sa plus grande valeur,
-> la position visée devient absurde, et la valeur inventée est **publiée dans l'état de
-> l'équipement**, où les applications connectées la lisent. Aucun volet ne part à sa butée par ce
-> chemin — le calcul de position, lui, n'a jamais débordé — mais la commande n'est pas refusée.
-> C'est suivi séparément.
+> ⚠️ **Ce que cette version-là ne corrigeait PAS** : la vérification portait sur les deux commandes
+> d'**impulsion** seulement, et laissait ouvertes les trois commandes en pourcentage des volets
+> « intelligents ». ✅ **Elles sont fermées maintenant, voir juste en dessous** — et ce que l'on
+> croyait alors de leurs conséquences était **inexact des deux côtés**.
+
+### ✅ Les commandes en pourcentage des volets « intelligents » sont vérifiées à leur tour (T3.123)
+
+Les volets « intelligents » — ceux qui savent se placer à un pourcentage d'ouverture — acceptent
+**trois commandes qui prennent un nombre** en plus des impulsions : « place-toi à … % »,
+« monte de … % », « descends de … % ». Elles n'étaient **pas vérifiées**.
+
+Un nombre trop grand pour être représenté y était ramené silencieusement à la plus grande valeur que
+le serveur sait écrire, et la position visée devenait **plus de vingt millions de fois la course du
+volet**. Conséquence, **mesurée** : le relais se ferme, et la minuterie qui doit l'arrêter est armée
+**cinq cents jours plus tard**. Le volet part donc jusqu'à sa butée et **le relais y reste
+alimenté** — le serveur répondant `success: true` pendant ce temps.
+
+Le nombre inventé se retrouvait aussi dans la **mémoire d'état de l'équipement**, celle que le
+serveur relit au démarrage suivant : le volet redémarrait avec, comme dernière commande connue,
+« place-toi à 2 147 483 647 % ». Une règle qui recopie la commande d'un volet sur un autre la
+propageait telle quelle.
+
+**Ce qui change.** L'argument de ces trois commandes doit désormais se lire **entièrement** comme un
+nombre entier, exactement comme pour les impulsions. Sinon la commande est refusée
+(`success: false`) et **rien n'est touché** : ni le relais, ni la position, ni l'état mémorisé. Cela
+vaut **par tous les chemins** — l'API, une règle, un scénario, un script Lua, un écran distant.
+
+> **Un petit changement de comportement pour les intégrations** : « monte de 12abc % » était exécuté
+> comme « monte de 12 % ». C'est maintenant refusé. « Place-toi à 100 % » et toutes les valeurs
+> lisibles restent évidemment acceptées.
+
+> **Ce qui n'est pas refusé, et c'est voulu** : un pourcentage **grand mais parfaitement lisible**
+> (« descends de 2147483647 % ») reste une commande légale et enverra le volet à sa butée. Borner
+> ces commandes à 0–100 % serait un changement de comportement à part entière : aujourd'hui
+> « descends de 200 % » veut dire « ferme complètement ».
+
+> ⚠️ **Deux précisions qui corrigent ce que la note précédente affirmait.** Le nombre inventé ne
+> partait **pas** dans l'état que les applications affichent : celui-là est la position du volet, et
+> elle a toujours été bornée à la course. Il partait dans la **mémoire d'état** et dans les règles,
+> ce qui est plus discret et survit au redémarrage. Et un volet **partait bien** à sa butée par ce
+> chemin — la note précédente disait le contraire.
 
 ### ✅ Une entrée analogique dont la période d'échantillonnage est mal renseignée ne scrute plus le matériel en permanence (T3.25a)
 
