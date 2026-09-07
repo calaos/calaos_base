@@ -6120,3 +6120,36 @@ core_ShutterBareGrammar_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Stan
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.135
+#What one undeliverable answer costs the rest of the box.
+#uvw republishes a send request's ErrorEvent on the HANDLE, as the very event a
+#failed receive uses: the owner's listener answered both with stop(), so an
+#unreachable correspondent took discovery, WAGO INT and WAGO KNX down with it
+#for the life of the process.
+#The refusal is produced WITHOUT a family defect - a server bound to 127.0.0.1
+#answering 192.0.2.1 (RFC 5737), which the kernel refuses to route - so this is
+#not a rerun of the send<IPv4>-on-an-IPv6-socket defect closed by T3.107.
+#A real UDPServer in a forked child, a real correspondent, and what that
+#correspondent reads at its own descriptor; inputs are counted through the
+#signal UDPServer emits, carrying the input number so a repeat cannot pass for
+#the next datagram.
+#⚠️ Exits 77 - and so SKIPS - on a machine that has configured 192.0.2.1 or
+#192.0.2.2, or that routes a loopback source off-link: there the accident this
+#suite is built on cannot be produced, and every case would be green for it.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/UdpSendFailureIsolation_test
+check_PROGRAMS += core/UdpSendFailureIsolation_test
+core_UdpSendFailureIsolation_test_SOURCES = core/UdpSendFailureIsolation_test.cpp
+core_UdpSendFailureIsolation_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+UDP_SEND_FAILURE_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
+core_UdpSendFailureIsolation_test_LDADD = $(UDP_SEND_FAILURE_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_UdpSendFailureIsolation_test_DEPENDENCIES = $(UDP_SEND_FAILURE_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif

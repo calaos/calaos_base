@@ -38,6 +38,7 @@ protected:
     std::shared_ptr<uvw::UDPHandle> handleSrv;
 
     void createUdpSocket();
+    void sendTo(const string &ip, unsigned int remotePort, const string &packet);
     void processRequest(const string &msg, const string &remoteIp, unsigned int port);
 
 public:

@@ -89,6 +89,13 @@ void UDPServer::createUdpSocket()
     handleSrv->recv();
 }
 
+void UDPServer::sendTo(const string &ip, unsigned int remotePort,
+                       const string &packet)
+{
+    Calaos::sendDatagram(*handleSrv, ip, remotePort,
+                         (char *)packet.c_str(), packet.length());
+}
+
 void UDPServer::processRequest(const string &request, const string &remoteIp, unsigned int remotePort)
 {
     if (request == "CALAOS_DISCOVER")
@@ -103,8 +110,7 @@ void UDPServer::processRequest(const string &request, const string &remoteIp, un
             string packet = "CALAOS_IP ";
             packet += ip;
 
-            Calaos::sendDatagram(*handleSrv, remoteIp, remotePort,
-                                 (char *)packet.c_str(), packet.length());
+            sendTo(remoteIp, remotePort, packet);
             cDebugDom("network") << "Sending answer: " << packet;
         }
         else
