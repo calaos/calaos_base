@@ -272,6 +272,15 @@
     `T3.131`) sont inchangés — voir `BOARD.md`.
 
   **Ce qui attend l'utilisateur :**
+  0. ⭐⭐⭐ **LE `push` EST AUTORISÉ, MAIS PAS ENCORE DÛ — la décision du 2026-09-07 le conditionne à
+     QUATRE tickets, et ce sont des tickets de PRODUIT, pas de filet** : [`T3.117`](T3.117.md)
+     (`autoscenario_uid` dupliqué), [`T3.109`](T3.109.md) (deux mises en écoute liées en dur),
+     [`T3.105`](T3.105.md) (sidecars relancés toutes les 100 ms sans lire leur statut de sortie),
+     [`T3.107`](T3.107.md) (`UDPServer` sourd sous une `listen_address` IPv6). Voir
+     [`DECISIONS.md`](DECISIONS.md). ⚠️ **Aucun des quatre n'est commencé**, et **aucun** des filets
+     de la série — les 148 comprises — ne les couvre : ce sont des défauts de `src/`.
+     ⛔ **Les quatre prioritaires de REVUE, eux, sont clos** (`T3.123`, `T3.124`, `T3.125`, `T3.116`) ;
+     c'est ce que cet état de sortie constate, et rien de plus.
   1. ⛔ **Le job CI chez GitHub n'a JAMAIS tourné**, et le `push` reste **différé**. ⭐ **Ce qui
      change** : pousser ne publie plus tout seul — la publication attend le vert. ⛔ **Mais le `push`
      reste une LIVRAISON, pas une vérification** : c'est lui qui installe le déclencheur et qui,
@@ -280,9 +289,11 @@
   2. ⭐ **La protection de branche (issue C) reste à poser, à la main de l'utilisateur.** Plus forte —
      elle empêche un rouge d'**entrer** au lieu de l'empêcher de publier — mais c'est un réglage
      d'interface, invisible dans le dépôt.
-  3. ✅ **AUCUNE BRANCHE N'EST PLUS EN VOL.** `test/t3.116` était la dernière ; elle est mergée, son
-     worktree `.wave141/t3.116` est démonté et `.wave141/` est vide. **`git worktree list` ne montre
-     plus que `master`.**
+  3. ✅ **PLUS AUCUNE BRANCHE DE FILET N'EST EN VOL.** `test/t3.116` était la dernière ; elle est
+     mergée, son worktree `.wave141/t3.116` est démonté et `.wave141/` est vide. ⚠️ **Trois worktrees
+     NEUFS sont en vol** pour les tickets de produit du point 0 — `.wave143/t3.117`,
+     `.wave144/t3.107`, `.wave145/t3.105` — ouverts après cette revue et **laissés intacts** par
+     elle ; il manque encore `T3.109`.
   4. ⚠️ **Ce que le vert local NE dit pas, et que le `push` seul tranchera** — c'est la liste des
      **sept** points énumérée en tête de cet état, plus la reconstruction de l'image (`PyYAML`,
      [`T3.132`](T3.132.md)) : `make check` **148 / 148** ne parle que de `src/` et de `tests/`. Les
