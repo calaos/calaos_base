@@ -78,9 +78,18 @@ Corrigé pour le luminaire simple comme pour les trois canaux d'un luminaire RVB
 
 > ⚠️ **Ce que cela demande de votre côté.** La correction est côté serveur, mais elle ne suffit
 > qu'avec une borne DALI **753-647** et un automate en version **3.0**. Sur une borne **750-641**,
-> le programme de l'automate ne sait pas relire un groupe du tout — il faudra le mettre à jour. Et
-> si votre automate est en version **2.0 à 2.3** et que vous utilisez du **DMX** (adresses ≥ 100),
-> la relecture d'état DMX cessera de fonctionner. *(Suivi : T3.159.)*
+> le programme de l'automate ne sait pas relire un groupe du tout — il faudra le mettre à jour.
+
+> ⭐ **Le serveur demande maintenant à votre automate quelle version il exécute**, une fois au
+> démarrage et une seule fois par automate, et il n'ajoute l'information de groupe qu'aux versions
+> **3.0 et suivantes** — les seules qui savent la lire. Un automate plus ancien reçoit donc
+> exactement la même question qu'avant, et **rien ne change pour lui** : en particulier, si vous
+> avez du **DMX** (adresses ≥ 100) sur un automate en **2.0 à 2.3**, sa relecture d'état continue
+> de fonctionner comme avant. Si l'automate ne répond pas — coupure, paquet perdu, modèle muet —
+> le serveur s'en tient lui aussi à l'ancienne question : il ne suppose jamais une version récente.
+>
+> ⚠️ Conséquence visible : un automate injoignable fait attendre le démarrage **jusqu'à deux
+> secondes de plus**, le temps que la question de version expire.
 
 > ⭐ **Au passage** : un équipement DALI dont la configuration ne mentionnait pas du tout le
 > paramètre `group` envoyait à l'automate un champ **vide**, que celui-ci interprétait n'importe

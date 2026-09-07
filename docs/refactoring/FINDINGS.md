@@ -13474,3 +13474,57 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   `T3.156` ne lui a ajouté que les trois `*group`. Un `io.xml` sans `rline` produit donc encore
   `WAGO_DALI_GET  11 0` — champ vide en 1ʳᵉ position, exactement le piège de `F-DALI-5`. Préexistant,
   hors du rayon de `T3.156`, non couvert par sa suite (déclaré dans son en-tête).
+
+## L'arbitrage de T3.156 livré — ce que le relevé des 30 programmes automate a mesuré (2026-09-07)
+
+- ✅⛔⭐⭐ **F-DALI-4 — FERMÉ.** La régression que nous avions ouverte n'a plus de producteur : le
+  drapeau n'est envoyé qu'aux automates **3.0 et plus**, donc un 2.0–2.3 ne reçoit plus de troisième
+  paramètre et retrouve **bit pour bit** sa conduite d'avant `T3.156`. ⇒ [T3.159](T3.159.md) fermée.
+
+  **Fermée et non contenue**, sur trois mesures : le régime « version inconnue » rend la forme à
+  **deux** paramètres (c'est la seule conduite que la contre-mutation « défaut optimiste » sait
+  rougir, et elle ne rougit que **2** cas dans tout l'arbre) ; aucun `.pro` < 3.0 ne peut annoncer
+  3.0 (`CALAOS_VERSION_H`/`_L` relevés un à un sur les **30** fichiers des huit versions) ; le seuil
+  est épinglé dans les deux sens, **2.9 non · 3.0 oui**.
+
+  ⚠️ **Ce que la fermeture ne dit pas** : la relecture DMX de 2.0–2.3 continue de ne fonctionner que
+  par l'**accident** d'aliasing — on a cessé de le casser, on ne l'a pas réparé.
+
+- ⭐⭐ **F-DALI-6 — [MESURÉ] la DISPOSITION de `WAGO_DALI_GET` change à la 3.0, et le serveur
+  n'envoie le groupe nulle part avant.**
+
+  Relevé sur les **30** `.pro` : en 1.7–2.3 le gestionnaire lit `p2` comme **drapeau** et (à partir
+  de 2.0) `p3` comme **adresse** — soit `WAGO_DALI_GET <line> <group> <address>`, drapeau **avant**
+  l'adresse, comme `WAGO_DALI_SET`. La **3.0 a interverti les deux** (`p3` = drapeau,
+  `IF (p2 < 99)`). ⇒ sur un 2.x, la trame à deux paramètres du serveur écrit l'**adresse** là où
+  l'automate lit le drapeau : `IF (p2 = 1) THEN dali_group := TRUE` attribue un groupe à tout
+  ballast d'adresse courte **1**. Latent (`dali_group` n'est relu nulle part sur ce chemin, cf.
+  `F-DALI-3`), mais **la relecture d'un groupe DALI est inatteignable sur 2.0–2.3**.
+  ⇒ [T3.162](T3.162.md).
+
+- ⚠️ **F-DALI-7 — [MESURÉ] le MODÈLE annoncé par `WAGO_GET_VERSION` est faux.**
+
+  Le 3ᵉ champ de la réponse est une constante en dur recopiée avec le fichier : les **sept**
+  programmes 3.0 (`841`·`849`·`880`·`881`·`889`·`891`·`893`) répondent **tous** `750-849`, et quatre
+  des sept 2.3 répondent `750-841`. Un 750-889 se présente donc comme un 750-849.
+  `src/bin/tools/wago_test.cpp:339` l'affiche sous le libellé `WAGO type:`. ⭐ **Le correctif de
+  `T3.156` ne lit que le champ de VERSION**, jamais le modèle, et la version est cohérente sur les
+  **29** programmes qui portent la commande. ⇒ [T3.163](T3.163.md).
+
+- ⚠️ **F-WAGO-12 — [MESURÉ, PRÉEXISTANT] l'attribution des réponses UDP est POSITIONNELLE.**
+
+  `WagoMap::udpRequest_cb()` porte **tout** datagramme entrant au compte de `udp_commands.front()`,
+  sans jamais comparer la réponse à la commande. La file est sérielle (une commande en vol,
+  expiration à 2 s), donc l'attribution est juste tant que l'automate répond dans l'ordre — ce que
+  rien ne vérifie. L'arbitrage de `T3.156` ajoute **une** commande à répondre au démarrage, donc une
+  occasion de plus de mal attribuer. ⭐ **La dégradation va vers le sûr** : un datagramme étranger lu
+  comme une version donne « inconnue », donc la trame à deux paramètres. Aucun ticket ouvert : le
+  symptôme demande un automate.
+
+- ⭐ **F-TEST-DALI-1 — [MESURÉ] un cas de `core/WagoUdpReply_test` était vert pour la mauvaise
+  raison.** En insérant la requête de version en tête de file, deux cas de cette suite sont passés au
+  rouge (leur datagramme était attribué à la version) — mais un troisième,
+  `ADaliGetReplyOfZeroLeavesTheBallastOff`, est resté **vert** : la valeur qu'il attend, `"0"`, est
+  aussi la valeur de départ du ballast. Il ne distinguait donc pas « le rappel a converti la réponse »
+  de « le rappel n'a jamais été appelé ». Corrigé en même temps. *Un capteur qui ne mesure rien passe
+  pour un capteur qui ne trouve rien.*
