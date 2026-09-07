@@ -13103,3 +13103,26 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   de **244 sur 64 cœurs** ⇒ **9/9 vertes à chaque fois**, marges nominales de 7 à 12 fois.
   *À recopier : « aucun cas ne mesure une durée » se recompte assertion par assertion ; un
   contrepoids reste une borne, et une borne basse sur un compte est une borne de temps déguisée.*
+
+
+## Premier `push` — ce que la CI a appris (2026-09-07)
+
+- ✅ **Le run est vert** : `34125920118`, `TOTAL 150 / PASS 149 / SKIP 1 / FAIL 0 / ERROR 0`, seul
+  `SKIP` `check-ccache-honesty.sh`. Six contrôles, dont ⭐ **`Workflow gating check` PASS** — première
+  exécution réelle de la garde de publication posée par `T3.125`. `check-pydeps-conformance.sh`
+  **PASS** sous `CALAOS_PYDEPS_STRICT: 1`, et `run-python-tests.sh` **PASS** et non `SKIP`.
+
+- ⛔ **F-CI-1 — [OUTILLAGE, OUVERT, mesuré au premier `push`] la CI bâtit un sous-ensemble de
+  l'arbre et n'en dit rien.**
+
+  Référence locale `TOTAL 151`, CI `TOTAL 150`. Le manquant est `KNXExternProcWire_test`, sous
+  `if HAVE_LIBKNX` : sans `eibclient.h`, la règle n'est pas engendrée. **Ce n'est pas un `SKIP`,
+  c'est une absence** — aucune ligne, aucun avertissement, un total inférieur d'une unité que rien
+  ne compare à rien.
+
+  Résumé de `configure` lu dans le journal du run : Eib/KNX **no**, MQTT **no**, RoonAPI **no**,
+  Reolink **no**. ⇒ **`calaos_knx` et `calaos_mqtt` ne sont jamais compilés**, alors que `T3.103`,
+  `T3.105`, `T3.138`, `T3.84` et `T3.108` portent sur ce code.
+
+  ⭐ C'est la forme CI de *« un capteur qui ne mesure rien passe pour un capteur qui ne trouve
+  rien »*. ⇒ [T3.150](T3.150.md).
