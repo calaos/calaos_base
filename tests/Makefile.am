@@ -5961,3 +5961,26 @@ endif
 TESTS += check-echo-measures.sh
 dist_check_SCRIPTS += check-echo-measures.sh
 EXTRA_DIST += check-echo-measures.py
+
+# T3.117
+#Nothing refuses a duplicated `autoscenario_uid`, and everything a scenario
+#owns - the five machinery IOs and the generated rules - is DERIVED from it.
+#The suite edits the uid in the SAVED io.xml and loads the files back, because
+#that is the only way a duplicate exists: no API path allocates one.
+#It links JsonApi for buildAutoscenarioDelete()/buildAutoscenarioList() -
+#JsonApi.o is already in CORE_SERVER_OBJECTS, no extra link closure is needed.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/AutoScenarioUidUniqueness_test
+check_PROGRAMS += core/AutoScenarioUidUniqueness_test
+core_AutoScenarioUidUniqueness_test_SOURCES = core/AutoScenarioUidUniqueness_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_AutoScenarioUidUniqueness_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/Scenario
+core_AutoScenarioUidUniqueness_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_AutoScenarioUidUniqueness_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif

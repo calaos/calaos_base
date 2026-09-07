@@ -36,13 +36,18 @@
  * named ...ThroughTheModel. They are still the cases that matter: the same
  * five members are read by a pass that any IO deletion runs.
  *
- * TwoScenariosSharingAUid... is NOT a model case. `autoscenario_uid` is a plain
- * io.xml attribute and nothing rejects a duplicate, so two scenarios can share
- * one - createInput() hands the second one the IOs of the first instead of
- * building its own. From there `autoscenario delete` on either of them, an
- * ordinary API command, destroys the machinery of the other. The configuration
- * is edited on disk and reloaded, which is the same story the amputation
- * helpers of the neighbouring suites tell: somebody edited the file.
+ * SharedUidTest is NOT a model case, and it is the door this invariant used to
+ * be reachable through: `autoscenario_uid` is a plain io.xml attribute, two
+ * scenarios could carry one, and createInput() then handed the second one the
+ * IOs of the first instead of building its own - from where `autoscenario
+ * delete` on either of them, an ordinary API command, destroyed the machinery
+ * of the other. The startup pass now gives the second one an identifier of its
+ * own (ListeRoom::rekeyDuplicateAutoScenarioUids()), so the two cases below
+ * pin that the door is SHUT: they still edit the configuration on disk and
+ * reload it, the same story the amputation helpers of the neighbouring suites
+ * tell, and they assert the machinery is no longer shared and that deleting
+ * one leaves the other whole. What the pair becomes is the subject of
+ * core/AutoScenarioUidUniqueness_test.
  *
  * ---------------------------------------------------------------------------
  * WHY THE ASSERTIONS READ POINTERS AND NOT A CRASH
@@ -374,9 +379,10 @@ TEST_F(ScenarioInternalIoLifetimeTest,
  * THE DOOR - reached by an ordinary API command
  * ------------------------------------------------------------------------- */
 
-/* Rewrite scenario B's uid to A's in the saved io.xml and load everything back:
- * two live scenarios, one machinery. The IO ids are derived from the uid, so
- * B's createInput() finds A's IOs already there and adopts them.
+/* Rewrite scenario B's uid to A's in the saved io.xml and load everything back.
+ * The IO ids are derived from the uid, so B's createInput() would find A's IOs
+ * already there and adopt them - which is what the startup pass prevents by
+ * moving B onto an identifier of its own before anything is derived.
  */
 class SharedUidTest: public ScenarioInternalIoLifetimeTest
 {
@@ -405,8 +411,9 @@ protected:
     }
 };
 
-//The precondition of the door, measured rather than assumed.
-TEST_F(SharedUidTest, TwoScenariosSharingAUidShareTheirMachineryIos)
+//The precondition of the door, measured rather than assumed - and it no longer
+//holds: the two build machineries of their own.
+TEST_F(SharedUidTest, TwoScenariosSharingAUidDoNotShareTheirMachineryIos)
 {
     loadTwoScenariosSharingOneUid();
 
@@ -416,16 +423,23 @@ TEST_F(SharedUidTest, TwoScenariosSharingAUidShareTheirMachineryIos)
     ASSERT_NE(nullptr, b);
     ASSERT_NE(a, b);
 
+    //A kept the identifier, so its five are exactly the ones it always had
     ASSERT_TRUE(machineryIsBuilt(a, SC_A_UID));
-    EXPECT_EQ(a->getIOIsActive(), b->getIOIsActive());
-    EXPECT_EQ(a->getIOStep(), b->getIOStep());
-    EXPECT_EQ(a->getIOTimer(), b->getIOTimer());
+
+    //and B, moved onto one of its own, holds three IOs that are none of them
+    ASSERT_NE(nullptr, b->getIOIsActive());
+    ASSERT_NE(nullptr, b->getIOStep());
+    ASSERT_NE(nullptr, b->getIOTimer());
+    EXPECT_NE(a->getIOIsActive(), b->getIOIsActive());
+    EXPECT_NE(a->getIOStep(), b->getIOStep());
+    EXPECT_NE(a->getIOTimer(), b->getIOTimer());
 }
 
-/* And the door itself: `autoscenario delete` on B destroys the machinery both
- * of them hold, then ends on deleteIO(B) whose detection pass walks A.
+/* And the door itself, shut: `autoscenario delete` on B tears down B's
+ * machinery and ends on deleteIO(B), whose detection pass walks A - which now
+ * holds nothing B could take with it.
  */
-TEST_F(SharedUidTest, DeletingOneOfTwoScenariosSharingAUidLeavesTheOtherWithNoStalePointer)
+TEST_F(SharedUidTest, DeletingOneOfTwoScenariosSharingAUidLeavesTheOtherWhole)
 {
     loadTwoScenariosSharingOneUid();
 
@@ -440,17 +454,17 @@ TEST_F(SharedUidTest, DeletingOneOfTwoScenariosSharingAUidLeavesTheOtherWithNoSt
     ASSERT_EQ(nullptr, scenarioIo(SC_B_IO));
     ASSERT_NE(nullptr, autoScenario(SC_A_IO)) << "A must survive the delete of B";
 
-    EXPECT_EQ(nullptr, ListeRoom::Instance().findIO(machineryId(SC_A_UID, "_is_active")));
-    EXPECT_EQ(nullptr, a->getIOIsActive());
-    EXPECT_EQ(nullptr, a->getIOStep());
-    EXPECT_EQ(nullptr, a->getIOTimer());
-    EXPECT_EQ(nullptr, a->getIOTimeRange());
-    EXPECT_EQ(nullptr, a->getIOScheduleEnabled());
+    /* Not "the member is null" any more but "the member is the live IO its own
+     * id resolves to": a stale pointer would be non-null and would not compare
+     * equal to what findIO() answers.
+     */
+    EXPECT_TRUE(machineryIsBuilt(a, SC_A_UID));
 
     //A pass over what is left must be answerable, and it is what the server
     //runs at every startup
     ListeRoom::Instance().checkAutoScenario();
     EXPECT_NE(nullptr, autoScenario(SC_A_IO));
+    EXPECT_TRUE(machineryIsBuilt(a, SC_A_UID));
 }
 
 /* ---------------------------------------------------------------------------
