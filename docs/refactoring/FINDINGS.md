@@ -13199,9 +13199,27 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   `calaos_mobile`, `calaos_remote_ui`, `calaos_windex`, scripts Lua — trouve **zéro** appel légitime
   à `set_param`, et surtout : **aucune source de l'arbre ne peut énumérer ce qui est écrivable**
   (l'éditeur de propriétés de l'installateur crée n'importe quelle clef, un script Lua choisit la
-  sienne, chaque pilote a les siennes). Une liste blanche aurait donc été **devinée**. L'ensemble
-  **dérivé**, lui, a exactement un producteur — `AutoScenarioDef::isDefinitionParam()`, la même
-  fonction qui décide ce que `saveToParams()` a le droit de supprimer et de re-dériver.
+  sienne, chaque pilote a les siennes). Une liste blanche aurait donc été **devinée**. L'**ensemble de
+  définition**, lui, a exactement un producteur — `AutoScenarioDef::isDefinitionParam()`, la même
+  fonction qui décide ce que `saveToParams()` a le droit de supprimer et de re-dériver, si bien que
+  le prédicat de la garde est **partagé** avec l'écrivain et tenu par construction.
+
+  ⚠️ **« Producteur unique » vaut pour l'ensemble de DÉFINITION, et pas au-delà.** L'arbre porte des
+  paramètres qui sont **dérivés ET écrivables par l'API** : `auth_token` et `device_secret`
+  (`RemoteUI/RemoteUIProvisioningHandler.cpp:199`, `generateDeviceSecret()`), `cycle`, `disabled` et
+  `disabled_missing_io` (`Scenario/AutoScenario.cpp:180`, `:191`, `:279`). Généraliser la phrase à
+  « ce que le serveur dérive a un producteur unique » va **plus loin que le mesuré** — le refus de
+  `T3.137` ne couvre qu'un ensemble, celui qu'une classe sait énumérer.
+
+  ⚠️ **Et la garde est un PRÉFIXE** : `autoscenario_<n'importe quoi>` est refusé sur **n'importe
+  quel** IO, pas seulement sur un `Scenario` ni seulement pour les six clefs nommées. **0 collision
+  mesurée dans tout `src/`**, donc inoffensif — mais l'énumération de six noms ne décrit pas ce que
+  le code fait.
+
+  ⚠️ **La contrepartie, que la doc annonce désormais avec le refus** : `config put` atteint les mêmes
+  clefs **sous la même authentification**. La garde ne ferme pas une porte ; elle supprime le chemin
+  **muet** — `config put` réécrit un fichier, produit un instantané et demande un redémarrage, là où
+  `set_param` écrivait sans trace.
   ⭐ **Confirmation indépendante** : `calaos_installer` implémente **déjà** le même refus de son côté
   (`DialogListProperties.cpp`, préfixes `autoscenario_` et `as_`).
   *À recopier : quand on ne peut pas énumérer ce qu'on publie, on n'a pas le droit de deviner ce
