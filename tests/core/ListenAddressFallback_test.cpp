@@ -60,13 +60,27 @@
  * from getsockname(). Nothing here asks the library where it thinks it bound:
  * the whole defect is that the library's answer and the kernel's differ.
  *
+ * ---------------------------------------------------------------------------
+ * AND WHAT THE DISCOVERY SERVER READS AND WRITES ONCE IT IS BOUND
+ * ---------------------------------------------------------------------------
+ * Landing on the right socket is half of it. recv() and send() are templated
+ * on the family the same way bind() is, and default to IPv4 the same way: on
+ * an IPv6 socket the sender of every datagram was rendered "0.0.0.0" - not
+ * empty, not an error, a plausible address - and the answer left as a
+ * sockaddr_in the descriptor refuses. The exchange cases below therefore have
+ * a real correspondent send real datagrams, and compare what the server acted
+ * on with what the correspondent's OWN descriptor says it is.
+ *
  * WHAT THIS SUITE ASSUMES OF THE MACHINE, out loud, because a case green for
  * the wrong reason is worse than a red one:
  *   - the kernel has IPv6, and `::1` is on the loopback;
  *   - 192.0.2.1 (RFC 5737) and 2001:db8::1 (RFC 3849) are NOT addresses of
  *     this machine. They are documentation ranges, but a machine that had
  *     configured one would turn the two heaviest cases into measurements of
- *     nothing - so main() binds them and skips (77) if either answers.
+ *     nothing - so main() binds them and skips (77) if either answers;
+ *   - an IPv4 correspondent can reach a socket bound to `::`. main() sends one
+ *     rather than reading net.ipv6.bindv6only: what the dual-stack exchange
+ *     needs is the delivery, not the setting that usually grants it.
  ******************************************************************************/
 
 #include <gtest/gtest.h>
@@ -77,6 +91,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -178,6 +193,54 @@ bool addressExistsHere(int family, const char *literal)
     }
     close(fd);
     return ok;
+}
+
+//Whether a `::` socket receives from an IPv4 correspondent. Sent rather than
+//read off net.ipv6.bindv6only: the delivery is what the dual-stack exchange
+//needs, and a setting is only the usual reason it happens.
+bool aV4CorrespondentReachesAWildcardV6Socket()
+{
+    const int srv = socket(AF_INET6, SOCK_DGRAM, 0);
+    if (srv < 0)
+        return false;
+
+    sockaddr_in6 a;
+    memset(&a, 0, sizeof(a));
+    a.sin6_family = AF_INET6;
+    a.sin6_addr = in6addr_any;
+    a.sin6_port = 0;
+    socklen_t al = sizeof(a);
+    if (bind(srv, reinterpret_cast<sockaddr *>(&a), sizeof(a)) != 0 ||
+        getsockname(srv, reinterpret_cast<sockaddr *>(&a), &al) != 0)
+    {
+        close(srv);
+        return false;
+    }
+
+    timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = 300000;
+    setsockopt(srv, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
+    const int cli = socket(AF_INET, SOCK_DGRAM, 0);
+    bool reached = false;
+    if (cli >= 0)
+    {
+        sockaddr_in d;
+        memset(&d, 0, sizeof(d));
+        d.sin_family = AF_INET;
+        d.sin_port = a.sin6_port;
+        inet_pton(AF_INET, "127.0.0.1", &d.sin_addr);
+        if (sendto(cli, "?", 1, 0, reinterpret_cast<sockaddr *>(&d), sizeof(d)) == 1)
+        {
+            char buf[8];
+            reached = recv(srv, buf, sizeof(buf), 0) == 1;
+        }
+        close(cli);
+    }
+
+    close(srv);
+    return reached;
 }
 
 //The listening socket of this process, taken from the kernel. SO_ACCEPTCONN
@@ -471,6 +534,264 @@ const Runs &theRuns()
     return runs;
 }
 
+//What a case reports when nothing at all reached it. A sensor that measured
+//nothing must not read like a sensor that found nothing.
+const char *const kNothing = "-";
+
+//Filled in the child by the signal UDPServer emits for a Wago input. Two
+//slots: what it carried before the answer to a discovery was due, and after.
+std::string gCarried[2];
+int gStage = 0;
+
+void noteWago(std::string ip, int, bool, std::string)
+{
+    gCarried[gStage] = ip.empty()? std::string("<empty>"): ip;
+}
+
+//Turns of the loop, never blocking on one that will not come: a case that
+//hangs is a case nobody reads.
+void pump()
+{
+    auto loop = uvw::Loop::getDefault();
+    for (int i = 0; i < 40; i++)
+    {
+        loop->run<uvw::Loop::Mode::NOWAIT>();
+        usleep(2000);
+    }
+}
+
+//A correspondent on the loopback of its own family, ready to be read at its
+//descriptor. -1 when the machine cannot host it.
+int correspondent(int family, std::string &ip, int &port)
+{
+    const int c = socket(family, SOCK_DGRAM, 0);
+    if (c < 0)
+        return -1;
+
+    char text[INET6_ADDRSTRLEN] = { 0 };
+    bool ok = false;
+    if (family == AF_INET6)
+    {
+        sockaddr_in6 a;
+        memset(&a, 0, sizeof(a));
+        a.sin6_family = AF_INET6;
+        inet_pton(AF_INET6, "::1", &a.sin6_addr);
+        socklen_t l = sizeof(a);
+        ok = bind(c, reinterpret_cast<sockaddr *>(&a), sizeof(a)) == 0 &&
+             getsockname(c, reinterpret_cast<sockaddr *>(&a), &l) == 0;
+        if (ok)
+        {
+            inet_ntop(AF_INET6, &a.sin6_addr, text, sizeof(text));
+            port = ntohs(a.sin6_port);
+        }
+    }
+    else
+    {
+        sockaddr_in a;
+        memset(&a, 0, sizeof(a));
+        a.sin_family = AF_INET;
+        inet_pton(AF_INET, "127.0.0.1", &a.sin_addr);
+        socklen_t l = sizeof(a);
+        ok = bind(c, reinterpret_cast<sockaddr *>(&a), sizeof(a)) == 0 &&
+             getsockname(c, reinterpret_cast<sockaddr *>(&a), &l) == 0;
+        if (ok)
+        {
+            inet_ntop(AF_INET, &a.sin_addr, text, sizeof(text));
+            port = ntohs(a.sin_port);
+        }
+    }
+
+    if (!ok)
+    {
+        close(c);
+        return -1;
+    }
+
+    ip = text;
+    timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = 400000;
+    setsockopt(c, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    return c;
+}
+
+void speak(int fd, int family, const char *dest, int port, const std::string &text)
+{
+    if (family == AF_INET6)
+    {
+        sockaddr_in6 d;
+        memset(&d, 0, sizeof(d));
+        d.sin6_family = AF_INET6;
+        d.sin6_port = htons((uint16_t)port);
+        inet_pton(AF_INET6, dest, &d.sin6_addr);
+        sendto(fd, text.data(), text.size(), 0,
+               reinterpret_cast<sockaddr *>(&d), sizeof(d));
+    }
+    else
+    {
+        sockaddr_in d;
+        memset(&d, 0, sizeof(d));
+        d.sin_family = AF_INET;
+        d.sin_port = htons((uint16_t)port);
+        inet_pton(AF_INET, dest, &d.sin_addr);
+        sendto(fd, text.data(), text.size(), 0,
+               reinterpret_cast<sockaddr *>(&d), sizeof(d));
+    }
+}
+
+struct Exchange
+{
+    //The discovery socket, read the way everything else here is read.
+    int family = 0;
+    std::string addr;
+    int port = 0;
+    int asked = 0;
+    //The correspondent, read at ITS OWN descriptor. This is what every case
+    //below compares against - never a literal the suite hoped for.
+    std::string truthIp;
+    int truthPort = 0;
+    //What UDPServer handed the rest of the tree, before and after the answer
+    //to CALAOS_DISCOVER was due, and the answer itself.
+    std::string before = kNothing;
+    std::string reply = kNothing;
+    std::string after = kNothing;
+    std::string log;
+};
+
+Exchange exchange(const std::string &listenAddress, const char *dest,
+                  int peerFamily, int tag)
+{
+    Exchange r;
+
+    const std::string base = workDir + "/xchg" + std::to_string(tag);
+    const std::string cfg = base + "/config";
+    const std::string cache = base + "/cache";
+    const std::string logPath = base + "/log";
+    const std::string outPath = base + "/out";
+    ::mkdir(base.c_str(), 0700);
+    ::mkdir(cfg.c_str(), 0700);
+    ::mkdir(cache.c_str(), 0700);
+
+    r.asked = reservePort();
+    if (r.asked <= 0)
+        return r;
+
+    const pid_t pid = fork();
+    if (pid == 0)
+    {
+        const int lf = open(logPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
+        if (lf >= 0)
+        {
+            dup2(lf, STDOUT_FILENO);
+            close(lf);
+        }
+
+        Utils::initConfigOptions(const_cast<char *>(cfg.c_str()),
+                                 const_cast<char *>(cache.c_str()), true);
+        Utils::set_config_option("debug_level", "5");
+        Utils::set_config_option("listen_address", listenAddress);
+
+        gCarried[0] = kNothing;
+        gCarried[1] = kNothing;
+        gStage = 0;
+        Utils::signal_wago.connect(sigc::ptr_fun(&noteWago));
+
+        const std::vector<int> beforeUdp = datagramFds();
+        UDPServer discovery(r.asked);
+        (void)discovery;
+
+        int uFamily = 0, uPort = 0;
+        std::string uAddr;
+        describeSocket(newDatagramFd(beforeUdp), uFamily, uAddr, uPort);
+
+        std::string peerIp;
+        int peerPort = 0;
+        const int c = correspondent(peerFamily, peerIp, peerPort);
+
+        std::string reply = kNothing;
+        if (c >= 0 && uPort > 0)
+        {
+            speak(c, peerFamily, dest, uPort, "WAGO INT 7 true");
+            pump();
+
+            gStage = 1;
+            speak(c, peerFamily, dest, uPort, "CALAOS_DISCOVER");
+            pump();
+
+            char buf[256];
+            const ssize_t n = recv(c, buf, sizeof(buf), 0);
+            if (n > 0)
+                reply.assign(buf, (size_t)n);
+
+            //The second input is what says whether the server is still there
+            //at all: a refused answer used to take the receiver down with it.
+            speak(c, peerFamily, dest, uPort, "WAGO INT 7 true");
+            pump();
+            close(c);
+        }
+
+        std::cout.flush();
+
+        FILE *o = fopen(outPath.c_str(), "w");
+        if (o)
+        {
+            fprintf(o, "%d\n%s\n%d\n%s\n%d\n%s\n%s\n%s\n",
+                    uFamily, uAddr.empty()? kNothing: uAddr.c_str(), uPort,
+                    peerIp.empty()? kNothing: peerIp.c_str(), peerPort,
+                    gCarried[0].c_str(), reply.c_str(), gCarried[1].c_str());
+            fclose(o);
+        }
+        _exit(0);
+    }
+
+    if (pid < 0)
+        return r;
+
+    int status = 0;
+    waitpid(pid, &status, 0);
+
+    std::istringstream in(slurp(outPath));
+    std::string line;
+    std::vector<std::string> fields;
+    while (std::getline(in, line))
+        fields.push_back(line);
+    while (fields.size() < 8)
+        fields.push_back(kNothing);
+
+    r.family = atoi(fields[0].c_str());
+    r.addr = fields[1] == kNothing? std::string(): fields[1];
+    r.port = atoi(fields[2].c_str());
+    r.truthIp = fields[3] == kNothing? std::string(): fields[3];
+    r.truthPort = atoi(fields[4].c_str());
+    r.before = fields[5];
+    r.reply = fields[6];
+    r.after = fields[7];
+    r.log = slurp(logPath);
+    return r;
+}
+
+struct Exchanges
+{
+    Exchange v6, v4, dual;
+};
+
+const Exchanges &theExchanges()
+{
+    static Exchanges x = []()
+    {
+        Exchanges e;
+        e.v6 = exchange("::1", "::1", AF_INET6, 0);
+        e.v4 = exchange("127.0.0.1", "127.0.0.1", AF_INET, 1);
+        e.dual = exchange("::", "127.0.0.1", AF_INET, 2);
+        return e;
+    }();
+    return x;
+}
+
+//The answer a CALAOS_DISCOVER is owed. An installer, the mobile application
+//and the wall screens have nothing else to find the box with.
+const char *const kDiscoverAnswer = "CALAOS_IP ";
+
 //The one phrase every fallback line carries, so a case cannot pass on a
 //warning that names something else.
 const char *const kFallbackTail = "listening on 0.0.0.0 (every interface) instead";
@@ -649,6 +970,102 @@ TEST(ListenAddressFallback, TheDiscoveryPortWidensLikeTheApiPort)
     EXPECT_EQ(r.absentV6.udpAsked, r.absentV6.udpPort);
 }
 
+/*
+ * THE EXCHANGE FIXTURE, BEFORE ANYTHING IS CONCLUDED FROM IT. Every case below
+ * compares an address the server acted on with an address read at the
+ * correspondent's own descriptor. If no datagram had reached the server at
+ * all, those cases would be comparing two absences and could not tell the
+ * difference between a wrong reading and no reading.
+ */
+TEST(ListenAddressFallback, EveryExchangeReachedTheServerItWasAimedAt)
+{
+    const Exchanges &x = theExchanges();
+
+    EXPECT_EQ(AF_INET6, x.v6.family);
+    EXPECT_EQ("::1", x.v6.addr);
+    EXPECT_EQ(x.v6.asked, x.v6.port);
+    EXPECT_EQ("::1", x.v6.truthIp);
+
+    EXPECT_EQ(AF_INET, x.v4.family);
+    EXPECT_EQ("127.0.0.1", x.v4.addr);
+    EXPECT_EQ(x.v4.asked, x.v4.port);
+    EXPECT_EQ("127.0.0.1", x.v4.truthIp);
+
+    EXPECT_EQ(AF_INET6, x.dual.family);
+    EXPECT_EQ("::", x.dual.addr);
+    EXPECT_EQ(x.dual.asked, x.dual.port);
+    EXPECT_EQ("127.0.0.1", x.dual.truthIp);
+
+    EXPECT_LT(0, x.v6.truthPort);
+    EXPECT_LT(0, x.v4.truthPort);
+    EXPECT_LT(0, x.dual.truthPort);
+
+    EXPECT_NE(kNothing, x.v6.before) << "no datagram reached processRequest";
+    EXPECT_NE(kNothing, x.v4.before) << "no datagram reached processRequest";
+    EXPECT_NE(kNothing, x.dual.before) << "no datagram reached processRequest";
+}
+
+/*
+ * WHAT A WAGO OR KNX INPUT CARRIES. The address is not a label: it is the
+ * whole of the match, `ip == host`, and a wrong one silently belongs to no
+ * configured equipment. The log still says "received input", so the operator
+ * is told the datagram arrived and never told it went nowhere.
+ */
+TEST(ListenAddressFallback, AnInputCarriesTheAddressItReallyCameFrom)
+{
+    const Exchanges &x = theExchanges();
+
+    EXPECT_EQ(x.v6.truthIp, x.v6.before)
+            << "an IPv6 correspondent was read as something else: every Wago "
+               "and KNX input pushed to this server belongs to no host";
+    EXPECT_EQ(x.v4.truthIp, x.v4.before);
+    EXPECT_EQ(x.dual.truthIp, x.dual.before)
+            << "a dual-stack listen must name a correspondent the way an IPv4 "
+               "listen does, or the same box changes identity with the key";
+}
+
+/*
+ * THE ANSWER. CALAOS_DISCOVER is how calaos_installer, the mobile application
+ * and the wall screens find the box at all; there is no second route. It has
+ * to leave on the family the socket is bound to, whatever family the address
+ * it is aimed at reads in.
+ */
+TEST(ListenAddressFallback, TheDiscoveryAnswerReachesItsCorrespondent)
+{
+    const Exchanges &x = theExchanges();
+
+    EXPECT_EQ(0u, x.v6.reply.find(kDiscoverAnswer))
+            << "the box did not answer an IPv6 correspondent: nothing on the "
+               "network can find it any more";
+    EXPECT_EQ(0u, x.v4.reply.find(kDiscoverAnswer));
+    EXPECT_EQ(0u, x.dual.reply.find(kDiscoverAnswer));
+}
+
+/*
+ * AND THE PART THAT OUTLIVES THE ANSWER. A send() refused by the descriptor
+ * publishes its refusal on the handle, where the owner's error listener stops
+ * it - so one unanswerable discovery took the whole receiver with it, inputs
+ * included, for the life of the process.
+ *
+ * Whether the second input carries the RIGHT address is the case above; all
+ * this one asks is whether it arrived at all, so that the two do not go red
+ * together for the same reason and neither of them measures alone.
+ */
+TEST(ListenAddressFallback, TheServerStillReadsAfterAnsweringADiscovery)
+{
+    const Exchanges &x = theExchanges();
+
+    EXPECT_NE(kNothing, x.v6.after)
+            << "the server stopped reading after one discovery: no input "
+               "reaches it again until it is restarted";
+    EXPECT_NE(kNothing, x.v4.after);
+    EXPECT_NE(kNothing, x.dual.after);
+
+    EXPECT_EQ(std::string::npos, x.v6.log.find("UDP server error"))
+            << "the answer was refused by the descriptor";
+    EXPECT_EQ(std::string::npos, x.dual.log.find("UDP server error"));
+}
+
 int main(int argc, char **argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
@@ -683,6 +1100,13 @@ int main(int argc, char **argv)
     {
         std::cerr << "a documentation address is configured on this machine, "
                      "the absent-address cases would measure nothing" << std::endl;
+        return 77;
+    }
+
+    if (!aV4CorrespondentReachesAWildcardV6Socket())
+    {
+        std::cerr << "an IPv4 correspondent cannot reach a socket bound to ::, "
+                     "the dual-stack exchange would measure nothing" << std::endl;
         return 77;
     }
 
