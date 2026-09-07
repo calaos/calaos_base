@@ -116,7 +116,15 @@ inline std::vector<std::string> &installed()
  * because startProcess() hands the child an explicit environment which
  * forwards nothing of ours.
  */
-inline bool install(const std::string &binName)
+/*
+ * `exitCode` and `holdSeconds` shape a sidecar that FAILS: a non-zero status is
+ * what a broker that is switched off leaves behind, and a hold is what
+ * separates a child that dies on the spot from one that ran before dying. The
+ * record is written BEFORE the hold, so a launch is journalled at the moment it
+ * happens whatever the child does next.
+ */
+inline bool install(const std::string &binName, int exitCode = 0,
+                    double holdSeconds = 0.0)
 {
     if (sandboxDir().empty())
         return false;
@@ -131,8 +139,10 @@ inline bool install(const std::string &binName)
              "sep=$(printf '\\037')\n"
              "rec=\n"
              "for a in \"$0\" \"$@\"; do rec=\"$rec$sep$a\"; done\n"
-             "printf '%s\\n' \"$rec\" >> '" << journalPath(binName) << "'\n"
-             "exit 0\n";
+             "printf '%s\\n' \"$rec\" >> '" << journalPath(binName) << "'\n";
+        if (holdSeconds > 0.0)
+            f << "sleep " << holdSeconds << "\n";
+        f << "exit " << exitCode << "\n";
         if (!f.good())
             return false;
     }

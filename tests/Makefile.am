@@ -5984,3 +5984,30 @@ core_AutoScenarioUidUniqueness_test_LDADD = $(CORE_TEST_LDADD)
 core_AutoScenarioUidUniqueness_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.105
+#⭐ How often a sidecar that keeps failing is relaunched.
+#The exit status never crossed processExited, so the eight controllers that
+#respawn did so at the same cadence whatever the child answered: ~110 ms per
+#launch, forever, for a broker that is merely switched off.
+#⚠️ NOTHING HERE ASSERTS A DURATION. The counting cases bound the number of
+#launches from ABOVE inside a fixed window - load can only make fewer launches
+#happen - and the ramp and its reset rule are pure functions read directly.
+#⛔ Own binary and own process: the loop keeps respawning a stand-in for as long
+#as the process lives, and the sandbox of core/ExternProcSpawnHarness.h must
+#outlive the cases.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ExternProcRespawnBackoff_test
+check_PROGRAMS += core/ExternProcRespawnBackoff_test
+core_ExternProcRespawnBackoff_test_SOURCES = core/ExternProcRespawnBackoff_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_ExternProcRespawnBackoff_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ExternProcRespawnBackoff_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_ExternProcRespawnBackoff_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
