@@ -43,8 +43,147 @@
      liste de ce que seul le premier `push` tranchera compte **sept** points, et son mode d'échec est
      le **silence**. Elle est énumérée en tête de l'état de sortie ci-dessous.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-07, APRÈS LE MERGE DE [`T3.117`](T3.117.md)) — À LIRE
+- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-07, APRÈS LE MERGE DE [`T3.105`](T3.105.md)) — À LIRE
   EN PREMIER À FROID.**
+
+  ⭐⭐⭐ **EN TÊTE : LE `push` N'ATTEND PLUS QUE DEUX TICKETS — [`T3.109`](T3.109.md) ET
+  [`T3.107`](T3.107.md). [`T3.105`](T3.105.md) EN SORT.** La décision du 2026-09-07
+  (`DECISIONS.md`) conditionne le `push` à quatre tickets de **produit** : `T3.117` est sorti au
+  merge précédent, `T3.105` sort avec celui-ci. ⛔ **Le `push` reste une LIVRAISON : aucun agent ne pousse, jamais.** ⛔ **RIEN N'A ÉTÉ
+  POUSSÉ DE TOUTE LA SÉRIE.**
+
+  **Tête de `master`** : le commit de revue qui porte ce paragraphe, à la suite de la branche
+  `fix/t3.105` (**3 commits**), elle-même à la suite de **`637a13e2`** (le merge de `T3.117`) ;
+  `merge --ff-only`, historique linéaire, **0 commit de fusion**. ⚠️ **Rebasée DEUX fois** : d'abord
+  sur `e3d2f0f1`, puis de nouveau quand `T3.117` a été mergé pendant la campagne de contre-mutation.
+  ⭐ **Conflits résolus les deux fois : `tests/Makefile.am`** — **régénéré** (`master` en entier +
+  append verbatim du bloc `# T3.105`), **append pur +27 / −0 / ~0**, `^if` **129** ≡ `^endif`
+  **129** — et **`FINDINGS.md`**, puis **`ORCHESTRATION.md`** au second tour (les deux côtés gardés
+  à chaque fois). ⚠️ **Collision de numéro** : la fiche neuve de cette revue s'appelait `T3.137`,
+  numéro pris entre-temps par la revue de `T3.117` ; elle est devenue **[`T3.138`](T3.138.md)**.
+  ⭐ **Vérifié : `git grep -nE '^(<<<<<<< |>>>>>>> |=======$)'` est VIDE** sur tout l'arbre.
+  **`TESTS` 149 → 150.** Référence après `make distclean` :
+  **`TOTAL 150 / PASS 149 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
+  `check-ccache-honesty.sh`, **0 `error:`**, **un seul** bloc `Testsuite summary` par tour,
+  **trois** `make check` sur l'arbre final aux résumés **identiques**, ⭐ **dont un sous une charge
+  délibérée** (300 tourneurs à côté : charge moyenne **334 sur 64 cœurs**, ≈ 5 × sursouscription) —
+  et **six** de plus avant le second rebase, dont deux sous charge.
+
+  ⭐⭐ **CE QUE LA REVUE DE `T3.105` A MESURÉ, ET QUI DÉPASSE LE TICKET :**
+
+  1. ⭐ **LE COÛT D'AVANT EST REFAIT, SUR `master`** (`e3d2f0f1`), même boucle de relance minimale,
+     enfant de remplacement qui échoue au démarrage, fenêtre de 5 s : **49 lancements et 98 lignes de
+     transport** ⇒ **588 lancements/min et 19,6 lignes/s** (**29,4** avec la troisième ligne d'un
+     vrai contrôleur). La fiche annonçait 563,8 / 18,8 / ≈ 28 : **même ordre, même conclusion**.
+     Après : **72/min** dans la même fenêtre, **2,0/min et 0,10 ligne/s** au plafond, atteint en
+     ≈ 52 s.
+  2. ⛔⭐⭐ **LA PORTÉE RÉELLE EST BIEN PLUS ÉTROITE QUE LE TITRE, ET ELLE EST DÉSORMAIS EN TÊTE DE
+     FICHE (§0) ET DANS LES NOTES DE VERSION.** Mesuré des deux côtés, même instrument : un enfant
+     qui sort **0** ⇒ `master` **588/min**, arbre livré ⛔ **576/min, INCHANGÉ** — les cinq
+     `procMain()` de [`T3.108`](T3.108.md) rendent `0` inconditionnellement (vérifié à la source),
+     donc **un bus perdu en cours de service ne ralentit rien**. ⛔⭐⭐ **Et la revue en a trouvé une
+     SECONDE, que le ticket ne disait pas** : un enfant **tué par un signal** (`kill -9` mesuré, donc
+     aussi `SIGSEGV`, `SIGABRT`, l'OOM-killer) laisse `exit_status = 0` sous Linux ⇒ `master`
+     **588/min**, arbre livré ⛔ **576/min, INCHANGÉ**. `uvw::ExitEvent` porte `status` **et**
+     `signal`, et seul `status` est lu. **Cela vaut pour les six familles, `calaos_mqtt` compris** —
+     c'est-à-dire pour la seule que le correctif ralentissait vraiment. ⇒ `F-EXTPROC-12` /
+     [`T3.138`](T3.138.md), fermé par une condition (`signal` ni 0 ni `SIGTERM`).
+     *À recopier : « le processus a rendu 0 » et « le processus s'est arrêté normalement » ne sont
+     pas la même phrase, et l'écart entre les deux est exactement l'ensemble des plantages.*
+  3. ⚠️ **LA MESURE EST SANS HORLOGE MURALE POUR CE QUI DÉCIDE, MAIS LE RECOMPTE CORRIGE LA FICHE.**
+     Les **six** cas de politique lisent bien des fonctions pures. En revanche il n'y a **qu'une**
+     borne haute sur un compte (`launched ≤ 4` en 1600 ms — c'est elle qui tient la rampe) et
+     **qu'une** borne basse qui soit une durée (`ran ≥ 0,25 s`) ; les **trois** autres bornes basses
+     sont des **comptes ou des attentes de vivacité dans une fenêtre fixe**, donc dépendantes de
+     l'horloge. Elles sont légitimes — ce sont les contrepoids, sans eux un transport qui cesserait
+     de relancer passerait toutes les bornes hautes — et elles ont été **éprouvées** : **20**
+     exécutions consécutives de la suite sous charge (12 à une charge moyenne de **66**, puis 8 à
+     **244 sur 64 cœurs**, ≈ 4 × sursouscription) ⇒ **9/9 vertes à chaque fois**, marges nominales
+     de **7 à 12 fois**.
+     ⇒ le défaut que `T3.112` vient de fermer **ne revient pas**, mais la phrase « aucun cas ne
+     mesure une durée » se recompte assertion par assertion.
+  4. ✅ **LES NEUF ABONNÉS RECOMPTÉS UN PAR UN, la fiche tombe juste** : `WagoMap`, `MqttCtrl`,
+     `ReolinkCtrl`, `KNXCtrl` (**deux** : commande et moniteur), `OLACtrl`, `OWCtrl`, `ScriptExec`,
+     `RoonPlayer` = **9 sites de `connect()`**. Huit relancent, **sept à l'identique** ; `ScriptExec`
+     démonte et supprime son serveur (jamais ralenti : un serveur neuf par exécution de script) ;
+     `WagoMap` est le seul qui décidait, et sa rampe est **inopérante** (`F-EXTPROC-10` /
+     [`T3.136`](T3.136.md), vérifié à la source : `connectSocket()` est la première instruction de
+     `setup()` de `calaos_wago`). ✅ **Et retenir le LANCEMENT plutôt que le SIGNAL est le bon
+     choix** : `ReolinkCtrl` vide `connected` et `registeredCameras` dans son handler, `WagoMap`
+     émet `onWagoDisconnected` — retarder le signal les laisserait tous deux incohérents jusqu'à une
+     demi-minute. `processExited` reste `sigc::signal<void>` : **une signature et neuf abonnements
+     intouchés**, vérifié.
+  5. ✅ **LA REMISE À ZÉRO TIENT, ET SON PRIX EST BORNÉ.** Statut nul, **ou** une exécution
+     ≥ 30 s = **le plafond lui-même**, égalité **épinglée** par un cas. Un sidecar qui meurt à 29 s
+     ne remet jamais à zéro : c'est **voulu**, et le coût se dit — il est repris toutes les
+     ~59 s au lieu de ~30 s, ce qui n'est pas une punition ; un seuil plus bas rouvrirait la fenêtre
+     « échouer juste assez lentement pour ne jamais ralentir ».
+  6. ⛔ **LE TEXTE DU JOURNAL N'EST TENU PAR RIEN, ET ÇA SE FERME À PEU DE FRAIS** — `CR-3`,
+     **mesuré 0 rouge**. Une seule ligne, un seul site, et l'arbre porte déjà une suite qui lit la
+     sortie standard d'un contrôleur (`core/SidecarOutputJournal_test`).
+  7. ⭐ **CE QUE LES CONTRE-MUTATIONS DE LA REVUE ONT MESURÉ — quatre neuves, un rejeu, le témoin :**
+     - **M0** *(fichier réécrit octet pour octet, horodatage déplacé)* ⇒ **VERT**, **104 `CXXLD`**
+       lus, `TOTAL 149 / PASS 148` (campagne jouée avant le second rebase) : le relink est vivant, donc les zéros ci-dessous portent ;
+     - **CM-5 rejouée** *(`hold <= 0.0` → `hold >= 0.0`)* ⇒ **1 rouge**,
+       `core/ExternProcRespawnBackoff_test` — **contrôle positif** ;
+     - ⛔⭐⭐ **CR-1, neuve** *(`spawned_at` posé en tête de `startProcess()`, donc l'uptime daté de la
+       DEMANDE et non du spawn)* ⇒ ⛔ **0 rouge**. Au plafond, l'attente entrerait dans la durée de
+       service, la remise à zéro mordrait **à chaque tour** et la rampe **cesserait de tenir** —
+       retour silencieux à une relance toutes les 0,2 s. **La règle de remise à zéro est épinglée
+       comme FONCTION, jamais comme COMPOSITION** ⇒ `F-EXTPROC-13` / [`T3.138`](T3.138.md) ;
+     - ⛔ **CR-2, neuve** *(la garde de génération retirée du lancement différé)* ⇒ ⛔ **0 rouge** —
+       la réserve « `terminate()` pendant une attente » est désormais **mesurée** ;
+     - ⛔ **CR-3, neuve** *(`holding the relaunch` renommé)* ⇒ ⛔ **0 rouge** ;
+     - ✅⭐ **CR-4, neuve** *(`alive.singleShot()` remplacé par le `Timer::singleShot()` **nu**)* ⇒
+       **1 rouge**, `core/IoLifetimeTimer_test` : le recensement des one-shots sans garde de durée de
+       vie **voit** le site neuf. C'est la bonne nouvelle du lot.
+  8. ⚠️ **TROIS COMMENTAIRES DE PRODUCTION RÉÉCRITS** par la revue : le bloc d'architecture de 11
+     lignes de l'en-tête ramené à 6 et débarrassé de son récit, la ligne du journal expliquée en 2
+     lignes, et **une phrase ajoutée** là où elle manquait — qu'une mort par signal laisse elle aussi
+     un statut 0.
+
+  ⚠️ **Harnais de la revue** : mutation et restauration **sur l'HÔTE**, ⛔ aucun `git` dans le
+  conteneur ; harnais **et** instantanés sous un répertoire au nom du ticket (**8ᵉ** piège), un
+  chemin d'instantané par campagne, réutilisation **refusée**, instantané vide **refusé**, noms par
+  **chemin complet** (**5ᵉ**) ; forme calculée **avant** toute ouverture en écriture et compte
+  d'aiguille exigé (**6ᵉ**) ; restauration dans un `finally`, jamais sous `set -e` (**7ᵉ**) ; sortie
+  **jamais tronquée**, journal complet dans un fichier (**4ᵉ**) ; écriture des octets seuls puis
+  `utime`, prouvée par `cmp` **rc 0** **et** un horodatage **effectivement déplacé** aux **6**
+  restaurations ; `git status` de l'**HÔTE** **VIDE** après chaque tour. ⭐ **Éprouvé AVANT de
+  servir** : **6ᵉ** dans ses **trois** formes ⇒ refus d'écrire, fichier identique au **sha256** près
+  les trois fois ; **7ᵉ** (un tour rc≠0 puis un tour **mort après mutation**) ⇒ restauration quand
+  même ; **4ᵉ** (campagne entière derrière un `| head -4`) ⇒ tous les tours joués, arbre propre ;
+  **5ᵉ** (répertoire d'instantané réutilisé) ⇒ refus.
+
+  ⭐⭐⭐ **(a) LE BACKLOG D'ORIGINE DU 4 SEPTEMBRE EST TOUJOURS À ZÉRO.** Rien n'y est revenu :
+  `T3.105` n'en fait pas partie, il vient de la décision du 2026-09-06 (arbitrage 3). Le compte de
+  `(a)` reste **11 fermés + 2 écartés = 13**, énumérable ligne à ligne dans les états de sortie
+  conservés plus bas.
+
+  **(b) Tickets ouverts par les revues — une ligne chacun :**
+  - **`T3.138`** (neuve, ouverte par cette revue) — `F-EXTPROC-12` (une mort par **signal** laisse un
+    statut 0, donc un sidecar qui **plante** n'est pas ralenti, les six familles) et `F-EXTPROC-13`
+    (l'**origine** de l'uptime n'est tenue par rien, `CR-1` ⇒ 0 rouge), plus les deux nudités
+    mesurées à joindre si l'on touche la suite (`CR-2`, `CR-3`).
+  - **`T3.136`** (ouverte par le ticket) — la rampe par abonné de `WagoMap` ne monte jamais et son
+    alarme des 10 tentatives n'imprime jamais.
+  - **`T3.139`** est le prochain numéro libre. ⚠️ Numéros **pris** : `T3.76` → `T3.138` ; `T3.114`
+    est un **trou**.
+  - Les autres (`T3.84`, `T3.100`, `T3.104`, `T3.107` → `T3.111`, `T3.113`, `T3.115` → `T3.135`)
+    sont inchangés — voir `BOARD.md`.
+
+  **Ce qui attend l'utilisateur :**
+  0. ⭐⭐⭐ **Le `push` attend `T3.117`, `T3.109`, `T3.107`.** `T3.105` en sort. Deux worktrees sont en
+     vol (`.wave143/t3.117`, `.wave144/t3.107`) ; il manque encore `T3.109`.
+  1. ⛔ **Le job CI chez GitHub n'a JAMAIS tourné** — la liste des **sept** points que seul le premier
+     `push` tranchera est inchangée, voir l'état de sortie précédent.
+  2. ⭐ **La protection de branche (issue C) reste à poser**, à la main de l'utilisateur.
+  3. ⚠️ **La portée du correctif de `T3.105` est à connaître avant de l'annoncer** : il ne ralentit
+     ni un bus perdu en cours de service, ni un plantage. Les deux moitiés sont `T3.108` et
+     `T3.138`.
+
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-07, APRÈS LE MERGE DE [`T3.117`](T3.117.md)) — conservé pour
+  l'historique.**
 
   ⭐⭐⭐ **LE `push` N'ATTEND PLUS QUE DEUX TICKETS : [`T3.109`](T3.109.md) ET
   [`T3.107`](T3.107.md).** Les quatre de la décision du 2026-09-07 étaient `T3.117`, `T3.105`,
@@ -110,8 +249,8 @@
   de servir, le 9ᵉ compris** : les trois formes du 6ᵉ ⇒ sha256 identique, **et deux éditions d'un même
   fichier survivent toutes les deux**.
 
-- ⭐⭐⭐ **ÉTAT DE SORTIE DE LA SESSION (2026-09-07, APRÈS LE MERGE DE [`T3.116`](T3.116.md), DERNIER DES QUATRE PRIORITAIRES) — À LIRE
-  EN PREMIER À FROID.**
+- ⭐⭐ **ÉTAT DE SORTIE PRÉCÉDENT (2026-09-07, APRÈS LE MERGE DE [`T3.116`](T3.116.md), DERNIER DES QUATRE PRIORITAIRES) — conservé pour
+  l'historique.**
 
   ⭐⭐⭐ **CE QUI CHANGE À VOTRE PREMIER `push`, EN CLAIR.** Jusqu'ici, pousser sur `master`
   **publiait immédiatement** : version incrémentée, étiquette git, image `ghcr.io/calaos/calaos_base`

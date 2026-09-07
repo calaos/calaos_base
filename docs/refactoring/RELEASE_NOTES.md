@@ -590,6 +590,15 @@ mqtt failed 12 time(s) in a row (last exit status 1), holding the relaunch 30s
 > elle continue d'être relancée au rythme d'avant. C'est un chantier distinct, du côté des programmes
 > eux-mêmes.
 >
+> **Et un programme qui PLANTE n'est pas ralenti non plus** — cela vaut pour les sept, MQTT compris.
+> Le système ne rapporte pas de code d'erreur pour un programme tué par une faute de segmentation ou
+> par le noyau à court de mémoire : le serveur le lit comme un arrêt normal. Un pilote qui plante en
+> boucle fait donc encore défiler le journal au rythme d'avant. C'est corrigé séparément.
+
+Mesuré, même boucle et même fenêtre de 5 secondes : un programme qui **échoue en annonçant une
+erreur** passe de 588 à 72 relances par minute puis à 2 au régime établi ; un programme qui **sort
+normalement** ou qui **plante** reste à ~580 des deux côtés.
+>
 > **Ce que vous imprimez depuis vos propres pilotes n'est pas concerné** : cela reste muet par
 > défaut, comme depuis la note ci-dessous.
 

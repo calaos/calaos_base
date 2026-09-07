@@ -12930,3 +12930,38 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   horodatage déplacé, arbre propre.
   *À recopier : ce qui tue un harnais entre la mesure et la remise en état n'est pas toujours la
   commande mesurée — ici c'était sa propre trace.*
+
+- ⛔⭐⭐ **[F-EXTPROC-12] Une mort par SIGNAL laisse un statut 0, donc la rampe de relance ne la voit
+  pas.** Mesuré à la **revue de merge** de [`T3.105`](T3.105.md). Sous Linux, un enfant tué par
+  `SIGSEGV`, `SIGABRT` ou l'OOM-killer rend `exit_status = 0` et `term_signal = <n>` ;
+  `uvw::ExitEvent` porte **les deux** et `nextFailureCount()` ne lit que le premier, où un zéro vaut
+  « arrêt volontaire ». ⇒ **un sidecar qui plante en boucle garde la cadence d'avant**, pour **les
+  six familles** et donc y compris `calaos_mqtt`, la seule que `T3.105` ralentit vraiment. Même
+  boucle, même fenêtre de 5 s : `kill -9` en boucle ⇒ `master` **588 lancements/min**, arbre livré
+  **576/min** ; le témoin positif du même tour (enfant qui sort **3**) ⇒ **72/min**. Fermé par une
+  condition — compter un échec quand `signal` n'est ni 0 ni `SIGTERM`, celui de `terminate()` ⇒
+  [`T3.138`](T3.138.md).
+  *À recopier : « le processus a rendu 0 » et « le processus s'est arrêté normalement » ne sont pas
+  la même phrase, et l'écart entre les deux est exactement l'ensemble des plantages.*
+
+- ⛔⭐ **[F-EXTPROC-13] Une règle qui lit une durée n'est tenue que si l'ORIGINE de cette durée l'est
+  aussi.** Contre-mutation neuve à la revue de `T3.105` : `spawned_at` posé en tête de
+  `startProcess()` au lieu de juste avant le `spawn` — un déplacement d'une ligne — fait entrer
+  **l'attente** dans la durée de service. Au plafond, un enfant qui meurt aussitôt serait crédité de
+  ≈ 30 s de service, la remise à zéro mordrait à chaque tour et la rampe **cesserait de tenir**.
+  Mesuré : ⛔ **0 cas rouge**, `TOTAL 149 / PASS 148` (campagne jouée avant le rebase sur `T3.117`). Les six cas de politique lisent des fonctions
+  pures et ne voient pas le site d'appel ; les trois cas à enfant travaillent dans une fenêtre de
+  1600 ms où les attentes valent 0,1 à 0,4 s, très loin du seuil de 30 s. ⇒ [`T3.138`](T3.138.md).
+  *À recopier : la remise à zéro était épinglée comme FONCTION et jamais comme COMPOSITION — deux
+  bornes justes sur une soustraction ne disent rien de ce qu'on soustrait.*
+
+- ⚠️ **[mesure] Une borne basse sur un COMPTE dans une fenêtre fixe dépend de l'horloge murale, même
+  quand elle sert de contrepoids.** La fiche de `T3.105` annonçait « trois comptes bornés par le
+  haut, deux bornes basses qui sont des durées ». Recompté à la revue : **une seule** borne haute sur
+  un compte (`launched ≤ 4` en 1600 ms), **une seule** borne basse qui soit une durée
+  (`ran ≥ 0,25 s`), et **trois** attentes de vivacité qui sont bien des comptes dans une fenêtre
+  fixe. Elles sont légitimes — sans elles, un transport qui cesserait de relancer passerait toutes
+  les bornes hautes — mais elles se **mesurent** : 20 exécutions consécutives sous une charge moyenne
+  de **244 sur 64 cœurs** ⇒ **9/9 vertes à chaque fois**, marges nominales de 7 à 12 fois.
+  *À recopier : « aucun cas ne mesure une durée » se recompte assertion par assertion ; un
+  contrepoids reste une borne, et une borne basse sur un compte est une borne de temps déguisée.*

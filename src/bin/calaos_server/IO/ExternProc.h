@@ -123,15 +123,12 @@ public:
     void terminate();
 
     /*
-     * RELAUNCH THROTTLING, HERE AND NOT IN THE EIGHT CONTROLLERS THAT RESPAWN.
-     *
-     * processExited carries nothing, so every subscriber relaunched at the
-     * same cadence whatever the sidecar answered: a broker that is switched
-     * off cost a launch every ~110 ms, forever. The status is read on this
-     * side already, so the ramp needs neither a new signature nor a decision
-     * from any of them. What is held is the SPAWN and not the signal: a
-     * controller must still learn AT ONCE that its sidecar is gone, or its
-     * disconnect notice and its device lists go stale for as long as the hold.
+     * The throttle lives here and not in the eight controllers that respawn:
+     * the exit status arrives on this side, so none of them needs a new
+     * signature or a decision of its own. What is held is the SPAWN and never
+     * the signal - a controller must still learn AT ONCE that its sidecar is
+     * gone, or its disconnect notice and its device lists go stale for as long
+     * as the hold.
      */
     static constexpr double kRespawnDelayMin = 0.1;
     static constexpr double kRespawnDelayMax = 30.0;
@@ -148,6 +145,9 @@ public:
 
     //A zero status is a voluntary stop - terminate() signals the child, and a
     //SIGTERM leaves status 0 - so it never counts as a failure.
+    //Every death by signal leaves status 0 too, SIGSEGV included, so a child
+    //that crashes is NOT slowed down. Telling the two apart needs the signal
+    //number, which ExitEvent carries and nothing here reads yet.
     static int nextFailureCount(int failures, int64_t status, double ranSeconds);
 
     int respawnFailures() const { return respawn_failures; }

@@ -300,11 +300,8 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
         return;
     }
 
-    /* The one line that says why the relaunch is late AND how late. Its two
-     * halves are what a respawn loop never had: the cause has existed since
-     * the sidecars learned to answer with a status, and the wait is what turns
-     * a journal scrolling ten times a second into one line every half minute.
-     */
+    /* Both halves matter: with the cause alone, a relaunch that slows down
+     * reads exactly like a sidecar that has gone quiet. */
     cWarningDom("process") << procName << " failed " << respawn_failures
                            << " time(s) in a row (last exit status "
                            << last_exit_status << "), holding the relaunch "
