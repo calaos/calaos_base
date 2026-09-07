@@ -46,8 +46,18 @@ ExternProcServer::ExternProcServer(string pathprefix)
     sockpath += pathprefix + "_" + Utils::to_string(pid);
 
     ipcServer = uvw::Loop::getDefault()->resource<uvw::PipeHandle>();
+
+    /* uvw publishes a refused bind the instant it happens, so an owner who
+     * subscribes afterwards never hears it - and a pipe that never listened is
+     * a whole family of sidecars that can never connect back, silently.
+     */
+    bool listening = true;
+    auto bindErr = ipcServer->on<uvw::ErrorEvent>(
+                       [&listening](const uvw::ErrorEvent &, uvw::PipeHandle &)
+                       { listening = false; });
     ipcServer->bind(sockpath);
     ipcServer->listen();
+    ipcServer->erase(bindErr);
 
     ipcServer->on<uvw::ListenEvent>([this](const uvw::ListenEvent &, auto &)
     {
@@ -91,7 +101,11 @@ ExternProcServer::ExternProcServer(string pathprefix)
         client->read();
     });
 
-    cDebugDom("process") << "New ExternProcServer listening to " << sockpath;
+    if (listening)
+        cDebugDom("process") << "New ExternProcServer listening to " << sockpath;
+    else
+        cErrorDom("process") << "cannot listen on " << sockpath << ": the "
+                             << procName << " helper will never connect";
 }
 
 ExternProcServer::~ExternProcServer()

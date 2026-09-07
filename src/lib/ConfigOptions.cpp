@@ -498,11 +498,15 @@ std::vector<ConfigOption> buildTable()
 
     add(ConfigOption("listen_address", C::Network, T::Host)
         .label(N_("Listen address"))
-        .doc(N_("Local address the HTTP/WebSocket API and the UDP discovery server bind to. "
-                "0.0.0.0 accepts connections on every interface; set a single address to "
-                "confine the server to one network. A value that is not an IP address, or an "
-                "address that does not exist on the machine, falls back to 0.0.0.0 and logs a "
-                "warning naming the refused value."))
+        .doc(N_("Local address the HTTP/WebSocket API, the UDP discovery server and the "
+                "HiFi Rose push notification port bind to. 0.0.0.0 accepts connections on "
+                "every interface; set a single address to confine the server to one network. "
+                "A value that is not an IP address, or an address that does not exist on the "
+                "machine, falls back to 0.0.0.0 and logs a warning naming the refused value. "
+                "Confining the listen has a price on the notification port: a HiFi Rose "
+                "amplifier pushes to it from the LAN, so an address it cannot reach demotes "
+                "its notifications to the fallback poll. The line that announces the "
+                "notification listen names the address it bound."))
         .def("0.0.0.0")
         .restartRequired());
 

@@ -30,8 +30,47 @@ AVRRoseNotifServer::AVRRoseNotifServer()
 
     auto loop = uvw::Loop::getDefault();
     listenHandle = loop->resource<uvw::TcpHandle>();
-    listenHandle->bind("0.0.0.0", NOTIF_PORT);
+
+    /* This port used to be bound on 0.0.0.0 whatever listen_address said, so
+     * an operator who narrowed the listen got it open on the LAN anyway.
+     * Honouring the key has a price and it is deliberate: a HiFi Rose
+     * amplifier pushes TO this port, so a listen confined away from the
+     * amplifier demotes notifications to the fallback poll. The line at the
+     * end of this constructor names the address so the trade is visible.
+     */
+    auto listenAddr = Utils::get_config_option("listen_address");
+
+    string refused;
+    listenAddr = Calaos::listenAddressOrWildcard(listenAddr, refused);
+    if (!refused.empty())
+        cWarningDom("hifirose") << "listen_address \"" << refused
+                                << "\" is not an IP address, "
+                                << Calaos::kWidenedListen;
+
+    bool bound = Calaos::bindListenAddress(*listenHandle, listenAddr, NOTIF_PORT);
+    if (!bound)
+    {
+        cWarningDom("hifirose") << "listen_address \"" << listenAddr
+                                << "\" is not an address of this machine, "
+                                << Calaos::kWidenedListen;
+
+        //A second bind on the same handle would not do: libuv keeps the socket
+        //it opened for the refused family and reuses it whatever address comes
+        //next.
+        listenHandle->close();
+        listenHandle = loop->resource<uvw::TcpHandle>();
+        listenAddr = "0.0.0.0";
+        bound = Calaos::bindListenAddress(*listenHandle, listenAddr, NOTIF_PORT);
+    }
+
+    //libuv holds EADDRINUSE back from bind() and hands it to listen(), so a
+    //bind that answered yes can still have nowhere to land - a second server,
+    //or a neighbour on 9284, is the ordinary way in.
+    auto listenErr = listenHandle->on<uvw::ErrorEvent>(
+                         [&bound](const uvw::ErrorEvent &, uvw::TcpHandle &)
+                         { bound = false; });
     listenHandle->listen();
+    listenHandle->erase(listenErr);
 
     //The server may be deleted while uvw still holds these callbacks
     //(close is asynchronous): every callback touching `this` checks the
@@ -137,7 +176,12 @@ AVRRoseNotifServer::AVRRoseNotifServer()
         cErrorDom("hifirose") << "Notification server error: " << ev.what();
     });
 
-    cInfoDom("hifirose") << "Push notification server listening on port " << NOTIF_PORT;
+    if (bound)
+        cInfoDom("hifirose") << "Push notification server listening on "
+                             << listenAddr << " port " << NOTIF_PORT;
+    else
+        cErrorDom("hifirose") << "port " << NOTIF_PORT << " cannot be bound, "
+                              << "no push notification can be received";
 }
 
 AVRRoseNotifServer::~AVRRoseNotifServer()
