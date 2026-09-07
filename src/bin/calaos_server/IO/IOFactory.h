@@ -75,6 +75,19 @@ public:
     IOBase *CreateIO(string type, Params &params);
     IOBase *CreateIO(pugi::xml_node node);
 
+    /* The registry key CreateIO() resolves a driver class with, derived from
+     * the params alone - i.e. from what the configuration loader holds before
+     * any IO object exists.
+     *
+     * canCreate() is what the model asks before letting a write through
+     * (IOBase::set_param()/del_param()): a param stops being editable not
+     * because of its name but because the factory answers no without it. The
+     * two stay in step through registryKey(), so a param the factory starts
+     * reading is protected without anyone having to remember it.
+     */
+    static string registryKey(const Params &params);
+    bool canCreate(const Params &params) const;
+
     void RegisterClass(string type, function<IOBase *(Params &)> classFunc)
     {
         string orig = type;

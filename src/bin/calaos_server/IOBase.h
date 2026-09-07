@@ -121,7 +121,16 @@ public:
      *
      * del_param() answers the same way, and for the same reason: its only
      * refusal is silent otherwise. Deleting a param that was never there is
-     * not a refusal. */
+     * not a refusal.
+     *
+     * Both also refuse a write that would leave an IO the configuration
+     * loader can no longer rebuild - today that is "type", because IOFactory
+     * resolves the driver class with it and answers nullptr without it, so a
+     * "successful" delete costs the whole equipment at the next start. The
+     * question is asked of IOFactory::canCreate() and not of a list of names:
+     * a param the factory starts reading is covered on its own. A write that
+     * leaves the IO buildable - moving it from one registered type to another
+     * - stays allowed, because nothing is lost. */
     virtual bool set_param(std::string opt, std::string val);
     virtual std::string get_param(std::string opt) { return param[opt]; }
     virtual Params &get_params() { return param; }

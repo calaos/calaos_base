@@ -35,6 +35,18 @@ void IOFactory::readParams(pugi::xml_node node, Params &p)
     }
 }
 
+string IOFactory::registryKey(const Params &params)
+{
+    string type = params["type"];
+    std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
+    return type;
+}
+
+bool IOFactory::canCreate(const Params &params) const
+{
+    return ioFunctionRegistry.find(registryKey(params)) != ioFunctionRegistry.end();
+}
+
 IOBase *IOFactory::CreateIO(std::string type, Params &params)
 {
     IOBase *obj = nullptr;
@@ -60,7 +72,9 @@ IOBase *IOFactory::CreateIO(pugi::xml_node node)
 
     //Owning while we configure it, so a throw out of LoadFromXml() cannot
     //leak the IO; released to the caller, which owns it (see the header).
-    std::unique_ptr<IOBase> io(CreateIO(p["type"], p));
+    //Through registryKey() and not through p["type"]: the model's structural
+    //guard asks the same function, so the two cannot drift apart.
+    std::unique_ptr<IOBase> io(CreateIO(registryKey(p), p));
     if (io)
         io->LoadFromXml(node);
 

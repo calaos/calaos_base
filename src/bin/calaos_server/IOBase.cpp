@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "IOBase.h"
+#include "IOFactory.h"
 #include "ListeRoom.h"
 #include "ListeRule.h"
 #include "DataLogger.h"
@@ -92,6 +93,21 @@ std::string codePointName(int byte)
     return name;
 }
 
+/* A param is structural when the configuration loader needs it to rebuild the
+ * IO at all - and that is asked of IOFactory, not of a list of names, so a
+ * param the factory starts reading is covered without anyone remembering it.
+ * Only the TRANSITION is refused: an IO the factory could not have built in
+ * the first place (one assembled by hand outside the loader) must not become
+ * frozen because of it.
+ * Cost: one copy of a small map per write. Deliberate - a guard that knew
+ * which key matters would be the name list again.
+ */
+bool wouldStrandTheIo(const Params &before, const Params &after)
+{
+    return IOFactory::Instance().canCreate(before) &&
+           !IOFactory::Instance().canCreate(after);
+}
+
 } //namespace
 
 bool IOBase::set_param(std::string opt, std::string val)
@@ -151,6 +167,19 @@ bool IOBase::set_param(std::string opt, std::string val)
         return renameId(val);
     }
 
+    Params candidate = param;
+    candidate.Add(opt, val);
+    if (wouldStrandTheIo(param, candidate))
+    {
+        cErrorDom("iobase") << "set_param(): refusing to set '" << opt
+                            << "' on IO '" << param["id"]
+                            << "': the configuration loader would no longer "
+                            << "find a driver for this IO, and the equipment "
+                            << "would be missing from the installation at the "
+                            << "next start";
+        return false;
+    }
+
     param.Add(opt, val);
     return true;
 }
@@ -162,6 +191,19 @@ bool IOBase::del_param(std::string opt)
         cErrorDom("iobase") << "del_param(): refusing to delete the id '"
                             << param["id"] << "', the IO id is immutable "
                             << "(io_table is keyed on it)";
+        return false;
+    }
+
+    Params candidate = param;
+    candidate.Delete(opt);
+    if (wouldStrandTheIo(param, candidate))
+    {
+        cErrorDom("iobase") << "del_param(): refusing to delete '" << opt
+                            << "' on IO '" << param["id"]
+                            << "': the configuration loader would no longer "
+                            << "find a driver for this IO, and the equipment "
+                            << "would be missing from the installation at the "
+                            << "next start";
         return false;
     }
 
