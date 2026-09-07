@@ -982,6 +982,8 @@ TEST(DriverAnswerSecret, TheCeilingIsHeldToTheOverlapThisSuiteMeasures)
     //A measure that cannot report a run reads as a clean zero everywhere below.
     ASSERT_EQ("bcdef", longestEchoRun("zzbcdefzz", "abcdefg"));
     ASSERT_EQ("", longestEchoRun("zzz", "abc"));
+    ASSERT_EQ(5u, longestEcho("zzbcdefzz", "abcdefg"));
+    ASSERT_EQ(0u, longestEcho("zzz", "abc"));
     ASSERT_EQ("bcd", longestEchoAnyShape("zz" + percentEncoded("/bcd/") + "zz", "abcde"));
 
     std::string worst, worstLabel;

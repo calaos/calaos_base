@@ -1389,6 +1389,10 @@ TEST_F(HttpRequestLogSecretTest, TheCeilingIsHeldToTheOverlapThisSuiteMeasures)
     //A measure that cannot report a run reads as a clean zero everywhere else.
     ASSERT_EQ("bcdef", longestRun("zzbcdefzz", "abcdefg"));
     ASSERT_EQ("", longestRun("zzz", "abc"));
+    ASSERT_EQ("bcdef", longestEchoRun("zzbcdefzz", "abcdefg"));
+    ASSERT_EQ("", longestEchoRun("zzz", "abc"));
+    ASSERT_EQ(5u, longestEcho("zzbcdefzz", "abcdefg"));
+    ASSERT_EQ(0u, longestEcho("zzz", "abc"));
 
     std::string worst, worstLabel;
     const auto keep = [&worst, &worstLabel](const std::string &run,
@@ -1570,6 +1574,10 @@ TEST_F(HttpRequestLogSecretTest, NoTwoPlantedValuesShareARunTheCeilingWouldNotAb
  */
 TEST_F(HttpRequestLogSecretTest, NoPlantedValueCarriesTheJournalsAlphabetThatFar)
 {
+    //A measure that cannot report a run reads as a clean zero below.
+    ASSERT_EQ("beef", longestHexRun("zzbeefzz"));
+    ASSERT_EQ("", longestHexRun("zz"));
+
     for (const Doc &d: plantedDocuments())
     {
         for (const std::string &form: echoForms(d.text))

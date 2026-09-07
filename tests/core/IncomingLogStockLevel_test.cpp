@@ -1320,6 +1320,8 @@ TEST_F(IncomingLogStockLevelTest, TheCeilingIsHeldToTheOverlapThisSuiteMeasures)
     //A measure that cannot report a run reads as a clean zero everywhere else.
     ASSERT_EQ("bcdef", longestRun("zzbcdefzz", "abcdefg"));
     ASSERT_EQ("", longestRun("zzz", "abc"));
+    ASSERT_EQ(5u, longestEcho("zzbcdefzz", "abcdefg"));
+    ASSERT_EQ(0u, longestEcho("zzz", "abc"));
 
     std::string worst, worstLabel;
     for (const Exchange *ex: theRuns().measured())

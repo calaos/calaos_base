@@ -1072,6 +1072,8 @@ TEST_F(ParseErrorFixtureTest, TheCeilingIsHeldToTheOverlapThisSuiteMeasures)
     //A measure that cannot report a run reads as a clean zero everywhere below.
     ASSERT_EQ("bcdef", longestEchoRun("zzbcdefzz", "abcdefg"));
     ASSERT_EQ("", longestEchoRun("zzz", "abc"));
+    ASSERT_EQ(5u, longestEcho("zzbcdefzz", "abcdefg"));
+    ASSERT_EQ(0u, longestEcho("zzz", "abc"));
 
     std::string worst, worstLabel;
     const auto keep = [&worst, &worstLabel](const std::string &run,

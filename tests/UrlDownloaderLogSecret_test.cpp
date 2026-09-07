@@ -626,6 +626,8 @@ TEST(UrlDownloaderLogSecret, TheCeilingIsHeldToTheOverlapThisSuiteMeasures)
     //A measure that cannot report a run reads as a clean zero everywhere else.
     ASSERT_EQ("bcdef", longestBodyEchoRun("zzbcdefzz", "abcdefg"));
     ASSERT_EQ("", longestBodyEchoRun("zzz", "abc"));
+    ASSERT_EQ(5u, longestBodyEcho("zzbcdefzz", "abcdefg"));
+    ASSERT_EQ(0u, longestBodyEcho("zzz", "abc"));
 
     std::string worst, worstLabel;
     const auto keep = [&worst, &worstLabel](const std::string &run,
@@ -676,6 +678,10 @@ TEST(UrlDownloaderLogSecret, TheCeilingIsHeldToTheOverlapThisSuiteMeasures)
  */
 TEST(UrlDownloaderLogSecret, TheResponseBodyDoesNotCarryTheJournalsAlphabetThatFar)
 {
+    //A measure that cannot report a run reads as a clean zero below.
+    ASSERT_EQ("beef", longestHexRun("zzbeefzz"));
+    ASSERT_EQ("", longestHexRun("zz"));
+
     const std::string run = longestHexRun(kResponseBody);
     EXPECT_LT(run.size(), kMaxBodyEcho)
         << "the response body carries \"" << run << "\", " << run.size()

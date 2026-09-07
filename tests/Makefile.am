@@ -5953,3 +5953,11 @@ core_ShutterPercentGrammar_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/S
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
+
+# T3.116: a bounded-echo bound is one-sided, so a measure that answers nothing
+# satisfies every one of them at once - blinding the wrapper the eight suites
+# call left all their ceilings green. The sibling probe reads the shape of the
+# ceiling and never the measure under it, so it cannot see that.
+TESTS += check-echo-measures.sh
+dist_check_SCRIPTS += check-echo-measures.sh
+EXTRA_DIST += check-echo-measures.py
