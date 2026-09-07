@@ -57,8 +57,16 @@ WODali::WODali(Params &_p):
     if (!get_params().Exists("visible")) set_param("visible", "true");
     if (!get_params().Exists("line")) set_param("line", "1");
     if (!get_params().Exists("fade_time")) set_param("fade_time", "1");
+    /* The PLC parser mis-reads an EMPTY parameter (its digit loop runs to
+     * INT_TO_BYTE(-1) = 255 and converts bytes past the string), so a missing
+     * group must become "0" and never an empty field. set_value_real() below
+     * reads the same key and had the same hole. */
+    if (!get_params().Exists("group")) set_param("group", "0");
 
-    string cmd = "WAGO_DALI_GET " + get_param("line") + " " + get_param("address");
+    /* The group flag sits AFTER the address here and BEFORE it in
+     * WAGO_DALI_SET. That asymmetry is the PLC protocol, not a typo. */
+    string cmd = "WAGO_DALI_GET " + get_param("line") + " " + get_param("address") +
+                 " " + get_param("group");
     WagoMap::Instance(host, port).SendUDPCommand(cmd, sigc::mem_fun(*this, &WODali::WagoUDPCommand_cb));
 
     Calaos::StartReadRules::Instance().addIO();

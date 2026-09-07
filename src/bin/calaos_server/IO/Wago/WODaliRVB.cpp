@@ -67,13 +67,26 @@ WODaliRVB::WODaliRVB(Params &_p):
 
     WagoMap::Instance(host, port);
 
+    /* The PLC parser mis-reads an EMPTY parameter (its digit loop runs to
+     * INT_TO_BYTE(-1) = 255 and converts bytes past the string), so a missing
+     * group must become "0" and never an empty field. setColorReal() below
+     * reads the same keys and had the same hole. */
+    if (!get_params().Exists("rgroup")) set_param("rgroup", "0");
+    if (!get_params().Exists("ggroup")) set_param("ggroup", "0");
+    if (!get_params().Exists("bgroup")) set_param("bgroup", "0");
+
+    /* The group flag sits AFTER the address here and BEFORE it in
+     * WAGO_DALI_SET. That asymmetry is the PLC protocol, not a typo. */
     //reqd initial state
     string cmd;
-    cmd = "WAGO_DALI_GET " + get_param("rline") + " " + get_param("raddress");
+    cmd = "WAGO_DALI_GET " + get_param("rline") + " " + get_param("raddress") +
+          " " + get_param("rgroup");
     WagoMap::Instance(host, port).SendUDPCommand(cmd, sigc::mem_fun(*this, &WODaliRVB::WagoUDPCommandRed_cb));
-    cmd = "WAGO_DALI_GET " + get_param("gline") + " " + get_param("gaddress");
+    cmd = "WAGO_DALI_GET " + get_param("gline") + " " + get_param("gaddress") +
+          " " + get_param("ggroup");
     WagoMap::Instance(host, port).SendUDPCommand(cmd, sigc::mem_fun(*this, &WODaliRVB::WagoUDPCommandGreen_cb));
-    cmd = "WAGO_DALI_GET " + get_param("bline") + " " + get_param("baddress");
+    cmd = "WAGO_DALI_GET " + get_param("bline") + " " + get_param("baddress") +
+          " " + get_param("bgroup");
     WagoMap::Instance(host, port).SendUDPCommand(cmd, sigc::mem_fun(*this, &WODaliRVB::WagoUDPCommandBlue_cb));
 
     Calaos::StartReadRules::Instance().addIO();
