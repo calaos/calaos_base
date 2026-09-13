@@ -60,12 +60,17 @@
  * StartReadRules::pendingIOCount() RELATIVELY, so a count left by a
  * neighbouring case cannot make them pass.
  *
- * WHY EVERY CASE CARRIES A POSITIVE CONTROL. "The ballast is off" is the
- * ballast's STARTUP value: a case asserting only that is green when no
- * callback runs at all, which is the open defect of the neighbouring suite.
- * Each case here therefore feeds a genuine reply afterwards and requires the
- * SAME expression to move to "100". A sensor that measured nothing would fail
- * that half.
+ * WHY EVERY CASE THAT READS A BALLAST CARRIES A POSITIVE CONTROL. "The ballast
+ * is off" is the ballast's STARTUP value: a case asserting only that is green
+ * when no callback runs at all, which is the open defect of the neighbouring
+ * suite. Every case here that reads a ballast value therefore also requires a
+ * ballast to REACH "100" in that same case. The remaining cases read the
+ * emitted frame or the barrier counter, where the startup value is not the
+ * expected one and the trap does not apply.
+ *
+ * That claim is measured, not asserted: unplugging the conversion in
+ * WODali::WagoUDPCommand_cb while leaving its ioRead() in place reddens every
+ * case here that reads a ballast, and none of the others.
  *
  * WHY THE VALUES ARE 7, 77 AND 3.0. The DALI address is 7 and the reported
  * level 77, never 0 or 1: a permutation of the address with the group flag, or
@@ -309,18 +314,38 @@ TEST_F(WagoReplyAttributionTest, ADuplicatedVersionReplyIsNeverReadAsABallastSta
 }
 
 /* The other side of the DALI branch, so "it became 100" above cannot be
- * satisfied by a callback that assigns 100 whatever it is handed. */
+ * satisfied by a callback that assigns 100 whatever it is handed.
+ *
+ * Two ballasts on one PLC, and the LIT one is read FIRST: "0" is the startup
+ * value of the second, so without that half the case would be green with the
+ * conversion unplugged. The queue is serial and drained in construction
+ * order, which is what puts each answer on its own ballast. */
 TEST_F(WagoReplyAttributionTest, AGenuineOffReplyStillLeavesTheBallastOff)
 {
     const std::string host = hostFor("73");
-    Calaos::IOBase *dali = makeDali(host, "t3164_off", "7", "0");
-    ASSERT_NE(nullptr, dali);
+    Calaos::IOBase *lit = makeDali(host, "t3164_off_lit", "7", "0");
+    Calaos::IOBase *off = makeDali(host, "t3164_off_dark", "9", "0");
+    ASSERT_NE(nullptr, lit);
+    ASSERT_NE(nullptr, off);
 
     datagram(host, VERSION_REPLY_30);
-    ASSERT_EQ(1u, framesOn(host).size());
+    const std::vector<std::string> queued = framesOn(host);
+    ASSERT_EQ(2u, queued.size());
+    ASSERT_EQ("WAGO_DALI_GET 1 7 0", queued[0]);
+    ASSERT_EQ("WAGO_DALI_GET 1 9 0", queued[1]);
+    ASSERT_EQ("0", lit->get_value_string());
+    ASSERT_EQ("0", off->get_value_string());
+
+    datagram(host, DALI_REPLY_ON);
+    ASSERT_EQ("100", lit->get_value_string())
+        << "the conversion never ran, so the expectation below would hold "
+           "whatever the reply said";
 
     datagram(host, DALI_REPLY_OFF);
-    EXPECT_EQ("0", dali->get_value_string());
+    EXPECT_EQ("0", off->get_value_string())
+        << "a reply whose second token is 0 must leave the ballast off";
+    EXPECT_EQ("100", lit->get_value_string())
+        << "the second answer was attributed to the first ballast";
     EXPECT_TRUE(framesOn(host).empty())
         << "a matching answer must consume its command";
 }
