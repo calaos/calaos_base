@@ -6565,3 +6565,34 @@ core_SidecarFramingExitStatus_test_CPPFLAGS = $(AM_CPPFLAGS) \
                   $(SIDECAR_FRAMING_DEFS)
 core_SidecarFramingExitStatus_test_LDADD = -lgtest -lgtest_main
 endif
+
+# T3.149
+#Why the receiver is given up when a READ fails, and what that costs.
+#An unconnected UDP socket is never told about ICMP, so no peer can make this
+#server's receive fail: what can is an accident in this process's own descriptor
+#table. epoll keeps its own reference to the file description, so the port stays
+#bound and keeps reporting readable while the read lands on whatever the
+#descriptor number now names - a stream socket (ENOTCONN), or nothing (EBADF).
+#The cause is INJECTED; the suite says so rather than dressing it as a network
+#event.
+#libuv's poll is level triggered and its read does not disarm on an error, so
+#the same failure returns on every turn: the stop is what makes that one line
+#instead of one per turn, and one case counts the lines to hold it.
+#No skip: whether the accident can be produced here is read by cases that go
+#red, never by a barrier that would report a clean run having measured nothing.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/UdpReceiveErrorDeafness_test
+check_PROGRAMS += core/UdpReceiveErrorDeafness_test
+core_UdpReceiveErrorDeafness_test_SOURCES = core/UdpReceiveErrorDeafness_test.cpp
+core_UdpReceiveErrorDeafness_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+UDP_RECEIVE_ERROR_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
+core_UdpReceiveErrorDeafness_test_LDADD = $(UDP_RECEIVE_ERROR_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_UdpReceiveErrorDeafness_test_DEPENDENCIES = $(UDP_RECEIVE_ERROR_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
