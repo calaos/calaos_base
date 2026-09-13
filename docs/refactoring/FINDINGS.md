@@ -1432,21 +1432,28 @@
   toutes les interfaces. Il l'a documenté dans la clé, il ne l'a pas rendu observable au démarrage.
   ⇒ [T3.140](T3.140.md).
 
-- ⛔ **F-UVW-1 — [ROBUSTESSE, OUVERT, mesuré par la revue de merge de [T3.109](T3.109.md)]
-  `resource<>()` rend `nullptr` quand `init()` échoue, et aucun des 45 sites ne le regarde.**
+- ⚠️ **F-UVW-1 — [ROBUSTESSE, le site atteignable FERMÉ par [T3.141](T3.141.md), les 44 autres
+  toujours non gardés] `resource<>()` rend `nullptr` quand `init()` échoue, et aucun des 45 sites
+  ne le regarde.**
 
-  `uvw::Loop::resource<R>()` fait `ptr = ptr->init() ? ptr : nullptr` (`loop.hpp:250-254`).
-  L'arbre l'appelle **45 fois** hors `uvw/` et déréférence le retour **45 fois** sans un test.
+  `uvw::Loop::resource<R>()` fait `ptr = ptr->init() ? ptr : nullptr` (`loop.hpp:250-252`).
+  L'arbre l'appelle **45 fois** hors `uvw/` et déréférence le retour sans un test.
 
-  ⭐ **44 de ces sites sont sûrs par accident** : `uv_tcp_init`, `uv_pipe_init`, `uv_udp_init`,
-  `uv_timer_init`, `uv_async_init`, `uv_idle_init`, `uv_signal_init` n'ouvrent aucun descripteur
-  sur Linux et ne peuvent pas échouer. ⛔ **Le 45ᵉ, non** : `UrlDownloader.cpp:333` demande un
-  `PollHandle` sur une socket que libcurl vient de rendre, donc `uv_poll_init_socket`
-  (`poll.hpp:91-95`), qui échoue pour `EINVAL`, `EBADF` ou un descripteur déjà surveillé —
-  et `:337` déréférence quatre lignes plus bas. Le mode d'échec est un **SIGSEGV du serveur**,
-  sur le chemin de tout téléchargement HTTP.
+  ✅ **Le SIGSEGV n'est plus une lecture : il est JOUÉ**, signal 11, sur un vrai téléchargement
+  HTTP (`UrlDownloaderPollGuard_test`, contre-mutation `CM1`). ✅ Le site de `UrlDownloader.cpp`
+  regarde désormais le retour, **nomme** le refus avec son descripteur, et termine le transfert.
 
-  ⚠️ **Établi par lecture, jamais provoqué en service.** ⇒ [T3.141](T3.141.md).
+  ⚠️ **Le compte 45 / 44 / 1 tient, sa justification était fausse en deux points** (re-dérivée
+  par `T3.141` §2) : la liste des sept types omettait **`ProcessHandle`** (9 sites, les seuls
+  sûrs **par contrat** — `init()` rend `true` sans rien appeler), et `uv_async_init` /
+  `uv_signal_init` **ouvrent** bien un `eventfd` et un tube de signaux : ils ne peuvent pas
+  échouer parce que **`uv_loop_init` les a déjà appelés** sur la boucle. Mesuré sous
+  `RLIMIT_NOFILE` abaissé : les huit initialiseurs rendent 0 ; `uv_poll_init_socket` rend
+  `EEXIST`, `EPERM` ou `EBADF` (libuv 1.44.2).
+
+  ⛔ **Ce qui reste ouvert** : rien ne retient le 46ᵉ site, et un site `TcpHandle`/`UDPHandle`
+  passé à la forme `…_init_ex` avec une vraie famille créerait une socket — donc pourrait
+  échouer — **sans que la ligne change d'aspect**. ⇒ [T3.173](T3.173.md).
 
 - ⛔ **F-UDP-3 — [COUVERTURE, OUVERT, mesuré par la revue de merge de [T3.107](T3.107.md)] une
   assertion manquante rétrécit l'ensemble rouge de M3.**
