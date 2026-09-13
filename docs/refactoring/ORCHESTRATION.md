@@ -43,6 +43,52 @@
      liste de ce que seul le premier `push` tranchera compte **sept** points, et son mode d'échec est
      le **silence**. Elle est énumérée en tête de l'état de sortie ci-dessous.
 
+- ⭐⭐⭐⭐ **ÉTAT DE SORTIE — LOT 152, DEUX MERGES DANS UNE SEULE FENÊTRE (2026-09-13). À LIRE EN
+  PREMIER À FROID.**
+
+  **Dernier merge `--ff-only`** : **`6599ea14`**, puis **un** commit de board/doc de l'agent de merge
+  au-dessus. Ordre [`T3.152`](T3.152.md) → [`T3.153`](T3.153.md), **6 commits**, `merge --ff-only`
+  à chaque étape, historique **linéaire**, **0 commit de fusion**. ⛔ **RIEN N'A ÉTÉ POUSSÉ.** Une
+  rebase par branche (`T3.152` partait de `e85c11b8`, un cran sous la tête ; `T3.153` de `37048fc9`).
+  Conflits : `tests/Makefile.am` **une fois** (`T3.152` n'a pas conflité, `master` n'avait pas touché
+  le fichier), `BOARD.md` **une fois**, `FINDINGS.md` / `ORCHESTRATION.md` / `RELEASE_NOTES.md`
+  **zéro**.
+
+  ⭐ **`tests/Makefile.am` régénéré d'emblée** — `master` intégral + append verbatim du bloc `# TX.Y`,
+  jamais un marqueur édité. Append pur prouvé aux deux tours : **+35 / +28**, **−0**, **~0**, `master`
+  **préfixe strict au BYTE** (comparaison d'octets en `python3`). `TESTS` **164 → 166**,
+  `if HAVE_GTEST` **142 → 144**, et l'invariant qui tient est **`^if ` (toutes formes) ≡ `^endif`
+  = 149**.
+
+  Référence après `make distclean` + `autogen` + `configure` :
+  **`TOTAL 166 / PASS 165 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
+  `check-ccache-honesty.sh`, **trois `make check` aux résumés identiques**, **0 `error:`**, un seul
+  bloc `Testsuite summary` par tour. ⭐ `git grep -nE '^(<<<<<<< |>>>>>>> |=======$)'` **VIDE sur tout
+  l'arbre**, vérifié après chaque merge et à la fin. `F-FLAKY-3` : **0 occurrence sur 5 `make
+  check`**. `make check-docs` : **4 `stale` / 26 `unresolved` sur 1477 références**, inchangé depuis
+  le lot 151 et **aucune** dans un fichier touché par ce lot — verdict **lu**, non bloquant.
+
+  ⭐ **La règle de `BOARD.md` du lot 151 a servi le jour même** : le conflit portait deux versions de
+  la **même** ligne `T3.152` (📋 entrante contre ✅ de HEAD) et deux versions de la ligne `T3.153`.
+  « Garder les deux côtés » aurait publié chacun des deux tickets deux fois. Résolu par identifiant :
+  la version la plus avancée gagne, et elle seule. Le second bloc du même conflit, lui, portait des
+  identifiants **différents** (`T3.209`/`T3.210` contre `T3.211`/`T3.212`) ⇒ les quatre gardés.
+  Vérifié après coup : **224 lignes de ticket, 0 identifiant en double**.
+
+  ⛔⭐⭐ **CE QUE LA FENÊTRE A TROUVÉ ET QUE PERSONNE N'AVAIT DIT — UN DÉCOMPTE `TESTS` ÉCRIT DANS UNE
+  FICHE EST UN CHIFFRE QUE LE MERGE SUIVANT PÉRIME, ET RIEN NE LE FAIT ROUGIR.** Les deux branches
+  annonçaient `TESTS` **164 → 165** : vrai pour chacune prise seule, faux pour la seconde mergée, qui
+  part de 165. La fiche de `T3.153` et sa ligne de `BOARD.md` ont été corrigées en **165 → 166** au
+  merge. C'est la classe de `F-DOCS-2` appliquée non à une citation de code mais à une **mesure
+  d'arbre** : elle est vraie à l'instant où on l'écrit et personne ne la relit. ⇒ un décompte de
+  branche se lit comme **relatif** (« +1 suite »), ou se réécrit au merge.
+
+  ⛔ **LE NU DE LA FENÊTRE** : les deux campagnes de contre-mutation ont été **relues**, jamais
+  rejouées — c'était le contrat du merge groupé. Ce que ce merge mesure lui-même, c'est le harnais
+  (`166/165/1/0`, trois tours identiques, append pur au byte) et les deux suites neuves qui passent.
+  ⚠️ Deux lignes de `BOARD.md` restent à **6 `|`** au lieu de 7 (`T3.35`, `T3.37`) — antérieures à ce
+  lot, non touchées, signalées ici parce qu'aucune sonde ne les compte.
+
 - ⭐⭐⭐⭐ **ÉTAT DE SORTIE — LOT 151, TROIS MERGES DANS UNE SEULE FENÊTRE (2026-09-13). À LIRE EN
   PREMIER À FROID.**
 
