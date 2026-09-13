@@ -1309,7 +1309,8 @@ d'où vient le signal.
 **nourrit la rampe** et est signalé. ⚠️ **CORRECTION du 2026-09-13, mesurée.** La rédaction initiale disait : « la provenance est **déjà
 disponible** — `terminate()` incrémente `respawn_generation` — donc le correctif n'a pas de nouvelle
 machinerie à inventer ». **C'est faux**, et ça a été **mesuré** au développement : `startProcess()`
-incrémente **aussi** ce compteur, à **chaque** lancement (`ExternProc.cpp:323`). Sa **valeur** ne
+incrémente **aussi** ce compteur, à **chaque** lancement (`ExternProc.cpp:318` sur `master` —
+vérifié, et **non** `:323` comme l'affirmait une première rédaction : cette ligne ne désigne rien). Sa **valeur** ne
 distingue donc rien — une relance ordinaire la fait bouger exactement comme un `terminate()`.
 
 ⇒ Ce qui distingue vraiment est le **mouvement du compteur depuis le lancement de CET enfant**,
