@@ -579,6 +579,30 @@ std::vector<ConfigOption> buildTable()
         .advanced()
         .restartRequired());
 
+    add(ConfigOption("url_connect_timeout", C::Network, T::Int)
+        .label(N_("Outgoing connection timeout"))
+        .doc(N_("Delay, in seconds, an outgoing HTTP transfer is given to establish its "
+                "connection: camera snapshots and streams, Hue and audio devices, Web IOs, "
+                "Lua requestUrl(), InfluxDB, push notifications. A value that is not a plain "
+                "number between 1 and 600 falls back to the default."))
+        .def("30")
+        .range(1, 600)
+        .advanced()
+        .seeAlso("url_stall_timeout"));
+
+    add(ConfigOption("url_stall_timeout", C::Network, T::Int)
+        .label(N_("Outgoing transfer stall timeout"))
+        .doc(N_("Delay, in seconds, an established outgoing HTTP transfer is allowed to make "
+                "no progress at all before being aborted. It bounds a peer that accepts the "
+                "connection and then goes silent; it is not a total duration, so a long but "
+                "live transfer — a camera MJPEG stream — is never cut off by it. Raise it for "
+                "a camera that pauses between frames. A value that is not a plain number "
+                "between 1 and 600 falls back to the default."))
+        .def("30")
+        .range(1, 600)
+        .advanced()
+        .seeAlso("url_connect_timeout"));
+
     add(ConfigOption("wwwroot", C::Network, T::Path)
         .label(N_("Web interface directory"))
         .doc(N_("Directory served under /app/ for the main web interface. Leave it empty to "
