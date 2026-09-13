@@ -13705,3 +13705,53 @@ mesurés et qu'ils dépassent la réflexion.
   est inoffensive, et le **banc dit le contraire**. Les neuf `.lib` du dépôt ne contiennent **aucun**
   ST (zéro `END_VAR`), les `.EXP` ne sont que des visualisations, et l'implémentation est hors
   d'atteinte pour toujours. **Ici, la mesure bat la lecture, et il faut le supposer par défaut.**
+
+
+## Volets Wago au redémarrage — [T3.161](T3.161.md), instruit le 2026-09-13
+
+⭐ **Livré en ARBITRAGE : caractérisation + documentation, aucun correctif.** Le critère de clôture
+— « aucun relais de volet ne change d'état du seul fait du redémarrage » — demande de savoir ce
+qu'est l'état *sûr* d'un volet au démarrage, et **rien dans l'arbre ne le dit**. Voir
+[T3.161](T3.161.md) §7.
+
+- ⛔ **F-WAGO-15 — [MESURÉ par lecture, NON CORRIGÉ] `WOVoletBase::voletInit()` n'a aucun point de
+  resynchronisation, et les DEUX volets Wago en dépendent.**
+
+  `WagoIOBase.h:224-230` parse ses paramètres, force l'existence du singleton `WagoMap` et ne lit ni
+  n'écrit **rien**. Aucun abonnement à `onWagoConnected`. `WOVolet` et `WOVoletSmart` passent tous
+  deux par ce patron et par ses `setOutputUp()`/`setOutputDown()` : le défaut n'est dans aucun des
+  deux fichiers, il est dans celui qu'ils partagent — mesuré par la contre-mutation `CM-C`, qui pose
+  un resync dans `WOVolet.cpp` seul et laisse `WOVoletSmart` vert.
+
+  Épinglé par `tests/core/WagoVoletRestart_test.cpp` (7 cas), dont **trois sont faits pour rougir**
+  le jour où l'arbitrage est tranché. ⭐ L'attendu des cas sujets étant l'**ensemble vide**, trois
+  contrôles portent la mesure : le `WODigital` seul, le `WODigital` et le volet sur le **même** hôte,
+  et les écritures relais du volet lui-même. **5 contre-mutations, 5 ensembles rouges, 10 paires
+  deux à deux distinctes, 0 rouge nulle part.**
+
+- ⚠️ **F-WAGO-16 — [DÉDUIT, NON CORRIGÉ] `WODigital` relit une coil qui n'est pas celle qu'il
+  écrit.**
+
+  Écriture en `4096 + var`, relecture d'adoption en `var` (`WODigital.cpp:65` /
+  `WODigital.cpp:132`), les deux dans le **même** espace de coils. Les deux bits ne coïncident que
+  si `start_addr_out = 0` ; un rack équipé d'une 753-647 a `start_addr_out = 192`. ⇒ le mécanisme
+  que `T3.161` se proposait de recopier **n'est pas un modèle validé**. ⇒ [T3.171](T3.171.md).
+
+- ⛔ **F-SHUT-3 — [LATENT, NON CORRIGÉ] `OutputShutter` et `OutputShutterSmart` laissent quatre à
+  six membres non initialisés, et `Stop()` en lit un.**
+
+  `time`, `is_impulse_action`, `impulse_action_time`, `impulse_time` (plus `start_time` et
+  `start_position` pour `Smart`) ne sont écrits que dans `set_value()`. Latent aujourd'hui — tous les
+  chemins vivants viennent d'une action — et **immédiatement vivant** dès qu'un point de
+  resynchronisation appelle `Stop()` hors action : la branche impulsion excite **les deux** relais.
+  ⇒ [T3.172](T3.172.md), qui n'attend aucun arbitrage.
+
+- ⚠️ **F-SHUT-4 — [MESURÉ par lecture, NON TICKETÉ] un volet relancé en mouvement depuis le cache
+  n'arme aucune fin de course.**
+
+  `OutputShutter` relit `sens` du cache d'états au constructeur (`OutputShutter.cpp:71`,
+  `Utils::from_string(cache["sens"], sens);`) mais n'arme pas `timer_end` — seul `Up()`/`Down()` le
+  font. Un serveur reparti avec `sens == SHUTTER_UP` se croit donc en mouvement **pour toujours** :
+  `state_volet` ne changera plus, et la prochaine commande `up` sera consommée par `UpWait()` comme
+  un `Stop()`. ⛔ Et ce `Stop()` là tombe sur `F-SHUT-3`. **Non ticketé** : ce que la conduite
+  *devrait* être dépend du même arbitrage que `T3.161` §7.
