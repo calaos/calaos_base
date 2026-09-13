@@ -6780,3 +6780,29 @@ core_UdpDeafnessRearmCost_test_DEPENDENCIES = $(UDP_REARM_COST_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.167
+#What a sidecar does when it writes to a peer that is no longer listening.
+#send() without MSG_NOSIGNAL raises SIGPIPE, no sidecar installs a handler, and
+#uv_spawn resets every disposition to SIG_DFL in the child - so the server
+#ignoring SIGPIPE for itself does not travel. The sidecar dies of signal 13 on
+#an ordinary write and the respawn ramp counts a crash.
+#The peer goes deaf with shutdown(SHUT_RD), never with close(): close() makes
+#the read side answer ECONNRESET at the same instant, and the two race - the
+#read side wins nearly every time. SHUT_RD leaves the sidecar's recv() alone,
+#so the write is the only door left and the ending is the same every run.
+#calaos_1wire only: it is the one shipped sidecar whose loop writes unprompted.
+#The code under test is shared - sendMessage() belongs to ExternProcClient -
+#so the family is a vehicle, not the subject.
+#Nothing of the server is linked: the code under test is in another process.
+#calaos_1wire is built in every configuration, so its absence is asserted as a
+#broken tree and never skipped over.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/SidecarSigpipeOnSend_test
+check_PROGRAMS += core/SidecarSigpipeOnSend_test
+core_SidecarSigpipeOnSend_test_SOURCES = core/SidecarSigpipeOnSend_test.cpp
+core_SidecarSigpipeOnSend_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -DCALAOS_1WIRE_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_1wire"'
+core_SidecarSigpipeOnSend_test_LDADD = -lgtest -lgtest_main
+endif
