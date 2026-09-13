@@ -717,6 +717,27 @@
   **positionnelle dans les deux régimes** — c'est pour ça que `T3.142` a refusé d'y ancrer le
   tampon. À joindre au reste de la mauvaise attribution déjà ouverte par [T3.149](T3.149.md).
 
+- ⛔⭐⭐ **[F-UDP-11] Une erreur de LECTURE UDP se répète à chaque tour de boucle : `h.stop()` est
+  ce qui la borne** — mesuré par [T3.149](T3.149.md). `uv__udp_recvmsg` ne désarme pas son
+  observateur sur une erreur et la sonde de libuv est **à niveau** : tant que le datagramme n'est
+  pas lu, la même lecture échoue à chaque tour. Sonde libuv nue, **un** datagramme, descripteur
+  remplacé : **509 226 événements d'erreur** ; avec `uv_udp_recv_stop()` au premier : **1**.
+  ⇒ ⛔ **retirer l'arrêt de la branche réception n'ouvre pas une boucle *silencieuse* mais une
+  boucle très bruyante**, à raison d'une ligne `[ERR]` par tour. ⚠️ Le remède naïf `h.stop();
+  h.recv();` ramène le déluge **et** tue le processus (`SIGABRT`). ⚠️ Un seuil « N erreurs
+  consécutives » ne distingue rien : passagère et définitive délugent toutes deux immédiatement.
+  ⇒ tenu par `core/UdpReceiveErrorDeafness_test`, arbitrage restant en [T3.193](T3.193.md).
+
+- ⛔⭐ **[F-UDP-12] Fermer le descripteur sondé par libuv produit une ERREUR, pas un silence** —
+  mesuré par [T3.149](T3.149.md), et **il dément le §1 de sa propre fiche d'ouverture**. `epoll`
+  garde **sa propre** référence sur la description de fichier : fermer le descripteur ne la retire
+  donc pas de l'ensemble, le port reste lié, la description reste signalée lisible, et la lecture
+  suivante part sur ce que le **numéro** de descripteur désigne désormais — `EBADF` après un
+  `close()`, `ENOTCONN` sous une socket `SOCK_STREAM`, `ENOTSOCK` sous un tube. ⭐ **Aucun pair du
+  réseau ne peut produire cela** (socket non connectée ⇒ `EAGAIN`, jamais d'ICMP) : la seule cause
+  connue est un accident de la table de descripteurs de ce processus. ⚠️ À recopier : « le noyau
+  retire un descripteur fermé de l'ensemble `epoll` » est faux tant qu'`epoll` tient une référence.
+
 - ⛔⭐⭐ **[F-UDP-10] La barrière `exit 77` du filet UDP sonde la surcharge que le filet ne couvre
   pas** — relevé par la revue de merge de [T3.142](T3.142.md), **tracké [T3.166](T3.166.md)**. Le
   `main()` de `core/UdpAnswerBufferLifetime_test` refuse de juger une machine qui ne retient pas un
