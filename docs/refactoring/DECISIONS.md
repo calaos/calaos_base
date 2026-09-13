@@ -1306,8 +1306,15 @@ un `killall -TERM`, systemd ou un superviseur qui tue un sidecar est exempté de
 d'où vient le signal.
 
 **Tranché : compter, sauf si c'est nous.** Un `SIGTERM` que le serveur n'a pas lui-même envoyé
-**nourrit la rampe** et est signalé. La provenance est **déjà disponible** — `terminate()` incrémente
-`respawn_generation` — donc le correctif n'a pas de nouvelle machinerie à inventer.
+**nourrit la rampe** et est signalé. ⚠️ **CORRECTION du 2026-09-13, mesurée.** La rédaction initiale disait : « la provenance est **déjà
+disponible** — `terminate()` incrémente `respawn_generation` — donc le correctif n'a pas de nouvelle
+machinerie à inventer ». **C'est faux**, et ça a été **mesuré** au développement : `startProcess()`
+incrémente **aussi** ce compteur, à **chaque** lancement (`ExternProc.cpp:323`). Sa **valeur** ne
+distingue donc rien — une relance ordinaire la fait bouger exactement comme un `terminate()`.
+
+⇒ Ce qui distingue vraiment est le **mouvement du compteur depuis le lancement de CET enfant**,
+capturé par enfant dans la fermeture de son événement de sortie. ⭐ **La décision ne change pas** —
+elle ne portait pas sur le mécanisme — mais elle coûte un peu plus que ce qui était écrit.
 
 **Le prix, assumé** : un arrêt manuel par un administrateur déclenchera la rampe. C'est défendable,
 puisque le serveur relancera le sidecar de toute façon.
