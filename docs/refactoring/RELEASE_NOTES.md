@@ -7,6 +7,36 @@
 > l'utilisateur observe alors, c'est le symptôme, et il a besoin de savoir qu'il a disparu.
 > Ordre : impact décroissant.
 
+## 🔴 Le boîtier répondait à la découverte avec un morceau de sa propre mémoire
+
+### Deux demandes de découverte rapprochées, et les réponses partaient fausses (T3.142)
+
+Quand un appareil cherche le boîtier sur le réseau, il envoie `CALAOS_DISCOVER` et le serveur
+répond avec son adresse. C'est ce que font l'application mobile, les écrans muraux et
+`calaos_installer` pour le trouver — et c'est la **seule** chose que le serveur accepte de faire
+sans mot de passe, par construction : il faut bien pouvoir le trouver avant de s'y connecter.
+
+Si plusieurs demandes arrivaient **coup sur coup**, la première réponse était juste et **les
+suivantes ne l'étaient pas** : le serveur envoyait, à la place de son adresse, **dix-neuf octets de
+sa propre mémoire**, prélevés là où elle venait d'être libérée. Le contenu changeait à chaque fois
+et rien ne le bornait ; on y a relevé, entre autres, un emplacement mémoire interne du serveur.
+
+> ### Étiez-vous concerné ?
+>
+> Potentiellement oui, et sans rien pouvoir remarquer. Rien ne plantait, rien n'apparaissait au
+> journal, le serveur continuait de tourner normalement : il **répondait**, simplement avec les
+> mauvais octets. Côté appareil, la découverte échouait sans explication — l'application ou
+> l'écran ne trouvait pas le boîtier et il fallait recommencer. N'importe quel appareil du réseau
+> local pouvait déclencher le cas, sans identifiants, et le répéter autant de fois qu'il voulait.
+
+**Ce qui change.** Le serveur garde désormais la réponse en vie jusqu'à ce qu'elle soit réellement
+partie. Toutes les réponses d'une rafale portent l'adresse du boîtier, quelle que soit la cadence
+des demandes.
+
+> ⚠️ **Ce qui ne change pas** : `CALAOS_DISCOVER` reste servi **sans authentification**. C'est
+> voulu — c'est le mécanisme qui permet à vos appareils de trouver le boîtier. La correction porte
+> sur ce que le serveur envoie, pas sur qui a le droit de le lui demander.
+
 ## 🔴 Le boîtier pouvait devenir sourd — découverte, entrées Wago et KNX — sur une seule réponse perdue
 
 ### Un correspondant injoignable arrêtait toute la réception UDP (T3.135)

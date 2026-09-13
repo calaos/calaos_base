@@ -668,6 +668,67 @@
 
 ## Sécurité / correctness à traiter en priorité
 
+- 🟡 **[F-UDP-7] Deux autres envois UDP prêtent une mémoire locale à uvw** — recensé par
+  [T3.142](T3.142.md), **tracké [T3.165](T3.165.md)**. `WagoMap.cpp:570` prête
+  `cmd.udp_command.c_str()` et dépile la commande **juste après** le `send` — et
+  `SendUDPCommand()` pose `no_callback = true` sans condition (`:418`), donc toutes les commandes
+  Wago sont dans ce cas. `WOLOutputBool.cpp:130` prête un `vector` local.
+  ⚠️ **Aucun des deux n'est mesuré défaillant** : ils sont de la même **forme** que celui que
+  `T3.142` vient de fermer. Ce qui les protège n'est écrit nulle part — la sérialisation à 50 ms du
+  minuteur Wago, la fraîcheur du handle WOL.
+
+- 🟡 **[F-FLAKY-3] `core/ImpulseGarbageIo_test` avorte sur `sqlite::errors::cantopen` sous charge**
+  — observé par [T3.142](T3.142.md), **1 `make check -j8` sur 6**, exit **134**, arbre et image
+  inchangés entre les six tours (les cinq autres : `TOTAL 157 / PASS 156 / FAIL 0`). Le cas tombe
+  entre `ADimmerImpulseWithNoDurationArmsNoTimer` et `AWellFormedDimmerImpulseStillArmsItsTimer`,
+  sur `/tmp/calaos_coretest_*/cache/events.db`. ⭐ **Le mécanisme est déjà écrit plus haut dans ce
+  fichier** (« piège de harnais », `HistLogger`) — ⭐ **et la cause se nomme, elle ne se devine
+  pas** : `sqlite::database db(dbname)` (`HistLogger.cpp:190`) est **hors** du `try` de `:192`, et
+  cette construction a lieu dans le **thread** `sqliteWorker()` ; un `cantopen` y est donc un
+  `throw` non rattrapé dans un thread, qui **termine le processus** (exit **134**, ce qui est bien
+  le code observé). `ensureHistLogger()` a été posé pour ça, et cette suite lui échappe encore.
+  ⚠️ **Sans rapport avec `T3.142`** : aucune socket, aucun UDP, aucun objet de ce ticket sur son
+  chemin. ⛔ Un `make check` de vague qui tombe là-dessus est un **faux rouge de charge**, pas une
+  régression — le rejouer avant de conclure. ℹ️ La revue de merge citait `:189` / `:191` ; relu dans
+  l'arbre, c'est `:190` (la construction) et `:192` (le `try`).
+
+- ⛔⭐ **[F-UDP-8] ASan ne peut pas nommer une lecture après libération lue par le NOYAU** —
+  mesuré par [T3.142](T3.142.md). La fiche d'origine demandait de rejouer la divulgation sous ASan
+  pour la nommer `heap-use-after-free` : arbre bâti `--enable-asan`, forme d'avant remise, suite
+  jouée ⇒ **0 `heap-use-after-free`**, et les deux cas rouges tout de même (le pair reçoit
+  `3c020000000000005020…`, l'**en-tête de morceau d'ASan lui-même**). La lecture du tampon libéré
+  est faite par `sendmsg(2)` ; ASan n'instrumente pas les copies que le noyau fait depuis l'espace
+  utilisateur. ⇒ **pour tout tampon confié à un appel système, le seul oracle est ce que le
+  correspondant reçoit.** Une campagne qui conclurait « ASan est propre donc il n'y a pas d'UAF »
+  se tromperait exactement ici.
+
+- ⛔⭐ **[F-UDP-9] Rien dans l'arbre ne tient l'ordre du `pendingSends.push_back()`, et sa
+  violation coûte le serveur entier** — mesuré par la contre-mutation `CM6` de
+  [T3.142](T3.142.md), **requalifié par sa revue de merge**. Déplacer le `push_back` **après**
+  l'envoi laisse `core/UdpAnswerBufferLifetime_test` **et** `core/UdpSendFailureIsolation_test`
+  **vertes** : éditions rejouées hors de l'arbre et forme obtenue relue, le zéro rouge est vrai.
+  ⛔ **Mais ce n'est PAS un mutant équivalent.** Avec cet ordre, un `ErrorEvent` **synchrone**
+  (`request.hpp:33-34`, la branche `if(err)` de `invoke()`) trouve `pendingSends` **vide**, tombe
+  dans la branche `else` de `createUdpSocket()` et appelle **`h.stop()`** : découverte, `WAGO INT`
+  et `WAGO KNX` perdus **jusqu'au redémarrage** — exactement la surdité que
+  [T3.135](T3.135.md) existe pour empêcher. ⇒ **trou de couverture à conséquence `h.stop()`**, pas
+  une ligne de journal en moins. ⚠️ Le chemin synchrone est à la source mais **ni la livraison ni
+  la revue n'ont su le produire** ; ce qui est établi sans lui, c'est que la file est
+  **positionnelle dans les deux régimes** — c'est pour ça que `T3.142` a refusé d'y ancrer le
+  tampon. À joindre au reste de la mauvaise attribution déjà ouverte par [T3.149](T3.149.md).
+
+- ⛔⭐⭐ **[F-UDP-10] La barrière `exit 77` du filet UDP sonde la surcharge que le filet ne couvre
+  pas** — relevé par la revue de merge de [T3.142](T3.142.md), **tracké [T3.166](T3.166.md)**. Le
+  `main()` de `core/UdpAnswerBufferLifetime_test` refuse de juger une machine qui ne retient pas un
+  second envoi dos à dos ; il le mesure avec la surcharge **prêteuse** (`char *`) de
+  `Calaos::sendDatagram()` — celle que `T3.142` n'a pas changée et qu'utilisent encore
+  `WagoMap.cpp:570`, `WOLOutputBool.cpp:130` et le fixture de `T3.135`, donc **les sites laissés
+  ouverts par [T3.165](T3.165.md)**. ⇒ **un défaut réel de cette surcharge ferait sortir la suite en
+  `77` — un `SKIP`, qui se lit `FAIL: 0` — au lieu de la faire rougir.** *Un capteur qui ne mesure
+  rien passe pour un capteur qui ne trouve rien*, posé cette fois **dans le filet lui-même**.
+  ⚠️ Non observé : la barrière est passée aux six `make check` de la livraison ; le trou est
+  structurel.
+
 - ✅ **[F-DEP-1] — TRAITÉ par [T3.23](T3.23.md)** (branche `fix/t3.23`, non mergée à l'écriture).
   Le `pyproject.toml` est devenu la **source unique** : les deux stages du `Dockerfile`, le
   `.devcontainer/Dockerfile` et un job CI neuf (`mcp-sidecar-deps`) installent ce qu'il déclare
