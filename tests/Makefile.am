@@ -6669,3 +6669,31 @@ core_UdpSendFailureLogCeiling_test_DEPENDENCIES = $(UDP_SEND_CEILING_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.153
+#Who sent the SIGTERM. The ramp exempted the signal by its VALUE, so a killall,
+#systemd or an operator got the cadence of before the ramp and a silent journal
+#- the very loop the ramp exists to slow down. Decided: a SIGTERM the server
+#did not send feeds the ramp and is reported; the one terminate() sends stays
+#free and silent, and both halves are pinned here because reading provenance
+#wrong the other way would slow down a sidecar the server just stopped.
+#⚠️ Launches are COUNTED in a fixed window and bounded from above; no case
+#reads a duration. The journal case proves its sink is listening before it
+#concludes anything from a missing line.
+#⛔ Own binary and own process, like core/ExternProcCrashBackoff_test: the loop
+#respawns a stand-in for as long as the process lives, and the sandbox of
+#core/ExternProcSpawnHarness.h must outlive the cases.
+if HAVE_GTEST
+TESTS += core/SidecarTerminateProvenance_test
+check_PROGRAMS += core/SidecarTerminateProvenance_test
+core_SidecarTerminateProvenance_test_SOURCES = core/SidecarTerminateProvenance_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_SidecarTerminateProvenance_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_SidecarTerminateProvenance_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_SidecarTerminateProvenance_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
