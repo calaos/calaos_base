@@ -14288,6 +14288,42 @@ l'a rattrapé** : la liste des relinks ne contenait pas le nom de la suite. Camp
 2. ✅ **L'oracle `CXXLD` se lit sur LE NOM DE LA SUITE**, pas sur le nombre de relinks : onze
    `CXXLD` de binaires de production sont un tour qui n'a pas reconstruit ce qu'il mesure.
 
+## ⛔⭐ Outillage — LE 12ᵉ : LE LANCEUR QUI NE LANCE RIEN (revue de merge de `T3.153`, 2026-09-13)
+
+**Cousin immédiat du 11ᵉ, et même famille que `_DEPENDENCIES` : l'outil rend un chiffre, et le
+chiffre ne mesure pas ce qu'on croit.** Le 11ᵉ dit qu'un tour peut exécuter le **binaire du tour
+d'avant** ; celui-ci dit qu'un tour peut n'exécuter **aucun binaire du tout**.
+
+Vécu à la revue de merge de `T3.153` : le témoin de la revue est revenu **« 0 rouge »**. Le pilote
+sélectionnait les suites à lancer par un `sed` dont le motif portait le **nom de la suite**, lequel
+contient un `/` (`core/SidecarTerminateProvenance_test`) — le `/` a fermé la substitution, le `sed`
+a rendu une commande vide, et le tour s'est terminé **sans lancer un seul test**. Un tour qui ne
+lance rien ne rapporte **aucun échec**, ce qui se lit exactement comme un tour vert.
+
+⚠️ **Et toutes les preuves des onze sections ci-dessus étaient VRAIES** : `cmp` rc 0, horodatage
+vers l'avant, instantané neuf, pas de `| head`, `git status` hôte vide, restauration hors de tout
+`set -e`, et la suite bien relinkée — le `CXXLD` du 11ᵉ était au journal. La **compilation** a eu
+lieu ; c'est l'**exécution** qui n'a pas eu lieu.
+
+⛔ **C'est un membre de la famille dangereuse du 9ᵉ** : il fait **rétrécir** l'ensemble rouge
+jusqu'au vide, et un ensemble rouge vide se publie comme « mutant équivalent », c'est-à-dire comme
+un résultat et non comme une anomalie.
+
+**Parade — trois règles :**
+
+1. ⛔ **Ne jamais construire une commande de lancement par substitution textuelle sur un nom de
+   suite.** Les noms portent un `/`, et tout délimiteur qu'on croit sûr finit par apparaître dans
+   une cible. Passer la liste en argument, jamais dans un motif.
+2. ⭐ **Lire un oracle d'EXÉCUTION, pas seulement un oracle de construction.** `CXXLD <suite>` dit
+   qu'on a bâti ; il ne dit pas qu'on a couru. Ce qui le dit est la ligne `[  PASSED  ] N tests` de
+   gtest, ou le `# TOTAL:` du résumé d'automake — **et son chiffre doit être celui attendu**.
+   Un `# TOTAL:` absent ou plus petit que la référence est un tour à jeter.
+3. ✅ **Un tour à « 0 rouge » se relit avant d'être publié**, comme l'exige déjà le 9ᵉ : ici il
+   suffisait de chercher `PASSED:` dans le journal pour voir qu'il n'y en avait aucun.
+
+*À recopier : un capteur qui ne mesure rien passe pour un capteur qui ne trouve rien — et c'est
+vrai du harnais tout entier, pas seulement d'un cas de test.*
+
 ## ⭐ Outillage — `distcheck` est utilisable, à condition de le paralléliser soi-même
 
 `make distcheck` ne propage **pas** `-jN` : la recette lance douze `make` récursifs et n'y passe que

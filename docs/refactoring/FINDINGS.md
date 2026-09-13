@@ -13395,6 +13395,32 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   (`:147`) avant d'envoyer son signal. ⇒ [`T3.153`](T3.153.md), qui recoupe l'arbitrage de
   [`T3.144`](T3.144.md).
   *À recopier : exempter une VALEUR, c'est exempter tout le monde qui sait l'écrire.*
+  ✅ **FERMÉ** par [`T3.153`](T3.153.md) (2026-09-13), arbitrage du jour appliqué : l'exemption
+  exige désormais la **conjonction** valeur + origine, journal compris, et le prix — un arrêt manuel
+  entre dans la rampe — est assumé. ⭐⭐ **Et la voie de fermeture annoncée ici était fausse telle
+  qu'écrite** : `respawn_generation` ne distingue rien seul, `startProcess()` l'incrémente **aussi**
+  à chaque lancement, donc seule sa **variation depuis le lancement de CET enfant** porte la
+  provenance ; mesuré par `CM-4` (la valeur du compteur au lieu de son mouvement) ⇒ **3 cas rouges**.
+  ⚠️ **Les deux écrivains du compteur sont `terminate()` et `startProcess()`, et eux seuls**
+  (relevé exhaustif à la revue) : `ExternProc.cpp:318` sur `master`, `:325` après le correctif —
+  `respawn_generation++`, la ligne qui suit `const double hold = respawnDelay(respawn_failures);`.
+  ⇒ [`T3.209`](T3.209.md) (`startProcess()` sur un enfant vivant) et [`T3.210`](T3.210.md)
+  (le `SIGTERM` du destructeur, non marqué — asymétrie de lecture, **pas** un défaut chaud).
+  *À recopier : « la marque existe déjà » ne dit pas qu'elle distingue — un compteur écrit par deux
+  gestes ne nomme aucun des deux.*
+
+- ⛔⭐ **[F-DOCS-3] Un numéro de ligne recopié de mémoire, sur la ligne même qui EST la trouvaille**
+  (mesuré à la revue de merge de [`T3.153`](T3.153.md), 2026-09-13). La fiche, les deux lignes de
+  `BOARD.md`, la fiche de [`T3.209`](T3.209.md) **et** l'arbitrage de [`DECISIONS.md`](DECISIONS.md)
+  citaient tous `ExternProc.cpp:323` pour l'incrément de `startProcess()`. ⛔ **`:323` ne désigne
+  rien, dans aucun état de l'arbre** — ni `master` (`:318`), ni la branche livrée (`:325`). C'est
+  exactement la classe de [`T3.175`](T3.175.md) / `F-DOCS-2` (la citation **non ancrée**), et elle a
+  frappé la ligne dont la **découverte est le ticket lui-même**. ⚠️ **Rien ne pouvait la voir** :
+  `check-docs.py` laisse `docs/refactoring/` hors de son corpus, par décision de
+  [`T3.32`](T3.32.md), et une fiche est un relevé daté. L'erreur s'est **propagée par recopie**
+  entre quatre fichiers avant d'être rattrapée à la revue, à la source.
+  *À recopier : le numéro qu'on cite de mémoire est celui qu'on vient de lire, et une ancre coûte
+  cinq mots.*
 
 - ⛔ **[F-EXTPROC-17] Trois propriétés à 0 rouge ne vivaient que dans la prose d'une fiche**
   (rejouées et confirmées par la revue de merge de [`T3.138`](T3.138.md), lot 147) : la **garde de
