@@ -748,6 +748,25 @@ recommencerait en boucle retrouverait donc exactement le comportement d'avant ce
 ⚠️ **Ce qui reste** : les passerelles **KNX, Wago, OneWire, OLA** et l'exécuteur de scripts
 annoncent encore une fin normale quand elles perdent leur bus **en cours de service** — un chantier
 du côté de ces programmes, distinct de celui-ci.
+
+✅ **Une partie de ce chantier est faite dans cette version (T3.108, puis T3.179).** Voir juste en
+dessous.
+
+### Un pilote qui reçoit n'importe quoi sur sa liaison ne fait plus semblant d'aller bien (T3.179)
+
+Les passerelles **KNX, Wago, OneWire, OLA** et l'exécuteur de **scripts** annonçaient une fin
+normale quelle que soit la raison de leur arrêt. Si le dialogue entre le serveur et l'une d'elles
+se désynchronisait — un message tronqué, une longueur annoncée aberrante — le programme se fermait
+en répondant « tout va bien », et le serveur le relançait aussitôt, sans le moindre palier. Comme la
+donnée qui a provoqué l'erreur est la même à chaque fois, la boucle se referme immédiatement.
+
+Ces cinq passerelles répondent désormais une erreur dans ce cas, et sont donc ralenties par la rampe
+décrite plus haut — jusqu'à trente secondes entre deux relances au lieu d'un dixième de seconde.
+
+⭐ **Et l'arrêt normal reste un arrêt normal.** Quand le serveur ferme la liaison — parce qu'il
+s'arrête, parce qu'il recharge sa configuration — la passerelle se termine comme avant, sans
+erreur et sans ralentissement. C'est la moitié du travail qui ne se voit pas : ralentir un
+programme qui n'a rien fait de mal aurait été une régression, pas une correction.
 >
 > **Ce que vous imprimez depuis vos propres pilotes n'est pas concerné** : cela reste muet par
 > défaut, comme depuis la note ci-dessous.

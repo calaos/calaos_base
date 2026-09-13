@@ -13379,6 +13379,33 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   donc sensibles à la charge **dans le mauvais sens** — faux **rouge** possible, faux vert non.
   Marge mesurée **× 5**.
 
+- ⛔⭐⭐ **[F-EXTPROC-18 — FERMÉ par [`T3.179`](T3.179.md)] Le seul chemin que `T3.108` faisait
+  remonter au statut était celui que sa propre fiche déclarait inatteignable ; le chemin atteignable
+  rendait `0`.** Mesuré par la revue de merge de [`T3.108`](T3.108.md), **après** son correctif :
+  `ExternProcClient::run()` ne posait `ok = false` que dans la branche `select()`, or aucun sidecar
+  livré sauf `calaos_mqtt` n'appelle `appendFd()`, donc leur `select()` ne peut pas échouer. La
+  sortie qu'une installation peut vraiment prendre — `processSocketRecv()` en échec — posait
+  `loopQuit` et laissait `ok` à `true`. Un parent qui écrit `21 FF FF FF FF` (opcode `TypeMessage`,
+  longueur au-delà du plafond de 4 Mio) obtenait `WIFEXITED` / statut **0** sur **cinq** familles,
+  `calaos_ola` compris. ⇒ la rampe voyait un arrêt propre et relançait **sans palier**, sur une
+  trame reproductible.
+  *À recopier : « le correctif rend la rampe opérante » et « le chemin corrigé est inatteignable »
+  étaient écrits dans la MÊME fiche, à deux sections d'écart, et personne n'a rapproché les deux.*
+
+- ⭐⭐ **[F-EXTPROC-19] Toutes les sorties d'une boucle principale ne sont pas des échecs, et la
+  moitié ordonnée est la plus facile à casser en corrigeant l'autre.** Relevé en écrivant
+  [`T3.179`](T3.179.md). `run()` a cinq portes : `select()` en échec hors `EINTR`, `recv()` < 0 et
+  violation de trame sont **anormales** ; `recv()` qui rend `0` (le serveur raccroche — le seul
+  moyen qu'un contrôleur ait d'arrêter un sidecar) et l'arrêt demandé par la sous-classe
+  (`quitLoop()`, `handleFdSet()` rendant `false`) sont **ordonnées**. La seconde famille se
+  justifie : la sous-classe porte **déjà** son propre verdict — `MqttProcess::brokerLost()` pose
+  `m_exitCode = 1` et `procMain()` le rend **avant** de regarder `run()`. Un correctif qui poserait
+  `ok = false` partout ferait ralentir par la rampe des sidecars qui n'ont rien fait de mal, et
+  aucune suite ne l'aurait vu avant `T3.179` : c'est la contre-mutation `CM4` qui l'attrape, sur
+  **12 cas et deux binaires**.
+  *À recopier : quand on fait remonter un échec à un statut, la mesure qui compte est celle du cas
+  qui doit rester à zéro.*
+
 
 ## Bug rapporté par l'utilisateur — la lecture d'état DALI (2026-09-07)
 
