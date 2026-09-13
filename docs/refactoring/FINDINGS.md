@@ -13406,6 +13406,21 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   *À recopier : quand on fait remonter un échec à un statut, la mesure qui compte est celle du cas
   qui doit rester à zéro.*
 
+- ⛔⭐⭐ **[F-EXTPROC-20] L'émetteur de trames n'a aucun plafond, le récepteur en a un — et c'est
+  l'émetteur sain qui produit la trame que le récepteur refuse.** Mesuré à la **revue de
+  [`T3.179`](T3.179.md)**, en rejouant son Nu (« `ExternProcServer::sendMessage()` n'écrit que des
+  trames valides »), qui est **faux**. `ExternProcMessage(data)` pose
+  `payload_length = data.size()` sans plafond, `getRawData()` le sérialise, `sendMessage()` l'écrit ;
+  `processFrameData()` pose `has_error` au-delà de `MaxPayloadLength` à l'autre bout. Rejoué sur le
+  code livré : une charge de 4 Mio + 1 octet donne l'en-tête **`21 00 40 00 01`**, et ces cinq
+  octets écrits par un parent font sortir `calaos_script` et `calaos_wago` avec le statut **1**.
+  ⚠️ **Le sens montant n'est pas couvert par `T3.179`** : un sidecar qui émet une trame trop grande
+  fait fermer la connexion par le serveur, donc son `recv()` rend `0` — la porte **ordonnée**, sans
+  palier de rampe. ⇒ [`T3.199`](T3.199.md).
+  *À recopier : un « producteur inconnu » déclaré en Nu se cherche d'abord chez l'émetteur qu'on
+  vient d'exonérer, et la question est toujours la même — qui borne la valeur que l'autre bout
+  refuse ?*
+
 
 ## Bug rapporté par l'utilisateur — la lecture d'état DALI (2026-09-07)
 
