@@ -1313,3 +1313,27 @@ d'où vient le signal.
 puisque le serveur relancera le sidecar de toute façon.
 
 ⇒ [`T3.153`](T3.153.md) cesse d'être un arbitrage et devient un **correctif**.
+
+## 2026-09-13 — le code automate antérieur à la 3.0 n'est plus maintenu
+
+[`T3.158`](T3.158.md) et [`T3.162`](T3.162.md) sont **écartés**. Les deux ne décrivent que des
+programmes automate **antérieurs à la 3.0** :
+
+- `T3.158` — `WAGO_DALI_GET` dérive son drapeau de groupe de l'**adresse** en 1.7 à 2.3, donc un
+  luminaire à l'adresse courte 1 y est relu comme le groupe 1. **Corrigé de fait en 3.0.**
+- `T3.162` — le paramètre du drapeau change de position à la 3.0, et **avant elle le drapeau n'est
+  lu nulle part**.
+
+**Tranché : on ne corrige pas.** Ce code n'est plus maintenu.
+
+⭐ **Les fiches restent écrites**, et ce n'est pas de la coquetterie : elles documentent un
+comportement réel de ces versions. Un installateur confronté à un luminaire qui se lit de travers
+sur un automate ancien doit pouvoir comprendre ce qu'il voit, et savoir que la réponse est de passer
+en 3.0 — pas de chercher un défaut dans le serveur.
+
+⚠️ **Ce qui reste ouvert et ne doit pas être confondu avec elles** : [`T3.157`](T3.157.md) (relecture
+DMX), [`T3.160`](T3.160.md) et [`T3.161`](T3.161.md) (miroir du mode dégradé) et
+[`T3.163`](T3.163.md) (modèle annoncé faux) touchent la **3.0**, donc le code en service.
+
+⛔ **Ne pas rouvrir `T3.158` / `T3.162` au motif qu'ils sont « vrais ».** Ils le sont, et c'est sans
+objet.
