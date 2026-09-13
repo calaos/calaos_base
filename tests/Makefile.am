@@ -6483,3 +6483,45 @@ core_WagoReplyAttribution_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Analo
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.161
+#CHARACTERISATION, not a regression suite: WOVoletBase::voletInit() has no
+#resynchronisation point with the PLC, so a shutter whose relay was excited
+#when the server died is re-excited when the PLC republishes its output image.
+#Pins that the two shutter IOs issue NO Modbus command at construction and
+#none when the sidecar reconnects, against a WODigital that does read its bit
+#back on the same signal. Three controls stand against the empty expectation:
+#the digital on its own host, the digital and the shutter sharing one host,
+#and the shutter's own relay writes. Three of its cases are meant to turn red
+#the day the arbitration is settled and a resync lands.
+#Links the two shutter objects and the Wago closure on top of the core one.
+#Built elsewhere: the server objects come from another Makefile, so only
+#libcalaos_common.la may appear in _DEPENDENCIES (the -DEPENDENCIES pitfall).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WagoVoletRestart_test
+check_PROGRAMS += core/WagoVoletRestart_test
+core_WagoVoletRestart_test_SOURCES = core/WagoVoletRestart_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_WagoVoletRestart_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoVoletRestart_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOVolet.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOVoletSmart.$(OBJEXT)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_WagoVoletRestart_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOVolet.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOVoletSmart.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
