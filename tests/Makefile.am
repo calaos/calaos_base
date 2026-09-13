@@ -6697,3 +6697,49 @@ core_SidecarTerminateProvenance_test_LDADD = $(CORE_TEST_LDADD)
 core_SidecarTerminateProvenance_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.172
+#OutputShutter has no readConfig() and its initialiser list stops at sens,
+#old_sens, the timers and state_volet: time, is_impulse_action,
+#impulse_action_time and impulse_time survive the constructor untouched.
+#Stop() branches on impulse_time and its impulse branch drives BOTH relays of
+#one shutter true at once, so this is the only open ticket with a hardware
+#risk. Measured by POISONING: the storage is filled with a known byte, the
+#object is placement-new'd over it, the members are read back, and the census
+#is run under two different fills so the answers must follow the poison.
+#The relay chain is measured at the (coil, value) pair WOVoletBase computes,
+#which is the last point it exists - WagoMap drops the frame with no sidecar
+#connected, so only the KIND of a command survives into mbus_commands.
+#Links the two shutter objects and the Wago closure, same set as
+#core/WagoVoletRestart_test.
+#Built elsewhere: the server objects come from another Makefile, so only
+#libcalaos_common.la may appear beside them in _DEPENDENCIES (the
+#_DEPENDENCIES pitfall).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ShutterUninitMembers_test
+check_PROGRAMS += core/ShutterUninitMembers_test
+core_ShutterUninitMembers_test_SOURCES = core/ShutterUninitMembers_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ShutterUninitMembers_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ShutterUninitMembers_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOVolet.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOVoletSmart.$(OBJEXT)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ShutterUninitMembers_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOVolet.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOVoletSmart.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
