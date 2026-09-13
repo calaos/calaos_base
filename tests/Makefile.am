@@ -6808,22 +6808,22 @@ core_SidecarSigpipeOnSend_test_LDADD = -lgtest -lgtest_main
 endif
 
 # T3.174
-#What an outgoing HTTP transfer does against a peer that accepts the connection
-#and then never writes a byte. libcurl ships no default delay and start() set
-#none, so the easy handle, its descriptor, its poll handle and its caller were
-#held for ever. Everything here is real: a loopback peer, a real UrlDownloader,
-#real libcurl on the real libuv loop; the peer simply does not answer.
-#Each case runs in a forked child that always writes its report, even when the
-#transfer never ends - a child the parent had to kill says nothing about what it
-#saw. No skip guard of any kind: nothing here needs a binary or a service.
-#Own main() raises debug_level and points the config store at a temporary dir,
-#so no gtest_main. Only libcalaos_common is linked: UrlDownloader lives in
-#src/lib. Own HAVE_GTEST block so this stays a pure append at the end of file.
+#What an outgoing HTTP transfer does against a peer that accepts and then goes
+#silent, and what that costs a relay with no end of its own. Everything is
+#real: a loopback peer, a real UrlDownloader, real libcurl on the real libuv
+#loop. Each case runs in a forked child that always writes its report, even
+#when the transfer never ends - a child the parent had to kill says nothing
+#about what it saw. No skip guard: nothing here needs a binary or a service.
+#Own main(), so no gtest_main; only libcalaos_common, UrlDownloader is in
+#src/lib; own HAVE_GTEST block so this stays a pure append at end of file.
 if HAVE_GTEST
 TESTS += UrlDownloaderStallTimeout_test
 check_PROGRAMS += UrlDownloaderStallTimeout_test
 UrlDownloaderStallTimeout_test_SOURCES = UrlDownloaderStallTimeout_test.cpp
-UrlDownloaderStallTimeout_test_CPPFLAGS = $(AM_CPPFLAGS)
+#abs_top_srcdir, not srcdir: the binary runs from tests/ and the census case
+#reads src/ itself
+UrlDownloaderStallTimeout_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -DCALAOS_SRC_DIR='"$(abs_top_srcdir)/src"'
 UrlDownloaderStallTimeout_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   @CALAOS_SERVER_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \

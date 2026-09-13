@@ -1218,6 +1218,9 @@ void JsonApiHandlerHttp::processCamera()
             //the downloader's internal accumulation is dead weight here, keep
             //its bound minimal
             cameraDl->bufferMaxSizeSet(64 * 1024);
+            //no end of its own: what bounds this transfer is the connection of
+            //the client watching it, not a floor on its speed
+            cameraDl->setStallTimeout(UrlDownloader::stallTimeoutNone);
             camConnData = cameraDl->m_signalData.connect([this](int size, const char *data)
             {
                 if (!camHeaderSent)

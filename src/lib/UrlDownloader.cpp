@@ -67,18 +67,10 @@
 namespace
 {
 
-/* Bounds every transfer of the process. libcurl ships no default here: with
- * none of these set, a peer that accepts the connection and then says nothing
- * holds the easy handle, its descriptor, its poll handle and its caller for
- * ever.
- *
- * The stall bound is an ABSENCE OF PROGRESS, not a total duration: the camera
- * relay of JsonApiHandlerHttp reads an MJPEG stream that never ends by
- * construction, and a CURLOPT_TIMEOUT would cut it off mid-stream.
- *
- * 30 s is what the tree already gives the same failure on the way IN
- * (request_read_timeout, "a client that connects and then sends nothing").
- */
+/* libcurl ships no default for any of these: with none of them set, a peer
+ * that accepts the connection and then says nothing holds the easy handle, its
+ * descriptor, its poll handle and its caller for ever. 30 s is what the tree
+ * already gives the same failure on the way IN (request_read_timeout). */
 const long kDefaultUrlTimeout = 30;
 
 /* The key is read at the call site, not here: check-config-options.sh only
@@ -672,10 +664,12 @@ bool UrlDownloader::start()
     curl_easy_setopt(e, CURLOPT_FORBID_REUSE, 1L); //one connection per transfer, like the old subprocess
     curl_easy_setopt(e, CURLOPT_CONNECTTIMEOUT,
                      urlTimeoutSeconds(Utils::get_config_option("url_connect_timeout")));
+    long stall = m_stallTimeout;
+    if (stall == defaultStallTimeout)
+        stall = urlTimeoutSeconds(Utils::get_config_option("url_stall_timeout"));
     //1 byte/s is "no progress at all", not "slow": a live but slow peer is not a target here
     curl_easy_setopt(e, CURLOPT_LOW_SPEED_LIMIT, 1L);
-    curl_easy_setopt(e, CURLOPT_LOW_SPEED_TIME,
-                     urlTimeoutSeconds(Utils::get_config_option("url_stall_timeout")));
+    curl_easy_setopt(e, CURLOPT_LOW_SPEED_TIME, stall);
     curl_easy_setopt(e, CURLOPT_PRIVATE, conn);
     curl_easy_setopt(e, CURLOPT_WRITEFUNCTION, urlDownloaderWriteCb);
     curl_easy_setopt(e, CURLOPT_WRITEDATA, conn);

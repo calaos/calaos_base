@@ -99,6 +99,10 @@ private:
      * this bound so an endless stream cannot eat the RAM. */
     size_t m_bufferMaxSize = defaultBufferMaxSize;
 
+    /* Seconds without progress this transfer is allowed before libcurl aborts
+     * it. See setStallTimeout(). */
+    long m_stallTimeout = defaultStallTimeout;
+
     //Common function for starting download of url
     bool start();
 
@@ -170,6 +174,15 @@ public:
      * m_signalCompleteData. m_signalData always receives the full stream. */
     void bufferMaxSizeSet(size_t max) { m_bufferMaxSize = max; }
     size_t bufferMaxSizeGet() const { return m_bufferMaxSize; }
+
+    static constexpr long defaultStallTimeout = -1; //defer to url_stall_timeout
+    static constexpr long stallTimeoutNone = 0;     //no stall bound at all
+
+    /* Stall bound for THIS transfer, in seconds, overriding the
+     * url_stall_timeout setting. A speed floor bounds nothing on a transfer
+     * that has no end of its own, so such a caller passes stallTimeoutNone. */
+    void setStallTimeout(long seconds) { m_stallTimeout = seconds; }
+    long stallTimeoutGet() const { return m_stallTimeout; }
 
     Params getResponseHeaders();
 

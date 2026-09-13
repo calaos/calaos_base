@@ -594,10 +594,12 @@ std::vector<ConfigOption> buildTable()
         .label(N_("Outgoing transfer stall timeout"))
         .doc(N_("Delay, in seconds, an established outgoing HTTP transfer is allowed to make "
                 "no progress at all before being aborted. It bounds a peer that accepts the "
-                "connection and then goes silent; it is not a total duration, so a long but "
-                "live transfer — a camera MJPEG stream — is never cut off by it. Raise it for "
-                "a camera that pauses between frames. A value that is not a plain number "
-                "between 1 and 600 falls back to the default."))
+                "connection and then goes silent. It is not a total duration: the delay runs "
+                "from the connection to the first byte of the response body, then starts over "
+                "at every byte received, so a long but live transfer is not a target. The "
+                "camera MJPEG relay of the web API is exempt — that stream has no end of its "
+                "own and is bounded by the connection of the client watching it. A value that "
+                "is not a plain number between 1 and 600 falls back to the default."))
         .def("30")
         .range(1, 600)
         .advanced()

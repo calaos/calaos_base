@@ -46,6 +46,18 @@
  * says so: it stays alive far longer than its own bound because it keeps
  * moving.
  *
+ * AND AN ABSENCE OF PROGRESS IS NOT ENOUGH FOR THAT RELAY EITHER. A camera
+ * that only sends an image on motion is silent for as long as the corridor is
+ * empty, and the registry bound cuts it off exactly like a frozen one. So the
+ * relay asks for no stall bound at all, and the paired cases below - same
+ * peer, same empty corridor, one value apart - are what says the exemption
+ * works and that a transfer which did not ask for it is still bounded.
+ *
+ * The floor counts BODY bytes: the delay runs from the connection to the
+ * first byte of body, whatever arrives as headers meanwhile. The two header
+ * phase cases measure that, and it is what fixes the threshold below which a
+ * peer dribbling headers would be cut.
+ *
  * ---------------------------------------------------------------------------
  * WHAT MAKES A GREEN MEAN SOMETHING
  * ---------------------------------------------------------------------------
@@ -56,8 +68,9 @@
  * number this file cannot know in advance.
  *
  * NOTHING HERE READS A CLOCK FOR ITS VERDICT. A case asserts that a transfer
- * ENDS, never that it ends within N seconds: the bound under test is 2 s and
- * the child gives up after 60, a margin no amount of machine load closes.
+ * ENDS or that it DID NOT, never that either happened within N seconds: the
+ * bound under test is 2 s and the child gives up after 60, a margin no amount
+ * of machine load closes.
  * There is no skip guard of any kind in this file - nothing here needs a
  * binary, a network or a service that could be missing.
  *
@@ -69,6 +82,7 @@
 #include <gtest/gtest.h>
 
 #include <arpa/inet.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <poll.h>
@@ -106,6 +120,10 @@ namespace
 const char *const kLivelySlice = "{\"palier\":\"quarante-deux\",\"etat\":\"goutte-a-goutte\"},";
 const char *const kPromptBody = "{\"palier\":\"dix-sept\",\"etat\":\"repondu-aussitot\"}";
 
+//The two images of the relay, told apart by name and not by a count of bytes.
+const char *const kFrameBefore = "IMAGE-DU-VESTIBULE-AVANT-LE-COULOIR";
+const char *const kFrameAfter = "IMAGE-DU-VESTIBULE-APRES-LE-COULOIR";
+
 const size_t kDripSlices = 40;
 const size_t kDripSlice = 52;   //one kLivelySlice per send
 
@@ -126,6 +144,8 @@ enum class PeerMode
     Drip,       //answers, but slowly and over a span far longer than the bound
     Prompt,     //answers at once and closes: the disarmed twin
     Blackhole,  //listens with a full accept queue, so the handshake never completes
+    Relay,      //multipart stream: one frame, an empty corridor, one frame
+    HeaderDrip, //status line and headers byte by byte, then the body at once
 };
 
 /*
@@ -137,7 +157,8 @@ enum class PeerMode
 class Peer
 {
 public:
-    explicit Peer(PeerMode m): mode(m)
+    Peer(PeerMode m, int corridorMs = 0, int headerPhaseMs = 0):
+        mode(m), corridor(corridorMs), headerPhase(headerPhaseMs)
     {
         listenFd = socket(AF_INET, SOCK_STREAM, 0);
         int on = 1;
@@ -216,6 +237,49 @@ private:
         std::this_thread::sleep_for(milliseconds(100));
     }
 
+    void nap(int ms)
+    {
+        for (int i = 0; i < ms / 10 && !stopRequested; i++)
+            std::this_thread::sleep_for(milliseconds(10));
+    }
+
+    /* One MJPEG part, then nothing at all for `corridor`, then the other. No
+     * Content-Length on the response: the transfer ends when the peer closes,
+     * the way a relay ends when the camera hangs up. */
+    void sendRelay(int fd)
+    {
+        const std::string head =
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Type: multipart/x-mixed-replace; boundary=calaosframe\r\n\r\n";
+        send(fd, head.data(), head.size(), MSG_NOSIGNAL);
+
+        sendFrame(fd, kFrameBefore);
+        nap(corridor);
+        if (stopRequested)
+            return;
+        sendFrame(fd, kFrameAfter);
+    }
+
+    void sendFrame(int fd, const std::string &image)
+    {
+        const std::string part =
+            "--calaosframe\r\nContent-Type: image/jpeg\r\nContent-Length: " +
+            std::to_string(image.size()) + "\r\n\r\n" + image + "\r\n";
+        send(fd, part.data(), part.size(), MSG_NOSIGNAL);
+    }
+
+    //The whole header block spread over `headerPhase`, one byte at a time.
+    void sendHeadersByTheByte(int fd, const std::string &head)
+    {
+        const int per = head.empty()? 0: headerPhase / (int)head.size();
+        for (size_t i = 0; i < head.size() && !stopRequested; i++)
+        {
+            if (send(fd, head.data() + i, 1, MSG_NOSIGNAL) < 0)
+                return;
+            std::this_thread::sleep_for(milliseconds(per));
+        }
+    }
+
     void run()
     {
         int fd = -1;
@@ -267,6 +331,14 @@ private:
             return;
         }
 
+        if (mode == PeerMode::Relay)
+        {
+            sendRelay(fd);
+            close(fd);
+            heldFd = -1;
+            return;
+        }
+
         const std::string body = (mode == PeerMode::Drip)? drippedBody(): std::string(kPromptBody);
         const std::string head =
             "HTTP/1.1 200 OK\r\n"
@@ -283,9 +355,18 @@ private:
             return;
         }
 
+        if (mode == PeerMode::HeaderDrip)
+        {
+            sendHeadersByTheByte(fd, head);
+            send(fd, body.data(), body.size(), MSG_NOSIGNAL);
+            close(fd);
+            heldFd = -1;
+            return;
+        }
+
         /* Drip: headers at once, then one body slice every 200 ms for eight
          * seconds - four times the stall bound, at a rate two orders of
-         * magnitude above its 1 byte/s floor. ⚠️ The floor is measured on the
+         * magnitude above its 1 byte/s floor. The floor is measured on the
          * BODY: a peer that sends its headers and then stalls is caught, so
          * the slices have to be body bytes, not response bytes. */
         send(fd, head.data(), head.size(), MSG_NOSIGNAL);
@@ -305,6 +386,8 @@ private:
     }
 
     PeerMode mode;
+    int corridor = 0;
+    int headerPhase = 0;
     std::string requestText;
     std::mutex mtx;
     int listenFd = -1;
@@ -404,10 +487,14 @@ struct Exchange
     std::string body;
 };
 
-Exchange runOneTransfer(const std::string &url, int giveUpMs)
+Exchange runOneTransfer(const std::string &url, int giveUpMs, long stallOverride)
 {
     Exchange ex;
     UrlDownloader dl(url, false);
+    /* Left alone unless the case asks: the nineteen finite call sites of src/
+     * never touch it, so this is the path they take. */
+    if (stallOverride != UrlDownloader::defaultStallTimeout)
+        dl.setStallTimeout(stallOverride);
     dl.m_signalCompleteData.connect([&](const std::string &d, int s)
     {
         ex.body = d;
@@ -430,6 +517,9 @@ struct Scenario
     const char *stallTimeout = "2";
     int childGiveUpMs = 60000;   //liveness net, never a verdict: 30x the bound
     int parentGiveUpMs = 120000;
+    long stallOverride = UrlDownloader::defaultStallTimeout;
+    int corridorMs = 0;
+    int headerPhaseMs = 0;
 };
 
 /*
@@ -471,19 +561,22 @@ Report runInChild(const Scenario &sc)
 
         const std::string log = captureStdout([&]()
         {
-            Peer peer(sc.mode);
+            Peer peer(sc.mode, sc.corridorMs, sc.headerPhaseMs);
             peerPort = peer.port;
             if (peer.port <= 0)
                 return;
 
-            ex = runOneTransfer(peer.url(), sc.childGiveUpMs);
+            ex = runOneTransfer(peer.url(), sc.childGiveUpMs, sc.stallOverride);
             accepted = peer.accepted.load();
             request = peer.request();
         });
 
-        //The request is one line of the report: its own newlines would look
-        //like the end of a field.
+        //Each is one line of the report: their own newlines would look like the
+        //end of a field. A multipart body carries plenty.
         for (char &c: request)
+            if (c == '\n' || c == '\r')
+                c = '|';
+        for (char &c: ex.body)
             if (c == '\n' || c == '\r')
                 c = '|';
 
@@ -586,6 +679,55 @@ const Report &promptPeerRun()
 {
     static const Report rep = runInChild(Scenario{ PeerMode::Prompt, "2", "2", 20000, 60000 });
     return rep;
+}
+
+//Every .cpp/.h under a directory, for the census case below.
+void collectSources(const std::string &dir, std::vector<std::string> &out)
+{
+    DIR *d = ::opendir(dir.c_str());
+    if (!d)
+        return;
+    while (struct dirent *e = ::readdir(d))
+    {
+        const std::string name = e->d_name;
+        if (name == "." || name == "..")
+            continue;
+        const std::string full = dir + "/" + name;
+        struct stat st;
+        if (::stat(full.c_str(), &st) != 0)
+            continue;
+        if (S_ISDIR(st.st_mode))
+        {
+            collectSources(full, out);
+            continue;
+        }
+        const size_t dot = name.rfind('.');
+        if (dot == std::string::npos)
+            continue;
+        const std::string ext = name.substr(dot);
+        if (ext == ".cpp" || ext == ".h" || ext == ".hpp")
+            out.push_back(full);
+    }
+    ::closedir(d);
+}
+
+std::vector<std::string> readLines(const std::string &path)
+{
+    std::vector<std::string> lines;
+    std::ifstream in(path);
+    std::string l;
+    while (std::getline(in, l))
+        lines.push_back(l);
+    return lines;
+}
+
+size_t lastLineWith(const std::vector<std::string> &lines, const std::string &needle, size_t before)
+{
+    size_t at = std::string::npos;
+    for (size_t i = 0; i < before && i < lines.size(); i++)
+        if (lines[i].find(needle) != std::string::npos)
+            at = i;
+    return at;
 }
 
 } // namespace
@@ -753,6 +895,175 @@ TEST(UrlDownloaderStallTimeout, TheOutgoingBoundsAreTheInboundOne)
         << "the outgoing stall bound parted from the inbound one it was taken from";
     EXPECT_EQ(inbound->rangeMin(), stall->rangeMin());
     EXPECT_EQ(inbound->rangeMax(), stall->rangeMax());
+}
+
+
+/*
+ * THE REGRESSION THIS BOUND BROUGHT, AND ITS ANSWER. A camera that only sends
+ * an image on motion is silent for as long as the corridor is empty: one
+ * frame, forty-five seconds of nothing, one frame. Under the delivered bound
+ * of 30 s that stream is cut while the camera is perfectly healthy, which is
+ * what the twin case below measures. Exempted, it survives.
+ *
+ * The two cases run the SAME peer with the SAME corridor and differ by one
+ * value, so what separates them cannot be anything else.
+ */
+TEST(UrlDownloaderStallTimeout, AnExemptedEndlessRelaySurvivesAnEmptyCorridor)
+{
+    Scenario sc;
+    sc.mode = PeerMode::Relay;
+    sc.stallTimeout = "30";        //the value the registry ships
+    sc.corridorMs = 45000;
+    sc.stallOverride = UrlDownloader::stallTimeoutNone;
+    sc.childGiveUpMs = 150000;
+    sc.parentGiveUpMs = 300000;
+    const Report rep = runInChild(sc);
+
+    ASSERT_FALSE(rep.killed) << "the child had to be taken down: the relay never ended";
+    ASSERT_TRUE(rep.ran);
+    ASSERT_EQ("30", rep.stallSetting)
+        << "the bound this case believes it faced is not the one the store holds";
+    ASSERT_EQ(1, rep.accepted) << "the peer never accepted: nothing was relayed here";
+    ASSERT_NE(std::string::npos, rep.body.find(kFrameBefore))
+        << "the frame sent before the corridor never arrived, so this case says nothing about "
+           "what the corridor did: [" << rep.body << "]";
+    EXPECT_NE(std::string::npos, rep.body.find(kFrameAfter))
+        << "the frame sent after the empty corridor never reached the caller: the relay was cut "
+           "off while the camera was merely silent: [" << rep.body << "]";
+    EXPECT_FALSE(someLineHasAll(rep.log, { "urlutils", "Transfer failed",
+                                           std::to_string(rep.peerPort) }))
+        << "the transport recorded a failed transfer for the exempted relay";
+}
+
+/*
+ * THE NINETEEN ARE STILL BOUNDED. Same peer, same corridor, and the transfer
+ * takes the path a call site that asks for nothing takes - which is every
+ * other call site of src/. The second frame never arrives.
+ *
+ * What it also shows, and what is filed on its own: the caller is told the
+ * transfer is over with the status line of the headers it did receive, so an
+ * abort arrives looking like a short answer. That is why the verdict here is
+ * the missing frame and the journal, not the status.
+ */
+TEST(UrlDownloaderStallTimeout, TheSameCorridorStillCutsOffATransferThatAskedForNoExemption)
+{
+    Scenario sc;
+    sc.mode = PeerMode::Relay;
+    sc.stallTimeout = "30";
+    sc.corridorMs = 45000;
+    sc.childGiveUpMs = 150000;
+    sc.parentGiveUpMs = 300000;
+    const Report rep = runInChild(sc);
+
+    ASSERT_FALSE(rep.killed) << "the child had to be taken down: the bound did not bite";
+    ASSERT_TRUE(rep.ran);
+    ASSERT_EQ("30", rep.stallSetting);
+    ASSERT_EQ(1, rep.accepted);
+    ASSERT_NE(std::string::npos, rep.body.find(kFrameBefore))
+        << "nothing arrived at all: this case measured a transfer that never ran, not one that "
+           "was cut: [" << rep.body << "]";
+    EXPECT_EQ(std::string::npos, rep.body.find(kFrameAfter))
+        << "the corridor did not cost this transfer anything: it is not bounded";
+    EXPECT_TRUE(rep.completed);
+    EXPECT_TRUE(someLineHasAll(rep.log, { "urlutils", "Transfer failed",
+                                          std::to_string(rep.peerPort) }))
+        << "the transport never named the transfer it cut off on port " << rep.peerPort;
+}
+
+/*
+ * WHAT THE FLOOR COUNTS. The peer spells its header block out one byte at a
+ * time and only then sends its body. Under the bound, the transfer is whole.
+ */
+TEST(UrlDownloaderStallTimeout, AHeaderBlockDeliveredUnderTheBoundCostsTheTransferNothing)
+{
+    Scenario sc;
+    sc.mode = PeerMode::HeaderDrip;
+    sc.stallTimeout = "4";
+    sc.headerPhaseMs = 1000;
+    sc.childGiveUpMs = 60000;
+    const Report rep = runInChild(sc);
+
+    ASSERT_FALSE(rep.killed);
+    ASSERT_TRUE(rep.ran);
+    ASSERT_EQ("4", rep.stallSetting);
+    ASSERT_EQ(1, rep.accepted);
+    EXPECT_TRUE(rep.completed);
+    EXPECT_EQ(200, rep.status);
+    EXPECT_EQ(std::string(kPromptBody), rep.body);
+}
+
+/*
+ * THE SAME PEER, SLOWER. Twelve seconds of header block under a four second
+ * bound: the transfer is cut with not one byte of body, though the connection
+ * never stopped moving. The delay therefore runs from the connection to the
+ * FIRST BYTE OF BODY - header bytes buy the peer nothing.
+ */
+TEST(UrlDownloaderStallTimeout, AHeaderBlockLongerThanTheBoundCutsTheTransferBeforeAnyBody)
+{
+    Scenario sc;
+    sc.mode = PeerMode::HeaderDrip;
+    sc.stallTimeout = "4";
+    sc.headerPhaseMs = 12000;
+    sc.childGiveUpMs = 60000;
+    const Report rep = runInChild(sc);
+
+    ASSERT_FALSE(rep.killed);
+    ASSERT_TRUE(rep.ran);
+    ASSERT_EQ("4", rep.stallSetting);
+    ASSERT_EQ(1, rep.accepted) << "the peer never accepted, so nothing dribbled here";
+    EXPECT_TRUE(rep.completed);
+    EXPECT_TRUE(rep.body.empty())
+        << "a body arrived, so the header phase was not what this case measured: ["
+        << rep.body << "]";
+    EXPECT_TRUE(someLineHasAll(rep.log, { "urlutils", "Transfer failed",
+                                          std::to_string(rep.peerPort) }))
+        << "the transfer was not cut: a header phase longer than the bound costs nothing";
+}
+
+/*
+ * THE CENSUS, CHECKED INSTEAD OF ASSERTED. This case reads src/ rather than
+ * running anything: it is a drift sensor on the claim the exemption rests on -
+ * that exactly one place relays data that has no end of its own - and on the
+ * wiring of the exemption itself, which no runtime case of this tree reaches
+ * (the mjpeg branch of processCamera() has no suite; the one that exists
+ * covers the one-shot snapshot branch).
+ */
+TEST(UrlDownloaderStallTimeout, TheOnlyRelayOfEndlessDataInSrcAsksForNoStallBound)
+{
+    std::vector<std::string> files;
+    collectSources(CALAOS_SRC_DIR, files);
+    ASSERT_GT(files.size(), 100u)
+        << "only " << files.size() << " sources were read under " << CALAOS_SRC_DIR
+        << ": this case searched no tree at all";
+
+    std::vector<std::pair<std::string, size_t>> sites;
+    for (const std::string &f: files)
+    {
+        const std::vector<std::string> lines = readLines(f);
+        for (size_t i = 0; i < lines.size(); i++)
+            if (lines[i].find("m_signalData.connect") != std::string::npos)
+                sites.push_back({ f, i });
+    }
+
+    ASSERT_EQ(1u, sites.size())
+        << "src/ no longer has exactly one consumer of a live stream (" << sites.size()
+        << "): the exemption below was argued for a single site";
+
+    const std::vector<std::string> lines = readLines(sites[0].first);
+    const size_t built = lastLineWith(lines, "new UrlDownloader(", sites[0].second);
+    ASSERT_NE(std::string::npos, built)
+        << "the downloader feeding " << sites[0].first << ":" << (sites[0].second + 1)
+        << " is not built above it, so this case cannot tell what was done to it";
+
+    bool exempted = false;
+    for (size_t i = built + 1; i < sites[0].second; i++)
+        if (lines[i].find("setStallTimeout(") != std::string::npos)
+            exempted = true;
+
+    EXPECT_TRUE(exempted)
+        << "the downloader built at " << sites[0].first << ":" << (built + 1)
+        << " carries a stream with no end of its own, and nothing before its consumer at line "
+        << (sites[0].second + 1) << " lifts the stall bound off it";
 }
 
 int main(int argc, char **argv)
