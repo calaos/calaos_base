@@ -224,8 +224,9 @@ protected:
     virtual bool handleFdSet(int fd) { return true; }
 
     /* Minimal mainloop. Answers false on the ways out that are NOT a normal
-     * end: a failed select(), a failed recv(), a framing violation from the
-     * server. A server that hangs up, and a subclass that asks to stop through
+     * end: a failed select(), a failed recv(), a failed send(), a framing
+     * violation from the server.
+     * A server that hangs up, and a subclass that asks to stop through
      * quitLoop() or handleFdSet(), answer true - they are how a sidecar is
      * meant to stop, and reporting them as failures would make the respawn
      * ramp throttle sidecars that did nothing wrong. */
@@ -253,9 +254,11 @@ private:
 
     ExternProcMessage currentFrame;
 
-    //Why processSocketRecv() stopped. recv() answering 0 and recv() answering
-    //an error are both "false" to its callers, and only run() needs to tell
-    //them apart - one is the controller hanging up, the other is not.
+    //Why the socket's life ended. recv() answering 0 and recv() answering an
+    //error are both "false" to its callers, and only run() needs to tell them
+    //apart - one is the controller hanging up, the other is not. sendMessage()
+    //writes here too, which is why connectSocket() owns the reset and not
+    //run(): a send can fail before the loop is ever entered.
     enum SocketEnd { EndNone, EndOrderly, EndFailed };
     SocketEnd socketEnd = EndNone;
 

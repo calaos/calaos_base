@@ -705,6 +705,8 @@ bool ExternProcClient::connectSocket()
         return false;
     }
 
+    socketEnd = EndNone;
+
     return true;
 }
 
@@ -763,8 +765,10 @@ bool ExternProcClient::run(int timeoutms)
 {
     bool ok = true;
     loopQuit = false;
-    socketEnd = EndNone;
-    while (!loopQuit)
+    //socketEnd is NOT reset here: sendMessage() can fail before the loop is
+    //entered - calaos_1wire sends its first reading from procMain() - and a
+    //reset would hand that failure back a clean loop to fail in again.
+    while (!loopQuit && socketEnd != EndFailed)
     {
         fd_set events;
         struct timeval tv;
@@ -843,7 +847,8 @@ bool ExternProcClient::run(int timeoutms)
         }
     }
 
-    return ok;
+    //The write side has no way to answer false from where it fails.
+    return ok && socketEnd != EndFailed;
 }
 
 void ExternProcClient::sendMessage(const string &data)
@@ -852,9 +857,22 @@ void ExternProcClient::sendMessage(const string &data)
     string frame = msg.getRawData();
     ssize_t len;
 
-    len = send(sockfd, frame.c_str(), frame.size(), 0);
+    /* MSG_NOSIGNAL, and not a SIGPIPE handler: uv_spawn resets every
+     * disposition to SIG_DFL in the child, so the server ignoring SIGPIPE
+     * protects nothing on this side of the socket. Without the flag a server
+     * that hangs up while a sidecar is writing kills it, and the respawn ramp
+     * reads signal 13 as a crash.
+     * The failure is then reported as one: a peer that closed answers the READ
+     * side with ECONNRESET, which already ends the loop as a failure, and the
+     * same event must not become a success just because the write side saw it
+     * first. */
+    len = send(sockfd, frame.c_str(), frame.size(), MSG_NOSIGNAL);
     if (len < 0)
+    {
         cError() << "Error writing to socket: " << strerror(errno);
+        socketEnd = EndFailed;
+        loopQuit = true;
+    }
 }
 
 void ExternProcClient::appendFd(int fd)
