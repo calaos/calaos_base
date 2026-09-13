@@ -1273,3 +1273,43 @@ CI jusqu'à sa conclusion avant toute autre chose.** L'ordre réel est `push` �
 seulement* → publication de `ghcr.io/calaos/calaos_base:dev`. Une CI rouge ne déploie rien — mais
 `T3.133` établit que les quatre conditions de cette garde ne sont tenues par aucun capteur : ce
 `push` est donc aussi le premier test de la garde elle-même.
+
+## 2026-09-13 — deux arbitrages tranchés par l'utilisateur
+
+### 1. Le volet au redémarrage du serveur ⇒ **NE RIEN FAIRE**
+
+**La question.** Au retour du serveur, l'automate republie son image de sortie d'avant la coupure. Un
+volet dont le relais était excité au moment où le serveur est mort **repart**. Or `calaos_server` ne
+peut pas **détecter** cette ré-excitation : il ne relit aucun bit de relais de volet, et son seul
+signal est une valeur de cache — une croyance, pas une mesure.
+
+**Tranché : on ne fait rien.** Pas de point de resynchronisation dans `WOVoletBase`, pas d'arrêt
+réaffirmé à la reconnexion, pas de réécriture depuis le cache.
+
+⭐ **Le principe qui porte la décision** : *on ne bouge jamais un volet sur une décision du serveur.*
+Le cas du volet qui repart est étroit — il faut que le serveur meure **pendant** un mouvement — alors
+qu'un serveur qui écrirait les relais au démarrage agirait, lui, sur **toutes** les installations à
+**chaque** redémarrage, sur la foi d'un état qu'il ne mesure pas.
+
+⚠️ **Ce que la décision ne couvre pas** : elle ne ferme ni [`T3.171`](T3.171.md) (`WODigital` relit
+une coil différente de celle qu'il écrit) ni [`T3.172`](T3.172.md) (membres non initialisés,
+`WOVolet` pouvant exciter **les deux** relais). Ce sont des défauts distincts, ils restent ouverts.
+
+⛔ **Ne pas rouvrir** sans un élément neuf — par exemple si le serveur devenait capable de **lire**
+l'état réel des relais, ce qui changerait la prémisse de la question.
+
+### 2. Un `SIGTERM` que le serveur n'a pas envoyé ⇒ **COMPTE COMME UN PLANTAGE**
+
+**La question.** L'exemption actuelle porte sur la **valeur** du signal, jamais sur son **origine** :
+un `killall -TERM`, systemd ou un superviseur qui tue un sidecar est exempté de la rampe de relance
+**et** de la ligne d'alerte. Mesuré : une sonde de provenance rend **0 rouge**, aucun cas n'observe
+d'où vient le signal.
+
+**Tranché : compter, sauf si c'est nous.** Un `SIGTERM` que le serveur n'a pas lui-même envoyé
+**nourrit la rampe** et est signalé. La provenance est **déjà disponible** — `terminate()` incrémente
+`respawn_generation` — donc le correctif n'a pas de nouvelle machinerie à inventer.
+
+**Le prix, assumé** : un arrêt manuel par un administrateur déclenchera la rampe. C'est défendable,
+puisque le serveur relancera le sidecar de toute façon.
+
+⇒ [`T3.153`](T3.153.md) cesse d'être un arbitrage et devient un **correctif**.
