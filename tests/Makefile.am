@@ -6525,3 +6525,43 @@ core_WagoVoletRestart_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOVoletSmart.$(OBJEXT) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.179
+#What a parent learns when the five bytes it sent were not a frame. The parent
+#writes 0x21 followed by a length above the 4 MiB cap on the socket a
+#controller serves; the sidecar's framing state machine flags it, the main loop
+#leaves, and what is read is the exit status waitpid() gives the parent.
+#Unlike core/SidecarLoopExitStatus_test, nothing is interposed: the input comes
+#from the parent over the socket the sidecar is built to read, so the path is
+#reachable with production code untouched - it is the one an installation can
+#take.
+#Each family is run twice against the same binary: invalid frame, then hangup.
+#The second half is not decoration - a server hanging up is how a sidecar is
+#meant to stop and must still exit zero, so a fix that answered "failed" on
+#every way out of the loop would feed the respawn ramp with sidecars that did
+#nothing wrong.
+#calaos_knx and calaos_ola are conditional; their cases are compiled in under
+#the same automake condition that builds them, which keeps TESTS the same
+#everywhere and leaves no runtime skip to hide behind.
+#Nothing of the server is linked: the code under test is in another process, so
+#there is no server object to make a prerequisite of.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+SIDECAR_FRAMING_DEFS =
+if HAVE_LIBKNX
+SIDECAR_FRAMING_DEFS += -DCALAOS_KNX_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_knx"'
+endif
+if HAVE_LIBOLA
+SIDECAR_FRAMING_DEFS += -DCALAOS_OLA_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_ola"'
+endif
+
+TESTS += core/SidecarFramingExitStatus_test
+check_PROGRAMS += core/SidecarFramingExitStatus_test
+core_SidecarFramingExitStatus_test_SOURCES = core/SidecarFramingExitStatus_test.cpp
+core_SidecarFramingExitStatus_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -DCALAOS_SCRIPT_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_script"' \
+                  -DCALAOS_WAGO_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_wago"' \
+                  -DCALAOS_1WIRE_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_1wire"' \
+                  $(SIDECAR_FRAMING_DEFS)
+core_SidecarFramingExitStatus_test_LDADD = -lgtest -lgtest_main
+endif
