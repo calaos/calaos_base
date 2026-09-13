@@ -6313,3 +6313,36 @@ core_WagoDaliGetGroup_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.142
+#What the box puts on the wire when it is asked to introduce itself three times
+#in a row.
+#uvw's send(const sockaddr &, char *, unsigned int) neither copies nor owns the
+#buffer, and libuv reads it at the next turn of the loop as soon as another send
+#is already queued. processRequest() answered CALAOS_DISCOVER from a local
+#string, so the second and third answers of a burst carried freed heap to an
+#unauthenticated peer of the local network.
+#Three peers, one socket each, so an answer is identified by the descriptor it
+#lands on. What each holds is compared WHOLE and in hex: the payload owed and
+#the leaked bytes are both nineteen bytes long, so a length, a prefix or a
+#non-empty datagram would not tell them apart.
+#⚠️ Exits 77 - and so SKIPS - where a loopback correspondent is not answered
+#with 127.0.0.1, or where libuv does not hold a second back-to-back send until
+#the next turn: there the accident cannot be produced and every case would be
+#green for it.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/UdpAnswerBufferLifetime_test
+check_PROGRAMS += core/UdpAnswerBufferLifetime_test
+core_UdpAnswerBufferLifetime_test_SOURCES = core/UdpAnswerBufferLifetime_test.cpp
+core_UdpAnswerBufferLifetime_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+UDP_ANSWER_BUFFER_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
+core_UdpAnswerBufferLifetime_test_LDADD = $(UDP_ANSWER_BUFFER_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_UdpAnswerBufferLifetime_test_DEPENDENCIES = $(UDP_ANSWER_BUFFER_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
