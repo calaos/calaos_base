@@ -218,10 +218,12 @@ protected:
     //return false to stop main loop, true otherwise
     virtual bool handleFdSet(int fd) { return true; }
 
-    /* Minimal mainloop. Answers false when it ended on a failed select(),
-     * which is never a normal end: a descriptor of the set was closed behind
-     * the loop's back. Answering success there is what turns that into a
-     * relaunch loop with nothing in any journal to explain it. */
+    /* Minimal mainloop. Answers false on the ways out that are NOT a normal
+     * end: a failed select(), a failed recv(), a framing violation from the
+     * server. A server that hangs up, and a subclass that asks to stop through
+     * quitLoop() or handleFdSet(), answer true - they are how a sidecar is
+     * meant to stop, and reporting them as failures would make the respawn
+     * ramp throttle sidecars that did nothing wrong. */
     bool run(int timeoutms = 5000);
 
     //end run() from a callback that has no way to answer false
@@ -245,6 +247,12 @@ private:
     string recv_buffer;
 
     ExternProcMessage currentFrame;
+
+    //Why processSocketRecv() stopped. recv() answering 0 and recv() answering
+    //an error are both "false" to its callers, and only run() needs to tell
+    //them apart - one is the controller hanging up, the other is not.
+    enum SocketEnd { EndNone, EndOrderly, EndFailed };
+    SocketEnd socketEnd = EndNone;
 
     list<int> userFds;
     bool loopQuit = false;

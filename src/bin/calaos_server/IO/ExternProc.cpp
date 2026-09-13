@@ -696,8 +696,19 @@ bool ExternProcClient::processSocketRecv()
     ssize_t len;
 
     len = recv(sockfd, buff, READBUFSIZE, 0);
-    if (len <= 0)
+    if (len == 0)
     {
+        /* The server hung up, which is the only way a controller has of
+         * stopping us. Telling it apart from the two failures below is what
+         * keeps an ordinary stop from reaching the respawn ramp as a crash -
+         * and errno holds nothing meaningful here. */
+        socketEnd = EndOrderly;
+        cInfoDom("process") << "Server closed the connection";
+        return false;
+    }
+    if (len < 0)
+    {
+        socketEnd = EndFailed;
         cError() << "Error reading socket: " << strerror(errno);
         return false;
     }
@@ -720,6 +731,7 @@ bool ExternProcClient::processSocketRecv()
     if (currentFrame.hasError())
     {
         //framing violation: the stream cannot be trusted anymore
+        socketEnd = EndFailed;
         cError() << "Framing error from server, closing connection";
         currentFrame.clear();
         recv_buffer.clear();
@@ -733,6 +745,7 @@ bool ExternProcClient::run(int timeoutms)
 {
     bool ok = true;
     loopQuit = false;
+    socketEnd = EndNone;
     while (!loopQuit)
     {
         fd_set events;
@@ -776,7 +789,18 @@ bool ExternProcClient::run(int timeoutms)
         if (FD_ISSET(sockfd, &events))
         {
             if (!processSocketRecv())
+            {
+                /* Not every way out of this loop is a failure: a server that
+                 * hangs up is how a sidecar is meant to stop, and answering
+                 * false there would make the ramp slow down sidecars that did
+                 * nothing wrong. A read error or a framing violation is the
+                 * other half, and it is the half a real installation can
+                 * reach - the frame comes from the socket, not from a
+                 * descriptor only calaos_mqtt ever registers. */
+                if (socketEnd == EndFailed)
+                    ok = false;
                 loopQuit = true;
+            }
         }
 
         if (!loopQuit)
