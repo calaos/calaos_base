@@ -143,7 +143,9 @@ ExternProcServer::~ExternProcServer()
 void ExternProcServer::terminate()
 {
     //A held relaunch armed before this call would spawn a child into a
-    //controller that has just stopped wanting one.
+    //controller that has just stopped wanting one. The same bump is what
+    //marks the SIGTERM below as ours, so it must stay AHEAD of the kill:
+    //behind it, our own stop would be read as a stranger's and slowed down.
     respawn_generation++;
 
     if (client)
@@ -277,12 +279,15 @@ double ExternProcServer::respawnDelay(int failures)
 }
 
 int ExternProcServer::nextFailureCount(int failures, int64_t status,
-                                       int termSignal, double ranSeconds)
+                                       int termSignal, double ranSeconds,
+                                       bool termSignalWasOurs)
 {
     //A crash carries no status of its own: the kernel reports status 0 and the
     //signal separately, so a SIGSEGV is indistinguishable from a clean stop
-    //until the signal is read. SIGTERM is what terminate() sends.
-    const bool crashed = termSignal != 0 && termSignal != SIGTERM;
+    //until the signal is read. SIGTERM is what terminate() sends - but it is
+    //also what anyone else can send, and the child cannot say who did.
+    const bool crashed = termSignal != 0 &&
+                         !(termSignal == SIGTERM && termSignalWasOurs);
 
     if (status == 0 && !crashed)
         return 0;
@@ -301,14 +306,16 @@ int ExternProcServer::nextFailureCount(int failures, int64_t status,
     return failures + 1;
 }
 
-void ExternProcServer::noteChildGone(int64_t status, int termSignal)
+void ExternProcServer::noteChildGone(int64_t status, int termSignal,
+                                    bool stopRequested)
 {
     last_run_seconds = std::chrono::duration<double>(
                 std::chrono::steady_clock::now() - spawned_at).count();
     last_exit_status = status;
     last_term_signal = termSignal;
+    last_stop_requested = stopRequested;
     respawn_failures = nextFailureCount(respawn_failures, status, termSignal,
-                                        last_run_seconds);
+                                        last_run_seconds, stopRequested);
 }
 
 void ExternProcServer::startProcess(const string &process, const string &name, const vector<string> &args)
@@ -347,16 +354,26 @@ void ExternProcServer::spawnProcess(const string &process, const string &name, c
     vector<string> cmd = { process, "--socket", sockpath, "--namespace", name };
     cmd.insert(cmd.end(), args.begin(), args.end());
 
+    /* The mark that says a SIGTERM is OURS. terminate() bumps the generation
+     * just before it signals, and it is captured PER CHILD because
+     * startProcess() bumps it too: the counter's value on its own says
+     * nothing, only its movement since this child was spawned does.
+     * The window is one loop turn wide - a foreign signal landing between
+     * terminate() and this event reads as voluntary, which is the behaviour
+     * of before this guard and never the reverse. */
+    const unsigned generation = respawn_generation;
+
     process_exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
-    process_exe->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &)
+    process_exe->once<uvw::ExitEvent>([this, generation](const uvw::ExitEvent &ev, auto &)
     {
         /* The status is the only thing a sidecar can say once it is gone. At
          * DEBUG it was invisible on a stock install, so a sidecar failing ten
          * times a second read as "process exited, restarting..." and nothing
          * else. A clean stop still says nothing: terminate() signals the
          * child, which leaves status 0. */
-        noteChildGone(ev.status, ev.signal);
-        if (ev.signal != 0 && ev.signal != SIGTERM)
+        const bool weAskedForIt = respawn_generation != generation;
+        noteChildGone(ev.status, ev.signal, weAskedForIt);
+        if (ev.signal != 0 && !(ev.signal == SIGTERM && weAskedForIt))
             cWarningDom("process") << procName << " was killed by signal " << ev.signal
                                    << " after " << last_run_seconds << "s";
         else if (ev.status != 0)
@@ -372,12 +389,13 @@ void ExternProcServer::spawnProcess(const string &process, const string &name, c
         //cover this: it is a lambda, not a mem_fun.
         alive.singleShot(0.1, [this]() { processExited.emit(); });
     });
-    process_exe->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &)
+    process_exe->once<uvw::ErrorEvent>([this, generation](const uvw::ErrorEvent &ev, auto &)
     {
         if (!isStarted) hasFailedStarting = true;
         //A spawn that never happened is a failure like any other: a missing
         //binary is the cheapest way there is to loop forever.
-        noteChildGone(ev.code()? ev.code() : -1, 0);
+        noteChildGone(ev.code()? ev.code() : -1, 0,
+                      respawn_generation != generation);
         cCriticalDom("process") << "Process error: " << ev.what();
         process_exe->close();
         //T3.40: same window as the ExitEvent above, and both can be armed in

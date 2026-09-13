@@ -146,14 +146,18 @@ public:
     /* A zero status alone is NOT a voluntary stop: under Linux a child killed
      * by SIGSEGV, SIGABRT or the OOM killer leaves status 0 as well, so
      * deciding on the status alone lets every crash keep the old cadence. The
-     * signal tells the two apart, and SIGTERM is excluded because that is
-     * exactly what terminate() sends. */
+     * signal tells the two apart, and SIGTERM is exempt only when WE sent it:
+     * exempting it by its value alone hands a killall, a supervisor or an
+     * operator the pre-ramp cadence and a silent journal, which is the loop
+     * the ramp exists to slow down. The default answers for a caller that has
+     * no provenance to offer, and keeps the four-argument question unchanged. */
     static int nextFailureCount(int failures, int64_t status, int termSignal,
-                                double ranSeconds);
+                                double ranSeconds, bool termSignalWasOurs = true);
 
     int respawnFailures() const { return respawn_failures; }
     int64_t lastExitStatus() const { return last_exit_status; }
     int lastTermSignal() const { return last_term_signal; }
+    bool lastStopWasRequested() const { return last_stop_requested; }
     double lastRunSeconds() const { return last_run_seconds; }
 
     sigc::signal<void, const string &> messageReceived;
@@ -178,6 +182,7 @@ private:
     int respawn_failures = 0;
     int64_t last_exit_status = 0;
     int last_term_signal = 0;
+    bool last_stop_requested = false;
     double last_run_seconds = 0.0;
     std::chrono::steady_clock::time_point spawned_at =
             std::chrono::steady_clock::now();
@@ -191,7 +196,7 @@ private:
     void processData(const string &data);
     void relayChildOutput(string &buf, const char *stream, bool atEof);
     void spawnProcess(const string &process, const string &name, const vector<string> &args);
-    void noteChildGone(int64_t status, int termSignal);
+    void noteChildGone(int64_t status, int termSignal, bool stopRequested);
 };
 
 class ExternProcClient: public sigc::trackable
