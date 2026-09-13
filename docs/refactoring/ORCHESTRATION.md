@@ -14333,6 +14333,12 @@ l'a rattrapé** : la liste des relinks ne contenait pas le nom de la suite. Camp
    `make check`. Un `make -jN` nu ne suffit pas.
 2. ✅ **L'oracle `CXXLD` se lit sur LE NOM DE LA SUITE**, pas sur le nombre de relinks : onze
    `CXXLD` de binaires de production sont un tour qui n'a pas reconstruit ce qu'il mesure.
+3. ⛔ **`make -C tests <cible>` ne reconstruit PAS les objets de `src/`.** Mesuré deux fois dans la
+   nuit du 2026-09-13 : un réviseur a eu un tour **vert avec zéro `CXXLD`** — la suite liait les
+   objets serveur du tour précédent. ⇒ **`make -C src` d'abord**, puis la cible de `tests/`.
+4. ⛔ **Et un `make -C src` lancé SUR L'HÔTE peut avoir compilé sans gtest** : la cible est alors
+   déclarée « à jour » **à tort** pour un tour conteneur. ⇒ **bâtir dans le conteneur**, toujours
+   du même côté de la frontière que le `make check` qui lira le résultat.
 
 ## ⛔⭐ Outillage — LE 12ᵉ : LE LANCEUR QUI NE LANCE RIEN (revue de merge de `T3.153`, 2026-09-13)
 
@@ -14411,6 +14417,19 @@ La compilation a eu lieu, l'exécution a eu lieu ; c'est le **capteur** qui a é
 ⚠️ **Deux poisons, jamais un.** Un seul remplissage ne distingue pas un membre que le constructeur
 écrit d'un reste qui coïncide. La règle est la même que la 7ᵉ façon de mentir : ce qui est mesuré,
 c'est que la réponse **suit** le poison.
+
+## ⚠️ Mesure — la condition du `SKIP`, à dire avec le chiffre (2026-09-13)
+
+**Un compte de `SKIP` sans sa condition n'est pas une mesure.** Trois fiches de la vague 153
+annoncent des `SKIP` différents pour le même `master` : la cause est l'image, pas le ticket.
+
+| condition du tour | `SKIP` attendus |
+|---|---|
+| image **nue** | **3** : `run-python-tests.sh`, `check-pydeps-conformance.sh`, `check-ccache-honesty.sh` |
+| `scripts/ccache-setup.sh` **sourcé avant `make check`** | **1** : `check-ccache-honesty.sh` seul |
+
+⇒ Les références de ce document (`SKIP 1`) supposent toutes le script sourcé. Une fiche qui annonce
+un autre chiffre doit dire dans quelle condition elle a mesuré, sinon elle est illisible.
 
 ## ⭐ Outillage — `distcheck` est utilisable, à condition de le paralléliser soi-même
 
