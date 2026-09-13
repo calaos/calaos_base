@@ -42,6 +42,14 @@ protected:
     //first. See createUdpSocket(): it is the only thing that tells a refused
     //send from a broken socket.
     std::deque<std::string> pendingSends;
+    //Refused sends counted since this server started, for the journal only.
+    unsigned long refusedSends = 0;
+    //Refusals written out one by one before the doubling ramp takes over. Not a
+    //number picked here: a box that loses three correspondents must name the
+    //three, which is what UdpSendFailureIsolation_test holds, and three is
+    //therefore the floor. Any value up to four keeps the same set, four being
+    //a doubling already.
+    static constexpr unsigned long REFUSALS_SAID_IN_FULL = 3;
 
     void createUdpSocket();
     void sendTo(const string &ip, unsigned int remotePort, const string &packet);

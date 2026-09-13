@@ -107,9 +107,21 @@ void UDPServer::createUdpSocket()
         {
             const string peer = pendingSends.front();
             pendingSends.pop_front();
-            cErrorDom("network") << "UDP send to " << peer << " failed: "
-                                 << ev.what() << ", still listening on port "
-                                 << port;
+            refusedSends++;
+
+            /* The first few one by one, then one line per doubling. Who is on
+             * the network decides how many answers are refused, so a line per
+             * refusal lets it decide how many lines the journal gets; n cost
+             * log2(n) lines here. No count is ever the last one, so a failure
+             * that lasts keeps being said at a rate that falls - where "the
+             * first N, then nothing" goes mute for good.
+             */
+            if (refusedSends <= REFUSALS_SAID_IN_FULL ||
+                (refusedSends & (refusedSends - 1)) == 0)
+                cErrorDom("network") << "UDP send to " << peer << " failed: "
+                                     << ev.what() << ", still listening on port "
+                                     << port << " (" << refusedSends
+                                     << " refused so far, one line per doubling)";
             return;
         }
 
