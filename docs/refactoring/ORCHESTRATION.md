@@ -14370,6 +14370,48 @@ un résultat et non comme une anomalie.
 *À recopier : un capteur qui ne mesure rien passe pour un capteur qui ne trouve rien — et c'est
 vrai du harnais tout entier, pas seulement d'un cas de test.*
 
+## ⛔⭐⭐ Outillage — LE 13ᵉ : UN POISON QUE LE COMPILATEUR A LE DROIT DE MANGER (T3.172, 2026-09-13)
+
+**Treizième membre de la famille de `_DEPENDENCIES`, et le premier qui ne vient ni du harnais ni du
+lanceur mais du COMPILATEUR : l'outil rend un chiffre, et le chiffre ne mesure pas ce qu'on croit.**
+
+L'empoisonnement — remplir le stockage d'un octet connu, construire l'objet par-dessus, relire le
+membre — est la seule façon de **mesurer** qu'un constructeur laisse un membre en l'état : une
+lecture non initialisée n'a pas de valeur sur laquelle porter un oracle, le poison lui en donne une.
+
+Vécu en `T3.172` : `memset` puis placement-new, à `-O2`. Démarrer la vie d'un objet rend
+**indéterminée** toute valeur que son constructeur n'écrit pas, et le compilateur agit sur ce droit.
+Résultat : le remplissage a été **supprimé pour certaines sondes et conservé pour d'autres** dans la
+même unité de compilation. Deux cas ont rendu des restes de pile (`0`, `32764`) au lieu du poison —
+⛔ **ce qui se lit exactement comme « le constructeur a écrit ici »**, c'est-à-dire comme un
+résultat, et un résultat qui *innocente* le code sous test.
+
+⚠️ **Et les preuves des douze sections ci-dessus étaient TOUTES vraies** : `cmp` rc 0, horodatage vers
+l'avant, instantané neuf, pas de `| head`, `git status` hôte vide, restauration hors de tout
+`set -e`, `CXXLD` de la suite au journal, et la suite a bien **couru** avec son compte de cas attendu.
+La compilation a eu lieu, l'exécution a eu lieu ; c'est le **capteur** qui a été optimisé.
+
+**Parade — trois règles :**
+
+1. ⛔ **Écrire le poison octet par octet à travers un pointeur `volatile`**, et relire la
+   **représentation objet** du membre de la même façon. Un `memset` est élidable, une écriture
+   `volatile` ne l'est pas. (Relire un `bool` empoisonné *comme* un `bool` est en plus indéfini ;
+   son octet ne l'est pas.)
+2. ⛔ **Le `volatile` seul ne suffit pas.** Placement-new rend un pointeur vers un objet **neuf**, et
+   un compilateur qui voit tout le constructeur peut décider que rien de l'ancien stockage ne
+   l'atteint. Il faut une **barrière** (`asm volatile("" : "+r"(p) : : "memory")`) de part et d'autre
+   de la construction. Mesuré : sur un type jouet dont le constructeur s'inline entièrement, le
+   poison revenait à `0` avec les écritures `volatile` en place.
+3. ⭐ **Un auto-test de l'appareil, distinct du sujet** : un type portant un membre que son
+   constructeur écrit et un membre qu'il ne mentionne jamais, sous **deux** poisons différents. Il
+   rougit *avant* le sujet et nomme l'appareil, au lieu de laisser chaque cas rapporter tranquillement
+   un reste de pile. C'est la forme que prend ici *« un capteur qui ne mesure rien passe pour un
+   capteur qui ne trouve rien »*.
+
+⚠️ **Deux poisons, jamais un.** Un seul remplissage ne distingue pas un membre que le constructeur
+écrit d'un reste qui coïncide. La règle est la même que la 7ᵉ façon de mentir : ce qui est mesuré,
+c'est que la réponse **suit** le poison.
+
 ## ⭐ Outillage — `distcheck` est utilisable, à condition de le paralléliser soi-même
 
 `make distcheck` ne propage **pas** `-jN` : la recette lance douze `make` récursifs et n'y passe que
