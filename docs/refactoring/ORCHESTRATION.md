@@ -43,6 +43,64 @@
      liste de ce que seul le premier `push` tranchera compte **sept** points, et son mode d'échec est
      le **silence**. Elle est énumérée en tête de l'état de sortie ci-dessous.
 
+- ⭐⭐⭐⭐ **ÉTAT DE SORTIE — LOT 150, CINQ MERGES DANS UNE SEULE FENÊTRE (2026-09-13). À LIRE EN
+  PREMIER À FROID.**
+
+  **Dernier merge `--ff-only`** : **`4b13b9d8`**, puis **un** commit de board/doc de l'agent de
+  merge au-dessus. Ordre `T3.142` → `T3.141` → `T3.108` → `T3.164` → `T3.161`,
+  **20 commits**, `merge --ff-only` à chaque étape, historique **linéaire**, **0 commit de fusion**.
+  ⛔ **RIEN N'A ÉTÉ POUSSÉ.** `T3.142` est partie sans rebase (branchée sur la tête) ; les quatre
+  autres ont été rebasées une fois chacune. Conflits : `tests/Makefile.am` **quatre fois**,
+  `BOARD.md` **deux fois** (`T3.108`, `T3.161`), `FINDINGS.md` **zéro**. `ORCHESTRATION.md` n'a
+  conflité nulle part — seule `T3.141` y touche, et elle y installe le **11ᵉ piège d'outillage**
+  (*au sommet, `make` ne construit pas les binaires de test*).
+
+  ⭐ **`tests/Makefile.am` régénéré d'emblée à chaque fois** — `master` intégral + append verbatim du
+  bloc `# TX.Y`, jamais un marqueur édité. Append pur prouvé à chaque tour :
+  **+33 / +27 / +50 / +60 / +42**, **−0**, **~0**, et `master` **préfixe strict au BYTE** (`cmp`).
+  `TESTS` **156 → 161**. ⚠️ **`^if` 135 → 142, `^endif` 135 → 142** — et non 140 comme l'attendait le
+  brief : le bloc de `T3.108` porte **deux `if` imbriqués** (`HAVE_LIBKNX`, `HAVE_LIBOLA`) en plus de
+  son `if HAVE_GTEST`. C'est `if HAVE_GTEST` qui vaut **134 → 139**, une par branche. **L'équilibre
+  tient**, c'est lui l'invariant ; le total brut ne se prédit pas depuis le nombre de branches.
+
+  Référence après `make distclean` + `autogen` + `configure` :
+  **`TOTAL 161 / PASS 160 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
+  `check-ccache-honesty.sh`, **trois `make check` aux résumés identiques**, **0 `error:`**.
+  ⭐ `git grep -nE '^(<<<<<<< |>>>>>>> |=======$)'` **VIDE sur tout l'arbre**, vérifié après chaque
+  merge et à la fin. `F-FLAKY-3` : **0 occurrence sur 7 `make check`**.
+
+  ⛔⭐⭐ **CE QUE LA FENÊTRE A TROUVÉ ET QUE PERSONNE N'AVAIT DIT — RECALCULER UN DÉCALAGE SUR UNE
+  CITATION NON ANCRÉE PRÉSERVE L'ERREUR AU LIEU DE LA RÉVÉLER.** `T3.164` décale `WagoMap.cpp` de
+  `+31` et sa revue a corrigé les **six** citations de `docs/02_io_drivers.md` et
+  `docs/12_extern_proc.md` en leur appliquant ce `+31`, en écrivant « cible relue une à une ».
+  ⛔ **C'était faux** : les six désignaient **déjà** autre chose que ce qu'elles annoncent **sur
+  `master`** — la table du §1 de [`T3.175`](T3.175.md) le dit elle-même (`docs/02:256` parle du
+  sous-processus `calaos_wago`, et `WagoMap.cpp:48-50` portait la requête `WAGO_GET_VERSION`). Le
+  décalage a donc reconduit la mauvaise cible **avec fidélité**. Vraies cibles, écrites au merge :
+  `calaos_wago` en **`WagoMap.cpp:86`**, la remise à zéro de la rampe en **`110-114`**, le journal
+  `RESPAWN_LOG_EVERY` en **`165-168`**, l'unicité de la relance en **`157-158`**,
+  `RESPAWN_LOG_EVERY` déclaré en **`WagoMap.h:251`** — plus **deux citations voisines de la même
+  dérive** (`respawnDelay()`, annoncé en `WagoMap.h:170-177` et `165-172`, réellement en
+  **`258-265`**). ⇒ `F-DOCS-2` et [`T3.175`](T3.175.md) sont plus durs qu'ils ne le disaient : une
+  revue qui recalcule un décalage **croit honnêtement avoir corrigé**, et aucune sonde comparant des
+  numéros de ligne ne peut distinguer les deux gestes. Seule l'**ancre** le peut.
+
+  ⚠️ **Deux autres relevés de la fenêtre, mineurs mais consignés :**
+  - `tests/Makefile.am` porte désormais un **`CLEANFILES =`** (assignation, pas `+=`) dans le bloc
+    `# T3.108`. Rien ne le définissait avant, donc c'est sans effet aujourd'hui — mais un bloc
+    ultérieur qui écrirait `CLEANFILES +=` **au-dessus** serait effacé sans bruit. Le prochain qui
+    touche à cette variable la passe en `+=`.
+  - `BOARD.md` porte **deux lignes à plus de 6 colonnes** (`T3.35`, `T3.37`), d'un `|` non échappé
+    dans un `code span`. Antérieures à ce lot, non corrigées ici.
+
+  ⛔ **LE NU DE LA FENÊTRE** : les cinq campagnes de contre-mutation ont été **relues**, jamais
+  rejouées — c'était le contrat du merge groupé. Ce que ce merge mesure lui-même, c'est le harnais
+  (`161/160/1/0`, trois tours identiques, append pur au byte), pas les ensembles rouges. Et
+  **`T3.161` ne touche aucune ligne de `src/`** (vérifié `git diff --name-only`) : c'est une
+  caractérisation, le défaut des volets Wago reste entier ⇒ [`T3.171`](T3.171.md) /
+  [`T3.172`](T3.172.md).
+
+
 - ⭐⭐⭐⭐ **ÉTAT DE SORTIE — [`T3.156`](T3.156.md) MERGÉE (2026-09-07), SEULE DANS SA FENÊTRE. À LIRE
   EN PREMIER À FROID.**
 

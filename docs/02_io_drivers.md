@@ -253,7 +253,7 @@ déclenchent (T3.13) ; elles étaient vides auparavant. Voir
 **Dossier :** [src/bin/calaos_server/IO/Wago/](../src/bin/calaos_server/IO/Wago/)
 
 Automates Wago 750 en Modbus TCP. Le dialogue Modbus se fait dans un **sous-processus**
-`calaos_wago` (dérivé, [IO/Wago/WagoMap.cpp:79-81](../src/bin/calaos_server/IO/Wago/WagoMap.cpp)),
+`calaos_wago` (dérivé, [IO/Wago/WagoMap.cpp:84-86](../src/bin/calaos_server/IO/Wago/WagoMap.cpp)),
 piloté par `ExternProcServer` sur un socket IPC ; `WagoCtrl` (enrobage de libmbus) vit dans ce
 sous-processus.
 
@@ -311,7 +311,7 @@ Le Wago est la pièce maîtresse de l'installation : le sous-processus est relan
 reprise soit immédiate après une coupure réseau ou une maintenance.
 
 ```cpp
-// (dérivé, IO/Wago/WagoMap.h:170-177, intégral)
+// (dérivé, IO/Wago/WagoMap.h:258-265, intégral)
     static double respawnDelay(int attempt)
     {
         static const double delays[] = { 1.0, 2.0, 3.0, 5.0 };
@@ -324,11 +324,11 @@ reprise soit immédiate après une coupure réseau ou une maintenance.
 
 Délais : 1 s, 2 s, 3 s, puis **5 s pour toujours**. Le compteur d'échecs est remis à zéro dès que
 le processus est de nouveau connecté
-(dérivé, [IO/Wago/WagoMap.cpp:101-102](../src/bin/calaos_server/IO/Wago/WagoMap.cpp)). Pour ne pas
+(dérivé, [IO/Wago/WagoMap.cpp:110-114](../src/bin/calaos_server/IO/Wago/WagoMap.cpp)). Pour ne pas
 inonder le journal tout en ne restant pas silencieux, une erreur est journalisée **une tentative
 sur dix** (`RESPAWN_LOG_EVERY = 10`, dérivé,
-[IO/Wago/WagoMap.h:163](../src/bin/calaos_server/IO/Wago/WagoMap.h),
-[IO/Wago/WagoMap.cpp:154-160](../src/bin/calaos_server/IO/Wago/WagoMap.cpp)).
+[IO/Wago/WagoMap.h:251](../src/bin/calaos_server/IO/Wago/WagoMap.h),
+[IO/Wago/WagoMap.cpp:165-168](../src/bin/calaos_server/IO/Wago/WagoMap.cpp)).
 
 ---
 

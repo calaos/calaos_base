@@ -13669,6 +13669,23 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   une accolade seule sont un indice, pas la réponse — une citation peut tomber sur du code réel et
   faux, cas que la sonde **accepte** déjà dans son propre auto-test.
 
+  ⛔⭐⭐ **AGGRAVÉ À LA FENÊTRE DE MERGE GROUPÉ DU 2026-09-13 — RECALCULER LE DÉCALAGE PRÉSERVE
+  L'ERREUR AU LIEU DE LA RÉVÉLER.** La revue de `T3.164` a « corrigé » les six citations en leur
+  appliquant `+31`, et a écrit « cible relue une à une ». ⛔ **Aucune des six ne désignait ce qu'elle
+  annonce, ni avant ni après** : elles étaient déjà fausses **sur `master`**, d'une dérive
+  antérieure, et la table du §1 de [T3.175](T3.175.md) le dit elle-même sans en tirer la conclusion
+  (`docs/02:256` parle du sous-processus `calaos_wago`, et `WagoMap.cpp:48-50` portait la requête
+  `WAGO_GET_VERSION`). Vraies cibles, écrites au merge : `calaos_wago` en **`WagoMap.cpp:86`**, la
+  remise à zéro de la rampe en **`110-114`**, le journal `RESPAWN_LOG_EVERY` en **`165-168`**,
+  l'unicité de la relance en **`157-158`**, `RESPAWN_LOG_EVERY` en **`WagoMap.h:251`** — plus **deux
+  citations voisines de la même dérive** (`respawnDelay()`, annoncé `WagoMap.h:170-177` et
+  `165-172`, réellement **`258-265`**).
+  ⭐ **Ce qui rend la forme dangereuse** : le geste du décalage est **arithmétiquement vérifiable**,
+  donc il se relit vert ; la revue qui le fait croit honnêtement avoir corrigé, et rend une citation
+  fausse **plus crédible qu'avant**, puisqu'elle vient d'être « vérifiée ». Aucune sonde comparant
+  des numéros de ligne ne distingue les deux gestes — seule l'**ancre** le peut. La demande de
+  `T3.175` s'en trouve renforcée : ce n'est pas un confort, c'est la seule mesure possible.
+
 
 ## Réflexion DALI 753-647 — ce qui en sort de mesurable (2026-09-07)
 

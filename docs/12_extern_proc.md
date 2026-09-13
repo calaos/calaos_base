@@ -341,7 +341,7 @@ de spawn. Seul Wago s'en protège.
 
 Le Wago est la pièce maîtresse de l'installation : le processus est relancé **pour toujours**,
 avec une rampe courte et un **plafond bas à 5 s** pour que la reprise soit rapide dès que
-l'automate ou le réseau revient (intégral, `WagoMap.h:165-172`) :
+l'automate ou le réseau revient (intégral, `WagoMap.h:253-265`) :
 
 ```cpp
     //Backoff delay in seconds before respawning the subprocess. The Wago is
@@ -355,10 +355,10 @@ l'automate ou le réseau revient (intégral, `WagoMap.h:165-172`) :
 ```
 
 Soit **1 s, 2 s, 3 s, puis 5 s pour toujours**. Le compteur d'échecs est remis à zéro dès que
-`processConnected` est émis (`WagoMap.cpp:99-104`). Toutes les `RESPAWN_LOG_EVERY = 10`
+`processConnected` est émis (`WagoMap.cpp:110-114`). Toutes les `RESPAWN_LOG_EVERY = 10`
 tentatives, une erreur nomme le binaire et l'automate visé
-(`WagoMap.h:161-163`, `WagoMap.cpp:154-157`). Une seule relance est armée à la fois
-(`WagoMap.cpp:146-147`).
+(`WagoMap.h:249-251`, `WagoMap.cpp:165-168`). Une seule relance est armée à la fois
+(`WagoMap.cpp:157-158`).
 
 ---
 
