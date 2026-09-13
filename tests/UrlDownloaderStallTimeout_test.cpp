@@ -1057,7 +1057,8 @@ TEST(UrlDownloaderStallTimeout, TheOnlyRelayOfEndlessDataInSrcAsksForNoStallBoun
 
     bool exempted = false;
     for (size_t i = built + 1; i < sites[0].second; i++)
-        if (lines[i].find("setStallTimeout(") != std::string::npos)
+        if (lines[i].find("setStallTimeout(") != std::string::npos
+            && lines[i].find("stallTimeoutNone") != std::string::npos)
             exempted = true;
 
     EXPECT_TRUE(exempted)
