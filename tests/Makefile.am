@@ -6743,3 +6743,36 @@ core_ShutterUninitMembers_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOVoletSmart.$(OBJEXT) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.193
+#What re-arming a given-up UDP receiver would cost, measured before one is
+#written. UDPServer stops its receiver on a failed read and nothing ever arms it
+#again; three conducts are defensible and this suite prices them rather than
+#picking one - it changes no line of src/.
+#The fault is INJECTED in this process's own descriptor table, the only thing
+#that can make an unconnected UDP read fail, and the re-arm is injected too, a
+#turn of the loop after the give-up: that is the only shape a deferred recovery
+#could have.
+#Two children differ only in how long they are pumped and must report the SAME
+#count of give-ups - what bounds the journal is a number of attempts, never a
+#delay, and nothing here reads a duration.
+#One child dies on SIGABRT: libuv hands a closed descriptor back to epoll_ctl on
+#the re-arm and aborts, so a deferred recovery turns a deaf box into a dead one.
+#No skip: whether the accident can be produced here is read by cases that go
+#red, never by a barrier reporting a clean run having measured nothing.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/UdpDeafnessRearmCost_test
+check_PROGRAMS += core/UdpDeafnessRearmCost_test
+core_UdpDeafnessRearmCost_test_SOURCES = core/UdpDeafnessRearmCost_test.cpp
+core_UdpDeafnessRearmCost_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+UDP_REARM_COST_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
+core_UdpDeafnessRearmCost_test_LDADD = $(UDP_REARM_COST_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_UdpDeafnessRearmCost_test_DEPENDENCIES = $(UDP_REARM_COST_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
