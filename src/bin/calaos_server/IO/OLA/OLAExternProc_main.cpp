@@ -115,12 +115,12 @@ bool OLAProcess::setup(int &argc, char **&argv)
 
 int OLAProcess::procMain()
 {
-    run();
+    const bool ok = run();
 
     //disconnect ola client
     client.Stop();
 
-    return 0;
+    return ok? 0: 1;
 }
 
 EXTERN_PROC_CLIENT_MAIN(OLAProcess)

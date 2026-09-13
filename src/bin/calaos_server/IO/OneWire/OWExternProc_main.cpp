@@ -305,9 +305,8 @@ int OWProcess::procMain()
 {
     //force a read+send the first time
     readTimeout();
-    run(1000);
 
-    return 0;
+    return run(1000)? 0: 1;
 }
 
 EXTERN_PROC_CLIENT_MAIN(OWProcess)

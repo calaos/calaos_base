@@ -141,9 +141,7 @@ int KNXProcess::procMain()
 {
     connectKnxd();
 
-    run(500);
-
-    return 0;
+    return run(500)? 0: 1;
 }
 
 void KNXProcess::connectKnxd()

@@ -199,9 +199,7 @@ bool ScriptProcess::setup(int &argc, char **&argv)
 
 int ScriptProcess::procMain()
 {
-    run();
-
-    return 0;
+    return run()? 0: 1;
 }
 
 EXTERN_PROC_CLIENT_MAIN(ScriptProcess)

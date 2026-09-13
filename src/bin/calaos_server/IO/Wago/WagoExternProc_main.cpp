@@ -251,9 +251,7 @@ bool WagoProcess::setup(int &argc, char **&argv)
 
 int WagoProcess::procMain()
 {
-    run(1000);
-
-    return 0;
+    return run(1000)? 0: 1;
 }
 
 EXTERN_PROC_CLIENT_MAIN(WagoProcess)
