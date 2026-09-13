@@ -13737,14 +13737,21 @@ qu'est l'état *sûr* d'un volet au démarrage, et **rien dans l'arbre ne le dit
   si `start_addr_out = 0` ; un rack équipé d'une 753-647 a `start_addr_out = 192`. ⇒ le mécanisme
   que `T3.161` se proposait de recopier **n'est pas un modèle validé**. ⇒ [T3.171](T3.171.md).
 
-- ⛔ **F-SHUT-3 — [LATENT, NON CORRIGÉ] `OutputShutter` et `OutputShutterSmart` laissent quatre à
-  six membres non initialisés, et `Stop()` en lit un.**
+- ⛔ **F-SHUT-3 — [LATENT, NON CORRIGÉ] `OutputShutter` laisse quatre membres non initialisés, et
+  `Stop()` en lit un ; `OutputShutterSmart` en laisse quatre autres, qu'il ne lit pas.**
 
-  `time`, `is_impulse_action`, `impulse_action_time`, `impulse_time` (plus `start_time` et
-  `start_position` pour `Smart`) ne sont écrits que dans `set_value()`. Latent aujourd'hui — tous les
-  chemins vivants viennent d'une action — et **immédiatement vivant** dès qu'un point de
-  resynchronisation appelle `Stop()` hors action : la branche impulsion excite **les deux** relais.
-  ⇒ [T3.172](T3.172.md), qui n'attend aucun arbitrage.
+  ⚠️ **Rédaction corrigée à la revue du lot**, la première mettait les deux classes sur le même plan.
+  `OutputShutter` n'a **pas** de `readConfig()` : `time`, `is_impulse_action`, `impulse_action_time`
+  et `impulse_time` ne sont écrits que dans `set_value()`. `OutputShutterSmart` **appelle
+  `readConfig()` à son constructeur**, qui affecte `impulse_time` sur ses deux branches ; il lui
+  reste `is_impulse_action`, `impulse_action_time`, `start_time`, `start_position`. Mesuré par
+  empoisonnement des deux constructeurs puis relecture à leur sortie : **424242** pour
+  `OutputShutter`, **-1** pour `OutputShutterSmart`.
+
+  Latent aujourd'hui — tous les chemins vivants viennent d'une action — et **immédiatement vivant**
+  dès qu'un point de resynchronisation appelle `Stop()` hors action, **sur le volet simple** : la
+  branche impulsion y excite **les deux** relais. ⇒ [T3.172](T3.172.md), qui n'attend aucun
+  arbitrage.
 
 - ⚠️ **F-SHUT-4 — [MESURÉ par lecture, NON TICKETÉ] un volet relancé en mouvement depuis le cache
   n'arme aucune fin de course.**
