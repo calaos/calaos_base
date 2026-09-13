@@ -6373,3 +6373,53 @@ UrlDownloaderPollGuard_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   -ldl \
                   -lgtest
 endif
+
+# T3.108
+#What a parent learns from a sidecar whose main loop failed. run() answers
+#false when it left on a failed select(); the only thing a parent can act on is
+#the child's exit status, and procMain() is the only join between the two. A
+#case calling procMain() would prove nothing, the defect being that its answer
+#went nowhere - so these cases exec the SHIPPED BINARIES, serve the socket a
+#controller serves, and read back waitpid().
+#No sidecar but calaos_mqtt registers a descriptor of its own, so a server can
+#only end their loop the orderly way. core/selectfail_preload.c is interposed
+#into the child to make its select() answer EBADF, which is what makes the
+#failing branch reachable without touching production code. It is built here,
+#by hand, because it is a plain shared object and not a library anything links.
+#calaos_ola refuses to start without olad, so its cases open a listener on
+#olad's port first: StreamingClient::Setup() only wants a TCP connection.
+#calaos_knx and calaos_ola are conditional; their cases are compiled in only
+#where the binary is, which keeps TESTS the same everywhere.
+#calaos_mqtt is absent on purpose: its setup() waits for its configuration in a
+#select() loop of its own, so an interposed select() makes it leave before
+#procMain() is entered - the case would have measured setup(), not the loop.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+EXTRA_DIST += core/selectfail_preload.c
+CLEANFILES = core/selectfail_preload.so
+
+core/selectfail_preload.so: $(srcdir)/core/selectfail_preload.c
+	$(AM_V_GEN)$(MKDIR_P) $(@D) && $(CC) -shared -fPIC -o $@ $< -ldl
+
+SIDECAR_LOOP_EXIT_DEFS =
+if HAVE_LIBKNX
+SIDECAR_LOOP_EXIT_DEFS += -DCALAOS_KNX_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_knx"'
+endif
+if HAVE_LIBOLA
+SIDECAR_LOOP_EXIT_DEFS += -DCALAOS_OLA_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_ola"'
+endif
+
+TESTS += core/SidecarLoopExitStatus_test
+check_PROGRAMS += core/SidecarLoopExitStatus_test
+core_SidecarLoopExitStatus_test_SOURCES = core/SidecarLoopExitStatus_test.cpp
+core_SidecarLoopExitStatus_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -DCALAOS_SELECTFAIL_PRELOAD='"$(abs_builddir)/core/selectfail_preload.so"' \
+                  -DCALAOS_SCRIPT_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_script"' \
+                  -DCALAOS_WAGO_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_wago"' \
+                  -DCALAOS_1WIRE_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_1wire"' \
+                  $(SIDECAR_LOOP_EXIT_DEFS)
+core_SidecarLoopExitStatus_test_LDADD = -lgtest -lgtest_main
+#Nothing of the server is linked here: the code under test is in another
+#process. The interposed object is the one prerequisite make must build.
+core_SidecarLoopExitStatus_test_DEPENDENCIES = core/selectfail_preload.so
+endif
