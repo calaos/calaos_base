@@ -34,13 +34,15 @@
  * ---------------------------------------------------------------------------
  * HOW THE FAULT IS PRODUCED
  * ---------------------------------------------------------------------------
- * No peer on the network can make an unconnected UDP socket's read fail: a
- * read returns EAGAIN and nothing else. What can is an accident in this
- * process's own descriptor table. epoll holds its own reference to the file
- * description, so the port stays bound and keeps reporting readable while the
- * read lands on whatever the descriptor number now names: a stream socket
- * (ENOTCONN), or nothing at all (EBADF). The cause is INJECTED here, and the
- * suite says so rather than dressing it as a network event.
+ * A failed read needs no peer: under memory pressure the kernel returns
+ * ENOMEM/ENOBUFS, leaves the descriptor open, and a re-arm then recovers the
+ * whole queue. What is INJECTED here is the other kind - an accident in this
+ * process's own descriptor table - because it is the only producer found in
+ * calaos_server, and the only one that makes a re-arm fatal: libuv aborts on
+ * any epoll_ctl error but EEXIST, and only a CLOSED descriptor gives EBADF.
+ * epoll keeps its own reference to the file description, so the port stays
+ * bound and reports readable while the read lands on a stream socket
+ * (ENOTCONN) or on nothing.
  *
  * The re-arm is injected too. It is done from the test, a turn of the loop
  * after the give-up and never from inside the error callback, because that is
