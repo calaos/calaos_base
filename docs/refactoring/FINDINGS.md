@@ -13187,8 +13187,8 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
 
 ## T3.105 — la relance des sidecars (2026-09-07)
 
-- ⛔⭐⭐ **[F-EXTPROC-10] La rampe de relance de `WagoMap` ne monte JAMAIS, et son alarme n'imprime
-  jamais.** C'est la seule rampe par abonné de l'arbre (1 / 2 / 3 / 5 s, plafond 5 s, plus un
+- ✅⭐⭐ **[F-EXTPROC-10] FERMÉ par [`T3.136`](T3.136.md) — la rampe de relance de `WagoMap` ne
+  montait JAMAIS, et son alarme n'imprimait jamais.** C'est la seule rampe par abonné de l'arbre (1 / 2 / 3 / 5 s, plafond 5 s, plus un
   `still failing after N attempts` à chaque multiple de **10**), et elle remet son compteur à zéro
   sur `processConnected`. Or `processConnected` est la **socket IPC**, pas l'automate :
   `setup()` de `calaos_wago` appelle `connectSocket()` en **première instruction**. Tout lancement
@@ -13200,6 +13200,15 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   famille Wago est de **31,1 s** là où les autres sont à 30,1 s.
   *À recopier : un signal de « ça va mieux » doit prouver que le TRAVAIL a repris, pas que le
   transport est branché — sinon un compteur d'échecs se remet à zéro à chaque échec.*
+  ✅ **Fermé** : le compte vient désormais du transport (`respawnFailures()`), que la connexion IPC
+  ne peut pas effacer, et la règle de l'alarme est une fonction pure qui refuse un compte de zéro.
+  ⭐ **Une seule cause pour les deux symptômes, vérifiée** : le compteur était bien incrémenté et la
+  condition de l'alarme bien écrite ; c'est la remise à zéro qui tombait à chaque tour.
+  ⚠️ **L'addition des deux délais s'est creusée** — 35,1 s au plafond pour la famille Wago contre
+  30,1 s ailleurs — parce que la rampe par abonné monte enfin ⇒ [`T3.195`](T3.195.md), qui porte
+  aussi la VALEUR du plafond de 5 s : sa justification écrite (« reprise rapide après coupure ») ne
+  décrivait **aucune situation atteignable**, `calaos_wago` ne sortant pas quand l'automate tombe,
+  et elle a été **retirée de `WagoMap.h`** — un POURQUOI mesuré faux n'a rien à faire dans `src/`.
 
 - ⛔⭐⭐ **[F-EXTPROC-11] Cinq familles de sidecars sur sept ne peuvent PAS ralentir, parce qu'elles
   ne savent pas échouer.** Mesuré à la source en écrivant `T3.105` : `procMain()` de `calaos_wago`,
