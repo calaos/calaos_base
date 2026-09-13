@@ -28,6 +28,37 @@
 using namespace Utils;
 using namespace Calaos;
 
+namespace
+{
+
+string udpVerb(const string &frame)
+{
+    string::size_type sp = frame.find(' ');
+    return sp == string::npos ? frame : frame.substr(0, sp);
+}
+
+/* Every PLC program from 1.7 on answers a command by repeating its name, so a
+ * reply naming a different one was produced by a different request. A payload
+ * whose first field is not a command name at all says nothing either way, and
+ * keeps the attribution it has always had.
+ *
+ * Only a DALI state read is guarded, because the harm is one-directional: a
+ * foreign datagram taken for a version answer leaves the PLC on "unknown",
+ * which is the two-parameter read every program has always been sent, while
+ * one taken for a DALI state yields a plain 100 and shows the luminaire lit. */
+bool udpReplyMisattributedToDaliGet(const string &command, const string &reply)
+{
+    if (udpVerb(command) != "WAGO_DALI_GET")
+        return false;
+
+    const string verb = udpVerb(reply);
+    if (verb.rfind("WAGO_", 0) != 0)
+        return false;
+    return verb != "WAGO_DALI_GET";
+}
+
+}
+
 WagoMapManager WagoMap::wagomaps;
 
 WagoMap::WagoMap(std::string h, int p):
@@ -515,6 +546,22 @@ void WagoMap::plcVersionReply_cb(bool status, WagoTypes::UdpCommand, WagoTypes::
 
 void WagoMap::udpRequest_cb(bool status, string res)
 {
+    /* Attribution is POSITIONAL: whatever arrives is the head's answer. A
+     * datagram that names another command answers a request nobody waits for
+     * any more - the version query that expired at 2s, or a duplicate of one
+     * already served - and handing "3.0" to a DALI read makes its caller read
+     * any non-"0" second token as a lit ballast.
+     * The return must stay ABOVE the timeout below: the head still owes its
+     * StartReadRules count, and the 2s timer is the only thing left to give it
+     * back. Cancel it here and the server never finishes starting. */
+    if (status && !udp_commands.empty() &&
+        udpReplyMisattributedToDaliGet(udp_commands.front().udp_command, res))
+    {
+        cDebugDom("wago") << "UDP, dropping '" << res << "' while waiting for '"
+                          << udp_commands.front().udp_command << "'";
+        return;
+    }
+
     if (udp_timeout_timer)
     {
         delete udp_timeout_timer;

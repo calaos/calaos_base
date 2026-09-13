@@ -38,11 +38,18 @@
  * WHAT THE FIX IS, AND WHAT IT IS NOT. The PLC names the command in its
  * answer - measured in the eight PLC programs, 1.7 through 3.0: a DALI read is
  * answered by "WAGO_DALI_GET <state> <level>" and the version query by
- * "WAGO_GET_VERSION <H>.<L> <model>". A datagram that names a DIFFERENT
- * command than the head therefore belongs to a request nobody is waiting for
- * any more, and is dropped. A datagram that names no command at all cannot be
- * placed, and keeps the conduct it has always had - this file measures that
- * too, so the guard cannot be a guard that drops everything.
+ * "WAGO_GET_VERSION <H>.<L> <model>". A datagram naming a DIFFERENT command
+ * than a DALI read at the head therefore belongs to a request nobody is
+ * waiting for any more, and is dropped.
+ *
+ * ONLY THE DALI READ IS GUARDED, and the boundary is measured here, not
+ * asserted: a foreign datagram taken for a VERSION answer leaves the PLC on
+ * "unknown", which is the two-parameter read every program has always been
+ * sent, while one taken for a DALI STATE yields a plain 100. The degradation
+ * only goes to the safe side in one direction, and this fix closes the other.
+ * A datagram that names no command at all cannot be placed either way and
+ * keeps the conduct it has always had - this file measures that too, so the
+ * guard cannot be a guard that drops everything.
  *
  * THE START BARRIER IS WHAT MAKES A DROP DANGEROUS. Every WODali counts itself
  * into StartReadRules and gets that count back from its callback only. Drop a
@@ -349,6 +356,31 @@ TEST_F(WagoReplyAttributionTest, AVersionReplyStillAnswersTheVersionQuery)
     EXPECT_EQ("1", f[1]);
     EXPECT_EQ("7", f[2]) << "the address left its second position";
     EXPECT_EQ("1", f[3]) << "the group flag is not in third position";
+}
+
+/* THE BOUNDARY OF THE GUARD, measured. A datagram naming another command is
+ * still read as a version when the VERSION QUERY is what waits: that path ends
+ * on "unknown", which is the read every program has always been sent, and the
+ * neighbouring suite pins it. Widening the guard to cover it would change a
+ * behaviour that harms nobody, so it is left alone - and a case is owed to
+ * whoever reads the guard and wonders why it is one-sided. */
+TEST_F(WagoReplyAttributionTest, AForeignDatagramStillAnswersTheVersionQueryAsUnknown)
+{
+    const std::string host = hostFor("83");
+    ASSERT_NE(nullptr, makeDali(host, "t3164_boundary", "7", "1"));
+
+    const std::vector<std::string> before = framesOn(host);
+    ASSERT_EQ(1u, before.size());
+    ASSERT_EQ("WAGO_GET_VERSION", before[0]);
+
+    datagram(host, "WAGO_HEARTBEAT 1");
+
+    const std::vector<std::string> after = framesOn(host);
+    ASSERT_EQ(1u, after.size())
+        << "the deferred DALI read did not leave, so nothing gives its "
+           "StartReadRules count back until the 2s timeout";
+    EXPECT_EQ("WAGO_DALI_GET 1 7", after[0])
+        << "a heartbeat echo was read as a usable version";
 }
 
 /* A datagram naming no command at all is not placeable, and keeps the conduct
