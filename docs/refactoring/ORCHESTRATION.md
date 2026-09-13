@@ -14418,18 +14418,36 @@ La compilation a eu lieu, l'exécution a eu lieu ; c'est le **capteur** qui a é
 écrit d'un reste qui coïncide. La règle est la même que la 7ᵉ façon de mentir : ce qui est mesuré,
 c'est que la réponse **suit** le poison.
 
-## ⚠️ Mesure — la condition du `SKIP`, à dire avec le chiffre (2026-09-13)
+## ⚠️ Mesure — un compte de `SKIP` ne se lit pas sans l'image où il a été pris (2026-09-13)
 
-**Un compte de `SKIP` sans sa condition n'est pas une mesure.** Trois fiches de la vague 153
-annoncent des `SKIP` différents pour le même `master` : la cause est l'image, pas le ticket.
+**`SKIP` dépend de l'IMAGE et de l'état du cache, pas du ticket.** Trois fiches de la vague 153
+annoncent des `SKIP` différents pour le même `master` : chacune a mesuré ailleurs.
 
-| condition du tour | `SKIP` attendus |
+Deux conditions **mesurées**, dans l'image devcontainer `vsc-calaos_base-8a52b90d…`, arbre à
+`TOTAL 169` :
+
+| condition du tour | `SKIP` |
 |---|---|
-| image **nue** | **3** : `run-python-tests.sh`, `check-pydeps-conformance.sh`, `check-ccache-honesty.sh` |
-| `scripts/ccache-setup.sh` **sourcé avant `make check`** | **1** : `check-ccache-honesty.sh` seul |
+| image devcontainer, aucun cache en service (`PATH` par défaut) | **1** : `check-ccache-honesty.sh` seul |
+| même image, `/usr/lib/ccache` en tête du `PATH` **et** `scripts/ccache-setup.sh` sourcé | **0** |
 
-⇒ Les références de ce document (`SKIP 1`) supposent toutes le script sourcé. Une fiche qui annonce
-un autre chiffre doit dire dans quelle condition elle a mesuré, sinon elle est illisible.
+Ce que ces deux mesures séparent :
+
+- `run-python-tests.sh` et `check-pydeps-conformance.sh` **PASSENT** dans cette image, dont les
+  extras Python sont installés. Leur `SKIP` est une propriété de l'**image**, et rien dans le tour
+  ne le change.
+- `check-ccache-honesty.sh` rend **77** tant qu'aucun cache n'est en service sur `CXX`/`CC`. C'est le
+  `PATH` qui décide : `scripts/ccache-setup.sh` ne fait que semer la configuration dans
+  `$CCACHE_DIR`, le sourcer seul laisse le `SKIP` en place (mesuré). Une image dont
+  `/usr/lib/ccache` est déjà dans le `PATH` (Fedora, Gentoo) rend donc **1** et non **77** sur un
+  arbre neuf — voir l'en-tête du script.
+
+⇒ Une fiche qui publie un chiffre de `SKIP` doit nommer **l'image** et **l'état du cache**. Sans ces
+deux-là le chiffre n'est pas lisible, et deux tours l'un et l'autre corrects se contredisent.
+
+⛔ La rédaction précédente annonçait **3** `SKIP` pour une « image nue » et faisait de
+`scripts/ccache-setup.sh` la variable : les deux sont trop généraux, et faux pour l'image
+devcontainer. Aucune mesure sur image nue n'est reprise ici.
 
 ## ⭐ Outillage — `distcheck` est utilisable, à condition de le paralléliser soi-même
 
