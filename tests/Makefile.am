@@ -6634,3 +6634,38 @@ core_WagoRespawnRamp_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoM
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.152
+#Who decides how many lines the journal gets when answers are refused.
+#UDPServer answers the source of the datagram it just read and UDP discovery
+#needs no credentials, so one line per refused answer hands the length of the
+#journal to whoever speaks on the network. The ceiling is one line per doubling
+#of the count: the first refusal is always written, n of them cost log2(n)
+#lines, and no count is ever the last - a lasting failure keeps being said at a
+#rate that falls.
+#⚠️ The ceiling lives INSIDE the send branch, after the pendingSends test. The
+#same listener also carries the stop, whose two lines are the last thing the box
+#writes before it goes deaf; a ceiling spread over the listener as a whole could
+#swallow them. One case injects a receive error on the run whose ramp is deepest
+#and asks for the stop anyway.
+#Each refusal goes to its own address of 192.0.2.0/24, so the journal says WHICH
+#refusals were kept: a count of eight is passed by keeping the first eight, the
+#last eight or every sixteenth, and those name different peers.
+#No skip: whether the accidents can be produced here is read by cases that go
+#red, never by a barrier that would report a clean run having measured nothing.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/UdpSendFailureLogCeiling_test
+check_PROGRAMS += core/UdpSendFailureLogCeiling_test
+core_UdpSendFailureLogCeiling_test_SOURCES = core/UdpSendFailureLogCeiling_test.cpp
+core_UdpSendFailureLogCeiling_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+UDP_SEND_CEILING_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
+core_UdpSendFailureLogCeiling_test_LDADD = $(UDP_SEND_CEILING_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_UdpSendFailureLogCeiling_test_DEPENDENCIES = $(UDP_SEND_CEILING_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
