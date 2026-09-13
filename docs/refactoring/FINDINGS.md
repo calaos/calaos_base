@@ -722,6 +722,9 @@
   observateur sur une erreur et la sonde de libuv est **à niveau** : tant que le datagramme n'est
   pas lu, la même lecture échoue à chaque tour. Sonde libuv nue, **un** datagramme, descripteur
   remplacé : **509 226 événements d'erreur** ; avec `uv_udp_recv_stop()` au premier : **1**.
+  ⚠️ **Ce chiffre-là est un compte sur une fenêtre d'horloge murale** (sonde laissée libre) et ne se
+  reproduit pas — la revue a rejoué `988527` en 1 s. Ce qui se reproduit est `errors == turns`, un
+  événement par tour ; c'est cette égalité qu'il faut citer, jamais le nombre.
   ⇒ ⛔ **retirer l'arrêt de la branche réception n'ouvre pas une boucle *silencieuse* mais une
   boucle très bruyante**, à raison d'une ligne `[ERR]` par tour. ⚠️ Le remède naïf `h.stop();
   h.recv();` ramène le déluge **et** tue le processus (`SIGABRT`). ⚠️ Un seuil « N erreurs
