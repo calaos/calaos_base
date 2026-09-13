@@ -14164,6 +14164,25 @@ dont on ne peut pas expliquer le résultat se refait avant d'être écrit.
 se relit propre, donc les mutations s'accumulent et l'ensemble rouge **grossit** — le résultat a
 l'air *meilleur*.
 
+## ⛔⭐ Outillage — AU SOMMET, `make` NE CONSTRUIT PAS LES BINAIRES DE TEST (revue de `T3.141`, 2026-09-13)
+
+**Même famille que `_DEPENDENCIES` : l'outil rend un chiffre, et le chiffre ne mesure pas ce qu'on
+croit.** Les suites sont des `check_PROGRAMS` : `make` au sommet construit `all`, **jamais** elles.
+Un tour de contre-mutation qui recompile la bibliothèque puis lance `tests/<suite>` exécute donc le
+binaire **du tour d'avant**, et la mutation qu'on croit mesurer n'y est pas.
+
+Vécu à la revue de `T3.141` : la première campagne rendait `CM1` **0 rouge** — un mutant qui fait
+pourtant tomber le processus par SIGSEGV. Le harnais était propre par ailleurs (`cmp` rc 0,
+horodatage vers l'avant, instantané neuf, `git status` hôte vide) ; c'est **l'oracle `CXXLD` qui
+l'a rattrapé** : la liste des relinks ne contenait pas le nom de la suite. Campagne jetée et refaite.
+
+**Parade — deux règles :**
+
+1. ⛔ **Viser la cible explicitement** : `make -C tests <suite>` après le `make` du sommet, ou
+   `make check`. Un `make -jN` nu ne suffit pas.
+2. ✅ **L'oracle `CXXLD` se lit sur LE NOM DE LA SUITE**, pas sur le nombre de relinks : onze
+   `CXXLD` de binaires de production sont un tour qui n'a pas reconstruit ce qu'il mesure.
+
 ## ⭐ Outillage — `distcheck` est utilisable, à condition de le paralléliser soi-même
 
 `make distcheck` ne propage **pas** `-jN` : la recette lance douze `make` récursifs et n'y passe que
