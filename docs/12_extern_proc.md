@@ -355,10 +355,10 @@ l'automate ou le réseau revient (intégral, `WagoMap.h:165-172`) :
 ```
 
 Soit **1 s, 2 s, 3 s, puis 5 s pour toujours**. Le compteur d'échecs est remis à zéro dès que
-`processConnected` est émis (`WagoMap.cpp:68-73`). Toutes les `RESPAWN_LOG_EVERY = 10`
+`processConnected` est émis (`WagoMap.cpp:99-104`). Toutes les `RESPAWN_LOG_EVERY = 10`
 tentatives, une erreur nomme le binaire et l'automate visé
-(`WagoMap.h:161-163`, `WagoMap.cpp:123-126`). Une seule relance est armée à la fois
-(`WagoMap.cpp:115-116`).
+(`WagoMap.h:161-163`, `WagoMap.cpp:154-157`). Une seule relance est armée à la fois
+(`WagoMap.cpp:146-147`).
 
 ---
 

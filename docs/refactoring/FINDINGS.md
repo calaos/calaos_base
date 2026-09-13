@@ -13599,6 +13599,14 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   —, la tête `WAGO_GET_VERSION` n'est **pas** gardée (la garder rougit
   `AMalformedVersionReplyKeepsTheTwoParameterRead`, mesuré), et un datagramme qui ne nomme **aucune**
   commande est toujours attribué à la tête. ⇒ [T3.169](T3.169.md).
+  ⛔⭐ **Et la restriction aux têtes `WAGO_DALI_GET` est un CHOIX, pas une contrainte** : la première
+  rédaction annonçait que la garde large rougissait **23** cas, chiffre d'une contre-mutation **mal
+  spécifiée** (comparaison au **littéral** `"WAGO_DALI_GET"`, donc refus d'une **vraie** réponse de
+  version). La garde large **fidèle** — verbe de la réponse ≡ verbe de la **tête** — rend **2 rouges**,
+  rejoués : `AMalformedVersionReplyKeepsTheTwoParameterRead` et
+  `AForeignDatagramStillAnswersTheVersionQueryAsUnknown`. ⭐ L'élargissement laisserait le minuteur de
+  2 s **armé** — « inconnue » au pire, et une version réellement tardive enfin lue juste — au prix de
+  rouvrir un cas de `T3.156` livré dans la même fenêtre.
 
 - ⛔⭐⭐ **F-WAGO-14 — [JOUÉ dans l'arbre, revue de merge de T3.156] une réponse `WAGO_GET_VERSION`
   arrivée APRÈS son expiration est lue comme un état DALI, et le luminaire s'affiche ALLUMÉ.**
@@ -13633,9 +13641,33 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   positif `ADaliGetReplyReallyReachesTheBallast`, qui porte une sentinelle explicite.
   *Un capteur qui ne mesure rien passe pour un capteur qui ne trouve rien.*
   ⚠️ **TOUJOURS OUVERT après [T3.164](T3.164.md)** : la suite appartient à `T3.156` et n'a pas été
-  réécrite. ⇒ [T3.170](T3.170.md). ⭐ La forme de sortie est connue et mesurée ailleurs — les **13**
-  cas de `core/WagoReplyAttribution_test` portent chacun un **contrôle positif** dans le cas
-  lui-même, la même expression devant bouger quand la vraie réponse arrive.
+  réécrite. ⇒ [T3.170](T3.170.md).
+  ⚠️⭐ **ET IL Y A DEUX PORTEURS, pas un** (relevé à la revue de merge de `T3.164`) : le second est
+  **`AFailedDaliReplyLeavesTheBallastAlone`**, pire par construction — il **lit** la valeur de départ
+  (`const std::string before = dali->get_value_string();`) et exige qu'elle n'ait pas bougé, donc sa
+  valeur attendue **est** la valeur de départ, par définition. ⭐ **Mesuré** : la contre-mutation `CM7`
+  de `T3.164` (conversion de `WODali` débranchée, `ioRead()` gardé) ne rougit dans cette suite que
+  `ADaliGetReplyReallyReachesTheBallast` — les **deux** cas ci-dessus restent **verts**.
+  ⭐ La forme de sortie est mesurée ailleurs : les **4** cas de `core/WagoReplyAttribution_test` qui
+  lisent un ballast portent chacun un **contrôle positif dans le cas lui-même**, et `CM7` les rougit
+  tous les quatre — ⚠️ y compris `AGenuineOffReplyStillLeavesTheBallastOff`, **qui n'en avait pas à la
+  première livraison de `T3.164`** et a été corrigé à la revue de merge.
+
+- ⛔⭐ **F-DOCS-2 — [MESURÉ, structurel] une référence `Fichier.cpp:ligne` NON ANCRÉE est
+  invérifiable, et tout décalage de lignes la fait mentir en silence.**
+
+  Mesuré à la revue de merge de [T3.164](T3.164.md), dont le bloc inséré décale `WagoMap.cpp` de
+  **+31 lignes** et périme **six** citations (`docs/02_io_drivers.md:256,327,331`,
+  `docs/12_extern_proc.md:358,360,361`) — dont `WagoMap.cpp:68-73`, qui désignait `processExited` sur
+  `master` et le **constructeur** sur la branche. ⛔ Sans **ancre**, `check-docs.py` ne peut contrôler
+  que l'**existence** de la ligne, c'est-à-dire le **nombre de lignes** du fichier ; jamais la cible.
+  ⭐ **1470 citations sur 1472** sont dans ce cas (2 ancres, mesurées à `T3.32`) : le trou est celui du
+  corpus, pas du ticket. ⚠️ **Quatrième forme** après le masquage lexical (`T3.63`), la table de
+  reconnaissance (`T3.22`) et l'entrée disparue (`T3.32` / `F-DOCS-1`) : ici la sonde lit bien son
+  entrée, applique bien sa règle, et n'a **rien** à conclure. ⇒ [T3.175](T3.175.md).
+  ⛔ **La dérive réelle n'est pas mesurée** : les 266 citations (18,4 %) tombant sur une ligne vide ou
+  une accolade seule sont un indice, pas la réponse — une citation peut tomber sur du code réel et
+  faux, cas que la sonde **accepte** déjà dans son propre auto-test.
 
 
 ## Réflexion DALI 753-647 — ce qui en sort de mesurable (2026-09-07)
