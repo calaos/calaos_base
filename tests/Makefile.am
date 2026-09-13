@@ -6346,3 +6346,30 @@ core_UdpAnswerBufferLifetime_test_DEPENDENCIES = $(UDP_ANSWER_BUFFER_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.141
+#What an HTTP download does when uvw::Loop::resource<>() hands back nothing.
+#uv_poll_init_socket() is the only initializer of the 45 resource<>() sites of
+#the tree that can refuse (EEXIST/EPERM/EBADF), and the socket callback of the
+#libcurl-multi transport dereferenced the handle four lines below the call.
+#The refusal is produced by interposing the C entry point uv_poll_init_socket()
+#from the test executable: libuv is a shared object and UrlDownloader.o is not,
+#so the shipped code calls this definition, which forwards to libuv verbatim
+#while disarmed. Everything else is real - a loopback HTTP peer, a real
+#UrlDownloader, real libcurl driven by the real libuv loop.
+#Each case runs in a forked child: the unguarded form kills the process instead
+#of failing an assertion, and the parent reads the signal that killed it.
+#-ldl for the forwarding dlsym; own main() raises debug_level, so no
+#gtest_main. Only libcalaos_common is linked: UrlDownloader lives in src/lib.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += UrlDownloaderPollGuard_test
+check_PROGRAMS += UrlDownloaderPollGuard_test
+UrlDownloaderPollGuard_test_SOURCES = UrlDownloaderPollGuard_test.cpp
+UrlDownloaderPollGuard_test_CPPFLAGS = $(AM_CPPFLAGS)
+UrlDownloaderPollGuard_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -ldl \
+                  -lgtest
+endif
