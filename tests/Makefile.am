@@ -6749,15 +6749,19 @@ endif
 #written. UDPServer stops its receiver on a failed read and nothing ever arms it
 #again; three conducts are defensible and this suite prices them rather than
 #picking one - it changes no line of src/.
-#The fault is INJECTED in this process's own descriptor table, the only thing
-#that can make an unconnected UDP read fail, and the re-arm is injected too, a
-#turn of the loop after the give-up: that is the only shape a deferred recovery
-#could have.
+#The fault is INJECTED in this process's own descriptor table, and the re-arm is
+#injected too, a turn of the loop after the give-up: that is the only shape a
+#deferred recovery could have.
+#A closed descriptor is not the only way an unconnected read fails: ENOMEM and
+#ENOBUFS fail it with the descriptor intact, and there the re-arm recovers the
+#whole queue. Which producer is injected decides the verdict, not where the
+#re-arm sits.
 #Two children differ only in how long they are pumped and must report the SAME
 #count of give-ups - what bounds the journal is a number of attempts, never a
 #delay, and nothing here reads a duration.
 #One child dies on SIGABRT: libuv hands a closed descriptor back to epoll_ctl on
-#the re-arm and aborts, so a deferred recovery turns a deaf box into a dead one.
+#the re-arm and aborts, so on THAT producer a deferred recovery turns a deaf box
+#into a dead one.
 #No skip: whether the accident can be produced here is read by cases that go
 #red, never by a barrier reporting a clean run having measured nothing.
 #Own HAVE_GTEST block so this stays a pure append at the end of the file.
