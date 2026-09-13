@@ -46,12 +46,21 @@
  * exchange and another suite. Nothing here is 1wire-specific in the code under
  * test: sendMessage() belongs to ExternProcClient and all six share it.
  *
+ * THE WRITE THAT FAILS BEFORE THE LOOP IS EVER ENTERED is a case of its own, and
+ * the one the fix exists for: procMain() sends a first reading before calling
+ * run(), so a peer already deaf when that send happens leaves no loop to fail in
+ * later. Reaching it means deafening the peer while the sidecar is provably
+ * still inside connect() - a filler connection on a backlog of zero parks it
+ * there, and /proc says so. That peer also hangs up, so a sidecar that entered
+ * the loop despite the failed write leaves by the orderly door and exits zero.
+ *
  * THE ENDING IS READ FROM waitpid(), AND THE DOOR FROM THE SIDECAR'S OWN LOG.
  * The status alone cannot say whether a non-zero exit came from the write or
  * from somewhere else, so each case also checks which of the two lines the
- * sidecar printed, and that the other one is absent. A run where the sidecar
- * never wrote anything at all would have measured nothing: the bytes it sent
- * before the peer went deaf are counted, and a run with none of them fails.
+ * sidecar printed, and that the other one is absent. A run that measured nothing
+ * must not read as a run that found nothing: the cases that need the sidecar to
+ * have written first count the bytes and fail without them, and the case that
+ * needs it NOT to have written yet fails unless /proc showed it parked.
  *
  * NO EXCLUSION GUARD, DELIBERATELY. calaos_1wire is built in every
  * configuration - no automake condition guards it - so a missing binary is a
@@ -65,6 +74,7 @@
 #include <gtest/gtest.h>
 
 #include <sys/socket.h>
+#include <sys/syscall.h>
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <fcntl.h>
@@ -72,6 +82,7 @@
 
 #include <chrono>
 #include <csignal>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -89,7 +100,8 @@ enum PeerBehaviour
 {
     GoDeaf,      //shutdown(SHUT_RD): the sidecar's writes fail, its reads do not
     HangUp,      //shutdown(SHUT_WR): the orderly stop, the counterweight here
-    KeepReading  //nothing: the control, where the sidecar must still be alive
+    KeepReading, //nothing: the control, where the sidecar must still be alive
+    DeafOnArrival//deaf AND hung up before the sidecar has written anything at all
 };
 
 //The two doors, named by what the sidecar prints when it leaves through one.
@@ -99,6 +111,7 @@ const char kServerHungUp[] = "Server closed the connection";
 struct SidecarRun
 {
     bool spawned = false;
+    bool parkedInConnect = false;
     bool connected = false;
     bool exited = false;
     int exitCode = -1;
@@ -106,6 +119,28 @@ struct SidecarRun
     ssize_t bytesBeforeBehaviour = 0;
     std::string log;
 };
+
+//Where the sidecar is, read from the kernel and not guessed from a clock: a
+//child parked inside connect() has provably not written yet, which is the one
+//moment at which the peer can be made deaf ahead of the very first send().
+bool parkedInConnect(pid_t pid)
+{
+    char path[64];
+    ::snprintf(path, sizeof(path), "/proc/%d/syscall", (int)pid);
+
+    const int fd = ::open(path, O_RDONLY);
+    if (fd < 0)
+        return false;
+
+    char buf[128];
+    const ssize_t n = ::read(fd, buf, sizeof(buf) - 1);
+    ::close(fd);
+    if (n <= 0)
+        return false;
+    buf[n] = '\0';
+
+    return ::strtol(buf, NULL, 10) == SYS_connect;
+}
 
 int elapsedMs(const std::chrono::steady_clock::time_point &t0)
 {
@@ -140,17 +175,34 @@ SidecarRun runSidecar(PeerBehaviour behaviour, int budgetMs)
     ::memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
     ::strncpy(addr.sun_path, sockpath.c_str(), sizeof(addr.sun_path) - 1);
+    //A backlog of zero already holds one connection too many once the filler
+    //below is in: the sidecar's connect() then blocks instead of returning.
     if (srv < 0 || ::bind(srv, (struct sockaddr *)&addr, sizeof(addr)) != 0 ||
-        ::listen(srv, 1) != 0)
+        ::listen(srv, behaviour == DeafOnArrival? 0: 1) != 0)
     {
         if (srv >= 0) ::close(srv);
         ::rmdir(dir);
         return out;
     }
 
+    int filler = -1;
+    if (behaviour == DeafOnArrival)
+    {
+        filler = ::socket(AF_UNIX, SOCK_STREAM, 0);
+        if (filler < 0 || ::connect(filler, (struct sockaddr *)&addr, sizeof(addr)) != 0)
+        {
+            if (filler >= 0) ::close(filler);
+            ::close(srv);
+            ::unlink(sockpath.c_str());
+            ::rmdir(dir);
+            return out;
+        }
+    }
+
     int pipefd[2];
     if (::pipe(pipefd) != 0)
     {
+        if (filler >= 0) ::close(filler);
         ::close(srv);
         ::unlink(sockpath.c_str());
         ::rmdir(dir);
@@ -186,6 +238,7 @@ SidecarRun runSidecar(PeerBehaviour behaviour, int budgetMs)
     if (pid < 0)
     {
         ::close(pipefd[0]);
+        if (filler >= 0) ::close(filler);
         ::close(srv);
         ::unlink(sockpath.c_str());
         ::rmdir(dir);
@@ -194,7 +247,37 @@ SidecarRun runSidecar(PeerBehaviour behaviour, int budgetMs)
     out.spawned = true;
 
     int cli = -1;
-    if (waitReadable(srv, budgetMs))
+    if (behaviour == DeafOnArrival)
+    {
+        while (!out.parkedInConnect && elapsedMs(t0) < budgetMs)
+        {
+            if (parkedInConnect(pid))
+                out.parkedInConnect = true;
+            else
+                ::usleep(200);
+        }
+
+        //Accepting the filler is what hands the queue slot back, so from here
+        //the sidecar is on its way out of connect(): the two accepts spin
+        //rather than sleep, and the peer is deaf before the sidecar runs again.
+        ::fcntl(srv, F_SETFL, ::fcntl(srv, F_GETFL, 0) | O_NONBLOCK);
+
+        int queued = -1;
+        while (queued < 0 && elapsedMs(t0) < budgetMs)
+            queued = ::accept(srv, NULL, NULL);
+        while (cli < 0 && elapsedMs(t0) < budgetMs)
+            cli = ::accept(srv, NULL, NULL);
+
+        //SHUT_RDWR, and not the SHUT_RD of the other cases: the deaf half makes
+        //the pending first write fail, and the hung-up half gives a sidecar that
+        //reached the loop anyway a door to leave by with a status of zero. It is
+        //not the close() of the ticket - no reset, no ECONNRESET to race with.
+        if (cli >= 0)
+            ::shutdown(cli, SHUT_RDWR);
+        if (queued >= 0)
+            ::close(queued);
+    }
+    else if (waitReadable(srv, budgetMs))
         cli = ::accept(srv, NULL, NULL);
     out.connected = cli >= 0;
 
@@ -206,7 +289,7 @@ SidecarRun runSidecar(PeerBehaviour behaviour, int budgetMs)
      * makes the rest of the run mean something: a peer that goes deaf before
      * anything was ever written measures the startup, not the write.
      */
-    if (cli >= 0)
+    if (cli >= 0 && behaviour != DeafOnArrival)
     {
         const int cliFlags = ::fcntl(cli, F_GETFL, 0);
         ::fcntl(cli, F_SETFL, cliFlags | O_NONBLOCK);
@@ -272,6 +355,7 @@ SidecarRun runSidecar(PeerBehaviour behaviour, int budgetMs)
 
     ::close(pipefd[0]);
     if (cli >= 0) ::close(cli);
+    if (filler >= 0) ::close(filler);
     ::close(srv);
     ::unlink(sockpath.c_str());
     ::rmdir(dir);
@@ -410,4 +494,25 @@ TEST(SidecarSigpipeOnSend, TheSidecarWritesBeforeThePeerIsChanged)
 
     ASSERT_TRUE(run.connected) << run.log;
     EXPECT_LT(0, run.bytesBeforeBehaviour) << run.log;
+}
+
+//The case the fix exists for, and the only one where the reset it moved is
+//observable: the first send() fails before run() is entered, so a reset at the
+//top of the loop would hand that failure a clean loop to fail in again - and the
+//peer's hang-up would then be read as the orderly stop it is not.
+TEST(SidecarSigpipeOnSend, AWriteThatFailedBeforeTheLoopDoesNotBecomeAnOrderlyStop)
+{
+    const SidecarRun run = runSidecar(DeafOnArrival, kBudgetMs);
+
+    ASSERT_TRUE(run.spawned) << CALAOS_1WIRE_SIDECAR;
+    ASSERT_TRUE(run.parkedInConnect)
+            << "the peer was never made deaf ahead of the first write, so this "
+               "run measured something else: " << run.log;
+    ASSERT_TRUE(run.connected) << "the sidecar never reached the socket: " << run.log;
+    ASSERT_TRUE(run.exited) << "still running after " << kBudgetMs << "ms: " << run.log;
+
+    EXPECT_EQ(0, run.termSignal) << run.log;
+    EXPECT_EQ(1, run.exitCode) << run.log;
+    EXPECT_NE(std::string::npos, run.log.find(kWriteFailed)) << run.log;
+    EXPECT_EQ(std::string::npos, run.log.find(kServerHungUp)) << run.log;
 }

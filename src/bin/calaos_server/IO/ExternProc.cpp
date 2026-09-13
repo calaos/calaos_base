@@ -859,13 +859,10 @@ void ExternProcClient::sendMessage(const string &data)
 
     /* MSG_NOSIGNAL, and not a SIGPIPE handler: uv_spawn resets every
      * disposition to SIG_DFL in the child, so the server ignoring SIGPIPE
-     * protects nothing on this side of the socket. Without the flag a server
-     * that hangs up while a sidecar is writing kills it, and the respawn ramp
-     * reads signal 13 as a crash.
-     * The failure is then reported as one: a peer that closed answers the READ
-     * side with ECONNRESET, which already ends the loop as a failure, and the
-     * same event must not become a success just because the write side saw it
-     * first. */
+     * protects nothing here, and the ramp reads the signal 13 that follows as a
+     * crash. The failure is reported and not merely logged: the same hang-up
+     * seen from the read side already ends the loop as a failure, and which
+     * side saw it first cannot decide the status. */
     len = send(sockfd, frame.c_str(), frame.size(), MSG_NOSIGNAL);
     if (len < 0)
     {
