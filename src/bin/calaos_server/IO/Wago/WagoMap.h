@@ -170,11 +170,12 @@ protected:
     string exe;
     vector<string> process_args;
 
-    //T1.17: subprocess auto-restart backoff. Without it a driver failing at
-    //startup respawns in a tight loop. Counter is reset when the process
-    //connects successfully.
+    //Subprocess auto-restart backoff. Without it a driver failing at startup
+    //respawns in a tight loop. The count it ramps on belongs to the transport,
+    //which is where the exit status and the signal arrive; a count kept here
+    //was cleared by processConnected, i.e. by the IPC socket, which every
+    //launch that reached the binary opens before doing anything else.
     Timer *respawn_timer = nullptr;
-    int respawn_attempts = 0;
 
     void scheduleProcessRespawn();
 
@@ -252,8 +253,10 @@ public:
 
     //Backoff delay in seconds before respawning the subprocess. The Wago is
     //the centerpiece of the installation, so we retry FOREVER: a short ramp
-    //avoids a tight spawn loop, but the cap stays low (5s) so recovery is
-    //fast once the PLC/network is back (e.g. after maintenance cut it).
+    //avoids a tight spawn loop. The cap is low, but NOT for a network cut:
+    //calaos_wago does not exit when the PLC goes away - WagoCtrl::Connect()
+    //failing only returns false - so a cut never reaches this ramp at all.
+    //What the cap really bounds is the wait on a sidecar that will not start.
     //attempt is the 0-based count of consecutive failures so far.
     static double respawnDelay(int attempt)
     {
@@ -262,6 +265,14 @@ public:
         if (attempt < 0) attempt = 0;
         if (attempt >= ndelays) attempt = ndelays - 1;
         return delays[attempt];
+    }
+
+    //Zero is a multiple like any other, and it is what the transport
+    //reports for an exit it read as a voluntary stop: alarming there would put
+    //an error line under every ordinary shutdown.
+    static bool respawnAlarmDue(int failures)
+    {
+        return failures > 0 && failures % RESPAWN_LOG_EVERY == 0;
     }
 
     //Singleton

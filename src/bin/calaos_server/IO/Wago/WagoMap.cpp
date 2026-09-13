@@ -109,8 +109,9 @@ WagoMap::WagoMap(std::string h, int p):
 
     process->processConnected.connect([=]()
     {
-        //process is up and connected again: reset the respawn backoff
-        respawn_attempts = 0;
+        //Not a proof that the sidecar is healthy, and it used to clear the
+        //respawn count: this is the IPC socket, which calaos_wago opens as the
+        //first instruction of setup(), before it has looked at the PLC at all.
         onWagoConnected.emit();
     });
 
@@ -157,18 +158,24 @@ void WagoMap::scheduleProcessRespawn()
     if (respawn_timer)
         return; //a respawn is already scheduled
 
-    double delay = respawnDelay(respawn_attempts);
-    respawn_attempts++;
+    const int attempts = process->respawnFailures();
+
+    //respawnDelay() takes the failures already counted, so the launch that
+    //follows the first one gets the first step. A count of zero is an exit the
+    //transport read as voluntary - it holds nothing there, and calaos_wago
+    //produces one whenever its main loop leaves without a select() error - so
+    //the out of range guard is what keeps a floor under that loop.
+    const double delay = respawnDelay(attempts - 1);
 
     //never stop retrying (the Wago is the centerpiece of the installation),
     //but keep reminding loudly that something is wrong
-    if (respawn_attempts % RESPAWN_LOG_EVERY == 0)
+    if (respawnAlarmDue(attempts))
         cErrorDom("process") << "wago process still failing after "
-                             << respawn_attempts << " attempts. Check " << exe
+                             << attempts << " attempts. Check " << exe
                              << " and the PLC at " << host << ":" << port;
 
     cWarningDom("process") << "process exited, restarting in " << delay
-                           << "s (attempt " << respawn_attempts << ")";
+                           << "s (attempt " << attempts << ")";
 
     respawn_timer = new Timer(delay, [this]()
     {
