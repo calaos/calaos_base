@@ -30,14 +30,26 @@ using namespace Calaos;
 static const std::string kImpulseUpPrefix = "impulse up ";
 static const std::string kImpulseDownPrefix = "impulse down ";
 
+/* There is no readConfig() here: these four got a value only inside
+ * set_value(), so anything calling Stop(), Up() or Down() outside an action
+ * branched on whatever the storage held. Stop()'s impulse branch drives both
+ * relays of the shutter true at once, which a non-impulse motor must never be
+ * handed.
+ * Each value is the one the running code produces when the parameter is
+ * absent, so a configured shutter behaves exactly as before: -1 (not 0) is
+ * how "no impulse" is spelled, and 0 is a legal impulse_time meaning it too. */
 OutputShutter::OutputShutter(Params &p):
     IOBase(p, IOBase::IO_OUTPUT),
+    time(0),
     sens(SHUTTER_STOP),
     old_sens(SHUTTER_UP),
     timer_end(NULL),
     timer_impulse(NULL),
     timer_up(NULL),
     timer_down(NULL),
+    is_impulse_action(false),
+    impulse_action_time(0),
+    impulse_time(-1),
     state_volet("true")
 {
     ioDoc->descriptionBaseSet(_("Simple shutter. This shutter supports open/close states, as well as impulse shutters."));
