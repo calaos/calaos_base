@@ -30,6 +30,8 @@
 
 #include <arpa/inet.h>
 
+#include <cstring>
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -170,6 +172,30 @@ void sendDatagram(H &handle, const std::string &ip, unsigned int port,
         handle.template send<uvw::IPv4>(ip, port, data, len);
     else
         handle.template send<uvw::IPv6>(mappedLiteral(ip), port, data, len);
+}
+
+/* The same, for a payload the caller cannot keep alive itself.
+ *
+ * The overload above LENDS the buffer: uvw's char* send() neither copies it nor
+ * owns it - its deleter does nothing - and libuv reads it only at the next turn
+ * of the loop as soon as another send is already queued. Lending it anything
+ * shorter-lived than the request puts freed memory on the wire, to whoever
+ * asked. This one hands uvw a buffer uvw deletes when the request ends, which
+ * happens on SendEvent, on ErrorEvent, and on a send refused outright.
+ */
+template<typename H>
+void sendDatagram(H &handle, const std::string &ip, unsigned int port,
+                  const std::string &payload)
+{
+    std::unique_ptr<char[]> data(new char[payload.size()]);
+    std::memcpy(data.get(), payload.data(), payload.size());
+
+    if (handle.template sock<uvw::IPv6>().ip.empty())
+        handle.template send<uvw::IPv4>(ip, port, std::move(data),
+                                        payload.size());
+    else
+        handle.template send<uvw::IPv6>(mappedLiteral(ip), port, std::move(data),
+                                        payload.size());
 }
 
 }

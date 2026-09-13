@@ -128,8 +128,13 @@ void UDPServer::sendTo(const string &ip, unsigned int remotePort,
                        const string &packet)
 {
     pendingSends.push_back(ip + ":" + Utils::to_string(remotePort));
-    Calaos::sendDatagram(*handleSrv, ip, remotePort,
-                         (char *)packet.c_str(), packet.length());
+
+    /* Given to uvw, not lent. packet is a local of processRequest(), and a send
+     * posted behind another one is read a whole turn of the loop later: lending
+     * it sent the contents of a freed buffer to the peer that asked, which for
+     * CALAOS_DISCOVER is anything on the network and needs no credentials.
+     */
+    Calaos::sendDatagram(*handleSrv, ip, remotePort, packet);
 }
 
 void UDPServer::processRequest(const string &request, const string &remoteIp, unsigned int remotePort)
