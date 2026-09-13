@@ -13592,6 +13592,13 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   datagramme étranger lu comme une version donne « inconnue », donc la trame à deux paramètres —
   ⛔ **et pas dans l'autre** : voir `F-WAGO-14`. (Renuméroté à la revue de merge : `F-WAGO-12` était
   déjà pris par le débordement de `mbus_cmd_addr_mdata()`.)
+  ⚠️ **RESTE OUVERT après [T3.164](T3.164.md)**, qui ne ferme que le sens nuisible : `udpRequest_cb()`
+  refuse désormais un datagramme **nommant une autre commande** que la tête, **quand cette tête est
+  une lecture DALI**. Ce n'est pas une corrélation de la réponse à sa requête. **Deux lectures DALI
+  en vol ne distinguent toujours pas leurs réponses** — la réponse ne répète ni la ligne ni l'adresse
+  —, la tête `WAGO_GET_VERSION` n'est **pas** gardée (la garder rougit
+  `AMalformedVersionReplyKeepsTheTwoParameterRead`, mesuré), et un datagramme qui ne nomme **aucune**
+  commande est toujours attribué à la tête. ⇒ [T3.169](T3.169.md).
 
 - ⛔⭐⭐ **F-WAGO-14 — [JOUÉ dans l'arbre, revue de merge de T3.156] une réponse `WAGO_GET_VERSION`
   arrivée APRÈS son expiration est lue comme un état DALI, et le luminaire s'affiche ALLUMÉ.**
@@ -13605,6 +13612,15 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   réponse de version produit le même effet. ⛔ C'est exactement le symptôme que `T3.156` existe pour
   supprimer, cette fois sur un ballast quelconque. ⇒ [T3.164](T3.164.md). ⛔ **Rien n'a atteint un
   automate** : la fréquence de la fenêtre est inconnue.
+  ✅⭐ **FERMÉ le 2026-09-13 par [T3.164](T3.164.md)** — et **reproduit avant d'être fermé** : les six
+  cas d'attribution de `core/WagoReplyAttribution_test` sont **rouges** sur l'arbre livré de
+  `T3.156`, ballast `"0"` → **`"100"`** sur la réponse **en retard** comme sur le **doublon**, et la
+  lecture DALI **consommée** par un datagramme qui ne lui répondait pas. Le correctif refuse un
+  datagramme nommant une autre commande que la tête quand celle-ci est un `WAGO_DALI_GET` ; le
+  protocole le permet parce que les **huit** programmes répondent en **répétant le nom de la
+  commande** (relevé dans `Wago_1.7`, `2.0`, `2.3`, `3.0`). ⛔ **Le `return` est au-dessus de la
+  suppression du minuteur de 2 s** : c'est lui qui rend son compte `StartReadRules` à la tête
+  refusée, et un cas l'épingle en armant le minuteur par la **vraie** étape d'envoi.
 
 - ⭐ **F-TEST-DALI-1 — [MESURÉ] un cas de `core/WagoUdpReply_test` était vert pour la mauvaise
   raison.** En insérant la requête de version en tête de file, deux cas de cette suite sont passés au
@@ -13616,6 +13632,10 @@ verra en CI**, et il faut le lire avec le fait qu'un `push` publie sans attendre
   la valeur attendue reste la valeur de départ. Ce qui tient réellement la branche est son jumeau
   positif `ADaliGetReplyReallyReachesTheBallast`, qui porte une sentinelle explicite.
   *Un capteur qui ne mesure rien passe pour un capteur qui ne trouve rien.*
+  ⚠️ **TOUJOURS OUVERT après [T3.164](T3.164.md)** : la suite appartient à `T3.156` et n'a pas été
+  réécrite. ⇒ [T3.170](T3.170.md). ⭐ La forme de sortie est connue et mesurée ailleurs — les **13**
+  cas de `core/WagoReplyAttribution_test` portent chacun un **contrôle positif** dans le cas
+  lui-même, la même expression devant bouger quand la vraie réponse arrive.
 
 
 ## Réflexion DALI 753-647 — ce qui en sort de mesurable (2026-09-07)
