@@ -664,7 +664,7 @@ inline std::map<std::string, int> weighedOneShotSites()
         //src/lib
         { "lib/Timer.cpp",                        2 }, //the two definitions
         { "lib/Timer.h",                          2 }, //LifetimeTag's own two calls
-        { "lib/UrlDownloader.cpp",                3 }, //:122/:169 serial guard, :739 deliberate `delete this`
+        { "lib/UrlDownloader.cpp",                4 }, //:122/:169/:262 serial guard, :813 deliberate `delete this`
         //src/bin/calaos_server
         { "bin/calaos_server/main.cpp",           1 }, //mem_fun on ListeRoom::Instance(), no `this`
         { "bin/calaos_server/CalaosConfig.cpp",   1 }, //function local static singleton, no delete in the tree

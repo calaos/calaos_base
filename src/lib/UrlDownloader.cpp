@@ -244,6 +244,35 @@ private:
         delete conn;
     }
 
+    /* End a transfer whose socket the loop refused to watch: no event will
+     * ever reach it, so it would hang for ever - nothing here sets a libcurl
+     * timeout. The socket callback returns 0 all the same: a non-zero return
+     * is an error reported against the MULTI handle, which carries every
+     * other transfer of the process, and this failure concerns one socket.
+     * The caller sits inside curl_multi_socket_action, where the multi
+     * functions are forbidden, hence the Idler - same deferral as
+     * startTransfer(). */
+    void dropTransferFromCallback(CURL *easy)
+    {
+        UrlDownloaderCurlConn *conn = nullptr;
+        curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
+        if (!conn || !live.count(conn))
+            return;
+
+        conn->abortRequested = true;
+        uint64_t serial = conn->serial;
+        Idler::singleIdler([this, conn, serial]()
+        {
+            if (!isLive(conn, serial))
+                return;
+            UrlDownloader *owner = conn->owner;
+            auto aliveToken = conn->ownerAlive;
+            disposeConn(conn);
+            if (owner && !aliveToken.expired())
+                owner->transferDone(0, std::string());
+        });
+    }
+
     void onSocketEvent(curl_socket_t fd, int flags)
     {
         int running = 0;
@@ -310,7 +339,7 @@ private:
         return 0;
     }
 
-    static int sSocketCb(CURL *, curl_socket_t s, int what, void *userp, void *socketp)
+    static int sSocketCb(CURL *easy, curl_socket_t s, int what, void *userp, void *socketp)
     {
         auto *self = static_cast<UrlDownloaderCurlManager *>(userp);
         auto *ctx = static_cast<SockCtx *>(socketp);
@@ -329,8 +358,23 @@ private:
 
         if (!ctx)
         {
+            /* uv_poll_init_socket() is the only resource<>() initializer this
+             * tree uses that can refuse: EEXIST when the loop already watches
+             * the descriptor, EPERM when it is not pollable, EBADF when it is
+             * already gone. resource<>() then hands back nothing, and every
+             * use below would be a null dereference in the server. */
+            auto poll = uvw::Loop::getDefault()->resource<uvw::PollHandle>(uvw::OSSocketHandle{s});
+            if (!poll)
+            {
+                cErrorDom("urlutils") << "uv_poll_init_socket refused the socket libcurl "
+                                         "handed over (fd=" << static_cast<long>(s)
+                                      << "), dropping the transfer";
+                self->dropTransferFromCallback(easy);
+                return 0;
+            }
+
             ctx = new SockCtx;
-            ctx->poll = uvw::Loop::getDefault()->resource<uvw::PollHandle>(uvw::OSSocketHandle{s});
+            ctx->poll = std::move(poll);
             curl_multi_assign(self->multi, s, ctx);
 
             curl_socket_t fd = s;
