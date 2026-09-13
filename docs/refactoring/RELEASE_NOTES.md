@@ -773,6 +773,20 @@ décrite plus haut — jusqu'à trente secondes entre deux relances au lieu d'un
 s'arrête, parce qu'il recharge sa configuration — la passerelle se termine comme avant, sans
 erreur et sans ralentissement. C'est la moitié du travail qui ne se voit pas : ralentir un
 programme qui n'a rien fait de mal aurait été une régression, pas une correction.
+
+### Une passerelle n'est plus tuée net parce que le serveur a cessé de l'écouter (T3.167)
+
+La passerelle **OneWire** envoie une mesure par seconde, qu'on la lui demande ou non. Si le serveur
+cessait d'écouter sa liaison pendant qu'elle écrivait, le système **tuait le programme** au lieu de
+lui rendre une erreur — et le serveur, qui ne voit qu'un programme mort sans raison, comptait un
+plantage et appliquait la rampe de ralentissement à une passerelle qui n'avait rien fait de mal.
+
+L'écriture rend désormais une erreur ordinaire. La passerelle s'arrête proprement et dit pourquoi
+dans le journal, au lieu de disparaître sans un mot.
+
+⚠️ **Elle s'arrête en signalant une erreur, et c'est voulu** : perdre l'écoute du serveur en pleine
+écriture n'est pas une fin normale. La fin normale — le serveur qui raccroche — reste, elle, une
+fin sans erreur et sans ralentissement, exactement comme décrit juste au-dessus.
 >
 > **Ce que vous imprimez depuis vos propres pilotes n'est pas concerné** : cela reste muet par
 > défaut, comme depuis la note ci-dessous.
