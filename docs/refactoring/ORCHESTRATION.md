@@ -43,6 +43,53 @@
      liste de ce que seul le premier `push` tranchera compte **sept** points, et son mode d'échec est
      le **silence**. Elle est énumérée en tête de l'état de sortie ci-dessous.
 
+- ⭐⭐⭐⭐ **ÉTAT DE SORTIE — LOT 151, TROIS MERGES DANS UNE SEULE FENÊTRE (2026-09-13). À LIRE EN
+  PREMIER À FROID.**
+
+  **Dernier merge `--ff-only`** : **`0cb5755e`**, puis **un** commit de board/doc de l'agent de merge
+  au-dessus. Ordre `T3.179` → `T3.149` → `T3.136`, **10 commits**, `merge --ff-only` à chaque étape,
+  historique **linéaire**, **0 commit de fusion**. ⛔ **RIEN N'A ÉTÉ POUSSÉ.** Une rebase par
+  branche. Conflits : `tests/Makefile.am` **deux fois** (`T3.179` n'a pas conflité, `master` n'avait
+  pas touché le fichier), `BOARD.md` **deux fois**, `FINDINGS.md` **zéro** (fusion automatique,
+  **+77 / −2**, les trois apports présents). `ORCHESTRATION.md` n'a conflité nulle part.
+
+  ⭐ **`tests/Makefile.am` régénéré d'emblée à chaque fois** — `master` intégral + append verbatim du
+  bloc `# TX.Y`, jamais un marqueur édité. Append pur prouvé à chaque tour : **+40 / +31 / +38**,
+  **−0**, **~0**, `master` **préfixe strict au BYTE** (comparaison d'octets en `python3`).
+  `TESTS` **161 → 164**. ⚠️ **`if HAVE_GTEST` 139 → 142, mais `^endif` 142 → 147** : le bloc de
+  `T3.179` porte **deux `if` imbriqués** (`HAVE_LIBKNX`, `HAVE_LIBOLA`). L'invariant qui tient est
+  **`^if ` (toutes formes) ≡ `^endif` = 147** ; `if HAVE_GTEST` ≡ `endif` est **faux** depuis
+  `T3.108` et le rester.
+
+  Référence après `make distclean` + `autogen` + `configure` :
+  **`TOTAL 164 / PASS 163 / SKIP 1 / FAIL 0 / XFAIL 0 / XPASS 0 / ERROR 0`**, seul `SKIP`
+  `check-ccache-honesty.sh`, **trois `make check` aux résumés identiques**, **0 `error:`**, un seul
+  bloc `Testsuite summary` par tour. ⭐ `git grep -nE '^(<<<<<<< |>>>>>>> |=======$)'` **VIDE sur tout
+  l'arbre**, vérifié après chaque merge et à la fin. `F-FLAKY-3` : **0 occurrence sur 6 `make
+  check`**. `make check-docs` : **4 `stale` / 26 `unresolved` sur 1477 références**, **aucune** dans
+  un fichier touché par ce lot — verdict **lu**, non bloquant.
+
+  ⛔⭐⭐ **CE QUE LA FENÊTRE A TROUVÉ ET QUE PERSONNE N'AVAIT DIT — « GARDER LES DEUX CÔTÉS » PRODUIT
+  UNE LIGNE DE TICKET EN DOUBLE QUAND LES DEUX CÔTÉS SONT DEUX VERSIONS DE LA MÊME LIGNE.** La règle
+  de résolution de `BOARD.md` (*deux appends en fin de section ⇒ garder les deux côtés, ne jamais
+  choisir*) est juste tant que les côtés ajoutent des lignes **différentes**. Ici les deux branches
+  suivantes portaient encore la ligne `T3.179` **d'avant son merge** (`📋⛔`), face à celle que le
+  merge venait de passer à `✅`. Les garder toutes deux aurait publié `T3.179` **deux fois**, ouverte
+  et faite, et rien dans l'arbre ne fait rougir un doublon de ligne — ni `check-docs`, ni le compteur
+  de colonnes. ⇒ **La règle se lit désormais : garder les deux côtés, sauf quand ils portent le même
+  identifiant de ticket — auquel cas la version la plus avancée gagne, et elle seule.**
+
+  ⚠️ **Un relevé mineur, consigné** : `CLEANFILES` de `tests/Makefile.am` est toujours l'assignation
+  unique (`=`, ligne 6399) laissée par `T3.108` ; aucun des trois blocs de ce lot n'y touche, donc
+  le piège signalé au lot 150 reste **latent, inchangé**.
+
+  ⛔ **LE NU DE LA FENÊTRE** : les trois campagnes de contre-mutation ont été **relues**, jamais
+  rejouées — c'était le contrat du merge groupé. Ce que ce merge mesure lui-même, c'est le harnais
+  (`164/163/1/0`, trois tours identiques, append pur au byte). Et **`T3.149` ne touche aucune ligne
+  de `src/`** (vérifié `git diff --name-only`) : elle ferme son ticket en **réfutation** — l'arrêt du
+  récepteur UDP est le bon geste, la demande d'origine était fausse — donc la surdité reste entière
+  ⇒ [`T3.193`](T3.193.md) / [`T3.194`](T3.194.md).
+
 - ⭐⭐⭐⭐ **ÉTAT DE SORTIE — LOT 150, CINQ MERGES DANS UNE SEULE FENÊTRE (2026-09-13). À LIRE EN
   PREMIER À FROID.**
 
