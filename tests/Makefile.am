@@ -6596,3 +6596,41 @@ core_UdpReceiveErrorDeafness_test_DEPENDENCIES = $(UDP_RECEIVE_ERROR_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.136
+#⭐ The relaunch ramp WagoMap keeps for itself, and the count it reads.
+#That count used to be its own, cleared by processConnected - the IPC socket,
+#which calaos_wago opens as its first instruction - so every launch that
+#reached the binary cleared it: the hold never left its first step and the
+#"still failing after N attempts" alarm, which only fires on a multiple, never
+#fired once. One cause, two symptoms.
+#⚠️ NOTHING HERE CALLS scheduleProcessRespawn(): a real WagoMap is built, its
+#stand-in sidecar CONNECTS to the unix socket it was handed - which is all
+#calaos_wago's setup() does before anything else - and then dies, so a mutation
+#of IO/Wago/WagoMap.cpp turns this suite red. Without that connection the suite
+#would be measuring the missing binary, the one case the ramp always handled.
+#The launch instants are stamped by the child, one line per launch, and every
+#bound on a gap is a floor read from the ramp itself: load can only make a hold
+#end later, never sooner.
+#Links WagoMap on top of the core objects; ExternProc is already in
+#CORE_SERVER_OBJECTS. Built elsewhere: the server objects come from another
+#Makefile, so they may appear in _DEPENDENCIES only as prerequisites.
+#Its own binary and its own process: WagoMap respawns its sidecar for the life
+#of the process and parks timers on the default loop.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WagoRespawnRamp_test
+check_PROGRAMS += core/WagoRespawnRamp_test
+core_WagoRespawnRamp_test_SOURCES = core/WagoRespawnRamp_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_WagoRespawnRamp_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoRespawnRamp_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_WagoRespawnRamp_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
