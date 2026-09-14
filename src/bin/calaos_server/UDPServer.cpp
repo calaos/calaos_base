@@ -21,6 +21,8 @@
 #include <UDPServer.h>
 #include "libuvw.h"
 
+#include <fcntl.h>
+
 using namespace Calaos;
 
 UDPServer::UDPServer(int p):
@@ -34,8 +36,101 @@ UDPServer::UDPServer(int p):
 
 UDPServer::~UDPServer()
 {
+    if (rearmTimer)
+    {
+        rearmTimer->stop();
+        rearmTimer->close();
+    }
+
     handleSrv->stop();
     handleSrv->close();
+}
+
+/* Whether the number libuv polls still names something this process owns.
+ *
+ * It is the one question that separates a fault a read can come back from - the
+ * descriptor is intact, the failure was the read's - from an accident in this
+ * process's own descriptor table, where arming the read again is an abort()
+ * inside uv_run and not an error anyone can report.
+ *
+ * It cannot see a number that was closed and HANDED OUT AGAIN: that one answers
+ * "valid" and belongs to somebody else.
+ */
+bool UDPServer::descriptorIsStillOurs() const
+{
+    const int fd = (int)handleSrv->fileno();
+    return fd >= 0 && fcntl(fd, F_GETFD) != -1;
+}
+
+void UDPServer::scheduleRearm()
+{
+    if (!rearmTimer)
+    {
+        rearmTimer = uvw::Loop::getDefault()->resource<uvw::TimerHandle>();
+        rearmTimer->on<uvw::TimerEvent>([this](const uvw::TimerEvent &,
+                                               uvw::TimerHandle &)
+        {
+            considerListeningAgain();
+        });
+    }
+
+    /* Zero, which uvw documents as the next iteration of the loop. Arming the
+     * read from inside the error callback brings back the very deluge the stop
+     * is there to end - and it is the turn of the loop, never a delay, that was
+     * measured to hand the queued datagrams back.
+     *
+     * Only ever armed from the poll phase, never from the timer callback:
+     * libuv keeps draining its timer heap after a callback returns, so a timer
+     * restarted from inside its own callback runs AGAIN in the same phase,
+     * before the read it just armed has had a chance to fail.
+     */
+    rearmTimer->start(uvw::TimerHandle::Time{0}, uvw::TimerHandle::Time{0});
+}
+
+void UDPServer::considerListeningAgain()
+{
+    if (receiver != Receiver::Retrying)
+        return;
+
+    if (!descriptorIsStillOurs())
+    {
+        giveUpTheReceiver("the descriptor it was polling is gone from this "
+                          "process, so arming the read again would abort it");
+        return;
+    }
+
+    if (rearmsLeft == 0)
+    {
+        giveUpTheReceiver(Utils::to_string(REARM_ATTEMPTS) +
+                          " attempts to listen again all failed");
+        return;
+    }
+
+    //One attempt, and then nothing until it fails: a read that stays armed is
+    //a read that worked, and there is no event for one.
+    rearmsLeft--;
+    handleSrv->recv();
+}
+
+/* Said once, and it is the whole of what an operator gets.
+ *
+ * No field of the JSON API names the state of the receiver, and the heartbeat
+ * of main() is a Utils::Watchdog() that creates its file and never touches it
+ * again - so a box that has gone deaf keeps telling its supervisor it is well.
+ * This line is the only place the loss is ever stated.
+ */
+void UDPServer::giveUpTheReceiver(const string &why)
+{
+    receiver = Receiver::GaveUp;
+
+    if (rearmTimer)
+        rearmTimer->stop();
+
+    cErrorDom("network") << "no longer listening on port " << port
+                         << ", " << why
+                         << ": discovery (CALAOS_DISCOVER), Wago inputs "
+                            "(WAGO INT) and KNX inputs (WAGO KNX) stop here "
+                            "until the server is restarted";
 }
 
 void UDPServer::createUdpSocket()
@@ -46,6 +141,19 @@ void UDPServer::createUdpSocket()
     {
         handleSrv->on<uvw::UDPDataEvent>([this](const uvw::UDPDataEvent &ev, auto &)
         {
+            //A datagram read is the only positive news the loop ever gives
+            //about the receiver, so it is where a recovery is learnt.
+            if (receiver != Receiver::Listening)
+            {
+                receiver = Receiver::Listening;
+                if (rearmTimer)
+                    rearmTimer->stop();
+                cWarningDom("network") << "listening again on port " << port
+                                       << " after "
+                                       << (REARM_ATTEMPTS - rearmsLeft)
+                                       << " attempt(s)";
+            }
+
             string s(ev.data.get(), ev.length);
             this->processRequest(s, Calaos::unmappedLiteral(ev.sender.ip),
                                  ev.sender.port);
@@ -107,8 +215,6 @@ void UDPServer::createUdpSocket()
         {
             const string peer = pendingSends.front();
             pendingSends.pop_front();
-            refusedSends++;
-
             /* The first few one by one, then one line per doubling. Who is on
              * the network decides how many answers are refused, so a line per
              * refusal lets it decide how many lines the journal gets; n cost
@@ -116,6 +222,7 @@ void UDPServer::createUdpSocket()
              * that lasts keeps being said at a rate that falls - where "the
              * first N, then nothing" goes mute for good.
              */
+            refusedSends++;
             if (refusedSends <= REFUSALS_SAID_IN_FULL ||
                 (refusedSends & (refusedSends - 1)) == 0)
                 cErrorDom("network") << "UDP send to " << peer << " failed: "
@@ -126,11 +233,23 @@ void UDPServer::createUdpSocket()
         }
 
         h.stop();
+
+        //One of our own attempts, and its failure is what asks for the next
+        //one. Silent: coming back costs the journal nothing per attempt.
+        if (receiver == Receiver::Retrying)
+        {
+            scheduleRearm();
+            return;
+        }
+
         cErrorDom("network") << "UDP server error: " << ev.what();
-        cErrorDom("network") << "no longer listening on port " << port
-                             << ": discovery (CALAOS_DISCOVER), Wago inputs "
-                                "(WAGO INT) and KNX inputs (WAGO KNX) stop here "
-                                "until the server is restarted";
+
+        if (receiver == Receiver::GaveUp)
+            return;
+
+        receiver = Receiver::Retrying;
+        rearmsLeft = REARM_ATTEMPTS;
+        scheduleRearm();
     });
 
     handleSrv->recv();
@@ -168,8 +287,6 @@ void UDPServer::processRequest(const string &request, const string &remoteIp, un
         }
         else
         {
-            unanswerableDiscovers++;
-
             /* Same shape as the refused-send ramp above, and for the same
              * reason: the source of the datagram is chosen by whoever speaks
              * on the network and discovery needs no credentials, so one line
@@ -177,6 +294,7 @@ void UDPServer::processRequest(const string &request, const string &remoteIp, un
              * doubling is a rule, not a threshold - the first is always
              * written, n cost log2(n), and no count is ever the last one.
              */
+            unanswerableDiscovers++;
             if ((unanswerableDiscovers & (unanswerableDiscovers - 1)) == 0)
                 cErrorDom("network") << "No interface found corresponding to "
                                         "network : " << remoteIp << " ("

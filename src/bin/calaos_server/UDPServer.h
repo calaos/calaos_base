@@ -31,6 +31,7 @@ namespace uvw {
 //Forward declare classes here to prevent long build time
 //because of uvw.hpp being header only
 class UDPHandle;
+class TimerHandle;
 }
 
 class UDPServer
@@ -56,13 +57,42 @@ protected:
     //to a power of two and the next one is not written for as long again.
     unsigned long unanswerableDiscovers = 0;
 
+    /* What the receiver is doing, which nothing else in the tree can ask it.
+     *
+     * A receive error stops the handle - without that one bad datagram is one
+     * error per turn of the loop and a core at 100% - and a read armed again a
+     * turn later takes the whole queue back WHEN the fault left the descriptor
+     * alone. When the fault CLOSED it there is no coming back: libuv hands the
+     * number to epoll_ctl, gets EBADF and calls abort() without a word, so the
+     * descriptor is looked at before every attempt and a missing one ends the
+     * attempts rather than the process.
+     */
+    enum class Receiver { Listening, Retrying, GaveUp };
+    Receiver receiver = Receiver::Listening;
+
+    std::shared_ptr<uvw::TimerHandle> rearmTimer;
+    unsigned rearmsLeft = 0;
+
+    /* How many times to come back, and it is the only number in the recovery:
+     * the wait between two attempts is a TURN OF THE LOOP, not a duration.
+     * Nothing in the tree derives a duration for this, and a delay would bound
+     * a rate where what has to be bounded is a count - the same attempts cost
+     * the same journal however long the box is left running.
+     */
+    static constexpr unsigned REARM_ATTEMPTS = 3;
+
     void createUdpSocket();
     void sendTo(const string &ip, unsigned int remotePort, const string &packet);
     void processRequest(const string &msg, const string &remoteIp, unsigned int port);
 
+    bool descriptorIsStillOurs() const;
+    void scheduleRearm();
+    void considerListeningAgain();
+    void giveUpTheReceiver(const string &why);
+
 public:
     UDPServer(int port); //port to listen
-    ~UDPServer();
+    virtual ~UDPServer();
 };
 
 #endif
