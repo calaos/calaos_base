@@ -100,10 +100,9 @@ void UDPServer::rememberTheDescriptor()
  *
  * VALIDITY is not the question, and answering it is what freezes the loop: a
  * number closed elsewhere in this process goes to the next socket() that runs,
- * and that one is valid, blocking and somebody else's.
- *
- * The inode answers identity outright; the bound address is the second half,
- * against an inode counter that wraps.
+ * and that one is valid, blocking and somebody else's. The inode answers
+ * identity outright; the bound address is the second half, against an inode
+ * counter that wraps.
  */
 bool UDPServer::descriptorIsStillOurs() const
 {
@@ -144,12 +143,11 @@ void UDPServer::scheduleRearm()
 
     /* The ramp the tree already holds for a child that will not stay up, read
      * on the attempts already made: 0 - the next turn of the loop - then
-     * kRespawnDelayMin, then double. Three attempts inside one millisecond
-     * outlast no real shortage, and the attempts are silent either way.
-     *
-     * Only ever armed from the poll phase: libuv keeps draining its timer heap
-     * after a callback returns, so a timer restarted from inside its own
-     * callback runs AGAIN in the same phase, before the read it armed can fail.
+     * kRespawnDelayMin, then double; three attempts inside one millisecond
+     * outlast no real shortage. Only ever armed from the poll phase: libuv
+     * keeps draining its timer heap after a callback returns, so a timer
+     * restarted from inside its own callback runs AGAIN in the same phase,
+     * before the read it armed can fail.
      */
     const double hold =
             ExternProcServer::respawnDelay((int)(REARM_ATTEMPTS - rearmsLeft));
@@ -172,9 +170,10 @@ void UDPServer::considerListeningAgain()
         return;
     }
 
-    /* A number taken away can be handed back - T3.227 has a controller closing
-     * one libuv owns and carrying on - so a look that fails spends an attempt
-     * instead of ending everything. What it must never do is arm the read.
+    /* A number taken away can be handed back - a controller elsewhere in this
+     * process closes one libuv owns and carries on - so a look that fails
+     * spends an attempt instead of ending everything. What it must never do is
+     * arm the read.
      */
     if (rearmsLeft == 0)
         giveUpTheReceiver("the number it was polling no longer names the socket "
