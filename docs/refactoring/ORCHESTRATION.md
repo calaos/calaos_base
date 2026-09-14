@@ -14423,6 +14423,12 @@ La compilation a eu lieu, l'exécution a eu lieu ; c'est le **capteur** qui a é
 écrit d'un reste qui coïncide. La règle est la même que la 7ᵉ façon de mentir : ce qui est mesuré,
 c'est que la réponse **suit** le poison.
 
+## Outillage — le 14e : un relink sauté fait rendre à la suite le jeu rouge du mutant PRÉCÉDENT
+
+Même famille que `_DEPENDENCIES` : une source restaurée garde l'horodatage de l'original, plus ancien que l'objet
+du tour d'avant — `make` relie sans recompiler, le binaire porte encore la mutation précédente, et rien ne le dit,
+le `CXXLD` de la suite étant bien au journal. Parade : effacer l'objet ET le binaire à chaque tour.
+
 ## ⚠️ Mesure — un compte de `SKIP` ne se lit pas sans l'image où il a été pris (2026-09-13)
 
 **`SKIP` dépend de l'IMAGE et de l'état du cache, pas du ticket.** Trois fiches de la vague 153
