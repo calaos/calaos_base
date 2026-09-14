@@ -23,6 +23,8 @@
 
 #include <fcntl.h>
 
+#include <chrono>
+
 using namespace Calaos;
 
 UDPServer::UDPServer(int p):
@@ -44,6 +46,26 @@ UDPServer::~UDPServer()
 
     handleSrv->stop();
     handleSrv->close();
+}
+
+double UDPServer::journalNow() const
+{
+    const auto since = std::chrono::steady_clock::now().time_since_epoch();
+    return std::chrono::duration_cast<std::chrono::duration<double>>(since).count();
+}
+
+unsigned long UDPServer::countInJournalWindow(unsigned long &count,
+                                             double &windowStart)
+{
+    const double now = journalNow();
+
+    if (count == 0 || now - windowStart >= JOURNAL_WINDOW_SECONDS)
+    {
+        count = 0;
+        windowStart = now;
+    }
+
+    return ++count;
 }
 
 /* Whether the number libuv polls still names something this process owns.
@@ -215,6 +237,7 @@ void UDPServer::createUdpSocket()
         {
             const string peer = pendingSends.front();
             pendingSends.pop_front();
+
             /* The first few one by one, then one line per doubling. Who is on
              * the network decides how many answers are refused, so a line per
              * refusal lets it decide how many lines the journal gets; n cost
@@ -222,12 +245,13 @@ void UDPServer::createUdpSocket()
              * that lasts keeps being said at a rate that falls - where "the
              * first N, then nothing" goes mute for good.
              */
-            refusedSends++;
-            if (refusedSends <= REFUSALS_SAID_IN_FULL ||
-                (refusedSends & (refusedSends - 1)) == 0)
+            const unsigned long refusedInWindow =
+                    countInJournalWindow(refusedSends, refusedWindowStart);
+            if (refusedInWindow <= REFUSALS_SAID_IN_FULL ||
+                (refusedInWindow & (refusedInWindow - 1)) == 0)
                 cErrorDom("network") << "UDP send to " << peer << " failed: "
                                      << ev.what() << ", still listening on port "
-                                     << port << " (" << refusedSends
+                                     << port << " (" << refusedInWindow
                                      << " refused so far, one line per doubling)";
             return;
         }
@@ -294,11 +318,13 @@ void UDPServer::processRequest(const string &request, const string &remoteIp, un
              * doubling is a rule, not a threshold - the first is always
              * written, n cost log2(n), and no count is ever the last one.
              */
-            unanswerableDiscovers++;
-            if ((unanswerableDiscovers & (unanswerableDiscovers - 1)) == 0)
+            const unsigned long unanswerable =
+                    countInJournalWindow(unanswerableDiscovers,
+                                         unanswerableWindowStart);
+            if ((unanswerable & (unanswerable - 1)) == 0)
                 cErrorDom("network") << "No interface found corresponding to "
                                         "network : " << remoteIp << " ("
-                                     << unanswerableDiscovers
+                                     << unanswerable
                                      << " unanswerable so far, one line per "
                                         "doubling)";
         }

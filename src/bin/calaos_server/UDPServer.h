@@ -43,7 +43,7 @@ protected:
     //first. See createUdpSocket(): it is the only thing that tells a refused
     //send from a broken socket.
     std::deque<std::string> pendingSends;
-    //Refused sends counted since this server started, for the journal only.
+    //Refused sends counted in the current journal window, for the journal only.
     unsigned long refusedSends = 0;
     //Refusals written out one by one before the doubling ramp takes over. Not a
     //number picked here: a box that loses three correspondents must name the
@@ -52,10 +52,35 @@ protected:
     //a doubling already.
     static constexpr unsigned long REFUSALS_SAID_IN_FULL = 3;
     //CALAOS_DISCOVER datagrams left unanswered because no local address of
-    //this machine reaches their source, counted since this server started.
-    //Cumulative like refusedSends, and buyable the same way: a peer drives it
-    //to a power of two and the next one is not written for as long again.
+    //this machine reaches their source, counted in the current journal window.
     unsigned long unanswerableDiscovers = 0;
+
+    //Start of the window each of the two counts above is counted in.
+    double refusedWindowStart = 0.0;
+    double unanswerableWindowStart = 0.0;
+
+    /* Both counts feed a doubling ramp, and a ramp read over the whole life of
+     * the process is BUYABLE: the same unauthenticated peer that made the
+     * journal long drives a count to a power of two, and the next real failure
+     * is written nowhere for as long again. Counting inside a window that
+     * restarts on its own takes that back.
+     *
+     * The window is GLOBAL and not per correspondent. A per-peer count is
+     * bought with one peer per event - the easiest traffic of all to produce -
+     * and it costs one line per peer, which is the defect the ramp exists to
+     * close. Same shape and same length as the window RemoteUIManager rearms
+     * its per-IP attempt count on: one number, no eviction, so there is no
+     * table to fill and no entry to get evicted either.
+     */
+    static constexpr double JOURNAL_WINDOW_SECONDS = 60.0;
+
+    //Seconds off a monotonic source. Overridden in tests, which must be able to
+    //cross a window without waiting for one.
+    virtual double journalNow() const;
+
+    //count, advanced inside its window, and the window restarted when it is
+    //over. Answers the new count.
+    unsigned long countInJournalWindow(unsigned long &count, double &windowStart);
 
     /* What the receiver is doing, which nothing else in the tree can ask it.
      *
