@@ -324,20 +324,13 @@ public:
     sigc::signal<void> onWagoDisconnected;
 };
 
-/* A program from 4.0 on answers a DALI read it cannot serve with the string
- * ERR where the level belongs, the reason behind it, and the verb kept -
- * udpReplyMisattributedToDaliGet drops any other verb while a read is in
- * flight, so no dedicated verb could reach a caller.
- *
- * Both fields are outside the value domain, and every DALI state reader here
- * spells "lit" as "not the string 0" or hands the field to from_string(). So
- * a reader must ask this BEFORE it looks at either one: -1, then 0, then ERR
- * have each in turn shown an unlit luminaire at 100%.
- *
- * ⛔ Deliberately NOT gated on the announced version: ERR is a level under no
- * version, so reading it as one is wrong for every program that could send it,
- * including an intermediate or third-party one.
- */
+/* A 4.0+ program answers a DALI read it cannot serve with ERR where the level
+ * belongs and the reason after it, verb unchanged - udpReplyMisattributedToDaliGet
+ * drops any other verb while a read is in flight, so a dedicated verb could
+ * never reach a caller. Ask this before reading a level: readers here spell
+ * "lit" as "not the string 0", or hand the field to from_string(), and both
+ * turn ERR into 100%. Not gated on the announced version - ERR is a level under
+ * no version, so every program that could send it must be read the same way. */
 bool daliReplyIsError(const vector<string> &tokens);
 string daliReplyErrorReason(const vector<string> &tokens);
 
