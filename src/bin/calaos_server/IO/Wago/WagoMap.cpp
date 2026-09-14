@@ -648,3 +648,25 @@ void WagoMap::WagoHeartBeatTick()
         cDebugDom("wago") << "No interface found corresponding to network : " << get_host();
     }
 }
+
+namespace
+{
+
+/* The field is the first one AFTER the verb - the same position the level is
+ * read from - and the comparison is on the string, not on a number: there is
+ * no numeric conversion anywhere on that path to place this test in front of.
+ * A reply with no reason behind it is still a refusal, so the reason is read
+ * separately and never guards the refusal. */
+const char DALI_ERROR_FIELD[] = "ERR";
+
+}
+
+bool Calaos::daliReplyIsError(const vector<string> &tokens)
+{
+    return tokens.size() >= 2 && tokens[1] == DALI_ERROR_FIELD;
+}
+
+string Calaos::daliReplyErrorReason(const vector<string> &tokens)
+{
+    return tokens.size() >= 3 ? tokens[2] : string("no reason given");
+}

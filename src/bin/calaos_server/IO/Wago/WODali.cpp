@@ -41,7 +41,8 @@ WODali::WODali(Params &_p):
     ioDoc->paramAddInt("port", _("Wago ethernet port, default to 502"), 0, 65535, false, 502);
     ioDoc->paramAdd("line", _("DALI bus line, usually 1"), IODoc::TYPE_INT, false, "1");
     ioDoc->paramAddInt("address", _("Device address. For DALI address is between 1-64. "
-                                 "For DMX, the address starts at 100. So for DMX device 5, address should be 105"), 1, 612, true);
+                                 "For DMX the address is 100 + the channel, so DMX channel 5 is address 105; "
+                                 "channel 1 is address 101 and 100 itself is not a DMX address"), 1, 355, true);
     ioDoc->paramAddInt("group", _("Set to 1 if address is a DALI group address, set to 0 otherwise."), 0, 1, false);
     ioDoc->paramAddInt("fade_time", _("DALI fade time. value is between 1-10"), 1, 10, false);
 
@@ -104,6 +105,19 @@ void WODali::WagoUDPCommand_cb(bool status, WagoTypes::UdpCommand command, WagoT
     {
         vector<string> tokens;
         split(result.v, tokens);
+
+        /* A refused read leaves the ballast where a 2s timeout leaves it: the
+         * previous state kept, no change emitted, the start-up token given
+         * back. Publishing anything here would publish a state nobody read. */
+        if (daliReplyIsError(tokens))
+        {
+            cInfoDom("output") << get_param("id") << ": PLC refused the DALI read '"
+                               << command.v << "': " << daliReplyErrorReason(tokens);
+            Calaos::StartReadRules::Instance().ioRead();
+
+            return;
+        }
+
         if (tokens.size() >= 3)
         {
             //get the status of the ballast

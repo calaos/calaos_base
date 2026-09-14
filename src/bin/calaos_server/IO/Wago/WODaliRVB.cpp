@@ -42,19 +42,22 @@ WODaliRVB::WODaliRVB(Params &_p):
 
     ioDoc->paramAdd("rline", _("DALI bus line for red channel, usually 1"), IODoc::TYPE_INT, false, "1");
     ioDoc->paramAddInt("raddress", _("Device address for red channel. For DALI address is between 1-64. "
-                                 "For DMX, the address starts at 100. So for DMX device 5, address should be 105"), 1, 612, true);
+                                 "For DMX the address is 100 + the channel, so DMX channel 5 is address 105; "
+                                 "channel 1 is address 101 and 100 itself is not a DMX address"), 1, 355, true);
     ioDoc->paramAddInt("rgroup", _("Set to 1 if address for red channel is a DALI group address, set to 0 otherwise."), 0, 1, false);
     ioDoc->paramAddInt("rfade_time", _("DALI fade time for red channel. value is between 1-10"), 1, 10, false);
 
     ioDoc->paramAdd("gline", _("DALI bus line for green channel, usually 1"), IODoc::TYPE_INT, false, "1");
     ioDoc->paramAddInt("gaddress", _("Device address for green channel. For DALI address is between 1-64. "
-                                 "For DMX, the address starts at 100. So for DMX device 5, address should be 105"), 1, 612, true);
+                                 "For DMX the address is 100 + the channel, so DMX channel 5 is address 105; "
+                                 "channel 1 is address 101 and 100 itself is not a DMX address"), 1, 355, true);
     ioDoc->paramAddInt("ggroup", _("Set to 1 if address for green channel is a DALI group address, set to 0 otherwise."), 0, 1, false);
     ioDoc->paramAddInt("gfade_time", _("DALI fade time for green channel. value is between 1-10"), 1, 10, false);
 
     ioDoc->paramAdd("bline", _("DALI bus line for blue channel, usually 1"), IODoc::TYPE_INT, false, "1");
     ioDoc->paramAddInt("baddress", _("Device address for blue channel. For DALI address is between 1-64. "
-                                 "For DMX, the address starts at 100. So for DMX device 5, address should be 105"), 1, 612, true);
+                                 "For DMX the address is 100 + the channel, so DMX channel 5 is address 105; "
+                                 "channel 1 is address 101 and 100 itself is not a DMX address"), 1, 355, true);
     ioDoc->paramAddInt("bgroup", _("Set to 1 if address for blue channel is a DALI group address, set to 0 otherwise."), 0, 1, false);
     ioDoc->paramAddInt("bfade_time", _("DALI fade time for blue channel. value is between 1-10"), 1, 10, false);
 
@@ -113,6 +116,13 @@ void WODaliRVB::WagoUDPCommandRed_cb(bool status, WagoTypes::UdpCommand command,
 
     vector<string> tokens;
     split(result.v, tokens);
+    if (readRefused(tokens, command, "red"))
+    {
+        Calaos::StartReadRules::Instance().ioRead();
+
+        return;
+    }
+
     if (tokens.size() >= 3)
     {
         from_string(tokens[2], red);
@@ -134,6 +144,13 @@ void WODaliRVB::WagoUDPCommandGreen_cb(bool status, WagoTypes::UdpCommand comman
 
     vector<string> tokens;
     split(result.v, tokens);
+    if (readRefused(tokens, command, "green"))
+    {
+        Calaos::StartReadRules::Instance().ioRead();
+
+        return;
+    }
+
     if (tokens.size() >= 3)
     {
         from_string(tokens[2], green);
@@ -155,6 +172,13 @@ void WODaliRVB::WagoUDPCommandBlue_cb(bool status, WagoTypes::UdpCommand command
 
     vector<string> tokens;
     split(result.v, tokens);
+    if (readRefused(tokens, command, "blue"))
+    {
+        Calaos::StartReadRules::Instance().ioRead();
+
+        return;
+    }
+
     if (tokens.size() >= 3)
     {
         from_string(tokens[2], blue);
@@ -162,6 +186,21 @@ void WODaliRVB::WagoUDPCommandBlue_cb(bool status, WagoTypes::UdpCommand command
     }
 
     Calaos::StartReadRules::Instance().ioRead();
+}
+
+/* Each channel reads the REASON field as its level, so a refusal used to land
+ * in from_string() - which publishes 0 on a token it cannot read, destroying
+ * the -1 that means "not read yet" and letting checkReadState() publish a
+ * colour for a channel nobody ever answered. */
+bool WODaliRVB::readRefused(const vector<string> &tokens,
+                            const WagoTypes::UdpCommand &command, const char *channel)
+{
+    if (!daliReplyIsError(tokens)) return false;
+
+    cInfoDom("output") << get_param("id") << ": PLC refused the DALI read '"
+                       << command.v << "' for the " << channel << " channel: "
+                       << daliReplyErrorReason(tokens);
+    return true;
 }
 
 void WODaliRVB::checkReadState()

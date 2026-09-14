@@ -40,6 +40,8 @@ private:
     void WagoUDPCommandBlue_cb(bool status, WagoTypes::UdpCommand command, WagoTypes::UdpResult result);
     void WagoUDPCommand_cb(bool status, WagoTypes::UdpCommand command, WagoTypes::UdpResult result);
 
+    bool readRefused(const std::vector<std::string> &tokens,
+                     const WagoTypes::UdpCommand &command, const char *channel);
     void checkReadState();
 
     virtual void setColorReal(const ColorValue &color, bool state);
