@@ -431,12 +431,12 @@ Run measure(int tag, int howMany, bool starved, int refusals, bool late,
              * delivered answer was argued to break down under, and the argument
              * was never played.
              *
-             * ⚠️ A turn of the loop between the two, and it is not tidiness:
-             * libuv hands queued datagrams to sendmmsg in batches and charges
-             * the whole batch with the error of one, so two answers posted back
-             * to back are refused TOGETHER whatever their destinations. Sending
-             * them a turn apart is what a peer alternating over time does, and
-             * it is the only shape under which one answer leaves.
+             * The pump between the two is not tidiness: libuv sends the healthy
+             * prefix of its queue, then charges the first faulty datagram and
+             * everything still queued behind it. Position in the queue decides,
+             * not batch membership, so without the drain only the first answer
+             * of the run would leave and every later one would be refused with
+             * the refusal ahead of it.
              */
             for (int i = 1; i <= pairs; i++)
             {
