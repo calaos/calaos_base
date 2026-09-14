@@ -6870,3 +6870,37 @@ core_UdpDiscoverJournalCadence_test_DEPENDENCIES = $(UDP_DISCOVER_CADENCE_OBJECT
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.239
+#The receiver used to be given up for good on a failed read and nothing ever
+#armed it again, so a box stayed deaf for the life of the process while its
+#heartbeat kept saying it was well. It now comes back a bounded number of
+#times, and it LOOKS AT THE DESCRIPTOR before every attempt: a fault that left
+#it alone hands the whole queue back, one that closed it makes libuv abort()
+#inside uv_run without a word.
+#⚠️ Both halves live in one suite because either alone reads like the opposite
+#of a defect. The abort the guard avoids is PRICED here and not assumed: a
+#partner child arms the read by hand over the same closed descriptor and dies
+#on SIGABRT.
+#⚠️ One seam: a child that wants its fault to heal puts the descriptor back
+#from a listener of its own on the server's handle, on the nth error. It calls
+#no method of the server and decides nothing about the recovery; what it buys
+#is a heal between two attempts instead of after a wall-clock delay.
+#No skip: whether either accident can be produced here is read by cases that go
+#red, never by a barrier that would report a clean run having measured nothing.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/UdpReceiverRearmGuard_test
+check_PROGRAMS += core/UdpReceiverRearmGuard_test
+core_UdpReceiverRearmGuard_test_SOURCES = core/UdpReceiverRearmGuard_test.cpp
+core_UdpReceiverRearmGuard_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+UDP_REARM_GUARD_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
+core_UdpReceiverRearmGuard_test_LDADD = $(UDP_REARM_GUARD_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_UdpReceiverRearmGuard_test_DEPENDENCIES = $(UDP_REARM_GUARD_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
