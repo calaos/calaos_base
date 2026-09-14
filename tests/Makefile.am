@@ -6942,3 +6942,128 @@ core_UdpJournalWindowRearm_test_DEPENDENCIES = $(UDP_JOURNAL_WINDOW_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.243
+#A DALI read the PLC REFUSES, read as a lit luminaire. A 4.0 program answers
+#"WAGO_DALI_GET ERR <reason>" - verb kept, because the attribution filter drops
+#any other WAGO_ verb while a read is in flight - and both readers of that
+#frame took the refusal for data: WODali spells "lit" as "not the string 0" so
+#ERR became 100%, and each WODaliRVB channel handed the REASON to from_string(),
+#which publishes 0 and destroys the -1 that means "not answered yet".
+#⛔ The trap this suite exists to close: the frame could be discarded upstream,
+#by the attribution filter or by the old `>= 3` guard, and then a green case
+#would measure nothing. Every case reads WagoMap's pending queue and requires
+#the read to have been POPPED, and the first case pairs that with a frame that
+#really is discarded so the emptiness is a measurement.
+#⛔ And `value` starts at 0, so "the ballast is off" is also what an IO nobody
+#served says: every case carries a ballast that got a real answer and reached
+#100, and counts the start-read tokens.
+#No version gate is pinned by a case playing 2.3, 3.0, 4.0 and a PLC that
+#announced nothing: ERR is a level under no version.
+#Same link closure and LDADD as core/WagoDaliGetGroup_test: it builds a
+#production WODali and WODaliRVB through IOFactory.
+#Built elsewhere: the server objects come from another Makefile, so only
+#libcalaos_common.la may appear in _DEPENDENCIES (the -DEPENDENCIES pitfall).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WagoDaliErrorReply_test
+check_PROGRAMS += core/WagoDaliErrorReply_test
+core_WagoDaliErrorReply_test_SOURCES = core/WagoDaliErrorReply_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_WagoDaliErrorReply_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoDaliErrorReply_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT)                      \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT)                     \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT)                \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_WagoDaliErrorReply_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.244
+#What the DMX address bound of WODali/WODaliRVB actually does, which is nothing
+#but documentation: IODoc renders the range and no path in the server compares
+#an io.xml value against it.
+#⛔ Why no case asserts the bound is 355: it lives in one literal, a case would
+#read it back from the JSON that literal produced, and it would be green the
+#day the bound is wrong exactly as it is green today.
+#What is measured instead is the question narrowing the ceiling raises - an
+#address of 400 or 612 still loads and still reaches the wire unchanged, so an
+#installation written against the old text does not stop working - and that the
+#address is copied verbatim rather than turned into a DMX channel, which is why
+#the base being exclusive moves a sentence and no behaviour.
+#Same link closure and LDADD as core/WagoDaliGetGroup_test: it builds a
+#production WODali through IOFactory.
+#Built elsewhere: the server objects come from another Makefile, so only
+#libcalaos_common.la may appear in _DEPENDENCIES (the -DEPENDENCIES pitfall).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WagoDaliAddressRange_test
+check_PROGRAMS += core/WagoDaliAddressRange_test
+core_WagoDaliAddressRange_test_SOURCES = core/WagoDaliAddressRange_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_WagoDaliAddressRange_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoDaliAddressRange_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT)                      \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT)                     \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT)                \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_WagoDaliAddressRange_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
