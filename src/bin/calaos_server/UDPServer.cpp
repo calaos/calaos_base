@@ -168,7 +168,21 @@ void UDPServer::processRequest(const string &request, const string &remoteIp, un
         }
         else
         {
-            cErrorDom("network") << "No interface found corresponding to network : " << remoteIp;
+            unanswerableDiscovers++;
+
+            /* Same shape as the refused-send ramp above, and for the same
+             * reason: the source of the datagram is chosen by whoever speaks
+             * on the network and discovery needs no credentials, so one line
+             * per datagram lets it decide how long the journal is. The
+             * doubling is a rule, not a threshold - the first is always
+             * written, n cost log2(n), and no count is ever the last one.
+             */
+            if ((unanswerableDiscovers & (unanswerableDiscovers - 1)) == 0)
+                cErrorDom("network") << "No interface found corresponding to "
+                                        "network : " << remoteIp << " ("
+                                     << unanswerableDiscovers
+                                     << " unanswerable so far, one line per "
+                                        "doubling)";
         }
     }
     else if (request.compare(0, 9, "WAGO INT ") == 0)

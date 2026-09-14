@@ -50,6 +50,11 @@ protected:
     //therefore the floor. Any value up to four keeps the same set, four being
     //a doubling already.
     static constexpr unsigned long REFUSALS_SAID_IN_FULL = 3;
+    //CALAOS_DISCOVER datagrams left unanswered because no local address of
+    //this machine reaches their source, counted since this server started.
+    //Cumulative like refusedSends, and buyable the same way: a peer drives it
+    //to a power of two and the next one is not written for as long again.
+    unsigned long unanswerableDiscovers = 0;
 
     void createUdpSocket();
     void sendTo(const string &ip, unsigned int remotePort, const string &packet);
