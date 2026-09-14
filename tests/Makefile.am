@@ -6829,3 +6829,44 @@ UrlDownloaderStallTimeout_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest
 endif
+
+# T3.212
+#The OTHER journal line of processRequest(), and it was ten lines below the one
+#a previous ticket bounded: a CALAOS_DISCOVER whose source no local address
+#reaches wrote one ERROR line per datagram, no ceiling, no stop, no credentials
+#asked, and nothing read it. Bounded here by the same rule as the refused-send
+#ramp - one line per doubling of the count, the first always written, no count
+#ever the last - and the rule carries no threshold to invent.
+#⚠️ The unanswerable state is produced by lowering the soft RLIMIT_NOFILE for
+#the length of the flood: GetLocalIPFor() opens a socket to learn which local
+#address reaches the source, so a box with none left has none for ANY source.
+#Each datagram comes from its own address of 127/8, so the journal says WHICH
+#discoveries were kept and not merely how many.
+#⛔ One case reads the CENSUS instead of the fix: GetLocalIPFor() writes its own
+#line on the same path, once per datagram, with no ceiling. Closing the member
+#named in the ticket does not close its callee's twin, and that is measured.
+#⛔ Two cases are a CHARACTERISATION of T3.211 and not a repair: the refused-send
+#count is cumulative for the life of the process, so an unauthenticated peer
+#drives it to a power of two and a LATER real failure - another correspondent,
+#another range - is not written at all. Its partner shows the same failure IS
+#written on a box whose count nobody drove up, so the silence is the work of the
+#count and not of the machine. The day the count is rearmed, the first of the two
+#goes red and must be turned into its opposite, never relaxed.
+#No skip: whether either accident can be produced here is read by cases that go
+#red, never by a barrier that would report a clean run having measured nothing.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/UdpDiscoverJournalCadence_test
+check_PROGRAMS += core/UdpDiscoverJournalCadence_test
+core_UdpDiscoverJournalCadence_test_SOURCES = core/UdpDiscoverJournalCadence_test.cpp
+core_UdpDiscoverJournalCadence_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+UDP_DISCOVER_CADENCE_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
+core_UdpDiscoverJournalCadence_test_LDADD = $(UDP_DISCOVER_CADENCE_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_UdpDiscoverJournalCadence_test_DEPENDENCIES = $(UDP_DISCOVER_CADENCE_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
