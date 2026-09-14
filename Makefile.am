@@ -92,10 +92,19 @@ endif
 # at all. The recipe swallows the exit status for the same reason: the script's
 # own status is real and a reviewer reads it, the build never does.
 # Run it at every documentation review -- that is where it pays.
-.PHONY: check-docs
+#
+# T3.175: the probe now reads scripts/check-docs.pins, and a red there names a
+# reference whose lines MOVED under it. `make check-docs-pins` rewrites the
+# file; the diff it produces is the review, not a chore -- recalculating a pin
+# without looking is how T3.164 carried a wrong target forward with fidelity.
+.PHONY: check-docs check-docs-pins
 check-docs:
 	@$(PYTHON) $(top_srcdir)/scripts/check-docs.py $(top_srcdir) || \
 	  echo "check-docs: reported above, non-blocking on purpose"
+
+check-docs-pins:
+	@$(PYTHON) $(top_srcdir)/scripts/check-docs.py --write-pins $(top_srcdir) || \
+	  echo "check-docs: pins rewritten, stale references above still stand"
 
 EXTRA_DIST = \
 AUTHORS \
@@ -103,6 +112,7 @@ COPYING \
 README.md \
 autogen.sh \
 scripts/check-docs.py \
+scripts/check-docs.pins \
 scripts/pyproject-requirements.py \
 scripts/pydeps-conformance-probe.py \
 scripts/ccache-honesty-probe.py \
