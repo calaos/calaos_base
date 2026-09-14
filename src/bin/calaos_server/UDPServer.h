@@ -27,6 +27,8 @@
 
 #include <deque>
 
+#include <sys/types.h>
+
 namespace uvw {
 //Forward declare classes here to prevent long build time
 //because of uvw.hpp being header only
@@ -59,18 +61,13 @@ protected:
     double refusedWindowStart = 0.0;
     double unanswerableWindowStart = 0.0;
 
-    /* Both counts feed a doubling ramp, and a ramp read over the whole life of
-     * the process is BUYABLE: the same unauthenticated peer that made the
-     * journal long drives a count to a power of two, and the next real failure
-     * is written nowhere for as long again. Counting inside a window that
-     * restarts on its own takes that back.
+    /* A ramp read over the whole life of the process is BUYABLE: an
+     * unauthenticated peer drives a count to a power of two and the next real
+     * failure is written nowhere for as long again.
      *
-     * The window is GLOBAL and not per correspondent. A per-peer count is
-     * bought with one peer per event - the easiest traffic of all to produce -
-     * and it costs one line per peer, which is the defect the ramp exists to
-     * close. Same shape and same length as the window RemoteUIManager rearms
-     * its per-IP attempt count on: one number, no eviction, so there is no
-     * table to fill and no entry to get evicted either.
+     * GLOBAL and not per correspondent: a per-peer count is bought with one
+     * peer per event, which is the defect the ramp exists to close. Same shape
+     * and length as the window RemoteUIManager rearms its per-IP count on.
      */
     static constexpr double JOURNAL_WINDOW_SECONDS = 60.0;
 
@@ -84,13 +81,11 @@ protected:
 
     /* What the receiver is doing, which nothing else in the tree can ask it.
      *
-     * A receive error stops the handle - without that one bad datagram is one
-     * error per turn of the loop and a core at 100% - and a read armed again a
-     * turn later takes the whole queue back WHEN the fault left the descriptor
-     * alone. When the fault CLOSED it there is no coming back: libuv hands the
-     * number to epoll_ctl, gets EBADF and calls abort() without a word, so the
-     * descriptor is looked at before every attempt and a missing one ends the
-     * attempts rather than the process.
+     * A receive error stops the handle - without that, one bad datagram is one
+     * error per turn of the loop - and a read armed again takes the whole queue
+     * back WHEN the number still names the socket that was bound. When it does
+     * not, arming the read is no error anyone can report: libuv abort()s on a
+     * free number, and blocks for ever on a number handed out again.
      */
     enum class Receiver { Listening, Retrying, GaveUp };
     Receiver receiver = Receiver::Listening;
@@ -98,19 +93,31 @@ protected:
     std::shared_ptr<uvw::TimerHandle> rearmTimer;
     unsigned rearmsLeft = 0;
 
-    /* How many times to come back, and it is the only number in the recovery:
-     * the wait between two attempts is a TURN OF THE LOOP, not a duration.
-     * Nothing in the tree derives a duration for this, and a delay would bound
-     * a rate where what has to be bounded is a count - the same attempts cost
-     * the same journal however long the box is left running.
+    /* How many times to come back. The hold before each attempt is
+     * ExternProcServer::respawnDelay() of the attempts already made - 0 (the
+     * next turn of the loop), then kRespawnDelayMin, then double - so the only
+     * numbers here are the ceiling and constants that already exist.
      */
     static constexpr unsigned REARM_ATTEMPTS = 3;
 
+    /* What the number libuv polls must still name for a read to be armed on it.
+     * The inode identifies the file description itself; the bound address is
+     * what a number handed out again cannot carry, since a fresh socket is
+     * unbound. Captured once the bind has settled.
+     */
+    dev_t ownedDevice = 0;
+    ino_t ownedInode = 0;
+    string ownedAddress;
+    bool descriptorRemembered = false;
+
     void createUdpSocket();
+    void rememberTheDescriptor();
     void sendTo(const string &ip, unsigned int remotePort, const string &packet);
     void processRequest(const string &msg, const string &remoteIp, unsigned int port);
 
-    bool descriptorIsStillOurs() const;
+    //Virtual for the suite that has to arm a read the guard would refuse, which
+    //is the only way to price what the guard is there to avoid.
+    virtual bool descriptorIsStillOurs() const;
     void scheduleRearm();
     void considerListeningAgain();
     void giveUpTheReceiver(const string &why);

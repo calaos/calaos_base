@@ -216,6 +216,17 @@ void pump()
     }
 }
 
+/* The same, long enough to outlast the bounded recovery a broken receiver now
+ * goes through before it says it has gone deaf: the holds between two attempts
+ * are ExternProcServer::respawnDelay() of the attempts already made. A BOUND,
+ * not a verdict - nothing below reads how long anything took.
+ */
+void pumpThroughTheRecovery()
+{
+    for (int i = 0; i < 8; i++)
+        pump();
+}
+
 int correspondent(int &port)
 {
     const int c = socket(AF_INET, SOCK_DGRAM, 0);
@@ -353,7 +364,7 @@ Run measure(int howMany, bool breakTheReceiver, int tag)
 
             gStage = 2;
             speak(c, asked, "WAGO INT 8 true");
-            pump();
+            pumpThroughTheRecovery();
 
             close(c);
         }

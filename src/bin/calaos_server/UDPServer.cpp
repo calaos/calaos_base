@@ -21,9 +21,13 @@
 #include <UDPServer.h>
 #include "libuvw.h"
 
-#include <fcntl.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
 
 #include <chrono>
+#include <cstring>
+
+#include "IO/ExternProc.h"
 
 using namespace Calaos;
 
@@ -68,20 +72,62 @@ unsigned long UDPServer::countInJournalWindow(unsigned long &count,
     return ++count;
 }
 
-/* Whether the number libuv polls still names something this process owns.
+/* Reads back what the bind left behind, so that a later look can tell this
+ * socket from any other the same NUMBER may come to name.
+ */
+void UDPServer::rememberTheDescriptor()
+{
+    descriptorRemembered = false;
+
+    const int fd = (int)handleSrv->fileno();
+    if (fd < 0)
+        return;
+
+    struct stat st;
+    sockaddr_storage bound;
+    socklen_t len = sizeof(bound);
+    if (fstat(fd, &st) != 0 ||
+        getsockname(fd, reinterpret_cast<sockaddr *>(&bound), &len) != 0)
+        return;
+
+    ownedDevice = st.st_dev;
+    ownedInode = st.st_ino;
+    ownedAddress.assign(reinterpret_cast<const char *>(&bound), len);
+    descriptorRemembered = true;
+}
+
+/* Whether the number libuv polls still names the socket that was bound.
  *
- * It is the one question that separates a fault a read can come back from - the
- * descriptor is intact, the failure was the read's - from an accident in this
- * process's own descriptor table, where arming the read again is an abort()
- * inside uv_run and not an error anyone can report.
+ * VALIDITY is not the question, and answering it is what freezes the loop: a
+ * number closed elsewhere in this process goes to the next socket() that runs,
+ * and that one is valid, blocking and somebody else's.
  *
- * It cannot see a number that was closed and HANDED OUT AGAIN: that one answers
- * "valid" and belongs to somebody else.
+ * The inode answers identity outright; the bound address is the second half,
+ * against an inode counter that wraps.
  */
 bool UDPServer::descriptorIsStillOurs() const
 {
+    if (!descriptorRemembered)
+        return false;
+
     const int fd = (int)handleSrv->fileno();
-    return fd >= 0 && fcntl(fd, F_GETFD) != -1;
+    if (fd < 0)
+        return false;
+
+    struct stat st;
+    if (fstat(fd, &st) != 0)
+        return false;
+
+    if (st.st_dev != ownedDevice || st.st_ino != ownedInode)
+        return false;
+
+    sockaddr_storage now;
+    socklen_t len = sizeof(now);
+    if (getsockname(fd, reinterpret_cast<sockaddr *>(&now), &len) != 0)
+        return false;
+
+    return len == ownedAddress.size() &&
+           memcmp(&now, ownedAddress.data(), len) == 0;
 }
 
 void UDPServer::scheduleRearm()
@@ -96,42 +142,46 @@ void UDPServer::scheduleRearm()
         });
     }
 
-    /* Zero, which uvw documents as the next iteration of the loop. Arming the
-     * read from inside the error callback brings back the very deluge the stop
-     * is there to end - and it is the turn of the loop, never a delay, that was
-     * measured to hand the queued datagrams back.
+    /* The ramp the tree already holds for a child that will not stay up, read
+     * on the attempts already made: 0 - the next turn of the loop - then
+     * kRespawnDelayMin, then double. Three attempts inside one millisecond
+     * outlast no real shortage, and the attempts are silent either way.
      *
-     * Only ever armed from the poll phase, never from the timer callback:
-     * libuv keeps draining its timer heap after a callback returns, so a timer
-     * restarted from inside its own callback runs AGAIN in the same phase,
-     * before the read it just armed has had a chance to fail.
+     * Only ever armed from the poll phase: libuv keeps draining its timer heap
+     * after a callback returns, so a timer restarted from inside its own
+     * callback runs AGAIN in the same phase, before the read it armed can fail.
      */
-    rearmTimer->start(uvw::TimerHandle::Time{0}, uvw::TimerHandle::Time{0});
+    const double hold =
+            ExternProcServer::respawnDelay((int)(REARM_ATTEMPTS - rearmsLeft));
+    rearmTimer->start(uvw::TimerHandle::Time{(uint64_t)(hold * 1000.0)},
+                      uvw::TimerHandle::Time{0});
 }
 
 void UDPServer::considerListeningAgain()
 {
-    if (receiver != Receiver::Retrying)
+    if (receiver != Receiver::Retrying || rearmsLeft == 0)
         return;
 
-    if (!descriptorIsStillOurs())
-    {
-        giveUpTheReceiver("the descriptor it was polling is gone from this "
-                          "process, so arming the read again would abort it");
-        return;
-    }
-
-    if (rearmsLeft == 0)
-    {
-        giveUpTheReceiver(Utils::to_string(REARM_ATTEMPTS) +
-                          " attempts to listen again all failed");
-        return;
-    }
-
-    //One attempt, and then nothing until it fails: a read that stays armed is
-    //a read that worked, and there is no event for one.
     rearmsLeft--;
-    handleSrv->recv();
+
+    if (descriptorIsStillOurs())
+    {
+        //One attempt, and then nothing until it fails: a read that stays armed
+        //is a read that worked, and there is no event for one.
+        handleSrv->recv();
+        return;
+    }
+
+    /* A number taken away can be handed back - T3.227 has a controller closing
+     * one libuv owns and carrying on - so a look that fails spends an attempt
+     * instead of ending everything. What it must never do is arm the read.
+     */
+    if (rearmsLeft == 0)
+        giveUpTheReceiver("the number it was polling no longer names the socket "
+                          "it bound, and arming a read on a stranger's socket "
+                          "hangs the whole loop");
+    else
+        scheduleRearm();
 }
 
 /* Said once, and it is the whole of what an operator gets.
@@ -262,7 +312,11 @@ void UDPServer::createUdpSocket()
         //one. Silent: coming back costs the journal nothing per attempt.
         if (receiver == Receiver::Retrying)
         {
-            scheduleRearm();
+            if (rearmsLeft == 0)
+                giveUpTheReceiver(Utils::to_string(REARM_ATTEMPTS) +
+                                  " attempts to listen again all failed");
+            else
+                scheduleRearm();
             return;
         }
 
@@ -277,6 +331,7 @@ void UDPServer::createUdpSocket()
     });
 
     handleSrv->recv();
+    rememberTheDescriptor();
 }
 
 void UDPServer::sendTo(const string &ip, unsigned int remotePort,

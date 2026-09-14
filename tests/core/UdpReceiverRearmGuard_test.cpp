@@ -21,7 +21,7 @@
 
 /*******************************************************************************
  * A UDP RECEIVER THAT COMES BACK FROM A FAULT THAT HEALS, AND REFUSES TO COME
- * BACK FROM ONE THAT TOOK ITS DESCRIPTOR.
+ * BACK ON A NUMBER THAT IS NO LONGER THE SOCKET IT BOUND.
  *
  * ---------------------------------------------------------------------------
  * THE TWO THINGS THAT MUST BOTH HOLD
@@ -32,43 +32,50 @@
  * supervisor it was well.
  *
  * Arming the read again is worth a bounded number of attempts BECAUSE a fault
- * that left the descriptor alone hands the whole queue back. It is fatal when
- * the fault CLOSED the descriptor: libuv gives the number to epoll_ctl, gets
- * EBADF and calls abort() without a word, so a recovery written without a look
- * at the descriptor turns a deaf box into a dead process, and does it without
- * anyone choosing to. Both halves are measured here, in the same suite,
+ * that left the socket alone hands the whole queue back. It is fatal when the
+ * NUMBER no longer names that socket, and validity is not the question: a free
+ * number makes libuv abort() inside epoll_ctl without a word, and a number the
+ * next socket() has taken is perfectly valid, blocking, and somebody else's -
+ * the read lands in recvmsg() and never returns, taking uv_run and every other
+ * input of the box with it. Both halves are measured here, in the same suite,
  * because either one alone reads like the opposite of a defect.
  *
  * ---------------------------------------------------------------------------
- * HOW THE TWO FAULTS ARE PRODUCED, AND THE ONE SEAM THIS SUITE USES
+ * HOW THE FAULTS ARE PRODUCED, AND THE SEAMS THIS SUITE USES
  * ---------------------------------------------------------------------------
  * epoll keeps its own reference to the file description, so the port stays
  * bound and keeps reporting readable while the read lands on whatever the
- * NUMBER names: a stream socket (ENOTCONN, descriptor intact) or nothing at
- * all (EBADF, descriptor gone). Both are accidents in this process's own
- * descriptor table, which is the only producer the tree is known to have.
+ * NUMBER names: a stream socket (ENOTCONN), nothing at all (a free number), or
+ * the UDP socket the next socket() call was handed. All three are accidents in
+ * this process's own descriptor table, which is the only producer the tree is
+ * known to have.
  *
- * ⚠️ The seam: a child that wants its fault to HEAL subscribes a listener of
- * its own to the server's handle and puts the descriptor back from inside it,
- * on the nth error. It calls no method of the server and decides nothing about
- * the recovery - the server's own attempt is what finds the descriptor
- * healthy. What it buys is a heal that happens between two attempts and not
- * after a wall-clock delay, so nothing here waits on a duration.
+ * Three seams, and each one is declared where it is used:
+ *  - healOnLookNumber(): puts the descriptor back from inside the look the
+ *    server takes before an attempt. It decides nothing about the recovery -
+ *    the server's own look is what finds the socket back - and it buys a heal
+ *    that happens between two attempts rather than after a wall-clock delay.
+ *  - healOnErrorNumber(): the same, driven by the nth error instead, for the
+ *    child whose descriptor comes back once the attempts are already spent.
+ *  - pretendTheDescriptorIsOurs(): stands the identity check down. It is the
+ *    mutant, kept in the tree: with it, the child whose number was handed out
+ *    again FREEZES, which is what says the check carries the weight.
  *
  * ---------------------------------------------------------------------------
  * WHAT THIS SUITE REFUSES TO BE
  * ---------------------------------------------------------------------------
- * No skip and no 77. Whether either accident can be produced on this machine
- * is read by CASES THAT GO RED, never by a barrier that would report a clean
- * run having measured nothing. On a machine without an IPv4 loopback this
- * suite fails; that is the choice made, and it is the one the other UDP suites
- * of this tree make.
+ * No skip and no 77. Whether an accident can be produced on this machine is
+ * read by CASES THAT GO RED, never by a barrier that would report a clean run
+ * having measured nothing. On a machine without an IPv4 loopback this suite
+ * fails; that is the choice made, and it is the one the other UDP suites of
+ * this tree make.
  *
  * It reads no duration and no rate. Every verdict is a COUNT of journal lines,
- * an input NUMBER, an exit status, or the ATTEMPT NUMBER a line carries; the
- * pair of children that differ only in how long they were pumped must report
- * the same counts, which is what says the give-up is said once and not once a
- * turn.
+ * an input NUMBER, an exit status, or the ATTEMPT NUMBER a line carries. The
+ * pumping budget and the alarm each child carries are BOUNDS and never
+ * verdicts: a child that hangs has to end as a CODE, because a frozen child
+ * and a slow one are otherwise the same thing, and the pair of children that
+ * differ only in how long they were pumped must report the same counts.
  ******************************************************************************/
 
 #include <gtest/gtest.h>
@@ -113,10 +120,10 @@ const char *const kNoLongerListening = "no longer listening on port ";
 const char *const kListeningAgain = "listening again on port ";
 
 //The two reasons a receiver is given up for good, and they are not the same
-//event: one is a fault that outlived the attempts, the other is a descriptor
-//that is not there to attempt anything on.
+//event: one is a fault that outlived the attempts, the other is a number that
+//stopped naming the socket there was anything to attempt on.
 const char *const kAttemptsSpent = "attempts to listen again all failed";
-const char *const kDescriptorGone = "the descriptor it was polling is gone";
+const char *const kNotOurs = "no longer names the socket it bound";
 
 std::string workDir;
 
@@ -124,17 +131,19 @@ enum Fault
 {
     NoFault,
     StreamSocketOverTheDescriptor,
-    DescriptorClosed
+    //The number left free, and the number the next socket() was handed. Both
+    //are "the descriptor is gone"; only one of them answers "valid".
+    DescriptorClosed,
+    DescriptorHandedOutAgain
 };
 
-/* Reaches the descriptor libuv polls, the read the server arms, and the error
- * the server hears - none of which UDPServer exposes.
+/* Reaches the descriptor libuv polls, the read the server arms, the error the
+ * server hears and the look the server takes before an attempt - none of which
+ * UDPServer exposes.
  *
- * healOnErrorNumber() is the seam described in the header: it puts the
- * descriptor back from inside a listener of its own, on the nth error, and
- * touches nothing else. uvw walks its listeners newest first, so this one runs
- * before the server's: the nth error is therefore reported by a server that
- * already has a healthy descriptor to try again on.
+ * The two heal seams put the descriptor back from inside something the server
+ * was going to do anyway, on the nth occurrence; neither calls a method of the
+ * server nor decides anything about the recovery.
  */
 class Guard: public UDPServer
 {
@@ -144,18 +153,64 @@ public:
     int descriptor() const { return (int)handleSrv->fileno(); }
     void armTheReceiveAgain() { handleSrv->recv(); }
 
+    void healOnLookNumber(int nth, int from, int onto)
+    {
+        nthLook = nth;
+        healFrom = from;
+        healOnto = onto;
+    }
+
+    //Stands the identity check down: the mutant, kept in the tree.
+    void standTheIdentityCheckDown() { pretend = true; }
+
     void healOnErrorNumber(int nth, int from, int onto)
     {
         handleSrv->on<uvw::ErrorEvent>([this, nth, from, onto]
                                        (const uvw::ErrorEvent &, uvw::UDPHandle &)
         {
-            if (++seen == nth)
+            if (++seenErrors == nth)
                 dup2(from, onto);
         });
     }
 
+    //Closes the number the server polls and lets the next socket() have it,
+    //between the error and the attempt. Writes down whether it really got it:
+    //an accident that did not happen must not read like a guard that held.
+    void reclaimTheNumberOnFirstError(const std::string &saidAt)
+    {
+        handleSrv->on<uvw::ErrorEvent>([this, saidAt]
+                                       (const uvw::ErrorEvent &, uvw::UDPHandle &)
+        {
+            if (reclaimed)
+                return;
+            reclaimed = true;
+
+            const int was = (int)handleSrv->fileno();
+            close(was);
+            const int now = socket(AF_INET, SOCK_DGRAM, 0);
+            FILE *f = fopen(saidAt.c_str(), "w");
+            if (f)
+            {
+                fprintf(f, "%s\n", now == was? "YES": "NO");
+                fclose(f);
+            }
+        });
+    }
+
+protected:
+    bool descriptorIsStillOurs() const override
+    {
+        if (nthLook > 0 && ++looks == nthLook)
+            dup2(healFrom, healOnto);
+        return pretend? true: UDPServer::descriptorIsStillOurs();
+    }
+
 private:
-    int seen = 0;
+    mutable int looks = 0;
+    int nthLook = 0, healFrom = -1, healOnto = -1;
+    int seenErrors = 0;
+    bool pretend = false;
+    bool reclaimed = false;
 };
 
 int reservePort()
@@ -198,6 +253,19 @@ size_t countOf(const std::string &hay, const std::string &needle)
     return n;
 }
 
+/* Turns of pumping. The first is only a settle; the one that follows the
+ * accident has to outlast the whole bounded recovery, and the long child exists
+ * to say that the counts below do not move with it.
+ */
+const int kSettle = 12;
+const int kAfterTheAccident = 300;
+const int kPumpedFarLonger = 900;
+
+//Seconds a child may take before something kills it. A bound, never a verdict:
+//a child that hangs must end as a CODE, since a frozen child and a slow one
+//look the same to everything else.
+const unsigned kChildBound = 10;
+
 //Filled in the child by the signal UDPServer emits for a Wago or KNX input.
 //Stage 1 accumulates: what comes back after a recovery is a queue and its
 //ORDER is part of the measurement. The input NUMBER travels with the address,
@@ -215,14 +283,37 @@ void noteWago(std::string ip, int input, bool, std::string)
         gCarried[gStage] = one;
 }
 
-//Turns of the loop, never a wait on one that will not come. The budget also
-//bounds an unbounded burst, so a tree that produces one fails a count instead
-//of never finishing.
+/* Turns of the loop, never a wait on one that will not come. The budget also
+ * bounds an unbounded burst, so a tree that produces one fails a count instead
+ * of never finishing.
+ *
+ * It has to outlast the holds between two attempts, which are
+ * ExternProcServer::respawnDelay() of the attempts already made: nothing here
+ * reads that, the budget is simply longer than the three of them together.
+ */
 void pump(int turns)
 {
     auto loop = uvw::Loop::getDefault();
     for (int i = 0; i < turns; i++)
     {
+        loop->run<uvw::Loop::Mode::NOWAIT>();
+        usleep(2000);
+    }
+}
+
+/* The same, for the one child whose outage has to LAST: it puts the descriptor
+ * back once the given number of turns have gone by, which is a number of turns
+ * and not a reading of a clock. One turn is the usleep above, so the outage is
+ * long enough to outlive the first attempt and short enough to be caught by a
+ * later one - and with no hold between attempts it outlives all three.
+ */
+void pumpThroughAnOutage(int turns, int healAfterTurns, int from, int onto)
+{
+    auto loop = uvw::Loop::getDefault();
+    for (int i = 0; i < turns; i++)
+    {
+        if (i == healAfterTurns)
+            dup2(from, onto);
         loop->run<uvw::Loop::Mode::NOWAIT>();
         usleep(2000);
     }
@@ -265,22 +356,28 @@ void speak(int fd, int port, const std::string &text)
            reinterpret_cast<sockaddr *>(&d), sizeof(d));
 }
 
-/* One child. healOnError says at which error the descriptor goes back, so a
- * fault that heals between two attempts and one that never heals are the same
- * run with one number changed; forceARearm arms the read by hand AFTER the
- * server has given up, which is the only way to price the abort the guard
- * avoids.
+/* One child. A fault that heals between two attempts and one that never heals
+ * are the same run with one number changed; forceARearm arms the read by hand
+ * AFTER the server has given up, which is the only way to price what the guard
+ * refuses to do.
  */
 struct Ask
 {
     Fault fault = NoFault;
+    //The look, or the error, the descriptor goes back on. Zero: never.
+    int healOnLook = 0;
     int healOnError = 0;
+    //Turns of the post-accident pump the descriptor stays away for. Zero: the
+    //two seams above decide instead.
+    int healAfterTurns = 0;
+    bool standTheCheckDown = false;
     bool forceARearm = false;
-    int turns = 12;
+    int turns = kAfterTheAccident;
 };
 
 struct Run
 {
+    std::string same = kNothing;
     std::string before = kNothing;
     std::string during = kNothing;
     std::string reply = kNothing;
@@ -302,6 +399,9 @@ Run measure(const Ask &ask, int tag)
     //them dies on purpose, and a child that dies must still be able to say it
     //was reading first.
     const std::string beforePath = base + "/before";
+    //Whether the number really came back to this process, for the one child
+    //that asks for it.
+    const std::string samePath = base + "/same";
     ::mkdir(base.c_str(), 0700);
     ::mkdir(cfg.c_str(), 0700);
     ::mkdir(cache.c_str(), 0700);
@@ -314,6 +414,8 @@ Run measure(const Ask &ask, int tag)
     const pid_t pid = fork();
     if (pid == 0)
     {
+        alarm(kChildBound);
+
         const int lf = open(logPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
         if (lf >= 0)
         {
@@ -345,7 +447,7 @@ Run measure(const Ask &ask, int tag)
         if (c >= 0)
         {
             speak(c, asked, "WAGO INT 7 true");
-            pump(ask.turns);
+            pump(kSettle);
 
             FILE *b = fopen(beforePath.c_str(), "w");
             if (b)
@@ -360,28 +462,41 @@ Run measure(const Ask &ask, int tag)
             //prove the deafness would go nowhere.
             const int kept = dup(polled);
 
+            if (ask.healOnLook > 0)
+                server.healOnLookNumber(ask.healOnLook, kept, polled);
             if (ask.healOnError > 0)
                 server.healOnErrorNumber(ask.healOnError, kept, polled);
+            if (ask.standTheCheckDown)
+                server.standTheIdentityCheckDown();
+            if (ask.fault == DescriptorHandedOutAgain)
+                server.reclaimTheNumberOnFirstError(samePath);
 
-            if (ask.fault == StreamSocketOverTheDescriptor)
-            {
-                const int stream = socket(AF_INET, SOCK_STREAM, 0);
-                dup2(stream, polled);
-            }
-            else if (ask.fault == DescriptorClosed)
+            if (ask.fault == DescriptorClosed)
             {
                 close(polled);
+            }
+            else if (ask.fault != NoFault)
+            {
+                //A stream socket is what makes the read fail. For the child
+                //whose number is handed out again it is only the trigger: the
+                //listener above closes the number on that first error and lets
+                //the next socket() have it, which is the accident itself.
+                const int stream = socket(AF_INET, SOCK_STREAM, 0);
+                dup2(stream, polled);
             }
 
             gStage = 1;
             speak(c, asked, "WAGO KNX 9 true");
-            pump(ask.turns);
+            if (ask.healAfterTurns > 0)
+                pumpThroughAnOutage(ask.turns, ask.healAfterTurns, kept, polled);
+            else
+                pump(ask.turns);
 
             speak(c, asked, "WAGO INT 8 true");
-            pump(ask.turns);
+            pump(kSettle);
 
             speak(c, asked, "CALAOS_DISCOVER");
-            pump(ask.turns);
+            pump(kSettle);
 
             char buf[256];
             const ssize_t n = recv(c, buf, sizeof(buf), 0);
@@ -391,7 +506,7 @@ Run measure(const Ask &ask, int tag)
             if (ask.forceARearm)
             {
                 server.armTheReceiveAgain();
-                pump(ask.turns);
+                pump(kSettle);
             }
 
             close(c);
@@ -423,6 +538,11 @@ Run measure(const Ask &ask, int tag)
     while (fields.size() < 2)
         fields.push_back(kNothing);
 
+    std::string reclaimed = slurp(samePath);
+    while (!reclaimed.empty() && reclaimed[reclaimed.size() - 1] == '\n')
+        reclaimed.erase(reclaimed.size() - 1);
+    r.same = reclaimed.empty()? kNothing: reclaimed;
+
     std::string firstRead = slurp(beforePath);
     while (!firstRead.empty() && firstRead[firstRead.size() - 1] == '\n')
         firstRead.erase(firstRead.size() - 1);
@@ -437,21 +557,32 @@ struct Runs
 {
     //No fault at all: everything below must already work without one.
     Run control;
-    //A fault that never heals, and the same one on a child pumped four times
-    //as long. The pair is what says the give-up is said once.
-    Run deaf, deaf_long;
-    //The same fault, healed between two attempts - at the first error and at
-    //the second, so the attempt count the journal carries is read twice with
-    //two different values.
+    //A number that stops being ours and never comes back, and the same child
+    //pumped three times as long. The pair is what says the give-up is said once.
+    Run not_ours, not_ours_long;
+    //The same fault, the descriptor put back between two attempts - at the
+    //first look and at the second, so the attempt count the journal carries is
+    //read twice with two different values.
     Run heal_first, heal_second;
-    //And healed one error too late: the attempts are spent, so the box stays
-    //deaf on a descriptor that has become healthy again. The price of a bound.
-    Run heal_too_late;
-    //The descriptor taken away, which is the fault a recovery must refuse.
+    //Identity stood down and the read failing for real: the only way this tree
+    //can reach the ceiling, since every accident it can produce is an accident
+    //of identity. Healed one error too late, so the price of the bound shows.
+    Run spent;
+    //The number left free, which is the accident libuv abort()s on.
     Run closed;
     //The same, with the read armed by hand afterwards: the abort the guard is
     //there to avoid, priced in this suite rather than assumed from another.
     Run closed_forced;
+    //An outage that lasts far longer than a turn of the loop and is over well
+    //before the attempts are: what the holds between attempts buy, and the only
+    //child here that goes red if they are taken away.
+    Run outage;
+    //⭐ The number closed and handed straight to the next socket(). It answers
+    //"valid" to anything that only asks whether it exists.
+    Run handed_out;
+    //⭐ And the same child with the identity check stood down: it freezes in
+    //recvmsg() on a stranger's socket and has to be killed.
+    Run handed_out_unchecked;
 };
 
 const Runs &theRuns()
@@ -465,25 +596,36 @@ const Runs &theRuns()
         r.control = measure(a, 0);
 
         a = Ask(); a.fault = StreamSocketOverTheDescriptor;
-        r.deaf = measure(a, 1);
+        r.not_ours = measure(a, 1);
 
-        a = Ask(); a.fault = StreamSocketOverTheDescriptor; a.turns = 48;
-        r.deaf_long = measure(a, 2);
+        a = Ask(); a.fault = StreamSocketOverTheDescriptor;
+        a.turns = kPumpedFarLonger;
+        r.not_ours_long = measure(a, 2);
 
-        a = Ask(); a.fault = StreamSocketOverTheDescriptor; a.healOnError = 1;
+        a = Ask(); a.fault = StreamSocketOverTheDescriptor; a.healOnLook = 1;
         r.heal_first = measure(a, 3);
 
-        a = Ask(); a.fault = StreamSocketOverTheDescriptor; a.healOnError = 2;
+        a = Ask(); a.fault = StreamSocketOverTheDescriptor; a.healOnLook = 2;
         r.heal_second = measure(a, 4);
 
-        a = Ask(); a.fault = StreamSocketOverTheDescriptor; a.healOnError = 4;
-        r.heal_too_late = measure(a, 5);
+        a = Ask(); a.fault = StreamSocketOverTheDescriptor;
+        a.standTheCheckDown = true; a.healOnError = 4;
+        r.spent = measure(a, 5);
+
+        a = Ask(); a.fault = StreamSocketOverTheDescriptor; a.healAfterTurns = 50;
+        r.outage = measure(a, 10);
 
         a = Ask(); a.fault = DescriptorClosed;
         r.closed = measure(a, 6);
 
         a = Ask(); a.fault = DescriptorClosed; a.forceARearm = true;
         r.closed_forced = measure(a, 7);
+
+        a = Ask(); a.fault = DescriptorHandedOutAgain;
+        r.handed_out = measure(a, 8);
+
+        a = Ask(); a.fault = DescriptorHandedOutAgain; a.standTheCheckDown = true;
+        r.handed_out_unchecked = measure(a, 9);
 
         return r;
     }();
@@ -503,13 +645,16 @@ TEST(UdpReceiverRearmGuard, EveryChildWasReadingBeforeTheDescriptorAccident)
     const Runs &r = theRuns();
 
     EXPECT_EQ("127.0.0.1/7", r.control.before);
-    EXPECT_EQ("127.0.0.1/7", r.deaf.before);
-    EXPECT_EQ("127.0.0.1/7", r.deaf_long.before);
+    EXPECT_EQ("127.0.0.1/7", r.not_ours.before);
+    EXPECT_EQ("127.0.0.1/7", r.not_ours_long.before);
     EXPECT_EQ("127.0.0.1/7", r.heal_first.before);
     EXPECT_EQ("127.0.0.1/7", r.heal_second.before);
-    EXPECT_EQ("127.0.0.1/7", r.heal_too_late.before);
+    EXPECT_EQ("127.0.0.1/7", r.spent.before);
+    EXPECT_EQ("127.0.0.1/7", r.outage.before);
     EXPECT_EQ("127.0.0.1/7", r.closed.before);
     EXPECT_EQ("127.0.0.1/7", r.closed_forced.before);
+    EXPECT_EQ("127.0.0.1/7", r.handed_out.before);
+    EXPECT_EQ("127.0.0.1/7", r.handed_out_unchecked.before);
 }
 
 /*
@@ -523,16 +668,35 @@ TEST(UdpReceiverRearmGuard, TheAccidentIsRealInEveryChildThatAskedForOne)
 {
     const Runs &r = theRuns();
 
-    EXPECT_NE(std::string::npos, r.deaf.log.find(kNotConnected))
+    EXPECT_NE(std::string::npos, r.not_ours.log.find(kNotConnected))
             << "no receive failed: this suite measured nothing at all";
-    EXPECT_NE(std::string::npos, r.deaf_long.log.find(kNotConnected));
+    EXPECT_NE(std::string::npos, r.not_ours_long.log.find(kNotConnected));
     EXPECT_NE(std::string::npos, r.heal_first.log.find(kNotConnected));
     EXPECT_NE(std::string::npos, r.heal_second.log.find(kNotConnected));
-    EXPECT_NE(std::string::npos, r.heal_too_late.log.find(kNotConnected));
+    EXPECT_NE(std::string::npos, r.spent.log.find(kNotConnected));
+    EXPECT_NE(std::string::npos, r.outage.log.find(kNotConnected));
     EXPECT_NE(std::string::npos, r.closed.log.find(kBadDescriptor));
     EXPECT_NE(std::string::npos, r.closed_forced.log.find(kBadDescriptor));
     EXPECT_EQ(std::string::npos, r.control.log.find(kServerError))
             << "the child that asked for no accident got one anyway";
+}
+
+/*
+ * ⭐⭐⭐ AND THE ONE ACCIDENT THAT ONLY COUNTS IF THE NUMBER REALLY CAME BACK.
+ * Both children closed the number libuv polls and asked the kernel for another
+ * socket; both must say the kernel handed them THE SAME NUMBER. Without this,
+ * the two cases below are a guard congratulating itself on an accident that
+ * never happened.
+ */
+TEST(UdpReceiverRearmGuard, TheNumberWasReallyHandedOutAgainInBothChildren)
+{
+    const Runs &r = theRuns();
+
+    EXPECT_EQ("YES", r.handed_out.same)
+            << "the closed number was not handed back to this process, so "
+               "nothing here measured a descriptor that belongs to a stranger";
+    EXPECT_EQ("YES", r.handed_out_unchecked.same);
+    EXPECT_NE(std::string::npos, r.handed_out.log.find(kNotConnected));
 }
 
 /*
@@ -554,11 +718,44 @@ TEST(UdpReceiverRearmGuard, WithoutTheAccidentTheSameExchangeIsServedAndNothingI
 }
 
 /*
- * ⭐⭐ WHAT COMING BACK BUYS. The fault healed between two attempts, the server
- * armed its own read again, and everything that arrived while it was deaf is
- * still in the socket: it comes back IN THE ORDER it arrived, and the discovery
- * posted after it is answered. Nothing here waits on a duration - the heal
- * happens on an error, which is a count.
+ * ⭐⭐⭐ THE ONE THAT DECIDES EVERYTHING. A number closed and handed straight to
+ * the next socket() answers "valid" to anything that only asks whether it
+ * exists - and the socket behind it is blocking and belongs to somebody else,
+ * so a read armed on it never returns and uv_run never turns again. The child
+ * that looks at IDENTITY refuses the attempt, says so, and EXITS.
+ *
+ * Its partner is what prices that, and it is the mutant kept in the tree: the
+ * same accident with the identity check stood down freezes and has to be
+ * killed. So the exit status above is a freeze that did not happen, and not a
+ * machine on which the freeze cannot happen at all.
+ */
+TEST(UdpReceiverRearmGuard, ANumberHandedOutAgainIsNeverArmedAndTheLoopKeepsTurning)
+{
+    const Runs &r = theRuns();
+
+    EXPECT_EQ(0, r.handed_out.exitCode)
+            << "the child did not exit on its own: the read was armed over a "
+               "socket that is not ours and the whole loop is stuck in it";
+    EXPECT_NE(std::string::npos, r.handed_out.log.find(kNotOurs))
+            << "the receiver was given up without saying that the number had "
+               "stopped naming the socket it bound";
+    EXPECT_EQ(1u, countOf(r.handed_out.log, kNoLongerListening));
+
+    EXPECT_EQ(-SIGALRM, r.handed_out_unchecked.exitCode)
+            << "the same accident with the identity check stood down did NOT "
+               "freeze the child: the check is not what keeps the loop alive "
+               "here, and nothing in this suite holds it";
+    EXPECT_EQ(std::string::npos, r.handed_out_unchecked.log.find(kNoLongerListening))
+            << "the child that froze said it had given up first: it was killed "
+               "somewhere else than on the read it was not supposed to arm";
+}
+
+/*
+ * ⭐⭐ WHAT COMING BACK BUYS. The descriptor was back by the time the server
+ * looked, the server armed its own read again, and everything that arrived
+ * while it was deaf is still in the socket: it comes back IN THE ORDER it
+ * arrived, and the discovery posted after it is answered. Nothing here waits on
+ * a duration - the heal happens on a look, which is a count.
  */
 TEST(UdpReceiverRearmGuard, ARecoveredReceiverHandsBackEveryInputInOrder)
 {
@@ -578,11 +775,34 @@ TEST(UdpReceiverRearmGuard, ARecoveredReceiverHandsBackEveryInputInOrder)
 }
 
 /*
+ * ⭐⭐ AND WHAT THE HOLD BETWEEN TWO ATTEMPTS BUYS. This child's descriptor
+ * stays away for FIFTY turns of the loop - a shortage a box really can have -
+ * and comes back well before the attempts are spent. It is recovered.
+ *
+ * ⛔ With the attempts crowded into consecutive turns, as they were before the
+ * hold was taken from ExternProcServer::respawnDelay(), all three are over
+ * inside a millisecond and this child stays deaf. That is the whole of what the
+ * hold is for, and this is the case that says so. The verdict is still what
+ * came back and not how long anything took.
+ */
+TEST(UdpReceiverRearmGuard, AnOutageLongerThanATurnOfTheLoopIsStillRecoveredFrom)
+{
+    const Runs &r = theRuns();
+
+    EXPECT_EQ("127.0.0.1/9+127.0.0.1/8", r.outage.during)
+            << "an outage a few turns long outlived every attempt: the "
+               "attempts are crowded into one instant and bound nothing real";
+    EXPECT_NE(std::string::npos, r.outage.log.find(kListeningAgain));
+    EXPECT_EQ(std::string::npos, r.outage.log.find(kNoLongerListening));
+    EXPECT_EQ(0, r.outage.exitCode);
+}
+
+/*
  * ⭐ AND THE JOURNAL SAYS HOW MANY ATTEMPTS IT TOOK - the VALUE, not merely a
- * line in the right place. Two children, the same recovery, a fault healed one
- * error apart: each names its own attempt count and neither names the other's.
- * A recovery line with a constant in it satisfies one of the two and fails the
- * other.
+ * line in the right place. Two children, the same recovery, a descriptor back
+ * one look apart: each names its own attempt count and neither names the
+ * other's. A recovery line with a constant in it satisfies one of the two and
+ * fails the other.
  */
 TEST(UdpReceiverRearmGuard, TheRecoveryLineSaysHowManyAttemptsItTook)
 {
@@ -604,46 +824,48 @@ TEST(UdpReceiverRearmGuard, TheRecoveryLineSaysHowManyAttemptsItTook)
 }
 
 /*
- * ⛔ AND WHAT THE BOUND COSTS, WHICH HAS TO BE SAID TOO. The same fault healed
- * one error too late: the attempts are spent, so the box stays deaf on a
- * descriptor that is healthy again. That is the price of bounding the attempts
- * rather than retrying for ever, and the journal is where it has to show.
+ * ⛔ AND WHAT THE BOUND COSTS, WHICH HAS TO BE SAID TOO. The identity check
+ * stood down so that the READ is what keeps failing: the attempts run out, and
+ * the descriptor that comes back one error too late buys nothing. That is the
+ * price of bounding the attempts rather than retrying for ever, and it is also
+ * the only path in this tree that reaches the ceiling at all - every accident
+ * the tree can really produce is an accident of identity.
  */
 TEST(UdpReceiverRearmGuard, AFaultThatHealsAfterTheAttemptsAreSpentIsNotRecovered)
 {
     const Runs &r = theRuns();
 
-    EXPECT_EQ(kNothing, r.heal_too_late.during)
+    EXPECT_EQ(kNothing, r.spent.during)
             << "the receiver came back after its attempts were spent: the "
                "ceiling is not bounding anything";
-    EXPECT_EQ(std::string::npos, r.heal_too_late.log.find(kListeningAgain));
-    EXPECT_NE(std::string::npos, r.heal_too_late.log.find(kAttemptsSpent));
-    EXPECT_EQ(0, r.heal_too_late.exitCode);
+    EXPECT_EQ(std::string::npos, r.spent.log.find(kListeningAgain));
+    EXPECT_NE(std::string::npos, r.spent.log.find(kAttemptsSpent));
+    EXPECT_EQ(std::string::npos, r.spent.log.find(kNotOurs))
+            << "a read that kept failing on a socket that was ours was "
+               "reported as a number that had stopped being ours";
+    EXPECT_EQ(0, r.spent.exitCode);
 }
 
 /*
- * ⛔⭐⭐ THE GUARD. Over a descriptor that names nothing, the receiver does NOT
- * arm its read again: it looks at the descriptor first, finds it gone, and
- * stops there. The child lives.
+ * ⛔⭐⭐ THE OTHER HALF OF THE GUARD. Over a number that was left FREE, the
+ * receiver does not arm its read either: libuv hands that number to epoll_ctl,
+ * gets EBADF and calls abort() without a word. The child lives.
  *
- * Its partner is what prices that. The same child, the same closed descriptor,
- * one read armed BY HAND afterwards: libuv hands the closed number to
- * epoll_ctl, gets EBADF and calls abort() without a word, and the child dies on
- * SIGABRT after having said it went deaf. So the exit status above is the
- * abort that did not happen, and not a machine on which the abort cannot
- * happen at all.
+ * Its partner prices it the same way the freeze above is priced: the same
+ * child, the same free number, one read armed BY HAND afterwards, and it dies
+ * on SIGABRT having already said it went deaf.
  */
-TEST(UdpReceiverRearmGuard, AClosedDescriptorIsNeverArmedAgainAndTheProcessLives)
+TEST(UdpReceiverRearmGuard, AFreeNumberIsNeverArmedAgainAndTheProcessLives)
 {
     const Runs &r = theRuns();
 
     EXPECT_EQ(0, r.closed.exitCode)
-            << "the receiver armed its read again over a closed descriptor: "
-               "libuv aborts on that, and a deaf box became a dead process";
+            << "the receiver armed its read again over a free number: libuv "
+               "aborts on that, and a deaf box became a dead process";
     EXPECT_EQ(-SIGABRT, r.closed_forced.exitCode)
-            << "arming the read by hand over the same closed descriptor did "
-               "NOT kill the child: the abort this guard avoids is not the one "
-               "measured here";
+            << "arming the read by hand over the same free number did NOT kill "
+               "the child: the abort this guard avoids is not the one measured "
+               "here";
     EXPECT_EQ(1u, countOf(r.closed_forced.log, kNoLongerListening))
             << "the child died before or after the give-up, not on the read "
                "that was forced after it";
@@ -651,7 +873,7 @@ TEST(UdpReceiverRearmGuard, AClosedDescriptorIsNeverArmedAgainAndTheProcessLives
 
 /*
  * ⭐⭐ AND IT SAYS WHICH OF THE TWO HAPPENED. "Given up" is not one event: a
- * fault that outlived the attempts and a descriptor that is not there any more
+ * fault that outlived the attempts and a number that stopped naming the socket
  * are different accidents and want different answers from whoever reads the
  * journal. Each child carries its own reason and neither carries the other's -
  * a give-up line with one constant reason in it passes one of these and fails
@@ -661,25 +883,26 @@ TEST(UdpReceiverRearmGuard, TheGiveUpSaysWhyItWillNotComeBack)
 {
     const Runs &r = theRuns();
 
-    EXPECT_NE(std::string::npos, r.deaf.log.find(kAttemptsSpent))
+    EXPECT_NE(std::string::npos, r.spent.log.find(kAttemptsSpent))
             << "the box gave the receiver up without saying that it had tried";
-    EXPECT_EQ(std::string::npos, r.deaf.log.find(kDescriptorGone))
-            << "a fault that left the descriptor alone was reported as a "
-               "descriptor that had gone away";
+    EXPECT_EQ(std::string::npos, r.spent.log.find(kNotOurs));
 
-    EXPECT_NE(std::string::npos, r.closed.log.find(kDescriptorGone))
-            << "the receiver was given up over a closed descriptor without "
-               "saying that this is why it will not be armed again";
-    EXPECT_EQ(std::string::npos, r.closed.log.find(kAttemptsSpent))
-            << "a descriptor that had gone away was reported as attempts that "
-               "were spent: the guard is not what stopped the recovery";
+    EXPECT_NE(std::string::npos, r.not_ours.log.find(kNotOurs))
+            << "the receiver was given up over a number that is not ours "
+               "without saying that this is why it will not be armed again";
+    EXPECT_EQ(std::string::npos, r.not_ours.log.find(kAttemptsSpent))
+            << "a number that had stopped being ours was reported as attempts "
+               "that were spent: the guard is not what stopped the recovery";
+
+    EXPECT_NE(std::string::npos, r.closed.log.find(kNotOurs));
+    EXPECT_EQ(std::string::npos, r.closed.log.find(kAttemptsSpent));
 }
 
 /*
  * WHAT THE JOURNAL OWES ITS READER, AND IT OWES IT ONCE. The give-up names the
  * port the kernel handed THIS run and the three things it takes away; then
  * nothing mentions the receiver again however long the process lives. The
- * child pumped four times as long says the same single line - this counts, it
+ * child pumped three times as long says the same single line - this counts, it
  * does not time - and the attempts cost the journal nothing: one error line,
  * one give-up, whether the receiver tried three times or not at all.
  */
@@ -688,25 +911,28 @@ TEST(UdpReceiverRearmGuard, TheBoxSaysItWentDeafOnceWhateverItTried)
     const Runs &r = theRuns();
 
     EXPECT_NE(std::string::npos,
-              r.deaf.log.find(kNoLongerListening + Utils::to_string(r.deaf.port)))
+              r.not_ours.log.find(kNoLongerListening +
+                                  Utils::to_string(r.not_ours.port)))
             << "the receiver was given up without saying so, or for another port";
-    EXPECT_NE(std::string::npos, r.deaf.log.find("CALAOS_DISCOVER"));
-    EXPECT_NE(std::string::npos, r.deaf.log.find("WAGO INT"));
-    EXPECT_NE(std::string::npos, r.deaf.log.find("WAGO KNX"));
+    EXPECT_NE(std::string::npos, r.not_ours.log.find("CALAOS_DISCOVER"));
+    EXPECT_NE(std::string::npos, r.not_ours.log.find("WAGO INT"));
+    EXPECT_NE(std::string::npos, r.not_ours.log.find("WAGO KNX"));
 
-    EXPECT_EQ(1u, countOf(r.deaf.log, kNoLongerListening));
-    EXPECT_EQ(1u, countOf(r.deaf.log, kServerError))
+    EXPECT_EQ(1u, countOf(r.not_ours.log, kNoLongerListening));
+    EXPECT_EQ(1u, countOf(r.not_ours.log, kServerError))
             << "coming back cost one journal line per attempt: the ceiling "
                "bounds the attempts, and the attempts must not spend the "
                "journal";
 
-    EXPECT_EQ(countOf(r.deaf.log, kNoLongerListening),
-              countOf(r.deaf_long.log, kNoLongerListening))
+    EXPECT_EQ(countOf(r.not_ours.log, kNoLongerListening),
+              countOf(r.not_ours_long.log, kNoLongerListening))
             << "the count of give-ups moved with the number of loop turns: it "
                "is a rate, and nothing here may read one";
-    EXPECT_EQ(countOf(r.deaf.log, kServerError),
-              countOf(r.deaf_long.log, kServerError));
+    EXPECT_EQ(countOf(r.not_ours.log, kServerError),
+              countOf(r.not_ours_long.log, kServerError));
 
+    EXPECT_EQ(1u, countOf(r.spent.log, kNoLongerListening));
+    EXPECT_EQ(1u, countOf(r.spent.log, kServerError));
     EXPECT_EQ(1u, countOf(r.closed.log, kNoLongerListening));
     EXPECT_EQ(1u, countOf(r.closed.log, kServerError));
 }
@@ -721,12 +947,14 @@ TEST(UdpReceiverRearmGuard, AReceiverGivenUpStillCostsEveryInputTheBoxHas)
 {
     const Runs &r = theRuns();
 
-    EXPECT_EQ(kNothing, r.deaf.during);
-    EXPECT_EQ(kNothing, r.deaf.reply);
+    EXPECT_EQ(kNothing, r.not_ours.during);
+    EXPECT_EQ(kNothing, r.not_ours.reply);
     EXPECT_EQ(kNothing, r.closed.during);
     EXPECT_EQ(kNothing, r.closed.reply);
-    EXPECT_EQ(0, r.deaf.exitCode);
-    EXPECT_EQ(0, r.deaf_long.exitCode);
+    EXPECT_EQ(kNothing, r.handed_out.during);
+    EXPECT_EQ(kNothing, r.handed_out.reply);
+    EXPECT_EQ(0, r.not_ours.exitCode);
+    EXPECT_EQ(0, r.not_ours_long.exitCode);
 }
 
 int main(int argc, char **argv)

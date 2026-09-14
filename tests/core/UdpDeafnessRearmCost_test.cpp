@@ -195,6 +195,14 @@ void pump(int turns)
     }
 }
 
+/* Turns enough to outlast the bounded recovery the server now goes through on
+ * its own before it says it has gone deaf: the holds between two attempts are
+ * ExternProcServer::respawnDelay() of the attempts already made. A BOUND, not a
+ * verdict - every count below is still a count, and the pair of children that
+ * differ only in turnsPerArm still has to report the same one.
+ */
+const int kThroughTheRecovery = 300;
+
 int correspondent(int &port)
 {
     const int c = socket(AF_INET, SOCK_DGRAM, 0);
@@ -340,7 +348,7 @@ Run measure(const Ask &ask, int tag)
 
             gStage = 1;
             speak(c, asked, "WAGO KNX 9 true");
-            pump(ask.turnsPerArm);
+            pump(kThroughTheRecovery);
 
             speak(c, asked, "CALAOS_DISCOVER");
             pump(ask.turnsPerArm);
