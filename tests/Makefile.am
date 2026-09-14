@@ -6904,3 +6904,41 @@ core_UdpReceiverRearmGuard_test_DEPENDENCIES = $(UDP_REARM_GUARD_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.240
+#Both journal ceilings of UDPServer counted the whole life of the process, so
+#the silence they bound was BUYABLE: the only caller of the send is the answer
+#to an unauthenticated CALAOS_DISCOVER, a third party drives a count to a power
+#of two and the next real failure is written nowhere for as long again. There
+#are TWO of them - refused answers and discoveries no local address reaches -
+#and closing one would leave exactly the hole the other was opened for. Both
+#are now counted inside a window that restarts on its own, ONE count for the
+#box and not one per correspondent: a per-peer count costs one line per peer,
+#which is the traffic a third party produces most easily.
+#⛔ Every conclusion is preceded by a case that requires the purchase to have
+#HAPPENED and counts it: a "the ceiling rearms" case is green on a tree where
+#nothing was ever refused.
+#⚠️ The window is a length of time and no verdict reads one: a child that has
+#to cross a window moves the server's own monotonic source forward and changes
+#nothing else - the comparison, the constant and the restart stay the server's.
+#⚠️ The refusal half goes through a subclass whose answer() calls the protected
+#send, because nothing else in the tree can hand UDPServer a correspondent that
+#has gone away; the unanswerable half needs no seam and uses none.
+#No skip: whether either accident can be produced here is read by cases that go
+#red, never by a barrier that would report a clean run having measured nothing.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/UdpJournalWindowRearm_test
+check_PROGRAMS += core/UdpJournalWindowRearm_test
+core_UdpJournalWindowRearm_test_SOURCES = core/UdpJournalWindowRearm_test.cpp
+core_UdpJournalWindowRearm_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+UDP_JOURNAL_WINDOW_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
+core_UdpJournalWindowRearm_test_LDADD = $(UDP_JOURNAL_WINDOW_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_UdpJournalWindowRearm_test_DEPENDENCIES = $(UDP_JOURNAL_WINDOW_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
