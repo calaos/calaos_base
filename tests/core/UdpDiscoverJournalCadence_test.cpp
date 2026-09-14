@@ -446,8 +446,9 @@ Run measure(int tag, int howMany, bool starved, int refusals, bool late,
                 pump();
             }
 
-            //Back to back, so every answer is outstanding before the first
-            //failure is reported: this is what buys the silence.
+            //Every one of these is unroutable, so each is charged wherever it
+            //sits in the queue. Posting them in one go only saves the loop
+            //turns; it is not what buys the silence.
             for (int i = 1; i <= refusals; i++)
                 discovery.answer(boughtPeer(i), sentinelPort);
             pump();
