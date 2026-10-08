@@ -27,8 +27,12 @@ Le côté C++ ne lance **pas** `python3` directement : `ReolinkCtrl` et `RoonCtr
 #!/bin/bash
 CALAOS_PREFIX=@prefix@
 export PYTHONPATH=$CALAOS_PREFIX/lib/python:$PYTHONPATH
-exec python3 $CALAOS_PREFIX/lib/calaos/ExternProcReolink_main.py "$@"
+exec python3 -u $CALAOS_PREFIX/lib/calaos/ExternProcReolink_main.py "$@"
 ```
+
+Le `-u` du wrapper Reolink n'est pas cosmétique : le stdout du sous-processus est un pipe,
+donc Python le bufferise par blocs de 8 Ko, et un driver peu bavard ne publiait jamais rien
+dans le journal — même ses erreurs.
 
 Les deux dépendances tierces sont sondées par `configure` (`configure.ac:194-213`) : si
 `roonapi` ou `reolink_aio` manque, un avertissement est émis et le driver correspondant
@@ -131,7 +135,7 @@ Trois points de qualité corrigés par T1.8 et épinglés par
 ### Pattern d'utilisation
 
 ```python
-# (dérivé, ExternProcRoon_main.py:222-234 et ExternProcReolink_main.py:1679-1687)
+# (dérivé, ExternProcRoon_main.py:222-234 et ExternProcReolink_main.py:321-328)
 import json
 from calaos_extern_proc import ExternProcClient, configure_logger
 
@@ -297,13 +301,36 @@ API propriétaire (protocole Baichuan TCP).
 ### Architecture interne
 
 - Boucle `ExternProcClient.run(200)` dans le thread principal (communication IPC)
-- Event loop `asyncio` dans un **thread séparé** pour les opérations async Reolink
-- `concurrent.futures.ThreadPoolExecutor` pour les appels bloquants
+- Event loop `asyncio` dans un **thread séparé** ; tout l'état des caméras n'est touché que
+  depuis ce thread (`message_received` y poste les enregistrements via `call_soon_threadsafe`)
+- **Une seule session `Host` par caméra**, quel que soit le nombre d'IO (types d'événements)
+  qui la référencent
+
+### Supervision
+
+`reolink_aio` maintient déjà la session Baichuan (keepalive, ré-abonnement après coupure). Le
+driver ne fait que rattraper ce que la bibliothèque abandonne, et **n'oublie jamais une
+caméra enregistrée** : une tâche `supervise()` par caméra tourne pendant toute la vie du
+processus.
+
+- caméra non connectée → tentative de connexion (`get_host_data` + `subscribe_events`,
+  timeout 30 s), puis nouvel essai avec un délai doublé de 10 s à 300 s, sans limite ;
+- caméra connectée → `check_subscribe_events()` toutes les 60 s ; si `events_active` reste
+  faux plus de 180 s, la session est fermée et une connexion neuve est ouverte.
+
+Un échec de connexion envoie `{"status": "error", "code": "camera_connect_timeout" |
+"camera_connect_failed", "hostname": ...}` : seul le nom de classe de l'exception est loggé,
+son texte venant de l'appel qui vient de s'authentifier.
+
+**Watchdog** : une tâche asyncio rafraîchit un horodatage toutes les 5 s. Le thread principal
+le vérifie dans `read_timeout()` ; au-delà de 120 s (ou si le thread de l'event loop est
+mort), le processus fait `os._exit(1)`. `ReolinkCtrl` le relance alors et renvoie tous les
+enregistrements dès le `"connected"` du nouveau processus.
+
+Les warnings et erreurs du logger `reolink_aio` sont relayés dans le domaine `reolink`, les
+mots de passe des caméras connues remplacés par `<redacted>`.
 
 ### Messages reçus de calaos_server
-
-Deux actions, et deux seulement — tout autre `action` est logguée en warning et ignorée
-(dérivé, `ExternProcReolink_main.py:1615-1619,1649,1676-1677`) :
 
 ```json
 {"action": "register", "hostname": "192.168.1.50", "username": "admin", "password": "secret", "event_type": "motion"}
@@ -311,74 +338,34 @@ Deux actions, et deux seulement — tout autre `action` est logguée en warning 
 ```
 
 `event_type` vaut `"motion"` par défaut ; `hostname`, `username` et `password` sont
-obligatoires (le message est refusé sinon, `:1621-1628`). Le log de réception **rédige**
-`username` et `password` avant d'imprimer le message (`:1606-1610`).
+obligatoires. Le log de réception **rédige** `username` et `password`. Un `register` pour une
+caméra déjà connue ajoute le type d'événement à sa session ; si les identifiants ont changé,
+la session est rouverte avec les nouveaux.
 
 > ⚠️ Il n'existe **pas** d'action `unregister` : quand le côté C++ retire une caméra, le
 > processus Python continue de la surveiller et les événements sont jetés côté serveur.
-> Consigné dans `FINDINGS.md`.
 
 ### Messages envoyés à calaos_server
 
-Aucun de ces messages ne porte de champ `action` ; ils se distinguent par la présence de
-`event` ou de `status`. **Extraits** — les payloads réels portent davantage de clés :
-
-```json
-{"event": "detection", "hostname": "...", "event_type": "motion", "channel": 0, "timestamp": "...", "camera_name": "...", "tcp_push_active": true, "callback_duration": 0.4, "async_callback": true, "adaptive_timeout": 1.5}
-```
-(dérivé, `:1293-1304` ; variante « sonnette » avec `"doorbell_optimized": true` à `:1190-1202`)
-
 ```json
 {"status": "connected", "message": "Reolink client ready"}
+{"event": "detection", "hostname": "...", "event_type": "visitor", "channel": 0, "timestamp": "...", "camera_name": "..."}
+{"status": "error", "code": "camera_connect_timeout", "hostname": "..."}
 ```
-(intégral quant aux clés, `:799-803`)
 
-```json
-{"status": "reconnect_failed", "hostname": "...", "message": "Failed to reconnect after N attempts", "circuit_breaker_state": "open", "next_retry_in": 0, "failure_count": 3}
-```
-(dérivé, `:1068-1076`)
-
-```json
-{"status": "critical_error", "message": "System deadlock detected, restart required", "restart_count": 1, "timestamp": 0}
-```
-(dérivé, `:692-698`)
-
-La réponse à `health_check` est un objet `{"status": "healthy"|"unhealthy", ...}` d'une
-vingtaine de clés de diagnostic (`:1649-1675`) ; `healthy` signifie simplement que le dernier
-health check remonte à moins de 60 s.
+La réponse à `health_check` est `{"status": "healthy"|"unhealthy", "cameras_count",
+"connected_cameras", "cameras": {hostname: {"connected", "events_active"}}}`. `ReolinkCtrl`
+logge en warning tout `status` qu'il ne traite pas.
 
 ### Événements détectés
 
-`visitor` (sonnette, traité en priorité sur les modèles doorbell), `motion`, puis les types
-IA `face`, `person`, `vehicle`, `pet`, `package`, `cry`
-(dérivé, `:1180,1225,1236,1268`).
+`motion`, `visitor` (sonnette) et les types IA `face`, `person`, `vehicle`, `pet`, `package`,
+`cry`. Seuls les types enregistrés pour la caméra sont envoyés, et **uniquement sur front
+montant** de l'état lu dans `reolink_aio` après chaque push Baichuan (cmd_id 33) : un appui
+sur la sonnette produit un seul événement. Un état déjà levé au moment de la (re)connexion
+n'est pas un événement.
 
-### Circuit breaker
-
-Chaque caméra a un `CircuitBreaker` qui limite les tentatives de reconnexion après des échecs
-répétés. ⚠️ **Les valeurs effectives ne sont pas les défauts de la classe** : la classe
-déclare `failure_threshold=5, recovery_timeout=300, half_open_max_calls=3` (`:23`), mais
-l'instanciation réelle passe (dérivé, `:960-963`) :
-
-- `failure_threshold = 3` → passe en état `open`
-- `recovery_timeout = 600` s → tente à nouveau après 10 min
-- `half_open_max_calls = 2` → test progressif
-
-### Stratégie de reconnexion adaptative
-
-Le type d'erreur est classé depuis l'`errno` ou le type d'exception (`:426-444`), puis mappé
-sur un délai et un nombre de tentatives. **Sept** entrées, pas quatre (intégral,
-`:449-455`) :
-
-```python
-            "network_unreachable": {"delay": 60, "max_retries": 3},  # Network problem, wait longer
-            "connection_refused": {"delay": 30, "max_retries": 5},  # Service down, moderate retry
-            "connection_timeout": {"delay": 20, "max_retries": 4},  # Network latency
-            "connection_reset": {"delay": 10, "max_retries": 6},    # Temporary problem
-            "timeout": {"delay": 15, "max_retries": 4},             # General timeout
-            "invalid_credentials": {"delay": 300, "max_retries": 1}, # Credentials, wait long
-            "unknown": {"delay": 30, "max_retries": 3}              # Default
-```
+Tests : [tests/python/test_reolink.py](../tests/python/test_reolink.py).
 
 ---
 

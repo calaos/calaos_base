@@ -42,6 +42,7 @@ EXTRA_DIST = \
               python/test_auth.py            \
               python/test_extern_proc.py     \
               python/test_logger.py          \
+              python/test_reolink.py         \
               python/test_t116_mcp_client.py \
               python/test_t116_mcp_config_io.py \
               python/test_t116_roon.py

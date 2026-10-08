@@ -87,6 +87,8 @@ ReolinkCtrl::ReolinkCtrl()
                                      << " (" << p["message"].size()
                                      << " bytes withheld)";
             }
+            else
+                cWarningDom("reolink") << "Unhandled status from Reolink process: " << p["status"];
         }
         else if (p.Exists("event") && p.Exists("hostname") && p.Exists("event_type"))
         {
