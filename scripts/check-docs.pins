@@ -1425,16 +1425,18 @@ docs/15_mcp_server.md	1	config.py:59-61	e122e2098e82	raise RuntimeError("CALAOS_
 docs/15_mcp_server.md	1	config.py:72-75	26127b5495bd	# (after the namespace) rather than the full tag. for elem i
 docs/15_mcp_server.md	1	config.py:86-91	9c1edf59ab3e	if not mcp_token: raise RuntimeError("mcp_token not found in
 docs/15_mcp_server.md	1	safety.py:12-35	9fa2c5503a98	_ANSI_RE = re.compile(r"\x1b[[0-9;]*[A-Za-z]") _CTRL_RE = re
-docs/15_mcp_server.md	1	server.py:155-187	dca76d7bd640	def create_app() -> FastAPI: cfg = get_config() # Initialise
-docs/15_mcp_server.md	1	server.py:160-171	b784f3cc6cfd	# # The sidecar is only reachable via a Unix domain socket p
-docs/15_mcp_server.md	1	server.py:167	f92bee81f17a	mcp_starlette = mcp.streamable_http_app(
-docs/15_mcp_server.md	1	server.py:174	2dfc4bc4e2cd	session_manager = mcp.session_manager
-docs/15_mcp_server.md	1	server.py:189-194	57ac5f79c193	# redirect_slashes=False: MCP clients send POST /mcp (no tra
-docs/15_mcp_server.md	1	server.py:197-203	6b2197586193	@base_app.get("/healthz") def healthz() -> JSONResponse: ret
-docs/15_mcp_server.md	1	server.py:205-216	ef6e627f0963	# Register an explicit route for POST/GET /mcp (exact path —
-docs/15_mcp_server.md	1	server.py:25	f57a0077a38a	from mcp.server.mcpserver import MCPServer
-docs/15_mcp_server.md	1	server.py:26	27feff7c2254	from mcp.server.transport_security import TransportSecurityS
-docs/15_mcp_server.md	1	server.py:50-58	5563c88b7ec2	mcp = MCPServer( "calaos", instructions=( "You are controlli
+docs/15_mcp_server.md	1	server.py:174-206	dca76d7bd640	def create_app() -> FastAPI: cfg = get_config() # Initialise
+docs/15_mcp_server.md	1	server.py:179-190	b784f3cc6cfd	# # The sidecar is only reachable via a Unix domain socket p
+docs/15_mcp_server.md	1	server.py:186	f92bee81f17a	mcp_starlette = mcp.streamable_http_app(
+docs/15_mcp_server.md	1	server.py:193	2dfc4bc4e2cd	session_manager = mcp.session_manager
+docs/15_mcp_server.md	1	server.py:208-213	57ac5f79c193	# redirect_slashes=False: MCP clients send POST /mcp (no tra
+docs/15_mcp_server.md	1	server.py:216-222	6b2197586193	@base_app.get("/healthz") def healthz() -> JSONResponse: ret
+docs/15_mcp_server.md	1	server.py:224-235	ef6e627f0963	# Register an explicit route for POST/GET /mcp (exact path —
+docs/15_mcp_server.md	1	server.py:26	f57a0077a38a	from mcp.server.mcpserver import MCPServer
+docs/15_mcp_server.md	1	server.py:27	9d1ce790d61f	from mcp.server.mcpserver.exceptions import ToolError
+docs/15_mcp_server.md	1	server.py:28	27feff7c2254	from mcp.server.transport_security import TransportSecurityS
+docs/15_mcp_server.md	1	server.py:52-61	7d13ed51e473	mcp = MCPServer( "calaos", version=__version__, instructions
+docs/15_mcp_server.md	1	server.py:63-77	fe5c48c16d77	# What the tools and CalaosClient raise for a bad argument, 
 docs/15_mcp_server.md	1	server.py:8-16	ffa38b6f4328	Architecture note: MCPServer's streamable_http_app() returns
 docs/15_mcp_server.md	1	src/bin/calaos_mcp/python/calaos_mcp/tools/_home.py:3-24	4cbcaf06539a	The calaos_server get_home action returns: { "home": [ # arr
 docs/15_mcp_server.md	1	src/bin/calaos_server/JsonApiHandlerWS.cpp:530-567	547b33a0edfb	} /* E4.1q. THE DOCUMENT IS HOISTED, NOT ADDED - see the twi

@@ -229,8 +229,8 @@ AM_PATH_PYTHON([3], [
         #
         # It does not stop at imports. server.py drives MCPServer through two
         # calls that no import statement would reveal:
-        #   - streamable_http_app(transport_security=...)  (server.py:167)
-        #   - mcp.session_manager                          (server.py:174)
+        #   - streamable_http_app(transport_security=...)  (server.py:186)
+        #   - mcp.session_manager                          (server.py:193)
         # Both moved in mcp 2 (from mcp.settings and the private
         # _session_manager), so the probe replays that sequence rather than
         # trusting the imports.
@@ -242,6 +242,7 @@ AM_PATH_PYTHON([3], [
         if test "x$with_mcp" != "xno"; then
             AC_MSG_CHECKING([for the Python API the calaos_mcp sidecar uses])
             mcp_api_probe="from mcp.server.mcpserver import MCPServer; \
+from mcp.server.mcpserver.exceptions import ToolError; \
 from mcp.server.transport_security import TransportSecuritySettings; \
 from fastapi import FastAPI, Request, Response; \
 from fastapi.responses import JSONResponse; \

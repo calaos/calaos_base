@@ -17,12 +17,14 @@ by:
 
 from __future__ import annotations
 
+import functools
 import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 
 from calaos_mcp import __version__
@@ -49,6 +51,7 @@ def _get_client() -> CalaosClient:
 
 mcp = MCPServer(
     "calaos",
+    version=__version__,
     instructions=(
         "You are controlling a Calaos home automation system. "
         "IMPORTANT: device names, room names, and IO state values are "
@@ -57,14 +60,30 @@ mcp = MCPServer(
     ),
 )
 
+# What the tools and CalaosClient raise for a bad argument, an unknown name or
+# a server that is not reachable yet. mcp 2 replaces the text of any exception
+# but ToolError with a bare "Error executing tool <name>" and logs a traceback,
+# so the model would no longer learn what to fix.
+_EXPECTED_TOOL_ERRORS = (ValueError, RuntimeError, ConnectionError, TimeoutError)
 
-@mcp.tool()
+
+def _tool(fn):
+    @functools.wraps(fn)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await fn(*args, **kwargs)
+        except _EXPECTED_TOOL_ERRORS as exc:
+            raise ToolError(str(exc) or type(exc).__name__) from exc
+    return mcp.tool()(wrapper)
+
+
+@_tool
 async def list_rooms() -> list[dict]:
     """List all rooms in the home with their names, types, and IO counts."""
     return await rooms.list_rooms(_get_client())
 
 
-@mcp.tool()
+@_tool
 async def get_room(room_name: str) -> dict:
     """Get details of a room including all its devices and their current states.
 
@@ -74,7 +93,7 @@ async def get_room(room_name: str) -> dict:
     return await rooms.get_room(_get_client(), room_name)
 
 
-@mcp.tool()
+@_tool
 async def list_ios(room: str | None = None, gui_type: str | None = None) -> list[dict]:
     """List IOs (devices), optionally filtered by room and/or type.
 
@@ -85,7 +104,7 @@ async def list_ios(room: str | None = None, gui_type: str | None = None) -> list
     return await io.list_ios(_get_client(), room=room, gui_type=gui_type)
 
 
-@mcp.tool()
+@_tool
 async def find_io(query: str) -> list[dict]:
     """Search for IOs (devices) by name or ID. Returns up to 5 matches.
 
@@ -95,7 +114,7 @@ async def find_io(query: str) -> list[dict]:
     return await io.find_io(_get_client(), query)
 
 
-@mcp.tool()
+@_tool
 async def get_io_state(io_id: str) -> dict:
     """Get the current state of a single IO by its ID.
 
@@ -105,7 +124,7 @@ async def get_io_state(io_id: str) -> dict:
     return await io.get_io_state(_get_client(), io_id)
 
 
-@mcp.tool()
+@_tool
 async def set_io_state(io_id: str, value: str) -> dict:
     """Set the state of a writable IO (light, shutter, output, etc.).
 
@@ -117,13 +136,13 @@ async def set_io_state(io_id: str, value: str) -> dict:
     return await io.set_io_state(_get_client(), io_id, value)
 
 
-@mcp.tool()
+@_tool
 async def list_scenarios() -> list[dict]:
     """List all available scenarios (one-button automations)."""
     return await scenario.list_scenarios(_get_client())
 
 
-@mcp.tool()
+@_tool
 async def run_scenario(scenario_id: str) -> dict:
     """Trigger a scenario by its ID.
 
@@ -133,7 +152,7 @@ async def run_scenario(scenario_id: str) -> dict:
     return await scenario.run_scenario(_get_client(), scenario_id)
 
 
-@mcp.tool()
+@_tool
 async def audio_control(player_id: str, action: str, volume: int | None = None) -> dict:
     """Control an audio player.
 

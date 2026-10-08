@@ -1,7 +1,7 @@
-# The sidecar app end to end, minus calaos_server: the MCP handshake must
-# succeed under the Host header the C++ relay forwards. mcp 2 rejects any
-# non-localhost Host with 421 unless server.py passes its transport settings
-# explicitly, and nothing short of a real request notices.
+# The sidecar app end to end, minus calaos_server. Each case guards something
+# mcp 2 changed under server.py without an import failing: any non-localhost
+# Host gets 421 unless the transport settings are explicit, and a tool's error
+# text is withheld from the model unless it is raised as ToolError.
 import json
 
 import pytest
@@ -83,20 +83,69 @@ def initialize(client):
     return resp
 
 
-def test_initialize_accepts_the_relayed_host(client):
-    resp = initialize(client)
-    assert result_of(resp)["serverInfo"]["name"] == "calaos"
-
-
-def test_tools_list_exposes_every_tool(client):
+def open_session(client):
     resp = initialize(client)
     session = resp.headers.get("mcp-session-id")
     assert session, "stateful transport must hand out a session id"
     notif = rpc(client, "notifications/initialized", msg_id=None,
                 session=session)
     assert notif.status_code == 202, (notif.status_code, notif.text)
+    return session
 
+
+def call_tool(client, name, arguments):
+    session = open_session(client)
+    resp = rpc(client, "tools/call", {"name": name, "arguments": arguments},
+               msg_id=2, session=session)
+    assert resp.status_code == 200, (resp.status_code, resp.text)
+    result = result_of(resp)
+    return result.get("isError"), result["content"][0]["text"]
+
+
+def test_initialize_accepts_the_relayed_host(client):
+    from calaos_mcp import __version__
+
+    info = result_of(initialize(client))["serverInfo"]
+    assert info["name"] == "calaos"
+    assert info["version"] == __version__
+
+
+def test_tools_list_exposes_every_tool(client):
+    session = open_session(client)
     resp = rpc(client, "tools/list", msg_id=2, session=session)
     assert resp.status_code == 200, (resp.status_code, resp.text)
     names = {t["name"] for t in result_of(resp)["tools"]}
     assert names == EXPECTED_TOOLS
+
+
+def test_mcp_requires_the_bearer_token(client):
+    resp = client.post("/mcp", headers={
+        "Accept": "application/json, text/event-stream",
+        "Content-Type": "application/json",
+    }, content="{}")
+    assert resp.status_code == 401
+
+
+def test_healthz_needs_no_token(client):
+    for path in ("/healthz", "/mcp/healthz"):
+        resp = client.get(path)
+        assert resp.status_code == 200, (path, resp.status_code)
+        assert resp.json()["status"] == "ok"
+
+
+def test_unknown_room_error_reaches_the_model(client, monkeypatch):
+    from calaos_mcp import server
+
+    async def get_home(self, force=False):
+        return {"home": [{"name": "Salon", "items": []}]}
+
+    monkeypatch.setattr(server.CalaosClient, "get_home", get_home)
+    is_error, text = call_tool(client, "get_room", {"room_name": "Nope"})
+    assert is_error
+    assert "Room 'Nope' not found. Known rooms: ['Salon']" in text
+
+
+def test_not_connected_error_reaches_the_model(client):
+    is_error, text = call_tool(client, "list_rooms", {})
+    assert is_error
+    assert "Not connected to calaos_server yet" in text

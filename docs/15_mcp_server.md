@@ -366,23 +366,35 @@ Formats à respecter (appris à l'exécution, et documentés dans le code) :
 ### server.py — MCPServer
 `MCPServer("calaos")` (le `FastMCP` de `mcp` 1.x, renommé en `mcp` 2) avec des `instructions` qui préviennent le modèle que noms
 d'équipements, noms de pièces et valeurs d'état sont de l'**entrée utilisateur non fiable**
-(`server.py:50-58`).
+(`server.py:52-61`), et la version du paquet comme `serverInfo.version`.
 
 Le montage demande une acrobatie, documentée en tête de fichier (`server.py:8-16`) : le
 `streamable_http_app()` de MCPServer renvoie une app Starlette dont le lifespan **ne se
 déclenche pas** une fois montée dans FastAPI. Le sidecar extrait donc le handler ASGI brut et
-fait tourner `mcp.session_manager.run()` dans son propre lifespan (`:155-187`). Deux
+fait tourner `mcp.session_manager.run()` dans son propre lifespan (`:174-206`). Deux
 enregistrements sont nécessaires : une `Route` explicite sur `/mcp` **exactement** (les
 clients Streamable HTTP postent sans slash final, et `Mount("/mcp")` ne matche que les
-sous-chemins) et un `mount` pour les sous-chemins (`:205-216`). `redirect_slashes=False`
-empêche un 307 vers `/mcp/` avant que le handler ne tourne (`:189-194`).
+sous-chemins) et un `mount` pour les sous-chemins (`:224-235`). `redirect_slashes=False`
+empêche un 307 vers `/mcp/` avant que le handler ne tourne (`:208-213`).
 
 `/healthz` et `/mcp/healthz` restent **ouverts sans auth** (probe) — ils répondent
-`{"status": "ok", "version": …}` (`:197-203`, `auth.py:132-134`). La protection
+`{"status": "ok", "version": …}` (`:216-222`, `auth.py:132-134`). La protection
 DNS-rebinding de MCPServer est désactivée car le seul point d'entrée est le proxy local
-(`server.py:160-171`). ⚠️ Elle doit l'être **explicitement** : avec `transport_security=None`, `mcp` 2
+(`server.py:179-190`). ⚠️ Elle doit l'être **explicitement** : avec `transport_security=None`, `mcp` 2
 active d'office une liste blanche `Host` limitée à localhost, et chaque requête relayée sous
 `calaos.local` reçoit `421`.
+
+Les outils sont enregistrés via `_tool` (`server.py:63-77`), qui relance en `ToolError` les
+`ValueError`, `RuntimeError`, `ConnectionError` et `TimeoutError` des outils et de
+`CalaosClient`. Sans cela, `mcp` 2 ne renvoie au modèle que `Error executing tool <nom>` (pièce
+inconnue, IO en lecture seule, serveur pas encore connecté…) et logue une trace en `ERROR` ; il
+garde ce traitement pour toute autre exception, c'est-à-dire pour les vrais bugs.
+
+Défauts de `mcp` 2 en vigueur, aucun n'étant surchargé : une session expire après **30 min**
+d'inactivité, **10 000** sessions au plus ; un corps de requête de plus de **4 MiB** reçoit
+`413` ; une requête portant un `Mcp-Protocol-Version` hors des versions à poignée de main
+(par ex. `2026-07-28`) part sur le chemin **sans session** de la révision 2026 — toujours
+derrière `BearerAuthMiddleware`.
 
 ### auth.py — Bearer, identité du client, throttle
 
@@ -592,7 +604,8 @@ pip3 install -r req.txt --break-system-packages
 ```
 
 Installez le jeu en **une seule** invocation de `pip` : `mcp`, `fastapi` et `starlette` sont
-**couplés** (`mcp 2.2.0` exige `pydantic>=2.12.0`, `fastapi` et `sse-starlette` bornent `starlette`), et les résoudre paquet par
+**couplés** (`mcp 2.2.0` exige `pydantic>=2.12.0` ; `fastapi` et `sse-starlette` ne posent que des
+planchers sur `starlette`), et les résoudre paquet par
 paquet choisit en silence des combinaisons incompatibles.
 
 ### La sonde `configure`
@@ -607,12 +620,13 @@ de `server.py`, y compris les deux appels qu'aucun `import` ne révélerait :
 
 | ce qui est exercé | pourquoi |
 |---|---|
-| `from mcp.server.mcpserver import MCPServer` | `server.py:25` — l'ex-`mcp.server.fastmcp`, disparu en `mcp 2.0.0` |
-| `from mcp.server.transport_security import …` | `server.py:26` |
+| `from mcp.server.mcpserver import MCPServer` | `server.py:26` — l'ex-`mcp.server.fastmcp`, disparu en `mcp 2.0.0` |
+| `from mcp.server.mcpserver.exceptions import ToolError` | `server.py:27` |
+| `from mcp.server.transport_security import …` | `server.py:28` |
 | `fastapi`, `fastapi.responses`, `starlette.middleware.base`, `starlette.routing` | `server.py`, `auth.py` |
 | `import uvicorn, websockets` | `__main__.py:20`, `client.py:16` |
-| `mcp.streamable_http_app(transport_security=…)` | `server.py:167` — l'ex-`mcp.settings.transport_security` de `mcp` 1.x |
-| `mcp.session_manager` | `server.py:174` — l'ex-`_session_manager` privé de `mcp` 1.x |
+| `mcp.streamable_http_app(transport_security=…)` | `server.py:186` — l'ex-`mcp.settings.transport_security` de `mcp` 1.x |
+| `mcp.session_manager` | `server.py:193` — l'ex-`_session_manager` privé de `mcp` 1.x |
 
 `pydantic` n'est **pas** sondé : le seul module qui l'importe, `models.py`, n'est importé par
 personne, et une `pydantic` manquante ferait de toute façon échouer l'import de `fastapi`.
@@ -636,7 +650,8 @@ Quatre suites Python couvrent le sidecar et sont **câblées dans `make check`**
 via [tests/run-python-tests.sh](../tests/run-python-tests.sh) : `test_auth.py` (Bearer,
 rate-limit, ban, identité `X-Forwarded-For`), `test_mcp_server.py` (poignée de main MCP et
 `tools/list` sur l'app complète, sous le `Host` relayé — un `421` y signale le retour de la
-liste blanche `Host` de `mcp` 2), `test_t116_mcp_client.py` et `test_t116_mcp_config_io.py`. Sans interpréteur utilisable, le script rend `77` et `make
+liste blanche `Host` de `mcp` 2 —, texte d'erreur des outils, `401` sans Bearer, `/healthz`
+ouvert), `test_t116_mcp_client.py` et `test_t116_mcp_config_io.py`. Sans interpréteur utilisable, le script rend `77` et `make
 check` reste vert ; sans `pytest`, il retombe sur `unittest` pour les suites `test_t116_*`.
 
 Côté C++, `tests/core/JsonApiSession_test.cpp` couvre `login_service`, le refus de portée et

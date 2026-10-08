@@ -297,6 +297,7 @@ jobs:
         run: |
           PYTHONPATH=src/bin/calaos_mcp/python python3 - <<'PY'
           from mcp.server.mcpserver import MCPServer
+          from mcp.server.mcpserver.exceptions import ToolError
           from mcp.server.transport_security import TransportSecuritySettings
           from fastapi import FastAPI, Request, Response
           from fastapi.responses import JSONResponse
@@ -306,7 +307,7 @@ jobs:
 
           # server.py reaches MCPServer through two calls no import
           # statement would reveal: streamable_http_app(transport_security=)
-          # (:167) and session_manager (:174). Both moved in mcp 2 — replay
+          # (:186) and session_manager (:193). Both moved in mcp 2 — replay
           # the sequence here rather than discover it in a published image.
           import calaos_mcp.server  # noqa: F401
           m = MCPServer("ci-probe")
