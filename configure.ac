@@ -227,14 +227,13 @@ AM_PATH_PYTHON([3], [
         # src/bin/calaos_mcp/python/calaos_mcp/*.py. Keep it in sync with those
         # sources; anything less is a guess.
         #
-        # It does not stop at imports. server.py drives FastMCP through three
-        # attributes that no import statement would reveal:
-        #   - mcp.settings.transport_security  (server.py:64, module level)
-        #   - FastMCP.streamable_http_app()    (server.py:167)
-        #   - mcp._session_manager             (server.py:171) — PRIVATE
-        # The last one is exactly the kind of API that disappears without
-        # notice, which is what just happened to mcp.server.fastmcp. So the
-        # probe replays that sequence rather than trusting it.
+        # It does not stop at imports. server.py drives MCPServer through two
+        # calls that no import statement would reveal:
+        #   - streamable_http_app(transport_security=...)  (server.py:167)
+        #   - mcp.session_manager                          (server.py:174)
+        # Both moved in mcp 2 (from mcp.settings and the private
+        # _session_manager), so the probe replays that sequence rather than
+        # trusting the imports.
         #
         # pydantic is deliberately NOT probed: the only module importing it,
         # models.py, is imported by nothing (dead code, see FINDINGS). It is
@@ -242,17 +241,16 @@ AM_PATH_PYTHON([3], [
         # missing pydantic would fail the fastapi import above anyway.
         if test "x$with_mcp" != "xno"; then
             AC_MSG_CHECKING([for the Python API the calaos_mcp sidecar uses])
-            mcp_api_probe="from mcp.server.fastmcp import FastMCP; \
+            mcp_api_probe="from mcp.server.mcpserver import MCPServer; \
 from mcp.server.transport_security import TransportSecuritySettings; \
 from fastapi import FastAPI, Request, Response; \
 from fastapi.responses import JSONResponse; \
 from starlette.middleware.base import BaseHTTPMiddleware; \
 from starlette.routing import Route; \
 import uvicorn, websockets; \
-probe = FastMCP('configure-probe'); \
-probe.settings.transport_security = TransportSecuritySettings(enable_dns_rebinding_protection=False); \
-assert probe.streamable_http_app().routes; \
-assert probe._session_manager is not None"
+probe = MCPServer('configure-probe'); \
+assert probe.streamable_http_app(transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False)).routes; \
+assert probe.session_manager is not None"
             if $PYTHON -c "$mcp_api_probe" 2>/dev/null; then
                 have_python_mcp="yes"
                 AC_MSG_RESULT([yes])

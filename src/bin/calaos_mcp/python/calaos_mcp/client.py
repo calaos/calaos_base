@@ -29,7 +29,7 @@ _ALLOWED_ACTIONS = frozenset({
 
 class CalaosClient:
     def __init__(self) -> None:
-        self._ws: websockets.WebSocketClientProtocol | None = None
+        self._ws: websockets.ClientConnection | None = None
         self._ready = asyncio.Event()
         self._pending: dict[str, asyncio.Future] = {}
         self._msg_counter = 0

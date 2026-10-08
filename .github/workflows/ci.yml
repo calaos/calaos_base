@@ -270,8 +270,8 @@ jobs:
   # This job installs exactly what src/bin/calaos_mcp/pyproject.toml declares —
   # the same file, and the same single-resolver-pass install, the Dockerfile
   # uses — and then imports the API the sidecar actually needs. It is
-  # deliberately not `import mcp`: mcp 2.0.0 satisfies that and still has no
-  # mcp.server.fastmcp.
+  # deliberately not `import mcp`: that passes across major versions whose API
+  # the sidecar cannot use (mcp 2 removed mcp.server.fastmcp).
   mcp-sidecar-deps:
     name: MCP sidecar dependency set
     runs-on: ubuntu-latest
@@ -296,7 +296,7 @@ jobs:
       - name: Import the API the sidecar uses
         run: |
           PYTHONPATH=src/bin/calaos_mcp/python python3 - <<'PY'
-          from mcp.server.fastmcp import FastMCP
+          from mcp.server.mcpserver import MCPServer
           from mcp.server.transport_security import TransportSecuritySettings
           from fastapi import FastAPI, Request, Response
           from fastapi.responses import JSONResponse
@@ -304,18 +304,17 @@ jobs:
           from starlette.routing import Route
           import uvicorn, websockets
 
-          # server.py reaches FastMCP through three attributes no import
-          # statement would reveal: mcp.settings.transport_security (:64),
-          # streamable_http_app() (:167) and the PRIVATE _session_manager
-          # (:171). Nothing upstream promises the last one — replay the
-          # sequence here rather than discover it in a published image.
+          # server.py reaches MCPServer through two calls no import
+          # statement would reveal: streamable_http_app(transport_security=)
+          # (:167) and session_manager (:174). Both moved in mcp 2 — replay
+          # the sequence here rather than discover it in a published image.
           import calaos_mcp.server  # noqa: F401
-          m = FastMCP("ci-probe")
-          m.settings.transport_security = TransportSecuritySettings(
-              enable_dns_rebinding_protection=False)
-          app = m.streamable_http_app()
+          m = MCPServer("ci-probe")
+          app = m.streamable_http_app(
+              transport_security=TransportSecuritySettings(
+                  enable_dns_rebinding_protection=False))
           assert app.routes, "streamable_http_app() exposed no route"
-          assert m._session_manager is not None, "FastMCP._session_manager is gone"
+          assert m.session_manager is not None, "MCPServer.session_manager is gone"
           print("sidecar API present")
           PY
 

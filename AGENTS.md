@@ -34,7 +34,7 @@ Calaos Server is a home automation daemon that controls lights, shutters, sensor
 
 The main binary is `calaos_server`. Several drivers run as **separate subprocesses** (C++ or Python) that communicate with the server over Unix sockets using the `ExternProc` IPC framework. Subprocess drivers: Wago, KNX, MQTT, OneWire, OLA, Reolink (Python), Roon (Python), Lua scripts.
 
-An additional Python subprocess, `calaos_mcp`, exposes the home to LLM clients (Claude Desktop, etc.) via the **Model Context Protocol**. Unlike the ExternProc drivers it does *not* use the binary IPC framing: it runs a FastMCP/uvicorn HTTP server on a Unix domain socket and is reverse-proxied through the `/mcp` path of the main HTTP port (5454). See [docs/15_mcp_server.md](docs/15_mcp_server.md).
+An additional Python subprocess, `calaos_mcp`, exposes the home to LLM clients (Claude Desktop, etc.) via the **Model Context Protocol**. Unlike the ExternProc drivers it does *not* use the binary IPC framing: it runs an MCPServer/uvicorn HTTP server on a Unix domain socket and is reverse-proxied through the `/mcp` path of the main HTTP port (5454). See [docs/15_mcp_server.md](docs/15_mcp_server.md).
 
 ---
 
@@ -234,7 +234,7 @@ Install the whole set in **one** pip invocation: `mcp`, `fastapi` and `starlette
 
 Add `--extra test` to that command to also get what `tests/python/` needs (`pytest`, `httpx`, `colorama`). Without it `make check` runs 23 of the 42 declared Python cases and reports a SKIP; with `CALAOS_PYTHON_TESTS_REQUIRED=1` — what CI sets — that SKIP is a build failure instead.
 
-`configure` then probes the **API the sidecar actually imports** (not just `import mcp`, which passes with mcp 2.0.0 where `mcp.server.fastmcp` no longer exists) and sets `HAVE_PYTHON_MCP`; if the probe fails it prints the failing import and skips building the sidecar. `calaos_mcp --help` exercises the same import chain with no socket and no config — it is the quickest way to tell whether a built image can start the sidecar at all. See [T3.23](docs/refactoring/T3.23.md).
+`configure` then probes the **API the sidecar actually imports** (not just `import mcp`, which passes whatever the major version: mcp 2 renamed `mcp.server.fastmcp.FastMCP` to `mcp.server.mcpserver.MCPServer` and moved `transport_security` to `streamable_http_app()`) and sets `HAVE_PYTHON_MCP`; if the probe fails it prints the failing import and skips building the sidecar. `calaos_mcp --help` exercises the same import chain with no socket and no config — it is the quickest way to tell whether a built image can start the sidecar at all. See [T3.23](docs/refactoring/T3.23.md).
 
 ---
 

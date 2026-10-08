@@ -45,7 +45,7 @@ def _handle_cli_flags(argv) -> None:
     variable, set by McpServerManager on the C++ side.
 
     This exists as much as a smoke test as a courtesy. `calaos_mcp --help`
-    exercises the whole import chain — mcp.server.fastmcp, fastapi, starlette,
+    exercises the whole import chain — mcp.server.mcpserver, fastapi, starlette,
     pydantic, uvicorn, websockets — with no socket, no config and no side
     effect, so it is the one command that tells you whether the binary shipped
     in an image can start at all. T3.23 exists because a published image failed

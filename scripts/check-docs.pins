@@ -1392,7 +1392,7 @@ docs/15_mcp_server.md	1	WebSocket.cpp:73-77	47f17a0ea84c	return; } if (mcpState 
 docs/15_mcp_server.md	1	WebSocket.cpp:78-141	2bc395bf8702	auto result = McpProxyHandler::sniffRequest(mcpSniffBuf); sw
 docs/15_mcp_server.md	1	__main__.py:107-111	a095326a23c6	os.unlink(path) except FileNotFoundError: pass # S6: bind wi
 docs/15_mcp_server.md	1	__main__.py:20	720372334014	import uvicorn
-docs/15_mcp_server.md	1	__main__.py:37-55	49968c75fda6	CALAOS_LOG_LEVEL 1..5 (critical..debug) or a uvicorn level n
+docs/15_mcp_server.md	1	__main__.py:37-55	bc3252aec35d	CALAOS_LOG_LEVEL 1..5 (critical..debug) or a uvicorn level n
 docs/15_mcp_server.md	1	__main__.py:70-73	5a6364268d3b	return path def _calaos_log_level() -> str:
 docs/15_mcp_server.md	1	__main__.py:75-87	967f8b940edd	log level name. Calaos uses 1..5 (CRITICAL..DEBUG). Anything
 docs/15_mcp_server.md	1	__main__.py:98-103	54fe203c4d2d	level=level, format="%(asctime)s [mcp] %(levelname)s %(name)
@@ -1404,7 +1404,6 @@ docs/15_mcp_server.md	1	auth.py:164	1fabe0257a91	# Validate Bearer token (S7: co
 docs/15_mcp_server.md	1	auth.py:167-169	5af1e9822fe5	return await self._auth_fail(ip, "Missing Bearer token") rec
 docs/15_mcp_server.md	1	auth.py:183-184	4faf7016af70	if self._ban_failures > 0 and _fail_counts[ip] >= self._ban_
 docs/15_mcp_server.md	1	auth.py:40-45	272cbc9e4ecf	LOG = logging.getLogger("calaos_mcp.auth") # Written by the 
-docs/15_mcp_server.md	1	auth.py:59-66	0ae975eba26d	_last_prune = 0.0 def _reset_state() -> None: """Clear all t
 docs/15_mcp_server.md	1	auth.py:72-81	0ae1a2431c8c	def _source_ip(request: Request, credential: str) -> str: # 
 docs/15_mcp_server.md	1	auth.py:80-117	5bdd45b4a10a	return ip return UNIDENTIFIED def _prune_locked(now: float) 
 docs/15_mcp_server.md	1	client.py:108-110	575072364197	# Invalidate home cache on topology events if msg_type in ("
@@ -1426,17 +1425,17 @@ docs/15_mcp_server.md	1	config.py:59-61	e122e2098e82	raise RuntimeError("CALAOS_
 docs/15_mcp_server.md	1	config.py:72-75	26127b5495bd	# (after the namespace) rather than the full tag. for elem i
 docs/15_mcp_server.md	1	config.py:86-91	9c1edf59ab3e	if not mcp_token: raise RuntimeError("mcp_token not found in
 docs/15_mcp_server.md	1	safety.py:12-35	9fa2c5503a98	_ANSI_RE = re.compile(r"\x1b[[0-9;]*[A-Za-z]") _CTRL_RE = re
-docs/15_mcp_server.md	1	server.py:163-184	7ee81f7047f8	def create_app() -> FastAPI: cfg = get_config() # Initialise
-docs/15_mcp_server.md	1	server.py:167	285de7c4588b	# then extract the raw ASGI handler so we can manage its lif
-docs/15_mcp_server.md	1	server.py:171	04d26010b684	session_manager = mcp._session_manager
-docs/15_mcp_server.md	1	server.py:186-191	57ac5f79c193	# redirect_slashes=False: MCP clients send POST /mcp (no tra
-docs/15_mcp_server.md	1	server.py:194-200	6b2197586193	@base_app.get("/healthz") def healthz() -> JSONResponse: ret
-docs/15_mcp_server.md	1	server.py:202-213	ef6e627f0963	# Register an explicit route for POST/GET /mcp (exact path —
-docs/15_mcp_server.md	1	server.py:25	2f9f27b0ed30	from mcp.server.fastmcp import FastMCP
+docs/15_mcp_server.md	1	server.py:155-187	dca76d7bd640	def create_app() -> FastAPI: cfg = get_config() # Initialise
+docs/15_mcp_server.md	1	server.py:160-171	b784f3cc6cfd	# # The sidecar is only reachable via a Unix domain socket p
+docs/15_mcp_server.md	1	server.py:167	f92bee81f17a	mcp_starlette = mcp.streamable_http_app(
+docs/15_mcp_server.md	1	server.py:174	2dfc4bc4e2cd	session_manager = mcp.session_manager
+docs/15_mcp_server.md	1	server.py:189-194	57ac5f79c193	# redirect_slashes=False: MCP clients send POST /mcp (no tra
+docs/15_mcp_server.md	1	server.py:197-203	6b2197586193	@base_app.get("/healthz") def healthz() -> JSONResponse: ret
+docs/15_mcp_server.md	1	server.py:205-216	ef6e627f0963	# Register an explicit route for POST/GET /mcp (exact path —
+docs/15_mcp_server.md	1	server.py:25	f57a0077a38a	from mcp.server.mcpserver import MCPServer
 docs/15_mcp_server.md	1	server.py:26	27feff7c2254	from mcp.server.transport_security import TransportSecurityS
-docs/15_mcp_server.md	1	server.py:50-58	c17a9285c948	mcp = FastMCP( "calaos", instructions=( "You are controlling
-docs/15_mcp_server.md	1	server.py:64	38e46b05af9f	mcp.settings.transport_security = TransportSecuritySettings(
-docs/15_mcp_server.md	1	server.py:8-16	661de7d93ffc	Architecture note: FastMCP's streamable_http_app() returns a
+docs/15_mcp_server.md	1	server.py:50-58	5563c88b7ec2	mcp = MCPServer( "calaos", instructions=( "You are controlli
+docs/15_mcp_server.md	1	server.py:8-16	ffa38b6f4328	Architecture note: MCPServer's streamable_http_app() returns
 docs/15_mcp_server.md	1	src/bin/calaos_mcp/python/calaos_mcp/tools/_home.py:3-24	4cbcaf06539a	The calaos_server get_home action returns: { "home": [ # arr
 docs/15_mcp_server.md	1	src/bin/calaos_server/JsonApiHandlerWS.cpp:530-567	547b33a0edfb	} /* E4.1q. THE DOCUMENT IS HOISTED, NOT ADDED - see the twi
 docs/15_mcp_server.md	1	tools/_home.py:46-53	3fbd35124637	def is_writable(io: dict) -> bool: """Return True if the IO 
