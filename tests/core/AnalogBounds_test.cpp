@@ -50,7 +50,10 @@ namespace
 class RecordingAnalog: public OutputAnalog
 {
 public:
-    RecordingAnalog(Params &p): OutputAnalog(p) {}
+    RecordingAnalog(Params &p):
+        OutputAnalog(p)
+    {
+    }
 
     std::vector<double> sent;
 
@@ -100,7 +103,7 @@ protected:
 TEST_F(AnalogBoundsTest, AbsentBoundsLeaveEveryValueUntouched)
 {
     auto a = makeAnalog();
-    for (double v: {-1e9, -3.5, 0.0, 42.0, 1e9})
+    for (double v: { -1e9, -3.5, 0.0, 42.0, 1e9 })
     {
         a->set_value(v);
         EXPECT_EQ(v, a->sent.back());
@@ -110,7 +113,7 @@ TEST_F(AnalogBoundsTest, AbsentBoundsLeaveEveryValueUntouched)
 
 TEST_F(AnalogBoundsTest, MinAndMaxClampAWrittenValue)
 {
-    auto a = makeAnalog({{"value_min", "5"}, {"value_max", "30"}});
+    auto a = makeAnalog({ { "value_min", "5" }, { "value_max", "30" } });
 
     a->set_value(-100.0);
     EXPECT_EQ(5.0, a->sent.back());
@@ -126,7 +129,7 @@ TEST_F(AnalogBoundsTest, MinAndMaxClampAWrittenValue)
 
 TEST_F(AnalogBoundsTest, TheBoundsThemselvesAreAccepted)
 {
-    auto a = makeAnalog({{"value_min", "5"}, {"value_max", "30"}});
+    auto a = makeAnalog({ { "value_min", "5" }, { "value_max", "30" } });
     a->set_value(5.0);
     EXPECT_EQ(5.0, a->sent.back());
     a->set_value(30.0);
@@ -135,13 +138,13 @@ TEST_F(AnalogBoundsTest, TheBoundsThemselvesAreAccepted)
 
 TEST_F(AnalogBoundsTest, OneSidedBoundsLeaveTheOtherSideOpen)
 {
-    auto lo = makeAnalog({{"value_min", "0"}});
+    auto lo = makeAnalog({ { "value_min", "0" } });
     lo->set_value(-4.0);
     EXPECT_EQ(0.0, lo->sent.back());
     lo->set_value(1e6);
     EXPECT_EQ(1e6, lo->sent.back());
 
-    auto hi = makeAnalog({{"value_max", "10"}});
+    auto hi = makeAnalog({ { "value_max", "10" } });
     hi->set_value(11.0);
     EXPECT_EQ(10.0, hi->sent.back());
     hi->set_value(-1e6);
@@ -150,14 +153,14 @@ TEST_F(AnalogBoundsTest, OneSidedBoundsLeaveTheOtherSideOpen)
 
 TEST_F(AnalogBoundsTest, StringWritesAreClampedToo)
 {
-    auto a = makeAnalog({{"value_min", "5"}, {"value_max", "30"}});
+    auto a = makeAnalog({ { "value_min", "5" }, { "value_max", "30" } });
     EXPECT_TRUE(a->set_value(std::string("99")));
     EXPECT_EQ(30.0, a->sent.back());
 }
 
 TEST_F(AnalogBoundsTest, MinGreaterThanMaxIgnoresBothBounds)
 {
-    auto a = makeAnalog({{"value_min", "30"}, {"value_max", "5"}});
+    auto a = makeAnalog({ { "value_min", "30" }, { "value_max", "5" } });
     a->set_value(-100.0);
     EXPECT_EQ(-100.0, a->sent.back());
     a->set_value(100.0);
@@ -166,20 +169,20 @@ TEST_F(AnalogBoundsTest, MinGreaterThanMaxIgnoresBothBounds)
 
 TEST_F(AnalogBoundsTest, ANonNumericBoundIsIgnoredAndTheOtherOneKept)
 {
-    auto a = makeAnalog({{"value_min", "abc"}, {"value_max", "10"}});
+    auto a = makeAnalog({ { "value_min", "abc" }, { "value_max", "10" } });
     a->set_value(-50.0);
     EXPECT_EQ(-50.0, a->sent.back());
     a->set_value(50.0);
     EXPECT_EQ(10.0, a->sent.back());
 
-    auto b = makeAnalog({{"value_min", ""}, {"value_max", ""}});
+    auto b = makeAnalog({ { "value_min", "" }, { "value_max", "" } });
     b->set_value(77.0);
     EXPECT_EQ(77.0, b->sent.back());
 }
 
 TEST_F(AnalogBoundsTest, BoundsApplyBeforeTheConversion)
 {
-    auto a = makeAnalog({{"value_max", "10"}, {"coeff_a", "2"}, {"coeff_b", "1"}});
+    auto a = makeAnalog({ { "value_max", "10" }, { "coeff_a", "2" }, { "coeff_b", "1" } });
     a->set_value(100.0);
     EXPECT_EQ(10.0, a->get_command_double());
     EXPECT_EQ(21.0, a->sent.back());
@@ -189,7 +192,7 @@ TEST_F(AnalogBoundsTest, BoundsApplyBeforeTheConversion)
 //the value computed from step goes through the clamp, so it cannot escape.
 TEST_F(AnalogBoundsTest, IncAndDecNeverLeaveTheBounds)
 {
-    auto a = makeAnalog({{"value_min", "0"}, {"value_max", "1"}, {"step", "0.4"}});
+    auto a = makeAnalog({ { "value_min", "0" }, { "value_max", "1" }, { "step", "0.4" } });
 
     a->set_value(0.8);
     a->set_value(std::string("inc"));
@@ -214,9 +217,7 @@ TEST_F(AnalogBoundsTest, IncAndDecNeverLeaveTheBounds)
 
 TEST_F(AnalogBoundsTest, WagoOutputAnalogIsBoundedThroughTheSameBase)
 {
-    IOBase *w = createIO({{"type", "WagoOutputAnalog"}, {"id", "wago"}, {"name", "wago"},
-                          {"host", "192.0.2.51"}, {"var", "8"}, {"enabled", "true"},
-                          {"visible", "true"}, {"value_min", "0"}, {"value_max", "100"}});
+    IOBase *w = createIO({ { "type", "WagoOutputAnalog" }, { "id", "wago" }, { "name", "wago" }, { "host", "192.0.2.51" }, { "var", "8" }, { "enabled", "true" }, { "visible", "true" }, { "value_min", "0" }, { "value_max", "100" } });
     ASSERT_NE(nullptr, w);
 
     w->set_value(250.0);
@@ -291,15 +292,13 @@ TEST_F(AnalogBoundsTest, InternalIntPersistsTheClampedValue)
 TEST_F(AnalogBoundsTest, InternalIntRestoredFromCacheIsClamped)
 {
     Config::Instance().SaveValueIO("restored", "500", false);
-    Params p = {{"type", "InternalInt"}, {"id", "restored"}, {"name", "r"}, {"save", "true"},
-                {"value_min", "5"}, {"value_max", "30"}, {"enabled", "true"}, {"visible", "true"}};
+    Params p = { { "type", "InternalInt" }, { "id", "restored" }, { "name", "r" }, { "save", "true" }, { "value_min", "5" }, { "value_max", "30" }, { "enabled", "true" }, { "visible", "true" } };
     IOBase *r = createIO(p);
     ASSERT_NE(nullptr, r);
     EXPECT_EQ(30.0, r->get_value_double());
 
     Config::Instance().SaveValueIO("restored2", "-9", false);
-    Params p2 = {{"type", "InternalInt"}, {"id", "restored2"}, {"name", "r"}, {"save", "true"},
-                 {"value_min", "5"}, {"value_max", "30"}, {"enabled", "true"}, {"visible", "true"}};
+    Params p2 = { { "type", "InternalInt" }, { "id", "restored2" }, { "name", "r" }, { "save", "true" }, { "value_min", "5" }, { "value_max", "30" }, { "enabled", "true" }, { "visible", "true" } };
     IOBase *r2 = createIO(p2);
     ASSERT_NE(nullptr, r2);
     EXPECT_EQ(5.0, r2->get_value_double());
@@ -309,9 +308,7 @@ TEST_F(AnalogBoundsTest, InternalIntRestoredFromCacheIsClamped)
 //anything and must not start to: raw Wago values go up to 32767.
 TEST_F(AnalogBoundsTest, LegacyMinMaxDoNotBoundAndAreDroppedFromTheConfig)
 {
-    IOBase *w = createIO({{"type", "WagoOutputAnalog"}, {"id", "wleg"}, {"name", "wleg"},
-                          {"host", "192.0.2.52"}, {"var", "9"}, {"enabled", "true"},
-                          {"visible", "true"}, {"min", "-10000"}, {"max", "10000"}});
+    IOBase *w = createIO({ { "type", "WagoOutputAnalog" }, { "id", "wleg" }, { "name", "wleg" }, { "host", "192.0.2.52" }, { "var", "9" }, { "enabled", "true" }, { "visible", "true" }, { "min", "-10000" }, { "max", "10000" } });
     ASSERT_NE(nullptr, w);
     EXPECT_FALSE(w->get_params().Exists("min"));
     EXPECT_FALSE(w->get_params().Exists("max"));
@@ -319,9 +316,7 @@ TEST_F(AnalogBoundsTest, LegacyMinMaxDoNotBoundAndAreDroppedFromTheConfig)
     w->set_value(16384.0);
     EXPECT_EQ(16384.0, w->get_value_double());
 
-    IOBase *in = createIO({{"type", "WagoInputAnalog"}, {"id", "wi"}, {"name", "wi"},
-                           {"host", "192.0.2.52"}, {"var", "9"}, {"enabled", "true"},
-                           {"visible", "true"}, {"min", "0"}, {"max", "5"}});
+    IOBase *in = createIO({ { "type", "WagoInputAnalog" }, { "id", "wi" }, { "name", "wi" }, { "host", "192.0.2.52" }, { "var", "9" }, { "enabled", "true" }, { "visible", "true" }, { "min", "0" }, { "max", "5" } });
     if (in)
     {
         EXPECT_FALSE(in->get_params().Exists("min"));
