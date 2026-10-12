@@ -3,7 +3,7 @@
 ## REPRISE — lire en premier
 
 - **État (2026-10-12)** : OUT-2 ✅ (installer#51), OUT-3 ✅ (remote_ui#3 ; premier build de main
-  après merge à surveiller). OUT-1 et FIX-INST-0 (perte de données `months`, urgent) en cours.
+  après merge à surveiller). FIX-INST-0 ✅ (installer#52). OUT-1 en cours.
   Ensuite démarrables : CORE-1 et CORE-5 (après OUT-1), RUI-2 (après RUI-1), INST-1 (après CORE-2).
 - **Page de suivi en ligne** : voir la ligne « Suivi » plus bas. Elle est statique : la republier
   à chaque fin de ticket.
