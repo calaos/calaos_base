@@ -196,11 +196,12 @@ leur document à la main écrivent eux aussi des chaînes partout
 attendre un `true`, un `false` ou un nombre JSON : il reçoit `"true"`,
 `"false"`, `"0"`, `"21.5"`.
 
-**L'unique exception de toute l'API** est `buildJsonEventLog()`, réécrit en
+**Les deux exceptions de toute l'API** sont l'objet `device` des devices
+(voir [Devices](#devices--commande-et-objet-device)) et `buildJsonEventLog()`, réécrit en
 nlohmann : `total_page`, `total_count`, `page` et `per_page` y sont de vrais
 **entiers JSON**
-([JsonApi.cpp:2361-2366](../src/bin/calaos_server/JsonApi.cpp)). C'est le seul
-endroit où un client doit attendre un nombre. Toujours dans `eventlog`, le champ
+([JsonApi.cpp:2361-2366](../src/bin/calaos_server/JsonApi.cpp)). Hors de l'objet
+`device`, c'est le seul endroit où un client doit attendre un nombre. Toujours dans `eventlog`, le champ
 `event_raw` de chaque entrée est un **objet JSON imbriqué** (le JSON de
 l'événement est reparsé), et non une chaîne
 ([HistLogger.cpp:93-100](../src/bin/calaos_server/HistLogger.cpp)).
@@ -623,6 +624,91 @@ Réponse (dérivée) : `{"success":"true"}` ou `{"success":"false"}`. `false`
 couvre indistinctement « IO inconnu » et « la commande a échoué »
 ([JsonApi.cpp:759-781](../src/bin/calaos_server/JsonApi.cpp)) — il n'y a pas de
 message d'erreur distinct.
+
+### Devices : commande et objet `device`
+
+Spec : [CALAOS_DEVICES_FEAT.md](../CALAOS_DEVICES_FEAT.md) §5. Un device (`<calaos:device>`,
+voir [01_core_data_model.md](01_core_data_model.md#device)) est un IO comme un autre pour
+l'API : pas de nouvelle commande.
+
+**Commande.** `set_state` (et les règles, Lua `calaos:set_io`, MCP) passe une chaîne à
+`Device::set_value()` :
+
+- une chaîne qui commence par `{` est un **objet JSON de mise à jour partielle** :
+  `{"mode":"heat","target_temp":21.5}`. Seuls les champs présents sont appliqués ;
+- toute autre chaîne est un **mode simple** : `off` équivaut à `{"mode":"off"}`.
+
+Dans le JSON, les nombres sont de vrais nombres JSON : `"21.5"` est refusé. Chaque champ est
+validé par la famille : il doit exister **pour cette instance** (une capacité n'existe que si
+son lien existe), une valeur d'énumération doit appartenir à la liste, un nombre est arrondi
+au pas puis borné à `[min, max]` (`40` devient `30`, `21.3` avec un pas de `0.5` devient
+`21.5`). C'est du **best effort** : un champ refusé est journalisé
+(`cWarningDom("device")`, avec l'id du device et la raison, sans la valeur reçue) et les
+champs valides sont appliqués quand même. Un JSON invalide est refusé en entier.
+
+La réponse garde le contrat de `set_state` : `{"success":"true"}` si **au moins un champ** a
+été appliqué, `{"success":"false"}` sinon (tous refusés, JSON invalide, objet vide). Un succès
+peut donc cacher des champs refusés ; le journal les nomme.
+
+Requête WS (dérivée, `tests/core/DeviceApi_test.cpp`) — la valeur est une **chaîne** qui
+contient le JSON :
+```json
+{"msg": "set_state", "msg_id": "1",
+ "data": {"id": "clim", "value": "{\"mode\":\"heat\",\"target_temp\":23}"}}
+```
+
+**Publication dans `get_home`.** L'item du device porte `state` (son scalaire : le mode,
+celui que voient les règles), `gui_type` = la famille (`climate`) et un objet `device` ;
+c'est le seul objet typé d'un item, ses nombres et booléens sont de vrais types JSON. Il est
+aussi présent dans `get_io`, pas dans la configuration des écrans RemoteUI. Les IOs possédés restent des items ordinaires (`visible="false"`), sans objet
+`device`. Extrait capturé, `tests/core/golden/core4_http_get_home_device.json` (device de
+test) :
+```json
+{
+  "id": "clim", "type": "climate", "gui_type": "climate", "state": "cool",
+  "var_type": "string", "io_type": "inout", "name": "clim",
+  "device": {
+    "family": "climate",
+    "impl": "test_climate",
+    "capabilities": {
+      "modes": ["off", "heat", "cool"],
+      "target_temp": {"min": 16, "max": 30, "step": 0.5, "unit": "°C"},
+      "current_temp": true
+    },
+    "state": {"mode": "cool", "target_temp": 21.5, "current_temp": 23.4},
+    "ios": {"mode": "clim_mode", "target_temp": "clim_target", "current_temp": "ext_temp"}
+  }
+}
+```
+
+- `family` et `impl` : les attributs `type` et `impl` du `<calaos:device>` ;
+- `capabilities` et `state` : remplis par la famille, seulement pour les liens présents ;
+- `ios` : rôle → id de l'IO, pour chaque lien dont l'IO existe (un lien non résolu
+  n'apparaît pas).
+
+**Publication dans `io_changed`.** Quand l'IO d'un de ses liens change, ou quand une commande
+a été appliquée, le device émet **un** `io_changed` pour son propre id au bout de 100 ms : les
+changements de cette fenêtre sont regroupés, et la fenêtre n'est pas prolongée par les
+suivants (un flux continu publie toutes les 100 ms). L'événement porte `state` et l'objet
+`device` **entier** :
+```json
+{"msg": "event", "data": {
+  "type": "3", "type_str": "io_changed",
+  "event_raw": "io_changed id:clim state:heat",
+  "data": {"id": "clim", "state": "heat",
+           "device": {"family": "climate", "impl": "test_climate", "capabilities": {…},
+                      "state": {"mode": "heat", "current_temp": 23.4, …}, "ios": {…}}}}}
+```
+
+L'objet `device` est **toujours envoyé entier**, dans `get_home` comme dans chaque
+`io_changed` : un client **remplace** sa copie, il ne la fusionne jamais, pour qu'une
+capacité ou une entrée `ios` retirée par le serveur ne survive pas chez lui. Un client qui ne
+connaît pas les devices continue de lire `state`. `event_raw` et l'historique ne portent que
+les chaînes (`id`, `state`) : l'objet n'existe que dans `data`.
+
+Le changement du scalaire d'un device (son mode) déclenche aussi ses règles, comme pour tout
+IO : une condition « `clim` == `heat` » est évaluée dès que le mode change, qu'il vienne d'une
+commande ou du lien `mode`.
 
 ### `get_playlist`
 
