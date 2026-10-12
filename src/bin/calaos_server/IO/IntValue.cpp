@@ -411,6 +411,7 @@ void Internal::LoadFromConfig()
         break;
     case TINT:
         from_string(saved_value, dvalue);
+        dvalue = AnalogBounds::clampToBounds(get_params(), dvalue);
         break;
     case TSTRING:
         svalue = saved_value;

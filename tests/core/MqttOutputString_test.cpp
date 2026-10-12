@@ -17,6 +17,7 @@
  **  along with Foobar; if not, write to the Free Software
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
+ ******************************************************************************/
 
 /*
  * MqttOutputString: the payload it publishes and the state it reads back.
@@ -279,9 +280,14 @@ TEST_F(MqttOutputStringTest, StateIsReadBackFromTopicSubThroughPath)
     brokerSays("t/read/state", "{\"mode\":\"cool\"}",
                [&]() { return o->get_value_string() == "cool"; });
 
-    //a path that resolves to nothing must not wipe the state
+    //a path that resolves to nothing must not wipe the state. Messages are
+    //handled in order: once the witness is seen, the one before it was too.
+    IOBase *witness = make("MqttOutputString", "s_wit",
+                           {{"topic_pub", "t/wit/set"}, {"topic_sub", "t/wit/state"},
+                            {"data", "__##VALUE##__"}});
+    ASSERT_NE(nullptr, witness);
     brokerSays("t/read/state", "{\"other\":1}", []() { return true; });
-    ExternProcSpawn::runLoopUntil([]() { return false; }, 100);
+    brokerSays("t/wit/state", "seen", [&]() { return witness->get_value_string() == "seen"; });
     EXPECT_EQ("cool", o->get_value_string());
 
     brokerSays("t/read/state", "{\"mode\":\"heat\"}",

@@ -286,6 +286,25 @@ TEST_F(AnalogBoundsTest, InternalIntPersistsTheClampedValue)
     EXPECT_EQ(30.0, io("bounded")->get_value_double());
 }
 
+//A value cached before the bounds existed, or edited by hand, must not come
+//back out of bounds at boot.
+TEST_F(AnalogBoundsTest, InternalIntRestoredFromCacheIsClamped)
+{
+    Config::Instance().SaveValueIO("restored", "500", false);
+    Params p = {{"type", "InternalInt"}, {"id", "restored"}, {"name", "r"}, {"save", "true"},
+                {"min", "5"}, {"max", "30"}, {"enabled", "true"}, {"visible", "true"}};
+    IOBase *r = createIO(p);
+    ASSERT_NE(nullptr, r);
+    EXPECT_EQ(30.0, r->get_value_double());
+
+    Config::Instance().SaveValueIO("restored2", "-9", false);
+    Params p2 = {{"type", "InternalInt"}, {"id", "restored2"}, {"name", "r"}, {"save", "true"},
+                 {"min", "5"}, {"max", "30"}, {"enabled", "true"}, {"visible", "true"}};
+    IOBase *r2 = createIO(p2);
+    ASSERT_NE(nullptr, r2);
+    EXPECT_EQ(5.0, r2->get_value_double());
+}
+
 TEST_F(AnalogBoundsTest, TheBoundsAreDocumentedOnEveryTouchedType)
 {
     IOBase *i = makeInt("");
