@@ -333,6 +333,45 @@ class CalaosEvent {
 
 ---
 
+## IOChangeHub — abonnement synchrone par IO
+
+**Fichier :** [src/bin/calaos_server/IOChangeHub.h](../src/bin/calaos_server/IOChangeHub.h)
+
+Pour le code serveur qui doit réagir au changement d'un IO précis (un device
+qui suit ses IOs liés), sans passer par l'`EventManager`, global, différé d'un
+tour de boucle et réduit à des chaînes.
+
+```cpp
+IOChangeHub::Subscription sub =
+    IOChangeHub::Instance().subscribe("io_12", [this](IOBase &io) {
+        onSensor(io.get_value_double());
+    });
+```
+
+- **Par id, pas par objet.** L'abonnement peut précéder la création de l'IO,
+  survit à sa suppression et suit un nouvel IO créé sous le même id. Un IO
+  renommé n'est plus vu sous l'ancien id.
+- **Durée de vie.** `Subscription` est un handle RAII déplaçable : le callback
+  est retiré quand il meurt. Le hub n'est jamais détruit, si bien qu'un handle
+  détruit pendant la destruction des statiques reste sûr.
+- **Où et dans quel ordre.** Le hub est appelé par `ListeRule::executeTrigger()`
+  pour chaque `EmitSignalIO()`, **après** les règles du même déclencheur : les
+  règles évaluent le même état qu'avant le hook, et le callback voit ce qu'elles
+  viennent d'écrire. Les abonnés d'un id sont appelés dans l'ordre d'abonnement.
+- **Ré-entrance.** Un IO écrit depuis un callback re-signale pendant la marche
+  des règles : son déclencheur est mis dans `pendingTriggers`, comme celui d'une
+  action de règle, puis traité en FIFO. Jamais de récursion.
+- **Mutation pendant l'appel.** Un abonné retiré pendant la diffusion n'est plus
+  appelé ; un abonné ajouté attend le changement suivant. Un callback peut
+  supprimer un **autre** IO (les abonnés suivants de cet IO sont sautés), mais
+  pas celui dont il est notifié quand son `set_value()` est encore sur la pile.
+- **Coût.** Une recherche dans une table de hachage par déclencheur ; l'entrée
+  d'un id disparaît avec son dernier abonné.
+
+Mesuré par `tests/core/IOChangeHub_test`.
+
+---
+
 ## HistLogger
 
 **Fichier :** [src/bin/calaos_server/HistLogger.h](../src/bin/calaos_server/HistLogger.h)
