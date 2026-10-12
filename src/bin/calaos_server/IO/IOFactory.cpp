@@ -37,7 +37,7 @@ void IOFactory::readParams(pugi::xml_node node, Params &p)
 
 string IOFactory::registryKey(const Params &params)
 {
-    string type = params["type"];
+    string type = params.Exists("impl") ? DEVICE_PREFIX + params["impl"] : params["type"];
     std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
     return type;
 }

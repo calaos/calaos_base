@@ -104,8 +104,13 @@ std::string codePointName(int byte)
  */
 bool wouldStrandTheIo(const Params &before, const Params &after)
 {
-    return IOFactory::Instance().canCreate(before) &&
-           !IOFactory::Instance().canCreate(after);
+    if (!IOFactory::Instance().canCreate(before))
+        return false;
+
+    //"impl" moves the IO between a device and a plain IO, which the loader
+    //refuses to build from the other's element.
+    return !IOFactory::Instance().canCreate(after) ||
+           before.Exists("impl") != after.Exists("impl");
 }
 
 } //namespace

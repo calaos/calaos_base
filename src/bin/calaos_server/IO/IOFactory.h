@@ -86,6 +86,11 @@ public:
      * reading is protected without anyone having to remember it.
      */
     static string registryKey(const Params &params);
+
+    /* A device (a params set carrying "impl") is keyed by this prefix plus
+     * its impl, not by its "type", which names its family. The prefix keeps
+     * an impl from ever shadowing an IO type name. See REGISTER_DEVICE. */
+    static constexpr const char *DEVICE_PREFIX = "device:";
     bool canCreate(const Params &params) const;
 
     void RegisterClass(string type, function<IOBase *(Params &)> classFunc)

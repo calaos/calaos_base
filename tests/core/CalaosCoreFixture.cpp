@@ -308,6 +308,9 @@ std::string CoreFixture::dumpIos()
                 p.get_item(k, key, value);
                 ss << " " << key << "=" << value;
             }
+            //Not a param, but what decides where the IO is saved.
+            if (!io->getOwnerDevice().empty())
+                ss << " [owner=" << io->getOwnerDevice() << "]";
             ss << "\n";
         }
     }

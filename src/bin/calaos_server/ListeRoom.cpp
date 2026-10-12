@@ -22,6 +22,7 @@
 #include "AutoScenario.h"
 #include "AutoScenarioDef.h"
 #include "CalaosConfig.h"
+#include "Device.h"
 #include "EventManager.h"
 #include "FileUtils.h"
 #include "libuvw.h"
@@ -299,6 +300,18 @@ bool ListeRoom::delete_io(IOBase *io, bool del)
     //false means "no room owns this IO", and nothing was destroyed: a second
     //call on an already removed IO is a harmless no-op, never a double free.
     return done;
+}
+
+void ListeRoom::resolveDeviceLinks()
+{
+    for (const auto &room: rooms)
+    {
+        for (int i = 0; i < room->get_size(); i++)
+        {
+            if (Device *device = dynamic_cast<Device *>(room->get_io(i)))
+                device->resolveLinks();
+        }
+    }
 }
 
 int ListeRoom::get_io_count()
@@ -650,6 +663,14 @@ bool ListeRoom::deleteIO(IOBase *io, bool modify, RuleDetachPolicy policy)
         cErrorDom("root") << "deleteIO(): refused for " << io->get_param("id")
                           << " while rules or change callbacks run";
         return false;
+    }
+
+    //Owned IOs go with their device, each through the full path so the rules
+    //using them are detached like for any IO.
+    if (Device *device = dynamic_cast<Device *>(io))
+    {
+        for (IOBase *owned: device->ownedIos())
+            deleteIO(owned, modify, policy);
     }
 
     detachIOFromRules(io, modify, policy);

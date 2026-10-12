@@ -175,6 +175,7 @@ CORE_SERVER_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/Rule.$(OBJEXT)                       \
                   $(CALAOS_SERVER_BUILDDIR)/Audio/AudioPlayer.$(OBJEXT)          \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/IPCam.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Device.$(OBJEXT)                  \
                   $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT)              \
                   $(CALAOS_SERVER_BUILDDIR)/IO/IODoc.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/IOFactory.$(OBJEXT)               \
@@ -7174,4 +7175,23 @@ core_ListeRoomTeardownOrder_test_SOURCES = core/ListeRoomTeardownOrder_test.cpp
 core_ListeRoomTeardownOrder_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_ListeRoomTeardownOrder_test_LDADD = $(CORE_TEST_LDADD)
 core_ListeRoomTeardownOrder_test_DEPENDENCIES = $(CORE_TEST_DEPS)
+endif
+
+#Device base: <calaos:device> loading, owned IOs in the room's flat list, links
+#resolved after every room, nested save, cascade delete. Registers a test-only
+#impl, so it gets its own binary: the doc generator of other binaries never
+#sees it. Own HAVE_GTEST block so this stays a pure append at the end of the
+#file.
+if HAVE_GTEST
+TESTS += core/Device_test
+check_PROGRAMS += core/Device_test
+core_Device_test_SOURCES = core/Device_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_Device_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_Device_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_Device_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
