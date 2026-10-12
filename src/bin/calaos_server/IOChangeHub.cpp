@@ -114,7 +114,8 @@ void IOChangeHub::notify(const std::string &id)
     {
         if (!s->active) continue;
 
-        //Resolved per call: deleteIO() is refused here, delete_io() is not.
+        //Resolved per call: deleteIO()/delete_io() are refused here, a direct
+        //Room::RemoveIO() is not.
         IOBase *io = ListeRoom::Instance().get_io(id);
         if (!io) return;
 

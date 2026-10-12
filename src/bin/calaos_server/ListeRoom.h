@@ -138,7 +138,8 @@ public:
                      release(), never a reset().
        Returns false when io is in no room at all, without destroying
        anything: calling it twice on the same IO is safe, the second call is
-       a no-op. */
+       a no-op. Also false, and nothing done, for del = true while rules or
+       change callbacks run (same reason as deleteIO()). */
     bool delete_io(IOBase *io, bool del = true);
 
     /* The rule-side half of deleteIO(): deals with the rules that use this IO
