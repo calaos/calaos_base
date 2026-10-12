@@ -1380,3 +1380,9 @@ rouvrir.
     valeurs : plus tard (les chaînes ESPHome sont déjà les nôtres).
 13. **Tickets séparés** : restriction d'un panneau RemoteUI à ses IOs référencés (trou de sécurité
     existant) et suppression de `get_chauffage_var()` côté serveur (le param `chauffage_id` reste : l'installateur s'en sert).
+14. **Bornes analogiques nommées `value_min`/`value_max`** (tranché le 2026-10-13, CORE-5). L'installateur
+    écrit depuis toujours `min="-10000" max="10000"` sur les IOs analogiques, sans que le serveur les
+    lise : réutiliser ces noms écrêterait en silence les sorties Wago pilotées en brut (0..32767).
+    Les vieux `min`/`max` sont des propriétés mortes : **le serveur les supprime au chargement**
+    (elles disparaissent d'`io.xml` à la sauvegarde suivante) et **l'installateur cesse de les
+    écrire et les retire à la lecture** (INST-6).

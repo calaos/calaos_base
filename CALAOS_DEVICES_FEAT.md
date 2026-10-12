@@ -63,7 +63,7 @@ The family selects the client widget; the `impl` selects the server class. Two c
     <calaos:input  id="salon_ac_mode"       type="MqttInputString"  visible="false" .../>
     <calaos:output id="salon_ac_mode_cmd"   type="MqttOutputString" visible="false" .../>
     <calaos:input  id="salon_ac_current"    type="MqttInputTemp"    visible="false" .../>
-    <calaos:output id="salon_ac_target"     type="MqttOutputAnalog" visible="false" min="16" max="30" step="0.5" .../>
+    <calaos:output id="salon_ac_target"     type="MqttOutputAnalog" visible="false" value_min="16" value_max="30" step="0.5" .../>
     <calaos:input  id="salon_ac_action"     type="MqttInputString"  visible="false" .../>
     <calaos:output id="salon_ac_remotetemp" type="MqttOutputAnalog" visible="false" .../>
 
@@ -278,7 +278,7 @@ rule: neither has to duplicate the other's logic.
 |---|---|---|---|
 | `mode` (+ `command_io`) | required | — (the device stores it) | `modes` |
 | `current_temp` | optional | **required** (regulation input) | `current_temp` |
-| `target_temp` | optional | **required**, owned | `target_temp` (bounds from the IO's `min`/`max`/`step`) |
+| `target_temp` | optional | **required**, owned | `target_temp` (bounds from the IO's `value_min`/`value_max`/`step`) |
 | `target_temp_low` / `_high` | optional | owned, when `output_cool` exists | `target_temp_range` |
 | `action` | optional | owned, written by the thermostat | `reports_action` |
 | `fan_mode` / `swing_mode` (+ `command_io`) | optional | — | `fan_modes` / `swing_modes` (list from a param) |
@@ -426,7 +426,10 @@ The installer form (§10) and the MCP tool description (§9.2) are built from it
 ## 12. Supporting changes
 
 - `MqttOutputString` (missing today, needed for `mode/command`, `fan_mode/command`, …).
-- `min` / `max` params on analog outputs (and `InternalInt`), used to bound setpoints.
+- `value_min` / `value_max` params on analog outputs (and `InternalInt`), used to bound setpoints.
+  Not `min`/`max`: calaos_installer has always written `min="-10000" max="10000"` on analog IOs
+  without the server reading them, so reusing those names would silently clamp deployed outputs.
+  Those legacy params are dropped by the server at load and no longer written by the installer.
 - `ListeRoom::get_chauffage_var()` on the server: dead code (no production caller), removed in a
   separate ticket. The `chauffage_id` param and its JSON key stay: calaos_installer uses them for
   its heating-rule assistant.
