@@ -24,6 +24,7 @@
 #include "AVReceiver.h"
 #include "Device.h"
 
+#include <algorithm>
 #include <climits>
 
 using namespace Calaos;
@@ -232,7 +233,38 @@ void Room::keepOpaque(pugi::xml_node node)
 {
     auto xml = std::make_unique<pugi::xml_document>();
     xml->append_copy(node);
-    opaque.push_back({ get_size(), std::move(xml) });
+
+    OpaqueElement el{ get_size(), std::move(xml), node.attribute("id").as_string(), {} };
+    struct Walker: pugi::xml_tree_walker
+    {
+        vector<string> &ids;
+        explicit Walker(vector<string> &i): ids(i) {}
+        bool for_each(pugi::xml_node &n) override
+        {
+            if (n.attribute("id"))
+                ids.push_back(n.attribute("id").as_string());
+            return true;
+        }
+    } walker(el.nestedIds);
+    node.traverse(walker);
+    opaque.push_back(std::move(el));
+}
+
+vector<string> Room::opaqueDeviceIds() const
+{
+    vector<string> ids;
+    for (const auto &el: opaque)
+        ids.push_back(el.id);
+    return ids;
+}
+
+bool Room::reservesId(const string &id) const
+{
+    for (const auto &el: opaque)
+        if (el.id == id ||
+            std::find(el.nestedIds.begin(), el.nestedIds.end(), id) != el.nestedIds.end())
+            return true;
+    return false;
 }
 
 bool Room::SaveToXml(pugi::xml_node node)

@@ -565,6 +565,7 @@ public:
 
     void sendToClient(string res);
     void setNeedRestart(bool e) { need_restart = e; }
+    bool needsRestart() const { return need_restart; }
 
     // Expose request headers for handlers that need authentication
     const unordered_map<string, string> &getRequestHeaders() const { return request_headers; }

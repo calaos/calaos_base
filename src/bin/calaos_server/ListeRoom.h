@@ -22,6 +22,7 @@
 #define S_ListeRoom_H
 
 #include <memory>
+#include <set>
 #include <vector>
 
 #include "Calaos.h"
@@ -148,6 +149,14 @@ public:
     /* Lets every device check its links once all the rooms are loaded: a
        link may target an IO of another room. */
     void resolveDeviceLinks();
+
+    /* Ids of every device in the model, the inert ones kept verbatim
+       included: this is what a saved io.xml must still carry. */
+    std::set<std::string> deviceIds() const;
+
+    /* An id declared inside a device kept verbatim: the file has it although
+       io_table does not, so it must not be handed out to a new IO. */
+    bool isIdReserved(const std::string &id) const;
 
     /* Destroys an IO that was built but never joined a room (refused while
        loading or creating). Its constructor may have put it in the rule

@@ -63,6 +63,8 @@ protected:
     {
         int before;
         std::unique_ptr<pugi::xml_document> xml;
+        string id;
+        vector<string> nestedIds;
     };
     vector<OpaqueElement> opaque;
 
@@ -114,6 +116,13 @@ public:
     }
 
     int get_size() { return (int)ios.size(); }
+
+    /* Ids of the <calaos:device> elements kept verbatim (see `opaque`). */
+    vector<string> opaqueDeviceIds() const;
+
+    /* True for the id of a kept device and for any id nested inside one: they
+       exist in the file, so nothing may be created under them. */
+    bool reservesId(const string &id) const;
 
     bool LoadFromXml(pugi::xml_node node);
     bool SaveToXml(pugi::xml_node node);

@@ -457,6 +457,11 @@ public:
     std::shared_ptr<uvw::TcpHandle> handle;
 };
 
+bool HttpTestRequest::needsRestart() const
+{
+    return client && client->needsRestart();
+}
+
 HttpTestRequest::HttpTestRequest()
 {
     auto loop = uvw::Loop::getDefault();
