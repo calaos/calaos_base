@@ -21,6 +21,7 @@
 #include "IntValue.h"
 #include "CalaosConfig.h"
 #include "IOFactory.h"
+#include "AnalogBounds.h"
 
 using namespace Calaos;
 
@@ -44,6 +45,7 @@ Internal::Internal(Params &p):
 
         ioDoc->paramAdd("unit", _("Unit which will be displayed on the UI as a suffix."), IODoc::TYPE_STRING, false);
         ioDoc->paramAdd("step", _("Set a step for increment/decrement value. Default is 1.0"), IODoc::TYPE_FLOAT, false, "1");
+        AnalogBounds::boundsDoc(ioDoc);
         ioDoc->conditionAdd("0", _("Event on a specific number value"));
         ioDoc->actionAdd("0", _("Set a specific number value"));
         ioDoc->actionAdd("inc", _("Increment value with configured step"));
@@ -119,6 +121,9 @@ bool Internal::set_value(bool val)
 bool Internal::set_value(double val)
 {
     if (!isEnabled()) return true;
+
+    if (get_type() == TINT)
+        val = AnalogBounds::clampToBounds(get_params(), val);
 
     cInfoDom("output") << get_param("id") << ": got action, " << val;
 

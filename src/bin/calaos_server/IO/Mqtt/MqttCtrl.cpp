@@ -263,21 +263,36 @@ bool MqttCtrl::readStatusNumber(const string &value, double &out)
     return true;
 }
 
+string MqttCtrl::renderData(const string &tmpl, const string &val)
+{
+    //A JSON template needs the value escaped, or a quote in it breaks the
+    //document. Plain templates are sent as is.
+    string escaped = val;
+
+    const auto first = tmpl.find_first_not_of(" \t\r\n");
+    if (first != string::npos &&
+        (tmpl[first] == '{' || tmpl[first] == '[' || tmpl[first] == '"'))
+    {
+        const string quoted = Json(val).dump(-1, ' ', false, Json::error_handler_t::replace);
+        escaped = quoted.substr(1, quoted.size() - 2);
+    }
+
+    string data = tmpl;
+    replace_str(data, "__##VALUE##__", escaped);
+    return data;
+}
+
 void MqttCtrl::setValueString(const Params &params, string val)
 {
-    string data;
     string topic = params["topic_pub"];
 
-    if (params.Exists("data"))
-    {
-        data = params["data"];
-        replace_str(data, "__##VALUE##__", val);
-    }
-    else
+    if (!params.Exists("data"))
     {
         cErrorDom("mqtt") << "No data provided in configuration IO";
         return;
     }
+
+    const string data = renderData(params["data"], val);
 
     cDebugDom("mqtt") << "Publish " << data << " on topic" << topic;
 

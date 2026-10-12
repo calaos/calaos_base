@@ -7093,5 +7093,69 @@ core_IOChangeHub_test_LDADD = $(CORE_TEST_LDADD)
 #T3.36: the linked server objects are prerequisites, so touching one relinks
 #this binary. They are built by src/, never here (see the note above).
 core_IOChangeHub_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+
+# CORE-5
+#min/max on the OutputAnalog family and on InternalInt: clamp on write, the
+#clamped value is what is persisted, absent or inconsistent bounds change
+#nothing. WagoOutputAnalog is built through IOFactory, its Wago link closure
+#is the one of core/WagoDaliAddressRange_test.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/AnalogBounds_test
+check_PROGRAMS += core/AnalogBounds_test
+core_AnalogBounds_test_SOURCES = core/AnalogBounds_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_AnalogBounds_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+ANALOG_BOUNDS_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT)
+core_AnalogBounds_test_LDADD = $(ANALOG_BOUNDS_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_AnalogBounds_test_DEPENDENCIES = $(ANALOG_BOUNDS_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# CORE-5
+#MqttOutputString payload (plain and JSON templates) and state readback, and
+#MqttOutputAnalog bounds, on real IOs and a real MqttCtrl. The sidecar is a
+#stand-in that sleeps; the test connects to the controller's socket in its
+#place, so there is no broker. Own main(): same reason as
+#core/MqttConfigTransport_test.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/MqttOutputString_test
+check_PROGRAMS += core/MqttOutputString_test
+core_MqttOutputString_test_SOURCES = core/MqttOutputString_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_MqttOutputString_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt
+MQTT_OUTPUT_STRING_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttBrokerslist.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttOutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttOutputString.$(OBJEXT)
+core_MqttOutputString_test_LDADD = $(MQTT_OUTPUT_STRING_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_MqttOutputString_test_DEPENDENCIES = $(MQTT_OUTPUT_STRING_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif

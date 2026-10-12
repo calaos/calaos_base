@@ -20,6 +20,7 @@
  ******************************************************************************/
 #include "OutputAnalog.h"
 #include "AnalogIO.h"
+#include "AnalogBounds.h"
 
 using namespace Calaos;
 using namespace Utils;
@@ -38,6 +39,7 @@ OutputAnalog::OutputAnalog(Params &p):
 
     ioDoc->paramAdd("step", _("Set a step for increment/decrement value. Default is 1.0"), IODoc::TYPE_FLOAT, false, "1");
     AnalogIO::commonDoc(ioDoc);
+    AnalogBounds::boundsDoc(ioDoc);
     ioDoc->conditionAdd("0", _("Event on a specific number value"));
     ioDoc->actionAdd("0", _("Set a specific number value"));
     ioDoc->actionAdd("inc", _("Increment value with configured step"));
@@ -82,6 +84,8 @@ bool OutputAnalog::set_value(double val)
     if (!isEnabled()) return true;
 
     readConfig();
+
+    val = AnalogBounds::clampToBounds(get_params(), val);
 
     cmd_state = val;
 

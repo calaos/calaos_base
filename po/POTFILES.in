@@ -42,6 +42,7 @@
 ./src/bin/calaos_server/HttpServer.h
 ./src/bin/calaos_server/IO/AnalogIO.cpp
 ./src/bin/calaos_server/IO/AnalogIO.h
+./src/bin/calaos_server/IO/AnalogBounds.h
 ./src/bin/calaos_server/IOBase.cpp
 ./src/bin/calaos_server/IOBase.h
 ./src/bin/calaos_server/IO/ExternProc.cpp
@@ -114,6 +115,8 @@
 ./src/bin/calaos_server/IO/Mqtt/MqttInputTemp.h
 ./src/bin/calaos_server/IO/Mqtt/MqttOutputAnalog.cpp
 ./src/bin/calaos_server/IO/Mqtt/MqttOutputAnalog.h
+./src/bin/calaos_server/IO/Mqtt/MqttOutputString.cpp
+./src/bin/calaos_server/IO/Mqtt/MqttOutputString.h
 ./src/bin/calaos_server/IO/Mqtt/MqttOutputLight.cpp
 ./src/bin/calaos_server/IO/Mqtt/MqttOutputLightDimmer.cpp
 ./src/bin/calaos_server/IO/Mqtt/MqttOutputLightDimmer.h
