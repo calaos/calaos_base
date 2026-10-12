@@ -366,9 +366,10 @@ IOChangeHub::Subscription sub =
   qui voient tous deux la dernière valeur.
 - **Mutation pendant l'appel.** Un abonné retiré pendant la diffusion n'est plus
   appelé ; un abonné ajouté attend le changement suivant.
-- **Suppression refusée.** `ListeRoom::deleteIO()` répond `false` (et journalise)
-  tant que la marche des règles tourne, donc depuis tout callback : l'IO qui a
-  lancé la cascade a encore son `set_value()` sur la pile.
+- **Suppression refusée.** `ListeRoom::deleteIO()`, comme `delete_io()` avec
+  `del=true`, répond `false` (et journalise) tant que la marche des règles
+  tourne, donc depuis tout callback : l'IO qui a lancé la cascade a encore son
+  `set_value()` sur la pile. Un `Room::RemoveIO()` direct n'est pas gardé.
 - **Coût.** Une recherche dans une table de hachage par déclencheur ; l'entrée
   d'un id disparaît avec son dernier abonné.
 

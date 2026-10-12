@@ -271,6 +271,15 @@ bool ListeRoom::delete_io(IOBase *io, bool del)
     //answering "not found" up front keeps the intent explicit.
     if (!io) return false;
 
+    //Same use-after-free as deleteIO() guards against; del=false only moves
+    //the IO, which stays alive.
+    if (del && ListeRule::Instance().isExecutionLocked())
+    {
+        cErrorDom("root") << "delete_io(): refused for " << io->get_param("id")
+                          << " while rules or change callbacks run";
+        return false;
+    }
+
     bool done = false;
     for (uint j = 0;!done && j < rooms.size();j++)
     {
