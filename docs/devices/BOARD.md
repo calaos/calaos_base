@@ -88,14 +88,14 @@ Tout ─ VAL-1
 
 | ID | Ticket | Dépend de | Agent | Statut |
 |---|---|---|---|---|
-| WEB-1 | **Décodage.** `device?` dans les types et un guard `toDeviceInfo` qui ne lève jamais d'exception, patch dans `applyIoChanged`, fixture du mock-server avec un proxy et un thermostat. Tests Vitest sur les guards et le store. | CORE-4 | sonnet / medium | 📋 |
+| WEB-1 | **Décodage.** `device?` dans les types et un guard `toDeviceInfo` qui ne lève jamais d'exception, patch dans `applyIoChanged`, fixture du mock-server avec un proxy et un thermostat. Tests Vitest sur les guards et le store. | CORE-4 | sonnet / medium | 🔨 |
 | WEB-2 | **Composant `ClimateIo`.** Entrée `climate` dans `GUI_TYPES` et `IO_COMPONENTS`, rendu piloté par les capacités (boutons de mode, consigne bornée, plage en `auto`, ventilation, badge d'action, grisé selon le mode), commande JSON par `sendSetState`, transitions du mock-server. Tests : `.spec.ts` du composant et un scénario Playwright. | WEB-1, CLIM-1 | sonnet / high / frontend-design | 📋 |
 
 ## MOB — calaos_mobile
 
 | ID | Ticket | Dépend de | Agent | Statut |
 |---|---|---|---|---|
-| MOB-1 | **Décodage.** Exposer l'objet `device` de `get_home`, et faire transporter la map par l'`io_changed` (aujourd'hui convertie en chaîne vide) sur le modèle de `IoStatusChange`. Tests : `tst_calaoseventdecoder`, `tst_iobase`. | CORE-4 | sonnet / medium | 📋 |
+| MOB-1 | **Décodage.** Exposer l'objet `device` de `get_home`, et faire transporter la map par l'`io_changed` (aujourd'hui convertie en chaîne vide) sur le modèle de `IoStatusChange`. Tests : `tst_calaoseventdecoder`, `tst_iobase`. | CORE-4 | sonnet / medium | 🔨 |
 | MOB-2 | **Widget `IOClimate`.** Type `climate` dans `IOTypeRegistry` et `Common.h`, `IOClimate.qml` piloté par les capacités, variantes desktop et mobile, déclarations `qmldir`/`.qrc`/`calaos.pri`, commande JSON par `sendStringValue`. Tests Qt et qmllint. | MOB-1, CLIM-1 | sonnet / high / frontend-design | 📋 |
 
 ## RUI — calaos_remote_ui
@@ -103,7 +103,7 @@ Tout ─ VAL-1
 | ID | Dépôt | Ticket | Dépend de | Agent | Statut |
 |---|---|---|---|---|---|
 | RUI-1 | calaos_base | **Côté serveur.** `extractReferencedIOs()` étend un device à ses IOs possédés et liés ; l'objet `device` voyage dans `remote_ui_io_states` et `io_changed`. Tests sur le harnais RemoteUI existant. | CORE-4 | sonnet / medium / graft | 📋 |
-| RUI-2 | calaos_remote_ui | **Protocole du firmware.** Inverser les 17 tests `*KnownBugs*` épinglés par OUT-3 (et corriger DOC-CI.md:41, qui dit à tort que tous portent `BUG (RUI-2)`). Champ device dans `IoState`, parsing aux deux endroits, fusion dans `AppStore`, détection de changement qui ne se limite plus à `state` (`app_store.cpp:333`, `calaos_widget.cpp:125`), et correction du `value("visible", true)` qui jette tout le lot sur une chaîne `"true"`. Tests hôte. | RUI-1, OUT-3 | sonnet / high | 📋 |
+| RUI-2 | calaos_remote_ui | **Protocole du firmware.** Inverser les 17 tests `*KnownBugs*` épinglés par OUT-3 (et corriger DOC-CI.md:41, qui dit à tort que tous portent `BUG (RUI-2)`). Champ device dans `IoState`, parsing aux deux endroits, fusion dans `AppStore`, détection de changement qui ne se limite plus à `state` (`app_store.cpp:333`, `calaos_widget.cpp:125`), et correction du `value("visible", true)` qui jette tout le lot sur une chaîne `"true"`. Tests hôte. | RUI-1, OUT-3 | sonnet / high | 🔨 |
 | RUI-3 | calaos_remote_ui | **Widget `Climate`.** Enregistré via `registerWidgetAnySize`, mise en page adaptée aux cellules 240×240 à 213×266 et aux tailles multiples, piloté par les capacités, commande JSON. Validé sur le simulateur SDL (`linux-dev`), captures jointes à la PR. | RUI-2, CLIM-1 | opus / high / frontend-design | 📋 |
 
 ## VAL — validation de bout en bout
