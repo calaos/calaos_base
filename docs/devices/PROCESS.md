@@ -15,7 +15,8 @@
 1. **Démarrage** : statut 🔨 dans [`BOARD.md`](BOARD.md), fiche `docs/devices/<ID>.md` créée par
    l'agent d'implémentation (objectif, périmètre, fichiers, ce que les tests prouvent). Dans
    calaos_mobile et calaos-web-app, une ligne de renvoi vers ce board dans leur `docs/BOARD.md`.
-2. **Implémentation** dans un worktree dédié, branche `feat/devices-<id>` (en minuscules), agent
+2. **Implémentation** dans un worktree dédié sous `/home/raoul/repos/calaos/.wt/<id>` (disque ; `/tmp`
+   est un tmpfs de 32 Go en RAM, un build de couverture y prend 12 Go et un build ASan ne tient pas), branche `feat/devices-<id>` (en minuscules), agent
    configuré selon la colonne « Agent » du board.
 3. **Validation locale** avant toute PR :
    - calaos_base : `./autogen.sh && ./configure && make -j32 && make check -j16` (un seul agent qui
