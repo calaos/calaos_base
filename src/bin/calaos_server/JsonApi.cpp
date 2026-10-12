@@ -26,6 +26,7 @@
 #include "AutoScenarioDef.h"
 #include "CalaosConfig.h"
 #include "HistLogger.h"
+#include "Device.h"
 
 #include <openssl/evp.h>
 #include <openssl/crypto.h>
@@ -796,6 +797,10 @@ void JsonApi::buildJsonIO(IOBase *io, Json &jio, IoProjection projection)
     //object: adding it would change what an already shipped screen receives.
     if (device)
         return;
+
+    //The one typed object of an IO item: numbers and booleans are real JSON.
+    if (Device *dev = dynamic_cast<Device *>(io))
+        jio["device"] = dev->deviceObject();
 
     //A null Json means "this IO has no status info" - NOT an empty object,
     //which is truthy and would add "status_info":{} to every IO of the API.

@@ -1,0 +1,156 @@
+{
+  "audio": [],
+  "cameras": [],
+  "home": [
+    {
+      "hits": "0",
+      "items": [
+        {
+          "gui_type": "var_bool",
+          "id": "io_core_bool_out",
+          "io_type": "inout",
+          "name": "Bool output",
+          "rw": "false",
+          "state": "false",
+          "type": "InternalBool",
+          "var_type": "bool",
+          "visible": "true"
+        },
+        {
+          "device": {
+            "capabilities": {
+              "current_temp": true,
+              "modes": [
+                "off",
+                "heat",
+                "cool"
+              ],
+              "target_temp": {
+                "max": 30,
+                "min": 16,
+                "step": 0.5,
+                "unit": "°C"
+              }
+            },
+            "family": "climate",
+            "impl": "test_climate",
+            "ios": {
+              "current_temp": "ext_temp",
+              "mode": "clim_mode",
+              "target_temp": "clim_target"
+            },
+            "state": {
+              "current_temp": 23.4,
+              "mode": "cool",
+              "target_temp": 21.5
+            }
+          },
+          "gui_type": "climate",
+          "id": "clim",
+          "io_type": "inout",
+          "name": "clim",
+          "state": "cool",
+          "type": "climate",
+          "var_type": "string"
+        },
+        {
+          "gui_type": "var_string",
+          "id": "clim_mode",
+          "io_type": "inout",
+          "name": "clim_mode",
+          "rw": "false",
+          "state": "cool",
+          "type": "InternalString",
+          "var_type": "string",
+          "visible": "false"
+        },
+        {
+          "gui_type": "var_int",
+          "id": "clim_target",
+          "io_type": "inout",
+          "name": "clim_target",
+          "rw": "false",
+          "state": "21.5",
+          "type": "InternalInt",
+          "var_type": "float",
+          "visible": "false"
+        },
+        {
+          "device": {
+            "capabilities": {
+              "modes": [
+                "off",
+                "heat",
+                "cool"
+              ]
+            },
+            "family": "climate",
+            "impl": "test_climate",
+            "ios": {
+              "mode": "clim2_mode"
+            },
+            "state": {
+              "mode": ""
+            }
+          },
+          "gui_type": "climate",
+          "id": "clim2",
+          "io_type": "inout",
+          "name": "clim2",
+          "state": "",
+          "type": "climate",
+          "var_type": "string"
+        },
+        {
+          "gui_type": "var_string",
+          "id": "clim2_mode",
+          "io_type": "inout",
+          "name": "clim2_mode",
+          "rw": "false",
+          "state": "",
+          "type": "InternalString",
+          "var_type": "string",
+          "visible": "false"
+        },
+        {
+          "device": {
+            "capabilities": {},
+            "family": "climate",
+            "impl": "test_bare",
+            "ios": {
+              "current_temp": "ext_temp"
+            },
+            "state": {}
+          },
+          "gui_type": "climate",
+          "id": "bare",
+          "io_type": "inout",
+          "name": "bare",
+          "state": "",
+          "type": "climate",
+          "var_type": "string"
+        }
+      ],
+      "name": "Salon",
+      "type": "salon"
+    },
+    {
+      "hits": "0",
+      "items": [
+        {
+          "gui_type": "var_int",
+          "id": "ext_temp",
+          "io_type": "inout",
+          "name": "Temp",
+          "rw": "false",
+          "state": "23.4",
+          "type": "InternalInt",
+          "var_type": "float",
+          "visible": "true"
+        }
+      ],
+      "name": "Kitchen",
+      "type": "kitchen"
+    }
+  ]
+}

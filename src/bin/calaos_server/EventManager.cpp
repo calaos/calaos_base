@@ -150,6 +150,21 @@ CalaosEvent EventManager::create(int type, string ioId, Params p, bool logHistor
     return ev;
 }
 
+CalaosEvent EventManager::createWithObjects(int type, string ioId, Params p, Json objects,
+                                            bool logHistory)
+{
+    CalaosEvent ev;
+    ev.evType = type;
+    ev.evParams = p;
+    ev.evObjects = std::move(objects);
+    ev.logHistory = logHistory;
+    ev.evParams.Add("id", ioId);
+
+    EventManager::Instance().appendEvent(ev);
+
+    return ev;
+}
+
 CalaosEvent::CalaosEvent()
 {
 }
@@ -216,11 +231,15 @@ Json CalaosEvent::toJson() const
      * are garbage and the entry was already broken in both.
      * Params is a std::map, so "data" is alphabetical here as it was before.
      */
+    Json data = evParams.toJson();
+    if (!evObjects.is_null())
+        data.update(evObjects);
+
     return Json{
         { "event_raw", toString() },
         { "type", Utils::to_string(getType()) },
         { "type_str", typeToString(getType()) },
-        { "data", evParams.toJson() }
+        { "data", std::move(data) }
     };
 }
 

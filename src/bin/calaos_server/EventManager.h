@@ -83,6 +83,7 @@ public:
      * EVERY member is a JSON string, "type" included (the enum integer through
      * Utils::to_string()): the oracle of the golden suite is type strict and
      * an int that became a JSON number is a break of the wire contract.
+     * Inside "data", only the members given to createWithObjects() are typed.
      */
     Json toJson() const;
     string toString() const;
@@ -92,6 +93,8 @@ public:
 private:
     int evType = EventUnkown;
     Params evParams;
+    //Members of "data" that are real JSON, see EventManager::createWithObjects().
+    Json evObjects;
     bool logHistory = true;
 
     friend class EventManager;
@@ -113,6 +116,13 @@ public:
     static CalaosEvent create(int type, bool logHistory = true);
     static CalaosEvent create(int type, Params p, bool logHistory = true);
     static CalaosEvent create(int type, string ioId, Params p, bool logHistory = true);
+
+    /* Same, plus members of "data" that are real JSON (objects, numbers),
+     * such as the "device" object. They live beside the string Params and
+     * only toJson() emits them: event_raw, the history row's io_state and the
+     * Lua side keep reading the strings they always got. */
+    static CalaosEvent createWithObjects(int type, string ioId, Params p, Json objects,
+                                         bool logHistory = true);
 
 private:
     EventManager();
