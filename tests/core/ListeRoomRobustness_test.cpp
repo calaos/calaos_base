@@ -168,3 +168,19 @@ TEST_F(ListeRoomRobustnessTest, CreateIoWithDuplicateIdIsFullyRejected)
     EXPECT_EQ(io(ID_BOOL_IN), first);
     EXPECT_EQ(io(ID_BOOL_IN)->get_param("name"), "Bool input");
 }
+
+//InPlageHoraire registers in the rule event loop from its constructor: the
+//rejected duplicate must leave it before being destroyed, or it is polled freed.
+TEST_F(ListeRoomRobustnessTest, RejectedDuplicateLeavesTheEventLoop)
+{
+    loadConfig();
+
+    Params p = { { "type", "InPlageHoraire" }, { "id", "io_t13_range" }, { "name", "Range" } };
+    ASSERT_NE(createIO(p, firstRoom()), nullptr);
+    const size_t before = ListeRule::Instance().eventCount();
+
+    EXPECT_EQ(createIO(p, firstRoom()), nullptr);
+
+    EXPECT_EQ(ListeRule::Instance().eventCount(), before);
+    ListeRule::Instance().RunEventLoop();
+}

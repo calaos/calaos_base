@@ -7178,10 +7178,11 @@ core_ListeRoomTeardownOrder_test_DEPENDENCIES = $(CORE_TEST_DEPS)
 endif
 
 #Device base: <calaos:device> loading, owned IOs in the room's flat list, links
-#resolved after every room, nested save, cascade delete. Registers a test-only
-#impl, so it gets its own binary: the doc generator of other binaries never
-#sees it. Own HAVE_GTEST block so this stays a pure append at the end of the
-#file.
+#resolved after every room, nested save, cascade delete, refused IOs leaving
+#the rule event loop (hence the InputTime/InputTemp objects). Registers a
+#test-only impl, so it gets its own binary: the doc generator of other
+#binaries never sees it. Own HAVE_GTEST block so this stays a pure append at
+#the end of the file.
 if HAVE_GTEST
 TESTS += core/Device_test
 check_PROGRAMS += core/Device_test
@@ -7189,9 +7190,17 @@ core_Device_test_SOURCES = core/Device_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_Device_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
-core_Device_test_LDADD = $(CORE_TEST_LDADD)
+core_Device_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTime.$(OBJEXT)
 #T3.36: the linked server objects are prerequisites, so touching one relinks
 #this binary. They are built by src/, never here (see the note above).
 core_Device_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
-                  $(top_builddir)/src/lib/libcalaos_common.la
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTime.$(OBJEXT)
 endif
