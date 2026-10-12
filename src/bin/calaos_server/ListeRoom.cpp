@@ -24,6 +24,7 @@
 #include "CalaosConfig.h"
 #include "EventManager.h"
 #include "FileUtils.h"
+#include "libuvw.h"
 
 #include <filesystem>
 #include <fstream>
@@ -58,9 +59,12 @@ ListeRoom &ListeRoom::Instance()
 
 ListeRoom::ListeRoom()
 {
-    //~ListeRoom() still reaches both through ~Room(). Statics are destroyed in
-    //reverse order of construction: built first, they outlive this one whatever
-    //the program touches first, not only in the order main() forces.
+    //~Room() reaches ListeRule, EventManager and, through the idler the latter
+    //starts, the static behind uvw::Loop::getDefault(). Statics die in reverse
+    //order of construction: built here, before this one is complete, they
+    //outlive it even when the program uses them only later. main() alone used
+    //to guarantee that order, and even there the default loop came after.
+    uvw::Loop::getDefault();
     EventManager::Instance();
     ListeRule::Instance();
 }
