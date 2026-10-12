@@ -41,7 +41,12 @@ class IOBase;
  *
  * Callbacks run from ListeRule's trigger march (see ListeRule::executeTrigger),
  * so an IO written from a callback is queued like a rule action's write,
- * never handled recursively.
+ * never handled recursively. A callback therefore reads the IO's CURRENT
+ * state, not the value of the write that queued it: two queued writes give
+ * two calls that both see the last value.
+ *
+ * ListeRoom::deleteIO() is refused while the march runs: the IO that started
+ * it still has its set_value() on the stack.
  */
 class IOChangeHub
 {
@@ -59,8 +64,8 @@ public:
     class Subscription
     {
     public:
-        Subscription() = default;
-        ~Subscription() { reset(); }
+        Subscription();
+        ~Subscription();
 
         Subscription(Subscription &&other) noexcept;
         Subscription &operator=(Subscription &&other) noexcept;

@@ -625,6 +625,15 @@ bool ListeRoom::deleteIO(IOBase *io, bool modify, RuleDetachPolicy policy)
         return false;
     }
 
+    //A rule action or an IOChangeHub callback is running: the IO that started
+    //the march still has its set_value() on the stack, freeing it is a UAF.
+    if (ListeRule::Instance().isExecutionLocked())
+    {
+        cErrorDom("root") << "deleteIO(): refused for " << io->get_param("id")
+                          << " while rules or change callbacks run";
+        return false;
+    }
+
     detachIOFromRules(io, modify, policy);
 
     //Destroys the IO through its owning room. false when no room owns it,
