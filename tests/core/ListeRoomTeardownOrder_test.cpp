@@ -64,7 +64,10 @@ void mark(char c)
 class ProbeIO: public IOBase
 {
 public:
-    explicit ProbeIO(Params &p): IOBase(p, IOBase::IO_INPUT) {}
+    explicit ProbeIO(Params &p):
+        IOBase(p, IOBase::IO_INPUT)
+    {
+    }
     ~ProbeIO() override { mark('I'); }
     DATA_TYPE get_type() override { return TSTRING; }
 };
@@ -72,7 +75,10 @@ public:
 class ProbeRule: public Rule
 {
 public:
-    ProbeRule(): Rule("probe", "teardown order") {}
+    ProbeRule():
+        Rule("probe", "teardown order")
+    {
+    }
     ~ProbeRule() override { mark('R'); }
 };
 
@@ -100,7 +106,8 @@ struct EventManagerProbe
     //Registers itself in ListeRule's polling list from its constructor.
     ListeRoom::Instance().createIO({ { "type", "InPlageHoraire" },
                                      { "id", "teardown_time_range" },
-                                     { "name", "Horaire" } }, room);
+                                     { "name", "Horaire" } },
+                                   room);
 
     Params p = { { "id", "teardown_probe" }, { "name", "Sonde" } };
     room->AddIO(new ProbeIO(p));
@@ -109,14 +116,16 @@ struct EventManagerProbe
 
     //The slot, and the probe it captures, die with EventManager::newEvent.
     auto probe = std::make_shared<EventManagerProbe>();
-    EventManager::Instance().newEvent.connect([probe](const CalaosEvent &) {});
+    EventManager::Instance().newEvent.connect([probe](const CalaosEvent &)
+                                              {
+                                              });
     probe.reset();
 
     //exit(), not _exit(): the static destructors are the subject.
     std::exit(0);
 }
 
-}
+} //namespace
 
 TEST(ListeRoomTeardownOrderTest, RoomsLeftAtExitDieBeforeTheRuleListAndTheEventManager)
 {
