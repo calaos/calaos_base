@@ -26,6 +26,7 @@
 
 #include <algorithm>
 #include <climits>
+#include <set>
 
 using namespace Calaos;
 
@@ -253,12 +254,10 @@ void Room::keepOpaque(pugi::xml_node node)
     opaque.push_back(std::move(el));
 }
 
-vector<string> Room::opaqueDeviceIds() const
+void Room::collectOpaqueDeviceIds(std::set<string> &ids) const
 {
-    vector<string> ids;
     for (const auto &el: opaque)
-        ids.push_back(el.id);
-    return ids;
+        ids.insert(el.id);
 }
 
 bool Room::reservesId(const string &id) const

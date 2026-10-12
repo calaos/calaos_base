@@ -24,6 +24,7 @@
 #include "Calaos.h"
 #include "IOBase.h"
 #include <memory>
+#include <set>
 #include <type_traits>
 #include <vector>
 
@@ -118,7 +119,7 @@ public:
     int get_size() { return (int)ios.size(); }
 
     /* Ids of the <calaos:device> elements kept verbatim (see `opaque`). */
-    vector<string> opaqueDeviceIds() const;
+    void collectOpaqueDeviceIds(std::set<string> &ids) const;
 
     /* True for the id of a kept device and for any id nested inside one: they
        exist in the file, so nothing may be created under them. */

@@ -43,7 +43,8 @@ namespace
 //file, one that does not parse, or one that keeps none; 0 otherwise.
 size_t devicesLostByUpload(const std::string &ioXml)
 {
-    const std::set<std::string> current = ListeRoom::Instance().deviceIds();
+    std::set<std::string> current;
+    ListeRoom::Instance().collectDeviceIds(current);
     if (current.empty())
         return 0;
 

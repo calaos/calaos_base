@@ -314,9 +314,8 @@ void ListeRoom::resolveDeviceLinks()
     }
 }
 
-std::set<std::string> ListeRoom::deviceIds() const
+void ListeRoom::collectDeviceIds(std::set<std::string> &ids) const
 {
-    std::set<std::string> ids;
     for (const auto &room: rooms)
     {
         for (int i = 0; i < room->get_size(); i++)
@@ -324,10 +323,8 @@ std::set<std::string> ListeRoom::deviceIds() const
             if (Device *device = dynamic_cast<Device *>(room->get_io(i)))
                 ids.insert(device->get_param("id"));
         }
-        for (const auto &id: room->opaqueDeviceIds())
-            ids.insert(id);
+        room->collectOpaqueDeviceIds(ids);
     }
-    return ids;
 }
 
 bool ListeRoom::isIdReserved(const std::string &id) const
