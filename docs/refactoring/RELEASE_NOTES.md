@@ -542,6 +542,24 @@ fautive, ce qui n'était pas le cas avant.
 
 ---
 
+## 🔴 Caméras Reolink : une caméra absente au démarrage n'était plus jamais reprise
+
+### Une sonnette PoE encore en démarrage après une coupure restait muette jusqu'au redémarrage du serveur (2026-10-08, `15241b28`)
+Une caméra qui ne répondait pas dans les 20 s suivant son enregistrement — typiquement une
+sonnette PoE qui redémarre après une coupure de courant — n'était **jamais retentée**, et une
+caméra qui perdait sa connexion puis ratait sa reconnexion était **abandonnée pour de bon**. Le
+processus `calaos_reolink` restait vivant et silencieux : plus aucun événement de détection,
+rien au journal, jusqu'à un redémarrage de `calaos_server`.
+
+Désormais chaque caméra est surveillée séparément et retentée **indéfiniment**, avec un délai
+croissant ; une seule session par caméra quel que soit le nombre d'entrées qui l'utilisent ; et si
+le processus se fige, il s'arrête de lui-même pour que le serveur le relance. Les messages du
+processus, erreurs comprises, arrivent enfin au journal (ils restaient bloqués dans un tampon).
+
+→ **Rien à faire de votre côté.**
+
+---
+
 ## 🔴 Caméras Reolink : corruption mémoire à chaque enregistrement de caméra
 
 ### Le serveur écrivait dans de la mémoire libérée dès qu'une caméra Reolink était enregistrée (E4.1i)
@@ -2924,6 +2942,21 @@ qu'ils soient bien encodés. Trois choses changent pour cette réponse :
 ℹ️ **La liste blanche de `config put` n'a pas bougé** : seuls `io.xml`, `rules.xml` et
 `local_config.xml` sont acceptés en téléversement, et tout autre nom est refusé — y compris un nom
 qui contiendrait un octet nul, la comparaison portant sur la chaîne entière.
+
+## 📦 Sidecar MCP sur `mcp` 2.2.0, page de débogage sur jQuery 4 (2026-10-08)
+
+*Pour l'**intégrateur** et l'**empaqueteur**.*
+
+- Le sidecar MCP passe de `mcp` 1.28.1 à **2.2.0** (avec uvicorn 0.54.0, websockets 17.1,
+  pydantic 2.13.5, starlette 1.7.0). `mcp` 2 retire `mcp.server.fastmcp` : la sonde de `configure`
+  exige désormais l'API `mcp.server.mcpserver`, et un environnement resté en `mcp` 1.x **désactive
+  le sidecar** au `configure`. Côté assistant IA, rien ne change : les messages d'erreur des outils
+  (pièce inconnue, IO en lecture seule, valeur invalide, « pas encore connecté ») parviennent
+  toujours au modèle, et `serverInfo.version` porte maintenant la version du sidecar au lieu d'une
+  chaîne vide. Défauts de `mcp` 2 non surchargés : session inactive expirée après 30 min, 10 000
+  sessions au plus, requête refusée (413) au-delà de 4 Mio.
+- La page de débogage (`data/debug`) embarque **jQuery 4.0.0** et bootstrap 5.3.8 ; elle n'utilise
+  aucune API retirée par jQuery 4.
 
 ## 📦 `jansson` n'est plus une dépendance de compilation
 

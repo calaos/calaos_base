@@ -782,7 +782,7 @@ Validé par ailleurs : `build-and-test` PASSE (première exécution réelle du c
 **système 1.13**, jusque-là jamais construit — tous les builds locaux prenaient le vendored 1.14)
 et le job `coverage` produit un vrai rapport (26,7 % lignes).
 
-## 2026-08-25 — ⚠️ F-PYTEST-1 : `SKIP` visible plutôt qu'échec franc — **arbitrage EN ATTENTE DE VALIDATION UTILISATEUR**
+## 2026-08-25 — F-PYTEST-1 : `SKIP` visible plutôt qu'échec franc — **appliqué, F-PYTEST-1 FERMÉ** (voir `ORCHESTRATION.md`, reprise du 2026-09-04)
 **Le fait** : `tests/run-python-tests.sh` rendait **`PASS`** en n'exécutant que **23 des 42** cas de
 `tests/python/` (3 suites sur 6) quand `pytest` manque — et ce n'était **pas** un `SKIP` automake,
 donc rien dans `# TOTAL / # PASS / # SKIP` ne le disait. Voir [T3.44](T3.44.md) et `FINDINGS.md`.

@@ -8,7 +8,32 @@
 
 ## 🔁 REPRISE — lire en premier
 
-- ⭐⭐ **À FROID, DANS CET ORDRE — l'état de la session au 2026-09-04 (l'utilisateur dort, rien
+- ⭐⭐⭐⭐⭐ **ÉTAT RÉEL AU 2026-10-12 — À LIRE EN PREMIER. Tout ce qui suit ce point est de
+  l'historique ; là où il dit « rien n'est poussé » ou « la CI n'a jamais tourné », il est périmé.**
+  - **Dépôt** : `master` == `origin/master` (`20fc98b1`). Le `push` a été autorisé le 2026-09-07
+    ([`DECISIONS.md`](DECISIONS.md), « le `push` est autorisé ») ; le premier run CI GitHub,
+    `34125920118`, était **vert** ([`T3.150`](T3.150.md) §1). Pousser reste une **livraison**
+    (tag + image `:dev`) : toujours demander avant.
+  - **Phases** : 0, 1, 2 et 4 closes (hors `E4.1m` 🔒 et `E4.2g` ⛔). La phase 3 est le backlog
+    vivant : **67 tickets 📋**, 7 ⛔, **aucun en cours**. Dernier lot de tickets : `T3.243`/`T3.244`
+    fermés le 2026-09-14 (`0191cfff`), `T3.245`/`T3.246`/`T3.247` ouverts.
+  - **Bugs ouverts notables** : [`T3.160`](T3.160.md) (miroir dégradé de l'automate Wago, éteint
+    les lumières — dépôt `calaos_wago`), [`T3.171`](T3.171.md) (`WODigital` relit une autre coil),
+    [`T3.221`](T3.221.md), [`T3.245`](T3.245.md) (niveau DALI illisible publié),
+    [`T3.246`](T3.246.md).
+  - **Arbitrages en attente, sous forme de tickets** : [`T3.113`](T3.113.md),
+    [`T3.130`](T3.130.md), [`T3.233`](T3.233.md), [`T3.226`](T3.226.md).
+  - ⛔ **[`T3.247`](T3.247.md) est PRÉALABLE à toute régénération de `io_doc.json`.**
+  - **Prochaine grosse fonctionnalité** : les équipements composites (couche Device + templates),
+    climatisation en tête — spec `CALAOS_DEVICES_FEAT.md` (racine, non suivie), **pas encore de ticket**.
+  - **Hors ticket, 2026-10-08** : `15241b28` (Reolink), `ed890d9d` (mcp 2.2.0), `d906cffc`
+    (erreurs d'outil MCP), `20fc98b1` (jQuery 4), poussés en deux fois. CI **verte** aux deux
+    `push` (`Build and Test` 37796494467 et 37807340784, tags `4.4.3-dev.14`/`.15` verts, image
+    `:dev` publiée). Branches Dependabot `jquery-4.0.0`, `mcp-1.28.1` et `mcp-sidecar-57820ca5a0`
+    (PR #177, rouge) **dépassées**, non supprimées. Détail : ligne « Hors-ticket 2026-10-08 » de
+    `BOARD.md`.
+
+- ⭐⭐ **(HISTORIQUE) À FROID, DANS CET ORDRE — l'état de la session au 2026-09-04 (l'utilisateur dort, rien
   n'est poussé) :**
 
   1. ✅⭐ **FAIT — L'IMAGE DE DÉVELOPPEMENT A ÉTÉ RECONSTRUITE, ET LA DÉRIVE EST RÉSORBÉE.** Mesuré
