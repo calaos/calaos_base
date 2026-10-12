@@ -2,9 +2,9 @@
 
 ## REPRISE — lire en premier
 
-- **État (2026-10-12)** : OUT-2 ✅ (installer#51), OUT-3 ✅ (remote_ui#3 ; premier build de main
-  après merge à surveiller). FIX-INST-0 ✅ (installer#52), FIX-INST-1 ✅ (installer#53). OUT-1 en cours.
-  Ensuite démarrables : CORE-1 et CORE-5 (après OUT-1), RUI-2 (après RUI-1), INST-1 (après CORE-2).
+- **État (2026-10-13)** : outillage terminé (OUT-1 #178, OUT-2, OUT-3, FIX-INST-0, FIX-INST-1).
+  CORE-1 et CORE-5 en revue (branches à rebaser sur la porte de couverture), FIX-BASE-1 en cours.
+  Ensuite : CORE-2 (après CORE-1), puis CORE-3, CORE-4 et la suite du graphe.
 - **Page de suivi en ligne** : voir la ligne « Suivi » plus bas. Elle est statique : la republier
   à chaque fin de ticket.
 - **Bloquant connu** : DOC-1 attend T3.247 (board du refactoring), sans quoi régénérer
