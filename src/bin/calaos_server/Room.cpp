@@ -238,7 +238,10 @@ void Room::keepOpaque(pugi::xml_node node)
     struct Walker: pugi::xml_tree_walker
     {
         vector<string> &ids;
-        explicit Walker(vector<string> &i): ids(i) {}
+        explicit Walker(vector<string> &i):
+            ids(i)
+        {
+        }
         bool for_each(pugi::xml_node &n) override
         {
             if (n.attribute("id"))

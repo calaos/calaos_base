@@ -65,9 +65,10 @@ std::string deviceXml(const std::string &id, const std::string &impl)
 {
     return "    <calaos:device id=\"" + id + "\" type=\"climate\" impl=\"" + impl +
            "\" name=\"Clim " + id + "\">\n"
-           "      <calaos:internal type=\"InternalString\" id=\"" + id + "_mode\" name=\"Mode\""
-           " enabled=\"true\" visible=\"false\" />\n"
-           "    </calaos:device>\n";
+                                    "      <calaos:internal type=\"InternalString\" id=\"" +
+           id + "_mode\" name=\"Mode\""
+                " enabled=\"true\" visible=\"false\" />\n"
+                "    </calaos:device>\n";
 }
 
 std::string plainIo()
@@ -117,13 +118,13 @@ protected:
 
     PutResult putIo(const std::string &ioXml)
     {
-        return put(Json{{ "io.xml", ioXml }, { "rules.xml", rulesXmlDocument(std::string()) }});
+        return put(Json{ { "io.xml", ioXml }, { "rules.xml", rulesXmlDocument(std::string()) } });
     }
 
     Json configGet()
     {
         HttpTestRequest req;
-        req.send(authenticated(Json{{ "action", "config" }, { "type", "get" }}));
+        req.send(authenticated(Json{ { "action", "config" }, { "type", "get" } }));
         EXPECT_EQ(1u, req.count());
         EXPECT_FALSE(req.needsRestart());
         return req.count() == 1 ? req.bodyJson() : Json::object();
@@ -146,8 +147,7 @@ protected:
         pugi::xml_document doc;
         if (!doc.load_string(ioXml.c_str()))
             return false;
-        return std::string(doc.child("calaos:ioconfig").child("calaos:home")
-                               .attribute("format").as_string()) == "2";
+        return std::string(doc.child("calaos:ioconfig").child("calaos:home").attribute("format").as_string()) == "2";
     }
 
     //A previous load stays in the singletons until cleared.
@@ -161,7 +161,8 @@ protected:
     void loadTwoDevices()
     {
         reload(houseXml(plainIo() + deviceXml(DEV_A, "format_test") +
-                            deviceXml(DEV_FUTURE, "future_impl"), true));
+                            deviceXml(DEV_FUTURE, "future_impl"),
+                        true));
     }
 
     void expectRefused(const PutResult &res, size_t lost, const std::string &ioBefore)
@@ -169,7 +170,7 @@ protected:
         EXPECT_EQ(res.reply.value("success", std::string()), "false");
         EXPECT_EQ(res.reply.value("error", std::string()),
                   "update calaos_installer: this io.xml would drop " + std::to_string(lost) +
-                  " device(s)");
+                      " device(s)");
         EXPECT_FALSE(res.restart);
         EXPECT_EQ(ioXmlOnDisk(), ioBefore);
         EXPECT_EQ(backupFiles(), 0u);
@@ -236,7 +237,8 @@ TEST_F(DeviceFormatTest, PutFormat1ThatStillCarriesDevicesIsRefused)
     const std::string before = ioXmlOnDisk();
 
     expectRefused(putIo(houseXml(plainIo() + deviceXml(DEV_A, "format_test") +
-                                 deviceXml(DEV_FUTURE, "future_impl"), false)),
+                                     deviceXml(DEV_FUTURE, "future_impl"),
+                                 false)),
                   2, before);
 }
 
@@ -275,7 +277,7 @@ TEST_F(DeviceFormatTest, RefusalCoversTheWholePut)
     const std::string before = ioXmlOnDisk();
     const std::string rulesNew = rulesXmlDocument("<!-- must not land -->\n");
 
-    PutResult res = put(Json{{ "io.xml", houseXml(plainIo(), false) }, { "rules.xml", rulesNew }});
+    PutResult res = put(Json{ { "io.xml", houseXml(plainIo(), false) }, { "rules.xml", rulesNew } });
     expectRefused(res, 2, before);
     EXPECT_NE(rulesXmlOnDisk(), rulesNew);
 }
@@ -286,8 +288,9 @@ TEST_F(DeviceFormatTest, PutFormat2KeepingTheDevicesIsAccepted)
     saveConfig();
 
     const std::string upload = houseXml(plainIo() + internalIoXml("InternalBool", "c3_new", "New") +
-                                        deviceXml(DEV_A, "format_test") +
-                                        deviceXml(DEV_FUTURE, "future_impl"), true);
+                                            deviceXml(DEV_A, "format_test") +
+                                            deviceXml(DEV_FUTURE, "future_impl"),
+                                        true);
     PutResult res = putIo(upload);
     EXPECT_EQ(res.reply.value("success", std::string()), "true");
     EXPECT_FALSE(res.reply.contains("error"));
@@ -334,7 +337,7 @@ TEST_F(DeviceFormatTest, PutWithoutIoXmlIsNotJudged)
     saveConfig();
     const std::string before = ioXmlOnDisk();
 
-    PutResult res = put(Json{{ "rules.xml", rulesXmlDocument(std::string()) }});
+    PutResult res = put(Json{ { "rules.xml", rulesXmlDocument(std::string()) } });
     EXPECT_EQ(res.reply.value("success", std::string()), "true");
     EXPECT_TRUE(res.restart);
     EXPECT_EQ(ioXmlOnDisk(), before);
