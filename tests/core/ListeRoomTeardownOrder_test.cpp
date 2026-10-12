@@ -20,9 +20,10 @@
  ******************************************************************************/
 
 //~ListeRoom() destroys the rooms still alive at exit, and each ~Room() drops
-//its IOs from ListeRule and announces them through EventManager. Both are
-//function-local statics too, so they must outlive ListeRoom whatever order a
-//program touches them in, not only in the order calaos_server's main() forces.
+//its IOs from ListeRule and announces them through EventManager, which starts
+//an idler on the default uvw loop. All three are function-local statics too,
+//so they must outlive ListeRoom whatever order a program touches them in after
+//it, not only in the order calaos_server's main() forces.
 //
 //The interesting moment is the atexit chain of a process that never touched
 //any of the three, hence a forked child of a binary that never does either.
@@ -31,10 +32,13 @@
 
 #include <gtest/gtest.h>
 
+#include <poll.h>
+#include <signal.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <cstdio>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -45,6 +49,7 @@
 #include "ListeRule.h"
 #include "Room.h"
 #include "Rule.h"
+#include "libuvw.h"
 
 using namespace Calaos;
 
@@ -121,6 +126,10 @@ struct EventManagerProbe
                                               });
     probe.reset();
 
+    //An empty event queue is what makes the next event start an idler, and so
+    //reach uvw::Loop::getDefault() from ~Room().
+    uvw::Loop::getDefault()->run<uvw::Loop::Mode::NOWAIT>();
+
     //exit(), not _exit(): the static destructors are the subject.
     std::exit(0);
 }
@@ -136,6 +145,8 @@ TEST(ListeRoomTeardownOrderTest, RoomsLeftAtExitDieBeforeTheRuleListAndTheEventM
     int fds[2];
     ASSERT_EQ(::pipe(fds), 0);
 
+    //Otherwise the child flushes gtest's buffered output a second time.
+    std::fflush(nullptr);
     const pid_t pid = ::fork();
     ASSERT_GE(pid, 0);
     if (pid == 0)
@@ -146,10 +157,23 @@ TEST(ListeRoomTeardownOrderTest, RoomsLeftAtExitDieBeforeTheRuleListAndTheEventM
 
     ::close(fds[1]);
 
+    //A child stuck in its atexit chain must not hang the suite.
     std::string order;
-    char c;
-    while (::read(fds[0], &c, 1) == 1)
+    bool timedOut = false;
+    for (;;)
+    {
+        struct pollfd pfd = { fds[0], POLLIN, 0 };
+        if (::poll(&pfd, 1, 30000) <= 0)
+        {
+            timedOut = true;
+            ::kill(pid, SIGKILL);
+            break;
+        }
+        char c;
+        if (::read(fds[0], &c, 1) != 1)
+            break;
         order += c;
+    }
     ::close(fds[0]);
 
     int status = 0;
@@ -158,6 +182,7 @@ TEST(ListeRoomTeardownOrderTest, RoomsLeftAtExitDieBeforeTheRuleListAndTheEventM
     std::error_code ec;
     std::filesystem::remove_all(base, ec);
 
+    ASSERT_FALSE(timedOut) << "the child never finished its exit, order seen: " << order;
     //Under AddressSanitizer the use after free aborts the child; without it
     //the heap may survive, which is why the order is asserted as well.
     ASSERT_TRUE(WIFEXITED(status)) << "the child died at exit, order seen: " << order;
