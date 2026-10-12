@@ -158,10 +158,8 @@ jobs:
           failed=$(find tests -name '*.trs' -exec grep -lE ':test-result: (FAIL|ERROR)' {} + \
                    | sed -e 's#^tests/##' -e 's#\.trs$##' | sort)
           echo "failing tests: ${failed:-none}"
-          # FIX-BASE-1: aborts at exit in this build only; its cases pass.
-          unexpected=$(echo "$failed" | grep -vxE 'core/IncomingLogStockLevel_test|' || true)
-          if [ -n "$unexpected" ]; then
-            echo "unexpected test failures: $unexpected"
+          if [ -n "$failed" ]; then
+            echo "unexpected test failures: $failed"
             exit 1
           fi
           if [ "$status" -ne 0 ] && [ -z "$failed" ]; then
