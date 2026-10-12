@@ -78,7 +78,11 @@ Session &session()
     MqttBrokersList::Instance().get_ctrl(bp);
 
     if (!ExternProcSpawn::runLoopUntil(
-            []() { return !ExternProcSpawn::launches("calaos_mqtt").empty(); }, 8000))
+            []()
+            {
+        return !ExternProcSpawn::launches("calaos_mqtt").empty();
+            },
+            8000))
         return *s;
 
     const auto argv = ExternProcSpawn::launches("calaos_mqtt")[0];
@@ -97,13 +101,14 @@ Session &session()
     //before that is dropped: the config frame is the proof it did.
     ExternProcMessage frame;
     s->ok = ExternProcSpawn::runLoopUntil([&]()
-    {
+                                          {
         char buf[4096];
         const ssize_t n = ::recv(s->fd, buf, sizeof(buf), MSG_DONTWAIT);
         if (n > 0)
             s->rx.append(buf, buf + n);
         return frame.processFrameData(s->rx) && frame.isValid();
-    }, 8000);
+    },
+                                          8000);
 
     return *s;
 }
@@ -116,7 +121,7 @@ bool nextPublish(Params &out)
     bool got = false;
 
     ExternProcSpawn::runLoopUntil([&]()
-    {
+                                  {
         char buf[4096];
         const ssize_t n = ::recv(s.fd, buf, sizeof(buf), MSG_DONTWAIT);
         if (n > 0)
@@ -135,7 +140,8 @@ bool nextPublish(Params &out)
             }
         }
         return false;
-    }, 5000);
+    },
+                                  5000);
 
     return got;
 }
@@ -165,8 +171,7 @@ protected:
 
     IOBase *make(const std::string &type, const std::string &id, Params extra)
     {
-        Params p = {{"type", type}, {"id", id}, {"name", id}, {"host", kHost},
-                    {"port", kPort}, {"enabled", "true"}, {"visible", "true"}};
+        Params p = { { "type", type }, { "id", id }, { "name", id }, { "host", kHost }, { "port", kPort }, { "enabled", "true" }, { "visible", "true" } };
         for (int i = 0; i < extra.size(); i++)
         {
             std::string k, v;
@@ -188,9 +193,9 @@ TEST(MqttRenderData, JsonTemplatesGetAnEscapedValue)
 {
     const std::string nasty = "say \"hi\" \\ back\nline\ttab \x01 caf\xc3\xa9 \xe2\x82\xac";
 
-    for (const char *tmpl: {"{\"mode\":\"__##VALUE##__\"}",
-                            "  {\"mode\":\"__##VALUE##__\"}",
-                            "\"__##VALUE##__\""})
+    for (const char *tmpl: { "{\"mode\":\"__##VALUE##__\"}",
+                             "  {\"mode\":\"__##VALUE##__\"}",
+                             "\"__##VALUE##__\"" })
     {
         const std::string out = MqttCtrl::renderData(tmpl, nasty);
         const Json j = Json::parse(out, nullptr, false);
@@ -219,8 +224,7 @@ TEST(MqttRenderData, NumbersInJsonTemplatesStayNumbers)
 TEST_F(MqttOutputStringTest, APlainTemplatePublishesTheStringOnTopicPub)
 {
     IOBase *o = make("MqttOutputString", "s_plain",
-                     {{"topic_pub", "t/s_plain/set"}, {"topic_sub", "t/s_plain/state"},
-                      {"data", "__##VALUE##__"}});
+                     { { "topic_pub", "t/s_plain/set" }, { "topic_sub", "t/s_plain/state" }, { "data", "__##VALUE##__" } });
     ASSERT_NE(nullptr, o);
 
     o->set_value(std::string("say \"hi\" caf\xc3\xa9"));
@@ -235,8 +239,7 @@ TEST_F(MqttOutputStringTest, APlainTemplatePublishesTheStringOnTopicPub)
 TEST_F(MqttOutputStringTest, AJsonTemplatePublishesValidJson)
 {
     IOBase *o = make("MqttOutputString", "s_json",
-                     {{"topic_pub", "t/s_json/set"}, {"topic_sub", "t/s_json/state"},
-                      {"data", "{\"mode\":\"__##VALUE##__\",\"n\":1}"}});
+                     { { "topic_pub", "t/s_json/set" }, { "topic_sub", "t/s_json/state" }, { "data", "{\"mode\":\"__##VALUE##__\",\"n\":1}" } });
     ASSERT_NE(nullptr, o);
 
     const std::string nasty = "a\"b\\c \xc3\xa9 \xe2\x82\xac\n";
@@ -254,10 +257,9 @@ TEST_F(MqttOutputStringTest, AJsonTemplatePublishesValidJson)
 TEST_F(MqttOutputStringTest, WithoutDataNothingIsPublished)
 {
     IOBase *bad = make("MqttOutputString", "s_nodata",
-                       {{"topic_pub", "t/nodata/set"}, {"topic_sub", "t/nodata/state"}});
+                       { { "topic_pub", "t/nodata/set" }, { "topic_sub", "t/nodata/state" } });
     IOBase *good = make("MqttOutputString", "s_good",
-                        {{"topic_pub", "t/good/set"}, {"topic_sub", "t/good/state"},
-                         {"data", "__##VALUE##__"}});
+                        { { "topic_pub", "t/good/set" }, { "topic_sub", "t/good/state" }, { "data", "__##VALUE##__" } });
     ASSERT_NE(nullptr, bad);
     ASSERT_NE(nullptr, good);
 
@@ -272,43 +274,54 @@ TEST_F(MqttOutputStringTest, WithoutDataNothingIsPublished)
 TEST_F(MqttOutputStringTest, StateIsReadBackFromTopicSubThroughPath)
 {
     IOBase *o = make("MqttOutputString", "s_read",
-                     {{"topic_pub", "t/read/set"}, {"topic_sub", "t/read/state"},
-                      {"path", "mode"}, {"data", "__##VALUE##__"}});
+                     { { "topic_pub", "t/read/set" }, { "topic_sub", "t/read/state" }, { "path", "mode" }, { "data", "__##VALUE##__" } });
     ASSERT_NE(nullptr, o);
     EXPECT_EQ("", o->get_value_string());
 
     brokerSays("t/read/state", "{\"mode\":\"cool\"}",
-               [&]() { return o->get_value_string() == "cool"; });
+               [&]()
+               {
+        return o->get_value_string() == "cool";
+    });
 
     //a path that resolves to nothing must not wipe the state. Messages are
     //handled in order: once the witness is seen, the one before it was too.
     IOBase *witness = make("MqttOutputString", "s_wit",
-                           {{"topic_pub", "t/wit/set"}, {"topic_sub", "t/wit/state"},
-                            {"data", "__##VALUE##__"}});
+                           { { "topic_pub", "t/wit/set" }, { "topic_sub", "t/wit/state" }, { "data", "__##VALUE##__" } });
     ASSERT_NE(nullptr, witness);
-    brokerSays("t/read/state", "{\"other\":1}", []() { return true; });
-    brokerSays("t/wit/state", "seen", [&]() { return witness->get_value_string() == "seen"; });
+    brokerSays("t/read/state", "{\"other\":1}", []()
+               {
+        return true;
+    });
+    brokerSays("t/wit/state", "seen", [&]()
+               {
+        return witness->get_value_string() == "seen";
+    });
     EXPECT_EQ("cool", o->get_value_string());
 
     brokerSays("t/read/state", "{\"mode\":\"heat\"}",
-               [&]() { return o->get_value_string() == "heat"; });
+               [&]()
+               {
+        return o->get_value_string() == "heat";
+    });
 }
 
 TEST_F(MqttOutputStringTest, WithoutPathTheRawPayloadIsTheState)
 {
     IOBase *o = make("MqttOutputString", "s_raw",
-                     {{"topic_pub", "t/raw/set"}, {"topic_sub", "t/raw/state"},
-                      {"data", "__##VALUE##__"}});
+                     { { "topic_pub", "t/raw/set" }, { "topic_sub", "t/raw/state" }, { "data", "__##VALUE##__" } });
     ASSERT_NE(nullptr, o);
 
-    brokerSays("t/raw/state", "auto", [&]() { return o->get_value_string() == "auto"; });
+    brokerSays("t/raw/state", "auto", [&]()
+               {
+        return o->get_value_string() == "auto";
+    });
 }
 
 TEST_F(MqttOutputStringTest, TheIODocDescribesDataAndTheAction)
 {
     IOBase *o = make("MqttOutputString", "s_doc",
-                     {{"topic_pub", "t/doc/set"}, {"topic_sub", "t/doc/state"},
-                      {"data", "x"}});
+                     { { "topic_pub", "t/doc/set" }, { "topic_sub", "t/doc/state" }, { "data", "x" } });
     ASSERT_NE(nullptr, o);
 
     const std::string doc = o->getDoc()->genDocJson().dump();
@@ -319,9 +332,7 @@ TEST_F(MqttOutputStringTest, TheIODocDescribesDataAndTheAction)
 TEST_F(MqttOutputStringTest, MqttOutputAnalogIsClampedBeforeItIsPublished)
 {
     IOBase *o = make("MqttOutputAnalog", "a_clamp",
-                     {{"topic_pub", "t/a/set"}, {"topic_sub", "t/a/state"},
-                      {"data", "{\"setpoint\":__##VALUE##__}"},
-                      {"value_min", "5"}, {"value_max", "30"}});
+                     { { "topic_pub", "t/a/set" }, { "topic_sub", "t/a/state" }, { "data", "{\"setpoint\":__##VALUE##__}" }, { "value_min", "5" }, { "value_max", "30" } });
     ASSERT_NE(nullptr, o);
 
     o->set_value(500.0);
@@ -341,8 +352,7 @@ TEST_F(MqttOutputStringTest, MqttOutputAnalogIsClampedBeforeItIsPublished)
 TEST_F(MqttOutputStringTest, MqttOutputAnalogWithoutBoundsIsUnchanged)
 {
     IOBase *o = make("MqttOutputAnalog", "a_free",
-                     {{"topic_pub", "t/af/set"}, {"topic_sub", "t/af/state"},
-                      {"data", "__##VALUE##__"}});
+                     { { "topic_pub", "t/af/set" }, { "topic_sub", "t/af/state" }, { "data", "__##VALUE##__" } });
     ASSERT_NE(nullptr, o);
 
     o->set_value(-1234.0);

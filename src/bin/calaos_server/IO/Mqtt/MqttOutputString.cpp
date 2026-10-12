@@ -35,7 +35,10 @@ MqttOutputString::MqttOutputString(Params &p):
                     IODoc::TYPE_STRING, true);
     ioDoc->actionAdd("value", _("Publish a specific string value"));
 
-    subscribeTopicSub([this]() { readValue(); });
+    subscribeTopicSub([this]()
+                      {
+        readValue();
+    });
 
     cInfoDom("output") << "MqttOutputString::MqttOutputString()";
 }

@@ -37,14 +37,14 @@ namespace AnalogBounds
 inline void boundsDoc(IODoc *ioDoc)
 {
     ioDoc->paramAdd("value_min", _("Lowest value accepted when writing. A lower value is raised to `value_min`. "
-                             "The bound applies to the written value, before coeff_a/coeff_b/calc_expr, "
-                             "and also to the result of inc/dec. No lower bound if not set. "
-                             "Ignored, with an error in the log, if greater than `value_max`."),
+                                   "The bound applies to the written value, before coeff_a/coeff_b/calc_expr, "
+                                   "and also to the result of inc/dec. No lower bound if not set. "
+                                   "Ignored, with an error in the log, if greater than `value_max`."),
                     IODoc::TYPE_FLOAT, false);
     ioDoc->paramAdd("value_max", _("Highest value accepted when writing. A higher value is lowered to `value_max`. "
-                             "The bound applies to the written value, before coeff_a/coeff_b/calc_expr, "
-                             "and also to the result of inc/dec. No upper bound if not set. "
-                             "Ignored, with an error in the log, if lower than `value_min`."),
+                                   "The bound applies to the written value, before coeff_a/coeff_b/calc_expr, "
+                                   "and also to the result of inc/dec. No upper bound if not set. "
+                                   "Ignored, with an error in the log, if lower than `value_min`."),
                     IODoc::TYPE_FLOAT, false);
 }
 
@@ -53,11 +53,11 @@ inline void boundsDoc(IODoc *ioDoc)
 //leave io.xml at the next save, and cannot be mistaken for real bounds.
 //Only called from analog IO constructors: InputTime/InputTimer use a `min`
 //param (minutes) that must stay.
-template<class IO>
+template <class IO>
 void dropLegacyBounds(IO *io)
 {
     std::string dropped;
-    for (const char *name: {"min", "max"})
+    for (const char *name: { "min", "max" })
     {
         if (!io->get_params().Exists(name))
             continue;
@@ -104,6 +104,6 @@ inline double clampToBounds(const Params &params, double dvalue)
     return dvalue;
 }
 
-}
+} //namespace AnalogBounds
 
 #endif // ANALOGBOUNDS_H

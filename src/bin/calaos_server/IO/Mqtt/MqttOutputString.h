@@ -27,7 +27,7 @@
 namespace Calaos
 {
 
-class MqttOutputString : public MqttIOBase<OutputString>
+class MqttOutputString: public MqttIOBase<OutputString>
 {
 protected:
     void readValue();
@@ -40,6 +40,6 @@ public:
     virtual string get_value_string() override { return value; }
 };
 
-}
+} //namespace Calaos
 
 #endif // __MQTT_OUTPUT_STRING_H__
