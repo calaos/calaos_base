@@ -1345,3 +1345,38 @@ DMX), [`T3.160`](T3.160.md) et [`T3.161`](T3.161.md) (miroir du mode dégradé) 
 
 ⛔ **Ne pas rouvrir `T3.158` / `T3.162` au motif qu'ils sont « vrais ».** Ils le sont, et c'est sans
 objet.
+
+## 2026-10-12 — devices et climate
+
+Spec : [`CALAOS_DEVICES_FEAT.md`](../../CALAOS_DEVICES_FEAT.md). Tranché avec l'utilisateur ; ne pas
+rouvrir.
+
+1. **`<calaos:device>` enfant de room, avec ses IOs imbriqués**, sur le modèle de `remote_ui`.
+   La hiérarchie est voulue (lisibilité de l'installateur, suppression en cascade). Les IOs
+   extérieurs (sonde de la pièce) sont seulement référencés par `<calaos:link>`. Pas de modèle
+   « tout en attributs ».
+2. **`<calaos:home format="2">`** et refus d'un `config put` qui ferait disparaître des devices :
+   le serveur comme l'installateur réécrivent `io.xml` depuis leur modèle, un outil ancien les
+   effacerait en silence.
+3. **Le device est un `IOBase`** ; sa valeur scalaire pour les règles est le **mode**.
+4. **Un seul chemin de commande** (`set_value(string)`) : une chaîne simple est un mode, une chaîne
+   qui commence par `{` est un JSON de mise à jour partielle, validé champ par champ (best effort).
+   Pas de `val_var` dans le JSON : aucun cas d'usage qu'une écriture directe de l'IO de consigne ne
+   couvre déjà.
+5. **IODoc déclare le format de commande** ; l'installateur génère un formulaire pour les types JSON,
+   limité aux champs dont le lien existe sur l'instance.
+6. **Templates embarqués dans l'installateur**, générés par calaos_base comme `io_doc.json`, et
+   branchés en CI.
+7. **Hook de changement typé et synchrone** dans `IOBase::EmitSignalIO`, plutôt qu'un filtre sur
+   `EventManager::newEvent`.
+8. **Thermostat : sorties OFF** tant que le capteur n'a rien livré après le boot ou s'il est périmé.
+9. **Sorties pilotées par un thermostat** : masquées du MCP, écriture par règle/Lua/`set_state`
+   **avertie, jamais bloquée**.
+10. **Point de rosée en v1** : coupure du froid sur humidité pour un plancher ; sans capteur
+    d'humidité, pas de froid.
+11. **Doubles consignes** (`target_temp_low`/`_high`) dans le modèle, imposées par ESPHome
+    `heat_cool` ; la « zone morte » devient l'écart minimal `min_range`.
+12. `MqttOutputString` et `min`/`max` sur les sorties analogiques : oui. Table de correspondance de
+    valeurs : plus tard (les chaînes ESPHome sont déjà les nôtres).
+13. **Tickets séparés** : restriction d'un panneau RemoteUI à ses IOs référencés (trou de sécurité
+    existant) et suppression du code mort `chauffage_id`.
