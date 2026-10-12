@@ -460,12 +460,28 @@ Voir [10_events_notifications.md](10_events_notifications.md) pour le détail.
 
 | `type` | Effet | Réponse |
 |---|---|---|
-| `get` | sauvegarde puis relit `io.xml`, `rules.xml`, `local_config.xml` | `{"config_files":{…},"success":"true"}` |
-| `put` | écrit les fichiers fournis dans `config_files` après backup, puis **redémarre le serveur** une fois la réponse écrite | `{"success":"true"\|"false"}` |
+| `get` | sauvegarde puis relit `io.xml`, `rules.xml`, `local_config.xml` | `{"config_files":{…},"io_format":2,"success":"true"}` |
+| `put` | écrit les fichiers fournis dans `config_files` après backup, puis **redémarre le serveur** une fois la réponse écrite | `{"success":"true"\|"false"}` ; refus : `{"success":"false","error":"…"}` |
 
 `type` inconnu → `{"success":"false"}`. En `put`, seuls les trois noms de
 fichiers connus sont acceptés et le contenu doit commencer par `<?xml`
 ([JsonApiHandlerHttp.cpp:594-686](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)).
+
+**`io_format`** (entier) annonce le plus haut format d'`io.xml` que le serveur écrit et
+comprend ; 2 = peut contenir des `<calaos:device>` (`<calaos:home format="2">`, écrit dès qu'un
+device existe). Une réponse sans `io_format` vient d'un serveur de format 1 : un client ne doit
+pas lui envoyer de devices.
+
+**Refus d'un `put` qui perdrait des devices.** Si le serveur détient au moins un device (les
+devices inertes d'impl inconnue comptent) et que le `io.xml` fourni est de format 1 (attribut
+`format` absent ou < 2), ne s'analyse pas, ou ne contient **aucun** des ids de ces devices,
+le `put` est refusé en entier : ni backup, ni écriture (`rules.xml` et `local_config.xml`
+compris), ni redémarrage. Réponse :
+`{"success":"false","error":"update calaos_installer: this io.xml would drop N device(s)"}`
+avec N le nombre de devices du serveur. Un `put` de format 2 qui en garde au moins un est
+accepté, même s'il en retire d'autres. Conséquence connue : supprimer le **dernier** device
+passe par un `put` qui n'en garde aucun, donc refusé ; il faut alors le supprimer par l'API
+des IOs. Sans device côté serveur, ou sans clé `io.xml` dans `config_files`, rien n'est jugé.
 
 ### `camera` — clé `type` (HTTP uniquement, 2)
 
