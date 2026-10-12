@@ -315,12 +315,14 @@ bool    deleteIO(IOBase *io, bool modify = false,
 - `delete_io()` est la moitié **propriété** : elle retire l'IO de la pièce qui le possède.
   `del=false` **transfère** la propriété à l'appelant (l'IO reste résolvable par id).
   Elle rend `false` quand aucune pièce ne possède l'IO — et alors **rien n'a été détruit**,
-  donc l'appeler deux fois est sans danger.
+  donc l'appeler deux fois est sans danger. Avec `del=true` elle est aussi refusée pendant
+  la marche des règles, comme `deleteIO()` ; `del=false` (déplacement) reste permis.
 - `detachIOFromRules()` est la moitié **règles** : elle traite les règles qui utilisent cet
   IO et le sort de la liste de scrutation, **sans toucher à sa propriété**. Elle est publique
   parce que `~Room()` doit l'exécuter pour chacun de ses IOs.
 - `deleteIO()` est l'enchaînement des deux, c'est-à-dire le chemin complet « l'utilisateur a
-  supprimé cet IO » de l'API JSON.
+  supprimé cet IO » de l'API JSON. Pour un `Device`, chaque IO possédé passe d'abord par
+  `deleteIO()` ; les IOs externes liés ne sont pas touchés.
 
 > ⚠️ **`modify` ne veut pas dire « modifier la config ».** `modify = true` signifie *cet IO
 > est en cours d'édition* : dans ce cas `ListeRule::RemoveRule()` n'est **pas** appelée, donc
@@ -335,6 +337,45 @@ bool    deleteIO(IOBase *io, bool modify = false,
 > est le comportement historique, et il doit rester **explicite** aux sites de démontage.
 > Après une suppression réussie en mode `Disable`, `refreshBrokenScenarios()` désactive les
 > auto-scénarios devenus cassés (T3.18) — voir [04_scenarios.md](04_scenarios.md).
+
+---
+
+## Device
+
+**Fichier :** [src/bin/calaos_server/IO/Device.h](../src/bin/calaos_server/IO/Device.h) —
+spec : [CALAOS_DEVICES_FEAT.md](../CALAOS_DEVICES_FEAT.md) §3 et §4.
+
+Sous-classe d'`IOBase` déclarée par `<calaos:device id type impl name>`, enfant d'une pièce.
+`type` est la famille (`climate`), `impl` choisit la classe : `IOFactory` la cherche sous la
+clé `device:<impl>`, enregistrée par `REGISTER_DEVICE(impl, Classe)`. Un `<calaos:device>`
+qui ne donne pas un `Device`, ou l'inverse, est ignoré au chargement.
+
+```xml
+<calaos:device id="salon_ac" type="climate" impl="proxy" name="Clim salon">
+  <calaos:internal id="salon_ac_mode" type="InternalString" visible="false"/>  <!-- possédé -->
+  <calaos:link name="mode" io="salon_ac_mode"/>
+  <calaos:link name="current_temp" io="salon_temp"/>  <!-- externe -->
+  <calaos:param name="hysteresis" value="0.5"/>
+</calaos:device>
+```
+
+- **IOs possédés** : `input`/`output`/`internal` imbriqués, créés par `IOFactory` puis
+  ajoutés à la liste plate de la pièce, juste après le device. Règles, cache d'état,
+  `get_home` et MCP les voient comme tout IO. Chacun porte l'id de son device
+  (`IOBase::getOwnerDevice()`, un membre et pas un param). Un device imbriqué est refusé.
+- **Propriété** : la pièce possède tous les IOs. Le device ne garde que des ids ;
+  `ownedIos()` et `linkIo()` résolvent à chaque appel. Un id en double se comporte comme
+  aujourd'hui : l'IO entre dans la pièce, le premier garde l'id. Pour deux devices de même
+  id, seul celui qui tient l'id possède (et sauvegarde) les IOs marqués de cet id.
+- **Liens** : vérifiés par `ListeRoom::resolveDeviceLinks()` à la fin de
+  `Config::LoadConfigIO()`, donc une fois toutes les pièces chargées et avant les règles.
+  Un lien non résolu est journalisé (`cErrorDom("device")`) et conservé dans le fichier ;
+  `linkIo()` rend `nullptr`, le device se charge quand même.
+- **Sauvegarde** : `Device::SaveToXml()` écrit l'élément, ses IOs possédés, ses liens puis
+  ses params, dans l'ordre du fichier. `Room::SaveToXml()` saute un IO possédé tant que son
+  device existe ; orphelin, il est écrit au niveau de la pièce plutôt que perdu.
+- **Suppression** : `ListeRoom::deleteIO(device)` supprime d'abord chaque IO possédé par
+  `deleteIO()`. `delete_io()` ne cascade pas.
 
 ---
 
