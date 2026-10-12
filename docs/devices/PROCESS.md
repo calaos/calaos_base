@@ -9,8 +9,7 @@
   (préalable de DOC-1). Ensuite : CORE-3, CORE-4 et INST-1 après CORE-2.
 - **Page de suivi en ligne** : voir la ligne « Suivi » plus bas. Elle est statique : la republier
   à chaque fin de ticket.
-- **Bloquant connu** : DOC-1 attend T3.247 (board du refactoring), sans quoi régénérer
-  `io_doc.json` réécrit en silence les adresses DMX 356 à 612.
+- T3.247 ✅ (installer#54, option « garde ») : DOC-1 peut régénérer `io_doc.json`.
 
 ## Cycle d'un ticket
 

@@ -1386,3 +1386,6 @@ rouvrir.
     Les vieux `min`/`max` sont des propriétés mortes : **le serveur les supprime au chargement**
     (elles disparaissent d'`io.xml` à la sauvegarde suivante) et **l'installateur cesse de les
     écrire et les retire à la lecture** (INST-6).
+15. **T3.247 : la garde, pas la migration** (tranché le 2026-10-13). L'installateur affiche et conserve
+    une valeur stockée hors des bornes du catalogue (adresse DMX 356..612 avec la borne 355) en la
+    signalant ; aucune config n'est convertie.
