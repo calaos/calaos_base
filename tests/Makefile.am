@@ -7161,3 +7161,17 @@ core_MqttOutputString_test_DEPENDENCIES = $(MQTT_OUTPUT_STRING_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# FIX-BASE-1
+#Destruction order of the ListeRoom/ListeRule/EventManager singletons at exit.
+#Nothing else in this binary may touch them: the forked child must be the first
+#to build them. Own HAVE_GTEST block so this stays a pure append at the end of
+#the file.
+if HAVE_GTEST
+TESTS += core/ListeRoomTeardownOrder_test
+check_PROGRAMS += core/ListeRoomTeardownOrder_test
+core_ListeRoomTeardownOrder_test_SOURCES = core/ListeRoomTeardownOrder_test.cpp
+core_ListeRoomTeardownOrder_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ListeRoomTeardownOrder_test_LDADD = $(CORE_TEST_LDADD)
+core_ListeRoomTeardownOrder_test_DEPENDENCIES = $(CORE_TEST_DEPS)
+endif
