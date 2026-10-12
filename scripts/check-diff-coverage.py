@@ -8,6 +8,10 @@ Exit codes: 0 gate passed, 1 uncovered or unjustified lines, 2 unusable input.
 Exclusions are the lcov markers LCOV_EXCL_LINE and LCOV_EXCL_START/STOP, each
 followed by a reason; the number of excluded lines the diff adds is always
 printed so a reviewer sees what was opted out.
+
+Blind spot inherited from gcov: an inline or template function that is never
+instantiated has no record in the tracefile, so its added lines count as
+non-executable rather than uncovered.
 """
 import argparse
 import os
@@ -18,8 +22,9 @@ import sys
 UNIT_EXT = (".c", ".cc", ".cpp", ".cxx")
 CODE_EXT = UNIT_EXT + (".h", ".hh", ".hpp", ".hxx", ".inl", ".ipp")
 
-# Same trees the CI job strips from the tracefile; a change there has no data
-# by construction and must not be reported as "never compiled".
+# Vendored trees. The CI job derives its `lcov --remove` list from here
+# (--print-lcov-remove), so a change there has no data by construction and is
+# not reported as "never compiled".
 VENDORED = (
     "src/lib/libquickmail/", "src/lib/uvw/", "src/lib/llhttp/", "src/lib/exprtk/",
     "src/lib/sole/", "src/lib/sqlite_modern_cpp/", "src/lib/uri_parser/",
@@ -27,7 +32,7 @@ VENDORED = (
 )
 
 MARKER = re.compile(r"LCOV_EXCL_(LINE|START|STOP)\b(.*)")
-HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
+HUNK = re.compile(r"^@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 
 
 class InputError(Exception):
@@ -38,7 +43,7 @@ def parse_tracefile(text, root):
     """path relative to root -> {line: summed hit count}."""
     files = {}
     cur = None
-    for raw in text.splitlines():
+    for raw in text.split("\n"):
         if raw.startswith("SF:"):
             sf = os.path.normpath(raw[3:].strip())
             if os.path.isabs(sf):
@@ -62,10 +67,26 @@ def _unquote(path):
 
 
 def parse_diff(text):
-    """new path -> sorted added line numbers, from a -U0 unified diff."""
+    """new path -> sorted added line numbers, from a unified diff.
+
+    Hunk bodies are consumed by their declared line counts: an added line whose
+    text starts with "++ " reads "+++ ..." and must not pass for a file header.
+    """
     added = {}
     cur = None
-    for raw in text.splitlines():
+    old_left = new_left = 0
+    # Not splitlines(): form feed and U+2028 inside a line are not line breaks.
+    for raw in text.split("\n"):
+        if (old_left or new_left) and raw[:1] in ("+", "-", " ", "\\"):
+            if raw[0] == "+":
+                new_left -= 1
+            elif raw[0] == "-":
+                old_left -= 1
+            elif raw[0] == " ":
+                old_left -= 1
+                new_left -= 1
+            continue
+        old_left = new_left = 0
         if raw.startswith("+++ "):
             target = _unquote(raw[4:].split("\t")[0])
             if target == "/dev/null":
@@ -73,14 +94,14 @@ def parse_diff(text):
             else:
                 cur = target[2:] if target.startswith("b/") else target
                 added.setdefault(cur, set())
-        elif raw.startswith("--- "):
-            continue
         elif cur is not None:
             m = HUNK.match(raw)
             if m:
-                start = int(m.group(1))
-                count = 1 if m.group(2) is None else int(m.group(2))
+                start = int(m.group(2))
+                count = 1 if m.group(3) is None else int(m.group(3))
                 added[cur].update(range(start, start + count))
+                old_left = 1 if m.group(1) is None else int(m.group(1))
+                new_left = count
     return {p: sorted(v) for p, v in added.items()}
 
 
@@ -107,14 +128,17 @@ def scan_exclusions(lines, added):
             open_at = None
         if no in added and kind != "STOP" and not reason:
             problems.append((no, "LCOV_EXCL_%s without a reason" % kind))
-    if open_at is not None and open_at in added:
+    # An unclosed START silently excludes everything below it, so it is
+    # charged to the diff as soon as it adds a line past the marker, even when
+    # the diff only deleted the STOP.
+    if open_at is not None and any(n >= open_at for n in added):
         problems.append((open_at, "LCOV_EXCL_START never closed"))
     return excluded, problems
 
 
 def is_trivia(text):
     s = text.strip()
-    return not s or s.startswith(("//", "/*", "*"))
+    return not s or s == "*" or s.startswith(("//", "/*", "* ", "*/"))
 
 
 def ranges(numbers):
@@ -138,10 +162,14 @@ def evaluate(coverage, diff, root):
         if not added:
             continue
         try:
-            with open(os.path.join(root, path), encoding="utf-8", errors="replace") as fh:
-                src = fh.read().splitlines()
+            with open(os.path.join(root, path), encoding="utf-8", errors="replace",
+                      newline="\n") as fh:
+                src = fh.read().split("\n")
         except OSError as exc:
             raise InputError("cannot read %s: %s" % (path, exc))
+        if added[-1] > len(src):
+            raise InputError("%s has %d lines but the diff adds line %d: tree and diff differ"
+                             % (path, len(src), added[-1]))
         excluded, problems = scan_exclusions(src, set(added))
         res["problems"] += [(path, n, why) for n, why in problems]
         res["added"] += len(added)
@@ -166,7 +194,10 @@ def evaluate(coverage, diff, root):
 
 
 def git_diff(base, root):
-    cmd = ["git", "-C", root, "diff", "--no-color", "--no-ext-diff", "-U0", "-M",
+    # The prefixes are forced because diff.noprefix / diff.mnemonicPrefix would
+    # otherwise leave paths the parser does not recognise, silently out of src/.
+    cmd = ["git", "-C", root, "diff", "--no-color", "--no-ext-diff", "--no-textconv",
+           "--src-prefix=a/", "--dst-prefix=b/", "-U0", "-M",
            base + "...HEAD", "--", "src"]
     done = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if done.returncode != 0:
@@ -202,23 +233,31 @@ def report(res, out):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--info", required=True, help="lcov tracefile")
-    src = ap.add_mutually_exclusive_group(required=True)
+    ap.add_argument("--print-lcov-remove", action="store_true",
+                    help="print the lcov --remove patterns of the vendored trees and exit")
+    ap.add_argument("--info", help="lcov tracefile")
+    src = ap.add_mutually_exclusive_group()
     src.add_argument("--base", help="git ref; diffs BASE...HEAD")
     src.add_argument("--diff", help="unified diff file (-U0), instead of git")
     ap.add_argument("--root", default=".", help="source tree the diff applies to")
     ap.add_argument("--report-only", action="store_true", help="print, always exit 0")
     args = ap.parse_args(argv)
+    if args.print_lcov_remove:
+        for prefix in VENDORED:
+            print("*/" + prefix + ("*" if prefix.endswith("/") else ""))
+        return 0
+    if not args.info or not (args.base or args.diff):
+        ap.error("--info and one of --base/--diff are required")
     root = os.path.abspath(args.root)
 
     try:
-        with open(args.info, encoding="utf-8", errors="replace") as fh:
+        with open(args.info, encoding="utf-8", errors="replace", newline="\n") as fh:
             coverage = parse_tracefile(fh.read(), root)
         if not coverage:
             raise InputError("%s holds no SF record: an empty tracefile would pass anything"
                              % args.info)
         if args.diff:
-            with open(args.diff, encoding="utf-8", errors="replace") as fh:
+            with open(args.diff, encoding="utf-8", errors="replace", newline="\n") as fh:
                 diff = parse_diff(fh.read())
         else:
             diff = parse_diff(git_diff(args.base, root))
@@ -229,8 +268,9 @@ def main(argv=None):
 
     report(res, sys.stdout)
     if os.environ.get("GITHUB_ACTIONS"):
+        level = "warning" if args.report_only else "error"
         for path, n, _ in (res["uncovered"] + res["nodata"])[:10]:
-            print("::error file=%s,line=%d::new line not executed by make check" % (path, n))
+            print("::%s file=%s,line=%d::new line not executed by make check" % (level, path, n))
     failed = res["uncovered"] or res["nodata"] or res["problems"]
     if failed and args.report_only:
         print("diff-coverage: --report-only, not failing")

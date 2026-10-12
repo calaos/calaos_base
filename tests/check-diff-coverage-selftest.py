@@ -9,6 +9,7 @@ CALAOS_DIFFCOV_SCRIPT points the suite at another copy of the script (that is
 how the mutants are judged); CALAOS_DIFFCOV_NO_MUTANTS=1 skips the mutation
 class when the suite is already running against a mutant.
 """
+import concurrent.futures
 import os
 import re
 import shutil
@@ -57,7 +58,7 @@ class GateCase(unittest.TestCase):
         with open(full, "w") as fh:
             fh.write(text)
 
-    def gate(self, info, diff, *extra):
+    def gate(self, info, diff, *extra, env=None):
         with open(os.path.join(self.root, "cov.info"), "w") as fh:
             fh.write(info)
         with open(os.path.join(self.root, "pr.diff"), "w") as fh:
@@ -65,7 +66,8 @@ class GateCase(unittest.TestCase):
         done = subprocess.run(
             [sys.executable, SCRIPT, "--info", os.path.join(self.root, "cov.info"),
              "--diff", os.path.join(self.root, "pr.diff"), "--root", self.root, *extra],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True,
+            env=dict(os.environ, **(env or {})))
         return done.returncode, done.stdout, done.stderr
 
     def tracefile(self, hits, path="src/a.cpp"):
@@ -148,7 +150,48 @@ class TestVerdict(GateCase):
         self.assertIn("src/a.cpp:2:", out)
 
 
+    def test_annotations_are_warnings_under_report_only(self):
+        self.put("src/a.cpp", source(5))
+        env = {"GITHUB_ACTIONS": "true"}
+        diff = diff_for("src/a.cpp", (0, 1, 2, 1))
+        _, out, _ = self.gate(self.tracefile({2: 0}), diff, env=env)
+        self.assertIn("::error file=src/a.cpp,line=2::", out)
+        _, out, _ = self.gate(self.tracefile({2: 0}), diff, "--report-only", env=env)
+        self.assertIn("::warning file=src/a.cpp,line=2::", out)
+        self.assertNotIn("::error", out)
+
+    def test_diff_beyond_the_end_of_the_source_is_an_input_error(self):
+        self.put("src/a.cpp", source(3))
+        rc, _, err = self.gate(self.tracefile({2: 1}), diff_for("src/a.cpp", (0, 1, 40, 1)))
+        self.assertEqual(rc, 2)
+        self.assertIn("tree and diff differ", err)
+
+    def test_form_feed_in_a_line_does_not_shift_the_numbers(self):
+        self.put("src/a.cpp", source(8, **{"2": "a\x0cb\u2028c", "6": "target();"}))
+        rc, out, _ = self.gate(self.tracefile({6: 0}), diff_for("src/a.cpp", (0, 1, 6, 1)))
+        self.assertEqual(rc, 1, out)
+        self.assertIn("src/a.cpp:6: target();", out)
+
+
 class TestDiffShapes(GateCase):
+    def test_added_line_that_reads_like_a_file_header(self):
+        self.put("src/p.cpp", source(30, **{"4": "++ looks like a header"}))
+        diff = ("diff --git a/src/p.cpp b/src/p.cpp\n--- a/src/p.cpp\n+++ b/src/p.cpp\n"
+                "@@ -3,0 +4,1 @@\n+++ looks like a header\n"
+                "@@ -20,0 +21,1 @@\n+uncovered_call();\n")
+        rc, out, _ = self.gate(self.tracefile({4: 1, 21: 0}, "src/p.cpp"), diff)
+        self.assertEqual(rc, 1, out)
+        self.assertIn("src/p.cpp:21:", out)
+
+    def test_removed_and_added_header_lookalikes_in_one_hunk(self):
+        self.put("src/p.cpp", source(30))
+        diff = ("diff --git a/src/p.cpp b/src/p.cpp\n--- a/src/p.cpp\n+++ b/src/p.cpp\n"
+                "@@ -3 +3 @@\n--- was a comment\n+++ is now not\n"
+                "@@ -20,0 +21,1 @@\n+uncovered_call();\n")
+        rc, out, _ = self.gate(self.tracefile({3: 1, 21: 0}, "src/p.cpp"), diff)
+        self.assertEqual(rc, 1, out)
+        self.assertIn("src/p.cpp:21:", out)
+
     def test_deleted_lines_are_not_added_lines(self):
         self.put("src/a.cpp", source(20))
         diff = diff_for("src/a.cpp", (3, 11, 11, 0))
@@ -225,6 +268,12 @@ class TestExclusions(GateCase):
         self.assertEqual(rc, 1, out)
         self.assertIn("never closed", out)
 
+    def test_deleted_stop_marker_excludes_the_rest_of_the_file(self):
+        self.put("src/a.cpp", source(12, **{"3": "// LCOV_EXCL_START old hardware block"}))
+        rc, out, _ = self.gate(self.tracefile({9: 0}), diff_for("src/a.cpp", (1, 9, 9, 1)))
+        self.assertEqual(rc, 1, out)
+        self.assertIn("never closed", out)
+
     def test_old_exclusions_are_not_charged_to_the_diff(self):
         self.put("src/a.cpp", source(10, **{"7": "old(); // LCOV_EXCL_LINE"}))
         rc, out, _ = self.gate(self.tracefile({3: 1}), diff_for("src/a.cpp", (0, 1, 3, 1)))
@@ -256,16 +305,63 @@ class TestMissingData(GateCase):
         self.assertEqual(rc, 0, out)
         self.assertIn("1 not executable", out)
 
+    def test_pointer_store_is_not_a_comment(self):
+        self.put("src/other.cpp", source(5, **{"2": "*p = value;", "3": "*ptr++ = 1;"}))
+        rc, out, _ = self.gate(self.tracefile({1: 1}), diff_for("src/other.cpp", (0, 2, 2, 2)))
+        self.assertEqual(rc, 1, out)
+        self.assertIn("src/other.cpp:2: *p = value;", out)
+        self.assertIn("src/other.cpp:3:", out)
+
     def test_comment_only_change_in_uncompiled_file_passes(self):
         self.put("src/other.cpp", source(5, **{"2": "  // why", "3": "", "4": " * more"}))
         rc, out, _ = self.gate(self.tracefile({1: 1}), diff_for("src/other.cpp", (0, 3, 2, 3)))
         self.assertEqual(rc, 0, out)
 
 
+class TestVendoredList(unittest.TestCase):
+    def test_lcov_remove_patterns_come_from_the_script(self):
+        done = subprocess.run([sys.executable, SCRIPT, "--print-lcov-remove"],
+                              stdout=subprocess.PIPE, universal_newlines=True)
+        lines = done.stdout.split()
+        self.assertEqual(done.returncode, 0)
+        self.assertIn("*/src/lib/uvw/*", lines)
+        self.assertIn("*/src/lib/json.hpp", lines)
+        self.assertEqual(len(lines), len(set(lines)))
+
+
 class TestAgainstRealGit(GateCase):
+    # The caller's git config (commit.gpgsign, diff.* ...) must not decide the test.
+    ISOLATED = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull}
+
     def git(self, *args):
         subprocess.run(["git", "-C", self.root, "-c", "user.name=t", "-c", "user.email=t@t",
-                        *args], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                        *args], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                       env=dict(os.environ, **self.ISOLATED))
+
+    def test_diff_prefixes_do_not_depend_on_the_users_git_config(self):
+        # A stand-in git that prints the prefixes it was asked for and the ones
+        # diff.mnemonicPrefix/srcPrefix would pick otherwise: no git version
+        # dependence, and it shows which flags the script really passes.
+        bindir = os.path.join(self.root, "bin")
+        os.makedirs(bindir)
+        fake = os.path.join(bindir, "git")
+        with open(fake, "w") as fh:
+            fh.write("#!/bin/sh\nsrc=i/; dst=w/\n"
+                     'for a in "$@"; do case $a in --src-prefix=*) src=${a#*=};; '
+                     '--dst-prefix=*) dst=${a#*=};; esac; done\n'
+                     'printf "diff --git ${src}src/a.cpp ${dst}src/a.cpp\\n'
+                     '--- ${src}src/a.cpp\\n+++ ${dst}src/a.cpp\\n@@ -3,0 +4,1 @@\\n+changed();\\n"\n')
+        os.chmod(fake, 0o755)
+        self.put("src/a.cpp", source(10, **{"4": "changed();"}))
+        with open(os.path.join(self.root, "cov.info"), "w") as fh:
+            fh.write(self.tracefile({4: 0}))
+        done = subprocess.run(
+            [sys.executable, SCRIPT, "--info", os.path.join(self.root, "cov.info"),
+             "--base", "base", "--root", self.root],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True,
+            env=dict(os.environ, PATH=bindir + os.pathsep + os.environ["PATH"]))
+        self.assertEqual(done.returncode, 1, done.stdout + done.stderr)
+        self.assertIn("src/a.cpp:4: changed();", done.stdout)
 
     def test_base_ref_diff_with_a_rename_and_an_edit(self):
         if shutil.which("git") is None:
@@ -284,7 +380,8 @@ class TestAgainstRealGit(GateCase):
         done = subprocess.run(
             [sys.executable, SCRIPT, "--info", os.path.join(self.root, "cov.info"),
              "--base", "base", "--root", self.root],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True,
+            env=dict(os.environ, **self.ISOLATED))
         self.assertEqual(done.returncode, 1, done.stdout + done.stderr)
         self.assertIn("src/new.cpp:21: int line20 = 99;", done.stdout)
         self.assertIn("1 added lines", done.stdout)
@@ -298,7 +395,8 @@ class TestAgainstRealGit(GateCase):
         done = subprocess.run(
             [sys.executable, SCRIPT, "--info", os.path.join(self.root, "cov.info"),
              "--base", "nope", "--root", self.root],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True,
+            env=dict(os.environ, **self.ISOLATED))
         self.assertEqual(done.returncode, 2)
 
 
@@ -315,7 +413,7 @@ MUTANTS = [
      [("range(start, start + count)", "range(start, start + count - 1)")],
      "test_last_line_of_a_hunk_is_judged"),
     ("deleted-hunk-counts-one-line",
-     [("count = 1 if m.group(2) is None else int(m.group(2))", "count = 1")],
+     [("count = 1 if m.group(3) is None else int(m.group(3))", "count = 1")],
      "test_deleted_lines_are_not_added_lines"),
     ("new-path-keeps-b-prefix",
      [('cur = target[2:] if target.startswith("b/") else target', "cur = target")],
@@ -352,6 +450,30 @@ MUTANTS = [
     ("header-without-record-fails",
      [("if path.endswith(UNIT_EXT) and n <= len(src)", "if n <= len(src)")],
      "test_declarations_in_a_header_without_record_pass"),
+    ("hunk-body-not-consumed",
+     [('if (old_left or new_left) and raw[:1] in', 'if False and raw[:1] in')],
+     "test_added_line_that_reads_like_a_file_header"),
+    ("deleted-stop-goes-unnoticed",
+     [("any(n >= open_at for n in added)", "open_at in added")],
+     "test_deleted_stop_marker_excludes_the_rest_of_the_file"),
+    ("star-prefix-is-a-comment",
+     [('return not s or s == "*" or s.startswith(("//", "/*", "* ", "*/"))',
+       'return not s or s.startswith(("//", "/*", "*"))')],
+     "test_pointer_store_is_not_a_comment"),
+    ("source-split-on-form-feed",
+     [('src = fh.read().split("\\n")', "src = fh.read().splitlines()")],
+     "test_form_feed_in_a_line_does_not_shift_the_numbers"),
+    ("annotations-always-errors",
+     [('level = "warning" if args.report_only else "error"', 'level = "error"')],
+     "test_annotations_are_warnings_under_report_only"),
+    ("git-prefixes-left-to-config",
+     [('"--src-prefix=a/", "--dst-prefix=b/", ', "")],
+     "test_diff_prefixes_do_not_depend_on_the_users_git_config"),
+    ("vendored-patterns-lose-the-glob",
+     [('("*" if prefix.endswith("/") else "")', '""')],
+     "test_lcov_remove_patterns_come_from_the_script"),
+    ("stale-tree-accepted", [("if added[-1] > len(src):", "if False:")],
+     "test_diff_beyond_the_end_of_the_source_is_an_input_error"),
     ("report-only-always", [("if failed and args.report_only:", "if failed:")],
      "test_uncovered_added_line_fails_and_is_listed"),
 ]
@@ -397,9 +519,11 @@ class TestCounterMutations(unittest.TestCase):
         self.assertEqual((rc, red), (0, []))
 
     def test_every_mutant_turns_the_suite_red(self):
+        paths = [self.mutate(name, edits) for name, edits, _ in MUTANTS]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            results = list(pool.map(red_tests, paths))
         escaped = []
-        for name, edits, must_be_red in MUTANTS:
-            rc, red, ran = red_tests(self.mutate(name, edits))
+        for (name, _, must_be_red), (rc, red, _) in zip(MUTANTS, results):
             sys.stderr.write("\nmutant %-30s -> %d red: %s\n" % (name, len(red), ", ".join(red)))
             if rc == 0 or must_be_red not in red:
                 escaped.append("%s (expected %s, got %s)" % (name, must_be_red, red))
