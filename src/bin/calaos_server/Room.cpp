@@ -24,6 +24,8 @@
 #include "AVReceiver.h"
 #include "Device.h"
 
+#include <climits>
+
 using namespace Calaos;
 
 Room::Room(string _name, string _type, int _hits):
@@ -187,17 +189,26 @@ bool Room::LoadFromXml(pugi::xml_node room_node)
             //it in a unique_ptr so it cannot leak between here and AddIO(),
             //which takes the ownership over.
             std::unique_ptr<IOBase> io(IOFactory::Instance().CreateIO(node));
-            if (!io) continue;
 
             //"impl" picks the factory key, so the element and the class can
             //disagree: a device saved as an input, or the reverse, would
             //lose its children or its links.
             Device *device = dynamic_cast<Device *>(io.get());
-            if ((nodeName == "calaos:device") != (device != nullptr))
+            if (nodeName == "calaos:device" && !device)
+            {
+                cErrorDom("device") << "Room(" << name << "): no device impl '"
+                                    << node.attribute("impl").as_string() << "' in this build for '"
+                                    << node.attribute("id").as_string() << "', kept as is and inactive";
+                ListeRoom::Instance().discardUnattachedIO(std::move(io));
+                keepOpaque(node);
+                continue;
+            }
+            if (!io) continue;
+            if (device && nodeName != "calaos:device")
             {
                 cErrorDom("room") << "LoadFromXml(): ignoring '" << io->get_param("id")
-                                  << "', a <calaos:device> needs a device impl and only a "
-                                  << "<calaos:device> may have one";
+                                  << "', only a <calaos:device> may have an impl";
+                ListeRoom::Instance().discardUnattachedIO(std::move(io));
                 continue;
             }
 
@@ -217,6 +228,13 @@ bool Room::LoadFromXml(pugi::xml_node room_node)
     return true;
 }
 
+void Room::keepOpaque(pugi::xml_node node)
+{
+    auto xml = std::make_unique<pugi::xml_document>();
+    xml->append_copy(node);
+    opaque.push_back({ get_size(), std::move(xml) });
+}
+
 bool Room::SaveToXml(pugi::xml_node node)
 {
     pugi::xml_node room_node = node.append_child("calaos:room");
@@ -224,8 +242,18 @@ bool Room::SaveToXml(pugi::xml_node node)
     XmlUtils::setAttribute(room_node, "type", type);
     XmlUtils::setAttribute(room_node, "hits", Utils::to_string(hits));
 
+    //At their load position; after the last IO once IOs before them are gone.
+    size_t nextOpaque = 0;
+    auto writeOpaque = [&](int upTo)
+    {
+        for (; nextOpaque < opaque.size() && opaque[nextOpaque].before <= upTo; nextOpaque++)
+            room_node.append_copy(opaque[nextOpaque].xml->document_element());
+    };
+
     for (int i = 0;i < get_size();i++)
     {
+        writeOpaque(i);
+
         IOBase *io = get_io(i);
         //Kept deliberately. It is NOT a workaround for a transient null slot
         //during RemoveIO() — that window no longer exists, the IO is moved
@@ -244,6 +272,7 @@ bool Room::SaveToXml(pugi::xml_node node)
 
         io->SaveToXml(room_node);
     }
+    writeOpaque(INT_MAX);
 
     return true;
 }

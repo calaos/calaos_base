@@ -68,6 +68,9 @@ protected:
        malformed io.xml can produce, which findIO() refuses to resolve. */
     bool isHashRegistered(IOBase *io) const;
 
+    //detachIOFromRules() + delete_io(), without the guard nor the scenario pass.
+    bool detachAndDestroy(IOBase *io, bool modify, RuleDetachPolicy policy);
+
 public:
     //singleton
     static ListeRoom &Instance();
@@ -145,6 +148,11 @@ public:
     /* Lets every device check its links once all the rooms are loaded: a
        link may target an IO of another room. */
     void resolveDeviceLinks();
+
+    /* Destroys an IO that was built but never joined a room (refused while
+       loading or creating). Its constructor may have put it in the rule
+       event loop, which its destructor does not undo. A null io is a no-op. */
+    void discardUnattachedIO(std::unique_ptr<IOBase> io);
 
     /* The rule-side half of deleteIO(): deals with the rules that use this IO
        and takes it out of the polling list, without touching its ownership.
@@ -236,7 +244,7 @@ public:
 
     /* detachIOFromRules() + delete_io(io): the full "the user deleted this
        IO" path used by the JSON API. The IO is destroyed, and so are the
-       owned IOs of a device, each through deleteIO().
+       owned IOs of a device, detached from the rules the same way.
        `policy` is handed to detachIOFromRules(); with the default (Disable) the
        detection pass below runs once the IO is really gone. */
     bool deleteIO(IOBase *io, bool modify = false,

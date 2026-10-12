@@ -665,19 +665,19 @@ bool ListeRoom::deleteIO(IOBase *io, bool modify, RuleDetachPolicy policy)
         return false;
     }
 
-    //Owned IOs go with their device, each through the full path so the rules
-    //using them are detached like for any IO.
+    //Owned IOs go with their device. Looked up again after each deletion
+    //rather than from a list of pointers taken up front; by owner and not by
+    //id, since an owned IO may share its id with an IO declared earlier.
     if (Device *device = dynamic_cast<Device *>(io))
     {
-        for (IOBase *owned: device->ownedIos())
-            deleteIO(owned, modify, policy);
+        vector<IOBase *> owned;
+        while (!(owned = device->ownedIos()).empty())
+            detachAndDestroy(owned.front(), modify, policy);
     }
 
-    detachIOFromRules(io, modify, policy);
-
-    //Destroys the IO through its owning room. false when no room owns it,
-    //and then nothing was destroyed (the caller still holds a live IO).
-    const bool ret = delete_io(io);
+    //false when no room owns the IO, and then nothing was destroyed (the
+    //caller still holds a live IO).
+    const bool ret = detachAndDestroy(io, modify, policy);
 
     /* T3.18. AFTER the IO is really gone, and only when the rules were kept:
      * in Destroy mode there is nothing to detect (the rules that could tell are
@@ -701,6 +701,18 @@ bool ListeRoom::deleteIO(IOBase *io, bool modify, RuleDetachPolicy policy)
         refreshBrokenScenarios();
 
     return ret;
+}
+
+bool ListeRoom::detachAndDestroy(IOBase *io, bool modify, RuleDetachPolicy policy)
+{
+    detachIOFromRules(io, modify, policy);
+    return delete_io(io);
+}
+
+void ListeRoom::discardUnattachedIO(std::unique_ptr<IOBase> io)
+{
+    if (io)
+        ListeRule::Instance().Remove(io.get());
 }
 
 void ListeRoom::forgetIOInAutoScenarios(IOBase *io)
@@ -803,7 +815,7 @@ IOBase* ListeRoom::createIO(Params param, Room *room)
         //being absent from io_table.
         cErrorDom("root") << "createIO(): discarding IO '" << id
                           << "', duplicate id was rejected by addIOHash()";
-        io.reset();
+        discardUnattachedIO(std::move(io));
     }
 
     if (io)

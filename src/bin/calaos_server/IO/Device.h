@@ -44,6 +44,7 @@ public:
     };
 
     Device(Params &p);
+    ~Device();
 
     DATA_TYPE get_type() override { return TSTRING; }
 
