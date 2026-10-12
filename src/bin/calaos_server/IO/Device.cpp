@@ -84,9 +84,12 @@ bool Device::LoadFromXml(pugi::xml_node node)
     }
 
     //By id: the subscription may precede an external IO of a later room.
+    auto changed = [this](IOBase &)
+    {
+        deviceStateChanged();
+    };
     for (const Link &l: links)
-        linkSubscriptions.push_back(
-            IOChangeHub::Instance().subscribe(l.io, [this](IOBase &) { deviceStateChanged(); }));
+        linkSubscriptions.push_back(IOChangeHub::Instance().subscribe(l.io, changed));
 
     return true;
 }
@@ -346,13 +349,14 @@ void Device::deviceStateChanged()
 
     //Not re-armed by later changes: a steady stream still publishes every
     //PUBLISH_DELAY instead of never.
-    publishTimer = std::make_unique<Timer>(PUBLISH_DELAY, [this]()
+    auto fire = [this]()
     {
         Device *self = this;
         //A Timer repeats: drop it, which its own slot may do.
         publishTimer.reset();
         self->publish();
-    });
+    };
+    publishTimer = std::make_unique<Timer>(PUBLISH_DELAY, fire);
 }
 
 void Device::publish()
