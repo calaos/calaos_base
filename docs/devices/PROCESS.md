@@ -63,6 +63,8 @@
 - **`tests/Makefile.am`** : deux branches qui ajoutent chacune un bloc `if HAVE_GTEST` en fin de
   fichier partagent le même `endif` final. Après un rebase, régénérer la queue du fichier et
   recompter les `if`/`endif`. Le détail est dans `docs/refactoring/ORCHESTRATION.md`.
+- **`gh pr checks`** : le hook rtk réécrit sa sortie et son résumé peut être faux (« 131 passed /
+  41 pending » pour 4 checks). Lire le statut réel avec `rtk proxy gh pr checks <n>`.
 - **Spec** : un écart découvert pendant l'implémentation est remonté à l'utilisateur, pas contourné
   en silence.
 
