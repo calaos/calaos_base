@@ -149,14 +149,25 @@ jobs:
                --ignore-errors gcov,source,graph
 
       - name: Run tests (make check)
-        # A failing test does not fail this job: build-and-test owns that
-        # verdict. Whatever it would have executed then shows up as uncovered
-        # in the gate below, which is the honest consequence.
-        # Forked children and mains that leave through _exit() would otherwise
-        # lose their counters (UDPServer.cpp read 0% with 8 tests running it).
-        env:
-          LD_PRELOAD: ${{ github.workspace }}/gcov-exit-shim.so
-        run: make check || echo "make check reported failures; see the build-and-test job"
+        # Forked children and mains that leave through _exit() skip the
+        # atexit dump; the shim writes the counters first. Preloaded here, in
+        # the container, so the path is the one the processes can load.
+        run: |
+          status=0
+          LD_PRELOAD="$PWD/gcov-exit-shim.so" make check || status=$?
+          failed=$(find tests -name '*.trs' -exec grep -lE ':test-result: (FAIL|ERROR)' {} + \
+                   | sed -e 's#^tests/##' -e 's#\.trs$##' | sort)
+          echo "failing tests: ${failed:-none}"
+          # FIX-BASE-1: aborts at exit in this build only; its cases pass.
+          unexpected=$(echo "$failed" | grep -vxE 'core/IncomingLogStockLevel_test|' || true)
+          if [ -n "$unexpected" ]; then
+            echo "unexpected test failures: $unexpected"
+            exit 1
+          fi
+          if [ "$status" -ne 0 ] && [ -z "$failed" ]; then
+            echo "make check failed (status $status) without a failing test"
+            exit 1
+          fi
 
       - name: Generate lcov report
         run: |
@@ -169,20 +180,13 @@ jobs:
           # Keep only our own code: system headers, the test sources
           # themselves and the bundled third-party trees would drown the
           # signal we actually care about.
-          lcov --remove coverage-all.info \
-               '/usr/*' \
-               '*/tests/*' \
-               '*/src/lib/libquickmail/*' \
-               '*/src/lib/uvw/*' \
-               '*/src/lib/llhttp/*' \
-               '*/src/lib/exprtk/*' \
-               '*/src/lib/sole/*' \
-               '*/src/lib/sqlite_modern_cpp/*' \
-               '*/src/lib/uri_parser/*' \
-               '*/src/lib/cpptui/*' \
-               '*/src/lib/pugixml/*' \
-               '*/src/lib/json.hpp' \
+          # The vendored trees come from the gate script, the one list both use;
+          # set -f keeps the shell from expanding the patterns meant for lcov.
+          set -f
+          lcov --remove coverage-all.info '/usr/*' '*/tests/*' \
+               $(python3 scripts/check-diff-coverage.py --print-lcov-remove) \
                --output-file coverage.info
+          set +f
 
           genhtml coverage.info --output-directory coverage-html \
                   --legend --title "calaos_base coverage" \
