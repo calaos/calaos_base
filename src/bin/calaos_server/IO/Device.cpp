@@ -28,6 +28,13 @@ Device::Device(Params &p):
 {
 }
 
+Device::~Device()
+{
+    //Owned IOs never handed to a room: the device was refused at load.
+    for (auto &io: loadedIos)
+        ListeRoom::Instance().discardUnattachedIO(std::move(io));
+}
+
 bool Device::LoadFromXml(pugi::xml_node node)
 {
     for (pugi::xml_node child = XmlUtils::firstChildElement(node); child;
@@ -45,18 +52,24 @@ bool Device::LoadFromXml(pugi::xml_node node)
             deviceParams.emplace_back(child.attribute("name").as_string(),
                                       child.attribute("value").as_string());
         }
+        else if (name == "calaos:device")
+        {
+            //Not even built: the cascade does not recurse, and without an
+            //impl it would come out as a plain owned IO.
+            cErrorDom("device") << "Device(" << get_param("id") << "): devices do not nest, "
+                                << "ignoring '" << child.attribute("id").as_string() << "'";
+        }
         else if (name == "calaos:input" || name == "calaos:output" ||
-                 name == "calaos:internal" || name == "calaos:device")
+                 name == "calaos:internal")
         {
             std::unique_ptr<IOBase> io(IOFactory::Instance().CreateIO(child));
             if (!io) continue; //unknown type, already logged by the factory
 
-            //Owned IOs are deleted by their device's cascade, which does not
-            //recurse: a nested device would leak its own IOs into the room.
             if (dynamic_cast<Device *>(io.get()))
             {
                 cErrorDom("device") << "Device(" << get_param("id") << "): devices do not nest, "
                                     << "ignoring '" << io->get_param("id") << "'";
+                ListeRoom::Instance().discardUnattachedIO(std::move(io));
                 continue;
             }
 

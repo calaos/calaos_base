@@ -56,6 +56,18 @@ protected:
      * ---------------------------------------------------------------- */
     vector<std::unique_ptr<IOBase>> ios;
 
+    /* <calaos:device> elements this build cannot instantiate (impl unknown,
+       e.g. after a downgrade), written back verbatim so a save does not drop
+       them. `before` is the number of IOs that preceded them at load. */
+    struct OpaqueElement
+    {
+        int before;
+        std::unique_ptr<pugi::xml_document> xml;
+    };
+    vector<OpaqueElement> opaque;
+
+    void keepOpaque(pugi::xml_node node);
+
 public:
     Room(string _name, string _type, int _hits = 0);
 
