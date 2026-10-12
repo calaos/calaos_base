@@ -402,8 +402,8 @@ Sous-processus `calaos_mqtt`
 ### Types XML
 
 `MqttInputSwitch`, `MqttInputAnalog`, `MqttInputTemp`, `MqttInputString`, `MqttOutputLight`,
-`MqttOutputLightDimmer`, `MqttOutputLightRGB`, `MqttOutputShutter`, `MqttOutputAnalog`
-(dérivé, les neuf `REGISTER_IO` de `IO/Mqtt/*.cpp`).
+`MqttOutputLightDimmer`, `MqttOutputLightRGB`, `MqttOutputShutter`, `MqttOutputAnalog`,
+`MqttOutputString` (dérivé, les dix `REGISTER_IO` de `IO/Mqtt/*.cpp`).
 
 ### Paramètres communs
 
@@ -443,8 +443,12 @@ C'est pourtant la forme donnée par la description du paramètre publiée à cal
 ### Paramètres spécifiques
 
 - `MqttInputSwitch`, `MqttOutputLight` : `on_value`, `off_value`.
-- `MqttOutputLight`, `MqttOutputLightDimmer`, `MqttOutputAnalog` : `data`, gabarit de payload où
-  `__##VALUE##__` est substitué par la valeur.
+- `MqttOutputLight`, `MqttOutputLightDimmer`, `MqttOutputAnalog`, `MqttOutputString` : `data`, gabarit
+  de payload où `__##VALUE##__` est substitué par la valeur. Pour `MqttOutputString`, si le gabarit
+  commence par `{`, `[` ou `"` la chaîne est échappée en JSON (placeholder entre guillemets).
+- Sorties analogiques (`OutputAnalog` et dérivés) et `InternalInt` : `min` / `max` optionnels, la valeur
+  écrite est bornée avant conversion (`coeff_*`, `calc_expr`), y compris après `inc`/`dec`. `min` > `max`
+  : erreur journalisée, bornes ignorées.
 - `MqttOutputLightDimmer` : `in_expr` / `out_expr`, expressions de conversion où `x` est la valeur
   brute (ex. `x / 2.54` pour ramener 0-254 en pourcentage).
 - `MqttOutputLightRGB` : `data` (avec `__##VALUE_R##__`, `__##VALUE_G##__`, `__##VALUE_B##__`,
