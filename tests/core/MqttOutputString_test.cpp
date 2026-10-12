@@ -350,7 +350,7 @@ TEST_F(MqttOutputStringTest, MqttOutputAnalogIsClampedBeforeItIsPublished)
                          {"value_min", "5"},
                          {"value_max", "30"}
                      });
-                     // clang-format on
+    // clang-format on
     ASSERT_NE(nullptr, o);
 
     o->set_value(500.0);
