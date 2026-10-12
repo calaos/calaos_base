@@ -19,16 +19,18 @@
  **
  ******************************************************************************/
 
-//Device base (CORE-2): <calaos:device> in a room, owned IOs registered in the
+//Device base: <calaos:device> in a room, owned IOs registered in the
 //room's flat list, links resolved once every room is loaded, nested save and
 //cascade delete.
 
 #include "CalaosCoreFixture.h"
 #include "Device.h"
+#include "InputTemp.h"
 #include "IOChangeHub.h"
 #include "JsonApi.h"
 
 #include <algorithm>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -59,9 +61,22 @@ public:
     bool externalResolvedAtLoad = false;
 };
 
+//InputTemp only exists through its drivers; this one never reads anything.
+class TestTemp: public InputTemp
+{
+public:
+    TestTemp(Params &p):
+        InputTemp(p)
+    {
+    }
+
+    void readValue() override {}
+};
+
 } //namespace
 
 REGISTER_DEVICE(test_device, TestDevice)
+REGISTER_IO(TestTemp)
 
 namespace
 {
@@ -84,6 +99,20 @@ std::string ownedIoXml(const std::string &type, const std::string &id, const std
 {
     return "      <calaos:internal type=\"" + type + "\" id=\"" + id + "\" name=\"" + name +
            "\" enabled=\"true\" visible=\"false\" />\n";
+}
+
+//InputTime, InPlageHoraire and InputAnalog register in the rule event loop
+//from their constructor: an IO discarded without leaving it is polled freed.
+std::string eventIoXml(const std::string &type, const std::string &id)
+{
+    return "      <calaos:input type=\"" + type + "\" id=\"" + id + "\" name=\"" + id + "\" />\n";
+}
+
+std::string subtree(pugi::xml_node node)
+{
+    std::ostringstream ss;
+    node.print(ss, "", pugi::format_raw);
+    return ss.str();
 }
 
 std::string linkXml(const std::string &name, const std::string &io,
@@ -453,35 +482,92 @@ TEST_F(DeviceTest, DuplicateDeviceIdSavesEachOwnedIoOnce)
     EXPECT_TRUE(roundTripIo());
 }
 
-TEST_F(DeviceTest, NestedDeviceAndUnknownOwnedTypeAreDropped)
+TEST_F(DeviceTest, NestedDevicesAndUnknownOwnedTypesAreDropped)
 {
     std::string inner;
-    inner += deviceXml("inner_dev", internalIoXml("InternalInt", "inner_owned", "Inner"));
+    inner += deviceXml("inner_dev", eventIoXml("InPlageHoraire", "inner_owned"));
+    inner += "      <calaos:device id=\"inner_no_impl\" type=\"InputTime\" name=\"Z\" />\n";
+    inner += "      <calaos:input id=\"inner_impl_on_io\" type=\"InputTime\" impl=\"test_device\" name=\"W\">\n" +
+             eventIoXml("TestTemp", "inner_impl_owned") + "      </calaos:input>\n";
     inner += internalIoXml("NoSuchType", "unknown_owned", "Unknown");
-    inner += internalIoXml("InternalInt", OWNED_TARGET, "Target");
+    inner += eventIoXml("InputTime", OWNED_TARGET);
     loadConfig(ioXmlDocument(roomXml(ROOM_NAME, ROOM_TYPE, deviceXml(DEV, inner))),
                rulesXmlDocument(""));
 
-    EXPECT_EQ(io("inner_dev"), nullptr);
-    EXPECT_EQ(io("inner_owned"), nullptr);
-    EXPECT_EQ(io("unknown_owned"), nullptr);
+    for (const char *id: { "inner_dev", "inner_owned", "inner_no_impl", "inner_impl_on_io",
+                           "inner_impl_owned", "unknown_owned" })
+        EXPECT_EQ(io(id), nullptr) << id;
     EXPECT_EQ(roomIds(firstRoom()), (std::vector<std::string>{ DEV, OWNED_TARGET }));
+    EXPECT_EQ(io(OWNED_TARGET)->getOwnerDevice(), DEV);
+
+    //Only the kept IO polls: the refused ones left the loop before dying.
+    EXPECT_EQ(ListeRule::Instance().eventCount(), 1u);
+    ListeRule::Instance().RunEventLoop();
 }
 
 //"impl" selects the factory key, so the element and the class may disagree.
 TEST_F(DeviceTest, ElementAndClassMustAgreeOnBeingADevice)
 {
     std::string ios;
-    ios += "    <calaos:device id=\"no_impl\" type=\"InternalBool\" name=\"X\" />\n";
-    ios += internalIoXml("InternalBool", "impl_on_io", "Y", "impl=\"test_device\"");
-    ios += deviceXml("unknown_impl", "", "no_such_impl");
-    ios += internalIoXml("InternalBool", ID_BOOL_IN, "Kept");
+    ios += "    <calaos:device id=\"no_impl\" type=\"InPlageHoraire\" name=\"X\" />\n";
+    ios += "    <calaos:input id=\"impl_on_io\" type=\"InputTime\" impl=\"test_device\" name=\"Y\">\n" +
+           eventIoXml("InputTime", "impl_owned_time") + eventIoXml("TestTemp", "impl_owned_temp") +
+           "    </calaos:input>\n";
+    ios += eventIoXml("InputTime", "kept_time");
     loadConfig(ioXmlDocument(roomXml(ROOM_NAME, ROOM_TYPE, ios)), rulesXmlDocument(""));
 
-    EXPECT_EQ(io("no_impl"), nullptr);
-    EXPECT_EQ(io("impl_on_io"), nullptr);
-    EXPECT_EQ(io("unknown_impl"), nullptr);
-    EXPECT_EQ(roomIds(firstRoom()), (std::vector<std::string>{ ID_BOOL_IN }));
+    for (const char *id: { "no_impl", "impl_on_io", "impl_owned_time", "impl_owned_temp" })
+        EXPECT_EQ(io(id), nullptr) << id;
+    EXPECT_EQ(roomIds(firstRoom()), (std::vector<std::string>{ "kept_time" }));
+
+    EXPECT_EQ(ListeRule::Instance().eventCount(), 1u);
+    ListeRule::Instance().RunEventLoop();
+}
+
+//A downgrade within format 2: the device is inert, never instantiated, and
+//written back as it was read.
+TEST_F(DeviceTest, UnknownImplIsKeptVerbatimAndInert)
+{
+    std::string future;
+    future += eventIoXml("InputTime", "future_owned");
+    future += linkXml("mode", "future_owned");
+    future += linkXml("current_temp", ID_BOOL_IN);
+    future += paramXml("hysteresis", "0.5");
+
+    std::string ios;
+    ios += internalIoXml("InternalBool", ID_BOOL_IN, "Bool input");
+    ios += deviceXml("future_dev", future, "future_impl");
+    ios += internalIoXml("InternalBool", ID_BOOL_OUT, "Bool output");
+    ios += "    <calaos:device id=\"no_impl_dev\" type=\"climate\" name=\"N\" />\n";
+    const std::string source = ioXmlDocument(roomXml(ROOM_NAME, ROOM_TYPE, ios));
+    loadConfig(source, rulesXmlDocument(""));
+
+    EXPECT_EQ(io("future_dev"), nullptr);
+    EXPECT_EQ(io("future_owned"), nullptr);
+    EXPECT_EQ(io("no_impl_dev"), nullptr);
+    EXPECT_EQ(roomIds(firstRoom()), (std::vector<std::string>{ ID_BOOL_IN, ID_BOOL_OUT }));
+    EXPECT_EQ(ListeRule::Instance().eventCount(), 0u);
+
+    JsonApi api;
+    Json home = api.buildJsonHome();
+    ASSERT_EQ(home.size(), 1u);
+    EXPECT_EQ(home[0]["items"].size(), 2u);
+
+    pugi::xml_document src;
+    ASSERT_TRUE(src.load_string(source.c_str()));
+    pugi::xml_node srcRoom = src.child("calaos:ioconfig").child("calaos:home").child("calaos:room");
+
+    pugi::xml_document doc;
+    pugi::xml_node room = savedRoom(doc);
+    EXPECT_EQ(children(room), (std::vector<std::string>{ "calaos:internal#" + std::string(ID_BOOL_IN),
+                                                         "calaos:device#future_dev",
+                                                         "calaos:internal#" + std::string(ID_BOOL_OUT),
+                                                         "calaos:device#no_impl_dev" }));
+    EXPECT_EQ(subtree(room.find_child_by_attribute("calaos:device", "id", "future_dev")),
+              subtree(srcRoom.find_child_by_attribute("calaos:device", "id", "future_dev")));
+    EXPECT_EQ(subtree(room.find_child_by_attribute("calaos:device", "id", "no_impl_dev")),
+              subtree(srcRoom.find_child_by_attribute("calaos:device", "id", "no_impl_dev")));
+    EXPECT_TRUE(roundTripIo());
 }
 
 //The factory needs "impl" to rebuild a device: the model refuses to drop it.
