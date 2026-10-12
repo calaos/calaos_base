@@ -217,7 +217,19 @@ TEST_F(AnalogBoundsTest, IncAndDecNeverLeaveTheBounds)
 
 TEST_F(AnalogBoundsTest, WagoOutputAnalogIsBoundedThroughTheSameBase)
 {
-    IOBase *w = createIO({ { "type", "WagoOutputAnalog" }, { "id", "wago" }, { "name", "wago" }, { "host", "192.0.2.51" }, { "var", "8" }, { "enabled", "true" }, { "visible", "true" }, { "value_min", "0" }, { "value_max", "100" } });
+    // clang-format off
+    IOBase *w = createIO({
+        {"type", "WagoOutputAnalog"},
+        {"id", "wago"},
+        {"name", "wago"},
+        {"host", "192.0.2.51"},
+        {"var", "8"},
+        {"enabled", "true"},
+        {"visible", "true"},
+        {"value_min", "0"},
+        {"value_max", "100"}
+    });
+    // clang-format on
     ASSERT_NE(nullptr, w);
 
     w->set_value(250.0);
@@ -292,13 +304,35 @@ TEST_F(AnalogBoundsTest, InternalIntPersistsTheClampedValue)
 TEST_F(AnalogBoundsTest, InternalIntRestoredFromCacheIsClamped)
 {
     Config::Instance().SaveValueIO("restored", "500", false);
-    Params p = { { "type", "InternalInt" }, { "id", "restored" }, { "name", "r" }, { "save", "true" }, { "value_min", "5" }, { "value_max", "30" }, { "enabled", "true" }, { "visible", "true" } };
+    // clang-format off
+    Params p = {
+        {"type", "InternalInt"},
+        {"id", "restored"},
+        {"name", "r"},
+        {"save", "true"},
+        {"value_min", "5"},
+        {"value_max", "30"},
+        {"enabled", "true"},
+        {"visible", "true"}
+    };
+    // clang-format on
     IOBase *r = createIO(p);
     ASSERT_NE(nullptr, r);
     EXPECT_EQ(30.0, r->get_value_double());
 
     Config::Instance().SaveValueIO("restored2", "-9", false);
-    Params p2 = { { "type", "InternalInt" }, { "id", "restored2" }, { "name", "r" }, { "save", "true" }, { "value_min", "5" }, { "value_max", "30" }, { "enabled", "true" }, { "visible", "true" } };
+    // clang-format off
+    Params p2 = {
+        {"type", "InternalInt"},
+        {"id", "restored2"},
+        {"name", "r"},
+        {"save", "true"},
+        {"value_min", "5"},
+        {"value_max", "30"},
+        {"enabled", "true"},
+        {"visible", "true"}
+    };
+    // clang-format on
     IOBase *r2 = createIO(p2);
     ASSERT_NE(nullptr, r2);
     EXPECT_EQ(5.0, r2->get_value_double());
@@ -308,7 +342,19 @@ TEST_F(AnalogBoundsTest, InternalIntRestoredFromCacheIsClamped)
 //anything and must not start to: raw Wago values go up to 32767.
 TEST_F(AnalogBoundsTest, LegacyMinMaxDoNotBoundAndAreDroppedFromTheConfig)
 {
-    IOBase *w = createIO({ { "type", "WagoOutputAnalog" }, { "id", "wleg" }, { "name", "wleg" }, { "host", "192.0.2.52" }, { "var", "9" }, { "enabled", "true" }, { "visible", "true" }, { "min", "-10000" }, { "max", "10000" } });
+    // clang-format off
+    IOBase *w = createIO({
+        {"type", "WagoOutputAnalog"},
+        {"id", "wleg"},
+        {"name", "wleg"},
+        {"host", "192.0.2.52"},
+        {"var", "9"},
+        {"enabled", "true"},
+        {"visible", "true"},
+        {"min", "-10000"},
+        {"max", "10000"}
+    });
+    // clang-format on
     ASSERT_NE(nullptr, w);
     EXPECT_FALSE(w->get_params().Exists("min"));
     EXPECT_FALSE(w->get_params().Exists("max"));
@@ -316,12 +362,22 @@ TEST_F(AnalogBoundsTest, LegacyMinMaxDoNotBoundAndAreDroppedFromTheConfig)
     w->set_value(16384.0);
     EXPECT_EQ(16384.0, w->get_value_double());
 
-    IOBase *in = createIO({ { "type", "WagoInputAnalog" }, { "id", "wi" }, { "name", "wi" }, { "host", "192.0.2.52" }, { "var", "9" }, { "enabled", "true" }, { "visible", "true" }, { "min", "0" }, { "max", "5" } });
-    if (in)
-    {
-        EXPECT_FALSE(in->get_params().Exists("min"));
-        EXPECT_FALSE(in->get_params().Exists("max"));
-    }
+    // clang-format off
+    IOBase *in = createIO({
+        {"type", "WagoInputAnalog"},
+        {"id", "wi"},
+        {"name", "wi"},
+        {"host", "192.0.2.52"},
+        {"var", "9"},
+        {"enabled", "true"},
+        {"visible", "true"},
+        {"min", "0"},
+        {"max", "5"}
+    });
+    // clang-format on
+    ASSERT_NE(nullptr, in);
+    EXPECT_FALSE(in->get_params().Exists("min"));
+    EXPECT_FALSE(in->get_params().Exists("max"));
 
     EXPECT_TRUE(roundTripIo());
     EXPECT_EQ(std::string::npos, ioXmlOnDisk().find("min=\"-10000\""));

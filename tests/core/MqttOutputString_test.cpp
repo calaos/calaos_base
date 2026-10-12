@@ -171,7 +171,17 @@ protected:
 
     IOBase *make(const std::string &type, const std::string &id, Params extra)
     {
-        Params p = { { "type", type }, { "id", id }, { "name", id }, { "host", kHost }, { "port", kPort }, { "enabled", "true" }, { "visible", "true" } };
+        // clang-format off
+        Params p = {
+            {"type", type},
+            {"id", id},
+            {"name", id},
+            {"host", kHost},
+            {"port", kPort},
+            {"enabled", "true"},
+            {"visible", "true"}
+        };
+        // clang-format on
         for (int i = 0; i < extra.size(); i++)
         {
             std::string k, v;
@@ -332,7 +342,15 @@ TEST_F(MqttOutputStringTest, TheIODocDescribesDataAndTheAction)
 TEST_F(MqttOutputStringTest, MqttOutputAnalogIsClampedBeforeItIsPublished)
 {
     IOBase *o = make("MqttOutputAnalog", "a_clamp",
-                     { { "topic_pub", "t/a/set" }, { "topic_sub", "t/a/state" }, { "data", "{\"setpoint\":__##VALUE##__}" }, { "value_min", "5" }, { "value_max", "30" } });
+                     // clang-format off
+                     {
+                         {"topic_pub", "t/a/set"},
+                         {"topic_sub", "t/a/state"},
+                         {"data", "{\"setpoint\":__##VALUE##__}"},
+                         {"value_min", "5"},
+                         {"value_max", "30"}
+                     });
+                     // clang-format on
     ASSERT_NE(nullptr, o);
 
     o->set_value(500.0);
