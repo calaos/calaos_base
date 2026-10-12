@@ -142,6 +142,10 @@ public:
        change callbacks run (same reason as deleteIO()). */
     bool delete_io(IOBase *io, bool del = true);
 
+    /* Lets every device check its links once all the rooms are loaded: a
+       link may target an IO of another room. */
+    void resolveDeviceLinks();
+
     /* The rule-side half of deleteIO(): deals with the rules that use this IO
        and takes it out of the polling list, without touching its ownership.
        Public because Room's destructor has to run it for each IO it is about
@@ -231,7 +235,8 @@ public:
     Room *getRoomByIO(IOBase *o);
 
     /* detachIOFromRules() + delete_io(io): the full "the user deleted this
-       IO" path used by the JSON API. The IO is destroyed.
+       IO" path used by the JSON API. The IO is destroyed, and so are the
+       owned IOs of a device, each through deleteIO().
        `policy` is handed to detachIOFromRules(); with the default (Disable) the
        detection pass below runs once the IO is really gone. */
     bool deleteIO(IOBase *io, bool modify = false,

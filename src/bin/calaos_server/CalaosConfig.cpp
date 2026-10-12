@@ -315,6 +315,9 @@ void Config::LoadConfigIO()
         }
     }
 
+    //Before the rules load, which may act on what the links expose.
+    ListeRoom::Instance().resolveDeviceLinks();
+
     cInfo() <<  "Done. ";
 }
 

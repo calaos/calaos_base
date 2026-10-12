@@ -68,6 +68,8 @@ private:
     //only then may the destructor (or renameId()) touch the table.
     bool hashRegistered = false;
 
+    std::string ownerDevice;
+
     //When true, newly constructed IOBase objects are NOT registered into
     //ListeRoom's io_table. Only ever set through ScopedDocGen (single
     //threaded, not reentrant), used by IOFactory doc generation.
@@ -160,6 +162,12 @@ public:
     virtual bool SaveToXml(pugi::xml_node node);
 
     bool isEnabled() { return param["enabled"] == "true"; }
+
+    /* Id of the device whose element declared this IO, empty for an IO
+     * declared at room level. A member and not a param: it is the nesting
+     * in io.xml, never an attribute, and the API must not edit it. */
+    const std::string &getOwnerDevice() const { return ownerDevice; }
+    void setOwnerDevice(const std::string &id) { ownerDevice = id; }
 
     IODoc *getDoc() const {return ioDoc; }
 

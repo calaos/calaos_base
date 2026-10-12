@@ -22,6 +22,7 @@
 #include "ListeRule.h"
 #include "ListeRoom.h"
 #include "AVReceiver.h"
+#include "Device.h"
 
 using namespace Calaos;
 
@@ -179,16 +180,37 @@ bool Room::LoadFromXml(pugi::xml_node room_node)
             nodeName == "calaos:avr" ||
             nodeName == "calaos:camera" ||
             nodeName == "calaos:audio" ||
-            nodeName == "calaos:remote_ui")
+            nodeName == "calaos:remote_ui" ||
+            nodeName == "calaos:device")
         {
             //CreateIO() returns a raw OWNING pointer (see IOFactory.h): park
             //it in a unique_ptr so it cannot leak between here and AddIO(),
             //which takes the ownership over.
             std::unique_ptr<IOBase> io(IOFactory::Instance().CreateIO(node));
+            if (!io) continue;
+
+            //"impl" picks the factory key, so the element and the class can
+            //disagree: a device saved as an input, or the reverse, would
+            //lose its children or its links.
+            Device *device = dynamic_cast<Device *>(io.get());
+            if ((nodeName == "calaos:device") != (device != nullptr))
+            {
+                cErrorDom("room") << "LoadFromXml(): ignoring '" << io->get_param("id")
+                                  << "', a <calaos:device> needs a device impl and only a "
+                                  << "<calaos:device> may have one";
+                continue;
+            }
+
+            vector<std::unique_ptr<IOBase>> owned;
+            if (device)
+                owned = device->takeLoadedIos();
+
             //Note: an IO whose id addIOHash() rejected as a duplicate is still
             //added to the room, exactly as before (ListeRoomRobustness pins
             //it): only ListeRoom::createIO() refuses half-added IOs.
-            if (io) AddIO(io.release());
+            AddIO(io.release());
+            for (auto &o: owned)
+                AddIO(o.release());
         }
     }
 
@@ -213,6 +235,12 @@ bool Room::SaveToXml(pugi::xml_node node)
         //dereferences its result. In range it cannot fire (AddIO() refuses
         //null and no slot is ever empty), so it costs one predictable test.
         if (!io) continue;
+
+        //Written by its device, unless that device is gone: then it is saved
+        //here rather than lost.
+        if (!io->getOwnerDevice().empty() &&
+            ListeRoom::Instance().findIOAs<Device>(io->getOwnerDevice()))
+            continue;
 
         io->SaveToXml(room_node);
     }
