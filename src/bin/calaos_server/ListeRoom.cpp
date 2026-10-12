@@ -58,6 +58,11 @@ ListeRoom &ListeRoom::Instance()
 
 ListeRoom::ListeRoom()
 {
+    //~ListeRoom() still reaches both through ~Room(). Statics are destroyed in
+    //reverse order of construction: built first, they outlive this one whatever
+    //the program touches first, not only in the order main() forces.
+    EventManager::Instance();
+    ListeRule::Instance();
 }
 
 ListeRoom::~ListeRoom()
