@@ -7093,6 +7093,8 @@ core_IOChangeHub_test_LDADD = $(CORE_TEST_LDADD)
 #T3.36: the linked server objects are prerequisites, so touching one relinks
 #this binary. They are built by src/, never here (see the note above).
 core_IOChangeHub_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
 
 # CORE-5
 #min/max on the OutputAnalog family and on InternalInt: clamp on write, the
