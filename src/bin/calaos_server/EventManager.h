@@ -121,8 +121,8 @@ public:
      * such as the "device" object. They live beside the string Params and
      * only toJson() emits them: event_raw, the history row's io_state and the
      * Lua side keep reading the strings they always got. */
-    static CalaosEvent createWithObjects(int type, string ioId, Params p, Json objects,
-                                         bool logHistory = true);
+    static void createWithObjects(int type, string ioId, Params p, Json objects,
+                                  bool logHistory = true);
 
 private:
     EventManager();

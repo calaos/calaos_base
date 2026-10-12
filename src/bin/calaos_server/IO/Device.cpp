@@ -326,13 +326,13 @@ Json Device::deviceState()
 
 Json Device::deviceIos()
 {
-    Json ios = Json::object();
+    std::map<string, string> ios;
     for (const Link &l: links)
     {
         if (ListeRoom::Instance().get_io(l.io))
             ios[l.name] = l.io;
     }
-    return ios;
+    return Json(ios);
 }
 
 void Device::deviceStateChanged()
