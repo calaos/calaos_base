@@ -23,6 +23,7 @@
 
 #include <ListeRule.h>
 #include "AutoScenarioDef.h"
+#include "IOChangeHub.h"
 
 using namespace Calaos;
 
@@ -327,6 +328,11 @@ void ListeRule::executeTrigger(const string &id)
 
     for (Rule *rule: asyncRules)
         dispatchAsyncRule(rule, id);
+
+    /* After the rules: they keep evaluating exactly the state they saw before
+     * the hook existed, and a callback sees what the rules just wrote. Inside
+     * the march, so whatever a callback writes is queued in pendingTriggers. */
+    IOChangeHub::Instance().notify(id);
 }
 
 void ListeRule::dispatchAsyncRule(Rule *rule, const string &id)

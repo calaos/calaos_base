@@ -166,6 +166,7 @@ CORE_SERVER_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/EventManager.$(OBJEXT)               \
                   $(CALAOS_SERVER_BUILDDIR)/HistLogger.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/IOBase.$(OBJEXT)                     \
+                  $(CALAOS_SERVER_BUILDDIR)/IOChangeHub.$(OBJEXT)                \
                   $(CALAOS_SERVER_BUILDDIR)/JsonApi.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/ListeRoom.$(OBJEXT)                  \
                   $(CALAOS_SERVER_BUILDDIR)/ListeRule.$(OBJEXT)                  \
@@ -7075,3 +7076,23 @@ endif
 TESTS += check-diff-coverage-selftest.sh
 dist_check_SCRIPTS += check-diff-coverage-selftest.sh
 EXTRA_DIST += check-diff-coverage-selftest.py
+
+# CORE-1
+#IOChangeHub: typed synchronous per-IO change subscription. Pins the lifetime
+#contract (subscriber or IO destroyed first, both meaningful under ASan), the
+#serialization of a callback's writes through the rule march, and the order
+#relative to the rules. Links the plain core objects only. Own HAVE_GTEST block
+#so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/IOChangeHub_test
+check_PROGRAMS += core/IOChangeHub_test
+core_IOChangeHub_test_SOURCES = core/IOChangeHub_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_IOChangeHub_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_IOChangeHub_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_IOChangeHub_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
