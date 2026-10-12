@@ -32,8 +32,42 @@
 #include "libuvw.h"
 #include "McpServerManager.h"
 
+#include <pugixml.hpp>
+
+#include <set>
+
 namespace
 {
+
+//Number of devices an uploaded io.xml would drop: all of them for a format 1
+//file, one that does not parse, or one that keeps none; 0 otherwise.
+size_t devicesLostByUpload(const std::string &ioXml)
+{
+    const std::set<std::string> current = ListeRoom::Instance().deviceIds();
+    if (current.empty())
+        return 0;
+
+    pugi::xml_document doc;
+    if (!doc.load_string(ioXml.c_str()))
+        return current.size();
+
+    pugi::xml_node home = doc.child("calaos:ioconfig").child("calaos:home");
+    if (home.attribute("format").as_int(1) < Calaos::IO_FORMAT_DEVICES)
+        return current.size();
+
+    std::set<std::string> uploaded;
+    for (pugi::xml_node room: home.children("calaos:room"))
+        for (pugi::xml_node dev: room.children("calaos:device"))
+            uploaded.insert(dev.attribute("id").as_string());
+
+    //Removing some devices on purpose is legitimate; all of them vanishing
+    //is what a tool that does not model devices produces.
+    for (const auto &id: current)
+        if (uploaded.count(id))
+            return 0;
+
+    return current.size();
+}
 
 /* E4.1q. jansson_string_get()'s contract, kept BY HAND for a nlohmann document
  * so that processAudioDb() can dispatch on the parse processApi() ALREADY did:
@@ -764,6 +798,7 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
         jfiles["local_config.xml"] = Utils::getFileContent(Utils::getConfigFile(LOCAL_CONFIG).c_str());
 
         jret["config_files"] = jfiles;
+        jret["io_format"] = IO_FORMAT_DEVICES;
         jret["success"] = "true";
     }
     else if (jsonParam["type"] == "put")
@@ -781,6 +816,30 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
             const Json::const_iterator it = jroot.find("config_files");
             if (it != jroot.cend())
                 jfiles = *it;
+        }
+
+        //Before the backup: a refused upload touches nothing.
+        size_t lostDevices = 0;
+        if (jfiles.is_object())
+        {
+            const Json::const_iterator ioIt = jfiles.find(IO_CONFIG);
+            if (ioIt != jfiles.cend() && ioIt->is_string())
+            {
+                const string ioXml = ioIt->get<std::string>();
+                if (Utils::strStartsWith(ioXml, "<?xml"))
+                    lostDevices = devicesLostByUpload(ioXml);
+            }
+        }
+
+        if (lostDevices > 0)
+        {
+            const string msg = "update calaos_installer: this io.xml would drop " +
+                               Utils::to_string(lostDevices) + " device(s)";
+            cErrorDom("network") << "config put refused, " << msg;
+            jret["success"] = "false";
+            jret["error"] = msg;
+            sendJson(jret);
+            return;
         }
 
         if (jfiles.is_object())
