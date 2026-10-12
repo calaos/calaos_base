@@ -265,16 +265,68 @@ TEST_F(IOChangeHubTest, DeletingTheCascadeOriginFromACallbackIsRefused)
     EXPECT_TRUE(io(ID_BOOL_IN)->get_value_bool());
 }
 
-//delete_io() is not guarded: the next subscriber must not get the freed IO.
-//B's trigger is queued by the rule, so B itself is not on the stack.
-TEST_F(IOChangeHubTest, IoRemovedThroughDeleteIoBypassSkipsLaterSubscribers)
+//delete_io(del=true) frees the IO like deleteIO(): refused the same way.
+TEST_F(IOChangeHubTest, DestroyingDeleteIoIsRefusedDuringDispatch)
+{
+    ASSERT_NE(addSimpleRule("a_to_b", ID_BOOL_IN, "==", "true", ID_B, "true"), nullptr);
+
+    bool deleted = true;
+    int laterHits = 0;
+    auto remover = hub().subscribe(ID_B, [&deleted](IOBase &io)
+                                   {
+        deleted = ListeRoom::Instance().delete_io(&io);
+    });
+    auto later = hub().subscribe(ID_B, [&laterHits](IOBase &)
+                                 {
+        laterHits++;
+    });
+
+    io(ID_BOOL_IN)->set_value(true);
+
+    EXPECT_FALSE(deleted);
+    EXPECT_EQ(laterHits, 1);
+    ASSERT_NE(io(ID_B), nullptr);
+    EXPECT_NE(ListeRoom::Instance().getRoomByIO(io(ID_B)), nullptr);
+}
+
+//del=false only moves the IO, which stays alive: not refused.
+TEST_F(IOChangeHubTest, MovingDeleteIoIsAllowedDuringDispatch)
+{
+    ASSERT_NE(addSimpleRule("a_to_b", ID_BOOL_IN, "==", "true", ID_B, "true"), nullptr);
+
+    bool moved = false;
+    auto mover = hub().subscribe(ID_B, [&moved](IOBase &io)
+                                 {
+        moved = ListeRoom::Instance().delete_io(&io, false);
+        firstRoom()->AddIO(&io);
+    });
+
+    io(ID_BOOL_IN)->set_value(true);
+
+    EXPECT_TRUE(moved);
+    ASSERT_NE(io(ID_B), nullptr);
+    EXPECT_TRUE(io(ID_B)->get_value_bool());
+}
+
+//Room::RemoveIO() is not guarded: the next subscriber must not get the freed
+//IO. B's trigger is queued by the rule, so B itself is not on the stack.
+TEST_F(IOChangeHubTest, IoRemovedThroughRoomBypassSkipsLaterSubscribers)
 {
     ASSERT_NE(addSimpleRule("a_to_b", ID_BOOL_IN, "==", "true", ID_B, "true"), nullptr);
 
     int laterHits = 0;
     auto remover = hub().subscribe(ID_B, [](IOBase &io)
                                    {
-        EXPECT_TRUE(ListeRoom::Instance().delete_io(&io));
+        Room *room = ListeRoom::Instance().getRoomByIO(&io);
+        ASSERT_NE(room, nullptr);
+        for (int i = 0; i < room->get_size(); i++)
+        {
+            if (room->get_io(i) == &io)
+            {
+                room->RemoveIO(i, true);
+                return;
+            }
+        }
     });
     auto later = hub().subscribe(ID_B, [&laterHits](IOBase &)
                                  {
