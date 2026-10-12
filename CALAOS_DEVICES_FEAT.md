@@ -245,6 +245,10 @@ Existing IOs are unaffected: their command strings do not change.
 - `io_changed`: when any linked IO changes, the device emits one `io_changed` for its own id,
   debounced (100 ms, member timer), carrying `state` and the same `device` object. Clients that do
   not know devices keep reading `state`.
+- The `device` object is always sent **whole** (in `get_home` and in every `io_changed`): clients
+  **replace** their copy, never merge it, so a capability or `ios` entry the server dropped cannot
+  linger. Numbers and booleans are real JSON numbers and booleans, not strings (unlike the legacy
+  `state` string).
 - Owned IOs are still listed in the room's `items` with `visible="false"`, as today.
 
 ---
