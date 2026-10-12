@@ -7077,7 +7077,6 @@ TESTS += check-diff-coverage-selftest.sh
 dist_check_SCRIPTS += check-diff-coverage-selftest.sh
 EXTRA_DIST += check-diff-coverage-selftest.py
 
-# CORE-1
 #IOChangeHub: typed synchronous per-IO change subscription. Pins the lifetime
 #contract (subscriber or IO destroyed first, both meaningful under ASan), the
 #serialization of a callback's writes through the rule march, and the order

@@ -32,6 +32,13 @@ IOChangeHub &IOChangeHub::Instance()
     return *inst;
 }
 
+IOChangeHub::Subscription::Subscription() = default;
+
+IOChangeHub::Subscription::~Subscription()
+{
+    reset();
+}
+
 IOChangeHub::Subscription::Subscription(Subscription &&other) noexcept:
     id(std::move(other.id)),
     slot(std::move(other.slot))
@@ -81,6 +88,7 @@ IOChangeHub::Subscription IOChangeHub::subscribe(const std::string &id, Callback
 void IOChangeHub::unsubscribe(const std::string &id, const Slot *slot)
 {
     auto it = slots.find(id);
+    if (it == slots.end()) return; // LCOV_EXCL_LINE: an active slot is always registered under its id
     auto &v = it->second;
     v.erase(std::remove_if(v.begin(), v.end(), [slot](const std::shared_ptr<Slot> &s)
     {
@@ -107,7 +115,7 @@ void IOChangeHub::notify(const std::string &id)
     {
         if (!s->active) continue;
 
-        //Resolved per call: an earlier callback may have deleted the IO.
+        //Resolved per call: deleteIO() is refused here, delete_io() is not.
         IOBase *io = ListeRoom::Instance().get_io(id);
         if (!io) return;
 

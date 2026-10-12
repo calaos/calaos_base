@@ -194,25 +194,77 @@ TEST_F(IOChangeHubTest, IoDeletedBeforeTheSubscriber)
     sub.reset();
 }
 
-//B's trigger is queued by the rule, so B is not on the stack when a callback
-//deletes it: the next subscriber must not get the freed IO.
-TEST_F(IOChangeHubTest, IoDeletedByAnEarlierCallbackOfTheSameDispatch)
+//A callback runs under the rule lock, and the IO that started the march still
+//has its set_value() on the stack: deleteIO() must refuse.
+TEST_F(IOChangeHubTest, DeleteIoIsRefusedDuringDispatch)
 {
     ASSERT_NE(addSimpleRule("a_to_b", ID_BOOL_IN, "==", "true", ID_B, "true"), nullptr);
 
-    int deleterHits = 0, laterHits = 0;
-    auto deleter = hub().subscribe(ID_B, [&deleterHits](IOBase &io)
+    bool deleted = true;
+    int laterHits = 0;
+    auto deleter = hub().subscribe(ID_B, [&deleted](IOBase &io) { deleted = deleteIO(&io); });
+    auto later = hub().subscribe(ID_B, [&laterHits](IOBase &) { laterHits++; });
+
+    io(ID_BOOL_IN)->set_value(true);
+
+    EXPECT_FALSE(deleted);
+    EXPECT_EQ(laterHits, 1);
+    ASSERT_NE(io(ID_B), nullptr);
+    EXPECT_FALSE(ListeRule::Instance().isExecutionLocked());
+    EXPECT_TRUE(deleteIO(io(ID_B)));
+}
+
+//The IO that started the cascade: freed, Internal::set_value() would go on
+//with Save() on it after EmitSignalIO() returns.
+TEST_F(IOChangeHubTest, DeletingTheCascadeOriginFromACallbackIsRefused)
+{
+    ASSERT_NE(addSimpleRule("a_to_b", ID_BOOL_IN, "==", "true", ID_B, "true"), nullptr);
+
+    bool deleted = true;
+    auto sub = hub().subscribe(ID_B, [&deleted](IOBase &)
     {
-        deleterHits++;
-        EXPECT_TRUE(deleteIO(&io));
+        deleted = deleteIO(io(ID_BOOL_IN));
+    });
+
+    io(ID_BOOL_IN)->set_value(true);
+
+    EXPECT_FALSE(deleted);
+    ASSERT_NE(io(ID_BOOL_IN), nullptr);
+    EXPECT_TRUE(io(ID_BOOL_IN)->get_value_bool());
+}
+
+//delete_io() is not guarded: the next subscriber must not get the freed IO.
+//B's trigger is queued by the rule, so B itself is not on the stack.
+TEST_F(IOChangeHubTest, IoRemovedThroughDeleteIoBypassSkipsLaterSubscribers)
+{
+    ASSERT_NE(addSimpleRule("a_to_b", ID_BOOL_IN, "==", "true", ID_B, "true"), nullptr);
+
+    int laterHits = 0;
+    auto remover = hub().subscribe(ID_B, [](IOBase &io)
+    {
+        EXPECT_TRUE(ListeRoom::Instance().delete_io(&io));
     });
     auto later = hub().subscribe(ID_B, [&laterHits](IOBase &) { laterHits++; });
 
     io(ID_BOOL_IN)->set_value(true);
 
-    EXPECT_EQ(deleterHits, 1);
     EXPECT_EQ(laterHits, 0);
     EXPECT_EQ(io(ID_B), nullptr);
+}
+
+TEST_F(IOChangeHubTest, CallbackReadsTheCurrentStateNotTheQueuedWrite)
+{
+    std::vector<bool> seenByB;
+    auto sa = hub().subscribe(ID_BOOL_IN, [](IOBase &)
+    {
+        io(ID_B)->set_value(true);
+        io(ID_B)->set_value(false);
+    });
+    auto sb = hub().subscribe(ID_B, [&seenByB](IOBase &io) { seenByB.push_back(io.get_value_bool()); });
+
+    io(ID_BOOL_IN)->set_value(true);
+
+    EXPECT_EQ(seenByB, (std::vector<bool>{ false, false }));
 }
 
 TEST_F(IOChangeHubTest, CallbackWritingAnotherIoIsQueuedNotRecursive)
