@@ -12,8 +12,9 @@
 
 ## Cycle d'un ticket
 
-1. **Démarrage** : statut 🔨 dans [`BOARD.md`](BOARD.md), fiche `docs/devices/<ID>.md` créée par
-   l'agent d'implémentation (objectif, périmètre, fichiers, ce que les tests prouvent). Dans
+1. **Démarrage** : statut 🔨 dans [`BOARD.md`](BOARD.md). L'agent d'implémentation rend le texte de
+   la fiche `docs/devices/<ID>.md` dans son rapport ; l'orchestrateur la commite sur master (aucun
+   agent ne touche `docs/devices/`, ce qui évite les conflits entre branches). Dans
    calaos_mobile et calaos-web-app, une ligne de renvoi vers ce board dans leur `docs/BOARD.md`.
 2. **Implémentation** dans un worktree dédié sous `/home/raoul/repos/calaos/.wt/<id>` (disque ; `/tmp`
    est un tmpfs de 32 Go en RAM, un build de couverture y prend 12 Go et un build ASan ne tient pas), branche `feat/devices-<id>` (en minuscules), agent

@@ -169,9 +169,11 @@ IOBase
 There is no per-IO subscription today: `EventManager::newEvent` is global, deferred by one loop
 turn and carries the state as a string. A device needs to react to its linked IOs.
 
-Add a small typed, synchronous registry: `ListeRoom` (or a dedicated singleton) maps an IO id to
-callbacks, invoked from `IOBase::EmitSignalIO()` next to `ListeRule::ExecuteRuleSignal()`.
-Subscriptions are released with the subscriber (`sigc::connection` or `LifetimeTag`).
+`IOChangeHub` (a dedicated singleton) maps an IO id to callbacks. They are dispatched from
+`ListeRule::executeTrigger()`, right after the rules of the same trigger, so they see what those rules
+wrote and their own writes are queued like rule actions. A subscription is an RAII handle, keyed by
+id: it may precede the IO and survives its deletion. A callback reads the IO's current state, and
+deleting an IO while a cascade is running is refused (`ListeRoom::deleteIO()` returns false).
 
 Re-entrancy: a callback that writes another IO goes through the same `ListeRule` serialization
 (`execInProgress` / `pendingTriggers`) as a rule action, so a setpoint → relay → rule chain is
