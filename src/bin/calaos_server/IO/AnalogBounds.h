@@ -26,7 +26,7 @@
 #include "Params.h"
 #include "Utils.h"
 
-//Optional `min` / `max` params of the analog outputs and InternalInt.
+//Optional `value_min` / `value_max` params of the analog outputs and InternalInt.
 //Header only: IntValue.o is linked on its own by many test binaries.
 //An absent or non numeric bound is unbounded on that side; min > max is a
 //config error and both bounds are ignored rather than guessing which one
@@ -36,16 +36,38 @@ namespace AnalogBounds
 
 inline void boundsDoc(IODoc *ioDoc)
 {
-    ioDoc->paramAdd("min", _("Lowest value accepted when writing. A lower value is raised to `min`. "
+    ioDoc->paramAdd("value_min", _("Lowest value accepted when writing. A lower value is raised to `value_min`. "
                              "The bound applies to the written value, before coeff_a/coeff_b/calc_expr, "
                              "and also to the result of inc/dec. No lower bound if not set. "
-                             "Ignored, with an error in the log, if greater than `max`."),
+                             "Ignored, with an error in the log, if greater than `value_max`."),
                     IODoc::TYPE_FLOAT, false);
-    ioDoc->paramAdd("max", _("Highest value accepted when writing. A higher value is lowered to `max`. "
+    ioDoc->paramAdd("value_max", _("Highest value accepted when writing. A higher value is lowered to `value_max`. "
                              "The bound applies to the written value, before coeff_a/coeff_b/calc_expr, "
                              "and also to the result of inc/dec. No upper bound if not set. "
-                             "Ignored, with an error in the log, if lower than `min`."),
+                             "Ignored, with an error in the log, if lower than `value_min`."),
                     IODoc::TYPE_FLOAT, false);
+}
+
+//calaos_installer wrote `min` / `max` on every analog IO for a UI widget
+//and nothing in the server ever read them. They are dropped on load so they
+//leave io.xml at the next save, and cannot be mistaken for real bounds.
+//Only called from analog IO constructors: InputTime/InputTimer use a `min`
+//param (minutes) that must stay.
+template<class IO>
+void dropLegacyBounds(IO *io)
+{
+    std::string dropped;
+    for (const char *name: {"min", "max"})
+    {
+        if (!io->get_params().Exists(name))
+            continue;
+        io->del_param(name);
+        dropped += (dropped.empty() ? "" : ", ");
+        dropped += name;
+    }
+
+    if (!dropped.empty())
+        cInfoDom("analog") << io->get_param("id") << ": dropped unused legacy param(s) " << dropped;
 }
 
 inline bool readBound(const Params &params, const char *name, double &out)
@@ -66,12 +88,12 @@ inline bool readBound(const Params &params, const char *name, double &out)
 inline double clampToBounds(const Params &params, double dvalue)
 {
     double lo = 0.0, hi = 0.0;
-    const bool hasMin = readBound(params, "min", lo);
-    const bool hasMax = readBound(params, "max", hi);
+    const bool hasMin = readBound(params, "value_min", lo);
+    const bool hasMax = readBound(params, "value_max", hi);
 
     if (hasMin && hasMax && lo > hi)
     {
-        cErrorDom("analog") << params["id"] << ": min (" << lo << ") is greater than max ("
+        cErrorDom("analog") << params["id"] << ": value_min (" << lo << ") is greater than value_max ("
                             << hi << "), bounds ignored";
         return dvalue;
     }

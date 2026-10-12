@@ -446,9 +446,11 @@ C'est pourtant la forme donnée par la description du paramètre publiée à cal
 - `MqttOutputLight`, `MqttOutputLightDimmer`, `MqttOutputAnalog`, `MqttOutputString` : `data`, gabarit
   de payload où `__##VALUE##__` est substitué par la valeur. Pour `MqttOutputString`, si le gabarit
   commence par `{`, `[` ou `"` la chaîne est échappée en JSON (placeholder entre guillemets).
-- Sorties analogiques (`OutputAnalog` et dérivés) et `InternalInt` : `min` / `max` optionnels, la valeur
-  écrite est bornée avant conversion (`coeff_*`, `calc_expr`), y compris après `inc`/`dec`. `min` > `max`
-  : erreur journalisée, bornes ignorées.
+- Sorties analogiques (`OutputAnalog` et dérivés) et `InternalInt` : `value_min` / `value_max` optionnels, la
+  valeur écrite est bornée avant conversion (`coeff_*`, `calc_expr`), y compris après `inc`/`dec` et à la
+  relecture du cache. `value_min` > `value_max` : erreur journalisée, bornes ignorées. Les anciens `min` /
+  `max` écrits par calaos_installer ne bornaient rien : ils sont supprimés au chargement des IO analogiques
+  (jamais sur `InputTime` / `InputTimer`, où `min` = minutes).
 - `MqttOutputLightDimmer` : `in_expr` / `out_expr`, expressions de conversion où `x` est la valeur
   brute (ex. `x / 2.54` pour ramener 0-254 en pourcentage).
 - `MqttOutputLightRGB` : `data` (avec `__##VALUE_R##__`, `__##VALUE_G##__`, `__##VALUE_B##__`,

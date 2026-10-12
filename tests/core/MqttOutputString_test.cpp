@@ -321,7 +321,7 @@ TEST_F(MqttOutputStringTest, MqttOutputAnalogIsClampedBeforeItIsPublished)
     IOBase *o = make("MqttOutputAnalog", "a_clamp",
                      {{"topic_pub", "t/a/set"}, {"topic_sub", "t/a/state"},
                       {"data", "{\"setpoint\":__##VALUE##__}"},
-                      {"min", "5"}, {"max", "30"}});
+                      {"value_min", "5"}, {"value_max", "30"}});
     ASSERT_NE(nullptr, o);
 
     o->set_value(500.0);
