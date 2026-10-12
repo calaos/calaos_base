@@ -250,6 +250,12 @@ class TestMissingData(GateCase):
         self.assertEqual(rc, 1, out)
         self.assertIn("src/other.cpp:2: run_it();", out)
 
+    def test_declarations_in_a_header_without_record_pass(self):
+        self.put("src/other.h", source(5, **{"2": "int member;"}))
+        rc, out, _ = self.gate(self.tracefile({1: 1}), diff_for("src/other.h", (0, 1, 2, 1)))
+        self.assertEqual(rc, 0, out)
+        self.assertIn("1 not executable", out)
+
     def test_comment_only_change_in_uncompiled_file_passes(self):
         self.put("src/other.cpp", source(5, **{"2": "  // why", "3": "", "4": " * more"}))
         rc, out, _ = self.gate(self.tracefile({1: 1}), diff_for("src/other.cpp", (0, 3, 2, 3)))
@@ -343,6 +349,9 @@ MUTANTS = [
     ("uncompiled-file-passes",
      [('res["nodata"].append((path, n, src[n - 1].strip()))', 'res["non_exec"] += 1')],
      "test_file_never_compiled_fails"),
+    ("header-without-record-fails",
+     [("if path.endswith(UNIT_EXT) and n <= len(src)", "if n <= len(src)")],
+     "test_declarations_in_a_header_without_record_pass"),
     ("report-only-always", [("if failed and args.report_only:", "if failed:")],
      "test_uncovered_added_line_fails_and_is_listed"),
 ]

@@ -15,7 +15,8 @@ import re
 import subprocess
 import sys
 
-CODE_EXT = (".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx", ".inl", ".ipp")
+UNIT_EXT = (".c", ".cc", ".cpp", ".cxx")
+CODE_EXT = UNIT_EXT + (".h", ".hh", ".hpp", ".hxx", ".inl", ".ipp")
 
 # Same trees the CI job strips from the tracefile; a change there has no data
 # by construction and must not be reported as "never compiled".
@@ -149,7 +150,9 @@ def evaluate(coverage, diff, root):
             if n in excluded:
                 res["excluded"].append((path, n, src[n - 1].strip()))
             elif data is None:
-                if n <= len(src) and not is_trivia(src[n - 1]):
+                # A header holding only declarations has no record at all, so
+                # silence is only suspicious for a translation unit.
+                if path.endswith(UNIT_EXT) and n <= len(src) and not is_trivia(src[n - 1]):
                     res["nodata"].append((path, n, src[n - 1].strip()))
                 else:
                     res["non_exec"] += 1
