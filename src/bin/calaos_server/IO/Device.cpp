@@ -19,13 +19,18 @@
  **
  ******************************************************************************/
 #include "Device.h"
+#include "EventManager.h"
 #include "ListeRoom.h"
+
+#include <cmath>
 
 using namespace Calaos;
 
 Device::Device(Params &p):
     IOBase(p, IOBase::IO_INOUT)
 {
+    //Clients pick their widget from gui_type: the family, whatever the impl.
+    set_param("gui_type", get_param("type"));
 }
 
 Device::~Device()
@@ -77,6 +82,11 @@ bool Device::LoadFromXml(pugi::xml_node node)
             loadedIos.push_back(std::move(io));
         }
     }
+
+    //By id: the subscription may precede an external IO of a later room.
+    for (const Link &l: links)
+        linkSubscriptions.push_back(
+            IOChangeHub::Instance().subscribe(l.io, [this](IOBase &) { deviceStateChanged(); }));
 
     return true;
 }
@@ -200,4 +210,155 @@ string Device::getDeviceParam(const string &name) const
             return p.second;
     }
     return string();
+}
+
+std::string Device::get_value_string()
+{
+    const Json state = deviceState();
+    const auto it = state.find("mode");
+    return it != state.end() && it->is_string() ? it->get<string>() : string();
+}
+
+bool Device::set_value(std::string val)
+{
+    Json command;
+    if (!val.empty() && val[0] == '{')
+    {
+        try
+        {
+            command = Json::parse(val);
+        }
+        catch (const Json::parse_error &e)
+        {
+            cWarningDom("device") << "Device(" << get_param("id")
+                                  << "): command refused, invalid JSON: " << e.what();
+            return false;
+        }
+    }
+    else
+        command = Json{ { "mode", val } };
+
+    bool applied = false;
+    for (const auto &field: command.items())
+    {
+        string reason;
+        if (applyCommandField(field.key(), field.value(), reason))
+            applied = true;
+        else
+            cWarningDom("device") << "Device(" << get_param("id") << "): command field '"
+                                  << field.key() << "' refused: " << reason;
+    }
+
+    if (applied)
+        deviceStateChanged();
+
+    return applied;
+}
+
+bool Device::applyCommandField(const string &field, const Json &value, string &reason)
+{
+    VAR_UNUSED(field);
+    VAR_UNUSED(value);
+    reason = "unknown field for this device";
+    return false;
+}
+
+bool Device::enumField(const Json &value, const vector<string> &allowed, string &out,
+                       string &reason)
+{
+    if (value.is_string())
+    {
+        for (const string &a: allowed)
+        {
+            if (a == value.get<string>())
+            {
+                out = a;
+                return true;
+            }
+        }
+    }
+
+    //The value is not echoed: it is client input, and the list says enough.
+    reason = "not one of:";
+    for (const string &a: allowed)
+        reason += " " + a;
+    return false;
+}
+
+bool Device::numberField(const Json &value, double min, double max, double step, double &out,
+                         string &reason)
+{
+    if (!value.is_number())
+    {
+        reason = "not a JSON number";
+        return false;
+    }
+
+    double v = value.get<double>();
+    //A step of 0 means a continuous value.
+    if (step > 0)
+        v = std::round(v / step) * step;
+    out = std::min(std::max(v, min), max);
+    return true;
+}
+
+Json Device::deviceObject()
+{
+    return Json{ { "family", get_param("type") },
+                 { "impl", get_param("impl") },
+                 { "capabilities", deviceCapabilities() },
+                 { "state", deviceState() },
+                 { "ios", deviceIos() } };
+}
+
+Json Device::deviceCapabilities()
+{
+    return Json::object();
+}
+
+Json Device::deviceState()
+{
+    return Json::object();
+}
+
+Json Device::deviceIos()
+{
+    Json ios = Json::object();
+    for (const Link &l: links)
+    {
+        if (ListeRoom::Instance().get_io(l.io))
+            ios[l.name] = l.io;
+    }
+    return ios;
+}
+
+void Device::deviceStateChanged()
+{
+    const string scalar = get_value_string();
+    if (scalar != lastScalar)
+    {
+        lastScalar = scalar;
+        EmitSignalIO();
+    }
+
+    if (publishTimer)
+        return;
+
+    //Not re-armed by later changes: a steady stream still publishes every
+    //PUBLISH_DELAY instead of never.
+    publishTimer = std::make_unique<Timer>(PUBLISH_DELAY, [this]()
+    {
+        Device *self = this;
+        //A Timer repeats: drop it, which its own slot may do.
+        publishTimer.reset();
+        self->publish();
+    });
+}
+
+void Device::publish()
+{
+    Params p;
+    p.Add("state", get_value_string());
+    EventManager::createWithObjects(CalaosEvent::EventIOChanged, get_param("id"), p,
+                                    Json{ { "device", deviceObject() } });
 }
