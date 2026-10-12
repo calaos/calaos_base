@@ -95,6 +95,7 @@ calaos_server_SOURCES = \
         McpServerManager.h                              \
         IO/AnalogIO.cpp                                 \
         IO/AnalogIO.h                                   \
+        IO/AnalogBounds.h                               \
         IO/ExternProc.cpp                               \
         IO/ExternProc.h                                 \
         IO/Gpio/GpioCtrl.cpp                            \
@@ -166,6 +167,8 @@ calaos_server_SOURCES = \
         IO/Mqtt/MqttInputTemp.cpp                       \
         IO/Mqtt/MqttOutputAnalog.h                      \
         IO/Mqtt/MqttOutputAnalog.cpp                    \
+IO/Mqtt/MqttOutputString.h                      \
+IO/Mqtt/MqttOutputString.cpp                    \
         IO/Mqtt/MqttOutputLight.h                       \
         IO/Mqtt/MqttOutputLight.cpp                     \
         IO/Mqtt/MqttOutputLightDimmer.h                 \

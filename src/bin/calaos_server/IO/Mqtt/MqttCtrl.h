@@ -61,6 +61,9 @@ public:
     static bool readStatusNumber(const string &value, double &out);
 
     void setValue(const Params &params, bool val);
+    //`tmpl` with __##VALUE##__ replaced by `val`, JSON-escaped when the
+    //template is a JSON document (starts with `{`, `[` or `"`).
+    static string renderData(const string &tmpl, const string &val);
     void setValueString(const Params &params, string val);
     void setValueInt(const Params &params, int val, string dataParam = "data");
     void setValueColor(const Params &params, ColorValue val);
