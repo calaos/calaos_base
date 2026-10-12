@@ -126,8 +126,8 @@ server and the installer rebuild `io.xml` from their model on save:
 - **Server, `config put`:** if the current `io.xml` contains at least one device and the uploaded
   one is format 1 or contains none of them, the upload is refused with an explicit error ("update
   calaos_installer"). The existing `BackupFiles()` stays as a last resort.
-- **Installer:** reads the server's advertised format support and refuses to save devices to a
-  server that does not support format 2. When loading a file whose format is newer than it knows,
+- **Installer:** reads `io_format` in the `config get` response (absent = 1) and refuses to save
+  devices to a server that does not announce format 2. When loading a file whose format is newer than it knows,
   it opens read-only.
 
 ---
@@ -220,7 +220,8 @@ Existing IOs are unaffected: their command strings do not change.
 
 ### 5.3 State publication
 
-- `get_home`: a device item carries the usual fields (`state` = mode) plus a `device` object:
+- `get_home`: a device item carries the usual fields (`state` = mode, `gui_type` = the family,
+  e.g. `climate`) plus a `device` object:
 
   ```json
   "device": {
@@ -369,8 +370,9 @@ the format (from IODoc, §11). The protected outputs are hidden (§8.3).
 
 ### 9.3 RemoteUI
 
-- Widget: `<calaos:widget type="climate" io_id="salon_ac" .../>`, referencing the device through the
-  existing `io_id`.
+- Widget: `<calaos:widget type="Climate" io_id="salon_ac" .../>` (widget types are PascalCase in
+  the firmware), referencing the device through the existing `io_id`. Registered with
+  `registerWidgetAnySize` so it adapts to every cell size.
 - The panel reads the `device` object from `remote_ui_io_states` and `io_changed`, and commands
   through `set_state` with the JSON command. No new message.
 - `RemoteUI::extractReferencedIOs()` expands a device to its owned and linked IOs.
@@ -423,8 +425,9 @@ The installer form (§10) and the MCP tool description (§9.2) are built from it
 
 - `MqttOutputString` (missing today, needed for `mode/command`, `fan_mode/command`, …).
 - `min` / `max` params on analog outputs (and `InternalInt`), used to bound setpoints.
-- `chauffage_id` / `ListeRoom::get_chauffage_var()`: dead code (no production caller). Remove it,
-  along with the `chauffage_id` key in the JSON API, in a separate cleanup ticket.
+- `ListeRoom::get_chauffage_var()` on the server: dead code (no production caller), removed in a
+  separate ticket. The `chauffage_id` param and its JSON key stay: calaos_installer uses them for
+  its heating-rule assistant.
 - RemoteUI panel restriction: separate security ticket (§9.3).
 
 ---
@@ -461,6 +464,4 @@ The installer form (§10) and the MCP tool description (§9.2) are built from it
 - Debounce value (100 ms) and whether `io_changed` should carry the full `device` object or only
   `state`.
 - Whether MCP's service scope may send JSON commands to devices, or only read them.
-- How the installer reads the server's format support: a field in an existing response, or a new
-  one.
 - Default values per template (hysteresis, min on/off, `sensor_timeout`, `humidity_max`).

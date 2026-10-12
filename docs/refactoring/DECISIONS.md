@@ -1379,4 +1379,4 @@ rouvrir.
 12. `MqttOutputString` et `min`/`max` sur les sorties analogiques : oui. Table de correspondance de
     valeurs : plus tard (les chaînes ESPHome sont déjà les nôtres).
 13. **Tickets séparés** : restriction d'un panneau RemoteUI à ses IOs référencés (trou de sécurité
-    existant) et suppression du code mort `chauffage_id`.
+    existant) et suppression de `get_chauffage_var()` côté serveur (le param `chauffage_id` reste : l'installateur s'en sert).
