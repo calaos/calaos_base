@@ -30,7 +30,7 @@
     (erreurs d'outil MCP), `20fc98b1` (jQuery 4), poussés en deux fois. CI **verte** aux deux
     `push` (`Build and Test` 37796494467 et 37807340784, tags `4.4.3-dev.14`/`.15` verts, image
     `:dev` publiée). Branches Dependabot `jquery-4.0.0`, `mcp-1.28.1` et `mcp-sidecar-57820ca5a0`
-    (PR #177, rouge) **dépassées**, non supprimées. Détail : ligne « Hors-ticket 2026-10-08 » de
+    (PR #177, rouge) **dépassées**, déjà supprimées côté GitHub. Détail : ligne « Hors-ticket 2026-10-08 » de
     `BOARD.md`.
 
 - ⭐⭐ **(HISTORIQUE) À FROID, DANS CET ORDRE — l'état de la session au 2026-09-04 (l'utilisateur dort, rien
