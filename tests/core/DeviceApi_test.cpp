@@ -285,7 +285,8 @@ TEST_F(DeviceApiTest, ValidFieldsApplyBesideRefusedOnes)
 
 TEST_F(DeviceApiTest, NumbersAreRoundedToTheStepAndClamped)
 {
-    auto target = [](const char *cmd) {
+    auto target = [](const char *cmd)
+    {
         EXPECT_TRUE(device()->set_value(std::string(cmd))) << cmd;
         return io(DEV_TARGET)->get_value_double();
     };
@@ -321,7 +322,8 @@ TEST_F(DeviceApiTest, ValidationHelpers)
 TEST_F(DeviceApiTest, SetStateAnswersSuccessWhenAFieldWasApplied)
 {
     WsTestSession ws;
-    auto wsSetState = [&ws](const std::string &value) {
+    auto wsSetState = [&ws](const std::string &value)
+    {
         ws.send(Json{ { "msg", "set_state" },
                       { "msg_id", "1" },
                       { "data", { { "id", DEV }, { "value", value } } } });
@@ -385,7 +387,11 @@ TEST_F(DeviceApiTest, LinkedChangePublishesTheWholeDeviceObject)
 
     WsTestSession ws;
     io(EXT_TEMP)->set_value(23.4);
-    pumpFor(WAIT_MS, [&ws]() { return !ioChanged(ws, DEV).empty(); });
+    auto done = [&ws]()
+    {
+        return !ioChanged(ws, DEV).empty();
+    };
+    pumpFor(WAIT_MS, done);
 
     const std::vector<Json> evs = ioChanged(ws, DEV);
     ASSERT_EQ(evs.size(), 1u);
@@ -416,7 +422,11 @@ TEST_F(DeviceApiTest, BurstOfLinkedChangesGivesOneEvent)
 
     //The window closes after publishing: the next change gets its own event.
     io(EXT_TEMP)->set_value(25.0);
-    pumpFor(WAIT_MS, [&ws]() { return ioChanged(ws, DEV).size() == 2; });
+    auto done = [&ws]()
+    {
+        return ioChanged(ws, DEV).size() == 2;
+    };
+    pumpFor(WAIT_MS, done);
     evs = ioChanged(ws, DEV);
     ASSERT_EQ(evs.size(), 2u);
     EXPECT_DOUBLE_EQ(evs[1].at("data").at("device").at("state").at("current_temp").get<double>(), 25);
@@ -431,7 +441,11 @@ TEST_F(DeviceApiTest, OwnScalarChangePublishesAndTriggersRules)
     ASSERT_TRUE(device()->set_value(std::string("heat")));
     EXPECT_TRUE(io(ID_BOOL_OUT)->get_value_bool());
 
-    pumpFor(WAIT_MS, [&ws]() { return !ioChanged(ws, DEV).empty(); });
+    auto done = [&ws]()
+    {
+        return !ioChanged(ws, DEV).empty();
+    };
+    pumpFor(WAIT_MS, done);
     std::vector<Json> evs = ioChanged(ws, DEV);
     ASSERT_EQ(evs.size(), 1u);
     EXPECT_EQ(evs[0].at("data").value("state", ""), "heat");
@@ -458,6 +472,10 @@ TEST_F(DeviceApiTest, DeviceDeletedWhileItsPublicationIsPending)
     //The sensor still works for the device that remains.
     const size_t bare = ioChanged(ws, DEV_BARE).size();
     io(EXT_TEMP)->set_value(22.0);
-    pumpFor(WAIT_MS, [&ws, bare]() { return ioChanged(ws, DEV_BARE).size() > bare; });
+    auto done = [&ws, bare]()
+    {
+        return ioChanged(ws, DEV_BARE).size() > bare;
+    };
+    pumpFor(WAIT_MS, done);
     EXPECT_EQ(ioChanged(ws, DEV_BARE).size(), bare + 1);
 }
