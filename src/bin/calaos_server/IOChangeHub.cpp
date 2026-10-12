@@ -18,8 +18,6 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <algorithm>
-
 #include "IOChangeHub.h"
 #include "ListeRoom.h"
 
@@ -90,13 +88,14 @@ void IOChangeHub::unsubscribe(const std::string &id, const Slot *slot)
     auto it = slots.find(id);
     if (it == slots.end()) return; // LCOV_EXCL_LINE: an active slot is always registered under its id
     auto &v = it->second;
-    v.erase(std::remove_if(v.begin(), v.end(), [slot](const std::shared_ptr<Slot> &s)
+    for (auto s = v.begin(); s != v.end(); ++s)
     {
-        if (s.get() != slot) return false;
+        if (s->get() != slot) continue;
         //A dispatch may hold this slot in its snapshot: tell it to skip.
-        s->active = false;
-        return true;
-    }), v.end());
+        (*s)->active = false;
+        v.erase(s);
+        break;
+    }
 
     if (v.empty())
         slots.erase(it);
