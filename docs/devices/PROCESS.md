@@ -3,7 +3,7 @@
 ## REPRISE — lire en premier
 
 - **État (2026-10-13)** : outillage terminé (OUT-1 #178, OUT-2, OUT-3, FIX-INST-0, FIX-INST-1).
-  CORE-1 ✅ (#180). CORE-5 (#179) et FIX-BASE-1 (#181) en revue. CORE-2 lancé.
+  CORE-1 ✅ (#180), CORE-5 ✅ (#179). FIX-BASE-1 (#181) corrigé, à pousser. CORE-2 en cours.
   Ensuite : CORE-2 (après CORE-1), puis CORE-3, CORE-4 et la suite du graphe.
 - **Page de suivi en ligne** : voir la ligne « Suivi » plus bas. Elle est statique : la republier
   à chaque fin de ticket.
