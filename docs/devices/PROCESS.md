@@ -2,8 +2,8 @@
 
 ## REPRISE — lire en premier
 
-- **État (2026-10-12)** : spec validée, board créé, aucun ticket démarré. Les premiers démarrables
-  sans dépendance sont OUT-1, OUT-2 et OUT-3, puis CORE-5 après OUT-1.
+- **État (2026-10-12)** : OUT-1, OUT-2 et OUT-3 lancés en parallèle. Ensuite démarrables : CORE-1
+  et CORE-5 (après OUT-1), INST-1 (après OUT-2 et CORE-2), RUI-2 (après OUT-3 et RUI-1).
 - **Page de suivi en ligne** : voir la ligne « Suivi » plus bas. Elle est statique : la republier
   à chaque fin de ticket.
 - **Bloquant connu** : DOC-1 attend T3.247 (board du refactoring), sans quoi régénérer
@@ -36,6 +36,21 @@
    - ce bloc REPRISE : état et prochain ticket démarrable ;
    - la page de suivi en ligne, republiée ;
    - la spec, si l'implémentation a tranché un point ouvert (§14).
+
+## Autorisations (données le 2026-10-12, pour ce chantier)
+
+- Pousser les branches `feat/devices-*` et ouvrir les PR **sans redemander**.
+- **Merger soi-même** une fois la CI verte et la revue close, y compris dans calaos-web-app
+  (dont le `CLAUDE.md` impose sinon des commits directs sur master).
+
+## Environnements de build — rien ne s'installe sur la machine hôte
+
+| Dépôt | Où builder |
+|---|---|
+| calaos_base | conteneur de l'image devcontainer `vsc-calaos_base-8a52b90d…:latest` (worktree monté, `-u $(id -u):$(id -g)` pour ne pas laisser de fichiers root) |
+| calaos_remote_ui | conteneur construit depuis `.devcontainer/Dockerfile` du dépôt (ESP-IDF) ; build `linux-dev` et tests hôte dedans |
+| calaos_installer, calaos_mobile | sur l'hôte (Qt 6 installé) |
+| calaos-web-app | sur l'hôte (node/npm et navigateurs Playwright déjà présents) ; `npm ci` reste local au worktree |
 
 ## Règles
 
