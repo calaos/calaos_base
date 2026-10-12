@@ -117,6 +117,7 @@ scripts/pyproject-requirements.py \
 scripts/pydeps-conformance-probe.py \
 scripts/ccache-honesty-probe.py \
 scripts/check-diff-coverage.py \
+scripts/gcov-exit-shim.c \
 scripts/ccache-setup.sh \
 m4/efl_compiler.m4 \
 version \

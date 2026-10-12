@@ -128,12 +128,14 @@ jobs:
           ./autogen.sh
           # --coverage on both compile and link flags; -O0 keeps the line
           # mapping honest, -fprofile-update=atomic avoids counter races in
-          # the threaded parts of the suite.
+          # the threaded parts of the suite. The two -Wl options make
+          # __gcov_dump callable from the _exit() shim below.
           ./configure \
             CFLAGS="-g -O0 --coverage -fprofile-update=atomic" \
             CXXFLAGS="-g -O0 --coverage -fprofile-update=atomic" \
-            LDFLAGS="--coverage"
+            LDFLAGS="--coverage -Wl,-u,__gcov_dump -Wl,--export-dynamic-symbol=__gcov_dump"
           make -j$(nproc)
+          gcc -shared -fPIC -O1 -o "$PWD/gcov-exit-shim.so" scripts/gcov-exit-shim.c -ldl
 
       - name: Capture baseline (zero) counters
         run: |
@@ -150,6 +152,10 @@ jobs:
         # A failing test does not fail this job: build-and-test owns that
         # verdict. Whatever it would have executed then shows up as uncovered
         # in the gate below, which is the honest consequence.
+        # Forked children and mains that leave through _exit() would otherwise
+        # lose their counters (UDPServer.cpp read 0% with 8 tests running it).
+        env:
+          LD_PRELOAD: ${{ github.workspace }}/gcov-exit-shim.so
         run: make check || echo "make check reported failures; see the build-and-test job"
 
       - name: Generate lcov report
