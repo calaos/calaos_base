@@ -268,6 +268,8 @@ calaos_server_SOURCES = \
         IO/Web/WebDocBase.cpp                           \
         IOBase.cpp                                      \
         IOBase.h                                        \
+        IOChangeHub.cpp                                 \
+        IOChangeHub.h                                   \
         IPCam/Axis.cpp                                  \
         IPCam/Axis.h                                    \
         IPCam/Foscam.cpp                                \
