@@ -361,10 +361,14 @@ IOChangeHub::Subscription sub =
 - **Ré-entrance.** Un IO écrit depuis un callback re-signale pendant la marche
   des règles : son déclencheur est mis dans `pendingTriggers`, comme celui d'une
   action de règle, puis traité en FIFO. Jamais de récursion.
+- **État courant.** Le callback lit l'état **actuel** de l'IO, pas la valeur de
+  l'écriture qui l'a déclenché : deux écritures mises en file donnent deux appels
+  qui voient tous deux la dernière valeur.
 - **Mutation pendant l'appel.** Un abonné retiré pendant la diffusion n'est plus
-  appelé ; un abonné ajouté attend le changement suivant. Un callback peut
-  supprimer un **autre** IO (les abonnés suivants de cet IO sont sautés), mais
-  pas celui dont il est notifié quand son `set_value()` est encore sur la pile.
+  appelé ; un abonné ajouté attend le changement suivant.
+- **Suppression refusée.** `ListeRoom::deleteIO()` répond `false` (et journalise)
+  tant que la marche des règles tourne, donc depuis tout callback : l'IO qui a
+  lancé la cascade a encore son `set_value()` sur la pile.
 - **Coût.** Une recherche dans une table de hachage par déclencheur ; l'entrée
   d'un id disparaît avec son dernier abonné.
 
