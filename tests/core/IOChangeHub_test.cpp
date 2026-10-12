@@ -41,7 +41,7 @@ const char *const ID_C = "hub_c";
 
 IOChangeHub &hub() { return IOChangeHub::Instance(); }
 
-}
+} //namespace
 
 class IOChangeHubTest: public CoreFixture
 {
@@ -66,7 +66,7 @@ TEST_F(IOChangeHubTest, SubscriberReceivesEveryEmissionWithTheIo)
 {
     std::vector<std::string> seen;
     auto sub = hub().subscribe(ID_BOOL_IN, [&seen](IOBase &io)
-    {
+                               {
         seen.push_back(io.get_param("id") + "=" + (io.get_value_bool() ? "1" : "0"));
     });
 
@@ -81,7 +81,10 @@ TEST_F(IOChangeHubTest, SubscriberReceivesEveryEmissionWithTheIo)
 TEST_F(IOChangeHubTest, ResetUnsubscribesAndLeavesNoEntry)
 {
     int hits = 0;
-    auto sub = hub().subscribe(ID_BOOL_IN, [&hits](IOBase &) { hits++; });
+    auto sub = hub().subscribe(ID_BOOL_IN, [&hits](IOBase &)
+                               {
+        hits++;
+    });
     EXPECT_TRUE(sub.active());
     EXPECT_EQ(hub().subscriberCount(ID_BOOL_IN), 1u);
     EXPECT_EQ(hub().idCount(), 1u);
@@ -104,9 +107,18 @@ TEST_F(IOChangeHubTest, ResetUnsubscribesAndLeavesNoEntry)
 TEST_F(IOChangeHubTest, MultipleSubscribersRunInSubscriptionOrder)
 {
     std::vector<int> order;
-    auto s1 = hub().subscribe(ID_BOOL_IN, [&order](IOBase &) { order.push_back(1); });
-    auto s2 = hub().subscribe(ID_BOOL_IN, [&order](IOBase &) { order.push_back(2); });
-    auto s3 = hub().subscribe(ID_BOOL_IN, [&order](IOBase &) { order.push_back(3); });
+    auto s1 = hub().subscribe(ID_BOOL_IN, [&order](IOBase &)
+                              {
+        order.push_back(1);
+    });
+    auto s2 = hub().subscribe(ID_BOOL_IN, [&order](IOBase &)
+                              {
+        order.push_back(2);
+    });
+    auto s3 = hub().subscribe(ID_BOOL_IN, [&order](IOBase &)
+                              {
+        order.push_back(3);
+    });
     EXPECT_EQ(hub().subscriberCount(ID_BOOL_IN), 3u);
 
     io(ID_BOOL_IN)->set_value(true);
@@ -119,7 +131,10 @@ TEST_F(IOChangeHubTest, MultipleSubscribersRunInSubscriptionOrder)
 TEST_F(IOChangeHubTest, MovedSubscriptionKeepsTheCallback)
 {
     int hits = 0;
-    auto a = hub().subscribe(ID_BOOL_IN, [&hits](IOBase &) { hits++; });
+    auto a = hub().subscribe(ID_BOOL_IN, [&hits](IOBase &)
+                             {
+        hits++;
+    });
     IOChangeHub::Subscription b(std::move(a));
     EXPECT_FALSE(a.active());
     EXPECT_TRUE(b.active());
@@ -131,7 +146,9 @@ TEST_F(IOChangeHubTest, MovedSubscriptionKeepsTheCallback)
     EXPECT_EQ(hits, 1);
 
     //Assigning over a live subscription releases the old one.
-    c = hub().subscribe(ID_B, [](IOBase &) {});
+    c = hub().subscribe(ID_B, [](IOBase &)
+                        {
+                        });
     EXPECT_EQ(hub().subscriberCount(ID_BOOL_IN), 0u);
     EXPECT_EQ(hub().subscriberCount(ID_B), 1u);
     io(ID_BOOL_IN)->set_value(false);
@@ -141,7 +158,10 @@ TEST_F(IOChangeHubTest, MovedSubscriptionKeepsTheCallback)
 TEST_F(IOChangeHubTest, SubscriptionTakenBeforeTheIoExists)
 {
     int hits = 0;
-    auto sub = hub().subscribe("hub_late", [&hits](IOBase &) { hits++; });
+    auto sub = hub().subscribe("hub_late", [&hits](IOBase &)
+                               {
+        hits++;
+    });
 
     hub().notify("hub_late");
     EXPECT_EQ(hits, 0);
@@ -160,7 +180,10 @@ TEST_F(IOChangeHubTest, SubscriberDestroyedBeforeTheIo)
         IOChangeHub::Subscription sub;
         explicit Watcher(const std::string &id)
         {
-            sub = hub().subscribe(id, [this](IOBase &) { hits++; });
+            sub = hub().subscribe(id, [this](IOBase &)
+                                  {
+                hits++;
+            });
         }
     };
 
@@ -177,7 +200,10 @@ TEST_F(IOChangeHubTest, SubscriberDestroyedBeforeTheIo)
 TEST_F(IOChangeHubTest, IoDeletedBeforeTheSubscriber)
 {
     int hits = 0;
-    auto sub = hub().subscribe(ID_BOOL_IN, [&hits](IOBase &) { hits++; });
+    auto sub = hub().subscribe(ID_BOOL_IN, [&hits](IOBase &)
+                               {
+        hits++;
+    });
 
     ASSERT_TRUE(deleteIO(io(ID_BOOL_IN)));
     EXPECT_TRUE(sub.active());
@@ -202,8 +228,14 @@ TEST_F(IOChangeHubTest, DeleteIoIsRefusedDuringDispatch)
 
     bool deleted = true;
     int laterHits = 0;
-    auto deleter = hub().subscribe(ID_B, [&deleted](IOBase &io) { deleted = deleteIO(&io); });
-    auto later = hub().subscribe(ID_B, [&laterHits](IOBase &) { laterHits++; });
+    auto deleter = hub().subscribe(ID_B, [&deleted](IOBase &io)
+                                   {
+        deleted = deleteIO(&io);
+    });
+    auto later = hub().subscribe(ID_B, [&laterHits](IOBase &)
+                                 {
+        laterHits++;
+    });
 
     io(ID_BOOL_IN)->set_value(true);
 
@@ -222,7 +254,7 @@ TEST_F(IOChangeHubTest, DeletingTheCascadeOriginFromACallbackIsRefused)
 
     bool deleted = true;
     auto sub = hub().subscribe(ID_B, [&deleted](IOBase &)
-    {
+                               {
         deleted = deleteIO(io(ID_BOOL_IN));
     });
 
@@ -241,10 +273,13 @@ TEST_F(IOChangeHubTest, IoRemovedThroughDeleteIoBypassSkipsLaterSubscribers)
 
     int laterHits = 0;
     auto remover = hub().subscribe(ID_B, [](IOBase &io)
-    {
+                                   {
         EXPECT_TRUE(ListeRoom::Instance().delete_io(&io));
     });
-    auto later = hub().subscribe(ID_B, [&laterHits](IOBase &) { laterHits++; });
+    auto later = hub().subscribe(ID_B, [&laterHits](IOBase &)
+                                 {
+        laterHits++;
+    });
 
     io(ID_BOOL_IN)->set_value(true);
 
@@ -256,11 +291,14 @@ TEST_F(IOChangeHubTest, CallbackReadsTheCurrentStateNotTheQueuedWrite)
 {
     std::vector<bool> seenByB;
     auto sa = hub().subscribe(ID_BOOL_IN, [](IOBase &)
-    {
+                              {
         io(ID_B)->set_value(true);
         io(ID_B)->set_value(false);
     });
-    auto sb = hub().subscribe(ID_B, [&seenByB](IOBase &io) { seenByB.push_back(io.get_value_bool()); });
+    auto sb = hub().subscribe(ID_B, [&seenByB](IOBase &io)
+                              {
+        seenByB.push_back(io.get_value_bool());
+    });
 
     io(ID_BOOL_IN)->set_value(true);
 
@@ -285,7 +323,7 @@ TEST_F(IOChangeHubTest, CallbackWritingAnotherIoIsQueuedNotRecursive)
             if (name == "A")
                 io(ID_B)->set_value(true);
             depth--;
-        };
+            };
     };
 
     auto sa = hub().subscribe(ID_BOOL_IN, record("A"));
@@ -309,11 +347,14 @@ TEST_F(IOChangeHubTest, RulesOfATriggerRunBeforeItsCallbacks)
     std::vector<std::string> log;
     bool outSeenByA = false;
     auto sa = hub().subscribe(ID_BOOL_IN, [&](IOBase &)
-    {
+                              {
         log.push_back("A");
         outSeenByA = io(ID_BOOL_OUT)->get_value_bool();
     });
-    auto so = hub().subscribe(ID_BOOL_OUT, [&](IOBase &) { log.push_back("OUT"); });
+    auto so = hub().subscribe(ID_BOOL_OUT, [&](IOBase &)
+                              {
+        log.push_back("OUT");
+    });
 
     io(ID_BOOL_IN)->set_value(true);
 
@@ -327,17 +368,23 @@ TEST_F(IOChangeHubTest, SubscribeAndUnsubscribeDuringDispatch)
     IOChangeHub::Subscription s1, s2, s3, s4;
 
     s1 = hub().subscribe(ID_BOOL_IN, [&](IOBase &)
-    {
+                         {
         log.push_back("1");
         s2.reset();
         s1.reset(); //its own std::function is running
     });
-    s2 = hub().subscribe(ID_BOOL_IN, [&](IOBase &) { log.push_back("2"); });
+    s2 = hub().subscribe(ID_BOOL_IN, [&](IOBase &)
+                         {
+        log.push_back("2");
+    });
     s3 = hub().subscribe(ID_BOOL_IN, [&](IOBase &)
-    {
+                         {
         log.push_back("3");
         if (!s4.active())
-            s4 = hub().subscribe(ID_BOOL_IN, [&](IOBase &) { log.push_back("4"); });
+            s4 = hub().subscribe(ID_BOOL_IN, [&](IOBase &)
+                                 {
+                log.push_back("4");
+            });
     });
 
     io(ID_BOOL_IN)->set_value(true);
