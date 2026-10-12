@@ -2,11 +2,9 @@
 
 ## REPRISE — lire en premier
 
-- **État (2026-10-13)** : outillage terminé ; CORE-1 ✅ (#180), CORE-5 ✅ (#179).
-  FIX-BASE-1 (#181) approuvé, rebase sur master en cours avant merge. CORE-2 (#183) en correction
-  après revue (UAF sur les refus au chargement, device à `impl` inconnu conservé tel quel).
-  Lancés en parallèle contre les fixtures de la spec §5.3 : WEB-1, MOB-1, RUI-2 ; et T3.247
-  (préalable de DOC-1). Ensuite : CORE-3, CORE-4 et INST-1 après CORE-2.
+- **État (2026-10-13)** : socle prêt — CORE-1, CORE-2, CORE-5, FIX-BASE-1 ✅ ; clients décodent
+  le device (WEB-1, MOB-1, RUI-2 ✅) ; T3.247 ✅. En cours : CORE-3, CORE-4, INST-1, FIX-INST-4.
+  Ensuite : CLIM-1 (après CORE-4), RUI-1 (après CORE-4), INST-2/3/6.
 - **Page de suivi en ligne** : voir la ligne « Suivi » plus bas. Elle est statique : la republier
   à chaque fin de ticket.
 - T3.247 ✅ (installer#54, option « garde ») : DOC-1 peut régénérer `io_doc.json`.
