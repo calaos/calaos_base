@@ -321,8 +321,8 @@ bool    deleteIO(IOBase *io, bool modify = false,
   IO et le sort de la liste de scrutation, **sans toucher à sa propriété**. Elle est publique
   parce que `~Room()` doit l'exécuter pour chacun de ses IOs.
 - `deleteIO()` est l'enchaînement des deux, c'est-à-dire le chemin complet « l'utilisateur a
-  supprimé cet IO » de l'API JSON. Pour un `Device`, chaque IO possédé passe d'abord par
-  `deleteIO()` ; les IOs externes liés ne sont pas touchés.
+  supprimé cet IO » de l'API JSON. Pour un `Device`, chaque IO possédé est d'abord détaché
+  et détruit de la même façon ; les IOs externes liés ne sont pas touchés.
 
 > ⚠️ **`modify` ne veut pas dire « modifier la config ».** `modify = true` signifie *cet IO
 > est en cours d'édition* : dans ce cas `ListeRule::RemoveRule()` n'est **pas** appelée, donc
@@ -347,8 +347,16 @@ spec : [CALAOS_DEVICES_FEAT.md](../CALAOS_DEVICES_FEAT.md) §3 et §4.
 
 Sous-classe d'`IOBase` déclarée par `<calaos:device id type impl name>`, enfant d'une pièce.
 `type` est la famille (`climate`), `impl` choisit la classe : `IOFactory` la cherche sous la
-clé `device:<impl>`, enregistrée par `REGISTER_DEVICE(impl, Classe)`. Un `<calaos:device>`
-qui ne donne pas un `Device`, ou l'inverse, est ignoré au chargement.
+clé `device:<impl>`, enregistrée par `REGISTER_DEVICE(impl, Classe)`.
+
+- Un `<calaos:device>` que ce build ne sait pas instancier (impl inconnue ou absente) est
+  journalisé et gardé **tel quel** : sous-arbre XML brut réécrit à l'identique à la
+  sauvegarde, à sa place dans la pièce, sans IO ni enfants instanciés (cas d'un retour à une
+  version plus ancienne).
+- Un élément ordinaire qui donne un `Device` (attribut `impl`) est refusé.
+- Tout IO construit puis refusé passe par `ListeRoom::discardUnattachedIO()` : InputTime,
+  InPlageHoraire et InputAnalog s'inscrivent dans la boucle d'événements des règles dès
+  leur constructeur, et leur destructeur ne s'en retire pas.
 
 ```xml
 <calaos:device id="salon_ac" type="climate" impl="proxy" name="Clim salon">
@@ -362,7 +370,8 @@ qui ne donne pas un `Device`, ou l'inverse, est ignoré au chargement.
 - **IOs possédés** : `input`/`output`/`internal` imbriqués, créés par `IOFactory` puis
   ajoutés à la liste plate de la pièce, juste après le device. Règles, cache d'état,
   `get_home` et MCP les voient comme tout IO. Chacun porte l'id de son device
-  (`IOBase::getOwnerDevice()`, un membre et pas un param). Un device imbriqué est refusé.
+  (`IOBase::getOwnerDevice()`, un membre et pas un param). Un `<calaos:device>` imbriqué
+  n'est pas construit.
 - **Propriété** : la pièce possède tous les IOs. Le device ne garde que des ids ;
   `ownedIos()` et `linkIo()` résolvent à chaque appel. Un id en double se comporte comme
   aujourd'hui : l'IO entre dans la pièce, le premier garde l'id. Pour deux devices de même
@@ -374,8 +383,9 @@ qui ne donne pas un `Device`, ou l'inverse, est ignoré au chargement.
 - **Sauvegarde** : `Device::SaveToXml()` écrit l'élément, ses IOs possédés, ses liens puis
   ses params, dans l'ordre du fichier. `Room::SaveToXml()` saute un IO possédé tant que son
   device existe ; orphelin, il est écrit au niveau de la pièce plutôt que perdu.
-- **Suppression** : `ListeRoom::deleteIO(device)` supprime d'abord chaque IO possédé par
-  `deleteIO()`. `delete_io()` ne cascade pas.
+- **Suppression** : `ListeRoom::deleteIO(device)` détache des règles et détruit d'abord
+  chaque IO possédé, recherché à nouveau après chaque suppression, puis le device ; la passe
+  sur les auto-scénarios ne tourne qu'une fois. `delete_io()` ne cascade pas.
 
 ---
 
