@@ -150,8 +150,8 @@ CalaosEvent EventManager::create(int type, string ioId, Params p, bool logHistor
     return ev;
 }
 
-CalaosEvent EventManager::createWithObjects(int type, string ioId, Params p, Json objects,
-                                            bool logHistory)
+void EventManager::createWithObjects(int type, string ioId, Params p, Json objects,
+                                     bool logHistory)
 {
     CalaosEvent ev;
     ev.evType = type;
@@ -161,8 +161,6 @@ CalaosEvent EventManager::createWithObjects(int type, string ioId, Params p, Jso
     ev.evParams.Add("id", ioId);
 
     EventManager::Instance().appendEvent(ev);
-
-    return ev;
 }
 
 CalaosEvent::CalaosEvent()
