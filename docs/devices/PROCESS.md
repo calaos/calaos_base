@@ -46,6 +46,12 @@
 - **Merger soi-même** une fois la CI verte et la revue close, y compris dans calaos-web-app
   (dont le `CLAUDE.md` impose sinon des commits directs sur master).
 
+## Push (décidé le 2026-10-13)
+
+Toujours en HTTPS avec le jeton de `gh`, via le wrapper `/home/raoul/repos/calaos/.wt/bin/ghgit`
+(`ghgit push https://github.com/calaos/<dépôt>.git HEAD:<branche>`). L'agent SSH de la Moolticute se
+reverrouille seul et bloquait les agents.
+
 ## Environnements de build — rien ne s'installe sur la machine hôte
 
 | Dépôt | Où builder |
