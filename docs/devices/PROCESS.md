@@ -2,8 +2,9 @@
 
 ## REPRISE — lire en premier
 
-- **État (2026-10-12)** : OUT-1, OUT-2 et OUT-3 lancés en parallèle. Ensuite démarrables : CORE-1
-  et CORE-5 (après OUT-1), INST-1 (après OUT-2 et CORE-2), RUI-2 (après OUT-3 et RUI-1).
+- **État (2026-10-12)** : OUT-2 ✅ (installer#51). OUT-3 en correction après revue (remote_ui#3),
+  OUT-1 en cours, FIX-INST-0 (perte de données `months`, urgent) en cours. Ensuite démarrables :
+  CORE-1 et CORE-5 (après OUT-1), RUI-2 (après OUT-3 et RUI-1), INST-1 (après CORE-2).
 - **Page de suivi en ligne** : voir la ligne « Suivi » plus bas. Elle est statique : la republier
   à chaque fin de ticket.
 - **Bloquant connu** : DOC-1 attend T3.247 (board du refactoring), sans quoi régénérer
