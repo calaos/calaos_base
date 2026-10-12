@@ -88,7 +88,7 @@ Tout ─ VAL-1
 
 | ID | Ticket | Dépend de | Agent | Statut |
 |---|---|---|---|---|
-| WEB-1 | **Décodage.** `device?` dans les types et un guard `toDeviceInfo` qui ne lève jamais d'exception, patch dans `applyIoChanged`, fixture du mock-server avec un proxy et un thermostat. Tests Vitest sur les guards et le store. | CORE-4 | sonnet / medium | 🔨 |
+| WEB-1 | **Décodage.** `device?` dans les types et un guard `toDeviceInfo` qui ne lève jamais d'exception, patch dans `applyIoChanged`, fixture du mock-server avec un proxy et un thermostat. Tests Vitest sur les guards et le store. | CORE-4 | sonnet / medium | ✅ [#26](https://github.com/calaos/calaos-web-app/pull/26) |
 | WEB-2 | **Composant `ClimateIo`.** Entrée `climate` dans `GUI_TYPES` et `IO_COMPONENTS`, rendu piloté par les capacités (boutons de mode, consigne bornée, plage en `auto`, ventilation, badge d'action, grisé selon le mode), commande JSON par `sendSetState`, transitions du mock-server. Tests : `.spec.ts` du composant et un scénario Playwright. | WEB-1, CLIM-1 | sonnet / high / frontend-design | 📋 |
 
 ## MOB — calaos_mobile
