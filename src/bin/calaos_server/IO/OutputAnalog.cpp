@@ -51,6 +51,8 @@ OutputAnalog::OutputAnalog(Params &p):
 
     if (!get_params().Exists("log_history")) set_param("log_history", "true");
 
+    AnalogBounds::dropLegacyBounds(this);
+
     readConfig();
 
     cInfoDom("output") << "OutputAnalog::OutputAnalog(" << get_param("id") << "): Ok";

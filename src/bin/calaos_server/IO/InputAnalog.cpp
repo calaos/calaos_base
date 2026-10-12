@@ -22,6 +22,7 @@
 #include "ListeRule.h"
 #include "CalaosConfig.h"
 #include "AnalogIO.h"
+#include "AnalogBounds.h"
 
 using namespace Calaos;
 
@@ -50,6 +51,8 @@ InputAnalog::InputAnalog(Params &p):
     ioDoc->paramAdd("display_warning", _("Display a warning if value has not been updated for a long time. Default to true"), IODoc::TYPE_BOOL, false, "true");
 
     AnalogIO::commonDoc(ioDoc);
+
+    AnalogBounds::dropLegacyBounds(this);
 
     set_param("gui_type", "analog_in");
 
