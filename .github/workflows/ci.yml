@@ -88,21 +88,32 @@ jobs:
           done
 
   coverage:
-    name: Coverage report (informational)
+    name: Diff coverage
     runs-on: ubuntu-latest
     container: debian:12
-    # Non-blocking on purpose: the point is to publish the measurement, not to
-    # gate a PR on an arbitrary percentage. A broken coverage run must never
-    # hold back a change whose build & tests are green in build-and-test.
-    continue-on-error: true
+    # Blocking on pull requests only, through the "Diff coverage gate" step. On
+    # push the job stays a report: nothing there is a diff to judge, and a
+    # broken measurement must not turn master red.
+    continue-on-error: ${{ github.event_name != 'pull_request' }}
 
     steps:
+      # git before checkout, for the same reason as in format-check: without it
+      # the action downloads a tarball and the gate has no history to diff.
+      - name: Install git
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq git
+
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Trust the workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Install build dependencies
         run: |
-          apt-get update -qq
           DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
               build-essential pkg-config \
               autoconf automake libtool autopoint gettext \
@@ -110,8 +121,7 @@ jobs:
               libluajit2-5.1-dev libsqlite3-dev libssl-dev libuv1-dev \
               libpugixml-dev \
               libgtest-dev \
-              lcov \
-              git
+              lcov python3
 
       - name: Build with gcov instrumentation
         run: |
@@ -137,9 +147,9 @@ jobs:
                --ignore-errors gcov,source,graph
 
       - name: Run tests (make check)
-        # Never fail the coverage job on a test failure: build-and-test is the
-        # job that owns that verdict. Here we still want a report for whatever
-        # did run.
+        # A failing test does not fail this job: build-and-test owns that
+        # verdict. Whatever it would have executed then shows up as uncovered
+        # in the gate below, which is the honest consequence.
         run: make check || echo "make check reported failures; see the build-and-test job"
 
       - name: Generate lcov report
@@ -174,6 +184,22 @@ jobs:
 
       - name: Coverage summary
         run: lcov --summary coverage.info
+
+      # Every executable line this PR adds under src/ must have run in
+      # make check. Exclusions are LCOV_EXCL_* markers with a reason, and the
+      # step prints how many the PR adds. Run it locally the same way:
+      #   scripts/check-diff-coverage.py --info coverage.info --base origin/master
+      - name: Diff coverage gate
+        if: github.event_name == 'pull_request'
+        run: |
+          python3 scripts/check-diff-coverage.py --info coverage.info \
+              --base "origin/${{ github.base_ref }}"
+
+      - name: Diff coverage report (push)
+        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+        run: |
+          python3 scripts/check-diff-coverage.py --info coverage.info --report-only \
+              --base "${{ github.event.before }}" || true
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4

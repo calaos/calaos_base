@@ -7069,3 +7069,9 @@ core_WagoDaliAddressRange_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Analo
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#Self-test of the PR diff-coverage gate (scripts/check-diff-coverage.py).
+#Outside any `if HAVE_GTEST`: it needs python3 only, no built binary.
+TESTS += check-diff-coverage-selftest.sh
+dist_check_SCRIPTS += check-diff-coverage-selftest.sh
+EXTRA_DIST += check-diff-coverage-selftest.py
