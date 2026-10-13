@@ -495,8 +495,9 @@ spec §8.1. `impl="thermostat"` : Calaos régule.
   suivante.
 - **`evaluate()`** : appelé par `IOChangeHub` sur `current_temp` et les consignes, par une
   commande de mode, par les verrous, par un changement de ses sorties, et une fois au
-  premier tour de boucle après le chargement. Chauffe : ON sous `consigne − hysteresis`, OFF au-dessus de la consigne,
-  inchangée entre les deux, bornes comprises. Froid symétrique. `auto` : chauffe contre
+  premier tour de boucle après le chargement. Chauffe : ON sous `consigne − hysteresis`,
+  OFF au-dessus de la consigne ; entre les deux, bornes comprises, elle garde l'état de sa
+  dernière commande (pas celui d'une relecture en retard). Froid symétrique. `auto` : chauffe contre
   `target_temp_low`, froid contre `target_temp_high`. Une consigne sans valeur laisse sa
   sortie OFF. `hysteresis` vaut 0,5 par défaut.
 - **Sûreté** : `outputsAllowed()` est demandé en premier ; une sortie refusée passe OFF
@@ -515,7 +516,8 @@ spec §8.1. `impl="thermostat"` : Calaos régule.
   la relecture d'un OFF débloque une bascule sans attendre la mesure suivante. Pour
   l'autre sortie, une sortie compte comme ON tant que sa dernière commande ou sa relecture
   le dit. `action` (`off`, `idle`,
-  `heating`, `cooling`) suit les sorties et n'est écrit que s'il change.
+  `heating`, `cooling`) suit la dernière commande des sorties et n'est écrit que s'il
+  change.
 - **Réentrance** : hors marche des règles (commande, verrou), une écriture de sortie
   exécute les règles aussitôt. Si l'une d'elles change une entrée, la passe en cours
   s'arrête et recommence, sans jamais s'imbriquer.

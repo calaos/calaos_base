@@ -89,7 +89,9 @@ private:
 
     void regulate();
     bool demand(Output &out, double temp, const char *setpoint, bool cooling);
-    //ON as written by this thermostat or as reported by the IO.
+    //The state the thermostat holds: its last write, else what the IO reports.
+    bool held(Output &out);
+    //ON for the other output: as last written or as read back.
     bool isOn(Output &out);
     void switchOutput(Output &out, Output &other, bool on, uint64_t now, bool forced);
     uint64_t lockedFor(const Output &out, const Output &other, bool on, uint64_t now,

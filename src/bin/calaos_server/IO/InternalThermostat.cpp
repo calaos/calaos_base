@@ -273,7 +273,15 @@ bool InternalThermostat::demand(Output &out, double temp, const char *setpoint, 
         return true;
     if (gap < 0)
         return false;
-    return isOn(out);
+    return held(out);
+}
+
+bool InternalThermostat::held(Output &out)
+{
+    if (out.commanded)
+        return *out.commanded;
+    IOBase *io = linkIo(out.role);
+    return io && io->get_value_bool();
 }
 
 bool InternalThermostat::isOn(Output &out)
@@ -368,9 +376,9 @@ void InternalThermostat::writeAction()
         return;
 
     ClimateAction action = ClimateAction::Idle;
-    if (isOn(heat))
+    if (held(heat))
         action = ClimateAction::Heating;
-    else if (isOn(cool))
+    else if (held(cool))
         action = ClimateAction::Cooling;
     else if (mode == ClimateMode::Off)
         action = ClimateAction::Off;
