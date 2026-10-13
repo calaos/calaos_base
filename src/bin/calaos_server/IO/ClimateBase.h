@@ -90,6 +90,11 @@ public:
 protected:
     ClimateBase(Params &p);
 
+    /* Documents the command fields in IODoc (spec §11). An impl calls it from
+     * its constructor with the modes it can offer and the link its mode is
+     * written through, empty when the device stores the mode itself. */
+    void documentCommand(const vector<ClimateMode> &modes, const string &modeLink);
+
     //The current mode; false when it is not known or not a climate mode.
     virtual bool currentMode(ClimateMode &mode);
     virtual bool writeMode(ClimateMode mode);

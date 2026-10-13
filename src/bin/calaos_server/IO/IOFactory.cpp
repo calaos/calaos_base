@@ -96,6 +96,13 @@ void IOFactory::genDocIO(string docPath)
     //or colliding with real IOs, and were never deleted).
     IOBase::ScopedDocGen docScope;
 
+    //Devices are not IO types: an installer that lists the top level keys as
+    //the creatable types must not offer them. They are published apart, under
+    //"devices", by impl.
+    Json devices = Json::object();
+    string devicesMd;
+    const string devicePrefix = DEVICE_PREFIX;
+
     map<string, function<IOBase *(Params &)>> list(ioFunctionRegistry.begin(), ioFunctionRegistry.end());
     for ( auto it = list.begin(); it != list.end(); ++it )
     {
@@ -110,12 +117,24 @@ void IOFactory::genDocIO(string docPath)
         std::unique_ptr<IOBase> io(CreateIO(it->first, p));
         if (!io) continue;
         IODoc *doc = io->getDoc();
-        if (doc && !doc->isAlias(it->first.c_str()))
+        if (!doc || doc->isAlias(it->first.c_str()))
+            continue;
+
+        if (it->first.compare(0, devicePrefix.size(), devicePrefix) == 0)
         {
-            j[origNameMap[it->first]] = doc->genDocJson();
-            mdFile << doc->genDocMd(origNameMap[it->first]);
+            const string impl = origNameMap[it->first].substr(devicePrefix.size());
+            devices[impl] = doc->genDocJson();
+            devicesMd += doc->genDocMd(impl);
+            continue;
         }
+
+        j[origNameMap[it->first]] = doc->genDocJson();
+        mdFile << doc->genDocMd(origNameMap[it->first]);
     }
+
+    if (!devices.empty())
+        j["devices"] = devices;
+    mdFile << devicesMd;
 
     /* E4.1k: JSON_PRESERVE_ORDER disappears with the old dump and is NOT
      * replaced by nlohmann::ordered_json (user decision, E4.1.md Q3): the keys of this

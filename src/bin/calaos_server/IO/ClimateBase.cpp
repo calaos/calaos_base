@@ -82,6 +82,52 @@ bool nonNegative(const string &s, double &out)
 ClimateBase::ClimateBase(Params &p):
     Device(p)
 {
+    ioDoc->deviceFamilySet("climate");
+    ioDoc->paramAdd("modes", _("Comma separated modes the device offers (off, heat, cool, auto, dry, fan_only). "
+                               "Default to all of them for a proxy."),
+                    IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("fan_modes", _("Comma separated fan modes the appliance accepts. Without it every fan_mode "
+                                   "command is refused."),
+                    IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("swing_modes", _("Comma separated swing modes the appliance accepts. Without it every "
+                                     "swing_mode command is refused."),
+                    IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("min_range", _("Minimum gap in degrees between target_temp_low and target_temp_high. "
+                                   "A range closer than that is refused."),
+                    IODoc::TYPE_FLOAT, false, "0");
+    for (const char *name: { "modes", "fan_modes", "swing_modes", "min_range" })
+        ioDoc->paramInChild(name);
+}
+
+void ClimateBase::documentCommand(const vector<ClimateMode> &modes, const string &modeLink)
+{
+    vector<string> names;
+    for (ClimateMode m: modes)
+        names.push_back(modeName(m));
+
+    vector<string> modeLinks;
+    if (!modeLink.empty())
+        modeLinks.push_back(modeLink);
+
+    const string unit = DEFAULT_TEMP_UNIT;
+    const string bounds = _(" Bounds are those of the linked IO (value_min, value_max, step, unit), "
+                            "else 7 to 35 by 0.5 in °C. The effective ones are published in the "
+                            "capabilities.");
+    ioDoc->commandFieldEnum("mode", _("Operating mode. The modes an instance accepts are published in its capabilities."), names, modeLinks);
+    ioDoc->commandFieldNumber("target_temp", _("The setpoint used in heat and cool.") + bounds,
+                              DEFAULT_TEMP_MIN, DEFAULT_TEMP_MAX, DEFAULT_TEMP_STEP, unit,
+                              { "target_temp" });
+    //Both bounds of a range are needed: min_range is checked on the pair.
+    ioDoc->commandFieldNumber("target_temp_low", _("Low bound of the range used in auto.") + bounds,
+                              DEFAULT_TEMP_MIN, DEFAULT_TEMP_MAX, DEFAULT_TEMP_STEP, unit,
+                              { "target_temp_low", "target_temp_high" });
+    ioDoc->commandFieldNumber("target_temp_high", _("High bound of the range used in auto.") + bounds,
+                              DEFAULT_TEMP_MIN, DEFAULT_TEMP_MAX, DEFAULT_TEMP_STEP, unit,
+                              { "target_temp_low", "target_temp_high" });
+    ioDoc->commandFieldEnum("fan_mode", _("Fan mode, one of the fan_modes param."), {}, { "fan_mode" },
+                            "fan_modes");
+    ioDoc->commandFieldEnum("swing_mode", _("Swing mode, one of the swing_modes param."), {},
+                            { "swing_mode" }, "swing_modes");
 }
 
 const vector<ClimateMode> &ClimateBase::allModes()

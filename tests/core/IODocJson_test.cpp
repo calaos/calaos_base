@@ -83,6 +83,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <map>
 #include <memory>
 #include <vector>
 
@@ -457,6 +458,179 @@ TEST(IODocJson, NonAsciiTextIsCarriedThroughUnchanged)
 }
 
 /*******************************************************************************
+ * IODoc - the device sections
+ *
+ * A device documents its family, its link roles and the JSON command fields
+ * it accepts (spec §11). Every name and payload below is distinct, so that an
+ * exchange of two fields or two sections is red.
+ ******************************************************************************/
+
+namespace
+{
+
+IODoc deviceDoc()
+{
+    IODoc doc;
+    doc.friendlyNameSet("Dev Name");
+    doc.deviceFamilySet("fam_x");
+    doc.paramAdd("p_attr", "desc_attr", IODoc::TYPE_STRING, true);
+    doc.paramAdd("p_child", "desc_child", IODoc::TYPE_FLOAT, false, "7");
+    doc.paramInChild("p_child");
+
+    doc.linkRoleAdd("r_req", "desc_r_req", true, true);
+    doc.linkRoleAdd("r_opt", "desc_r_opt", false, false);
+
+    doc.commandFieldEnum("f_enum", "desc_f_enum", { "v_one", "v_two" }, { "r_req" });
+    doc.commandFieldEnum("f_list", "desc_f_list", {}, { "r_opt" }, "list_param");
+    doc.commandFieldNumber("f_num", "desc_f_num", -5.5, 40, 0.25, "u_unit", { "r_a", "r_b" });
+    return doc;
+}
+
+//A second impl, delegating to the real one for its document.
+IOBase *proxyInstance(Params &p)
+{
+    return IOFactory::Instance().CreateIO("device:proxy", p);
+}
+
+bool contains(const std::string &haystack, const std::string &needle)
+{
+    return haystack.find(needle) != std::string::npos;
+}
+
+} //namespace
+
+TEST(IODocJson, APlainIoCarriesNoDeviceSection)
+{
+    IODoc doc = richDoc();
+    Json j = docToJson(doc);
+
+    EXPECT_EQ(5u, j.size());
+    for (const char *key: { "family", "link_roles", "command_format", "command_fields" })
+        EXPECT_FALSE(j.contains(key)) << key;
+
+    const std::string md = doc.genDocMd("plain");
+    for (const char *heading: { "## Command of", "## Link roles of", "Device of family" })
+        EXPECT_FALSE(contains(md, heading)) << heading;
+}
+
+TEST(IODocJson, CommandFieldsAreListedInDeclarationOrderUnderTheJsonFormat)
+{
+    IODoc doc = deviceDoc();
+    Json j = docToJson(doc);
+
+    EXPECT_EQ("json", j.at("command_format").get<std::string>());
+    ASSERT_EQ(3u, j.at("command_fields").size());
+    EXPECT_EQ("f_enum", j.at("command_fields").at(0).at("name").get<std::string>());
+    EXPECT_EQ("f_list", j.at("command_fields").at(1).at("name").get<std::string>());
+    EXPECT_EQ("f_num", j.at("command_fields").at(2).at("name").get<std::string>());
+}
+
+TEST(IODocJson, AnEnumFieldListsItsValuesAndTheLinkItRequires)
+{
+    IODoc doc = deviceDoc();
+    const Json f = docToJson(doc).at("command_fields").at(0);
+
+    EXPECT_EQ(Json({ { "name", "f_enum" },
+                     { "type", "enum" },
+                     { "description", "desc_f_enum" },
+                     { "values", Json::array({ "v_one", "v_two" }) },
+                     { "requires_links", Json::array({ "r_req" }) } }),
+              f);
+}
+
+//The values of an instance dependent list live in a param: the document names
+//it, and publishes no values it cannot know.
+TEST(IODocJson, AnEnumListedByAParamNamesTheParamInsteadOfValues)
+{
+    IODoc doc = deviceDoc();
+    const Json f = docToJson(doc).at("command_fields").at(1);
+
+    EXPECT_EQ(Json({ { "name", "f_list" },
+                     { "type", "enum" },
+                     { "description", "desc_f_list" },
+                     { "values_param", "list_param" },
+                     { "requires_links", Json::array({ "r_opt" }) } }),
+              f);
+}
+
+//Unlike the parameters, which go through Params and so are strings, the
+//bounds are real JSON numbers: a client builds a spin box from them.
+TEST(IODocJson, ANumberFieldCarriesRealNumbersAndItsUnit)
+{
+    IODoc doc = deviceDoc();
+    const Json f = docToJson(doc).at("command_fields").at(2);
+
+    EXPECT_EQ(Json({ { "name", "f_num" },
+                     { "type", "number" },
+                     { "description", "desc_f_num" },
+                     { "min", -5.5 },
+                     { "max", 40 },
+                     { "step", 0.25 },
+                     { "unit", "u_unit" },
+                     { "requires_links", Json::array({ "r_a", "r_b" }) } }),
+              f);
+    for (const char *key: { "min", "max", "step" })
+        EXPECT_TRUE(f.at(key).is_number()) << key;
+}
+
+TEST(IODocJson, ADeviceDocumentsItsFamilyAndItsLinkRoles)
+{
+    IODoc doc = deviceDoc();
+    Json j = docToJson(doc);
+
+    EXPECT_EQ("fam_x", j.at("family").get<std::string>());
+    EXPECT_EQ(Json::array({ Json({ { "role", "r_req" },
+                                   { "description", "desc_r_req" },
+                                   { "required", true },
+                                   { "writable", true } }),
+                            Json({ { "role", "r_opt" },
+                                   { "description", "desc_r_opt" },
+                                   { "required", false },
+                                   { "writable", false } }) }),
+              j.at("link_roles"));
+    EXPECT_TRUE(j.at("link_roles").at(0).at("required").is_boolean());
+}
+
+TEST(IODocJson, AParamInAChildElementIsMarkedAndTheOthersAreNot)
+{
+    IODoc doc = deviceDoc();
+    Json j = docToJson(doc);
+
+    EXPECT_EQ("calaos:param", paramNamed(j, "p_child").at("storage").get<std::string>());
+    EXPECT_FALSE(paramNamed(j, "p_attr").contains("storage"));
+    //The default and the type are still those of paramAdd().
+    EXPECT_EQ("7", paramNamed(j, "p_child").at("default").get<std::string>());
+}
+
+//Marking an unknown name must not invent a parameter made of the mark alone.
+TEST(IODocJson, MarkingAnUnknownParamAddsNothing)
+{
+    IODoc doc = deviceDoc();
+    doc.paramInChild("p_unknown");
+
+    Json j = docToJson(doc);
+    EXPECT_EQ(2u, j.at("parameters").size());
+    EXPECT_TRUE(paramNamed(j, "p_unknown").is_null());
+}
+
+TEST(IODocJson, TheMarkdownListsRolesFieldsAndChildParams)
+{
+    IODoc doc = deviceDoc();
+    const std::string md = doc.genDocMd("impl_x");
+
+    EXPECT_TRUE(contains(md, "Device of family `fam_x`, impl `impl_x`."));
+    EXPECT_TRUE(contains(md, "## Link roles of Dev Name\n"));
+    EXPECT_TRUE(contains(md, "r_req | yes | yes | desc_r_req\n"));
+    EXPECT_TRUE(contains(md, "r_opt | no | no | desc_r_opt\n"));
+    EXPECT_TRUE(contains(md, "## Command of Dev Name\n"));
+    EXPECT_TRUE(contains(md, "f_enum | enum | v_one, v_two | r_req | desc_f_enum\n"));
+    EXPECT_TRUE(contains(md, "f_list | enum | values of the list_param param | r_opt | desc_f_list\n"));
+    EXPECT_TRUE(contains(md, "f_num | number | -5.5 to 40, step 0.25 u_unit | r_a, r_b | desc_f_num\n"));
+    EXPECT_TRUE(contains(md, "p_child (calaos:param) | float | no | desc_child\n"));
+    EXPECT_TRUE(contains(md, "p_attr | string | yes | desc_attr\n"));
+}
+
+/*******************************************************************************
  * IOFactory::genDocIO() - the two files on disk
  *
  * The aggregation and the write. Only the IO types whose object file is
@@ -545,6 +719,175 @@ TEST_F(IODocGenFileTest, TheTopLevelMapsEachTypeNameToItsOwnDocument)
     ASSERT_NE(nullptr, io.get());
     ASSERT_NE(nullptr, io->getDoc());
     EXPECT_EQ(docToJson(*io->getDoc()), j.at("InputTimer"));
+}
+
+//A device is not an IO type. The top level of io_doc.json is read as the list
+//of the types an IO can have, so a "device:<impl>" key there would be
+//offered as one; devices are published under "devices" instead.
+TEST_F(IODocGenFileTest, NoDeviceIsPublishedAsAnIoType)
+{
+    loadConfig();
+    IOFactory::Instance().genDoc(docDir());
+
+    Json j = Json::parse(readWholeFile(docDir() + "/io_doc.json"));
+    for (auto it = j.begin(); it != j.end(); ++it)
+    {
+        EXPECT_NE(0u, it.key().rfind("device:", 0)) << it.key();
+        EXPECT_NE("proxy", it.key());
+    }
+    ASSERT_TRUE(j.contains("devices")) << "the proxy is linked into this binary";
+    EXPECT_TRUE(j.at("devices").is_object());
+    EXPECT_TRUE(j.at("devices").contains("proxy"));
+    EXPECT_FALSE(j.at("devices").contains("device:proxy"));
+    EXPECT_FALSE(j.at("devices").at("proxy").contains("devices"));
+}
+
+TEST_F(IODocGenFileTest, TheMarkdownDoesNotNameADeviceByItsRegistryKey)
+{
+    loadConfig();
+    IOFactory::Instance().genDoc(docDir());
+
+    const std::string md = readWholeFile(docDir() + "/io_doc.md");
+    EXPECT_FALSE(contains(md, "device:proxy"));
+    EXPECT_TRUE(contains(md, "# Climate proxy\n"));
+    EXPECT_TRUE(contains(md, "Device of family `climate`, impl `proxy`."));
+}
+
+//The "devices" entry is what the device itself documents, and the markdown of
+//the devices comes after those of the IO types.
+TEST_F(IODocGenFileTest, TheProxyIsDocumentedUnderDevicesByItsImpl)
+{
+    loadConfig();
+    IOFactory::Instance().genDoc(docDir());
+
+    Json j = Json::parse(readWholeFile(docDir() + "/io_doc.json"));
+    const Json &proxy = j.at("devices").at("proxy");
+
+    Params p;
+    p.Add("type", "device:proxy");
+    p.Add("id", "doc");
+    IOBase::ScopedDocGen docScope;
+    std::unique_ptr<IOBase> io(IOFactory::Instance().CreateIO("device:proxy", p));
+    ASSERT_NE(nullptr, io.get());
+    EXPECT_EQ(docToJson(*io->getDoc()), proxy);
+
+    Params tp;
+    tp.Add("type", "InputTimer");
+    tp.Add("id", "doc");
+    std::unique_ptr<IOBase> timer(IOFactory::Instance().CreateIO("inputtimer", tp));
+    ASSERT_NE(nullptr, timer.get());
+
+    const std::string md = readWholeFile(docDir() + "/io_doc.md");
+    const size_t at = md.find(io->getDoc()->genDocMd("proxy"));
+    const size_t timerAt = md.find(timer->getDoc()->genDocMd("InputTimer"));
+    ASSERT_NE(std::string::npos, at);
+    ASSERT_NE(std::string::npos, timerAt);
+    EXPECT_LT(timerAt, at);
+}
+
+//The impl is published as it was registered, without the registry prefix.
+TEST_F(IODocGenFileTest, AnImplKeepsItsSpellingUnderDevices)
+{
+    loadConfig();
+    IOFactory::Instance().RegisterClass("device:SynthImpl", &proxyInstance);
+
+    IOFactory::Instance().genDoc(docDir());
+    Json j = Json::parse(readWholeFile(docDir() + "/io_doc.json"));
+
+    EXPECT_TRUE(j.at("devices").contains("SynthImpl"));
+    EXPECT_FALSE(j.contains("SynthImpl"));
+    EXPECT_FALSE(j.contains("device:SynthImpl"));
+    EXPECT_TRUE(contains(readWholeFile(docDir() + "/io_doc.md"), "impl `SynthImpl`."));
+}
+
+//What the installer's rule form is built from: the fields, in order, and the
+//roles they need.
+TEST_F(IODocGenFileTest, TheProxyDocumentsItsCommandAndItsLinks)
+{
+    loadConfig();
+    IOFactory::Instance().genDoc(docDir());
+
+    Json j = Json::parse(readWholeFile(docDir() + "/io_doc.json"));
+    const Json &proxy = j.at("devices").at("proxy");
+
+    EXPECT_EQ("climate", proxy.at("family").get<std::string>());
+    EXPECT_EQ("json", proxy.at("command_format").get<std::string>());
+
+    std::vector<std::string> names;
+    for (const Json &f: proxy.at("command_fields"))
+        names.push_back(f.at("name").get<std::string>());
+    EXPECT_EQ((std::vector<std::string>{ "mode", "target_temp", "target_temp_low",
+                                         "target_temp_high", "fan_mode", "swing_mode" }),
+              names);
+
+    const Json &fields = proxy.at("command_fields");
+    EXPECT_EQ(Json::array({ "off", "heat", "cool", "auto", "dry", "fan_only" }),
+              fields.at(0).at("values"));
+    EXPECT_EQ(Json::array({ "mode" }), fields.at(0).at("requires_links"));
+    EXPECT_EQ(Json::array({ "target_temp" }), fields.at(1).at("requires_links"));
+    EXPECT_EQ(Json::array({ "target_temp_low", "target_temp_high" }), fields.at(2).at("requires_links"));
+    EXPECT_EQ(Json::array({ "target_temp_low", "target_temp_high" }), fields.at(3).at("requires_links"));
+    EXPECT_EQ("fan_modes", fields.at(4).at("values_param").get<std::string>());
+    EXPECT_EQ("swing_modes", fields.at(5).at("values_param").get<std::string>());
+    for (int i: { 1, 2, 3 })
+    {
+        EXPECT_EQ(7, fields.at(i).at("min").get<double>());
+        EXPECT_EQ(35, fields.at(i).at("max").get<double>());
+        EXPECT_EQ(0.5, fields.at(i).at("step").get<double>());
+        EXPECT_EQ(std::string("\xc2\xb0") + "C", fields.at(i).at("unit").get<std::string>());
+    }
+
+    //Only the mode is required: the others are capabilities that follow the links.
+    std::map<std::string, std::pair<bool, bool>> roles;
+    for (const Json &r: proxy.at("link_roles"))
+        roles[r.at("role").get<std::string>()] = { r.at("required").get<bool>(),
+                                                   r.at("writable").get<bool>() };
+    const std::map<std::string, std::pair<bool, bool>> expected = {
+        { "mode", { true, true } },
+        { "current_temp", { false, false } },
+        { "target_temp", { false, true } },
+        { "target_temp_low", { false, true } },
+        { "target_temp_high", { false, true } },
+        { "action", { false, false } },
+        { "fan_mode", { false, true } },
+        { "swing_mode", { false, true } },
+        { "remote_temp", { false, true } },
+        { "remote_temp_source", { false, false } },
+    };
+    EXPECT_EQ(expected, roles);
+}
+
+TEST_F(IODocGenFileTest, TheProxyDocumentsItsParams)
+{
+    loadConfig();
+    IOFactory::Instance().genDoc(docDir());
+
+    Json j = Json::parse(readWholeFile(docDir() + "/io_doc.json"));
+    const Json &proxy = j.at("devices").at("proxy");
+
+    const Json keepalive = paramNamed(proxy, "remote_temp_keepalive");
+    EXPECT_EQ("120", keepalive.at("default").get<std::string>());
+    EXPECT_EQ("float", keepalive.at("type").get<std::string>());
+    EXPECT_EQ("false", keepalive.at("mandatory").get<std::string>());
+    EXPECT_EQ("calaos:param", keepalive.at("storage").get<std::string>());
+
+    const Json hold = paramNamed(proxy, "readback_hold");
+    EXPECT_EQ("10", hold.at("default").get<std::string>());
+    EXPECT_EQ("calaos:param", hold.at("storage").get<std::string>());
+
+    const Json payload = paramNamed(proxy, "auto_payload");
+    EXPECT_EQ("list", payload.at("type").get<std::string>());
+    EXPECT_EQ("false", payload.at("mandatory").get<std::string>());
+    EXPECT_EQ(Json({ { "auto", "auto" }, { "heat_cool", "heat_cool" } }), payload.at("list_value"));
+    EXPECT_EQ("calaos:param", payload.at("storage").get<std::string>());
+
+    for (const char *name: { "modes", "fan_modes", "swing_modes", "min_range" })
+        EXPECT_EQ("calaos:param", paramNamed(proxy, name).at("storage").get<std::string>()) << name;
+
+    //The attributes of the element are not children.
+    for (const char *name: { "id", "name", "impl" })
+        EXPECT_FALSE(paramNamed(proxy, name).contains("storage")) << name;
+    EXPECT_EQ("true", paramNamed(proxy, "impl").at("mandatory").get<std::string>());
 }
 
 //io_doc.json is pretty printed with an indent of FOUR spaces. jansson was

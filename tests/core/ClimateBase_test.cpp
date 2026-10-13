@@ -58,6 +58,7 @@ public:
     TestThermostat(Params &p):
         ClimateBase(p)
     {
+        documentCommand({ ClimateMode::Off, ClimateMode::Heat }, "");
     }
 
     vector<ClimateMode> supportedModes() override
@@ -880,4 +881,65 @@ TEST_F(ClimateBaseTest, ASensorRestoredFromTheCacheIsKnown)
 
     forgetIOState("cached_temp");
     forgetIOState("uncached_temp");
+}
+
+namespace
+{
+
+Json documentOf(const std::string &impl)
+{
+    Params p;
+    p.Add("type", "device:" + impl);
+    p.Add("id", "doc");
+    IOBase::ScopedDocGen docScope;
+    std::unique_ptr<IOBase> io(IOFactory::Instance().CreateIO("device:" + impl, p));
+    return io->getDoc()->genDocJson();
+}
+
+Json fieldOf(const Json &doc, const std::string &name)
+{
+    for (const Json &f: doc.at("command_fields"))
+    {
+        if (f.at("name") == name)
+            return f;
+    }
+    return Json();
+}
+
+} //namespace
+
+//The base documents what every climate impl shares, and nothing about the
+//command until the impl says which modes it offers.
+TEST_F(ClimateBaseTest, TheFamilyAndItsParamsAreDocumentedByTheBase)
+{
+    const Json doc = documentOf("test_climate");
+
+    EXPECT_EQ("climate", doc.at("family").get<std::string>());
+    EXPECT_FALSE(doc.contains("command_format"));
+    EXPECT_FALSE(doc.contains("command_fields"));
+    for (const Json &p: doc.at("parameters"))
+    {
+        const std::string name = p.at("name").get<std::string>();
+        const bool shared = name == "modes" || name == "fan_modes" || name == "swing_modes" ||
+                            name == "min_range";
+        EXPECT_EQ(shared, p.contains("storage")) << name;
+    }
+}
+
+//The thermostat will store its mode: no link to require, and the modes its
+//outputs allow. The other fields follow the links like a proxy's.
+TEST_F(ClimateBaseTest, AnImplThatStoresItsModeDocumentsItWithoutALink)
+{
+    const Json doc = documentOf("test_thermostat");
+
+    EXPECT_EQ("json", doc.at("command_format").get<std::string>());
+    EXPECT_EQ(Json::array({ "off", "heat" }), fieldOf(doc, "mode").at("values"));
+    EXPECT_EQ(Json::array(), fieldOf(doc, "mode").at("requires_links"));
+    EXPECT_EQ(Json::array({ "target_temp" }), fieldOf(doc, "target_temp").at("requires_links"));
+
+    //Documented without a link, and accepted without one.
+    ClimateBase *th = ListeRoom::Instance().findIOAs<ClimateBase>("thermo_heat");
+    ASSERT_NE(nullptr, th);
+    EXPECT_FALSE(th->linkIo("mode"));
+    EXPECT_TRUE(th->set_value(std::string(R"({"mode":"heat"})")));
 }

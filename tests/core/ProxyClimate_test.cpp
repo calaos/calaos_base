@@ -31,6 +31,8 @@
 
 #include <chrono>
 #include <functional>
+#include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -286,6 +288,9 @@ std::string house()
              param("min_range", "2") + param("remote_temp_keepalive", "0.05");
     salon += device("ro_all", roAll);
 
+    //Setpoint IO without bounds: the documented defaults apply.
+    salon += device("dflt", out("dflt_target") + link("target_temp", "dflt_target"));
+
     //A range whose high bound is on an input.
     salon += device("ro_half", out("ro_half_low", BOUNDS_10_30) + inAccepting("ro_half_high") +
                                    link("target_temp_low", "ro_half_low") +
@@ -322,6 +327,16 @@ void pumpLoopFor(int ms)
 Json parse(const char *s)
 {
     return Json::parse(s);
+}
+
+Json documentation()
+{
+    Params p;
+    p.Add("type", "device:proxy");
+    p.Add("id", "doc");
+    IOBase::ScopedDocGen docScope;
+    std::unique_ptr<IOBase> io(IOFactory::Instance().CreateIO("device:proxy", p));
+    return io->getDoc()->genDocJson();
 }
 
 } //namespace
@@ -818,4 +833,76 @@ TEST_F(ProxyClimateTest, NothingIsRelayedToAnInput)
     pumpLoopFor(200);
     EXPECT_TRUE(writes().empty());
     EXPECT_FALSE(caps("r_ro").contains("remote_temp"));
+}
+
+/* The document is what the installer builds its form from: a field it lists
+ * for an instance must be accepted by that instance, and one whose links are
+ * missing must not be. */
+TEST_F(ProxyClimateTest, TheDocumentedFieldsAreAcceptedExactlyWhenTheirLinksExist)
+{
+    const Json doc = documentation();
+    const std::map<std::string, std::string> samples = {
+        { "mode", R"({"mode":"heat"})" },
+        { "target_temp", R"({"target_temp":21})" },
+        { "target_temp_low", R"({"target_temp_low":14,"target_temp_high":24})" },
+        { "target_temp_high", R"({"target_temp_low":14,"target_temp_high":24})" },
+        { "fan_mode", R"({"fan_mode":"auto"})" },
+        { "swing_mode", R"({"swing_mode":"off"})" },
+    };
+
+    ASSERT_EQ(samples.size(), doc.at("command_fields").size());
+    for (const std::string id: { "ac", "mm_a", "rg", "dflt" })
+    {
+        for (const Json &field: doc.at("command_fields"))
+        {
+            const std::string name = field.at("name").get<std::string>();
+            ASSERT_TRUE(samples.count(name)) << "no sample for the documented field " << name;
+
+            bool linked = true;
+            for (const Json &role: field.at("requires_links"))
+                linked = linked && dev(id)->linkIo(role.get<std::string>());
+
+            writes().clear();
+            EXPECT_EQ(linked, cmd(id, samples.at(name))) << id << " " << name;
+        }
+    }
+
+    //An instance dependent list is held by the param the document names.
+    EXPECT_TRUE(dev("ac")->hasDeviceParam("fan_modes"));
+    EXPECT_TRUE(dev("ac")->hasDeviceParam("swing_modes"));
+}
+
+TEST_F(ProxyClimateTest, EveryDocumentedModeIsWrittenByName)
+{
+    const Json mode = documentation().at("command_fields").at(0);
+    ASSERT_EQ("mode", mode.at("name").get<std::string>());
+
+    for (const Json &value: mode.at("values"))
+    {
+        writes().clear();
+        const std::string name = value.get<std::string>();
+        EXPECT_TRUE(cmd("mm_a", R"({"mode":")" + name + R"("})")) << name;
+        EXPECT_EQ(name == "auto" ? "heat_cool" : name, lastText("mm_a_cmd"));
+    }
+}
+
+//The bounds of the document are those enforced when the setpoint IO sets none.
+TEST_F(ProxyClimateTest, TheDocumentedBoundsAreTheDefaultsOfASetpointWithoutBounds)
+{
+    const Json field = documentation().at("command_fields").at(1);
+    ASSERT_EQ("target_temp", field.at("name").get<std::string>());
+
+    EXPECT_EQ(Json({ { "min", field.at("min") },
+                     { "max", field.at("max") },
+                     { "step", field.at("step") },
+                     { "unit", field.at("unit") } }),
+              caps("dflt").at("target_temp"));
+
+    EXPECT_TRUE(cmd("dflt", R"({"target_temp":100})"));
+    EXPECT_TRUE(cmd("dflt", R"({"target_temp":-5})"));
+    EXPECT_TRUE(cmd("dflt", R"({"target_temp":20.26})"));
+    ASSERT_EQ(3u, writesTo("dflt_target").size());
+    EXPECT_DOUBLE_EQ(field.at("max").get<double>(), writesTo("dflt_target")[0].number);
+    EXPECT_DOUBLE_EQ(field.at("min").get<double>(), writesTo("dflt_target")[1].number);
+    EXPECT_DOUBLE_EQ(20.5, writesTo("dflt_target")[2].number);
 }
