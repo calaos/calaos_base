@@ -34,6 +34,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#include <array>
 #include <cstring>
 #include <map>
 #include <string>
@@ -265,10 +266,22 @@ TEST_F(MqttSubscriptionLifetimeTest, StatusTopicsOfADeletedIoAreDropped)
     ASSERT_NE(nullptr, gone);
     ASSERT_NE(nullptr, witness);
 
-    brokerSays("t/st/battery", "42", [&]()
-               {
-        return gone->getStatusInfo().Exists("battery_level");
-    });
+    //Every status topic reaches the live IO.
+    // clang-format off
+    const std::vector<std::array<std::string, 3>> live = {
+        {"t/st/battery", "42", "battery_level"},
+        {"t/st/online", "true", "connected"},
+        {"t/st/rssi", "60", "wireless_signal"},
+        {"t/st/uptime", "100", "uptime"},
+        {"t/st/ip", "10.0.0.1", "ip_address"},
+        {"t/st/ssid", "home", "wifi_ssid"}
+    };
+    // clang-format on
+    for (const auto &m: live)
+        brokerSays(m[0], m[1], [&]()
+                   {
+            return gone->getStatusInfo().Exists(m[2]);
+        });
 
     const char *const topics[] = { "t/st/state", "t/st/battery", "t/st/online", "t/st/rssi",
                                    "t/st/uptime", "t/st/ip", "t/st/ssid" };
