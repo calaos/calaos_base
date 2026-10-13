@@ -70,6 +70,9 @@ reverrouille seul et bloquait les agents.
 - **`tests/Makefile.am`** : deux branches qui ajoutent chacune un bloc `if HAVE_GTEST` en fin de
   fichier partagent le même `endif` final. Après un rebase, régénérer la queue du fichier et
   recompter les `if`/`endif`. Le détail est dans `docs/refactoring/ORCHESTRATION.md`.
+- **CI qui ne démarre pas** : une PR en conflit avec la branche cible ne déclenche aucun workflow
+  `pull_request` (GitHub ne peut pas calculer le commit de merge). Vérifier `mergeable` avant de
+  pousser un commit vide.
 - **`gh pr checks`** : le hook rtk réécrit sa sortie et son résumé peut être faux (« 131 passed /
   41 pending » pour 4 checks). Lire le statut réel avec `rtk proxy gh pr checks <n>`.
 - **Spec** : un écart découvert pendant l'implémentation est remonté à l'utilisateur, pas contourné
