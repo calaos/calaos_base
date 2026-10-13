@@ -46,6 +46,9 @@ public:
     vector<ClimateMode> supportedModes() override;
 
     static constexpr double DEFAULT_HYSTERESIS = 0.5;
+    //Seconds between two put-backs of an output something else keeps switching.
+    static constexpr double DEFAULT_PUT_BACK_DELAY = 1;
+    static constexpr double DEFAULT_PUT_BACK_DELAY_MAX = 60;
     //Values of the setpoint IOs recreated when the file lost them.
     static constexpr double DEFAULT_TARGET = 20;
     static constexpr double DEFAULT_LOW = 19;
@@ -76,11 +79,25 @@ private:
     struct Output
     {
         const char *role;
-        //The last state written successfully, else the first one read back.
-        std::optional<bool> commanded;
-        //Loop time (ms) of the last switches, the start of the lock-outs.
-        std::optional<uint64_t> onAt;
-        std::optional<uint64_t> offAt;
+
+        //Copied whole, to be undone when the IO refuses a write.
+        struct State
+        {
+            /* The last state written successfully, else what something else
+             * switched it to, else the first one read back. */
+            std::optional<bool> commanded;
+            //Loop time (ms) of the last switches, the start of the lock-outs.
+            std::optional<uint64_t> onAt;
+            std::optional<uint64_t> offAt;
+            //commanded was set by something else: switching back is a put-back.
+            bool foreign = false;
+            //The last put-back was undone within its spacing.
+            bool fighting = false;
+            std::optional<uint64_t> putBackAt;
+            uint64_t spacingMs = 0;
+        } st;
+
+        bool warned = false;
         //Re-runs evaluate() once a deferred switch is allowed.
         std::unique_ptr<Timer> lockout;
     };
@@ -89,6 +106,8 @@ private:
     void recreateOwnedIos();
     void restoreMode();
 
+    void evaluateSoon();
+    void noticeOutput(Output &out, IOBase &io);
     void regulate();
     bool demand(Output &out, double temp, const char *setpoint, bool cooling);
     //The state the thermostat holds: its last write, else what the IO reports.
@@ -104,6 +123,8 @@ private:
     double hysteresis = DEFAULT_HYSTERESIS;
     uint64_t minOnMs = 0;
     uint64_t minOffMs = 0;
+    uint64_t putBackMs = 0;
+    uint64_t putBackMaxMs = 0;
 
     Output heat{ "output_heat" };
     Output cool{ "output_cool" };

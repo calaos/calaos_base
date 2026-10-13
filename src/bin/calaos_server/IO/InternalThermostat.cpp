@@ -42,6 +42,14 @@ uint64_t toMs(double seconds)
     return static_cast<uint64_t>(std::llround(std::min(seconds, 1e9) * 1000));
 }
 
+//The loop clock the timers use, refreshed: outside a loop turn it lags.
+uint64_t loopNow()
+{
+    auto loop = uvw::Loop::getDefault();
+    loop->update();
+    return loop->now().count();
+}
+
 } //namespace
 
 InternalThermostat::InternalThermostat(Params &p):
@@ -54,6 +62,9 @@ void InternalThermostat::resolveLinks()
     hysteresis = nonNegativeParam("hysteresis", DEFAULT_HYSTERESIS);
     minOnMs = toMs(nonNegativeParam("min_on_time", 0));
     minOffMs = toMs(nonNegativeParam("min_off_time", 0));
+    putBackMs = toMs(nonNegativeParam("put_back_delay", DEFAULT_PUT_BACK_DELAY));
+    putBackMaxMs = std::max(putBackMs, toMs(nonNegativeParam("put_back_delay_max",
+                                                             DEFAULT_PUT_BACK_DELAY_MAX)));
 
     recreateOwnedIos();
     //Before the base records the scalar: a restored mode is not a change.
@@ -74,30 +85,19 @@ void InternalThermostat::resolveLinks()
     {
         evaluate();
     };
-    /* An output moved: put it back, or go on with a changeover once its
-     * read-back caught up. On the next loop turn and not in the callback: a
-     * rule rewriting the output on its change would otherwise spin with the
-     * thermostat inside one rule march. */
-    auto outputChanged = [this](IOBase &)
-    {
-        if (outputsMoved)
-            return;
-        auto run = [this]()
-        {
-            InternalThermostat *self = this;
-            //A Timer repeats: drop it, which its own slot may do.
-            outputsMoved.reset();
-            self->evaluate();
-        };
-        //Not 0: libuv runs a timer re-armed at 0 from a timer callback again
-        //in the same pass, where that fight would spin just the same.
-        outputsMoved = std::make_unique<Timer>(0.001, run);
-    };
     //By id, as the links themselves.
     for (const Link &l: getLinks())
     {
-        if (l.name == heat.role || l.name == cool.role)
+        Output *out = l.name == heat.role ? &heat : l.name == cool.role ? &cool : nullptr;
+        if (out)
+        {
+            auto outputChanged = [this, out](IOBase &io)
+            {
+                noticeOutput(*out, io);
+                evaluateSoon();
+            };
             triggers.push_back(IOChangeHub::Instance().subscribe(l.io, outputChanged));
+        }
         else if (l.name == "current_temp" || l.name == "target_temp" || l.name == LOW ||
                  l.name == HIGH)
             triggers.push_back(IOChangeHub::Instance().subscribe(l.io, inputChanged));
@@ -239,6 +239,52 @@ void InternalThermostat::evaluate()
     evaluating = false;
 }
 
+/* Once the rule march that moved an output is over: put the output back, or
+ * go on with a changeover once its read-back caught up. Not at 0: libuv runs
+ * a timer re-armed at 0 from a timer callback again in the same pass. */
+void InternalThermostat::evaluateSoon()
+{
+    if (outputsMoved)
+        return;
+    auto run = [this]()
+    {
+        InternalThermostat *self = this;
+        //A Timer repeats: drop it, which its own slot may do.
+        outputsMoved.reset();
+        self->evaluate();
+    };
+    outputsMoved = std::make_unique<Timer>(0.001, run);
+}
+
+/* The output now reads something else than what the thermostat holds, and
+ * its own writes and read-backs never do: something else switched it. That
+ * counts as a switch, so putting it back waits for the lock-out it started;
+ * a put-back undone within its spacing doubles the spacing of the next one. */
+void InternalThermostat::noticeOutput(Output &out, IOBase &io)
+{
+    Output::State &st = out.st;
+    if (!st.commanded || !io.hasValue() || io.get_value_bool() == *st.commanded)
+        return;
+
+    const bool v = io.get_value_bool();
+    const uint64_t now = loopNow();
+    st.fighting = st.putBackAt && now - *st.putBackAt <= st.spacingMs;
+    if (!st.fighting)
+        st.spacingMs = putBackMs;
+    (v ? st.onAt : st.offAt) = now;
+    st.commanded = v;
+    st.foreign = true;
+
+    if (!out.warned)
+    {
+        out.warned = true;
+        cWarningDom("device") << "Device(" << get_param("id") << "): " << out.role << " '"
+                              << io.get_param("id") << "' was switched by something else; it is "
+                              << "put back after its lock-outs, less and less often while "
+                              << "that goes on";
+    }
+}
+
 void InternalThermostat::regulate()
 {
     OutputPair allowed = outputsAllowed();
@@ -261,9 +307,7 @@ void InternalThermostat::regulate()
     const OutputPair forced{ mode == ClimateMode::Off || !allowed.heat,
                              mode == ClimateMode::Off || !allowed.cool };
 
-    auto loop = uvw::Loop::getDefault();
-    loop->update();
-    const uint64_t now = loop->now().count();
+    const uint64_t now = loopNow();
 
     //Every OFF before any ON, so that a changeover sees the other one off.
     for (bool on: { false, true })
@@ -301,8 +345,8 @@ bool InternalThermostat::demand(Output &out, double temp, const char *setpoint, 
 
 bool InternalThermostat::held(Output &out)
 {
-    if (out.commanded)
-        return *out.commanded;
+    if (out.st.commanded)
+        return *out.st.commanded;
     IOBase *io = linkIo(out.role);
     return io && io->get_value_bool();
 }
@@ -310,12 +354,12 @@ bool InternalThermostat::held(Output &out)
 bool InternalThermostat::isOn(Output &out)
 {
     IOBase *io = linkIo(out.role);
-    return (io && io->get_value_bool()) || out.commanded.value_or(false);
+    return (io && io->get_value_bool()) || out.st.commanded.value_or(false);
 }
 
 /* Written unless the last write and the IO's read-back, when it has one,
- * both say `on` already: a value changed behind the thermostat's back is put
- * back, and an output whose read-back lags its write still counts as ON. */
+ * both say `on` already: an output whose read-back lags its write still
+ * counts as ON. */
 void InternalThermostat::switchOutput(Output &out, Output &other, bool on, uint64_t now,
                                       bool forced)
 {
@@ -323,10 +367,11 @@ void InternalThermostat::switchOutput(Output &out, Output &other, bool on, uint6
     if (!io)
         return;
 
-    if (!out.commanded && io->hasValue())
-        out.commanded = io->get_value_bool();
+    Output::State &st = out.st;
+    if (!st.commanded && io->hasValue())
+        st.commanded = io->get_value_bool();
     const bool ioAgrees = !io->hasValue() || io->get_value_bool() == on;
-    if (out.commanded == on && ioAgrees)
+    if (st.commanded == on && ioAgrees)
     {
         out.lockout.reset();
         return;
@@ -339,12 +384,15 @@ void InternalThermostat::switchOutput(Output &out, Output &other, bool on, uint6
         return;
     }
 
-    //Putting back a value changed behind the thermostat is not a switch: no
-    //lock-out, and its clock keeps the thermostat's own last switch.
-    const bool transition = out.commanded.value_or(false) != on;
+    const bool transition = st.commanded.value_or(false) != on;
+    //Switching back what something else switched.
+    const bool putBack = transition && st.foreign;
     if (transition)
     {
-        const uint64_t wait = lockedFor(out, other, on, now, forced);
+        //A stop asked for, needed for safety, or with both ON waits for no lock-out.
+        uint64_t wait = lockedFor(out, other, on, now, forced || (!on && isOn(other)));
+        if (putBack && st.putBackAt && *st.putBackAt + st.spacingMs > now)
+            wait = std::max(wait, *st.putBackAt + st.spacingMs - now);
         if (wait > 0)
         {
             Output *o = &out;
@@ -361,17 +409,26 @@ void InternalThermostat::switchOutput(Output &out, Output &other, bool on, uint6
     }
 
     out.lockout.reset();
-    //A refused write changed nothing: neither the state held nor its clock.
+    //Recorded before the write, so that what its rules do to the output is
+    //noticed against it; undone if the IO refuses the write.
+    const Output::State before = st;
+    if (transition)
+        (on ? st.onAt : st.offAt) = now;
+    if (putBack)
+    {
+        if (st.fighting)
+            st.spacingMs = std::min(st.spacingMs * 2, putBackMaxMs);
+        st.putBackAt = now;
+    }
+    st.foreign = false;
+    st.commanded = on;
     if (!io->set_value(on))
     {
+        st = before;
         cErrorDom("device") << "Device(" << get_param("id") << "): " << out.role << " '"
                             << io->get_param("id") << "' refused to switch "
                             << (on ? "ON" : "OFF");
-        return;
     }
-    if (transition)
-        (on ? out.onAt : out.offAt) = now;
-    out.commanded = on;
 }
 
 //ms before `out` may switch to `on`; a changeover also waits for the other
@@ -388,11 +445,11 @@ uint64_t InternalThermostat::lockedFor(const Output &out, const Output &other, b
 
     if (on)
     {
-        after(out.offAt, minOffMs);
-        after(other.offAt, minOffMs);
+        after(out.st.offAt, minOffMs);
+        after(other.st.offAt, minOffMs);
     }
     else if (!forced)
-        after(out.onAt, minOnMs);
+        after(out.st.onAt, minOnMs);
 
     return until > now ? until - now : 0;
 }
