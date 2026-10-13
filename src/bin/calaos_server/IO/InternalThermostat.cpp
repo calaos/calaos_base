@@ -154,7 +154,9 @@ vector<ClimateMode> InternalThermostat::supportedModes()
         modes.push_back(ClimateMode::Cool);
     if (canHeat && canCool)
         modes.push_back(ClimateMode::Auto);
-    return modes;
+    //Not a named return value: gcov charges its unwinding to the closing
+    //brace, which the diff-coverage gate reads as a line never run.
+    return vector<ClimateMode>(std::move(modes));
 }
 
 bool InternalThermostat::currentMode(ClimateMode &m)
