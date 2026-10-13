@@ -685,7 +685,8 @@ contient le JSON :
 **Publication dans `get_home`.** L'item du device porte `state` (son scalaire : le mode,
 celui que voient les règles), `gui_type` = la famille (`climate`) et un objet `device` ;
 c'est le seul objet typé d'un item, ses nombres et booléens sont de vrais types JSON. Il est
-aussi présent dans `get_io`, pas dans la configuration des écrans RemoteUI. Les IOs possédés restent des items ordinaires (`visible="false"`), sans objet
+aussi présent dans `get_io`, pas dans la configuration des écrans RemoteUI. Les IOs possédés
+restent des items ordinaires (`visible="false"`), sans objet
 `device`. Extrait capturé, `tests/core/golden/core4_http_get_home_device.json` (device de
 test) :
 ```json
@@ -734,6 +735,34 @@ chaînes (`id`, `state`) ; le JSON brut de l'historique (si `log_history`) conti
 Le changement du scalaire d'un device (son mode) déclenche aussi ses règles, comme pour tout
 IO : une condition « `clim` == `heat` » est évaluée dès que le mode change, qu'il vienne d'une
 commande ou du lien `mode`.
+
+**Famille `climate`** (`ClimateBase`, spec §6). Capacités, chacune présente seulement si son
+lien existe :
+
+- `modes` : lien `mode`, liste restreinte par le param `modes` (sinon les six) ;
+- `target_temp` : `min`/`max`/`step`/`unit` lus sur l'IO écrit par le lien (son `command_io`,
+  sinon son `io`), à défaut 7, 35, 0.5 et `°C`. Sans lien `target_temp` mais avec une plage,
+  l'objet vient des IOs de la plage (`min` de low, `max` de high) ; avec une plage, il porte
+  aussi `min_range` ;
+- `target_temp_range` : liens `target_temp_low` **et** `_high` (reste un booléen) ;
+- `reports_action` : lien `action` ;
+- `fan_modes` / `swing_modes` : liste du param du même nom, séparée par des virgules ;
+- `remote_temp` : liens `remote_temp` **et** `remote_temp_source`.
+
+L'état porte `mode`, `current_temp`, `target_temp`, `target_temp_low`/`_high`, `action`,
+`fan_mode`, `swing_mode`. Un nombre n'y figure qu'une fois que l'IO lié a reçu une valeur
+(`IOBase::hasValue()` : un changement signalé, ou une valeur sauvegardée restaurée), pour ne
+jamais publier le 0 d'un capteur pas encore lu. Un mode ou une action inconnus (`heat_cool`),
+un `fan_mode`/`swing_mode` hors de sa liste ou vide sont omis plutôt que relayés.
+
+Le scalaire (§5.1) est le mode : une chaîne vide signifie **mode inconnu** (lien `mode` qui n'a
+rien reçu ou valeur hors énumération), et c'est `""` que voient alors les règles.
+
+`target_temp_low` et `target_temp_high` sont validés **ensemble**, l'absent pris dans l'état
+courant (refusé s'il n'a encore rien reçu) : si `high - low` est inférieur au param
+`min_range` (0 par défaut), la paire est refusée **entière** et journalisée, les autres champs
+de la commande s'appliquent quand même. Une écriture refusée par l'IO lié (entrée, IO en
+lecture seule) est journalisée avec la raison « the linked IO refused the value ».
 
 ### `get_playlist`
 

@@ -70,6 +70,8 @@ private:
 
     std::string ownerDevice;
 
+    bool valueKnown = false;
+
     //When true, newly constructed IOBase objects are NOT registered into
     //ListeRoom's io_table. Only ever set through ScopedDocGen (single
     //threaded, not reentrant), used by IOFactory doc generation.
@@ -177,6 +179,11 @@ public:
 
     virtual void EmitSignalIO();
 
+    /* True once the IO holds a value it was given: a change was signalled or
+     * a saved value restored. Before that, a sensor not read yet still shows
+     * its type default (0, ""), which must not be published as a reading. */
+    bool hasValue() const { return valueKnown; }
+
     virtual void hasChanged() { }
 
     //Output specific functions
@@ -222,6 +229,8 @@ public:
     Params getStatusInfo() const;
 
 protected:
+    void setValueKnown() { valueKnown = true; }
+
     /* T3.40 - lifetime token for the one-shots this IO arms.
      *
      * Any IO can be destroyed while the loop still holds a pending

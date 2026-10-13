@@ -408,6 +408,27 @@ clé `device:<impl>`, enregistrée par `REGISTER_DEVICE(impl, Classe)`.
   `deviceCapabilities()`, `deviceState()` et, si besoin, `deviceIos()`. Un destructeur de
   sous-classe qui écrit ses IOs liés appelle d'abord `stopListening()`.
 
+### ClimateBase
+
+**Fichier :** [src/bin/calaos_server/IO/ClimateBase.h](../src/bin/calaos_server/IO/ClimateBase.h) —
+spec §6. Famille `climate`, abstraite (constructeur protégé) : les impls `proxy` et
+`thermostat` en dérivent.
+
+- `ClimateMode` / `ClimateAction` sérialisés en chaînes ESPHome (`fan_only`, `heating`…).
+- Capacités dérivées des liens résolus (table §6.3) et des params `modes`, `fan_modes`,
+  `swing_modes`, `min_range` ; bornes de consigne lues sur l'IO écrit
+  (`setpointBounds()`). Les erreurs de configuration sont journalisées une fois, dans
+  `resolveLinks()`.
+- Hooks d'impl : `supportedModes()` (le thermostat restreint ses modes selon ses sorties),
+  `currentMode()` / `writeMode()` (le thermostat stocke son mode). Par défaut, le mode est lu
+  sur le lien `mode` et écrit sur son `command_io`, sinon sur son `io`.
+- L'état ne publie un nombre qu'une fois que l'IO lié a reçu une valeur : `IOBase::hasValue()`
+  passe à vrai à chaque `EmitSignalIO()` et quand `Internal` restaure une valeur sauvegardée.
+- `applyCommand()` valide `target_temp_low`/`_high` ensemble contre `min_range` et refuse la
+  paire entière en cas d'écart ; les écritures sont ordonnées (haut d'abord quand la plage
+  monte) pour que la paire intermédiaire, vue par le hook de changement, respecte aussi
+  `min_range`.
+
 ---
 
 ## IOFactory

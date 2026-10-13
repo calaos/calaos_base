@@ -7400,3 +7400,29 @@ core_DeviceFormat_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMj
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#ClimateBase: capabilities derived from the links, the state object, command
+#validation and the low/high pair against min_range. Registers test-only impls,
+#so it gets its own binary. Own HAVE_GTEST block so this stays a pure append at
+#the end of the file.
+if HAVE_GTEST
+TESTS += core/ClimateBase_test
+check_PROGRAMS += core/ClimateBase_test
+core_ClimateBase_test_SOURCES = core/ClimateBase_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ClimateBase_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ClimateBase_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ClimateBase_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT)
+endif
