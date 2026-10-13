@@ -620,6 +620,21 @@ TEST_F(InternalThermostatTest, NoCurrentTempValueKeepsTheOutputsOff)
     EXPECT_TRUE(on("novalue_heat"));
 }
 
+//Not left to the safety hook: an override that does not call the base still
+//gets it.
+TEST_F(InternalThermostatTest, NoCurrentTempValueHoldsWhateverTheSafetyHookSays)
+{
+    load();
+    ASSERT_FALSE(io("safe_temp")->hasValue());
+    setpoints("safe", 21, 19, 23);
+    mode("safe", "heat");
+    EXPECT_FALSE(on("safe_heat"));
+    mode("safe", "cool");
+    io("safe_target")->set_value(7.0);
+    EXPECT_FALSE(on("safe_cool"));
+    EXPECT_EQ(str("safe_action"), "idle");
+}
+
 TEST_F(InternalThermostatTest, NoCurrentTempLinkKeepsTheOutputsOff)
 {
     const std::string log = load();
