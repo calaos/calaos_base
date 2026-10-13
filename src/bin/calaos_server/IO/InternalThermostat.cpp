@@ -348,15 +348,20 @@ void InternalThermostat::switchOutput(Output &out, Output &other, bool on, uint6
             o->lockout = std::make_unique<Timer>(wait / 1000.0, expired);
             return;
         }
-        (on ? out.onAt : out.offAt) = now;
     }
 
     out.lockout.reset();
-    out.commanded = on;
+    //A refused write changed nothing: neither the state held nor its clock.
     if (!io->set_value(on))
+    {
         cErrorDom("device") << "Device(" << get_param("id") << "): " << out.role << " '"
                             << io->get_param("id") << "' refused to switch "
                             << (on ? "ON" : "OFF");
+        return;
+    }
+    if (transition)
+        (on ? out.onAt : out.offAt) = now;
+    out.commanded = on;
 }
 
 //ms before `out` may switch to `on`; a changeover also waits for the other
