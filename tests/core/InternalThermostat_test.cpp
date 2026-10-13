@@ -269,6 +269,8 @@ std::string house()
     ios += thermostatXml("refuse", "      <calaos:input type=\"TestReadOnly\" id=\"refuse_heat\" "
                                    "name=\"refuse_heat\" />\n" +
                                        linkXml("output_heat", "refuse_heat") +
+                                       ownedXml("InternalBool", "refuse_cool") +
+                                       linkXml("output_cool", "refuse_cool") +
                                        linkXml("current_temp", "refuse_temp"));
     ios += roomIo("InternalInt", "refuse_temp");
 
@@ -653,6 +655,28 @@ TEST_F(InternalThermostatTest, RefusedOutputWriteIsLogged)
     EXPECT_NE(log.find("Device(refuse): output_heat 'refuse_heat' refused to switch OFF"),
               std::string::npos)
         << log;
+}
+
+//An output that refused to switch ON is still OFF: it must not show as
+//heating, nor hold the other output back.
+TEST_F(InternalThermostatTest, ARefusedSwitchOnIsNotTakenAsDone)
+{
+    load();
+    ASSERT_NE(io("refuse_target_temp_low"), nullptr);
+    io("refuse_target_temp_low")->set_value(25.0);
+    io("refuse_target_temp_high")->set_value(18.0);
+
+    auto run = []()
+    {
+        mode("refuse", "auto");
+        temp("refuse", 20);
+    };
+    const std::string log = journal(run);
+    EXPECT_NE(log.find("Device(refuse): output_heat 'refuse_heat' refused to switch ON"),
+              std::string::npos)
+        << log;
+    EXPECT_TRUE(on("refuse_cool"));
+    EXPECT_EQ(str("refuse_action"), "cooling");
 }
 
 TEST_F(InternalThermostatTest, InvalidParamsAreLoggedAndReplaced)
