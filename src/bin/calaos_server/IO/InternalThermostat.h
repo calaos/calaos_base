@@ -49,6 +49,7 @@ public:
     //Seconds between two put-backs of an output something else keeps switching.
     static constexpr double DEFAULT_PUT_BACK_DELAY = 1;
     static constexpr double DEFAULT_PUT_BACK_DELAY_MAX = 60;
+    static constexpr double MIN_PUT_BACK_DELAY = 0.001;
     //Values of the setpoint IOs recreated when the file lost them.
     static constexpr double DEFAULT_TARGET = 20;
     static constexpr double DEFAULT_LOW = 19;
@@ -106,6 +107,7 @@ private:
     };
 
     double nonNegativeParam(const char *name, double def);
+    void readPutBackDelays();
     void claimOutputs();
     //The IO of an output link, nullptr when missing or refused.
     IOBase *outputIo(Output &out);

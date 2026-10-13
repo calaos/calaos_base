@@ -62,9 +62,7 @@ void InternalThermostat::resolveLinks()
     hysteresis = nonNegativeParam("hysteresis", DEFAULT_HYSTERESIS);
     minOnMs = toMs(nonNegativeParam("min_on_time", 0));
     minOffMs = toMs(nonNegativeParam("min_off_time", 0));
-    putBackMs = toMs(nonNegativeParam("put_back_delay", DEFAULT_PUT_BACK_DELAY));
-    putBackMaxMs = std::max(putBackMs, toMs(nonNegativeParam("put_back_delay_max",
-                                                             DEFAULT_PUT_BACK_DELAY_MAX)));
+    readPutBackDelays();
 
     claimOutputs();
     recreateOwnedIos();
@@ -189,6 +187,33 @@ Json InternalThermostat::deviceIos()
             ios.erase(out->role);
     }
     return Json(std::move(ios));
+}
+
+//A spacing of 0 would never grow, and a maximum below it would cut it.
+void InternalThermostat::readPutBackDelays()
+{
+    const string id = get_param("id");
+    double shortest = nonNegativeParam("put_back_delay", DEFAULT_PUT_BACK_DELAY);
+    if (shortest < MIN_PUT_BACK_DELAY)
+    {
+        cErrorDom("device") << "Device(" << id << "): put_back_delay '"
+                            << getDeviceParam("put_back_delay") << "' is shorter than "
+                            << MIN_PUT_BACK_DELAY << " s, " << DEFAULT_PUT_BACK_DELAY << " is used";
+        shortest = DEFAULT_PUT_BACK_DELAY;
+    }
+
+    double longest = nonNegativeParam("put_back_delay_max", DEFAULT_PUT_BACK_DELAY_MAX);
+    if (longest < shortest)
+    {
+        longest = std::max(DEFAULT_PUT_BACK_DELAY_MAX, shortest);
+        if (hasDeviceParam("put_back_delay_max"))
+            cErrorDom("device") << "Device(" << id << "): put_back_delay_max '"
+                                << getDeviceParam("put_back_delay_max")
+                                << "' is shorter than put_back_delay, " << longest << " is used";
+    }
+
+    putBackMs = toMs(shortest);
+    putBackMaxMs = toMs(longest);
 }
 
 void InternalThermostat::recreateOwnedIos()
