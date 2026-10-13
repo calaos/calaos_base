@@ -194,6 +194,9 @@ bool InternalThermostat::currentMode(ClimateMode &m)
 //Evaluated by applyCommand(), once the whole command is applied.
 bool InternalThermostat::writeMode(ClimateMode m)
 {
+    //Each save rewrites the whole cache file.
+    if (m == mode)
+        return true;
     mode = m;
     Config::Instance().SaveValueIO(get_param("id"), modeName(m));
     return true;
