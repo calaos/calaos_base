@@ -1072,6 +1072,22 @@ TEST_F(InternalThermostatTest, ModeIsKeptInTheStateCache)
     EXPECT_EQ(state("rev").value("mode", ""), "cool");
 }
 
+TEST_F(InternalThermostatTest, AnUnchangedModeIsNotSavedAgain)
+{
+    load();
+    mode("rev", "heat");
+    Config::Instance().SaveValueIO("rev", "marker", false);
+
+    mode("rev", "heat");
+    std::string saved;
+    ASSERT_TRUE(Config::Instance().ReadValueIO("rev", saved));
+    EXPECT_EQ(saved, "marker");
+
+    mode("rev", "cool");
+    ASSERT_TRUE(Config::Instance().ReadValueIO("rev", saved));
+    EXPECT_EQ(saved, "cool");
+}
+
 TEST_F(InternalThermostatTest, ASavedModeTheOutputsCannotRunIsOff)
 {
     Config::Instance().SaveValueIO("th", "cool", false);
