@@ -65,14 +65,35 @@ void InternalThermostat::resolveLinks()
     if (!linkIo("output_heat"))
         cErrorDom("device") << "Device(" << id << "): no output_heat, heat is unavailable";
 
-    auto changed = [this](IOBase &)
+    auto inputChanged = [this](IOBase &)
     {
         evaluate();
     };
-    for (const char *role: { "current_temp", "target_temp", LOW, HIGH })
+    /* An output moved: put it back, or go on with a changeover once its
+     * read-back caught up. On the next loop turn and not in the callback: a
+     * rule rewriting the output on its change would otherwise spin with the
+     * thermostat inside one rule march. */
+    auto outputChanged = [this](IOBase &)
     {
-        if (IOBase *io = linkIo(role))
-            triggers.push_back(IOChangeHub::Instance().subscribe(io->get_param("id"), changed));
+        if (outputsMoved)
+            return;
+        auto run = [this]()
+        {
+            InternalThermostat *self = this;
+            //A Timer repeats: drop it, which its own slot may do.
+            outputsMoved.reset();
+            self->evaluate();
+        };
+        outputsMoved = std::make_unique<Timer>(0.0, run);
+    };
+    //By id, as the links themselves.
+    for (const Link &l: getLinks())
+    {
+        if (l.name == heat.role || l.name == cool.role)
+            triggers.push_back(IOChangeHub::Instance().subscribe(l.io, outputChanged));
+        else if (l.name == "current_temp" || l.name == "target_temp" || l.name == LOW ||
+                 l.name == HIGH)
+            triggers.push_back(IOChangeHub::Instance().subscribe(l.io, inputChanged));
     }
 
     //Once the loop runs: drivers are not ready during the load, and nothing
@@ -280,14 +301,17 @@ void InternalThermostat::switchOutput(Output &out, Output &other, bool on, uint6
         return;
     }
 
-    //Never both: the other one's switch OFF evaluates again.
+    //Never both: the other one switching OFF, or its read-back, evaluates again.
     if (on && isOn(other))
     {
         out.lockout.reset();
         return;
     }
 
-    if (isOn(out) != on)
+    //Putting back a value changed behind the thermostat is not a switch: no
+    //lock-out, and its clock keeps the thermostat's own last switch.
+    const bool transition = out.commanded.value_or(false) != on;
+    if (transition)
     {
         const uint64_t wait = lockedFor(out, other, on, now, forced);
         if (wait > 0)

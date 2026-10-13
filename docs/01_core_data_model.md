@@ -494,8 +494,8 @@ spec §8.1. `impl="thermostat"` : Calaos régule.
   max(25, 19 + `min_range`) ; `InternalString` pour `action`) et écrits à la sauvegarde
   suivante.
 - **`evaluate()`** : appelé par `IOChangeHub` sur `current_temp` et les consignes, par une
-  commande de mode, par les verrous, et une fois au premier tour de boucle après le
-  chargement. Chauffe : ON sous `consigne − hysteresis`, OFF au-dessus de la consigne,
+  commande de mode, par les verrous, par un changement de ses sorties, et une fois au
+  premier tour de boucle après le chargement. Chauffe : ON sous `consigne − hysteresis`, OFF au-dessus de la consigne,
   inchangée entre les deux, bornes comprises. Froid symétrique. `auto` : chauffe contre
   `target_temp_low`, froid contre `target_temp_high`. Une consigne sans valeur laisse sa
   sortie OFF. `hysteresis` vaut 0,5 par défaut.
@@ -509,8 +509,12 @@ spec §8.1. `impl="thermostat"` : Calaos régule.
   Une sortie ne passe ON que si l'autre est OFF depuis au moins `min_off_time`, en `auto`
   comme lors d'un changement de mode : jamais les deux à la fois.
 - **Écritures** : une sortie n'est écrite que si sa dernière commande ou sa relecture
-  diffère de l'état voulu. Une valeur changée dans son dos est donc remise, et une sortie
-  commandée ON dont la relecture traîne compte comme ON. `action` (`off`, `idle`,
+  diffère de l'état voulu. Le thermostat suit aussi ses sorties : une valeur changée dans
+  son dos est remise au tour de boucle suivant (pas dans la marche des règles, où une règle
+  qui réécrit la sortie tournerait sans fin avec lui), sans verrou ni nouvel horodatage ;
+  la relecture d'un OFF débloque une bascule sans attendre la mesure suivante. Pour
+  l'autre sortie, une sortie compte comme ON tant que sa dernière commande ou sa relecture
+  le dit. `action` (`off`, `idle`,
   `heating`, `cooling`) suit les sorties et n'est écrit que s'il change.
 - **Réentrance** : hors marche des règles (commande, verrou), une écriture de sortie
   exécute les règles aussitôt. Si l'une d'elles change une entrée, la passe en cours

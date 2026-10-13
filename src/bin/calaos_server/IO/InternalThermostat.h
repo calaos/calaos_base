@@ -108,6 +108,7 @@ private:
     bool evaluateAgain = false;
 
     vector<IOChangeHub::Subscription> triggers;
+    std::unique_ptr<Timer> outputsMoved;
 };
 
 } //namespace Calaos
