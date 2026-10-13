@@ -96,6 +96,8 @@ calaos_server_SOURCES = \
         IO/AnalogIO.cpp                                 \
         IO/AnalogIO.h                                   \
         IO/AnalogBounds.h                               \
+        IO/ClimateBase.cpp                              \
+        IO/ClimateBase.h                                \
         IO/ExternProc.cpp                               \
         IO/ExternProc.h                                 \
         IO/Device.cpp                                   \
