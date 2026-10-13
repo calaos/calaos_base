@@ -515,7 +515,7 @@ spec §8.1. `impl="thermostat"` : Calaos régule.
 - **Écritures** : une sortie n'est écrite que si sa dernière commande ou sa relecture
   diffère de l'état voulu ; une écriture refusée ne change ni l'état tenu ni son horloge.
   Le thermostat suit aussi ses sorties, 1 ms après la marche des règles qui les a changées.
-  Une sortie changée par autre chose (règle, second thermostat, `set_state`) compte comme
+  Une sortie changée par autre chose (règle, Lua, `set_state`) compte comme
   commutée à cet instant : l'état tenu la suit, ses verrous partent de là, et la remettre
   passe par ses verrous (seul un arrêt forcé leur échappe). Les remises d'une sortie qu'on
   continue de changer sont espacées de `put_back_delay` (1 s), doublé tant que chaque
@@ -528,8 +528,13 @@ spec §8.1. `impl="thermostat"` : Calaos régule.
 - **Réentrance** : hors marche des règles (commande, verrou), une écriture de sortie
   exécute les règles aussitôt. Si l'une d'elles change une entrée, la passe en cours
   s'arrête et recommence, sans jamais s'imbriquer.
-- **Id en double** : seul le device qui tient l'id régule ; son double ne s'abonne à rien
-  et n'écrit aucune sortie.
+- **Une sortie, un thermostat** : au chargement, un thermostat dont `output_heat` ou
+  `output_cool` est déjà une sortie d'un thermostat chargé avant lui journalise l'erreur
+  (les deux ids) et laisse ce lien de côté comme s'il ne résolvait pas : pas de capacité,
+  aucune écriture. Le même IO en `output_heat` et `output_cool` garde la chauffe. Les
+  liens d'un `ProxyClimate` ne comptent pas.
+- **Id en double** : seul le device qui tient l'id régule ; son double ne s'abonne à rien,
+  ne réclame aucune sortie et n'en écrit aucune.
 - **Suppression** : les sorties restent en l'état. Aucune API ne supprime un device en
   marche : cela n'arrive qu'au rechargement de la configuration ou à l'arrêt du serveur,
   quand les sorties et leurs drivers peuvent déjà avoir disparu.
