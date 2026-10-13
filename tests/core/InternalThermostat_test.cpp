@@ -191,7 +191,7 @@ std::string fullThermostat(const std::string &id, bool cool, const std::string &
     return thermostatXml(id, inner + params) + roomIo("InternalInt", id + "_temp");
 }
 
-const std::vector<std::string> THERMOSTATS = { "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams", "safe", "slow", "fight", "duo_a", "duo_b", "both", "same", "duel" };
+const std::vector<std::string> THERMOSTATS = { "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams", "safe", "slow", "fight", "duo_a", "duo_b", "both", "same", "duel", "tiny", "zero", "short" };
 
 std::string house()
 {
@@ -212,6 +212,10 @@ std::string house()
     const std::string fast = paramXml("put_back_delay", "0.01") + paramXml("put_back_delay_max", "0.6");
     ios += fullThermostat("fight", false, fast);
     ios += fullThermostat("duel", true, fast);
+    //The shortest spacing allowed, and a minute of 60 ms.
+    ios += fullThermostat("tiny", false, paramXml("put_back_delay", "0.001") + paramXml("put_back_delay_max", "0.06"));
+    ios += fullThermostat("zero", false, paramXml("put_back_delay", "0") + paramXml("put_back_delay_max", "0.5"));
+    ios += fullThermostat("short", false, paramXml("put_back_delay", "0.01") + paramXml("put_back_delay_max", "0.005"));
     for (const std::string id: { "duo_a", "duo_b" })
     {
         ios += thermostatXml(id, ownedXml("InternalInt", id + "_target", SAVED) +
@@ -1097,6 +1101,46 @@ TEST_F(InternalThermostatTest, NeverBothOnWhileSomethingElseHoldsTheOtherOutput)
     ListeRule::Instance().Remove(rule);
     EXPECT_TRUE(waitFor("duel_heat", true));
     EXPECT_FALSE(on("duel_cool"));
+}
+
+//A spacing of 0 would never grow: below 1 ms, and a maximum below the
+//spacing, are refused and replaced by the defaults.
+TEST_F(InternalThermostatTest, PutBackDelaysBelowOneMillisecondAreRefused)
+{
+    const std::string log = load();
+    for (const char *line: { "Device(zero): put_back_delay '0' is shorter than 0.001 s, 1 is used",
+                             "Device(zero): put_back_delay_max '0.5' is shorter than put_back_delay, 60 is used",
+                             "Device(short): put_back_delay_max '0.005' is shorter than put_back_delay, 60 is used" })
+        EXPECT_NE(log.find(line), std::string::npos) << line << "\n"
+                                                     << log;
+    EXPECT_EQ(log.find("Device(tiny): put_back_delay"), std::string::npos) << log;
+
+    setpoints("zero", 21, 0, 0);
+    mode("zero", "heat");
+    ASSERT_NE(addSimpleRule("heat_back_off", "zero_heat", "==", "true", "zero_heat", "false"), nullptr);
+    auto heat = count("zero_heat");
+    temp("zero", 19);
+    pumpFor(300);
+    EXPECT_LE(heat->count, 6);
+}
+
+//At the shortest spacing allowed, a fight is still bounded (a minute lasts
+//60 ms here).
+TEST_F(InternalThermostatTest, TheShortestPutBackDelayStillBoundsAFight)
+{
+    load();
+    setpoints("tiny", 21, 0, 0);
+    mode("tiny", "heat");
+    ASSERT_NE(addSimpleRule("heat_back_off", "tiny_heat", "==", "true", "tiny_heat", "false"), nullptr);
+    auto heat = count("tiny_heat");
+
+    temp("tiny", 19);
+    pumpFor(60);
+    EXPECT_GE(heat->count, 2);
+    EXPECT_LE(heat->count, 20);
+    const int first = heat->count;
+    pumpFor(60);
+    EXPECT_LE(heat->count - first, 6);
 }
 
 //The same holds for a stop the thermostat forces (mode off).
