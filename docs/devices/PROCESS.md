@@ -2,10 +2,11 @@
 
 ## REPRISE — lire en premier
 
-- **État (2026-10-13)** : 35 tickets mergés sur 46. Socle serveur (CORE-1..5), CLIM-1, les trois
-  clients (WEB-1/2, MOB-1/2, RUI-1/2/3), INST-1/2/3/6, SEC-1, CLEAN-1, T3.247, FIX-BASE-1/2,
-  FIX-INST-0..8 faits. En CI : CLIM-2 (#191), CLIM-3 (#192). Ensuite : CLIM-4, CLIM-5 et DOC-1 en
-  parallèle, puis MCP-1, DOC-2/3, INST-4/5, et VAL-1 sur la box.
+- **État (2026-10-13)** : 36 tickets mergés sur 47. CLIM-2 ✅ (#191). CLIM-3 (#192) en correction
+  après revue (4 bloquants : off/sûreté retardés par min_on, bascule sur relecture, maintien sur
+  relecture, mode+consigne évalués à part) ; il devra résoudre les conflits de fin de fichier
+  `tests/Makefile.am` et `docs/01_core_data_model.md`. FIX-BASE-3 (UAF MqttCtrl) démarrable. Ensuite :
+  CLIM-4, CLIM-5 et DOC-1 en parallèle, puis MCP-1, DOC-2/3, INST-4/5, et VAL-1 sur la box.
 - **Page de suivi en ligne** : voir la ligne « Suivi » plus bas. Elle est statique : la republier
   à chaque fin de ticket.
 - T3.247 ✅ (installer#54, option « garde ») : DOC-1 peut régénérer `io_doc.json`.
