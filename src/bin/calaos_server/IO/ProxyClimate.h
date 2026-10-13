@@ -37,8 +37,11 @@ namespace Calaos
  *
  * Mode: mirrors the "mode" link. ESPHome's heat_cool reads as auto; auto is
  * written as the "auto_payload" param (heat_cool or auto), else as the
- * spelling the appliance last reported, else heat_cool. A mode link that
- * cannot be written (no command_io, io not an output) offers no mode. */
+ * spelling the appliance last reported, else heat_cool.
+ *
+ * A link with no command_io whose io is not an output cannot be written: its
+ * capability is not offered, commands to it are refused and nothing is relayed
+ * to it. */
 class ProxyClimate: public ClimateBase
 {
 public:
@@ -46,13 +49,13 @@ public:
     ~ProxyClimate();
 
     void resolveLinks() override;
-    vector<ClimateMode> supportedModes() override;
 
     //Used without the "remote_temp_keepalive" / "readback_hold" params (seconds).
     static constexpr double DEFAULT_KEEPALIVE = 120;
     static constexpr double DEFAULT_READBACK_HOLD = 10;
 
 protected:
+    bool isWritable(const string &role) override;
     bool currentMode(ClimateMode &mode) override;
     bool writeMode(ClimateMode mode) override;
     bool rangeBound(const string &role, double &value) override;
@@ -70,7 +73,6 @@ private:
     //A strictly positive number of seconds from a param, else `fallback`.
     double secondsParam(const string &name, double fallback) const;
     string linkIoId(const string &role) const;
-    bool isWritable(const string &role);
     void startRemoteTemp();
     void relayRemoteTemp();
     void logUnknownMode(const string &raw);

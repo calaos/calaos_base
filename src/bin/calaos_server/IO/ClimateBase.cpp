@@ -150,7 +150,7 @@ void ClimateBase::resolveLinks()
 
 vector<ClimateMode> ClimateBase::supportedModes()
 {
-    if (!linkIo("mode"))
+    if (!linkIo("mode") || !isWritable("mode"))
         return {};
     if (!hasDeviceParam("modes"))
         return allModes();
@@ -246,6 +246,17 @@ IOBase *ClimateBase::writeTarget(const string &role)
     return io ? io : linkIo(role);
 }
 
+bool ClimateBase::isWritable(const string &role)
+{
+    VAR_UNUSED(role);
+    return true;
+}
+
+bool ClimateBase::rangeAvailable()
+{
+    return linkIo(LOW) && linkIo(HIGH) && isWritable(LOW) && isWritable(HIGH);
+}
+
 bool ClimateBase::rangeBound(const string &role, double &value)
 {
     IOBase *io = linkIo(role);
@@ -275,7 +286,7 @@ bool ClimateBase::applyCommand(const Json &command)
  * cannot honour. */
 bool ClimateBase::applyRange(const Json &command)
 {
-    if (!linkIo(LOW) || !linkIo(HIGH))
+    if (!rangeAvailable())
     {
         logRefusedField("target_temp_range", "unknown field for this device");
         return false;
@@ -364,7 +375,7 @@ bool ClimateBase::applyCommandField(const string &field, const Json &value, stri
             return written(writeMode(mode), reason);
         }
     }
-    else if (field == "target_temp" && linkIo(field))
+    else if (field == "target_temp" && linkIo(field) && isWritable(field))
     {
         const Bounds b = setpointBounds(field);
         double v;
@@ -372,7 +383,7 @@ bool ClimateBase::applyCommandField(const string &field, const Json &value, stri
             return false;
         return written(writeTarget(field)->set_value(v), reason);
     }
-    else if ((field == "fan_mode" || field == "swing_mode") && linkIo(field))
+    else if ((field == "fan_mode" || field == "swing_mode") && linkIo(field) && isWritable(field))
     {
         string v;
         if (!enumField(value, paramList(field + "s"), v, reason))
@@ -396,11 +407,12 @@ Json ClimateBase::deviceCapabilities()
         caps["modes"] = names;
     }
 
-    const bool range = linkIo(LOW) && linkIo(HIGH);
-    if (linkIo("target_temp") || range)
+    const bool range = rangeAvailable();
+    const bool single = linkIo("target_temp") && isWritable("target_temp");
+    if (single || range)
     {
         //Without a single setpoint, the range IOs bound the dial.
-        const Bounds b = linkIo("target_temp") ? setpointBounds("target_temp") : rangeBounds();
+        const Bounds b = single ? setpointBounds("target_temp") : rangeBounds();
         Json &t = caps["target_temp"];
         t["min"] = b.min;
         t["max"] = b.max;
@@ -414,11 +426,11 @@ Json ClimateBase::deviceCapabilities()
         caps["target_temp_range"] = true;
     if (linkIo("action"))
         caps["reports_action"] = true;
-    if (linkIo("fan_mode"))
+    if (linkIo("fan_mode") && isWritable("fan_mode"))
         caps["fan_modes"] = paramList("fan_modes");
-    if (linkIo("swing_mode"))
+    if (linkIo("swing_mode") && isWritable("swing_mode"))
         caps["swing_modes"] = paramList("swing_modes");
-    if (linkIo("remote_temp") && linkIo("remote_temp_source"))
+    if (linkIo("remote_temp") && linkIo("remote_temp_source") && isWritable("remote_temp"))
         caps["remote_temp"] = true;
 
     return caps;

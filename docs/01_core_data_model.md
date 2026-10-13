@@ -456,9 +456,13 @@ lien et écrit sur son `command_io`, sinon sur son `io` quand c'est une sortie.
   que l'appareil a rapportée en dernier, sinon `heat_cool`. Une valeur brute qui n'est pas un mode
   n'est pas publiée et n'est journalisée qu'une fois par valeur (16 valeurs au plus ; des octets
   non triviaux sont remplacés par une étiquette).
-- **Mode non commandable** : un lien `mode` sans `command_io` dont l'`io` n'est pas une sortie
-  n'offre pas la capacité `modes` (toute commande de mode est refusée) et le chargement
-  journalise l'erreur ; le mode reste lu.
+- **Lien non inscriptible** : un lien sans `command_io` dont l'`io` n'est pas une sortie (un
+  `MqttInputAnalog` accepte un `set_value` et ne l'envoie nulle part) ne peut pas être écrit.
+  Pour `mode`, `target_temp`, `target_temp_low`/`_high`, `fan_mode`, `swing_mode` et
+  `remote_temp`, la capacité correspondante n'est pas offerte (`modes`, `target_temp`,
+  `target_temp_range` si une borne manque, `fan_modes`, `swing_modes`, `remote_temp`), la
+  commande est refusée en entier et le chargement journalise l'erreur. L'état reste lu.
+  `ClimateBase::isWritable(role)` porte la règle ; le proxy la définit par `isOutput()`.
 - **Température distante** (§7) : si `remote_temp` et `remote_temp_source` sont liés, la valeur de
   la source est écrite sur `remote_temp` à chaque changement **et** toutes les
   `remote_temp_keepalive` secondes (défaut 120, fractions admises ; un `Timer` membre détruit avec

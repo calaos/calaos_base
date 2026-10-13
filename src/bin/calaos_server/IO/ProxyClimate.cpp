@@ -72,6 +72,7 @@ string ProxyClimate::linkIoId(const string &role) const
     return string(id);
 }
 
+//An input takes a write and sends it nowhere (InputAnalog just stores it).
 bool ProxyClimate::isWritable(const string &role)
 {
     IOBase *io = writeTarget(role);
@@ -83,12 +84,14 @@ void ProxyClimate::resolveLinks()
     ClimateBase::resolveLinks();
 
     const string id = get_param("id");
-    if (linkIo(MODE) && !isWritable(MODE))
-        cErrorDom("device") << "Device(" << id << "): link 'mode' has no command_io and its io is "
-                            << "not an output, modes cannot be selected";
-    if (linkIo(REMOTE) && !isWritable(REMOTE))
-        cErrorDom("device") << "Device(" << id << "): link 'remote_temp' has no command_io and "
-                            << "its io is not an output, the temperature cannot be relayed";
+    for (const char *role: { "mode", "target_temp", "target_temp_low", "target_temp_high",
+                             "fan_mode", "swing_mode", "remote_temp" })
+    {
+        if (linkIo(role) && !isWritable(role))
+            cErrorDom("device") << "Device(" << id << "): link '" << role
+                                << "' has no command_io and its io is not an output, "
+                                << "it cannot be written";
+    }
     if (linkIo(REMOTE) && !linkIo(SOURCE))
         cErrorDom("device") << "Device(" << id << "): link 'remote_temp' without a "
                             << "'remote_temp_source', nothing is relayed";
@@ -122,13 +125,6 @@ void ProxyClimate::resolveLinks()
     }
 
     startRemoteTemp();
-}
-
-vector<ClimateMode> ProxyClimate::supportedModes()
-{
-    if (!isWritable(MODE))
-        return {};
-    return ClimateBase::supportedModes();
 }
 
 bool ProxyClimate::currentMode(ClimateMode &mode)
@@ -226,11 +222,10 @@ void ProxyClimate::startRemoteTemp()
 void ProxyClimate::relayRemoteTemp()
 {
     IOBase *source = linkIo(SOURCE);
-    IOBase *target = writeTarget(REMOTE);
-    if (!source || !target || !source->hasValue())
+    if (!source || !isWritable(REMOTE) || !source->hasValue())
         return;
     if (source->getStatusInfo()["connected"] == "false")
         return;
 
-    target->set_value(source->get_value_double());
+    writeTarget(REMOTE)->set_value(source->get_value_double());
 }
