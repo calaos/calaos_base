@@ -89,7 +89,9 @@ void InternalThermostat::resolveLinks()
             outputsMoved.reset();
             self->evaluate();
         };
-        outputsMoved = std::make_unique<Timer>(0.0, run);
+        //Not 0: libuv runs a timer re-armed at 0 from a timer callback again
+        //in the same pass, where that fight would spin just the same.
+        outputsMoved = std::make_unique<Timer>(0.001, run);
     };
     //By id, as the links themselves.
     for (const Link &l: getLinks())
