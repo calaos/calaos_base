@@ -102,7 +102,7 @@ Tout ─ VAL-1
 
 | ID | Dépôt | Ticket | Dépend de | Agent | Statut |
 |---|---|---|---|---|---|
-| RUI-1 | calaos_base | **Côté serveur.** `extractReferencedIOs()` étend un device à ses IOs possédés et liés ; l'objet `device` voyage dans `remote_ui_io_states` et `io_changed`. Tests sur le harnais RemoteUI existant. | CORE-4 | sonnet / medium / graft | 🔨 |
+| RUI-1 | calaos_base | **Côté serveur.** `extractReferencedIOs()` étend un device à ses IOs possédés et liés ; l'objet `device` voyage dans `remote_ui_io_states` et `io_changed`. Tests sur le harnais RemoteUI existant. | CORE-4 | sonnet / medium / graft | ✅ [#186](https://github.com/calaos/calaos_base/pull/186) |
 | RUI-2 | calaos_remote_ui | **Protocole du firmware.** Inverser les 17 tests `*KnownBugs*` épinglés par OUT-3 (et corriger DOC-CI.md:41, qui dit à tort que tous portent `BUG (RUI-2)`). Champ device dans `IoState`, parsing aux deux endroits, fusion dans `AppStore`, détection de changement qui ne se limite plus à `state` (`app_store.cpp:333`, `calaos_widget.cpp:125`), et correction du `value("visible", true)` qui jette tout le lot sur une chaîne `"true"`. Tests hôte. | RUI-1, OUT-3 | sonnet / high | ✅ [#4](https://github.com/calaos/calaos_remote_ui/pull/4) |
 | RUI-3 | calaos_remote_ui | **Widget `Climate`.** Le firmware vide `ioStates` à la réception de `config_update` (le lot `io_states` suit aussitôt), sinon un device supprimé reste affiché jusqu'au reboot du panneau (revue RUI-1). Enregistré via `registerWidgetAnySize`, mise en page adaptée aux cellules 240×240 à 213×266 et aux tailles multiples, piloté par les capacités, commande JSON. Validé sur le simulateur SDL (`linux-dev`), captures jointes à la PR. | RUI-2, CLIM-1 | opus / high / frontend-design | 📋 |
 
