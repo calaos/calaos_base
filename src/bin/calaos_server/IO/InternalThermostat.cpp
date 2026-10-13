@@ -20,6 +20,7 @@
  ******************************************************************************/
 #include "InternalThermostat.h"
 #include "CalaosConfig.h"
+#include "ListeRoom.h"
 #include "libuvw.h"
 
 #include <algorithm>
@@ -64,6 +65,10 @@ void InternalThermostat::resolveLinks()
         cErrorDom("device") << "Device(" << id << "): no current_temp, the outputs stay OFF";
     if (!linkIo("output_heat"))
         cErrorDom("device") << "Device(" << id << "): no output_heat, heat is unavailable";
+
+    //A duplicate id: the device holding it regulates, this one never does.
+    if (ListeRoom::Instance().get_io(id) != this)
+        return;
 
     auto inputChanged = [this](IOBase &)
     {
