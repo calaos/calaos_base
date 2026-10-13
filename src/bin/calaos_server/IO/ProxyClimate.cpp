@@ -114,7 +114,10 @@ void ProxyClimate::resolveLinks()
         if (!linkIo(role))
             continue;
         readbackSubscriptions.push_back(IOChangeHub::Instance().subscribe(
-            linkIoId(role), [this, role](IOBase &) { commanded.erase(role); }));
+            linkIoId(role), [this, role](IOBase &)
+            {
+            commanded.erase(role);
+            }));
     }
 
     startRemoteTemp();
@@ -203,9 +206,15 @@ void ProxyClimate::startRemoteTemp()
         return;
 
     sourceSubscription = IOChangeHub::Instance().subscribe(linkIoId(SOURCE),
-                                                           [this](IOBase &) { relayRemoteTemp(); });
+                                                           [this](IOBase &)
+                                                           {
+        relayRemoteTemp();
+    });
     keepalive = std::make_unique<Timer>(secondsParam("remote_temp_keepalive", DEFAULT_KEEPALIVE),
-                                        [this]() { relayRemoteTemp(); });
+                                        [this]()
+                                        {
+        relayRemoteTemp();
+    });
 }
 
 /* A source that has not delivered yet would send 0 °C and the unit would

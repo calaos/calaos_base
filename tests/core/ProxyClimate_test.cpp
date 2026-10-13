@@ -266,7 +266,11 @@ bool runLoopUntil(const std::function<bool()> &pred, int timeoutMs = 3000)
 void pumpLoopFor(int ms)
 {
     const auto end = Clock::now() + std::chrono::milliseconds(ms);
-    runLoopUntil([&end]() { return Clock::now() >= end; }, ms + 1000);
+    runLoopUntil([&end]()
+                 {
+        return Clock::now() >= end;
+    },
+                 ms + 1000);
 }
 
 Json parse(const char *s)
@@ -539,11 +543,13 @@ TEST_F(ProxyClimateTest, ConfigurationMistakesAreLoggedAtLoad)
              "Device(bk): remote_temp_keepalive is not a positive number of seconds",
              "Device(bh): readback_hold is not a positive number of seconds",
          })
-        EXPECT_NE(log.find(expected), std::string::npos) << expected << "\n" << log;
+        EXPECT_NE(log.find(expected), std::string::npos) << expected << "\n"
+                                                         << log;
 
     for (const char *quiet: { "ac", "mm_a", "mm_b", "mm_c", "mm_rw", "rc", "ka", "rg", "hd" })
         EXPECT_EQ(log.find(std::string("Device(") + quiet + "): "), std::string::npos)
-            << quiet << "\n" << log;
+            << quiet << "\n"
+            << log;
 }
 
 TEST_F(ProxyClimateTest, TheSourceIsRelayedOnEveryChange)
@@ -580,7 +586,10 @@ TEST_F(ProxyClimateTest, NothingIsRelayedBeforeTheSourceHasAValue)
 TEST_F(ProxyClimateTest, TheKeepAliveRepeatsTheLastValueWhileTheSourceIsSilent)
 {
     feed("ka_src")->deliver(20.5);
-    ASSERT_TRUE(runLoopUntil([]() { return writesTo("ka_remote").size() >= 5; }));
+    ASSERT_TRUE(runLoopUntil([]()
+                             {
+        return writesTo("ka_remote").size() >= 5;
+    }));
 
     std::vector<Write> w = writesTo("ka_remote");
     for (const Write &x: w)
@@ -595,7 +604,10 @@ TEST_F(ProxyClimateTest, TheKeepAliveRepeatsTheLastValueWhileTheSourceIsSilent)
 
     feed("ka_src")->deliver(22.0);
     const size_t before = writesTo("ka_remote").size();
-    ASSERT_TRUE(runLoopUntil([before]() { return writesTo("ka_remote").size() >= before + 3; }));
+    ASSERT_TRUE(runLoopUntil([before]()
+                             {
+        return writesTo("ka_remote").size() >= before + 3;
+    }));
     w = writesTo("ka_remote");
     for (size_t i = before; i < w.size(); i++)
         EXPECT_DOUBLE_EQ(w[i].number, 22.0);
@@ -622,14 +634,20 @@ TEST_F(ProxyClimateTest, ADisconnectedSourceIsNotRelayed)
     EXPECT_EQ(writesTo("ds_remote").size(), 1u);
 
     src->setStatusInfo(IOBase::StatusType::Connected, IOBase::StatusConnected::STATUS_CONNECTED);
-    ASSERT_TRUE(runLoopUntil([]() { return writesTo("ds_remote").size() >= 2; }));
+    ASSERT_TRUE(runLoopUntil([]()
+                             {
+        return writesTo("ds_remote").size() >= 2;
+    }));
     EXPECT_DOUBLE_EQ(writesTo("ds_remote").back().number, 25.0);
 }
 
 TEST_F(ProxyClimateTest, TheKeepAliveStopsWhenTheDeviceIsDestroyed)
 {
     feed("gone_src")->deliver(20.0);
-    ASSERT_TRUE(runLoopUntil([]() { return writesTo("gone_remote").size() >= 3; }));
+    ASSERT_TRUE(runLoopUntil([]()
+                             {
+        return writesTo("gone_remote").size() >= 3;
+    }));
     EXPECT_EQ(IOChangeHub::Instance().subscriberCount("gone_src"), 2u);
 
     ASSERT_TRUE(ListeRoom::Instance().deleteIO(dev("gone")));
