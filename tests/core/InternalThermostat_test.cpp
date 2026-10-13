@@ -1177,6 +1177,15 @@ TEST_F(InternalThermostatTest, ASavedModeTheOutputsCannotRunIsOff)
     EXPECT_NE(log.find("Device(th): saved mode #"), std::string::npos) << log;
     EXPECT_NE(log.find("Device(coolonly): saved mode #"), std::string::npos) << log;
     EXPECT_EQ(log.find("Device(rev): saved mode"), std::string::npos) << log;
+
+    //The fallback is saved: the old mode must not come back with its output.
+    std::string saved;
+    ASSERT_TRUE(Config::Instance().ReadValueIO("th", saved));
+    EXPECT_EQ(saved, "off");
+    ASSERT_TRUE(Config::Instance().ReadValueIO("coolonly", saved));
+    EXPECT_EQ(saved, "off");
+    ASSERT_TRUE(Config::Instance().ReadValueIO("rev", saved));
+    EXPECT_EQ(saved, "auto");
 }
 
 TEST_F(InternalThermostatTest, MissingOwnedIosAreRecreated)
