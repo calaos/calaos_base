@@ -53,9 +53,9 @@ Tout ─ VAL-1
 
 | ID | Ticket | Dépend de | Agent | Statut |
 |---|---|---|---|---|
-| CLIM-1 | **`ClimateBase`** (§6). Enums mode/action et leur sérialisation, dérivation des capacités depuis les liens présents (table §6.3), objet d'état, validation des champs de commande (enum, bornes, pas, plage `low`/`high` avec `min_range`). Tests : chaque ligne de la table §6.3, clamp et arrondi, plage incohérente. | CORE-4 | opus / high / graft | 🔨 |
-| CLIM-2 | **`ProxyClimate`** (§7). Lecture via `io`, écriture via `command_io`, mode miroir du lien, relais `remote_temp` sur changement et par keep-alive (timer membre). Tests : relais de chaque champ, absence de `command_io`, cadence du keep-alive, arrêt du keep-alive quand le device est détruit. | CLIM-1, CORE-5 | sonnet / high / graft | 📋 |
-| CLIM-3 | **`InternalThermostat` : régulation** (§8.1). `evaluate()` (off/heat/cool/auto), hystérésis, `min_on_time`/`min_off_time` par timer réarmable, bascule auto sans double activation, écriture de `action`, mode persistant dans le cache, IOs possédés recréés s'ils manquent. Durées paramétrables en millisecondes pour les tests (boucle libuv réelle, pas de temps simulé). Tests : table de vérité complète de `evaluate()`, expiration des verrous, bascule auto. | CLIM-1, CORE-1 | opus / xhigh / graft | 📋 |
+| CLIM-1 | **`ClimateBase`** (§6). Enums mode/action et leur sérialisation, dérivation des capacités depuis les liens présents (table §6.3), objet d'état, validation des champs de commande (enum, bornes, pas, plage `low`/`high` avec `min_range`). Tests : chaque ligne de la table §6.3, clamp et arrondi, plage incohérente. | CORE-4 | opus / high / graft | ✅ [#187](https://github.com/calaos/calaos_base/pull/187) |
+| CLIM-2 | **`ProxyClimate`** (§7). Lecture via `io`, écriture via `command_io`, mode miroir du lien, relais `remote_temp` sur changement et par keep-alive (timer membre). Tests : relais de chaque champ, absence de `command_io`, cadence du keep-alive, arrêt du keep-alive quand le device est détruit. | CLIM-1, CORE-5 | sonnet / high / graft | 🔨 |
+| CLIM-3 | **`InternalThermostat` : régulation** (§8.1). `evaluate()` (off/heat/cool/auto), hystérésis, `min_on_time`/`min_off_time` par timer réarmable, bascule auto sans double activation, écriture de `action`, mode persistant dans le cache, IOs possédés recréés s'ils manquent. Durées paramétrables en millisecondes pour les tests (boucle libuv réelle, pas de temps simulé). Tests : table de vérité complète de `evaluate()`, expiration des verrous, bascule auto. | CLIM-1, CORE-1 | opus / xhigh / graft | 🔨 |
 | CLIM-4 | **`InternalThermostat` : sûreté** (§8.2). Sorties OFF tant que le capteur n'a rien livré, capteur périmé (`sensor_timeout`), coupure point de rosée (`emitter=floor`, `humidity`, `humidity_max`), refus du froid sans capteur d'humidité. Tests : un cas par règle, plus le retour à la normale. | CLIM-3 | opus / high / graft | 📋 |
 | CLIM-5 | **Sorties protégées** (§8.3). Avertissement journalisé quand une règle (`ActionStd`), Lua ou `set_state` écrit `output_heat`/`output_cool` d'un thermostat ; jamais de blocage. Tests : chaque chemin d'écriture produit l'avertissement, et la valeur est quand même appliquée. | CLIM-3 | sonnet / medium / graft | 📋 |
 
@@ -89,14 +89,14 @@ Tout ─ VAL-1
 | ID | Ticket | Dépend de | Agent | Statut |
 |---|---|---|---|---|
 | WEB-1 | **Décodage.** `device?` dans les types et un guard `toDeviceInfo` qui ne lève jamais d'exception, patch dans `applyIoChanged`, fixture du mock-server avec un proxy et un thermostat. Tests Vitest sur les guards et le store. | CORE-4 | sonnet / medium | ✅ [#26](https://github.com/calaos/calaos-web-app/pull/26) |
-| WEB-2 | **Composant `ClimateIo`.** Entrée `climate` dans `GUI_TYPES` et `IO_COMPONENTS`, rendu piloté par les capacités (boutons de mode, consigne bornée, plage en `auto`, ventilation, badge d'action, grisé selon le mode), commande JSON par `sendSetState`, transitions du mock-server. Tests : `.spec.ts` du composant et un scénario Playwright. | WEB-1, CLIM-1 | sonnet / high / frontend-design | 📋 |
+| WEB-2 | **Composant `ClimateIo`.** Entrée `climate` dans `GUI_TYPES` et `IO_COMPONENTS`, rendu piloté par les capacités (boutons de mode, consigne bornée, plage en `auto`, ventilation, badge d'action, grisé selon le mode), commande JSON par `sendSetState`, transitions du mock-server. Tests : `.spec.ts` du composant et un scénario Playwright. | WEB-1, CLIM-1 | sonnet / high / frontend-design | 🔨 |
 
 ## MOB — calaos_mobile
 
 | ID | Ticket | Dépend de | Agent | Statut |
 |---|---|---|---|---|
 | MOB-1 | **Décodage.** Exposer l'objet `device` de `get_home`, et faire transporter la map par l'`io_changed` (aujourd'hui convertie en chaîne vide) sur le modèle de `IoStatusChange`. Tests : `tst_calaoseventdecoder`, `tst_iobase`. | CORE-4 | sonnet / medium | ✅ [#22](https://github.com/calaos/calaos_mobile/pull/22) |
-| MOB-2 | **Widget `IOClimate`.** Type `climate` dans `IOTypeRegistry` et `Common.h`, `IOClimate.qml` piloté par les capacités, variantes desktop et mobile, déclarations `qmldir`/`.qrc`/`calaos.pri`, commande JSON par `sendStringValue`. Tests Qt et qmllint. | MOB-1, CLIM-1 | sonnet / high / frontend-design | 📋 |
+| MOB-2 | **Widget `IOClimate`.** Type `climate` dans `IOTypeRegistry` et `Common.h`, `IOClimate.qml` piloté par les capacités, variantes desktop et mobile, déclarations `qmldir`/`.qrc`/`calaos.pri`, commande JSON par `sendStringValue`. Tests Qt et qmllint. | MOB-1, CLIM-1 | sonnet / high / frontend-design | 🔨 |
 
 ## RUI — calaos_remote_ui
 
