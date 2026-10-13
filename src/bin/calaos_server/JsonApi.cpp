@@ -466,11 +466,12 @@ const vector<string> &JsonApi::serviceScopeDeniedCommands()
 {
     /* Every one of them writes: configuration params, the audio database, a
      * schedule, a scenario and its rules, the event log, a push registration,
-     * the credentials themselves.
+     * the credentials themselves. config is HTTP only today; it is listed so
+     * that a websocket route added later is born refused (put replaces the
+     * configuration files).
      */
-    static const vector<string> denied =
-    { "set_param", "del_param", "audio_db", "set_timerange", "autoscenario",
-      "eventlog", "register_push", "settings" };
+    static const vector<string> denied = { "set_param", "del_param", "audio_db", "set_timerange", "autoscenario",
+                                           "eventlog", "register_push", "settings", "config" };
 
     return denied;
 }

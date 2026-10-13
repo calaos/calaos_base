@@ -171,10 +171,17 @@ protected:
 
     void expectRefused(const PutResult &res, size_t lost, const std::string &ioBefore)
     {
+        expectRefusedWith(res,
+                          "update calaos_installer: this io.xml would drop " +
+                              std::to_string(lost) + " device(s)",
+                          ioBefore);
+    }
+
+    void expectRefusedWith(const PutResult &res, const std::string &message,
+                           const std::string &ioBefore)
+    {
         EXPECT_EQ(res.reply.value("success", std::string()), "false");
-        EXPECT_EQ(res.reply.value("error", std::string()),
-                  "update calaos_installer: this io.xml would drop " + std::to_string(lost) +
-                      " device(s)");
+        EXPECT_EQ(res.reply.value("error", std::string()), message);
         EXPECT_FALSE(res.restart);
         EXPECT_EQ(ioXmlOnDisk(), ioBefore);
         EXPECT_EQ(backupFiles(), 0u);
@@ -253,6 +260,21 @@ TEST_F(DeviceFormatTest, AnUnusableDeclarationCountsAsFormat1)
         expectRefused(putIo(upload, declared), 2, before);
 }
 
+//A truncating int cast or atoi() would read these as 2.
+TEST_F(DeviceFormatTest, ADeclarationIsNotTruncatedNorPartiallyRead)
+{
+    loadTwoDevices();
+    saveConfig();
+    const std::string before = ioXmlOnDisk();
+    const std::string upload = houseXml(plainIo(), false);
+
+    for (const Json &declared: { Json(4294967298LL), Json(4294967298ULL), Json(18446744073709551615ULL),
+                                 Json(-2), Json(0), Json(1001), Json("4294967298"),
+                                 Json("2abc"), Json("2 "), Json(" 2"), Json("+2"), Json("-2"),
+                                 Json(""), Json("1001"), Json("99999999999999999999") })
+        expectRefused(putIo(upload, declared), 2, before);
+}
+
 TEST_F(DeviceFormatTest, PutThatDoesNotParseIsAlwaysRefused)
 {
     loadTwoDevices();
@@ -260,8 +282,32 @@ TEST_F(DeviceFormatTest, PutThatDoesNotParseIsAlwaysRefused)
     const std::string before = ioXmlOnDisk();
     const std::string broken = "<?xml version=\"1.0\"?><calaos:ioconfig><calaos:home";
 
-    expectRefused(putIo(broken), 2, before);
-    expectRefused(putIo(broken, Json(2)), 2, before);
+    expectRefusedWith(putIo(broken), "io.xml does not parse", before);
+    expectRefusedWith(putIo(broken, Json(2)), "io.xml does not parse", before);
+}
+
+//Nothing to protect, so nothing is judged: the pre-CORE-3 behavior.
+TEST_F(DeviceFormatTest, PutThatDoesNotParseIsAcceptedWithoutDevices)
+{
+    reload(houseXml(plainIo(), false));
+    saveConfig();
+
+    const std::string broken = "<?xml version=\"1.0\"?><calaos:ioconfig><calaos:home";
+    PutResult res = putIo(broken);
+    EXPECT_EQ(res.reply.value("success", std::string()), "true");
+    EXPECT_TRUE(res.restart);
+    EXPECT_EQ(ioXmlOnDisk(), broken);
+}
+
+TEST_F(DeviceFormatTest, DevicesWithoutIdAreCountedOneByOne)
+{
+    reload(houseXml(plainIo() + "    <calaos:device type=\"climate\" impl=\"x1\" />\n"
+                                "    <calaos:device type=\"climate\" impl=\"x2\" />\n",
+                    true));
+    saveConfig();
+    const std::string before = ioXmlOnDisk();
+
+    expectRefused(putIo(houseXml(plainIo(), false)), 2, before);
 }
 
 TEST_F(DeviceFormatTest, InertDeviceAloneCountsForTheRefusal)
@@ -304,7 +350,7 @@ TEST_F(DeviceFormatTest, DeclaredClientKeepingTheDevicesIsAccepted)
 
 TEST_F(DeviceFormatTest, DeclarationAsStringOrNewerFormatIsAccepted)
 {
-    for (const Json &declared: { Json("2"), Json(3), Json("10") })
+    for (const Json &declared: { Json("2"), Json(3), Json("10"), Json(1000), Json("1000") })
     {
         loadTwoDevices();
         saveConfig();

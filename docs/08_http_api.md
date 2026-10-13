@@ -292,11 +292,11 @@ service à portée restreinte (`serviceScope`). Voir
 Le token est comparé à l'option `mcp_service_token` de `local_config.xml`
 (`McpServerManager::getServiceToken()`). Un token non configuré n'accorde jamais
 l'accès ([JsonApiHandlerWS.cpp:530-566](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
-En session `serviceScope`, **8** messages sont refusés : `set_param`, `del_param`,
+En session `serviceScope`, **9** messages sont refusés : `set_param`, `del_param`,
 `audio_db`, `set_timerange`, `autoscenario`, `eventlog`, `register_push`,
-`settings` (`JsonApi::serviceScopeDeniedCommands()`).
+`settings`, `config` (`JsonApi::serviceScopeDeniedCommands()`).
 
-⭐ **La portée est une propriété de la session, pas du transport.** Les huit sont
+⭐ **La portée est une propriété de la session, pas du transport.** Les neuf sont
 refusées quel que soit le transport par lequel la session a été ouverte, et la
 charge utile du refus est **la même** des deux côtés — seule l'enveloppe change :
 `{"msg":"<msg>","msg_id":"<le vôtre>","data":{"error":"scope denied"}}` en
