@@ -88,6 +88,7 @@
 #include "Logger.h"
 #include "UDPServer.h"
 #include "libuvw.h"
+#include "ReservedPort.h"
 
 namespace
 {
@@ -128,25 +129,7 @@ public:
 
 int reservePort()
 {
-    const int fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (fd < 0)
-        return 0;
-
-    sockaddr_in a;
-    memset(&a, 0, sizeof(a));
-    a.sin_family = AF_INET;
-    a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    a.sin_port = 0;
-
-    int port = 0;
-    if (bind(fd, reinterpret_cast<sockaddr *>(&a), sizeof(a)) == 0)
-    {
-        socklen_t len = sizeof(a);
-        if (getsockname(fd, reinterpret_cast<sockaddr *>(&a), &len) == 0)
-            port = ntohs(a.sin_port);
-    }
-    close(fd);
-    return port;
+    return calaos_test::ReservedPort::reserve(SOCK_DGRAM);
 }
 
 std::string slurp(const std::string &path)

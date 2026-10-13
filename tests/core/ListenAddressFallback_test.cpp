@@ -110,6 +110,7 @@
 #include "Logger.h"
 #include "UDPServer.h"
 #include "libuvw.h"
+#include "ReservedPort.h"
 
 namespace
 {
@@ -143,27 +144,9 @@ struct Outcome
 
 //A port this suite chose, released before the child is forked. The child is
 //the only user of it until it exits, so the window cannot be shared.
-int reservePort()
+int reservePort(int type = SOCK_STREAM)
 {
-    const int fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (fd < 0)
-        return 0;
-
-    sockaddr_in a;
-    memset(&a, 0, sizeof(a));
-    a.sin_family = AF_INET;
-    a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    a.sin_port = 0;
-
-    int port = 0;
-    if (bind(fd, reinterpret_cast<sockaddr *>(&a), sizeof(a)) == 0)
-    {
-        socklen_t len = sizeof(a);
-        if (getsockname(fd, reinterpret_cast<sockaddr *>(&a), &len) == 0)
-            port = ntohs(a.sin_port);
-    }
-    close(fd);
-    return port;
+    return calaos_test::ReservedPort::reserve(type);
 }
 
 bool addressExistsHere(int family, const char *literal)
@@ -420,7 +403,7 @@ Outcome measure(const std::string &listenAddress, int tag, bool occupy = false)
     ::mkdir(cache.c_str(), 0700);
 
     r.asked = reservePort();
-    r.udpAsked = reservePort();
+    r.udpAsked = reservePort(SOCK_DGRAM);
     if (r.asked <= 0 || r.udpAsked <= 0)
         return r;
 

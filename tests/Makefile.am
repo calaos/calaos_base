@@ -5414,7 +5414,8 @@ endif
 if HAVE_GTEST
 TESTS += core/ListenAddressFallback_test
 check_PROGRAMS += core/ListenAddressFallback_test
-core_ListenAddressFallback_test_SOURCES = core/ListenAddressFallback_test.cpp
+core_ListenAddressFallback_test_SOURCES = core/ListenAddressFallback_test.cpp \
+                  core/ReservedPort.h
 core_ListenAddressFallback_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
                   -I$(top_srcdir)/src/bin/calaos_server/RemoteUI
 LISTEN_ADDRESS_FALLBACK_OBJECTS = \
@@ -6209,7 +6210,8 @@ endif
 if HAVE_GTEST
 TESTS += core/UdpSendFailureIsolation_test
 check_PROGRAMS += core/UdpSendFailureIsolation_test
-core_UdpSendFailureIsolation_test_SOURCES = core/UdpSendFailureIsolation_test.cpp
+core_UdpSendFailureIsolation_test_SOURCES = core/UdpSendFailureIsolation_test.cpp \
+                  core/ReservedPort.h
 core_UdpSendFailureIsolation_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 UDP_SEND_FAILURE_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
@@ -6402,7 +6404,8 @@ endif
 if HAVE_GTEST
 TESTS += core/UdpAnswerBufferLifetime_test
 check_PROGRAMS += core/UdpAnswerBufferLifetime_test
-core_UdpAnswerBufferLifetime_test_SOURCES = core/UdpAnswerBufferLifetime_test.cpp
+core_UdpAnswerBufferLifetime_test_SOURCES = core/UdpAnswerBufferLifetime_test.cpp \
+                  core/ReservedPort.h
 core_UdpAnswerBufferLifetime_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 UDP_ANSWER_BUFFER_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
@@ -6652,7 +6655,8 @@ endif
 if HAVE_GTEST
 TESTS += core/UdpReceiveErrorDeafness_test
 check_PROGRAMS += core/UdpReceiveErrorDeafness_test
-core_UdpReceiveErrorDeafness_test_SOURCES = core/UdpReceiveErrorDeafness_test.cpp
+core_UdpReceiveErrorDeafness_test_SOURCES = core/UdpReceiveErrorDeafness_test.cpp \
+                  core/ReservedPort.h
 core_UdpReceiveErrorDeafness_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 UDP_RECEIVE_ERROR_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
@@ -6725,7 +6729,8 @@ endif
 if HAVE_GTEST
 TESTS += core/UdpSendFailureLogCeiling_test
 check_PROGRAMS += core/UdpSendFailureLogCeiling_test
-core_UdpSendFailureLogCeiling_test_SOURCES = core/UdpSendFailureLogCeiling_test.cpp
+core_UdpSendFailureLogCeiling_test_SOURCES = core/UdpSendFailureLogCeiling_test.cpp \
+                  core/ReservedPort.h
 core_UdpSendFailureLogCeiling_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 UDP_SEND_CEILING_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
@@ -6836,7 +6841,8 @@ endif
 if HAVE_GTEST
 TESTS += core/UdpDeafnessRearmCost_test
 check_PROGRAMS += core/UdpDeafnessRearmCost_test
-core_UdpDeafnessRearmCost_test_SOURCES = core/UdpDeafnessRearmCost_test.cpp
+core_UdpDeafnessRearmCost_test_SOURCES = core/UdpDeafnessRearmCost_test.cpp \
+                  core/ReservedPort.h
 core_UdpDeafnessRearmCost_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 UDP_REARM_COST_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
@@ -6926,7 +6932,8 @@ endif
 if HAVE_GTEST
 TESTS += core/UdpDiscoverJournalCadence_test
 check_PROGRAMS += core/UdpDiscoverJournalCadence_test
-core_UdpDiscoverJournalCadence_test_SOURCES = core/UdpDiscoverJournalCadence_test.cpp
+core_UdpDiscoverJournalCadence_test_SOURCES = core/UdpDiscoverJournalCadence_test.cpp \
+                  core/ReservedPort.h
 core_UdpDiscoverJournalCadence_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 UDP_DISCOVER_CADENCE_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
@@ -6960,7 +6967,8 @@ endif
 if HAVE_GTEST
 TESTS += core/UdpReceiverRearmGuard_test
 check_PROGRAMS += core/UdpReceiverRearmGuard_test
-core_UdpReceiverRearmGuard_test_SOURCES = core/UdpReceiverRearmGuard_test.cpp
+core_UdpReceiverRearmGuard_test_SOURCES = core/UdpReceiverRearmGuard_test.cpp \
+                  core/ReservedPort.h
 core_UdpReceiverRearmGuard_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 UDP_REARM_GUARD_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
@@ -6998,7 +7006,8 @@ endif
 if HAVE_GTEST
 TESTS += core/UdpJournalWindowRearm_test
 check_PROGRAMS += core/UdpJournalWindowRearm_test
-core_UdpJournalWindowRearm_test_SOURCES = core/UdpJournalWindowRearm_test.cpp
+core_UdpJournalWindowRearm_test_SOURCES = core/UdpJournalWindowRearm_test.cpp \
+                  core/ReservedPort.h
 core_UdpJournalWindowRearm_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 UDP_JOURNAL_WINDOW_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
@@ -7425,4 +7434,18 @@ core_ClimateBase_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT)
+endif
+
+#A port reserved for a forked server must stay out of the ephemeral pool that
+#parallel tests draw from, and stay claimed while the caller lives.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ReservedPort_test
+check_PROGRAMS += core/ReservedPort_test
+core_ReservedPort_test_SOURCES = core/ReservedPort_test.cpp \
+                  core/ReservedPort.h
+core_ReservedPort_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ReservedPort_test_LDADD = $(CORE_TEST_LDADD)
+core_ReservedPort_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
