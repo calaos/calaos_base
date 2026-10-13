@@ -76,7 +76,7 @@ private:
     struct Output
     {
         const char *role;
-        //The last state written; unknown until the first evaluation.
+        //The last state written successfully, else the first one read back.
         std::optional<bool> commanded;
         //Loop time (ms) of the last switches, the start of the lock-outs.
         std::optional<uint64_t> onAt;
@@ -112,6 +112,7 @@ private:
     bool evaluateAgain = false;
 
     vector<IOChangeHub::Subscription> triggers;
+    //One evaluation on the next loop turn after an output moved.
     std::unique_ptr<Timer> outputsMoved;
 };
 
