@@ -374,7 +374,10 @@ clé `device:<impl>`, enregistrée par `REGISTER_DEVICE(impl, Classe)`.
   ajoutés à la liste plate de la pièce, juste après le device. Règles, cache d'état,
   `get_home` et MCP les voient comme tout IO. Chacun porte l'id de son device
   (`IOBase::getOwnerDevice()`, un membre et pas un param). Un `<calaos:device>` imbriqué
-  n'est pas construit.
+  n'est pas construit. Une impl recrée un IO possédé obligatoire perdu par un fichier
+  édité à la main avec `createOwnedLink()` : dans la pièce du device, lié sous son rôle ;
+  un lien qui nomme un IO absent garde son id, sinon `<device>_<rôle>` ou une variante
+  libre. Un device masqué par un autre de même id ne crée rien.
 - **Propriété** : la pièce possède tous les IOs. Le device ne garde que des ids ;
   `ownedIos()` et `linkIo()` résolvent à chaque appel. Un id en double se comporte comme
   aujourd'hui : l'IO entre dans la pièce, le premier garde l'id. Pour deux devices de même
@@ -475,6 +478,45 @@ lien et écrit sur son `command_io`, sinon sur son `io` quand c'est une sortie.
   change ou que `readback_hold` secondes (défaut 10) s'écoulent. Sans cela, deux commandes
   rapprochées se valideraient contre la valeur que la première a remplacée. Une écriture refusée
   n'est pas retenue.
+
+### InternalThermostat
+
+**Fichier :** [src/bin/calaos_server/IO/InternalThermostat.h](../src/bin/calaos_server/IO/InternalThermostat.h) —
+spec §8.1. `impl="thermostat"` : Calaos régule.
+
+- **Modes** : `off`, plus `heat` avec `output_heat`, `cool` avec `output_cool`, `auto` avec
+  les deux. Le mode est stocké par le device et persisté dans le cache d'état
+  (`iostates.cache`, clé = id du device), `off` par défaut ; un mode sauvegardé que les
+  sorties ne permettent plus repasse à `off` (journalisé). Il est restauré avant
+  `ClimateBase::resolveLinks()`, donc sans déclencher les règles.
+- **IOs possédés** : `target_temp`, `action` et, avec `output_cool`, `target_temp_low` /
+  `_high`. Absents, ils sont recréés au chargement (`InternalInt` `save="true"` à 20, 19 et
+  max(25, 19 + `min_range`) ; `InternalString` pour `action`) et écrits à la sauvegarde
+  suivante.
+- **`evaluate()`** : appelé par `IOChangeHub` sur `current_temp` et les consignes, par une
+  commande de mode, par les verrous, et une fois au premier tour de boucle après le
+  chargement. Chauffe : ON sous `consigne − hysteresis`, OFF au-dessus de la consigne,
+  inchangée entre les deux, bornes comprises. Froid symétrique. `auto` : chauffe contre
+  `target_temp_low`, froid contre `target_temp_high`. Une consigne sans valeur laisse sa
+  sortie OFF. `hysteresis` vaut 0,5 par défaut.
+- **Sûreté** : `outputsAllowed()` est demandé en premier ; une sortie refusée passe OFF, à
+  travers ses verrous. En attendant les règles de CLIM-4, les deux sont refusées tant que
+  `current_temp` n'a pas de valeur.
+- **Verrous** : `min_on_time` / `min_off_time` (secondes, décimales acceptées, 0 par
+  défaut), mesurés depuis la dernière commutation faite par le thermostat. Une commutation
+  dans un verrou est reportée par un `Timer` membre réarmable, puis `evaluate()` repasse.
+  Une sortie ne passe ON que si l'autre est OFF depuis au moins `min_off_time`, en `auto`
+  comme lors d'un changement de mode : jamais les deux à la fois.
+- **Écritures** : une sortie n'est écrite que si sa dernière commande ou sa relecture
+  diffère de l'état voulu. Une valeur changée dans son dos est donc remise, et une sortie
+  commandée ON dont la relecture traîne compte comme ON. `action` (`off`, `idle`,
+  `heating`, `cooling`) suit les sorties et n'est écrit que s'il change.
+- **Réentrance** : hors marche des règles (commande, verrou), une écriture de sortie
+  exécute les règles aussitôt. Si l'une d'elles change une entrée, la passe en cours
+  s'arrête et recommence, sans jamais s'imbriquer.
+- **Suppression** : les sorties restent en l'état. Aucune API ne supprime un device en
+  marche : cela n'arrive qu'au rechargement de la configuration ou à l'arrêt du serveur,
+  quand les sorties et leurs drivers peuvent déjà avoir disparu.
 
 ---
 
