@@ -732,3 +732,31 @@ ioDoc->actionAdd("toggle", _("Invert light state"));
 Params io_style = {{ "light", _("Light") }, { "outlet", _("Outlet") }, /* … */};
 ioDoc->paramAddList("io_style", _("GUI style display…"), true, io_style, "light");
 ```
+
+### Documentation d'un device
+
+Un device se documente avec les mêmes appels, plus cinq réservés à cet usage
+([IO/IODoc.h](../src/bin/calaos_server/IO/IODoc.h)) :
+
+```cpp
+void commandFieldEnum(const string &name, const string &description, const vector<string> &values,
+                      const vector<string> &requiresLinks, const string &valuesParam = string());
+void commandFieldNumber(const string &name, const string &description, double min, double max,
+                        double step, const string &unit, const vector<string> &requiresLinks);
+void deviceFamilySet(const string &family);
+void linkRoleAdd(const string &role, const string &description, bool required, bool writable);
+void paramInChild(const string &name);
+```
+
+- Ajouter un champ de commande fait publier `"command_format": "json"` et `"command_fields"`, dans
+  l'ordre de déclaration. Un champ porte `name`, `type` (`enum` ou `number`), `description`,
+  `requires_links` (les rôles de lien qui doivent exister et être inscriptibles sur l'instance),
+  puis `values` (ou `values_param`, le param qui porte la liste de l'instance : `fan_modes`) pour un
+  enum, `min`/`max`/`step`/`unit` pour un nombre. Contrairement aux paramètres, ces valeurs sont de
+  vrais nombres JSON.
+- `family` et `link_roles` (`role`, `description`, `required`, `writable`) décrivent le device.
+- `paramInChild` marque un paramètre qui s'écrit en `<calaos:param>` et non en attribut
+  (`"storage": "calaos:param"`).
+- `ClimateBase::documentCommand(modes, modeLink)` déclare les six champs climat ; une impl l'appelle
+  dans son constructeur avec ses modes et le lien par lequel son mode s'écrit (vide si le device
+  stocke lui-même son mode).
