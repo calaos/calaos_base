@@ -96,7 +96,7 @@ Tout ─ VAL-1
 | ID | Ticket | Dépend de | Agent | Statut |
 |---|---|---|---|---|
 | MOB-1 | **Décodage.** Exposer l'objet `device` de `get_home`, et faire transporter la map par l'`io_changed` (aujourd'hui convertie en chaîne vide) sur le modèle de `IoStatusChange`. Tests : `tst_calaoseventdecoder`, `tst_iobase`. | CORE-4 | sonnet / medium | ✅ [#22](https://github.com/calaos/calaos_mobile/pull/22) |
-| MOB-2 | **Widget `IOClimate`.** Type `climate` dans `IOTypeRegistry` et `Common.h`, `IOClimate.qml` piloté par les capacités, variantes desktop et mobile, déclarations `qmldir`/`.qrc`/`calaos.pri`, commande JSON par `sendStringValue`. Tests Qt et qmllint. | MOB-1, CLIM-1 | sonnet / high / frontend-design | 🔨 |
+| MOB-2 | **Widget `IOClimate`.** Type `climate` dans `IOTypeRegistry` et `Common.h`, `IOClimate.qml` piloté par les capacités, variantes desktop et mobile, déclarations `qmldir`/`.qrc`/`calaos.pri`, commande JSON par `sendStringValue`. Tests Qt et qmllint. | MOB-1, CLIM-1 | sonnet / high / frontend-design | ✅ [#23](https://github.com/calaos/calaos_mobile/pull/23) |
 
 ## RUI — calaos_remote_ui
 
