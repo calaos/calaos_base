@@ -144,6 +144,15 @@ std::string house()
     ios += thermostat("stale", false, param("sensor_timeout", "0.2") + param("min_on_time", "5"));
     ios += thermostat("quiet", false, param("sensor_timeout", "0.2"),
                       "    <calaos:input type=\"TestSensor\" id=\"quiet_temp\" name=\"quiet_temp\" />\n");
+    //Floor cooling: cut at 65 % humidity, without waiting for min_on_time.
+    ios += thermostat("dew", true,
+                      param("emitter", "floor") + link("humidity", "dew_hum") +
+                          param("humidity_max", "65") + param("min_on_time", "5"));
+    ios += internal("InternalInt", "dew_hum");
+    ios += thermostat("dewst", true,
+                      param("emitter", "floor") + link("humidity", "dewst_hum") +
+                          param("sensor_timeout", "0.3"));
+    ios += internal("InternalInt", "dewst_hum");
     return ioXmlDocument(roomXml("Salon", "salon", ios));
 }
 
@@ -154,7 +163,8 @@ struct Thermostat
 };
 
 //Every thermostat of the house: their saved IOs are reset before each case.
-const std::vector<Thermostat> THERMOSTATS = { { "boot", false }, { "stale", false }, { "quiet", false } };
+const std::vector<Thermostat> THERMOSTATS = { { "boot", false }, { "stale", false }, { "quiet", false },
+                                              { "dew", true },     { "dewst", true } };
 
 } //namespace
 
@@ -355,4 +365,89 @@ TEST_F(InternalThermostatSafetyTest, ARepeatedReadingKeepsTheSensorFresh)
     EXPECT_TRUE(waitFor("quiet_heat", true, 1000));
     //Found by the periodic check, at most one sensor_timeout later.
     EXPECT_LE(msSince(t0), 400);
+}
+
+const char *const DEW_LOG = "Device(dew): humidity 'dew_hum' reads 70, at or above humidity_max 65, "
+                            "output_cool is OFF";
+
+//Spec §8.2, floor cooling below the dew point wets the floor.
+TEST_F(InternalThermostatSafetyTest, HumidityAtTheMaximumCutsTheCoolingAtOnce)
+{
+    load();
+    set("dew_hum", 50);
+    mode("dew", "cool");
+    set("dew_temp", 25);
+    ASSERT_TRUE(on("dew_cool"));
+
+    const std::string log = journal([]()
+                                    {
+        set("dew_hum", 70);
+    });
+    EXPECT_FALSE(on("dew_cool"));
+    EXPECT_EQ(str("dew_action"), "idle");
+    EXPECT_EQ(count(log, DEW_LOG), 1u) << log;
+
+    set("dew_hum", 65);
+    pumpFor(20);
+    EXPECT_FALSE(on("dew_cool"));
+
+    //Heating does not care.
+    mode("dew", "heat");
+    set("dew_temp", 18);
+    EXPECT_TRUE(on("dew_heat"));
+}
+
+TEST_F(InternalThermostatSafetyTest, CoolingResumesBelowTheHumidityMaximum)
+{
+    load();
+    set("dew_hum", 70);
+    mode("dew", "cool");
+    set("dew_temp", 25);
+    ASSERT_FALSE(on("dew_cool"));
+
+    set("dew_hum", 64.5);
+    EXPECT_TRUE(on("dew_cool"));
+    EXPECT_EQ(str("dew_action"), "cooling");
+}
+
+TEST_F(InternalThermostatSafetyTest, CoolingWaitsForAHumidityReading)
+{
+    load();
+    ASSERT_FALSE(io("dew_hum")->hasValue());
+    mode("dew", "cool");
+    set("dew_temp", 25);
+    pumpFor(20);
+    EXPECT_FALSE(on("dew_cool"));
+
+    set("dew_hum", 50);
+    EXPECT_TRUE(on("dew_cool"));
+}
+
+TEST_F(InternalThermostatSafetyTest, ASilentHumiditySensorCutsTheCooling)
+{
+    load();
+    set("dewst_hum", 50);
+    mode("dewst", "cool");
+    set("dewst_temp", 25);
+    ASSERT_TRUE(on("dewst_cool"));
+
+    //current_temp keeps reading, humidity does not.
+    const auto t0 = Clock::now();
+    const std::string log = journal([&]()
+                                    {
+        while (on("dewst_cool") && msSince(t0) < 2000)
+        {
+            set("dewst_temp", 25);
+            pumpFor(50);
+        }
+    });
+    EXPECT_FALSE(on("dewst_cool"));
+    EXPECT_GE(msSince(t0), 290);
+    EXPECT_EQ(count(log, "Device(dewst): humidity 'dewst_hum' has sent nothing for 0.3 s, "
+                         "output_cool is OFF"),
+              1u)
+        << log;
+
+    set("dewst_hum", 50);
+    EXPECT_TRUE(on("dewst_cool"));
 }
