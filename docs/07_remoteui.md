@@ -8,6 +8,7 @@ authentification **HMAC-SHA256**.
 
 L'appareil peut :
 - recevoir l'état des IOs référencés par ses pages ;
+- écrire les IOs que ses widgets nomment, et eux seuls ;
 - remonter l'état de ses relais physiques ;
 - recevoir des mises à jour firmware OTA.
 
@@ -273,10 +274,12 @@ RemoteUIManager::Instance().notifyOtaUpdates();   //firmwares disponibles
 
 **Fichier :** [src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.h](../src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.h)
 
-Gestionnaire de connexion WebSocket pour un appareil RemoteUI. **Il dérive de
-`JsonApiHandlerWS`** : tout message qu'il ne reconnaît pas est délégué à l'API JSON standard
-(dérivé, `src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:157`). Un appareil
-authentifié atteint donc aussi `login`, `get_home`, `get_state`, `set_state`…
+Gestionnaire de connexion WebSocket pour un appareil RemoteUI. Il dérive de
+`JsonApiHandlerWS`, mais un panneau **n'est pas une session utilisateur** (SEC-1) : il n'est
+servi que des trois messages que son firmware envoie, et ne lit et n'écrit que ce que sa
+configuration référence (voir « Périmètre d'un panneau » plus bas). Avant SEC-1, tout message non
+reconnu était délégué à l'API JSON standard : un panneau atteignait `login`, `get_home`,
+`set_param`… et pouvait écrire n'importe quel IO.
 
 ### Routage et authentification du handshake
 
@@ -305,12 +308,42 @@ Les messages sont typés par une clé **`msg`** au premier niveau, avec la charg
 ⚠️ Ce n'est **pas** une clé `type` : le dispatch entrant lit `message["msg"]`
 (dérivé, `src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:130-132`).
 
-### Messages entrants (appareil → serveur) — deux, et deux seulement
+### Messages entrants (appareil → serveur) — trois, et trois seulement
 
-| `msg` | Charge utile | Effet | Site |
-|---|---|---|---|
-| `remote_ui_get_config` | — | Répond `remote_ui_config` | `RemoteUIWebSocketHandler.cpp:135-140` |
-| `remote_ui_relay_state` | `data.relay` (int), `data.state` (bool) | Met à jour l'IO relais correspondant sans reboucler | `RemoteUIWebSocketHandler.cpp:142-148`, `:169-221` |
+Ce sont les trois que le firmware envoie (`calaos_remote_ui`,
+`main/calaos_websocket_manager.cpp` : `setIoState()`, `requestConfig()`, `sendRelayState()`).
+
+| `msg` | Charge utile | Effet |
+|---|---|---|
+| `remote_ui_get_config` | — | Répond `remote_ui_config` |
+| `remote_ui_relay_state` | `data.relay` (int), `data.state` (bool) | Met à jour l'IO relais correspondant sans reboucler |
+| `set_state` | `data.id` (chaîne), `data.value` | Délégué à `JsonApiHandlerWS` **seulement si `data.id` est l'`io_id` d'un widget** du panneau |
+
+Tout autre message (`login`, `get_home`, `get_state`, `set_param`, `audio`, …) est refusé : réponse
+`{"msg": <type>, "msg_id": <s'il est fourni>, "data": {"error": "forbidden"}}`, et un
+avertissement qui nomme le type par un `Utils::logTag()`, jamais en clair. Un `set_state` refusé
+répond de même avec `"success": "false"` en plus, même sans `msg_id`. Une trame sans `msg` de type
+chaîne est ignorée avec un avertissement.
+
+#### Périmètre d'un panneau (SEC-1)
+
+`RemoteUI::extractReferencedIOs()` calcule deux ensembles :
+
+- **lisible** (`getReferencedIOs()`) : les `io_id` des widgets, plus, pour un widget device, le
+  device, ses IOs possédés et les `io`/`command_io` de ses liens (RUI-1). Seuls les événements
+  d'IO (`io_changed`, `io_added`, `io_deleted`, `io_prop_deleted`, `io_status_changed`) dont l'`id`
+  est lisible sont transmis au panneau ; les autres événements (pièces, scénarios, audio, push)
+  ne le sont jamais. Le filtre est le crochet `forwardsEvent()` de `JsonApiHandlerWS`, qui laisse
+  tout passer pour les autres clients.
+- **écrivable** (`getWritableIOs()`) : les `io_id` des widgets seuls. Un device se commande par
+  son propre id ; ses relais, ses IOs possédés et les `command_io` de ses liens ne s'écrivent pas
+  directement.
+
+Les ensembles sont recalculés au premier usage après la connexion, à chaque
+`remote_ui_config_update` et `remote_ui_io_states`, et au premier usage qui suit un `io_added` ou
+un `io_deleted` (un device créé ou supprimé change l'expansion). L'ensemble calculé par
+`LoadFromXml()` ne voit pas les devices chargés après l'écran ; il n'est jamais consulté avant ce
+premier recalcul.
 
 ⚠️ Il n'existe **ni `auth`, ni `relay_update`, ni `config_request`, ni `ota_request`** — ces quatre
 types figuraient dans ce document avant la revue E4.5e et **aucun n'est dispatché**.
@@ -332,7 +365,7 @@ attrapée et ignorée avec un avertissement, sans réponse d'erreur
 | `remote_ui_set_brightness` | `{ "brightness": <int> }` | `IO/RemoteUI/RemoteUI.cpp:513-514` |
 | `remote_ui_set_page` | `{ "page_id": … }` | `IO/RemoteUI/RemoteUI.cpp:531-532` |
 | `remote_ui_notification` | `{ "message": … }` | `IO/RemoteUI/RemoteUI.cpp:542-543` |
-| `event` | Événements Calaos, hérités de `JsonApiHandlerWS` | `JsonApiHandlerWS.cpp:60` |
+| `event` | Événements d'IO de l'ensemble lisible, hérités de `JsonApiHandlerWS` (le firmware ne lit que `io_changed`) | `JsonApiHandlerWS.cpp:60` |
 
 ⚠️ Il n'existe **ni `auth_ok`/`auth_fail`, ni `io_state`, ni `relay_set`, ni `config_update`, ni
 `ota_update`** — ces six noms figuraient dans ce document avant la revue E4.5e ; aucun n'est émis.

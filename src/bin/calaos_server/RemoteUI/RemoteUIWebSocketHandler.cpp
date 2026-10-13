@@ -124,10 +124,9 @@ void RemoteUIWebSocketHandler::processApi(const string &data, const Params &para
     if (data.empty())
         return;
 
-    /* This parse is the handler's own and runs BEFORE the parent's, so the
-     * nesting ceiling the parent enforces does not cover it: gate it here or a
-     * document above the ceiling is built once at full price anyway. The parent
-     * emits the single refusal, so nothing is logged twice.
+    /* This parse is the handler's own and nothing reaches the parent before
+     * it, so the nesting ceiling the parent enforces does not cover it: gate
+     * it here or a document above the ceiling is built once at full price.
      */
     if (requestNestingWithinLimit(data))
     {
@@ -158,6 +157,22 @@ void RemoteUIWebSocketHandler::processApi(const string &data, const Params &para
         {
             string msg_type = message["msg"];
 
+            /* A panel is not a user session: it is served the three messages
+             * its firmware sends and nothing else of the JSON API, and
+             * set_state reaches the parent only for an IO a widget names.
+             */
+            if (msg_type == "set_state" && panelMayWrite(message))
+            {
+                JsonApiHandlerWS::processApi(data, paramsGET);
+                return;
+            }
+
+            if (msg_type != "remote_ui_get_config" && msg_type != "remote_ui_relay_state")
+            {
+                refuse(msg_type, message);
+                return;
+            }
+
             try
             {
                 // Handle RemoteUI-specific messages
@@ -178,15 +193,102 @@ void RemoteUIWebSocketHandler::processApi(const string &data, const Params &para
             }
             catch (const std::exception &e)
             {
-                //Falls through to the parent, as it always has on this path.
                 cWarningDom(TAG) << "RemoteUIWebSocketHandler: unhandled failure while serving "
                                  << msg_type << ": " << e.what();
             }
         }
+        else if (parsed)
+            cWarningDom(TAG) << "RemoteUIWebSocketHandler: frame without a message type, refused";
+    }
+    else
+        cWarningDom(TAG) << "RemoteUIWebSocketHandler: request nesting deeper than "
+                         << MaxRequestNestingDepth << " levels, refused";
+}
+
+bool RemoteUIWebSocketHandler::panelMayWrite(const Json &message)
+{
+    if (!authenticated_remote_ui)
+        return false;
+
+    const string id = setStateId(message);
+    if (id.empty())
+        return false;
+
+    ensureScope();
+    return authenticated_remote_ui->hasWritableIO(id);
+}
+
+void RemoteUIWebSocketHandler::refuse(const string &msg_type, const Json &message)
+{
+    const string panel = authenticated_remote_ui ? authenticated_remote_ui->get_param("id") : "?";
+    const bool setState = msg_type == "set_state";
+
+    //The type and the id come from the panel: tagged, never printed.
+    if (setState)
+        cWarningDom(TAG) << "RemoteUI " << panel << ": set_state refused on IO #"
+                         << Utils::logTag(setStateId(message)) << ", no widget of this panel names it";
+    else
+        cWarningDom(TAG) << "RemoteUI " << panel << ": message #" << Utils::logTag(msg_type)
+                         << " refused, a panel is only served what its firmware sends";
+
+    Json answer = { { "error", "forbidden" } };
+    if (setState)
+        answer["success"] = "false";
+
+    string msg_id;
+    const auto it = message.find("msg_id");
+    if (it != message.end() && it->is_string())
+        msg_id = it->get<string>();
+
+    sendJson(msg_type, answer, msg_id);
+}
+
+string RemoteUIWebSocketHandler::setStateId(const Json &message)
+{
+    const auto data = message.find("data");
+    if (data == message.end() || !data->is_object())
+        return string();
+    const auto id = data->find("id");
+    if (id == data->end() || !id->is_string())
+        return string();
+    return id->get<string>();
+}
+
+void RemoteUIWebSocketHandler::refreshScope()
+{
+    if (authenticated_remote_ui)
+        authenticated_remote_ui->extractReferencedIOs();
+    scopeFresh = true;
+}
+
+void RemoteUIWebSocketHandler::ensureScope()
+{
+    if (!scopeFresh)
+        refreshScope();
+}
+
+bool RemoteUIWebSocketHandler::forwardsEvent(const CalaosEvent &event)
+{
+    switch (event.getType())
+    {
+    case CalaosEvent::EventIOAdded:
+    case CalaosEvent::EventIODeleted:
+        scopeFresh = false;
+        break;
+    case CalaosEvent::EventIOChanged:
+    case CalaosEvent::EventIOPropertyDelete:
+    case CalaosEvent::EventIOStatusChanged:
+        break;
+    default:
+        //Rooms, scenarios, audio, pushes: nothing a panel widget shows.
+        return false;
     }
 
-    // Delegate all other messages to parent class (JsonApiHandlerWS)
-    JsonApiHandlerWS::processApi(data, paramsGET);
+    if (!authenticated_remote_ui)
+        return false;
+
+    ensureScope();
+    return authenticated_remote_ui->hasReferencedIO(event.getParam()["id"]);
 }
 
 void RemoteUIWebSocketHandler::handleGetConfig()
@@ -257,7 +359,7 @@ void RemoteUIWebSocketHandler::sendInitialIOStates()
     if (!authenticated_remote_ui)
         return;
 
-    authenticated_remote_ui->extractReferencedIOs();
+    refreshScope();
     const auto &referenced_ios = authenticated_remote_ui->getReferencedIOs();
 
     // Convert set to vector for buildJsonState
@@ -356,7 +458,7 @@ void RemoteUIWebSocketHandler::sendConfigUpdate()
     }
 
     // Add IO items
-    authenticated_remote_ui->extractReferencedIOs();
+    refreshScope();
     const auto &referenced_ios = authenticated_remote_ui->getReferencedIOs();
     Json io_items = Json::array();
     for (const string &io_id : referenced_ios)

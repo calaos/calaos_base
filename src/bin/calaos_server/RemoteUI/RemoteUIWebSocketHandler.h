@@ -60,6 +60,21 @@ protected:
      */
     std::shared_ptr<bool> handlerAlive { std::make_shared<bool>(true) };
 
+    //Only the IO events of what the panel may read reach it.
+    bool forwardsEvent(const CalaosEvent &event) override;
+
+private:
+    //False until the first use after the connection, and again after an IO
+    //is added or deleted: either can change what a device widget expands to.
+    bool scopeFresh = false;
+    void refreshScope();
+    void ensureScope();
+
+    bool panelMayWrite(const Json &message);
+    void refuse(const string &msg_type, const Json &message);
+    //data.id when it is a string, empty otherwise.
+    static string setStateId(const Json &message);
+
 public:
     RemoteUIWebSocketHandler(HttpClient *client);
     virtual ~RemoteUIWebSocketHandler();

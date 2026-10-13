@@ -532,6 +532,8 @@ void RemoteUI::extractReferencedIOs()
         }
     }
 
+    writable_ios = referenced_ios;
+
     std::set<string> expanded;
     for (const string &id: referenced_ios)
     {
@@ -556,6 +558,11 @@ void RemoteUI::extractReferencedIOs()
 bool RemoteUI::hasReferencedIO(const string &io_id) const
 {
     return referenced_ios.find(io_id) != referenced_ios.end();
+}
+
+bool RemoteUI::hasWritableIO(const string &io_id) const
+{
+    return writable_ios.find(io_id) != writable_ios.end();
 }
 
 Json RemoteUI::getProvisioningResponse()

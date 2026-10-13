@@ -41,6 +41,7 @@ private:
     std::chrono::system_clock::time_point last_seen;
 
     std::set<string> referenced_ios;
+    std::set<string> writable_ios;
 
     Json pages;
     Json device_info;
@@ -68,13 +69,16 @@ public:
     void generateDeviceSecret();
     bool validateHMAC(const string &token, const string &timestamp, const string &nonce, const string &hmac);
 
-    // IO reference management
+    //What the panel may read: widget ids, each device expanded to its owned
+    //and linked IOs. Devices and their links are not all loaded when
+    //LoadFromXml() runs: callers refresh it once the house is up.
     const std::set<string> &getReferencedIOs() const { return referenced_ios; }
-    //Widget ids, each device expanded to its owned and linked IOs. Devices
-    //and their links are not all loaded when LoadFromXml() runs: callers
-    //refresh it once the house is up.
+    //What it may write: the widget ids alone. A device is commanded through
+    //its own id, never by writing its relays or command IOs directly.
+    const std::set<string> &getWritableIOs() const { return writable_ios; }
     void extractReferencedIOs();
     bool hasReferencedIO(const string &io_id) const;
+    bool hasWritableIO(const string &io_id) const;
 
     // Configuration access
     const Json &getPages() const { return pages; }

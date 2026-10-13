@@ -143,7 +143,7 @@ string JsonApiHandlerWS::clientIp() const
 
 void JsonApiHandlerWS::handleEvents(const CalaosEvent &event)
 {
-    if (!loggedin)
+    if (!loggedin || !forwardsEvent(event))
         return;
 
     cDebugDom("network") << "Handling event: " << event.toString();
