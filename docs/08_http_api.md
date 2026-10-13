@@ -717,6 +717,19 @@ Le changement du scalaire d'un device (son mode) déclenche aussi ses règles, c
 IO : une condition « `clim` == `heat` » est évaluée dès que le mode change, qu'il vienne d'une
 commande ou du lien `mode`.
 
+**Famille `climate`** (`ClimateBase`, spec §6). Capacités, chacune présente seulement si son
+lien existe : `modes` (lien `mode` ; liste restreinte par le param `modes`, sinon les six),
+`target_temp` (`min`/`max`/`step`/`unit` lus sur l'IO écrit par le lien, son `command_io`
+sinon son `io` ; à défaut 7, 35, 0.5 et `°C`), `target_temp_range` (liens `target_temp_low`
+**et** `_high`), `reports_action` (`action`), `fan_modes`/`swing_modes` (liste du param du
+même nom, séparée par des virgules), `remote_temp` (liens `remote_temp` **et**
+`remote_temp_source`). L'état porte `mode`, `current_temp`, `target_temp`,
+`target_temp_low`/`_high`, `action`, `fan_mode`, `swing_mode` ; un mode ou une action
+inconnus (`heat_cool`) sont omis plutôt que relayés. `target_temp_low` et `target_temp_high`
+sont validés **ensemble**, l'absent pris dans l'état courant : si `high - low` est inférieur
+au param `min_range` (0 par défaut), la paire est refusée **entière** et journalisée, les
+autres champs de la commande s'appliquent quand même.
+
 ### `get_playlist`
 
 Réponse HTTP (capturé, `tests/core/golden/t317a_http_get_playlist.json`,
