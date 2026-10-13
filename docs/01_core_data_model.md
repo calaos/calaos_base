@@ -499,12 +499,13 @@ spec §8.1. `impl="thermostat"` : Calaos régule.
   inchangée entre les deux, bornes comprises. Froid symétrique. `auto` : chauffe contre
   `target_temp_low`, froid contre `target_temp_high`. Une consigne sans valeur laisse sa
   sortie OFF. `hysteresis` vaut 0,5 par défaut.
-- **Sûreté** : `outputsAllowed()` est demandé en premier ; une sortie refusée passe OFF, à
-  travers ses verrous. En attendant les règles de CLIM-4, les deux sont refusées tant que
+- **Sûreté** : `outputsAllowed()` est demandé en premier ; une sortie refusée passe OFF
+  sur-le-champ, sans attendre `min_on_time`, et son `min_off_time` protège le redémarrage.
+  Le mode `off` coupe de la même façon. Les deux sorties restent OFF tant que
   `current_temp` n'a pas de valeur.
 - **Verrous** : `min_on_time` / `min_off_time` (secondes, décimales acceptées, 0 par
   défaut), mesurés depuis la dernière commutation faite par le thermostat. Une commutation
-  dans un verrou est reportée par un `Timer` membre réarmable, puis `evaluate()` repasse.
+  de régulation dans un verrou est reportée par un `Timer` membre réarmable, puis `evaluate()` repasse.
   Une sortie ne passe ON que si l'autre est OFF depuis au moins `min_off_time`, en `auto`
   comme lors d'un changement de mode : jamais les deux à la fois.
 - **Écritures** : une sortie n'est écrite que si sa dernière commande ou sa relecture

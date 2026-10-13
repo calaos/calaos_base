@@ -59,8 +59,8 @@ protected:
     };
 
     /* Asked first at each evaluation: an output refused here is switched
-     * OFF, through its lock-outs like any other switch. Both are refused
-     * until current_temp holds a value. */
+     * OFF at once, whatever its min_on_time; its min_off_time still guards
+     * the restart. Both are refused until current_temp holds a value. */
     virtual OutputPair outputsAllowed();
 
     /* Spec §8.1. Never nested: when an output write runs rules that call it
@@ -91,8 +91,9 @@ private:
     bool demand(Output &out, double temp, const char *setpoint, bool cooling);
     //ON as written by this thermostat or as reported by the IO.
     bool isOn(Output &out);
-    void switchOutput(Output &out, Output &other, bool on, uint64_t now);
-    uint64_t lockedFor(const Output &out, const Output &other, bool on, uint64_t now) const;
+    void switchOutput(Output &out, Output &other, bool on, uint64_t now, bool forced);
+    uint64_t lockedFor(const Output &out, const Output &other, bool on, uint64_t now,
+                       bool forced) const;
     void writeAction();
 
     ClimateMode mode = ClimateMode::Off;

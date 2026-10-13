@@ -212,6 +212,10 @@ void InternalThermostat::regulate()
         want.cool = demand(cool, temp, mode == ClimateMode::Auto ? HIGH : "target_temp", true);
     want.heat = want.heat && allowed.heat;
     want.cool = want.cool && allowed.cool;
+    //A stop that was asked for or that safety needs does not wait for
+    //min_on_time; min_off_time still guards the restart.
+    const OutputPair forced{ mode == ClimateMode::Off || !allowed.heat,
+                             mode == ClimateMode::Off || !allowed.cool };
 
     auto loop = uvw::Loop::getDefault();
     loop->update();
@@ -224,7 +228,8 @@ void InternalThermostat::regulate()
         {
             if ((out == &heat ? want.heat : want.cool) != on)
                 continue;
-            switchOutput(*out, out == &heat ? cool : heat, on, now);
+            const bool isHeat = out == &heat;
+            switchOutput(*out, isHeat ? cool : heat, on, now, isHeat ? forced.heat : forced.cool);
             //A write ran rules that changed an input: `want` is stale.
             if (evaluateAgain)
                 return;
@@ -259,7 +264,8 @@ bool InternalThermostat::isOn(Output &out)
 /* Written unless the last write and the IO's read-back, when it has one,
  * both say `on` already: a value changed behind the thermostat's back is put
  * back, and an output whose read-back lags its write still counts as ON. */
-void InternalThermostat::switchOutput(Output &out, Output &other, bool on, uint64_t now)
+void InternalThermostat::switchOutput(Output &out, Output &other, bool on, uint64_t now,
+                                      bool forced)
 {
     IOBase *io = linkIo(out.role);
     if (!io)
@@ -283,7 +289,7 @@ void InternalThermostat::switchOutput(Output &out, Output &other, bool on, uint6
 
     if (isOn(out) != on)
     {
-        const uint64_t wait = lockedFor(out, other, on, now);
+        const uint64_t wait = lockedFor(out, other, on, now, forced);
         if (wait > 0)
         {
             Output *o = &out;
@@ -309,9 +315,9 @@ void InternalThermostat::switchOutput(Output &out, Output &other, bool on, uint6
 }
 
 //ms before `out` may switch to `on`; a changeover also waits for the other
-//output's min_off_time.
+//output's min_off_time. A forced stop waits for nothing.
 uint64_t InternalThermostat::lockedFor(const Output &out, const Output &other, bool on,
-                                       uint64_t now) const
+                                       uint64_t now, bool forced) const
 {
     uint64_t until = 0;
     auto after = [&until](const std::optional<uint64_t> &since, uint64_t delay)
@@ -325,7 +331,7 @@ uint64_t InternalThermostat::lockedFor(const Output &out, const Output &other, b
         after(out.offAt, minOffMs);
         after(other.offAt, minOffMs);
     }
-    else
+    else if (!forced)
         after(out.onAt, minOnMs);
 
     return until > now ? until - now : 0;
