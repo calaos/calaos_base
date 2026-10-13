@@ -269,7 +269,7 @@ TEST_F(DeviceFormatTest, ADeclarationIsNotTruncatedNorPartiallyRead)
     const std::string upload = houseXml(plainIo(), false);
 
     for (const Json &declared: { Json(4294967298LL), Json(4294967298ULL), Json(18446744073709551615ULL),
-                                 Json(-2), Json(0), Json(1001), Json("4294967298"),
+                                 Json(-2), Json(-4294967294LL), Json(0), Json(1001), Json("4294967298"),
                                  Json("2abc"), Json("2 "), Json(" 2"), Json("+2"), Json("-2"),
                                  Json(""), Json("1001"), Json("99999999999999999999") })
         expectRefused(putIo(upload, declared), 2, before);
