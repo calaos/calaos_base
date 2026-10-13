@@ -542,6 +542,35 @@ spec §8.1. `impl="thermostat"` : Calaos régule.
   marche : cela n'arrive qu'au rechargement de la configuration ou à l'arrêt du serveur,
   quand les sorties et leurs drivers peuvent déjà avoir disparu.
 
+#### Sorties protégées (spec §8.3)
+
+`output_heat` et `output_cool` appartiennent au thermostat. Rien ne les bloque : le moteur de
+règles ne doit jamais casser, la valeur écrite est appliquée et le thermostat reprend la main
+ensuite selon ses verrous.
+
+- **Écritures extérieures** : `ActionStd` (règles), les scripts Lua et `set_state` (HTTP et
+  WebSocket, y compris le relais d'un panneau RemoteUI) appellent `Device::writtenFromOutside()`
+  avant d'écrire un IO. `InternalThermostat` s'y abonne (`Device::observeOutsideWrites()`) et
+  journalise un avertissement (domaine `device`) qui nomme le thermostat, la sortie et la source :
+  `a rule`, `a Lua script`, `set_state over HTTP`, `set_state over WebSocket`. Un IO qui n'est
+  pas la sortie d'un thermostat chargé, le device lui-même, une sortie laissée de côté (un
+  autre thermostat la tient) et un `set_state` refusé avant écriture ne produisent rien. Les
+  écritures du thermostat ne passent pas par là. Les autres écrivains (pilote, scénario) restent
+  couverts par l'avertissement « changée par autre chose » du suivi des sorties.
+- **Limitation** : une ligne au plus par source et par sortie pendant `put_back_delay_max`
+  (60 s par défaut), soit au pire une ligne par minute pour une règle qui écrit toutes les
+  secondes ; un écrivain rare est journalisé à chaque fois, et un changement de source se voit
+  tout de suite. La règle n'est pas nommée : `ActionStd` ne connaît pas la sienne.
+- **OFF forcé défait** : quand le thermostat tient une sortie à l'arrêt (mode `off` ou refus de
+  `outputsAllowed()`) et qu'une remise est défaite par un écrivain qui la rallume, chaque remise
+  défaite est journalisée en **erreur** (`mode off` ou `safety`). Les remises étant espacées de
+  `put_back_delay` au moins, cela fait au plus une erreur par espacement. C'est la seule défense
+  face à une règle qui rallume : la sortie reste ON presque tout le temps. Le premier
+  rallumage, avant toute remise, n'est qu'un avertissement (une fois par sortie). Une remise
+  défaite hors d'un arrêt forcé (régulation) n'est pas une erreur.
+- **MCP** : le sidecar expose l'écriture directe (`set_io_state`) ; masquer ces sorties dans
+  `list_ios` et les refuser en écriture est le ticket MCP-1.
+
 ---
 
 ## IOFactory
