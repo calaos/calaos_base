@@ -999,6 +999,25 @@ TEST_F(InternalThermostatTest, CommandsThroughSetState)
     EXPECT_EQ(str("rev_action"), "off");
 }
 
+//A command is evaluated once all its fields are applied: the mode must not
+//switch ON against the previous target, then hold for min_on_time.
+TEST_F(InternalThermostatTest, ACommandIsEvaluatedOnceWhole)
+{
+    load();
+    setpoints("lock", 25, 19, 23);
+    temp("lock", 20);
+    auto heat = count("lock_heat");
+
+    EXPECT_TRUE(mode("lock", R"({"mode":"heat","target_temp":18})"));
+    EXPECT_EQ(num("lock_target"), 18);
+    EXPECT_FALSE(on("lock_heat"));
+    EXPECT_EQ(heat->count, 0);
+    EXPECT_EQ(str("lock_action"), "idle");
+
+    EXPECT_TRUE(mode("lock", R"({"target_temp":22})"));
+    EXPECT_TRUE(on("lock_heat"));
+}
+
 TEST_F(InternalThermostatTest, ModeIsKeptInTheStateCache)
 {
     load();
