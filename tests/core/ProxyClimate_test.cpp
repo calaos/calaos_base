@@ -612,13 +612,23 @@ TEST_F(ProxyClimateTest, ConfigurationMistakesAreLoggedAtLoad)
              "Device(mm_d): auto_payload must be 'auto' or 'heat_cool'",
              "Device(bk): remote_temp_keepalive is not a positive number of seconds",
              "Device(bh): readback_hold is not a positive number of seconds",
+             "Device(rg): no 'mode' link, no mode is offered",
+             "Device(ka): no 'mode' link, no mode is offered",
          })
         EXPECT_NE(log.find(expected), std::string::npos) << expected << "\n"
                                                          << log;
 
     EXPECT_EQ(log.find("Device(mm_ci): link 'mode' has no command_io"), std::string::npos) << log;
 
-    for (const char *quiet: { "ac", "mm_a", "mm_b", "mm_c", "mm_rw", "rc", "ka", "rg", "hd" })
+    //The mode link is there: nothing to say (and a dangling one is the base's business).
+    EXPECT_EQ(log.find("Device(ac): no 'mode' link"), std::string::npos) << log;
+    //Focused fixtures without a mode say that and nothing else.
+    for (const char *noMode: { "rc", "ka", "rg", "hd" })
+        EXPECT_EQ(count(log, std::string("Device(") + noMode + "): "),
+                  count(log, std::string("Device(") + noMode + "): no 'mode' link"))
+            << noMode << "\n"
+            << log;
+    for (const char *quiet: { "ac", "mm_a", "mm_b", "mm_c", "mm_rw" })
         EXPECT_EQ(log.find(std::string("Device(") + quiet + "): "), std::string::npos)
             << quiet << "\n"
             << log;

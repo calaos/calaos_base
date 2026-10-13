@@ -58,7 +58,7 @@ public:
     TestThermostat(Params &p):
         ClimateBase(p)
     {
-        documentCommand({ ClimateMode::Off, ClimateMode::Heat }, "");
+        documentCommand({ ClimateMode::Off, ClimateMode::Heat }, "", " note_x");
     }
 
     vector<ClimateMode> supportedModes() override
@@ -935,6 +935,9 @@ TEST_F(ClimateBaseTest, AnImplThatStoresItsModeDocumentsItWithoutALink)
     EXPECT_EQ("json", doc.at("command_format").get<std::string>());
     EXPECT_EQ(Json::array({ "off", "heat" }), fieldOf(doc, "mode").at("values"));
     EXPECT_EQ(Json::array(), fieldOf(doc, "mode").at("requires_links"));
+    const std::string desc = fieldOf(doc, "mode").at("description").get<std::string>();
+    EXPECT_EQ(" note_x", desc.substr(desc.size() - 7));
+    EXPECT_EQ(std::string::npos, fieldOf(doc, "target_temp").at("description").get<std::string>().find("note_x"));
     EXPECT_EQ(Json::array({ "target_temp" }), fieldOf(doc, "target_temp").at("requires_links"));
 
     //Documented without a link, and accepted without one.

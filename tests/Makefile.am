@@ -2595,16 +2595,18 @@ core_IODocJson_test_SOURCES = core/IODocJson_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_IODocJson_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
-#The climate objects register the first device in the factory, which the
+#The climate objects register the devices in the factory, which the
 #"devices" section of the generated document is checked on.
 core_IODocJson_test_LDADD = $(CORE_TEST_LDADD) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT)
 #T3.36: the linked server objects are prerequisites, so touching one relinks
 #this binary. They are built by src/, never here (see the note above).
 core_IODocJson_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT)
 endif
 

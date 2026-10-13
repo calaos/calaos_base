@@ -890,6 +890,73 @@ TEST_F(IODocGenFileTest, TheProxyDocumentsItsParams)
     EXPECT_EQ("true", paramNamed(proxy, "impl").at("mandatory").get<std::string>());
 }
 
+TEST_F(IODocGenFileTest, TheThermostatIsDocumentedUnderDevicesLikeTheProxy)
+{
+    loadConfig();
+    IOFactory::Instance().genDoc(docDir());
+
+    Json j = Json::parse(readWholeFile(docDir() + "/io_doc.json"));
+    ASSERT_TRUE(j.at("devices").contains("thermostat"));
+    EXPECT_FALSE(j.contains("thermostat"));
+    const Json &th = j.at("devices").at("thermostat");
+
+    EXPECT_EQ("climate", th.at("family").get<std::string>());
+    EXPECT_EQ("json", th.at("command_format").get<std::string>());
+    EXPECT_NE(j.at("devices").at("proxy"), th);
+
+    //The device stores its mode: no link to require, four modes, and the
+    //outputs that unlock them said in the description.
+    const Json mode = th.at("command_fields").at(0);
+    EXPECT_EQ("mode", mode.at("name").get<std::string>());
+    EXPECT_EQ(Json::array({ "off", "heat", "cool", "auto" }), mode.at("values"));
+    EXPECT_EQ(Json::array(), mode.at("requires_links"));
+    const std::string modeText = mode.at("description").get<std::string>();
+    EXPECT_TRUE(contains(modeText, "capabilities"));
+    EXPECT_TRUE(contains(modeText, "cool needs output_cool"));
+    EXPECT_TRUE(contains(modeText, "auto needs both"));
+
+    std::map<std::string, std::pair<bool, bool>> roles;
+    std::map<std::string, std::string> texts;
+    for (const Json &r: th.at("link_roles"))
+    {
+        const std::string role = r.at("role").get<std::string>();
+        roles[role] = { r.at("required").get<bool>(), r.at("writable").get<bool>() };
+        texts[role] = r.at("description").get<std::string>();
+    }
+    const std::map<std::string, std::pair<bool, bool>> expected = {
+        { "current_temp", { true, false } },
+        { "target_temp", { true, true } },
+        { "target_temp_low", { false, true } },
+        { "target_temp_high", { false, true } },
+        { "action", { false, false } },
+        { "output_heat", { true, true } },
+        { "output_cool", { false, true } },
+    };
+    EXPECT_EQ(expected, roles);
+    //Decision 17: one output, one thermostat.
+    for (const char *role: { "output_heat", "output_cool" })
+        EXPECT_TRUE(contains(texts[role], "belongs to a single thermostat")) << role;
+    EXPECT_FALSE(contains(texts["target_temp"], "single thermostat"));
+
+    const std::map<std::string, std::string> defaults = {
+        { "hysteresis", "0.5" },
+        { "min_on_time", "0" },
+        { "min_off_time", "0" },
+        { "put_back_delay", "1" },
+        { "put_back_delay_max", "60" },
+    };
+    for (const auto &d: defaults)
+    {
+        const Json p = paramNamed(th, d.first);
+        ASSERT_TRUE(p.is_object()) << d.first;
+        EXPECT_EQ(d.second, p.at("default").get<std::string>()) << d.first;
+        EXPECT_EQ("float", p.at("type").get<std::string>()) << d.first;
+        EXPECT_EQ("calaos:param", p.at("storage").get<std::string>()) << d.first;
+    }
+    EXPECT_TRUE(contains(paramNamed(th, "put_back_delay").at("description").get<std::string>(), "0.001"));
+    EXPECT_EQ("calaos:param", paramNamed(th, "min_range").at("storage").get<std::string>());
+}
+
 //io_doc.json is pretty printed with an indent of FOUR spaces. jansson was
 //asked for JSON_INDENT(4); the migration must ask nlohmann for the same.
 //A dump that lost its indent, or that used 2, makes this red.

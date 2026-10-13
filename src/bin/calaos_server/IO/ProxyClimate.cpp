@@ -124,6 +124,9 @@ void ProxyClimate::resolveLinks()
     ClimateBase::resolveLinks();
 
     const string id = get_param("id");
+    //Loads all the same (spec §3.2): required is a hint for the installer.
+    if (linkIoId(MODE).empty())
+        cWarningDom("device") << "Device(" << id << "): no 'mode' link, no mode is offered";
     for (const char *role: { "mode", "target_temp", "target_temp_low", "target_temp_high",
                              "fan_mode", "swing_mode", "remote_temp" })
     {

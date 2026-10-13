@@ -33,6 +33,8 @@
 #include <chrono>
 #include <fstream>
 #include <functional>
+#include <map>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -1755,4 +1757,85 @@ TEST_F(InternalThermostatTest, AnUndonePutBackOutsideAForcedStopIsNotAnError)
     EXPECT_GE(heat->count, 6);
     EXPECT_EQ(log.find(UNDONE), std::string::npos) << log;
     EXPECT_EQ(occurrences(log, "was switched by something else"), 1) << log;
+}
+
+namespace
+{
+
+Json thermostatDocumentation()
+{
+    Params p;
+    p.Add("type", "device:thermostat");
+    p.Add("id", "doc");
+    IOBase::ScopedDocGen docScope;
+    std::unique_ptr<IOBase> io(IOFactory::Instance().CreateIO("device:thermostat", p));
+    return io->getDoc()->genDocJson();
+}
+
+} //namespace
+
+/* The installer builds its form from this document: a field it lists for an
+ * instance must be accepted, and one whose links are missing must not be. */
+TEST_F(InternalThermostatTest, TheDocumentedFieldsAreAcceptedExactlyWhenTheirLinksExist)
+{
+    load();
+    const Json doc = thermostatDocumentation();
+    const std::map<std::string, std::string> samples = {
+        { "mode", R"({"mode":"heat"})" },
+        { "target_temp", R"({"target_temp":21})" },
+        { "target_temp_low", R"({"target_temp_low":19,"target_temp_high":23})" },
+        { "target_temp_high", R"({"target_temp_low":19,"target_temp_high":23})" },
+        { "fan_mode", R"({"fan_mode":"auto"})" },
+        { "swing_mode", R"({"swing_mode":"off"})" },
+    };
+
+    ASSERT_EQ(samples.size(), doc.at("command_fields").size());
+    for (const std::string id: { "th", "rev" })
+    {
+        for (const Json &field: doc.at("command_fields"))
+        {
+            const std::string name = field.at("name").get<std::string>();
+            ASSERT_TRUE(samples.count(name)) << "no sample for the documented field " << name;
+
+            bool linked = true;
+            for (const Json &role: field.at("requires_links"))
+                linked = linked && dev(id)->linkIo(role.get<std::string>());
+            EXPECT_EQ(linked, dev(id)->set_value(samples.at(name))) << id << " " << name;
+        }
+    }
+}
+
+//The document lists the four modes; an instance with both outputs offers them all.
+TEST_F(InternalThermostatTest, TheDocumentedModesAreThoseOfAThermostatWithBothOutputs)
+{
+    load();
+    const Json field = thermostatDocumentation().at("command_fields").at(0);
+    ASSERT_EQ("mode", field.at("name").get<std::string>());
+
+    std::vector<std::string> documented;
+    for (const Json &m: field.at("values"))
+        documented.push_back(m.get<std::string>());
+    EXPECT_EQ(documented, modes("rev"));
+    EXPECT_TRUE(field.at("requires_links").empty());
+}
+
+//The documented defaults are the ones applied without the param.
+TEST_F(InternalThermostatTest, TheDocumentedDefaultsAreTheConstantsTheCodeUses)
+{
+    const Json doc = thermostatDocumentation();
+    auto defaultOf = [&doc](const char *name)
+    {
+        for (const Json &p: doc.at("parameters"))
+        {
+            if (p.at("name") == name)
+                return p.at("default").get<std::string>();
+        }
+        return std::string("<missing>");
+    };
+    EXPECT_EQ(Utils::to_string(InternalThermostat::DEFAULT_HYSTERESIS), defaultOf("hysteresis"));
+    EXPECT_EQ(Utils::to_string(InternalThermostat::DEFAULT_PUT_BACK_DELAY), defaultOf("put_back_delay"));
+    EXPECT_EQ(Utils::to_string(InternalThermostat::DEFAULT_PUT_BACK_DELAY_MAX),
+              defaultOf("put_back_delay_max"));
+    EXPECT_EQ("0", defaultOf("min_on_time"));
+    EXPECT_EQ("0", defaultOf("min_off_time"));
 }

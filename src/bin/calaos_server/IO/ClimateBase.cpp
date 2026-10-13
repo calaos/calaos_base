@@ -99,7 +99,8 @@ ClimateBase::ClimateBase(Params &p):
         ioDoc->paramInChild(name);
 }
 
-void ClimateBase::documentCommand(const vector<ClimateMode> &modes, const string &modeLink)
+void ClimateBase::documentCommand(const vector<ClimateMode> &modes, const string &modeLink,
+                                  const string &modeNote)
 {
     vector<string> names;
     for (ClimateMode m: modes)
@@ -113,7 +114,10 @@ void ClimateBase::documentCommand(const vector<ClimateMode> &modes, const string
     const string bounds = _(" Bounds are those of the linked IO (value_min, value_max, step, unit), "
                             "else 7 to 35 by 0.5 in °C. The effective ones are published in the "
                             "capabilities.");
-    ioDoc->commandFieldEnum("mode", _("Operating mode. The modes an instance accepts are published in its capabilities."), names, modeLinks);
+    ioDoc->commandFieldEnum("mode",
+                            _("Operating mode. The modes an instance accepts are published in its capabilities.") +
+                                modeNote,
+                            names, modeLinks);
     ioDoc->commandFieldNumber("target_temp", _("The setpoint used in heat and cool.") + bounds,
                               DEFAULT_TEMP_MIN, DEFAULT_TEMP_MAX, DEFAULT_TEMP_STEP, unit,
                               { "target_temp" });
