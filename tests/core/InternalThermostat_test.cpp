@@ -1167,8 +1167,8 @@ TEST_F(InternalThermostatTest, RecreatedIoAvoidsATakenId)
     EXPECT_EQ(io("taken_target_temp_0")->getOwnerDevice(), "taken");
 }
 
-//The first device holding an id owns the IOs (Device::ownedIos()): its
-//shadow must not create any under that id.
+//The first device holding an id owns the IOs (Device::ownedIos()) and
+//regulates: its shadow creates nothing and drives none of its links.
 TEST_F(InternalThermostatTest, AShadowedThermostatCreatesNothing)
 {
     const std::string xml = ioXmlDocument(roomXml(
@@ -1177,13 +1177,15 @@ TEST_F(InternalThermostatTest, AShadowedThermostatCreatesNothing)
                                  ownedXml("InternalString", "dup_action") +
                                  linkXml("target_temp", "dup_target") +
                                  linkXml("action", "dup_action")) +
-            thermostatXml("dup", "")));
+            thermostatXml("dup", linkXml("output_heat", "dup_out")) +
+            roomIo("InternalBool", "dup_out")));
     const std::string log = load(xml);
 
     EXPECT_EQ(log.find("', created '"), std::string::npos) << log;
     EXPECT_EQ(io("dup_target_temp"), nullptr);
     EXPECT_EQ(io("dup_action_0"), nullptr);
-    EXPECT_EQ(firstRoom()->get_size(), 4);
+    EXPECT_EQ(firstRoom()->get_size(), 5);
+    EXPECT_FALSE(io("dup_out")->hasValue());
 }
 
 //An id kept by a device this build cannot load is not given to a new IO.
