@@ -1393,4 +1393,5 @@ rouvrir.
     ne suffit pas : sans device il est écrit en format 1, donc supprimer le dernier device depuis
     l'installateur serait refusé, et il n'existe pas d'API de suppression d'IO. Un client qui
     déclare `io_format` ≥ 2 est cru ; un client qui ne le déclare pas est refusé dès que le serveur a
-    un device. Un `io.xml` illisible est toujours refusé.
+    un device. Dès que le serveur a un device, un `io.xml` illisible est refusé (message distinct) ;
+    sans device, rien ne change par rapport à avant.
