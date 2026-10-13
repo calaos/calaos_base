@@ -721,7 +721,7 @@ commande ou du lien `mode`.
 lien existe : `modes` (lien `mode` ; liste restreinte par le param `modes`, sinon les six),
 `target_temp` (`min`/`max`/`step`/`unit` lus sur l'IO écrit par le lien, son `command_io`
 sinon son `io` ; à défaut 7, 35, 0.5 et `°C`), `target_temp_range` (liens `target_temp_low`
-**et** `_high`), `reports_action` (`action`), `fan_modes`/`swing_modes` (liste du param du
+**et** `_high` ; l'objet `target_temp` porte alors aussi `min_range`), `reports_action` (`action`), `fan_modes`/`swing_modes` (liste du param du
 même nom, séparée par des virgules), `remote_temp` (liens `remote_temp` **et**
 `remote_temp_source`). L'état porte `mode`, `current_temp`, `target_temp`,
 `target_temp_low`/`_high`, `action`, `fan_mode`, `swing_mode` ; un mode ou une action
