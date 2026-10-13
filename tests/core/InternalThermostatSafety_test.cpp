@@ -156,6 +156,7 @@ std::string house()
     //Floor cooling without a humidity link, its output_cool left ON.
     ios += thermostat("nohum", true, param("emitter", "floor"));
     ios += thermostat("fancoil", true, param("emitter", "fan_coil"));
+    ios += thermostat("start", false, param("min_off_time", "0.4"));
     return ioXmlDocument(roomXml("Salon", "salon", ios));
 }
 
@@ -168,7 +169,8 @@ struct Thermostat
 //Every thermostat of the house: their saved IOs are reset before each case.
 const std::vector<Thermostat> THERMOSTATS = { { "boot", false }, { "stale", false }, { "quiet", false },
                                               { "dew", true },     { "dewst", true },
-                                              { "nohum", true },   { "fancoil", true } };
+                                              { "nohum", true },   { "fancoil", true },
+                                              { "start", false } };
 
 } //namespace
 
@@ -483,4 +485,20 @@ TEST_F(InternalThermostatSafetyTest, FloorCoolingWithoutHumidityIsRefusedAtLoad)
     //Only a floor needs it.
     EXPECT_FALSE(has(log, "Device(fancoil)")) << log;
     EXPECT_EQ(modes("fancoil"), (std::vector<std::string>{ "off", "heat", "cool", "auto" }));
+}
+
+/* The server may restart while a relay is ON, or a few seconds after it went
+ * OFF: the start counts as a switch OFF, so min_off_time passes before the
+ * first ON. */
+TEST_F(InternalThermostatSafetyTest, TheFirstSwitchOnWaitsForMinOffTimeFromTheStart)
+{
+    const auto t0 = Clock::now();
+    load();
+    mode("start", "heat");
+    set("start_temp", 18);
+    EXPECT_FALSE(on("start_heat"));
+
+    ASSERT_TRUE(waitFor("start_heat", true, 2000));
+    EXPECT_GE(msSince(t0), 390);
+    EXPECT_EQ(str("start_action"), "heating");
 }
