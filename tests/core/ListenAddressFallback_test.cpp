@@ -655,7 +655,7 @@ Exchange exchange(const std::string &listenAddress, const char *dest,
     ::mkdir(cfg.c_str(), 0700);
     ::mkdir(cache.c_str(), 0700);
 
-    r.asked = reservePort();
+    r.asked = reservePort(SOCK_DGRAM);
     if (r.asked <= 0)
         return r;
 
