@@ -161,6 +161,14 @@ void EmitSignalIO();  // → ListeRule::ExecuteRuleSignal(id)
 Les deux effets comptent : le second est ce qui alimente InfluxDB pour les IOs marqués
 `logged`.
 
+**Dernière lecture.** `lastReading()` donne l'instant (`steady_clock`) de la dernière valeur
+reçue depuis le démarrage, vide avant ; une valeur restaurée du cache d'état n'en est pas une.
+`EmitSignalIO()` l'horodate, ainsi que `markReading()` (protégé), qu'appellent les drivers qui
+écartent sans la signaler une valeur égale à la précédente : `MqttInputAnalog` et
+`MqttInputTemp` (sur un message, pas sur la relecture périodique du dernier),
+`WIAnalog` et `WITemp` (sur une réponse Modbus). Les autres drivers ne datent que les
+changements : une sonde stable y paraît muette.
+
 ### StatusInfo
 
 Infos de statut pour les périphériques IoT (dérivé,
@@ -422,6 +430,10 @@ spec §6. Famille `climate`, abstraite (constructeur protégé) : les impls `pro
   `swing_modes`, `min_range` ; bornes de consigne lues sur l'IO écrit
   (`setpointBounds()`). Les erreurs de configuration sont journalisées une fois, dans
   `resolveLinks()`.
+- **Fraîcheur d'une sonde** : `isFresh(io)` est vrai quand l'IO a fourni une lecture depuis
+  le démarrage (`lastReading()`) il y a moins de `sensor_timeout` secondes (défaut 9000,
+  soit 2 h 30 : un report Zigbee horaire perdu ne suffit pas à couper ; une valeur qui n'est
+  pas un nombre strictement positif est journalisée et remplacée par le défaut).
 - Hooks d'impl : `supportedModes()` (le thermostat restreint ses modes selon ses sorties),
   `currentMode()` / `writeMode()` (le thermostat stocke son mode). Par défaut, le mode est lu
   sur le lien `mode` et écrit sur son `command_io`, sinon sur son `io`.
@@ -469,10 +481,12 @@ lien et écrit sur son `command_io`, sinon sur son `io` quand c'est une sortie.
 - **Température distante** (§7) : si `remote_temp` et `remote_temp_source` sont liés, la valeur de
   la source est écrite sur `remote_temp` à chaque changement **et** toutes les
   `remote_temp_keepalive` secondes (défaut 120, fractions admises ; un `Timer` membre détruit avec
-  le device). Rien n'est envoyé tant que la source n'a pas de valeur (`hasValue()`, 0 est une
+  le device). Rien n'est envoyé tant que la source n'est pas fraîche (`isFresh()` : une
+  lecture depuis le démarrage, la dernière il y a moins de `sensor_timeout` s ; 0 est une
   valeur) ni tant qu'elle se déclare déconnectée : l'appareil retombe alors sur sa sonde. Une
-  source simplement stable continue d'être relayée : les IOs n'ont pas d'horodatage, le silence ne
-  prouve rien.
+  source muette mais toujours « connectée » cesse donc d'être relayée, avec une erreur par
+  silence ; la lecture suivante est relayée aussitôt (une valeur répétée, au prochain
+  keep-alive).
 - **Relecture en retard** : une commande `target_temp_low`/`_high` partielle est validée contre la
   dernière valeur **commandée** de l'autre borne, jusqu'à ce que la relecture de cette borne
   change ou que `readback_hold` secondes (défaut 10) s'écoulent. Sans cela, deux commandes
@@ -482,7 +496,7 @@ lien et écrit sur son `command_io`, sinon sur son `io` quand c'est une sortie.
 ### InternalThermostat
 
 **Fichier :** [src/bin/calaos_server/IO/InternalThermostat.h](../src/bin/calaos_server/IO/InternalThermostat.h) —
-spec §8.1. `impl="thermostat"` : Calaos régule.
+spec §8.1 et §8.2. `impl="thermostat"` : Calaos régule.
 
 - **Modes** : `off`, plus `heat` avec `output_heat`, `cool` avec `output_cool`, `auto` avec
   les deux. Le mode est stocké par le device et persisté dans le cache d'état
@@ -494,9 +508,11 @@ spec §8.1. `impl="thermostat"` : Calaos régule.
   `_high`. Absents, ils sont recréés au chargement (`InternalInt` `save="true"` à 20, 19 et
   max(25, 19 + `min_range`) ; `InternalString` pour `action`) et écrits à la sauvegarde
   suivante.
-- **`evaluate()`** : appelé par `IOChangeHub` sur `current_temp` et les consignes, par un
-  changement de ses sorties, par les verrous, une fois au premier tour de boucle après le
-  chargement, et une seule fois par commande, quand tous ses champs sont appliqués
+- **`evaluate()`** : appelé par `IOChangeHub` sur `current_temp`, les consignes et `humidity`,
+  par un changement de ses sorties, par les verrous, une fois au premier tour de boucle après
+  le chargement, toutes les min(`sensor_timeout`, 60) s (une sonde qui se tait ne signale
+  rien, une valeur répétée non plus), et une seule fois par commande, quand tous ses champs
+  sont appliqués
   (`{"mode":"heat","target_temp":18}` ne chauffe pas contre l'ancienne consigne).
   Chauffe : ON sous `consigne − hysteresis`, OFF au-dessus de la consigne ; entre les deux,
   bornes comprises, elle garde l'état de sa dernière commande, pas celui d'une relecture en
@@ -507,8 +523,21 @@ spec §8.1. `impl="thermostat"` : Calaos régule.
   sur-le-champ, sans attendre `min_on_time`, et son `min_off_time` protège le redémarrage.
   Le mode `off` coupe de la même façon, ainsi qu'une sortie trouvée ON avec l'autre ; si
   l'autre est tenue ON de l'extérieur et ne peut pas encore être remise, c'est la sienne
-  qui s'arrête : jamais les deux. La base autorise les deux sorties ; quoi que dise
-  une surcharge, elles restent OFF tant que `current_temp` n'a pas de valeur.
+  qui s'arrête : jamais les deux. Chaque règle cesse d'elle-même avec sa cause :
+  - **sonde** : quoi que dise une surcharge du hook, les deux sorties restent OFF tant que
+    `current_temp` n'est pas fraîche (`isFresh()`). Au démarrage, la valeur du cache d'état ne
+    compte pas : il faut une lecture. Une sonde qui a lu puis se tait `sensor_timeout`
+    secondes coupe les sorties, avec une erreur par silence ; la lecture suivante, même
+    identique, relance la régulation ;
+  - **point de rosée** (`emitter=floor`) : la base refuse `output_cool` tant que `humidity`
+    n'est pas fraîche (jamais lue depuis le démarrage, ou muette `sensor_timeout` s) ou lit
+    `humidity_max` ou plus (défaut 65) ; journalisé à chaque changement de cause. Sans lien
+    `humidity`, `cool` et `auto` sont absents des modes et le chargement journalise
+    l'erreur ; `output_cool` reste une sortie du thermostat, tenue OFF. Le chauffage n'est
+    pas concerné ;
+  - **démarrage** : le premier tour de boucle compte comme un passage à OFF des deux sorties,
+    donc `min_off_time` s'écoule avant le premier ON (un relais coupé juste avant un
+    redémarrage du serveur ne refait pas un cycle court).
 - **Verrous** : `min_on_time` / `min_off_time` (secondes, décimales acceptées, 0 par
   défaut), mesurés depuis la dernière commutation faite par le thermostat. Une commutation
   de régulation dans un verrou est reportée par un `Timer` membre réarmable, puis
