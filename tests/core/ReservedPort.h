@@ -75,7 +75,7 @@ private:
     static std::string lockPath(int port)
     {
         const char *dir = getenv("TMPDIR");
-        return std::string(dir && *dir? dir: "/tmp") +
+        return std::string(dir && *dir ? dir : "/tmp") +
                "/calaos-test-port-" + std::to_string(port) + ".lock";
     }
 
@@ -123,6 +123,6 @@ private:
     }
 };
 
-}
+} //namespace calaos_test
 
 #endif

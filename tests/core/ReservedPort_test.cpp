@@ -40,7 +40,7 @@ int releasedKernelPort(int type)
     return ntohs(a.sin_port);
 }
 
-}
+} //namespace
 
 TEST(ReservedPort, KernelPickedPortsLiveInThePoolOtherTestsDrawFrom)
 {
@@ -62,7 +62,7 @@ TEST(ReservedPort, ReservedPortIsOutsideTheEphemeralPool)
 
     for (int i = 0; i < 50; i++)
     {
-        const int p = ReservedPort::reserve(i % 2? SOCK_DGRAM: SOCK_STREAM);
+        const int p = ReservedPort::reserve(i % 2 ? SOCK_DGRAM : SOCK_STREAM);
         ASSERT_GT(p, 0);
         EXPECT_TRUE(p < lo || p > hi) << "port " << p << " is in " << lo << "-" << hi;
     }
@@ -88,7 +88,7 @@ TEST(ReservedPort, AReservedPortStaysClaimedAgainstAnotherProcess)
     const pid_t pid = fork();
     ASSERT_GE(pid, 0);
     if (pid == 0)
-        _exit(ReservedPort::isClaimed(p)? 0: 1);
+        _exit(ReservedPort::isClaimed(p) ? 0 : 1);
 
     int status = 0;
     waitpid(pid, &status, 0);
