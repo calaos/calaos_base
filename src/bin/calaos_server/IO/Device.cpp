@@ -86,15 +86,20 @@ bool Device::LoadFromXml(pugi::xml_node node)
         }
     }
 
-    //By id: the subscription may precede an external IO of a later room.
+    for (const Link &l: links)
+        subscribeLink(l.io);
+
+    return true;
+}
+
+void Device::subscribeLink(const string &io)
+{
     auto changed = [this](IOBase &)
     {
         deviceStateChanged();
     };
-    for (const Link &l: links)
-        linkSubscriptions.push_back(IOChangeHub::Instance().subscribe(l.io, changed));
-
-    return true;
+    //By id: the subscription may precede an external IO of a later room.
+    linkSubscriptions.push_back(IOChangeHub::Instance().subscribe(io, changed));
 }
 
 vector<std::unique_ptr<IOBase>> Device::takeLoadedIos()
@@ -178,6 +183,46 @@ void Device::resolveLinks()
     //A mode restored from the cache is not a change: the device's rules
     //must not fire on the first linked update.
     lastScalar = get_value_string();
+}
+
+IOBase *Device::createOwnedLink(const string &role, Params params)
+{
+    ListeRoom &lr = ListeRoom::Instance();
+    const string id = get_param("id");
+    //A shadowed duplicate owns nothing, see ownedIos().
+    if (lr.get_io(id) != this)
+        return nullptr;
+
+    auto link = links.begin();
+    while (link != links.end() && link->name != role)
+        ++link;
+    string ioId = link != links.end() ? link->io : string();
+    if (ioId.empty())
+    {
+        ioId = id + "_" + role;
+        if (lr.get_io(ioId) || lr.isIdReserved(ioId))
+            ioId = Calaos::get_new_id(ioId + "_");
+    }
+
+    params.Add("id", ioId);
+    IOBase *io = lr.createIO(params, lr.getRoomByIO(this));
+    if (!io)
+        return nullptr;
+    io->setOwnerDevice(id);
+
+    //A link naming the missing IO is already subscribed to that id.
+    if (link == links.end())
+    {
+        links.push_back({ role, ioId, string() });
+        subscribeLink(ioId);
+    }
+    else if (link->io.empty())
+    {
+        link->io = ioId;
+        subscribeLink(ioId);
+    }
+
+    return io;
 }
 
 const Device::Link *Device::findLink(const string &name) const

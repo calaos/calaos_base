@@ -134,6 +134,13 @@ protected:
      * those writes would otherwise call back into a half-destroyed device. */
     void stopListening();
 
+    /* For an impl that recreates the owned IOs a hand-edited file lost
+     * (spec §4.2): builds one through the factory in the device's room, owned
+     * and linked under `role`. A link that names a missing IO keeps its id;
+     * otherwise the IO is <device id>_<role>, or a free variant of it. The
+     * next save writes both. nullptr when nothing could be created. */
+    IOBase *createOwnedLink(const string &role, Params params);
+
     //Validation helpers for applyCommandField().
     static bool enumField(const Json &value, const vector<string> &allowed, string &out,
                           string &reason);
@@ -144,6 +151,7 @@ protected:
 
 private:
     const Link *findLink(const string &name) const;
+    void subscribeLink(const string &io);
     Json buildDeviceObject(Json state);
     void publish();
 

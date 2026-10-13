@@ -374,7 +374,10 @@ clé `device:<impl>`, enregistrée par `REGISTER_DEVICE(impl, Classe)`.
   ajoutés à la liste plate de la pièce, juste après le device. Règles, cache d'état,
   `get_home` et MCP les voient comme tout IO. Chacun porte l'id de son device
   (`IOBase::getOwnerDevice()`, un membre et pas un param). Un `<calaos:device>` imbriqué
-  n'est pas construit.
+  n'est pas construit. Une impl recrée un IO possédé obligatoire perdu par un fichier
+  édité à la main avec `createOwnedLink()` : dans la pièce du device, lié sous son rôle ;
+  un lien qui nomme un IO absent garde son id, sinon `<device>_<rôle>` ou une variante
+  libre. Un device masqué par un autre de même id ne crée rien.
 - **Propriété** : la pièce possède tous les IOs. Le device ne garde que des ids ;
   `ownedIos()` et `linkIo()` résolvent à chaque appel. Un id en double se comporte comme
   aujourd'hui : l'IO entre dans la pièce, le premier garde l'id. Pour deux devices de même
@@ -475,6 +478,69 @@ lien et écrit sur son `command_io`, sinon sur son `io` quand c'est une sortie.
   change ou que `readback_hold` secondes (défaut 10) s'écoulent. Sans cela, deux commandes
   rapprochées se valideraient contre la valeur que la première a remplacée. Une écriture refusée
   n'est pas retenue.
+
+### InternalThermostat
+
+**Fichier :** [src/bin/calaos_server/IO/InternalThermostat.h](../src/bin/calaos_server/IO/InternalThermostat.h) —
+spec §8.1. `impl="thermostat"` : Calaos régule.
+
+- **Modes** : `off`, plus `heat` avec `output_heat`, `cool` avec `output_cool`, `auto` avec
+  les deux. Le mode est stocké par le device et persisté dans le cache d'état
+  (`iostates.cache`, clé = id du device) quand il change, `off` par défaut ; un mode
+  sauvegardé que les sorties ne permettent plus repasse à `off`, journalisé et sauvegardé
+  (il ne revient pas seul avec sa sortie). Il est
+  restauré avant `ClimateBase::resolveLinks()`, donc sans déclencher les règles.
+- **IOs possédés** : `target_temp`, `action` et, avec `output_cool`, `target_temp_low` /
+  `_high`. Absents, ils sont recréés au chargement (`InternalInt` `save="true"` à 20, 19 et
+  max(25, 19 + `min_range`) ; `InternalString` pour `action`) et écrits à la sauvegarde
+  suivante.
+- **`evaluate()`** : appelé par `IOChangeHub` sur `current_temp` et les consignes, par un
+  changement de ses sorties, par les verrous, une fois au premier tour de boucle après le
+  chargement, et une seule fois par commande, quand tous ses champs sont appliqués
+  (`{"mode":"heat","target_temp":18}` ne chauffe pas contre l'ancienne consigne).
+  Chauffe : ON sous `consigne − hysteresis`, OFF au-dessus de la consigne ; entre les deux,
+  bornes comprises, elle garde l'état de sa dernière commande, pas celui d'une relecture en
+  retard. Froid symétrique. `auto` : chauffe contre `target_temp_low`, froid contre
+  `target_temp_high`. Une consigne sans valeur laisse sa sortie OFF. `hysteresis` vaut 0,5
+  par défaut.
+- **Sûreté** : `outputsAllowed()` est demandé en premier ; une sortie refusée passe OFF
+  sur-le-champ, sans attendre `min_on_time`, et son `min_off_time` protège le redémarrage.
+  Le mode `off` coupe de la même façon, ainsi qu'une sortie trouvée ON avec l'autre ; si
+  l'autre est tenue ON de l'extérieur et ne peut pas encore être remise, c'est la sienne
+  qui s'arrête : jamais les deux. La base autorise les deux sorties ; quoi que dise
+  une surcharge, elles restent OFF tant que `current_temp` n'a pas de valeur.
+- **Verrous** : `min_on_time` / `min_off_time` (secondes, décimales acceptées, 0 par
+  défaut), mesurés depuis la dernière commutation faite par le thermostat. Une commutation
+  de régulation dans un verrou est reportée par un `Timer` membre réarmable, puis
+  `evaluate()` repasse. Une sortie ne passe ON que si l'autre est OFF depuis au moins
+  `min_off_time`, en `auto` comme lors d'un changement de mode : jamais les deux à la fois.
+- **Écritures** : une sortie n'est écrite que si sa dernière commande ou sa relecture
+  diffère de l'état voulu ; une écriture refusée ne change ni l'état tenu ni son horloge.
+  Le thermostat suit aussi ses sorties, 1 ms après la marche des règles qui les a changées.
+  Une sortie changée par autre chose (règle, Lua, `set_state`) compte comme
+  commutée à cet instant : l'état tenu la suit, ses verrous partent de là, et la remettre
+  passe par ses verrous (seul un arrêt forcé leur échappe). Les remises d'une sortie qu'on
+  continue de changer sont espacées de `put_back_delay` (1 s ; 1 ms au moins), doublé tant
+  que chaque remise est défaite avant la suivante, jusqu'à `put_back_delay_max` (60 s ; pas
+  moins que `put_back_delay`), une valeur refusée étant journalisée et remplacée, même sans
+  verrou et pour un arrêt forcé ; un avertissement est journalisé une fois par sortie. La
+  relecture d'un OFF débloque une bascule sans attendre la mesure suivante. Pour l'autre
+  sortie, une sortie compte comme ON tant que sa dernière commande ou sa relecture le dit. `action` (`off`,
+  `idle`, `heating`, `cooling`) suit la dernière commande des sorties et n'est écrit que
+  s'il change.
+- **Réentrance** : hors marche des règles (commande, verrou), une écriture de sortie
+  exécute les règles aussitôt. Si l'une d'elles change une entrée, la passe en cours
+  s'arrête et recommence, sans jamais s'imbriquer.
+- **Une sortie, un thermostat** : au chargement, un thermostat dont `output_heat` ou
+  `output_cool` est déjà une sortie d'un thermostat chargé avant lui journalise l'erreur
+  (les deux ids) et laisse ce lien de côté comme s'il ne résolvait pas : pas de capacité,
+  aucune écriture. Le même IO en `output_heat` et `output_cool` garde la chauffe. Les
+  liens d'un `ProxyClimate` ne comptent pas.
+- **Id en double** : seul le device qui tient l'id régule ; son double ne s'abonne à rien,
+  ne réclame aucune sortie et n'en écrit aucune.
+- **Suppression** : les sorties restent en l'état. Aucune API ne supprime un device en
+  marche : cela n'arrive qu'au rechargement de la configuration ou à l'arrêt du serveur,
+  quand les sorties et leurs drivers peuvent déjà avoir disparu.
 
 ---
 

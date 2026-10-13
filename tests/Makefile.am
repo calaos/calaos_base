@@ -7528,3 +7528,25 @@ core_MqttSubscriptionLifetime_test_DEPENDENCIES = $(MQTT_SUBSCRIPTION_LIFETIME_O
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#InternalThermostat: evaluate(), the lock-outs on the real loop, the changeover,
+#the owned IOs recreated and the mode kept in the state cache. Registers
+#test-only IOs, so it gets its own binary. Own HAVE_GTEST block so this stays a
+#pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/InternalThermostat_test
+check_PROGRAMS += core/InternalThermostat_test
+core_InternalThermostat_test_SOURCES = core/InternalThermostat_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_InternalThermostat_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_InternalThermostat_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
+#The linked server objects are prerequisites, so touching one relinks this
+#binary. They are built by src/, never here (see the note above).
+core_InternalThermostat_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
+endif
