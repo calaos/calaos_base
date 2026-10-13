@@ -181,6 +181,12 @@ void InternalThermostat::resolveLinks()
         evaluate();
     };
     ioAlive.singleShot(0, first);
+
+    auto check = [this]()
+    {
+        evaluate();
+    };
+    freshnessCheck = std::make_unique<Timer>(std::min(sensorTimeout(), FRESHNESS_POLL), check);
 }
 
 double InternalThermostat::nonNegativeParam(const char *name, double def)
@@ -458,13 +464,29 @@ void InternalThermostat::noticeOutput(Output &out, IOBase &io)
                             << "); something keeps undoing the stop";
 }
 
+bool InternalThermostat::sensorFresh(IOBase *sensor)
+{
+    const bool fresh = isFresh(sensor);
+    //One that never read is waited for, not stale.
+    const bool stale = !fresh && sensor && sensor->lastReading();
+    if (stale && !sensorStale)
+        cErrorDom("device") << "Device(" << get_param("id") << "): current_temp '"
+                            << sensor->get_param("id") << "' has sent nothing for "
+                            << sensorTimeout() << " s, the outputs are OFF";
+    if (fresh && sensorStale)
+        cInfoDom("device") << "Device(" << get_param("id") << "): current_temp '"
+                           << sensor->get_param("id") << "' reads again, regulation resumes";
+    sensorStale = stale;
+    return fresh;
+}
+
 void InternalThermostat::regulate()
 {
     OutputPair allowed = outputsAllowed();
     /* Not left to the hook, which an override replaces. A value restored
      * from the state cache is the one from before the restart. */
     IOBase *sensor = linkIo("current_temp");
-    const bool known = sensor && sensor->lastReading();
+    const bool known = sensorFresh(sensor);
     allowed.heat = allowed.heat && known;
     allowed.cool = allowed.cool && known;
     const double temp = known ? sensor->get_value_double() : 0;

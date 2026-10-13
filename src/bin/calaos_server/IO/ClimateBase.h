@@ -87,6 +87,10 @@ public:
     //The "min_range" param; 0 when absent or not a non-negative number.
     double minRange() const;
 
+    //Seconds a linked sensor may stay silent, without a sensor_timeout param.
+    static constexpr double DEFAULT_SENSOR_TIMEOUT = 9000;
+    double sensorTimeout() const { return sensorTimeoutS; }
+
 protected:
     ClimateBase(Params &p);
 
@@ -129,6 +133,10 @@ protected:
     virtual bool rangeBound(const string &role, double &value);
     virtual bool writeRangeBound(const string &role, double value);
 
+    /* `io` has delivered a reading since the server started, the last one
+     * less than sensor_timeout ago. */
+    bool isFresh(IOBase *io) const;
+
     Json deviceCapabilities() override;
     Json deviceState() override;
 
@@ -138,6 +146,8 @@ private:
     //min of the low IO, max of the high IO.
     Bounds rangeBounds();
     bool applyRange(const Json &command);
+
+    double sensorTimeoutS = DEFAULT_SENSOR_TIMEOUT;
 };
 
 } //namespace Calaos

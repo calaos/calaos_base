@@ -58,6 +58,8 @@ public:
     static constexpr double DEFAULT_PUT_BACK_DELAY = 1;
     static constexpr double DEFAULT_PUT_BACK_DELAY_MAX = 60;
     static constexpr double MIN_PUT_BACK_DELAY = 0.001;
+    //Longest wait before a silent sensor is seen stale, or a repeated reading fresh.
+    static constexpr double FRESHNESS_POLL = 60;
     //Values of the setpoint IOs recreated when the file lost them.
     static constexpr double DEFAULT_TARGET = 20;
     static constexpr double DEFAULT_LOW = 19;
@@ -131,6 +133,8 @@ private:
     void evaluateSoon();
     void noticeOutput(Output &out, IOBase &io);
     void warnWrite(Output &out, IOBase &io, const char *source);
+    //current_temp fresh, its silence logged once.
+    bool sensorFresh(IOBase *sensor);
     void regulate();
     bool demand(Output &out, double temp, const char *setpoint, bool cooling);
     //The state the thermostat holds: its last write, else what the IO reports.
@@ -152,6 +156,8 @@ private:
     Output heat{ "output_heat" };
     Output cool{ "output_cool" };
 
+    //current_temp read once, then went silent: logged once per silence.
+    bool sensorStale = false;
     //Outputs claimed: a later thermostat must not drive them.
     bool claimed = false;
     bool evaluating = false;
@@ -160,6 +166,9 @@ private:
     vector<IOChangeHub::Subscription> triggers;
     //One evaluation on the next loop turn after an output moved.
     std::unique_ptr<Timer> outputsMoved;
+    /* A sensor going silent signals nothing, and a driver drops a repeated
+     * reading as unchanged: only time tells either. */
+    std::unique_ptr<Timer> freshnessCheck;
 };
 
 } //namespace Calaos

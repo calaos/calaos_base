@@ -198,6 +198,17 @@ void ClimateBase::resolveLinks()
     if (hasDeviceParam("min_range") && !nonNegative(getDeviceParam("min_range"), gap))
         cErrorDom("device") << "Device(" << id << "): min_range '" << getDeviceParam("min_range")
                             << "' is not a non-negative number, 0 is used";
+    if (hasDeviceParam("sensor_timeout"))
+    {
+        double v = 0;
+        if (Utils::from_string(getDeviceParam("sensor_timeout"), v) && std::isfinite(v) && v > 0)
+            sensorTimeoutS = v;
+        else
+            cErrorDom("device") << "Device(" << id << "): sensor_timeout '"
+                                << getDeviceParam("sensor_timeout")
+                                << "' is not a positive number of seconds, "
+                                << DEFAULT_SENSOR_TIMEOUT << " is used";
+    }
     if (linkIo(LOW) && linkIo(HIGH))
     {
         const Bounds b = rangeBounds();
@@ -206,6 +217,14 @@ void ClimateBase::resolveLinks()
                                 << " is wider than the setpoint bounds " << b.min << ".." << b.max
                                 << ", every range will be refused";
     }
+}
+
+bool ClimateBase::isFresh(IOBase *io) const
+{
+    if (!io || !io->lastReading())
+        return false;
+    const std::chrono::duration<double> age = std::chrono::steady_clock::now() - *io->lastReading();
+    return age.count() < sensorTimeoutS;
 }
 
 vector<ClimateMode> ClimateBase::supportedModes()
