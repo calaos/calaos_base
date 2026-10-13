@@ -761,6 +761,7 @@ TEST_F(ProxyClimateTest, ASilentSourceIsNoLongerRelayed)
         pumpLoopFor(300);
     });
     const size_t frozen = writesTo("fz_remote").size();
+    ASSERT_GE(frozen, 1u);
     pumpLoopFor(200);
     EXPECT_EQ(writesTo("fz_remote").size(), frozen);
     EXPECT_EQ(count(log, silent), 1u) << log;
