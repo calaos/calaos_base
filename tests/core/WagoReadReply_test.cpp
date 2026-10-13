@@ -596,7 +596,9 @@ protected:
         loadConfig();
     }
 
-    //TEST-NET-1 hosts, as above: nothing binds, nothing is spawned.
+    /* TEST-NET-1 hosts, as above: nothing binds, nothing is spawned. The
+     * host of AReadReplyReallyReachesTheImplementation: WagoMap keeps one
+     * instance per host for the process, a new host would be one more. */
     Calaos::IOBase *makeProbe(const std::string &type, const std::string &hostSuffix)
     {
         Params p = {{ "type", type },
@@ -636,10 +638,10 @@ protected:
 
 TEST_F(WagoRepeatedReadingTest, ARepeatedAnalogReplyIsStillAReading)
 {
-    repeatedReplyIsAReading<FreshWIAnalogProbe>("FreshWIAnalogProbe", "51");
+    repeatedReplyIsAReading<FreshWIAnalogProbe>("FreshWIAnalogProbe", "41");
 }
 
 TEST_F(WagoRepeatedReadingTest, ARepeatedTemperatureReplyIsStillAReading)
 {
-    repeatedReplyIsAReading<FreshWITempProbe>("FreshWITempProbe", "52");
+    repeatedReplyIsAReading<FreshWITempProbe>("FreshWITempProbe", "41");
 }
