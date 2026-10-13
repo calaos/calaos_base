@@ -75,7 +75,10 @@ Session &session()
     bp.Add("port", kPort);
     MqttBrokersList::Instance().get_ctrl(bp);
 
-    if (!ExternProcSpawn::runLoopUntil([]() { return !ExternProcSpawn::launches("calaos_mqtt").empty(); },
+    if (!ExternProcSpawn::runLoopUntil([]()
+                                       {
+        return !ExternProcSpawn::launches("calaos_mqtt").empty();
+        },
                                        8000))
         return *s;
 
@@ -102,7 +105,7 @@ Session &session()
         if (n > 0)
             s->rx.append(buf, buf + n);
         return frame.processFrameData(s->rx) && frame.isValid();
-    },
+        },
         8000);
 
     return *s;
@@ -137,7 +140,7 @@ bool nextPublishOn(const std::string &topic, std::string &payload, int timeoutMs
             }
         }
         return false;
-    },
+        },
         timeoutMs);
 
     return got;
@@ -254,7 +257,10 @@ TEST_F(ProxyClimateMqttTest, NothingIsPublishedBeforeTheSourceHasAValue)
 TEST_F(ProxyClimateMqttTest, TheModeIsReadFromTheStateTopicAndWrittenToTheSetTopic)
 {
     brokerSays(t("mode"), "heat_cool",
-               [&]() { return dev("e2e")->get_value_string() == "auto"; });
+               [&]()
+               {
+        return dev("e2e")->get_value_string() == "auto";
+    });
 
     std::string payload;
     ASSERT_TRUE(dev("e2e")->set_value(std::string("cool")));
@@ -265,7 +271,10 @@ TEST_F(ProxyClimateMqttTest, TheModeIsReadFromTheStateTopicAndWrittenToTheSetTop
     ASSERT_TRUE(nextPublishOn(t("mode/set"), payload));
     EXPECT_EQ(payload, "heat_cool");
 
-    brokerSays(t("mode"), "auto", [&]() { return io("e2e_mode")->get_value_string() == "auto"; });
+    brokerSays(t("mode"), "auto", [&]()
+               {
+        return io("e2e_mode")->get_value_string() == "auto";
+    });
     ASSERT_TRUE(dev("e2e")->set_value(std::string("auto")));
     ASSERT_TRUE(nextPublishOn(t("mode/set"), payload));
     EXPECT_EQ(payload, "auto");
