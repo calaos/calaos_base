@@ -20,6 +20,11 @@
           "device": {
             "capabilities": {
               "current_temp": true,
+              "fan_modes": [
+                "auto",
+                "low",
+                "high"
+              ],
               "modes": [
                 "off",
                 "heat",
@@ -30,19 +35,26 @@
                 "min": 16,
                 "step": 0.5,
                 "unit": "°C"
-              }
+              },
+              "target_temp_range": true
             },
             "family": "climate",
             "impl": "test_climate",
             "ios": {
               "current_temp": "ext_temp",
+              "fan_mode": "clim_fan",
               "mode": "clim_mode",
-              "target_temp": "clim_target"
+              "target_temp": "clim_target",
+              "target_temp_high": "clim_high",
+              "target_temp_low": "clim_low"
             },
             "state": {
               "current_temp": 23.4,
+              "fan_mode": "",
               "mode": "cool",
-              "target_temp": 21.5
+              "target_temp": 21.5,
+              "target_temp_high": 0.0,
+              "target_temp_low": 0.0
             }
           },
           "gui_type": "climate",
@@ -73,6 +85,39 @@
           "state": "21.5",
           "type": "InternalInt",
           "var_type": "float",
+          "visible": "false"
+        },
+        {
+          "gui_type": "var_int",
+          "id": "clim_low",
+          "io_type": "inout",
+          "name": "clim_low",
+          "rw": "false",
+          "state": "0",
+          "type": "InternalInt",
+          "var_type": "float",
+          "visible": "false"
+        },
+        {
+          "gui_type": "var_int",
+          "id": "clim_high",
+          "io_type": "inout",
+          "name": "clim_high",
+          "rw": "false",
+          "state": "0",
+          "type": "InternalInt",
+          "var_type": "float",
+          "visible": "false"
+        },
+        {
+          "gui_type": "var_string",
+          "id": "clim_fan",
+          "io_type": "inout",
+          "name": "clim_fan",
+          "rw": "false",
+          "state": "",
+          "type": "InternalString",
+          "var_type": "string",
           "visible": "false"
         },
         {

@@ -118,9 +118,11 @@ public:
     static CalaosEvent create(int type, string ioId, Params p, bool logHistory = true);
 
     /* Same, plus members of "data" that are real JSON (objects, numbers),
-     * such as the "device" object. They live beside the string Params and
-     * only toJson() emits them: event_raw, the history row's io_state and the
-     * Lua side keep reading the strings they always got. */
+     * such as the "device" object. They live beside the string Params: the
+     * event_raw member (toString()) and the history's io_state carry the
+     * strings only, while everything built on toJson() gets them too - the
+     * WS/poll_listen wire, the history's raw JSON, and the Lua process, whose
+     * decoder flattens a non-scalar to an empty string. */
     static void createWithObjects(int type, string ioId, Params p, Json objects,
                                   bool logHistory = true);
 

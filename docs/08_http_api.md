@@ -642,13 +642,20 @@ Dans le JSON, les nombres sont de vrais nombres JSON : `"21.5"` est refusé. Cha
 validé par la famille : il doit exister **pour cette instance** (une capacité n'existe que si
 son lien existe), une valeur d'énumération doit appartenir à la liste, un nombre est arrondi
 au pas puis borné à `[min, max]` (`40` devient `30`, `21.3` avec un pas de `0.5` devient
-`21.5`). C'est du **best effort** : un champ refusé est journalisé
-(`cWarningDom("device")`, avec l'id du device et la raison, sans la valeur reçue) et les
-champs valides sont appliqués quand même. Un JSON invalide est refusé en entier.
+`21.5`, sans résidu binaire). `mode` est appliqué en premier, les autres champs ensuite ; une
+famille peut valider ensemble des champs liés (plage `target_temp_low`/`_high`), pour que le
+résultat ne dépende pas de l'ordre des clés. C'est du **best effort** : un champ refusé est
+journalisé (`cWarningDom("device")`, avec l'id du device et la raison ; un nom de champ hors
+`[a-z0-9_]` et la valeur reçue ne sont jamais écrits en clair) et les champs valides sont
+appliqués quand même. Un JSON invalide (y compris un nombre hors de la plage d'un double,
+`1e400`) est refusé en entier. `[1]` ou `"x"` ne commencent pas par `{` : ce sont des modes,
+refusés comme tels.
 
 La réponse garde le contrat de `set_state` : `{"success":"true"}` si **au moins un champ** a
 été appliqué, `{"success":"false"}` sinon (tous refusés, JSON invalide, objet vide). Un succès
-peut donc cacher des champs refusés ; le journal les nomme.
+peut donc cacher des champs refusés ; le journal les nomme. Toute commande, même refusée,
+publie ensuite un `io_changed` du device : un client qui affichait la valeur demandée
+retrouve l'état réel sans attendre.
 
 Requête WS (dérivée, `tests/core/DeviceApi_test.cpp`) — la valeur est une **chaîne** qui
 contient le JSON :
@@ -686,8 +693,8 @@ test) :
 - `ios` : rôle → id de l'IO, pour chaque lien dont l'IO existe (un lien non résolu
   n'apparaît pas).
 
-**Publication dans `io_changed`.** Quand l'IO d'un de ses liens change, ou quand une commande
-a été appliquée, le device émet **un** `io_changed` pour son propre id au bout de 100 ms : les
+**Publication dans `io_changed`.** Quand l'IO d'un de ses liens change, ou après une commande,
+le device émet **un** `io_changed` pour son propre id au bout de 100 ms : les
 changements de cette fenêtre sont regroupés, et la fenêtre n'est pas prolongée par les
 suivants (un flux continu publie toutes les 100 ms). L'événement porte `state` et l'objet
 `device` **entier** :
@@ -703,8 +710,8 @@ suivants (un flux continu publie toutes les 100 ms). L'événement porte `state`
 L'objet `device` est **toujours envoyé entier**, dans `get_home` comme dans chaque
 `io_changed` : un client **remplace** sa copie, il ne la fusionne jamais, pour qu'une
 capacité ou une entrée `ios` retirée par le serveur ne survive pas chez lui. Un client qui ne
-connaît pas les devices continue de lire `state`. `event_raw` et l'historique ne portent que
-les chaînes (`id`, `state`) : l'objet n'existe que dans `data`.
+connaît pas les devices continue de lire `state`. La forme plate `event_raw` ne porte que les
+chaînes (`id`, `state`) ; le JSON brut de l'historique (si `log_history`) contient l'objet.
 
 Le changement du scalaire d'un device (son mode) déclenche aussi ses règles, comme pour tout
 IO : une condition « `clim` == `heat` » est évaluée dès que le mode change, qu'il vienne d'une

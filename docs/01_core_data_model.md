@@ -387,16 +387,20 @@ clé `device:<impl>`, enregistrée par `REGISTER_DEVICE(impl, Classe)`.
   chaque IO possédé, recherché à nouveau après chaque suppression, puis le device ; la passe
   sur les auto-scénarios ne tourne qu'une fois. `delete_io()` ne cascade pas.
 - **Valeur et commandes** (spec §5) : `get_value_string()` est le scalaire vu par les
-  règles, par défaut le `mode` de `deviceState()`. `set_value(string)` accepte un mode
-  simple ou un objet JSON partiel ; chaque champ passe par `applyCommandField()` de la
-  sous-classe (helpers `enumField()`, `numberField()`), en best effort. Format sur le fil :
+  règles : `scalarFromState(deviceState())`, par défaut le `mode`. `set_value(string)`
+  accepte un mode simple ou un objet JSON partiel, remis à `applyCommand()` : par défaut
+  `mode` d'abord, puis chaque autre champ par `applyCommandField()` de la sous-classe
+  (helpers `enumField()`, `numberField()`), en best effort. Une famille surcharge
+  `applyCommand()` pour valider ensemble des champs liés. Format sur le fil :
   [08_http_api.md](08_http_api.md#devices--commande-et-objet-device).
 - **Publication** : `gui_type` vaut la famille. Le device s'abonne par `IOChangeHub` à
-  l'IO de chacun de ses liens ; tout changement, ou une commande appliquée, appelle
+  l'IO de chacun de ses liens ; tout changement, ou une commande (même refusée), appelle
   `deviceStateChanged()`, qui émet le signal du device pour les règles si son scalaire a
-  changé et arme un `Timer` membre de 100 ms (`PUBLISH_DELAY`) : un seul `io_changed` par
+  changé (le scalaire de référence est relu à la fin de `resolveLinks()` : un mode restauré
+  du cache ne déclenche rien) et arme un `Timer` membre de 100 ms (`PUBLISH_DELAY`) : un seul `io_changed` par
   fenêtre, sans réarmement, portant l'objet `device` entier. Les sous-classes fournissent
-  `deviceCapabilities()`, `deviceState()` et, si besoin, `deviceIos()`.
+  `deviceCapabilities()`, `deviceState()` et, si besoin, `deviceIos()`. Un destructeur de
+  sous-classe qui écrit ses IOs liés appelle d'abord `stopListening()`.
 
 ---
 
