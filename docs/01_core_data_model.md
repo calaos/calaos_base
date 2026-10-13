@@ -429,6 +429,53 @@ spec §6. Famille `climate`, abstraite (constructeur protégé) : les impls `pro
   monte) pour que la paire intermédiaire, vue par le hook de changement, respecte aussi
   `min_range`.
 
+### ProxyClimate
+
+**Fichier :** [src/bin/calaos_server/IO/ProxyClimate.h](../src/bin/calaos_server/IO/ProxyClimate.h) —
+spec §7. `impl="proxy"` : l'appareil régule, Calaos relaie. Chaque champ est lu sur l'`io` de son
+lien et écrit sur son `command_io`, sinon sur son `io` quand c'est une sortie.
+
+```xml
+<calaos:device id="salon_ac" type="climate" impl="proxy" name="Clim salon">
+  <calaos:input  id="salon_ac_mode"     type="MqttInputString"  visible="false" .../>
+  <calaos:output id="salon_ac_mode_cmd" type="MqttOutputString" visible="false" .../>
+  <calaos:input  id="salon_ac_fan"      type="MqttInputString"  visible="false" .../>
+  <calaos:output id="salon_ac_fan_cmd"  type="MqttOutputString" visible="false" .../>
+  <calaos:output id="salon_ac_remote"   type="MqttOutputAnalog" visible="false" .../>
+  <calaos:link name="mode"     io="salon_ac_mode" command_io="salon_ac_mode_cmd"/>
+  <calaos:link name="fan_mode" io="salon_ac_fan"  command_io="salon_ac_fan_cmd"/>
+  <calaos:link name="remote_temp" io="salon_ac_remote"/>
+  <calaos:link name="remote_temp_source" io="salon_temp"/>  <!-- externe -->
+  <calaos:param name="auto_payload" value="heat_cool"/>
+  <calaos:param name="remote_temp_keepalive" value="120"/>
+</calaos:device>
+```
+
+- **Mode** : miroir du lien `mode`. `heat_cool` (ESPHome) se lit `auto`. `auto` s'écrit selon,
+  dans l'ordre : le param `auto_payload` (`auto` ou `heat_cool`), la graphie `auto`/`heat_cool`
+  que l'appareil a rapportée en dernier, sinon `heat_cool`. Une valeur brute qui n'est pas un mode
+  n'est pas publiée et n'est journalisée qu'une fois par valeur (16 valeurs au plus ; des octets
+  non triviaux sont remplacés par une étiquette).
+- **Lien non inscriptible** : un lien sans `command_io` dont l'`io` n'est pas une sortie (un
+  `MqttInputAnalog` accepte un `set_value` et ne l'envoie nulle part) ne peut pas être écrit.
+  Pour `mode`, `target_temp`, `target_temp_low`/`_high`, `fan_mode`, `swing_mode` et
+  `remote_temp`, la capacité correspondante n'est pas offerte (`modes`, `target_temp`,
+  `target_temp_range` si une borne manque, `fan_modes`, `swing_modes`, `remote_temp`), la
+  commande est refusée en entier et le chargement journalise l'erreur. L'état reste lu.
+  `ClimateBase::isWritable(role)` porte la règle ; le proxy la définit par `isOutput()`.
+- **Température distante** (§7) : si `remote_temp` et `remote_temp_source` sont liés, la valeur de
+  la source est écrite sur `remote_temp` à chaque changement **et** toutes les
+  `remote_temp_keepalive` secondes (défaut 120, fractions admises ; un `Timer` membre détruit avec
+  le device). Rien n'est envoyé tant que la source n'a pas de valeur (`hasValue()`, 0 est une
+  valeur) ni tant qu'elle se déclare déconnectée : l'appareil retombe alors sur sa sonde. Une
+  source simplement stable continue d'être relayée : les IOs n'ont pas d'horodatage, le silence ne
+  prouve rien.
+- **Relecture en retard** : une commande `target_temp_low`/`_high` partielle est validée contre la
+  dernière valeur **commandée** de l'autre borne, jusqu'à ce que la relecture de cette borne
+  change ou que `readback_hold` secondes (défaut 10) s'écoulent. Sans cela, deux commandes
+  rapprochées se valideraient contre la valeur que la première a remplacée. Une écriture refusée
+  n'est pas retenue.
+
 ---
 
 ## IOFactory

@@ -233,20 +233,15 @@ std::string Device::scalarFromState(const Json &state)
     return it != state.end() && it->is_string() ? it->get<string>() : string();
 }
 
-namespace
-{
-
 //Family field names are printed; anything else is client bytes, and a newline
 //in them would forge a log line.
-string fieldForLog(const string &name)
+string Device::fieldForLog(const string &name)
 {
     bool plain = !name.empty() && name.size() <= 32;
     for (char c: name)
         plain = plain && ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_');
     return plain ? "'" + name + "'" : "#" + Utils::logTag(name);
 }
-
-} //namespace
 
 bool Device::set_value(std::string val)
 {

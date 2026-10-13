@@ -100,11 +100,26 @@ protected:
     bool applyCommand(const Json &command) override;
     bool applyCommandField(const string &field, const Json &value, string &reason) override;
 
+    //The IO a role is written to: its command_io, else its io.
+    IOBase *writeTarget(const string &role);
+
+    /* Whether a command to this role can reach the appliance. A role that
+     * cannot is neither offered as a capability nor applied: writing it
+     * would report success and send nothing. */
+    virtual bool isWritable(const string &role);
+
+    /* The value a range bound (target_temp_low/_high) is validated against
+     * when a command moves only the other one; false while it is unknown.
+     * An impl whose readback lags its commands overrides both hooks. */
+    virtual bool rangeBound(const string &role, double &value);
+    virtual bool writeRangeBound(const string &role, double value);
+
     Json deviceCapabilities() override;
     Json deviceState() override;
 
 private:
-    IOBase *writeTarget(const string &role);
+    //Both bounds linked and writable.
+    bool rangeAvailable();
     //min of the low IO, max of the high IO.
     Bounds rangeBounds();
     bool applyRange(const Json &command);

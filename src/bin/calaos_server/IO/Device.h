@@ -108,6 +108,8 @@ protected:
      * other field not in `handled`, each through applyCommandField(). */
     bool applyFields(const Json &command, const vector<string> &handled = {});
     void logRefusedField(const string &field, const string &reason);
+    //'name' when it is a plain identifier, else a tag: never raw bytes.
+    static string fieldForLog(const string &name);
 
     /* Applies one command field, or returns false with `reason` set. Only a
      * field this instance supports may be applied (a capability exists iff

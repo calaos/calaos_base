@@ -215,6 +215,8 @@ calaos_server_SOURCES = \
         IO/OutputShutterSmart.h                         \
         IO/OutputString.cpp                             \
         IO/OutputString.h                               \
+        IO/ProxyClimate.cpp                             \
+        IO/ProxyClimate.h                               \
         IO/Scenario.cpp                                 \
         IO/Scenario.h                                   \
         IO/ThinIo.h                                     \
