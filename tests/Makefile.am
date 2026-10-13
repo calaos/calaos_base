@@ -3831,7 +3831,7 @@ core_JsonApiStateWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/S
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
-#RUI-1: what a RemoteUI panel receives for a device (expanded references,
+#What a RemoteUI panel receives for a device (expanded references,
 #device object in remote_ui_io_states, io_changed). Same link closure as
 #JsonApiStateWireBytes_test.
 if HAVE_GTEST
@@ -3868,7 +3868,7 @@ core_RemoteUIDevice_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_LDADD)
-#T3.36: the linked server objects are prerequisites, so touching one relinks
+#The linked server objects are prerequisites, so touching one relinks
 #this binary. They are built by src/, never here (see the note above).
 core_RemoteUIDevice_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \

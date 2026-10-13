@@ -29,6 +29,7 @@
 #include "IO/RemoteUI/RemoteUI.h"
 #include "RemoteUIWebSocketHandler.h"
 #include "HttpClient.h"
+#include "IO/IOFactory.h"
 #include "ListeRoom.h"
 #include "libuvw.h"
 
@@ -300,7 +301,7 @@ TEST_F(RemoteUIDeviceTest, IoChangedReachesThePanelWithTheDeviceObject)
     EXPECT_DOUBLE_EQ(ev.at("data").at("device").at("state").at("current_temp").get<double>(), 23.4);
 }
 
-TEST_F(RemoteUIDeviceTest, ADeviceTurnedPlainIsSentWithoutADeviceObject)
+TEST_F(RemoteUIDeviceTest, DeletedDeviceIsSentWithoutADeviceObject)
 {
     ListeRoom::Instance().deleteIO(device());
     sent.clear();
@@ -308,7 +309,27 @@ TEST_F(RemoteUIDeviceTest, ADeviceTurnedPlainIsSentWithoutADeviceObject)
     handler->sendInitialIOStates();
     const Json env = lastOfType("remote_ui_io_states");
     ASSERT_TRUE(env.is_object());
-    //Nothing tells the firmware to drop its stored device: see RUI-3.
+    //The firmware keeps a stored device when none is sent; the server cannot clear it.
     EXPECT_FALSE(env.at("data").contains(DEV));
     EXPECT_TRUE(env.at("data").contains(PLAIN));
+}
+
+TEST_F(RemoteUIDeviceTest, IdReusedByAPlainIoIsSentWithoutADeviceObject)
+{
+    ListeRoom::Instance().deleteIO(device());
+    Params p;
+    p.Add("id", DEV);
+    p.Add("name", "Reused");
+    p.Add("type", "InternalString");
+    IOBase *io = IOFactory::Instance().CreateIO("InternalString", p);
+    ASSERT_NE(io, nullptr);
+    firstRoom()->AddIO(io);
+    ListeRoom::Instance().addIOHash(io);
+    sent.clear();
+
+    handler->sendInitialIOStates();
+    const Json env = lastOfType("remote_ui_io_states");
+    ASSERT_TRUE(env.is_object());
+    ASSERT_TRUE(env.at("data").contains(DEV));
+    EXPECT_TRUE(env.at("data").at(DEV).is_string());
 }
