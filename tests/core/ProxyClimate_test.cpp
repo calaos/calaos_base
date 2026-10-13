@@ -252,6 +252,8 @@ std::string house()
     salon += modeDevice("mm_modes", param("modes", "off,auto"));
     salon += device("mm_ro", in("mm_ro_mode") + link("mode", "mm_ro_mode"));
     salon += device("mm_rw", out("mm_rw_mode") + link("mode", "mm_rw_mode"));
+    salon += device("mm_ci", in("mm_ci_mode") + in("mm_ci_cmd") +
+                                 link("mode", "mm_ci_mode", "mm_ci_cmd"));
 
     salon += rangeDevice("rg", "");
     salon += rangeDevice("hd", param("readback_hold", "0.1"));
@@ -580,6 +582,7 @@ TEST_F(ProxyClimateTest, ConfigurationMistakesAreLoggedAtLoad)
     });
     for (const char *expected: {
              "Device(mm_ro): link 'mode' has no command_io and its io is not an output",
+             "Device(mm_ci): link 'mode' has a command_io that is not an output, it cannot be written",
              "Device(r_ro): link 'remote_temp' has no command_io and its io is not an output",
              "Device(ro_all): link 'mode' has no command_io and its io is not an output",
              "Device(ro_all): link 'target_temp' has no command_io and its io is not an output",
@@ -597,6 +600,8 @@ TEST_F(ProxyClimateTest, ConfigurationMistakesAreLoggedAtLoad)
          })
         EXPECT_NE(log.find(expected), std::string::npos) << expected << "\n"
                                                          << log;
+
+    EXPECT_EQ(log.find("Device(mm_ci): link 'mode' has no command_io"), std::string::npos) << log;
 
     for (const char *quiet: { "ac", "mm_a", "mm_b", "mm_c", "mm_rw", "rc", "ka", "rg", "hd" })
         EXPECT_EQ(log.find(std::string("Device(") + quiet + "): "), std::string::npos)

@@ -1,6 +1,8 @@
 #ifndef __MQTT_CTRL_H__
 #define __MQTT_CTRL_H__
 
+#include <map>
+#include <memory>
 #include <unordered_map>
 
 #include "Params.h"
@@ -21,7 +23,34 @@ public:
 
     typedef sigc::slot<void, string, string> MsgReceivedSignal;
 
-    void subscribeTopic(const string topic, MsgReceivedSignal callback);
+    /* The callback stays registered as long as its Subscription lives, so an
+     * IO holding its own cannot be called once destroyed. Dropping one after
+     * its controller is gone is a no-op. */
+    class Subscription
+    {
+    public:
+        Subscription() = default;
+        Subscription(Subscription &&other) noexcept;
+        Subscription &operator=(Subscription &&other) noexcept;
+        Subscription(const Subscription &) = delete;
+        Subscription &operator=(const Subscription &) = delete;
+        ~Subscription() { reset(); }
+
+        void reset();
+        bool active() const;
+
+    private:
+        friend class MqttCtrl;
+        Subscription(MqttCtrl *ctrl, uint64_t id);
+
+        MqttCtrl *ctrl = nullptr;
+        std::weak_ptr<bool> ctrlAlive;
+        uint64_t id = 0;
+    };
+
+    [[nodiscard]] Subscription subscribeTopic(const string &topic, MsgReceivedSignal callback);
+    //Callbacks registered on exactly this topic.
+    size_t subscriptionCount(const string &topic) const;
     void publishTopic(const string topic, const string payload);
 
     /* T3.35b. `err` is now told the truth. It used to mean "a payload arrived
@@ -72,13 +101,21 @@ public:
 
     //register all special topics that are used to status updates (battery, online, etc.)
     //It's only used for sensors that have topics sets for battery, online, etc.
-    void subscribeStatusTopics(Calaos::IOBase *io);
+    [[nodiscard]] vector<Subscription> subscribeStatusTopics(Calaos::IOBase *io);
 
 private:
     ExternProcServer *process;
     string exe;
 
-    unordered_map<string, vector<MsgReceivedSignal>> subscribeCb;
+    struct Subscriber
+    {
+        string topic;
+        MsgReceivedSignal callback;
+    };
+    //Keyed by a growing id: iteration follows the subscription order.
+    std::map<uint64_t, Subscriber> subscribers;
+    uint64_t nextSubscriptionId = 1;
+    std::shared_ptr<bool> alive = std::make_shared<bool>(true);
     unordered_map<string, string> messages;
 
     bool connected = false;

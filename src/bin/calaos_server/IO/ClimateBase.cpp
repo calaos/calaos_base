@@ -268,7 +268,8 @@ bool ClimateBase::rangeBound(const string &role, double &value)
 
 bool ClimateBase::writeRangeBound(const string &role, double value)
 {
-    return writeTarget(role)->set_value(value);
+    IOBase *io = writeTarget(role);
+    return io && io->set_value(value);
 }
 
 bool ClimateBase::applyCommand(const Json &command)

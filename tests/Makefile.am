@@ -7503,3 +7503,28 @@ core_ProxyClimateMqtt_test_DEPENDENCIES = $(PROXY_CLIMATE_MQTT_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#A destroyed Mqtt IO no longer hears its topics: real IOs, a real MqttCtrl and
+#the stand-in sidecar of core/MqttOutputString_test. Own main() for the same
+#reason. Own HAVE_GTEST block so this stays a pure append at the end of the
+#file.
+if HAVE_GTEST
+TESTS += core/MqttSubscriptionLifetime_test
+check_PROGRAMS += core/MqttSubscriptionLifetime_test
+core_MqttSubscriptionLifetime_test_SOURCES = core/MqttSubscriptionLifetime_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_MqttSubscriptionLifetime_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt
+MQTT_SUBSCRIPTION_LIFETIME_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttBrokerslist.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttInputString.$(OBJEXT)
+core_MqttSubscriptionLifetime_test_LDADD = $(MQTT_SUBSCRIPTION_LIFETIME_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_MqttSubscriptionLifetime_test_DEPENDENCIES = $(MQTT_SUBSCRIPTION_LIFETIME_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif

@@ -46,6 +46,8 @@ public:
         ClimateBase(p)
     {
     }
+
+    using ClimateBase::writeRangeBound;
 };
 
 //An impl that stores its mode and lets its outputs decide the modes, as the
@@ -814,6 +816,15 @@ TEST_F(ClimateBaseTest, WritesRefusedByTheLinkedIoAreLoggedWithTheReason)
         EXPECT_NE(log.find(line), std::string::npos) << line << "\n"
                                                      << log;
     }
+}
+
+TEST_F(ClimateBaseTest, ARangeBoundWithoutAnIoIsNotWritten)
+{
+    TestClimate *d = ListeRoom::Instance().findIOAs<TestClimate>("only_low");
+    ASSERT_NE(nullptr, d);
+    EXPECT_FALSE(d->writeRangeBound("target_temp_high", 21));
+    EXPECT_TRUE(d->writeRangeBound("target_temp_low", 21));
+    EXPECT_DOUBLE_EQ(num("only_low_target_temp_low"), 21);
 }
 
 TEST_F(ClimateBaseTest, ValuesNeverReceivedAreLeftOutOfTheState)
