@@ -113,6 +113,26 @@ public:
     std::string get_value_string() override { return text; }
     double get_value_double() override { return number; }
 
+    //InputAnalog and MqttInputAnalog take a write and send it nowhere:
+    //accept="true" reproduces that, the plain feed refuses.
+    bool set_value(std::string val) override
+    {
+        if (get_param("accept") != "true")
+            return false;
+        text = val;
+        writes().push_back({ get_param("id"), text, number, Clock::now() });
+        return true;
+    }
+
+    bool set_value(double val) override
+    {
+        if (get_param("accept") != "true")
+            return false;
+        number = val;
+        writes().push_back({ get_param("id"), text, number, Clock::now() });
+        return true;
+    }
+
     void deliver(const std::string &v)
     {
         text = v;
@@ -146,6 +166,12 @@ std::string element(const std::string &kind, const std::string &type, const std:
 }
 
 std::string in(const std::string &id) { return element("input", "FeedInput", id); }
+
+//An input that accepts a write and sends it nowhere.
+std::string inAccepting(const std::string &id)
+{
+    return element("input", "FeedInput", id, R"( accept="true")");
+}
 
 std::string out(const std::string &id, const std::string &extra = std::string())
 {
@@ -242,8 +268,26 @@ std::string house()
                               link("remote_temp_source", "rc_src"));
     salon += device("r_only", out("r_only_remote") + link("remote_temp", "r_only_remote"));
     salon += device("s_only", in("s_only_src") + link("remote_temp_source", "s_only_src"));
-    salon += device("r_ro", in("r_ro_read") + in("r_ro_src") + link("remote_temp", "r_ro_read") +
-                                link("remote_temp_source", "r_ro_src"));
+    salon += device("r_ro", inAccepting("r_ro_read") + in("r_ro_src") +
+                                link("remote_temp", "r_ro_read") +
+                                link("remote_temp_source", "r_ro_src") +
+                                param("remote_temp_keepalive", "0.05"));
+
+    //Every role on an input that takes the write, with no command_io.
+    std::string roAll;
+    for (const char *role: { "mode", "target_temp", "target_temp_low", "target_temp_high",
+                             "fan_mode", "swing_mode", "remote_temp" })
+        roAll += inAccepting(std::string("ro_all_") + role) +
+                 link(role, std::string("ro_all_") + role);
+    roAll += in("ro_all_src") + link("remote_temp_source", "ro_all_src");
+    roAll += param("fan_modes", "auto,low") + param("swing_modes", "off,both") +
+             param("min_range", "2") + param("remote_temp_keepalive", "0.05");
+    salon += device("ro_all", roAll);
+
+    //A range whose high bound is on an input.
+    salon += device("ro_half", out("ro_half_low", BOUNDS_10_30) + inAccepting("ro_half_high") +
+                                   link("target_temp_low", "ro_half_low") +
+                                   link("target_temp_high", "ro_half_high"));
 
     return ioXmlDocument(roomXml("Salon", "salon", salon) +
                          roomXml("Kitchen", "kitchen",
@@ -537,6 +581,14 @@ TEST_F(ProxyClimateTest, ConfigurationMistakesAreLoggedAtLoad)
     for (const char *expected: {
              "Device(mm_ro): link 'mode' has no command_io and its io is not an output",
              "Device(r_ro): link 'remote_temp' has no command_io and its io is not an output",
+             "Device(ro_all): link 'mode' has no command_io and its io is not an output",
+             "Device(ro_all): link 'target_temp' has no command_io and its io is not an output",
+             "Device(ro_all): link 'target_temp_low' has no command_io and its io is not an output",
+             "Device(ro_all): link 'target_temp_high' has no command_io and its io is not an output",
+             "Device(ro_all): link 'fan_mode' has no command_io and its io is not an output",
+             "Device(ro_all): link 'swing_mode' has no command_io and its io is not an output",
+             "Device(ro_all): link 'remote_temp' has no command_io and its io is not an output",
+             "Device(ro_half): link 'target_temp_high' has no command_io and its io is not an output",
              "Device(r_only): link 'remote_temp' without a 'remote_temp_source'",
              "Device(s_only): link 'remote_temp_source' without a 'remote_temp'",
              "Device(mm_d): auto_payload must be 'auto' or 'heat_cool'",
@@ -727,4 +779,38 @@ TEST_F(ProxyClimateTest, ARefusedWriteIsNotRemembered)
     EXPECT_FALSE(cmd("rf", R"({"target_temp_high":28})"));
     EXPECT_FALSE(cmd("rf", R"({"target_temp_low":25})"));
     EXPECT_TRUE(writes().empty());
+}
+
+TEST_F(ProxyClimateTest, ALinkOnAnInputOffersNothingAndRefusesEveryWrite)
+{
+    EXPECT_EQ(caps("ro_all"), Json::object());
+
+    EXPECT_FALSE(cmd("ro_all", "heat"));
+    EXPECT_FALSE(cmd("ro_all", R"({"target_temp":22})"));
+    EXPECT_FALSE(cmd("ro_all", R"({"fan_mode":"low"})"));
+    EXPECT_FALSE(cmd("ro_all", R"({"swing_mode":"off"})"));
+    EXPECT_FALSE(cmd("ro_all", R"({"target_temp_low":18,"target_temp_high":24})"));
+    EXPECT_TRUE(writes().empty());
+
+    //What the appliance reports is still shown.
+    feed("ro_all_mode")->deliver("heat");
+    feed("ro_all_target_temp")->deliver(21.0);
+    EXPECT_EQ(state("ro_all"), parse(R"({"mode": "heat", "target_temp": 21})"));
+}
+
+TEST_F(ProxyClimateTest, ARangeWithOneBoundOnAnInputIsRefusedWhole)
+{
+    EXPECT_FALSE(caps("ro_half").contains("target_temp_range"));
+    EXPECT_FALSE(caps("ro_half").contains("target_temp"));
+    EXPECT_FALSE(cmd("ro_half", R"({"target_temp_low":16,"target_temp_high":24})"));
+    EXPECT_TRUE(writes().empty());
+}
+
+TEST_F(ProxyClimateTest, NothingIsRelayedToAnInput)
+{
+    feed("r_ro_src")->deliver(21.0);
+    feed("ro_all_src")->deliver(21.0);
+    pumpLoopFor(200);
+    EXPECT_TRUE(writes().empty());
+    EXPECT_FALSE(caps("r_ro").contains("remote_temp"));
 }

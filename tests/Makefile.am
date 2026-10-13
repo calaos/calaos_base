@@ -7468,3 +7468,38 @@ core_ProxyClimate_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT)
 endif
+
+#ProxyClimate on real Mqtt IOs against the stand-in sidecar of
+#core/MqttOutputString_test: the keep-alive publishes an unchanged value, the
+#mode goes out on the set topic, inputs cannot be written. Own main() for the
+#same reason. Own HAVE_GTEST block so this stays a pure append at the end of
+#the file.
+if HAVE_GTEST
+TESTS += core/ProxyClimateMqtt_test
+check_PROGRAMS += core/ProxyClimateMqtt_test
+core_ProxyClimateMqtt_test_SOURCES = core/ProxyClimateMqtt_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_ProxyClimateMqtt_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt
+PROXY_CLIMATE_MQTT_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttBrokerslist.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttInputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttInputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttOutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttOutputString.$(OBJEXT)
+core_ProxyClimateMqtt_test_LDADD = $(PROXY_CLIMATE_MQTT_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_ProxyClimateMqtt_test_DEPENDENCIES = $(PROXY_CLIMATE_MQTT_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
