@@ -128,6 +128,8 @@ InternalThermostat::~InternalThermostat()
 void InternalThermostat::resolveLinks()
 {
     hysteresis = nonNegativeParam("hysteresis", DEFAULT_HYSTERESIS);
+    floorCooling = getDeviceParam("emitter") == "floor";
+    humidityMax = nonNegativeParam("humidity_max", DEFAULT_HUMIDITY_MAX);
     minOnMs = toMs(nonNegativeParam("min_on_time", 0));
     minOffMs = toMs(nonNegativeParam("min_off_time", 0));
     readPutBackDelays();
@@ -170,7 +172,7 @@ void InternalThermostat::resolveLinks()
             triggers.push_back(IOChangeHub::Instance().subscribe(l.io, outputChanged));
         }
         else if (l.name == "current_temp" || l.name == "target_temp" || l.name == LOW ||
-                 l.name == HIGH)
+                 l.name == HIGH || l.name == "humidity")
             triggers.push_back(IOChangeHub::Instance().subscribe(l.io, inputChanged));
     }
 
@@ -387,7 +389,37 @@ bool InternalThermostat::applyCommand(const Json &command)
 
 InternalThermostat::OutputPair InternalThermostat::outputsAllowed()
 {
-    return OutputPair{ true, true };
+    const bool cooling = mode == ClimateMode::Cool || mode == ClimateMode::Auto;
+    return OutputPair{ true, !floorCooling || !cooling || humidityAllowsCooling() };
+}
+
+bool InternalThermostat::humidityAllowsCooling()
+{
+    IOBase *h = linkIo("humidity");
+    HumidityCut cut = HumidityCut::None;
+    if (!isFresh(h))
+        cut = h && h->lastReading() ? HumidityCut::Silent : HumidityCut::Unknown;
+    else if (h->get_value_double() >= humidityMax)
+        cut = HumidityCut::High;
+
+    const string id = get_param("id");
+    if (cut == humidityCut)
+        return cut == HumidityCut::None;
+    //Not read yet since the start is waited for silently, like current_temp.
+    if (cut == HumidityCut::Silent)
+        cErrorDom("device") << "Device(" << id << "): humidity '" << h->get_param("id")
+                            << "' has sent nothing for " << sensorTimeout()
+                            << " s, output_cool is OFF";
+    else if (cut == HumidityCut::High)
+        cWarningDom("device") << "Device(" << id << "): humidity '" << h->get_param("id")
+                              << "' reads " << h->get_value_double()
+                              << ", at or above humidity_max " << humidityMax
+                              << ", output_cool is OFF";
+    else if (cut == HumidityCut::None && humidityCut != HumidityCut::Unknown)
+        cInfoDom("device") << "Device(" << id << "): humidity '" << h->get_param("id")
+                           << "' allows cooling again";
+    humidityCut = cut;
+    return cut == HumidityCut::None;
 }
 
 void InternalThermostat::evaluate()

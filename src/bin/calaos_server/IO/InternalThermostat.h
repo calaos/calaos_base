@@ -54,6 +54,8 @@ public:
     vector<ClimateMode> supportedModes() override;
 
     static constexpr double DEFAULT_HYSTERESIS = 0.5;
+    //Relative humidity (%) from which floor cooling stops.
+    static constexpr double DEFAULT_HUMIDITY_MAX = 65;
     //Seconds between two put-backs of an output something else keeps switching.
     static constexpr double DEFAULT_PUT_BACK_DELAY = 1;
     static constexpr double DEFAULT_PUT_BACK_DELAY_MAX = 60;
@@ -74,8 +76,9 @@ protected:
 
     /* Asked first at each evaluation: an output refused here is switched
      * OFF at once, whatever its min_on_time; its min_off_time still guards
-     * the restart. The base allows both; whatever an override says, both stay
-     * OFF until current_temp has delivered a reading since the start. */
+     * the restart. The base refuses floor cooling (emitter=floor) unless
+     * humidity is fresh and below humidity_max. Whatever an override says,
+     * both stay OFF while current_temp is not fresh (sensor_timeout). */
     virtual OutputPair outputsAllowed();
 
     /* Spec §8.1. Never nested: when an output write runs rules that call it
@@ -135,6 +138,8 @@ private:
     void warnWrite(Output &out, IOBase &io, const char *source);
     //current_temp fresh, its silence logged once.
     bool sensorFresh(IOBase *sensor);
+    //Floor cooling: humidity fresh and below humidity_max, changes logged.
+    bool humidityAllowsCooling();
     void regulate();
     bool demand(Output &out, double temp, const char *setpoint, bool cooling);
     //The state the thermostat holds: its last write, else what the IO reports.
@@ -158,6 +163,17 @@ private:
 
     //current_temp read once, then went silent: logged once per silence.
     bool sensorStale = false;
+
+    //emitter=floor: cooling needs a humidity below humidity_max.
+    bool floorCooling = false;
+    double humidityMax = DEFAULT_HUMIDITY_MAX;
+    enum class HumidityCut
+    {
+        None,
+        Unknown,
+        Silent,
+        High
+    } humidityCut = HumidityCut::None;
     //Outputs claimed: a later thermostat must not drive them.
     bool claimed = false;
     bool evaluating = false;
