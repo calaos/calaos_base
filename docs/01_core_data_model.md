@@ -416,6 +416,8 @@ spec §6. Famille `climate`, abstraite (constructeur protégé) : les impls `pro
 - Hooks d'impl : `supportedModes()` (le thermostat restreint ses modes selon ses sorties),
   `currentMode()` / `writeMode()` (le thermostat stocke son mode). Par défaut, le mode est lu
   sur le lien `mode` et écrit sur son `command_io`, sinon sur son `io`.
+- L'état ne publie un nombre qu'une fois que l'IO lié a reçu une valeur : `IOBase::hasValue()`
+  passe à vrai à chaque `EmitSignalIO()` et quand `Internal` restaure une valeur sauvegardée.
 - `applyCommand()` valide `target_temp_low`/`_high` ensemble contre `min_range` et refuse la
   paire entière en cas d'écart ; les écritures sont ordonnées (haut d'abord quand la plage
   monte) pour que la paire intermédiaire, vue par le hook de changement, respecte aussi
