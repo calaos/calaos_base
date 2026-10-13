@@ -445,9 +445,8 @@ The installer form (§10) and the MCP tool description (§9.2) are built from it
   Not `min`/`max`: calaos_installer has always written `min="-10000" max="10000"` on analog IOs
   without the server reading them, so reusing those names would silently clamp deployed outputs.
   Those legacy params are dropped by the server at load and no longer written by the installer.
-- `ListeRoom::get_chauffage_var()` on the server: dead code (no production caller), removed in a
-  separate ticket. The `chauffage_id` param and its JSON key stay: calaos_installer uses them for
-  its heating-rule assistant.
+- `ListeRoom::get_chauffage_var()` on the server: dead code, removed (CLEAN-1). The `chauffage_id`
+  param and its JSON key stay: calaos_installer uses them for its heating-rule assistant.
 - RemoteUI panel restriction: separate security ticket (§9.3).
 
 ---

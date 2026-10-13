@@ -33,8 +33,6 @@
 namespace Calaos
 {
 
-typedef enum { PLAGE_HORAIRE, CONSIGNE, ACTIVE } ChauffType;
-
 class ListeRoom
 {
 protected:
@@ -175,8 +173,6 @@ public:
     int get_io_count(); //total IO count for all rooms
 
     int size() { return rooms.size(); }
-
-    IOBase *get_chauffage_var(std::string &chauff_id, ChauffType type);
 
     /* Copies of the non-owning caches. Both the element type and the return
        by value are part of the JsonApi payload contract (a static_assert in

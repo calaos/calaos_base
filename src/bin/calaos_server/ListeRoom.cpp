@@ -342,31 +342,6 @@ int ListeRoom::get_io_count()
     return io_table.size();
 }
 
-IOBase *ListeRoom::get_chauffage_var(std::string &chauff_id, ChauffType type)
-{
-    for (uint j = 0;j < rooms.size();j++)
-    {
-        for (int m = 0;m < rooms[j]->get_size();m++)
-        {
-            IOBase *io = rooms[j]->get_io(m);
-            //Lookup result, never dereferenced unguarded (T2.18 style).
-            if (!io) continue;
-
-            if (io->get_param("chauffage_id") == chauff_id)
-            {
-                switch (type)
-                {
-                case PLAGE_HORAIRE: if (io->get_param("gui_type") == "time_range") return io; break;
-                case CONSIGNE: if (io->get_param("gui_type") == "var_int") return io; break;
-                case ACTIVE: if (io->get_param("gui_type") == "var_bool") return io; break;
-                }
-            }
-        }
-    }
-
-    return nullptr;
-}
-
 void ListeRoom::addScenarioCache(Scenario *sc)
 {
     auto_scenario_cache.push_back(sc);
