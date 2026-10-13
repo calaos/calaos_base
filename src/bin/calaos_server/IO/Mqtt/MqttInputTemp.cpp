@@ -33,9 +33,19 @@ REGISTER_IO(MqttInputTemp)
 MqttInputTemp::MqttInputTemp(Params &p):
     MqttIOBase(p, "MqttInputTemp", _("Temperature read from a mqtt broker"))
 {
-    subscribeTopicSub([this]() { readValue(); });
+    subscribeTopicSub([this]() { readMessage(); });
 
     cInfoDom("input") << "MqttInputTemp::MqttInputTemp()";
+}
+
+void MqttInputTemp::readMessage()
+{
+    bool err;
+    ctrl->getValueDouble(get_params(), err);
+    //readValue() signals a change only, yet the sensor is alive.
+    if (!err)
+        markReading();
+    readValue();
 }
 
 void MqttInputTemp::readValue()

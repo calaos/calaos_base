@@ -34,6 +34,11 @@ protected:
 
 public:
     MqttInputTemp(Params &p);
+
+private:
+    /* A message, as opposed to the input poll reading the last one again:
+     * a reading even when its value is unchanged. */
+    void readMessage();
 };
 
 }

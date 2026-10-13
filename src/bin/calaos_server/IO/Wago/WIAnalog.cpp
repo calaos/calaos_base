@@ -85,6 +85,8 @@ void WIAnalog::WagoReadCallback(bool status, WagoTypes::Address addr, WagoTypes:
     if (!values.empty())
     {
         val = values[0];
+        //An unchanged value is not signalled, but the sensor is alive.
+        markReading();
     }
 
     if (val != value)

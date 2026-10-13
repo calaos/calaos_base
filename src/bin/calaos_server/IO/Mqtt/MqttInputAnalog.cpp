@@ -33,9 +33,19 @@ REGISTER_IO(MqttInputAnalog)
 MqttInputAnalog::MqttInputAnalog(Params &p):
     MqttIOBase(p, "MqttInputAnalog", _("Analog value read from a mqtt broker"))
 {
-    subscribeTopicSub([this]() { readValue(); });
+    subscribeTopicSub([this]() { readMessage(); });
 
     cInfoDom("input") << "MqttInputAnalog::MqttInputAnalog()";
+}
+
+void MqttInputAnalog::readMessage()
+{
+    bool err;
+    ctrl->getValueDouble(get_params(), err);
+    //readValue() signals a change only, yet the sensor is alive.
+    if (!err)
+        markReading();
+    readValue();
 }
 
 void MqttInputAnalog::readValue()

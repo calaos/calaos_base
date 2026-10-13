@@ -79,7 +79,11 @@ void WITemp::WagoReadCallback(bool status, WagoTypes::Address addr, WagoTypes::C
     double val = value;
 
     if (!values.empty())
+    {
         val = (short int)values[0] / 10.0;
+        //An unchanged value is not signalled, but the sensor is alive.
+        markReading();
+    }
 
     if (val != value)
     {
