@@ -191,7 +191,7 @@ std::string fullThermostat(const std::string &id, bool cool, const std::string &
     return thermostatXml(id, inner + params) + roomIo("InternalInt", id + "_temp");
 }
 
-const std::vector<std::string> THERMOSTATS = { "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams", "safe", "slow", "fight", "duo_a", "duo_b", "both", "same" };
+const std::vector<std::string> THERMOSTATS = { "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams", "safe", "slow", "fight", "duo_a", "duo_b", "both", "same", "duel" };
 
 std::string house()
 {
@@ -211,6 +211,7 @@ std::string house()
     //A minute lasts 0.6 s here: put-backs from 10 ms, doubled up to 0.6 s.
     const std::string fast = paramXml("put_back_delay", "0.01") + paramXml("put_back_delay_max", "0.6");
     ios += fullThermostat("fight", false, fast);
+    ios += fullThermostat("duel", true, fast);
     for (const std::string id: { "duo_a", "duo_b" })
     {
         ios += thermostatXml(id, ownedXml("InternalInt", id + "_target", SAVED) +
@@ -1065,6 +1066,37 @@ TEST_F(InternalThermostatTest, ThePutBackSpacingResetsOnceTheOutputIsLeftAlone)
     io("fight_heat")->set_value(false);
     ASSERT_TRUE(waitFor("fight_heat", true));
     EXPECT_LT(msSince(t0), 300);
+}
+
+//A rule holding cool ON while heat regulates: until cool can be put back,
+//heat stops, so both are never ON together.
+TEST_F(InternalThermostatTest, NeverBothOnWhileSomethingElseHoldsTheOtherOutput)
+{
+    load();
+    setpoints("duel", 21, 19, 23);
+    mode("duel", "heat");
+    temp("duel", 19);
+    ASSERT_TRUE(on("duel_heat"));
+    Rule *rule = addSimpleRule("cool_back_on", "duel_cool", "==", "false", "duel_cool", "true");
+    ASSERT_NE(rule, nullptr);
+
+    //Once it has seen that write (one loop turn), and for the whole fight.
+    io("duel_cool")->set_value(true);
+    pumpFor(5);
+    bool both = false;
+    auto sample = [&both]()
+    {
+        both = both || (on("duel_heat") && on("duel_cool"));
+        return false;
+    };
+    pumpUntil(sample, MINUTE_MS);
+    EXPECT_FALSE(both);
+    EXPECT_FALSE(on("duel_heat"));
+
+    //Once cool is left alone, it is put back and heat goes on.
+    ListeRule::Instance().Remove(rule);
+    EXPECT_TRUE(waitFor("duel_heat", true));
+    EXPECT_FALSE(on("duel_cool"));
 }
 
 //The same holds for a stop the thermostat forces (mode off).
