@@ -31,7 +31,9 @@
 5. **PR** sur GitHub, description qui renvoie à la fiche ; la CI doit être verte.
 6. **Revue** par un agent séparé (opus / high, skill `code-review`) sur le diff de la PR. Ses
    remarques bloquantes sont corrigées dans la même PR.
-7. **Merge** une fois CI verte et revue close.
+7. **Merge** une fois CI verte et revue close. Vérifier que `gh pr view --json state` vaut `MERGED`
+   **avant** de nettoyer le worktree et de marquer le ticket ✅ (un merge refusé pour conflit
+   n'interrompt pas le script).
 8. **Clôture**, dans le même commit `docs:` que la mise à jour du statut :
    - `BOARD.md` : statut ✅ et lien vers la PR ;
    - la fiche : ce qui a été livré et mesuré ;
