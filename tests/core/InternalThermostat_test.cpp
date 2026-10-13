@@ -191,7 +191,7 @@ std::string fullThermostat(const std::string &id, bool cool, const std::string &
     return thermostatXml(id, inner + params) + roomIo("InternalInt", id + "_temp");
 }
 
-const std::vector<std::string> THERMOSTATS = { "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams", "safe", "slow" };
+const std::vector<std::string> THERMOSTATS = { "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams", "safe", "slow", "fight", "duo_a", "duo_b" };
 
 std::string house()
 {
@@ -206,6 +206,19 @@ std::string house()
     safe.replace(safe.find("impl=\"thermostat\""), 17, "impl=\"test_safe_thermostat\"");
     ios += safe;
     ios += fullThermostat("slow", false, paramXml("min_off_time", "1"));
+
+    //A minute lasts 0.6 s here: put-backs from 10 ms, doubled up to 0.6 s.
+    const std::string fast = paramXml("put_back_delay", "0.01") + paramXml("put_back_delay_max", "0.6");
+    ios += fullThermostat("fight", false, fast);
+    for (const std::string id: { "duo_a", "duo_b" })
+    {
+        ios += thermostatXml(id, ownedXml("InternalInt", id + "_target", SAVED) +
+                                     linkXml("current_temp", id + "_temp") +
+                                     linkXml("target_temp", id + "_target") +
+                                     linkXml("output_heat", "duo_relay") + fast);
+        ios += roomIo("InternalInt", id + "_temp");
+    }
+    ios += roomIo("InternalBool", "duo_relay");
 
     ios += thermostatXml("lag", linkXml("current_temp", "lag_temp") +
                                     ownedXml("InternalInt", "lag_target", SAVED) +
@@ -599,7 +612,7 @@ TEST_F(InternalThermostatTest, AnOutputChangedBehindTheThermostatIsPutBack)
     ASSERT_FALSE(on("rev_heat"));
     io("rev_heat")->set_value(true);
     temp("rev", 22.1);
-    EXPECT_FALSE(on("rev_heat"));
+    EXPECT_TRUE(waitFor("rev_heat", false));
     EXPECT_EQ(str("rev_action"), "idle");
 }
 
@@ -962,43 +975,90 @@ TEST_F(InternalThermostatTest, AnOutputSwitchedBehindTheThermostatIsPutBackAtOnc
     EXPECT_EQ(str("rev_action"), "cooling");
 }
 
-//A rule that rewrites an output fights the thermostat one loop turn at a
-//time; the rule march itself never spins.
-TEST_F(InternalThermostatTest, ARuleRewritingAnOutputDoesNotSpinTheRuleMarch)
-{
-    load();
-    setpoints("rev", 21, 19, 23);
-    mode("rev", "heat");
-    ASSERT_NE(addSimpleRule("heat_back_off", "rev_heat", "==", "true", "rev_heat", "false"), nullptr);
-    auto heat = count("rev_heat");
-
-    temp("rev", 19);
-    EXPECT_FALSE(on("rev_heat"));
-    pumpFor(30);
-    EXPECT_GT(heat->count, 2);
-}
-
-//Putting an output back is not a switch of the thermostat: min_off_time still
-//counts from its own OFF.
-TEST_F(InternalThermostatTest, PuttingAnOutputBackDoesNotRestartItsLockOut)
+//A switch behind the thermostat's back counts as a switch: putting it back
+//waits for the lock-out it started.
+TEST_F(InternalThermostatTest, AnOutputSwitchedBehindTheThermostatCountsAsASwitch)
 {
     load();
     setpoints("slow", 21, 0, 0);
     mode("slow", "heat");
     temp("slow", 19);
     ASSERT_TRUE(on("slow_heat"));
-    const auto tOff = Clock::now();
-    temp("slow", 22);
-    ASSERT_FALSE(on("slow_heat"));
 
-    pumpFor(700);
-    io("slow_heat")->set_value(true);
-    ASSERT_TRUE(waitFor("slow_heat", false));
-
-    temp("slow", 19);
+    const auto t0 = Clock::now();
+    io("slow_heat")->set_value(false);
+    pumpFor(20);
+    EXPECT_FALSE(on("slow_heat"));
     ASSERT_TRUE(waitFor("slow_heat", true));
-    EXPECT_GE(msSince(tOff), 998);
-    EXPECT_LT(msSince(tOff), 1600);
+    EXPECT_GE(msSince(t0), 998);
+}
+
+/* Something else that keeps rewriting an output: the put-backs are spaced by
+ * put_back_delay, doubled while the fight goes on up to put_back_delay_max,
+ * even with no lock-out at all. A minute lasts MINUTE_MS here. */
+const int MINUTE_MS = 600;
+
+TEST_F(InternalThermostatTest, ARuleFightingAnOutputIsBounded)
+{
+    load();
+    setpoints("fight", 21, 0, 0);
+    mode("fight", "heat");
+    ASSERT_NE(addSimpleRule("heat_back_off", "fight_heat", "==", "true", "fight_heat", "false"), nullptr);
+    auto heat = count("fight_heat");
+
+    auto firstMinute = []()
+    {
+        temp("fight", 19);
+        pumpFor(MINUTE_MS);
+    };
+    const std::string log = journal(firstMinute);
+    EXPECT_GE(heat->count, 4);
+    EXPECT_LE(heat->count, 20);
+    const int first = heat->count;
+    pumpFor(MINUTE_MS);
+    EXPECT_LE(heat->count - first, 6);
+
+    //Warned once, not at each put-back.
+    const std::string warning = "Device(fight): output_heat 'fight_heat' was switched by something else";
+    const size_t at = log.find(warning);
+    EXPECT_NE(at, std::string::npos) << log;
+    EXPECT_EQ(log.find(warning, at + 1), std::string::npos);
+}
+
+//The same holds for a stop the thermostat forces (mode off).
+TEST_F(InternalThermostatTest, ARuleFightingAStopIsBounded)
+{
+    load();
+    ASSERT_NE(addSimpleRule("heat_back_on", "fight_heat", "==", "false", "fight_heat", "true"), nullptr);
+    auto heat = count("fight_heat");
+
+    io("fight_heat")->set_value(true);
+    pumpFor(MINUTE_MS);
+    EXPECT_GE(heat->count, 3);
+    EXPECT_LE(heat->count, 20);
+    const int first = heat->count;
+    pumpFor(MINUTE_MS);
+    EXPECT_LE(heat->count - first, 6);
+}
+
+//Two thermostats on one relay, one wanting it ON and the other OFF.
+TEST_F(InternalThermostatTest, TwoThermostatsOnOneOutputAreBounded)
+{
+    load();
+    io("duo_a_target")->set_value(25.0);
+    io("duo_b_target")->set_value(15.0);
+    mode("duo_a", "heat");
+    mode("duo_b", "heat");
+    temp("duo_b", 20);
+    auto relay = count("duo_relay");
+
+    temp("duo_a", 20);
+    pumpFor(MINUTE_MS);
+    EXPECT_GE(relay->count, 4);
+    EXPECT_LE(relay->count, 30);
+    const int first = relay->count;
+    pumpFor(MINUTE_MS);
+    EXPECT_LE(relay->count - first, 8);
 }
 
 /* Outside a rule march (a command, a timer), an output write runs the rules
