@@ -29,6 +29,7 @@
 #include "JsonApi.h"
 #include "libuvw.h"
 
+#include <algorithm>
 #include <chrono>
 #include <fstream>
 #include <functional>
@@ -880,6 +881,30 @@ TEST_F(InternalThermostatTest, ALaggingReadBackStillCountsAsOn)
         return cool->commands.back() == true;
     };
     EXPECT_TRUE(pumpUntil(coolOnSent, 1000));
+}
+
+//Inside the band, an output keeps the state last written: an OFF not read
+//back yet does not turn into ON again.
+TEST_F(InternalThermostatTest, AnOffNotReadBackYetStaysOffInTheBand)
+{
+    load();
+    auto *heat = dynamic_cast<TestLaggingOutput *>(io("lag_heat"));
+    ASSERT_NE(heat, nullptr);
+    io("lag_target")->set_value(21.0);
+    mode("lag", "heat");
+    temp("lag", 18);
+    heat->confirm();
+    pumpFor(220);
+
+    temp("lag", 22);
+    ASSERT_EQ(heat->commands.back(), false);
+    const size_t ons = std::count(heat->commands.begin(), heat->commands.end(), true);
+
+    temp("lag", 20.8);
+    pumpFor(20);
+    EXPECT_EQ(std::count(heat->commands.begin(), heat->commands.end(), true), ons);
+    EXPECT_EQ(heat->commands.back(), false);
+    EXPECT_EQ(str("lag_action"), "idle");
 }
 
 //Written behind the thermostat's back, an output is put back without waiting
