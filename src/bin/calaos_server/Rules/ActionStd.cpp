@@ -21,6 +21,7 @@
 #include "ActionStd.h"
 #include "ListeRoom.h"
 #include "ListeRule.h"
+#include "Device.h"
 #include "WODigital.h"
 #include "ActionTouchscreen.h"
 
@@ -116,6 +117,8 @@ bool ActionStd::Execute()
             ret = false;
             continue;
         }
+
+        Device::writtenFromOutside(*output, "a rule");
 
         bool ovar = false;
         switch (output->get_type())

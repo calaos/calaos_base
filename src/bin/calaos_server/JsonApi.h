@@ -258,7 +258,8 @@ public:
     void buildJsonEventLog(const Params &jParam, std::function<void(Json &)> callback);
     bool registerPushToken(const Params &jParam);
 
-    bool decodeSetState(Params &jParam);
+    //`source` names the caller in the warning for a write to a protected output.
+    bool decodeSetState(Params &jParam, const char *source);
     void decodeGetPlaylist(Params &jParam, std::function<void(const Json &)>result_lambda);
 
     /* E4.1q. THE ONLY READER OF THE REQUEST ID LEFT. E4.1p had a second,

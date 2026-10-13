@@ -27,6 +27,28 @@
 
 using namespace Calaos;
 
+namespace
+{
+
+vector<Device::WriteObserver> &writeObservers()
+{
+    static vector<Device::WriteObserver> all;
+    return all;
+}
+
+} //namespace
+
+void Device::observeOutsideWrites(WriteObserver observer)
+{
+    writeObservers().push_back(observer);
+}
+
+void Device::writtenFromOutside(IOBase &io, const char *source)
+{
+    for (WriteObserver observer: writeObservers())
+        observer(io, source);
+}
+
 Device::Device(Params &p):
     IOBase(p, IOBase::IO_INOUT)
 {

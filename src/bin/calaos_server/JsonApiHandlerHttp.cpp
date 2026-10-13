@@ -543,7 +543,8 @@ void JsonApiHandlerHttp::processSetState()
 {
     //E4.1n: one ASCII pair, and it does not move by one byte on this transport
     //(there is no envelope on HTTP). Only the emitter changes.
-    sendJson(Json{{ "success", decodeSetState(jsonParam)?"true":"false" }});
+    const bool res = decodeSetState(jsonParam, "set_state over HTTP");
+    sendJson(Json{ { "success", res ? "true" : "false" } });
 }
 
 void JsonApiHandlerHttp::processGetPlaylist()

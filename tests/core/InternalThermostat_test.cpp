@@ -1248,23 +1248,23 @@ TEST_F(InternalThermostatTest, CommandsThroughSetState)
     Params p;
     p.Add("id", "rev");
     p.Add("value", R"({"mode":"heat","target_temp":22})");
-    EXPECT_TRUE(api.decodeSetState(p));
+    EXPECT_TRUE(api.decodeSetState(p, "a test"));
     EXPECT_EQ(num("rev_target"), 22);
     EXPECT_TRUE(on("rev_heat"));
 
     p.Add("value", R"({"mode":"auto","target_temp_low":20,"target_temp_high":25})");
-    EXPECT_TRUE(api.decodeSetState(p));
+    EXPECT_TRUE(api.decodeSetState(p, "a test"));
     EXPECT_EQ(num("rev_low"), 20);
     EXPECT_EQ(num("rev_high"), 25);
     EXPECT_FALSE(on("rev_heat"));
     EXPECT_FALSE(on("rev_cool"));
 
     p.Add("value", R"({"target_temp_high":20.5})");
-    EXPECT_FALSE(api.decodeSetState(p));
+    EXPECT_FALSE(api.decodeSetState(p, "a test"));
     EXPECT_EQ(num("rev_high"), 25);
 
     p.Add("value", "off");
-    EXPECT_TRUE(api.decodeSetState(p));
+    EXPECT_TRUE(api.decodeSetState(p, "a test"));
     EXPECT_EQ(state("rev").value("mode", ""), "off");
     EXPECT_EQ(str("rev_action"), "off");
 }

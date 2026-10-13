@@ -50,11 +50,27 @@ uint64_t loopNow()
     return loop->now().count();
 }
 
+vector<InternalThermostat *> &liveThermostats()
+{
+    static vector<InternalThermostat *> all;
+    return all;
+}
+
+//Not through REGISTER_DEVICE: it registers a factory, not an observer.
+[[maybe_unused]] const bool observing = (Device::observeOutsideWrites(&InternalThermostat::warnIfProtected), true);
+
 } //namespace
 
 InternalThermostat::InternalThermostat(Params &p):
     ClimateBase(p)
 {
+    liveThermostats().push_back(this);
+}
+
+InternalThermostat::~InternalThermostat()
+{
+    auto &all = liveThermostats();
+    all.erase(std::find(all.begin(), all.end(), this));
 }
 
 void InternalThermostat::resolveLinks()
@@ -368,6 +384,8 @@ void InternalThermostat::noticeOutput(Output &out, IOBase &io)
     (v ? st.onAt : st.offAt) = now;
     st.commanded = v;
     st.foreign = true;
+    const bool undone = st.putBackWritten;
+    st.putBackWritten = false;
 
     if (!out.warned)
     {
@@ -377,6 +395,15 @@ void InternalThermostat::noticeOutput(Output &out, IOBase &io)
                               << "put back after its lock-outs, less and less often while "
                               << "that goes on";
     }
+
+    /* The only defence against a rule that lights a stopped output again.
+     * No limiter of its own: a put-back comes at least put_back_delay after
+     * the previous one, and only a put-back can be undone. */
+    if (undone && v && out.stopForced)
+        cErrorDom("device") << "Device(" << get_param("id") << "): " << out.role << " '"
+                            << io.get_param("id") << "' was switched ON again after the thermostat "
+                            << "stopped it (" << (mode == ClimateMode::Off ? "mode off" : "safety")
+                            << "); something keeps undoing the stop";
 }
 
 void InternalThermostat::regulate()
@@ -400,6 +427,8 @@ void InternalThermostat::regulate()
     //min_on_time; min_off_time still guards the restart.
     const OutputPair forced{ mode == ClimateMode::Off || !allowed.heat,
                              mode == ClimateMode::Off || !allowed.cool };
+    heat.stopForced = forced.heat;
+    cool.stopForced = forced.cool;
 
     const uint64_t now = loopNow();
 
@@ -519,6 +548,7 @@ void InternalThermostat::switchOutput(Output &out, Output &other, bool on, uint6
             st.spacingMs = std::min(st.spacingMs * 2, putBackMaxMs);
         st.putBackAt = now;
     }
+    st.putBackWritten = putBack;
     st.foreign = false;
     st.commanded = on;
     if (!io->set_value(on))
@@ -570,4 +600,36 @@ void InternalThermostat::writeAction()
     const string name = actionName(action);
     if (!io->hasValue() || io->get_value_string() != name)
         io->set_value(name);
+}
+
+/* Rate limit: one line per source and output within put_back_delay_max, the
+ * longest a fight is spaced. A rule firing every second so costs a line a
+ * minute, a rare writer is logged every time, and a changed source shows at
+ * once. */
+void InternalThermostat::warnWrite(Output &out, IOBase &io, const char *source)
+{
+    const uint64_t now = loopNow();
+    auto last = out.writeWarnedAt.find(source);
+    if (last != out.writeWarnedAt.end() && now - last->second < putBackMaxMs)
+        return;
+    out.writeWarnedAt[source] = now;
+
+    cWarningDom("device") << "Device(" << get_param("id") << "): " << out.role << " '"
+                          << io.get_param("id") << "' is driven by the thermostat and was written by "
+                          << source << "; the write is applied, the thermostat takes it back "
+                          << "after its lock-outs";
+}
+
+void InternalThermostat::warnIfProtected(IOBase &io, const char *source)
+{
+    for (InternalThermostat *t: liveThermostats())
+    {
+        if (!t->claimed)
+            continue;
+        for (Output *out: { &t->heat, &t->cool })
+        {
+            if (t->outputIo(*out) == &io)
+                t->warnWrite(*out, io, source);
+        }
+    }
 }

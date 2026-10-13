@@ -97,6 +97,14 @@ public:
     //Coalescing window of the io_changed published for the device.
     static constexpr double PUBLISH_DELAY = 0.1;
 
+    /* Rules, scripts and set_state write an IO without knowing which device
+     * drives it. They call writtenFromOutside() for each IO they are about to
+     * write; a device class that protects the IOs it drives registers an
+     * observer, which logs and never refuses. `source` reads after "by". */
+    using WriteObserver = void (*)(IOBase &io, const char *source);
+    static void observeOutsideWrites(WriteObserver observer);
+    static void writtenFromOutside(IOBase &io, const char *source);
+
 protected:
     /* The whole command, an object; the default is applyFields(command).
      * Override it to validate related fields together (a low/high range):
