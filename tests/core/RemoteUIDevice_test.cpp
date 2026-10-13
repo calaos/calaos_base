@@ -44,7 +44,10 @@ namespace
 class PanelDevice: public Device
 {
 public:
-    PanelDevice(Params &p): Device(p) {}
+    PanelDevice(Params &p):
+        Device(p)
+    {
+    }
 
 protected:
     bool applyCommandField(const string &field, const Json &value, string &reason) override
@@ -74,7 +77,10 @@ class PanelClient: public HttpClient
 {
 public:
     explicit PanelClient(const std::shared_ptr<uvw::TcpHandle> &h):
-        HttpClient(h), handle(h) {}
+        HttpClient(h),
+        handle(h)
+    {
+    }
 
     std::shared_ptr<uvw::TcpHandle> handle;
 };
@@ -82,7 +88,10 @@ public:
 class PanelHandler: public RemoteUIWebSocketHandler
 {
 public:
-    explicit PanelHandler(HttpClient *c): RemoteUIWebSocketHandler(c) {}
+    explicit PanelHandler(HttpClient *c):
+        RemoteUIWebSocketHandler(c)
+    {
+    }
 
     void attach(RemoteUI *ui)
     {
@@ -112,7 +121,7 @@ std::string house()
 {
     std::string dev =
         "    <calaos:device id=\"" + std::string(DEV) + "\" type=\"climate\" impl=\"panel_device\""
-        " name=\"Dev\">\n" +
+                                                        " name=\"Dev\">\n" +
         "      <calaos:internal type=\"InternalString\" id=\"" + DEV_MODE + "\" name=\"m\" visible=\"false\" />\n" +
         "      <calaos:internal type=\"InternalString\" id=\"" + DEV_AUX + "\" name=\"a\" visible=\"false\" />\n" +
         "      <calaos:link name=\"mode\" io=\"" + DEV_MODE + "\" command_io=\"" + DEV_CMD + "\" />\n" +
@@ -124,17 +133,16 @@ std::string house()
         "\" name=\"Screen\" enabled=\"true\" visible=\"true\" device_type=\"waveshare-86-panel\""
         " grid_w=\"3\" grid_h=\"3\">\n"
         "      <calaos:pages>\n        <calaos:page name=\"p1\">\n"
-        "          <calaos:widget type=\"Climate\" x=\"0\" y=\"0\" io_id=\"" + DEV + "\"/>\n" +
+        "          <calaos:widget type=\"Climate\" x=\"0\" y=\"0\" io_id=\"" +
+        DEV + "\"/>\n" +
         "          <calaos:widget type=\"switch\" x=\"1\" y=\"0\" io_id=\"" + PLAIN + "\"/>\n" +
         "          <calaos:widget type=\"switch\" x=\"2\" y=\"0\" io_id=\"" + GHOST + "\"/>\n" +
         "        </calaos:page>\n      </calaos:pages>\n    </calaos:remote_ui>\n";
 
     return ioXmlDocument(
         //The screen comes first: its load-time expansion cannot see the device.
-        roomXml("Salon", "salon", screen + dev + internalIoXml("InternalBool", PLAIN, "Plain") +
-                                      internalIoXml("InternalBool", UNRELATED, "Unrelated")) +
-        roomXml("Kitchen", "kitchen", internalIoXml("InternalInt", EXT_TEMP, "Temp") +
-                                      internalIoXml("InternalString", DEV_CMD, "Cmd")));
+        roomXml("Salon", "salon", screen + dev + internalIoXml("InternalBool", PLAIN, "Plain") + internalIoXml("InternalBool", UNRELATED, "Unrelated")) +
+        roomXml("Kitchen", "kitchen", internalIoXml("InternalInt", EXT_TEMP, "Temp") + internalIoXml("InternalString", DEV_CMD, "Cmd")));
 }
 
 void pumpFor(int ms, const std::function<bool()> &done = nullptr)
