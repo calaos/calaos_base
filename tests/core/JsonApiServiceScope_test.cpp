@@ -85,12 +85,11 @@ const char *const kAdminUser = "t360-admin";
 const char *const kAdminPass = "t360-admin-password";
 const char *const kServiceToken = "t360-service-token";
 
-//The eight, spelled out here and compared with the shipped rule. Two lists
+//The nine, spelled out here and compared with the shipped rule. Two lists
 //that must agree: the production one drives the loops, this one proves the
 //production one still says what the decision said.
-const char *const kExpectedDenied[] =
-{ "set_param", "del_param", "audio_db", "set_timerange", "autoscenario",
-  "eventlog", "register_push", "settings" };
+const char *const kExpectedDenied[] = { "set_param", "del_param", "audio_db", "set_timerange", "autoscenario",
+                                        "eventlog", "register_push", "settings", "config" };
 
 //The contrast. Without it, moving a command out of the guarded set would leave
 //every refusal case green.
@@ -513,13 +512,13 @@ protected:
  * The rule itself, counted at the source
  ******************************************************************************/
 
-TEST_F(JsonApiServiceScopeTest, TheRuleHoldsExactlyTheEightNamedCommands)
+TEST_F(JsonApiServiceScopeTest, TheRuleHoldsExactlyTheNineNamedCommands)
 {
     const vector<string> &denied = JsonApi::serviceScopeDeniedCommands();
 
-    ASSERT_EQ(8u, denied.size())
-            << "the guarded set is not eight commands any more, and every loop "
-               "of this file walks it";
+    ASSERT_EQ(9u, denied.size())
+        << "the guarded set is not nine commands any more, and every loop "
+           "of this file walks it";
 
     for (const char *name: kExpectedDenied)
         EXPECT_NE(denied.end(), std::find(denied.begin(), denied.end(), string(name)))
@@ -541,14 +540,14 @@ TEST_F(JsonApiServiceScopeTest, TheRuleHoldsExactlyTheEightNamedCommands)
  * The websocket half, over a real socket
  ******************************************************************************/
 
-TEST_F(JsonApiServiceScopeTest, TheEightAreRefusedOverARealServiceScopedWebsocket)
+TEST_F(JsonApiServiceScopeTest, TheNineAreRefusedOverARealServiceScopedWebsocket)
 {
     WsClient ws;
     ASSERT_TRUE(loginService(ws))
             << "no service scoped session was opened, so this case measures nothing";
 
     const vector<string> &denied = JsonApi::serviceScopeDeniedCommands();
-    ASSERT_EQ(8u, denied.size()) << "the loop below would walk a shorter list";
+    ASSERT_EQ(9u, denied.size()) << "the loop below would walk a shorter list";
 
     for (const string &command: denied)
     {
@@ -685,10 +684,10 @@ TEST_F(JsonApiServiceScopeTest, TheEightAreStillServedToAnAdminOverARealSocket)
  * session in this state. See the file header.
  ******************************************************************************/
 
-TEST_F(JsonApiServiceScopeTest, TheHttpDispatchRefusesTheSameEightCommands)
+TEST_F(JsonApiServiceScopeTest, TheHttpDispatchRefusesTheSameNineCommands)
 {
     const vector<string> &denied = JsonApi::serviceScopeDeniedCommands();
-    ASSERT_EQ(8u, denied.size()) << "the loop below would walk a shorter list";
+    ASSERT_EQ(9u, denied.size()) << "the loop below would walk a shorter list";
 
     for (const string &command: denied)
     {
