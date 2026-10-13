@@ -87,7 +87,11 @@ bool pumpUntil(const std::function<bool()> &done, int ms = 5000)
 
 void pumpFor(int ms)
 {
-    pumpUntil([]() { return false; }, ms);
+    pumpUntil([]()
+              {
+        return false;
+    },
+              ms);
 }
 
 std::string link(const std::string &name, const std::string &io)
@@ -167,10 +171,7 @@ struct Thermostat
 };
 
 //Every thermostat of the house: their saved IOs are reset before each case.
-const std::vector<Thermostat> THERMOSTATS = { { "boot", false }, { "stale", false }, { "quiet", false },
-                                              { "dew", true },     { "dewst", true },
-                                              { "nohum", true },   { "fancoil", true },
-                                              { "start", false } };
+const std::vector<Thermostat> THERMOSTATS = { { "boot", false }, { "stale", false }, { "quiet", false }, { "dew", true }, { "dewst", true }, { "nohum", true }, { "fancoil", true }, { "start", false } };
 
 } //namespace
 
@@ -248,7 +249,11 @@ protected:
 
     static bool waitFor(const std::string &id, bool state, int ms = 5000)
     {
-        return pumpUntil([&]() { return on(id) == state; }, ms);
+        return pumpUntil([&]()
+                         {
+            return on(id) == state;
+        },
+                         ms);
     }
 
     template <class F>

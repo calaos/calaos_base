@@ -325,8 +325,8 @@ TEST_F(ProxyClimateMqttTest, ARepeatedReadingIsStillAReading)
 
         int changes = 0;
         IOChangeHub::Subscription sub = IOChangeHub::Instance().subscribe(in->get_param("id"),
-                                                                         [&changes](IOBase &)
-                                                                         {
+                                                                          [&changes](IOBase &)
+                                                                          {
             changes++;
         });
         std::this_thread::sleep_for(std::chrono::milliseconds(2));

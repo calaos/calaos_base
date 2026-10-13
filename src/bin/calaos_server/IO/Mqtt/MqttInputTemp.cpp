@@ -33,7 +33,10 @@ REGISTER_IO(MqttInputTemp)
 MqttInputTemp::MqttInputTemp(Params &p):
     MqttIOBase(p, "MqttInputTemp", _("Temperature read from a mqtt broker"))
 {
-    subscribeTopicSub([this]() { readMessage(); });
+    subscribeTopicSub([this]()
+                      {
+        readMessage();
+    });
 
     cInfoDom("input") << "MqttInputTemp::MqttInputTemp()";
 }

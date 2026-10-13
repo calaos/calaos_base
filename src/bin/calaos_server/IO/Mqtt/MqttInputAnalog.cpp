@@ -33,7 +33,10 @@ REGISTER_IO(MqttInputAnalog)
 MqttInputAnalog::MqttInputAnalog(Params &p):
     MqttIOBase(p, "MqttInputAnalog", _("Analog value read from a mqtt broker"))
 {
-    subscribeTopicSub([this]() { readMessage(); });
+    subscribeTopicSub([this]()
+                      {
+        readMessage();
+    });
 
     cInfoDom("input") << "MqttInputAnalog::MqttInputAnalog()";
 }

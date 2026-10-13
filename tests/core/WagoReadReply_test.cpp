@@ -551,14 +551,20 @@ namespace
 class FreshWIAnalogProbe: public Calaos::WIAnalog
 {
 public:
-    FreshWIAnalogProbe(Params &p): Calaos::WIAnalog(p) {}
+    FreshWIAnalogProbe(Params &p):
+        Calaos::WIAnalog(p)
+    {
+    }
     using Calaos::WIAnalog::WagoReadCallback;
 };
 
 class FreshWITempProbe: public Calaos::WITemp
 {
 public:
-    FreshWITempProbe(Params &p): Calaos::WITemp(p) {}
+    FreshWITempProbe(Params &p):
+        Calaos::WITemp(p)
+    {
+    }
     using Calaos::WITemp::WagoReadCallback;
 };
 
@@ -570,14 +576,20 @@ void registerFreshProbes()
 
     Calaos::IOFactory::Instance().RegisterClass(
         "FreshWIAnalogProbe",
-        [](Params &p) -> Calaos::IOBase * { return new FreshWIAnalogProbe(p); });
+        [](Params &p) -> Calaos::IOBase *
+        {
+        return new FreshWIAnalogProbe(p);
+        });
     Calaos::IOFactory::Instance().RegisterClass(
         "FreshWITempProbe",
-        [](Params &p) -> Calaos::IOBase * { return new FreshWITempProbe(p); });
+        [](Params &p) -> Calaos::IOBase *
+        {
+        return new FreshWITempProbe(p);
+        });
 }
 
 //The read callback of a probe, as WagoMap calls it.
-template<class Probe>
+template <class Probe>
 void reply(Calaos::IOBase *io, bool status, std::vector<UWord> values)
 {
     dynamic_cast<Probe *>(io)->WagoReadCallback(status, WagoTypes::Address(12),
@@ -601,17 +613,17 @@ protected:
      * instance per host for the process, a new host would be one more. */
     Calaos::IOBase *makeProbe(const std::string &type, const std::string &hostSuffix)
     {
-        Params p = {{ "type", type },
-                    { "id", "fresh_" + type },
-                    { "name", type },
-                    { "host", "192.0.2." + hostSuffix },
-                    { "var", "12" },
-                    { "enabled", "true" },
-                    { "visible", "true" }};
+        Params p = { { "type", type },
+                     { "id", "fresh_" + type },
+                     { "name", type },
+                     { "host", "192.0.2." + hostSuffix },
+                     { "var", "12" },
+                     { "enabled", "true" },
+                     { "visible", "true" } };
         return createIO(p);
     }
 
-    template<class Probe>
+    template <class Probe>
     void repeatedReplyIsAReading(const std::string &type, const std::string &hostSuffix)
     {
         Calaos::IOBase *io = makeProbe(type, hostSuffix);
