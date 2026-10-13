@@ -203,6 +203,10 @@ std::string house()
     salon += deviceXml("pair_range", ownedXml("InternalInt", "pr_low") + ownedXml("InternalInt", "pr_high") +
                                          linkXml("target_temp_low", "pr_low") +
                                          linkXml("target_temp_high", "pr_high"));
+    salon += deviceXml("target_range", ownedXml("InternalInt", "tg_target") + ownedXml("InternalInt", "tg_low") +
+                                           ownedXml("InternalInt", "tg_high") + linkXml("target_temp", "tg_target") +
+                                           linkXml("target_temp_low", "tg_low") +
+                                           linkXml("target_temp_high", "tg_high"));
     salon += deviceXml("pair_remote", ownedXml("InternalInt", "pm_remote") +
                                           linkXml("remote_temp", "pm_remote") +
                                           linkXml("remote_temp_source", EXT_TEMP));
@@ -337,6 +341,10 @@ TEST_F(ClimateBaseTest, EachLinkGivesExactlyItsCapability)
         { "only_low", Json::object() },
         { "only_high", Json::object() },
         { "pair_range", { { "target_temp_range", true } } },
+        //min_range rides on target_temp, which this one has, 0 without the param.
+        { "target_range",
+          { { "target_temp", { { "min", 7 }, { "max", 35 }, { "step", 0.5 }, { "unit", "°C" }, { "min_range", 0 } } },
+            { "target_temp_range", true } } },
         { "only_action", { { "reports_action", true } } },
         { "only_fan", { { "fan_modes", { "auto", "quiet" } } } },
         { "only_swing", { { "swing_modes", { "off", "both" } } } },
@@ -358,7 +366,7 @@ TEST_F(ClimateBaseTest, FullDeviceCapabilitiesAreRealJsonTypes)
     const Json c = caps("full");
     EXPECT_EQ(c, parse(R"({
         "modes": ["off", "heat", "cool", "auto"],
-        "target_temp": {"min": 16, "max": 30, "step": 0.5, "unit": "°C"},
+        "target_temp": {"min": 16, "max": 30, "step": 0.5, "unit": "°C", "min_range": 2},
         "target_temp_range": true,
         "reports_action": true,
         "fan_modes": ["auto", "low", "high"],

@@ -355,6 +355,9 @@ Json ClimateBase::deviceCapabilities()
         t["max"] = b.max;
         t["step"] = b.step;
         t["unit"] = b.unit;
+        //Here and not next to target_temp_range: merged clients read that one as a boolean.
+        if (linkIo(LOW) && linkIo(HIGH))
+            t["min_range"] = minRange();
     }
     if (linkIo(LOW) && linkIo(HIGH))
         caps["target_temp_range"] = true;
