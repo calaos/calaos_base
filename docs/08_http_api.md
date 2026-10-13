@@ -474,11 +474,12 @@ pas lui envoyer de devices.
 
 **Refus d'un `put` qui perdrait des devices.** Le client déclare son support dans la **requête**,
 pas dans le fichier : `config put` accepte une clef `io_format` à côté de `config_files`
-(entier ou chaîne numérique, `2` ou plus ; absente, inexploitable ou `< 2` = client de format 1).
+(entier ou chaîne entièrement décimale, de 2 à 1000 ; absente, inexploitable, hors bornes ou `< 2` = client de format 1).
 Si le serveur détient au moins un device (les devices inertes d'impl inconnue comptent) et que
 la requête ne déclare pas `io_format >= 2`, le `put` est refusé en entier : ni backup, ni
 écriture (`rules.xml` et `local_config.xml` compris), ni redémarrage. Un `io.xml` qui ne
-s'analyse pas est toujours refusé, déclaration ou non. Réponse :
+s'analyse pas est toujours refusé, déclaration ou non, avec `"error":"io.xml does not parse"`
+(sans device côté serveur il reste accepté, comme avant). Réponse :
 `{"success":"false","error":"update calaos_installer: this io.xml would drop N device(s)"}`
 avec N le nombre de devices du serveur. Un client qui déclare `io_format >= 2` est cru : le
 contenu n'est plus inspecté, supprimer des devices, le dernier compris, est intentionnel. Sans
