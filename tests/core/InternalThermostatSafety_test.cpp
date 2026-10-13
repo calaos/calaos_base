@@ -114,6 +114,8 @@ std::string house()
     std::string ios;
     //A sensor whose value comes from the state cache, not from a reading.
     ios += thermostat("boot", false, "", internal("InternalInt", "boot_temp", SAVED));
+    //Stale after 0.2 s, and a min_on_time a stale stop must not wait for.
+    ios += thermostat("stale", false, param("sensor_timeout", "0.2") + param("min_on_time", "5"));
     return ioXmlDocument(roomXml("Salon", "salon", ios));
 }
 
@@ -124,7 +126,7 @@ struct Thermostat
 };
 
 //Every thermostat of the house: their saved IOs are reset before each case.
-const std::vector<Thermostat> THERMOSTATS = { { "boot", false } };
+const std::vector<Thermostat> THERMOSTATS = { { "boot", false }, { "stale", false } };
 
 } //namespace
 
@@ -210,6 +212,14 @@ protected:
     {
         return log.find(needle) != std::string::npos;
     }
+
+    static size_t count(const std::string &log, const std::string &needle)
+    {
+        size_t n = 0;
+        for (size_t at = log.find(needle); at != std::string::npos; at = log.find(needle, at + 1))
+            n++;
+        return n;
+    }
 };
 
 //A value restored from the state cache is what the sensor said before the
@@ -227,4 +237,68 @@ TEST_F(InternalThermostatSafetyTest, AValueFromTheStateCacheIsNotAReading)
     set("boot_temp", 18);
     EXPECT_TRUE(on("boot_heat"));
     EXPECT_EQ(str("boot_action"), "heating");
+}
+
+const char *const STALE_LOG = "Device(stale): current_temp 'stale_temp' has sent nothing for 0.2 s, "
+                              "the outputs are OFF";
+
+//Spec §8.2: no reading for sensor_timeout, outputs OFF at once and an error,
+//once.
+TEST_F(InternalThermostatSafetyTest, AStaleSensorStopsTheOutputsAtOnce)
+{
+    load();
+    mode("stale", "heat");
+    set("stale_temp", 18);
+    ASSERT_TRUE(on("stale_heat"));
+
+    const auto t0 = Clock::now();
+    bool stopped = false;
+    const std::string log = journal([&]()
+                                    {
+        stopped = waitFor("stale_heat", false, 2000);
+        pumpFor(500);
+    });
+    ASSERT_TRUE(stopped);
+    EXPECT_GE(msSince(t0), 190 + 500);
+    //Long before min_on_time.
+    EXPECT_LT(msSince(t0), 2000);
+    EXPECT_EQ(count(log, STALE_LOG), 1u) << log;
+    EXPECT_EQ(str("stale_action"), "idle");
+
+    //Nothing but a reading brings it back.
+    set("stale_target", 25);
+    pumpFor(50);
+    EXPECT_FALSE(on("stale_heat"));
+}
+
+TEST_F(InternalThermostatSafetyTest, ReadingsWithinTheTimeoutKeepTheOutputsOn)
+{
+    load();
+    mode("stale", "heat");
+    for (int i = 0; i < 8; i++)
+    {
+        set("stale_temp", 18 + (i % 2) * 0.1);
+        pumpFor(100);
+        ASSERT_TRUE(on("stale_heat")) << "after " << i + 1 << " readings";
+    }
+}
+
+TEST_F(InternalThermostatSafetyTest, AStaleSensorRegulatesAgainOnItsNextReading)
+{
+    load();
+    mode("stale", "heat");
+    set("stale_temp", 18);
+    ASSERT_TRUE(waitFor("stale_heat", false, 2000));
+
+    //The value it had: still a reading.
+    set("stale_temp", 18);
+    EXPECT_TRUE(on("stale_heat"));
+    EXPECT_EQ(str("stale_action"), "heating");
+
+    //And a second episode is logged again.
+    const std::string log = journal([]()
+                                    {
+        EXPECT_TRUE(waitFor("stale_heat", false, 2000));
+    });
+    EXPECT_EQ(count(log, STALE_LOG), 1u) << log;
 }
