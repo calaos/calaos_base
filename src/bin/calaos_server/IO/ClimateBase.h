@@ -105,6 +105,8 @@ protected:
 
 private:
     IOBase *writeTarget(const string &role);
+    //min of the low IO, max of the high IO.
+    Bounds rangeBounds();
     bool applyRange(const Json &command);
 };
 

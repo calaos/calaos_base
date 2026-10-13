@@ -83,8 +83,21 @@ private:
 
 } //namespace
 
+//An input: every write is refused, as with a link misconfigured on a sensor.
+class TestReadOnly: public IOBase
+{
+public:
+    TestReadOnly(Params &p):
+        IOBase(p, IOBase::IO_INPUT)
+    {
+    }
+
+    DATA_TYPE get_type() override { return TSTRING; }
+};
+
 REGISTER_DEVICE(test_climate, TestClimate)
 REGISTER_DEVICE(test_thermostat, TestThermostat)
+REGISTER_IO(TestReadOnly)
 
 namespace
 {
@@ -179,6 +192,34 @@ std::string house()
                       linkXml("target_temp_high", "bad_high") + linkXml("fan_mode", "bad_fan") +
                       paramXml("modes", "heat,heat_cool") + paramXml("min_range", "-1");
 
+    //Empty modes list, and a min_range the bounds cannot hold.
+    const std::string narrow = R"( value_min="20" value_max="21")";
+    std::string bad2 = ownedXml("InternalString", "bad2_mode") + ownedXml("InternalInt", "bad2_low", narrow) +
+                       ownedXml("InternalInt", "bad2_high", narrow) + linkXml("mode", "bad2_mode") +
+                       linkXml("target_temp_low", "bad2_low") + linkXml("target_temp_high", "bad2_high") +
+                       paramXml("modes", " , ") + paramXml("min_range", "5");
+
+    //Every link on an IO that refuses writes.
+    std::string ro;
+    for (const char *role: { "mode", "target_temp", "target_temp_low", "target_temp_high", "fan_mode" })
+    {
+        ro += ownedXml("TestReadOnly", std::string("ro_") + role);
+        ro += linkXml(role, std::string("ro_") + role);
+    }
+    ro += paramXml("fan_modes", "auto");
+
+    //Nothing written yet, except a setpoint restored from its saved value.
+    std::string fresh = ownedXml("InternalInt", "fresh_current") +
+                        ownedXml("InternalInt", "fresh_target", R"( save="true" value="21")") +
+                        ownedXml("InternalInt", "fresh_low") + linkXml("current_temp", "fresh_current") +
+                        linkXml("target_temp", "fresh_target") + linkXml("target_temp_low", "fresh_low");
+
+    //Range without a single setpoint: the dial goes from low's min to high's max.
+    std::string skew = ownedXml("InternalInt", "skew_low", R"( value_min="10" value_max="25" step="0.5" unit="°F")") +
+                       ownedXml("InternalInt", "skew_high", R"( value_min="15" value_max="30" step="1")") +
+                       linkXml("target_temp_low", "skew_low") + linkXml("target_temp_high", "skew_high") +
+                       paramXml("min_range", "3");
+
     std::string thermoHeat = ownedXml("InternalBool", "th_heat") + linkXml("output_heat", "th_heat");
     std::string thermoRev = ownedXml("InternalBool", "tr_heat") + ownedXml("InternalBool", "tr_cool") +
                             linkXml("output_heat", "tr_heat") + linkXml("output_cool", "tr_cool");
@@ -188,6 +229,10 @@ std::string house()
     salon += deviceXml("split", split);
     salon += deviceXml("fine", fine);
     salon += deviceXml("bad", bad);
+    salon += deviceXml("bad2", bad2);
+    salon += deviceXml("ro", ro);
+    salon += deviceXml("fresh", fresh);
+    salon += deviceXml("skew", skew);
     salon += deviceXml("none", "");
     salon += singleLink("only_mode", "mode", "InternalString");
     salon += singleLink("only_current", "current_temp", "InternalInt");
@@ -340,7 +385,9 @@ TEST_F(ClimateBaseTest, EachLinkGivesExactlyItsCapability)
         { "only_target", { { "target_temp", defaultTarget } } },
         { "only_low", Json::object() },
         { "only_high", Json::object() },
-        { "pair_range", { { "target_temp_range", true } } },
+        { "pair_range",
+          { { "target_temp", { { "min", 7 }, { "max", 35 }, { "step", 0.5 }, { "unit", "°C" }, { "min_range", 0 } } },
+            { "target_temp_range", true } } },
         //min_range rides on target_temp, which this one has, 0 without the param.
         { "target_range",
           { { "target_temp", { { "min", 7 }, { "max", 35 }, { "step", 0.5 }, { "unit", "°C" }, { "min_range", 0 } } },
@@ -468,7 +515,7 @@ TEST_F(ClimateBaseTest, StateCarriesNumbersAndOnlyValidEnums)
     EXPECT_FALSE(s2.contains("action")) << s2.dump();
     EXPECT_EQ(dev("full")->get_value_string(), "");
 
-    EXPECT_EQ(state("only_current"), parse(R"({"current_temp": 0})"));
+    EXPECT_EQ(state("only_current"), Json::object());
     EXPECT_EQ(state("none"), Json::object());
     EXPECT_EQ(state("dangling"), Json::object());
 }
@@ -517,6 +564,14 @@ TEST_F(ClimateBaseTest, FanAndSwingModesAreEnumsFromTheirParams)
     EXPECT_FALSE(cmd("full", R"({"swing_mode":"both"})"));
     EXPECT_EQ(str("full_fan"), "high");
     EXPECT_EQ(str("full_swing"), "vertical");
+
+    //The state only shows values of the lists, never "" or a stray one.
+    io("full_fan")->set_value(std::string("turbo"));
+    io("full_swing")->set_value(std::string(""));
+    EXPECT_FALSE(state("full").contains("fan_mode")) << state("full").dump();
+    EXPECT_FALSE(state("full").contains("swing_mode")) << state("full").dump();
+    io("full_fan")->set_value(std::string("high"));
+    EXPECT_EQ(state("full").at("fan_mode"), "high");
 
     EXPECT_TRUE(cmd("only_fan", R"({"fan_mode":"quiet"})"));
     EXPECT_FALSE(cmd("only_fan", R"({"swing_mode":"off"})"));
@@ -686,7 +741,15 @@ TEST_F(ClimateBaseTest, ConfigurationMistakesAreLoggedAtLoad)
         << log;
     EXPECT_EQ(log.find("Device(full): "), std::string::npos) << log;
 
-    EXPECT_EQ(caps("bad"), parse(R"({"modes": ["heat"], "target_temp_range": true, "fan_modes": []})"));
+    EXPECT_NE(log.find("Device(bad2): empty modes param"), std::string::npos) << log;
+    EXPECT_NE(log.find("Device(bad2): min_range 5 is wider than the setpoint bounds 20..21"),
+              std::string::npos)
+        << log;
+    EXPECT_EQ(log.find("Device(skew): "), std::string::npos) << log;
+    EXPECT_FALSE(caps("bad2").contains("modes"));
+
+    EXPECT_EQ(caps("bad"), parse(R"({"modes": ["heat"], "target_temp_range": true, "fan_modes": [],
+        "target_temp": {"min": 7, "max": 35, "step": 0.5, "unit": "°C", "min_range": 0}})"));
     EXPECT_DOUBLE_EQ(dev("bad")->minRange(), 0);
     EXPECT_DOUBLE_EQ(dev("full")->minRange(), 2);
     EXPECT_DOUBLE_EQ(dev("none")->minRange(), 0);
@@ -694,4 +757,53 @@ TEST_F(ClimateBaseTest, ConfigurationMistakesAreLoggedAtLoad)
     //min_range 0 still keeps low <= high.
     EXPECT_TRUE(cmd("bad", R"({"target_temp_low":20,"target_temp_high":20})"));
     EXPECT_FALSE(cmd("bad", R"({"target_temp_low":21})"));
+}
+
+TEST_F(ClimateBaseTest, WritesRefusedByTheLinkedIoAreLoggedWithTheReason)
+{
+    const std::string log = journal(
+        [this]()
+        {
+        EXPECT_FALSE(cmd("ro", "heat"));
+        EXPECT_FALSE(cmd("ro", R"({"target_temp":21})"));
+        EXPECT_FALSE(cmd("ro", R"({"fan_mode":"auto"})"));
+        EXPECT_FALSE(cmd("ro", R"({"target_temp_low":18,"target_temp_high":22})"));
+    });
+    for (const char *field: { "'mode'", "'target_temp'", "'fan_mode'", "'target_temp_range'" })
+    {
+        const std::string line = std::string("Device(ro): command field ") + field +
+                                 " refused: the linked IO refused the value";
+        EXPECT_NE(log.find(line), std::string::npos) << line << "\n"
+                                                     << log;
+    }
+}
+
+TEST_F(ClimateBaseTest, ValuesNeverReceivedAreLeftOutOfTheState)
+{
+    //Restored from its saved value: known. The others still hold a default 0.
+    EXPECT_EQ(state("fresh"), parse(R"({"target_temp": 21})"));
+    EXPECT_TRUE(io("fresh_target")->hasValue());
+    EXPECT_FALSE(io("fresh_current")->hasValue());
+
+    io("fresh_current")->set_value(0.0);
+    io("fresh_low")->set_value(17.0);
+    EXPECT_EQ(state("fresh"), parse(R"({"current_temp": 0, "target_temp": 21, "target_temp_low": 17})"));
+}
+
+TEST_F(ClimateBaseTest, PartialRangeNeedsTheOtherBoundKnown)
+{
+    EXPECT_FALSE(cmd("pair_range", R"({"target_temp_high":25})"));
+    EXPECT_FALSE(io("pr_high")->hasValue());
+
+    EXPECT_TRUE(cmd("pair_range", R"({"target_temp_low":18,"target_temp_high":25})"));
+    EXPECT_TRUE(cmd("pair_range", R"({"target_temp_high":26})"));
+    EXPECT_DOUBLE_EQ(num("pr_low"), 18);
+    EXPECT_DOUBLE_EQ(num("pr_high"), 26);
+}
+
+TEST_F(ClimateBaseTest, ARangeAloneBoundsTheTargetCapability)
+{
+    EXPECT_EQ(caps("skew"), parse(R"({"target_temp_range": true,
+        "target_temp": {"min": 10, "max": 30, "step": 0.5, "unit": "°F", "min_range": 3}})"));
+    EXPECT_FALSE(state("skew").contains("target_temp"));
 }

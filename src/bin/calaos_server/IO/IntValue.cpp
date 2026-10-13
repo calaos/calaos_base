@@ -419,6 +419,7 @@ void Internal::LoadFromConfig()
         break;
     default: break;
     }
+    setValueKnown();
 }
 
 bool Internal::SaveToXml(pugi::xml_node node)

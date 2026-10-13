@@ -30,6 +30,15 @@ namespace
 
 const char *const LOW = "target_temp_low";
 const char *const HIGH = "target_temp_high";
+const char *const REFUSED_BY_IO = "the linked IO refused the value";
+
+//A disabled or read-only IO refuses a write: the log must still say why.
+bool written(bool ok, string &reason)
+{
+    if (!ok)
+        reason = REFUSED_BY_IO;
+    return ok;
+}
 
 //Indexed by the enum values, in declaration order.
 const char *const MODE_NAMES[] = { "off", "heat", "cool", "auto", "dry", "fan_only" };
@@ -123,10 +132,20 @@ void ClimateBase::resolveLinks()
             cErrorDom("device") << "Device(" << id << "): link '" << role << "' without a "
                                 << list << " param, every value will be refused";
     }
+    if (hasDeviceParam("modes") && paramList("modes").empty())
+        cErrorDom("device") << "Device(" << id << "): empty modes param, no mode can be selected";
     double gap;
     if (hasDeviceParam("min_range") && !nonNegative(getDeviceParam("min_range"), gap))
         cErrorDom("device") << "Device(" << id << "): min_range '" << getDeviceParam("min_range")
                             << "' is not a non-negative number, 0 is used";
+    if (linkIo(LOW) && linkIo(HIGH))
+    {
+        const Bounds b = rangeBounds();
+        if (minRange() > b.max - b.min)
+            cErrorDom("device") << "Device(" << id << "): min_range " << minRange()
+                                << " is wider than the setpoint bounds " << b.min << ".." << b.max
+                                << ", every range will be refused";
+    }
 }
 
 vector<ClimateMode> ClimateBase::supportedModes()
@@ -180,6 +199,13 @@ ClimateBase::Bounds ClimateBase::setpointBounds(const string &role)
     //Not a named return value: gcov charges its unwinding to the closing
     //brace, which the diff-coverage gate reads as a line never run.
     return Bounds(b);
+}
+
+ClimateBase::Bounds ClimateBase::rangeBounds()
+{
+    const Bounds lo = setpointBounds(LOW);
+    const Bounds hi = setpointBounds(HIGH);
+    return Bounds{ lo.min, hi.max, lo.step, lo.unit };
 }
 
 double ClimateBase::minRange() const
@@ -243,6 +269,14 @@ bool ClimateBase::applyRange(const Json &command)
         return false;
     }
 
+    //0 is the default of a bound never written, not a setpoint to check against.
+    if ((!command.contains(LOW) && !lowIo->hasValue()) ||
+        (!command.contains(HIGH) && !highIo->hasValue()))
+    {
+        logRefusedField("target_temp_range", "the other bound is not known yet, send both");
+        return false;
+    }
+
     const double oldHigh = highIo->get_value_double();
     double low = lowIo->get_value_double();
     double high = oldHigh;
@@ -295,6 +329,8 @@ bool ClimateBase::applyRange(const Json &command)
         write(LOW, low);
         write(HIGH, high);
     }
+    if (!ok)
+        logRefusedField("target_temp_range", REFUSED_BY_IO);
     return ok;
 }
 
@@ -312,7 +348,7 @@ bool ClimateBase::applyCommandField(const string &field, const Json &value, stri
             ClimateMode mode;
             if (!enumField(value, names, name, reason) || !parseMode(name, mode))
                 return false;
-            return writeMode(mode);
+            return written(writeMode(mode), reason);
         }
     }
     else if (field == "target_temp" && linkIo(field))
@@ -321,14 +357,14 @@ bool ClimateBase::applyCommandField(const string &field, const Json &value, stri
         double v;
         if (!numberField(value, b.min, b.max, b.step, v, reason))
             return false;
-        return writeTarget(field)->set_value(v);
+        return written(writeTarget(field)->set_value(v), reason);
     }
     else if ((field == "fan_mode" || field == "swing_mode") && linkIo(field))
     {
         string v;
         if (!enumField(value, paramList(field + "s"), v, reason))
             return false;
-        return writeTarget(field)->set_value(v);
+        return written(writeTarget(field)->set_value(v), reason);
     }
 
     return Device::applyCommandField(field, value, reason);
@@ -347,19 +383,21 @@ Json ClimateBase::deviceCapabilities()
         caps["modes"] = names;
     }
 
-    if (linkIo("target_temp"))
+    const bool range = linkIo(LOW) && linkIo(HIGH);
+    if (linkIo("target_temp") || range)
     {
-        const Bounds b = setpointBounds("target_temp");
+        //Without a single setpoint, the range IOs bound the dial.
+        const Bounds b = linkIo("target_temp") ? setpointBounds("target_temp") : rangeBounds();
         Json &t = caps["target_temp"];
         t["min"] = b.min;
         t["max"] = b.max;
         t["step"] = b.step;
         t["unit"] = b.unit;
         //Here and not next to target_temp_range: merged clients read that one as a boolean.
-        if (linkIo(LOW) && linkIo(HIGH))
+        if (range)
             t["min_range"] = minRange();
     }
-    if (linkIo(LOW) && linkIo(HIGH))
+    if (range)
         caps["target_temp_range"] = true;
     if (linkIo("action"))
         caps["reports_action"] = true;
@@ -383,7 +421,9 @@ Json ClimateBase::deviceState()
 
     for (const char *role: { "current_temp", "target_temp", LOW, HIGH })
     {
-        if (IOBase *io = linkIo(role))
+        IOBase *io = linkIo(role);
+        //A sensor not read yet would publish 0 °C.
+        if (io && io->hasValue())
             state[role] = io->get_value_double();
     }
 
@@ -396,8 +436,13 @@ Json ClimateBase::deviceState()
 
     for (const char *role: { "fan_mode", "swing_mode" })
     {
-        if (IOBase *io = linkIo(role))
-            state[role] = io->get_value_string();
+        IOBase *io = linkIo(role);
+        if (!io)
+            continue;
+        const vector<string> allowed = paramList(string(role) + "s");
+        const string v = io->get_value_string();
+        if (std::find(allowed.begin(), allowed.end(), v) != allowed.end())
+            state[role] = v;
     }
 
     return Json(std::move(state));
