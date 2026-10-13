@@ -153,6 +153,9 @@ std::string house()
                       param("emitter", "floor") + link("humidity", "dewst_hum") +
                           param("sensor_timeout", "0.3"));
     ios += internal("InternalInt", "dewst_hum");
+    //Floor cooling without a humidity link, its output_cool left ON.
+    ios += thermostat("nohum", true, param("emitter", "floor"));
+    ios += thermostat("fancoil", true, param("emitter", "fan_coil"));
     return ioXmlDocument(roomXml("Salon", "salon", ios));
 }
 
@@ -164,7 +167,8 @@ struct Thermostat
 
 //Every thermostat of the house: their saved IOs are reset before each case.
 const std::vector<Thermostat> THERMOSTATS = { { "boot", false }, { "stale", false }, { "quiet", false },
-                                              { "dew", true },     { "dewst", true } };
+                                              { "dew", true },     { "dewst", true },
+                                              { "nohum", true },   { "fancoil", true } };
 
 } //namespace
 
@@ -190,6 +194,7 @@ protected:
             }
         }
         c.SaveValueIO("boot_temp", "18", false);
+        c.SaveValueIO("nohum_cool", "true", false);
     }
 
     void TearDown() override
@@ -224,6 +229,14 @@ protected:
     static std::string str(const std::string &id) { return must(id) ? io(id)->get_value_string() : "<none>"; }
 
     static bool mode(const std::string &id, const std::string &m) { return dev(id)->set_value(m); }
+
+    static std::vector<std::string> modes(const std::string &id)
+    {
+        std::vector<std::string> res;
+        for (ClimateMode m: dev(id)->supportedModes())
+            res.push_back(ClimateBase::modeName(m));
+        return res;
+    }
 
     static void set(const std::string &id, double v)
     {
@@ -450,4 +463,24 @@ TEST_F(InternalThermostatSafetyTest, ASilentHumiditySensorCutsTheCooling)
 
     set("dewst_hum", 50);
     EXPECT_TRUE(on("dewst_cool"));
+}
+
+//Spec §8.2: without a humidity link nothing guards the floor against
+//condensation, so it cannot cool at all.
+TEST_F(InternalThermostatSafetyTest, FloorCoolingWithoutHumidityIsRefusedAtLoad)
+{
+    const std::string log = load();
+    EXPECT_TRUE(has(log, "Device(nohum): emitter=floor without a humidity link, cool and auto "
+                         "are refused"))
+        << log;
+    EXPECT_EQ(modes("nohum"), (std::vector<std::string>{ "off", "heat" }));
+    EXPECT_EQ(dev("nohum")->deviceObject().at("capabilities").at("modes"), Json({ "off", "heat" }));
+    EXPECT_FALSE(mode("nohum", "cool"));
+    EXPECT_FALSE(mode("nohum", "auto"));
+    //Still its output: left ON before the restart, it is switched OFF.
+    EXPECT_FALSE(on("nohum_cool"));
+
+    //Only a floor needs it.
+    EXPECT_FALSE(has(log, "Device(fancoil)")) << log;
+    EXPECT_EQ(modes("fancoil"), (std::vector<std::string>{ "off", "heat", "cool", "auto" }));
 }
