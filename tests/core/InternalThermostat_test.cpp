@@ -1220,19 +1220,24 @@ TEST_F(InternalThermostatTest, AShadowedThermostatCreatesNothing)
     EXPECT_FALSE(io("dup_out")->hasValue());
 }
 
-//An id kept by a device this build cannot load is not given to a new IO.
+//An id kept by a device this build cannot load is not given to a new IO; the
+//thermostat still regulates without it.
 TEST_F(InternalThermostatTest, AReservedIdIsNotRecreated)
 {
     const std::string xml = ioXmlDocument(roomXml(
         "Salon", "salon",
         "    <calaos:device id=\"opaque\" type=\"climate\" impl=\"unknown_impl\" name=\"o\" />\n" +
-            thermostatXml("res", linkXml("target_temp", "opaque"))));
+            thermostatXml("res", linkXml("target_temp", "opaque") + linkXml("action", "opaque") +
+                                     linkXml("output_heat", "res_heat")) +
+            roomIo("InternalBool", "res_heat")));
     const std::string log = load(xml);
 
-    EXPECT_EQ(log.find("created 'opaque'"), std::string::npos) << log;
+    EXPECT_EQ(log.find("', created '"), std::string::npos) << log;
     EXPECT_EQ(io("opaque"), nullptr);
     EXPECT_EQ(dev("res")->deviceObject().at("ios").value("target_temp", ""), "");
-    EXPECT_EQ(dev("res")->deviceObject().at("ios").value("action", ""), "res_action");
+    EXPECT_EQ(dev("res")->deviceObject().at("ios").value("action", ""), "");
+    EXPECT_TRUE(io("res_heat")->hasValue());
+    EXPECT_FALSE(on("res_heat"));
 }
 
 //Deleting the device leaves its outputs as they are (documented in the
