@@ -59,9 +59,14 @@ InputAnalog::InputAnalog(Params &p):
     readConfig();
 
     string v;
+    //Known from the cache: the drivers only signal a reading that differs,
+    //so a stable room would otherwise stay unknown until it changes.
     if (Config::Instance().ReadValueIO(get_param("id"), v) &&
         Utils::is_of_type<double>(v))
+    {
         Utils::from_string(v, value);
+        setValueKnown();
+    }
 
     timer = Utils::getMainLoopTime();
     ListeRule::Instance().Add(this); //add this specific input to the EventLoop

@@ -26,6 +26,7 @@
 #include "CalaosCoreFixture.h"
 #include "ClimateBase.h"
 #include "IOChangeHub.h"
+#include "InputTemp.h"
 
 #include <string>
 #include <utility>
@@ -95,6 +96,37 @@ public:
     DATA_TYPE get_type() override { return TSTRING; }
 };
 
+//Reads like the temperature drivers: a reading equal to the current value is
+//not signalled.
+class TestTemp: public InputTemp
+{
+public:
+    TestTemp(Params &p):
+        InputTemp(p)
+    {
+    }
+
+    void deliver(double v)
+    {
+        reading = v;
+        readValue();
+    }
+
+protected:
+    void readValue() override
+    {
+        if (reading != value)
+        {
+            value = reading;
+            emitChange();
+        }
+    }
+
+private:
+    double reading = 0;
+};
+
+REGISTER_IO(TestTemp)
 REGISTER_DEVICE(test_climate, TestClimate)
 REGISTER_DEVICE(test_thermostat, TestThermostat)
 REGISTER_IO(TestReadOnly)
@@ -233,6 +265,8 @@ std::string house()
     salon += deviceXml("ro", ro);
     salon += deviceXml("fresh", fresh);
     salon += deviceXml("skew", skew);
+    salon += deviceXml("cached", linkXml("current_temp", "cached_temp"));
+    salon += deviceXml("uncached", linkXml("current_temp", "uncached_temp"));
     salon += deviceXml("none", "");
     salon += singleLink("only_mode", "mode", "InternalString");
     salon += singleLink("only_current", "current_temp", "InternalInt");
@@ -277,7 +311,11 @@ std::string house()
     withAttrs("b_bad_step_target_temp", R"( step="0" value_min="abc")");
 
     return ioXmlDocument(roomXml("Salon", "salon", ios) +
-                         roomXml("Kitchen", "kitchen", internalIoXml("InternalInt", EXT_TEMP, "Temp")));
+                         roomXml("Kitchen", "kitchen",
+                                 internalIoXml("InternalInt", EXT_TEMP, "Temp") +
+                                     R"(    <calaos:input type="TestTemp" id="cached_temp" name="cached_temp" />
+    <calaos:input type="TestTemp" id="uncached_temp" name="uncached_temp" />
+)"));
 }
 
 Json parse(const char *s)
@@ -806,4 +844,29 @@ TEST_F(ClimateBaseTest, ARangeAloneBoundsTheTargetCapability)
     EXPECT_EQ(caps("skew"), parse(R"({"target_temp_range": true,
         "target_temp": {"min": 10, "max": 30, "step": 0.5, "unit": "°F", "min_range": 3}})"));
     EXPECT_FALSE(state("skew").contains("target_temp"));
+}
+
+//After a restart in a stable room, the first reading equals the cached one and
+//is not signalled: the cached value must still count.
+TEST_F(ClimateBaseTest, ASensorRestoredFromTheCacheIsKnown)
+{
+    Config::Instance().SaveValueIO("cached_temp", "19.5", false);
+    clearCoreState();
+    loadConfig(house(), rulesXmlDocument(""));
+    auto *cached = dynamic_cast<TestTemp *>(io("cached_temp"));
+    auto *uncached = dynamic_cast<TestTemp *>(io("uncached_temp"));
+    ASSERT_NE(cached, nullptr);
+    ASSERT_NE(uncached, nullptr);
+
+    cached->deliver(19.5);
+    EXPECT_EQ(state("cached"), parse(R"({"current_temp": 19.5})"));
+
+    //No cache and a first reading equal to the default: unknown until it moves.
+    uncached->deliver(0);
+    EXPECT_EQ(state("uncached"), Json::object());
+    uncached->deliver(20);
+    EXPECT_EQ(state("uncached"), parse(R"({"current_temp": 20})"));
+
+    forgetIOState("cached_temp");
+    forgetIOState("uncached_temp");
 }
