@@ -1395,3 +1395,9 @@ rouvrir.
     déclare `io_format` ≥ 2 est cru ; un client qui ne le déclare pas est refusé dès que le serveur a
     un device. Dès que le serveur a un device, un `io.xml` illisible est refusé (message distinct) ;
     sans device, rien ne change par rapport à avant.
+17. **Une sortie de thermostat a un seul propriétaire** (2026-10-13, CLIM-3). Un IO lié en
+    `output_heat` ou `output_cool` d'un `InternalThermostat` ne peut pas l'être par un second
+    thermostat, ni dans les deux rôles du même : le second lien est refusé au chargement
+    (`cErrorDom("device")`) et traité comme non résolu. Deux thermostats sur un relais commun se
+    battaient. Le multizone passe par une sortie par zone et une règle qui les combine sur la
+    chaudière. Les liens de `ProxyClimate` ne sont pas concernés.

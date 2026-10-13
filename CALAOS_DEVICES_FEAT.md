@@ -113,6 +113,10 @@ The family selects the client widget; the `impl` selects the server class. Two c
 - IO ids stay globally unique. Templates name owned IOs `<device_id>_<role>`; nothing parses that
   convention, it is only for readability.
 - An external IO may be linked by several devices. An owned IO belongs to exactly one device.
+- Exception: an IO linked as `output_heat` or `output_cool` of a `thermostat` device belongs to that
+  thermostat alone (decision 17). A second thermostat linking it, or the same thermostat using it
+  for both roles, gets an unresolved link (logged with `cErrorDom("device")`). Multizone heating
+  uses one output per zone and a rule that drives the boiler from them.
 - Link targets are resolved after **all** rooms are loaded (an external IO may live in another
   room). An unresolved link is logged with `cErrorDom("device")`, and the capability it would
   provide is absent; the device itself still loads.
