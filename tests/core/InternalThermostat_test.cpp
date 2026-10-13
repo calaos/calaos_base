@@ -603,8 +603,8 @@ TEST_F(InternalThermostatTest, AnOutputChangedBehindTheThermostatIsPutBack)
     EXPECT_EQ(str("rev_action"), "idle");
 }
 
-//Until CLIM-4 adds the startup and stale sensor rules, a sensor that has never
-//given a value keeps both outputs OFF, even one left ON by the previous run.
+//A sensor that has never given a value keeps both outputs OFF, even one left
+//ON by the previous run.
 TEST_F(InternalThermostatTest, NoCurrentTempValueKeepsTheOutputsOff)
 {
     load();

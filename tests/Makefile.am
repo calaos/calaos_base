@@ -7543,8 +7543,8 @@ core_InternalThermostat_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_InternalThermostat_test_LDADD = $(CORE_TEST_LDADD) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
-#T3.36: the linked server objects are prerequisites, so touching one relinks
-#this binary. They are built by src/, never here (see the note above).
+#The linked server objects are prerequisites, so touching one relinks this
+#binary. They are built by src/, never here (see the note above).
 core_InternalThermostat_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
