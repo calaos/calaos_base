@@ -1389,3 +1389,8 @@ rouvrir.
 15. **T3.247 : la garde, pas la migration** (tranché le 2026-10-13). L'installateur affiche et conserve
     une valeur stockée hors des bornes du catalogue (adresse DMX 356..612 avec la borne 355) en la
     signalant ; aucune config n'est convertie.
+16. **`config put` : le client déclare `io_format` dans la requête** (2026-10-13, CORE-3). Le fichier seul
+    ne suffit pas : sans device il est écrit en format 1, donc supprimer le dernier device depuis
+    l'installateur serait refusé, et il n'existe pas d'API de suppression d'IO. Un client qui
+    déclare `io_format` ≥ 2 est cru ; un client qui ne le déclare pas est refusé dès que le serveur a
+    un device. Un `io.xml` illisible est toujours refusé.

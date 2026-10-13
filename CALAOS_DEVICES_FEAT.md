@@ -123,11 +123,16 @@ The family selects the client widget; the `impl` selects the server class. Two c
 format 1. This protects against tools that would otherwise drop devices silently, since both the
 server and the installer rebuild `io.xml` from their model on save:
 
-- **Server, `config put`:** if the current `io.xml` contains at least one device and the uploaded
-  one is format 1 or contains none of them, the upload is refused with an explicit error ("update
-  calaos_installer"). The existing `BackupFiles()` stays as a last resort.
-- **Installer:** reads `io_format` in the `config get` response (absent = 1) and refuses to save
-  devices to a server that does not announce format 2. When loading a file whose format is newer than it knows,
+- **Server, `config put`:** the request declares the client's support with `"io_format": 2` next to
+  `config_files`. If the current `io.xml` contains at least one device (opaque ones included) and
+  the request does not declare `io_format` ≥ 2, the upload is refused before any backup, write or
+  restart, with an explicit `error` ("update calaos_installer: this io.xml would drop N
+  device(s)"). A client that declares format 2 is trusted to delete devices, the last one included
+  (a file without devices is written as format 1, so the file alone cannot carry that intent). An
+  unparsable `io.xml` is always refused.
+- **Installer:** reads `io_format` in the `config get` response (absent = 1), refuses to save
+  devices to a server that does not announce format 2, and declares `"io_format": 2` in every
+  `config put`. When loading a file whose format is newer than it knows,
   it opens read-only.
 
 ---
