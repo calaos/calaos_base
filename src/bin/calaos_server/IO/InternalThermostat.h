@@ -50,7 +50,8 @@ public:
      * rules. */
     static void warnIfProtected(IOBase &io, const char *source);
 
-    //off, plus heat with output_heat, cool with output_cool, auto with both.
+    /* off, plus heat with output_heat, cool with output_cool, auto with both.
+     * A floor (emitter=floor) cools only with a humidity link. */
     vector<ClimateMode> supportedModes() override;
 
     static constexpr double DEFAULT_HYSTERESIS = 0.5;

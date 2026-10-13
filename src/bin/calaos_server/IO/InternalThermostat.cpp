@@ -145,6 +145,9 @@ void InternalThermostat::resolveLinks()
         cErrorDom("device") << "Device(" << id << "): no current_temp, the outputs stay OFF";
     if (!outputIo(heat))
         cErrorDom("device") << "Device(" << id << "): no output_heat, heat is unavailable";
+    if (floorCooling && outputIo(cool) && !linkIo("humidity"))
+        cErrorDom("device") << "Device(" << id << "): emitter=floor without a humidity link, "
+                            << "cool and auto are refused";
 
     //A duplicate id: the device holding it regulates, this one never does.
     if (ListeRoom::Instance().get_io(id) != this)
@@ -343,7 +346,8 @@ void InternalThermostat::restoreMode()
 vector<ClimateMode> InternalThermostat::supportedModes()
 {
     const bool canHeat = outputIo(heat);
-    const bool canCool = outputIo(cool);
+    //Nothing would guard a cooling floor against condensation.
+    const bool canCool = outputIo(cool) && (!floorCooling || linkIo("humidity"));
 
     vector<ClimateMode> modes = { ClimateMode::Off };
     if (canHeat)
