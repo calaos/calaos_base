@@ -505,7 +505,9 @@ spec §8.1. `impl="thermostat"` : Calaos régule.
   par défaut.
 - **Sûreté** : `outputsAllowed()` est demandé en premier ; une sortie refusée passe OFF
   sur-le-champ, sans attendre `min_on_time`, et son `min_off_time` protège le redémarrage.
-  Le mode `off` coupe de la même façon, ainsi qu'une sortie trouvée ON avec l'autre. La base autorise les deux sorties ; quoi que dise
+  Le mode `off` coupe de la même façon, ainsi qu'une sortie trouvée ON avec l'autre ; si
+  l'autre est tenue ON de l'extérieur et ne peut pas encore être remise, c'est la sienne
+  qui s'arrête : jamais les deux. La base autorise les deux sorties ; quoi que dise
   une surcharge, elles restent OFF tant que `current_temp` n'a pas de valeur.
 - **Verrous** : `min_on_time` / `min_off_time` (secondes, décimales acceptées, 0 par
   défaut), mesurés depuis la dernière commutation faite par le thermostat. Une commutation
@@ -518,8 +520,9 @@ spec §8.1. `impl="thermostat"` : Calaos régule.
   Une sortie changée par autre chose (règle, Lua, `set_state`) compte comme
   commutée à cet instant : l'état tenu la suit, ses verrous partent de là, et la remettre
   passe par ses verrous (seul un arrêt forcé leur échappe). Les remises d'une sortie qu'on
-  continue de changer sont espacées de `put_back_delay` (1 s), doublé tant que chaque
-  remise est défaite avant la suivante, jusqu'à `put_back_delay_max` (60 s), même sans
+  continue de changer sont espacées de `put_back_delay` (1 s ; 1 ms au moins), doublé tant
+  que chaque remise est défaite avant la suivante, jusqu'à `put_back_delay_max` (60 s ; pas
+  moins que `put_back_delay`), une valeur refusée étant journalisée et remplacée, même sans
   verrou et pour un arrêt forcé ; un avertissement est journalisé une fois par sortie. La
   relecture d'un OFF débloque une bascule sans attendre la mesure suivante. Pour l'autre
   sortie, une sortie compte comme ON tant que sa dernière commande ou sa relecture le dit. `action` (`off`,
