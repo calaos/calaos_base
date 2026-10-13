@@ -24,6 +24,8 @@
 #include "RemoteUI/HMACAuthenticator.h"
 #include "RemoteUI/RemoteUISecurityLimits.h"
 #include "RemoteUIManager.h"
+#include "ListeRoom.h"
+#include "IO/Device.h"
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
@@ -529,6 +531,24 @@ void RemoteUI::extractReferencedIOs()
             }
         }
     }
+
+    std::set<string> expanded;
+    for (const string &id: referenced_ios)
+    {
+        if (Device *dev = ListeRoom::Instance().findIOAs<Device>(id))
+        {
+            for (IOBase *owned: dev->ownedIos())
+                expanded.insert(owned->get_param("id"));
+            for (const Device::Link &l: dev->getLinks())
+            {
+                if (!l.io.empty())
+                    expanded.insert(l.io);
+                if (!l.command_io.empty())
+                    expanded.insert(l.command_io);
+            }
+        }
+    }
+    referenced_ios.insert(expanded.begin(), expanded.end());
 
     cDebugDom(TAG) << "RemoteUI(" << get_param("id") << "): Extracted " << referenced_ios.size() << " referenced IOs";
 }
