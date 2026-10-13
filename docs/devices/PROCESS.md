@@ -2,9 +2,10 @@
 
 ## REPRISE — lire en premier
 
-- **État (2026-10-13)** : socle prêt — CORE-1, CORE-2, CORE-5, FIX-BASE-1 ✅ ; clients décodent
-  le device (WEB-1, MOB-1, RUI-2 ✅) ; T3.247 ✅. En cours : CORE-3, CORE-4, INST-1, FIX-INST-4.
-  Ensuite : CLIM-1 (après CORE-4), RUI-1 (après CORE-4), INST-2/3/6.
+- **État (2026-10-13)** : 35 tickets mergés sur 46. Socle serveur (CORE-1..5), CLIM-1, les trois
+  clients (WEB-1/2, MOB-1/2, RUI-1/2/3), INST-1/2/3/6, SEC-1, CLEAN-1, T3.247, FIX-BASE-1/2,
+  FIX-INST-0..8 faits. En CI : CLIM-2 (#191), CLIM-3 (#192). Ensuite : CLIM-4, CLIM-5 et DOC-1 en
+  parallèle, puis MCP-1, DOC-2/3, INST-4/5, et VAL-1 sur la box.
 - **Page de suivi en ligne** : voir la ligne « Suivi » plus bas. Elle est statique : la republier
   à chaque fin de ticket.
 - T3.247 ✅ (installer#54, option « garde ») : DOC-1 peut régénérer `io_doc.json`.
