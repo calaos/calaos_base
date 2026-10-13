@@ -88,7 +88,11 @@ void InternalThermostat::resolveLinks()
     //By id, as the links themselves.
     for (const Link &l: getLinks())
     {
-        Output *out = l.name == heat.role ? &heat : l.name == cool.role ? &cool : nullptr;
+        Output *out = nullptr;
+        if (l.name == heat.role)
+            out = &heat;
+        else if (l.name == cool.role)
+            out = &cool;
         if (out)
         {
             auto outputChanged = [this, out](IOBase &io)
