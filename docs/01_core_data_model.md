@@ -486,42 +486,45 @@ spec §8.1. `impl="thermostat"` : Calaos régule.
 
 - **Modes** : `off`, plus `heat` avec `output_heat`, `cool` avec `output_cool`, `auto` avec
   les deux. Le mode est stocké par le device et persisté dans le cache d'état
-  (`iostates.cache`, clé = id du device), `off` par défaut ; un mode sauvegardé que les
-  sorties ne permettent plus repasse à `off` (journalisé). Il est restauré avant
-  `ClimateBase::resolveLinks()`, donc sans déclencher les règles.
+  (`iostates.cache`, clé = id du device) quand il change, `off` par défaut ; un mode
+  sauvegardé que les sorties ne permettent plus repasse à `off` (journalisé). Il est
+  restauré avant `ClimateBase::resolveLinks()`, donc sans déclencher les règles.
 - **IOs possédés** : `target_temp`, `action` et, avec `output_cool`, `target_temp_low` /
   `_high`. Absents, ils sont recréés au chargement (`InternalInt` `save="true"` à 20, 19 et
   max(25, 19 + `min_range`) ; `InternalString` pour `action`) et écrits à la sauvegarde
   suivante.
-- **`evaluate()`** : appelé par `IOChangeHub` sur `current_temp` et les consignes, par une
-  commande (une seule fois, quand tous ses champs sont appliqués : `{"mode":"heat",
-  "target_temp":18}` ne chauffe pas contre l'ancienne consigne), par les verrous, par un changement de ses sorties, et une fois au
-  premier tour de boucle après le chargement. Chauffe : ON sous `consigne − hysteresis`,
-  OFF au-dessus de la consigne ; entre les deux, bornes comprises, elle garde l'état de sa
-  dernière commande (pas celui d'une relecture en retard). Froid symétrique. `auto` : chauffe contre
-  `target_temp_low`, froid contre `target_temp_high`. Une consigne sans valeur laisse sa
-  sortie OFF. `hysteresis` vaut 0,5 par défaut.
+- **`evaluate()`** : appelé par `IOChangeHub` sur `current_temp` et les consignes, par un
+  changement de ses sorties, par les verrous, une fois au premier tour de boucle après le
+  chargement, et une seule fois par commande, quand tous ses champs sont appliqués
+  (`{"mode":"heat","target_temp":18}` ne chauffe pas contre l'ancienne consigne).
+  Chauffe : ON sous `consigne − hysteresis`, OFF au-dessus de la consigne ; entre les deux,
+  bornes comprises, elle garde l'état de sa dernière commande, pas celui d'une relecture en
+  retard. Froid symétrique. `auto` : chauffe contre `target_temp_low`, froid contre
+  `target_temp_high`. Une consigne sans valeur laisse sa sortie OFF. `hysteresis` vaut 0,5
+  par défaut.
 - **Sûreté** : `outputsAllowed()` est demandé en premier ; une sortie refusée passe OFF
   sur-le-champ, sans attendre `min_on_time`, et son `min_off_time` protège le redémarrage.
-  Le mode `off` coupe de la même façon. Les deux sorties restent OFF tant que
-  `current_temp` n'a pas de valeur.
+  Le mode `off` coupe de la même façon. La base autorise les deux sorties ; quoi que dise
+  une surcharge, elles restent OFF tant que `current_temp` n'a pas de valeur.
 - **Verrous** : `min_on_time` / `min_off_time` (secondes, décimales acceptées, 0 par
   défaut), mesurés depuis la dernière commutation faite par le thermostat. Une commutation
-  de régulation dans un verrou est reportée par un `Timer` membre réarmable, puis `evaluate()` repasse.
-  Une sortie ne passe ON que si l'autre est OFF depuis au moins `min_off_time`, en `auto`
-  comme lors d'un changement de mode : jamais les deux à la fois.
+  de régulation dans un verrou est reportée par un `Timer` membre réarmable, puis
+  `evaluate()` repasse. Une sortie ne passe ON que si l'autre est OFF depuis au moins
+  `min_off_time`, en `auto` comme lors d'un changement de mode : jamais les deux à la fois.
 - **Écritures** : une sortie n'est écrite que si sa dernière commande ou sa relecture
-  diffère de l'état voulu. Le thermostat suit aussi ses sorties : une valeur changée dans
-  son dos est remise au tour de boucle suivant (pas dans la marche des règles, où une règle
-  qui réécrit la sortie tournerait sans fin avec lui), sans verrou ni nouvel horodatage ;
-  la relecture d'un OFF débloque une bascule sans attendre la mesure suivante. Pour
-  l'autre sortie, une sortie compte comme ON tant que sa dernière commande ou sa relecture
-  le dit. `action` (`off`, `idle`,
-  `heating`, `cooling`) suit la dernière commande des sorties et n'est écrit que s'il
-  change.
+  diffère de l'état voulu ; une écriture refusée ne change ni l'état tenu ni son horloge.
+  Le thermostat suit aussi ses sorties : une valeur changée dans son dos est remise au tour
+  de boucle suivant, sans verrou ni nouvel horodatage (pas dans la marche des règles, où
+  une règle qui réécrit la sortie tournerait sans fin avec lui) ; la relecture d'un OFF
+  débloque une bascule sans attendre la mesure suivante. Pour l'autre sortie, une sortie
+  compte comme ON tant que sa dernière commande ou sa relecture le dit. `action` (`off`,
+  `idle`, `heating`, `cooling`) suit la dernière commande des sorties et n'est écrit que
+  s'il change.
 - **Réentrance** : hors marche des règles (commande, verrou), une écriture de sortie
   exécute les règles aussitôt. Si l'une d'elles change une entrée, la passe en cours
   s'arrête et recommence, sans jamais s'imbriquer.
+- **Id en double** : seul le device qui tient l'id régule ; son double ne s'abonne à rien
+  et n'écrit aucune sortie.
 - **Suppression** : les sorties restent en l'état. Aucune API ne supprime un device en
   marche : cela n'arrive qu'au rechargement de la configuration ou à l'arrêt du serveur,
   quand les sorties et leurs drivers peuvent déjà avoir disparu.
