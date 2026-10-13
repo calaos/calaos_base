@@ -461,9 +461,10 @@ void InternalThermostat::noticeOutput(Output &out, IOBase &io)
 void InternalThermostat::regulate()
 {
     OutputPair allowed = outputsAllowed();
-    //Not left to the hook, which an override replaces.
+    /* Not left to the hook, which an override replaces. A value restored
+     * from the state cache is the one from before the restart. */
     IOBase *sensor = linkIo("current_temp");
-    const bool known = sensor && sensor->hasValue();
+    const bool known = sensor && sensor->lastReading();
     allowed.heat = allowed.heat && known;
     allowed.cool = allowed.cool && known;
     const double temp = known ? sensor->get_value_double() : 0;

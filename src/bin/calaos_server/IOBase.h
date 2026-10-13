@@ -26,6 +26,9 @@
 #include "IODoc.h"
 #include "Timer.h"
 
+#include <chrono>
+#include <optional>
+
 namespace Calaos
 {
 
@@ -71,6 +74,7 @@ private:
     std::string ownerDevice;
 
     bool valueKnown = false;
+    std::optional<std::chrono::steady_clock::time_point> readingAt;
 
     //When true, newly constructed IOBase objects are NOT registered into
     //ListeRoom's io_table. Only ever set through ScopedDocGen (single
@@ -184,6 +188,12 @@ public:
      * its type default (0, ""), which must not be published as a reading. */
     bool hasValue() const { return valueKnown; }
 
+    /* When the IO last received a value since the server started, a repeated
+     * one included; empty before. A value restored from the state cache is not
+     * a reading. Only the drivers that call markReading() for the readings
+     * they drop as unchanged report a steady sensor as alive. */
+    std::optional<std::chrono::steady_clock::time_point> lastReading() const { return readingAt; }
+
     virtual void hasChanged() { }
 
     //Output specific functions
@@ -230,6 +240,11 @@ public:
 
 protected:
     void setValueKnown() { valueKnown = true; }
+    void markReading()
+    {
+        valueKnown = true;
+        readingAt = std::chrono::steady_clock::now();
+    }
 
     /* T3.40 - lifetime token for the one-shots this IO arms.
      *
