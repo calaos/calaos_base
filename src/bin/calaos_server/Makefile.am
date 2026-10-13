@@ -143,6 +143,8 @@ calaos_server_SOURCES = \
         IO/InputTimer.h                                 \
         IO/IntValue.cpp                                 \
         IO/IntValue.h                                   \
+        IO/InternalThermostat.cpp                       \
+        IO/InternalThermostat.h                         \
         IO/Hue/HueOutputLightRGB.h                      \
         IO/Hue/HueOutputLightRGB.cpp                    \
         IO/Hue/HueWire.h                                \
