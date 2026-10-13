@@ -1037,6 +1037,29 @@ TEST_F(InternalThermostatTest, ARuleFightingAnOutputIsBounded)
     EXPECT_EQ(log.find(warning, at + 1), std::string::npos);
 }
 
+//Left alone longer than its spacing, an output gets back to put_back_delay.
+TEST_F(InternalThermostatTest, ThePutBackSpacingResetsOnceTheOutputIsLeftAlone)
+{
+    load();
+    setpoints("fight", 21, 0, 0);
+    mode("fight", "heat");
+    Rule *rule = addSimpleRule("heat_back_off", "fight_heat", "==", "true", "fight_heat", "false");
+    ASSERT_NE(rule, nullptr);
+    temp("fight", 19);
+    pumpFor(MINUTE_MS);
+    ListeRule::Instance().Remove(rule);
+    ASSERT_TRUE(waitFor("fight_heat", true));
+
+    pumpFor(MINUTE_MS + 100);
+    io("fight_heat")->set_value(false);
+    ASSERT_TRUE(waitFor("fight_heat", true));
+    pumpFor(50);
+    const auto t0 = Clock::now();
+    io("fight_heat")->set_value(false);
+    ASSERT_TRUE(waitFor("fight_heat", true));
+    EXPECT_LT(msSince(t0), 300);
+}
+
 //The same holds for a stop the thermostat forces (mode off).
 TEST_F(InternalThermostatTest, ARuleFightingAStopIsBounded)
 {
