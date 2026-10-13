@@ -962,6 +962,22 @@ TEST_F(InternalThermostatTest, AnOutputSwitchedBehindTheThermostatIsPutBackAtOnc
     EXPECT_EQ(str("rev_action"), "cooling");
 }
 
+//A rule that rewrites an output fights the thermostat one loop turn at a
+//time; the rule march itself never spins.
+TEST_F(InternalThermostatTest, ARuleRewritingAnOutputDoesNotSpinTheRuleMarch)
+{
+    load();
+    setpoints("rev", 21, 19, 23);
+    mode("rev", "heat");
+    ASSERT_NE(addSimpleRule("heat_back_off", "rev_heat", "==", "true", "rev_heat", "false"), nullptr);
+    auto heat = count("rev_heat");
+
+    temp("rev", 19);
+    EXPECT_FALSE(on("rev_heat"));
+    pumpFor(30);
+    EXPECT_GT(heat->count, 2);
+}
+
 //Putting an output back is not a switch of the thermostat: min_off_time still
 //counts from its own OFF.
 TEST_F(InternalThermostatTest, PuttingAnOutputBackDoesNotRestartItsLockOut)
