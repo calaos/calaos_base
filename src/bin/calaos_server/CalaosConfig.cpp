@@ -333,6 +333,8 @@ void Config::SaveConfigIO()
     pugi::xml_node ionode = document.append_child("calaos:ioconfig");
     XmlUtils::setAttribute(ionode, "xmlns:calaos", "http://www.calaos.fr");
     pugi::xml_node node = ionode.append_child("calaos:home");
+    if (ListeRoom::Instance().deviceCount() > 0)
+        XmlUtils::setAttribute(node, "format", IO_FORMAT_DEVICES);
 
     for (int i = 0;i < ListeRoom::Instance().size();i++)
     {

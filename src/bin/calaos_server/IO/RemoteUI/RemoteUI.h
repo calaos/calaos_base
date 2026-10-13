@@ -49,7 +49,6 @@ private:
 
     void readConfig();
     void emitChange();
-    void extractReferencedIOs();
     string generateRandomSecret(size_t length = 32) const;
 
 public:
@@ -71,6 +70,10 @@ public:
 
     // IO reference management
     const std::set<string> &getReferencedIOs() const { return referenced_ios; }
+    //Widget ids, each device expanded to its owned and linked IOs. Devices
+    //and their links are not all loaded when LoadFromXml() runs: callers
+    //refresh it once the house is up.
+    void extractReferencedIOs();
     bool hasReferencedIO(const string &io_id) const;
 
     // Configuration access

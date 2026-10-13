@@ -32,6 +32,10 @@
 namespace Calaos
 {
 
+//io.xml format that may carry <calaos:device>; announced by `config get`
+//as io_format. A file without the attribute is format 1.
+constexpr int IO_FORMAT_DEVICES = 2;
+
 class Config
 {
 private:

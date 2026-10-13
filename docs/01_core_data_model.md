@@ -352,7 +352,10 @@ clé `device:<impl>`, enregistrée par `REGISTER_DEVICE(impl, Classe)`.
 - Un `<calaos:device>` que ce build ne sait pas instancier (impl inconnue ou absente) est
   journalisé et gardé **tel quel** : sous-arbre XML brut réécrit à l'identique à la
   sauvegarde, à sa place dans la pièce, sans IO ni enfants instanciés (cas d'un retour à une
-  version plus ancienne).
+  version plus ancienne). Son id et ceux de ses éléments imbriqués sont **réservés** :
+  `ListeRoom::isIdReserved()` les refuse à `get_new_id()` et à `createIO()`, sans quoi un IO
+  créé après coup entrerait en collision avec le fichier. Il compte comme un device pour le
+  format 2 et pour le refus de `config put`.
 - Un élément ordinaire qui donne un `Device` (attribut `impl`) est refusé.
 - Tout IO construit puis refusé passe par `ListeRoom::discardUnattachedIO()` : InputTime,
   InPlageHoraire et InputAnalog s'inscrivent dans la boucle d'événements des règles dès
@@ -383,6 +386,9 @@ clé `device:<impl>`, enregistrée par `REGISTER_DEVICE(impl, Classe)`.
 - **Sauvegarde** : `Device::SaveToXml()` écrit l'élément, ses IOs possédés, ses liens puis
   ses params, dans l'ordre du fichier. `Room::SaveToXml()` saute un IO possédé tant que son
   device existe ; orphelin, il est écrit au niveau de la pièce plutôt que perdu.
+  `Config::SaveConfigIO()` écrit `<calaos:home format="2">` dès qu'un device existe (inerte
+  compris) ; sans device, la sortie est identique à celle du format 1, même si le fichier lu
+  portait `format="2"`.
 - **Suppression** : `ListeRoom::deleteIO(device)` détache des règles et détruit d'abord
   chaque IO possédé, recherché à nouveau après chaque suppression, puis le device ; la passe
   sur les auto-scénarios ne tourne qu'une fois. `delete_io()` ne cascade pas.

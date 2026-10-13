@@ -32,8 +32,66 @@
 #include "libuvw.h"
 #include "McpServerManager.h"
 
+#include <pugixml.hpp>
+
+#include <cctype>
+#include <cerrno>
+#include <cstdlib>
+
 namespace
 {
+
+//io_format the client declares in the put request: an integer or a decimal
+//string, wholly numeric. Absent, unusable or out of any plausible range means
+//1, a client that predates devices.
+//jroot is an object here: the caller has already read config_files from it.
+int declaredIoFormat(const Json &jroot)
+{
+    constexpr long long MAX_DECLARED_FORMAT = 1000;
+    long long declared = 1;
+
+    const Json::const_iterator it = jroot.find("io_format");
+    if (it != jroot.cend() && it->is_number_unsigned())
+        declared = it->get<unsigned long long>() > MAX_DECLARED_FORMAT ? 1 : it->get<long long>();
+    else if (it != jroot.cend() && it->is_number_integer())
+        declared = it->get<long long>();
+    else if (it != jroot.cend() && it->is_string())
+    {
+        const std::string &str = it->get_ref<const std::string &>();
+        char *end = nullptr;
+        errno = 0;
+        const long long n = std::strtoll(str.c_str(), &end, 10);
+        if (!str.empty() && std::isdigit((unsigned char)str[0]) && errno == 0 && *end == '\0')
+            declared = n;
+    }
+
+    return declared >= 1 && declared <= MAX_DECLARED_FORMAT ? (int)declared : 1;
+}
+
+//True when the upload must be refused, with the reason in `error`. With no
+//device on the server nothing is judged, an io.xml that does not parse
+//included. Otherwise an unparsable io.xml is refused whatever the client says,
+//and a client that did not declare io_format >= 2 may not touch the devices.
+bool refuseIoXmlUpload(const std::string &ioXml, bool clientKnowsDevices, std::string &error)
+{
+    const size_t devices = ListeRoom::Instance().deviceCount();
+    if (devices == 0)
+        return false;
+
+    pugi::xml_document doc;
+    if (!doc.load_string(ioXml.c_str()))
+    {
+        error = "io.xml does not parse";
+        return true;
+    }
+
+    if (clientKnowsDevices)
+        return false;
+
+    error = "update calaos_installer: this io.xml would drop " + Utils::to_string(devices) +
+            " device(s)";
+    return true;
+}
 
 /* E4.1q. jansson_string_get()'s contract, kept BY HAND for a nlohmann document
  * so that processAudioDb() can dispatch on the parse processApi() ALREADY did:
@@ -764,6 +822,7 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
         jfiles["local_config.xml"] = Utils::getFileContent(Utils::getConfigFile(LOCAL_CONFIG).c_str());
 
         jret["config_files"] = jfiles;
+        jret["io_format"] = IO_FORMAT_DEVICES;
         jret["success"] = "true";
     }
     else if (jsonParam["type"] == "put")
@@ -781,6 +840,30 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
             const Json::const_iterator it = jroot.find("config_files");
             if (it != jroot.cend())
                 jfiles = *it;
+        }
+
+        //Before the backup: a refused upload touches nothing.
+        string refusal;
+        bool refused = false;
+        if (jfiles.is_object())
+        {
+            const Json::const_iterator ioIt = jfiles.find(IO_CONFIG);
+            if (ioIt != jfiles.cend() && ioIt->is_string())
+            {
+                const string ioXml = ioIt->get<std::string>();
+                if (Utils::strStartsWith(ioXml, "<?xml"))
+                    refused = refuseIoXmlUpload(
+                        ioXml, declaredIoFormat(jroot) >= Calaos::IO_FORMAT_DEVICES, refusal);
+            }
+        }
+
+        if (refused)
+        {
+            cErrorDom("network") << "config put refused, " << refusal;
+            jret["success"] = "false";
+            jret["error"] = refusal;
+            sendJson(jret);
+            return;
         }
 
         if (jfiles.is_object())

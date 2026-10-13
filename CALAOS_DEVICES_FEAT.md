@@ -286,7 +286,7 @@ rule: neither has to duplicate the other's logic.
 
 | Link role | Proxy | Thermostat | Capability / field |
 |---|---|---|---|
-| `mode` (+ `command_io`) | required | — (the device stores it) | `modes` |
+| `mode` (+ `command_io`) | required | — (the device stores it) | `modes` (all six unless the `modes` param lists a subset, comma-separated) |
 | `current_temp` | optional | **required** (regulation input) | `current_temp` |
 | `target_temp` | optional | **required**, owned | `target_temp` (bounds from the IO's `value_min`/`value_max`/`step`) |
 | `target_temp_low` / `_high` | optional | owned, when `output_cool` exists | `target_temp_range` |
@@ -298,6 +298,11 @@ rule: neither has to duplicate the other's logic.
 | `humidity` | — | required to allow `cool` when `emitter=floor` | dew-point cut |
 
 Thermostat modes: `{off, heat}` without `output_cool`, `{off, heat, cool, auto}` with it.
+
+Setpoint bounds come from the linked IO's `value_min`/`value_max`/`step`/`unit`, defaulting to
+7 / 35 / 0.5 / °C. When `target_temp_range` is present, the `target_temp` capability also carries
+`min_range`, so a two-handle widget can enforce it. `current_temp` is a state field, not a
+capability. ESPHome's `heat_cool` is mapped to `auto` by the proxy (CLIM-2).
 
 ---
 

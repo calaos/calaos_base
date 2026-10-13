@@ -1081,8 +1081,8 @@ TEST_F(JsonApiDispatchWireBytesTest, W_WsEnvelopeWithoutDataAndWithoutMsgIdIsOne
 
 TEST_F(JsonApiDispatchWireBytesTest, W_ConfigGetTopLevelKeysAreSortedOnBothTrees)
 {
-    //config_files comes before success in BOTH orders - insertion and
-    //alphabetical agree here. Kept as a witness precisely BECAUSE it cannot
+    //config_files, io_format, success: insertion and alphabetical orders
+    //agree here. Kept as a witness precisely BECAUSE it cannot
     //move: it is the control for K_ConfigGetFileNames..., one level down, where
     //they disagree.
     loadReferenceHouse();
@@ -1093,7 +1093,7 @@ TEST_F(JsonApiDispatchWireBytesTest, W_ConfigGetTopLevelKeysAreSortedOnBothTrees
 
     const nlohmann::ordered_json doc = ordered(req.body());
     ASSERT_FALSE(doc.is_discarded());
-    EXPECT_EQ("config_files,success", joined(keyOrder(doc)));
+    EXPECT_EQ("config_files,io_format,success", joined(keyOrder(doc)));
 }
 
 TEST_F(JsonApiDispatchWireBytesTest, W_ConfigPutWhitelistStillRefusesAnyOtherFilename)

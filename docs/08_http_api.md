@@ -292,11 +292,11 @@ service à portée restreinte (`serviceScope`). Voir
 Le token est comparé à l'option `mcp_service_token` de `local_config.xml`
 (`McpServerManager::getServiceToken()`). Un token non configuré n'accorde jamais
 l'accès ([JsonApiHandlerWS.cpp:530-566](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
-En session `serviceScope`, **8** messages sont refusés : `set_param`, `del_param`,
+En session `serviceScope`, **9** messages sont refusés : `set_param`, `del_param`,
 `audio_db`, `set_timerange`, `autoscenario`, `eventlog`, `register_push`,
-`settings` (`JsonApi::serviceScopeDeniedCommands()`).
+`settings`, `config` (`JsonApi::serviceScopeDeniedCommands()`).
 
-⭐ **La portée est une propriété de la session, pas du transport.** Les huit sont
+⭐ **La portée est une propriété de la session, pas du transport.** Les neuf sont
 refusées quel que soit le transport par lequel la session a été ouverte, et la
 charge utile du refus est **la même** des deux côtés — seule l'enveloppe change :
 `{"msg":"<msg>","msg_id":"<le vôtre>","data":{"error":"scope denied"}}` en
@@ -460,12 +460,30 @@ Voir [10_events_notifications.md](10_events_notifications.md) pour le détail.
 
 | `type` | Effet | Réponse |
 |---|---|---|
-| `get` | sauvegarde puis relit `io.xml`, `rules.xml`, `local_config.xml` | `{"config_files":{…},"success":"true"}` |
-| `put` | écrit les fichiers fournis dans `config_files` après backup, puis **redémarre le serveur** une fois la réponse écrite | `{"success":"true"\|"false"}` |
+| `get` | sauvegarde puis relit `io.xml`, `rules.xml`, `local_config.xml` | `{"config_files":{…},"io_format":2,"success":"true"}` |
+| `put` | écrit les fichiers fournis dans `config_files` (et `io_format`, voir ci-dessous) après backup, puis **redémarre le serveur** une fois la réponse écrite | `{"success":"true"\|"false"}` ; refus : `{"success":"false","error":"…"}` |
 
 `type` inconnu → `{"success":"false"}`. En `put`, seuls les trois noms de
 fichiers connus sont acceptés et le contenu doit commencer par `<?xml`
 ([JsonApiHandlerHttp.cpp:594-686](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)).
+
+**`io_format`** (entier) annonce le plus haut format d'`io.xml` que le serveur écrit et
+comprend ; 2 = peut contenir des `<calaos:device>` (`<calaos:home format="2">`, écrit dès qu'un
+device existe). Une réponse sans `io_format` vient d'un serveur de format 1 : un client ne doit
+pas lui envoyer de devices.
+
+**Refus d'un `put` qui perdrait des devices.** Le client déclare son support dans la **requête**,
+pas dans le fichier : `config put` accepte une clef `io_format` à côté de `config_files`
+(entier ou chaîne entièrement décimale, de 2 à 1000 ; absente, inexploitable, hors bornes ou `< 2` = client de format 1).
+Si le serveur détient au moins un device (les devices inertes d'impl inconnue comptent) et que
+la requête ne déclare pas `io_format >= 2`, le `put` est refusé en entier : ni backup, ni
+écriture (`rules.xml` et `local_config.xml` compris), ni redémarrage. Un `io.xml` qui ne
+s'analyse pas est toujours refusé, déclaration ou non, avec `"error":"io.xml does not parse"`
+(sans device côté serveur il reste accepté, comme avant). Réponse :
+`{"success":"false","error":"update calaos_installer: this io.xml would drop N device(s)"}`
+avec N le nombre de devices du serveur. Un client qui déclare `io_format >= 2` est cru : le
+contenu n'est plus inspecté, supprimer des devices, le dernier compris, est intentionnel. Sans
+device côté serveur, ou sans clef `io.xml` dans `config_files`, rien n'est jugé.
 
 ### `camera` — clé `type` (HTTP uniquement, 2)
 

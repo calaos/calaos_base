@@ -314,6 +314,29 @@ void ListeRoom::resolveDeviceLinks()
     }
 }
 
+size_t ListeRoom::deviceCount() const
+{
+    size_t count = 0;
+    for (const auto &room: rooms)
+    {
+        for (int i = 0; i < room->get_size(); i++)
+        {
+            if (dynamic_cast<Device *>(room->get_io(i)))
+                count++;
+        }
+        count += room->opaqueCount();
+    }
+    return count;
+}
+
+bool ListeRoom::isIdReserved(const std::string &id) const
+{
+    for (const auto &room: rooms)
+        if (room->reservesId(id))
+            return true;
+    return false;
+}
+
 int ListeRoom::get_io_count()
 {
     return io_table.size();
@@ -789,6 +812,13 @@ IOBase* ListeRoom::createIO(Params param, Room *room)
 
     std::string type = param["type"];
     std::string id = param["id"];
+
+    if (isIdReserved(id))
+    {
+        cErrorDom("root") << "createIO(): id '" << id
+                          << "' belongs to a device kept as is, creation aborted";
+        return nullptr;
+    }
 
     //Sole owner until the room takes over, so no path out of this function
     //can leak the object (there is no `delete` left here).

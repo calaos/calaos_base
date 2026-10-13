@@ -26,6 +26,8 @@
 #include "RemoteUIManager.h"
 #include "HMACAuthenticator.h"
 #include "OtaFirmwareManager.h"
+#include "IO/Device.h"
+#include "ListeRoom.h"
 
 static const char *TAG = "remote_ui";
 
@@ -255,6 +257,7 @@ void RemoteUIWebSocketHandler::sendInitialIOStates()
     if (!authenticated_remote_ui)
         return;
 
+    authenticated_remote_ui->extractReferencedIOs();
     const auto &referenced_ios = authenticated_remote_ui->getReferencedIOs();
 
     // Convert set to vector for buildJsonState
@@ -294,6 +297,21 @@ void RemoteUIWebSocketHandler::sendInitialIOStates()
         auto token = alive.lock();
         if (!token || !*token)
             return;
+
+        //A device travels whole, as an object entry; every other IO keeps its
+        //bare string, which shipped firmwares and the goldens depend on.
+        if (jret.is_object())
+        {
+            for (auto &entry: jret.items())
+            {
+                Device *dev = ListeRoom::Instance().findIOAs<Device>(entry.key());
+                if (!dev)
+                    continue;
+                entry.value() = Json{ { "state", entry.value() },
+                                      { "gui_type", dev->get_param("gui_type") },
+                                      { "device", dev->deviceObject() } };
+            }
+        }
 
         sendJson("remote_ui_io_states", jret);
 
@@ -338,6 +356,7 @@ void RemoteUIWebSocketHandler::sendConfigUpdate()
     }
 
     // Add IO items
+    authenticated_remote_ui->extractReferencedIOs();
     const auto &referenced_ios = authenticated_remote_ui->getReferencedIOs();
     Json io_items = Json::array();
     for (const string &io_id : referenced_ios)

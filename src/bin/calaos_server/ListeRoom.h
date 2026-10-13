@@ -149,6 +149,14 @@ public:
        link may target an IO of another room. */
     void resolveDeviceLinks();
 
+    /* Number of devices in the model, the inert ones kept verbatim
+       included: this is what a saved io.xml must still carry. */
+    size_t deviceCount() const;
+
+    /* An id declared inside a device kept verbatim: the file has it although
+       io_table does not, so it must not be handed out to a new IO. */
+    bool isIdReserved(const std::string &id) const;
+
     /* Destroys an IO that was built but never joined a room (refused while
        loading or creating). Its constructor may have put it in the rule
        event loop, which its destructor does not undo. A null io is a no-op. */

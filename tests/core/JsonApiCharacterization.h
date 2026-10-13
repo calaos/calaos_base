@@ -427,6 +427,9 @@ public:
 
     const std::vector<std::pair<int, std::string>> &closes() const { return closeEvents; }
 
+    //Whether the reply would stop the loop once written (a `config put` accepted).
+    bool needsRestart() const;
+
 private:
     class Client;
     std::shared_ptr<Client> client;
