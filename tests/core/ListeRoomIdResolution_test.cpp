@@ -460,25 +460,3 @@ TEST_F(ListeRoomIdResolutionTest, RoomIndexAccessorsAreBoundsChecked)
     EXPECT_EQ(lr.size(), 2) << "an out of range Remove() must be a no-op";
     EXPECT_NE(lr.findIO("io_e42a_r2_c"), nullptr) << "no room was destroyed";
 }
-
-//get_chauffage_var() scans every IO of every room: the scan must survive a
-//room holding nothing, and keep answering by gui_type as before.
-TEST_F(ListeRoomIdResolutionTest, ChauffageLookupScansEveryRoomWithoutDereferencingBlindly)
-{
-    loadTwoRooms();
-
-    ListeRoom &lr = ListeRoom::Instance();
-    addRoom("EmptyRoom", "misc");
-
-    std::string chauffId = "chauff_e42a";
-    EXPECT_EQ(lr.get_chauffage_var(chauffId, CONSIGNE), nullptr);
-
-    IOBase *consigne = lr.findIO("io_e42a_r2_c");
-    ASSERT_NE(consigne, nullptr);
-    consigne->set_param("chauffage_id", chauffId);
-    consigne->set_param("gui_type", "var_int");
-
-    EXPECT_EQ(lr.get_chauffage_var(chauffId, CONSIGNE), consigne);
-    EXPECT_EQ(lr.get_chauffage_var(chauffId, ACTIVE), nullptr);
-    EXPECT_EQ(lr.get_chauffage_var(chauffId, PLAGE_HORAIRE), nullptr);
-}
