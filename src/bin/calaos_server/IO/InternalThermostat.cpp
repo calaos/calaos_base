@@ -439,15 +439,20 @@ void InternalThermostat::switchOutput(Output &out, Output &other, bool on, uint6
     Output::State &st = out.st;
     if (!st.commanded && io->hasValue())
         st.commanded = io->get_value_bool();
-    const bool ioAgrees = !io->hasValue() || io->get_value_bool() == on;
-    if (st.commanded == on && ioAgrees)
-    {
-        out.lockout.reset();
-        return;
-    }
 
     //Never both: the other one switching OFF, or its read-back, evaluates again.
     if (on && isOn(other))
+    {
+        out.lockout.reset();
+        //It is ON behind the thermostat's back and cannot be put back yet:
+        //this one yields, at once.
+        if (held(out))
+            switchOutput(out, other, false, now, true);
+        return;
+    }
+
+    const bool ioAgrees = !io->hasValue() || io->get_value_bool() == on;
+    if (st.commanded == on && ioAgrees)
     {
         out.lockout.reset();
         return;
