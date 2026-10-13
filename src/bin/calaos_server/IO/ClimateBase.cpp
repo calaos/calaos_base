@@ -246,6 +246,20 @@ IOBase *ClimateBase::writeTarget(const string &role)
     return io ? io : linkIo(role);
 }
 
+bool ClimateBase::rangeBound(const string &role, double &value)
+{
+    IOBase *io = linkIo(role);
+    if (!io || !io->hasValue())
+        return false;
+    value = io->get_value_double();
+    return true;
+}
+
+bool ClimateBase::writeRangeBound(const string &role, double value)
+{
+    return writeTarget(role)->set_value(value);
+}
+
 bool ClimateBase::applyCommand(const Json &command)
 {
     bool applied = applyFields(command, { LOW, HIGH });
@@ -261,25 +275,24 @@ bool ClimateBase::applyCommand(const Json &command)
  * cannot honour. */
 bool ClimateBase::applyRange(const Json &command)
 {
-    IOBase *lowIo = linkIo(LOW);
-    IOBase *highIo = linkIo(HIGH);
-    if (!lowIo || !highIo)
+    if (!linkIo(LOW) || !linkIo(HIGH))
     {
         logRefusedField("target_temp_range", "unknown field for this device");
         return false;
     }
 
     //0 is the default of a bound never written, not a setpoint to check against.
-    if ((!command.contains(LOW) && !lowIo->hasValue()) ||
-        (!command.contains(HIGH) && !highIo->hasValue()))
+    double low = 0;
+    double high = 0;
+    const bool lowKnown = rangeBound(LOW, low);
+    const bool highKnown = rangeBound(HIGH, high);
+    if ((!command.contains(LOW) && !lowKnown) || (!command.contains(HIGH) && !highKnown))
     {
         logRefusedField("target_temp_range", "the other bound is not known yet, send both");
         return false;
     }
 
-    const double oldHigh = highIo->get_value_double();
-    double low = lowIo->get_value_double();
-    double high = oldHigh;
+    const double oldHigh = high;
     string reason;
     for (const char *role: { LOW, HIGH })
     {
@@ -317,7 +330,7 @@ bool ClimateBase::applyRange(const Json &command)
     auto write = [&](const char *role, double v)
     {
         if (command.contains(role))
-            ok = writeTarget(role)->set_value(v) && ok;
+            ok = writeRangeBound(role, v) && ok;
     };
     if (high > oldHigh)
     {

@@ -7449,3 +7449,22 @@ core_ReservedPort_test_LDADD = $(CORE_TEST_LDADD)
 core_ReservedPort_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#ProxyClimate: field relay to command_io, heat_cool as auto, the remote
+#temperature relay and its keep-alive on the real loop. Own HAVE_GTEST block so
+#this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ProxyClimate_test
+check_PROGRAMS += core/ProxyClimate_test
+core_ProxyClimate_test_SOURCES = core/ProxyClimate_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ProxyClimate_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ProxyClimate_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT)
+core_ProxyClimate_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT)
+endif
