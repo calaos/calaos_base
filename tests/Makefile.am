@@ -7725,3 +7725,22 @@ core_RoonZoneSubscription_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/Audio/Ro
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#InternalThermostat safety (spec §8.2): sensor freshness, dew point, start-up
+#lock-out. Own binary for its test-only IOs. Own HAVE_GTEST block so this stays
+#a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/InternalThermostatSafety_test
+check_PROGRAMS += core/InternalThermostatSafety_test
+core_InternalThermostatSafety_test_SOURCES = core/InternalThermostatSafety_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_InternalThermostatSafety_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_InternalThermostatSafety_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
+core_InternalThermostatSafety_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
+endif
