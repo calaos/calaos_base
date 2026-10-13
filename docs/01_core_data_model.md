@@ -487,7 +487,8 @@ spec §8.1. `impl="thermostat"` : Calaos régule.
 - **Modes** : `off`, plus `heat` avec `output_heat`, `cool` avec `output_cool`, `auto` avec
   les deux. Le mode est stocké par le device et persisté dans le cache d'état
   (`iostates.cache`, clé = id du device) quand il change, `off` par défaut ; un mode
-  sauvegardé que les sorties ne permettent plus repasse à `off` (journalisé). Il est
+  sauvegardé que les sorties ne permettent plus repasse à `off`, journalisé et sauvegardé
+  (il ne revient pas seul avec sa sortie). Il est
   restauré avant `ClimateBase::resolveLinks()`, donc sans déclencher les règles.
 - **IOs possédés** : `target_temp`, `action` et, avec `output_cool`, `target_temp_low` /
   `_high`. Absents, ils sont recréés au chargement (`InternalInt` `save="true"` à 20, 19 et
@@ -504,7 +505,7 @@ spec §8.1. `impl="thermostat"` : Calaos régule.
   par défaut.
 - **Sûreté** : `outputsAllowed()` est demandé en premier ; une sortie refusée passe OFF
   sur-le-champ, sans attendre `min_on_time`, et son `min_off_time` protège le redémarrage.
-  Le mode `off` coupe de la même façon. La base autorise les deux sorties ; quoi que dise
+  Le mode `off` coupe de la même façon, ainsi qu'une sortie trouvée ON avec l'autre. La base autorise les deux sorties ; quoi que dise
   une surcharge, elles restent OFF tant que `current_temp` n'a pas de valeur.
 - **Verrous** : `min_on_time` / `min_off_time` (secondes, décimales acceptées, 0 par
   défaut), mesurés depuis la dernière commutation faite par le thermostat. Une commutation
@@ -513,11 +514,15 @@ spec §8.1. `impl="thermostat"` : Calaos régule.
   `min_off_time`, en `auto` comme lors d'un changement de mode : jamais les deux à la fois.
 - **Écritures** : une sortie n'est écrite que si sa dernière commande ou sa relecture
   diffère de l'état voulu ; une écriture refusée ne change ni l'état tenu ni son horloge.
-  Le thermostat suit aussi ses sorties : une valeur changée dans son dos est remise au tour
-  de boucle suivant, sans verrou ni nouvel horodatage (pas dans la marche des règles, où
-  une règle qui réécrit la sortie tournerait sans fin avec lui) ; la relecture d'un OFF
-  débloque une bascule sans attendre la mesure suivante. Pour l'autre sortie, une sortie
-  compte comme ON tant que sa dernière commande ou sa relecture le dit. `action` (`off`,
+  Le thermostat suit aussi ses sorties, 1 ms après la marche des règles qui les a changées.
+  Une sortie changée par autre chose (règle, second thermostat, `set_state`) compte comme
+  commutée à cet instant : l'état tenu la suit, ses verrous partent de là, et la remettre
+  passe par ses verrous (seul un arrêt forcé leur échappe). Les remises d'une sortie qu'on
+  continue de changer sont espacées de `put_back_delay` (1 s), doublé tant que chaque
+  remise est défaite avant la suivante, jusqu'à `put_back_delay_max` (60 s), même sans
+  verrou et pour un arrêt forcé ; un avertissement est journalisé une fois par sortie. La
+  relecture d'un OFF débloque une bascule sans attendre la mesure suivante. Pour l'autre
+  sortie, une sortie compte comme ON tant que sa dernière commande ou sa relecture le dit. `action` (`off`,
   `idle`, `heating`, `cooling`) suit la dernière commande des sorties et n'est écrit que
   s'il change.
 - **Réentrance** : hors marche des règles (commande, verrou), une écriture de sortie
