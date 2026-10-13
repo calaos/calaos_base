@@ -268,6 +268,8 @@ std::string house()
     salon += remoteDevice("ns", param("remote_temp_keepalive", "0.05"));
     salon += remoteDevice("ds", param("remote_temp_keepalive", "0.05"));
     salon += remoteDevice("bk", param("remote_temp_keepalive", "abc"));
+    salon += remoteDevice("fz", param("remote_temp_keepalive", "0.05") + param("sensor_timeout", "0.2"));
+    salon += remoteDevice("bt", param("sensor_timeout", "0"));
     salon += device("rc", in("rc_read") + out("rc_cmd") + in("rc_src") +
                               link("remote_temp", "rc_read", "rc_cmd") +
                               link("remote_temp_source", "rc_src"));
@@ -631,6 +633,7 @@ TEST_F(ProxyClimateTest, ConfigurationMistakesAreLoggedAtLoad)
              "Device(bh): readback_hold is not a positive number of seconds",
              "Device(rg): no 'mode' link, no mode is offered",
              "Device(ka): no 'mode' link, no mode is offered",
+             "Device(bt): sensor_timeout '0' is not a positive number of seconds, 9000 is used",
          })
         EXPECT_NE(log.find(expected), std::string::npos) << expected << "\n"
                                                          << log;
@@ -738,6 +741,41 @@ TEST_F(ProxyClimateTest, ADisconnectedSourceIsNotRelayed)
         return writesTo("ds_remote").size() >= 2;
     }));
     EXPECT_DOUBLE_EQ(writesTo("ds_remote").back().number, 25.0);
+}
+
+//A source that stopped reading but still says it is connected: the unit
+//falls back to its own sensor once the relay stops.
+TEST_F(ProxyClimateTest, ASilentSourceIsNoLongerRelayed)
+{
+    const char *const silent =
+        "Device(fz): remote_temp_source 'fz_src' has sent nothing for 0.2 s, remote_temp is no "
+        "longer relayed";
+    FeedInput *src = feed("fz_src");
+    const std::string log = journal([&]()
+                                    {
+        src->deliver(20.0);
+        EXPECT_TRUE(runLoopUntil([]()
+                                 {
+            return writesTo("fz_remote").size() >= 3;
+        }));
+        pumpLoopFor(300);
+    });
+    const size_t frozen = writesTo("fz_remote").size();
+    pumpLoopFor(200);
+    EXPECT_EQ(writesTo("fz_remote").size(), frozen);
+    EXPECT_EQ(count(log, silent), 1u) << log;
+    const auto age = std::chrono::duration_cast<std::chrono::milliseconds>(
+        writesTo("fz_remote").back().at - writesTo("fz_remote").front().at);
+    EXPECT_LT(age.count(), 230);
+
+    //The value it had, read again: relayed at once, then kept alive.
+    src->deliver(20.0);
+    EXPECT_EQ(writesTo("fz_remote").size(), frozen + 1);
+    EXPECT_TRUE(runLoopUntil([frozen]()
+                             {
+        return writesTo("fz_remote").size() >= frozen + 3;
+    }));
+    EXPECT_DOUBLE_EQ(writesTo("fz_remote").back().number, 20.0);
 }
 
 TEST_F(ProxyClimateTest, TheKeepAliveStopsWhenTheDeviceIsDestroyed)
