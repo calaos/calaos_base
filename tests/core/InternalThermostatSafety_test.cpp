@@ -35,6 +35,32 @@
 using namespace Calaos;
 using namespace CalaosTest;
 
+//A sensor driver: a new value is signalled, a repeated one only recorded.
+class TestSensor: public IOBase
+{
+public:
+    TestSensor(Params &p):
+        IOBase(p, IOBase::IO_INPUT)
+    {
+    }
+
+    DATA_TYPE get_type() override { return TINT; }
+    double get_value_double() override { return value; }
+
+    void deliver(double v)
+    {
+        value = v;
+        EmitSignalIO();
+    }
+
+    void repeat() { markReading(); }
+
+private:
+    double value = 0;
+};
+
+REGISTER_IO(TestSensor)
+
 namespace
 {
 
@@ -116,6 +142,8 @@ std::string house()
     ios += thermostat("boot", false, "", internal("InternalInt", "boot_temp", SAVED));
     //Stale after 0.2 s, and a min_on_time a stale stop must not wait for.
     ios += thermostat("stale", false, param("sensor_timeout", "0.2") + param("min_on_time", "5"));
+    ios += thermostat("quiet", false, param("sensor_timeout", "0.2"),
+                      "    <calaos:input type=\"TestSensor\" id=\"quiet_temp\" name=\"quiet_temp\" />\n");
     return ioXmlDocument(roomXml("Salon", "salon", ios));
 }
 
@@ -126,7 +154,7 @@ struct Thermostat
 };
 
 //Every thermostat of the house: their saved IOs are reset before each case.
-const std::vector<Thermostat> THERMOSTATS = { { "boot", false }, { "stale", false } };
+const std::vector<Thermostat> THERMOSTATS = { { "boot", false }, { "stale", false }, { "quiet", false } };
 
 } //namespace
 
@@ -301,4 +329,30 @@ TEST_F(InternalThermostatSafetyTest, AStaleSensorRegulatesAgainOnItsNextReading)
         EXPECT_TRUE(waitFor("stale_heat", false, 2000));
     });
     EXPECT_EQ(count(log, STALE_LOG), 1u) << log;
+}
+
+//What the drivers do with a reading equal to the last one: nothing is
+//signalled, the thermostat finds it on its own.
+TEST_F(InternalThermostatSafetyTest, ARepeatedReadingKeepsTheSensorFresh)
+{
+    load();
+    auto *sensor = ListeRoom::Instance().findIOAs<TestSensor>("quiet_temp");
+    ASSERT_NE(sensor, nullptr);
+    mode("quiet", "heat");
+    sensor->deliver(18);
+    ASSERT_TRUE(on("quiet_heat"));
+
+    for (int i = 0; i < 12; i++)
+    {
+        pumpFor(50);
+        sensor->repeat();
+        ASSERT_TRUE(on("quiet_heat")) << "after " << i + 1 << " repeats";
+    }
+
+    ASSERT_TRUE(waitFor("quiet_heat", false, 2000));
+    const auto t0 = Clock::now();
+    sensor->repeat();
+    EXPECT_TRUE(waitFor("quiet_heat", true, 1000));
+    //Found by the periodic check, at most one sensor_timeout later.
+    EXPECT_LE(msSince(t0), 400);
 }

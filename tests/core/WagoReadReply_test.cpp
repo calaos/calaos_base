@@ -113,6 +113,8 @@
 #include "WIDigitalBP.h"
 
 #include <gtest/gtest.h>
+#include <chrono>
+#include <thread>
 #include <type_traits>
 #include <vector>
 
@@ -536,4 +538,108 @@ TEST_F(WagoReadReplyExerciseTest, ThePermutedReplyIsIndistinguishableAtRuntime)
         << "if this ever fails, one of the six implementations started reading "
            "its address or its count - the no-op note at the top of this file "
            "is then stale and a behavioural oracle becomes possible";
+}
+
+/*----------------------------------------------------------------------------
+ * A reply equal to the last value is still a reading (IOBase::lastReading()):
+ * a thermostat or a proxy on a steady sensor must not see it as silent.
+ *--------------------------------------------------------------------------*/
+
+namespace
+{
+
+class FreshWIAnalogProbe: public Calaos::WIAnalog
+{
+public:
+    FreshWIAnalogProbe(Params &p): Calaos::WIAnalog(p) {}
+    using Calaos::WIAnalog::WagoReadCallback;
+};
+
+class FreshWITempProbe: public Calaos::WITemp
+{
+public:
+    FreshWITempProbe(Params &p): Calaos::WITemp(p) {}
+    using Calaos::WITemp::WagoReadCallback;
+};
+
+void registerFreshProbes()
+{
+    static bool done = false;
+    if (done) return;
+    done = true;
+
+    Calaos::IOFactory::Instance().RegisterClass(
+        "FreshWIAnalogProbe",
+        [](Params &p) -> Calaos::IOBase * { return new FreshWIAnalogProbe(p); });
+    Calaos::IOFactory::Instance().RegisterClass(
+        "FreshWITempProbe",
+        [](Params &p) -> Calaos::IOBase * { return new FreshWITempProbe(p); });
+}
+
+//The read callback of a probe, as WagoMap calls it.
+template<class Probe>
+void reply(Calaos::IOBase *io, bool status, std::vector<UWord> values)
+{
+    dynamic_cast<Probe *>(io)->WagoReadCallback(status, WagoTypes::Address(12),
+                                                WagoTypes::Count(1), values);
+}
+
+} //namespace
+
+class WagoRepeatedReadingTest: public CalaosTest::CoreFixture
+{
+protected:
+    void SetUp() override
+    {
+        registerFreshProbes();
+        CoreFixture::SetUp();
+        loadConfig();
+    }
+
+    //TEST-NET-1 hosts, as above: nothing binds, nothing is spawned.
+    Calaos::IOBase *makeProbe(const std::string &type, const std::string &hostSuffix)
+    {
+        Params p = {{ "type", type },
+                    { "id", "fresh_" + type },
+                    { "name", type },
+                    { "host", "192.0.2." + hostSuffix },
+                    { "var", "12" },
+                    { "enabled", "true" },
+                    { "visible", "true" }};
+        return createIO(p);
+    }
+
+    template<class Probe>
+    void repeatedReplyIsAReading(const std::string &type, const std::string &hostSuffix)
+    {
+        Calaos::IOBase *io = makeProbe(type, hostSuffix);
+        ASSERT_NE(nullptr, io) << type;
+
+        reply<Probe>(io, true, { 215 });
+        ASSERT_TRUE(io->lastReading().has_value()) << type;
+        const auto first = *io->lastReading();
+        const double value = io->get_value_double();
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        reply<Probe>(io, true, { 215 });
+        EXPECT_GT(*io->lastReading(), first) << type;
+        EXPECT_DOUBLE_EQ(io->get_value_double(), value) << type;
+
+        //A failed read, or a reply without a word, read nothing.
+        const auto second = *io->lastReading();
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        reply<Probe>(io, false, { 215 });
+        reply<Probe>(io, true, {});
+        EXPECT_EQ(*io->lastReading(), second) << type;
+    }
+};
+
+TEST_F(WagoRepeatedReadingTest, ARepeatedAnalogReplyIsStillAReading)
+{
+    repeatedReplyIsAReading<FreshWIAnalogProbe>("FreshWIAnalogProbe", "51");
+}
+
+TEST_F(WagoRepeatedReadingTest, ARepeatedTemperatureReplyIsStillAReading)
+{
+    repeatedReplyIsAReading<FreshWITempProbe>("FreshWITempProbe", "52");
 }

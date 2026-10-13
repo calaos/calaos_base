@@ -7508,6 +7508,7 @@ PROXY_CLIMATE_MQTT_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/InputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputString.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT) \
@@ -7515,6 +7516,7 @@ PROXY_CLIMATE_MQTT_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttInputAnalog.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttInputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttInputTemp.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttOutputAnalog.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttOutputString.$(OBJEXT)
 core_ProxyClimateMqtt_test_LDADD = $(PROXY_CLIMATE_MQTT_OBJECTS) \
