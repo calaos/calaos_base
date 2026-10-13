@@ -60,7 +60,8 @@ protected:
 
     /* Asked first at each evaluation: an output refused here is switched
      * OFF at once, whatever its min_on_time; its min_off_time still guards
-     * the restart. Both are refused until current_temp holds a value. */
+     * the restart. The base allows both; whatever an override says, both stay
+     * OFF until current_temp holds a value. */
     virtual OutputPair outputsAllowed();
 
     /* Spec §8.1. Never nested: when an output write runs rules that call it

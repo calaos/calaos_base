@@ -209,9 +209,7 @@ bool InternalThermostat::applyCommand(const Json &command)
 
 InternalThermostat::OutputPair InternalThermostat::outputsAllowed()
 {
-    IOBase *temp = linkIo("current_temp");
-    const bool known = temp && temp->hasValue();
-    return OutputPair{ known, known };
+    return OutputPair{ true, true };
 }
 
 void InternalThermostat::evaluate()
@@ -233,11 +231,13 @@ void InternalThermostat::evaluate()
 
 void InternalThermostat::regulate()
 {
-    const OutputPair allowed = outputsAllowed();
-
-    double temp = 0;
-    if (IOBase *io = linkIo("current_temp"))
-        temp = io->get_value_double();
+    OutputPair allowed = outputsAllowed();
+    //Not left to the hook, which an override replaces.
+    IOBase *sensor = linkIo("current_temp");
+    const bool known = sensor && sensor->hasValue();
+    allowed.heat = allowed.heat && known;
+    allowed.cool = allowed.cool && known;
+    const double temp = known ? sensor->get_value_double() : 0;
 
     OutputPair want;
     if (mode == ClimateMode::Heat || mode == ClimateMode::Auto)
