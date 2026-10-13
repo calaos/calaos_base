@@ -191,7 +191,7 @@ std::string fullThermostat(const std::string &id, bool cool, const std::string &
     return thermostatXml(id, inner + params) + roomIo("InternalInt", id + "_temp");
 }
 
-const std::vector<std::string> THERMOSTATS = { "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams", "safe", "slow", "fight", "duo_a", "duo_b", "both" };
+const std::vector<std::string> THERMOSTATS = { "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams", "safe", "slow", "fight", "duo_a", "duo_b", "both", "same" };
 
 std::string house()
 {
@@ -220,6 +220,13 @@ std::string house()
         ios += roomIo("InternalInt", id + "_temp");
     }
     ios += roomIo("InternalBool", "duo_relay");
+
+    ios += thermostatXml("same", ownedXml("InternalInt", "same_target", SAVED) +
+                                     linkXml("current_temp", "same_temp") +
+                                     linkXml("target_temp", "same_target") +
+                                     linkXml("output_heat", "same_relay") +
+                                     linkXml("output_cool", "same_relay"));
+    ios += roomIo("InternalInt", "same_temp") + roomIo("InternalBool", "same_relay");
 
     ios += thermostatXml("lag", linkXml("current_temp", "lag_temp") +
                                     ownedXml("InternalInt", "lag_target", SAVED) +
@@ -1076,24 +1083,47 @@ TEST_F(InternalThermostatTest, ARuleFightingAStopIsBounded)
     EXPECT_LE(heat->count - first, 6);
 }
 
-//Two thermostats on one relay, one wanting it ON and the other OFF.
-TEST_F(InternalThermostatTest, TwoThermostatsOnOneOutputAreBounded)
+//An output belongs to one thermostat: the first loaded keeps it, the next one
+//leaves that link aside as if it did not resolve, and never writes it.
+TEST_F(InternalThermostatTest, AnOutputBelongsToOneThermostat)
 {
-    load();
+    const std::string log = load();
+    EXPECT_NE(log.find("Device(duo_b): output_heat 'duo_relay' is already an output of thermostat 'duo_a'"),
+              std::string::npos)
+        << log;
+    EXPECT_EQ(log.find("Device(duo_a): output_heat 'duo_relay' is already"), std::string::npos) << log;
+    EXPECT_EQ(modes("duo_a"), (std::vector<std::string>{ "off", "heat" }));
+    EXPECT_EQ(modes("duo_b"), (std::vector<std::string>{ "off" }));
+    EXPECT_EQ(dev("duo_b")->deviceObject().at("ios").count("output_heat"), 0u);
+
     io("duo_a_target")->set_value(25.0);
     io("duo_b_target")->set_value(15.0);
-    mode("duo_a", "heat");
-    mode("duo_b", "heat");
     temp("duo_b", 20);
+    mode("duo_a", "heat");
     auto relay = count("duo_relay");
-
     temp("duo_a", 20);
-    pumpFor(MINUTE_MS);
-    EXPECT_GE(relay->count, 4);
-    EXPECT_LE(relay->count, 30);
-    const int first = relay->count;
-    pumpFor(MINUTE_MS);
-    EXPECT_LE(relay->count - first, 8);
+    pumpFor(100);
+    EXPECT_TRUE(on("duo_relay"));
+    EXPECT_EQ(relay->count, 1);
+}
+
+//One IO cannot be both outputs of a thermostat: it keeps the heat one.
+TEST_F(InternalThermostatTest, OneIoCannotBeBothOutputs)
+{
+    const std::string log = load();
+    EXPECT_NE(log.find("Device(same): output_cool 'same_relay' is also its output_heat"),
+              std::string::npos)
+        << log;
+    EXPECT_EQ(modes("same"), (std::vector<std::string>{ "off", "heat" }));
+    const Json ios = dev("same")->deviceObject().at("ios");
+    EXPECT_EQ(ios.value("output_heat", ""), "same_relay");
+    EXPECT_EQ(ios.count("output_cool"), 0u);
+
+    io("same_target")->set_value(21.0);
+    mode("same", "heat");
+    temp("same", 19);
+    EXPECT_TRUE(on("same_relay"));
+    EXPECT_FALSE(mode("same", "cool"));
 }
 
 /* Outside a rule march (a command, a timer), an output write runs the rules
