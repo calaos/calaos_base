@@ -88,9 +88,10 @@ void ProxyClimate::resolveLinks()
                              "fan_mode", "swing_mode", "remote_temp" })
     {
         if (linkIo(role) && !isWritable(role))
-            cErrorDom("device") << "Device(" << id << "): link '" << role
-                                << "' has no command_io and its io is not an output, "
-                                << "it cannot be written";
+            cErrorDom("device") << "Device(" << id << "): link '" << role << "' "
+                                << (linkCommandIo(role) ? "has a command_io that is not an output"
+                                                        : "has no command_io and its io is not an output")
+                                << ", it cannot be written";
     }
     if (linkIo(REMOTE) && !linkIo(SOURCE))
         cErrorDom("device") << "Device(" << id << "): link 'remote_temp' without a "

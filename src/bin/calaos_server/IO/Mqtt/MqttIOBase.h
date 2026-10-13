@@ -22,6 +22,7 @@
 #define __MQTT_IO_BASE_H__
 
 #include <functional>
+#include <vector>
 
 #include "ThinIo.h"
 #include "MqttCtrl.h"
@@ -39,6 +40,7 @@ namespace Calaos
 //subscription is conditional, see MqttOutputShutter): the callback is only
 //invoked later from the event loop, never re-entrantly, so capturing `this`
 //from the constructor body is safe once the object members are initialized.
+//The subscriptions die with the IO, so a destroyed IO is never called.
 //
 //T3.10: the friendlyName/description preamble now comes from the shared
 //ThinIo template (IO/ThinIo.h); only the Mqtt-specific part stays here.
@@ -60,15 +62,22 @@ protected:
     //(battery, online, ...)
     void subscribeTopicSub(std::function<void()> onMessage)
     {
-        ctrl->subscribeTopic(this->get_param("topic_sub"),
-                             [onMessage](string, string) { onMessage(); });
+        subscriptions.push_back(ctrl->subscribeTopic(this->get_param("topic_sub"),
+                                                     [onMessage](string, string)
+                                                     {
+            onMessage();
+        }));
         subscribeStatusTopics();
     }
 
     void subscribeStatusTopics()
     {
-        ctrl->subscribeStatusTopics(this);
+        for (auto &s: ctrl->subscribeStatusTopics(this))
+            subscriptions.push_back(std::move(s));
     }
+
+private:
+    std::vector<MqttCtrl::Subscription> subscriptions;
 };
 
 }

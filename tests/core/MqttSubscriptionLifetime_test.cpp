@@ -37,6 +37,7 @@
 #include <cstring>
 #include <map>
 #include <string>
+#include <vector>
 
 #include "CalaosCoreFixture.h"
 #include "ExternProc.h"
@@ -124,6 +125,14 @@ void brokerSays(const std::string &topic, const std::string &payload,
     ASSERT_EQ((ssize_t)raw.size(), ::send(session().fd, raw.data(), raw.size(), 0));
     ASSERT_TRUE(ExternProcSpawn::runLoopUntil(settled, 5000))
         << "the server never acted on the message";
+}
+
+MqttCtrl *sessionCtrl()
+{
+    Params bp;
+    bp.Add("host", kHost);
+    bp.Add("port", kPort);
+    return MqttBrokersList::Instance().get_ctrl(bp);
 }
 
 std::map<std::string, int> &probeCalls()
@@ -226,8 +235,10 @@ TEST_F(MqttSubscriptionLifetimeTest, ADeletedIoIsNotReadByTheNextMessage)
         return stay->get_value_string() == "a";
     });
     EXPECT_EQ("a", gone->get_value_string());
+    EXPECT_EQ(2u, sessionCtrl()->subscriptionCount("t/shared"));
 
     ASSERT_TRUE(deleteIO(gone));
+    EXPECT_EQ(1u, sessionCtrl()->subscriptionCount("t/shared"));
 
     //Another IO on the same topic keeps hearing it.
     brokerSays("t/shared", "b", [&]()
@@ -259,7 +270,14 @@ TEST_F(MqttSubscriptionLifetimeTest, StatusTopicsOfADeletedIoAreDropped)
         return gone->getStatusInfo().Exists("battery_level");
     });
 
+    const char *const topics[] = { "t/st/state", "t/st/battery", "t/st/online", "t/st/rssi",
+                                   "t/st/uptime", "t/st/ip", "t/st/ssid" };
+    for (const char *t: topics)
+        EXPECT_EQ(1u, sessionCtrl()->subscriptionCount(t)) << t;
+
     ASSERT_TRUE(deleteIO(gone));
+    for (const char *t: topics)
+        EXPECT_EQ(0u, sessionCtrl()->subscriptionCount(t)) << t;
 
     // clang-format off
     const std::vector<std::pair<std::string, std::string>> status = {
@@ -284,6 +302,119 @@ TEST_F(MqttSubscriptionLifetimeTest, StatusTopicsOfADeletedIoAreDropped)
                {
         return witness->get_value_string() == "seen";
     });
+}
+
+TEST_F(MqttSubscriptionLifetimeTest, ASubscriptionLastsAsLongAsItsHandle)
+{
+    int calls = 0;
+    auto count = [&calls](string, string)
+    {
+        calls++;
+    };
+
+    EXPECT_FALSE(sessionCtrl()->subscribeTopic("", count).active());
+
+    {
+        MqttCtrl::Subscription s = sessionCtrl()->subscribeTopic("t/api", count);
+        EXPECT_TRUE(s.active());
+
+        MqttCtrl::Subscription moved(std::move(s));
+        EXPECT_FALSE(s.active());
+        EXPECT_TRUE(moved.active());
+
+        MqttCtrl::Subscription assigned;
+        assigned = std::move(moved);
+        EXPECT_FALSE(moved.active());
+        EXPECT_TRUE(assigned.active());
+        EXPECT_EQ(1u, sessionCtrl()->subscriptionCount("t/api"));
+
+        brokerSays("t/api", "1", [&]()
+                   {
+            return calls == 1;
+        });
+
+        //Assigning over a live handle drops what it held.
+        MqttCtrl::Subscription other = sessionCtrl()->subscribeTopic("t/api", count);
+        EXPECT_EQ(2u, sessionCtrl()->subscriptionCount("t/api"));
+        assigned = std::move(other);
+        EXPECT_EQ(1u, sessionCtrl()->subscriptionCount("t/api"));
+    }
+    EXPECT_EQ(0u, sessionCtrl()->subscriptionCount("t/api"));
+
+    int witness = 0;
+    MqttCtrl::Subscription w = sessionCtrl()->subscribeTopic("t/api/witness", [&witness](string, string)
+                                                             {
+        witness++;
+    });
+    brokerSays("t/api", "2", []()
+               {
+        return true;
+    });
+    brokerSays("t/api/witness", "x", [&]()
+               {
+        return witness == 1;
+    });
+    EXPECT_EQ(1, calls);
+}
+
+TEST_F(MqttSubscriptionLifetimeTest, ACallbackCanDropSubscriptionsOfTheMessageItHandles)
+{
+    int first = 0, second = 0, self = 0;
+    MqttCtrl::Subscription b;
+    MqttCtrl::Subscription a = sessionCtrl()->subscribeTopic("t/drop", [&](string, string)
+                                                             {
+        first++;
+        b.reset();
+    });
+    b = sessionCtrl()->subscribeTopic("t/drop", [&](string, string)
+                                      {
+        second++;
+    });
+
+    //The callback outlives its own entry: `self` is read after the reset.
+    MqttCtrl::Subscription c;
+    c = sessionCtrl()->subscribeTopic("t/drop", [&self, &c](string, string)
+                                      {
+        c.reset();
+        self++;
+    });
+
+    //One message is dispatched in one go: once `first` moved, all ran.
+    brokerSays("t/drop", "1", [&]()
+               {
+        return first == 1;
+    });
+    EXPECT_EQ(0, second);
+    EXPECT_EQ(1, self);
+    EXPECT_EQ(1u, sessionCtrl()->subscriptionCount("t/drop"));
+}
+
+TEST_F(MqttSubscriptionLifetimeTest, ASubscriptionOutlivingItsControllerIsHarmless)
+{
+    const size_t before = ExternProcSpawn::launches("calaos_mqtt").size();
+    Params bp;
+    bp.Add("host", "192.0.2.64");
+    bp.Add("port", "1889");
+    MqttCtrl *other = new MqttCtrl(bp);
+    ASSERT_TRUE(ExternProcSpawn::runLoopUntil([&]()
+                                              {
+        return ExternProcSpawn::launches("calaos_mqtt").size() > before;
+    },
+                                              8000));
+    const auto argv = ExternProcSpawn::launches("calaos_mqtt").back();
+    ASSERT_GE(argv.size(), 3u);
+    EXPECT_EQ(0, ::access(argv[2].c_str(), F_OK)) << argv[2];
+
+    MqttCtrl::Subscription s = other->subscribeTopic("t/other", MqttCtrl::MsgReceivedSignal());
+    EXPECT_TRUE(s.active());
+
+    delete other;
+
+    //Its sidecar went with it.
+    EXPECT_NE(0, ::access(argv[2].c_str(), F_OK)) << argv[2];
+    EXPECT_FALSE(s.active());
+    s.reset();
+    EXPECT_FALSE(s.active());
 }
 
 int main(int argc, char **argv)

@@ -1,4 +1,5 @@
 #include <json.hpp>
+#include <utility>
 
 #include "Utils.h"
 #include "IOFactory.h"
@@ -61,18 +62,24 @@ MqttCtrl::MqttCtrl(const Params &params)
 
         // Set or replace the message
         storeMessage(p["topic"], p["payload"]);
-        for (auto& it: subscribeCb)
-        {
-            if (topicMatchesSubscription(it.first, p["topic"]))
-            {
-                cDebugDom("mqtt") << "New message received on topic " << msg;
 
-                // Call the all registered callbacks for this topic
-                for (auto &callback : it.second)
-                {
-                    callback(p["topic"], p["payload"]);
-                }
-            }
+        vector<uint64_t> matching;
+        for (const auto &it: subscribers)
+        {
+            if (topicMatchesSubscription(it.second.topic, p["topic"]))
+                matching.push_back(it.first);
+        }
+
+        //A callback may delete an IO, its own included: each one is looked up
+        //again, and called through a copy that outlives its entry.
+        for (uint64_t id: matching)
+        {
+            auto it = subscribers.find(id);
+            if (it == subscribers.end())
+                continue;
+            cDebugDom("mqtt") << "New message received on topic " << msg;
+            MsgReceivedSignal callback = it->second.callback;
+            callback(p["topic"], p["payload"]);
         }
     });
 
@@ -81,6 +88,8 @@ MqttCtrl::MqttCtrl(const Params &params)
 
 MqttCtrl::~MqttCtrl()
 {
+    //Its handlers capture `this`.
+    delete process;
 }
 
 void MqttCtrl::storeMessage(const string &topic, const string &payload)
@@ -91,19 +100,70 @@ void MqttCtrl::storeMessage(const string &topic, const string &payload)
     messages[topic] = payload;
 }
 
-void MqttCtrl::subscribeTopic(const string topic, MsgReceivedSignal callback)
+MqttCtrl::Subscription::Subscription(MqttCtrl *c, uint64_t i):
+    ctrl(c),
+    ctrlAlive(c->alive),
+    id(i)
 {
-    // subscribeCb contains a map of list of callbacks, register this callback to the key relative of this topic
+}
+
+MqttCtrl::Subscription::Subscription(Subscription &&other) noexcept:
+    ctrl(std::exchange(other.ctrl, nullptr)),
+    ctrlAlive(std::move(other.ctrlAlive)),
+    id(std::exchange(other.id, 0))
+{
+}
+
+MqttCtrl::Subscription &MqttCtrl::Subscription::operator=(Subscription &&other) noexcept
+{
+    if (this != &other)
+    {
+        reset();
+        ctrl = std::exchange(other.ctrl, nullptr);
+        ctrlAlive = std::move(other.ctrlAlive);
+        id = std::exchange(other.id, 0);
+    }
+    return *this;
+}
+
+void MqttCtrl::Subscription::reset()
+{
+    if (active())
+        ctrl->subscribers.erase(id);
+    ctrl = nullptr;
+    ctrlAlive.reset();
+    id = 0;
+}
+
+bool MqttCtrl::Subscription::active() const
+{
+    return ctrl && !ctrlAlive.expired();
+}
+
+MqttCtrl::Subscription MqttCtrl::subscribeTopic(const string &topic, MsgReceivedSignal callback)
+{
     cDebugDom("mqtt") << "subscribeTopic : " << topic;
     if (topic == "")
     {
         cErrorDom("mqtt") << "Topic is empty !";
-        return;
+        return Subscription();
     }
 
-    auto v = subscribeCb[topic];
-    v.push_back(callback);
-    subscribeCb[topic] = v;
+    //The broker side keeps its subscription: the sidecar subscribes to "#".
+    const uint64_t id = nextSubscriptionId++;
+    subscribers[id] = { topic, callback };
+    return Subscription(this, id);
+}
+
+size_t MqttCtrl::subscriptionCount(const string &topic) const
+{
+    size_t n = 0;
+    for (const auto &it: subscribers)
+    {
+        if (it.second.topic == topic)
+            n++;
+    }
+    return n;
 }
 
 void MqttCtrl::publishTopic(const string topic, const string payload)
@@ -584,14 +644,15 @@ bool MqttCtrl::topicMatchesSubscription(string s, string t)
     return result;
 }
 
-void MqttCtrl::subscribeStatusTopics(Calaos::IOBase *io)
+vector<MqttCtrl::Subscription> MqttCtrl::subscribeStatusTopics(Calaos::IOBase *io)
 {
+    vector<Subscription> subs;
     auto &params = io->get_params();
 
     // Subscribe to the status topics if they are defined
     if (params.Exists("battery_topic"))
     {
-        subscribeTopic(params["battery_topic"], [=](string, string)
+        MsgReceivedSignal onBattery = [=](string, string)
         {
             bool err;
             auto v = getValue(params, err, "battery_topic", "battery_path");
@@ -644,12 +705,13 @@ void MqttCtrl::subscribeStatusTopics(Calaos::IOBase *io)
                                              io->getStatusInfo());
                 }
             }
-        });
+        };
+        subs.push_back(subscribeTopic(params["battery_topic"], onBattery));
     }
 
     if (params.Exists("connected_status_topic"))
     {
-        subscribeTopic(params["connected_status_topic"], [=](string, string)
+        MsgReceivedSignal onConnected = [=](string, string)
         {
             bool err;
             auto v = getValue(params, err, "connected_status_topic", "connected_status_path");
@@ -682,12 +744,13 @@ void MqttCtrl::subscribeStatusTopics(Calaos::IOBase *io)
                                              io->getStatusInfo());
                 }
             }
-        });
+        };
+        subs.push_back(subscribeTopic(params["connected_status_topic"], onConnected));
     }
 
     if (params.Exists("wireless_signal_topic"))
     {
-        subscribeTopic(params["wireless_signal_topic"], [=](string, string)
+        MsgReceivedSignal onSignal = [=](string, string)
         {
             bool err;
             auto v = getValue(params, err, "wireless_signal_topic", "wireless_signal_path");
@@ -738,12 +801,13 @@ void MqttCtrl::subscribeStatusTopics(Calaos::IOBase *io)
                                              io->getStatusInfo());
                 }
             }
-        });
+        };
+        subs.push_back(subscribeTopic(params["wireless_signal_topic"], onSignal));
     }
 
     if (params.Exists("uptime_topic"))
     {
-        subscribeTopic(params["uptime_topic"], [=](string, string)
+        MsgReceivedSignal onUptime = [=](string, string)
         {
             bool err;
             auto v = getValue(params, err, "uptime_topic", "uptime_path");
@@ -794,12 +858,13 @@ void MqttCtrl::subscribeStatusTopics(Calaos::IOBase *io)
                                              io->getStatusInfo());
                 }
             }
-        });
+        };
+        subs.push_back(subscribeTopic(params["uptime_topic"], onUptime));
     }
 
     if (params.Exists("ip_address_topic"))
     {
-        subscribeTopic(params["ip_address_topic"], [=](string, string)
+        MsgReceivedSignal onIpAddress = [=](string, string)
         {
             bool err;
             auto v = getValue(params, err, "ip_address_topic", "ip_address_path");
@@ -812,12 +877,13 @@ void MqttCtrl::subscribeStatusTopics(Calaos::IOBase *io)
                                              io->get_param("id"),
                                              io->getStatusInfo());
             }
-        });
+        };
+        subs.push_back(subscribeTopic(params["ip_address_topic"], onIpAddress));
     }
 
     if (params.Exists("wifi_ssid_topic"))
     {
-        subscribeTopic(params["wifi_ssid_topic"], [=](string, string)
+        MsgReceivedSignal onWifiSsid = [=](string, string)
         {
             bool err;
             auto v = getValue(params, err, "wifi_ssid_topic", "wifi_ssid_path");
@@ -830,6 +896,9 @@ void MqttCtrl::subscribeStatusTopics(Calaos::IOBase *io)
                                              io->get_param("id"),
                                              io->getStatusInfo());
             }
-        });
+        };
+        subs.push_back(subscribeTopic(params["wifi_ssid_topic"], onWifiSsid));
     }
+
+    return subs;
 }
