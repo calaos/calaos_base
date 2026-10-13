@@ -69,6 +69,7 @@ protected:
 
     bool currentMode(ClimateMode &mode) override;
     bool writeMode(ClimateMode mode) override;
+    bool applyCommand(const Json &command) override;
 
 private:
     struct Output

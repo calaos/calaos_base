@@ -186,12 +186,25 @@ bool InternalThermostat::currentMode(ClimateMode &m)
     return true;
 }
 
+//Evaluated by applyCommand(), once the whole command is applied.
 bool InternalThermostat::writeMode(ClimateMode m)
 {
     mode = m;
     Config::Instance().SaveValueIO(get_param("id"), modeName(m));
-    evaluate();
     return true;
+}
+
+/* {"mode":"heat","target_temp":18} must not switch on against the previous
+ * target and then hold for min_on_time: the fields are all applied first,
+ * their own change callbacks deferred, then one evaluation runs. */
+bool InternalThermostat::applyCommand(const Json &command)
+{
+    const bool nested = evaluating;
+    evaluating = true;
+    const bool applied = ClimateBase::applyCommand(command);
+    evaluating = nested;
+    evaluate();
+    return applied;
 }
 
 InternalThermostat::OutputPair InternalThermostat::outputsAllowed()

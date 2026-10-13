@@ -494,7 +494,8 @@ spec §8.1. `impl="thermostat"` : Calaos régule.
   max(25, 19 + `min_range`) ; `InternalString` pour `action`) et écrits à la sauvegarde
   suivante.
 - **`evaluate()`** : appelé par `IOChangeHub` sur `current_temp` et les consignes, par une
-  commande de mode, par les verrous, par un changement de ses sorties, et une fois au
+  commande (une seule fois, quand tous ses champs sont appliqués : `{"mode":"heat",
+  "target_temp":18}` ne chauffe pas contre l'ancienne consigne), par les verrous, par un changement de ses sorties, et une fois au
   premier tour de boucle après le chargement. Chauffe : ON sous `consigne − hysteresis`,
   OFF au-dessus de la consigne ; entre les deux, bornes comprises, elle garde l'état de sa
   dernière commande (pas celui d'une relecture en retard). Froid symétrique. `auto` : chauffe contre
