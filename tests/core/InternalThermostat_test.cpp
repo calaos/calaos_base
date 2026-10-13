@@ -191,7 +191,7 @@ std::string fullThermostat(const std::string &id, bool cool, const std::string &
     return thermostatXml(id, inner + params) + roomIo("InternalInt", id + "_temp");
 }
 
-const std::vector<std::string> THERMOSTATS = { "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams", "safe", "slow", "fight", "duo_a", "duo_b" };
+const std::vector<std::string> THERMOSTATS = { "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams", "safe", "slow", "fight", "duo_a", "duo_b", "both" };
 
 std::string house()
 {
@@ -206,6 +206,7 @@ std::string house()
     safe.replace(safe.find("impl=\"thermostat\""), 17, "impl=\"test_safe_thermostat\"");
     ios += safe;
     ios += fullThermostat("slow", false, paramXml("min_off_time", "1"));
+    ios += fullThermostat("both", true, paramXml("min_on_time", "2"));
 
     //A minute lasts 0.6 s here: put-backs from 10 ms, doubled up to 0.6 s.
     const std::string fast = paramXml("put_back_delay", "0.01") + paramXml("put_back_delay_max", "0.6");
@@ -973,6 +974,17 @@ TEST_F(InternalThermostatTest, AnOutputSwitchedBehindTheThermostatIsPutBackAtOnc
     EXPECT_TRUE(waitFor("rev_heat", false));
     EXPECT_TRUE(on("rev_cool"));
     EXPECT_EQ(str("rev_action"), "cooling");
+
+    //Both ON: the stop does not wait for the min_on_time the switch started.
+    setpoints("both", 21, 19, 23);
+    mode("both", "cool");
+    temp("both", 25);
+    ASSERT_TRUE(on("both_cool"));
+    const auto t0 = Clock::now();
+    io("both_heat")->set_value(true);
+    ASSERT_TRUE(waitFor("both_heat", false));
+    EXPECT_LT(msSince(t0), 1500);
+    EXPECT_TRUE(on("both_cool"));
 }
 
 //A switch behind the thermostat's back counts as a switch: putting it back
