@@ -183,6 +183,9 @@ void InternalThermostat::resolveLinks()
     //else re-evaluates a thermostat whose inputs were all restored.
     auto first = [this]()
     {
+        //A relay may have gone OFF just before a restart: the start counts
+        //as a switch OFF, min_off_time passes before the first ON.
+        heat.st.offAt = cool.st.offAt = loopNow();
         evaluate();
     };
     ioAlive.singleShot(0, first);

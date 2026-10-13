@@ -381,6 +381,9 @@ protected:
         return log;
     }
 
+    //The start counts as a switch OFF: past the min_off_time of "lock" and "safe".
+    static void pastStartLockOut() { pumpFor(320); }
+
     //Pumps until the IO `id` reads `state`.
     static bool waitFor(const std::string &id, bool state)
     {
@@ -783,11 +786,7 @@ TEST_F(InternalThermostatTest, InvalidParamsAreLoggedAndReplaced)
     ASSERT_NE(io("badparams_target_temp"), nullptr);
     io("badparams_target_temp")->set_value(21.0);
     mode("badparams", "heat");
-    temp("badparams", 18);
-    ASSERT_TRUE(on("badparams_heat"));
-    temp("badparams", 22);
-    ASSERT_FALSE(on("badparams_heat"));
-    //1e300 s holds the output OFF: no overflow into "no lock-out".
+    //1e300 s from the start holds the output OFF: no overflow into "no lock-out".
     temp("badparams", 18);
     EXPECT_FALSE(on("badparams_heat"));
     EXPECT_EQ(str("badparams_action"), "idle");
@@ -796,6 +795,7 @@ TEST_F(InternalThermostatTest, InvalidParamsAreLoggedAndReplaced)
 TEST_F(InternalThermostatTest, MinOnTimeDefersTheSwitchOff)
 {
     load();
+    pastStartLockOut();
     setpoints("lock", 21, 19, 23);
     mode("lock", "heat");
 
@@ -815,6 +815,7 @@ TEST_F(InternalThermostatTest, MinOnTimeDefersTheSwitchOff)
 TEST_F(InternalThermostatTest, MinOffTimeDefersTheSwitchOn)
 {
     load();
+    pastStartLockOut();
     setpoints("lock", 21, 19, 23);
     mode("lock", "heat");
     temp("lock", 19);
@@ -841,6 +842,7 @@ TEST_F(InternalThermostatTest, MinOffTimeDefersTheSwitchOn)
 TEST_F(InternalThermostatTest, OffAndARefusedOutputStopAtOnce)
 {
     load();
+    pastStartLockOut();
     setpoints("lock", 21, 19, 23);
     mode("lock", "heat");
     temp("lock", 19);
@@ -878,6 +880,7 @@ TEST_F(InternalThermostatTest, OffAndARefusedOutputStopAtOnce)
 TEST_F(InternalThermostatTest, ADeferredSwitchFollowsTheLatestDemand)
 {
     load();
+    pastStartLockOut();
     setpoints("lock", 21, 19, 23);
     mode("lock", "heat");
     temp("lock", 19);
@@ -890,6 +893,7 @@ TEST_F(InternalThermostatTest, ADeferredSwitchFollowsTheLatestDemand)
 TEST_F(InternalThermostatTest, AutoChangeoverWaitsForTheOtherOutput)
 {
     load();
+    pastStartLockOut();
     setpoints("lock", 21, 19, 23);
     mode("lock", "auto");
 
@@ -921,6 +925,7 @@ TEST_F(InternalThermostatTest, AutoChangeoverWaitsForTheOtherOutput)
 TEST_F(InternalThermostatTest, ModeChangeoverWaitsForTheOtherOutput)
 {
     load();
+    pastStartLockOut();
     setpoints("lock", 21, 19, 23);
     mode("lock", "cool");
 
@@ -1053,6 +1058,7 @@ TEST_F(InternalThermostatTest, AnOutputSwitchedBehindTheThermostatIsPutBackAtOnc
 TEST_F(InternalThermostatTest, AnOutputSwitchedBehindTheThermostatCountsAsASwitch)
 {
     load();
+    pumpFor(1020);
     setpoints("slow", 21, 0, 0);
     mode("slow", "heat");
     temp("slow", 19);
@@ -1309,6 +1315,7 @@ TEST_F(InternalThermostatTest, CommandsThroughSetState)
 TEST_F(InternalThermostatTest, ACommandIsEvaluatedOnceWhole)
 {
     load();
+    pastStartLockOut();
     setpoints("lock", 25, 19, 23);
     temp("lock", 20);
     auto heat = count("lock_heat");
@@ -1504,6 +1511,7 @@ TEST_F(InternalThermostatTest, AReservedIdIsNotRecreated)
 TEST_F(InternalThermostatTest, DeletedWhileALockOutIsArmed)
 {
     load();
+    pastStartLockOut();
     setpoints("lock", 21, 19, 23);
     mode("lock", "heat");
     temp("lock", 19);
