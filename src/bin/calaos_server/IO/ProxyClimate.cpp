@@ -68,7 +68,8 @@ string ProxyClimate::linkIoId(const string &role) const
             break;
         }
     }
-    return id;
+    //Not a named return value: gcov would charge its unwinding to the brace.
+    return string(id);
 }
 
 bool ProxyClimate::isWritable(const string &role)
