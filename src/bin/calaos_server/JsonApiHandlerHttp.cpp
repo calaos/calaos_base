@@ -34,14 +34,31 @@
 
 #include <pugixml.hpp>
 
+#include <cstdlib>
 #include <set>
 
 namespace
 {
 
-//Number of devices an uploaded io.xml would drop: all of them for a format 1
-//file, one that does not parse, or one that keeps none; 0 otherwise.
-size_t devicesLostByUpload(const std::string &ioXml)
+//io_format the client declares in the put request: an integer or a numeric
+//string. Absent or unusable means 1, a client that predates devices.
+//jroot is an object here: the caller has already read config_files from it.
+int declaredIoFormat(const Json &jroot)
+{
+    const Json::const_iterator it = jroot.find("io_format");
+    if (it == jroot.cend())
+        return 1;
+    if (it->is_number_integer())
+        return it->get<int>();
+    if (it->is_string())
+        return std::atoi(it->get<std::string>().c_str());
+    return 1;
+}
+
+//Number of devices an uploaded io.xml would drop: all of them unless the
+//client declared io_format >= 2, in which case deleting devices is intentional.
+//An io.xml that does not parse is refused whatever the client says.
+size_t devicesLostByUpload(const std::string &ioXml, bool clientKnowsDevices)
 {
     std::set<std::string> current;
     ListeRoom::Instance().collectDeviceIds(current);
@@ -52,20 +69,8 @@ size_t devicesLostByUpload(const std::string &ioXml)
     if (!doc.load_string(ioXml.c_str()))
         return current.size();
 
-    pugi::xml_node home = doc.child("calaos:ioconfig").child("calaos:home");
-    if (home.attribute("format").as_int(1) < Calaos::IO_FORMAT_DEVICES)
-        return current.size();
-
-    std::set<std::string> uploaded;
-    for (pugi::xml_node room: home.children("calaos:room"))
-        for (pugi::xml_node dev: room.children("calaos:device"))
-            uploaded.insert(dev.attribute("id").as_string());
-
-    //Removing some devices on purpose is legitimate; all of them vanishing
-    //is what a tool that does not model devices produces.
-    for (const auto &id: current)
-        if (uploaded.count(id))
-            return 0;
+    if (clientKnowsDevices)
+        return 0;
 
     return current.size();
 }
@@ -828,7 +833,8 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
             {
                 const string ioXml = ioIt->get<std::string>();
                 if (Utils::strStartsWith(ioXml, "<?xml"))
-                    lostDevices = devicesLostByUpload(ioXml);
+                    lostDevices = devicesLostByUpload(
+                        ioXml, declaredIoFormat(jroot) >= Calaos::IO_FORMAT_DEVICES);
             }
         }
 
