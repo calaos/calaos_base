@@ -50,15 +50,16 @@ public:
 
     DATA_TYPE get_type() override { return TSTRING; }
 
-    /* The scalar rules see. By default the "mode" of deviceState(), empty
-     * when the device has none. */
-    std::string get_value_string() override;
+    /* The scalar rules see: scalarFromState(deviceState()). Final so that
+     * it always matches the "state" an io_changed carries. */
+    std::string get_value_string() final;
 
     /* One command path for rules, Lua and set_state: a JSON object (the
      * string starts with '{') is a partial update, anything else is a plain
-     * mode ("off" is {"mode":"off"}). Fields are applied one by one through
-     * applyCommandField(), best effort. True when at least one field was
-     * applied. */
+     * mode ("off" is {"mode":"off"}). Goes through applyCommand(), best
+     * effort. True when at least one field was applied. Every command, even
+     * a refused one, publishes an io_changed so that clients drop the state
+     * they were waiting for. */
     using IOBase::set_value;
     bool set_value(std::string val) override;
 
@@ -97,6 +98,17 @@ public:
     static constexpr double PUBLISH_DELAY = 0.1;
 
 protected:
+    /* The whole command, an object; the default is applyFields(command).
+     * Override it to validate related fields together (a low/high range):
+     * one by one, the result would depend on their order. True when at
+     * least one field was applied. */
+    virtual bool applyCommand(const Json &command);
+
+    /* "mode" first, since the other fields may depend on it, then every
+     * other field not in `handled`, each through applyCommandField(). */
+    bool applyFields(const Json &command, const vector<string> &handled = {});
+    void logRefusedField(const string &field, const string &reason);
+
     /* Applies one command field, or returns false with `reason` set. Only a
      * field this instance supports may be applied (a capability exists iff
      * its link does). The base knows no field. */
@@ -107,21 +119,30 @@ protected:
     virtual Json deviceState();
     //Role -> IO id, for the links whose IO exists.
     virtual Json deviceIos();
+    //The scalar out of a deviceState(): its "mode" by default, or empty.
+    virtual std::string scalarFromState(const Json &state);
 
     /* To be called when something deviceObject() shows has changed: emits
      * the device's own signal for the rules when its scalar moved, and
      * schedules one io_changed. Linked IO changes already call it. */
     void deviceStateChanged();
 
+    /* Drops the link subscriptions and any pending publication. A subclass
+     * destructor that writes its linked IOs (outputs OFF) calls it first:
+     * those writes would otherwise call back into a half-destroyed device. */
+    void stopListening();
+
     //Validation helpers for applyCommandField().
     static bool enumField(const Json &value, const vector<string> &allowed, string &out,
                           string &reason);
     //Rounded to a multiple of step (none when 0), then clamped to [min, max].
+    //The result has no more decimals than step.
     static bool numberField(const Json &value, double min, double max, double step, double &out,
                             string &reason);
 
 private:
     const Link *findLink(const string &name) const;
+    Json buildDeviceObject(Json state);
     void publish();
 
     vector<Link> links;

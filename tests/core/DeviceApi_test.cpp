@@ -48,10 +48,59 @@ public:
     {
     }
 
+    //The pattern of a family that switches its outputs off when it goes.
+    ~TestClimate()
+    {
+        stopListening();
+        if (IOBase *fan = linkIo("fan_mode"))
+            fan->set_value(std::string("auto"));
+    }
+
     using Device::enumField;
     using Device::numberField;
+    using Device::stopListening;
+
+    static constexpr double MIN_RANGE = 2;
 
 protected:
+    //low and high are checked against each other, whatever their key order.
+    bool applyCommand(const Json &command) override
+    {
+        const bool applied = applyFields(command, { "target_temp_low", "target_temp_high" });
+        if (!command.contains("target_temp_low") && !command.contains("target_temp_high"))
+            return applied;
+
+        IOBase *lowIo = linkIo("target_temp_low");
+        IOBase *highIo = linkIo("target_temp_high");
+        if (!lowIo || !highIo)
+        {
+            logRefusedField("target_temp_range", "no range on this device");
+            return applied;
+        }
+
+        double low = lowIo->get_value_double();
+        double high = highIo->get_value_double();
+        std::string reason;
+        bool ok = (!command.contains("target_temp_low") ||
+                   numberField(command.at("target_temp_low"), 16, 30, 0.5, low, reason)) &&
+                  (!command.contains("target_temp_high") ||
+                   numberField(command.at("target_temp_high"), 16, 30, 0.5, high, reason));
+        if (ok && high - low < MIN_RANGE)
+        {
+            ok = false;
+            reason = "range narrower than min_range";
+        }
+        if (!ok)
+        {
+            logRefusedField("target_temp_range", reason);
+            return applied;
+        }
+
+        lowIo->set_value(low);
+        highIo->set_value(high);
+        return true;
+    }
+
     bool applyCommandField(const string &field, const Json &value, string &reason) override
     {
         if (field == "mode" && linkIo("mode"))
@@ -59,7 +108,8 @@ protected:
             string mode;
             if (!enumField(value, modes(), mode, reason))
                 return false;
-            return linkCommandIo("mode")->set_value(mode);
+            IOBase *cmd = linkCommandIo("mode");
+            return (cmd ? cmd : linkIo("mode"))->set_value(mode);
         }
         if (field == "target_temp" && linkIo("target_temp"))
         {
@@ -67,6 +117,19 @@ protected:
             if (!numberField(value, 16, 30, 0.5, t, reason))
                 return false;
             return linkIo("target_temp")->set_value(t);
+        }
+        //Sorts before "mode", and depends on it.
+        if (field == "fan_mode" && linkIo("fan_mode"))
+        {
+            string fan;
+            if (!enumField(value, { "auto", "low", "high" }, fan, reason))
+                return false;
+            if (get_value_string() == "off")
+            {
+                reason = "no fan while off";
+                return false;
+            }
+            return linkIo("fan_mode")->set_value(fan);
         }
         return Device::applyCommandField(field, value, reason);
     }
@@ -78,6 +141,10 @@ protected:
             caps["modes"] = modes();
         if (linkIo("target_temp"))
             caps["target_temp"] = { { "min", 16 }, { "max", 30 }, { "step", 0.5 }, { "unit", "°C" } };
+        if (linkIo("target_temp_low") && linkIo("target_temp_high"))
+            caps["target_temp_range"] = true;
+        if (linkIo("fan_mode"))
+            caps["fan_modes"] = { "auto", "low", "high" };
         if (linkIo("current_temp"))
             caps["current_temp"] = true;
         return caps;
@@ -88,10 +155,13 @@ protected:
         Json state = Json::object();
         if (IOBase *io = linkIo("mode"))
             state["mode"] = io->get_value_string();
-        if (IOBase *io = linkIo("target_temp"))
-            state["target_temp"] = io->get_value_double();
-        if (IOBase *io = linkIo("current_temp"))
-            state["current_temp"] = io->get_value_double();
+        for (const char *num: { "target_temp", "target_temp_low", "target_temp_high", "current_temp" })
+        {
+            if (IOBase *io = linkIo(num))
+                state[num] = io->get_value_double();
+        }
+        if (IOBase *io = linkIo("fan_mode"))
+            state["fan_mode"] = io->get_value_string();
         return state;
     }
 
@@ -120,6 +190,9 @@ namespace
 const char *const DEV = "clim";
 const char *const DEV_MODE = "clim_mode";
 const char *const DEV_TARGET = "clim_target";
+const char *const DEV_LOW = "clim_low";
+const char *const DEV_HIGH = "clim_high";
+const char *const DEV_FAN = "clim_fan";
 const char *const DEV_NO_TARGET = "clim2";
 const char *const DEV_NO_TARGET_MODE = "clim2_mode";
 const char *const DEV_BARE = "bare";
@@ -140,22 +213,27 @@ std::string deviceXml(const std::string &id, const std::string &impl, const std:
            "\" name=\"" + id + "\">\n" + inner + "    </calaos:device>\n";
 }
 
-std::string ownedXml(const std::string &type, const std::string &id)
+std::string ownedXml(const std::string &type, const std::string &id,
+                     const std::string &extra = std::string())
 {
     return "      <calaos:internal type=\"" + type + "\" id=\"" + id + "\" name=\"" + id +
-           "\" visible=\"false\" />\n";
+           "\" visible=\"false\"" + extra + " />\n";
 }
 
 /* "clim": mode, target and an external sensor in a later room. "clim2": mode
  * only, so target_temp is not one of its fields. "bare": the base class, with
  * one resolved and one dangling link. */
-std::string deviceHouse()
+std::string deviceHouse(const std::string &modeExtra = std::string())
 {
-    std::string clim = ownedXml("InternalString", DEV_MODE) + ownedXml("InternalInt", DEV_TARGET) +
+    std::string clim = ownedXml("InternalString", DEV_MODE, modeExtra) +
+                       ownedXml("InternalInt", DEV_TARGET) + ownedXml("InternalInt", DEV_LOW) +
+                       ownedXml("InternalInt", DEV_HIGH) + ownedXml("InternalString", DEV_FAN) +
                        linkXml("mode", DEV_MODE, DEV_MODE) + linkXml("target_temp", DEV_TARGET) +
-                       linkXml("current_temp", EXT_TEMP);
+                       linkXml("target_temp_low", DEV_LOW) + linkXml("target_temp_high", DEV_HIGH) +
+                       linkXml("fan_mode", DEV_FAN) + linkXml("current_temp", EXT_TEMP);
+    //Mode without a command IO: commands write the mode IO itself.
     std::string clim2 = ownedXml("InternalString", DEV_NO_TARGET_MODE) +
-                        linkXml("mode", DEV_NO_TARGET_MODE, DEV_NO_TARGET_MODE);
+                        linkXml("mode", DEV_NO_TARGET_MODE);
     std::string bare = linkXml("current_temp", EXT_TEMP) + linkXml("humidity", "nowhere");
 
     std::string salon;
@@ -253,6 +331,10 @@ TEST_F(DeviceApiTest, UnknownFieldIsRefused)
     EXPECT_DOUBLE_EQ(io(DEV_TARGET)->get_value_double(), 20.0);
 
     EXPECT_FALSE(device(DEV_BARE)->set_value(std::string("off")));
+
+    //No command IO on this one's mode link: the mode IO is written.
+    EXPECT_TRUE(device(DEV_NO_TARGET)->set_value(std::string("heat")));
+    EXPECT_EQ(io(DEV_NO_TARGET_MODE)->get_value_string(), "heat");
 }
 
 TEST_F(DeviceApiTest, InvalidJsonIsRefusedWhole)
@@ -262,7 +344,50 @@ TEST_F(DeviceApiTest, InvalidJsonIsRefusedWhole)
     EXPECT_FALSE(device()->set_value(std::string(R"({"mode":)")));
     EXPECT_FALSE(device()->set_value(std::string("{mode:off}")));
     EXPECT_FALSE(device()->set_value(std::string(R"({"mode":"off"} trailing)")));
+    //Out of the range of a double: an out_of_range, not a parse_error.
+    EXPECT_FALSE(device()->set_value(std::string(R"({"target_temp":1e400})")));
+    EXPECT_FALSE(device()->set_value(std::string(R"({"mode":"off","target_temp":-1e400})")));
     EXPECT_EQ(device()->get_value_string(), "heat");
+
+    //Not an object: a plain mode, refused as such.
+    EXPECT_FALSE(device()->set_value(std::string("[1]")));
+    EXPECT_FALSE(device()->set_value(std::string(R"("off")")));
+
+    //A key carrying a newline is logged by tag, never in clear.
+    EXPECT_FALSE(device()->set_value(std::string("{\"x\\ny\":1}")));
+
+    const int depth = 50000;
+    const std::string deep = R"({"mode":)" + std::string(depth, '[') + std::string(depth, ']') + "}";
+    EXPECT_FALSE(device()->set_value(deep));
+    EXPECT_EQ(device()->get_value_string(), "heat");
+}
+
+TEST_F(DeviceApiTest, ModeIsAppliedBeforeTheOtherFields)
+{
+    ASSERT_TRUE(device()->set_value(std::string("off")));
+
+    //"fan_mode" sorts before "mode" and is refused while off.
+    EXPECT_TRUE(device()->set_value(std::string(R"({"fan_mode":"low","mode":"cool"})")));
+    EXPECT_EQ(device()->get_value_string(), "cool");
+    EXPECT_EQ(io(DEV_FAN)->get_value_string(), "low");
+}
+
+TEST_F(DeviceApiTest, RangeFieldsAreValidatedTogether)
+{
+    io(DEV_LOW)->set_value(24.0);
+    io(DEV_HIGH)->set_value(28.0);
+
+    //One by one, high (sorted first) would be checked against the old low.
+    EXPECT_TRUE(device()->set_value(std::string(R"({"target_temp_low":18,"target_temp_high":20})")));
+    EXPECT_DOUBLE_EQ(io(DEV_LOW)->get_value_double(), 18);
+    EXPECT_DOUBLE_EQ(io(DEV_HIGH)->get_value_double(), 20);
+
+    EXPECT_FALSE(device()->set_value(std::string(R"({"target_temp_high":19})")));
+    EXPECT_FALSE(device()->set_value(std::string(R"({"target_temp_low":"x"})")));
+    EXPECT_DOUBLE_EQ(io(DEV_LOW)->get_value_double(), 18);
+    EXPECT_DOUBLE_EQ(io(DEV_HIGH)->get_value_double(), 20);
+
+    EXPECT_FALSE(device(DEV_NO_TARGET)->set_value(std::string(R"({"target_temp_low":18})")));
 }
 
 TEST_F(DeviceApiTest, ValidFieldsApplyBesideRefusedOnes)
@@ -311,6 +436,12 @@ TEST_F(DeviceApiTest, ValidationHelpers)
     EXPECT_EQ(reason, "not a JSON number");
     EXPECT_FALSE(TestClimate::numberField(Json(true), 16, 30, 1, d, reason));
 
+    //No binary residue: 213 * 0.1 is 21.300000000000001.
+    EXPECT_TRUE(TestClimate::numberField(Json(21.3), 0, 100, 0.1, d, reason));
+    EXPECT_EQ(Json(d).dump(), "21.3");
+    EXPECT_TRUE(TestClimate::numberField(Json(21.237), 0, 100, 0.01, d, reason));
+    EXPECT_EQ(Json(d).dump(), "21.24");
+
     std::string s;
     EXPECT_TRUE(TestClimate::enumField(Json("heat"), { "off", "heat" }, s, reason));
     EXPECT_EQ(s, "heat");
@@ -334,6 +465,7 @@ TEST_F(DeviceApiTest, SetStateAnswersSuccessWhenAFieldWasApplied)
     EXPECT_EQ(wsSetState(R"({"mode":"turbo","target_temp":24})"), "true");
     EXPECT_EQ(wsSetState(R"({"mode":"turbo"})"), "false");
     EXPECT_EQ(wsSetState(R"({"mode")"), "false");
+    EXPECT_EQ(wsSetState(R"({"target_temp":1e400})"), "false");
     EXPECT_EQ(device()->get_value_string(), "heat");
     EXPECT_DOUBLE_EQ(io(DEV_TARGET)->get_value_double(), 24);
 
@@ -478,4 +610,62 @@ TEST_F(DeviceApiTest, DeviceDeletedWhileItsPublicationIsPending)
     };
     pumpFor(WAIT_MS, done);
     EXPECT_EQ(ioChanged(ws, DEV_BARE).size(), bare + 1);
+}
+
+TEST_F(DeviceApiTest, RefusedCommandStillPublishes)
+{
+    ASSERT_TRUE(device()->set_value(std::string("heat")));
+    pumpFor(300);
+
+    WsTestSession ws;
+    EXPECT_FALSE(device()->set_value(std::string("turbo")));
+    auto done = [&ws]()
+    {
+        return !ioChanged(ws, DEV).empty();
+    };
+    pumpFor(WAIT_MS, done);
+    std::vector<Json> evs = ioChanged(ws, DEV);
+    ASSERT_EQ(evs.size(), 1u);
+    EXPECT_EQ(evs[0].at("data").value("state", ""), "heat");
+
+    EXPECT_FALSE(device()->set_value(std::string("{nope")));
+    auto again = [&ws]()
+    {
+        return ioChanged(ws, DEV).size() == 2;
+    };
+    pumpFor(WAIT_MS, again);
+    EXPECT_EQ(ioChanged(ws, DEV).size(), 2u);
+}
+
+TEST_F(DeviceApiTest, RestoredModeDoesNotFireTheRulesOnTheFirstLinkedChange)
+{
+    clearCoreState();
+    Config::Instance().SaveValueIO(DEV_MODE, "heat", false);
+    loadConfig(deviceHouse(" save=\"true\""),
+               rulesXmlDocument(simpleRuleXml("on_heat", DEV, "==", "heat", ID_BOOL_OUT, "true")));
+    ASSERT_EQ(device()->get_value_string(), "heat");
+    ASSERT_FALSE(io(ID_BOOL_OUT)->get_value_bool());
+
+    io(EXT_TEMP)->set_value(21.0);
+    EXPECT_FALSE(io(ID_BOOL_OUT)->get_value_bool());
+
+    ASSERT_TRUE(device()->set_value(std::string("off")));
+    ASSERT_TRUE(device()->set_value(std::string("heat")));
+    EXPECT_TRUE(io(ID_BOOL_OUT)->get_value_bool());
+
+    Config::Instance().SaveValueIO(DEV_MODE, "", false);
+}
+
+TEST_F(DeviceApiTest, StopListeningDropsTheLinksAndThePendingPublication)
+{
+    WsTestSession ws;
+    io(EXT_TEMP)->set_value(21.0);
+    auto *dev = dynamic_cast<TestClimate *>(device());
+    ASSERT_NE(dev, nullptr);
+    dev->stopListening();
+    EXPECT_EQ(IOChangeHub::Instance().subscriberCount(EXT_TEMP), 1u);
+
+    io(EXT_TEMP)->set_value(22.0);
+    pumpFor(300);
+    EXPECT_TRUE(ioChanged(ws, DEV).empty());
 }

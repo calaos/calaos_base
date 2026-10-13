@@ -22,6 +22,7 @@
 #include "EventManager.h"
 #include "ListeRoom.h"
 
+#include <algorithm>
 #include <cmath>
 
 using namespace Calaos;
@@ -35,6 +36,8 @@ Device::Device(Params &p):
 
 Device::~Device()
 {
+    stopListening();
+
     //Owned IOs never handed to a room: the device was refused at load.
     for (auto &io: loadedIos)
         ListeRoom::Instance().discardUnattachedIO(std::move(io));
@@ -171,6 +174,10 @@ void Device::resolveLinks()
                                 << "' has the unknown command IO '" << l.command_io
                                 << "', its commands are unavailable";
     }
+
+    //A mode restored from the cache is not a change: the device's rules
+    //must not fire on the first linked update.
+    lastScalar = get_value_string();
 }
 
 const Device::Link *Device::findLink(const string &name) const
@@ -217,45 +224,90 @@ string Device::getDeviceParam(const string &name) const
 
 std::string Device::get_value_string()
 {
-    const Json state = deviceState();
+    return scalarFromState(deviceState());
+}
+
+std::string Device::scalarFromState(const Json &state)
+{
     const auto it = state.find("mode");
     return it != state.end() && it->is_string() ? it->get<string>() : string();
 }
 
+namespace
+{
+
+//Family field names are printed; anything else is client bytes, and a newline
+//in them would forge a log line.
+string fieldForLog(const string &name)
+{
+    bool plain = !name.empty() && name.size() <= 32;
+    for (char c: name)
+        plain = plain && ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_');
+    return plain ? "'" + name + "'" : "#" + Utils::logTag(name);
+}
+
+} //namespace
+
 bool Device::set_value(std::string val)
 {
-    Json command;
+    bool applied = false;
     if (!val.empty() && val[0] == '{')
     {
-        try
-        {
-            command = Json::parse(val);
-        }
-        catch (const Json::parse_error &e)
-        {
+        //Never throws: 1e400 is an out_of_range, not a parse_error, and
+        //nothing up to the event loop would catch it.
+        const Json command = Json::parse(val, nullptr, false);
+        if (command.is_discarded())
             cWarningDom("device") << "Device(" << get_param("id")
-                                  << "): command refused, invalid JSON: " << e.what();
-            return false;
-        }
+                                  << "): command refused, invalid JSON #"
+                                  << Utils::logTag(val);
+        else
+            applied = applyCommand(command);
     }
     else
-        command = Json{ { "mode", val } };
+        applied = applyCommand(Json{ { "mode", val } });
 
-    bool applied = false;
+    deviceStateChanged();
+    return applied;
+}
+
+bool Device::applyCommand(const Json &command)
+{
+    return applyFields(command);
+}
+
+bool Device::applyFields(const Json &command, const vector<string> &handled)
+{
+    //Json is a sorted map: without this, "fan_mode" would come before "mode".
+    auto ours = [&handled](const string &field)
+    {
+        return std::find(handled.begin(), handled.end(), field) == handled.end();
+    };
+
+    vector<string> order;
+    if (command.contains("mode") && ours("mode"))
+        order.push_back("mode");
     for (const auto &field: command.items())
     {
-        string reason;
-        if (applyCommandField(field.key(), field.value(), reason))
-            applied = true;
-        else
-            cWarningDom("device") << "Device(" << get_param("id") << "): command field '"
-                                  << field.key() << "' refused: " << reason;
+        if (field.key() != "mode" && ours(field.key()))
+            order.push_back(field.key());
     }
 
-    if (applied)
-        deviceStateChanged();
-
+    bool applied = false;
+    for (const string &field: order)
+    {
+        string reason;
+        if (applyCommandField(field, command.at(field), reason))
+            applied = true;
+        else
+            logRefusedField(field, reason);
+    }
     return applied;
+}
+
+void Device::logRefusedField(const string &field, const string &reason)
+{
+    cWarningDom("device") << "Device(" << get_param("id") << "): command field "
+                          << fieldForLog(field) << " refused: " << reason;
 }
 
 bool Device::applyCommandField(const string &field, const Json &value, string &reason)
@@ -300,17 +352,30 @@ bool Device::numberField(const Json &value, double min, double max, double step,
     double v = value.get<double>();
     //A step of 0 means a continuous value.
     if (step > 0)
+    {
         v = std::round(v / step) * step;
+        //n * step leaves a binary residue (213 * 0.1 is 21.300000000000001),
+        //which clients would display: cut at the step's own decimals.
+        double scale = 1;
+        while (scale < 1e6 && std::fabs(step * scale - std::round(step * scale)) > 1e-9)
+            scale *= 10;
+        v = std::round(v * scale) / scale;
+    }
     out = std::min(std::max(v, min), max);
     return true;
 }
 
 Json Device::deviceObject()
 {
+    return buildDeviceObject(deviceState());
+}
+
+Json Device::buildDeviceObject(Json state)
+{
     return Json{ { "family", get_param("type") },
                  { "impl", get_param("impl") },
                  { "capabilities", deviceCapabilities() },
-                 { "state", deviceState() },
+                 { "state", std::move(state) },
                  { "ios", deviceIos() } };
 }
 
@@ -359,10 +424,17 @@ void Device::deviceStateChanged()
     publishTimer = std::make_unique<Timer>(PUBLISH_DELAY, fire);
 }
 
+void Device::stopListening()
+{
+    linkSubscriptions.clear();
+    publishTimer.reset();
+}
+
 void Device::publish()
 {
+    Json state = deviceState();
     Params p;
-    p.Add("state", get_value_string());
+    p.Add("state", scalarFromState(state));
     EventManager::createWithObjects(CalaosEvent::EventIOChanged, get_param("id"), p,
-                                    Json{ { "device", deviceObject() } });
+                                    Json{ { "device", buildDeviceObject(std::move(state)) } });
 }

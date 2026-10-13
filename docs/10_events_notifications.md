@@ -334,9 +334,11 @@ class CalaosEvent {
 
 `EventManager::createWithObjects()` ajoute à `data` des membres JSON typés, à côté des
 chaînes de `evParams` : c'est ainsi qu'un device publie son objet `device` dans
-`io_changed`. Seul `toJson()` les émet ; `event_raw`, le `io_state` de l'historique et
-le côté Lua ne lisent que les chaînes. Un param encodé en chaîne JSON aurait fui dans ces
-trois sorties et obligé chaque sérialiseur à savoir quelle clé décoder.
+`io_changed`. Le membre `event_raw` (`toString()`) et le `io_state` de l'historique ne
+portent que les chaînes ; tout ce qui passe par `toJson()` reçoit aussi les membres typés :
+le fil WS et `poll_listen`, le JSON brut de l'historique, et le processus Lua, dont le
+décodeur aplatit un non-scalaire en chaîne vide. Un param encodé en chaîne JSON aurait
+obligé chaque sérialiseur à savoir quelle clé décoder.
 
 ---
 
