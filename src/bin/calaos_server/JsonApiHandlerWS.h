@@ -48,6 +48,9 @@ protected:
 
     bool loggedin = false;
 
+    //Whether a logged-in client receives this event: every event by default.
+    virtual bool forwardsEvent(const CalaosEvent &) { return true; }
+
 private:
     //Source address of the client, "unknown" when there is no connection
     string clientIp() const;
