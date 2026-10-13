@@ -173,7 +173,10 @@ protected:
         auto tcp = uvw::Loop::getDefault()->resource<uvw::TcpHandle>();
         client = std::make_shared<PanelClient>(tcp);
         handler.reset(new PanelHandler(client.get()));
-        handler->sendData.connect([this](const std::string &d) { sent.push_back(d); });
+        handler->sendData.connect([this](const std::string &d)
+                                  {
+            sent.push_back(d);
+        });
         handler->attach(screen);
     }
 
@@ -281,7 +284,10 @@ TEST_F(RemoteUIDeviceTest, IoChangedReachesThePanelWithTheDeviceObject)
     sent.clear();
 
     ListeRoom::Instance().get_io(EXT_TEMP)->set_value(23.4);
-    auto done = [this]() { return !lastOfType("event", DEV).is_null(); };
+    auto done = [this]()
+    {
+        return !lastOfType("event", DEV).is_null();
+    };
     pumpFor(2000, done);
 
     const Json env = lastOfType("event", DEV);
