@@ -164,10 +164,15 @@ void InternalThermostat::restoreMode()
     ClimateMode m;
     const vector<ClimateMode> modes = supportedModes();
     if (parseMode(saved, m) && std::find(modes.begin(), modes.end(), m) != modes.end())
+    {
         mode = m;
-    else
-        cWarningDom("device") << "Device(" << get_param("id") << "): saved mode #"
-                              << Utils::logTag(saved) << " is not available, the mode is off";
+        return;
+    }
+
+    cWarningDom("device") << "Device(" << get_param("id") << "): saved mode #"
+                          << Utils::logTag(saved) << " is not available, the mode is off";
+    //Or it would come back by itself with the output it needs.
+    Config::Instance().SaveValueIO(get_param("id"), modeName(ClimateMode::Off));
 }
 
 vector<ClimateMode> InternalThermostat::supportedModes()
