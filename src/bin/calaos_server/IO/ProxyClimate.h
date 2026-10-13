@@ -90,6 +90,8 @@ private:
 
     std::unique_ptr<Timer> keepalive;
     IOChangeHub::Subscription sourceSubscription;
+    //The source read once, then went silent: logged once per silence.
+    bool sourceSilent = false;
 };
 
 } //namespace Calaos

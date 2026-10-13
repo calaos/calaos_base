@@ -260,17 +260,28 @@ void ProxyClimate::startRemoteTemp()
     });
 }
 
-/* A source that has not delivered yet would send 0 °C and the unit would
- * regulate on it; one that reports itself disconnected is stale, and the unit
- * is better off falling back to its own sensor once the updates stop. Silence
- * from a source that is merely steady is not staleness: IOs carry no
- * timestamp, so it keeps being relayed. */
+/* A source that has not read since the start would send 0 °C, or what it
+ * said before the restart, and the unit would regulate on it. One that
+ * reports itself disconnected, or has sent nothing for sensor_timeout, is
+ * stale: the unit is better off falling back to its own sensor once the
+ * updates stop. */
 void ProxyClimate::relayRemoteTemp()
 {
     IOBase *source = linkIo(SOURCE);
-    if (!source || !isWritable(REMOTE) || !source->hasValue())
+    if (!source || !isWritable(REMOTE))
         return;
-    if (source->getStatusInfo()["connected"] == "false")
+
+    const bool fresh = isFresh(source);
+    const bool silent = !fresh && source->lastReading();
+    if (silent && !sourceSilent)
+        cErrorDom("device") << "Device(" << get_param("id") << "): remote_temp_source '"
+                            << source->get_param("id") << "' has sent nothing for "
+                            << sensorTimeout() << " s, remote_temp is no longer relayed";
+    if (fresh && sourceSilent)
+        cInfoDom("device") << "Device(" << get_param("id") << "): remote_temp_source '"
+                           << source->get_param("id") << "' reads again, remote_temp is relayed";
+    sourceSilent = silent;
+    if (!fresh || source->getStatusInfo()["connected"] == "false")
         return;
 
     writeTarget(REMOTE)->set_value(source->get_value_double());
