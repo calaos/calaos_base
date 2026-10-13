@@ -190,7 +190,7 @@ std::string fullThermostat(const std::string &id, bool cool, const std::string &
     return thermostatXml(id, inner + params) + roomIo("InternalInt", id + "_temp");
 }
 
-const std::vector<std::string> THERMOSTATS = { "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams", "safe" };
+const std::vector<std::string> THERMOSTATS = { "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams", "safe", "slow" };
 
 std::string house()
 {
@@ -204,6 +204,7 @@ std::string house()
     std::string safe = fullThermostat("safe", true, paramXml("min_on_time", "0.2") + paramXml("min_off_time", "0.3"));
     safe.replace(safe.find("impl=\"thermostat\""), 17, "impl=\"test_safe_thermostat\"");
     ios += safe;
+    ios += fullThermostat("slow", false, paramXml("min_off_time", "1"));
 
     ios += thermostatXml("lag", linkXml("current_temp", "lag_temp") +
                                     ownedXml("InternalInt", "lag_target", SAVED) +
@@ -843,8 +844,9 @@ TEST_F(InternalThermostatTest, NeverBothOnWithAnInvertedRange)
     EXPECT_EQ(str("rev_action"), "heating");
 }
 
-//The thermostat counts an output as ON from its own write, not from a
-//read-back that has not caught up yet.
+/* Until both the last write and the read-back say OFF, an output counts as
+ * ON for the other one. The read-back catching up is enough to go on, without
+ * waiting for the next temperature. */
 TEST_F(InternalThermostatTest, ALaggingReadBackStillCountsAsOn)
 {
     load();
@@ -857,18 +859,66 @@ TEST_F(InternalThermostatTest, ALaggingReadBackStillCountsAsOn)
     temp("lag", 18);
     ASSERT_EQ(heat->commands, (std::vector<bool>{ false, true }));
 
+    //Written ON, not read back yet.
     mode("lag", "cool");
     temp("lag", 25);
     EXPECT_EQ(heat->commands, (std::vector<bool>{ false, true }));
     EXPECT_EQ(cool->commands, (std::vector<bool>{ false }));
 
+    //Read back ON, written OFF once min_on_time is over, not read back yet.
+    heat->confirm();
     auto heatOffSent = [&]()
     {
         return heat->commands.back() == false;
     };
     ASSERT_TRUE(pumpUntil(heatOffSent));
+    EXPECT_EQ(cool->commands, (std::vector<bool>{ false }));
+
     heat->confirm();
-    EXPECT_EQ(cool->commands, (std::vector<bool>{ false, true }));
+    auto coolOnSent = [&]()
+    {
+        return cool->commands.back() == true;
+    };
+    EXPECT_TRUE(pumpUntil(coolOnSent, 1000));
+}
+
+//Written behind the thermostat's back, an output is put back without waiting
+//for the next temperature: heat and cool are never left ON together.
+TEST_F(InternalThermostatTest, AnOutputSwitchedBehindTheThermostatIsPutBackAtOnce)
+{
+    load();
+    setpoints("rev", 21, 19, 23);
+    mode("rev", "cool");
+    temp("rev", 25);
+    ASSERT_TRUE(on("rev_cool"));
+
+    io("rev_heat")->set_value(true);
+    EXPECT_TRUE(waitFor("rev_heat", false));
+    EXPECT_TRUE(on("rev_cool"));
+    EXPECT_EQ(str("rev_action"), "cooling");
+}
+
+//Putting an output back is not a switch of the thermostat: min_off_time still
+//counts from its own OFF.
+TEST_F(InternalThermostatTest, PuttingAnOutputBackDoesNotRestartItsLockOut)
+{
+    load();
+    setpoints("slow", 21, 0, 0);
+    mode("slow", "heat");
+    temp("slow", 19);
+    ASSERT_TRUE(on("slow_heat"));
+    const auto tOff = Clock::now();
+    temp("slow", 22);
+    ASSERT_FALSE(on("slow_heat"));
+
+    pumpFor(700);
+    io("slow_heat")->set_value(true);
+    ASSERT_TRUE(waitFor("slow_heat", false));
+
+    temp("slow", 19);
+    ASSERT_TRUE(waitFor("slow_heat", true));
+    EXPECT_GE(msSince(tOff), 998);
+    EXPECT_LT(msSince(tOff), 1600);
 }
 
 /* Outside a rule march (a command, a timer), an output write runs the rules
