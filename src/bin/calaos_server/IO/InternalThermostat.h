@@ -74,6 +74,7 @@ protected:
     bool currentMode(ClimateMode &mode) override;
     bool writeMode(ClimateMode mode) override;
     bool applyCommand(const Json &command) override;
+    Json deviceIos() override;
 
 private:
     struct Output
@@ -98,11 +99,16 @@ private:
         } st;
 
         bool warned = false;
+        //Already the output of another thermostat, or both outputs at once.
+        bool refused = false;
         //Re-runs evaluate() once a deferred switch is allowed.
         std::unique_ptr<Timer> lockout;
     };
 
     double nonNegativeParam(const char *name, double def);
+    void claimOutputs();
+    //The IO of an output link, nullptr when missing or refused.
+    IOBase *outputIo(Output &out);
     void recreateOwnedIos();
     void restoreMode();
 
@@ -129,6 +135,8 @@ private:
     Output heat{ "output_heat" };
     Output cool{ "output_cool" };
 
+    //Outputs claimed: a later thermostat must not drive them.
+    bool claimed = false;
     bool evaluating = false;
     bool evaluateAgain = false;
 

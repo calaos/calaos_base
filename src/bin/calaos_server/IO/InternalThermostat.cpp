@@ -66,6 +66,7 @@ void InternalThermostat::resolveLinks()
     putBackMaxMs = std::max(putBackMs, toMs(nonNegativeParam("put_back_delay_max",
                                                              DEFAULT_PUT_BACK_DELAY_MAX)));
 
+    claimOutputs();
     recreateOwnedIos();
     //Before the base records the scalar: a restored mode is not a change.
     restoreMode();
@@ -74,7 +75,7 @@ void InternalThermostat::resolveLinks()
     const string id = get_param("id");
     if (!linkIo("current_temp"))
         cErrorDom("device") << "Device(" << id << "): no current_temp, the outputs stay OFF";
-    if (!linkIo("output_heat"))
+    if (!outputIo(heat))
         cErrorDom("device") << "Device(" << id << "): no output_heat, heat is unavailable";
 
     //A duplicate id: the device holding it regulates, this one never does.
@@ -93,7 +94,7 @@ void InternalThermostat::resolveLinks()
             out = &heat;
         else if (l.name == cool.role)
             out = &cool;
-        if (out)
+        if (out && !out->refused)
         {
             auto outputChanged = [this, out](IOBase &io)
             {
@@ -131,6 +132,65 @@ double InternalThermostat::nonNegativeParam(const char *name, double def)
     return def;
 }
 
+/* An output belongs to one thermostat: the first one loaded keeps it, a later
+ * one logs it and leaves that link aside as if it did not resolve. One IO as
+ * both outputs keeps the heat one. Called in load order, once every room is
+ * loaded. */
+void InternalThermostat::claimOutputs()
+{
+    ListeRoom &lr = ListeRoom::Instance();
+    const string id = get_param("id");
+    //A shadowed duplicate drives nothing, so it claims nothing either.
+    if (lr.get_io(id) != this)
+        return;
+
+    IOBase *heatIo = linkIo(heat.role);
+    if (heatIo && linkIo(cool.role) == heatIo)
+    {
+        cErrorDom("device") << "Device(" << id << "): output_cool '" << heatIo->get_param("id")
+                            << "' is also its output_heat, the output_cool link is ignored";
+        cool.refused = true;
+    }
+
+    for (Output *out: { &heat, &cool })
+    {
+        IOBase *io = outputIo(*out);
+        for (int i = 0; io && i < lr.size(); i++)
+        {
+            Room *room = lr.get_room(i);
+            for (int j = 0; io && j < room->get_size(); j++)
+            {
+                auto *other = dynamic_cast<InternalThermostat *>(room->get_io(j));
+                if (!other || other == this || !other->claimed ||
+                    (other->outputIo(other->heat) != io && other->outputIo(other->cool) != io))
+                    continue;
+                cErrorDom("device") << "Device(" << id << "): " << out->role << " '"
+                                    << io->get_param("id") << "' is already an output of thermostat '"
+                                    << other->get_param("id") << "', this link is ignored";
+                out->refused = true;
+                io = nullptr;
+            }
+        }
+    }
+    claimed = true;
+}
+
+IOBase *InternalThermostat::outputIo(Output &out)
+{
+    return out.refused ? nullptr : linkIo(out.role);
+}
+
+Json InternalThermostat::deviceIos()
+{
+    Json ios = ClimateBase::deviceIos();
+    for (Output *out: { &heat, &cool })
+    {
+        if (out->refused)
+            ios.erase(out->role);
+    }
+    return Json(std::move(ios));
+}
+
 void InternalThermostat::recreateOwnedIos()
 {
     auto recreate = [this](const char *role, Params params)
@@ -151,7 +211,7 @@ void InternalThermostat::recreateOwnedIos()
     };
 
     recreate("target_temp", setpoint(DEFAULT_TARGET));
-    if (linkIo("output_cool"))
+    if (outputIo(cool))
     {
         recreate(LOW, setpoint(DEFAULT_LOW));
         recreate(HIGH, setpoint(std::max(DEFAULT_HIGH, DEFAULT_LOW + minRange())));
@@ -181,8 +241,8 @@ void InternalThermostat::restoreMode()
 
 vector<ClimateMode> InternalThermostat::supportedModes()
 {
-    const bool canHeat = linkIo("output_heat");
-    const bool canCool = linkIo("output_cool");
+    const bool canHeat = outputIo(heat);
+    const bool canCool = outputIo(cool);
 
     vector<ClimateMode> modes = { ClimateMode::Off };
     if (canHeat)
@@ -356,13 +416,13 @@ bool InternalThermostat::held(Output &out)
 {
     if (out.st.commanded)
         return *out.st.commanded;
-    IOBase *io = linkIo(out.role);
+    IOBase *io = outputIo(out);
     return io && io->get_value_bool();
 }
 
 bool InternalThermostat::isOn(Output &out)
 {
-    IOBase *io = linkIo(out.role);
+    IOBase *io = outputIo(out);
     return (io && io->get_value_bool()) || out.st.commanded.value_or(false);
 }
 
@@ -372,7 +432,7 @@ bool InternalThermostat::isOn(Output &out)
 void InternalThermostat::switchOutput(Output &out, Output &other, bool on, uint64_t now,
                                       bool forced)
 {
-    IOBase *io = linkIo(out.role);
+    IOBase *io = outputIo(out);
     if (!io)
         return;
 
