@@ -80,8 +80,25 @@ public:
     bool state = false;
 };
 
+//A safety override that can refuse heat. It does not call the base, as an
+//override may forget to.
+class TestSafeThermostat: public InternalThermostat
+{
+public:
+    TestSafeThermostat(Params &p):
+        InternalThermostat(p)
+    {
+    }
+
+    bool heatAllowed = true;
+
+protected:
+    OutputPair outputsAllowed() override { return OutputPair{ heatAllowed, true }; }
+};
+
 REGISTER_IO(TestReadOnly)
 REGISTER_IO(TestLaggingOutput)
+REGISTER_DEVICE(test_safe_thermostat, TestSafeThermostat)
 
 namespace
 {
@@ -173,7 +190,7 @@ std::string fullThermostat(const std::string &id, bool cool, const std::string &
     return thermostatXml(id, inner + params) + roomIo("InternalInt", id + "_temp");
 }
 
-const std::vector<std::string> THERMOSTATS = { "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams" };
+const std::vector<std::string> THERMOSTATS = { "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams", "safe" };
 
 std::string house()
 {
@@ -184,6 +201,9 @@ std::string house()
     ios += fullThermostat("lock", true,
                           paramXml("min_on_time", "0.2") + paramXml("min_off_time", "0.3"), false);
     ios += roomIo("InternalBool", "lock_heat") + roomIo("InternalBool", "lock_cool");
+    std::string safe = fullThermostat("safe", true, paramXml("min_on_time", "0.2") + paramXml("min_off_time", "0.3"));
+    safe.replace(safe.find("impl=\"thermostat\""), 17, "impl=\"test_safe_thermostat\"");
+    ios += safe;
 
     ios += thermostatXml("lag", linkXml("current_temp", "lag_temp") +
                                     ownedXml("InternalInt", "lag_target", SAVED) +
@@ -699,6 +719,46 @@ TEST_F(InternalThermostatTest, MinOffTimeDefersTheSwitchOn)
 
 //A lock-out timer that becomes useless is dropped, and the state it would have
 //changed is the one evaluate() keeps.
+//min_on_time spares the equipment short cycles; it must not delay a stop
+//that was asked for (mode off) or that safety requires. min_off_time still
+//guards the restart.
+TEST_F(InternalThermostatTest, OffAndARefusedOutputStopAtOnce)
+{
+    load();
+    setpoints("lock", 21, 19, 23);
+    mode("lock", "heat");
+    temp("lock", 19);
+    ASSERT_TRUE(on("lock_heat"));
+
+    const auto t0 = Clock::now();
+    mode("lock", "off");
+    EXPECT_FALSE(on("lock_heat"));
+    EXPECT_EQ(str("lock_action"), "off");
+    mode("lock", "heat");
+    EXPECT_FALSE(on("lock_heat"));
+    ASSERT_TRUE(waitFor("lock_heat", true));
+    EXPECT_GE(msSince(t0), 298);
+
+    auto *safe = ListeRoom::Instance().findIOAs<TestSafeThermostat>("safe");
+    ASSERT_NE(safe, nullptr);
+    setpoints("safe", 21, 19, 23);
+    mode("safe", "heat");
+    temp("safe", 19);
+    ASSERT_TRUE(on("safe_heat"));
+
+    const auto t1 = Clock::now();
+    safe->heatAllowed = false;
+    temp("safe", 19);
+    EXPECT_FALSE(on("safe_heat"));
+    EXPECT_EQ(str("safe_action"), "idle");
+
+    safe->heatAllowed = true;
+    temp("safe", 19);
+    EXPECT_FALSE(on("safe_heat"));
+    ASSERT_TRUE(waitFor("safe_heat", true));
+    EXPECT_GE(msSince(t1), 298);
+}
+
 TEST_F(InternalThermostatTest, ADeferredSwitchFollowsTheLatestDemand)
 {
     load();
