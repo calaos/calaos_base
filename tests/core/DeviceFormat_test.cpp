@@ -101,12 +101,15 @@ protected:
         bool restart = false;
     };
 
-    PutResult put(const Json &files)
+    //declared: what the client says it supports (io_format in the request).
+    PutResult put(const Json &files, const Json &declared = Json())
     {
         PutResult res;
         HttpTestRequest req;
-        req.send(authenticated(Json{
-            { "action", "config" }, { "type", "put" }, { "config_files", files } }));
+        Json body = Json{ { "action", "config" }, { "type", "put" }, { "config_files", files } };
+        if (!declared.is_null())
+            body["io_format"] = declared;
+        req.send(authenticated(body));
 
         EXPECT_EQ(1u, req.count());
         EXPECT_EQ("HTTP/1.0 200 OK", req.statusLine());
@@ -116,9 +119,10 @@ protected:
         return res;
     }
 
-    PutResult putIo(const std::string &ioXml)
+    PutResult putIo(const std::string &ioXml, const Json &declared = Json())
     {
-        return put(Json{ { "io.xml", ioXml }, { "rules.xml", rulesXmlDocument(std::string()) } });
+        return put(Json{ { "io.xml", ioXml }, { "rules.xml", rulesXmlDocument(std::string()) } },
+                   declared);
     }
 
     Json configGet()
@@ -218,7 +222,7 @@ TEST_F(DeviceFormatTest, ConfigGetAnnouncesTheFormat)
     EXPECT_TRUE(hasFormatMarker(get["config_files"]["io.xml"].get<std::string>()));
 }
 
-TEST_F(DeviceFormatTest, PutFormat1IsRefusedWhenDevicesExist)
+TEST_F(DeviceFormatTest, PutFromAClientThatDoesNotDeclareDevicesIsRefused)
 {
     loadTwoDevices();
     saveConfig();
@@ -228,37 +232,36 @@ TEST_F(DeviceFormatTest, PutFormat1IsRefusedWhenDevicesExist)
     PutResult res = putIo(houseXml(plainIo(), false));
     expectRefused(res, 2, before);
     EXPECT_EQ(rulesXmlOnDisk(), rulesBefore);
-}
 
-TEST_F(DeviceFormatTest, PutFormat1ThatStillCarriesDevicesIsRefused)
-{
-    loadTwoDevices();
-    saveConfig();
-    const std::string before = ioXmlOnDisk();
-
+    //What the file says does not matter, only what the request declares.
     expectRefused(putIo(houseXml(plainIo() + deviceXml(DEV_A, "format_test") +
                                      deviceXml(DEV_FUTURE, "future_impl"),
-                                 false)),
+                                 true)),
                   2, before);
-}
-
-TEST_F(DeviceFormatTest, PutFormat2WithoutAnyOfThemIsRefused)
-{
-    loadTwoDevices();
-    saveConfig();
-    const std::string before = ioXmlOnDisk();
-
-    expectRefused(putIo(houseXml(plainIo() + deviceXml(DEV_B, "format_test"), true)), 2, before);
     expectRefused(putIo(houseXml(plainIo(), true)), 2, before);
 }
 
-TEST_F(DeviceFormatTest, PutThatDoesNotParseIsRefused)
+TEST_F(DeviceFormatTest, AnUnusableDeclarationCountsAsFormat1)
 {
     loadTwoDevices();
     saveConfig();
     const std::string before = ioXmlOnDisk();
+    const std::string upload = houseXml(plainIo(), false);
 
-    expectRefused(putIo("<?xml version=\"1.0\"?><calaos:ioconfig><calaos:home"), 2, before);
+    for (const Json &declared: { Json(1), Json("1"), Json("abc"), Json(true), Json(1.5),
+                                 Json::array(), Json::object() })
+        expectRefused(putIo(upload, declared), 2, before);
+}
+
+TEST_F(DeviceFormatTest, PutThatDoesNotParseIsAlwaysRefused)
+{
+    loadTwoDevices();
+    saveConfig();
+    const std::string before = ioXmlOnDisk();
+    const std::string broken = "<?xml version=\"1.0\"?><calaos:ioconfig><calaos:home";
+
+    expectRefused(putIo(broken), 2, before);
+    expectRefused(putIo(broken, Json(2)), 2, before);
 }
 
 TEST_F(DeviceFormatTest, InertDeviceAloneCountsForTheRefusal)
@@ -282,7 +285,7 @@ TEST_F(DeviceFormatTest, RefusalCoversTheWholePut)
     EXPECT_NE(rulesXmlOnDisk(), rulesNew);
 }
 
-TEST_F(DeviceFormatTest, PutFormat2KeepingTheDevicesIsAccepted)
+TEST_F(DeviceFormatTest, DeclaredClientKeepingTheDevicesIsAccepted)
 {
     loadTwoDevices();
     saveConfig();
@@ -291,7 +294,7 @@ TEST_F(DeviceFormatTest, PutFormat2KeepingTheDevicesIsAccepted)
                                             deviceXml(DEV_A, "format_test") +
                                             deviceXml(DEV_FUTURE, "future_impl"),
                                         true);
-    PutResult res = putIo(upload);
+    PutResult res = putIo(upload, Json(2));
     EXPECT_EQ(res.reply.value("success", std::string()), "true");
     EXPECT_FALSE(res.reply.contains("error"));
     EXPECT_TRUE(res.restart);
@@ -299,24 +302,59 @@ TEST_F(DeviceFormatTest, PutFormat2KeepingTheDevicesIsAccepted)
     EXPECT_GT(backupFiles(), 0u);
 }
 
-TEST_F(DeviceFormatTest, PutRemovingOneOfTwoDevicesIsAccepted)
+TEST_F(DeviceFormatTest, DeclarationAsStringOrNewerFormatIsAccepted)
+{
+    for (const Json &declared: { Json("2"), Json(3), Json("10") })
+    {
+        loadTwoDevices();
+        saveConfig();
+        const std::string upload = houseXml(plainIo(), false);
+        PutResult res = putIo(upload, declared);
+        EXPECT_EQ(res.reply.value("success", std::string()), "true") << declared.dump();
+        EXPECT_TRUE(res.restart) << declared.dump();
+        EXPECT_EQ(ioXmlOnDisk(), upload) << declared.dump();
+    }
+}
+
+TEST_F(DeviceFormatTest, DeclaredClientMayRemoveSomeOrAllDevices)
 {
     loadTwoDevices();
     saveConfig();
-
-    const std::string upload = houseXml(plainIo() + deviceXml(DEV_FUTURE, "future_impl"), true);
-    PutResult res = putIo(upload);
+    std::string upload = houseXml(plainIo() + deviceXml(DEV_FUTURE, "future_impl"), true);
+    PutResult res = putIo(upload, Json(2));
     EXPECT_EQ(res.reply.value("success", std::string()), "true");
     EXPECT_TRUE(res.restart);
     EXPECT_EQ(ioXmlOnDisk(), upload);
 
+    //The last one too: that is what a format 1 looking file means from a
+    //client that declared it knows devices.
     loadTwoDevices();
     saveConfig();
-    const std::string upload2 = houseXml(plainIo() + deviceXml(DEV_A, "format_test"), true);
-    res = putIo(upload2);
+    upload = houseXml(plainIo(), false);
+    res = putIo(upload, Json(2));
     EXPECT_EQ(res.reply.value("success", std::string()), "true");
     EXPECT_TRUE(res.restart);
-    EXPECT_EQ(ioXmlOnDisk(), upload2);
+    EXPECT_EQ(ioXmlOnDisk(), upload);
+
+    reload(houseXml(plainIo() + deviceXml(DEV_FUTURE, "future_impl"), true));
+    saveConfig();
+    res = putIo(upload, Json(2));
+    EXPECT_EQ(res.reply.value("success", std::string()), "true");
+    EXPECT_TRUE(res.restart);
+}
+
+TEST_F(DeviceFormatTest, DeclaredClientUploadIsNotInspectedBeyondParsing)
+{
+    loadTwoDevices();
+    saveConfig();
+
+    //A newer format and a device without id: nothing in there is judged.
+    std::string upload = houseXml(plainIo() + "    <calaos:device type=\"climate\" impl=\"x\" />\n", true);
+    upload.replace(upload.find("format=\"2\""), 10, "format=\"3\"");
+    PutResult res = putIo(upload, Json(2));
+    EXPECT_EQ(res.reply.value("success", std::string()), "true");
+    EXPECT_TRUE(res.restart);
+    EXPECT_EQ(ioXmlOnDisk(), upload);
 }
 
 TEST_F(DeviceFormatTest, PutWithoutDevicesOnAHouseWithoutDevicesIsAccepted)

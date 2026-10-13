@@ -461,7 +461,7 @@ Voir [10_events_notifications.md](10_events_notifications.md) pour le détail.
 | `type` | Effet | Réponse |
 |---|---|---|
 | `get` | sauvegarde puis relit `io.xml`, `rules.xml`, `local_config.xml` | `{"config_files":{…},"io_format":2,"success":"true"}` |
-| `put` | écrit les fichiers fournis dans `config_files` après backup, puis **redémarre le serveur** une fois la réponse écrite | `{"success":"true"\|"false"}` ; refus : `{"success":"false","error":"…"}` |
+| `put` | écrit les fichiers fournis dans `config_files` (et `io_format`, voir ci-dessous) après backup, puis **redémarre le serveur** une fois la réponse écrite | `{"success":"true"\|"false"}` ; refus : `{"success":"false","error":"…"}` |
 
 `type` inconnu → `{"success":"false"}`. En `put`, seuls les trois noms de
 fichiers connus sont acceptés et le contenu doit commencer par `<?xml`
@@ -472,16 +472,17 @@ comprend ; 2 = peut contenir des `<calaos:device>` (`<calaos:home format="2">`, 
 device existe). Une réponse sans `io_format` vient d'un serveur de format 1 : un client ne doit
 pas lui envoyer de devices.
 
-**Refus d'un `put` qui perdrait des devices.** Si le serveur détient au moins un device (les
-devices inertes d'impl inconnue comptent) et que le `io.xml` fourni est de format 1 (attribut
-`format` absent ou < 2), ne s'analyse pas, ou ne contient **aucun** des ids de ces devices,
-le `put` est refusé en entier : ni backup, ni écriture (`rules.xml` et `local_config.xml`
-compris), ni redémarrage. Réponse :
+**Refus d'un `put` qui perdrait des devices.** Le client déclare son support dans la **requête**,
+pas dans le fichier : `config put` accepte une clef `io_format` à côté de `config_files`
+(entier ou chaîne numérique, `2` ou plus ; absente, inexploitable ou `< 2` = client de format 1).
+Si le serveur détient au moins un device (les devices inertes d'impl inconnue comptent) et que
+la requête ne déclare pas `io_format >= 2`, le `put` est refusé en entier : ni backup, ni
+écriture (`rules.xml` et `local_config.xml` compris), ni redémarrage. Un `io.xml` qui ne
+s'analyse pas est toujours refusé, déclaration ou non. Réponse :
 `{"success":"false","error":"update calaos_installer: this io.xml would drop N device(s)"}`
-avec N le nombre de devices du serveur. Un `put` de format 2 qui en garde au moins un est
-accepté, même s'il en retire d'autres. Conséquence connue : supprimer le **dernier** device
-passe par un `put` qui n'en garde aucun, donc refusé ; il faut alors le supprimer par l'API
-des IOs. Sans device côté serveur, ou sans clé `io.xml` dans `config_files`, rien n'est jugé.
+avec N le nombre de devices du serveur. Un client qui déclare `io_format >= 2` est cru : le
+contenu n'est plus inspecté, supprimer des devices, le dernier compris, est intentionnel. Sans
+device côté serveur, ou sans clef `io.xml` dans `config_files`, rien n'est jugé.
 
 ### `camera` — clé `type` (HTTP uniquement, 2)
 
