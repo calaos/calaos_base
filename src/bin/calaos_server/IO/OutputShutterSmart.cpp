@@ -43,7 +43,6 @@ OutputShutterSmart::OutputShutterSmart(Params &p):
     timer_impulse(NULL),
     timer_up(NULL),
     timer_down(NULL),
-    timer_calib(NULL),
     calibrate(false)
 {
     ioDoc->descriptionBaseSet(_("Smart shutter. This shutter calculates the position of the shutter based on the time it takes to open and close. It then allows to set directly the shutter at a specified position."));
@@ -261,8 +260,8 @@ bool OutputShutterSmart::set_value(std::string val)
                                            (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutterSmart::TimerImpulse) );
         }
 
-        timer_calib = new Timer((double)total_time,
-                                     (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutterSmart::TimerCalibrate) );
+        timer_calib = std::make_unique<Timer>((double)total_time,
+                                              (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutterSmart::TimerCalibrate));
     }
     else if (Utils::strStartsWith(val, "set_state "))
     {
@@ -702,11 +701,7 @@ void OutputShutterSmart::TimerCalibrate()
     setOutputUp(false);
     setOutputDown(false);
 
-    if (timer_calib)
-    {
-        delete timer_calib;
-        timer_calib = NULL;
-    }
+    timer_calib.reset();
 
     writePosition(0.);
 

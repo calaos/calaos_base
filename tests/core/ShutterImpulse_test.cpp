@@ -946,3 +946,21 @@ TEST_F(SmartShutterImpulseTest, ADeletedSmartShutterLeavesNoCalibrationTimerArme
     EXPECT_EQ(armedTimerCount(), before)
         << "the calibration timer outlived its shutter";
 }
+
+TEST_F(SmartShutterImpulseTest, ACalibrationThatEndsFreesItsTimer)
+{
+    loadConfig();
+
+    pumpLoopFor(800);
+    const int before = armedTimerCount();
+
+    Params p = smartParams("fb5_smart_calibrate_end", 1);
+    SmartShutterProbe sh(p);
+
+    ASSERT_TRUE(sh.set_value("calibrate"));
+    ASSERT_FALSE(sh.set_value("stop")) << "an action got through the calibration";
+
+    pumpLoopFor(1500);
+    EXPECT_EQ(armedTimerCount(), before);
+    EXPECT_TRUE(sh.set_value("stop")) << "the calibration never ended";
+}
