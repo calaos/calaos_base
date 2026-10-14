@@ -26,7 +26,9 @@
 namespace Calaos
 {
 
-class WOAnalog : public OutputAnalog
+//WagoMap outlives this IO and keeps its slots (reconnect, pending replies):
+//trackable cuts every sigc::mem_fun bound to it when the IO dies.
+class WOAnalog: public OutputAnalog, public sigc::trackable
 {
 private:
     int address;
@@ -35,6 +37,7 @@ private:
     int port;
 
     virtual void set_value_real(double val);
+    void readBack();
 
     void WagoReadCallback(bool status, WagoTypes::Address address, WagoTypes::Count count, vector<UWord> &values);
     /* T3.46 - taken BY VALUE on purpose. A parameter declared as a

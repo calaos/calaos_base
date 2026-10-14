@@ -91,19 +91,17 @@ WebCtrl &WebCtrl::Instance(Params &p)
     return hash[url];
 }
 
-
-void WebCtrl::Add(string path,
-                  double _frequency,
-                  std::function<void()> fileDownloaded_cb)
+uint64_t WebCtrl::Add(double _frequency, std::function<void()> fileDownloaded_cb)
 {
 
     if (!_frequency)
     {
        cError() << "The frequency parameter is NULL, please set a real value.";
-       return;
+       return 0;
     }
 
-    fileDownloadedCallbacks.push_back(std::make_pair(path, fileDownloaded_cb));
+    uint64_t id = ++lastCallbackId;
+    fileDownloadedCallbacks.push_back(std::make_pair(id, fileDownloaded_cb));
     if (!frequency || frequency > _frequency )
         frequency = _frequency;
 
@@ -115,14 +113,18 @@ void WebCtrl::Add(string path,
         timer->Reset(frequency);
 
     launchDownload();
+    return id;
 }
 
-void WebCtrl::Del(string path)
+void WebCtrl::Del(uint64_t id)
 {
-    for(unsigned int i = 0; i < fileDownloadedCallbacks.size(); i++)
+    for (auto it = fileDownloadedCallbacks.begin(); it != fileDownloadedCallbacks.end(); ++it)
     {
-        if (fileDownloadedCallbacks[i].first == path)
-            fileDownloadedCallbacks.erase(fileDownloadedCallbacks.begin() + i);
+        if (it->first == id)
+        {
+            fileDownloadedCallbacks.erase(it);
+            return;
+        }
     }
 }
 

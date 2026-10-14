@@ -189,3 +189,93 @@ TEST_F(WebIOTest, IoDocParametersPreserved)
     for (const char *paramName: {"url", "file_type", "path", "data", "data_type"})
         EXPECT_TRUE(n.count(paramName)) << paramName;
 }
+
+namespace
+{
+
+void writeWebDoc(const std::string &file, double num)
+{
+    std::ofstream f(file);
+    f << "{\"num\": " << num << "}";
+}
+
+Params webInput(const std::string &id, const std::string &url)
+{
+    return { { "type", "WebInputAnalog" },
+             { "id", id },
+             { "name", id },
+             { "url", url },
+             { "file_type", "json" },
+             { "path", "num" },
+             { "period", "10" },
+             { "enabled", "true" },
+             { "visible", "false" } };
+}
+
+} //namespace
+
+/* A WebCtrl is shared by every IO of a url, and its callbacks used to be
+ * removed by path: deleting one of two inputs on the same path unregistered
+ * the OTHER one and left the deleted IO's callback behind. Adding an input
+ * downloads a local file in line, which runs every callback. */
+TEST_F(WebIOTest, DeletingAWebInputKeepsTheOtherInputOfItsPathPolled)
+{
+    loadConfig();
+    const std::string file = cacheDir() + "/webio_fb4_shared.json";
+    const std::string url = "file://" + file;
+    writeWebDoc(file, 1);
+
+    IOBase *kept = createIO(webInput("web_fb4_kept", url));
+    IOBase *gone = createIO(webInput("web_fb4_gone", url));
+    ASSERT_NE(kept, nullptr);
+    ASSERT_NE(gone, nullptr);
+    ASSERT_TRUE(deleteIO(gone));
+
+    writeWebDoc(file, 2);
+    IOBase *trigger = createIO(webInput("web_fb4_trigger", url));
+    ASSERT_NE(trigger, nullptr);
+
+    EXPECT_DOUBLE_EQ(kept->get_value_double(), 2)
+        << "the surviving input is no longer polled";
+}
+
+/* The url and path of an IO can be changed at runtime (set_param from the
+ * JSON API or Lua): its callback must still be removed from the WebCtrl it
+ * was registered on. */
+TEST_F(WebIOTest, AWebInputWhoseUrlChangedIsStillUnregistered)
+{
+    loadConfig();
+    const std::string file = cacheDir() + "/webio_fb4_moved.json";
+    const std::string url = "file://" + file;
+    writeWebDoc(file, 1);
+
+    IOBase *moved = createIO(webInput("web_fb4_moved", url));
+    ASSERT_NE(moved, nullptr);
+    moved->set_param("url", "file://" + cacheDir() + "/webio_fb4_elsewhere.json");
+    moved->set_param("path", "elsewhere");
+    ASSERT_TRUE(deleteIO(moved));
+
+    IOBase *trigger = createIO(webInput("web_fb4_moved_trigger", url));
+    ASSERT_NE(trigger, nullptr);
+    EXPECT_DOUBLE_EQ(trigger->get_value_double(), 1);
+}
+
+//WebCtrl refuses a zero period: nothing is registered, nothing to remove.
+TEST_F(WebIOTest, AWebInputWithAZeroPeriodIsNeverPolled)
+{
+    loadConfig();
+    const std::string file = cacheDir() + "/webio_fb4_zero.json";
+    const std::string url = "file://" + file;
+    writeWebDoc(file, 3);
+
+    Params p = webInput("web_fb4_zero", url);
+    p.Add("period", "0");
+    IOBase *zero = createIO(p);
+    ASSERT_NE(zero, nullptr);
+    EXPECT_NE(zero->get_value_double(), 3);
+    ASSERT_TRUE(deleteIO(zero));
+
+    IOBase *trigger = createIO(webInput("web_fb4_zero_trigger", url));
+    ASSERT_NE(trigger, nullptr);
+    EXPECT_DOUBLE_EQ(trigger->get_value_double(), 3);
+}

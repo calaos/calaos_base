@@ -27,7 +27,9 @@
 namespace Calaos
 {
 
-class WODaliRVB : public OutputLightRGB
+//WagoMap outlives this IO and keeps its slots (reconnect, pending replies):
+//trackable cuts every sigc::mem_fun bound to it when the IO dies.
+class WODaliRVB: public OutputLightRGB, public sigc::trackable
 {
 private:
     std::string host;
