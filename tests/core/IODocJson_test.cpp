@@ -645,6 +645,24 @@ TEST(IODocJson, ARoleCanBeRequiredWhenAParamHasAValue)
     EXPECT_TRUE(contains(doc.genDocMd("x"), "r_when | when p_when=v_when | no | desc_when\n"));
 }
 
+//CLIM-4's rule (spec §6.3): humidity is required when emitter=floor and
+//output_cool is linked. The link is an AND with the param.
+TEST(IODocJson, ARequirementCanAlsoNeedALinkToExist)
+{
+    IODoc doc = deviceDoc();
+    doc.linkRoleAdd("r_when", "desc_when", false, false, "p_when", "v_when", "r_req");
+    doc.linkRoleAdd("r_plain", "desc_plain", false, false, "p_when", "v_when");
+
+    const Json roles = docToJson(doc).at("link_roles");
+    EXPECT_EQ(Json({ { "param", "p_when" }, { "value", "v_when" }, { "link", "r_req" } }),
+              roles.at(2).at("required_when"));
+    EXPECT_EQ(Json({ { "param", "p_when" }, { "value", "v_when" } }), roles.at(3).at("required_when"));
+
+    const std::string md = doc.genDocMd("x");
+    EXPECT_TRUE(contains(md, "r_when | when p_when=v_when and r_req | no | desc_when\n"));
+    EXPECT_TRUE(contains(md, "r_plain | when p_when=v_when | no | desc_plain\n"));
+}
+
 //The mark does not depend on the order of the calls: a constructor that marks
 //first, or adds again, must not lose it.
 TEST(IODocJson, AParamMarkedBeforeItIsAddedIsMarked)
