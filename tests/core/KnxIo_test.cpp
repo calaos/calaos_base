@@ -296,6 +296,42 @@ TEST_F(KnxIoTest, ARepeatedTelegramIsStillAReading)
     }
 }
 
+/* The input poll reads KNXCtrl's cache again every interval. With a
+ * conversion, comparing the raw value to the converted one signalled it again
+ * each time, and every signal dated a reading. */
+TEST_F(KnxIoTest, AConvertedValueReadAgainIsNotAReading)
+{
+    loadConfig();
+
+    Params p = {
+        { "type", "KNXInputTemp" }, { "id", "io_knx_conv" },  { "name", "io_knx_conv" },
+        { "knx_group", "0/3/7" },   { "host", "127.0.0.2" },  { "eis", "5" },
+        { "calc_expr", "x - 0.5" }, { "interval", "0.01" },   { "enabled", "true" },
+        { "visible", "false" },
+    };
+    IOBase *o = createIO(p);
+    ASSERT_NE(o, nullptr);
+    //The poll goes by the loop clock, which only moves when it is updated.
+    auto poll = [o]()
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        uvw::Loop::getDefault()->update();
+        o->hasChanged();
+    };
+
+    //Away from the cache, so that the first poll brings the cached value back.
+    ASSERT_TRUE(o->set_value(21.0));
+    poll();
+    EXPECT_DOUBLE_EQ(o->get_value_double(), -0.5);
+    ASSERT_TRUE(o->lastReading().has_value());
+    const auto first = *o->lastReading();
+
+    poll();
+    poll();
+    EXPECT_EQ(*o->lastReading(), first);
+    EXPECT_DOUBLE_EQ(o->get_value_double(), -0.5);
+}
+
 //Own main instead of gtest_main: skip static destructors, see file header.
 //(An object file's main always wins over the one in libgtest_main.)
 int main(int argc, char **argv)

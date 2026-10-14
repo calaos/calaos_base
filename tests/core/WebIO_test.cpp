@@ -445,3 +445,30 @@ TEST_F(WebIOTest, ARepeatedDownloadIsStillAReading)
               100);
     EXPECT_EQ(*in->lastReading(), failed);
 }
+
+/* WebCtrl reads a local file again on every period, and the input compared
+ * the raw value to the converted one: with a conversion it signalled the
+ * same value again each time, and every signal dated a reading. */
+TEST_F(WebIOTest, AConvertedValueReadAgainIsNotAReading)
+{
+    loadConfig();
+    const std::string file = cacheDir() + "/webio_conv.json";
+    const std::string url = "file://" + file;
+    {
+        std::ofstream f(file);
+        f << "{\"num\": 21.5}";
+    }
+
+    Params p = webInput("web_conv", url);
+    p.Add("calc_expr", "x - 0.5");
+    IOBase *conv = createIO(p);
+    ASSERT_NE(conv, nullptr);
+    ASSERT_DOUBLE_EQ(conv->get_value_double(), 21.0);
+    const auto first = conv->lastReading();
+
+    //Another input of the url reads the file again, for every input of it.
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    ASSERT_NE(createIO(webInput("web_conv_trigger", url)), nullptr);
+    EXPECT_EQ(conv->lastReading(), first);
+    EXPECT_DOUBLE_EQ(conv->get_value_double(), 21.0);
+}

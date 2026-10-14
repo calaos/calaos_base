@@ -183,6 +183,33 @@ TEST_F(OneWireReadingTest, ARepeatedScanIsStillAReading)
     EXPECT_EQ(*probe->lastReading(), second);
 }
 
+//The poll compared the raw value to the converted one, signalled it again
+//each time, and every signal dated a reading.
+TEST_F(OneWireReadingTest, AConvertedValueReadAgainIsNotAReading)
+{
+    Params p = { { "type", "OWTempProbe" }, { "id", "ow_conv" },     { "name", "ow_conv" },
+                 { "ow_id", kSensor },      { "ow_args", kArgs },    { "calc_expr", "x - 0.5" },
+                 { "enabled", "true" },     { "visible", "false" } };
+    auto *conv = dynamic_cast<OWTempProbe *>(createIO(p));
+    ASSERT_NE(conv, nullptr);
+
+    processSends(scan("21.5"));
+    ASSERT_TRUE(ExternProcSpawn::runLoopUntil([conv]()
+                                              {
+        conv->readValue();
+        return conv->lastReading().has_value();
+    },
+                                              5000));
+    EXPECT_DOUBLE_EQ(conv->get_value_double(), 21.0);
+    const auto first = *conv->lastReading();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    conv->readValue();
+    conv->readValue();
+    EXPECT_EQ(*conv->lastReading(), first);
+    EXPECT_DOUBLE_EQ(conv->get_value_double(), 21.0);
+}
+
 int main(int argc, char **argv)
 {
     ::testing::InitGoogleTest(&argc, argv);

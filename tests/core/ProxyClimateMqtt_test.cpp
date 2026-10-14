@@ -225,6 +225,11 @@ std::string house()
     std::string sensors;
     sensors += mqtt("input", "MqttInputTemp", "e2e_temp", "topic_sub=\"" + t("temp") + "\"");
     sensors += mqtt("input", "MqttInputAnalog", "e2e_hum", "topic_sub=\"" + t("hum") + "\"");
+    //Converted, and polled as fast as the case needs.
+    for (const char *type: { "MqttInputTemp", "MqttInputAnalog" })
+        sensors += mqtt("input", type, std::string("e2e_conv_") + type,
+                        "topic_sub=\"" + t(std::string("conv_") + type) +
+                            "\" calc_expr=\"x - 0.5\" interval=\"0.01\" enabled=\"true\"");
 
     const std::string salon =
         "    <calaos:device id=\"e2e\" type=\"climate\" impl=\"proxy\" name=\"e2e\">\n" + ac +
@@ -397,6 +402,46 @@ TEST_F(ProxyClimateMqttTest, ARetainedMessageIsNotAReading)
                                                   5000))
             << sensor;
         EXPECT_EQ(*in->lastReading(), live) << sensor;
+    }
+}
+
+/* The input poll reads the last message again every interval. With a
+ * conversion, comparing the raw value to the converted one signalled it
+ * again each time, and every signal dated a reading: a replayed message
+ * became fresh, and a silent sensor stayed fresh for ever. */
+TEST_F(ProxyClimateMqttTest, ARereadOfAConvertedValueIsNotAReading)
+{
+    for (const std::string type: { "MqttInputTemp", "MqttInputAnalog" })
+    {
+        IOBase *in = io("e2e_conv_" + type);
+        ASSERT_NE(in, nullptr) << type;
+        const std::string topic = t("conv_" + type);
+        auto poll = [in]()
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            in->hasChanged();
+        };
+
+        brokerReplays(topic, "21.5");
+        ASSERT_TRUE(ExternProcSpawn::runLoopUntil([&]()
+                                                  {
+            return in->get_value_double() == 21.0;
+        },
+                                                  5000))
+            << type;
+        poll();
+        EXPECT_FALSE(in->lastReading().has_value()) << type;
+        EXPECT_DOUBLE_EQ(in->get_value_double(), 21.0) << type;
+
+        brokerSays(topic, "21.5", [&]()
+                   {
+            return in->lastReading().has_value();
+        });
+        const auto live = *in->lastReading();
+        poll();
+        poll();
+        EXPECT_EQ(*in->lastReading(), live) << type;
+        EXPECT_DOUBLE_EQ(in->get_value_double(), 21.0) << type;
     }
 }
 
