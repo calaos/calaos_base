@@ -628,6 +628,7 @@ protected:
     {
         Calaos::IOBase *io = makeProbe(type, hostSuffix);
         ASSERT_NE(nullptr, io) << type;
+        EXPECT_TRUE(io->datesEveryReading()) << type;
 
         reply<Probe>(io, true, { 215 });
         ASSERT_TRUE(io->lastReading().has_value()) << type;

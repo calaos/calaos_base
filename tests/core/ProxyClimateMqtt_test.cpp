@@ -317,6 +317,7 @@ TEST_F(ProxyClimateMqttTest, ARepeatedReadingIsStillAReading)
     {
         IOBase *in = io("e2e_" + sensor);
         ASSERT_NE(in, nullptr) << sensor;
+        EXPECT_TRUE(in->datesEveryReading()) << sensor;
         brokerSays(t(sensor), "21.5", [&]()
                    {
             return in->lastReading().has_value();

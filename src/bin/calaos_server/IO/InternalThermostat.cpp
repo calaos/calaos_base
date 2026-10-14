@@ -148,6 +148,9 @@ void InternalThermostat::resolveLinks()
     if (floorCooling && outputIo(cool) && !linkIo("humidity"))
         cErrorDom("device") << "Device(" << id << "): emitter=floor without a humidity link, "
                             << "cool and auto are refused";
+    warnIfChangesOnly("current_temp");
+    if (floorCooling)
+        warnIfChangesOnly("humidity");
 
     //A duplicate id: the device holding it regulates, this one never does.
     if (ListeRoom::Instance().get_io(id) != this)

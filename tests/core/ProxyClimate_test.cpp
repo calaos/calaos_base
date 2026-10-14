@@ -115,6 +115,8 @@ public:
     DATA_TYPE get_type() override { return TSTRING; }
     std::string get_value_string() override { return text; }
     double get_value_double() override { return number; }
+    //Each deliver() signals, a repeated value too.
+    bool datesEveryReading() override { return get_param("changes_only") != "true"; }
 
     //InputAnalog and MqttInputAnalog take a write and send it nowhere:
     //accept="true" reproduces that, the plain feed refuses.

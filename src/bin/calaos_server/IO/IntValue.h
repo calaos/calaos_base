@@ -50,6 +50,9 @@ public:
     Internal(Params &p);
     ~Internal();
 
+    //Every write is signalled, an unchanged one too.
+    bool datesEveryReading() override { return true; }
+
     virtual DATA_TYPE get_type()
     {
         if (get_param("type") == "InternalBool") return TBOOL;

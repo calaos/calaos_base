@@ -46,6 +46,7 @@ public:
 
     DATA_TYPE get_type() override { return TINT; }
     double get_value_double() override { return value; }
+    bool datesEveryReading() override { return true; }
 
     void deliver(double v)
     {

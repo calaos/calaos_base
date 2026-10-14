@@ -219,6 +219,16 @@ void ClimateBase::resolveLinks()
     }
 }
 
+void ClimateBase::warnIfChangesOnly(const string &role)
+{
+    IOBase *io = linkIo(role);
+    if (io && !io->datesEveryReading())
+        cWarningDom("device") << "Device(" << get_param("id") << "): " << role << " '"
+                              << io->get_param("id") << "' (" << io->get_param("type")
+                              << ") only reports changes: steady for " << sensorTimeout()
+                              << " s, it counts as silent";
+}
+
 bool ClimateBase::isFresh(IOBase *io) const
 {
     if (!io || !io->lastReading())

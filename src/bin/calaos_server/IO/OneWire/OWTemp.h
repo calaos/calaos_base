@@ -38,6 +38,8 @@ protected:
 
 public:
     OWTemp(Params &p);
+
+    bool datesEveryReading() override { return true; }
 };
 
 #endif

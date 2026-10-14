@@ -121,6 +121,8 @@ public:
         logKnxGroup();
     }
 
+    bool datesEveryReading() override { return true; }
+
 protected:
     void readValue() override { refreshFloatValue(); }
 };
@@ -140,6 +142,8 @@ public:
         });
         logKnxGroup();
     }
+
+    bool datesEveryReading() override { return true; }
 
 protected:
     void readValue() override { refreshFloatValue(); }

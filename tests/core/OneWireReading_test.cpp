@@ -155,6 +155,7 @@ protected:
 
 TEST_F(OneWireReadingTest, ARepeatedScanIsStillAReading)
 {
+    EXPECT_TRUE(probe->datesEveryReading());
     processSends(scan("21.5"));
     ASSERT_TRUE(pollUntil([this]()
                           {

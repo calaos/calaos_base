@@ -231,6 +231,8 @@ TEST_F(WebIOTest, AllWebTypesInstantiateFromIoXml)
     EXPECT_DOUBLE_EQ(io("web_ana")->get_value_double(), 42.5);
     ASSERT_NE(io("web_temp"), nullptr);
     EXPECT_DOUBLE_EQ(io("web_temp")->get_value_double(), 21.5);
+    //Read again on each period, rewritten or not.
+    EXPECT_FALSE(io("web_temp")->datesEveryReading());
     ASSERT_NE(io("web_str"), nullptr);
     EXPECT_EQ(io("web_str")->get_value_string(), "hello");
 
@@ -404,6 +406,7 @@ TEST_F(WebIOTest, ARepeatedDownloadIsStillAReading)
                rulesXmlDocument(""));
     IOBase *in = io("web_fresh_temp");
     ASSERT_NE(in, nullptr);
+    EXPECT_TRUE(in->datesEveryReading());
 
     ASSERT_TRUE(pumpUntil([&]()
                           {

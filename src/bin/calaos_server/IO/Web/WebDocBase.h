@@ -107,6 +107,13 @@ protected:
         });
     }
 
+    //A local file is read again on each period, whether rewritten or not.
+    bool datesEveryReading() override
+    {
+        const string url = this->get_param("url");
+        return !Utils::strStartsWith(url, "/") && !Utils::strStartsWith(url, "file://");
+    }
+
     //Inside the polling callback: the document was just downloaded. The
     //input poll also calls readValue(), on the same old document.
     bool received = false;

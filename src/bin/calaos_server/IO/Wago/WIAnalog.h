@@ -45,6 +45,8 @@ protected:
 
 public:
     WIAnalog(Params &p);
+
+    bool datesEveryReading() override { return true; }
     ~WIAnalog();
 };
 

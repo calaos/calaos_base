@@ -144,6 +144,8 @@ void ProxyClimate::resolveLinks()
     if (linkIo(SOURCE) && !linkIo(REMOTE))
         cErrorDom("device") << "Device(" << id << "): link 'remote_temp_source' without a "
                             << "'remote_temp', nothing is relayed";
+    if (linkIo(REMOTE))
+        warnIfChangesOnly(SOURCE);
 
     if (hasDeviceParam("auto_payload") && getDeviceParam("auto_payload") != AUTO &&
         getDeviceParam("auto_payload") != HEAT_COOL)

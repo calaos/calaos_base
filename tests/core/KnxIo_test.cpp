@@ -270,6 +270,7 @@ TEST_F(KnxIoTest, ARepeatedTelegramIsStillAReading)
         };
         IOBase *o = createIO(p);
         ASSERT_NE(o, nullptr) << type;
+        EXPECT_TRUE(o->datesEveryReading()) << type;
         EXPECT_FALSE(o->lastReading().has_value()) << type;
 
         ctrl->valueChanged.emit(group, KNXValue::fromFloat(0, 5));

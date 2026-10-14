@@ -194,6 +194,11 @@ public:
      * they drop as unchanged report a steady sensor as alive. */
     std::optional<std::chrono::steady_clock::time_point> lastReading() const { return readingAt; }
 
+    /* True when the driver dates every value it receives, a repeated one
+     * included. Otherwise a steady sensor looks silent: a thermostat or a
+     * proxy linked to it says so at load. */
+    virtual bool datesEveryReading() { return false; }
+
     virtual void hasChanged() { }
 
     //Output specific functions

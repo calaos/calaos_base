@@ -136,6 +136,8 @@ protected:
     /* `io` has delivered a reading since the server started, the last one
      * less than sensor_timeout ago. */
     bool isFresh(IOBase *io) const;
+    //Logged at load: a sensor that does not date every reading looks silent while steady.
+    void warnIfChangesOnly(const string &role);
 
     Json deviceCapabilities() override;
     Json deviceState() override;
