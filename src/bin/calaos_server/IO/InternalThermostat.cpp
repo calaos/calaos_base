@@ -195,9 +195,13 @@ void InternalThermostat::resolveLinks()
 
     auto check = [this]()
     {
+        requestReadingIfOld("current_temp");
+        if (floorCooling)
+            requestReadingIfOld("humidity");
         evaluate();
     };
-    freshnessCheck = std::make_unique<Timer>(std::min(sensorTimeout(), FRESHNESS_POLL), check);
+    //Several times per sensor_timeout: an old sensor is asked before it is stale.
+    freshnessCheck = std::make_unique<Timer>(std::min(sensorTimeout() / 4, FRESHNESS_POLL), check);
 }
 
 double InternalThermostat::nonNegativeParam(const char *name, double def)

@@ -150,6 +150,9 @@ protected:
     string staleReason(Freshness f) const;
     //Logged at load: a sensor that does not date every reading looks silent while steady.
     void warnIfChangesOnly(const string &role);
+    /* A sensor that sends on change only stays silent in a steady room: past
+     * half of sensor_timeout without a reading, it is asked for one. */
+    void requestReadingIfOld(const string &role);
 
     Json deviceCapabilities() override;
     Json deviceState() override;

@@ -61,7 +61,8 @@ public:
     static constexpr double DEFAULT_PUT_BACK_DELAY = 1;
     static constexpr double DEFAULT_PUT_BACK_DELAY_MAX = 60;
     static constexpr double MIN_PUT_BACK_DELAY = 0.001;
-    //Longest wait before a silent sensor is seen stale, or a repeated reading fresh.
+    //Longest wait before a silent sensor is seen stale, a repeated reading fresh,
+    //or an old sensor asked for a reading.
     static constexpr double FRESHNESS_POLL = 60;
     //Values of the setpoint IOs recreated when the file lost them.
     static constexpr double DEFAULT_TARGET = 20;

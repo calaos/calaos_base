@@ -199,6 +199,9 @@ public:
      * proxy linked to it says so at load. */
     virtual bool datesEveryReading() { return false; }
 
+    //Asks the device for a reading, when its protocol can (a KNX group read).
+    virtual void requestReading() {}
+
     virtual void hasChanged() { }
 
     //Output specific functions

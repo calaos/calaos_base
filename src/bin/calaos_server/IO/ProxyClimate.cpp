@@ -258,6 +258,7 @@ void ProxyClimate::startRemoteTemp()
     keepalive = std::make_unique<Timer>(secondsParam("remote_temp_keepalive", DEFAULT_KEEPALIVE),
                                         [this]()
                                         {
+        requestReadingIfOld(SOURCE);
         relayRemoteTemp();
     });
 }

@@ -230,6 +230,18 @@ void ClimateBase::warnIfChangesOnly(const string &role)
                               << " s, it counts as silent";
 }
 
+void ClimateBase::requestReadingIfOld(const string &role)
+{
+    IOBase *io = linkIo(role);
+    if (!io)
+        return;
+    const auto last = io->lastReading();
+    const std::chrono::duration<double> age =
+        last ? std::chrono::steady_clock::now() - *last : std::chrono::duration<double>(0);
+    if (!last || age.count() > sensorTimeoutS / 2)
+        io->requestReading();
+}
+
 ClimateBase::Freshness ClimateBase::freshness(IOBase *io) const
 {
     //An ESPHome last will, a Zigbee availability topic: its last value stays.
