@@ -60,6 +60,11 @@ string OwCtrl::getValue(string owid)
     return mapValues[owid];
 }
 
+uint64_t OwCtrl::readingCount(const string &owid)
+{
+    return readings[owid];
+}
+
 string OwCtrl::getType(string owid)
 {
     return mapTypes[owid];
@@ -98,7 +103,13 @@ void OwCtrl::processNewMessage(const string &msg)
         if (it.find("id") != it.end())
         {
             if (it.find("value") != it.end())
-                mapValues[it["id"].get<string>()] = it["value"].get<string>();
+            {
+                const string id = it["id"].get<string>();
+                mapValues[id] = it["value"].get<string>();
+                //An empty value is a failed read of the sensor.
+                if (!mapValues[id].empty())
+                    readings[id]++;
+            }
             if (it.find("type") != it.end())
                 mapTypes[it["id"].get<string>()] = it["type"].get<string>();
         }
