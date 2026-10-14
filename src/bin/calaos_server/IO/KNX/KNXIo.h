@@ -24,6 +24,7 @@
 #include "ThinIo.h"
 #include "KNXBase.h"
 #include "AnalogIO.h"
+#include "ScopedConnection.h"
 
 namespace Calaos
 {
@@ -88,7 +89,7 @@ protected:
     //Forward KNXCtrl::valueChanged to cb for events on our listen group
     void onGroupChanged(const std::function<void(const KNXValue &)> &cb)
     {
-        ctrl()->valueChanged.connect([this, cb](const string group_addr, const KNXValue &v)
+        groupChanged = ctrl()->valueChanged.connect([this, cb](const string group_addr, const KNXValue &v)
         {
             if (group_addr == knxBase.getReadGroupAddr())
                 cb(v);
@@ -130,6 +131,10 @@ protected:
             this->emitChange();
         }
     }
+
+private:
+    //KNXCtrl outlives its IOs, and its slot runs on `this`
+    ScopedConnection groupChanged;
 };
 
 }

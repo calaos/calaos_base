@@ -58,6 +58,7 @@ libcalaos_common_la_SOURCES = \
         ExpressionEvaluator.cpp                 \
         Timer.cpp                               \
         Timer.h                                 \
+        ScopedConnection.h                      \
         Logger.cpp                              \
         Logger.h                                \
         Json_Addition.h                         \

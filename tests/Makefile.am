@@ -265,6 +265,13 @@ Utils_rand_test_LDADD = @CALAOS_SERVER_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 
+TESTS += ScopedConnection_test
+check_PROGRAMS += ScopedConnection_test
+ScopedConnection_test_SOURCES = ScopedConnection_test.cpp
+ScopedConnection_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+
 TESTS += TcpSocket_test
 check_PROGRAMS += TcpSocket_test
 TcpSocket_test_SOURCES = TcpSocket_test.cpp
