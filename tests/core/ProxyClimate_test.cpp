@@ -117,6 +117,8 @@ public:
     double get_value_double() override { return number; }
     //Each deliver() signals, a repeated value too.
     bool datesEveryReading() override { return get_param("changes_only") != "true"; }
+    void requestReading() override { requests++; }
+    int requests = 0;
 
     //InputAnalog and MqttInputAnalog take a write and send it nowhere:
     //accept="true" reproduces that, the plain feed refuses.
@@ -272,6 +274,7 @@ std::string house()
     salon += remoteDevice("bk", param("remote_temp_keepalive", "abc"));
     salon += remoteDevice("fz", param("remote_temp_keepalive", "0.05") + param("sensor_timeout", "0.2"));
     salon += remoteDevice("bt", param("sensor_timeout", "0"));
+    salon += remoteDevice("rq", param("remote_temp_keepalive", "0.05") + param("sensor_timeout", "0.4"));
     salon += device("co", out("co_remote") +
                               element("input", "FeedInput", "co_src", R"( changes_only="true")") +
                               link("remote_temp", "co_remote") + link("remote_temp_source", "co_src"));
@@ -784,6 +787,28 @@ TEST_F(ProxyClimateTest, ASilentSourceIsNoLongerRelayed)
         return writesTo("fz_remote").size() >= frozen + 3;
     }));
     EXPECT_DOUBLE_EQ(writesTo("fz_remote").back().number, 20.0);
+}
+
+//A source that sends on change only is asked for a reading before it goes
+//silent: never read, or read more than half of sensor_timeout ago.
+TEST_F(ProxyClimateTest, AnAgingSourceIsAskedForAReading)
+{
+    FeedInput *src = feed("rq_src");
+    pumpLoopFor(120);
+    EXPECT_GE(src->requests, 1);
+
+    src->deliver(20.0);
+    src->requests = 0;
+    pumpLoopFor(150);
+    EXPECT_EQ(src->requests, 0);
+    EXPECT_TRUE(runLoopUntil([src]()
+                             {
+        return src->requests >= 1;
+    }));
+    //Asked, and still relayed: not stale yet.
+    const size_t before = writesTo("rq_remote").size();
+    pumpLoopFor(60);
+    EXPECT_GT(writesTo("rq_remote").size(), before);
 }
 
 TEST_F(ProxyClimateTest, TheKeepAliveStopsWhenTheDeviceIsDestroyed)
