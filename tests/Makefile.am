@@ -7884,3 +7884,27 @@ core_WagoCommandRelease_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Wago/Wa
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#A Squeezebox deleted while its LMS connections are still connecting leaves
+#nothing listening on them. Port 1 of the loopback refuses the connections.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+SQUEEZEBOX_TEST_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/Squeezebox.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/SqueezeboxDB.$(OBJEXT)
+
+TESTS += core/SqueezeboxLifetime_test
+check_PROGRAMS += core/SqueezeboxLifetime_test
+core_SqueezeboxLifetime_test_SOURCES = core/SqueezeboxLifetime_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_SqueezeboxLifetime_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_SqueezeboxLifetime_test_LDADD = $(SQUEEZEBOX_TEST_OBJECTS) \
+                  $(AVR_TEST_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_SqueezeboxLifetime_test_DEPENDENCIES = $(SQUEEZEBOX_TEST_OBJECTS) \
+                  $(AVR_TEST_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
