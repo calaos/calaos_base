@@ -2,8 +2,8 @@
 
 ## REPRISE — lire en premier
 
-- **État (2026-10-14)** : 39 tickets mergés sur 48. CLIM-2, CLIM-3, CLIM-5, FIX-BASE-3 ✅. En
-  revue / correction : CLIM-4 (#195), DOC-1 (#194). FIX-BASE-4 (slots de contrôleurs, KNX) en cours.
+- **État (2026-10-14)** : 39 tickets mergés sur 48. CLIM-2, CLIM-3, CLIM-5, FIX-BASE-3 ✅. DOC-1 ✅. En
+  revue / correction : CLIM-4 (#195). FIX-BASE-4 (slots de contrôleurs, KNX) en cours.
   Ensuite MCP-1, DOC-2/3, INST-4/5, VAL-1 sur la box. Refonte UI climate : maquettes round 4 dans
   `/home/raoul/repos/calaos/climate-mockups/round4/`, publiées en gist secret
   https://gist.github.com/raoulh/53a744f13815a93c00c58ce188929fad (pousser via ghgit sur
