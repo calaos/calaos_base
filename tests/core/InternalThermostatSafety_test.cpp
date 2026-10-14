@@ -554,3 +554,34 @@ TEST_F(InternalThermostatSafetyTest, FloorCoolingWithoutHumidityOffersNoRange)
 
     EXPECT_TRUE(dev("fancoil")->deviceObject().at("capabilities").contains("target_temp_range"));
 }
+
+/* A device can say it is gone (ESPHome's last will, a Zigbee availability
+ * topic) while its last value stays: the sensor is not fresh then, whatever
+ * it delivers, until it says it is back. */
+TEST_F(InternalThermostatSafetyTest, ASensorThatSaysItIsDisconnectedIsNotFresh)
+{
+    load();
+    mode("boot", "heat");
+    set("boot_temp", 18);
+    ASSERT_TRUE(on("boot_heat"));
+
+    const std::string log = journal([]()
+                                    {
+        io("boot_temp")->setStatusInfo(IOBase::StatusType::Connected,
+                                       IOBase::StatusConnected::STATUS_DISCONNECTED);
+        set("boot_target", 22);
+    });
+    EXPECT_FALSE(on("boot_heat"));
+    EXPECT_EQ(count(log, "Device(boot): current_temp 'boot_temp' reports itself disconnected, "
+                         "the outputs are OFF"),
+              1u)
+        << log;
+
+    set("boot_temp", 18);
+    EXPECT_FALSE(on("boot_heat"));
+
+    io("boot_temp")->setStatusInfo(IOBase::StatusType::Connected,
+                                   IOBase::StatusConnected::STATUS_CONNECTED);
+    set("boot_temp", 18);
+    EXPECT_TRUE(on("boot_heat"));
+}
