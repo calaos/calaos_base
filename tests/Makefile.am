@@ -7845,3 +7845,25 @@ core_InFlightDownload_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Hue/HueOutputLightRGB.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/SynoSurveillanceStation.$(OBJEXT)
 endif
+
+#A Reolink switch and an A/V receiver IO still in their room at exit find
+#their controller alive (forked child, like ListeRoomTeardownOrder_test).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ControllerTeardownOrder_test
+check_PROGRAMS += core/ControllerTeardownOrder_test
+core_ControllerTeardownOrder_test_SOURCES = core/ControllerTeardownOrder_test.cpp
+core_ControllerTeardownOrder_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Reolink
+core_ControllerTeardownOrder_test_LDADD = $(AVR_TEST_OBJECTS) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkInputSwitch.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+core_ControllerTeardownOrder_test_DEPENDENCIES = $(AVR_TEST_OBJECTS) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkInputSwitch.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
