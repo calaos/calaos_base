@@ -55,9 +55,13 @@ Chaque champ porte `name`, `type`, `label`, `description` et `required`.
 | `number` | nombre | `min`, `max`, `step`, `unit`, `default` |
 | `bool` | case à cocher | `default` |
 | `enum` | une valeur parmi `values` | `values` : `[{value, label, params}]`, `default` |
-| `multi` | plusieurs valeurs parmi `values` | `values` (chaînes), `default` (liste) |
+| `multi` | plusieurs valeurs parmi `values` ; `required` : une au moins | `values` : `[{value, label}]`, `default` (liste de `value`) |
 | `room` | la pièce où le device est créé (un seul par template) | — |
 | `io` | un IO existant de la maison, cible d'un lien | `io_filter` : `{value: number\|bool\|string, writable}` |
+
+L'assistant affiche les `label` (traduits), jamais les `value`. Le champ `modes` des templates
+ESPHome est obligatoire : décoché en entier, le param ne serait pas écrit et le device offrirait
+tous les modes.
 
 `io_filter.value` est le type de valeur de l'IO (le `DATA_TYPE` du serveur : `TINT` pour
 `number`) ; `writable: true` demande un IO que le device peut écrire (sortie ou interne). Les
@@ -79,7 +83,10 @@ option rend toutes ses valeurs.
 ```
 
 - Un IO possédé devient `<calaos:{element} id type …params/>` dans le `<calaos:device>`. Son id
-  est `<id du device>_<key>` (spec §3.2), ou une variante libre si l'id est pris.
+  est `<id du device>_<key>` (spec §3.2). Si cet id est pris (un IO de la maison, un id réservé
+  par un device inerte, ou un id déjà attribué par l'assistant), l'id est `<id du device>_<key>_N`
+  avec N le plus petit entier à partir de 0 qui donne un id libre : la règle de
+  `Device::createOwnedLink()` (`get_new_id(id + "_")`).
 - Une référence `{"owned": key}` désigne l'IO possédé créé pour cette clé, `{"field": nom}` l'IO
   choisi dans un champ `io`.
 - `role` est un rôle de `link_roles` du device dans `io_doc.json`.
@@ -88,10 +95,12 @@ option rend toutes ses valeurs.
 
 1. **Substitution.** Dans toute valeur, `{nom}` est remplacé par la valeur du champ `nom`, et
    `{id}` par l'id du device. Une valeur `multi` s'écrit séparée par des virgules dans l'ordre
-   choisi, un `bool` en `true`/`false`, un nombre sans zéro inutile (`16`, `0.5`). Une accolade
+   de `values`, un `bool` en `true`/`false`, un nombre sans zéro inutile (`16`, `0.5`). Une accolade
    qui ne nomme ni un champ ni `id` reste telle quelle.
 2. **`when`.** Un IO, un lien, un param ou une note n'est créé que si le champ nommé est
-   « vrai » : `bool` coché, texte, `multi` ou `io` non vides. `!nom` inverse la condition.
+   « vrai » : `bool` coché, texte, `multi` ou `io` non vides. Un champ `number`, `enum` ou `room`
+   a toujours une valeur et vaut donc toujours vrai : `when` ne sert pas à tester une valeur
+   précise (passer par les `params` d'une option d'`enum`). `!nom` inverse la condition.
 3. **Valeur vide.** Un param d'IO ou de device dont la valeur substituée est vide n'est pas écrit
    (un `mqtt_user` laissé vide n'écrit pas `user=""`).
 4. **Lien sans cible.** Un lien vers un champ `io` vide ou vers un IO possédé non créé n'est pas
@@ -170,6 +179,11 @@ donne, dans la pièce `Salon` :
   `MqttOutput*` par rôle (lu sur `state`, écrit sur `command`, `data="__##VALUE##__"`) ; la
   température et l'action sont des `MqttInput*`. Les valeurs d'ESPHome sont en minuscules et
   sont celles de Calaos (`fan_only`, `heating`).
+- **Statut du nœud.** Chaque IO possédé porte `connected_status_topic="<topic_prefix>/status"` et
+  `connected_status_expr="value == 'online'"` : ESPHome y publie `online`, et `offline` par son
+  message de dernière volonté. Sans l'expression, seuls `true`, `1` et `yes` valent « connecté ».
+  Un nœud hors ligne passe ses IOs à `connected=false`, que voient l'état affichable (CLIM-6) et
+  la sûreté (une source de `remote_temp` déconnectée n'est plus relayée).
 - **`auto_payload` vaut `heat_cool`**, écrit dans le template. ESPHome distingue `heat_cool`
   (tenir une plage) de `auto` (programme de l'appareil) ; le mode `auto` de Calaos est la plage.
   `climate_ir` n'offre que `heat_cool`. Pour un composant qui rapporte `auto`, changer le param
@@ -267,7 +281,8 @@ Un climate infrarouge (`climate_ir`) ne prend pas de température distante (spec
   obligatoires présents, chaque param d'IO ou de device documenté, puis, pour dix jeux de valeurs
   (chaque option, chaque `when` dans les deux sens), un device qui se charge sans
   avertissement ni erreur, dont chaque lien se résout, et qui fait l'aller-retour XML sans
-  qu'un attribut écrit par le template ne soit perdu ou réécrit.
+  qu'un attribut écrit par le template ne soit perdu ou réécrit. Un device ESPHome suit le statut
+  `online`/`offline` que le faux sidecar publie sur `<topic_prefix>/status`.
 - `check-gentemplates.sh` : `calaos_server --gentemplates` écrit le fichier, et sort en erreur
   sur un chemin impossible.
 
