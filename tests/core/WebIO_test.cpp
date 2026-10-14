@@ -506,6 +506,37 @@ TEST_F(WebIOTest, ACallbackThatUnregistersItselfDoesNotSkipTheNextOne)
     ctrl.Del(trigger);
 }
 
+TEST_F(WebIOTest, ACallbackRemovedByAnEarlierOneIsNotCalled)
+{
+    Params p = { { "url", "fb5://removal" }, { "file_type", "json" } };
+    WebCtrl &ctrl = WebCtrl::Instance(p);
+
+    uint64_t victim = 0;
+    bool armed = false;
+    int victimCalls = 0;
+    const uint64_t first = ctrl.Add(10, [&](bool)
+                                    {
+        if (armed) ctrl.Del(victim);
+    });
+    victim = ctrl.Add(10, [&](bool)
+                      {
+        victimCalls++;
+    });
+
+    armed = true;
+    victimCalls = 0;
+    int triggerCalls = 0;
+    const uint64_t trigger = ctrl.Add(10, [&](bool)
+                                      {
+        triggerCalls++;
+    });
+    EXPECT_EQ(victimCalls, 0) << "a removed callback was called";
+    EXPECT_EQ(triggerCalls, 1) << "the walk stopped at the removed callback";
+
+    ctrl.Del(first);
+    ctrl.Del(trigger);
+}
+
 TEST_F(WebIOTest, ACallbackThatRegistersAnotherOneKeepsItsOwnState)
 {
     Params p = { { "url", "fb5://registration" }, { "file_type", "json" } };
