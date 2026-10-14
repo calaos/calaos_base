@@ -2,7 +2,7 @@
 
 ## REPRISE — lire en premier
 
-- **État (2026-10-14)** : 39 tickets mergés sur 48. CLIM-2, CLIM-3, CLIM-5, FIX-BASE-3 ✅. DOC-1 ✅. En
+- **État (2026-10-14)** : 39 tickets mergés sur 48. CLIM-2, CLIM-3, CLIM-5, FIX-BASE-3 ✅. DOC-1 ✅, FIX-BASE-4 ✅ (FIX-BASE-5 ouvert, restes de l'audit). En
   revue / correction : CLIM-4 (#195). FIX-BASE-4 (slots de contrôleurs, KNX) en cours.
   Ensuite MCP-1, DOC-2/3, INST-4/5, VAL-1 sur la box. Refonte UI climate : maquettes round 4 dans
   `/home/raoul/repos/calaos/climate-mockups/round4/`, publiées en gist secret
