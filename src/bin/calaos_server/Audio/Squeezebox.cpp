@@ -85,15 +85,14 @@ Squeezebox::Squeezebox(Params &p):
 
 Squeezebox::~Squeezebox()
 {
-    if (notifHandle && notifHandle->active())
+    //A connection still connecting is not active(), and one already closing
+    //still has its reconnect listener: both keep handlers on this player.
+    //The constructor opens both, so neither is ever null here.
+    for (auto &h: { notifHandle, conHandle })
     {
-        notifHandle->stop();
-        notifHandle->close();
-    }
-    if (conHandle && conHandle->active())
-    {
-        conHandle->stop();
-        conHandle->close();
+        h->clear();
+        if (!h->closing())
+            h->close();
     }
 
     if (timer_timeout)
