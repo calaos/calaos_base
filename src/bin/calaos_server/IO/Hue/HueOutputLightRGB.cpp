@@ -49,8 +49,12 @@ HueOutputLightRGB::HueOutputLightRGB(Params &p):
         string url = "http://" + m_host + "/api/" + m_api + "/lights/" + m_idHue;
         UrlDownloader *dl = new UrlDownloader(url, true);
         dl->setInsecureFromParam(get_param("insecure")); //T2.19: insecure unless insecure="false"
-        dl->m_signalCompleteData.connect([&](const string &downloadedData, int status)
-        {
+        //The download frees itself and may answer after this light is deleted.
+        dl->m_signalCompleteData.connect([this, alive = ioAlive.token()](const string &downloadedData, int status)
+                                         {
+            if (alive.expired())
+                return;
+
             if (status)
             {
                 //E4.1d: the whole reader lives in HueWire.h so that

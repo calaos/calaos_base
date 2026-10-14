@@ -172,11 +172,8 @@ void SynoSurveillanceStation::getSnapshot(std::function<void(const string &data)
     if (!get_param("camera_profile").empty())
         url += "&profileType=" + Utils::url_encode(get_param("camera_profile"));
 
-    UrlDownloader *dl = new UrlDownloader(url, true);
-    dl->setInsecureFromParam(get_param("insecure")); //T2.19: insecure unless insecure="false"
-
-    dl->m_signalCompleteData.connect([=](const string &data, int status)
-    {
+    httpGet(url, [cb](UrlDownloader *dl, const string &data, int status)
+            {
         cDebugDom("syno.ss") << "getSnapshot done, status: " << status;
 
         string contentType;
@@ -200,7 +197,6 @@ void SynoSurveillanceStation::getSnapshot(std::function<void(const string &data)
         //once (the old code fell through after cb({}) and called cb(data) too)
         cb(snapshotPayload(status, contentType, data));
     });
-    dl->httpGet();
 }
 
 void SynoSurveillanceStation::login(std::function<void(const string &sid)> cb)
@@ -210,11 +206,8 @@ void SynoSurveillanceStation::login(std::function<void(const string &sid)> cb)
     url += "&account=" + Utils::url_encode(get_param("username"));
     url += "&passwd=" + Utils::url_encode(get_param("password"));
 
-    UrlDownloader *dl = new UrlDownloader(url, true);
-    dl->setInsecureFromParam(get_param("insecure")); //T2.19: insecure unless insecure="false"
-
-    dl->m_signalCompleteData.connect([=](const string &data, int status)
-    {
+    httpGet(url, [this, cb](UrlDownloader *, const string &data, int status)
+            {
         if (status == 200)
         {
             bool err;
@@ -234,7 +227,6 @@ void SynoSurveillanceStation::login(std::function<void(const string &sid)> cb)
             cb({});
         }
     });
-    dl->httpGet();
 }
 
 void SynoSurveillanceStation::getApiInfo(const string &api, const string &method, const string &version,
@@ -243,11 +235,9 @@ void SynoSurveillanceStation::getApiInfo(const string &api, const string &method
     string url = SynoApiInfo;
     Utils::replace_str(url, "%1", get_param("url"));
     Utils::replace_str(url, "%2", api);
-    UrlDownloader *dl = new UrlDownloader(url, true);
-    dl->setInsecureFromParam(get_param("insecure")); //T2.19: insecure unless insecure="false"
 
-    dl->m_signalCompleteData.connect([=](const string &data, int status)
-    {
+    httpGet(url, [this, api, method, version, cb](UrlDownloader *, const string &data, int status)
+            {
         if (status == 200)
         {
             bool err;
@@ -277,6 +267,22 @@ void SynoSurveillanceStation::getApiInfo(const string &api, const string &method
             cWarning() << "HTTP error: " << status;
             cb({});
         }
+    });
+}
+
+void SynoSurveillanceStation::httpGet(const string &url,
+                                      std::function<void(UrlDownloader *, const string &, int)> done)
+{
+    UrlDownloader *dl = new UrlDownloader(url, true);
+    dl->setInsecureFromParam(get_param("insecure")); //T2.19: insecure unless insecure="false"
+
+    //Each hop of the chain may answer after this camera is deleted: the
+    //download frees itself, and `done` reaches the camera.
+    dl->m_signalCompleteData.connect([dl, done, alive = ioAlive.token()](const string &data, int status)
+                                     {
+        if (alive.expired())
+            return;
+        done(dl, data, status);
     });
     dl->httpGet();
 }

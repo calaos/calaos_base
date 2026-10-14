@@ -61,6 +61,9 @@ private:
 
     Json parseJsonResult(const string &data, bool &error);
 
+    void httpGet(const string &url,
+                 std::function<void(UrlDownloader *dl, const string &data, int status)> done);
+
     void getApiInfo(const string &api, const string &method, const string &version,
                     std::function<void(const string &url)> cb);
 
