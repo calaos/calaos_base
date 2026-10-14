@@ -121,7 +121,7 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
         {
             Params p;
             decodeDataObject(jroot, p);
-            if (!jsonApi->decodeSetState(p))
+            if (!jsonApi->decodeSetState(p, "a Lua script"))
                 cWarningDom("lua") << "Failed to decode set_state from Lua Script!";
         }
         else if (mtype == "set_param")

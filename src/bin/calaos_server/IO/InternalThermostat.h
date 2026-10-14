@@ -22,6 +22,7 @@
 #define S_INTERNALTHERMOSTAT_H
 
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <optional>
 
@@ -39,8 +40,15 @@ class InternalThermostat: public ClimateBase
 {
 public:
     InternalThermostat(Params &p);
+    ~InternalThermostat();
 
     void resolveLinks() override;
+
+    /* Spec §8.3, the observer registered with Device::observeOutsideWrites():
+     * warns when `io` is an output of a thermostat. It never refuses: the
+     * write goes on and the thermostat takes the output back by its own
+     * rules. */
+    static void warnIfProtected(IOBase &io, const char *source);
 
     //off, plus heat with output_heat, cool with output_cool, auto with both.
     vector<ClimateMode> supportedModes() override;
@@ -97,9 +105,15 @@ private:
             bool fighting = false;
             std::optional<uint64_t> putBackAt;
             uint64_t spacingMs = 0;
+            //The last write of the thermostat was a put-back.
+            bool putBackWritten = false;
         } st;
 
         bool warned = false;
+        //Held OFF by the mode or by outputsAllowed(), whatever the demand.
+        bool stopForced = false;
+        //Last warning per "<source>", see warnIfProtected().
+        std::map<std::string, uint64_t> writeWarnedAt;
         //Already the output of another thermostat, or both outputs at once.
         bool refused = false;
         //Re-runs evaluate() once a deferred switch is allowed.
@@ -116,6 +130,7 @@ private:
 
     void evaluateSoon();
     void noticeOutput(Output &out, IOBase &io);
+    void warnWrite(Output &out, IOBase &io, const char *source);
     void regulate();
     bool demand(Output &out, double temp, const char *setpoint, bool cooling);
     //The state the thermostat holds: its last write, else what the IO reports.

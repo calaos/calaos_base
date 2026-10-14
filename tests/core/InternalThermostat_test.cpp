@@ -191,7 +191,7 @@ std::string fullThermostat(const std::string &id, bool cool, const std::string &
     return thermostatXml(id, inner + params) + roomIo("InternalInt", id + "_temp");
 }
 
-const std::vector<std::string> THERMOSTATS = { "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams", "safe", "slow", "fight", "duo_a", "duo_b", "both", "same", "duel", "tiny", "zero", "short" };
+const std::vector<std::string> THERMOSTATS = { "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams", "safe", "slow", "fight", "duo_a", "duo_b", "both", "same", "duel", "tiny", "zero", "short", "guard", "safefight" };
 
 std::string house()
 {
@@ -211,6 +211,12 @@ std::string house()
     //A minute lasts 0.6 s here: put-backs from 10 ms, doubled up to 0.6 s.
     const std::string fast = paramXml("put_back_delay", "0.01") + paramXml("put_back_delay_max", "0.6");
     ios += fullThermostat("fight", false, fast);
+    //Written by rules: warned at most once per source and output per 0.3 s.
+    ios += fullThermostat("guard", true, paramXml("put_back_delay", "0.01") + paramXml("put_back_delay_max", "0.3"));
+    ios += roomIo("InternalBool", "guard_sw") + roomIo("InternalBool", "guard_sw2") + roomIo("InternalBool", "guard_free");
+    std::string safefight = fullThermostat("safefight", false, fast);
+    safefight.replace(safefight.find("impl=\"thermostat\""), 17, "impl=\"test_safe_thermostat\"");
+    ios += safefight;
     ios += fullThermostat("duel", true, fast);
     //The shortest spacing allowed, and a minute of 60 ms.
     ios += fullThermostat("tiny", false, paramXml("put_back_delay", "0.001") + paramXml("put_back_delay_max", "0.06"));
@@ -309,6 +315,14 @@ std::string house()
     ios += roomIo("InternalInt", "badparams_temp");
 
     return ioXmlDocument(roomXml("Salon", "salon", ios));
+}
+
+int occurrences(const std::string &text, const std::string &needle)
+{
+    int n = 0;
+    for (size_t at = text.find(needle); at != std::string::npos; at = text.find(needle, at + 1))
+        n++;
+    return n;
 }
 
 std::string readFile(const std::string &path)
@@ -1234,23 +1248,23 @@ TEST_F(InternalThermostatTest, CommandsThroughSetState)
     Params p;
     p.Add("id", "rev");
     p.Add("value", R"({"mode":"heat","target_temp":22})");
-    EXPECT_TRUE(api.decodeSetState(p));
+    EXPECT_TRUE(api.decodeSetState(p, "a test"));
     EXPECT_EQ(num("rev_target"), 22);
     EXPECT_TRUE(on("rev_heat"));
 
     p.Add("value", R"({"mode":"auto","target_temp_low":20,"target_temp_high":25})");
-    EXPECT_TRUE(api.decodeSetState(p));
+    EXPECT_TRUE(api.decodeSetState(p, "a test"));
     EXPECT_EQ(num("rev_low"), 20);
     EXPECT_EQ(num("rev_high"), 25);
     EXPECT_FALSE(on("rev_heat"));
     EXPECT_FALSE(on("rev_cool"));
 
     p.Add("value", R"({"target_temp_high":20.5})");
-    EXPECT_FALSE(api.decodeSetState(p));
+    EXPECT_FALSE(api.decodeSetState(p, "a test"));
     EXPECT_EQ(num("rev_high"), 25);
 
     p.Add("value", "off");
-    EXPECT_TRUE(api.decodeSetState(p));
+    EXPECT_TRUE(api.decodeSetState(p, "a test"));
     EXPECT_EQ(state("rev").value("mode", ""), "off");
     EXPECT_EQ(str("rev_action"), "off");
 }
@@ -1480,4 +1494,265 @@ TEST_F(InternalThermostatTest, DeletedBeforeItsFirstEvaluation)
     ASSERT_TRUE(deleteIO(io("th")));
     pumpFor(20);
     EXPECT_EQ(io("th"), nullptr);
+}
+
+//Spec §8.3: whatever writes an output of a thermostat is warned about, never
+//blocked.
+const std::string DRIVEN = "' is driven by the thermostat and was written by ";
+const std::string UNDONE = "' was switched ON again after the thermostat stopped it";
+
+TEST_F(InternalThermostatTest, ARuleWritingAnOutputIsWarnedAndTheValueIsApplied)
+{
+    load();
+    setpoints("guard", 21, 19, 23);
+    mode("guard", "auto");
+    temp("guard", 22);
+    ASSERT_NE(addSimpleRule("sw_heat", "guard_sw", "==", "true", "guard_heat", "true"), nullptr);
+    ASSERT_NE(addSimpleRule("sw_cool", "guard_sw2", "==", "true", "guard_cool", "true"), nullptr);
+    ASSERT_FALSE(on("guard_heat"));
+
+    auto writeHeat = []()
+    {
+        io("guard_sw")->set_value(true);
+    };
+    std::string log = journal(writeHeat);
+    EXPECT_TRUE(on("guard_heat"));
+    EXPECT_NE(log.find("Device(guard): output_heat 'guard_heat" + DRIVEN + "a rule;"), std::string::npos) << log;
+    EXPECT_EQ(log.find("output_cool"), std::string::npos) << log;
+    //Then the thermostat takes the output back.
+    EXPECT_TRUE(waitFor("guard_heat", false));
+
+    auto writeCool = []()
+    {
+        io("guard_sw2")->set_value(true);
+    };
+    log = journal(writeCool);
+    EXPECT_TRUE(on("guard_cool"));
+    EXPECT_NE(log.find("Device(guard): output_cool 'guard_cool" + DRIVEN + "a rule;"), std::string::npos) << log;
+    EXPECT_TRUE(waitFor("guard_cool", false));
+}
+
+//The thermostat's own writes, other IOs and the device itself are not protected.
+TEST_F(InternalThermostatTest, OnlyAnOutputOfAThermostatIsProtected)
+{
+    load();
+    ASSERT_NE(addSimpleRule("sw_free", "guard_sw", "==", "true", "guard_free", "true"), nullptr);
+    ASSERT_NE(addSimpleRule("sw_target", "guard_sw2", "==", "true", "guard_target", "23"), nullptr);
+
+    auto regulate = []()
+    {
+        setpoints("guard", 21, 19, 23);
+        mode("guard", "heat");
+        temp("guard", 19);
+        mode("guard", "off");
+    };
+    std::string log = journal(regulate);
+    EXPECT_EQ(log.find(DRIVEN), std::string::npos) << log;
+
+    auto write = []()
+    {
+        io("guard_sw")->set_value(true);
+        io("guard_sw2")->set_value(true);
+    };
+    log = journal(write);
+    EXPECT_TRUE(on("guard_free"));
+    EXPECT_EQ(num("guard_target"), 23);
+    EXPECT_EQ(log.find(DRIVEN), std::string::npos) << log;
+}
+
+/* A rule firing again and again costs one line per source and output within
+ * put_back_delay_max (0.3 s here), and is heard again once the window is over. */
+TEST_F(InternalThermostatTest, TheWriteWarningIsLimitedPerSourceAndOutput)
+{
+    load();
+    setpoints("guard", 21, 19, 23);
+    mode("guard", "auto");
+    temp("guard", 22);
+    ASSERT_NE(addSimpleRule("sw_heat", "guard_sw", "==", "true", "guard_heat", "true"), nullptr);
+    ASSERT_NE(addSimpleRule("sw_cool", "guard_sw2", "==", "true", "guard_cool", "true"), nullptr);
+
+    auto burst = [](const char *sw)
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            io(sw)->set_value(false);
+            io(sw)->set_value(true);
+        }
+    };
+    const std::string heat = "Device(guard): output_heat 'guard_heat" + DRIVEN;
+    const std::string cool = "Device(guard): output_cool 'guard_cool" + DRIVEN;
+
+    auto heatBurst = [&]()
+    {
+        burst("guard_sw");
+    };
+    std::string log = journal(heatBurst);
+    EXPECT_EQ(occurrences(log, heat), 1) << log;
+
+    //Still within the window, which is put_back_delay_max and not put_back_delay;
+    //another output is a line of its own.
+    pumpFor(50);
+    auto bothBursts = [&]()
+    {
+        burst("guard_sw");
+        burst("guard_sw2");
+    };
+    log = journal(bothBursts);
+    EXPECT_EQ(occurrences(log, heat), 0) << log;
+    EXPECT_EQ(occurrences(log, cool), 1) << log;
+
+    pumpFor(350);
+    log = journal(heatBurst);
+    EXPECT_EQ(occurrences(log, heat), 1) << log;
+}
+
+//A deleted thermostat protects nothing; nor does a shadowed duplicate, which
+//drives nothing.
+TEST_F(InternalThermostatTest, AThermostatThatIsGoneProtectsNothing)
+{
+    load();
+    ASSERT_NE(addSimpleRule("sw_lock", "guard_sw", "==", "true", "lock_heat", "true"), nullptr);
+    ASSERT_TRUE(deleteIO(io("lock")));
+
+    auto write = []()
+    {
+        io("guard_sw")->set_value(true);
+    };
+    const std::string log = journal(write);
+    EXPECT_TRUE(on("lock_heat"));
+    EXPECT_EQ(log.find(DRIVEN), std::string::npos) << log;
+}
+
+TEST_F(InternalThermostatTest, AShadowedThermostatProtectsNothing)
+{
+    const std::string xml = ioXmlDocument(roomXml(
+        "Salon", "salon",
+        thermostatXml("dup", ownedXml("InternalInt", "dup_target", SAVED) +
+                                 ownedXml("InternalString", "dup_action") +
+                                 linkXml("target_temp", "dup_target") +
+                                 linkXml("action", "dup_action")) +
+            thermostatXml("dup", linkXml("output_heat", "dup_out")) +
+            roomIo("InternalBool", "dup_out") + roomIo("InternalBool", "dup_sw")));
+    load(xml);
+    ASSERT_NE(addSimpleRule("sw_dup", "dup_sw", "==", "true", "dup_out", "true"), nullptr);
+
+    auto write = []()
+    {
+        io("dup_sw")->set_value(true);
+    };
+    const std::string log = journal(write);
+    EXPECT_TRUE(on("dup_out"));
+    EXPECT_EQ(log.find(DRIVEN), std::string::npos) << log;
+}
+
+//Only the thermostat that holds an output is named, not the one that left it aside.
+TEST_F(InternalThermostatTest, TheWarningNamesTheThermostatHoldingTheOutput)
+{
+    load();
+    ASSERT_NE(addSimpleRule("sw_relay", "guard_sw", "==", "true", "duo_relay", "true"), nullptr);
+
+    auto write = []()
+    {
+        io("guard_sw")->set_value(true);
+    };
+    const std::string log = journal(write);
+    EXPECT_TRUE(on("duo_relay"));
+    EXPECT_EQ(occurrences(log, DRIVEN), 1) << log;
+    EXPECT_NE(log.find("Device(duo_a): output_heat 'duo_relay" + DRIVEN), std::string::npos) << log;
+}
+
+/* Each put-back that a rule undoes during a forced stop is an error, no more
+ * than one per put_back_delay since put-backs are spaced by it. The first
+ * switch ON is only warned about: nothing was put back yet. */
+TEST_F(InternalThermostatTest, ARuleUndoingAForcedOffIsAnErrorAtEachPutBack)
+{
+    load();
+    ASSERT_NE(addSimpleRule("heat_back_on", "fight_heat", "==", "false", "fight_heat", "true"), nullptr);
+    auto heat = count("fight_heat");
+
+    auto fight = []()
+    {
+        io("fight_heat")->set_value(true);
+        pumpFor(MINUTE_MS);
+    };
+    const std::string log = journal(fight);
+    const std::string error = "Device(fight): output_heat 'fight_heat" + UNDONE + " (mode off);";
+    const int errors = occurrences(log, error);
+    EXPECT_GE(errors, 3) << log;
+    EXPECT_LE(errors, 12) << log;
+    //One stop per put-back, the first ON having no put-back before it.
+    EXPECT_LE(errors, (heat->count - 1) / 2) << log;
+
+    const size_t warned = log.find("Device(fight): output_heat 'fight_heat' was switched by something else");
+    ASSERT_NE(warned, std::string::npos) << log;
+    ASSERT_NE(std::string::npos, log.find(error)) << log;
+    EXPECT_LT(warned, log.find(error));
+    EXPECT_EQ(occurrences(log, "was switched by something else"), 1) << log;
+
+    //The spacing doubles: the next minute is quieter.
+    auto minute = []()
+    {
+        pumpFor(MINUTE_MS);
+    };
+    const std::string later = journal(minute);
+    EXPECT_LE(occurrences(later, error), 6) << later;
+}
+
+TEST_F(InternalThermostatTest, ARuleUndoingASafetyStopIsAnErrorToo)
+{
+    load();
+    setpoints("safefight", 21, 0, 0);
+    mode("safefight", "heat");
+    temp("safefight", 19);
+    ASSERT_TRUE(on("safefight_heat"));
+    ASSERT_NE(addSimpleRule("heat_back_on", "safefight_heat", "==", "false", "safefight_heat", "true"), nullptr);
+
+    auto refuse = []()
+    {
+        ListeRoom::Instance().findIOAs<TestSafeThermostat>("safefight")->heatAllowed = false;
+        temp("safefight", 19.1);
+        pumpFor(MINUTE_MS);
+    };
+    const std::string log = journal(refuse);
+    EXPECT_GE(occurrences(log, "Device(safefight): output_heat 'safefight_heat" + UNDONE + " (safety);"), 3) << log;
+    EXPECT_EQ(log.find("(mode off)"), std::string::npos) << log;
+}
+
+//An undone put-back is one error, however often the output is then switched.
+TEST_F(InternalThermostatTest, AnUndonePutBackIsOneErrorWhateverFollows)
+{
+    load();
+    io("fight_heat")->set_value(true);
+    ASSERT_TRUE(waitFor("fight_heat", false));
+
+    auto toggle = []()
+    {
+        io("fight_heat")->set_value(true);
+        io("fight_heat")->set_value(false);
+        io("fight_heat")->set_value(true);
+    };
+    const std::string log = journal(toggle);
+    EXPECT_EQ(occurrences(log, "Device(fight): output_heat 'fight_heat" + UNDONE), 1) << log;
+}
+
+//Regulation that a rule keeps undoing is not a forced stop: no error, the
+//one warning stays.
+TEST_F(InternalThermostatTest, AnUndonePutBackOutsideAForcedStopIsNotAnError)
+{
+    load();
+    setpoints("fight", 21, 0, 0);
+    mode("fight", "heat");
+    temp("fight", 25);
+    ASSERT_NE(addSimpleRule("heat_back_on", "fight_heat", "==", "false", "fight_heat", "true"), nullptr);
+    auto heat = count("fight_heat");
+
+    auto fight = []()
+    {
+        io("fight_heat")->set_value(true);
+        pumpFor(MINUTE_MS);
+    };
+    const std::string log = journal(fight);
+    EXPECT_GE(heat->count, 6);
+    EXPECT_EQ(log.find(UNDONE), std::string::npos) << log;
+    EXPECT_EQ(occurrences(log, "was switched by something else"), 1) << log;
 }

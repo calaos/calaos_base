@@ -1401,7 +1401,7 @@ static const char *blankName(char c)
     }
 }
 
-bool JsonApi::decodeSetState(Params &jParam)
+bool JsonApi::decodeSetState(Params &jParam, const char *source)
 {
     bool success = true;
 
@@ -1430,6 +1430,7 @@ bool JsonApi::decodeSetState(Params &jParam)
     else
     {
         success = false;
+        Device::writtenFromOutside(*io, source);
 
         if (io->get_type() == TBOOL)
         {

@@ -51,6 +51,9 @@ protected:
     //Whether a logged-in client receives this event: every event by default.
     virtual bool forwardsEvent(const CalaosEvent &) { return true; }
 
+    //Names this client in the warning for a write to a protected output.
+    virtual const char *setStateSource() const { return "set_state over WebSocket"; }
+
 private:
     //Source address of the client, "unknown" when there is no connection
     string clientIp() const;
