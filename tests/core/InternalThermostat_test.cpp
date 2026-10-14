@@ -1785,8 +1785,6 @@ TEST_F(InternalThermostatTest, TheDocumentedFieldsAreAcceptedExactlyWhenTheirLin
         { "target_temp", R"({"target_temp":21})" },
         { "target_temp_low", R"({"target_temp_low":19,"target_temp_high":23})" },
         { "target_temp_high", R"({"target_temp_low":19,"target_temp_high":23})" },
-        { "fan_mode", R"({"fan_mode":"auto"})" },
-        { "swing_mode", R"({"swing_mode":"off"})" },
     };
 
     ASSERT_EQ(samples.size(), doc.at("command_fields").size());

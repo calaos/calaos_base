@@ -85,6 +85,7 @@
 #include <algorithm>
 #include <map>
 #include <memory>
+#include <set>
 #include <vector>
 
 #include "CalaosCoreFixture.h"
@@ -603,6 +604,30 @@ TEST(IODocJson, AParamInAChildElementIsMarkedAndTheOthersAreNot)
 }
 
 //Marking an unknown name must not invent a parameter made of the mark alone.
+//The mark does not depend on the order of the calls: a constructor that marks
+//first, or adds again, must not lose it.
+TEST(IODocJson, AParamMarkedBeforeItIsAddedIsMarked)
+{
+    IODoc doc;
+    doc.paramInChild("p_early");
+    doc.paramAdd("p_early", "desc_early", IODoc::TYPE_STRING, false);
+
+    EXPECT_EQ("calaos:param", paramNamed(docToJson(doc), "p_early").at("storage").get<std::string>());
+    EXPECT_TRUE(contains(doc.genDocMd("x"), "p_early (calaos:param) | string"));
+}
+
+TEST(IODocJson, AParamAddedAgainKeepsItsMark)
+{
+    IODoc doc;
+    doc.paramAdd("p_again", "first", IODoc::TYPE_STRING, false);
+    doc.paramInChild("p_again");
+    doc.paramAddInt("p_again", "second", 1, 9, false, 5);
+
+    const Json p = paramNamed(docToJson(doc), "p_again");
+    EXPECT_EQ("second", p.at("description").get<std::string>());
+    EXPECT_EQ("calaos:param", p.at("storage").get<std::string>());
+}
+
 TEST(IODocJson, MarkingAnUnknownParamAddsNothing)
 {
     IODoc doc = deviceDoc();
@@ -620,6 +645,7 @@ TEST(IODocJson, TheMarkdownListsRolesFieldsAndChildParams)
 
     EXPECT_TRUE(contains(md, "Device of family `fam_x`, impl `impl_x`."));
     EXPECT_TRUE(contains(md, "## Link roles of Dev Name\n"));
+    EXPECT_TRUE(contains(md, "Writable: the device writes this link."));
     EXPECT_TRUE(contains(md, "r_req | yes | yes | desc_r_req\n"));
     EXPECT_TRUE(contains(md, "r_opt | no | no | desc_r_opt\n"));
     EXPECT_TRUE(contains(md, "## Command of Dev Name\n"));
@@ -910,6 +936,12 @@ TEST_F(IODocGenFileTest, TheThermostatIsDocumentedUnderDevicesLikeTheProxy)
     EXPECT_EQ("mode", mode.at("name").get<std::string>());
     EXPECT_EQ(Json::array({ "off", "heat", "cool", "auto" }), mode.at("values"));
     EXPECT_EQ(Json::array(), mode.at("requires_links"));
+    //fan_mode and swing_mode are the proxy's: the thermostat has no such link.
+    std::vector<std::string> names;
+    for (const Json &f: th.at("command_fields"))
+        names.push_back(f.at("name").get<std::string>());
+    EXPECT_EQ((std::vector<std::string>{ "mode", "target_temp", "target_temp_low", "target_temp_high" }),
+              names);
     const std::string modeText = mode.at("description").get<std::string>();
     EXPECT_TRUE(contains(modeText, "capabilities"));
     EXPECT_TRUE(contains(modeText, "cool needs output_cool"));
@@ -928,7 +960,7 @@ TEST_F(IODocGenFileTest, TheThermostatIsDocumentedUnderDevicesLikeTheProxy)
         { "target_temp", { true, true } },
         { "target_temp_low", { false, true } },
         { "target_temp_high", { false, true } },
-        { "action", { false, false } },
+        { "action", { false, true } },
         { "output_heat", { true, true } },
         { "output_cool", { false, true } },
     };
@@ -955,6 +987,26 @@ TEST_F(IODocGenFileTest, TheThermostatIsDocumentedUnderDevicesLikeTheProxy)
     }
     EXPECT_TRUE(contains(paramNamed(th, "put_back_delay").at("description").get<std::string>(), "0.001"));
     EXPECT_EQ("calaos:param", paramNamed(th, "min_range").at("storage").get<std::string>());
+
+    //Only what the thermostat reads: modes, fan_modes and swing_modes are the
+    //proxy's, a thermostat ignores them.
+    std::set<std::string> childParams;
+    for (const Json &p: th.at("parameters"))
+    {
+        if (p.contains("storage"))
+            childParams.insert(p.at("name").get<std::string>());
+    }
+    EXPECT_EQ((std::set<std::string>{ "min_range", "hysteresis", "min_on_time", "min_off_time",
+                                      "put_back_delay", "put_back_delay_max" }),
+              childParams);
+
+    //The outputs switch on past the hysteresis and off as the setpoint is crossed.
+    const std::string hysteresis = paramNamed(th, "hysteresis").at("description").get<std::string>();
+    EXPECT_TRUE(contains(hysteresis, "switching on"));
+    EXPECT_TRUE(contains(hysteresis, "as soon as the setpoint is crossed"));
+    //A stop that was asked for (mode off) or that safety needs does not wait.
+    EXPECT_TRUE(contains(paramNamed(th, "min_on_time").at("description").get<std::string>(),
+                         "except when the mode is off or a safety cut stops it"));
 }
 
 //io_doc.json is pretty printed with an indent of FOUR spaces. jansson was

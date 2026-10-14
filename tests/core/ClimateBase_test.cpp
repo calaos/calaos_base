@@ -920,8 +920,8 @@ TEST_F(ClimateBaseTest, TheFamilyAndItsParamsAreDocumentedByTheBase)
     for (const Json &p: doc.at("parameters"))
     {
         const std::string name = p.at("name").get<std::string>();
-        const bool shared = name == "modes" || name == "fan_modes" || name == "swing_modes" ||
-                            name == "min_range";
+        //Only what every impl reads: modes, fan_modes and swing_modes are the proxy's.
+        const bool shared = name == "min_range";
         EXPECT_EQ(shared, p.contains("storage")) << name;
     }
 }

@@ -18,6 +18,11 @@ AM_TESTS_ENVIRONMENT = \
 TESTS += check-config-options.sh check-config-docs.sh
 dist_check_SCRIPTS = check-config-options.sh check-config-docs.sh
 
+#check-potfiles-devices.sh: the IO sources that mark strings with _() must be in
+#po/POTFILES.in, or their IODoc texts are never translated.
+TESTS += check-potfiles-devices.sh
+dist_check_SCRIPTS += check-potfiles-devices.sh
+
 # T2.14: python suites (tests/python/, from T1.8 + T1.16) wired into make
 # check through a wrapper. PYTHON comes from AM_PATH_PYTHON via
 # AM_TESTS_ENVIRONMENT above.
