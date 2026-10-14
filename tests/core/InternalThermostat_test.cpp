@@ -1888,10 +1888,10 @@ TEST_F(InternalThermostatTest, TheDocumentedDefaultsAreTheConstantsTheCodeUses)
  * it never is. */
 TEST_F(InternalThermostatTest, EveryDocumentedParamIsRead)
 {
-    const std::set<std::string> takenAtLoad = { "hysteresis",     "min_on_time",
-                                                "min_off_time",   "put_back_delay",
+    const std::set<std::string> takenAtLoad = { "hysteresis", "min_on_time",
+                                                "min_off_time", "put_back_delay",
                                                 "put_back_delay_max", "sensor_timeout",
-                                                "emitter",        "humidity_max" };
+                                                "emitter", "humidity_max" };
     const std::set<std::string> askedWhenUsed = { "min_range" };
 
     load();
