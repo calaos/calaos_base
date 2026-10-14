@@ -164,10 +164,18 @@ Les deux effets comptent : le second est ce qui alimente InfluxDB pour les IOs m
 **Dernière lecture.** `lastReading()` donne l'instant (`steady_clock`) de la dernière valeur
 reçue depuis le démarrage, vide avant ; une valeur restaurée du cache d'état n'en est pas une.
 `EmitSignalIO()` l'horodate, ainsi que `markReading()` (protégé), qu'appellent les drivers qui
-écartent sans la signaler une valeur égale à la précédente : `MqttInputAnalog` et
-`MqttInputTemp` (sur un message, pas sur la relecture périodique du dernier),
-`WIAnalog` et `WITemp` (sur une réponse Modbus). Les autres drivers ne datent que les
-changements : une sonde stable y paraît muette.
+écartent sans la signaler une valeur égale à la précédente, là où la lecture arrive :
+`MqttInputAnalog`/`MqttInputTemp` sur un message, `WIAnalog`/`WITemp` sur une réponse
+Modbus, `OWTemp` quand le processus 1-Wire a renvoyé une valeur pour sa sonde (compteur par
+sonde dans `OwCtrl`), `KNXInputAnalog`/`KNXInputTemp` sur un télégramme de leur groupe,
+`WebInputAnalog`/`WebInputTemp` sur un téléchargement 2xx contenant un nombre. Pas dans
+`InputAnalog` : sa relecture périodique (`hasChanged()` → `readValue()`) relit le cache du
+driver et ne distingue pas une réception d'une relecture.
+`datesEveryReading()` (faux par défaut) dit si le driver date toute lecture : vrai pour ces
+drivers et pour les IOs internes (chaque écriture est signalée), faux pour un `WebInput*` sur
+fichier local (relu à chaque période, réécrit ou non). Un thermostat ou un proxy journalise
+au chargement une sonde (`current_temp`, `humidity` d'un plancher, `remote_temp_source`) qui
+ne date que ses changements : stable `sensor_timeout` secondes, elle compte comme muette.
 
 ### StatusInfo
 
@@ -532,8 +540,8 @@ spec §8.1 et §8.2. `impl="thermostat"` : Calaos régule.
   - **point de rosée** (`emitter=floor`) : la base refuse `output_cool` tant que `humidity`
     n'est pas fraîche (jamais lue depuis le démarrage, ou muette `sensor_timeout` s) ou lit
     `humidity_max` ou plus (défaut 65) ; journalisé à chaque changement de cause. Sans lien
-    `humidity`, `cool` et `auto` sont absents des modes et le chargement journalise
-    l'erreur ; `output_cool` reste une sortie du thermostat, tenue OFF. Le chauffage n'est
+    `humidity`, `cool` et `auto` sont absents des modes, `target_temp_range` n'est ni offert
+    ni appliqué (`isWritable()` refuse les bornes) et le chargement journalise l'erreur ; `output_cool` reste une sortie du thermostat, tenue OFF. Le chauffage n'est
     pas concerné ;
   - **démarrage** : le premier tour de boucle compte comme un passage à OFF des deux sorties,
     donc `min_off_time` s'écoule avant le premier ON (un relais coupé juste avant un
