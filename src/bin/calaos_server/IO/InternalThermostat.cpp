@@ -93,13 +93,21 @@ InternalThermostat::InternalThermostat(Params &p):
                                             "from outside to an output: one line per source and output "
                                             "during that time."),
                     IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_PUT_BACK_DELAY_MAX));
+    ioDoc->paramAdd("emitter", _("What the outputs drive. Only floor has an effect: floor cooling then needs a "
+                                 "humidity link and stops at humidity_max (dew point)."),
+                    IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("humidity_max", _("Relative humidity (%) from which floor cooling stops, with "
+                                      "emitter=floor. Not negative."),
+                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_HUMIDITY_MAX));
     for (const char *name: { "hysteresis", "min_on_time", "min_off_time", "put_back_delay",
-                             "put_back_delay_max" })
+                             "put_back_delay_max", "emitter", "humidity_max" })
         ioDoc->paramInChild(name);
 
     const string owner = _(" An output belongs to a single thermostat: a second one linking it ignores the link.");
     ioDoc->linkRoleAdd("current_temp", _("Temperature the regulation reads. The outputs stay off until it has "
-                                         "a value."),
+                                         "delivered a reading since the start (a cached or retained value does "
+                                         "not count), and while it has sent nothing for sensor_timeout or "
+                                         "reports itself disconnected."),
                        true, false);
     ioDoc->linkRoleAdd("target_temp", _("Setpoint used in heat and cool. Created when missing."), true, true);
     ioDoc->linkRoleAdd("target_temp_low", _("Low bound of the auto range. Created when missing, with output_cool."),
@@ -111,6 +119,10 @@ InternalThermostat::InternalThermostat(Params &p):
                        false, true);
     ioDoc->linkRoleAdd("output_heat", _("Output driven for heating. Enables heat.") + owner, true, true);
     ioDoc->linkRoleAdd("output_cool", _("Output driven for cooling. Enables cool and auto.") + owner, false, true);
+    ioDoc->linkRoleAdd("humidity", _("Relative humidity of the room. With emitter=floor, cooling stops while it "
+                                     "reads humidity_max or more, has not read, is stale or disconnected; "
+                                     "without it, a floor offers neither cool nor auto."),
+                       false, false, "emitter", "floor", "output_cool");
 
     documentCommand({ ClimateMode::Off, ClimateMode::Heat, ClimateMode::Cool, ClimateMode::Auto }, "",
                     _(" Heat needs the output_heat link, cool needs output_cool and auto needs both."),

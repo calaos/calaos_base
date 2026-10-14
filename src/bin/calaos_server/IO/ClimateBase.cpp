@@ -88,6 +88,12 @@ ClimateBase::ClimateBase(Params &p):
                                    "A range closer than that is refused."),
                     IODoc::TYPE_FLOAT, false, "0");
     ioDoc->paramInChild("min_range");
+    ioDoc->paramAdd("sensor_timeout", _("Seconds a linked sensor may go without a reading, a repeated value "
+                                        "included, before it counts as stale. A positive number; the default "
+                                        "outlasts one lost hourly Zigbee report. A sensor older than half of "
+                                        "it is asked for a reading when its protocol can (KNX)."),
+                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_SENSOR_TIMEOUT));
+    ioDoc->paramInChild("sensor_timeout");
 }
 
 void ClimateBase::documentModesParam()

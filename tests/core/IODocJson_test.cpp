@@ -1037,8 +1037,17 @@ TEST_F(IODocGenFileTest, TheThermostatIsDocumentedUnderDevicesLikeTheProxy)
         { "action", { false, true } },
         { "output_heat", { true, true } },
         { "output_cool", { false, true } },
+        { "humidity", { false, false } },
     };
     EXPECT_EQ(expected, roles);
+    //Required for a cooling floor only.
+    for (const Json &r: th.at("link_roles"))
+    {
+        if (r.at("role") == "humidity")
+            EXPECT_EQ(Json({ { "param", "emitter" }, { "value", "floor" }, { "link", "output_cool" } }),
+                      r.at("required_when"));
+    }
+    EXPECT_TRUE(contains(texts["current_temp"], "sensor_timeout"));
     //Decision 17: one output, one thermostat.
     for (const char *role: { "output_heat", "output_cool" })
         EXPECT_TRUE(contains(texts[role], "belongs to a single thermostat")) << role;
@@ -1050,6 +1059,8 @@ TEST_F(IODocGenFileTest, TheThermostatIsDocumentedUnderDevicesLikeTheProxy)
         { "min_off_time", "0" },
         { "put_back_delay", "1" },
         { "put_back_delay_max", "60" },
+        { "sensor_timeout", "9000" },
+        { "humidity_max", "65" },
     };
     for (const auto &d: defaults)
     {
@@ -1071,7 +1082,8 @@ TEST_F(IODocGenFileTest, TheThermostatIsDocumentedUnderDevicesLikeTheProxy)
             childParams.insert(p.at("name").get<std::string>());
     }
     EXPECT_EQ((std::set<std::string>{ "min_range", "hysteresis", "min_on_time", "min_off_time",
-                                      "put_back_delay", "put_back_delay_max" }),
+                                      "put_back_delay", "put_back_delay_max", "sensor_timeout",
+                                      "emitter", "humidity_max" }),
               childParams);
 
     //The outputs switch on past the hysteresis and off as the setpoint is crossed.

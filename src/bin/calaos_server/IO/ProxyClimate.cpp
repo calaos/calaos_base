@@ -78,8 +78,11 @@ ProxyClimate::ProxyClimate(Params &p):
     ioDoc->linkRoleAdd("remote_temp", _("Where the temperature of another sensor is written, for appliances that "
                                         "take one. Needs remote_temp_source."),
                        false, true);
-    ioDoc->linkRoleAdd("remote_temp_source", _("The sensor relayed to remote_temp. Needs remote_temp."), false,
-                       false);
+    ioDoc->linkRoleAdd("remote_temp_source", _("The sensor relayed to remote_temp. Needs remote_temp. Not relayed "
+                                               "before it has read since the start, nor while it has sent "
+                                               "nothing for sensor_timeout or reports itself disconnected: the "
+                                               "appliance then falls back to its own sensor."),
+                       false, false);
 
     documentModesParam();
     documentCommand(allModes(), "mode");
