@@ -7695,3 +7695,20 @@ core_WagoIoLifetime_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOVolet.$(OBJEXT)
 endif
+
+#A deleted RoonPlayer is not called by the next state of its zone: RoonCtrl
+#keeps the subscription as a sigc::slot so RoonPlayer's trackable cuts it.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/RoonZoneSubscription_test
+check_PROGRAMS += core/RoonZoneSubscription_test
+core_RoonZoneSubscription_test_SOURCES = core/RoonZoneSubscription_test.cpp
+core_RoonZoneSubscription_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_RoonZoneSubscription_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#The linked server objects are prerequisites, so touching one relinks this
+#binary. They are built by src/, never here (see the note above).
+core_RoonZoneSubscription_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif

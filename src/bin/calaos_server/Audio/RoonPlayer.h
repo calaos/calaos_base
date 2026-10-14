@@ -147,6 +147,10 @@ public:
     void subscribeZone(const string &zoneId, std::function<void(const RoonPlayerState &)> cb);
     void sendMessage(const string &msg);
 
+    //Where a zone state from the sidecar enters; public so a test can feed
+    //one without a running calaos_roon.
+    void processNewMessage(const string &msg);
+
 private:
     explicit RoonCtrl(const string &host, int port);
 
@@ -160,8 +164,6 @@ private:
     vector<string> procArgs;
 
     std::map<string, std::function<void(const RoonPlayerState &)>> subscribeCb;
-
-    void processNewMessage(const string &msg);
 };
 
 class RoonPlayer: public AudioPlayer, public sigc::trackable
