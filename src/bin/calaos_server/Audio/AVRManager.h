@@ -33,11 +33,11 @@ class AVRManager
 {
 private:
     AVRManager();
+    ~AVRManager() = delete;
 
     vector<AVReceiver *> avrs;
 public:
     static AVRManager &Instance(); //Singleton
-    ~AVRManager();
 
     AVReceiver *Create(Params &p);
     void Delete(AVReceiver *obj);
