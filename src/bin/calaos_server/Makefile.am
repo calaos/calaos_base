@@ -102,6 +102,8 @@ calaos_server_SOURCES = \
         IO/ExternProc.h                                 \
         IO/Device.cpp                                   \
         IO/Device.h                                     \
+        IO/DeviceTemplates.cpp                          \
+        IO/DeviceTemplates.h                            \
         IO/Gpio/GpioCtrl.cpp                            \
         IO/Gpio/GpioCtrl.h                              \
         IO/Gpio/GpioInputBase.h                         \

@@ -24,6 +24,11 @@ dist_check_SCRIPTS = check-config-options.sh check-config-docs.sh
 TESTS += check-potfiles-devices.sh
 dist_check_SCRIPTS += check-potfiles-devices.sh
 
+#check-gentemplates.sh: calaos_server --gentemplates writes the device
+#templates, and reports a path it cannot write to.
+TESTS += check-gentemplates.sh
+dist_check_SCRIPTS += check-gentemplates.sh
+
 # T2.14: python suites (tests/python/, from T1.8 + T1.16) wired into make
 # check through a wrapper. PYTHON comes from AM_PATH_PYTHON via
 # AM_TESTS_ENVIRONMENT above.
@@ -7957,4 +7962,43 @@ core_ClimateStatus_test_DEPENDENCIES = $(CLIMATE_STATUS_OBJECTS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 #Goldens are data, they must travel with the distribution
 EXTRA_DIST += core/golden/clim6_ws_get_home_status.json
+endif
+
+#The device templates against the server: registered types, known link roles,
+#documented params, and a device from each template that loads without a
+#warning and round-trips. Mqtt IOs with the stand-in sidecar, hence its own
+#main(). Own HAVE_GTEST block so this stays a pure append at the end of the
+#file.
+if HAVE_GTEST
+TESTS += core/DeviceTemplates_test
+check_PROGRAMS += core/DeviceTemplates_test
+core_DeviceTemplates_test_SOURCES = core/DeviceTemplates_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_DeviceTemplates_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt
+DEVICE_TEMPLATES_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/DeviceTemplates.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttBrokerslist.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttInputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttInputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttInputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttOutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttOutputString.$(OBJEXT)
+core_DeviceTemplates_test_LDADD = $(DEVICE_TEMPLATES_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_DeviceTemplates_test_DEPENDENCIES = $(DEVICE_TEMPLATES_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif
