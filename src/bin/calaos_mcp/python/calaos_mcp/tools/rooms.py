@@ -10,8 +10,9 @@ from calaos_mcp.tools._home import (
 
 def _parse_rooms(home: dict) -> list[dict]:
     result = []
+    protected = protected_outputs(home)
     for room in iter_rooms(home):
-        items = room.get("items", [])
+        items = [i for i in room.get("items", []) if i.get("id") not in protected]
         result.append({
             "name": safety.safe_name(room.get("name", "")),
             "type": room.get("type", ""),

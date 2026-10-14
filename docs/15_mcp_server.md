@@ -532,21 +532,23 @@ modèle lise les consignes et les capacités sans autre outil.
 - **Commande** : `set_io_state(device_id, valeur)` avec un mode (`off`) ou une commande JSON
   (`{"mode":"heat","target_temp":21.5}`). Le sidecar refuse ce que le serveur écarterait en
   silence : JSON invalide, champ absent des capacités de l'instance, valeur d'énumération hors
-  liste. Les bornes restent au serveur, qui les ramène dans l'intervalle. Le scope service pilote
+  liste, champ numérique qui n'est pas un nombre fini (une chaîne `"21.5"` est abandonnée par le
+  serveur qui répond quand même succès). L'impl est comparée sans casse, comme le fait
+  `IOFactory`. Les bornes restent au serveur, qui les ramène dans l'intervalle. Le scope service pilote
   les devices (décision 18).
 - **Sorties protégées** : `output_heat` et `output_cool` d'un device d'impl `thermostat` ne sont
   pas listées et `set_io_state` les refuse en nommant le thermostat. La liste est lue dans
   `device.ios`, à chaque écriture sur un `get_home` frais (`force=True`), jamais sur le cache.
 - **Cache de `get_home`** : les événements arrivent sous `{"msg":"event","data":{"type_str":…}}`.
-  Le client invalidait sur un type de message de premier niveau qui n'existe pas ; il invalide
-  maintenant sur `io_added`/`io_deleted`/`room_added`/`room_deleted` et applique `io_changed`
-  (état, et objet `device` remplacé en entier).
+  Le client invalide sur `io_added`, `io_deleted` et `room_changed` (émis quand un IO change de
+  pièce), applique `io_changed` (état, et objet `device` remplacé en entier) et vide le cache à
+  chaque déconnexion, le serveur pouvant revenir avec une autre topologie.
 - **Description de `set_io_state`** : générée au démarrage depuis `io_doc.json`
   (`command_format`, `command_fields`, valeurs, bornes, `requires_links`,
   `value_requires_links`), jamais écrite à la main. `calaos_server --gendoc` l'écrit au build dans
   `src/bin/calaos_mcp/io_doc.json` (anglais, `LC_ALL=C`), `make install` le place dans
   `share/calaos/` et le wrapper `calaos_mcp` exporte `CALAOS_IODOC_PATH`. Sans fichier (build
-  croisé, gendoc en échec), le sidecar démarre avec une description courte qui renvoie aux
+  croisé, gendoc en échec ou au-delà de 120 s, fichier mal formé), le sidecar démarre avec une description courte qui renvoie aux
   `capabilities`.
 
 #### Sanitisation des sorties (S3)

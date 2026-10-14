@@ -82,7 +82,10 @@ def protected_outputs(home: dict) -> dict[str, tuple[str, str]]:
         ios = device.get("ios")
         if not isinstance(ios, dict):
             continue
-        for role in _PROTECTED_ROLES.get(device.get("impl"), ()):
+        # IOFactory lowercases impl to build the device; get_home publishes it as
+        # written in io.xml, so an exact comparison would be bypassed by "Thermostat".
+        impl = str(device.get("impl", "")).strip().lower()
+        for role in _PROTECTED_ROLES.get(impl, ()):
             target = ios.get(role)
             if isinstance(target, str) and target:
                 protected[target] = (io.get("id", ""), role)

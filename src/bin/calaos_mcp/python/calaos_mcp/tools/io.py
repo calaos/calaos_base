@@ -153,9 +153,11 @@ _FIELD_CAPABILITY = {
 }
 # Command field -> the capability that lists its allowed values.
 _ENUM_FIELDS = {"mode": "modes", "fan_mode": "fan_modes", "swing_mode": "swing_modes"}
+# Without io_doc.json the type of a field is known from the table above.
+_NUMERIC_FIELDS = frozenset({"target_temp", "target_temp_low", "target_temp_high"})
 
 
-def _validate_device_command(value: str, io: dict, known_fields: set[str]) -> str:
+def _validate_device_command(value: str, io: dict, known_fields: dict[str, str]) -> str:
     """Check a device command and return it in the compact form the server parses.
 
     The server stays the authority on bounds (it clamps) and on what an instance
@@ -194,14 +196,26 @@ def _validate_device_command(value: str, io: dict, known_fields: set[str]) -> st
             raise ValueError(
                 f"{io_id!r} has no {needed} capability: the field {name!r} is not "
                 f"accepted by this device. Capabilities: {sorted(caps)}")
-        if isinstance(field, bool) or not isinstance(field, (str, int, float)):
+        kind = known_fields.get(name) or (
+            "number" if name in _NUMERIC_FIELDS else "enum" if name in _ENUM_FIELDS else "")
+        # The server drops a numeric field given as a string and still answers
+        # success, so the type is enforced here.
+        if kind == "number":
+            if isinstance(field, bool) or not isinstance(field, (int, float)):
+                raise ValueError(f"Field {name!r} must be a number, got {field!r}")
+            if not math.isfinite(field):
+                raise ValueError(f"Field {name!r} must be a finite number, got {field!r}")
+        elif kind == "enum":
+            if not isinstance(field, str):
+                raise ValueError(f"Field {name!r} must be a string, got {field!r}")
+        elif isinstance(field, bool) or not isinstance(field, (str, int, float)):
             raise ValueError(f"Field {name!r} must be a string or a number")
         listed = caps.get(_ENUM_FIELDS.get(name, ""))
         if listed is not None and field not in listed:
             raise ValueError(
                 f"{field!r} is not available for {name!r} on {io_id!r}. Available: {listed}")
     return _validate_value(
-        json.dumps(command, separators=(",", ":")), {**io, "var_type": "string"})
+        json.dumps(command, separators=(",", ":"), allow_nan=False), {**io, "var_type": "string"})
 
 
 async def set_io_state(client, io_id: str, value: str) -> dict:

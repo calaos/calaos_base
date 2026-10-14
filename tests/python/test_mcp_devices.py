@@ -114,6 +114,9 @@ DEVICE_DOC = {
         {"name": "target_temp", "type": "number", "min": 7.0, "max": 35.0,
          "step": 0.5, "unit": "°C", "description": "The setpoint.",
          "requires_links": ["target_temp"]},
+        {"name": "target_temp_low", "type": "number", "min": 7.0, "max": 35.0,
+         "step": 0.5, "unit": "\u00b0C", "description": "Low bound.",
+         "requires_links": ["target_temp_low", "target_temp_high"]},
         {"name": "fan_mode", "type": "enum", "values_param": "fan_modes",
          "description": "Fan.", "requires_links": ["fan_mode"]},
     ],
@@ -291,8 +294,8 @@ def test_a_plain_mode_is_sent_to_the_device():
     ('{"fan_mode":"low"}', "no fan_modes capability"),
     ('{"target_temp_low":18}', "no target_temp_range capability"),
     ('{"target_temp":NaN}', "Invalid number NaN"),
-    ('{"target_temp":true}', "string or a number"),
-    ('{"target_temp":[21]}', "string or a number"),
+    ('{"target_temp":true}', "must be a number"),
+    ('{"target_temp":[21]}', "must be a number"),
 ])
 def test_a_bad_device_command_is_refused_with_the_reason(command, message):
     client = FakeClient(make_home(with_cool=False))

@@ -49,13 +49,52 @@ def _parse(path: str) -> dict[str, dict]:
     devices = doc.get(_DEVICES_KEY) if isinstance(doc, dict) else None
     if not isinstance(devices, dict) or not devices:
         raise ValueError("no device in the file")
-    return {impl: d for impl, d in devices.items()
-            if isinstance(d, dict) and d.get("command_format") == "json"}
+    documented = {}
+    for impl, d in devices.items():
+        if not isinstance(d, dict) or d.get("command_format") != "json":
+            continue
+        if _well_formed(d):
+            documented[impl] = d
+        else:
+            LOG.warning("device '%s' ignored: malformed command_fields in %s", impl, path)
+    if not documented:
+        raise ValueError("no usable device in the file")
+    return documented
 
 
-def command_fields(devices: dict[str, dict]) -> set[str]:
-    return {f["name"] for d in devices.values()
-            for f in d.get("command_fields", []) if "name" in f}
+def _is_number(v) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _is_str_list(v) -> bool:
+    return isinstance(v, list) and all(isinstance(x, str) for x in v)
+
+
+def _well_formed_field(f) -> bool:
+    if not isinstance(f, dict) or not isinstance(f.get("name"), str):
+        return False
+    if f.get("type") == "enum":
+        ok = _is_str_list(f.get("values")) or isinstance(f.get("values_param"), str)
+    elif f.get("type") == "number":
+        ok = _is_number(f.get("min")) and _is_number(f.get("max"))
+        ok = ok and ("step" not in f or _is_number(f["step"]))
+    else:
+        return False
+    links = f.get("requires_links", [])
+    value_links = f.get("value_requires_links", {})
+    return (ok and _is_str_list(links) and isinstance(value_links, dict)
+            and all(_is_str_list(v) for v in value_links.values()))
+
+
+def _well_formed(device: dict) -> bool:
+    fields = device.get("command_fields")
+    return isinstance(fields, list) and all(_well_formed_field(f) for f in fields)
+
+
+def command_fields(devices: dict[str, dict]) -> dict[str, str]:
+    """Documented command field -> its type ('enum' or 'number')."""
+    return {f["name"]: f["type"] for d in devices.values()
+            for f in d.get("command_fields", [])}
 
 
 def _num(v: float) -> str:

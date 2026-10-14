@@ -27,7 +27,7 @@ _ALLOWED_ACTIONS = frozenset({
 })
 
 
-_TOPOLOGY_EVENTS = frozenset({"io_added", "io_deleted", "room_added", "room_deleted"})
+_TOPOLOGY_EVENTS = frozenset({"io_added", "io_deleted", "room_changed"})
 
 
 class CalaosClient:
@@ -72,6 +72,8 @@ class CalaosClient:
         """
         self._ready.clear()
         self._ws = None
+        # The server may come back with another topology (config put, restart).
+        self._home_cache = None
         pending, self._pending = self._pending, {}
         for fut in pending.values():
             if not fut.done():
@@ -116,10 +118,9 @@ class CalaosClient:
     def _on_event(self, event: dict) -> None:
         """Keep the cached get_home in step with the events calaos_server sends.
 
-        Events arrive as {"msg": "event", "data": {"type_str": ..., "data": ...}};
-        the cache was invalidated on a top-level message type that never occurs,
-        so states and the device objects (which the protected-output mask is
-        read from) stayed those of the first get_home.
+        Events arrive as {"msg": "event", "data": {"type_str": ..., "data": ...}}.
+        The protected-output mask is read from the device objects of the cache,
+        so they must follow io_changed and any change of topology.
         """
         kind = event.get("type_str", "")
         data = event.get("data", {})
