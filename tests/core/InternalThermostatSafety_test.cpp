@@ -541,3 +541,16 @@ TEST_F(InternalThermostatSafetyTest, ASensorThatOnlyReportsChangesIsLoggedAtLoad
         << log;
     EXPECT_EQ(count(log, "only reports changes"), 2u) << log;
 }
+
+//The range only serves auto, which such a floor cannot run.
+TEST_F(InternalThermostatSafetyTest, FloorCoolingWithoutHumidityOffersNoRange)
+{
+    load();
+    const Json caps = dev("nohum")->deviceObject().at("capabilities");
+    EXPECT_FALSE(caps.contains("target_temp_range")) << caps.dump();
+    EXPECT_TRUE(caps.contains("target_temp")) << caps.dump();
+    EXPECT_FALSE(dev("nohum")->set_value(std::string(R"({"target_temp_low":18,"target_temp_high":24})")));
+    EXPECT_EQ(io("nohum_low")->get_value_double(), 19);
+
+    EXPECT_TRUE(dev("fancoil")->deviceObject().at("capabilities").contains("target_temp_range"));
+}
