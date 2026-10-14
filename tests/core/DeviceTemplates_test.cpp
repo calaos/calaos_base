@@ -625,6 +625,11 @@ TEST_F(DeviceTemplatesTest, AnEsphomeDeviceFollowsTheStatusOfItsNode)
             EXPECT_TRUE(ExternProcSpawn::runLoopUntil(followed, 3000)) << status;
             for (const auto &kv: g.owned)
                 EXPECT_EQ(connected, io(kv.second)->getStatusInfo()["connected"]) << kv.first << " " << status;
+            //The proxy's availability is its mode link's (CLIM-6): only false is said.
+            const Json state = ListeRoom::Instance().findIOAs<Device>(v.name)->deviceObject().at("state");
+            EXPECT_EQ(connected == "false", state.contains("connected")) << status;
+            if (state.contains("connected"))
+                EXPECT_FALSE(state.at("connected").get<bool>());
         }
     }
 }
