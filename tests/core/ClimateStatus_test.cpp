@@ -84,6 +84,7 @@ std::string house()
     //A long lock-out, and one that ends during the case.
     ios += thermostat("lk", false, param("min_off_time", "3"));
     ios += thermostat("lk2", false, param("min_off_time", "0.3"));
+    ios += thermostat("lkc", true, param("min_off_time", "3"));
     ios += thermostat("st", false, param("sensor_timeout", "0.3"));
     ios += thermostat("nosensor", false, "", false);
     ios += thermostat("dw", true,
@@ -143,7 +144,7 @@ protected:
     void SetUp() override
     {
         JsonApiCharacterizationTest::SetUp();
-        for (const char *id: { "lk", "lk2", "st", "nosensor", "dw", "px_mode" })
+        for (const char *id: { "lk", "lk2", "lkc", "st", "nosensor", "dw", "px_mode" })
             forgetIOState(id);
         loadConfig(house(), rulesXmlDocument(""));
         //The first evaluation, on the first loop turn.
@@ -192,6 +193,20 @@ TEST_F(ClimateStatusTest, ALockOutSaysWhichOutputAndHowLong)
     mode("lk", "off");
     EXPECT_FALSE(state("lk").contains("lockout"));
     EXPECT_TRUE(publishedWhere(ws, "lk", [](const Json &st) { return !st.contains("lockout"); }));
+}
+
+TEST_F(ClimateStatusTest, ALockOutOfTheCoolingOutputSaysCool)
+{
+    WsTestSession ws;
+    set("lkc_target", 21);
+    set("lkc_temp", 25);
+    mode("lkc", "cool");
+    ASSERT_FALSE(io("lkc_cool")->get_value_bool());
+    EXPECT_EQ(state("lkc").at("lockout").at("output"), "cool");
+    EXPECT_TRUE(publishedWhere(ws, "lkc", [](const Json &st)
+                               {
+        return st.contains("lockout") && st.at("lockout").at("output") == "cool";
+    }));
 }
 
 TEST_F(ClimateStatusTest, TheRemainingTimeIsComputedAtEachPublication)

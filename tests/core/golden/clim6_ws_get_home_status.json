@@ -171,6 +171,126 @@
               "capabilities": {
                 "modes": [
                   "off",
+                  "heat",
+                  "cool",
+                  "auto"
+                ],
+                "reports_action": true,
+                "target_temp": {
+                  "max": 35.0,
+                  "min": 7.0,
+                  "min_range": 0.0,
+                  "step": 0.5,
+                  "unit": "°C"
+                },
+                "target_temp_range": true
+              },
+              "family": "climate",
+              "impl": "thermostat",
+              "ios": {
+                "action": "lkc_action",
+                "current_temp": "lkc_temp",
+                "output_cool": "lkc_cool",
+                "output_heat": "lkc_heat",
+                "target_temp": "lkc_target",
+                "target_temp_high": "lkc_high",
+                "target_temp_low": "lkc_low"
+              },
+              "state": {
+                "action": "off",
+                "mode": "off"
+              }
+            },
+            "gui_type": "climate",
+            "id": "lkc",
+            "io_type": "inout",
+            "name": "lkc",
+            "state": "off",
+            "type": "climate",
+            "var_type": "string"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "lkc_target",
+            "io_type": "inout",
+            "name": "lkc_target",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_string",
+            "id": "lkc_action",
+            "io_type": "inout",
+            "name": "lkc_action",
+            "rw": "false",
+            "state": "off",
+            "type": "InternalString",
+            "var_type": "string",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_bool",
+            "id": "lkc_heat",
+            "io_type": "inout",
+            "name": "lkc_heat",
+            "rw": "false",
+            "state": "false",
+            "type": "InternalBool",
+            "var_type": "bool",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "lkc_low",
+            "io_type": "inout",
+            "name": "lkc_low",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "lkc_high",
+            "io_type": "inout",
+            "name": "lkc_high",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_bool",
+            "id": "lkc_cool",
+            "io_type": "inout",
+            "name": "lkc_cool",
+            "rw": "false",
+            "state": "false",
+            "type": "InternalBool",
+            "var_type": "bool",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "lkc_temp",
+            "io_type": "inout",
+            "name": "lkc_temp",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "device": {
+              "capabilities": {
+                "modes": [
+                  "off",
                   "heat"
                 ],
                 "reports_action": true,
