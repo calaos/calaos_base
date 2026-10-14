@@ -8,7 +8,8 @@ check_PROGRAMS =
 AM_TESTS_ENVIRONMENT = \
               abs_top_srcdir='$(abs_top_srcdir)'; export abs_top_srcdir;     \
               abs_top_builddir='$(abs_top_builddir)'; export abs_top_builddir; \
-              PYTHON='$(PYTHON)'; export PYTHON;
+              PYTHON='$(PYTHON)'; export PYTHON;                              \
+              CALAOS_IODOC_PATH='$(abs_top_builddir)/src/bin/calaos_mcp/io_doc.json'; export CALAOS_IODOC_PATH;
 
 #check-config-options.sh: every config key used by the sources must be in the
 #ConfigOptions registry, no registry entry may be orphaned, no obsolete key may
@@ -47,6 +48,7 @@ EXTRA_DIST = \
               python/test_auth.py            \
               python/test_extern_proc.py     \
               python/test_logger.py          \
+              python/test_mcp_devices.py     \
               python/test_mcp_server.py      \
               python/test_reolink.py         \
               python/test_t116_mcp_client.py \
