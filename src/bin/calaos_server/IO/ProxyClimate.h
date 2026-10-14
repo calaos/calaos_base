@@ -90,8 +90,8 @@ private:
 
     std::unique_ptr<Timer> keepalive;
     IOChangeHub::Subscription sourceSubscription;
-    //The source read once, then went silent: logged once per silence.
-    bool sourceSilent = false;
+    //Logged when it changes: once per silence or disconnection.
+    Freshness sourceState = Freshness::NotRead;
 };
 
 } //namespace Calaos

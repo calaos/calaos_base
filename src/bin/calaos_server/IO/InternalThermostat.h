@@ -166,8 +166,8 @@ private:
     Output heat{ "output_heat" };
     Output cool{ "output_cool" };
 
-    //current_temp read once, then went silent: logged once per silence.
-    bool sensorStale = false;
+    //Logged when it changes: once per silence or disconnection.
+    Freshness sensorState = Freshness::NotRead;
 
     //emitter=floor: cooling needs a humidity below humidity_max.
     bool floorCooling = false;
@@ -176,7 +176,7 @@ private:
     {
         None,
         Unknown,
-        Silent,
+        Stale,
         High
     } humidityCut = HumidityCut::None;
     //Outputs claimed: a later thermostat must not drive them.

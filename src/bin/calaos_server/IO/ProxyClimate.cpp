@@ -273,17 +273,18 @@ void ProxyClimate::relayRemoteTemp()
     if (!source || !isWritable(REMOTE))
         return;
 
-    const bool fresh = isFresh(source);
-    const bool silent = !fresh && source->lastReading();
-    if (silent && !sourceSilent)
+    const Freshness f = freshness(source);
+    const bool stale = f == Freshness::Silent || f == Freshness::Disconnected;
+    if (stale && f != sourceState)
         cErrorDom("device") << "Device(" << get_param("id") << "): remote_temp_source '"
-                            << source->get_param("id") << "' has sent nothing for "
-                            << sensorTimeout() << " s, remote_temp is no longer relayed";
-    if (fresh && sourceSilent)
+                            << source->get_param("id") << "' " << staleReason(f)
+                            << ", remote_temp is no longer relayed";
+    if (f == Freshness::Fresh && sourceState != Freshness::Fresh &&
+        sourceState != Freshness::NotRead)
         cInfoDom("device") << "Device(" << get_param("id") << "): remote_temp_source '"
                            << source->get_param("id") << "' reads again, remote_temp is relayed";
-    sourceSilent = silent;
-    if (!fresh || source->getStatusInfo()["connected"] == "false")
+    sourceState = f;
+    if (f != Freshness::Fresh)
         return;
 
     writeTarget(REMOTE)->set_value(source->get_value_double());

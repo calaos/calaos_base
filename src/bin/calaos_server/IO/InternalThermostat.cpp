@@ -418,9 +418,12 @@ InternalThermostat::OutputPair InternalThermostat::outputsAllowed()
 bool InternalThermostat::humidityAllowsCooling()
 {
     IOBase *h = linkIo("humidity");
+    const Freshness f = freshness(h);
     HumidityCut cut = HumidityCut::None;
-    if (!isFresh(h))
-        cut = h && h->lastReading() ? HumidityCut::Silent : HumidityCut::Unknown;
+    if (f == Freshness::NotRead)
+        cut = HumidityCut::Unknown;
+    else if (f != Freshness::Fresh)
+        cut = HumidityCut::Stale;
     else if (h->get_value_double() >= humidityMax)
         cut = HumidityCut::High;
 
@@ -428,10 +431,9 @@ bool InternalThermostat::humidityAllowsCooling()
     if (cut == humidityCut)
         return cut == HumidityCut::None;
     //Not read yet since the start is waited for silently, like current_temp.
-    if (cut == HumidityCut::Silent)
-        cErrorDom("device") << "Device(" << id << "): humidity '" << h->get_param("id")
-                            << "' has sent nothing for " << sensorTimeout()
-                            << " s, output_cool is OFF";
+    if (cut == HumidityCut::Stale)
+        cErrorDom("device") << "Device(" << id << "): humidity '" << h->get_param("id") << "' "
+                            << staleReason(f) << ", output_cool is OFF";
     else if (cut == HumidityCut::High)
         cWarningDom("device") << "Device(" << id << "): humidity '" << h->get_param("id")
                               << "' reads " << h->get_value_double()
@@ -520,18 +522,18 @@ void InternalThermostat::noticeOutput(Output &out, IOBase &io)
 
 bool InternalThermostat::sensorFresh(IOBase *sensor)
 {
-    const bool fresh = isFresh(sensor);
-    //One that never read is waited for, not stale.
-    const bool stale = !fresh && sensor && sensor->lastReading();
-    if (stale && !sensorStale)
+    const Freshness f = freshness(sensor);
+    const bool stale = f == Freshness::Silent || f == Freshness::Disconnected;
+    if (stale && f != sensorState)
         cErrorDom("device") << "Device(" << get_param("id") << "): current_temp '"
-                            << sensor->get_param("id") << "' has sent nothing for "
-                            << sensorTimeout() << " s, the outputs are OFF";
-    if (fresh && sensorStale)
+                            << sensor->get_param("id") << "' " << staleReason(f)
+                            << ", the outputs are OFF";
+    if (f == Freshness::Fresh && sensorState != Freshness::Fresh &&
+        sensorState != Freshness::NotRead)
         cInfoDom("device") << "Device(" << get_param("id") << "): current_temp '"
                            << sensor->get_param("id") << "' reads again, regulation resumes";
-    sensorStale = stale;
-    return fresh;
+    sensorState = f;
+    return f == Freshness::Fresh;
 }
 
 void InternalThermostat::regulate()

@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <sstream>
 
 using namespace Calaos;
 
@@ -229,12 +230,24 @@ void ClimateBase::warnIfChangesOnly(const string &role)
                               << " s, it counts as silent";
 }
 
-bool ClimateBase::isFresh(IOBase *io) const
+ClimateBase::Freshness ClimateBase::freshness(IOBase *io) const
 {
+    //An ESPHome last will, a Zigbee availability topic: its last value stays.
+    if (io && io->getStatusInfo()["connected"] == "false")
+        return Freshness::Disconnected;
     if (!io || !io->lastReading())
-        return false;
+        return Freshness::NotRead;
     const std::chrono::duration<double> age = std::chrono::steady_clock::now() - *io->lastReading();
-    return age.count() < sensorTimeoutS;
+    return age.count() < sensorTimeoutS ? Freshness::Fresh : Freshness::Silent;
+}
+
+string ClimateBase::staleReason(Freshness f) const
+{
+    if (f == Freshness::Disconnected)
+        return "reports itself disconnected";
+    std::ostringstream reason;
+    reason << "has sent nothing for " << sensorTimeoutS << " s";
+    return reason.str();
 }
 
 vector<ClimateMode> ClimateBase::supportedModes()
