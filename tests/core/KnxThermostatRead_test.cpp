@@ -48,8 +48,7 @@ using namespace CalaosTest;
 namespace
 {
 
-//A host of its own: KNXCtrl keeps calling the slots of deleted IOs, the IOs
-//of another binary's cases must not hear these telegrams.
+//A host of its own, so that its two stand-in processes are the only ones.
 const char *const kHost = "127.0.0.3";
 const char *const kGroup = "1/2/3";
 

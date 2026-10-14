@@ -250,9 +250,8 @@ TEST_F(KnxIoTest, DeletingAnIoKeepsTheOtherIoOfItsGroupWired)
 
 /* A telegram repeating the value an input holds is still a reading
  * (IOBase::lastReading()): a thermostat on a steady KNX sensor must not see
- * it as silent; a telegram to another group is not one. KNXCtrl keeps
- * calling the slot of a deleted IO, so the IOs of the other cases must not
- * hear these telegrams: another host, another KNXCtrl. Nothing is deleted. */
+ * it as silent; a telegram to another group is not one. Another host,
+ * another KNXCtrl: the other cases count the slots of theirs. */
 TEST_F(KnxIoTest, ARepeatedTelegramIsStillAReading)
 {
     loadConfig();
