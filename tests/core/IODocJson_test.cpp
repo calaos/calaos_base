@@ -51,9 +51,9 @@
  *    would pin exactly what the ticket decided to give up.
  *
  *  - The ORDER OF THE ELEMENTS inside the parameters/conditions/actions
- *    ARRAYS. IODoc holds them in an unordered_map, so that order is a
- *    libstdc++ implementation detail today, jansson or nlohmann alike. Every
- *    helper below therefore sorts by "name" before comparing - which is also
+ *    ARRAYS, except in TheEntriesAreListedByName. IODoc holds them in an
+ *    unordered_map and sorts them on the way out, so these helpers do not
+ *    depend on it: every one below sorts by "name" before comparing - which is also
  *    what makes a swap of two documented parameters visible: sorting by name
  *    and comparing the whole object catches a payload that moved to another
  *    name, where a set comparison would not.
@@ -725,6 +725,51 @@ TEST(IODocJson, TheMarkdownListsRolesFieldsAndChildParams)
     EXPECT_TRUE(contains(md, "f_num | number | -5.5 to 40, step 0.25 u_unit | r_a, r_b | desc_f_num\n"));
     EXPECT_TRUE(contains(md, "p_child (calaos:param) | float | no | desc_child\n"));
     EXPECT_TRUE(contains(md, "p_attr | string | yes | desc_attr\n"));
+}
+
+//The files are diffed, and compared by the installer's CI: their order must not
+//depend on the hash order of the standard library. Forty names inserted in an
+//order that is neither alphabetical nor reversed cannot come out sorted by chance.
+TEST(IODocJson, TheEntriesAreListedByName)
+{
+    IODoc doc;
+    doc.friendlyNameSet("Sorted");
+    std::vector<std::string> names;
+    for (int i = 0; i < 40; i++)
+    {
+        char buf[16];
+        snprintf(buf, sizeof(buf), "n_%02d", (i * 17) % 40);
+        names.push_back(buf);
+    }
+    for (const std::string &n: names)
+    {
+        doc.paramAdd("p" + n, "d", IODoc::TYPE_STRING, false);
+        doc.conditionAdd("c" + n, "d");
+        doc.actionAdd("a" + n, "d");
+    }
+
+    const Json j = docToJson(doc);
+    const std::string md = doc.genDocMd("sorted");
+    size_t from[3] = { 0, 0, 0 };
+    const char *section[3] = { "parameters", "conditions", "actions" };
+    const char prefix[3] = { 'p', 'c', 'a' };
+    for (int k = 0; k < 3; k++)
+    {
+        ASSERT_EQ(40u, j.at(section[k]).size());
+        std::vector<std::string> inJson;
+        for (const Json &e: j.at(section[k]))
+            inJson.push_back(e.at("name").get<std::string>());
+        EXPECT_TRUE(std::is_sorted(inJson.begin(), inJson.end())) << section[k];
+
+        for (int i = 0; i < 40; i++)
+        {
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%cn_%02d", prefix[k], i);
+            const size_t at = md.find(std::string(buf) + " | ", from[k]);
+            ASSERT_NE(std::string::npos, at) << section[k] << " " << buf;
+            from[k] = at;
+        }
+    }
 }
 
 /*******************************************************************************
