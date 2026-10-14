@@ -42,7 +42,8 @@ private:
     int file_type;
     static unordered_map<string, WebCtrl> hash;
     void launchDownload();
-    vector<pair<uint64_t, std::function<void()>>> fileDownloadedCallbacks;
+    //The argument: a document was received, not an old one read again.
+    vector<pair<uint64_t, std::function<void(bool)>>> fileDownloadedCallbacks;
     uint64_t lastCallbackId = 0;
 
 public:
@@ -52,7 +53,7 @@ public:
     enum {XML, JSON, TEXT, UNKNOWN};
     //Returns the id to hand back to Del(), 0 when refused. Several IOs may
     //share a path, and their params can change after registration.
-    uint64_t Add(double _frequency, std::function<void()> fileDownloaded_cb);
+    uint64_t Add(double _frequency, std::function<void(bool)> fileDownloaded_cb);
     void Del(uint64_t id);
 
     /*

@@ -34,6 +34,13 @@ protected:
 
 public:
     MqttInputAnalog(Params &p);
+
+    bool datesEveryReading() override { return true; }
+
+private:
+    /* A message, as opposed to the input poll reading the last one again:
+     * a reading even when its value is unchanged. */
+    void readMessage();
 };
 
 }

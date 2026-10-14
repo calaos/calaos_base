@@ -72,6 +72,7 @@ MqttCtrl::MqttCtrl(const Params &params)
 
         //A callback may delete an IO, its own included: each one is looked up
         //again, and called through a copy that outlives its entry.
+        replaying = p["retain"] == "true";
         for (uint64_t id: matching)
         {
             auto it = subscribers.find(id);
@@ -81,6 +82,7 @@ MqttCtrl::MqttCtrl(const Params &params)
             MsgReceivedSignal callback = it->second.callback;
             callback(p["topic"], p["payload"]);
         }
+        replaying = false;
     });
 
     process->startProcess(exe, "mqtt");

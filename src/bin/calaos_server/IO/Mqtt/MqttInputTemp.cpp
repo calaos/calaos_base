@@ -33,18 +33,40 @@ REGISTER_IO(MqttInputTemp)
 MqttInputTemp::MqttInputTemp(Params &p):
     MqttIOBase(p, "MqttInputTemp", _("Temperature read from a mqtt broker"))
 {
-    subscribeTopicSub([this]() { readValue(); });
+    subscribeTopicSub([this]()
+                      {
+        readMessage();
+    });
 
     cInfoDom("input") << "MqttInputTemp::MqttInputTemp()";
+}
+
+void MqttInputTemp::readMessage()
+{
+    bool err;
+    ctrl->getValueDouble(get_params(), err);
+    //A message the broker replayed (retained) gives the value, but its sensor
+    //may be long dead: it is not a reading, even when the value changes.
+    replayed = ctrl->replayingRetained();
+    //readValue() signals a change only, yet the sensor is alive.
+    if (!err && !replayed)
+        markReading();
+    readValue();
+    replayed = false;
 }
 
 void MqttInputTemp::readValue()
 {
     bool err;
     double v = ctrl->getValueDouble(get_params(), err);
-    if (!err && v != value)
+    if (err)
+        return;
+    //Compared once converted: the input poll reads the last value again, and
+    //signalling it would date a reading.
+    const double converted = AnalogIO::convertValue(get_params(), v);
+    if (converted != value)
     {
-        value = AnalogIO::convertValue(get_params(), v);
+        value = converted;
         emitChange();
     }
 }

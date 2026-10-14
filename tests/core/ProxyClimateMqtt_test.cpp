@@ -31,12 +31,15 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#include <chrono>
 #include <cstring>
 #include <string>
+#include <thread>
 
 #include "CalaosCoreFixture.h"
 #include "ExternProc.h"
 #include "ExternProcSpawnHarness.h"
+#include "IOChangeHub.h"
 #include "MqttBrokersList.h"
 #include "MqttCtrl.h"
 #include "MqttWire.h"
@@ -146,12 +149,31 @@ bool nextPublishOn(const std::string &topic, std::string &payload, int timeoutMs
     return got;
 }
 
+void sidecarSends(const std::string &json)
+{
+    const std::string raw = ExternProcMessage(json).getRawData();
+    ASSERT_EQ((ssize_t)raw.size(), ::send(session().fd, raw.data(), raw.size(), 0));
+}
+
+void brokerSends(const std::string &topic, const std::string &payload)
+{
+    sidecarSends(MqttWire::encodeMessage(topic, payload));
+}
+
+//What the sidecar says of a message the broker replayed.
+void brokerReplays(const std::string &topic, const std::string &payload)
+{
+    Json m;
+    m["topic"] = topic;
+    m["payload"] = payload;
+    m["retain"] = true;
+    sidecarSends(m.dump());
+}
+
 void brokerSays(const std::string &topic, const std::string &payload,
                 const std::function<bool()> &settled)
 {
-    const std::string raw =
-        ExternProcMessage(MqttWire::encodeMessage(topic, payload)).getRawData();
-    ASSERT_EQ((ssize_t)raw.size(), ::send(session().fd, raw.data(), raw.size(), 0));
+    brokerSends(topic, payload);
     ASSERT_TRUE(ExternProcSpawn::runLoopUntil(settled, 5000))
         << "the server never acted on the message";
 }
@@ -199,12 +221,23 @@ std::string house()
     ro += mqtt("input", "MqttInputAnalog", "e2e_ro_target", "topic_sub=\"" + t("ro/target") + "\"");
     ro += link("mode", "e2e_ro_mode") + link("target_temp", "e2e_ro_target");
 
+    //Sensors as a thermostat or a proxy source reads them.
+    std::string sensors;
+    sensors += mqtt("input", "MqttInputTemp", "e2e_temp", "topic_sub=\"" + t("temp") + "\"");
+    sensors += mqtt("input", "MqttInputAnalog", "e2e_hum", "topic_sub=\"" + t("hum") + "\"");
+    //Converted, and polled as fast as the case needs.
+    for (const char *type: { "MqttInputTemp", "MqttInputAnalog" })
+        sensors += mqtt("input", type, std::string("e2e_conv_") + type,
+                        "topic_sub=\"" + t(std::string("conv_") + type) +
+                            "\" calc_expr=\"x - 0.5\" interval=\"0.01\" enabled=\"true\"");
+
     const std::string salon =
         "    <calaos:device id=\"e2e\" type=\"climate\" impl=\"proxy\" name=\"e2e\">\n" + ac +
         "    </calaos:device>\n"
         "    <calaos:device id=\"e2e_ro\" type=\"climate\" impl=\"proxy\" name=\"e2e_ro\">\n" +
         ro + "    </calaos:device>\n" +
-        "      <calaos:internal type=\"InternalInt\" id=\"e2e_src\" name=\"e2e_src\" visible=\"false\" />\n";
+        "      <calaos:internal type=\"InternalInt\" id=\"e2e_src\" name=\"e2e_src\" visible=\"false\" />\n" +
+        sensors;
 
     return ioXmlDocument(roomXml("Salon", "salon", salon));
 }
@@ -292,6 +325,124 @@ TEST_F(ProxyClimateMqttTest, InputsOnlyLinksCannotBeWritten)
     EXPECT_FALSE(dev("e2e_ro")->set_value(std::string("heat")));
     EXPECT_DOUBLE_EQ(io("e2e_ro_target")->get_value_double(), 0);
     EXPECT_FALSE(dev("e2e_ro")->deviceObject().at("state").contains("target_temp"));
+}
+
+/* The drivers drop a reading equal to the last one as unchanged, so a steady
+ * sensor that keeps reporting would look silent and its thermostat would stop
+ * (sensor_timeout). The reading counts; nothing is signalled. */
+TEST_F(ProxyClimateMqttTest, ARepeatedReadingIsStillAReading)
+{
+    for (const std::string sensor: { "temp", "hum" })
+    {
+        IOBase *in = io("e2e_" + sensor);
+        ASSERT_NE(in, nullptr) << sensor;
+        EXPECT_TRUE(in->datesEveryReading()) << sensor;
+        brokerSays(t(sensor), "21.5", [&]()
+                   {
+            return in->lastReading().has_value();
+        });
+        const auto first = *in->lastReading();
+
+        int changes = 0;
+        IOChangeHub::Subscription sub = IOChangeHub::Instance().subscribe(in->get_param("id"),
+                                                                          [&changes](IOBase &)
+                                                                          {
+            changes++;
+        });
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        brokerSays(t(sensor), "21.5", [&]()
+                   {
+            return *in->lastReading() > first;
+        });
+        EXPECT_EQ(changes, 0) << sensor;
+        EXPECT_DOUBLE_EQ(in->get_value_double(), 21.5) << sensor;
+
+        //Not a number: not a reading.
+        const auto second = *in->lastReading();
+        brokerSends(t(sensor), "n/a");
+        ExternProcSpawn::runLoopUntil([]()
+                                      {
+            return false;
+        },
+                                      200);
+        EXPECT_EQ(*in->lastReading(), second) << sensor;
+    }
+}
+
+/* A broker replays its retained messages at each connection, a dead
+ * sensor's last state included (ESPHome publishes retained): the value is
+ * taken, but it is not a reading. */
+TEST_F(ProxyClimateMqttTest, ARetainedMessageIsNotAReading)
+{
+    for (const std::string sensor: { "temp", "hum" })
+    {
+        IOBase *in = io("e2e_" + sensor);
+        ASSERT_NE(in, nullptr) << sensor;
+        brokerReplays(t(sensor), "21.5");
+        ASSERT_TRUE(ExternProcSpawn::runLoopUntil([&]()
+                                                  {
+            return in->get_value_double() == 21.5;
+        },
+                                                  5000))
+            << sensor;
+        EXPECT_FALSE(in->lastReading().has_value()) << sensor;
+
+        brokerSays(t(sensor), "21.5", [&]()
+                   {
+            return in->lastReading().has_value();
+        });
+        const auto live = *in->lastReading();
+
+        //A replay that changes the value: taken and signalled, still not a reading.
+        brokerReplays(t(sensor), "23");
+        ASSERT_TRUE(ExternProcSpawn::runLoopUntil([&]()
+                                                  {
+            return in->get_value_double() == 23;
+        },
+                                                  5000))
+            << sensor;
+        EXPECT_EQ(*in->lastReading(), live) << sensor;
+    }
+}
+
+/* The input poll reads the last message again every interval. With a
+ * conversion, comparing the raw value to the converted one signalled it
+ * again each time, and every signal dated a reading: a replayed message
+ * became fresh, and a silent sensor stayed fresh for ever. */
+TEST_F(ProxyClimateMqttTest, ARereadOfAConvertedValueIsNotAReading)
+{
+    for (const std::string type: { "MqttInputTemp", "MqttInputAnalog" })
+    {
+        IOBase *in = io("e2e_conv_" + type);
+        ASSERT_NE(in, nullptr) << type;
+        const std::string topic = t("conv_" + type);
+        auto poll = [in]()
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            in->hasChanged();
+        };
+
+        brokerReplays(topic, "21.5");
+        ASSERT_TRUE(ExternProcSpawn::runLoopUntil([&]()
+                                                  {
+            return in->get_value_double() == 21.0;
+        },
+                                                  5000))
+            << type;
+        poll();
+        EXPECT_FALSE(in->lastReading().has_value()) << type;
+        EXPECT_DOUBLE_EQ(in->get_value_double(), 21.0) << type;
+
+        brokerSays(topic, "21.5", [&]()
+                   {
+            return in->lastReading().has_value();
+        });
+        const auto live = *in->lastReading();
+        poll();
+        poll();
+        EXPECT_EQ(*in->lastReading(), live) << type;
+        EXPECT_DOUBLE_EQ(in->get_value_double(), 21.0) << type;
+    }
 }
 
 int main(int argc, char **argv)

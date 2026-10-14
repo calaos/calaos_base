@@ -7508,6 +7508,7 @@ PROXY_CLIMATE_MQTT_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/InputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputString.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT) \
@@ -7515,6 +7516,7 @@ PROXY_CLIMATE_MQTT_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttInputAnalog.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttInputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttInputTemp.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttOutputAnalog.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttOutputString.$(OBJEXT)
 core_ProxyClimateMqtt_test_LDADD = $(PROXY_CLIMATE_MQTT_OBJECTS) \
@@ -7722,6 +7724,88 @@ core_RoonZoneSubscription_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlaye
 #The linked server objects are prerequisites, so touching one relinks this
 #binary. They are built by src/, never here (see the note above).
 core_RoonZoneSubscription_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#InternalThermostat safety (spec §8.2): sensor freshness, dew point, start-up
+#lock-out. Own binary for its test-only IOs. Own HAVE_GTEST block so this stays
+#a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/InternalThermostatSafety_test
+check_PROGRAMS += core/InternalThermostatSafety_test
+core_InternalThermostatSafety_test_SOURCES = core/InternalThermostatSafety_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_InternalThermostatSafety_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_InternalThermostatSafety_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
+core_InternalThermostatSafety_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
+endif
+
+#OWTemp on a real OwCtrl and a stand-in calaos_1wire: a repeated scan is a
+#reading, the input poll is not. Own main() for the harness teardown. Own
+#HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/OneWireReading_test
+check_PROGRAMS += core/OneWireReading_test
+core_OneWireReading_test_SOURCES = core/OneWireReading_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_OneWireReading_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire
+ONEWIRE_READING_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OneWire/OWCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OneWire/OWTemp.$(OBJEXT)
+core_OneWireReading_test_LDADD = $(ONEWIRE_READING_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_OneWireReading_test_DEPENDENCIES = $(ONEWIRE_READING_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#A thermostat on a KNX sensor reads the group when its last reading gets old,
+#one read at a time: a real KNXCtrl and a stand-in calaos_knx. Own main() for
+#the harness teardown. Own HAVE_GTEST block so this stays a pure append at the
+#end of the file.
+if HAVE_GTEST
+TESTS += core/KnxThermostatRead_test
+check_PROGRAMS += core/KnxThermostatRead_test
+core_KnxThermostatRead_test_SOURCES = core/KnxThermostatRead_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_KnxThermostatRead_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/KNX
+KNX_THERMOSTAT_READ_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitchLongPress.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitchTriple.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXIo.$(OBJEXT)
+core_KnxThermostatRead_test_LDADD = $(KNX_THERMOSTAT_READ_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_KnxThermostatRead_test_DEPENDENCIES = $(KNX_THERMOSTAT_READ_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif

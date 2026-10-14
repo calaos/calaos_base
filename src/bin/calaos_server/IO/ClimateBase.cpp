@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <sstream>
 
 using namespace Calaos;
 
@@ -87,6 +88,12 @@ ClimateBase::ClimateBase(Params &p):
                                    "A range closer than that is refused."),
                     IODoc::TYPE_FLOAT, false, "0");
     ioDoc->paramInChild("min_range");
+    ioDoc->paramAdd("sensor_timeout", _("Seconds a linked sensor may go without a reading, a repeated value "
+                                        "included, before it counts as stale. A positive number; the default "
+                                        "outlasts one lost hourly Zigbee report. A sensor older than half of "
+                                        "it is asked for a reading when its protocol can (KNX)."),
+                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_SENSOR_TIMEOUT));
+    ioDoc->paramInChild("sensor_timeout");
 }
 
 void ClimateBase::documentModesParam()
@@ -198,6 +205,17 @@ void ClimateBase::resolveLinks()
     if (hasDeviceParam("min_range") && !nonNegative(getDeviceParam("min_range"), gap))
         cErrorDom("device") << "Device(" << id << "): min_range '" << getDeviceParam("min_range")
                             << "' is not a non-negative number, 0 is used";
+    if (hasDeviceParam("sensor_timeout"))
+    {
+        double v = 0;
+        if (Utils::from_string(getDeviceParam("sensor_timeout"), v) && std::isfinite(v) && v > 0)
+            sensorTimeoutS = v;
+        else
+            cErrorDom("device") << "Device(" << id << "): sensor_timeout '"
+                                << getDeviceParam("sensor_timeout")
+                                << "' is not a positive number of seconds, "
+                                << DEFAULT_SENSOR_TIMEOUT << " is used";
+    }
     if (linkIo(LOW) && linkIo(HIGH))
     {
         const Bounds b = rangeBounds();
@@ -206,6 +224,46 @@ void ClimateBase::resolveLinks()
                                 << " is wider than the setpoint bounds " << b.min << ".." << b.max
                                 << ", every range will be refused";
     }
+}
+
+void ClimateBase::warnIfChangesOnly(const string &role)
+{
+    IOBase *io = linkIo(role);
+    if (io && !io->datesEveryReading())
+        cWarningDom("device") << "Device(" << get_param("id") << "): " << role << " '"
+                              << io->get_param("id") << "' (" << io->get_param("type")
+                              << ") only reports changes: steady for " << sensorTimeout()
+                              << " s, it counts as silent";
+}
+
+void ClimateBase::requestReadingIfOld(const string &role)
+{
+    IOBase *io = linkIo(role);
+    const auto last = io ? io->lastReading() : std::nullopt;
+    const std::chrono::duration<double> age =
+        last ? std::chrono::steady_clock::now() - *last : std::chrono::duration<double>(0);
+    if (io && (!last || age.count() > sensorTimeoutS / 2))
+        io->requestReading();
+}
+
+ClimateBase::Freshness ClimateBase::freshness(IOBase *io) const
+{
+    //An ESPHome last will, a Zigbee availability topic: its last value stays.
+    if (io && io->getStatusInfo()["connected"] == "false")
+        return Freshness::Disconnected;
+    if (!io || !io->lastReading())
+        return Freshness::NotRead;
+    const std::chrono::duration<double> age = std::chrono::steady_clock::now() - *io->lastReading();
+    return age.count() < sensorTimeoutS ? Freshness::Fresh : Freshness::Silent;
+}
+
+string ClimateBase::staleReason(Freshness f) const
+{
+    if (f == Freshness::Disconnected)
+        return "reports itself disconnected";
+    std::ostringstream reason;
+    reason << "has sent nothing for " << sensorTimeoutS << " s";
+    return reason.str();
 }
 
 vector<ClimateMode> ClimateBase::supportedModes()

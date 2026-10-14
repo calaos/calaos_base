@@ -98,12 +98,25 @@ protected:
             return;
 
         webCtrl = &WebCtrl::Instance(this->get_params());
-        webCallbackId = webCtrl->Add(this->frequency, [this]()
+        webCallbackId = webCtrl->Add(this->frequency, [this](bool fetched)
                                      {
+            received = fetched;
             this->readValue();
+            received = false;
             StartReadRules::Instance().ioRead();
         });
     }
+
+    //A local file is read again on each period, whether rewritten or not.
+    bool datesEveryReading() override
+    {
+        const string url = this->get_param("url");
+        return !Utils::strStartsWith(url, "/") && !Utils::strStartsWith(url, "file://");
+    }
+
+    //Inside the polling callback: the document was just downloaded. The
+    //input poll also calls readValue(), on the same old document.
+    bool received = false;
 
     //Shared readValue() body of the numeric web inputs (analog, temp)
     void readValueDouble()
@@ -111,10 +124,20 @@ protected:
         if (this->get_param("path").empty())
             return;
 
-        double v = WebCtrl::Instance(this->get_params()).getValueDouble(this->get_param("path"));
-        if (v != this->value)
+        const string raw = WebCtrl::Instance(this->get_params()).getValue(this->get_param("path"));
+        double v = 0;
+        if (Utils::is_of_type<double>(raw) && !raw.empty())
         {
-            this->value = AnalogIO::convertValue(this->get_params(), v);
+            Utils::from_string(raw, v);
+            //An unchanged value is not signalled, but the sensor is alive.
+            if (received)
+                this->markReading();
+        }
+        //Compared once converted: a document read again must not be signalled.
+        const double converted = AnalogIO::convertValue(this->get_params(), v);
+        if (converted != this->value)
+        {
+            this->value = converted;
             this->emitChange();
         }
     }

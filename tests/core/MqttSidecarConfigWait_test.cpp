@@ -196,6 +196,8 @@ struct SidecarRun
     //status ABOVE zero: "not zero" would take a crash for a reported failure.
     int exitCode = -1;
     std::string log;
+    //What the sidecar sent to the server, raw frames.
+    std::string fromSidecar;
 };
 
 //Heap state, LEAKED: the server keeps libuv handles on the default loop and
@@ -306,6 +308,8 @@ struct FakeBroker
     //CONNACK return code: 0 accepts the session, 5 is the refusal a wrong
     //broker password produces
     int connackRc = 0;
+    //Sent right after the CONNACK: PUBLISH packets, for instance.
+    std::string afterConnack;
     std::chrono::steady_clock::time_point connackAt;
 };
 
@@ -353,8 +357,9 @@ void pumpFakeBroker(FakeBroker &b)
             return;
         }
         //MQTT 3.1.1 CONNACK, session not present, then the return code
-        const char connack[4] = { 0x20, 0x02, 0x00, char(b.connackRc) };
-        b.sentConnack = ::send(b.conn, connack, sizeof(connack), MSG_NOSIGNAL) == 4;
+        const std::string connack = std::string({ 0x20, 0x02, 0x00, char(b.connackRc) }) + b.afterConnack;
+        b.sentConnack = ::send(b.conn, connack.data(), connack.size(), MSG_NOSIGNAL) ==
+                        static_cast<ssize_t>(connack.size());
         b.connackAt = std::chrono::steady_clock::now();
         return;
     }
@@ -463,6 +468,13 @@ SidecarRun runSidecarRaw(const std::vector<std::string> &chunks, int budgetMs,
 
         if (broker)
             pumpFakeBroker(*broker);
+
+        if (cli >= 0)
+        {
+            const ssize_t m = ::recv(cli, buf, sizeof(buf), MSG_DONTWAIT);
+            if (m > 0)
+                out.fromSidecar.append(buf, buf + m);
+        }
 
         if (::waitpid(pid, &status, WNOHANG) == pid)
         {
@@ -975,6 +987,81 @@ TEST_F(MqttSidecarConfigWaitTest, ABrokerRefusingTheCredentialsNamesTheRefusal)
  * re-reads it - and CoreFixture re-initialises the configuration before every
  * case, so nothing set here reaches the spawned child either.
  */
+namespace
+{
+
+//MQTT 3.1.1 PUBLISH, QoS 0, short enough for a one byte remaining length.
+std::string publishPacket(const std::string &topic, const std::string &payload, bool retain)
+{
+    std::string p;
+    p += char(retain ? 0x31 : 0x30);
+    p += char(2 + topic.size() + payload.size());
+    p += char(0);
+    p += char(topic.size());
+    return p + topic + payload;
+}
+
+//The messages of the frames the sidecar sent, decoded.
+std::vector<Params> messagesOf(const std::string &raw)
+{
+    std::vector<Params> res;
+    size_t at = 0;
+    while (raw.size() - at >= 5)
+    {
+        const uint32_t n = (uint32_t(uint8_t(raw[at + 1])) << 24) |
+                           (uint32_t(uint8_t(raw[at + 2])) << 16) |
+                           (uint32_t(uint8_t(raw[at + 3])) << 8) | uint32_t(uint8_t(raw[at + 4]));
+        if (raw.size() - at - 5 < n)
+            break;
+        Params p;
+        if (MqttWire::decodeMessage(raw.substr(at + 5, n), p))
+            res.push_back(p);
+        at += 5 + n;
+    }
+    return res;
+}
+
+} // namespace
+
+/*
+ * A broker replays its retained messages on every connection: ESPHome
+ * publishes its states retained, so a dead sensor's last value comes back at
+ * each start or reconnection. The sidecar says which messages are replays.
+ */
+TEST_F(MqttSidecarConfigWaitTest, ARetainedMessageIsSaidToBeOne)
+{
+    FakeBroker broker;
+    ASSERT_TRUE(openFakeBroker(broker)) << "could not open the fake broker";
+    broker.afterConnack = publishPacket("t/retained", "21.5", true) +
+                          publishPacket("t/live", "22", false);
+    broker.holdMs = 600;
+
+    const std::string wire =
+        frameOf(MqttWire::encodeConfig(brokerParamsAt("127.0.0.1", broker.port)));
+    const SidecarRun r =
+        runSidecarRaw(std::vector<std::string>(1, wire), kSidecarWaitMs + 3000, &broker);
+    ASSERT_TRUE(broker.sentConnack) << "Log: " << r.log;
+
+    bool retained = false, live = false;
+    for (Params &m: messagesOf(r.fromSidecar))
+    {
+        if (m["topic"] == "t/retained")
+        {
+            retained = true;
+            EXPECT_EQ(m["payload"], "21.5");
+            EXPECT_EQ(m["retain"], "true");
+        }
+        else if (m["topic"] == "t/live")
+        {
+            live = true;
+            EXPECT_EQ(m["payload"], "22");
+            EXPECT_FALSE(m.Exists("retain"));
+        }
+    }
+    EXPECT_TRUE(retained) << "the retained message never reached the server. Log: " << r.log;
+    EXPECT_TRUE(live) << "the live message never reached the server. Log: " << r.log;
+}
+
 int main(int argc, char **argv)
 {
     char cfgTmpl[] = "/tmp/calaos_mqttwait_cfg_XXXXXX";

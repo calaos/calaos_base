@@ -78,8 +78,11 @@ ProxyClimate::ProxyClimate(Params &p):
     ioDoc->linkRoleAdd("remote_temp", _("Where the temperature of another sensor is written, for appliances that "
                                         "take one. Needs remote_temp_source."),
                        false, true);
-    ioDoc->linkRoleAdd("remote_temp_source", _("The sensor relayed to remote_temp. Needs remote_temp."), false,
-                       false);
+    ioDoc->linkRoleAdd("remote_temp_source", _("The sensor relayed to remote_temp. Needs remote_temp. Not relayed "
+                                               "before it has read since the start, nor while it has sent "
+                                               "nothing for sensor_timeout or reports itself disconnected: the "
+                                               "appliance then falls back to its own sensor."),
+                       false, false);
 
     documentModesParam();
     documentCommand(allModes(), "mode");
@@ -144,6 +147,8 @@ void ProxyClimate::resolveLinks()
     if (linkIo(SOURCE) && !linkIo(REMOTE))
         cErrorDom("device") << "Device(" << id << "): link 'remote_temp_source' without a "
                             << "'remote_temp', nothing is relayed";
+    if (linkIo(REMOTE))
+        warnIfChangesOnly(SOURCE);
 
     if (hasDeviceParam("auto_payload") && getDeviceParam("auto_payload") != AUTO &&
         getDeviceParam("auto_payload") != HEAT_COOL)
@@ -256,21 +261,34 @@ void ProxyClimate::startRemoteTemp()
     keepalive = std::make_unique<Timer>(secondsParam("remote_temp_keepalive", DEFAULT_KEEPALIVE),
                                         [this]()
                                         {
+        requestReadingIfOld(SOURCE);
         relayRemoteTemp();
     });
 }
 
-/* A source that has not delivered yet would send 0 °C and the unit would
- * regulate on it; one that reports itself disconnected is stale, and the unit
- * is better off falling back to its own sensor once the updates stop. Silence
- * from a source that is merely steady is not staleness: IOs carry no
- * timestamp, so it keeps being relayed. */
+/* A source that has not read since the start would send 0 °C, or what it
+ * said before the restart, and the unit would regulate on it. One that
+ * reports itself disconnected, or has sent nothing for sensor_timeout, is
+ * stale: the unit is better off falling back to its own sensor once the
+ * updates stop. */
 void ProxyClimate::relayRemoteTemp()
 {
     IOBase *source = linkIo(SOURCE);
-    if (!source || !isWritable(REMOTE) || !source->hasValue())
+    if (!source || !isWritable(REMOTE))
         return;
-    if (source->getStatusInfo()["connected"] == "false")
+
+    const Freshness f = freshness(source);
+    const bool stale = f == Freshness::Silent || f == Freshness::Disconnected;
+    if (stale && f != sourceState)
+        cErrorDom("device") << "Device(" << get_param("id") << "): remote_temp_source '"
+                            << source->get_param("id") << "' " << staleReason(f)
+                            << ", remote_temp is no longer relayed";
+    if (f == Freshness::Fresh && sourceState != Freshness::Fresh &&
+        sourceState != Freshness::NotRead)
+        cInfoDom("device") << "Device(" << get_param("id") << "): remote_temp_source '"
+                           << source->get_param("id") << "' reads again, remote_temp is relayed";
+    sourceState = f;
+    if (f != Freshness::Fresh)
         return;
 
     writeTarget(REMOTE)->set_value(source->get_value_double());

@@ -26,6 +26,9 @@
 #include "IODoc.h"
 #include "Timer.h"
 
+#include <chrono>
+#include <optional>
+
 namespace Calaos
 {
 
@@ -71,6 +74,7 @@ private:
     std::string ownerDevice;
 
     bool valueKnown = false;
+    std::optional<std::chrono::steady_clock::time_point> readingAt;
 
     //When true, newly constructed IOBase objects are NOT registered into
     //ListeRoom's io_table. Only ever set through ScopedDocGen (single
@@ -184,6 +188,20 @@ public:
      * its type default (0, ""), which must not be published as a reading. */
     bool hasValue() const { return valueKnown; }
 
+    /* When the IO last received a value since the server started, a repeated
+     * one included; empty before. A value restored from the state cache is not
+     * a reading. Only the drivers that call markReading() for the readings
+     * they drop as unchanged report a steady sensor as alive. */
+    std::optional<std::chrono::steady_clock::time_point> lastReading() const { return readingAt; }
+
+    /* True when the driver dates every value it receives, a repeated one
+     * included. Otherwise a steady sensor looks silent: a thermostat or a
+     * proxy linked to it says so at load. */
+    virtual bool datesEveryReading() { return false; }
+
+    //Asks the device for a reading, when its protocol can (a KNX group read).
+    virtual void requestReading() {}
+
     virtual void hasChanged() { }
 
     //Output specific functions
@@ -230,6 +248,13 @@ public:
 
 protected:
     void setValueKnown() { valueKnown = true; }
+    //Set while signalling a value the driver replays: known, not a reading.
+    bool replayed = false;
+    void markReading()
+    {
+        valueKnown = true;
+        readingAt = std::chrono::steady_clock::now();
+    }
 
     /* T3.40 - lifetime token for the one-shots this IO arms.
      *

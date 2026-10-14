@@ -921,7 +921,7 @@ TEST_F(ClimateBaseTest, TheFamilyAndItsParamsAreDocumentedByTheBase)
     {
         const std::string name = p.at("name").get<std::string>();
         //Only what every impl reads: modes, fan_modes and swing_modes are the proxy's.
-        const bool shared = name == "min_range";
+        const bool shared = name == "min_range" || name == "sensor_timeout";
         EXPECT_EQ(shared, p.contains("storage")) << name;
     }
 }

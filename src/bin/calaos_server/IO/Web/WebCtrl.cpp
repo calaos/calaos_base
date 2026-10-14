@@ -91,7 +91,7 @@ WebCtrl &WebCtrl::Instance(Params &p)
     return hash[url];
 }
 
-uint64_t WebCtrl::Add(double _frequency, std::function<void()> fileDownloaded_cb)
+uint64_t WebCtrl::Add(double _frequency, std::function<void(bool)> fileDownloaded_cb)
 {
 
     if (!_frequency)
@@ -146,17 +146,20 @@ void WebCtrl::launchDownload()
             string dest =  "/tmp/calaos_" + param.get_param("id");
             string src = dest + ".part";
             FileUtils::rename(src, dest);
+            const bool received = status >= 200 && status < 300;
             for (unsigned int i = 0; i < fileDownloadedCallbacks.size(); i++)
             {
-                fileDownloadedCallbacks[i].second();
+                fileDownloadedCallbacks[i].second(received);
             }
         });
     }
     else
     {
+        //A local file is read again on each period: nothing tells whether
+        //whoever writes it is still alive.
         for (unsigned int i = 0; i < fileDownloadedCallbacks.size(); i++)
         {
-            fileDownloadedCallbacks[i].second();
+            fileDownloadedCallbacks[i].second(false);
         }
     }
 }

@@ -26,6 +26,9 @@
 #include "AnalogIO.h"
 #include "ScopedConnection.h"
 
+#include <chrono>
+#include <optional>
+
 namespace Calaos
 {
 
@@ -120,14 +123,38 @@ protected:
         knxWrite(group_param, KNXValue::fromInt(enable ? 1 : 0, KNXValue::EIS_Switch_OnOff));
     }
 
+    /* A group read, unless one is still waiting for its answer: a sensor that
+     * does not answer is not asked again before READ_ANSWER_WAIT seconds. */
+    static constexpr int READ_ANSWER_WAIT = 10;
+    std::optional<std::chrono::steady_clock::time_point> readAskedAt;
+
+    void askGroupRead()
+    {
+        const auto now = std::chrono::steady_clock::now();
+        if (readAskedAt && now - *readAskedAt < std::chrono::seconds(READ_ANSWER_WAIT))
+            return;
+        readAskedAt = now;
+        ctrl()->readValue(knxBase.getReadGroupAddr(), configEis());
+    }
+
+    //A telegram of the group, the answer to a read or not.
+    void groupTelegram()
+    {
+        readAskedAt.reset();
+        this->markReading();
+        this->readValue();
+    }
+
     //Shared readValue() body of the analog-like inputs (Analog/Temp)
     void refreshFloatValue()
     {
         KNXValue val = cachedValue();
 
-        if (this->value != val.toFloat())
+        //Compared once converted: the input poll reads the cache again.
+        const double converted = AnalogIO::convertValue(this->get_params(), val.toFloat());
+        if (this->value != converted)
         {
-            this->value = AnalogIO::convertValue(this->get_params(), val.toFloat());
+            this->value = converted;
             this->emitChange();
         }
     }

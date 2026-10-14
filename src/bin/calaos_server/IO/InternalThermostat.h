@@ -50,14 +50,20 @@ public:
      * rules. */
     static void warnIfProtected(IOBase &io, const char *source);
 
-    //off, plus heat with output_heat, cool with output_cool, auto with both.
+    /* off, plus heat with output_heat, cool with output_cool, auto with both.
+     * A floor (emitter=floor) cools only with a humidity link. */
     vector<ClimateMode> supportedModes() override;
 
     static constexpr double DEFAULT_HYSTERESIS = 0.5;
+    //Relative humidity (%) from which floor cooling stops.
+    static constexpr double DEFAULT_HUMIDITY_MAX = 65;
     //Seconds between two put-backs of an output something else keeps switching.
     static constexpr double DEFAULT_PUT_BACK_DELAY = 1;
     static constexpr double DEFAULT_PUT_BACK_DELAY_MAX = 60;
     static constexpr double MIN_PUT_BACK_DELAY = 0.001;
+    //Longest wait before a silent sensor is seen stale, a repeated reading fresh,
+    //or an old sensor asked for a reading.
+    static constexpr double FRESHNESS_POLL = 60;
     //Values of the setpoint IOs recreated when the file lost them.
     static constexpr double DEFAULT_TARGET = 20;
     static constexpr double DEFAULT_LOW = 19;
@@ -72,14 +78,17 @@ protected:
 
     /* Asked first at each evaluation: an output refused here is switched
      * OFF at once, whatever its min_on_time; its min_off_time still guards
-     * the restart. The base allows both; whatever an override says, both stay
-     * OFF until current_temp holds a value. */
+     * the restart. The base refuses floor cooling (emitter=floor) unless
+     * humidity is fresh and below humidity_max. Whatever an override says,
+     * both stay OFF while current_temp is not fresh (sensor_timeout). */
     virtual OutputPair outputsAllowed();
 
     /* Spec §8.1. Never nested: when an output write runs rules that call it
      * again, the current pass stops and starts over once it returns. */
     void evaluate();
 
+    //The range serves auto only: not on a floor that cannot cool.
+    bool isWritable(const string &role) override;
     bool currentMode(ClimateMode &mode) override;
     bool writeMode(ClimateMode mode) override;
     bool applyCommand(const Json &command) override;
@@ -126,11 +135,17 @@ private:
     //The IO of an output link, nullptr when missing or refused.
     IOBase *outputIo(Output &out);
     void recreateOwnedIos();
+    //output_cool linked, and humidity too on a floor.
+    bool canCool();
     void restoreMode();
 
     void evaluateSoon();
     void noticeOutput(Output &out, IOBase &io);
     void warnWrite(Output &out, IOBase &io, const char *source);
+    //current_temp fresh, its silence logged once.
+    bool sensorFresh(IOBase *sensor);
+    //Floor cooling: humidity fresh and below humidity_max, changes logged.
+    bool humidityAllowsCooling();
     void regulate();
     bool demand(Output &out, double temp, const char *setpoint, bool cooling);
     //The state the thermostat holds: its last write, else what the IO reports.
@@ -152,6 +167,19 @@ private:
     Output heat{ "output_heat" };
     Output cool{ "output_cool" };
 
+    //Logged when it changes: once per silence or disconnection.
+    Freshness sensorState = Freshness::NotRead;
+
+    //emitter=floor: cooling needs a humidity below humidity_max.
+    bool floorCooling = false;
+    double humidityMax = DEFAULT_HUMIDITY_MAX;
+    enum class HumidityCut
+    {
+        None,
+        Unknown,
+        Stale,
+        High
+    } humidityCut = HumidityCut::None;
     //Outputs claimed: a later thermostat must not drive them.
     bool claimed = false;
     bool evaluating = false;
@@ -160,6 +188,9 @@ private:
     vector<IOChangeHub::Subscription> triggers;
     //One evaluation on the next loop turn after an output moved.
     std::unique_ptr<Timer> outputsMoved;
+    /* A sensor going silent signals nothing, and a driver drops a repeated
+     * reading as unchanged: only time tells either. */
+    std::unique_ptr<Timer> freshnessCheck;
 };
 
 } //namespace Calaos

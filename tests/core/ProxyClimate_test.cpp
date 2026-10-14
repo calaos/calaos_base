@@ -115,6 +115,10 @@ public:
     DATA_TYPE get_type() override { return TSTRING; }
     std::string get_value_string() override { return text; }
     double get_value_double() override { return number; }
+    //Each deliver() signals, a repeated value too.
+    bool datesEveryReading() override { return get_param("changes_only") != "true"; }
+    void requestReading() override { requests++; }
+    int requests = 0;
 
     //InputAnalog and MqttInputAnalog take a write and send it nowhere:
     //accept="true" reproduces that, the plain feed refuses.
@@ -268,6 +272,12 @@ std::string house()
     salon += remoteDevice("ns", param("remote_temp_keepalive", "0.05"));
     salon += remoteDevice("ds", param("remote_temp_keepalive", "0.05"));
     salon += remoteDevice("bk", param("remote_temp_keepalive", "abc"));
+    salon += remoteDevice("fz", param("remote_temp_keepalive", "0.05") + param("sensor_timeout", "0.2"));
+    salon += remoteDevice("bt", param("sensor_timeout", "0"));
+    salon += remoteDevice("rq", param("remote_temp_keepalive", "0.05") + param("sensor_timeout", "0.4"));
+    salon += device("co", out("co_remote") +
+                              element("input", "FeedInput", "co_src", R"( changes_only="true")") +
+                              link("remote_temp", "co_remote") + link("remote_temp_source", "co_src"));
     salon += device("rc", in("rc_read") + out("rc_cmd") + in("rc_src") +
                               link("remote_temp", "rc_read", "rc_cmd") +
                               link("remote_temp_source", "rc_src"));
@@ -302,7 +312,7 @@ std::string house()
     all += link("remote_temp", "allp_remote") + link("remote_temp_source", EXT_TEMP);
     all += param("modes", "off,auto") + param("auto_payload", "auto") + param("readback_hold", "5");
     all += param("remote_temp_keepalive", "30") + param("fan_modes", "auto,low");
-    all += param("swing_modes", "off,both") + param("min_range", "2");
+    all += param("swing_modes", "off,both") + param("min_range", "2") + param("sensor_timeout", "3600");
     salon += device("allp", all);
 
     //Setpoint IO without bounds: the documented defaults apply.
@@ -631,6 +641,9 @@ TEST_F(ProxyClimateTest, ConfigurationMistakesAreLoggedAtLoad)
              "Device(bh): readback_hold is not a positive number of seconds",
              "Device(rg): no 'mode' link, no mode is offered",
              "Device(ka): no 'mode' link, no mode is offered",
+             "Device(bt): sensor_timeout '0' is not a positive number of seconds, 9000 is used",
+             "Device(co): remote_temp_source 'co_src' (FeedInput) only reports changes: steady for "
+             "9000 s, it counts as silent",
          })
         EXPECT_NE(log.find(expected), std::string::npos) << expected << "\n"
                                                          << log;
@@ -738,6 +751,64 @@ TEST_F(ProxyClimateTest, ADisconnectedSourceIsNotRelayed)
         return writesTo("ds_remote").size() >= 2;
     }));
     EXPECT_DOUBLE_EQ(writesTo("ds_remote").back().number, 25.0);
+}
+
+//A source that stopped reading but still says it is connected: the unit
+//falls back to its own sensor once the relay stops.
+TEST_F(ProxyClimateTest, ASilentSourceIsNoLongerRelayed)
+{
+    const char *const silent =
+        "Device(fz): remote_temp_source 'fz_src' has sent nothing for 0.2 s, remote_temp is no "
+        "longer relayed";
+    FeedInput *src = feed("fz_src");
+    const std::string log = journal([&]()
+                                    {
+        src->deliver(20.0);
+        EXPECT_TRUE(runLoopUntil([]()
+                                 {
+            return writesTo("fz_remote").size() >= 3;
+        }));
+        pumpLoopFor(300);
+    });
+    const size_t frozen = writesTo("fz_remote").size();
+    ASSERT_GE(frozen, 1u);
+    pumpLoopFor(200);
+    EXPECT_EQ(writesTo("fz_remote").size(), frozen);
+    EXPECT_EQ(count(log, silent), 1u) << log;
+    const auto age = std::chrono::duration_cast<std::chrono::milliseconds>(
+        writesTo("fz_remote").back().at - writesTo("fz_remote").front().at);
+    EXPECT_LT(age.count(), 230);
+
+    //The value it had, read again: relayed at once, then kept alive.
+    src->deliver(20.0);
+    EXPECT_EQ(writesTo("fz_remote").size(), frozen + 1);
+    EXPECT_TRUE(runLoopUntil([frozen]()
+                             {
+        return writesTo("fz_remote").size() >= frozen + 3;
+    }));
+    EXPECT_DOUBLE_EQ(writesTo("fz_remote").back().number, 20.0);
+}
+
+//A source that sends on change only is asked for a reading before it goes
+//silent: never read, or read more than half of sensor_timeout ago.
+TEST_F(ProxyClimateTest, AnAgingSourceIsAskedForAReading)
+{
+    FeedInput *src = feed("rq_src");
+    pumpLoopFor(120);
+    EXPECT_GE(src->requests, 1);
+
+    src->deliver(20.0);
+    src->requests = 0;
+    pumpLoopFor(150);
+    EXPECT_EQ(src->requests, 0);
+    EXPECT_TRUE(runLoopUntil([src]()
+                             {
+        return src->requests >= 1;
+    }));
+    //Asked, and still relayed: not stale yet.
+    const size_t before = writesTo("rq_remote").size();
+    pumpLoopFor(60);
+    EXPECT_GT(writesTo("rq_remote").size(), before);
 }
 
 TEST_F(ProxyClimateTest, TheKeepAliveStopsWhenTheDeviceIsDestroyed)
@@ -941,7 +1012,7 @@ TEST_F(ProxyClimateTest, TheDocumentedBoundsAreTheDefaultsOfASetpointWithoutBoun
  * used, does not pass for a read one. */
 TEST_F(ProxyClimateTest, EveryDocumentedParamIsRead)
 {
-    const std::set<std::string> takenAtLoad = { "remote_temp_keepalive", "readback_hold" };
+    const std::set<std::string> takenAtLoad = { "remote_temp_keepalive", "readback_hold", "sensor_timeout" };
     const std::set<std::string> askedWhenUsed = { "modes", "fan_modes", "swing_modes", "min_range",
                                                   "auto_payload" };
 

@@ -46,7 +46,9 @@
 
 #include <unistd.h>
 
+#include <chrono>
 #include <cstdio>
+#include <thread>
 #include <string>
 #include <utility>
 #include <vector>
@@ -244,6 +246,96 @@ TEST_F(KnxIoTest, DeletingAnIoKeepsTheOtherIoOfItsGroupWired)
 
     EXPECT_DOUBLE_EQ(kept->get_value_double(), 18.0);
     ASSERT_TRUE(deleteIO(kept));
+}
+
+/* A telegram repeating the value an input holds is still a reading
+ * (IOBase::lastReading()): a thermostat on a steady KNX sensor must not see
+ * it as silent; a telegram to another group is not one. Another host,
+ * another KNXCtrl: the other cases count the slots of theirs. */
+TEST_F(KnxIoTest, ARepeatedTelegramIsStillAReading)
+{
+    loadConfig();
+    auto ctrl = KNXCtrl::Instance("127.0.0.2");
+
+    int n = 0;
+    for (const char *type: { "KNXInputAnalog", "KNXInputTemp" })
+    {
+        const std::string group = "0/3/" + Utils::to_string(n++);
+        Params p = {
+            { "type", type },
+            { "id", std::string("io_knx_fresh_") + type },
+            { "name", type },
+            { "knx_group", group },
+            { "host", "127.0.0.2" },
+            { "eis", "5" },
+            { "enabled", "true" },
+            { "visible", "false" },
+        };
+        IOBase *o = createIO(p);
+        ASSERT_NE(o, nullptr) << type;
+        EXPECT_TRUE(o->datesEveryReading()) << type;
+        EXPECT_FALSE(o->lastReading().has_value()) << type;
+
+        ctrl->valueChanged.emit(group, KNXValue::fromFloat(0, 5));
+        ASSERT_TRUE(o->lastReading().has_value()) << type;
+        const auto first = *o->lastReading();
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        ctrl->valueChanged.emit(group, KNXValue::fromFloat(0, 5));
+        EXPECT_GT(*o->lastReading(), first) << type;
+
+        const auto second = *o->lastReading();
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        ctrl->valueChanged.emit("0/3/9", KNXValue::fromFloat(0, 5));
+        EXPECT_EQ(*o->lastReading(), second) << type;
+
+        //A group read, the second one held back while the first is unanswered
+        //(observed on the wire by core/KnxThermostatRead_test).
+        o->requestReading();
+        o->requestReading();
+    }
+}
+
+/* The input poll reads KNXCtrl's cache again every interval. With a
+ * conversion, comparing the raw value to the converted one signalled it again
+ * each time, and every signal dated a reading. */
+TEST_F(KnxIoTest, AConvertedValueReadAgainIsNotAReading)
+{
+    loadConfig();
+
+    Params p = {
+        { "type", "KNXInputTemp" },
+        { "id", "io_knx_conv" },
+        { "name", "io_knx_conv" },
+        { "knx_group", "0/3/7" },
+        { "host", "127.0.0.2" },
+        { "eis", "5" },
+        { "calc_expr", "x - 0.5" },
+        { "interval", "0.01" },
+        { "enabled", "true" },
+        { "visible", "false" },
+    };
+    IOBase *o = createIO(p);
+    ASSERT_NE(o, nullptr);
+    //The poll goes by the loop clock, which only moves when it is updated.
+    auto poll = [o]()
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        uvw::Loop::getDefault()->update();
+        o->hasChanged();
+    };
+
+    //Away from the cache, so that the first poll brings the cached value back.
+    ASSERT_TRUE(o->set_value(21.0));
+    poll();
+    EXPECT_DOUBLE_EQ(o->get_value_double(), -0.5);
+    ASSERT_TRUE(o->lastReading().has_value());
+    const auto first = *o->lastReading();
+
+    poll();
+    poll();
+    EXPECT_EQ(*o->lastReading(), first);
+    EXPECT_DOUBLE_EQ(o->get_value_double(), -0.5);
 }
 
 //Own main instead of gtest_main: skip static destructors, see file header.

@@ -190,12 +190,17 @@ inline std::string dumpJson(const Json &j)
 }
 
 //One MQTT message, in either direction: {topic, payload}. The two are always
-//distinct fields and are never interchangeable.
-inline std::string encodeMessage(const std::string &topic, const std::string &payload)
+//distinct fields and are never interchangeable. "retain": true marks a message
+//the broker replayed from its store; absent otherwise, so the bytes of every
+//other message are unchanged.
+inline std::string encodeMessage(const std::string &topic, const std::string &payload,
+                                 bool retained = false)
 {
     Json root;
     root["topic"] = topic;
     root["payload"] = payload;
+    if (retained)
+        root["retain"] = true;
     return dumpJson(root);
 }
 

@@ -87,6 +87,10 @@ public:
     //The "min_range" param; 0 when absent or not a non-negative number.
     double minRange() const;
 
+    //Seconds a linked sensor may stay silent, without a sensor_timeout param.
+    static constexpr double DEFAULT_SENSOR_TIMEOUT = 9000;
+    double sensorTimeout() const { return sensorTimeoutS; }
+
 protected:
     ClimateBase(Params &p);
 
@@ -129,6 +133,27 @@ protected:
     virtual bool rangeBound(const string &role, double &value);
     virtual bool writeRangeBound(const string &role, double value);
 
+    enum class Freshness
+    {
+        Fresh,
+        //No reading since the server started: waited for, not stale.
+        NotRead,
+        Silent,
+        Disconnected
+    };
+    /* Fresh: `io` has delivered a reading since the server started, the last
+     * one less than sensor_timeout ago, and does not report itself
+     * disconnected. */
+    Freshness freshness(IOBase *io) const;
+    bool isFresh(IOBase *io) const { return freshness(io) == Freshness::Fresh; }
+    //"has sent nothing for <sensor_timeout> s" or "reports itself disconnected".
+    string staleReason(Freshness f) const;
+    //Logged at load: a sensor that does not date every reading looks silent while steady.
+    void warnIfChangesOnly(const string &role);
+    /* A sensor that sends on change only stays silent in a steady room: past
+     * half of sensor_timeout without a reading, it is asked for one. */
+    void requestReadingIfOld(const string &role);
+
     Json deviceCapabilities() override;
     Json deviceState() override;
 
@@ -138,6 +163,8 @@ private:
     //min of the low IO, max of the high IO.
     Bounds rangeBounds();
     bool applyRange(const Json &command);
+
+    double sensorTimeoutS = DEFAULT_SENSOR_TIMEOUT;
 };
 
 } //namespace Calaos

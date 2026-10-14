@@ -112,9 +112,16 @@ public:
         KNXIo<InputAnalog>(p, "KNXInputAnalog", _("Input analog with KNX and eibnetmux"))
     {
         readAtStart();
-        onGroupChanged([this](const KNXValue &) { readValue(); });
+        //A telegram is a reading, even of the value already held.
+        onGroupChanged([this](const KNXValue &)
+                       {
+            groupTelegram();
+        });
         logKnxGroup();
     }
+
+    bool datesEveryReading() override { return true; }
+    void requestReading() override { askGroupRead(); }
 
 protected:
     void readValue() override { refreshFloatValue(); }
@@ -127,9 +134,16 @@ public:
         KNXIo<InputTemp>(p, "KNXInputTemp", _("Input temperature with KNX and eibnetmux"))
     {
         readAtStart();
-        onGroupChanged([this](const KNXValue &) { readValue(); });
+        //A telegram is a reading, even of the value already held.
+        onGroupChanged([this](const KNXValue &)
+                       {
+            groupTelegram();
+        });
         logKnxGroup();
     }
+
+    bool datesEveryReading() override { return true; }
+    void requestReading() override { askGroupRead(); }
 
 protected:
     void readValue() override { refreshFloatValue(); }

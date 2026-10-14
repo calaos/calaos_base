@@ -31,11 +31,15 @@ class OWTemp : public InputTemp
 protected:
     string ow_id;
     string ow_args;
+    //OwCtrl::readingCount() when last polled.
+    uint64_t readingsSeen = 0;
 
     virtual void readValue();
 
 public:
     OWTemp(Params &p);
+
+    bool datesEveryReading() override { return true; }
 };
 
 #endif

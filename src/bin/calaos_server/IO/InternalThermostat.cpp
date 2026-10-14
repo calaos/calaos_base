@@ -93,13 +93,21 @@ InternalThermostat::InternalThermostat(Params &p):
                                             "from outside to an output: one line per source and output "
                                             "during that time."),
                     IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_PUT_BACK_DELAY_MAX));
+    ioDoc->paramAdd("emitter", _("What the outputs drive. Only floor has an effect: floor cooling then needs a "
+                                 "humidity link and stops at humidity_max (dew point)."),
+                    IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("humidity_max", _("Relative humidity (%) from which floor cooling stops, with "
+                                      "emitter=floor. Not negative."),
+                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_HUMIDITY_MAX));
     for (const char *name: { "hysteresis", "min_on_time", "min_off_time", "put_back_delay",
-                             "put_back_delay_max" })
+                             "put_back_delay_max", "emitter", "humidity_max" })
         ioDoc->paramInChild(name);
 
     const string owner = _(" An output belongs to a single thermostat: a second one linking it ignores the link.");
     ioDoc->linkRoleAdd("current_temp", _("Temperature the regulation reads. The outputs stay off until it has "
-                                         "a value."),
+                                         "delivered a reading since the start (a cached or retained value does "
+                                         "not count), and while it has sent nothing for sensor_timeout or "
+                                         "reports itself disconnected."),
                        true, false);
     ioDoc->linkRoleAdd("target_temp", _("Setpoint used in heat and cool. Created when missing."), true, true);
     ioDoc->linkRoleAdd("target_temp_low", _("Low bound of the auto range. Created when missing, with output_cool."),
@@ -111,6 +119,10 @@ InternalThermostat::InternalThermostat(Params &p):
                        false, true);
     ioDoc->linkRoleAdd("output_heat", _("Output driven for heating. Enables heat.") + owner, true, true);
     ioDoc->linkRoleAdd("output_cool", _("Output driven for cooling. Enables cool and auto.") + owner, false, true);
+    ioDoc->linkRoleAdd("humidity", _("Relative humidity of the room. With emitter=floor, cooling stops while it "
+                                     "reads humidity_max or more, has not read, is stale or disconnected; "
+                                     "without it, a floor offers neither cool nor auto."),
+                       false, false, "emitter", "floor", "output_cool");
 
     documentCommand({ ClimateMode::Off, ClimateMode::Heat, ClimateMode::Cool, ClimateMode::Auto }, "",
                     _(" Heat needs the output_heat link, cool needs output_cool and auto needs both."),
@@ -128,6 +140,8 @@ InternalThermostat::~InternalThermostat()
 void InternalThermostat::resolveLinks()
 {
     hysteresis = nonNegativeParam("hysteresis", DEFAULT_HYSTERESIS);
+    floorCooling = getDeviceParam("emitter") == "floor";
+    humidityMax = nonNegativeParam("humidity_max", DEFAULT_HUMIDITY_MAX);
     minOnMs = toMs(nonNegativeParam("min_on_time", 0));
     minOffMs = toMs(nonNegativeParam("min_off_time", 0));
     readPutBackDelays();
@@ -143,6 +157,12 @@ void InternalThermostat::resolveLinks()
         cErrorDom("device") << "Device(" << id << "): no current_temp, the outputs stay OFF";
     if (!outputIo(heat))
         cErrorDom("device") << "Device(" << id << "): no output_heat, heat is unavailable";
+    if (outputIo(cool) && !canCool())
+        cErrorDom("device") << "Device(" << id << "): emitter=floor without a humidity link, "
+                            << "cool and auto are refused";
+    warnIfChangesOnly("current_temp");
+    if (floorCooling)
+        warnIfChangesOnly("humidity");
 
     //A duplicate id: the device holding it regulates, this one never does.
     if (ListeRoom::Instance().get_io(id) != this)
@@ -170,7 +190,7 @@ void InternalThermostat::resolveLinks()
             triggers.push_back(IOChangeHub::Instance().subscribe(l.io, outputChanged));
         }
         else if (l.name == "current_temp" || l.name == "target_temp" || l.name == LOW ||
-                 l.name == HIGH)
+                 l.name == HIGH || l.name == "humidity")
             triggers.push_back(IOChangeHub::Instance().subscribe(l.io, inputChanged));
     }
 
@@ -178,9 +198,22 @@ void InternalThermostat::resolveLinks()
     //else re-evaluates a thermostat whose inputs were all restored.
     auto first = [this]()
     {
+        //A relay may have gone OFF just before a restart: the start counts
+        //as a switch OFF, min_off_time passes before the first ON.
+        heat.st.offAt = cool.st.offAt = loopNow();
         evaluate();
     };
     ioAlive.singleShot(0, first);
+
+    auto check = [this]()
+    {
+        requestReadingIfOld("current_temp");
+        if (floorCooling)
+            requestReadingIfOld("humidity");
+        evaluate();
+    };
+    //Several times per sensor_timeout: an old sensor is asked before it is stale.
+    freshnessCheck = std::make_unique<Timer>(std::min(sensorTimeout() / 4, FRESHNESS_POLL), check);
 }
 
 double InternalThermostat::nonNegativeParam(const char *name, double def)
@@ -332,10 +365,23 @@ void InternalThermostat::restoreMode()
     Config::Instance().SaveValueIO(get_param("id"), modeName(ClimateMode::Off));
 }
 
+bool InternalThermostat::canCool()
+{
+    //Nothing would guard a cooling floor against condensation.
+    return outputIo(cool) && (!floorCooling || linkIo("humidity"));
+}
+
+bool InternalThermostat::isWritable(const string &role)
+{
+    if ((role == LOW || role == HIGH) && outputIo(cool) && !canCool())
+        return false;
+    return ClimateBase::isWritable(role);
+}
+
 vector<ClimateMode> InternalThermostat::supportedModes()
 {
     const bool canHeat = outputIo(heat);
-    const bool canCool = outputIo(cool);
+    const bool canCool = this->canCool();
 
     vector<ClimateMode> modes = { ClimateMode::Off };
     if (canHeat)
@@ -381,7 +427,39 @@ bool InternalThermostat::applyCommand(const Json &command)
 
 InternalThermostat::OutputPair InternalThermostat::outputsAllowed()
 {
-    return OutputPair{ true, true };
+    const bool cooling = mode == ClimateMode::Cool || mode == ClimateMode::Auto;
+    return OutputPair{ true, !floorCooling || !cooling || humidityAllowsCooling() };
+}
+
+bool InternalThermostat::humidityAllowsCooling()
+{
+    IOBase *h = linkIo("humidity");
+    const Freshness f = freshness(h);
+    HumidityCut cut = HumidityCut::None;
+    if (f == Freshness::NotRead)
+        cut = HumidityCut::Unknown;
+    else if (f != Freshness::Fresh)
+        cut = HumidityCut::Stale;
+    else if (h->get_value_double() >= humidityMax)
+        cut = HumidityCut::High;
+
+    const string id = get_param("id");
+    if (cut == humidityCut)
+        return cut == HumidityCut::None;
+    //Not read yet since the start is waited for silently, like current_temp.
+    if (cut == HumidityCut::Stale)
+        cErrorDom("device") << "Device(" << id << "): humidity '" << h->get_param("id") << "' "
+                            << staleReason(f) << ", output_cool is OFF";
+    else if (cut == HumidityCut::High)
+        cWarningDom("device") << "Device(" << id << "): humidity '" << h->get_param("id")
+                              << "' reads " << h->get_value_double()
+                              << ", at or above humidity_max " << humidityMax
+                              << ", output_cool is OFF";
+    else if (cut == HumidityCut::None && humidityCut != HumidityCut::Unknown)
+        cInfoDom("device") << "Device(" << id << "): humidity '" << h->get_param("id")
+                           << "' allows cooling again";
+    humidityCut = cut;
+    return cut == HumidityCut::None;
 }
 
 void InternalThermostat::evaluate()
@@ -458,12 +536,29 @@ void InternalThermostat::noticeOutput(Output &out, IOBase &io)
                             << "); something keeps undoing the stop";
 }
 
+bool InternalThermostat::sensorFresh(IOBase *sensor)
+{
+    const Freshness f = freshness(sensor);
+    const bool stale = f == Freshness::Silent || f == Freshness::Disconnected;
+    if (stale && f != sensorState)
+        cErrorDom("device") << "Device(" << get_param("id") << "): current_temp '"
+                            << sensor->get_param("id") << "' " << staleReason(f)
+                            << ", the outputs are OFF";
+    if (f == Freshness::Fresh && sensorState != Freshness::Fresh &&
+        sensorState != Freshness::NotRead)
+        cInfoDom("device") << "Device(" << get_param("id") << "): current_temp '"
+                           << sensor->get_param("id") << "' reads again, regulation resumes";
+    sensorState = f;
+    return f == Freshness::Fresh;
+}
+
 void InternalThermostat::regulate()
 {
     OutputPair allowed = outputsAllowed();
-    //Not left to the hook, which an override replaces.
+    /* Not left to the hook, which an override replaces. A value restored
+     * from the state cache is the one from before the restart. */
     IOBase *sensor = linkIo("current_temp");
-    const bool known = sensor && sensor->hasValue();
+    const bool known = sensorFresh(sensor);
     allowed.heat = allowed.heat && known;
     allowed.cool = allowed.cool && known;
     const double temp = known ? sensor->get_value_double() : 0;

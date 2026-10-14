@@ -45,6 +45,8 @@ protected:
 
 public:
     WITemp(Params &p);
+
+    bool datesEveryReading() override { return true; }
     ~WITemp();
 };
 
