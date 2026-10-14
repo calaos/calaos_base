@@ -133,7 +133,11 @@ bool pumpUntil(const std::function<bool()> &done, int ms = 3000)
 
 void pumpFor(int ms)
 {
-    pumpUntil([]() { return false; }, ms);
+    pumpUntil([]()
+              {
+        return false;
+    },
+              ms);
 }
 
 } //namespace
@@ -187,12 +191,18 @@ TEST_F(ClimateStatusTest, ALockOutSaysWhichOutputAndHowLong)
     ASSERT_TRUE(s.at("lockout").at("remaining").is_number_integer()) << s.dump();
     EXPECT_GE(s.at("lockout").at("remaining").get<int>(), 1);
     EXPECT_LE(s.at("lockout").at("remaining").get<int>(), 3);
-    EXPECT_TRUE(publishedWhere(ws, "lk", [](const Json &st) { return st.contains("lockout"); }));
+    EXPECT_TRUE(publishedWhere(ws, "lk", [](const Json &st)
+                               {
+        return st.contains("lockout");
+    }));
 
     //Nothing wanted any more: the lock-out goes, and that is published.
     mode("lk", "off");
     EXPECT_FALSE(state("lk").contains("lockout"));
-    EXPECT_TRUE(publishedWhere(ws, "lk", [](const Json &st) { return !st.contains("lockout"); }));
+    EXPECT_TRUE(publishedWhere(ws, "lk", [](const Json &st)
+                               {
+        return !st.contains("lockout");
+    }));
 }
 
 TEST_F(ClimateStatusTest, ALockOutOfTheCoolingOutputSaysCool)
@@ -229,7 +239,10 @@ TEST_F(ClimateStatusTest, TheEndOfALockOutIsPublished)
     mode("lk2", "heat");
     ASSERT_TRUE(state("lk2").contains("lockout"));
 
-    ASSERT_TRUE(pumpUntil([]() { return io("lk2_heat")->get_value_bool(); }));
+    ASSERT_TRUE(pumpUntil([]()
+                          {
+        return io("lk2_heat")->get_value_bool();
+    }));
     EXPECT_FALSE(state("lk2").contains("lockout"));
     EXPECT_TRUE(publishedWhere(ws, "lk2", [](const Json &st)
                                {
@@ -252,7 +265,10 @@ TEST_F(ClimateStatusTest, AStaleSensorIsAFaultWhileItLasts)
     }));
     set("st_temp", 18);
     EXPECT_FALSE(state("st").contains("fault"));
-    EXPECT_TRUE(publishedWhere(ws, "st", [](const Json &st) { return !st.contains("fault"); }));
+    EXPECT_TRUE(publishedWhere(ws, "st", [](const Json &st)
+                               {
+        return !st.contains("fault");
+    }));
 }
 
 //No sensor linked, or none read since the start: the sensor is missing.
@@ -296,7 +312,10 @@ TEST_F(ClimateStatusTest, TheDewPointCutIsAFault)
     set("dw_hum", 50);
     EXPECT_FALSE(state("dw").contains("fault"));
     EXPECT_EQ(state("dw").at("humidity"), 50);
-    EXPECT_TRUE(publishedWhere(ws, "dw", [](const Json &st) { return !st.contains("fault"); }));
+    EXPECT_TRUE(publishedWhere(ws, "dw", [](const Json &st)
+                               {
+        return !st.contains("fault");
+    }));
 }
 
 //The thermostat's sensor, the proxy's mode IO: their availability.
@@ -308,17 +327,26 @@ TEST_F(ClimateStatusTest, ADisconnectedSensorOrApplianceIsPublished)
     io("dw_temp")->setStatusInfo(IOBase::StatusType::Connected,
                                  IOBase::StatusConnected::STATUS_DISCONNECTED);
     EXPECT_EQ(state("dw").at("connected"), false);
-    EXPECT_TRUE(publishedWhere(ws, "dw", [](const Json &st) { return st.contains("connected"); }));
+    EXPECT_TRUE(publishedWhere(ws, "dw", [](const Json &st)
+                               {
+        return st.contains("connected");
+    }));
     io("dw_temp")->setStatusInfo(IOBase::StatusType::Connected,
                                  IOBase::StatusConnected::STATUS_CONNECTED);
     EXPECT_FALSE(state("dw").contains("connected"));
-    EXPECT_TRUE(publishedWhere(ws, "dw", [](const Json &st) { return !st.contains("connected"); }));
+    EXPECT_TRUE(publishedWhere(ws, "dw", [](const Json &st)
+                               {
+        return !st.contains("connected");
+    }));
 
     EXPECT_FALSE(state("px").contains("connected"));
     io("px_mode")->setStatusInfo(IOBase::StatusType::Connected,
                                  IOBase::StatusConnected::STATUS_DISCONNECTED);
     EXPECT_EQ(state("px").at("connected"), false);
-    EXPECT_TRUE(publishedWhere(ws, "px", [](const Json &st) { return st.contains("connected"); }));
+    EXPECT_TRUE(publishedWhere(ws, "px", [](const Json &st)
+                               {
+        return st.contains("connected");
+    }));
 }
 
 TEST_F(ClimateStatusTest, HumidityIsPublishedOnceRead)
