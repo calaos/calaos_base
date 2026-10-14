@@ -201,7 +201,7 @@ donne, dans la pièce `Salon` :
 | `thermostat_heat`, plancher chauffant (`floor`) | 0.5 | 900 | 900 | — | 9000 | — | 1 / 60 |
 | `thermostat_heat_cool`, PAC réversible sur contacts (`heat_pump`) | 0.5 | 600 | 300 | 2 | 9000 | — | 1 / 60 |
 | `thermostat_heat_cool`, ventilo-convecteurs (`fan_coil`) | 0.5 | 120 | 120 | 1 | 9000 | — | 1 / 60 |
-| `thermostat_floor_heat_cool` | 0.5 | 900 | 900 | 2 | 9000 | 65 (champ) | 1 / 60 |
+| `thermostat_floor_heat_cool` | 0.5 | 900 | 900 | 2 | 9000 | 60 (champ) | 1 / 60 |
 | `esphome_climate` avec sonde relayée | — | — | — | — | 9000 | — | — (`remote_temp_keepalive` 120) |
 
 Pourquoi :
@@ -222,9 +222,10 @@ Pourquoi :
 - **`sensor_timeout`** dépend de la sonde, pas de l'émetteur : 9000 s (2 h 30) survit à un
   rapport horaire Zigbee perdu. Une sonde Wago ou 1-Wire lue toutes les secondes peut descendre
   à 600 s après création.
-- **`humidity_max` 65 %** : à 25 °C et 65 % d'humidité, le point de rosée est vers 18 °C, la
-  température de surface d'un plancher rafraîchi par de l'eau à 16-18 °C. C'est un champ du
-  template : l'installateur l'abaisse si l'eau est plus froide.
+- **`humidity_max` 60 %** (le défaut du serveur reste 65 %) : à 25 °C et 60 % d'humidité, le
+  point de rosée est vers 16,7 °C. Un plancher rafraîchi par de l'eau à 16 °C a sa surface au-dessus,
+  avec une marge que 65 % (rosée vers 18 °C) n'aurait plus. C'est un champ du template :
+  l'installateur l'abaisse si l'eau est plus froide.
 - **`put_back_delay` 1 s, max 60 s** : défauts du serveur. La remise d'une sortie passe par ses
   verrous, qui protègent déjà le matériel.
 - **Proxy** : `remote_temp_keepalive` 120 s, défaut du serveur ; un appareil revient à sa propre
