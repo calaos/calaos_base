@@ -50,10 +50,13 @@ uint64_t loopNow()
     return loop->now().count();
 }
 
+/* Never freed: the first thermostat is built after ListeRoom, so a function
+ * static would die before it, and ~ListeRoom() destroys the thermostats left
+ * in their rooms at exit. */
 vector<InternalThermostat *> &liveThermostats()
 {
-    static vector<InternalThermostat *> all;
-    return all;
+    static auto *all = new vector<InternalThermostat *>();
+    return *all;
 }
 
 //Not through REGISTER_DEVICE: it registers a factory, not an observer.
