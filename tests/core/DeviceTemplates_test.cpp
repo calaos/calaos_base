@@ -301,6 +301,17 @@ Values thermostatCommon(const std::string &emitter)
     return v;
 }
 
+//What the wizard pre-fills.
+Json fieldDefault(const std::string &templateId, const std::string &field)
+{
+    const Json all = DeviceTemplates::all();
+    for (const Json &t: all.at("templates"))
+        for (const Json &f: t.at("fields"))
+            if (t.at("id") == templateId && f.at("name") == field)
+                return f.at("default");
+    return Json();
+}
+
 std::vector<Variant> variants()
 {
     const Json allModes = { "off", "heat", "cool", "auto", "dry", "fan_only" };
@@ -333,7 +344,8 @@ std::vector<Variant> variants()
         { "heat_cool_heat_pump", "thermostat_heat_cool", thermostatCommon("heat_pump") },
         { "heat_cool_fan_coil", "thermostat_heat_cool", thermostatCommon("fan_coil") },
         { "floor_heat_cool", "thermostat_floor_heat_cool",
-          merged(thermostatCommon("floor"), { { "humidity", "ext_hum" }, { "humidity_max", 65 } }) },
+          merged(thermostatCommon("floor"),
+                 { { "humidity", "ext_hum" }, { "humidity_max", fieldDefault("thermostat_floor_heat_cool", "humidity_max") } }) },
     };
 }
 
@@ -402,7 +414,7 @@ std::map<std::string, Expected> expectations()
     e["heat_cool_fan_coil"] = { range,
                                 withEntries(thermostatParams("fan_coil", "0.5", "120", "120"), { { "min_range", "1" } }) };
     e["floor_heat_cool"] = { floorRange, withEntries(thermostatParams("floor", "0.5", "900", "900"),
-                                                     { { "min_range", "2" }, { "humidity_max", "65" } }) };
+                                                     { { "min_range", "2" }, { "humidity_max", "60" } }) };
     return e;
 }
 
