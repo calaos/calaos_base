@@ -65,6 +65,7 @@ reverrouille seul et bloquait les agents.
 
 ## Règles
 
+- **`git stash` interdit** : le stash est partagé entre les worktrees d'un dépôt (incident CLIM-4/CLIM-5 du 2026-10-14). Commits WIP sur la branche à la place.
 - **Revue** : l'agent qui implémente ne relit jamais son propre diff.
 - **Builds** : au plus quatre agents qui buildent calaos_base en même temps. Pour arrêter un
   conteneur, toujours le désigner par son montage de worktree, jamais par image.
