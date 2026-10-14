@@ -72,7 +72,7 @@ Tout ─ VAL-1
 
 | ID | Ticket | Dépend de | Agent | Statut |
 |---|---|---|---|---|
-| MCP-1 | **Devices dans le MCP** (§9.2). Les sorties protégées sont masquées de `list_ios` et refusées en écriture ; la description de `set_io_state` documente la commande JSON des devices depuis IODoc ; droit du scope service tranché (point ouvert §14) avant d'écrire le code. Tests pytest dans `tests/python`. | CLIM-5, DOC-1 | sonnet / medium | 📋 |
+| MCP-1 | **Devices dans le MCP** (§9.2). Les sorties protégées sont masquées de `list_ios` et refusées en écriture ; la description de `set_io_state` documente la commande JSON des devices depuis IODoc ; droit du scope service tranché (point ouvert §14) avant d'écrire le code. Tests pytest dans `tests/python`. | CLIM-5, DOC-1 | sonnet / medium | ✅ [#200](https://github.com/calaos/calaos_base/pull/200) |
 
 ## INST — calaos_installer
 
