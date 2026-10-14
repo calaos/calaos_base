@@ -655,6 +655,86 @@
               "capabilities": {
                 "modes": [
                   "off",
+                  "heat"
+                ],
+                "reports_action": true,
+                "target_temp": {
+                  "max": 35.0,
+                  "min": 7.0,
+                  "step": 0.5,
+                  "unit": "°C"
+                }
+              },
+              "family": "climate",
+              "impl": "thermostat",
+              "ios": {
+                "action": "uc_action",
+                "current_temp": "uc_temp",
+                "output_heat": "uc_heat",
+                "target_temp": "uc_target"
+              },
+              "state": {
+                "action": "off",
+                "mode": "off"
+              }
+            },
+            "gui_type": "climate",
+            "id": "uc",
+            "io_type": "inout",
+            "name": "uc",
+            "state": "off",
+            "type": "climate",
+            "var_type": "string"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "uc_target",
+            "io_type": "inout",
+            "name": "uc_target",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_string",
+            "id": "uc_action",
+            "io_type": "inout",
+            "name": "uc_action",
+            "rw": "false",
+            "state": "off",
+            "type": "InternalString",
+            "var_type": "string",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_bool",
+            "id": "uc_heat",
+            "io_type": "inout",
+            "name": "uc_heat",
+            "rw": "false",
+            "state": "false",
+            "type": "InternalBool",
+            "var_type": "bool",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "uc_temp",
+            "io_type": "inout",
+            "name": "uc_temp",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "device": {
+              "capabilities": {
+                "modes": [
+                  "off",
                   "heat",
                   "cool",
                   "auto",
