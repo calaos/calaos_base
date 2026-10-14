@@ -532,9 +532,9 @@ Json thermostatFloorHeatCool()
                             "has not read, or is silent: the floor would sweat."),
                           true, "number", false));
     fields.push_back(number("humidity_max", _("Maximum humidity"),
-                            _("Relative humidity from which cooling stops. 65 % keeps a floor at 18 °C dry in a "
-                              "room at 25 °C."),
-                            40, 90, 1, "%", 65));
+                            _("Relative humidity from which cooling stops. At 60 % and 25 °C the dew point is about "
+                              "17 °C, under the surface of a floor fed with water at 16 °C."),
+                            40, 90, 1, "%", 60));
     fields.push_back(outputField("output_heat", _("Heating output")));
     fields.push_back(outputField("output_cool", _("Cooling output")));
 
