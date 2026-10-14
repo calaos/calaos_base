@@ -27,6 +27,9 @@ _ALLOWED_ACTIONS = frozenset({
 })
 
 
+_TOPOLOGY_EVENTS = frozenset({"io_added", "io_deleted", "room_changed"})
+
+
 class CalaosClient:
     def __init__(self) -> None:
         self._ws: websockets.ClientConnection | None = None
@@ -69,6 +72,8 @@ class CalaosClient:
         """
         self._ready.clear()
         self._ws = None
+        # The server may come back with another topology (config put, restart).
+        self._home_cache = None
         pending, self._pending = self._pending, {}
         for fut in pending.values():
             if not fut.done():
@@ -105,11 +110,36 @@ class CalaosClient:
                             fut.set_result(msg.get("data", {}))
                         continue
 
-                    # Invalidate home cache on topology events
-                    if msg_type in ("io_added", "io_deleted", "room_added", "room_deleted"):
-                        self._home_cache = None
+                    if msg_type == "event":
+                        self._on_event(msg.get("data", {}))
         finally:
             self._on_disconnect()
+
+    def _on_event(self, event: dict) -> None:
+        """Keep the cached get_home in step with the events calaos_server sends.
+
+        Events arrive as {"msg": "event", "data": {"type_str": ..., "data": ...}}.
+        The protected-output mask is read from the device objects of the cache,
+        so they must follow io_changed and any change of topology.
+        """
+        kind = event.get("type_str", "")
+        data = event.get("data", {})
+        if kind in _TOPOLOGY_EVENTS:
+            self._home_cache = None
+        elif kind == "io_changed" and self._home_cache is not None:
+            self._apply_io_changed(data)
+
+    def _apply_io_changed(self, data: dict) -> None:
+        for room in self._home_cache.get("home", []):
+            for item in room.get("items", []):
+                if item.get("id") != data.get("id"):
+                    continue
+                # The device object is sent whole: replace, never merge.
+                if "device" in data:
+                    item["device"] = data["device"]
+                if "state" in data:
+                    item["state"] = data["state"]
+                return
 
     def _next_id(self) -> str:
         self._msg_counter += 1

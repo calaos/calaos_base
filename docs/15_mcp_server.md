@@ -300,6 +300,7 @@ src/bin/calaos_mcp/
     ├── client.py              # CalaosClient : WS login_service + reconnect
     ├── auth.py                # BearerAuthMiddleware (S7 + rate-limit/ban S11)
     ├── safety.py              # sanitisation anti-prompt-injection (S3)
+    ├── iodoc.py               # lit io_doc.json, rend la doc de commande des devices
     ├── models.py              # ⚠️ non importé par le reste du package
     └── tools/
         ├── _home.py           # helpers de traversée de get_home
@@ -356,7 +357,7 @@ timeout (`_on_disconnect`, `:62-75`).
 
 Formats à respecter (appris à l'exécution, et documentés dans le code) :
 - `get_state` : requête `{"items": ["id1", "id2"]}` (tableau d'identifiants),
-  réponse `{"id1": "valeur", ...}` (dictionnaire plat) — `client.py:144-147`.
+  réponse `{"id1": "valeur", ...}` (dictionnaire plat) — `client.py:173-181`.
 - `get_home` : `home` est un **tableau** de pièces, les IOs sont sous `items` (pas `ios`),
   et **toutes** les valeurs scalaires sont des **chaînes** (`rw` = `"true"`/`"false"`). Le
   helper [tools/_home.py](../src/bin/calaos_mcp/python/calaos_mcp/tools/_home.py) centralise
@@ -497,7 +498,7 @@ avant d'appeler le serveur (`tools/audio.py:5-23`).
 
 ⚠️ **La condition d'inscriptibilité n'est pas le drapeau `rw`.** Se fier à `rw` seul marquait
 **tous les outputs en lecture seule** ; la règle réelle est portée par `is_writable()`
-(intégral, `tools/_home.py:46-53`) :
+(intégral, `tools/_home.py:48-55`) :
 
 ```python
 def is_writable(io: dict) -> bool:
@@ -513,13 +514,42 @@ def is_writable(io: dict) -> bool:
 Le champ `rw` renvoyé au LLM par `list_ios`, `find_io` et `get_room` est donc le **résultat
 de `is_writable()`**, pas la valeur brute du serveur.
 
-La validation `set_io_state` (S14, `tools/io.py:24-45`) dépend du `var_type` :
+La validation `set_io_state` (S14, `tools/io.py:27-48`) dépend du `var_type` :
 
 - `bool` — accepte `true/false/1/0/on/off` (insensible à la casse) et **normalise** vers
   `"true"`/`"false"` ; tout le reste est refusé.
 - `float`, `int`, `double` — doivent parser en nombre **fini** : `inf`, `nan` et `1e999`
   (qui déborde en `inf`) sont refusés explicitement ; `int` exige en plus une valeur entière.
 - tout autre type — ASCII imprimable et Latin-1 uniquement, **256 caractères maximum**.
+
+#### Devices dans le MCP (MCP-1)
+
+Un device (famille `climate`) est un IO inscriptible : `get_home` lui donne un objet `device`
+(`family`, `impl`, `capabilities`, `state`, `ios`). `list_ios`, `find_io`, `get_room` et
+`get_io_state` le renvoient tel quel (chaînes sanitisées, nombres inchangés), pour que le
+modèle lise les consignes et les capacités sans autre outil.
+
+- **Commande** : `set_io_state(device_id, valeur)` avec un mode (`off`) ou une commande JSON
+  (`{"mode":"heat","target_temp":21.5}`). Le sidecar refuse ce que le serveur écarterait en
+  silence : JSON invalide, champ absent des capacités de l'instance, valeur d'énumération hors
+  liste, champ numérique qui n'est pas un nombre fini (une chaîne `"21.5"` est abandonnée par le
+  serveur qui répond quand même succès). L'impl est comparée sans casse, comme le fait
+  `IOFactory`. Les bornes restent au serveur, qui les ramène dans l'intervalle. Le scope service pilote
+  les devices (décision 18).
+- **Sorties protégées** : `output_heat` et `output_cool` d'un device d'impl `thermostat` ne sont
+  pas listées et `set_io_state` les refuse en nommant le thermostat. La liste est lue dans
+  `device.ios`, à chaque écriture sur un `get_home` frais (`force=True`), jamais sur le cache.
+- **Cache de `get_home`** : les événements arrivent sous `{"msg":"event","data":{"type_str":…}}`.
+  Le client invalide sur `io_added`, `io_deleted` et `room_changed` (émis quand un IO change de
+  pièce), applique `io_changed` (état, et objet `device` remplacé en entier) et vide le cache à
+  chaque déconnexion, le serveur pouvant revenir avec une autre topologie.
+- **Description de `set_io_state`** : générée au démarrage depuis `io_doc.json`
+  (`command_format`, `command_fields`, valeurs, bornes, `requires_links`,
+  `value_requires_links`), jamais écrite à la main. `calaos_server --gendoc` l'écrit au build dans
+  `src/bin/calaos_mcp/io_doc.json` (anglais, `LC_ALL=C`), `make install` le place dans
+  `share/calaos/` et le wrapper `calaos_mcp` exporte `CALAOS_IODOC_PATH`. Sans fichier (build
+  croisé, gendoc en échec ou au-delà de 120 s, fichier mal formé), le sidecar démarre avec une description courte qui renvoie aux
+  `capabilities`.
 
 #### Sanitisation des sorties (S3)
 
@@ -533,7 +563,7 @@ traite comme des données et non des instructions (`safety.py:12-35`).
 Trois éléments du package sont **câblés mais jamais atteints**. Ils sont signalés ici pour
 qu'on ne les prenne pas pour des capacités disponibles :
 
-- **`CalaosClient.autoscenario()`** (`client.py:156-158`) : le passe-plat existe, **aucun des
+- **`CalaosClient.autoscenario()`** (`client.py:185-188`) : le passe-plat existe, **aucun des
   9 tools ne l'appelle**. Créer, modifier ou supprimer un scénario **n'est pas** une capacité
   offerte au LLM aujourd'hui.
 - **`client.py:23-27` `_ALLOWED_ACTIONS`** : ce `frozenset` d'actions « permises sous la
@@ -563,7 +593,7 @@ qu'on ne les prenne pas pour des capacités disponibles :
 | S7 | Comparaison du Bearer en temps constant | `auth.py:164` |
 | S8 | Défenses anti HTTP request smuggling dans le proxy | `McpProxyHandler.cpp:61-107` |
 | S11 | Rate-limit par IP (**300 req/min par défaut**, `mcp_rate_limit`) + ban (**20 échecs / 120 s par défaut**, `mcp_ban_failures` / `mcp_ban_seconds`), identité prise sur `X-Forwarded-For` | `auth.py:120-184`, `config.py:86-91` |
-| S14 | Validation stricte des valeurs `set_io_state` selon `var_type` | `tools/io.py:24-45` |
+| S14 | Validation stricte des valeurs `set_io_state` selon `var_type` | `tools/io.py:27-48` |
 
 S'y ajoute, côté serveur, le **throttle de login** appliqué à `login_service` comme au login
 utilisateur : backoff par entrée de table doublant à chaque échec, de 1 s à 60 s, table bornée

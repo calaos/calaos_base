@@ -27,7 +27,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 
-from calaos_mcp import __version__
+from calaos_mcp import __version__, iodoc
 from calaos_mcp.auth import BearerAuthMiddleware
 from calaos_mcp.client import CalaosClient
 from calaos_mcp.config import get_config
@@ -67,14 +67,18 @@ mcp = MCPServer(
 _EXPECTED_TOOL_ERRORS = (ValueError, RuntimeError, ConnectionError, TimeoutError)
 
 
-def _tool(fn):
+def _guarded(fn):
     @functools.wraps(fn)
     async def wrapper(*args, **kwargs):
         try:
             return await fn(*args, **kwargs)
         except _EXPECTED_TOOL_ERRORS as exc:
             raise ToolError(str(exc) or type(exc).__name__) from exc
-    return mcp.tool()(wrapper)
+    return wrapper
+
+
+def _tool(fn):
+    return mcp.tool()(_guarded(fn))
 
 
 @_tool
@@ -124,16 +128,43 @@ async def get_io_state(io_id: str) -> dict:
     return await io.get_io_state(_get_client(), io_id)
 
 
-@_tool
-async def set_io_state(io_id: str, value: str) -> dict:
-    """Set the state of a writable IO (light, shutter, output, etc.).
+_SET_IO_STATE_DOC = """Set the state of a writable IO (light, shutter, output, device, etc.).
 
-    Args:
-        io_id: IO identifier. Must be writable (rw=true).
-        value: New value. For boolean IOs: 'true' or 'false'.
-               For numeric IOs: a number as string, e.g. '75'.
-    """
+Args:
+    io_id: IO identifier. Must be writable (rw=true).
+    value: New value. For boolean IOs: 'true' or 'false'.
+           For numeric IOs: a number as string, e.g. '75'.
+           For a device: a mode or a JSON command, see below.
+
+The output_heat and output_cool IOs of a thermostat are driven by it: they are
+not listed and are refused here. Command the thermostat instead."""
+
+
+def set_io_state_description(devices: dict[str, dict]) -> str:
+    """Tool description, with the device commands rendered from IODoc."""
+    help_text = iodoc.command_help(devices)
+    if not help_text:
+        help_text = ("The JSON command format of devices is not documented here "
+                     "(io_doc.json unavailable): read device.capabilities of the "
+                     "IO and send a plain mode such as 'off'.")
+    return f"{_SET_IO_STATE_DOC}\n\n{help_text}"
+
+
+async def set_io_state(io_id: str, value: str) -> dict:
     return await io.set_io_state(_get_client(), io_id, value)
+
+
+def register_set_io_state(devices: dict[str, dict]) -> None:
+    """(Re)register set_io_state with the description for these devices."""
+    try:
+        mcp.remove_tool("set_io_state")
+    except ToolError:
+        pass
+    mcp.add_tool(_guarded(set_io_state), name="set_io_state",
+                 description=set_io_state_description(devices))
+
+
+register_set_io_state({})
 
 
 @_tool
@@ -173,6 +204,7 @@ async def audio_control(player_id: str, action: str, volume: int | None = None) 
 
 def create_app() -> FastAPI:
     cfg = get_config()
+    register_set_io_state(iodoc.load_devices())
 
     # Initialise the session manager by calling streamable_http_app() once,
     # then extract the raw ASGI handler so we can manage its lifespan ourselves.

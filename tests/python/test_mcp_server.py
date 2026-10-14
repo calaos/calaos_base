@@ -145,6 +145,82 @@ def test_unknown_room_error_reaches_the_model(client, monkeypatch):
     assert "Room 'Nope' not found. Known rooms: ['Salon']" in text
 
 
+@pytest.fixture
+def iodoc_env(tmp_path, monkeypatch):
+    # Listed before `client` in a test: the app reads it when it is created.
+    path = tmp_path / "io_doc.json"
+    path.write_text(json.dumps({"devices": {"thermostat": {
+        "command_format": "json", "family": "climate",
+        "description": "Regulates by itself.",
+        "command_fields": [{"name": "target_temp", "type": "number", "min": 7.0,
+                            "max": 35.0, "step": 0.5, "unit": "C",
+                            "description": "The setpoint.",
+                            "requires_links": ["target_temp"]}]}}}))
+    monkeypatch.setenv("CALAOS_IODOC_PATH", str(path))
+
+
+def set_io_state_description(client):
+    session = open_session(client)
+    resp = rpc(client, "tools/list", msg_id=2, session=session)
+    tools = {t["name"]: t for t in result_of(resp)["tools"]}
+    return tools["set_io_state"]["description"]
+
+
+def test_set_io_state_description_is_rendered_from_iodoc(iodoc_env, client):
+    text = set_io_state_description(client)
+    assert "Implementation 'thermostat' (climate): Regulates by itself." in text
+    assert "target_temp: number from 7 to 35 by 0.5 C." in text
+    assert "output_heat and output_cool" in text
+
+
+@pytest.fixture(params=[
+    "{not json",
+    '{"devices": {"thermostat": {"command_format": "json", "command_fields": [{"type": "number"}]}}}',
+    '{"devices": {"thermostat": {"command_format": "json", '
+    '"command_fields": [{"name": "t", "type": "number"}]}}}',
+])
+def bad_iodoc_env(request, tmp_path, monkeypatch):
+    path = tmp_path / "bad_io_doc.json"
+    path.write_text(request.param)
+    monkeypatch.setenv("CALAOS_IODOC_PATH", str(path))
+
+
+def test_a_malformed_iodoc_does_not_stop_the_sidecar(bad_iodoc_env, client):
+    assert "io_doc.json unavailable" in set_io_state_description(client)
+
+
+def test_set_io_state_description_without_iodoc(client, monkeypatch):
+    monkeypatch.delenv("CALAOS_IODOC_PATH", raising=False)
+    from calaos_mcp import server
+
+    server.register_set_io_state({})
+    text = set_io_state_description(client)
+    assert "io_doc.json unavailable" in text
+    assert "Implementation" not in text
+
+
+def test_protected_output_refusal_reaches_the_model(client, monkeypatch):
+    from calaos_mcp import server
+
+    async def get_home(self, force=False):
+        return {"home": [{"name": "Salon", "items": [
+            {"id": "relay", "name": "relay", "io_type": "output",
+             "var_type": "bool"},
+            {"id": "thermo", "name": "thermo", "io_type": "inout",
+             "var_type": "string", "device": {
+                 "impl": "thermostat", "capabilities": {"modes": ["off"]},
+                 "ios": {"output_heat": "relay"}}}]}]}
+
+    monkeypatch.setattr(server.CalaosClient, "get_home", get_home)
+    is_error, text = call_tool(client, "set_io_state",
+                               {"io_id": "relay", "value": "true"})
+    assert is_error
+    assert "thermostat 'thermo'" in text and "output_heat" in text
+    is_error, text = call_tool(client, "list_ios", {})
+    assert not is_error
+    assert '"id": "relay"' not in text and '"id": "thermo"' in text
+
+
 def test_not_connected_error_reaches_the_model(client):
     is_error, text = call_tool(client, "list_rooms", {})
     assert is_error
