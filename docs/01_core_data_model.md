@@ -171,6 +171,14 @@ sonde dans `OwCtrl`), `KNXInputAnalog`/`KNXInputTemp` sur un télégramme de leu
 `WebInputAnalog`/`WebInputTemp` sur un téléchargement 2xx contenant un nombre. Pas dans
 `InputAnalog` : sa relecture périodique (`hasChanged()` → `readValue()`) relit le cache du
 driver et ne distingue pas une réception d'une relecture.
+Un message MQTT **retenu** (rejoué par le broker à chaque connexion ; ESPHome publie ses états
+retenus) n'est pas une lecture : `calaos_mqtt` transmet le drapeau (`"retain": true` sur le
+fil, absent sinon), `MqttCtrl::replayingRetained()` le dit pendant la distribution, et
+`MqttInputAnalog`/`MqttInputTemp` prennent la valeur sans dater de lecture
+(`IOBase::replayed` empêche `EmitSignalIO()` de dater le changement qu'il signale).
+`requestReading()` demande une lecture à l'appareil quand son protocole le permet : une
+lecture de groupe pour `KNXInputAnalog`/`KNXInputTemp` (une seule en vol par IO, la suivante
+attend un télégramme du groupe ou 10 s), rien ailleurs.
 `datesEveryReading()` (faux par défaut) dit si le driver date toute lecture : vrai pour ces
 drivers et pour les IOs internes (chaque écriture est signalée), faux pour un `WebInput*` sur
 fichier local (relu à chaque période, réécrit ou non). Un thermostat ou un proxy journalise
@@ -438,10 +446,15 @@ spec §6. Famille `climate`, abstraite (constructeur protégé) : les impls `pro
   `swing_modes`, `min_range` ; bornes de consigne lues sur l'IO écrit
   (`setpointBounds()`). Les erreurs de configuration sont journalisées une fois, dans
   `resolveLinks()`.
-- **Fraîcheur d'une sonde** : `isFresh(io)` est vrai quand l'IO a fourni une lecture depuis
-  le démarrage (`lastReading()`) il y a moins de `sensor_timeout` secondes (défaut 9000,
+- **Fraîcheur d'une sonde** : `freshness(io)` vaut `Fresh` quand l'IO a fourni une lecture
+  depuis le démarrage (`lastReading()`) il y a moins de `sensor_timeout` secondes (défaut 9000,
   soit 2 h 30 : un report Zigbee horaire perdu ne suffit pas à couper ; une valeur qui n'est
-  pas un nombre strictement positif est journalisée et remplacée par le défaut).
+  pas un nombre strictement positif est journalisée et remplacée par le défaut) et ne se
+  déclare pas déconnectée (`connected=false`, par exemple le testament d'ESPHome) ; sinon
+  `NotRead`, `Silent` ou `Disconnected`. `isFresh(io)` en est le raccourci.
+  `requestReadingIfOld(role)` demande une lecture (`requestReading()`) à une sonde jamais
+  lue ou dont la dernière lecture a plus de la moitié de `sensor_timeout` : une sonde KNX
+  « émission sur variation » ne se taira pas dans une pièce stable.
 - Hooks d'impl : `supportedModes()` (le thermostat restreint ses modes selon ses sorties),
   `currentMode()` / `writeMode()` (le thermostat stocke son mode). Par défaut, le mode est lu
   sur le lien `mode` et écrit sur son `command_io`, sinon sur son `io`.
@@ -490,11 +503,12 @@ lien et écrit sur son `command_io`, sinon sur son `io` quand c'est une sortie.
   la source est écrite sur `remote_temp` à chaque changement **et** toutes les
   `remote_temp_keepalive` secondes (défaut 120, fractions admises ; un `Timer` membre détruit avec
   le device). Rien n'est envoyé tant que la source n'est pas fraîche (`isFresh()` : une
-  lecture depuis le démarrage, la dernière il y a moins de `sensor_timeout` s ; 0 est une
-  valeur) ni tant qu'elle se déclare déconnectée : l'appareil retombe alors sur sa sonde. Une
-  source muette mais toujours « connectée » cesse donc d'être relayée, avec une erreur par
-  silence ; la lecture suivante est relayée aussitôt (une valeur répétée, au prochain
-  keep-alive).
+  lecture depuis le démarrage, la dernière il y a moins de `sensor_timeout` s, et pas
+  déconnectée ; 0 est une valeur) : l'appareil retombe alors sur sa sonde. Une source muette
+  mais toujours « connectée » cesse donc d'être relayée, avec une erreur par silence ou
+  déconnexion ; la lecture suivante est relayée aussitôt (une valeur répétée, au prochain
+  keep-alive). Chaque keep-alive demande aussi une lecture à une source vieillissante
+  (`requestReadingIfOld()`).
 - **Relecture en retard** : une commande `target_temp_low`/`_high` partielle est validée contre la
   dernière valeur **commandée** de l'autre borne, jusqu'à ce que la relecture de cette borne
   change ou que `readback_hold` secondes (défaut 10) s'écoulent. Sans cela, deux commandes
@@ -518,8 +532,9 @@ spec §8.1 et §8.2. `impl="thermostat"` : Calaos régule.
   suivante.
 - **`evaluate()`** : appelé par `IOChangeHub` sur `current_temp`, les consignes et `humidity`,
   par un changement de ses sorties, par les verrous, une fois au premier tour de boucle après
-  le chargement, toutes les min(`sensor_timeout`, 60) s (une sonde qui se tait ne signale
-  rien, une valeur répétée non plus), et une seule fois par commande, quand tous ses champs
+  le chargement, toutes les min(`sensor_timeout` / 4, 60) s (une sonde qui se tait ne signale
+  rien, une valeur répétée non plus ; ce tour demande d'abord une lecture aux sondes
+  vieillissantes), et une seule fois par commande, quand tous ses champs
   sont appliqués
   (`{"mode":"heat","target_temp":18}` ne chauffe pas contre l'ancienne consigne).
   Chauffe : ON sous `consigne − hysteresis`, OFF au-dessus de la consigne ; entre les deux,
@@ -535,17 +550,23 @@ spec §8.1 et §8.2. `impl="thermostat"` : Calaos régule.
   - **sonde** : quoi que dise une surcharge du hook, les deux sorties restent OFF tant que
     `current_temp` n'est pas fraîche (`isFresh()`). Au démarrage, la valeur du cache d'état ne
     compte pas : il faut une lecture. Une sonde qui a lu puis se tait `sensor_timeout`
-    secondes coupe les sorties, avec une erreur par silence ; la lecture suivante, même
-    identique, relance la régulation ;
+    secondes, ou qui se déclare déconnectée, coupe les sorties, avec une erreur par épisode ;
+    la lecture suivante, même identique, relance la régulation ;
   - **point de rosée** (`emitter=floor`) : la base refuse `output_cool` tant que `humidity`
-    n'est pas fraîche (jamais lue depuis le démarrage, ou muette `sensor_timeout` s) ou lit
+    n'est pas fraîche (jamais lue depuis le démarrage, muette `sensor_timeout` s ou
+    déconnectée) ou lit
     `humidity_max` ou plus (défaut 65) ; journalisé à chaque changement de cause. Sans lien
     `humidity`, `cool` et `auto` sont absents des modes, `target_temp_range` n'est ni offert
-    ni appliqué (`isWritable()` refuse les bornes) et le chargement journalise l'erreur ; `output_cool` reste une sortie du thermostat, tenue OFF. Le chauffage n'est
-    pas concerné ;
+    ni appliqué (`isWritable()` refuse les bornes) et le chargement journalise l'erreur ;
+    `output_cool` reste une sortie du thermostat, tenue OFF. Le chauffage n'est pas concerné ;
   - **démarrage** : le premier tour de boucle compte comme un passage à OFF des deux sorties,
     donc `min_off_time` s'écoule avant le premier ON (un relais coupé juste avant un
-    redémarrage du serveur ne refait pas un cycle court).
+    redémarrage du serveur ne refait pas un cycle court). **Conséquence** : après un
+    démarrage, aucune chauffe avant la première lecture de `current_temp`, plus
+    `min_off_time`. La valeur du cache d'état et un message MQTT retenu ne comptent pas :
+    une sonde Zigbee non retenue qui n'émet qu'une fois par heure laisse le chauffage OFF
+    jusqu'à 1 h ; une sonde KNX est lue au premier tour de vérification, une sonde Wago ou
+    1-Wire à sa prochaine scrutation.
 - **Verrous** : `min_on_time` / `min_off_time` (secondes, décimales acceptées, 0 par
   défaut), mesurés depuis la dernière commutation faite par le thermostat. Une commutation
   de régulation dans un verrou est reportée par un `Timer` membre réarmable, puis
