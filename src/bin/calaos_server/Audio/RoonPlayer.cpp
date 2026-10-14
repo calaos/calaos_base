@@ -178,7 +178,7 @@ void RoonCtrl::processNewMessage(const string &msg)
     }
 }
 
-void RoonCtrl::subscribeZone(const string &zoneId, std::function<void(const RoonPlayerState &)> cb)
+void RoonCtrl::subscribeZone(const string &zoneId, sigc::slot<void, const RoonPlayerState &> cb)
 {
     cDebugDom("roon") << "RoonCtrl: subscribeZone: " << zoneId;
 

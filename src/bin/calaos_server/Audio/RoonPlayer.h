@@ -144,7 +144,9 @@ public:
 
     ~RoonCtrl();
 
-    void subscribeZone(const string &zoneId, std::function<void(const RoonPlayerState &)> cb);
+    //A sigc::slot, not a std::function: it keeps the trackable link of a
+    //sigc::mem_fun, so a deleted RoonPlayer's slot is cut.
+    void subscribeZone(const string &zoneId, sigc::slot<void, const RoonPlayerState &> cb);
     void sendMessage(const string &msg);
 
     //Where a zone state from the sidecar enters; public so a test can feed
@@ -163,7 +165,7 @@ private:
     //by every relaunch.
     vector<string> procArgs;
 
-    std::map<string, std::function<void(const RoonPlayerState &)>> subscribeCb;
+    std::map<string, sigc::slot<void, const RoonPlayerState &>> subscribeCb;
 };
 
 class RoonPlayer: public AudioPlayer, public sigc::trackable
