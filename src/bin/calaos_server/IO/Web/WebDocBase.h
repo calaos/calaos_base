@@ -133,9 +133,11 @@ protected:
             if (received)
                 this->markReading();
         }
-        if (v != this->value)
+        //Compared once converted: a document read again must not be signalled.
+        const double converted = AnalogIO::convertValue(this->get_params(), v);
+        if (converted != this->value)
         {
-            this->value = AnalogIO::convertValue(this->get_params(), v);
+            this->value = converted;
             this->emitChange();
         }
     }

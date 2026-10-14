@@ -150,9 +150,11 @@ protected:
     {
         KNXValue val = cachedValue();
 
-        if (this->value != val.toFloat())
+        //Compared once converted: the input poll reads the cache again.
+        const double converted = AnalogIO::convertValue(this->get_params(), val.toFloat());
+        if (this->value != converted)
         {
-            this->value = AnalogIO::convertValue(this->get_params(), val.toFloat());
+            this->value = converted;
             this->emitChange();
         }
     }

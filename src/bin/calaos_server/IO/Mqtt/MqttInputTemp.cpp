@@ -59,9 +59,14 @@ void MqttInputTemp::readValue()
 {
     bool err;
     double v = ctrl->getValueDouble(get_params(), err);
-    if (!err && v != value)
+    if (err)
+        return;
+    //Compared once converted: the input poll reads the last value again, and
+    //signalling it would date a reading.
+    const double converted = AnalogIO::convertValue(get_params(), v);
+    if (converted != value)
     {
-        value = AnalogIO::convertValue(get_params(), v);
+        value = converted;
         emitChange();
     }
 }
