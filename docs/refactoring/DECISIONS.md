@@ -1401,3 +1401,7 @@ rouvrir.
     (`cErrorDom("device")`) et traité comme non résolu. Deux thermostats sur un relais commun se
     battaient. Le multizone passe par une sortie par zone et une règle qui les combine sur la
     chaudière. Les liens de `ProxyClimate` ne sont pas concernés.
+18. **Le scope service du MCP pilote les devices** (2026-10-14, MCP-1). `set_io_state` accepte la
+    commande JSON d'un device (mode, consignes, ventilation, oscillation), comme pour tout IO
+    inscriptible. Les sorties protégées d'un thermostat restent masquées de `list_ios` et refusées
+    en écriture, donc aucun relais n'est piloté directement.

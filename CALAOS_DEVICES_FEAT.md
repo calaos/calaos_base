@@ -398,7 +398,8 @@ implementation.
 ### 9.2 MCP
 
 A device is an IO: `set_io_state` with the JSON command works once the tool description documents
-the format (from IODoc, §11). The protected outputs are hidden (§8.3).
+the format (from IODoc, §11). The protected outputs are hidden (§8.3). The service scope may send
+JSON commands to devices (decision 18).
 
 ### 9.3 RemoteUI
 
@@ -497,5 +498,4 @@ The installer form (§10) and the MCP tool description (§9.2) are built from it
 
 - Debounce value (100 ms) and whether `io_changed` should carry the full `device` object or only
   `state`.
-- Whether MCP's service scope may send JSON commands to devices, or only read them.
 - Default values per template (hysteresis, min on/off, `sensor_timeout`, `humidity_max`).
