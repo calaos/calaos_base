@@ -1060,6 +1060,9 @@ TEST_F(IODocGenFileTest, TheThermostatIsDocumentedUnderDevicesLikeTheProxy)
     const std::string hysteresis = paramNamed(th, "hysteresis").at("description").get<std::string>();
     EXPECT_TRUE(contains(hysteresis, "switching on"));
     EXPECT_TRUE(contains(hysteresis, "as soon as the setpoint is crossed"));
+    //It also sets the window of the log of writes from outside to an output.
+    EXPECT_TRUE(contains(paramNamed(th, "put_back_delay_max").at("description").get<std::string>(),
+                         "one line per source and output"));
     //A stop that was asked for (mode off) or that safety needs does not wait.
     EXPECT_TRUE(contains(paramNamed(th, "min_on_time").at("description").get<std::string>(),
                          "except when the mode is off or a safety cut stops it"));
