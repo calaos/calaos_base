@@ -2,10 +2,12 @@
 
 ## REPRISE — lire en premier
 
-- **État (2026-10-13)** : 38 tickets mergés sur 47. CLIM-2 (#191), CLIM-3 (#192), FIX-BASE-3 (#193)
-  ✅. DOC-1 en cours. Démarrables : CLIM-4 et CLIM-5. Ensuite MCP-1, DOC-2/3, INST-4/5, VAL-1 sur la
-  box. En parallèle, refonte UI climate : maquettes de variantes dans
-  `/home/raoul/repos/calaos/climate-mockups/` (round 1, l'utilisateur choisira).
+- **État (2026-10-14)** : 39 tickets mergés sur 48. CLIM-2, CLIM-3, CLIM-5, FIX-BASE-3 ✅. En
+  revue / correction : CLIM-4 (#195), DOC-1 (#194). FIX-BASE-4 (slots de contrôleurs, KNX) en cours.
+  Ensuite MCP-1, DOC-2/3, INST-4/5, VAL-1 sur la box. Refonte UI climate : maquettes round 4 dans
+  `/home/raoul/repos/calaos/climate-mockups/round4/`, publiées en gist secret
+  https://gist.github.com/raoulh/53a744f13815a93c00c58ce188929fad (pousser via ghgit sur
+  https://gist.github.com/53a744f13815a93c00c58ce188929fad.git) ; attente du retour utilisateur.
 - **Page de suivi en ligne** : voir la ligne « Suivi » plus bas. Elle est statique : la republier
   à chaque fin de ticket.
 - T3.247 ✅ (installer#54, option « garde ») : DOC-1 peut régénérer `io_doc.json`.
