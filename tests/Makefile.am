@@ -7809,3 +7809,16 @@ core_KnxThermostatRead_test_DEPENDENCIES = $(KNX_THERMOSTAT_READ_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#HistLogger cannot open its database: history is disabled, its readers still
+#get an answer and the process goes on (forked child per case).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/HistLoggerOpenFailure_test
+check_PROGRAMS += core/HistLoggerOpenFailure_test
+core_HistLoggerOpenFailure_test_SOURCES = core/HistLoggerOpenFailure_test.cpp
+core_HistLoggerOpenFailure_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_HistLoggerOpenFailure_test_LDADD = $(CORE_TEST_LDADD)
+core_HistLoggerOpenFailure_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
