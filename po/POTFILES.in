@@ -65,6 +65,7 @@
 ./src/bin/calaos_server/IO/Hue/HueOutputLightRGB.h
 ./src/bin/calaos_server/IO/ClimateBase.cpp
 ./src/bin/calaos_server/IO/Device.cpp
+./src/bin/calaos_server/IO/DeviceTemplates.cpp
 ./src/bin/calaos_server/IO/InPlageHoraire.cpp
 ./src/bin/calaos_server/IO/InPlageHoraire.h
 ./src/bin/calaos_server/IO/InputAnalog.cpp

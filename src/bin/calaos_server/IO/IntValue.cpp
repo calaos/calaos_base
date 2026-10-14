@@ -77,6 +77,7 @@ Internal::Internal(Params &p):
 
     ioDoc->paramAdd("rw", _("Enable edit mode for this object. It allows user to modify the value on interfaces. Default to false"), IODoc::TYPE_BOOL, false, "false");
     ioDoc->paramAdd("save", _("Automatically save the value in cache. The value will be reloaded when restarting calaos is true. Default to false"), IODoc::TYPE_BOOL, false, "false");
+    ioDoc->paramAdd("value", _("Initial value, used when save is true and the cache holds no value yet."), IODoc::TYPE_STRING, false);
 
     ioDoc->conditionAdd("changed", _("Event on any change of value"));
 

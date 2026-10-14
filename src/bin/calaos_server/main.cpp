@@ -23,6 +23,7 @@
 #include "Room.h"
 #include "ListeRoom.h"
 #include "IOFactory.h"
+#include "DeviceTemplates.h"
 #include "CalaosConfig.h"
 #include "ListeRule.h"
 #include "UDPServer.h"
@@ -59,6 +60,7 @@ static void echoUsage(char **argv)
     cout << _("\t--config <path>\tSet <path> as the directory for config files.\n");
     cout << _("\t--cache <path>\tSet <path> as the directory for cache files.\n");
     cout << _("\t--gendoc <path>\tGenerate Io documentation in <path>\n");
+    cout << _("\t--gentemplates <path>\tGenerate the device templates in <path>\n");
     cout << _("\t-v, --version\tDisplay current version and exit.\n");
     cout << endl;
 }
@@ -133,6 +135,10 @@ int main (int argc, char **argv)
         cout << endl;
         exit(0);
     }
+
+    char *templatesDir = argvOptionParam(argv, argv + argc, "--gentemplates");
+    if (templatesDir)
+        exit(DeviceTemplates::generate(templatesDir) ? 0 : 1);
 
     //Ensure calling order of destructors
     HistLogger::Instance();

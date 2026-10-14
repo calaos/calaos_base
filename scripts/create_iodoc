@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# This script creates the iodoc.json file from the calaos_server.
+# This script creates the iodoc.json file and the device templates from the calaos_server.
 
 #get the path where the script is located
 rootdir=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
@@ -20,6 +20,7 @@ function build_doc()
     local lang=$2
     
     $calaos_server --gendoc "$docdir"
+    $calaos_server --gentemplates "$docdir"
     mkdir -p "$docdir/$lang"
     mv "$docdir"/*.json "$docdir"/*.md "$docdir/$lang"
 }
