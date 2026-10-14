@@ -252,7 +252,10 @@ bool IOBase::renameId(const std::string &newId)
 void IOBase::EmitSignalIO()
 {
     cDebugDom("iobase") << get_param("id");
-    markReading();
+    if (replayed)
+        valueKnown = true;
+    else
+        markReading();
     //Also notifies the IOChangeHub subscribers, from inside the rule march so
     //that their writes are serialized with the rule actions.
     ListeRule::Instance().ExecuteRuleSignal(get_param("id"));

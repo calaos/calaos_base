@@ -426,7 +426,8 @@ bool MqttProcess::setup(int &argc, char **&argv)
     m_client->messageRcv([=](const struct mosquitto_message *m)
     {
         sendMessage(MqttWire::encodeMessage(m->topic?m->topic:"",
-                                            MqttWire::payloadToString(m->payload, m->payloadlen)));
+                                            MqttWire::payloadToString(m->payload, m->payloadlen),
+                                            m->retain));
     });
 
     return true;

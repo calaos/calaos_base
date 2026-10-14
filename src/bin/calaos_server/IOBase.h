@@ -245,6 +245,8 @@ public:
 
 protected:
     void setValueKnown() { valueKnown = true; }
+    //Set while signalling a value the driver replays: known, not a reading.
+    bool replayed = false;
     void markReading()
     {
         valueKnown = true;

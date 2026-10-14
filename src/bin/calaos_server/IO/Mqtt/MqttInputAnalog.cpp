@@ -45,10 +45,14 @@ void MqttInputAnalog::readMessage()
 {
     bool err;
     ctrl->getValueDouble(get_params(), err);
+    //A message the broker replayed (retained) gives the value, but its sensor
+    //may be long dead: it is not a reading, even when the value changes.
+    replayed = ctrl->replayingRetained();
     //readValue() signals a change only, yet the sensor is alive.
-    if (!err)
+    if (!err && !replayed)
         markReading();
     readValue();
+    replayed = false;
 }
 
 void MqttInputAnalog::readValue()

@@ -71,6 +71,8 @@ public:
     string getValueJson(const Params &params, string path, string payload);
     string getValue(const Params &params, bool &err, string topic_param, string path_param = "path");
     double getValueDouble(const Params &params, bool &err);
+    //While the subscribers of a retained message, replayed by the broker, are called.
+    bool replayingRetained() const { return replaying; }
     ColorValue getValueColor(const Params &params, bool &err);
 
     /* T3.35b. The single door through which a broker message enters this
@@ -114,6 +116,7 @@ private:
     };
     //Keyed by a growing id: iteration follows the subscription order.
     std::map<uint64_t, Subscriber> subscribers;
+    bool replaying = false;
     uint64_t nextSubscriptionId = 1;
     std::shared_ptr<bool> alive = std::make_shared<bool>(true);
     unordered_map<string, string> messages;

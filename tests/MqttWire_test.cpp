@@ -654,3 +654,15 @@ TEST(MqttAntiSwap, TopicAndPayloadAreNeitherEqualNorInterchangeable)
     EXPECT_EQ(topic, q["topic"]);
     EXPECT_EQ(payload, q["payload"]);
 }
+
+//A message the broker replayed says so; any other keeps its bytes.
+TEST(MqttWireRetain, OnlyARetainedMessageCarriesTheFlag)
+{
+    EXPECT_EQ(MqttWire::encodeMessage("t", "1", true), "{\"payload\":\"1\",\"retain\":true,\"topic\":\"t\"}");
+    EXPECT_EQ(MqttWire::encodeMessage("t", "1", false), MqttWire::encodeMessage("t", "1"));
+    EXPECT_EQ(MqttWire::encodeMessage("t", "1"), "{\"payload\":\"1\",\"topic\":\"t\"}");
+
+    Params p;
+    ASSERT_TRUE(MqttWire::decodeMessage(MqttWire::encodeMessage("t", "1", true), p));
+    EXPECT_EQ(p["retain"], "true");
+}
