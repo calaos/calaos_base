@@ -86,7 +86,7 @@ calaos_server --gendoc <chemin>
 ```
 
 produit `<chemin>/io_doc.md` et `<chemin>/io_doc.json`
-(dérivé, [main.cpp:127-132](../src/bin/calaos_server/main.cpp),
+(dérivé, [main.cpp:129-134](../src/bin/calaos_server/main.cpp),
 [IO/IOFactory.cpp:70-115](../src/bin/calaos_server/IO/IOFactory.cpp)). Les tableaux de ce document
 en sont un extrait de lecture, pas la source d'autorité.
 

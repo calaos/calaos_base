@@ -707,6 +707,11 @@ type enregistré ; ces exemplaires partagent tous `id="doc"` et sont tenus hors 
 vive par le garde RAII `IOBase::ScopedDocGen` (dérivé,
 [IO/IOFactory.cpp:70-115](../src/bin/calaos_server/IO/IOFactory.cpp)).
 
+Les templates de devices de l'assistant de l'installer sont générés à côté, par
+`calaos_server --gentemplates <chemin>` (`device_templates.json`) : voir
+[17_device_templates.md](17_device_templates.md). Un param lu par une impl ou un IO et écrit par
+un template doit être documenté ici : `DeviceTemplates_test` le vérifie.
+
 ---
 
 ## Params
@@ -760,7 +765,7 @@ pendant le boot ne voit rien de la maison qui se construit — épinglé par
 ⚠️ `StartReadRules` n'est **pas** un compteur d'IOs : seuls les drivers qui font une lecture
 asynchrone au démarrage s'y inscrivent (Wago, Web…). `main()` fait un `addIO()`/`ioRead()`
 d'encadrement pour que les configurations sans aucun de ces drivers exécutent quand même les
-règles `ConditionStart` (dérivé, [main.cpp:186-187](../src/bin/calaos_server/main.cpp)).
+règles `ConditionStart` (dérivé, [main.cpp:194-195](../src/bin/calaos_server/main.cpp)).
 
 ---
 

@@ -143,7 +143,7 @@ fait donc aujourd'hui que restituer ce qu'un Calaos Installer ou un fichier hér
 **Fichier :** [src/bin/calaos_server/RemoteUI/RemoteUIManager.h](../src/bin/calaos_server/RemoteUI/RemoteUIManager.h)
 
 Singleton gérant toutes les connexions RemoteUI actives, instancié depuis `main()`
-(dérivé, `src/bin/calaos_server/main.cpp:145`).
+(dérivé, `src/bin/calaos_server/main.cpp:151`).
 
 ### API publique
 
