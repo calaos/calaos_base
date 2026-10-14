@@ -260,6 +260,13 @@ Existing IOs are unaffected: their command strings do not change.
   linger. Numbers and booleans are real JSON numbers and booleans, not strings (unlike the legacy
   `state` string).
 - Owned IOs are still listed in the room's `items` with `visible="false"`, as today.
+- Climate `state` also carries what the UI needs to explain itself (CLIM-6): `humidity` when a
+  humidity link has a reading; `connected: false` when the proxy's connection link or the
+  thermostat's `current_temp` sensor reports disconnected; `lockout: {"output": "heat",
+  "remaining": 140}` while a wanted output waits for its lock-out (seconds left, computed at
+  publication; clients count down locally); `fault` (`sensor_stale`, `sensor_missing`,
+  `humidity_high`, `humidity_stale`) while a safety rule holds the outputs off. Absent when not
+  applicable. The UI built on them is described in `docs/devices/UI_CLIMATE.md`.
 
 ---
 

@@ -16,12 +16,12 @@ agent séparé (voir `PROCESS.md`).
 ```
 OUT-1 ─┬─ CORE-1 ─┬─ CORE-2 ─┬─ CORE-3 ──────────────── INST-3
        │          │          └─ CORE-4 ─┬─ CLIM-1 ─┬─ CLIM-2
-       │          │                     │          ├─ CLIM-3 ─┬─ CLIM-4
+       │          │                     │          ├─ CLIM-3 ─┬─ CLIM-4 ─ CLIM-6
        │          │                     │          │          └─ CLIM-5 ── MCP-1
        │          │                     │          └─ DOC-1 (+T3.247) ─ DOC-2 ─ DOC-3
-       │          │                     ├─ WEB-1 ─ WEB-2
-       │          │                     ├─ MOB-1 ─ MOB-2
-       │          │                     └─ RUI-1 ─ RUI-2 (+OUT-3) ─ RUI-3
+       │          │                     ├─ WEB-1 ─ WEB-2 ─ WEB-3 (+CLIM-6)
+       │          │                     ├─ MOB-1 ─ MOB-2 ─ MOB-3 (+CLIM-6) ─ MOB-4
+       │          │                     └─ RUI-1 ─ RUI-2 (+OUT-3) ─ RUI-3 ─ RUI-4 (+CLIM-6) ─ RUI-5
        └─ CORE-5 ── INST-6
 OUT-2 ─ INST-1 ─┬─ INST-2 ─ INST-4 (+DOC-3)
                 ├─ INST-3
@@ -58,6 +58,7 @@ Tout ─ VAL-1
 | CLIM-3 | **`InternalThermostat` : régulation** (§8.1). `evaluate()` (off/heat/cool/auto), hystérésis, `min_on_time`/`min_off_time` par timer réarmable, bascule auto sans double activation, écriture de `action`, mode persistant dans le cache, IOs possédés recréés s'ils manquent. Durées paramétrables en millisecondes pour les tests (boucle libuv réelle, pas de temps simulé). Tests : table de vérité complète de `evaluate()`, expiration des verrous, bascule auto. | CLIM-1, CORE-1 | opus / xhigh / graft | ✅ [#192](https://github.com/calaos/calaos_base/pull/192) |
 | CLIM-4 | **`InternalThermostat` : sûreté** (§8.2). Sorties OFF tant que le capteur n'a rien livré, capteur périmé (`sensor_timeout`), coupure point de rosée (`emitter=floor`, `humidity`, `humidity_max`), refus du froid sans capteur d'humidité. `ProxyClimate` : arrêt du relais `remote_temp` quand la source est figée mais toujours « connectée » (même sémantique que `sensor_timeout`, repli de l'unité sur sa propre sonde ; remonté par la revue de CLIM-2). Démarrage traité comme un passage à OFF (`offAt` au premier tour, donc `min_off` avant le premier ON), pour éviter un cycle court au redémarrage du serveur avec un relais resté ON (revue de CLIM-3). Tests : un cas par règle, plus le retour à la normale. | CLIM-3 | opus / high / graft | 👀 [#195](https://github.com/calaos/calaos_base/pull/195) |
 | CLIM-5 | **Sorties protégées** (§8.3). Avertissement journalisé quand une règle (`ActionStd`), Lua ou `set_state` écrit `output_heat`/`output_cool` d'un thermostat ; jamais de blocage. Pendant un OFF forcé (mode `off`, refus de sûreté) qu'une règle défait, journaliser en erreur chaque remise défaite, au plus une par espacement `put_back_delay`, au lieu d'un seul avertissement pour la vie du process (revue de CLIM-3 : face à une règle qui rallume, la sortie reste ON presque tout le temps, le bruit est la seule défense). Tests : chaque chemin d'écriture produit l'avertissement, et la valeur est quand même appliquée. | CLIM-3 | sonnet / medium / graft | ✅ [#196](https://github.com/calaos/calaos_base/pull/196) |
+| CLIM-6 | **État affichable** (§5.3, [`UI_CLIMATE.md`](UI_CLIMATE.md)). Le `state` du device gagne `humidity` (lien humidity, si lu), `connected` (faux si le lien de connexion du proxy, ou la sonde `current_temp` du thermostat, se déclare déconnecté), `lockout` (`{"output":"heat","remaining":140}` quand une sortie voulue attend son verrou, secondes restantes, recalculé à chaque publication) et `fault` (`sensor_stale`, `sensor_missing`, `humidity_high`, `humidity_stale`). Publication sur chaque changement (le début et la fin d'un verrou ou d'un défaut publient). Tests : chaque champ présent et absent, goldens. | CLIM-4 | sonnet / high / graft | 📋 |
 
 ## DOC — IODoc et templates (calaos_base, CI)
 
@@ -90,6 +91,7 @@ Tout ─ VAL-1
 |---|---|---|---|---|
 | WEB-1 | **Décodage.** `device?` dans les types et un guard `toDeviceInfo` qui ne lève jamais d'exception, patch dans `applyIoChanged`, fixture du mock-server avec un proxy et un thermostat. Tests Vitest sur les guards et le store. | CORE-4 | sonnet / medium | ✅ [#26](https://github.com/calaos/calaos-web-app/pull/26) |
 | WEB-2 | **Composant `ClimateIo`.** Entrée `climate` dans `GUI_TYPES` et `IO_COMPONENTS`, rendu piloté par les capacités (boutons de mode, consigne bornée, plage en `auto`, ventilation, badge d'action, grisé selon le mode), commande JSON par `sendSetState`, transitions du mock-server. Tests : `.spec.ts` du composant et un scénario Playwright. | WEB-1, CLIM-1 | sonnet / high / frontend-design | ✅ [#28](https://github.com/calaos/calaos-web-app/pull/28) |
+| WEB-3 | **Refonte `ClimateIo` selon le design validé** ([`UI_CLIMATE.md`](UI_CLIMATE.md), maquettes `round4/final/web.*`). Rangée avec mini-arc, statut, consigne, pièce et chevron ; réglage en panneau latéral (dialogue centré sous 1024 px) avec cadran 300°, « − 22° + », pastille de mode → `BaseDialog`, « Plus de réglages » ; tous les états du tableau de statut. Tests Vitest des états et de la commande, Playwright du parcours. | WEB-2, CLIM-6 | sonnet / high / frontend-design | 📋 |
 
 ## MOB — calaos_mobile
 
@@ -97,6 +99,8 @@ Tout ─ VAL-1
 |---|---|---|---|---|
 | MOB-1 | **Décodage.** Exposer l'objet `device` de `get_home`, et faire transporter la map par l'`io_changed` (aujourd'hui convertie en chaîne vide) sur le modèle de `IoStatusChange`. Tests : `tst_calaoseventdecoder`, `tst_iobase`. | CORE-4 | sonnet / medium | ✅ [#22](https://github.com/calaos/calaos_mobile/pull/22) |
 | MOB-2 | **Widget `IOClimate`.** Type `climate` dans `IOTypeRegistry` et `Common.h`, `IOClimate.qml` piloté par les capacités, variantes desktop et mobile, déclarations `qmldir`/`.qrc`/`calaos.pri`, commande JSON par `sendStringValue`. Tests Qt et qmllint. | MOB-1, CLIM-1 | sonnet / high / frontend-design | ✅ [#23](https://github.com/calaos/calaos_mobile/pull/23) |
+| MOB-3 | **Item de liste climate** ([`UI_CLIMATE.md`](UI_CLIMATE.md), `round5/final/mobile.*` et `desktop.*`). Même item QML pour téléphone et desktop : deux rangées (nom + pièce ; pastille de mode + statut + consigne), arc sur la hauteur, chevron, pas de −/+. Tous les états. Tests Qt Quick Test sur les états, qmllint. | MOB-2, CLIM-6 | sonnet / high / frontend-design | 📋 |
+| MOB-4 | **Réglage climate** (`round4/final/mobile.*` et `desktop.*`). Bottom sheet sur téléphone, dialogue sur desktop : cadran 300°, deux curseurs en `auto`, « − 22° + », butée `min_range`, pastille de mode → sheet de choix, « Plus de réglages » (ventilation, oscillation, humidité selon les capacités). Tests Qt Quick Test de la commande envoyée. | MOB-3 | sonnet / high / frontend-design | 📋 |
 
 ## RUI — calaos_remote_ui
 
@@ -105,6 +109,8 @@ Tout ─ VAL-1
 | RUI-1 | calaos_base | **Côté serveur.** `extractReferencedIOs()` étend un device à ses IOs possédés et liés ; l'objet `device` voyage dans `remote_ui_io_states` et `io_changed`. Tests sur le harnais RemoteUI existant. | CORE-4 | sonnet / medium / graft | ✅ [#186](https://github.com/calaos/calaos_base/pull/186) |
 | RUI-2 | calaos_remote_ui | **Protocole du firmware.** Inverser les 17 tests `*KnownBugs*` épinglés par OUT-3 (et corriger DOC-CI.md:41, qui dit à tort que tous portent `BUG (RUI-2)`). Champ device dans `IoState`, parsing aux deux endroits, fusion dans `AppStore`, détection de changement qui ne se limite plus à `state` (`app_store.cpp:333`, `calaos_widget.cpp:125`), et correction du `value("visible", true)` qui jette tout le lot sur une chaîne `"true"`. Tests hôte. | RUI-1, OUT-3 | sonnet / high | ✅ [#4](https://github.com/calaos/calaos_remote_ui/pull/4) |
 | RUI-3 | calaos_remote_ui | **Widget `Climate`.** Le firmware vide `ioStates` à la réception de `config_update` (le lot `io_states` suit aussitôt), sinon un device supprimé reste affiché jusqu'au reboot du panneau (revue RUI-1). Enregistré via `registerWidgetAnySize`, mise en page adaptée aux cellules 240×240 à 213×266 et aux tailles multiples, piloté par les capacités, commande JSON. Validé sur le simulateur SDL (`linux-dev`), captures jointes à la PR. | RUI-2, CLIM-1 | opus / high / frontend-design | ✅ [#5](https://github.com/calaos/calaos_remote_ui/pull/5) |
+| RUI-4 | calaos_remote_ui | **Petits widgets climate et vue plein écran** ([`UI_CLIMATE.md`](UI_CLIMATE.md), `round5/final/remote.*`, `round4/final/remote.*`). 1×1, 2×1 et 1×2 sans −/+ ; tap → vue plein écran (cadran `lv_arc`, « − 22° + », pastille de mode) ; popups de mode et de réglages. Polices compilées seulement. Tests hôte gtest et captures du simulateur SDL. | RUI-3, CLIM-6 | sonnet / high | 📋 |
+| RUI-5 | calaos_remote_ui | **Grands widgets climate** (2×2, 3×3 et plus) : le climate complet dans le widget, sans vue intermédiaire ; mode et `⋯` en haut, cadran et « − 22° + » au milieu, titre en bas comme les autres widgets. Tests hôte et captures SDL en 800×480 et 720×720. | RUI-4 | sonnet / high | 📋 |
 
 ## VAL — validation de bout en bout
 
