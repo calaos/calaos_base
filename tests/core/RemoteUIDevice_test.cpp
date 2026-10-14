@@ -439,6 +439,31 @@ protected:
     }
 };
 
+//Observers are process wide and cannot be removed: this one only records.
+static std::vector<std::pair<std::string, std::string>> &outsideWrites()
+{
+    static std::vector<std::pair<std::string, std::string>> all;
+    return all;
+}
+
+static void recordOutsideWrite(IOBase &io, const char *source)
+{
+    outsideWrites().emplace_back(io.get_param("id"), source);
+}
+
+//A panel is not an API client: its writes are labelled apart in the log.
+TEST_F(RemoteUIScopeTest, SetStateFromAPanelIsLabelledAsOne)
+{
+    static const bool observing = (Device::observeOutsideWrites(&recordOutsideWrite), true);
+    ASSERT_TRUE(observing);
+    outsideWrites().clear();
+
+    send(firmwareSetState(PLAIN, "true"));
+
+    const std::vector<std::pair<std::string, std::string>> expected = { { PLAIN, "set_state from a RemoteUI panel" } };
+    EXPECT_EQ(outsideWrites(), expected);
+}
+
 TEST_F(RemoteUIScopeTest, SetStateOnAWidgetIoIsApplied)
 {
     const std::string before = value(PLAIN);
