@@ -1194,3 +1194,25 @@ TEST_F(IODocGenFileTest, TheJsonFileStaysPureAsciiWhenATypeNameIsNot)
     EXPECT_NE(std::string::npos, jsonTxt.find("Acc\\u00e9ntedType"));
     EXPECT_EQ(std::string::npos, jsonTxt.find("Acc\\u00E9ntedType"));
 }
+
+//A saved internal IO starts from its `value` param until the state cache holds
+//one: a template sets a setpoint that way, so the param must be documented.
+TEST_F(IODocGenFileTest, TheInternalIosDocumentTheInitialValueTheyRead)
+{
+    //No forgetIOState(): an empty cached value would win over the param.
+    loadConfig(ioXmlDocument(roomXml("R", "r",
+                                     internalIoXml("InternalInt", "doc_initial_int", "x",
+                                                   "save=\"true\" value=\"21.5\""))),
+               rulesXmlDocument(""));
+    ASSERT_NE(nullptr, io("doc_initial_int"));
+    EXPECT_DOUBLE_EQ(21.5, io("doc_initial_int")->get_value_double());
+
+    IOFactory::Instance().genDoc(docDir());
+    Json j = Json::parse(readWholeFile(docDir() + "/io_doc.json"));
+    for (const char *type: { "InternalBool", "InternalInt", "InternalString" })
+    {
+        const Json p = paramNamed(j.at(type), "value");
+        ASSERT_TRUE(p.is_object()) << type;
+        EXPECT_EQ("false", p.at("mandatory")) << type;
+    }
+}
