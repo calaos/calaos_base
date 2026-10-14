@@ -7867,3 +7867,20 @@ core_ControllerTeardownOrder_test_DEPENDENCIES = $(AVR_TEST_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#A WagoMap releases the reply slot of every request it queued, once the
+#request is answered or when the map is destroyed with it still pending.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WagoCommandRelease_test
+check_PROGRAMS += core/WagoCommandRelease_test
+core_WagoCommandRelease_test_SOURCES = core/WagoCommandRelease_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_WagoCommandRelease_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoCommandRelease_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+core_WagoCommandRelease_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
