@@ -106,9 +106,8 @@ void OwCtrl::processNewMessage(const string &msg)
             {
                 const string id = it["id"].get<string>();
                 mapValues[id] = it["value"].get<string>();
-                //An empty value is a failed read of the sensor.
-                if (!mapValues[id].empty())
-                    readings[id]++;
+                //OWTemp skips a failed read (empty value) before counting it.
+                readings[id]++;
             }
             if (it.find("type") != it.end())
                 mapTypes[it["id"].get<string>()] = it["type"].get<string>();

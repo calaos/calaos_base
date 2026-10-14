@@ -421,7 +421,8 @@ TEST_F(WebIOTest, ARepeatedDownloadIsStillAReading)
     EXPECT_DOUBLE_EQ(in->get_value_double(), 21.5);
 
     //Once the downloads that may have started before the switch are over.
-    server.answer("500 Internal Server Error", "{}");
+    //An error page that reads like the document.
+    server.answer("500 Internal Server Error", "{\"temp\": 21.5}");
     const int switched = server.served;
     ASSERT_TRUE(pumpUntil([&]()
                           {
