@@ -616,11 +616,8 @@ string InternalThermostat::safetyFault(bool cooling) const
 
 void InternalThermostat::publishStatusChange()
 {
-    string status = fault + "|";
-    if (heat.startsAt)
-        status += heat.role;
-    else if (cool.startsAt)
-        status += cool.role;
+    const Output *waiting = waitingOutput();
+    const string status = fault + "|" + (waiting ? waiting->role : "");
     if (status == publishedStatus)
         return;
     publishedStatus = status;
@@ -633,17 +630,23 @@ Json InternalThermostat::deviceState()
     if (!fault.empty())
         state["fault"] = fault;
 
-    //Seconds left, rounded up: clients count down from it.
+    //Seconds left, rounded up: clients count down from it. A deadline already
+    //passed waits for its timer to fire, on this loop turn.
+    const Output *waiting = waitingOutput();
     const uint64_t now = loopNow();
-    for (Output *out: { &heat, &cool })
+    if (waiting && *waiting->startsAt > now)
     {
-        if (!out->startsAt || *out->startsAt <= now)
-            continue;
-        const auto remaining = static_cast<int64_t>(std::ceil((*out->startsAt - now) / 1000.0));
-        state["lockout"] = Json{ { "output", out == &heat ? "heat" : "cool" }, { "remaining", remaining } };
-        break;
+        const auto remaining = static_cast<int64_t>(std::ceil((*waiting->startsAt - now) / 1000.0));
+        state["lockout"] = Json{ { "output", waiting == &heat ? "heat" : "cool" }, { "remaining", remaining } };
     }
     return Json(std::move(state));
+}
+
+const InternalThermostat::Output *InternalThermostat::waitingOutput() const
+{
+    if (heat.startsAt)
+        return &heat;
+    return cool.startsAt ? &cool : nullptr;
 }
 
 /* Heat: ON below setpoint - hysteresis, OFF above setpoint, unchanged in

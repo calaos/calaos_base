@@ -165,6 +165,8 @@ private:
     string safetyFault(bool cooling) const;
     //Publishes the device when its fault or its lock-out starts or ends.
     void publishStatusChange();
+    //The output whose wanted ON waits for its lock-out, nullptr when none.
+    const Output *waitingOutput() const;
 
     ClimateMode mode = ClimateMode::Off;
     double hysteresis = DEFAULT_HYSTERESIS;
