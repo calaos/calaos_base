@@ -7621,3 +7621,20 @@ core_ProtectedOutputWrites_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/S
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#A thermostat still in its room at exit finds the registry of live thermostats
+#alive (forked child, like ListeRoomTeardownOrder_test). Own HAVE_GTEST block so
+#this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ThermostatTeardownOrder_test
+check_PROGRAMS += core/ThermostatTeardownOrder_test
+core_ThermostatTeardownOrder_test_SOURCES = core/ThermostatTeardownOrder_test.cpp
+core_ThermostatTeardownOrder_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ThermostatTeardownOrder_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
+core_ThermostatTeardownOrder_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
+endif
