@@ -58,13 +58,9 @@ WODigital::WODigital(Params &p):
     if (get_param("knx") == "true")
         address += WAGO_KNX_START_ADDRESS;
 
-    int noTranslatedAddress = address;
-    WagoMap::Instance(host, port).onWagoConnected.connect([=]()
-    {
-        //Do this before translating address to 841/849
-        WagoMap::Instance(host, port).read_output_bits(WagoTypes::Address((UWord)noTranslatedAddress), WagoTypes::Count(1),
-                                                    sigc::mem_fun(*this, &WODigital::WagoReadCallback));
-    });
+    //Read back before translating address to 841/849
+    readBackAddress = address;
+    WagoMap::Instance(host, port).onWagoConnected.connect(sigc::mem_fun(*this, &WODigital::readBack));
 
     if (get_param("wago_841") == "true" && get_param("knx") != "true")
         address += WAGO_841_START_ADDRESS;
@@ -76,6 +72,12 @@ WODigital::WODigital(Params &p):
 
 WODigital::~WODigital()
 {
+}
+
+void WODigital::readBack()
+{
+    WagoMap::Instance(host, port).read_output_bits(WagoTypes::Address((UWord)readBackAddress), WagoTypes::Count(1),
+                                                sigc::mem_fun(*this, &WODigital::WagoReadCallback));
 }
 
 void WODigital::WagoReadCallback(bool status, WagoTypes::Address addr, WagoTypes::Count count, vector<bool> &values)

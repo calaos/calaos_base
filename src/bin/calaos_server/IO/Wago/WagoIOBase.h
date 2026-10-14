@@ -208,7 +208,9 @@ public:
 };
 
 template<class Base>
-class WOVoletBase : public Base
+//WagoMap outlives this IO and keeps its slots (reconnect, pending replies):
+//trackable cuts every sigc::mem_fun bound to it when the IO dies.
+class WOVoletBase : public Base, public sigc::trackable
 {
 protected:
     std::string host;

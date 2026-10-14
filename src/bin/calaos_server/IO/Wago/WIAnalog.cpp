@@ -55,10 +55,7 @@ WIAnalog::WIAnalog(Params &p):
 
     Utils::from_string(get_param("var"), address);
 
-    WagoMap::Instance(host, port).onWagoConnected.connect([=]()
-    {
-        readValue();
-    });
+    WagoMap::Instance(host, port).onWagoConnected.connect(sigc::mem_fun(*this, &WIAnalog::readValue));
 
     Calaos::StartReadRules::Instance().addIO();
 

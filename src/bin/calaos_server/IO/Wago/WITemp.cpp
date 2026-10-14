@@ -51,10 +51,7 @@ WITemp::WITemp(Params &p):
     if (get_params().Exists("port"))
         Utils::from_string_or_keep(get_param("port"), port);
 
-    WagoMap::Instance(host, port).onWagoConnected.connect([=]()
-    {
-        readValue();
-    });
+    WagoMap::Instance(host, port).onWagoConnected.connect(sigc::mem_fun(*this, &WITemp::readValue));
 
     Calaos::StartReadRules::Instance().addIO();
 
