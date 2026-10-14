@@ -3,7 +3,7 @@
 ## REPRISE — lire en premier
 
 - **État (2026-10-14)** : serveur climate complet (CLIM-1..5, DOC-1, FIX-BASE-3/4) ✅ ; UI WEB-3, MOB-3,
-  RUI-4, RUI-5, FIX-RUI-1 ✅. En cours : CLIM-6 (état affichable), MOB-4 (revue de suivi), FIX-BASE-5.
+  RUI-4, RUI-5, FIX-RUI-1, MOB-4 ✅. En cours : CLIM-6 (état affichable), FIX-BASE-5.
   Ensuite MCP-1, DOC-2/3, INST-4/5, VAL-1 sur la box. Design validé : `docs/devices/UI_CLIMATE.md` ;
   maquettes dans `/home/raoul/repos/calaos/climate-mockups/`, publiées en gist secret
   https://gist.github.com/raoulh/53a744f13815a93c00c58ce188929fad (clone local
