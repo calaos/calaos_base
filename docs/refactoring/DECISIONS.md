@@ -1405,3 +1405,9 @@ rouvrir.
     commande JSON d'un device (mode, consignes, ventilation, oscillation), comme pour tout IO
     inscriptible. Les sorties protégées d'un thermostat restent masquées de `list_ios` et refusées
     en écriture, donc aucun relais n'est piloté directement.
+19. **Valeurs par défaut des templates** (2026-10-14, DOC-2). Hystérésis / marche min / arrêt min :
+    radiateurs électriques 0,3 °C / 120 s / 120 s ; radiateurs à eau 0,5 / 300 / 300 ; plancher
+    0,5 / 900 / 900 ; PAC réversible sur contacts 0,5 / 600 / 300 avec `min_range` 2 ; ventilo-
+    convecteurs 0,5 / 120 / 120 avec `min_range` 1 ; plancher réversible 0,5 / 900 / 900, `min_range`
+    2 et `humidity_max` **60 %** (marge sur une eau à 16 °C ; le défaut du code reste 65). Pour tous :
+    `sensor_timeout` 9000 s, `put_back_delay` 1 s / 60 s ; keep-alive de la température relayée 120 s.

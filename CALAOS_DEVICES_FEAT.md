@@ -498,4 +498,3 @@ The installer form (§10) and the MCP tool description (§9.2) are built from it
 
 - Debounce value (100 ms) and whether `io_changed` should carry the full `device` object or only
   `state`.
-- Default values per template (hysteresis, min on/off, `sensor_timeout`, `humidity_max`).
