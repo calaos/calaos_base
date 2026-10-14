@@ -950,6 +950,7 @@ TEST_F(IODocGenFileTest, TheProxyDocumentsItsCommandAndItsLinks)
         { "swing_mode", { false, true } },
         { "remote_temp", { false, true } },
         { "remote_temp_source", { false, false } },
+        { "humidity", { false, false } },
     };
     EXPECT_EQ(expected, roles);
 }
