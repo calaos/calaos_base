@@ -146,21 +146,34 @@ void WebCtrl::launchDownload()
             string dest =  "/tmp/calaos_" + param.get_param("id");
             string src = dest + ".part";
             FileUtils::rename(src, dest);
-            const bool received = status >= 200 && status < 300;
-            for (unsigned int i = 0; i < fileDownloadedCallbacks.size(); i++)
-            {
-                fileDownloadedCallbacks[i].second(received);
-            }
+            notifyDownloaded(status >= 200 && status < 300);
         });
     }
     else
     {
         //A local file is read again on each period: nothing tells whether
         //whoever writes it is still alive.
-        for (unsigned int i = 0; i < fileDownloadedCallbacks.size(); i++)
-        {
-            fileDownloadedCallbacks[i].second(false);
-        }
+        notifyDownloaded(false);
+    }
+}
+
+void WebCtrl::notifyDownloaded(bool received)
+{
+    vector<uint64_t> ids;
+    for (const auto &cb: fileDownloadedCallbacks)
+        ids.push_back(cb.first);
+
+    //A callback may add or remove callbacks, its own included: each one is
+    //looked up again, and called through a copy that outlives its entry.
+    for (uint64_t id: ids)
+    {
+        auto it = fileDownloadedCallbacks.begin();
+        while (it != fileDownloadedCallbacks.end() && it->first != id)
+            ++it;
+        if (it == fileDownloadedCallbacks.end())
+            continue;
+        std::function<void(bool)> callback = it->second;
+        callback(received);
     }
 }
 

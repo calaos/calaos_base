@@ -41,7 +41,7 @@ public:
 
 private:
     ReolinkCtrl();
-    ~ReolinkCtrl();
+    ~ReolinkCtrl() = delete;
 
     ExternProcServer *process;
     string exe;
@@ -79,10 +79,14 @@ public:
 
     bool isConnected() const { return connected; }
 
+    //Never destroyed: the first Reolink switch builds it after ListeRoom, so
+    //a static would die before ~ListeRoom() destroys the switches that
+    //unregister from it. Building it earlier would spawn its sidecar on
+    //every server.
     static ReolinkCtrl &Instance()
     {
-        static ReolinkCtrl instance;
-        return instance;
+        static ReolinkCtrl *instance = new ReolinkCtrl();
+        return *instance;
     }
 };
 

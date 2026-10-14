@@ -127,8 +127,7 @@ public:
     WagoMapCmd(int _command = MBUS_NONE):
         command(_command),
         no_callback(false),
-        inProgress(false),
-        mapSignals(NULL)
+        inProgress(false)
     { }
 
     int command = MBUS_NONE;
@@ -140,10 +139,15 @@ public:
     string udp_result;
     bool inProgress;
 
-    WagoMapSignals *mapSignals = nullptr;
+    //Shared by the copies a request goes through (queue, map, local): the
+    //last one to go frees it, whether the request was answered or not.
+    std::shared_ptr<WagoMapSignals> mapSignals;
 
-    void createSignals() { if (!mapSignals) mapSignals = new WagoMapSignals(); }
-    void deleteSignals() { DELETE_NULL(mapSignals); }
+    void createSignals()
+    {
+        if (!mapSignals) mapSignals = std::make_shared<WagoMapSignals>();
+    }
+    void deleteSignals() { mapSignals.reset(); }
 };
 
 class WagoMap;

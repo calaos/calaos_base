@@ -168,6 +168,10 @@ public:
         };
     }
 
+    /* For a callback that takes arguments: check expired() before touching
+     * the owner. */
+    std::weak_ptr<bool> token() const { return alive; }
+
 private:
     std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 };

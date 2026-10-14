@@ -113,10 +113,6 @@ ReolinkCtrl::ReolinkCtrl()
     process->startProcess(exe, "reolink");
 }
 
-ReolinkCtrl::~ReolinkCtrl()
-{
-}
-
 ReolinkCtrl::RegistrationId ReolinkCtrl::registerCamera(ReolinkTypes::Hostname hostname,
                                                         ReolinkTypes::Username username,
                                                         ReolinkTypes::Password password,

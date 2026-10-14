@@ -99,6 +99,8 @@ private:
     HistLogger();
 
     void sqliteWorker();
+    //Drains the queue once the database could not be opened.
+    void refuseAll();
 
     string dbname;
 

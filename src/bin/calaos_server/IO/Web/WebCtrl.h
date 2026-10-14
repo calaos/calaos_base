@@ -42,6 +42,7 @@ private:
     int file_type;
     static unordered_map<string, WebCtrl> hash;
     void launchDownload();
+    void notifyDownloaded(bool received);
     //The argument: a document was received, not an old one read again.
     vector<pair<uint64_t, std::function<void(bool)>>> fileDownloadedCallbacks;
     uint64_t lastCallbackId = 0;

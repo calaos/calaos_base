@@ -38,7 +38,8 @@ protected:
     double position; // range: [0..100]
 
     Timer *timer_end, *timer_update, *timer_impulse;
-    Timer *timer_up, *timer_down, *timer_calib;
+    Timer *timer_up, *timer_down;
+    std::unique_ptr<Timer> timer_calib;
     double start_time;
     double start_position;
     bool is_impulse_action;

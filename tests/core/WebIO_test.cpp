@@ -60,6 +60,7 @@
 #include "CalaosCoreFixture.h"
 #include "IOBase.h"
 #include "IODoc.h"
+#include "WebCtrl.h"
 #include "libuvw.h"
 
 using namespace Calaos;
@@ -471,4 +472,135 @@ TEST_F(WebIOTest, AConvertedValueReadAgainIsNotAReading)
     ASSERT_NE(createIO(webInput("web_conv_trigger", url)), nullptr);
     EXPECT_EQ(conv->lastReading(), first);
     EXPECT_DOUBLE_EQ(conv->get_value_double(), 21.0);
+}
+
+/* WebCtrl runs its callbacks one after the other, and one of them may add or
+ * remove a callback on the same controller. A url that is not http(s) runs
+ * them in line from Add(). */
+TEST_F(WebIOTest, ACallbackThatUnregistersItselfDoesNotSkipTheNextOne)
+{
+    Params p = { { "url", "fb5://self-removal" }, { "file_type", "json" } };
+    WebCtrl &ctrl = WebCtrl::Instance(p);
+
+    uint64_t self = 0;
+    bool armed = false;
+    int nextCalls = 0;
+    self = ctrl.Add(10, [&](bool)
+                    {
+        if (armed) ctrl.Del(self);
+    });
+    const uint64_t next = ctrl.Add(10, [&](bool)
+                                   {
+        nextCalls++;
+    });
+
+    armed = true;
+    nextCalls = 0;
+    const uint64_t trigger = ctrl.Add(10, [](bool)
+                                      {
+                                      });
+    EXPECT_EQ(nextCalls, 1) << "the callback after the removed one was skipped";
+
+    ctrl.Del(self);
+    ctrl.Del(next);
+    ctrl.Del(trigger);
+}
+
+TEST_F(WebIOTest, ACallbackRemovedByAnEarlierOneIsNotCalled)
+{
+    Params p = { { "url", "fb5://removal" }, { "file_type", "json" } };
+    WebCtrl &ctrl = WebCtrl::Instance(p);
+
+    uint64_t victim = 0;
+    bool armed = false;
+    int victimCalls = 0;
+    const uint64_t first = ctrl.Add(10, [&](bool)
+                                    {
+        if (armed) ctrl.Del(victim);
+    });
+    victim = ctrl.Add(10, [&](bool)
+                      {
+        victimCalls++;
+    });
+
+    armed = true;
+    victimCalls = 0;
+    int triggerCalls = 0;
+    const uint64_t trigger = ctrl.Add(10, [&](bool)
+                                      {
+        triggerCalls++;
+    });
+    EXPECT_EQ(victimCalls, 0) << "a removed callback was called";
+    EXPECT_EQ(triggerCalls, 1) << "the walk stopped at the removed callback";
+
+    ctrl.Del(first);
+    ctrl.Del(trigger);
+}
+
+TEST_F(WebIOTest, ACallbackThatRegistersAnotherOneKeepsItsOwnState)
+{
+    Params p = { { "url", "fb5://registration" }, { "file_type", "json" } };
+
+    struct State
+    {
+        WebCtrl *ctrl = nullptr;
+        bool adding = false;
+        uint64_t added = 0;
+        int calls = 0;
+    } st;
+    st.ctrl = &WebCtrl::Instance(p);
+
+    //One pointer: std::function keeps it inside the vector element, which
+    //the registration below reallocates under the running callback.
+    State *s = &st;
+    const uint64_t first = st.ctrl->Add(10, [s](bool)
+                                        {
+        if (!s->adding)
+        {
+            s->adding = true;
+            s->added = s->ctrl->Add(10, [](bool)
+                                    {
+                                    });
+        }
+        s->calls++;
+    });
+
+    EXPECT_NE(st.added, 0u);
+    EXPECT_EQ(st.calls, 2);
+
+    st.ctrl->Del(first);
+    st.ctrl->Del(st.added);
+}
+
+//Same over http, where the callbacks run when the download completes.
+TEST_F(WebIOTest, AnHttpDownloadReachesTheCallbackAfterARemovedOne)
+{
+    AnswerServer server;
+    server.answer("200 OK", "{\"num\": 7}");
+    ASSERT_GT(server.port, 0);
+
+    Params p = { { "id", "fb5_webctrl_http" }, { "url", server.url() }, { "file_type", "json" } };
+    WebCtrl &ctrl = WebCtrl::Instance(p);
+
+    //Each Add() starts a download: the second one comes after the removal.
+    uint64_t self = 0;
+    int nextCalls = 0;
+    self = ctrl.Add(10, [&](bool)
+                    {
+        ctrl.Del(self);
+    });
+    const uint64_t next = ctrl.Add(10, [&](bool)
+                                   {
+        nextCalls++;
+    });
+
+    pumpUntil([&]()
+              {
+        return nextCalls >= 2;
+    });
+    EXPECT_EQ(nextCalls, 2) << "the callback after the removed one was skipped";
+
+    ctrl.Del(self);
+    ctrl.Del(next);
+    ::unlink("/tmp/calaos_fb5_webctrl_http");
 }

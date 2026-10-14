@@ -7809,3 +7809,102 @@ core_KnxThermostatRead_test_DEPENDENCIES = $(KNX_THERMOSTAT_READ_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#HistLogger cannot open its database: history is disabled, its readers still
+#get an answer and the process goes on (forked child per case).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/HistLoggerOpenFailure_test
+check_PROGRAMS += core/HistLoggerOpenFailure_test
+core_HistLoggerOpenFailure_test_SOURCES = core/HistLoggerOpenFailure_test.cpp
+core_HistLoggerOpenFailure_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_HistLoggerOpenFailure_test_LDADD = $(CORE_TEST_LDADD)
+core_HistLoggerOpenFailure_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#A Hue light or a Synology camera deleted while one of its downloads is in
+#flight: the completion handler of that download leaves it alone. A loopback
+#peer holds the request until the IO is gone.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/InFlightDownload_test
+check_PROGRAMS += core/InFlightDownload_test
+core_InFlightDownload_test_SOURCES = core/InFlightDownload_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_InFlightDownload_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Hue
+core_InFlightDownload_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Hue/HueOutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/SynoSurveillanceStation.$(OBJEXT)
+core_InFlightDownload_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Hue/HueOutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/SynoSurveillanceStation.$(OBJEXT)
+endif
+
+#A Reolink switch and an A/V receiver IO still in their room at exit find
+#their controller alive (forked child, like ListeRoomTeardownOrder_test).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ControllerTeardownOrder_test
+check_PROGRAMS += core/ControllerTeardownOrder_test
+core_ControllerTeardownOrder_test_SOURCES = core/ControllerTeardownOrder_test.cpp
+core_ControllerTeardownOrder_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Reolink
+core_ControllerTeardownOrder_test_LDADD = $(AVR_TEST_OBJECTS) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkInputSwitch.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+core_ControllerTeardownOrder_test_DEPENDENCIES = $(AVR_TEST_OBJECTS) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkInputSwitch.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#A WagoMap releases the reply slot of every request it queued, once the
+#request is answered or when the map is destroyed with it still pending.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WagoCommandRelease_test
+check_PROGRAMS += core/WagoCommandRelease_test
+core_WagoCommandRelease_test_SOURCES = core/WagoCommandRelease_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_WagoCommandRelease_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoCommandRelease_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+core_WagoCommandRelease_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#A Squeezebox deleted while its LMS connections are still connecting leaves
+#nothing listening on them. Port 1 of the loopback refuses the connections.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+SQUEEZEBOX_TEST_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/Squeezebox.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/SqueezeboxDB.$(OBJEXT)
+
+TESTS += core/SqueezeboxLifetime_test
+check_PROGRAMS += core/SqueezeboxLifetime_test
+core_SqueezeboxLifetime_test_SOURCES = core/SqueezeboxLifetime_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_SqueezeboxLifetime_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_SqueezeboxLifetime_test_LDADD = $(SQUEEZEBOX_TEST_OBJECTS) \
+                  $(AVR_TEST_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_SqueezeboxLifetime_test_DEPENDENCIES = $(SQUEEZEBOX_TEST_OBJECTS) \
+                  $(AVR_TEST_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif

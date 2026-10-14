@@ -32,19 +32,14 @@ AVRManager::AVRManager()
 {
 }
 
-AVRManager::~AVRManager()
-{
-    for (unsigned int i = 0;i < avrs.size();i++)
-        delete avrs[i];
-
-    avrs.clear();
-}
-
 AVRManager &AVRManager::Instance()
 {
-    static AVRManager inst;
+    //Never destroyed: the first receiver IO builds it after ListeRoom, and
+    //~ListeRoom() destroys the IOs that hand their receiver back to it. Each
+    //receiver is deleted by the last IO using it.
+    static AVRManager *inst = new AVRManager();
 
-    return inst;
+    return *inst;
 }
 
 AVReceiver *AVRManager::Create(Params &p)
