@@ -746,7 +746,8 @@ void commandFieldNumber(const string &name, const string &description, double mi
                         double step, const string &unit, const vector<string> &requiresLinks);
 void deviceFamilySet(const string &family);
 void linkRoleAdd(const string &role, const string &description, bool required, bool writable,
-                 const string &requiredWhenParam = string(), const string &requiredWhenValue = string());
+                 const string &requiredWhenParam = string(), const string &requiredWhenValue = string(),
+                 const string &requiredWhenLink = string());
 void paramInChild(const string &name);
 ```
 
@@ -762,8 +763,9 @@ void paramInChild(const string &name);
 - `family` et `link_roles` (`role`, `description`, `required`, `writable`) décrivent le device.
   `writable` signifie que **le device écrit ce lien** : vers l'appareil (consigne, mode), vers une
   sortie, ou vers un IO qu'il possède (l'`action` du thermostat). Un rôle non inscriptible est
-  seulement lu. `required_when` (optionnel, `{"param", "value"}`) rend un rôle facultatif obligatoire
-  quand un param a cette valeur (`humidity` quand `emitter=floor`).
+  seulement lu. `required_when` (optionnel, `{"param", "value", "link"?}`) rend un rôle facultatif
+  obligatoire quand un param a cette valeur **et**, si `link` est donné, que ce rôle est lié :
+  `humidity` quand `emitter=floor` et `output_cool` lié (spec §6.3).
 - `paramInChild` marque un paramètre qui s'écrit en `<calaos:param>` et non en attribut
   (`"storage": "calaos:param"`), quel que soit l'ordre des appels par rapport à `paramAdd` ; un nom
   jamais ajouté est ignoré.

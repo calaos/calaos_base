@@ -161,14 +161,19 @@ void IODoc::deviceFamilySet(const string &family)
 }
 
 void IODoc::linkRoleAdd(const string &role, const string &description, bool required, bool writable,
-                        const string &requiredWhenParam, const string &requiredWhenValue)
+                        const string &requiredWhenParam, const string &requiredWhenValue,
+                        const string &requiredWhenLink)
 {
     Json r = { { "role", role },
                { "description", description },
                { "required", required },
                { "writable", writable } };
     if (!requiredWhenParam.empty())
+    {
         r["required_when"] = { { "param", requiredWhenParam }, { "value", requiredWhenValue } };
+        if (!requiredWhenLink.empty())
+            r["required_when"]["link"] = requiredWhenLink;
+    }
     m_link_roles.push_back(r);
 }
 
@@ -317,8 +322,12 @@ string IODoc::genDocMd(const string iotype)
             doc += r["role"].get<string>() + " | ";
             string required = r["required"].get<bool>() ? "yes" : "no";
             if (r.contains("required_when"))
-                required = "when " + r["required_when"]["param"].get<string>() + "=" +
-                           r["required_when"]["value"].get<string>();
+            {
+                const Json &when = r["required_when"];
+                required = "when " + when["param"].get<string>() + "=" + when["value"].get<string>();
+                if (when.contains("link"))
+                    required += " and " + when["link"].get<string>();
+            }
             doc += required + " | ";
             doc += string(r["writable"].get<bool>() ? "yes" : "no") + " | ";
             doc += r["description"].get<string>() + "\n";
