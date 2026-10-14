@@ -270,6 +270,9 @@ std::string house()
     salon += remoteDevice("bk", param("remote_temp_keepalive", "abc"));
     salon += remoteDevice("fz", param("remote_temp_keepalive", "0.05") + param("sensor_timeout", "0.2"));
     salon += remoteDevice("bt", param("sensor_timeout", "0"));
+    salon += device("co", out("co_remote") +
+                              element("input", "FeedInput", "co_src", R"( changes_only="true")") +
+                              link("remote_temp", "co_remote") + link("remote_temp_source", "co_src"));
     salon += device("rc", in("rc_read") + out("rc_cmd") + in("rc_src") +
                               link("remote_temp", "rc_read", "rc_cmd") +
                               link("remote_temp_source", "rc_src"));
@@ -634,6 +637,8 @@ TEST_F(ProxyClimateTest, ConfigurationMistakesAreLoggedAtLoad)
              "Device(rg): no 'mode' link, no mode is offered",
              "Device(ka): no 'mode' link, no mode is offered",
              "Device(bt): sensor_timeout '0' is not a positive number of seconds, 9000 is used",
+             "Device(co): remote_temp_source 'co_src' (FeedInput) only reports changes: steady for "
+             "9000 s, it counts as silent",
          })
         EXPECT_NE(log.find(expected), std::string::npos) << expected << "\n"
                                                          << log;

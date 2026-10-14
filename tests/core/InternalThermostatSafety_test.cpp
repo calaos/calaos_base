@@ -61,6 +61,20 @@ private:
 
 REGISTER_IO(TestSensor)
 
+//A driver that signals its changes and nothing else.
+class TestChangeSensor: public IOBase
+{
+public:
+    TestChangeSensor(Params &p):
+        IOBase(p, IOBase::IO_INPUT)
+    {
+    }
+
+    DATA_TYPE get_type() override { return TINT; }
+};
+
+REGISTER_IO(TestChangeSensor)
+
 namespace
 {
 
@@ -161,6 +175,10 @@ std::string house()
     ios += thermostat("nohum", true, param("emitter", "floor"));
     ios += thermostat("fancoil", true, param("emitter", "fan_coil"));
     ios += thermostat("start", false, param("min_off_time", "0.4"));
+    //Sensors that only report their changes.
+    ios += thermostat("chg", true, param("emitter", "floor") + link("humidity", "chg_hum"),
+                      "    <calaos:input type=\"TestChangeSensor\" id=\"chg_temp\" name=\"chg_temp\" />\n");
+    ios += "    <calaos:input type=\"TestChangeSensor\" id=\"chg_hum\" name=\"chg_hum\" />\n";
     return ioXmlDocument(roomXml("Salon", "salon", ios));
 }
 
@@ -171,7 +189,7 @@ struct Thermostat
 };
 
 //Every thermostat of the house: their saved IOs are reset before each case.
-const std::vector<Thermostat> THERMOSTATS = { { "boot", false }, { "stale", false }, { "quiet", false }, { "dew", true }, { "dewst", true }, { "nohum", true }, { "fancoil", true }, { "start", false } };
+const std::vector<Thermostat> THERMOSTATS = { { "boot", false }, { "stale", false }, { "quiet", false }, { "dew", true }, { "dewst", true }, { "nohum", true }, { "fancoil", true }, { "start", false }, { "chg", true } };
 
 } //namespace
 
@@ -506,4 +524,19 @@ TEST_F(InternalThermostatSafetyTest, TheFirstSwitchOnWaitsForMinOffTimeFromTheSt
     ASSERT_TRUE(waitFor("start_heat", true, 2000));
     EXPECT_GE(msSince(t0), 390);
     EXPECT_EQ(str("start_action"), "heating");
+}
+
+/* A sensor whose driver drops a repeated value without dating it looks
+ * silent once steady for sensor_timeout: said at load, so that the timeout
+ * can be raised. */
+TEST_F(InternalThermostatSafetyTest, ASensorThatOnlyReportsChangesIsLoggedAtLoad)
+{
+    const std::string log = load();
+    EXPECT_TRUE(has(log, "Device(chg): current_temp 'chg_temp' (TestChangeSensor) only reports "
+                         "changes: steady for 9000 s, it counts as silent"))
+        << log;
+    EXPECT_TRUE(has(log, "Device(chg): humidity 'chg_hum' (TestChangeSensor) only reports "
+                         "changes: steady for 9000 s, it counts as silent"))
+        << log;
+    EXPECT_EQ(count(log, "only reports changes"), 2u) << log;
 }
