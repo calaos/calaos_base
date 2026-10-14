@@ -98,7 +98,7 @@ The family selects the client widget; the `impl` selects the server class. Two c
     <calaos:param name="min_on_time"    value="900"/>
     <calaos:param name="min_off_time"   value="900"/>
     <calaos:param name="min_range"      value="2"/>
-    <calaos:param name="sensor_timeout" value="1800"/>
+    <calaos:param name="sensor_timeout" value="9000"/>
     <calaos:param name="humidity_max"   value="65"/>
   </calaos:device>
 
@@ -357,11 +357,15 @@ Constraints applied on top:
 
 - **Startup:** no evaluation, outputs OFF, until `current_temp` has delivered a value after boot.
   Sensors such as MQTT or Wago have not read anything when the device is built.
-- **Stale sensor:** if `current_temp` has not changed for `sensor_timeout` seconds, outputs OFF
-  and an error is logged. Regulation resumes on the next value.
+- **Stale sensor:** if `current_temp` has delivered no reading (changed or not) for
+  `sensor_timeout` seconds (default 9000, above the hourly Zigbee report), outputs OFF and an
+  error is logged. Regulation resumes on the next reading, even an identical one. A value
+  restored from the state cache is not a reading. Drivers date every reading they receive.
+  The proxy uses the same param to stop relaying `remote_temp` from a silent source.
 - **Dew point (floor cooling):** with `emitter=floor`, `cool` requires a `humidity` link, and
-  `output_cool` is cut while humidity ≥ `humidity_max`. Without a humidity link, `cool` and
-  `auto` are refused at load (logged) and absent from the capabilities.
+  `output_cool` is cut while humidity ≥ `humidity_max` (default 65 %) or while the humidity
+  sensor is silent or never read. Without a humidity link, `cool`, `auto` and the setpoint range
+  are refused at load (logged) and absent from the capabilities.
 - **Thermal inertia:** for floors, templates default to a wide hysteresis and long min on/off
   times. PID is out of scope.
 
