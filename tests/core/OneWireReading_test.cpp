@@ -121,9 +121,7 @@ protected:
         CoreFixture::SetUp();
         ASSERT_GE(processSocket(), 0) << "stand-in calaos_1wire not set up";
         loadConfig();
-        Params p = { { "type", "OWTempProbe" }, { "id", "ow_fresh" }, { "name", "ow_fresh" },
-                     { "ow_id", kSensor },      { "ow_args", kArgs },  { "enabled", "true" },
-                     { "visible", "false" } };
+        Params p = { { "type", "OWTempProbe" }, { "id", "ow_fresh" }, { "name", "ow_fresh" }, { "ow_id", kSensor }, { "ow_args", kArgs }, { "enabled", "true" }, { "visible", "false" } };
         probe = dynamic_cast<OWTempProbe *>(createIO(p));
         ASSERT_NE(probe, nullptr);
     }

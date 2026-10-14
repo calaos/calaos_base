@@ -263,10 +263,14 @@ TEST_F(KnxIoTest, ARepeatedTelegramIsStillAReading)
     {
         const std::string group = "0/3/" + Utils::to_string(n++);
         Params p = {
-            { "type", type },          { "id", std::string("io_knx_fresh_") + type },
-            { "name", type },          { "knx_group", group },
-            { "host", "127.0.0.2" },   { "eis", "5" },
-            { "enabled", "true" },     { "visible", "false" },
+            { "type", type },
+            { "id", std::string("io_knx_fresh_") + type },
+            { "name", type },
+            { "knx_group", group },
+            { "host", "127.0.0.2" },
+            { "eis", "5" },
+            { "enabled", "true" },
+            { "visible", "false" },
         };
         IOBase *o = createIO(p);
         ASSERT_NE(o, nullptr) << type;
