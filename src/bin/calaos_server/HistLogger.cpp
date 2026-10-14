@@ -184,10 +184,43 @@ void HistLogger::getPushTokens(std::function<void(bool success, string errorMsg,
     eventQueue.push(a);
 }
 
+void HistLogger::refuseAll()
+{
+    while (!done)
+    {
+        std::shared_ptr<HistWorkerAction> ac;
+        if (!eventQueue.waitPop(ac))
+            continue;
+
+        //Only the readers hold a handle, and they wait on it.
+        if (ac->handle)
+        {
+            ac->success = false;
+            ac->errMsg = "history is disabled";
+            ac->handle->send();
+        }
+    }
+}
+
 void HistLogger::sqliteWorker()
 {
     cInfoDom("history") << "History logger, setup database to " << dbname;
-    sqlite::database db(dbname);
+
+    //An exception out of this thread is std::terminate for the whole server.
+    std::unique_ptr<sqlite::database> opened;
+    try
+    {
+        opened = std::make_unique<sqlite::database>(dbname);
+    }
+    catch (const exception &e)
+    {
+        cCriticalDom("history") << "Cannot open the history database " << dbname
+                                << ", history is disabled: " << e.what();
+        refuseAll();
+        return;
+    }
+
+    sqlite::database &db = *opened;
 
     try
     {
