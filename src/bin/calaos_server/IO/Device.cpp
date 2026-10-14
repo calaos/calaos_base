@@ -443,8 +443,12 @@ Json Device::deviceObject()
 
 Json Device::buildDeviceObject(Json state)
 {
+    //The key the factory used (IOFactory::registryKey() lower-cases it): a
+    //client compares it exactly.
+    string impl = get_param("impl");
+    std::transform(impl.begin(), impl.end(), impl.begin(), Utils::to_lower());
     return Json{ { "family", get_param("type") },
-                 { "impl", get_param("impl") },
+                 { "impl", impl },
                  { "capabilities", deviceCapabilities() },
                  { "state", std::move(state) },
                  { "ios", deviceIos() } };

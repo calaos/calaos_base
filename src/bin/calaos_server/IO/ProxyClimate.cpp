@@ -63,7 +63,8 @@ ProxyClimate::ProxyClimate(Params &p):
     for (const char *name: { "auto_payload", "remote_temp_keepalive", "readback_hold" })
         ioDoc->paramInChild(name);
 
-    ioDoc->linkRoleAdd("mode", _("Mode of the appliance. Needs a command_io unless its io is an output."),
+    ioDoc->linkRoleAdd("mode", _("Mode of the appliance. Needs a command_io unless its io is an output. Its "
+                                 "availability is the appliance's: connected false in the state."),
                        true, true);
     ioDoc->linkRoleAdd("current_temp", _("Temperature the appliance measures."), false, false);
     ioDoc->linkRoleAdd("target_temp", _("Setpoint used in heat and cool."), false, true);
@@ -78,6 +79,9 @@ ProxyClimate::ProxyClimate(Params &p):
     ioDoc->linkRoleAdd("remote_temp", _("Where the temperature of another sensor is written, for appliances that "
                                         "take one. Needs remote_temp_source."),
                        false, true);
+    ioDoc->linkRoleAdd("humidity", _("Relative humidity the appliance, or a room sensor, reports: shown in the "
+                                     "state."),
+                       false, false);
     ioDoc->linkRoleAdd("remote_temp_source", _("The sensor relayed to remote_temp. Needs remote_temp. Not relayed "
                                                "before it has read since the start, nor while it has sent "
                                                "nothing for sensor_timeout or reports itself disconnected: the "

@@ -26,6 +26,7 @@
 #include "Utils.h"
 #include "NotifManager.h"
 #include "CalaosConfig.h"
+#include "IOChangeHub.h"
 
 using namespace Calaos;
 
@@ -395,7 +396,11 @@ void IOBase::setStatusInfo(StatusType type, StatusConnected value)
     {
         case StatusType::Connected:
         {
+            const bool changed = status_info.connected != value;
             status_info.connected = value;
+            //A device linked to this IO publishes it in its state (climate's connected).
+            if (changed)
+                IOChangeHub::Instance().notify(get_param("id"));
 
             //global notification settings
             bool g_notif_mail_enabled = Utils::get_config_option("notif/io_connected_mail_enabled") == "true";

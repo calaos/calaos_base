@@ -1,0 +1,798 @@
+{
+  "data": {
+    "audio": [],
+    "cameras": [],
+    "home": [
+      {
+        "hits": "0",
+        "items": [
+          {
+            "device": {
+              "capabilities": {
+                "modes": [
+                  "off",
+                  "heat"
+                ],
+                "reports_action": true,
+                "target_temp": {
+                  "max": 35.0,
+                  "min": 7.0,
+                  "step": 0.5,
+                  "unit": "°C"
+                }
+              },
+              "family": "climate",
+              "impl": "thermostat",
+              "ios": {
+                "action": "lk_action",
+                "current_temp": "lk_temp",
+                "output_heat": "lk_heat",
+                "target_temp": "lk_target"
+              },
+              "state": {
+                "action": "off",
+                "mode": "off"
+              }
+            },
+            "gui_type": "climate",
+            "id": "lk",
+            "io_type": "inout",
+            "name": "lk",
+            "state": "off",
+            "type": "climate",
+            "var_type": "string"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "lk_target",
+            "io_type": "inout",
+            "name": "lk_target",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_string",
+            "id": "lk_action",
+            "io_type": "inout",
+            "name": "lk_action",
+            "rw": "false",
+            "state": "off",
+            "type": "InternalString",
+            "var_type": "string",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_bool",
+            "id": "lk_heat",
+            "io_type": "inout",
+            "name": "lk_heat",
+            "rw": "false",
+            "state": "false",
+            "type": "InternalBool",
+            "var_type": "bool",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "lk_temp",
+            "io_type": "inout",
+            "name": "lk_temp",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "device": {
+              "capabilities": {
+                "modes": [
+                  "off",
+                  "heat"
+                ],
+                "reports_action": true,
+                "target_temp": {
+                  "max": 35.0,
+                  "min": 7.0,
+                  "step": 0.5,
+                  "unit": "°C"
+                }
+              },
+              "family": "climate",
+              "impl": "thermostat",
+              "ios": {
+                "action": "lk2_action",
+                "current_temp": "lk2_temp",
+                "output_heat": "lk2_heat",
+                "target_temp": "lk2_target"
+              },
+              "state": {
+                "action": "off",
+                "mode": "off"
+              }
+            },
+            "gui_type": "climate",
+            "id": "lk2",
+            "io_type": "inout",
+            "name": "lk2",
+            "state": "off",
+            "type": "climate",
+            "var_type": "string"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "lk2_target",
+            "io_type": "inout",
+            "name": "lk2_target",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_string",
+            "id": "lk2_action",
+            "io_type": "inout",
+            "name": "lk2_action",
+            "rw": "false",
+            "state": "off",
+            "type": "InternalString",
+            "var_type": "string",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_bool",
+            "id": "lk2_heat",
+            "io_type": "inout",
+            "name": "lk2_heat",
+            "rw": "false",
+            "state": "false",
+            "type": "InternalBool",
+            "var_type": "bool",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "lk2_temp",
+            "io_type": "inout",
+            "name": "lk2_temp",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "device": {
+              "capabilities": {
+                "modes": [
+                  "off",
+                  "heat",
+                  "cool",
+                  "auto"
+                ],
+                "reports_action": true,
+                "target_temp": {
+                  "max": 35.0,
+                  "min": 7.0,
+                  "min_range": 0.0,
+                  "step": 0.5,
+                  "unit": "°C"
+                },
+                "target_temp_range": true
+              },
+              "family": "climate",
+              "impl": "thermostat",
+              "ios": {
+                "action": "lkc_action",
+                "current_temp": "lkc_temp",
+                "output_cool": "lkc_cool",
+                "output_heat": "lkc_heat",
+                "target_temp": "lkc_target",
+                "target_temp_high": "lkc_high",
+                "target_temp_low": "lkc_low"
+              },
+              "state": {
+                "action": "off",
+                "mode": "off"
+              }
+            },
+            "gui_type": "climate",
+            "id": "lkc",
+            "io_type": "inout",
+            "name": "lkc",
+            "state": "off",
+            "type": "climate",
+            "var_type": "string"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "lkc_target",
+            "io_type": "inout",
+            "name": "lkc_target",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_string",
+            "id": "lkc_action",
+            "io_type": "inout",
+            "name": "lkc_action",
+            "rw": "false",
+            "state": "off",
+            "type": "InternalString",
+            "var_type": "string",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_bool",
+            "id": "lkc_heat",
+            "io_type": "inout",
+            "name": "lkc_heat",
+            "rw": "false",
+            "state": "false",
+            "type": "InternalBool",
+            "var_type": "bool",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "lkc_low",
+            "io_type": "inout",
+            "name": "lkc_low",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "lkc_high",
+            "io_type": "inout",
+            "name": "lkc_high",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_bool",
+            "id": "lkc_cool",
+            "io_type": "inout",
+            "name": "lkc_cool",
+            "rw": "false",
+            "state": "false",
+            "type": "InternalBool",
+            "var_type": "bool",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "lkc_temp",
+            "io_type": "inout",
+            "name": "lkc_temp",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "device": {
+              "capabilities": {
+                "modes": [
+                  "off",
+                  "heat"
+                ],
+                "reports_action": true,
+                "target_temp": {
+                  "max": 35.0,
+                  "min": 7.0,
+                  "step": 0.5,
+                  "unit": "°C"
+                }
+              },
+              "family": "climate",
+              "impl": "thermostat",
+              "ios": {
+                "action": "mo_action",
+                "current_temp": "mo_temp",
+                "output_heat": "mo_heat",
+                "target_temp": "mo_target"
+              },
+              "state": {
+                "action": "off",
+                "mode": "off"
+              }
+            },
+            "gui_type": "climate",
+            "id": "mo",
+            "io_type": "inout",
+            "name": "mo",
+            "state": "off",
+            "type": "climate",
+            "var_type": "string"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "mo_target",
+            "io_type": "inout",
+            "name": "mo_target",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_string",
+            "id": "mo_action",
+            "io_type": "inout",
+            "name": "mo_action",
+            "rw": "false",
+            "state": "off",
+            "type": "InternalString",
+            "var_type": "string",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_bool",
+            "id": "mo_heat",
+            "io_type": "inout",
+            "name": "mo_heat",
+            "rw": "false",
+            "state": "false",
+            "type": "InternalBool",
+            "var_type": "bool",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "mo_temp",
+            "io_type": "inout",
+            "name": "mo_temp",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "device": {
+              "capabilities": {
+                "modes": [
+                  "off",
+                  "heat"
+                ],
+                "reports_action": true,
+                "target_temp": {
+                  "max": 35.0,
+                  "min": 7.0,
+                  "step": 0.5,
+                  "unit": "°C"
+                }
+              },
+              "family": "climate",
+              "impl": "thermostat",
+              "ios": {
+                "action": "st_action",
+                "current_temp": "st_temp",
+                "output_heat": "st_heat",
+                "target_temp": "st_target"
+              },
+              "state": {
+                "action": "off",
+                "mode": "off"
+              }
+            },
+            "gui_type": "climate",
+            "id": "st",
+            "io_type": "inout",
+            "name": "st",
+            "state": "off",
+            "type": "climate",
+            "var_type": "string"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "st_target",
+            "io_type": "inout",
+            "name": "st_target",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_string",
+            "id": "st_action",
+            "io_type": "inout",
+            "name": "st_action",
+            "rw": "false",
+            "state": "off",
+            "type": "InternalString",
+            "var_type": "string",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_bool",
+            "id": "st_heat",
+            "io_type": "inout",
+            "name": "st_heat",
+            "rw": "false",
+            "state": "false",
+            "type": "InternalBool",
+            "var_type": "bool",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "st_temp",
+            "io_type": "inout",
+            "name": "st_temp",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "device": {
+              "capabilities": {
+                "modes": [
+                  "off",
+                  "heat"
+                ],
+                "reports_action": true,
+                "target_temp": {
+                  "max": 35.0,
+                  "min": 7.0,
+                  "step": 0.5,
+                  "unit": "°C"
+                }
+              },
+              "family": "climate",
+              "impl": "thermostat",
+              "ios": {
+                "action": "nosensor_action",
+                "output_heat": "nosensor_heat",
+                "target_temp": "nosensor_target"
+              },
+              "state": {
+                "action": "off",
+                "mode": "off"
+              }
+            },
+            "gui_type": "climate",
+            "id": "nosensor",
+            "io_type": "inout",
+            "name": "nosensor",
+            "state": "off",
+            "type": "climate",
+            "var_type": "string"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "nosensor_target",
+            "io_type": "inout",
+            "name": "nosensor_target",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_string",
+            "id": "nosensor_action",
+            "io_type": "inout",
+            "name": "nosensor_action",
+            "rw": "false",
+            "state": "off",
+            "type": "InternalString",
+            "var_type": "string",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_bool",
+            "id": "nosensor_heat",
+            "io_type": "inout",
+            "name": "nosensor_heat",
+            "rw": "false",
+            "state": "false",
+            "type": "InternalBool",
+            "var_type": "bool",
+            "visible": "false"
+          },
+          {
+            "device": {
+              "capabilities": {
+                "modes": [
+                  "off",
+                  "heat",
+                  "cool",
+                  "auto"
+                ],
+                "reports_action": true,
+                "target_temp": {
+                  "max": 35.0,
+                  "min": 7.0,
+                  "min_range": 0.0,
+                  "step": 0.5,
+                  "unit": "°C"
+                },
+                "target_temp_range": true
+              },
+              "family": "climate",
+              "impl": "thermostat",
+              "ios": {
+                "action": "dw_action",
+                "current_temp": "dw_temp",
+                "humidity": "dw_hum",
+                "output_cool": "dw_cool",
+                "output_heat": "dw_heat",
+                "target_temp": "dw_target",
+                "target_temp_high": "dw_high",
+                "target_temp_low": "dw_low"
+              },
+              "state": {
+                "action": "idle",
+                "current_temp": 25.0,
+                "fault": "humidity_high",
+                "humidity": 70.0,
+                "mode": "cool",
+                "target_temp": 21.0
+              }
+            },
+            "gui_type": "climate",
+            "id": "dw",
+            "io_type": "inout",
+            "name": "dw",
+            "state": "cool",
+            "type": "climate",
+            "var_type": "string"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "dw_target",
+            "io_type": "inout",
+            "name": "dw_target",
+            "rw": "false",
+            "state": "21",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_string",
+            "id": "dw_action",
+            "io_type": "inout",
+            "name": "dw_action",
+            "rw": "false",
+            "state": "idle",
+            "type": "InternalString",
+            "var_type": "string",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_bool",
+            "id": "dw_heat",
+            "io_type": "inout",
+            "name": "dw_heat",
+            "rw": "false",
+            "state": "false",
+            "type": "InternalBool",
+            "var_type": "bool",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "dw_low",
+            "io_type": "inout",
+            "name": "dw_low",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "dw_high",
+            "io_type": "inout",
+            "name": "dw_high",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_bool",
+            "id": "dw_cool",
+            "io_type": "inout",
+            "name": "dw_cool",
+            "rw": "false",
+            "state": "false",
+            "type": "InternalBool",
+            "var_type": "bool",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "dw_temp",
+            "io_type": "inout",
+            "name": "dw_temp",
+            "rw": "false",
+            "state": "25",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "dw_hum",
+            "io_type": "inout",
+            "name": "dw_hum",
+            "rw": "false",
+            "state": "70",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "device": {
+              "capabilities": {
+                "modes": [
+                  "off",
+                  "heat"
+                ],
+                "reports_action": true,
+                "target_temp": {
+                  "max": 35.0,
+                  "min": 7.0,
+                  "step": 0.5,
+                  "unit": "°C"
+                }
+              },
+              "family": "climate",
+              "impl": "thermostat",
+              "ios": {
+                "action": "uc_action",
+                "current_temp": "uc_temp",
+                "output_heat": "uc_heat",
+                "target_temp": "uc_target"
+              },
+              "state": {
+                "action": "off",
+                "mode": "off"
+              }
+            },
+            "gui_type": "climate",
+            "id": "uc",
+            "io_type": "inout",
+            "name": "uc",
+            "state": "off",
+            "type": "climate",
+            "var_type": "string"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "uc_target",
+            "io_type": "inout",
+            "name": "uc_target",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_string",
+            "id": "uc_action",
+            "io_type": "inout",
+            "name": "uc_action",
+            "rw": "false",
+            "state": "off",
+            "type": "InternalString",
+            "var_type": "string",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_bool",
+            "id": "uc_heat",
+            "io_type": "inout",
+            "name": "uc_heat",
+            "rw": "false",
+            "state": "false",
+            "type": "InternalBool",
+            "var_type": "bool",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "uc_temp",
+            "io_type": "inout",
+            "name": "uc_temp",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "device": {
+              "capabilities": {
+                "modes": [
+                  "off",
+                  "heat",
+                  "cool",
+                  "auto",
+                  "dry",
+                  "fan_only"
+                ]
+              },
+              "family": "climate",
+              "impl": "proxy",
+              "ios": {
+                "humidity": "px_hum",
+                "mode": "px_mode"
+              },
+              "state": {
+                "connected": false,
+                "humidity": 45.0,
+                "mode": "cool"
+              }
+            },
+            "gui_type": "climate",
+            "id": "px",
+            "io_type": "inout",
+            "name": "px",
+            "state": "cool",
+            "type": "climate",
+            "var_type": "string"
+          },
+          {
+            "gui_type": "var_string",
+            "id": "px_mode",
+            "io_type": "inout",
+            "name": "px_mode",
+            "rw": "false",
+            "state": "cool",
+            "status_info": {
+              "connected": "false"
+            },
+            "type": "InternalString",
+            "var_type": "string",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "px_hum",
+            "io_type": "inout",
+            "name": "px_hum",
+            "rw": "false",
+            "state": "45",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          }
+        ],
+        "name": "Salon",
+        "type": "salon"
+      }
+    ]
+  },
+  "msg": "get_home",
+  "msg_id": "6"
+}
