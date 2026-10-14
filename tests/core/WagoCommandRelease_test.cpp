@@ -29,12 +29,16 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <memory>
+#include <set>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "CalaosCoreFixture.h"
 #include "WagoMap.h"
+#include "libuvw.h"
 
 using namespace Calaos;
 
@@ -140,4 +144,37 @@ TEST_F(WagoCommandReleaseTest, ADestroyedMapReleasesThePendingReplySlots)
     WagoMap::stopAllWagoMaps();
 
     EXPECT_TRUE(watch.expired()) << "a pending reply slot outlived its map";
+}
+
+//The bind on a TEST-NET host is refused, and the error handler waits for the
+//socket to close to build a new one on the map. ~WagoMap() closes it.
+TEST_F(WagoCommandReleaseTest, ADestroyedMapIsNotCalledByItsClosingSocket)
+{
+    auto udpHandles = []()
+    {
+        std::set<const void *> handles;
+        uvw::Loop::getDefault()->walk([&handles](uvw::BaseHandle &h)
+                                      {
+            if (h.type() == uvw::HandleType::UDP && !h.closing())
+                handles.insert(&h);
+        });
+        return handles;
+    };
+
+    WagoMap::Instance("192.0.2.74", 502);
+    WagoMap::stopAllWagoMaps();
+    const auto before = udpHandles();
+
+    auto loop = uvw::Loop::getDefault();
+    for (int i = 0; i < 50; i++)
+    {
+        loop->run<uvw::Loop::Mode::NOWAIT>();
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+
+    size_t created = 0;
+    for (const void *h: udpHandles())
+        if (!before.count(h))
+            created++;
+    EXPECT_EQ(created, 0u) << "a destroyed map opened a new socket";
 }
