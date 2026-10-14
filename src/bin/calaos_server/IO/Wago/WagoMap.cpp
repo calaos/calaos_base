@@ -124,6 +124,9 @@ WagoMap::~WagoMap()
 
     delete process;
 
+    //After a refused bind, udpProcessError() left a CloseEvent listener that
+    //rebuilds the socket on this map: this close would fire it.
+    handleSrv->clear();
     handleSrv->stop();
     handleSrv->close();
 
