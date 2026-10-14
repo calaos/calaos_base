@@ -109,6 +109,7 @@ tests/websockets/reports/
 # Configure-generated wrapper scripts (built from the matching .in file)
 src/bin/calaos_server/IO/Reolink/calaos_reolink
 src/bin/calaos_mcp/calaos_mcp
+src/bin/calaos_mcp/io_doc.json
 GPATH
 GRTAGS
 GTAGS

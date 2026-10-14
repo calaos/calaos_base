@@ -627,8 +627,9 @@ ensuite selon ses verrous.
   face à une règle qui rallume : la sortie reste ON presque tout le temps. Le premier
   rallumage, avant toute remise, n'est qu'un avertissement (une fois par sortie). Une remise
   défaite hors d'un arrêt forcé (régulation) n'est pas une erreur.
-- **MCP** : le sidecar expose l'écriture directe (`set_io_state`) ; masquer ces sorties dans
-  `list_ios` et les refuser en écriture est le ticket MCP-1.
+- **MCP** : `list_ios`, `find_io` et `get_room` ne listent pas ces sorties et `set_io_state` les
+  refuse (message nommant le thermostat). La liste vient de `device.ios` dans `get_home`, relu à
+  chaque écriture (docs/15_mcp_server.md, « Devices dans le MCP »).
 
 ---
 
