@@ -604,6 +604,47 @@ TEST(IODocJson, AParamInAChildElementIsMarkedAndTheOthersAreNot)
 }
 
 //Marking an unknown name must not invent a parameter made of the mark alone.
+//A value of an enum can need links of its own on top of those of the field.
+TEST(IODocJson, AnEnumValueCanNeedLinksOfItsOwn)
+{
+    IODoc doc;
+    doc.commandFieldEnum("f_val", "desc_f_val", { "v_a", "v_b", "v_c" }, { "r_all" }, std::string(),
+                         { { "v_b", { "r_b" } }, { "v_c", { "r_b", "r_c" } } });
+
+    const Json f = docToJson(doc).at("command_fields").at(0);
+    EXPECT_EQ(Json({ { "v_b", Json::array({ "r_b" }) }, { "v_c", Json::array({ "r_b", "r_c" }) } }),
+              f.at("value_requires_links"));
+    EXPECT_EQ(Json::array({ "r_all" }), f.at("requires_links"));
+    EXPECT_EQ(Json::array({ "v_a", "v_b", "v_c" }), f.at("values"));
+    EXPECT_TRUE(contains(doc.genDocMd("x"), "v_a, v_b (needs r_b), v_c (needs r_b + r_c) | r_all | desc_f_val\n"));
+}
+
+TEST(IODocJson, WithoutValueRequirementsTheKeyIsAbsent)
+{
+    IODoc doc = deviceDoc();
+    for (const Json &f: docToJson(doc).at("command_fields"))
+        EXPECT_FALSE(f.contains("value_requires_links")) << f.dump();
+}
+
+//An optional role that a param value makes required (humidity with a floor emitter).
+TEST(IODocJson, ARoleCanBeRequiredWhenAParamHasAValue)
+{
+    IODoc doc = deviceDoc();
+    doc.linkRoleAdd("r_when", "desc_when", false, false, "p_when", "v_when");
+
+    const Json roles = docToJson(doc).at("link_roles");
+    ASSERT_EQ(3u, roles.size());
+    EXPECT_EQ(Json({ { "role", "r_when" },
+                     { "description", "desc_when" },
+                     { "required", false },
+                     { "writable", false },
+                     { "required_when", { { "param", "p_when" }, { "value", "v_when" } } } }),
+              roles.at(2));
+    EXPECT_FALSE(roles.at(0).contains("required_when"));
+    EXPECT_FALSE(roles.at(1).contains("required_when"));
+    EXPECT_TRUE(contains(doc.genDocMd("x"), "r_when | when p_when=v_when | no | desc_when\n"));
+}
+
 //The mark does not depend on the order of the calls: a constructor that marks
 //first, or adds again, must not lose it.
 TEST(IODocJson, AParamMarkedBeforeItIsAddedIsMarked)
@@ -618,14 +659,24 @@ TEST(IODocJson, AParamMarkedBeforeItIsAddedIsMarked)
 
 TEST(IODocJson, AParamAddedAgainKeepsItsMark)
 {
-    IODoc doc;
-    doc.paramAdd("p_again", "first", IODoc::TYPE_STRING, false);
-    doc.paramInChild("p_again");
-    doc.paramAddInt("p_again", "second", 1, 9, false, 5);
+    //Whichever of the four calls adds it again.
+    for (int variant = 0; variant < 4; variant++)
+    {
+        IODoc doc;
+        doc.paramAdd("p_again", "first", IODoc::TYPE_STRING, false);
+        doc.paramInChild("p_again");
+        switch (variant)
+        {
+        case 0: doc.paramAdd("p_again", "second", IODoc::TYPE_BOOL, false); break;
+        case 1: doc.paramAddInt("p_again", "second", 1, 9, false, 5); break;
+        case 2: doc.paramAddFloat("p_again", "second", false, 1, 9, 5); break;
+        default: doc.paramAddList("p_again", "second", false, Params({ { "k", "v" } }), "k"); break;
+        }
 
-    const Json p = paramNamed(docToJson(doc), "p_again");
-    EXPECT_EQ("second", p.at("description").get<std::string>());
-    EXPECT_EQ("calaos:param", p.at("storage").get<std::string>());
+        const Json p = paramNamed(docToJson(doc), "p_again");
+        EXPECT_EQ("second", p.at("description").get<std::string>()) << variant;
+        EXPECT_EQ("calaos:param", p.at("storage").get<std::string>()) << variant;
+    }
 }
 
 TEST(IODocJson, MarkingAnUnknownParamAddsNothing)
@@ -936,6 +987,11 @@ TEST_F(IODocGenFileTest, TheThermostatIsDocumentedUnderDevicesLikeTheProxy)
     EXPECT_EQ("mode", mode.at("name").get<std::string>());
     EXPECT_EQ(Json::array({ "off", "heat", "cool", "auto" }), mode.at("values"));
     EXPECT_EQ(Json::array(), mode.at("requires_links"));
+    //Each mode needs its outputs, whatever the instance: the form greys the others.
+    EXPECT_EQ(Json({ { "heat", Json::array({ "output_heat" }) },
+                     { "cool", Json::array({ "output_cool" }) },
+                     { "auto", Json::array({ "output_heat", "output_cool" }) } }),
+              mode.at("value_requires_links"));
     //fan_mode and swing_mode are the proxy's: the thermostat has no such link.
     std::vector<std::string> names;
     for (const Json &f: th.at("command_fields"))

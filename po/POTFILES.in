@@ -63,6 +63,8 @@
 ./src/bin/calaos_server/IO/Gpio/GpioOutputSwitch.h
 ./src/bin/calaos_server/IO/Hue/HueOutputLightRGB.cpp
 ./src/bin/calaos_server/IO/Hue/HueOutputLightRGB.h
+./src/bin/calaos_server/IO/ClimateBase.cpp
+./src/bin/calaos_server/IO/Device.cpp
 ./src/bin/calaos_server/IO/InPlageHoraire.cpp
 ./src/bin/calaos_server/IO/InPlageHoraire.h
 ./src/bin/calaos_server/IO/InputAnalog.cpp
@@ -81,6 +83,7 @@
 ./src/bin/calaos_server/IO/InputTime.h
 ./src/bin/calaos_server/IO/InputTimer.cpp
 ./src/bin/calaos_server/IO/InputTimer.h
+./src/bin/calaos_server/IO/InternalThermostat.cpp
 ./src/bin/calaos_server/IO/IntValue.cpp
 ./src/bin/calaos_server/IO/IntValue.h
 ./src/bin/calaos_server/IO/IODoc.cpp
@@ -155,6 +158,7 @@
 ./src/bin/calaos_server/IO/Reolink/ReolinkCtrl.h
 ./src/bin/calaos_server/IO/Reolink/ReolinkInputSwitch.cpp
 ./src/bin/calaos_server/IO/Reolink/ReolinkInputSwitch.h
+./src/bin/calaos_server/IO/ProxyClimate.cpp
 ./src/bin/calaos_server/IO/Scenario.cpp
 ./src/bin/calaos_server/IO/Scenario.h
 ./src/bin/calaos_server/IO/ThinIo.h

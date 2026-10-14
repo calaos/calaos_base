@@ -740,11 +740,13 @@ Un device se documente avec les mêmes appels, plus cinq réservés à cet usage
 
 ```cpp
 void commandFieldEnum(const string &name, const string &description, const vector<string> &values,
-                      const vector<string> &requiresLinks, const string &valuesParam = string());
+                      const vector<string> &requiresLinks, const string &valuesParam = string(),
+                      const ValueLinks &valueRequires = ValueLinks());
 void commandFieldNumber(const string &name, const string &description, double min, double max,
                         double step, const string &unit, const vector<string> &requiresLinks);
 void deviceFamilySet(const string &family);
-void linkRoleAdd(const string &role, const string &description, bool required, bool writable);
+void linkRoleAdd(const string &role, const string &description, bool required, bool writable,
+                 const string &requiredWhenParam = string(), const string &requiredWhenValue = string());
 void paramInChild(const string &name);
 ```
 
@@ -754,9 +756,21 @@ void paramInChild(const string &name);
   puis `values` (ou `values_param`, le param qui porte la liste de l'instance : `fan_modes`) pour un
   enum, `min`/`max`/`step`/`unit` pour un nombre. Contrairement aux paramètres, ces valeurs sont de
   vrais nombres JSON.
+- `value_requires_links` (optionnel, enum) ajoute des rôles requis pour une seule valeur :
+  `{"cool": ["output_cool"], "auto": ["output_heat", "output_cool"]}`. Les `requires_links` du champ
+  valent pour toutes les valeurs.
 - `family` et `link_roles` (`role`, `description`, `required`, `writable`) décrivent le device.
+  `writable` signifie que **le device écrit ce lien** : vers l'appareil (consigne, mode), vers une
+  sortie, ou vers un IO qu'il possède (l'`action` du thermostat). Un rôle non inscriptible est
+  seulement lu. `required_when` (optionnel, `{"param", "value"}`) rend un rôle facultatif obligatoire
+  quand un param a cette valeur (`humidity` quand `emitter=floor`).
 - `paramInChild` marque un paramètre qui s'écrit en `<calaos:param>` et non en attribut
-  (`"storage": "calaos:param"`).
-- `ClimateBase::documentCommand(modes, modeLink)` déclare les six champs climat ; une impl l'appelle
-  dans son constructeur avec ses modes et le lien par lequel son mode s'écrit (vide si le device
-  stocke lui-même son mode).
+  (`"storage": "calaos:param"`), quel que soit l'ordre des appels par rapport à `paramAdd` ; un nom
+  jamais ajouté est ignoré.
+- `ClimateBase::documentCommand(modes, modeLink, modeNote, modeRequires)` déclare le mode et les
+  consignes ; une impl l'appelle dans son constructeur avec ses modes et le lien par lequel son mode
+  s'écrit (vide si le device stocke lui-même son mode). Ce qu'une impl ignore n'est pas documenté :
+  `documentModesParam()` (param `modes`) et `documentFanSwing()` (`fan_modes`, `swing_modes` et les
+  champs `fan_mode`, `swing_mode`) ne sont appelées que par celles qui les respectent (le proxy).
+- `Device::takeParamReads()` rend les noms de params lus depuis le dernier appel : un test s'en sert
+  pour vérifier que chaque param documenté est lu par l'impl.

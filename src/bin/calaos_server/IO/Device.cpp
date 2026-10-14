@@ -284,12 +284,18 @@ bool Device::hasDeviceParam(const string &name) const
 
 string Device::getDeviceParam(const string &name) const
 {
+    paramReads.insert(name);
     for (const auto &p: deviceParams)
     {
         if (p.first == name)
             return p.second;
     }
     return string();
+}
+
+std::set<string> Device::takeParamReads()
+{
+    return std::move(paramReads);
 }
 
 std::string Device::get_value_string()

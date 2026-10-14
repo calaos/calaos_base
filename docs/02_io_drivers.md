@@ -90,9 +90,11 @@ produit `<chemin>/io_doc.md` et `<chemin>/io_doc.json`
 [IO/IOFactory.cpp:70-115](../src/bin/calaos_server/IO/IOFactory.cpp)). Les tableaux de ce document
 en sont un extrait de lecture, pas la source d'autorité.
 
-Les devices ne sont pas des types d'IO : `io_doc.json` les publie sous la clé `"devices"`, par nom
-d'impl, et jamais au premier niveau (qu'un client lit comme la liste des types qu'il peut créer) ;
-`io_doc.md` les place après les types. Format dans [01_core_data_model.md](01_core_data_model.md).
+Les devices ne sont pas des types d'IO. Le premier niveau de `io_doc.json` reste la liste des types
+d'IO, plus une clé réservée `"devices"` qui n'est pas un type (un client qui énumère les clés pour
+proposer des types doit l'ignorer) et qui porte la doc de chaque device, par nom d'impl (`proxy`,
+`thermostat`). Aucune clé `device:<impl>` n'y figure. `io_doc.md` place les devices après les types.
+Format dans [01_core_data_model.md](01_core_data_model.md).
 
 ### `gui_type` : ce que voient les clients
 

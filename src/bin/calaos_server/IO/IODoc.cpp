@@ -125,7 +125,8 @@ void IODoc::aliasAdd(string alias)
 }
 
 void IODoc::commandFieldEnum(const string &name, const string &description, const vector<string> &values,
-                             const vector<string> &requiresLinks, const string &valuesParam)
+                             const vector<string> &requiresLinks, const string &valuesParam,
+                             const ValueLinks &valueRequires)
 {
     Json field = { { "name", name },
                    { "type", "enum" },
@@ -136,6 +137,8 @@ void IODoc::commandFieldEnum(const string &name, const string &description, cons
         field["values_param"] = valuesParam;
     else
         field["values"] = values;
+    if (!valueRequires.empty())
+        field["value_requires_links"] = valueRequires;
     m_command_fields.push_back(field);
 }
 
@@ -157,19 +160,21 @@ void IODoc::deviceFamilySet(const string &family)
     m_family = family;
 }
 
-void IODoc::linkRoleAdd(const string &role, const string &description, bool required, bool writable)
+void IODoc::linkRoleAdd(const string &role, const string &description, bool required, bool writable,
+                        const string &requiredWhenParam, const string &requiredWhenValue)
 {
-    m_link_roles.push_back({ { "role", role },
-                             { "description", description },
-                             { "required", required },
-                             { "writable", writable } });
+    Json r = { { "role", role },
+               { "description", description },
+               { "required", required },
+               { "writable", writable } };
+    if (!requiredWhenParam.empty())
+        r["required_when"] = { { "param", requiredWhenParam }, { "value", requiredWhenValue } };
+    m_link_roles.push_back(r);
 }
 
 void IODoc::paramInChild(const string &name)
 {
-    auto it = m_parameters.find(name);
-    if (it != m_parameters.end())
-        it->second.Add("storage", "calaos:param");
+    m_child_params.insert(name);
 }
 
 bool IODoc::isAlias(string alias)
@@ -209,6 +214,8 @@ Json IODoc::genDocJson()
         //STRING, min/max/default of an int or a float included. Typing them
         //would break the type-strict oracle of the test suite (3 != "3").
         Json jparam = it.second.toJson();
+        if (m_child_params.count(it.first))
+            jparam["storage"] = "calaos:param";
         if (typeFromString(it.second["type"]) == TYPE_LIST)
             jparam["list_value"] = param_list_value[it.second["name"]].toJson();
         array.push_back(jparam);
@@ -287,7 +294,7 @@ string IODoc::genDocMd(const string iotype)
 
         for (const auto &it : m_parameters)
         {
-            doc += it.second["name"] + (it.second.Exists("storage") ? " (calaos:param)" : "") + " | ";
+            doc += it.second["name"] + (m_child_params.count(it.first) ? " (calaos:param)" : "") + " | ";
             doc += it.second["type"] + " | ";
             if (it.second["mandatory"] == "true")
                 doc += "yes | ";
@@ -301,13 +308,18 @@ string IODoc::genDocMd(const string iotype)
     if (!m_link_roles.empty())
     {
         doc += "## Link roles of " + name + "\n";
+        doc += "Writable: the device writes this link.\n\n";
         doc += "Role | Required | Writable | Description\n";
         doc += "---- | -------- | -------- | -----------\n";
 
         for (const Json &r: m_link_roles)
         {
             doc += r["role"].get<string>() + " | ";
-            doc += string(r["required"].get<bool>() ? "yes" : "no") + " | ";
+            string required = r["required"].get<bool>() ? "yes" : "no";
+            if (r.contains("required_when"))
+                required = "when " + r["required_when"]["param"].get<string>() + "=" +
+                           r["required_when"]["value"].get<string>();
+            doc += required + " | ";
             doc += string(r["writable"].get<bool>() ? "yes" : "no") + " | ";
             doc += r["description"].get<string>() + "\n";
         }
@@ -394,7 +406,16 @@ string IODoc::commandFieldRange(const Json &field)
 
     string values;
     for (const Json &v: field["values"])
-        values += (values.empty() ? "" : ", ") + v.get<string>();
+    {
+        const string value = v.get<string>();
+        values += (values.empty() ? "" : ", ") + value;
+        if (!field.contains("value_requires_links") || !field["value_requires_links"].contains(value))
+            continue;
+        string needs;
+        for (const Json &l: field["value_requires_links"][value])
+            needs += (needs.empty() ? "" : " + ") + l.get<string>();
+        values += " (needs " + needs + ")";
+    }
     return values;
 }
 

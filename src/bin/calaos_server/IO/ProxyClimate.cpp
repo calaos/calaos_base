@@ -81,7 +81,9 @@ ProxyClimate::ProxyClimate(Params &p):
     ioDoc->linkRoleAdd("remote_temp_source", _("The sensor relayed to remote_temp. Needs remote_temp."), false,
                        false);
 
+    documentModesParam();
     documentCommand(allModes(), "mode");
+    documentFanSwing();
 }
 
 ProxyClimate::~ProxyClimate()

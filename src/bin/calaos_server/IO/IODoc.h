@@ -23,6 +23,8 @@
 
 #include "Calaos.h"
 #include <Params.h>
+#include <map>
+#include <set>
 
 class IODoc
 {
@@ -54,16 +56,25 @@ public:
     /* A device takes a JSON object as command (spec §5.2, §11): adding a field
      * switches command_format to "json". Fields keep their declaration order.
      * requiresLinks are the link roles that must exist, and be writable, on an
-     * instance for the field to be offered (§6.3). */
+     * instance for the field to be offered (§6.3). valueRequires adds roles
+     * that one value of an enum needs on top (cool needs output_cool). */
+    typedef std::map<string, vector<string>> ValueLinks;
     void commandFieldEnum(const string &name, const string &description, const vector<string> &values,
-                          const vector<string> &requiresLinks, const string &valuesParam = string());
+                          const vector<string> &requiresLinks, const string &valuesParam = string(),
+                          const ValueLinks &valueRequires = ValueLinks());
     void commandFieldNumber(const string &name, const string &description, double min, double max,
                             double step, const string &unit, const vector<string> &requiresLinks);
 
     //Only devices have a family and link roles; they are what tells them from a plain IO.
     void deviceFamilySet(const string &family);
-    void linkRoleAdd(const string &role, const string &description, bool required, bool writable);
-    //The parameter is a <calaos:param> child of the device, not an XML attribute.
+    /* writable: the device writes this link (to the appliance, to an output,
+     * or to an IO it owns); a role that is not is only read.
+     * requiredWhenParam/Value make an optional role required once a param has
+     * that value (humidity when emitter is floor). */
+    void linkRoleAdd(const string &role, const string &description, bool required, bool writable,
+                     const string &requiredWhenParam = string(), const string &requiredWhenValue = string());
+    /* The parameter is a <calaos:param> child of the device, not an XML
+     * attribute. Whatever the order of the calls: a name never added is ignored. */
     void paramInChild(const string &name);
 
     bool isAlias(string alias);
@@ -87,6 +98,8 @@ private:
 
     //for parameter of type list. This contains a map of all key/values for the list of possible parameter values
     ParamMap param_list_value;
+
+    std::set<string> m_child_params;
 
     string m_family;
     Json m_command_fields = Json::array();

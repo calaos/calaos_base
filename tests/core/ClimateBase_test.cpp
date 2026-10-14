@@ -58,7 +58,7 @@ public:
     TestThermostat(Params &p):
         ClimateBase(p)
     {
-        documentCommand({ ClimateMode::Off, ClimateMode::Heat }, "", " note_x");
+        documentCommand({ ClimateMode::Off, ClimateMode::Heat }, "", " note_x", { { "heat", { "out_x" } } });
     }
 
     vector<ClimateMode> supportedModes() override
@@ -937,6 +937,8 @@ TEST_F(ClimateBaseTest, AnImplThatStoresItsModeDocumentsItWithoutALink)
     EXPECT_EQ(Json::array(), fieldOf(doc, "mode").at("requires_links"));
     const std::string desc = fieldOf(doc, "mode").at("description").get<std::string>();
     EXPECT_EQ(" note_x", desc.substr(desc.size() - 7));
+    EXPECT_EQ(Json({ { "heat", Json::array({ "out_x" }) } }), fieldOf(doc, "mode").at("value_requires_links"));
+    EXPECT_FALSE(fieldOf(doc, "target_temp").contains("value_requires_links"));
     EXPECT_EQ(std::string::npos, fieldOf(doc, "target_temp").at("description").get<std::string>().find("note_x"));
     EXPECT_EQ(Json::array({ "target_temp" }), fieldOf(doc, "target_temp").at("requires_links"));
 
@@ -945,4 +947,20 @@ TEST_F(ClimateBaseTest, AnImplThatStoresItsModeDocumentsItWithoutALink)
     ASSERT_NE(nullptr, th);
     EXPECT_FALSE(th->linkIo("mode"));
     EXPECT_TRUE(th->set_value(std::string(R"({"mode":"heat"})")));
+}
+
+//What only some impls honour is documented by those: the base lists none of it.
+TEST_F(ClimateBaseTest, TheModesAndFanSwingParamsAreNotDocumentedByTheBase)
+{
+    const Json doc = documentOf("test_thermostat");
+
+    for (const Json &p: doc.at("parameters"))
+    {
+        const std::string name = p.at("name").get<std::string>();
+        EXPECT_NE("modes", name);
+        EXPECT_NE("fan_modes", name);
+        EXPECT_NE("swing_modes", name);
+    }
+    EXPECT_TRUE(fieldOf(doc, "fan_mode").is_null());
+    EXPECT_TRUE(fieldOf(doc, "swing_mode").is_null());
 }

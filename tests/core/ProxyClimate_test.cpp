@@ -33,6 +33,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -287,6 +288,22 @@ std::string house()
     roAll += param("fan_modes", "auto,low") + param("swing_modes", "off,both") +
              param("min_range", "2") + param("remote_temp_keepalive", "0.05");
     salon += device("ro_all", roAll);
+
+    //Every link and every documented param, to see that each one is read.
+    std::string all;
+    all += in("allp_mode") + out("allp_mode_cmd") + out("allp_target", BOUNDS_10_30);
+    all += in("allp_low") + out("allp_low_cmd", BOUNDS_10_30) + in("allp_high") +
+           out("allp_high_cmd", BOUNDS_10_30);
+    all += in("allp_fan") + out("allp_fan_cmd") + out("allp_swing") + out("allp_remote");
+    all += link("mode", "allp_mode", "allp_mode_cmd") + link("target_temp", "allp_target");
+    all += link("target_temp_low", "allp_low", "allp_low_cmd");
+    all += link("target_temp_high", "allp_high", "allp_high_cmd");
+    all += link("fan_mode", "allp_fan", "allp_fan_cmd") + link("swing_mode", "allp_swing");
+    all += link("remote_temp", "allp_remote") + link("remote_temp_source", EXT_TEMP);
+    all += param("modes", "off,auto") + param("auto_payload", "auto") + param("readback_hold", "5");
+    all += param("remote_temp_keepalive", "30") + param("fan_modes", "auto,low");
+    all += param("swing_modes", "off,both") + param("min_range", "2");
+    salon += device("allp", all);
 
     //Setpoint IO without bounds: the documented defaults apply.
     salon += device("dflt", out("dflt_target") + link("target_temp", "dflt_target"));
@@ -915,4 +932,42 @@ TEST_F(ProxyClimateTest, TheDocumentedBoundsAreTheDefaultsOfASetpointWithoutBoun
     EXPECT_DOUBLE_EQ(field.at("max").get<double>(), writesTo("dflt_target")[0].number);
     EXPECT_DOUBLE_EQ(field.at("min").get<double>(), writesTo("dflt_target")[1].number);
     EXPECT_DOUBLE_EQ(20.5, writesTo("dflt_target")[2].number);
+}
+
+/* A param the document lists must be read by the impl. Some are taken once
+ * into a member when the links resolve; the others are asked each time they
+ * matter, and only a command or a publication shows it. The lists below say
+ * which, so that a param documented here but only validated at load, never
+ * used, does not pass for a read one. */
+TEST_F(ProxyClimateTest, EveryDocumentedParamIsRead)
+{
+    const std::set<std::string> takenAtLoad = { "remote_temp_keepalive", "readback_hold" };
+    const std::set<std::string> askedWhenUsed = { "modes", "fan_modes", "swing_modes", "min_range",
+                                                  "auto_payload" };
+
+    const std::set<std::string> loadReads = dev("allp")->takeParamReads();
+    //Taking clears: what follows is what the commands below ask for.
+    EXPECT_TRUE(dev("allp")->takeParamReads().empty());
+
+    dev("allp")->deviceObject();
+    EXPECT_TRUE(cmd("allp", R"({"mode":"auto","target_temp":21,"fan_mode":"low","swing_mode":"off"})"));
+    EXPECT_TRUE(cmd("allp", R"({"target_temp_low":14,"target_temp_high":24})"));
+    const std::set<std::string> usedReads = dev("allp")->takeParamReads();
+
+    size_t documented = 0;
+    const Json doc = documentation();
+    for (const Json &p: doc.at("parameters"))
+    {
+        if (!p.contains("storage"))
+            continue;
+        const std::string name = p.at("name").get<std::string>();
+        documented++;
+        if (takenAtLoad.count(name))
+            EXPECT_TRUE(loadReads.count(name)) << name << " is documented but not read at load";
+        else if (askedWhenUsed.count(name))
+            EXPECT_TRUE(usedReads.count(name)) << name << " is documented but never asked";
+        else
+            ADD_FAILURE() << name << " is documented: say when the proxy reads it";
+    }
+    EXPECT_EQ(takenAtLoad.size() + askedWhenUsed.size(), documented);
 }

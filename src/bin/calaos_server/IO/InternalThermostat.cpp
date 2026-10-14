@@ -75,10 +75,15 @@ InternalThermostat::InternalThermostat(Params &p):
     ioDoc->descriptionBaseSet(_("Night setback, away mode and the like are rules writing the setpoints or the "
                                 "mode. Missing setpoint and action IOs are created at load."));
 
-    ioDoc->paramAdd("hysteresis", _("Degrees past the setpoint before an output switches."), IODoc::TYPE_FLOAT,
-                    false, Utils::to_string(DEFAULT_HYSTERESIS));
-    ioDoc->paramAdd("min_on_time", _("Seconds an output stays on at least."), IODoc::TYPE_FLOAT, false, "0");
-    ioDoc->paramAdd("min_off_time", _("Seconds an output stays off at least."), IODoc::TYPE_FLOAT, false, "0");
+    ioDoc->paramAdd("hysteresis", _("Degrees past the setpoint before an output starts switching on: heat below "
+                                    "the setpoint minus hysteresis, cool above the setpoint plus hysteresis. "
+                                    "Switching off comes as soon as the setpoint is crossed."),
+                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_HYSTERESIS));
+    ioDoc->paramAdd("min_on_time", _("Seconds an output stays on at least, except when the mode is off or a "
+                                     "safety cut stops it."),
+                    IODoc::TYPE_FLOAT, false, "0");
+    ioDoc->paramAdd("min_off_time", _("Seconds an output stays off at least before it can start again."),
+                    IODoc::TYPE_FLOAT, false, "0");
     ioDoc->paramAdd("put_back_delay", _("Seconds before an output that something else keeps switching is put "
                                         "back; the wait doubles while the other writer keeps undoing it, up to "
                                         "put_back_delay_max. At least 0.001, else the default is used."),
@@ -101,12 +106,15 @@ InternalThermostat::InternalThermostat(Params &p):
                        false, true);
     ioDoc->linkRoleAdd("action", _("Written by the thermostat: off, idle, heating or cooling. Created when "
                                    "missing."),
-                       false, false);
+                       false, true);
     ioDoc->linkRoleAdd("output_heat", _("Output driven for heating. Enables heat.") + owner, true, true);
     ioDoc->linkRoleAdd("output_cool", _("Output driven for cooling. Enables cool and auto.") + owner, false, true);
 
     documentCommand({ ClimateMode::Off, ClimateMode::Heat, ClimateMode::Cool, ClimateMode::Auto }, "",
-                    _(" Heat needs the output_heat link, cool needs output_cool and auto needs both."));
+                    _(" Heat needs the output_heat link, cool needs output_cool and auto needs both."),
+                    { { "heat", { "output_heat" } },
+                      { "cool", { "output_cool" } },
+                      { "auto", { "output_heat", "output_cool" } } });
 }
 
 InternalThermostat::~InternalThermostat()
