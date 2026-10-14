@@ -63,6 +63,8 @@ protected:
     //Only the IO events of what the panel may read reach it.
     bool forwardsEvent(const CalaosEvent &event) override;
 
+    const char *setStateSource() const override { return "set_state from a RemoteUI panel"; }
+
 private:
     //False until the first use after the connection, and again after an IO
     //is added or deleted: either can change what a device widget expands to.

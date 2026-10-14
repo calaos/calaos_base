@@ -470,7 +470,7 @@ void JsonApiHandlerWS::processGetIO(const Json *jdata, const string &client_id)
 
 void JsonApiHandlerWS::processSetState(Params &jsonReq, const string &client_id)
 {
-    bool res = decodeSetState(jsonReq, "set_state over WebSocket");
+    bool res = decodeSetState(jsonReq, setStateSource());
 
     if (!client_id.empty())
     {
