@@ -93,6 +93,10 @@ std::string house()
                       param("emitter", "floor") + link("humidity", "dw_hum") +
                           param("humidity_max", "65"));
     ios += internal("InternalInt", "dw_hum");
+    //The factory key is case-insensitive.
+    std::string upper = thermostat("uc", false, "");
+    upper.replace(upper.find("impl=\"thermostat\""), 17, "impl=\"Thermostat\"");
+    ios += upper;
 
     //An appliance reporting its humidity, its mode IO carrying its availability.
     ios += "    <calaos:device id=\"px\" type=\"climate\" impl=\"proxy\" name=\"px\">\n" +
@@ -428,4 +432,15 @@ TEST_F(ClimateStatusTest, HumidityIsNoFaultWhileHeating)
     ASSERT_EQ(state("dw").value("fault", ""), "humidity_stale");
     mode("dw", "heat");
     EXPECT_FALSE(state("dw").contains("fault"));
+}
+
+/* The factory takes impl="Thermostat" for a thermostat: the published impl is
+ * the one it used. A client comparing it exactly (MCP's protected outputs)
+ * would otherwise not recognise the device. */
+TEST_F(ClimateStatusTest, TheImplPublishedIsTheFactoryKey)
+{
+    ASSERT_NE(ListeRoom::Instance().findIOAs<InternalThermostat>("uc"), nullptr);
+    EXPECT_EQ(dev("uc")->deviceObject().at("impl"), "thermostat");
+    EXPECT_EQ(dev("dw")->deviceObject().at("impl"), "thermostat");
+    EXPECT_EQ(dev("px")->deviceObject().at("impl"), "proxy");
 }
