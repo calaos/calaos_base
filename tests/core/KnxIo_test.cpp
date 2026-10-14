@@ -107,9 +107,6 @@ Params knxParams(const std::string &type, const std::string &id,
     extra.Add("host", "127.0.0.1");
     extra.Add("enabled", "true");
     extra.Add("visible", "false");
-    //A logged change would start HistLogger on this case's cache directory,
-    //which TearDown removes under its worker thread.
-    extra.Add("log_history", "false");
     return extra;
 }
 
