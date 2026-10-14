@@ -7822,3 +7822,26 @@ core_HistLoggerOpenFailure_test_LDADD = $(CORE_TEST_LDADD)
 core_HistLoggerOpenFailure_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#A Hue light or a Synology camera deleted while one of its downloads is in
+#flight: the completion handler of that download leaves it alone. A loopback
+#peer holds the request until the IO is gone.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/InFlightDownload_test
+check_PROGRAMS += core/InFlightDownload_test
+core_InFlightDownload_test_SOURCES = core/InFlightDownload_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_InFlightDownload_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Hue
+core_InFlightDownload_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Hue/HueOutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/SynoSurveillanceStation.$(OBJEXT)
+core_InFlightDownload_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Hue/HueOutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/SynoSurveillanceStation.$(OBJEXT)
+endif
