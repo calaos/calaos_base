@@ -7746,3 +7746,28 @@ core_InternalThermostatSafety_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
 endif
+
+#OWTemp on a real OwCtrl and a stand-in calaos_1wire: a repeated scan is a
+#reading, the input poll is not. Own main() for the harness teardown. Own
+#HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/OneWireReading_test
+check_PROGRAMS += core/OneWireReading_test
+core_OneWireReading_test_SOURCES = core/OneWireReading_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_OneWireReading_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire
+ONEWIRE_READING_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OneWire/OWCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OneWire/OWTemp.$(OBJEXT)
+core_OneWireReading_test_LDADD = $(ONEWIRE_READING_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_OneWireReading_test_DEPENDENCIES = $(ONEWIRE_READING_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif

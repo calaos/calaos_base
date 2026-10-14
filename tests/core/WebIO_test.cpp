@@ -41,13 +41,26 @@
 
 #include <gtest/gtest.h>
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <poll.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
+#include <atomic>
+#include <chrono>
+#include <cstring>
 #include <fstream>
+#include <functional>
+#include <mutex>
 #include <set>
 #include <string>
+#include <thread>
 
 #include "CalaosCoreFixture.h"
 #include "IOBase.h"
 #include "IODoc.h"
+#include "libuvw.h"
 
 using namespace Calaos;
 using namespace CalaosTest;
@@ -80,6 +93,101 @@ std::string webIoXml(const std::string &elem, const std::string &type,
     return "    <calaos:" + elem + " type=\"" + type + "\" id=\"" + id +
            "\" name=\"" + id + "\" enabled=\"true\" visible=\"true\" " +
            extraAttributes + " />\n";
+}
+
+/* HTTP on the loopback: every request gets the current answer, then the
+ * connection closes. */
+class AnswerServer
+{
+public:
+    AnswerServer()
+    {
+        listenFd = socket(AF_INET, SOCK_STREAM, 0);
+        int on = 1;
+        setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+        struct sockaddr_in addr;
+        memset(&addr, 0, sizeof(addr));
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        if (bind(listenFd, (struct sockaddr *)&addr, sizeof(addr)) == 0 && listen(listenFd, 4) == 0)
+        {
+            socklen_t len = sizeof(addr);
+            if (getsockname(listenFd, (struct sockaddr *)&addr, &len) == 0)
+                port = ntohs(addr.sin_port);
+        }
+        th = std::thread([this]()
+                         {
+            run();
+        });
+    }
+
+    ~AnswerServer()
+    {
+        stop = true;
+        th.join();
+        close(listenFd);
+    }
+
+    void answer(const std::string &status, const std::string &body)
+    {
+        std::lock_guard<std::mutex> l(mutex);
+        statusLine = status;
+        content = body;
+    }
+
+    std::string url() const { return "http://127.0.0.1:" + std::to_string(port) + "/doc.json"; }
+
+    std::atomic<int> served{ 0 };
+    int port = 0;
+
+private:
+    void run()
+    {
+        while (!stop)
+        {
+            struct pollfd p = { listenFd, POLLIN, 0 };
+            if (poll(&p, 1, 20) <= 0)
+                continue;
+            const int fd = accept(listenFd, nullptr, nullptr);
+            if (fd < 0)
+                continue;
+            char buf[2048];
+            struct pollfd r = { fd, POLLIN, 0 };
+            if (poll(&r, 1, 500) > 0)
+                (void)recv(fd, buf, sizeof(buf), 0);
+            std::string reply;
+            {
+                std::lock_guard<std::mutex> l(mutex);
+                reply = "HTTP/1.1 " + statusLine + "\r\nContent-Type: application/json\r\n" +
+                        "Content-Length: " + std::to_string(content.size()) +
+                        "\r\nConnection: close\r\n\r\n" + content;
+            }
+            (void)send(fd, reply.data(), reply.size(), MSG_NOSIGNAL);
+            close(fd);
+            served++;
+        }
+    }
+
+    int listenFd = -1;
+    std::atomic<bool> stop{ false };
+    std::thread th;
+    std::mutex mutex;
+    std::string statusLine = "200 OK";
+    std::string content;
+};
+
+bool pumpUntil(const std::function<bool()> &done, int ms = 5000)
+{
+    auto loop = uvw::Loop::getDefault();
+    const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
+    while (!done())
+    {
+        if (std::chrono::steady_clock::now() > end)
+            return false;
+        loop->run<uvw::Loop::Mode::NOWAIT>();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    return true;
 }
 
 } // namespace
@@ -278,4 +386,58 @@ TEST_F(WebIOTest, AWebInputWithAZeroPeriodIsNeverPolled)
     IOBase *trigger = createIO(webInput("web_fb4_zero_trigger", url));
     ASSERT_NE(trigger, nullptr);
     EXPECT_DOUBLE_EQ(trigger->get_value_double(), 3);
+}
+
+/* A download repeating the value an input holds is still a reading
+ * (IOBase::lastReading()): a thermostat on a steady web sensor must not see
+ * it as silent. A failed download is not one. */
+TEST_F(WebIOTest, ARepeatedDownloadIsStillAReading)
+{
+    AnswerServer server;
+    ASSERT_NE(server.port, 0);
+    server.answer("200 OK", "{\"temp\": 21.5}");
+
+    const std::string attrs = "url=\"" + server.url() + "\" file_type=\"json\" period=\"50\" ";
+    loadConfig(ioXmlDocument(roomXml(ROOM_NAME, ROOM_TYPE,
+                                     webIoXml("input", "WebInputTemp", "web_fresh_temp",
+                                              attrs + "path=\"temp\""))),
+               rulesXmlDocument(""));
+    IOBase *in = io("web_fresh_temp");
+    ASSERT_NE(in, nullptr);
+
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return in->lastReading().has_value();
+    }));
+    EXPECT_DOUBLE_EQ(in->get_value_double(), 21.5);
+    const auto first = *in->lastReading();
+    EXPECT_TRUE(pumpUntil([&]()
+                          {
+        return *in->lastReading() > first;
+    })) << "a download of the same value was not taken as a reading";
+    EXPECT_DOUBLE_EQ(in->get_value_double(), 21.5);
+
+    //Once the downloads that may have started before the switch are over.
+    server.answer("500 Internal Server Error", "{}");
+    const int switched = server.served;
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return server.served >= switched + 2;
+    }));
+    pumpUntil([]()
+              {
+        return false;
+    },
+              100);
+    const auto failed = *in->lastReading();
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return server.served >= switched + 5;
+    }));
+    pumpUntil([]()
+              {
+        return false;
+    },
+              100);
+    EXPECT_EQ(*in->lastReading(), failed);
 }

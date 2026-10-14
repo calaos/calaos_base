@@ -46,7 +46,9 @@
 
 #include <unistd.h>
 
+#include <chrono>
 #include <cstdio>
+#include <thread>
 #include <string>
 #include <utility>
 #include <vector>
@@ -244,6 +246,45 @@ TEST_F(KnxIoTest, DeletingAnIoKeepsTheOtherIoOfItsGroupWired)
 
     EXPECT_DOUBLE_EQ(kept->get_value_double(), 18.0);
     ASSERT_TRUE(deleteIO(kept));
+}
+
+/* A telegram repeating the value an input holds is still a reading
+ * (IOBase::lastReading()): a thermostat on a steady KNX sensor must not see
+ * it as silent; a telegram to another group is not one. KNXCtrl keeps
+ * calling the slot of a deleted IO, so the IOs of the other cases must not
+ * hear these telegrams: another host, another KNXCtrl. Nothing is deleted. */
+TEST_F(KnxIoTest, ARepeatedTelegramIsStillAReading)
+{
+    loadConfig();
+    auto ctrl = KNXCtrl::Instance("127.0.0.2");
+
+    int n = 0;
+    for (const char *type: { "KNXInputAnalog", "KNXInputTemp" })
+    {
+        const std::string group = "0/3/" + Utils::to_string(n++);
+        Params p = {
+            { "type", type },          { "id", std::string("io_knx_fresh_") + type },
+            { "name", type },          { "knx_group", group },
+            { "host", "127.0.0.2" },   { "eis", "5" },
+            { "enabled", "true" },     { "visible", "false" },
+        };
+        IOBase *o = createIO(p);
+        ASSERT_NE(o, nullptr) << type;
+        EXPECT_FALSE(o->lastReading().has_value()) << type;
+
+        ctrl->valueChanged.emit(group, KNXValue::fromFloat(0, 5));
+        ASSERT_TRUE(o->lastReading().has_value()) << type;
+        const auto first = *o->lastReading();
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        ctrl->valueChanged.emit(group, KNXValue::fromFloat(0, 5));
+        EXPECT_GT(*o->lastReading(), first) << type;
+
+        const auto second = *o->lastReading();
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        ctrl->valueChanged.emit("0/3/9", KNXValue::fromFloat(0, 5));
+        EXPECT_EQ(*o->lastReading(), second) << type;
+    }
 }
 
 //Own main instead of gtest_main: skip static destructors, see file header.
