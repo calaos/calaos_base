@@ -85,7 +85,8 @@ Params wagoParams(const std::string &type, const std::string &id, const std::str
              { "host", host },
              { "var", "12" },
              { "enabled", "true" },
-             { "visible", "true" } };
+             { "visible", "true" },
+             { "log_history", "false" } };
 }
 
 //The four types that read themselves back when the PLC (re)connects
@@ -207,7 +208,8 @@ TEST_F(WagoIoLifetimeTest, ADeletedDaliBallastIgnoresTheReplyToItsPendingRead)
                     { "group", "0" },
                     { "fade_time", "1" },
                     { "enabled", "true" },
-                    { "visible", "true" } };
+                    { "visible", "true" },
+                    { "log_history", "false" } };
     Params rgb = { { "type", "WODaliRVB" },
                    { "id", "fb4_dali_rgb" },
                    { "name", "dali rgb" },
@@ -225,7 +227,8 @@ TEST_F(WagoIoLifetimeTest, ADeletedDaliBallastIgnoresTheReplyToItsPendingRead)
                    { "bgroup", "0" },
                    { "bfade_time", "1" },
                    { "enabled", "true" },
-                   { "visible", "true" } };
+                   { "visible", "true" },
+                   { "log_history", "false" } };
 
     IOBase *a = createIO(dali);
     IOBase *b = createIO(rgb);
