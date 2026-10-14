@@ -187,9 +187,7 @@ TEST_F(OneWireReadingTest, ARepeatedScanIsStillAReading)
 //each time, and every signal dated a reading.
 TEST_F(OneWireReadingTest, AConvertedValueReadAgainIsNotAReading)
 {
-    Params p = { { "type", "OWTempProbe" }, { "id", "ow_conv" },     { "name", "ow_conv" },
-                 { "ow_id", kSensor },      { "ow_args", kArgs },    { "calc_expr", "x - 0.5" },
-                 { "enabled", "true" },     { "visible", "false" } };
+    Params p = { { "type", "OWTempProbe" }, { "id", "ow_conv" }, { "name", "ow_conv" }, { "ow_id", kSensor }, { "ow_args", kArgs }, { "calc_expr", "x - 0.5" }, { "enabled", "true" }, { "visible", "false" } };
     auto *conv = dynamic_cast<OWTempProbe *>(createIO(p));
     ASSERT_NE(conv, nullptr);
 

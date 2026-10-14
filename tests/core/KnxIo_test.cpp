@@ -304,9 +304,15 @@ TEST_F(KnxIoTest, AConvertedValueReadAgainIsNotAReading)
     loadConfig();
 
     Params p = {
-        { "type", "KNXInputTemp" }, { "id", "io_knx_conv" },  { "name", "io_knx_conv" },
-        { "knx_group", "0/3/7" },   { "host", "127.0.0.2" },  { "eis", "5" },
-        { "calc_expr", "x - 0.5" }, { "interval", "0.01" },   { "enabled", "true" },
+        { "type", "KNXInputTemp" },
+        { "id", "io_knx_conv" },
+        { "name", "io_knx_conv" },
+        { "knx_group", "0/3/7" },
+        { "host", "127.0.0.2" },
+        { "eis", "5" },
+        { "calc_expr", "x - 0.5" },
+        { "interval", "0.01" },
+        { "enabled", "true" },
         { "visible", "false" },
     };
     IOBase *o = createIO(p);
