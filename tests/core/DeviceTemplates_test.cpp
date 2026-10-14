@@ -30,10 +30,18 @@
 #include "CalaosCoreFixture.h"
 #include "Device.h"
 #include "DeviceTemplates.h"
+#include "ExternProc.h"
 #include "ExternProcSpawnHarness.h"
+#include "MqttBrokersList.h"
+#include "MqttWire.h"
 
 #include <pugixml.hpp>
 
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+
+#include <cstring>
 #include <fstream>
 #include <map>
 #include <regex>
@@ -442,6 +450,66 @@ void collectStrings(const Json &j, std::vector<std::string> &out)
             collectStrings(e, out);
 }
 
+/* The stand-in sidecar of the templates' broker, connected as the real one
+ * would be, so that a test can say what the broker publishes. Opened before
+ * any IO of that broker exists: its controller is the launch that follows. */
+struct Session
+{
+    bool ok = false;
+    int fd = -1;
+};
+
+Session &session()
+{
+    static Session *s = nullptr;
+    if (s)
+        return *s;
+    s = new Session();
+
+    const size_t before = ExternProcSpawn::launches("calaos_mqtt").size();
+    Params bp;
+    bp.Add("host", kHost);
+    bp.Add("port", kPort);
+    MqttBrokersList::Instance().get_ctrl(bp);
+    auto launched = [before]()
+    {
+        return ExternProcSpawn::launches("calaos_mqtt").size() > before;
+    };
+    if (!ExternProcSpawn::runLoopUntil(launched, 8000))
+        return *s;
+    const auto argv = ExternProcSpawn::launches("calaos_mqtt")[before];
+    if (argv.size() < 3)
+        return *s;
+
+    s->fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
+    struct sockaddr_un remote;
+    ::memset(&remote, 0, sizeof(remote));
+    remote.sun_family = AF_UNIX;
+    ::strncpy(remote.sun_path, argv[2].c_str(), sizeof(remote.sun_path) - 1);
+    if (s->fd < 0 || ::connect(s->fd, (struct sockaddr *)&remote, sizeof(remote)) != 0)
+        return *s;
+
+    //The server drops what it is sent before it accepted us: its config frame says it did.
+    std::string rx;
+    ExternProcMessage frame;
+    auto accepted = [&]()
+    {
+        char buf[4096];
+        const ssize_t n = ::recv(s->fd, buf, sizeof(buf), MSG_DONTWAIT);
+        if (n > 0)
+            rx.append(buf, buf + n);
+        return frame.processFrameData(rx) && frame.isValid();
+    };
+    s->ok = ExternProcSpawn::runLoopUntil(accepted, 8000);
+    return *s;
+}
+
+bool brokerSends(const std::string &topic, const std::string &payload)
+{
+    const std::string raw = ExternProcMessage(MqttWire::encodeMessage(topic, payload)).getRawData();
+    return ::send(session().fd, raw.data(), raw.size(), 0) == (ssize_t)raw.size();
+}
+
 class DeviceTemplatesTest: public CoreFixture
 {
 protected:
@@ -450,6 +518,7 @@ protected:
         CoreFixture::SetUp();
         //Mqtt IOs launch their sidecar: a stand-in that stays up.
         ASSERT_TRUE(ExternProcSpawn::install("calaos_mqtt", 0, 600));
+        ASSERT_TRUE(session().ok) << "stand-in sidecar not connected";
     }
 
     std::string outDir() const { return cacheDir() + "/templates/out"; }
@@ -465,6 +534,7 @@ protected:
     //Loads the variant beside the external sensors and outputs; the log of the load.
     std::string loadVariant(const Variant &v, Generated &g)
     {
+        clearCoreState();
         g = instantiate(templateNamed(v.templateId), v.values, v.name);
         const std::string house = ioXmlDocument(roomXml(ROOM, "salon", g.xml) + externalRoom());
         EXPECT_TRUE(Utils::calaosLogger("device")->isLevelEnabled(Logger::LOG_LEVEL_WARNING))
@@ -505,6 +575,48 @@ TEST_F(DeviceTemplatesTest, AnUnwritablePathIsReported)
     EXPECT_FALSE(DeviceTemplates::generate(file + "/sub"));
 }
 
+//Unchecked, the param is not written and the device offers every mode.
+TEST_F(DeviceTemplatesTest, TheModesOfAClimateAreRequired)
+{
+    for (const Json &t: templates())
+    {
+        const Json f = fieldNamed(t, "modes");
+        if (f.is_null())
+            continue;
+        EXPECT_TRUE(f.at("required").get<bool>()) << t.at("id");
+    }
+}
+
+//ESPHome publishes online on <prefix>/status, and offline as its last will.
+TEST_F(DeviceTemplatesTest, AnEsphomeDeviceFollowsTheStatusOfItsNode)
+{
+    for (const Variant &v: variants())
+    {
+        if (v.templateId.rfind("esphome", 0) != 0)
+            continue;
+        SCOPED_TRACE(v.name);
+        Generated g;
+        loadVariant(v, g);
+        ASSERT_FALSE(g.owned.empty());
+
+        for (const char *status: { "online", "offline", "online" })
+        {
+            const std::string connected = std::string(status) == "online" ? "true" : "false";
+            ASSERT_TRUE(brokerSends("salon-clim/status", status));
+            auto followed = [&]()
+            {
+                for (const auto &kv: g.owned)
+                    if (io(kv.second)->getStatusInfo()["connected"] != connected)
+                        return false;
+                return true;
+            };
+            EXPECT_TRUE(ExternProcSpawn::runLoopUntil(followed, 3000)) << status;
+            for (const auto &kv: g.owned)
+                EXPECT_EQ(connected, io(kv.second)->getStatusInfo()["connected"]) << kv.first << " " << status;
+        }
+    }
+}
+
 //The structure the wizard relies on, checked once for all templates.
 TEST_F(DeviceTemplatesTest, EveryTemplateIsSelfConsistent)
 {
@@ -527,9 +639,23 @@ TEST_F(DeviceTemplatesTest, EveryTemplateIsSelfConsistent)
                 EXPECT_LE(f.at("min").get<double>(), f.at("default").get<double>()) << f.at("name");
                 EXPECT_GE(f.at("max").get<double>(), f.at("default").get<double>()) << f.at("name");
             }
-            if (type == "multi")
-                for (const Json &d: f.at("default"))
-                    EXPECT_NE(f.at("values").end(), std::find(f.at("values").begin(), f.at("values").end(), d));
+            if (type == "enum" || type == "multi")
+            {
+                //The wizard shows labels, never raw values.
+                std::set<std::string> values;
+                for (const Json &o: f.at("values"))
+                {
+                    EXPECT_TRUE(o.is_object() && o.contains("label") && !o.at("label").empty()) << f.at("name");
+                    if (o.is_object())
+                        values.insert(o.at("value").get<std::string>());
+                }
+                if (type == "multi")
+                    for (const Json &d: f.at("default"))
+                        EXPECT_TRUE(values.count(d.get<std::string>())) << f.at("name") << " " << d;
+            }
+            //A required multi asks for one choice at least.
+            if (type == "multi" && f.at("required"))
+                EXPECT_FALSE(f.at("default").empty()) << f.at("name");
             if (type == "io")
             {
                 const std::set<std::string> kinds = { "number", "bool", "string" };
