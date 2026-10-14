@@ -154,6 +154,9 @@ protected:
      * half of sensor_timeout without a reading, it is asked for one. */
     void requestReadingIfOld(const string &role);
 
+    //The link whose availability is the device's: connected:false in the state.
+    virtual string connectionRole() const { return "mode"; }
+
     Json deviceCapabilities() override;
     Json deviceState() override;
 

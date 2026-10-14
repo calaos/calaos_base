@@ -595,6 +595,55 @@ void InternalThermostat::regulate()
     }
 
     writeAction();
+    fault = safetyFault(mode == ClimateMode::Cool || mode == ClimateMode::Auto);
+    publishStatusChange();
+}
+
+/* Disconnected is not a fault: the state says connected:false. Mode off
+ * holds the outputs by itself, no rule does. */
+string InternalThermostat::safetyFault(bool cooling) const
+{
+    if (mode == ClimateMode::Off)
+        return string();
+    if (sensorState == Freshness::NotRead)
+        return "sensor_missing";
+    if (sensorState == Freshness::Silent)
+        return "sensor_stale";
+    if (!floorCooling || !cooling || humidityCut == HumidityCut::None)
+        return string();
+    return humidityCut == HumidityCut::High ? "humidity_high" : "humidity_stale";
+}
+
+void InternalThermostat::publishStatusChange()
+{
+    string status = fault + "|";
+    if (heat.startsAt)
+        status += heat.role;
+    else if (cool.startsAt)
+        status += cool.role;
+    if (status == publishedStatus)
+        return;
+    publishedStatus = status;
+    deviceStateChanged();
+}
+
+Json InternalThermostat::deviceState()
+{
+    Json state = ClimateBase::deviceState();
+    if (!fault.empty())
+        state["fault"] = fault;
+
+    //Seconds left, rounded up: clients count down from it.
+    const uint64_t now = loopNow();
+    for (Output *out: { &heat, &cool })
+    {
+        if (!out->startsAt || *out->startsAt <= now)
+            continue;
+        const auto remaining = static_cast<int64_t>(std::ceil((*out->startsAt - now) / 1000.0));
+        state["lockout"] = Json{ { "output", out == &heat ? "heat" : "cool" }, { "remaining", remaining } };
+        break;
+    }
+    return Json(std::move(state));
 }
 
 /* Heat: ON below setpoint - hysteresis, OFF above setpoint, unchanged in
@@ -633,6 +682,7 @@ bool InternalThermostat::isOn(Output &out)
 void InternalThermostat::switchOutput(Output &out, Output &other, bool on, uint64_t now,
                                       bool forced)
 {
+    out.startsAt.reset();
     IOBase *io = outputIo(out);
     if (!io)
         return;
@@ -679,6 +729,8 @@ void InternalThermostat::switchOutput(Output &out, Output &other, bool on, uint6
                 self->evaluate();
             };
             o->lockout = std::make_unique<Timer>(wait / 1000.0, expired);
+            if (on)
+                out.startsAt = now + wait;
             return;
         }
     }

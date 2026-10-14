@@ -91,6 +91,9 @@ protected:
     bool isWritable(const string &role) override;
     bool currentMode(ClimateMode &mode) override;
     bool writeMode(ClimateMode mode) override;
+    string connectionRole() const override { return "current_temp"; }
+    //Adds lockout and fault (spec §5.3).
+    Json deviceState() override;
     bool applyCommand(const Json &command) override;
     Json deviceIos() override;
 
@@ -127,6 +130,8 @@ private:
         bool refused = false;
         //Re-runs evaluate() once a deferred switch is allowed.
         std::unique_ptr<Timer> lockout;
+        //Loop time (ms) at which a wanted ON waiting for its lock-out may start.
+        std::optional<uint64_t> startsAt;
     };
 
     double nonNegativeParam(const char *name, double def);
@@ -156,6 +161,10 @@ private:
     uint64_t lockedFor(const Output &out, const Output &other, bool on, uint64_t now,
                        bool forced) const;
     void writeAction();
+    //The safety rule holding the outputs off, "" when none: the state's fault.
+    string safetyFault(bool cooling) const;
+    //Publishes the device when its fault or its lock-out starts or ends.
+    void publishStatusChange();
 
     ClimateMode mode = ClimateMode::Off;
     double hysteresis = DEFAULT_HYSTERESIS;
@@ -169,6 +178,9 @@ private:
 
     //Logged when it changes: once per silence or disconnection.
     Freshness sensorState = Freshness::NotRead;
+    string fault;
+    //What was last published of the fault and lock-out, to publish their changes.
+    string publishedStatus;
 
     //emitter=floor: cooling needs a humidity below humidity_max.
     bool floorCooling = false;

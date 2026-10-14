@@ -589,5 +589,13 @@ Json ClimateBase::deviceState()
             state[role] = v;
     }
 
+    //Like current_temp: a value not read yet would publish 0 %.
+    IOBase *humidity = linkIo("humidity");
+    if (humidity && humidity->hasValue())
+        state["humidity"] = humidity->get_value_double();
+    //Only false is said: clients take an absent key as connected.
+    if (freshness(linkIo(connectionRole())) == Freshness::Disconnected)
+        state["connected"] = false;
+
     return Json(std::move(state));
 }
