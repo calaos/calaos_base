@@ -42,6 +42,48 @@ const size_t MAX_LOGGED_UNKNOWN = 16;
 ProxyClimate::ProxyClimate(Params &p):
     ClimateBase(p)
 {
+    ioDoc->friendlyNameSet(_("Climate proxy"));
+    ioDoc->descriptionSet(_("A climate appliance that regulates by itself (heat pump, ESPHome climate): Calaos "
+                            "reads its state and relays commands, it does not regulate."));
+    ioDoc->descriptionBaseSet(_("Each link role reads the io of its link and writes its command_io, or the io "
+                                "itself when that is an output. A role that cannot be written is not offered."));
+
+    ioDoc->paramAddList("auto_payload", _("What is written to the mode link for auto. Without it, the spelling "
+                                          "the appliance last reported, else heat_cool."),
+                        false, Params({ { "auto", "auto" }, { "heat_cool", "heat_cool" } }));
+    ioDoc->paramAdd("remote_temp_keepalive", _("Seconds between two relays of the remote_temp_source value to "
+                                               "remote_temp, on top of each change. The appliance falls back to "
+                                               "its own sensor when updates stop. A number of seconds above 0, "
+                                               "else the default is used."),
+                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_KEEPALIVE));
+    ioDoc->paramAdd("readback_hold", _("Seconds a range bound just commanded is trusted before its readback "
+                                       "confirms it, so two quick partial commands are validated together. "
+                                       "A number of seconds above 0, else the default is used."),
+                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_READBACK_HOLD));
+    for (const char *name: { "auto_payload", "remote_temp_keepalive", "readback_hold" })
+        ioDoc->paramInChild(name);
+
+    ioDoc->linkRoleAdd("mode", _("Mode of the appliance. Needs a command_io unless its io is an output."),
+                       true, true);
+    ioDoc->linkRoleAdd("current_temp", _("Temperature the appliance measures."), false, false);
+    ioDoc->linkRoleAdd("target_temp", _("Setpoint used in heat and cool."), false, true);
+    ioDoc->linkRoleAdd("target_temp_low", _("Low bound of the auto range. Both bounds are needed for a range."),
+                       false, true);
+    ioDoc->linkRoleAdd("target_temp_high", _("High bound of the auto range. Both bounds are needed for a range."),
+                       false, true);
+    ioDoc->linkRoleAdd("action", _("What the appliance is doing: off, idle, heating, cooling, drying, fan."),
+                       false, false);
+    ioDoc->linkRoleAdd("fan_mode", _("Fan mode. Needs the fan_modes param."), false, true);
+    ioDoc->linkRoleAdd("swing_mode", _("Swing mode. Needs the swing_modes param."), false, true);
+    ioDoc->linkRoleAdd("remote_temp", _("Where the temperature of another sensor is written, for appliances that "
+                                        "take one. Needs remote_temp_source."),
+                       false, true);
+    ioDoc->linkRoleAdd("remote_temp_source", _("The sensor relayed to remote_temp. Needs remote_temp."), false,
+                       false);
+
+    documentModesParam();
+    documentCommand(allModes(), "mode");
+    documentFanSwing();
 }
 
 ProxyClimate::~ProxyClimate()
@@ -84,6 +126,9 @@ void ProxyClimate::resolveLinks()
     ClimateBase::resolveLinks();
 
     const string id = get_param("id");
+    //Loads all the same (spec §3.2): required is a hint for the installer.
+    if (linkIoId(MODE).empty())
+        cWarningDom("device") << "Device(" << id << "): no 'mode' link, no mode is offered";
     for (const char *role: { "mode", "target_temp", "target_temp_low", "target_temp_high",
                              "fan_mode", "swing_mode", "remote_temp" })
     {

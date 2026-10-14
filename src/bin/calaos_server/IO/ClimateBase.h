@@ -90,6 +90,21 @@ public:
 protected:
     ClimateBase(Params &p);
 
+    /* Documents the command fields in IODoc (spec §11). An impl calls it from
+     * its constructor with the modes it can offer and the link its mode is
+     * written through, empty when the device stores the mode itself. modeNote
+     * is added to the description of the mode field, modeRequires names the
+     * links one mode needs on top. Fields and params only some impls honour
+     * are documented by the two calls below, so that an impl never lists
+     * what it ignores. */
+    void documentCommand(const vector<ClimateMode> &modes, const string &modeLink,
+                         const string &modeNote = string(),
+                         const IODoc::ValueLinks &modeRequires = IODoc::ValueLinks());
+    //The "modes" param, read by the default supportedModes().
+    void documentModesParam();
+    //fan_modes and swing_modes, and the fan_mode and swing_mode fields.
+    void documentFanSwing();
+
     //The current mode; false when it is not known or not a climate mode.
     virtual bool currentMode(ClimateMode &mode);
     virtual bool writeMode(ClimateMode mode);

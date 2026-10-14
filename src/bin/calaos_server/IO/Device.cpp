@@ -54,6 +54,9 @@ Device::Device(Params &p):
 {
     //Clients pick their widget from gui_type: the family, whatever the impl.
     set_param("gui_type", get_param("type"));
+
+    ioDoc->paramAdd("impl", _("Implementation of the device family: the key of this document in devices."),
+                    IODoc::TYPE_STRING, true, string(), true);
 }
 
 Device::~Device()
@@ -281,12 +284,18 @@ bool Device::hasDeviceParam(const string &name) const
 
 string Device::getDeviceParam(const string &name) const
 {
+    paramReads.insert(name);
     for (const auto &p: deviceParams)
     {
         if (p.first == name)
             return p.second;
     }
     return string();
+}
+
+std::set<string> Device::takeParamReads()
+{
+    return std::move(paramReads);
 }
 
 std::string Device::get_value_string()

@@ -732,3 +732,47 @@ ioDoc->actionAdd("toggle", _("Invert light state"));
 Params io_style = {{ "light", _("Light") }, { "outlet", _("Outlet") }, /* … */};
 ioDoc->paramAddList("io_style", _("GUI style display…"), true, io_style, "light");
 ```
+
+### Documentation d'un device
+
+Un device se documente avec les mêmes appels, plus cinq réservés à cet usage
+([IO/IODoc.h](../src/bin/calaos_server/IO/IODoc.h)) :
+
+```cpp
+void commandFieldEnum(const string &name, const string &description, const vector<string> &values,
+                      const vector<string> &requiresLinks, const string &valuesParam = string(),
+                      const ValueLinks &valueRequires = ValueLinks());
+void commandFieldNumber(const string &name, const string &description, double min, double max,
+                        double step, const string &unit, const vector<string> &requiresLinks);
+void deviceFamilySet(const string &family);
+void linkRoleAdd(const string &role, const string &description, bool required, bool writable,
+                 const string &requiredWhenParam = string(), const string &requiredWhenValue = string(),
+                 const string &requiredWhenLink = string());
+void paramInChild(const string &name);
+```
+
+- Ajouter un champ de commande fait publier `"command_format": "json"` et `"command_fields"`, dans
+  l'ordre de déclaration. Un champ porte `name`, `type` (`enum` ou `number`), `description`,
+  `requires_links` (les rôles de lien qui doivent exister et être inscriptibles sur l'instance),
+  puis `values` (ou `values_param`, le param qui porte la liste de l'instance : `fan_modes`) pour un
+  enum, `min`/`max`/`step`/`unit` pour un nombre. Contrairement aux paramètres, ces valeurs sont de
+  vrais nombres JSON.
+- `value_requires_links` (optionnel, enum) ajoute des rôles requis pour une seule valeur :
+  `{"cool": ["output_cool"], "auto": ["output_heat", "output_cool"]}`. Les `requires_links` du champ
+  valent pour toutes les valeurs.
+- `family` et `link_roles` (`role`, `description`, `required`, `writable`) décrivent le device.
+  `writable` signifie que **le device écrit ce lien** : vers l'appareil (consigne, mode), vers une
+  sortie, ou vers un IO qu'il possède (l'`action` du thermostat). Un rôle non inscriptible est
+  seulement lu. `required_when` (optionnel, `{"param", "value", "link"?}`) rend un rôle facultatif
+  obligatoire quand un param a cette valeur **et**, si `link` est donné, que ce rôle est lié :
+  `humidity` quand `emitter=floor` et `output_cool` lié (spec §6.3).
+- `paramInChild` marque un paramètre qui s'écrit en `<calaos:param>` et non en attribut
+  (`"storage": "calaos:param"`), quel que soit l'ordre des appels par rapport à `paramAdd` ; un nom
+  jamais ajouté est ignoré.
+- `ClimateBase::documentCommand(modes, modeLink, modeNote, modeRequires)` déclare le mode et les
+  consignes ; une impl l'appelle dans son constructeur avec ses modes et le lien par lequel son mode
+  s'écrit (vide si le device stocke lui-même son mode). Ce qu'une impl ignore n'est pas documenté :
+  `documentModesParam()` (param `modes`) et `documentFanSwing()` (`fan_modes`, `swing_modes` et les
+  champs `fan_mode`, `swing_mode`) ne sont appelées que par celles qui les respectent (le proxy).
+- `Device::takeParamReads()` rend les noms de params lus depuis le dernier appel : un test s'en sert
+  pour vérifier que chaque param documenté est lu par l'impl.

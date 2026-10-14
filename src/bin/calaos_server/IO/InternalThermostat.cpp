@@ -68,6 +68,55 @@ InternalThermostat::InternalThermostat(Params &p):
     ClimateBase(p)
 {
     liveThermostats().push_back(this);
+
+    ioDoc->friendlyNameSet(_("Climate thermostat"));
+    ioDoc->descriptionSet(_("A thermostat that regulates in Calaos: it switches output_heat and output_cool "
+                            "from current_temp and its setpoints. Its mode is stored by the device."));
+    ioDoc->descriptionBaseSet(_("Night setback, away mode and the like are rules writing the setpoints or the "
+                                "mode. Missing setpoint and action IOs are created at load."));
+
+    ioDoc->paramAdd("hysteresis", _("Degrees past the setpoint before an output starts switching on: heat below "
+                                    "the setpoint minus hysteresis, cool above the setpoint plus hysteresis. "
+                                    "Switching off comes as soon as the setpoint is crossed."),
+                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_HYSTERESIS));
+    ioDoc->paramAdd("min_on_time", _("Seconds an output stays on at least, except when the mode is off or a "
+                                     "safety cut stops it."),
+                    IODoc::TYPE_FLOAT, false, "0");
+    ioDoc->paramAdd("min_off_time", _("Seconds an output stays off at least before it can start again."),
+                    IODoc::TYPE_FLOAT, false, "0");
+    ioDoc->paramAdd("put_back_delay", _("Seconds before an output that something else keeps switching is put "
+                                        "back; the wait doubles while the other writer keeps undoing it, up to "
+                                        "put_back_delay_max. At least 0.001, else the default is used."),
+                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_PUT_BACK_DELAY));
+    ioDoc->paramAdd("put_back_delay_max", _("Longest wait between two put-backs, in seconds. Not below "
+                                            "put_back_delay. It also sets the window of the log of writes "
+                                            "from outside to an output: one line per source and output "
+                                            "during that time."),
+                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_PUT_BACK_DELAY_MAX));
+    for (const char *name: { "hysteresis", "min_on_time", "min_off_time", "put_back_delay",
+                             "put_back_delay_max" })
+        ioDoc->paramInChild(name);
+
+    const string owner = _(" An output belongs to a single thermostat: a second one linking it ignores the link.");
+    ioDoc->linkRoleAdd("current_temp", _("Temperature the regulation reads. The outputs stay off until it has "
+                                         "a value."),
+                       true, false);
+    ioDoc->linkRoleAdd("target_temp", _("Setpoint used in heat and cool. Created when missing."), true, true);
+    ioDoc->linkRoleAdd("target_temp_low", _("Low bound of the auto range. Created when missing, with output_cool."),
+                       false, true);
+    ioDoc->linkRoleAdd("target_temp_high", _("High bound of the auto range. Created when missing, with output_cool."),
+                       false, true);
+    ioDoc->linkRoleAdd("action", _("Written by the thermostat: off, idle, heating or cooling. Created when "
+                                   "missing."),
+                       false, true);
+    ioDoc->linkRoleAdd("output_heat", _("Output driven for heating. Enables heat.") + owner, true, true);
+    ioDoc->linkRoleAdd("output_cool", _("Output driven for cooling. Enables cool and auto.") + owner, false, true);
+
+    documentCommand({ ClimateMode::Off, ClimateMode::Heat, ClimateMode::Cool, ClimateMode::Auto }, "",
+                    _(" Heat needs the output_heat link, cool needs output_cool and auto needs both."),
+                    { { "heat", { "output_heat" } },
+                      { "cool", { "output_cool" } },
+                      { "auto", { "output_heat", "output_cool" } } });
 }
 
 InternalThermostat::~InternalThermostat()

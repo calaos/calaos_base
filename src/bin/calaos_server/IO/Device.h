@@ -22,6 +22,7 @@
 #define S_DEVICE_H
 
 #include <memory>
+#include <set>
 #include <vector>
 
 #include "IOBase.h"
@@ -93,6 +94,11 @@ public:
 
     bool hasDeviceParam(const string &name) const;
     string getDeviceParam(const string &name) const;
+
+    /* The names whose value getDeviceParam() fetched since the last call here
+     * (asking whether a param exists is not reading it). A test uses it to
+     * prove that a param its IODoc lists is read. */
+    std::set<string> takeParamReads();
 
     //Coalescing window of the io_changed published for the device.
     static constexpr double PUBLISH_DELAY = 0.1;
@@ -166,6 +172,7 @@ private:
     vector<Link> links;
     //A vector and not Params: the file order is kept on save.
     vector<std::pair<string, string>> deviceParams;
+    mutable std::set<string> paramReads;
     vector<std::unique_ptr<IOBase>> loadedIos;
 
     vector<IOChangeHub::Subscription> linkSubscriptions;

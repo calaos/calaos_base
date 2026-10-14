@@ -124,6 +124,64 @@ void IODoc::aliasAdd(string alias)
     m_aliases.push_back(alias);
 }
 
+void IODoc::commandFieldEnum(const string &name, const string &description, const vector<string> &values,
+                             const vector<string> &requiresLinks, const string &valuesParam,
+                             const ValueLinks &valueRequires)
+{
+    Json field = { { "name", name },
+                   { "type", "enum" },
+                   { "description", description },
+                   { "requires_links", requiresLinks } };
+    //Instance dependent lists (fan_modes) name the param that holds them.
+    if (!valuesParam.empty())
+        field["values_param"] = valuesParam;
+    else
+        field["values"] = values;
+    if (!valueRequires.empty())
+        field["value_requires_links"] = valueRequires;
+    m_command_fields.push_back(field);
+}
+
+void IODoc::commandFieldNumber(const string &name, const string &description, double min, double max,
+                               double step, const string &unit, const vector<string> &requiresLinks)
+{
+    m_command_fields.push_back({ { "name", name },
+                                 { "type", "number" },
+                                 { "description", description },
+                                 { "min", min },
+                                 { "max", max },
+                                 { "step", step },
+                                 { "unit", unit },
+                                 { "requires_links", requiresLinks } });
+}
+
+void IODoc::deviceFamilySet(const string &family)
+{
+    m_family = family;
+}
+
+void IODoc::linkRoleAdd(const string &role, const string &description, bool required, bool writable,
+                        const string &requiredWhenParam, const string &requiredWhenValue,
+                        const string &requiredWhenLink)
+{
+    Json r = { { "role", role },
+               { "description", description },
+               { "required", required },
+               { "writable", writable } };
+    if (!requiredWhenParam.empty())
+    {
+        r["required_when"] = { { "param", requiredWhenParam }, { "value", requiredWhenValue } };
+        if (!requiredWhenLink.empty())
+            r["required_when"]["link"] = requiredWhenLink;
+    }
+    m_link_roles.push_back(r);
+}
+
+void IODoc::paramInChild(const string &name)
+{
+    m_child_params.insert(name);
+}
+
 bool IODoc::isAlias(string alias)
 {
     for (auto s: m_aliases)
@@ -161,6 +219,8 @@ Json IODoc::genDocJson()
         //STRING, min/max/default of an int or a float included. Typing them
         //would break the type-strict oracle of the test suite (3 != "3").
         Json jparam = it.second.toJson();
+        if (m_child_params.count(it.first))
+            jparam["storage"] = "calaos:param";
         if (typeFromString(it.second["type"]) == TYPE_LIST)
             jparam["list_value"] = param_list_value[it.second["name"]].toJson();
         array.push_back(jparam);
@@ -180,6 +240,16 @@ Json IODoc::genDocJson()
         array.push_back(it.second.toJson());
     }
     ret["actions"] = array;
+
+    if (!m_family.empty())
+        ret["family"] = m_family;
+    if (!m_link_roles.empty())
+        ret["link_roles"] = m_link_roles;
+    if (!m_command_fields.empty())
+    {
+        ret["command_format"] = "json";
+        ret["command_fields"] = m_command_fields;
+    }
 
     return ret;
 }
@@ -216,6 +286,9 @@ string IODoc::genDocMd(const string iotype)
     if (!m_description_base.empty())
         doc += "\n\n" + m_description_base + "\n";
 
+    if (!m_family.empty())
+        doc += "\nDevice of family `" + m_family + "`, impl `" + iotype + "`.\n";
+
     if (m_parameters.size())
     {
 
@@ -226,13 +299,61 @@ string IODoc::genDocMd(const string iotype)
 
         for (const auto &it : m_parameters)
         {
-            doc += it.second["name"] + " | ";
+            doc += it.second["name"] + (m_child_params.count(it.first) ? " (calaos:param)" : "") + " | ";
             doc += it.second["type"] + " | ";
             if (it.second["mandatory"] == "true")
                 doc += "yes | ";
             else
                 doc += "no | ";
             doc += it.second["description"] + "\n";
+        }
+        doc += "\n";
+    }
+
+    if (!m_link_roles.empty())
+    {
+        doc += "## Link roles of " + name + "\n";
+        doc += "Writable: the device writes this link.\n\n";
+        doc += "Role | Required | Writable | Description\n";
+        doc += "---- | -------- | -------- | -----------\n";
+
+        for (const Json &r: m_link_roles)
+        {
+            doc += r["role"].get<string>() + " | ";
+            string required = r["required"].get<bool>() ? "yes" : "no";
+            if (r.contains("required_when"))
+            {
+                const Json &when = r["required_when"];
+                required = "when " + when["param"].get<string>() + "=" + when["value"].get<string>();
+                if (when.contains("link"))
+                    required += " and " + when["link"].get<string>();
+            }
+            doc += required + " | ";
+            doc += string(r["writable"].get<bool>() ? "yes" : "no") + " | ";
+            doc += r["description"].get<string>() + "\n";
+        }
+        doc += "\n";
+    }
+
+    if (!m_command_fields.empty())
+    {
+        doc += "## Command of " + name + "\n";
+        doc += "The value is a mode (`off`) or a JSON object holding any of these fields, e.g. "
+               "`{\"mode\":\"heat\",\"target_temp\":21.5}`. A field is only applied when all its "
+               "links exist and are writable on the instance.\n\n";
+        doc += "Name | Type | Values or bounds | Requires links | Description\n";
+        doc += "---- | ---- | ---------------- | -------------- | -----------\n";
+
+        for (const Json &f: m_command_fields)
+        {
+            doc += f["name"].get<string>() + " | ";
+            doc += f["type"].get<string>() + " | ";
+            doc += commandFieldRange(f) + " | ";
+            string links;
+            for (const Json &l: f["requires_links"])
+                links += (links.empty() ? "" : ", ") + l.get<string>();
+            doc += links + " | ";
+            doc += f["description"].get<string>() + "\n";
         }
         doc += "\n";
     }
@@ -280,6 +401,31 @@ string IODoc::genDocMd(const string iotype)
     }
 
     return doc;
+}
+
+string IODoc::commandFieldRange(const Json &field)
+{
+    if (field["type"] == "number")
+        return Utils::to_string(field["min"].get<double>()) + " to " +
+               Utils::to_string(field["max"].get<double>()) + ", step " +
+               Utils::to_string(field["step"].get<double>()) + " " + field["unit"].get<string>();
+
+    if (field.contains("values_param"))
+        return "values of the " + field["values_param"].get<string>() + " param";
+
+    string values;
+    for (const Json &v: field["values"])
+    {
+        const string value = v.get<string>();
+        values += (values.empty() ? "" : ", ") + value;
+        if (!field.contains("value_requires_links") || !field["value_requires_links"].contains(value))
+            continue;
+        string needs;
+        for (const Json &l: field["value_requires_links"][value])
+            needs += (needs.empty() ? "" : " + ") + l.get<string>();
+        values += " (needs " + needs + ")";
+    }
+    return values;
 }
 
 string IODoc::typeToString(ParamType t)

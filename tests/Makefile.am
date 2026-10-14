@@ -18,6 +18,11 @@ AM_TESTS_ENVIRONMENT = \
 TESTS += check-config-options.sh check-config-docs.sh
 dist_check_SCRIPTS = check-config-options.sh check-config-docs.sh
 
+#check-potfiles-devices.sh: the IO sources that mark strings with _() must be in
+#po/POTFILES.in, or their IODoc texts are never translated.
+TESTS += check-potfiles-devices.sh
+dist_check_SCRIPTS += check-potfiles-devices.sh
+
 # T2.14: python suites (tests/python/, from T1.8 + T1.16) wired into make
 # check through a wrapper. PYTHON comes from AM_PATH_PYTHON via
 # AM_TESTS_ENVIRONMENT above.
@@ -2595,11 +2600,19 @@ core_IODocJson_test_SOURCES = core/IODocJson_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_IODocJson_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
-core_IODocJson_test_LDADD = $(CORE_TEST_LDADD)
+#The climate objects register the devices in the factory, which the
+#"devices" section of the generated document is checked on.
+core_IODocJson_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT)
 #T3.36: the linked server objects are prerequisites, so touching one relinks
 #this binary. They are built by src/, never here (see the note above).
 core_IODocJson_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
-                  $(top_builddir)/src/lib/libcalaos_common.la
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT)
 endif
 
 

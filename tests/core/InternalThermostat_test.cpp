@@ -33,6 +33,9 @@
 #include <chrono>
 #include <fstream>
 #include <functional>
+#include <map>
+#include <memory>
+#include <set>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -191,11 +194,16 @@ std::string fullThermostat(const std::string &id, bool cool, const std::string &
     return thermostatXml(id, inner + params) + roomIo("InternalInt", id + "_temp");
 }
 
-const std::vector<std::string> THERMOSTATS = { "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams", "safe", "slow", "fight", "duo_a", "duo_b", "both", "same", "duel", "tiny", "zero", "short", "guard", "safefight" };
+const std::vector<std::string> THERMOSTATS = { "allp", "wide", "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams", "safe", "slow", "fight", "duo_a", "duo_b", "both", "same", "duel", "tiny", "zero", "short", "guard", "safefight" };
 
 std::string house()
 {
     std::string ios;
+    ios += fullThermostat("allp", true,
+                          paramXml("hysteresis", "0.5") + paramXml("min_on_time", "1") +
+                              paramXml("min_off_time", "1") + paramXml("put_back_delay", "2") +
+                              paramXml("put_back_delay_max", "30") + paramXml("min_range", "2"));
+    ios += fullThermostat("wide", true, paramXml("hysteresis", "2"));
     ios += fullThermostat("th", false, paramXml("hysteresis", "0.5"));
     ios += fullThermostat("rev", true, paramXml("hysteresis", "0.5") + paramXml("min_range", "2"));
     //Durations at ms granularity, on outputs the device does not own.
@@ -576,6 +584,33 @@ TEST_F(InternalThermostatTest, EvaluateTruthTable)
         EXPECT_EQ(str("rev_action"), r.action) << label;
         EXPECT_EQ(state("rev").value("action", ""), r.action) << label;
     }
+}
+
+//The hysteresis is the one of the param: an output switches on past it and
+//off as the setpoint is crossed, so a value other than the default moves the
+//switch-on edge and nothing else.
+TEST_F(InternalThermostatTest, TheHysteresisParamSetsTheSwitchOnThreshold)
+{
+    load();
+    setpoints("wide", 21, 19, 23);
+
+    mode("wide", "heat");
+    temp("wide", 19.5);
+    EXPECT_FALSE(on("wide_heat")) << "1.5 below the setpoint is within a hysteresis of 2";
+    temp("wide", 18.9);
+    EXPECT_TRUE(on("wide_heat"));
+    temp("wide", 20.9);
+    EXPECT_TRUE(on("wide_heat")) << "held until the setpoint is crossed";
+    temp("wide", 21.1);
+    EXPECT_FALSE(on("wide_heat"));
+
+    mode("wide", "cool");
+    temp("wide", 22.5);
+    EXPECT_FALSE(on("wide_cool"));
+    temp("wide", 23.1);
+    EXPECT_TRUE(on("wide_cool"));
+    temp("wide", 20.9);
+    EXPECT_FALSE(on("wide_cool"));
 }
 
 TEST_F(InternalThermostatTest, HeatOnlyThermostat)
@@ -1755,4 +1790,138 @@ TEST_F(InternalThermostatTest, AnUndonePutBackOutsideAForcedStopIsNotAnError)
     EXPECT_GE(heat->count, 6);
     EXPECT_EQ(log.find(UNDONE), std::string::npos) << log;
     EXPECT_EQ(occurrences(log, "was switched by something else"), 1) << log;
+}
+
+namespace
+{
+
+Json thermostatDocumentation()
+{
+    Params p;
+    p.Add("type", "device:thermostat");
+    p.Add("id", "doc");
+    IOBase::ScopedDocGen docScope;
+    std::unique_ptr<IOBase> io(IOFactory::Instance().CreateIO("device:thermostat", p));
+    return io->getDoc()->genDocJson();
+}
+
+} //namespace
+
+/* The installer builds its form from this document: a field it lists for an
+ * instance must be accepted, and one whose links are missing must not be. */
+TEST_F(InternalThermostatTest, TheDocumentedFieldsAreAcceptedExactlyWhenTheirLinksExist)
+{
+    load();
+    const Json doc = thermostatDocumentation();
+    const std::map<std::string, std::string> samples = {
+        { "mode", R"({"mode":"heat"})" },
+        { "target_temp", R"({"target_temp":21})" },
+        { "target_temp_low", R"({"target_temp_low":19,"target_temp_high":23})" },
+        { "target_temp_high", R"({"target_temp_low":19,"target_temp_high":23})" },
+    };
+
+    ASSERT_EQ(samples.size(), doc.at("command_fields").size());
+    for (const std::string id: { "th", "rev" })
+    {
+        for (const Json &field: doc.at("command_fields"))
+        {
+            const std::string name = field.at("name").get<std::string>();
+            ASSERT_TRUE(samples.count(name)) << "no sample for the documented field " << name;
+
+            bool linked = true;
+            for (const Json &role: field.at("requires_links"))
+                linked = linked && dev(id)->linkIo(role.get<std::string>());
+            EXPECT_EQ(linked, dev(id)->set_value(samples.at(name))) << id << " " << name;
+        }
+    }
+}
+
+//The document lists the four modes; an instance with both outputs offers them all.
+TEST_F(InternalThermostatTest, TheDocumentedModesAreThoseOfAThermostatWithBothOutputs)
+{
+    load();
+    const Json field = thermostatDocumentation().at("command_fields").at(0);
+    ASSERT_EQ("mode", field.at("name").get<std::string>());
+
+    std::vector<std::string> documented;
+    for (const Json &m: field.at("values"))
+        documented.push_back(m.get<std::string>());
+    EXPECT_EQ(documented, modes("rev"));
+    EXPECT_TRUE(field.at("requires_links").empty());
+}
+
+//The documented defaults are the ones applied without the param.
+TEST_F(InternalThermostatTest, TheDocumentedDefaultsAreTheConstantsTheCodeUses)
+{
+    const Json doc = thermostatDocumentation();
+    auto defaultOf = [&doc](const char *name)
+    {
+        for (const Json &p: doc.at("parameters"))
+        {
+            if (p.at("name") == name)
+                return p.at("default").get<std::string>();
+        }
+        return std::string("<missing>");
+    };
+    EXPECT_EQ(Utils::to_string(InternalThermostat::DEFAULT_HYSTERESIS), defaultOf("hysteresis"));
+    EXPECT_EQ(Utils::to_string(InternalThermostat::DEFAULT_PUT_BACK_DELAY), defaultOf("put_back_delay"));
+    EXPECT_EQ(Utils::to_string(InternalThermostat::DEFAULT_PUT_BACK_DELAY_MAX),
+              defaultOf("put_back_delay_max"));
+    EXPECT_EQ("0", defaultOf("min_on_time"));
+    EXPECT_EQ("0", defaultOf("min_off_time"));
+}
+
+/* A param the document lists must be read by the impl, not merely validated.
+ * Taken once into a member when the links resolve, or asked when it matters:
+ * the lists say which. modes, fan_modes and swing_modes are not here, as the
+ * thermostat ignores them: documenting one means saying when it is read, and
+ * it never is. */
+TEST_F(InternalThermostatTest, EveryDocumentedParamIsRead)
+{
+    const std::set<std::string> takenAtLoad = { "hysteresis", "min_on_time", "min_off_time",
+                                                "put_back_delay", "put_back_delay_max" };
+    const std::set<std::string> askedWhenUsed = { "min_range" };
+
+    load();
+    const std::set<std::string> loadReads = dev("allp")->takeParamReads();
+    //Taking clears: what follows is what the commands below ask for.
+    EXPECT_TRUE(dev("allp")->takeParamReads().empty());
+
+    dev("allp")->deviceObject();
+    EXPECT_TRUE(dev("allp")->set_value(std::string(R"({"mode":"auto","target_temp":21})")));
+    EXPECT_TRUE(dev("allp")->set_value(std::string(R"({"target_temp_low":19,"target_temp_high":23})")));
+    temp("allp", 17);
+    temp("allp", 25);
+    const std::set<std::string> usedReads = dev("allp")->takeParamReads();
+
+    size_t documented = 0;
+    const Json doc = thermostatDocumentation();
+    for (const Json &p: doc.at("parameters"))
+    {
+        if (!p.contains("storage"))
+            continue;
+        const std::string name = p.at("name").get<std::string>();
+        documented++;
+        if (takenAtLoad.count(name))
+            EXPECT_TRUE(loadReads.count(name)) << name << " is documented but not read at load";
+        else if (askedWhenUsed.count(name))
+            EXPECT_TRUE(usedReads.count(name)) << name << " is documented but never asked";
+        else
+            ADD_FAILURE() << name << " is documented: say when the thermostat reads it";
+    }
+    EXPECT_EQ(takenAtLoad.size() + askedWhenUsed.size(), documented);
+
+    //And the other way: a param the thermostat reads is documented. The base
+    //class checks modes, fan_modes and swing_modes for every impl without
+    //this one honouring them.
+    const std::set<std::string> checkedNotHonoured = { "modes", "fan_modes", "swing_modes" };
+    std::set<std::string> docNames;
+    for (const Json &p: doc.at("parameters"))
+        docNames.insert(p.at("name").get<std::string>());
+    for (const std::set<std::string> *reads: { &loadReads, &usedReads })
+    {
+        for (const std::string &name: *reads)
+            EXPECT_TRUE(docNames.count(name) || checkedNotHonoured.count(name))
+                << name << " is read by the thermostat but not documented";
+    }
 }

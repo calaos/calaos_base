@@ -31,6 +31,9 @@
 
 #include <chrono>
 #include <functional>
+#include <map>
+#include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -286,6 +289,25 @@ std::string house()
              param("min_range", "2") + param("remote_temp_keepalive", "0.05");
     salon += device("ro_all", roAll);
 
+    //Every link and every documented param, to see that each one is read.
+    std::string all;
+    all += in("allp_mode") + out("allp_mode_cmd") + out("allp_target", BOUNDS_10_30);
+    all += in("allp_low") + out("allp_low_cmd", BOUNDS_10_30) + in("allp_high") +
+           out("allp_high_cmd", BOUNDS_10_30);
+    all += in("allp_fan") + out("allp_fan_cmd") + out("allp_swing") + out("allp_remote");
+    all += link("mode", "allp_mode", "allp_mode_cmd") + link("target_temp", "allp_target");
+    all += link("target_temp_low", "allp_low", "allp_low_cmd");
+    all += link("target_temp_high", "allp_high", "allp_high_cmd");
+    all += link("fan_mode", "allp_fan", "allp_fan_cmd") + link("swing_mode", "allp_swing");
+    all += link("remote_temp", "allp_remote") + link("remote_temp_source", EXT_TEMP);
+    all += param("modes", "off,auto") + param("auto_payload", "auto") + param("readback_hold", "5");
+    all += param("remote_temp_keepalive", "30") + param("fan_modes", "auto,low");
+    all += param("swing_modes", "off,both") + param("min_range", "2");
+    salon += device("allp", all);
+
+    //Setpoint IO without bounds: the documented defaults apply.
+    salon += device("dflt", out("dflt_target") + link("target_temp", "dflt_target"));
+
     //A range whose high bound is on an input.
     salon += device("ro_half", out("ro_half_low", BOUNDS_10_30) + inAccepting("ro_half_high") +
                                    link("target_temp_low", "ro_half_low") +
@@ -322,6 +344,16 @@ void pumpLoopFor(int ms)
 Json parse(const char *s)
 {
     return Json::parse(s);
+}
+
+Json documentation()
+{
+    Params p;
+    p.Add("type", "device:proxy");
+    p.Add("id", "doc");
+    IOBase::ScopedDocGen docScope;
+    std::unique_ptr<IOBase> io(IOFactory::Instance().CreateIO("device:proxy", p));
+    return io->getDoc()->genDocJson();
 }
 
 } //namespace
@@ -597,13 +629,23 @@ TEST_F(ProxyClimateTest, ConfigurationMistakesAreLoggedAtLoad)
              "Device(mm_d): auto_payload must be 'auto' or 'heat_cool'",
              "Device(bk): remote_temp_keepalive is not a positive number of seconds",
              "Device(bh): readback_hold is not a positive number of seconds",
+             "Device(rg): no 'mode' link, no mode is offered",
+             "Device(ka): no 'mode' link, no mode is offered",
          })
         EXPECT_NE(log.find(expected), std::string::npos) << expected << "\n"
                                                          << log;
 
     EXPECT_EQ(log.find("Device(mm_ci): link 'mode' has no command_io"), std::string::npos) << log;
 
-    for (const char *quiet: { "ac", "mm_a", "mm_b", "mm_c", "mm_rw", "rc", "ka", "rg", "hd" })
+    //The mode link is there: nothing to say (and a dangling one is the base's business).
+    EXPECT_EQ(log.find("Device(ac): no 'mode' link"), std::string::npos) << log;
+    //Focused fixtures without a mode say that and nothing else.
+    for (const char *noMode: { "rc", "ka", "rg", "hd" })
+        EXPECT_EQ(count(log, std::string("Device(") + noMode + "): "),
+                  count(log, std::string("Device(") + noMode + "): no 'mode' link"))
+            << noMode << "\n"
+            << log;
+    for (const char *quiet: { "ac", "mm_a", "mm_b", "mm_c", "mm_rw" })
         EXPECT_EQ(log.find(std::string("Device(") + quiet + "): "), std::string::npos)
             << quiet << "\n"
             << log;
@@ -818,4 +860,128 @@ TEST_F(ProxyClimateTest, NothingIsRelayedToAnInput)
     pumpLoopFor(200);
     EXPECT_TRUE(writes().empty());
     EXPECT_FALSE(caps("r_ro").contains("remote_temp"));
+}
+
+/* The document is what the installer builds its form from: a field it lists
+ * for an instance must be accepted by that instance, and one whose links are
+ * missing must not be. */
+TEST_F(ProxyClimateTest, TheDocumentedFieldsAreAcceptedExactlyWhenTheirLinksExist)
+{
+    const Json doc = documentation();
+    const std::map<std::string, std::string> samples = {
+        { "mode", R"({"mode":"heat"})" },
+        { "target_temp", R"({"target_temp":21})" },
+        { "target_temp_low", R"({"target_temp_low":14,"target_temp_high":24})" },
+        { "target_temp_high", R"({"target_temp_low":14,"target_temp_high":24})" },
+        { "fan_mode", R"({"fan_mode":"auto"})" },
+        { "swing_mode", R"({"swing_mode":"off"})" },
+    };
+
+    ASSERT_EQ(samples.size(), doc.at("command_fields").size());
+    for (const std::string id: { "ac", "mm_a", "rg", "dflt" })
+    {
+        for (const Json &field: doc.at("command_fields"))
+        {
+            const std::string name = field.at("name").get<std::string>();
+            ASSERT_TRUE(samples.count(name)) << "no sample for the documented field " << name;
+
+            bool linked = true;
+            for (const Json &role: field.at("requires_links"))
+                linked = linked && dev(id)->linkIo(role.get<std::string>());
+
+            writes().clear();
+            EXPECT_EQ(linked, cmd(id, samples.at(name))) << id << " " << name;
+        }
+    }
+
+    //An instance dependent list is held by the param the document names.
+    EXPECT_TRUE(dev("ac")->hasDeviceParam("fan_modes"));
+    EXPECT_TRUE(dev("ac")->hasDeviceParam("swing_modes"));
+}
+
+TEST_F(ProxyClimateTest, EveryDocumentedModeIsWrittenByName)
+{
+    const Json mode = documentation().at("command_fields").at(0);
+    ASSERT_EQ("mode", mode.at("name").get<std::string>());
+
+    for (const Json &value: mode.at("values"))
+    {
+        writes().clear();
+        const std::string name = value.get<std::string>();
+        EXPECT_TRUE(cmd("mm_a", R"({"mode":")" + name + R"("})")) << name;
+        EXPECT_EQ(name == "auto" ? "heat_cool" : name, lastText("mm_a_cmd"));
+    }
+}
+
+//The bounds of the document are those enforced when the setpoint IO sets none.
+TEST_F(ProxyClimateTest, TheDocumentedBoundsAreTheDefaultsOfASetpointWithoutBounds)
+{
+    const Json field = documentation().at("command_fields").at(1);
+    ASSERT_EQ("target_temp", field.at("name").get<std::string>());
+
+    EXPECT_EQ(Json({ { "min", field.at("min") },
+                     { "max", field.at("max") },
+                     { "step", field.at("step") },
+                     { "unit", field.at("unit") } }),
+              caps("dflt").at("target_temp"));
+
+    EXPECT_TRUE(cmd("dflt", R"({"target_temp":100})"));
+    EXPECT_TRUE(cmd("dflt", R"({"target_temp":-5})"));
+    EXPECT_TRUE(cmd("dflt", R"({"target_temp":20.26})"));
+    ASSERT_EQ(3u, writesTo("dflt_target").size());
+    EXPECT_DOUBLE_EQ(field.at("max").get<double>(), writesTo("dflt_target")[0].number);
+    EXPECT_DOUBLE_EQ(field.at("min").get<double>(), writesTo("dflt_target")[1].number);
+    EXPECT_DOUBLE_EQ(20.5, writesTo("dflt_target")[2].number);
+}
+
+/* A param the document lists must be read by the impl. Some are taken once
+ * into a member when the links resolve; the others are asked each time they
+ * matter, and only a command or a publication shows it. The lists below say
+ * which, so that a param documented here but only validated at load, never
+ * used, does not pass for a read one. */
+TEST_F(ProxyClimateTest, EveryDocumentedParamIsRead)
+{
+    const std::set<std::string> takenAtLoad = { "remote_temp_keepalive", "readback_hold" };
+    const std::set<std::string> askedWhenUsed = { "modes", "fan_modes", "swing_modes", "min_range",
+                                                  "auto_payload" };
+
+    const std::set<std::string> loadReads = dev("allp")->takeParamReads();
+    //Taking clears: what follows is what the commands below ask for.
+    EXPECT_TRUE(dev("allp")->takeParamReads().empty());
+
+    dev("allp")->deviceObject();
+    EXPECT_TRUE(cmd("allp", R"({"mode":"auto","target_temp":21,"fan_mode":"low","swing_mode":"off"})"));
+    EXPECT_TRUE(cmd("allp", R"({"target_temp_low":14,"target_temp_high":24})"));
+    feed("allp_mode")->deliver("heat_cool");
+    feed("allp_fan")->deliver("low");
+    feed(EXT_TEMP)->deliver(20.5);
+    dev("allp")->deviceObject();
+    const std::set<std::string> usedReads = dev("allp")->takeParamReads();
+
+    size_t documented = 0;
+    const Json doc = documentation();
+    for (const Json &p: doc.at("parameters"))
+    {
+        if (!p.contains("storage"))
+            continue;
+        const std::string name = p.at("name").get<std::string>();
+        documented++;
+        if (takenAtLoad.count(name))
+            EXPECT_TRUE(loadReads.count(name)) << name << " is documented but not read at load";
+        else if (askedWhenUsed.count(name))
+            EXPECT_TRUE(usedReads.count(name)) << name << " is documented but never asked";
+        else
+            ADD_FAILURE() << name << " is documented: say when the proxy reads it";
+    }
+    EXPECT_EQ(takenAtLoad.size() + askedWhenUsed.size(), documented);
+
+    //And the other way: a param the proxy reads is documented.
+    std::set<std::string> docNames;
+    for (const Json &p: doc.at("parameters"))
+        docNames.insert(p.at("name").get<std::string>());
+    for (const std::set<std::string> *reads: { &loadReads, &usedReads })
+    {
+        for (const std::string &name: *reads)
+            EXPECT_TRUE(docNames.count(name)) << name << " is read by the proxy but not documented";
+    }
 }
