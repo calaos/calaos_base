@@ -952,6 +952,10 @@ TEST_F(ProxyClimateTest, EveryDocumentedParamIsRead)
     dev("allp")->deviceObject();
     EXPECT_TRUE(cmd("allp", R"({"mode":"auto","target_temp":21,"fan_mode":"low","swing_mode":"off"})"));
     EXPECT_TRUE(cmd("allp", R"({"target_temp_low":14,"target_temp_high":24})"));
+    feed("allp_mode")->deliver("heat_cool");
+    feed("allp_fan")->deliver("low");
+    feed(EXT_TEMP)->deliver(20.5);
+    dev("allp")->deviceObject();
     const std::set<std::string> usedReads = dev("allp")->takeParamReads();
 
     size_t documented = 0;
@@ -970,4 +974,14 @@ TEST_F(ProxyClimateTest, EveryDocumentedParamIsRead)
             ADD_FAILURE() << name << " is documented: say when the proxy reads it";
     }
     EXPECT_EQ(takenAtLoad.size() + askedWhenUsed.size(), documented);
+
+    //And the other way: a param the proxy reads is documented.
+    std::set<std::string> docNames;
+    for (const Json &p: doc.at("parameters"))
+        docNames.insert(p.at("name").get<std::string>());
+    for (const std::set<std::string> *reads: { &loadReads, &usedReads })
+    {
+        for (const std::string &name: *reads)
+            EXPECT_TRUE(docNames.count(name)) << name << " is read by the proxy but not documented";
+    }
 }

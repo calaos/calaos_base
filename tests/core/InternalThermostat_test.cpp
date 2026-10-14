@@ -194,7 +194,7 @@ std::string fullThermostat(const std::string &id, bool cool, const std::string &
     return thermostatXml(id, inner + params) + roomIo("InternalInt", id + "_temp");
 }
 
-const std::vector<std::string> THERMOSTATS = { "allp", "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams", "safe", "slow", "fight", "duo_a", "duo_b", "both", "same", "duel", "tiny", "zero", "short", "guard", "safefight" };
+const std::vector<std::string> THERMOSTATS = { "allp", "wide", "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams", "safe", "slow", "fight", "duo_a", "duo_b", "both", "same", "duel", "tiny", "zero", "short", "guard", "safefight" };
 
 std::string house()
 {
@@ -203,6 +203,7 @@ std::string house()
                           paramXml("hysteresis", "0.5") + paramXml("min_on_time", "1") +
                               paramXml("min_off_time", "1") + paramXml("put_back_delay", "2") +
                               paramXml("put_back_delay_max", "30") + paramXml("min_range", "2"));
+    ios += fullThermostat("wide", true, paramXml("hysteresis", "2"));
     ios += fullThermostat("th", false, paramXml("hysteresis", "0.5"));
     ios += fullThermostat("rev", true, paramXml("hysteresis", "0.5") + paramXml("min_range", "2"));
     //Durations at ms granularity, on outputs the device does not own.
@@ -583,6 +584,33 @@ TEST_F(InternalThermostatTest, EvaluateTruthTable)
         EXPECT_EQ(str("rev_action"), r.action) << label;
         EXPECT_EQ(state("rev").value("action", ""), r.action) << label;
     }
+}
+
+//The hysteresis is the one of the param: an output switches on past it and
+//off as the setpoint is crossed, so a value other than the default moves the
+//switch-on edge and nothing else.
+TEST_F(InternalThermostatTest, TheHysteresisParamSetsTheSwitchOnThreshold)
+{
+    load();
+    setpoints("wide", 21, 19, 23);
+
+    mode("wide", "heat");
+    temp("wide", 19.5);
+    EXPECT_FALSE(on("wide_heat")) << "1.5 below the setpoint is within a hysteresis of 2";
+    temp("wide", 18.9);
+    EXPECT_TRUE(on("wide_heat"));
+    temp("wide", 20.9);
+    EXPECT_TRUE(on("wide_heat")) << "held until the setpoint is crossed";
+    temp("wide", 21.1);
+    EXPECT_FALSE(on("wide_heat"));
+
+    mode("wide", "cool");
+    temp("wide", 22.5);
+    EXPECT_FALSE(on("wide_cool"));
+    temp("wide", 23.1);
+    EXPECT_TRUE(on("wide_cool"));
+    temp("wide", 20.9);
+    EXPECT_FALSE(on("wide_cool"));
 }
 
 TEST_F(InternalThermostatTest, HeatOnlyThermostat)
@@ -1862,6 +1890,8 @@ TEST_F(InternalThermostatTest, EveryDocumentedParamIsRead)
     dev("allp")->deviceObject();
     EXPECT_TRUE(dev("allp")->set_value(std::string(R"({"mode":"auto","target_temp":21})")));
     EXPECT_TRUE(dev("allp")->set_value(std::string(R"({"target_temp_low":19,"target_temp_high":23})")));
+    temp("allp", 17);
+    temp("allp", 25);
     const std::set<std::string> usedReads = dev("allp")->takeParamReads();
 
     size_t documented = 0;
@@ -1880,4 +1910,18 @@ TEST_F(InternalThermostatTest, EveryDocumentedParamIsRead)
             ADD_FAILURE() << name << " is documented: say when the thermostat reads it";
     }
     EXPECT_EQ(takenAtLoad.size() + askedWhenUsed.size(), documented);
+
+    //And the other way: a param the thermostat reads is documented. The base
+    //class checks modes, fan_modes and swing_modes for every impl without
+    //this one honouring them.
+    const std::set<std::string> checkedNotHonoured = { "modes", "fan_modes", "swing_modes" };
+    std::set<std::string> docNames;
+    for (const Json &p: doc.at("parameters"))
+        docNames.insert(p.at("name").get<std::string>());
+    for (const std::set<std::string> *reads: { &loadReads, &usedReads })
+    {
+        for (const std::string &name: *reads)
+            EXPECT_TRUE(docNames.count(name) || checkedNotHonoured.count(name))
+                << name << " is read by the thermostat but not documented";
+    }
 }
