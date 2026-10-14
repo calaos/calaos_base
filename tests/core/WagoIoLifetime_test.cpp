@@ -28,10 +28,13 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "CalaosCoreFixture.h"
+#include "IOChangeHub.h"
 #include "WagoMap.h"
 
 using namespace Calaos;
@@ -238,4 +241,43 @@ TEST_F(WagoIoLifetimeTest, ADeletedDaliBallastIgnoresTheReplyToItsPendingRead)
     map.udpRequest_cb(true, "WAGO_GET_VERSION 3.0 750-849");
     for (int i = 0; i < 4; i++)
         map.udpRequest_cb(true, "REPLY 1 77");
+}
+
+/* The analog inputs compared the raw register to the converted value: with a
+ * conversion, every Modbus answer signalled the rules again. Each answer is
+ * still a reading. */
+TEST_F(WagoIoLifetimeTest, AConvertedValueReadAgainIsNotSignalledAgain)
+{
+    int n = 0;
+    for (const std::string type: { "WIAnalog", "WITemp" })
+    {
+        const std::string host = hostFor(Utils::to_string(60 + n));
+        const std::string id = "fb5_conv_" + Utils::to_string(n++);
+        Params p = wagoParams(type, id, host);
+        p.Add("calc_expr", "x * 2 + 1");
+        IOBase *in = createIO(p);
+        ASSERT_NE(in, nullptr) << type;
+
+        int signals = 0;
+        auto sub = IOChangeHub::Instance().subscribe(id, [&signals](IOBase &)
+                                                     {
+            signals++;
+        });
+
+        //Each reconnection reads the input once.
+        mapOf(host).onWagoConnected.emit();
+        WagoMapProbe::answerAll(mapOf(host), true);
+        ASSERT_EQ(signals, 1) << type;
+        const double converted = in->get_value_double();
+        const auto first = in->lastReading();
+        ASSERT_TRUE(first.has_value()) << type;
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        mapOf(host).onWagoConnected.emit();
+        WagoMapProbe::answerAll(mapOf(host), true);
+
+        EXPECT_EQ(signals, 1) << type << " signalled the same value again";
+        EXPECT_DOUBLE_EQ(in->get_value_double(), converted) << type;
+        EXPECT_GT(*in->lastReading(), *first) << type << ": an answer is a reading";
+    }
 }
