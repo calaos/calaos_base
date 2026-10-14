@@ -133,7 +133,8 @@ int readsWithin(int ms)
 std::string house()
 {
     const std::string knx = "    <calaos:input type=\"KNXInputTemp\" id=\"knx_temp\" name=\"knx_temp\" "
-                            "knx_group=\"" + std::string(kGroup) + "\" host=\"" + kHost +
+                            "knx_group=\"" +
+                            std::string(kGroup) + "\" host=\"" + kHost +
                             "\" eis=\"5\" visible=\"false\" />\n";
     const std::string th =
         "    <calaos:device id=\"knxth\" type=\"climate\" impl=\"thermostat\" name=\"knxth\">\n"

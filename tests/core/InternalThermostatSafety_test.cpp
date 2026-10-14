@@ -567,8 +567,7 @@ TEST_F(InternalThermostatSafetyTest, ASensorThatSaysItIsDisconnectedIsNotFresh)
 
     const std::string log = journal([]()
                                     {
-        io("boot_temp")->setStatusInfo(IOBase::StatusType::Connected,
-                                       IOBase::StatusConnected::STATUS_DISCONNECTED);
+        io("boot_temp")->setStatusInfo(IOBase::StatusType::Connected, IOBase::StatusConnected::STATUS_DISCONNECTED);
         set("boot_target", 22);
     });
     EXPECT_FALSE(on("boot_heat"));
@@ -580,8 +579,7 @@ TEST_F(InternalThermostatSafetyTest, ASensorThatSaysItIsDisconnectedIsNotFresh)
     set("boot_temp", 18);
     EXPECT_FALSE(on("boot_heat"));
 
-    io("boot_temp")->setStatusInfo(IOBase::StatusType::Connected,
-                                   IOBase::StatusConnected::STATUS_CONNECTED);
+    io("boot_temp")->setStatusInfo(IOBase::StatusType::Connected, IOBase::StatusConnected::STATUS_CONNECTED);
     set("boot_temp", 18);
     EXPECT_TRUE(on("boot_heat"));
 }
