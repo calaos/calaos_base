@@ -30,7 +30,10 @@ TEST(ScopedConnectionTest, ADestroyedHolderCutsItsSlot)
         ScopedConnection c;
         EXPECT_FALSE(c.connected());
 
-        c = sig.connect([&calls]() { calls++; });
+        c = sig.connect([&calls]()
+                        {
+            calls++;
+        });
         EXPECT_TRUE(c.connected());
         sig.emit();
         EXPECT_EQ(calls, 1);
@@ -47,8 +50,14 @@ TEST(ScopedConnectionTest, ReassigningCutsThePreviousSlot)
     int first = 0, second = 0;
 
     ScopedConnection c;
-    c = sig.connect([&first]() { first++; });
-    c = sig.connect([&second]() { second++; });
+    c = sig.connect([&first]()
+                    {
+        first++;
+    });
+    c = sig.connect([&second]()
+                    {
+        second++;
+    });
 
     EXPECT_EQ(sig.size(), 1u);
     sig.emit();
@@ -61,7 +70,9 @@ TEST(ScopedConnectionTest, AHolderOutlivingItsSignalIsHarmless)
 {
     auto sig = std::make_unique<sigc::signal<void>>();
     auto c = std::make_unique<ScopedConnection>();
-    *c = sig->connect([]() {});
+    *c = sig->connect([]()
+                      {
+                      });
     ASSERT_TRUE(c->connected());
 
     sig.reset();

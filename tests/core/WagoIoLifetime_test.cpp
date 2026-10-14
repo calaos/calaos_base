@@ -57,11 +57,11 @@ struct WagoMapProbe: WagoMap
 
         for (const std::string &id: ids)
         {
-            Json reply = {{ "id", id },
-                          { "status", status ? "true" : "false" },
-                          { "address", "0" },
-                          { "count", "1" },
-                          { "values", Json::array({ "1" }) }};
+            Json reply = { { "id", id },
+                           { "status", status ? "true" : "false" },
+                           { "address", "0" },
+                           { "count", "1" },
+                           { "values", Json::array({ "1" }) } };
             (map.*(&WagoMapProbe::processNewMessage))(reply.dump());
         }
     }
@@ -79,25 +79,28 @@ WagoMap &mapOf(const std::string &host)
 
 Params wagoParams(const std::string &type, const std::string &id, const std::string &host)
 {
-    return {{ "type", type },
-            { "id", id },
-            { "name", type },
-            { "host", host },
-            { "var", "12" },
-            { "enabled", "true" },
-            { "visible", "true" }};
+    return { { "type", type },
+             { "id", id },
+             { "name", type },
+             { "host", host },
+             { "var", "12" },
+             { "enabled", "true" },
+             { "visible", "true" } };
 }
 
 //The four types that read themselves back when the PLC (re)connects
 const std::vector<std::string> &reconnectTypes()
 {
     static const std::vector<std::string> types = {
-        "WIAnalog", "WITemp", "WOAnalog", "WODigital",
+        "WIAnalog",
+        "WITemp",
+        "WOAnalog",
+        "WODigital",
     };
     return types;
 }
 
-}
+} //namespace
 
 class WagoIoLifetimeTest: public CalaosTest::CoreFixture
 {
@@ -195,26 +198,34 @@ TEST_F(WagoIoLifetimeTest, ADeletedWagoOutputIgnoresTheReplyToItsPendingWrite)
 TEST_F(WagoIoLifetimeTest, ADeletedDaliBallastIgnoresTheReplyToItsPendingRead)
 {
     const std::string host = hostFor("50");
-    Params dali = {{ "type", "WODali" },
-                   { "id", "fb4_dali" },
-                   { "name", "dali" },
+    Params dali = { { "type", "WODali" },
+                    { "id", "fb4_dali" },
+                    { "name", "dali" },
+                    { "host", host },
+                    { "line", "1" },
+                    { "address", "61" },
+                    { "group", "0" },
+                    { "fade_time", "1" },
+                    { "enabled", "true" },
+                    { "visible", "true" } };
+    Params rgb = { { "type", "WODaliRVB" },
+                   { "id", "fb4_dali_rgb" },
+                   { "name", "dali rgb" },
                    { "host", host },
-                   { "line", "1" }, { "address", "61" }, { "group", "0" },
-                   { "fade_time", "1" },
+                   { "rline", "1" },
+                   { "raddress", "62" },
+                   { "rgroup", "0" },
+                   { "rfade_time", "1" },
+                   { "gline", "1" },
+                   { "gaddress", "63" },
+                   { "ggroup", "0" },
+                   { "gfade_time", "1" },
+                   { "bline", "1" },
+                   { "baddress", "64" },
+                   { "bgroup", "0" },
+                   { "bfade_time", "1" },
                    { "enabled", "true" },
-                   { "visible", "true" }};
-    Params rgb = {{ "type", "WODaliRVB" },
-                  { "id", "fb4_dali_rgb" },
-                  { "name", "dali rgb" },
-                  { "host", host },
-                  { "rline", "1" }, { "raddress", "62" }, { "rgroup", "0" },
-                  { "rfade_time", "1" },
-                  { "gline", "1" }, { "gaddress", "63" }, { "ggroup", "0" },
-                  { "gfade_time", "1" },
-                  { "bline", "1" }, { "baddress", "64" }, { "bgroup", "0" },
-                  { "bfade_time", "1" },
-                  { "enabled", "true" },
-                  { "visible", "true" }};
+                   { "visible", "true" } };
 
     IOBase *a = createIO(dali);
     IOBase *b = createIO(rgb);

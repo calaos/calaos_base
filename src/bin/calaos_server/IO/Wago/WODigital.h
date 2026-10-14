@@ -29,7 +29,7 @@ namespace Calaos {
 
 //WagoMap outlives this IO and keeps its slots (reconnect, pending replies):
 //trackable cuts every sigc::mem_fun bound to it when the IO dies.
-class WODigital : public OutputLight, public sigc::trackable
+class WODigital: public OutputLight, public sigc::trackable
 {
 private:
     int address;

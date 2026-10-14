@@ -99,7 +99,7 @@ protected:
 
         webCtrl = &WebCtrl::Instance(this->get_params());
         webCallbackId = webCtrl->Add(this->frequency, [this]()
-        {
+                                     {
             this->readValue();
             StartReadRules::Instance().ioRead();
         });

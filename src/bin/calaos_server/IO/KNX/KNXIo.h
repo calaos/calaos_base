@@ -90,7 +90,7 @@ protected:
     void onGroupChanged(const std::function<void(const KNXValue &)> &cb)
     {
         groupChanged = ctrl()->valueChanged.connect([this, cb](const string group_addr, const KNXValue &v)
-        {
+                                                    {
             if (group_addr == knxBase.getReadGroupAddr())
                 cb(v);
         });

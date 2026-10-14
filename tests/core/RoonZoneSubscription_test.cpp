@@ -47,7 +47,7 @@ shared_ptr<RoonCtrl> roonCtrl()
     return RoonCtrl::Instance("127.0.0.1", 9330);
 }
 
-}
+} //namespace
 
 TEST(RoonZoneSubscriptionTest, AZoneStateReachesItsSubscriber)
 {

@@ -76,8 +76,7 @@ WODigital::~WODigital()
 
 void WODigital::readBack()
 {
-    WagoMap::Instance(host, port).read_output_bits(WagoTypes::Address((UWord)readBackAddress), WagoTypes::Count(1),
-                                                sigc::mem_fun(*this, &WODigital::WagoReadCallback));
+    WagoMap::Instance(host, port).read_output_bits(WagoTypes::Address((UWord)readBackAddress), WagoTypes::Count(1), sigc::mem_fun(*this, &WODigital::WagoReadCallback));
 }
 
 void WODigital::WagoReadCallback(bool status, WagoTypes::Address addr, WagoTypes::Count count, vector<bool> &values)

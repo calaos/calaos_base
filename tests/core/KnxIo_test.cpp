@@ -80,24 +80,17 @@ int armedTimerCount()
 const std::vector<std::pair<std::string, Params>> &knxTypes()
 {
     static const std::vector<std::pair<std::string, Params>> types = {
-        { "KNXInputSwitch",          {} },
+        { "KNXInputSwitch", {} },
         { "KNXInputSwitchLongPress", {} },
-        { "KNXInputSwitchTriple",    {} },
-        { "KNXInputAnalog",          { { "eis", "5" } } },
-        { "KNXInputTemp",            { { "eis", "5" } } },
-        { "KNXOutputAnalog",         { { "eis", "5" } } },
-        { "KNXOutputLight",          {} },
-        { "KNXOutputLightDimmer",    {} },
-        { "KNXOutputLightRGB",       { { "knx_group_red", "1/1/1" },
-                                       { "knx_group_green", "1/1/2" },
-                                       { "knx_group_blue", "1/1/3" } } },
-        { "KNXOutputShutter",        { { "knx_group_up", "2/1/1" },
-                                       { "knx_group_down", "2/1/2" },
-                                       { "time", "30" } } },
-        { "KNXOutputShutterSmart",   { { "knx_group_up", "2/1/1" },
-                                       { "knx_group_down", "2/1/2" },
-                                       { "time_up", "30" },
-                                       { "time_down", "30" } } },
+        { "KNXInputSwitchTriple", {} },
+        { "KNXInputAnalog", { { "eis", "5" } } },
+        { "KNXInputTemp", { { "eis", "5" } } },
+        { "KNXOutputAnalog", { { "eis", "5" } } },
+        { "KNXOutputLight", {} },
+        { "KNXOutputLightDimmer", {} },
+        { "KNXOutputLightRGB", { { "knx_group_red", "1/1/1" }, { "knx_group_green", "1/1/2" }, { "knx_group_blue", "1/1/3" } } },
+        { "KNXOutputShutter", { { "knx_group_up", "2/1/1" }, { "knx_group_down", "2/1/2" }, { "time", "30" } } },
+        { "KNXOutputShutterSmart", { { "knx_group_up", "2/1/1" }, { "knx_group_down", "2/1/2" }, { "time_up", "30" }, { "time_down", "30" } } },
     };
     return types;
 }
@@ -120,7 +113,7 @@ shared_ptr<KNXCtrl> knxCtrl()
     return KNXCtrl::Instance("127.0.0.1");
 }
 
-}
+} //namespace
 
 class KnxIoTest: public CoreFixture
 {

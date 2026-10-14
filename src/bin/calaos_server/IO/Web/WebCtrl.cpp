@@ -91,7 +91,6 @@ WebCtrl &WebCtrl::Instance(Params &p)
     return hash[url];
 }
 
-
 uint64_t WebCtrl::Add(double _frequency, std::function<void()> fileDownloaded_cb)
 {
 

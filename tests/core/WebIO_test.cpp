@@ -201,18 +201,18 @@ void writeWebDoc(const std::string &file, double num)
 
 Params webInput(const std::string &id, const std::string &url)
 {
-    return {{ "type", "WebInputAnalog" },
-            { "id", id },
-            { "name", id },
-            { "url", url },
-            { "file_type", "json" },
-            { "path", "num" },
-            { "period", "10" },
-            { "enabled", "true" },
-            { "visible", "false" }};
+    return { { "type", "WebInputAnalog" },
+             { "id", id },
+             { "name", id },
+             { "url", url },
+             { "file_type", "json" },
+             { "path", "num" },
+             { "period", "10" },
+             { "enabled", "true" },
+             { "visible", "false" } };
 }
 
-}
+} //namespace
 
 /* A WebCtrl is shared by every IO of a url, and its callbacks used to be
  * removed by path: deleting one of two inputs on the same path unregistered

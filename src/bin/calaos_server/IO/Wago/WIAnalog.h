@@ -29,7 +29,7 @@ namespace Calaos
 
 //WagoMap outlives this IO and keeps its slots (reconnect, pending replies):
 //trackable cuts every sigc::mem_fun bound to it when the IO dies.
-class WIAnalog : public InputAnalog, public sigc::trackable
+class WIAnalog: public InputAnalog, public sigc::trackable
 {
 protected:
     int address;
