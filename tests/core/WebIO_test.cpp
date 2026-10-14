@@ -259,3 +259,23 @@ TEST_F(WebIOTest, AWebInputWhoseUrlChangedIsStillUnregistered)
     ASSERT_NE(trigger, nullptr);
     EXPECT_DOUBLE_EQ(trigger->get_value_double(), 1);
 }
+
+//WebCtrl refuses a zero period: nothing is registered, nothing to remove.
+TEST_F(WebIOTest, AWebInputWithAZeroPeriodIsNeverPolled)
+{
+    loadConfig();
+    const std::string file = cacheDir() + "/webio_fb4_zero.json";
+    const std::string url = "file://" + file;
+    writeWebDoc(file, 3);
+
+    Params p = webInput("web_fb4_zero", url);
+    p.Add("period", "0");
+    IOBase *zero = createIO(p);
+    ASSERT_NE(zero, nullptr);
+    EXPECT_NE(zero->get_value_double(), 3);
+    ASSERT_TRUE(deleteIO(zero));
+
+    IOBase *trigger = createIO(webInput("web_fb4_zero_trigger", url));
+    ASSERT_NE(trigger, nullptr);
+    EXPECT_DOUBLE_EQ(trigger->get_value_double(), 3);
+}

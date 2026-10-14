@@ -86,7 +86,8 @@ protected:
 
     ~WebInputBase()
     {
-        WebCtrl::Instance(this->get_params()).Del(this->get_param("path"));
+        if (webCtrl)
+            webCtrl->Del(webCallbackId);
     }
 
     //To be called at the end of the concrete subclass constructor (see the
@@ -96,8 +97,8 @@ protected:
         if (this->get_param("path").empty())
             return;
 
-        WebCtrl::Instance(this->get_params()).Add(this->get_param("path"),
-                                                  this->frequency, [this]()
+        webCtrl = &WebCtrl::Instance(this->get_params());
+        webCallbackId = webCtrl->Add(this->frequency, [this]()
         {
             this->readValue();
             StartReadRules::Instance().ioRead();
@@ -117,6 +118,12 @@ protected:
             this->emitChange();
         }
     }
+
+private:
+    //The controller registered on, not the one the params name now: the
+    //entries of WebCtrl::hash are never dropped and do not move.
+    WebCtrl *webCtrl = nullptr;
+    uint64_t webCallbackId = 0;
 };
 
 }

@@ -42,16 +42,18 @@ private:
     int file_type;
     static unordered_map<string, WebCtrl> hash;
     void launchDownload();
-    vector<pair<string, std::function<void()>>> fileDownloadedCallbacks;
+    vector<pair<uint64_t, std::function<void()>>> fileDownloadedCallbacks;
+    uint64_t lastCallbackId = 0;
 
 public:
     static WebCtrl &Instance(Params &p); //Singleton
     WebCtrl();
     ~WebCtrl();
     enum {XML, JSON, TEXT, UNKNOWN};
-    void Add(string path, double _frequency = 60.0,
-             std::function<void()> fileDownloaded_cb = []() { cDebugDom("web") << "File downloaded"; });
-    void Del(string path);
+    //Returns the id to hand back to Del(), 0 when refused. Several IOs may
+    //share a path, and their params can change after registration.
+    uint64_t Add(double _frequency, std::function<void()> fileDownloaded_cb);
+    void Del(uint64_t id);
 
     /*
      * T3.37. The parser lives in IO/JsonPath.h and reports to EVERY caller
