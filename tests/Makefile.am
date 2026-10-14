@@ -29,6 +29,11 @@ dist_check_SCRIPTS += check-potfiles-devices.sh
 TESTS += check-gentemplates.sh
 dist_check_SCRIPTS += check-gentemplates.sh
 
+#check-iodoc-generation.sh: scripts/create_iodoc (the CI artefact) works with a
+#HOME that cannot be written, and the MCP Makefile installs a prebuilt io_doc.json.
+TESTS += check-iodoc-generation.sh
+dist_check_SCRIPTS += check-iodoc-generation.sh
+
 # T2.14: python suites (tests/python/, from T1.8 + T1.16) wired into make
 # check through a wrapper. PYTHON comes from AM_PATH_PYTHON via
 # AM_TESTS_ENVIRONMENT above.

@@ -17,10 +17,18 @@ calaos_server --gentemplates <chemin>   # → <chemin>/device_templates.json
 
 L'option se traite comme `--gendoc` : avant tout chargement de configuration, puis sortie du
 process (code 1 si le fichier n'a pas pu être écrit, le répertoire est créé s'il manque). Les
-libellés et descriptions sont traduits dans la locale du process. `scripts/create_iodoc` appelle
-les deux options, en anglais puis en français, et range `io_doc.json`, `io_doc.md` et
-`device_templates.json` dans `build_doc/en` et `build_doc/fr`. Le JSON est écrit comme
-`io_doc.json` : indenté de 4 espaces, ASCII pur (`°C` devient `°C`).
+libellés et descriptions sont traduits dans la locale du process (le français demande les `.mo`
+installés : `make install`). `scripts/create_iodoc [dossier]` appelle les deux options, en anglais
+puis en français, avec `--config` et `--cache` dans un dossier temporaire (le `HOME` peut être en
+lecture seule), et range `io_doc.json`, `io_doc.md` et `device_templates.json` dans `build_doc/en`
+et `build_doc/fr`. Le JSON est écrit comme `io_doc.json` : indenté de 4 espaces, ASCII pur
+(`°C` devient `\u00b0C`).
+
+Le job « Build & test » de la CI exécute ce script après `make install` et publie
+le résultat dans l'artefact `io-doc` (14 jours, un dossier `en` et un dossier `fr`). Le job de CI de
+calaos_installer le télécharge et compare ses copies (`data/doc/{en,fr}`) au JSON parsé. Les
+paramètres, conditions et actions de `io_doc.json`/`io_doc.md` sont triés par nom : l'ordre de la
+`unordered_map` dépendrait de la bibliothèque standard.
 
 ## Format (version 1)
 

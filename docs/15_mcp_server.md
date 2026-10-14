@@ -549,7 +549,9 @@ modèle lise les consignes et les capacités sans autre outil.
   `src/bin/calaos_mcp/io_doc.json` (anglais, `LC_ALL=C`), `make install` le place dans
   `share/calaos/` et le wrapper `calaos_mcp` exporte `CALAOS_IODOC_PATH`. Sans fichier (build
   croisé, gendoc en échec ou au-delà de 120 s, fichier mal formé), le sidecar démarre avec une description courte qui renvoie aux
-  `capabilities`.
+  `capabilities`. Un build croisé, où le serveur ne tourne pas, installe le fichier d'un build hôte
+  (`scripts/create_iodoc`) ou l'artefact `io-doc` de la CI : `make IODOC_PREBUILT=/chemin/io_doc.json`
+  (refus si le fichier n'a pas de clé `devices`).
 
 #### Sanitisation des sorties (S3)
 
