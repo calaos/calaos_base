@@ -89,7 +89,9 @@ InternalThermostat::InternalThermostat(Params &p):
                                         "put_back_delay_max. At least 0.001, else the default is used."),
                     IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_PUT_BACK_DELAY));
     ioDoc->paramAdd("put_back_delay_max", _("Longest wait between two put-backs, in seconds. Not below "
-                                            "put_back_delay."),
+                                            "put_back_delay. It also sets the window of the log of writes "
+                                            "from outside to an output: one line per source and output "
+                                            "during that time."),
                     IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_PUT_BACK_DELAY_MAX));
     for (const char *name: { "hysteresis", "min_on_time", "min_off_time", "put_back_delay",
                              "put_back_delay_max" })
