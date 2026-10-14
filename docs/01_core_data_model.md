@@ -548,11 +548,12 @@ spec §8.1. `impl="thermostat"` : Calaos régule.
 règles ne doit jamais casser, la valeur écrite est appliquée et le thermostat reprend la main
 ensuite selon ses verrous.
 
-- **Écritures extérieures** : `ActionStd` (règles), les scripts Lua et `set_state` (HTTP et
-  WebSocket, y compris le relais d'un panneau RemoteUI) appellent `Device::writtenFromOutside()`
+- **Écritures extérieures** : `ActionStd` (règles), les scripts Lua et `set_state` (HTTP,
+  WebSocket, panneau RemoteUI) appellent `Device::writtenFromOutside()`
   avant d'écrire un IO. `InternalThermostat` s'y abonne (`Device::observeOutsideWrites()`) et
   journalise un avertissement (domaine `device`) qui nomme le thermostat, la sortie et la source :
-  `a rule`, `a Lua script`, `set_state over HTTP`, `set_state over WebSocket`. Un IO qui n'est
+  `a rule`, `a Lua script`, `set_state over HTTP`, `set_state over WebSocket`,
+  `set_state from a RemoteUI panel` (`JsonApiHandlerWS::setStateSource()`). Un IO qui n'est
   pas la sortie d'un thermostat chargé, le device lui-même, une sortie laissée de côté (un
   autre thermostat la tient) et un `set_state` refusé avant écriture ne produisent rien. Les
   écritures du thermostat ne passent pas par là. Les autres écrivains (pilote, scénario) restent
