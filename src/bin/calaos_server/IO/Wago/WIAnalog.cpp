@@ -84,14 +84,16 @@ void WIAnalog::WagoReadCallback(bool status, WagoTypes::Address addr, WagoTypes:
 
     if (!values.empty())
     {
-        val = values[0];
+        //Compared once converted: the raw register never equals a converted
+        //value, and each answer would signal the rules again.
+        val = AnalogIO::convertValue(get_params(), values[0]);
         //An unchanged value is not signalled, but the sensor is alive.
         markReading();
     }
 
     if (val != value)
     {
-        value = AnalogIO::convertValue(get_params(), val);
+        value = val;
         emitChange();
     }
 
