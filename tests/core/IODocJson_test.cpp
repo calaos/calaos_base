@@ -622,7 +622,9 @@ TEST(IODocJson, AnEnumValueCanNeedLinksOfItsOwn)
 TEST(IODocJson, WithoutValueRequirementsTheKeyIsAbsent)
 {
     IODoc doc = deviceDoc();
-    for (const Json &f: docToJson(doc).at("command_fields"))
+    //A range-for over at() of a temporary iterates a destroyed document.
+    const Json json = docToJson(doc);
+    for (const Json &f: json.at("command_fields"))
         EXPECT_FALSE(f.contains("value_requires_links")) << f.dump();
 }
 
