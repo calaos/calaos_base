@@ -82,9 +82,11 @@ std::string house()
 {
     std::string ios;
     //A long lock-out, and one that ends during the case.
-    ios += thermostat("lk", false, param("min_off_time", "3"));
+    ios += thermostat("lk", false, param("min_off_time", "30"));
     ios += thermostat("lk2", false, param("min_off_time", "0.3"));
     ios += thermostat("lkc", true, param("min_off_time", "3"));
+    //A stop held by min_on_time is not a lock-out: nothing wanted waits.
+    ios += thermostat("mo", false, param("min_on_time", "3"));
     ios += thermostat("st", false, param("sensor_timeout", "0.3"));
     ios += thermostat("nosensor", false, "", false);
     ios += thermostat("dw", true,
@@ -148,12 +150,15 @@ protected:
     void SetUp() override
     {
         JsonApiCharacterizationTest::SetUp();
-        for (const char *id: { "lk", "lk2", "lkc", "st", "nosensor", "dw", "px_mode" })
+        for (const char *id: { "lk", "lk2", "lkc", "mo", "st", "nosensor", "dw", "px_mode" })
             forgetIOState(id);
         loadConfig(house(), rulesXmlDocument(""));
+        loadedAt = std::chrono::steady_clock::now();
         //The first evaluation, on the first loop turn.
         pumpFor(20);
     }
+
+    std::chrono::steady_clock::time_point loadedAt;
 
     static Device *dev(const std::string &id) { return ListeRoom::Instance().findIOAs<Device>(id); }
     static Json state(const std::string &id) { return dev(id)->deviceObject().at("state"); }
@@ -189,8 +194,10 @@ TEST_F(ClimateStatusTest, ALockOutSaysWhichOutputAndHowLong)
     ASSERT_TRUE(s.contains("lockout")) << s.dump();
     EXPECT_EQ(s.at("lockout").at("output"), "heat");
     ASSERT_TRUE(s.at("lockout").at("remaining").is_number_integer()) << s.dump();
-    EXPECT_GE(s.at("lockout").at("remaining").get<int>(), 1);
-    EXPECT_LE(s.at("lockout").at("remaining").get<int>(), 3);
+    //Rounded up: min_off_time counts from the start, a moment ago.
+    const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - loadedAt).count();
+    EXPECT_GE(s.at("lockout").at("remaining").get<int>(), 30 - elapsed);
+    EXPECT_LE(s.at("lockout").at("remaining").get<int>(), 30);
     EXPECT_TRUE(publishedWhere(ws, "lk", [](const Json &st)
                                {
         return st.contains("lockout");
@@ -372,4 +379,53 @@ TEST_F(ClimateStatusTest, GetHomeCarriesTheStatusFields)
     ws.send(Json{ { "msg", "get_home" }, { "msg_id", "6" } });
     ASSERT_EQ(1u, ws.count());
     EXPECT_JSON_GOLDEN("clim6_ws_get_home_status", ws.lastMessage());
+}
+
+TEST_F(ClimateStatusTest, AStopHeldByMinOnTimeIsNoLockOut)
+{
+    set("mo_target", 21);
+    set("mo_temp", 18);
+    mode("mo", "heat");
+    ASSERT_TRUE(io("mo_heat")->get_value_bool());
+    set("mo_temp", 25);
+    ASSERT_TRUE(io("mo_heat")->get_value_bool());
+    EXPECT_FALSE(state("mo").contains("lockout"));
+}
+
+//The deadline passed, its timer not run yet: nothing left to wait for.
+TEST_F(ClimateStatusTest, ALockOutPastItsDeadlineIsNotPublished)
+{
+    set("lk2_target", 21);
+    set("lk2_temp", 18);
+    mode("lk2", "heat");
+    ASSERT_TRUE(state("lk2").contains("lockout"));
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
+    EXPECT_FALSE(state("lk2").contains("lockout"));
+}
+
+//A fault that starts with nothing else changing is published by itself: the
+//output was already off, the action already idle.
+TEST_F(ClimateStatusTest, AFaultStartingAloneIsPublished)
+{
+    set("st_target", 21);
+    set("st_temp", 25);
+    mode("st", "heat");
+    ASSERT_FALSE(io("st_heat")->get_value_bool());
+    pumpFor(150);
+    WsTestSession ws;
+    EXPECT_TRUE(publishedWhere(ws, "st", [](const Json &st)
+                               {
+        return st.value("fault", "") == "sensor_stale";
+    }));
+}
+
+//The dew point cuts cooling only: heating says nothing of humidity.
+TEST_F(ClimateStatusTest, HumidityIsNoFaultWhileHeating)
+{
+    set("dw_target", 21);
+    set("dw_temp", 25);
+    mode("dw", "cool");
+    ASSERT_EQ(state("dw").value("fault", ""), "humidity_stale");
+    mode("dw", "heat");
+    EXPECT_FALSE(state("dw").contains("fault"));
 }

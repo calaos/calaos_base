@@ -304,6 +304,86 @@
               "family": "climate",
               "impl": "thermostat",
               "ios": {
+                "action": "mo_action",
+                "current_temp": "mo_temp",
+                "output_heat": "mo_heat",
+                "target_temp": "mo_target"
+              },
+              "state": {
+                "action": "off",
+                "mode": "off"
+              }
+            },
+            "gui_type": "climate",
+            "id": "mo",
+            "io_type": "inout",
+            "name": "mo",
+            "state": "off",
+            "type": "climate",
+            "var_type": "string"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "mo_target",
+            "io_type": "inout",
+            "name": "mo_target",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_string",
+            "id": "mo_action",
+            "io_type": "inout",
+            "name": "mo_action",
+            "rw": "false",
+            "state": "off",
+            "type": "InternalString",
+            "var_type": "string",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_bool",
+            "id": "mo_heat",
+            "io_type": "inout",
+            "name": "mo_heat",
+            "rw": "false",
+            "state": "false",
+            "type": "InternalBool",
+            "var_type": "bool",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "mo_temp",
+            "io_type": "inout",
+            "name": "mo_temp",
+            "rw": "false",
+            "state": "0",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "device": {
+              "capabilities": {
+                "modes": [
+                  "off",
+                  "heat"
+                ],
+                "reports_action": true,
+                "target_temp": {
+                  "max": 35.0,
+                  "min": 7.0,
+                  "step": 0.5,
+                  "unit": "°C"
+                }
+              },
+              "family": "climate",
+              "impl": "thermostat",
+              "ios": {
                 "action": "st_action",
                 "current_temp": "st_temp",
                 "output_heat": "st_heat",
