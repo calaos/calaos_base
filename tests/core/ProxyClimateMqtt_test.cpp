@@ -149,11 +149,25 @@ bool nextPublishOn(const std::string &topic, std::string &payload, int timeoutMs
     return got;
 }
 
+void sidecarSends(const std::string &json)
+{
+    const std::string raw = ExternProcMessage(json).getRawData();
+    ASSERT_EQ((ssize_t)raw.size(), ::send(session().fd, raw.data(), raw.size(), 0));
+}
+
 void brokerSends(const std::string &topic, const std::string &payload)
 {
-    const std::string raw =
-        ExternProcMessage(MqttWire::encodeMessage(topic, payload)).getRawData();
-    ASSERT_EQ((ssize_t)raw.size(), ::send(session().fd, raw.data(), raw.size(), 0));
+    sidecarSends(MqttWire::encodeMessage(topic, payload));
+}
+
+//What the sidecar says of a message the broker replayed.
+void brokerReplays(const std::string &topic, const std::string &payload)
+{
+    Json m;
+    m["topic"] = topic;
+    m["payload"] = payload;
+    m["retain"] = true;
+    sidecarSends(m.dump());
 }
 
 void brokerSays(const std::string &topic, const std::string &payload,
@@ -347,6 +361,42 @@ TEST_F(ProxyClimateMqttTest, ARepeatedReadingIsStillAReading)
         },
                                       200);
         EXPECT_EQ(*in->lastReading(), second) << sensor;
+    }
+}
+
+/* A broker replays its retained messages at each connection, a dead
+ * sensor's last state included (ESPHome publishes retained): the value is
+ * taken, but it is not a reading. */
+TEST_F(ProxyClimateMqttTest, ARetainedMessageIsNotAReading)
+{
+    for (const std::string sensor: { "temp", "hum" })
+    {
+        IOBase *in = io("e2e_" + sensor);
+        ASSERT_NE(in, nullptr) << sensor;
+        brokerReplays(t(sensor), "21.5");
+        ASSERT_TRUE(ExternProcSpawn::runLoopUntil([&]()
+                                                  {
+            return in->get_value_double() == 21.5;
+        },
+                                                  5000))
+            << sensor;
+        EXPECT_FALSE(in->lastReading().has_value()) << sensor;
+
+        brokerSays(t(sensor), "21.5", [&]()
+                   {
+            return in->lastReading().has_value();
+        });
+        const auto live = *in->lastReading();
+
+        //A replay that changes the value: taken and signalled, still not a reading.
+        brokerReplays(t(sensor), "23");
+        ASSERT_TRUE(ExternProcSpawn::runLoopUntil([&]()
+                                                  {
+            return in->get_value_double() == 23;
+        },
+                                                  5000))
+            << sensor;
+        EXPECT_EQ(*in->lastReading(), live) << sensor;
     }
 }
 
