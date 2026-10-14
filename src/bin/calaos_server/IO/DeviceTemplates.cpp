@@ -80,10 +80,17 @@ Json flag(const string &name, const string &label, const string &description, bo
     return Json(std::move(f));
 }
 
-Json multi(const string &name, const string &label, const string &description,
-           const vector<string> &values, const vector<string> &def)
+//A choice of an enum or multi field: the wizard shows the label.
+Json item(const string &value, const string &label)
 {
-    Json f = field(name, "multi", label, description, false);
+    return { { "value", value }, { "label", label } };
+}
+
+//Required: one value at least.
+Json multi(const string &name, const string &label, const string &description, bool required,
+           const Json &values, const vector<string> &def)
+{
+    Json f = field(name, "multi", label, description, required);
     f["values"] = values;
     f["default"] = def;
     return Json(std::move(f));
@@ -210,7 +217,10 @@ Json mqttIo(const string &name, const string &stateTopic, const Json &extra = Js
                { "port", "{mqtt_port}" },
                { "user", "{mqtt_user}" },
                { "password", "{mqtt_password}" },
-               { "topic_sub", stateTopic } };
+               { "topic_sub", stateTopic },
+               //The node says online there, and its last will says offline.
+               { "connected_status_topic", "{topic_prefix}/status" },
+               { "connected_status_expr", "value == 'online'" } };
     p.update(extra);
     return Json(std::move(p));
 }
@@ -232,24 +242,30 @@ Json setpointBounds()
     return { { "value_min", "{temp_min}" }, { "value_max", "{temp_max}" }, { "step", "{temp_step}" }, { "unit", "°C" } };
 }
 
-const vector<string> FAN_MODES = { "auto", "on", "off", "low", "medium", "high", "middle", "focus", "diffuse", "quiet" };
-const vector<string> SWING_MODES = { "off", "both", "vertical", "horizontal" };
-
 Json fanModesField()
 {
-    return multi("fan_modes", _("Fan modes"), _("Fan modes the climate accepts. None: no fan control."), FAN_MODES, {});
+    const Json values = { item("auto", _("Auto")), item("on", _("On")), item("off", _("Off")),
+                          item("low", _("Low")), item("medium", _("Medium")), item("high", _("High")),
+                          item("middle", _("Middle")), item("focus", _("Focus")), item("diffuse", _("Diffuse")),
+                          item("quiet", _("Quiet")) };
+    return multi("fan_modes", _("Fan modes"), _("Fan modes the climate accepts. None: no fan control."), false,
+                 values, {});
 }
 
 Json swingModesField()
 {
     return multi("swing_modes", _("Swing modes"), _("Swing modes the climate accepts. None: no swing control."),
-                 SWING_MODES, {});
+                 false,
+                 { item("off", _("Off")), item("both", _("Both")), item("vertical", _("Vertical")),
+                   item("horizontal", _("Horizontal")) },
+                 {});
 }
 
 Json modesField(const vector<string> &def)
 {
-    return multi("modes", _("Modes"), _("Modes the climate offers."),
-                 { "off", "heat", "cool", "auto", "dry", "fan_only" }, def);
+    const Json values = { item("off", _("Off")), item("heat", _("Heat")), item("cool", _("Cool")),
+                          item("auto", _("Auto")), item("dry", _("Dry")), item("fan_only", _("Fan only")) };
+    return multi("modes", _("Modes"), _("Modes the climate offers. One at least."), true, values, def);
 }
 
 Json esphomeClimate()
