@@ -423,12 +423,15 @@ bool MqttProcess::setup(int &argc, char **&argv)
     if (!awaitConfiguration())
         return false;
 
+    //LCOV_EXCL_START the CI does not build calaos_mqtt (no libmosquitto);
+    //MqttSidecarConfigWait_test.ARetainedMessageIsSaidToBeOne runs it where it is built.
     m_client->messageRcv([=](const struct mosquitto_message *m)
                          {
         sendMessage(MqttWire::encodeMessage(m->topic ? m->topic : "",
                                             MqttWire::payloadToString(m->payload, m->payloadlen),
                                             m->retain));
     });
+    //LCOV_EXCL_STOP
 
     return true;
 }

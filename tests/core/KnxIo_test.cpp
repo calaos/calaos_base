@@ -289,6 +289,11 @@ TEST_F(KnxIoTest, ARepeatedTelegramIsStillAReading)
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
         ctrl->valueChanged.emit("0/3/9", KNXValue::fromFloat(0, 5));
         EXPECT_EQ(*o->lastReading(), second) << type;
+
+        //A group read, the second one held back while the first is unanswered
+        //(observed on the wire by core/KnxThermostatRead_test).
+        o->requestReading();
+        o->requestReading();
     }
 }
 
