@@ -173,6 +173,22 @@ def test_set_io_state_description_is_rendered_from_iodoc(iodoc_env, client):
     assert "output_heat and output_cool" in text
 
 
+@pytest.fixture(params=[
+    "{not json",
+    '{"devices": {"thermostat": {"command_format": "json", "command_fields": [{"type": "number"}]}}}',
+    '{"devices": {"thermostat": {"command_format": "json", '
+    '"command_fields": [{"name": "t", "type": "number"}]}}}',
+])
+def bad_iodoc_env(request, tmp_path, monkeypatch):
+    path = tmp_path / "bad_io_doc.json"
+    path.write_text(request.param)
+    monkeypatch.setenv("CALAOS_IODOC_PATH", str(path))
+
+
+def test_a_malformed_iodoc_does_not_stop_the_sidecar(bad_iodoc_env, client):
+    assert "io_doc.json unavailable" in set_io_state_description(client)
+
+
 def test_set_io_state_description_without_iodoc(client, monkeypatch):
     monkeypatch.delenv("CALAOS_IODOC_PATH", raising=False)
     from calaos_mcp import server

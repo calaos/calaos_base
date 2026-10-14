@@ -139,6 +139,18 @@ def test_protected_outputs_come_from_the_thermostat_links():
     }
 
 
+@pytest.mark.parametrize("impl", ["Thermostat", "THERMOSTAT", " thermostat "])
+def test_the_impl_is_compared_the_way_the_factory_reads_it(impl):
+    # IOFactory lowercases impl to build the device, get_home publishes it as written.
+    home = make_home(impl=impl)
+    assert set(protected_outputs(home)) == {"relay_heat", "relay_cool"}
+    assert "relay_heat" not in ids(run(io.list_ios(FakeClient(home))))
+    client = FakeClient(home)
+    with pytest.raises(ValueError, match="thermostat"):
+        run(io.set_io_state(client, "relay_heat", "true"))
+    assert client.sent == []
+
+
 def test_a_thermostat_without_cool_protects_only_the_heat_output():
     assert set(protected_outputs(make_home(with_cool=False))) == {"relay_heat"}
 
@@ -206,6 +218,11 @@ def test_the_outputs_of_other_devices_are_still_written():
     client = FakeClient(make_home())
     run(io.set_io_state(client, "relay_ac", "true"))
     assert client.sent == [("relay_ac", "true")]
+
+
+def test_list_rooms_does_not_count_the_hidden_outputs():
+    counts = {r["name"]: r["io_count"] for r in run(rooms.list_rooms(FakeClient(make_home())))}
+    assert counts == {"Salon": 4, "Chambre": 3}
 
 
 # --- device command --------------------------------------------------------
@@ -282,6 +299,34 @@ def test_a_bad_device_command_is_refused_with_the_reason(command, message):
     with pytest.raises(ValueError, match=message):
         run(io.set_io_state(client, "salon_thermo", command))
     assert client.sent == []
+
+
+@pytest.mark.parametrize("with_iodoc", [True, False])
+@pytest.mark.parametrize("command,message", [
+    ('{"target_temp":"21.5"}', "must be a number"),
+    ('{"target_temp_low":"18"}', "must be a number"),
+    ('{"target_temp":1e999}', "finite"),
+    ('{"target_temp":-1e999}', "finite"),
+    ('{"target_temp":true}', "must be a number"),
+    ('{"mode":1}', "must be a string"),
+])
+def test_a_numeric_field_takes_a_finite_number_and_an_enum_a_string(
+        iodoc_file, monkeypatch, with_iodoc, command, message):
+    if with_iodoc:
+        iodoc_file({"thermostat": DEVICE_DOC})
+    else:
+        monkeypatch.delenv(iodoc.ENV_PATH, raising=False)
+    client = FakeClient(make_home())
+    with pytest.raises(ValueError, match=message):
+        run(io.set_io_state(client, "salon_thermo", command))
+    assert client.sent == []
+
+
+def test_a_number_the_server_accepts_is_sent_as_one(iodoc_file):
+    iodoc_file({"thermostat": DEVICE_DOC})
+    client = FakeClient(make_home())
+    run(io.set_io_state(client, "salon_thermo", '{"target_temp":21,"mode":"heat"}'))
+    assert client.sent == [("salon_thermo", '{"target_temp":21,"mode":"heat"}')]
 
 
 def test_a_field_unknown_to_iodoc_is_refused(iodoc_file):
@@ -361,6 +406,28 @@ def test_a_missing_iodoc_leaves_no_documentation(tmp_path, monkeypatch):
     assert iodoc.load_devices() == {}
 
 
+MALFORMED = [
+    {"thermostat": {"command_format": "json", "command_fields": [{"type": "number"}]}},
+    {"thermostat": {"command_format": "json", "command_fields": "mode"}},
+    {"thermostat": {"command_format": "json",
+                    "command_fields": [{"name": "t", "type": "number"}]}},
+    {"thermostat": {"command_format": "json", "command_fields": [None, 3]}},
+    {"thermostat": "x"},
+]
+
+
+@pytest.mark.parametrize("devices", MALFORMED)
+def test_a_malformed_iodoc_falls_back_to_the_short_description(iodoc_file, devices):
+    from calaos_mcp import server
+
+    iodoc_file(devices)
+    text = server.set_io_state_description(iodoc.load_devices())
+    assert "io_doc.json unavailable" in text
+    client = FakeClient(make_home())
+    run(io.set_io_state(client, "salon_thermo", "off"))
+    assert client.sent == [("salon_thermo", "off")]
+
+
 def test_a_device_without_json_format_is_not_documented(iodoc_file):
     iodoc_file({"legacy": {"command_fields": []}, "thermostat": DEVICE_DOC})
     assert set(iodoc.load_devices()) == {"thermostat"}
@@ -426,8 +493,14 @@ def test_an_io_changed_for_an_unknown_io_changes_nothing():
     assert c._home_cache == before
 
 
-@pytest.mark.parametrize("kind", ["io_added", "io_deleted", "room_added",
-                                  "room_deleted"])
+def test_a_disconnect_drops_the_cached_home():
+    # The server may come back with another topology (config put, restart).
+    c = cached_client()
+    c._on_disconnect()
+    assert c._home_cache is None
+
+
+@pytest.mark.parametrize("kind", ["io_added", "io_deleted", "room_changed"])
 def test_a_topology_event_drops_the_cached_home(kind):
     c = cached_client()
     c._on_event(event(kind, {"id": "x"}))
@@ -436,7 +509,7 @@ def test_a_topology_event_drops_the_cached_home(kind):
 
 def test_other_events_keep_the_cached_home():
     c = cached_client()
-    c._on_event(event("room_changed", {"room_name": "x"}))
+    c._on_event(event("scenario_changed", {"id": "x"}))
     assert c._home_cache is not None
     c._home_cache = None
     c._on_event(event("io_changed", {"id": "light1", "state": "true"}))
