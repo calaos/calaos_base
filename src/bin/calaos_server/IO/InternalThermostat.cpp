@@ -145,7 +145,7 @@ void InternalThermostat::resolveLinks()
         cErrorDom("device") << "Device(" << id << "): no current_temp, the outputs stay OFF";
     if (!outputIo(heat))
         cErrorDom("device") << "Device(" << id << "): no output_heat, heat is unavailable";
-    if (floorCooling && outputIo(cool) && !linkIo("humidity"))
+    if (outputIo(cool) && !canCool())
         cErrorDom("device") << "Device(" << id << "): emitter=floor without a humidity link, "
                             << "cool and auto are refused";
     warnIfChangesOnly("current_temp");
@@ -349,11 +349,23 @@ void InternalThermostat::restoreMode()
     Config::Instance().SaveValueIO(get_param("id"), modeName(ClimateMode::Off));
 }
 
+bool InternalThermostat::canCool()
+{
+    //Nothing would guard a cooling floor against condensation.
+    return outputIo(cool) && (!floorCooling || linkIo("humidity"));
+}
+
+bool InternalThermostat::isWritable(const string &role)
+{
+    if ((role == LOW || role == HIGH) && outputIo(cool) && !canCool())
+        return false;
+    return ClimateBase::isWritable(role);
+}
+
 vector<ClimateMode> InternalThermostat::supportedModes()
 {
     const bool canHeat = outputIo(heat);
-    //Nothing would guard a cooling floor against condensation.
-    const bool canCool = outputIo(cool) && (!floorCooling || linkIo("humidity"));
+    const bool canCool = this->canCool();
 
     vector<ClimateMode> modes = { ClimateMode::Off };
     if (canHeat)

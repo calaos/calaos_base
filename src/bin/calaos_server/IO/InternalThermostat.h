@@ -86,6 +86,8 @@ protected:
      * again, the current pass stops and starts over once it returns. */
     void evaluate();
 
+    //The range serves auto only: not on a floor that cannot cool.
+    bool isWritable(const string &role) override;
     bool currentMode(ClimateMode &mode) override;
     bool writeMode(ClimateMode mode) override;
     bool applyCommand(const Json &command) override;
@@ -132,6 +134,8 @@ private:
     //The IO of an output link, nullptr when missing or refused.
     IOBase *outputIo(Output &out);
     void recreateOwnedIos();
+    //output_cool linked, and humidity too on a floor.
+    bool canCool();
     void restoreMode();
 
     void evaluateSoon();
