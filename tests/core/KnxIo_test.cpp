@@ -52,6 +52,7 @@
 #include <vector>
 
 #include "CalaosCoreFixture.h"
+#include "KNXCtrl.h"
 #include "libuvw.h"
 
 using namespace Calaos;
@@ -74,19 +75,11 @@ int armedTimerCount()
     return count;
 }
 
-}
-
-class KnxIoTest: public CoreFixture
-{
-};
-
 //Every KNX XML type with the params a real io.xml would carry.
 //read_at_start is deliberately left unset (defaults to disabled).
-TEST_F(KnxIoTest, FactoryCreatesAllElevenKnxTypes)
+const std::vector<std::pair<std::string, Params>> &knxTypes()
 {
-    loadConfig();
-
-    const std::vector<std::pair<std::string, Params>> knxTypes = {
+    static const std::vector<std::pair<std::string, Params>> types = {
         { "KNXInputSwitch",          {} },
         { "KNXInputSwitchLongPress", {} },
         { "KNXInputSwitchTriple",    {} },
@@ -106,22 +99,43 @@ TEST_F(KnxIoTest, FactoryCreatesAllElevenKnxTypes)
                                        { "time_up", "30" },
                                        { "time_down", "30" } } },
     };
+    return types;
+}
+
+Params knxParams(const std::string &type, const std::string &id,
+                 const std::string &group, Params extra = {})
+{
+    extra.Add("type", type);
+    extra.Add("id", id);
+    extra.Add("name", type);
+    extra.Add("knx_group", group);
+    extra.Add("host", "127.0.0.1");
+    extra.Add("enabled", "true");
+    extra.Add("visible", "false");
+    return extra;
+}
+
+shared_ptr<KNXCtrl> knxCtrl()
+{
+    return KNXCtrl::Instance("127.0.0.1");
+}
+
+}
+
+class KnxIoTest: public CoreFixture
+{
+};
+
+TEST_F(KnxIoTest, FactoryCreatesAllElevenKnxTypes)
+{
+    loadConfig();
 
     int n = 0;
-    for (const auto &[type, extra]: knxTypes)
+    for (const auto &[type, extra]: knxTypes())
     {
         const std::string id = "io_knx_t32a_" + Utils::to_string(n++);
 
-        Params p = extra;
-        p.Add("type", type);
-        p.Add("id", id);
-        p.Add("name", type);
-        p.Add("knx_group", "0/1/2");
-        p.Add("host", "127.0.0.1");
-        p.Add("enabled", "true");
-        p.Add("visible", "false");
-
-        IOBase *o = createIO(p);
+        IOBase *o = createIO(knxParams(type, id, "0/1/2", extra));
         ASSERT_NE(o, nullptr) << type << " is no longer instanciable";
         EXPECT_EQ(io(id), o) << type;
         EXPECT_EQ(o->get_param("type"), type);
@@ -172,6 +186,68 @@ TEST_F(KnxIoTest, ReadAtStartArmsTheStartupReadTimer)
     EXPECT_EQ(armedTimerCount(), timersBefore + 1) << "read_at_start timer not armed";
 
     ASSERT_TRUE(deleteIO(o));
+}
+
+//KNXCtrl is shared by every IO of a knxd host and outlives them: a deleted
+//IO (deleteIO, configuration reload) must leave no slot on valueChanged,
+//or the next telegram on its group runs a lambda on freed memory.
+TEST_F(KnxIoTest, ADeletedIoIsNoLongerCalledByTheNextTelegram)
+{
+    loadConfig();
+
+    const size_t slotsBefore = knxCtrl()->valueChanged.size();
+
+    IOBase *o = createIO(knxParams("KNXOutputAnalog", "io_knx_fb4_gone", "3/1/1",
+                                   { { "eis", "5" } }));
+    ASSERT_NE(o, nullptr);
+    EXPECT_EQ(knxCtrl()->valueChanged.size(), slotsBefore + 1);
+
+    knxCtrl()->valueChanged.emit("3/1/1", KNXValue::fromFloat(21.5, KNXValue::EIS_Value_Float));
+    EXPECT_DOUBLE_EQ(o->get_value_double(), 21.5);
+
+    ASSERT_TRUE(deleteIO(o));
+    EXPECT_EQ(knxCtrl()->valueChanged.size(), slotsBefore)
+        << "the deleted IO is still connected to KNXCtrl::valueChanged";
+
+    knxCtrl()->valueChanged.emit("3/1/1", KNXValue::fromFloat(22.0, KNXValue::EIS_Value_Float));
+}
+
+TEST_F(KnxIoTest, NoKnxTypeLeavesItsSlotOnTheController)
+{
+    loadConfig();
+
+    int n = 0;
+    for (const auto &[type, extra]: knxTypes())
+    {
+        const size_t slotsBefore = knxCtrl()->valueChanged.size();
+
+        IOBase *o = createIO(knxParams(type, "io_knx_fb4_t" + Utils::to_string(n++),
+                                       "3/1/2", extra));
+        ASSERT_NE(o, nullptr) << type;
+        ASSERT_TRUE(deleteIO(o)) << type;
+
+        EXPECT_EQ(knxCtrl()->valueChanged.size(), slotsBefore) << type;
+        knxCtrl()->valueChanged.emit("3/1/2", KNXValue::fromInt(1, KNXValue::EIS_Switch_OnOff));
+    }
+}
+
+//Several IOs may listen to one group: deleting one must not unwire another.
+TEST_F(KnxIoTest, DeletingAnIoKeepsTheOtherIoOfItsGroupWired)
+{
+    loadConfig();
+
+    IOBase *gone = createIO(knxParams("KNXOutputAnalog", "io_knx_fb4_a", "3/1/3",
+                                      { { "eis", "5" } }));
+    IOBase *kept = createIO(knxParams("KNXOutputAnalog", "io_knx_fb4_b", "3/1/3",
+                                      { { "eis", "5" } }));
+    ASSERT_NE(gone, nullptr);
+    ASSERT_NE(kept, nullptr);
+
+    ASSERT_TRUE(deleteIO(gone));
+    knxCtrl()->valueChanged.emit("3/1/3", KNXValue::fromFloat(18.0, KNXValue::EIS_Value_Float));
+
+    EXPECT_DOUBLE_EQ(kept->get_value_double(), 18.0);
+    ASSERT_TRUE(deleteIO(kept));
 }
 
 //Own main instead of gtest_main: skip static destructors, see file header.
