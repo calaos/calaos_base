@@ -460,11 +460,13 @@ spec §6. Famille `climate`, abstraite (constructeur protégé) : les impls `pro
   sur le lien `mode` et écrit sur son `command_io`, sinon sur son `io`.
 - L'état ne publie un nombre qu'une fois que l'IO lié a reçu une valeur : `IOBase::hasValue()`
   passe à vrai à chaque `EmitSignalIO()` et quand `Internal` restaure une valeur sauvegardée.
-- **État affichable** (§5.3, CLIM-6) : `humidity` dès que le lien `humidity` a une valeur ;
-  `connected: false` tant que l'IO de `connectionRole()` se déclare déconnecté
-  (`freshness()` = `Disconnected` ; `mode` pour le proxy, `current_temp` pour le thermostat),
-  jamais `true` : l'absence vaut connecté. Un changement de disponibilité d'un IO
-  (`setStatusInfo(Connected)`) notifie `IOChangeHub`, donc republie les devices qui lui sont liés.
+- **État affichable** (§5.3, CLIM-6, décision 20) : `humidity` dès que le lien `humidity` a une
+  valeur. `connected: false` est réservé au proxy : son lien `mode` se déclare déconnecté
+  (`freshness()` = `Disconnected`), l'appareil est injoignable ; jamais `true`, l'absence vaut
+  connecté. Un changement de disponibilité d'un IO (`setStatusInfo(Connected)`) notifie
+  `IOChangeHub`, donc republie les devices qui lui sont liés. `family` (et `gui_type`) et
+  `impl` sont publiés en minuscules : io.xml peut les écrire dans n'importe quelle casse, la
+  factory les prend sans casse, les clients les comparent exactement.
 - `applyCommand()` valide `target_temp_low`/`_high` ensemble contre `min_range` et refuse la
   paire entière en cas d'écart ; les écritures sont ordonnées (haut d'abord quand la plage
   monte) pour que la paire intermédiaire, vue par le hook de changement, respecte aussi
@@ -605,11 +607,12 @@ spec §8.1 et §8.2. `impl="thermostat"` : Calaos régule.
   qu'une sortie voulue ON attend son verrou (`min_off_time`, bascule, espacement des remises) ;
   `remaining` est le nombre de secondes restantes, arrondi au supérieur, recalculé à chaque
   publication. `fault` tant qu'une règle de sûreté tient les sorties OFF, hors mode `off` :
-  `sensor_missing` (pas de lien `current_temp`, ou aucune lecture depuis le démarrage),
-  `sensor_stale` (muette `sensor_timeout` s), puis, pour un plancher en `cool`/`auto`,
-  `humidity_high` ou `humidity_stale` (humidité non lue, muette ou déconnectée). Une sonde
-  déconnectée n'est pas un `fault` : l'état dit `connected: false`. Le début et la fin d'un
-  verrou ou d'un défaut publient le device (`io_changed`).
+  `sensor_missing` (pas de lien `current_temp`), `sensor_waiting` (aucune lecture depuis le
+  démarrage), `sensor_stale` (muette `sensor_timeout` s), `sensor_disconnected` (la sonde se
+  déclare déconnectée : le thermostat reste joignable et réglable, décision 20), puis, pour un
+  plancher en `cool`/`auto`, `humidity_high` ou `humidity_stale` (humidité non lue, muette ou
+  déconnectée). Les sorties restent OFF dans tous ces cas. Le début et la fin d'un verrou ou
+  d'un défaut publient le device (`io_changed`).
 - **Suppression** : les sorties restent en l'état. Aucune API ne supprime un device en
   marche : cela n'arrive qu'au rechargement de la configuration ou à l'arrêt du serveur,
   quand les sorties et leurs drivers peuvent déjà avoir disparu.
