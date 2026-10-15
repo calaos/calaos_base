@@ -2564,13 +2564,13 @@ msgid "Heat"
 msgstr "Chauffage"
 
 msgid "Cool"
-msgstr "Refroidissement"
+msgstr "Froid"
 
 msgid "Dry"
 msgstr "Déshumidification"
 
 msgid "Fan only"
-msgstr "Ventilation seule"
+msgstr "Ventilation"
 
 msgid "Modes"
 msgstr "Modes"
