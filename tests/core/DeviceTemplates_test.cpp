@@ -1227,10 +1227,8 @@ TEST(DeviceTemplatesFrench, EveryTextOfEveryTemplateIsTranslated)
 {
 #if HAVE_GETTEXT
     Json en, fr;
-    ASSERT_TRUE(inEnglishAndFrench([]
-    {
-        return DeviceTemplates::all();
-    }, en, fr));
+    const std::function<Json()> gen = DeviceTemplates::all;
+    ASSERT_TRUE(inEnglishAndFrench(gen, en, fr));
 
     FrenchWalk w(isTemplateText, SAME_IN_FRENCH);
     std::vector<std::string> path;
@@ -1247,10 +1245,11 @@ TEST_F(DeviceTemplatesTest, EveryTextOfEveryDeviceDocumentationIsTranslated)
 {
 #if HAVE_GETTEXT
     Json en, fr;
-    ASSERT_TRUE(inEnglishAndFrench([this]
+    const std::function<Json()> gen = [this]()
     {
         return ioDoc().at("devices");
-    }, en, fr));
+    };
+    ASSERT_TRUE(inEnglishAndFrench(gen, en, fr));
 
     FrenchWalk w(isDocText, SAME_IN_FRENCH_DOC);
     std::vector<std::string> path;
