@@ -43,7 +43,7 @@ namespace Calaos
  * capability is not offered, commands to it are refused and nothing is relayed
  * to it.
  *
- * emulate_range (decision 21): for a unit with a single setpoint, the device
+ * emulate_range: for a unit with a single setpoint, the device
  * keeps the low and high setpoints itself and its auto drives the unit in
  * heat, cool or off from the room temperature. The unit never receives auto. */
 class ProxyClimate: public ClimateBase
@@ -78,6 +78,8 @@ protected:
     bool writeRangeBound(const string &role, double value) override;
     //Defers the emulation until every field of the command is applied.
     bool applyCommand(const Json &command) override;
+    //target_temp is refused while auto drives the unit from the range.
+    bool applyCommandField(const string &field, const Json &value, string &reason) override;
 
 private:
     using Clock = std::chrono::steady_clock;
@@ -141,15 +143,19 @@ private:
         //What the device last sent to the unit, and when (loop ms).
         ClimateMode commanded = ClimateMode::Off;
         std::optional<uint64_t> commandedAt;
-        //The unit reported `commanded` since it was sent.
-        bool confirmed = true;
+        //The mode before that command, which the unit may still republish.
+        ClimateMode previous = ClimateMode::Off;
+        //The last of heat and cool sent: a restart waits for a changeover only towards the other.
+        ClimateMode lastActive = ClimateMode::Off;
         std::optional<double> setpoint;
+        std::optional<uint64_t> setpointAt;
 
         double hysteresis = DEFAULT_HYSTERESIS;
         Lockouts lockouts;
-        //Loop times of the last switches of heat and of cool.
-        std::optional<uint64_t> heatOnAt, heatOffAt, coolOnAt, coolOffAt;
+        //Loop times of the last switches of heat and of cool, and of the start.
+        std::optional<uint64_t> heatOnAt, heatOffAt, coolOnAt, coolOffAt, startedAt;
         std::unique_ptr<Timer> lockout;
+        uint64_t lockoutUntil = 0;
         //A wanted heat or cool waiting for its lock-out, and when it may start.
         ClimateMode waiting = ClimateMode::Off;
         std::optional<uint64_t> startsAt;

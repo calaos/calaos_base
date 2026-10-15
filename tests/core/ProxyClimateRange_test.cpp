@@ -584,7 +584,7 @@ TEST_F(ProxyClimateRangeTest, AModeChangedOnTheUnitSuspendsAuto)
     EXPECT_EQ(mode("em"), "dry");
     std::string saved;
     EXPECT_TRUE(Config::Instance().ReadValueIO("em", saved));
-    EXPECT_EQ(saved, "");
+    EXPECT_EQ(saved, "manual heat heat");
 
     writes().clear();
     room("em_cur")->deliver(26.0);

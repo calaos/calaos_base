@@ -240,7 +240,7 @@ void ProxyClimate::resolveLinks()
     {
         emulate();
     };
-    for (const char *role: { MODE, LOW, HIGH, referenceRole() })
+    for (const char *role: { MODE, TARGET, LOW, HIGH, referenceRole() })
     {
         if (!linkIoId(role).empty())
             emu.triggers.push_back(IOChangeHub::Instance().subscribe(linkIoId(role), changed));
@@ -309,8 +309,15 @@ void ProxyClimate::startEmulation()
 
     emu.enabled = true;
     restoreEmulation();
-    //The unit may have switched just before a restart: every switch waits for its lock-out.
-    emu.heatOnAt = emu.heatOffAt = emu.coolOnAt = emu.coolOffAt = loopNow();
+    /* The unit may have run just before a restart: a stop waits for
+     * min_on_time, a start for min_off_time, and the changeover delay only
+     * applies towards the opposite of the last mode it ran in. */
+    const uint64_t now = loopNow();
+    emu.heatOnAt = emu.coolOnAt = emu.startedAt = now;
+    if (emu.lastActive == ClimateMode::Heat)
+        emu.heatOffAt = now;
+    if (emu.lastActive == ClimateMode::Cool)
+        emu.coolOffAt = now;
 }
 
 void ProxyClimate::recreateRange()
@@ -338,7 +345,8 @@ void ProxyClimate::recreateRange()
     recreate(HIGH, std::max(DEFAULT_HIGH, DEFAULT_LOW + minRange()));
 }
 
-//Saved as "auto <mode last sent>": a unit that reports another one changed meanwhile.
+/* Saved as "<auto|manual> <mode last sent> [<last of heat and cool sent>]":
+ * a unit that reports another mode was changed meanwhile. */
 void ProxyClimate::restoreEmulation()
 {
     string saved;
@@ -346,19 +354,26 @@ void ProxyClimate::restoreEmulation()
         return;
     vector<string> words;
     Utils::split(saved, words, " ");
+    auto runMode = [](const string &w, ClimateMode &m)
+    {
+        return parseMode(w, m) && (m == ClimateMode::Off || m == ClimateMode::Heat || m == ClimateMode::Cool);
+    };
     ClimateMode m;
-    if (words.size() == 2 && words[0] == AUTO && parseMode(words[1], m) &&
-        (m == ClimateMode::Off || m == ClimateMode::Heat || m == ClimateMode::Cool))
+    if (words.size() >= 2 && words[0] == AUTO && runMode(words[1], m))
     {
         emu.active = true;
         emu.commanded = m;
     }
+    if (words.size() == 3 && runMode(words[2], m))
+        emu.lastActive = m;
 }
 
 void ProxyClimate::saveEmulation()
 {
-    Config::Instance().SaveValueIO(get_param("id"),
-                                   emu.active ? string(AUTO) + " " + modeName(emu.commanded) : string());
+    string saved = string(emu.active ? AUTO : "manual") + " " + modeName(emu.commanded);
+    if (emu.lastActive != ClimateMode::Off)
+        saved += " " + modeName(emu.lastActive);
+    Config::Instance().SaveValueIO(get_param("id"), saved);
 }
 
 const char *ProxyClimate::referenceRole()
@@ -450,7 +465,7 @@ bool ProxyClimate::startAuto()
     if (unitMode(unit) && (unit == ClimateMode::Off || unit == ClimateMode::Heat || unit == ClimateMode::Cool))
     {
         emu.commanded = unit;
-        emu.confirmed = true;
+        emu.commandedAt.reset();
         saveEmulation();
         return true;
     }
@@ -469,16 +484,16 @@ bool ProxyClimate::writeUnitMode(ClimateMode mode)
 
     const ClimateMode oldCommanded = emu.commanded;
     const std::optional<uint64_t> oldAt = emu.commandedAt;
-    const bool oldConfirmed = emu.confirmed;
+    const ClimateMode oldPrevious = emu.previous;
     //Set before the write: the readback it causes is checked against it.
+    emu.previous = before;
     emu.commanded = mode;
     emu.commandedAt = now;
-    emu.confirmed = false;
     if (!writeTarget(MODE)->set_value(modeName(mode)))
     {
         emu.commanded = oldCommanded;
         emu.commandedAt = oldAt;
-        emu.confirmed = oldConfirmed;
+        emu.previous = oldPrevious;
         cErrorDom("device") << "Device(" << get_param("id") << "): the mode link refused "
                             << modeName(mode);
         return false;
@@ -492,9 +507,21 @@ bool ProxyClimate::writeUnitMode(ClimateMode mode)
         emu.coolOffAt = now;
     if (before != ClimateMode::Cool && mode == ClimateMode::Cool)
         emu.coolOnAt = now;
-    if (emu.active)
+    if (mode == ClimateMode::Heat || mode == ClimateMode::Cool)
+        emu.lastActive = mode;
+    if (emu.enabled)
         saveEmulation();
     return true;
+}
+
+bool ProxyClimate::applyCommandField(const string &field, const Json &value, string &reason)
+{
+    if (field == TARGET && emu.active)
+    {
+        reason = "auto drives target_temp from target_temp_low and target_temp_high";
+        return false;
+    }
+    return ClimateBase::applyCommandField(field, value, reason);
 }
 
 /* {"mode":"auto","target_temp_low":18} must not start the unit against the
@@ -535,15 +562,16 @@ void ProxyClimate::regulate()
         return;
 
     /* A readback other than what was sent is a change made on the unit,
-     * unless the unit has not caught up with the command yet. */
+     * unless it is the mode before the command, which the unit may still
+     * republish for readback_hold (ESPHome does after the setpoint write).
+     * A unit that is not reachable says nothing of its mode. */
     const uint64_t now = loopNow();
+    const bool reachable = freshness(linkIo(MODE)) != Freshness::Disconnected;
     ClimateMode unit;
-    if (unitMode(unit))
+    if (reachable && unitMode(unit) && unit != emu.commanded)
     {
-        const bool late = !emu.confirmed && emu.commandedAt && now - *emu.commandedAt < toMs(readbackHold);
-        if (unit == emu.commanded)
-            emu.confirmed = true;
-        else if (!late)
+        const bool late = emu.commandedAt && now - *emu.commandedAt < toMs(readbackHold) && unit == emu.previous;
+        if (!late)
         {
             suspend(unit);
             return;
@@ -551,8 +579,8 @@ void ProxyClimate::regulate()
     }
 
     double low = 0, high = 0;
-    const bool ready = referenceFresh() && freshness(linkIo(MODE)) != Freshness::Disconnected &&
-                       rangeBound(LOW, low) && rangeBound(HIGH, high);
+    const bool ready = referenceFresh() && reachable && rangeBound(LOW, low) && rangeBound(HIGH, high) &&
+                       std::isfinite(linkIo(referenceRole())->get_value_double());
     const ClimateMode cur = emu.commanded;
     if (!ready)
     {
@@ -577,7 +605,7 @@ void ProxyClimate::regulate()
     const uint64_t wait =
         next == cur ? 0
                     : lockoutWait(on, false, heating ? emu.heatOnAt : emu.coolOnAt,
-                                  heating ? emu.heatOffAt : emu.coolOffAt,
+                                  (heating ? emu.heatOffAt : emu.coolOffAt).value_or(*emu.startedAt),
                                   heating ? emu.coolOffAt : emu.heatOffAt, emu.lockouts, now);
     if (next == cur || wait > 0)
     {
@@ -596,7 +624,9 @@ void ProxyClimate::regulate()
             emu.lockout.reset();
             self->emulate();
         };
-        emu.lockout = std::make_unique<Timer>(wait / 1000.0, expired);
+        if (!emu.lockout || emu.lockoutUntil != now + wait)
+            emu.lockout = std::make_unique<Timer>(wait / 1000.0, expired);
+        emu.lockoutUntil = now + wait;
         if (on)
         {
             emu.waiting = next;
@@ -638,12 +668,19 @@ bool ProxyClimate::referenceFresh()
     return f == Freshness::Fresh;
 }
 
+/* Written again when the unit reads another setpoint (changed at the
+ * remote), except while the readback of a separate command_io may still lag. */
 void ProxyClimate::followSetpoint(double value)
 {
     const Bounds b = setpointBounds(TARGET);
     const double v = std::clamp(value, b.min, b.max);
-    if (emu.setpoint && *emu.setpoint == v)
+    IOBase *readback = linkIo(TARGET);
+    if (readback->hasValue() && readback->get_value_double() == v)
         return;
+    const uint64_t now = loopNow();
+    if (linkCommandIo(TARGET) && emu.setpoint == v && emu.setpointAt && now - *emu.setpointAt < toMs(readbackHold))
+        return;
+    emu.setpointAt = now;
     if (writeTarget(TARGET)->set_value(v))
         emu.setpoint = v;
     else
