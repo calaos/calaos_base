@@ -359,6 +359,29 @@ TEST_F(DeviceTest, OwnedIosAndTheDeviceAreGetHomeItems)
     EXPECT_EQ(home[0]["items"][2]["visible"], "false");
 }
 
+//Clients list only the items whose visible is "true": a device written without
+//the attribute, as the spec's examples and the installer's wizard do, is shown.
+TEST_F(DeviceTest, ADeviceIsShownUnlessItsFileHidesIt)
+{
+    loadConfig(salonHouse(), rulesXmlDocument(""));
+
+    Json home = JsonApi().buildJsonHome();
+    ASSERT_EQ(home[0]["items"][1]["id"], DEV);
+    EXPECT_EQ(home[0]["items"][1]["visible"], "true");
+}
+
+TEST_F(DeviceTest, ADeviceHiddenByItsFileStaysHidden)
+{
+    std::string house = salonHouse();
+    const std::string tag = "name=\"Clim\">";
+    house.replace(house.find(tag), tag.size(), "name=\"Clim\" visible=\"false\">");
+    loadConfig(house, rulesXmlDocument(""));
+
+    Json home = JsonApi().buildJsonHome();
+    ASSERT_EQ(home[0]["items"][1]["id"], DEV);
+    EXPECT_EQ(home[0]["items"][1]["visible"], "false");
+}
+
 TEST_F(DeviceTest, DeletingTheDeviceDeletesItsOwnedIosOnly)
 {
     loadConfig(salonHouse(),

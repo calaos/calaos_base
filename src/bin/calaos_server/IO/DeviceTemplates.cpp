@@ -179,7 +179,7 @@ Json makeTemplate(const string &id, const string &impl, const string &name, cons
              { "impl", impl },
              { "name", name },
              { "description", description },
-             { "attributes", { { "name", "{name}" } } },
+             { "attributes", { { "name", "{name}" }, { "visible", "true" } } },
              { "fields", fields },
              { "ios", ios },
              { "links", links },

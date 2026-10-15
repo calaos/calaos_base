@@ -46,7 +46,7 @@ templates sont dans l'ordre où l'assistant les propose.
 | `id` | identifiant stable du template |
 | `family`, `impl` | `type` et `impl` de l'élément `<calaos:device>` ; `impl` est la clé du device sous `devices` dans `io_doc.json` |
 | `name`, `description` | textes traduits pour l'utilisateur |
-| `attributes` | autres attributs de `<calaos:device>` (`name`), valeurs à substituer |
+| `attributes` | autres attributs de `<calaos:device>` (`name`, `visible`), valeurs à substituer |
 | `fields` | les champs demandés, dans l'ordre d'affichage |
 | `ios` | les IOs possédés |
 | `links` | les `<calaos:link>`, dans l'ordre du fichier |
@@ -127,7 +127,7 @@ Le template `thermostat_heat`, abrégé, avec `name` = `Chauffage salon`, `room`
 
 ```json
 { "id": "thermostat_heat", "family": "climate", "impl": "thermostat",
-  "attributes": { "name": "{name}" },
+  "attributes": { "name": "{name}", "visible": "true" },
   "fields": [ { "name": "name", "type": "string", "required": true, ... },
               { "name": "room", "type": "room", ... },
               { "name": "current_temp", "type": "io", "io_filter": { "value": "number", "writable": false }, ... },
@@ -154,7 +154,7 @@ Le template `thermostat_heat`, abrégé, avec `name` = `Chauffage salon`, `room`
 donne, dans la pièce `Salon` :
 
 ```xml
-<calaos:device id="salon_chauffage" type="climate" impl="thermostat" name="Chauffage salon">
+<calaos:device id="salon_chauffage" type="climate" impl="thermostat" name="Chauffage salon" visible="true">
   <calaos:internal id="salon_chauffage_target_temp" type="InternalInt" name="Chauffage salon setpoint"
                    save="true" step="0.5" unit="°C" value="20" value_max="30" value_min="7" visible="false"/>
   <calaos:internal id="salon_chauffage_action" type="InternalString" name="Chauffage salon action" visible="false"/>

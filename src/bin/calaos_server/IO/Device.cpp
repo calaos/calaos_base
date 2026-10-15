@@ -61,6 +61,9 @@ Device::Device(Params &p):
 {
     //Clients pick their widget from gui_type: the family, whatever the impl.
     set_param("gui_type", lowered(get_param("type")));
+    //The documented default: clients list only the items whose visible is "true".
+    if (!get_params().Exists("visible"))
+        set_param("visible", "true");
 
     ioDoc->paramAdd("impl", _("Implementation of the device family: the key of this document in devices."),
                     IODoc::TYPE_STRING, true, string(), true);
