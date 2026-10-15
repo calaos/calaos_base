@@ -108,16 +108,25 @@ InternalThermostat::InternalThermostat(Params &p):
                                       "emitter=floor. Not negative."),
                     IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_HUMIDITY_MAX), false,
                     _("Maximum humidity"));
+    ioDoc->paramAdd("valid_min", _("Lowest plausible reading of current_temp, in the unit of the sensor. A "
+                                   "reading below it is treated as no reading: the outputs go OFF at once, "
+                                   "whatever min_on_time, until a reading is back within the bounds. No check "
+                                   "when empty."),
+                    IODoc::TYPE_FLOAT, false, string(), false, _("Lowest valid temperature"));
+    ioDoc->paramAdd("valid_max", _("Highest plausible reading of current_temp, in the unit of the sensor. A "
+                                   "reading above it is treated as no reading, like valid_min. No check when "
+                                   "empty. Not below valid_min."),
+                    IODoc::TYPE_FLOAT, false, string(), false, _("Highest valid temperature"));
     for (const char *name: { "hysteresis", "min_on_time", "min_off_time", "put_back_delay",
-                             "put_back_delay_max", "emitter", "humidity_max" })
+                             "put_back_delay_max", "emitter", "humidity_max", "valid_min", "valid_max" })
         ioDoc->paramInChild(name);
 
     const string owner = _(" An output belongs to a single thermostat: a second one linking it ignores the link.");
     ioDoc->linkRoleAdd("current_temp", _("Current temperature"),
                        _("Temperature the regulation reads. The outputs stay off until it has "
                          "delivered a reading since the start (a cached or retained value does "
-                         "not count), and while it has sent nothing for sensor_timeout or "
-                         "reports itself disconnected."),
+                         "not count), while it has sent nothing for sensor_timeout, reports "
+                         "itself disconnected or reads outside valid_min..valid_max."),
                        IODoc::LINK_NUMBER, true, false);
     ioDoc->linkRoleAdd("target_temp", _("Setpoint"), _("Setpoint used in heat and cool. Created when missing."),
                        IODoc::LINK_NUMBER, true, true);
@@ -162,6 +171,7 @@ void InternalThermostat::resolveLinks()
     minOnMs = toMs(nonNegativeParam("min_on_time", 0));
     minOffMs = toMs(nonNegativeParam("min_off_time", 0));
     readPutBackDelays();
+    readValidBounds();
 
     claimOutputs();
     recreateOwnedIos();
@@ -305,6 +315,34 @@ Json InternalThermostat::deviceIos()
             ios.erase(out->role);
     }
     return Json(std::move(ios));
+}
+
+/* Either bound alone is a valid check. A bound that is not a number is
+ * dropped, and so are both when they contradict each other: a check that
+ * rejects every reading would hold the thermostat off for good. */
+void InternalThermostat::readValidBounds()
+{
+    const string id = get_param("id");
+    auto read = [&](const char *name) -> std::optional<double>
+    {
+        if (!hasDeviceParam(name) || getDeviceParam(name).empty())
+            return std::nullopt;
+        double v = 0;
+        if (Utils::from_string(getDeviceParam(name), v) && std::isfinite(v))
+            return v;
+        cErrorDom("device") << "Device(" << id << "): " << name << " '" << getDeviceParam(name)
+                            << "' is not a number, it is ignored";
+        return std::nullopt;
+    };
+
+    validMin = read("valid_min");
+    validMax = read("valid_max");
+    if (validMin && validMax && *validMin > *validMax)
+    {
+        cErrorDom("device") << "Device(" << id << "): valid_min " << *validMin
+                            << " is above valid_max " << *validMax << ", both are ignored";
+        validMin = validMax = std::nullopt;
+    }
 }
 
 //A spacing of 0 would never grow, and a maximum below it would cut it.
@@ -557,16 +595,43 @@ bool InternalThermostat::sensorFresh(IOBase *sensor)
 {
     const Freshness f = freshness(sensor);
     const bool stale = f == Freshness::Silent || f == Freshness::Disconnected;
+    const bool fresh = f == Freshness::Fresh;
+    const string id = get_param("id");
+
+    /* Only a reading the driver stands behind is judged: a silent or
+     * disconnected sensor already says why it is not used. Written as
+     * negations: a NaN compares false to every bound and would leave an ON
+     * output held, so a non-finite value is out whatever the bounds. */
+    const double v = fresh ? sensor->get_value_double() : 0;
+    const bool outside = fresh && (!std::isfinite(v) || (validMin && !(v >= *validMin)) ||
+                                   (validMax && !(v <= *validMax)));
+
     if (stale && f != sensorState)
-        cErrorDom("device") << "Device(" << get_param("id") << "): current_temp '"
-                            << sensor->get_param("id") << "' " << staleReason(f)
-                            << ", the outputs are OFF";
-    if (f == Freshness::Fresh && sensorState != Freshness::Fresh &&
-        sensorState != Freshness::NotRead)
-        cInfoDom("device") << "Device(" << get_param("id") << "): current_temp '"
-                           << sensor->get_param("id") << "' reads again, regulation resumes";
+        cErrorDom("device") << "Device(" << id << "): current_temp '" << sensor->get_param("id")
+                            << "' " << staleReason(f) << ", the outputs are OFF";
+    if (fresh && !outside && sensorState != Freshness::Fresh && sensorState != Freshness::NotRead)
+        cInfoDom("device") << "Device(" << id << "): current_temp '" << sensor->get_param("id")
+                           << "' reads again, regulation resumes";
     sensorState = f;
-    return f == Freshness::Fresh;
+
+    //A silence ends the episode: the sensor speaks again, its excess is news.
+    if (!fresh)
+        outOfRangeLogged = false;
+    //Mode off holds the outputs by itself: logged once the mode needs the sensor.
+    if (outside && !outOfRangeLogged && mode != ClimateMode::Off)
+    {
+        outOfRangeLogged = true;
+        cErrorDom("device") << "Device(" << id << "): current_temp '" << sensor->get_param("id")
+                            << "' reads " << v << ", outside the valid range, the outputs are OFF";
+    }
+    else if (fresh && !outside && outOfRangeLogged)
+    {
+        outOfRangeLogged = false;
+        cInfoDom("device") << "Device(" << id << "): current_temp '" << sensor->get_param("id")
+                           << "' reads " << v << ", within the valid range again, regulation resumes";
+    }
+    outOfRange = outside;
+    return fresh && !outside;
 }
 
 void InternalThermostat::regulate()
@@ -631,6 +696,8 @@ string InternalThermostat::safetyFault(bool cooling)
         return "sensor_stale";
     if (sensorState == Freshness::Disconnected)
         return "sensor_disconnected";
+    if (outOfRange)
+        return "sensor_out_of_range";
     if (!floorCooling || !cooling || humidityCut == HumidityCut::None)
         return string();
     return humidityCut == HumidityCut::High ? "humidity_high" : "humidity_stale";

@@ -525,6 +525,90 @@
               "capabilities": {
                 "modes": [
                   "off",
+                  "heat"
+                ],
+                "reports_action": true,
+                "target_temp": {
+                  "max": 35.0,
+                  "min": 7.0,
+                  "step": 0.5,
+                  "unit": "°C"
+                }
+              },
+              "family": "climate",
+              "impl": "thermostat",
+              "ios": {
+                "action": "oor_action",
+                "current_temp": "oor_temp",
+                "output_heat": "oor_heat",
+                "target_temp": "oor_target"
+              },
+              "state": {
+                "action": "idle",
+                "current_temp": 50.0,
+                "fault": "sensor_out_of_range",
+                "mode": "heat",
+                "target_temp": 21.0
+              }
+            },
+            "gui_type": "climate",
+            "id": "oor",
+            "io_type": "inout",
+            "name": "oor",
+            "state": "heat",
+            "type": "climate",
+            "var_type": "string",
+            "visible": "true"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "oor_target",
+            "io_type": "inout",
+            "name": "oor_target",
+            "rw": "false",
+            "state": "21",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_string",
+            "id": "oor_action",
+            "io_type": "inout",
+            "name": "oor_action",
+            "rw": "false",
+            "state": "idle",
+            "type": "InternalString",
+            "var_type": "string",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_bool",
+            "id": "oor_heat",
+            "io_type": "inout",
+            "name": "oor_heat",
+            "rw": "false",
+            "state": "false",
+            "type": "InternalBool",
+            "var_type": "bool",
+            "visible": "false"
+          },
+          {
+            "gui_type": "var_int",
+            "id": "oor_temp",
+            "io_type": "inout",
+            "name": "oor_temp",
+            "rw": "false",
+            "state": "50",
+            "type": "InternalInt",
+            "var_type": "float",
+            "visible": "false"
+          },
+          {
+            "device": {
+              "capabilities": {
+                "modes": [
+                  "off",
                   "heat",
                   "cool",
                   "auto"

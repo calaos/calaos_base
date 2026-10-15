@@ -204,7 +204,8 @@ std::string house()
                               paramXml("min_off_time", "1") + paramXml("put_back_delay", "2") +
                               paramXml("put_back_delay_max", "30") + paramXml("min_range", "2") +
                               paramXml("sensor_timeout", "3600") + paramXml("emitter", "radiator") +
-                              paramXml("humidity_max", "70"));
+                              paramXml("humidity_max", "70") + paramXml("valid_min", "-20") +
+                              paramXml("valid_max", "60"));
     ios += fullThermostat("wide", true, paramXml("hysteresis", "2"));
     ios += fullThermostat("th", false, paramXml("hysteresis", "0.5"));
     ios += fullThermostat("rev", true, paramXml("hysteresis", "0.5") + paramXml("min_range", "2"));
@@ -1892,7 +1893,8 @@ TEST_F(InternalThermostatTest, EveryDocumentedParamIsRead)
     const std::set<std::string> takenAtLoad = { "hysteresis", "min_on_time",
                                                 "min_off_time", "put_back_delay",
                                                 "put_back_delay_max", "sensor_timeout",
-                                                "emitter", "humidity_max" };
+                                                "emitter", "humidity_max", "valid_min",
+                                                "valid_max" };
     const std::set<std::string> askedWhenUsed = { "min_range" };
 
     load();

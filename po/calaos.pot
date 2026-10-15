@@ -2904,8 +2904,8 @@ msgstr ""
 msgid ""
 "Temperature the regulation reads. The outputs stay off until it has "
 "delivered a reading since the start (a cached or retained value does not "
-"count), and while it has sent nothing for sensor_timeout or reports itself "
-"disconnected."
+"count), while it has sent nothing for sensor_timeout, reports itself "
+"disconnected or reads outside valid_min..valid_max."
 msgstr ""
 
 #: src/bin/calaos_server/IO/InternalThermostat.cpp
@@ -2981,4 +2981,27 @@ msgstr ""
 
 #: src/bin/calaos_server/IOBase.cpp
 msgid "InfluxDB"
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Lowest plausible reading of current_temp, in the unit of the sensor. A "
+"reading below it is treated as no reading: the outputs go OFF at once, "
+"whatever min_on_time, until a reading is back within the bounds. No check "
+"when empty."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Highest plausible reading of current_temp, in the unit of the sensor. A "
+"reading above it is treated as no reading, like valid_min. No check when "
+"empty. Not below valid_min."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Lowest valid temperature"
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Highest valid temperature"
 msgstr ""

@@ -609,7 +609,10 @@ spec §8.1 et §8.2. `impl="thermostat"` : Calaos régule.
   publication. `fault` tant qu'une règle de sûreté tient les sorties OFF, hors mode `off` :
   `sensor_missing` (pas de lien `current_temp`), `sensor_waiting` (aucune lecture depuis le
   démarrage), `sensor_stale` (muette `sensor_timeout` s), `sensor_disconnected` (la sonde se
-  déclare déconnectée : le thermostat reste joignable et réglable, décision 20), puis, pour un
+  déclare déconnectée : le thermostat reste joignable et réglable, décision 20),
+  `sensor_out_of_range` (lecture hors de `valid_min`..`valid_max`, bornes incluses dans la plage
+  valide ; params absents = pas de contrôle ; mode et consigne restent réglables, retour à la
+  première lecture valide), puis, pour un
   plancher en `cool`/`auto`, `humidity_high` ou `humidity_stale` (humidité non lue, muette ou
   déconnectée). Les sorties restent OFF dans tous ces cas. Le début et la fin d'un verrou ou
   d'un défaut publient le device (`io_changed`).

@@ -89,6 +89,7 @@ std::string house()
     ios += thermostat("mo", false, param("min_on_time", "3"));
     ios += thermostat("st", false, param("sensor_timeout", "0.3"));
     ios += thermostat("nosensor", false, "", false);
+    ios += thermostat("oor", false, param("valid_min", "5") + param("valid_max", "40"));
     ios += thermostat("dw", true,
                       param("emitter", "floor") + link("humidity", "dw_hum") +
                           param("humidity_max", "65"));
@@ -155,7 +156,7 @@ protected:
     void SetUp() override
     {
         JsonApiCharacterizationTest::SetUp();
-        for (const char *id: { "lk", "lk2", "lkc", "mo", "st", "nosensor", "dw", "px_mode" })
+        for (const char *id: { "lk", "lk2", "lkc", "mo", "st", "nosensor", "oor", "dw", "px_mode" })
             forgetIOState(id);
         loadConfig(house(), rulesXmlDocument(""));
         loadedAt = std::chrono::steady_clock::now();
@@ -359,6 +360,40 @@ TEST_F(ClimateStatusTest, ADisconnectedThermostatSensorIsAFault)
     }));
 }
 
+/* A reading outside valid_min..valid_max is published as a fault,
+ * mode and setpoint stay settable, and the next valid reading unsays it. */
+TEST_F(ClimateStatusTest, AnImplausibleReadingIsAFaultWhileItLasts)
+{
+    WsTestSession ws;
+    set("oor_target", 21);
+    mode("oor", "heat");
+    EXPECT_EQ(state("oor").value("fault", ""), "sensor_waiting");
+
+    set("oor_temp", 50);
+    EXPECT_EQ(state("oor").value("fault", ""), "sensor_out_of_range");
+    EXPECT_FALSE(state("oor").contains("connected"));
+    EXPECT_FALSE(io("oor_heat")->get_value_bool());
+    EXPECT_TRUE(publishedWhere(ws, "oor", [](const Json &st)
+                               {
+        return st.value("fault", "") == "sensor_out_of_range";
+    }));
+    EXPECT_TRUE(dev("oor")->set_value(std::string(R"({"mode":"heat","target_temp":22})")));
+    EXPECT_EQ(state("oor").at("target_temp"), 22);
+
+    set("oor_temp", 18);
+    EXPECT_FALSE(state("oor").contains("fault"));
+    EXPECT_TRUE(publishedWhere(ws, "oor", [](const Json &st)
+                               {
+        return !st.contains("fault");
+    }));
+
+    //Mode off holds the outputs by itself: nothing to explain.
+    set("oor_temp", 2);
+    EXPECT_EQ(state("oor").value("fault", ""), "sensor_out_of_range");
+    mode("oor", "off");
+    EXPECT_FALSE(state("oor").contains("fault"));
+}
+
 //An appliance whose mode IO reports itself disconnected cannot be reached.
 TEST_F(ClimateStatusTest, AnUnreachableApplianceIsNotConnected)
 {
@@ -395,6 +430,9 @@ TEST_F(ClimateStatusTest, GetHomeCarriesTheStatusFields)
     set("dw_temp", 25);
     set("dw_hum", 70);
     mode("dw", "cool");
+    set("oor_target", 21);
+    set("oor_temp", 50);
+    mode("oor", "heat");
     io("px_mode")->set_value(std::string("cool"));
     set("px_hum", 45);
     io("px_mode")->setStatusInfo(IOBase::StatusType::Connected,

@@ -135,6 +135,7 @@ private:
 
     double nonNegativeParam(const char *name, double def);
     void readPutBackDelays();
+    void readValidBounds();
     void claimOutputs();
     //The IO of an output link, nullptr when missing or refused.
     IOBase *outputIo(Output &out);
@@ -146,7 +147,7 @@ private:
     void evaluateSoon();
     void noticeOutput(Output &out, IOBase &io);
     void warnWrite(Output &out, IOBase &io, const char *source);
-    //current_temp fresh, its silence logged once.
+    //current_temp fresh and within the valid bounds, its silence or excess logged once.
     bool sensorFresh(IOBase *sensor);
     //Floor cooling: humidity fresh and below humidity_max, changes logged.
     bool humidityAllowsCooling();
@@ -179,6 +180,13 @@ private:
 
     //Logged when it changes: once per silence or disconnection.
     Freshness sensorState = Freshness::NotRead;
+    //valid_min / valid_max of current_temp; absent = unchecked.
+    std::optional<double> validMin;
+    std::optional<double> validMax;
+    //The last fresh reading was outside the bounds.
+    bool outOfRange = false;
+    //Its excess was logged: once per episode, not while the mode is off.
+    bool outOfRangeLogged = false;
     string fault;
     //What was last published of the fault and lock-out, to publish their changes.
     string publishedStatus;

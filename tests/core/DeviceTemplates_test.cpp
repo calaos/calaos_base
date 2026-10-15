@@ -377,6 +377,8 @@ Strings thermostatParams(const std::string &emitter, const std::string &hysteres
     p["min_on_time"] = minOn;
     p["min_off_time"] = minOff;
     p["sensor_timeout"] = "9000";
+    p["valid_min"] = "-30";
+    p["valid_max"] = "60";
     p["put_back_delay"] = "1";
     p["put_back_delay_max"] = "60";
     return p;
