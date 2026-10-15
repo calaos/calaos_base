@@ -1423,3 +1423,12 @@ rouvrir.
     bande). Hystérésis et durées minimales de marche et d'arrêt pour protéger le compresseur ; la
     référence est la sonde de pièce (relayée si présente) ; sonde muette = pas de bascule. Un mode
     changé à la télécommande suspend l'émulation. Calaos n'envoie jamais `auto` à l'unité.
+22. **Plancher réversible et générateur commun** (2026-10-15, analyse de solanora). (1) L'humidité
+    devient facultative pour le froid sur plancher : sans sonde liée, le froid est permis et la
+    condensation relève de l'installation (la PAC, par exemple) ; avec une sonde, la coupure
+    `humidity_max` reste active. (2) Un rôle `output`, « vanne de zone », exclusif de `output_heat` et
+    `output_cool`, s'active pour toute demande, le mode donnant le sens : une même vanne sert en chaud
+    et en froid sans contredire la décision 17. (3) Un param `modes` restreint les modes proposés par
+    zone. (4) **Pas de device « PAC »** : la demande au générateur, les contacts chaud/froid exclusifs
+    et le mode global se font par règles (sorties de zone, variable de mode global), documentées en
+    exemple. Un device dédié ne sera fait que si plusieurs installations le demandent.
