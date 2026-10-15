@@ -253,6 +253,8 @@ Pourquoi :
 - **Double consigne émulée** (`emulate_range`, décision 21) : la clim garde sa propre protection
   de compresseur ; 300 s de marche et d'arrêt évitent seulement que Calaos la fasse cycler, et
   600 s entre la fin du chaud et le début du froid (ou l'inverse) laissent la pression s'équilibrer.
+  L'unité s'arrête dès que la pièce revient dans la bande (décision 21) : c'est `min_off_time` qui
+  borne la fréquence des cycles, au plus un démarrage toutes les `min_on_time + min_off_time`.
   Le template ne crée pas les consignes basse et haute : le proxy les crée au chargement
   (`InternalInt` sauvegardés à 19 et 25, bornés comme la consigne de l'unité), un lien ne
   pouvant avoir qu'une cible. Avec « Deux consignes » aussi coché, `target_temp` n'est pas créé et

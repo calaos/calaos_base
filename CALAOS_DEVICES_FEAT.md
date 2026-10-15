@@ -342,20 +342,23 @@ capability. ESPHome's `heat_cool` is mapped to `auto` by the proxy (CLIM-2).
     `low − hysteresis` the unit goes `heat` with `target_temp` = low (written before the mode),
     above `high + hysteresis` `cool` with `target_temp` = high, and `off` as soon as the room is back
     in the range (no consumption inside the band). The unit's setpoint follows the bound while it
-    runs. A changeover goes through `off`.
+    runs and is put back when the unit reads another one; a `target_temp` command is refused while
+    `auto` runs. A changeover goes through `off`. A reference that is not a number switches nothing.
   - Lock-outs: `min_on_time` before auto stops the unit, `min_off_time` before it starts it again,
     `changeover_delay` between the end of one of heat/cool and the start of the other (at least
     `min_off_time`). Defaults: `hysteresis` 0.5, 300 / 300 / 600 s (also the template's). A server
-    start counts as a switch from an unknown mode: the first start waits for the changeover delay.
-    A mode the user selects is applied at once and leaves `auto`.
+    start counts as a stop: a stop waits for `min_on_time`, a start for `min_off_time`, and only the
+    opposite of the last mode the unit ran in waits for the changeover delay. A mode the user
+    selects is applied at once and leaves `auto`.
   - Room sensor not fresh (§8.2 freshness, `sensor_timeout`) or unit disconnected: nothing changes;
     the state carries `fault` (`sensor_waiting`, `sensor_stale`, `sensor_disconnected`,
     `sensor_missing` without a reference) and, for a start that waits, `lockout` (§5.3).
-  - A mode read back that differs from the one sent, once the unit confirmed it or after
-    `readback_hold`, was changed outside Calaos (remote, ESPHome): `auto` is suspended until it is
-    selected again, logged; the device then shows the unit's mode.
-  - Persistence: `auto <last mode sent>` in the state cache; after a restart `auto` goes on if the
-    unit reports that mode, and is suspended otherwise.
+  - A mode read back that differs from the one sent was changed outside Calaos (remote,
+    ESPHome): `auto` is suspended until it is selected again, logged; the device then shows the
+    unit's mode. Not when it is the mode before the command, read within `readback_hold` (ESPHome
+    republishes it after the setpoint write), nor while the unit is disconnected.
+  - Persistence: `<auto|manual> <last mode sent> [<last of heat/cool sent>]` in the state cache;
+    after a restart `auto` goes on if the unit reports that mode, and is suspended otherwise.
 
 ---
 
