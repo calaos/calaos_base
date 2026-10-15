@@ -127,7 +127,7 @@ Tout ─ VAL-1
 
 | ID | Ticket | Dépend de | Agent | Statut |
 |---|---|---|---|---|
-| VAL-1 | **Recette sur la box** (root@192.168.30.17). Un proxy ESPHome simulé (mosquitto + script qui joue le firmware ESPHome climate) et un thermostat sur IOs internes : création par l'installer, pilotage depuis webapp, mobile et panneau simulé, règles de politique (nuit, fenêtre ouverte), redémarrage du serveur, suppression en cascade. Rapport avec captures. | tous | sonnet / high | 📋 |
+| VAL-1 | **Recette sur la box** (root@192.168.30.17). Un proxy ESPHome simulé (mosquitto + script qui joue le firmware ESPHome climate) et un thermostat sur IOs internes : création par l'installer, pilotage depuis webapp, mobile et panneau simulé, règles de politique (nuit, fenêtre ouverte), redémarrage du serveur, suppression en cascade. Rapport avec captures. | tous | sonnet / high | 🔨 (utilisateur, canal pre-release ; [checklist](VAL-1-checklist.md)) |
 
 ## Hors chantier (tickets séparés)
 
