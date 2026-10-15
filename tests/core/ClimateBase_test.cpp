@@ -25,6 +25,8 @@
 
 #include "CalaosCoreFixture.h"
 #include "ClimateBase.h"
+#include "ConditionOutput.h"
+#include "ConditionStd.h"
 #include "IOChangeHub.h"
 #include "InputTemp.h"
 
@@ -963,4 +965,30 @@ TEST_F(ClimateBaseTest, TheModesAndFanSwingParamsAreNotDocumentedByTheBase)
     }
     EXPECT_TRUE(fieldOf(doc, "fan_mode").is_null());
     EXPECT_TRUE(fieldOf(doc, "swing_mode").is_null());
+}
+
+TEST_F(ClimateBaseTest, OutputConditionOnADeviceComparesItsModeLikeAStandardCondition)
+{
+    io("split_mode")->set_value(std::string("heat"));
+
+    const struct { const char *oper; const char *val; bool expected; } cases[] = {
+        { "==", "heat", true },
+        { "==", "cool", false },
+        { "!=", "heat", false },
+        { "!=", "cool", true },
+    };
+    for (const auto &c: cases)
+    {
+        ConditionOutput outCond;
+        outCond.setOutput(dev("split"));
+        outCond.set_param(c.val);
+        outCond.set_operator(c.oper);
+        EXPECT_EQ(outCond.Evaluate(), c.expected) << c.oper << " " << c.val;
+
+        ConditionStd stdCond;
+        stdCond.Add(dev("split"));
+        stdCond.get_params().Add("split", c.val);
+        stdCond.get_operator().Add("split", c.oper);
+        EXPECT_EQ(stdCond.Evaluate(), c.expected) << c.oper << " " << c.val;
+    }
 }
