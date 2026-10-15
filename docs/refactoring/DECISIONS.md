@@ -1411,3 +1411,8 @@ rouvrir.
     convecteurs 0,5 / 120 / 120 avec `min_range` 1 ; plancher réversible 0,5 / 900 / 900, `min_range`
     2 et `humidity_max` **60 %** (marge sur une eau à 16 °C ; le défaut du code reste 65). Pour tous :
     `sensor_timeout` 9000 s, `put_back_delay` 1 s / 60 s ; keep-alive de la température relayée 120 s.
+20. **Statut d'une sonde de thermostat** (2026-10-15, CLIM-7). `connected: false` est réservé à un
+    appareil injoignable (lien de connexion du proxy). Une sonde de thermostat déconnectée publie
+    `fault: sensor_disconnected` : le thermostat reste réglable (mode, consigne). Au démarrage, tant
+    que la sonde n'a rien lu, `fault: sensor_waiting` (« En attente de la sonde ») ; `sensor_missing`
+    ne désigne plus qu'un lien `current_temp` absent. `family` est publiée en minuscules, comme `impl`.
