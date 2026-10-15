@@ -2,11 +2,11 @@
 
 ## REPRISE — lire en premier
 
-- **État (2026-10-15)** : serveur climate complet (CLIM-1..6, DOC-1/2, MCP-1, FIX-BASE-3/4/5) ✅ ; UI
-  WEB-3, MOB-3/4, RUI-4/5, FIX-RUI-1 ✅. En attente de décision utilisateur : CLIM-7 (sonde de thermostat
-  déconnectée = fault, pas « Hors ligne » ; « En attente de la sonde » au démarrage ; family en
-  minuscules). DOC-3 ✅. Ensuite INST-4/5, DOC-4, VAL-1 sur la box. Design : `docs/devices/UI_CLIMATE.md` ;
-  maquettes dans `/home/raoul/repos/calaos/climate-mockups/`, gist secret
+- **État (2026-10-15)** : serveur climate complet (CLIM-1..6, DOC-1/2/3, MCP-1, FIX-BASE-3/4/5) ✅ ; UI
+  WEB-3, MOB-3/4, RUI-4/5, FIX-RUI-1 ✅ ; installer INST-4/5 ✅. En cours : CLIM-7 (décision 20), puis
+  WEB-4/MOB-5/RUI-6 (libellés « Sonde déconnectée », « En attente de la sonde »). Restent DOC-4
+  (traduction fr des templates) et VAL-1 sur la box. Design : `docs/devices/UI_CLIMATE.md` ; maquettes
+  `/home/raoul/repos/calaos/climate-mockups/`, gist secret
   https://gist.github.com/raoulh/53a744f13815a93c00c58ce188929fad (clone `.wt/gist-round4`, push ghgit).
 - **Page de suivi en ligne** : voir la ligne « Suivi » plus bas. Elle est statique : la republier
   à chaque fin de ticket.
