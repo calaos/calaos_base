@@ -63,7 +63,8 @@
           "name": "clim",
           "state": "cool",
           "type": "climate",
-          "var_type": "string"
+          "var_type": "string",
+          "visible": "true"
         },
         {
           "gui_type": "var_string",
@@ -144,7 +145,8 @@
           "name": "clim2",
           "state": "",
           "type": "climate",
-          "var_type": "string"
+          "var_type": "string",
+          "visible": "true"
         },
         {
           "gui_type": "var_string",
@@ -173,7 +175,8 @@
           "name": "bare",
           "state": "",
           "type": "climate",
-          "var_type": "string"
+          "var_type": "string",
+          "visible": "true"
         }
       ],
       "name": "Salon",

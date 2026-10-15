@@ -40,7 +40,8 @@
             "name": "lk",
             "state": "off",
             "type": "climate",
-            "var_type": "string"
+            "var_type": "string",
+            "visible": "true"
           },
           {
             "gui_type": "var_int",
@@ -120,7 +121,8 @@
             "name": "lk2",
             "state": "off",
             "type": "climate",
-            "var_type": "string"
+            "var_type": "string",
+            "visible": "true"
           },
           {
             "gui_type": "var_int",
@@ -207,7 +209,8 @@
             "name": "lkc",
             "state": "off",
             "type": "climate",
-            "var_type": "string"
+            "var_type": "string",
+            "visible": "true"
           },
           {
             "gui_type": "var_int",
@@ -320,7 +323,8 @@
             "name": "mo",
             "state": "off",
             "type": "climate",
-            "var_type": "string"
+            "var_type": "string",
+            "visible": "true"
           },
           {
             "gui_type": "var_int",
@@ -400,7 +404,8 @@
             "name": "st",
             "state": "off",
             "type": "climate",
-            "var_type": "string"
+            "var_type": "string",
+            "visible": "true"
           },
           {
             "gui_type": "var_int",
@@ -479,7 +484,8 @@
             "name": "nosensor",
             "state": "off",
             "type": "climate",
-            "var_type": "string"
+            "var_type": "string",
+            "visible": "true"
           },
           {
             "gui_type": "var_int",
@@ -560,7 +566,8 @@
             "name": "dw",
             "state": "cool",
             "type": "climate",
-            "var_type": "string"
+            "var_type": "string",
+            "visible": "true"
           },
           {
             "gui_type": "var_int",
@@ -684,7 +691,8 @@
             "name": "uc",
             "state": "off",
             "type": "Climate",
-            "var_type": "string"
+            "var_type": "string",
+            "visible": "true"
           },
           {
             "gui_type": "var_int",
@@ -760,7 +768,8 @@
             "name": "px",
             "state": "cool",
             "type": "climate",
-            "var_type": "string"
+            "var_type": "string",
+            "visible": "true"
           },
           {
             "gui_type": "var_string",
