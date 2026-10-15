@@ -2598,3 +2598,387 @@ msgid ""
 "Calaos heats and cools through the floor, and stops cooling before the dew "
 "point."
 msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid ""
+"Minimum gap in degrees between target_temp_low and target_temp_high. A range "
+"closer than that is refused."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid "Minimum range"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid ""
+"Seconds a linked sensor may go without a reading, a repeated value included, "
+"before it counts as stale. A positive number; the default outlasts one lost "
+"hourly Zigbee report. A sensor older than half of it is asked for a reading "
+"when its protocol can (KNX)."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid "Sensor timeout"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid ""
+"Comma separated modes the device offers (off, heat, cool, auto, dry, "
+"fan_only). Default to all of them."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid ""
+"Comma separated fan modes the appliance accepts. Without it every fan_mode "
+"command is refused."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid ""
+"Comma separated swing modes the appliance accepts. Without it every "
+"swing_mode command is refused."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid "Fan mode, one of the fan_modes param."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid "Swing mode, one of the swing_modes param."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid ""
+" Bounds are those of the linked IO (value_min, value_max, step, unit), else "
+"7 to 35 by 0.5 in °C. The effective ones are published in the capabilities."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid ""
+"Operating mode. The modes an instance accepts are published in its "
+"capabilities."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid "The setpoint used in heat and cool."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid "Low bound of the range used in auto."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid "High bound of the range used in auto."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Climate proxy"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"A climate appliance that regulates by itself (heat pump, ESPHome climate): "
+"Calaos reads its state and relays commands, it does not regulate."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"Each link role reads the io of its link and writes its command_io, or the io "
+"itself when that is an output. A role that cannot be written is not offered."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"What is written to the mode link for auto. Without it, the spelling the "
+"appliance last reported, else heat_cool."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Auto payload"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"Seconds between two relays of the remote_temp_source value to remote_temp, "
+"on top of each change. The appliance falls back to its own sensor when "
+"updates stop. A number of seconds above 0, else the default is used."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Remote temperature refresh"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"Seconds a range bound just commanded is trusted before its readback confirms "
+"it, so two quick partial commands are validated together. A number of "
+"seconds above 0, else the default is used."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Readback hold"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Mode"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"Mode of the appliance. Needs a command_io unless its io is an output. Its "
+"availability is the appliance's: connected false in the state."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Current temperature"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Temperature the appliance measures."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Setpoint"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Setpoint used in heat and cool."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Low setpoint"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Low bound of the auto range. Both bounds are needed for a range."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "High setpoint"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "High bound of the auto range. Both bounds are needed for a range."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Action"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "What the appliance is doing: off, idle, heating, cooling, drying, fan."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Fan mode"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Fan mode. Needs the fan_modes param."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Swing mode"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Swing mode. Needs the swing_modes param."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Remote temperature"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"Where the temperature of another sensor is written, for appliances that take "
+"one. Needs remote_temp_source."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"Relative humidity the appliance, or a room sensor, reports: shown in the "
+"state."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"The sensor relayed to remote_temp. Needs remote_temp. Not relayed before it "
+"has read since the start, nor while it has sent nothing for sensor_timeout "
+"or reports itself disconnected: the appliance then falls back to its own "
+"sensor."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Climate thermostat"
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"A thermostat that regulates in Calaos: it switches output_heat and "
+"output_cool from current_temp and its setpoints. Its mode is stored by the "
+"device."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Night setback, away mode and the like are rules writing the setpoints or the "
+"mode. Missing setpoint and action IOs are created at load."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Degrees past the setpoint before an output starts switching on: heat below "
+"the setpoint minus hysteresis, cool above the setpoint plus hysteresis. "
+"Switching off comes as soon as the setpoint is crossed."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Hysteresis"
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Seconds an output stays on at least, except when the mode is off or a safety "
+"cut stops it."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Minimum on time"
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Seconds an output stays off at least before it can start again."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Minimum off time"
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Seconds before an output that something else keeps switching is put back; "
+"the wait doubles while the other writer keeps undoing it, up to "
+"put_back_delay_max. At least 0.001, else the default is used."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Put-back delay"
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Longest wait between two put-backs, in seconds. Not below put_back_delay. It "
+"also sets the window of the log of writes from outside to an output: one "
+"line per source and output during that time."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Maximum put-back delay"
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"What the outputs drive. Only floor has an effect: floor cooling then needs a "
+"humidity link and stops at humidity_max (dew point)."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Relative humidity (%) from which floor cooling stops, with emitter=floor. "
+"Not negative."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+" An output belongs to a single thermostat: a second one linking it ignores "
+"the link."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Temperature the regulation reads. The outputs stay off until it has "
+"delivered a reading since the start (a cached or retained value does not "
+"count), and while it has sent nothing for sensor_timeout or reports itself "
+"disconnected."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Setpoint used in heat and cool. Created when missing."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Low bound of the auto range. Created when missing, with output_cool."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "High bound of the auto range. Created when missing, with output_cool."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Written by the thermostat: off, idle, heating or cooling. Created when "
+"missing."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Output driven for heating. Enables heat."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Output driven for cooling. Enables cool and auto."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Relative humidity of the room. With emitter=floor, cooling stops while it "
+"reads humidity_max or more, has not read, is stale or disconnected; without "
+"it, a floor offers neither cool nor auto."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+" Heat needs the output_heat link, cool needs output_cool and auto needs both."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Device.cpp
+msgid ""
+"Implementation of the device family: the key of this document in devices."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Device.cpp
+msgid "Implementation"
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp
+msgid "Identifier"
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp
+msgid "Visible"
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp
+msgid "Enabled"
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp
+msgid "Display type"
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp
+msgid "IO type"
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp
+msgid "History log"
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp
+msgid "InfluxDB"
+msgstr ""
