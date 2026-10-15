@@ -49,6 +49,7 @@
 - Pousser les branches `feat/devices-*` et ouvrir les PR **sans redemander**.
 - **Merger soi-même** une fois la CI verte et la revue close, y compris dans calaos-web-app
   (dont le `CLAUDE.md` impose sinon des commits directs sur master).
+- calaos/doc-website (DOC-5) : branche, PR et merge soi-même autorisés (2026-10-15).
 
 ## Push (décidé le 2026-10-13)
 
