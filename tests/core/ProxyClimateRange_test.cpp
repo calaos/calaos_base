@@ -34,6 +34,7 @@
 #include <chrono>
 #include <cmath>
 #include <functional>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -78,7 +79,44 @@ public:
 };
 
 REGISTER_IO(RangeSensor)
+/* A unit setpoint that does not hold what it is sent: rounded to whole
+ * degrees, or ignored (a mode-dependent minimum). Each write is published
+ * back, as a node does; past 50 the readbacks stop so a loop ends. */
+class RangeUnitSetpoint: public IOBase
+{
+public:
+    RangeUnitSetpoint(Params &p):
+        IOBase(p, IOBase::IO_OUTPUT)
+    {
+    }
+
+    DATA_TYPE get_type() override { return TINT; }
+    double get_value_double() override { return value; }
+
+    bool set_value(double v) override
+    {
+        received[get_param("id")].push_back(v);
+        if (get_param("unit") == "round")
+            value = std::floor(v);
+        else if (get_param("unit") == "near")
+            value = v - 0.2;
+        else if (!hasValue())
+            value = 18;
+        if (received[get_param("id")].size() <= 50)
+            EmitSignalIO();
+        return true;
+    }
+
+    static std::map<std::string, std::vector<double>> received;
+
+private:
+    double value = 0;
+};
+
+std::map<std::string, std::vector<double>> RangeUnitSetpoint::received;
+
 REGISTER_IO(RangeRefusing)
+REGISTER_IO(RangeUnitSetpoint)
 
 namespace
 {
@@ -154,14 +192,28 @@ std::string unit(const std::string &id, const std::string &params, const std::st
                           param("hysteresis", "0.5") + params + extra);
 }
 
-const std::vector<std::string> DEVICES = { "em", "el", "elc", "es", "er", "ed", "eh", "et", "erst", "erst2", "erec",
+const std::vector<std::string> DEVICES = { "eu_round", "eu_ignore", "eu_near", "em", "el", "elc", "es", "er", "ed", "eh", "et", "erst", "erst2", "erec",
                                            "erf", "erm", "enoref", "bad_target", "bad_modes", "bad_flag",
                                            "bad_range", "off_flag", "plain" };
 
 std::string house()
 {
     std::string s;
-    s += unit("em", lockouts("0", "0", "0"), internal("InternalString", "em_action") + link("action", "em_action"));
+    s += unit("em", lockouts("0", "0", "0"),
+              internal("InternalString", "em_action") + link("action", "em_action") + param("readback_hold", "0.2"));
+    //A unit setpoint that rounds, and one that ignores the write.
+    for (const std::string kind: { "round", "ignore", "near" })
+    {
+        const std::string id = "eu_" + kind;
+        s += device(id, internal("InternalString", id + "_mode") +
+                            element("output", "RangeUnitSetpoint", id + "_target", BOUNDS + " unit=\"" + kind + "\"") +
+                            sensor(id + "_cur") + internal("InternalInt", id + "_low", R"( step="0.5")") +
+                            internal("InternalInt", id + "_high") + link("mode", id + "_mode") +
+                            link("target_temp", id + "_target") + link("current_temp", id + "_cur") +
+                            link("target_temp_low", id + "_low") + link("target_temp_high", id + "_high") +
+                            param("emulate_range", "true") + lockouts("0", "0", "0") +
+                            param("readback_hold", "0.2"));
+    }
     s += unit("el", lockouts("30", "30", "60"));
     s += unit("elc", lockouts("30", "30", "60"));
     s += unit("es", lockouts("0.2", "0.2", "1"));
@@ -620,12 +672,54 @@ TEST_F(ProxyClimateRangeTest, InAutoTheUnitSetpointIsTheRangeOnly)
     room("em_cur")->deliver(18.0);
     ASSERT_DOUBLE_EQ(unitTarget("em"), 20);
     ListeRoom::Instance().get_io("em_target")->set_value(25.0);
-    EXPECT_DOUBLE_EQ(unitTarget("em"), 20);
+    EXPECT_TRUE(runLoopUntil([]()
+                             {
+        return unitTarget("em") == 20;
+    }));
 
     EXPECT_FALSE(cmd("em", R"({"target_temp":22})"));
     EXPECT_DOUBLE_EQ(unitTarget("em"), 20);
     EXPECT_TRUE(cmd("em", R"({"mode":"heat","target_temp":22})"));
     EXPECT_DOUBLE_EQ(unitTarget("em"), 22);
+}
+
+/* A unit that cannot hold the setpoint is written again once per
+ * readback_hold at most, then left as it is until Calaos decides another one. */
+TEST_F(ProxyClimateRangeTest, AUnitSetpointThatCannotBeHeldIsNotWrittenForEver)
+{
+    for (const std::string kind: { "round", "ignore" })
+    {
+        const std::string id = "eu_" + kind;
+        RangeUnitSetpoint::received[id + "_target"].clear();
+        ASSERT_TRUE(cmd(id, R"({"target_temp_low":20.5,"target_temp_high":25})")) << kind;
+        ASSERT_TRUE(cmd(id, "auto")) << kind;
+        const std::string warned = journal([&]()
+                                           {
+            room(id + "_cur")->deliver(17.0);
+            pumpLoopFor(1500);
+            room(id + "_cur")->deliver(17.1);
+            pumpLoopFor(500);
+        });
+        EXPECT_EQ(unitMode(id), "heat") << kind;
+        EXPECT_EQ(RangeUnitSetpoint::received[id + "_target"], std::vector<double>({ 20.5, 20.5 })) << kind;
+        EXPECT_NE(warned.find("Device(" + id + "): target_temp reads "), std::string::npos) << kind << warned;
+
+        //A setpoint Calaos decides itself is written again.
+        ASSERT_TRUE(cmd(id, R"({"target_temp_low":19})")) << kind;
+        EXPECT_EQ(RangeUnitSetpoint::received[id + "_target"].back(), 19) << kind;
+    }
+}
+
+//Within half a step of what was sent is what the unit can do: not written again.
+TEST_F(ProxyClimateRangeTest, AUnitSetpointWithinHalfAStepIsHeld)
+{
+    RangeUnitSetpoint::received["eu_near_target"].clear();
+    ASSERT_TRUE(cmd("eu_near", R"({"target_temp_low":20.5,"target_temp_high":25})"));
+    ASSERT_TRUE(cmd("eu_near", "auto"));
+    room("eu_near_cur")->deliver(17.0);
+    pumpLoopFor(1000);
+    room("eu_near_cur")->deliver(17.1);
+    EXPECT_EQ(RangeUnitSetpoint::received["eu_near_target"], std::vector<double>({ 20.5 }));
 }
 
 //A node coming back replays its state: that is no change made at the remote.
