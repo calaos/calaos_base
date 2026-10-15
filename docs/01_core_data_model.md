@@ -550,12 +550,16 @@ lien et écrit sur son `command_io`, sinon sur son `io` quand c'est une sortie.
 spec §8.1 et §8.2. `impl="thermostat"` : Calaos régule.
 
 - **Modes** : `off`, plus `heat` avec `output_heat`, `cool` avec `output_cool`, `auto` avec
-  les deux. Le mode est stocké par le device et persisté dans le cache d'état
+  les deux ; avec une vanne de zone (`output`), ceux du param `modes` (`heat` seul sans lui).
+  Le param `modes` restreint aussi une paire de sorties ; `off` est toujours offert, et un mode
+  listé que les sorties ne savent pas faire, ou inconnu, est journalisé au chargement et ignoré ;
+  `auto` n'est offert qu'avec `heat` et `cool`.
+  Le mode est stocké par le device et persisté dans le cache d'état
   (`iostates.cache`, clé = id du device) quand il change, `off` par défaut ; un mode
   sauvegardé que les sorties ne permettent plus repasse à `off`, journalisé et sauvegardé
   (il ne revient pas seul avec sa sortie). Il est
   restauré avant `ClimateBase::resolveLinks()`, donc sans déclencher les règles.
-- **IOs possédés** : `target_temp`, `action` et, avec `output_cool`, `target_temp_low` /
+- **IOs possédés** : `target_temp`, `action` et, quand `auto` est offert, `target_temp_low` /
   `_high`. Absents, ils sont recréés au chargement (`InternalInt` `save="true"` à 20, 19 et
   max(25, 19 + `min_range`) ; `InternalString` pour `action`) et écrits à la sauvegarde
   suivante.
@@ -581,13 +585,12 @@ spec §8.1 et §8.2. `impl="thermostat"` : Calaos régule.
     compte pas : il faut une lecture. Une sonde qui a lu puis se tait `sensor_timeout`
     secondes, ou qui se déclare déconnectée, coupe les sorties, avec une erreur par épisode ;
     la lecture suivante, même identique, relance la régulation ;
-  - **point de rosée** (`emitter=floor`) : la base refuse `output_cool` tant que `humidity`
-    n'est pas fraîche (jamais lue depuis le démarrage, muette `sensor_timeout` s ou
-    déconnectée) ou lit
-    `humidity_max` ou plus (défaut 65) ; journalisé à chaque changement de cause. Sans lien
-    `humidity`, `cool` et `auto` sont absents des modes, `target_temp_range` n'est ni offert
-    ni appliqué (`isWritable()` refuse les bornes) et le chargement journalise l'erreur ;
-    `output_cool` reste une sortie du thermostat, tenue OFF. Le chauffage n'est pas concerné ;
+  - **point de rosée** (`emitter=floor` avec un lien `humidity`) : la base refuse le froid
+    (`output_cool`, ou la vanne en froid) tant que `humidity` n'est pas fraîche (jamais lue
+    depuis le démarrage, muette `sensor_timeout` s, déconnectée, ou lien qui ne résout pas)
+    ou lit `humidity_max` ou plus (défaut 65) ; journalisé à chaque changement de cause. Sans
+    lien `humidity`, le plancher refroidit (décision 22, avertissement au chargement).
+    Le chauffage n'est pas concerné ;
   - **démarrage** : le premier tour de boucle compte comme un passage à OFF des deux sorties,
     donc `min_off_time` s'écoule avant le premier ON (un relais coupé juste avant un
     redémarrage du serveur ne refait pas un cycle court). **Conséquence** : après un
@@ -615,11 +618,17 @@ spec §8.1 et §8.2. `impl="thermostat"` : Calaos régule.
   sortie, une sortie compte comme ON tant que sa dernière commande ou sa relecture le dit. `action` (`off`,
   `idle`, `heating`, `cooling`) suit la dernière commande des sorties et n'est écrit que
   s'il change.
+- **Vanne de zone** (`output`, décision 22) : exclusive d'`output_heat` et `output_cool` (lier
+  les deux journalise l'erreur et laisse `output` de côté). ON pour toute demande, le mode
+  donnant le sens, retenu tant qu'elle est ouverte ; une vanne ouverte par autre chose prend le
+  sens demandé. Changer de sens la ferme après son `min_on_time` et la rouvre après son
+  `min_off_time`, comme la bascule de deux sorties ; un arrêt forcé (mode `off`, sûreté du
+  sens en cours, ou mode qui refroidit sous la coupure d'humidité) n'attend pas. `lockout.output` dit le sens qu'elle prendra.
 - **Réentrance** : hors marche des règles (commande, verrou), une écriture de sortie
   exécute les règles aussitôt. Si l'une d'elles change une entrée, la passe en cours
   s'arrête et recommence, sans jamais s'imbriquer.
-- **Une sortie, un thermostat** : au chargement, un thermostat dont `output_heat` ou
-  `output_cool` est déjà une sortie d'un thermostat chargé avant lui journalise l'erreur
+- **Une sortie, un thermostat** : au chargement, un thermostat dont `output_heat`,
+  `output_cool` ou `output` est déjà une sortie d'un thermostat chargé avant lui journalise l'erreur
   (les deux ids) et laisse ce lien de côté comme s'il ne résolvait pas : pas de capacité,
   aucune écriture. Le même IO en `output_heat` et `output_cool` garde la chauffe. Les
   liens d'un `ProxyClimate` ne comptent pas.
@@ -644,7 +653,7 @@ spec §8.1 et §8.2. `impl="thermostat"` : Calaos régule.
 
 #### Sorties protégées (spec §8.3)
 
-`output_heat` et `output_cool` appartiennent au thermostat. Rien ne les bloque : le moteur de
+`output_heat`, `output_cool` et `output` appartiennent au thermostat. Rien ne les bloque : le moteur de
 règles ne doit jamais casser, la valeur écrite est appliquée et le thermostat reprend la main
 ensuite selon ses verrous.
 
@@ -841,7 +850,7 @@ ioDoc->paramAddList("io_style", _("GUI style display…"), true, io_style, "ligh
 
 ### Documentation d'un device
 
-Un device se documente avec les mêmes appels, plus cinq réservés à cet usage
+Un device se documente avec les mêmes appels, plus six réservés à cet usage
 ([IO/IODoc.h](../src/bin/calaos_server/IO/IODoc.h)) :
 
 ```cpp
@@ -854,6 +863,7 @@ void deviceFamilySet(const string &family);
 void linkRoleAdd(const string &role, const string &description, bool required, bool writable,
                  const string &requiredWhenParam = string(), const string &requiredWhenValue = string(),
                  const string &requiredWhenLink = string());
+void linkRoleReplaces(const string &role, const vector<string> &replaced);
 void paramInChild(const string &name);
 ```
 
@@ -870,8 +880,11 @@ void paramInChild(const string &name);
   `writable` signifie que **le device écrit ce lien** : vers l'appareil (consigne, mode), vers une
   sortie, ou vers un IO qu'il possède (l'`action` du thermostat). Un rôle non inscriptible est
   seulement lu. `required_when` (optionnel, `{"param", "value", "link"?}`) rend un rôle facultatif
-  obligatoire quand un param a cette valeur **et**, si `link` est donné, que ce rôle est lié :
-  `humidity` quand `emitter=floor` et `output_cool` lié (spec §6.3).
+  obligatoire quand un param a cette valeur **et**, si `link` est donné, que ce rôle est lié.
+- `linkRoleReplaces` publie `replaces` sur un rôle qui tient lieu d'autres : `output` du
+  thermostat remplace `output_heat` et `output_cool`. Les lier ensemble est une erreur de
+  configuration, et une exigence sur un rôle remplacé (`required`, `requires_links`,
+  `value_requires_links`) est satisfaite par le rôle qui le remplace.
 - `paramInChild` marque un paramètre qui s'écrit en `<calaos:param>` et non en attribut
   (`"storage": "calaos:param"`), quel que soit l'ordre des appels par rapport à `paramAdd` ; un nom
   jamais ajouté est ignoré.

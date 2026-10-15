@@ -186,13 +186,7 @@ void ClimateBase::resolveLinks()
 
     //Logged once here rather than at each publication.
     const string id = get_param("id");
-    for (const string &m: paramList("modes"))
-    {
-        ClimateMode mode;
-        if (!parseMode(m, mode))
-            cErrorDom("device") << "Device(" << id << "): unknown mode '" << m
-                                << "' in the modes param, ignored";
-    }
+    checkModesParam();
     for (const char *role: { "fan_mode", "swing_mode" })
     {
         const string list = string(role) + "s";
@@ -200,8 +194,6 @@ void ClimateBase::resolveLinks()
             cErrorDom("device") << "Device(" << id << "): link '" << role << "' without a "
                                 << list << " param, every value will be refused";
     }
-    if (hasDeviceParam("modes") && paramList("modes").empty())
-        cErrorDom("device") << "Device(" << id << "): empty modes param, no mode can be selected";
     double gap;
     if (hasDeviceParam("min_range") && !nonNegative(getDeviceParam("min_range"), gap))
         cErrorDom("device") << "Device(" << id << "): min_range '" << getDeviceParam("min_range")
@@ -357,6 +349,20 @@ vector<string> ClimateBase::paramList(const string &name) const
             res.push_back(item);
     }
     return res;
+}
+
+void ClimateBase::checkModesParam()
+{
+    const string id = get_param("id");
+    for (const string &m: paramList("modes"))
+    {
+        ClimateMode mode;
+        if (!parseMode(m, mode))
+            cErrorDom("device") << "Device(" << id << "): unknown mode '" << m
+                                << "' in the modes param, ignored";
+    }
+    if (hasDeviceParam("modes") && paramList("modes").empty())
+        cErrorDom("device") << "Device(" << id << "): empty modes param, no mode can be selected";
 }
 
 IOBase *ClimateBase::writeTarget(const string &role)

@@ -2602,6 +2602,40 @@ msgid ""
 "point."
 msgstr ""
 
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Reversible floor zone"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"Calaos opens the valve of a floor zone to heat or to cool, the mode giving "
+"the direction. Rules drive the heat pump from the zones."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"Valve or relay of the zone. It opens for any demand, heating or cooling: "
+"the mode gives the direction. It belongs to this thermostat alone: rules "
+"must not write it."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"Modes the zone offers; off always is. A zone without cooling keeps heat "
+"alone."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"Optional. With it, cooling stops while the room reads humidity_max or more, "
+"has not read, or is silent. Without it, the installation keeps the floor "
+"above the dew point."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Relative humidity from which cooling stops, with a humidity sensor."
+msgstr ""
+
 #: src/bin/calaos_server/IO/ClimateBase.cpp
 msgid ""
 "Minimum gap in degrees between target_temp_low and target_temp_high. A range "
@@ -2887,8 +2921,27 @@ msgstr ""
 
 #: src/bin/calaos_server/IO/InternalThermostat.cpp
 msgid ""
-"What the outputs drive. Only floor has an effect: floor cooling then needs a "
-"humidity link and stops at humidity_max (dew point)."
+"What the outputs drive. Only floor has an effect: with a humidity link, "
+"floor cooling then stops at humidity_max (dew point)."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Zone valve"
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Valve or relay of the zone, ON for any demand, heating or cooling: the mode "
+"gives the direction. Instead of output_heat and output_cool, which cannot "
+"be linked with it; the modes param says what it offers."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Comma separated modes the thermostat offers, among heat, cool and auto; off "
+"is always offered. Without it, the outputs decide: heat with output_heat, "
+"cool with output_cool, auto with both, and heat alone with output. A mode "
+"the outputs cannot run, or an unknown one, is ignored."
 msgstr ""
 
 #: src/bin/calaos_server/IO/InternalThermostat.cpp
@@ -2940,13 +2993,14 @@ msgstr ""
 #: src/bin/calaos_server/IO/InternalThermostat.cpp
 msgid ""
 "Relative humidity of the room. With emitter=floor, cooling stops while it "
-"reads humidity_max or more, has not read, is stale or disconnected; without "
-"it, a floor offers neither cool nor auto."
+"reads humidity_max or more, has not read, is stale or disconnected. Without "
+"it, a floor cools with no dew-point cut."
 msgstr ""
 
 #: src/bin/calaos_server/IO/InternalThermostat.cpp
 msgid ""
-" Heat needs the output_heat link, cool needs output_cool and auto needs both."
+" Heat needs the output_heat link, cool needs output_cool and auto needs "
+"both; with the output link, the modes param says which ones."
 msgstr ""
 
 #: src/bin/calaos_server/IO/Device.cpp

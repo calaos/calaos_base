@@ -567,6 +567,44 @@ Json thermostatFloorHeatCool()
                         rangeIos(), links, params);
 }
 
+/* Decision 22: one valve per zone for both ways, the generator and its
+ * direction driven by rules. No range: auto would need one per zone. */
+Json thermostatFloorZone()
+{
+    Json fields = baseFields();
+    fields.push_back(sensorField());
+    fields.push_back(pick("output", _("Zone valve"),
+                          _("Valve or relay of the zone. It opens for any demand, heating or cooling: the mode "
+                            "gives the direction. It belongs to this thermostat alone: rules must not write it."),
+                          true, "bool", true));
+    fields.push_back(multi("modes", _("Modes"),
+                           _("Modes the zone offers; off always is. A zone without cooling keeps heat alone."), true,
+                           { item("off", _("Off")), item("heat", _("Heat")), item("cool", _("Cool")) },
+                           { "off", "heat", "cool" }));
+    fields.push_back(pick("humidity", _("Humidity sensor"),
+                          _("Optional. With it, cooling stops while the room reads humidity_max or more, has not "
+                            "read, or is silent. Without it, the installation keeps the floor above the dew "
+                            "point."),
+                          false, "number", false));
+    fields.push_back(number("humidity_max", _("Maximum humidity"),
+                            _("Relative humidity from which cooling stops, with a humidity sensor."), 40, 90, 1, "%",
+                            60));
+
+    const Json ios = { setpoint("target_temp", _("{name} setpoint"), "20"), actionIo() };
+    const Json links = { linkField("current_temp", "current_temp"), linkOwned("target_temp", "target_temp"),
+                         linkOwned("action", "action"), linkField("output", "output"),
+                         linkField("humidity", "humidity") };
+
+    Json params = thermostatParams("floor", lockouts("0.5", "900", "900"));
+    params.push_back(param("modes", "{modes}"));
+    params.push_back(param("humidity_max", "{humidity_max}", "humidity"));
+
+    return makeTemplate("thermostat_floor_zone", "thermostat", _("Reversible floor zone"),
+                        _("Calaos opens the valve of a floor zone to heat or to cool, the mode giving the "
+                          "direction. Rules drive the heat pump from the zones."),
+                        fields, ios, links, params);
+}
+
 } //namespace
 
 Json DeviceTemplates::all()
@@ -574,7 +612,7 @@ Json DeviceTemplates::all()
     return { { "format", FORMAT },
              { "templates",
                { esphomeClimate(), esphomeClimateIr(), thermostatHeat(), thermostatHeatCool(),
-                 thermostatFloorHeatCool() } } };
+                 thermostatFloorHeatCool(), thermostatFloorZone() } } };
 }
 
 bool DeviceTemplates::generate(const string &path)

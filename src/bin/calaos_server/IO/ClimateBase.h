@@ -118,6 +118,8 @@ protected:
 
     //A comma separated list param, trimmed, without empty or repeated items.
     vector<string> paramList(const string &name) const;
+    //Logs, at load, what the modes param holds that cannot be selected.
+    virtual void checkModesParam();
 
     bool applyCommand(const Json &command) override;
     bool applyCommandField(const string &field, const Json &value, string &reason) override;

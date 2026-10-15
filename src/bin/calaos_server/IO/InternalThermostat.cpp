@@ -86,8 +86,8 @@ InternalThermostat::InternalThermostat(Params &p):
     emitters.Add("floor", _("Underfloor heating"));
     emitters.Add("heat_pump", _("Reversible heat pump on contacts"));
     emitters.Add("fan_coil", _("Fan coils (valves on a water loop)"));
-    ioDoc->paramAddList("emitter", _("What the outputs drive. Only floor has an effect: floor cooling then needs a "
-                                     "humidity link and stops at humidity_max (dew point)."),
+    ioDoc->paramAddList("emitter", _("What the outputs drive. Only floor has an effect: with a humidity link, floor "
+                                     "cooling then stops at humidity_max (dew point)."),
                         false, emitters, string(), false, _("Emitter"));
     ioDoc->paramAdd("humidity_max", _("Relative humidity (%) from which floor cooling stops, with "
                                       "emitter=floor. Not negative."),
@@ -102,8 +102,14 @@ InternalThermostat::InternalThermostat(Params &p):
                                    "reading above it is treated as no reading, like valid_min. No check when "
                                    "empty. Not below valid_min."),
                     IODoc::TYPE_FLOAT, false, string(), false, _("Highest valid temperature"));
+    ioDoc->paramAdd("modes", _("Comma separated modes the thermostat offers, among heat, cool and auto; off is "
+                               "always offered. Without it, the outputs decide: heat with output_heat, cool with "
+                               "output_cool, auto with both, and heat alone with output. A mode the outputs "
+                               "cannot run, or an unknown one, is ignored."),
+                    IODoc::TYPE_STRING, false, string(), false, _("Modes"));
     for (const char *name: { "hysteresis", "min_on_time", "min_off_time", "put_back_delay",
-                             "put_back_delay_max", "emitter", "humidity_max", "valid_min", "valid_max" })
+                             "put_back_delay_max", "emitter", "humidity_max", "valid_min", "valid_max",
+                             "modes" })
         ioDoc->paramInChild(name);
 
     const string owner = _(" An output belongs to a single thermostat: a second one linking it ignores the link.");
@@ -129,14 +135,22 @@ InternalThermostat::InternalThermostat(Params &p):
     ioDoc->linkRoleAdd("output_cool", _("Cooling output"),
                        _("Output driven for cooling. Enables cool and auto.") + owner, IODoc::LINK_BOOL, false,
                        true);
+    ioDoc->linkRoleAdd("output", _("Zone valve"),
+                       _("Valve or relay of the zone, ON for any demand, heating or cooling: the mode "
+                         "gives the direction. Instead of output_heat and output_cool, which cannot be "
+                         "linked with it; the modes param says what it offers.") +
+                           owner,
+                       IODoc::LINK_BOOL, false, true);
+    ioDoc->linkRoleReplaces("output", { "output_heat", "output_cool" });
     ioDoc->linkRoleAdd("humidity", _("Humidity sensor"),
                        _("Relative humidity of the room. With emitter=floor, cooling stops while it "
-                         "reads humidity_max or more, has not read, is stale or disconnected; "
-                         "without it, a floor offers neither cool nor auto."),
-                       IODoc::LINK_NUMBER, false, false, "emitter", "floor", "output_cool");
+                         "reads humidity_max or more, has not read, is stale or disconnected. Without "
+                         "it, a floor cools with no dew-point cut."),
+                       IODoc::LINK_NUMBER, false, false);
 
     documentCommand({ ClimateMode::Off, ClimateMode::Heat, ClimateMode::Cool, ClimateMode::Auto }, "",
-                    _(" Heat needs the output_heat link, cool needs output_cool and auto needs both."),
+                    _(" Heat needs the output_heat link, cool needs output_cool and auto needs both; with "
+                      "the output link, the modes param says which ones."),
                     { { "heat", { "output_heat" } },
                       { "cool", { "output_cool" } },
                       { "auto", { "output_heat", "output_cool" } } });
@@ -167,11 +181,12 @@ void InternalThermostat::resolveLinks()
     const string id = get_param("id");
     if (!linkIo("current_temp"))
         cErrorDom("device") << "Device(" << id << "): no current_temp, the outputs stay OFF";
-    if (!outputIo(heat))
+    if (!outputIo(heat) && !outputIo(valve))
         cErrorDom("device") << "Device(" << id << "): no output_heat, heat is unavailable";
-    if (outputIo(cool) && !canCool())
-        cErrorDom("device") << "Device(" << id << "): emitter=floor without a humidity link, "
-                            << "cool and auto are refused";
+    //Floors refused cooling without one before decision 22: an install must notice.
+    if (floorCooling && supports(ClimateMode::Cool) && !humidityLinked())
+        cWarningDom("device") << "Device(" << id << "): emitter=floor without a humidity link, "
+                              << "cooling has no dew-point cut";
     warnIfChangesOnly("current_temp");
     if (floorCooling)
         warnIfChangesOnly("humidity");
@@ -192,6 +207,8 @@ void InternalThermostat::resolveLinks()
             out = &heat;
         else if (l.name == cool.role)
             out = &cool;
+        else if (l.name == valve.role)
+            out = &valve;
         if (out && !out->refused)
         {
             auto outputChanged = [this, out](IOBase &io)
@@ -212,7 +229,7 @@ void InternalThermostat::resolveLinks()
     {
         //A relay may have gone OFF just before a restart: the start counts
         //as a switch OFF, min_off_time passes before the first ON.
-        heat.st.offAt = cool.st.offAt = loopNow();
+        heat.st.offAt = cool.st.offAt = valve.st.offAt = loopNow();
         evaluate();
     };
     ioAlive.singleShot(0, first);
@@ -247,8 +264,17 @@ void InternalThermostat::claimOutputs()
                             << "' is also its output_heat, the output_cool link is ignored";
         cool.refused = true;
     }
+    //Decision 22: a valve serves both ways, it never comes with the pair.
+    IOBase *valveIo = linkIo(valve.role);
+    if (valveIo && (heatIo || linkIo(cool.role)))
+    {
+        cErrorDom("device") << "Device(" << id << "): output '" << valveIo->get_param("id")
+                            << "' cannot be linked with output_heat or output_cool, the output link is "
+                            << "ignored";
+        valve.refused = true;
+    }
 
-    for (Output *out: { &heat, &cool })
+    for (Output *out: { &heat, &cool, &valve })
     {
         IOBase *io = outputIo(*out);
         for (int i = 0; io && i < lr.size(); i++)
@@ -258,7 +284,8 @@ void InternalThermostat::claimOutputs()
             {
                 auto *other = dynamic_cast<InternalThermostat *>(room->get_io(j));
                 if (!other || other == this || !other->claimed ||
-                    (other->outputIo(other->heat) != io && other->outputIo(other->cool) != io))
+                    (other->outputIo(other->heat) != io && other->outputIo(other->cool) != io &&
+                     other->outputIo(other->valve) != io))
                     continue;
                 cErrorDom("device") << "Device(" << id << "): " << out->role << " '"
                                     << io->get_param("id") << "' is already an output of thermostat '"
@@ -279,7 +306,7 @@ IOBase *InternalThermostat::outputIo(Output &out)
 Json InternalThermostat::deviceIos()
 {
     Json ios = ClimateBase::deviceIos();
-    for (Output *out: { &heat, &cool })
+    for (Output *out: { &heat, &cool, &valve })
     {
         if (out->refused)
             ios.erase(out->role);
@@ -362,7 +389,7 @@ void InternalThermostat::recreateOwnedIos()
     };
 
     recreate("target_temp", setpoint(DEFAULT_TARGET));
-    if (outputIo(cool))
+    if (supports(ClimateMode::Auto))
     {
         recreate(LOW, setpoint(DEFAULT_LOW));
         recreate(HIGH, setpoint(std::max(DEFAULT_HIGH, DEFAULT_LOW + minRange())));
@@ -390,23 +417,19 @@ void InternalThermostat::restoreMode()
     Config::Instance().SaveValueIO(get_param("id"), modeName(ClimateMode::Off));
 }
 
-bool InternalThermostat::canCool()
-{
-    //Nothing would guard a cooling floor against condensation.
-    return outputIo(cool) && (!floorCooling || linkIo("humidity"));
-}
-
 bool InternalThermostat::isWritable(const string &role)
 {
-    if ((role == LOW || role == HIGH) && outputIo(cool) && !canCool())
+    //A heat-only thermostat keeps a range linked by hand, as it always did.
+    if ((role == LOW || role == HIGH) && (outputIo(cool) || outputIo(valve)) && !supports(ClimateMode::Auto))
         return false;
     return ClimateBase::isWritable(role);
 }
 
-vector<ClimateMode> InternalThermostat::supportedModes()
+vector<ClimateMode> InternalThermostat::outputModes()
 {
-    const bool canHeat = outputIo(heat);
-    const bool canCool = this->canCool();
+    const bool both = outputIo(valve);
+    const bool canHeat = both || outputIo(heat);
+    const bool canCool = both || outputIo(cool);
 
     vector<ClimateMode> modes = { ClimateMode::Off };
     if (canHeat)
@@ -418,6 +441,66 @@ vector<ClimateMode> InternalThermostat::supportedModes()
     //Not a named return value: gcov charges its unwinding to the closing
     //brace, which the diff-coverage gate reads as a line never run.
     return vector<ClimateMode>(std::move(modes));
+}
+
+/* Nothing tells a thermostat which way the water of a valve flows: without
+ * the modes param it only heats, cooling by surprise being the worse error. */
+vector<ClimateMode> InternalThermostat::supportedModes()
+{
+    const bool listed = hasDeviceParam("modes");
+    if (!listed && !outputIo(valve))
+        return outputModes();
+    const vector<string> wanted = listed ? paramList("modes") : vector<string>{ modeName(ClimateMode::Heat) };
+
+    vector<ClimateMode> modes;
+    for (ClimateMode m: outputModes())
+    {
+        if (m == ClimateMode::Off || std::find(wanted.begin(), wanted.end(), modeName(m)) != wanted.end())
+            modes.push_back(m);
+    }
+    //Auto cools as much as it heats: not without both.
+    const auto offered = [&modes](ClimateMode m)
+    {
+        return std::find(modes.begin(), modes.end(), m) != modes.end();
+    };
+    if (!offered(ClimateMode::Heat) || !offered(ClimateMode::Cool))
+        modes.erase(std::remove(modes.begin(), modes.end(), ClimateMode::Auto), modes.end());
+    return vector<ClimateMode>(std::move(modes));
+}
+
+bool InternalThermostat::supports(ClimateMode m)
+{
+    const vector<ClimateMode> modes = supportedModes();
+    return std::find(modes.begin(), modes.end(), m) != modes.end();
+}
+
+void InternalThermostat::checkModesParam()
+{
+    const string id = get_param("id");
+    if (!hasDeviceParam("modes"))
+    {
+        if (outputIo(valve))
+            cWarningDom("device") << "Device(" << id << "): output without a modes param, it only heats";
+        return;
+    }
+
+    const vector<ClimateMode> possible = outputModes();
+    const vector<string> names = paramList("modes");
+    for (const string &name: names)
+    {
+        ClimateMode m;
+        if (!parseMode(name, m) || m == ClimateMode::Dry || m == ClimateMode::FanOnly)
+            cErrorDom("device") << "Device(" << id << "): mode '" << name << "' in the modes param is "
+                                << "not a thermostat mode (off, heat, cool, auto), ignored";
+        else if (std::find(possible.begin(), possible.end(), m) == possible.end())
+            cErrorDom("device") << "Device(" << id << "): mode '" << name << "' in the modes param "
+                                << "has no output to run it, ignored";
+        else if (m == ClimateMode::Auto && !supports(ClimateMode::Auto))
+            cErrorDom("device") << "Device(" << id << "): mode 'auto' in the modes param needs heat and "
+                                << "cool, ignored";
+    }
+    if (names.empty())
+        cErrorDom("device") << "Device(" << id << "): empty modes param, only off can be selected";
 }
 
 bool InternalThermostat::currentMode(ClimateMode &m)
@@ -453,7 +536,20 @@ bool InternalThermostat::applyCommand(const Json &command)
 InternalThermostat::OutputPair InternalThermostat::outputsAllowed()
 {
     const bool cooling = mode == ClimateMode::Cool || mode == ClimateMode::Auto;
-    return OutputPair{ true, !floorCooling || !cooling || humidityAllowsCooling() };
+    //Decision 22: without a humidity link, condensation is the installation's business.
+    const bool guarded = floorCooling && cooling && humidityLinked();
+    return OutputPair{ true, !guarded || humidityAllowsCooling() };
+}
+
+//Declared, even when its IO does not resolve: a mistyped id must not lift the cut.
+bool InternalThermostat::humidityLinked() const
+{
+    for (const Link &l: getLinks())
+    {
+        if (l.name == "humidity" && !l.io.empty())
+            return true;
+    }
+    return false;
 }
 
 bool InternalThermostat::humidityAllowsCooling()
@@ -617,9 +713,11 @@ void InternalThermostat::regulate()
 
     OutputPair want;
     if (mode == ClimateMode::Heat || mode == ClimateMode::Auto)
-        want.heat = demand(heat, temp, mode == ClimateMode::Auto ? LOW : "target_temp", false);
+        want.heat = demand(holds(false), temp, mode == ClimateMode::Auto ? LOW : "target_temp", false);
     if (mode == ClimateMode::Cool || mode == ClimateMode::Auto)
-        want.cool = demand(cool, temp, mode == ClimateMode::Auto ? HIGH : "target_temp", true);
+        want.cool = demand(holds(true), temp, mode == ClimateMode::Auto ? HIGH : "target_temp", true);
+    //A valve held for heating while cooling is cut lets the cold water in.
+    const bool coolCut = !allowed.cool && (mode == ClimateMode::Cool || (mode == ClimateMode::Auto && want.cool));
     want.heat = want.heat && allowed.heat;
     want.cool = want.cool && allowed.cool;
     //A stop that was asked for or that safety needs does not wait for
@@ -631,24 +729,72 @@ void InternalThermostat::regulate()
 
     const uint64_t now = loopNow();
 
-    //Every OFF before any ON, so that a changeover sees the other one off.
-    for (bool on: { false, true })
+    if (outputIo(valve))
     {
-        for (Output *out: { &heat, &cool })
+        if (!driveValve(want, forced, coolCut, now))
+            return;
+    }
+    else
+    {
+        //Every OFF before any ON, so that a changeover sees the other one off.
+        for (bool on: { false, true })
         {
-            if ((out == &heat ? want.heat : want.cool) != on)
-                continue;
-            const bool isHeat = out == &heat;
-            switchOutput(*out, isHeat ? cool : heat, on, now, isHeat ? forced.heat : forced.cool);
-            //A write ran rules that changed an input: `want` is stale.
-            if (evaluateAgain)
-                return;
+            for (Output *out: { &heat, &cool })
+            {
+                if ((out == &heat ? want.heat : want.cool) != on)
+                    continue;
+                const bool isHeat = out == &heat;
+                switchOutput(*out, isHeat ? &cool : &heat, on, now, isHeat ? forced.heat : forced.cool);
+                //A write ran rules that changed an input: `want` is stale.
+                if (evaluateAgain)
+                    return;
+            }
         }
     }
 
     writeAction();
     fault = safetyFault(mode == ClimateMode::Cool || mode == ClimateMode::Auto);
     publishStatusChange();
+}
+
+/* Decision 22: the valve opens for any demand. Changing its way closes it
+ * first, after its min_on_time, and opens it after its min_off_time: the
+ * changeover of two outputs. An inverted range wanting both heats, as a pair
+ * of outputs does. */
+bool InternalThermostat::driveValve(OutputPair want, OutputPair forced, bool coolCut, uint64_t now)
+{
+    const bool on = want.heat || want.cool;
+    const bool cooling = want.cool && !want.heat;
+    if (!held(valve))
+        valveCools.reset();
+    const auto stopForced = [&]()
+    {
+        if (!valveCools)
+            return forced.heat || forced.cool;
+        return *valveCools ? forced.cool : forced.heat;
+    };
+    valve.stopForced = stopForced() || coolCut;
+    valveWaitsToCool = cooling;
+
+    if (on && valveCools && *valveCools != cooling)
+    {
+        switchOutput(valve, nullptr, false, now, valve.stopForced);
+        if (evaluateAgain)
+            return false;
+        if (held(valve))
+            return true;
+        valveCools.reset();
+    }
+
+    switchOutput(valve, nullptr, on, now, valve.stopForced);
+    if (evaluateAgain)
+        return false;
+    if (!held(valve))
+        valveCools.reset();
+    //Opened by something else: it now runs the way asked.
+    else if (on && !valveCools)
+        valveCools = cooling;
+    return true;
 }
 
 /* Decision 20: the thermostat stays reachable whatever its sensor does, so a
@@ -696,21 +842,25 @@ Json InternalThermostat::deviceState()
     if (waiting && *waiting->startsAt > now)
     {
         const auto remaining = static_cast<int64_t>(std::ceil((*waiting->startsAt - now) / 1000.0));
-        state["lockout"] = Json{ { "output", waiting == &heat ? "heat" : "cool" }, { "remaining", remaining } };
+        const bool cooling = waiting == &valve ? valveWaitsToCool : waiting == &cool;
+        state["lockout"] = Json{ { "output", cooling ? "cool" : "heat" }, { "remaining", remaining } };
     }
     return Json(std::move(state));
 }
 
 const InternalThermostat::Output *InternalThermostat::waitingOutput() const
 {
-    if (heat.startsAt)
-        return &heat;
-    return cool.startsAt ? &cool : nullptr;
+    for (const Output *out: { &heat, &cool, &valve })
+    {
+        if (out->startsAt)
+            return out;
+    }
+    return nullptr;
 }
 
 /* Heat: ON below setpoint - hysteresis, OFF above setpoint, unchanged in
  * between. Cool mirrors it. Nothing to regulate against without a setpoint. */
-bool InternalThermostat::demand(Output &out, double temp, const char *setpoint, bool cooling)
+bool InternalThermostat::demand(bool holding, double temp, const char *setpoint, bool cooling)
 {
     IOBase *io = linkIo(setpoint);
     if (!io || !io->hasValue())
@@ -721,7 +871,7 @@ bool InternalThermostat::demand(Output &out, double temp, const char *setpoint, 
         return true;
     if (gap < 0)
         return false;
-    return held(out);
+    return holding;
 }
 
 bool InternalThermostat::held(Output &out)
@@ -732,16 +882,30 @@ bool InternalThermostat::held(Output &out)
     return io && io->get_value_bool();
 }
 
-bool InternalThermostat::isOn(Output &out)
+bool InternalThermostat::holds(bool cooling)
 {
-    IOBase *io = outputIo(out);
-    return (io && io->get_value_bool()) || out.st.commanded.value_or(false);
+    if (!outputIo(valve))
+        return held(cooling ? cool : heat);
+    return held(valve) && valveCooling() == cooling;
+}
+
+bool InternalThermostat::valveCooling() const
+{
+    return valveCools.value_or(mode == ClimateMode::Cool);
+}
+
+bool InternalThermostat::isOn(Output *out)
+{
+    if (!out)
+        return false;
+    IOBase *io = outputIo(*out);
+    return (io && io->get_value_bool()) || out->st.commanded.value_or(false);
 }
 
 /* Written unless the last write and the IO's read-back, when it has one,
  * both say `on` already: an output whose read-back lags its write still
  * counts as ON. */
-void InternalThermostat::switchOutput(Output &out, Output &other, bool on, uint64_t now,
+void InternalThermostat::switchOutput(Output &out, Output *other, bool on, uint64_t now,
                                       bool forced)
 {
     out.startsAt.reset();
@@ -823,10 +987,11 @@ void InternalThermostat::switchOutput(Output &out, Output &other, bool on, uint6
 
 //ms before `out` may switch to `on`; a changeover also waits for the other
 //output's min_off_time. A forced stop waits for nothing.
-uint64_t InternalThermostat::lockedFor(const Output &out, const Output &other, bool on,
+uint64_t InternalThermostat::lockedFor(const Output &out, const Output *other, bool on,
                                        uint64_t now, bool forced) const
 {
-    return lockoutWait(on, forced, out.st.onAt, out.st.offAt, other.st.offAt,
+    //A valve has no other output: its own min_off_time is its changeover.
+    return lockoutWait(on, forced, out.st.onAt, out.st.offAt, other ? other->st.offAt : std::nullopt,
                        Lockouts{ minOnMs, minOffMs, minOffMs }, now);
 }
 
@@ -837,9 +1002,9 @@ void InternalThermostat::writeAction()
         return;
 
     ClimateAction action = ClimateAction::Idle;
-    if (held(heat))
+    if (holds(false))
         action = ClimateAction::Heating;
-    else if (held(cool))
+    else if (holds(true))
         action = ClimateAction::Cooling;
     else if (mode == ClimateMode::Off)
         action = ClimateAction::Off;
@@ -873,7 +1038,7 @@ void InternalThermostat::warnIfProtected(IOBase &io, const char *source)
     {
         if (!t->claimed)
             continue;
-        for (Output *out: { &t->heat, &t->cool })
+        for (Output *out: { &t->heat, &t->cool, &t->valve })
         {
             if (t->outputIo(*out) == &io)
                 t->warnWrite(*out, io, source);

@@ -89,6 +89,11 @@ public:
                      LinkValueType valueType, bool required, bool writable,
                      const string &requiredWhenParam = string(), const string &requiredWhenValue = string(),
                      const string &requiredWhenLink = string());
+    /* `role` stands for all of `replaced` (a zone valve for output_heat and
+     * output_cool): linking it with any of them is a configuration error, and
+     * a requirement on them, required or requires_links, is met by it.
+     * Published as replaces: [...] on `role`, added with linkRoleAdd() first. */
+    void linkRoleReplaces(const string &role, const vector<string> &replaced);
     /* The parameter is a <calaos:param> child of the device, not an XML
      * attribute. Whatever the order of the calls: a name never added is ignored. */
     void paramInChild(const string &name);

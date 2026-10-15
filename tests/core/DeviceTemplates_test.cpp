@@ -321,6 +321,19 @@ Json fieldDefault(const std::string &templateId, const std::string &field)
     return Json();
 }
 
+Values floorZone(const Json &modes, const std::string &humidity, const Json &humidityMax)
+{
+    Values v;
+    v["name"] = "Zone";
+    v["room"] = ROOM;
+    v["current_temp"] = "ext_temp";
+    v["output"] = "ext_heat";
+    v["modes"] = modes;
+    v["humidity"] = humidity;
+    v["humidity_max"] = humidityMax;
+    return v;
+}
+
 std::vector<Variant> variants()
 {
     const Json allModes = { "off", "heat", "cool", "auto", "dry", "fan_only" };
@@ -363,6 +376,10 @@ std::vector<Variant> variants()
         { "floor_heat_cool", "thermostat_floor_heat_cool",
           merged(thermostatCommon("floor"),
                  { { "humidity", "ext_hum" }, { "humidity_max", fieldDefault("thermostat_floor_heat_cool", "humidity_max") } }) },
+        { "floor_zone", "thermostat_floor_zone",
+          floorZone(fieldDefault("thermostat_floor_zone", "modes"), "ext_hum",
+                    fieldDefault("thermostat_floor_zone", "humidity_max")) },
+        { "floor_zone_heat_only", "thermostat_floor_zone", floorZone({ "off", "heat" }, "", 60) },
     };
 }
 
@@ -447,6 +464,13 @@ std::map<std::string, Expected> expectations()
                                 withEntries(thermostatParams("fan_coil", "0.5", "120", "120"), { { "min_range", "1" } }) };
     e["floor_heat_cool"] = { floorRange, withEntries(thermostatParams("floor", "0.5", "900", "900"),
                                                      { { "min_range", "2" }, { "humidity_max", "60" } }) };
+    const std::set<std::string> zone = { "current_temp", "target_temp", "action", "output" };
+    std::set<std::string> zoneHumidity = zone;
+    zoneHumidity.insert("humidity");
+    e["floor_zone"] = { zoneHumidity, withEntries(thermostatParams("floor", "0.5", "900", "900"),
+                                                  { { "modes", "off,heat,cool" }, { "humidity_max", "60" } }) };
+    e["floor_zone_heat_only"] = { zone, withEntries(thermostatParams("floor", "0.5", "900", "900"),
+                                                    { { "modes", "off,heat" } }) };
     return e;
 }
 
@@ -591,7 +615,7 @@ protected:
 
 } //namespace
 
-TEST_F(DeviceTemplatesTest, TheFileHoldsTheFiveTemplatesOfTheSpec)
+TEST_F(DeviceTemplatesTest, TheFileHoldsTheTemplatesOfTheSpec)
 {
     ASSERT_TRUE(DeviceTemplates::generate(outDir()));
     const std::string txt = fileText(outDir() + "/" + DeviceTemplates::FILE_NAME);
@@ -603,7 +627,8 @@ TEST_F(DeviceTemplatesTest, TheFileHoldsTheFiveTemplatesOfTheSpec)
     for (const Json &t: j.at("templates"))
         ids.push_back(t.at("id").get<std::string>());
     EXPECT_EQ((std::vector<std::string>{ "esphome_climate", "esphome_climate_ir", "thermostat_heat",
-                                         "thermostat_heat_cool", "thermostat_floor_heat_cool" }),
+                                         "thermostat_heat_cool", "thermostat_floor_heat_cool",
+                                         "thermostat_floor_zone" }),
               ids);
 
     //Pretty printed and pure ASCII, as io_doc.json.
@@ -843,9 +868,14 @@ TEST_F(DeviceTemplatesTest, EveryTemplateUsesRegisteredTypesAndKnownRoles)
             else
                 EXPECT_TRUE(fieldNamed(t, r.at("field").get<std::string>()).at("io_filter").at("writable").get<bool>()) << role;
         }
+        //A role another one replaces is not needed once that one is linked.
+        std::set<std::string> covered = linked;
+        for (const std::string &role: linked)
+            for (const Json &r: roles[role].value("replaces", Json::array()))
+                covered.insert(r.get<std::string>());
         for (const auto &kv: roles)
             if (kv.second.at("required"))
-                EXPECT_TRUE(linked.count(kv.first)) << "required role missing: " << kv.first;
+                EXPECT_TRUE(covered.count(kv.first)) << "required role missing: " << kv.first;
     }
 }
 
@@ -1351,6 +1381,7 @@ TEST_F(DeviceTemplatesTest, TheValueTypeOfALinkRoleIsTheOneOfTheIoItTakes)
         { "remote_temp_source", "number" },
         { "output_heat", "bool" },
         { "output_cool", "bool" },
+        { "output", "bool" },
         { "mode", "string" },
         { "action", "string" },
         { "fan_mode", "string" },

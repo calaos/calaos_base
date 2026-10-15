@@ -205,7 +205,7 @@ std::string house()
                               paramXml("put_back_delay_max", "30") + paramXml("min_range", "2") +
                               paramXml("sensor_timeout", "3600") + paramXml("emitter", "radiator") +
                               paramXml("humidity_max", "70") + paramXml("valid_min", "-20") +
-                              paramXml("valid_max", "60"));
+                              paramXml("valid_max", "60") + paramXml("modes", "off,heat,cool,auto"));
     ios += fullThermostat("wide", true, paramXml("hysteresis", "2"));
     ios += fullThermostat("th", false, paramXml("hysteresis", "0.5"));
     ios += fullThermostat("rev", true, paramXml("hysteresis", "0.5") + paramXml("min_range", "2"));
@@ -1894,7 +1894,7 @@ TEST_F(InternalThermostatTest, EveryDocumentedParamIsRead)
                                                 "min_off_time", "put_back_delay",
                                                 "put_back_delay_max", "sensor_timeout",
                                                 "emitter", "humidity_max", "valid_min",
-                                                "valid_max" };
+                                                "valid_max", "modes" };
     const std::set<std::string> askedWhenUsed = { "min_range" };
 
     load();
@@ -1927,9 +1927,9 @@ TEST_F(InternalThermostatTest, EveryDocumentedParamIsRead)
     EXPECT_EQ(takenAtLoad.size() + askedWhenUsed.size(), documented);
 
     //And the other way: a param the thermostat reads is documented. The base
-    //class checks modes, fan_modes and swing_modes for every impl without
-    //this one honouring them.
-    const std::set<std::string> checkedNotHonoured = { "modes", "fan_modes", "swing_modes" };
+    //class checks fan_modes and swing_modes for every impl without this one
+    //honouring them.
+    const std::set<std::string> checkedNotHonoured = { "fan_modes", "swing_modes" };
     std::set<std::string> docNames;
     for (const Json &p: doc.at("parameters"))
         docNames.insert(p.at("name").get<std::string>());
