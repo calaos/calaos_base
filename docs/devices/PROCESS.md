@@ -2,10 +2,13 @@
 
 ## REPRISE — lire en premier
 
-- **État (2026-10-15)** : serveur climate complet (CLIM-1..6, DOC-1/2/3, MCP-1, FIX-BASE-3/4/5) ✅ ; UI
-  WEB-3, MOB-3/4, RUI-4/5, FIX-RUI-1 ✅ ; installer INST-4/5 ✅. En cours : CLIM-7 (décision 20), puis
-  WEB-4/MOB-5/RUI-6 (libellés « Sonde déconnectée », « En attente de la sonde »). Restent DOC-4
-  (traduction fr des templates) et VAL-1 sur la box. Design : `docs/devices/UI_CLIMATE.md` ; maquettes
+- **État (2026-10-15, soir)** : serveur, UI, installer et doc IODoc climate ✅ (CLIM-1..7, DOC-1..4/6,
+  MCP-1, WEB-3/4, MOB-3..6, RUI-4..6, INST-4..8, FIX-*). En cours : CLIM-8 (double consigne émulée),
+  CLIM-9 (vraisemblance sonde + libellés clients), INST-9 (libellés/value_type + régénération IODoc),
+  INST-10 (découverte ESPHome), DOC-5 (doc-website ; captures installer à rafraîchir après INST-9/10).
+  installer#75 (FIX-RUI-2) attend sa CI relancée. Analyse du plancher chauffant de la box :
+  `.wt/heating-analysis/`, questions en attente côté Raoul (sortie commune : PAC ou circulateur ?).
+  Puis VAL-1 sur la box. Design : `docs/devices/UI_CLIMATE.md` ; maquettes
   `/home/raoul/repos/calaos/climate-mockups/`, gist secret
   https://gist.github.com/raoulh/53a744f13815a93c00c58ce188929fad (clone `.wt/gist-round4`, push ghgit).
 - **Page de suivi en ligne** : voir la ligne « Suivi » plus bas. Elle est statique : la republier
