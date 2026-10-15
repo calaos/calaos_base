@@ -145,6 +145,12 @@ std::string house()
     ios += zone("zempty", param("modes", ""));
     ios += pair("pairheat", param("modes", "off,heat"), true);
     ios += pair("pairnocool", param("modes", "heat,cool"), false);
+    //A range linked, but no auto to use it.
+    ios += pair("pairnoauto",
+                param("modes", "heat,cool") + internal("InternalInt", "pairnoauto_low", "      ", SAVED) +
+                    internal("InternalInt", "pairnoauto_high", "      ", SAVED) +
+                    link("target_temp_low", "pairnoauto_low") + link("target_temp_high", "pairnoauto_high"),
+                true);
 
     //output with output_heat: a configuration error.
     ios += device("mix", internal("InternalInt", "mix_target", "      ", SAVED) + link("current_temp", "mix_temp") +
@@ -165,7 +171,7 @@ std::string house()
     return ioXmlDocument(roomXml("Salon", "salon", ios));
 }
 
-const std::vector<std::string> DEVICES = { "zone", "zauto", "zlock", "zhum", "zghost", "zdef", "zbad", "zempty", "pairheat", "pairnocool", "mix", "own_a", "own_b", "own_c" };
+const std::vector<std::string> DEVICES = { "zone", "zauto", "zlock", "zhum", "zghost", "zdef", "zbad", "zempty", "pairheat", "pairnocool", "pairnoauto", "mix", "own_a", "own_b", "own_c" };
 
 } //namespace
 
@@ -411,6 +417,10 @@ TEST_F(InternalThermostatValveTest, TheModesParamSetsTheModesAndTheCapabilities)
     EXPECT_FALSE(caps("pairheat").contains("target_temp_range"));
     EXPECT_EQ(io("pairheat_target_temp_low"), nullptr);
     EXPECT_FALSE(has(log, "Device(pairheat): mode")) << log;
+
+    EXPECT_FALSE(caps("pairnoauto").contains("target_temp_range"));
+    EXPECT_FALSE(dev("pairnoauto")->set_value(std::string(R"({"target_temp_low":18,"target_temp_high":24})")));
+    EXPECT_EQ(io("pairnoauto_low")->get_value_double(), 19);
 
     //It never adds a mode the outputs cannot run.
     EXPECT_EQ(modes("pairnocool"), (std::vector<std::string>{ "off", "heat" }));
