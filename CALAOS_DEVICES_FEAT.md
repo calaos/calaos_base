@@ -319,7 +319,8 @@ Thermostat modes: `{off, heat}` without `output_cool`, `{off, heat, cool, auto}`
 `output`, `off` plus the modes of the `modes` param (`heat` alone without it). The `modes` param
 (a subset of `heat`, `cool`, `auto`; `off` is always offered) narrows either: a mode outside it is
 refused like any invalid command and absent from the capabilities. A listed mode the outputs cannot
-run, or an unknown one, is logged at load and ignored. `target_temp_low`/`_high` serve `auto`
+run, or an unknown one, is logged at load and ignored; `auto` is offered only with both `heat` and
+`cool`. `target_temp_low`/`_high` serve `auto`
 only. IODoc publishes `replaces: ["output_heat", "output_cool"]` on `output`: linking both is a
 configuration error, and a requirement on a replaced role is met by `output`.
 
@@ -402,7 +403,8 @@ Constraints applied on top:
   the other output.
 - `action` is written after each evaluation (`off`, `idle`, `heating`, `cooling`).
 - **Zone valve** (`output`, decision 22): ON for any demand, `heat` or `cool` as above, the mode
-  giving the direction. A change of direction closes the valve after its `min_on_time` and opens
+  giving the direction. A change of direction closes the valve after its `min_on_time` (at once when
+  the mode cools and the dew-point cut forbids cooling) and opens
   it again after its `min_off_time`, as a changeover of two outputs does; `action` says `heating`
   or `cooling`. The heat pump, its heat/cool contacts and a house-wide mode are rules over the zone
   outputs (no "heat pump" device).
@@ -434,7 +436,7 @@ Constraints applied on top:
   or `output` in cooling) is cut while humidity ≥ `humidity_max` (default 65 %), or while the
   humidity sensor is silent, never read, or its link does not resolve. Without a humidity link the
   floor cools (decision 22): condensation is then the installation's business (water temperature
-  set by the heat pump), and the load logs it at info level.
+  set by the heat pump), and the load logs a warning (such a floor used to refuse cooling).
 - **Thermal inertia:** for floors, templates default to a wide hysteresis and long min on/off
   times. PID is out of scope.
 

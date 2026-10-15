@@ -155,8 +155,10 @@ private:
     //Floor cooling: humidity fresh and below humidity_max, changes logged.
     bool humidityAllowsCooling();
     void regulate();
-    //false when a write ran rules that changed an input: the pass starts over.
-    bool driveValve(OutputPair want, OutputPair forced, uint64_t now);
+    /* false when a write ran rules that changed an input: the pass starts
+     * over. coolCut: the mode cools and safety forbids it, whatever way the
+     * valve runs. */
+    bool driveValve(OutputPair want, OutputPair forced, bool coolCut, uint64_t now);
     bool demand(bool holding, double temp, const char *setpoint, bool cooling);
     //The state the thermostat holds: its last write, else what the IO reports.
     bool held(Output &out);

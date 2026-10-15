@@ -552,7 +552,8 @@ spec §8.1 et §8.2. `impl="thermostat"` : Calaos régule.
 - **Modes** : `off`, plus `heat` avec `output_heat`, `cool` avec `output_cool`, `auto` avec
   les deux ; avec une vanne de zone (`output`), ceux du param `modes` (`heat` seul sans lui).
   Le param `modes` restreint aussi une paire de sorties ; `off` est toujours offert, et un mode
-  listé que les sorties ne savent pas faire, ou inconnu, est journalisé au chargement et ignoré.
+  listé que les sorties ne savent pas faire, ou inconnu, est journalisé au chargement et ignoré ;
+  `auto` n'est offert qu'avec `heat` et `cool`.
   Le mode est stocké par le device et persisté dans le cache d'état
   (`iostates.cache`, clé = id du device) quand il change, `off` par défaut ; un mode
   sauvegardé que les sorties ne permettent plus repasse à `off`, journalisé et sauvegardé
@@ -588,7 +589,7 @@ spec §8.1 et §8.2. `impl="thermostat"` : Calaos régule.
     (`output_cool`, ou la vanne en froid) tant que `humidity` n'est pas fraîche (jamais lue
     depuis le démarrage, muette `sensor_timeout` s, déconnectée, ou lien qui ne résout pas)
     ou lit `humidity_max` ou plus (défaut 65) ; journalisé à chaque changement de cause. Sans
-    lien `humidity`, le plancher refroidit (décision 22, journalisé en info au chargement).
+    lien `humidity`, le plancher refroidit (décision 22, avertissement au chargement).
     Le chauffage n'est pas concerné ;
   - **démarrage** : le premier tour de boucle compte comme un passage à OFF des deux sorties,
     donc `min_off_time` s'écoule avant le premier ON (un relais coupé juste avant un
@@ -622,7 +623,7 @@ spec §8.1 et §8.2. `impl="thermostat"` : Calaos régule.
   donnant le sens, retenu tant qu'elle est ouverte ; une vanne ouverte par autre chose prend le
   sens demandé. Changer de sens la ferme après son `min_on_time` et la rouvre après son
   `min_off_time`, comme la bascule de deux sorties ; un arrêt forcé (mode `off`, sûreté du
-  sens en cours) n'attend pas. `lockout.output` dit le sens qu'elle prendra.
+  sens en cours, ou mode qui refroidit sous la coupure d'humidité) n'attend pas. `lockout.output` dit le sens qu'elle prendra.
 - **Réentrance** : hors marche des règles (commande, verrou), une écriture de sortie
   exécute les règles aussitôt. Si l'une d'elles change une entrée, la passe en cours
   s'arrête et recommence, sans jamais s'imbriquer.

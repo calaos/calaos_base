@@ -183,9 +183,10 @@ void InternalThermostat::resolveLinks()
         cErrorDom("device") << "Device(" << id << "): no current_temp, the outputs stay OFF";
     if (!outputIo(heat) && !outputIo(valve))
         cErrorDom("device") << "Device(" << id << "): no output_heat, heat is unavailable";
-    if (floorCooling && supports(ClimateMode::Cool) && !linkIo("humidity"))
-        cInfoDom("device") << "Device(" << id << "): emitter=floor without a humidity link, "
-                           << "cooling has no dew-point cut";
+    //Floors refused cooling without one before decision 22: an install must notice.
+    if (floorCooling && supports(ClimateMode::Cool) && !humidityLinked())
+        cWarningDom("device") << "Device(" << id << "): emitter=floor without a humidity link, "
+                              << "cooling has no dew-point cut";
     warnIfChangesOnly("current_temp");
     if (floorCooling)
         warnIfChangesOnly("humidity");
@@ -457,6 +458,13 @@ vector<ClimateMode> InternalThermostat::supportedModes()
         if (m == ClimateMode::Off || std::find(wanted.begin(), wanted.end(), modeName(m)) != wanted.end())
             modes.push_back(m);
     }
+    //Auto cools as much as it heats: not without both.
+    const auto offered = [&modes](ClimateMode m)
+    {
+        return std::find(modes.begin(), modes.end(), m) != modes.end();
+    };
+    if (!offered(ClimateMode::Heat) || !offered(ClimateMode::Cool))
+        modes.erase(std::remove(modes.begin(), modes.end(), ClimateMode::Auto), modes.end());
     return vector<ClimateMode>(std::move(modes));
 }
 
@@ -487,6 +495,9 @@ void InternalThermostat::checkModesParam()
         else if (std::find(possible.begin(), possible.end(), m) == possible.end())
             cErrorDom("device") << "Device(" << id << "): mode '" << name << "' in the modes param "
                                 << "has no output to run it, ignored";
+        else if (m == ClimateMode::Auto && !supports(ClimateMode::Auto))
+            cErrorDom("device") << "Device(" << id << "): mode 'auto' in the modes param needs heat and "
+                                << "cool, ignored";
     }
     if (names.empty())
         cErrorDom("device") << "Device(" << id << "): empty modes param, only off can be selected";
@@ -705,6 +716,8 @@ void InternalThermostat::regulate()
         want.heat = demand(holds(false), temp, mode == ClimateMode::Auto ? LOW : "target_temp", false);
     if (mode == ClimateMode::Cool || mode == ClimateMode::Auto)
         want.cool = demand(holds(true), temp, mode == ClimateMode::Auto ? HIGH : "target_temp", true);
+    //A valve held for heating while cooling is cut lets the cold water in.
+    const bool coolCut = !allowed.cool && (mode == ClimateMode::Cool || (mode == ClimateMode::Auto && want.cool));
     want.heat = want.heat && allowed.heat;
     want.cool = want.cool && allowed.cool;
     //A stop that was asked for or that safety needs does not wait for
@@ -718,7 +731,7 @@ void InternalThermostat::regulate()
 
     if (outputIo(valve))
     {
-        if (!driveValve(want, forced, now))
+        if (!driveValve(want, forced, coolCut, now))
             return;
     }
     else
@@ -748,7 +761,7 @@ void InternalThermostat::regulate()
  * first, after its min_on_time, and opens it after its min_off_time: the
  * changeover of two outputs. An inverted range wanting both heats, as a pair
  * of outputs does. */
-bool InternalThermostat::driveValve(OutputPair want, OutputPair forced, uint64_t now)
+bool InternalThermostat::driveValve(OutputPair want, OutputPair forced, bool coolCut, uint64_t now)
 {
     const bool on = want.heat || want.cool;
     const bool cooling = want.cool && !want.heat;
@@ -760,7 +773,7 @@ bool InternalThermostat::driveValve(OutputPair want, OutputPair forced, uint64_t
             return forced.heat || forced.cool;
         return *valveCools ? forced.cool : forced.heat;
     };
-    valve.stopForced = stopForced();
+    valve.stopForced = stopForced() || coolCut;
     valveWaitsToCool = cooling;
 
     if (on && valveCools && *valveCools != cooling)
