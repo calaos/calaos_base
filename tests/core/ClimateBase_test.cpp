@@ -101,6 +101,17 @@ public:
     DATA_TYPE get_type() override { return TSTRING; }
 };
 
+class TestUnknownType: public IOBase
+{
+public:
+    TestUnknownType(Params &p):
+        IOBase(p, IOBase::IO_INPUT)
+    {
+    }
+
+    DATA_TYPE get_type() override { return TUNKNOWN; }
+};
+
 //Reads like the temperature drivers: a reading equal to the current value is
 //not signalled.
 class TestTemp: public InputTemp
@@ -135,6 +146,7 @@ REGISTER_IO(TestTemp)
 REGISTER_DEVICE(test_climate, TestClimate)
 REGISTER_DEVICE(test_thermostat, TestThermostat)
 REGISTER_IO(TestReadOnly)
+REGISTER_IO(TestUnknownType)
 
 namespace
 {
@@ -320,6 +332,7 @@ std::string house()
                                  internalIoXml("InternalInt", EXT_TEMP, "Temp") +
                                      R"(    <calaos:input type="TestTemp" id="cached_temp" name="cached_temp" />
     <calaos:input type="TestTemp" id="uncached_temp" name="uncached_temp" />
+    <calaos:input type="TestUnknownType" id="odd_io" name="odd_io" />
 )"));
 }
 
@@ -1022,23 +1035,30 @@ TEST_F(ClimateBaseTest, OutputConditionRuleOnADeviceFiresWhenItsModeChanges)
     EXPECT_DOUBLE_EQ(num("full_remote"), 7) << "== heat must fire on heat";
 }
 
-TEST_F(ClimateBaseTest, OutputConditionWithAnOperatorAStringCannotUseIsWarnedAtLoad)
+TEST_F(ClimateBaseTest, ImpossibleOutputConditionsAreWarnedAtLoad)
 {
-    const std::string rule =
-        "  <calaos:rule name=\"never\" type=\"OR\">\n"
-        "    <calaos:condition type=\"output\" trigger=\"true\">\n"
-        "      <calaos:output id=\"split\" oper=\"SUP\" val=\"heat\" />\n"
-        "    </calaos:condition>\n"
-        "    <calaos:action type=\"standard\">\n"
-        "      <calaos:output id=\"full_remote\" val=\"7\" />\n"
-        "    </calaos:action>\n"
-        "  </calaos:rule>\n";
+    const auto rule = [](const std::string &name, const std::string &id, const std::string &oper)
+    {
+        return "  <calaos:rule name=\"" + name + "\" type=\"OR\">\n"
+               "    <calaos:condition type=\"output\" trigger=\"true\">\n"
+               "      <calaos:output id=\"" + id + "\" oper=\"" + oper + "\" val=\"heat\" />\n"
+               "    </calaos:condition>\n"
+               "    <calaos:action type=\"standard\">\n"
+               "      <calaos:output id=\"full_remote\" val=\"7\" />\n"
+               "    </calaos:action>\n"
+               "  </calaos:rule>\n";
+    };
 
     clearCoreState();
     testing::internal::CaptureStdout();
-    loadConfig(house(), rulesXmlDocument(rule));
+    loadConfig(house(), rulesXmlDocument(rule("never", "split", "SUP") + rule("fine", "split", "!=") +
+                                         rule("odd", "odd_io", "==")));
     const std::string log = testing::internal::GetCapturedStdout();
     EXPECT_NE(log.find("Output 'split' is a string: operator 'SUP' is not supported"),
+              std::string::npos)
+        << log;
+    EXPECT_EQ(log.find("operator '!='"), std::string::npos) << log;
+    EXPECT_NE(log.find("Output 'odd_io' has a type that output conditions cannot evaluate"),
               std::string::npos)
         << log;
 }
