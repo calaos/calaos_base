@@ -527,7 +527,10 @@ lien et écrit sur son `command_io`, sinon sur son `io` quand c'est une sortie.
   la référence est `remote_temp_source`, sinon `current_temp` : sous `low − hysteresis` l'unité
   passe en `heat` avec la consigne basse (écrite avant le mode), au-dessus de `high + hysteresis`
   en `cool` avec la consigne haute, et en `off` dès que la pièce revient dans la bande. La
-  consigne de l'unité est réécrite si elle en lit une autre ; une commande `target_temp` est
+  consigne de l'unité est réécrite si elle en lit une autre (écart de plus d'un demi `step`), au
+  plus une fois par `readback_hold` ; toujours différente ensuite, l'unité ne peut pas la tenir
+  (arrondi, minimum de son mode) : elle est laissée, journalisée une fois, jusqu'à la consigne
+  suivante décidée par Calaos ; une commande `target_temp` est
   refusée pendant `auto`. Verrous `min_on_time` / `min_off_time` et `changeover_delay` (au moins
   `min_off_time`) par `ClimateBase::lockoutWait()`, partagé avec le thermostat ; un démarrage du
   serveur compte comme un arrêt, et seul le mode opposé au dernier chaud/froid envoyé attend la

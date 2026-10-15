@@ -342,7 +342,10 @@ capability. ESPHome's `heat_cool` is mapped to `auto` by the proxy (CLIM-2).
     `low − hysteresis` the unit goes `heat` with `target_temp` = low (written before the mode),
     above `high + hysteresis` `cool` with `target_temp` = high, and `off` as soon as the room is back
     in the range (no consumption inside the band). The unit's setpoint follows the bound while it
-    runs and is put back when the unit reads another one; a `target_temp` command is refused while
+    runs and is put back when the unit reads another one (more than half a `step` away), once per
+    `readback_hold` at most; still different after that, the unit cannot hold it (rounding, a
+    minimum of its mode) and it is left as it is, logged once, until Calaos decides another
+    setpoint. A `target_temp` command is refused while
     `auto` runs. A changeover goes through `off`. A reference that is not a number switches nothing.
   - Lock-outs: `min_on_time` before auto stops the unit, `min_off_time` before it starts it again,
     `changeover_delay` between the end of one of heat/cool and the start of the other (at least
