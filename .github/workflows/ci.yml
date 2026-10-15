@@ -3,6 +3,13 @@ name: Build and Test
 on:
   push:
   pull_request:
+  # The io-doc artefact expires (90 days): a quiet period must not turn the
+  # installer's iodoc-sync job red. The monthly run on master publishes it again;
+  # workflow_dispatch does the same by hand. Neither starts a Docker publication,
+  # which only follows a push run (docker-publish-dev.yml).
+  schedule:
+    - cron: '17 3 1 * *'
+  workflow_dispatch:
 
 jobs:
   build-and-test:
@@ -87,7 +94,11 @@ jobs:
           print("io_doc.json:", len(docs["en"]), "keys; device templates:", len(templates["templates"]))
           PY
 
+      # Never from a pull request: the installer trusts this artefact, and a run
+      # of a fork's pull request carries the fork's branch name. push, schedule and
+      # workflow_dispatch only run from this repository.
       - name: Upload the IO documentation
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: io-doc

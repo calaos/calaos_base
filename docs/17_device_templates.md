@@ -25,7 +25,7 @@ et `build_doc/fr`. Le JSON est écrit comme `io_doc.json` : indenté de 4 espace
 (`°C` devient `\u00b0C`).
 
 Le job « Build & test » de la CI exécute ce script après `make install` et publie
-le résultat dans l'artefact `io-doc` (14 jours, un dossier `en` et un dossier `fr`). Le job de CI de
+le résultat dans l'artefact `io-doc` (90 jours, un dossier `en` et un dossier `fr`), hors pull request (une PR de fork porte le nom de branche du fork). Un run mensuel sur master (`schedule`, ou `workflow_dispatch`) le republie. Le job de CI de
 calaos_installer le télécharge et compare ses copies (`data/doc/{en,fr}`) au JSON parsé. Les
 paramètres, conditions et actions de `io_doc.json`/`io_doc.md` sont triés par nom : l'ordre de la
 `unordered_map` dépendrait de la bibliothèque standard.
