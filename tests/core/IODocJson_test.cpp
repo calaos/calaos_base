@@ -475,11 +475,11 @@ IODoc deviceDoc()
     doc.friendlyNameSet("Dev Name");
     doc.deviceFamilySet("fam_x");
     doc.paramAdd("p_attr", "desc_attr", IODoc::TYPE_STRING, true);
-    doc.paramAdd("p_child", "desc_child", IODoc::TYPE_FLOAT, false, "7");
+    doc.paramAdd("p_child", "desc_child", IODoc::TYPE_FLOAT, false, "7", false, "lbl_child");
     doc.paramInChild("p_child");
 
-    doc.linkRoleAdd("r_req", "desc_r_req", true, true);
-    doc.linkRoleAdd("r_opt", "desc_r_opt", false, false);
+    doc.linkRoleAdd("r_req", "lbl_r_req", "desc_r_req", IODoc::LINK_NUMBER, true, true);
+    doc.linkRoleAdd("r_opt", "lbl_r_opt", "desc_r_opt", IODoc::LINK_BOOL, false, false);
 
     doc.commandFieldEnum("f_enum", "desc_f_enum", { "v_one", "v_two" }, { "r_req" });
     doc.commandFieldEnum("f_list", "desc_f_list", {}, { "r_opt" }, "list_param");
@@ -581,11 +581,15 @@ TEST(IODocJson, ADeviceDocumentsItsFamilyAndItsLinkRoles)
 
     EXPECT_EQ("fam_x", j.at("family").get<std::string>());
     EXPECT_EQ(Json::array({ Json({ { "role", "r_req" },
+                                   { "label", "lbl_r_req" },
                                    { "description", "desc_r_req" },
+                                   { "value_type", "number" },
                                    { "required", true },
                                    { "writable", true } }),
                             Json({ { "role", "r_opt" },
+                                   { "label", "lbl_r_opt" },
                                    { "description", "desc_r_opt" },
+                                   { "value_type", "bool" },
                                    { "required", false },
                                    { "writable", false } }) }),
               j.at("link_roles"));
@@ -632,19 +636,21 @@ TEST(IODocJson, WithoutValueRequirementsTheKeyIsAbsent)
 TEST(IODocJson, ARoleCanBeRequiredWhenAParamHasAValue)
 {
     IODoc doc = deviceDoc();
-    doc.linkRoleAdd("r_when", "desc_when", false, false, "p_when", "v_when");
+    doc.linkRoleAdd("r_when", "lbl_when", "desc_when", IODoc::LINK_STRING, false, false, "p_when", "v_when");
 
     const Json roles = docToJson(doc).at("link_roles");
     ASSERT_EQ(3u, roles.size());
     EXPECT_EQ(Json({ { "role", "r_when" },
+                     { "label", "lbl_when" },
                      { "description", "desc_when" },
+                     { "value_type", "string" },
                      { "required", false },
                      { "writable", false },
                      { "required_when", { { "param", "p_when" }, { "value", "v_when" } } } }),
               roles.at(2));
     EXPECT_FALSE(roles.at(0).contains("required_when"));
     EXPECT_FALSE(roles.at(1).contains("required_when"));
-    EXPECT_TRUE(contains(doc.genDocMd("x"), "r_when | when p_when=v_when | no | desc_when\n"));
+    EXPECT_TRUE(contains(doc.genDocMd("x"), "r_when | lbl_when | string | when p_when=v_when | no | desc_when\n"));
 }
 
 //CLIM-4's rule (spec §6.3): humidity is required when emitter=floor and
@@ -652,8 +658,9 @@ TEST(IODocJson, ARoleCanBeRequiredWhenAParamHasAValue)
 TEST(IODocJson, ARequirementCanAlsoNeedALinkToExist)
 {
     IODoc doc = deviceDoc();
-    doc.linkRoleAdd("r_when", "desc_when", false, false, "p_when", "v_when", "r_req");
-    doc.linkRoleAdd("r_plain", "desc_plain", false, false, "p_when", "v_when");
+    doc.linkRoleAdd("r_when", "lbl_when", "desc_when", IODoc::LINK_NUMBER, false, false, "p_when", "v_when",
+                    "r_req");
+    doc.linkRoleAdd("r_plain", "lbl_plain", "desc_plain", IODoc::LINK_NUMBER, false, false, "p_when", "v_when");
 
     const Json roles = docToJson(doc).at("link_roles");
     EXPECT_EQ(Json({ { "param", "p_when" }, { "value", "v_when" }, { "link", "r_req" } }),
@@ -661,8 +668,8 @@ TEST(IODocJson, ARequirementCanAlsoNeedALinkToExist)
     EXPECT_EQ(Json({ { "param", "p_when" }, { "value", "v_when" } }), roles.at(3).at("required_when"));
 
     const std::string md = doc.genDocMd("x");
-    EXPECT_TRUE(contains(md, "r_when | when p_when=v_when and r_req | no | desc_when\n"));
-    EXPECT_TRUE(contains(md, "r_plain | when p_when=v_when | no | desc_plain\n"));
+    EXPECT_TRUE(contains(md, "r_when | lbl_when | number | when p_when=v_when and r_req | no | desc_when\n"));
+    EXPECT_TRUE(contains(md, "r_plain | lbl_plain | number | when p_when=v_when | no | desc_plain\n"));
 }
 
 //The mark does not depend on the order of the calls: a constructor that marks
@@ -717,14 +724,43 @@ TEST(IODocJson, TheMarkdownListsRolesFieldsAndChildParams)
     EXPECT_TRUE(contains(md, "Device of family `fam_x`, impl `impl_x`."));
     EXPECT_TRUE(contains(md, "## Link roles of Dev Name\n"));
     EXPECT_TRUE(contains(md, "Writable: the device writes this link."));
-    EXPECT_TRUE(contains(md, "r_req | yes | yes | desc_r_req\n"));
-    EXPECT_TRUE(contains(md, "r_opt | no | no | desc_r_opt\n"));
+    EXPECT_TRUE(contains(md, "r_req | lbl_r_req | number | yes | yes | desc_r_req\n"));
+    EXPECT_TRUE(contains(md, "r_opt | lbl_r_opt | bool | no | no | desc_r_opt\n"));
     EXPECT_TRUE(contains(md, "## Command of Dev Name\n"));
     EXPECT_TRUE(contains(md, "f_enum | enum | v_one, v_two | r_req | desc_f_enum\n"));
     EXPECT_TRUE(contains(md, "f_list | enum | values of the list_param param | r_opt | desc_f_list\n"));
     EXPECT_TRUE(contains(md, "f_num | number | -5.5 to 40, step 0.25 u_unit | r_a, r_b | desc_f_num\n"));
-    EXPECT_TRUE(contains(md, "p_child (calaos:param) | float | no | desc_child\n"));
-    EXPECT_TRUE(contains(md, "p_attr | string | yes | desc_attr\n"));
+    EXPECT_TRUE(contains(md, "p_child (calaos:param) | lbl_child | float | no | desc_child\n"));
+    EXPECT_TRUE(contains(md, "p_attr |  | string | yes | desc_attr\n"));
+}
+
+//The label is what a form shows; a param without one publishes none, so that
+//the plain IOs keep their document.
+TEST(IODocJson, EveryKindOfParamCanCarryALabel)
+{
+    IODoc doc;
+    doc.paramAdd("p_str", "d", IODoc::TYPE_STRING, false, string(), false, "l_str");
+    doc.paramAddInt("p_int", "d", 0, 9, false, 1, false, "l_int");
+    doc.paramAddFloat("p_flt", "d", false, 0, 9, 1, false, "l_flt");
+    doc.paramAddList("p_lst", "d", false, Params({ { "k", "v" } }), "k", false, "l_lst");
+    doc.paramAdd("p_none", "d", IODoc::TYPE_STRING, false);
+
+    const Json j = docToJson(doc);
+    for (const char *n: { "str", "int", "flt", "lst" })
+        EXPECT_EQ(std::string("l_") + n, paramNamed(j, std::string("p_") + n).at("label").get<std::string>());
+    EXPECT_FALSE(paramNamed(j, "p_none").contains("label"));
+
+    const std::string md = doc.genDocMd("x");
+    EXPECT_TRUE(contains(md, "Name | Label | Type | Mandatory | Description\n"));
+    EXPECT_TRUE(contains(md, "p_lst | l_lst | list | no | d\n"));
+    EXPECT_TRUE(contains(md, "p_none |  | string | no | d\n"));
+}
+
+TEST(IODocJson, WithoutALabelTheParamTableKeepsItsFourColumns)
+{
+    IODoc doc;
+    doc.paramAdd("p", "d", IODoc::TYPE_STRING, false);
+    EXPECT_TRUE(contains(doc.genDocMd("x"), "Name | Type | Mandatory | Description\n"));
 }
 
 //The files are diffed, and compared by the installer's CI: their order must not

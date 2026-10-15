@@ -63,7 +63,7 @@ Device::Device(Params &p):
     set_param("gui_type", lowered(get_param("type")));
 
     ioDoc->paramAdd("impl", _("Implementation of the device family: the key of this document in devices."),
-                    IODoc::TYPE_STRING, true, string(), true);
+                    IODoc::TYPE_STRING, true, string(), true, _("Implementation"));
 }
 
 Device::~Device()

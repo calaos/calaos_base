@@ -1074,7 +1074,7 @@ const std::set<std::string> SAME_IN_FRENCH = { "Auto", "Horizontal", "Modes", "V
                                                "{name} mode" };
 
 //Same for the documentation of the devices.
-const std::set<std::string> SAME_IN_FRENCH_DOC = {};
+const std::set<std::string> SAME_IN_FRENCH_DOC = { "Action", "InfluxDB", "Mode", "Modes", "Visible", "auto", "heat_cool" };
 
 bool isTemplateText(const std::vector<std::string> &path, const std::string &key)
 {
@@ -1117,7 +1117,11 @@ struct FrenchWalk
     const std::set<std::string> &same;
     int texts = 0;
 
-    FrenchWalk(decltype(isText) f, const std::set<std::string> &s): isText(f), same(s) {}
+    FrenchWalk(decltype(isText) f, const std::set<std::string> &s):
+        isText(f),
+        same(s)
+    {
+    }
 
     void walk(const Json &en, const Json &fr, std::vector<std::string> &path, const std::string &key)
     {
@@ -1223,7 +1227,10 @@ TEST(DeviceTemplatesFrench, EveryTextOfEveryTemplateIsTranslated)
 {
 #if HAVE_GETTEXT
     Json en, fr;
-    ASSERT_TRUE(inEnglishAndFrench([] { return DeviceTemplates::all(); }, en, fr));
+    ASSERT_TRUE(inEnglishAndFrench([]
+    {
+        return DeviceTemplates::all();
+    }, en, fr));
 
     FrenchWalk w(isTemplateText, SAME_IN_FRENCH);
     std::vector<std::string> path;
@@ -1240,7 +1247,10 @@ TEST_F(DeviceTemplatesTest, EveryTextOfEveryDeviceDocumentationIsTranslated)
 {
 #if HAVE_GETTEXT
     Json en, fr;
-    ASSERT_TRUE(inEnglishAndFrench([this] { return ioDoc().at("devices"); }, en, fr));
+    ASSERT_TRUE(inEnglishAndFrench([this]
+    {
+        return ioDoc().at("devices");
+    }, en, fr));
 
     FrenchWalk w(isDocText, SAME_IN_FRENCH_DOC);
     std::vector<std::string> path;
@@ -1275,10 +1285,18 @@ TEST_F(DeviceTemplatesTest, TheValueTypeOfALinkRoleIsTheOneOfTheIoItTakes)
 {
     const Json devices = ioDoc().at("devices");
     const std::map<std::string, std::string> expected = {
-        { "current_temp", "number" },    { "target_temp", "number" },        { "target_temp_low", "number" },
-        { "target_temp_high", "number" }, { "humidity", "number" },          { "remote_temp", "number" },
-        { "remote_temp_source", "number" }, { "output_heat", "bool" },       { "output_cool", "bool" },
-        { "mode", "string" },            { "action", "string" },             { "fan_mode", "string" },
+        { "current_temp", "number" },
+        { "target_temp", "number" },
+        { "target_temp_low", "number" },
+        { "target_temp_high", "number" },
+        { "humidity", "number" },
+        { "remote_temp", "number" },
+        { "remote_temp_source", "number" },
+        { "output_heat", "bool" },
+        { "output_cool", "bool" },
+        { "mode", "string" },
+        { "action", "string" },
+        { "fan_mode", "string" },
         { "swing_mode", "string" },
     };
     for (const char *impl: { "proxy", "thermostat" })
@@ -1297,19 +1315,20 @@ TEST_F(DeviceTemplatesTest, TheValueTypeOfALinkRoleIsTheOneOfTheIoItTakes)
 TEST_F(DeviceTemplatesTest, TheEmitterIsAListOfTheValuesOfTheTemplates)
 {
     std::set<std::string> fromTemplates;
-    for (const Json &t: DeviceTemplates::all().at("templates"))
+    //A range-for over at() of a temporary iterates a destroyed document.
+    const Json all = DeviceTemplates::all();
+    for (const Json &t: all.at("templates"))
         for (const Json &f: t.at("fields"))
             if (f.at("name") == "emitter")
                 for (const Json &o: f.at("values"))
                     fromTemplates.insert(o.at("value").get<std::string>());
     ASSERT_EQ(5u, fromTemplates.size());
 
-    const Json emitter = [&] {
-        for (const Json &p: ioDoc().at("devices").at("thermostat").at("parameters"))
-            if (p.at("name") == "emitter")
-                return p;
-        return Json();
-    }();
+    const Json devices = ioDoc().at("devices");
+    Json emitter;
+    for (const Json &p: devices.at("thermostat").at("parameters"))
+        if (p.at("name") == "emitter")
+            emitter = p;
     ASSERT_FALSE(emitter.is_null());
     EXPECT_EQ("list", emitter.at("type").get<std::string>());
     std::set<std::string> listed;

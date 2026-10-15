@@ -62,11 +62,13 @@ void IODoc::linkAdd(const string &description, const string &link)
     m_links.push_back(p);
 }
 
-void IODoc::paramAdd(const string &name, const string &description, ParamType type, bool mandatory, const string defaultval, bool readonly)
+void IODoc::paramAdd(const string &name, const string &description, ParamType type, bool mandatory, const string defaultval, bool readonly, const string &label)
 {
     Params param;
     param.Add("name", name);
     param.Add("description", description);
+    if (!label.empty())
+        param.Add("label", label);
     param.Add("type", typeToString(type));
     param.Add("mandatory", mandatory ? "true" : "false");
     if (!defaultval.empty())
@@ -75,11 +77,13 @@ void IODoc::paramAdd(const string &name, const string &description, ParamType ty
     m_parameters[name] = param;
 }
 
-void IODoc::paramAddInt(const string &name, const string &description, int min, int max, bool mandatory, int defval, bool readonly)
+void IODoc::paramAddInt(const string &name, const string &description, int min, int max, bool mandatory, int defval, bool readonly, const string &label)
 {
     Params param;
     param.Add("name", name);
     param.Add("description", description);
+    if (!label.empty())
+        param.Add("label", label);
     param.Add("type", typeToString(TYPE_INT));
     param.Add("mandatory", mandatory ? "true" : "false");
     param.Add("default", Utils::to_string(defval));
@@ -89,11 +93,13 @@ void IODoc::paramAddInt(const string &name, const string &description, int min, 
     m_parameters[name] = param;
 }
 
-void IODoc::paramAddFloat(const string &name, const string &description, bool mandatory, double min, double max, double defval, bool readonly)
+void IODoc::paramAddFloat(const string &name, const string &description, bool mandatory, double min, double max, double defval, bool readonly, const string &label)
 {
     Params param;
     param.Add("name", name);
     param.Add("description", description);
+    if (!label.empty())
+        param.Add("label", label);
     param.Add("type", typeToString(TYPE_FLOAT));
     param.Add("mandatory", mandatory ? "true" : "false");
     param.Add("default", Utils::to_string(defval));
@@ -103,11 +109,13 @@ void IODoc::paramAddFloat(const string &name, const string &description, bool ma
     m_parameters[name] = param;
 }
 
-void IODoc::paramAddList(const string &name, const string &description, bool mandatory, const Params &keyvalues, const string &defkey, bool readonly)
+void IODoc::paramAddList(const string &name, const string &description, bool mandatory, const Params &keyvalues, const string &defkey, bool readonly, const string &label)
 {
     Params param;
     param.Add("name", name);
     param.Add("description", description);
+    if (!label.empty())
+        param.Add("label", label);
     param.Add("type", typeToString(TYPE_LIST));
     param.Add("mandatory", mandatory ? "true" : "false");
     param.Add("default", defkey);
@@ -173,12 +181,26 @@ void IODoc::deviceFamilySet(const string &family)
     m_family = family;
 }
 
-void IODoc::linkRoleAdd(const string &role, const string &description, bool required, bool writable,
+string IODoc::linkValueTypeToString(LinkValueType t)
+{
+    switch (t)
+    {
+    case LINK_BOOL: return "bool";
+    case LINK_STRING: return "string";
+    case LINK_NUMBER: break;
+    }
+    return "number";
+}
+
+void IODoc::linkRoleAdd(const string &role, const string &label, const string &description,
+                        LinkValueType valueType, bool required, bool writable,
                         const string &requiredWhenParam, const string &requiredWhenValue,
                         const string &requiredWhenLink)
 {
     Json r = { { "role", role },
+               { "label", label },
                { "description", description },
+               { "value_type", linkValueTypeToString(valueType) },
                { "required", required },
                { "writable", writable } };
     if (!requiredWhenParam.empty())
@@ -307,12 +329,20 @@ string IODoc::genDocMd(const string iotype)
 
         doc += "\n## Parameters of " + name + "\n";
 
-        doc += "Name | Type | Mandatory | Description\n";
-        doc += "---- | ---- | --------- | -----------\n";
+        bool labelled = false;
+        for (const auto &it: m_parameters)
+            labelled = labelled || it.second.Exists("label");
+
+        doc += labelled ? "Name | Label | Type | Mandatory | Description\n"
+                        : "Name | Type | Mandatory | Description\n";
+        doc += labelled ? "---- | ----- | ---- | --------- | -----------\n"
+                        : "---- | ---- | --------- | -----------\n";
 
         for (const auto &it: byName(m_parameters))
         {
             doc += it.second["name"] + (m_child_params.count(it.first) ? " (calaos:param)" : "") + " | ";
+            if (labelled)
+                doc += it.second["label"] + " | ";
             doc += it.second["type"] + " | ";
             if (it.second["mandatory"] == "true")
                 doc += "yes | ";
@@ -327,12 +357,14 @@ string IODoc::genDocMd(const string iotype)
     {
         doc += "## Link roles of " + name + "\n";
         doc += "Writable: the device writes this link.\n\n";
-        doc += "Role | Required | Writable | Description\n";
-        doc += "---- | -------- | -------- | -----------\n";
+        doc += "Role | Label | Value | Required | Writable | Description\n";
+        doc += "---- | ----- | ----- | -------- | -------- | -----------\n";
 
         for (const Json &r: m_link_roles)
         {
             doc += r["role"].get<string>() + " | ";
+            doc += r["label"].get<string>() + " | ";
+            doc += r["value_type"].get<string>() + " | ";
             string required = r["required"].get<bool>() ? "yes" : "no";
             if (r.contains("required_when"))
             {

@@ -50,43 +50,56 @@ ProxyClimate::ProxyClimate(Params &p):
 
     ioDoc->paramAddList("auto_payload", _("What is written to the mode link for auto. Without it, the spelling "
                                           "the appliance last reported, else heat_cool."),
-                        false, Params({ { "auto", "auto" }, { "heat_cool", "heat_cool" } }));
+                        false, Params({ { "auto", "auto" }, { "heat_cool", "heat_cool" } }), string(), false,
+                        _("Auto payload"));
     ioDoc->paramAdd("remote_temp_keepalive", _("Seconds between two relays of the remote_temp_source value to "
                                                "remote_temp, on top of each change. The appliance falls back to "
                                                "its own sensor when updates stop. A number of seconds above 0, "
                                                "else the default is used."),
-                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_KEEPALIVE));
+                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_KEEPALIVE), false,
+                    _("Remote temperature refresh"));
     ioDoc->paramAdd("readback_hold", _("Seconds a range bound just commanded is trusted before its readback "
                                        "confirms it, so two quick partial commands are validated together. "
                                        "A number of seconds above 0, else the default is used."),
-                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_READBACK_HOLD));
+                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_READBACK_HOLD), false,
+                    _("Readback hold"));
     for (const char *name: { "auto_payload", "remote_temp_keepalive", "readback_hold" })
         ioDoc->paramInChild(name);
 
-    ioDoc->linkRoleAdd("mode", _("Mode of the appliance. Needs a command_io unless its io is an output. Its "
-                                 "availability is the appliance's: connected false in the state."),
-                       true, true);
-    ioDoc->linkRoleAdd("current_temp", _("Temperature the appliance measures."), false, false);
-    ioDoc->linkRoleAdd("target_temp", _("Setpoint used in heat and cool."), false, true);
-    ioDoc->linkRoleAdd("target_temp_low", _("Low bound of the auto range. Both bounds are needed for a range."),
+    ioDoc->linkRoleAdd("mode", _("Mode"),
+                       _("Mode of the appliance. Needs a command_io unless its io is an output. Its "
+                         "availability is the appliance's: connected false in the state."),
+                       IODoc::LINK_STRING, true, true);
+    ioDoc->linkRoleAdd("current_temp", _("Current temperature"), _("Temperature the appliance measures."),
+                       IODoc::LINK_NUMBER, false, false);
+    ioDoc->linkRoleAdd("target_temp", _("Setpoint"), _("Setpoint used in heat and cool."), IODoc::LINK_NUMBER, false,
+                       true);
+    ioDoc->linkRoleAdd("target_temp_low", _("Low setpoint"),
+                       _("Low bound of the auto range. Both bounds are needed for a range."), IODoc::LINK_NUMBER,
                        false, true);
-    ioDoc->linkRoleAdd("target_temp_high", _("High bound of the auto range. Both bounds are needed for a range."),
+    ioDoc->linkRoleAdd("target_temp_high", _("High setpoint"),
+                       _("High bound of the auto range. Both bounds are needed for a range."), IODoc::LINK_NUMBER,
                        false, true);
-    ioDoc->linkRoleAdd("action", _("What the appliance is doing: off, idle, heating, cooling, drying, fan."),
-                       false, false);
-    ioDoc->linkRoleAdd("fan_mode", _("Fan mode. Needs the fan_modes param."), false, true);
-    ioDoc->linkRoleAdd("swing_mode", _("Swing mode. Needs the swing_modes param."), false, true);
-    ioDoc->linkRoleAdd("remote_temp", _("Where the temperature of another sensor is written, for appliances that "
-                                        "take one. Needs remote_temp_source."),
+    ioDoc->linkRoleAdd("action", _("Action"),
+                       _("What the appliance is doing: off, idle, heating, cooling, drying, fan."),
+                       IODoc::LINK_STRING, false, false);
+    ioDoc->linkRoleAdd("fan_mode", _("Fan mode"), _("Fan mode. Needs the fan_modes param."), IODoc::LINK_STRING,
                        false, true);
-    ioDoc->linkRoleAdd("humidity", _("Relative humidity the appliance, or a room sensor, reports: shown in the "
-                                     "state."),
-                       false, false);
-    ioDoc->linkRoleAdd("remote_temp_source", _("The sensor relayed to remote_temp. Needs remote_temp. Not relayed "
-                                               "before it has read since the start, nor while it has sent "
-                                               "nothing for sensor_timeout or reports itself disconnected: the "
-                                               "appliance then falls back to its own sensor."),
-                       false, false);
+    ioDoc->linkRoleAdd("swing_mode", _("Swing mode"), _("Swing mode. Needs the swing_modes param."),
+                       IODoc::LINK_STRING, false, true);
+    ioDoc->linkRoleAdd("remote_temp", _("Remote temperature"),
+                       _("Where the temperature of another sensor is written, for appliances that "
+                         "take one. Needs remote_temp_source."),
+                       IODoc::LINK_NUMBER, false, true);
+    ioDoc->linkRoleAdd("humidity", _("Humidity sensor"),
+                       _("Relative humidity the appliance, or a room sensor, reports: shown in the state."),
+                       IODoc::LINK_NUMBER, false, false);
+    ioDoc->linkRoleAdd("remote_temp_source", _("Room sensor"),
+                       _("The sensor relayed to remote_temp. Needs remote_temp. Not relayed "
+                         "before it has read since the start, nor while it has sent "
+                         "nothing for sensor_timeout or reports itself disconnected: the "
+                         "appliance then falls back to its own sensor."),
+                       IODoc::LINK_NUMBER, false, false);
 
     documentModesParam();
     documentCommand(allModes(), "mode");

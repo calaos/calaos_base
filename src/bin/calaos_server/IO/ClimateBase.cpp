@@ -86,13 +86,13 @@ ClimateBase::ClimateBase(Params &p):
     ioDoc->deviceFamilySet("climate");
     ioDoc->paramAdd("min_range", _("Minimum gap in degrees between target_temp_low and target_temp_high. "
                                    "A range closer than that is refused."),
-                    IODoc::TYPE_FLOAT, false, "0");
+                    IODoc::TYPE_FLOAT, false, "0", false, _("Minimum range"));
     ioDoc->paramInChild("min_range");
     ioDoc->paramAdd("sensor_timeout", _("Seconds a linked sensor may go without a reading, a repeated value "
                                         "included, before it counts as stale. A positive number; the default "
                                         "outlasts one lost hourly Zigbee report. A sensor older than half of "
                                         "it is asked for a reading when its protocol can (KNX)."),
-                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_SENSOR_TIMEOUT));
+                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_SENSOR_TIMEOUT), false, _("Sensor timeout"));
     ioDoc->paramInChild("sensor_timeout");
 }
 
@@ -100,7 +100,7 @@ void ClimateBase::documentModesParam()
 {
     ioDoc->paramAdd("modes", _("Comma separated modes the device offers (off, heat, cool, auto, dry, fan_only). "
                                "Default to all of them."),
-                    IODoc::TYPE_STRING, false);
+                    IODoc::TYPE_STRING, false, string(), false, _("Modes"));
     ioDoc->paramInChild("modes");
 }
 
@@ -108,10 +108,10 @@ void ClimateBase::documentFanSwing()
 {
     ioDoc->paramAdd("fan_modes", _("Comma separated fan modes the appliance accepts. Without it every fan_mode "
                                    "command is refused."),
-                    IODoc::TYPE_STRING, false);
+                    IODoc::TYPE_STRING, false, string(), false, _("Fan modes"));
     ioDoc->paramAdd("swing_modes", _("Comma separated swing modes the appliance accepts. Without it every "
                                      "swing_mode command is refused."),
-                    IODoc::TYPE_STRING, false);
+                    IODoc::TYPE_STRING, false, string(), false, _("Swing modes"));
     ioDoc->paramInChild("fan_modes");
     ioDoc->paramInChild("swing_modes");
     ioDoc->commandFieldEnum("fan_mode", _("Fan mode, one of the fan_modes param."), {}, { "fan_mode" },
