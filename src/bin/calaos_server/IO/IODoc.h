@@ -45,10 +45,12 @@ public:
     void descriptionSet(const string &description);
     void descriptionBaseSet(const string &description);
     void linkAdd(const string &description, const string &link);
-    void paramAdd(const string &name, const string &description, ParamType type, bool mandatory, const string defaultval = string(), bool readonly = false);
-    void paramAddInt(const string &name, const string &description, int min, int max, bool mandatory, int defval = 0, bool readonly = false);
-    void paramAddFloat(const string &name, const string &description, bool mandatory, double min, double max, double defval = 0, bool readonly = false);
-    void paramAddList(const string &name, const string &description, bool mandatory, const Params &keyvalues, const string &defkey = string(), bool readonly = false);
+    /* label: the short, translated name a form shows for the param; published
+     * when it is not empty. Every param of a device has one. */
+    void paramAdd(const string &name, const string &description, ParamType type, bool mandatory, const string defaultval = string(), bool readonly = false, const string &label = string());
+    void paramAddInt(const string &name, const string &description, int min, int max, bool mandatory, int defval = 0, bool readonly = false, const string &label = string());
+    void paramAddFloat(const string &name, const string &description, bool mandatory, double min, double max, double defval = 0, bool readonly = false, const string &label = string());
+    void paramAddList(const string &name, const string &description, bool mandatory, const Params &keyvalues, const string &defkey = string(), bool readonly = false, const string &label = string());
     void conditionAdd(const string &name, const string &description);
     void actionAdd(const string &name, const string &description);
     void aliasAdd(string alias);
@@ -67,13 +69,24 @@ public:
 
     //Only devices have a family and link roles; they are what tells them from a plain IO.
     void deviceFamilySet(const string &family);
-    /* writable: the device writes this link (to the appliance, to an output,
+    /* Kind of IO a link role takes, so that a client only offers the IOs that
+     * fit: a relay is not a setpoint. */
+    typedef enum
+    {
+        LINK_NUMBER,
+        LINK_BOOL,
+        LINK_STRING,
+    } LinkValueType;
+
+    /* label: short translated name of the role for a form.
+     * writable: the device writes this link (to the appliance, to an output,
      * or to an IO it owns); a role that is not is only read.
      * requiredWhenParam/Value make an optional role required once a param has
      * that value (humidity when emitter is floor); requiredWhenLink adds, as
      * an AND, that another role is linked (... and output_cool is). Published
      * as required_when: {param, value, link?}. */
-    void linkRoleAdd(const string &role, const string &description, bool required, bool writable,
+    void linkRoleAdd(const string &role, const string &label, const string &description,
+                     LinkValueType valueType, bool required, bool writable,
                      const string &requiredWhenParam = string(), const string &requiredWhenValue = string(),
                      const string &requiredWhenLink = string());
     /* The parameter is a <calaos:param> child of the device, not an XML
@@ -110,6 +123,7 @@ private:
 
     static string commandFieldRange(const Json &field);
     string typeToString(ParamType t);
+    static string linkValueTypeToString(LinkValueType t);
     ParamType typeFromString(const string &t);
 };
 

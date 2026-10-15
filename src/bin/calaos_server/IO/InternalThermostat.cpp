@@ -78,51 +78,68 @@ InternalThermostat::InternalThermostat(Params &p):
     ioDoc->paramAdd("hysteresis", _("Degrees past the setpoint before an output starts switching on: heat below "
                                     "the setpoint minus hysteresis, cool above the setpoint plus hysteresis. "
                                     "Switching off comes as soon as the setpoint is crossed."),
-                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_HYSTERESIS));
+                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_HYSTERESIS), false, _("Hysteresis"));
     ioDoc->paramAdd("min_on_time", _("Seconds an output stays on at least, except when the mode is off or a "
                                      "safety cut stops it."),
-                    IODoc::TYPE_FLOAT, false, "0");
+                    IODoc::TYPE_FLOAT, false, "0", false, _("Minimum on time"));
     ioDoc->paramAdd("min_off_time", _("Seconds an output stays off at least before it can start again."),
-                    IODoc::TYPE_FLOAT, false, "0");
+                    IODoc::TYPE_FLOAT, false, "0", false, _("Minimum off time"));
     ioDoc->paramAdd("put_back_delay", _("Seconds before an output that something else keeps switching is put "
                                         "back; the wait doubles while the other writer keeps undoing it, up to "
                                         "put_back_delay_max. At least 0.001, else the default is used."),
-                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_PUT_BACK_DELAY));
+                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_PUT_BACK_DELAY), false, _("Put-back delay"));
     ioDoc->paramAdd("put_back_delay_max", _("Longest wait between two put-backs, in seconds. Not below "
                                             "put_back_delay. It also sets the window of the log of writes "
                                             "from outside to an output: one line per source and output "
                                             "during that time."),
-                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_PUT_BACK_DELAY_MAX));
-    ioDoc->paramAdd("emitter", _("What the outputs drive. Only floor has an effect: floor cooling then needs a "
-                                 "humidity link and stops at humidity_max (dew point)."),
-                    IODoc::TYPE_STRING, false);
+                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_PUT_BACK_DELAY_MAX), false,
+                    _("Maximum put-back delay"));
+    //One call per line: gcov charges the elements of an initializer list to no line.
+    Params emitters;
+    emitters.Add("electric", _("Electric heaters"));
+    emitters.Add("water_radiator", _("Water radiators (boiler, zone valve)"));
+    emitters.Add("floor", _("Underfloor heating"));
+    emitters.Add("heat_pump", _("Reversible heat pump on contacts"));
+    emitters.Add("fan_coil", _("Fan coils (valves on a water loop)"));
+    ioDoc->paramAddList("emitter", _("What the outputs drive. Only floor has an effect: floor cooling then needs a "
+                                     "humidity link and stops at humidity_max (dew point)."),
+                        false, emitters, string(), false, _("Emitter"));
     ioDoc->paramAdd("humidity_max", _("Relative humidity (%) from which floor cooling stops, with "
                                       "emitter=floor. Not negative."),
-                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_HUMIDITY_MAX));
+                    IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_HUMIDITY_MAX), false,
+                    _("Maximum humidity"));
     for (const char *name: { "hysteresis", "min_on_time", "min_off_time", "put_back_delay",
                              "put_back_delay_max", "emitter", "humidity_max" })
         ioDoc->paramInChild(name);
 
     const string owner = _(" An output belongs to a single thermostat: a second one linking it ignores the link.");
-    ioDoc->linkRoleAdd("current_temp", _("Temperature the regulation reads. The outputs stay off until it has "
-                                         "delivered a reading since the start (a cached or retained value does "
-                                         "not count), and while it has sent nothing for sensor_timeout or "
-                                         "reports itself disconnected."),
-                       true, false);
-    ioDoc->linkRoleAdd("target_temp", _("Setpoint used in heat and cool. Created when missing."), true, true);
-    ioDoc->linkRoleAdd("target_temp_low", _("Low bound of the auto range. Created when missing, with output_cool."),
-                       false, true);
-    ioDoc->linkRoleAdd("target_temp_high", _("High bound of the auto range. Created when missing, with output_cool."),
-                       false, true);
-    ioDoc->linkRoleAdd("action", _("Written by the thermostat: off, idle, heating or cooling. Created when "
-                                   "missing."),
-                       false, true);
-    ioDoc->linkRoleAdd("output_heat", _("Output driven for heating. Enables heat.") + owner, true, true);
-    ioDoc->linkRoleAdd("output_cool", _("Output driven for cooling. Enables cool and auto.") + owner, false, true);
-    ioDoc->linkRoleAdd("humidity", _("Relative humidity of the room. With emitter=floor, cooling stops while it "
-                                     "reads humidity_max or more, has not read, is stale or disconnected; "
-                                     "without it, a floor offers neither cool nor auto."),
-                       false, false, "emitter", "floor", "output_cool");
+    ioDoc->linkRoleAdd("current_temp", _("Current temperature"),
+                       _("Temperature the regulation reads. The outputs stay off until it has "
+                         "delivered a reading since the start (a cached or retained value does "
+                         "not count), and while it has sent nothing for sensor_timeout or "
+                         "reports itself disconnected."),
+                       IODoc::LINK_NUMBER, true, false);
+    ioDoc->linkRoleAdd("target_temp", _("Setpoint"), _("Setpoint used in heat and cool. Created when missing."),
+                       IODoc::LINK_NUMBER, true, true);
+    ioDoc->linkRoleAdd("target_temp_low", _("Low setpoint"),
+                       _("Low bound of the auto range. Created when missing, with output_cool."),
+                       IODoc::LINK_NUMBER, false, true);
+    ioDoc->linkRoleAdd("target_temp_high", _("High setpoint"),
+                       _("High bound of the auto range. Created when missing, with output_cool."),
+                       IODoc::LINK_NUMBER, false, true);
+    ioDoc->linkRoleAdd("action", _("Action"),
+                       _("Written by the thermostat: off, idle, heating or cooling. Created when missing."),
+                       IODoc::LINK_STRING, false, true);
+    ioDoc->linkRoleAdd("output_heat", _("Heating output"), _("Output driven for heating. Enables heat.") + owner,
+                       IODoc::LINK_BOOL, true, true);
+    ioDoc->linkRoleAdd("output_cool", _("Cooling output"),
+                       _("Output driven for cooling. Enables cool and auto.") + owner, IODoc::LINK_BOOL, false,
+                       true);
+    ioDoc->linkRoleAdd("humidity", _("Humidity sensor"),
+                       _("Relative humidity of the room. With emitter=floor, cooling stops while it "
+                         "reads humidity_max or more, has not read, is stale or disconnected; "
+                         "without it, a floor offers neither cool nor auto."),
+                       IODoc::LINK_NUMBER, false, false, "emitter", "floor", "output_cool");
 
     documentCommand({ ClimateMode::Off, ClimateMode::Heat, ClimateMode::Cool, ClimateMode::Auto }, "",
                     _(" Heat needs the output_heat link, cool needs output_cool and auto needs both."),

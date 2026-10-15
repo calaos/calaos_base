@@ -98,6 +98,14 @@ jobs:
           for en_t, fr_t in zip(tpls["en"], tpls["fr"]):
               assert en_t["name"] != fr_t["name"], f"template {en_t['id']} is not translated"
               assert en_t["description"] != fr_t["description"], f"template {en_t['id']} is not translated"
+          # The devices were left in English once while the rest of io_doc.json was
+          # translated, which the comparison above does not show.
+          for impl, en_d in docs["en"]["devices"].items():
+              fr_d = docs["fr"]["devices"][impl]
+              assert en_d["description"] != fr_d["description"], f"device {impl} is not translated"
+              for key, name in (("parameters", "name"), ("link_roles", "role")):
+                  for en_e, fr_e in zip(en_d[key], fr_d[key]):
+                      assert en_e["description"] != fr_e["description"], f"device {impl}: {en_e[name]} is not translated"
           print("io_doc.json:", len(docs["en"]), "keys; device templates:", len(templates["templates"]))
           PY
 

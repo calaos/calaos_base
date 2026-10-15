@@ -66,7 +66,7 @@ Device::Device(Params &p):
         set_param("visible", "true");
 
     ioDoc->paramAdd("impl", _("Implementation of the device family: the key of this document in devices."),
-                    IODoc::TYPE_STRING, true, string(), true);
+                    IODoc::TYPE_STRING, true, string(), true, _("Implementation"));
 }
 
 Device::~Device()

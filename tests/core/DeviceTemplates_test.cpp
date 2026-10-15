@@ -51,6 +51,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <map>
 #include <regex>
 #include <set>
@@ -1082,12 +1083,22 @@ namespace
 const std::set<std::string> SAME_IN_FRENCH = { "Auto", "Horizontal", "Modes", "Vertical", "{name} action",
                                                "{name} mode" };
 
-bool isText(const std::vector<std::string> &path, const std::string &key)
+//Same for the documentation of the devices.
+const std::set<std::string> SAME_IN_FRENCH_DOC = { "Action", "InfluxDB", "Mode", "Modes", "Visible", "auto", "heat_cool" };
+
+bool isTemplateText(const std::vector<std::string> &path, const std::string &key)
 {
     if (key == "label" || key == "description" || key == "text")
         return true;
     //The name of a template, and of the IOs it creates; elsewhere "name" is an identifier.
     return key == "name" && (path.size() == 2 || std::find(path.begin(), path.end(), "ios") != path.end());
+}
+
+bool isDocText(const std::vector<std::string> &path, const std::string &key)
+{
+    //list_value maps a technical key to its text.
+    return key == "label" || key == "description" ||
+           std::find(path.begin(), path.end(), "list_value") != path.end();
 }
 
 std::set<std::string> placeholders(const std::string &s)
@@ -1111,8 +1122,16 @@ std::vector<std::string> codeBlocks(const std::string &s)
 
 struct FrenchWalk
 {
+    std::function<bool(const std::vector<std::string> &, const std::string &)> isText;
     std::set<std::string> sameSeen;
+    const std::set<std::string> &same;
     int texts = 0;
+
+    FrenchWalk(decltype(isText) f, const std::set<std::string> &s):
+        isText(f),
+        same(s)
+    {
+    }
 
     void walk(const Json &en, const Json &fr, std::vector<std::string> &path, const std::string &key)
     {
@@ -1152,25 +1171,32 @@ struct FrenchWalk
         EXPECT_EQ(codeBlocks(e), codeBlocks(f)) << where;
         if (e != f)
             return;
-        if (SAME_IN_FRENCH.count(e))
+        if (same.count(e))
             sameSeen.insert(e);
         else
             ADD_FAILURE() << where << " is not translated: " << e;
     }
 };
 
-} //namespace
-
-//po/fr.po is compiled and read the way the server reads it, but with LANGUAGE
-//under C.UTF-8, which needs no fr_FR locale in the image.
-TEST(DeviceTemplatesFrench, EveryTextOfEveryTemplateIsTranslated)
-{
 #if HAVE_GETTEXT
+/* po/fr.po is compiled and read the way the server reads it, but with LANGUAGE
+ * under C.UTF-8, which needs no fr_FR locale in the image. gen runs once in
+ * English, once in French. */
+bool inEnglishAndFrench(const std::function<Json()> &gen, Json &en, Json &fr)
+{
     const char *srcdir = getenv("abs_top_srcdir");
-    ASSERT_NE(nullptr, srcdir) << "abs_top_srcdir is exported by tests/Makefile.am";
+    if (!srcdir)
+    {
+        ADD_FAILURE() << "abs_top_srcdir is exported by tests/Makefile.am";
+        return false;
+    }
 
     char tmpl[] = "/tmp/templates-fr-XXXXXX";
-    ASSERT_NE(nullptr, mkdtemp(tmpl));
+    if (!mkdtemp(tmpl))
+    {
+        ADD_FAILURE() << "mkdtemp";
+        return false;
+    }
     const std::string localedir = tmpl;
     std::filesystem::create_directories(localedir + "/fr/LC_MESSAGES");
     const std::string cmd = "msgfmt -o '" + localedir + "/fr/LC_MESSAGES/" PACKAGE_NAME ".mo' '" + srcdir +
@@ -1179,10 +1205,11 @@ TEST(DeviceTemplatesFrench, EveryTextOfEveryTemplateIsTranslated)
     if (rc != 0)
     {
         std::filesystem::remove_all(localedir);
-        FAIL() << "msgfmt (gettext tools) is needed to read po/fr.po";
+        ADD_FAILURE() << "msgfmt (gettext tools) is needed to read po/fr.po";
+        return false;
     }
 
-    const Json en = DeviceTemplates::all();
+    en = gen();
 
     const std::string oldLocale = setlocale(LC_ALL, nullptr);
     const char *oldLanguage = getenv("LANGUAGE");
@@ -1191,7 +1218,7 @@ TEST(DeviceTemplatesFrench, EveryTextOfEveryTemplateIsTranslated)
     setenv("LANGUAGE", "fr", 1);
     bindtextdomain(PACKAGE_NAME, localedir.c_str());
     textdomain(PACKAGE_NAME);
-    const Json fr = DeviceTemplates::all();
+    fr = gen();
     textdomain("messages");
     setlocale(LC_ALL, oldLocale.c_str());
     if (oldLanguage)
@@ -1199,9 +1226,21 @@ TEST(DeviceTemplatesFrench, EveryTextOfEveryTemplateIsTranslated)
     else
         unsetenv("LANGUAGE");
     std::filesystem::remove_all(localedir);
-    ASSERT_TRUE(localeSet) << "C.UTF-8 locale is not available";
+    EXPECT_TRUE(localeSet) << "C.UTF-8 locale is not available";
+    return localeSet;
+}
+#endif
 
-    FrenchWalk w;
+} //namespace
+
+TEST(DeviceTemplatesFrench, EveryTextOfEveryTemplateIsTranslated)
+{
+#if HAVE_GETTEXT
+    Json en, fr;
+    const std::function<Json()> gen = DeviceTemplates::all;
+    ASSERT_TRUE(inEnglishAndFrench(gen, en, fr));
+
+    FrenchWalk w(isTemplateText, SAME_IN_FRENCH);
     std::vector<std::string> path;
     w.walk(en, fr, path, "");
     //Guards against a walk that finds no text at all.
@@ -1210,6 +1249,104 @@ TEST(DeviceTemplatesFrench, EveryTextOfEveryTemplateIsTranslated)
 #else
     GTEST_SKIP() << "built without gettext";
 #endif
+}
+
+TEST_F(DeviceTemplatesTest, EveryTextOfEveryDeviceDocumentationIsTranslated)
+{
+#if HAVE_GETTEXT
+    Json en, fr;
+    const std::function<Json()> gen = [this]()
+    {
+        return ioDoc().at("devices");
+    };
+    ASSERT_TRUE(inEnglishAndFrench(gen, en, fr));
+
+    FrenchWalk w(isDocText, SAME_IN_FRENCH_DOC);
+    std::vector<std::string> path;
+    w.walk(en, fr, path, "");
+    EXPECT_GT(w.texts, 100);
+    EXPECT_EQ(SAME_IN_FRENCH_DOC, w.sameSeen) << "an exception no longer applies: remove it";
+#else
+    GTEST_SKIP() << "built without gettext";
+#endif
+}
+
+TEST_F(DeviceTemplatesTest, EveryParamAndLinkRoleOfEveryDeviceHasALabel)
+{
+    const Json devices = ioDoc().at("devices");
+    ASSERT_FALSE(devices.empty());
+    for (auto it = devices.begin(); it != devices.end(); ++it)
+    {
+        for (const Json &p: it.value().at("parameters"))
+            EXPECT_FALSE(p.value("label", "").empty()) << it.key() << ": param " << p.at("name") << " has no label";
+        for (const Json &r: it.value().at("link_roles"))
+        {
+            EXPECT_FALSE(r.value("label", "").empty()) << it.key() << ": role " << r.at("role") << " has no label";
+            EXPECT_TRUE(r.value("value_type", "") == "number" || r.value("value_type", "") == "bool" ||
+                        r.value("value_type", "") == "string")
+                << it.key() << ": role " << r.at("role") << " has value_type '" << r.value("value_type", "") << "'";
+        }
+    }
+}
+
+//A relay must not be offered for a setpoint: the installer filters the IOs by this type.
+TEST_F(DeviceTemplatesTest, TheValueTypeOfALinkRoleIsTheOneOfTheIoItTakes)
+{
+    const Json devices = ioDoc().at("devices");
+    const std::map<std::string, std::string> expected = {
+        { "current_temp", "number" },
+        { "target_temp", "number" },
+        { "target_temp_low", "number" },
+        { "target_temp_high", "number" },
+        { "humidity", "number" },
+        { "remote_temp", "number" },
+        { "remote_temp_source", "number" },
+        { "output_heat", "bool" },
+        { "output_cool", "bool" },
+        { "mode", "string" },
+        { "action", "string" },
+        { "fan_mode", "string" },
+        { "swing_mode", "string" },
+    };
+    for (const char *impl: { "proxy", "thermostat" })
+    {
+        ASSERT_TRUE(devices.contains(impl)) << impl;
+        for (const Json &r: devices.at(impl).at("link_roles"))
+        {
+            const std::string role = r.at("role").get<std::string>();
+            ASSERT_TRUE(expected.count(role)) << impl << ": no expectation for " << role;
+            EXPECT_EQ(expected.at(role), r.value("value_type", "")) << impl << ": " << role;
+        }
+    }
+}
+
+//The same five kinds as the template wizard offers for the emitter.
+TEST_F(DeviceTemplatesTest, TheEmitterIsAListOfTheValuesOfTheTemplates)
+{
+    std::set<std::string> fromTemplates;
+    //A range-for over at() of a temporary iterates a destroyed document.
+    const Json all = DeviceTemplates::all();
+    for (const Json &t: all.at("templates"))
+        for (const Json &f: t.at("fields"))
+            if (f.at("name") == "emitter")
+                for (const Json &o: f.at("values"))
+                    fromTemplates.insert(o.at("value").get<std::string>());
+    ASSERT_EQ(5u, fromTemplates.size());
+
+    const Json devices = ioDoc().at("devices");
+    Json emitter;
+    for (const Json &p: devices.at("thermostat").at("parameters"))
+        if (p.at("name") == "emitter")
+            emitter = p;
+    ASSERT_FALSE(emitter.is_null());
+    EXPECT_EQ("list", emitter.at("type").get<std::string>());
+    std::set<std::string> listed;
+    for (auto it = emitter.at("list_value").begin(); it != emitter.at("list_value").end(); ++it)
+    {
+        listed.insert(it.key());
+        EXPECT_FALSE(it.value().get<std::string>().empty()) << it.key();
+    }
+    EXPECT_EQ(fromTemplates, listed);
 }
 
 int main(int argc, char **argv)

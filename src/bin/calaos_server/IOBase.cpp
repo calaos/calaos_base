@@ -50,14 +50,14 @@ IOBase::IOBase(Params &p, int iotype):
     io_type(iotype)
 {
     ioDoc = new IODoc();
-    ioDoc->paramAdd("id", _("Unique ID identifying the Input/Output in calaos-server"), IODoc::TYPE_STRING, true, string(), true);
-    ioDoc->paramAdd("name", _("Name of Input/Output."), IODoc::TYPE_STRING, true);
-    ioDoc->paramAdd("visible", _("Display the Input/Output on all user interfaces if set. Default to true"), IODoc::TYPE_BOOL, false, "true");
-    ioDoc->paramAdd("enabled", _("Enable the Input/Output. The default value is true. This parameter is added if it's not found in the configuration."), IODoc::TYPE_BOOL, false, "true");
-    ioDoc->paramAdd("gui_type", _("Internal graphical type for all calaos objects. Set automatically, read-only parameter."), IODoc::TYPE_STRING, false, string(), true);
-    ioDoc->paramAdd("io_type", _("IO type, can be \"input\", \"output\", \"inout\""), IODoc::TYPE_STRING, true, string(), true);
-    ioDoc->paramAdd("log_history", _("If enabled, write an entry in the history event log for this IO"), IODoc::TYPE_BOOL, false, "false");
-    ioDoc->paramAdd("logged", _("If enabled, and if influxdb is enabled in local_config send the value to influxdb for this IO"), IODoc::TYPE_BOOL, false, "false");
+    ioDoc->paramAdd("id", _("Unique ID identifying the Input/Output in calaos-server"), IODoc::TYPE_STRING, true, string(), true, _("Identifier"));
+    ioDoc->paramAdd("name", _("Name of Input/Output."), IODoc::TYPE_STRING, true, string(), false, _("Name"));
+    ioDoc->paramAdd("visible", _("Display the Input/Output on all user interfaces if set. Default to true"), IODoc::TYPE_BOOL, false, "true", false, _("Visible"));
+    ioDoc->paramAdd("enabled", _("Enable the Input/Output. The default value is true. This parameter is added if it's not found in the configuration."), IODoc::TYPE_BOOL, false, "true", false, _("Enabled"));
+    ioDoc->paramAdd("gui_type", _("Internal graphical type for all calaos objects. Set automatically, read-only parameter."), IODoc::TYPE_STRING, false, string(), true, _("Display type"));
+    ioDoc->paramAdd("io_type", _("IO type, can be \"input\", \"output\", \"inout\""), IODoc::TYPE_STRING, true, string(), true, _("IO type"));
+    ioDoc->paramAdd("log_history", _("If enabled, write an entry in the history event log for this IO"), IODoc::TYPE_BOOL, false, "false", false, _("History log"));
+    ioDoc->paramAdd("logged", _("If enabled, and if influxdb is enabled in local_config send the value to influxdb for this IO"), IODoc::TYPE_BOOL, false, "false", false, _("InfluxDB"));
 
     if (!param.Exists("enabled"))
         param.Add("enabled", "true");
