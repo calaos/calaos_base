@@ -516,7 +516,12 @@ TEST_F(InternalThermostatValveTest, TheHumidityCutClosesAValveWhenAutoTurnsToCoo
 TEST_F(InternalThermostatValveTest, AFloorWithoutHumiditySensorIsWarnedAtLoad)
 {
     const std::string log = load();
-    EXPECT_TRUE(has(log, "Device(zone): emitter=floor without a humidity link, cooling has no dew-point cut"))
+    const std::string line = "Device(zone): emitter=floor without a humidity link, cooling has no dew-point cut";
+    ASSERT_TRUE(has(log, line)) << log;
+    //A warning, not an info: shown on a stock install.
+    const size_t start = log.rfind('\n', log.find(line));
+    EXPECT_NE(log.substr(start == std::string::npos ? 0 : start, log.find(line) - start).find("[WRN]"),
+              std::string::npos)
         << log;
     EXPECT_FALSE(has(log, "Device(zghost): emitter=floor without a humidity link")) << log;
     EXPECT_FALSE(has(log, "Device(zhum): emitter=floor without a humidity link")) << log;
