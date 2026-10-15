@@ -231,11 +231,32 @@ std::string house()
                         "topic_sub=\"" + t(std::string("conv_") + type) +
                             "\" calc_expr=\"x - 0.5\" interval=\"0.01\" enabled=\"true\"");
 
+    //A single setpoint unit whose auto Calaos emulates (decision 21).
+    std::string emu;
+    emu += mqtt("output", "MqttOutputString", "e2e_emu_mode",
+                "topic_pub=\"" + t("emu/mode/set") + "\" topic_sub=\"" + t("emu/mode") + "\" data=\"__##VALUE##__\"");
+    emu += mqtt("output", "MqttOutputAnalog", "e2e_emu_target",
+                "topic_pub=\"" + t("emu/target/set") + "\" topic_sub=\"" + t("emu/target") +
+                    "\" data=\"__##VALUE##__\"");
+    emu += mqtt("input", "MqttInputTemp", "e2e_emu_temp", "topic_sub=\"" + t("emu/temp") + "\"");
+    emu += "      <calaos:internal type=\"InternalInt\" id=\"e2e_emu_low\" name=\"e2e_emu_low\" visible=\"false\" />\n"
+           "      <calaos:internal type=\"InternalInt\" id=\"e2e_emu_high\" name=\"e2e_emu_high\" visible=\"false\" />\n";
+    emu += link("mode", "e2e_emu_mode") + link("target_temp", "e2e_emu_target") +
+           link("current_temp", "e2e_emu_temp") + link("target_temp_low", "e2e_emu_low") +
+           link("target_temp_high", "e2e_emu_high") +
+           "      <calaos:param name=\"modes\" value=\"off,heat,cool\" />\n"
+           "      <calaos:param name=\"emulate_range\" value=\"true\" />\n"
+           "      <calaos:param name=\"min_on_time\" value=\"0\" />\n"
+           "      <calaos:param name=\"min_off_time\" value=\"0\" />\n"
+           "      <calaos:param name=\"changeover_delay\" value=\"0\" />\n";
+
     const std::string salon =
         "    <calaos:device id=\"e2e\" type=\"climate\" impl=\"proxy\" name=\"e2e\">\n" + ac +
         "    </calaos:device>\n"
         "    <calaos:device id=\"e2e_ro\" type=\"climate\" impl=\"proxy\" name=\"e2e_ro\">\n" +
         ro + "    </calaos:device>\n" +
+        "    <calaos:device id=\"e2e_emu\" type=\"climate\" impl=\"proxy\" name=\"e2e_emu\">\n" + emu +
+        "    </calaos:device>\n" +
         "      <calaos:internal type=\"InternalInt\" id=\"e2e_src\" name=\"e2e_src\" visible=\"false\" />\n" +
         sensors;
 
@@ -443,6 +464,61 @@ TEST_F(ProxyClimateMqttTest, ARereadOfAConvertedValueIsNotAReading)
         EXPECT_EQ(*in->lastReading(), live) << type;
         EXPECT_DOUBLE_EQ(in->get_value_double(), 21.0) << type;
     }
+}
+
+/* The emulated auto goes out as heat, cool or off with the setpoint of the
+ * bound, never as auto, and a mode the unit reports on its own suspends it. */
+TEST_F(ProxyClimateMqttTest, TheEmulatedAutoDrivesTheUnitOverMqtt)
+{
+    ASSERT_TRUE(dev("e2e_emu")->set_value(std::string(R"({"target_temp_low":20,"target_temp_high":24})")));
+    ASSERT_TRUE(dev("e2e_emu")->set_value(std::string("auto")));
+    std::string payload;
+    ASSERT_TRUE(nextPublishOn(t("emu/mode/set"), payload));
+    EXPECT_EQ(payload, "off");
+
+    brokerSends(t("emu/temp"), "18");
+    ASSERT_TRUE(nextPublishOn(t("emu/target/set"), payload));
+    EXPECT_EQ(payload, "20");
+    ASSERT_TRUE(nextPublishOn(t("emu/mode/set"), payload));
+    EXPECT_EQ(payload, "heat");
+    EXPECT_EQ(dev("e2e_emu")->get_value_string(), "auto");
+
+    brokerSays(t("emu/mode"), "heat", [&]()
+               {
+        return io("e2e_emu_mode")->get_value_string() == "heat";
+    });
+    EXPECT_EQ(dev("e2e_emu")->get_value_string(), "auto");
+
+    //Switched at the remote.
+    brokerSays(t("emu/mode"), "cool", [&]()
+               {
+        return dev("e2e_emu")->get_value_string() == "cool";
+    });
+    brokerSends(t("emu/temp"), "17");
+    EXPECT_FALSE(nextPublishOn(t("emu/mode/set"), payload, 400)) << payload;
+}
+
+/* ESPHome republishes the mode it was in when it takes the setpoint written
+ * just before the new mode: that is no change made at the remote. */
+TEST_F(ProxyClimateMqttTest, TheUnitRepublishingItsPreviousModeKeepsAuto)
+{
+    ASSERT_TRUE(dev("e2e_emu")->set_value(std::string(R"({"target_temp_low":20,"target_temp_high":24})")));
+    ASSERT_TRUE(dev("e2e_emu")->set_value(std::string("auto")));
+    std::string payload;
+    ASSERT_TRUE(nextPublishOn(t("emu/mode/set"), payload));
+    brokerSends(t("emu/temp"), "18");
+    ASSERT_TRUE(nextPublishOn(t("emu/mode/set"), payload));
+    ASSERT_EQ(payload, "heat");
+
+    brokerSays(t("emu/mode"), "off", [&]()
+               {
+        return io("e2e_emu_mode")->get_value_string() == "off";
+    });
+    brokerSays(t("emu/mode"), "heat", [&]()
+               {
+        return io("e2e_emu_mode")->get_value_string() == "heat";
+    });
+    EXPECT_EQ(dev("e2e_emu")->get_value_string(), "auto");
 }
 
 int main(int argc, char **argv)

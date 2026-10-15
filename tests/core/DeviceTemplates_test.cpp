@@ -330,6 +330,7 @@ std::vector<Variant> variants()
                                     { "mqtt_password", "s3cret" },
                                     { "modes", allModes },
                                     { "two_point", true },
+                                    { "emulate_range", false },
                                     { "with_action", true },
                                     { "fan_modes", { "auto", "low", "high" } },
                                     { "swing_modes", { "off", "vertical" } },
@@ -337,8 +338,15 @@ std::vector<Variant> variants()
         { "esphome_minimal", "esphome_climate",
           merged(esphomeCommon(), { { "modes", { "off", "heat", "cool" } },
                                     { "two_point", false },
+                                    { "emulate_range", false },
                                     { "with_action", false },
                                     { "remote_temp_source", "" } }) },
+        { "esphome_emulated", "esphome_climate",
+          merged(esphomeCommon(), { { "modes", { "off", "heat", "cool", "auto" } },
+                                    { "two_point", false },
+                                    { "emulate_range", true },
+                                    { "with_action", true },
+                                    { "remote_temp_source", "ext_temp" } }) },
         { "esphome_ir_full", "esphome_climate_ir",
           merged(esphomeCommon(), { { "modes", allModes },
                                     { "with_current_temp", true },
@@ -411,6 +419,19 @@ std::map<std::string, Expected> expectations()
                             { "sensor_timeout", "9000" } } };
     e["esphome_minimal"] = { { "mode", "current_temp", "target_temp" },
                              { { "modes", "off,heat,cool" }, { "auto_payload", "heat_cool" } } };
+    //The range links are added by the device at load.
+    e["esphome_emulated"] = { { "mode", "current_temp", "target_temp", "target_temp_low", "target_temp_high",
+                                "action", "remote_temp", "remote_temp_source" },
+                              { { "modes", "off,heat,cool,auto" },
+                                { "auto_payload", "heat_cool" },
+                                { "remote_temp_keepalive", "120" },
+                                { "sensor_timeout", "9000" },
+                                { "emulate_range", "true" },
+                                { "min_range", "2" },
+                                { "hysteresis", "0.5" },
+                                { "min_on_time", "300" },
+                                { "min_off_time", "300" },
+                                { "changeover_delay", "600" } } };
     e["esphome_ir_full"] = { { "mode", "current_temp", "target_temp", "fan_mode", "swing_mode" },
                              { { "modes", allModes },
                                { "auto_payload", "heat_cool" },
@@ -990,11 +1011,21 @@ TEST_P(EsphomeVariantTest, TheIosUseTheTopicsOfEsphome)
                                   { "action", "action" },
                                   { "fan_mode", "fan_mode" },
                                   { "swing_mode", "swing_mode" } };
+    const auto emulated = v.values.find("emulate_range");
+    if (emulated != v.values.end() && emulated->second == true)
+    {
+        for (const char *role: { "target_temp_low", "target_temp_high" })
+        {
+            ASSERT_NE(nullptr, dev->linkIo(role)) << role;
+            EXPECT_EQ("InternalInt", dev->linkIo(role)->get_param("type")) << role;
+        }
+    }
     for (const Device::Link &l: dev->getLinks())
     {
-        if (l.name == "remote_temp_source")
-            continue;
         IOBase *mqtt = dev->linkIo(l.name);
+        //The emulated range is created by the device, not on the node.
+        if (l.name == "remote_temp_source" || (mqtt && mqtt->get_param("type") == "InternalInt"))
+            continue;
         ASSERT_NE(nullptr, mqtt) << l.name;
         std::string sub = "salon-clim/calaos/remote_temp", pub = sub;
         if (l.name != "remote_temp")
@@ -1048,7 +1079,22 @@ TEST_P(DeviceTemplateVariantTest, ADeviceBuiltFromTheTemplateRoundTrips)
         return all;
     };
     const auto wantChildren = children(want);
-    const auto gotChildren = children(got);
+    auto gotChildren = children(got);
+    //The emulated range is the device's own addition, saved with it.
+    const auto emulated = v.values.find("emulate_range");
+    if (emulated != v.values.end() && emulated->second == true)
+    {
+        auto range = [](pugi::xml_node c)
+        {
+            const std::string name = c.attribute("name").value();
+            return std::string(c.attribute("type").value()) == "InternalInt" ||
+                   (std::string(c.name()) == "calaos:link" &&
+                    (name == "target_temp_low" || name == "target_temp_high"));
+        };
+        const size_t before = gotChildren.size();
+        gotChildren.erase(std::remove_if(gotChildren.begin(), gotChildren.end(), range), gotChildren.end());
+        EXPECT_EQ(before - 4, gotChildren.size()) << ioXmlOnDisk();
+    }
     ASSERT_EQ(wantChildren.size(), gotChildren.size()) << ioXmlOnDisk();
     for (size_t i = 0; i < wantChildren.size(); i++)
     {

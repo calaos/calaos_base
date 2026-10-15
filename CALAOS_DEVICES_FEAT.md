@@ -266,7 +266,10 @@ Existing IOs are unaffected: their command strings do not change.
   sensor_disconnected`, decision 20); `lockout: {"output": "heat",
   "remaining": 140}` while a wanted output waits for its lock-out (seconds left, computed at
   publication; clients count down locally); `fault` (`sensor_missing`, `sensor_waiting`, `sensor_stale`, `sensor_disconnected`,
-  `sensor_out_of_range`, `humidity_high`, `humidity_stale`; one at a time, in the precedence of §8.2) while a safety rule holds the outputs off. Absent when not
+  `sensor_out_of_range`, `humidity_high`, `humidity_stale`; one at a time, in the precedence of §8.2) while a safety rule holds the outputs off. A proxy in
+  emulated auto (§7) carries the same `lockout` (`output` `heat` or `cool`) and the four sensor
+  `fault`s other than `sensor_out_of_range` for its room sensor, and publishes the unit's
+  `action: off` as `idle`. Absent when not
   applicable. The UI built on them is described in `docs/devices/UI_CLIMATE.md`.
 
 ---
@@ -322,7 +325,7 @@ capability. ESPHome's `heat_cool` is mapped to `auto` by the proxy (CLIM-2).
 
 - Reads come from the `io` of each link, and writes go to its `command_io`, or to the `io` itself
   when it is an output that is both readable and writable (`MqttOutputAnalog`).
-- No regulation in Calaos.
+- No regulation in Calaos, except the emulated range below.
 - **Remote temperature** (2-way serial units such as Mitsubishi CN105): the source sensor's value
   is relayed to `remote_temp` on every change **and** every `remote_temp_keepalive` seconds. The
   unit reverts to its internal sensor if updates stop, so the keep-alive is mandatory. This keeps
@@ -330,6 +333,35 @@ capability. ESPHome's `heat_cool` is mapped to `auto` by the proxy (CLIM-2).
 - IR-only units (`climate_ir`) cannot take a remote temperature. To regulate them on a real sensor,
   use ESPHome's `generic_thermostat` on the device, or a Calaos thermostat that gates the unit's
   mode (later).
+- **Emulated range** (`emulate_range="true"`, decision 21, CLIM-8), for a unit with a single
+  setpoint. Needs a writable `target_temp` and `heat` and `cool` among the modes, else refused at
+  load (logged). The device keeps `target_temp_low`/`_high` itself: `InternalInt` `save="true"`
+  created at load when missing (19 and max(25, 19 + `min_range`), bounded like `target_temp`).
+  It announces `target_temp_range` and adds `auto` to its modes; `auto` is never sent to the unit.
+  - In `auto`, the reference is `remote_temp_source` when linked, else `current_temp`. Below
+    `low − hysteresis` the unit goes `heat` with `target_temp` = low (written before the mode),
+    above `high + hysteresis` `cool` with `target_temp` = high, and `off` as soon as the room is back
+    in the range (no consumption inside the band). The unit's setpoint follows the bound while it
+    runs and is put back when the unit reads another one (more than half a `step` away), once per
+    `readback_hold` at most; still different after that, the unit cannot hold it (rounding, a
+    minimum of its mode) and it is left as it is, logged once, until Calaos decides another
+    setpoint. A `target_temp` command is refused while
+    `auto` runs. A changeover goes through `off`. A reference that is not a number switches nothing.
+  - Lock-outs: `min_on_time` before auto stops the unit, `min_off_time` before it starts it again,
+    `changeover_delay` between the end of one of heat/cool and the start of the other (at least
+    `min_off_time`). Defaults: `hysteresis` 0.5, 300 / 300 / 600 s (also the template's). A server
+    start counts as a stop: a stop waits for `min_on_time`, a start for `min_off_time`, and only the
+    opposite of the last mode the unit ran in waits for the changeover delay. A mode the user
+    selects is applied at once and leaves `auto`.
+  - Room sensor not fresh (§8.2 freshness, `sensor_timeout`) or unit disconnected: nothing changes;
+    the state carries `fault` (`sensor_waiting`, `sensor_stale`, `sensor_disconnected`,
+    `sensor_missing` without a reference) and, for a start that waits, `lockout` (§5.3).
+  - A mode read back that differs from the one sent was changed outside Calaos (remote,
+    ESPHome): `auto` is suspended until it is selected again, logged; the device then shows the
+    unit's mode. Not when it is the mode before the command, read within `readback_hold` (ESPHome
+    republishes it after the setpoint write), nor while the unit is disconnected.
+  - Persistence: `<auto|manual> <last mode sent> [<last of heat/cool sent>]` in the state cache;
+    after a restart `auto` goes on if the unit reports that mode, and is suspended otherwise.
 
 ---
 

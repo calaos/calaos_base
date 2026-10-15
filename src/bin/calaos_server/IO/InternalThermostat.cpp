@@ -21,7 +21,6 @@
 #include "InternalThermostat.h"
 #include "CalaosConfig.h"
 #include "ListeRoom.h"
-#include "libuvw.h"
 
 #include <algorithm>
 #include <cmath>
@@ -35,20 +34,6 @@ namespace
 
 const char *const LOW = "target_temp_low";
 const char *const HIGH = "target_temp_high";
-
-//Capped at about 30 years: beyond, llround() and the deadlines would overflow.
-uint64_t toMs(double seconds)
-{
-    return static_cast<uint64_t>(std::llround(std::min(seconds, 1e9) * 1000));
-}
-
-//The loop clock the timers use, refreshed: outside a loop turn it lags.
-uint64_t loopNow()
-{
-    auto loop = uvw::Loop::getDefault();
-    loop->update();
-    return loop->now().count();
-}
 
 /* Never freed: the first thermostat is built after ListeRoom, so a function
  * static would die before it, and ~ListeRoom() destroys the thermostats left
@@ -241,21 +226,6 @@ void InternalThermostat::resolveLinks()
     };
     //Several times per sensor_timeout: an old sensor is asked before it is stale.
     freshnessCheck = std::make_unique<Timer>(std::min(sensorTimeout() / 4, FRESHNESS_POLL), check);
-}
-
-double InternalThermostat::nonNegativeParam(const char *name, double def)
-{
-    if (!hasDeviceParam(name))
-        return def;
-
-    double v = 0;
-    if (Utils::from_string(getDeviceParam(name), v) && std::isfinite(v) && v >= 0)
-        return v;
-
-    cErrorDom("device") << "Device(" << get_param("id") << "): " << name << " '"
-                        << getDeviceParam(name) << "' is not a non-negative number, " << def
-                        << " is used";
-    return def;
 }
 
 /* An output belongs to one thermostat: the first one loaded keeps it, a later
@@ -856,22 +826,8 @@ void InternalThermostat::switchOutput(Output &out, Output &other, bool on, uint6
 uint64_t InternalThermostat::lockedFor(const Output &out, const Output &other, bool on,
                                        uint64_t now, bool forced) const
 {
-    uint64_t until = 0;
-    auto after = [&until](const std::optional<uint64_t> &since, uint64_t delay)
-    {
-        if (since)
-            until = std::max(until, *since + delay);
-    };
-
-    if (on)
-    {
-        after(out.st.offAt, minOffMs);
-        after(other.st.offAt, minOffMs);
-    }
-    else if (!forced)
-        after(out.st.onAt, minOnMs);
-
-    return until > now ? until - now : 0;
+    return lockoutWait(on, forced, out.st.onAt, out.st.offAt, other.st.offAt,
+                       Lockouts{ minOnMs, minOffMs, minOffMs }, now);
 }
 
 void InternalThermostat::writeAction()
