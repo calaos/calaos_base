@@ -521,6 +521,21 @@ lien et écrit sur son `command_io`, sinon sur son `io` quand c'est une sortie.
   change ou que `readback_hold` secondes (défaut 10) s'écoulent. Sans cela, deux commandes
   rapprochées se valideraient contre la valeur que la première a remplacée. Une écriture refusée
   n'est pas retenue.
+- **Double consigne émulée** (`emulate_range="true"`, décision 21) : pour une unité à consigne
+  unique. Le device garde `target_temp_low` / `_high` (des `InternalInt` `save="true"` que le proxy crée
+  au chargement s'ils manquent, bornés comme `target_temp` ; le template ESPHome n'en crée pas) et ajoute `auto` à ses modes. En `auto`,
+  la référence est `remote_temp_source`, sinon `current_temp` : sous `low − hysteresis` l'unité
+  passe en `heat` avec la consigne basse (écrite avant le mode), au-dessus de `high + hysteresis`
+  en `cool` avec la consigne haute, et en `off` dès que la pièce revient dans la bande. Verrous
+  `min_on_time` / `min_off_time` et `changeover_delay` (au moins `min_off_time`) par
+  `ClimateBase::lockoutWait()`, partagé avec le thermostat ; un démarrage compte comme une
+  bascule. Un mode choisi par l'utilisateur s'applique tout de suite et quitte `auto`. Sonde pas
+  fraîche ou unité déconnectée : rien ne change, l'état porte `fault` (`sensor_waiting`,
+  `sensor_stale`, `sensor_disconnected`, `sensor_missing`). Un départ attendu publie
+  `lockout`, et l'`action` `off` de l'unité se publie `idle`. Un mode relu différent de celui
+  envoyé, une fois l'envoi confirmé ou `readback_hold` écoulé, est un changement hors Calaos :
+  `auto` est suspendu et journalisé. `auto` n'est jamais envoyé à l'unité. Le cache d'état garde
+  `auto <dernier mode envoyé>` : au redémarrage, `auto` reprend si l'unité rapporte ce mode.
 
 ### InternalThermostat
 

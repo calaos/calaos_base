@@ -179,7 +179,7 @@ donne, dans la pièce `Salon` :
 
 | id | impl | Demandé | IOs possédés | IO externes |
 |---|---|---|---|---|
-| `esphome_climate` | proxy | préfixe de topic, object id, broker, modes, deux consignes ?, bornes de consigne, action ?, modes de ventilation et d'oscillation | mode, current_temp, target_temp ou low/high, action, fan_mode, swing_mode (Mqtt), remote_temp | sonde de la pièce (optionnelle) |
+| `esphome_climate` | proxy | préfixe de topic, object id, broker, modes, deux consignes ?, double consigne émulée ?, bornes de consigne, action ?, modes de ventilation et d'oscillation | mode, current_temp, target_temp ou low/high, action, fan_mode, swing_mode (Mqtt), remote_temp | sonde de la pièce (optionnelle) |
 | `esphome_climate_ir` | proxy | préfixe, object id, broker, modes, sonde ESPHome ?, bornes, ventilation, oscillation | mode, current_temp, target_temp, fan_mode, swing_mode (Mqtt) | — |
 | `thermostat_heat` | thermostat | émetteur | target_temp (`InternalInt`), action (`InternalString`) | sonde, sortie chaud |
 | `thermostat_heat_cool` | thermostat | émetteur | target_temp, low, high, action | sonde, sorties chaud et froid |
@@ -214,6 +214,7 @@ donne, dans la pièce `Salon` :
 | `thermostat_heat_cool`, ventilo-convecteurs (`fan_coil`) | 0.5 | 120 | 120 | 1 | 9000 | — | 1 / 60 |
 | `thermostat_floor_heat_cool` | 0.5 | 900 | 900 | 2 | 9000 | 60 (champ) | 1 / 60 |
 | `esphome_climate` avec sonde relayée | — | — | — | — | 9000 | — | — (`remote_temp_keepalive` 120) |
+| `esphome_climate`, double consigne émulée | 0.5 | 300 | 300 | 2 | — | — | — (`changeover_delay` 600) |
 
 Pourquoi :
 
@@ -249,6 +250,13 @@ Pourquoi :
   l'installateur l'abaisse si l'eau est plus froide.
 - **`put_back_delay` 1 s, max 60 s** : défauts du serveur. La remise d'une sortie passe par ses
   verrous, qui protègent déjà le matériel.
+- **Double consigne émulée** (`emulate_range`, décision 21) : la clim garde sa propre protection
+  de compresseur ; 300 s de marche et d'arrêt évitent seulement que Calaos la fasse cycler, et
+  600 s entre la fin du chaud et le début du froid (ou l'inverse) laissent la pression s'équilibrer.
+  Le template ne crée pas les consignes basse et haute : le proxy les crée au chargement
+  (`InternalInt` sauvegardés à 19 et 25, bornés comme la consigne de l'unité), un lien ne
+  pouvant avoir qu'une cible. Avec « Deux consignes » aussi coché, `target_temp` n'est pas créé et
+  le proxy refuse l'émulation au chargement.
 - **Proxy** : `remote_temp_keepalive` 120 s, défaut du serveur ; un appareil revient à sa propre
   sonde quand les mises à jour cessent (spec §7). `sensor_timeout` 9000 s arrête le relais d'une
   sonde muette.
@@ -261,21 +269,22 @@ et toutes les `remote_temp_keepalive` secondes (`MqttOutputAnalog`, relu sur le 
 `MqttCtrl` refuse un IO sans `topic_sub`). Le YAML du nœud doit l'écouter ; le template porte ce
 texte dans ses `notes`.
 
-Climatiseur Mitsubishi sur CN105 (composants `cn105` de MitsubishiCN105ESPHome ou
-`mitsubishi_heatpump`, dont l'id est `hp`) :
+Climatiseur Mitsubishi sur CN105 (composant MitsubishiCN105ESPHome) : la température relayée
+devient un capteur du nœud et la source de température distante du climate ;
+`remote_temperature_timeout` le ramène sur sa propre sonde quand Calaos se tait (le régler
+au-dessus du keep-alive) :
 
 ```yaml
-mqtt:
-  on_message:
-    - topic: salon-clim/calaos/remote_temp
-      then:
-        - lambda: |-
-            auto t = parse_number<float>(x);
-            if (t.has_value()) id(hp).set_remote_temperature(*t);
+sensor:
+  - platform: mqtt_subscribe
+    id: calaos_temp
+    topic: salon-clim/calaos/remote_temp
+climate:
+  - platform: cn105
+    remote_temperature_source:
+      sensor_id: calaos_temp
+    remote_temperature_timeout: 10min
 ```
-
-Si le composant a une option de repli (`remote_temperature_timeout` de MitsubishiCN105ESPHome),
-la régler au-dessus du keep-alive, par exemple `10min`.
 
 Climate ESPHome qui régule sur sa propre sonde (plateforme `thermostat`) : la température relayée
 devient cette sonde ; le filtre `timeout` la passe à NaN si Calaos se tait, et le thermostat
@@ -300,7 +309,7 @@ Un climate infrarouge (`climate_ir`) ne prend pas de température distante (spec
 
 - `core/DeviceTemplates_test` : structure de chaque template (champs, `when`, références,
   substitutions, options), types enregistrés et rôles connus d'après `io_doc.json`, rôles
-  obligatoires présents, chaque param d'IO ou de device documenté, puis, pour dix jeux de valeurs
+  obligatoires présents, chaque param d'IO ou de device documenté, puis, pour onze jeux de valeurs
   (chaque option, chaque `when` dans les deux sens), un device qui se charge sans
   avertissement ni erreur, dont chaque lien se résout, et qui fait l'aller-retour XML sans
   qu'un attribut écrit par le template ne soit perdu ou réécrit. Un device ESPHome suit le statut
