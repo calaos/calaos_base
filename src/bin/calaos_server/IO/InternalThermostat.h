@@ -133,7 +133,6 @@ private:
         std::optional<uint64_t> startsAt;
     };
 
-    double nonNegativeParam(const char *name, double def);
     void readPutBackDelays();
     void readValidBounds();
     void claimOutputs();

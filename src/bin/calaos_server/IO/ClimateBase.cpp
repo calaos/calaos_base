@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "ClimateBase.h"
+#include "libuvw.h"
 
 #include <algorithm>
 #include <cmath>
@@ -595,4 +596,54 @@ Json ClimateBase::deviceState()
         state["humidity"] = humidity->get_value_double();
 
     return Json(std::move(state));
+}
+
+double ClimateBase::nonNegativeParam(const char *name, double def)
+{
+    if (!hasDeviceParam(name))
+        return def;
+
+    double v = 0;
+    if (Utils::from_string(getDeviceParam(name), v) && std::isfinite(v) && v >= 0)
+        return v;
+
+    cErrorDom("device") << "Device(" << get_param("id") << "): " << name << " '"
+                        << getDeviceParam(name) << "' is not a non-negative number, " << def
+                        << " is used";
+    return def;
+}
+
+uint64_t ClimateBase::toMs(double seconds)
+{
+    return static_cast<uint64_t>(std::llround(std::min(seconds, 1e9) * 1000));
+}
+
+uint64_t ClimateBase::loopNow()
+{
+    auto loop = uvw::Loop::getDefault();
+    loop->update();
+    return loop->now().count();
+}
+
+uint64_t ClimateBase::lockoutWait(bool on, bool forced, const std::optional<uint64_t> &onAt,
+                                  const std::optional<uint64_t> &offAt,
+                                  const std::optional<uint64_t> &otherOffAt, const Lockouts &l,
+                                  uint64_t now)
+{
+    uint64_t until = 0;
+    auto after = [&until](const std::optional<uint64_t> &since, uint64_t delay)
+    {
+        if (since)
+            until = std::max(until, *since + delay);
+    };
+
+    if (on)
+    {
+        after(offAt, l.minOffMs);
+        after(otherOffAt, l.changeoverMs);
+    }
+    else if (!forced)
+        after(onAt, l.minOnMs);
+
+    return until > now ? until - now : 0;
 }

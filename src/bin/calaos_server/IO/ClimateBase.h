@@ -23,6 +23,9 @@
 
 #include "Device.h"
 
+#include <cstdint>
+#include <optional>
+
 namespace Calaos
 {
 
@@ -156,6 +159,29 @@ protected:
 
     Json deviceCapabilities() override;
     Json deviceState() override;
+
+    //The param as a number >= 0; `def` when absent, and logged when invalid.
+    double nonNegativeParam(const char *name, double def);
+
+    //Seconds to ms, capped at about 30 years: beyond, llround() and the deadlines would overflow.
+    static uint64_t toMs(double seconds);
+    //The loop clock the timers use, refreshed: outside a loop turn it lags.
+    static uint64_t loopNow();
+
+    struct Lockouts
+    {
+        uint64_t minOnMs = 0;
+        uint64_t minOffMs = 0;
+        //After the other output went OFF, before this one may start: a changeover.
+        uint64_t changeoverMs = 0;
+    };
+    /* ms before an output may switch to `on`, from the loop times of its last
+     * switches and of the other output's last OFF. A forced stop waits for
+     * nothing; min_off_time still guards the restart. */
+    static uint64_t lockoutWait(bool on, bool forced, const std::optional<uint64_t> &onAt,
+                                const std::optional<uint64_t> &offAt,
+                                const std::optional<uint64_t> &otherOffAt, const Lockouts &l,
+                                uint64_t now);
 
 private:
     //Both bounds linked and writable.
