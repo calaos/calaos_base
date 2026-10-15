@@ -142,6 +142,13 @@ std::string house()
     ios += zone("zghost", FLOOR + REVERSIBLE + link("humidity", "nowhere"));
     ios += zone("zdef", "");
     ios += zone("zbad", param("modes", "heat, cool,dry,bogus"));
+    //auto without cool: it would cool anyway.
+    ios += zone("zhalf", param("modes", "heat,auto"), true);
+    //Auto on a floor, its dew point guarded.
+    ios += zone("zauhum", FLOOR + param("modes", "heat,cool,auto") + link("humidity", "zauhum_hum") +
+                              param("humidity_max", "65") + param("min_on_time", "5"),
+                true);
+    ios += internal("InternalInt", "zauhum_hum", "    ");
     ios += zone("zempty", param("modes", ""));
     ios += pair("pairheat", param("modes", "off,heat"), true);
     ios += pair("pairnocool", param("modes", "heat,cool"), false);
@@ -171,7 +178,7 @@ std::string house()
     return ioXmlDocument(roomXml("Salon", "salon", ios));
 }
 
-const std::vector<std::string> DEVICES = { "zone", "zauto", "zlock", "zhum", "zghost", "zdef", "zbad", "zempty", "pairheat", "pairnocool", "pairnoauto", "mix", "own_a", "own_b", "own_c" };
+const std::vector<std::string> DEVICES = { "zone", "zauto", "zlock", "zhum", "zghost", "zhalf", "zauhum", "zdef", "zbad", "zempty", "pairheat", "pairnocool", "pairnoauto", "mix", "own_a", "own_b", "own_c" };
 
 } //namespace
 
@@ -474,6 +481,57 @@ TEST_F(InternalThermostatValveTest, AHumiditySensorCutsTheCooling)
 }
 
 //A mistyped humidity IO must not lift the cut.
+/* Heating, then cool asked with the humidity too high: the heat pump follows
+ * the house mode and sends cold water, so the valve closes at once instead of
+ * waiting for its min_on_time. */
+TEST_F(InternalThermostatValveTest, TheHumidityCutClosesAValveHeldForADirectionChange)
+{
+    load();
+    set("zhum_hum", 70);
+    mode("zhum", "heat");
+    set("zhum_temp", 18);
+    ASSERT_TRUE(on("zhum_valve"));
+
+    mode("zhum", "cool");
+    set("zhum_temp", 25);
+    EXPECT_FALSE(on("zhum_valve"));
+    EXPECT_EQ(state("zhum").value("fault", ""), "humidity_high");
+}
+
+//The same in auto, once auto decides to cool.
+TEST_F(InternalThermostatValveTest, TheHumidityCutClosesAValveWhenAutoTurnsToCooling)
+{
+    load();
+    set("zauhum_hum", 70);
+    mode("zauhum", "auto");
+    set("zauhum_temp", 18);
+    ASSERT_TRUE(on("zauhum_valve"));
+
+    set("zauhum_temp", 25);
+    EXPECT_FALSE(on("zauhum_valve"));
+    EXPECT_EQ(state("zauhum").value("fault", ""), "humidity_high");
+}
+
+//An unresolved humidity link still cuts: no warning that nothing does.
+TEST_F(InternalThermostatValveTest, AFloorWithoutHumiditySensorIsWarnedAtLoad)
+{
+    const std::string log = load();
+    EXPECT_TRUE(has(log, "Device(zone): emitter=floor without a humidity link, cooling has no dew-point cut"))
+        << log;
+    EXPECT_FALSE(has(log, "Device(zghost): emitter=floor without a humidity link")) << log;
+    EXPECT_FALSE(has(log, "Device(zhum): emitter=floor without a humidity link")) << log;
+}
+
+//auto cools as much as it heats: never offered without cool.
+TEST_F(InternalThermostatValveTest, AutoNeedsHeatAndCool)
+{
+    const std::string log = load();
+    EXPECT_EQ(modes("zhalf"), (std::vector<std::string>{ "off", "heat" }));
+    EXPECT_FALSE(mode("zhalf", "auto"));
+    EXPECT_FALSE(caps("zhalf").contains("target_temp_range"));
+    EXPECT_TRUE(has(log, "Device(zhalf): mode 'auto' in the modes param needs heat and cool, ignored")) << log;
+}
+
 TEST_F(InternalThermostatValveTest, AHumidityLinkThatDoesNotResolveCutsTheCooling)
 {
     load();

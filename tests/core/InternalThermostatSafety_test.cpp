@@ -520,6 +520,9 @@ TEST_F(InternalThermostatSafetyTest, FloorCoolingWithoutHumidityRuns)
 {
     const std::string log = load();
     EXPECT_FALSE(has(log, "are refused")) << log;
+    //An install that had no cooling before decision 22 must notice.
+    EXPECT_TRUE(has(log, "Device(nohum): emitter=floor without a humidity link, cooling has no dew-point cut"))
+        << log;
     EXPECT_EQ(modes("nohum"), (std::vector<std::string>{ "off", "heat", "cool", "auto" }));
     EXPECT_EQ(dev("nohum")->deviceObject().at("capabilities").at("modes"), Json({ "off", "heat", "cool", "auto" }));
     //Left ON before the restart, it waits for a reading like any output.
