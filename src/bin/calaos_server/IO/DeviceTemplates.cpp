@@ -460,6 +460,8 @@ Json thermostatParams(const string &emitter, const Json &preset)
             params.push_back(param(name, preset[name].get<string>()));
     }
     params.push_back(param("sensor_timeout", "9000"));
+    params.push_back(param("valid_min", "-30"));
+    params.push_back(param("valid_max", "60"));
     params.push_back(param("put_back_delay", "1"));
     params.push_back(param("put_back_delay_max", "60"));
     return Json(std::move(params));

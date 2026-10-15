@@ -265,8 +265,8 @@ Existing IOs are unaffected: their command strings do not change.
   disconnected (a thermostat stays reachable: its disconnected sensor is `fault:
   sensor_disconnected`, decision 20); `lockout: {"output": "heat",
   "remaining": 140}` while a wanted output waits for its lock-out (seconds left, computed at
-  publication; clients count down locally); `fault` (`sensor_waiting`, `sensor_stale`, `sensor_disconnected`, `sensor_missing`,
-  `humidity_high`, `humidity_stale`) while a safety rule holds the outputs off. Absent when not
+  publication; clients count down locally); `fault` (`sensor_missing`, `sensor_waiting`, `sensor_stale`, `sensor_disconnected`,
+  `sensor_out_of_range`, `humidity_high`, `humidity_stale`; one at a time, in the precedence of §8.2) while a safety rule holds the outputs off. Absent when not
   applicable. The UI built on them is described in `docs/devices/UI_CLIMATE.md`.
 
 ---
@@ -370,6 +370,20 @@ Constraints applied on top:
   error is logged. Regulation resumes on the next reading, even an identical one. A value
   restored from the state cache is not a reading. Drivers date every reading they receive.
   The proxy uses the same param to stop relaying `remote_temp` from a silent source.
+- **Implausible reading (CLIM-9):** `valid_min` / `valid_max` (either, both or none; absent = no
+  check, the bounds themselves are valid) bound `current_temp`. A fresh reading outside them
+  counts as no valid reading: outputs OFF at once (a safety stop, not delayed by `min_on_time`;
+  `min_off_time` still guards the restart), an error logged once per episode, and
+  `fault: sensor_out_of_range`. Mode and setpoints stay settable. The first reading back within
+  the bounds resumes regulation, without hysteresis (a sensor oscillating on a bound cycles at the
+  pace of `min_off_time`). A reading that is not a finite number is always out. A bound that is
+  not a number is ignored (logged); `valid_min` above `valid_max` ignores both. The check judges a fresh reading only, so the single `fault`
+  follows this precedence, the first that applies: `sensor_missing` (no `current_temp` link),
+  `sensor_waiting` (no reading since the start, even an implausible one counts as read),
+  `sensor_stale` (silent for `sensor_timeout`), `sensor_disconnected`, `sensor_out_of_range`,
+  then `humidity_high` / `humidity_stale` (floor cooling). In mode `off` there is no fault. An
+  implausible reading that then goes silent is `sensor_stale`; once the sensor speaks again its
+  value is judged anew.
 - **Dew point (floor cooling):** with `emitter=floor`, `cool` requires a `humidity` link, and
   `output_cool` is cut while humidity ≥ `humidity_max` (default 65 %) or while the humidity
   sensor is silent or never read. Without a humidity link, `cool`, `auto` and the setpoint range

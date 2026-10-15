@@ -28,6 +28,7 @@
 
 #include <chrono>
 #include <functional>
+#include <limits>
 #include <string>
 #include <thread>
 #include <vector>
@@ -179,6 +180,17 @@ std::string house()
     ios += thermostat("nohum", true, param("emitter", "floor"));
     ios += thermostat("fancoil", true, param("emitter", "fan_coil"));
     ios += thermostat("start", false, param("min_off_time", "0.4"));
+    //Plausible readings 5..40; a stop by implausible reading ignores min_on_time, a restart not min_off_time.
+    ios += thermostat("rng", false,
+                      param("valid_min", "5") + param("valid_max", "40") + param("min_on_time", "5") +
+                          param("min_off_time", "0.6"));
+    ios += thermostat("rngst", false,
+                      param("valid_min", "5") + param("valid_max", "40") + param("sensor_timeout", "1"));
+    ios += thermostat("lo", false, param("valid_min", "10"));
+    ios += thermostat("hi", false, param("valid_max", "30"));
+    //Unusable bounds: a word, and an interval nothing fits in.
+    ios += thermostat("rngbad", false, param("valid_min", "warm") + param("valid_max", "30"));
+    ios += thermostat("rngswap", false, param("valid_min", "30") + param("valid_max", "10"));
     //Sensors that only report their changes.
     ios += thermostat("chg", true, param("emitter", "floor") + link("humidity", "chg_hum"),
                       "    <calaos:input type=\"TestChangeSensor\" id=\"chg_temp\" name=\"chg_temp\" />\n");
@@ -193,7 +205,7 @@ struct Thermostat
 };
 
 //Every thermostat of the house: their saved IOs are reset before each case.
-const std::vector<Thermostat> THERMOSTATS = { { "boot", false }, { "stale", false }, { "steady", false }, { "quiet", false }, { "dew", true }, { "dewst", true }, { "nohum", true }, { "fancoil", true }, { "start", false }, { "chg", true } };
+const std::vector<Thermostat> THERMOSTATS = { { "boot", false }, { "stale", false }, { "steady", false }, { "quiet", false }, { "dew", true }, { "dewst", true }, { "nohum", true }, { "fancoil", true }, { "start", false }, { "chg", true }, { "rng", false }, { "rngst", false }, { "lo", false }, { "hi", false }, { "rngbad", false }, { "rngswap", false } };
 
 } //namespace
 
@@ -252,6 +264,11 @@ protected:
 
     static bool on(const std::string &id) { return must(id) && io(id)->get_value_bool(); }
     static std::string str(const std::string &id) { return must(id) ? io(id)->get_value_string() : "<none>"; }
+
+    static std::string fault(const std::string &id)
+    {
+        return dev(id)->deviceObject().at("state").value("fault", "");
+    }
 
     static bool mode(const std::string &id, const std::string &m) { return dev(id)->set_value(m); }
 
@@ -588,4 +605,178 @@ TEST_F(InternalThermostatSafetyTest, ASensorThatSaysItIsDisconnectedIsNotFresh)
     io("boot_temp")->setStatusInfo(IOBase::StatusType::Connected, IOBase::StatusConnected::STATUS_CONNECTED);
     set("boot_temp", 18);
     EXPECT_TRUE(on("boot_heat"));
+}
+
+/* A reading outside valid_min..valid_max is no valid reading. Both
+ * bounds belong to the valid range. */
+TEST_F(InternalThermostatSafetyTest, TheBoundsAreInclusive)
+{
+    load();
+    mode("lo", "heat");
+    mode("hi", "heat");
+    set("lo_target", 40);
+
+    //Heating wanted well below 40: ON at the bound, cut just under it.
+    set("lo_temp", 10);
+    EXPECT_TRUE(on("lo_heat"));
+    EXPECT_EQ(fault("lo"), "");
+    set("lo_temp", 9);
+    EXPECT_FALSE(on("lo_heat"));
+    EXPECT_EQ(fault("lo"), "sensor_out_of_range");
+
+    //A single bound is a check by itself, and the other side is open.
+    set("lo_temp", 200);
+    EXPECT_EQ(fault("lo"), "");
+    EXPECT_FALSE(on("lo_heat"));
+
+    set("hi_temp", 30);
+    EXPECT_EQ(fault("hi"), "");
+    set("hi_temp", 31);
+    EXPECT_EQ(fault("hi"), "sensor_out_of_range");
+    set("hi_temp", -50);
+    EXPECT_EQ(fault("hi"), "");
+}
+
+//The safety stop does not wait for min_on_time, the restart waits for min_off_time.
+TEST_F(InternalThermostatSafetyTest, AnImplausibleReadingStopsTheOutputsAtOnce)
+{
+    load();
+    mode("rng", "heat");
+    set("rng_temp", 10);
+    ASSERT_TRUE(waitFor("rng_heat", true, 5000)) << "min_off_time passes first";
+    EXPECT_EQ(str("rng_action"), "heating");
+
+    const std::string log = journal([]()
+                                    {
+        set("rng_temp", 41);
+        //Repeated and changing excesses are one episode.
+        set("rng_temp", 90);
+    });
+    EXPECT_FALSE(on("rng_heat")) << "min_on_time is 5 s";
+    EXPECT_EQ(str("rng_action"), "idle");
+    EXPECT_EQ(fault("rng"), "sensor_out_of_range");
+    EXPECT_EQ(count(log, "Device(rng): current_temp 'rng_temp' reads 41, outside the valid range, "
+                         "the outputs are OFF"),
+              1u)
+        << log;
+    EXPECT_EQ(count(log, "outside the valid range"), 1u) << log;
+
+    //A setpoint and a mode are still accepted, and change nothing now.
+    EXPECT_TRUE(dev("rng")->set_value(std::string(R"({"mode":"heat","target_temp":25})")));
+    EXPECT_EQ(io("rng_target")->get_value_double(), 25);
+    EXPECT_FALSE(on("rng_heat"));
+
+    //The first valid reading ends it; the lock-out of the stop still applies.
+    const std::string back = journal([]()
+                                     {
+        set("rng_temp", 12);
+    });
+    EXPECT_EQ(fault("rng"), "");
+    EXPECT_TRUE(has(back, "Device(rng): current_temp 'rng_temp' reads 12, within the valid range again, "
+                          "regulation resumes"))
+        << back;
+    EXPECT_FALSE(on("rng_heat"));
+    EXPECT_TRUE(waitFor("rng_heat", true, 5000));
+}
+
+//A silent or disconnected sensor says so, whatever its last value was.
+TEST_F(InternalThermostatSafetyTest, AnImplausibleReadingYieldsToStalenessAndDisconnection)
+{
+    load();
+    mode("rngst", "heat");
+    EXPECT_EQ(fault("rngst"), "sensor_waiting");
+    set("rngst_temp", 60);
+    EXPECT_EQ(fault("rngst"), "sensor_out_of_range");
+
+    //Silent: the fault changes by itself, then an implausible reading is back.
+    ASSERT_TRUE(pumpUntil([]()
+                          {
+        return fault("rngst") == "sensor_stale";
+    }));
+    //Back out of bounds: it does not say that regulation resumes.
+    const std::string again = journal([]()
+                                      {
+        set("rngst_temp", 60);
+    });
+    EXPECT_EQ(fault("rngst"), "sensor_out_of_range");
+    EXPECT_FALSE(has(again, "regulation resumes")) << again;
+    EXPECT_TRUE(has(again, "outside the valid range")) << again;
+    set("rngst_temp", 15);
+    EXPECT_EQ(fault("rngst"), "");
+
+    io("rngst_temp")->setStatusInfo(IOBase::StatusType::Connected, IOBase::StatusConnected::STATUS_DISCONNECTED);
+    set("rngst_temp", 60);
+    EXPECT_EQ(fault("rngst"), "sensor_disconnected");
+    io("rngst_temp")->setStatusInfo(IOBase::StatusType::Connected, IOBase::StatusConnected::STATUS_CONNECTED);
+    set("rngst_temp", 60);
+    EXPECT_EQ(fault("rngst"), "sensor_out_of_range");
+    EXPECT_FALSE(on("rngst_heat"));
+}
+
+//Mode off holds the outputs by itself: no fault to report.
+TEST_F(InternalThermostatSafetyTest, ModeOffHidesTheImplausibleReading)
+{
+    load();
+    set("rng_temp", 90);
+    EXPECT_EQ(fault("rng"), "");
+    mode("rng", "heat");
+    EXPECT_EQ(fault("rng"), "sensor_out_of_range");
+}
+
+TEST_F(InternalThermostatSafetyTest, UnusableBoundsAreLoggedAndIgnored)
+{
+    const std::string log = load();
+    EXPECT_TRUE(has(log, "Device(rngbad): valid_min 'warm' is not a number, it is ignored")) << log;
+    EXPECT_TRUE(has(log, "Device(rngswap): valid_min 30 is above valid_max 10, both are ignored")) << log;
+
+    mode("rngbad", "heat");
+    set("rngbad_temp", -50);
+    EXPECT_EQ(fault("rngbad"), "");
+    set("rngbad_temp", 31);
+    EXPECT_EQ(fault("rngbad"), "sensor_out_of_range");
+
+    mode("rngswap", "heat");
+    set("rngswap_temp", 20);
+    EXPECT_EQ(fault("rngswap"), "");
+    set("rngswap_temp", 500);
+    EXPECT_EQ(fault("rngswap"), "");
+}
+
+//Mode off holds the outputs by itself: the excess is not an event, until the mode asks for the sensor.
+TEST_F(InternalThermostatSafetyTest, AnImplausibleReadingIsOnlyLoggedOnceTheModeNeedsTheSensor)
+{
+    load();
+    const std::string off = journal([]()
+                                    {
+        set("rng_temp", 90);
+    });
+    EXPECT_FALSE(has(off, "outside the valid range")) << off;
+
+    const std::string heat = journal([]()
+                                     {
+        mode("rng", "heat");
+    });
+    EXPECT_EQ(count(heat, "outside the valid range"), 1u) << heat;
+}
+
+//A reading that is not a number is no reading, bounds or not: it would compare false to
+//every threshold and leave an ON output held.
+TEST_F(InternalThermostatSafetyTest, ANonFiniteReadingIsNoReadingWithoutBounds)
+{
+    load();
+    auto *sensor = ListeRoom::Instance().findIOAs<TestSensor>("quiet_temp");
+    ASSERT_NE(sensor, nullptr);
+    mode("quiet", "heat");
+    sensor->deliver(18);
+    ASSERT_TRUE(on("quiet_heat"));
+
+    sensor->deliver(std::numeric_limits<double>::quiet_NaN());
+    EXPECT_FALSE(on("quiet_heat"));
+    EXPECT_EQ(fault("quiet"), "sensor_out_of_range");
+
+    sensor->deliver(std::numeric_limits<double>::infinity());
+    EXPECT_EQ(fault("quiet"), "sensor_out_of_range");
+    sensor->deliver(18);
+    EXPECT_EQ(fault("quiet"), "");
+    EXPECT_TRUE(on("quiet_heat"));
 }

@@ -1154,6 +1154,15 @@ TEST_F(IODocGenFileTest, TheThermostatIsDocumentedUnderDevicesLikeTheProxy)
         EXPECT_EQ("float", p.at("type").get<std::string>()) << d.first;
         EXPECT_EQ("calaos:param", p.at("storage").get<std::string>()) << d.first;
     }
+    //No default: absent means no check.
+    for (const char *name: { "valid_min", "valid_max" })
+    {
+        const Json p = paramNamed(th, name);
+        ASSERT_TRUE(p.is_object()) << name;
+        EXPECT_FALSE(p.contains("default")) << name;
+        EXPECT_EQ("float", p.at("type").get<std::string>()) << name;
+        EXPECT_EQ("calaos:param", p.at("storage").get<std::string>()) << name;
+    }
     EXPECT_TRUE(contains(paramNamed(th, "put_back_delay").at("description").get<std::string>(), "0.001"));
     EXPECT_EQ("calaos:param", paramNamed(th, "min_range").at("storage").get<std::string>());
 
@@ -1167,7 +1176,7 @@ TEST_F(IODocGenFileTest, TheThermostatIsDocumentedUnderDevicesLikeTheProxy)
     }
     EXPECT_EQ((std::set<std::string>{ "min_range", "hysteresis", "min_on_time", "min_off_time",
                                       "put_back_delay", "put_back_delay_max", "sensor_timeout",
-                                      "emitter", "humidity_max" }),
+                                      "emitter", "humidity_max", "valid_min", "valid_max" }),
               childParams);
 
     //The outputs switch on past the hysteresis and off as the setpoint is crossed.

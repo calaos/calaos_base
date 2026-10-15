@@ -147,7 +147,8 @@ Le template `thermostat_heat`, abrégé, avec `name` = `Chauffage salon`, `room`
              { "role": "output_heat", "io": { "field": "output_heat" } } ],
   "params": [ { "name": "emitter", "value": "{emitter}" }, { "name": "hysteresis", "value": "0.3" },
               { "name": "min_on_time", "value": "120" }, { "name": "min_off_time", "value": "120" },
-              { "name": "sensor_timeout", "value": "9000" }, { "name": "put_back_delay", "value": "1" },
+              { "name": "sensor_timeout", "value": "9000" }, { "name": "valid_min", "value": "-30" },
+              { "name": "valid_max", "value": "60" }, { "name": "put_back_delay", "value": "1" },
               { "name": "put_back_delay_max", "value": "60" } ] }
 ```
 
@@ -167,6 +168,8 @@ donne, dans la pièce `Salon` :
   <calaos:param name="min_on_time" value="120"/>
   <calaos:param name="min_off_time" value="120"/>
   <calaos:param name="sensor_timeout" value="9000"/>
+  <calaos:param name="valid_min" value="-30"/>
+  <calaos:param name="valid_max" value="60"/>
   <calaos:param name="put_back_delay" value="1"/>
   <calaos:param name="put_back_delay_max" value="60"/>
 </calaos:device>
@@ -230,6 +233,16 @@ Pourquoi :
 - **`sensor_timeout`** dépend de la sonde, pas de l'émetteur : 9000 s (2 h 30) survit à un
   rapport horaire Zigbee perdu. Une sonde Wago ou 1-Wire lue toutes les secondes peut descendre
   à 600 s après création.
+- **`valid_min` -30 / `valid_max` 60** (CLIM-9), sur les trois templates `thermostat_*` : large
+  exprès. Une cave ou un garage hors gel à -2 °C doit continuer de chauffer, donc aucune borne
+  proche de 0 °C. -30 à 60 °C écarte quand même les valeurs de défaut des sondes : 85 °C à la
+  mise sous tension d'une DS18B20, -127 °C d'une sonde 1-Wire débranchée, une valeur énorme
+  d'une Wago ouverte ou en court-circuit. L'installateur resserre pour une pièce habitée.
+  Les templates `esphome_*` n'en ont pas : le proxy relaie la sonde de l'appareil et ne
+  régule pas, `valid_min`/`valid_max` n'existent que sur `thermostat`.
+  Les bornes n'ont pas d'hystérésis : une sonde qui oscille sur une borne coupe et rétablit les
+  sorties au rythme de `min_off_time`, pas plus vite. Une valeur qui n'est pas un nombre (NaN,
+  infini) est toujours hors bornes, même sans `valid_min` ni `valid_max`.
 - **`humidity_max` 60 %** (le défaut du serveur reste 65 %) : à 25 °C et 60 % d'humidité, le
   point de rosée est vers 16,7 °C. Un plancher rafraîchi par de l'eau à 16 °C a sa surface au-dessus,
   avec une marge que 65 % (rosée vers 18 °C) n'aurait plus. C'est un champ du template :
