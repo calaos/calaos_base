@@ -2449,3 +2449,359 @@ msgstr "\t--gendoc <path>\tGènèrer la documentation des E/S sur <path>\n"
 #: src/bin/calaos_server/main.cpp:59
 msgid "\t-v, --version\tDisplay current version and exit.\n"
 msgstr "\t-v, --version\tAfficher la version et quitter.\n"
+
+msgid "Name"
+msgstr "Nom"
+
+msgid "Name of the device, shown in the interfaces."
+msgstr "Nom de l'équipement, affiché dans les interfaces."
+
+msgid "Room"
+msgstr "Pièce"
+
+msgid "Room the device is created in."
+msgstr "Pièce dans laquelle l'équipement est créé."
+
+msgid "ESPHome topic prefix"
+msgstr "Préfixe de topic ESPHome"
+
+msgid ""
+"topic_prefix of the mqtt: block of the ESPHome node; its node name by "
+"default."
+msgstr ""
+"topic_prefix du bloc mqtt: du nœud ESPHome ; par défaut, le nom du nœud."
+
+msgid "Climate object id"
+msgstr "Identifiant objet du climat"
+
+msgid ""
+"Object id of the climate entity: its name in lower case, spaces and "
+"punctuation turned into underscores (Clim salon gives clim_salon)."
+msgstr ""
+"Identifiant objet de l'entité climate : son nom en minuscules, espaces et "
+"ponctuation remplacés par des tirets bas (Clim salon donne clim_salon)."
+
+msgid "MQTT broker"
+msgstr "Broker MQTT"
+
+msgid "Address of the MQTT broker the node publishes to."
+msgstr "Adresse du broker MQTT sur lequel le nœud publie."
+
+msgid "MQTT port"
+msgstr "Port MQTT"
+
+msgid "TCP port of the MQTT broker."
+msgstr "Port TCP du broker MQTT."
+
+msgid "MQTT user"
+msgstr "Utilisateur MQTT"
+
+msgid "User of the MQTT broker, if it asks for one."
+msgstr "Utilisateur du broker MQTT, si celui-ci en demande un."
+
+msgid "MQTT password"
+msgstr "Mot de passe MQTT"
+
+msgid "Password of that user."
+msgstr "Mot de passe de cet utilisateur."
+
+msgid "Auto"
+msgstr "Auto"
+
+msgid "On"
+msgstr "Marche"
+
+msgid "Off"
+msgstr "Arrêt"
+
+msgid "Low"
+msgstr "Bas"
+
+msgid "Medium"
+msgstr "Moyen"
+
+msgid "High"
+msgstr "Haut"
+
+msgid "Middle"
+msgstr "Milieu"
+
+msgid "Focus"
+msgstr "Focalisé"
+
+msgid "Diffuse"
+msgstr "Diffus"
+
+msgid "Quiet"
+msgstr "Silencieux"
+
+msgid "Fan modes"
+msgstr "Modes de ventilation"
+
+msgid "Fan modes the climate accepts. None: no fan control."
+msgstr ""
+"Modes de ventilation acceptés par le climat. Aucun : pas de commande de la "
+"ventilation."
+
+msgid "Swing modes"
+msgstr "Modes d'oscillation"
+
+msgid "Swing modes the climate accepts. None: no swing control."
+msgstr ""
+"Modes d'oscillation acceptés par le climat. Aucun : pas de commande de "
+"l'oscillation."
+
+msgid "Both"
+msgstr "Les deux"
+
+msgid "Vertical"
+msgstr "Vertical"
+
+msgid "Horizontal"
+msgstr "Horizontal"
+
+msgid "Heat"
+msgstr "Chauffage"
+
+msgid "Cool"
+msgstr "Refroidissement"
+
+msgid "Dry"
+msgstr "Déshumidification"
+
+msgid "Fan only"
+msgstr "Ventilation seule"
+
+msgid "Modes"
+msgstr "Modes"
+
+msgid "Modes the climate offers. One at least."
+msgstr "Modes proposés par le climat. Au moins un."
+
+msgid "Two setpoints"
+msgstr "Deux consignes"
+
+msgid ""
+"The climate takes a low and a high setpoint (target_temperature_low and "
+"_high) instead of a single one, as a dual setpoint ESPHome thermostat does."
+msgstr ""
+"Le climat prend une consigne basse et une consigne haute "
+"(target_temperature_low et _high) au lieu d'une seule, comme un thermostat "
+"ESPHome à double consigne."
+
+msgid "Lowest setpoint"
+msgstr "Consigne minimale"
+
+msgid "Lowest setpoint the climate accepts."
+msgstr "Consigne la plus basse acceptée par le climat."
+
+msgid "Highest setpoint"
+msgstr "Consigne maximale"
+
+msgid "Highest setpoint the climate accepts."
+msgstr "Consigne la plus haute acceptée par le climat."
+
+msgid "Setpoint step"
+msgstr "Pas de la consigne"
+
+msgid "Step of the setpoint."
+msgstr "Pas de réglage de la consigne."
+
+msgid "Reports its action"
+msgstr "Remonte son action"
+
+msgid ""
+"The climate publishes what it is doing (heating, cooling, idle). Not every "
+"platform does."
+msgstr ""
+"Le climat publie ce qu'il fait (chauffe, refroidit, au repos). Toutes les "
+"plateformes ne le font pas."
+
+msgid "Room sensor"
+msgstr "Sonde de la pièce"
+
+msgid ""
+"A sensor whose temperature Calaos relays to the climate, which then "
+"regulates on it. ESPHome needs a few lines of YAML to take it (see the "
+"notes): Calaos publishes it on <topic_prefix>/calaos/remote_temp."
+msgstr ""
+"Sonde dont Calaos relaie la température au climat, qui régule alors dessus. "
+"ESPHome a besoin de quelques lignes de YAML pour la prendre en compte (voir "
+"les notes) : Calaos la publie sur <topic_prefix>/calaos/remote_temp."
+
+msgid "{name} mode"
+msgstr "{name} mode"
+
+msgid "{name} temperature"
+msgstr "{name} température"
+
+msgid "{name} setpoint"
+msgstr "{name} consigne"
+
+msgid "{name} low setpoint"
+msgstr "{name} consigne basse"
+
+msgid "{name} high setpoint"
+msgstr "{name} consigne haute"
+
+msgid "{name} action"
+msgstr "{name} action"
+
+msgid "{name} fan"
+msgstr "{name} ventilation"
+
+msgid "{name} swing"
+msgstr "{name} oscillation"
+
+msgid "{name} remote temperature"
+msgstr "{name} température distante"
+
+msgid ""
+"ESPHome takes no remote temperature over MQTT out of the box. For a "
+"Mitsubishi CN105 climate (its id being hp), add to the YAML of the node:"
+msgstr ""
+"ESPHome n'accepte pas de température distante par MQTT par défaut. Pour un "
+"climat Mitsubishi CN105 (dont l'id est hp), ajoutez au YAML du nœud :"
+
+msgid ""
+"For a climate that regulates on a sensor of its own (thermostat platform), "
+"make the relayed temperature that sensor; the timeout turns it into NaN, and "
+"the thermostat off, when Calaos stops relaying:"
+msgstr ""
+"Pour un climat qui régule sur sa propre sonde (plateforme thermostat), "
+"faites de la température relayée cette sonde ; le délai la fait passer à "
+"NaN, et le thermostat s'arrête, quand Calaos cesse de la relayer :"
+
+msgid "ESPHome climate (MQTT)"
+msgstr "Climat ESPHome (MQTT)"
+
+msgid ""
+"A heat pump or an air conditioner run by ESPHome, which regulates by itself: "
+"Calaos reads its state over MQTT and sends the commands. Optionally, Calaos "
+"relays the temperature of a room sensor to it."
+msgstr ""
+"Une pompe à chaleur ou un climatiseur piloté par ESPHome, qui régule seul : "
+"Calaos lit son état par MQTT et envoie les commandes. En option, Calaos lui "
+"relaie la température d'une sonde de la pièce."
+
+msgid "Room temperature"
+msgstr "Température de la pièce"
+
+msgid "The IR climate has a sensor: option and publishes current_temperature."
+msgstr "Le climat IR a une option sensor: et publie current_temperature."
+
+msgid "ESPHome IR climate (MQTT)"
+msgstr "Climat IR ESPHome (MQTT)"
+
+msgid ""
+"An air conditioner driven by infrared from ESPHome (climate_ir platforms). "
+"It reports no action and cannot take a remote temperature."
+msgstr ""
+"Un climatiseur piloté en infrarouge par ESPHome (plateformes climate_ir). Il "
+"ne remonte pas son action et ne peut pas recevoir de température distante."
+
+msgid "Temperature sensor"
+msgstr "Sonde de température"
+
+msgid ""
+"The room temperature the thermostat regulates on. A sensor that only reports "
+"its changes may be taken for a silent one."
+msgstr ""
+"Température de la pièce sur laquelle le thermostat régule. Une sonde qui ne "
+"remonte que ses variations peut être prise pour une sonde muette."
+
+msgid ""
+"Relay or contact the thermostat switches. It belongs to this thermostat "
+"alone: rules must not write it."
+msgstr ""
+"Relais ou contact commuté par le thermostat. Il appartient à ce seul "
+"thermostat : les règles ne doivent pas y écrire."
+
+msgid "Electric heaters"
+msgstr "Radiateurs électriques"
+
+msgid "Water radiators (boiler, zone valve)"
+msgstr "Radiateurs à eau (chaudière, vanne de zone)"
+
+msgid "Underfloor heating"
+msgstr "Plancher chauffant"
+
+msgid "Heating output"
+msgstr "Sortie chauffage"
+
+msgid "Emitter"
+msgstr "Émetteur"
+
+msgid ""
+"What the output drives: it sets the hysteresis and the minimum on and off "
+"times."
+msgstr ""
+"Ce que la sortie commande : il détermine l'hystérésis et les durées "
+"minimales de marche et d'arrêt."
+
+msgid "Heating thermostat"
+msgstr "Thermostat de chauffage"
+
+msgid "Calaos switches a heating output from a room sensor and a setpoint."
+msgstr ""
+"Calaos commute une sortie de chauffage à partir d'une sonde de la pièce et "
+"d'une consigne."
+
+msgid "Reversible heat pump on contacts"
+msgstr "Pompe à chaleur réversible sur contacts"
+
+msgid "Fan coils (valves on a water loop)"
+msgstr "Ventilo-convecteurs (vannes sur boucle d'eau)"
+
+msgid "Cooling output"
+msgstr "Sortie refroidissement"
+
+msgid ""
+"What the outputs drive: it sets the hysteresis, the minimum on and off times "
+"and the minimum range."
+msgstr ""
+"Ce que les sorties commandent : il détermine l'hystérésis, les durées "
+"minimales de marche et d'arrêt et la plage minimale."
+
+msgid "Heating and cooling thermostat"
+msgstr "Thermostat chauffage et refroidissement"
+
+msgid ""
+"Calaos switches a heating and a cooling output from a room sensor: one "
+"setpoint in heat and cool, a range in auto."
+msgstr ""
+"Calaos commute une sortie de chauffage et une sortie de refroidissement à "
+"partir d'une sonde de la pièce : une consigne en chauffage et en "
+"refroidissement, une plage en auto."
+
+msgid "Humidity sensor"
+msgstr "Sonde d'humidité"
+
+msgid ""
+"Relative humidity of the room. Cooling stops while it reads humidity_max or "
+"more, has not read, or is silent: the floor would sweat."
+msgstr ""
+"Humidité relative de la pièce. Le refroidissement s'arrête tant qu'elle "
+"indique humidity_max ou plus, qu'elle n'a pas de valeur ou qu'elle est "
+"muette : le sol condenserait."
+
+msgid "Maximum humidity"
+msgstr "Humidité maximale"
+
+msgid ""
+"Relative humidity from which cooling stops. At 60 % and 25 °C the dew point "
+"is about 17 °C, under the surface of a floor fed with water at 16 °C."
+msgstr ""
+"Humidité relative à partir de laquelle le refroidissement s'arrête. À 60 % "
+"et 25 °C, le point de rosée est d'environ 17 °C, supérieur à la température "
+"de surface d'un sol alimenté en eau à 16 °C."
+
+msgid "Reversible floor thermostat"
+msgstr "Thermostat de plancher réversible"
+
+msgid ""
+"Calaos heats and cools through the floor, and stops cooling before the dew "
+"point."
+msgstr ""
+"Calaos chauffe et refroidit par le sol, et arrête le refroidissement avant "
+"le point de rosée."

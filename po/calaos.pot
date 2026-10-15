@@ -2197,3 +2197,404 @@ msgstr ""
 #: src/bin/calaos_server/main.cpp:59
 msgid "\t-v, --version\tDisplay current version and exit.\n"
 msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Name"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Name of the device, shown in the interfaces."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Room"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Room the device is created in."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "ESPHome topic prefix"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"topic_prefix of the mqtt: block of the ESPHome node; its node name by "
+"default."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Climate object id"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"Object id of the climate entity: its name in lower case, spaces and "
+"punctuation turned into underscores (Clim salon gives clim_salon)."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "MQTT broker"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Address of the MQTT broker the node publishes to."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "MQTT port"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "TCP port of the MQTT broker."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "MQTT user"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "User of the MQTT broker, if it asks for one."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "MQTT password"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Password of that user."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Auto"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "On"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Off"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Low"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Medium"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "High"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Middle"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Focus"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Diffuse"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Quiet"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Fan modes"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Fan modes the climate accepts. None: no fan control."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Swing modes"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Swing modes the climate accepts. None: no swing control."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Both"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Vertical"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Horizontal"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Heat"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Cool"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Dry"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Fan only"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Modes"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Modes the climate offers. One at least."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Two setpoints"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"The climate takes a low and a high setpoint (target_temperature_low and "
+"_high) instead of a single one, as a dual setpoint ESPHome thermostat does."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Lowest setpoint"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Lowest setpoint the climate accepts."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Highest setpoint"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Highest setpoint the climate accepts."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Setpoint step"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Step of the setpoint."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Reports its action"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"The climate publishes what it is doing (heating, cooling, idle). Not every "
+"platform does."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Room sensor"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"A sensor whose temperature Calaos relays to the climate, which then "
+"regulates on it. ESPHome needs a few lines of YAML to take it (see the "
+"notes): Calaos publishes it on <topic_prefix>/calaos/remote_temp."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "{name} mode"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "{name} temperature"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "{name} setpoint"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "{name} low setpoint"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "{name} high setpoint"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "{name} action"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "{name} fan"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "{name} swing"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "{name} remote temperature"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"ESPHome takes no remote temperature over MQTT out of the box. For a "
+"Mitsubishi CN105 climate (its id being hp), add to the YAML of the node:"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"For a climate that regulates on a sensor of its own (thermostat platform), "
+"make the relayed temperature that sensor; the timeout turns it into NaN, and "
+"the thermostat off, when Calaos stops relaying:"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "ESPHome climate (MQTT)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"A heat pump or an air conditioner run by ESPHome, which regulates by itself: "
+"Calaos reads its state over MQTT and sends the commands. Optionally, Calaos "
+"relays the temperature of a room sensor to it."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Room temperature"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "The IR climate has a sensor: option and publishes current_temperature."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "ESPHome IR climate (MQTT)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"An air conditioner driven by infrared from ESPHome (climate_ir platforms). "
+"It reports no action and cannot take a remote temperature."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Temperature sensor"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"The room temperature the thermostat regulates on. A sensor that only reports "
+"its changes may be taken for a silent one."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"Relay or contact the thermostat switches. It belongs to this thermostat "
+"alone: rules must not write it."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Electric heaters"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Water radiators (boiler, zone valve)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Underfloor heating"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Heating output"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Emitter"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"What the output drives: it sets the hysteresis and the minimum on and off "
+"times."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Heating thermostat"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Calaos switches a heating output from a room sensor and a setpoint."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Reversible heat pump on contacts"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Fan coils (valves on a water loop)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Cooling output"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"What the outputs drive: it sets the hysteresis, the minimum on and off times "
+"and the minimum range."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Heating and cooling thermostat"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"Calaos switches a heating and a cooling output from a room sensor: one "
+"setpoint in heat and cool, a range in auto."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Humidity sensor"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"Relative humidity of the room. Cooling stops while it reads humidity_max or "
+"more, has not read, or is silent: the floor would sweat."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Maximum humidity"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"Relative humidity from which cooling stops. At 60 % and 25 °C the dew point "
+"is about 17 °C, under the surface of a floor fed with water at 16 °C."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Reversible floor thermostat"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"Calaos heats and cools through the floor, and stops cooling before the dew "
+"point."
+msgstr ""
