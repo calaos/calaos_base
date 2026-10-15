@@ -1416,3 +1416,10 @@ rouvrir.
     `fault: sensor_disconnected` : le thermostat reste réglable (mode, consigne). Au démarrage, tant
     que la sonde n'a rien lu, `fault: sensor_waiting` (« En attente de la sonde ») ; `sensor_missing`
     ne désigne plus qu'un lien `current_temp` absent. `family` est publiée en minuscules, comme `impl`.
+21. **Double consigne émulée pour les clims mono-consigne** (2026-10-15, CLIM-8). Option `emulate_range`
+    du proxy, désactivée par défaut. Calaos garde les consignes basse et haute et, en `auto`, pilote
+    l'unité en `heat` (consigne basse) sous la basse, en `cool` (consigne haute) au-dessus de la haute,
+    et la met en **`off` entre les deux** (choix de l'utilisateur : pas de consommation dans la
+    bande). Hystérésis et durées minimales de marche et d'arrêt pour protéger le compresseur ; la
+    référence est la sonde de pièce (relayée si présente) ; sonde muette = pas de bascule. Un mode
+    changé à la télécommande suspend l'émulation. Calaos n'envoie jamais `auto` à l'unité.
