@@ -683,7 +683,7 @@
             "io_type": "inout",
             "name": "uc",
             "state": "off",
-            "type": "climate",
+            "type": "Climate",
             "var_type": "string"
           },
           {

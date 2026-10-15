@@ -96,6 +96,7 @@ std::string house()
     //The factory key is case-insensitive.
     std::string upper = thermostat("uc", false, "");
     upper.replace(upper.find("impl=\"thermostat\""), 17, "impl=\"Thermostat\"");
+    upper.replace(upper.find("type=\"climate\""), 14, "type=\"Climate\"");
     ios += upper;
 
     //An appliance reporting its humidity, its mode IO carrying its availability.
@@ -282,9 +283,9 @@ TEST_F(ClimateStatusTest, AStaleSensorIsAFaultWhileItLasts)
     }));
 }
 
-//No sensor linked, or none read since the start: the sensor is missing.
-//Mode off holds nothing: no fault.
-TEST_F(ClimateStatusTest, AMissingSensorIsAFaultUnlessTheModeIsOff)
+/* Decision 20: no current_temp link is a missing sensor, one that has not
+ * read since the start is waited for. Mode off holds nothing: no fault. */
+TEST_F(ClimateStatusTest, TheSensorFaultSaysWhy)
 {
     set("nosensor_target", 21);
     EXPECT_FALSE(state("nosensor").contains("fault"));
@@ -293,7 +294,7 @@ TEST_F(ClimateStatusTest, AMissingSensorIsAFaultUnlessTheModeIsOff)
 
     set("dw_target", 21);
     mode("dw", "heat");
-    EXPECT_EQ(state("dw").value("fault", ""), "sensor_missing");
+    EXPECT_EQ(state("dw").value("fault", ""), "sensor_waiting");
     set("dw_temp", 18);
     EXPECT_FALSE(state("dw").contains("fault"));
     mode("dw", "off");
@@ -329,34 +330,54 @@ TEST_F(ClimateStatusTest, TheDewPointCutIsAFault)
     }));
 }
 
-//The thermostat's sensor, the proxy's mode IO: their availability.
-TEST_F(ClimateStatusTest, ADisconnectedSensorOrApplianceIsPublished)
+/* Decision 20: a thermostat is reachable whatever its sensor does. A
+ * disconnected sensor is a fault, the mode and setpoint stay settable. */
+TEST_F(ClimateStatusTest, ADisconnectedThermostatSensorIsAFault)
 {
     WsTestSession ws;
+    set("dw_target", 21);
     set("dw_temp", 20);
-    EXPECT_FALSE(state("dw").contains("connected"));
+    mode("dw", "heat");
     io("dw_temp")->setStatusInfo(IOBase::StatusType::Connected,
                                  IOBase::StatusConnected::STATUS_DISCONNECTED);
-    EXPECT_EQ(state("dw").at("connected"), false);
+    EXPECT_EQ(state("dw").value("fault", ""), "sensor_disconnected");
+    EXPECT_FALSE(state("dw").contains("connected"));
+    EXPECT_FALSE(io("dw_heat")->get_value_bool());
     EXPECT_TRUE(publishedWhere(ws, "dw", [](const Json &st)
                                {
-        return st.contains("connected");
+        return st.value("fault", "") == "sensor_disconnected";
     }));
+    EXPECT_TRUE(dev("dw")->set_value(std::string(R"({"mode":"heat","target_temp":22})")));
+    EXPECT_EQ(state("dw").at("target_temp"), 22);
+
     io("dw_temp")->setStatusInfo(IOBase::StatusType::Connected,
                                  IOBase::StatusConnected::STATUS_CONNECTED);
-    EXPECT_FALSE(state("dw").contains("connected"));
+    EXPECT_FALSE(state("dw").contains("fault"));
     EXPECT_TRUE(publishedWhere(ws, "dw", [](const Json &st)
                                {
-        return !st.contains("connected");
+        return !st.contains("fault");
     }));
+}
 
+//An appliance whose mode IO reports itself disconnected cannot be reached.
+TEST_F(ClimateStatusTest, AnUnreachableApplianceIsNotConnected)
+{
+    WsTestSession ws;
     EXPECT_FALSE(state("px").contains("connected"));
     io("px_mode")->setStatusInfo(IOBase::StatusType::Connected,
                                  IOBase::StatusConnected::STATUS_DISCONNECTED);
     EXPECT_EQ(state("px").at("connected"), false);
+    EXPECT_FALSE(state("px").contains("fault"));
     EXPECT_TRUE(publishedWhere(ws, "px", [](const Json &st)
                                {
         return st.contains("connected");
+    }));
+    io("px_mode")->setStatusInfo(IOBase::StatusType::Connected,
+                                 IOBase::StatusConnected::STATUS_CONNECTED);
+    EXPECT_FALSE(state("px").contains("connected"));
+    EXPECT_TRUE(publishedWhere(ws, "px", [](const Json &st)
+                               {
+        return !st.contains("connected");
     }));
 }
 
@@ -443,4 +464,11 @@ TEST_F(ClimateStatusTest, TheImplPublishedIsTheFactoryKey)
     EXPECT_EQ(dev("uc")->deviceObject().at("impl"), "thermostat");
     EXPECT_EQ(dev("dw")->deviceObject().at("impl"), "thermostat");
     EXPECT_EQ(dev("px")->deviceObject().at("impl"), "proxy");
+}
+
+//Decision 20: the family is published in lower case too.
+TEST_F(ClimateStatusTest, TheFamilyIsPublishedInLowerCase)
+{
+    EXPECT_EQ(dev("uc")->deviceObject().at("family"), "climate");
+    EXPECT_EQ(dev("dw")->deviceObject().at("family"), "climate");
 }

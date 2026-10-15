@@ -58,6 +58,8 @@ protected:
     bool isWritable(const string &role) override;
     bool currentMode(ClimateMode &mode) override;
     bool writeMode(ClimateMode mode) override;
+    //Adds connected:false while the appliance cannot be reached.
+    Json deviceState() override;
     bool rangeBound(const string &role, double &value) override;
     bool writeRangeBound(const string &role, double value) override;
 

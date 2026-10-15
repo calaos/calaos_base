@@ -30,6 +30,13 @@ using namespace Calaos;
 namespace
 {
 
+//Clients compare impl and family exactly; io.xml may spell them in any case.
+string lowered(string s)
+{
+    std::transform(s.begin(), s.end(), s.begin(), Utils::to_lower());
+    return s;
+}
+
 vector<Device::WriteObserver> &writeObservers()
 {
     static vector<Device::WriteObserver> all;
@@ -53,7 +60,7 @@ Device::Device(Params &p):
     IOBase(p, IOBase::IO_INOUT)
 {
     //Clients pick their widget from gui_type: the family, whatever the impl.
-    set_param("gui_type", get_param("type"));
+    set_param("gui_type", lowered(get_param("type")));
 
     ioDoc->paramAdd("impl", _("Implementation of the device family: the key of this document in devices."),
                     IODoc::TYPE_STRING, true, string(), true);
@@ -443,12 +450,9 @@ Json Device::deviceObject()
 
 Json Device::buildDeviceObject(Json state)
 {
-    //The key the factory used (IOFactory::registryKey() lower-cases it): a
-    //client compares it exactly.
-    string impl = get_param("impl");
-    std::transform(impl.begin(), impl.end(), impl.begin(), Utils::to_lower());
-    return Json{ { "family", get_param("type") },
-                 { "impl", impl },
+    //impl is the key the factory used: IOFactory::registryKey() lower-cases it.
+    return Json{ { "family", lowered(get_param("type")) },
+                 { "impl", lowered(get_param("impl")) },
                  { "capabilities", deviceCapabilities() },
                  { "state", std::move(state) },
                  { "ios", deviceIos() } };

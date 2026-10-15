@@ -593,9 +593,6 @@ Json ClimateBase::deviceState()
     IOBase *humidity = linkIo("humidity");
     if (humidity && humidity->hasValue())
         state["humidity"] = humidity->get_value_double();
-    //Only false is said: clients take an absent key as connected.
-    if (freshness(linkIo(connectionRole())) == Freshness::Disconnected)
-        state["connected"] = false;
 
     return Json(std::move(state));
 }
