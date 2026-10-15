@@ -94,15 +94,16 @@ InternalThermostat::InternalThermostat(Params &p):
                                             "during that time."),
                     IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_PUT_BACK_DELAY_MAX), false,
                     _("Maximum put-back delay"));
+    //One call per line: gcov charges the elements of an initializer list to no line.
+    Params emitters;
+    emitters.Add("electric", _("Electric heaters"));
+    emitters.Add("water_radiator", _("Water radiators (boiler, zone valve)"));
+    emitters.Add("floor", _("Underfloor heating"));
+    emitters.Add("heat_pump", _("Reversible heat pump on contacts"));
+    emitters.Add("fan_coil", _("Fan coils (valves on a water loop)"));
     ioDoc->paramAddList("emitter", _("What the outputs drive. Only floor has an effect: floor cooling then needs a "
                                      "humidity link and stops at humidity_max (dew point)."),
-                        false,
-                        Params({ { "electric", _("Electric heaters") },
-                                 { "water_radiator", _("Water radiators (boiler, zone valve)") },
-                                 { "floor", _("Underfloor heating") },
-                                 { "heat_pump", _("Reversible heat pump on contacts") },
-                                 { "fan_coil", _("Fan coils (valves on a water loop)") } }),
-                        string(), false, _("Emitter"));
+                        false, emitters, string(), false, _("Emitter"));
     ioDoc->paramAdd("humidity_max", _("Relative humidity (%) from which floor cooling stops, with "
                                       "emitter=floor. Not negative."),
                     IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_HUMIDITY_MAX), false,
