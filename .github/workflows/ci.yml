@@ -81,6 +81,7 @@ jobs:
           import json, sys
           root = sys.argv[1]
           docs = {}
+          tpls = {}
           for lang in ("en", "fr"):
               with open(f"{root}/{lang}/io_doc.json") as f:
                   docs[lang] = json.load(f)
@@ -88,9 +89,15 @@ jobs:
                   templates = json.load(f)
               assert docs[lang].get("devices"), f"{lang}/io_doc.json: no devices"
               assert len(templates["templates"]) == 5, f"{lang}/device_templates.json"
+              tpls[lang] = templates["templates"]
               assert (open(f"{root}/{lang}/io_doc.md").read()), f"{lang}/io_doc.md is empty"
           # A missing locale or .mo gives English silently: the fr file would be a copy of en.
           assert docs["fr"] != docs["en"], "fr/io_doc.json is not translated"
+          assert tpls["fr"] != tpls["en"], "fr/device_templates.json is not translated"
+          # One template left in English would not show in the comparison above.
+          for en_t, fr_t in zip(tpls["en"], tpls["fr"]):
+              assert en_t["name"] != fr_t["name"], f"template {en_t['id']} is not translated"
+              assert en_t["description"] != fr_t["description"], f"template {en_t['id']} is not translated"
           print("io_doc.json:", len(docs["en"]), "keys; device templates:", len(templates["templates"]))
           PY
 

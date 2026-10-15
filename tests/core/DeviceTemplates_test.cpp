@@ -41,7 +41,15 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#if HAVE_GETTEXT
+#include <libintl.h>
+#endif
+
+#include <algorithm>
+#include <clocale>
+#include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <map>
 #include <regex>
@@ -1054,6 +1062,145 @@ std::vector<Variant> esphomeVariants()
 
 INSTANTIATE_TEST_SUITE_P(Templates, DeviceTemplateVariantTest, ::testing::ValuesIn(variants()), variantName);
 INSTANTIATE_TEST_SUITE_P(Templates, EsphomeVariantTest, ::testing::ValuesIn(esphomeVariants()), variantName);
+
+namespace
+{
+
+//Texts the French keeps as English: a word that is the same in both languages,
+//or a label that is only a placeholder around one. Every entry must be hit,
+//so that the list cannot outlive the texts.
+const std::set<std::string> SAME_IN_FRENCH = { "Auto", "Horizontal", "Modes", "Vertical", "{name} action",
+                                               "{name} mode" };
+
+bool isText(const std::vector<std::string> &path, const std::string &key)
+{
+    if (key == "label" || key == "description" || key == "text")
+        return true;
+    //The name of a template, and of the IOs it creates; elsewhere "name" is an identifier.
+    return key == "name" && (path.size() == 2 || std::find(path.begin(), path.end(), "ios") != path.end());
+}
+
+std::set<std::string> placeholders(const std::string &s)
+{
+    std::set<std::string> out;
+    const std::regex re("\\{[a-z_]+\\}");
+    for (std::sregex_iterator it(s.begin(), s.end(), re), end; it != end; ++it)
+        out.insert(it->str());
+    return out;
+}
+
+//The YAML of the notes is code: only the prose around it is translated.
+std::vector<std::string> codeBlocks(const std::string &s)
+{
+    std::vector<std::string> out;
+    const std::regex re("```[^`]*```");
+    for (std::sregex_iterator it(s.begin(), s.end(), re), end; it != end; ++it)
+        out.push_back(it->str());
+    return out;
+}
+
+struct FrenchWalk
+{
+    std::set<std::string> sameSeen;
+    int texts = 0;
+
+    void walk(const Json &en, const Json &fr, std::vector<std::string> &path, const std::string &key)
+    {
+        std::string where;
+        for (const std::string &p: path)
+            where += "/" + p;
+        where += "/" + key;
+
+        if (en.is_object() || en.is_array())
+        {
+            ASSERT_EQ(en.type(), fr.type()) << where;
+            ASSERT_EQ(en.size(), fr.size()) << where;
+            if (!key.empty())
+                path.push_back(key);
+            size_t i = 0;
+            for (auto it = en.begin(); it != en.end(); ++it, ++i)
+            {
+                if (en.is_object())
+                    walk(*it, fr.at(it.key()), path, it.key());
+                else
+                    walk(*it, fr.at(i), path, std::to_string(i));
+            }
+            if (!key.empty())
+                path.pop_back();
+            return;
+        }
+        if (!en.is_string() || !isText(path, key))
+        {
+            EXPECT_EQ(en, fr) << where << " is not text and must not change";
+            return;
+        }
+
+        texts++;
+        const std::string e = en.get<std::string>(), f = fr.get<std::string>();
+        EXPECT_FALSE(f.empty()) << where;
+        EXPECT_EQ(placeholders(e), placeholders(f)) << where << ": " << f;
+        EXPECT_EQ(codeBlocks(e), codeBlocks(f)) << where;
+        if (e != f)
+            return;
+        if (SAME_IN_FRENCH.count(e))
+            sameSeen.insert(e);
+        else
+            ADD_FAILURE() << where << " is not translated: " << e;
+    }
+};
+
+} //namespace
+
+//po/fr.po is compiled and read the way the server reads it, but with LANGUAGE
+//under C.UTF-8, which needs no fr_FR locale in the image.
+TEST(DeviceTemplatesFrench, EveryTextOfEveryTemplateIsTranslated)
+{
+#if HAVE_GETTEXT
+    const char *srcdir = getenv("abs_top_srcdir");
+    ASSERT_NE(nullptr, srcdir) << "abs_top_srcdir is exported by tests/Makefile.am";
+
+    char tmpl[] = "/tmp/templates-fr-XXXXXX";
+    ASSERT_NE(nullptr, mkdtemp(tmpl));
+    const std::string localedir = tmpl;
+    std::filesystem::create_directories(localedir + "/fr/LC_MESSAGES");
+    const std::string cmd = "msgfmt -o '" + localedir + "/fr/LC_MESSAGES/" PACKAGE_NAME ".mo' '" + srcdir +
+                            "/po/fr.po'";
+    const int rc = std::system(cmd.c_str());
+    if (rc != 0)
+    {
+        std::filesystem::remove_all(localedir);
+        FAIL() << "msgfmt (gettext tools) is needed to read po/fr.po";
+    }
+
+    const Json en = DeviceTemplates::all();
+
+    const std::string oldLocale = setlocale(LC_ALL, nullptr);
+    const char *oldLanguage = getenv("LANGUAGE");
+    const std::string oldLanguageValue = oldLanguage ? oldLanguage : "";
+    const bool localeSet = setlocale(LC_ALL, "C.UTF-8") != nullptr;
+    setenv("LANGUAGE", "fr", 1);
+    bindtextdomain(PACKAGE_NAME, localedir.c_str());
+    textdomain(PACKAGE_NAME);
+    const Json fr = DeviceTemplates::all();
+    textdomain("messages");
+    setlocale(LC_ALL, oldLocale.c_str());
+    if (oldLanguage)
+        setenv("LANGUAGE", oldLanguageValue.c_str(), 1);
+    else
+        unsetenv("LANGUAGE");
+    std::filesystem::remove_all(localedir);
+    ASSERT_TRUE(localeSet) << "C.UTF-8 locale is not available";
+
+    FrenchWalk w;
+    std::vector<std::string> path;
+    w.walk(en, fr, path, "");
+    //Guards against a walk that finds no text at all.
+    EXPECT_GT(w.texts, 150);
+    EXPECT_EQ(SAME_IN_FRENCH, w.sameSeen) << "an exception no longer applies: remove it";
+#else
+    GTEST_SKIP() << "built without gettext";
+#endif
+}
 
 int main(int argc, char **argv)
 {
