@@ -256,7 +256,8 @@ Pourquoi :
   Le template ne crée pas les consignes basse et haute : le proxy les crée au chargement
   (`InternalInt` sauvegardés à 19 et 25, bornés comme la consigne de l'unité), un lien ne
   pouvant avoir qu'une cible. Avec « Deux consignes » aussi coché, `target_temp` n'est pas créé et
-  le proxy refuse l'émulation au chargement.
+  le proxy refuse l'émulation au chargement. Le format n'exprime pas d'exclusion entre deux champs (`when` ne porte que sur
+  les IOs, liens, params et notes) : l'assistant de l'installer doit empêcher ce cumul (ouvert).
 - **Proxy** : `remote_temp_keepalive` 120 s, défaut du serveur ; un appareil revient à sa propre
   sonde quand les mises à jour cessent (spec §7). `sensor_timeout` 9000 s arrête le relais d'une
   sonde muette.
