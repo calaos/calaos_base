@@ -1143,7 +1143,8 @@ TEST_F(InternalThermostatTest, NeverBothOnWhileSomethingElseHoldsTheOtherOutput)
 
     //Once it has seen that write (one loop turn), and for the whole fight.
     io("duel_cool")->set_value(true);
-    pumpFor(5);
+    //Waited for, not slept: a loop turn is not 5 ms on a loaded runner.
+    ASSERT_TRUE(waitFor("duel_heat", false));
     bool both = false;
     auto sample = [&both]()
     {
