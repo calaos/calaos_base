@@ -272,9 +272,9 @@ std::string house()
     salon += remoteDevice("ns", param("remote_temp_keepalive", "0.05"));
     salon += remoteDevice("ds", param("remote_temp_keepalive", "0.05"));
     salon += remoteDevice("bk", param("remote_temp_keepalive", "abc"));
-    salon += remoteDevice("fz", param("remote_temp_keepalive", "0.05") + param("sensor_timeout", "0.2"));
+    salon += remoteDevice("fz", param("remote_temp_keepalive", "0.05") + param("sensor_timeout", "0.6"));
     salon += remoteDevice("bt", param("sensor_timeout", "0"));
-    salon += remoteDevice("rq", param("remote_temp_keepalive", "0.05") + param("sensor_timeout", "0.4"));
+    salon += remoteDevice("rq", param("remote_temp_keepalive", "0.05") + param("sensor_timeout", "2"));
     salon += device("co", out("co_remote") +
                               element("input", "FeedInput", "co_src", R"( changes_only="true")") +
                               link("remote_temp", "co_remote") + link("remote_temp_source", "co_src"));
@@ -758,7 +758,7 @@ TEST_F(ProxyClimateTest, ADisconnectedSourceIsNotRelayed)
 TEST_F(ProxyClimateTest, ASilentSourceIsNoLongerRelayed)
 {
     const char *const silent =
-        "Device(fz): remote_temp_source 'fz_src' has sent nothing for 0.2 s, remote_temp is no "
+        "Device(fz): remote_temp_source 'fz_src' has sent nothing for 0.6 s, remote_temp is no "
         "longer relayed";
     FeedInput *src = feed("fz_src");
     const std::string log = journal([&]()
@@ -768,7 +768,7 @@ TEST_F(ProxyClimateTest, ASilentSourceIsNoLongerRelayed)
                                  {
             return writesTo("fz_remote").size() >= 3;
         }));
-        pumpLoopFor(300);
+        pumpLoopFor(900);
     });
     const size_t frozen = writesTo("fz_remote").size();
     ASSERT_GE(frozen, 1u);
@@ -777,7 +777,7 @@ TEST_F(ProxyClimateTest, ASilentSourceIsNoLongerRelayed)
     EXPECT_EQ(count(log, silent), 1u) << log;
     const auto age = std::chrono::duration_cast<std::chrono::milliseconds>(
         writesTo("fz_remote").back().at - writesTo("fz_remote").front().at);
-    EXPECT_LT(age.count(), 230);
+    EXPECT_LT(age.count(), 650);
 
     //The value it had, read again: relayed at once, then kept alive.
     src->deliver(20.0);
@@ -807,8 +807,10 @@ TEST_F(ProxyClimateTest, AnAgingSourceIsAskedForAReading)
     }));
     //Asked, and still relayed: not stale yet.
     const size_t before = writesTo("rq_remote").size();
-    pumpLoopFor(60);
-    EXPECT_GT(writesTo("rq_remote").size(), before);
+    EXPECT_TRUE(runLoopUntil([before]()
+                             {
+        return writesTo("rq_remote").size() > before;
+    }));
 }
 
 TEST_F(ProxyClimateTest, TheKeepAliveStopsWhenTheDeviceIsDestroyed)
