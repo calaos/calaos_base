@@ -138,7 +138,8 @@ InternalThermostat::InternalThermostat(Params &p):
     ioDoc->linkRoleAdd("output", _("Zone valve"),
                        _("Valve or relay of the zone, ON for any demand, heating or cooling: the mode "
                          "gives the direction. Instead of output_heat and output_cool, which cannot be "
-                         "linked with it; the modes param says what it offers.") + owner,
+                         "linked with it; the modes param says what it offers.") +
+                           owner,
                        IODoc::LINK_BOOL, false, true);
     ioDoc->linkRoleReplaces("output", { "output_heat", "output_cool" });
     ioDoc->linkRoleAdd("humidity", _("Humidity sensor"),

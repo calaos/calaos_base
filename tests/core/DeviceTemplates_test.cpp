@@ -321,6 +321,19 @@ Json fieldDefault(const std::string &templateId, const std::string &field)
     return Json();
 }
 
+Values floorZone(const Json &modes, const std::string &humidity, const Json &humidityMax)
+{
+    Values v;
+    v["name"] = "Zone";
+    v["room"] = ROOM;
+    v["current_temp"] = "ext_temp";
+    v["output"] = "ext_heat";
+    v["modes"] = modes;
+    v["humidity"] = humidity;
+    v["humidity_max"] = humidityMax;
+    return v;
+}
+
 std::vector<Variant> variants()
 {
     const Json allModes = { "off", "heat", "cool", "auto", "dry", "fan_only" };
@@ -364,21 +377,9 @@ std::vector<Variant> variants()
           merged(thermostatCommon("floor"),
                  { { "humidity", "ext_hum" }, { "humidity_max", fieldDefault("thermostat_floor_heat_cool", "humidity_max") } }) },
         { "floor_zone", "thermostat_floor_zone",
-          { { "name", "Zone" },
-            { "room", ROOM },
-            { "current_temp", "ext_temp" },
-            { "output", "ext_heat" },
-            { "modes", fieldDefault("thermostat_floor_zone", "modes") },
-            { "humidity", "ext_hum" },
-            { "humidity_max", fieldDefault("thermostat_floor_zone", "humidity_max") } } },
-        { "floor_zone_heat_only", "thermostat_floor_zone",
-          { { "name", "Zone" },
-            { "room", ROOM },
-            { "current_temp", "ext_temp" },
-            { "output", "ext_heat" },
-            { "modes", { "off", "heat" } },
-            { "humidity", "" },
-            { "humidity_max", 60 } } },
+          floorZone(fieldDefault("thermostat_floor_zone", "modes"), "ext_hum",
+                    fieldDefault("thermostat_floor_zone", "humidity_max")) },
+        { "floor_zone_heat_only", "thermostat_floor_zone", floorZone({ "off", "heat" }, "", 60) },
     };
 }
 
