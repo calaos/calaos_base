@@ -668,19 +668,59 @@ bool ProxyClimate::referenceFresh()
     return f == Freshness::Fresh;
 }
 
-/* Written again when the unit reads another setpoint (changed at the
- * remote), except while the readback of a separate command_io may still lag. */
+/* A unit that reads another setpoint (changed at the remote) is written
+ * again, once per readback_hold at most. One that still differs after that
+ * cannot hold it (rounding, a minimum of its mode): it is left as it is
+ * until Calaos decides another setpoint, or each readback would write it. */
 void ProxyClimate::followSetpoint(double value)
 {
     const Bounds b = setpointBounds(TARGET);
     const double v = std::clamp(value, b.min, b.max);
     IOBase *readback = linkIo(TARGET);
-    if (readback->hasValue() && readback->get_value_double() == v)
+    const bool held = readback->hasValue() && std::abs(readback->get_value_double() - v) <= b.step / 2 + 1e-9;
+    const bool decided = emu.setpoint == v;
+    if (held)
+    {
+        emu.setpointRetry.reset();
+        if (decided)
+            emu.setpointRewritten = emu.setpointGivenUp = false;
         return;
+    }
+
     const uint64_t now = loopNow();
-    if (linkCommandIo(TARGET) && emu.setpoint == v && emu.setpointAt && now - *emu.setpointAt < toMs(readbackHold))
-        return;
+    if (decided)
+    {
+        if (emu.setpointGivenUp)
+            return;
+        const uint64_t holdMs = toMs(readbackHold);
+        if (emu.setpointAt && now - *emu.setpointAt < holdMs)
+        {
+            auto retry = [this]()
+            {
+                ProxyClimate *self = this;
+                //A Timer repeats: drop it, which its own slot may do.
+                emu.setpointRetry.reset();
+                self->emulate();
+            };
+            if (!emu.setpointRetry)
+                emu.setpointRetry = std::make_unique<Timer>((*emu.setpointAt + holdMs - now) / 1000.0, retry);
+            return;
+        }
+        if (emu.setpointRewritten)
+        {
+            emu.setpointGivenUp = true;
+            cWarningDom("device") << "Device(" << get_param("id") << "): target_temp reads "
+                                  << readback->get_value_double() << ", not the " << v
+                                  << " Calaos sent; left as it is until Calaos sets another one";
+            return;
+        }
+        emu.setpointRewritten = true;
+    }
+    else
+        emu.setpointRewritten = emu.setpointGivenUp = false;
+
     emu.setpointAt = now;
+    emu.setpointRetry.reset();
     if (writeTarget(TARGET)->set_value(v))
         emu.setpoint = v;
     else

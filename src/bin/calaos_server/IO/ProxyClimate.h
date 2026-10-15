@@ -147,8 +147,12 @@ private:
         ClimateMode previous = ClimateMode::Off;
         //The last of heat and cool sent: a restart waits for a changeover only towards the other.
         ClimateMode lastActive = ClimateMode::Off;
+        //The setpoint Calaos last decided, when it was last written, and the rewrite budget.
         std::optional<double> setpoint;
         std::optional<uint64_t> setpointAt;
+        bool setpointRewritten = false;
+        bool setpointGivenUp = false;
+        std::unique_ptr<Timer> setpointRetry;
 
         double hysteresis = DEFAULT_HYSTERESIS;
         Lockouts lockouts;
