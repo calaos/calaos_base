@@ -62,12 +62,12 @@ with open(sys.argv[1]) as f:
     doc = json.load(f)
 ids = [t["id"] for t in doc["templates"]]
 expected = ["esphome_climate", "esphome_climate_ir", "thermostat_heat",
-            "thermostat_heat_cool", "thermostat_floor_heat_cool"]
+            "thermostat_heat_cool", "thermostat_floor_heat_cool", "thermostat_floor_zone"]
 if doc["format"] != 1 or ids != expected:
     sys.exit("unexpected document: format %r, templates %r" % (doc["format"], ids))
 PYEOF
 then
-    echo "FAIL: --gentemplates did not write the five templates" >&2
+    echo "FAIL: --gentemplates did not write the six templates" >&2
     exit 1
 fi
 

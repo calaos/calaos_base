@@ -7759,6 +7759,23 @@ core_InternalThermostatSafety_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
 endif
 
+#Reversible floor zones (decision 22): one valve for both ways, the modes param.
+if HAVE_GTEST
+TESTS += core/InternalThermostatValve_test
+check_PROGRAMS += core/InternalThermostatValve_test
+core_InternalThermostatValve_test_SOURCES = core/InternalThermostatValve_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_InternalThermostatValve_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_InternalThermostatValve_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
+core_InternalThermostatValve_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
+endif
+
 #OWTemp on a real OwCtrl and a stand-in calaos_1wire: a repeated scan is a
 #reading, the input poll is not. Own main() for the harness teardown. Own
 #HAVE_GTEST block so this stays a pure append at the end of the file.

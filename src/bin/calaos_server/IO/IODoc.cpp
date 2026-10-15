@@ -20,6 +20,8 @@
  ******************************************************************************/
 #include "IODoc.h"
 
+#include <algorithm>
+
 using namespace Calaos;
 
 namespace
@@ -212,6 +214,15 @@ void IODoc::linkRoleAdd(const string &role, const string &label, const string &d
     m_link_roles.push_back(r);
 }
 
+void IODoc::linkRoleReplaces(const string &role, const vector<string> &replaced)
+{
+    for (Json &r: m_link_roles)
+    {
+        if (r["role"] == role)
+            r["replaces"] = replaced;
+    }
+}
+
 void IODoc::paramInChild(const string &name)
 {
     m_child_params.insert(name);
@@ -366,6 +377,13 @@ string IODoc::genDocMd(const string iotype)
             doc += r["label"].get<string>() + " | ";
             doc += r["value_type"].get<string>() + " | ";
             string required = r["required"].get<bool>() ? "yes" : "no";
+            for (const Json &other: m_link_roles)
+            {
+                const Json replaced = other.value("replaces", Json::array());
+                if (r["required"].get<bool>() &&
+                    std::find(replaced.begin(), replaced.end(), r["role"]) != replaced.end())
+                    required += ", or " + other["role"].get<string>();
+            }
             if (r.contains("required_when"))
             {
                 const Json &when = r["required_when"];
@@ -375,7 +393,15 @@ string IODoc::genDocMd(const string iotype)
             }
             doc += required + " | ";
             doc += string(r["writable"].get<bool>() ? "yes" : "no") + " | ";
-            doc += r["description"].get<string>() + "\n";
+            doc += r["description"].get<string>();
+            if (r.contains("replaces"))
+            {
+                string roles;
+                for (const Json &x: r["replaces"])
+                    roles += (roles.empty() ? "" : ", ") + x.get<string>();
+                doc += " Replaces " + roles + ".";
+            }
+            doc += "\n";
         }
         doc += "\n";
     }

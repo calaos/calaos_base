@@ -175,7 +175,7 @@ donne, dans la pièce `Salon` :
 </calaos:device>
 ```
 
-## Les cinq templates
+## Les six templates
 
 | id | impl | Demandé | IOs possédés | IO externes |
 |---|---|---|---|---|
@@ -184,6 +184,7 @@ donne, dans la pièce `Salon` :
 | `thermostat_heat` | thermostat | émetteur | target_temp (`InternalInt`), action (`InternalString`) | sonde, sortie chaud |
 | `thermostat_heat_cool` | thermostat | émetteur | target_temp, low, high, action | sonde, sorties chaud et froid |
 | `thermostat_floor_heat_cool` | thermostat | humidité maximale | target_temp, low, high, action | sonde, sonde d'humidité, sorties chaud et froid |
+| `thermostat_floor_zone` | thermostat | modes (off, heat, cool), humidité maximale | target_temp, action | sonde, vanne de zone (`output`), sonde d'humidité (optionnelle) |
 
 - **Topics ESPHome.** Un climate ESPHome publie `<topic_prefix>/climate/<object_id>/<x>/state`
   et écoute `.../<x>/command`. Mode, consignes, ventilation et oscillation sont un seul
@@ -199,6 +200,12 @@ donne, dans la pièce `Salon` :
   (tenir une plage) de `auto` (programme de l'appareil) ; le mode `auto` de Calaos est la plage.
   `climate_ir` n'offre que `heat_cool`. Pour un composant qui rapporte `auto`, changer le param
   après création.
+- **Zone de plancher réversible** (décision 22) : une vanne par zone sert au chaud et au froid,
+  le mode donne le sens. Pas de plage : `auto` demanderait une plage par zone, le mode global
+  de la maison se règle par une variable et des règles. Les zones sans froid gardent
+  `off, heat`. La pompe à chaleur et ses contacts chaud/froid sont pilotés par des règles sur
+  les vannes. Sans sonde d'humidité, le froid n'a pas de coupure au point de rosée : c'est à
+  l'installation (température d'eau) de garder le plancher au-dessus.
 - **Sorties des thermostats** : choisies parmi les IOs existants (relais Wago, KNX, Mqtt…), pas
   créées : le template ne connaît pas le matériel. Une sortie appartient à un seul thermostat
   (décision 17).
@@ -213,6 +220,7 @@ donne, dans la pièce `Salon` :
 | `thermostat_heat_cool`, PAC réversible sur contacts (`heat_pump`) | 0.5 | 600 | 300 | 2 | 9000 | — | 1 / 60 |
 | `thermostat_heat_cool`, ventilo-convecteurs (`fan_coil`) | 0.5 | 120 | 120 | 1 | 9000 | — | 1 / 60 |
 | `thermostat_floor_heat_cool` | 0.5 | 900 | 900 | 2 | 9000 | 60 (champ) | 1 / 60 |
+| `thermostat_floor_zone` | 0.5 | 900 | 900 | — | 9000 | 60 (champ, avec la sonde d'humidité) | 1 / 60 |
 | `esphome_climate` avec sonde relayée | — | — | — | — | 9000 | — | — (`remote_temp_keepalive` 120) |
 | `esphome_climate`, double consigne émulée | 0.5 | 300 | 300 | 2 | — | — | — (`changeover_delay` 600) |
 

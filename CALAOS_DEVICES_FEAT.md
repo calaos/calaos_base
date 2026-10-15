@@ -113,10 +113,12 @@ The family selects the client widget; the `impl` selects the server class. Two c
 - IO ids stay globally unique. Templates name owned IOs `<device_id>_<role>`; nothing parses that
   convention, it is only for readability.
 - An external IO may be linked by several devices. An owned IO belongs to exactly one device.
-- Exception: an IO linked as `output_heat` or `output_cool` of a `thermostat` device belongs to that
-  thermostat alone (decision 17). A second thermostat linking it, or the same thermostat using it
-  for both roles, gets an unresolved link (logged with `cErrorDom("device")`). Multizone heating
-  uses one output per zone and a rule that drives the boiler from them.
+- Exception: an IO linked as `output_heat`, `output_cool` or `output` of a `thermostat` device
+  belongs to that thermostat alone (decision 17). A second thermostat linking it, or the same
+  thermostat using it for two roles, gets an unresolved link (logged with `cErrorDom("device")`).
+  `output` (a zone valve, decision 22) cannot be linked with `output_heat` or `output_cool`: the
+  `output` link is then unresolved. Multizone heating uses one output per zone and a rule that
+  drives the boiler from them.
 - Link targets are resolved after **all** rooms are loaded (an external IO may live in another
   room). An unresolved link is logged with `cErrorDom("device")`, and the capability it would
   provide is absent; the device itself still loads.
@@ -290,7 +292,7 @@ needed for ESPHome. A value map for other integrations (Zigbee2MQTT) is deferred
 
 - `target_temp`: the single setpoint, used in `heat` and `cool`.
 - `target_temp_low` / `target_temp_high`: the range, used in `auto`. Present when the device
-  supports a range (ESPHome `heat_cool`, thermostat with `output_cool`).
+  supports a range (ESPHome `heat_cool`, thermostat offering `auto`).
 - `min_range`: the minimum gap enforced between low and high. It replaces the earlier "dead zone"
   and protects a heat pump against back-to-back heat/cool changeovers.
 
@@ -304,15 +306,22 @@ rule: neither has to duplicate the other's logic.
 | `mode` (+ `command_io`) | required | — (the device stores it) | `modes` (all six unless the `modes` param lists a subset, comma-separated) |
 | `current_temp` | optional | **required** (regulation input) | `current_temp` |
 | `target_temp` | optional | **required**, owned | `target_temp` (bounds from the IO's `value_min`/`value_max`/`step`) |
-| `target_temp_low` / `_high` | optional | owned, when `output_cool` exists | `target_temp_range` |
+| `target_temp_low` / `_high` | optional | owned, when `auto` is offered | `target_temp_range` |
 | `action` | optional | owned, written by the thermostat | `reports_action` |
 | `fan_mode` / `swing_mode` (+ `command_io`) | optional | — | `fan_modes` / `swing_modes` (list from a param) |
 | `remote_temp` + `remote_temp_source` | optional | — | `remote_temp` |
-| `output_heat` | — | **required** | enables `heat` |
+| `output_heat` | — | **required**, unless `output` | enables `heat` |
 | `output_cool` | — | optional | enables `cool`, `auto` |
-| `humidity` | — | required to allow `cool` when `emitter=floor` | dew-point cut |
+| `output` | — | instead of `output_heat` / `output_cool` | zone valve: `heat`, `cool`, `auto` as the `modes` param lists |
+| `humidity` | — | optional | dew-point cut when `emitter=floor` |
 
-Thermostat modes: `{off, heat}` without `output_cool`, `{off, heat, cool, auto}` with it.
+Thermostat modes: `{off, heat}` without `output_cool`, `{off, heat, cool, auto}` with it; with
+`output`, `off` plus the modes of the `modes` param (`heat` alone without it). The `modes` param
+(a subset of `heat`, `cool`, `auto`; `off` is always offered) narrows either: a mode outside it is
+refused like any invalid command and absent from the capabilities. A listed mode the outputs cannot
+run, or an unknown one, is logged at load and ignored. `target_temp_low`/`_high` serve `auto`
+only. IODoc publishes `replaces: ["output_heat", "output_cool"]` on `output`: linking both is a
+configuration error, and a requirement on a replaced role is met by `output`.
 
 Setpoint bounds come from the linked IO's `value_min`/`value_max`/`step`/`unit`, defaulting to
 7 / 35 / 0.5 / °C. When `target_temp_range` is present, the `target_temp` capability also carries
@@ -392,6 +401,11 @@ Constraints applied on top:
 - In `auto`, never energise both outputs. A changeover additionally waits for `min_off_time` of
   the other output.
 - `action` is written after each evaluation (`off`, `idle`, `heating`, `cooling`).
+- **Zone valve** (`output`, decision 22): ON for any demand, `heat` or `cool` as above, the mode
+  giving the direction. A change of direction closes the valve after its `min_on_time` and opens
+  it again after its `min_off_time`, as a changeover of two outputs does; `action` says `heating`
+  or `cooling`. The heat pump, its heat/cool contacts and a house-wide mode are rules over the zone
+  outputs (no "heat pump" device).
 
 ### 8.2 Safety
 
@@ -416,16 +430,18 @@ Constraints applied on top:
   then `humidity_high` / `humidity_stale` (floor cooling). In mode `off` there is no fault. An
   implausible reading that then goes silent is `sensor_stale`; once the sensor speaks again its
   value is judged anew.
-- **Dew point (floor cooling):** with `emitter=floor`, `cool` requires a `humidity` link, and
-  `output_cool` is cut while humidity ≥ `humidity_max` (default 65 %) or while the humidity
-  sensor is silent or never read. Without a humidity link, `cool`, `auto` and the setpoint range
-  are refused at load (logged) and absent from the capabilities.
+- **Dew point (floor cooling):** with `emitter=floor` and a `humidity` link, cooling (`output_cool`,
+  or `output` in cooling) is cut while humidity ≥ `humidity_max` (default 65 %), or while the
+  humidity sensor is silent, never read, or its link does not resolve. Without a humidity link the
+  floor cools (decision 22): condensation is then the installation's business (water temperature
+  set by the heat pump), and the load logs it at info level.
 - **Thermal inertia:** for floors, templates default to a wide hysteresis and long min on/off
   times. PID is out of scope.
 
 ### 8.3 Protected outputs
 
-`output_heat` and `output_cool` are driven by the thermostat; a second writer causes a conflict.
+`output_heat`, `output_cool` and `output` are driven by the thermostat; a second writer causes a
+conflict.
 
 - MCP hides them from `list_ios` and refuses to write them.
 - A write from a rule, Lua or `set_state` is **logged as a warning**, never blocked: the rules

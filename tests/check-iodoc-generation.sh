@@ -67,7 +67,7 @@ for lang in ("en", "fr"):
         sys.exit("%s/io_doc.json: devices missing, or a device among the IO types" % lang)
     with open("%s/%s/device_templates.json" % (sys.argv[1], lang)) as f:
         tpl = json.load(f)
-    if len(tpl["templates"]) != 5:
+    if len(tpl["templates"]) != 6:
         sys.exit("%s/device_templates.json: %d templates" % (lang, len(tpl["templates"])))
 PYEOF
 then

@@ -514,24 +514,22 @@ TEST_F(InternalThermostatSafetyTest, ASilentHumiditySensorCutsTheCooling)
     EXPECT_TRUE(on("dewst_cool"));
 }
 
-//Spec §8.2: without a humidity link nothing guards the floor against
-//condensation, so it cannot cool at all.
-TEST_F(InternalThermostatSafetyTest, FloorCoolingWithoutHumidityIsRefusedAtLoad)
+//Decision 22: without a humidity link a floor cools, the condensation being
+//the installation's business.
+TEST_F(InternalThermostatSafetyTest, FloorCoolingWithoutHumidityRuns)
 {
     const std::string log = load();
-    EXPECT_TRUE(has(log, "Device(nohum): emitter=floor without a humidity link, cool and auto "
-                         "are refused"))
-        << log;
-    EXPECT_EQ(modes("nohum"), (std::vector<std::string>{ "off", "heat" }));
-    EXPECT_EQ(dev("nohum")->deviceObject().at("capabilities").at("modes"), Json({ "off", "heat" }));
-    EXPECT_FALSE(mode("nohum", "cool"));
-    EXPECT_FALSE(mode("nohum", "auto"));
-    //Still its output: left ON before the restart, it is switched OFF.
+    EXPECT_FALSE(has(log, "are refused")) << log;
+    EXPECT_EQ(modes("nohum"), (std::vector<std::string>{ "off", "heat", "cool", "auto" }));
+    EXPECT_EQ(dev("nohum")->deviceObject().at("capabilities").at("modes"), Json({ "off", "heat", "cool", "auto" }));
+    //Left ON before the restart, it waits for a reading like any output.
     EXPECT_FALSE(on("nohum_cool"));
 
-    //Only a floor needs it.
-    EXPECT_FALSE(has(log, "Device(fancoil)")) << log;
-    EXPECT_EQ(modes("fancoil"), (std::vector<std::string>{ "off", "heat", "cool", "auto" }));
+    EXPECT_TRUE(mode("nohum", "cool"));
+    set("nohum_temp", 25);
+    EXPECT_TRUE(on("nohum_cool"));
+    EXPECT_EQ(str("nohum_action"), "cooling");
+    EXPECT_FALSE(dev("nohum")->deviceObject().at("state").contains("fault"));
 }
 
 /* The server may restart while a relay is ON, or a few seconds after it went
@@ -565,17 +563,14 @@ TEST_F(InternalThermostatSafetyTest, ASensorThatOnlyReportsChangesIsLoggedAtLoad
     EXPECT_EQ(count(log, "only reports changes"), 2u) << log;
 }
 
-//The range only serves auto, which such a floor cannot run.
-TEST_F(InternalThermostatSafetyTest, FloorCoolingWithoutHumidityOffersNoRange)
+//It runs auto, so it offers the range.
+TEST_F(InternalThermostatSafetyTest, FloorCoolingWithoutHumidityOffersTheRange)
 {
     load();
     const Json caps = dev("nohum")->deviceObject().at("capabilities");
-    EXPECT_FALSE(caps.contains("target_temp_range")) << caps.dump();
-    EXPECT_TRUE(caps.contains("target_temp")) << caps.dump();
-    EXPECT_FALSE(dev("nohum")->set_value(std::string(R"({"target_temp_low":18,"target_temp_high":24})")));
-    EXPECT_EQ(io("nohum_low")->get_value_double(), 19);
-
-    EXPECT_TRUE(dev("fancoil")->deviceObject().at("capabilities").contains("target_temp_range"));
+    EXPECT_TRUE(caps.contains("target_temp_range")) << caps.dump();
+    EXPECT_TRUE(dev("nohum")->set_value(std::string(R"({"target_temp_low":18,"target_temp_high":24})")));
+    EXPECT_EQ(io("nohum_low")->get_value_double(), 18);
 }
 
 /* A device can say it is gone (ESPHome's last will, a Zigbee availability

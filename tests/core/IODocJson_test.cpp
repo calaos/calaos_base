@@ -672,6 +672,27 @@ TEST(IODocJson, ARequirementCanAlsoNeedALinkToExist)
     EXPECT_TRUE(contains(md, "r_plain | lbl_plain | number | when p_when=v_when | no | desc_plain\n"));
 }
 
+//Decision 22: a zone valve stands for output_heat and output_cool. The
+//required role it replaces says so in the markdown, the others are untouched.
+TEST(IODocJson, ARoleCanReplaceOthers)
+{
+    IODoc doc = deviceDoc();
+    doc.linkRoleAdd("r_valve", "lbl_valve", "desc_valve", IODoc::LINK_BOOL, false, true);
+    doc.linkRoleReplaces("r_valve", { "r_req", "r_opt" });
+    doc.linkRoleReplaces("r_unknown", { "r_req" });
+
+    const Json roles = docToJson(doc).at("link_roles");
+    ASSERT_EQ(3u, roles.size());
+    EXPECT_EQ(Json({ "r_req", "r_opt" }), roles.at(2).at("replaces"));
+    EXPECT_FALSE(roles.at(0).contains("replaces"));
+    EXPECT_FALSE(roles.at(1).contains("replaces"));
+
+    const std::string md = doc.genDocMd("x");
+    EXPECT_TRUE(contains(md, "r_req | lbl_r_req | number | yes, or r_valve | yes | desc_r_req\n")) << md;
+    EXPECT_TRUE(contains(md, "r_opt | lbl_r_opt | bool | no | no | desc_r_opt\n")) << md;
+    EXPECT_TRUE(contains(md, "r_valve | lbl_valve | bool | no | yes | desc_valve Replaces r_req, r_opt.\n")) << md;
+}
+
 //The mark does not depend on the order of the calls: a constructor that marks
 //first, or adds again, must not lose it.
 TEST(IODocJson, AParamMarkedBeforeItIsAddedIsMarked)
@@ -1104,6 +1125,7 @@ TEST_F(IODocGenFileTest, TheThermostatIsDocumentedUnderDevicesLikeTheProxy)
     EXPECT_TRUE(contains(modeText, "capabilities"));
     EXPECT_TRUE(contains(modeText, "cool needs output_cool"));
     EXPECT_TRUE(contains(modeText, "auto needs both"));
+    EXPECT_TRUE(contains(modeText, "the modes param says which ones"));
 
     std::map<std::string, std::pair<bool, bool>> roles;
     std::map<std::string, std::string> texts;
@@ -1121,19 +1143,22 @@ TEST_F(IODocGenFileTest, TheThermostatIsDocumentedUnderDevicesLikeTheProxy)
         { "action", { false, true } },
         { "output_heat", { true, true } },
         { "output_cool", { false, true } },
+        { "output", { false, true } },
         { "humidity", { false, false } },
     };
     EXPECT_EQ(expected, roles);
-    //Required for a cooling floor only.
+    //Decision 22: humidity is optional, and a valve stands for the pair.
     for (const Json &r: th.at("link_roles"))
     {
-        if (r.at("role") == "humidity")
-            EXPECT_EQ(Json({ { "param", "emitter" }, { "value", "floor" }, { "link", "output_cool" } }),
-                      r.at("required_when"));
+        EXPECT_FALSE(r.contains("required_when")) << r.at("role");
+        if (r.at("role") == "output")
+            EXPECT_EQ(Json({ "output_heat", "output_cool" }), r.at("replaces"));
+        else
+            EXPECT_FALSE(r.contains("replaces")) << r.at("role");
     }
     EXPECT_TRUE(contains(texts["current_temp"], "sensor_timeout"));
     //Decision 17: one output, one thermostat.
-    for (const char *role: { "output_heat", "output_cool" })
+    for (const char *role: { "output_heat", "output_cool", "output" })
         EXPECT_TRUE(contains(texts[role], "belongs to a single thermostat")) << role;
     EXPECT_FALSE(contains(texts["target_temp"], "single thermostat"));
 
@@ -1166,8 +1191,8 @@ TEST_F(IODocGenFileTest, TheThermostatIsDocumentedUnderDevicesLikeTheProxy)
     EXPECT_TRUE(contains(paramNamed(th, "put_back_delay").at("description").get<std::string>(), "0.001"));
     EXPECT_EQ("calaos:param", paramNamed(th, "min_range").at("storage").get<std::string>());
 
-    //Only what the thermostat reads: modes, fan_modes and swing_modes are the
-    //proxy's, a thermostat ignores them.
+    //Only what the thermostat reads: fan_modes and swing_modes are the proxy's,
+    //a thermostat ignores them.
     std::set<std::string> childParams;
     for (const Json &p: th.at("parameters"))
     {
@@ -1176,7 +1201,7 @@ TEST_F(IODocGenFileTest, TheThermostatIsDocumentedUnderDevicesLikeTheProxy)
     }
     EXPECT_EQ((std::set<std::string>{ "min_range", "hysteresis", "min_on_time", "min_off_time",
                                       "put_back_delay", "put_back_delay_max", "sensor_timeout",
-                                      "emitter", "humidity_max", "valid_min", "valid_max" }),
+                                      "emitter", "humidity_max", "valid_min", "valid_max", "modes" }),
               childParams);
 
     //The outputs switch on past the hysteresis and off as the setpoint is crossed.

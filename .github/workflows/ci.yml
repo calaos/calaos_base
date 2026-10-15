@@ -88,7 +88,7 @@ jobs:
               with open(f"{root}/{lang}/device_templates.json") as f:
                   templates = json.load(f)
               assert docs[lang].get("devices"), f"{lang}/io_doc.json: no devices"
-              assert len(templates["templates"]) == 5, f"{lang}/device_templates.json"
+              assert len(templates["templates"]) == 6, f"{lang}/device_templates.json"
               tpls[lang] = templates["templates"]
               assert (open(f"{root}/{lang}/io_doc.md").read()), f"{lang}/io_doc.md is empty"
           # A missing locale or .mo gives English silently: the fr file would be a copy of en.

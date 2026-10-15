@@ -50,8 +50,9 @@ public:
      * rules. */
     static void warnIfProtected(IOBase &io, const char *source);
 
-    /* off, plus heat with output_heat, cool with output_cool, auto with both.
-     * A floor (emitter=floor) cools only with a humidity link. */
+    /* off, plus heat with output_heat, cool with output_cool, auto with both;
+     * a valve (output) runs the modes of the modes param, heat without it.
+     * The modes param narrows either. */
     vector<ClimateMode> supportedModes() override;
 
     static constexpr double DEFAULT_HYSTERESIS = 0.5;
@@ -95,6 +96,7 @@ protected:
     Json deviceState() override;
     bool applyCommand(const Json &command) override;
     Json deviceIos() override;
+    void checkModesParam() override;
 
 private:
     struct Output
@@ -139,8 +141,9 @@ private:
     //The IO of an output link, nullptr when missing or refused.
     IOBase *outputIo(Output &out);
     void recreateOwnedIos();
-    //output_cool linked, and humidity too on a floor.
-    bool canCool();
+    //What the outputs can run, before the modes param.
+    vector<ClimateMode> outputModes();
+    bool supports(ClimateMode m);
     void restoreMode();
 
     void evaluateSoon();
@@ -148,16 +151,24 @@ private:
     void warnWrite(Output &out, IOBase &io, const char *source);
     //current_temp fresh and within the valid bounds, its silence or excess logged once.
     bool sensorFresh(IOBase *sensor);
+    bool humidityLinked() const;
     //Floor cooling: humidity fresh and below humidity_max, changes logged.
     bool humidityAllowsCooling();
     void regulate();
-    bool demand(Output &out, double temp, const char *setpoint, bool cooling);
+    //false when a write ran rules that changed an input: the pass starts over.
+    bool driveValve(OutputPair want, OutputPair forced, uint64_t now);
+    bool demand(bool holding, double temp, const char *setpoint, bool cooling);
     //The state the thermostat holds: its last write, else what the IO reports.
     bool held(Output &out);
+    //Held ON for heating, or for cooling.
+    bool holds(bool cooling);
+    //The way the valve's water flows; unknown, the mode tells.
+    bool valveCooling() const;
     //ON for the other output: as last written or as read back.
-    bool isOn(Output &out);
-    void switchOutput(Output &out, Output &other, bool on, uint64_t now, bool forced);
-    uint64_t lockedFor(const Output &out, const Output &other, bool on, uint64_t now,
+    bool isOn(Output *out);
+    //other: the output that must never run at the same time, nullptr for a valve.
+    void switchOutput(Output &out, Output *other, bool on, uint64_t now, bool forced);
+    uint64_t lockedFor(const Output &out, const Output *other, bool on, uint64_t now,
                        bool forced) const;
     void writeAction();
     //The safety rule holding the outputs off, "" when none: the state's fault.
@@ -176,6 +187,12 @@ private:
 
     Output heat{ "output_heat" };
     Output cool{ "output_cool" };
+    //One valve for both ways (decision 22), instead of output_heat and output_cool.
+    Output valve{ "output" };
+    //Whether the valve is held ON for cooling; unknown when something else opened it.
+    std::optional<bool> valveCools;
+    //The way a valve waiting for its lock-out will run.
+    bool valveWaitsToCool = false;
 
     //Logged when it changes: once per silence or disconnection.
     Freshness sensorState = Freshness::NotRead;
@@ -190,7 +207,7 @@ private:
     //What was last published of the fault and lock-out, to publish their changes.
     string publishedStatus;
 
-    //emitter=floor: cooling needs a humidity below humidity_max.
+    //emitter=floor: with a humidity link, cooling needs it below humidity_max.
     bool floorCooling = false;
     double humidityMax = DEFAULT_HUMIDITY_MAX;
     enum class HumidityCut
