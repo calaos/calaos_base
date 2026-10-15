@@ -588,6 +588,16 @@ TEST_F(DeviceTemplatesTest, TheFileHoldsTheFiveTemplatesOfTheSpec)
         ASSERT_LT(c, 0x80u);
 }
 
+//Clients list only the items whose visible is "true"; the owned IOs stay hidden.
+TEST_F(DeviceTemplatesTest, EveryTemplateShowsItsDevice)
+{
+    for (const Json &t: templates())
+    {
+        SCOPED_TRACE(t.at("id").get<std::string>());
+        EXPECT_EQ("true", t.at("attributes").value("visible", ""));
+    }
+}
+
 TEST_F(DeviceTemplatesTest, AnUnwritablePathIsReported)
 {
     const std::string file = cacheDir() + "/a_file";
