@@ -32,6 +32,7 @@
 #include "libuvw.h"
 
 #include <chrono>
+#include <cmath>
 #include <functional>
 #include <string>
 #include <vector>
@@ -153,7 +154,7 @@ std::string unit(const std::string &id, const std::string &params, const std::st
                           param("hysteresis", "0.5") + params + extra);
 }
 
-const std::vector<std::string> DEVICES = { "em", "el", "es", "er", "ed", "eh", "et", "erst", "erst2", "erec",
+const std::vector<std::string> DEVICES = { "em", "el", "elc", "es", "er", "ed", "eh", "et", "erst", "erst2", "erec",
                                            "erf", "erm", "enoref", "bad_target", "bad_modes", "bad_flag",
                                            "bad_range", "off_flag", "plain" };
 
@@ -162,6 +163,7 @@ std::string house()
     std::string s;
     s += unit("em", lockouts("0", "0", "0"), internal("InternalString", "em_action") + link("action", "em_action"));
     s += unit("el", lockouts("30", "30", "60"));
+    s += unit("elc", lockouts("30", "30", "60"));
     s += unit("es", lockouts("0.2", "0.2", "1"));
     //The room sensor relayed to the unit is the reference, not the unit's own.
     s += unit("er", lockouts("0", "0", "0"),
@@ -266,6 +268,8 @@ protected:
             forgetIOState(id);
         Config::Instance().SaveValueIO("erst", "auto heat", false);
         Config::Instance().SaveValueIO("erst2", "auto heat", false);
+        //Cooled before the restart, then stopped by the user.
+        Config::Instance().SaveValueIO("elc", "manual off cool", false);
         log = journal([this]()
                       {
             loadConfig(house(), rulesXmlDocument(""));
@@ -457,8 +461,8 @@ TEST_F(ProxyClimateRangeTest, ACommandIsAppliedWholeBeforeTheUnitIsDriven)
     EXPECT_EQ(sent("em_mode"), std::vector<std::string>({ "off" }));
 }
 
-/* A restart counts as a switch from a mode not known: the first start waits
- * for the changeover delay. */
+/* A restart counts as a stop: the first start waits for min_off_time, not
+ * for the changeover delay (a server restart is every config upload). */
 TEST_F(ProxyClimateRangeTest, AStartAfterARestartWaitsForItsLockoutAndSaysSo)
 {
     ASSERT_TRUE(cmd("el", "auto"));
@@ -466,12 +470,23 @@ TEST_F(ProxyClimateRangeTest, AStartAfterARestartWaitsForItsLockoutAndSaysSo)
     EXPECT_EQ(unitMode("el"), "off");
     const Json lockout = state("el").at("lockout");
     EXPECT_EQ(lockout.at("output"), "heat");
-    EXPECT_GT(lockout.at("remaining").get<int>(), 30);
-    EXPECT_LE(lockout.at("remaining").get<int>(), 60);
+    EXPECT_GT(lockout.at("remaining").get<int>(), 20);
+    EXPECT_LE(lockout.at("remaining").get<int>(), 30);
 
     //Back inside the range: nothing waits any more.
     room("el_cur")->deliver(21.0);
     EXPECT_FALSE(state("el").contains("lockout"));
+}
+
+//The last mode the unit ran in is kept: only the opposite one waits for the changeover.
+TEST_F(ProxyClimateRangeTest, AfterARestartOnlyTheOppositeOfTheLastModeWaitsForTheChangeover)
+{
+    ASSERT_TRUE(cmd("elc", "auto"));
+    room("elc_cur")->deliver(15.0);
+    EXPECT_GT(state("elc").at("lockout").at("remaining").get<int>(), 30);
+    room("elc_cur")->deliver(27.0);
+    EXPECT_EQ(state("elc").at("lockout").at("output"), "cool");
+    EXPECT_LE(state("elc").at("lockout").at("remaining").get<int>(), 30);
 }
 
 TEST_F(ProxyClimateRangeTest, AStopWaitsForMinOnTime)
@@ -580,6 +595,7 @@ TEST_F(ProxyClimateRangeTest, AModeChangedOnTheUnitSuspendsAuto)
     EXPECT_EQ(sent("em_mode"), std::vector<std::string>({ "off", "cool" }));
 }
 
+//"<auto|manual> <last mode sent> <last of heat and cool sent>".
 TEST_F(ProxyClimateRangeTest, AutoAndTheLastCommandAreSaved)
 {
     std::string saved;
@@ -588,10 +604,49 @@ TEST_F(ProxyClimateRangeTest, AutoAndTheLastCommandAreSaved)
     EXPECT_EQ(saved, "auto off");
     room("em_cur")->deliver(18.0);
     EXPECT_TRUE(Config::Instance().ReadValueIO("em", saved));
-    EXPECT_EQ(saved, "auto heat");
+    EXPECT_EQ(saved, "auto heat heat");
     ASSERT_TRUE(cmd("em", "off"));
     EXPECT_TRUE(Config::Instance().ReadValueIO("em", saved));
-    EXPECT_EQ(saved, "");
+    EXPECT_EQ(saved, "manual off heat");
+}
+
+/* The unit's setpoint is the device's while auto runs: one changed at the
+ * remote is put back, and a target_temp command is refused. */
+TEST_F(ProxyClimateRangeTest, InAutoTheUnitSetpointIsTheRangeOnly)
+{
+    ASSERT_TRUE(cmd("em", "auto"));
+    room("em_cur")->deliver(18.0);
+    ASSERT_DOUBLE_EQ(unitTarget("em"), 20);
+    ListeRoom::Instance().get_io("em_target")->set_value(25.0);
+    EXPECT_DOUBLE_EQ(unitTarget("em"), 20);
+
+    EXPECT_FALSE(cmd("em", R"({"target_temp":22})"));
+    EXPECT_DOUBLE_EQ(unitTarget("em"), 20);
+    EXPECT_TRUE(cmd("em", R"({"mode":"heat","target_temp":22})"));
+    EXPECT_DOUBLE_EQ(unitTarget("em"), 22);
+}
+
+//A node coming back replays its state: that is no change made at the remote.
+TEST_F(ProxyClimateRangeTest, AModeReadWhileTheUnitIsDisconnectedDoesNotSuspend)
+{
+    ASSERT_TRUE(cmd("eh", "auto"));
+    ListeRoom::Instance().get_io("eh_mode")->set_value(std::string("off"));
+    pumpLoopFor(500);
+    IOBase *m = ListeRoom::Instance().get_io("eh_mode");
+    m->setStatusInfo(IOBase::StatusType::Connected, IOBase::StatusConnected::STATUS_DISCONNECTED);
+    m->set_value(std::string("cool"));
+    EXPECT_EQ(mode("eh"), "auto");
+}
+
+//Not a number is no temperature: nothing switches on it.
+TEST_F(ProxyClimateRangeTest, ANonNumberReadingChangesNothing)
+{
+    ASSERT_TRUE(cmd("em", "auto"));
+    room("em_cur")->deliver(18.0);
+    ASSERT_EQ(unitMode("em"), "heat");
+    room("em_cur")->deliver(std::nan(""));
+    ASSERT_TRUE(cmd("em", R"({"target_temp_low":16,"target_temp_high":22})"));
+    EXPECT_EQ(unitMode("em"), "heat");
 }
 
 TEST_F(ProxyClimateRangeTest, AutoIsRestoredAndGoesOnWhileTheUnitAgrees)
@@ -626,9 +681,9 @@ TEST_F(ProxyClimateRangeTest, AReadbackNotCaughtUpYetIsNoChange)
     ListeRoom::Instance().get_io("ed_mode")->set_value(std::string("heat"));
     EXPECT_EQ(mode("ed"), "auto");
 
-    //Once caught up, another mode is the remote's.
+    //Within readback_hold the unit may still republish what it was in.
     ListeRoom::Instance().get_io("ed_mode")->set_value(std::string("off"));
-    EXPECT_EQ(mode("ed"), "off");
+    EXPECT_EQ(mode("ed"), "auto");
 }
 
 TEST_F(ProxyClimateRangeTest, AReadbackThatNeverComesSuspendsAfterTheHold)

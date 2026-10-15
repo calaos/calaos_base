@@ -498,6 +498,29 @@ TEST_F(ProxyClimateMqttTest, TheEmulatedAutoDrivesTheUnitOverMqtt)
     EXPECT_FALSE(nextPublishOn(t("emu/mode/set"), payload, 400)) << payload;
 }
 
+/* ESPHome republishes the mode it was in when it takes the setpoint written
+ * just before the new mode: that is no change made at the remote. */
+TEST_F(ProxyClimateMqttTest, TheUnitRepublishingItsPreviousModeKeepsAuto)
+{
+    ASSERT_TRUE(dev("e2e_emu")->set_value(std::string(R"({"target_temp_low":20,"target_temp_high":24})")));
+    ASSERT_TRUE(dev("e2e_emu")->set_value(std::string("auto")));
+    std::string payload;
+    ASSERT_TRUE(nextPublishOn(t("emu/mode/set"), payload));
+    brokerSends(t("emu/temp"), "18");
+    ASSERT_TRUE(nextPublishOn(t("emu/mode/set"), payload));
+    ASSERT_EQ(payload, "heat");
+
+    brokerSays(t("emu/mode"), "off", [&]()
+               {
+        return io("e2e_emu_mode")->get_value_string() == "off";
+    });
+    brokerSays(t("emu/mode"), "heat", [&]()
+               {
+        return io("e2e_emu_mode")->get_value_string() == "heat";
+    });
+    EXPECT_EQ(dev("e2e_emu")->get_value_string(), "auto");
+}
+
 int main(int argc, char **argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
