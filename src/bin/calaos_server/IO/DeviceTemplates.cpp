@@ -278,6 +278,12 @@ Json esphomeClimate()
                           _("The climate takes a low and a high setpoint (target_temperature_low and _high) "
                             "instead of a single one, as a dual setpoint ESPHome thermostat does."),
                           false));
+    fields.push_back(flag("emulate_range", _("Emulated dual setpoint"),
+                          _("For a climate with a single setpoint (leave Two setpoints unchecked): Calaos keeps a "
+                            "low and a high setpoint and, in auto, runs the climate in heat below the low one, in "
+                            "cool above the high one, and stops it in between. Needs heat and cool among the "
+                            "modes."),
+                          false));
     fields.push_back(number("temp_min", _("Lowest setpoint"), _("Lowest setpoint the climate accepts."), 0, 50, 0.5,
                             "°C", 16));
     fields.push_back(number("temp_max", _("Highest setpoint"), _("Highest setpoint the climate accepts."), 0, 50, 0.5,
@@ -329,19 +335,29 @@ Json esphomeClimate()
                          linkField("remote_temp_source", "remote_temp_source") };
 
     //ESPHome reads "auto" as a schedule of the appliance; the range is heat_cool.
+    //With emulate_range the device creates its own range at load.
     const Json params = { param("modes", "{modes}"),
                           param("auto_payload", "heat_cool"),
                           param("fan_modes", "{fan_modes}"),
                           param("swing_modes", "{swing_modes}"),
                           param("remote_temp_keepalive", "120", "remote_temp_source"),
-                          param("sensor_timeout", "9000", "remote_temp_source") };
+                          param("sensor_timeout", "9000", "remote_temp_source"),
+                          param("emulate_range", "true", "emulate_range"),
+                          param("min_range", "2", "emulate_range"),
+                          param("hysteresis", "0.5", "emulate_range"),
+                          param("min_on_time", "300", "emulate_range"),
+                          param("min_off_time", "300", "emulate_range"),
+                          param("changeover_delay", "600", "emulate_range") };
 
     const string yaml =
-        _("ESPHome takes no remote temperature over MQTT out of the box. For a Mitsubishi CN105 climate (its id "
-          "being hp), add to the YAML of the node:") +
-        string("\n\n```yaml\nmqtt:\n  on_message:\n    - topic: ") + REMOTE_TOPIC +
-        "\n      then:\n        - lambda: |-\n            auto t = parse_number<float>(x);\n"
-        "            if (t.has_value()) id(hp).set_remote_temperature(*t);\n```\n\n" +
+        _("ESPHome takes no remote temperature over MQTT out of the box. For a Mitsubishi CN105 climate "
+          "(MitsubishiCN105ESPHome), make the relayed temperature a sensor of the node and the climate's remote "
+          "temperature source; past remote_temperature_timeout without an update, the climate goes back to its "
+          "own sensor:") +
+        string("\n\n```yaml\nsensor:\n  - platform: mqtt_subscribe\n    id: calaos_temp\n    topic: ") +
+        REMOTE_TOPIC +
+        "\nclimate:\n  - platform: cn105\n    remote_temperature_source:\n      sensor_id: calaos_temp\n"
+        "    remote_temperature_timeout: 10min\n```\n\n" +
         _("For a climate that regulates on a sensor of its own (thermostat platform), make the relayed "
           "temperature that sensor; the timeout turns it into NaN, and the thermostat off, when Calaos stops "
           "relaying:") +

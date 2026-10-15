@@ -41,7 +41,11 @@ namespace Calaos
  *
  * A link with no command_io whose io is not an output cannot be written: its
  * capability is not offered, commands to it are refused and nothing is relayed
- * to it. */
+ * to it.
+ *
+ * emulate_range (decision 21): for a unit with a single setpoint, the device
+ * keeps the low and high setpoints itself and its auto drives the unit in
+ * heat, cool or off from the room temperature. The unit never receives auto. */
 class ProxyClimate: public ClimateBase
 {
 public:
@@ -50,9 +54,19 @@ public:
 
     void resolveLinks() override;
 
+    //With emulate_range, auto is offered once the unit takes heat and cool.
+    vector<ClimateMode> supportedModes() override;
+
     //Used without the "remote_temp_keepalive" / "readback_hold" params (seconds).
     static constexpr double DEFAULT_KEEPALIVE = 120;
     static constexpr double DEFAULT_READBACK_HOLD = 10;
+    //Defaults of the emulated range: degrees, then seconds.
+    static constexpr double DEFAULT_HYSTERESIS = 0.5;
+    static constexpr double DEFAULT_MIN_ON = 300;
+    static constexpr double DEFAULT_MIN_OFF = 300;
+    static constexpr double DEFAULT_CHANGEOVER = 600;
+    //Longest wait before a silent room sensor is seen stale.
+    static constexpr double FRESHNESS_POLL = 60;
 
 protected:
     bool isWritable(const string &role) override;
@@ -62,6 +76,8 @@ protected:
     Json deviceState() override;
     bool rangeBound(const string &role, double &value) override;
     bool writeRangeBound(const string &role, double value) override;
+    //Defers the emulation until every field of the command is applied.
+    bool applyCommand(const Json &command) override;
 
 private:
     using Clock = std::chrono::steady_clock;
@@ -94,6 +110,58 @@ private:
     IOChangeHub::Subscription sourceSubscription;
     //Logged when it changes: once per silence or disconnection.
     Freshness sourceState = Freshness::NotRead;
+
+    //The mode the unit reports, auto included.
+    bool unitMode(ClimateMode &mode);
+    //Writes the mode to the unit and dates the switch for the lock-outs.
+    bool writeUnitMode(ClimateMode mode);
+    void startEmulation();
+    //Auto selected: the device takes over from the mode the unit is in.
+    bool startAuto();
+    void recreateRange();
+    void restoreEmulation();
+    void saveEmulation();
+    //remote_temp_source when linked, else current_temp.
+    const char *referenceRole();
+    void emulate();
+    void regulate();
+    //Holds the unit as it is while the room temperature is not fresh.
+    bool referenceFresh();
+    //The unit's setpoint follows the bound of the mode it runs in.
+    void followSetpoint(double value);
+    void suspend(ClimateMode reported);
+    void publishStatusChange();
+
+    struct Emulation
+    {
+        //emulate_range is set and the device can honour it.
+        bool enabled = false;
+        //Calaos is in auto: the device drives the unit.
+        bool active = false;
+        //What the device last sent to the unit, and when (loop ms).
+        ClimateMode commanded = ClimateMode::Off;
+        std::optional<uint64_t> commandedAt;
+        //The unit reported `commanded` since it was sent.
+        bool confirmed = true;
+        std::optional<double> setpoint;
+
+        double hysteresis = DEFAULT_HYSTERESIS;
+        Lockouts lockouts;
+        //Loop times of the last switches of heat and of cool.
+        std::optional<uint64_t> heatOnAt, heatOffAt, coolOnAt, coolOffAt;
+        std::unique_ptr<Timer> lockout;
+        //A wanted heat or cool waiting for its lock-out, and when it may start.
+        ClimateMode waiting = ClimateMode::Off;
+        std::optional<uint64_t> startsAt;
+
+        Freshness reference = Freshness::NotRead;
+        string fault;
+        string publishedStatus;
+        bool evaluating = false;
+        bool again = false;
+        vector<IOChangeHub::Subscription> triggers;
+        std::unique_ptr<Timer> freshnessCheck;
+    } emu;
 };
 
 } //namespace Calaos

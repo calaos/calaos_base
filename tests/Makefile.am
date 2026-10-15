@@ -8007,3 +8007,22 @@ core_DeviceTemplates_test_DEPENDENCIES = $(DEVICE_TEMPLATES_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#ProxyClimate emulate_range: the emulated auto of a single setpoint unit, its
+#lock-outs, its suspension by a change on the unit, on the real loop. Own
+#HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ProxyClimateRange_test
+check_PROGRAMS += core/ProxyClimateRange_test
+core_ProxyClimateRange_test_SOURCES = core/ProxyClimateRange_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ProxyClimateRange_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ProxyClimateRange_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT)
+core_ProxyClimateRange_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT)
+endif

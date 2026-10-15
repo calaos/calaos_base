@@ -313,6 +313,8 @@ std::string house()
     all += param("modes", "off,auto") + param("auto_payload", "auto") + param("readback_hold", "5");
     all += param("remote_temp_keepalive", "30") + param("fan_modes", "auto,low");
     all += param("swing_modes", "off,both") + param("min_range", "2") + param("sensor_timeout", "3600");
+    all += param("emulate_range", "true") + param("hysteresis", "0.5") + param("min_on_time", "60");
+    all += param("min_off_time", "60") + param("changeover_delay", "120");
     salon += device("allp", all);
 
     //Setpoint IO without bounds: the documented defaults apply.
@@ -1014,7 +1016,9 @@ TEST_F(ProxyClimateTest, TheDocumentedBoundsAreTheDefaultsOfASetpointWithoutBoun
  * used, does not pass for a read one. */
 TEST_F(ProxyClimateTest, EveryDocumentedParamIsRead)
 {
-    const std::set<std::string> takenAtLoad = { "remote_temp_keepalive", "readback_hold", "sensor_timeout" };
+    const std::set<std::string> takenAtLoad = { "remote_temp_keepalive", "readback_hold", "sensor_timeout",
+                                                "emulate_range", "hysteresis", "min_on_time",
+                                                "min_off_time", "changeover_delay" };
     const std::set<std::string> askedWhenUsed = { "modes", "fan_modes", "swing_modes", "min_range",
                                                   "auto_payload" };
 

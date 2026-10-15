@@ -2452,7 +2452,10 @@ msgstr ""
 #: src/bin/calaos_server/IO/DeviceTemplates.cpp
 msgid ""
 "ESPHome takes no remote temperature over MQTT out of the box. For a "
-"Mitsubishi CN105 climate (its id being hp), add to the YAML of the node:"
+"Mitsubishi CN105 climate (MitsubishiCN105ESPHome), make the relayed "
+"temperature a sensor of the node and the climate's remote temperature "
+"source; past remote_temperature_timeout without an update, the climate goes "
+"back to its own sensor:"
 msgstr ""
 
 #: src/bin/calaos_server/IO/DeviceTemplates.cpp
@@ -3004,4 +3007,58 @@ msgstr ""
 
 #: src/bin/calaos_server/IO/InternalThermostat.cpp
 msgid "Highest valid temperature"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"For a unit with a single setpoint: the device keeps target_temp_low and "
+"target_temp_high itself (internal IOs, created when missing) and offers "
+"auto. In auto the unit runs in heat on the low setpoint below the range, in "
+"cool on the high setpoint above it, and is off in between. Needs a "
+"target_temp link and heat and cool among the modes. The room temperature is "
+"remote_temp_source, else current_temp; while it is stale the unit is left as"
+" it is. A mode changed on the unit itself suspends auto until it is selected"
+" again. auto is never sent to the unit."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Emulated dual setpoint"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"With emulate_range: degrees past the range before the unit starts, in heat "
+"below the low setpoint minus hysteresis, in cool above the high setpoint "
+"plus hysteresis. It stops as soon as the room is back in the range."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"With emulate_range: seconds the unit runs at least in heat or cool before "
+"auto stops it. A mode selected by the user is applied at once."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"With emulate_range: seconds the unit stays off at least before auto starts "
+"it again."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"With emulate_range: seconds between the end of heat and the start of cool, "
+"or the reverse, at least min_off_time."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Changeover delay"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"For a climate with a single setpoint (leave Two setpoints unchecked): Calaos"
+" keeps a low and a high setpoint and, in auto, runs the climate in heat "
+"below the low one, in cool above the high one, and stops it in between. "
+"Needs heat and cool among the modes."
 msgstr ""
