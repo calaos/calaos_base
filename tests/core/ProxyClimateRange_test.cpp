@@ -184,10 +184,12 @@ std::string house()
     auto lagging = [](const std::string &id, const std::string &hold)
     {
         return device(id, internal("InternalString", id + "_mode") + internal("InternalString", id + "_cmd") +
-                              internal("InternalInt", id + "_target", BOUNDS) + sensor(id + "_cur") +
+                              internal("InternalInt", id + "_target", BOUNDS) +
+                              internal("InternalInt", id + "_target_cmd", BOUNDS) + sensor(id + "_cur") +
                               internal("InternalInt", id + "_low", BOUNDS + R"( save="true" value="20")") +
                               internal("InternalInt", id + "_high", BOUNDS + R"( save="true" value="24")") +
-                              link("mode", id + "_mode", id + "_cmd") + link("target_temp", id + "_target") +
+                              link("mode", id + "_mode", id + "_cmd") +
+                              link("target_temp", id + "_target", id + "_target_cmd") +
                               link("current_temp", id + "_cur") + link("target_temp_low", id + "_low") +
                               link("target_temp_high", id + "_high") + param("emulate_range", "true") +
                               lockouts("0", "0", "0") + param("readback_hold", hold));
@@ -285,7 +287,7 @@ protected:
         }
 
         for (const std::string &id: DEVICES)
-            for (const char *suffix: { "_mode", "_cmd", "_target" })
+            for (const char *suffix: { "_mode", "_cmd", "_target", "_target_cmd" })
                 subscriptions.push_back(IOChangeHub::Instance().subscribe(id + suffix, [](IOBase &io)
                                                                           {
                     writes().push_back({ io.get_param("id"), io.get_value_string(), Clock::now() });
@@ -684,6 +686,20 @@ TEST_F(ProxyClimateRangeTest, AReadbackNotCaughtUpYetIsNoChange)
     //Within readback_hold the unit may still republish what it was in.
     ListeRoom::Instance().get_io("ed_mode")->set_value(std::string("off"));
     EXPECT_EQ(mode("ed"), "auto");
+}
+
+//A setpoint read back late is not one changed at the remote: written once.
+TEST_F(ProxyClimateRangeTest, ALateSetpointReadbackIsNotWrittenAgain)
+{
+    ASSERT_TRUE(cmd("ed", "auto"));
+    room("ed_cur")->deliver(18.0);
+    ASSERT_EQ(sent("ed_target_cmd").size(), 1u);
+    room("ed_cur")->deliver(18.1);
+    EXPECT_EQ(sent("ed_target_cmd").size(), 1u);
+    //Caught up, then moved at the remote.
+    ListeRoom::Instance().get_io("ed_target")->set_value(20.0);
+    ListeRoom::Instance().get_io("ed_target")->set_value(23.0);
+    EXPECT_EQ(sent("ed_target_cmd").size(), 1u) << "within readback_hold";
 }
 
 TEST_F(ProxyClimateRangeTest, AReadbackThatNeverComesSuspendsAfterTheHold)
