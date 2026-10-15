@@ -1163,8 +1163,9 @@ TEST(DeviceTemplatesFrench, EveryTextOfEveryTemplateIsTranslated)
     ASSERT_NE(nullptr, mkdtemp(tmpl));
     const std::string localedir = tmpl;
     std::filesystem::create_directories(localedir + "/fr/LC_MESSAGES");
-    const int rc = std::system(("msgfmt -o '" + localedir + "/fr/LC_MESSAGES/" PACKAGE_NAME ".mo' '" + srcdir +
-                                "/po/fr.po'").c_str());
+    const std::string cmd = "msgfmt -o '" + localedir + "/fr/LC_MESSAGES/" PACKAGE_NAME ".mo' '" + srcdir +
+                            "/po/fr.po'";
+    const int rc = std::system(cmd.c_str());
     if (rc != 0)
     {
         std::filesystem::remove_all(localedir);
