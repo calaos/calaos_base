@@ -91,7 +91,6 @@ protected:
     bool isWritable(const string &role) override;
     bool currentMode(ClimateMode &mode) override;
     bool writeMode(ClimateMode mode) override;
-    string connectionRole() const override { return "current_temp"; }
     //Adds lockout and fault (spec §5.3).
     Json deviceState() override;
     bool applyCommand(const Json &command) override;
@@ -162,7 +161,7 @@ private:
                        bool forced) const;
     void writeAction();
     //The safety rule holding the outputs off, "" when none: the state's fault.
-    string safetyFault(bool cooling) const;
+    string safetyFault(bool cooling);
     //Publishes the device when its fault or its lock-out starts or ends.
     void publishStatusChange();
     //The output whose wanted ON waits for its lock-out, nullptr when none.

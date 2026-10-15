@@ -226,6 +226,17 @@ bool ProxyClimate::writeMode(ClimateMode mode)
     return io->set_value(payload);
 }
 
+/* The mode IO's availability is the appliance's (an ESPHome last will covers
+ * all its entities). Only false is said: clients take an absent key as
+ * connected. */
+Json ProxyClimate::deviceState()
+{
+    Json state = ClimateBase::deviceState();
+    if (freshness(linkIo(MODE)) == Freshness::Disconnected)
+        state["connected"] = false;
+    return Json(std::move(state));
+}
+
 bool ProxyClimate::rangeBound(const string &role, double &value)
 {
     const auto it = commanded.find(role);

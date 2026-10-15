@@ -599,16 +599,21 @@ void InternalThermostat::regulate()
     publishStatusChange();
 }
 
-/* Disconnected is not a fault: the state says connected:false. Mode off
- * holds the outputs by itself, no rule does. */
-string InternalThermostat::safetyFault(bool cooling) const
+/* Decision 20: the thermostat stays reachable whatever its sensor does, so a
+ * disconnected sensor is a fault and not connected:false. Mode off holds the
+ * outputs by itself, no rule does. */
+string InternalThermostat::safetyFault(bool cooling)
 {
     if (mode == ClimateMode::Off)
         return string();
-    if (sensorState == Freshness::NotRead)
+    if (!linkIo("current_temp"))
         return "sensor_missing";
+    if (sensorState == Freshness::NotRead)
+        return "sensor_waiting";
     if (sensorState == Freshness::Silent)
         return "sensor_stale";
+    if (sensorState == Freshness::Disconnected)
+        return "sensor_disconnected";
     if (!floorCooling || !cooling || humidityCut == HumidityCut::None)
         return string();
     return humidityCut == HumidityCut::High ? "humidity_high" : "humidity_stale";
