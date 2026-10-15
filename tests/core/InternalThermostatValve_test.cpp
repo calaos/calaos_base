@@ -145,9 +145,8 @@ std::string house()
     //auto without cool: it would cool anyway.
     ios += zone("zhalf", param("modes", "heat,auto"), true);
     //Auto on a floor, its dew point guarded.
-    ios += zone("zauhum", FLOOR + param("modes", "heat,cool,auto") + link("humidity", "zauhum_hum") +
-                              param("humidity_max", "65") + param("min_on_time", "5"),
-                true);
+    const std::string dewGuard = link("humidity", "zauhum_hum") + param("humidity_max", "65");
+    ios += zone("zauhum", FLOOR + param("modes", "heat,cool,auto") + dewGuard + param("min_on_time", "5"), true);
     ios += internal("InternalInt", "zauhum_hum", "    ");
     ios += zone("zempty", param("modes", ""));
     ios += pair("pairheat", param("modes", "off,heat"), true);
