@@ -271,6 +271,20 @@ bool ConditionOutput::LoadFromXml(pugi::xml_node node)
             ops = oper;
             if (val_var != "")
                 params_var = val_var;
+
+            //Evaluate() can only log this per event; say it once, at load.
+            if (out)
+            {
+                if (out->get_type() == TSTRING && oper != "==" && oper != "!=")
+                    cWarningDom("rule.condition.output")
+                            << "Output '" << id << "' is a string: operator '" << oper
+                            << "' is not supported, this condition will never be true";
+                else if (out->get_type() != TBOOL && out->get_type() != TINT &&
+                         out->get_type() != TSTRING)
+                    cWarningDom("rule.condition.output")
+                            << "Output '" << id << "' has a type that output conditions "
+                            << "cannot evaluate, this condition will never be true";
+            }
         }
     }
 

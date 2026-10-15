@@ -992,3 +992,53 @@ TEST_F(ClimateBaseTest, OutputConditionOnADeviceComparesItsModeLikeAStandardCond
         EXPECT_EQ(stdCond.Evaluate(), c.expected) << c.oper << " " << c.val;
     }
 }
+
+//The installer only lets a user build this form on a device.
+TEST_F(ClimateBaseTest, OutputConditionRuleOnADeviceFiresWhenItsModeChanges)
+{
+    const auto rule = [](const std::string &name, const std::string &oper, const std::string &val,
+                         const std::string &target)
+    {
+        return "  <calaos:rule name=\"" + name + "\" type=\"OR\">\n"
+               "    <calaos:condition type=\"output\" trigger=\"true\">\n"
+               "      <calaos:output id=\"split\" oper=\"" + oper + "\" val=\"" + val + "\" />\n"
+               "    </calaos:condition>\n"
+               "    <calaos:action type=\"standard\">\n"
+               "      <calaos:output id=\"" + target + "\" val=\"7\" />\n"
+               "    </calaos:action>\n"
+               "  </calaos:rule>\n";
+    };
+
+    clearCoreState();
+    loadConfig(house(), rulesXmlDocument(rule("is_heat", "==", "heat", "full_remote") +
+                                         rule("not_heat", "!=", "heat", "full_swing")));
+    ASSERT_EQ(ListeRule::Instance().size(), 2);
+
+    io("split_mode")->set_value(std::string("cool"));
+    EXPECT_DOUBLE_EQ(num("full_remote"), 0) << "== heat must not fire on cool";
+    EXPECT_EQ(str("full_swing"), "7") << "!= heat must fire on cool";
+
+    io("split_mode")->set_value(std::string("heat"));
+    EXPECT_DOUBLE_EQ(num("full_remote"), 7) << "== heat must fire on heat";
+}
+
+TEST_F(ClimateBaseTest, OutputConditionWithAnOperatorAStringCannotUseIsWarnedAtLoad)
+{
+    const std::string rule =
+        "  <calaos:rule name=\"never\" type=\"OR\">\n"
+        "    <calaos:condition type=\"output\" trigger=\"true\">\n"
+        "      <calaos:output id=\"split\" oper=\"SUP\" val=\"heat\" />\n"
+        "    </calaos:condition>\n"
+        "    <calaos:action type=\"standard\">\n"
+        "      <calaos:output id=\"full_remote\" val=\"7\" />\n"
+        "    </calaos:action>\n"
+        "  </calaos:rule>\n";
+
+    clearCoreState();
+    testing::internal::CaptureStdout();
+    loadConfig(house(), rulesXmlDocument(rule));
+    const std::string log = testing::internal::GetCapturedStdout();
+    EXPECT_NE(log.find("Output 'split' is a string: operator 'SUP' is not supported"),
+              std::string::npos)
+        << log;
+}

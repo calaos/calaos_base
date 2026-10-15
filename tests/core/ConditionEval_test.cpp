@@ -242,33 +242,23 @@ TEST_F(ConditionParityTest, IntOperatorsAgree)
     }
 }
 
-//Unlike the bool/int cases, ConditionOutput's TSTRING branch never calls the
-//shared string eval() helper: it routes through IOBase::check_condition_value()
-//(ConditionOutput.cpp's fourth, IOBase-based eval() overload, out of scope for
-//the M7 extraction). IOBase's default check_condition_value() always returns
-//false, so a plain Internal string IO -- which does not override it -- makes
-//ConditionOutput reject every string condition, matching or not. This is a
-//pre-existing asymmetry with ConditionStd (which does a direct string
-//comparison), not something introduced or fixed by this ticket; documented
-//here instead of asserted as parity.
-TEST_F(ConditionParityTest, ConditionOutputStringGoesThroughCheckConditionValueNotDirectComparison)
+//ConditionOutput's string branch goes through IOBase::check_condition_value(),
+//whose default must compare the string state like ConditionStd does.
+TEST_F(ConditionParityTest, ConditionOutputStringAgreesWithStdOnEqualityOperators)
 {
     IOBase *s = io(ID_STRING);
     ASSERT_TRUE(s->set_value(std::string("hello")));
+    for (const char *oper: { "==", "!=" })
+    {
+        for (const char *val: { "hello", "other" })
+            expectParity(s, oper, val);
+    }
 
-    ConditionStd stdCond;
-    stdCond.Add(s);
-    stdCond.get_params().Add(ID_STRING, "hello");
-    stdCond.get_operator().Add(ID_STRING, "==");
-    EXPECT_TRUE(stdCond.Evaluate());
-
-    ConditionOutput outCond;
-    outCond.setOutput(s);
-    outCond.set_param("hello");
-    outCond.set_operator("==");
-    EXPECT_FALSE(outCond.Evaluate())
-        << "a plain Internal IO does not override check_condition_value(), "
-           "so ConditionOutput's default is to reject every string condition";
+    ConditionOutput match;
+    match.setOutput(s);
+    match.set_param("hello");
+    match.set_operator("==");
+    EXPECT_TRUE(match.Evaluate());
 }
 
 //ConditionOutput used to leave "bval"/"dval" uninitialized; this exercises the

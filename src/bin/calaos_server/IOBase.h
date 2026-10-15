@@ -216,8 +216,13 @@ public:
 
     //used to get a better condition value in ConditionOutput rules
     //like if shutter is open or is light on
-    //Note: this is only used for TSTRING outputs
-    virtual bool check_condition_value(std::string cvalue, bool equal) { return false; }
+    //Note: this is only used for TSTRING outputs. The default compares the
+    //string state, as a standard condition does; a plain false here made every
+    //string output without an override (devices included) silently never match.
+    virtual bool check_condition_value(std::string cvalue, bool equal)
+    {
+        return (get_value_string() == cvalue) == equal;
+    }
 
     enum class StatusType
     {
