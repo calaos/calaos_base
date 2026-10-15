@@ -96,6 +96,7 @@ std::string house()
     //The factory key is case-insensitive.
     std::string upper = thermostat("uc", false, "");
     upper.replace(upper.find("impl=\"thermostat\""), 17, "impl=\"Thermostat\"");
+    upper.replace(upper.find("type=\"climate\""), 14, "type=\"Climate\"");
     ios += upper;
 
     //An appliance reporting its humidity, its mode IO carrying its availability.
@@ -463,4 +464,11 @@ TEST_F(ClimateStatusTest, TheImplPublishedIsTheFactoryKey)
     EXPECT_EQ(dev("uc")->deviceObject().at("impl"), "thermostat");
     EXPECT_EQ(dev("dw")->deviceObject().at("impl"), "thermostat");
     EXPECT_EQ(dev("px")->deviceObject().at("impl"), "proxy");
+}
+
+//Decision 20: the family is published in lower case too.
+TEST_F(ClimateStatusTest, TheFamilyIsPublishedInLowerCase)
+{
+    EXPECT_EQ(dev("uc")->deviceObject().at("family"), "climate");
+    EXPECT_EQ(dev("dw")->deviceObject().at("family"), "climate");
 }
