@@ -3,6 +3,13 @@ name: Build and Test
 on:
   push:
   pull_request:
+  # The io-doc artefact expires (90 days): a quiet period must not turn the
+  # installer's iodoc-sync job red. The monthly run on master publishes it again;
+  # workflow_dispatch does the same by hand. Neither starts a Docker publication,
+  # which only follows a push run (docker-publish-dev.yml).
+  schedule:
+    - cron: '17 3 1 * *'
+  workflow_dispatch:
 
 jobs:
   build-and-test:
@@ -25,6 +32,7 @@ jobs:
               libpugixml-dev \
               libgtest-dev \
               python3 python3-pip \
+              locales \
               git
 
       # tests/python/ declares 42 cases and this job used to execute none of
@@ -58,6 +66,45 @@ jobs:
           # failing, so a developer whose image is behind is warned, not blocked.
           CALAOS_PYDEPS_STRICT: "1"
         run: make check
+
+      # The installer (calaos_installer, pr_ci.yml) compares its copies of these
+      # files with this artefact, so "the server is not what the installer
+      # ships" fails there. Only on a green make check: it follows that step.
+      - name: Generate the IO documentation and the device templates
+        run: |
+          sed -i 's/^# *\(fr_FR.UTF-8 UTF-8\)/\1/' /etc/locale.gen
+          locale-gen
+          # The French texts come from the installed .mo files.
+          make -C po install
+          scripts/create_iodoc "$PWD/iodoc"
+          python3 - iodoc <<'PY'
+          import json, sys
+          root = sys.argv[1]
+          docs = {}
+          for lang in ("en", "fr"):
+              with open(f"{root}/{lang}/io_doc.json") as f:
+                  docs[lang] = json.load(f)
+              with open(f"{root}/{lang}/device_templates.json") as f:
+                  templates = json.load(f)
+              assert docs[lang].get("devices"), f"{lang}/io_doc.json: no devices"
+              assert len(templates["templates"]) == 5, f"{lang}/device_templates.json"
+              assert (open(f"{root}/{lang}/io_doc.md").read()), f"{lang}/io_doc.md is empty"
+          # A missing locale or .mo gives English silently: the fr file would be a copy of en.
+          assert docs["fr"] != docs["en"], "fr/io_doc.json is not translated"
+          print("io_doc.json:", len(docs["en"]), "keys; device templates:", len(templates["templates"]))
+          PY
+
+      # Never from a pull request: the installer trusts this artefact, and a run
+      # of a fork's pull request carries the fork's branch name. push, schedule and
+      # workflow_dispatch only run from this repository.
+      - name: Upload the IO documentation
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: io-doc
+          path: iodoc
+          if-no-files-found: error
+          retention-days: 90
 
       # if: always(), not if: failure(). The accounting line lives in
       # tests/run-python-tests.sh.log, which the failure-only dump below never

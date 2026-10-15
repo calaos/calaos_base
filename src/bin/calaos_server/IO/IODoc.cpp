@@ -22,6 +22,19 @@
 
 using namespace Calaos;
 
+namespace
+{
+
+//The maps are unordered: their iteration order depends on the standard library,
+//and the generated files are diffed (and compared by the installer's CI).
+template <class Map>
+std::map<string, Params> byName(const Map &m)
+{
+    return std::map<string, Params>(m.begin(), m.end());
+}
+
+} //namespace
+
 IODoc::IODoc()
 {
 }
@@ -213,7 +226,7 @@ Json IODoc::genDocJson()
     ret["alias"] = aliases;
 
     Json array = Json::array();
-    for (const auto &it : m_parameters)
+    for (const auto &it: byName(m_parameters))
     {
         //Params is a map<string,string>: every value published here is a JSON
         //STRING, min/max/default of an int or a float included. Typing them
@@ -228,14 +241,14 @@ Json IODoc::genDocJson()
     ret["parameters"] = array;
 
     array = Json::array();
-    for (const auto &it : m_conditions)
+    for (const auto &it: byName(m_conditions))
     {
         array.push_back(it.second.toJson());
     }
     ret["conditions"] = array;
 
     array = Json::array();
-    for (const auto &it : m_actions)
+    for (const auto &it: byName(m_actions))
     {
         array.push_back(it.second.toJson());
     }
@@ -297,7 +310,7 @@ string IODoc::genDocMd(const string iotype)
         doc += "Name | Type | Mandatory | Description\n";
         doc += "---- | ---- | --------- | -----------\n";
 
-        for (const auto &it : m_parameters)
+        for (const auto &it: byName(m_parameters))
         {
             doc += it.second["name"] + (m_child_params.count(it.first) ? " (calaos:param)" : "") + " | ";
             doc += it.second["type"] + " | ";
@@ -365,7 +378,7 @@ string IODoc::genDocMd(const string iotype)
         doc += "Name | Description\n";
         doc += "---- | -----------\n";
 
-        for (const auto &it : m_conditions)
+        for (const auto &it: byName(m_conditions))
         {
             doc += it.second["name"] + " | ";
             doc += it.second["description"] + " \n ";
@@ -379,7 +392,7 @@ string IODoc::genDocMd(const string iotype)
         doc += "Name | Description\n";
         doc += "---- | -----------\n";
 
-        for (const auto &it : m_actions)
+        for (const auto &it: byName(m_actions))
         {
             doc += it.second["name"] + " | ";
             doc += it.second["description"] + " \n ";

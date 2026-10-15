@@ -1,16 +1,37 @@
 #!/bin/bash
 
-# This script creates the iodoc.json file and the device templates from the calaos_server.
+# Creates the IO documentation (io_doc.json, io_doc.md) and the device templates
+# (device_templates.json) of calaos_server, in English and in French:
+#
+#   create_iodoc [outdir]        outdir defaults to <root>/build_doc
+#
+# Result: <outdir>/en/ and <outdir>/fr/, three files each.
+# CALAOS_SERVER overrides the server binary (default: the one of the build tree).
 
 #get the path where the script is located
 rootdir=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 
-docdir=$rootdir/build_doc
-
-# create the build directory
+docdir=${1:-$rootdir/build_doc}
 mkdir -p "$docdir"
+docdir=$( cd "$docdir" && pwd )
 
-calaos_server="$rootdir/_build/src/bin/calaos_server/calaos_server"
+calaos_server=${CALAOS_SERVER:-}
+if [ -z "$calaos_server" ]; then
+    for c in "$rootdir/_build/src/bin/calaos_server/calaos_server" \
+             "$rootdir/src/bin/calaos_server/calaos_server"; do
+        [ -x "$c" ] && calaos_server=$c && break
+    done
+fi
+if [ ! -x "$calaos_server" ]; then
+    echo "create_iodoc: calaos_server not found (set CALAOS_SERVER)" >&2
+    exit 1
+fi
+
+#The server creates its config and cache directories under $HOME on start: with
+#a read-only HOME (CI, packaging sandbox) --gentemplates would stop at once.
+workdir=$(mktemp -d) || exit 1
+trap 'rm -rf "$workdir"' EXIT
+mkdir -p "$workdir/config" "$workdir/cache"
 
 function build_doc()
 {
@@ -18,11 +39,21 @@ function build_doc()
     export LANG=$1
     export LANGUAGE=$1
     local lang=$2
-    
-    $calaos_server --gendoc "$docdir"
-    $calaos_server --gentemplates "$docdir"
+    local out="$workdir/out_$lang"
+    local opts=(--config "$workdir/config" --cache "$workdir/cache")
+
+    mkdir -p "$out"
+    "$calaos_server" "${opts[@]}" --gendoc "$out" >"$workdir/log_$lang" 2>&1
+    "$calaos_server" "${opts[@]}" --gentemplates "$out" >>"$workdir/log_$lang" 2>&1
+
+    #An unknown locale silently gives English: say so, a fr file would be a copy of the en one.
+    if [ "$lang" != "en" ] && ! grep -q "Current locale: $1" "$workdir/log_$lang"; then
+        echo "create_iodoc: locale $1 not applied (not installed?), the $lang files are not translated" >&2
+    fi
+
+    rm -rf "${docdir:?}/$lang"
     mkdir -p "$docdir/$lang"
-    mv "$docdir"/*.json "$docdir"/*.md "$docdir/$lang"
+    mv "$out"/*.json "$out"/*.md "$docdir/$lang"
 }
 
 #calaos_server can crash when generating iodoc. We don't want to stop the build
@@ -32,7 +63,7 @@ handle_sigterm() {
 trap 'handle_sigterm' SIGTERM
 
 echo "> Building english IO doc"
-build_doc "en_US.UTF-8" "en"
+build_doc "C.UTF-8" "en"
 
 echo "> Building french IO doc"
 build_doc "fr_FR.UTF-8" "fr"

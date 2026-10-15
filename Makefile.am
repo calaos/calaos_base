@@ -119,6 +119,7 @@ scripts/ccache-honesty-probe.py \
 scripts/check-diff-coverage.py \
 scripts/gcov-exit-shim.c \
 scripts/ccache-setup.sh \
+scripts/create_iodoc \
 m4/efl_compiler.m4 \
 version \
 docs/16_config_options.md
