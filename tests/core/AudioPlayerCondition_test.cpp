@@ -26,6 +26,7 @@
 #include "CalaosCoreFixture.h"
 #include "AudioPlayer.h"
 #include "ConditionOutput.h"
+#include "JsonApi.h"
 
 using namespace Calaos;
 using namespace CalaosTest;
@@ -171,4 +172,74 @@ TEST_F(AudioPlayerConditionTest, ConditionMatchesTheLastEventOnly)
         player->emit(AudioVolumeChange);
         EXPECT_NE(fired(), "fired") << kind << ": a later volume change replaces onplay";
     }
+}
+
+//Still-playing case: the player is only a guard, another IO triggers the rule.
+TEST_F(AudioPlayerConditionTest, NonTriggerPlayerConditionIsEvaluatedWhenAnotherIoTriggers)
+{
+    for (const char *kind: { "standard", "output" })
+    {
+        reset();
+        const std::string guard =
+            std::string(kind) == "output" ? "<calaos:condition type=\"output\" trigger=\"false\">"
+                                            "<calaos:output id=\"player\" oper=\"==\" val=\"onplay\" />"
+                                          : "<calaos:condition type=\"standard\" trigger=\"false\">"
+                                            "<calaos:input id=\"player\" oper=\"==\" val=\"onplay\" />";
+        const std::string xml =
+            "<calaos:rule name=\"g\" type=\"AND\">" + guard +
+            "</calaos:condition>"
+            "<calaos:condition type=\"standard\" trigger=\"true\">"
+            "<calaos:input id=\"" + std::string(ID_BOOL_IN) + "\" oper=\"==\" val=\"true\" />"
+            "</calaos:condition>"
+            "<calaos:action type=\"standard\"><calaos:output id=\"" + std::string(ID_STRING) +
+            "\" val=\"fired\" /></calaos:action></calaos:rule>";
+        ASSERT_NE(addRuleFromXml(xml), nullptr) << kind;
+
+        player->emit(AudioPlay);
+        io(ID_BOOL_IN)->set_value(true);
+        EXPECT_EQ(fired(), "fired") << kind << ": playing";
+
+        io(ID_BOOL_IN)->set_value(false);
+        io(ID_STRING)->set_value(std::string(""));
+        player->emit(AudioVolumeChange);
+        io(ID_BOOL_IN)->set_value(true);
+        EXPECT_NE(fired(), "fired") << kind << ": last event is onvolumechange";
+    }
+}
+
+namespace
+{
+
+const Json *findById(const Json &j, const std::string &id)
+{
+    if (j.is_object() && j.contains("id") && j["id"] == id)
+        return &j;
+    if (j.is_object() || j.is_array())
+    {
+        for (const auto &c: j)
+        {
+            if (const Json *r = findById(c, id))
+                return r;
+        }
+    }
+    return nullptr;
+}
+
+} //namespace
+
+TEST_F(AudioPlayerConditionTest, GetIoAndGetHomeReportTheLastEventAsState)
+{
+    JsonApi api;
+    EXPECT_EQ(api.buildJsonGetIO({ "player" })["player"]["state"], "");
+
+    player->emit(AudioPlay);
+    EXPECT_EQ(api.buildJsonGetIO({ "player" })["player"]["state"], "onplay");
+
+    player->emit(AudioVolumeChange);
+    EXPECT_EQ(api.buildJsonGetIO({ "player" })["player"]["state"], "onvolumechange");
+
+    const Json home = api.buildJsonHome();
+    const Json *item = findById(home, "player");
+    ASSERT_NE(item, nullptr) << home.dump();
+    EXPECT_EQ((*item)["state"], "onvolumechange");
 }
