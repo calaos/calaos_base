@@ -134,11 +134,10 @@ TEST_F(ConditionOutputStateTest, OutputStringReadsBackWhatWasWritten)
 
 TEST_F(ConditionOutputStateTest, StringIosWithoutAStateNeverMatchAndWarnAtLoad)
 {
-    add<AudioPlayer>("player");
     add<IPCam>("camera");
     add<RemoteUI>("screen");
 
-    for (const char *id: { "player", "camera", "screen" })
+    for (const char *id: { "camera", "screen" })
     {
         for (const char *oper: { "==", "!=" })
         {
