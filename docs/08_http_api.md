@@ -1055,6 +1055,42 @@ Ce qu'un client doit en retenir, et qui n'est pas intuitif :
   (`page is out of range`, [HistLogger.cpp:271-277](../src/bin/calaos_server/HistLogger.cpp)).
   Une `page` illisible est lue comme `0`, donc **indistinguable** de la page 0.
 
+### `register_push`
+Enregistre le jeton push d'un appareil (FCM pour Android, APNs pour iOS). Les
+arguments sont dans `data` en WebSocket et à la racine en HTTP, où `cn_user` et
+`cn_pass` sont exigés comme pour toute action.
+```json
+{"msg": "register_push", "msg_id": "1",
+ "data": {"token": "<jeton>", "hardware": "android", "push_format": "data"}}
+```
+```json
+{"cn_user": "user", "cn_pass": "pass", "action": "register_push",
+ "token": "<jeton>", "hardware": "android", "push_format": "data"}
+```
+Réponse : `{"success":"true"}` (dans `data` en WebSocket, muette sans `msg_id`).
+
+| Champ | Valeurs | Défaut |
+|---|---|---|
+| `token` | jeton de l'appareil, non vide | — (refus `"false"`) |
+| `hardware` | `android` ou `ios`, exactement | — (refus `"false"`) |
+| `push_format` | `notification` ou `data` (chaîne) | `notification` |
+
+- `push_format` est **optionnel** : les apps des stores (Android 3.1.x, iOS) ne
+  l'envoient pas et gardent le format `notification`, inchangé.
+- `data` est réservé à l'app Android Qt 6 (SDK Firebase Java) : le serveur lui
+  envoie un message FCM **data seul**, que l'app affiche elle-même. Le format du
+  message est décrit dans
+  [10_events_notifications.md](10_events_notifications.md#format-data-android).
+  Sur iOS, `data` est mémorisé mais sans effet.
+- Une valeur inconnue (casse comprise : `Data`) est **acceptée** et traitée
+  comme `notification` ; un avertissement est journalisé une fois par processus,
+  sans le jeton ni la valeur.
+- Réenregistrer un jeton déjà connu rafraîchit sa date et **remplace** son
+  format par celui de la requête : une requête sans `push_format` le remet en
+  `notification`. L'app doit donc envoyer `push_format` à chaque
+  enregistrement.
+- Les jetons non réenregistrés depuis 30 jours sont supprimés.
+
 ### `get_mcp_info` — **HTTP uniquement**
 
 Cette action n'existe **pas** dans le dispatch WebSocket : elle n'est câblée que
