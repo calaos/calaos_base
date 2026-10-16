@@ -55,11 +55,17 @@ struct ModesRule
 
 const ModesRule &modesRule()
 {
-    static const ModesRule rule = { { ClimateBase::modeName(ClimateMode::Off) },
-                                    { { "output", { ClimateBase::modeName(ClimateMode::Heat) } } },
-                                    { { ClimateBase::modeName(ClimateMode::Auto),
-                                        { ClimateBase::modeName(ClimateMode::Heat),
-                                          ClimateBase::modeName(ClimateMode::Cool) } } } };
+    static const ModesRule rule = []()
+    {
+        const string off = ClimateBase::modeName(ClimateMode::Off), heatName = ClimateBase::modeName(ClimateMode::Heat);
+        const string coolName = ClimateBase::modeName(ClimateMode::Cool), autoName = ClimateBase::modeName(ClimateMode::Auto);
+        ModesRule r;
+        r.always = { off };
+        r.defaults = { { "output", { heatName } } };
+        r.needs = { { autoName, { heatName, coolName } } };
+        //Not a named return value: gcov charges its unwinding to the closing brace.
+        return ModesRule(std::move(r));
+    }();
     return rule;
 }
 
