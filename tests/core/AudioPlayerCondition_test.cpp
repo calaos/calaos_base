@@ -84,9 +84,8 @@ protected:
 
     static std::string rule(const std::string &kind, const std::string &oper, const std::string &val)
     {
-        const std::string cond = kind == "output" ?
-                                     "<calaos:output id=\"player\" oper=\"" + oper + "\" val=\"" + val + "\" />" :
-                                     "<calaos:input id=\"player\" oper=\"" + oper + "\" val=\"" + val + "\" />";
+        const std::string attrs = " id=\"player\" oper=\"" + oper + "\" val=\"" + val + "\" />";
+        const std::string cond = (kind == "output" ? "<calaos:output" : "<calaos:input") + attrs;
         return "<calaos:rule name=\"r\" type=\"OR\">"
                "<calaos:condition type=\"" +
                kind + "\" trigger=\"true\">" + cond +
@@ -94,7 +93,7 @@ protected:
                "<calaos:action type=\"standard\">"
                "<calaos:output id=\"" +
                std::string(ID_STRING) + "\" val=\"fired\" />"
-               "</calaos:action></calaos:rule>";
+                                        "</calaos:action></calaos:rule>";
     }
 
     std::string load(const std::string &kind, const std::string &oper, const std::string &val)
@@ -129,7 +128,9 @@ TEST_F(AudioPlayerConditionTest, EveryEventFiresItsRuleThroughBothConditionTypes
         {
             reset();
             const std::string log = load(kind, "==", e.name);
-            EXPECT_EQ(log.find("never be true"), std::string::npos) << kind << " " << e.name << "\n" << log;
+            EXPECT_EQ(log.find("never be true"), std::string::npos)
+                << kind << " " << e.name << "\n"
+                << log;
 
             for (const auto &other: events)
             {
