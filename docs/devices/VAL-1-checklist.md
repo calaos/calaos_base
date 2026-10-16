@@ -51,3 +51,19 @@ Noter pour chaque point : OK, KO (avec capture et extrait de journal), ou non te
 ## 7. MCP (si utilisé)
 - [ ] L'assistant voit le thermostat et peut changer son mode et sa consigne.
 - [ ] Les relais du thermostat ne sont ni listés ni écrivables.
+
+## 8. Ajouts depuis la première version de la checklist
+Installer (dernière version de la CI, poste de travail) :
+- [ ] Assistant ESPHome, « Le trouver sur le broker MQTT » : la clim apparaît avec son vrai id d'entité ; l'ancien id (`clim_mitsu`) est grisé en bas ; le formulaire se remplit (préfixe, une ou deux consignes, modes).
+- [ ] Découverte Home Assistant : les entités du broker sont listées ; une clim devient un device climate, un capteur ou une prise un IO MQTT ; import dans la bonne pièce.
+- [ ] Éditeur de device : libellés en français, seuls les IOs du bon type sont proposés, `emitter` en liste.
+- [ ] Widget climate du panneau dans l'éditeur Remote UI : plus de « Unsupported ».
+- [ ] Formulaire de commande d'une règle sur un thermostat : seuls les modes acceptés par le serveur sont proposés.
+
+Serveur et UI :
+- [ ] Sonde hors limites : une valeur absurde (ou hors `valid_min`/`valid_max`) coupe la sortie et affiche « Sonde hors limites » ; retour à la normale à la première lecture valide.
+- [ ] Double consigne émulée (clim mono-consigne seulement) : en auto, chauffe sous la basse, froid au-dessus de la haute, `off` entre les deux ; pas d'auto suspendu au démarrage.
+- [ ] Condition de sortie sur un device dans une règle (`clim == off`) : la règle se déclenche au changement de mode.
+- [ ] Lecteur audio : une règle `lecteur == onplay` se déclenche au démarrage de la lecture, une seule fois (Roon compris).
+- [ ] Après une déconnexion, l'app mobile revient au login sans sheet ni dialogue climate resté ouvert.
+- [ ] Après la mise à jour du serveur : notifications toujours reçues sur l'app actuelle (iOS et Android 3.1.x).
