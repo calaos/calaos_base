@@ -3124,8 +3124,22 @@ bool JsonApi::registerPushToken(const Params &jParam)
         jParam["hardware"] != "ios")
         return false;
 
+    //Absent for the store apps 3.1.x, which only display notification messages.
+    int format = HistLogger::PUSH_FORMAT_NOTIFICATION;
+    const string pushFormat = jParam["push_format"];
+    if (pushFormat == "data")
+        format = HistLogger::PUSH_FORMAT_DATA;
+    else if (pushFormat != "" && pushFormat != "notification")
+    {
+        static bool warned = false;
+        if (!warned)
+            cWarningDom("network") << "register_push: unknown push_format, using the notification format";
+        warned = true;
+    }
+
     HistLogger::Instance().registerPushToken(jParam["token"],
-            jParam["hardware"] == "ios"? HistLogger::PUSH_HW_IOS: HistLogger::PUSH_HW_ANDROID);
+            jParam["hardware"] == "ios"? HistLogger::PUSH_HW_IOS: HistLogger::PUSH_HW_ANDROID,
+            format);
 
     return true;
 }

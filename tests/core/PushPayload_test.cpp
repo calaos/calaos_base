@@ -130,3 +130,47 @@ TEST(PushPayloadTest, MessageIsAsciiEscapedAndInvalidUtf8Replaced)
               NotifManager::buildPushBody({ token("ios-1", HistLogger::PUSH_HW_IOS) },
                                           "\xc3\xa9t\xff", "", false));
 }
+
+namespace
+{
+
+PushToken dataToken(const char *t)
+{
+    return PushToken(string(t), HistLogger::PUSH_HW_ANDROID, HistLogger::PUSH_FORMAT_DATA);
+}
+
+const char *ANDROID_DATA_ENTRY =
+    R"({"android":{"priority":"high"},"data":{"body":"Door open","message":"Door open","title":"Calaos"},)"
+    R"("platform":2,"tokens":["data-1"]})";
+
+const char *ANDROID_DATA_PIC_ENTRY =
+    R"({"android":{"priority":"high"},"data":{"body":"Door open","event_uuid":"ev-42","message":"Door open",)"
+    R"("title":"Calaos"},"platform":2,"tokens":["data-1"]})";
+
+} //namespace
+
+TEST(PushPayloadTest, DataTokenGetsADataOnlyEntry)
+{
+    EXPECT_EQ(body({ ANDROID_DATA_ENTRY }),
+              NotifManager::buildPushBody({ dataToken("data-1") }, "Door open", "", false));
+    EXPECT_EQ(body({ ANDROID_DATA_PIC_ENTRY }),
+              NotifManager::buildPushBody({ dataToken("data-1") }, "Door open", "ev-42", false));
+}
+
+TEST(PushPayloadTest, IosIgnoresTheDataFormat)
+{
+    EXPECT_EQ(body({ IOS_PIC_ENTRY }),
+              NotifManager::buildPushBody({ PushToken(string("ios-1"), HistLogger::PUSH_HW_IOS,
+                                                      HistLogger::PUSH_FORMAT_DATA) },
+                                          "Door open", "ev-42", false));
+}
+
+TEST(PushPayloadTest, MixedTokensGetOneEntryPerFormat)
+{
+    EXPECT_EQ(body({ IOS_PIC_ENTRY, ANDROID_PIC_ENTRY, ANDROID_DATA_PIC_ENTRY }),
+              NotifManager::buildPushBody({ dataToken("data-1"),
+                                            token("and-1", HistLogger::PUSH_HW_ANDROID),
+                                            token("ios-1", HistLogger::PUSH_HW_IOS),
+                                            token("and-2", HistLogger::PUSH_HW_ANDROID) },
+                                          "Door open", "ev-42", false));
+}

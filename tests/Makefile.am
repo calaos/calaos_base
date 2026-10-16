@@ -8146,3 +8146,17 @@ core_PushPayload_test_LDADD = $(CORE_TEST_LDADD)
 core_PushPayload_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#push_tokens written before push_format existed: migrated in place, the old
+#tokens keep the notification format. HistLogger is a singleton, one database
+#per binary.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/PushTokenStore_test
+check_PROGRAMS += core/PushTokenStore_test
+core_PushTokenStore_test_SOURCES = core/PushTokenStore_test.cpp
+core_PushTokenStore_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_PushTokenStore_test_LDADD = $(CORE_TEST_LDADD)
+core_PushTokenStore_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif

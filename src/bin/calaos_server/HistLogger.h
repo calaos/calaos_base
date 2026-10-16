@@ -57,11 +57,12 @@ class HistWorkerAction;
 class PushToken
 {
 public:
-    PushToken(string &&t, int hw):
-        token(t), hw_type(hw) {}
+    PushToken(string &&t, int hw, int fmt = 0):
+        token(t), hw_type(hw), format(fmt) {}
     PushToken() {}
     string token;
     int hw_type = 0;
+    int format = 0;
     string created_at;
 };
 
@@ -89,8 +90,15 @@ public:
         PUSH_HW_ANDROID,
     };
 
-    //Add a new device token to the db
-    void registerPushToken(string token, int push_hw);
+    //What the app registered for. The store apps (3.1.x) send no format and
+    //cannot display a data-only FCM message.
+    enum {
+        PUSH_FORMAT_NOTIFICATION = 0,
+        PUSH_FORMAT_DATA,
+    };
+
+    //Add a new device token to the db, or refresh it and update its format
+    void registerPushToken(string token, int push_hw, int push_format = PUSH_FORMAT_NOTIFICATION);
 
     //Get all push token devices
     void getPushTokens(std::function<void(bool success, string errorMsg, const vector<PushToken> &tokens)> callback);

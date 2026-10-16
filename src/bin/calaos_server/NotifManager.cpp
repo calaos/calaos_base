@@ -149,12 +149,15 @@ string NotifManager::buildPushBody(const vector<PushToken> &tokens, const string
         nmsg = "Calaos Notification";
 
     vector<PushToken> androidTokens;
+    vector<PushToken> androidDataTokens;
     vector<PushToken> iosTokens;
 
     for (const auto &t: tokens)
     {
         if (t.hw_type == HistLogger::PUSH_HW_IOS)
             iosTokens.push_back(t);
+        else if (t.hw_type == HistLogger::PUSH_HW_ANDROID && t.format == HistLogger::PUSH_FORMAT_DATA)
+            androidDataTokens.push_back(t);
         else if (t.hw_type == HistLogger::PUSH_HW_ANDROID)
             androidTokens.push_back(t);
     }
@@ -231,6 +234,35 @@ string NotifManager::buildPushBody(const vector<PushToken> &tokens, const string
         jarr.push_back(notif);
     }
 
+    // Google Android, data-only -----------------------
+    //No title/message/notification/sound: gorush would turn any of them into a
+    //notification that Android displays itself while the app is in the
+    //background, without calling onMessageReceived(). android.priority is the
+    //FCM delivery priority (the top-level one is not mapped for Android), a
+    //normal data message is deferred while the phone dozes.
+    if (!androidDataTokens.empty())
+    {
+        Json tokArray = Json::array();
+        for (const auto &t: androidDataTokens)
+            tokArray.push_back(t.token);
+
+        Json notif = {
+            { "tokens", tokArray },
+            { "platform", 2 },
+            { "android", {{ "priority", "high" }} },
+            { "data", {
+                  { "body", nmsg },
+                  { "message", nmsg },
+                  { "title", "Calaos" }
+              } }
+        };
+
+        if (!notifPicUuid.empty())
+            notif["data"]["event_uuid"] = notifPicUuid;
+
+        jarr.push_back(notif);
+    }
+
     if (jarr.empty())
         return string();
 
@@ -261,8 +293,8 @@ void NotifManager::sendPushNotification(const string &message, const string &not
             return;
         }
 
-        cDebugDom(TAG) << "Sending notif to service:";
-        cDebugDom(TAG) << body;
+        //The body carries the device tokens, it is never logged.
+        cDebugDom(TAG) << "Sending notif to service for " << tokens.size() << " token(s)";
 
         UrlDownloader *u = new UrlDownloader("https://push.calaos.fr/api/push", true);
         u->m_signalComplete.connect([this, callbackSent](int statusCode)

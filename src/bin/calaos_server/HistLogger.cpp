@@ -42,7 +42,8 @@
     "id INTEGER PRIMARY KEY UNIQUE NOT NULL, " \
     "token TEXT, " \
     "hw_type INTEGER, " \
-    "created_at DATETIME DEFAULT CURRENT_TIMESTAMP);"
+    "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, " \
+    "push_format INTEGER NOT NULL DEFAULT 0);"
 
 class HistWorkerAction
 {
@@ -160,12 +161,13 @@ void HistLogger::getEvent(string uuid,
     eventQueue.push(a);
 }
 
-void HistLogger::registerPushToken(string token, int push_hw)
+void HistLogger::registerPushToken(string token, int push_hw, int push_format)
 {
     std::shared_ptr<HistWorkerAction> a = std::make_shared<HistWorkerAction>();
     a->action = HistWorkerAction::WorkerTokenRegister;
     a->token.token = token;
     a->token.hw_type = push_hw;
+    a->token.format = push_format;
     eventQueue.push(a);
 }
 
@@ -226,6 +228,17 @@ void HistLogger::sqliteWorker()
     {
         db << DB_CREATE_SQL_EVENTS;
         db << DB_CREATE_SQL_TOKENS;
+
+        //Databases created before push_format existed: their tokens all
+        //belong to apps expecting the notification format, the default.
+        bool hasFormat = false;
+        db << "SELECT count(*) FROM pragma_table_info('push_tokens') WHERE name = 'push_format';"
+           >> [&](int count) { hasFormat = count > 0; };
+        if (!hasFormat)
+        {
+            cInfoDom("history") << "Adding push_format to push_tokens";
+            db << "ALTER TABLE push_tokens ADD COLUMN push_format INTEGER NOT NULL DEFAULT 0;";
+        }
     }
     catch (exception &e)
     {
@@ -389,8 +402,7 @@ void HistLogger::sqliteWorker()
             }
             else if (ac->action == HistWorkerAction::WorkerTokenRegister)
             {
-                //write the new event to the db
-                cDebugDom("history") << "Write to SQLite db: " << ac->token.token;
+                cDebugDom("history") << "Write push token to SQLite db";
 
                 try
                 {
@@ -404,14 +416,16 @@ void HistLogger::sqliteWorker()
 
                     if (alreadyExists)
                     {
-                        db << "UPDATE push_tokens SET created_at = DATETIME('now') WHERE token = ?;"
+                        db << "UPDATE push_tokens SET created_at = DATETIME('now'), push_format = ? WHERE token = ?;"
+                           << ac->token.format
                            << ac->token.token;
                     }
                     else
                     {
-                        db << "INSERT INTO push_tokens (token, hw_type) values (?, ?);"
+                        db << "INSERT INTO push_tokens (token, hw_type, push_format) values (?, ?, ?);"
                            << ac->token.token
-                           << ac->token.hw_type;
+                           << ac->token.hw_type
+                           << ac->token.format;
                     }
 
                     cDebugDom("history") << "Cleaning push_tokens older than 30 days";
@@ -434,10 +448,10 @@ void HistLogger::sqliteWorker()
 
                 try
                 {
-                    db << "SELECT token, hw_type FROM push_tokens;"
-                       >> [&](string token, int hw_type)
+                    db << "SELECT token, hw_type, push_format FROM push_tokens;"
+                       >> [&](string token, int hw_type, int push_format)
                     {
-                        ac->tokens.emplace_back(std::move(token), hw_type);
+                        ac->tokens.emplace_back(std::move(token), hw_type, push_format);
                     };
 
                     cDebugDom("history") << "Cleaning push_tokens older than 30 days";
