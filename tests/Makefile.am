@@ -8154,7 +8154,8 @@ endif
 if HAVE_GTEST
 TESTS += core/PushTokenStore_test
 check_PROGRAMS += core/PushTokenStore_test
-core_PushTokenStore_test_SOURCES = core/PushTokenStore_test.cpp
+core_PushTokenStore_test_SOURCES = core/PushTokenStore_test.cpp \
+                  core/PushTestUtil.h
 core_PushTokenStore_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_PushTokenStore_test_LDADD = $(CORE_TEST_LDADD)
 core_PushTokenStore_test_DEPENDENCIES = $(CORE_TEST_DEPS) \

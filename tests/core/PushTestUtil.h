@@ -23,9 +23,17 @@
 //Shared by the push token tests: pumping the loop while HistLogger's worker
 //answers, and reading what the process writes to stdout (the Logger sink).
 
+#include <arpa/inet.h>
 #include <fcntl.h>
+#include <netinet/in.h>
+#include <poll.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#include <atomic>
+#include <cstring>
+#include <mutex>
 
 #include <chrono>
 #include <cstdio>
@@ -146,5 +154,92 @@ inline std::string makeTestDirs()
 constexpr const char *OldTokensSchema =
     "CREATE TABLE push_tokens (id INTEGER PRIMARY KEY UNIQUE NOT NULL, "
     "token TEXT, hw_type INTEGER, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);";
+
+//One-shot HTTP peer on loopback standing in for push.calaos.fr: keeps the
+//request it got and answers 200.
+class HttpPeer
+{
+public:
+    HttpPeer()
+    {
+        listenFd = ::socket(AF_INET, SOCK_STREAM, 0);
+        int on = 1;
+        ::setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+        struct sockaddr_in addr;
+        std::memset(&addr, 0, sizeof(addr));
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        socklen_t len = sizeof(addr);
+        if (::bind(listenFd, (struct sockaddr *)&addr, sizeof(addr)) == 0 &&
+            ::listen(listenFd, 1) == 0 &&
+            ::getsockname(listenFd, (struct sockaddr *)&addr, &len) == 0)
+            port = ntohs(addr.sin_port);
+        th = std::thread([this]() { run(); });
+    }
+
+    ~HttpPeer()
+    {
+        stop = true;
+        th.join();
+        ::close(listenFd);
+    }
+
+    std::string url() const { return "http://127.0.0.1:" + std::to_string(port) + "/api/push"; }
+
+    std::string request()
+    {
+        std::lock_guard<std::mutex> l(m);
+        return req;
+    }
+
+private:
+    void run()
+    {
+        int fd = -1;
+        while (!stop && fd < 0)
+        {
+            struct pollfd p = { listenFd, POLLIN, 0 };
+            if (::poll(&p, 1, 50) > 0)
+                fd = ::accept(listenFd, nullptr, nullptr);
+        }
+        if (fd < 0)
+            return;
+
+        std::string got;
+        while (!stop)
+        {
+            const size_t head = got.find("\r\n\r\n");
+            if (head != std::string::npos)
+            {
+                const size_t cl = got.find("Content-Length: ");
+                const size_t want = cl == std::string::npos ? 0 : std::stoul(got.substr(cl + 16));
+                if (got.size() >= head + 4 + want)
+                    break;
+            }
+            struct pollfd p = { fd, POLLIN, 0 };
+            if (::poll(&p, 1, 50) <= 0)
+                continue;
+            char b[4096];
+            const ssize_t n = ::recv(fd, b, sizeof(b), 0);
+            if (n <= 0)
+                break;
+            got.append(b, n);
+        }
+        {
+            std::lock_guard<std::mutex> l(m);
+            req = got;
+        }
+        const std::string resp = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}";
+        ::send(fd, resp.data(), resp.size(), MSG_NOSIGNAL);
+        ::close(fd);
+    }
+
+    int listenFd = -1;
+    int port = 0;
+    std::atomic<bool> stop{false};
+    std::thread th;
+    std::mutex m;
+    std::string req;
+};
 
 } //namespace PushTest
