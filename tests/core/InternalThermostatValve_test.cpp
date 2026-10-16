@@ -23,11 +23,15 @@
 //param, floor cooling with and without a humidity sensor.
 
 #include "CalaosCoreFixture.h"
+#include "IOFactory.h"
 #include "InternalThermostat.h"
 #include "libuvw.h"
 
+#include <algorithm>
 #include <chrono>
 #include <functional>
+#include <memory>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -151,6 +155,8 @@ std::string house()
     ios += zone("zempty", param("modes", ""));
     ios += pair("pairheat", param("modes", "off,heat"), true);
     ios += pair("pairnocool", param("modes", "heat,cool"), false);
+    //No modes param: the outputs decide.
+    ios += pair("pairplain", "", true);
     //A range linked, but no auto to use it.
     ios += pair("pairnoauto",
                 param("modes", "heat,cool") + internal("InternalInt", "pairnoauto_low", "      ", SAVED) +
@@ -177,7 +183,36 @@ std::string house()
     return ioXmlDocument(roomXml("Salon", "salon", ios));
 }
 
-const std::vector<std::string> DEVICES = { "zone", "zauto", "zlock", "zhum", "zghost", "zhalf", "zauhum", "zdef", "zbad", "zempty", "pairheat", "pairnocool", "pairnoauto", "mix", "own_a", "own_b", "own_c" };
+Json thermostatDocumentation()
+{
+    Params p;
+    p.Add("type", "device:thermostat");
+    p.Add("id", "doc");
+    IOBase::ScopedDocGen docScope;
+    std::unique_ptr<IOBase> io(IOFactory::Instance().CreateIO("device:thermostat", p));
+    return io->getDoc()->genDocJson();
+}
+
+std::vector<std::string> splitList(const std::string &list)
+{
+    std::vector<std::string> out;
+    std::stringstream ss(list);
+    for (std::string item; std::getline(ss, item, ',');)
+    {
+        item.erase(0, item.find_first_not_of(' '));
+        item.erase(item.find_last_not_of(' ') + 1);
+        if (!item.empty())
+            out.push_back(item);
+    }
+    return out;
+}
+
+bool listHas(const std::vector<std::string> &l, const std::string &v)
+{
+    return std::find(l.begin(), l.end(), v) != l.end();
+}
+
+const std::vector<std::string> DEVICES = { "zone", "zauto", "zlock", "zhum", "zghost", "zhalf", "zauhum", "zdef", "zbad", "zempty", "pairheat", "pairnocool", "pairplain", "pairnoauto", "mix", "own_a", "own_b", "own_c" };
 
 } //namespace
 
@@ -642,4 +677,95 @@ TEST_F(InternalThermostatValveTest, ARuleReactingToADirectionChangeRestartsTheEv
     EXPECT_EQ(io("zauto_target")->get_value_double(), 10);
     EXPECT_FALSE(on("zauto_valve"));
     EXPECT_EQ(str("zauto_action"), "idle");
+}
+
+/* A client derives the modes of an instance from the document alone: the rule
+ * published on the modes param, and the links each mode needs. It has to land
+ * on what the server offers, for every way of listing modes or not. */
+TEST_F(InternalThermostatValveTest, TheModesTheDocumentSaysAreThoseTheServerOffers)
+{
+    load();
+    const Json doc = thermostatDocumentation();
+
+    Json rule;
+    for (const Json &p: doc.at("parameters"))
+    {
+        if (p.at("name") == "modes")
+            rule = p.at("list_rule");
+    }
+    ASSERT_FALSE(rule.is_null());
+    Json field;
+    for (const Json &f: doc.at("command_fields"))
+    {
+        if (f.at("name") == "mode")
+            field = f;
+    }
+
+    //A requirement on a replaced role is met by the role that replaces it.
+    auto linked = [&doc](InternalThermostat *d, const std::string &role)
+    {
+        if (d->linkIo(role))
+            return true;
+        for (const Json &r: doc.at("link_roles"))
+        {
+            for (const Json &replaced: r.value("replaces", Json::array()))
+            {
+                if (replaced == role && d->linkIo(r.at("role").get<std::string>()))
+                    return true;
+            }
+        }
+        return false;
+    };
+
+    int checked = 0;
+    for (const std::string &id: { "zone", "zauto", "zlock", "zhum", "zghost", "zdef", "zbad", "zhalf", "zauhum",
+                                  "zempty", "pairheat", "pairnocool", "pairplain", "pairnoauto", "own_a" })
+    {
+        InternalThermostat *d = dev(id);
+        ASSERT_NE(d, nullptr) << id;
+
+        std::vector<std::string> list;
+        bool narrowed = false;
+        if (d->hasDeviceParam("modes"))
+        {
+            list = splitList(d->getDeviceParam("modes"));
+            narrowed = true;
+        }
+        else
+        {
+            for (const auto &it: rule.at("default_when_linked").items())
+            {
+                if (d->linkIo(it.key()))
+                {
+                    list = it.value().get<std::vector<std::string>>();
+                    narrowed = true;
+                }
+            }
+        }
+        for (const Json &always: rule.at("always_includes"))
+            list.push_back(always.get<std::string>());
+
+        std::vector<std::string> offered;
+        for (const Json &v: field.at("values"))
+        {
+            const std::string name = v.get<std::string>();
+            bool ok = !narrowed || listHas(list, name);
+            for (const Json &role: field.at("value_requires_links").value(name, Json::array()))
+                ok = ok && linked(d, role.get<std::string>());
+            if (ok)
+                offered.push_back(name);
+        }
+        std::vector<std::string> final;
+        for (const std::string &name: offered)
+        {
+            bool ok = true;
+            for (const Json &need: rule.at("value_requires_values").value(name, Json::array()))
+                ok = ok && listHas(offered, need.get<std::string>());
+            if (ok)
+                final.push_back(name);
+        }
+        EXPECT_EQ(modes(id), final) << id;
+        checked++;
+    }
+    EXPECT_EQ(15, checked);
 }

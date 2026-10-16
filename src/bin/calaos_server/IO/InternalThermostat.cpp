@@ -44,6 +44,31 @@ vector<InternalThermostat *> &liveThermostats()
     return *all;
 }
 
+/* What the modes param does, enforced by supportedModes() and published as
+ * its list_rule: one structure, so that the two cannot drift. */
+struct ModesRule
+{
+    vector<string> always;
+    IODoc::ValueLinks defaults;
+    IODoc::ValueLinks needs;
+};
+
+const ModesRule &modesRule()
+{
+    static const ModesRule rule = []()
+    {
+        const string off = ClimateBase::modeName(ClimateMode::Off), heatName = ClimateBase::modeName(ClimateMode::Heat);
+        const string coolName = ClimateBase::modeName(ClimateMode::Cool), autoName = ClimateBase::modeName(ClimateMode::Auto);
+        ModesRule r;
+        r.always = { off };
+        r.defaults = { { "output", { heatName } } };
+        r.needs = { { autoName, { heatName, coolName } } };
+        //Not a named return value: gcov charges its unwinding to the closing brace.
+        return ModesRule(std::move(r));
+    }();
+    return rule;
+}
+
 //Not through REGISTER_DEVICE: it registers a factory, not an observer.
 [[maybe_unused]] const bool observing = (Device::observeOutsideWrites(&InternalThermostat::warnIfProtected), true);
 
@@ -107,6 +132,8 @@ InternalThermostat::InternalThermostat(Params &p):
                                "output_cool, auto with both, and heat alone with output. A mode the outputs "
                                "cannot run, or an unknown one, is ignored."),
                     IODoc::TYPE_STRING, false, string(), false, _("Modes"));
+    const ModesRule &rule = modesRule();
+    ioDoc->paramListRule("modes", rule.always, rule.defaults, rule.needs);
     for (const char *name: { "hysteresis", "min_on_time", "min_off_time", "put_back_delay",
                              "put_back_delay_max", "emitter", "humidity_max", "valid_min", "valid_max",
                              "modes" })
@@ -444,28 +471,46 @@ vector<ClimateMode> InternalThermostat::outputModes()
 }
 
 /* Nothing tells a thermostat which way the water of a valve flows: without
- * the modes param it only heats, cooling by surprise being the worse error. */
+ * the modes param it only heats, cooling by surprise being the worse error.
+ * The rule is the one the IODoc publishes, so that a form follows it. */
 vector<ClimateMode> InternalThermostat::supportedModes()
 {
+    const ModesRule &rule = modesRule();
     const bool listed = hasDeviceParam("modes");
-    if (!listed && !outputIo(valve))
+    const auto fallback = rule.defaults.find(valve.role);
+    const bool defaulted = !listed && fallback != rule.defaults.end() && outputIo(valve);
+    if (!listed && !defaulted)
         return outputModes();
-    const vector<string> wanted = listed ? paramList("modes") : vector<string>{ modeName(ClimateMode::Heat) };
+    const vector<string> wanted = listed ? paramList("modes") : fallback->second;
 
+    const auto in = [](const vector<string> &l, const string &v)
+    {
+        return std::find(l.begin(), l.end(), v) != l.end();
+    };
     vector<ClimateMode> modes;
     for (ClimateMode m: outputModes())
     {
-        if (m == ClimateMode::Off || std::find(wanted.begin(), wanted.end(), modeName(m)) != wanted.end())
+        if (in(rule.always, modeName(m)) || in(wanted, modeName(m)))
             modes.push_back(m);
     }
-    //Auto cools as much as it heats: not without both.
-    const auto offered = [&modes](ClimateMode m)
+    //A value that needs others is judged on what is offered.
+    vector<string> offered;
+    for (ClimateMode m: modes)
+        offered.push_back(modeName(m));
+    vector<ClimateMode> kept;
+    for (ClimateMode m: modes)
     {
-        return std::find(modes.begin(), modes.end(), m) != modes.end();
-    };
-    if (!offered(ClimateMode::Heat) || !offered(ClimateMode::Cool))
-        modes.erase(std::remove(modes.begin(), modes.end(), ClimateMode::Auto), modes.end());
-    return vector<ClimateMode>(std::move(modes));
+        bool met = true;
+        const auto need = rule.needs.find(modeName(m));
+        if (need != rule.needs.end())
+        {
+            for (const string &other: need->second)
+                met = met && in(offered, other);
+        }
+        if (met)
+            kept.push_back(m);
+    }
+    return vector<ClimateMode>(std::move(kept));
 }
 
 bool InternalThermostat::supports(ClimateMode m)

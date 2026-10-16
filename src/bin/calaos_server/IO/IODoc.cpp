@@ -35,6 +35,15 @@ std::map<string, Params> byName(const Map &m)
     return std::map<string, Params>(m.begin(), m.end());
 }
 
+string joinValues(const Json &values)
+{
+    string out;
+    for (const Json &v: values)
+        out += (out.empty() ? "" : ", ") + v.get<string>();
+    //Not a named return value: gcov charges its unwinding to the closing brace.
+    return string(std::move(out));
+}
+
 } //namespace
 
 IODoc::IODoc()
@@ -223,6 +232,19 @@ void IODoc::linkRoleReplaces(const string &role, const vector<string> &replaced)
     }
 }
 
+void IODoc::paramListRule(const string &name, const vector<string> &alwaysIncludes,
+                          const ValueLinks &defaultWhenLinked, const ValueLinks &valueRequiresValues)
+{
+    Json rule = Json::object();
+    if (!alwaysIncludes.empty())
+        rule["always_includes"] = alwaysIncludes;
+    if (!defaultWhenLinked.empty())
+        rule["default_when_linked"] = defaultWhenLinked;
+    if (!valueRequiresValues.empty())
+        rule["value_requires_values"] = valueRequiresValues;
+    m_list_rules[name] = rule;
+}
+
 void IODoc::paramInChild(const string &name)
 {
     m_child_params.insert(name);
@@ -267,6 +289,9 @@ Json IODoc::genDocJson()
         Json jparam = it.second.toJson();
         if (m_child_params.count(it.first))
             jparam["storage"] = "calaos:param";
+        const auto rule = m_list_rules.find(it.first);
+        if (rule != m_list_rules.end() && !rule->second.empty())
+            jparam["list_rule"] = rule->second;
         if (typeFromString(it.second["type"]) == TYPE_LIST)
             jparam["list_value"] = param_list_value[it.second["name"]].toJson();
         array.push_back(jparam);
@@ -362,6 +387,24 @@ string IODoc::genDocMd(const string iotype)
             doc += it.second["description"] + "\n";
         }
         doc += "\n";
+
+        for (const auto &it: m_list_rules)
+        {
+            if (!m_parameters.count(it.first) || it.second.empty())
+                continue;
+            const Json &rule = it.second;
+            doc += "List `" + it.first + "`:";
+            if (rule.contains("always_includes"))
+                doc += " always offers " + joinValues(rule["always_includes"]) + ".";
+            //items() of a temporary would iterate a destroyed document.
+            const Json defaults = rule.value("default_when_linked", Json::object());
+            const Json needs = rule.value("value_requires_values", Json::object());
+            for (const auto &d: defaults.items())
+                doc += " Without it and with " + d.key() + " linked: " + joinValues(d.value()) + ".";
+            for (const auto &d: needs.items())
+                doc += " " + d.key() + " needs " + joinValues(d.value()) + ".";
+            doc += "\n\n";
+        }
     }
 
     if (!m_link_roles.empty())

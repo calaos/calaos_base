@@ -885,6 +885,13 @@ void paramInChild(const string &name);
   thermostat remplace `output_heat` et `output_cool`. Les lier ensemble est une erreur de
   configuration, et une exigence sur un rôle remplacé (`required`, `requires_links`,
   `value_requires_links`) est satisfaite par le rôle qui le remplace.
+- `paramListRule` publie `list_rule` sur un param liste séparée par des virgules (`modes`) : ce
+  que le serveur applique à la liste, pour qu'un formulaire propose ce qu'il accepte.
+  `always_includes` : valeurs toujours offertes (`off`). `default_when_linked` : rôle → liste
+  utilisée quand le param est absent et le rôle lié (`output` → `heat`). `value_requires_values` :
+  une valeur n'est offerte que si les autres le sont, parmi les valeurs offertes (`auto` → `heat`,
+  `cool`). Chaque clé n'est publiée que non vide ; un param jamais ajouté est ignoré. Un param
+  sans `list_rule` (le `modes` du proxy) est la liste complète.
 - `paramInChild` marque un paramètre qui s'écrit en `<calaos:param>` et non en attribut
   (`"storage": "calaos:param"`), quel que soit l'ordre des appels par rapport à `paramAdd` ; un nom
   jamais ajouté est ignoré.

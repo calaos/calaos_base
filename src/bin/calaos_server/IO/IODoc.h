@@ -94,6 +94,15 @@ public:
      * a requirement on them, required or requires_links, is met by it.
      * Published as replaces: [...] on `role`, added with linkRoleAdd() first. */
     void linkRoleReplaces(const string &role, const vector<string> &replaced);
+    /* Rules the server applies to a comma separated list param, so that a form
+     * offers what the server accepts; published as list_rule on the param, each
+     * key only when not empty. alwaysIncludes: values offered whatever the list.
+     * defaultWhenLinked: link role -> the list used when the param is absent and
+     * that role is linked. valueRequiresValues: a value is only offered when the
+     * others are, among the values offered. Whatever the order of the calls: a
+     * name never added is ignored. */
+    void paramListRule(const string &name, const vector<string> &alwaysIncludes,
+                       const ValueLinks &defaultWhenLinked, const ValueLinks &valueRequiresValues);
     /* The parameter is a <calaos:param> child of the device, not an XML
      * attribute. Whatever the order of the calls: a name never added is ignored. */
     void paramInChild(const string &name);
@@ -121,6 +130,7 @@ private:
     ParamMap param_list_value;
 
     std::set<string> m_child_params;
+    std::map<string, Json> m_list_rules;
 
     string m_family;
     Json m_command_fields = Json::array();

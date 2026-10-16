@@ -71,6 +71,10 @@ L'assistant affiche les `label` (traduits), jamais les `value`. Le champ `modes`
 ESPHome est obligatoire : décoché en entier, le param ne serait pas écrit et le device offrirait
 tous les modes.
 
+Pour le thermostat, `modes` restreint les modes que ses sorties permettent : `off` reste
+offert, `auto` suppose `heat` et `cool`, et une vanne `output` sans `modes` n'offre que `heat`.
+Ces règles sont publiées par `list_rule` sur le param (docs/01) ; les clients ne les recopient pas.
+
 `io_filter.value` est le type de valeur de l'IO (le `DATA_TYPE` du serveur : `TINT` pour
 `number`) ; `writable: true` demande un IO que le device peut écrire (sortie ou interne). Les
 `params` d'une option d'`enum` remplacent les params du template de même nom : c'est ainsi que le
