@@ -45,6 +45,76 @@
                              "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, " \
                              "push_format INTEGER NOT NULL DEFAULT 0);"
 
+bool PushTokenDb::prepare(sqlite::database &db)
+{
+    try
+    {
+        db << DB_CREATE_SQL_TOKENS;
+
+        int count = 0;
+        db << "SELECT count(*) FROM pragma_table_info('push_tokens') WHERE name = 'push_format';" >> count;
+        if (count > 0)
+            return true;
+
+        //Tables from older servers: their tokens all belong to apps expecting
+        //the notification format, the default.
+        db << "ALTER TABLE push_tokens ADD COLUMN push_format INTEGER NOT NULL DEFAULT 0;";
+        cInfoDom("history") << "push_tokens: push_format column added";
+        return true;
+    }
+    catch (sqlite::sqlite_exception &e)
+    {
+        cWarningDom("history") << "push_tokens: cannot add push_format (" << e.get_code() << ": " << e.what()
+                               << "), every token is served in the notification format";
+        return false;
+    }
+}
+
+void PushTokenDb::save(sqlite::database &db, const PushToken &token, bool hasFormat)
+{
+    bool exists = false;
+    db << "SELECT id FROM push_tokens WHERE token = ?;" << token.token >> [&](int)
+    {
+        exists = true;
+    };
+
+    if (exists && hasFormat)
+        db << "UPDATE push_tokens SET created_at = DATETIME('now'), push_format = ? WHERE token = ?;"
+           << token.format << token.token;
+    else if (exists)
+        db << "UPDATE push_tokens SET created_at = DATETIME('now') WHERE token = ?;" << token.token;
+    else if (hasFormat)
+        db << "INSERT INTO push_tokens (token, hw_type, push_format) values (?, ?, ?);"
+           << token.token << token.hw_type << token.format;
+    else
+        db << "INSERT INTO push_tokens (token, hw_type) values (?, ?);" << token.token << token.hw_type;
+}
+
+vector<PushToken> PushTokenDb::load(sqlite::database &db, bool hasFormat)
+{
+    vector<PushToken> tokens;
+    if (hasFormat)
+    {
+        db << "SELECT token, hw_type, push_format FROM push_tokens;" >> [&](string token, int hw_type, int push_format)
+        {
+            tokens.emplace_back(std::move(token), hw_type, push_format);
+        };
+    }
+    else
+    {
+        db << "SELECT token, hw_type FROM push_tokens;" >> [&](string token, int hw_type)
+        {
+            tokens.emplace_back(std::move(token), hw_type);
+        };
+    }
+    return tokens;
+}
+
+void PushTokenDb::purge(sqlite::database &db)
+{
+    db << "DELETE FROM push_tokens WHERE created_at <= date('now', '-30 days');";
+}
+
 class HistWorkerAction
 {
 public:
@@ -227,26 +297,14 @@ void HistLogger::sqliteWorker()
     try
     {
         db << DB_CREATE_SQL_EVENTS;
-        db << DB_CREATE_SQL_TOKENS;
-
-        //Databases created before push_format existed: their tokens all
-        //belong to apps expecting the notification format, the default.
-        bool hasFormat = false;
-        db << "SELECT count(*) FROM pragma_table_info('push_tokens') WHERE name = 'push_format';" >> [&](int count)
-        {
-            hasFormat = count > 0;
-        };
-        if (!hasFormat)
-        {
-            cInfoDom("history") << "Adding push_format to push_tokens";
-            db << "ALTER TABLE push_tokens ADD COLUMN push_format INTEGER NOT NULL DEFAULT 0;";
-        }
     }
     catch (exception &e)
     {
         cCriticalDom("history") << "Failed to open and setup database!";
         cCriticalDom("history") << e.what();
     }
+
+    bool pushFormat = PushTokenDb::prepare(db);
 
     while (!done)
     {
@@ -406,42 +464,16 @@ void HistLogger::sqliteWorker()
             {
                 cDebugDom("history") << "Write push token to SQLite db";
 
+                //Never e.get_sql() here: sqlite_modern_cpp expands it with the
+                //bound values, the token included.
                 try
                 {
-                    bool alreadyExists = false;
-                    db << "SELECT id FROM push_tokens WHERE token = ?;"
-                       << ac->token.token
-                       >> [&](int id)
-                    {
-                        alreadyExists = true;
-                    };
-
-                    if (alreadyExists)
-                    {
-                        db << "UPDATE push_tokens SET created_at = DATETIME('now'), push_format = ? WHERE token = ?;"
-                           << ac->token.format
-                           << ac->token.token;
-                    }
-                    else
-                    {
-                        db << "INSERT INTO push_tokens (token, hw_type, push_format) values (?, ?, ?);"
-                           << ac->token.token
-                           << ac->token.hw_type
-                           << ac->token.format;
-                    }
-
-                    cDebugDom("history") << "Cleaning push_tokens older than 30 days";
-                    db << "DELETE FROM push_tokens WHERE created_at <= date('now', '-30 days');";
+                    PushTokenDb::save(db, ac->token, pushFormat);
+                    PushTokenDb::purge(db);
                 }
                 catch (sqlite::sqlite_exception &e)
                 {
-                    cCriticalDom("history") << "SQL failed: " << e.get_code() << ": " << e.what()
-                                            << " during " << e.get_sql();
-                    cCriticalDom("history") << "SQLite error: " << sqlite3_errmsg(db.connection().get());
-                }
-                catch (exception &e)
-                {
-                    cCriticalDom("history") << "Failed to INSERT into db: " << e.what();
+                    cCriticalDom("history") << "Failed to save a push token: " << e.get_code() << ": " << e.what();
                 }
             }
             else if (ac->action == HistWorkerAction::WorkerTokenGetAll)
@@ -450,27 +482,30 @@ void HistLogger::sqliteWorker()
 
                 try
                 {
-                    db << "SELECT token, hw_type, push_format FROM push_tokens;" >> [&](string token, int hw_type, int push_format)
-                    {
-                        ac->tokens.emplace_back(std::move(token), hw_type, push_format);
-                    };
-
-                    cDebugDom("history") << "Cleaning push_tokens older than 30 days";
-                    db << "DELETE FROM push_tokens WHERE created_at <= date('now', '-30 days');";
-
-                    //wakeup the mainloop with the result
-                    ac->handle->send();
+                    ac->tokens = PushTokenDb::load(db, pushFormat);
                 }
                 catch (sqlite::sqlite_exception &e)
                 {
-                    cCriticalDom("history") << "SQL failed: " << e.get_code() << ": " << e.what()
-                                            << " during " << e.get_sql();
-                    cCriticalDom("history") << "SQLite error: " << sqlite3_errmsg(db.connection().get());
+                    cCriticalDom("history") << "Failed to read the push tokens: " << e.get_code() << ": " << e.what();
+                    ac->success = false;
+                    ac->errMsg = "push tokens unavailable";
                 }
-                catch (exception &e)
+
+                //A failed purge must not hold back a push.
+                if (ac->success)
                 {
-                    cCriticalDom("history") << "Failed to INSERT into db: " << e.what();
+                    try
+                    {
+                        PushTokenDb::purge(db);
+                    }
+                    catch (sqlite::sqlite_exception &e)
+                    {
+                        cWarningDom("history") << "Failed to purge old push tokens: " << e.get_code() << ": " << e.what();
+                    }
                 }
+
+                //wakeup the mainloop with the result
+                ac->handle->send();
             }
 
         }

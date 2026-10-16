@@ -32,6 +32,10 @@ namespace uvw {
 class AsyncHandle;
 }
 
+namespace sqlite {
+class database;
+}
+
 using namespace Calaos;
 
 class HistEvent
@@ -121,5 +125,19 @@ private:
     std::thread sqliteThread;
     ThreadedQueue<std::shared_ptr<HistWorkerAction>> eventQueue;
 };
+
+//push_tokens storage, run by the history worker thread. Throws sqlite errors,
+//except prepare().
+namespace PushTokenDb
+{
+//Creates the table and adds push_format to tables from older servers. False
+//when the column is still missing (database locked or read only): tokens are
+//then stored and read in the notification format until a later start.
+bool prepare(sqlite::database &db);
+void save(sqlite::database &db, const PushToken &token, bool hasFormat);
+vector<PushToken> load(sqlite::database &db, bool hasFormat);
+//Tokens not registered again for 30 days.
+void purge(sqlite::database &db);
+}
 
 #endif
