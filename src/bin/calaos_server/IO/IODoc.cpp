@@ -40,7 +40,8 @@ string joinValues(const Json &values)
     string out;
     for (const Json &v: values)
         out += (out.empty() ? "" : ", ") + v.get<string>();
-    return out;
+    //Not a named return value: gcov charges its unwinding to the closing brace.
+    return string(std::move(out));
 }
 
 } //namespace
