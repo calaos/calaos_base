@@ -105,6 +105,7 @@ public:
     AudioDB *get_database() { return database; }
 
     virtual DATA_TYPE get_type() { return TSTRING; }
+    bool hasComparableState() override { return false; }
     virtual void hasChanged();
 
     virtual bool set_value(std::string val);

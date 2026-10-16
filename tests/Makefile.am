@@ -474,7 +474,7 @@ TESTS += RemoteUIHmac_test
 check_PROGRAMS += RemoteUIHmac_test
 RemoteUIHmac_test_SOURCES = RemoteUIHmac_test.cpp
 RemoteUIHmac_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
 RemoteUIHmac_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   @CALAOS_SERVER_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
@@ -511,7 +511,7 @@ TESTS += RemoteUIOtaLifecycle_test
 check_PROGRAMS += RemoteUIOtaLifecycle_test
 RemoteUIOtaLifecycle_test_SOURCES = RemoteUIOtaLifecycle_test.cpp
 RemoteUIOtaLifecycle_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
 RemoteUIOtaLifecycle_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   @CALAOS_SERVER_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
@@ -1175,7 +1175,7 @@ core_RemoteUIDeviceInfo_test_SOURCES = core/RemoteUIDeviceInfo_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_RemoteUIDeviceInfo_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
 core_RemoteUIDeviceInfo_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
                   $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
@@ -1325,7 +1325,7 @@ core_JsonApiCharacterization_test_SOURCES = core/JsonApiCharacterization_test.cp
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiCharacterization_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiCharacterization_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -1399,7 +1399,7 @@ core_JsonApiPlaylist_test_SOURCES = core/JsonApiPlaylist_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiPlaylist_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiPlaylist_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -1477,7 +1477,7 @@ core_JsonApiHome_test_SOURCES = core/JsonApiHome_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiHome_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiHome_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -1555,7 +1555,7 @@ core_JsonApiCameraSnapshot_test_SOURCES = core/JsonApiCameraSnapshot_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiCameraSnapshot_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiCameraSnapshot_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -1628,7 +1628,7 @@ core_JsonApiPlayerState_test_SOURCES = core/JsonApiPlayerState_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiPlayerState_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiPlayerState_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -1718,7 +1718,7 @@ core_JsonApiScenario_test_SOURCES = core/JsonApiScenario_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiScenario_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -I$(top_srcdir)/src/bin/calaos_server/Scenario \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiScenario_test_LDADD = \
@@ -1803,7 +1803,7 @@ core_JsonApiWsTransport_test_SOURCES = core/JsonApiWsTransport_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiWsTransport_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiWsTransport_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -1876,7 +1876,7 @@ core_JsonApiEvents_test_SOURCES = core/JsonApiEvents_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiEvents_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiEvents_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -1969,7 +1969,7 @@ core_JsonApiMusicDb_test_SOURCES = core/JsonApiMusicDb_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiMusicDb_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiMusicDb_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -2080,7 +2080,7 @@ core_JsonApiSession_test_SOURCES = core/JsonApiSession_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiSession_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiSession_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -2180,7 +2180,7 @@ core_JsonApiAudioPayload_test_SOURCES = core/JsonApiAudioPayload_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiAudioPayload_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiAudioPayload_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -2278,7 +2278,7 @@ core_JsonApiEventLog_test_SOURCES = core/JsonApiEventLog_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiEventLog_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiEventLog_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -2360,7 +2360,7 @@ core_JsonApiInputGuards_test_SOURCES = core/JsonApiInputGuards_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiInputGuards_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiInputGuards_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -2468,7 +2468,7 @@ core_AutoScenarioMigration_test_SOURCES = core/AutoScenarioMigration_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_AutoScenarioMigration_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -I$(top_srcdir)/src/bin/calaos_server/Scenario \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_AutoScenarioMigration_test_LDADD = \
@@ -2550,7 +2550,7 @@ core_JsonApiThrottleIdentity_test_SOURCES = core/JsonApiThrottleIdentity_test.cp
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiThrottleIdentity_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiThrottleIdentity_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -2750,7 +2750,7 @@ core_JsonApiEmissionBytes_test_SOURCES = core/JsonApiEmissionBytes_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiEmissionBytes_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiEmissionBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -3276,7 +3276,7 @@ core_SetStateGarbage_test_SOURCES = core/SetStateGarbage_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_SetStateGarbage_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_SetStateGarbage_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -3447,7 +3447,7 @@ core_EventWireBytes_test_SOURCES = core/EventWireBytes_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_EventWireBytes_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_EventWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -3669,7 +3669,7 @@ core_JsonApiModelWireBytes_test_SOURCES = core/JsonApiModelWireBytes_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiModelWireBytes_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiModelWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -3811,7 +3811,7 @@ core_JsonApiStateWireBytes_test_SOURCES = core/JsonApiStateWireBytes_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiStateWireBytes_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiStateWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -3875,7 +3875,7 @@ core_RemoteUIDevice_test_SOURCES = core/RemoteUIDevice_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_RemoteUIDevice_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_RemoteUIDevice_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -3972,7 +3972,7 @@ core_JsonApiParamsWireBytes_test_SOURCES = core/JsonApiParamsWireBytes_test.cpp 
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiParamsWireBytes_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -I$(top_srcdir)/src/bin/calaos_server/Scenario \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiParamsWireBytes_test_LDADD = \
@@ -4042,7 +4042,7 @@ core_JsonApiAudioWireBytes_test_SOURCES = core/JsonApiAudioWireBytes_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiAudioWireBytes_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiAudioWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -4112,7 +4112,7 @@ core_JsonApiMusicDbWireBytes_test_SOURCES = core/JsonApiMusicDbWireBytes_test.cp
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiMusicDbWireBytes_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiMusicDbWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -4182,7 +4182,7 @@ core_JsonApiScenarioWireBytes_test_SOURCES = core/JsonApiScenarioWireBytes_test.
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiScenarioWireBytes_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -I$(top_srcdir)/src/bin/calaos_server/Scenario \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiScenarioWireBytes_test_LDADD = \
@@ -4254,7 +4254,7 @@ core_JsonApiDispatchWireBytes_test_SOURCES = core/JsonApiDispatchWireBytes_test.
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiDispatchWireBytes_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiDispatchWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -4343,7 +4343,7 @@ core_AutoScenarioDef_test_SOURCES = core/AutoScenarioDef_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_AutoScenarioDef_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -I$(top_srcdir)/src/bin/calaos_server/Scenario \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_AutoScenarioDef_test_LDADD = \
@@ -4408,7 +4408,7 @@ core_AutoScenarioRules_test_SOURCES = core/AutoScenarioRules_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_AutoScenarioRules_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -I$(top_srcdir)/src/bin/calaos_server/Scenario \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_AutoScenarioRules_test_LDADD = \
@@ -4482,7 +4482,7 @@ core_AutoScenarioUploadGuard_test_SOURCES = core/AutoScenarioUploadGuard_test.cp
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_AutoScenarioUploadGuard_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -I$(top_srcdir)/src/bin/calaos_server/Scenario \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_AutoScenarioUploadGuard_test_LDADD = \
@@ -4578,7 +4578,7 @@ core_JsonApiRequestGuards_test_SOURCES = core/JsonApiRequestGuards_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_JsonApiRequestGuards_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiRequestGuards_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -4651,7 +4651,7 @@ core_ScenarioMarkerRekey_test_SOURCES = core/ScenarioMarkerRekey_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_ScenarioMarkerRekey_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -I$(top_srcdir)/src/bin/calaos_server/Scenario \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_ScenarioMarkerRekey_test_LDADD = \
@@ -4727,7 +4727,7 @@ core_IoParamNulGuard_test_SOURCES = core/IoParamNulGuard_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_IoParamNulGuard_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_IoParamNulGuard_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -5125,7 +5125,7 @@ TESTS += core/HttpRequestLogSecret_test
 check_PROGRAMS += core/HttpRequestLogSecret_test
 core_HttpRequestLogSecret_test_SOURCES = core/HttpRequestLogSecret_test.cpp
 core_HttpRequestLogSecret_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
 core_HttpRequestLogSecret_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
                   $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
@@ -5230,7 +5230,7 @@ TESTS += core/ParseErrorSecret_test
 check_PROGRAMS += core/ParseErrorSecret_test
 core_ParseErrorSecret_test_SOURCES = core/ParseErrorSecret_test.cpp
 core_ParseErrorSecret_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
 core_ParseErrorSecret_test_LDADD = $(PARSE_ERROR_TEST_OBJECTS) \
                   $(CORE_TEST_LDADD) \
                   -lssl -lcrypto
@@ -5254,7 +5254,7 @@ TESTS += core/IncomingLogStockLevel_test
 check_PROGRAMS += core/IncomingLogStockLevel_test
 core_IncomingLogStockLevel_test_SOURCES = core/IncomingLogStockLevel_test.cpp
 core_IncomingLogStockLevel_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
 INCOMING_LOG_STOCK_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
                   $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
@@ -5402,7 +5402,7 @@ TESTS += core/PeerAddressFamily_test
 check_PROGRAMS += core/PeerAddressFamily_test
 core_PeerAddressFamily_test_SOURCES = core/PeerAddressFamily_test.cpp
 core_PeerAddressFamily_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
 PEER_ADDRESS_FAMILY_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
                   $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
@@ -5449,7 +5449,7 @@ check_PROGRAMS += core/ListenAddressFallback_test
 core_ListenAddressFallback_test_SOURCES = core/ListenAddressFallback_test.cpp \
                   core/ReservedPort.h
 core_ListenAddressFallback_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
 LISTEN_ADDRESS_FALLBACK_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)                        \
                   $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
@@ -5494,7 +5494,7 @@ TESTS += core/OtaRescanGate_test
 check_PROGRAMS += core/OtaRescanGate_test
 core_OtaRescanGate_test_SOURCES = core/OtaRescanGate_test.cpp
 core_OtaRescanGate_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
 OTA_RESCAN_GATE_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
                   $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
@@ -5563,7 +5563,7 @@ TESTS += core/JsonApiServiceScope_test
 check_PROGRAMS += core/JsonApiServiceScope_test
 core_JsonApiServiceScope_test_SOURCES = core/JsonApiServiceScope_test.cpp
 core_JsonApiServiceScope_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
 core_JsonApiServiceScope_test_LDADD = $(SERVICE_SCOPE_OBJECTS) \
                   $(CORE_TEST_LDADD)
 #T3.36: the linked server objects are prerequisites, so touching one relinks
@@ -5725,7 +5725,7 @@ TESTS += core/JsonApiSubDispatchDefault_test
 check_PROGRAMS += core/JsonApiSubDispatchDefault_test
 core_JsonApiSubDispatchDefault_test_SOURCES = core/JsonApiSubDispatchDefault_test.cpp
 core_JsonApiSubDispatchDefault_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
 core_JsonApiSubDispatchDefault_test_LDADD = $(SUB_DISPATCH_DEFAULT_OBJECTS) \
                   $(CORE_TEST_LDADD)
 #T3.36: the linked server objects are prerequisites, so touching one relinks
@@ -5757,7 +5757,7 @@ core_DelParamIdGuard_test_SOURCES = core/DelParamIdGuard_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_DelParamIdGuard_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_DelParamIdGuard_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -5826,7 +5826,7 @@ core_ImpulseOverflow_test_SOURCES = core/ImpulseOverflow_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_ImpulseOverflow_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_ImpulseOverflow_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -5930,7 +5930,7 @@ core_StructuralParamGuard_test_SOURCES = core/StructuralParamGuard_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_StructuralParamGuard_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_StructuralParamGuard_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -5998,7 +5998,7 @@ core_ShutterPercentGrammar_test_SOURCES = core/ShutterPercentGrammar_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_ShutterPercentGrammar_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_ShutterPercentGrammar_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -6166,7 +6166,7 @@ core_ShutterBareGrammar_test_SOURCES = core/ShutterBareGrammar_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_ShutterBareGrammar_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_ShutterBareGrammar_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -6274,7 +6274,7 @@ core_DerivedParamGuard_test_SOURCES = core/DerivedParamGuard_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_DerivedParamGuard_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -I$(top_srcdir)/src/bin/calaos_server/Scenario \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_DerivedParamGuard_test_LDADD = \
@@ -7324,7 +7324,7 @@ core_DeviceApi_test_SOURCES = core/DeviceApi_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_DeviceApi_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_DeviceApi_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
@@ -7391,7 +7391,7 @@ core_DeviceFormat_test_SOURCES = core/DeviceFormat_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_DeviceFormat_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -I$(top_srcdir)/src/bin/calaos_server/Scenario \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_DeviceFormat_test_LDADD = \
@@ -7599,7 +7599,7 @@ core_ProtectedOutputWrites_test_SOURCES = core/ProtectedOutputWrites_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_ProtectedOutputWrites_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"' \
                   -DCALAOS_SCRIPT_BINDIR='"$(abs_top_builddir)/src/bin/calaos_server"'
 core_ProtectedOutputWrites_test_LDADD = \
@@ -7951,7 +7951,7 @@ core_ClimateStatus_test_SOURCES = core/ClimateStatus_test.cpp \
                   core/CalaosCoreFixture.cpp \
                   core/CalaosCoreFixture.h
 core_ClimateStatus_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
-                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 CLIMATE_STATUS_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
@@ -8042,4 +8042,67 @@ core_ProxyClimateRange_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT)
+endif
+
+#Output conditions on string IOs with and without a comparable state.
+if HAVE_GTEST
+TESTS += core/ConditionOutputState_test
+check_PROGRAMS += core/ConditionOutputState_test
+core_ConditionOutputState_test_SOURCES = core/ConditionOutputState_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ConditionOutputState_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
+core_ConditionOutputState_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputString.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#The linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ConditionOutputState_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) $(CALAOS_SERVER_BUILDDIR)/IO/OutputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif

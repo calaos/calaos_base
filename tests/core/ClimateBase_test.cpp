@@ -25,6 +25,8 @@
 
 #include "CalaosCoreFixture.h"
 #include "ClimateBase.h"
+#include "ConditionOutput.h"
+#include "ConditionStd.h"
 #include "IOChangeHub.h"
 #include "InputTemp.h"
 
@@ -99,6 +101,17 @@ public:
     DATA_TYPE get_type() override { return TSTRING; }
 };
 
+class TestUnknownType: public IOBase
+{
+public:
+    TestUnknownType(Params &p):
+        IOBase(p, IOBase::IO_INPUT)
+    {
+    }
+
+    DATA_TYPE get_type() override { return TUNKNOWN; }
+};
+
 //Reads like the temperature drivers: a reading equal to the current value is
 //not signalled.
 class TestTemp: public InputTemp
@@ -133,6 +146,7 @@ REGISTER_IO(TestTemp)
 REGISTER_DEVICE(test_climate, TestClimate)
 REGISTER_DEVICE(test_thermostat, TestThermostat)
 REGISTER_IO(TestReadOnly)
+REGISTER_IO(TestUnknownType)
 
 namespace
 {
@@ -318,6 +332,7 @@ std::string house()
                                  internalIoXml("InternalInt", EXT_TEMP, "Temp") +
                                      R"(    <calaos:input type="TestTemp" id="cached_temp" name="cached_temp" />
     <calaos:input type="TestTemp" id="uncached_temp" name="uncached_temp" />
+    <calaos:input type="TestUnknownType" id="odd_io" name="odd_io" />
 )"));
 }
 
@@ -963,4 +978,118 @@ TEST_F(ClimateBaseTest, TheModesAndFanSwingParamsAreNotDocumentedByTheBase)
     }
     EXPECT_TRUE(fieldOf(doc, "fan_mode").is_null());
     EXPECT_TRUE(fieldOf(doc, "swing_mode").is_null());
+}
+
+TEST_F(ClimateBaseTest, OutputConditionOnADeviceComparesItsModeLikeAStandardCondition)
+{
+    io("split_mode")->set_value(std::string("heat"));
+
+    const struct
+    {
+        const char *oper;
+        const char *val;
+        bool expected;
+    } cases[] = {
+        { "==", "heat", true },
+        { "==", "cool", false },
+        { "!=", "heat", false },
+        { "!=", "cool", true },
+    };
+    for (const auto &c: cases)
+    {
+        ConditionOutput outCond;
+        outCond.setOutput(dev("split"));
+        outCond.set_param(c.val);
+        outCond.set_operator(c.oper);
+        EXPECT_EQ(outCond.Evaluate(), c.expected) << c.oper << " " << c.val;
+
+        ConditionStd stdCond;
+        stdCond.Add(dev("split"));
+        stdCond.get_params().Add("split", c.val);
+        stdCond.get_operator().Add("split", c.oper);
+        EXPECT_EQ(stdCond.Evaluate(), c.expected) << c.oper << " " << c.val;
+    }
+}
+
+//The installer only lets a user build this form on a device.
+TEST_F(ClimateBaseTest, OutputConditionRuleOnADeviceFiresWhenItsModeChanges)
+{
+    const auto rule = [](const std::string &name, const std::string &oper, const std::string &val,
+                         const std::string &target)
+    {
+        return "  <calaos:rule name=\"" + name + "\" type=\"OR\">\n"
+                                                 "    <calaos:condition type=\"output\" trigger=\"true\">\n"
+                                                 "      <calaos:output id=\"split\" oper=\"" +
+               oper + "\" val=\"" + val + "\" />\n"
+                                          "    </calaos:condition>\n"
+                                          "    <calaos:action type=\"standard\">\n"
+                                          "      <calaos:output id=\"" +
+               target + "\" val=\"7\" />\n"
+                        "    </calaos:action>\n"
+                        "  </calaos:rule>\n";
+    };
+
+    clearCoreState();
+    loadConfig(house(), rulesXmlDocument(rule("is_heat", "==", "heat", "full_remote") +
+                                         rule("not_heat", "!=", "heat", "full_swing")));
+    ASSERT_EQ(ListeRule::Instance().size(), 2);
+
+    io("split_mode")->set_value(std::string("cool"));
+    EXPECT_DOUBLE_EQ(num("full_remote"), 0) << "== heat must not fire on cool";
+    EXPECT_EQ(str("full_swing"), "7") << "!= heat must fire on cool";
+
+    io("split_mode")->set_value(std::string("heat"));
+    EXPECT_DOUBLE_EQ(num("full_remote"), 7) << "== heat must fire on heat";
+}
+
+TEST_F(ClimateBaseTest, ImpossibleOutputConditionsAreWarnedAtLoad)
+{
+    const auto rule = [](const std::string &name, const std::string &id, const std::string &oper)
+    {
+        return "  <calaos:rule name=\"" + name + "\" type=\"OR\">\n"
+                                                 "    <calaos:condition type=\"output\" trigger=\"true\">\n"
+                                                 "      <calaos:output id=\"" +
+               id + "\" oper=\"" + oper + "\" val=\"heat\" />\n"
+                                          "    </calaos:condition>\n"
+                                          "    <calaos:action type=\"standard\">\n"
+                                          "      <calaos:output id=\"full_remote\" val=\"7\" />\n"
+                                          "    </calaos:action>\n"
+                                          "  </calaos:rule>\n";
+    };
+
+    clearCoreState();
+    testing::internal::CaptureStdout();
+    loadConfig(house(), rulesXmlDocument(rule("never", "split", "SUP") + rule("fine", "split", "!=") +
+                                         rule("odd", "odd_io", "==")));
+    const std::string log = testing::internal::GetCapturedStdout();
+    EXPECT_NE(log.find("Output 'split' is a string: operator 'SUP' is not supported"),
+              std::string::npos)
+        << log;
+    EXPECT_EQ(log.find("operator '!='"), std::string::npos) << log;
+    EXPECT_NE(log.find("Output 'odd_io' has a type that output conditions cannot evaluate"),
+              std::string::npos)
+        << log;
+}
+
+TEST_F(ClimateBaseTest, OutputConditionRuleDoesNotRefireWhenOnlyTheSetpointChanges)
+{
+    const std::string rule =
+        "  <calaos:rule name=\"is_heat\" type=\"OR\">\n"
+        "    <calaos:condition type=\"output\" trigger=\"true\">\n"
+        "      <calaos:output id=\"split\" oper=\"==\" val=\"heat\" />\n"
+        "    </calaos:condition>\n"
+        "    <calaos:action type=\"standard\">\n"
+        "      <calaos:output id=\"full_remote\" val=\"7\" />\n"
+        "    </calaos:action>\n"
+        "  </calaos:rule>\n";
+
+    clearCoreState();
+    loadConfig(house(), rulesXmlDocument(rule));
+
+    io("split_mode")->set_value(std::string("heat"));
+    ASSERT_DOUBLE_EQ(num("full_remote"), 7);
+
+    io("full_remote")->set_value(0.0);
+    io("split_target")->set_value(22.0);
+    EXPECT_DOUBLE_EQ(num("full_remote"), 0);
 }

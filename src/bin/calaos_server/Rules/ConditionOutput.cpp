@@ -271,6 +271,26 @@ bool ConditionOutput::LoadFromXml(pugi::xml_node node)
             ops = oper;
             if (val_var != "")
                 params_var = val_var;
+
+            //Evaluate() can only log this per event; say it once, at load.
+            //"changed" is true whatever the operator and the state.
+            const bool changedKw = val_var.empty() && url_decode2(val) == "changed";
+            if (out && !changedKw)
+            {
+                if (out->get_type() == TSTRING && !out->hasComparableState())
+                    cWarningDom("rule.condition.output")
+                        << "Output '" << id << "' has no comparable state: "
+                        << "this condition will never be true";
+                else if (out->get_type() == TSTRING && oper != "==" && oper != "!=")
+                    cWarningDom("rule.condition.output")
+                        << "Output '" << id << "' is a string: operator '" << oper
+                        << "' is not supported, this condition will never be true";
+                else if (out->get_type() != TBOOL && out->get_type() != TINT &&
+                         out->get_type() != TSTRING)
+                    cWarningDom("rule.condition.output")
+                        << "Output '" << id << "' has a type that output conditions "
+                        << "cannot evaluate, this condition will never be true";
+            }
         }
     }
 

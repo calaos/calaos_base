@@ -65,6 +65,7 @@ public:
     virtual void activateCapabilities(std::string capability, std::string cmd, std::string value) { }
 
     virtual DATA_TYPE get_type() { return TSTRING; }
+    bool hasComparableState() override { return false; }
 
     virtual bool set_value(std::string val);
 

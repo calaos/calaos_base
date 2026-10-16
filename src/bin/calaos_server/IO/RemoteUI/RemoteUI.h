@@ -110,6 +110,7 @@ public:
     bool showNotification(const string &message);
 
     virtual DATA_TYPE get_type() override { return TSTRING; }
+    bool hasComparableState() override { return false; }
     virtual bool set_value(string val) override;
     virtual string get_command_string() override { return cmd_state; }
 };
