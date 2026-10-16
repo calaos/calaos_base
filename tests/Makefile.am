@@ -8134,3 +8134,15 @@ core_RoonPlayerEvents_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPl
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#The push.calaos.fr request body, legacy entries pinned byte for byte.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/PushPayload_test
+check_PROGRAMS += core/PushPayload_test
+core_PushPayload_test_SOURCES = core/PushPayload_test.cpp
+core_PushPayload_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_PushPayload_test_LDADD = $(CORE_TEST_LDADD)
+core_PushPayload_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
