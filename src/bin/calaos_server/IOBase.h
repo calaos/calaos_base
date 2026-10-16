@@ -221,8 +221,12 @@ public:
     //string output without an override (devices included) silently never match.
     virtual bool check_condition_value(std::string cvalue, bool equal)
     {
-        return (get_value_string() == cvalue) == equal;
+        return hasComparableState() && (get_value_string() == cvalue) == equal;
     }
+
+    //False for string IOs whose get_value_string() is not a state (players,
+    //cameras, screens): "!= x" would otherwise be true on every change.
+    virtual bool hasComparableState() { return true; }
 
     enum class StatusType
     {
