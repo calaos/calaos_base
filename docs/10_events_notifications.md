@@ -481,7 +481,12 @@ sinon il renvoie `false` et l'API répond `{"success":"false"}`. Le champ option
 Les tokens sont stockés dans la table `push_tokens` de la même base SQLite que
 l'historique (`events.db`) ; la colonne `push_format` (entier, 0 = `notification`,
 1 = `data`) est ajoutée au démarrage aux bases plus anciennes, leurs jetons
-gardant le format `notification`. Aucun jeton n'est journalisé.
+gardant le format `notification`. Si elle ne peut pas l'être (base verrouillée
+ou en lecture seule), un avertissement est journalisé et tous les jetons sont lus
+et enregistrés au format `notification` jusqu'à un prochain démarrage : le push
+continue, sans message `data`. Aucun jeton n'est journalisé, ni en cas de
+succès ni en cas d'erreur SQL (le SQL étendu par sqlite_modern_cpp contient les
+valeurs liées et n'est jamais écrit).
 
 #### Requête envoyée à push.calaos.fr
 
@@ -542,6 +547,17 @@ Message envoyé en priorité FCM `high`, sans bloc `notification` :
 `"uuid": <event_uuid>` → `pic_uid` de l'événement, puis `event_picture` avec ce
 `pic_uid` (octets JPEG, HTTP uniquement, voir [08_http_api.md](08_http_api.md)).
 Sans `event_uuid`, il n'y a pas d'image.
+
+Limites FCM à connaître côté app :
+
+- **Afficher une notification à chaque message.** FCM peut rétrograder un
+  message data de priorité `high` en `normal` quand l'app reçoit des messages
+  haute priorité sans afficher de notification visible ; les suivants sont alors
+  retardés en mode Doze.
+- **Rien après un arrêt forcé.** Une app arrêtée de force (Paramètres → Forcer
+  l'arrêt, ou certains gestionnaires de batterie constructeurs) ne reçoit plus
+  aucun message FCM, data ou notification, jusqu'à ce que l'utilisateur la
+  relance.
 
 L'option `notif_development` de `local_config.xml` bascule les notifications iOS
 en environnement de développement
