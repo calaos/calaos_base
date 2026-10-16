@@ -8106,3 +8106,31 @@ core_ConditionOutputState_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Outpu
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#Rules on an audio player: both condition types match the last reported event.
+if HAVE_GTEST
+TESTS += core/AudioPlayerCondition_test
+check_PROGRAMS += core/AudioPlayerCondition_test
+core_AudioPlayerCondition_test_SOURCES = core/AudioPlayerCondition_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_AudioPlayerCondition_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_AudioPlayerCondition_test_LDADD = $(CORE_TEST_LDADD)
+core_AudioPlayerCondition_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#Roon zone updates: a moving seek position must not replay "onplay" to rules.
+if HAVE_GTEST
+TESTS += core/RoonPlayerEvents_test
+check_PROGRAMS += core/RoonPlayerEvents_test
+core_RoonPlayerEvents_test_SOURCES = core/RoonPlayerEvents_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_RoonPlayerEvents_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_RoonPlayerEvents_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+core_RoonPlayerEvents_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif

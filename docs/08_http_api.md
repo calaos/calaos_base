@@ -584,7 +584,10 @@ Champs produits par `buildJsonIO()`, présents seulement s'ils existent sur l'IO
 `chauffage_id`, `rw`, `unit`, `gui_type`, `state`, `auto_scenario`, `step`,
 `io_type`, `io_style`, `value_warning`, plus un objet `status_info` le cas
 échéant. `state` et `var_type` sont toujours présents (ils sont calculés, pas
-lus dans les params) — un IO string vide donne `"state": ""`.
+lus dans les params) — un IO string vide donne `"state": ""`. Pour un IO
+`audio_player`, `state` est le **dernier évènement** (`onplay`, `onpause`, `onstop`,
+`onsongchange`, `onplaylistchange`, `onvolumechange`, `onerror`), `""` avant le premier ; ne pas le
+confondre avec le `status` de `get_state` (`playing`, `pause`, `stop`…, voir plus bas).
 
 ### `get_io`
 

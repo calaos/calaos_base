@@ -33,7 +33,11 @@ class AudioPlayer: public IOBase
 {
 protected:
     AudioDB *database;
-    int astatus;
+    int astatus = AudioStop;
+
+    //A condition matches the LAST event only: a later onvolumechange replaces
+    //onplay, so "player == onplay" is false again after it.
+    string lastEvent;
 
     virtual void set_status(int st);
 
@@ -105,7 +109,7 @@ public:
     AudioDB *get_database() { return database; }
 
     virtual DATA_TYPE get_type() { return TSTRING; }
-    bool hasComparableState() override { return false; }
+    string get_value_string() override { return lastEvent; }
     virtual void hasChanged();
 
     virtual bool set_value(std::string val);

@@ -76,25 +76,23 @@ void AudioPlayer::hasChanged()
 {
     if (!isEnabled()) return;
 
-    string answer;
-
     switch (astatus)
     {
     default:
-    case AudioError: answer = "onerror"; break;
-    case AudioPlay: answer = "onplay"; break;
-    case AudioPause: answer = "onpause"; break;
-    case AudioStop: answer = "onstop"; break;
-    case AudioSongChange: answer = "onsongchange"; break;
-    case AudioPlaylistChange: answer = "onplaylistchange"; break;
-    case AudioVolumeChange: answer = "onvolumechange"; break;
+    case AudioError: lastEvent = "onerror"; break;
+    case AudioPlay: lastEvent = "onplay"; break;
+    case AudioPause: lastEvent = "onpause"; break;
+    case AudioStop: lastEvent = "onstop"; break;
+    case AudioSongChange: lastEvent = "onsongchange"; break;
+    case AudioPlaylistChange: lastEvent = "onplaylistchange"; break;
+    case AudioVolumeChange: lastEvent = "onvolumechange"; break;
     }
 
     EmitSignalIO();
 
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
-                           { "state", answer } });
+                           { "state", lastEvent } });
 }
 
 void AudioPlayer::set_status(int st)

@@ -134,9 +134,18 @@ lecteur, puis appliquent le delta dans le callback
 
 Conditions : `onplay`, `onpause`, `onstop`, `onsongchange`, `onplaylistchange`, `onvolumechange`
 (dérivé, [Audio/AudioPlayer.cpp:31-36](../src/bin/calaos_server/Audio/AudioPlayer.cpp)).
-`hasChanged()` traduit le statut interne en l'une de ces chaînes, plus `onerror` par défaut, et
-émet `EventIOChanged` avec `{id, state}`
+`hasChanged()` traduit le statut interne en l'une de ces chaînes, plus `onerror` par défaut, la
+garde dans `lastEvent` (renvoyé par `get_value_string()`) et émet `EventIOChanged` avec
+`{id, state}`
 (dérivé, [Audio/AudioPlayer.cpp:75-98](../src/bin/calaos_server/Audio/AudioPlayer.cpp)).
+
+Ce sont des conditions d'**évènement**, pas d'état « en lecture » : une condition (standard ou
+de sortie) compare le **dernier** évènement reçu. `onsongchange` (à chaque piste) et
+`onvolumechange` remplacent `onplay` en pleine lecture, et `lecteur == onplay` redevient
+faux ; une règle déclenchée par l'évènement, elle, s'exécute bien. `lastEvent` est vide avant
+le premier évènement et n'est pas persisté : il est perdu au redémarrage. Roon n'émet
+`onplay`/`onpause`/`onstop` que sur un vrai changement d'état de lecture, pas à chaque mise à
+jour de la position.
 
 ### AudioPlayerData
 
