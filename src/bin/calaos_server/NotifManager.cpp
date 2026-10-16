@@ -28,6 +28,13 @@ using namespace Calaos;
 
 static const char *TAG = "notif";
 
+string NotifManager::pushServiceUrl = "https://push.calaos.fr/api/push";
+
+void NotifManager::setPushServiceUrl(const string &url)
+{
+    pushServiceUrl = url;
+}
+
 NotifManager::NotifManager()
 {
     cDebugDom(TAG) << "NotifManager initialized";
@@ -290,16 +297,14 @@ void NotifManager::sendPushNotification(const string &message, const string &not
         }
 
         //The body carries the device tokens, it is never logged.
-        // LCOV_EXCL_START posts to the production push service, never from make check
         cDebugDom(TAG) << "Sending notif to service for " << tokens.size() << " token(s)";
 
-        UrlDownloader *u = new UrlDownloader("https://push.calaos.fr/api/push", true);
+        UrlDownloader *u = new UrlDownloader(pushServiceUrl, true);
         u->m_signalComplete.connect([this, callbackSent](int statusCode)
         {
             cDebugDom(TAG) << "Push notif sent with code: " << statusCode;
             callbackSent();
         });
         u->httpPost(string(), body);
-        // LCOV_EXCL_STOP
     });
 }

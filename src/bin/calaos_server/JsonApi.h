@@ -257,6 +257,8 @@ public:
 
     void buildJsonEventLog(const Params &jParam, std::function<void(Json &)> callback);
     bool registerPushToken(const Params &jParam);
+    //register_push's push_format, the notification format for anything unknown.
+    static int pushFormatFromString(const string &value);
 
     //`source` names the caller in the warning for a write to a protected output.
     bool decodeSetState(Params &jParam, const char *source);

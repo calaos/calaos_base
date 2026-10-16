@@ -3124,24 +3124,29 @@ bool JsonApi::registerPushToken(const Params &jParam)
         jParam["hardware"] != "ios")
         return false;
 
+    HistLogger::Instance().registerPushToken(jParam["token"],
+                                             jParam["hardware"] == "ios" ? HistLogger::PUSH_HW_IOS : HistLogger::PUSH_HW_ANDROID,
+                                             pushFormatFromString(jParam["push_format"]));
+
+    return true;
+}
+
+int JsonApi::pushFormatFromString(const string &value)
+{
     //Absent for the store apps 3.1.x, which only display notification messages.
-    int format = HistLogger::PUSH_FORMAT_NOTIFICATION;
-    const string pushFormat = jParam["push_format"];
-    if (pushFormat == "data")
-        format = HistLogger::PUSH_FORMAT_DATA;
-    else if (pushFormat != "" && pushFormat != "notification")
+    if (value == "data")
+        return HistLogger::PUSH_FORMAT_DATA;
+
+    if (value != "" && value != "notification")
     {
+        //Once: every app of a household re-registers at each start.
         static bool warned = false;
         if (!warned)
             cWarningDom("network") << "register_push: unknown push_format, using the notification format";
         warned = true;
     }
 
-    HistLogger::Instance().registerPushToken(jParam["token"],
-                                             jParam["hardware"] == "ios" ? HistLogger::PUSH_HW_IOS : HistLogger::PUSH_HW_ANDROID,
-                                             format);
-
-    return true;
+    return HistLogger::PUSH_FORMAT_NOTIFICATION;
 }
 
 bool JsonApi::changeCredentials(string olduser, string oldpass, string newuser, string newpass)

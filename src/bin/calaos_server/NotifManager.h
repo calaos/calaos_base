@@ -52,8 +52,13 @@ public:
     static string buildPushBody(const vector<PushToken> &tokens, const string &message,
                                 const string &notifPicUuid, bool development);
 
+    //Tests point the push at a local peer.
+    static void setPushServiceUrl(const string &url);
+
 private:
     NotifManager();
+
+    static string pushServiceUrl;
 };
 
 }
