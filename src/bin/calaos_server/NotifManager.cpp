@@ -172,10 +172,10 @@ string NotifManager::buildPushBody(const vector<PushToken> &tokens, const string
 
         Json notif = {
             { "tokens", tokArray },
-            { "platform", 1 },
             { "message", nmsg },
             { "topic", "fr.calaos.CalaosMobile" }
         };
+        notif["platform"] = 1;
 
         if (!notifPicUuid.empty())
         {
@@ -199,12 +199,12 @@ string NotifManager::buildPushBody(const vector<PushToken> &tokens, const string
 
         Json notif = {
             { "tokens", tokArray },
-            { "platform", 2 },
             { "message", nmsg },
             { "title", "Calaos" },
             { "priority", "high" },
             { "sound", "default" }
         };
+        notif["platform"] = 2;
 
         //force priority to high to make sure the notification is displayed
         notif["notification"] = {
@@ -248,7 +248,6 @@ string NotifManager::buildPushBody(const vector<PushToken> &tokens, const string
 
         Json notif = {
             { "tokens", tokArray },
-            { "platform", 2 },
             { "android", {{ "priority", "high" }} },
             { "data", {
                   { "body", nmsg },
@@ -256,6 +255,7 @@ string NotifManager::buildPushBody(const vector<PushToken> &tokens, const string
                   { "title", "Calaos" }
               } }
         };
+        notif["platform"] = 2;
 
         if (!notifPicUuid.empty())
             notif["data"]["event_uuid"] = notifPicUuid;
@@ -294,6 +294,7 @@ void NotifManager::sendPushNotification(const string &message, const string &not
         }
 
         //The body carries the device tokens, it is never logged.
+        // LCOV_EXCL_START posts to the production push service, never from make check
         cDebugDom(TAG) << "Sending notif to service for " << tokens.size() << " token(s)";
 
         UrlDownloader *u = new UrlDownloader("https://push.calaos.fr/api/push", true);
@@ -303,5 +304,6 @@ void NotifManager::sendPushNotification(const string &message, const string &not
             callbackSent();
         });
         u->httpPost(string(), body);
+        // LCOV_EXCL_STOP
     });
 }
