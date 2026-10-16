@@ -23,6 +23,8 @@
 #include "Utils.h"
 #include <functional>
 
+class PushToken;
+
 namespace Calaos
 {
 
@@ -46,8 +48,17 @@ public:
     // If provided it must be a valid UUID from an event in the history log (HistLogger::Instance().appendEvent(e))
     void sendPushNotification(const string &message, const string &notifPicUuid = "", std::function<void(void)> callbackSent = {});
 
+    //Request body for push.calaos.fr (gorush), empty when no token can be served.
+    static string buildPushBody(const vector<PushToken> &tokens, const string &message,
+                                const string &notifPicUuid, bool development);
+
+    //Tests point the push at a local peer.
+    static void setPushServiceUrl(const string &url);
+
 private:
     NotifManager();
+
+    static string pushServiceUrl;
 };
 
 }

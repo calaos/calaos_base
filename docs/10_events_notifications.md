@@ -474,15 +474,94 @@ NotifManager::Instance().sendPushNotification(
 ```
 
 Les tokens des appareils sont enregistrés via `JsonApi::registerPushToken()`
-(action/message `register_push`), qui exige `token` non vide et `hardware`
-valant exactement `android` ou `ios` — sinon il renvoie `false` et l'API répond
-`{"success":"false"}`
-([JsonApi.cpp:2373-2385](../src/bin/calaos_server/JsonApi.cpp)). Les tokens sont
-stockés dans la même base SQLite que l'historique.
+(action/message `register_push`, voir [08_http_api.md](08_http_api.md#register_push)),
+qui exige `token` non vide et `hardware` valant exactement `android` ou `ios` —
+sinon il renvoie `false` et l'API répond `{"success":"false"}`. Le champ optionnel
+`push_format` (`notification` par défaut, ou `data`) est mémorisé par jeton.
+Les tokens sont stockés dans la table `push_tokens` de la même base SQLite que
+l'historique (`events.db`) ; la colonne `push_format` (entier, 0 = `notification`,
+1 = `data`) est ajoutée au démarrage aux bases plus anciennes, leurs jetons
+gardant le format `notification`. Si elle ne peut pas l'être (base verrouillée
+ou en lecture seule), un avertissement est journalisé et tous les jetons sont lus
+et enregistrés au format `notification` jusqu'à un prochain démarrage : le push
+continue, sans message `data`. Aucun jeton n'est journalisé, ni en cas de
+succès ni en cas d'erreur SQL (le SQL étendu par sqlite_modern_cpp contient les
+valeurs liées et n'est jamais écrit).
+
+#### Requête envoyée à push.calaos.fr
+
+`NotifManager::buildPushBody()` produit le corps posté à
+`https://push.calaos.fr/api/push` (gorush 1.18.9, FCM HTTP v1) :
+`{"notifications":[...]}`, avec au plus trois entrées, dans cet ordre :
+
+| Entrée | Jetons | Contenu |
+|---|---|---|
+| iOS | `hardware=ios` (quel que soit le format) | `platform:1`, `message`, `topic`, et avec une image `mutable-content`/`mutable_content` + `data.event_uuid` |
+| Android `notification` | `hardware=android`, format `notification` | `platform:2`, `title`, `message`, `priority`, `sound`, `notification{title,body,sound}`, `data{title,body,message[,event_uuid]}` |
+| Android `data` | `hardware=android`, format `data` | `platform:2`, `android{priority:"high"}`, `data{title,body,message[,event_uuid]}` — rien d'autre |
+
+Les deux premières sont inchangées octet pour octet par rapport aux versions
+précédentes (épinglées par `tests/core/PushPayload_test.cpp`).
+
+Pourquoi l'entrée `data` ne porte rien d'autre, d'après le source de gorush
+v1.18.9 (`notify/notification.go`, `notify/notification_fcm.go`,
+`GetAndroidNotification()`) :
+
+- `title`, `message` et `image` remplissent `messaging.Notification` ; un
+  `notification` explicite (champ `json:"notification"`) aussi. Avec une
+  notification, Android affiche le message lui-même quand l'app est en
+  arrière-plan ou tuée, sans appeler `onMessageReceived()`.
+- `sound` (chaîne) crée un `AndroidConfig.Notification` : à proscrire aussi.
+- `priority` à la racine n'est **pas** reporté sur le message Android ; la
+  priorité de livraison FCM passe par `android` (`json:"android"`, un
+  `messaging.AndroidConfig` de firebase-admin-go v4.14.1 dont le champ est
+  `priority`, `"normal"` ou `"high"`). Sans elle, un message data est retardé
+  en mode Doze.
+- `data` (`json:"data"`) est copié dans `Message.Data` ; une valeur non chaîne
+  serait sérialisée en JSON, d'où des valeurs toutes en chaînes.
+
+#### Format `data` (Android)
+
+Ce que reçoit l'app dans `RemoteMessage.getData()` (une `Map<String,String>`) :
+
+```json
+{
+  "title": "Calaos",
+  "body": "Mouvement détecté !",
+  "message": "Mouvement détecté !",
+  "event_uuid": "8c3e1f8e-1b7d-4b8a-9b5e-2f6a1d0c7e44"
+}
+```
+
+| Clé | Type | Présence | Sens |
+|---|---|---|---|
+| `title` | chaîne | toujours | `Calaos` |
+| `body` | chaîne | toujours | texte de la notification (`Calaos Notification` si la règle n'en a pas) |
+| `message` | chaîne | toujours | identique à `body` |
+| `event_uuid` | chaîne | seulement si la notification a une image | uuid de l'événement d'historique |
+
+Message envoyé en priorité FCM `high`, sans bloc `notification` :
+`onMessageReceived()` est appelé au premier plan comme en arrière-plan, et
+**l'app doit construire et afficher la notification elle-même**. Avec
+`event_uuid`, elle récupère l'image comme l'extension iOS : `eventlog` avec
+`"uuid": <event_uuid>` → `pic_uid` de l'événement, puis `event_picture` avec ce
+`pic_uid` (octets JPEG, HTTP uniquement, voir [08_http_api.md](08_http_api.md)).
+Sans `event_uuid`, il n'y a pas d'image.
+
+Limites FCM à connaître côté app :
+
+- **Afficher une notification à chaque message.** FCM peut rétrograder un
+  message data de priorité `high` en `normal` quand l'app reçoit des messages
+  haute priorité sans afficher de notification visible ; les suivants sont alors
+  retardés en mode Doze.
+- **Rien après un arrêt forcé.** Une app arrêtée de force (Paramètres → Forcer
+  l'arrêt, ou certains gestionnaires de batterie constructeurs) ne reçoit plus
+  aucun message FCM, data ou notification, jusqu'à ce que l'utilisateur la
+  relance.
 
 L'option `notif_development` de `local_config.xml` bascule les notifications iOS
 en environnement de développement
-([NotifManager.cpp:194-196](../src/bin/calaos_server/NotifManager.cpp)).
+([NotifManager.cpp](../src/bin/calaos_server/NotifManager.cpp), `sendPushNotification()`).
 
 ---
 

@@ -8134,3 +8134,44 @@ core_RoonPlayerEvents_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPl
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#The push.calaos.fr request body, legacy entries pinned byte for byte.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/PushPayload_test
+check_PROGRAMS += core/PushPayload_test
+core_PushPayload_test_SOURCES = core/PushPayload_test.cpp
+core_PushPayload_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_PushPayload_test_LDADD = $(CORE_TEST_LDADD)
+core_PushPayload_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#push_tokens written before push_format existed: migrated in place, the old
+#tokens keep the notification format. HistLogger is a singleton, one database
+#per binary.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/PushTokenStore_test
+check_PROGRAMS += core/PushTokenStore_test
+core_PushTokenStore_test_SOURCES = core/PushTokenStore_test.cpp \
+                  core/PushTestUtil.h
+core_PushTokenStore_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_PushTokenStore_test_LDADD = $(CORE_TEST_LDADD)
+core_PushTokenStore_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#events.db locked at the first start after the push_format update: the
+#migration cannot run, push still works and no log line carries a token.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/PushTokenLocked_test
+check_PROGRAMS += core/PushTokenLocked_test
+core_PushTokenLocked_test_SOURCES = core/PushTokenLocked_test.cpp \
+                  core/PushTestUtil.h
+core_PushTokenLocked_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_PushTokenLocked_test_LDADD = $(CORE_TEST_LDADD)
+core_PushTokenLocked_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif

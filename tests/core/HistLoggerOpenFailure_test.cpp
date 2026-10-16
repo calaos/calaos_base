@@ -42,6 +42,7 @@
 #include <thread>
 
 #include "HistLogger.h"
+#include "NotifManager.h"
 #include "libuvw.h"
 
 using namespace Calaos;
@@ -152,6 +153,27 @@ std::shared_ptr<Answer> readEvents()
     report += single->received ? '1' : '0';
     report += !single->success ? '1' : '0';
 
+    //A push with no readable token list is dropped: nothing is posted.
+    auto pushed = std::make_shared<bool>(false);
+    NotifManager::Instance().sendPushNotification("fb5", "", [pushed]()
+                                                  {
+        *pushed = true;
+    });
+    auto after = std::make_shared<Answer>();
+    HistLogger::Instance().getPushTokens(
+        [after](bool, string, const vector<PushToken> &)
+        {
+        after->received = true;
+    });
+    pumpUntil([after]()
+              {
+        return after->received;
+    });
+    for (int i = 0; i < 10; i++)
+        uvw::Loop::getDefault()->run<uvw::Loop::Mode::NOWAIT>();
+    report += after->received ? '1' : '0';
+    report += !*pushed ? '1' : '0';
+
     if (::write(fd, report.data(), report.size()) != (ssize_t)report.size())
         _exit(3);
 
@@ -228,8 +250,9 @@ TEST(HistLoggerOpenFailureTest, AMissingCacheDirectoryDisablesHistoryAndTheServe
 
     ASSERT_TRUE(r.exited) << "the child died on signal " << r.signal;
     EXPECT_EQ(r.code, 0);
-    //Two event reads, the push tokens and a single event: each answered, each refused.
-    EXPECT_EQ(r.report, "11111111");
+    //Two event reads, the push tokens and a single event: each answered, each
+    //refused. Then a push: dropped.
+    EXPECT_EQ(r.report, "1111111111");
 }
 
 TEST(HistLoggerOpenFailureTest, AReadOnlyCacheDirectoryDisablesHistoryAndTheServerGoesOn)
@@ -241,5 +264,5 @@ TEST(HistLoggerOpenFailureTest, AReadOnlyCacheDirectoryDisablesHistoryAndTheServ
 
     ASSERT_TRUE(r.exited) << "the child died on signal " << r.signal;
     EXPECT_EQ(r.code, 0);
-    EXPECT_EQ(r.report, "11111111");
+    EXPECT_EQ(r.report, "1111111111");
 }

@@ -337,6 +337,26 @@ protected:
         return done();
     }
 
+    //push_format: absent for the store apps, "data" for the Qt 6 Android app.
+    static int storedPushFormat(const string &token)
+    {
+        auto done = std::make_shared<bool>(false);
+        auto format = std::make_shared<int>(-1);
+        HistLogger::Instance().getPushTokens(
+            [done, format, token](bool, string, const vector<PushToken> &tokens)
+            {
+            for (const auto &t: tokens)
+                if (t.token == token)
+                    *format = t.format;
+            *done = true;
+        });
+        waitUntil([done]()
+                  {
+            return *done;
+        });
+        return *format;
+    }
+
     /***************************************************************************
      * The event log fixture.
      *
@@ -1018,6 +1038,74 @@ TEST_F(JsonApiSessionTest, RegisterPushReadsDataOverWsAndTheRootOverHttp)
     ASSERT_EQ(1u, req.count());
     EXPECT_EQ("false", str(req.bodyJson(), "success"))
             << "HTTP suddenly reads register_push arguments from data";
+}
+
+TEST_F(JsonApiSessionTest, RegisterPushWithoutFormatKeepsTheNotificationFormat)
+{
+    WsTestSession ws;
+    ws.send(Json{ { "msg", "register_push" }, { "msg_id", "1" }, { "data", { { "token", "push1-ws-legacy" }, { "hardware", "android" } } } });
+    HttpTestRequest req;
+    req.send(authenticated(Json{ { "action", "register_push" },
+                                 { "token", "push1-http-legacy" },
+                                 { "hardware", "android" } }));
+
+    EXPECT_EQ(HistLogger::PUSH_FORMAT_NOTIFICATION, storedPushFormat("push1-ws-legacy"));
+    EXPECT_EQ(HistLogger::PUSH_FORMAT_NOTIFICATION, storedPushFormat("push1-http-legacy"));
+}
+
+TEST_F(JsonApiSessionTest, RegisterPushStoresTheDataFormatOverBothTransports)
+{
+    WsTestSession ws;
+    ws.send(Json{ { "msg", "register_push" }, { "msg_id", "1" }, { "data", { { "token", "push1-ws-data" }, { "hardware", "android" }, { "push_format", "data" } } } });
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_EQ("true", str(ws.lastData(), "success"));
+
+    HttpTestRequest req;
+    req.send(authenticated(Json{ { "action", "register_push" },
+                                 { "token", "push1-http-data" },
+                                 { "hardware", "android" },
+                                 { "push_format", "data" } }));
+    ASSERT_EQ(1u, req.count());
+    EXPECT_EQ("true", str(req.bodyJson(), "success"));
+
+    EXPECT_EQ(HistLogger::PUSH_FORMAT_DATA, storedPushFormat("push1-ws-data"));
+    EXPECT_EQ(HistLogger::PUSH_FORMAT_DATA, storedPushFormat("push1-http-data"));
+}
+
+TEST_F(JsonApiSessionTest, RegisterPushAgainUpdatesTheFormat)
+{
+    auto reg = [](const char *format)
+    {
+        Json data = { { "token", "push1-rereg" }, { "hardware", "android" } };
+        if (format)
+            data["push_format"] = format;
+        WsTestSession ws;
+        ws.send(Json{ { "msg", "register_push" }, { "msg_id", "1" }, { "data", data } });
+    };
+
+    reg("data");
+    EXPECT_EQ(HistLogger::PUSH_FORMAT_DATA, storedPushFormat("push1-rereg"));
+    reg(nullptr);
+    EXPECT_EQ(HistLogger::PUSH_FORMAT_NOTIFICATION, storedPushFormat("push1-rereg"));
+    reg("data");
+    reg("notification");
+    EXPECT_EQ(HistLogger::PUSH_FORMAT_NOTIFICATION, storedPushFormat("push1-rereg"));
+}
+
+TEST_F(JsonApiSessionTest, RegisterPushWithAnUnknownFormatFallsBackToNotification)
+{
+    //Accepted, so a future format never locks a newer app out of push.
+    for (const char *token: { "push1-unknown-a", "push1-unknown-b" })
+    {
+        HttpTestRequest req;
+        req.send(authenticated(Json{ { "action", "register_push" },
+                                     { "token", token },
+                                     { "hardware", "android" },
+                                     { "push_format", "Data" } }));
+        ASSERT_EQ(1u, req.count());
+        EXPECT_EQ("true", str(req.bodyJson(), "success"));
+        EXPECT_EQ(HistLogger::PUSH_FORMAT_NOTIFICATION, storedPushFormat(token));
+    }
 }
 
 /*******************************************************************************
