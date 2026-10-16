@@ -107,6 +107,8 @@ InternalThermostat::InternalThermostat(Params &p):
                                "output_cool, auto with both, and heat alone with output. A mode the outputs "
                                "cannot run, or an unknown one, is ignored."),
                     IODoc::TYPE_STRING, false, string(), false, _("Modes"));
+    ioDoc->paramListRule("modes", { modeName(ClimateMode::Off) }, { { "output", { modeName(ClimateMode::Heat) } } },
+                         { { modeName(ClimateMode::Auto), { modeName(ClimateMode::Heat), modeName(ClimateMode::Cool) } } });
     for (const char *name: { "hysteresis", "min_on_time", "min_off_time", "put_back_delay",
                              "put_back_delay_max", "emitter", "humidity_max", "valid_min", "valid_max",
                              "modes" })

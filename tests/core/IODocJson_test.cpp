@@ -693,6 +693,42 @@ TEST(IODocJson, ARoleCanReplaceOthers)
     EXPECT_TRUE(contains(md, "r_valve | lbl_valve | bool | no | yes | desc_valve Replaces r_req, r_opt.\n")) << md;
 }
 
+//INST-11: the rules the server applies to a list param are published on it,
+//so that a form does not keep a third copy.
+TEST(IODocJson, AListParamCanPublishTheRulesOfItsList)
+{
+    IODoc doc = deviceDoc();
+    doc.paramListRule("p_attr", { "v_always" }, { { "r_req", { "v_a" } } }, { { "v_b", { "v_a", "v_c" } } });
+    doc.paramListRule("p_unknown", { "v_x" }, {}, {});
+
+    const Json j = docToJson(doc);
+    EXPECT_EQ(Json({ { "always_includes", { "v_always" } },
+                     { "default_when_linked", { { "r_req", { "v_a" } } } },
+                     { "value_requires_values", { { "v_b", { "v_a", "v_c" } } } } }),
+              paramNamed(j, "p_attr").at("list_rule"));
+    EXPECT_FALSE(paramNamed(j, "p_child").contains("list_rule"));
+    EXPECT_EQ(Json(), paramNamed(j, "p_unknown"));
+
+    const std::string md = doc.genDocMd("x");
+    EXPECT_TRUE(contains(md, "List `p_attr`: always offers v_always. Without it and with r_req linked: v_a. "
+                             "v_b needs v_a, v_c.\n")) << md;
+    EXPECT_FALSE(contains(md, "p_unknown"));
+}
+
+TEST(IODocJson, AnEmptyListRuleIsNotPublished)
+{
+    IODoc doc = deviceDoc();
+    doc.paramListRule("p_attr", {}, {}, {});
+    doc.paramListRule("p_child", { "v_only" }, {}, {});
+
+    const Json j = docToJson(doc);
+    EXPECT_FALSE(paramNamed(j, "p_attr").contains("list_rule"));
+    EXPECT_EQ(Json({ { "always_includes", { "v_only" } } }), paramNamed(j, "p_child").at("list_rule"));
+    const std::string md = doc.genDocMd("x");
+    EXPECT_FALSE(contains(md, "List `p_attr`"));
+    EXPECT_TRUE(contains(md, "List `p_child`: always offers v_only.\n")) << md;
+}
+
 //The mark does not depend on the order of the calls: a constructor that marks
 //first, or adds again, must not lose it.
 TEST(IODocJson, AParamMarkedBeforeItIsAddedIsMarked)
