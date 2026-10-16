@@ -984,7 +984,12 @@ TEST_F(ClimateBaseTest, OutputConditionOnADeviceComparesItsModeLikeAStandardCond
 {
     io("split_mode")->set_value(std::string("heat"));
 
-    const struct { const char *oper; const char *val; bool expected; } cases[] = {
+    const struct
+    {
+        const char *oper;
+        const char *val;
+        bool expected;
+    } cases[] = {
         { "==", "heat", true },
         { "==", "cool", false },
         { "!=", "heat", false },
@@ -1013,13 +1018,15 @@ TEST_F(ClimateBaseTest, OutputConditionRuleOnADeviceFiresWhenItsModeChanges)
                          const std::string &target)
     {
         return "  <calaos:rule name=\"" + name + "\" type=\"OR\">\n"
-               "    <calaos:condition type=\"output\" trigger=\"true\">\n"
-               "      <calaos:output id=\"split\" oper=\"" + oper + "\" val=\"" + val + "\" />\n"
-               "    </calaos:condition>\n"
-               "    <calaos:action type=\"standard\">\n"
-               "      <calaos:output id=\"" + target + "\" val=\"7\" />\n"
-               "    </calaos:action>\n"
-               "  </calaos:rule>\n";
+                                                 "    <calaos:condition type=\"output\" trigger=\"true\">\n"
+                                                 "      <calaos:output id=\"split\" oper=\"" +
+               oper + "\" val=\"" + val + "\" />\n"
+                                          "    </calaos:condition>\n"
+                                          "    <calaos:action type=\"standard\">\n"
+                                          "      <calaos:output id=\"" +
+               target + "\" val=\"7\" />\n"
+                        "    </calaos:action>\n"
+                        "  </calaos:rule>\n";
     };
 
     clearCoreState();
@@ -1040,13 +1047,14 @@ TEST_F(ClimateBaseTest, ImpossibleOutputConditionsAreWarnedAtLoad)
     const auto rule = [](const std::string &name, const std::string &id, const std::string &oper)
     {
         return "  <calaos:rule name=\"" + name + "\" type=\"OR\">\n"
-               "    <calaos:condition type=\"output\" trigger=\"true\">\n"
-               "      <calaos:output id=\"" + id + "\" oper=\"" + oper + "\" val=\"heat\" />\n"
-               "    </calaos:condition>\n"
-               "    <calaos:action type=\"standard\">\n"
-               "      <calaos:output id=\"full_remote\" val=\"7\" />\n"
-               "    </calaos:action>\n"
-               "  </calaos:rule>\n";
+                                                 "    <calaos:condition type=\"output\" trigger=\"true\">\n"
+                                                 "      <calaos:output id=\"" +
+               id + "\" oper=\"" + oper + "\" val=\"heat\" />\n"
+                                          "    </calaos:condition>\n"
+                                          "    <calaos:action type=\"standard\">\n"
+                                          "      <calaos:output id=\"full_remote\" val=\"7\" />\n"
+                                          "    </calaos:action>\n"
+                                          "  </calaos:rule>\n";
     };
 
     clearCoreState();
