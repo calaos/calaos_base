@@ -332,20 +332,23 @@ void RoonPlayer::state_update_cb(const RoonPlayerState &state)
              state.now_playing.seek_position.value_or(0) != playerState.now_playing.seek_position.value_or(0) ||
              state.now_playing.length.value_or(0) != playerState.now_playing.length.value_or(0))
     {
+        //Roon reports the seek position every second: only a real change of
+        //play state is an event for the rules.
+        const bool stateChanged = state.state != playerState.state;
         string stateplayer = "stop";
         if (state.state == "playing")
         {
-            set_status(AudioPlay);
+            if (stateChanged) set_status(AudioPlay);
             stateplayer = "play";
         }
         else if (state.state == "paused")
         {
-            set_status(AudioPause);
+            if (stateChanged) set_status(AudioPause);
             stateplayer = "pause";
         }
         else if (state.state == "stopped")
         {
-            set_status(AudioStop);
+            if (stateChanged) set_status(AudioStop);
             stateplayer = "stop";
         }
 
