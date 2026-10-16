@@ -113,4 +113,7 @@ TEST_F(RoonPlayerEventsTest, ASeekingZoneDoesNotReplayOnplayButAResumeDoes)
     reset();
     zone(zoneState("playing", 6));
     EXPECT_EQ(fired(), "fired");
+
+    zone(zoneState("stopped", 0));
+    EXPECT_EQ(player->get_value_string(), "onstop");
 }
