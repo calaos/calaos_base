@@ -33,7 +33,7 @@ class AudioPlayer: public IOBase
 {
 protected:
     AudioDB *database;
-    int astatus;
+    int astatus = AudioStop;
 
     //A condition matches the LAST event only: a later onvolumechange replaces
     //onplay, so "player == onplay" is false again after it.
