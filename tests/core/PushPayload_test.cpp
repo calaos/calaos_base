@@ -25,8 +25,17 @@
 
 #include <gtest/gtest.h>
 
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include <chrono>
+#include <filesystem>
+#include <memory>
+#include <thread>
+
 #include "HistLogger.h"
 #include "NotifManager.h"
+#include "libuvw.h"
 
 using namespace Calaos;
 
@@ -173,4 +182,60 @@ TEST(PushPayloadTest, MixedTokensGetOneEntryPerFormat)
                                             token("ios-1", HistLogger::PUSH_HW_IOS),
                                             token("and-2", HistLogger::PUSH_HW_ANDROID) },
                                           "Door open", "ev-42", false));
+}
+
+namespace
+{
+
+//sendPushNotification() reads the tokens through the HistLogger singleton: an
+//empty database of its own, so nothing is ever posted from here.
+class EmptyHistory: public ::testing::Environment
+{
+public:
+    void SetUp() override
+    {
+        char tmpl[] = "/tmp/calaos_push1_payload_XXXXXX";
+        ASSERT_NE(nullptr, ::mkdtemp(tmpl));
+        base = tmpl;
+        const std::string cfg = base + "/config";
+        const std::string cache = base + "/cache";
+        ASSERT_EQ(0, ::mkdir(cfg.c_str(), 0700));
+        ASSERT_EQ(0, ::mkdir(cache.c_str(), 0700));
+        Utils::initConfigOptions(const_cast<char *>(cfg.c_str()),
+                                 const_cast<char *>(cache.c_str()), true);
+    }
+
+    void TearDown() override
+    {
+        std::error_code ec;
+        std::filesystem::remove_all(base, ec);
+    }
+
+private:
+    std::string base;
+};
+
+const auto *env = ::testing::AddGlobalTestEnvironment(new EmptyHistory);
+
+} //namespace
+
+TEST(PushPayloadTest, SendWithoutAnyTokenPostsNothing)
+{
+    auto sent = std::make_shared<bool>(false);
+    NotifManager::Instance().sendPushNotification("Door open", "", [sent]() { *sent = true; });
+
+    //The worker answers in order: once this one is back, the send has its tokens.
+    auto done = std::make_shared<bool>(false);
+    HistLogger::Instance().getPushTokens([done](bool, string, const vector<PushToken> &) { *done = true; });
+    auto loop = uvw::Loop::getDefault();
+    for (int i = 0; i < 400 && !*done; i++)
+    {
+        loop->run<uvw::Loop::Mode::NOWAIT>();
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    for (int i = 0; i < 10; i++)
+        loop->run<uvw::Loop::Mode::NOWAIT>();
+
+    ASSERT_TRUE(*done);
+    EXPECT_FALSE(*sent);
 }
