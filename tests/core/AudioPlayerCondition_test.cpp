@@ -185,14 +185,13 @@ TEST_F(AudioPlayerConditionTest, NonTriggerPlayerConditionIsEvaluatedWhenAnother
                                             "<calaos:output id=\"player\" oper=\"==\" val=\"onplay\" />"
                                           : "<calaos:condition type=\"standard\" trigger=\"false\">"
                                             "<calaos:input id=\"player\" oper=\"==\" val=\"onplay\" />";
-        const std::string xml =
-            "<calaos:rule name=\"g\" type=\"AND\">" + guard +
-            "</calaos:condition>"
-            "<calaos:condition type=\"standard\" trigger=\"true\">"
-            "<calaos:input id=\"" + std::string(ID_BOOL_IN) + "\" oper=\"==\" val=\"true\" />"
-            "</calaos:condition>"
-            "<calaos:action type=\"standard\"><calaos:output id=\"" + std::string(ID_STRING) +
-            "\" val=\"fired\" /></calaos:action></calaos:rule>";
+        std::string xml = "<calaos:rule name=\"g\" type=\"AND\">" + guard;
+        xml += "</calaos:condition>";
+        xml += "<calaos:condition type=\"standard\" trigger=\"true\">";
+        xml += "<calaos:input id=\"" + std::string(ID_BOOL_IN) + "\" oper=\"==\" val=\"true\" />";
+        xml += "</calaos:condition>";
+        xml += "<calaos:action type=\"standard\"><calaos:output id=\"" + std::string(ID_STRING);
+        xml += "\" val=\"fired\" /></calaos:action></calaos:rule>";
         ASSERT_NE(addRuleFromXml(xml), nullptr) << kind;
 
         player->emit(AudioPlay);

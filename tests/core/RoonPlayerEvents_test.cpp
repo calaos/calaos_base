@@ -64,8 +64,7 @@ protected:
         loadConfig();
         io(ID_STRING)->set_value(std::string(""));
 
-        Params p = { { "id", "roon" }, { "name", "roon" }, { "type", "Roon" }, { "enabled", "true" },
-                     { "zone_id", "rz" }, { "host", "127.0.0.1" } };
+        Params p = { { "id", "roon" }, { "name", "roon" }, { "type", "Roon" }, { "enabled", "true" }, { "zone_id", "rz" }, { "host", "127.0.0.1" } };
         player = new RoonPlayer(p);
         firstRoom()->AddIO(player);
         ListeRoom::Instance().addIOHash(player);
@@ -78,7 +77,6 @@ protected:
             "<calaos:output id=\"" +
             std::string(ID_STRING) + "\" val=\"fired\" /></calaos:action></calaos:rule>";
         ASSERT_NE(addRuleFromXml(rule), nullptr);
-
     }
 
     static void zone(const std::string &json)
