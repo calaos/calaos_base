@@ -1070,3 +1070,26 @@ TEST_F(ClimateBaseTest, ImpossibleOutputConditionsAreWarnedAtLoad)
               std::string::npos)
         << log;
 }
+
+TEST_F(ClimateBaseTest, OutputConditionRuleDoesNotRefireWhenOnlyTheSetpointChanges)
+{
+    const std::string rule =
+        "  <calaos:rule name=\"is_heat\" type=\"OR\">\n"
+        "    <calaos:condition type=\"output\" trigger=\"true\">\n"
+        "      <calaos:output id=\"split\" oper=\"==\" val=\"heat\" />\n"
+        "    </calaos:condition>\n"
+        "    <calaos:action type=\"standard\">\n"
+        "      <calaos:output id=\"full_remote\" val=\"7\" />\n"
+        "    </calaos:action>\n"
+        "  </calaos:rule>\n";
+
+    clearCoreState();
+    loadConfig(house(), rulesXmlDocument(rule));
+
+    io("split_mode")->set_value(std::string("heat"));
+    ASSERT_DOUBLE_EQ(num("full_remote"), 7);
+
+    io("full_remote")->set_value(0.0);
+    io("split_target")->set_value(22.0);
+    EXPECT_DOUBLE_EQ(num("full_remote"), 0);
+}
