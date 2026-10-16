@@ -141,13 +141,108 @@ void NotifManager::sendMailNotification(const string &subject, const string &mes
     exe->spawn(arr.at(0), arr.data());
 }
 
-void NotifManager::sendPushNotification(const string &message, const string &notifPicUuid, std::function<void(void)> callbackSent)
+string NotifManager::buildPushBody(const vector<PushToken> &tokens, const string &message,
+                                   const string &notifPicUuid, bool development)
 {
-    cDebugDom(TAG) << "Sending push notification with message: " << message;
-
     auto nmsg = message;
     if (nmsg == "")
         nmsg = "Calaos Notification";
+
+    vector<PushToken> androidTokens;
+    vector<PushToken> iosTokens;
+
+    for (const auto &t: tokens)
+    {
+        if (t.hw_type == HistLogger::PUSH_HW_IOS)
+            iosTokens.push_back(t);
+        else if (t.hw_type == HistLogger::PUSH_HW_ANDROID)
+            androidTokens.push_back(t);
+    }
+
+    Json jarr = Json::array();
+    // Apple iOS -----------------------
+    if (!iosTokens.empty())
+    {
+        Json tokArray = Json::array();
+        for (const auto &t: iosTokens)
+            tokArray.push_back(t.token);
+
+        Json notif = {
+            { "tokens", tokArray },
+            { "platform", 1 },
+            { "message", nmsg },
+            { "topic", "fr.calaos.CalaosMobile" }
+        };
+
+        if (!notifPicUuid.empty())
+        {
+            notif["mutable-content"] = true;
+            notif["mutable_content"] = true;
+            notif["data"] = {{ "event_uuid", notifPicUuid }};
+        }
+
+        if (development)
+            notif["development"] = true;
+
+        jarr.push_back(notif);
+    }
+
+    // Google Android -----------------------
+    if (!androidTokens.empty())
+    {
+        Json tokArray = Json::array();
+        for (const auto &t: androidTokens)
+            tokArray.push_back(t.token);
+
+        Json notif = {
+            { "tokens", tokArray },
+            { "platform", 2 },
+            { "message", nmsg },
+            { "title", "Calaos" },
+            { "priority", "high" },
+            { "sound", "default" }
+        };
+
+        //force priority to high to make sure the notification is displayed
+        notif["notification"] = {
+            { "title", "Calaos" },
+            { "body", nmsg },
+            { "sound", "default" }
+        };
+
+        if (!notifPicUuid.empty())
+        {
+            notif["data"] = {
+                { "event_uuid", notifPicUuid },
+                { "body", nmsg },
+                { "message", nmsg },
+                { "title", "Calaos" }
+            };
+        }
+        else
+        {
+            notif["data"] = {
+                { "body", nmsg },
+                { "message", nmsg },
+                { "title", "Calaos" }
+            };
+        }
+
+        jarr.push_back(notif);
+    }
+
+    if (jarr.empty())
+        return string();
+
+    //The message comes from rules.xml and never went through a JSON parser:
+    //a bare dump() throws type_error.316 on invalid UTF-8.
+    Json jnotif = {{ "notifications", jarr }};
+    return jnotif.dump(-1, ' ', true, Json::error_handler_t::replace);
+}
+
+void NotifManager::sendPushNotification(const string &message, const string &notifPicUuid, std::function<void(void)> callbackSent)
+{
+    cDebugDom(TAG) << "Sending push notification with message: " << message;
 
     HistLogger::Instance().getPushTokens(
             [=](bool success, string errorMsg, const vector<PushToken> &tokens)
@@ -158,103 +253,16 @@ void NotifManager::sendPushNotification(const string &message, const string &not
             return;
         }
 
-        vector<PushToken> androidTokens;
-        vector<PushToken> iosTokens;
-
-        for (const auto &t: tokens)
-        {
-            if (t.hw_type == HistLogger::PUSH_HW_IOS)
-                iosTokens.push_back(t);
-            else if (t.hw_type == HistLogger::PUSH_HW_ANDROID)
-                androidTokens.push_back(t);
-        }
-
-        Json jarr = Json::array();
-        // Apple iOS -----------------------
-        if (!iosTokens.empty())
-        {
-            Json tokArray = Json::array();
-            for (const auto &t: iosTokens)
-                tokArray.push_back(t.token);
-
-            Json notif = {
-                { "tokens", tokArray },
-                { "platform", 1 },
-                { "message", nmsg },
-                { "topic", "fr.calaos.CalaosMobile" }
-            };
-
-            if (!notifPicUuid.empty())
-            {
-                notif["mutable-content"] = true;
-                notif["mutable_content"] = true;
-                notif["data"] = {{ "event_uuid", notifPicUuid }};
-            }
-
-            if (Utils::get_config_option("notif_development") == "true")
-                notif["development"] = true;
-
-            jarr.push_back(notif);
-        }
-
-        // Google Android -----------------------
-        if (!androidTokens.empty())
-        {
-            Json tokArray = Json::array();
-            for (const auto &t: androidTokens)
-                tokArray.push_back(t.token);
-
-            Json notif = {
-                { "tokens", tokArray },
-                { "platform", 2 },
-                { "message", nmsg },
-                { "title", "Calaos" },
-                { "priority", "high" },
-                { "sound", "default" }
-            };
-
-            //force priority to high to make sure the notification is displayed
-            notif["notification"] = {
-                { "title", "Calaos" },
-                { "body", nmsg },
-                { "sound", "default" }
-            };
-
-            if (!notifPicUuid.empty())
-            {
-                notif["data"] = {
-                    { "event_uuid", notifPicUuid },
-                    { "body", nmsg },
-                    { "message", nmsg },
-                    { "title", "Calaos" }
-                };
-            }
-            else
-            {
-                notif["data"] = {
-                    { "body", nmsg },
-                    { "message", nmsg },
-                    { "title", "Calaos" }
-                };
-            }
-
-            jarr.push_back(notif);
-        }
-
-        Json jnotif = {{ "notifications", jarr }};
-
-        if (jarr.empty())
+        string body = buildPushBody(tokens, message, notifPicUuid,
+                                    Utils::get_config_option("notif_development") == "true");
+        if (body.empty())
         {
             cInfoDom(TAG) << "No token registered. Cannot send push.";
             return;
         }
 
         cDebugDom(TAG) << "Sending notif to service:";
-        //E4.1b: the notification body is built from a rule's message param,
-        //which comes from rules.xml and never passed a JSON parser. A bare
-        //dump() of it throws type_error.316 and takes the process down - in
-        //the DEBUG LINE, before the send.
-        cDebugDom(TAG) << jnotif.dump(-1, ' ', true, Json::error_handler_t::replace);
+        cDebugDom(TAG) << body;
 
         UrlDownloader *u = new UrlDownloader("https://push.calaos.fr/api/push", true);
         u->m_signalComplete.connect([this, callbackSent](int statusCode)
@@ -262,6 +270,6 @@ void NotifManager::sendPushNotification(const string &message, const string &not
             cDebugDom(TAG) << "Push notif sent with code: " << statusCode;
             callbackSent();
         });
-        u->httpPost(string(), jnotif.dump(-1, ' ', true, Json::error_handler_t::replace));
+        u->httpPost(string(), body);
     });
 }
