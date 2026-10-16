@@ -38,12 +38,12 @@
     "event_raw TEXT, " \
     "pic_uid TEXT);"
 
-#define DB_CREATE_SQL_TOKENS "CREATE TABLE IF NOT EXISTS push_tokens (" \
-    "id INTEGER PRIMARY KEY UNIQUE NOT NULL, " \
-    "token TEXT, " \
-    "hw_type INTEGER, " \
-    "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, " \
-    "push_format INTEGER NOT NULL DEFAULT 0);"
+#define DB_CREATE_SQL_TOKENS "CREATE TABLE IF NOT EXISTS push_tokens ("        \
+                             "id INTEGER PRIMARY KEY UNIQUE NOT NULL, "        \
+                             "token TEXT, "                                    \
+                             "hw_type INTEGER, "                               \
+                             "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, " \
+                             "push_format INTEGER NOT NULL DEFAULT 0);"
 
 class HistWorkerAction
 {
@@ -232,8 +232,10 @@ void HistLogger::sqliteWorker()
         //Databases created before push_format existed: their tokens all
         //belong to apps expecting the notification format, the default.
         bool hasFormat = false;
-        db << "SELECT count(*) FROM pragma_table_info('push_tokens') WHERE name = 'push_format';"
-           >> [&](int count) { hasFormat = count > 0; };
+        db << "SELECT count(*) FROM pragma_table_info('push_tokens') WHERE name = 'push_format';" >> [&](int count)
+        {
+            hasFormat = count > 0;
+        };
         if (!hasFormat)
         {
             cInfoDom("history") << "Adding push_format to push_tokens";
@@ -448,8 +450,7 @@ void HistLogger::sqliteWorker()
 
                 try
                 {
-                    db << "SELECT token, hw_type, push_format FROM push_tokens;"
-                       >> [&](string token, int hw_type, int push_format)
+                    db << "SELECT token, hw_type, push_format FROM push_tokens;" >> [&](string token, int hw_type, int push_format)
                     {
                         ac->tokens.emplace_back(std::move(token), hw_type, push_format);
                     };

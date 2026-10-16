@@ -343,14 +343,17 @@ protected:
         auto done = std::make_shared<bool>(false);
         auto format = std::make_shared<int>(-1);
         HistLogger::Instance().getPushTokens(
-                [done, format, token](bool, string, const vector<PushToken> &tokens)
-        {
+            [done, format, token](bool, string, const vector<PushToken> &tokens)
+            {
             for (const auto &t: tokens)
                 if (t.token == token)
                     *format = t.format;
             *done = true;
         });
-        waitUntil([done]() { return *done; });
+        waitUntil([done]()
+                  {
+            return *done;
+        });
         return *format;
     }
 
@@ -1040,12 +1043,11 @@ TEST_F(JsonApiSessionTest, RegisterPushReadsDataOverWsAndTheRootOverHttp)
 TEST_F(JsonApiSessionTest, RegisterPushWithoutFormatKeepsTheNotificationFormat)
 {
     WsTestSession ws;
-    ws.send(Json{{ "msg", "register_push" }, { "msg_id", "1" },
-                 { "data", {{ "token", "push1-ws-legacy" }, { "hardware", "android" }} }});
+    ws.send(Json{ { "msg", "register_push" }, { "msg_id", "1" }, { "data", { { "token", "push1-ws-legacy" }, { "hardware", "android" } } } });
     HttpTestRequest req;
-    req.send(authenticated(Json{{ "action", "register_push" },
-                                { "token", "push1-http-legacy" },
-                                { "hardware", "android" }}));
+    req.send(authenticated(Json{ { "action", "register_push" },
+                                 { "token", "push1-http-legacy" },
+                                 { "hardware", "android" } }));
 
     EXPECT_EQ(HistLogger::PUSH_FORMAT_NOTIFICATION, storedPushFormat("push1-ws-legacy"));
     EXPECT_EQ(HistLogger::PUSH_FORMAT_NOTIFICATION, storedPushFormat("push1-http-legacy"));
@@ -1054,17 +1056,15 @@ TEST_F(JsonApiSessionTest, RegisterPushWithoutFormatKeepsTheNotificationFormat)
 TEST_F(JsonApiSessionTest, RegisterPushStoresTheDataFormatOverBothTransports)
 {
     WsTestSession ws;
-    ws.send(Json{{ "msg", "register_push" }, { "msg_id", "1" },
-                 { "data", {{ "token", "push1-ws-data" }, { "hardware", "android" },
-                            { "push_format", "data" }} }});
+    ws.send(Json{ { "msg", "register_push" }, { "msg_id", "1" }, { "data", { { "token", "push1-ws-data" }, { "hardware", "android" }, { "push_format", "data" } } } });
     ASSERT_EQ(1u, ws.count());
     EXPECT_EQ("true", str(ws.lastData(), "success"));
 
     HttpTestRequest req;
-    req.send(authenticated(Json{{ "action", "register_push" },
-                                { "token", "push1-http-data" },
-                                { "hardware", "android" },
-                                { "push_format", "data" }}));
+    req.send(authenticated(Json{ { "action", "register_push" },
+                                 { "token", "push1-http-data" },
+                                 { "hardware", "android" },
+                                 { "push_format", "data" } }));
     ASSERT_EQ(1u, req.count());
     EXPECT_EQ("true", str(req.bodyJson(), "success"));
 
@@ -1076,11 +1076,11 @@ TEST_F(JsonApiSessionTest, RegisterPushAgainUpdatesTheFormat)
 {
     auto reg = [](const char *format)
     {
-        Json data = {{ "token", "push1-rereg" }, { "hardware", "android" }};
+        Json data = { { "token", "push1-rereg" }, { "hardware", "android" } };
         if (format)
             data["push_format"] = format;
         WsTestSession ws;
-        ws.send(Json{{ "msg", "register_push" }, { "msg_id", "1" }, { "data", data }});
+        ws.send(Json{ { "msg", "register_push" }, { "msg_id", "1" }, { "data", data } });
     };
 
     reg("data");
@@ -1098,10 +1098,10 @@ TEST_F(JsonApiSessionTest, RegisterPushWithAnUnknownFormatFallsBackToNotificatio
     for (const char *token: { "push1-unknown-a", "push1-unknown-b" })
     {
         HttpTestRequest req;
-        req.send(authenticated(Json{{ "action", "register_push" },
-                                    { "token", token },
-                                    { "hardware", "android" },
-                                    { "push_format", "Data" }}));
+        req.send(authenticated(Json{ { "action", "register_push" },
+                                     { "token", token },
+                                     { "hardware", "android" },
+                                     { "push_format", "Data" } }));
         ASSERT_EQ(1u, req.count());
         EXPECT_EQ("true", str(req.bodyJson(), "success"));
         EXPECT_EQ(HistLogger::PUSH_FORMAT_NOTIFICATION, storedPushFormat(token));

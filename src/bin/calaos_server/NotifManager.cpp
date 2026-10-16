@@ -181,7 +181,7 @@ string NotifManager::buildPushBody(const vector<PushToken> &tokens, const string
         {
             notif["mutable-content"] = true;
             notif["mutable_content"] = true;
-            notif["data"] = {{ "event_uuid", notifPicUuid }};
+            notif["data"] = { { "event_uuid", notifPicUuid } };
         }
 
         if (development)
@@ -248,12 +248,8 @@ string NotifManager::buildPushBody(const vector<PushToken> &tokens, const string
 
         Json notif = {
             { "tokens", tokArray },
-            { "android", {{ "priority", "high" }} },
-            { "data", {
-                  { "body", nmsg },
-                  { "message", nmsg },
-                  { "title", "Calaos" }
-              } }
+            { "android", { { "priority", "high" } } },
+            { "data", { { "body", nmsg }, { "message", nmsg }, { "title", "Calaos" } } }
         };
         notif["platform"] = 2;
 
@@ -268,7 +264,7 @@ string NotifManager::buildPushBody(const vector<PushToken> &tokens, const string
 
     //The message comes from rules.xml and never went through a JSON parser:
     //a bare dump() throws type_error.316 on invalid UTF-8.
-    Json jnotif = {{ "notifications", jarr }};
+    Json jnotif = { { "notifications", jarr } };
     return jnotif.dump(-1, ' ', true, Json::error_handler_t::replace);
 }
 
@@ -277,8 +273,8 @@ void NotifManager::sendPushNotification(const string &message, const string &not
     cDebugDom(TAG) << "Sending push notification with message: " << message;
 
     HistLogger::Instance().getPushTokens(
-            [=](bool success, string errorMsg, const vector<PushToken> &tokens)
-    {
+        [=](bool success, string errorMsg, const vector<PushToken> &tokens)
+        {
         if (!success)
         {
             cCriticalDom(TAG) << "Unable to send push notification: " << errorMsg;

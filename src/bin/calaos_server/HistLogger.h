@@ -58,7 +58,11 @@ class PushToken
 {
 public:
     PushToken(string &&t, int hw, int fmt = 0):
-        token(t), hw_type(hw), format(fmt) {}
+        token(t),
+        hw_type(hw),
+        format(fmt)
+    {
+    }
     PushToken() {}
     string token;
     int hw_type = 0;
@@ -92,7 +96,8 @@ public:
 
     //What the app registered for. The store apps (3.1.x) send no format and
     //cannot display a data-only FCM message.
-    enum {
+    enum
+    {
         PUSH_FORMAT_NOTIFICATION = 0,
         PUSH_FORMAT_DATA,
     };

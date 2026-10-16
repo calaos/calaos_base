@@ -3138,8 +3138,8 @@ bool JsonApi::registerPushToken(const Params &jParam)
     }
 
     HistLogger::Instance().registerPushToken(jParam["token"],
-            jParam["hardware"] == "ios"? HistLogger::PUSH_HW_IOS: HistLogger::PUSH_HW_ANDROID,
-            format);
+                                             jParam["hardware"] == "ios" ? HistLogger::PUSH_HW_IOS : HistLogger::PUSH_HW_ANDROID,
+                                             format);
 
     return true;
 }

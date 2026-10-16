@@ -155,7 +155,10 @@ std::shared_ptr<Answer> readEvents()
 
     //A push with no readable token list is dropped: nothing is posted.
     auto pushed = std::make_shared<bool>(false);
-    NotifManager::Instance().sendPushNotification("fb5", "", [pushed]() { *pushed = true; });
+    NotifManager::Instance().sendPushNotification("fb5", "", [pushed]()
+                                                  {
+        *pushed = true;
+    });
     auto after = std::make_shared<Answer>();
     HistLogger::Instance().getPushTokens(
         [after](bool, string, const vector<PushToken> &)

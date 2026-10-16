@@ -222,11 +222,17 @@ const auto *env = ::testing::AddGlobalTestEnvironment(new EmptyHistory);
 TEST(PushPayloadTest, SendWithoutAnyTokenPostsNothing)
 {
     auto sent = std::make_shared<bool>(false);
-    NotifManager::Instance().sendPushNotification("Door open", "", [sent]() { *sent = true; });
+    NotifManager::Instance().sendPushNotification("Door open", "", [sent]()
+                                                  {
+        *sent = true;
+    });
 
     //The worker answers in order: once this one is back, the send has its tokens.
     auto done = std::make_shared<bool>(false);
-    HistLogger::Instance().getPushTokens([done](bool, string, const vector<PushToken> &) { *done = true; });
+    HistLogger::Instance().getPushTokens([done](bool, string, const vector<PushToken> &)
+                                         {
+        *done = true;
+    });
     auto loop = uvw::Loop::getDefault();
     for (int i = 0; i < 400 && !*done; i++)
     {

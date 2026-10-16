@@ -75,7 +75,10 @@ std::vector<PushToken> storedTokens()
         *out = tokens;
         *done = true;
     });
-    EXPECT_TRUE(pumpUntil([done]() { return *done; }));
+    EXPECT_TRUE(pumpUntil([done]()
+                          {
+        return *done;
+    }));
     return *out;
 }
 
@@ -134,8 +137,7 @@ TEST(PushTokenStoreTest, MigrationAddsThePushFormatColumn)
 {
     sqlite::database db(dbPath);
     int count = 0;
-    db << "SELECT count(*) FROM pragma_table_info('push_tokens') WHERE name = 'push_format';"
-       >> count;
+    db << "SELECT count(*) FROM pragma_table_info('push_tokens') WHERE name = 'push_format';" >> count;
     EXPECT_EQ(1, count);
 }
 
@@ -160,8 +162,11 @@ TEST(PushTokenStoreTest, ReRegisteringAnOldTokenUpdatesItsFormat)
     ASSERT_NE(nullptr, find(tokens, "old-android"));
     EXPECT_EQ(HistLogger::PUSH_FORMAT_DATA, find(tokens, "old-android")->format);
     EXPECT_EQ(1, std::count_if(tokens.begin(), tokens.end(),
-                               [](const PushToken &t) { return t.token == "old-android"; }))
-            << "re-registering must not duplicate the token";
+                               [](const PushToken &t)
+                               {
+        return t.token == "old-android";
+              }))
+        << "re-registering must not duplicate the token";
 
     HistLogger::Instance().registerPushToken("old-android", HistLogger::PUSH_HW_ANDROID);
     tokens = storedTokens();
