@@ -155,6 +155,8 @@ std::string house()
     ios += zone("zempty", param("modes", ""));
     ios += pair("pairheat", param("modes", "off,heat"), true);
     ios += pair("pairnocool", param("modes", "heat,cool"), false);
+    //No modes param: the outputs decide.
+    ios += pair("pairplain", "", true);
     //A range linked, but no auto to use it.
     ios += pair("pairnoauto",
                 param("modes", "heat,cool") + internal("InternalInt", "pairnoauto_low", "      ", SAVED) +
@@ -210,7 +212,7 @@ bool listHas(const std::vector<std::string> &l, const std::string &v)
     return std::find(l.begin(), l.end(), v) != l.end();
 }
 
-const std::vector<std::string> DEVICES = { "zone", "zauto", "zlock", "zhum", "zghost", "zhalf", "zauhum", "zdef", "zbad", "zempty", "pairheat", "pairnocool", "pairnoauto", "mix", "own_a", "own_b", "own_c" };
+const std::vector<std::string> DEVICES = { "zone", "zauto", "zlock", "zhum", "zghost", "zhalf", "zauhum", "zdef", "zbad", "zempty", "pairheat", "pairnocool", "pairplain", "pairnoauto", "mix", "own_a", "own_b", "own_c" };
 
 } //namespace
 
@@ -717,7 +719,7 @@ TEST_F(InternalThermostatValveTest, TheModesTheDocumentSaysAreThoseTheServerOffe
 
     int checked = 0;
     for (const std::string &id: { "zone", "zauto", "zlock", "zhum", "zghost", "zdef", "zbad", "zhalf", "zauhum",
-                                  "zempty", "pairheat", "pairnocool", "pairnoauto" })
+                                  "zempty", "pairheat", "pairnocool", "pairplain", "pairnoauto", "own_a" })
     {
         InternalThermostat *d = dev(id);
         ASSERT_NE(d, nullptr) << id;
@@ -765,5 +767,5 @@ TEST_F(InternalThermostatValveTest, TheModesTheDocumentSaysAreThoseTheServerOffe
         EXPECT_EQ(modes(id), final) << id;
         checked++;
     }
-    EXPECT_EQ(13, checked);
+    EXPECT_EQ(15, checked);
 }
