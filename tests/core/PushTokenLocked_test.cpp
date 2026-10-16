@@ -121,8 +121,8 @@ TEST(PushTokenLockedTest, NoTokenInTheLogsOnSuccessOrFailure)
     };
     HistLogger::Instance().registerPushToken(kSecret, HistLogger::PUSH_HW_ANDROID,
                                              HistLogger::PUSH_FORMAT_DATA);
-    const TokensAnswer failed = readTokens();
-    const bool notStored = failed.received && !failed.find(kSecret);
+    const TokensAnswer whileHeld = readTokens();
+    const bool notStored = whileHeld.received && !whileHeld.find(kSecret);
     *locker << "COMMIT;";
 
     HistLogger::Instance().registerPushToken(kSecret, HistLogger::PUSH_HW_ANDROID,
@@ -132,6 +132,9 @@ TEST(PushTokenLockedTest, NoTokenInTheLogsOnSuccessOrFailure)
     const std::string log = capture.stop();
 
     EXPECT_TRUE(notStored) << "the write was expected to fail";
+    //Reading still works; only the purge of old tokens cannot run.
+    EXPECT_TRUE(whileHeld.success);
+    EXPECT_NE(nullptr, whileHeld.find("old-android"));
     EXPECT_NE(std::string::npos, log.find("database is locked")) << "no failure was logged";
     EXPECT_TRUE(ok.success);
     EXPECT_NE(nullptr, ok.find(kSecret)) << "the token never reached the database";
