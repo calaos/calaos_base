@@ -491,17 +491,20 @@ vector<ClimateMode> InternalThermostat::supportedModes()
     vector<string> offered;
     for (ClimateMode m: modes)
         offered.push_back(modeName(m));
-    for (const auto &need: rule.needs)
+    vector<ClimateMode> kept;
+    for (ClimateMode m: modes)
     {
-        for (const string &other: need.second)
+        bool met = true;
+        const auto need = rule.needs.find(modeName(m));
+        if (need != rule.needs.end())
         {
-            if (!in(offered, other))
-                modes.erase(std::remove_if(modes.begin(), modes.end(),
-                                           [&need](ClimateMode m) { return modeName(m) == need.first; }),
-                            modes.end());
+            for (const string &other: need->second)
+                met = met && in(offered, other);
         }
+        if (met)
+            kept.push_back(m);
     }
-    return vector<ClimateMode>(std::move(modes));
+    return vector<ClimateMode>(std::move(kept));
 }
 
 bool InternalThermostat::supports(ClimateMode m)
