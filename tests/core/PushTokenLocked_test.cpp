@@ -116,7 +116,9 @@ TEST(PushTokenLockedTest, NoTokenInTheLogsOnSuccessOrFailure)
     //at step time, where sqlite_modern_cpp's error carries the SQL expanded
     //with the bound token.
     *locker << "BEGIN;";
-    *locker << "SELECT count(*) FROM push_tokens;" >> [](int) {};
+    *locker << "SELECT count(*) FROM push_tokens;" >> [](int)
+    {
+    };
     HistLogger::Instance().registerPushToken(kSecret, HistLogger::PUSH_HW_ANDROID,
                                              HistLogger::PUSH_FORMAT_DATA);
     const TokensAnswer failed = readTokens();

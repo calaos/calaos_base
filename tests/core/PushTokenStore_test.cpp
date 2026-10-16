@@ -283,8 +283,14 @@ TEST(PushTokenStoreTest, ASendPostsEveryTokenAndLogsNone)
 
     PushTest::StdoutCapture capture;
     auto sent = std::make_shared<bool>(false);
-    NotifManager::Instance().sendPushNotification("Door open", "ev-1", [sent]() { *sent = true; });
-    PushTest::pumpUntil([sent]() { return *sent; });
+    NotifManager::Instance().sendPushNotification("Door open", "ev-1", [sent]()
+                                                  {
+        *sent = true;
+    });
+    PushTest::pumpUntil([sent]()
+                        {
+        return *sent;
+    });
     const std::string log = capture.stop();
 
     ASSERT_TRUE(*sent);

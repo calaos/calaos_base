@@ -32,7 +32,8 @@ namespace uvw {
 class AsyncHandle;
 }
 
-namespace sqlite {
+namespace sqlite
+{
 class database;
 }
 
@@ -138,6 +139,6 @@ void save(sqlite::database &db, const PushToken &token, bool hasFormat);
 vector<PushToken> load(sqlite::database &db, bool hasFormat);
 //Tokens not registered again for 30 days.
 void purge(sqlite::database &db);
-}
+} //namespace PushTokenDb
 
 #endif

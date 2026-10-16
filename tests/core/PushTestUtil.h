@@ -83,12 +83,15 @@ inline TokensAnswer readTokens()
 {
     auto a = std::make_shared<TokensAnswer>();
     HistLogger::Instance().getPushTokens([a](bool success, string, const vector<PushToken> &tokens)
-    {
+                                         {
         a->received = true;
         a->success = success;
         a->tokens = tokens;
     });
-    pumpUntil([a]() { return a->received; });
+    pumpUntil([a]()
+              {
+        return a->received;
+    });
     return *a;
 }
 
@@ -174,7 +177,10 @@ public:
             ::listen(listenFd, 1) == 0 &&
             ::getsockname(listenFd, (struct sockaddr *)&addr, &len) == 0)
             port = ntohs(addr.sin_port);
-        th = std::thread([this]() { run(); });
+        th = std::thread([this]()
+                         {
+            run();
+        });
     }
 
     ~HttpPeer()
@@ -236,7 +242,7 @@ private:
 
     int listenFd = -1;
     int port = 0;
-    std::atomic<bool> stop{false};
+    std::atomic<bool> stop{ false };
     std::thread th;
     std::mutex m;
     std::string req;
