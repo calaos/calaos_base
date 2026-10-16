@@ -711,7 +711,8 @@ TEST(IODocJson, AListParamCanPublishTheRulesOfItsList)
 
     const std::string md = doc.genDocMd("x");
     EXPECT_TRUE(contains(md, "List `p_attr`: always offers v_always. Without it and with r_req linked: v_a. "
-                             "v_b needs v_a, v_c.\n")) << md;
+                             "v_b needs v_a, v_c.\n"))
+        << md;
     EXPECT_FALSE(contains(md, "p_unknown"));
 }
 
