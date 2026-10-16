@@ -89,8 +89,7 @@ protected:
     template <class T>
     T *add(const std::string &id)
     {
-        Params p = { { "id", id }, { "name", id }, { "type", "Test" }, { "enabled", "true" },
-                     { "visible", "true" }, { "time", "60" } };
+        Params p = { { "id", id }, { "name", id }, { "type", "Test" }, { "enabled", "true" }, { "visible", "true" }, { "time", "60" } };
         T *io = new T(p);
         firstRoom()->AddIO(io);
         ListeRoom::Instance().addIOHash(io);
@@ -102,7 +101,8 @@ protected:
                      const std::string &val)
     {
         const std::string xml = "<calaos:condition type=\"output\" trigger=\"true\">"
-                                "<calaos:output id=\"" + id + "\" oper=\"" + oper +
+                                "<calaos:output id=\"" +
+                                id + "\" oper=\"" + oper +
                                 "\" val=\"" + val + "\"/></calaos:condition>";
         pugi::xml_document doc;
         EXPECT_TRUE(doc.load_string(xml.c_str()));
@@ -144,7 +144,8 @@ TEST_F(ConditionOutputStateTest, StringIosWithoutAStateNeverMatchAndWarnAtLoad)
         {
             ConditionOutput cond;
             const std::string log = load(cond, id, oper, "onplay");
-            EXPECT_TRUE(warned(log)) << id << " " << oper << "\n" << log;
+            EXPECT_TRUE(warned(log)) << id << " " << oper << "\n"
+                                     << log;
             EXPECT_FALSE(cond.Evaluate()) << id << " " << oper;
         }
     }
@@ -161,7 +162,8 @@ TEST_F(ConditionOutputStateTest, ChangedKeywordNeedsNoStateAndNeverWarns)
         {
             ConditionOutput cond;
             const std::string log = load(cond, id, oper, "changed");
-            EXPECT_FALSE(warned(log)) << id << " " << oper << "\n" << log;
+            EXPECT_FALSE(warned(log)) << id << " " << oper << "\n"
+                                      << log;
             EXPECT_TRUE(cond.Evaluate()) << id << " " << oper;
         }
     }
