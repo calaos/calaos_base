@@ -8160,3 +8160,17 @@ core_PushTokenStore_test_LDADD = $(CORE_TEST_LDADD)
 core_PushTokenStore_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#events.db locked at the first start after the push_format update: the
+#migration cannot run, push still works and no log line carries a token.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/PushTokenLocked_test
+check_PROGRAMS += core/PushTokenLocked_test
+core_PushTokenLocked_test_SOURCES = core/PushTokenLocked_test.cpp \
+                  core/PushTestUtil.h
+core_PushTokenLocked_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_PushTokenLocked_test_LDADD = $(CORE_TEST_LDADD)
+core_PushTokenLocked_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
