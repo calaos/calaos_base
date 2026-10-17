@@ -688,8 +688,22 @@ docs/07_remoteui.md	1	IO/RemoteUI/RemoteUI.cpp:84	38e86d7a65c5	//or `height`, an
 docs/07_remoteui.md	1	IO/RemoteUI/RemoteUIOutputRelay.cpp:49-50	fffb5927000d	cInfoDom(TAG) << "RemoteUIOutputRelay(" << get_param("id") <
 docs/07_remoteui.md	1	JsonApi.cpp:576	e53d7c2828af	/* Every word this server routes on is under twenty bytes; n
 docs/07_remoteui.md	1	JsonApiHandlerWS.cpp:60	5a20a8a8d9e2	/* E4.1s. jansson_decode_object()'s FLATTENING CONTRACT, kep
-docs/07_remoteui.md	1	OtaFirmwareManager.cpp:273	b3a732e01bb1	handler->sendJson("remote_ui_fw_update_available", data);
-docs/07_remoteui.md	1	OtaFirmwareManager.h:95-99	ac7751a3857a	/* Rescan period in milliseconds, computed in 64-bit and cla
+docs/07_remoteui.md	1	OtaFirmwareManager.cpp:338	b3a732e01bb1	handler->sendJson("remote_ui_fw_update_available", data);
+docs/07_remoteui.md	1	OtaFirmwareManager.h:156-160	ac7751a3857a	/* Rescan period in milliseconds, computed in 64-bit and cla
+docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:152	dc6bc3fc64eb	void OtaFirmwareManager::serverStarted()
+docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:159	c3c970749a53	void OtaFirmwareManager::rescanFromPackage()
+docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:174	52d55754a82d	void OtaFirmwareManager::scheduleDeferredNotify()
+docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:224	a19161815201	string manifestPath = subPath + "/manifest.json";
+docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:245-251	398ac61bf84f	if (name != manifest.getHardwareId()) { cWarningDom(TAG) << 
+docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:254-258	ddefe5320b23	if (!manifest.verifyChecksum()) { cWarningDom(TAG) << "Check
+docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:294-298	c69d211fb46b	if (firmware->getVersion() == currentVersion) { cDebugDom(TA
+docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:300-310	8b1eb7b4412b	Json data; data["hardware_id"] = firmware->getHardwareId(); 
+docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:304	3d9c80c9e47e	data["download_url"] = "/api/v3/ota/firmware/" + firmware->g
+docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:37-38	9175125c71e1	static const string DEFAULT_FIRMWARE_PATH = "/usr/share/cala
+docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:61-63	492e4d81df98	string enabledStr = Utils::get_config_option("ota_enabled");
+docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:72-79	8a3677c29766	firmwarePath = Utils::get_config_option("ota_firmware_path")
+docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:83-84	2a7c3621af8d	string intervalStr = Utils::get_config_option("ota_rescan_in
+docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.h:162-171	e5d6c372d593	static uint64_t computeRescanIntervalMs(int minutes) { stati
 docs/07_remoteui.md	1	ProvisioningHandler.cpp:207	371cfc933f60	Config::Instance().SaveConfigIO();
 docs/07_remoteui.md	1	RemoteUI.cpp:417-421	9806369a552c	try { int brightness = std::stoi(args); setBrightness(bright
 docs/07_remoteui.md	1	RemoteUIManager.cpp:117-118	aea05d3483de	if (io->get_param("type") == "RemoteUI" || io->get_param("ty
@@ -751,17 +765,6 @@ docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/HMACAuthenticator.cpp:36-43
 docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/HMACAuthenticator.cpp:48-54	3e16662aa9c9	bool WebSocketHeaders::isValid() const { return !authorizati
 docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/HMACAuthenticator.cpp:84	b4db38114f8b	failure_reason = RemoteUIManager::Instance().validateAuthent
 docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/HMACAuthenticator.h:126-135	ecb8f4d1ef9e	static bool constantTimeHexEquals(const string &supplied_hex
-docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:174	a19161815201	string manifestPath = subPath + "/manifest.json";
-docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:195-201	398ac61bf84f	if (name != manifest.getHardwareId()) { cWarningDom(TAG) << 
-docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:204-208	ddefe5320b23	if (!manifest.verifyChecksum()) { cWarningDom(TAG) << "Check
-docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:249-253	d0d9a55d62c1	if (firmware->getVersion() == currentVersion) { cDebugDom(TA
-docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:260-270	8b1eb7b4412b	Json data; data["hardware_id"] = firmware->getHardwareId(); 
-docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:264	3d9c80c9e47e	data["download_url"] = "/api/v3/ota/firmware/" + firmware->g
-docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:36-37	9175125c71e1	static const string DEFAULT_FIRMWARE_PATH = "/usr/share/cala
-docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:54-56	492e4d81df98	string enabledStr = Utils::get_config_option("ota_enabled");
-docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:65-72	8a3677c29766	firmwarePath = Utils::get_config_option("ota_firmware_path")
-docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:76-77	2a7c3621af8d	string intervalStr = Utils::get_config_option("ota_rescan_in
-docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.h:101-110	e5d6c372d593	static uint64_t computeRescanIntervalMs(int minutes) { stati
 docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaHttpHandler.cpp:100	f0ea13530850	sendErrorResponse("INVALID_HARDWARE_ID", "Invalid hardware I
 docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaHttpHandler.cpp:108	904de01cc24d	sendErrorResponse("NOT_FOUND", "Endpoint not found", 404);
 docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaHttpHandler.cpp:153-159	57eea3505e14	// Rescan is only allowed from localhost if (!isLocalhost())

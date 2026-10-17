@@ -36,6 +36,34 @@ namespace Calaos
 class RemoteUIWebSocketHandler;
 class RemoteUI;
 
+/* When the server may offer a firmware. An offer starts a download the server
+ * has to serve to the end, so none is made while the server is likely to go
+ * away: right after it started (an upgrade restarts it, possibly more than
+ * once) and while a package transaction is running, which the rescan request
+ * of the firmware package postinst reveals. Each event only pushes the date
+ * later.
+ * Header-inline so it can be unit-tested without linking server objects.
+ */
+class OtaOfferGate
+{
+public:
+    void holdFor(uint64_t nowMs, uint64_t delayMs)
+    {
+        if (nowMs + delayMs > holdUntilMs)
+            holdUntilMs = nowMs + delayMs;
+    }
+
+    bool offersAllowed(uint64_t nowMs) const { return nowMs >= holdUntilMs; }
+
+    uint64_t msUntilAllowed(uint64_t nowMs) const
+    {
+        return offersAllowed(nowMs) ? 0 : holdUntilMs - nowMs;
+    }
+
+private:
+    uint64_t holdUntilMs = 0;
+};
+
 class OtaFirmwareManager
 {
 private:
@@ -47,6 +75,12 @@ private:
     // Timer for periodic rescan
     std::shared_ptr<uvw::TimerHandle> rescanTimer;
 
+    OtaOfferGate offerGate;
+    // Offers the devices refused while the gate was closed, once it opens
+    std::shared_ptr<uvw::TimerHandle> deferredNotifyTimer;
+    uint64_t startupHoldMs = DEFAULT_STARTUP_HOLD_MS;
+    uint64_t packageHoldMs = DEFAULT_PACKAGE_HOLD_MS;
+
     // Configuration
     string firmwarePath;
     bool enabled;
@@ -57,8 +91,12 @@ private:
     // Internal methods
     void setupPeriodicRescan();
     void scanDirectory(const string &path);
+    void scheduleDeferredNotify();
 
 public:
+    static constexpr uint64_t DEFAULT_STARTUP_HOLD_MS = 60 * 1000;
+    static constexpr uint64_t DEFAULT_PACKAGE_HOLD_MS = 120 * 1000;
+
     static OtaFirmwareManager &Instance()
     {
         if (!_instance)
@@ -73,6 +111,29 @@ public:
 
     // Rescan firmware directory and notify affected devices
     void rescan();
+
+    // Holds offers for the startup delay; init() calls it
+    void serverStarted();
+
+    // Rescan asked by a firmware package being installed: the new image is
+    // served at once, but offered only once the transaction has settled.
+    void rescanFromPackage();
+
+    // The update message for a device, null when it is up to date or when
+    // no firmware matches. Ignores the offer gate.
+    Json buildOffer(const string &hardwareId, const string &currentVersion) const;
+
+    bool offersAllowed() const { return offerGate.offersAllowed(nowMs()); }
+    bool deferredNotifyPending() const;
+
+    // Apply to the holds started after the call
+    void setHoldDelays(uint64_t startupMs, uint64_t packageMs)
+    {
+        startupHoldMs = startupMs;
+        packageHoldMs = packageMs;
+    }
+
+    static uint64_t nowMs();
 
     // Get firmware manifest by hardware_id
     const FirmwareManifest *getFirmware(const string &hardwareId) const;
