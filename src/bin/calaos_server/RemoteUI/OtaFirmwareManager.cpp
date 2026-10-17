@@ -25,6 +25,7 @@
 #include "Prefix.h"
 #include "FileUtils.h"
 #include <dirent.h>
+#include <chrono>
 
 static const char *TAG = "ota";
 
@@ -46,6 +47,12 @@ OtaFirmwareManager::~OtaFirmwareManager()
 {
     if (rescanTimer)
         rescanTimer->stop();
+}
+
+uint64_t OtaFirmwareManager::nowMs()
+{
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
 void OtaFirmwareManager::init()
@@ -90,6 +97,8 @@ void OtaFirmwareManager::init()
 
     cInfoDom(TAG) << "OTA firmware manager initializing with path: " << firmwarePath;
     cInfoDom(TAG) << "Rescan interval: " << rescanIntervalMinutes << " minutes";
+
+    serverStarted();
 
     // Perform initial scan
     rescan();
@@ -138,6 +147,47 @@ void OtaFirmwareManager::rescan()
 
     // Notify all connected devices about available updates
     notifyAllDevices();
+}
+
+void OtaFirmwareManager::serverStarted()
+{
+    // An upgrade can restart the server more than once: wait before
+    // starting downloads it may not be there to finish.
+    offerGate.holdFor(nowMs(), startupHoldMs);
+}
+
+void OtaFirmwareManager::rescanFromPackage()
+{
+    // The package postinst runs inside the apt transaction, which may go on
+    // with calaos-server itself and restart it.
+    offerGate.holdFor(nowMs(), packageHoldMs);
+    cInfoDom(TAG) << "Firmware package installed, offers held for "
+                  << packageHoldMs / 1000 << " s";
+    rescan();
+}
+
+bool OtaFirmwareManager::deferredNotifyPending() const
+{
+    return deferredNotifyTimer && deferredNotifyTimer->active();
+}
+
+void OtaFirmwareManager::scheduleDeferredNotify()
+{
+    const uint64_t delay = offerGate.msUntilAllowed(nowMs());
+    if (!deferredNotifyTimer)
+    {
+        deferredNotifyTimer = uvw::Loop::getDefault()->resource<uvw::TimerHandle>();
+        deferredNotifyTimer->on<uvw::TimerEvent>([this](const uvw::TimerEvent &, uvw::TimerHandle &)
+        {
+            deferredNotifyTimer->stop();
+            notifyAllDevices();
+        });
+    }
+    else if (deferredNotifyTimer->active())
+    {
+        deferredNotifyTimer->stop();
+    }
+    deferredNotifyTimer->start(uvw::TimerHandle::Time{delay + 1}, uvw::TimerHandle::Time{0});
 }
 
 void OtaFirmwareManager::scanDirectory(const string &path)
@@ -224,24 +274,19 @@ const FirmwareManifest *OtaFirmwareManager::getFirmware(const string &hardwareId
     return nullptr;
 }
 
-bool OtaFirmwareManager::checkDeviceForUpdate(RemoteUIWebSocketHandler *handler,
-                                              const string &hardwareId,
-                                              const string &currentVersion)
+Json OtaFirmwareManager::buildOffer(const string &hardwareId, const string &currentVersion) const
 {
-    if (!enabled || !handler)
-        return false;
-
     if (hardwareId.empty())
     {
         cDebugDom(TAG) << "Device has no hardware_id, skipping OTA check";
-        return false;
+        return Json();
     }
 
     const FirmwareManifest *firmware = getFirmware(hardwareId);
     if (!firmware)
     {
         cDebugDom(TAG) << "No firmware available for hardware_id: " << hardwareId;
-        return false;
+        return Json();
     }
 
     // Simple string comparison: if versions differ, offer update
@@ -249,14 +294,9 @@ bool OtaFirmwareManager::checkDeviceForUpdate(RemoteUIWebSocketHandler *handler,
     if (firmware->getVersion() == currentVersion)
     {
         cDebugDom(TAG) << "Device " << hardwareId << " is up to date (v" << currentVersion << ")";
-        return false;
+        return Json();
     }
 
-    cInfoDom(TAG) << "Firmware update available for " << hardwareId
-                  << ": device has v" << currentVersion
-                  << ", available v" << firmware->getVersion();
-
-    // Build notification message
     Json data;
     data["hardware_id"] = firmware->getHardwareId();
     data["version"] = firmware->getVersion();
@@ -269,7 +309,32 @@ bool OtaFirmwareManager::checkDeviceForUpdate(RemoteUIWebSocketHandler *handler,
     if (!firmware->getName().empty())
         data["name"] = firmware->getName();
 
-    // Send notification via WebSocket
+    return data;
+}
+
+bool OtaFirmwareManager::checkDeviceForUpdate(RemoteUIWebSocketHandler *handler,
+                                              const string &hardwareId,
+                                              const string &currentVersion)
+{
+    if (!enabled || !handler)
+        return false;
+
+    Json data = buildOffer(hardwareId, currentVersion);
+    if (data.is_null())
+        return false;
+
+    if (!offersAllowed())
+    {
+        cInfoDom(TAG) << "Firmware update for " << hardwareId << " held for "
+                      << offerGate.msUntilAllowed(nowMs()) / 1000 << " s, server not settled";
+        scheduleDeferredNotify();
+        return false;
+    }
+
+    cInfoDom(TAG) << "Firmware update available for " << hardwareId
+                  << ": device has v" << currentVersion
+                  << ", available v" << data["version"].get<string>();
+
     handler->sendJson("remote_ui_fw_update_available", data);
 
     cInfoDom(TAG) << "Sent firmware update notification for " << hardwareId;

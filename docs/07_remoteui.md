@@ -360,7 +360,7 @@ attrapée et ignorée avec un avertissement, sans réponse d'erreur
 | `remote_ui_config` | Réponse à `remote_ui_get_config` (`getRemoteUIConfigMessage()`) | `RemoteUIWebSocketHandler.cpp:165-166` |
 | `remote_ui_io_states` | États initiaux des IOs référencés par les pages | `RemoteUIWebSocketHandler.cpp:252` |
 | `remote_ui_config_update` | Configuration complète poussée (voir ci-dessous) | `RemoteUIWebSocketHandler.cpp:314` |
-| `remote_ui_fw_update_available` | Firmware disponible | `OtaFirmwareManager.cpp:273` |
+| `remote_ui_fw_update_available` | Firmware disponible | `OtaFirmwareManager.cpp:338` |
 | `remote_ui_set_relay` | `{ "relay": <int>, "state": <bool> }` | `IO/RemoteUI/RemoteUIOutputRelay.cpp:49-50` |
 | `remote_ui_set_brightness` | `{ "brightness": <int> }` | `IO/RemoteUI/RemoteUI.cpp:513-514` |
 | `remote_ui_set_page` | `{ "page_id": … }` | `IO/RemoteUI/RemoteUI.cpp:531-532` |
@@ -393,7 +393,7 @@ nivelée par le serveur seul ([T3.69](refactoring/T3.69.md)) :
 L'écran tient ses états de `remote_ui_io_states`, pas de sa configuration.
 
 Clés de `remote_ui_fw_update_available` (dérivé,
-`src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:260-270`) : `hardware_id`, `version`,
+`src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:300-310`) : `hardware_id`, `version`,
 `checksum_sha256`, `download_url`, plus `release_notes` et `name` s'ils sont renseignés.
 
 ### Cycle de vie (T1.10)
@@ -488,13 +488,13 @@ revue E4.5e.
 | `ota_firmware_path` | `/usr/share/calaos/firmwares` | Racine des firmwares |
 | `ota_rescan_interval` | 60 minutes | Période de re-scan |
 
-(dérivé, `src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:36-37`, `:54-56`, `:65-72`,
-`:76-77`.) Leur description de référence est dans
+(dérivé, `src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:37-38`, `:61-63`, `:72-79`,
+`:83-84`.) Leur description de référence est dans
 [16_config_options.md](16_config_options.md), générée depuis le registre.
 
 ### ⚠️ Intervalle de re-scan borné à 30 jours
 
-(capturé, `src/bin/calaos_server/RemoteUI/OtaFirmwareManager.h:101-110`, intégral :)
+(capturé, `src/bin/calaos_server/RemoteUI/OtaFirmwareManager.h:162-171`, intégral :)
 
 ```cpp
 static uint64_t computeRescanIntervalMs(int minutes)
@@ -511,14 +511,14 @@ static uint64_t computeRescanIntervalMs(int minutes)
 
 Le calcul est fait en 64 bits et borné à **`[1 minute, 30 jours]`**. En `int`,
 `minutes * 60 * 1000` débordait (UB) au-delà d'environ 35 791 minutes et pouvait produire une
-période de minuterie **minuscule** (dérivé, `…OtaFirmwareManager.h:95-99`). La fonction est
+période de minuterie **minuscule** (dérivé, `…OtaFirmwareManager.h:156-160`). La fonction est
 inline dans l'en-tête exprès, pour être testable sans lier les objets du serveur.
 
 ### Découverte des firmwares
 
 Un sous-répertoire par `hardware_id` sous la racine, chacun portant un `manifest.json` ; le nom du
 répertoire doit être égal au `hardware_id` du manifeste, et le checksum est vérifié dès le scan
-(dérivé, `src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:174`, `:195-201`, `:204-208`).
+(dérivé, `src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:224`, `:245-251`, `:254-258`).
 
 Champs de `manifest.json` (dérivé,
 `src/bin/calaos_server/RemoteUI/FirmwareManifest.cpp:60-109` et `FirmwareManifest.h:69-85`) :
@@ -534,12 +534,30 @@ Champs de `manifest.json` (dérivé,
 
 ⚠️ **Il n'y a pas de champ URL** dans le manifeste : l'URL de téléchargement est synthétisée —
 `"/api/v3/ota/firmware/" + hardware_id + "/download"`
-(dérivé, `src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:264`).
+(dérivé, `src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:304`).
 
 ⚠️ **La décision de mise à jour est une simple inégalité de chaînes**, pas une comparaison
 sémantique de versions : `if (firmware->getVersion() == currentVersion)` → pas de mise à jour
-(dérivé, `src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:249-253`). Un « downgrade » est
+(dérivé, `src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:294-298`). Un « downgrade » est
 donc proposé comme une mise à jour.
+
+### Offre retenue tant que le serveur n'est pas stable
+
+Une mise à jour calaos-os qui contient à la fois `calaos-server` et un firmware RemoteUI
+redémarre le serveur pendant que les écrans téléchargent l'image qu'il vient de leur proposer.
+L'offre est donc retenue :
+
+- 60 s après le démarrage du serveur (`src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:152`) ;
+- 120 s après un `POST /api/v3/ota/rescan`, la requête du `postinst` du paquet firmware, qui
+  tourne au milieu de la transaction apt (`src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:159`).
+  Le nouveau firmware est servi tout de suite, seule l'offre attend ; chaque requête repousse
+  la fin de la retenue.
+
+Un écran qui se connecte pendant la retenue n'est pas oublié : l'offre est envoyée sans qu'il
+ait à se reconnecter, à tous les écrans connectés, à la fin de la retenue
+(`src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:174`). Côté firmware, un
+téléchargement interrompu est abandonné sans rendre la partition amorçable puis retenté avec un
+délai croissant (dépôt calaos_remote_ui, `main/ota_download.cpp`, `main/ota_manager.cpp`).
 
 ### Endpoints HTTP
 

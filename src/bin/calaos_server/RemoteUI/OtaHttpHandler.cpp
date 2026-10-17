@@ -160,7 +160,7 @@ void OtaHttpHandler::handleRescan()
 
     cInfoDom(TAG) << "Firmware rescan triggered via HTTP from " << getClientIP();
 
-    OtaFirmwareManager::Instance().rescan();
+    OtaFirmwareManager::Instance().rescanFromPackage();
 
     Json response;
     response["success"] = true;

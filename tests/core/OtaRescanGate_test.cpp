@@ -290,6 +290,7 @@ struct Runs
     Conn mapped;      //127.0.0.1, IPv4-mapped on the dual-stack listen
     Conn slashEight;  //127.1.0.1, loopback per RFC 1122 but not per a /24
     Conn outside;     //a real interface address: the refusal
+    bool offersAllowedBefore = false;
 };
 
 const Runs &theRuns()
@@ -297,6 +298,7 @@ const Runs &theRuns()
     static Runs runs = []()
     {
         Runs r;
+        r.offersAllowedBefore = OtaFirmwareManager::Instance().offersAllowed();
 
         r.v6 = openV6();
         rescan(r.v6);
@@ -380,6 +382,19 @@ TEST(OtaRescanGate, TheRescanIsAcceptedFromTheWholeLoopbackBlock)
 
     EXPECT_EQ(200, r.slashEight.status);
     EXPECT_NE(std::string::npos, r.slashEight.body.find(kDone));
+}
+
+/*
+ * The postinst of a firmware package sends this request in the middle of the
+ * apt transaction, which may go on and restart the server: the image is
+ * served at once but no panel is told about it yet.
+ */
+TEST(OtaRescanGate, AnAcceptedRescanHoldsTheFirmwareOffers)
+{
+    const Runs &r = theRuns();
+
+    EXPECT_TRUE(r.offersAllowedBefore);
+    EXPECT_FALSE(OtaFirmwareManager::Instance().offersAllowed());
 }
 
 /*
@@ -504,6 +519,8 @@ int main(int argc, char **argv)
         return 77;
     }
 
+    //No startup hold, so that the hold measured is the rescan's own
+    OtaFirmwareManager::Instance().setHoldDelays(0, 60 * 1000);
     OtaFirmwareManager::Instance().init();
     HttpServer::Instance(serverPort());
     drainLoop(50);
