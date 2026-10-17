@@ -86,9 +86,9 @@ std::string house()
     std::string screen =
         "    <calaos:remote_ui type=\"RemoteUI\" id=\"" + std::string(SCREEN) +
         "\" name=\"Screen\" enabled=\"true\" visible=\"true\" device_type=\"" + HW + "\""
-        " grid_w=\"3\" grid_h=\"3\">\n"
-        "      <calaos:pages>\n        <calaos:page name=\"p1\">\n"
-        "        </calaos:page>\n      </calaos:pages>\n    </calaos:remote_ui>\n";
+                                                                                     " grid_w=\"3\" grid_h=\"3\">\n"
+                                                                                     "      <calaos:pages>\n        <calaos:page name=\"p1\">\n"
+                                                                                     "        </calaos:page>\n      </calaos:pages>\n    </calaos:remote_ui>\n";
     return ioXmlDocument(roomXml("Salon", "salon", screen));
 }
 
@@ -179,7 +179,7 @@ protected:
         client = std::make_shared<PanelClient>(tcp);
         handler.reset(new PanelHandler(client.get()));
         handler->sendData.connect([this](const std::string &d)
-        {
+                                  {
             Json env = Json::parse(d, nullptr, false);
             if (env.is_object() && env.value("msg", "") == "remote_ui_fw_update_available")
                 offers.push_back(env.at("data"));
@@ -231,7 +231,10 @@ TEST_F(OtaOfferTimingTest, AFreshlyStartedServerHoldsTheOfferThenSendsItUnasked)
     EXPECT_TRUE(ota().deferredNotifyPending());
 
     //No reconnection: the deferred offer reaches the connected panel
-    pumpUntil(10000, [this]() { return !offers.empty(); });
+    pumpUntil(10000, [this]()
+              {
+        return !offers.empty();
+    });
     ASSERT_EQ(offers.size(), 1u);
     EXPECT_EQ(offers[0].value("version", ""), FW_VERSION);
     EXPECT_EQ(offers[0].value("checksum_sha256", ""), FW_SHA);
@@ -243,7 +246,10 @@ TEST_F(OtaOfferTimingTest, AFreshlyStartedServerHoldsTheOfferThenSendsItUnasked)
 
 TEST_F(OtaOfferTimingTest, AFirmwarePackageHoldsTheOfferUntilTheTransactionSettles)
 {
-    pumpUntil(10000, [this]() { return ota().offersAllowed(); });
+    pumpUntil(10000, [this]()
+              {
+        return ota().offersAllowed();
+    });
     ASSERT_TRUE(ota().offersAllowed());
 
     const auto before = std::chrono::steady_clock::now();
@@ -253,35 +259,54 @@ TEST_F(OtaOfferTimingTest, AFirmwarePackageHoldsTheOfferUntilTheTransactionSettl
     EXPECT_NE(ota().getFirmware(HW), nullptr);
     EXPECT_FALSE(connectPanel());
 
-    pumpUntil(10000, [this]() { return !offers.empty(); });
+    pumpUntil(10000, [this]()
+              {
+        return !offers.empty();
+    });
     const auto waited = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - before).count();
+                            std::chrono::steady_clock::now() - before)
+                            .count();
     ASSERT_EQ(offers.size(), 1u);
     EXPECT_GE(waited, static_cast<long>(PACKAGE_HOLD_MS));
 }
 
 TEST_F(OtaOfferTimingTest, ASecondPackageMovesTheOfferLater)
 {
-    pumpUntil(10000, [this]() { return ota().offersAllowed(); });
+    pumpUntil(10000, [this]()
+              {
+        return ota().offersAllowed();
+    });
     const auto first = std::chrono::steady_clock::now();
     ota().rescanFromPackage();
     EXPECT_FALSE(connectPanel());
-    pumpUntil(1000, []() { return false; });
+    pumpUntil(1000, []()
+              {
+        return false;
+    });
     ota().rescanFromPackage();
 
     //The first hold has ended, the second one holds
-    pumpUntil(10000, [first]() { return std::chrono::steady_clock::now() - first >=
-                                        std::chrono::milliseconds(PACKAGE_HOLD_MS + 200); });
+    pumpUntil(10000, [first]()
+              {
+        return std::chrono::steady_clock::now() - first >=
+               std::chrono::milliseconds(PACKAGE_HOLD_MS + 200);
+    });
     EXPECT_TRUE(offers.empty());
     EXPECT_FALSE(ota().offersAllowed());
 
-    pumpUntil(10000, [this]() { return !offers.empty(); });
+    pumpUntil(10000, [this]()
+              {
+        return !offers.empty();
+    });
     EXPECT_EQ(offers.size(), 1u);
 }
 
 TEST_F(OtaOfferTimingTest, ASettledServerOffersAtOnceAndNotToAnUpToDatePanel)
 {
-    pumpUntil(10000, [this]() { return ota().offersAllowed(); });
+    pumpUntil(10000, [this]()
+              {
+        return ota().offersAllowed();
+    });
     ASSERT_TRUE(ota().offersAllowed());
 
     EXPECT_TRUE(connectPanel());

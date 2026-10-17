@@ -52,7 +52,8 @@ OtaFirmwareManager::~OtaFirmwareManager()
 uint64_t OtaFirmwareManager::nowMs()
 {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now().time_since_epoch()).count();
+               std::chrono::steady_clock::now().time_since_epoch())
+        .count();
 }
 
 void OtaFirmwareManager::init()
@@ -178,7 +179,7 @@ void OtaFirmwareManager::scheduleDeferredNotify()
     {
         deferredNotifyTimer = uvw::Loop::getDefault()->resource<uvw::TimerHandle>();
         deferredNotifyTimer->on<uvw::TimerEvent>([this](const uvw::TimerEvent &, uvw::TimerHandle &)
-        {
+                                                 {
             deferredNotifyTimer->stop();
             notifyAllDevices();
         });
@@ -187,7 +188,7 @@ void OtaFirmwareManager::scheduleDeferredNotify()
     {
         deferredNotifyTimer->stop();
     }
-    deferredNotifyTimer->start(uvw::TimerHandle::Time{delay + 1}, uvw::TimerHandle::Time{0});
+    deferredNotifyTimer->start(uvw::TimerHandle::Time{ delay + 1 }, uvw::TimerHandle::Time{ 0 });
 }
 
 void OtaFirmwareManager::scanDirectory(const string &path)
