@@ -184,10 +184,12 @@ string NotifManager::buildPushBody(const vector<PushToken> &tokens, const string
         };
         notif["platform"] = 1;
 
+        //gorush reads only the snake_case key. Always set: the iOS service
+        //extension (app badge) is run by iOS only for mutable-content.
+        notif["mutable_content"] = true;
+
         if (!notifPicUuid.empty())
         {
-            notif["mutable-content"] = true;
-            notif["mutable_content"] = true;
             notif["data"] = { { "event_uuid", notifPicUuid } };
         }
 

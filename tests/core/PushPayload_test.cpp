@@ -47,12 +47,14 @@ PushToken token(const char *t, int hw)
     return PushToken(string(t), hw);
 }
 
+//gorush reads only the snake_case key (notify/notification.go:78); the NSE
+//computing the badge runs only for mutable-content, picture or not.
 const char *IOS_ENTRY =
-    R"({"message":"Door open","platform":1,"tokens":["ios-1"],"topic":"fr.calaos.CalaosMobile"})";
+    R"({"message":"Door open","mutable_content":true,"platform":1,"tokens":["ios-1"],)"
+    R"("topic":"fr.calaos.CalaosMobile"})";
 
 const char *IOS_PIC_ENTRY =
-    R"({"data":{"event_uuid":"ev-42"},"message":"Door open","mutable-content":true,)"
-    R"("mutable_content":true,"platform":1,"tokens":["ios-1"],"topic":"fr.calaos.CalaosMobile"})";
+    R"({"data":{"event_uuid":"ev-42"},"message":"Door open","mutable_content":true,"platform":1,"tokens":["ios-1"],"topic":"fr.calaos.CalaosMobile"})";
 
 const char *ANDROID_ENTRY =
     R"({"data":{"body":"Door open","message":"Door open","title":"Calaos"},"message":"Door open",)"
@@ -107,10 +109,22 @@ TEST(PushPayloadTest, IosBodyIsPinned)
                                           "Door open", "ev-42", false));
 }
 
+TEST(PushPayloadTest, IosMutableContentWithoutPictureHasNoEventUuid)
+{
+    const auto b = NotifManager::buildPushBody({ token("ios-1", HistLogger::PUSH_HW_IOS) },
+                                               "Door open", "", false);
+    const auto e = Json::parse(b)["notifications"][0];
+    EXPECT_TRUE(e["mutable_content"].get<bool>());
+    EXPECT_FALSE(e.contains("mutable-content"));
+    EXPECT_FALSE(e.contains("data"));
+    EXPECT_FALSE(e.contains("badge"));
+    EXPECT_EQ("Door open", e["message"]);
+}
+
 TEST(PushPayloadTest, IosDevelopmentFlag)
 {
-    EXPECT_EQ(body({ R"({"development":true,"message":"Door open","platform":1,"tokens":["ios-1"],)"
-                     R"("topic":"fr.calaos.CalaosMobile"})" }),
+    EXPECT_EQ(body({ R"({"development":true,"message":"Door open","mutable_content":true,"platform":1,)"
+                     R"("tokens":["ios-1"],"topic":"fr.calaos.CalaosMobile"})" }),
               NotifManager::buildPushBody({ token("ios-1", HistLogger::PUSH_HW_IOS) },
                                           "Door open", "", true));
 }
@@ -126,16 +140,16 @@ TEST(PushPayloadTest, IosEntryComesBeforeAndroid)
 
 TEST(PushPayloadTest, EmptyMessageFallsBackToDefault)
 {
-    EXPECT_EQ(body({ R"({"message":"Calaos Notification","platform":1,"tokens":["ios-1"],)"
-                     R"("topic":"fr.calaos.CalaosMobile"})" }),
+    EXPECT_EQ(body({ R"({"message":"Calaos Notification","mutable_content":true,"platform":1,)"
+                     R"("tokens":["ios-1"],"topic":"fr.calaos.CalaosMobile"})" }),
               NotifManager::buildPushBody({ token("ios-1", HistLogger::PUSH_HW_IOS) },
                                           "", "", false));
 }
 
 TEST(PushPayloadTest, MessageIsAsciiEscapedAndInvalidUtf8Replaced)
 {
-    EXPECT_EQ(body({ "{\"message\":\"\\u00e9t\\ufffd\",\"platform\":1,\"tokens\":[\"ios-1\"],"
-                     R"("topic":"fr.calaos.CalaosMobile"})" }),
+    EXPECT_EQ(body({ "{\"message\":\"\\u00e9t\\ufffd\",\"mutable_content\":true,\"platform\":1,"
+                     R"("tokens":["ios-1"],"topic":"fr.calaos.CalaosMobile"})" }),
               NotifManager::buildPushBody({ token("ios-1", HistLogger::PUSH_HW_IOS) },
                                           "\xc3\xa9t\xff", "", false));
 }

@@ -496,12 +496,22 @@ valeurs liées et n'est jamais écrit).
 
 | Entrée | Jetons | Contenu |
 |---|---|---|
-| iOS | `hardware=ios` (quel que soit le format) | `platform:1`, `message`, `topic`, et avec une image `mutable-content`/`mutable_content` + `data.event_uuid` |
+| iOS | `hardware=ios` (quel que soit le format) | `platform:1`, `message`, `topic`, `mutable_content:true` toujours, et avec une image `data.event_uuid` ; jamais de `badge` |
 | Android `notification` | `hardware=android`, format `notification` | `platform:2`, `title`, `message`, `priority`, `sound`, `notification{title,body,sound}`, `data{title,body,message[,event_uuid]}` |
 | Android `data` | `hardware=android`, format `data` | `platform:2`, `android{priority:"high"}`, `data{title,body,message[,event_uuid]}` — rien d'autre |
 
-Les deux premières sont inchangées octet pour octet par rapport aux versions
+Les entrées Android sont inchangées octet pour octet par rapport aux versions
 précédentes (épinglées par `tests/core/PushPayload_test.cpp`).
+
+iOS : `mutable_content` est posé sur toute notification, avec ou sans image,
+car iOS n'exécute l'extension de service de l'app (`PushNotif`, qui calcule la
+pastille de l'icône) que pour les notifications `mutable-content`. gorush
+v1.18.9 ne lit que la clé `mutable_content` (`notify/notification.go:78`, tag
+JSON ; appliquée par `payload.MutableContent()` à
+`notify/notification_apns.go:359-360`) : l'ancienne clé `mutable-content`
+n'était lue par rien et a été retirée. Le serveur n'envoie pas de `badge`.
+Sans `event_uuid`, l'extension rend la notification inchangée ; titre et
+corps viennent de `message` (`notification_apns.go:350-352`).
 
 Pourquoi l'entrée `data` ne porte rien d'autre, d'après le source de gorush
 v1.18.9 (`notify/notification.go`, `notify/notification_fcm.go`,
