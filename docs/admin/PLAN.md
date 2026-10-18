@@ -47,8 +47,8 @@ Contraintes : simple pour l'utilisateur, suffisamment sûr, pas d'usine à gaz.
   - Une fois l'admin défini, ces actions sont réservées à l'admin :
     - `config get/put` (en HTTP, avec un champ `admin_pass` en plus) ;
     - `get_mcp_info` ;
-    - `change_cred` (voir la question ouverte) ;
     - le message `admin`.
+  - `change_cred` (le mot de passe du foyer) reste au niveau foyer, car il exige déjà le mot de passe actuel. L'écran de Calaos mobile continue donc de fonctionner (décision de Raoul, 2026-10-18).
   - Tant que l'admin n'est pas défini, `admin` répond `admin_not_set` et le reste fonctionne comme aujourd'hui.
   - Le scope service MCP refuse `admin_unlock` et `admin`, avec mise à jour de `JsonApiServiceScope_test.cpp`. La console n'a pas de login : seul le ticket authentifie.
 - **Relais `admin`**
@@ -175,13 +175,6 @@ Contraintes : simple pour l'utilisateur, suffisamment sûr, pas d'usine à gaz.
 - Mot de passe root SSH, calibration tactile.
 - Admin depuis le mobile en phase 1 et 2, sauf l'enrôlement de l'approbateur.
 
-## Question ouverte (décision de Raoul)
-- **`change_cred`, une fois l'admin défini.** Si on le réserve à l'admin, l'écran de changement de mot de passe de Calaos mobile casse (`CalaosConnection.cpp:899-905`, qui n'affiche qu'un échec générique). Deux options :
-  - le réserver à l'admin, avec un message explicite « utilisez la webapp » ;
-  - le laisser au niveau foyer, puisqu'il exige déjà le mot de passe actuel.
-
-  Recommandation : le laisser au niveau foyer.
-
 ## Risques résiduels acceptés
 - Une RCE dans calaos_server donne root (conteneur privilégié).
 - Un accès physique donne root.
@@ -204,7 +197,7 @@ Contraintes : simple pour l'utilisateur, suffisamment sûr, pas d'usine à gaz.
   - reset via CLI.
 - **calaos_base** (tests JsonApi) :
   - `admin_not_set` ;
-  - gating de `config` et `change_cred` ;
+  - gating de `config` ; `change_cred` toujours accepté au niveau foyer ;
   - refus en HTTP clair et hors haproxy ;
   - Origin étranger, `null` ou rebindé refusé ;
   - scope MCP refusé ;
