@@ -56,15 +56,21 @@ Contraintes : simple pour l'utilisateur, suffisamment sûr, pas d'usine à gaz.
   - `install/*` et `rollback_snapshot` ne sont jamais relayés.
   - `update/status` et `/events` restent lisibles avec le login simple, pour que la progression reste visible.
 - **Transport**
+  - Invariant : haproxy est le seul terminateur TLS et le seul chemin d'accès admin. Tout accès distant passe par le port 443, que ce soit par le DDNS aujourd'hui ou par un VPN demain (MLSH, par exemple, arrive sur l'IP overlay : `https://<ip-overlay>`).
+  - On ne fait jamais confiance à une interface ni à une plage VPN comme transport sûr. Trois raisons :
+    - MLSH n'a pas d'ACL : tout nœud du cluster est un pair complet ;
+    - un serveur signal compromis peut injecter un pair ;
+    - la plage 100.64/10 est aussi celle du CGNAT des opérateurs.
+  - Le test tient dans un seul prédicat `secureTransport()` (CB2). Une option `trusted_secure_peers` pourra l'étendre plus tard sans toucher aux appelants.
   - Ces actions ne sont acceptées que si le pair est en loopback **et** que `X-Forwarded-Proto` vaut `https` (haproxy l'écrase) :
     - `admin_unlock`, `admin` et `/api/console` ;
     - une fois l'admin défini, `config` et `get_mcp_info`.
   - L'installer passe déjà par `https://IP/api.php` par défaut. Une URL en `http://…:5454` reçoit un refus, que CI1 affiche.
-  - Sinon, la webapp affiche « utilisez https:// ».
+  - Sinon, la webapp affiche « utilisez https:// », quel que soit le chemin (LAN, DDNS, VPN).
   - Rien d'admin ne passe en clair sur le port 5454.
   - `haproxy_pre` ajoute `set-header X-Forwarded-Proto https` au `haproxy.cfg` persistant s'il ne l'a pas déjà, car ce fichier n'est généré qu'une fois.
 - **Origin (CB1)**
-  - On compare l'Origin à une liste d'identités de la box : IPs des interfaces, hostname (à vérifier dans le conteneur `--network=host`), `hostname.local`, et `api_allowed_hosts` pour le dev.
+  - On compare l'Origin à une liste d'identités de la box : IPs des interfaces, hostname (à vérifier dans le conteneur `--network=host`), `hostname.local` (valable en LAN seulement, c'est du mDNS), et `api_allowed_hosts` pour les hôtes supplémentaires (dev, noms VPN, DNS maison). Une IP overlay portée par une interface du conteneur `--network=host` entre automatiquement dans la liste.
   - Exception : si le pair est en loopback et que `X-Forwarded-Proto` vaut `https`, on accepte un Origin dont l'hôte est égal à `Host`.
     - Sur ce chemin, TLS empêche le rebinding : le certificat ne correspond pas à l'hôte rebindé et le navigateur abandonne.
     - C'est ce qui fait marcher le DDNS sans configuration.
@@ -81,7 +87,7 @@ Contraintes : simple pour l'utilisateur, suffisamment sûr, pas d'usine à gaz.
 
   Il n'y a aucune condition d'IP.
 - **Changer le mot de passe admin** : en phase 1, `admin/set` avec une session admin valide. À partir de la phase 2, il faut en plus le code push.
-- **Récupération** : `calaos-os admin reset` en SSH.
+- **Récupération** : `calaos-os admin reset` en SSH, sur le LAN ou via le VPN.
   - La commande efface le hash, les approbateurs, les sessions, et tue les consoles ouvertes.
   - Elle envoie un push et affiche une bannière. On repasse ensuite par le bootstrap.
   - Pas de reset par clé USB : décision de Raoul, jugé compliqué pour rien.
@@ -101,6 +107,7 @@ Contraintes : simple pour l'utilisateur, suffisamment sûr, pas d'usine à gaz.
   - Lié à la session daemon, à l'action et au hash des paramètres.
   - Invalidé après 5 essais. Un seul code en attente par session, au moins 10 s entre deux générations, environ 10 par heure au total.
   - Comparaison en temps constant.
+- **Le téléphone approbateur n'a besoin que du push sortant** : il n'a pas à joindre la box. Seul l'enrôlement l'exige, sur le LAN ou via le VPN.
 - **Protège** : chaque ouverture de la console, le changement du mot de passe admin, le changement d'approbateur, la config réseau.
 - **Sans approbateur enrôlé**, ces actions sont indisponibles. Il reste la console SSH.
 
@@ -118,7 +125,8 @@ Contraintes : simple pour l'utilisateur, suffisamment sûr, pas d'usine à gaz.
   - `TERM` sur liste blanche, environnement explicite, resize borné, backpressure.
 - **Traçabilité**
   - Push « Console ouverte » à chaque ouverture.
-  - Audit persistant dans `/mnt/calaos/admin/audit.log`.
+  - Audit persistant dans `/mnt/calaos/admin/audit.log`. Chaque entrée consigne le pair TCP, l'IP effective et XFP. Derrière un agent qui redirige vers loopback, l'identité se réduit à 127.0.0.1 : c'est la même limite que pour le MCP.
+  - Ping WS toutes les moins de 45 s, à cause des `timeout client/server` de haproxy.
 
 ## Parcours utilisateur
 - **Installation existante (3 étapes).** La première montée vers les versions admin se fait encore par SSH (`calaos-os upgrade`) ou par le kiosque, suivie d'un reboot. Ensuite : onglet Admin, puis « Définir le mot de passe admin » (un push part), puis « Mettre à jour ». Par la suite : Admin, mot de passe, Mettre à jour.
@@ -132,10 +140,10 @@ Contraintes : simple pour l'utilisateur, suffisamment sûr, pas d'usine à gaz.
 | Repo | Ticket | Contenu | Durée |
 |---|---|---|---|
 | calaos-container | CC1 | mot de passe admin : hash, subvolume, routes, session daemon, débit limité avant hachage, CLI `set/reset`, audit | 2 j |
-| calaos-container | CC2 | token : 32 octets urandom en 0600, fail-closed si vide, comparaison constante, `?token=` uniquement sur `/events` | 0,5 j |
+| calaos-container | CC2 | token : 32 octets urandom en 0600, fail-closed si vide, comparaison constante, `?token=` uniquement sur `/events`, adresse d'écoute `127.0.0.1` codée en dur par défaut (`config.go:24` écoute aujourd'hui sur toutes les interfaces si le toml manque, ce qui exposerait l'API sur une interface VPN) | 0,5 j |
 | calaos-container | CC3 | upgrade asynchrone (202 + job), dernier résultat persisté, `reboot_required` | 1,5 j |
 | calaos-container | CC4 | `ExecStartPre=-/usr/bin/dpkg --configure -a` (avec le `-` : un dpkg cassé n'empêche pas le daemon de démarrer), `KillMode=process` | 0,5 j |
-| calaos_base | CB1 | Origin sur WS et HTTP : liste d'identités, règle haproxy-https, `api_allowed_hosts`, `null` refusé, normalisation, ACAO conditionnel | 1 j |
+| calaos_base | CB1 | Origin sur WS et HTTP : liste d'identités, règle haproxy-https, `api_allowed_hosts`, `null` refusé, normalisation, ACAO conditionnel (`HttpClient.cpp:337` et `WebSocket.cpp:401`) | 1 j |
 | calaos_base | CB2 | `admin_unlock`, gating, `admin_not_set`, contrôle de transport, bootstrap, push et événement persistant, refus pour le scope MCP | 2 j |
 | calaos_base | CB3 | relais `admin` en liste blanche, retransmission de `/events` | 2 j |
 | calaos-web-app | WA1 | vue Admin : définir / déverrouiller, mises à jour, progression, reprise après redémarrage serveur, reboot, message « utilisez https:// », écran de changement du mot de passe foyer | 3 j |
@@ -153,7 +161,7 @@ Contraintes : simple pour l'utilisateur, suffisamment sûr, pas d'usine à gaz.
 | calaos_base | CO2 | tunnel `/api/console` | 1 j |
 | calaos-web-app | CO3 | vue console xterm | 1 j |
 | calaos-web-app | WA3 | enrôlement de l'approbateur, saisie du code | 1 j |
-| calaos_mobile | CM2 | épinglage TOFU du certificat à la place de `ignoreSslErrors` | 1 j |
+| calaos_mobile | CM2 | épinglage TOFU du certificat à la place de `ignoreSslErrors`, par hôte (IP LAN, nom DDNS, IP overlay), avec nouvelle confirmation en cas de changement de clé (renouvellement Let's Encrypt) | 1 j |
 | doc-website | DOC | console, approbateur | 0,5 j |
 
 ### Phase 3 : diagnostics et confort
@@ -184,7 +192,7 @@ Contraintes : simple pour l'utilisateur, suffisamment sûr, pas d'usine à gaz.
 - Le code est lisible sur l'écran verrouillé jusqu'à la phase 3.
 - Un rollback via GRUB, qui suppose un accès physique, réinstalle d'anciennes versions sans gating.
 - Avant le bootstrap, quiconque a le mot de passe partagé peut définir l'admin le premier. On le détecte par le push et la bannière, et on répare par `admin reset`.
-- Webapp sur certificat auto-signé : l'utilisateur accepte un avertissement. Un MITM actif sur le LAN peut servir le port 80 en clair, et HSTS n'est pas possible. Un certificat Let's Encrypt via le DDNS supprime ce risque.
+- Webapp sur certificat auto-signé : l'utilisateur accepte un avertissement. Un MITM actif sur le LAN peut servir le port 80 en clair, et HSTS n'est pas possible. Un certificat Let's Encrypt via le DDNS supprime ce risque. Via un VPN sans certificat, comme MLSH, l'avertissement reste, mais le MITM n'est plus possible à l'intérieur du tunnel.
 - Le limiteur argon2 global (environ 5 par minute) permet à un tiers de retarder les déverrouillages légitimes.
 
 ## Vérification
