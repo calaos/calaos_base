@@ -88,6 +88,7 @@ calaos_server_SOURCES = \
         HttpCodes.h                                     \
         HttpServer.cpp                                  \
         HttpServer.h                                    \
+        McpLogLevel.h                                   \
         McpProxyHandler.cpp                             \
         McpProxyHandler.h                               \
         McpRequestFilter.h                              \

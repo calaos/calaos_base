@@ -91,12 +91,17 @@ def _calaos_log_level() -> str:
     return raw.lower()
 
 
+# McpServerManager reads the severity from the first word of each line (the
+# server adds its own timestamp); keep the level name first.
+LOG_FORMAT = "%(levelname)s %(name)s: %(message)s"
+
+
 def _configure_logging() -> None:
     name = _calaos_log_level().upper()
     level = getattr(logging, name, logging.INFO)
     logging.basicConfig(
         level=level,
-        format="%(asctime)s [mcp] %(levelname)s %(name)s: %(message)s",
+        format=LOG_FORMAT,
     )
 
 
@@ -136,6 +141,9 @@ def main() -> None:
         create_app(),
         fd=sock.fileno(),
         log_level=_calaos_log_level(),
+        # uvicorn's own config writes "INFO:     ..." to stderr, a second format
+        # the manager would have to parse; let it propagate to the root handler.
+        log_config=None,
         access_log=False,
     )
     server = uvicorn.Server(config)

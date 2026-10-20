@@ -23,6 +23,7 @@
 
 #include "Calaos.h"
 #include "Timer.h"
+#include "McpLogLevel.h"
 
 namespace uvw {
 class ProcessHandle;
@@ -56,6 +57,8 @@ private:
 
     std::string stdoutBuf;
     std::string stderrBuf;
+    McpLogLevel::Classifier stdoutLevel{McpLogLevel::Level::Info};
+    McpLogLevel::Classifier stderrLevel{McpLogLevel::Level::Warning};
 
     bool started = false;
     bool shuttingDown = false;
@@ -67,7 +70,7 @@ private:
     void ensureTokens();
     void spawnSidecar();
     void scheduleRestart();
-    void flushStreamBuffer(std::string &buf, bool toStderr);
+    void flushStreamBuffer(std::string &buf, McpLogLevel::Classifier &levels);
 
 public:
     static McpServerManager &Instance();

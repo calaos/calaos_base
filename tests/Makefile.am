@@ -59,6 +59,7 @@ EXTRA_DIST = \
               python/test_extern_proc.py     \
               python/test_logger.py          \
               python/test_mcp_devices.py     \
+              python/test_mcp_logging.py     \
               python/test_mcp_server.py      \
               python/test_reolink.py         \
               python/test_t116_mcp_client.py \
@@ -689,6 +690,18 @@ TESTS += McpRequestFilter_test
 check_PROGRAMS += McpRequestFilter_test
 McpRequestFilter_test_SOURCES = McpRequestFilter_test.cpp
 McpRequestFilter_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
+#The sidecar's stderr carries every Python log level, so its lines are filed by
+#the level they name rather than by stream. Header-inline: nothing of the
+#calaos_server binary is linked.
+if HAVE_GTEST
+TESTS += McpLogLevel_test
+check_PROGRAMS += McpLogLevel_test
+McpLogLevel_test_SOURCES = McpLogLevel_test.cpp
+McpLogLevel_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif

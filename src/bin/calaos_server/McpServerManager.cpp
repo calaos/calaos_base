@@ -226,12 +226,12 @@ void McpServerManager::spawnSidecar()
     pipeStdout->on<uvw::DataEvent>([this](uvw::DataEvent &ev, auto &)
     {
         stdoutBuf.append(ev.data.get(), ev.length);
-        flushStreamBuffer(stdoutBuf, false);
+        flushStreamBuffer(stdoutBuf, stdoutLevel);
     });
     pipeStderr->on<uvw::DataEvent>([this](uvw::DataEvent &ev, auto &)
     {
         stderrBuf.append(ev.data.get(), ev.length);
-        flushStreamBuffer(stderrBuf, true);
+        flushStreamBuffer(stderrBuf, stderrLevel);
     });
     auto cleanup_pipe = [](const auto &, auto &cl) { cl.close(); };
     pipeStdout->once<uvw::EndEvent>(cleanup_pipe);
@@ -320,7 +320,7 @@ void McpServerManager::scheduleRestart()
     Timer::singleShot(delay, [this]() { spawnSidecar(); });
 }
 
-void McpServerManager::flushStreamBuffer(std::string &buf, bool toStderr)
+void McpServerManager::flushStreamBuffer(std::string &buf, McpLogLevel::Classifier &levels)
 {
     auto pos = buf.find_first_of('\n');
     while (pos != std::string::npos)
@@ -349,10 +349,13 @@ void McpServerManager::flushStreamBuffer(std::string &buf, bool toStderr)
                 break;
             }
         }
-        if (toStderr)
-            cErrorDom("mcp") << line;
-        else
-            cInfoDom("mcp") << line;
+        switch (levels.classify(line))
+        {
+        case McpLogLevel::Level::Error:   cErrorDom("mcp") << line; break;
+        case McpLogLevel::Level::Warning: cWarningDom("mcp") << line; break;
+        case McpLogLevel::Level::Info:    cInfoDom("mcp") << line; break;
+        case McpLogLevel::Level::Debug:   cDebugDom("mcp") << line; break;
+        }
         pos = buf.find_first_of('\n');
     }
 }
