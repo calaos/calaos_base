@@ -4,6 +4,8 @@ on:
   push:
     # Publish pushes a tag on a commit whose branch run already passed; a second
     # full run on the tag proves nothing and nothing reads its artefacts.
+    # tags-ignore alone would also stop every branch push: branches is required.
+    branches: [ '**' ]
     tags-ignore: [ '**' ]
   pull_request:
   # The io-doc artefact expires (90 days): a quiet period must not turn the
