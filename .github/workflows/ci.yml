@@ -2,6 +2,9 @@ name: Build and Test
 
 on:
   push:
+    # Publish pushes a tag on a commit whose branch run already passed; a second
+    # full run on the tag proves nothing and nothing reads its artefacts.
+    tags-ignore: [ '**' ]
   pull_request:
   # The io-doc artefact expires (90 days): a quiet period must not turn the
   # installer's iodoc-sync job red. The monthly run on master publishes it again;
@@ -10,6 +13,13 @@ on:
   schedule:
     - cron: '17 3 1 * *'
   workflow_dispatch:
+
+# A newer push to a pull request makes the older run worthless. Anything else
+# gets a group of its own: even with cancel-in-progress off, a shared group
+# would drop a queued master run, and Publish needs a green run on that commit.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build-and-test:
@@ -52,6 +62,10 @@ jobs:
           ./autogen.sh
           ./configure
           make -j$(nproc)
+          # TESTS= builds check_PROGRAMS in parallel without running them; the
+          # serial make check below then only runs the suite. Not "all check"
+          # in one call: -j runs both recursions at once and they race on src/.
+          make -j"$(nproc)" check TESTS=
 
       - name: Run tests (make check)
         # Strict: on this job "the python suites could not run" is a build
@@ -197,6 +211,9 @@ jobs:
             CXXFLAGS="-g -O0 --coverage -fprofile-update=atomic" \
             LDFLAGS="--coverage -Wl,-u,__gcov_dump -Wl,--export-dynamic-symbol=__gcov_dump"
           make -j$(nproc)
+          # Test binaries are built here, before the counters are zeroed, so
+          # the coverage data still comes from the make check step only.
+          make -j"$(nproc)" check TESTS=
           gcc -shared -fPIC -O1 -o "$PWD/gcov-exit-shim.so" scripts/gcov-exit-shim.c -ldl
 
       - name: Capture baseline (zero) counters
