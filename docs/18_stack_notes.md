@@ -65,6 +65,12 @@ Convention des tests climate : timeouts d'au moins 10x la cadence de lecture, bo
 - Arrêter un conteneur par son montage, jamais par image : on tuerait celui d'un autre agent.
 - `/tmp` est un tmpfs en RAM : ne pas y builder.
 
+## Publication calaos_base
+
+- La publication est manuelle : Actions → **Publish** → Run workflow, entrée `channel` = `prerelease` (`-dev.N`, image `:dev`, deb `pre-releases`), `patch`, `minor` ou `major` (image `:latest`, release). Un push sur master ne publie rien : ni image, ni tag, ni deb.
+- Le job `verify-ci` refuse un lancement hors de `master` et un commit dont « Build and Test » n'est pas vert (`.github/workflows/publish.yml`). Après un merge, attendre la CI verte, puis lancer `prerelease` avant une recette sur la box.
+- `.github/check-workflow-gating.py` (job `workflow-gating` de `ci.yml`) refuse un workflow qui publie sur `push`, `pull_request` ou `workflow_run`, ou sans `needs: verify-ci`. Cela remplace la porte `workflow_run` de [T3.125](refactoring/T3.125.md).
+
 ## Box calaos-os
 
 - Paquets : `calaos-server`, `calaos-home`, `calaos-web-app`, `calaos-remote-ui-<board>` ; service `calaos-server.service`.

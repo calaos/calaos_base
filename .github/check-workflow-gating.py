@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Refuse a workflow_run gate that cannot fire, or that fires on red.
+"""Refuse a publication that can run untested, and a workflow_run gate that
+cannot fire or fires on red.
 
 Run it from the repository root:  python3 .github/check-workflow-gating.py
 
-The three refusals below are the ways a workflow_run gate breaks WITHOUT ever
-producing an error: GitHub matches the quoted workflow by its `name:`, and an
-unmatched name simply never triggers. The self-test runs first, on the same
-functions as the real sweep, so a broken checker cannot accuse the tree.
+A publishing workflow (docker push, or build_deb dispatched to pkgdebs) must be
+started by hand and its publishing job must need `verify-ci`, the job that
+refuses a commit off master or without a green Build and Test. Every one of
+these guards fails silently when lost: the next push simply publishes. The
+self-test runs first, on the same functions as the real sweep, so a broken
+checker cannot accuse the tree.
 """
 
 import pathlib
@@ -43,6 +46,69 @@ def declared_name(path, doc):
     return str(path)
 
 
+# pull_request_target runs with the repository secrets on a fork's request.
+AUTOMATIC_TRIGGERS = ("push", "pull_request", "pull_request_target",
+                      "workflow_run")
+GATE_JOB = "verify-ci"
+GATE_BRANCH = "refs/heads/master"
+
+
+def publishing_steps(job):
+    """The steps of a job that push an image or ask pkgdebs for a deb."""
+    found = []
+    steps = job.get("steps") if isinstance(job, dict) else None
+    for step in steps if isinstance(steps, list) else []:
+        if not isinstance(step, dict) or not isinstance(step.get("uses"), str):
+            continue
+        uses = step["uses"].split("@")[0]
+        args = step.get("with") if isinstance(step.get("with"), dict) else {}
+        if uses == "peter-evans/repository-dispatch" and \
+                args.get("event-type") == "build_deb":
+            found.append("build_deb dispatch")
+        # An expression may well evaluate to true: only an explicit false is safe.
+        if uses == "docker/build-push-action" and \
+                args.get("push") not in (None, False, "false"):
+            found.append("docker push")
+    return found
+
+
+def as_needs(job):
+    needs = job.get("needs") if isinstance(job, dict) else None
+    if isinstance(needs, str):
+        return [needs]
+    return needs if isinstance(needs, list) else []
+
+
+def check_publishers(path, doc):
+    problems = []
+    publishers = {j: publishing_steps(job) for j, job in doc["jobs"].items()}
+    publishers = {j: what for j, what in publishers.items() if what}
+    if not publishers:
+        return problems
+
+    for event in as_trigger_map(workflow_on(doc)):
+        if event in AUTOMATIC_TRIGGERS:
+            problems.append(
+                f"{path}: publishes ({', '.join(sorted(publishers))}) but is "
+                f"triggered by {event}; publishing must be workflow_dispatch "
+                f"only, behind {GATE_JOB}")
+
+    gate = doc["jobs"].get(GATE_JOB)
+    if not isinstance(gate, dict):
+        problems.append(f"{path}: publishes but has no {GATE_JOB!r} job")
+    elif GATE_BRANCH not in yaml.safe_dump(gate):
+        problems.append(
+            f"{path}: job {GATE_JOB!r} never tests {GATE_BRANCH}; a branch "
+            f"could publish")
+
+    for job_id in publishers:
+        if GATE_JOB not in as_needs(doc["jobs"][job_id]):
+            problems.append(
+                f"{path}: job {job_id!r} publishes without `needs: {GATE_JOB}`"
+                f"; it would ship a commit whose tests never ran or failed")
+    return problems
+
+
 def scan(files):
     """files: {path: text}. Returns the list of complaints, in file order."""
     problems = []
@@ -66,6 +132,9 @@ def scan(files):
         parsed[path] = doc
 
     by_name = {declared_name(p, d): p for p, d in parsed.items()}
+
+    for path, doc in parsed.items():
+        problems.extend(check_publishers(path, doc))
 
     for path, doc in parsed.items():
         triggers = as_trigger_map(workflow_on(doc))
@@ -140,7 +209,58 @@ jobs:
     steps: [ { run: ./publish } ]
 """
 
+_MANUAL = """
+name: Publish
+on:
+  workflow_dispatch:
+    inputs:
+      channel: { type: choice, options: [ prerelease, patch ] }
+jobs:
+  verify-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "$GITHUB_REF" = refs/heads/master
+      - run: gh run list --workflow ci.yml --commit "$GITHUB_SHA"
+  publish:
+    needs: verify-ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/build-push-action@v6
+        with: { context: ., push: true }
+      - uses: peter-evans/repository-dispatch@v1
+        with: { repository: calaos/pkgdebs, event-type: build_deb }
+"""
+
+# A publisher with a correct workflow_run gate: the gate is no longer enough.
+_PUB_DEB = _PUB.replace(
+    "    steps: [ { run: ./publish } ]\n",
+    "    steps:\n"
+    "      - uses: peter-evans/repository-dispatch@v1\n"
+    "        with: { event-type: build_deb }\n")
+
 REFUSED = {
+    "publisher triggered by push": {"ci.yml": _CI, "pub.yml": _MANUAL.replace(
+        "on:\n", "on:\n  push:\n")},
+    "publisher triggered by pull_request": {"ci.yml": _CI, "pub.yml": _MANUAL.replace(
+        "on:\n", "on:\n  pull_request:\n")},
+    "publisher triggered by an event list": {"ci.yml": _CI, "pub.yml": _MANUAL.replace(
+        "on:\n  workflow_dispatch:\n    inputs:\n"
+        "      channel: { type: choice, options: [ prerelease, patch ] }\n",
+        "on: [ push, workflow_dispatch ]\n")},
+    "publisher behind a workflow_run gate": {"ci.yml": _CI, "pub.yml": _PUB_DEB},
+    "publishing job without needs: verify-ci": {"ci.yml": _CI, "pub.yml": _MANUAL.replace(
+        "    needs: verify-ci\n", "")},
+    "publishing job needs another job": {"ci.yml": _CI, "pub.yml": _MANUAL.replace(
+        "    needs: verify-ci\n", "    needs: [ lint ]\n")},
+    "verify-ci job missing": {"ci.yml": _CI, "pub.yml": _MANUAL.replace(
+        "  verify-ci:\n", "  check:\n")},
+    "verify-ci without the branch guard": {"ci.yml": _CI, "pub.yml": _MANUAL.replace(
+        '      - run: test "$GITHUB_REF" = refs/heads/master\n', "")},
+    "a docker push alone is publishing": {"ci.yml": _CI, "pub.yml": _MANUAL.replace(
+        "      - uses: peter-evans/repository-dispatch@v1\n"
+        "        with: { repository: calaos/pkgdebs, event-type: build_deb }\n",
+        "").replace("    needs: verify-ci\n", "")},
+
     "cited name does not exist": {"ci.yml": _CI, "pub.yml": _PUB.replace(
         '"Build and Test"', '"Build and Tests"')},
     "cited by file name instead of name:": {"ci.yml": _CI, "pub.yml": _PUB.replace(
@@ -167,7 +287,15 @@ REFUSED = {
 }
 
 ACCEPTED = {
-    "the shape this repository ships": {"ci.yml": _CI, "pub.yml": _PUB},
+    "the shape this repository ships": {"ci.yml": _CI, "pub.yml": _MANUAL},
+    "needs: as a list": {"ci.yml": _CI, "pub.yml": _MANUAL.replace(
+        "    needs: verify-ci\n", "    needs: [ lint, verify-ci ]\n")},
+    "a docker build that does not push, on push": {"ci.yml": _CI.replace(
+        "    steps: [ { run: make check } ]\n",
+        "    steps:\n"
+        "      - uses: docker/build-push-action@v6\n"
+        "        with: { push: false }\n")},
+    "a non-publishing workflow_run gate": {"ci.yml": _CI, "pub.yml": _PUB},
     "no workflow_run anywhere": {"ci.yml": _CI},
     "if: spread over a folded scalar": {"ci.yml": _CI, "pub.yml": _PUB.replace(
         "    if: github.event.workflow_run.conclusion == 'success'\n",

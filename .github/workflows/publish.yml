@@ -1,0 +1,123 @@
+name: Publish
+
+# Manual only: a push used to publish a prerelease (image, git tag, deb) for
+# every commit on master. Both channels wait for verify-ci, which a needs:
+# cannot do across workflow files. .github/check-workflow-gating.py refuses a
+# publishing workflow that loses either property.
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: 'prerelease (-dev.N, image :dev) or a release increment (image :latest)'
+        required: true
+        default: 'prerelease'
+        type: choice
+        options:
+          - prerelease
+          - patch
+          - minor
+          - major
+
+# action-bump-version derives the version from the last tag: two overlapping
+# runs would compute and push the same one.
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+env:
+  REGISTRY_IMAGE: ghcr.io/calaos/calaos_base
+  NAME: calaos_base
+  IMG_TAG: ${{ inputs.channel == 'prerelease' && 'dev' || 'latest' }}
+
+jobs:
+  verify-ci:
+    name: Commit is on master and its Build and Test is green
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    steps:
+      - name: Refuse anything but master
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/master" ]; then
+            echo "::error::Publish runs from master only, not $GITHUB_REF."
+            exit 1
+          fi
+
+      - name: Require a successful Build and Test run on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          runs=$(gh run list -R "$GITHUB_REPOSITORY" --workflow ci.yml \
+                   --commit "$GITHUB_SHA" --limit 100 --json conclusion,status)
+          echo "Build and Test runs for $GITHUB_SHA: $runs"
+          if [ "$(jq '[.[] | select(.conclusion == "success")] | length' <<<"$runs")" -gt 0 ]; then
+            exit 0
+          fi
+          if [ "$(jq '[.[] | select(.status != "completed")] | length' <<<"$runs")" -gt 0 ]; then
+            echo "::error::Build and Test is still running on $GITHUB_SHA: wait for it to finish, then run Publish again."
+          else
+            echo "::error::Build and Test is not green on $GITHUB_SHA: fix it or re-run it, then run Publish again."
+          fi
+          exit 1
+
+  build-and-push-docker-image:
+    name: Build Docker image and push to repositories
+    needs: verify-ci
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # negz/create-tag tags github.sha: build that same, verified tree.
+          ref: ${{ github.sha }}
+
+      - name: Calaos Action Bump Version
+        id: calaos_version
+        uses: calaos/action-bump-version@2
+        with:
+          version_fragment: ${{ inputs.channel }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY_IMAGE }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Github Packages
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: APP_VERSION=${{ steps.calaos_version.outputs.version_bumped }}
+          tags: |
+            ${{ env.REGISTRY_IMAGE }}:${{ env.IMG_TAG }}
+            ${{ env.REGISTRY_IMAGE }}:${{ steps.calaos_version.outputs.version_bumped }}
+
+      - name: Create Tag
+        uses: negz/create-tag@v1
+        with:
+          version: ${{ steps.calaos_version.outputs.version_bumped }}
+          token: ${{ secrets.ACTION_DISPATCH }}
+
+      - name: Build deb
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.ACTION_DISPATCH }}
+          repository: calaos/pkgdebs
+          event-type: build_deb
+          client-payload: '{ "pkgname": "calaos-server", "version": "${{ steps.calaos_version.outputs.version_bumped }}", "image_src": "${{ env.REGISTRY_IMAGE }}:${{ steps.calaos_version.outputs.version_bumped }}", "prerelease": ${{ inputs.channel == ''prerelease'' }} }'

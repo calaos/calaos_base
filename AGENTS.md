@@ -243,3 +243,5 @@ Add `--extra test` to that command to also get what `tests/python/` needs (`pyte
 ## Docker
 
 A multi-stage `Dockerfile` is provided with `dev`, `builder`, and `runner` targets. Images are published to `ghcr.io/calaos/calaos_base`.
+
+Publishing (image, git tag, `build_deb` dispatch to calaos/pkgdebs) is manual only: Actions → **Publish** → Run workflow, input `channel` = `prerelease` | `patch` | `minor` | `major`. Its `verify-ci` job refuses a ref other than `master` and a commit whose Build and Test run is not green. A push publishes nothing.
