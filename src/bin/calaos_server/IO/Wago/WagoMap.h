@@ -201,7 +201,10 @@ protected:
     queue<WagoMapCmd> udp_commands;
     Timer *udp_timer;
     Timer *udp_timeout_timer;
+    //Null between a socket error and its reopening.
     std::shared_ptr<uvw::UDPHandle> handleSrv;
+    Timer *udp_reopen_timer = nullptr;
+    int udp_reopen_attempts = 0;
 
     /* WAGO_DALI_GET reads the group flag from its third parameter only from
      * the 3.0 PLC program on. Before 3.0, GET_PARAM_DINT has no "parameter
@@ -234,6 +237,7 @@ protected:
     void sendDaliGet(const DaliGetRequest &req);
 
     void createUdpSocket();
+    void closeUdpSocket();
 
     void processNewMessage(const string &msg);
 

@@ -173,12 +173,20 @@ HttpClient::HttpClient(const std::shared_ptr<uvw::TcpHandle> &client):
 
     cDebugDom("network") << this;
 
-    client_conn->once<uvw::ErrorEvent>([this, token = std::weak_ptr<bool>(alive)](const auto &, auto &)
+    //Read and write failures both land here. The peer is read now: once the
+    //socket is reset, getpeername() has nothing left to say.
+    client_conn->once<uvw::ErrorEvent>([this, token = std::weak_ptr<bool>(alive),
+                                        peer = HttpClient::getClientIp()](const uvw::ErrorEvent &ev, auto &)
     {
         if (token.expired()) return;
 
-        cCriticalDom("network")
-                << "Error sending data ! Closing connection.";
+        const string who = ipTracked? trackedIp: peer;
+        if (Calaos::isPeerDisconnect(ev.code()))
+            cDebugDom("network") << "Connection with " << who << " lost: "
+                                 << ev.name() << " (" << ev.what() << "), closing";
+        else
+            cWarningDom("network") << "Connection error with " << who << ": "
+                                   << ev.name() << " (" << ev.what() << "), closing";
 
         this->CloseConnection();
     });

@@ -108,6 +108,26 @@ bool bindListenAddress(H &handle, const std::string &ip, unsigned int port,
     return bound;
 }
 
+/* What a TCP peer that goes away looks like from this side: reset or timed out
+ * on read, EPIPE on write, ENOTCONN on shutdown, ECANCELED for the writes the
+ * close drops. Browsers, phones and panels do it all day; it is not a fault.
+ */
+inline bool isPeerDisconnect(int uvError)
+{
+    switch (uvError)
+    {
+    case UV_ECONNRESET:
+    case UV_EPIPE:
+    case UV_ETIMEDOUT:
+    case UV_ECONNABORTED:
+    case UV_ENOTCONN:
+    case UV_ECANCELED:
+        return true;
+    default:
+        return false;
+    }
+}
+
 static const char kMappedPrefix[] = "::ffff:";
 
 /* An IPv4-mapped literal reduced to its dotted quad, everything else returned

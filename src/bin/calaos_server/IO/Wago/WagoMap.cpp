@@ -121,14 +121,11 @@ WagoMap::WagoMap(std::string h, int p):
 WagoMap::~WagoMap()
 {
     DELETE_NULL(respawn_timer);
+    DELETE_NULL(udp_reopen_timer);
 
     delete process;
 
-    //After a refused bind, udpProcessError() left a CloseEvent listener that
-    //rebuilds the socket on this map: this close would fire it.
-    handleSrv->clear();
-    handleSrv->stop();
-    handleSrv->close();
+    closeUdpSocket();
 
     delete heartbeat_timer;
     delete mbus_heartbeat_timer;
@@ -200,18 +197,40 @@ void WagoMap::createUdpSocket()
 
     handleSrv->on<uvw::UDPDataEvent>([this](const uvw::UDPDataEvent &ev, auto &)
     {
+        udp_reopen_attempts = 0;
+
         string s(ev.data.get(), ev.length);
         this->udpRequest_cb(true, s);
     });
 
     handleSrv->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &)
     {
-        cErrorDom("network") << "UDP server error: " << ev.what();
+        cErrorDom("network") << "UDP socket for " << host << " failed: "
+                             << ev.name() << " (" << ev.what() << ")";
         udpProcessError();
     });
 
-    handleSrv->bind(host, WAGO_LISTEN_PORT, uvw::UDPHandle::Bind::REUSEADDR);
-    handleSrv->recv();
+    //The PLC answers the source port of each request. WAGO_LISTEN_PORT belongs
+    //to the UDPServer that takes what the PLC sends on its own, and host is
+    //the PLC's address, which no local socket can bind to.
+    handleSrv->bind("0.0.0.0", 0);
+
+    //A refused bind has already closed the handle through udpProcessError().
+    if (handleSrv)
+        handleSrv->recv();
+}
+
+void WagoMap::closeUdpSocket()
+{
+    if (!handleSrv)
+        return;
+
+    //The handle outlives this map until libuv's close callback, and every
+    //listener on it captures this.
+    handleSrv->clear();
+    handleSrv->stop();
+    handleSrv->close();
+    handleSrv.reset();
 }
 
 void WagoMap::WagoModbusHeartBeatTick()
@@ -412,12 +431,17 @@ void WagoMap::write_multiple_words(WagoTypes::Address address, WagoTypes::Count 
 
 void WagoMap::udpProcessError()
 {
-    //handleSrv->stop();
-    //handleSrv->close();
+    closeUdpSocket();
 
-    handleSrv->once<uvw::CloseEvent>([this](auto &, auto&)
+    if (udp_reopen_timer)
+        return;
+
+    //Never reopened from inside the error callback, where a socket that cannot
+    //be created would retry in a tight loop. Same ramp as the sidecar respawn.
+    udp_reopen_timer = new Timer(respawnDelay(udp_reopen_attempts++), [this]()
     {
-        this->createUdpSocket();
+        DELETE_NULL(udp_reopen_timer);
+        createUdpSocket();
     });
 }
 
@@ -624,7 +648,10 @@ void WagoMap::UDPCommand_cb()
     if (!udp_timeout_timer && !cmd.no_callback)
         udp_timeout_timer = new Timer(2.0, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::UDPCommandTimeout_cb));
 
-    handleSrv->send(host, WAGO_LISTEN_PORT, (char *)cmd.udp_command.c_str(), cmd.udp_command.length() + 1);
+    //While the socket is being reopened the frame is lost like a dropped
+    //datagram, and the timeout above still answers its caller.
+    if (handleSrv)
+        handleSrv->send(host, WAGO_LISTEN_PORT, (char *)cmd.udp_command.c_str(), cmd.udp_command.length() + 1);
 
     if (cmd.no_callback)
         udp_commands.pop();
