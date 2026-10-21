@@ -45,7 +45,40 @@ jobs:
               libgtest-dev \
               python3 python3-pip \
               locales \
-              git
+              git \
+              ccache
+
+      # The monthly run keeps the shims off PATH: a fully cold build still runs
+      # once a month, and the honesty probe SKIPs there. Not CCACHE_DISABLE=1:
+      # the shim would still be in use, disable=true is not the audited
+      # configuration, and the probe would fail.
+      - name: Enable ccache
+        if: github.event_name != 'schedule'
+        run: |
+          echo "CCACHE_DIR=$HOME/.ccache" >> "$GITHUB_ENV"
+          echo /usr/lib/ccache >> "$GITHUB_PATH"
+
+      # Pull requests start from master's cache and never write one: see the
+      # save step at the end of the job.
+      - name: Restore the ccache directory
+        if: github.event_name != 'schedule'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-bt-${{ runner.os }}-${{ hashFiles('configure.ac') }}-${{ github.sha }}
+          restore-keys: |
+            ccache-bt-${{ runner.os }}-${{ hashFiles('configure.ac') }}-
+
+      # On every run: the restored ccache.conf is whatever the saving run left,
+      # and the probe in make check accepts only the audited configuration.
+      # ccache -z is safe here, the directory belongs to this job alone.
+      - name: Configure ccache
+        if: github.event_name != 'schedule'
+        env:
+          CALAOS_CCACHE_SIZE: 1G
+        run: |
+          scripts/ccache-setup.sh
+          ccache -z
 
       # tests/python/ declares 42 cases and this job used to execute none of
       # them: with no interpreter, AM_PATH_PYTHON sets PYTHON=: and
@@ -69,6 +102,11 @@ jobs:
           # in one call: -j runs both recursions at once and they race on src/.
           make -j"$(nproc)" check TESTS=
 
+      # Before make check, so the counters are the build's alone.
+      - name: ccache statistics
+        if: always() && github.event_name != 'schedule'
+        run: ccache -s
+
       - name: Run tests (make check)
         # Strict: on this job "the python suites could not run" is a build
         # error, not a skip. Without it the job goes back to reporting 0 of 42
@@ -81,7 +119,15 @@ jobs:
           # working. Unset, check-pydeps-conformance.sh skips instead of
           # failing, so a developer whose image is behind is warned, not blocked.
           CALAOS_PYDEPS_STRICT: "1"
-        run: make check
+          # A SKIP from the honesty probe means the build ran without the cache
+          # this job set up. The probe makes its own hits, so a cold cache passes.
+          CALAOS_CCACHE_PROBE_STRICT: ${{ github.event_name != 'schedule' && '1' || '0' }}
+        run: |
+          make check
+          # A PASS on the monthly run would mean a cache was in use after all.
+          if [ "${{ github.event_name }}" = schedule ]; then
+            grep '^SONDE-CCACHE: SKIP' tests/check-ccache-honesty.sh.log
+          fi
 
       # The installer (calaos_installer, pr_ci.yml) compares its copies of these
       # files with this artefact, so "the server is not what the installer
@@ -165,6 +211,16 @@ jobs:
             echo
           done
 
+      # Master only: a pull request's entry could serve nothing but that pull
+      # request, and every entry counts against the repository's 10 GB budget.
+      # always(): a run that fails in make check still compiled everything.
+      - name: Save the ccache directory
+        if: always() && github.ref == 'refs/heads/master' && github.event_name != 'pull_request' && github.event_name != 'schedule'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-bt-${{ runner.os }}-${{ hashFiles('configure.ac') }}-${{ github.sha }}
+
   coverage:
     name: Diff coverage
     runs-on: ubuntu-latest
@@ -201,6 +257,8 @@ jobs:
               libgtest-dev \
               lcov python3
 
+      # No ccache here: with --coverage each compile also writes a .gcno, which
+      # the honesty probe never audits, and the diff coverage gate reads them.
       - name: Build with gcov instrumentation
         run: |
           ./autogen.sh
