@@ -225,9 +225,11 @@ jobs:
     name: Diff coverage
     runs-on: ubuntu-latest
     container: debian:12
-    # Blocking on pull requests only, through the "Diff coverage gate" step. On
-    # push the job stays a report: nothing there is a diff to judge, and a
-    # broken measurement must not turn master red.
+    # Blocking on pull requests only, through the "Diff coverage gate" step.
+    # Skipped on push, where there is no diff to judge and the 40 min run only
+    # delayed the result; schedule and workflow_dispatch still give a report,
+    # and a broken measurement there must not turn master red.
+    if: github.event_name != 'push'
     continue-on-error: ${{ github.event_name != 'pull_request' }}
 
     steps:
