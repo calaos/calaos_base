@@ -215,7 +215,7 @@ jobs:
       # request, and every entry counts against the repository's 10 GB budget.
       # always(): a run that fails in make check still compiled everything.
       - name: Save the ccache directory
-        if: always() && github.ref == 'refs/heads/master' && github.event_name != 'pull_request' && github.event_name != 'schedule'
+        if: always() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/ci/ccache') && github.event_name != 'pull_request' && github.event_name != 'schedule'
         uses: actions/cache/save@v4
         with:
           path: ${{ env.CCACHE_DIR }}
