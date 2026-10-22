@@ -1,7 +1,7 @@
 # Administration de Calaos depuis la webapp
 
 État : plan validé en conception, **non lancé**. On ne l'implémente que sur décision de Raoul.
-Historique : trois rounds d'analyse Fable (rôles, mot de passe admin léger, inventaire), puis un arbitre, une relecture et un audit de sécurité avec PoC (le rapport d'audit (hors dépôt)), plus les décisions de Raoul du 2026-10-17/18.
+Historique : trois rounds d'analyse Fable (rôles, mot de passe admin léger, inventaire), un arbitre, une relecture et un audit de sécurité avec PoC (hors dépôt), les décisions de Raoul du 2026-10-17/18, puis une red team et une revue d'ingénierie le 2026-10-22, arbitrées par Raoul le même jour.
 
 ## Contexte
 Beaucoup d'utilisateurs n'ont pas Calaos Home desktop, le kiosque qui tourne sur la box. Pour mettre à jour ou entretenir la box, ils n'ont que SSH et PuTTY, ce qui est souvent hors de leur portée.
@@ -13,48 +13,92 @@ Objectif :
 Contraintes : simple pour l'utilisateur, suffisamment sûr, pas d'usine à gaz.
 
 ## Constats qui fondent le design
-- **Les mises à jour** passent par calaos-container, un daemon Go root qui écoute sur `127.0.0.1:8000`. Il est protégé par un token stocké dans `/run/calaos/calaos-ct.token`, à faible entropie. Deux failles démontrées par PoC :
-  - un fichier token vide laisse tout passer ;
-  - `?token=` est accepté sur toutes les routes.
+Les constats calaos-container portent sur `origin/main`.
+- **Les mises à jour** passent par calaos-container, un daemon Go root qui écoute sur `127.0.0.1:8000`, protégé par un token dans `/run/calaos/calaos-ct.token`.
+  - Déjà corrigé sur `origin/main` : token vide refusé, comparaison en temps constant (CC-011) ; adresse d'écoute `127.0.0.1` par défaut, adresse vide refusée (CC-014). Ces correctifs n'atteignent les box qu'une fois le deb publié et le daemon redémarré.
+  - Reste vrai : token à faible entropie (`date+$RANDOM`, mode 0644, `init_calaosfs`) et `?token=` accepté sur toutes les routes.
+  - Le dépôt a un backlog (`docs/backlog/CC-0xx`, `docs/BOARD.md`) avec propriété de fichiers : CC-040 possède `app/`, `cmd/` et `docs/API.md`, CC-042 possède l'unit systemd.
+  - Le CLI `calaos-os` et calaos_server envoient déjà `Authorization: Bearer`. calaos_home (le kiosque) appelle aussi le daemon pour les mises à jour ; son dépôt n'a pas été vérifié.
 - **calaos-server a déjà l'équivalent de root.** Il tourne avec `--privileged --network=host` et monte `/run/calaos` en lecture-écriture. Une RCE dans calaos_server donne root sur la box, quel que soit le design.
-- **Il n'y a qu'un compte partagé** (`cn_user/cn_pass`, `user/pass` par défaut), stocké en clair. Il donne `config get/put` (et donc les secrets), `get_mcp_info` et `change_cred`.
+- **Il n'y a qu'un compte partagé** (`cn_user/cn_pass`, `user/pass` par défaut), stocké en clair. Il donne `config get/put` (et donc les secrets), `get_mcp_info` et `change_cred`. `checkCredentials` retombe sur les clés legacy `calaos_user/calaos_password` si `cn_*` est vide, et accepte le login vide si les quatre le sont.
 - **Le WS n'a ni contrôle d'Origin ni session.** Le mobile ignore les erreurs TLS. haproxy présente un certificat auto-signé sur le port 443, et le port 5454 est en HTTP clair.
+- **haproxy pose `X-Forwarded-Proto`** sur ses deux frontends depuis le premier `haproxy_pre`, et le template DDNS aussi. Mais `haproxy.cfg` n'est généré qu'une fois et l'utilisateur peut l'éditer.
+- **Le loopback n'est pas que haproxy.** Tous les conteneurs partagent le netns hôte : mosquitto en anonyme sur `0.0.0.0:1883`, frontend zigbee2mqtt sans `auth_token` sur `:8080`, grafana 8 en root sur `:3000`. Un conteneur compromis est un pair loopback qui peut forger XFP et XFF.
 - **Lua `requestUrl` sort de 127.0.0.1**, sans en-têtes. Toute confiance fondée sur l'IP est donc contournable.
 - **L'installer** n'utilise que des POST sur `/api.php`, sans Origin. Le mobile, remote_ui et MCP n'envoient pas d'Origin non plus. Seul le proxy Vite de dev en envoie un.
-- **Auto-upgrade de calaos-container** : la postinst ne redémarre pas le daemon (`--no-stop-on-upgrade`). Le nouveau daemon n'est actif qu'après un reboot.
-- **Upgrade synchrone** : le résultat est perdu par `resetStatus()`, et rien ne lance `dpkg --configure -a` au boot.
+- **Auto-upgrade de calaos-container** : la postinst ne redémarre pas le daemon (`--no-stop-on-upgrade`). L'ancien processus tourne jusqu'à un `systemctl restart calaos-container` ou un reboot. apt tourne dans le processus du daemon (libapt-pkg).
+- **Trois outils de mise à jour** existent sur les box : `calaos-os upgrade` et le bouton du kiosque passent par le daemon, qui exécute apt lui-même ; `apt upgrade` passe à côté.
+- **Upgrade synchrone** : le résultat est perdu par `resetStatus()`, rien ne lance `dpkg --configure -a` au boot, et le CLI comme le kiosque reposent sur le POST bloquant et la forme de réponse actuelle.
+- **`/events` du daemon** : un hub unique, non bloquant, sans rejeu. Un événement publié pendant que calaos_server est arrêté est perdu.
+- **calaos_server ignore en silence** un message WS inconnu : un ancien serveur ne répond jamais à `admin_unlock`. Il pinge déjà ses WS toutes les 15 s, et haproxy les place sous `timeout tunnel 3600s`.
+- **`init_calaosfs`** tourne en `ExecStartPre` de dix units, en parallèle au boot, avec `set -euo pipefail` : chaque étape doit être idempotente.
 - **`/mnt/calaos` est dans le snapshot racine** : un rollback snapper restaure aussi la config.
+- **`DECISIONS.md:694-699`** (« Pas de forçage des identifiants par défaut ») interdit de bloquer sur `user/pass` ; le bootstrap admin y déroge.
 
 ## Le design
 ### Un mot de passe admin distinct, vérifié par calaos-container, fermé par défaut
 - **Daemon**
-  - Hash argon2id (`golang.org/x/crypto`, m = 32 à 64 MiB, t = 2 à 3, p = 1) dans `/mnt/calaos/admin/`. Ce répertoire est un subvolume btrfs créé par `init_calaosfs` et exclu de snapper, si bien qu'un rollback ne ressuscite pas un ancien hash : il le **perd**, car le répertoire est vide dans le snapshot, et on repasse alors par le bootstrap. `init_calaosfs` (exécuté en `ExecStartPre` de quatre units, avec `set -e`) procède ainsi :
-    - si `/mnt/calaos` n'est pas en btrfs (`stat -f -c %T`), par exemple sur le live USB, simple `mkdir -p` ;
-    - sinon, si `btrfs subvolume show` échoue, `rmdir` du répertoire vide laissé par un rollback, puis `create` ;
-    - dans tous les cas, `chmod 700`.
-  - Routes `GET /api/admin/status`, `POST /api/admin/verify`, `POST /api/admin/set`.
-  - Le débit est limité **avant** le hachage : une seule vérification à la fois, environ 5 par minute.
-  - `verify` renvoie une session opaque de 15 min émise par le daemon. calaos_server ne fait que la relayer, donc le déverrouillage survit au redémarrage de calaos_server pendant une mise à jour.
-  - CLI `calaos-os admin set|reset`.
+  - Hash argon2id (`golang.org/x/crypto`, m = 32 à 64 MiB, t = 2 à 3, p = 1) dans `/mnt/calaos/admin/`, un répertoire ordinaire en 0700 créé par `mkdir -p` et `chmod 700` dans la boucle existante d'`init_calaosfs`.
+    - Pas de sous-volume btrfs : un rollback restaure le mot de passe admin de l'époque, comme le mot de passe foyer. `calaos-os admin set` couvre le cas contraire.
+  - Routes `GET /api/admin/status`, `POST /api/admin/verify`, `POST /api/admin/set`, `POST /api/admin/reset`, `POST /api/admin/alerts/ack`, nées dans l'enveloppe de CC-040.
+  - Mot de passe admin de 10 caractères au moins, refusé sinon par `admin/set`.
+  - Le débit est limité **avant** le hachage : une seule vérification à la fois. Le budget (environ 5 par minute) ne compte que les **échecs**.
+  - `verify` renvoie une session opaque émise par le daemon :
+    - 32 octets CSPRNG, 15 min **absolues** (non glissantes) ;
+    - invalidée par `admin/set` et `admin/reset` ;
+    - gardée dans un répertoire runtime 0700 qui n'est monté dans **aucun** conteneur (pas `/run/calaos`), pour survivre au redémarrage du daemon après sa propre mise à jour.
+  - calaos_server ne fait que relayer la session, donc le déverrouillage survit aussi au redémarrage de calaos_server pendant une mise à jour.
+  - CLI `calaos-os admin set|reset`. Le mot de passe est lu sur stdin (deux fois), jamais en argument : `RunCommand` journalise les argv et `ps` les expose.
+  - `admin/reset` reste une route du daemon, appelée par le CLI : un seul mécanisme à tester.
   - `admin/set` crée le hash en `O_EXCL`, pour que deux clients ne puissent pas faire le bootstrap en même temps : un second appel reçoit `admin_already_set`.
-  - Le daemon n'a pas de client push. Il publie `admin_set` et `admin_reset` (en phase 2 s'y ajoute `push_code {token, message}`) sur `/events`. calaos_server, abonné en permanence (CB3), envoie le push via `NotifManager` et enregistre l'événement persistant.
+  - **Alertes** : le daemon n'a pas de client push. Il persiste `admin_set` et `admin_reset` dans `/mnt/calaos/admin/` et les rejoue à chaque nouvel abonné `/events` jusqu'à l'ack de calaos_server, qui l'envoie après avoir enregistré l'événement. Une alerte émise pendant l'arrêt de calaos_server arrive donc au redémarrage, et une seule fois. Elle ne porte ni token ni code.
+  - Tout appel porteur d'une session est refusé sur `install/*`, `rollback_snapshot` et `network/*` (middleware). `system/reboot` répond 409 pendant un job.
+  - Audit dans `/mnt/calaos/admin/audit.log` et sur stdout (donc journald, hors snapshot) : XFF, action, résultat, id de session.
 - **calaos_server**
-  - Message WS `admin_unlock {admin_pass}`, avec `LoginThrottle` en amont. Un échec compte comme un échec de login.
-  - `admin_unlock` renvoie `{session, expires_in}`.
-    - Chaque message `admin` porte la `session`, et calaos_server ne garde aucun état.
-    - La webapp garde la session en mémoire et la renvoie après reconnexion et re-login. Si le daemon répond `401`, elle redemande le mot de passe admin.
-    - Si le daemon répond 404 sur `/api/admin/status` (ancien daemon encore en mémoire), la webapp affiche « Redémarrez la box pour activer l'administration ».
+  - Action `admin_unlock {admin_pass}` en WS **et** en HTTP, avec `LoginThrottle` en amont. Un échec compte comme un échec de login, mais ne ferme pas le WS foyer.
+  - `admin_unlock` renvoie `{admin_session, expires_in}`.
+    - En WS, chaque message `admin` porte l'`admin_session`.
+    - En HTTP, `config` et `get_mcp_info` portent l'`admin_session` dans le corps JSON, jamais en query (haproxy journalise les URL). `admin_pass` n'est plus envoyé à chaque requête : l'installer déverrouille une fois par dialogue.
+    - calaos_server ne garde aucun état. La webapp garde la session en mémoire et la renvoie après reconnexion et re-login. Sur `bad_session`, elle redemande le mot de passe admin sans message d'erreur.
   - Une fois l'admin défini, ces actions sont réservées à l'admin :
-    - `config get/put` (en HTTP, avec un champ `admin_pass` en plus) ;
+    - `config get/put` ;
     - `get_mcp_info` ;
     - le message `admin`.
   - `change_cred` (le mot de passe du foyer) reste au niveau foyer, car il exige déjà le mot de passe actuel. L'écran de Calaos mobile continue donc de fonctionner (décision de Raoul, 2026-10-18).
   - Tant que l'admin n'est pas défini, `admin` répond `admin_not_set` et le reste fonctionne comme aujourd'hui.
   - Le scope service MCP refuse `admin_unlock` et `admin`, avec mise à jour de `JsonApiServiceScope_test.cpp`. La console n'a pas de login : seul le ticket authentifie.
-- **Relais `admin`**
-  - Liste blanche des deux côtés : `update/*`, `system/reboot|restart|info`, console.
-  - `install/*` et `rollback_snapshot` ne sont jamais relayés.
-  - `update/status` et `/events` restent lisibles avec le login simple, pour que la progression reste visible.
+  - Le jeton MCP n'est **pas** régénéré au bootstrap (cela casserait les clients MCP configurés). L'action `mcp_regenerate` de la table régénère `mcp_token` et redémarre le sidecar ; la vue Admin a un bouton « Régénérer ».
+  - URL du daemon codée en dur (`http://127.0.0.1:8000`), surchargeable par `calaos_container_url` pour les tests.
+  - `LoginThrottle` plafonne les **nouvelles identités XFF venues du loopback** : au-delà d'environ 20 nouvelles en 60 s, tout le trafic loopback-XFF tombe dans un seul seau « loopback » pendant 60 s. Pas de budget global d'échecs : un seul attaquant bloquerait tout le foyer.
+- **Contrat et relais `admin`**
+  - Le contrat est la section admin de `docs/API.md` de calaos-container, écrite dans CC-040. Les tests calaos_base et le mock de la webapp en dérivent.
+  - Table fermée : chaque valeur d'enum donne une méthode et un chemin codés en dur. Aucun chemin ne vient du client.
+    - `update_check`, `update_available`, `update_upgrade_all`, `update_upgrade(package)`, `update_status` ;
+    - `system_reboot`, `system_restart`, `system_info` ;
+    - `mcp_regenerate`, traitée dans calaos_server ;
+    - en phase 2, console et approbateurs.
+  - `package` validé par `^[A-Za-z0-9.+-]+$`.
+  - `install/*`, `rollback_snapshot` et `network/*` ne sont jamais relayés.
+  - `update_status` et les événements filtrés restent lisibles avec le login simple, pour que la progression reste visible.
+  - calaos_server est abonné en permanence à `/events` (CB3) et ne retransmet aux clients foyer, sous `admin_event`, que :
+    - `upgrade_progress` ;
+    - `admin_set` et `admin_reset`, avec l'horodatage seul.
+
+    Tout autre type est consommé ou ignoré, jamais retransmis.
+  - Vocabulaire d'erreurs, défini une fois :
+
+    | Code | Cas | Message webapp |
+    |---|---|---|
+    | `admin_not_set` | admin non défini | proposer le bootstrap |
+    | `admin_already_set` | bootstrap concurrent | « Quelqu'un vient de définir le mot de passe admin » et bannière |
+    | `bad_session` (401) | session absente, expirée ou invalidée | nouvelle demande du mot de passe, silencieuse |
+    | `password_too_short` | moins de 10 caractères | longueur minimale |
+    | `https_required` | transport non sûr | « utilisez https:// » |
+    | `daemon_too_old` (404) | ancien daemon en mémoire | « Activation en cours », « Redémarrez la box » en repli |
+    | `daemon_unreachable` | daemon arrêté | réessayer |
+    | `upgrade_in_progress` (409) | job en cours | « Une mise à jour est déjà en cours » |
+    | `not_allowed` | hors table, scope MCP, bootstrap refusé | message explicite |
+
 - **Transport**
   - Invariant : haproxy est le seul terminateur TLS et le seul chemin d'accès admin. Tout accès distant passe par le port 443, que ce soit par le DDNS aujourd'hui ou par un VPN demain (MLSH, par exemple, arrive sur l'IP overlay : `https://<ip-overlay>`).
   - On ne fait jamais confiance à une interface ni à une plage VPN comme transport sûr. Trois raisons :
@@ -62,51 +106,83 @@ Contraintes : simple pour l'utilisateur, suffisamment sûr, pas d'usine à gaz.
     - un serveur signal compromis peut injecter un pair ;
     - la plage 100.64/10 est aussi celle du CGNAT des opérateurs.
   - Le test tient dans un seul prédicat `secureTransport()` (CB2). Une option `trusted_secure_peers` pourra l'étendre plus tard sans toucher aux appelants.
-  - Ces actions ne sont acceptées que si le pair est en loopback **et** que `X-Forwarded-Proto` vaut `https` (haproxy l'écrase) :
+  - Ces actions ne sont acceptées que si le pair est en loopback **et** que `X-Forwarded-Proto` vaut `https` :
     - `admin_unlock`, `admin` et `/api/console` ;
     - une fois l'admin défini, `config` et `get_mcp_info`.
-  - L'installer passe déjà par `https://IP/api.php` par défaut. Une URL en `http://…:5454` reçoit un refus, que CI1 affiche.
+  - Ce prédicat n'est pas infalsifiable : un conteneur du netns hôte peut forger XFP. Le remède (socket Unix entre haproxy et calaos_server) est en phase 3.
+  - XFP absent : refus (fail closed). Pas de patch de `haproxy.cfg` à l'exécution : pas de `haproxy -c` sur l'hôte, et un patch raté couperait toute la webapp.
+  - Les templates (`haproxy_pre` et `calaos_ddns`) gagnent, pour les **nouveaux** fichiers, dans le backend Calaos : `http-request set-header X-Forwarded-Proto %[ssl_fc,iif(https,http)]`. La doc dit qu'un `haproxy.cfg` modifié doit garder `set-header X-Forwarded-Proto` sur chaque frontend.
+  - L'installer passe déjà par `https://IP/api.php` pour un hôte nu. Un hôte mémorisé en `http://…:5454` reçoit `https_required` ; CI1 le réécrit en https et réessaie une fois.
   - Sinon, la webapp affiche « utilisez https:// », quel que soit le chemin (LAN, DDNS, VPN).
   - Rien d'admin ne passe en clair sur le port 5454.
-  - `haproxy_pre` ajoute `set-header X-Forwarded-Proto https` au `haproxy.cfg` persistant s'il ne l'a pas déjà, car ce fichier n'est généré qu'une fois.
 - **Origin (CB1)**
-  - On compare l'Origin à une liste d'identités de la box : IPs des interfaces, hostname (à vérifier dans le conteneur `--network=host`), `hostname.local` (valable en LAN seulement, c'est du mDNS), et `api_allowed_hosts` pour les hôtes supplémentaires (dev, noms VPN, DNS maison). Une IP overlay portée par une interface du conteneur `--network=host` entre automatiquement dans la liste.
-  - Exception : si le pair est en loopback et que `X-Forwarded-Proto` vaut `https`, on accepte un Origin dont l'hôte est égal à `Host`.
-    - Sur ce chemin, TLS empêche le rebinding : le certificat ne correspond pas à l'hôte rebindé et le navigateur abandonne.
-    - C'est ce qui fait marcher le DDNS sans configuration.
-    - Hors de ce chemin, comparer à `Host` ne suffit pas : le DNS rebinding passe, comme l'a montré le PoC.
+  - Un Origin n'est accepté que dans trois cas :
+    - pair en loopback, `X-Forwarded-Proto` à `https`, et hôte de l'Origin égal à `Host`. Sur ce chemin, TLS empêche le rebinding : le certificat ne correspond pas à l'hôte rebindé et le navigateur abandonne. C'est ce qui fait marcher le DDNS sans configuration ;
+    - une IP portée par une interface (`getifaddrs`, le conteneur `--network=host` voit celles de l'hôte, IP overlay comprise). Elle sert la webapp foyer en `http://IP:5454` sur le LAN ; un nom rebindé n'est pas une IP de la box, donc le rebinding reste refusé ;
+    - un hôte de `api_allowed_hosts` (dev, noms VPN, DNS maison, `.local`).
+  - Pas de hostname ni de `.local` automatiques.
+  - Hors du premier cas, comparer à `Host` ne suffit pas : le DNS rebinding passe, comme l'a montré le PoC.
   - Le contrôle porte sur le handshake WS **et** sur les requêtes HTTP `/api.php`. `Access-Control-Allow-Origin` n'est renvoyé que pour un Origin accepté (`HttpClient.cpp:337` reflète tout aujourd'hui).
   - `Origin: null` est refusé.
   - Casse, point final et port par défaut sont normalisés, et le port n'est comparé que si `Host` en contient un.
   - L'absence d'Origin est acceptée (clients natifs).
+  - Tant que l'admin n'est pas défini, rien ne change : tout Origin est accepté et ACAO reflète comme aujourd'hui. Les Origins qui seraient refusés sont journalisés, pour qu'on puisse les ajouter à `api_allowed_hosts` avant le bootstrap. Le contrôle s'applique dès que l'admin est défini.
+  - En dev, le proxy Vite réécrit l'Origin vers la cible (WA2) : rien à configurer sur la box.
+
+### Montée de version sans rupture
+Exigence de Raoul : une installation existante monte vers les versions admin par les outils actuels (`calaos-os upgrade`, `apt upgrade`, bouton du kiosque), sans étape manuelle, sans SSH et sans reboot. Chaque ticket concerné porte ces garanties.
+- **Compatibilité entre versions**, pendant et après la montée :
+  - ancien kiosque et ancien CLI `calaos-os` avec le nouveau daemon ;
+  - ancien calaos_server avec le nouveau daemon ;
+  - nouveau calaos_server avec l'ancien daemon encore en mémoire.
+
+  Pour cela, les routes et les formes de réponse actuelles du daemon restent servies telles quelles (upgrade synchrone compris) pendant au moins une release. L'enveloppe CC-040, le job 202 de CC3 et les routes admin vivent sous un préfixe versionné choisi dans CC-040 (par exemple `/api/v2/`). CH1 n'est pas un prérequis de la montée : il doit seulement être livré avant le retrait des routes legacy.
+- **Token (CC2)** : même chemin, `/run/calaos/calaos-ct.token`. Le fichier n'est écrit que s'il est absent, donc au boot (`/run` est un tmpfs) : un calaos_server ou un kiosque déjà lancé garde un token valide, et le nouveau format prend effet au boot suivant. `?token=` n'est retiré que si l'ancien kiosque ne s'en sert pas (vérifié dans CH1), sinon une release après CH1.
+- **Activation du nouveau daemon, sans reboot.** `--no-stop-on-upgrade` reste : un redémarrage immédiat tuerait le daemon s'il exécute lui-même le run apt (CLI, kiosque, webapp). La postinst lance à la place un redémarrage différé (unit transitoire `systemd-run`) qui :
+  - attend la libération du verrou dpkg, puis la fin du job en cours (statut lu sur la route legacy, que l'ancien daemon sert aussi) ;
+  - ne redémarre que si le processus en mémoire tourne encore sur l'ancien binaire (`/proc/<pid>/exe` marqué supprimé).
+
+  Ce chemin couvre les trois outils, y compris quand c'est l'ancien daemon qui exécute la montée. Un nouveau daemon sort de lui-même avec le code 0 après un job qui l'a mis à jour, et le redémarrage différé n'a alors plus rien à faire.
+- **Job asynchrone (CC3)** : l'upgrade versionné répond 202 et crée un job. Le dernier résultat est persisté, `reboot_required` est calculé sans se fier aux snapshots. Le nouveau CLI suit le job par `/events`. `Restart=always` relance le nouveau binaire après la sortie 0, et les sessions survivent dans le répertoire runtime.
+- **Unit (CC-042)** : `ExecStartPre=-/usr/bin/dpkg --configure -a` (avec le `-` : un dpkg cassé n'empêche pas le daemon de démarrer), `KillMode=process`, `TimeoutStopSec`, `Restart=always` conservé. Un run interrompu est repris au démarrage suivant du daemon ; si le verrou est encore tenu, la commande échoue sans effet. Le 409 sur `system/reboot` évite de couper dpkg.
+- **Ordre des paquets** dans un même run : indifférent, puisque toutes les combinaisons de versions fonctionnent. `calaos-server` dépend de `calaos-container (>= <version admin>)` pour que les deux montent ensemble. Pas de `Breaks`, sauf si la recette en montre le besoin.
+- **calaos-server** est redémarré par son paquet pendant la montée : la webapp se reconnecte, se relogue, renvoie `update_status` et garde sa session.
+- **Défauts inchangés** : sans admin défini, tout se comporte comme aujourd'hui (Origin et ACAO compris, voir CB1). Aucune modification de `haproxy.cfg` sur une installation existante.
+- **Versions mélangées**
+  - Webapp neuve, calaos_server ancien : `admin_unlock` reste sans réponse. WA1 abandonne au bout de 5 s : « calaos-server trop ancien, mettez à jour la box ».
+  - Ancien daemon encore en mémoire (`daemon_too_old`) : « Activation de l'administration en cours », avec nouvel essai automatique. « Redémarrez la box » n'apparaît qu'en repli, si l'état persiste au-delà de 2 min.
+  - Ancien installer, serveur neuf : le refus de `config get` est affiché tel quel, donc la chaîne d'erreur doit être lisible.
+  - CB3 n'est jamais livré avant CC3 : un POST synchrone derrière le relais bloquerait plusieurs minutes.
 
 ### Bootstrap et récupération
-- **Bootstrap** : avec le mot de passe partagé, à condition qu'il ne soit plus `user/pass`, on peut définir l'admin une seule fois. Deux alertes :
+- **Bootstrap** : avec le mot de passe partagé, on peut définir l'admin une seule fois. Refusé si les identifiants effectifs (après le repli de `checkCredentials`) sont vides, valent `user/pass`, ou viennent des clés legacy `calaos_user/calaos_password`. Une entrée datée de `DECISIONS.md` remplace « Pas de forçage des identifiants par défaut » sur ce point. Deux alertes, persistées par le daemon jusqu'à l'ack :
   - un push « Mot de passe admin défini » envoyé à tous les tokens ;
-  - un événement persistant, affiché à chaque client au login suivant.
+  - un événement persistant (`EventPushNotification`), affiché à chaque client au login suivant.
 
   Il n'y a aucune condition d'IP.
 - **Changer le mot de passe admin** : en phase 1, `admin/set` avec une session admin valide. À partir de la phase 2, il faut en plus le code push.
-- **Récupération** : `calaos-os admin reset` en SSH, sur le LAN ou via le VPN.
+- **Récupération** : `calaos-os admin set` en SSH, sur le LAN ou via le VPN, mot de passe lu sur stdin. Aucune fenêtre de bootstrap ne s'ouvre.
+- **Retour à « non défini »** : `calaos-os admin reset`, cas rare.
   - La commande efface le hash, les approbateurs, les sessions, et tue les consoles ouvertes.
-  - Elle envoie un push et affiche une bannière. On repasse ensuite par le bootstrap.
-  - Pas de reset par clé USB : décision de Raoul, jugé compliqué pour rien.
+  - Elle envoie un push et affiche une bannière. On repasse ensuite par le bootstrap, après avoir changé le mot de passe foyer : sinon un détenteur de l'ancien peut redéfinir l'admin le premier.
+- Pas de reset par clé USB : décision de Raoul, jugé compliqué pour rien.
 
 ### Second facteur : code par push vers un téléphone approbateur (phase 2)
 - **Enrôlement**
   - Un admin déverrouillé choisit son téléphone parmi les tokens `register_push`, qui gagne un nom d'appareil.
   - Le daemon envoie un code **à ce seul token**, et l'utilisateur le tape dans la webapp : c'est la preuve qu'il possède le téléphone.
-  - Le daemon stocke le token de l'approbateur et remet à l'app un secret d'appareil. Ce secret est transmis dans la réponse WS à `register_push`, sur la connexion qui porte ce token, et jamais dans un push. Stockage côté app :
-    - iOS : le Keychain existant (`A0SimpleKeychain`) ;
-    - Android : le QSettings privé de l'app, comme `cn_pass` aujourd'hui, en l'excluant de la sauvegarde Android (`allowBackup`). Pas de code Keystore à écrire.
+  - Le daemon stocke le token comme approbateur. Pas de secret d'appareil : rien n'est remis au téléphone, donc rien à voler par `register_push`.
 - **Nombre d'approbateurs** : un seul suffit (décision de Raoul). Un second est possible en option.
-- **Rotation du token push** : acceptée seulement si elle est authentifiée par le secret d'appareil.
-- **Téléphone perdu ou réinstallé** : enrôlement par le second approbateur s'il existe, sinon `calaos-os admin reset`. En attendant, les mises à jour et le reboot restent possibles avec le seul mot de passe admin : seuls la console, le réseau et le changement d'approbateur sont bloqués.
+- **Rotation du token push** (réinstallation, restauration, purge à 30 jours) : c'est un ré-enrôlement. Le changement d'approbateur exige un code ; si l'ancien token est mort, on passe par le second approbateur s'il existe, sinon par `calaos-os admin reset` puis `admin set`. En attendant, les mises à jour et le reboot restent possibles avec le seul mot de passe admin : seuls la console, le réseau et le changement d'approbateur sont bloqués.
 - **Code**
   - 6 chiffres, valable 60 s, à usage unique.
   - Lié à la session daemon, à l'action et au hash des paramètres.
   - Invalidé après 5 essais. Un seul code en attente par session, au moins 10 s entre deux générations, environ 10 par heure au total.
   - Comparaison en temps constant.
+- **Envoi**
+  - Le daemon publie `push_code {approver_id, code_id}` sur `/events`, sans token ni code.
+  - calaos_server récupère `{token, message}` par une route du daemon protégée par le bearer (`GET /api/admin/push/<code_id>`), puis envoie par `NotifManager` : un seul client push.
+  - Le token de l'approbateur ne sort jamais du daemon et de calaos_server, et `push_code` n'est jamais retransmis aux clients.
 - **Le téléphone approbateur n'a besoin que du push sortant** : il n'a pas à joindre la box. Seul l'enrôlement l'exige, sur le LAN ou via le VPN.
 - **Protège** : chaque ouverture de la console, le changement du mot de passe admin, le changement d'approbateur, la config réseau.
 - **Sans approbateur enrôlé**, ces actions sont indisponibles. Il reste la console SSH.
@@ -114,71 +190,110 @@ Contraintes : simple pour l'utilisateur, suffisamment sûr, pas d'usine à gaz.
 ### Console web (phase 2)
 - **Principe**
   - Shell root sur l'hôte, ouvert par le daemon dans un pty (`creack/pty`).
-  - Endpoint dédié `/api/console` : un tunnel brut dans calaos_server, sur le modèle de `McpProxyHandler`.
+  - Endpoint dédié `/api/console` : un tunnel brut dans calaos_server, sur le modèle de `McpProxyHandler`, qui injecte le bearer du daemon dans la première requête.
+  - Ce chemin est détecté avant le parseur HTTP et échappe à `checkHandshakeRequest` : le tunnel applique lui-même `secureTransport()` et le contrôle d'Origin sur les en-têtes détectés.
   - Côté webapp, `@xterm/xterm` est chargé seulement sur la route console.
 - **Ouverture**
   - Admin déverrouillé, puis un code push **par ouverture**, qui délivre un ticket à usage unique de 30 s. Il n'y a pas de flag « console activée » : c'est le code qui active la console.
   - Le ticket est envoyé dans la **première trame** WS, jamais dans l'URL (haproxy journalise les URL). Rien n'atteint le pty avant validation.
 - **Limites**
-  - Le pty est tué (SIGHUP au groupe) après 15 min d'inactivité, au bout d'1 h, à la coupure du WS ou à la désactivation.
+  - Le pty est tué (SIGHUP au groupe) après 15 min d'inactivité, au bout d'1 h, à la coupure du WS ou au reset. Seules les entrées du pty réarment le délai d'inactivité, pas les pings.
   - 2 sessions au maximum.
   - `TERM` sur liste blanche, environnement explicite, resize borné, backpressure.
 - **Traçabilité**
   - Push « Console ouverte » à chaque ouverture.
-  - Audit persistant dans `/mnt/calaos/admin/audit.log`. Chaque entrée consigne le pair TCP, l'IP effective et XFP. Derrière un agent qui redirige vers loopback, l'identité se réduit à 127.0.0.1 : c'est la même limite que pour le MCP.
-  - Ping WS toutes les moins de 45 s, à cause des `timeout client/server` de haproxy.
+  - Audit dans `audit.log` et dans journald. Derrière un agent qui redirige vers loopback, l'identité se réduit à 127.0.0.1 : c'est la même limite que pour le MCP.
+  - Le tunnel brut ne passe pas par la classe `WebSocket`, qui pinge toutes les 15 s : le daemon pinge donc lui-même la console (toutes les 30 s).
 
 ## Parcours utilisateur
-- **Installation existante (3 étapes).** La première montée vers les versions admin se fait encore par SSH (`calaos-os upgrade`) ou par le kiosque, suivie d'un reboot. Ensuite : onglet Admin, puis « Définir le mot de passe admin » (un push part), puis « Mettre à jour ». Par la suite : Admin, mot de passe, Mettre à jour.
+- **Installation existante (3 étapes).** La première montée vers les versions admin se fait avec l'outil habituel (`calaos-os upgrade`, `apt upgrade` ou le bouton du kiosque), sans reboot ni étape de plus : les nouvelles versions sont actives à la fin du run. Tant qu'on ne définit pas l'admin, rien ne change. Ensuite : onglet Admin, puis « Définir le mot de passe admin » (un push part), puis « Mettre à jour ». Par la suite : Admin, mot de passe, Mettre à jour.
 - **Installation neuve (4 étapes).** Login `user/pass`, changement du mot de passe foyer, définition du mot de passe admin, mise à jour.
 - **Ouvrir la console (phase 2).** Admin, puis Console, puis saisie du code reçu sur le téléphone, et le terminal s'ouvre.
-- **Mot de passe admin perdu.** `calaos-os admin reset` en SSH, puis on le redéfinit dans la webapp.
+- **Mot de passe admin perdu.** `ssh root@<ip>` puis `calaos-os admin set`. Rien à faire dans la webapp.
 
 ## Tickets
-### Phase 1 (≈ 13,5 j) : mises à jour et reboot depuis la webapp
+### Prérequis calaos-container (backlog existant)
 
 | Repo | Ticket | Contenu | Durée |
 |---|---|---|---|
-| calaos-container | CC1 | mot de passe admin : hash, subvolume, routes, session daemon, débit limité avant hachage, CLI `set/reset`, audit | 2 j |
-| calaos-container | CC2 | token : 32 octets urandom en 0600, fail-closed si vide, comparaison constante, `?token=` uniquement sur `/events`, adresse d'écoute `127.0.0.1` codée en dur par défaut (`config.go:24` écoute aujourd'hui sur toutes les interfaces si le toml manque, ce qui exposerait l'API sur une interface VPN) | 0,5 j |
-| calaos-container | CC3 | upgrade asynchrone (202 + job), dernier résultat persisté, `reboot_required` | 1,5 j |
-| calaos-container | CC4 | `ExecStartPre=-/usr/bin/dpkg --configure -a` (avec le `-` : un dpkg cassé n'empêche pas le daemon de démarrer), `KillMode=process` | 0,5 j |
-| calaos_base | CB1 | Origin sur WS et HTTP : liste d'identités, règle haproxy-https, `api_allowed_hosts`, `null` refusé, normalisation, ACAO conditionnel (`HttpClient.cpp:337` et `WebSocket.cpp:401`) | 1 j |
-| calaos_base | CB2 | `admin_unlock`, gating, `admin_not_set`, contrôle de transport, bootstrap, push et événement persistant, refus pour le scope MCP | 2 j |
-| calaos_base | CB3 | relais `admin` en liste blanche, retransmission de `/events` | 2 j |
-| calaos-web-app | WA1 | vue Admin : définir / déverrouiller, mises à jour, progression, reprise après redémarrage serveur, reboot, message « utilisez https:// », écran de changement du mot de passe foyer | 3 j |
-| calaos-web-app | WA2 | Origin sur le proxy de dev | 0,1 j |
-| calaos_installer | CI1 | champ mot de passe admin optionnel, refus serveur affiché | 0,5 j |
-| doc-website | DOC | pages update et services : la webapp remplace SSH ; procédure de reset | 0,5 j |
+| calaos-container | Board | ménage du board (tickets déjà Done, CC-034 fermé), nouvelle phase « P6 — Admin » qui porte CC1, CC2, CC3 | 0,1 j |
+| calaos-container | CC-040 | contrat d'API unifié et CLI en phase, sous un préfixe versionné ; routes et formes legacy servies telles quelles au moins une release ; `docs/API.md` reçoit la section admin : table de relais, vocabulaire d'erreurs, règles de session, forme du job 202, noms d'événements | 3 j |
+| calaos-container | CC-041 | build et release (flag prerelease, usrmerge, une seule source de version), test de montée dev.x vers dev.y ; en parallèle, fichiers disjoints | 1 j |
+| calaos-container | CC-042 ⇐ CC4 | unit systemd : `dpkg --configure -a`, `KillMode=process`, `TimeoutStopSec` ; `Restart=always` conservé, le `Restart=on-failure` du ticket est abandonné ; postinst avec redémarrage différé (verrou dpkg libre, job fini, binaire périmé) | 1 j |
 
-### Phase 2 (≈ 9 j) : console web et téléphone approbateur
+### Phase 1 (≈ 24 j, chemin critique ≈ 13,5 j) : mises à jour et reboot depuis la webapp
 
 | Repo | Ticket | Contenu | Durée |
 |---|---|---|---|
-| calaos-container + calaos_base | AP1 | approbateurs et codes push (enrôlement, secret d'appareil, limites, liaison à l'action) | 2,5 j |
-| calaos_mobile | AP2 | nom d'appareil dans `register_push`, stockage du secret d'appareil, rotation de token authentifiée | 1 j |
-| calaos-container | CO1 | console pty, ticket, limites | 1 j |
-| calaos_base | CO2 | tunnel `/api/console` | 1 j |
+| calaos-container | CC2 ⇐ CC-052 | token 32 octets urandom en 0600 dans `init_calaosfs`, même chemin, écrit seulement s'il est absent ; `?token=` retiré selon le constat de CH1 ; tests dans `app/context_test.go` ; corrige au passage le `mountpoint -q /mnt/calaos` qui empêche la création de `/etc/ola` | 0,5 j |
+| calaos-container | CC1 | mot de passe admin : répertoire 0700, argon2id, routes, sessions dans le répertoire runtime, limiteur sur les échecs, longueur minimale, `O_EXCL`, alertes persistées et ack, CLI `set/reset` sur stdin, audit. Depends on: CC-040 | 1,75 j |
+| calaos-container | CC3 ⇐ CC-050, CC-055 | upgrade asynchrone versionné (202 + job), upgrade synchrone legacy conservé, résultat persisté, `reboot_required`, sortie 0 après auto-mise à jour, 409 sur reboot pendant un job, middleware des sessions, CLI sur 202 et `/events`, tests. Depends on: CC-040 | 3,25 j |
+| calaos_home | CH1 | client de mise à jour : enveloppe CC-040, job asynchrone, `/events`, bearer en en-tête ; constater si l'ancien kiosque utilise `?token=`. Dépôt non cloné, estimation à vérifier. Pas un prérequis de la montée, à livrer avant le retrait des routes legacy | 0,75 j |
+| pkgdebs, calaos_ddns | PK1 | `calaos-server` : `Depends: calaos-container (>= <version admin>)`, pas de `Breaks` ; ligne XFP du backend dans les deux templates, nouveaux fichiers seulement | 0,2 j |
+| calaos_base | CB1 | Origin sur WS et HTTP : règle haproxy-https, IP d'interfaces, `api_allowed_hosts`, `null` refusé, normalisation, ACAO conditionnel (`HttpClient.cpp:337` et `WebSocket.cpp:401`) ; sans admin défini, journalisation seule | 0,75 j |
+| calaos_base | CB2 | `admin_unlock` WS et HTTP, `admin_session`, gating, `admin_not_set`, `secureTransport()`, condition de bootstrap et entrée `DECISIONS.md`, refus pour le scope MCP, chaînes d'erreur lisibles, faux daemon de test (`calaos_container_url`) | 2,5 j |
+| calaos_base | CB3 | relais en table fermée, abonnement `/events` filtré, ack des alertes vers push et `EventPushNotification`, `mcp_regenerate`. Après CC3 | 2,5 j |
+| calaos_base | CB4 | plafond des nouvelles identités XFF venues du loopback dans `LoginThrottle` | 0,5 j |
+| calaos-web-app | WA1 | vue Admin : définir / déverrouiller, mises à jour, progression, reprise après redémarrage serveur, reboot, « utilisez https:// », écran du mot de passe foyer, délai de 5 s sur `admin_unlock`, « Activation en cours » avec nouvel essai puis repli sur « Redémarrez la box », messages d'erreur, bouton « Régénérer » du jeton MCP, scénarios du mock | 3,5 j |
+| calaos-web-app | WA2 | réécriture de l'Origin par le proxy de dev | 0,1 j |
+| calaos_installer | CI1 | champ mot de passe admin optionnel, `admin_unlock` une fois par dialogue, `admin_session` dans `config`, réécriture https et une retentative sur `https_required`, refus affiché | 0,5 j |
+| doc-website | DOC | pages update et services : la montée se fait avec l'outil habituel, la webapp remplace ensuite SSH ; récupération par `admin set` ; `reset` après changement du mot de passe foyer ; rollback ; `api_allowed_hosts` avant le bootstrap ; `haproxy.cfg` modifié | 0,5 j |
+| box | RC1 | recette en VM depuis l'image stable 4.5.0 : `calaos-os upgrade`, `apt upgrade`, bouton du kiosque ; les deux ordres de paquets ; run interrompu ; puis dev.x vers dev.y depuis la webapp. Sert d'acceptation à CC-041 | 1,5 j |
+
+### Ordre d'exécution
+
+| Étape | Tickets | Remarque |
+|---|---|---|
+| 0 | Board | |
+| 1 | CC-040 ∥ CC-041 | rien d'autre dans `app/` et `cmd/` pendant CC-040 |
+| 2 | CC-042, puis CC2 | |
+| 3 | CC1 | |
+| 4 | CC3 | |
+| dès l'étape 1 | CB1 ∥ CB2 ∥ CB4 ∥ WA1 ∥ CI1 | le contrat suffit : faux daemon et mock |
+| après l'étape 4 | CB3, PK1, DOC, CH1 | CB3 jamais livré avant CC3 ; CH1 avant le retrait des routes legacy |
+| fin | RC1 | |
+
+Chemin critique ≈ 13,5 j : CC-040, CC-042, CC2, CC1, CC3, CB3, RC1.
+
+### Phase 2 (≈ 9,25 j) : console web et téléphone approbateur
+
+| Repo | Ticket | Contenu | Durée |
+|---|---|---|---|
+| calaos-container + calaos_base | AP1 | approbateurs et codes push : enrôlement par code, `push_code {approver_id, code_id}`, route bearer de récupération, limites, liaison à l'action | 3 j |
+| calaos_mobile | AP2 | nom d'appareil dans `register_push` ; `register_push` en mode HTTP envoyé avec les identifiants (aujourd'hui un échec de login par session) | 0,5 j |
+| calaos-container | CO1 | console pty, ticket, limites, ping, audit sur stdout | 1 j |
+| calaos_base | CO2 | tunnel `/api/console`, `secureTransport()` et Origin sur les en-têtes détectés, bearer injecté | 1,25 j |
 | calaos-web-app | CO3 | vue console xterm | 1 j |
 | calaos-web-app | WA3 | enrôlement de l'approbateur, saisie du code | 1 j |
 | calaos_mobile | CM2 | épinglage TOFU du certificat à la place de `ignoreSslErrors`, par hôte (IP LAN, nom DDNS, IP overlay), avec nouvelle confirmation en cas de changement de clé (renouvellement Let's Encrypt) | 1 j |
-| doc-website | DOC | console, approbateur | 0,5 j |
+| doc-website | DOC | console, approbateur, rotation | 0,5 j |
 
 ### Phase 3 : diagnostics et confort
-- Restart de services sur liste autorisée, logs bornés, heure, liste blanche `calaos_config`, téléchargement de la sauvegarde.
-- Réseau, avec « appliquer puis confirmer » et retour automatique sous 60 s.
+- Restart de services sur liste autorisée, logs bornés (`cn_pass=` masqué dans tout log affiché par la webapp), heure, liste blanche `calaos_config`, téléchargement de la sauvegarde.
+- Réseau, avec « appliquer puis confirmer » et retour automatique sous 60 s ; CC-051 (tests de validation réseau) avant.
+- Socket Unix entre haproxy et calaos_server : seul ce qui arrive dessus vient de haproxy, le TCP 5454 n'est plus cru pour XFF et XFP.
+- `auth_token` zigbee2mqtt et mot de passe mosquitto générés par les scripts `_pre`.
 - Mises à jour depuis le mobile (CM1).
-- CC5 : apt dans une unit transitoire, seulement si CC4 se révèle insuffisant à la recette.
+- CC5 : apt dans une unit transitoire, seulement si CC-042 se révèle insuffisant à la recette.
 - Code affiché dans l'app plutôt que dans la notification.
 - Digests `@sha256` et JSON de releases signé (minisign).
 - Inventaire des devices utilisés, pour pouvoir sortir calaos-server de `--privileged`.
+- CC-053 et CC-054 : quand on veut, sans lien avec l'admin.
 
 ## Ce qu'on ne fait pas
 - Rôles ni `users.json`.
 - Cookies, sessions navigateur, JWT.
 - Confiance fondée sur l'IP.
 - Signatures ECDSA d'appareil, WebAuthn, TOTP, number matching. Le code push ne s'applique qu'aux actions listées en phase 2 ; tout le reste de l'admin n'exige que le mot de passe admin.
-- Reset par clé USB.
+- Secret d'appareil et rotation silencieuse du token approbateur.
+- Sous-volume btrfs pour `/mnt/calaos/admin`.
+- Patch de `haproxy.cfg` à l'exécution, et toute modification de `haproxy.cfg` sur une installation existante.
+- Étape manuelle pour la montée vers les versions admin (SSH, reboot, commande dédiée).
+- Rupture des clients actuels du daemon pendant la release de transition.
+- Hostname et `.local` automatiques dans la liste d'Origin.
+- Budget global d'échecs de login.
+- Régénération automatique du jeton MCP.
+- Reset par clé USB, ou par effacement de fichier et signal.
 - Rollback de snapshot à distance, installation disque à distance.
 - Mot de passe root SSH, calibration tactile.
 - Admin depuis le mobile en phase 1 et 2, sauf l'enrôlement de l'approbateur.
@@ -186,31 +301,64 @@ Contraintes : simple pour l'utilisateur, suffisamment sûr, pas d'usine à gaz.
 ## Risques résiduels acceptés
 - Une RCE dans calaos_server donne root (conteneur privilégié).
 - Un accès physique donne root.
+- Conteneurs du netns hôte (mosquitto anonyme, frontend zigbee2mqtt sans `auth_token`, grafana 8 en root) : en compromettre un donne un pair loopback qui forge XFP et XFF, passe `secureTransport()` et force le mot de passe foyer (freiné par le plafond d'identités) puis le mot de passe admin au rythme du daemon. Il n'obtient ni session ni code. Corrigé en phase 3.
+- Un rollback restaure le mot de passe admin et le mot de passe foyer de l'époque.
 - Avec la console, un attaquant venu d'Internet doit disposer du mot de passe partagé, du mot de passe admin et du téléphone.
-- Un relais push compromis voit les codes, mais pas le mot de passe admin.
-- Un MITM sur le LAN reste possible côté mobile jusqu'à CM2.
+- Un relais push compromis voit les codes, mais pas le mot de passe admin. Le relais n'authentifie pas l'émetteur : qui connaît un token peut pousser un faux message vers ce téléphone.
+- Un MITM sur le LAN reste possible côté mobile jusqu'à CM2, et capte alors le token push du téléphone.
+- Une `admin_session` copiée (XSS, extension, journal tiers) est rejouable 15 min par toute connexion loguée au foyer : elle n'est pas liée à la connexion.
 - Le code est lisible sur l'écran verrouillé jusqu'à la phase 3.
 - Un rollback via GRUB, qui suppose un accès physique, réinstalle d'anciennes versions sans gating.
-- Avant le bootstrap, quiconque a le mot de passe partagé peut définir l'admin le premier. On le détecte par le push et la bannière, et on répare par `admin reset`.
+- Avant le bootstrap, quiconque a le mot de passe partagé peut définir l'admin le premier. On le détecte par le push et la bannière, même si calaos_server était arrêté, et on répare par `calaos-os admin set`.
+- Un `haproxy.cfg` modifié avec un frontend sans `set-header X-Forwarded-Proto` laisse passer la valeur du client.
+- Les correctifs CC-011 et CC-014 ne protègent une box qu'après la mise à jour du daemon et son redémarrage.
+- Après une montée sans reboot, l'ancien token faible reste en service jusqu'au boot suivant.
+- Tant que l'admin n'est pas défini, la box garde l'exposition actuelle : pas de contrôle d'Origin, ACAO reflété, DNS rebinding possible sur le port 5454.
+- Les routes legacy du daemon restent ouvertes pendant au moins une release, avec leur forme actuelle.
 - Webapp sur certificat auto-signé : l'utilisateur accepte un avertissement. Un MITM actif sur le LAN peut servir le port 80 en clair, et HSTS n'est pas possible. Un certificat Let's Encrypt via le DDNS supprime ce risque. Via un VPN sans certificat, comme MLSH, l'avertissement reste, mais le MITM n'est plus possible à l'intérieur du tunnel.
-- Le limiteur argon2 global (environ 5 par minute) permet à un tiers de retarder les déverrouillages légitimes.
+- Le limiteur argon2 du daemon (environ 5 échecs par minute) permet à un tiers qui échoue en boucle de retarder les déverrouillages légitimes.
+- Sans second approbateur, une rotation du token push oblige à passer par SSH pour la console et le réseau.
 
 ## Vérification
 - **calaos-container** (tests Go) :
-  - token vide refusé ;
-  - `?token=` refusé hors `/events` ;
-  - hash et limitation de débit ;
-  - session et expiration ;
-  - upgrade asynchrone et résultat persisté ;
-  - reset via CLI.
-- **calaos_base** (tests JsonApi) :
+  - token de 32 octets en 0600, `?token=` refusé sur toutes les routes ;
+  - hash, longueur minimale, limiteur qui ne compte que les échecs ;
+  - session de 32 octets, expiration absolue à 15 min, invalidation par `set` et `reset`, survie à l'auto-redémarrage ;
+  - deux bootstraps concurrents : un seul gagne, l'autre reçoit `admin_already_set` ;
+  - alerte publiée sans abonné, rejouée au premier abonné, plus jamais après l'ack ;
+  - upgrade asynchrone, résultat persisté, sortie 0 après auto-mise à jour, 409 sur reboot pendant un job ;
+  - porteur de session refusé sur `install/*`, `rollback_snapshot`, `network/*` ;
+  - CLI `admin set` sur stdin, `admin reset`, `upgrade` sur 202 et `/events` ;
+  - routes legacy : réponses identiques à l'ancien daemon (golden), upgrade synchrone compris, pour l'ancien CLI et l'ancien kiosque.
+- **Paquet calaos-container** : la postinst ne redémarre jamais le daemon pendant un run ; le redémarrage différé attend le verrou dpkg et la fin du job, et ne fait rien si le binaire en mémoire est à jour.
+- **init_calaosfs** : dix units démarrées en parallèle, script idempotent, `/mnt/calaos/admin` en 0700, token existant conservé.
+- **calaos_base** (tests JsonApi, faux daemon via `calaos_container_url`) :
   - `admin_not_set` ;
-  - gating de `config` ; `change_cred` toujours accepté au niveau foyer ;
-  - refus en HTTP clair et hors haproxy ;
-  - Origin étranger, `null` ou rebindé refusé ;
+  - sans admin défini, comportement identique à aujourd'hui : Origin étranger accepté et journalisé, ACAO reflété, `config` et `get_mcp_info` au niveau foyer ;
+  - faux daemon ancien (routes legacy seules) : `daemon_too_old`, le reste fonctionne ;
+  - gating de `config` et `get_mcp_info` par `admin_session` dans le corps ; session en query ignorée ; `change_cred` toujours accepté au niveau foyer ;
+  - échec d'`admin_unlock` sans fermeture du WS ;
+  - refus en HTTP clair, hors haproxy et sans XFP ;
+  - admin défini : Origin étranger, `null` ou rebindé refusé ; IP d'interface acceptée sur 5454 ; Origin égal à `Host` accepté sous haproxy-https ;
+  - bootstrap refusé avec des identifiants vides, `user/pass` ou legacy ;
   - scope MCP refusé ;
-  - expiration à 15 min.
-- **Webapp** : e2e sur le mock avec la coupure et la reprise pendant l'upgrade.
-- **Installer** : enregistrement en ligne avec et sans mot de passe admin.
-- **Phase 2** : brute force du code bloqué après 5 essais, ticket console non rejouable, pty tué à l'expiration.
-- **Recette sur la box** : upgrade complet depuis la webapp, y compris l'auto-upgrade de calaos-server.
+  - table fermée : valeur inconnue refusée, `package` contenant `/`, `..`, `?` ou `%2e` refusé ;
+  - filtre `/events` : un client foyer reçoit `upgrade_progress`, `admin_set` et `admin_reset` avec l'horodatage seul, et rien d'autre ;
+  - alerte rejouée après un redémarrage de calaos_server : un seul push, un seul événement ;
+  - plafond des identités XFF loopback ;
+  - `mcp_regenerate` change le jeton et redémarre le sidecar.
+- **Webapp** : e2e sur le mock avec la coupure et la reprise pendant l'upgrade, calaos_server ancien (message au bout de 5 s, pas d'attente infinie), daemon ancien (« Activation en cours » puis reprise), `bad_session` suivi d'une nouvelle demande.
+- **Installer** : enregistrement en ligne avec et sans mot de passe admin, un seul déverrouillage par dialogue, hôte `http://…:5454` réécrit en https.
+- **Phase 2** :
+  - `push_code` par id : le bus ne porte ni token ni code, calaos_server récupère `{token, message}` par la route bearer et pousse vers ce seul token ;
+  - un client foyer ne reçoit jamais `push_code` ;
+  - `register_push` d'un token approbateur par un client foyer ne change rien à l'approbateur ;
+  - brute force du code bloqué après 5 essais, ticket console non rejouable, pty tué à l'expiration, pings sans effet sur l'inactivité ;
+  - `/api/console` refusé hors haproxy et avec un Origin étranger ;
+  - entrée d'audit présente dans journald.
+- **Recette en VM (RC1)**, depuis l'image stable 4.5.0, sans aucune admin définie au départ :
+  - chacun des trois chemins (`calaos-os upgrade`, `apt upgrade`, bouton du kiosque) aboutit sans reboot ni SSH : nouveau daemon actif, ancien CLI et ancien kiosque fonctionnels pendant et après, webapp foyer inchangée, `haproxy.cfg` intact ;
+  - même résultat quel que soit l'ordre de configuration de calaos-container et calaos-server ;
+  - run tué en plein dpkg : repris par `dpkg --configure -a` au redémarrage du daemon ;
+  - ensuite, montée dev.x vers dev.y depuis la webapp, y compris l'auto-upgrade de calaos-server et la sortie 0 du daemon ;
+  - au boot suivant, token au nouveau format et clients toujours connectés.
