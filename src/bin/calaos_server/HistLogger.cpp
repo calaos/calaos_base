@@ -507,12 +507,14 @@ void HistLogger::sqliteWorker()
             ac->success = false;
             ac->errMsg = string("history unavailable: ") + e.what();
         }
+        // LCOV_EXCL_START: nothing here throws besides sqlite; kept so a reader is answered whatever is thrown
         catch (const exception &e)
         {
             cCriticalDom("history") << "History request failed: " << e.what();
             ac->success = false;
             ac->errMsg = "history unavailable";
         }
+        // LCOV_EXCL_STOP
 
         //Readers wait on their handle: without this send the client never
         //gets an answer.

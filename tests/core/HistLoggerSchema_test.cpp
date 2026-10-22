@@ -167,7 +167,7 @@ public:
                 "('u-null', datetime('now', '-2 hours'), 3, NULL, NULL, NULL, NULL),"
                 "('u-3days', datetime('now', '-3 days'), 3, 'io_c', '21.5', '{\"c\":\"été\"}', ''),"
                 "('u-tie-3', strftime('%Y-%m-%d %H:%M:00', 'now', '-1 hours'), 22, 'io_c', '', '{}', ''),"
-                "('u-old-2', datetime('now', '-45 days'), 3, 'io_a', 'true', '{}', ''),"
+                "('u-old-2', datetime('now', '-45 days'), 21, '', '', '{\"pic_uid\":\"pic-gone\"}', 'pic-gone'),"
                 "('u-recent', datetime('now', '-5 minutes'), 21, '', '', '{\"pic_uid\":\"pic-new\"}', 'pic-new');"));
             ASSERT_TRUE(db.exec("INSERT INTO events (uuid, created_at, event_type, io_id, io_state, event_raw, pic_uid) "
                                 "VALUES ('u-large', datetime('now', '-30 minutes'), 3, 'io_d', 'x', '{\"blob\":\"' || "
@@ -252,6 +252,7 @@ TEST(HistLoggerSchemaTest, RetentionIsTheSameAsBefore)
     //The next event takes out what is older than 30 days, with its picture.
     append("evlog_after_30");
     readPage(0, 1);
+    //u-old-2's picture never existed: the failed unlink does not stop the purge.
     EXPECT_EQ(0, count("uuid LIKE 'u-old-%'"));
     EXPECT_FALSE(std::filesystem::exists(base + "/cache/push_pictures/pic-old.jpg"));
     EXPECT_TRUE(std::filesystem::exists(base + "/cache/push_pictures/pic-new.jpg"));
