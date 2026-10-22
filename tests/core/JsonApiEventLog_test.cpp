@@ -253,6 +253,15 @@ protected:
      * HttpClient's constructor installs (trap 2 of the harness header), so an
      * HttpTestRequest can safely be held alive across one of these waits.
      **************************************************************************/
+    //Each statement on a locked database first waits out HistLogger's busy
+    //timeout.
+    static bool waitLocked(const std::function<bool()> &done)
+    {
+        for (int i = 0; i < 10 && !done(); i++)
+            waitUntil(done);
+        return done();
+    }
+
     static bool waitUntil(const std::function<bool()> &done)
     {
         for (int i = 0;i < 400;i++)
@@ -1047,7 +1056,7 @@ TEST_F(JsonApiEventLogTest, ALockedDatabaseIsAnsweredOnBothTransports)
 
     WsTestSession ws;
     ws.send(Json{ { "msg", "eventlog" }, { "msg_id", "eventlog_page:3:1" }, { "data", Json{ { "page", "1" }, { "per_page", "2" } } } });
-    const bool wsAnswered = waitUntil([&ws]()
+    const bool wsAnswered = waitLocked([&ws]()
                                       {
         return hasEventLogAnswer(ws);
     });
@@ -1057,13 +1066,18 @@ TEST_F(JsonApiEventLogTest, ALockedDatabaseIsAnsweredOnBothTransports)
             envelope = asJsonDocument(m);
 
     WsTestSession wsUuid;
-    const Json uuidData = wsEventLog(wsUuid, Json{ { "uuid", seededUuids()[0] } });
+    wsUuid.send(Json{ { "msg", "eventlog" }, { "msg_id", "t317f" }, { "data", Json{ { "uuid", seededUuids()[0] } } } });
+    waitLocked([&wsUuid]()
+               {
+        return hasEventLogAnswer(wsUuid);
+    });
+    const Json uuidData = wsEventLogAnswer(wsUuid);
 
     HttpTestRequest req;
     req.send(authenticated(Json{ { "action", "eventlog" },
                                  { "page", "0" },
                                  { "per_page", "2" } }));
-    const bool httpAnswered = waitUntil([&req]()
+    const bool httpAnswered = waitLocked([&req]()
                                         {
         return req.count() > 0;
     });

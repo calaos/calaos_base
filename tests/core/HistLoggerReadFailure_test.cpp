@@ -27,7 +27,9 @@
 #include <gtest/gtest.h>
 #include <sqlite3.h>
 
+#include <atomic>
 #include <filesystem>
+#include <thread>
 
 #include "PushTestUtil.h"
 
@@ -88,7 +90,7 @@ EventsAnswer readOne(const std::string &uuid)
 }
 
 //A second connection holding the write lock: the worker's statements fail
-//with SQLITE_BUSY, the server sets no busy timeout.
+//with SQLITE_BUSY once its busy timeout is over.
 class Locker
 {
 public:
@@ -147,6 +149,7 @@ const auto *env = ::testing::AddGlobalTestEnvironment(new HistoryDb);
 
 TEST(HistLoggerReadFailureTest, EveryReaderIsAnsweredWhileTheDatabaseIsLocked)
 {
+    const int before = readPage(0, 100).totalCount;
     EventsAnswer page, deep, one;
     TokensAnswer tokens;
     {
@@ -172,7 +175,7 @@ TEST(HistLoggerReadFailureTest, EveryReaderIsAnsweredWhileTheDatabaseIsLocked)
     const EventsAnswer after = readPage(0, 10);
     EXPECT_TRUE(after.received);
     EXPECT_TRUE(after.success);
-    EXPECT_EQ(3, after.totalCount);
+    EXPECT_EQ(before, after.totalCount);
     EXPECT_TRUE(readOne(seededUuid).success);
 }
 
@@ -197,4 +200,33 @@ TEST(HistLoggerReadFailureTest, AFailureLogsNeitherTheEventNorTheUuidAsked)
     EXPECT_NE(std::string::npos, log.find("database is locked")) << "no failure was logged";
     EXPECT_EQ(std::string::npos, log.find(kSecret)) << log;
     EXPECT_EQ(std::string::npos, log.find(kAskedUuid)) << log;
+}
+
+TEST(HistLoggerReadFailureTest, ABriefLockIsWaitedForAndLosesNothing)
+{
+    const int before = readPage(0, 100).totalCount;
+    ASSERT_GE(before, 3);
+
+    std::atomic_bool locked{ false };
+    std::thread holder([&locked]()
+                       {
+        Locker lock(dbPath);
+        locked = lock.held;
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    });
+    while (!locked)
+        std::this_thread::yield();
+
+    HistEvent ev = HistEvent::create();
+    ev.event_type = 3;
+    ev.io_id = "evlog_during_lock";
+    ev.event_raw = "{}";
+    HistLogger::Instance().appendEvent(ev);
+    const EventsAnswer page = readPage(0, 100);
+    const EventsAnswer one = readOne(ev.uuid);
+    holder.join();
+
+    EXPECT_TRUE(page.success) << page.error;
+    EXPECT_EQ(before + 1, page.totalCount);
+    EXPECT_TRUE(one.success) << one.error;
 }

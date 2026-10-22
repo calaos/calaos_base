@@ -46,12 +46,6 @@ const char *const OldSchema =
     "hw_type INTEGER, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
     "push_format INTEGER NOT NULL DEFAULT 0);";
 
-//Same text as the paginated read and the purge of HistLogger.cpp.
-const char *const PageQuery =
-    "SELECT uuid, created_at, event_type, io_id, io_state, event_raw, pic_uid FROM events "
-    "ORDER BY created_at DESC, id LIMIT ?, ?;";
-const char *const PurgeQuery = "DELETE FROM events WHERE created_at <= ?;";
-
 std::string base;
 std::string dbPath;
 std::vector<std::string> rowsBefore, rowsAfter, tokensBefore, tokensAfter;
@@ -214,11 +208,11 @@ TEST(HistLoggerSchemaTest, OpeningAnOldDatabaseAddsTheIndexAndKeepsEveryRow)
 TEST(HistLoggerSchemaTest, ThePaginatedReadAndThePurgeUseTheIndex)
 {
     Db db;
-    const std::string page = db.plan(PageQuery);
+    const std::string page = db.plan(HistEventSql::ReadPage);
     EXPECT_NE(std::string::npos, page.find("USING INDEX events_created_at")) << page;
     EXPECT_EQ(std::string::npos, page.find("TEMP B-TREE")) << page;
 
-    const std::string purge = db.plan(PurgeQuery);
+    const std::string purge = db.plan(HistEventSql::Purge);
     EXPECT_NE(std::string::npos, purge.find("INDEX events_created_at (created_at<?)")) << purge;
 }
 
