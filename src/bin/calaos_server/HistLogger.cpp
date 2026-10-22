@@ -41,7 +41,7 @@
 //Serves the paginated read and the retention purge. id keeps the order the
 //unindexed sort gave to events logged within the same second: oldest first.
 #define DB_CREATE_SQL_EVENTS_INDEX "CREATE INDEX IF NOT EXISTS events_created_at " \
-    "ON events (created_at DESC, id);"
+                                   "ON events (created_at DESC, id);"
 
 #define DB_CREATE_SQL_TOKENS "CREATE TABLE IF NOT EXISTS push_tokens ("        \
                              "id INTEGER PRIMARY KEY UNIQUE NOT NULL, "        \
@@ -176,7 +176,9 @@ void purgeEvents(sqlite::database &db, string &lastCutoff)
 
     //'' when sqlite rejects the modifier: no event is old enough then.
     string cutoff;
-    db << "SELECT ifnull(date('now', ?), '');" << "-" + numdays + " days" >> cutoff;
+    db << "SELECT ifnull(date('now', ?), '');"
+       << "-" + numdays + " days" >>
+        cutoff;
     if (cutoff == lastCutoff)
         return;
 
@@ -218,8 +220,8 @@ void readPage(sqlite::database &db, HistWorkerAction &ac)
     const sqlite_int64 start = sqlite_int64(ac.page) * ac.per_page;
     db << "SELECT uuid, created_at, event_type, io_id, io_state, event_raw, pic_uid FROM events "
           "ORDER BY created_at DESC, id LIMIT ?, ?;"
-       << start << sqlite_int64(ac.per_page)
-       >> [&](string uuid, string created_at, int event_type, string io_id, string io_state, string event_raw, string pic_uid)
+       << start << sqlite_int64(ac.per_page) >>
+        [&](string uuid, string created_at, int event_type, string io_id, string io_state, string event_raw, string pic_uid)
     {
         HistEvent ev;
         ev.uuid = uuid;
@@ -237,8 +239,8 @@ void readPage(sqlite::database &db, HistWorkerAction &ac)
 void readSingle(sqlite::database &db, HistWorkerAction &ac)
 {
     db << "SELECT uuid, created_at, event_type, io_id, io_state, event_raw, pic_uid FROM events WHERE uuid = ?"
-       << ac.uuid
-       >> [&](string uuid, string created_at, int event_type, string io_id, string io_state, string event_raw, string pic_uid)
+       << ac.uuid >>
+        [&](string uuid, string created_at, int event_type, string io_id, string io_state, string event_raw, string pic_uid)
     {
         ac.event.uuid = uuid;
         ac.event.event_type = event_type;
