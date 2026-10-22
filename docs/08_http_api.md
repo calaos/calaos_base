@@ -564,7 +564,7 @@ Définit le mot de passe admin (bootstrap) ou le change. Le mode se déduit de l
 | présente (vide comprise) | admin non défini | | `admin_not_set` (répondu par calaos_server selon `AdminState`) |
 
 Si `AdminState` est en retard et que le daemon répond `bad_session`, ce code est renvoyé.
-Une clef `admin_session` présente mais vide compte comme **présente** (donc `bad_session`),
+Une clef `admin_session` présente mais vide compte comme **présente** (donc `bad_session` si l'admin est défini, `admin_not_set` sinon),
 et `recovery` n'existe pas ici : le mode récupération n'est envoyé que par
 `calaos-os admin set`, jamais relayé.
 
