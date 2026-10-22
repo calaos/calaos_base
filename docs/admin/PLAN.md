@@ -45,7 +45,7 @@ Les constats calaos-container portent sur `origin/main`.
   - Le débit est limité **avant** le hachage : une seule vérification à la fois. Le budget (environ 5 par minute) ne compte que les **échecs**.
   - `verify` renvoie une session opaque émise par le daemon :
     - 32 octets CSPRNG, 15 min **absolues** (non glissantes) ;
-    - invalidée par `admin/set` et `admin/reset` ;
+    - invalidée par `admin/set`, `admin/reset` et, en phase 2, 5 échecs de code push (décision de Raoul, 2026-10-22) ;
     - gardée dans un répertoire runtime 0700 qui n'est monté dans **aucun** conteneur (pas `/run/calaos`), pour survivre au redémarrage du daemon après sa propre mise à jour.
   - calaos_server ne fait que relayer la session, donc le déverrouillage survit aussi au redémarrage de calaos_server pendant une mise à jour.
   - CLI `calaos-os admin set|reset`. Le mot de passe est lu sur stdin (deux fois), jamais en argument : `RunCommand` journalise les argv et `ps` les expose.
@@ -72,6 +72,7 @@ Les constats calaos-container portent sur `origin/main`.
   - `LoginThrottle` plafonne les **nouvelles identités XFF venues du loopback** : au-delà d'environ 20 nouvelles en 60 s, tout le trafic loopback-XFF tombe dans un seul seau « loopback » pendant 60 s. Pas de budget global d'échecs : un seul attaquant bloquerait tout le foyer.
 - **Contrat et relais `admin`**
   - Le contrat est la section admin de `docs/API.md` de calaos-container, écrite dans CC-040. Les tests calaos_base et le mock de la webapp en dérivent.
+  - Il fixe les règles de session : 32 octets, 15 min absolues, invalidation par `set`, `reset` et 5 échecs de code push (la session invalidée répond `bad_session`).
   - Table fermée : chaque valeur d'enum donne une méthode et un chemin codés en dur. Aucun chemin ne vient du client.
     - `update_check`, `update_available`, `update_upgrade_all`, `update_upgrade(package)`, `update_status` ;
     - `system_reboot`, `system_restart`, `system_info` ;
@@ -91,7 +92,7 @@ Les constats calaos-container portent sur `origin/main`.
     |---|---|---|
     | `admin_not_set` | admin non défini | proposer le bootstrap |
     | `admin_already_set` | bootstrap concurrent | « Quelqu'un vient de définir le mot de passe admin » et bannière |
-    | `bad_session` (401) | session absente, expirée ou invalidée | nouvelle demande du mot de passe, silencieuse |
+    | `bad_session` (401) | session absente, expirée ou invalidée (`set`, `reset`, 5 échecs de code) | nouvelle demande du mot de passe, silencieuse |
     | `password_too_short` | moins de 10 caractères | longueur minimale |
     | `https_required` | transport non sûr | « utilisez https:// » |
     | `daemon_too_old` (404) | ancien daemon en mémoire | « Activation en cours », « Redémarrez la box » en repli |
@@ -126,7 +127,7 @@ Les constats calaos-container portent sur `origin/main`.
   - `Origin: null` est refusé.
   - Casse, point final et port par défaut sont normalisés, et le port n'est comparé que si `Host` en contient un.
   - L'absence d'Origin est acceptée (clients natifs).
-  - Tant que l'admin n'est pas défini, rien ne change : tout Origin est accepté et ACAO reflète comme aujourd'hui. Les Origins qui seraient refusés sont journalisés, pour qu'on puisse les ajouter à `api_allowed_hosts` avant le bootstrap. Le contrôle s'applique dès que l'admin est défini.
+  - Tant que l'admin n'est pas défini, rien ne change (décision de Raoul, 2026-10-22) : tout Origin est accepté et ACAO reflète comme aujourd'hui. Les Origins qui seraient refusés sont journalisés, pour qu'on puisse les ajouter à `api_allowed_hosts` avant le bootstrap. Le contrôle s'applique dès que l'admin est défini.
   - En dev, le proxy Vite réécrit l'Origin vers la cible (WA2) : rien à configurer sur la box.
 
 ### Montée de version sans rupture
@@ -137,7 +138,7 @@ Exigence de Raoul : une installation existante monte vers les versions admin par
   - nouveau calaos_server avec l'ancien daemon encore en mémoire.
 
   Pour cela, les routes et les formes de réponse actuelles du daemon restent servies telles quelles (upgrade synchrone compris) pendant au moins une release. L'enveloppe CC-040, le job 202 de CC3 et les routes admin vivent sous un préfixe versionné choisi dans CC-040 (par exemple `/api/v2/`). CH1 n'est pas un prérequis de la montée : il doit seulement être livré avant le retrait des routes legacy.
-- **Token (CC2)** : même chemin, `/run/calaos/calaos-ct.token`. Le fichier n'est écrit que s'il est absent, donc au boot (`/run` est un tmpfs) : un calaos_server ou un kiosque déjà lancé garde un token valide, et le nouveau format prend effet au boot suivant. `?token=` n'est retiré que si l'ancien kiosque ne s'en sert pas (vérifié dans CH1), sinon une release après CH1.
+- **Token (CC2)** : même chemin, `/run/calaos/calaos-ct.token`. Le fichier n'est écrit que s'il est absent, donc au boot (`/run` est un tmpfs) : un calaos_server ou un kiosque déjà lancé garde un token valide, et le nouveau format prend effet au boot suivant ; l'ancien token faible reste donc valable jusque-là (décision de Raoul, 2026-10-22). `?token=` n'est retiré que si l'ancien kiosque ne s'en sert pas (vérifié dans CH1), sinon une release après CH1 (décision de Raoul, 2026-10-22).
 - **Activation du nouveau daemon, sans reboot.** `--no-stop-on-upgrade` reste : un redémarrage immédiat tuerait le daemon s'il exécute lui-même le run apt (CLI, kiosque, webapp). La postinst lance à la place un redémarrage différé (unit transitoire `systemd-run`) qui :
   - attend la libération du verrou dpkg, puis la fin du job en cours (statut lu sur la route legacy, que l'ancien daemon sert aussi) ;
   - ne redémarre que si le processus en mémoire tourne encore sur l'ancien binaire (`/proc/<pid>/exe` marqué supprimé).
@@ -173,11 +174,11 @@ Exigence de Raoul : une installation existante monte vers les versions admin par
   - Le daemon envoie un code **à ce seul token**, et l'utilisateur le tape dans la webapp : c'est la preuve qu'il possède le téléphone.
   - Le daemon stocke le token comme approbateur. Pas de secret d'appareil : rien n'est remis au téléphone, donc rien à voler par `register_push`.
 - **Nombre d'approbateurs** : un seul suffit (décision de Raoul). Un second est possible en option.
-- **Rotation du token push** (réinstallation, restauration, purge à 30 jours) : c'est un ré-enrôlement. Le changement d'approbateur exige un code ; si l'ancien token est mort, on passe par le second approbateur s'il existe, sinon par `calaos-os admin reset` puis `admin set`. En attendant, les mises à jour et le reboot restent possibles avec le seul mot de passe admin : seuls la console, le réseau et le changement d'approbateur sont bloqués.
+- **Rotation du token push** (réinstallation, restauration, purge à 30 jours) : c'est un ré-enrôlement. Le changement d'approbateur exige un code ; si l'ancien token est mort, on passe par le second approbateur s'il existe, sinon par `calaos-os admin reset` puis `admin set` en SSH (décision de Raoul, 2026-10-22). En attendant, les mises à jour et le reboot restent possibles avec le seul mot de passe admin : seuls la console, le réseau et le changement d'approbateur sont bloqués.
 - **Code**
   - 6 chiffres, valable 60 s, à usage unique.
   - Lié à la session daemon, à l'action et au hash des paramètres.
-  - Invalidé après 5 essais. Un seul code en attente par session, au moins 10 s entre deux générations, environ 10 par heure au total.
+  - Invalidé après 5 essais, qui invalident aussi la session daemon : il faut redonner le mot de passe admin. Un seul code en attente par session, au moins 10 s entre deux générations, environ 10 par heure au total.
   - Comparaison en temps constant.
 - **Envoi**
   - Le daemon publie `push_code {approver_id, code_id}` sur `/events`, sans token ni code.
@@ -259,7 +260,7 @@ Chemin critique ≈ 13,5 j : CC-040, CC-042, CC2, CC1, CC3, CB3, RC1.
 
 | Repo | Ticket | Contenu | Durée |
 |---|---|---|---|
-| calaos-container + calaos_base | AP1 | approbateurs et codes push : enrôlement par code, `push_code {approver_id, code_id}`, route bearer de récupération, limites, liaison à l'action | 3 j |
+| calaos-container + calaos_base | AP1 | approbateurs et codes push : enrôlement par code, `push_code {approver_id, code_id}`, route bearer de récupération, limites, liaison à l'action, invalidation de la session après 5 échecs de code | 3 j |
 | calaos_mobile | AP2 | nom d'appareil dans `register_push` ; `register_push` en mode HTTP envoyé avec les identifiants (aujourd'hui un échec de login par session) | 0,5 j |
 | calaos-container | CO1 | console pty, ticket, limites, ping, audit sur stdout | 1 j |
 | calaos_base | CO2 | tunnel `/api/console`, `secureTransport()` et Origin sur les en-têtes détectés, bearer injecté | 1,25 j |
@@ -312,18 +313,18 @@ Chemin critique ≈ 13,5 j : CC-040, CC-042, CC2, CC1, CC3, CB3, RC1.
 - Avant le bootstrap, quiconque a le mot de passe partagé peut définir l'admin le premier. On le détecte par le push et la bannière, même si calaos_server était arrêté, et on répare par `calaos-os admin set`.
 - Un `haproxy.cfg` modifié avec un frontend sans `set-header X-Forwarded-Proto` laisse passer la valeur du client.
 - Les correctifs CC-011 et CC-014 ne protègent une box qu'après la mise à jour du daemon et son redémarrage.
-- Après une montée sans reboot, l'ancien token faible reste en service jusqu'au boot suivant.
-- Tant que l'admin n'est pas défini, la box garde l'exposition actuelle : pas de contrôle d'Origin, ACAO reflété, DNS rebinding possible sur le port 5454.
+- Après une montée sans reboot, l'ancien token faible reste en service jusqu'au boot suivant (décision de Raoul, 2026-10-22).
+- Tant que l'admin n'est pas défini, la box garde l'exposition actuelle : pas de contrôle d'Origin, ACAO reflété, DNS rebinding possible sur le port 5454 (décision de Raoul, 2026-10-22).
 - Les routes legacy du daemon restent ouvertes pendant au moins une release, avec leur forme actuelle.
 - Webapp sur certificat auto-signé : l'utilisateur accepte un avertissement. Un MITM actif sur le LAN peut servir le port 80 en clair, et HSTS n'est pas possible. Un certificat Let's Encrypt via le DDNS supprime ce risque. Via un VPN sans certificat, comme MLSH, l'avertissement reste, mais le MITM n'est plus possible à l'intérieur du tunnel.
 - Le limiteur argon2 du daemon (environ 5 échecs par minute) permet à un tiers qui échoue en boucle de retarder les déverrouillages légitimes.
-- Sans second approbateur, une rotation du token push oblige à passer par SSH pour la console et le réseau.
+- Sans second approbateur, une rotation du token push oblige à passer par SSH pour la console et le réseau (décision de Raoul, 2026-10-22).
 
 ## Vérification
 - **calaos-container** (tests Go) :
   - token de 32 octets en 0600, `?token=` refusé sur toutes les routes ;
   - hash, longueur minimale, limiteur qui ne compte que les échecs ;
-  - session de 32 octets, expiration absolue à 15 min, invalidation par `set` et `reset`, survie à l'auto-redémarrage ;
+  - session de 32 octets, expiration absolue à 15 min, invalidation par `set`, `reset` et 5 échecs de code (phase 2), survie à l'auto-redémarrage ;
   - deux bootstraps concurrents : un seul gagne, l'autre reçoit `admin_already_set` ;
   - alerte publiée sans abonné, rejouée au premier abonné, plus jamais après l'ack ;
   - upgrade asynchrone, résultat persisté, sortie 0 après auto-mise à jour, 409 sur reboot pendant un job ;
@@ -353,7 +354,8 @@ Chemin critique ≈ 13,5 j : CC-040, CC-042, CC2, CC1, CC3, CB3, RC1.
   - `push_code` par id : le bus ne porte ni token ni code, calaos_server récupère `{token, message}` par la route bearer et pousse vers ce seul token ;
   - un client foyer ne reçoit jamais `push_code` ;
   - `register_push` d'un token approbateur par un client foyer ne change rien à l'approbateur ;
-  - brute force du code bloqué après 5 essais, ticket console non rejouable, pty tué à l'expiration, pings sans effet sur l'inactivité ;
+  - brute force du code bloqué après 5 essais, et session daemon invalidée (`bad_session` à l'appel suivant) ;
+  - ticket console non rejouable, pty tué à l'expiration, pings sans effet sur l'inactivité ;
   - `/api/console` refusé hors haproxy et avec un Origin étranger ;
   - entrée d'audit présente dans journald.
 - **Recette en VM (RC1)**, depuis l'image stable 4.5.0, sans aucune admin définie au départ :
