@@ -1057,7 +1057,7 @@ TEST_F(JsonApiEventLogTest, ALockedDatabaseIsAnsweredOnBothTransports)
     WsTestSession ws;
     ws.send(Json{ { "msg", "eventlog" }, { "msg_id", "eventlog_page:3:1" }, { "data", Json{ { "page", "1" }, { "per_page", "2" } } } });
     const bool wsAnswered = waitLocked([&ws]()
-                                      {
+                                       {
         return hasEventLogAnswer(ws);
     });
     Json envelope;
@@ -1078,7 +1078,7 @@ TEST_F(JsonApiEventLogTest, ALockedDatabaseIsAnsweredOnBothTransports)
                                  { "page", "0" },
                                  { "per_page", "2" } }));
     const bool httpAnswered = waitLocked([&req]()
-                                        {
+                                         {
         return req.count() > 0;
     });
 
