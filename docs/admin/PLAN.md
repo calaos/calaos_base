@@ -76,7 +76,7 @@ Les constats calaos-container portent sur `origin/main`.
   - `change_cred` (le mot de passe du foyer) reste au niveau foyer, car il exige déjà le mot de passe actuel. L'écran de Calaos mobile continue donc de fonctionner (décision de Raoul, 2026-10-18).
   - Tant que l'admin n'est pas défini (daemon joignable), `admin` répond `admin_not_set` et le reste fonctionne comme aujourd'hui.
   - **État admin dans calaos_server** (module `AdminState`, livré par CB2, consommé par CB1 et CB3), règle « collante » (décision de Raoul, 2026-10-22) :
-    - `admin/status` est lu au démarrage, relu toutes les 60 s (toutes les 5 s tant que l'état est inconnu) et à chaque `admin_set` ou `admin_reset` reçu sur `/events` (CB3) ;
+    - `admin/status` est lu au démarrage, relu toutes les 60 s (tant que l'état est inconnu : toutes les 5 s pendant les 2 premières minutes, puis 60 s ; l'échec n'est journalisé qu'une fois) et à chaque `admin_set` ou `admin_reset` reçu sur `/events` (CB3) ;
     - drapeau persistant `admin_seen_set` dans le répertoire de cache de calaos_server (`Utils::getCachePath()`, fichier `admin_seen_set`). `config put` ne peut pas l'écrire : sa liste blanche se limite aux trois fichiers de config ;
     - **daemon joignable** : sa réponse fait foi et met le drapeau à jour. « Défini » le pose ; `admin_not_set`, ou un 404 d'un ancien daemon, l'efface ;
     - **daemon injoignable ou réponse invalide, drapeau présent** : fermé. `config`, `get_mcp_info` et `admin*` répondent `daemon_unreachable`, le contrôle d'Origin s'applique et ACAO n'est plus reflété ;
@@ -125,7 +125,7 @@ Les constats calaos-container portent sur `origin/main`.
     | `https_required` | transport non sûr | « utilisez https:// » |
     | `daemon_too_old` (404) | ancien daemon en mémoire | « Activation en cours », « Redémarrez la box » en repli |
     | `daemon_unreachable` | daemon injoignable alors que l'admin a déjà été vu défini, erreur de bearer | réessayer |
-    | `admin_unavailable` | daemon injoignable et admin jamais vu défini (Docker, dev, autre distribution) | « Administration disponible seulement sur Calaos OS » |
+    | `admin_unavailable` | daemon injoignable et admin jamais vu défini (Docker, dev, autre distribution) | « Administration indisponible (calaos-container injoignable ; disponible seulement sur Calaos OS) », nouvel essai automatique |
     | `upgrade_in_progress` (409) | job en cours | « Une mise à jour est déjà en cours » |
     | `not_allowed` | hors table, scope MCP, bootstrap refusé | message explicite |
 
@@ -273,10 +273,10 @@ Exigence de Raoul : une installation existante monte vers les versions admin par
 | pkgdebs, calaos_ddns | PK1 | `calaos-server` : `Depends: calaos-container (>= <version admin>)`, pas de `Breaks` ; ligne XFP du backend dans les deux templates, nouveaux fichiers seulement | 0,2 j |
 | calaos_base | CB0 | section Admin de `docs/08_http_api.md` : messages, enveloppe, `admin_set` (bootstrap et changement), `admin_event`, format d'erreur ; dérivé de la section admin de `docs/API.md` | 0,25 j |
 | calaos_base | CB1 | Origin sur WS et HTTP : règle haproxy-https, IP d'interfaces, `api_allowed_hosts`, `null` refusé, normalisation, ACAO conditionnel (`HttpClient.cpp:337` et `WebSocket.cpp:401`) ; sans admin défini, journalisation seule. Depends on: CB2 (`AdminState`, `secureTransport()`) | 0,75 j |
-| calaos_base | CB2 | client HTTP du daemon (`UrlDownloader`, bearer relu au démarrage et à chaque 401), module `AdminState` (règle collante, drapeau `admin_seen_set`, 404 et injoignable, `admin_unavailable`), `admin_unlock` et `admin_set` en WS et HTTP, `admin_session`, répartition et gating du message `admin`, `admin_not_set`, `secureTransport()`, condition de bootstrap et entrée `DECISIONS.md`, refus pour le scope MCP, chaînes d'erreur lisibles, faux daemon de test (`CALAOS_CONTAINER_URL`, loopback seulement). Depends on: CB0 | 3 j |
+| calaos_base | CB2 | client HTTP du daemon (`UrlDownloader`, bearer relu au démarrage et à chaque 401), module `AdminState` (règle collante, drapeau `admin_seen_set`, 404 et injoignable, `admin_unavailable`), `admin_unlock` et `admin_set` en WS et HTTP, `admin_session`, répartition et gating du message `admin`, `admin_not_set`, `secureTransport()`, condition de bootstrap et entrée `DECISIONS.md`, refus pour le scope MCP, chaînes d'erreur lisibles, faux daemon de test (`CALAOS_CONTAINER_URL`, loopback seulement) ; les tests d'`AdminState` utilisent un répertoire de cache temporaire (`--cache`) et ne touchent jamais `~/.cache/calaos`. Depends on: CB0 | 3 j |
 | calaos_base | CB3 | client WebSocket `/events` (sur `WebSocketFrame`, reconnexion avec backoff, 404/426 ⇒ daemon trop ancien), relais en table fermée, filtre des événements, ack des alertes vers push et `EventPushNotification`, rafraîchissement d'`AdminState`, `mcp_regenerate`. Depends on: CB2, CC3 | 3 j |
 | calaos_base | CB4 | plafond des nouvelles identités XFF venues du loopback dans `LoginThrottle`. Après CB2 | 0,5 j |
-| calaos-web-app | WA1 | vue Admin : définir / déverrouiller, changer le mot de passe admin (`admin_set` avec session), mises à jour, progression, reprise après redémarrage serveur, reboot, « utilisez https:// », écran du mot de passe foyer, liste `api_allowed_hosts` affichée au bootstrap, délai de 5 s sur `admin_unlock`, « Activation en cours » avec nouvel essai puis repli sur « Redémarrez la box », messages d'erreur, bouton « Régénérer » du jeton MCP, scénarios du mock. Depends on: CB0 | 3,5 j |
+| calaos-web-app | WA1 | vue Admin : définir / déverrouiller, changer le mot de passe admin (`admin_set` avec session), mises à jour, progression, reprise après redémarrage serveur, reboot, « utilisez https:// », écran du mot de passe foyer, liste `api_allowed_hosts` affichée au bootstrap, délai de 5 s sur `admin_unlock`, « Activation en cours » avec nouvel essai puis repli sur « Redémarrez la box », nouvel essai automatique sur `admin_unavailable`, messages d'erreur, bouton « Régénérer » du jeton MCP, scénarios du mock. Depends on: CB0 | 3,5 j |
 | calaos-web-app | WA2 | réécriture de l'Origin par le proxy de dev | 0,1 j |
 | calaos_installer | CI1 | champ mot de passe admin optionnel, `admin_unlock` une fois par dialogue, `admin_session` dans `config`, réécriture https et une retentative sur `https_required`, refus affiché. Depends on: CB0 | 0,5 j |
 | doc-website | DOC1 | pages update et services : la montée se fait avec l'outil habituel, la webapp remplace ensuite SSH ; récupération par `admin set` ; `reset` après changement du mot de passe foyer ; rollback ; `api_allowed_hosts` avant le bootstrap ; `haproxy.cfg` modifié ; Docker et autres distributions : pas d'administration web | 0,5 j |
@@ -358,7 +358,7 @@ Ordre phase 2 : AP1a ∥ AP2, puis AP1b, puis WA3 ; CO1 (après AP1a), puis CO2,
 ## Risques résiduels acceptés
 - Une RCE dans calaos_server donne root (conteneur privilégié).
 - Un accès physique donne root.
-- Conteneurs du netns hôte (mosquitto anonyme, frontend zigbee2mqtt sans `auth_token`, grafana 8 en root) : en compromettre un donne un pair loopback qui forge XFP et XFF, passe `secureTransport()` et force le mot de passe foyer (freiné par le plafond d'identités) puis le mot de passe admin au rythme du daemon. Il n'obtient ni session ni code. Corrigé en phase 3.
+- Conteneurs du netns hôte (mosquitto anonyme, frontend zigbee2mqtt sans `auth_token`, grafana 8 en root) : en compromettre un donne un pair loopback qui forge XFP et XFF, passe `secureTransport()` et force le mot de passe foyer (freiné par le plafond d'identités) puis le mot de passe admin au rythme du daemon. Il n'obtient ni session ni code. Il peut aussi, pendant un redémarrage du daemon, usurper le port 8000 : effacer `admin_seen_set` et capter le bearer. Corrigé en phase 3.
 - Quiconque tient le bearer du daemon peut réécrire le mot de passe admin par le mode récupération, comme une RCE dans calaos_server.
 - Un rollback restaure le mot de passe admin et le mot de passe foyer de l'époque.
 - Avec la console, un attaquant venu d'Internet doit disposer du mot de passe partagé, du mot de passe admin et du téléphone.
@@ -400,7 +400,7 @@ Ordre phase 2 : AP1a ∥ AP2, puis AP1b, puis WA3 ; CO1 (après AP1a), puis CO2,
 - **calaos_base** (tests JsonApi, faux daemon via `CALAOS_CONTAINER_URL`) :
   - `admin_not_set` ;
   - sans admin défini, comportement identique à aujourd'hui : Origin étranger accepté et journalisé, ACAO reflété, `config` et `get_mcp_info` au niveau foyer ;
-  - `AdminState` :
+  - `AdminState` (répertoire de cache temporaire via `--cache`, jamais `~/.cache/calaos`) :
     - sans daemon, comportement identique à aujourd'hui (`config get/put`, `get_mcp_info`, Origin, ACAO), et `admin*` répond `admin_unavailable` ;
     - drapeau `admin_seen_set` présent et daemon arrêté : `config`, `get_mcp_info` et `admin*` en `daemon_unreachable`, Origin contrôlé, ACAO non reflété ;
     - daemon joignable : « défini » pose le drapeau, `admin_not_set` ou un 404 l'efface ;
