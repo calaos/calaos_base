@@ -120,6 +120,7 @@
 #include "ListeRoom.h"
 #include "JsonApi.h"
 
+#include <sqlite3.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -192,6 +193,14 @@ protected:
      * JsonApiSession_test.cpp::ensureHistLogger()); only the directory template
      * and the id prefix differ, so the two binaries cannot share a database.
      **************************************************************************/
+    static char *histDir()
+    {
+        static char tmpl[] = "/tmp/calaos_t317f_hist_XXXXXX";
+        return tmpl;
+    }
+
+    static std::string histDbPath() { return std::string(histDir()) + "/cache/events.db"; }
+
     static void ensureHistLogger()
     {
         static bool done = false;
@@ -199,7 +208,7 @@ protected:
             return;
         done = true;
 
-        static char tmpl[] = "/tmp/calaos_t317f_hist_XXXXXX";
+        char *tmpl = histDir();
         ASSERT_TRUE(::mkdtemp(tmpl) != nullptr)
                 << "could not create the history database directory";
 
@@ -228,7 +237,7 @@ protected:
 
         ::atexit([]()
         {
-            const std::string cmd = std::string("rm -rf '") + tmpl + "'";
+            const std::string cmd = std::string("rm -rf '") + histDir() + "'";
             if (::system(cmd.c_str()) != 0) {}
         });
     }
@@ -986,4 +995,81 @@ TEST_F(JsonApiEventLogTest, ASecondClientLeavingDoesNotSwallowTheFirstAnswer)
     ASSERT_TRUE(data.is_object());
     EXPECT_JSON_EQ(Json(seededEventCount()), member(data, "total_count"));
     EXPECT_EQ(2u, member(data, "events").size());
+}
+
+/* The app matches each answer to its page through the msg_id it sent
+ * (eventlog_page:<generation>:<page>): every eventlog answer echoes it as is.
+ */
+TEST_F(JsonApiEventLogTest, EveryWsAnswerEchoesTheMsgIdOfItsRequest)
+{
+    seedEventLog();
+
+    const std::vector<std::pair<std::string, Json>> requests = {
+        { "eventlog_page:7:0", Json{{ "page", "0" }, { "per_page", "2" }} },
+        { "eventlog_page:7:1", Json{{ "page", "1" }, { "per_page", "2" }} },
+        { "eventlog_page:7:9", Json{{ "page", "9" }, { "per_page", "2" }} },
+        { "eventlog_page:8:0", Json{{ "uuid", seededUuids()[1] }} },
+        { "eventlog_page:8:1", Json{{ "uuid", "t317f-no-such-uuid" }} },
+    };
+
+    for (const auto &r: requests)
+    {
+        WsTestSession ws;
+        ws.send(Json{{ "msg", "eventlog" }, { "msg_id", r.first }, { "data", r.second }});
+        ASSERT_TRUE(waitUntil([&ws]() { return hasEventLogAnswer(ws); })) << r.first;
+
+        for (const auto &m: ws.messages())
+        {
+            const Json env = asJsonDocument(m);
+            if (str(env, "msg") == "eventlog")
+            {
+                EXPECT_EQ(r.first, str(env, "msg_id"));
+            }
+        }
+    }
+}
+
+/* events.db locked by another process: both transports still answer, with the
+ * {"error": ...} document every other eventlog failure already uses.
+ */
+TEST_F(JsonApiEventLogTest, ALockedDatabaseIsAnsweredOnBothTransports)
+{
+    seedEventLog();
+
+    sqlite3 *locker = nullptr;
+    ASSERT_EQ(SQLITE_OK, sqlite3_open(histDbPath().c_str(), &locker));
+    ASSERT_EQ(SQLITE_OK, sqlite3_exec(locker, "BEGIN EXCLUSIVE;", nullptr, nullptr, nullptr));
+
+    WsTestSession ws;
+    ws.send(Json{{ "msg", "eventlog" }, { "msg_id", "eventlog_page:3:1" },
+                 { "data", Json{{ "page", "1" }, { "per_page", "2" }} }});
+    const bool wsAnswered = waitUntil([&ws]() { return hasEventLogAnswer(ws); });
+    Json envelope;
+    for (const auto &m: ws.messages())
+        if (str(asJsonDocument(m), "msg") == "eventlog")
+            envelope = asJsonDocument(m);
+
+    WsTestSession wsUuid;
+    const Json uuidData = wsEventLog(wsUuid, Json{{ "uuid", seededUuids()[0] }});
+
+    HttpTestRequest req;
+    req.send(authenticated(Json{{ "action", "eventlog" },
+                                { "page", "0" }, { "per_page", "2" }}));
+    const bool httpAnswered = waitUntil([&req]() { return req.count() > 0; });
+
+    sqlite3_exec(locker, "COMMIT;", nullptr, nullptr, nullptr);
+    sqlite3_close(locker);
+
+    ASSERT_TRUE(wsAnswered) << "the websocket client never got an answer";
+    EXPECT_JSON_GOLDEN("evlog_ws_eventlog_db_locked", envelope);
+    EXPECT_JSON_EQ(member(envelope, "data"), uuidData);
+
+    ASSERT_TRUE(httpAnswered) << "the http client never got an answer";
+    EXPECT_EQ("HTTP/1.0 200 OK", req.statusLine());
+    EXPECT_JSON_GOLDEN("evlog_http_eventlog_db_locked", req.body());
+
+    //Answers come back once the lock is gone.
+    WsTestSession after;
+    const Json data = wsEventLog(after, Json{{ "page", "0" }, { "per_page", "2" }});
+    EXPECT_JSON_EQ(Json(seededEventCount()), member(data, "total_count"));
 }
