@@ -133,12 +133,21 @@ namespace PushTokenDb
 {
 //Creates the table and adds push_format to tables from older servers. False
 //when the column is still missing (database locked or read only): tokens are
-//then stored and read in the notification format until a later start.
-bool prepare(sqlite::database &db);
+//then stored and read in the notification format. *locked tells a failure
+//that a later call may not hit.
+bool prepare(sqlite::database &db, bool *locked = nullptr);
 void save(sqlite::database &db, const PushToken &token, bool hasFormat);
 vector<PushToken> load(sqlite::database &db, bool hasFormat);
 //Tokens not registered again for 30 days.
 void purge(sqlite::database &db);
 } //namespace PushTokenDb
+
+//Statements of the paginated read and the retention purge, checked against
+//the index by the tests.
+namespace HistEventSql
+{
+extern const char *const ReadPage;
+extern const char *const Purge;
+} //namespace HistEventSql
 
 #endif

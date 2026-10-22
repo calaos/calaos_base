@@ -410,6 +410,21 @@ La seule autre écriture en base vient de `ActionPush`, qui insère directement 
 HistLogger::Instance().appendEvent(e);
 ```
 
+Rétention : à chaque événement écrit, les événements datés d'avant le jour
+`date('now', '-<history_keep_days> days')` (30 par défaut) sont supprimés, avec
+les images de leurs notifications push. Cette date ne change qu'une fois par
+jour (ou quand l'option change) et les nouveaux événements sont datés de
+maintenant : la purge ne s'exécute donc que lorsque la date limite a bougé,
+sans rien changer à ce qu'elle supprime. Elle passe par l'index
+`events_created_at` (`created_at DESC, id`), qui sert aussi la lecture paginée.
+
+Le thread SQLite répond à **toute** lecture, y compris quand SQLite lève une
+exception : `success=false` et un message d'erreur, jamais de silence. Sa
+connexion attend jusqu'à 2 s un verrou posé par un autre processus avant
+d'échouer. Si la base est verrouillée au démarrage, la création de l'index et
+la migration de `push_tokens` sont retentées à chaque requête jusqu'à réussir ;
+un autre échec (disque en lecture seule) n'est pas retenté.
+
 Consultable via l'API JSON : action/message `eventlog` → `buildJsonEventLog()`.
 Voir [08_http_api.md](08_http_api.md) pour la forme de la réponse — c'est la
 seule de l'API à contenir de vrais entiers JSON.

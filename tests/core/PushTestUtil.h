@@ -54,7 +54,9 @@ namespace PushTest
 inline bool pumpUntil(const std::function<bool()> &done)
 {
     auto loop = uvw::Loop::getDefault();
-    for (int i = 0; i < 400; i++)
+    //Long enough for a few statements each waiting out HistLogger's busy
+    //timeout on a locked database.
+    for (int i = 0; i < 4000; i++)
     {
         if (done())
             return true;

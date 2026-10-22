@@ -2344,7 +2344,9 @@ core_JsonApiEventLog_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Standar
 #Goldens are data, they must travel with the distribution
 EXTRA_DIST += core/golden/t317f_ws_eventlog_page_out_of_range.json \
                   core/golden/t317f_ws_eventlog_uuid_not_found.json \
-                  core/golden/t317f_http_eventlog_uuid_not_found.json
+                  core/golden/t317f_http_eventlog_uuid_not_found.json \
+                  core/golden/evlog_ws_eventlog_db_locked.json \
+                  core/golden/evlog_http_eventlog_db_locked.json
 endif
 
 #T3.19: the two REMOTE CRASHES of JsonApi.cpp reachable by an authenticated
@@ -8325,5 +8327,33 @@ core_HttpClientDropLog_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/HttpClient.
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
                   $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#A history read whose SQL fails (events.db locked) is still answered, as a
+#failure, and the failure logs neither event contents nor the uuid asked.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/HistLoggerReadFailure_test
+check_PROGRAMS += core/HistLoggerReadFailure_test
+core_HistLoggerReadFailure_test_SOURCES = core/HistLoggerReadFailure_test.cpp \
+                  core/PushTestUtil.h
+core_HistLoggerReadFailure_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_HistLoggerReadFailure_test_LDADD = $(CORE_TEST_LDADD)
+core_HistLoggerReadFailure_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#events.db from servers without the created_at index: migrated without loss,
+#read through the index in the same order, same retention.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/HistLoggerSchema_test
+check_PROGRAMS += core/HistLoggerSchema_test
+core_HistLoggerSchema_test_SOURCES = core/HistLoggerSchema_test.cpp \
+                  core/PushTestUtil.h
+core_HistLoggerSchema_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_HistLoggerSchema_test_LDADD = $(CORE_TEST_LDADD)
+core_HistLoggerSchema_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif

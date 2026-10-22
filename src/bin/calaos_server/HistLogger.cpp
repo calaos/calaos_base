@@ -38,6 +38,11 @@
     "event_raw TEXT, " \
     "pic_uid TEXT);"
 
+//Serves the paginated read and the retention purge. id keeps the order the
+//unindexed sort gave to events logged within the same second: oldest first.
+#define DB_CREATE_SQL_EVENTS_INDEX "CREATE INDEX IF NOT EXISTS events_created_at " \
+                                   "ON events (created_at DESC, id);"
+
 #define DB_CREATE_SQL_TOKENS "CREATE TABLE IF NOT EXISTS push_tokens ("        \
                              "id INTEGER PRIMARY KEY UNIQUE NOT NULL, "        \
                              "token TEXT, "                                    \
@@ -45,8 +50,31 @@
                              "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, " \
                              "push_format INTEGER NOT NULL DEFAULT 0);"
 
-bool PushTokenDb::prepare(sqlite::database &db)
+const char *const HistEventSql::ReadPage =
+    "SELECT uuid, created_at, event_type, io_id, io_state, event_raw, pic_uid FROM events "
+    "ORDER BY created_at DESC, id LIMIT ?, ?;";
+const char *const HistEventSql::Purge = "DELETE FROM events WHERE created_at <= ?;";
+
+namespace
 {
+
+//A transient lock (an update, another process) is waited for rather than
+//turned into a failed read or a lost event.
+const int BusyTimeoutMs = 2000;
+
+bool isLock(const sqlite::sqlite_exception &e)
+{
+    const int code = e.get_code() & 0xff;
+    return code == SQLITE_BUSY || code == SQLITE_LOCKED;
+}
+
+} //namespace
+
+bool PushTokenDb::prepare(sqlite::database &db, bool *locked)
+{
+    if (locked)
+        *locked = false;
+
     try
     {
         db << DB_CREATE_SQL_TOKENS;
@@ -64,8 +92,10 @@ bool PushTokenDb::prepare(sqlite::database &db)
     }
     catch (sqlite::sqlite_exception &e)
     {
+        if (locked)
+            *locked = isLock(e);
         cWarningDom("history") << "push_tokens: cannot add push_format (" << e.get_code() << ": " << e.what()
-                               << "), every token is served in the notification format";
+                               << "), tokens are served in the notification format meanwhile";
         return false;
     }
 }
@@ -134,11 +164,151 @@ public:
     vector<HistEvent> events;
     bool success = true;
     string errMsg;
-    int page, per_page, total_count, total_page;
+    int page = 0, per_page = 0, total_count = 0, total_page = 0;
     string uuid;
     PushToken token;
     vector<PushToken> tokens;
 };
+
+namespace
+{
+
+//False when the table or its index could not be set up; *locked tells a
+//failure that a later call may not hit.
+bool prepareEvents(sqlite::database &db, bool &locked)
+{
+    locked = false;
+    try
+    {
+        db << DB_CREATE_SQL_EVENTS;
+        db << DB_CREATE_SQL_EVENTS_INDEX;
+        return true;
+    }
+    catch (const sqlite::sqlite_exception &e)
+    {
+        locked = isLock(e);
+        cCriticalDom("history") << "Cannot set up the events table: " << e.get_code() << ": " << e.what()
+                                << (locked ? ", retried on the next request" : "");
+        return false;
+    }
+}
+
+//Events dated before the day history_keep_days ago go, with the pictures of
+//their push notifications. New events are dated now, so nothing becomes old
+//enough until that day changes: one purge per cutoff deletes exactly what a
+//purge after every event did.
+void purgeEvents(sqlite::database &db, string &lastCutoff)
+{
+    string numdays = Utils::get_config_option("history_keep_days");
+    if (numdays == "")
+        numdays = "30";
+
+    //'' when sqlite rejects the modifier: no event is old enough then.
+    string cutoff;
+    db << "SELECT ifnull(date('now', ?), '');"
+       << "-" + numdays + " days" >>
+        cutoff;
+    if (cutoff == lastCutoff)
+        return;
+
+    cDebugDom("history") << "Cleaning events older than " << numdays << " days";
+
+    if (!cutoff.empty())
+    {
+        vector<string> pictures;
+        db << "SELECT pic_uid FROM events WHERE created_at <= ? AND pic_uid != '';" << cutoff >> [&](string pic_uid)
+        {
+            pictures.push_back(std::move(pic_uid));
+        };
+
+        //Files go only once their rows are gone: a failed DELETE keeps both.
+        db << HistEventSql::Purge << cutoff;
+
+        for (const string &pic_uid: pictures)
+        {
+            string file = Utils::getCacheFile("push_pictures") + "/" + pic_uid + ".jpg";
+
+            cDebugDom("history") << "Deleting file: " << file;
+            if (!FileUtils::unlink(file))
+                cWarningDom("history") << "Failed to delete file: " << file;
+        }
+    }
+
+    lastCutoff = cutoff;
+}
+
+void readPage(sqlite::database &db, HistWorkerAction &ac)
+{
+    int rowcount = 0;
+    db << "SELECT count(*) FROM events;" >> rowcount;
+
+    ac.total_count = rowcount;
+    ac.total_page = rowcount / ac.per_page + ((rowcount % ac.per_page) > 0 ? 1 : 0);
+
+    if (ac.page > ac.total_page || ac.page < 0)
+    {
+        cDebugDom("history") << "page out of range: total_count:" << ac.total_count << " total_page:" << ac.total_page;
+        ac.success = false;
+        ac.errMsg = "page is out of range";
+        return;
+    }
+
+    const sqlite_int64 start = sqlite_int64(ac.page) * ac.per_page;
+    db << HistEventSql::ReadPage
+       << start << sqlite_int64(ac.per_page) >>
+        [&](string uuid, string created_at, int event_type, string io_id, string io_state, string event_raw, string pic_uid)
+    {
+        HistEvent ev;
+        ev.uuid = uuid;
+        ev.event_type = event_type;
+        ev.io_id = io_id;
+        ev.io_state = io_state;
+        ev.event_raw = event_raw;
+        ev.pic_uid = pic_uid;
+        ev.created_at = created_at;
+
+        ac.events.push_back(ev);
+    };
+}
+
+void readSingle(sqlite::database &db, HistWorkerAction &ac)
+{
+    db << "SELECT uuid, created_at, event_type, io_id, io_state, event_raw, pic_uid FROM events WHERE uuid = ?"
+       << ac.uuid >>
+        [&](string uuid, string created_at, int event_type, string io_id, string io_state, string event_raw, string pic_uid)
+    {
+        ac.event.uuid = uuid;
+        ac.event.event_type = event_type;
+        ac.event.io_id = io_id;
+        ac.event.io_state = io_state;
+        ac.event.event_raw = event_raw;
+        ac.event.pic_uid = pic_uid;
+        ac.event.created_at = created_at;
+    };
+
+    if (ac.uuid != ac.event.uuid)
+    {
+        ac.success = false;
+        ac.errMsg = "uuid not found";
+    }
+}
+
+void insertEvent(sqlite::database &db, const HistWorkerAction &ac, string &lastCutoff)
+{
+    cDebugDom("history") << "Write to SQLite db: " << ac.event.io_id << " > " << ac.event.io_state;
+
+    db << "INSERT INTO events (uuid, event_type, io_id, io_state, event_raw, pic_uid) values (?, ?, ?, ?, ?, ?);"
+       << ac.event.uuid
+       << ac.event.event_type
+       << ac.event.io_id
+       << ac.event.io_state
+       << ac.event.event_raw
+       << ac.event.pic_uid;
+
+    purgeEvents(db, lastCutoff);
+}
+
+} //namespace
 
 HistEvent HistEvent::create()
 {
@@ -293,179 +463,45 @@ void HistLogger::sqliteWorker()
     }
 
     sqlite::database &db = *opened;
+    sqlite3_busy_timeout(db.connection().get(), BusyTimeoutMs);
 
-    try
-    {
-        db << DB_CREATE_SQL_EVENTS;
-    }
-    catch (exception &e)
-    {
-        cCriticalDom("history") << "Failed to open and setup database!";
-        cCriticalDom("history") << e.what();
-    }
-
-    bool pushFormat = PushTokenDb::prepare(db);
+    bool eventsLocked = false, tokensLocked = false;
+    bool eventsReady = prepareEvents(db, eventsLocked);
+    bool pushFormat = PushTokenDb::prepare(db, &tokensLocked);
+    string lastCutoff;
 
     while (!done)
     {
         std::shared_ptr<HistWorkerAction> ac;
-        if (eventQueue.waitPop(ac))
+        if (!eventQueue.waitPop(ac))
+            continue;
+
+        //A lock at startup must not last until the next restart.
+        if (!eventsReady && eventsLocked)
+            eventsReady = prepareEvents(db, eventsLocked);
+        if (!pushFormat && tokensLocked)
+            pushFormat = PushTokenDb::prepare(db, &tokensLocked);
+
+        //Never e.get_sql(): sqlite_modern_cpp expands it with the bound values,
+        //event contents and push tokens included.
+        try
         {
             if (ac->action == HistWorkerAction::WorkerAppend)
-            {
-                //write the new event to the db
-                cDebugDom("history") << "Write to SQLite db: " << ac->event.io_id << " > " << ac->event.io_state;
-
-                try
-                {
-                    db << "INSERT INTO events (uuid, event_type, io_id, io_state, event_raw, pic_uid) values (?, ?, ?, ?, ?, ?);"
-                       << ac->event.uuid
-                       << ac->event.event_type
-                       << ac->event.io_id
-                       << ac->event.io_state
-                       << ac->event.event_raw
-                       << ac->event.pic_uid;
-
-                    string numdays = Utils::get_config_option("history_keep_days");
-                    if (numdays == "")
-                        numdays = "30"; // 30 days are kept by default
-
-                    cDebugDom("history") << "Cleaning events older than " << numdays;
-
-                    string q = "SELECT pic_uid FROM events WHERE created_at <= date('now', '-" + numdays + " days');";
-                    db << q >> [&](string pic_uid)
-                    {
-                        string file = Utils::getCacheFile("push_pictures") + "/" + pic_uid + ".jpg";
-
-                        cDebugDom("history") << "Deleting file: " << file;
-                        if (!FileUtils::unlink(file))
-                            cWarningDom("history") << "Failed to delete file: " << file;
-                    };
-
-                    q = "DELETE FROM events WHERE created_at <= date('now', '-" + numdays + " days');";
-                    db << q;
-                }
-                catch (sqlite::sqlite_exception &e)
-                {
-                    cCriticalDom("history") << "SQL failed: " << e.get_code() << ": " << e.what()
-                                            << " during " << e.get_sql();
-                    cCriticalDom("history") << "SQLite error: " << sqlite3_errmsg(db.connection().get());
-                }
-                catch (exception &e)
-                {
-                    cCriticalDom("history") << "Failed to INSERT into db: " << e.what();
-                }
-            }
+                insertEvent(db, *ac, lastCutoff);
             else if (ac->action == HistWorkerAction::WorkerRead)
             {
                 cDebugDom("history") << "Reading from SQLite db, page:" << ac->page << " per_page:" << ac->per_page;
-
-                try
-                {
-                    int rowcount = 0;
-
-                    db << "SELECT count(*) FROM events;"
-                       >> [&](int count)
-                    {
-                        rowcount = count;
-                    };
-
-                    ac->total_count = rowcount;
-                    ac->total_page = rowcount / ac->per_page + ((rowcount % ac->per_page) > 0?1:0);
-                    int start = ac->page * ac->per_page;
-
-                    if (ac->page > ac->total_page ||
-                        ac->page < 0)
-                    {
-                        cDebugDom("history") << "page out of range: total_count:" << ac->total_count << " total_page:" << ac->total_page;
-                        ac->success = false;
-                        ac->errMsg = "page is out of range";
-                    }
-                    else
-                    {
-                        string q = "SELECT uuid, created_at, event_type, io_id, io_state, event_raw, pic_uid FROM events ORDER BY created_at DESC LIMIT "
-                            + Utils::to_string(start) + ", "
-                            + Utils::to_string(ac->per_page);
-
-                        cDebugDom("history") << q;
-
-                        db << q >> [&](string uuid, string created_at, int event_type, string io_id, string io_state, string event_raw, string pic_uid)
-                        {
-                            HistEvent ev;
-                            ev.uuid = uuid;
-                            ev.event_type = event_type;
-                            ev.io_id = io_id;
-                            ev.io_state = io_state;
-                            ev.event_raw = event_raw;
-                            ev.pic_uid = pic_uid;
-                            ev.created_at = created_at;
-
-                            ac->events.push_back(ev);
-                        };
-                    }
-
-                    //wakeup the mainloop with the result
-                    ac->handle->send();
-                }
-                catch (sqlite::sqlite_exception &e)
-                {
-                    cCriticalDom("history") << "SQL failed: " << e.get_code() << ": " << e.what()
-                                            << " during " << e.get_sql();
-                    cCriticalDom("history") << "SQLite error: " << sqlite3_errmsg(db.connection().get());
-                }
-                catch (exception &e)
-                {
-                    cCriticalDom("history") << "Failed to INSERT into db: " << e.what();
-                }
-
+                readPage(db, *ac);
             }
             else if (ac->action == HistWorkerAction::WorkerReadSingle)
             {
-                cDebugDom("history") << "Reading from SQLite db, uuid: " << ac->uuid;
-
-                try
-                {
-                    string q = "SELECT uuid, created_at, event_type, io_id, io_state, event_raw, pic_uid FROM events WHERE uuid = ?";
-                    cDebugDom("history") << q;
-
-                    db << q << ac->uuid
-                        >> [&](string uuid, string created_at, int event_type, string io_id, string io_state, string event_raw, string pic_uid)
-                    {
-                        ac->event.uuid = uuid;
-                        ac->event.event_type = event_type;
-                        ac->event.io_id = io_id;
-                        ac->event.io_state = io_state;
-                        ac->event.event_raw = event_raw;
-                        ac->event.pic_uid = pic_uid;
-                        ac->event.created_at = created_at;
-                    };
-
-                    if (ac->uuid != ac->event.uuid)
-                    {
-                        ac->success = false;
-                        ac->errMsg = "uuid not found";
-                    }
-
-                    //wakeup the mainloop with the result
-                    ac->handle->send();
-                }
-                catch (sqlite::sqlite_exception &e)
-                {
-                    cCriticalDom("history") << "SQL failed: " << e.get_code() << ": " << e.what()
-                                            << " during " << e.get_sql();
-                    cCriticalDom("history") << "SQLite error: " << sqlite3_errmsg(db.connection().get());
-                }
-                catch (exception &e)
-                {
-                    cCriticalDom("history") << "Failed to INSERT into db: " << e.what();
-                }
+                cDebugDom("history") << "Reading one event from SQLite db";
+                readSingle(db, *ac);
             }
             else if (ac->action == HistWorkerAction::WorkerTokenRegister)
             {
                 cDebugDom("history") << "Write push token to SQLite db";
 
-                //Never e.get_sql() here: sqlite_modern_cpp expands it with the
-                //bound values, the token included.
                 try
                 {
                     PushTokenDb::save(db, ac->token, pushFormat);
@@ -503,14 +539,33 @@ void HistLogger::sqliteWorker()
                         cWarningDom("history") << "Failed to purge old push tokens: " << e.get_code() << ": " << e.what();
                     }
                 }
-
-                //wakeup the mainloop with the result
-                ac->handle->send();
             }
+        }
+        catch (const sqlite::sqlite_exception &e)
+        {
+            cCriticalDom("history") << "SQL failed: " << e.get_code() << ": " << e.what()
+                                    << " (" << sqlite3_errmsg(db.connection().get()) << ")";
+            ac->success = false;
+            ac->errMsg = string("history unavailable: ") + e.what();
+        }
+        // LCOV_EXCL_START: nothing here throws besides sqlite; kept so a reader is answered whatever is thrown
+        catch (const exception &e)
+        {
+            cCriticalDom("history") << "History request failed: " << e.what();
+            ac->success = false;
+            ac->errMsg = "history unavailable";
+        }
+        // LCOV_EXCL_STOP
 
+        //Readers wait on their handle: without this send the client never
+        //gets an answer.
+        if (ac->handle)
+        {
+            if (!ac->success)
+                ac->events.clear();
+            ac->handle->send();
         }
     }
 
     cDebugDom("history") << "Exiting sqlite thread.";
 }
-

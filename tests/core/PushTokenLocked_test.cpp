@@ -20,8 +20,9 @@
  ******************************************************************************/
 
 //The first start after an update finds events.db locked: push_tokens cannot
-//gain push_format. Push must keep working with the tokens already there, and
-//nothing written about a failure may carry a token.
+//gain push_format yet. Push must keep working with the tokens already there,
+//the migration must run once the lock is gone, and nothing written about a
+//failure may carry a token.
 
 #include <gtest/gtest.h>
 
@@ -97,15 +98,16 @@ TEST(PushTokenLockedTest, TokensAreStillServedWhenTheMigrationCouldNotRun)
     EXPECT_EQ(HistLogger::PUSH_FORMAT_NOTIFICATION, a.find("old-android")->format);
 }
 
-TEST(PushTokenLockedTest, RegisteringStillWorksWithoutTheColumn)
+TEST(PushTokenLockedTest, TheMigrationRunsOnceTheLockIsGone)
 {
     HistLogger::Instance().registerPushToken("new-android", HistLogger::PUSH_HW_ANDROID,
                                              HistLogger::PUSH_FORMAT_DATA);
     const TokensAnswer a = readTokens();
     ASSERT_TRUE(a.success);
     ASSERT_NE(nullptr, a.find("new-android"));
-    //No column to keep it in until the next start migrates the table.
-    EXPECT_EQ(HistLogger::PUSH_FORMAT_NOTIFICATION, a.find("new-android")->format);
+    EXPECT_EQ(HistLogger::PUSH_FORMAT_DATA, a.find("new-android")->format);
+    ASSERT_NE(nullptr, a.find("old-android"));
+    EXPECT_EQ(HistLogger::PUSH_FORMAT_NOTIFICATION, a.find("old-android")->format);
 }
 
 TEST(PushTokenLockedTest, NoTokenInTheLogsOnSuccessOrFailure)

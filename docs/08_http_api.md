@@ -204,7 +204,7 @@ nlohmann : `total_page`, `total_count`, `page` et `per_page` y sont de vrais
 `device`, c'est le seul endroit où un client doit attendre un nombre. Toujours dans `eventlog`, le champ
 `event_raw` de chaque entrée est un **objet JSON imbriqué** (le JSON de
 l'événement est reparsé), et non une chaîne
-([HistLogger.cpp:93-100](../src/bin/calaos_server/HistLogger.cpp)).
+([HistLogger.cpp:334-341](../src/bin/calaos_server/HistLogger.cpp)).
 
 Deux conséquences de forme, dérivées du code :
 
@@ -1020,7 +1020,34 @@ réponse de l'API à contenir de vrais entiers JSON :
 ```
 Avec `uuid` en argument, la réponse est **l'objet événement seul**, sans
 pagination ; `uuid` introuvable → `{"error":"uuid not found"}`
-([HistLogger.cpp:337-341](../src/bin/calaos_server/HistLogger.cpp)).
+([HistLogger.cpp:289-293](../src/bin/calaos_server/HistLogger.cpp)).
+
+Les événements sont rendus du plus récent au plus ancien (`created_at`, à la
+seconde) ; ceux d'une même seconde, du plus ancien au plus récent. Un index
+`events_created_at` sert la lecture paginée, il est ajouté au démarrage aux
+bases existantes.
+
+#### Toute lecture reçoit une réponse
+
+Un verrou passager sur `events.db` est attendu jusqu'à 2 s. Quand la requête
+SQL échoue malgré tout (base verrouillée plus longtemps pendant une mise à jour
+ou au démarrage, fichier illisible), la réponse est l'erreur habituelle d'`eventlog`,
+avec la raison SQLite, sur les deux chemins (paginé et `uuid`) :
+
+```json
+{"error": "history unavailable: database is locked"}
+```
+En WebSocket, ce document est dans `data` et le `msg_id` de la requête est
+renvoyé tel quel, comme pour toute réponse `eventlog` :
+```json
+{"msg": "eventlog", "msg_id": "eventlog_page:3:1",
+ "data": {"error": "history unavailable: database is locked"}}
+```
+*(capturés, `tests/core/golden/evlog_http_eventlog_db_locked.json` et
+`evlog_ws_eventlog_db_locked.json`, enveloppe comprise.)* Si la base n'a pas pu
+être ouverte du tout, l'erreur est `history is disabled`. Un client qui
+numérote ses pages dans `msg_id` (`eventlog_page:<génération>:<page>`) reçoit
+donc toujours une réponse par page demandée.
 
 #### `per_page` est validé, et son refus est le seul refus **synchrone**
 
@@ -1052,7 +1079,7 @@ Ce qu'un client doit en retenir, et qui n'est pas intuitif :
   **toutes** les lignes du journal sous un document annonçant `per_page: -5` ;
 - **`page`, elle, n'est pas gardée ici** — c'est délibéré. Son refus reste celui
   de `HistLogger`, **asynchrone** et formulé autrement
-  (`page is out of range`, [HistLogger.cpp:271-277](../src/bin/calaos_server/HistLogger.cpp)).
+  (`page is out of range`, [HistLogger.cpp:248-254](../src/bin/calaos_server/HistLogger.cpp)).
   Une `page` illisible est lue comme `0`, donc **indistinguable** de la page 0.
 
 ### `register_push`
@@ -1128,8 +1155,10 @@ elles contiennent une faute de frappe historique (`unkown` au lieu de
 | `wrong input` | [JsonApi.cpp:1777, 1815, 1898, 2004, 2030, 2157, 2180, 2203](../src/bin/calaos_server/JsonApi.cpp) | plage horaire ou scénario introuvable |
 | `scenario creation failed` | [JsonApi.cpp:1938, 1950](../src/bin/calaos_server/JsonApi.cpp) | |
 | `scenario modification failed` | [JsonApi.cpp:2136](../src/bin/calaos_server/JsonApi.cpp) | |
-| `uuid not found` | [HistLogger.cpp:340](../src/bin/calaos_server/HistLogger.cpp) | `eventlog` avec un `uuid` inconnu |
-| `page is out of range` | [HistLogger.cpp:276](../src/bin/calaos_server/HistLogger.cpp) | `eventlog` : `page` négative ou au-delà de `total_page` — refus **asynchrone**, formulé par `HistLogger` |
+| `uuid not found` | [HistLogger.cpp:292](../src/bin/calaos_server/HistLogger.cpp) | `eventlog` avec un `uuid` inconnu |
+| `history unavailable: <raison>` | [HistLogger.cpp:549](../src/bin/calaos_server/HistLogger.cpp) | `eventlog` : la requête SQL a échoué (ex. `database is locked`) — refus **asynchrone** ; la raison est le message générique de SQLite, jamais le contenu d'un événement |
+| `history is disabled` | [HistLogger.cpp:441](../src/bin/calaos_server/HistLogger.cpp) | `eventlog` : `events.db` n'a pas pu être ouvert au démarrage |
+| `page is out of range` | [HistLogger.cpp:252](../src/bin/calaos_server/HistLogger.cpp) | `eventlog` : `page` négative ou au-delà de `total_page` — refus **asynchrone**, formulé par `HistLogger` |
 | `per_page is out of range` | [JsonApi.cpp:2339](../src/bin/calaos_server/JsonApi.cpp) | `eventlog` : `per_page` ≤ 0 (T3.19) — refus **synchrone**, la base n'est jamais atteinte |
 | `no music database` | [JsonApi.cpp:982](../src/bin/calaos_server/JsonApi.cpp) | `audio_db` sur un player sans base (T3.19) |
 | `scenario still references missing IOs: <ids>` | [Scenario/AutoScenario.cpp:281](../src/bin/calaos_server/Scenario/AutoScenario.cpp) | `autoscenario reenable` refusé (T3.18) — la seule chaîne d'erreur de l'API à porter une **partie variable** |
