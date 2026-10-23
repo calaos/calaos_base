@@ -126,8 +126,7 @@ private:
     Timer *watchdogTimer = nullptr;
 
     std::set<string> acking;
-    std::set<string> recording;
-    std::deque<string> relayedAlerts;
+    std::set<string> storing;
     std::set<string> unusableAlerts;
 
     void connect();
@@ -143,18 +142,24 @@ private:
     void processFrames();
     void processMessage(const string &text);
     void processAlert(const string &type, const Json &data);
-    void ack(const string &type, const Json &data, const string &id);
+    void push(const string &type, const string &id);
+    void ack(const string &id);
 
+    enum class RetryKind
+    {
+        Push,
+        Ack,
+    };
     struct Retry
     {
         Timer *timer = nullptr;
         int attempts = 0;
-        bool ackOnly = false;
     };
+    //Keyed by kind and id: one alert may wait for its push and its ack
     map<string, Retry> retries;
-    void scheduleRetry(const string &type, const Json &data, const string &id, bool ackOnly);
-    void retryNow(string type, Json data, string id);
-    void forgetRetry(const string &id);
+    void scheduleRetry(RetryKind kind, const string &type, const string &id);
+    void retryNow(RetryKind kind, string type, string id);
+    void forgetRetry(RetryKind kind, const string &id);
 
     void sendFrame(int opcode, const string &payload);
     void write(const string &bytes);

@@ -481,6 +481,7 @@ Cas d'erreur d'un `config` / `get_mcp_info` refusé : la même charge utile
 | `not_allowed` | 403 | action hors de la table, scope MCP, action de phase 2 pas encore livrée | afficher `msg` |
 | `invalid_request` | 400 | champ manquant ou invalide (`new_pass`, `action`, `package`…) | afficher `msg` |
 | `package_not_found` | 404 | le paquet de `update_upgrade` n'a pas de mise à jour en attente | afficher `msg` |
+| `package_held` | 409 | le paquet de `update_upgrade` est bloqué sur la box (`apt-mark hold`) : aucun job | « Ce paquet est bloqué sur la box » |
 | `internal` | 500 | tout le reste ; le détail est dans le journal de calaos_server | message générique |
 
 Les codes de `invalid_request` à `internal` complètent le vocabulaire du plan : ils viennent
@@ -496,7 +497,7 @@ de `API.md`) :
 | connexion refusée, délai dépassé, réponse invalide | `daemon_unreachable` ou `admin_unavailable`, selon [`AdminState`](#état-admin-et-règle-collante) |
 | `401` dont le `code` n'est pas `bad_session` (y compris un corps sans `code`), après relecture du token et **une** nouvelle tentative | `daemon_unreachable` |
 | `404` sur `GET /api/v2/admin/status` (quel que soit le corps), ou tout `404` sur `/api/v2/` dont le corps n'est pas une enveloppe avec un `code` | `daemon_too_old` |
-| `bad_session`, `bad_password`, `rate_limited`, `password_too_short`, `admin_not_set`, `admin_already_set`, `upgrade_in_progress`, `not_allowed` | le même code |
+| `bad_session`, `bad_password`, `rate_limited`, `password_too_short`, `admin_not_set`, `admin_already_set`, `upgrade_in_progress`, `not_allowed`, `package_held` | le même code |
 | `invalid_request`, `package_not_found` | le même code, avec le `msg` du daemon (affichable sans risque) |
 | `internal`, `not_found`, `method_not_allowed`, tout code inconnu | `internal` |
 
@@ -692,7 +693,7 @@ Chemins relatifs à `/api/v2/`. Jamais relayés, quoi que le client envoie : `sy
   déjà configurés avec l'ancien jeton sont refusés ; le nouveau se lit par `get_mcp_info`.
   La session est validée auprès du daemon comme pour `config` (voir plus bas).
 - Erreurs possibles : `https_required`, `invalid_request`, `not_allowed`, `bad_session`,
-  `admin_not_set`, `upgrade_in_progress`, `package_not_found`, `rate_limited`,
+  `admin_not_set`, `upgrade_in_progress`, `package_not_found`, `package_held`, `rate_limited`,
   `daemon_too_old`, `daemon_unreachable`, `admin_unavailable`, `internal`.
 
 ### `config` et `get_mcp_info` une fois l'admin défini
@@ -799,16 +800,20 @@ panneaux RemoteUI), un message non sollicité (sans `msg_id`) :
 - C'est **tout** ce que reçoit un client foyer. `upgrade_job` n'est pas retransmis : pour
   connaître le job ou `reboot_required`, lire `admin {update_status}`. `push_code` est consommé
   par calaos_server (phase 2). Tout autre type est ignoré.
-- calaos_server ne retransmet une alerte `admin_set` / `admin_reset` qu'à sa première réception
-  (dédoublonnage sur les 64 derniers `id`, en mémoire : après un redémarrage de calaos_server,
-  une alerte non acquittée est poussée de nouveau).
-  Il l'enregistre (événement persistant, puis push à tous les jetons), relit `admin/status`, et
-  ne l'acquitte (`admin/alerts/ack`) qu'une fois le push parti : un push en échec n'est pas
-  acquitté. Le daemon ne renvoie pas une alerte sur le flux où elle est déjà passée : calaos_server
-  retente lui-même un push ou un ack perdu au bout de 60 s, puis 120, 240, 480 et 960 s (5 essais),
-  et à chaque réabonnement, sans second événement persistant ni second push une fois le push
-  parti, et dans le respect de la limite de push par type. Une copie
-  rejouée d'une alerte déjà enregistrée est acquittée de nouveau, sans nouveau push.
+- calaos_server n'enregistre et ne retransmet une alerte `admin_set` / `admin_reset` qu'à sa
+  première réception, **redémarrages compris** : les 64 derniers `id` enregistrés sont gardés
+  dans le fichier `admin_alerts` de `Utils::getCachePath()` (à côté d'`admin_seen_set`). Une
+  alerte déjà enregistrée, rejouée par le daemon après un ack perdu ou un redémarrage, est
+  seulement acquittée : ni second événement persistant, ni push, ni `admin_event`.
+- À la première réception, il enregistre l'événement persistant, le retransmet, relit
+  `admin/status`, l'acquitte (`admin/alerts/ack`) dès que l'événement est écrit, et envoie le
+  push à tous les jetons. L'ack n'attend pas le push : une alerte laissée en attente serait
+  rejouée, et enregistrée de nouveau, à chaque redémarrage.
+- Le daemon ne renvoie pas une alerte sur le flux où elle est déjà passée, ni une alerte
+  acquittée : calaos_server retente lui-même un push ou un ack perdu au bout de 60 s, puis 120,
+  240, 480 et 960 s (5 essais, 64 séries au plus), dans le respect de la limite de push par
+  type, puis abandonne. Un redémarrage abandonne aussi les essais en cours ; jamais un second
+  push une fois le push parti.
 - Au plus **un push par type d'alerte toutes les 10 min** : le premier est toujours envoyé, les
   suivants de la fenêtre n'ont que leur événement persistant. Un faux daemon sur le port 8000
   ne peut donc pas inonder les téléphones.

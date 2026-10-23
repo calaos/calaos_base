@@ -790,7 +790,12 @@ private:
         else if (req.method == "POST" && (req.path == "/api/v2/update/upgrade-all" || req.path == "/api/v2/update/upgrade"))
         {
             const std::string pkg = body.is_object() && body.contains("package") && body["package"].is_string() ? body["package"].get<std::string>() : std::string();
-            if (req.path == "/api/v2/update/upgrade" && pkg != "calaos-server")
+            if (req.path == "/api/v2/update/upgrade" && pkg == "calaos-held")
+            {
+                res.status = 409;
+                res.body = nlohmann::json{ { "error", true }, { "code", "package_held" }, { "msg", "the package is held (apt-mark hold)" } }.dump();
+            }
+            else if (req.path == "/api/v2/update/upgrade" && pkg != "calaos-server")
             {
                 res.status = 404;
                 res.body = err("package_not_found");

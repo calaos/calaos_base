@@ -52,6 +52,9 @@ public:
     static constexpr double SlowPollInterval = 60.0;
     static constexpr double FastPollWindow = 120.0;
     static constexpr const char *FlagFileName = "admin_seen_set";
+    //The ids of the alerts stored, one per line, the newest last
+    static constexpr const char *AlertsFileName = "admin_alerts";
+    static constexpr size_t MaxStoredAlerts = 64;
 
     static AdminState &Instance();
 
@@ -84,16 +87,22 @@ public:
     //daemon's port must not reach every phone once per alert it makes up
     static constexpr double AlertPushInterval = 600.0;
 
-    /* Records the admin_set or admin_reset alert of the daemon: a persistent
-     * EventPushNotification shown at the next login, and a push to every
-     * registered token. False, done never called, when this id was already
-     * recorded, since the daemon replays an alert until it is acknowledged.
-     * done(true) once the event is queued before the push and the push went
-     * out, was not needed or was skipped by the cooldown; done(false) when it
-     * failed: the id is then forgotten so the next replay pushes again, the
-     * event is not stored twice.
+    /* Stores the admin_set or admin_reset alert of the daemon as a persistent
+     * EventPushNotification shown at the next login, once per id: the id is
+     * saved in AlertsFileName, so a replay after a restart is not stored
+     * again. False, stored never called, for an id stored before or another
+     * type. stored runs once the history worker has written the event.
      */
-    bool recordAlert(const string &type, const string &id, std::function<void(bool)> done = {});
+    bool storeAlert(const string &type, const string &id, std::function<void()> stored = {});
+
+    /* Pushes the alert to every registered token, at most once per type
+     * every AlertPushInterval. done(true) when it went out, nobody had a
+     * token or the cooldown skipped it; done(false) when it failed.
+     */
+    void pushAlert(const string &type, std::function<void(bool)> done = {});
+
+    //Reads AlertsFileName again; the ids stored in memory are forgotten
+    void loadAlerts();
 
     //Sets the push cooldown and forgets the pushes already sent
     void resetAlertPushes(double interval);
@@ -117,12 +126,13 @@ private:
     double startTime = 0.0;
     Timer *pollTimer = nullptr;
     std::vector<std::function<void()>> waiting;
-    std::deque<string> recordedAlerts;
     std::deque<string> storedAlerts;
     map<string, double> lastAlertPush;
     double alertPushInterval = AlertPushInterval;
 
     string flagPath() const;
+    string alertsPath() const;
+    void saveAlerts();
     void setFlag(bool present);
     void scheduleNextPoll();
     void pollNow();
