@@ -292,15 +292,17 @@ service à portée restreinte (`serviceScope`). Voir
 Le token est comparé à l'option `mcp_service_token` de `local_config.xml`
 (`McpServerManager::getServiceToken()`). Un token non configuré n'accorde jamais
 l'accès ([JsonApiHandlerWS.cpp:530-566](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
-En session `serviceScope`, **9** messages sont refusés : `set_param`, `del_param`,
+En session `serviceScope`, **12** messages sont refusés : `set_param`, `del_param`,
 `audio_db`, `set_timerange`, `autoscenario`, `eventlog`, `register_push`,
-`settings`, `config` (`JsonApi::serviceScopeDeniedCommands()`).
+`settings`, `config`, et les trois messages admin `admin_unlock`, `admin_set`, `admin`
+(`JsonApi::serviceScopeDeniedCommands()`, voir [Portée MCP](#portée-mcp)).
 
-⭐ **La portée est une propriété de la session, pas du transport.** Les neuf sont
+⭐ **La portée est une propriété de la session, pas du transport.** Les douze sont
 refusées quel que soit le transport par lequel la session a été ouverte, et la
 charge utile du refus est **la même** des deux côtés — seule l'enveloppe change :
 `{"msg":"<msg>","msg_id":"<le vôtre>","data":{"error":"scope denied"}}` en
-WebSocket, `{"error":"scope denied"}` en HTTP.
+WebSocket, `{"error":"scope denied"}` en HTTP. Les trois messages admin refusent avec la
+forme d'erreur admin : `{"success":"false","error":"not_allowed","msg":"scope denied"}`.
 
 ℹ️ **Aujourd'hui aucune session HTTP ne peut être en portée de service** :
 `login_service` n'existe que sur la WebSocket, et le proxy `/mcp` ne construit
@@ -707,7 +709,7 @@ champs), état (`AdminState`), présence et format de la session, appel du daemo
 ### Portée MCP
 
 `admin_unlock`, `admin_set` et `admin` rejoignent la liste des messages refusés en session
-service (11 au lieu de 9). Le refus a la forme d'erreur admin avec `not_allowed` et
+service (12 au lieu de 9). Le refus a la forme d'erreur admin avec `not_allowed` et
 `"msg": "scope denied"`. La console ne se connecte pas non plus avec un mot de passe : seul un
 ticket l'authentifie (phase 2).
 

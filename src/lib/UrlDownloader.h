@@ -103,6 +103,9 @@ private:
      * it. See setStallTimeout(). */
     long m_stallTimeout = defaultStallTimeout;
 
+    //Bound on the whole transfer, in seconds; 0 leaves it unbounded.
+    long m_totalTimeout = 0;
+
     //Common function for starting download of url
     bool start();
 
@@ -183,6 +186,9 @@ public:
      * that has no end of its own, so such a caller passes stallTimeoutNone. */
     void setStallTimeout(long seconds) { m_stallTimeout = seconds; }
     long stallTimeoutGet() const { return m_stallTimeout; }
+
+    //Bound on the whole transfer (connection and answer), in seconds.
+    void setTimeout(long seconds) { m_totalTimeout = seconds; }
 
     Params getResponseHeaders();
 

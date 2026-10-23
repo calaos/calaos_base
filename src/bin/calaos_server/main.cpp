@@ -30,6 +30,8 @@
 #include "WagoMap.h"
 #include "HttpServer.h"
 #include "McpServerManager.h"
+#include "AdminState.h"
+#include "DaemonClient.h"
 #include "Prefix.h"
 #include "Audio/AVRManager.h"
 #include "HistLogger.h"
@@ -181,6 +183,12 @@ int main (int argc, char **argv)
     // on a Unix domain socket and is reverse-proxied through /mcp/* on the
     // HttpServer above. Disabled silently if the wrapper is not installed.
     McpServerManager::Instance().start();
+
+    //calaos-container answers admin/status; until it does, admin_seen_set decides
+    //LCOV_EXCL_START the server startup is not run by make check
+    DaemonClient::Instance().configure();
+    AdminState::Instance().start();
+    //LCOV_EXCL_STOP
 
     if (enable_udp)
     {

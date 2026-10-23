@@ -331,6 +331,8 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
         { sendJson(answer); }))
         return;
 
+    const AdminAnswer answer = std::bind(&JsonApiHandlerHttp::sendJson, this, std::placeholders::_1);
+
     //check action now
     if (jsonParam["action"] == "get_home")
         processGetHome();
@@ -368,19 +370,12 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
         processEventPicture();
     else if (jsonParam["action"] == "register_push")
         processRegisterPush();
+    else if (jsonParam["action"] == "admin_unlock")
+        processAdminUnlock(jsonRootDoc, answer);
+    else if (jsonParam["action"] == "admin_set")
+        processAdminSet(jsonRootDoc, answer);
     else if (jsonParam["action"] == "get_mcp_info")
-    {
-        // Return MCP connection info (URL path + bearer token) for the
-        // authenticated admin user — never exposed without credentials.
-        //E4.1s: DECLARED byte delta - the three keys sorted (url_path, token,
-        //hint -> hint, token, url_path). Pure ASCII on both sides, and no
-        //value moves. Pinned by core/JsonApiDispatchWireBytes_test.
-        const string &token = McpServerManager::Instance().bearerToken();
-        sendJson(Json{{ "url_path", "/mcp" },
-                      { "token", token },
-                      { "hint", "Use token as Bearer in Authorization header. "
-                                "Append /mcp to your Calaos HTTPS base URL." }});
-    }
+        gateAdminOnly(jsonRootDoc, answer, std::bind(&JsonApiHandlerHttp::sendMcpInfo, this));
     else
     {
         if (!hasJsonBody)
@@ -396,7 +391,17 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
         }
 
         if (jsonParam["action"] == "config")
-            processConfig(jsonRootDoc);
+        {
+            //The gate may answer later: a request arriving on the same
+            //connection meanwhile replaces jsonParam
+            const Params params = jsonParam;
+            auto doc = std::make_shared<Json>(std::move(jsonRootDoc));
+            gateAdminOnly(*doc, answer, [this, params, doc]()
+                          {
+                jsonParam = params;
+                processConfig(*doc);
+            });
+        }
         else if (jsonParam["action"] == "audio")
             processAudio(jsonRootDoc);
         else if (jsonParam["action"] == "audio_db")
@@ -447,6 +452,18 @@ void JsonApiHandlerHttp::sendJson(const Json &json)
     headers.Add("Content-Length", Utils::to_string(data.size()));
     string res = httpClient->buildHttpResponse(HTTP_200, headers, data);
     sendData.emit(res);
+}
+
+void JsonApiHandlerHttp::sendMcpInfo()
+{
+    //E4.1s: DECLARED byte delta - the three keys sorted (url_path, token,
+    //hint -> hint, token, url_path). Pure ASCII on both sides, and no
+    //value moves. Pinned by core/JsonApiDispatchWireBytes_test.
+    const string &token = McpServerManager::Instance().bearerToken();
+    sendJson(Json{ { "url_path", "/mcp" },
+                   { "token", token },
+                   { "hint", "Use token as Bearer in Authorization header. "
+                             "Append /mcp to your Calaos HTTPS base URL." } });
 }
 
 void JsonApiHandlerHttp::processGetHome()

@@ -510,6 +510,16 @@ std::vector<ConfigOption> buildTable()
         .def("0.0.0.0")
         .restartRequired());
 
+    add(ConfigOption("api_allowed_hosts", C::Network, T::Csv)
+            .label(N_("Allowed web hosts"))
+            .doc(N_("Comma separated list of host names a browser may use to reach the API once the "
+                    "admin password is set: development machines, VPN names, a home DNS name or a "
+                    ".local name. The box's own IP addresses and the name reached through its HTTPS "
+                    "front end need no entry. The admin bootstrap screen shows this list, so it can "
+                    "be filled before the admin password is defined."))
+            .example("calaos.example.net,box.local")
+            .advanced());
+
     add(ConfigOption("max_http_body_size", C::Network, T::Int)
         .label(N_("Maximum HTTP body size"))
         .doc(N_("Biggest HTTP request body accepted on the API port, in bytes. A "

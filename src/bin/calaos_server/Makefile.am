@@ -79,6 +79,10 @@ calaos_server_SOURCES = \
         Calaos.h                                        \
         CalaosConfig.cpp                                \
         CalaosConfig.h                                  \
+        AdminState.cpp                                  \
+        AdminState.h                                    \
+        DaemonClient.cpp                                \
+        DaemonClient.h                                  \
         DataLogger.cpp                                  \
         DataLogger.h                                    \
         EventManager.cpp                                \
@@ -298,6 +302,7 @@ calaos_server_SOURCES = \
         IPCam/SynoSurveillanceStation.h                 \
         JsonApi.cpp                                     \
         JsonApi.h                                       \
+        JsonApiAdmin.cpp                                \
         JsonApiHandlerHttp.h                            \
         JsonApiHandlerHttp.cpp                          \
         JsonApiHandlerWS.h                              \

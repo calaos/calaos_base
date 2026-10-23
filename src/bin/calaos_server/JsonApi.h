@@ -30,6 +30,11 @@ using namespace Calaos;
 
 class HttpClient;
 
+namespace Calaos
+{
+struct DaemonReply;
+}
+
 /*
  * Login brute force protection, per source address.
  *
@@ -63,6 +68,9 @@ public:
 
     static void registerFailure(const string &ip, double now);
     static void registerSuccess(const string &ip);
+
+    //Seconds left in the backoff window of ip, 0 when it is not blocked
+    static double retryAfter(const string &ip, double now);
 
     //Number of tracked addresses, and full reset. Both for the tests.
     static int trackedCount();
@@ -125,6 +133,27 @@ public:
      * talking to from an error it is not allowed to distinguish.
      */
     static Json scopeDeniedAnswer();
+
+    /* Administration (docs/08_http_api.md, section Administration). The admin
+     * password is checked by calaos-container, never here, and this server
+     * keeps no admin session: the client sends it back with every message.
+     */
+    static bool isAdminCommand(const string &command);
+
+    //{"success":"false","error":code,"msg":msg}, the one admin error shape
+    static Json adminError(const string &code, const string &msg);
+
+    //An admin_session as the daemon issues it: 64 lowercase hex characters
+    static bool isValidAdminSession(const string &session);
+
+    /* False while the household credentials are the ones anybody knows: empty,
+     * user/pass, or the legacy keys checkCredentials() falls back to. Defining
+     * the admin with them would hand it to whoever read the manual.
+     */
+    static bool householdAllowsBootstrap();
+
+    //The client answer for a failed daemon call, per the translation table
+    static Json adminErrorFromReply(const DaemonReply &reply);
 
     /* Resolves the picture of a push event to a path inside the push_pictures
      * cache directory. False when picUid tries to escape the directory or when
@@ -390,6 +419,34 @@ protected:
     std::shared_ptr<bool> apiAlive { std::make_shared<bool>(true) };
 
     bool changeCredentials(string olduser, string oldpass, string newuser, string newpass);
+
+    using AdminAnswer = std::function<void(const Json &)>;
+
+    //Peer on the loopback (haproxy) and X-Forwarded-Proto: https
+    bool secureTransport() const;
+
+    //request is the JSON object holding the fields: "data" on the websocket,
+    //the body over HTTP (null when the body was not a JSON object).
+    void processAdminUnlock(const Json &request, const AdminAnswer &answer);
+    void processAdminSet(const Json &request, const AdminAnswer &answer);
+
+    /* config and get_mcp_info: allowed() runs when they may be served, as
+     * today while no admin is defined, with a valid admin_session from the
+     * request body once one is. Otherwise answer gets the refusal.
+     */
+    void gateAdminOnly(const Json &request, const AdminAnswer &answer, const std::function<void()> &allowed);
+
+    /* The steps every admin message shares. withAdminMode() polls the daemon
+     * first unless the admin is known to be set, so its answer decides.
+     * adminModeRefusal() is the answer for every mode but Set, null for Set.
+     */
+    void withAdminMode(const std::function<void()> &next);
+    static Json adminModeRefusal();
+    //GET admin/status with the session: done(null) when it is valid
+    void validateAdminSession(const string &session, const AdminAnswer &done);
+    string adminClientIp() const;
+    //Drops the answer once this session object is gone
+    AdminAnswer guardedAnswer(const AdminAnswer &answer);
 };
 
 #endif // JSONAPI_H

@@ -305,7 +305,9 @@ void NotifManager::sendPushNotification(const string &message, const string &not
         u->m_signalComplete.connect([this, callbackSent](int statusCode)
         {
             cDebugDom(TAG) << "Push notif sent with code: " << statusCode;
-            callbackSent();
+            //Optional: calling an empty one throws std::bad_function_call
+            if (callbackSent)
+                callbackSent();
         });
         u->httpPost(string(), body);
     });

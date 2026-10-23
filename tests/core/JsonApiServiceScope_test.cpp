@@ -85,11 +85,13 @@ const char *const kAdminUser = "t360-admin";
 const char *const kAdminPass = "t360-admin-password";
 const char *const kServiceToken = "t360-service-token";
 
-//The nine, spelled out here and compared with the shipped rule. Two lists
+//The twelve, spelled out here and compared with the shipped rule. Two lists
 //that must agree: the production one drives the loops, this one proves the
 //production one still says what the decision said.
 const char *const kExpectedDenied[] = { "set_param", "del_param", "audio_db", "set_timerange", "autoscenario",
-                                        "eventlog", "register_push", "settings", "config" };
+                                        "eventlog", "register_push", "settings", "config",
+                                        "admin_unlock", "admin_set", "admin" };
+const size_t kDeniedCount = sizeof(kExpectedDenied) / sizeof(kExpectedDenied[0]);
 
 //The contrast. Without it, moving a command out of the guarded set would leave
 //every refusal case green.
@@ -467,6 +469,24 @@ private:
     std::vector<std::string> responses;
 };
 
+//The admin messages refuse in the admin error shape, the others with the
+//scope payload; either way the payload carries nothing else.
+void expectScopeRefusal(const string &command, const Json &payload, const std::string &raw)
+{
+    if (JsonApi::isAdminCommand(command))
+    {
+        EXPECT_EQ("false", str(payload, "success")) << command;
+        EXPECT_EQ("not_allowed", str(payload, "error")) << command;
+        EXPECT_EQ("scope denied", str(payload, "msg")) << command;
+        EXPECT_EQ(3u, payload.size()) << command << " answered " << raw;
+    }
+    else
+    {
+        EXPECT_EQ("scope denied", str(payload, "error")) << command;
+        EXPECT_EQ(1u, payload.size()) << command << " answered " << raw;
+    }
+}
+
 Json authenticated(Json request)
 {
     request["cn_user"] = kAdminUser;
@@ -512,12 +532,12 @@ protected:
  * The rule itself, counted at the source
  ******************************************************************************/
 
-TEST_F(JsonApiServiceScopeTest, TheRuleHoldsExactlyTheNineNamedCommands)
+TEST_F(JsonApiServiceScopeTest, TheRuleHoldsExactlyTheNamedCommands)
 {
     const vector<string> &denied = JsonApi::serviceScopeDeniedCommands();
 
-    ASSERT_EQ(9u, denied.size())
-        << "the guarded set is not nine commands any more, and every loop "
+    ASSERT_EQ(kDeniedCount, denied.size())
+        << "the guarded set is not the twelve commands any more, and every loop "
            "of this file walks it";
 
     for (const char *name: kExpectedDenied)
@@ -540,14 +560,14 @@ TEST_F(JsonApiServiceScopeTest, TheRuleHoldsExactlyTheNineNamedCommands)
  * The websocket half, over a real socket
  ******************************************************************************/
 
-TEST_F(JsonApiServiceScopeTest, TheNineAreRefusedOverARealServiceScopedWebsocket)
+TEST_F(JsonApiServiceScopeTest, TheGuardedSetIsRefusedOverARealServiceScopedWebsocket)
 {
     WsClient ws;
     ASSERT_TRUE(loginService(ws))
             << "no service scoped session was opened, so this case measures nothing";
 
     const vector<string> &denied = JsonApi::serviceScopeDeniedCommands();
-    ASSERT_EQ(9u, denied.size()) << "the loop below would walk a shorter list";
+    ASSERT_EQ(kDeniedCount, denied.size()) << "the loop below would walk a shorter list";
 
     for (const string &command: denied)
     {
@@ -564,11 +584,7 @@ TEST_F(JsonApiServiceScopeTest, TheNineAreRefusedOverARealServiceScopedWebsocket
                 << "the refusal must name the refused command";
         EXPECT_EQ("sd", str(env, "msg_id")) << command;
 
-        const Json data = env.value("data", Json::object());
-        EXPECT_EQ("scope denied", str(data, "error")) << command;
-        //A refusal is an error payload, never a success flag, and it carries
-        //nothing else.
-        EXPECT_EQ(1u, data.size()) << command << " answered " << answer;
+        expectScopeRefusal(command, env.value("data", Json::object()), answer);
     }
 }
 
@@ -684,10 +700,10 @@ TEST_F(JsonApiServiceScopeTest, TheEightAreStillServedToAnAdminOverARealSocket)
  * session in this state. See the file header.
  ******************************************************************************/
 
-TEST_F(JsonApiServiceScopeTest, TheHttpDispatchRefusesTheSameNineCommands)
+TEST_F(JsonApiServiceScopeTest, TheHttpDispatchRefusesTheSameCommands)
 {
     const vector<string> &denied = JsonApi::serviceScopeDeniedCommands();
-    ASSERT_EQ(9u, denied.size()) << "the loop below would walk a shorter list";
+    ASSERT_EQ(kDeniedCount, denied.size()) << "the loop below would walk a shorter list";
 
     for (const string &command: denied)
     {
@@ -699,8 +715,7 @@ TEST_F(JsonApiServiceScopeTest, TheHttpDispatchRefusesTheSameNineCommands)
         const Json body = parse(httpBody(http.last()));
         ASSERT_TRUE(body.is_object()) << command << " answered " << http.last();
 
-        EXPECT_EQ("scope denied", str(body, "error")) << command;
-        EXPECT_EQ(1u, body.size()) << command << " answered " << http.last();
+        expectScopeRefusal(command, body, http.last());
     }
 }
 

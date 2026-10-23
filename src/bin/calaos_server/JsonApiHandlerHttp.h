@@ -82,6 +82,9 @@ private:
 
     void releaseCameraDl();
 
+    //MCP connection info (URL path + bearer token), behind gateAdminOnly()
+    void sendMcpInfo();
+
     //processing functions
     void processGetHome();
     //E4.1s: the request document itself, not a second parse. A body that did

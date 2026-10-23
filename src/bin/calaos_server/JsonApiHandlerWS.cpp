@@ -31,6 +31,8 @@
 #include "HttpCodes.h"
 #include "WebSocket.h"
 
+#include <set>
+
 namespace
 {
 
@@ -357,6 +359,21 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
             processEventLog(jsonData, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "register_push")
             processRegisterPush(jsonData, jsonRoot["msg_id"]);
+        else if (jsonRoot["msg"] == "admin_unlock" || jsonRoot["msg"] == "admin_set")
+        {
+            const string msg = jsonRoot["msg"];
+            const string msgId = jsonRoot["msg_id"];
+            const AdminAnswer answer = [this, msg, msgId](const Json &j)
+            {
+                sendJson(msg, j, msgId);
+            };
+            if (msg == "admin_unlock")
+                processAdminUnlock(jsonDataDoc, answer);
+            else
+                processAdminSet(jsonDataDoc, answer);
+        }
+        else if (jsonRoot["msg"] == "admin")
+            processAdminMessage(jsonDataDoc, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "settings")
             processSettings(jsonData, jsonRoot["msg_id"]);
 
@@ -700,6 +717,83 @@ void JsonApiHandlerWS::processSettings(const Params &jsonReq, const string &clie
      */
     else
         sendJson("settings", {{ "error", "unknown settings action" }}, client_id);
+}
+
+void JsonApiHandlerWS::processAdminMessage(const Json &request, const string &client_id)
+{
+    const AdminAnswer answer = guardedAnswer([this, client_id](const Json &j)
+                                             {
+        sendJson("admin", j, client_id);
+    });
+
+    if (!secureTransport())
+    {
+        answer(adminError("https_required", string()));
+        return;
+    }
+
+    const string action = jsonStringGet(request, "action");
+    if (action.empty())
+    {
+        answer(adminError("invalid_request", "action is required"));
+        return;
+    }
+
+    static const std::set<string> relayed = { "update_status", "update_check", "update_available",
+                                              "update_upgrade_all", "update_upgrade", "system_reboot",
+                                              "system_restart", "system_info" };
+    static const std::set<string> phase2 = { "approver_list", "approver_enroll", "approver_confirm", "console_open" };
+
+    if (action != "mcp_regenerate" && !relayed.count(action))
+    {
+        answer(adminError("not_allowed", phase2.count(action) ? "Not available yet" : "Unknown admin action"));
+        return;
+    }
+
+    const string session = jsonStringGet(request, "admin_session");
+
+    withAdminMode([this, answer, action, session, request]()
+                  {
+        const Json refusal = adminModeRefusal();
+        if (!refusal.is_null())
+        {
+            answer(refusal);
+            return;
+        }
+
+        //Without the header the bearer alone authorizes: never call the daemon so
+        if (action != "update_status" && !isValidAdminSession(session))
+        {
+            answer(adminError("bad_session", string()));
+            return;
+        }
+
+        if (action == "mcp_regenerate")
+        {
+            validateAdminSession(session, [answer](const Json &error)
+                                 {
+                if (!error.is_null())
+                    answer(error);
+                else if (McpServerManager::Instance().regenerateBearerToken())
+                    answer(Json{ { "success", "true" }, { "result", Json::object() } });
+                else
+                    answer(adminError("internal", string())); //LCOV_EXCL_LINE CSPRNG or local_config.xml failure
+            });
+            return;
+        }
+
+        relayAdminAction(action, request, session, answer);
+    });
+}
+
+void JsonApiHandlerWS::relayAdminAction(const string &action, const Json &request, const string &session,
+                                        const AdminAnswer &answer)
+{
+    //The closed relay table is not served by this server yet
+    VAR_UNUSED(request);
+    VAR_UNUSED(session);
+    cInfoDom("admin") << "admin action " << action << " is not relayed by this server";
+    answer(adminError("not_allowed", "Not available yet"));
 }
 
 void JsonApiHandlerWS::processLoginService(const Params &jsonData, const string &client_id)

@@ -670,6 +670,8 @@ bool UrlDownloader::start()
     //1 byte/s is "no progress at all", not "slow": a live but slow peer is not a target here
     curl_easy_setopt(e, CURLOPT_LOW_SPEED_LIMIT, 1L);
     curl_easy_setopt(e, CURLOPT_LOW_SPEED_TIME, stall);
+    if (m_totalTimeout > 0)
+        curl_easy_setopt(e, CURLOPT_TIMEOUT, m_totalTimeout);
     curl_easy_setopt(e, CURLOPT_PRIVATE, conn);
     curl_easy_setopt(e, CURLOPT_WRITEFUNCTION, urlDownloaderWriteCb);
     curl_easy_setopt(e, CURLOPT_WRITEDATA, conn);

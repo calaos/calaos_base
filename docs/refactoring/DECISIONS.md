@@ -698,6 +698,17 @@ pour les identifiants »).
 **Comment l'appliquer** : ne pas ajouter de logique bloquante / d'avertissement forcé sur les
 identifiants par défaut. Le durcissement auth reste optionnel/non-bloquant.
 
+## 2026-10-18 — Bootstrap admin : dérogation à « Pas de forçage »
+**Décision** : `admin_set` en mode bootstrap (sans session) est **refusé**
+(`household_password_required`) tant que les identifiants foyer effectifs sont vides, valent
+`user` / `pass`, ou viennent des clés legacy `calaos_user` / `calaos_password` (repli de
+`checkCredentials`).
+**Pourquoi** : définir le mot de passe admin avec des identifiants connus de tous le donnerait au
+premier venu. Décision de Raoul, plan `docs/admin/PLAN.md` (« Bootstrap et récupération »).
+**Comment l'appliquer** : seul le bootstrap admin bloque. Le login foyer, `change_cred` et tout le
+reste de l'API acceptent toujours les identifiants par défaut, comme le veut l'entrée précédente
+(`JsonApi::householdAllowsBootstrap()`).
+
 ## Contraintes permanentes (rappel)
 - **Ne jamais push sans demander** — chaque push brûle du crédit CI. Commit librement.
 - **Demander validation** sur tout changement de comportement / d'API.

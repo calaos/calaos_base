@@ -1,3 +1,5 @@
+./src/bin/calaos_server/AdminState.cpp
+./src/bin/calaos_server/AdminState.h
 ./src/bin/calaos_server/Audio/AudioDB.cpp
 ./src/bin/calaos_server/Audio/AudioDB.h
 ./src/bin/calaos_server/Audio/AudioPlayer.cpp
@@ -29,6 +31,8 @@
 ./src/bin/calaos_server/CalaosConfig.h
 ./src/bin/calaos_server/Calaos.cpp
 ./src/bin/calaos_server/Calaos.h
+./src/bin/calaos_server/DaemonClient.cpp
+./src/bin/calaos_server/DaemonClient.h
 ./src/bin/calaos_server/DataLogger.cpp
 ./src/bin/calaos_server/DataLogger.h
 ./src/bin/calaos_server/EventManager.cpp
@@ -228,6 +232,7 @@
 ./src/bin/calaos_server/IPCam/SynoSurveillanceStation.h
 ./src/bin/calaos_server/JsonApi.cpp
 ./src/bin/calaos_server/JsonApi.h
+./src/bin/calaos_server/JsonApiAdmin.cpp
 ./src/bin/calaos_server/JsonApiHandlerHttp.cpp
 ./src/bin/calaos_server/JsonApiHandlerHttp.h
 ./src/bin/calaos_server/JsonApiHandlerWS.cpp

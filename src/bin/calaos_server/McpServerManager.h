@@ -88,6 +88,10 @@ public:
     // the get_mcp_info JSON API action.
     const std::string &bearerToken() const { return mcpToken; }
 
+    // New mcp_token, persisted, then a sidecar restart so that it serves it:
+    // clients configured with the old token are refused from then on.
+    bool regenerateBearerToken();
+
     // Service token used by the Python sidecar to authenticate to JsonApi
     // as a scoped service account. Never sent to external clients.
     const std::string &getServiceToken() const { return serviceToken; }
