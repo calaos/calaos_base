@@ -558,6 +558,158 @@ TEST_F(JsonApiThrottleTest, TableSizeIsBounded)
 }
 
 /******************************************************************************
+ * Login throttle: names read from X-Forwarded-For of a loopback peer
+ ******************************************************************************/
+
+namespace
+{
+
+std::string forwardedName(int i)
+{
+    return "10.2." + std::to_string(i / 256) + "." + std::to_string(i % 256);
+}
+
+//One attempt with a wrong password, the way both transports run it. Answers
+//whether the password was even looked at.
+bool failedAttempt(const std::string &scope, const std::string &ip, bool forwarded, double now)
+{
+    const std::string k = LoginThrottle::key(scope, ip, forwarded, now);
+    if (LoginThrottle::isBlocked(k, now))
+        return false;
+    LoginThrottle::registerFailure(k, now);
+    return true;
+}
+
+}
+
+TEST_F(JsonApiThrottleTest, KeysOfDirectPeersAreTheAddress)
+{
+    EXPECT_EQ("10.0.0.1", LoginThrottle::key("", "10.0.0.1", false, 1000.0));
+    EXPECT_EQ("admin:10.0.0.1", LoginThrottle::key("admin:", "10.0.0.1", false, 1000.0));
+
+    //However many of them: only forwarded names are capped
+    for (int i = 0;i < 4 * LoginThrottle::MaxForwardedIdentities;i++)
+        EXPECT_EQ(forwardedName(i), LoginThrottle::key("", forwardedName(i), false, 1000.0));
+}
+
+TEST_F(JsonApiThrottleTest, RotatingForwardedNamesEndInOneThrottledBucket)
+{
+    //A host network process rotating X-Forwarded-For: without the cap every
+    //name was a fresh bucket and all 200 passwords were checked.
+    int checked = 0;
+    for (int i = 0;i < 200;i++)
+    {
+        if (failedAttempt("", forwardedName(i), true, 1000.0))
+            checked++;
+    }
+
+    //One per slot, and one for the shared bucket before its backoff starts
+    EXPECT_EQ(LoginThrottle::MaxForwardedIdentities + 1, checked);
+    EXPECT_TRUE(LoginThrottle::isBlocked(LoginThrottle::OverflowIdentity, 1000.0));
+    EXPECT_EQ(LoginThrottle::OverflowIdentity, LoginThrottle::key("", "192.0.2.99", true, 1000.0));
+}
+
+TEST_F(JsonApiThrottleTest, AFewForwardedClientsKeepTheirOwnBucket)
+{
+    const int n = LoginThrottle::MaxForwardedIdentities;
+    for (int i = 0;i < n;i++)
+        EXPECT_EQ(forwardedName(i), LoginThrottle::key("", forwardedName(i), true, 1000.0)) << i;
+
+    //One failing client blocks nobody else
+    EXPECT_TRUE(failedAttempt("", forwardedName(0), true, 1000.0));
+    for (int i = 1;i < n;i++)
+        EXPECT_FALSE(LoginThrottle::isBlocked(LoginThrottle::key("", forwardedName(i), true, 1000.0), 1000.0)) << i;
+}
+
+TEST_F(JsonApiThrottleTest, ASuccessOrSilenceFreesTheSlot)
+{
+    const int n = LoginThrottle::MaxForwardedIdentities;
+    for (int i = 0;i < n;i++)
+        LoginThrottle::key("", forwardedName(i), true, 1000.0);
+    EXPECT_EQ(LoginThrottle::OverflowIdentity, LoginThrottle::key("", "192.0.2.1", true, 1000.0));
+
+    //A login frees its slot for somebody else
+    LoginThrottle::registerSuccess(forwardedName(0));
+    EXPECT_EQ("192.0.2.1", LoginThrottle::key("", "192.0.2.1", true, 1000.0));
+    EXPECT_EQ(LoginThrottle::OverflowIdentity, LoginThrottle::key("", "192.0.2.2", true, 1000.0));
+
+    //and so does a name not heard of for ForwardedSlotTimeout
+    const double later = 1000.0 + LoginThrottle::ForwardedSlotTimeout + 1.0;
+    EXPECT_EQ("192.0.2.2", LoginThrottle::key("", "192.0.2.2", true, later));
+}
+
+TEST_F(JsonApiThrottleTest, ANameThatLoggedInKeepsItsBucketWhenTheSlotsAreFull)
+{
+    const std::string known = "198.51.100.7";
+    LoginThrottle::key("", known, true, 1000.0);
+    LoginThrottle::registerSuccess(known);
+
+    //Longer ago than a slot of a name that never logged in lasts
+    const double spoof = 1000.0 + LoginThrottle::ForwardedSlotTimeout + 1.0;
+    for (int i = 0;i < 200;i++)
+        failedAttempt("", forwardedName(i), true, spoof);
+
+    //The spoofer cannot lock out a client already known...
+    EXPECT_EQ(known, LoginThrottle::key("", known, true, spoof + 1.0));
+    EXPECT_FALSE(LoginThrottle::isBlocked(known, spoof + 1.0));
+    //...it still fails on its own bucket...
+    EXPECT_TRUE(failedAttempt("", known, true, spoof + 1.0));
+    EXPECT_TRUE(LoginThrottle::isBlocked(known, spoof + 1.0));
+    //...and is forgotten after TrustedSlotTimeout
+    const double later = spoof + 1.0 + LoginThrottle::TrustedSlotTimeout + 1.0;
+    for (int i = 0;i < LoginThrottle::MaxForwardedIdentities;i++)
+        LoginThrottle::key("", forwardedName(1000 + i), true, later);
+    EXPECT_EQ(LoginThrottle::OverflowIdentity, LoginThrottle::key("", known, true, later));
+}
+
+TEST_F(JsonApiThrottleTest, ASuccessInTheSharedBucketDoesNotResetIt)
+{
+    for (int i = 0;i < 200;i++)
+        failedAttempt("", forwardedName(i), true, 1000.0);
+    ASSERT_TRUE(LoginThrottle::isBlocked(LoginThrottle::OverflowIdentity, 1000.0));
+
+    //A real client folded in there gets in once the window opens; the spoofer
+    //sharing the bucket keeps his backoff
+    LoginThrottle::registerSuccess(LoginThrottle::OverflowIdentity);
+    EXPECT_TRUE(LoginThrottle::isBlocked(LoginThrottle::OverflowIdentity, 1000.0));
+}
+
+TEST_F(JsonApiThrottleTest, TheHeaderCannotNameTheSharedBucketToGetASlot)
+{
+    //Naming it is landing in it, slots free or not, so a success there is
+    //still the shared bucket's and resets nothing
+    EXPECT_EQ(LoginThrottle::OverflowIdentity,
+              LoginThrottle::key("", LoginThrottle::OverflowIdentity, true, 1000.0));
+    LoginThrottle::registerFailure(LoginThrottle::OverflowIdentity, 1000.0);
+    LoginThrottle::registerSuccess(LoginThrottle::OverflowIdentity);
+    EXPECT_TRUE(LoginThrottle::isBlocked(LoginThrottle::OverflowIdentity, 1000.0));
+
+    //and it took no slot
+    for (int i = 0;i < LoginThrottle::MaxForwardedIdentities;i++)
+        EXPECT_EQ(forwardedName(i), LoginThrottle::key("", forwardedName(i), true, 1000.0)) << i;
+}
+
+TEST_F(JsonApiThrottleTest, TheAdminScopeIsCappedOnItsOwn)
+{
+    //Filling the household slots does not fold the admin names, nor the reverse
+    for (int i = 0;i < 200;i++)
+        failedAttempt("", forwardedName(i), true, 1000.0);
+    EXPECT_EQ("admin:192.0.2.1", LoginThrottle::key("admin:", "192.0.2.1", true, 1000.0));
+
+    LoginThrottle::clear();
+
+    int checked = 0;
+    for (int i = 0;i < 200;i++)
+    {
+        if (failedAttempt("admin:", forwardedName(i), true, 1000.0))
+            checked++;
+    }
+    EXPECT_EQ(LoginThrottle::MaxForwardedIdentities + 1, checked);
+    EXPECT_TRUE(LoginThrottle::isBlocked(std::string("admin:") + LoginThrottle::OverflowIdentity, 1000.0));
+    EXPECT_EQ("192.0.2.1", LoginThrottle::key("", "192.0.2.1", true, 1000.0));
+}
+
+/******************************************************************************
  * Credentials and event pictures, both need the config/cache tree
  ******************************************************************************/
 

@@ -538,3 +538,102 @@ TEST_F(JsonApiThrottleIdentityTest, TheCapAndTheThrottleCommitToTheSameString)
                    "different clients on one connection";
     }
 }
+
+/*******************************************************************************
+ * How many names may the header give? The cap on forwarded identities.
+ *
+ * Every process of the host network reaches the loopback port and writes any
+ * X-Forwarded-For it likes. A new name per attempt must not buy a new backoff.
+ ******************************************************************************/
+
+namespace
+{
+
+std::string rotatedName(int i)
+{
+    return "10.3." + std::to_string(i / 256) + "." + std::to_string(i % 256);
+}
+
+}
+
+TEST_F(JsonApiThrottleIdentityTest, WsRotatingForwardedForFromTheLoopbackIsThrottled)
+{
+    for (int i = 0;i < LoginThrottle::MaxForwardedIdentities + 1;i++)
+    {
+        WsLogin spoofer(rotatedName(i));
+        EXPECT_FALSE(spoofer.attempt(apiUser(), "wrong"));
+    }
+
+    //Every new name now lands in the shared bucket, blocked by the last failure
+    WsLogin next(rotatedName(500));
+    EXPECT_FALSE(next.attempt(apiUser(), apiPassword()))
+            << "a fresh X-Forwarded-For still bought a fresh backoff";
+    EXPECT_TRUE(LoginThrottle::isBlocked(LoginThrottle::OverflowIdentity, Utils::getMainLoopTime()));
+}
+
+TEST_F(JsonApiThrottleIdentityTest, HttpRotatingForwardedForFromTheLoopbackIsThrottled)
+{
+    for (int i = 0;i < LoginThrottle::MaxForwardedIdentities + 1;i++)
+    {
+        HttpLogin spoofer(rotatedName(i));
+        EXPECT_FALSE(spoofer.attempt(apiUser(), "wrong"));
+    }
+
+    HttpLogin next(rotatedName(500));
+    EXPECT_FALSE(next.attempt(apiUser(), apiPassword()))
+            << "a fresh X-Forwarded-For still bought a fresh backoff";
+}
+
+TEST_F(JsonApiThrottleIdentityTest, ClientsKnownBeforeTheSpoofingStillGetIn)
+{
+    {
+        WsLogin before(kClientB);
+        EXPECT_TRUE(before.attempt(apiUser(), apiPassword()));
+    }
+
+    for (int i = 0;i < LoginThrottle::MaxForwardedIdentities + 1;i++)
+    {
+        WsLogin spoofer(rotatedName(i));
+        EXPECT_FALSE(spoofer.attempt(apiUser(), "wrong"));
+    }
+
+    WsLogin after(kClientB);
+    EXPECT_TRUE(after.attempt(apiUser(), apiPassword()))
+            << "spoofed names locked out a client that had logged in before";
+}
+
+TEST_F(JsonApiThrottleIdentityTest, AFewRealClientsThroughTheProxyStayIndependent)
+{
+    //A home through haproxy: some clients mistype, the others are not affected
+    const std::vector<std::string> home = { kClientA, kClientB, "192.0.2.10", "192.0.2.11",
+                                            "203.0.113.5", "203.0.113.6" };
+    for (std::size_t i = 0;i < home.size();i += 2)
+    {
+        WsLogin typo(home[i]);
+        EXPECT_FALSE(typo.attempt(apiUser(), "wrong"));
+    }
+
+    for (std::size_t i = 1;i < home.size();i += 2)
+    {
+        WsLogin fine(home[i]);
+        EXPECT_TRUE(fine.attempt(apiUser(), apiPassword())) << home[i];
+        HttpLogin fineHttp(home[i]);
+        EXPECT_TRUE(fineHttp.attempt(apiUser(), apiPassword())) << home[i];
+    }
+    EXPECT_FALSE(LoginThrottle::isBlocked(LoginThrottle::OverflowIdentity, Utils::getMainLoopTime()));
+}
+
+TEST_F(JsonApiThrottleIdentityTest, DirectPeersAreNeverFolded)
+{
+    //From the LAN the header is ignored and each peer keeps its own bucket,
+    //however many of them fail
+    for (int i = 0;i < 4 * LoginThrottle::MaxForwardedIdentities;i++)
+    {
+        WsLogin lan(rotatedName(i), "192.0.2." + std::to_string(i + 1));
+        EXPECT_FALSE(lan.attempt(apiUser(), "wrong"));
+    }
+
+    WsLogin another(rotatedName(999), "198.51.100.200");
+    EXPECT_TRUE(another.attempt(apiUser(), apiPassword()));
+    EXPECT_FALSE(LoginThrottle::isBlocked(LoginThrottle::OverflowIdentity, Utils::getMainLoopTime()));
+}

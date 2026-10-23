@@ -380,17 +380,20 @@ Json httpJson(const Json &request, const std::string &xfp)
     return sep == std::string::npos ? Json() : parse(response.substr(sep + 4));
 }
 
-//A real HttpClient whose peer address and forwarded proto are chosen by the test
+//A real HttpClient whose peer address and forwarded headers are chosen by the test
 class InjectedPeerClient: public HttpClient
 {
 public:
-    InjectedPeerClient(const std::shared_ptr<uvw::TcpHandle> &h, const std::string &p, const std::string &xfp):
+    InjectedPeerClient(const std::shared_ptr<uvw::TcpHandle> &h, const std::string &p, const std::string &xfp,
+                       const std::string &xff):
         HttpClient(h),
         handle(h),
         peer(p)
     {
         if (!xfp.empty())
             request_headers["x-forwarded-proto"] = xfp;
+        if (!xff.empty())
+            request_headers["x-forwarded-for"] = xff;
     }
 
     string getClientIp() const override { return peer; }
@@ -402,10 +405,10 @@ public:
 class DirectHttp
 {
 public:
-    DirectHttp(const std::string &peer, const std::string &xfp)
+    DirectHttp(const std::string &peer, const std::string &xfp, const std::string &xff = std::string())
     {
         auto tcp = uvw::Loop::getDefault()->resource<uvw::TcpHandle>();
-        client = std::make_shared<InjectedPeerClient>(tcp, peer, xfp);
+        client = std::make_shared<InjectedPeerClient>(tcp, peer, xfp, xff);
         handler.reset(new JsonApiHandlerHttp(client.get()));
         handler->sendData.connect([this](const std::string &data)
                                   {
@@ -1064,6 +1067,38 @@ TEST_F(JsonApiAdminTest, AdminFailuresAreThrottledOnTheirOwnKey)
     EXPECT_EQ("true", str(ws.admin("admin_unlock", unlockData()), "success"));
     EXPECT_FALSE(LoginThrottle::isBlocked("admin:127.0.0.1", Utils::getMainLoopTime()));
     EXPECT_EQ(0.0, LoginThrottle::retryAfter("admin:127.0.0.1", Utils::getMainLoopTime()));
+}
+
+TEST_F(JsonApiAdminTest, RotatingForwardedForCannotBypassTheAdminThrottle)
+{
+    adminDefined();
+
+    //A host network process on the loopback, a new X-Forwarded-For per attempt
+    auto unlock = [](const std::string &xff)
+    {
+        DirectHttp h("127.0.0.1", "https", xff);
+        return h.send(Json{ { "action", "admin_unlock" }, { "cn_user", kUser }, { "cn_pass", kPass },
+                            { "admin_pass", "wrong password" } }
+                          .dump());
+    };
+
+    int badPassword = 0, rateLimited = 0;
+    for (int i = 0; i < 3 * LoginThrottle::MaxForwardedIdentities; i++)
+    {
+        const std::string r = str(unlock("10.0.0." + std::to_string(i)), "error");
+        if (r == "bad_password")
+            badPassword++;
+        else if (r == "rate_limited")
+            rateLimited++;
+    }
+    EXPECT_EQ(LoginThrottle::MaxForwardedIdentities + 1, badPassword);
+    EXPECT_EQ(2 * LoginThrottle::MaxForwardedIdentities - 1, rateLimited);
+    EXPECT_EQ((size_t)LoginThrottle::MaxForwardedIdentities + 1, fakeDaemon.count("/api/v2/admin/verify"));
+
+    //The household login has its own cap: a new name still logs in
+    DirectHttp household("127.0.0.1", "https", "198.51.100.7");
+    const Json home = household.send(Json{ { "action", "get_home" }, { "cn_user", kUser }, { "cn_pass", kPass } }.dump());
+    EXPECT_TRUE(home.is_object() && home.contains("home")) << home.dump();
 }
 
 TEST_F(JsonApiAdminTest, DaemonRefusalsOfUnlockAreRelayed)

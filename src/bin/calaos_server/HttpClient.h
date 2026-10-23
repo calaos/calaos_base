@@ -205,6 +205,14 @@ inline std::string effectiveClientIp(const std::string &xffLastLine,
 
     return last.empty()? peerIp:last;
 }
+
+//Whether effectiveClientIp() answers a name the header gave rather than the
+//peer. The login throttle bounds how many of those it believes at once.
+inline bool isForwardedClientIp(const std::string &xffLastLine,
+                                const std::string &peerIp)
+{
+    return isTrustedProxyPeer(peerIp) && effectiveClientIp(xffLastLine, peerIp) != peerIp;
+}
 }
 
 /* Per-request parsing state of one http connection, and the llhttp callbacks
@@ -568,6 +576,15 @@ public:
     {
         const auto it = request_headers.find("x-forwarded-for");
         return TransportLimits::effectiveClientIp(
+            it != request_headers.end()? it->second: string(),
+            getClientIp());
+    }
+
+    //TransportLimits::isForwardedClientIp() of this request
+    bool effectiveClientIpForwarded() const
+    {
+        const auto it = request_headers.find("x-forwarded-for");
+        return TransportLimits::isForwardedClientIp(
             it != request_headers.end()? it->second: string(),
             getClientIp());
     }

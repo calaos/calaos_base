@@ -140,7 +140,8 @@ string JsonApiHandlerWS::clientIp() const
     //- one attacker locks everybody out, and his own budget is diluted by
     //everybody else. Same identity as the per-IP connection cap, which has
     //always read it (HttpClient::getEffectiveClientIp, and its trust note).
-    return httpClient->getEffectiveClientIp();
+    //Past the cap on forwarded names, it is the shared overflow bucket instead.
+    return loginThrottleKey("");
 }
 
 void JsonApiHandlerWS::handleEvents(const CalaosEvent &event)

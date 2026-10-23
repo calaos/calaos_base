@@ -320,6 +320,49 @@ bool isDerivedScenarioParam(const std::string &key)
 } //namespace
 
 map<string, LoginThrottle::Entry> LoginThrottle::entries;
+map<string, LoginThrottle::Slot> LoginThrottle::forwardedSlots;
+std::set<string> LoginThrottle::overflowKeys;
+
+string LoginThrottle::key(const string &scope, const string &ip, bool forwarded, double now)
+{
+    if (!forwarded)
+        return scope + ip;
+
+    for (auto it = forwardedSlots.begin();it != forwardedSlots.end();)
+    {
+        const double timeout = it->second.trusted? TrustedSlotTimeout: ForwardedSlotTimeout;
+        if (now - it->second.lastSeen > timeout)
+            it = forwardedSlots.erase(it);
+        else
+            ++it;
+    }
+
+    const string overflow = scope + OverflowIdentity;
+    const string k = scope + ip;
+
+    auto it = forwardedSlots.find(k);
+    if (it != forwardedSlots.end())
+    {
+        it->second.lastSeen = now;
+        return k;
+    }
+
+    int used = 0;
+    for (const auto &s: forwardedSlots)
+    {
+        if (!s.second.trusted && s.second.scope == scope)
+            used++;
+    }
+
+    if (ip != OverflowIdentity && used < MaxForwardedIdentities)
+    {
+        forwardedSlots[k] = Slot{ scope, now, false };
+        return k;
+    }
+
+    overflowKeys.insert(overflow);
+    return overflow;
+}
 
 void LoginThrottle::purge(double now)
 {
@@ -385,7 +428,31 @@ void LoginThrottle::registerFailure(const string &ip, double now)
 
 void LoginThrottle::registerSuccess(const string &ip)
 {
+    //The shared bucket is also the spoofer's: one client getting in through
+    //it must not reset his backoff
+    if (overflowKeys.count(ip))
+        return;
+
     entries.erase(ip);
+
+    auto it = forwardedSlots.find(ip);
+    if (it == forwardedSlots.end() || it->second.trusted)
+        return;
+
+    it->second.trusted = true;
+
+    int trusted = 0;
+    auto oldest = forwardedSlots.end();
+    for (auto s = forwardedSlots.begin();s != forwardedSlots.end();++s)
+    {
+        if (!s->second.trusted)
+            continue;
+        trusted++;
+        if (oldest == forwardedSlots.end() || s->second.lastSeen < oldest->second.lastSeen)
+            oldest = s;
+    }
+    if (trusted > MaxEntries)
+        forwardedSlots.erase(oldest);
 }
 
 double LoginThrottle::retryAfter(const string &ip, double now)
@@ -403,6 +470,18 @@ int LoginThrottle::trackedCount()
 void LoginThrottle::clear()
 {
     entries.clear();
+    forwardedSlots.clear();
+    overflowKeys.clear();
+}
+
+string JsonApi::loginThrottleKey(const string &scope) const
+{
+    if (!httpClient)
+        return scope + "unknown";
+
+    return LoginThrottle::key(scope, httpClient->getEffectiveClientIp(),
+                              httpClient->effectiveClientIpForwarded(),
+                              Utils::getMainLoopTime());
 }
 
 bool JsonApi::secureCompare(const string &expected, const string &received)
