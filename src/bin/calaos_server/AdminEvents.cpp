@@ -674,18 +674,10 @@ void AdminEvents::scheduleRetry(const string &type, const Json &data, const stri
         return;
     if (it == retries.end())
     {
+        //No entry ever sits idle: a series that gives up or finds the stream
+        //closed frees its slot, so a full table holds only live series
         if (retries.size() >= MaxRemembered)
-        {
-            //An entry with no timer and no attempt in flight is the one to
-            //give up first; evicting one in flight would restart its series
-            auto idle = std::find_if(retries.begin(), retries.end(), [](const auto &e)
-                                     {
-                return !e.second.timer && !e.second.running;
-            });
-            if (idle == retries.end())
-                return;
-            retries.erase(idle);
-        }
+            return;
         it = retries.emplace(id, Retry()).first;
     }
 
@@ -702,7 +694,6 @@ void AdminEvents::scheduleRetry(const string &type, const Json &data, const stri
     //A lost ack retries the ack alone: going through processAlert() again
     //could store, relay and push an alert that left the dedup windows
     r.ackOnly = ackOnly;
-    r.running = false;
 
     const double delay = timings.retryDelay * double(1 << r.attempts);
     r.attempts++;
@@ -723,12 +714,12 @@ void AdminEvents::retryNow(string type, Json data, string id)
     delete it->second.timer;
     it->second.timer = nullptr;
 
-    //Off the stream, the next subscription replays the alert anyway
-    it->second.running = it->second.ackOnly || state == State::Open;
     if (it->second.ackOnly)
         ack(type, data, id);
     else if (state == State::Open)
         processAlert(type, data);
+    else
+        retries.erase(it); //off the stream: the next subscription replays it and starts a new series
 }
 
 void AdminEvents::forgetRetry(const string &id)

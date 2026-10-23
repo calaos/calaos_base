@@ -2677,6 +2677,48 @@ TEST_F(AdminEventsTest, RetriesAreBoundedInNumberOfAlerts)
     EXPECT_EQ(1u, fakeDaemon.eventsAccepted());
 }
 
+TEST_F(AdminEventsTest, ARetryOffTheStreamWaitsForTheNextSubscription)
+{
+    HistLogger::Instance().registerPushToken("cb3-push-token", HistLogger::PUSH_HW_ANDROID);
+    quietPushes();
+    AdminEvents::Timings t = timings();
+    t.retryDelay = 0.5;
+    AdminEvents::Instance().setTimings(t);
+    fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/push")
+            return false;
+        res.status = 503;
+        res.body = "{}";
+        return true;
+    });
+    startEvents();
+
+    fakeDaemon.raiseAlert("admin_reset", "0000000000000c57");
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return pushesOf("Admin password removed") == 1;
+    }));
+
+    //The retry fires while the daemon refuses the stream: nothing is pushed
+    fakeDaemon.refuseEvents(404);
+    fakeDaemon.dropEvents();
+    drainLoop(1500);
+    EXPECT_EQ(1u, pushesOf("Admin password removed"));
+    EXPECT_FALSE(AdminEvents::Instance().connected());
+
+    //The new subscription replays it and starts a new series, cut by stop()
+    fakeDaemon.refuseEvents(0);
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return pushesOf("Admin password removed") == 2;
+    }));
+    drainLoop(100);
+    AdminEvents::Instance().stop();
+    drainLoop(1000);
+    EXPECT_EQ(2u, pushesOf("Admin password removed"));
+}
+
 TEST_F(AdminEventsTest, ARetriedPushKeepsTheCooldown)
 {
     HistLogger::Instance().registerPushToken("cb3-push-token", HistLogger::PUSH_HW_ANDROID);
