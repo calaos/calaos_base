@@ -149,9 +149,11 @@ private:
     {
         Timer *timer = nullptr;
         int attempts = 0;
+        bool ackOnly = false;
+        bool running = false; //its retry was issued, the answer is pending
     };
     map<string, Retry> retries;
-    void scheduleRetry(const string &type, const Json &data, const string &id);
+    void scheduleRetry(const string &type, const Json &data, const string &id, bool ackOnly);
     void retryNow(string type, Json data, string id);
     void forgetRetry(const string &id);
 

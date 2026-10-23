@@ -266,12 +266,15 @@ bool AdminState::recordAlert(const string &type, const string &id, std::function
     //HistLogger's worker runs in order: the event above is stored before the
     //tokens are read, so a successful push means both are done.
     //A never destroyed singleton: `this` cannot dangle.
-    NotifManager::Instance().sendPushNotification(message, string(), {}, [this, type, id, done, previous](bool sent)
+    NotifManager::Instance().sendPushNotification(message, string(), {}, [this, type, id, done, previous, now](bool sent)
                                                   {
         if (!sent)
         {
             recordedAlerts.erase(std::remove(recordedAlerts.begin(), recordedAlerts.end(), id), recordedAlerts.end());
-            lastAlertPush[type] = previous;
+            //Unless a newer push of the type went out meanwhile
+            const auto stamp = lastAlertPush.find(type);
+            if (stamp != lastAlertPush.end() && stamp->second == now)
+                stamp->second = previous;
         }
         if (done)
             done(sent);

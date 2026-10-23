@@ -618,7 +618,7 @@ void AdminEvents::processAlert(const string &type, const Json &data)
         if (recorded)
             ack(type, data, id);
         else
-            scheduleRetry(type, data, id);
+            scheduleRetry(type, data, id, false);
     });
 
     if (!fresh)
@@ -660,25 +660,49 @@ void AdminEvents::ack(const string &type, const Json &data, const string &id)
             return;
         }
         cWarningDom("admin") << "calaos-container did not take the ack of alert " << id << ", retrying later";
-        scheduleRetry(type, data, id);
+        scheduleRetry(type, data, id, true);
     });
 }
 
-void AdminEvents::scheduleRetry(const string &type, const Json &data, const string &id)
+void AdminEvents::scheduleRetry(const string &type, const Json &data, const string &id, bool ackOnly)
 {
     //The daemon never resends an alert on the stream it already went out on:
-    //without this, a lost push or ack waits for the next subscription
+    //without this, a lost push or ack waits for the next subscription.
+    //A push or an ack answered after stop() schedules nothing.
     auto it = retries.find(id);
+    if (state == State::Stopped)
+        return;
     if (it == retries.end())
     {
         if (retries.size() >= MaxRemembered)
-            return;
+        {
+            //An entry with no timer and no attempt in flight is the one to
+            //give up first; evicting one in flight would restart its series
+            auto idle = std::find_if(retries.begin(), retries.end(), [](const auto &e)
+                                     {
+                return !e.second.timer && !e.second.running;
+            });
+            if (idle == retries.end())
+                return;
+            retries.erase(idle);
+        }
         it = retries.emplace(id, Retry()).first;
     }
 
     Retry &r = it->second;
-    if (r.timer || r.attempts >= timings.maxRetries)
+    if (r.timer)
         return;
+    if (r.attempts >= timings.maxRetries)
+    {
+        //Given up: the next subscription replays it and starts a new series
+        retries.erase(it);
+        return;
+    }
+
+    //A lost ack retries the ack alone: going through processAlert() again
+    //could store, relay and push an alert that left the dedup windows
+    r.ackOnly = ackOnly;
+    r.running = false;
 
     const double delay = timings.retryDelay * double(1 << r.attempts);
     r.attempts++;
@@ -700,7 +724,10 @@ void AdminEvents::retryNow(string type, Json data, string id)
     it->second.timer = nullptr;
 
     //Off the stream, the next subscription replays the alert anyway
-    if (state == State::Open)
+    it->second.running = it->second.ackOnly || state == State::Open;
+    if (it->second.ackOnly)
+        ack(type, data, id);
+    else if (state == State::Open)
         processAlert(type, data);
 }
 

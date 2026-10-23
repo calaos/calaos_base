@@ -2629,6 +2629,14 @@ TEST_F(AdminEventsTest, RetriesAreBoundedInNumberOfAlerts)
 {
     HistLogger::Instance().registerPushToken("cb3-push-token", HistLogger::PUSH_HW_ANDROID);
     quietPushes();
+    //Long enough for the 70 first pushes to fail before any retry fires, and
+    //no watchdog reconnect: a new stream would replay all 70 alerts
+    AdminEvents::Timings t = timings();
+    t.retryDelay = 1.0;
+    t.maxRetries = 1;
+    t.ping = 5.0;
+    t.silence = 60.0;
+    AdminEvents::Instance().setTimings(t);
     fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
                            {
         if (req.path != "/api/push")
@@ -2646,8 +2654,23 @@ TEST_F(AdminEventsTest, RetriesAreBoundedInNumberOfAlerts)
                           {
         return pushesOf("Admin password set") == 70;
     }));
-    drainLoop(300);
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return pushesOf("Admin password set") == 70 + 64;
+    }));
+    drainLoop(1500);
+    EXPECT_EQ(70u + 64u, pushesOf("Admin password set")) << "64 alerts retried once, 6 refused";
     EXPECT_EQ(0u, acks());
+
+    //Those that gave up free their slots
+    fakeDaemon.raiseAlert("admin_set", "000000000000f200");
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return pushesOf("Admin password set") == 70 + 64 + 2;
+    }));
+    //The last answer is still on its way
+    drainLoop(300);
+    EXPECT_EQ(1u, fakeDaemon.eventsAccepted());
 }
 
 TEST_F(AdminEventsTest, ARetriedPushKeepsTheCooldown)
