@@ -74,6 +74,8 @@ public:
     int format = 0;
     //Chosen by the app, sanitized by register_push; empty for older apps
     string device_name;
+    //Enrolled with the daemon: a register_push no longer changes its name or format
+    bool approver = false;
     //Refreshed at every register_push: the last time the app was seen
     string created_at;
 };
@@ -115,6 +117,9 @@ public:
     void registerPushToken(string token, int push_hw, int push_format = PUSH_FORMAT_NOTIFICATION,
                            string device_name = string());
 
+    //Marks the token as the daemon's approver (approver_set) or not any more
+    void setPushTokenApprover(string token, bool approver);
+
     //Get all push token devices
     void getPushTokens(std::function<void(bool success, string errorMsg, const vector<PushToken> &tokens)> callback);
 
@@ -136,14 +141,15 @@ private:
 //except prepare().
 namespace PushTokenDb
 {
-//Creates the table and adds push_format and device_name to tables from older
-//servers. False when push_format is still missing (database locked or read
-//only): tokens are then stored and read in the notification format. *hasName
-//tells the same of device_name. *locked tells a failure that a later call may
-//not hit.
+//Creates the table and adds push_format, device_name and approver to tables
+//from older servers. False when push_format is still missing (database locked
+//or read only): tokens are then stored and read in the notification format.
+//*hasName tells the same of device_name and approver. *locked tells a failure
+//that a later call may not hit.
 bool prepare(sqlite::database &db, bool *locked = nullptr, bool *hasName = nullptr);
 void save(sqlite::database &db, const PushToken &token, bool hasFormat, bool hasName = false);
 vector<PushToken> load(sqlite::database &db, bool hasFormat, bool hasName = false);
+void setApprover(sqlite::database &db, const string &token, bool approver);
 //Tokens not registered again for 30 days.
 void purge(sqlite::database &db);
 } //namespace PushTokenDb

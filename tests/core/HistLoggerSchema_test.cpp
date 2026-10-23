@@ -198,10 +198,10 @@ TEST(HistLoggerSchemaTest, OpeningAnOldDatabaseAddsTheIndexAndKeepsEveryRow)
 {
     ASSERT_EQ(9u, rowsBefore.size());
     EXPECT_EQ(rowsBefore, rowsAfter);
-    //The migration only adds the empty device_name of the tokens
+    //The migration only adds the empty device_name and approver of the tokens
     std::vector<std::string> named;
     for (const std::string &t: tokensBefore)
-        named.push_back(t + "''|");
+        named.push_back(t + "''|'0'|");
     EXPECT_EQ(named, tokensAfter);
 
     Db db;

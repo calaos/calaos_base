@@ -21,6 +21,7 @@
 #include "AdminEvents.h"
 #include "AdminState.h"
 #include "DaemonClient.h"
+#include "HistLogger.h"
 #include "JsonApi.h"
 #include "JsonField.h"
 #include "NotifManager.h"
@@ -121,11 +122,6 @@ bool isAlertType(const string &type)
     return type == "admin_set" || type == "admin_reset" || type == "approver_set" || type == "approver_removed";
 }
 
-bool isCodeId(const string &id)
-{
-    return id.size() == 16 && id.find_first_not_of("0123456789abcdef") == string::npos;
-}
-
 //The daemon's rule for a push token: 1 to 4096 printable ASCII characters, no space
 bool isPushToken(const string &token)
 {
@@ -134,6 +130,20 @@ bool isPushToken(const string &token)
     return std::all_of(token.begin(), token.end(), [](char c)
                        {
         return c > ' ' && c < 0x7f;
+    });
+}
+
+//The daemon's text, "Calaos admin code NNNNNN: <what it allows>": anything
+//else is not relayed, so a squatter of its port cannot word its own pushes
+bool isCodeMessage(const string &text)
+{
+    static const string prefix = "Calaos admin code ";
+    const size_t digits = prefix.size();
+    if (text.size() < digits + 8 || text.compare(0, digits, prefix) != 0 || text.compare(digits + 6, 2, ": ") != 0)
+        return false;
+    return std::all_of(text.begin() + digits, text.begin() + digits + 6, [](char c)
+                       {
+        return c >= '0' && c <= '9';
     });
 }
 
@@ -635,6 +645,9 @@ void AdminEvents::processAlert(const string &type, const Json &data)
         return;
     }
 
+    if (type == "approver_set" || type == "approver_removed")
+        markApprover(JsonField::string(data, "token_id"), type == "approver_set");
+
     //Its ack waits for the event of the copy already being stored
     if (storing.count(id))
         return;
@@ -664,11 +677,23 @@ void AdminEvents::processAlert(const string &type, const Json &data)
     push(type, id, data);
 }
 
+void AdminEvents::markApprover(const string &tokenId, bool approver)
+{
+    HistLogger::Instance().getPushTokens([tokenId, approver](bool, string, const vector<PushToken> &tokens)
+                                         {
+        for (const PushToken &t: tokens)
+        {
+            if (t.approver != approver && JsonApi::pushTokenId(t.token) == tokenId)
+                HistLogger::Instance().setPushTokenApprover(t.token, approver);
+        }
+    });
+}
+
 void AdminEvents::processPushCode(const Json &data)
 {
     //Never relayed: the event only says which code to fetch
     const string codeId = JsonField::string(data, "code_id");
-    if (!isCodeId(codeId))
+    if (!JsonApi::isDaemonId(codeId))
     {
         cWarningDom("admin") << "calaos-container sent a push_code without a usable code_id";
         return;
@@ -685,27 +710,34 @@ void AdminEvents::processPushCode(const Json &data)
         cWarningDom("admin") << "Push code " << codeId << " not fetched: " << timings.maxCodePushes << " sent in the last hour";
         return;
     }
-    codePushes.push_back(now);
 
     DaemonClient::Request req;
     req.path = "admin/push/" + codeId;
-    DaemonClient::Instance().call(req, [codeId](const DaemonReply &reply)
+    DaemonClient::Instance().call(req, [this, codeId](const DaemonReply &reply)
                                   {
         const string token = JsonField::string(reply.data, "token");
         const string text = JsonApi::printableText(JsonField::string(reply.data, "message"), MaxCodeMessage);
-        if (reply.kind != DaemonReply::Kind::Ok || !isPushToken(token) || text.empty())
+        if (reply.kind != DaemonReply::Kind::Ok || !isPushToken(token) || !isCodeMessage(text))
         {
             cWarningDom("admin") << "calaos-container did not hand push code " << codeId << " over (HTTP " << reply.status << ")";
             return;
         }
 
         //The token and the message hold the second factor: neither is logged
-        NotifManager::Instance().sendPushNotificationTo(token, text, [codeId](bool sent)
+        NotifManager::Instance().sendPushNotificationTo(token, text, [this, codeId](bool sent)
                                                         {
+            //Only a push that went out counts: fetches that serve nothing, or
+            //name no registered phone, as a squatter's, must not use up the
+            //hour of the real daemon
             if (sent)
+            {
+                codePushes.push_back(Utils::getMainLoopTime());
                 cInfoDom("admin") << "Push code " << codeId << " sent to its approver phone";
+            }
             else
+            {
                 cWarningDom("admin") << "Push code " << codeId << " could not be sent";
+            }
         });
     });
 }

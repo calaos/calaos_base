@@ -761,10 +761,12 @@ retrait d'un approbateur. Les mises à jour, le reboot et le reste ne demandent 
   `admin_password` (le futur `new_pass`, 1 à 1024 octets), `{approver_id}` pour
   `approver_remove`, `{}` pour les deux autres. `approver_id` choisit le téléphone (par défaut
   le plus ancien).
-- **`code_verify` / `console_open`** : vérifient un code `console_open` ; la session reçoit un
-  droit d'ouverture de la console à usage unique, valable 30 s, que le WebSocket de la console
-  (CO1/CO2) consomme avec la **même** `admin_session`. Ne pas redemander de code entre les deux.
-  Le ticket console de CO1 viendra compléter la réponse de `console_open`.
+- **`code_verify` / `console_open`** (`params {code_id, code}`) : vérifient un code
+  `console_open` ; la session reçoit un droit d'ouverture de la console à usage unique,
+  valable 30 s, que le WebSocket de la console (CO1/CO2) consomme avec la **même**
+  `admin_session`. Ne pas redemander de code entre les deux. WA3 utilise `console_open` ;
+  `code_verify` en est la forme générique, gardée pour le contrat. Le ticket console de CO1
+  viendra compléter la réponse de `console_open`.
 - Formats vérifiés par calaos_server avant tout appel (`invalid_request` sinon) : `code_id`,
   `approver_id` et `token_id` sont 16 hexadécimaux minuscules, `code` 6 chiffres ASCII.
 - Limites du daemon : un code en attente par session, 10 s entre deux codes d'une session,
@@ -773,10 +775,17 @@ retrait d'un approbateur. Les mises à jour, le reboot et le reste ne demandent 
   sans jeton ni code. calaos_server lit `GET admin/push/{code_id}` (bearer seul, une fois),
   qui rend `{token, message}`, et pousse `message` (nettoyé, au plus 256 points de code) à
   **ce seul jeton** s'il figure dans `push_tokens` : ni les autres téléphones, ni un client,
-  ni le journal ne voient le code ou le jeton. `push_code` n'est jamais retransmis. Au plus
-  20 codes sont relayés par heure glissante (le double du budget du daemon : un faux daemon sur
-  le port 8000 ne peut pas inonder les téléphones) ; au-delà, le `push_code` est ignoré.
-  Un code perdu se redemande au bout de 10 s.
+  ni le journal ne voient le code ou le jeton. `push_code` n'est jamais retransmis. Le texte
+  doit commencer par le préfixe fixe du daemon, `Calaos admin code NNNNNN: ` (6 chiffres) ;
+  tout autre texte est ignoré, un faux daemon ne peut donc pas rédiger ses propres pushes. Au
+  plus 20 codes sont poussés par heure glissante (le double du budget du daemon) ; seul un
+  push parti compte, pas une récupération qui n'a rien servi ni un jeton inconnu. Au-delà, le
+  `push_code` est ignoré. Un code perdu se redemande au bout de 10 s.
+- **Jeton purgé à 30 jours.** Un téléphone approbateur dont l'app ne s'est pas connectée
+  depuis 30 jours quitte `push_tokens` (purge de `register_push`) et ne reçoit plus de
+  codes, alors que le daemon le liste toujours et que `code_request` réussit : seul le
+  journal de calaos_server le dit. Il les reçoit de nouveau dès que l'app se reconnecte
+  (même jeton). `approver_candidates.last_seen` permet à la webapp d'avertir avant.
 
 ### `config` et `get_mcp_info` une fois l'admin défini
 
@@ -889,9 +898,10 @@ panneaux RemoteUI), un message non sollicité (sans `msg_id`) :
   login. Leur texte commence par un préfixe fixe, puis le nom entre guillemets :
   `New approver phone on your Calaos box: "<device_name>"` ou
   `Approver phone removed from your Calaos box: "<device_name>"`. Le nom est choisi par
-  qui a enrôlé le téléphone : il est nettoyé comme celui de `register_push`, ses `"`
-  deviennent `'`, et il ne commence jamais le message, pour ne pas pouvoir se faire passer
-  pour la box. Un nom vide s'affiche `?`.
+  qui a enrôlé le téléphone : il est nettoyé comme celui de `register_push`, ses guillemets
+  (`"`, `«`, `»`, `“`, `”`, `„`, `‟`, `″`, `‶`, `＂`) deviennent `'`, et il ne commence
+  jamais le message, pour ne pas pouvoir se faire passer pour la box. Un nom vide
+  s'affiche `?`.
 - calaos_server n'enregistre et ne retransmet une alerte qu'à sa
   première réception, **redémarrages compris** : les 64 derniers `id` enregistrés sont gardés
   dans le fichier `admin_alerts` de `Utils::getCachePath()` (à côté d'`admin_seen_set`). Une
@@ -908,7 +918,9 @@ panneaux RemoteUI), un message non sollicité (sans `msg_id`) :
   push une fois le push parti.
 - Au plus **un push par type d'alerte toutes les 10 min** : le premier est toujours envoyé, les
   suivants de la fenêtre n'ont que leur événement persistant. Un faux daemon sur le port 8000
-  ne peut donc pas inonder les téléphones.
+  ne peut donc pas inonder les téléphones. Pour `approver_set` et `approver_removed`, la
+  fenêtre est par téléphone (`token_id`) : l'enrôlement d'un second téléphone juste après un
+  premier est poussé lui aussi.
 - Une alerte dont l'`id` est inutilisable est acquittée (si elle fait au plus 256 caractères)
   et journalisée, jamais enregistrée ni retransmise ; un événement imbriqué au-delà de 2048
   niveaux est ignoré (même limite que les requêtes des clients).
@@ -1778,11 +1790,18 @@ Réponse : `{"success":"true"}` (dans `data` en WebSocket, muette sans `msg_id`)
   enregistrement.
 - Les jetons non réenregistrés depuis 30 jours sont supprimés.
 - `device_name` est **optionnel** et nettoyé avant d'être stocké dans `push_tokens` :
-  UTF-8 invalide, caractères de contrôle, bidi (`U+202E`…) et invisibles retirés,
-  espaces repliés et rognés, puis coupé à 64 points de code. Il sert à choisir le
-  téléphone approbateur (`approver_candidates`) et part avec l'enrôlement ; une
-  requête sans nom (ou dont le nom nettoyé est vide) garde le nom déjà connu. Le
-  nom ne prouve rien : n'importe quel client foyer peut l'envoyer pour son jeton.
+  UTF-8 invalide, caractères de contrôle, bidi (`U+202E`, `U+061C`…), invisibles,
+  sélecteurs de variante et caractères de remplissage qui s'affichent vides (`U+3164`,
+  `U+115F`, `U+2800`…) retirés ; tout espace Unicode (Zs) devient une espace simple,
+  les espaces sont repliées et rognées, puis le nom est coupé à 64 points de code. Il
+  sert à choisir le téléphone approbateur (`approver_candidates`) et part avec
+  l'enrôlement. Un nom vide une fois nettoyé est refusé (le daemon le refuserait) :
+  le jeton est enregistré, son nom connu reste. Le nom ne prouve rien : n'importe quel
+  client foyer peut l'envoyer pour son jeton.
+- Le jeton d'un **approbateur** (marqué à l'alerte `approver_set`, et d'après
+  `approver_list` à chaque `approver_candidates`) garde le nom et le format de son
+  enrôlement : un `register_push` de ce jeton, par qui que ce soit, ne fait que
+  rafraîchir sa date. `approver_removed` le libère.
 
 ### `get_mcp_info` — **HTTP uniquement**
 

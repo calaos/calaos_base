@@ -105,7 +105,7 @@ Les constats calaos-container portent sur `origin/main`.
     - `update_check`, `update_available`, `update_upgrade_all`, `update_upgrade(package)`, `update_status` ;
     - `system_reboot`, `system_restart` (redémarre le kiosque calaos-home), `system_info` ;
     - `mcp_regenerate`, traitée dans calaos_server ;
-    - en phase 2, `approver_list`, `approver_enroll`, `approver_confirm`, `console_open`.
+    - en phase 2, `approver_candidates`, `approver_list`, `approver_enroll`, `approver_confirm`, `approver_remove`, `code_request`, `code_verify`, `console_open`.
   - `package` validé par la règle de `docs/API.md` de calaos-container : regex `^[A-Za-z0-9.+-]+$`, premier caractère alphanumérique, pas de `..`, 128 caractères au plus.
   - `install/*`, `rollback_snapshot` et `network/*` ne sont jamais relayés.
   - `admin {action: update_status}` est accepté sans `admin_session` une fois l'admin défini, sous `secureTransport()`. `admin_event` est diffusé à toute connexion WS loguée, port 5454 compris : c'est la seule exception à « rien d'admin en clair ».

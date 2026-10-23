@@ -347,6 +347,9 @@ public:
     //token_id, the only form of a token a client ever sees
     static string pushTokenId(const string &token);
 
+    //An approver id, a code id or a token_id: 16 lowercase hex characters
+    static bool isDaemonId(const string &s);
+
     //`source` names the caller in the warning for a write to a protected output.
     bool decodeSetState(Params &jParam, const char *source);
     void decodeGetPlaylist(Params &jParam, std::function<void(const Json &)>result_lambda);

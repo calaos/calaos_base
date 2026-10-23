@@ -3255,6 +3255,12 @@ TEST(JsonApiAdminRules, DeviceNamesAreCutToPrintableText)
                                            "b\xe2\x82",
                                            64));
     EXPECT_EQ("", JsonApi::printableText("\x01\x02 \xe2\x80\x8f", 64));
+    //Fillers and blanks that render as nothing, variation selectors, the Arabic letter mark
+    EXPECT_EQ("", JsonApi::printableText("\xe3\x85\xa4\xe1\x85\x9f\xe2\xa0\x80\xef\xb8\x8f\xd8\x9c\xef\xbe\xa0", 64));
+    EXPECT_EQ("Pixel 8", JsonApi::printableText("Pixel 8\xe3\x85\xa4\xef\xb8\x8f\xf3\xa0\x84\x80", 64));
+    //Every Zs space is a plain one
+    EXPECT_EQ("", JsonApi::printableText("\xc2\xa0\xe2\x80\x83\xe3\x80\x80", 64));
+    EXPECT_EQ("Pixel 8", JsonApi::printableText("\xc2\xa0Pixel\xc2\xa0\xe2\x80\xaf 8\xe2\x80\x83", 64));
 
     std::string accents;
     for (int i = 0; i < 70; i++)
@@ -3280,6 +3286,9 @@ TEST(JsonApiAdminRules, ApproverAlertsNeverStartWithTheName)
     EXPECT_EQ("Approver phone removed from your Calaos box: \"Pixel 8\"",
               AdminState::alertMessage("approver_removed", { { "device_name", "Pixel 8" } }));
     EXPECT_EQ("New approver phone on your Calaos box: \"?\"", AdminState::alertMessage("approver_set", Json()));
+    //No quote of the name closes the one around it
+    EXPECT_EQ("New approver phone on your Calaos box: \"Pixel 8'. Admin password removed. ' ' ' ' ' ' ' ' '\"",
+              AdminState::alertMessage("approver_set", { { "device_name", "Pixel 8\u201d. Admin password removed. \u201c \u00ab \u00bb \u201e \u201f \u2033 \u2036 \uff02 \"" } }));
     EXPECT_EQ("Admin password set on your Calaos box", AdminState::alertMessage("admin_set", data));
     EXPECT_TRUE(AdminState::alertMessage("push_code", data).empty());
 }
@@ -3522,7 +3531,7 @@ TEST_F(JsonApiAdminTest, APasswordChangeCarriesItsPushCode)
     fakeDaemon.setOverride(nullptr);
     fakeDaemon.setAdminSet(false);
     syncAdminState();
-    const Json boot = ws.admin("admin_set", { { "new_pass", "a long admin password" }, { "code_id", kCode }, { "code", "654321" } });
+    const Json boot = ws.admin("admin_set", { { "new_pass", "a long admin password" }, { "code_id", "x" } });
     EXPECT_EQ("bootstrap", str(boot, "mode")) << boot.dump();
     EXPECT_EQ(Json({ { "password", "a long admin password" } }), parse(fakeDaemon.last("/api/v2/admin/set").body));
 }
@@ -3539,7 +3548,7 @@ TEST_F(AdminEventsTest, APushCodeGoesToItsTokenOnlyAndNeverToAClient)
     ASSERT_TRUE(isAdminEvent(household.next(), "upgrade_progress"));
 
     PushTest::StdoutCapture capture;
-    fakeDaemon.setPushPayload(kCode, "ap1b-approver-token", "Calaos code 482913 opens the console");
+    fakeDaemon.setPushPayload(kCode, "ap1b-approver-token", "Calaos admin code 482913: open the web console. Valid 60 s, never share it.");
     fakeDaemon.pushEvent({ { "type", "push_code" }, { "data", { { "approver_id", kApprover }, { "code_id", kCode } } } });
     ASSERT_TRUE(pumpUntil([&]()
                           {
@@ -3598,14 +3607,29 @@ TEST_F(AdminEventsTest, APushCodeThatCannotBeServedIsDropped)
     //Unknown to the daemon, a payload without a usable token or text, a token
     //this server does not know
     send("c0000000000000a1");
-    fakeDaemon.setPushPayload("c0000000000000a2", "", "Calaos code 111111");
+    fakeDaemon.setPushPayload("c0000000000000a2", "", "Calaos admin code 111111: x");
     send("c0000000000000a2");
-    fakeDaemon.setPushPayload("c0000000000000a3", "two words", "Calaos code 222222");
+    fakeDaemon.setPushPayload("c0000000000000a3", "two words", "Calaos admin code 222222: x");
     send("c0000000000000a3");
     fakeDaemon.setPushPayload("c0000000000000a4", "ap1b-approver-token", "\x01\xe2\x80\xae");
     send("c0000000000000a4");
-    fakeDaemon.setPushPayload("c0000000000000a5", "ap1b-unknown-token", "Calaos code 333333");
+    fakeDaemon.setPushPayload("c0000000000000a5", "ap1b-unknown-token", "Calaos admin code 333333: x");
     send("c0000000000000a5");
+    //Only the daemon's own wording goes out, whatever phone it names
+    const std::vector<std::pair<const char *, const char *>> wordings = {
+        { "c0000000000000b6", "Admin password removed from your Calaos box" },
+        { "c0000000000000b7", "Calaos admin code 44444: x" },
+        { "c0000000000000b8", "Calaos admin code 4444444: x" },
+        { "c0000000000000b9", "Calaos admin code 44444a: x" },
+        { "c0000000000000ba", "Calaos admin code 444444" },
+    };
+    for (const auto &w: wordings)
+    {
+        fakeDaemon.setPushPayload(w.first, "ap1b-approver-token", w.second);
+        send(w.first);
+    }
+    for (const auto &w: wordings)
+        EXPECT_TRUE(fetched(w.first)) << w.second;
     for (const char *id: { "c0000000000000a1", "c0000000000000a2", "c0000000000000a3", "c0000000000000a4", "c0000000000000a5" })
         EXPECT_TRUE(fetched(id)) << id;
     drainLoop(300);
@@ -3625,19 +3649,42 @@ TEST_F(AdminEventsTest, PushCodesAreCappedPerHour)
     AdminEvents::Instance().setTimings(t);
     startEvents();
 
-    for (const char *id: { "c0000000000000b1", "c0000000000000b2", "c0000000000000b3" })
+    auto send = [](const char *id)
     {
-        fakeDaemon.setPushPayload(id, "ap1b-approver-token", std::string("Calaos code ") + id);
         fakeDaemon.pushEvent({ { "type", "push_code" }, { "data", { { "approver_id", kApprover }, { "code_id", id } } } });
+    };
+
+    //Fetches that serve nothing, and phones this server does not know, cost nothing
+    fakeDaemon.setPushPayload("c0000000000000c3", "ap1b-unknown-token", "Calaos admin code 300003: x");
+    for (const char *id: { "c0000000000000c1", "c0000000000000c2", "c0000000000000c3" })
+    {
+        send(id);
+        ASSERT_TRUE(pumpUntil([id]()
+                              {
+            return fakeDaemon.count(std::string("/api/v2/admin/push/") + id) == 1;
+        })) << id;
     }
-    ASSERT_TRUE(pumpUntil([&]()
-                          {
-        return pushesOf("c0000000000000b2") == 1;
-    }));
-    drainLoop(300);
-    EXPECT_EQ(1u, pushesOf("c0000000000000b1"));
-    EXPECT_EQ(0u, pushesOf("c0000000000000b3"));
-    EXPECT_EQ(0u, fakeDaemon.count("/api/v2/admin/push/c0000000000000b3")) << "not even fetched";
+    drainLoop(200);
+
+    for (const auto &c: std::vector<std::pair<const char *, const char *>>{ { "c0000000000000d1", "100001" },
+                                                                            { "c0000000000000d2", "100002" },
+                                                                            { "c0000000000000d3", "100003" } })
+    {
+        fakeDaemon.setPushPayload(c.first, "ap1b-approver-token", std::string("Calaos admin code ") + c.second + ": x");
+        send(c.first);
+        const std::string code = c.second;
+        pumpUntil([&]()
+                  {
+            return pushesOf(code.c_str()) == 1;
+        },
+                  1500);
+        //The push counts once the push service has answered
+        drainLoop(200);
+    }
+    EXPECT_EQ(1u, pushesOf("100001"));
+    EXPECT_EQ(1u, pushesOf("100002"));
+    EXPECT_EQ(0u, pushesOf("100003"));
+    EXPECT_EQ(0u, fakeDaemon.count("/api/v2/admin/push/c0000000000000d3")) << "not even fetched";
 }
 
 TEST_F(AdminEventsTest, AnApproverAlertIsPushedToEveryPhoneBehindAFixedPrefix)
@@ -3678,6 +3725,84 @@ TEST_F(AdminEventsTest, AnApproverAlertIsPushedToEveryPhoneBehindAFixedPrefix)
         return pushesOf("Approver phone removed from your Calaos box: \\\"Pixel 8\\\"") == 1;
     }));
     EXPECT_EQ(1u, storedEvents("Approver phone removed from your Calaos box: \\\"Pixel 8\\\""));
+}
+
+TEST_F(JsonApiAdminTest, EachApproverPhoneHasItsOwnAlertCooldown)
+{
+    HistLogger::Instance().registerPushToken("ap1b-cooldown-token", HistLogger::PUSH_HW_ANDROID);
+    pushTokens();
+    AdminState::Instance().resetAlertPushes(AdminState::AlertPushInterval);
+
+    auto push = [](const char *name, const char *tokenId)
+    {
+        bool done = false;
+        AdminState::Instance().pushAlert(
+            "approver_set", [&done](bool)
+            {
+            done = true;
+            },
+            { { "device_name", name }, { "token_id", tokenId } });
+        pumpUntil([&done]()
+                  {
+            return done;
+        });
+    };
+    auto pushed = [](const char *name)
+    {
+        size_t n = 0;
+        for (const FakeDaemon::Request &r: fakeDaemon.requests())
+            if (r.path == "/api/push" && r.body.find(name) != std::string::npos)
+                n++;
+        return n;
+    };
+
+    //A decoy phone first does not silence the next one; the same phone again is
+    push("Decoy cooldown", "00000000000000d1");
+    push("Real cooldown", "00000000000000d2");
+    push("Again cooldown", "00000000000000d1");
+    EXPECT_EQ(1u, pushed("Decoy cooldown"));
+    EXPECT_EQ(1u, pushed("Real cooldown"));
+    EXPECT_EQ(0u, pushed("Again cooldown"));
+}
+
+TEST_F(AdminEventsTest, AnApproversTokenKeepsItsEnrolledNameAndFormat)
+{
+    HistLogger::Instance().registerPushToken("ap1b-locked-token", HistLogger::PUSH_HW_ANDROID, HistLogger::PUSH_FORMAT_DATA, "Phone of Lea");
+    quietPushes();
+    startEvents();
+
+    const std::string tokenId = JsonApi::pushTokenId("ap1b-locked-token");
+    auto approver = []()
+    {
+        const PushToken *t = tokenNamed(pushTokens(), "ap1b-locked-token");
+        return t && t->approver;
+    };
+    fakeDaemon.raiseAlert("approver_set", "00000000000000f1", { { "device_name", "Phone of Lea" }, { "token_id", tokenId } });
+    ASSERT_TRUE(pumpUntil(approver));
+
+    //A household client that knows the token cannot rename it nor change its format
+    WsClient household;
+    ASSERT_TRUE(household.login(""));
+    household.post(Json{ { "msg", "register_push" }, { "data", { { "token", "ap1b-locked-token" }, { "hardware", "android" }, { "device_name", "Attacker was here" } } } });
+    drainLoop(200);
+    const PushToken *kept = tokenNamed(pushTokens(), "ap1b-locked-token");
+    ASSERT_NE(nullptr, kept);
+    EXPECT_EQ("Phone of Lea", kept->device_name);
+    EXPECT_EQ(HistLogger::PUSH_FORMAT_DATA, kept->format);
+
+    //Removed, it is an ordinary token again
+    fakeDaemon.raiseAlert("approver_removed", "00000000000000f2", { { "device_name", "Phone of Lea" }, { "token_id", tokenId } });
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return !approver();
+    }));
+    household.post(Json{ { "msg", "register_push" }, { "data", { { "token", "ap1b-locked-token" }, { "hardware", "android" }, { "device_name", "Renamed" } } } });
+    ASSERT_TRUE(pumpUntil([]()
+                          {
+        const PushToken *t = tokenNamed(pushTokens(), "ap1b-locked-token");
+        return t && t->device_name == "Renamed";
+    }));
+    EXPECT_EQ(HistLogger::PUSH_FORMAT_NOTIFICATION, tokenNamed(pushTokens(), "ap1b-locked-token")->format);
 }
 
 /*

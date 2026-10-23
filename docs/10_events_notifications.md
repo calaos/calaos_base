@@ -510,7 +510,9 @@ bidi ni invisible). Un réenregistrement sans nom garde le nom connu. L'admin ch
 son téléphone approbateur par ce nom (`admin {approver_candidates}`, voir
 [08_http_api.md](08_http_api.md#approbateurs-et-codes-push)). Un code push du daemon
 ne va qu'à un seul jeton : `NotifManager::sendPushNotificationTo()`, qui retrouve le
-jeton dans `push_tokens` (plateforme et format) et ne poste que lui.
+jeton dans `push_tokens` (plateforme et format) et ne poste que lui. La colonne `approver`
+(entier, 0 par défaut, ajoutée avec `device_name`) marque le jeton d'un approbateur :
+un réenregistrement n'en change alors ni le nom ni le format.
 
 #### Requête envoyée à push.calaos.fr
 

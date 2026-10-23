@@ -152,6 +152,8 @@ private:
     void processFrames();
     void processMessage(const string &text);
     void processAlert(const string &type, const Json &data);
+    //Keeps the name and format of an approver's push_tokens row as enrolled
+    void markApprover(const string &tokenId, bool approver);
     //Fetches the code's message by its id, pushes it to the approver's token only
     void processPushCode(const Json &data);
     void push(const string &type, const string &id, const Json &data);

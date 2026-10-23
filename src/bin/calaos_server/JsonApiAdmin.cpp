@@ -95,10 +95,9 @@ string passwordFieldError(const Json &request, const char *key, string &out)
     return string();
 }
 
-//An approver or code id of the daemon, a token_id: 16 lowercase hex characters
 bool isDaemonId(const string &s)
 {
-    return s.size() == 16 && s.find_first_not_of("0123456789abcdef") == string::npos;
+    return JsonApi::isDaemonId(s);
 }
 
 bool isPushCode(const string &s)
@@ -469,16 +468,16 @@ void relayCall(const DaemonClient::Request &req, bool household, bool sessionOpt
     });
 }
 
-//The name an approver is known by: an app that sent none gets its platform
+//Never empty: the daemon refuses an enrolment without a name
 string deviceNameOf(const PushToken &t)
 {
     const string name = JsonApi::printableText(t.device_name, JsonApi::MaxDeviceName);
     if (!name.empty())
         return name;
-    return t.hw_type == HistLogger::PUSH_HW_IOS ? "iOS device" : "Android device";
+    return t.hw_type == HistLogger::PUSH_HW_IOS ? _("iOS device") : _("Android device");
 }
 
-//SQLite's "YYYY-MM-DD HH:MM:SS" (UTC) as RFC 3339
+//SQLite's DATETIME is UTC
 string rfc3339(const string &sqliteTime)
 {
     if (sqliteTime.size() != 19 || sqliteTime[10] != ' ')
@@ -520,6 +519,9 @@ void relayCandidates(const DaemonClient::Request &req, const std::function<void(
             for (const PushToken &t: tokens)
             {
                 const string id = JsonApi::pushTokenId(t.token);
+                //The daemon's list is the truth: repairs an alert this server missed
+                if (t.approver != (approvers.count(id) > 0))
+                    HistLogger::Instance().setPushTokenApprover(t.token, !t.approver);
                 list.push_back(Json{ { "token_id", id },
                                      { "device_name", deviceNameOf(t) },
                                      { "last_seen", rfc3339(t.created_at) },
@@ -585,7 +587,7 @@ void JsonApi::relayAdmin(const string &action, const Json &request, const string
     if (action == "approver_candidates")
         relayCandidates(req, answer);
     else if (action == "approver_enroll")
-        relayEnroll(req, params["token_id"].get<string>(), answer);
+        relayEnroll(req, JsonField::string(params, "token_id"), answer);
     else
         relayCall(req, household, !row->session, answer);
 }
@@ -622,14 +624,24 @@ string JsonApi::printableText(const string &in, size_t maxCodePoints)
             continue;
         }
 
-        //Controls, soft hyphen, zero-width, bidi overrides and isolates, line
-        //separators, BOM, interlinear annotations and tags
-        const bool hidden = cp < 0x20 || (cp >= 0x7f && cp <= 0x9f) || cp == 0xad ||
-                            (cp >= 0x200b && cp <= 0x200f) || (cp >= 0x2028 && cp <= 0x202e) ||
-                            (cp >= 0x2060 && cp <= 0x206f) || cp == 0xfeff || (cp >= 0xfff9 && cp <= 0xfffb) ||
-                            (cp >= 0xe0000 && cp <= 0xe007f);
-        const bool foldedSpace = cp == ' ' && (out.empty() || out.back() == ' ');
-        if (!hidden && !foldedSpace)
+        //Controls, soft hyphen, zero-width, bidi marks, overrides and isolates,
+        //line separators, BOM, interlinear annotations, tags, variation
+        //selectors, and the fillers and blanks that render as nothing
+        const bool hidden = cp < 0x20 || (cp >= 0x7f && cp <= 0x9f) || cp == 0xad || cp == 0x34f || cp == 0x61c ||
+                            cp == 0x115f || cp == 0x1160 || cp == 0x180e || cp == 0x2800 || cp == 0x3164 ||
+                            cp == 0xffa0 || (cp >= 0x200b && cp <= 0x200f) || (cp >= 0x2028 && cp <= 0x202e) ||
+                            (cp >= 0x2060 && cp <= 0x206f) || (cp >= 0xfe00 && cp <= 0xfe0f) || cp == 0xfeff ||
+                            (cp >= 0xfff9 && cp <= 0xfffb) || (cp >= 0xe0000 && cp <= 0xe007f) ||
+                            (cp >= 0xe0100 && cp <= 0xe01ef);
+        //Every Zs space is a plain one, folded and trimmed with the others
+        const bool space = cp == ' ' || cp == 0xa0 || cp == 0x1680 || (cp >= 0x2000 && cp <= 0x200a) || cp == 0x202f ||
+                           cp == 0x205f || cp == 0x3000;
+        if (space && !out.empty() && out.back() != ' ')
+        {
+            out.push_back(' ');
+            count++;
+        }
+        else if (!hidden && !space)
         {
             out.append(in, i, len);
             count++;
@@ -640,6 +652,11 @@ string JsonApi::printableText(const string &in, size_t maxCodePoints)
     if (!out.empty() && out.back() == ' ')
         out.pop_back();
     return out;
+}
+
+bool JsonApi::isDaemonId(const string &s)
+{
+    return s.size() == 16 && s.find_first_not_of("0123456789abcdef") == string::npos;
 }
 
 string JsonApi::pushTokenId(const string &token)
@@ -833,20 +850,15 @@ void JsonApi::processAdminSet(const Json &request, const AdminAnswer &answerIn)
         return;
     }
 
-    //The push code of the admin_password action, needed by a change only
-    Json code = Json::object();
-    const string invalidCode = optionalCodeFields(request, code);
-    if (!invalidCode.empty())
-    {
-        answer(adminError("invalid_request", invalidCode));
-        return;
-    }
-
     //Present but empty still means "change": an empty key is not a bootstrap
     const bool hasSession = request.contains("admin_session");
     const string session = JsonField::string(request, "admin_session");
 
-    withAdminMode([this, answer, newPass, code, hasSession, session]()
+    //The push code of the admin_password action: a change only reads it
+    Json code = Json::object();
+    const string invalidCode = optionalCodeFields(request, code);
+
+    withAdminMode([this, answer, newPass, code, invalidCode, hasSession, session]()
                   {
         const AdminState::Mode mode = AdminState::Instance().mode();
 
@@ -865,6 +877,12 @@ void JsonApi::processAdminSet(const Json &request, const AdminAnswer &answerIn)
         if (mode == AdminState::Mode::Set && !hasSession)
         {
             answer(adminError("admin_already_set", string()));
+            return;
+        }
+
+        if (hasSession && !invalidCode.empty())
+        {
+            answer(adminError("invalid_request", invalidCode));
             return;
         }
 

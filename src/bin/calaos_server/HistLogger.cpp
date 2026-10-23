@@ -49,7 +49,8 @@
                              "hw_type INTEGER, "                               \
                              "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, " \
                              "push_format INTEGER NOT NULL DEFAULT 0, "        \
-                             "device_name TEXT NOT NULL DEFAULT '');"
+                             "device_name TEXT NOT NULL DEFAULT '', "          \
+                             "approver INTEGER NOT NULL DEFAULT 0);"
 
 const char *const HistEventSql::ReadPage =
     "SELECT uuid, created_at, event_type, io_id, io_state, event_raw, pic_uid FROM events "
@@ -101,6 +102,7 @@ bool PushTokenDb::prepare(sqlite::database &db, bool *locked, bool *hasName)
         addTokenColumn(db, "push_format", "ALTER TABLE push_tokens ADD COLUMN push_format INTEGER NOT NULL DEFAULT 0;");
         format = true;
         addTokenColumn(db, "device_name", "ALTER TABLE push_tokens ADD COLUMN device_name TEXT NOT NULL DEFAULT '';");
+        addTokenColumn(db, "approver", "ALTER TABLE push_tokens ADD COLUMN approver INTEGER NOT NULL DEFAULT 0;");
         name = true;
     }
     catch (sqlite::sqlite_exception &e)
@@ -119,11 +121,22 @@ bool PushTokenDb::prepare(sqlite::database &db, bool *locked, bool *hasName)
 
 void PushTokenDb::save(sqlite::database &db, const PushToken &token, bool hasFormat, bool hasName)
 {
-    bool exists = false;
-    db << "SELECT id FROM push_tokens WHERE token = ?;" << token.token >> [&](int)
+    bool exists = false, approver = false;
+    db << (hasName ? "SELECT approver FROM push_tokens WHERE token = ?;" : "SELECT 0 FROM push_tokens WHERE token = ?;")
+       << token.token >>
+        [&](int a)
     {
         exists = true;
+        approver = a != 0;
     };
+
+    //Whoever knows an approver's token may register it: the name and the
+    //format the admin enrolled stay
+    if (approver)
+    {
+        db << "UPDATE push_tokens SET created_at = DATETIME('now') WHERE token = ?;" << token.token;
+        return;
+    }
 
     if (exists && hasFormat)
         db << "UPDATE push_tokens SET created_at = DATETIME('now'), push_format = ? WHERE token = ?;"
@@ -145,16 +158,22 @@ vector<PushToken> PushTokenDb::load(sqlite::database &db, bool hasFormat, bool h
 {
     vector<PushToken> tokens;
     const string sql = string("SELECT token, hw_type, ") + (hasFormat ? "push_format" : "0") + ", " +
-                       (hasName ? "COALESCE(device_name, '')" : "''") +
+                       (hasName ? "COALESCE(device_name, ''), approver" : "'', 0") +
                        ", COALESCE(created_at, '') FROM push_tokens;";
-    db << sql >> [&](string token, int hw_type, int push_format, string device_name, string created_at)
+    db << sql >> [&](string token, int hw_type, int push_format, string device_name, int approver, string created_at)
     {
         PushToken t(std::move(token), hw_type, push_format);
         t.device_name = std::move(device_name);
+        t.approver = approver != 0;
         t.created_at = std::move(created_at);
         tokens.push_back(std::move(t));
     };
     return tokens;
+}
+
+void PushTokenDb::setApprover(sqlite::database &db, const string &token, bool approver)
+{
+    db << "UPDATE push_tokens SET approver = ? WHERE token = ?;" << (approver ? 1 : 0) << token;
 }
 
 void PushTokenDb::purge(sqlite::database &db)
@@ -173,6 +192,7 @@ public:
         WorkerReadSingle,
         WorkerTokenRegister,
         WorkerTokenGetAll,
+        WorkerTokenApprover,
     };
 
     int action = WorkerNoAction;
@@ -429,6 +449,15 @@ void HistLogger::registerPushToken(string token, int push_hw, int push_format, s
     eventQueue.push(a);
 }
 
+void HistLogger::setPushTokenApprover(string token, bool approver)
+{
+    std::shared_ptr<HistWorkerAction> a = std::make_shared<HistWorkerAction>();
+    a->action = HistWorkerAction::WorkerTokenApprover;
+    a->token.token = token;
+    a->token.approver = approver;
+    eventQueue.push(a);
+}
+
 void HistLogger::getPushTokens(std::function<void(bool success, string errorMsg, const vector<PushToken> &event)> callback)
 {
     std::shared_ptr<HistWorkerAction> a = std::make_shared<HistWorkerAction>();
@@ -531,6 +560,8 @@ void HistLogger::sqliteWorker()
                     cCriticalDom("history") << "Failed to save a push token: " << e.get_code() << ": " << e.what();
                 }
             }
+            else if (ac->action == HistWorkerAction::WorkerTokenApprover && pushName)
+                PushTokenDb::setApprover(db, ac->token.token, ac->token.approver);
             else if (ac->action == HistWorkerAction::WorkerTokenGetAll)
             {
                 cDebugDom("history") << "Reading from SQLite db all tokens";
