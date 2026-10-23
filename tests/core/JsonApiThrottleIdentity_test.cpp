@@ -217,6 +217,20 @@ public:
 
         return str(member(env, "data"), "success") == "true";
     }
+
+    //Same with a "login_service" message
+    bool loginService(const std::string &token)
+    {
+        sent.clear();
+        handler->processApi(Json{{ "msg", "login_service" }, { "msg_id", "1" },
+                                 { "data", {{ "token", token }} }}.dump(),
+                            Params());
+
+        Json env;
+        std::string err;
+        return sent.size() == 1u && parseJsonText(sent.back(), env, err) &&
+               str(member(env, "data"), "success") == "true";
+    }
 };
 
 /*******************************************************************************
@@ -636,4 +650,21 @@ TEST_F(JsonApiThrottleIdentityTest, DirectPeersAreNeverFolded)
     WsLogin another(rotatedName(999), "198.51.100.200");
     EXPECT_TRUE(another.attempt(apiUser(), apiPassword()));
     EXPECT_FALSE(LoginThrottle::isBlocked(LoginThrottle::OverflowIdentity, Utils::getMainLoopTime()));
+}
+
+TEST_F(JsonApiThrottleIdentityTest, TheServiceLoginHasItsOwnScope)
+{
+    //No service token is set, so every login_service fails: none of them may
+    //take a household slot or block the household shared bucket
+    for (int i = 0;i < LoginThrottle::MaxForwardedIdentities + 1;i++)
+    {
+        WsLogin service(rotatedName(i));
+        EXPECT_FALSE(service.loginService("wrong token"));
+    }
+
+    WsLogin household(rotatedName(500));
+    EXPECT_TRUE(household.attempt(apiUser(), apiPassword()))
+            << "service token failures fell into the household buckets";
+    EXPECT_TRUE(LoginThrottle::isBlocked(std::string("service:") + LoginThrottle::OverflowIdentity,
+                                         Utils::getMainLoopTime()));
 }

@@ -689,6 +689,64 @@ TEST_F(JsonApiThrottleTest, TheHeaderCannotNameTheSharedBucketToGetASlot)
         EXPECT_EQ(forwardedName(i), LoginThrottle::key("", forwardedName(i), true, 1000.0)) << i;
 }
 
+TEST_F(JsonApiThrottleTest, ANameThatIsNotAnAddressCannotSpellAnotherScope)
+{
+    for (int i = 0;i < LoginThrottle::MaxForwardedIdentities;i++)
+        failedAttempt("admin:", forwardedName(i), true, 1000.0);
+    const std::string adminOverflow = std::string("admin:") + LoginThrottle::OverflowIdentity;
+    ASSERT_EQ(adminOverflow, LoginThrottle::key("admin:", "10.9.9.9", true, 1000.0));
+
+    //A household login naming "admin:10.9.9.9" is not the admin key of 10.9.9.9
+    const std::string hk = LoginThrottle::key("", "admin:10.9.9.9", true, 1000.0);
+    EXPECT_EQ(LoginThrottle::OverflowIdentity, hk);
+    LoginThrottle::registerSuccess(hk);
+    EXPECT_EQ(adminOverflow, LoginThrottle::key("admin:", "10.9.9.9", true, 1001.0));
+
+    //and cannot clear an admin backoff
+    LoginThrottle::registerFailure("admin:10.9.9.9", 1001.0);
+    LoginThrottle::registerSuccess(LoginThrottle::key("", "admin:10.9.9.9", true, 1001.0));
+    EXPECT_TRUE(LoginThrottle::isBlocked("admin:10.9.9.9", 1001.0));
+
+    for (const char *name: { "admin:loopback-overflow", "localhost", "10.0.0.1:8080", "unknown" })
+        EXPECT_EQ(LoginThrottle::OverflowIdentity, LoginThrottle::key("", name, true, 1001.0)) << name;
+    EXPECT_EQ("::ffff:10.0.0.1", LoginThrottle::key("", "::ffff:10.0.0.1", true, 1001.0));
+}
+
+TEST_F(JsonApiThrottleTest, HouseholdTrustDoesNotEvictAdminTrust)
+{
+    const std::string admin = "198.51.100.7";
+    LoginThrottle::registerSuccess(LoginThrottle::key("admin:", admin, true, 1000.0));
+    for (int i = 0;i < LoginThrottle::MaxEntries + 10;i++)
+        LoginThrottle::registerSuccess(LoginThrottle::key("", forwardedName(i), true, 1001.0));
+    for (int i = 0;i < LoginThrottle::MaxForwardedIdentities;i++)
+        LoginThrottle::key("admin:", forwardedName(2000 + i), true, 1002.0);
+
+    EXPECT_EQ("admin:" + admin, LoginThrottle::key("admin:", admin, true, 1003.0));
+}
+
+TEST_F(JsonApiThrottleTest, OnlyASuccessRenewsTheTrust)
+{
+    const std::string known = "198.51.100.7";
+    const double day = 86400.0;
+    LoginThrottle::registerSuccess(LoginThrottle::key("", known, true, 1000.0));
+
+    //Failures on a trusted name do not keep it trusted
+    for (double t = 1000.0 + day;t < 1000.0 + LoginThrottle::TrustedSlotTimeout;t += day)
+        failedAttempt("", known, true, t);
+    const double expired = 1000.0 + LoginThrottle::TrustedSlotTimeout + 1.0;
+    for (int i = 0;i < LoginThrottle::MaxForwardedIdentities;i++)
+        LoginThrottle::key("", forwardedName(i), true, expired);
+    EXPECT_EQ(LoginThrottle::OverflowIdentity, LoginThrottle::key("", known, true, expired));
+
+    //A success does
+    LoginThrottle::clear();
+    LoginThrottle::registerSuccess(LoginThrottle::key("", known, true, 1000.0));
+    LoginThrottle::registerSuccess(LoginThrottle::key("", known, true, 1000.0 + day));
+    for (int i = 0;i < LoginThrottle::MaxForwardedIdentities;i++)
+        LoginThrottle::key("", forwardedName(i), true, expired);
+    EXPECT_EQ(known, LoginThrottle::key("", known, true, expired));
+}
+
 TEST_F(JsonApiThrottleTest, TheAdminScopeIsCappedOnItsOwn)
 {
     //Filling the household slots does not fold the admin names, nor the reverse

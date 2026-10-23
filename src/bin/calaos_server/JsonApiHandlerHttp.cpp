@@ -303,7 +303,7 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
 
     if (LoginThrottle::isBlocked(ip, now))
     {
-        cWarningDom("network") << "Too many failed logins from " << ip << ", request refused";
+        cWarningDom("network") << "Too many failed logins from " << loginClientForLog(ip) << ", request refused";
 
         sendLoginFailed();
 
