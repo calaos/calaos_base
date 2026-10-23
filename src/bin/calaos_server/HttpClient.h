@@ -163,6 +163,15 @@ inline bool isTrustedProxyPeer(const std::string &peerIp)
     return isLoopbackPeer(peerIp);
 }
 
+//The only transport admin messages accept: haproxy, which reaches us over the
+//loopback, saying it terminated TLS. An absent header refuses (fail closed).
+//No interface or VPN range is trusted. A container of the host network can
+//forge the header; that limit is accepted (docs/admin/PLAN.md).
+inline bool isSecureTransport(const std::string &peerIp, const std::string &forwardedProto)
+{
+    return isLoopbackPeer(peerIp) && forwardedProto == "https";
+}
+
 //The client identity of a proxied connection. calaos_server sits behind
 //haproxy in calaos-os, so the TCP peer is the proxy: without this, every
 //client collapses into one per-IP bucket. haproxy APPENDS its own
@@ -561,6 +570,14 @@ public:
         return TransportLimits::effectiveClientIp(
             it != request_headers.end()? it->second: string(),
             getClientIp());
+    }
+
+    //TransportLimits::isSecureTransport() of this request
+    bool secureTransport() const
+    {
+        const auto it = request_headers.find("x-forwarded-proto");
+        return TransportLimits::isSecureTransport(getClientIp(),
+                                                  it != request_headers.end() ? it->second : string());
     }
 
     void sendToClient(string res);

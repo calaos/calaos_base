@@ -99,6 +99,8 @@ public:
 
     std::string headerBuf; //accumulated raw response headers (--dump-header)
 
+    bool quiet = false; //UrlDownloader::setQuiet()
+
     bool toFile = false;
     std::ofstream destFile;
 
@@ -330,7 +332,12 @@ private:
             auto aliveToken = conn->ownerAlive;
             std::string headers = std::move(conn->headerBuf);
 
-            if (result != CURLE_OK && !conn->abortRequested)
+            if (result != CURLE_OK && !conn->abortRequested && conn->quiet)
+            {
+                cDebugDom("urlutils") << "Transfer failed for " << conn->logUrl << ": "
+                                      << curl_easy_strerror(result);
+            }
+            else if (result != CURLE_OK && !conn->abortRequested)
             {
                 cWarningDom("urlutils") << "Transfer failed for " << conn->logUrl << ": "
                                         << curl_easy_strerror(result)
@@ -537,7 +544,6 @@ UrlDownloader::UrlDownloader(string url, bool autodelete) :
     m_url(url),
     m_autodelete(autodelete)
 {
-    cInfoDom("urlutils") << "UrlDownloader: " << Utils::urlForLog(url);
 }
 
 UrlDownloader::~UrlDownloader()
@@ -614,6 +620,10 @@ bool UrlDownloader::start()
     statusCode = 0;
 
     const string logUrl = Utils::urlForLog(m_url);
+    if (m_quiet)
+        cDebugDom("urlutils") << "UrlDownloader: " << logUrl;
+    else
+        cInfoDom("urlutils") << "UrlDownloader: " << logUrl;
 
     auto conn = new UrlDownloaderCurlConn;
     conn->easy = curl_easy_init();
@@ -624,6 +634,7 @@ bool UrlDownloader::start()
         return false;
     }
     conn->logUrl = logUrl;
+    conn->quiet = m_quiet;
 
     conn->owner = this;
     conn->ownerAlive = alive;
@@ -659,7 +670,7 @@ bool UrlDownloader::start()
         curl_easy_setopt(e, CURLOPT_SSL_VERIFYPEER, 0L);
         curl_easy_setopt(e, CURLOPT_SSL_VERIFYHOST, 0L);
     }
-    curl_easy_setopt(e, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(e, CURLOPT_FOLLOWLOCATION, m_followRedirects ? 1L : 0L);
     curl_easy_setopt(e, CURLOPT_MAXREDIRS, 50L); //curl CLI default
     curl_easy_setopt(e, CURLOPT_FORBID_REUSE, 1L); //one connection per transfer, like the old subprocess
     curl_easy_setopt(e, CURLOPT_CONNECTTIMEOUT,
@@ -670,6 +681,8 @@ bool UrlDownloader::start()
     //1 byte/s is "no progress at all", not "slow": a live but slow peer is not a target here
     curl_easy_setopt(e, CURLOPT_LOW_SPEED_LIMIT, 1L);
     curl_easy_setopt(e, CURLOPT_LOW_SPEED_TIME, stall);
+    if (m_totalTimeout > 0)
+        curl_easy_setopt(e, CURLOPT_TIMEOUT, m_totalTimeout);
     curl_easy_setopt(e, CURLOPT_PRIVATE, conn);
     curl_easy_setopt(e, CURLOPT_WRITEFUNCTION, urlDownloaderWriteCb);
     curl_easy_setopt(e, CURLOPT_WRITEDATA, conn);

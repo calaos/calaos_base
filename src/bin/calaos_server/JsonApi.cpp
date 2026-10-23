@@ -388,6 +388,13 @@ void LoginThrottle::registerSuccess(const string &ip)
     entries.erase(ip);
 }
 
+double LoginThrottle::retryAfter(const string &ip, double now)
+{
+    if (!isBlocked(ip, now))
+        return 0.0;
+    return entries[ip].blockedUntil - now;
+}
+
 int LoginThrottle::trackedCount()
 {
     return (int)entries.size();
@@ -468,10 +475,12 @@ const vector<string> &JsonApi::serviceScopeDeniedCommands()
      * schedule, a scenario and its rules, the event log, a push registration,
      * the credentials themselves. config is HTTP only today; it is listed so
      * that a websocket route added later is born refused (put replaces the
-     * configuration files).
+     * configuration files). The admin messages are refused with the admin
+     * error shape (adminError(), not_allowed).
      */
     static const vector<string> denied = { "set_param", "del_param", "audio_db", "set_timerange", "autoscenario",
-                                           "eventlog", "register_push", "settings", "config" };
+                                           "eventlog", "register_push", "settings", "config",
+                                           "admin_unlock", "admin_set", "admin" };
 
     return denied;
 }
@@ -498,7 +507,7 @@ bool JsonApi::refuseServiceScope(const string &command,
         return false;
 
     cWarningDom("mcp") << "service scope denied action: " << command;
-    answer(scopeDeniedAnswer());
+    answer(isAdminCommand(command) ? adminError("not_allowed", "scope denied") : scopeDeniedAnswer());
 
     return true;
 }

@@ -142,6 +142,30 @@ void McpServerManager::ensureTokens()
     }
 }
 
+bool McpServerManager::regenerateBearerToken()
+{
+    const std::string generated = generateToken();
+    //LCOV_EXCL_START a CSPRNG or a local_config.xml write that fails
+    if (generated.empty() || !Utils::set_config_option(MCP_TOKEN_KEY, generated))
+    {
+        cErrorDom("mcp") << "failed to regenerate mcp_token, the current one stays";
+        return false;
+    }
+    //LCOV_EXCL_STOP
+
+    mcpToken = generated;
+    cInfoDom("mcp") << "mcp_token regenerated";
+
+    //The sidecar reads the token at start; its exit handler respawns it
+    if (processExe && processExe->referenced() && processExe->pid() > 0)
+    {
+        cInfoDom("mcp") << "restarting the MCP sidecar for the new token";
+        processExe->kill(SIGTERM);
+    }
+
+    return true;
+}
+
 std::string McpServerManager::proxyCredential() const
 {
     if (serviceToken.empty())

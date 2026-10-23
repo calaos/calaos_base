@@ -59,6 +59,11 @@ private:
     string clientIp() const;
 
     void processLoginService(const Params &jsonData, const string &client_id = string());
+
+    //The `admin` message: gating here, the daemon calls in relayAdminAction()
+    void processAdminMessage(const Json &request, const string &client_id);
+    void relayAdminAction(const string &action, const Json &request, const string &session,
+                          const AdminAnswer &answer);
     sigc::connection evcon;
 
     sigc::signal<void, string, string, void*, void*> sig_events;

@@ -186,6 +186,9 @@ CORE_SERVER_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/IOBase.$(OBJEXT)                     \
                   $(CALAOS_SERVER_BUILDDIR)/IOChangeHub.$(OBJEXT)                \
                   $(CALAOS_SERVER_BUILDDIR)/JsonApi.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiAdmin.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/AdminState.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/DaemonClient.$(OBJEXT)               \
                   $(CALAOS_SERVER_BUILDDIR)/ListeRoom.$(OBJEXT)                  \
                   $(CALAOS_SERVER_BUILDDIR)/ListeRule.$(OBJEXT)                  \
                   $(CALAOS_SERVER_BUILDDIR)/NotifManager.$(OBJEXT)               \
@@ -8355,5 +8358,23 @@ core_HistLoggerSchema_test_SOURCES = core/HistLoggerSchema_test.cpp \
 core_HistLoggerSchema_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
 core_HistLoggerSchema_test_LDADD = $(CORE_TEST_LDADD)
 core_HistLoggerSchema_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#The admin messages (docs/08_http_api.md, Administration) on a real HttpServer
+#bound on loopback, against a fake calaos-container on its own thread reached
+#through CALAOS_CONTAINER_URL. Configuration and cache (admin_seen_set) live in
+#a temporary directory; a fake calaos_mcp records its starts.
+if HAVE_GTEST
+TESTS += core/JsonApiAdmin_test
+check_PROGRAMS += core/JsonApiAdmin_test
+core_JsonApiAdmin_test_SOURCES = core/JsonApiAdmin_test.cpp \
+                  core/FakeDaemon.h
+core_JsonApiAdmin_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
+core_JsonApiAdmin_test_LDADD = $(SERVICE_SCOPE_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_JsonApiAdmin_test_DEPENDENCIES = $(SERVICE_SCOPE_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif

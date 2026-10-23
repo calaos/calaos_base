@@ -292,15 +292,17 @@ service à portée restreinte (`serviceScope`). Voir
 Le token est comparé à l'option `mcp_service_token` de `local_config.xml`
 (`McpServerManager::getServiceToken()`). Un token non configuré n'accorde jamais
 l'accès ([JsonApiHandlerWS.cpp:530-566](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
-En session `serviceScope`, **9** messages sont refusés : `set_param`, `del_param`,
+En session `serviceScope`, **12** messages sont refusés : `set_param`, `del_param`,
 `audio_db`, `set_timerange`, `autoscenario`, `eventlog`, `register_push`,
-`settings`, `config` (`JsonApi::serviceScopeDeniedCommands()`).
+`settings`, `config`, et les trois messages admin `admin_unlock`, `admin_set`, `admin`
+(`JsonApi::serviceScopeDeniedCommands()`, voir [Portée MCP](#portée-mcp)).
 
-⭐ **La portée est une propriété de la session, pas du transport.** Les neuf sont
+⭐ **La portée est une propriété de la session, pas du transport.** Les douze sont
 refusées quel que soit le transport par lequel la session a été ouverte, et la
 charge utile du refus est **la même** des deux côtés — seule l'enveloppe change :
 `{"msg":"<msg>","msg_id":"<le vôtre>","data":{"error":"scope denied"}}` en
-WebSocket, `{"error":"scope denied"}` en HTTP.
+WebSocket, `{"error":"scope denied"}` en HTTP. Les trois messages admin refusent avec la
+forme d'erreur admin : `{"success":"false","error":"not_allowed","msg":"scope denied"}`.
 
 ℹ️ **Aujourd'hui aucune session HTTP ne peut être en portée de service** :
 `login_service` n'existe que sur la WebSocket, et le proxy `/mcp` ne construit
@@ -697,6 +699,11 @@ Pour valider la session, calaos_server appelle `GET /api/v2/admin/status` avec
 `admin_reset`, la session est invalidée : la réponse est `bad_session`, et `AdminState` passe
 à « non défini » à l'événement `admin_reset`.
 
+Avant de servir `config` ou `get_mcp_info`, calaos_server relit `admin/status` dès qu'un daemon
+a déjà répondu, admin défini ou non : un admin défini hors de calaos_server (`calaos-os admin
+set`) ferme ces actions dès la requête suivante. Seul l'état « daemon injoignable, admin jamais
+vu » les sert sans appel.
+
 `change_cred` (mot de passe **foyer**) n'est pas concerné : il reste au niveau foyer, car il
 exige déjà l'ancien mot de passe.
 
@@ -707,7 +714,7 @@ champs), état (`AdminState`), présence et format de la session, appel du daemo
 ### Portée MCP
 
 `admin_unlock`, `admin_set` et `admin` rejoignent la liste des messages refusés en session
-service (11 au lieu de 9). Le refus a la forme d'erreur admin avec `not_allowed` et
+service (12 au lieu de 9). Le refus a la forme d'erreur admin avec `not_allowed` et
 `"msg": "scope denied"`. La console ne se connecte pas non plus avec un mot de passe : seul un
 ticket l'authentifie (phase 2).
 
@@ -717,7 +724,10 @@ ticket l'authentifie (phase 2).
 au démarrage, puis toutes les 60 s (toutes les 5 s pendant les 2 premières minutes tant que
 l'état est inconnu), et à chaque `admin_set` ou `admin_reset` reçu sur `/events` (CB3).
 Un drapeau persistant `admin_seen_set` (fichier du même nom dans `Utils::getCachePath()`)
-mémorise qu'un admin a été vu défini.
+mémorise qu'un admin a été vu défini. Sur Calaos OS, ce répertoire est `/root/.cache/calaos` du conteneur
+calaos-server, monté depuis `/mnt/calaos/cache` de l'hôte (pkgdebs, `start_calaos_server`) : le
+drapeau survit à la recréation du conteneur à chaque mise à jour et, comme la configuration, suit
+un rollback de `/mnt/calaos`.
 
 | Daemon | Drapeau | Admin | Effet |
 |---|---|---|---|
