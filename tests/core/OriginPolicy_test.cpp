@@ -258,20 +258,6 @@ TEST(OriginPolicyMatrix, AllowedHosts)
     EXPECT_TRUE(OriginPolicy::accepts("http://ok.lan:5454", lan("x:5454"), {}, mixed));
 }
 
-//Anyone on the LAN can send endless distinct Origins before the bootstrap
-TEST(OriginPolicyMatrix, RefusedOriginLogIsBounded)
-{
-    std::unordered_map<std::string, std::string> h;
-    h["host"] = "192.168.1.10:5454";
-    for (int i = 0; i < 100; i++)
-    {
-        h["origin"] = "http://flood" + std::to_string(i) + ".example";
-        const auto d = OriginPolicy::decide(h, "127.0.0.1", "192.168.1.50", false);
-        EXPECT_EQ(OriginPolicy::Verdict::Refused, d.verdict);
-        EXPECT_FALSE(d.refused());
-    }
-}
-
 //A non-loopback address of this machine, empty when it has none
 std::string boxIp()
 {
@@ -726,6 +712,21 @@ TEST_F(OriginServerTest, NoFlagDaemonUnreachableStaysOpen)
     const Reply post = apiPost(from("http://evil.example"));
     EXPECT_EQ(200, post.status) << post.head;
     EXPECT_EQ("http://evil.example", post.acao());
+}
+
+//Anyone on the LAN can send endless distinct Origins before the bootstrap.
+//Last suite: once the log set is full, the other tests log nothing.
+TEST(OriginPolicyLog, RefusedOriginLogIsBounded)
+{
+    std::unordered_map<std::string, std::string> h;
+    h["host"] = "192.168.1.10:5454";
+    for (int i = 0; i < 100; i++)
+    {
+        h["origin"] = "http://flood" + std::to_string(i) + ".example";
+        const auto d = OriginPolicy::decide(h, "127.0.0.1", "192.168.1.50", false);
+        EXPECT_EQ(OriginPolicy::Verdict::Refused, d.verdict);
+        EXPECT_FALSE(d.refused());
+    }
 }
 
 } //namespace

@@ -390,7 +390,7 @@ std::vector<std::string> interfaceAddresses()
     if (list)
         freeifaddrs(list);
     return ips;
-}
+} // LCOV_EXCL_LINE: with NRVO this line only holds the unwinding cleanup of ips
 
 std::vector<std::string> allowedHosts()
 {
