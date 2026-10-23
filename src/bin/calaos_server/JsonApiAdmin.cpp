@@ -271,7 +271,7 @@ void JsonApi::processAdminUnlock(const Json &request, const AdminAnswer &answerI
 
     //Its own key: a wrong admin password must not lock the household login out
     const string ip = adminClientIp();
-    const string key = "admin:" + ip;
+    const string key = loginThrottleKey("admin:");
     const double now = Utils::getMainLoopTime();
     if (LoginThrottle::isBlocked(key, now))
     {

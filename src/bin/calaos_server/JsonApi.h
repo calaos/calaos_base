@@ -26,6 +26,8 @@
 #include "Room.h"
 #include "AudioPlayer.h"
 
+#include <set>
+
 using namespace Calaos;
 
 class HttpClient;
@@ -63,6 +65,24 @@ public:
     //Highest number of tracked addresses, oldest one is evicted above that
     static constexpr int MaxEntries = 1024;
 
+    //A loopback peer names its client in X-Forwarded-For. haproxy does, but so
+    //can any process in the host network, and each new name would start a new
+    //backoff. Per scope, at most MaxForwardedIdentities names that never logged
+    //in keep their own bucket, until ForwardedSlotTimeout without an attempt;
+    //new names beyond that, and names that are not an address, share the
+    //OverflowIdentity bucket. A name that logged in keeps its bucket outside the
+    //cap until TrustedSlotTimeout without a success. In memory only: a restart
+    //forgets it. 16 is far above the clients of a home failing within 5 min.
+    static constexpr int MaxForwardedIdentities = 16;
+    static constexpr double ForwardedSlotTimeout = 300.0;
+    static constexpr double TrustedSlotTimeout = 7 * 86400.0;
+    static constexpr const char *OverflowIdentity = "loopback-overflow";
+
+    //The key to throttle ip on. scope keeps separate buckets ("" for the
+    //household login, "admin:", "service:"); forwarded is true when ip was
+    //read from X-Forwarded-For rather than being the TCP peer.
+    static string key(const string &scope, const string &ip, bool forwarded, double now);
+
     //True when ip is inside its backoff window and must not be allowed to login
     static bool isBlocked(const string &ip, double now);
 
@@ -85,6 +105,20 @@ private:
     };
 
     static map<string, Entry> entries;
+
+    struct Slot
+    {
+        string scope;
+        double lastSeen = 0.0;
+        double lastSuccess = 0.0;
+        bool trusted = false;
+    };
+
+    //Forwarded names holding their own bucket, by key. Per scope, trusted
+    //slots are bounded by MaxEntries, the others by MaxForwardedIdentities.
+    static map<string, Slot> forwardedSlots;
+    //The shared buckets handed out by key(), one per scope
+    static std::set<string> overflowKeys;
 
     static void purge(double now);
 };
@@ -381,6 +415,11 @@ protected:
                             const std::function<void(const Json &)> &answer);
 
     HttpClient *httpClient = nullptr;
+
+    //LoginThrottle::key() of the client of this connection
+    string loginThrottleKey(const string &scope) const;
+    //The client behind a throttle key, for logs: the key can be a shared bucket
+    string loginClientForLog(const string &key) const;
 
     map<string, int> playerCounts;
 

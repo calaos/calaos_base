@@ -140,7 +140,8 @@ string JsonApiHandlerWS::clientIp() const
     //- one attacker locks everybody out, and his own budget is diluted by
     //everybody else. Same identity as the per-IP connection cap, which has
     //always read it (HttpClient::getEffectiveClientIp, and its trust note).
-    return httpClient->getEffectiveClientIp();
+    //Past the cap on forwarded names, it is the shared overflow bucket instead.
+    return loginThrottleKey("");
 }
 
 void JsonApiHandlerWS::handleEvents(const CalaosEvent &event)
@@ -286,7 +287,7 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
 
         if (LoginThrottle::isBlocked(ip, now))
         {
-            cWarningDom("network") << "Too many failed logins from " << ip << ", login refused";
+            cWarningDom("network") << "Too many failed logins from " << loginClientForLog(ip) << ", login refused";
 
             sendJson("login", {{ "success", "false" }}, jsonRoot["msg_id"]);
             closeConnection.emit(WebSocketFrame::CloseCodeNormal, "login failed!");
@@ -804,12 +805,14 @@ void JsonApiHandlerWS::processLoginService(const Params &jsonData, const string 
     const string &expected = McpServerManager::Instance().getServiceToken();
     const string &received = jsonData["token"];
 
-    const string ip = clientIp();
+    //Its own scope: a service token success must not make a name trusted for
+    //the household login
+    const string ip = loginThrottleKey("service:");
     const double now = Utils::getMainLoopTime();
 
     if (LoginThrottle::isBlocked(ip, now))
     {
-        cWarningDom("mcp") << "login_service: too many failed logins from " << ip;
+        cWarningDom("mcp") << "login_service: too many failed logins from " << loginClientForLog(ip);
         sendJson("login_service", {{ "success", "false" }, { "error", "invalid token" }}, client_id);
         closeConnection.emit(WebSocketFrame::CloseCodeNormal, "login_service failed");
         return;

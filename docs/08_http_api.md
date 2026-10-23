@@ -258,19 +258,40 @@ après 900 s sans activité, la table est bornée à 1024 IPs
 efface l'entrée. Pendant le blocage, HTTP répond 400 et WS répond
 `{"msg":"login","data":{"success":"false"}}` puis ferme.
 
-> ⚠️ **L'IP indexée est celle du pair TCP, pas celle du client.** Les deux
-> transports passent à `LoginThrottle` le résultat de `clientIp()`, qui renvoie
-> `HttpClient::getClientIp()`, c'est-à-dire l'adresse du **socket**
-> ([HttpClient.cpp:710-724](../src/bin/calaos_server/HttpClient.cpp),
-> [JsonApiHandlerHttp.cpp:55-60](../src/bin/calaos_server/JsonApiHandlerHttp.cpp),
-> [JsonApiHandlerWS.cpp:45-50](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
-> Le plafond de connexions par client, lui, utilise bien `X-Forwarded-For`
-> ([HttpClient.cpp:195-215](../src/bin/calaos_server/HttpClient.cpp)) — les deux
-> mécanismes n'ont donc **pas** la même notion de « client ». Derrière le reverse
-> proxy, où `calaos_server` est déployé, tous les clients partagent l'adresse du
-> proxy et **donc le même compteur d'échecs** : un client tiers en échec bloque
-> les autres, et le blocage n'est pas par client. Défaut connu, non corrigé à ce
-> jour, suivi en `T3.24` (voir `docs/refactoring/FINDINGS.md`).
+L'adresse indexée est celle que haproxy a vue : le dernier élément de
+`X-Forwarded-For`, lu seulement quand le pair TCP est le loopback
+(`HttpClient::getEffectiveClientIp()`). Un client direct du LAN est indexé sur
+son pair TCP.
+
+Tout processus du réseau de l'hôte atteint aussi le loopback et peut écrire
+n'importe quel `X-Forwarded-For`. Changer de nom à chaque essai donnerait un
+nouveau délai à chaque fois, d'où un plafond (`LoginThrottle::key()`). Il
+s'applique par portée : login foyer, `admin:` et `service:` (`login_service`).
+Dans chaque portée, au plus 16 noms venus de l'en-tête et jamais connectés
+gardent leur propre compteur, jusqu'à 300 s sans essai. Au-delà, les nouveaux
+noms partagent le compteur `loopback-overflow`, freiné normalement. Il en va de
+même pour tout nom qui n'est pas une adresse IPv4 ou IPv6. Un login réussi par
+ce compteur partagé ne l'efface pas.
+
+Un nom qui s'est connecté garde son compteur hors plafond tant qu'il réussit un
+login au moins tous les 7 jours (les échecs ne prolongent pas ce délai). Cette
+confiance est en mémoire : un redémarrage de calaos_server l'oublie. Un client
+inconnu (nouvel appareil, nouvelle adresse, ou n'importe quel client juste après
+un redémarrage) est refusé, même avec le bon mot de passe, tant qu'un usurpateur
+entretient le compteur partagé, et jusqu'à 300 s après.
+
+Le plafond ne couvre que les noms venus de l'en-tête. Un pair loopback sans
+`X-Forwarded-For` (ou qui y répète sa propre adresse) est indexé sur
+`127.0.0.1`, comme un pair direct. Ce compteur n'est pas plafonné : un conteneur
+du réseau de l'hôte peut le maintenir bloqué, et bloquer ainsi les clients
+locaux qui passent par le loopback. Seul le socket Unix de la phase 3 corrige
+cela.
+
+Un foyer derrière haproxy n'a en pratique jamais 16 clients en échec en 5 min.
+Une fois le délai à 60 s, un usurpateur du login foyer est limité à environ
+17 essais par minute, mais la première minute en permet une centaine (chaque
+compteur passe d'abord par 1, 2, 4… s). Pour `admin_unlock`, la vraie borne
+reste le limiteur global du daemon. Les pairs directs ne sont jamais regroupés.
 
 ### WebSocket — `login` (session admin)
 Premier message attendu sur `/api` (forme dérivée de

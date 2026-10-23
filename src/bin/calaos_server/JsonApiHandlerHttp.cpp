@@ -212,7 +212,8 @@ string JsonApiHandlerHttp::clientIp() const
     //- one attacker locks everybody out, and his own budget is diluted by
     //everybody else. Same identity as the per-IP connection cap, which has
     //always read it (HttpClient::getEffectiveClientIp, and its trust note).
-    return httpClient->getEffectiveClientIp();
+    //Past the cap on forwarded names, it is the shared overflow bucket instead.
+    return loginThrottleKey("");
 }
 
 void JsonApiHandlerHttp::sendLoginFailed()
@@ -302,7 +303,7 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
 
     if (LoginThrottle::isBlocked(ip, now))
     {
-        cWarningDom("network") << "Too many failed logins from " << ip << ", request refused";
+        cWarningDom("network") << "Too many failed logins from " << loginClientForLog(ip) << ", request refused";
 
         sendLoginFailed();
 
