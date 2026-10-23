@@ -46,6 +46,7 @@
 #include "json.hpp"
 
 #include "FakeDaemon.h"
+#include "PushTestUtil.h"
 
 #include "libuvw.h"
 
@@ -63,6 +64,7 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <filesystem>
 #include <vector>
 
 using namespace Calaos;
@@ -744,7 +746,7 @@ TEST_F(JsonApiAdminTest, StickyFlagWithTheDaemonDownFailsClosed)
     const Json session = { { "admin_session", FakeDaemon::Session } };
     expectError(httpJson(Json{ { "action", "config" }, { "type", "get" }, { "admin_session", FakeDaemon::Session } }, "https"),
                 "daemon_unreachable");
-    expectError(httpJson(Json{ { "action", "config" }, { "type", "get" } }, ""), "daemon_unreachable");
+    expectError(httpJson(Json{ { "action", "config" }, { "type", "get" } }, ""), "https_required");
     expectError(httpJson(Json{ { "action", "get_mcp_info" }, { "admin_session", FakeDaemon::Session } }, "https"),
                 "daemon_unreachable");
 
@@ -1483,6 +1485,130 @@ TEST_F(JsonApiAdminTest, AnAnswerForAClosedConnectionIsDropped)
  * Alerts
  ******************************************************************************/
 
+TEST_F(JsonApiAdminTest, AnAdminSetOutOfBandClosesConfigAtOnce)
+{
+    fakeDaemon.setAdminSet(false);
+    syncAdminState();
+    ASSERT_EQ(AdminState::Mode::NotSet, AdminState::Instance().mode());
+    ASSERT_EQ("true", str(httpJson(Json{ { "action", "config" }, { "type", "get" } }, ""), "success"));
+
+    //calaos-os admin set, no event, the next poll far away
+    fakeDaemon.setAdminSet(true);
+    expectError(httpJson(Json{ { "action", "config" }, { "type", "get" } }, ""), "https_required");
+    expectError(httpJson(Json{ { "action", "get_mcp_info" } }, ""), "https_required");
+    expectError(httpJson(Json{ { "action", "config" }, { "type", "get" } }, "https"), "bad_session");
+    EXPECT_EQ(AdminState::Mode::Set, AdminState::Instance().mode());
+
+    //An old daemon in memory is asked again too
+    fakeDaemon.setAdminSet(false);
+    syncAdminState();
+    fakeDaemon.setOldDaemon(true);
+    syncAdminState();
+    ASSERT_EQ(AdminState::Mode::TooOld, AdminState::Instance().mode());
+    fakeDaemon.setOldDaemon(false);
+    fakeDaemon.setAdminSet(true);
+    expectError(httpJson(Json{ { "action", "get_mcp_info" } }, ""), "https_required");
+}
+
+TEST_F(JsonApiAdminTest, DaemonCallsDoNotLogAboveDebug)
+{
+    fakeDaemon.stop();
+    PushTest::StdoutCapture capture;
+
+    syncAdminState();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    expectError(ws.admin("admin_unlock", unlockData()), "admin_unavailable");
+
+    const std::string out = capture.stop();
+    std::istringstream lines(out);
+    std::string line;
+    int loud = 0;
+    while (std::getline(lines, line))
+    {
+        if (line.find("urlutils") != std::string::npos &&
+            (line.find("[INF]") != std::string::npos || line.find("[WRN]") != std::string::npos))
+            loud++;
+    }
+    EXPECT_EQ(0, loud) << out;
+
+    //The same failure from an ordinary transfer is a WARNING: the capture is not blind
+    PushTest::StdoutCapture contrast;
+    bool done = false;
+    UrlDownloader *dl = new UrlDownloader(env.base + "/contrast", true);
+    dl->m_signalComplete.connect([&done](int)
+                                 {
+        done = true;
+    });
+    dl->httpGet();
+    pumpUntil([&done]()
+              {
+        return done;
+    });
+    const std::string loudOut = contrast.stop();
+    EXPECT_NE(std::string::npos, loudOut.find("Transfer failed")) << loudOut;
+}
+
+TEST_F(JsonApiAdminTest, ARedirectFromTheDaemonIsNotFollowed)
+{
+    adminDefined();
+    const std::string elsewhere = env.base + "/elsewhere";
+    fakeDaemon.setOverride([elsewhere](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/v2/admin/verify")
+            return false;
+        res.status = 307;
+        res.location = elsewhere;
+        res.body = "";
+        return true;
+    });
+
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    expectError(ws.admin("admin_unlock", unlockData()), "daemon_unreachable");
+    drainLoop(100);
+    EXPECT_EQ(0u, fakeDaemon.count("/elsewhere"));
+}
+
+TEST_F(JsonApiAdminTest, PasswordsOverTheDaemonLimitAreRefusedHere)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    const std::string tooLong(1025, 'p');
+    expectError(ws.admin("admin_unlock", { { "admin_pass", tooLong } }), "invalid_request");
+    expectError(ws.admin("admin_set", { { "new_pass", tooLong }, { "admin_session", FakeDaemon::Session } }),
+                "invalid_request");
+    EXPECT_TRUE(fakeDaemon.requests().empty());
+
+    expectError(ws.admin("admin_unlock", { { "admin_pass", std::string(1024, 'p') } }), "bad_password");
+}
+
+TEST_F(JsonApiAdminTest, AnOldDaemonBehindVerifyOrSetIsRecorded)
+{
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    for (const char *msg: { "admin_unlock", "admin_set" })
+    {
+        adminDefined();
+        fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                               {
+            if (req.path == "/api/v2/admin/status")
+                return false;
+            res.status = 404;
+            res.body = "404 page not found";
+            return true;
+        });
+        const Json data = std::string(msg) == "admin_unlock" ? unlockData() : Json{ { "new_pass", "a long admin password" }, { "admin_session", FakeDaemon::Session } };
+        expectError(ws.admin(msg, data), "daemon_too_old");
+        EXPECT_EQ(AdminState::Mode::TooOld, AdminState::Instance().mode()) << msg;
+        fakeDaemon.setOverride(nullptr);
+        LoginThrottle::clear();
+    }
+}
+
 TEST_F(JsonApiAdminTest, AnAlertIsPushedAndStoredOncePerId)
 {
     HistLogger::Instance().registerPushToken("cb2-push-token", HistLogger::PUSH_HW_ANDROID);
@@ -1588,5 +1714,7 @@ int main(int argc, char **argv)
     McpServerManager::Instance().stop();
     fakeDaemon.stop();
     drainLoop(50);
+    std::error_code ec;
+    std::filesystem::remove_all(base, ec);
     return rc;
 }

@@ -303,6 +303,7 @@ calaos_server_SOURCES = \
         JsonApi.cpp                                     \
         JsonApi.h                                       \
         JsonApiAdmin.cpp                                \
+        JsonField.h                                     \
         JsonApiHandlerHttp.h                            \
         JsonApiHandlerHttp.cpp                          \
         JsonApiHandlerWS.h                              \

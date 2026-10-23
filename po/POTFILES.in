@@ -233,6 +233,7 @@
 ./src/bin/calaos_server/JsonApi.cpp
 ./src/bin/calaos_server/JsonApi.h
 ./src/bin/calaos_server/JsonApiAdmin.cpp
+./src/bin/calaos_server/JsonField.h
 ./src/bin/calaos_server/JsonApiHandlerHttp.cpp
 ./src/bin/calaos_server/JsonApiHandlerHttp.h
 ./src/bin/calaos_server/JsonApiHandlerWS.cpp

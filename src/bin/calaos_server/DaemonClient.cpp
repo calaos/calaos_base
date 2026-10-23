@@ -186,6 +186,10 @@ void DaemonClient::send(const Request &request, Callback callback, bool retried)
     if (!request.clientIp.empty())
         dl->setHeader("X-Calaos-Client-IP", request.clientIp);
     dl->setTimeout(request.timeout);
+    //The poll repeats forever and AdminState logs the outcome once
+    dl->setQuiet(true);
+    //A redirect would carry the bearer and the session away from the loopback
+    dl->setFollowRedirects(false);
 
     const bool statusRoute = request.path == "admin/status";
 

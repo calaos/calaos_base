@@ -106,6 +106,9 @@ private:
     //Bound on the whole transfer, in seconds; 0 leaves it unbounded.
     long m_totalTimeout = 0;
 
+    bool m_quiet = false;
+    bool m_followRedirects = true;
+
     //Common function for starting download of url
     bool start();
 
@@ -189,6 +192,12 @@ public:
 
     //Bound on the whole transfer (connection and answer), in seconds.
     void setTimeout(long seconds) { m_totalTimeout = seconds; }
+
+    //A caller that reports its own failures: the start and failure lines go to DEBUG
+    void setQuiet(bool quiet) { m_quiet = quiet; }
+
+    //Follow 3xx answers (the default, like curl --location)
+    void setFollowRedirects(bool follow) { m_followRedirects = follow; }
 
     Params getResponseHeaders();
 

@@ -22,6 +22,7 @@
 #include "AdminState.h"
 #include "DaemonClient.h"
 #include "HttpClient.h"
+#include "JsonField.h"
 
 #include <cmath>
 #include <set>
@@ -65,17 +66,19 @@ string fieldToString(const Json &v)
     return string();
 }
 
-string stringMember(const Json &j, const char *key)
-{
-    if (!j.is_object() || !j.contains(key) || !j[key].is_string())
-        return string();
-    return j[key].get<string>();
-}
+//The daemon's own maximum: a longer one would cost a big loopback transfer for
+//an answer that cannot be anything but a refusal
+constexpr size_t MaxPasswordBytes = 1024;
 
-bool stringField(const Json &request, const char *key, string &out)
+//Empty when the password field is usable, the invalid_request message otherwise
+string passwordFieldError(const Json &request, const char *key, string &out)
 {
-    out = stringMember(request, key);
-    return !out.empty();
+    out = JsonField::string(request, key);
+    if (out.empty())
+        return string(key) + " is required";
+    if (out.size() > MaxPasswordBytes)
+        return string(key) + " is longer than 1024 bytes";
+    return string();
 }
 
 Json adminNotSet()
@@ -88,7 +91,7 @@ Json adminNotSet()
 
 Json setSucceeded(const DaemonReply &reply, bool hasSession)
 {
-    string mode = stringMember(reply.data, "mode");
+    string mode = JsonField::string(reply.data, "mode");
     if (mode != "bootstrap" && mode != "change")
         mode = hasSession ? "change" : "bootstrap";
 
@@ -279,9 +282,10 @@ void JsonApi::processAdminUnlock(const Json &request, const AdminAnswer &answerI
     }
 
     string password;
-    if (!stringField(request, "admin_pass", password))
+    const string invalid = passwordFieldError(request, "admin_pass", password);
+    if (!invalid.empty())
     {
-        answer(adminError("invalid_request", "admin_pass is required"));
+        answer(adminError("invalid_request", invalid));
         return;
     }
 
@@ -304,7 +308,7 @@ void JsonApi::processAdminUnlock(const Json &request, const AdminAnswer &answerI
                                       {
             if (reply.kind == DaemonReply::Kind::Ok)
             {
-                const string session = stringMember(reply.data, "session");
+                const string session = JsonField::string(reply.data, "session");
                 const string expiresIn = reply.data.is_object() && reply.data.contains("expires_in") ? fieldToString(reply.data["expires_in"]) : string();
                 if (!isValidAdminSession(session) || expiresIn.empty())
                 {
@@ -327,6 +331,10 @@ void JsonApi::processAdminUnlock(const Json &request, const AdminAnswer &answerI
             {
                 AdminState::Instance().observe(false);
             }
+            else if (reply.kind == DaemonReply::Kind::TooOld)
+            {
+                AdminState::Instance().observeTooOld();
+            }
 
             answer(adminErrorFromReply(reply));
         });
@@ -344,15 +352,16 @@ void JsonApi::processAdminSet(const Json &request, const AdminAnswer &answerIn)
     }
 
     string newPass;
-    if (!stringField(request, "new_pass", newPass))
+    const string invalid = passwordFieldError(request, "new_pass", newPass);
+    if (!invalid.empty())
     {
-        answer(adminError("invalid_request", "new_pass is required"));
+        answer(adminError("invalid_request", invalid));
         return;
     }
 
     //Present but empty still means "change": an empty key is not a bootstrap
     const bool hasSession = request.contains("admin_session");
-    const string session = stringMember(request, "admin_session");
+    const string session = JsonField::string(request, "admin_session");
 
     withAdminMode([this, answer, newPass, hasSession, session]()
                   {
@@ -410,6 +419,8 @@ void JsonApi::processAdminSet(const Json &request, const AdminAnswer &answerIn)
                 AdminState::Instance().observe(true);
             else if (reply.kind == DaemonReply::Kind::Error && reply.code == "admin_not_set")
                 AdminState::Instance().observe(false);
+            else if (reply.kind == DaemonReply::Kind::TooOld)
+                AdminState::Instance().observeTooOld();
 
             answer(adminErrorFromReply(reply));
         });
@@ -418,9 +429,9 @@ void JsonApi::processAdminSet(const Json &request, const AdminAnswer &answerIn)
 
 void JsonApi::gateAdminOnly(const Json &request, const AdminAnswer &answerIn, const std::function<void()> &allowedIn)
 {
-    const AdminState::Mode cached = AdminState::Instance().mode();
-    if (cached == AdminState::Mode::NotSet || cached == AdminState::Mode::TooOld ||
-        cached == AdminState::Mode::Unavailable)
+    //Only "no daemon, admin never seen" is served from the cache: an admin set
+    //out of band (calaos-os admin set) must close these at once
+    if (AdminState::Instance().mode() == AdminState::Mode::Unavailable)
     {
         allowedIn();
         return;
@@ -435,17 +446,12 @@ void JsonApi::gateAdminOnly(const Json &request, const AdminAnswer &answerIn, co
     };
 
     //The body only: haproxy logs URLs, so a session in the query is never read
-    const string session = stringMember(request, "admin_session");
+    const string session = JsonField::string(request, "admin_session");
 
     withAdminMode([this, answer, allowed, session]()
                   {
         const AdminState::Mode mode = AdminState::Instance().mode();
-        if (mode == AdminState::Mode::Closed)
-        {
-            answer(adminError("daemon_unreachable", string()));
-            return;
-        }
-        if (mode != AdminState::Mode::Set)
+        if (mode != AdminState::Mode::Set && mode != AdminState::Mode::Closed)
         {
             allowed();
             return;
@@ -454,6 +460,12 @@ void JsonApi::gateAdminOnly(const Json &request, const AdminAnswer &answerIn, co
         if (!secureTransport())
         {
             answer(adminError("https_required", string()));
+            return;
+        }
+
+        if (mode == AdminState::Mode::Closed)
+        {
+            answer(adminError("daemon_unreachable", string()));
             return;
         }
 

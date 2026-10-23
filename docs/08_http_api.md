@@ -699,6 +699,11 @@ Pour valider la session, calaos_server appelle `GET /api/v2/admin/status` avec
 `admin_reset`, la session est invalidée : la réponse est `bad_session`, et `AdminState` passe
 à « non défini » à l'événement `admin_reset`.
 
+Avant de servir `config` ou `get_mcp_info`, calaos_server relit `admin/status` dès qu'un daemon
+a déjà répondu, admin défini ou non : un admin défini hors de calaos_server (`calaos-os admin
+set`) ferme ces actions dès la requête suivante. Seul l'état « daemon injoignable, admin jamais
+vu » les sert sans appel.
+
 `change_cred` (mot de passe **foyer**) n'est pas concerné : il reste au niveau foyer, car il
 exige déjà l'ancien mot de passe.
 
@@ -719,7 +724,10 @@ ticket l'authentifie (phase 2).
 au démarrage, puis toutes les 60 s (toutes les 5 s pendant les 2 premières minutes tant que
 l'état est inconnu), et à chaque `admin_set` ou `admin_reset` reçu sur `/events` (CB3).
 Un drapeau persistant `admin_seen_set` (fichier du même nom dans `Utils::getCachePath()`)
-mémorise qu'un admin a été vu défini.
+mémorise qu'un admin a été vu défini. Sur Calaos OS, ce répertoire est `/root/.cache/calaos` du conteneur
+calaos-server, monté depuis `/mnt/calaos/cache` de l'hôte (pkgdebs, `start_calaos_server`) : le
+drapeau survit à la recréation du conteneur à chaque mise à jour et, comme la configuration, suit
+un rollback de `/mnt/calaos`.
 
 | Daemon | Drapeau | Admin | Effet |
 |---|---|---|---|

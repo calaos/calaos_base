@@ -404,11 +404,11 @@ protected:
      * that the WS transport needs no token of its own on top of this one.
      *
      * SCOPE OF THIS MEMBER, MEASURED - do not confuse it with its sibling.
-     * `apiAlive` is read from JsonApi.cpp and NOWHERE ELSE in the tree: the
-     * whole of src/ mentions it in exactly two files, this header (the
-     * declaration) and JsonApi.cpp (24 guards, one per asynchronous callback of
-     * the 26 std::function methods declared above, the two synchronous ones -
-     * buildJsonStates() and buildQuery() - needing none). The five guarded
+     * `apiAlive` is read from JsonApi.cpp (24 guards, one per asynchronous
+     * callback of the 26 std::function methods declared above, the two
+     * synchronous ones - buildJsonStates() and buildQuery() - needing none) and
+     * from JsonApiAdmin.cpp, whose admin answers also reach handler members:
+     * both tokens die in the same delete, on the one loop thread. The five guarded
      * callbacks that live in JsonApiHandlerHttp.cpp (:462, :727, :936, :1057,
      * :1075 - get_cover twice, the camera snapshots, the singleShot re-arm) use
      * the handler's OWN token, JsonApiHandlerHttp::handlerAlive

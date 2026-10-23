@@ -456,9 +456,8 @@ void JsonApiHandlerHttp::sendJson(const Json &json)
 
 void JsonApiHandlerHttp::sendMcpInfo()
 {
-    //E4.1s: DECLARED byte delta - the three keys sorted (url_path, token,
-    //hint -> hint, token, url_path). Pure ASCII on both sides, and no
-    //value moves. Pinned by core/JsonApiDispatchWireBytes_test.
+    //Keys sorted on the wire (hint, token, url_path), pinned by
+    //core/JsonApiDispatchWireBytes_test.
     const string &token = McpServerManager::Instance().bearerToken();
     sendJson(Json{ { "url_path", "/mcp" },
                    { "token", token },

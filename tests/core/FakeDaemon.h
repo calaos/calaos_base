@@ -63,6 +63,7 @@ public:
         int status = 200;
         std::string body;
         int delayMs = 0;
+        std::string location;
     };
 
     //Returns true when it produced the answer, false to let the model answer
@@ -306,12 +307,12 @@ private:
         while (std::chrono::steady_clock::now() < until && !stopping)
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-        std::string out = "HTTP/1.1 " + std::to_string(res.status) + " X\r\n"
-                                                                     "Content-Type: application/json\r\n"
-                                                                     "Content-Length: " +
-                          std::to_string(res.body.size()) + "\r\n"
-                                                            "Connection: close\r\n\r\n" +
-                          res.body;
+        std::string out = "HTTP/1.1 " + std::to_string(res.status) + " X\r\n";
+        out += "Content-Type: application/json\r\n";
+        out += "Content-Length: " + std::to_string(res.body.size()) + "\r\n";
+        if (!res.location.empty())
+            out += "Location: " + res.location + "\r\n";
+        out += "Connection: close\r\n\r\n" + res.body;
         send(fd, out.data(), out.size(), MSG_NOSIGNAL);
     }
 
