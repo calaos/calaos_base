@@ -22,9 +22,13 @@
 #include "AdminEvents.h"
 #include "AdminState.h"
 #include "DaemonClient.h"
+#include "HistLogger.h"
 #include "HttpClient.h"
 #include "JsonField.h"
 
+#include <openssl/evp.h>
+
+#include <algorithm>
 #include <cmath>
 #include <set>
 
@@ -51,6 +55,14 @@ string messageFor(const string &code)
         { "invalid_request", "Invalid request" },
         { "package_not_found", "Package has no pending update" },
         { "package_held", "Package is held on the box (apt-mark hold)" },
+        { "approver_required", "No approver phone is enrolled" },
+        { "approver_limit", "Two approver phones are already enrolled" },
+        { "approver_exists", "This phone is already an approver" },
+        { "approver_not_found", "Unknown approver phone" },
+        { "approver_last", "The last approver phone cannot be removed" },
+        { "code_required", "A push code is required" },
+        { "bad_code", "Wrong push code" },
+        { "code_expired", "The push code expired, request a new one" },
         { "internal", "Internal error" },
     };
 
@@ -83,6 +95,142 @@ string passwordFieldError(const Json &request, const char *key, string &out)
     return string();
 }
 
+//An approver or code id of the daemon, a token_id: 16 lowercase hex characters
+bool isDaemonId(const string &s)
+{
+    return s.size() == 16 && s.find_first_not_of("0123456789abcdef") == string::npos;
+}
+
+bool isPushCode(const string &s)
+{
+    return s.size() == 6 && s.find_first_not_of("0123456789") == string::npos;
+}
+
+bool isPasswordValue(const string &s)
+{
+    return !s.empty() && s.size() <= MaxPasswordBytes;
+}
+
+//The push code actions of docs/API.md a client may ask a code for
+bool isCodeAction(const string &s)
+{
+    return s == "console_open" || s == "admin_password" || s == "approver_enroll" || s == "approver_remove";
+}
+
+//Empty when from[key] is a string check() accepts, the invalid_request message otherwise
+string stringField(const Json &from, const char *key, bool (*check)(const string &), string &out)
+{
+    const auto it = from.is_object() ? from.find(key) : from.end();
+    if (!from.is_object() || it == from.end() || !it->is_string())
+        return string(key) + " is required";
+    out = it->get<string>();
+    if (!check(out))
+        return string("Invalid ") + key;
+    return string();
+}
+
+string codeFields(const Json &from, Json &body)
+{
+    string id, code;
+    string invalid = stringField(from, "code_id", isDaemonId, id);
+    if (invalid.empty())
+        invalid = stringField(from, "code", isPushCode, code);
+    if (!invalid.empty())
+        return invalid;
+    body["code_id"] = id;
+    body["code"] = code;
+    return string();
+}
+
+//Neither field, or both: the daemon decides whether the action needs a code
+string optionalCodeFields(const Json &from, Json &body)
+{
+    if (!from.is_object() || (!from.contains("code_id") && !from.contains("code")))
+        return string();
+    return codeFields(from, body);
+}
+
+Json paramsOf(const Json &request)
+{
+    const auto it = request.is_object() ? request.find("params") : request.end();
+    return request.is_object() && it != request.end() && it->is_object() ? *it : Json::object();
+}
+
+/* The daemon body of a row, built field by field from validated params: empty
+ * when it is built, the invalid_request message otherwise. Nothing else the
+ * client sent reaches the daemon.
+ */
+using BodyBuilder = string (*)(const Json &params, Json &body);
+
+string upgradeBody(const Json &params, Json &body)
+{
+    const auto it = params.find("package");
+    if (it == params.end() || !it->is_string())
+        return "params.package is required";
+    if (!JsonApi::isValidPackageName(it->get<string>()))
+        return "Invalid package name";
+    body["package"] = it->get<string>();
+    return string();
+}
+
+string removeBody(const Json &params, Json &body)
+{
+    string id;
+    const string invalid = stringField(params, "approver_id", isDaemonId, id);
+    if (!invalid.empty())
+        return invalid;
+    body["approver_id"] = id;
+    return codeFields(params, body);
+}
+
+//The token and the device name are added by relayEnroll(), never from the client
+string enrollBody(const Json &params, Json &body)
+{
+    string tokenId;
+    const string invalid = stringField(params, "token_id", isDaemonId, tokenId);
+    if (!invalid.empty())
+        return invalid;
+    return optionalCodeFields(params, body);
+}
+
+//params is rebuilt with the keys of the Push codes table of docs/API.md only
+string codeRequestBody(const Json &params, Json &body)
+{
+    string action;
+    string invalid = stringField(params, "code_action", isCodeAction, action);
+    if (!invalid.empty())
+        return invalid;
+
+    const auto given = params.find("code_params");
+    if (given != params.end() && !given->is_object())
+        return "Invalid code_params";
+    const Json from = given != params.end() ? *given : Json::object();
+
+    Json bound = Json::object();
+    string value;
+    if (action == "admin_password")
+    {
+        invalid = stringField(from, "password", isPasswordValue, value);
+        bound["password"] = value;
+    }
+    else if (action == "approver_remove")
+    {
+        invalid = stringField(from, "approver_id", isDaemonId, value);
+        bound["approver_id"] = value;
+    }
+    if (!invalid.empty())
+        return invalid;
+
+    body["action"] = action;
+    body["params"] = bound;
+    if (params.contains("approver_id"))
+    {
+        invalid = stringField(params, "approver_id", isDaemonId, value);
+        body["approver_id"] = value;
+    }
+    return invalid;
+}
+
 //The closed relay table of calaos-container's docs/API.md: nothing of the
 //method, the path or the headers comes from the client
 struct RelayRow
@@ -92,17 +240,31 @@ struct RelayRow
     const char *path;
     bool session;
     long timeout;
+    BodyBuilder body; //null: no body
 };
 
 const RelayRow relayTable[] = {
-    { "update_status", "GET", "update/status", false, DaemonClient::DefaultTimeout },
-    { "update_check", "GET", "update/check", true, DaemonClient::UpdateCheckTimeout },
-    { "update_available", "GET", "update/available", true, DaemonClient::DefaultTimeout },
-    { "update_upgrade_all", "POST", "update/upgrade-all", true, DaemonClient::DefaultTimeout },
-    { "update_upgrade", "POST", "update/upgrade", true, DaemonClient::DefaultTimeout },
-    { "system_reboot", "POST", "system/reboot", true, DaemonClient::DefaultTimeout },
-    { "system_restart", "POST", "system/restart", true, DaemonClient::RestartTimeout },
-    { "system_info", "GET", "system/info", true, DaemonClient::DefaultTimeout },
+    { "update_status", "GET", "update/status", false, DaemonClient::DefaultTimeout, nullptr },
+    { "update_check", "GET", "update/check", true, DaemonClient::UpdateCheckTimeout, nullptr },
+    { "update_available", "GET", "update/available", true, DaemonClient::DefaultTimeout, nullptr },
+    { "update_upgrade_all", "POST", "update/upgrade-all", true, DaemonClient::DefaultTimeout, nullptr },
+    { "update_upgrade", "POST", "update/upgrade", true, DaemonClient::DefaultTimeout, upgradeBody },
+    { "system_reboot", "POST", "system/reboot", true, DaemonClient::DefaultTimeout, nullptr },
+    { "system_restart", "POST", "system/restart", true, DaemonClient::RestartTimeout, nullptr },
+    { "system_info", "GET", "system/info", true, DaemonClient::DefaultTimeout, nullptr },
+    { "approver_list", "GET", "admin/approvers", true, DaemonClient::DefaultTimeout, nullptr },
+    //The daemon's list marks which push_tokens entries are approvers already
+    { "approver_candidates", "GET", "admin/approvers", true, DaemonClient::DefaultTimeout, nullptr },
+    { "approver_enroll", "POST", "admin/approvers/enroll", true, DaemonClient::DefaultTimeout, enrollBody },
+    { "approver_confirm", "POST", "admin/approvers/confirm", true, DaemonClient::DefaultTimeout, codeFields },
+    { "approver_remove", "POST", "admin/approvers/remove", true, DaemonClient::DefaultTimeout, removeBody },
+    { "code_request", "POST", "admin/codes", true, DaemonClient::DefaultTimeout, codeRequestBody },
+    { "code_verify", "POST", "admin/codes/verify", true, DaemonClient::DefaultTimeout, codeFields },
+    /* The verified code becomes a grant of the session for 30 s: the console
+     * WebSocket that carries the same session takes it. When the daemon's
+     * console routes name a ticket, it is fetched here, after the verify.
+     */
+    { "console_open", "POST", "admin/codes/verify", true, DaemonClient::DefaultTimeout, codeFields },
 };
 
 const RelayRow *relayRow(const string &action)
@@ -198,7 +360,9 @@ Json JsonApi::adminErrorFromReply(const DaemonReply &reply)
 
     static const std::set<string> sameCode = { "bad_session", "bad_password", "rate_limited", "password_too_short",
                                                "admin_not_set", "admin_already_set", "upgrade_in_progress",
-                                               "not_allowed", "package_held" };
+                                               "not_allowed", "package_held", "approver_required", "approver_limit",
+                                               "approver_exists", "approver_not_found", "approver_last",
+                                               "code_required", "bad_code", "code_expired" };
 
     if (reply.code == "admin_not_set")
         return adminNotSet();
@@ -208,7 +372,9 @@ Json JsonApi::adminErrorFromReply(const DaemonReply &reply)
         Json j = adminError(reply.code, string());
         static const map<string, string> details = { { "rate_limited", "retry_after" },
                                                      { "upgrade_in_progress", "job_id" },
-                                                     { "password_too_short", "min_length" } };
+                                                     { "password_too_short", "min_length" },
+                                                     { "bad_code", "attempts_left" },
+                                                     { "approver_limit", "max" } };
         const auto it = details.find(reply.code);
         if (it != details.end() && reply.data.is_object() && reply.data.contains(it->second))
         {
@@ -244,23 +410,17 @@ bool JsonApi::isValidPackageName(const string &name)
 
 Json JsonApi::adminRequestRefusal(const string &action, const Json &request)
 {
-    static const std::set<string> phase2 = { "approver_list", "approver_enroll", "approver_confirm", "console_open" };
-
     if (action == "mcp_regenerate")
         return Json();
 
-    if (!relayRow(action))
-        return adminError("not_allowed", phase2.count(action) ? "Not available yet" : "Unknown admin action");
+    const RelayRow *row = relayRow(action);
+    if (!row)
+        return adminError("not_allowed", "Unknown admin action");
 
-    if (action == "update_upgrade")
-    {
-        const Json params = request.is_object() && request.contains("params") ? request["params"] : Json();
-        const auto it = params.is_object() ? params.find("package") : params.end();
-        if (!params.is_object() || it == params.end() || !it->is_string())
-            return adminError("invalid_request", "params.package is required");
-        if (!isValidPackageName(it->get<string>()))
-            return adminError("invalid_request", "Invalid package name");
-    }
+    Json body = Json::object();
+    const string invalid = row->body ? row->body(paramsOf(request), body) : string();
+    if (!invalid.empty())
+        return adminError("invalid_request", invalid);
 
     return Json();
 }
@@ -273,6 +433,17 @@ long JsonApi::adminRelayTimeout(const string &action)
 
 namespace
 {
+
+//The client answer for a failed relayed call, AdminState told what it says
+Json relayFailure(const DaemonReply &reply)
+{
+    if (reply.kind == DaemonReply::Kind::Error && reply.code == "admin_not_set")
+        AdminState::Instance().observe(false);
+    else if (reply.kind == DaemonReply::Kind::TooOld)
+        AdminState::Instance().observeTooOld();
+
+    return JsonApi::adminErrorFromReply(reply);
+}
 
 void relayCall(const DaemonClient::Request &req, bool household, bool sessionOptional, const std::function<void(const Json &)> &answer)
 {
@@ -294,12 +465,90 @@ void relayCall(const DaemonClient::Request &req, bool household, bool sessionOpt
             return;
         }
 
-        if (reply.kind == DaemonReply::Kind::Error && reply.code == "admin_not_set")
-            AdminState::Instance().observe(false);
-        else if (reply.kind == DaemonReply::Kind::TooOld)
-            AdminState::Instance().observeTooOld();
+        answer(relayFailure(reply));
+    });
+}
 
-        answer(JsonApi::adminErrorFromReply(reply));
+//The name an approver is known by: an app that sent none gets its platform
+string deviceNameOf(const PushToken &t)
+{
+    const string name = JsonApi::printableText(t.device_name, JsonApi::MaxDeviceName);
+    if (!name.empty())
+        return name;
+    return t.hw_type == HistLogger::PUSH_HW_IOS ? "iOS device" : "Android device";
+}
+
+//SQLite's "YYYY-MM-DD HH:MM:SS" (UTC) as RFC 3339
+string rfc3339(const string &sqliteTime)
+{
+    if (sqliteTime.size() != 19 || sqliteTime[10] != ' ')
+        return string();
+    return sqliteTime.substr(0, 10) + "T" + sqliteTime.substr(11) + "Z";
+}
+
+//push_tokens without a single token: the token never leaves this server but
+//to the daemon (enrolment) and the push service
+void relayCandidates(const DaemonClient::Request &req, const std::function<void(const Json &)> &answer)
+{
+    DaemonClient::Instance().call(req, [answer](const DaemonReply &reply)
+                                  {
+        if (reply.kind != DaemonReply::Kind::Ok)
+        {
+            answer(relayFailure(reply));
+            return;
+        }
+
+        std::set<string> approvers;
+        for (const Json &a: reply.data.is_array() ? reply.data : Json::array())
+            approvers.insert(JsonField::string(a, "token_id"));
+
+        HistLogger::Instance().getPushTokens([answer, approvers](bool success, string, const vector<PushToken> &tokensIn)
+                                             {
+            if (!success)
+            {
+                answer(JsonApi::adminError("internal", string())); //LCOV_EXCL_LINE history database unavailable
+                return;                                            //LCOV_EXCL_LINE history database unavailable
+            }
+
+            vector<PushToken> tokens = tokensIn;
+            std::stable_sort(tokens.begin(), tokens.end(), [](const PushToken &a, const PushToken &b)
+                             {
+                return a.created_at > b.created_at;
+            });
+
+            Json list = Json::array();
+            for (const PushToken &t: tokens)
+            {
+                const string id = JsonApi::pushTokenId(t.token);
+                list.push_back(Json{ { "token_id", id },
+                                     { "device_name", deviceNameOf(t) },
+                                     { "last_seen", rfc3339(t.created_at) },
+                                     { "approver", approvers.count(id) > 0 } });
+            }
+            answer(Json{ { "success", "true" }, { "result", list } });
+        });
+    });
+}
+
+//The client names a push_tokens entry; its token and name go to the daemon
+void relayEnroll(const DaemonClient::Request &reqIn, const string &tokenId, const std::function<void(const Json &)> &answer)
+{
+    HistLogger::Instance().getPushTokens([reqIn, tokenId, answer](bool success, string, const vector<PushToken> &tokens)
+                                         {
+        const auto found = std::find_if(tokens.begin(), tokens.end(), [&tokenId](const PushToken &t)
+                                        {
+            return JsonApi::pushTokenId(t.token) == tokenId;
+        });
+        if (found == tokens.end())
+        {
+            answer(success ? JsonApi::adminError("invalid_request", "Unknown token_id") : JsonApi::adminError("internal", string()));
+            return;
+        }
+
+        DaemonClient::Request req = reqIn;
+        req.body["token"] = found->token;
+        req.body["device_name"] = deviceNameOf(*found);
+        relayCall(req, false, false, answer);
     });
 }
 
@@ -325,11 +574,89 @@ void JsonApi::relayAdmin(const string &action, const Json &request, const string
     req.clientIp = adminClientIp();
     if (!household)
         req.session = session;
-    //Built here from the validated name, whatever else params holds
-    if (action == "update_upgrade")
-        req.body = Json{ { "package", request["params"]["package"].get<string>() } };
+    //Built here from the validated params, whatever else the request holds
+    const Json params = paramsOf(request);
+    if (row->body)
+    {
+        req.body = Json::object();
+        row->body(params, req.body);
+    }
 
-    relayCall(req, household, !row->session, answer);
+    if (action == "approver_candidates")
+        relayCandidates(req, answer);
+    else if (action == "approver_enroll")
+        relayEnroll(req, params["token_id"].get<string>(), answer);
+    else
+        relayCall(req, household, !row->session, answer);
+}
+
+string JsonApi::printableText(const string &in, size_t maxCodePoints)
+{
+    static const uint32_t minFor[] = { 0, 0, 0x80, 0x800, 0x10000 };
+    string out;
+    size_t count = 0;
+    size_t i = 0;
+
+    while (i < in.size() && count < maxCodePoints)
+    {
+        const unsigned char c = in[i];
+        //Length from the lead byte, 0 for a byte that cannot start a sequence
+        const size_t len = c < 0x80 ? 1 : (c & 0xe0) == 0xc0 ? 2
+                                      : (c & 0xf0) == 0xe0   ? 3
+                                      : (c & 0xf8) == 0xf0   ? 4
+                                                             : 0;
+        uint32_t cp = len == 1 ? c : c & (0x7f >> len);
+
+        bool valid = len > 0 && i + len <= in.size();
+        for (size_t k = 1; valid && k < len; k++)
+        {
+            const unsigned char cc = in[i + k];
+            valid = (cc & 0xc0) == 0x80;
+            cp = (cp << 6) | (cc & 0x3f);
+        }
+        //Overlong forms, surrogates and code points beyond Unicode
+        valid = valid && cp >= minFor[len] && !(cp >= 0xd800 && cp <= 0xdfff) && cp <= 0x10ffff;
+        if (!valid)
+        {
+            i++;
+            continue;
+        }
+
+        //Controls, soft hyphen, zero-width, bidi overrides and isolates, line
+        //separators, BOM, interlinear annotations and tags
+        const bool hidden = cp < 0x20 || (cp >= 0x7f && cp <= 0x9f) || cp == 0xad ||
+                            (cp >= 0x200b && cp <= 0x200f) || (cp >= 0x2028 && cp <= 0x202e) ||
+                            (cp >= 0x2060 && cp <= 0x206f) || cp == 0xfeff || (cp >= 0xfff9 && cp <= 0xfffb) ||
+                            (cp >= 0xe0000 && cp <= 0xe007f);
+        const bool foldedSpace = cp == ' ' && (out.empty() || out.back() == ' ');
+        if (!hidden && !foldedSpace)
+        {
+            out.append(in, i, len);
+            count++;
+        }
+        i += len;
+    }
+
+    if (!out.empty() && out.back() == ' ')
+        out.pop_back();
+    return out;
+}
+
+string JsonApi::pushTokenId(const string &token)
+{
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int len = 0;
+    if (EVP_Digest(token.data(), token.size(), digest, &len, EVP_sha256(), nullptr) != 1 || len < 8)
+        return string(); //LCOV_EXCL_LINE only reached when OpenSSL has no SHA-256
+
+    static const char *hex = "0123456789abcdef";
+    string out;
+    for (unsigned int i = 0; i < 8; i++)
+    {
+        out.push_back(hex[digest[i] >> 4]);
+        out.push_back(hex[digest[i] & 0x0f]);
+    }
+    return out;
 }
 
 bool JsonApi::secureTransport() const
@@ -506,11 +833,20 @@ void JsonApi::processAdminSet(const Json &request, const AdminAnswer &answerIn)
         return;
     }
 
+    //The push code of the admin_password action, needed by a change only
+    Json code = Json::object();
+    const string invalidCode = optionalCodeFields(request, code);
+    if (!invalidCode.empty())
+    {
+        answer(adminError("invalid_request", invalidCode));
+        return;
+    }
+
     //Present but empty still means "change": an empty key is not a bootstrap
     const bool hasSession = request.contains("admin_session");
     const string session = JsonField::string(request, "admin_session");
 
-    withAdminMode([this, answer, newPass, hasSession, session]()
+    withAdminMode([this, answer, newPass, code, hasSession, session]()
                   {
         const AdminState::Mode mode = AdminState::Instance().mode();
 
@@ -550,6 +886,8 @@ void JsonApi::processAdminSet(const Json &request, const AdminAnswer &answerIn)
         //Built field by field: the daemon's recovery mode (root CLI only) must
         //never be reachable with a field a client sent
         req.body = Json{ { "password", newPass } };
+        if (hasSession)
+            req.body.update(code);
         req.session = session;
         req.clientIp = adminClientIp();
 

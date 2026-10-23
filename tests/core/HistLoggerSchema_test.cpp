@@ -198,7 +198,11 @@ TEST(HistLoggerSchemaTest, OpeningAnOldDatabaseAddsTheIndexAndKeepsEveryRow)
 {
     ASSERT_EQ(9u, rowsBefore.size());
     EXPECT_EQ(rowsBefore, rowsAfter);
-    EXPECT_EQ(tokensBefore, tokensAfter);
+    //The migration only adds the empty device_name of the tokens
+    std::vector<std::string> named;
+    for (const std::string &t: tokensBefore)
+        named.push_back(t + "''|");
+    EXPECT_EQ(named, tokensAfter);
 
     Db db;
     const auto idx = db.rows("SELECT name, tbl_name FROM sqlite_master WHERE type = 'index' AND name = 'events_created_at';");

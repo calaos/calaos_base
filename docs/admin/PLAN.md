@@ -322,7 +322,7 @@ Chemin critique ≈ 13,5 j : Board, CC-040, CC2, CC1, CC3, CB3, RC1. CB2, CB1, C
 | Repo | Ticket | Contenu | Durée |
 |---|---|---|---|
 | calaos-container | AP1a | approbateurs et codes push : routes d'enrôlement, codes, limites, liaison à l'action, `push_code {approver_id, code_id}`, route bearer de récupération, invalidation de la session après 5 échecs de code | 1,75 j |
-| calaos_base | AP1b | consommation de `push_code` dans le client `/events` de CB3, `device_name` dans `register_push` et `push_tokens`, valeurs `approver_list`, `approver_enroll`, `approver_confirm`, `console_open` de la table | 1,25 j |
+| calaos_base | AP1b | consommation de `push_code` dans le client `/events` de CB3, `device_name` dans `register_push` et `push_tokens`, valeurs `approver_candidates`, `approver_list`, `approver_enroll` (sélection par `token_id`), `approver_confirm`, `approver_remove`, `code_request`, `code_verify`, `console_open` de la table, champs `code_id`/`code` d'`admin_set`, alertes `approver_set`/`approver_removed` | 1,25 j |
 | calaos_mobile | AP2 | nom d'appareil dans `register_push` ; `register_push` en mode HTTP envoyé avec les identifiants (aujourd'hui un échec de login par session) | 0,5 j |
 | calaos-container | CO1 | console pty, route du ticket, limites, ping, audit sur stdout | 1 j |
 | calaos_base | CO2 | tunnel `/api/console`, `secureTransport()` et Origin sur les en-têtes détectés, bearer injecté | 1,25 j |
@@ -331,7 +331,7 @@ Chemin critique ≈ 13,5 j : Board, CC-040, CC2, CC1, CC3, CB3, RC1. CB2, CB1, C
 | calaos_mobile | CM2 | épinglage TOFU du certificat à la place de `ignoreSslErrors`, par hôte (IP LAN, nom DDNS, IP overlay), avec nouvelle confirmation en cas de changement de clé (renouvellement Let's Encrypt) | 1 j |
 | doc-website | DOC2 | console, approbateur, rotation | 0,5 j |
 
-Ordre phase 2 : AP1a ∥ AP2, puis AP1b, puis WA3 ; CO1 (après AP1a), puis CO2, puis CO3 ; CM2 indépendant ; DOC2 à la fin. La phase 2 démarre après RC1.
+Ordre phase 2 : AP1a ∥ AP2, puis AP1b, puis WA3 ; CO1 (après AP1a), puis CO2, puis CO3 ; CM2 indépendant ; DOC2 à la fin. La phase 2 démarre après RC1. Livraison : `admin/p7` (calaos-container, calaos_base, calaos-web-app) ne rejoint la branche principale qu'avec AP1a, AP1b, CO1 et WA3 réunis.
 
 ### Phase 3 : diagnostics et confort
 - Restart de services sur liste autorisée, logs bornés (`cn_pass=` masqué dans tout log affiché par la webapp), heure, liste blanche `calaos_config`, téléchargement de la sauvegarde.

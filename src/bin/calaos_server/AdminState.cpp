@@ -21,6 +21,8 @@
 #include "AdminState.h"
 #include "EventManager.h"
 #include "HistLogger.h"
+#include "JsonApi.h"
+#include "JsonField.h"
 #include "NotifManager.h"
 #include "Timer.h"
 
@@ -240,14 +242,28 @@ void AdminState::saveAlerts()
         cErrorDom("admin") << "Cannot write " << alertsPath() << ", an alert replayed after a restart is stored again"; //LCOV_EXCL_LINE rename in a directory just written to
 }
 
-bool AdminState::storeAlert(const string &type, const string &id, std::function<void()> stored)
+string AdminState::alertMessage(const string &type, const Json &data)
 {
-    string message;
     if (type == "admin_set")
-        message = _("Admin password set on your Calaos box");
-    else if (type == "admin_reset")
-        message = _("Admin password removed from your Calaos box");
-    else
+        return _("Admin password set on your Calaos box");
+    if (type == "admin_reset")
+        return _("Admin password removed from your Calaos box");
+    if (type != "approver_set" && type != "approver_removed")
+        return string();
+
+    string name = JsonApi::printableText(JsonField::string(data, "device_name"), JsonApi::MaxDeviceName);
+    std::replace(name.begin(), name.end(), '"', '\'');
+    if (name.empty())
+        name = "?";
+    const string prefix = type == "approver_set" ? _("New approver phone on your Calaos box: ")
+                                                 : _("Approver phone removed from your Calaos box: ");
+    return prefix + "\"" + name + "\"";
+}
+
+bool AdminState::storeAlert(const string &type, const string &id, std::function<void()> stored, const Json &data)
+{
+    const string message = alertMessage(type, data);
+    if (message.empty())
         return false;
 
     if (std::find(storedAlerts.begin(), storedAlerts.end(), id) != storedAlerts.end())
@@ -274,10 +290,9 @@ bool AdminState::storeAlert(const string &type, const string &id, std::function<
     return true;
 }
 
-void AdminState::pushAlert(const string &type, std::function<void(bool)> done)
+void AdminState::pushAlert(const string &type, std::function<void(bool)> done, const Json &data)
 {
-    const string message = type == "admin_set" ? _("Admin password set on your Calaos box")
-                                               : _("Admin password removed from your Calaos box");
+    const string message = alertMessage(type, data);
 
     const double now = Utils::getMainLoopTime();
     const auto last = lastAlertPush.find(type);
