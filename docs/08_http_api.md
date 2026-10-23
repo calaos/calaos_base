@@ -804,7 +804,10 @@ panneaux RemoteUI), un message non sollicité (sans `msg_id`) :
   une alerte non acquittée est poussée de nouveau).
   Il l'enregistre (événement persistant, puis push à tous les jetons), relit `admin/status`, et
   ne l'acquitte (`admin/alerts/ack`) qu'une fois le push parti : un push en échec n'est pas
-  acquitté, et le rejeu suivant du daemon le retente sans second événement persistant. Une copie
+  acquitté. Le daemon ne renvoie pas une alerte sur le flux où elle est déjà passée : calaos_server
+  retente lui-même un push ou un ack perdu au bout de 60 s, puis 120, 240, 480 et 960 s (5 essais),
+  et à chaque réabonnement, sans second événement persistant ni second push une fois le push
+  parti, et dans le respect de la limite de push par type. Une copie
   rejouée d'une alerte déjà enregistrée est acquittée de nouveau, sans nouveau push.
 - Au plus **un push par type d'alerte toutes les 10 min** : le premier est toujours envoyé, les
   suivants de la fenêtre n'ont que leur événement persistant. Un faux daemon sur le port 8000

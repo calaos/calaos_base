@@ -259,6 +259,9 @@ void AdminEvents::stop()
     watchdogTimer = nullptr;
     delete reconnectTimer;
     reconnectTimer = nullptr;
+    for (auto &r: retries)
+        delete r.second.timer;
+    retries.clear();
 }
 
 void AdminEvents::scheduleReconnect(double delay)
@@ -598,7 +601,7 @@ void AdminEvents::processAlert(const string &type, const Json &data)
         //Acked all the same, or the daemon would replay it for ever; never
         //recorded nor relayed
         if (!id.empty() && id.size() <= MaxForeignAlertId)
-            ack(id);
+            ack(type, data, id);
         if (unusableAlerts.size() < MaxRemembered && unusableAlerts.insert(id).second)
             cWarningDom("admin") << "calaos-container sent a " << type << " alert without a usable id";
         return;
@@ -609,18 +612,20 @@ void AdminEvents::processAlert(const string &type, const Json &data)
         return;
 
     recording.insert(id);
-    const bool fresh = AdminState::Instance().recordAlert(type, id, [this, id](bool recorded)
+    const bool fresh = AdminState::Instance().recordAlert(type, id, [this, type, data, id](bool recorded)
                                                           {
         recording.erase(id);
         if (recorded)
-            ack(id);
+            ack(type, data, id);
+        else
+            scheduleRetry(type, data, id);
     });
 
     if (!fresh)
     {
         //Recorded before: an ack lost earlier is retried at this replay
         recording.erase(id);
-        ack(id);
+        ack(type, data, id);
         return;
     }
 
@@ -636,7 +641,7 @@ void AdminEvents::processAlert(const string &type, const Json &data)
     AdminState::Instance().refresh();
 }
 
-void AdminEvents::ack(const string &id)
+void AdminEvents::ack(const string &type, const Json &data, const string &id)
 {
     if (!acking.insert(id).second)
         return;
@@ -646,13 +651,66 @@ void AdminEvents::ack(const string &id)
     req.path = "admin/alerts/ack";
     req.body = Json{ { "ids", Json::array({ id }) } };
 
-    DaemonClient::Instance().call(req, [this, id](const DaemonReply &reply)
+    DaemonClient::Instance().call(req, [this, type, data, id](const DaemonReply &reply)
                                   {
         acking.erase(id);
-        if (reply.kind != DaemonReply::Kind::Ok)
-            cWarningDom("admin") << "calaos-container did not take the ack of alert " << id
-                                 << ", it will be replayed";
+        if (reply.kind == DaemonReply::Kind::Ok)
+        {
+            forgetRetry(id);
+            return;
+        }
+        cWarningDom("admin") << "calaos-container did not take the ack of alert " << id << ", retrying later";
+        scheduleRetry(type, data, id);
     });
+}
+
+void AdminEvents::scheduleRetry(const string &type, const Json &data, const string &id)
+{
+    //The daemon never resends an alert on the stream it already went out on:
+    //without this, a lost push or ack waits for the next subscription
+    auto it = retries.find(id);
+    if (it == retries.end())
+    {
+        if (retries.size() >= MaxRemembered)
+            return;
+        it = retries.emplace(id, Retry()).first;
+    }
+
+    Retry &r = it->second;
+    if (r.timer || r.attempts >= timings.maxRetries)
+        return;
+
+    const double delay = timings.retryDelay * double(1 << r.attempts);
+    r.attempts++;
+    //A never destroyed singleton: `this` cannot dangle; the timer is deleted
+    //from its own callback, which Timer allows
+    r.timer = new Timer(delay, [this, type, data, id]()
+                        {
+        retryNow(type, data, id);
+    });
+}
+
+//By value: deleting the timer below destroys the lambda that holds the originals
+void AdminEvents::retryNow(string type, Json data, string id)
+{
+    auto it = retries.find(id);
+    if (it == retries.end())
+        return; //LCOV_EXCL_LINE stop() deletes the timers with their entries
+    delete it->second.timer;
+    it->second.timer = nullptr;
+
+    //Off the stream, the next subscription replays the alert anyway
+    if (state == State::Open)
+        processAlert(type, data);
+}
+
+void AdminEvents::forgetRetry(const string &id)
+{
+    auto it = retries.find(id);
+    if (it == retries.end())
+        return;
+    delete it->second.timer;
+    retries.erase(it);
 }
 
 void AdminEvents::sendFrame(int opcode, const string &payload)

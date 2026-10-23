@@ -2130,13 +2130,18 @@ protected:
     void SetUp() override
     {
         JsonApiAdminTest::SetUp();
+        AdminEvents::Instance().setTimings(timings());
+        AdminState::Instance().resetAlertPushes(0.0);
+    }
+
+    static AdminEvents::Timings timings()
+    {
         AdminEvents::Timings t;
         t.ping = 0.1;
         t.silence = 0.8;
         t.minBackoff = 0.05;
         t.maxBackoff = 0.3;
-        AdminEvents::Instance().setTimings(t);
-        AdminState::Instance().resetAlertPushes(0.0);
+        return t;
     }
 
     void TearDown() override
@@ -2357,7 +2362,8 @@ TEST_F(AdminEventsTest, AReplayAfterAReconnectPushesNothingTwice)
     }));
     drainLoop(300);
 
-    fakeDaemon.replayAlerts();
+    //A copy on the same stream, as after the daemon's subscribe race
+    fakeDaemon.pushEvent(FakeDaemon::alertEvent("admin_set", "00000000000000c1"));
     ASSERT_TRUE(pumpUntil([&]()
                           {
         return acks() == 2;
@@ -2373,7 +2379,7 @@ TEST_F(AdminEventsTest, AReplayAfterAReconnectPushesNothingTwice)
     drainLoop(200);
 
     fakeDaemon.setOverride(nullptr);
-    fakeDaemon.replayAlerts();
+    fakeDaemon.pushEvent(FakeDaemon::alertEvent("admin_set", "00000000000000c1"));
     ASSERT_TRUE(pumpUntil([&]()
                           {
         return fakeDaemon.pendingAlerts().empty();
@@ -2514,8 +2520,8 @@ TEST_F(AdminEventsTest, AnAlertIsAckedOnlyOnceItsPushIsOut)
                           {
         return pushesOf("Admin password removed") == 1;
     }));
-    //A replay while the push is out is neither pushed nor acked
-    fakeDaemon.replayAlerts();
+    //A copy while the push is out is neither pushed nor acked
+    fakeDaemon.pushEvent(FakeDaemon::alertEvent("admin_reset", "0000000000000a51"));
     drainLoop(400);
     EXPECT_EQ(0u, acks());
     ASSERT_TRUE(pumpUntil([&]()
@@ -2525,10 +2531,13 @@ TEST_F(AdminEventsTest, AnAlertIsAckedOnlyOnceItsPushIsOut)
     EXPECT_EQ(1u, pushesOf("Admin password removed"));
 }
 
-TEST_F(AdminEventsTest, AFailedPushIsRetriedAtTheReplayWithoutASecondEvent)
+TEST_F(AdminEventsTest, AFailedPushIsRetriedByATimerWithoutASecondEvent)
 {
     HistLogger::Instance().registerPushToken("cb3-push-token", HistLogger::PUSH_HW_ANDROID);
     quietPushes();
+    AdminEvents::Timings t = timings();
+    t.retryDelay = 0.6;
+    AdminEvents::Instance().setTimings(t);
 
     WsClient household;
     ASSERT_TRUE(household.login(""));
@@ -2560,16 +2569,19 @@ TEST_F(AdminEventsTest, AFailedPushIsRetriedAtTheReplayWithoutASecondEvent)
                           {
         return pushesOf("Admin password removed") == 2;
     }));
-    drainLoop(300);
+    //Like the daemon, the stream does not bring the alert back
+    fakeDaemon.replayAlerts();
+    drainLoop(200);
     EXPECT_EQ(1u, acks()) << "a lost push is not acked";
+    EXPECT_EQ(2u, pushesOf("Admin password removed"));
 
     fakeDaemon.setOverride(nullptr);
-    fakeDaemon.replayAlerts();
     ASSERT_TRUE(pumpUntil([&]()
                           {
         return pushesOf("Admin password removed") == 3 && acks() == 2;
-    }));
-    drainLoop(300);
+    })) << "the timer retries it";
+    drainLoop(1500);
+    EXPECT_EQ(3u, pushesOf("Admin password removed")) << "nothing after a push that went out";
 
     EXPECT_EQ(storedBefore + 1, storedEvents("Admin password removed")) << "one persistent event";
     EXPECT_TRUE(adminEventsUntil(
@@ -2580,6 +2592,130 @@ TEST_F(AdminEventsTest, AFailedPushIsRetriedAtTheReplayWithoutASecondEvent)
                     200)
                     .empty())
         << "the household saw the alert once";
+}
+
+TEST_F(AdminEventsTest, LostPushRetriesBackOffAndStop)
+{
+    HistLogger::Instance().registerPushToken("cb3-push-token", HistLogger::PUSH_HW_ANDROID);
+    quietPushes();
+    AdminEvents::Timings t = timings();
+    t.retryDelay = 0.1;
+    t.maxRetries = 3;
+    AdminEvents::Instance().setTimings(t);
+
+    fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/push")
+            return false;
+        res.status = 503;
+        res.body = "{}";
+        return true;
+    });
+    startEvents();
+
+    fakeDaemon.raiseAlert("admin_reset", "0000000000000c53");
+    //The push, then retries after 0.1, 0.2 and 0.4 s
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return pushesOf("Admin password removed") == 4;
+    }));
+    drainLoop(1500);
+    EXPECT_EQ(4u, pushesOf("Admin password removed"));
+    EXPECT_EQ(0u, acks());
+    EXPECT_FALSE(fakeDaemon.pendingAlerts().empty()) << "left to the next subscription";
+}
+
+TEST_F(AdminEventsTest, RetriesAreBoundedInNumberOfAlerts)
+{
+    HistLogger::Instance().registerPushToken("cb3-push-token", HistLogger::PUSH_HW_ANDROID);
+    quietPushes();
+    fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/push")
+            return false;
+        res.status = 503;
+        res.body = "{}";
+        return true;
+    });
+    startEvents();
+
+    //More lost pushes than the alerts remembered: the extra ones wait for the next subscription
+    for (int i = 0; i < 70; i++)
+        fakeDaemon.raiseAlert("admin_set", "000000000000f" + std::to_string(100 + i));
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return pushesOf("Admin password set") == 70;
+    }));
+    drainLoop(300);
+    EXPECT_EQ(0u, acks());
+}
+
+TEST_F(AdminEventsTest, ARetriedPushKeepsTheCooldown)
+{
+    HistLogger::Instance().registerPushToken("cb3-push-token", HistLogger::PUSH_HW_ANDROID);
+    quietPushes();
+    AdminState::Instance().resetAlertPushes(AdminState::AlertPushInterval);
+    AdminEvents::Timings t = timings();
+    t.retryDelay = 0.8;
+    AdminEvents::Instance().setTimings(t);
+
+    //Only the first push is lost
+    auto failures = std::make_shared<std::atomic<int>>(1);
+    fakeDaemon.setOverride([failures](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/push" || failures->fetch_sub(1) <= 0)
+            return false;
+        res.status = 503;
+        res.body = "{}";
+        return true;
+    });
+    startEvents();
+
+    fakeDaemon.raiseAlert("admin_set", "0000000000000d54");
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return pushesOf("Admin password set") == 1;
+    }));
+    drainLoop(100);
+    fakeDaemon.raiseAlert("admin_set", "0000000000000d55");
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return pushesOf("Admin password set") == 2 && acks() == 1;
+    }));
+
+    //The retry finds a push sent within the window: stored and acked, not pushed
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return acks() == 2 && fakeDaemon.pendingAlerts().empty();
+    }));
+    drainLoop(300);
+    EXPECT_EQ(2u, pushesOf("Admin password set"));
+}
+
+TEST_F(AdminEventsTest, ALostAckIsRetriedByTheTimerToo)
+{
+    AdminEvents::Timings t = timings();
+    t.retryDelay = 0.3;
+    AdminEvents::Instance().setTimings(t);
+
+    auto failures = std::make_shared<std::atomic<int>>(1);
+    fakeDaemon.setOverride([failures](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/v2/admin/alerts/ack" || failures->fetch_sub(1) <= 0)
+            return false;
+        res.status = 500;
+        res.body = FakeDaemon::err("internal");
+        return true;
+    });
+    startEvents();
+
+    fakeDaemon.raiseAlert("admin_reset", "0000000000000e56");
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return acks() == 2 && fakeDaemon.pendingAlerts().empty();
+    }));
+    drainLoop(800);
+    EXPECT_EQ(2u, acks());
 }
 
 TEST_F(AdminEventsTest, ARefusedUpgradeIsRetriedAndARotatedTokenIsReadAgain)
@@ -2762,7 +2898,7 @@ TEST_F(AdminEventsTest, AnAckInFlightIsNotSentTwice)
                           {
         return acks() == 1;
     }));
-    fakeDaemon.replayAlerts();
+    fakeDaemon.pushEvent(FakeDaemon::alertEvent("admin_set", "00000000000000d1"));
     drainLoop(300);
     EXPECT_EQ(1u, acks());
     drainLoop(500);
