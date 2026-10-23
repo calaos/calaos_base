@@ -136,7 +136,7 @@ bool splitHostPort(const std::string &s, std::string &host, std::string &port)
 bool printable(const std::string &s)
 {
     return std::all_of(s.begin(), s.end(), [](unsigned char c)
-    {
+                       {
         return c > 0x20 && c < 0x7f;
     });
 }
@@ -260,8 +260,7 @@ bool allowedHostRule(const Parsed &p, const std::vector<std::string> &allowedHos
         {
             if (firstTime("cfg:" + v))
                 cWarningDom("network") << "api_allowed_hosts: ignoring unusable entry "
-                                       << (printable(v) ? "\"" + v + "\"" :
-                                           "of " + std::to_string(v.size()) + " bytes");
+                                       << (printable(v) ? "\"" + v + "\"" : "of " + std::to_string(v.size()) + " bytes");
             continue;
         }
 
@@ -276,8 +275,8 @@ bool allowedHostRule(const Parsed &p, const std::vector<std::string> &allowedHos
 class InterfaceCache
 {
 public:
-    static constexpr std::chrono::seconds CacheLifetime{30};
-    static constexpr std::chrono::seconds MinRefresh{1};
+    static constexpr std::chrono::seconds CacheLifetime{ 30 };
+    static constexpr std::chrono::seconds MinRefresh{ 1 };
 
     const std::vector<std::string> &get(bool missed)
     {

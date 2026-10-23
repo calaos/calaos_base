@@ -120,12 +120,24 @@ TEST(OriginPolicyParse, HostKeepsOnlyTheGivenPort)
 }
 
 const std::vector<std::string> kMalformed = {
-    "", "null", "192.168.1.10", "http://", "ftp://192.168.1.10",
-    "http://192.168.1.10/", "http://192.168.1.10:5454/app",
-    "http://user@192.168.1.10", "http://192.168.1.10?x",
-    "http://a..b", "http://.a", "http://[::1", "http://[nothost]:80",
-    "http://::1", "http://192.168.1.10:99999", "http://192.168.1.10:0",
-    "http://192.168.1.10:x", "http://ex ample.org",
+    "",
+    "null",
+    "192.168.1.10",
+    "http://",
+    "ftp://192.168.1.10",
+    "http://192.168.1.10/",
+    "http://192.168.1.10:5454/app",
+    "http://user@192.168.1.10",
+    "http://192.168.1.10?x",
+    "http://a..b",
+    "http://.a",
+    "http://[::1",
+    "http://[nothost]:80",
+    "http://::1",
+    "http://192.168.1.10:99999",
+    "http://192.168.1.10:0",
+    "http://192.168.1.10:x",
+    "http://ex ample.org",
     std::string("http://exa") + char(1) + "mple.org",
     std::string("http://") + char(0xc3) + char(0xa9) + "t.fr",
 };
@@ -310,7 +322,11 @@ bool pumpUntil(const std::function<bool()> &done, int ms = 5000)
 
 void drainLoop(int ms)
 {
-    pumpUntil([]() { return false; }, ms);
+    pumpUntil([]()
+              {
+        return false;
+    },
+              ms);
 }
 
 int pickFreePort()
@@ -368,7 +384,7 @@ Reply exchange(const std::string &raw)
     send(fd, raw.data(), raw.size(), MSG_NOSIGNAL);
     std::string in;
     pumpUntil([&]()
-    {
+              {
         char buf[8192];
         const ssize_t n = recv(fd, buf, sizeof(buf), MSG_DONTWAIT);
         if (n > 0)
