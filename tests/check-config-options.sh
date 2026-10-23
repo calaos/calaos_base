@@ -35,7 +35,7 @@
 #   3. no key of ConfigOptions::obsoleteKeys() comes back.
 #
 # Checks 1 and 2 are deliberately one-way: a key used by the code MUST be in
-# the registry, but a key of the registry MAY be absent from the code -- seven
+# the registry, but a key of the registry MAY be absent from the code -- eight
 # options belong to Calaos Home and three to the Python MCP sidecar, and
 # calaos_base never mentions them.
 #

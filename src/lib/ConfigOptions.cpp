@@ -1062,6 +1062,14 @@ std::vector<ConfigOption> buildTable()
         .consumer(cHome)
         .seeAlso("calaos_server_host"));
 
+    add(ConfigOption("update_notified_hash", C::CalaosHome, T::String)
+        .label(N_("Last notified updates"))
+        .doc(N_("State kept by Calaos Home, not a setting: a hash of the set of package "
+                "updates it last announced, so that the same updates are not announced twice. "
+                "Clearing it makes Calaos Home announce the pending updates again."))
+        .advanced()
+        .consumer(cHome));
+
     return t;
 }
 
@@ -1280,9 +1288,10 @@ std::string ConfigOptions::suggest(const std::string &unknownKey)
 
 const std::vector<std::string> &ConfigOptions::obsoleteKeys()
 {
-    /* Removed from the code by commit 8684877b. They are kept here so that the
-     * tools can recognise and purge them, and they must never be added back to
-     * the table above.
+    /* Removed from the code by commit 8684877b, and dpms_block by the screen
+     * suspend rework of Calaos Home. They are kept here so that the tools can
+     * recognise and purge them, and they must never be added back to the table
+     * above.
      */
     static const std::vector<std::string> keys =
     {
@@ -1291,6 +1300,7 @@ const std::vector<std::string> &ConfigOptions::obsoleteKeys()
         "fw_target",
         "fw_version",
         "device_type",
+        "dpms_block",
     };
     return keys;
 }

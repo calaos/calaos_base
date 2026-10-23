@@ -120,6 +120,7 @@ Annotations: **⟳** restart required, **🔒** secret, **⚙** generated automa
 | `lang` | choice | empty | Calaos Home | Interface language — Language of the Calaos Home interface. Leave it empty to follow the system locale. Read by Calaos Home only, it has no effect on the language of the server logs. Accepted values: `de`, `en`, `es`, `fr`, `hi`, `nb`, `pl`, `ru`. |
 | `user_emails` | list of e-mail addresses | empty | Calaos Home | User e-mail addresses — Addresses managed from the "user info" page of Calaos Home. It overlaps notif/mail_recipients without being the same key: the server never reads this one and Calaos Home never reads the other, so both have to be kept in step by hand. See also: `notif/mail_recipients`. |
 | `calaos/host` ⚠ ◦ | host name or IP address | empty | Calaos Home | Server address (stray key) — Known pollution rather than a real option. Calaos Home saves its settings through QSettings on every platform and, on the desktop build, the group path of the setting leaks verbatim into local_config.xml. Nothing ever reads it back; the address really used is calaos_server_host. It is deliberately left alone by the automatic purge, so deleting it is safe but manual. ⚠ Deprecated. Use `calaos_server_host` instead. See also: `calaos_server_host`. |
+| `update_notified_hash` ◦ | text | empty | Calaos Home | Last notified updates — State kept by Calaos Home, not a setting: a hash of the set of package updates it last announced, so that the same updates are not announced twice. Clearing it makes Calaos Home announce the pending updates again. |
 
 ## Obsolete keys
 
@@ -130,3 +131,4 @@ These keys are no longer read by anything. `calaos_config purge` removes them, a
 - `fw_target`
 - `fw_version`
 - `device_type`
+- `dpms_block`

@@ -2215,10 +2215,10 @@ void ConfigTuiScreen::updateStatusBar()
         shortcuts = _("Enter commit  Esc Esc cancel  Up/Down change  Ctrl-R reveal");
     else if (m_pane == Pane::Categories)
         shortcuts = _("Tab pane  Up/Down move  Enter/Right options  "
-                      "/ search  s save  ? help  q quit");
+                      "/ search  a advanced  s save  ? help  q quit");
     else
         shortcuts = _("Tab pane  Up/Down move  Enter edit  Space toggle  Left back  "
-                      "d default  ? help  q quit");
+                      "d default  a advanced  ? help  q quit");
 
     m_bar->set_text(StyledText(" " + shortcuts));
 }

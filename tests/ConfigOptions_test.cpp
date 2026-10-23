@@ -314,7 +314,7 @@ TEST(ConfigOptionsTable, KnownNonServerOptions)
 {
     const char *homeOnly[] = { "show_cursor", "dpms_enable", "dpms_standby",
                                "calaos_server_host", "lang", "user_emails",
-                               "calaos/host" };
+                               "calaos/host", "update_notified_hash" };
     for (const char *k: homeOnly)
     {
         const ConfigOption &o = opt(k);
@@ -632,12 +632,13 @@ TEST(ConfigOptionsSuggest, AnExactKeyIsItsOwnSuggestion)
 // Obsolete keys
 //-----------------------------------------------------------------------------
 
-TEST(ConfigOptionsObsolete, TheFiveDeadKeys)
+TEST(ConfigOptionsObsolete, TheDeadKeys)
 {
     const std::vector<std::string> &keys = ConfigOptions::obsoleteKeys();
-    ASSERT_EQ(keys.size(), 5u);
+    ASSERT_EQ(keys.size(), 6u);
 
-    const char *expected[] = { "hwid", "use_ntp", "fw_target", "fw_version", "device_type" };
+    const char *expected[] = { "hwid", "use_ntp", "fw_target", "fw_version", "device_type",
+                               "dpms_block" };
     for (const char *k: expected)
     {
         EXPECT_NE(std::find(keys.begin(), keys.end(), std::string(k)), keys.end())
@@ -849,26 +850,27 @@ TEST_F(ConfigOptionsPurgeTest, RemovesOnlyTheObsoleteKeys)
                    { "fw_version", "3.0" },
                    { "notif/mail_recipients", "alice@example.org" },
                    { "device_type", "calaos_server" },
+                   { "dpms_block", "true" },
                    //A key nobody knows about must survive untouched
                    { "some_unknown_legacy_key", "keep me" } });
 
     std::map<std::string, std::string> before = currentOptions();
-    ASSERT_EQ(before.size(), 11u);
+    ASSERT_EQ(before.size(), 12u);
 
     std::vector<std::string> present = ConfigOptions::obsoletePresent();
-    EXPECT_EQ(present.size(), 5u);
+    EXPECT_EQ(present.size(), 6u);
 
     std::vector<std::string> removed;
     ASSERT_TRUE(ConfigOptions::purgeObsolete(&removed));
 
     std::set<std::string> gone(removed.begin(), removed.end());
-    EXPECT_EQ(gone.size(), 5u);
+    EXPECT_EQ(gone.size(), 6u);
     for (const std::string &k: ConfigOptions::obsoleteKeys())
         EXPECT_TRUE(gone.count(k)) << k << " was not reported as removed";
 
     std::map<std::string, std::string> after = currentOptions();
 
-    //Exactly the five obsolete keys are gone, every other key keeps its value
+    //Exactly the obsolete keys are gone, every other key keeps its value
     for (const auto &kv: before)
     {
         if (ConfigOptions::isObsolete(kv.first))
@@ -879,7 +881,7 @@ TEST_F(ConfigOptionsPurgeTest, RemovesOnlyTheObsoleteKeys)
         ASSERT_EQ(after.count(kv.first), 1u) << kv.first << " was wrongly removed";
         EXPECT_EQ(after[kv.first], kv.second) << kv.first << " was modified";
     }
-    EXPECT_EQ(after.size(), before.size() - 5);
+    EXPECT_EQ(after.size(), before.size() - 6);
 
     //No obsolete key remains in the file itself
     std::string raw = readFile(configFile());
