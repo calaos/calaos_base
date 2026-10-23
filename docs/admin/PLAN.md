@@ -266,11 +266,11 @@ Contrats de référence : `docs/API.md` de calaos-container pour les routes du d
 | calaos-container | CC-041 | build et release (flag prerelease, usrmerge, une seule source de version), canal dev/experimental utilisé par RC1 ; se ferme sur son propre test de montée dev.x vers dev.y ; en parallèle, fichiers disjoints | 1 j |
 | calaos-container | CC-042 ⇐ CC4 | unit systemd : `dpkg --configure -a`, `KillMode=process`, `TimeoutStopSec`, `TimeoutStartSec=30min` ; `Restart=always` conservé, le `Restart=on-failure` du ticket est abandonné ; postinst (nouveau fichier) avec redémarrage différé (verrou dpkg libre, job fini, binaire périmé) et jamais bloquante sur le démarrage du daemon ; en parallèle de CC-040, fichiers disjoints | 1 j |
 
-### Phase 1 (≈ 25,7 j, plus 0,1 j si CC2b ; chemin critique ≈ 13,5 j) : mises à jour et reboot depuis la webapp
+### Phase 1 (≈ 26 j, plus 0,1 j si CC2b ; chemin critique ≈ 13,5 j) : mises à jour et reboot depuis la webapp
 
 | Repo | Ticket | Contenu | Durée |
 |---|---|---|---|
-| calaos-build | OS1 | retirer le stub `policy-rc.d` de Docker des images SD (`create_sdimg.sh`), et le retirer une fois sur les box SD existantes par une postinst. Raison : le stub bloque le redémarrage des services après une montée (décision de Raoul, 2026-10-23) | 0,2 j |
+| calaos-build | OS1 | retirer le stub `policy-rc.d` de Docker des images SD (`create_sdimg.sh`), et le retirer une fois sur les box SD existantes par une postinst. Raison : le stub bloque le redémarrage des services après une montée (décision de Raoul, 2026-10-23) | 0,5 j |
 | calaos_home | CH1a | constater dans calaos_home (`github.com/calaos/calaos_home`), toutes versions publiées, l'usage de `?token=`, des routes legacy et de `/events`, et si les types d'événements inconnus sont ignorés ; fixe l'estimation de CH1b | 0,1 j |
 | calaos-container | CC2 ⇐ CC-052 | token 32 octets urandom en 0600 dans `init_calaosfs`, même chemin, écrit seulement s'il est absent, création atomique ; `?token=` retiré ou gardé sur `/events` seul selon CH1a ; tests dans `app/context_test.go` ; remplace au passage `mountpoint -q "$fs"` par `[ -d "$fs" ]`, qui empêche aujourd'hui la création de `/etc/ola`. Depends on: CC-040, CC-042, CH1a | 0,5 j |
 | calaos-container | CC2b | conditionnel (si CH1a trouve un usage de `?token=`) : retrait de `?token=` sur `/events`, une release après CH1b. Depends on: CH1b | 0,1 j |
@@ -303,7 +303,7 @@ Toute nouvelle option est déclarée dans `src/lib/ConfigOptions.cpp`, et `docs/
 |---|---|---|
 | 0 | Board ∥ CH1a | CH1a décide du sort de `?token=` avant CC2 |
 | 1 | CC-040 ∥ CC-041 ∥ CC-042 | rien d'autre dans `app/` et `cmd/` pendant CC-040 ; CC-041 et CC-042 sur des fichiers disjoints |
-| 1 (parallèle) | OS1 | en parallèle de S1b |
+| 1 (parallèle) | OS1 | en parallèle de l'étape « dès 1a » |
 | 1a | section admin de `docs/API.md` (premier commit de CC-040, fusionné seul), puis CB0 | |
 | dès 1a | CB2, WA1, WA2, CI1 | le contrat suffit : faux daemon et mock |
 | après CB2 | CB1 ∥ CB4 | `AdminState`, `secureTransport()`, `LoginThrottle` |
