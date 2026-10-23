@@ -47,6 +47,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -247,14 +248,18 @@ public:
             std::lock_guard<std::mutex> l(mutex);
             alerts.push_back({ type, id });
         }
-        pushEvent(alertEvent(type, id));
+        for (auto &s: openStreams())
+            sendAlert(*s, type, id);
     }
 
-    //What the daemon does at each ping for the alerts not acknowledged yet
+    /* What the daemon does at each ping (app/events.go): a pending alert goes
+     * out again only on a stream it was never sent on. A copy on the same
+     * stream, as after the subscribe race, is a pushEvent(alertEvent()). */
     void replayAlerts()
     {
-        for (const auto &a: pendingAlerts())
-            pushEvent(alertEvent(a.first, a.second));
+        for (auto &s: openStreams())
+            for (const auto &a: pendingAlerts())
+                sendAlert(*s, a.first, a.second);
     }
 
     std::vector<std::pair<std::string, std::string>> pendingAlerts()
@@ -339,7 +344,18 @@ private:
         int fd = -1;
         std::atomic<bool> open{ true };
         std::mutex wmutex;
+        std::set<std::string> sentAlerts;
     };
+
+    void sendAlert(Stream &s, const std::string &type, const std::string &id)
+    {
+        {
+            std::lock_guard<std::mutex> l(s.wmutex);
+            if (!s.sentAlerts.insert(id).second)
+                return;
+        }
+        sendFrame(s, 0x1, alertEvent(type, id).dump());
+    }
 
     std::mutex streamsMutex;
     std::vector<std::shared_ptr<Stream>> streams;
@@ -485,7 +501,7 @@ private:
         }
         sendFrame(*stream, 0x1, snapshot.dump());
         for (const auto &a: pending)
-            sendFrame(*stream, 0x1, alertEvent(a.first, a.second).dump());
+            sendAlert(*stream, a.first, a.second);
         if (closeAfterSnapshot)
             ::shutdown(fd, SHUT_RDWR);
 
@@ -774,7 +790,12 @@ private:
         else if (req.method == "POST" && (req.path == "/api/v2/update/upgrade-all" || req.path == "/api/v2/update/upgrade"))
         {
             const std::string pkg = body.is_object() && body.contains("package") && body["package"].is_string() ? body["package"].get<std::string>() : std::string();
-            if (req.path == "/api/v2/update/upgrade" && pkg != "calaos-server")
+            if (req.path == "/api/v2/update/upgrade" && pkg == "calaos-held")
+            {
+                res.status = 409;
+                res.body = nlohmann::json{ { "error", true }, { "code", "package_held" }, { "msg", "the package is held (apt-mark hold)" } }.dump();
+            }
+            else if (req.path == "/api/v2/update/upgrade" && pkg != "calaos-server")
             {
                 res.status = 404;
                 res.body = err("package_not_found");

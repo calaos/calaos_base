@@ -53,6 +53,8 @@ public:
         double silence = 75.0; //nothing received for that long: reconnect
         double minBackoff = 1.0;
         double maxBackoff = 60.0;
+        double retryDelay = 60.0; //first retry of a lost push or ack, then doubled
+        int maxRetries = 5;
     };
 
     //A daemon frame bigger than this is a protocol error
@@ -124,8 +126,7 @@ private:
     Timer *watchdogTimer = nullptr;
 
     std::set<string> acking;
-    std::set<string> recording;
-    std::deque<string> relayedAlerts;
+    std::set<string> storing;
     std::set<string> unusableAlerts;
 
     void connect();
@@ -141,7 +142,24 @@ private:
     void processFrames();
     void processMessage(const string &text);
     void processAlert(const string &type, const Json &data);
+    void push(const string &type, const string &id);
     void ack(const string &id);
+
+    enum class RetryKind
+    {
+        Push,
+        Ack,
+    };
+    struct Retry
+    {
+        Timer *timer = nullptr;
+        int attempts = 0;
+    };
+    //Keyed by kind and id: one alert may wait for its push and its ack
+    map<string, Retry> retries;
+    void scheduleRetry(RetryKind kind, const string &type, const string &id);
+    void retryNow(RetryKind kind, string type, string id);
+    void forgetRetry(RetryKind kind, const string &id);
 
     void sendFrame(int opcode, const string &payload);
     void write(const string &bytes);

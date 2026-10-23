@@ -32,14 +32,6 @@
 namespace Calaos
 {
 
-namespace
-{
-
-//The daemon keeps at most 32 unacknowledged alerts
-constexpr size_t MaxRecordedAlerts = 64;
-
-} //namespace
-
 AdminState &AdminState::Instance()
 {
     static AdminState inst;
@@ -83,6 +75,7 @@ void AdminState::setFlag(bool present)
 void AdminState::start()
 {
     loadFlag();
+    loadAlerts();
     started = true;
     startTime = Utils::getMainLoopTime();
     refresh();
@@ -202,30 +195,52 @@ void AdminState::scheduleNextPoll()
         pollTimer->Reset(delay);
 }
 
-namespace
-{
-
-bool remembered(const std::deque<string> &ids, const string &id)
-{
-    return std::find(ids.begin(), ids.end(), id) != ids.end();
-}
-
-void remember(std::deque<string> &ids, const string &id)
-{
-    ids.push_back(id);
-    if (ids.size() > MaxRecordedAlerts)
-        ids.pop_front();
-}
-
-} //namespace
-
 void AdminState::resetAlertPushes(double interval)
 {
     alertPushInterval = interval;
     lastAlertPush.clear();
 }
 
-bool AdminState::recordAlert(const string &type, const string &id, std::function<void(bool)> done)
+string AdminState::alertsPath() const
+{
+    return Utils::getCachePath() + "/" + AlertsFileName;
+}
+
+void AdminState::loadAlerts()
+{
+    storedAlerts.clear();
+    std::ifstream f(alertsPath());
+    string line;
+    while (std::getline(f, line))
+    {
+        line = Utils::trim(line);
+        if (!line.empty() && line.size() <= 64 && line.find_first_not_of("0123456789abcdefABCDEF") == string::npos)
+            storedAlerts.push_back(line);
+    }
+    while (storedAlerts.size() > MaxStoredAlerts)
+        storedAlerts.pop_front();
+}
+
+void AdminState::saveAlerts()
+{
+    //Replaced whole: a power cut leaves the old list or the new one
+    const string tmp = alertsPath() + ".tmp";
+    {
+        std::ofstream f(tmp, std::ios::out | std::ios::trunc);
+        for (const string &id: storedAlerts)
+            f << id << "\n";
+        f.flush();
+        if (!f)
+        {
+            cErrorDom("admin") << "Cannot write " << tmp << ", an alert replayed after a restart is stored again";
+            return;
+        }
+    }
+    if (::rename(tmp.c_str(), alertsPath().c_str()) != 0)
+        cErrorDom("admin") << "Cannot write " << alertsPath() << ", an alert replayed after a restart is stored again"; //LCOV_EXCL_LINE rename in a directory just written to
+}
+
+bool AdminState::storeAlert(const string &type, const string &id, std::function<void()> stored)
 {
     string message;
     if (type == "admin_set")
@@ -235,18 +250,34 @@ bool AdminState::recordAlert(const string &type, const string &id, std::function
     else
         return false;
 
-    if (remembered(recordedAlerts, id))
+    if (std::find(storedAlerts.begin(), storedAlerts.end(), id) != storedAlerts.end())
         return false;
-    remember(recordedAlerts, id);
 
-    if (!remembered(storedAlerts, id))
-    {
-        remember(storedAlerts, id);
-        HistEvent e = HistEvent::create();
-        e.event_type = CalaosEvent::EventPushNotification;
-        e.event_raw = Json{ { "message", message }, { "pic_uid", "" } }.dump(-1, ' ', true, Json::error_handler_t::replace);
-        HistLogger::Instance().appendEvent(e);
-    }
+    storedAlerts.push_back(id);
+    while (storedAlerts.size() > MaxStoredAlerts)
+        storedAlerts.pop_front();
+    saveAlerts();
+
+    HistEvent e = HistEvent::create();
+    e.event_type = CalaosEvent::EventPushNotification;
+    e.event_raw = Json{ { "message", message }, { "pic_uid", "" } }.dump(-1, ' ', true, Json::error_handler_t::replace);
+    HistLogger::Instance().appendEvent(e);
+
+    //HistLogger's worker runs in order: once this read is answered, the
+    //event above is written
+    HistLogger::Instance().getPushTokens([stored](bool, string, const vector<PushToken> &)
+                                         {
+        if (stored)
+            stored();
+    });
+
+    return true;
+}
+
+void AdminState::pushAlert(const string &type, std::function<void(bool)> done)
+{
+    const string message = type == "admin_set" ? _("Admin password set on your Calaos box")
+                                               : _("Admin password removed from your Calaos box");
 
     const double now = Utils::getMainLoopTime();
     const auto last = lastAlertPush.find(type);
@@ -256,28 +287,26 @@ bool AdminState::recordAlert(const string &type, const string &id, std::function
                           << (long)alertPushInterval << " s ago";
         if (done)
             done(true);
-        return true;
+        return;
     }
 
     //No push yet reads as one infinitely long ago
     const double previous = last != lastAlertPush.end() ? last->second : -std::numeric_limits<double>::infinity();
     lastAlertPush[type] = now;
 
-    //HistLogger's worker runs in order: the event above is stored before the
-    //tokens are read, so a successful push means both are done.
-    //A never destroyed singleton: `this` cannot dangle.
-    NotifManager::Instance().sendPushNotification(message, string(), {}, [this, type, id, done, previous](bool sent)
+    //A never destroyed singleton: `this` cannot dangle
+    NotifManager::Instance().sendPushNotification(message, string(), {}, [this, type, done, previous, now](bool sent)
                                                   {
         if (!sent)
         {
-            recordedAlerts.erase(std::remove(recordedAlerts.begin(), recordedAlerts.end(), id), recordedAlerts.end());
-            lastAlertPush[type] = previous;
+            //Unless a newer push of the type went out meanwhile
+            const auto stamp = lastAlertPush.find(type);
+            if (stamp != lastAlertPush.end() && stamp->second == now)
+                stamp->second = previous;
         }
         if (done)
             done(sent);
     });
-
-    return true;
 }
 
 } //namespace Calaos

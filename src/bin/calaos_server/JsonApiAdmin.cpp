@@ -50,6 +50,7 @@ string messageFor(const string &code)
         { "not_allowed", "Action not allowed" },
         { "invalid_request", "Invalid request" },
         { "package_not_found", "Package has no pending update" },
+        { "package_held", "Package is held on the box (apt-mark hold)" },
         { "internal", "Internal error" },
     };
 
@@ -197,7 +198,7 @@ Json JsonApi::adminErrorFromReply(const DaemonReply &reply)
 
     static const std::set<string> sameCode = { "bad_session", "bad_password", "rate_limited", "password_too_short",
                                                "admin_not_set", "admin_already_set", "upgrade_in_progress",
-                                               "not_allowed" };
+                                               "not_allowed", "package_held" };
 
     if (reply.code == "admin_not_set")
         return adminNotSet();

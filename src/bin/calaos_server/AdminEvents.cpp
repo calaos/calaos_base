@@ -259,6 +259,9 @@ void AdminEvents::stop()
     watchdogTimer = nullptr;
     delete reconnectTimer;
     reconnectTimer = nullptr;
+    for (auto &r: retries)
+        delete r.second.timer;
+    retries.clear();
 }
 
 void AdminEvents::scheduleReconnect(double delay)
@@ -596,7 +599,7 @@ void AdminEvents::processAlert(const string &type, const Json &data)
     if (!isAlertId(id))
     {
         //Acked all the same, or the daemon would replay it for ever; never
-        //recorded nor relayed
+        //stored nor relayed
         if (!id.empty() && id.size() <= MaxForeignAlertId)
             ack(id);
         if (unusableAlerts.size() < MaxRemembered && unusableAlerts.insert(id).second)
@@ -604,36 +607,42 @@ void AdminEvents::processAlert(const string &type, const Json &data)
         return;
     }
 
-    //Its ack waits for the push of the copy already being recorded
-    if (recording.count(id))
+    //Its ack waits for the event of the copy already being stored
+    if (storing.count(id))
         return;
 
-    recording.insert(id);
-    const bool fresh = AdminState::Instance().recordAlert(type, id, [this, id](bool recorded)
-                                                          {
-        recording.erase(id);
-        if (recorded)
-            ack(id);
+    storing.insert(id);
+    //Acked once stored, whatever becomes of the push: an alert left pending
+    //would be replayed, and stored again, at every restart
+    const bool fresh = AdminState::Instance().storeAlert(type, id, [this, id]()
+                                                         {
+        storing.erase(id);
+        ack(id);
     });
 
     if (!fresh)
     {
-        //Recorded before: an ack lost earlier is retried at this replay
-        recording.erase(id);
+        //Stored before, maybe before a restart: an ack lost earlier is retried here
+        storing.erase(id);
         ack(id);
         return;
     }
 
-    //A copy recorded again after a failed push is not relayed twice
-    if (std::find(relayedAlerts.begin(), relayedAlerts.end(), id) != relayedAlerts.end())
-        return;
-    relayedAlerts.push_back(id);
-    if (relayedAlerts.size() > MaxRemembered)
-        relayedAlerts.pop_front();
-
     cInfoDom("admin") << "calaos-container alert: " << type;
     householdEvent.emit(householdEventFor(Json{ { "type", type }, { "data", data } }, utcNow()));
     AdminState::Instance().refresh();
+    push(type, id);
+}
+
+void AdminEvents::push(const string &type, const string &id)
+{
+    AdminState::Instance().pushAlert(type, [this, type, id](bool sent)
+                                     {
+        if (sent)
+            forgetRetry(RetryKind::Push, id);
+        else
+            scheduleRetry(RetryKind::Push, type, id);
+    });
 }
 
 void AdminEvents::ack(const string &id)
@@ -649,10 +658,76 @@ void AdminEvents::ack(const string &id)
     DaemonClient::Instance().call(req, [this, id](const DaemonReply &reply)
                                   {
         acking.erase(id);
-        if (reply.kind != DaemonReply::Kind::Ok)
-            cWarningDom("admin") << "calaos-container did not take the ack of alert " << id
-                                 << ", it will be replayed";
+        if (reply.kind == DaemonReply::Kind::Ok)
+        {
+            forgetRetry(RetryKind::Ack, id);
+            return;
+        }
+        cWarningDom("admin") << "calaos-container did not take the ack of alert " << id << ", retrying later";
+        scheduleRetry(RetryKind::Ack, string(), id);
     });
+}
+
+void AdminEvents::scheduleRetry(RetryKind kind, const string &type, const string &id)
+{
+    /* The daemon never resends an alert on the stream it already went out
+     * on, and an acked one never: a lost push or ack is retried here, a few
+     * times. A push or an ack answered after stop() schedules nothing. */
+    if (state == State::Stopped)
+        return;
+
+    const string slot = string(kind == RetryKind::Push ? "push:" : "ack:") + id;
+    auto it = retries.find(slot);
+    if (it == retries.end())
+    {
+        //A series that gives up frees its slot: a full table holds only live series
+        if (retries.size() >= MaxRemembered)
+            return;
+        it = retries.emplace(slot, Retry()).first;
+    }
+
+    Retry &r = it->second;
+    if (r.timer)
+        return;
+    if (r.attempts >= timings.maxRetries)
+    {
+        cInfoDom("admin") << "Giving up the " << (kind == RetryKind::Push ? "push" : "ack") << " of alert " << id;
+        retries.erase(it);
+        return;
+    }
+
+    const double delay = timings.retryDelay * double(1 << r.attempts);
+    r.attempts++;
+    //A never destroyed singleton: `this` cannot dangle; the timer is deleted
+    //from its own callback, which Timer allows
+    r.timer = new Timer(delay, [this, kind, type, id]()
+                        {
+        retryNow(kind, type, id);
+    });
+}
+
+//By value: deleting the timer below destroys the lambda that holds the originals
+void AdminEvents::retryNow(RetryKind kind, string type, string id)
+{
+    auto it = retries.find(string(kind == RetryKind::Push ? "push:" : "ack:") + id);
+    if (it == retries.end())
+        return; //LCOV_EXCL_LINE stop() deletes the timers with their entries
+    delete it->second.timer;
+    it->second.timer = nullptr;
+
+    if (kind == RetryKind::Push)
+        push(type, id);
+    else
+        ack(id);
+}
+
+void AdminEvents::forgetRetry(RetryKind kind, const string &id)
+{
+    auto it = retries.find(string(kind == RetryKind::Push ? "push:" : "ack:") + id);
+    if (it == retries.end())
+        return;
+    delete it->second.timer;
+    retries.erase(it);
 }
 
 void AdminEvents::sendFrame(int opcode, const string &payload)
