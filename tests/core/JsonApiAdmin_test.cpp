@@ -58,6 +58,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstring>
 #include <fstream>
@@ -503,6 +504,7 @@ protected:
         ::unlink(flagPath().c_str());
         AdminState::Instance().observeUnreachable();
         AdminState::Instance().loadFlag();
+        AdminState::Instance().resetAlertPushes(AdminState::AlertPushInterval);
         drainLoop(10);
     }
 
@@ -654,7 +656,6 @@ TEST(JsonApiAdminRules, DaemonCallTimeouts)
 {
     EXPECT_EQ(4, DaemonClient::DefaultTimeout);
     EXPECT_EQ(120, DaemonClient::UpdateCheckTimeout);
-    EXPECT_EQ(30, DaemonClient::ArgonTimeout);
     EXPECT_EQ(30, DaemonClient::RestartTimeout);
     EXPECT_EQ(DaemonClient::DefaultTimeout, DaemonClient::Request().timeout);
 
@@ -1897,9 +1898,17 @@ TEST_F(JsonApiAdminTest, UpdateStatusWithoutASessionIsTheHouseholdView)
     EXPECT_EQ((Json{ { "status", "idle" }, { "total_percent", 0 } }), idle["result"]["progress"]);
     EXPECT_TRUE(idle["result"]["job"].is_null());
 
-    //A session the daemon does not know is its answer, not the household view
+    //A session the daemon refuses falls back to the household view
+    fakeDaemon.setUpdateStatus(FakeDaemon::leakyProgress(), FakeDaemon::leakyJob());
+    fakeDaemon.clearLog();
     const Json stale = ws.admin("admin", { { "action", "update_status" }, { "admin_session", std::string(64, 'f') } });
-    expectError(stale, "bad_session");
+    ASSERT_EQ("true", str(stale, "success")) << stale.dump();
+    EXPECT_EQ(householdProgress(), stale["result"]["progress"]);
+    expectNothingLeaks(stale);
+    const auto calls = daemonCalls();
+    ASSERT_EQ(2u, calls.size());
+    EXPECT_EQ(std::string(64, 'f'), calls[0].headers.at("x-calaos-admin-session"));
+    EXPECT_EQ(0u, calls[1].headers.count("x-calaos-admin-session"));
 }
 
 TEST_F(JsonApiAdminTest, AnInvalidPackageNeverReachesTheDaemon)
@@ -1983,26 +1992,42 @@ TEST_F(JsonApiAdminTest, RelayedErrorsAreTranslated)
     EXPECT_EQ(AdminState::Mode::TooOld, AdminState::Instance().mode());
 }
 
-TEST_F(JsonApiAdminTest, ArgonAndUpdateCheckCallsWaitLongerThanTheDefault)
+TEST_F(JsonApiAdminTest, ADeepAnswerFromTheDaemonIsAnInvalidAnswer)
+{
+    const std::string deep = std::string(100000, '[') + std::string(100000, ']');
+    EXPECT_EQ(DaemonReply::Kind::Unreachable,
+              DaemonReply::parse(200, "{\"error\":false,\"msg\":\"ok\",\"data\":" + deep + "}", false).kind);
+
+    adminDefined();
+    fakeDaemon.setOverride([deep](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/v2/update/status")
+            return false;
+        res.body = "{\"error\":false,\"msg\":\"ok\",\"data\":" + deep + "}";
+        return true;
+    });
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    expectError(ws.admin("admin", { { "action", "update_status" } }), "daemon_unreachable");
+}
+
+TEST_F(JsonApiAdminTest, UpdateCheckWaitsLongerThanTheDefault)
 {
     adminDefined();
     WsClient ws;
     ASSERT_TRUE(ws.login("https"));
 
-    //Longer than the 4 s default, shorter than the routes' own timeouts
+    //Longer than the 4 s default, shorter than update_check's own timeout
     fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
                            {
         res.delayMs = 4500;
-        if (req.path == "/api/v2/admin/verify")
-            res.body = FakeDaemon::ok({ { "session", FakeDaemon::Session }, { "expires_in", 900 } });
-        else if (req.path == "/api/v2/update/check" || req.path == "/api/v2/system/info")
+        if (req.path == "/api/v2/update/check" || req.path == "/api/v2/system/info")
             res.body = FakeDaemon::ok(Json::object());
         else
             return false;
         return true;
     });
 
-    EXPECT_EQ(FakeDaemon::Session, str(ws.admin("admin_unlock", unlockData(), 9000), "admin_session"));
     EXPECT_EQ("true", str(ws.admin("admin", { { "action", "update_check" }, { "admin_session", FakeDaemon::Session } }, 9000),
                           "success"));
     expectError(ws.admin("admin", { { "action", "system_info" }, { "admin_session", FakeDaemon::Session } }, 9000),
@@ -2046,6 +2071,9 @@ TEST_F(JsonApiAdminTest, APersistentBearerRefusalIsLoggedOnce)
 namespace
 {
 
+//A server frame: never masked unless the test wants a protocol error
+std::string serverFrame(unsigned char first, const std::string &payload, bool masked = false);
+
 //Every admin_event until last() accepts one, other messages skipped
 std::vector<Json> adminEventsUntil(WsClient &ws, const std::function<bool(const Json &)> &last, int ms = 6000)
 {
@@ -2080,6 +2108,7 @@ protected:
         t.minBackoff = 0.05;
         t.maxBackoff = 0.3;
         AdminEvents::Instance().setTimings(t);
+        AdminState::Instance().resetAlertPushes(0.0);
     }
 
     void TearDown() override
@@ -2121,6 +2150,24 @@ protected:
     }
 
     size_t acks() { return fakeDaemon.count("/api/v2/admin/alerts/ack"); }
+
+    size_t storedEvents(const char *text)
+    {
+        bool read = false;
+        size_t n = 0;
+        HistLogger::Instance().getEvents(0, 1000, [&](bool, string, const vector<HistEvent> &events, int, int)
+                                         {
+            for (const HistEvent &e: events)
+                if (e.event_type == CalaosEvent::EventPushNotification && e.event_raw.find(text) != std::string::npos)
+                    n++;
+            read = true;
+        });
+        pumpUntil([&read]()
+                  {
+            return read;
+        });
+        return n;
+    }
 };
 
 } //namespace
@@ -2177,7 +2224,17 @@ TEST_F(AdminEventsTest, HouseholdClientsSeeOnlyTheFilteredEvents)
     ASSERT_EQ(1u, events.size());
     EXPECT_TRUE(isAdminEvent(events[0], "upgrade_progress"));
     expectNothingLeaks(events[0]);
-    EXPECT_EQ(0u, acks()) << "an alert without a usable id is neither recorded nor acked";
+    //Acked so that the daemon stops replaying them, never recorded nor relayed
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return acks() == 2;
+    }));
+    std::vector<std::string> acked;
+    for (const FakeDaemon::Request &r: fakeDaemon.requests())
+        if (r.path == "/api/v2/admin/alerts/ack")
+            acked.push_back(parse(r.body)["ids"][0].get<std::string>());
+    std::sort(acked.begin(), acked.end());
+    EXPECT_EQ((std::vector<std::string>{ "../not-an-id", std::string(65, 'a') }), acked);
 
     EXPECT_TRUE(adminEventsUntil(anonymous, [](const Json &) { return true; }, 200).empty());
     EXPECT_TRUE(adminEventsUntil(service, [](const Json &) { return true; }, 200).empty());
@@ -2303,6 +2360,166 @@ TEST_F(AdminEventsTest, TheStreamComesBackAfterTheDaemon)
                           {
         return AdminEvents::Instance().connected();
     }));
+
+    //Up for longer than the silence window: the outage is over
+    PushTest::StdoutCapture capture;
+    drainLoop(1300);
+    const std::string out = capture.stop();
+    EXPECT_TRUE(AdminEvents::Instance().connected());
+    EXPECT_NE(std::string::npos, out.find("event stream again")) << out;
+}
+
+TEST_F(AdminEventsTest, AFlappingDaemonIsRetriedSlowerAndSlower)
+{
+    fakeDaemon.closeEventsAfterSnapshot(true);
+    PushTest::StdoutCapture capture;
+    AdminEvents::Instance().start();
+    drainLoop(1500);
+    const std::string out = capture.stop();
+
+    //0.05 s doubled up to 0.3 s: about 7 streams, not one per millisecond
+    EXPECT_GE(fakeDaemon.eventsAccepted(), 2u);
+    EXPECT_LE(fakeDaemon.eventsAccepted(), 10u);
+    size_t lost = 0;
+    for (size_t at = out.find("Lost the calaos-container event stream"); at != std::string::npos;
+         at = out.find("Lost the calaos-container event stream", at + 1))
+        lost++;
+    EXPECT_EQ(1u, lost) << out;
+}
+
+TEST_F(AdminEventsTest, ADeepEventIsDroppedWithoutHarm)
+{
+    WsClient household;
+    ASSERT_TRUE(household.login(""));
+    startEvents();
+    ASSERT_TRUE(isAdminEvent(household.next(), "upgrade_progress"));
+
+    //Under the message and frame caps, far over the nesting limit
+    const std::string deep = std::string(100000, '[') + std::string(100000, ']');
+    fakeDaemon.sendRaw(serverFrame(0x81, "{\"type\":\"upgrade_progress\",\"data\":" + deep + "}"));
+    fakeDaemon.sendRaw(serverFrame(0x81, "{\"type\":\"admin_set\",\"data\":{\"id\":" + deep + "}}"));
+    fakeDaemon.pushEvent({ { "type", "upgrade_progress" }, { "data", { { "status", "done" } } } });
+
+    const auto events = adminEventsUntil(household, [](const Json &) { return true; });
+    ASSERT_EQ(1u, events.size());
+    EXPECT_EQ("done", str(events[0]["data"]["data"], "status"));
+    EXPECT_TRUE(AdminEvents::Instance().connected());
+    EXPECT_EQ(1u, fakeDaemon.eventsAccepted());
+    EXPECT_EQ(0u, acks());
+}
+
+TEST_F(AdminEventsTest, AnAlertFloodSendsOnePushPerType)
+{
+    HistLogger::Instance().registerPushToken("cb3-push-token", HistLogger::PUSH_HW_ANDROID);
+    quietPushes();
+    AdminState::Instance().resetAlertPushes(AdminState::AlertPushInterval);
+    startEvents();
+
+    //More than the 64 ids remembered
+    for (int i = 0; i < 70; i++)
+        fakeDaemon.raiseAlert("admin_set", "000000000000e" + std::to_string(100 + i));
+    ASSERT_TRUE(pumpUntil([]()
+                          {
+        return fakeDaemon.pendingAlerts().empty();
+    }));
+    drainLoop(300);
+
+    EXPECT_EQ(1u, pushesOf("Admin password set")) << "the first alert is pushed, the rest of the window is not";
+    EXPECT_EQ(70u, acks());
+
+    fakeDaemon.raiseAlert("admin_reset", "0000000000000f01");
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return pushesOf("Admin password removed") == 1;
+    })) << "the cooldown is per type";
+}
+
+TEST_F(AdminEventsTest, AnAlertIsAckedOnlyOnceItsPushIsOut)
+{
+    HistLogger::Instance().registerPushToken("cb3-push-token", HistLogger::PUSH_HW_ANDROID);
+    quietPushes();
+
+    //The push service holds its answer: no ack before it
+    fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/push")
+            return false;
+        res.delayMs = 800;
+        res.body = "{}";
+        return true;
+    });
+
+    WsClient household;
+    ASSERT_TRUE(household.login(""));
+    startEvents();
+    ASSERT_TRUE(isAdminEvent(household.next(), "upgrade_progress"));
+
+    fakeDaemon.raiseAlert("admin_reset", "0000000000000a51");
+    ASSERT_TRUE(isAdminEvent(household.next(), "admin_reset"));
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return pushesOf("Admin password removed") == 1;
+    }));
+    //A replay while the push is out is neither pushed nor acked
+    fakeDaemon.replayAlerts();
+    drainLoop(400);
+    EXPECT_EQ(0u, acks());
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return acks() == 1 && fakeDaemon.pendingAlerts().empty();
+    }));
+    EXPECT_EQ(1u, pushesOf("Admin password removed"));
+}
+
+TEST_F(AdminEventsTest, AFailedPushIsRetriedAtTheReplayWithoutASecondEvent)
+{
+    HistLogger::Instance().registerPushToken("cb3-push-token", HistLogger::PUSH_HW_ANDROID);
+    quietPushes();
+
+    WsClient household;
+    ASSERT_TRUE(household.login(""));
+    startEvents();
+    ASSERT_TRUE(isAdminEvent(household.next(), "upgrade_progress"));
+
+    //A first alert of the type goes through
+    fakeDaemon.raiseAlert("admin_reset", "0000000000000b51");
+    ASSERT_TRUE(isAdminEvent(household.next(), "admin_reset"));
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return acks() == 1;
+    }));
+    drainLoop(200);
+    const size_t storedBefore = storedEvents("Admin password removed");
+
+    fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/push")
+            return false;
+        res.status = 503;
+        res.body = "{}";
+        return true;
+    });
+
+    fakeDaemon.raiseAlert("admin_reset", "0000000000000b52");
+    ASSERT_TRUE(isAdminEvent(household.next(), "admin_reset"));
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return pushesOf("Admin password removed") == 2;
+    }));
+    drainLoop(300);
+    EXPECT_EQ(1u, acks()) << "a lost push is not acked";
+
+    fakeDaemon.setOverride(nullptr);
+    fakeDaemon.replayAlerts();
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return pushesOf("Admin password removed") == 3 && acks() == 2;
+    }));
+    drainLoop(300);
+
+    EXPECT_EQ(storedBefore + 1, storedEvents("Admin password removed")) << "one persistent event";
+    EXPECT_TRUE(adminEventsUntil(household, [](const Json &) { return true; }, 200).empty())
+        << "the household saw the alert once";
 }
 
 TEST_F(AdminEventsTest, ARefusedUpgradeIsRetriedAndARotatedTokenIsReadAgain)
@@ -2372,8 +2589,7 @@ TEST_F(AdminEventsTest, PingsGoBothWaysAndASilentDaemonIsLeft)
 namespace
 {
 
-//A server frame: never masked unless the test wants a protocol error
-std::string serverFrame(unsigned char first, const std::string &payload, bool masked = false)
+std::string serverFrame(unsigned char first, const std::string &payload, bool masked)
 {
     std::string f;
     f.push_back((char)first);

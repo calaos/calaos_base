@@ -21,6 +21,7 @@
 #include "AdminEvents.h"
 #include "AdminState.h"
 #include "DaemonClient.h"
+#include "JsonApi.h"
 #include "JsonField.h"
 #include "Timer.h"
 #include "WebSocketFrame.h"
@@ -292,7 +293,7 @@ void AdminEvents::connect()
 
     const unsigned long gen = ++generation;
     state = State::Connecting;
-    connectedAt = lastActivity = Utils::getMainLoopTime();
+    lastActivity = Utils::getMainLoopTime();
     inbuf.clear();
     message.clear();
     inMessage = false;
@@ -364,15 +365,12 @@ void AdminEvents::drop(const string &why, double delay)
     watchdogTimer = nullptr;
 
     //Only the callbacks of a live connection call this, and stop() made
-    //every one of them stale
-    if (wasOpen)
+    //every one of them stale. One line per outage: a flapping daemon would
+    //otherwise log at every reconnect.
+    if (!failureLogged)
     {
-        cInfoDom("admin") << "Lost the calaos-container event stream (" << why << "), reconnecting";
-        failureLogged = false;
-    }
-    else if (!failureLogged)
-    {
-        cInfoDom("admin") << "calaos-container event stream unavailable (" << why << "), retrying in the background";
+        cInfoDom("admin") << (wasOpen ? "Lost the calaos-container event stream (" : "calaos-container event stream unavailable (")
+                          << why << "), retrying in the background";
         failureLogged = true;
     }
     else
@@ -391,10 +389,21 @@ void AdminEvents::drop(const string &why, double delay)
 
 void AdminEvents::watchdog()
 {
-    if (Utils::getMainLoopTime() - lastActivity > timings.silence)
+    const double now = Utils::getMainLoopTime();
+    if (now - lastActivity > timings.silence)
     {
         drop(state == State::Open ? "no answer to the pings" : "no handshake answer");
         return;
+    }
+
+    //Only a stream that stayed up resets the backoff: a daemon that accepts
+    //and closes at once keeps being retried slower and slower
+    if (state == State::Open && now - connectedAt >= timings.silence && (backoff > 0.0 || failureLogged))
+    {
+        if (failureLogged)
+            cInfoDom("admin") << "Subscribed to the calaos-container event stream again";
+        backoff = 0.0;
+        failureLogged = false;
     }
 
     if (state == State::Open)
@@ -486,11 +495,8 @@ bool AdminEvents::processHandshake()
     tooOldLogged = false;
     DaemonClient::Instance().bearerAccepted();
     state = State::Open;
-    if (failureLogged)
-        cInfoDom("admin") << "Subscribed to the calaos-container event stream";
-    else
-        cDebugDom("admin") << "Subscribed to the calaos-container event stream";
-    failureLogged = false;
+    connectedAt = Utils::getMainLoopTime();
+    cDebugDom("admin") << "Subscribed to the calaos-container event stream";
     return true;
 }
 
@@ -558,8 +564,13 @@ void AdminEvents::processFrames()
 
 void AdminEvents::processMessage(const string &text)
 {
-    //The daemon answers again: the next loss starts from the shortest delay
-    backoff = 0.0;
+    //nlohmann recurses to the depth of the document: a deep one would take
+    //the whole server down, and the reconnect would read it again
+    if (!JsonApi::requestNestingWithinLimit(text))
+    {
+        cWarningDom("admin") << "calaos-container event nested too deep, dropped";
+        return;
+    }
 
     const Json event = Json::parse(text, nullptr, false);
     const string type = JsonField::string(event, "type");
@@ -585,20 +596,45 @@ void AdminEvents::processAlert(const string &type, const Json &data)
     const string id = JsonField::string(data, "id");
     if (!isAlertId(id))
     {
-        cWarningDom("admin") << "calaos-container sent a " << type << " alert without a usable id";
+        //Acked all the same, or the daemon would replay it for ever; never
+        //recorded nor relayed
+        if (!id.empty() && id.size() <= MaxForeignAlertId)
+            ack(id);
+        if (unusableAlerts.size() < MaxRemembered && unusableAlerts.insert(id).second)
+            cWarningDom("admin") << "calaos-container sent a " << type << " alert without a usable id";
         return;
     }
 
-    if (AdminState::Instance().recordAlert(type, id))
+    //Its ack waits for the push of the copy already being recorded
+    if (recording.count(id))
+        return;
+
+    recording.insert(id);
+    const bool fresh = AdminState::Instance().recordAlert(type, id, [this, id](bool recorded)
+                                                          {
+        recording.erase(id);
+        if (recorded)
+            ack(id);
+    });
+
+    if (!fresh)
     {
-        cInfoDom("admin") << "calaos-container alert: " << type;
-        householdEvent.emit(householdEventFor(Json{ { "type", type }, { "data", data } }, utcNow()));
-        AdminState::Instance().refresh();
+        //Recorded before: an ack lost earlier is retried at this replay
+        recording.erase(id);
+        ack(id);
+        return;
     }
 
-    //Acked even when already recorded: an ack lost earlier is retried here,
-    //at the daemon's next replay
-    ack(id);
+    //A copy recorded again after a failed push is not relayed twice
+    if (std::find(relayedAlerts.begin(), relayedAlerts.end(), id) != relayedAlerts.end())
+        return;
+    relayedAlerts.push_back(id);
+    if (relayedAlerts.size() > MaxRemembered)
+        relayedAlerts.pop_front();
+
+    cInfoDom("admin") << "calaos-container alert: " << type;
+    householdEvent.emit(householdEventFor(Json{ { "type", type }, { "data", data } }, utcNow()));
+    AdminState::Instance().refresh();
 }
 
 void AdminEvents::ack(const string &id)

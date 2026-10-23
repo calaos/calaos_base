@@ -270,6 +270,40 @@ long JsonApi::adminRelayTimeout(const string &action)
     return row ? row->timeout : 0;
 }
 
+namespace
+{
+
+void relayCall(const DaemonClient::Request &req, bool household, bool sessionOptional, const std::function<void(const Json &)> &answer)
+{
+    DaemonClient::Instance().call(req, [req, household, sessionOptional, answer](const DaemonReply &reply)
+                                  {
+        if (reply.kind == DaemonReply::Kind::Ok)
+        {
+            answer(Json{ { "success", "true" }, { "result", household ? householdUpdateStatus(reply.data) : reply.data } });
+            return;
+        }
+
+        //An expired session on update_status still gets what any household
+        //client may read: that is what lets a client resume without the password
+        if (sessionOptional && !household && reply.kind == DaemonReply::Kind::Error && reply.code == "bad_session")
+        {
+            DaemonClient::Request anonymous = req;
+            anonymous.session.clear();
+            relayCall(anonymous, true, true, answer);
+            return;
+        }
+
+        if (reply.kind == DaemonReply::Kind::Error && reply.code == "admin_not_set")
+            AdminState::Instance().observe(false);
+        else if (reply.kind == DaemonReply::Kind::TooOld)
+            AdminState::Instance().observeTooOld();
+
+        answer(JsonApi::adminErrorFromReply(reply));
+    });
+}
+
+} //namespace
+
 void JsonApi::relayAdmin(const string &action, const Json &request, const string &session, const AdminAnswer &answer)
 {
     const RelayRow *row = relayRow(action);
@@ -294,21 +328,7 @@ void JsonApi::relayAdmin(const string &action, const Json &request, const string
     if (action == "update_upgrade")
         req.body = Json{ { "package", request["params"]["package"].get<string>() } };
 
-    DaemonClient::Instance().call(req, [answer, household](const DaemonReply &reply)
-                                  {
-        if (reply.kind == DaemonReply::Kind::Ok)
-        {
-            answer(Json{ { "success", "true" }, { "result", household ? householdUpdateStatus(reply.data) : reply.data } });
-            return;
-        }
-
-        if (reply.kind == DaemonReply::Kind::Error && reply.code == "admin_not_set")
-            AdminState::Instance().observe(false);
-        else if (reply.kind == DaemonReply::Kind::TooOld)
-            AdminState::Instance().observeTooOld();
-
-        answer(adminErrorFromReply(reply));
-    });
+    relayCall(req, household, !row->session, answer);
 }
 
 bool JsonApi::secureTransport() const
@@ -429,7 +449,6 @@ void JsonApi::processAdminUnlock(const Json &request, const AdminAnswer &answerI
         req.path = "admin/verify";
         req.body = Json{ { "password", password } };
         req.clientIp = ip;
-        req.timeout = DaemonClient::ArgonTimeout;
 
         DaemonClient::Instance().call(req, [answer, key, ip](const DaemonReply &reply)
                                       {
@@ -532,7 +551,6 @@ void JsonApi::processAdminSet(const Json &request, const AdminAnswer &answerIn)
         req.body = Json{ { "password", newPass } };
         req.session = session;
         req.clientIp = adminClientIp();
-        req.timeout = DaemonClient::ArgonTimeout;
 
         DaemonClient::Instance().call(req, [answer, hasSession](const DaemonReply &reply)
                                       {

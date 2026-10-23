@@ -656,7 +656,8 @@ Chemins relatifs à `/api/v2/`. Jamais relayés, quoi que le client envoie : `sy
   la réponse est la **vue foyer**, sans l'inventaire des paquets : `progress` est le `<Status>`
   filtré comme [`admin_event`](#événements-admin_event), `job` perd `package` et son `error`
   devient `upgrade failed` ou `interrupted`. Avec une `admin_session` bien formée, elle est
-  envoyée au daemon et la réponse est complète (`bad_session` si le daemon la refuse).
+  envoyée au daemon et la réponse est complète ; si le daemon la refuse (expirée, invalidée),
+  calaos_server refait l'appel sans session et rend la vue foyer, jamais `bad_session`.
 - **Session manquante ou vide** sur une action qui l'exige : calaos_server répond lui-même
   `bad_session` et **n'appelle pas** le daemon, car sans l'en-tête le bearer seul
   autorise.
@@ -777,9 +778,19 @@ panneaux RemoteUI), un message non sollicité (sans `msg_id`) :
 - C'est **tout** ce que reçoit un client foyer. `upgrade_job` n'est pas retransmis : pour
   connaître le job ou `reboot_required`, lire `admin {update_status}`. `push_code` est consommé
   par calaos_server (phase 2). Tout autre type est ignoré.
-- calaos_server ne retransmet une alerte `admin_set` / `admin_reset` qu'à sa première réception (dédoublonnage sur `id`, conservé jusqu'à l'ack).
-  Il l'enregistre (push à tous les jetons, événement persistant), relit `admin/status`, puis
-  l'acquitte (`admin/alerts/ack`) ; une copie rejouée est acquittée de nouveau, sans nouveau push.
+- calaos_server ne retransmet une alerte `admin_set` / `admin_reset` qu'à sa première réception
+  (dédoublonnage sur les 64 derniers `id`, en mémoire : après un redémarrage de calaos_server,
+  une alerte non acquittée est poussée de nouveau).
+  Il l'enregistre (événement persistant, puis push à tous les jetons), relit `admin/status`, et
+  ne l'acquitte (`admin/alerts/ack`) qu'une fois le push parti : un push en échec n'est pas
+  acquitté, et le rejeu suivant du daemon le retente sans second événement persistant. Une copie
+  rejouée d'une alerte déjà enregistrée est acquittée de nouveau, sans nouveau push.
+- Au plus **un push par type d'alerte toutes les 10 min** : le premier est toujours envoyé, les
+  suivants de la fenêtre n'ont que leur événement persistant. Un faux daemon sur le port 8000
+  ne peut donc pas inonder les téléphones.
+- Une alerte dont l'`id` est inutilisable est acquittée (si elle fait au plus 256 caractères)
+  et journalisée, jamais enregistrée ni retransmise ; un événement imbriqué au-delà de 2048
+  niveaux est ignoré (même limite que les requêtes des clients).
 - L'abonnement porte le bearer dans l'en-tête `Authorization`. Coupé, il est rétabli avec une
   attente croissante (1 s, doublée jusqu'à 60 s) ; calaos_server envoie un ping toutes les 15 s
   et quitte un flux muet depuis 75 s (le daemon pinge toutes les 30 s).
@@ -824,8 +835,8 @@ délai de 5 s ci-dessous.
 | Délai | Valeur | Qui |
 |---|---|---|
 | Réponse à `admin_unlock` (client → « calaos-server trop ancien, mettez à jour la box ») | **5 s** | webapp (WA1). Une vérification légitime répond avant, car le daemon refuse tout de suite (`429`) une vérification concurrente au lieu de la mettre en file. Les 4 s supposent qu'une opération argon2id du daemon (CC1) tient en moins de 3 s sur la plus lente des box supportées. calaos_server ne met jamais lui-même en file un appel admin |
-| Appel de calaos_server au daemon | 4 s par défaut (connexion et réponse) ; **120 s pour `update_check`** (`apt-get update` synchrone) ; 30 s pour `admin/verify` et `admin/set` (argon2id, lent sur les petites box : un `admin_set` coupé à 4 s aurait quand même eu lieu) et pour `system_restart` (`systemctl restart calaos-home`) | calaos_server (CB2/CB3) |
-| Réponse aux messages admin (client) | 5 s pour `admin_unlock`, `admin_set` et tout `admin` sauf `update_check` ; 125 s pour `update_check` | webapp (WA1) |
+| Appel de calaos_server au daemon | 4 s par défaut (connexion et réponse) ; **120 s pour `update_check`** (`apt-get update` synchrone) ; 30 s pour `system_restart` (`systemctl restart calaos-home` attend l'arrêt du conteneur du kiosque) | calaos_server (CB2/CB3) |
+| Réponse aux messages admin (client) | 5 s pour `admin_unlock`, `admin_set` et tout `admin` sauf `update_check` et `system_restart` ; 125 s pour `update_check` ; 35 s pour `system_restart` (au-delà des 30 s de calaos_server) | webapp (WA1) |
 | Durée de la session admin | **15 min absolues** à l'émission, non glissantes | daemon |
 | Sondage de `admin/status` | 60 s ; 5 s pendant les 2 premières minutes tant que l'état est inconnu ; l'échec n'est journalisé qu'une fois | `AdminState` |
 | `admin_unavailable` : nouvel essai | toutes les 5 s pendant les 2 premières minutes, puis toutes les 60 s | webapp (WA1), même cadence que le sondage d'`AdminState` |

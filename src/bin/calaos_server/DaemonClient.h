@@ -61,9 +61,6 @@ public:
     static constexpr long DefaultTimeout = 4;
     //update/check runs a synchronous apt-get update on the daemon side
     static constexpr long UpdateCheckTimeout = 120;
-    //admin/verify and admin/set hash with argon2id, slow on small boxes: a
-    //set that times out here still happens, and the retry reads as an attack
-    static constexpr long ArgonTimeout = 30;
     //system/restart waits for systemctl to restart the kiosk container
     static constexpr long RestartTimeout = 30;
 

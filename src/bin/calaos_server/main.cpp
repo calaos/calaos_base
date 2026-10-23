@@ -239,6 +239,11 @@ int main (int argc, char **argv)
     loop->run();
 
     McpServerManager::Instance().stop();
+    //LCOV_EXCL_START the server shutdown is not run by make check
+    //Before the clients go: no admin_event may reach a handler being torn down
+    AdminEvents::Instance().stop();
+    AdminState::Instance().stop();
+    //LCOV_EXCL_STOP
     HttpServer::Instance().disconnectAll();
 
     //Stop all wagomaps and wait for their threads to terminate correctly.

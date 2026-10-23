@@ -148,6 +148,7 @@ public:
         rawHandshakeBytes.clear();
         eventsRefusal = 0;
         eventsMuted = false;
+        closeAfterSnapshot = false;
         accepted = 0;
         pings = 0;
         pongs = 0;
@@ -219,6 +220,9 @@ public:
 
     //A muted stream sends nothing and answers no ping
     void muteEvents(bool m) { eventsMuted = m; }
+
+    //Every stream is closed once its snapshot and alerts are sent
+    void closeEventsAfterSnapshot(bool c) { closeAfterSnapshot = c; }
 
     //Answers the upgrade with these bytes instead of a valid 101 and the
     //snapshot; the connection stays open
@@ -352,6 +356,7 @@ private:
     std::vector<std::thread> streamThreads;
     std::atomic<int> eventsRefusal{ 0 };
     std::atomic<bool> eventsMuted{ false };
+    std::atomic<bool> closeAfterSnapshot{ false };
     std::atomic<size_t> accepted{ 0 };
     std::atomic<size_t> pings{ 0 };
     std::atomic<size_t> pongs{ 0 };
@@ -490,6 +495,8 @@ private:
         sendFrame(*stream, 0x1, snapshot.dump());
         for (const auto &a: pending)
             sendFrame(*stream, 0x1, alertEvent(a.first, a.second).dump());
+        if (closeAfterSnapshot)
+            ::shutdown(fd, SHUT_RDWR);
 
         std::lock_guard<std::mutex> l(streamsMutex);
         streams.push_back(stream);

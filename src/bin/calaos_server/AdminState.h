@@ -80,12 +80,23 @@ public:
     //two minutes, slow otherwise.
     static double pollDelay(double sinceStart, bool known);
 
-    /* Records the admin_set or admin_reset alert of the daemon: a push to
-     * every registered token and a persistent EventPushNotification shown at
-     * the next login. False when this id was already recorded, since the
-     * daemon replays an alert until it is acknowledged.
+    //At most one push per alert type in that window: a squatter of the
+    //daemon's port must not reach every phone once per alert it makes up
+    static constexpr double AlertPushInterval = 600.0;
+
+    /* Records the admin_set or admin_reset alert of the daemon: a persistent
+     * EventPushNotification shown at the next login, and a push to every
+     * registered token. False, done never called, when this id was already
+     * recorded, since the daemon replays an alert until it is acknowledged.
+     * done(true) once the event is queued before the push and the push went
+     * out, was not needed or was skipped by the cooldown; done(false) when it
+     * failed: the id is then forgotten so the next replay pushes again, the
+     * event is not stored twice.
      */
-    bool recordAlert(const string &type, const string &id);
+    bool recordAlert(const string &type, const string &id, std::function<void(bool)> done = {});
+
+    //Sets the push cooldown and forgets the pushes already sent
+    void resetAlertPushes(double interval);
 
 private:
     AdminState();
@@ -107,6 +118,9 @@ private:
     Timer *pollTimer = nullptr;
     std::vector<std::function<void()>> waiting;
     std::deque<string> recordedAlerts;
+    std::deque<string> storedAlerts;
+    map<string, double> lastAlertPush;
+    double alertPushInterval = AlertPushInterval;
 
     string flagPath() const;
     void setFlag(bool present);

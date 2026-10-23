@@ -23,6 +23,7 @@
 
 #include "Calaos.h"
 
+#include <deque>
 #include <memory>
 #include <set>
 #include <sigc++/sigc++.h>
@@ -57,6 +58,9 @@ public:
     //A daemon frame bigger than this is a protocol error
     static constexpr size_t MaxMessageSize = 1024 * 1024;
     static constexpr size_t MaxHandshakeSize = 16 * 1024;
+    //An alert id we cannot use is still acked when it is at most this long
+    static constexpr size_t MaxForeignAlertId = 256;
+    static constexpr size_t MaxRemembered = 64;
 
     static AdminEvents &Instance();
 
@@ -120,6 +124,9 @@ private:
     Timer *watchdogTimer = nullptr;
 
     std::set<string> acking;
+    std::set<string> recording;
+    std::deque<string> relayedAlerts;
+    std::set<string> unusableAlerts;
 
     void connect();
     void onConnected(uvw::TcpHandle &h, const string &host, int port);
