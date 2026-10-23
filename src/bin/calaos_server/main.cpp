@@ -30,6 +30,7 @@
 #include "WagoMap.h"
 #include "HttpServer.h"
 #include "McpServerManager.h"
+#include "AdminEvents.h"
 #include "AdminState.h"
 #include "DaemonClient.h"
 #include "Prefix.h"
@@ -188,6 +189,7 @@ int main (int argc, char **argv)
     //LCOV_EXCL_START the server startup is not run by make check
     DaemonClient::Instance().configure();
     AdminState::Instance().start();
+    AdminEvents::Instance().start();
     //LCOV_EXCL_STOP
 
     if (enable_udp)

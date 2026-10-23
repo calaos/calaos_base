@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "JsonApiHandlerWS.h"
+#include "AdminEvents.h"
 #include "ListeRoom.h"
 #include "ListeRule.h"
 #include "PollListenner.h"
@@ -30,8 +31,6 @@
 #include "InPlageHoraire.h"
 #include "HttpCodes.h"
 #include "WebSocket.h"
-
-#include <set>
 
 namespace
 {
@@ -122,11 +121,13 @@ JsonApiHandlerWS::JsonApiHandlerWS(HttpClient *client):
     JsonApi(client)
 {
     evcon = EventManager::Instance().newEvent.connect(sigc::mem_fun(*this, &JsonApiHandlerWS::handleEvents));
+    adminEvcon = Calaos::AdminEvents::Instance().householdEvent.connect(sigc::mem_fun(*this, &JsonApiHandlerWS::handleAdminEvent));
 }
 
 JsonApiHandlerWS::~JsonApiHandlerWS()
 {
     evcon.disconnect();
+    adminEvcon.disconnect();
 }
 
 string JsonApiHandlerWS::clientIp() const
@@ -160,6 +161,15 @@ void JsonApiHandlerWS::handleEvents(const CalaosEvent &event)
      * tests/core/EventWireBytes_test.cpp.
      */
     sendJson("event", event.toJson());
+}
+
+//Sent on the plain port too: the filtered event carries nothing sensitive
+void JsonApiHandlerWS::handleAdminEvent(const Json &data)
+{
+    if (!loggedin || !forwardsAdminEvents())
+        return;
+
+    sendJson("admin_event", data);
 }
 
 /* ⭐ E4.1s. WHAT IS LEFT OF sendJson(const string &, json_t *, const string &)
@@ -739,14 +749,10 @@ void JsonApiHandlerWS::processAdminMessage(const Json &request, const string &cl
         return;
     }
 
-    static const std::set<string> relayed = { "update_status", "update_check", "update_available",
-                                              "update_upgrade_all", "update_upgrade", "system_reboot",
-                                              "system_restart", "system_info" };
-    static const std::set<string> phase2 = { "approver_list", "approver_enroll", "approver_confirm", "console_open" };
-
-    if (action != "mcp_regenerate" && !relayed.count(action))
+    const Json refused = adminRequestRefusal(action, request);
+    if (!refused.is_null())
     {
-        answer(adminError("not_allowed", phase2.count(action) ? "Not available yet" : "Unknown admin action"));
+        answer(refused);
         return;
     }
 
@@ -789,11 +795,7 @@ void JsonApiHandlerWS::processAdminMessage(const Json &request, const string &cl
 void JsonApiHandlerWS::relayAdminAction(const string &action, const Json &request, const string &session,
                                         const AdminAnswer &answer)
 {
-    //The closed relay table is not served by this server yet
-    VAR_UNUSED(request);
-    VAR_UNUSED(session);
-    cInfoDom("admin") << "admin action " << action << " is not relayed by this server";
-    answer(adminError("not_allowed", "Not available yet"));
+    relayAdmin(action, request, session, answer);
 }
 
 void JsonApiHandlerWS::processLoginService(const Params &jsonData, const string &client_id)

@@ -51,6 +51,9 @@ protected:
     //Whether a logged-in client receives this event: every event by default.
     virtual bool forwardsEvent(const CalaosEvent &) { return true; }
 
+    //Whether a logged-in client receives admin_event; never a service session
+    virtual bool forwardsAdminEvents() const { return !serviceScope; }
+
     //Names this client in the warning for a write to a protected output.
     virtual const char *setStateSource() const { return "set_state over WebSocket"; }
 
@@ -65,10 +68,12 @@ private:
     void relayAdminAction(const string &action, const Json &request, const string &session,
                           const AdminAnswer &answer);
     sigc::connection evcon;
+    sigc::connection adminEvcon;
 
     sigc::signal<void, string, string, void*, void*> sig_events;
 
     void handleEvents(const CalaosEvent &event);
+    void handleAdminEvent(const Json &data);
 
     void processGetHome(const Params &jsonReq, const string &client_id = string());
     /* E4.1s: a POINTER, and deliberately so. `json_object_get(jroot, "data")`
