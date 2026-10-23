@@ -23,10 +23,12 @@
 
 #include <arpa/inet.h>
 #include <ifaddrs.h>
+#include <net/if.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 
 #include <algorithm>
+#include <chrono>
 #include <set>
 
 namespace OriginPolicy
@@ -46,13 +48,16 @@ bool canonicalIp(const std::string &s, std::string &out)
         out = buf;
         return true;
     }
-    if (inet_pton(AF_INET6, s.c_str(), addr) == 1 &&
-        inet_ntop(AF_INET6, addr, buf, sizeof(buf)))
-    {
-        out = buf;
-        return true;
-    }
-    return false;
+    if (inet_pton(AF_INET6, s.c_str(), addr) != 1)
+        return false;
+
+    //::ffff:a.b.c.d is the IPv4 address, as for TransportLimits::isLoopbackPeer
+    const struct in6_addr *a6 = reinterpret_cast<const struct in6_addr *>(addr);
+    const bool mapped = IN6_IS_ADDR_V4MAPPED(a6);
+    if (!inet_ntop(mapped ? AF_INET : AF_INET6, mapped ? addr + 12 : addr, buf, sizeof(buf)))
+        return false;
+    out = buf;
+    return true;
 }
 
 bool normalisePort(const std::string &s, std::string &out)
@@ -155,14 +160,145 @@ std::string describe(const std::string &origin)
     return "malformed (" + std::to_string(origin.size()) + " bytes)";
 }
 
-//A rebinding page retries in a loop: one line per origin is enough.
+//A rebinding page retries in a loop, and anyone on the LAN can send endless
+//distinct Origins: one line per key, a bounded set, forgotten every hour.
 bool firstTime(const std::string &key)
 {
     static std::set<std::string> logged;
-    if (logged.size() >= 64)
+    static bool overflowLogged = false;
+    static auto since = std::chrono::steady_clock::now();
+
+    const auto now = std::chrono::steady_clock::now();
+    if (now - since >= std::chrono::hours(1))
+    {
         logged.clear();
-    return logged.insert(key).second;
+        overflowLogged = false;
+        since = now;
+    }
+
+    if (logged.count(key))
+        return false;
+    if (logged.size() >= 64)
+    {
+        if (!overflowLogged)
+            cWarningDom("network") << "Too many distinct Origins to report, "
+                                   << "the next ones are not logged for an hour";
+        overflowLogged = true;
+        return false;
+    }
+    logged.insert(key);
+    return true;
 }
+
+bool isBoxIp(const std::string &host, const std::vector<std::string> &interfaceIps)
+{
+    //The browser's own machine, not the box: the box itself goes through haproxy
+    if (TransportLimits::isLoopbackPeer(host))
+        return false;
+    return std::find(interfaceIps.begin(), interfaceIps.end(), host) != interfaceIps.end();
+}
+
+//Behind haproxy the Host carries no port: the page is then on the default one
+bool samePort(const Endpoint &o, const Endpoint &h)
+{
+    if (h.port.empty())
+        return o.port == (o.scheme == "https" ? "443" : "80");
+    return h.port == o.port;
+}
+
+struct Parsed
+{
+    Endpoint origin;
+    Endpoint host;
+    bool hostOk = false;
+};
+
+//False when the Origin cannot be accepted whatever the rules
+bool prepare(const std::string &origin, const Request &req, Parsed &p)
+{
+    if (!parseOrigin(origin, p.origin))
+        return false;
+    if (req.host.empty())
+        return true;
+    p.hostOk = parseHost(req.host, p.host);
+    return p.hostOk;
+}
+
+//The certificate presented for the Host is what stops a rebound name, so
+//the page itself must have come over https too.
+bool secureHostRule(const Parsed &p, const Request &req)
+{
+    const Endpoint &o = p.origin, &h = p.host;
+    return TransportLimits::isSecureTransport(req.peerIp, req.forwardedProto) &&
+           o.scheme == "https" && p.hostOk && h.host == o.host &&
+           (h.port.empty() || h.port == o.port);
+}
+
+//Same IP and port as the Host: another service of the box is another origin
+bool boxIpRule(const Parsed &p, const std::vector<std::string> &interfaceIps)
+{
+    return p.hostOk && p.host.host == p.origin.host && samePort(p.origin, p.host) &&
+           isBoxIp(p.origin.host, interfaceIps);
+}
+
+bool allowedHostRule(const Parsed &p, const std::vector<std::string> &allowedHosts)
+{
+    for (const auto &entry: allowedHosts)
+    {
+        std::string v = Utils::str_to_lower(Utils::trim(entry));
+        const auto sep = v.find("://");
+        if (sep != std::string::npos)
+            v.erase(0, sep + 3);
+        if (!v.empty() && v.back() == '/')
+            v.pop_back();
+
+        Endpoint a;
+        std::string ip;
+        if (canonicalIp(v, ip))
+            a.host = ip;
+        else if (!parseHost(v, a))
+        {
+            if (firstTime("cfg:" + v))
+                cWarningDom("network") << "api_allowed_hosts: ignoring unusable entry "
+                                       << (printable(v) ? "\"" + v + "\"" :
+                                           "of " + std::to_string(v.size()) + " bytes");
+            continue;
+        }
+
+        if (a.host == p.origin.host && (a.port.empty() || a.port == p.origin.port))
+            return true;
+    }
+    return false;
+}
+
+//A new DHCP lease or VPN address is picked up by the first request from it,
+//a removed one stays accepted for at most CacheLifetime.
+class InterfaceCache
+{
+public:
+    static constexpr std::chrono::seconds CacheLifetime{30};
+    static constexpr std::chrono::seconds MinRefresh{1};
+
+    const std::vector<std::string> &get(bool missed)
+    {
+        const auto now = std::chrono::steady_clock::now();
+        const auto age = now - stamp;
+        if (!loaded || age >= CacheLifetime || (missed && age >= MinRefresh))
+        {
+            ips = interfaceAddresses();
+            stamp = now;
+            loaded = true;
+        }
+        return ips;
+    }
+
+private:
+    std::vector<std::string> ips;
+    std::chrono::steady_clock::time_point stamp;
+    bool loaded = false;
+};
+
+InterfaceCache interfaceCache;
 
 } //namespace
 
@@ -211,51 +347,11 @@ bool accepts(const std::string &origin, const Request &req,
              const std::vector<std::string> &interfaceIps,
              const std::vector<std::string> &allowedHosts)
 {
-    Endpoint o;
-    if (!parseOrigin(origin, o))
+    Parsed p;
+    if (!prepare(origin, req, p))
         return false;
-
-    Endpoint h;
-    const bool hasHost = !req.host.empty();
-    const bool hostOk = hasHost && parseHost(req.host, h);
-    if (hasHost && !hostOk)
-        return false;
-
-    const bool portOk = !hostOk || h.port.empty() || h.port == o.port;
-
-    //The certificate presented for the Host is what stops a rebound name,
-    //so the page itself must have come over https too.
-    if (TransportLimits::isSecureTransport(req.peerIp, req.forwardedProto) &&
-        o.scheme == "https" && hostOk && h.host == o.host && portOk)
-        return true;
-
-    if (portOk)
-    {
-        for (const auto &ip: interfaceIps)
-        {
-            std::string c;
-            if (canonicalIp(ip, c) && c == o.host)
-                return true;
-        }
-    }
-
-    for (const auto &entry: allowedHosts)
-    {
-        std::string v = Utils::str_to_lower(Utils::trim(entry));
-        const auto sep = v.find("://");
-        if (sep != std::string::npos)
-            v.erase(0, sep + 3);
-        if (!v.empty() && v.back() == '/')
-            v.pop_back();
-
-        Endpoint a;
-        if (!parseHost(v, a))
-            continue;
-        if (a.host == o.host && (a.port.empty() || a.port == o.port))
-            return true;
-    }
-
-    return false;
+    return secureHostRule(p, req) || boxIpRule(p, interfaceIps) ||
+           allowedHostRule(p, allowedHosts);
 }
 
 std::vector<std::string> interfaceAddresses()
@@ -273,7 +369,7 @@ std::vector<std::string> interfaceAddresses()
 
     for (struct ifaddrs *i = list; i; i = i->ifa_next)
     {
-        if (!i->ifa_addr)
+        if (!i->ifa_addr || (i->ifa_flags & IFF_LOOPBACK))
             continue;
 
         char buf[INET6_ADDRSTRLEN];
@@ -318,12 +414,22 @@ Verdict evaluate(const std::unordered_map<std::string, std::string> &headers,
     req.peerIp = peerIp;
     req.forwardedProto = header(headers, "x-forwarded-proto");
 
-    return accepts(it->second, req, interfaceAddresses(), allowedHosts()) ?
-           Verdict::Accepted : Verdict::Refused;
+    Parsed p;
+    if (!prepare(it->second, req, p))
+        return Verdict::Refused;
+    if (secureHostRule(p, req))
+        return Verdict::Accepted;
+    if (boxIpRule(p, interfaceCache.get(false)) || allowedHostRule(p, allowedHosts()))
+        return Verdict::Accepted;
+    std::string ip;
+    if (p.hostOk && p.host.host == p.origin.host && canonicalIp(p.origin.host, ip) &&
+        boxIpRule(p, interfaceCache.get(true)))
+        return Verdict::Accepted;
+    return Verdict::Refused;
 }
 
 Decision decide(const std::unordered_map<std::string, std::string> &headers,
-                const std::string &peerIp, bool enforced)
+                const std::string &peerIp, const std::string &clientIp, bool enforced)
 {
     Decision d;
     d.verdict = evaluate(headers, peerIp);
@@ -337,10 +443,10 @@ Decision decide(const std::unordered_map<std::string, std::string> &headers,
         return d;
 
     if (enforced)
-        cWarningDom("network") << "Refusing Origin " << what << " from " << peerIp
+        cWarningDom("network") << "Refusing Origin " << what << " from " << clientIp
                                << ": not this box, nor in api_allowed_hosts";
     else
-        cWarningDom("network") << "Origin " << what << " from " << peerIp
+        cWarningDom("network") << "Origin " << what << " from " << clientIp
                                << " will be refused once the admin password is set, "
                                << "unless its host is added to api_allowed_hosts";
     return d;

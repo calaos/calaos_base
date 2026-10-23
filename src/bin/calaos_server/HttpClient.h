@@ -499,7 +499,6 @@ protected:
 
     bool isWebsocket = false;
 
-    //Origin verdict of the request being served, set by processHeaders()
     OriginPolicy::Decision originDecision;
 
     JsonApi *jsonApi = nullptr;

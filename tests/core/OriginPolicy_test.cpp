@@ -182,16 +182,40 @@ TEST(OriginPolicyMatrix, InterfaceIps)
     EXPECT_TRUE(accepts("http://192.168.1.10:5454", lan("192.168.1.10:5454")));
     EXPECT_TRUE(accepts("http://100.64.0.3:5454", lan("100.64.0.3:5454")));
     EXPECT_TRUE(accepts("http://[fe80::1c2a:3bff:fe4d:5e6f]:5454", lan("[fe80::1c2a:3bff:fe4d:5e6f]:5454")));
-    EXPECT_TRUE(accepts("http://[::1]:5454", lan("[::1]:5454")));
     EXPECT_TRUE(accepts("http://192.168.1.10", lan("192.168.1.10:80")));
     EXPECT_TRUE(accepts("http://192.168.1.10:80", lan("192.168.1.10")));
     EXPECT_TRUE(accepts("https://192.168.1.10", haproxy("192.168.1.10")));
-    //HTTP/1.0 without Host
-    EXPECT_TRUE(accepts("http://192.168.1.10:5454", lan("")));
+    EXPECT_TRUE(accepts("http://[::ffff:192.168.1.10]:5454", lan("192.168.1.10:5454")));
 
     //another service of the box on another port is another origin
     EXPECT_FALSE(accepts("http://192.168.1.10:8080", lan("192.168.1.10:5454")));
     EXPECT_FALSE(accepts("http://192.168.1.10:5454", lan("garbage host")));
+    //the Origin must be the IP the request was sent to
+    EXPECT_FALSE(accepts("http://100.64.0.3:5454", lan("192.168.1.10:5454")));
+    EXPECT_FALSE(accepts("http://192.168.1.10:5454", lan("")));
+}
+
+//Grafana or zigbee2mqtt on another port of the box, calling the API through haproxy
+TEST(OriginPolicyMatrix, OtherBoxServiceThroughHaproxyIsRefused)
+{
+    EXPECT_FALSE(accepts("http://192.168.1.10:3000", haproxy("box.ddns.example")));
+    EXPECT_FALSE(accepts("http://192.168.1.10:8080", haproxy("box.ddns.example")));
+    EXPECT_FALSE(accepts("http://192.168.1.10:3000", haproxy("192.168.1.10")));
+    EXPECT_FALSE(accepts("http://192.168.1.10:3000", haproxy("")));
+    EXPECT_FALSE(accepts("http://192.168.1.10:3000", lan("")));
+}
+
+TEST(OriginPolicyMatrix, LoopbackIsNotTheBox)
+{
+    EXPECT_FALSE(accepts("http://127.0.0.1:5454", lan("127.0.0.1:5454")));
+    EXPECT_FALSE(accepts("http://[::1]:5454", lan("[::1]:5454")));
+    EXPECT_FALSE(accepts("http://127.0.0.1:3000", haproxy("127.0.0.1")));
+    //a browser on the box itself goes through haproxy
+    EXPECT_TRUE(accepts("https://127.0.0.1", haproxy("127.0.0.1")));
+
+    const auto ips = OriginPolicy::interfaceAddresses();
+    EXPECT_EQ(ips.end(), std::find(ips.begin(), ips.end(), "127.0.0.1"));
+    EXPECT_EQ(ips.end(), std::find(ips.begin(), ips.end(), "::1"));
 }
 
 TEST(OriginPolicyMatrix, NoHostnameNorLocalUnlessAllowed)
@@ -213,12 +237,21 @@ TEST(OriginPolicyMatrix, AllowedHosts)
 
     EXPECT_TRUE(OriginPolicy::accepts("http://vpn.example:5454", lan("x:5454"), {},
                                       { "https://VPN.example/" }));
+
+    //unusable entries are skipped, the others still count
+    const std::vector<std::string> mixed = { "http://dev.lan:5173/app", "*.lan", "fd00::1", "ok.lan" };
+    EXPECT_FALSE(OriginPolicy::accepts("http://dev.lan:5173", lan("x:5454"), {}, mixed));
+    EXPECT_TRUE(OriginPolicy::accepts("http://[fd00::1]:5454", lan("x:5454"), {}, mixed));
+    EXPECT_TRUE(OriginPolicy::accepts("http://ok.lan:5454", lan("x:5454"), {}, mixed));
 }
 
-TEST(OriginPolicyMatrix, InterfaceAddressesHaveLoopback)
+//A non-loopback address of this machine, empty when it has none
+std::string boxIp()
 {
-    const auto ips = OriginPolicy::interfaceAddresses();
-    EXPECT_NE(ips.end(), std::find(ips.begin(), ips.end(), "127.0.0.1"));
+    for (const auto &ip: OriginPolicy::interfaceAddresses())
+        if (ip.find(':') == std::string::npos)
+            return ip;
+    return std::string();
 }
 
 TEST(OriginPolicyMatrix, DecisionUnderAdminState)
@@ -226,24 +259,27 @@ TEST(OriginPolicyMatrix, DecisionUnderAdminState)
     std::unordered_map<std::string, std::string> h;
     h["host"] = "192.168.1.10:5454";
 
-    auto d = OriginPolicy::decide(h, "192.168.1.50", true);
+    auto d = OriginPolicy::decide(h, "192.168.1.50", "192.168.1.50", true);
     EXPECT_EQ(OriginPolicy::Verdict::NoOrigin, d.verdict);
     EXPECT_FALSE(d.refused());
     EXPECT_FALSE(d.allowCors());
 
     h["origin"] = "http://evil.example";
-    d = OriginPolicy::decide(h, "192.168.1.50", false);
+    d = OriginPolicy::decide(h, "192.168.1.50", "192.168.1.50", false);
     EXPECT_EQ(OriginPolicy::Verdict::Refused, d.verdict);
     EXPECT_FALSE(d.refused()) << "without admin it is only logged";
     EXPECT_TRUE(d.allowCors()) << "without admin ACAO reflects as before";
 
-    d = OriginPolicy::decide(h, "192.168.1.50", true);
+    d = OriginPolicy::decide(h, "192.168.1.50", "192.168.1.50", true);
     EXPECT_TRUE(d.refused());
     EXPECT_FALSE(d.allowCors());
 
-    h["origin"] = "http://127.0.0.1:5454";
-    h["host"] = "127.0.0.1:5454";
-    d = OriginPolicy::decide(h, "192.168.1.50", true);
+    const std::string ip = boxIp();
+    if (ip.empty())
+        GTEST_SKIP() << "no non-loopback IPv4 address here";
+    h["origin"] = "http://" + ip + ":5454";
+    h["host"] = ip + ":5454";
+    d = OriginPolicy::decide(h, "192.168.1.50", "192.168.1.50", true);
     EXPECT_EQ(OriginPolicy::Verdict::Accepted, d.verdict);
     EXPECT_TRUE(d.allowCors());
 }
@@ -413,9 +449,26 @@ Reply preflight(const Headers &h)
     return exchange(req.str());
 }
 
-std::string selfOrigin()
+std::string serverPort()
 {
-    return "http://127.0.0.1:" + std::to_string(env.serverPort);
+    return std::to_string(env.serverPort);
+}
+
+//The web app opened on http://<box IP>:5454
+Headers fromBox()
+{
+    Headers h = from("http://" + boxIp() + ":" + serverPort());
+    h.host = boxIp() + ":" + serverPort();
+    return h;
+}
+
+Reply staticGet(const Headers &h, const std::string &path = "/app/index.html")
+{
+    std::ostringstream req;
+    req << "GET " << path << " HTTP/1.1\r\n"
+        << common(h)
+        << "Connection: close\r\n\r\n";
+    return exchange(req.str());
 }
 
 std::string flagPath()
@@ -483,6 +536,8 @@ protected:
         const Reply post = apiPost(h);
         EXPECT_EQ(200, post.status) << post.head;
         EXPECT_EQ(h.origin, post.acao()) << post.head;
+        EXPECT_NE(std::string::npos, post.head.find("\r\nAccess-Control-Allow-Credentials: false\r\n")) << post.head;
+        EXPECT_NE(std::string::npos, post.head.find("\r\nVary: Origin\r\n")) << post.head;
 
         const Reply pre = preflight(h);
         EXPECT_EQ(200, pre.status) << pre.head;
@@ -533,11 +588,57 @@ TEST_F(OriginServerTest, AdminSetRefusesForeignNullAndRebound)
 
 TEST_F(OriginServerTest, AdminSetAcceptsBoxIp)
 {
+    if (boxIp().empty())
+        GTEST_SKIP() << "no non-loopback IPv4 address here";
     adminSet();
-    expectAccepted(from(selfOrigin()));
+    expectAccepted(fromBox());
 
-    Headers otherPort = from("http://127.0.0.1:1");
+    Headers otherPort = fromBox();
+    otherPort.origin = "http://" + boxIp() + ":3000";
     expectRefused(otherPort);
+}
+
+TEST_F(OriginServerTest, AdminSetRefusesLoopbackOrigin)
+{
+    adminSet();
+    expectRefused(from("http://127.0.0.1:" + serverPort()));
+}
+
+//Chromium sends Origin with the module scripts and fonts of the web app
+TEST_F(OriginServerTest, StaticFilesAreNeverRefused)
+{
+    adminSet();
+
+    const Reply page = staticGet(from("http://evil.example"));
+    EXPECT_EQ(200, page.status) << page.head;
+    EXPECT_FALSE(page.hasAcao()) << page.head;
+
+    const Reply missing = staticGet(from("http://evil.example"), "/app/missing.js");
+    EXPECT_EQ(404, missing.status) << missing.head;
+
+    std::ostringstream req;
+    req << "OPTIONS /app/index.html HTTP/1.1\r\n"
+        << common(from("http://evil.example"))
+        << "Access-Control-Request-Method: GET\r\n"
+        << "Connection: close\r\n\r\n";
+    const Reply pre = exchange(req.str());
+    EXPECT_EQ(200, pre.status) << pre.head;
+    EXPECT_FALSE(pre.hasAcao()) << pre.head;
+
+    //the WS upgrade is checked on any path
+    std::ostringstream ws;
+    ws << "GET /echo HTTP/1.1\r\n"
+       << common(from("http://evil.example"))
+       << "Connection: Upgrade\r\nUpgrade: websocket\r\n"
+       << "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\nSec-WebSocket-Version: 13\r\n\r\n";
+    EXPECT_EQ(403, exchange(ws.str()).status);
+}
+
+TEST_F(OriginServerTest, StaticFilesWithoutAdminUnchanged)
+{
+    const Reply page = staticGet(from("http://evil.example"));
+    EXPECT_EQ(200, page.status) << page.head;
+    EXPECT_EQ("http://evil.example", page.acao()) << page.head;
 }
 
 TEST_F(OriginServerTest, AdminSetAcceptsHostUnderHaproxyHttps)
@@ -582,7 +683,8 @@ TEST_F(OriginServerTest, StickyFlagFailsClosed)
 {
     closedState();
     expectRefused(from("http://evil.example"));
-    expectAccepted(from(selfOrigin()));
+    if (!boxIp().empty())
+        expectAccepted(fromBox());
 
     EXPECT_EQ(101, wsHandshake(Headers()).status);
 }
@@ -615,6 +717,11 @@ int main(int argc, char **argv)
     Utils::set_config_option("listen_address", "127.0.0.1");
     Utils::set_config_option("cn_user", kUser);
     Utils::set_config_option("cn_pass", kPass);
+
+    const std::string www = std::string(base) + "/www";
+    ::mkdir(www.c_str(), 0700);
+    std::ofstream(www + "/index.html") << "<html></html>\n";
+    Utils::set_config_option("wwwroot", www);
 
     env.serverPort = pickFreePort();
     HttpServer::Instance(env.serverPort);

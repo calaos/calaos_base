@@ -60,10 +60,9 @@ bool accepts(const std::string &origin, const Request &req,
              const std::vector<std::string> &interfaceIps,
              const std::vector<std::string> &allowedHosts);
 
-//Addresses of every interface of the machine, canonical form
+//Loopback excluded: in an Origin it names the browser's machine, not the box
 std::vector<std::string> interfaceAddresses();
 
-//api_allowed_hosts, split
 std::vector<std::string> allowedHosts();
 
 enum class Verdict
@@ -73,7 +72,7 @@ enum class Verdict
     Refused,
 };
 
-//Reads the interfaces and the config only when the request has an Origin.
+//Reads the interfaces (cached) and the config only when the Host rule fails.
 Verdict evaluate(const std::unordered_map<std::string, std::string> &headers,
                  const std::string &peerIp);
 
@@ -92,9 +91,10 @@ struct Decision
     }
 };
 
-//evaluate() under AdminState, logging what is or would be refused.
+//evaluate() under AdminState, logging what is or would be refused. peerIp is
+//the TCP peer the rules need, clientIp the one worth logging (X-Forwarded-For).
 Decision decide(const std::unordered_map<std::string, std::string> &headers,
-                const std::string &peerIp, bool enforced);
+                const std::string &peerIp, const std::string &clientIp, bool enforced);
 
 } //namespace OriginPolicy
 

@@ -820,9 +820,12 @@ panneaux RemoteUI), un message non sollicité (sans `msg_id`) :
 ### Origin
 
 Les contrôles décrits ici sont ceux de CB1 (`OriginPolicy`, appelé par
-`HttpClient::processHeaders`) ; ils s'appliquent au handshake WS **et** aux requêtes HTTP
-`/api.php`, et plus largement à toute requête du port 5454 hors tunnel `/mcp` (préflight
-`OPTIONS` compris).
+`HttpClient::processHeaders`) ; ils s'appliquent au handshake WS (tout chemin) **et** aux
+requêtes HTTP `/api`, `/api.php` et `/api/…`, préflight `OPTIONS` compris. Les fichiers statiques
+(`/app/…`) ne sont jamais refusés : Chromium envoie un Origin avec les scripts module et les
+polices de la webapp, et un refus donnerait une page blanche. Ils sont servis sans
+`Access-Control-Allow-Origin` une fois le contrôle actif. Le tunnel `/mcp` est aiguillé avant et
+n'est pas concerné (voir [15_mcp_server.md](15_mcp_server.md)).
 
 - Absence d'`Origin` : acceptée (clients natifs : installer, mobile, remote_ui, MCP).
 - `Origin: null` : refusé, comme tout Origin qui n'est pas `http://` ou `https://` suivi d'un
@@ -832,18 +835,27 @@ Les contrôles décrits ici sont ceux de CB1 (`OriginPolicy`, appelé par
 - Un Origin est accepté dans trois cas :
   - pair loopback avec `X-Forwarded-Proto: https`, Origin en `https://` et hôte de l'Origin
     égal à `Host` ;
-  - hôte qui est une IP portée par une interface de la box (`getifaddrs` à chaque requête
-    portant un Origin), loopback compris ;
+  - hôte qui est une IP portée par une interface de la box, loopback exclu (dans un Origin il
+    désigne la machine du navigateur), égale à l'hôte de `Host` et sur le même port. Un `Host`
+    sans port vaut le port par défaut du schéma de l'Origin : derrière haproxy, une page servie
+    par un autre service de la box (`http://IP:3000`) est refusée. Les IP sont relues par
+    `getifaddrs` au plus toutes les 30 s, et aussitôt (au plus une fois par seconde) quand une
+    IP inconnue se présente ;
   - hôte de l'option `api_allowed_hosts`. Une entrée peut porter un port (`hôte:port`), sinon
     tout port est accepté ; elle n'est pas comparée à `Host` (machine de dev sur un autre port).
+    Le schéma d'une entrée est ignoré. Une entrée inutilisable (chemin, joker) est ignorée et
+    signalée une fois dans le journal.
 - Pas de hostname, de `.local` ni de `localhost` automatiques.
 - Refus : HTTP 403 avant le handshake ou la requête, sans `Access-Control-Allow-Origin`
-  (celui-ci n'est renvoyé que pour un Origin accepté : reflété en HTTP comme au handshake WS).
+  (celui-ci n'est renvoyé que pour un Origin accepté : reflété en HTTP comme au handshake WS ;
+  en HTTP il s'accompagne de `Access-Control-Allow-Credentials: false` et de `Vary: Origin`).
 - **Tant que l'admin n'est pas défini** (selon `AdminState`), rien ne change : tout Origin est
   accepté, `Access-Control-Allow-Origin` reflète l'Origin en HTTP et vaut `*` au handshake WS,
-  comme aujourd'hui. Les Origins qui seraient refusés sont seulement journalisés (une ligne par
-  Origin). Le contrôle s'applique dès que l'admin est défini, et aussi quand le daemon est
-  injoignable avec le drapeau `admin_seen_set` présent.
+  comme aujourd'hui. Les Origins qui seraient refusés sont seulement journalisés, avec l'IP du
+  client (`X-Forwarded-For` derrière haproxy) : une ligne par Origin, au plus 64 Origins par
+  heure. Le contrôle s'applique dès que l'admin est défini, et aussi quand le daemon est
+  injoignable avec le drapeau `admin_seen_set` présent. Il porte sur chaque nouvelle requête ou
+  handshake : une connexion WS ouverte avant n'est pas revérifiée.
 - En développement, le proxy Vite réécrit l'Origin vers la cible (WA2).
 
 ### Cas de fonctionnement
