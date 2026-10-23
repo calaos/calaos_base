@@ -55,7 +55,7 @@ bool canonicalIp(const std::string &s, std::string &out)
     const struct in6_addr *a6 = reinterpret_cast<const struct in6_addr *>(addr);
     const bool mapped = IN6_IS_ADDR_V4MAPPED(a6);
     if (!inet_ntop(mapped ? AF_INET : AF_INET6, mapped ? addr + 12 : addr, buf, sizeof(buf)))
-        return false;
+        return false; // LCOV_EXCL_LINE: INET6_ADDRSTRLEN always fits a parsed address
     out = buf;
     return true;
 }
@@ -171,9 +171,11 @@ bool firstTime(const std::string &key)
     const auto now = std::chrono::steady_clock::now();
     if (now - since >= std::chrono::hours(1))
     {
+        // LCOV_EXCL_START: takes an hour of wall time
         logged.clear();
         overflowLogged = false;
         since = now;
+        // LCOV_EXCL_STOP
     }
 
     if (logged.count(key))
@@ -360,10 +362,12 @@ std::vector<std::string> interfaceAddresses()
     struct ifaddrs *list = nullptr;
     if (getifaddrs(&list) != 0)
     {
+        // LCOV_EXCL_START: getifaddrs only fails out of memory or file descriptors
+        list = nullptr;
         if (firstTime("getifaddrs"))
             cWarningDom("network") << "Cannot list the interface addresses, "
                                    << "no IP of the box is an accepted Origin";
-        return ips;
+        // LCOV_EXCL_STOP
     }
 
     for (struct ifaddrs *i = list; i; i = i->ifa_next)
@@ -371,20 +375,20 @@ std::vector<std::string> interfaceAddresses()
         if (!i->ifa_addr || (i->ifa_flags & IFF_LOOPBACK))
             continue;
 
-        char buf[INET6_ADDRSTRLEN];
-        const void *a = nullptr;
-        if (i->ifa_addr->sa_family == AF_INET)
-            a = &reinterpret_cast<struct sockaddr_in *>(i->ifa_addr)->sin_addr;
-        else if (i->ifa_addr->sa_family == AF_INET6)
-            a = &reinterpret_cast<struct sockaddr_in6 *>(i->ifa_addr)->sin6_addr;
-        else
+        const int family = i->ifa_addr->sa_family;
+        if (family != AF_INET && family != AF_INET6)
             continue;
 
-        if (inet_ntop(i->ifa_addr->sa_family, a, buf, sizeof(buf)))
+        char buf[INET6_ADDRSTRLEN];
+        const auto *v4 = reinterpret_cast<const struct sockaddr_in *>(i->ifa_addr);
+        const auto *v6 = reinterpret_cast<const struct sockaddr_in6 *>(i->ifa_addr);
+        const void *a = family == AF_INET ? static_cast<const void *>(&v4->sin_addr) : static_cast<const void *>(&v6->sin6_addr);
+        if (inet_ntop(family, a, buf, sizeof(buf)))
             ips.push_back(buf);
     }
 
-    freeifaddrs(list);
+    if (list)
+        freeifaddrs(list);
     return ips;
 }
 
@@ -418,13 +422,11 @@ Verdict evaluate(const std::unordered_map<std::string, std::string> &headers,
         return Verdict::Refused;
     if (secureHostRule(p, req))
         return Verdict::Accepted;
-    if (boxIpRule(p, interfaceCache.get(false)) || allowedHostRule(p, allowedHosts()))
-        return Verdict::Accepted;
+    //An IP the cache does not know yet may have just been assigned
     std::string ip;
-    if (p.hostOk && p.host.host == p.origin.host && canonicalIp(p.origin.host, ip) &&
-        boxIpRule(p, interfaceCache.get(true)))
-        return Verdict::Accepted;
-    return Verdict::Refused;
+    const bool mayBeNewIp = p.hostOk && p.host.host == p.origin.host && canonicalIp(p.origin.host, ip);
+    const bool ok = boxIpRule(p, interfaceCache.get(false)) || allowedHostRule(p, allowedHosts()) || (mayBeNewIp && boxIpRule(p, interfaceCache.get(true)));
+    return ok ? Verdict::Accepted : Verdict::Refused;
 }
 
 Decision decide(const std::unordered_map<std::string, std::string> &headers,

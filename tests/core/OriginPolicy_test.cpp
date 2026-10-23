@@ -132,6 +132,7 @@ const std::vector<std::string> kMalformed = {
     "http://a..b",
     "http://.a",
     "http://[::1",
+    "http://[::1]x",
     "http://[nothost]:80",
     "http://::1",
     "http://192.168.1.10:99999",
@@ -255,6 +256,20 @@ TEST(OriginPolicyMatrix, AllowedHosts)
     EXPECT_FALSE(OriginPolicy::accepts("http://dev.lan:5173", lan("x:5454"), {}, mixed));
     EXPECT_TRUE(OriginPolicy::accepts("http://[fd00::1]:5454", lan("x:5454"), {}, mixed));
     EXPECT_TRUE(OriginPolicy::accepts("http://ok.lan:5454", lan("x:5454"), {}, mixed));
+}
+
+//Anyone on the LAN can send endless distinct Origins before the bootstrap
+TEST(OriginPolicyMatrix, RefusedOriginLogIsBounded)
+{
+    std::unordered_map<std::string, std::string> h;
+    h["host"] = "192.168.1.10:5454";
+    for (int i = 0; i < 100; i++)
+    {
+        h["origin"] = "http://flood" + std::to_string(i) + ".example";
+        const auto d = OriginPolicy::decide(h, "127.0.0.1", "192.168.1.50", false);
+        EXPECT_EQ(OriginPolicy::Verdict::Refused, d.verdict);
+        EXPECT_FALSE(d.refused());
+    }
 }
 
 //A non-loopback address of this machine, empty when it has none
