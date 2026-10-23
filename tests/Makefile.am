@@ -190,6 +190,7 @@ CORE_SERVER_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/AdminState.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/AdminEvents.$(OBJEXT)                \
                   $(CALAOS_SERVER_BUILDDIR)/DaemonClient.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/OriginPolicy.$(OBJEXT)               \
                   $(CALAOS_SERVER_BUILDDIR)/ListeRoom.$(OBJEXT)                  \
                   $(CALAOS_SERVER_BUILDDIR)/ListeRule.$(OBJEXT)                  \
                   $(CALAOS_SERVER_BUILDDIR)/NotifManager.$(OBJEXT)               \
@@ -8376,6 +8377,22 @@ core_JsonApiAdmin_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
 core_JsonApiAdmin_test_LDADD = $(SERVICE_SCOPE_OBJECTS) \
                   $(CORE_TEST_LDADD)
 core_JsonApiAdmin_test_DEPENDENCIES = $(SERVICE_SCOPE_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#Origin rules (docs/08_http_api.md, section Origin): the decision on injected
+#peers, then the websocket handshake and POST /api.php of a real HttpServer
+#bound on loopback under each AdminState. The cache is a temporary directory.
+if HAVE_GTEST
+TESTS += core/OriginPolicy_test
+check_PROGRAMS += core/OriginPolicy_test
+core_OriginPolicy_test_SOURCES = core/OriginPolicy_test.cpp
+core_OriginPolicy_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
+core_OriginPolicy_test_LDADD = $(SERVICE_SCOPE_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_OriginPolicy_test_DEPENDENCIES = $(SERVICE_SCOPE_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif

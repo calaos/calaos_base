@@ -26,6 +26,7 @@
 #include "Prefix.h"
 #include "CalaosConfig.h"
 #include "HttpCodes.h"
+#include "AdminState.h"
 #include "libuvw.h"
 
 #include <algorithm>
@@ -234,6 +235,15 @@ void HttpClient::sendRequestTooLarge()
     sendToClient(res);
 }
 
+void HttpClient::sendForbidden()
+{
+    Params headers;
+    headers.Add("Connection", "close");
+    headers.Add("Content-Type", "text/html");
+    string res = buildHttpResponse(HTTP_403, headers, HTTP_403_BODY);
+    sendToClient(res);
+}
+
 void HttpClient::sendRequestHeadersTooLarge()
 {
     Params headers;
@@ -339,8 +349,17 @@ int HttpClient::processHeaders(const string &request)
     cDebugDom("network") << "Client headers (" << request_headers.size()
             << "): " << headersForLog(request_headers);
 
+    //Before anything else answers, websocket upgrade and preflight included
+    originDecision = OriginPolicy::decide(request_headers, getClientIp(),
+                                          AdminState::Instance().enforced());
+    if (originDecision.refused())
+    {
+        sendForbidden();
+        return HTTP_PROCESS_DONE;
+    }
+
     //Handle CORS here
-    if (request_headers.find("origin") != request_headers.end())
+    if (originDecision.allowCors())
     {
         resHeaders.Add("Access-Control-Allow-Origin", request_headers["origin"]);
         resHeaders.Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");

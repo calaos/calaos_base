@@ -100,6 +100,8 @@ calaos_server_SOURCES = \
         McpRequestFilter.h                              \
         McpServerManager.cpp                            \
         McpServerManager.h                              \
+        OriginPolicy.cpp                                \
+        OriginPolicy.h                                  \
         IO/AnalogIO.cpp                                 \
         IO/AnalogIO.h                                   \
         IO/AnalogBounds.h                               \

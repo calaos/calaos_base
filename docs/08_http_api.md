@@ -819,21 +819,31 @@ panneaux RemoteUI), un message non sollicité (sans `msg_id`) :
 
 ### Origin
 
-Les contrôles décrits ici sont ceux de CB1 ; ils s'appliquent au handshake WS **et** aux
-requêtes HTTP `/api.php`.
+Les contrôles décrits ici sont ceux de CB1 (`OriginPolicy`, appelé par
+`HttpClient::processHeaders`) ; ils s'appliquent au handshake WS **et** aux requêtes HTTP
+`/api.php`, et plus largement à toute requête du port 5454 hors tunnel `/mcp` (préflight
+`OPTIONS` compris).
 
 - Absence d'`Origin` : acceptée (clients natifs : installer, mobile, remote_ui, MCP).
-- `Origin: null` : refusé. Casse, point final et port par défaut sont normalisés ; le port
-  n'est comparé que si `Host` en contient un.
-- Un Origin est accepté dans trois cas : pair loopback avec `X-Forwarded-Proto: https` et hôte
-  de l'Origin égal à `Host` ; hôte qui est une IP portée par une interface de la box ; hôte de
-  l'option `api_allowed_hosts`.
+- `Origin: null` : refusé, comme tout Origin qui n'est pas `http://` ou `https://` suivi d'un
+  hôte et d'un port éventuel (chemin, `user@` ou caractère non ASCII : refusé). Casse, point
+  final et port par défaut sont normalisés, une IP est comparée sous sa forme canonique ; le
+  port n'est comparé que si `Host` en contient un.
+- Un Origin est accepté dans trois cas :
+  - pair loopback avec `X-Forwarded-Proto: https`, Origin en `https://` et hôte de l'Origin
+    égal à `Host` ;
+  - hôte qui est une IP portée par une interface de la box (`getifaddrs` à chaque requête
+    portant un Origin), loopback compris ;
+  - hôte de l'option `api_allowed_hosts`. Une entrée peut porter un port (`hôte:port`), sinon
+    tout port est accepté ; elle n'est pas comparée à `Host` (machine de dev sur un autre port).
+- Pas de hostname, de `.local` ni de `localhost` automatiques.
 - Refus : HTTP 403 avant le handshake ou la requête, sans `Access-Control-Allow-Origin`
-  (celui-ci n'est renvoyé que pour un Origin accepté).
+  (celui-ci n'est renvoyé que pour un Origin accepté : reflété en HTTP comme au handshake WS).
 - **Tant que l'admin n'est pas défini** (selon `AdminState`), rien ne change : tout Origin est
-  accepté et `Access-Control-Allow-Origin` reflète comme aujourd'hui. Les Origins qui seraient
-  refusés sont seulement journalisés. Le contrôle s'applique dès que l'admin est défini, et
-  aussi quand le daemon est injoignable avec le drapeau `admin_seen_set` présent.
+  accepté, `Access-Control-Allow-Origin` reflète l'Origin en HTTP et vaut `*` au handshake WS,
+  comme aujourd'hui. Les Origins qui seraient refusés sont seulement journalisés (une ligne par
+  Origin). Le contrôle s'applique dès que l'admin est défini, et aussi quand le daemon est
+  injoignable avec le drapeau `admin_seen_set` présent.
 - En développement, le proxy Vite réécrit l'Origin vers la cible (WA2).
 
 ### Cas de fonctionnement
