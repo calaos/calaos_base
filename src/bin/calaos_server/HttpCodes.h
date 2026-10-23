@@ -40,6 +40,15 @@
     "</body>" \
     "</html>"
 
+#define HTTP_403_BODY "<html><head>"                                      \
+                      "<title>403 Forbidden</title>"                      \
+                      "</head>"                                           \
+                      "<body>"                                            \
+                      "<h1>Calaos Server - Forbidden</h1>"                \
+                      "<p>This origin is not allowed to use the API.</p>" \
+                      "</body>"                                           \
+                      "</html>"
+
 #define HTTP_404_BODY "<html><head>" \
     "<title>404 Not Found</title>" \
     "</head>" \

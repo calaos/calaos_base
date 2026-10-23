@@ -26,6 +26,7 @@
 #include "Prefix.h"
 #include "CalaosConfig.h"
 #include "HttpCodes.h"
+#include "AdminState.h"
 #include "libuvw.h"
 
 #include <algorithm>
@@ -234,6 +235,15 @@ void HttpClient::sendRequestTooLarge()
     sendToClient(res);
 }
 
+void HttpClient::sendForbidden()
+{
+    Params headers;
+    headers.Add("Connection", "close");
+    headers.Add("Content-Type", "text/html");
+    string res = buildHttpResponse(HTTP_403, headers, HTTP_403_BODY);
+    sendToClient(res);
+}
+
 void HttpClient::sendRequestHeadersTooLarge()
 {
     Params headers;
@@ -339,11 +349,41 @@ int HttpClient::processHeaders(const string &request)
     cDebugDom("network") << "Client headers (" << request_headers.size()
             << "): " << headersForLog(request_headers);
 
+    hef::HfURISyntax req_url("http://0.0.0.0" + parse_url);
+    const string &reqPath = req_url.getPath();
+    const bool wsUpgrade = Utils::strContains(request_headers["connection"], "upgrade", Utils::CaseInsensitive) &&
+                           Utils::str_to_lower(request_headers["upgrade"]) == "websocket";
+    const bool apiPath = reqPath == "/api" || reqPath == "/api.php" || Utils::strStartsWith(reqPath, "/api/");
+    const bool enforced = AdminState::Instance().enforced();
+
+    //Static files are never refused: Chromium sends Origin with the module
+    //scripts and fonts of the web app, a refusal would only show a blank page.
+    //They need no ACAO either, and get none once enforced.
+    if (wsUpgrade || apiPath)
+    {
+        originDecision = OriginPolicy::decide(request_headers, getClientIp(),
+                                              getEffectiveClientIp(), enforced);
+        if (originDecision.refused())
+        {
+            sendForbidden();
+            return HTTP_PROCESS_DONE;
+        }
+    }
+    else
+    {
+        originDecision = OriginPolicy::Decision();
+        originDecision.enforced = enforced;
+        if (request_headers.count("origin"))
+            originDecision.verdict = OriginPolicy::Verdict::Refused;
+    }
+
     //Handle CORS here
-    if (request_headers.find("origin") != request_headers.end())
+    if (originDecision.allowCors())
     {
         resHeaders.Add("Access-Control-Allow-Origin", request_headers["origin"]);
+        resHeaders.Add("Access-Control-Allow-Credentials", "false");
         resHeaders.Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+        resHeaders.Add("Vary", "Origin");
     }
 
     if (request_method == HTTP_OPTIONS)
@@ -366,8 +406,7 @@ int HttpClient::processHeaders(const string &request)
     }
 
     //If client asks for websocket just return and let websocket class handle connection
-    if (Utils::strContains(request_headers["connection"], "upgrade", Utils::CaseInsensitive) &&
-        Utils::str_to_lower(request_headers["upgrade"]) == "websocket")
+    if (wsUpgrade)
     {
         cDebugDom("websocket") << "Upgrading connection to WebSocket";
         isWebsocket = true;
@@ -382,8 +421,6 @@ int HttpClient::processHeaders(const string &request)
 
         return HTTP_PROCESS_DONE;
     }
-
-    hef::HfURISyntax req_url("http://0.0.0.0" + parse_url);
 
     //decode GET parameters
     paramsGET.clear();

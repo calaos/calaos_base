@@ -26,6 +26,7 @@
 #include <unordered_map>
 #include "JsonApiHandlerHttp.h"
 #include "JsonApiHandlerWS.h"
+#include "OriginPolicy.h"
 #include "Timer.h"
 
 using namespace Calaos;
@@ -498,6 +499,8 @@ protected:
 
     bool isWebsocket = false;
 
+    OriginPolicy::Decision originDecision;
+
     JsonApi *jsonApi = nullptr;
     RemoteUIProvisioningHandler *remoteUIHandler = nullptr;
     OtaHttpHandler *otaHandler = nullptr;
@@ -520,6 +523,7 @@ protected:
 
     void sendRequestTooLarge();
     void sendRequestHeadersTooLarge();
+    void sendForbidden();
 
     //Counts this connection in the per-IP cap on its first parsed request.
     //Returns false when the client is over maxConnectionsPerIp(): the caller

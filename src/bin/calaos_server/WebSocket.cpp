@@ -398,7 +398,11 @@ bool WebSocket::checkHandshakeRequest()
     headers.Add("Access-Control-Allow-Credentials", "false");
     headers.Add("Access-Control-Allow-Methods", "GET");
     headers.Add("Access-Control-Allow-Headers", "content-type");
-    headers.Add("Access-Control-Allow-Origin", "*");
+    //A refused Origin never gets here: processHeaders() answered 403
+    if (!originDecision.enforced)
+        headers.Add("Access-Control-Allow-Origin", "*");
+    else if (originDecision.allowCors())
+        headers.Add("Access-Control-Allow-Origin", request_headers["origin"]);
 
     //calculate key
     string key = request_headers["sec-websocket-key"] + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";

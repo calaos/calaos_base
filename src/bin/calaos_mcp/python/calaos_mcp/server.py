@@ -210,9 +210,12 @@ def create_app() -> FastAPI:
     # then extract the raw ASGI handler so we can manage its lifespan ourselves.
     #
     # The sidecar is only reachable via a Unix domain socket proxied by
-    # calaos_server, so DNS rebinding does not apply and Bearer auth is the
-    # protection layer: host names forwarded by the proxy (e.g. "calaos.local")
-    # must be accepted without an allowlist. The settings must be explicit:
+    # calaos_server, which checks no Origin on /mcp. What stops a rebound or
+    # foreign page is the Bearer middleware on every route but /healthz (a
+    # page cannot know the token) and the absence of any CORS header, so a
+    # cross-origin page cannot read an answer. Host names forwarded by the
+    # proxy (e.g. "calaos.local") must be accepted without an allowlist. The
+    # settings must be explicit:
     # with transport_security=None, mcp 2 enables a localhost-only Host check
     # and every proxied request gets 421.
     mcp_starlette = mcp.streamable_http_app(
