@@ -21,6 +21,8 @@
 #ifndef S_OriginPolicy_H
 #define S_OriginPolicy_H
 
+#include <chrono>
+#include <functional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -80,6 +82,7 @@ struct Decision
 {
     Verdict verdict = Verdict::NoOrigin;
     bool enforced = false;
+    bool logged = false;
 
     bool refused() const { return verdict == Verdict::Refused && enforced; }
 
@@ -95,6 +98,11 @@ struct Decision
 //the TCP peer the rules need, clientIp the one worth logging (X-Forwarded-For).
 Decision decide(const std::unordered_map<std::string, std::string> &headers,
                 const std::string &peerIp, const std::string &clientIp, bool enforced);
+
+using Clock = std::function<std::chrono::steady_clock::time_point()>;
+
+//For tests: the clock of the hourly reset of the refused-Origin log cap
+void setLogClock(Clock clock);
 
 } //namespace OriginPolicy
 

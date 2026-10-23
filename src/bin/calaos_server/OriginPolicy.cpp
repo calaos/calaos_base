@@ -162,20 +162,27 @@ std::string describe(const std::string &origin)
 
 //A rebinding page retries in a loop, and anyone on the LAN can send endless
 //distinct Origins: one line per key, a bounded set, forgotten every hour.
+Clock &logClock()
+{
+    static Clock clock = []()
+    {
+        return std::chrono::steady_clock::now();
+    };
+    return clock;
+}
+
 bool firstTime(const std::string &key)
 {
     static std::set<std::string> logged;
     static bool overflowLogged = false;
-    static auto since = std::chrono::steady_clock::now();
+    static auto since = logClock()();
 
-    const auto now = std::chrono::steady_clock::now();
+    const auto now = logClock()();
     if (now - since >= std::chrono::hours(1))
     {
-        // LCOV_EXCL_START: takes an hour of wall time
         logged.clear();
         overflowLogged = false;
         since = now;
-        // LCOV_EXCL_STOP
     }
 
     if (logged.count(key))
@@ -232,8 +239,7 @@ bool secureHostRule(const Parsed &p, const Request &req)
 {
     const Endpoint &o = p.origin, &h = p.host;
     return TransportLimits::isSecureTransport(req.peerIp, req.forwardedProto) &&
-           o.scheme == "https" && p.hostOk && h.host == o.host &&
-           (h.port.empty() || h.port == o.port);
+           o.scheme == "https" && p.hostOk && h.host == o.host && samePort(o, h);
 }
 
 //Same IP and port as the Host: another service of the box is another origin
@@ -440,7 +446,8 @@ Decision decide(const std::unordered_map<std::string, std::string> &headers,
         return d;
 
     const std::string what = describe(header(headers, "origin"));
-    if (!firstTime((enforced ? "1" : "0") + what))
+    d.logged = firstTime((enforced ? "1" : "0") + what);
+    if (!d.logged)
         return d;
 
     if (enforced)
@@ -451,6 +458,11 @@ Decision decide(const std::unordered_map<std::string, std::string> &headers,
                                << " will be refused once the admin password is set, "
                                << "unless its host is added to api_allowed_hosts";
     return d;
+}
+
+void setLogClock(Clock clock)
+{
+    logClock() = std::move(clock);
 }
 
 } //namespace OriginPolicy

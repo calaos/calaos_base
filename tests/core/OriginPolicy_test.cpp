@@ -176,8 +176,8 @@ TEST(OriginPolicyMatrix, HostEqualityUnderHaproxyHttps)
     EXPECT_TRUE(accepts("https://box.ddns.example:8443", haproxy("box.ddns.example:8443")));
     EXPECT_TRUE(accepts("https://box.ddns.example", OriginPolicy::Request{ "box.ddns.example", "::1", "https" }));
 
-    //the port is compared only when Host carries one
-    EXPECT_TRUE(accepts("https://box.ddns.example:8443", haproxy("box.ddns.example")));
+    //a Host without port is the default one of the scheme
+    EXPECT_FALSE(accepts("https://box.ddns.example:8443", haproxy("box.ddns.example")));
     EXPECT_FALSE(accepts("https://box.ddns.example", haproxy("box.ddns.example:8443")));
 
     EXPECT_FALSE(accepts("https://other.ddns.example", haproxy("box.ddns.example")));
@@ -720,13 +720,35 @@ TEST(OriginPolicyLog, RefusedOriginLogIsBounded)
 {
     std::unordered_map<std::string, std::string> h;
     h["host"] = "192.168.1.10:5454";
-    for (int i = 0; i < 100; i++)
+    auto refuse = [&h](const std::string &origin)
     {
-        h["origin"] = "http://flood" + std::to_string(i) + ".example";
+        h["origin"] = origin;
         const auto d = OriginPolicy::decide(h, "127.0.0.1", "192.168.1.50", false);
         EXPECT_EQ(OriginPolicy::Verdict::Refused, d.verdict);
         EXPECT_FALSE(d.refused());
-    }
+        return d.logged;
+    };
+
+    int logged = 0;
+    for (int i = 0; i < 100; i++)
+        logged += refuse("http://flood" + std::to_string(i) + ".example") ? 1 : 0;
+    EXPECT_GT(logged, 0);
+    EXPECT_LE(logged, 64);
+    EXPECT_FALSE(refuse("http://flood99.example"));
+    EXPECT_FALSE(refuse("http://flood0.example"));
+
+    const auto later = std::chrono::steady_clock::now() + std::chrono::minutes(61);
+    OriginPolicy::setLogClock([later]()
+                              {
+        return later;
+    });
+    EXPECT_TRUE(refuse("http://flood0.example")) << "forgotten after an hour";
+    EXPECT_TRUE(refuse("http://flood99.example"));
+    EXPECT_FALSE(refuse("http://flood99.example"));
+    OriginPolicy::setLogClock([]()
+                              {
+        return std::chrono::steady_clock::now();
+    });
 }
 
 } //namespace

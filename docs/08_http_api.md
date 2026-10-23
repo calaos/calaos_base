@@ -830,15 +830,14 @@ n'est pas concerné (voir [15_mcp_server.md](15_mcp_server.md)).
 - Absence d'`Origin` : acceptée (clients natifs : installer, mobile, remote_ui, MCP).
 - `Origin: null` : refusé, comme tout Origin qui n'est pas `http://` ou `https://` suivi d'un
   hôte et d'un port éventuel (chemin, `user@` ou caractère non ASCII : refusé). Casse, point
-  final et port par défaut sont normalisés, une IP est comparée sous sa forme canonique ; le
-  port n'est comparé que si `Host` en contient un.
+  final et port par défaut sont normalisés, une IP est comparée sous sa forme canonique. Comparé
+  à `Host`, un `Host` sans port vaut le port par défaut du schéma de l'Origin.
 - Un Origin est accepté dans trois cas :
-  - pair loopback avec `X-Forwarded-Proto: https`, Origin en `https://` et hôte de l'Origin
-    égal à `Host` ;
+  - pair loopback avec `X-Forwarded-Proto: https`, Origin en `https://` et hôte et port de
+    l'Origin égaux à ceux de `Host` ;
   - hôte qui est une IP portée par une interface de la box, loopback exclu (dans un Origin il
-    désigne la machine du navigateur), égale à l'hôte de `Host` et sur le même port. Un `Host`
-    sans port vaut le port par défaut du schéma de l'Origin : derrière haproxy, une page servie
-    par un autre service de la box (`http://IP:3000`) est refusée. Les IP sont relues par
+    désigne la machine du navigateur), égale à l'hôte de `Host` et sur le même port : derrière
+    haproxy, une page servie par un autre service de la box (`http://IP:3000`) est refusée. Les IP sont relues par
     `getifaddrs` au plus toutes les 30 s, et aussitôt (au plus une fois par seconde) quand une
     IP inconnue se présente ;
   - hôte de l'option `api_allowed_hosts`. Une entrée peut porter un port (`hôte:port`), sinon
