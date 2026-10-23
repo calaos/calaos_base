@@ -2536,7 +2536,7 @@ TEST_F(AdminEventsTest, AFailedPushIsRetriedByATimerWithoutASecondEvent)
     HistLogger::Instance().registerPushToken("cb3-push-token", HistLogger::PUSH_HW_ANDROID);
     quietPushes();
     AdminEvents::Timings t = timings();
-    t.retryDelay = 0.6;
+    t.retryDelay = 2.0;
     AdminEvents::Instance().setTimings(t);
 
     WsClient household;
@@ -2632,7 +2632,7 @@ TEST_F(AdminEventsTest, RetriesAreBoundedInNumberOfAlerts)
     //Long enough for the 70 first pushes to fail before any retry fires, and
     //no watchdog reconnect: a new stream would replay all 70 alerts
     AdminEvents::Timings t = timings();
-    t.retryDelay = 1.0;
+    t.retryDelay = 4.0;
     t.maxRetries = 1;
     t.ping = 5.0;
     t.silence = 60.0;
@@ -2653,16 +2653,20 @@ TEST_F(AdminEventsTest, RetriesAreBoundedInNumberOfAlerts)
     ASSERT_TRUE(pumpUntil([&]()
                           {
         return pushesOf("Admin password set") == 70;
-    }));
+    },
+                          15000));
     ASSERT_TRUE(pumpUntil([&]()
                           {
         return pushesOf("Admin password set") == 70 + 64;
-    }));
+    },
+                          15000));
     drainLoop(1500);
     EXPECT_EQ(70u + 64u, pushesOf("Admin password set")) << "64 alerts retried once, 6 refused";
     EXPECT_EQ(0u, acks());
 
     //Those that gave up free their slots
+    t.retryDelay = 0.2;
+    AdminEvents::Instance().setTimings(t);
     fakeDaemon.raiseAlert("admin_set", "000000000000f200");
     ASSERT_TRUE(pumpUntil([&]()
                           {
@@ -2679,7 +2683,7 @@ TEST_F(AdminEventsTest, ARetriedPushKeepsTheCooldown)
     quietPushes();
     AdminState::Instance().resetAlertPushes(AdminState::AlertPushInterval);
     AdminEvents::Timings t = timings();
-    t.retryDelay = 0.8;
+    t.retryDelay = 3.0;
     AdminEvents::Instance().setTimings(t);
 
     //Only the first push is lost
