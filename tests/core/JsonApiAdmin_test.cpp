@@ -708,11 +708,7 @@ namespace
 //What a household client may see of FakeDaemon::leakyProgress()
 Json householdProgress()
 {
-    return Json{ { "status", "upgrading" }, { "total_percent", 42 }, { "current_step", "unpack" },
-                 { "current_percent", 50 }, { "pkg_index", 1 }, { "pkg_count", 2 }, { "progress", 1 },
-                 { "progress_total", 2 },
-                 { "packages", { { { "state", "unpack" }, { "percent", 50 } }, { { "state", "pending" }, { "percent", 0 } } } },
-                 { "error", "upgrade failed" } };
+    return Json{ { "status", "upgrading" }, { "total_percent", 42 }, { "current_step", "unpack" }, { "current_percent", 50 }, { "pkg_index", 1 }, { "pkg_count", 2 }, { "progress", 1 }, { "progress_total", 2 }, { "packages", { { { "state", "unpack" }, { "percent", 50 } }, { { "state", "pending" }, { "percent", 0 } } } }, { "error", "upgrade failed" } };
 }
 
 //The inventory, the apt text and the identifiers that must never reach a household client
@@ -745,9 +741,7 @@ TEST(JsonApiAdminRules, TheHouseholdViewOfAnUpgradeHasNoInventory)
     EXPECT_FALSE(AdminEvents::householdStatus(Json{ { "status", "idle" }, { "error", "" } }).contains("error"));
 
     const Json job = AdminEvents::householdJob(FakeDaemon::leakyJob());
-    EXPECT_EQ((Json{ { "id", "3f9c2a7e5b1d4c80" }, { "kind", "upgrade" }, { "status", "error" },
-                     { "error", "upgrade failed" }, { "reboot_required", false }, { "daemon_restart", false },
-                     { "started_at", "2026-10-22T09:12:03Z" }, { "finished_at", "2026-10-22T09:13:03Z" } }),
+    EXPECT_EQ((Json{ { "id", "3f9c2a7e5b1d4c80" }, { "kind", "upgrade" }, { "status", "error" }, { "error", "upgrade failed" }, { "reboot_required", false }, { "daemon_restart", false }, { "started_at", "2026-10-22T09:12:03Z" }, { "finished_at", "2026-10-22T09:13:03Z" } }),
               job);
     Json interrupted = FakeDaemon::leakyJob();
     interrupted["error"] = "interrupted";
@@ -2236,8 +2230,20 @@ TEST_F(AdminEventsTest, HouseholdClientsSeeOnlyTheFilteredEvents)
     std::sort(acked.begin(), acked.end());
     EXPECT_EQ((std::vector<std::string>{ "../not-an-id", std::string(65, 'a') }), acked);
 
-    EXPECT_TRUE(adminEventsUntil(anonymous, [](const Json &) { return true; }, 200).empty());
-    EXPECT_TRUE(adminEventsUntil(service, [](const Json &) { return true; }, 200).empty());
+    EXPECT_TRUE(adminEventsUntil(
+                    anonymous, [](const Json &)
+                    {
+        return true;
+                    },
+                    200)
+                    .empty());
+    EXPECT_TRUE(adminEventsUntil(
+                    service, [](const Json &)
+                    {
+        return true;
+                    },
+                    200)
+                    .empty());
 }
 
 TEST_F(AdminEventsTest, AnAlertIsRecordedRelayedAndAcknowledged)
@@ -2280,7 +2286,13 @@ TEST_F(AdminEventsTest, AnAlertIsRecordedRelayedAndAcknowledged)
     }));
     drainLoop(300);
     EXPECT_EQ(1u, pushesOf("Admin password removed"));
-    EXPECT_TRUE(adminEventsUntil(household, [](const Json &) { return true; }, 200).empty());
+    EXPECT_TRUE(adminEventsUntil(
+                    household, [](const Json &)
+                    {
+        return true;
+                    },
+                    200)
+                    .empty());
 }
 
 TEST_F(AdminEventsTest, AReplayAfterAReconnectPushesNothingTwice)
@@ -2335,7 +2347,12 @@ TEST_F(AdminEventsTest, AReplayAfterAReconnectPushesNothingTwice)
     drainLoop(300);
 
     EXPECT_EQ(1u, pushesOf("Admin password set")) << "one push for one alert";
-    for (const Json &f: adminEventsUntil(household, [](const Json &) { return false; }, 300))
+    for (const Json &f: adminEventsUntil(
+             household, [](const Json &)
+             {
+        return false;
+             },
+             300))
         EXPECT_FALSE(isAdminEvent(f, "admin_set")) << "the household saw the alert twice";
 }
 
@@ -2400,7 +2417,10 @@ TEST_F(AdminEventsTest, ADeepEventIsDroppedWithoutHarm)
     fakeDaemon.sendRaw(serverFrame(0x81, "{\"type\":\"admin_set\",\"data\":{\"id\":" + deep + "}}"));
     fakeDaemon.pushEvent({ { "type", "upgrade_progress" }, { "data", { { "status", "done" } } } });
 
-    const auto events = adminEventsUntil(household, [](const Json &) { return true; });
+    const auto events = adminEventsUntil(household, [](const Json &)
+                                         {
+        return true;
+    });
     ASSERT_EQ(1u, events.size());
     EXPECT_EQ("done", str(events[0]["data"]["data"], "status"));
     EXPECT_TRUE(AdminEvents::Instance().connected());
@@ -2518,7 +2538,13 @@ TEST_F(AdminEventsTest, AFailedPushIsRetriedAtTheReplayWithoutASecondEvent)
     drainLoop(300);
 
     EXPECT_EQ(storedBefore + 1, storedEvents("Admin password removed")) << "one persistent event";
-    EXPECT_TRUE(adminEventsUntil(household, [](const Json &) { return true; }, 200).empty())
+    EXPECT_TRUE(adminEventsUntil(
+                    household, [](const Json &)
+                    {
+        return true;
+                    },
+                    200)
+                    .empty())
         << "the household saw the alert once";
 }
 
@@ -2734,7 +2760,10 @@ TEST_F(AdminEventsTest, FramesTheDaemonMaySendAreUnderstood)
         drainLoop(2);
     }
 
-    const auto events = adminEventsUntil(household, [](const Json &) { return true; });
+    const auto events = adminEventsUntil(household, [](const Json &)
+                                         {
+        return true;
+    });
     ASSERT_EQ(1u, events.size());
     EXPECT_EQ((Json{ { "status", "done" }, { "total_percent", 100 } }), events[0]["data"]["data"]);
     EXPECT_TRUE(AdminEvents::Instance().connected());
@@ -2753,11 +2782,11 @@ TEST_F(AdminEventsTest, ProtocolErrorsDropTheStream)
 
     const std::string big(700 * 1024, 'x');
     const std::vector<std::vector<std::string>> errors = {
-        { serverFrame(0x81, "{}", true) },                   //masked by the server
-        { serverFrame(0x80, "{}") },                         //a continuation of nothing
+        { serverFrame(0x81, "{}", true) },                  //masked by the server
+        { serverFrame(0x80, "{}") },                        //a continuation of nothing
         { serverFrame(0x01, "{"), serverFrame(0x81, "}") }, //a new message inside one
-        { serverFrame(0xC1, "{}") },                         //RSV bit
-        { serverFrame(0x01, big), serverFrame(0x80, big) },  //over MaxMessageSize
+        { serverFrame(0xC1, "{}") },                        //RSV bit
+        { serverFrame(0x01, big), serverFrame(0x80, big) }, //over MaxMessageSize
     };
 
     size_t accepted = 1;

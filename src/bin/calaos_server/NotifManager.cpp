@@ -308,7 +308,7 @@ void NotifManager::sendPushNotification(const string &message, const string &not
 
         UrlDownloader *u = new UrlDownloader(pushServiceUrl, true);
         u->m_signalComplete.connect([this, callbackSent, callbackDone](int statusCode)
-        {
+                                    {
             cDebugDom(TAG) << "Push notif sent with code: " << statusCode;
             //Optional: calling an empty one throws std::bad_function_call
             if (callbackSent)

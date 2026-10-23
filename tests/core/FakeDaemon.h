@@ -190,22 +190,12 @@ public:
 
     static nlohmann::json leakyProgress()
     {
-        return { { "status", "upgrading" }, { "total_percent", 42 }, { "current_pkg", "calaos-server" },
-                 { "current_step", "unpack" }, { "current_percent", 50 }, { "pkg_index", 1 }, { "pkg_count", 2 },
-                 { "progress", 1 }, { "progress_total", 2 },
-                 { "packages", { { { "name", "calaos-server" }, { "state", "unpack" }, { "percent", 50 } },
-                                 { { "name", "linux-image-arm64" }, { "state", "pending" }, { "percent", 0 } } } },
-                 { "message", "Get:1 http://deb.calaos.fr/ /var/cache/apt/archives/x.deb" },
-                 { "error", "upgrade failed: linux-image-arm64" },
-                 { "a_field_added_later", "inventory" } };
+        return { { "status", "upgrading" }, { "total_percent", 42 }, { "current_pkg", "calaos-server" }, { "current_step", "unpack" }, { "current_percent", 50 }, { "pkg_index", 1 }, { "pkg_count", 2 }, { "progress", 1 }, { "progress_total", 2 }, { "packages", { { { "name", "calaos-server" }, { "state", "unpack" }, { "percent", 50 } }, { { "name", "linux-image-arm64" }, { "state", "pending" }, { "percent", 0 } } } }, { "message", "Get:1 http://deb.calaos.fr/ /var/cache/apt/archives/x.deb" }, { "error", "upgrade failed: linux-image-arm64" }, { "a_field_added_later", "inventory" } };
     }
 
     static nlohmann::json leakyJob()
     {
-        return { { "id", "3f9c2a7e5b1d4c80" }, { "kind", "upgrade" }, { "package", "calaos-server" },
-                 { "status", "error" }, { "error", "upgrade failed: calaos-server" }, { "reboot_required", false },
-                 { "daemon_restart", false }, { "started_at", "2026-10-22T09:12:03Z" },
-                 { "finished_at", "2026-10-22T09:13:03Z" } };
+        return { { "id", "3f9c2a7e5b1d4c80" }, { "kind", "upgrade" }, { "package", "calaos-server" }, { "status", "error" }, { "error", "upgrade failed: calaos-server" }, { "reboot_required", false }, { "daemon_restart", false }, { "started_at", "2026-10-22T09:12:03Z" }, { "finished_at", "2026-10-22T09:13:03Z" } };
     }
 
     /* /api/v2/events. A stream gets the update/status progress, then the
@@ -479,7 +469,8 @@ private:
         unsigned int dlen = 0;
         EVP_Digest(in.data(), in.size(), digest, &dlen, EVP_sha1(), nullptr);
         const std::string head = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
-                                 "Sec-WebSocket-Accept: " + base64(digest, dlen) + "\r\n\r\n";
+                                 "Sec-WebSocket-Accept: " +
+                                 base64(digest, dlen) + "\r\n\r\n";
         ::send(fd, head.data(), head.size(), MSG_NOSIGNAL);
 
         auto stream = std::make_shared<Stream>();
@@ -790,9 +781,7 @@ private:
             }
             else
             {
-                nlohmann::json j = { { "id", "3f9c2a7e5b1d4c80" }, { "kind", pkg.empty() ? "upgrade_all" : "upgrade" },
-                                     { "status", "running" }, { "reboot_required", false }, { "daemon_restart", false },
-                                     { "started_at", "2026-10-22T09:12:03Z" } };
+                nlohmann::json j = { { "id", "3f9c2a7e5b1d4c80" }, { "kind", pkg.empty() ? "upgrade_all" : "upgrade" }, { "status", "running" }, { "reboot_required", false }, { "daemon_restart", false }, { "started_at", "2026-10-22T09:12:03Z" } };
                 if (!pkg.empty())
                     j["package"] = pkg;
                 res.status = 202;

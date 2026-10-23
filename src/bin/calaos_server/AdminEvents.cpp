@@ -178,8 +178,7 @@ Json AdminEvents::householdStatus(const Json &statusIn)
     Json out = Json::object();
     const Json status = statusIn.is_object() ? statusIn : Json::object();
 
-    copyScalars(status, out, { "status", "total_percent", "current_step", "current_percent", "pkg_index",
-                               "pkg_count", "progress", "progress_total" });
+    copyScalars(status, out, { "status", "total_percent", "current_step", "current_percent", "pkg_index", "pkg_count", "progress", "progress_total" });
 
     //The daemon's summary may name the failed packages
     const auto err = status.find("error");

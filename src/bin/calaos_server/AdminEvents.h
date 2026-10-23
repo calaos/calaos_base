@@ -96,8 +96,8 @@ private:
     enum class State
     {
         Stopped,
-        Waiting,     //reconnect timer armed
-        Connecting,  //TCP connect and handshake
+        Waiting,    //reconnect timer armed
+        Connecting, //TCP connect and handshake
         Open,
     };
 

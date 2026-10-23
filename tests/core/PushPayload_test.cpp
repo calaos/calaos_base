@@ -237,12 +237,13 @@ TEST(PushPayloadTest, SendWithoutAnyTokenPostsNothing)
 {
     auto sent = std::make_shared<bool>(false);
     auto settled = std::make_shared<bool>(false);
-    NotifManager::Instance().sendPushNotification("Door open", "", [sent]()
-                                                  {
+    NotifManager::Instance().sendPushNotification(
+        "Door open", "", [sent]()
+        {
         *sent = true;
-    },
-                                                  [settled](bool ok)
-                                                  {
+        },
+        [settled](bool ok)
+        {
         *settled = ok;
     });
 
