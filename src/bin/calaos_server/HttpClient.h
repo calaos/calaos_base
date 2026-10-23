@@ -585,7 +585,7 @@ public:
     {
         const auto it = request_headers.find("x-forwarded-for");
         return TransportLimits::isForwardedClientIp(
-            it != request_headers.end()? it->second: string(),
+            it != request_headers.end() ? it->second : string(),
             getClientIp());
     }
 

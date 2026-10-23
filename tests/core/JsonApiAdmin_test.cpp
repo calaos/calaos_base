@@ -1077,8 +1077,7 @@ TEST_F(JsonApiAdminTest, RotatingForwardedForCannotBypassTheAdminThrottle)
     auto unlock = [](const std::string &xff)
     {
         DirectHttp h("127.0.0.1", "https", xff);
-        return h.send(Json{ { "action", "admin_unlock" }, { "cn_user", kUser }, { "cn_pass", kPass },
-                            { "admin_pass", "wrong password" } }
+        return h.send(Json{ { "action", "admin_unlock" }, { "cn_user", kUser }, { "cn_pass", kPass }, { "admin_pass", "wrong password" } }
                           .dump());
     };
 

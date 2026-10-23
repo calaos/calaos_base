@@ -335,11 +335,9 @@ string LoginThrottle::key(const string &scope, const string &ip, bool forwarded,
     if (!forwarded)
         return scope + ip;
 
-    for (auto it = forwardedSlots.begin();it != forwardedSlots.end();)
+    for (auto it = forwardedSlots.begin(); it != forwardedSlots.end();)
     {
-        const bool expired = it->second.trusted?
-                             now - it->second.lastSuccess > TrustedSlotTimeout:
-                             now - it->second.lastSeen > ForwardedSlotTimeout;
+        const bool expired = it->second.trusted ? now - it->second.lastSuccess > TrustedSlotTimeout : now - it->second.lastSeen > ForwardedSlotTimeout;
         if (expired)
             it = forwardedSlots.erase(it);
         else
@@ -466,7 +464,7 @@ void LoginThrottle::registerSuccess(const string &ip)
 
     int trusted = 0;
     auto oldest = forwardedSlots.end();
-    for (auto s = forwardedSlots.begin();s != forwardedSlots.end();++s)
+    for (auto s = forwardedSlots.begin(); s != forwardedSlots.end(); ++s)
     {
         if (!s->second.trusted || s->second.scope != it->second.scope)
             continue;
@@ -509,8 +507,8 @@ string JsonApi::loginThrottleKey(const string &scope) const
 
 string JsonApi::loginClientForLog(const string &key) const
 {
-    const string client = httpClient? httpClient->getEffectiveClientIp(): string("unknown");
-    return client == key? key: client + " (bucket " + key + ")";
+    const string client = httpClient ? httpClient->getEffectiveClientIp() : string("unknown");
+    return client == key ? key : client + " (bucket " + key + ")";
 }
 
 bool JsonApi::secureCompare(const string &expected, const string &received)
