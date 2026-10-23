@@ -91,7 +91,7 @@ Les constats calaos-container portent sur `origin/main`.
   - URL du daemon codée en dur (`http://127.0.0.1:8000`). Pour les tests, les variables d'environnement `CALAOS_CONTAINER_URL` et `CALAOS_CONTAINER_TOKEN_FILE` la surchargent. Elles ne sont lues qu'au démarrage, et l'URL est refusée si l'hôte n'est pas `127.0.0.1` ou `::1`. Ce n'est pas une option de `local_config.xml` : `config put` permettrait sinon d'envoyer le bearer et le mot de passe admin à un hôte tiers.
   - `LoginThrottle` plafonne les **nouvelles identités XFF venues du loopback** : au-delà d'environ 20 nouvelles en 60 s, tout le trafic loopback-XFF tombe dans un seul seau « loopback » pendant 60 s. Pas de budget global d'échecs : un seul attaquant bloquerait tout le foyer.
 - **Contrat et relais `admin`**
-  - Le protocole client de calaos_server est décrit dans une section « Admin » de `docs/08_http_api.md` (calaos_base), écrite par CB0 avant tout autre ticket calaos_base, webapp ou installer :
+  - Le protocole client de calaos_server est décrit dans la section Administration de `docs/08_http_api.md` (calaos_base), écrite par CB0 avant tout autre ticket calaos_base, webapp ou installer :
     - `admin_unlock {admin_pass}` → `{admin_session, expires_in}` ;
     - `admin_set {new_pass, admin_session?}`, sans session pour le bootstrap, avec session pour le changement (et le code en phase 2) ;
     - `admin {admin_session, action, params}` ;
@@ -106,7 +106,7 @@ Les constats calaos-container portent sur `origin/main`.
     - `system_reboot`, `system_restart` (redémarre le kiosque calaos-home), `system_info` ;
     - `mcp_regenerate`, traitée dans calaos_server ;
     - en phase 2, `approver_list`, `approver_enroll`, `approver_confirm`, `console_open`.
-  - `package` validé par la règle de `docs/API.md` de calaos-container : regex du plan, premier caractère alphanumérique, pas de `..`, 128 caractères au plus.
+  - `package` validé par la règle de `docs/API.md` de calaos-container : regex `^[A-Za-z0-9.+-]+$`, premier caractère alphanumérique, pas de `..`, 128 caractères au plus.
   - `install/*`, `rollback_snapshot` et `network/*` ne sont jamais relayés.
   - `admin {action: update_status}` est accepté sans `admin_session` une fois l'admin défini, sous `secureTransport()`. `admin_event` est diffusé à toute connexion WS loguée, port 5454 compris : c'est la seule exception à « rien d'admin en clair ».
   - calaos_server est abonné en permanence à `/events` (CB3) et ne retransmet aux clients foyer, sous `admin_event`, que :
@@ -257,6 +257,7 @@ Exigence de Raoul : une installation existante monte vers les versions admin par
 Branche d'intégration : les tickets calaos-container sont fusionnés dans `admin/p6`, qui ne publie pas. Elle est fusionnée une seule fois dans main, après la recette RC1 (décision de Raoul, 2026-10-23).
 
 Contrats de référence : `docs/API.md` de calaos-container pour les routes du daemon, `docs/08_http_api.md` de calaos_base (section Administration) pour les messages de calaos_server.
+
 ### Prérequis calaos-container (backlog existant)
 
 | Repo | Ticket | Contenu | Durée |
@@ -278,7 +279,7 @@ Contrats de référence : `docs/API.md` de calaos-container pour les routes du d
 | calaos-container | CC3 ⇐ CC-050, CC-055 | upgrade asynchrone versionné (202 + job), upgrade synchrone legacy conservé, résultat persisté, `reboot_required`, sortie 0 après auto-mise à jour (après la réponse legacy et l'événement terminal), 409 sur reboot pendant un job, middleware des sessions, CLI sur 202 et `/events`, tests. Depends on: CC1 | 3,25 j |
 | calaos_home | CH1b | client de mise à jour : enveloppe CC-040, job asynchrone, `/events`, bearer en en-tête. Estimation fixée par CH1a. Pas un prérequis de la montée, à livrer avant le retrait des routes legacy | 0,75 j |
 | pkgdebs, calaos_ddns | PK1 | `calaos-server` : `Depends: calaos-container (>= <version admin>)`, pas de `Breaks` ; ligne XFP du backend dans les deux templates, nouveaux fichiers seulement | 0,2 j |
-| calaos_base | CB0 | section Admin de `docs/08_http_api.md` : messages, enveloppe, `admin_set` (bootstrap et changement), `admin_event`, format d'erreur ; dérivé de la section admin de `docs/API.md` | 0,25 j |
+| calaos_base | CB0 | section Administration de `docs/08_http_api.md` : messages, enveloppe, `admin_set` (bootstrap et changement), `admin_event`, format d'erreur ; dérivé de la section admin de `docs/API.md` | 0,25 j |
 | calaos_base | CB1 | Origin sur WS et HTTP : règle haproxy-https, IP d'interfaces, `api_allowed_hosts`, `null` refusé, normalisation, ACAO conditionnel (`HttpClient.cpp:337` et `WebSocket.cpp:401`) ; sans admin défini, journalisation seule. Depends on: CB2 (`AdminState`, `secureTransport()`) | 0,75 j |
 | calaos_base | CB2 | client HTTP du daemon (`UrlDownloader`, bearer relu au démarrage et à chaque 401), module `AdminState` (règle collante, drapeau `admin_seen_set`, 404 et injoignable, `admin_unavailable`), `admin_unlock` et `admin_set` en WS et HTTP, `admin_session`, répartition et gating du message `admin`, `admin_not_set`, `secureTransport()`, condition de bootstrap et entrée `DECISIONS.md`, refus pour le scope MCP, chaînes d'erreur lisibles, faux daemon de test (`CALAOS_CONTAINER_URL`, loopback seulement) ; les tests d'`AdminState` utilisent un répertoire de cache temporaire (`--cache`) et ne touchent jamais `~/.cache/calaos`. Depends on: CB0 | 3 j |
 | calaos_base | CB3 | client WebSocket `/events` (sur `WebSocketFrame`, reconnexion avec backoff, 404/426 ⇒ daemon trop ancien), relais en table fermée, filtre des événements, ack des alertes vers push et `EventPushNotification`, rafraîchissement d'`AdminState`, `mcp_regenerate`. Depends on: CB2, CC3 | 3 j |
@@ -403,7 +404,7 @@ Ordre phase 2 : AP1a ∥ AP2, puis AP1b, puis WA3 ; CO1 (après AP1a), puis CO2,
   - audit : id de session tronqué au SHA-256, jamais la session ;
   - CLI `admin set` sur stdin, `admin reset`, `upgrade` sur 202 et `/events` ;
   - routes legacy : réponses identiques à l'ancien daemon (golden), upgrade synchrone compris, pour l'ancien CLI et l'ancien kiosque ; un abonné legacy reçoit des types d'événements nouveaux sans erreur.
-- **Paquet calaos-container** : la postinst ne redémarre jamais le daemon pendant un run et ne bloque jamais sur son démarrage ; le redémarrage différé attend le verrou dpkg et `status: "idle"`, réessaie si le daemon est injoignable, abandonne au bout de 2 h, et ne fait rien si le binaire en mémoire est à jour.
+- **Paquet calaos-container** : la postinst ne redémarre jamais le daemon pendant un run et ne bloque jamais sur son démarrage ; le redémarrage différé attend le verrou dpkg et `status: ""` ou `"idle"`, réessaie si le daemon est injoignable, abandonne au bout de 2 h, et ne fait rien si le binaire en mémoire est à jour.
 - **init_calaosfs** : dix units démarrées en parallèle, script idempotent, `/mnt/calaos/admin` en 0700, token existant conservé, un seul token écrit en cas de course, `/etc/ola` créé.
 - **calaos_base** (tests JsonApi, faux daemon via `CALAOS_CONTAINER_URL`) :
   - `admin_not_set` ;
@@ -421,7 +422,7 @@ Ordre phase 2 : AP1a ∥ AP2, puis AP1b, puis WA3 ; CO1 (après AP1a), puis CO2,
   - refus en HTTP clair, hors haproxy et sans XFP ;
   - admin défini : Origin étranger, `null` ou rebindé refusé ; IP d'interface acceptée sur 5454 ; Origin égal à `Host` accepté sous haproxy-https ;
   - bootstrap refusé avec des identifiants vides, `user/pass` ou legacy ;
-  - scope MCP refusé ;
+  - scope MCP refusé (`admin_unlock`, `admin_set` et `admin`) ;
   - table fermée : valeur inconnue refusée, `package` contenant `/`, `..`, `?` ou `%2e` refusé ;
   - filtre `/events` : un client foyer reçoit `upgrade_progress`, `admin_set` et `admin_reset` avec l'horodatage seul, et rien d'autre ;
   - client `/events` : reconnexion après coupure, 404/426 traité comme daemon trop ancien ;
