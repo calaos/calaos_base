@@ -25,6 +25,8 @@
 
 #include "JsonApiCharacterization.h"
 
+#include "AdminEvents.h"
+
 #include "IO/Device.h"
 #include "IO/RemoteUI/RemoteUI.h"
 #include "RemoteUIWebSocketHandler.h"
@@ -576,6 +578,17 @@ TEST_F(RemoteUIScopeTest, EventsThatAreNotAboutAnIoAreNotDelivered)
         ASSERT_TRUE(env.is_object());
         EXPECT_EQ(env.at("data").value("type_str", ""), "io_changed") << s;
     }
+}
+
+//A panel is logged in, yet the household's admin_event is not for it
+TEST_F(RemoteUIScopeTest, AdminEventsAreNotDelivered)
+{
+    pumpFor(300);
+    sent.clear();
+
+    Calaos::AdminEvents::Instance().householdEvent.emit(Json{ { "type", "admin_set" }, { "ts", "2026-10-22T09:14:00Z" } });
+    pumpFor(100);
+    EXPECT_TRUE(allOfType("admin_event").empty());
 }
 
 TEST_F(RemoteUIScopeTest, TheFirstUseAfterTheConnectionExpandsTheDevice)

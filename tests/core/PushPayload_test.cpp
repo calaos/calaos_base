@@ -236,9 +236,15 @@ const auto *env = ::testing::AddGlobalTestEnvironment(new EmptyHistory);
 TEST(PushPayloadTest, SendWithoutAnyTokenPostsNothing)
 {
     auto sent = std::make_shared<bool>(false);
-    NotifManager::Instance().sendPushNotification("Door open", "", [sent]()
-                                                  {
+    auto settled = std::make_shared<bool>(false);
+    NotifManager::Instance().sendPushNotification(
+        "Door open", "", [sent]()
+        {
         *sent = true;
+        },
+        [settled](bool ok)
+        {
+        *settled = ok;
     });
 
     //The worker answers in order: once this one is back, the send has its tokens.
@@ -258,4 +264,5 @@ TEST(PushPayloadTest, SendWithoutAnyTokenPostsNothing)
 
     ASSERT_TRUE(*done);
     EXPECT_FALSE(*sent);
+    EXPECT_TRUE(*settled) << "nobody to notify is not a failure";
 }

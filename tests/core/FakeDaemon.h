@@ -24,10 +24,13 @@
  * A fake calaos-container, on a real loopback socket, answering the admin
  * routes of its docs/API.md. It runs on its own thread: the server under test
  * runs on the uv loop of the test thread, which keeps pumping while it waits.
- * Requests are served one at a time.
+ * Requests are served one at a time; each /api/v2/events stream gets a thread
+ * of its own.
  */
 
 #include "json.hpp"
+
+#include <openssl/evp.h>
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -42,6 +45,7 @@
 #include <cstring>
 #include <functional>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -105,7 +109,7 @@ public:
         return true;
     }
 
-    //Closes the listening socket: a connection is refused from now on
+    //Closes the listening socket and the streams: a connection is refused from now on
     void stop()
     {
         stopping = true;
@@ -114,6 +118,17 @@ public:
         if (listenFd >= 0)
             close(listenFd);
         listenFd = -1;
+
+        dropEvents();
+        std::vector<std::thread> threads;
+        {
+            std::lock_guard<std::mutex> l(streamsMutex);
+            threads.swap(streamThreads);
+        }
+        for (auto &t: threads)
+            t.join();
+        std::lock_guard<std::mutex> l(streamsMutex);
+        streams.clear();
     }
 
     //Model back to a reachable daemon of the current API, no admin defined
@@ -126,6 +141,17 @@ public:
         password = Password;
         override = nullptr;
         log.clear();
+        progress = leakyProgress();
+        job = leakyJob();
+        alerts.clear();
+        useRawHandshake = false;
+        rawHandshakeBytes.clear();
+        eventsRefusal = 0;
+        eventsMuted = false;
+        closeAfterSnapshot = false;
+        accepted = 0;
+        pings = 0;
+        pongs = 0;
     }
 
     void setAdminSet(bool set)
@@ -152,6 +178,115 @@ public:
     {
         std::lock_guard<std::mutex> l(mutex);
         return adminSet;
+    }
+
+    //What update/status answers; both are leaky on purpose, as on a box
+    void setUpdateStatus(const nlohmann::json &p, const nlohmann::json &j)
+    {
+        std::lock_guard<std::mutex> l(mutex);
+        progress = p;
+        job = j;
+    }
+
+    static nlohmann::json leakyProgress()
+    {
+        return { { "status", "upgrading" }, { "total_percent", 42 }, { "current_pkg", "calaos-server" }, { "current_step", "unpack" }, { "current_percent", 50 }, { "pkg_index", 1 }, { "pkg_count", 2 }, { "progress", 1 }, { "progress_total", 2 }, { "packages", { { { "name", "calaos-server" }, { "state", "unpack" }, { "percent", 50 } }, { { "name", "linux-image-arm64" }, { "state", "pending" }, { "percent", 0 } } } }, { "message", "Get:1 http://deb.calaos.fr/ /var/cache/apt/archives/x.deb" }, { "error", "upgrade failed: linux-image-arm64" }, { "a_field_added_later", "inventory" } };
+    }
+
+    static nlohmann::json leakyJob()
+    {
+        return { { "id", "3f9c2a7e5b1d4c80" }, { "kind", "upgrade" }, { "package", "calaos-server" }, { "status", "error" }, { "error", "upgrade failed: calaos-server" }, { "reboot_required", false }, { "daemon_restart", false }, { "started_at", "2026-10-22T09:12:03Z" }, { "finished_at", "2026-10-22T09:13:03Z" } };
+    }
+
+    /* /api/v2/events. A stream gets the update/status progress, then the
+     * pending alerts, then whatever the test pushes. */
+
+    //0: accept the upgrade; another status refuses it with that status
+    void refuseEvents(int status)
+    {
+        std::lock_guard<std::mutex> l(mutex);
+        eventsRefusal = status;
+    }
+
+    //A muted stream sends nothing and answers no ping
+    void muteEvents(bool m) { eventsMuted = m; }
+
+    //Every stream is closed once its snapshot and alerts are sent
+    void closeEventsAfterSnapshot(bool c) { closeAfterSnapshot = c; }
+
+    //Answers the upgrade with these bytes instead of a valid 101 and the
+    //snapshot; the connection stays open
+    void rawHandshake(bool use, const std::string &bytes = std::string())
+    {
+        std::lock_guard<std::mutex> l(mutex);
+        useRawHandshake = use;
+        rawHandshakeBytes = bytes;
+    }
+
+    //Bytes written as they are on every open stream
+    void sendRaw(const std::string &bytes)
+    {
+        for (auto &s: openStreams())
+        {
+            std::lock_guard<std::mutex> l(s->wmutex);
+            if (s->open)
+                ::send(s->fd, bytes.data(), bytes.size(), MSG_NOSIGNAL);
+        }
+    }
+
+    void pushEvent(const nlohmann::json &event)
+    {
+        for (auto &s: openStreams())
+            sendFrame(*s, 0x1, event.dump());
+    }
+
+    //Persisted until acknowledged, like the daemon's admin_set/admin_reset
+    void raiseAlert(const std::string &type, const std::string &id)
+    {
+        {
+            std::lock_guard<std::mutex> l(mutex);
+            alerts.push_back({ type, id });
+        }
+        pushEvent(alertEvent(type, id));
+    }
+
+    //What the daemon does at each ping for the alerts not acknowledged yet
+    void replayAlerts()
+    {
+        for (const auto &a: pendingAlerts())
+            pushEvent(alertEvent(a.first, a.second));
+    }
+
+    std::vector<std::pair<std::string, std::string>> pendingAlerts()
+    {
+        std::lock_guard<std::mutex> l(mutex);
+        return alerts;
+    }
+
+    void pingEvents()
+    {
+        for (auto &s: openStreams())
+            sendFrame(*s, 0x9, std::string());
+    }
+
+    //Cuts every stream, as a daemon restart does
+    void dropEvents()
+    {
+        for (auto &s: openStreams())
+        {
+            std::lock_guard<std::mutex> l(s->wmutex);
+            ::shutdown(s->fd, SHUT_RDWR);
+        }
+    }
+
+    size_t eventsAccepted() { return accepted; }
+    size_t openEvents() { return openStreams().size(); }
+    size_t pingsReceived() { return pings; }
+    size_t pongsReceived() { return pongs; }
+
+    static nlohmann::json alertEvent(const std::string &type, const std::string &id)
+    {
+        return { { "type", type }, { "data", { { "id", id }, { "ts", "2026-10-22T09:14:00Z" } } } };
     }
 
     std::vector<Request> requests()
@@ -199,6 +334,236 @@ public:
     }
 
 private:
+    struct Stream
+    {
+        int fd = -1;
+        std::atomic<bool> open{ true };
+        std::mutex wmutex;
+    };
+
+    std::mutex streamsMutex;
+    std::vector<std::shared_ptr<Stream>> streams;
+    std::vector<std::thread> streamThreads;
+    std::atomic<int> eventsRefusal{ 0 };
+    std::atomic<bool> eventsMuted{ false };
+    std::atomic<bool> closeAfterSnapshot{ false };
+    std::atomic<size_t> accepted{ 0 };
+    std::atomic<size_t> pings{ 0 };
+    std::atomic<size_t> pongs{ 0 };
+    nlohmann::json progress = leakyProgress();
+    nlohmann::json job = leakyJob();
+    std::vector<std::pair<std::string, std::string>> alerts;
+    bool useRawHandshake = false;
+    std::string rawHandshakeBytes;
+
+    std::vector<std::shared_ptr<Stream>> openStreams()
+    {
+        std::lock_guard<std::mutex> l(streamsMutex);
+        std::vector<std::shared_ptr<Stream>> out;
+        for (auto &s: streams)
+            if (s->open)
+                out.push_back(s);
+        return out;
+    }
+
+    //Server frames are never masked
+    void sendFrame(Stream &s, int opcode, const std::string &payload)
+    {
+        if (eventsMuted && opcode != 0x8)
+            return;
+        std::string f;
+        f.push_back((char)(0x80 | opcode));
+        if (payload.size() < 126)
+        {
+            f.push_back((char)payload.size());
+        }
+        else if (payload.size() <= 0xffff)
+        {
+            f.push_back((char)126);
+            f.push_back((char)((payload.size() >> 8) & 0xff));
+            f.push_back((char)(payload.size() & 0xff));
+        }
+        else
+        {
+            f.push_back((char)127);
+            for (int i = 7; i >= 0; i--)
+                f.push_back((char)((payload.size() >> (8 * i)) & 0xff));
+        }
+        f += payload;
+        std::lock_guard<std::mutex> l(s.wmutex);
+        if (s.open)
+            ::send(s.fd, f.data(), f.size(), MSG_NOSIGNAL);
+    }
+
+    static std::string base64(const unsigned char *data, size_t len)
+    {
+        static const char *t = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        std::string out;
+        for (size_t i = 0; i < len; i += 3)
+        {
+            const unsigned v = (data[i] << 16) | ((i + 1 < len ? data[i + 1] : 0) << 8) | (i + 2 < len ? data[i + 2] : 0);
+            out.push_back(t[(v >> 18) & 63]);
+            out.push_back(t[(v >> 12) & 63]);
+            out.push_back(i + 1 < len ? t[(v >> 6) & 63] : '=');
+            out.push_back(i + 2 < len ? t[v & 63] : '=');
+        }
+        return out;
+    }
+
+    //Answers the upgrade; true when fd now belongs to a stream
+    bool upgradeEvents(int fd, const Request &req)
+    {
+        Response refusal;
+        {
+            std::lock_guard<std::mutex> l(mutex);
+            log.push_back(req);
+            const auto auth = req.headers.find("authorization");
+            if (oldDaemon)
+            {
+                refusal.status = 404;
+                refusal.body = "404 page not found";
+            }
+            else if (eventsRefusal != 0)
+            {
+                refusal.status = eventsRefusal;
+                refusal.body = err("refused");
+            }
+            else if (auth == req.headers.end() || auth->second != "Bearer " + bearer || req.path != "/api/v2/events")
+            {
+                refusal.status = 401;
+                refusal.body = err("bad_bearer");
+            }
+        }
+
+        if (refusal.status != 200)
+        {
+            reply(fd, refusal);
+            return false;
+        }
+
+        bool raw = false;
+        std::string rawBytes;
+        {
+            std::lock_guard<std::mutex> l(mutex);
+            raw = useRawHandshake;
+            rawBytes = rawHandshakeBytes;
+        }
+        if (raw)
+        {
+            if (!rawBytes.empty())
+                ::send(fd, rawBytes.data(), rawBytes.size(), MSG_NOSIGNAL);
+            auto stream = std::make_shared<Stream>();
+            stream->fd = fd;
+            std::lock_guard<std::mutex> l(streamsMutex);
+            streams.push_back(stream);
+            streamThreads.emplace_back([this, stream]()
+                                       {
+                runStream(stream);
+            });
+            return true;
+        }
+
+        const auto keyIt = req.headers.find("sec-websocket-key");
+        const std::string in = (keyIt == req.headers.end() ? std::string() : keyIt->second) + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+        unsigned char digest[EVP_MAX_MD_SIZE];
+        unsigned int dlen = 0;
+        EVP_Digest(in.data(), in.size(), digest, &dlen, EVP_sha1(), nullptr);
+        const std::string head = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+                                 "Sec-WebSocket-Accept: " +
+                                 base64(digest, dlen) + "\r\n\r\n";
+        ::send(fd, head.data(), head.size(), MSG_NOSIGNAL);
+
+        auto stream = std::make_shared<Stream>();
+        stream->fd = fd;
+
+        nlohmann::json snapshot;
+        std::vector<std::pair<std::string, std::string>> pending;
+        {
+            std::lock_guard<std::mutex> l(mutex);
+            snapshot = { { "type", "upgrade_progress" }, { "data", progress } };
+            pending = alerts;
+        }
+        sendFrame(*stream, 0x1, snapshot.dump());
+        for (const auto &a: pending)
+            sendFrame(*stream, 0x1, alertEvent(a.first, a.second).dump());
+        if (closeAfterSnapshot)
+            ::shutdown(fd, SHUT_RDWR);
+
+        std::lock_guard<std::mutex> l(streamsMutex);
+        streams.push_back(stream);
+        streamThreads.emplace_back([this, stream]()
+                                   {
+            runStream(stream);
+        });
+        accepted++;
+        return true;
+    }
+
+    void runStream(std::shared_ptr<Stream> s)
+    {
+        std::string rx;
+        while (!stopping && s->open)
+        {
+            struct pollfd p = { s->fd, POLLIN, 0 };
+            if (poll(&p, 1, 20) <= 0)
+                continue;
+            char buf[4096];
+            const ssize_t n = recv(s->fd, buf, sizeof(buf), 0);
+            if (n <= 0)
+                break;
+            rx.append(buf, (size_t)n);
+
+            while (rx.size() >= 6)
+            {
+                const int opcode = (unsigned char)rx[0] & 0x0f;
+                size_t len = (unsigned char)rx[1] & 0x7f;
+                size_t header = 2;
+                if (len == 126)
+                {
+                    if (rx.size() < 8)
+                        break;
+                    len = ((unsigned char)rx[2] << 8) | (unsigned char)rx[3];
+                    header = 4;
+                }
+                if (rx.size() < header + 4 + len)
+                    break;
+                std::string payload = rx.substr(header + 4, len);
+                for (size_t i = 0; i < len; i++)
+                    payload[i] = (char)(payload[i] ^ rx[header + (i % 4)]);
+                rx.erase(0, header + 4 + len);
+
+                if (opcode == 0x9)
+                {
+                    pings++;
+                    sendFrame(*s, 0xA, payload);
+                }
+                else if (opcode == 0xA)
+                {
+                    pongs++;
+                }
+                else if (opcode == 0x8)
+                {
+                    s->open = false;
+                }
+            }
+        }
+
+        std::lock_guard<std::mutex> l(s->wmutex);
+        s->open = false;
+        ::close(s->fd);
+    }
+
+    static void reply(int fd, const Response &res)
+    {
+        std::string out = "HTTP/1.1 " + std::to_string(res.status) + " X\r\n";
+        out += "Content-Type: application/json\r\n";
+        out += "Content-Length: " + std::to_string(res.body.size()) + "\r\n";
+        if (!res.location.empty())
+            out += "Location: " + res.location + "\r\n";
+        out += "Connection: close\r\n\r\n" + res.body;
+        send(fd, out.data(), out.size(), MSG_NOSIGNAL);
+    }
+
     int listenFd = -1;
     std::atomic<bool> stopping{ false };
     std::thread worker;
@@ -221,8 +586,8 @@ private:
             const int fd = accept4(listenFd, nullptr, nullptr, SOCK_CLOEXEC);
             if (fd < 0)
                 continue;
-            serve(fd);
-            close(fd);
+            if (!serve(fd))
+                close(fd);
         }
     }
 
@@ -289,11 +654,15 @@ private:
         }
     }
 
-    void serve(int fd)
+    //True when fd was handed to an events stream
+    bool serve(int fd)
     {
         Request req;
         if (!readRequest(fd, req))
-            return;
+            return false;
+
+        if (req.path.compare(0, 14, "/api/v2/events") == 0)
+            return upgradeEvents(fd, req);
 
         Response res;
         {
@@ -307,13 +676,8 @@ private:
         while (std::chrono::steady_clock::now() < until && !stopping)
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-        std::string out = "HTTP/1.1 " + std::to_string(res.status) + " X\r\n";
-        out += "Content-Type: application/json\r\n";
-        out += "Content-Length: " + std::to_string(res.body.size()) + "\r\n";
-        if (!res.location.empty())
-            out += "Location: " + res.location + "\r\n";
-        out += "Connection: close\r\n\r\n" + res.body;
-        send(fd, out.data(), out.size(), MSG_NOSIGNAL);
+        reply(fd, res);
+        return false;
     }
 
     //Called with the mutex held
@@ -398,6 +762,60 @@ private:
                 password = pass;
                 res.body = ok({ { "mode", hasSession ? "change" : "bootstrap" } });
             }
+        }
+        else if (req.method == "GET" && req.path == "/api/v2/update/status")
+        {
+            res.body = ok({ { "progress", progress }, { "job", job } });
+        }
+        else if (req.method == "GET" && (req.path == "/api/v2/update/check" || req.path == "/api/v2/update/available"))
+        {
+            res.body = ok({ { "calaos-server", { { "name", "calaos-server" }, { "version", "4.6.0" }, { "current_version", "4.5.0" } } } });
+        }
+        else if (req.method == "POST" && (req.path == "/api/v2/update/upgrade-all" || req.path == "/api/v2/update/upgrade"))
+        {
+            const std::string pkg = body.is_object() && body.contains("package") && body["package"].is_string() ? body["package"].get<std::string>() : std::string();
+            if (req.path == "/api/v2/update/upgrade" && pkg != "calaos-server")
+            {
+                res.status = 404;
+                res.body = err("package_not_found");
+            }
+            else
+            {
+                nlohmann::json j = { { "id", "3f9c2a7e5b1d4c80" }, { "kind", pkg.empty() ? "upgrade_all" : "upgrade" }, { "status", "running" }, { "reboot_required", false }, { "daemon_restart", false }, { "started_at", "2026-10-22T09:12:03Z" } };
+                if (!pkg.empty())
+                    j["package"] = pkg;
+                res.status = 202;
+                res.body = ok(j);
+            }
+        }
+        else if (req.method == "POST" && (req.path == "/api/v2/system/reboot" || req.path == "/api/v2/system/restart"))
+        {
+            res.body = ok(nullptr);
+        }
+        else if (req.method == "GET" && req.path == "/api/v2/system/info")
+        {
+            res.body = ok({ { "hostname", "calaos" }, { "uptime", 1234 }, { "cpu_usage", 3 }, { "mem_usage", 41 } });
+        }
+        else if (req.method == "POST" && req.path == "/api/v2/admin/alerts/ack")
+        {
+            int acked = 0;
+            if (body.is_object() && body.contains("ids") && body["ids"].is_array())
+            {
+                for (const auto &id: body["ids"])
+                {
+                    for (auto it = alerts.begin(); it != alerts.end();)
+                    {
+                        if (id.is_string() && it->second == id.get<std::string>())
+                        {
+                            it = alerts.erase(it);
+                            acked++;
+                        }
+                        else
+                            ++it;
+                    }
+                }
+            }
+            res.body = ok({ { "acked", acked } });
         }
         else
         {

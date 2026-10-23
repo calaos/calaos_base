@@ -30,6 +30,7 @@
 #include "WagoMap.h"
 #include "HttpServer.h"
 #include "McpServerManager.h"
+#include "AdminEvents.h"
 #include "AdminState.h"
 #include "DaemonClient.h"
 #include "Prefix.h"
@@ -188,6 +189,7 @@ int main (int argc, char **argv)
     //LCOV_EXCL_START the server startup is not run by make check
     DaemonClient::Instance().configure();
     AdminState::Instance().start();
+    AdminEvents::Instance().start();
     //LCOV_EXCL_STOP
 
     if (enable_udp)
@@ -237,6 +239,11 @@ int main (int argc, char **argv)
     loop->run();
 
     McpServerManager::Instance().stop();
+    //LCOV_EXCL_START the server shutdown is not run by make check
+    //Before the clients go: no admin_event may reach a handler being torn down
+    AdminEvents::Instance().stop();
+    AdminState::Instance().stop();
+    //LCOV_EXCL_STOP
     HttpServer::Instance().disconnectAll();
 
     //Stop all wagomaps and wait for their threads to terminate correctly.

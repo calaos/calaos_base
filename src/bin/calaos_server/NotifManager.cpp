@@ -277,7 +277,8 @@ string NotifManager::buildPushBody(const vector<PushToken> &tokens, const string
     return jnotif.dump(-1, ' ', true, Json::error_handler_t::replace);
 }
 
-void NotifManager::sendPushNotification(const string &message, const string &notifPicUuid, std::function<void(void)> callbackSent)
+void NotifManager::sendPushNotification(const string &message, const string &notifPicUuid, std::function<void(void)> callbackSent,
+                                        std::function<void(bool)> callbackDone)
 {
     cDebugDom(TAG) << "Sending push notification with message: " << message;
 
@@ -287,6 +288,8 @@ void NotifManager::sendPushNotification(const string &message, const string &not
         if (!success)
         {
             cCriticalDom(TAG) << "Unable to send push notification: " << errorMsg;
+            if (callbackDone)
+                callbackDone(false);
             return;
         }
 
@@ -295,6 +298,8 @@ void NotifManager::sendPushNotification(const string &message, const string &not
         if (body.empty())
         {
             cInfoDom(TAG) << "No token registered. Cannot send push.";
+            if (callbackDone)
+                callbackDone(true);
             return;
         }
 
@@ -302,13 +307,22 @@ void NotifManager::sendPushNotification(const string &message, const string &not
         cDebugDom(TAG) << "Sending notif to service for " << tokens.size() << " token(s)";
 
         UrlDownloader *u = new UrlDownloader(pushServiceUrl, true);
-        u->m_signalComplete.connect([this, callbackSent](int statusCode)
-        {
+        u->m_signalComplete.connect([this, callbackSent, callbackDone](int statusCode)
+                                    {
             cDebugDom(TAG) << "Push notif sent with code: " << statusCode;
             //Optional: calling an empty one throws std::bad_function_call
             if (callbackSent)
                 callbackSent();
+            if (callbackDone)
+                callbackDone(statusCode >= 200 && statusCode < 300);
         });
-        u->httpPost(string(), body);
+        if (!u->httpPost(string(), body))
+        {
+            //LCOV_EXCL_START only reached when libcurl cannot create a handle
+            u->cancel();
+            if (callbackDone)
+                callbackDone(false);
+            //LCOV_EXCL_STOP
+        }
     });
 }

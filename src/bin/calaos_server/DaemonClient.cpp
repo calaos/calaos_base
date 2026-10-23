@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "DaemonClient.h"
+#include "JsonApi.h"
 #include "UrlDownloader.h"
 
 #include <cctype>
@@ -35,7 +36,9 @@ DaemonReply DaemonReply::parse(int status, const string &body, bool statusRoute)
     if (status <= 0)
         return r;
 
-    const Json j = Json::parse(body, nullptr, false);
+    //A document deeper than a request may be would exhaust the stack of the
+    //parser: it reads as an invalid answer
+    const Json j = JsonApi::requestNestingWithinLimit(body) ? Json::parse(body, nullptr, false) : Json();
     const bool envelope = j.is_object() && j.contains("error") && j["error"].is_boolean();
 
     string code;
@@ -164,6 +167,21 @@ void DaemonClient::readToken()
     token = Utils::trim(Utils::getFileContent(tokenFile.c_str()));
 }
 
+void DaemonClient::bearerRefused()
+{
+    if (bearerWarned)
+        return;
+    bearerWarned = true;
+    cWarningDom("admin") << "calaos-container still refuses the bearer of " << tokenFile;
+}
+
+void DaemonClient::bearerAccepted()
+{
+    if (bearerWarned)
+        cInfoDom("admin") << "calaos-container accepts the bearer again";
+    bearerWarned = false;
+}
+
 void DaemonClient::call(const Request &request, Callback callback)
 {
     if (base.empty())
@@ -200,14 +218,16 @@ void DaemonClient::send(const Request &request, Callback callback, bool retried)
 
         if (reply.kind == DaemonReply::Kind::Bearer && !retried)
         {
-            cInfoDom("admin") << "calaos-container refused the bearer, reading the token again";
+            cDebugDom("admin") << "calaos-container refused the bearer, reading the token again";
             readToken();
             send(request, callback, true);
             return;
         }
 
         if (reply.kind == DaemonReply::Kind::Bearer)
-            cWarningDom("admin") << "calaos-container still refuses the bearer of " << tokenFile;
+            bearerRefused();
+        else if (reply.kind != DaemonReply::Kind::Unreachable)
+            bearerAccepted();
 
         callback(reply);
     });

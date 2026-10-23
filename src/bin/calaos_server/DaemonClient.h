@@ -61,6 +61,8 @@ public:
     static constexpr long DefaultTimeout = 4;
     //update/check runs a synchronous apt-get update on the daemon side
     static constexpr long UpdateCheckTimeout = 120;
+    //system/restart waits for systemctl to restart the kiosk container
+    static constexpr long RestartTimeout = 30;
 
     struct Request
     {
@@ -91,14 +93,24 @@ public:
 
     void call(const Request &request, Callback callback);
 
+    //For the /events client, which talks to the daemon outside call()
+    const string &bearer() const { return token; }
+    void readToken();
+
+    /* A bearer refused again after a token re-read is logged once, until the
+     * daemon accepts it: a broken token would otherwise log at every poll.
+     */
+    void bearerRefused();
+    void bearerAccepted();
+
 private:
     DaemonClient();
 
     string base;
     string tokenFile;
     string token;
+    bool bearerWarned = false;
 
-    void readToken();
     void send(const Request &request, Callback callback, bool retried);
 };
 

@@ -79,6 +79,8 @@ calaos_server_SOURCES = \
         Calaos.h                                        \
         CalaosConfig.cpp                                \
         CalaosConfig.h                                  \
+        AdminEvents.cpp                                 \
+        AdminEvents.h                                   \
         AdminState.cpp                                  \
         AdminState.h                                    \
         DaemonClient.cpp                                \

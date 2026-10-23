@@ -26,6 +26,7 @@
 
 #include <algorithm>
 #include <fstream>
+#include <limits>
 #include <unistd.h>
 
 namespace Calaos
@@ -201,7 +202,30 @@ void AdminState::scheduleNextPoll()
         pollTimer->Reset(delay);
 }
 
-bool AdminState::recordAlert(const string &type, const string &id)
+namespace
+{
+
+bool remembered(const std::deque<string> &ids, const string &id)
+{
+    return std::find(ids.begin(), ids.end(), id) != ids.end();
+}
+
+void remember(std::deque<string> &ids, const string &id)
+{
+    ids.push_back(id);
+    if (ids.size() > MaxRecordedAlerts)
+        ids.pop_front();
+}
+
+} //namespace
+
+void AdminState::resetAlertPushes(double interval)
+{
+    alertPushInterval = interval;
+    lastAlertPush.clear();
+}
+
+bool AdminState::recordAlert(const string &type, const string &id, std::function<void(bool)> done)
 {
     string message;
     if (type == "admin_set")
@@ -211,19 +235,47 @@ bool AdminState::recordAlert(const string &type, const string &id)
     else
         return false;
 
-    if (std::find(recordedAlerts.begin(), recordedAlerts.end(), id) != recordedAlerts.end())
+    if (remembered(recordedAlerts, id))
         return false;
+    remember(recordedAlerts, id);
 
-    recordedAlerts.push_back(id);
-    if (recordedAlerts.size() > MaxRecordedAlerts)
-        recordedAlerts.pop_front();
+    if (!remembered(storedAlerts, id))
+    {
+        remember(storedAlerts, id);
+        HistEvent e = HistEvent::create();
+        e.event_type = CalaosEvent::EventPushNotification;
+        e.event_raw = Json{ { "message", message }, { "pic_uid", "" } }.dump(-1, ' ', true, Json::error_handler_t::replace);
+        HistLogger::Instance().appendEvent(e);
+    }
 
-    HistEvent e = HistEvent::create();
-    e.event_type = CalaosEvent::EventPushNotification;
-    e.event_raw = Json{ { "message", message }, { "pic_uid", "" } }.dump(-1, ' ', true, Json::error_handler_t::replace);
-    HistLogger::Instance().appendEvent(e);
+    const double now = Utils::getMainLoopTime();
+    const auto last = lastAlertPush.find(type);
+    if (last != lastAlertPush.end() && now - last->second < alertPushInterval)
+    {
+        cInfoDom("admin") << "Alert " << type << " stored without a push, one was sent less than "
+                          << (long)alertPushInterval << " s ago";
+        if (done)
+            done(true);
+        return true;
+    }
 
-    NotifManager::Instance().sendPushNotification(message);
+    //No push yet reads as one infinitely long ago
+    const double previous = last != lastAlertPush.end() ? last->second : -std::numeric_limits<double>::infinity();
+    lastAlertPush[type] = now;
+
+    //HistLogger's worker runs in order: the event above is stored before the
+    //tokens are read, so a successful push means both are done.
+    //A never destroyed singleton: `this` cannot dangle.
+    NotifManager::Instance().sendPushNotification(message, string(), {}, [this, type, id, done, previous](bool sent)
+                                                  {
+        if (!sent)
+        {
+            recordedAlerts.erase(std::remove(recordedAlerts.begin(), recordedAlerts.end(), id), recordedAlerts.end());
+            lastAlertPush[type] = previous;
+        }
+        if (done)
+            done(sent);
+    });
 
     return true;
 }

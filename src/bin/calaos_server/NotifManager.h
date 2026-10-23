@@ -46,7 +46,10 @@ public:
 
     // Note: The `notifPicUuid` parameter is optional and can be used to attach a picture to the push notification.
     // If provided it must be a valid UUID from an event in the history log (HistLogger::Instance().appendEvent(e))
-    void sendPushNotification(const string &message, const string &notifPicUuid = "", std::function<void(void)> callbackSent = {});
+    // `callbackDone` gets true once the push service took the push, or when no token is registered, false
+    // when it could not be sent.
+    void sendPushNotification(const string &message, const string &notifPicUuid = "", std::function<void(void)> callbackSent = {},
+                              std::function<void(bool)> callbackDone = {});
 
     //Request body for push.calaos.fr (gorush), empty when no token can be served.
     static string buildPushBody(const vector<PushToken> &tokens, const string &message,

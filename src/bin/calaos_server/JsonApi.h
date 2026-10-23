@@ -189,6 +189,16 @@ public:
     //The client answer for a failed daemon call, per the translation table
     static Json adminErrorFromReply(const DaemonReply &reply);
 
+    //The package rule of calaos-container's docs/API.md (Upgrade jobs)
+    static bool isValidPackageName(const string &name);
+
+    //The `admin` message: null when the action is in the closed table and its
+    //params are valid, the refusal otherwise
+    static Json adminRequestRefusal(const string &action, const Json &request);
+
+    //Transfer timeout of the daemon call behind a relayed action, 0 if none
+    static long adminRelayTimeout(const string &action);
+
     /* Resolves the picture of a push event to a path inside the push_pictures
      * cache directory. False when picUid tries to escape the directory or when
      * the file does not exist, and the caller must then answer a 404.
@@ -483,6 +493,8 @@ protected:
     static Json adminModeRefusal();
     //GET admin/status with the session: done(null) when it is valid
     void validateAdminSession(const string &session, const AdminAnswer &done);
+    //One row of the relay table, for a request adminRequestRefusal() accepted
+    void relayAdmin(const string &action, const Json &request, const string &session, const AdminAnswer &answer);
     string adminClientIp() const;
     //Drops the answer once this session object is gone
     AdminAnswer guardedAnswer(const AdminAnswer &answer);

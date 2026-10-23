@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "JsonApi.h"
+#include "AdminEvents.h"
 #include "AdminState.h"
 #include "DaemonClient.h"
 #include "HttpClient.h"
@@ -79,6 +80,46 @@ string passwordFieldError(const Json &request, const char *key, string &out)
     if (out.size() > MaxPasswordBytes)
         return string(key) + " is longer than 1024 bytes";
     return string();
+}
+
+//The closed relay table of calaos-container's docs/API.md: nothing of the
+//method, the path or the headers comes from the client
+struct RelayRow
+{
+    const char *action;
+    const char *method;
+    const char *path;
+    bool session;
+    long timeout;
+};
+
+const RelayRow relayTable[] = {
+    { "update_status", "GET", "update/status", false, DaemonClient::DefaultTimeout },
+    { "update_check", "GET", "update/check", true, DaemonClient::UpdateCheckTimeout },
+    { "update_available", "GET", "update/available", true, DaemonClient::DefaultTimeout },
+    { "update_upgrade_all", "POST", "update/upgrade-all", true, DaemonClient::DefaultTimeout },
+    { "update_upgrade", "POST", "update/upgrade", true, DaemonClient::DefaultTimeout },
+    { "system_reboot", "POST", "system/reboot", true, DaemonClient::DefaultTimeout },
+    { "system_restart", "POST", "system/restart", true, DaemonClient::RestartTimeout },
+    { "system_info", "GET", "system/info", true, DaemonClient::DefaultTimeout },
+};
+
+const RelayRow *relayRow(const string &action)
+{
+    for (const RelayRow &row: relayTable)
+    {
+        if (action == row.action)
+            return &row;
+    }
+    return nullptr;
+}
+
+//update/status without the package inventory
+Json householdUpdateStatus(const Json &data)
+{
+    const Json progress = data.is_object() && data.contains("progress") ? data["progress"] : Json();
+    const Json job = data.is_object() && data.contains("job") ? data["job"] : Json();
+    return Json{ { "progress", AdminEvents::householdStatus(progress) }, { "job", AdminEvents::householdJob(job) } };
 }
 
 Json adminNotSet()
@@ -183,6 +224,111 @@ Json JsonApi::adminErrorFromReply(const DaemonReply &reply)
 
     cErrorDom("admin") << "calaos-container answered " << reply.code;
     return adminError("internal", string());
+}
+
+bool JsonApi::isValidPackageName(const string &name)
+{
+    if (name.empty() || name.size() > 128 || name.find("..") != string::npos)
+        return false;
+
+    for (size_t i = 0; i < name.size(); i++)
+    {
+        const char c = name[i];
+        const bool alnum = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+        if (!alnum && (i == 0 || (c != '.' && c != '+' && c != '-')))
+            return false;
+    }
+    return true;
+}
+
+Json JsonApi::adminRequestRefusal(const string &action, const Json &request)
+{
+    static const std::set<string> phase2 = { "approver_list", "approver_enroll", "approver_confirm", "console_open" };
+
+    if (action == "mcp_regenerate")
+        return Json();
+
+    if (!relayRow(action))
+        return adminError("not_allowed", phase2.count(action) ? "Not available yet" : "Unknown admin action");
+
+    if (action == "update_upgrade")
+    {
+        const Json params = request.is_object() && request.contains("params") ? request["params"] : Json();
+        const auto it = params.is_object() ? params.find("package") : params.end();
+        if (!params.is_object() || it == params.end() || !it->is_string())
+            return adminError("invalid_request", "params.package is required");
+        if (!isValidPackageName(it->get<string>()))
+            return adminError("invalid_request", "Invalid package name");
+    }
+
+    return Json();
+}
+
+long JsonApi::adminRelayTimeout(const string &action)
+{
+    const RelayRow *row = relayRow(action);
+    return row ? row->timeout : 0;
+}
+
+namespace
+{
+
+void relayCall(const DaemonClient::Request &req, bool household, bool sessionOptional, const std::function<void(const Json &)> &answer)
+{
+    DaemonClient::Instance().call(req, [req, household, sessionOptional, answer](const DaemonReply &reply)
+                                  {
+        if (reply.kind == DaemonReply::Kind::Ok)
+        {
+            answer(Json{ { "success", "true" }, { "result", household ? householdUpdateStatus(reply.data) : reply.data } });
+            return;
+        }
+
+        //An expired session on update_status still gets what any household
+        //client may read: that is what lets a client resume without the password
+        if (sessionOptional && !household && reply.kind == DaemonReply::Kind::Error && reply.code == "bad_session")
+        {
+            DaemonClient::Request anonymous = req;
+            anonymous.session.clear();
+            relayCall(anonymous, true, true, answer);
+            return;
+        }
+
+        if (reply.kind == DaemonReply::Kind::Error && reply.code == "admin_not_set")
+            AdminState::Instance().observe(false);
+        else if (reply.kind == DaemonReply::Kind::TooOld)
+            AdminState::Instance().observeTooOld();
+
+        answer(JsonApi::adminErrorFromReply(reply));
+    });
+}
+
+} //namespace
+
+void JsonApi::relayAdmin(const string &action, const Json &request, const string &session, const AdminAnswer &answer)
+{
+    const RelayRow *row = relayRow(action);
+    if (!row)
+    {
+        answer(adminError("not_allowed", "Unknown admin action")); //LCOV_EXCL_LINE refused before
+        return;                                                    //LCOV_EXCL_LINE refused before
+    }
+
+    //update_status without a session is the household view, which carries no
+    //package inventory; the admin's session opens the full answer
+    const bool household = !row->session && !isValidAdminSession(session);
+
+    DaemonClient::Request req;
+    req.method = row->method;
+    req.path = row->path;
+    req.timeout = row->timeout;
+    req.clientIp = adminClientIp();
+    if (!household)
+        req.session = session;
+    //Built here from the validated name, whatever else params holds
+    if (action == "update_upgrade")
+        req.body = Json{ { "package", request["params"]["package"].get<string>() } };
+
+    relayCall(req, household, !row->session, answer);
 }
 
 bool JsonApi::secureTransport() const

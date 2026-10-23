@@ -188,6 +188,7 @@ CORE_SERVER_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/JsonApi.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/JsonApiAdmin.$(OBJEXT)               \
                   $(CALAOS_SERVER_BUILDDIR)/AdminState.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/AdminEvents.$(OBJEXT)                \
                   $(CALAOS_SERVER_BUILDDIR)/DaemonClient.$(OBJEXT)               \
                   $(CALAOS_SERVER_BUILDDIR)/ListeRoom.$(OBJEXT)                  \
                   $(CALAOS_SERVER_BUILDDIR)/ListeRule.$(OBJEXT)                  \
