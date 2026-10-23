@@ -346,6 +346,9 @@ et [JsonApiHandlerWS.cpp:116-229](../src/bin/calaos_server/JsonApiHandlerWS.cpp)
 | `login_service` | ❌ | ✅ | |
 | `settings` | ❌ | ✅ | |
 
+Les messages `admin_unlock`, `admin_set` et `admin` ne sont pas comptés ici : voir
+[Administration](#administration-admin_unlock-admin_set-admin).
+
 Action HTTP inconnue → `{"error":"unknown action"}` **si le corps était un JSON
 valide**, sinon HTTP 400 + fermeture
 ([JsonApiHandlerHttp.cpp:189-214](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)).
@@ -366,6 +369,476 @@ supprime le chemin muet.
 scénario ni seulement pour les clefs que la définition produit aujourd'hui. Rien
 d'autre dans `src/` n'utilise ce préfixe, donc la portée élargie est sans effet
 mesurable ; elle est plus large que ce que le tableau laisse lire.
+
+---
+
+## Administration (`admin_unlock`, `admin_set`, `admin`)
+
+> **Statut : contrat.** Cette section décrit le protocole que calaos_server **va**
+> implémenter (tickets CB2, CB1, CB3, CB4), que la webapp (WA1) et l'installer (CI1) codent
+> déjà contre, et dont le mock de la webapp et le faux daemon dérivent. Contrairement au reste
+> du document, elle n'est pas dérivée du code. Le plan est
+> `docs/admin/PLAN.md` ; le contrat du **daemon** est la section admin de
+> [`docs/API.md` de calaos-container](https://github.com/calaos/calaos-container/blob/main/docs/API.md),
+> dont le tableau « Relay table » et « Error translation » fixent ce que calaos_server envoie
+> et traduit. En cas de divergence entre ce texte et ce fichier sur le côté daemon, `API.md`
+> fait foi.
+
+### Principe
+
+Le mot de passe admin est distinct du mot de passe foyer (`cn_user` / `cn_pass`). Il est
+vérifié par le daemon calaos-container, jamais par calaos_server. Le déverrouillage rend une
+**session admin** opaque (`admin_session`) émise par le daemon.
+
+- **calaos_server ne garde aucune session.** Le client la conserve en mémoire et la renvoie à
+  chaque message qui la demande. Elle survit donc à un redémarrage de calaos_server.
+- Tout message admin exige d'abord une session foyer : `login` en WS, `cn_user` / `cn_pass` à
+  la racine en HTTP. Le mot de passe admin vient **en plus**, pas à la place.
+- Les trois messages admin sont **refusés en session service** (sidecar MCP) : voir
+  [Portée MCP](#portée-mcp).
+- Les trois messages répondent **toujours**, `msg_id` absent ou non (contrairement à
+  `set_state` / `register_push`), sauf le cas « ancien calaos_server » ci-dessous.
+
+| Message | WS (`msg`) | HTTP (`action`) |
+|---|:---:|:---:|
+| `admin_unlock` | ✅ | ✅ |
+| `admin_set` | ✅ | ✅ |
+| `admin` | ✅ | ❌ (`{"error":"unknown action"}`) |
+| `admin_event` (push serveur → client) | ✅ | ❌ |
+| `config` / `get_mcp_info` (déjà existants, gardés) | ❌ | ✅ |
+
+### Format d'erreur (WS et HTTP)
+
+Toute erreur admin a la même charge utile, aux deux transports :
+
+```json
+{"success": "false", "error": "bad_password", "msg": "Wrong admin password"}
+```
+
+- `error` est un **code** du vocabulaire ci-dessous. Le client branche sur `error`, jamais sur `msg`.
+- `msg` est une phrase anglaise lisible, destinée aux journaux et au repli d'affichage. Elle
+  ne contient jamais de chemin, de sortie de sous-processus ni de chaîne d'erreur Go.
+- Des champs facultatifs, **toujours des chaînes**, accompagnent certains codes :
+  `retry_after` (secondes) avec `rate_limited`, `job_id` avec `upgrade_in_progress`,
+  `min_length` avec `password_too_short`, `api_allowed_hosts` avec `admin_not_set`.
+- En WS la charge utile est sous `data`, avec `msg` et `msg_id` de l'enveloppe habituelle
+  (attention : le `msg` de l'enveloppe est le nom du message, le `msg` de `data` est le texte
+  d'erreur) :
+
+  ```json
+  {"msg": "admin_unlock", "msg_id": "4",
+   "data": {"success": "false", "error": "bad_password", "msg": "Wrong admin password"}}
+  ```
+- En HTTP la charge utile est le corps de la réponse, avec le statut **200**. Les nombres de
+  la colonne « Statut daemon » du vocabulaire sont les statuts **du daemon**, donnés à titre
+  indicatif : calaos_server ne les reproduit pas. Seul l'échec d'authentification foyer
+  garde son comportement actuel (HTTP 400 et fermeture).
+- Un ancien installer qui reçoit un refus sur `config` affiche `error` tel quel : les codes
+  sont donc choisis lisibles. Voir [`config`](#config--clé-type-http-uniquement-2).
+
+Cas d'erreur d'un `config` / `get_mcp_info` refusé : la même charge utile
+(`{"success":"false","error":"bad_session","msg":"…"}`), à la place de la réponse habituelle.
+
+### Vocabulaire des codes
+
+| Code | Statut daemon | Cas | Texte conseillé côté client |
+|---|---|---|---|
+| `admin_not_set` | 409 | l'admin n'est pas défini ; porte en plus `api_allowed_hosts` (chaîne, valeur brute de l'option, `""` si absente) | proposer le bootstrap, afficher `api_allowed_hosts` |
+| `admin_already_set` | 409 | bootstrap alors qu'un admin existe, y compris une course perdue entre deux bootstraps | « Quelqu'un vient de définir le mot de passe admin », avec bannière |
+| `bad_password` | 403 | mot de passe admin faux | « Mot de passe admin incorrect » |
+| `rate_limited` | 429 | limiteur du daemon (environ 5 échecs par minute, global), vérification déjà en cours, ou `LoginThrottle` de calaos_server | « Trop d'essais, réessayez dans `retry_after` s » |
+| `household_password_required` | n/a | bootstrap refusé : identifiants foyer vides, `user` / `pass` ou clés legacy | « Changez d'abord le mot de passe foyer » (`change_cred`) |
+| `bad_session` | 401 | `admin_session` absente, vide, inconnue, expirée ou invalidée (`admin_set`, `admin_reset`, 5 échecs de code push en phase 2) | redemander le mot de passe admin, **sans message d'erreur** |
+| `password_too_short` | 400 | nouveau mot de passe de moins de 10 caractères | afficher la longueur minimale (`min_length`) |
+| `https_required` | n/a | transport non sûr, voir [Transport](#transport-securetransport) | « Utilisez https:// » |
+| `daemon_too_old` | 404 | un ancien daemon, encore en mémoire, ne connaît pas les routes admin | « Activation de l'administration en cours », nouvel essai automatique ; « Redémarrez la box » seulement si l'état dure plus de 2 min |
+| `daemon_unreachable` | n/a | daemon injoignable alors que l'admin a déjà été vu défini ; erreur de bearer persistante | réessayer |
+| `admin_unavailable` | n/a | daemon injoignable et admin jamais vu défini (Docker, dev, autre distribution) | « Administration indisponible (calaos-container injoignable ; disponible seulement sur Calaos OS) », nouvel essai automatique |
+| `upgrade_in_progress` | 409 | une mise à jour est déjà en cours (`update_check`, `update_upgrade*`, `system_reboot`) | « Une mise à jour est déjà en cours » |
+| `not_allowed` | 403 | action hors de la table, scope MCP, action de phase 2 pas encore livrée | afficher `msg` |
+| `invalid_request` | 400 | champ manquant ou invalide (`new_pass`, `action`, `package`…) | afficher `msg` |
+| `package_not_found` | 404 | le paquet de `update_upgrade` n'a pas de mise à jour en attente | afficher `msg` |
+| `internal` | 500 | tout le reste ; le détail est dans le journal de calaos_server | message générique |
+
+Les codes de `invalid_request` à `internal` complètent le vocabulaire du plan : ils viennent
+de la traduction des erreurs du daemon.
+
+### Traduction des erreurs du daemon
+
+calaos_server traduit la réponse du daemon ainsi (reprise de la section « Error translation »
+de `API.md`) :
+
+| Réponse du daemon | Code renvoyé au client |
+|---|---|
+| connexion refusée, délai dépassé, réponse invalide | `daemon_unreachable` ou `admin_unavailable`, selon [`AdminState`](#état-admin-et-règle-collante) |
+| `401` dont le `code` n'est pas `bad_session` (y compris un corps sans `code`), après relecture du token et **une** nouvelle tentative | `daemon_unreachable` |
+| `404` sur `GET /api/v2/admin/status` (quel que soit le corps), ou tout `404` sur `/api/v2/` dont le corps n'est pas une enveloppe avec un `code` | `daemon_too_old` |
+| `bad_session`, `bad_password`, `rate_limited`, `password_too_short`, `admin_not_set`, `admin_already_set`, `upgrade_in_progress`, `not_allowed` | le même code |
+| `invalid_request`, `package_not_found` | le même code, avec le `msg` du daemon (affichable sans risque) |
+| `internal`, `not_found`, `method_not_allowed`, tout code inconnu | `internal` |
+
+`rate_limited` recopie `retry_after` ; `upgrade_in_progress` recopie `job_id` ;
+`password_too_short` recopie `min_length` (la longueur est vérifiée par le daemon seul). Chaque appel relayé porte `X-Calaos-Client-IP` (voir `API.md`, « request headers »), posé
+par calaos_server depuis `getEffectiveClientIp()`. Un `401` persistant du bearer sur
+`admin/status` compte comme « réponse invalide » pour `AdminState` (drapeau conservé). Un `401` sans
+`code: bad_session` est une erreur de **bearer**, jamais de session : sans cette distinction,
+un token périmé ferait redemander le mot de passe admin en boucle.
+
+Règle du paquet (`update_upgrade`) : calaos_server applique la règle de `API.md`
+(section « Upgrade jobs », « `package` must match… ») et **non** la seule expression
+`^[A-Za-z0-9.+-]+$` : ce motif, plus le premier caractère lettre ou chiffre, l'absence de
+`..` et au plus 128 caractères. Un nom invalide donne `invalid_request` sans appel au daemon.
+Le nom voyage dans le corps JSON de l'appel au daemon, jamais dans le chemin ni la requête.
+
+### Transport (`secureTransport`)
+
+Un seul prédicat, `secureTransport()`, décide si un message admin est accepté : le pair TCP
+est en **loopback** (haproxy) **et** `X-Forwarded-Proto` vaut `https`. Un en-tête absent
+est un refus (fail closed). Aucune interface, aucune plage VPN n'est jugée sûre.
+
+- Requiert `secureTransport()` : `admin_unlock`, `admin_set`, **tous** les `admin`
+  (`update_status` compris) et, **une fois l'admin défini**, `config` et `get_mcp_info`.
+- Ne le requiert pas : le reste de l'API foyer, ainsi que `config` et `get_mcp_info` tant que
+  l'admin n'est pas défini.
+- Refus : `https_required`. La connexion WS n'est pas fermée et le handshake sur le port 5454
+  en clair reste accepté ; seuls les messages admin sont refusés.
+- Un client qui s'est souvenu d'un hôte `http://…:5454` réécrit l'URL en `https://` et
+  réessaie **une fois** (CI1). La webapp affiche « Utilisez https:// ».
+- Exception, dans l'autre sens : `admin_event` est diffusé à toute connexion WS authentifiée,
+  port 5454 compris, car il ne porte rien de sensible (voir [Événements](#événements-admin_event)).
+
+Le prédicat n'est pas infalsifiable : un conteneur du réseau hôte peut forger l'en-tête.
+
+### Messages
+
+En HTTP, `admin_unlock` et `admin_set` ne lisent que le corps JSON. Un corps qui n'est pas un
+objet JSON donne `invalid_request` sans appel au daemon : `admin_pass`, `new_pass` et
+`admin_session` ne sont jamais lus dans les paramètres GET. WA1 n'envoie un message admin
+qu'après un `login` réussi (avant, le serveur l'ignore en silence).
+
+#### `admin_unlock`
+
+Vérifie le mot de passe admin et rend une session.
+
+Les échecs admin sont comptés par `LoginThrottle` sous une clef distincte (`admin:<ip>`), que
+seul `admin_unlock` consulte et que seul un `admin_unlock` réussi efface. Si cette clef est
+bloquée, la réponse est `rate_limited` avec `retry_after` (secondes restantes, arrondies au
+dessus), sans appel au daemon. Un échec admin ne ferme pas la connexion et ne bloque pas le
+login foyer. En HTTP, le blocage du login foyer garde son comportement actuel (HTTP 400 et
+fermeture).
+
+```json
+// WS — requête
+{"msg": "admin_unlock", "msg_id": "2", "data": {"admin_pass": "correct horse battery"}}
+// WS — réponse
+{"msg": "admin_unlock", "msg_id": "2",
+ "data": {"success": "true", "admin_session": "9b1f…e4", "expires_in": "900"}}
+```
+
+```json
+// HTTP — requête (POST /api.php)
+{"action": "admin_unlock", "cn_user": "user", "cn_pass": "pass", "admin_pass": "correct horse battery"}
+// HTTP — réponse
+{"success": "true", "admin_session": "9b1f…e4", "expires_in": "900"}
+```
+
+- `admin_session` : 64 caractères hexadécimaux, opaque. calaos_server refuse en `bad_session`,
+  sans appeler le daemon, toute `admin_session` qui ne vérifie pas `^[0-9a-f]{64}$`. `expires_in` : secondes restantes
+  (`"900"` à l'émission). La durée est **absolue** : l'utiliser ne la prolonge pas.
+- Erreurs : `https_required`, `rate_limited`, `invalid_request` (`admin_pass` absent),
+  `not_allowed` (portée MCP), `admin_not_set`, `bad_password`, `daemon_too_old`, `daemon_unreachable`,
+  `admin_unavailable`, `internal`.
+- Un nouveau déverrouillage émet une nouvelle session sans invalider les précédentes (le
+  daemon en garde au plus 32 ; au-delà, la plus ancienne est supprimée et répond alors
+  `bad_session`).
+
+#### `admin_set`
+
+Définit le mot de passe admin (bootstrap) ou le change. Le mode se déduit de la requête :
+
+| `admin_session` | État | Mode | Résultat |
+|---|---|---|---|
+| absente | admin non défini | **bootstrap** | défini |
+| absente | admin défini | | `admin_already_set` |
+| présente | admin défini | **changement** | remplacé si la session est valide, sinon `bad_session` |
+| présente (vide comprise) | admin non défini | | `admin_not_set` (répondu par calaos_server selon `AdminState`) |
+
+Si `AdminState` est en retard et que le daemon répond `bad_session`, ce code est renvoyé.
+Une clef `admin_session` présente mais vide compte comme **présente** (donc `bad_session` si l'admin est défini, `admin_not_set` sinon),
+et `recovery` n'existe pas ici : le mode récupération n'est envoyé que par
+`calaos-os admin set`, jamais relayé.
+
+```json
+// WS — bootstrap
+{"msg": "admin_set", "msg_id": "3", "data": {"new_pass": "a long admin password"}}
+// WS — changement
+{"msg": "admin_set", "msg_id": "3",
+ "data": {"new_pass": "another long password", "admin_session": "9b1f…e4"}}
+// WS — réponse
+{"msg": "admin_set", "msg_id": "3", "data": {"success": "true", "mode": "bootstrap"}}
+```
+
+```json
+// HTTP — requête
+{"action": "admin_set", "cn_user": "user", "cn_pass": "pass",
+ "new_pass": "a long admin password", "admin_session": "9b1f…e4"}
+// HTTP — réponse
+{"success": "true", "mode": "change"}
+```
+
+- `mode` vaut `"bootstrap"` ou `"change"`.
+- **Aucune session n'est renvoyée** : toutes les sessions sont invalidées (la sienne
+  comprise). Le client enchaîne par `admin_unlock`.
+- **Bootstrap refusé** (`household_password_required`) si les identifiants foyer effectifs,
+  après le repli de `checkCredentials` sur les clés legacy, sont vides, valent `user` / `pass`,
+  ou viennent des clés `calaos_user` / `calaos_password`. Le client invite alors à changer le
+  mot de passe foyer d'abord (`change_cred`).
+- `new_pass` : au moins 10 caractères (points de code Unicode) et au plus 1024 octets UTF-8.
+  Plus court : `password_too_short`.
+- Erreurs : `https_required`, `invalid_request` (`new_pass` absent), `not_allowed` (portée MCP),
+  `household_password_required`,
+  `admin_already_set`, `admin_not_set`, `bad_session`, `password_too_short`, `rate_limited`,
+  `daemon_too_old`, `daemon_unreachable`, `admin_unavailable`, `internal`.
+- Chaque réussite publie l'alerte `admin_set` (push à tous les jetons et événement persistant
+  affiché au login suivant) et l'événement WS [`admin_event`](#événements-admin_event).
+- En phase 2, le changement exigera en plus le code push ; la forme sera ajoutée ici.
+
+#### `admin`
+
+Relaye une action de la table fermée vers le daemon. **WS uniquement.**
+
+```json
+{"msg": "admin", "msg_id": "5",
+ "data": {"action": "update_upgrade", "admin_session": "9b1f…e4",
+          "params": {"package": "calaos-server"}}}
+```
+
+```json
+{"msg": "admin", "msg_id": "5",
+ "data": {"success": "true",
+          "result": {"id": "3f9c2a7e5b1d4c80", "kind": "upgrade", "package": "calaos-server",
+                     "status": "running", "reboot_required": false, "daemon_restart": false,
+                     "started_at": "2026-10-22T09:12:03Z"}}}
+```
+
+- `action` est une valeur de la table ci-dessous. Une autre valeur donne `not_allowed`.
+  Aucun chemin, en-tête ni champ de corps ne vient du client, à part `params.package`.
+- `result` est le champ `data` de la réponse du daemon, **recopié tel quel, avec ses types
+  JSON** (booléens, nombres, objets imbriqués). C'est la troisième exception à la règle
+  « tout est chaîne » (après l'objet `device` et `eventlog`) ; `success` reste une chaîne.
+  Les formes des `result` sont définies par `API.md` (`<Job>`, `<Status>`, etc.).
+- `admin_session` est requise partout, **sauf** `update_status`.
+
+| `action` | `params` | Appel du daemon | Session | `result` |
+|---|---|---|:---:|---|
+| `update_status` | | `GET update/status` | non | `{"progress": <Status>, "job": <Job> ou null}` |
+| `update_check` | | `GET update/check` | oui | paquets à mettre à jour |
+| `update_available` | | `GET update/available` | oui | idem, sans contacter les miroirs |
+| `update_upgrade_all` | | `POST update/upgrade-all` | oui | `<Job>` (le daemon répond 202 et le job tourne) |
+| `update_upgrade` | `package` | `POST update/upgrade` | oui | `<Job>` |
+| `system_reboot` | | `POST system/reboot` | oui | `null` |
+| `system_restart` | | `POST system/restart` (relance le kiosque `calaos-home`) | oui | `null` |
+| `system_info` | | `GET system/info` | oui | `{hostname, uptime, cpu_usage, mem_usage}` |
+| `mcp_regenerate` | | aucun : traité dans calaos_server | oui | `{}` |
+| `approver_list`, `approver_enroll`, `approver_confirm`, `console_open` | | phase 2 | oui | `not_allowed` tant que non livrés |
+
+Chemins relatifs à `/api/v2/`. Jamais relayés, quoi que le client envoie : `system/install/*`,
+`system/rollback_snapshot`, `system/fs_status`, `network/*`, `update/installed`,
+`admin/reset`, `admin/alerts/ack`, `admin/push/*`, `admin/set` avec `recovery`.
+
+- **`update_status` sans session** : accepté une fois l'admin défini, sous
+  `secureTransport()`. C'est ce qui permet à n'importe quel client foyer de reprendre l'affichage
+  d'une mise à jour en cours après une reconnexion, sans redemander le mot de passe admin.
+  Admin non défini : `admin_not_set`.
+- **Session manquante ou vide** sur une action qui l'exige : calaos_server répond lui-même
+  `bad_session` et **n'appelle pas** le daemon, car sans l'en-tête le bearer seul
+  autorise.
+- **`update_upgrade_all` / `update_upgrade`** rendent un `<Job>` sans attendre la fin : suivre
+  l'avancement par `admin_event` et `update_status` (voir
+  [Reprise après coupure](#reconnexion-et-reprise-de-la-webapp)). Tant que CC3 n'est pas
+  livré côté daemon, `/api/v2/` n'a pas de route d'upgrade : le relais `update_upgrade*`
+  n'est donc jamais livré avant CC3.
+- **`system_reboot`** : `upgrade_in_progress` pendant un job.
+- **`mcp_regenerate`** régénère `mcp_token`, puis redémarre le sidecar MCP. Les clients MCP
+  déjà configurés avec l'ancien jeton sont refusés ; le nouveau se lit par `get_mcp_info`.
+  La session est validée auprès du daemon comme pour `config` (voir plus bas).
+- Erreurs possibles : `https_required`, `invalid_request`, `not_allowed`, `bad_session`,
+  `admin_not_set`, `upgrade_in_progress`, `package_not_found`, `rate_limited`,
+  `daemon_too_old`, `daemon_unreachable`, `admin_unavailable`, `internal`.
+
+### `config` et `get_mcp_info` une fois l'admin défini
+
+Ces deux actions **HTTP** existent déjà ([`config`](#config--clé-type-http-uniquement-2),
+[`get_mcp_info`](#get_mcp_info--http-uniquement)). Dès que l'admin est défini, elles exigent :
+
+- `secureTransport()` (sinon `https_required`) ;
+- `admin_session` **dans le corps JSON**, jamais dans l'URL : haproxy journalise les URL, et
+  le repli sur les paramètres GET (corps non JSON) ne lit **pas** cette clef.
+  `get_mcp_info` accepte pourtant ce repli pour ses autres champs : sans session dans le corps,
+  la réponse est `bad_session`.
+
+```json
+// config get, admin défini
+{"action": "config", "type": "get", "cn_user": "user", "cn_pass": "pass",
+ "admin_session": "9b1f…e4"}
+// get_mcp_info, admin défini
+{"action": "get_mcp_info", "cn_user": "user", "cn_pass": "pass", "admin_session": "9b1f…e4"}
+// refus
+{"success": "false", "error": "bad_session", "msg": "Admin session required"}
+```
+
+L'installer déverrouille **une fois** par dialogue (`admin_unlock`), puis réutilise
+`admin_session` pour ses `config get` / `put` successifs. `admin_pass` n'est jamais envoyé
+avec `config`. La session expire 15 min après l'émission, quoi qu'il fasse : sur `bad_session`
+l'installer redemande le mot de passe.
+
+Pour valider la session, calaos_server appelle `GET /api/v2/admin/status` avec
+`X-Calaos-Admin-Session`, et n'accepte que `200` avec `admin_set: true`. Après un
+`admin_reset`, la session est invalidée : la réponse est `bad_session`, et `AdminState` passe
+à « non défini » à l'événement `admin_reset`.
+
+`change_cred` (mot de passe **foyer**) n'est pas concerné : il reste au niveau foyer, car il
+exige déjà l'ancien mot de passe.
+
+Ordre des contrôles pour tout message gardé : authentification foyer, portée MCP,
+`secureTransport()`, `LoginThrottle` admin (`admin_unlock`), validation de la requête (table,
+champs), état (`AdminState`), présence et format de la session, appel du daemon.
+
+### Portée MCP
+
+`admin_unlock`, `admin_set` et `admin` rejoignent la liste des messages refusés en session
+service (11 au lieu de 9). Le refus a la forme d'erreur admin avec `not_allowed` et
+`"msg": "scope denied"`. La console ne se connecte pas non plus avec un mot de passe : seul un
+ticket l'authentifie (phase 2).
+
+### État admin et règle collante
+
+`AdminState` (module de calaos_server, livré par CB2) lit `GET /api/v2/admin/status` du daemon :
+au démarrage, puis toutes les 60 s (toutes les 5 s pendant les 2 premières minutes tant que
+l'état est inconnu), et à chaque `admin_set` ou `admin_reset` reçu sur `/events` (CB3).
+Un drapeau persistant `admin_seen_set` (fichier du même nom dans `Utils::getCachePath()`)
+mémorise qu'un admin a été vu défini.
+
+| Daemon | Drapeau | Admin | Effet |
+|---|---|---|---|
+| joignable, `admin_set: true` | posé | défini | règles ci-dessus |
+| joignable, `admin_set: false` | effacé | non défini | `admin_unlock` / `admin` : `admin_not_set` ; `admin_set` bootstrap ; `config`, `get_mcp_info` comme aujourd'hui ; Origin et ACAO comme aujourd'hui |
+| joignable, `404` (ancien daemon) | effacé | non défini | `admin*` : `daemon_too_old` ; le reste comme aujourd'hui |
+| injoignable ou réponse invalide | **présent** | présumé défini | **fermé** : `config`, `get_mcp_info` et `admin*` répondent `daemon_unreachable` ; le contrôle d'Origin s'applique et ACAO n'est plus reflété |
+| injoignable ou réponse invalide | absent | inconnu | tout se comporte comme aujourd'hui (Docker, dev, box sans admin) ; `admin*` répondent `admin_unavailable` |
+
+Quand le daemon est joignable, sa réponse fait foi. Seule la fenêtre « un admin vient d'être
+défini mais calaos_server n'a encore jamais joint le daemon » (drapeau absent) se comporte
+comme sans admin tant que le daemon est injoignable.
+
+L'URL du daemon est `http://127.0.0.1:8000` ; `CALAOS_CONTAINER_URL` et
+`CALAOS_CONTAINER_TOKEN_FILE` la surchargent pour les tests (lues au démarrage, hôte
+`127.0.0.1` ou `::1` seulement). Le bearer est lu dans `/run/calaos/calaos-ct.token`, au
+démarrage et à chaque `401`.
+
+### Événements (`admin_event`)
+
+calaos_server est abonné en permanence à `/api/v2/events` du daemon (CB3) et pousse aux
+clients WS authentifiés, **port 5454 compris**, un message non sollicité (sans `msg_id`) :
+
+```json
+{"msg": "admin_event",
+ "data": {"type": "upgrade_progress", "ts": "2026-10-22T09:12:05Z",
+          "data": {"status": "upgrading", "total_percent": 42, "current_pkg": "calaos-server", "…": "…"}}}
+{"msg": "admin_event",
+ "data": {"type": "admin_set", "ts": "2026-10-22T09:14:00Z"}}
+```
+
+- `ts` : horodatage RFC 3339 UTC. Pour `upgrade_progress`, c'est l'heure de réception par calaos_server. Pour `admin_set` / `admin_reset` c'est l'horodatage de
+  l'alerte, **sans** `id` ni autre champ (pas de `data`).
+- `upgrade_progress` : `data` est l'objet `<Status>` de `API.md`, tel quel (types JSON natifs).
+- C'est **tout** ce que reçoit un client foyer. `upgrade_job` n'est pas retransmis : pour
+  connaître le job ou `reboot_required`, lire `admin {update_status}`. `push_code` est consommé
+  par calaos_server (phase 2). Tout autre type est ignoré.
+- calaos_server ne retransmet une alerte `admin_set` / `admin_reset` qu'à sa première réception (dédoublonnage sur `id`, conservé jusqu'à l'ack).
+- Aucun rejeu : un événement émis pendant qu'un client est déconnecté est perdu.
+
+### Origin
+
+Les contrôles décrits ici sont ceux de CB1 ; ils s'appliquent au handshake WS **et** aux
+requêtes HTTP `/api.php`.
+
+- Absence d'`Origin` : acceptée (clients natifs : installer, mobile, remote_ui, MCP).
+- `Origin: null` : refusé. Casse, point final et port par défaut sont normalisés ; le port
+  n'est comparé que si `Host` en contient un.
+- Un Origin est accepté dans trois cas : pair loopback avec `X-Forwarded-Proto: https` et hôte
+  de l'Origin égal à `Host` ; hôte qui est une IP portée par une interface de la box ; hôte de
+  l'option `api_allowed_hosts`.
+- Refus : HTTP 403 avant le handshake ou la requête, sans `Access-Control-Allow-Origin`
+  (celui-ci n'est renvoyé que pour un Origin accepté).
+- **Tant que l'admin n'est pas défini** (selon `AdminState`), rien ne change : tout Origin est
+  accepté et `Access-Control-Allow-Origin` reflète comme aujourd'hui. Les Origins qui seraient
+  refusés sont seulement journalisés. Le contrôle s'applique dès que l'admin est défini, et
+  aussi quand le daemon est injoignable avec le drapeau `admin_seen_set` présent.
+- En développement, le proxy Vite réécrit l'Origin vers la cible (WA2).
+
+### Cas de fonctionnement
+
+| Situation | `admin_unlock` / `admin` | `admin_set` | `config`, `get_mcp_info` | Origin |
+|---|---|---|---|---|
+| Admin non défini, daemon joignable | `admin_not_set` | bootstrap | comme aujourd'hui | comme aujourd'hui |
+| Admin défini, daemon joignable | normal | changement (session) ou `admin_already_set` | session + `secureTransport()` | contrôlé |
+| Aucun daemon (Docker, dev), jamais d'admin vu | `admin_unavailable` | `admin_unavailable` | comme aujourd'hui | comme aujourd'hui |
+| Daemon injoignable, drapeau posé | `daemon_unreachable` | `daemon_unreachable` | `daemon_unreachable` | contrôlé |
+| Ancien daemon encore en mémoire | `daemon_too_old` | `daemon_too_old` | comme aujourd'hui | comme aujourd'hui |
+| Ancien calaos_server | **aucune réponse** | aucune réponse | comme aujourd'hui | n/a |
+
+Un ancien calaos_server ignore en silence un message WS inconnu, et répond
+`{"error":"unknown action"}` à une action HTTP inconnue. Le client WS doit donc armer le
+délai de 5 s ci-dessous.
+
+### Délais
+
+| Délai | Valeur | Qui |
+|---|---|---|
+| Réponse à `admin_unlock` (client → « calaos-server trop ancien, mettez à jour la box ») | **5 s** | webapp (WA1). Une vérification légitime répond avant, car le daemon refuse tout de suite (`429`) une vérification concurrente au lieu de la mettre en file. Les 4 s supposent qu'une opération argon2id du daemon (CC1) tient en moins de 3 s sur la plus lente des box supportées. calaos_server ne met jamais lui-même en file un appel admin |
+| Appel de calaos_server au daemon | 4 s par défaut (connexion et réponse) ; **120 s pour `update_check`** (`apt-get update` synchrone) | calaos_server (CB2/CB3) |
+| Réponse aux messages admin (client) | 5 s pour `admin_unlock`, `admin_set` et tout `admin` sauf `update_check` ; 125 s pour `update_check` | webapp (WA1) |
+| Durée de la session admin | **15 min absolues** à l'émission, non glissantes | daemon |
+| Sondage de `admin/status` | 60 s ; 5 s pendant les 2 premières minutes tant que l'état est inconnu ; l'échec n'est journalisé qu'une fois | `AdminState` |
+| `admin_unavailable` : nouvel essai | toutes les 5 s pendant les 2 premières minutes, puis toutes les 60 s | webapp (WA1), même cadence que le sondage d'`AdminState` |
+| `daemon_too_old` : bascule sur « Redémarrez la box » | 2 min d'état persistant | webapp |
+| `rate_limited` | `retry_after` secondes (champ de l'erreur) | daemon, `LoginThrottle` |
+| Ping WS client | 15 s (existant) ; haproxy `timeout tunnel 3600s` | calaos_server |
+| Alertes `admin_set` / `admin_reset` | persistées par le daemon jusqu'à l'ack, rejouées à chaque abonné `/events` | daemon |
+
+### Reconnexion et reprise de la webapp
+
+calaos_server ne garde rien : tout l'état utile est côté client ou côté daemon. Une
+coupure (redémarrage de calaos_server par sa propre mise à jour, perte de réseau) se
+rattrape ainsi :
+
+1. Reconnecter le WS (avec attente croissante), puis `login` foyer.
+2. **Garder la même `admin_session`** et la renvoyer. Si la session est encore valable, aucune
+   saisie n'est nécessaire (elle survit aussi à un redémarrage du daemon).
+3. Envoyer `admin {action: update_status}`. Il ne demande pas de session et donne l'état
+   courant de la mise à jour (`result.progress`) et le dernier job (`result.job`). C'est la
+   source de vérité : les événements ne sont pas rejoués.
+4. Sur `bad_session` à n'importe quel message : redemander le mot de passe admin, **sans
+   message d'erreur** (session expirée, ou invalidée par un `admin_set` / `admin_reset`).
+   Rejouer ensuite l'action qui avait échoué, sauf `update_upgrade*` : relire d'abord
+   `update_status`, car l'upgrade a pu partir.
+5. Suivre une mise à jour : lancer `update_upgrade*` et garder `result.id`, afficher les
+   `admin_event` `upgrade_progress`, et s'arrêter quand `progress.status` vaut `done` ou
+   `error`. Puis lire `update_status` une dernière fois pour `job.reboot_required` et
+   `job.error`.
+6. Si `update_status` rend `admin_not_set` après un `admin_reset` (événement ou non), revenir
+   à l'écran de bootstrap.
+7. `admin_unavailable` : nouvel essai selon la cadence des Délais ; `daemon_too_old` et
+   `daemon_unreachable` : attente croissante. Dans les deux cas, sans effacer la session.
+8. Un `admin_event` `admin_set` ou `admin_reset` reçu pendant qu'une session est ouverte
+   signifie que celle-ci est invalidée : l'oublier. Les alertes manquées pendant une
+   déconnexion sont rejouées par le daemon à calaos_server, qui les présente au login suivant
+   (événement persistant).
+
+Compatibilité : webapp neuve contre calaos_server ancien, `admin_unlock` reste sans réponse
+(voir Délais) ; installer ancien contre serveur neuf, le refus de `config get` est affiché
+tel quel (`error` est lisible).
 
 ---
 
@@ -457,6 +930,9 @@ Voir [10_events_notifications.md](10_events_notifications.md) pour le détail.
 [JsonApiHandlerHttp.cpp:388-427](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)).
 
 ### `config` — clé `type` (HTTP uniquement, 2)
+
+Une fois l'admin défini, `config` exige `secureTransport()` et une `admin_session` : voir
+[Administration](#administration-admin_unlock-admin_set-admin).
 
 | `type` | Effet | Réponse |
 |---|---|---|
@@ -1123,6 +1599,8 @@ Réponse : `{"success":"true"}` (dans `data` en WebSocket, muette sans `msg_id`)
 Cette action n'existe **pas** dans le dispatch WebSocket : elle n'est câblée que
 dans `JsonApiHandlerHttp`
 ([JsonApiHandlerHttp.cpp:176-188](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)).
+Une fois l'admin défini, elle exige `secureTransport()` et une `admin_session` dans le corps :
+voir [Administration](#administration-admin_unlock-admin_set-admin).
 ```json
 // Requête (dérivée)
 {"action": "get_mcp_info", "cn_user": "user", "cn_pass": "pass"}
