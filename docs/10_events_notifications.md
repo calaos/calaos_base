@@ -512,7 +512,9 @@ son téléphone approbateur par ce nom (`admin {approver_candidates}`, voir
 ne va qu'à un seul jeton : `NotifManager::sendPushNotificationTo()`, qui retrouve le
 jeton dans `push_tokens` (plateforme et format) et ne poste que lui. La colonne `approver`
 (entier, 0 par défaut, ajoutée avec `device_name`) marque le jeton d'un approbateur :
-un réenregistrement n'en change alors ni le nom ni le format.
+un réenregistrement n'en change alors ni le nom ni le format. La colonne `registered_at`
+(texte) garde la date du premier enregistrement ; à sa création, les jetons existants
+reçoivent leur `created_at`, la date de leur dernier enregistrement.
 
 #### Requête envoyée à push.calaos.fr
 

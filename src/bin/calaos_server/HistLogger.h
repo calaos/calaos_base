@@ -78,6 +78,8 @@ public:
     bool approver = false;
     //Refreshed at every register_push: the last time the app was seen
     string created_at;
+    //The first register_push; the last seen time for tokens older than the column
+    string registered_at;
 };
 
 class HistLogger
@@ -144,7 +146,7 @@ namespace PushTokenDb
 //Creates the table and adds push_format, device_name and approver to tables
 //from older servers. False when push_format is still missing (database locked
 //or read only): tokens are then stored and read in the notification format.
-//*hasName tells the same of device_name and approver. *locked tells a failure
+//*hasName tells the same of device_name, approver and registered_at. *locked tells a failure
 //that a later call may not hit.
 bool prepare(sqlite::database &db, bool *locked = nullptr, bool *hasName = nullptr);
 void save(sqlite::database &db, const PushToken &token, bool hasFormat, bool hasName = false);

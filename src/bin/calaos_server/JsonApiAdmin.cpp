@@ -484,11 +484,23 @@ string rfc3339(const string &sqliteTime)
     return usable ? sqliteTime.substr(0, 10) + "T" + sqliteTime.substr(11) + "Z" : string();
 }
 
-//push_tokens without a single token: the token never leaves this server but
-//to the daemon (enrolment) and the push service
-void relayCandidates(const DaemonClient::Request &req, const std::function<void(const Json &)> &answer)
+//What tells phones apart when they share a name (every iPhone is "iPhone"):
+//empty for an approver whose token left push_tokens
+Json phoneFields(const PushToken *t)
 {
-    DaemonClient::Instance().call(req, [answer](const DaemonReply &reply)
+    const bool ios = t && t->hw_type == HistLogger::PUSH_HW_IOS;
+    return Json{ { "platform", t ? (ios ? "ios" : "android") : "" },
+                 { "registered_at", t ? rfc3339(t->registered_at) : string() },
+                 { "last_seen", t ? rfc3339(t->created_at) : string() } };
+}
+
+/* approver_list and approver_candidates: the daemon's approvers joined with
+ * push_tokens, never a token. The token never leaves this server but to the
+ * daemon (enrolment) and the push service.
+ */
+void relayApprovers(const DaemonClient::Request &req, bool candidates, const std::function<void(const Json &)> &answer)
+{
+    DaemonClient::Instance().call(req, [answer, candidates](const DaemonReply &reply)
                                   {
         if (reply.kind != DaemonReply::Kind::Ok)
         {
@@ -496,11 +508,8 @@ void relayCandidates(const DaemonClient::Request &req, const std::function<void(
             return;
         }
 
-        std::set<string> approvers;
-        for (const Json &a: reply.data.is_array() ? reply.data : Json::array())
-            approvers.insert(JsonField::string(a, "token_id"));
-
-        HistLogger::Instance().getPushTokens([answer, approvers](bool success, string, const vector<PushToken> &tokensIn)
+        const Json approvers = reply.data.is_array() ? reply.data : Json::array();
+        HistLogger::Instance().getPushTokens([answer, approvers, candidates](bool success, string, const vector<PushToken> &tokensIn)
                                              {
             if (!success)
             {
@@ -513,18 +522,33 @@ void relayCandidates(const DaemonClient::Request &req, const std::function<void(
                              {
                 return a.created_at > b.created_at;
             });
-
-            Json list = Json::array();
+            map<string, const PushToken *> byId;
             for (const PushToken &t: tokens)
+                byId.emplace(JsonApi::pushTokenId(t.token), &t);
+
+            std::set<string> approverIds;
+            Json list = Json::array();
+            for (const Json &a: approvers)
+            {
+                const string id = JsonField::string(a, "token_id");
+                approverIds.insert(id);
+                const auto it = byId.find(id);
+                Json entry = a.is_object() ? a : Json::object();
+                entry.update(phoneFields(it == byId.end() ? nullptr : it->second));
+                if (!candidates)
+                    list.push_back(entry);
+            } //LCOV_EXCL_LINE gcov counts the exception cleanup of the loop body here
+
+            for (const PushToken &t: candidates ? tokens : vector<PushToken>())
             {
                 const string id = JsonApi::pushTokenId(t.token);
+                const bool approver = approverIds.count(id) > 0;
                 //The daemon's list is the truth: repairs an alert this server missed
-                if (t.approver != (approvers.count(id) > 0))
-                    HistLogger::Instance().setPushTokenApprover(t.token, !t.approver);
-                list.push_back(Json{ { "token_id", id },
-                                     { "device_name", deviceNameOf(t) },
-                                     { "last_seen", rfc3339(t.created_at) },
-                                     { "approver", approvers.count(id) > 0 } });
+                if (t.approver != approver)
+                    HistLogger::Instance().setPushTokenApprover(t.token, approver);
+                Json entry = { { "token_id", id }, { "device_name", deviceNameOf(t) }, { "approver", approver } };
+                entry.update(phoneFields(&t));
+                list.push_back(entry);
             } //LCOV_EXCL_LINE gcov counts the exception cleanup of the loop body here
             answer(Json{ { "success", "true" }, { "result", list } });
         });
@@ -583,8 +607,8 @@ void JsonApi::relayAdmin(const string &action, const Json &request, const string
         row->body(params, req.body);
     }
 
-    if (action == "approver_candidates")
-        relayCandidates(req, answer);
+    if (action == "approver_candidates" || action == "approver_list")
+        relayApprovers(req, action == "approver_candidates", answer);
     else if (action == "approver_enroll")
         relayEnroll(req, JsonField::string(params, "token_id"), answer);
     else

@@ -3337,7 +3337,7 @@ TEST_F(JsonApiAdminTest, ApproverCandidatesNeverCarryAToken)
     std::map<std::string, Json> byId;
     for (const Json &c: answer["result"])
     {
-        EXPECT_EQ((std::set<std::string>{ "token_id", "device_name", "last_seen", "approver" }), [&c]()
+        EXPECT_EQ((std::set<std::string>{ "token_id", "device_name", "platform", "registered_at", "last_seen", "approver" }), [&c]()
                   {
             std::set<std::string> keys;
             for (auto it = c.begin(); it != c.end(); ++it)
@@ -3354,9 +3354,43 @@ TEST_F(JsonApiAdminTest, ApproverCandidatesNeverCarryAToken)
     EXPECT_FALSE(b["approver"].get<bool>());
     EXPECT_EQ(20u, str(a, "last_seen").size());
     EXPECT_EQ('T', str(a, "last_seen")[10]);
+    EXPECT_EQ(20u, str(a, "registered_at").size());
+    EXPECT_EQ("android", str(a, "platform"));
+    EXPECT_EQ("ios", str(b, "platform"));
 
     //The daemon validates the session first
     expectError(ws.admin("admin", { { "action", "approver_candidates" }, { "admin_session", std::string(64, 'e') } }), "bad_session");
+}
+
+TEST_F(JsonApiAdminTest, TheApproverListTellsPhonesOfTheSameNameApart)
+{
+    HistLogger::Instance().registerPushToken("ap1b-list-ios", HistLogger::PUSH_HW_IOS, HistLogger::PUSH_FORMAT_NOTIFICATION, "iPhone");
+    HistLogger::Instance().registerPushToken("ap1b-list-android", HistLogger::PUSH_HW_ANDROID, HistLogger::PUSH_FORMAT_DATA, "iPhone");
+    adminDefined();
+    const Json daemonList = Json::array({ { { "id", "a000000000000011" }, { "device_name", "iPhone" }, { "token_id", JsonApi::pushTokenId("ap1b-list-ios") }, { "created_at", "2026-10-23T09:12:03Z" } },
+                                          { { "id", "a000000000000012" }, { "device_name", "iPhone" }, { "token_id", JsonApi::pushTokenId("ap1b-list-android") }, { "created_at", "2026-10-23T09:13:03Z" } },
+                                          { { "id", "a000000000000013" }, { "device_name", "Gone" }, { "token_id", "00000000000000ff" }, { "created_at", "2026-10-23T09:14:03Z" } } });
+    fakeDaemon.setApprovers(daemonList);
+
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    const Json answer = ws.admin("admin", { { "action", "approver_list" }, { "admin_session", FakeDaemon::Session } });
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+    for (const PushToken &t: pushTokens())
+        EXPECT_EQ(std::string::npos, answer.dump().find(t.token)) << t.token;
+
+    const Json &list = answer["result"];
+    ASSERT_EQ(3u, list.size()) << answer.dump();
+    for (size_t i = 0; i < 3; i++)
+        EXPECT_EQ(str(daemonList[i], "id"), str(list[i], "id")) << "the daemon's order and fields";
+    EXPECT_EQ("ios", str(list[0], "platform"));
+    EXPECT_EQ("android", str(list[1], "platform"));
+    EXPECT_EQ(20u, str(list[0], "registered_at").size());
+    EXPECT_EQ(20u, str(list[1], "last_seen").size());
+    EXPECT_EQ("2026-10-23T09:12:03Z", str(list[0], "created_at"));
+    //Its token left push_tokens: nothing to tell, and no code will reach it
+    EXPECT_EQ("", str(list[2], "platform"));
+    EXPECT_EQ("", str(list[2], "last_seen"));
 }
 
 TEST_F(JsonApiAdminTest, EnrolmentResolvesTheTokenItselfAndIgnoresTheClients)

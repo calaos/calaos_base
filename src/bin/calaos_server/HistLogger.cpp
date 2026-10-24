@@ -50,7 +50,8 @@
                              "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, " \
                              "push_format INTEGER NOT NULL DEFAULT 0, "        \
                              "device_name TEXT NOT NULL DEFAULT '', "          \
-                             "approver INTEGER NOT NULL DEFAULT 0);"
+                             "approver INTEGER NOT NULL DEFAULT 0, "           \
+                             "registered_at TEXT NOT NULL DEFAULT '');"
 
 const char *const HistEventSql::ReadPage =
     "SELECT uuid, created_at, event_type, io_id, io_state, event_raw, pic_uid FROM events "
@@ -75,15 +76,17 @@ bool isLock(const sqlite::sqlite_exception &e)
 namespace
 {
 
-void addTokenColumn(sqlite::database &db, const char *name, const char *ddl)
+//True when the column was added
+bool addTokenColumn(sqlite::database &db, const char *name, const char *ddl)
 {
     int count = 0;
     db << "SELECT count(*) FROM pragma_table_info('push_tokens') WHERE name = ?;" << name >> count;
     if (count > 0)
-        return;
+        return false;
 
     db << ddl;
     cInfoDom("history") << "push_tokens: " << name << " column added";
+    return true;
 }
 
 } //namespace
@@ -103,6 +106,9 @@ bool PushTokenDb::prepare(sqlite::database &db, bool *locked, bool *hasName)
         format = true;
         addTokenColumn(db, "device_name", "ALTER TABLE push_tokens ADD COLUMN device_name TEXT NOT NULL DEFAULT '';");
         addTokenColumn(db, "approver", "ALTER TABLE push_tokens ADD COLUMN approver INTEGER NOT NULL DEFAULT 0;");
+        //The first registration of older tokens is unknown: their last one is the best guess
+        if (addTokenColumn(db, "registered_at", "ALTER TABLE push_tokens ADD COLUMN registered_at TEXT NOT NULL DEFAULT '';"))
+            db << "UPDATE push_tokens SET registered_at = COALESCE(created_at, '');";
         name = true;
     }
     catch (sqlite::sqlite_exception &e)
@@ -149,6 +155,9 @@ void PushTokenDb::save(sqlite::database &db, const PushToken &token, bool hasFor
     else
         db << "INSERT INTO push_tokens (token, hw_type) values (?, ?);" << token.token << token.hw_type;
 
+    if (!exists && hasName)
+        db << "UPDATE push_tokens SET registered_at = DATETIME('now') WHERE token = ?;" << token.token;
+
     //An app that sends no name keeps the one it registered before
     if (hasName && !token.device_name.empty())
         db << "UPDATE push_tokens SET device_name = ? WHERE token = ?;" << token.device_name << token.token;
@@ -158,13 +167,15 @@ vector<PushToken> PushTokenDb::load(sqlite::database &db, bool hasFormat, bool h
 {
     vector<PushToken> tokens;
     const string sql = string("SELECT token, hw_type, ") + (hasFormat ? "push_format" : "0") + ", " +
-                       (hasName ? "COALESCE(device_name, ''), approver" : "'', 0") +
+                       (hasName ? "COALESCE(device_name, ''), approver, registered_at" : "'', 0, ''") +
                        ", COALESCE(created_at, '') FROM push_tokens;";
-    db << sql >> [&](string token, int hw_type, int push_format, string device_name, int approver, string created_at)
+    db << sql >> [&](string token, int hw_type, int push_format, string device_name, int approver, string registered_at,
+                     string created_at)
     {
         PushToken t(std::move(token), hw_type, push_format);
         t.device_name = std::move(device_name);
         t.approver = approver != 0;
+        t.registered_at = std::move(registered_at);
         t.created_at = std::move(created_at);
         tokens.push_back(std::move(t));
     };

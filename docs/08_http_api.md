@@ -693,8 +693,8 @@ Relaye une action de la table fermée vers le daemon. **WS uniquement.**
 | `system_restart` | | `POST system/restart` (relance le kiosque `calaos-home`) | oui | `null` |
 | `system_info` | | `GET system/info` | oui | `{hostname, uptime, cpu_usage, mem_usage}` |
 | `mcp_regenerate` | | aucun : traité dans calaos_server | oui | `{}` |
-| `approver_list` | | `GET admin/approvers` | oui | `[<Approver>]` : `{id, device_name, token_id, created_at}`, jamais de jeton |
-| `approver_candidates` | | `GET admin/approvers`, puis `push_tokens` de calaos_server | oui | `[{token_id, device_name, last_seen, approver}]`, jamais de jeton |
+| `approver_list` | | `GET admin/approvers`, puis `push_tokens` de calaos_server | oui | `[<Approver>]` : `{id, device_name, token_id, created_at}` plus `platform`, `registered_at`, `last_seen`, jamais de jeton |
+| `approver_candidates` | | `GET admin/approvers`, puis `push_tokens` de calaos_server | oui | `[{token_id, device_name, platform, registered_at, last_seen, approver}]`, jamais de jeton |
 | `approver_enroll` | `token_id`, `code_id`?, `code`? | `POST admin/approvers/enroll {token, device_name, code_id, code}` | oui | `{approver_id, code_id, expires_in}` |
 | `approver_confirm` | `code_id`, `code` | `POST admin/approvers/confirm` | oui | `<Approver>` |
 | `approver_remove` | `approver_id`, `code_id`, `code` | `POST admin/approvers/remove` | oui | `{approver_id}` |
@@ -745,9 +745,18 @@ retrait d'un approbateur. Les mises à jour, le reboot et le reste ne demandent 
 - **Aucun client n'envoie ni ne reçoit de jeton push.** `approver_candidates` liste les
   entrées de `push_tokens` sous la forme `token_id` (16 premiers hexadécimaux du SHA-256 du
   jeton, comme le `token_id` d'`<Approver>`), `device_name` (le nom de `register_push`, ou
-  `Android device` / `iOS device` si l'app n'en a pas envoyé), `last_seen` (dernier
-  `register_push`, RFC 3339 UTC) et `approver` (booléen JSON : ce `token_id` figure dans
-  `approver_list`), le plus récemment vu d'abord. L'appel au daemon valide la session.
+  `Android device` / `iOS device` si l'app n'en a pas envoyé), `platform` (`ios` ou
+  `android`, le `hardware` de `register_push` ; `desktop` est réservé, aucune app de bureau
+  ne s'enregistre aujourd'hui), `registered_at` (premier `register_push` ; pour un jeton plus
+  ancien que la colonne, son dernier connu à la migration), `last_seen` (dernier
+  `register_push`), dates RFC 3339 UTC, et `approver` (booléen JSON : ce `token_id` figure
+  dans `approver_list`), le plus récemment vu d'abord. L'appel au daemon valide la session.
+  Depuis iOS 16 tout iPhone se nomme `iPhone` : ces trois champs, avec la fin du `token_id`,
+  permettent de distinguer deux téléphones de même nom.
+- **`approver_list`** rend la liste du daemon, dans son ordre et avec ses champs, et ajoute
+  à chaque approbateur `platform`, `registered_at` et `last_seen` lus dans `push_tokens`
+  par `token_id`. Un approbateur dont le jeton a quitté `push_tokens` (purge à 30 jours)
+  les a vides : il ne reçoit plus de codes tant que l'app ne s'est pas reconnectée.
 - **`approver_enroll`** : le client nomme le téléphone par `params.token_id`. calaos_server le
   retrouve dans `push_tokens` et envoie lui-même au daemon **ce** jeton et **son**
   `device_name` ; tout `token`, `device_name` ou autre champ envoyé par le client est ignoré.
