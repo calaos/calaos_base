@@ -139,12 +139,12 @@ public:
         sendRaw(f);
     }
 
-    void sendClose(uint16_t code)
+    void sendClose(uint16_t code, const std::string &reason = "exited")
     {
         std::string p;
         p.push_back((char)(code >> 8));
         p.push_back((char)(code & 0xff));
-        p += "console closed";
+        p += reason;
         send(0x8, p);
     }
 

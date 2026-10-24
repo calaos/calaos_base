@@ -59,6 +59,19 @@ uint16_t relayedCode(uint16_t code)
     return code == WebSocketFrame::CloseCodeNormal ? code : (uint16_t)WebSocketFrame::CloseCodeGoingAway;
 }
 
+//Only the daemon's own tokens reach the browser, never free text
+string relayedReason(const string &reason)
+{
+    static const char *const tokens[] = { "closed", "exited", "expired", "idle", "not_connected",
+                                          "shutdown", "admin_set", "admin_reset", "bad_code" };
+    for (const char *t: tokens)
+    {
+        if (reason == t)
+            return reason;
+    }
+    return "closed";
+}
+
 const char *const OpenExpected = "The first message must be the open message";
 
 } //namespace
@@ -419,7 +432,7 @@ void ConsoleTunnel::daemonFrames()
         //A zero length frame is flagged as an error by the parser yet stays valid
         if (!frame->isValid() || frame->hasMask())
         {
-            finish(WebSocketFrame::CloseCodeGoingAway, "console closed", WebSocketFrame::CloseCodeProtocolError);
+            finish(WebSocketFrame::CloseCodeGoingAway, "closed", WebSocketFrame::CloseCodeProtocolError);
             return;
         }
 
@@ -435,15 +448,16 @@ void ConsoleTunnel::daemonFrames()
         else if (opcode == WebSocketFrame::OpCodeClose)
         {
             const uint16_t code = payload.size() >= 2 ? (uint16_t)(((uint8_t)payload[0] << 8) | (uint8_t)payload[1]) : 0;
+            const string reason = payload.size() > 2 ? payload.substr(2) : string();
             //Never echoes a code that may not be sent (1005, 1006...)
-            finish(relayedCode(code), "console closed", relayedCode(code));
+            finish(relayedCode(code), relayedReason(reason), relayedCode(code));
             return;
         }
         else if (opcode != WebSocketFrame::OpCodePong)
         {
             if ((opcode == WebSocketFrame::OpCodeContinue) != inMessage)
             {
-                finish(WebSocketFrame::CloseCodeGoingAway, "console closed", WebSocketFrame::CloseCodeProtocolError);
+                finish(WebSocketFrame::CloseCodeGoingAway, "closed", WebSocketFrame::CloseCodeProtocolError);
                 return;
             }
             if (opcode != WebSocketFrame::OpCodeContinue)
@@ -455,7 +469,7 @@ void ConsoleTunnel::daemonFrames()
             inMessage = !final;
             if (message.size() > MaxDaemonMessage)
             {
-                finish(WebSocketFrame::CloseCodeGoingAway, "console closed", WebSocketFrame::CloseCodeTooMuchData);
+                finish(WebSocketFrame::CloseCodeGoingAway, "closed", WebSocketFrame::CloseCodeTooMuchData);
                 return;
             }
             //The daemon sends the pty output as binary and nothing as text
@@ -476,7 +490,7 @@ void ConsoleTunnel::daemonGone()
     if (state == State::Attaching)
         refuse(adminError("daemon_unreachable", string()));
     else if (state == State::Open)
-        finish(WebSocketFrame::CloseCodeGoingAway, "console closed", 0);
+        finish(WebSocketFrame::CloseCodeGoingAway, "closed", 0);
 }
 
 bool ConsoleTunnel::tooBig(const string &data)
