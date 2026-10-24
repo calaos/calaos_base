@@ -29,6 +29,7 @@
 namespace Calaos {
 class McpProxyHandler;
 }
+class ConsoleTunnel;
 
 using namespace Calaos;
 
@@ -99,6 +100,9 @@ private:
     std::string mcpSniffBuf;
     Calaos::McpProxyHandler *mcpProxy = nullptr;
     static constexpr std::size_t MCP_SNIFF_LIMIT = 16 * 1024;
+
+    //Owned as jsonApi, on /api/console
+    ConsoleTunnel *console = nullptr;
 };
 
 #endif

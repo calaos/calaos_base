@@ -25,6 +25,7 @@
 #include "hef_uri_syntax.h"
 #include "RemoteUIWebSocketHandler.h"
 #include "RemoteUI/AuthFailureReason.h"
+#include "ConsoleTunnel.h"
 #include "McpProxyHandler.h"
 #include "McpServerManager.h"
 #include "libuvw.h"
@@ -262,6 +263,7 @@ bool WebSocket::checkHandshakeRequest()
     hef::HfURISyntax req_url("http://0.0.0.0" + parse_url);
     if (req_url.getPath() != "/api" &&
         Utils::strStartsWith(req_url.getPath(), "/api/v3/") == false &&
+        req_url.getPath() != ConsoleTunnel::Path &&
         req_url.getPath() != "/echo")
     {
         cWarningDom("websocket") << "wrong path: " << req_url.getPath();
@@ -275,6 +277,8 @@ bool WebSocket::checkHandshakeRequest()
         proto_ver = API_WEBSOCKET;
     else if (req_url.getPath() == "/api/v3/remote_ui/ws")
         proto_ver = API_REMOTE_UI_WEBSOCKET;
+    else if (req_url.getPath() == ConsoleTunnel::Path)
+        proto_ver = API_CONSOLE_WEBSOCKET;
 
     if (!jsonApi && !echoMode)
     {
@@ -336,6 +340,31 @@ bool WebSocket::checkHandshakeRequest()
                 delete handler;
                 return false;
             }
+        }
+        else if (proto_ver == API_CONSOLE_WEBSOCKET)
+        {
+            //The open message carries every credential: haproxy and TLS only
+            if (!secureTransport())
+            {
+                cWarningDom("websocket") << "Console refused: not through haproxy over https";
+                sendForbidden();
+                handshakeErrorSent = true;
+                return false;
+            }
+            if (!ConsoleTunnel::offersProtocol(request_headers["sec-websocket-protocol"]))
+            {
+                cWarningDom("websocket") << "Console refused: subprotocol " << ConsoleTunnel::Protocol << " not offered";
+                return false;
+            }
+
+            console = new ConsoleTunnel(this, client_conn);
+            console->sendBinary.connect([this](const string &data)
+                                        {
+                sendBinaryMessage(data);
+            });
+            textMessageReceived.connect(sigc::mem_fun(*console, &ConsoleTunnel::clientText));
+            binaryMessageReceived.connect(sigc::mem_fun(*console, &ConsoleTunnel::clientBinary));
+            jsonApi = console;
         }
         else
         {
@@ -403,6 +432,8 @@ bool WebSocket::checkHandshakeRequest()
         headers.Add("Access-Control-Allow-Origin", "*");
     else if (originDecision.allowCors())
         headers.Add("Access-Control-Allow-Origin", request_headers["origin"]);
+    if (console)
+        headers.Add("Sec-WebSocket-Protocol", ConsoleTunnel::Protocol);
 
     //calculate key
     string key = request_headers["sec-websocket-key"] + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
@@ -670,6 +701,9 @@ void WebSocket::processControlFrame()
             code = WebSocketFrame::CloseCodeProtocolError;
             close_reason = "Wrong close status code";
         }
+
+        if (console)
+            console->clientClosing(code);
 
         if (status == WSOpened)
             sendCloseFrame(code, close_reason);

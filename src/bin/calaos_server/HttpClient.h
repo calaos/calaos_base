@@ -536,7 +536,14 @@ public:
     HttpClient(const std::shared_ptr<uvw::TcpHandle> &client);
     virtual ~HttpClient();
 
-    enum { APINONE = 0, API_HTTP, API_WEBSOCKET, API_REMOTE_UI_WEBSOCKET };
+    enum
+    {
+        APINONE = 0,
+        API_HTTP,
+        API_WEBSOCKET,
+        API_REMOTE_UI_WEBSOCKET,
+        API_CONSOLE_WEBSOCKET
+    };
 
     /* Called by JsonApiServer whenever data has been written to client */
     virtual void DataWritten(int size);

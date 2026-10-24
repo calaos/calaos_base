@@ -152,6 +152,8 @@ public:
         alertData.clear();
         approvers = nlohmann::json::array();
         pushPayloads.clear();
+        grants.clear();
+        consoleId = DefaultConsoleId;
         useRawHandshake = false;
         rawHandshakeBytes.clear();
         eventsRefusal = 0;
@@ -259,6 +261,21 @@ public:
         }
         for (auto &s: openStreams())
             sendAlert(*s, type, id);
+    }
+
+    /* POST admin/console answers a console of consoleDir named by the id. A
+     * code verified by admin/codes/verify is its grant, taken once. */
+    static constexpr const char *DefaultConsoleId = "4fbd81b12ca13a2b";
+    void setConsole(const std::string &dir, const std::string &id = DefaultConsoleId)
+    {
+        std::lock_guard<std::mutex> l(mutex);
+        consoleDir = dir;
+        consoleId = id;
+    }
+    void grant(const std::string &codeId)
+    {
+        std::lock_guard<std::mutex> l(mutex);
+        grants.insert(codeId);
     }
 
     //What GET admin/approvers answers
@@ -403,6 +420,9 @@ private:
     std::map<std::string, nlohmann::json> alertData;
     nlohmann::json approvers = nlohmann::json::array();
     std::map<std::string, nlohmann::json> pushPayloads;
+    std::set<std::string> grants;
+    std::string consoleDir;
+    std::string consoleId = DefaultConsoleId;
     bool useRawHandshake = false;
     std::string rawHandshakeBytes;
 
@@ -780,7 +800,18 @@ private:
         else if (req.method == "POST" && req.path == "/api/v2/admin/codes")
             res.body = ok({ { "code_id", "c000000000000002" }, { "approver_id", "a000000000000001" }, { "expires_in", 60 } });
         else if (req.method == "POST" && req.path == "/api/v2/admin/codes/verify")
+        {
+            grants.insert(field("code_id"));
             res.body = ok({ { "action", "console_open" }, { "expires_in", 30 } });
+        }
+        //The grant of a verified code, taken once
+        else if (req.method == "POST" && req.path == "/api/v2/admin/console" && grants.erase(field("code_id")))
+            res.body = ok({ { "console_id", consoleId }, { "socket", consoleDir + "/console-" + consoleId + ".sock" }, { "ws_path", "/ws" }, { "ws_protocol", "calaos-console.v1" }, { "connect_within", 30 }, { "expires_in", 3600 }, { "idle_timeout", 900 } });
+        else if (req.method == "POST" && req.path == "/api/v2/admin/console")
+        {
+            res.status = 410;
+            res.body = err("code_expired");
+        }
         else
         {
             res.status = 404;
@@ -910,7 +941,8 @@ private:
         {
             res.body = ok({ { "hostname", "calaos" }, { "uptime", 1234 }, { "cpu_usage", 3 }, { "mem_usage", 41 } });
         }
-        else if (req.path.compare(0, 23, "/api/v2/admin/approvers") == 0 || req.path.compare(0, 19, "/api/v2/admin/codes") == 0)
+        else if (req.path.compare(0, 23, "/api/v2/admin/approvers") == 0 || req.path.compare(0, 19, "/api/v2/admin/codes") == 0 ||
+                 req.path == "/api/v2/admin/console")
         {
             res = approverRoute(req, body, hasSession);
         }

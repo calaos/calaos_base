@@ -63,6 +63,8 @@ string messageFor(const string &code)
         { "code_required", "A push code is required" },
         { "bad_code", "Wrong push code" },
         { "code_expired", "The push code expired, request a new one" },
+        { "console_limit", "Too many consoles are open" },
+        { "login_failed", "Wrong household credentials" },
         { "internal", "Internal error" },
     };
 
@@ -259,9 +261,8 @@ const RelayRow relayTable[] = {
     { "approver_remove", "POST", "admin/approvers/remove", true, DaemonClient::DefaultTimeout, removeBody },
     { "code_request", "POST", "admin/codes", true, DaemonClient::DefaultTimeout, codeRequestBody },
     { "code_verify", "POST", "admin/codes/verify", true, DaemonClient::DefaultTimeout, codeFields },
-    /* The verified code becomes a grant of the session for 30 s: the console
-     * WebSocket that carries the same session takes it. When the daemon's
-     * console routes name a ticket, it is fetched here, after the verify.
+    /* The verified code becomes a grant of the session for 30 s, taken by the
+     * open message of /api/console with the same session (ConsoleTunnel)
      */
     { "console_open", "POST", "admin/codes/verify", true, DaemonClient::DefaultTimeout, codeFields },
 };
@@ -306,7 +307,7 @@ Json setSucceeded(const DaemonReply &reply, bool hasSession)
 
 bool JsonApi::isAdminCommand(const string &command)
 {
-    return command == "admin_unlock" || command == "admin_set" || command == "admin";
+    return command == "admin_unlock" || command == "admin_set" || command == "admin" || command == "console";
 }
 
 Json JsonApi::adminError(const string &code, const string &msg)
@@ -361,7 +362,7 @@ Json JsonApi::adminErrorFromReply(const DaemonReply &reply)
                                                "admin_not_set", "admin_already_set", "upgrade_in_progress",
                                                "not_allowed", "package_held", "approver_required", "approver_limit",
                                                "approver_exists", "approver_not_found", "approver_last",
-                                               "code_required", "bad_code", "code_expired" };
+                                               "code_required", "bad_code", "code_expired", "console_limit" };
 
     if (reply.code == "admin_not_set")
         return adminNotSet();
@@ -373,7 +374,8 @@ Json JsonApi::adminErrorFromReply(const DaemonReply &reply)
                                                      { "upgrade_in_progress", "job_id" },
                                                      { "password_too_short", "min_length" },
                                                      { "bad_code", "attempts_left" },
-                                                     { "approver_limit", "max" } };
+                                                     { "approver_limit", "max" },
+                                                     { "console_limit", "max" } };
         const auto it = details.find(reply.code);
         if (it != details.end() && reply.data.is_object() && reply.data.contains(it->second))
         {
@@ -583,6 +585,11 @@ void relayEnroll(const DaemonClient::Request &reqIn, const string &tokenId, cons
 }
 
 } //namespace
+
+Json JsonApi::adminRelayFailure(const DaemonReply &reply)
+{
+    return relayFailure(reply);
+}
 
 void JsonApi::relayAdmin(const string &action, const Json &request, const string &session, const AdminAnswer &answer)
 {
