@@ -480,9 +480,8 @@ string deviceNameOf(const PushToken &t)
 //SQLite's DATETIME is UTC
 string rfc3339(const string &sqliteTime)
 {
-    if (sqliteTime.size() != 19 || sqliteTime[10] != ' ')
-        return string();
-    return sqliteTime.substr(0, 10) + "T" + sqliteTime.substr(11) + "Z";
+    const bool usable = sqliteTime.size() == 19 && sqliteTime[10] == ' ';
+    return usable ? sqliteTime.substr(0, 10) + "T" + sqliteTime.substr(11) + "Z" : string();
 }
 
 //push_tokens without a single token: the token never leaves this server but
@@ -526,7 +525,7 @@ void relayCandidates(const DaemonClient::Request &req, const std::function<void(
                                      { "device_name", deviceNameOf(t) },
                                      { "last_seen", rfc3339(t.created_at) },
                                      { "approver", approvers.count(id) > 0 } });
-            }
+            } //LCOV_EXCL_LINE gcov counts the exception cleanup of the loop body here
             answer(Json{ { "success", "true" }, { "result", list } });
         });
     });
@@ -652,7 +651,7 @@ string JsonApi::printableText(const string &in, size_t maxCodePoints)
     if (!out.empty() && out.back() == ' ')
         out.pop_back();
     return out;
-}
+} //LCOV_EXCL_LINE gcov counts the exception cleanup of the locals here
 
 bool JsonApi::isDaemonId(const string &s)
 {

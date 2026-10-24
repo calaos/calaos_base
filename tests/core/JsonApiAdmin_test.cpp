@@ -3581,6 +3581,7 @@ TEST_F(AdminEventsTest, APushCodeGoesToItsTokenOnlyAndNeverToAClient)
                     300)
                     .empty())
         << "push_code is never forwarded";
+    quietPushes();
 }
 
 TEST_F(AdminEventsTest, APushCodeThatCannotBeServedIsDropped)
@@ -3729,6 +3730,8 @@ TEST_F(AdminEventsTest, AnApproverAlertIsPushedToEveryPhoneBehindAFixedPrefix)
         return pushesOf("Approver phone removed from your Calaos box: \\\"Pixel 8\\\"") == 1;
     }));
     EXPECT_EQ(1u, storedEvents("Approver phone removed from your Calaos box: \\\"Pixel 8\\\""));
+    //No push still in flight when the program exits
+    quietPushes();
 }
 
 TEST_F(JsonApiAdminTest, EachApproverPhoneHasItsOwnAlertCooldown)
@@ -3807,6 +3810,8 @@ TEST_F(AdminEventsTest, AnApproversTokenKeepsItsEnrolledNameAndFormat)
         return t && t->device_name == "Renamed";
     }));
     EXPECT_EQ(HistLogger::PUSH_FORMAT_NOTIFICATION, tokenNamed(pushTokens(), "ap1b-locked-token")->format);
+    //The two alerts' pushes must not be in flight when the program exits
+    quietPushes();
 }
 
 /*
@@ -3816,9 +3821,6 @@ TEST_F(AdminEventsTest, AnApproversTokenKeepsItsEnrolledNameAndFormat)
  */
 int main(int argc, char **argv)
 {
-    //TEMPORARY CI diagnostic, to be dropped
-    ::mkdir("../coverage-html", 0755);
-    ::testing::GTEST_FLAG(output) = "xml:../coverage-html/JsonApiAdmin_test.xml";
     ::testing::InitGoogleTest(&argc, argv);
 
     char tmpl[] = "/tmp/calaos_cb2_admin_XXXXXX";
