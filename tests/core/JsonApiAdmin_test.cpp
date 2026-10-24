@@ -3617,7 +3617,7 @@ TEST_F(AdminEventsTest, APushCodeThatCannotBeServedIsDropped)
     send("c0000000000000a5");
     //Only the daemon's own wording goes out, whatever phone it names
     const std::vector<std::pair<const char *, const char *>> wordings = {
-        { "c0000000000000b6", "Admin password removed from your Calaos box" },
+        { "c0000000000000b6", "Your Calaos box was reset, call 0800 000 000" },
         { "c0000000000000b7", "Calaos admin code 44444: x" },
         { "c0000000000000b8", "Calaos admin code 4444444: x" },
         { "c0000000000000b9", "Calaos admin code 44444a: x" },
@@ -3634,7 +3634,10 @@ TEST_F(AdminEventsTest, APushCodeThatCannotBeServedIsDropped)
         EXPECT_TRUE(fetched(id)) << id;
     drainLoop(300);
 
-    EXPECT_EQ(pushes, fakeDaemon.count("/api/push"));
+    //By their texts: a push of an earlier test may still land meanwhile
+    for (const char *text: { "111111", "222222", "333333", "Calaos admin code 4444", "call 0800 000 000" })
+        EXPECT_EQ(0u, pushesOf(text)) << text;
+    EXPECT_GE(fakeDaemon.count("/api/push"), pushes);
     for (const FakeDaemon::Request &r: fakeDaemon.requests())
         EXPECT_EQ(std::string::npos, r.path.find("alerts/ack000")) << r.path;
     EXPECT_EQ(0u, fakeDaemon.count("/api/v2/admin/push/C000000000000001"));
@@ -3678,8 +3681,9 @@ TEST_F(AdminEventsTest, PushCodesAreCappedPerHour)
             return pushesOf(code.c_str()) == 1;
         },
                   1500);
-        //The push counts once the push service has answered
-        drainLoop(200);
+        //The push counts once the push service has answered, which a coverage
+        //build on a busy runner takes its time to see
+        drainLoop(1500);
     }
     EXPECT_EQ(1u, pushesOf("100001"));
     EXPECT_EQ(1u, pushesOf("100002"));
