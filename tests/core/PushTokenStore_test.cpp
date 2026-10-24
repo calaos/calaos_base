@@ -264,6 +264,57 @@ TEST(PushTokenStoreTest, ALockOnTheNameColumnOnlyIsRetriedWithTheFormatKept)
     EXPECT_FALSE(after[0].approver);
 }
 
+TEST(PushTokenStoreTest, ATokenInsertedByAnOlderServerAfterMigrationGetsItsRegistrationAtTheNextOpen)
+{
+    const std::string path = oldDatabase("downgraded.db");
+    {
+        sqlite::database db(path);
+        ASSERT_TRUE(PushTokenDb::prepare(db));
+        //The INSERT of a server that knows push_format but not the name columns
+        db << "INSERT INTO push_tokens (token, hw_type, push_format, created_at) "
+              "values ('downgrade-ios', 1, 1, '2026-01-02 03:04:05');";
+    }
+
+    sqlite::database db(path);
+    bool hasName = false;
+    ASSERT_TRUE(PushTokenDb::prepare(db, nullptr, &hasName));
+    ASSERT_TRUE(hasName);
+    const auto tokens = PushTokenDb::load(db, true, true);
+    const PushToken *t = find(tokens, "downgrade-ios");
+    ASSERT_NE(nullptr, t);
+    EXPECT_EQ("2026-01-02 03:04:05", t->registered_at);
+    const PushToken *ro = find(tokens, "ro-android");
+    ASSERT_NE(nullptr, ro);
+    EXPECT_FALSE(ro->registered_at.empty());
+
+    //A registration fills a row the backfill could not, and only once
+    db << "UPDATE push_tokens SET registered_at = '', created_at = NULL WHERE token = 'downgrade-ios';";
+    PushTokenDb::save(db, PushToken(string("downgrade-ios"), 1, 1), true, true);
+    const std::string first = find(PushTokenDb::load(db, true, true), "downgrade-ios")->registered_at;
+    EXPECT_FALSE(first.empty());
+    db << "UPDATE push_tokens SET registered_at = '2020-01-01 00:00:00' WHERE token = 'downgrade-ios';";
+    PushTokenDb::save(db, PushToken(string("downgrade-ios"), 1, 1), true, true);
+    EXPECT_EQ("2020-01-01 00:00:00", find(PushTokenDb::load(db, true, true), "downgrade-ios")->registered_at);
+}
+
+TEST(PushTokenStoreTest, AReadOnlyMigratedDatabaseKeepsItsNames)
+{
+    const std::string path = oldDatabase("read_only_migrated.db");
+    {
+        sqlite::database db(path);
+        ASSERT_TRUE(PushTokenDb::prepare(db));
+        //created_at NULL: the backfill has nothing to copy, it must not retry a write
+        db << "INSERT INTO push_tokens (token, hw_type, created_at) values ('null-date', 2, NULL);";
+    }
+    sqlite::sqlite_config ro;
+    ro.flags = sqlite::OpenFlags::READONLY;
+    sqlite::database db(path, ro);
+    bool locked = true, hasName = false;
+    EXPECT_TRUE(PushTokenDb::prepare(db, &locked, &hasName));
+    EXPECT_FALSE(locked);
+    EXPECT_TRUE(hasName);
+}
+
 TEST(PushTokenStoreTest, AReadOnlyOldDatabaseIsStillReadAndWritten)
 {
     const std::string path = oldDatabase("read_only.db");

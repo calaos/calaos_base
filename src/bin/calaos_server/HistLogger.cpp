@@ -106,9 +106,14 @@ bool PushTokenDb::prepare(sqlite::database &db, bool *locked, bool *hasName)
         format = true;
         addTokenColumn(db, "device_name", "ALTER TABLE push_tokens ADD COLUMN device_name TEXT NOT NULL DEFAULT '';");
         addTokenColumn(db, "approver", "ALTER TABLE push_tokens ADD COLUMN approver INTEGER NOT NULL DEFAULT 0;");
-        //The first registration of older tokens is unknown: their last one is the best guess
-        if (addTokenColumn(db, "registered_at", "ALTER TABLE push_tokens ADD COLUMN registered_at TEXT NOT NULL DEFAULT '';"))
-            db << "UPDATE push_tokens SET registered_at = COALESCE(created_at, '');";
+        addTokenColumn(db, "registered_at", "ALTER TABLE push_tokens ADD COLUMN registered_at TEXT NOT NULL DEFAULT '';");
+        //The first registration of older tokens is unknown: their last one is
+        //the best guess. At every open, as an older server run after a downgrade
+        //inserts rows without it; counted first, so a read-only base is not written
+        int unregistered = 0;
+        db << "SELECT count(*) FROM push_tokens WHERE registered_at = '' AND created_at IS NOT NULL;" >> unregistered;
+        if (unregistered > 0)
+            db << "UPDATE push_tokens SET registered_at = created_at WHERE registered_at = '' AND created_at IS NOT NULL;";
         name = true;
     }
     catch (sqlite::sqlite_exception &e)
@@ -155,8 +160,9 @@ void PushTokenDb::save(sqlite::database &db, const PushToken &token, bool hasFor
     else
         db << "INSERT INTO push_tokens (token, hw_type) values (?, ?);" << token.token << token.hw_type;
 
-    if (!exists && hasName)
-        db << "UPDATE push_tokens SET registered_at = DATETIME('now') WHERE token = ?;" << token.token;
+    if (hasName)
+        db << "UPDATE push_tokens SET registered_at = DATETIME('now') WHERE token = ? AND registered_at = '';"
+           << token.token;
 
     //An app that sends no name keeps the one it registered before
     if (hasName && !token.device_name.empty())
