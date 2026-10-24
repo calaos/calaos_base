@@ -29,14 +29,10 @@
 #include "WebSocketFrame.h"
 #include "libuvw.h"
 
-#include <openssl/evp.h>
-#include <openssl/rand.h>
-
 #include <algorithm>
 #include <cctype>
 #include <ctime>
 #include <sstream>
-#include <random>
 
 namespace Calaos
 {
@@ -52,37 +48,6 @@ string utcNow()
     char buf[32];
     strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tmv);
     return buf;
-}
-
-bool randomBytes(unsigned char *out, int size)
-{
-    if (RAND_bytes(out, size) == 1)
-        return true;
-    //LCOV_EXCL_START only reached when OpenSSL has no entropy
-    std::random_device rd;
-    for (int i = 0; i < size; i++)
-        out[i] = (unsigned char)rd();
-    return true;
-}
-//LCOV_EXCL_STOP
-
-//Never 0: makeFrame() reads 0 as "send unmasked", which a server must refuse
-uint32_t maskingKey()
-{
-    uint32_t key = 0;
-    while (key == 0)
-        randomBytes((unsigned char *)&key, sizeof(key));
-    return key;
-}
-
-string acceptFor(const string &key)
-{
-    const string in = key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-    unsigned char digest[EVP_MAX_MD_SIZE];
-    unsigned int len = 0;
-    if (EVP_Digest(in.data(), in.size(), digest, &len, EVP_sha1(), nullptr) != 1)
-        return string(); //LCOV_EXCL_LINE only reached when OpenSSL has no SHA-1
-    return Utils::Base64_encode(digest, (int)len);
 }
 
 //A short machine token from the daemon (status, step, kind): anything else is
@@ -334,9 +299,7 @@ void AdminEvents::connect()
     inMessage = false;
     frame.reset(new WebSocketFrame());
 
-    unsigned char raw[16];
-    randomBytes(raw, sizeof(raw));
-    key = Utils::Base64_encode(raw, sizeof(raw));
+    key = DaemonClient::webSocketKey();
 
     handle = uvw::Loop::getDefault()->resource<uvw::TcpHandle>();
 
@@ -471,27 +434,8 @@ bool AdminEvents::processHandshake()
     const string head = inbuf.substr(0, end);
     inbuf.erase(0, end + 4);
 
-    std::istringstream lines(head);
-    string line;
-    std::getline(lines, line);
-    int status = 0;
-    {
-        std::istringstream first(line);
-        string version;
-        first >> version >> status;
-    }
-
     map<string, string> headers;
-    while (std::getline(lines, line))
-    {
-        if (!line.empty() && line.back() == '\r')
-            line.pop_back();
-        const string::size_type colon = line.find(':');
-        if (colon == string::npos)
-            continue;
-        string name = Utils::str_to_lower(line.substr(0, colon));
-        headers[name] = Utils::trim(line.substr(colon + 1));
-    }
+    const int status = DaemonClient::parseHttpHead(head, headers);
 
     if (status == 401)
     {
@@ -520,7 +464,7 @@ bool AdminEvents::processHandshake()
     }
 
     if (status != 101 || Utils::str_to_lower(headers["upgrade"]) != "websocket" ||
-        headers["sec-websocket-accept"] != acceptFor(key))
+        headers["sec-websocket-accept"] != DaemonClient::webSocketAccept(key))
     {
         drop("handshake refused with HTTP " + Utils::to_string(status));
         return false;
@@ -849,7 +793,7 @@ void AdminEvents::forgetRetry(RetryKind kind, const string &id)
 
 void AdminEvents::sendFrame(int opcode, const string &payload)
 {
-    write(WebSocketFrame::makeFrame(opcode, payload, true, maskingKey()));
+    write(WebSocketFrame::makeFrame(opcode, payload, true, DaemonClient::webSocketMask()));
 }
 
 void AdminEvents::write(const string &bytes)

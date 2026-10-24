@@ -27,6 +27,7 @@
 #include "CalaosConfig.h"
 #include "HttpCodes.h"
 #include "AdminState.h"
+#include "ConsoleTunnel.h"
 #include "libuvw.h"
 
 #include <algorithm>
@@ -354,7 +355,8 @@ int HttpClient::processHeaders(const string &request)
     const bool wsUpgrade = Utils::strContains(request_headers["connection"], "upgrade", Utils::CaseInsensitive) &&
                            Utils::str_to_lower(request_headers["upgrade"]) == "websocket";
     const bool apiPath = reqPath == "/api" || reqPath == "/api.php" || Utils::strStartsWith(reqPath, "/api/");
-    const bool enforced = AdminState::Instance().enforced();
+    //A console is never offered to a foreign page, admin defined or not
+    const bool enforced = AdminState::Instance().enforced() || reqPath == ConsoleTunnel::Path;
 
     //Static files are never refused: Chromium sends Origin with the module
     //scripts and fonts of the web app, a refusal would only show a blank page.

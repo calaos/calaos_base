@@ -581,12 +581,13 @@ const vector<string> &JsonApi::serviceScopeDeniedCommands()
      * schedule, a scenario and its rules, the event log, a push registration,
      * the credentials themselves. config is HTTP only today; it is listed so
      * that a websocket route added later is born refused (put replaces the
-     * configuration files). The admin messages are refused with the admin
-     * error shape (adminError(), not_allowed).
+     * configuration files). The admin messages, and console (the open message
+     * of /api/console), are refused with the admin error shape (adminError(),
+     * not_allowed).
      */
     static const vector<string> denied = { "set_param", "del_param", "audio_db", "set_timerange", "autoscenario",
                                            "eventlog", "register_push", "settings", "config",
-                                           "admin_unlock", "admin_set", "admin" };
+                                           "admin_unlock", "admin_set", "admin", "console" };
 
     return denied;
 }

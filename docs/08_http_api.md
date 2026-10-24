@@ -46,6 +46,7 @@ derrière le reverse proxy HTTPS). Voir [15_mcp_server.md](15_mcp_server.md).
 |---|---|---|---|
 | HTTP | `/api` ou `/api.php` | POST (corps JSON) ou GET (paramètres d'URL) | `JsonApiHandlerHttp` |
 | WebSocket | `/api` | GET + upgrade | `JsonApiHandlerWS` |
+| WebSocket | `/api/console` | GET + upgrade, sous-protocole `calaos-console.v1` | `ConsoleTunnel`, voir [Console web](#console-web-apiconsole) |
 
 Tout autre chemin est rejeté en 404 avant d'atteindre le JsonApi
 ([HttpClient.cpp:458-470](../src/bin/calaos_server/HttpClient.cpp)).
@@ -56,8 +57,9 @@ Avant d'arriver au JsonApi, `HttpClient::handleJsonRequest()` propose l'URL au
 handler RemoteUI puis au handler OTA ; le JsonApi n'est que le fallback
 ([HttpClient.cpp:611-673](../src/bin/calaos_server/HttpClient.cpp)).
 
-Côté WebSocket, seuls `/api`, `/api/v3/remote_ui/ws` et `/echo` sont acceptés ;
-seul `/api` crée un `JsonApiHandlerWS` — les deux autres chemins sont routés
+Côté WebSocket, seuls `/api`, `/api/console`, `/api/v3/remote_ui/ws` et `/echo` sont
+acceptés ; seul `/api` crée un `JsonApiHandlerWS`, `/api/console` crée un `ConsoleTunnel` — les
+deux autres chemins sont routés
 ailleurs par le `else` de
 ([WebSocket.cpp:258-279 et :335-339](../src/bin/calaos_server/WebSocket.cpp)).
 
@@ -261,7 +263,9 @@ efface l'entrée. Pendant le blocage, HTTP répond 400 et WS répond
 L'adresse indexée est celle que haproxy a vue : le dernier élément de
 `X-Forwarded-For`, lu seulement quand le pair TCP est le loopback
 (`HttpClient::getEffectiveClientIp()`). Un client direct du LAN est indexé sur
-son pair TCP.
+son pair TCP. Un dernier élément qui n'est pas une adresse IPv4 ou IPv6 est
+ignoré : le pair TCP le remplace, dans le limiteur comme dans les journaux et
+dans `X-Calaos-Client-IP` envoyé au daemon.
 
 Tout processus du réseau de l'hôte atteint aussi le loopback et peut écrire
 n'importe quel `X-Forwarded-For`. Changer de nom à chaque essai donnerait un
@@ -269,8 +273,7 @@ nouveau délai à chaque fois, d'où un plafond (`LoginThrottle::key()`). Il
 s'applique par portée : login foyer, `admin:` et `service:` (`login_service`).
 Dans chaque portée, au plus 16 noms venus de l'en-tête et jamais connectés
 gardent leur propre compteur, jusqu'à 300 s sans essai. Au-delà, les nouveaux
-noms partagent le compteur `loopback-overflow`, freiné normalement. Il en va de
-même pour tout nom qui n'est pas une adresse IPv4 ou IPv6. Un login réussi par
+noms partagent le compteur `loopback-overflow`, freiné normalement. Un login réussi par
 ce compteur partagé ne l'efface pas.
 
 Un nom qui s'est connecté garde son compteur hors plafond tant qu'il réussit un
@@ -313,17 +316,18 @@ service à portée restreinte (`serviceScope`). Voir
 Le token est comparé à l'option `mcp_service_token` de `local_config.xml`
 (`McpServerManager::getServiceToken()`). Un token non configuré n'accorde jamais
 l'accès ([JsonApiHandlerWS.cpp:530-566](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
-En session `serviceScope`, **12** messages sont refusés : `set_param`, `del_param`,
+En session `serviceScope`, **13** messages sont refusés : `set_param`, `del_param`,
 `audio_db`, `set_timerange`, `autoscenario`, `eventlog`, `register_push`,
-`settings`, `config`, et les trois messages admin `admin_unlock`, `admin_set`, `admin`
+`settings`, `config`, les trois messages admin `admin_unlock`, `admin_set`, `admin`, et
+`console`, le message d'ouverture de [`/api/console`](#console-web-apiconsole)
 (`JsonApi::serviceScopeDeniedCommands()`, voir [Portée MCP](#portée-mcp)).
 
-⭐ **La portée est une propriété de la session, pas du transport.** Les douze sont
+⭐ **La portée est une propriété de la session, pas du transport.** Les treize sont
 refusées quel que soit le transport par lequel la session a été ouverte, et la
 charge utile du refus est **la même** des deux côtés — seule l'enveloppe change :
 `{"msg":"<msg>","msg_id":"<le vôtre>","data":{"error":"scope denied"}}` en
-WebSocket, `{"error":"scope denied"}` en HTTP. Les trois messages admin refusent avec la
-forme d'erreur admin : `{"success":"false","error":"not_allowed","msg":"scope denied"}`.
+WebSocket, `{"error":"scope denied"}` en HTTP. Les trois messages admin et `console` refusent
+avec la forme d'erreur admin : `{"success":"false","error":"not_allowed","msg":"scope denied"}`.
 
 ℹ️ **Aujourd'hui aucune session HTTP ne peut être en portée de service** :
 `login_service` n'existe que sur la WebSocket, et le proxy `/mcp` ne construit
@@ -398,8 +402,8 @@ mesurable ; elle est plus large que ce que le tableau laisse lire.
 ## Administration (`admin_unlock`, `admin_set`, `admin`)
 
 > **Statut : contrat.** Cette section décrit le protocole que calaos_server **va**
-> implémenter (tickets CB2, CB1, CB3, CB4, puis AP1b pour la phase 2), que la webapp (WA1,
-> WA3) et l'installer (CI1) codent déjà contre, et dont le mock de la webapp et le faux
+> implémenter (tickets CB2, CB1, CB3, CB4, puis AP1b et CO2 pour la phase 2), que la webapp
+> (WA1, WA3, CO3) et l'installer (CI1) codent déjà contre, et dont le mock de la webapp et le faux
 > daemon dérivent. Contrairement au reste
 > du document, elle n'est pas dérivée du code. Le plan est
 > `docs/admin/PLAN.md` ; le contrat du **daemon** est la section admin de
@@ -498,12 +502,14 @@ Cas d'erreur d'un `config` / `get_mcp_info` refusé : la même charge utile
 | `approver_last` | 409 | retrait du seul approbateur | « Enrôlez d'abord un autre téléphone » |
 | `code_required` | 403 | action protégée envoyée sans `code_id` et `code`, ou enrôlement commencé sans approbateur alors qu'un autre a été enrôlé depuis | demander un code (`code_request`) |
 | `bad_code` | 403 | code push faux, ou demandé pour une autre action ou d'autres paramètres ; porte `attempts_left`. Au 5ᵉ échec la session est invalidée (`bad_session` ensuite) | « Code incorrect, `attempts_left` essais restants » |
-| `code_expired` | 410 | code inconnu de la session, expiré (60 s), utilisé ou remplacé | demander un nouveau code |
+| `code_expired` | 410 | code inconnu de la session, expiré (60 s), utilisé ou remplacé ; droit d'ouverture de la console expiré (30 s) ou déjà pris | demander un nouveau code |
+| `console_limit` | 409 | deux consoles sont déjà ouvertes ; porte `max` | « Deux consoles au plus sont ouvertes » |
+| `login_failed` | n/a | [`/api/console`](#console-web-apiconsole) seulement : identifiants foyer du message d'ouverture faux | retour à la connexion foyer |
 | `internal` | 500 | tout le reste ; le détail est dans le journal de calaos_server | message générique |
 
 Les codes de `invalid_request` à `internal` complètent le vocabulaire du plan : ils viennent
-de la traduction des erreurs du daemon. Ceux d'`approver_required` à `code_expired` sont ceux
-du second facteur (phase 2).
+de la traduction des erreurs du daemon. Ceux d'`approver_required` à `login_failed` sont ceux
+du second facteur et de la console (phase 2).
 
 ### Traduction des erreurs du daemon
 
@@ -545,6 +551,8 @@ est un refus (fail closed). Aucune interface, aucune plage VPN n'est jugée sûr
   l'admin n'est pas défini.
 - Refus : `https_required`. La connexion WS n'est pas fermée et le handshake sur le port 5454
   en clair reste accepté ; seuls les messages admin sont refusés.
+- Exception : [`/api/console`](#console-web-apiconsole) refuse dès le handshake (`403`), avant
+  toute montée WebSocket.
 - Un client qui s'est souvenu d'un hôte `http://…:5454` réécrit l'URL en `https://` et
   réessaie **une fois** (CI1). La webapp affiche « Utilisez https:// ».
 - Exception, dans l'autre sens : `admin_event` est diffusé à toute connexion WS authentifiée,
@@ -700,7 +708,7 @@ Relaye une action de la table fermée vers le daemon. **WS uniquement.**
 | `approver_remove` | `approver_id`, `code_id`, `code` | `POST admin/approvers/remove` | oui | `{approver_id}` |
 | `code_request` | `code_action`, `code_params`?, `approver_id`? | `POST admin/codes {action, params, approver_id}` | oui | `{code_id, approver_id, expires_in}` |
 | `code_verify` | `code_id`, `code` | `POST admin/codes/verify` | oui | `{action, expires_in}` |
-| `console_open` | `code_id`, `code` | `POST admin/codes/verify` (ticket console : CO1) | oui | `{action: "console_open", expires_in: 30}` |
+| `console_open` | `code_id`, `code` | `POST admin/codes/verify` ; le droit est pris par [`/api/console`](#console-web-apiconsole) | oui | `{action: "console_open", expires_in: 30}` |
 
 Chemins relatifs à `/api/v2/`. Jamais relayés, quoi que le client envoie : `system/install/*`,
 `system/rollback_snapshot`, `system/fs_status`, `network/*`, `update/installed`,
@@ -775,10 +783,10 @@ retrait d'un approbateur. Les mises à jour, le reboot et le reste ne demandent 
   le plus ancien).
 - **`code_verify` / `console_open`** (`params {code_id, code}`) : vérifient un code
   `console_open` ; la session reçoit un droit d'ouverture de la console à usage unique,
-  valable 30 s, que le WebSocket de la console (CO1/CO2) consomme avec la **même**
-  `admin_session`. Ne pas redemander de code entre les deux. WA3 utilise `console_open` ;
-  `code_verify` en est la forme générique, gardée pour le contrat. Le ticket console de CO1
-  viendra compléter la réponse de `console_open`.
+  valable 30 s, que le message d'ouverture de [`/api/console`](#console-web-apiconsole)
+  consomme avec la **même** `admin_session` et le même `code_id`. Ne pas redemander de code
+  entre les deux. WA3 utilise `console_open` ; `code_verify` en est la forme générique, gardée
+  pour le contrat.
 - Formats vérifiés par calaos_server avant tout appel (`invalid_request` sinon) : `code_id`,
   `approver_id` et `token_id` sont 16 hexadécimaux minuscules, `code` 6 chiffres ASCII.
 - Limites du daemon : un code en attente par session, 10 s entre deux codes d'une session,
@@ -798,6 +806,130 @@ retrait d'un approbateur. Les mises à jour, le reboot et le reste ne demandent 
   codes, alors que le daemon le liste toujours et que `code_request` réussit : seul le
   journal de calaos_server le dit. Il les reçoit de nouveau dès que l'app se reconnecte
   (même jeton). `approver_candidates.last_seen` permet à la webapp d'avertir avant.
+
+#### Console web (`/api/console`)
+
+Un shell root de la box dans le navigateur. Le daemon ouvre la console, possède le pty et en fixe
+les limites (contrat : `API.md`, « Console ») ; calaos_server relaie, message par message, le
+WebSocket du navigateur vers la socket privée de cette console (`ConsoleTunnel`).
+
+**Parcours de la webapp**
+
+1. `admin {action: "code_request", params: {code_action: "console_open"}}` : un code part vers
+   le téléphone approbateur.
+2. `admin {action: "console_open", params: {code_id, code}}` sur `/api` : le code devient un
+   droit d'ouverture à usage unique, valable 30 s, lié à cette `admin_session`.
+3. Dans ces 30 s : `new WebSocket("wss://<hôte>/api/console", "calaos-console.v1")`,
+   `binaryType = "arraybuffer"`, puis, à l'événement `open`, le message d'ouverture. Rien d'autre
+   avant `ready` : ce qui arrive entre les deux est ignoré.
+
+**Montée WebSocket**
+
+- Chemin `/api/console`, **sans paramètre** : aucun secret dans l'URL (haproxy journalise les
+  URL). Tout ce qui authentifie est dans le premier message.
+- Sous-protocole `calaos-console.v1` obligatoire (second argument de `new WebSocket`) ; la
+  réponse `101` le reprend. Absent : `400`.
+- `secureTransport()` obligatoire (pair loopback, donc haproxy, et `X-Forwarded-Proto: https`) :
+  sinon `403` avant la montée. Le port 5454 en clair ne sert jamais de console.
+- Contrôle d'[Origin](#origin) **toujours** appliqué sur ce chemin, admin défini ou non : `403`.
+  La page servie par la box elle-même passe. Un navigateur ne lit pas le statut d'un refus de
+  montée : il voit un `close` en `1006`.
+- calaos_server pingue toutes les 15 s (pong automatique du navigateur) et ferme après trois
+  pongs manqués. Il répond lui-même aux pings du daemon sur la socket.
+
+**Message d'ouverture** (premier message, texte JSON, au plus 64 Kio, dans les 30 s)
+
+```json
+{"type": "open", "cn_user": "user", "cn_pass": "pass",
+ "admin_session": "9b1f…e4", "code_id": "c3d4e5f60718293a",
+ "columns": 120, "rows": 40, "term": "xterm-256color"}
+```
+
+| Champ | Règle |
+|---|---|
+| `type` | `"open"` |
+| `cn_user`, `cn_pass` | identifiants foyer, comme `login` (même `LoginThrottle`) ; vides, ils sont refusés (`login_failed`), même sur une box sans mot de passe foyer : la console est un shell root |
+| `admin_session` | la session qui a vérifié le code (64 hexadécimaux minuscules) |
+| `code_id` | le `code_id` vérifié par `console_open` (16 hexadécimaux minuscules) |
+| `columns`, `rows` | entiers JSON de 1 à 1000 : la taille de départ du terminal |
+| `term` | facultatif : `xterm-256color` (défaut du daemon), `xterm` ou `vt100` |
+
+Contrôles, dans cet ordre, sans appel au daemon tant qu'un refus tombe : forme du message
+(`invalid_request`), identifiants foyer (`rate_limited` avec `retry_after` dans la fenêtre du
+limiteur, `login_failed`), portée MCP (`not_allowed`, voir [Portée MCP](#portée-mcp)), champs
+(`invalid_request`), état admin (`admin_not_set`, `daemon_too_old`, `daemon_unreachable`,
+`admin_unavailable`), session absente ou mal formée (`bad_session`). Puis calaos_server appelle
+`POST admin/console {code_id, term}` avec `X-Calaos-Admin-Session`, `X-Calaos-Client-IP` et son
+bearer, et traduit : `bad_session` (session expirée ou invalidée), `code_expired` (droit
+inconnu, expiré, demandé par une autre session que celle qui a vérifié le code, ou **déjà
+pris : un droit ne sert qu'une fois** ; le droit d'une autre session lui reste),
+`console_limit` (avec `max`), `rate_limited`, `internal`.
+
+calaos_server ne prend d'un client ni `console_id` ni chemin de socket. Il se connecte à
+`<répertoire>/console-<console_id>.sock`, reconstruit depuis un `console_id` de 16
+hexadécimaux sous le répertoire monté (`/run/calaos-container/console` ;
+`CALAOS_CONTAINER_CONSOLE_DIR` pour les tests, lue au démarrage, chemin absolu sans `.` ni
+`..`), et seulement si la réponse du daemon nomme exactement cette socket, `ws_path` `/ws` et
+`ws_protocol` `calaos-console.v1` (sinon `internal`). Une console n'est donc attachée que par la
+connexion qui l'a ouverte. La montée sur la socket ne porte ni bearer, ni session, ni
+identifiant (la socket `0600` est la barrière du daemon) ; son premier message est
+`{"columns", "rows"}`, reconstruit à partir des champs validés. Socket absente, fermée ou
+muette pendant 10 s : `daemon_unreachable` ; montée refusée par le daemon : `internal`.
+
+**Refus**
+
+Tout refus avant `ready` est un message texte, puis une fermeture `1008` (`console refused`) :
+
+```json
+{"type": "error", "success": "false", "error": "code_expired", "msg": "The push code expired, request a new one"}
+```
+
+Mêmes codes et champs que la [forme d'erreur admin](#format-derreur-ws-et-http) (`retry_after`
+avec `rate_limited`, `max` avec `console_limit`). Sur `bad_session`, redemander le mot de passe
+admin ; sur `code_expired`, redemander un code ; sur `login_failed`, revenir à la connexion
+foyer.
+
+**Console ouverte**
+
+Le serveur l'annonce une fois :
+
+```json
+{"type": "ready", "console_id": "4fbd81b12ca13a2b", "expires_in": 3600, "idle_timeout": 900}
+```
+
+| Sens | Message | Effet |
+|---|---|---|
+| navigateur → serveur | texte `{"type": "input", "data": "<texte>"}` | saisie (`onData` de xterm.js), écrite telle quelle dans le pty |
+| navigateur → serveur | binaire | saisie brute (`onBinary` de xterm.js) |
+| navigateur → serveur | texte `{"type": "resize", "columns": <int>, "rows": <int>}` | redimensionnement ; ignoré si une valeur n'est pas un entier de 1 à 1000 |
+| serveur → navigateur | binaire | sortie brute du pty : `term.write(new Uint8Array(event.data))` |
+
+- Tout autre message texte (type inconnu, JSON invalide) est ignoré ; le serveur n'envoie
+  aucun autre texte après `ready`. Un message vide ferme la connexion (règle WebSocket du
+  serveur) : ne pas envoyer d'`input` vide.
+- Un message de plus de 64 Kio ferme la console (`1009`, `message too big`) : découper un grand
+  collage en morceaux de 64 Kio au plus.
+- Seule la saisie réarme le délai d'inactivité du daemon (15 min), pas les pings ni les
+  redimensionnements. La console dure au plus 1 h (`expires_in`).
+- Contre-pression : quand un côté ne lit plus, calaos_server cesse de lire l'autre au-delà de
+  256 Kio en attente et reprend sous 64 Kio. Rien n'est mis en mémoire sans borne.
+
+**Fermeture**
+
+| Cause | Le navigateur reçoit | La socket reçoit |
+|---|---|---|
+| le daemon ferme en `1000` (shell sorti) ou `1001` (1 h, inactivité, `admin_set`, `admin_reset`, 5 codes faux, arrêt) | le même code, `console closed` | l'écho de son code |
+| le daemon ferme avec un autre code ou sans code | `1001`, `console closed` | `1001` |
+| la socket tombe sans trame de fermeture | `1001`, `console closed` | rien |
+| le daemon viole le protocole (trame masquée, fragment orphelin, message de plus de 1 Mio) | `1001`, `console closed` | `1002` ou `1009` |
+| le navigateur ferme en `1000` ou `1001` | (réponse à sa fermeture) | le même code |
+| le navigateur ferme avec un autre code, ou sa connexion tombe | | `1001` |
+| calaos_server ferme le WebSocket lui-même (trois pongs manqués, message de plus de 4 Mio, trame invalide, message vide) | son code (`1000`, `1009`, `1002`…) | `1000` pour `1000`, `1001` sinon, aussitôt |
+| un message du navigateur dépasse 64 Kio | `1009`, `message too big` | `1000` |
+
+Une console ne se rattache pas : après une fermeture, en ouvrir une autre demande un nouveau
+code. Chaque ouverture lève l'alerte `console_opened` (push « Calaos: console opened » à tous les
+téléphones, voir [Événements](#événements-admin_event)).
 
 ### `config` et `get_mcp_info` une fois l'admin défini
 
@@ -844,10 +976,11 @@ champs), état (`AdminState`), présence et format de la session, appel du daemo
 
 ### Portée MCP
 
-`admin_unlock`, `admin_set` et `admin` rejoignent la liste des messages refusés en session
-service (12 au lieu de 9). Le refus a la forme d'erreur admin avec `not_allowed` et
-`"msg": "scope denied"`. La console ne se connecte pas non plus avec un mot de passe : seul un
-ticket l'authentifie (phase 2).
+`admin_unlock`, `admin_set`, `admin` et `console` rejoignent la liste des messages refusés en
+session service (13 au lieu de 9). Le refus a la forme d'erreur admin avec `not_allowed` et
+`"msg": "scope denied"`. Sur [`/api/console`](#console-web-apiconsole), un message d'ouverture
+qui s'authentifie avec le jeton de service (`token`, celui de `login_service`) ouvre une session
+de service et reçoit donc ce refus, sans appel au daemon.
 
 ### État admin et règle collante
 
@@ -954,7 +1087,8 @@ requêtes HTTP `/api`, `/api.php` et `/api/…`, préflight `OPTIONS` compris. L
 (`/app/…`) ne sont jamais refusés : Chromium envoie un Origin avec les scripts module et les
 polices de la webapp, et un refus donnerait une page blanche. Ils sont servis sans
 `Access-Control-Allow-Origin` une fois le contrôle actif. Le tunnel `/mcp` est aiguillé avant et
-n'est pas concerné (voir [15_mcp_server.md](15_mcp_server.md)).
+n'est pas concerné (voir [15_mcp_server.md](15_mcp_server.md)). Le handshake de
+[`/api/console`](#console-web-apiconsole) est **toujours** contrôlé, admin défini ou non.
 
 - Absence d'`Origin` : acceptée (clients natifs : installer, mobile, remote_ui, MCP).
 - `Origin: null` : refusé, comme tout Origin qui n'est pas `http://` ou `https://` suivi d'un
@@ -1014,6 +1148,9 @@ délai de 5 s ci-dessous.
 | `daemon_too_old` : bascule sur « Redémarrez la box » | 2 min d'état persistant | webapp |
 | `rate_limited` | `retry_after` secondes (champ de l'erreur) | daemon, `LoginThrottle` |
 | Ping WS client | 15 s (existant) ; haproxy `timeout tunnel 3600s` | calaos_server |
+| Message d'ouverture de `/api/console` après la montée | 30 s, puis `invalid_request` | calaos_server |
+| Attachement à la socket de la console | 10 s, puis `daemon_unreachable` ; le daemon tue une console non attachée au bout de 30 s | calaos_server, daemon |
+| Console ouverte | 1 h absolue ; 15 min sans saisie ; ping du daemon toutes les 30 s, coupure sans pong en 60 s | daemon |
 | Alertes `admin_set` / `admin_reset` / `approver_set` / `approver_removed` / `console_opened` | persistées par le daemon jusqu'à l'ack, rejouées à chaque abonné `/events` | daemon |
 | Code push | valable 60 s ; droit console 30 s après `code_verify` ; 10 s entre deux codes d'une session | daemon |
 

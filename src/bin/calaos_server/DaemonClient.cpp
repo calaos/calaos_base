@@ -22,8 +22,14 @@
 #include "JsonApi.h"
 #include "UrlDownloader.h"
 
+#include <openssl/evp.h>
+#include <openssl/rand.h>
+
+#include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <random>
+#include <sstream>
 
 namespace Calaos
 {
@@ -142,10 +148,28 @@ bool DaemonClient::parseBaseUrl(const string &url, string &baseOut)
     return true;
 }
 
+bool DaemonClient::isConsoleDir(const string &dir)
+{
+    if (dir.size() < 2 || dir[0] != '/' || dir.back() == '/')
+        return false;
+
+    string::size_type start = 1;
+    while (start <= dir.size())
+    {
+        const string::size_type end = std::min(dir.find('/', start), dir.size());
+        const string segment = dir.substr(start, end - start);
+        if (segment.empty() || segment == "." || segment == "..")
+            return false;
+        start = end + 1;
+    }
+    return true;
+}
+
 void DaemonClient::configure()
 {
     const char *envUrl = std::getenv("CALAOS_CONTAINER_URL");
     const char *envToken = std::getenv("CALAOS_CONTAINER_TOKEN_FILE");
+    const char *envConsole = std::getenv("CALAOS_CONTAINER_CONSOLE_DIR");
 
     const string url = (envUrl && *envUrl) ? string(envUrl) : string(DefaultUrl);
 
@@ -158,8 +182,81 @@ void DaemonClient::configure()
         base.clear();
     }
 
+    consoleDirectory = (envConsole && *envConsole) ? string(envConsole) : string(DefaultConsoleDir);
+    if (!isConsoleDir(consoleDirectory))
+    {
+        cErrorDom("admin") << "CALAOS_CONTAINER_CONSOLE_DIR refused, it must be an absolute path without "
+                              "\".\" or \"..\" segments: the console is disabled";
+        consoleDirectory.clear();
+    }
+
     tokenFile = (envToken && *envToken) ? string(envToken) : string(DefaultTokenFile);
     readToken();
+}
+
+namespace
+{
+
+void randomBytes(unsigned char *out, int size)
+{
+    if (RAND_bytes(out, size) == 1)
+        return;
+    //LCOV_EXCL_START only reached when OpenSSL has no entropy
+    std::random_device rd;
+    for (int i = 0; i < size; i++)
+        out[i] = (unsigned char)rd();
+}
+//LCOV_EXCL_STOP
+
+} //namespace
+
+string DaemonClient::webSocketKey()
+{
+    unsigned char raw[16];
+    randomBytes(raw, sizeof(raw));
+    return Utils::Base64_encode(raw, sizeof(raw));
+}
+
+string DaemonClient::webSocketAccept(const string &key)
+{
+    const string in = key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int len = 0;
+    if (EVP_Digest(in.data(), in.size(), digest, &len, EVP_sha1(), nullptr) != 1)
+        return string(); //LCOV_EXCL_LINE only reached when OpenSSL has no SHA-1
+    return Utils::Base64_encode(digest, (int)len);
+}
+
+int DaemonClient::parseHttpHead(const string &head, map<string, string> &headers)
+{
+    std::istringstream lines(head);
+    string line;
+    std::getline(lines, line);
+    int status = 0;
+    {
+        std::istringstream first(line);
+        string version;
+        first >> version >> status;
+    }
+
+    while (std::getline(lines, line))
+    {
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
+        const string::size_type colon = line.find(':');
+        if (colon == string::npos)
+            continue;
+        headers[Utils::str_to_lower(line.substr(0, colon))] = Utils::trim(line.substr(colon + 1));
+    }
+    return status;
+}
+
+uint32_t DaemonClient::webSocketMask()
+{
+    uint32_t key = 0;
+    while (key == 0)
+        randomBytes((unsigned char *)&key, sizeof(key));
+    return key;
 }
 
 void DaemonClient::readToken()
