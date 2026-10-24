@@ -82,6 +82,10 @@ public:
         codePushes.clear();
     }
 
+    //For the tests: the retry series held, and their timers fired after delay
+    size_t retrySeries() const { return retries.size(); }
+    void rearmRetries(double delay);
+
     //The data member of an admin_event for every logged-in household client
     sigc::signal<void, const Json &> householdEvent;
 

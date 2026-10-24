@@ -816,6 +816,13 @@ void AdminEvents::scheduleRetry(RetryKind kind, const string &type, const string
     });
 }
 
+void AdminEvents::rearmRetries(double delay)
+{
+    for (auto &r: retries)
+        if (r.second.timer)
+            r.second.timer->Reset(delay);
+}
+
 //By value: deleting the timer below destroys the lambda that holds the originals
 void AdminEvents::retryNow(RetryKind kind, string type, string id, Json data)
 {

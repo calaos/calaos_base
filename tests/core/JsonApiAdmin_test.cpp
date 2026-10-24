@@ -2758,10 +2758,10 @@ TEST_F(AdminEventsTest, RetriesAreBoundedInNumberOfAlerts)
 {
     HistLogger::Instance().registerPushToken("cb3-push-token", HistLogger::PUSH_HW_ANDROID);
     quietPushes();
-    //Long enough for the 70 first pushes to fail before any retry fires, and
-    //no watchdog reconnect: a new stream would replay all 70 alerts
+    //No retry fires until rearmRetries(), however slow the 70 first pushes
+    //are, and no watchdog reconnect: a new stream would replay all 70 alerts
     AdminEvents::Timings t = timings();
-    t.retryDelay = 4.0;
+    t.retryDelay = 3600.0;
     t.maxRetries = 1;
     t.ping = 5.0;
     t.silence = 60.0;
@@ -2781,15 +2781,19 @@ TEST_F(AdminEventsTest, RetriesAreBoundedInNumberOfAlerts)
         fakeDaemon.raiseAlert("admin_set", "000000000000f" + std::to_string(100 + i));
     ASSERT_TRUE(pumpUntil([&]()
                           {
-        return pushesOf("Admin password set") == 70;
+        return pushesOf("Admin password set") == 70 && acks() == 70;
     },
-                          15000));
+                          30000));
+    drainLoop(300);
+    EXPECT_EQ(64u, AdminEvents::Instance().retrySeries()) << "a full table refuses the 6 last series";
+
+    AdminEvents::Instance().rearmRetries(0.05);
     ASSERT_TRUE(pumpUntil([&]()
                           {
-        return pushesOf("Admin password set") == 70 + 64;
+        return pushesOf("Admin password set") == 70 + 64 && AdminEvents::Instance().retrySeries() == 0;
     },
                           15000));
-    drainLoop(1500);
+    drainLoop(500);
     EXPECT_EQ(70u + 64u, pushesOf("Admin password set")) << "64 alerts retried once, 6 refused";
     EXPECT_EQ(70u, acks());
 

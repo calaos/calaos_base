@@ -24,8 +24,9 @@
  * A fake calaos-container, on a real loopback socket, answering the admin
  * routes of its docs/API.md. It runs on its own thread: the server under test
  * runs on the uv loop of the test thread, which keeps pumping while it waits.
- * Requests are served one at a time; each /api/v2/events stream gets a thread
- * of its own.
+ * Every connection is served on a thread of its own, so a slow answer or a
+ * burst never queues the next requests past their timeout; each
+ * /api/v2/events stream then keeps its thread.
  */
 
 #include "json.hpp"
@@ -94,7 +95,7 @@ public:
         a.sin_family = AF_INET;
         a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
         a.sin_port = htons(port);
-        if (bind(listenFd, (struct sockaddr *)&a, sizeof(a)) != 0 || listen(listenFd, 16) != 0)
+        if (bind(listenFd, (struct sockaddr *)&a, sizeof(a)) != 0 || listen(listenFd, SOMAXCONN) != 0)
         {
             fprintf(stderr, "FakeDaemon: cannot listen on %d: %s\n", port, strerror(errno));
             close(listenFd);
@@ -116,6 +117,9 @@ public:
         stopping = true;
         if (worker.joinable())
             worker.join();
+        for (Server &sv: servers)
+            sv.thread.join();
+        servers.clear();
         if (listenFd >= 0)
             close(listenFd);
         listenFd = -1;
@@ -613,6 +617,13 @@ private:
     int listenFd = -1;
     std::atomic<bool> stopping{ false };
     std::thread worker;
+    //Only run() and stop(), once run() has returned, touch it
+    struct Server
+    {
+        std::thread thread;
+        std::shared_ptr<std::atomic<bool>> done;
+    };
+    std::vector<Server> servers;
 
     std::mutex mutex;
     std::string bearer;
@@ -632,8 +643,26 @@ private:
             const int fd = accept4(listenFd, nullptr, nullptr, SOCK_CLOEXEC);
             if (fd < 0)
                 continue;
-            if (!serve(fd))
-                close(fd);
+
+            for (auto it = servers.begin(); it != servers.end();)
+            {
+                if (!*it->done)
+                {
+                    ++it;
+                    continue;
+                }
+                it->thread.join();
+                it = servers.erase(it);
+            }
+            Server sv;
+            sv.done = std::make_shared<std::atomic<bool>>(false);
+            sv.thread = std::thread([this, fd, done = sv.done]()
+                                    {
+                if (!serve(fd))
+                    close(fd);
+                *done = true;
+            });
+            servers.push_back(std::move(sv));
         }
     }
 
