@@ -119,7 +119,8 @@ void copyScalars(const Json &from, Json &to, std::initializer_list<const char *>
 
 bool isAlertType(const string &type)
 {
-    return type == "admin_set" || type == "admin_reset" || type == "approver_set" || type == "approver_removed";
+    return type == "admin_set" || type == "admin_reset" || type == "approver_set" || type == "approver_removed" ||
+           type == "console_opened";
 }
 
 //The daemon's rule for a push token: 1 to 4096 printable ASCII characters, no space
@@ -813,6 +814,13 @@ void AdminEvents::scheduleRetry(RetryKind kind, const string &type, const string
                         {
         retryNow(kind, type, id, data);
     });
+}
+
+void AdminEvents::rearmRetries(double delay)
+{
+    for (auto &r: retries)
+        if (r.second.timer)
+            r.second.timer->Reset(delay);
 }
 
 //By value: deleting the timer below destroys the lambda that holds the originals

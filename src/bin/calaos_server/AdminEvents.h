@@ -82,13 +82,17 @@ public:
         codePushes.clear();
     }
 
+    //For the tests: the retry series held, and their timers fired after delay
+    size_t retrySeries() const { return retries.size(); }
+    void rearmRetries(double delay);
+
     //The data member of an admin_event for every logged-in household client
     sigc::signal<void, const Json &> householdEvent;
 
     /* The admin_event data for a daemon event, null when it is not forwarded.
      * Only upgrade_progress and the alerts (admin_set, admin_reset,
-     * approver_set, approver_removed, ts only) are: the job, the push codes
-     * and any future type stay on this side.
+     * approver_set, approver_removed, console_opened, ts only) are: the job,
+     * the push codes and any future type stay on this side.
      */
     static Json householdEventFor(const Json &event, const string &receivedAt);
 

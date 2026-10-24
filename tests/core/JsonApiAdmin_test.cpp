@@ -119,6 +119,14 @@ bool pumpUntil(const std::function<bool()> &done, int ms = 6000)
     return done();
 }
 
+std::string requestPaths()
+{
+    std::string out;
+    for (const FakeDaemon::Request &r: fakeDaemon.requests())
+        out += r.method + " " + r.path + (r.headers.count("x-calaos-admin-session") ? " (session)" : "") + "\n";
+    return out;
+}
+
 int pickFreePort()
 {
     const int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -806,11 +814,11 @@ TEST(JsonApiAdminRules, OnlyTheProgressAndTheAlertsReachHouseholdClients)
     const Json progress = AdminEvents::householdEventFor({ { "type", "upgrade_progress" }, { "data", FakeDaemon::leakyProgress() } }, now);
     EXPECT_EQ((Json{ { "type", "upgrade_progress" }, { "ts", now }, { "data", householdProgress() } }), progress);
 
-    const Json phone = { { "device_name", "Pixel 8" }, { "token_id", "9a41f0c2d3e4b5a6" } };
-    for (const char *alert: { "admin_set", "admin_reset", "approver_set", "approver_removed" })
+    const Json phone = { { "device_name", "Pixel 8" }, { "token_id", "9a41f0c2d3e4b5a6" }, { "session_audit_id", "1a2b3c4d" } };
+    for (const char *alert: { "admin_set", "admin_reset", "approver_set", "approver_removed", "console_opened" })
     {
         const Json a = AdminEvents::householdEventFor(FakeDaemon::alertEvent(alert, "00000000000000a1", phone), now);
-        EXPECT_EQ((Json{ { "type", alert }, { "ts", "2026-10-22T09:14:00Z" } }), a) << "the id stays here";
+        EXPECT_EQ((Json{ { "type", alert }, { "ts", "2026-10-22T09:14:00Z" } }), a) << "the id and the alert fields stay here";
         const Json noTs = AdminEvents::householdEventFor({ { "type", alert }, { "data", { { "id", "a1" }, { "ts", "<script>" } } } }, now);
         EXPECT_EQ(now, str(noTs, "ts"));
     }
@@ -1130,7 +1138,7 @@ TEST_F(JsonApiAdminTest, ADisabledClientIsUnreachable)
     WsClient ws;
     ASSERT_TRUE(ws.login("https"));
     expectError(ws.admin("admin_unlock", unlockData()), "admin_unavailable");
-    EXPECT_TRUE(fakeDaemon.requests().empty());
+    EXPECT_TRUE(fakeDaemon.requests().empty()) << requestPaths();
 
     ::setenv("CALAOS_CONTAINER_URL", env.base.c_str(), 1);
     DaemonClient::Instance().configure();
@@ -1347,7 +1355,7 @@ TEST_F(JsonApiAdminTest, PlainHttpAndPeersOutsideHaproxyAreRefused)
     expectError(lan.send(Json{ { "action", "get_mcp_info" }, { "cn_user", kUser }, { "cn_pass", kPass }, { "admin_session", FakeDaemon::Session } }.dump()),
                 "https_required");
 
-    EXPECT_TRUE(fakeDaemon.requests().empty());
+    EXPECT_TRUE(fakeDaemon.requests().empty()) << requestPaths();
 }
 
 /*******************************************************************************
@@ -1507,7 +1515,8 @@ TEST_F(JsonApiAdminTest, ConfigAndMcpInfoNeedASessionOnceTheAdminIsSet)
     expectError(httpJson(Json{ { "action", "config" }, { "type", "put" }, { "config_files", Json::object() } }, "https"),
                 "bad_session");
     expectError(httpJson(Json{ { "action", "get_mcp_info" } }, "https"), "bad_session");
-    EXPECT_TRUE(fakeDaemon.requests().empty()) << "a missing session must never reach the daemon";
+    EXPECT_TRUE(fakeDaemon.requests().empty()) << "a missing session must never reach the daemon\n"
+                                               << requestPaths();
 
     const Json config = httpJson(Json{ { "action", "config" }, { "type", "get" }, { "admin_session", FakeDaemon::Session } },
                                  "https");
@@ -1535,7 +1544,7 @@ TEST_F(JsonApiAdminTest, ASessionInTheQueryIsNeverRead)
     get.Add("cn_pass", kPass);
     get.Add("admin_session", FakeDaemon::Session);
     expectError(http.send("not json", get), "bad_session");
-    EXPECT_TRUE(fakeDaemon.requests().empty());
+    EXPECT_TRUE(fakeDaemon.requests().empty()) << requestPaths();
 }
 
 TEST_F(JsonApiAdminTest, SessionValidationFollowsTheDaemon)
@@ -1574,7 +1583,7 @@ TEST_F(JsonApiAdminTest, ChangeCredStaysAtHouseholdLevel)
     const Json answer = ws.ask(Json{ { "msg", "settings" }, { "msg_id", "s" }, { "data", { { "action", "change_cred" }, { "old_user", kUser }, { "old_pw", kPass }, { "new_user", kUser }, { "new_pw", "a new household password" } } } });
     EXPECT_EQ("true", str(answer["data"], "success")) << answer.dump();
     EXPECT_EQ("a new household password", Utils::get_config_option("cn_pass"));
-    EXPECT_TRUE(fakeDaemon.requests().empty());
+    EXPECT_TRUE(fakeDaemon.requests().empty()) << requestPaths();
 }
 
 /*******************************************************************************
@@ -1595,7 +1604,7 @@ TEST_F(JsonApiAdminTest, TheAdminMessageIsGatedBeforeAnyDaemonCall)
                 "invalid_request");
     expectError(ws.admin("admin", { { "action", "update_check" } }), "bad_session");
     expectError(ws.admin("admin", { { "action", "system_reboot" }, { "admin_session", "" } }), "bad_session");
-    EXPECT_TRUE(fakeDaemon.requests().empty());
+    EXPECT_TRUE(fakeDaemon.requests().empty()) << requestPaths();
 
     //update_status passes the gate without a session
     const Json status = ws.admin("admin", { { "action", "update_status" } });
@@ -1790,7 +1799,7 @@ TEST_F(JsonApiAdminTest, PasswordsOverTheDaemonLimitAreRefusedHere)
     expectError(ws.admin("admin_unlock", { { "admin_pass", tooLong } }), "invalid_request");
     expectError(ws.admin("admin_set", { { "new_pass", tooLong }, { "admin_session", FakeDaemon::Session } }),
                 "invalid_request");
-    EXPECT_TRUE(fakeDaemon.requests().empty());
+    EXPECT_TRUE(fakeDaemon.requests().empty()) << requestPaths();
 
     expectError(ws.admin("admin_unlock", { { "admin_pass", std::string(1024, 'p') } }), "bad_password");
 }
@@ -2434,6 +2443,78 @@ TEST_F(AdminEventsTest, AnAlertIsRecordedRelayedAndAcknowledged)
                     .empty());
 }
 
+TEST_F(AdminEventsTest, AConsoleOpeningIsStoredPushedToEveryPhoneAndAckedOnce)
+{
+    HistLogger::Instance().registerPushToken("co2-console-token", HistLogger::PUSH_HW_ANDROID);
+    HistLogger::Instance().registerPushToken("co2-other-token", HistLogger::PUSH_HW_IOS);
+    quietPushes();
+
+    WsClient household;
+    ASSERT_TRUE(household.login(""));
+    startEvents();
+    ASSERT_TRUE(isAdminEvent(household.next(), "upgrade_progress"));
+
+    const char *text = "Calaos: console opened";
+    const size_t storedBefore = storedEvents(text);
+    fakeDaemon.raiseAlert("console_opened", "00000000000000d7", { { "session_audit_id", "1a2b3c4d" } });
+    const Json ev = household.next();
+    ASSERT_TRUE(isAdminEvent(ev, "console_opened")) << ev.dump();
+    EXPECT_EQ((Json{ { "type", "console_opened" }, { "ts", "2026-10-22T09:14:00Z" } }), ev["data"]) << "ts only";
+
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return fakeDaemon.pendingAlerts().empty() && pushesOf(text) == 1;
+    }));
+    EXPECT_EQ((Json{ { "ids", { "00000000000000d7" } } }), parse(fakeDaemon.last("/api/v2/admin/alerts/ack").body));
+    std::string body;
+    for (const FakeDaemon::Request &r: fakeDaemon.requests())
+        if (r.path == "/api/push" && r.body.find(text) != std::string::npos)
+            body = r.body;
+    EXPECT_NE(std::string::npos, body.find("co2-console-token"));
+    EXPECT_NE(std::string::npos, body.find("co2-other-token")) << "every phone";
+    EXPECT_EQ(std::string::npos, body.find("1a2b3c4d")) << "the audit id stays with the daemon";
+    EXPECT_EQ(storedBefore + 1, storedEvents(text)) << "the event shown at login, same text";
+
+    //A replayed copy is acked again, never stored, pushed or relayed again
+    const size_t acked = acks();
+    fakeDaemon.pushEvent(FakeDaemon::alertEvent("console_opened", "00000000000000d7", { { "session_audit_id", "1a2b3c4d" } }));
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return acks() == acked + 1;
+    }));
+    drainLoop(300);
+    EXPECT_EQ(1u, pushesOf(text));
+    EXPECT_EQ(storedBefore + 1, storedEvents(text));
+    for (const Json &f: adminEventsUntil(
+             household, [](const Json &)
+             {
+        return false;
+             },
+             300))
+        EXPECT_FALSE(isAdminEvent(f, "console_opened")) << "the household saw the alert twice";
+    quietPushes();
+}
+
+TEST_F(AdminEventsTest, EveryConsoleOpeningIsPushedWithinTheCooldown)
+{
+    HistLogger::Instance().registerPushToken("co2-console-token", HistLogger::PUSH_HW_ANDROID);
+    quietPushes();
+    AdminState::Instance().resetAlertPushes(AdminState::AlertPushInterval);
+    startEvents();
+
+    const char *text = "Calaos: console opened";
+    const size_t before = pushesOf(text);
+    fakeDaemon.raiseAlert("console_opened", "00000000000000d8", { { "session_audit_id", "1a2b3c4d" } });
+    fakeDaemon.raiseAlert("console_opened", "00000000000000d9", { { "session_audit_id", "5e6f7a8b" } });
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return fakeDaemon.pendingAlerts().empty() && pushesOf(text) == before + 2;
+    }));
+    drainLoop(300);
+    EXPECT_EQ(before + 2, pushesOf(text)) << "an opening right after another still reaches the phones";
+    quietPushes();
+}
+
 TEST_F(AdminEventsTest, AReplayAfterAReconnectPushesNothingTwice)
 {
     HistLogger::Instance().registerPushToken("cb3-push-token", HistLogger::PUSH_HW_ANDROID);
@@ -2697,10 +2778,10 @@ TEST_F(AdminEventsTest, RetriesAreBoundedInNumberOfAlerts)
 {
     HistLogger::Instance().registerPushToken("cb3-push-token", HistLogger::PUSH_HW_ANDROID);
     quietPushes();
-    //Long enough for the 70 first pushes to fail before any retry fires, and
-    //no watchdog reconnect: a new stream would replay all 70 alerts
+    //No retry fires until rearmRetries(), however slow the 70 first pushes
+    //are, and no watchdog reconnect: a new stream would replay all 70 alerts
     AdminEvents::Timings t = timings();
-    t.retryDelay = 4.0;
+    t.retryDelay = 3600.0;
     t.maxRetries = 1;
     t.ping = 5.0;
     t.silence = 60.0;
@@ -2720,15 +2801,19 @@ TEST_F(AdminEventsTest, RetriesAreBoundedInNumberOfAlerts)
         fakeDaemon.raiseAlert("admin_set", "000000000000f" + std::to_string(100 + i));
     ASSERT_TRUE(pumpUntil([&]()
                           {
-        return pushesOf("Admin password set") == 70;
+        return pushesOf("Admin password set") == 70 && acks() == 70;
     },
-                          15000));
+                          30000));
+    drainLoop(300);
+    EXPECT_EQ(64u, AdminEvents::Instance().retrySeries()) << "a full table refuses the 6 last series";
+
+    AdminEvents::Instance().rearmRetries(0.05);
     ASSERT_TRUE(pumpUntil([&]()
                           {
-        return pushesOf("Admin password set") == 70 + 64;
+        return pushesOf("Admin password set") == 70 + 64 && AdminEvents::Instance().retrySeries() == 0;
     },
                           15000));
-    drainLoop(1500);
+    drainLoop(500);
     EXPECT_EQ(70u + 64u, pushesOf("Admin password set")) << "64 alerts retried once, 6 refused";
     EXPECT_EQ(70u, acks());
 
@@ -3290,6 +3375,7 @@ TEST(JsonApiAdminRules, ApproverAlertsNeverStartWithTheName)
     EXPECT_EQ("New approver phone on your Calaos box: \"Pixel 8'. Admin password removed. ' ' ' ' ' ' ' ' '\"",
               AdminState::alertMessage("approver_set", { { "device_name", "Pixel 8\u201d. Admin password removed. \u201c \u00ab \u00bb \u201e \u201f \u2033 \u2036 \uff02 \"" } }));
     EXPECT_EQ("Admin password set on your Calaos box", AdminState::alertMessage("admin_set", data));
+    EXPECT_EQ("Calaos: console opened", AdminState::alertMessage("console_opened", { { "session_audit_id", "1a2b3c4d" }, { "device_name", "Pixel 8" } }));
     EXPECT_TRUE(AdminState::alertMessage("push_code", data).empty());
 }
 
@@ -3369,7 +3455,7 @@ TEST_F(JsonApiAdminTest, TheApproverListTellsPhonesOfTheSameNameApart)
     adminDefined();
     const Json daemonList = Json::array({ { { "id", "a000000000000011" }, { "device_name", "iPhone" }, { "token_id", JsonApi::pushTokenId("ap1b-list-ios") }, { "created_at", "2026-10-23T09:12:03Z" } },
                                           { { "id", "a000000000000012" }, { "device_name", "iPhone" }, { "token_id", JsonApi::pushTokenId("ap1b-list-android") }, { "created_at", "2026-10-23T09:13:03Z" } },
-                                          { { "id", "a000000000000013" }, { "device_name", "Gone" }, { "token_id", "00000000000000ff" }, { "created_at", "2026-10-23T09:14:03Z" } } });
+                                          { { "id", "a000000000000013" }, { "device_name", "\u200bGone\u202e now" }, { "token_id", "00000000000000ff" }, { "created_at", "2026-10-23T09:14:03Z" }, { "future_field", "kept by the daemon" } } });
     fakeDaemon.setApprovers(daemonList);
 
     WsClient ws;
@@ -3391,6 +3477,10 @@ TEST_F(JsonApiAdminTest, TheApproverListTellsPhonesOfTheSameNameApart)
     //Its token left push_tokens: nothing to tell, and no code will reach it
     EXPECT_EQ("", str(list[2], "platform"));
     EXPECT_EQ("", str(list[2], "last_seen"));
+    //Only the fields known here, the name cleaned as register_push does
+    EXPECT_FALSE(list[2].contains("future_field")) << list[2].dump();
+    EXPECT_EQ(7u, list[2].size()) << list[2].dump();
+    EXPECT_EQ("Gone now", str(list[2], "device_name"));
 }
 
 TEST_F(JsonApiAdminTest, EnrolmentResolvesTheTokenItselfAndIgnoresTheClients)
@@ -3813,9 +3903,11 @@ TEST_F(AdminEventsTest, AnApproversTokenKeepsItsEnrolledNameAndFormat)
     startEvents();
 
     const std::string tokenId = JsonApi::pushTokenId("ap1b-locked-token");
+    //The vector is kept: tokenNamed points into it
     auto approver = []()
     {
-        const PushToken *t = tokenNamed(pushTokens(), "ap1b-locked-token");
+        const std::vector<PushToken> list = pushTokens();
+        const PushToken *t = tokenNamed(list, "ap1b-locked-token");
         return t && t->approver;
     };
     fakeDaemon.raiseAlert("approver_set", "00000000000000f1", { { "device_name", "Phone of Lea" }, { "token_id", tokenId } });
@@ -3826,7 +3918,8 @@ TEST_F(AdminEventsTest, AnApproversTokenKeepsItsEnrolledNameAndFormat)
     ASSERT_TRUE(household.login(""));
     household.post(Json{ { "msg", "register_push" }, { "data", { { "token", "ap1b-locked-token" }, { "hardware", "android" }, { "device_name", "Attacker was here" } } } });
     drainLoop(200);
-    const PushToken *kept = tokenNamed(pushTokens(), "ap1b-locked-token");
+    const std::vector<PushToken> tokens = pushTokens();
+    const PushToken *kept = tokenNamed(tokens, "ap1b-locked-token");
     ASSERT_NE(nullptr, kept);
     EXPECT_EQ("Phone of Lea", kept->device_name);
     EXPECT_EQ(HistLogger::PUSH_FORMAT_DATA, kept->format);
@@ -3840,7 +3933,8 @@ TEST_F(AdminEventsTest, AnApproversTokenKeepsItsEnrolledNameAndFormat)
     household.post(Json{ { "msg", "register_push" }, { "data", { { "token", "ap1b-locked-token" }, { "hardware", "android" }, { "device_name", "Renamed" } } } });
     ASSERT_TRUE(pumpUntil([]()
                           {
-        const PushToken *t = tokenNamed(pushTokens(), "ap1b-locked-token");
+        const std::vector<PushToken> list = pushTokens();
+        const PushToken *t = tokenNamed(list, "ap1b-locked-token");
         return t && t->device_name == "Renamed";
     }));
     EXPECT_EQ(HistLogger::PUSH_FORMAT_NOTIFICATION, tokenNamed(pushTokens(), "ap1b-locked-token")->format);
@@ -3904,10 +3998,17 @@ int main(int argc, char **argv)
 
     const int rc = RUN_ALL_TESTS();
 
+    AdminEvents::Instance().stop();
+    AdminState::Instance().stop();
     McpServerManager::Instance().stop();
     fakeDaemon.stop();
     drainLoop(50);
     std::error_code ec;
     std::filesystem::remove_all(base, ec);
-    return rc;
+
+    //The singletons' destructors would write into the tree just removed and
+    //close uv handles after the loop's users are gone: skip them, as the other
+    //server tests do (the coverage shim still dumps the counters)
+    fflush(nullptr);
+    _exit(rc);
 }

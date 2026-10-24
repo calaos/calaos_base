@@ -94,11 +94,11 @@ public:
     static string alertMessage(const string &type, const Json &data);
 
     /* Stores an alert of the daemon (admin_set, admin_reset, approver_set,
-     * approver_removed) as a persistent EventPushNotification shown at the
-     * next login, once per id: the id is saved in AlertsFileName, so a replay
-     * after a restart is not stored again. False, stored never called, for an
-     * id stored before or another type. stored runs once the history worker
-     * has written the event. data is the alert's, for its text.
+     * approver_removed, console_opened) as a persistent EventPushNotification
+     * shown at the next login, once per id: the id is saved in AlertsFileName,
+     * so a replay after a restart is not stored again. False, stored never
+     * called, for an id stored before or another type. stored runs once the
+     * history worker has written the event. data is the alert's, for its text.
      */
     bool storeAlert(const string &type, const string &id, std::function<void()> stored = {}, const Json &data = Json());
 
