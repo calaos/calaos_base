@@ -24,6 +24,7 @@
 #include "Calaos.h"
 #include "llhttp.h"
 #include <unordered_map>
+#include <arpa/inet.h>
 #include "JsonApiHandlerHttp.h"
 #include "JsonApiHandlerWS.h"
 #include "OriginPolicy.h"
@@ -181,7 +182,7 @@ inline bool isSecureTransport(const std::string &peerIp, const std::string &forw
 //that line: the address the trusted proxy hop saw. Everything before it is
 //client supplied and can be rotated at will, so it is ignored (same rule as
 //the MCP sidecar throttle, T1.8). Falls back to the TCP peer address when the
-//header is absent or empty.
+//header is absent, empty or not an IP address.
 //
 //The header is read ONLY when the TCP peer is the loopback: port 5454 also
 //answers directly from the LAN by default, and a direct client would otherwise
@@ -204,7 +205,12 @@ inline std::string effectiveClientIp(const std::string &xffLastLine,
     std::string::size_type e = last.find_last_not_of(" \t");
     last = last.substr(b, e - b + 1);
 
-    return last.empty()? peerIp:last;
+    //haproxy only writes addresses: any other text would reach the logs and
+    //the daemon's audit as the client
+    unsigned char addr[sizeof(struct in6_addr)];
+    if (inet_pton(AF_INET, last.c_str(), addr) != 1 && inet_pton(AF_INET6, last.c_str(), addr) != 1)
+        return peerIp;
+    return last;
 }
 
 //Whether effectiveClientIp() answers a name the header gave rather than the
@@ -536,7 +542,14 @@ public:
     HttpClient(const std::shared_ptr<uvw::TcpHandle> &client);
     virtual ~HttpClient();
 
-    enum { APINONE = 0, API_HTTP, API_WEBSOCKET, API_REMOTE_UI_WEBSOCKET };
+    enum
+    {
+        APINONE = 0,
+        API_HTTP,
+        API_WEBSOCKET,
+        API_REMOTE_UI_WEBSOCKET,
+        API_CONSOLE_WEBSOCKET
+    };
 
     /* Called by JsonApiServer whenever data has been written to client */
     virtual void DataWritten(int size);

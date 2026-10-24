@@ -55,6 +55,9 @@ public:
         double maxBackoff = 60.0;
         double retryDelay = 60.0; //first retry of a lost push or ack, then doubled
         int maxRetries = 5;
+        //Push codes fetched per rolling hour: twice the daemon's own budget,
+        //so a squatter of its port cannot flood the phones with its texts
+        size_t maxCodePushes = 20;
     };
 
     //A daemon frame bigger than this is a protocol error
@@ -63,6 +66,7 @@ public:
     //An alert id we cannot use is still acked when it is at most this long
     static constexpr size_t MaxForeignAlertId = 256;
     static constexpr size_t MaxRemembered = 64;
+    static constexpr size_t MaxCodeMessage = 256;
 
     static AdminEvents &Instance();
 
@@ -71,14 +75,24 @@ public:
 
     bool connected() const { return state == State::Open; }
 
-    void setTimings(const Timings &t) { timings = t; }
+    //Also forgets the push codes already counted
+    void setTimings(const Timings &t)
+    {
+        timings = t;
+        codePushes.clear();
+    }
+
+    //For the tests: the retry series held, and their timers fired after delay
+    size_t retrySeries() const { return retries.size(); }
+    void rearmRetries(double delay);
 
     //The data member of an admin_event for every logged-in household client
     sigc::signal<void, const Json &> householdEvent;
 
     /* The admin_event data for a daemon event, null when it is not forwarded.
-     * Only upgrade_progress, admin_set and admin_reset are: the job, the push
-     * codes and any future type stay on this side.
+     * Only upgrade_progress and the alerts (admin_set, admin_reset,
+     * approver_set, approver_removed, console_opened, ts only) are: the job,
+     * the push codes and any future type stay on this side.
      */
     static Json householdEventFor(const Json &event, const string &receivedAt);
 
@@ -142,7 +156,12 @@ private:
     void processFrames();
     void processMessage(const string &text);
     void processAlert(const string &type, const Json &data);
-    void push(const string &type, const string &id);
+    //Keeps the name and format of an approver's push_tokens row as enrolled
+    void markApprover(const string &tokenId, bool approver);
+    //Fetches the code's message by its id, pushes it to the approver's token only
+    void processPushCode(const Json &data);
+    void push(const string &type, const string &id, const Json &data);
+    std::deque<double> codePushes;
     void ack(const string &id);
 
     enum class RetryKind
@@ -157,8 +176,8 @@ private:
     };
     //Keyed by kind and id: one alert may wait for its push and its ack
     map<string, Retry> retries;
-    void scheduleRetry(RetryKind kind, const string &type, const string &id);
-    void retryNow(RetryKind kind, string type, string id);
+    void scheduleRetry(RetryKind kind, const string &type, const string &id, const Json &data);
+    void retryNow(RetryKind kind, string type, string id, Json data);
     void forgetRetry(RetryKind kind, const string &id);
 
     void sendFrame(int opcode, const string &payload);

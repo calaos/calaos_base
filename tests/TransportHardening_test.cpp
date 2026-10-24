@@ -222,6 +222,18 @@ TEST(EffectiveClientIp, EmptyLastEntryFallsBackToPeer)
               TransportLimits::effectiveClientIp("fake, ", "127.0.0.1"));
 }
 
+TEST(EffectiveClientIp, AnEntryThatIsNoAddressFallsBackToPeer)
+{
+    //It would be logged and sent to the daemon's audit as the client
+    EXPECT_EQ("127.0.0.1",
+              TransportLimits::effectiveClientIp("not-an-ip result=ok", "127.0.0.1"));
+    EXPECT_EQ("127.0.0.1",
+              TransportLimits::effectiveClientIp("1.2.3.4, box.local", "127.0.0.1"));
+    EXPECT_EQ("127.0.0.1",
+              TransportLimits::effectiveClientIp("1.2.3.4:8080", "127.0.0.1"));
+    EXPECT_FALSE(TransportLimits::isForwardedClientIp("not-an-ip", "127.0.0.1"));
+}
+
 TEST(EffectiveClientIp, Ipv6EntrySurvives)
 {
     EXPECT_EQ("2001:db8::1",

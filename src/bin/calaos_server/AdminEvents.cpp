@@ -21,20 +21,18 @@
 #include "AdminEvents.h"
 #include "AdminState.h"
 #include "DaemonClient.h"
+#include "HistLogger.h"
 #include "JsonApi.h"
 #include "JsonField.h"
+#include "NotifManager.h"
 #include "Timer.h"
 #include "WebSocketFrame.h"
 #include "libuvw.h"
-
-#include <openssl/evp.h>
-#include <openssl/rand.h>
 
 #include <algorithm>
 #include <cctype>
 #include <ctime>
 #include <sstream>
-#include <random>
 
 namespace Calaos
 {
@@ -50,37 +48,6 @@ string utcNow()
     char buf[32];
     strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tmv);
     return buf;
-}
-
-bool randomBytes(unsigned char *out, int size)
-{
-    if (RAND_bytes(out, size) == 1)
-        return true;
-    //LCOV_EXCL_START only reached when OpenSSL has no entropy
-    std::random_device rd;
-    for (int i = 0; i < size; i++)
-        out[i] = (unsigned char)rd();
-    return true;
-}
-//LCOV_EXCL_STOP
-
-//Never 0: makeFrame() reads 0 as "send unmasked", which a server must refuse
-uint32_t maskingKey()
-{
-    uint32_t key = 0;
-    while (key == 0)
-        randomBytes((unsigned char *)&key, sizeof(key));
-    return key;
-}
-
-string acceptFor(const string &key)
-{
-    const string in = key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-    unsigned char digest[EVP_MAX_MD_SIZE];
-    unsigned int len = 0;
-    if (EVP_Digest(in.data(), in.size(), digest, &len, EVP_sha1(), nullptr) != 1)
-        return string(); //LCOV_EXCL_LINE only reached when OpenSSL has no SHA-1
-    return Utils::Base64_encode(digest, (int)len);
 }
 
 //A short machine token from the daemon (status, step, kind): anything else is
@@ -113,6 +80,37 @@ void copyScalars(const Json &from, Json &to, std::initializer_list<const char *>
         if (it != from.end() && isScalar(*it))
             to[k] = *it;
     }
+}
+
+bool isAlertType(const string &type)
+{
+    return type == "admin_set" || type == "admin_reset" || type == "approver_set" || type == "approver_removed" ||
+           type == "console_opened";
+}
+
+//The daemon's rule for a push token: 1 to 4096 printable ASCII characters, no space
+bool isPushToken(const string &token)
+{
+    if (token.empty() || token.size() > 4096)
+        return false;
+    return std::all_of(token.begin(), token.end(), [](char c)
+                       {
+        return c > ' ' && c < 0x7f;
+    });
+}
+
+//The daemon's text, "Calaos admin code NNNNNN: <what it allows>": anything
+//else is not relayed, so a squatter of its port cannot word its own pushes
+bool isCodeMessage(const string &text)
+{
+    static const string prefix = "Calaos admin code ";
+    const size_t digits = prefix.size();
+    if (text.size() < digits + 8 || text.compare(0, digits, prefix) != 0 || text.compare(digits + 6, 2, ": ") != 0)
+        return false;
+    return std::all_of(text.begin() + digits, text.begin() + digits + 6, [](char c)
+                       {
+        return c >= '0' && c <= '9';
+    });
 }
 
 bool isAlertId(const string &id)
@@ -229,7 +227,7 @@ Json AdminEvents::householdEventFor(const Json &event, const string &receivedAt)
         return Json{ { "type", type }, { "ts", receivedAt }, { "data", householdStatus(data) } };
     }
 
-    if (type == "admin_set" || type == "admin_reset")
+    if (isAlertType(type))
     {
         const auto ts = data.is_object() ? data.find("ts") : data.end();
         const bool usable = data.is_object() && ts != data.end() && isToken(*ts, 40);
@@ -301,9 +299,7 @@ void AdminEvents::connect()
     inMessage = false;
     frame.reset(new WebSocketFrame());
 
-    unsigned char raw[16];
-    randomBytes(raw, sizeof(raw));
-    key = Utils::Base64_encode(raw, sizeof(raw));
+    key = DaemonClient::webSocketKey();
 
     handle = uvw::Loop::getDefault()->resource<uvw::TcpHandle>();
 
@@ -438,27 +434,8 @@ bool AdminEvents::processHandshake()
     const string head = inbuf.substr(0, end);
     inbuf.erase(0, end + 4);
 
-    std::istringstream lines(head);
-    string line;
-    std::getline(lines, line);
-    int status = 0;
-    {
-        std::istringstream first(line);
-        string version;
-        first >> version >> status;
-    }
-
     map<string, string> headers;
-    while (std::getline(lines, line))
-    {
-        if (!line.empty() && line.back() == '\r')
-            line.pop_back();
-        const string::size_type colon = line.find(':');
-        if (colon == string::npos)
-            continue;
-        string name = Utils::str_to_lower(line.substr(0, colon));
-        headers[name] = Utils::trim(line.substr(colon + 1));
-    }
+    const int status = DaemonClient::parseHttpHead(head, headers);
 
     if (status == 401)
     {
@@ -487,7 +464,7 @@ bool AdminEvents::processHandshake()
     }
 
     if (status != 101 || Utils::str_to_lower(headers["upgrade"]) != "websocket" ||
-        headers["sec-websocket-accept"] != acceptFor(key))
+        headers["sec-websocket-accept"] != DaemonClient::webSocketAccept(key))
     {
         drop("handshake refused with HTTP " + Utils::to_string(status));
         return false;
@@ -577,9 +554,15 @@ void AdminEvents::processMessage(const string &text)
     const Json event = Json::parse(text, nullptr, false);
     const string type = JsonField::string(event, "type");
 
-    if (type == "admin_set" || type == "admin_reset")
+    if (isAlertType(type))
     {
         processAlert(type, event.contains("data") ? event["data"] : Json());
+        return;
+    }
+
+    if (type == "push_code")
+    {
+        processPushCode(event.contains("data") ? event["data"] : Json());
         return;
     }
 
@@ -607,6 +590,9 @@ void AdminEvents::processAlert(const string &type, const Json &data)
         return;
     }
 
+    if (type == "approver_set" || type == "approver_removed")
+        markApprover(JsonField::string(data, "token_id"), type == "approver_set");
+
     //Its ack waits for the event of the copy already being stored
     if (storing.count(id))
         return;
@@ -614,11 +600,12 @@ void AdminEvents::processAlert(const string &type, const Json &data)
     storing.insert(id);
     //Acked once stored, whatever becomes of the push: an alert left pending
     //would be replayed, and stored again, at every restart
-    const bool fresh = AdminState::Instance().storeAlert(type, id, [this, id]()
-                                                         {
+    auto stored = [this, id]()
+    {
         storing.erase(id);
         ack(id);
-    });
+    };
+    const bool fresh = AdminState::Instance().storeAlert(type, id, stored, data);
 
     if (!fresh)
     {
@@ -630,19 +617,86 @@ void AdminEvents::processAlert(const string &type, const Json &data)
 
     cInfoDom("admin") << "calaos-container alert: " << type;
     householdEvent.emit(householdEventFor(Json{ { "type", type }, { "data", data } }, utcNow()));
-    AdminState::Instance().refresh();
-    push(type, id);
+    if (type == "admin_set" || type == "admin_reset")
+        AdminState::Instance().refresh();
+    push(type, id, data);
 }
 
-void AdminEvents::push(const string &type, const string &id)
+void AdminEvents::markApprover(const string &tokenId, bool approver)
 {
-    AdminState::Instance().pushAlert(type, [this, type, id](bool sent)
-                                     {
+    HistLogger::Instance().getPushTokens([tokenId, approver](bool, string, const vector<PushToken> &tokens)
+                                         {
+        for (const PushToken &t: tokens)
+        {
+            if (t.approver != approver && JsonApi::pushTokenId(t.token) == tokenId)
+                HistLogger::Instance().setPushTokenApprover(t.token, approver);
+        }
+    });
+}
+
+void AdminEvents::processPushCode(const Json &data)
+{
+    //Never relayed: the event only says which code to fetch
+    const string codeId = JsonField::string(data, "code_id");
+    if (!JsonApi::isDaemonId(codeId))
+    {
+        cWarningDom("admin") << "calaos-container sent a push_code without a usable code_id";
+        return;
+    }
+
+    const double now = Utils::getMainLoopTime();
+    auto expired = [now](double t)
+    {
+        return now - t >= 3600.0;
+    };
+    codePushes.erase(std::remove_if(codePushes.begin(), codePushes.end(), expired), codePushes.end());
+    if (codePushes.size() >= timings.maxCodePushes)
+    {
+        cWarningDom("admin") << "Push code " << codeId << " not fetched: " << timings.maxCodePushes << " sent in the last hour";
+        return;
+    }
+
+    DaemonClient::Request req;
+    req.path = "admin/push/" + codeId;
+    DaemonClient::Instance().call(req, [this, codeId](const DaemonReply &reply)
+                                  {
+        const string token = JsonField::string(reply.data, "token");
+        const string text = JsonApi::printableText(JsonField::string(reply.data, "message"), MaxCodeMessage);
+        if (reply.kind != DaemonReply::Kind::Ok || !isPushToken(token) || !isCodeMessage(text))
+        {
+            cWarningDom("admin") << "calaos-container did not hand push code " << codeId << " over (HTTP " << reply.status << ")";
+            return;
+        }
+
+        //The token and the message hold the second factor: neither is logged
+        NotifManager::Instance().sendPushNotificationTo(token, text, [this, codeId](bool sent)
+                                                        {
+            //Only a push that went out counts: fetches that serve nothing, or
+            //name no registered phone, as a squatter's, must not use up the
+            //hour of the real daemon
+            if (sent)
+            {
+                codePushes.push_back(Utils::getMainLoopTime());
+                cInfoDom("admin") << "Push code " << codeId << " sent to its approver phone";
+            }
+            else
+            {
+                cWarningDom("admin") << "Push code " << codeId << " could not be sent";
+            }
+        });
+    });
+}
+
+void AdminEvents::push(const string &type, const string &id, const Json &data)
+{
+    auto done = [this, type, id, data](bool sent)
+    {
         if (sent)
             forgetRetry(RetryKind::Push, id);
         else
-            scheduleRetry(RetryKind::Push, type, id);
-    });
+            scheduleRetry(RetryKind::Push, type, id, data);
+    };
+    AdminState::Instance().pushAlert(type, done, data);
 }
 
 void AdminEvents::ack(const string &id)
@@ -664,11 +718,11 @@ void AdminEvents::ack(const string &id)
             return;
         }
         cWarningDom("admin") << "calaos-container did not take the ack of alert " << id << ", retrying later";
-        scheduleRetry(RetryKind::Ack, string(), id);
+        scheduleRetry(RetryKind::Ack, string(), id, Json());
     });
 }
 
-void AdminEvents::scheduleRetry(RetryKind kind, const string &type, const string &id)
+void AdminEvents::scheduleRetry(RetryKind kind, const string &type, const string &id, const Json &data)
 {
     /* The daemon never resends an alert on the stream it already went out
      * on, and an acked one never: a lost push or ack is retried here, a few
@@ -700,14 +754,21 @@ void AdminEvents::scheduleRetry(RetryKind kind, const string &type, const string
     r.attempts++;
     //A never destroyed singleton: `this` cannot dangle; the timer is deleted
     //from its own callback, which Timer allows
-    r.timer = new Timer(delay, [this, kind, type, id]()
+    r.timer = new Timer(delay, [this, kind, type, id, data]()
                         {
-        retryNow(kind, type, id);
+        retryNow(kind, type, id, data);
     });
 }
 
+void AdminEvents::rearmRetries(double delay)
+{
+    for (auto &r: retries)
+        if (r.second.timer)
+            r.second.timer->Reset(delay);
+}
+
 //By value: deleting the timer below destroys the lambda that holds the originals
-void AdminEvents::retryNow(RetryKind kind, string type, string id)
+void AdminEvents::retryNow(RetryKind kind, string type, string id, Json data)
 {
     auto it = retries.find(string(kind == RetryKind::Push ? "push:" : "ack:") + id);
     if (it == retries.end())
@@ -716,7 +777,7 @@ void AdminEvents::retryNow(RetryKind kind, string type, string id)
     it->second.timer = nullptr;
 
     if (kind == RetryKind::Push)
-        push(type, id);
+        push(type, id, data);
     else
         ack(id);
 }
@@ -732,7 +793,7 @@ void AdminEvents::forgetRetry(RetryKind kind, const string &id)
 
 void AdminEvents::sendFrame(int opcode, const string &payload)
 {
-    write(WebSocketFrame::makeFrame(opcode, payload, true, maskingKey()));
+    write(WebSocketFrame::makeFrame(opcode, payload, true, DaemonClient::webSocketMask()));
 }
 
 void AdminEvents::write(const string &bytes)

@@ -188,6 +188,8 @@ public:
 
     //The client answer for a failed daemon call, per the translation table
     static Json adminErrorFromReply(const DaemonReply &reply);
+    //The same, once AdminState learnt what the reply says of the admin mode
+    static Json adminRelayFailure(const DaemonReply &reply);
 
     //The package rule of calaos-container's docs/API.md (Upgrade jobs)
     static bool isValidPackageName(const string &name);
@@ -332,6 +334,23 @@ public:
     bool registerPushToken(const Params &jParam);
     //register_push's push_format, the notification format for anything unknown.
     static int pushFormatFromString(const string &value);
+
+    //register_push's device_name: the admin picks an approver phone by it, and
+    //every phone is pushed it when that phone becomes an approver
+    static constexpr size_t MaxDeviceName = 64;
+
+    /* At most maxCodePoints code points of text, without invalid UTF-8, control
+     * characters, or the bidi and invisible ones a name could hide behind;
+     * runs of spaces are folded, the ends trimmed.
+     */
+    static string printableText(const string &text, size_t maxCodePoints);
+
+    //First 16 hex characters of the SHA-256 of a push token: the daemon's
+    //token_id, the only form of a token a client ever sees
+    static string pushTokenId(const string &token);
+
+    //An approver id, a code id or a token_id: 16 lowercase hex characters
+    static bool isDaemonId(const string &s);
 
     //`source` names the caller in the warning for a write to a protected output.
     bool decodeSetState(Params &jParam, const char *source);

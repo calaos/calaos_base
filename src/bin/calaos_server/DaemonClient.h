@@ -58,6 +58,8 @@ class DaemonClient
 public:
     static constexpr const char *DefaultUrl = "http://127.0.0.1:8000";
     static constexpr const char *DefaultTokenFile = "/run/calaos/calaos-ct.token";
+    //The only part of /run/calaos-container bind-mounted in this container
+    static constexpr const char *DefaultConsoleDir = "/run/calaos-container/console";
     static constexpr long DefaultTimeout = 4;
     //update/check runs a synchronous apt-get update on the daemon side
     static constexpr long UpdateCheckTimeout = 120;
@@ -78,9 +80,10 @@ public:
 
     static DaemonClient &Instance();
 
-    //Reads CALAOS_CONTAINER_URL and CALAOS_CONTAINER_TOKEN_FILE, then the
-    //token. Not an option of local_config.xml: config put could then send the
-    //bearer and the admin password to a third party.
+    //Reads CALAOS_CONTAINER_URL, CALAOS_CONTAINER_TOKEN_FILE and
+    //CALAOS_CONTAINER_CONSOLE_DIR, then the token. Not options of
+    //local_config.xml: config put could then send the bearer and the admin
+    //password to a third party, or a console to another socket.
     void configure();
 
     //True for http://127.0.0.1[:port] and http://[::1][:port] only. base is
@@ -90,6 +93,21 @@ public:
     //Empty before configure() or when CALAOS_CONTAINER_URL was refused: every
     //call is then unreachable.
     const string &baseUrl() const { return base; }
+
+    //An absolute path without "." or ".." segments and without a trailing slash
+    static bool isConsoleDir(const string &dir);
+
+    //Where the console sockets must be; empty when CALAOS_CONTAINER_CONSOLE_DIR
+    //was refused, and no console is attached then
+    const string &consoleDir() const { return consoleDirectory; }
+
+    //Client side of the daemon's WebSockets (/api/v2/events, the console socket)
+    static string webSocketKey();
+    static string webSocketAccept(const string &key);
+    //Never 0: WebSocketFrame::makeFrame() reads 0 as "send unmasked"
+    static uint32_t webSocketMask();
+    //The status of a response head (without its blank line), headers by lowercase name
+    static int parseHttpHead(const string &head, map<string, string> &headers);
 
     void call(const Request &request, Callback callback);
 
@@ -107,6 +125,7 @@ private:
     DaemonClient();
 
     string base;
+    string consoleDirectory;
     string tokenFile;
     string token;
     bool bearerWarned = false;
