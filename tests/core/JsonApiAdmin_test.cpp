@@ -3816,6 +3816,9 @@ TEST_F(AdminEventsTest, AnApproversTokenKeepsItsEnrolledNameAndFormat)
  */
 int main(int argc, char **argv)
 {
+    //TEMPORARY CI diagnostic, to be dropped
+    ::mkdir("../coverage-html", 0755);
+    ::testing::GTEST_FLAG(output) = "xml:../coverage-html/JsonApiAdmin_test.xml";
     ::testing::InitGoogleTest(&argc, argv);
 
     char tmpl[] = "/tmp/calaos_cb2_admin_XXXXXX";
