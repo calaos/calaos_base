@@ -112,7 +112,7 @@ TEST(RelayIdentity, AnIdentityThatIsNotAnAddressIsReplaced)
     Filter f("127.0.0.1", CRED);
     std::string out;
     ASSERT_TRUE(f.feed(get("X-Forwarded-For: evil ip\r\n"), out));
-    EXPECT_EQ(identities(out), std::vector<std::string>{CRED + " 127.0.0.1"});
+    EXPECT_EQ(identities(out), std::vector<std::string>{ CRED + " 127.0.0.1" });
 }
 
 //----------------------------------------------------------------- the framing
