@@ -231,6 +231,39 @@ TEST(PushTokenStoreTest, ASecondOpenOfAMigratedDatabaseChangesNothing)
     EXPECT_EQ(HistLogger::PUSH_FORMAT_DATA, tokens[0].format);
 }
 
+TEST(PushTokenStoreTest, ALockOnTheNameColumnOnlyIsRetriedWithTheFormatKept)
+{
+    const std::string path = std::filesystem::path(dbPath).parent_path().string() + "/name_locked.db";
+    {
+        sqlite::database db(path);
+        db << "CREATE TABLE push_tokens (id INTEGER PRIMARY KEY UNIQUE NOT NULL, token TEXT, hw_type INTEGER, "
+              "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, push_format INTEGER NOT NULL DEFAULT 0);";
+        db << "INSERT INTO push_tokens (token, hw_type, push_format) values ('cb-data', 2, 1);";
+    }
+
+    sqlite::database locker(path);
+    locker << "BEGIN IMMEDIATE;";
+    sqlite::database db(path);
+    bool locked = false, hasName = true;
+    EXPECT_TRUE(PushTokenDb::prepare(db, &locked, &hasName));
+    EXPECT_TRUE(locked);
+    EXPECT_FALSE(hasName);
+    const auto whileLocked = PushTokenDb::load(db, true, hasName);
+    ASSERT_EQ(1u, whileLocked.size());
+    EXPECT_EQ(HistLogger::PUSH_FORMAT_DATA, whileLocked[0].format);
+    locker << "COMMIT;";
+
+    EXPECT_TRUE(PushTokenDb::prepare(db, &locked, &hasName));
+    EXPECT_FALSE(locked);
+    EXPECT_TRUE(hasName);
+    const auto after = PushTokenDb::load(db, true, true);
+    ASSERT_EQ(1u, after.size());
+    EXPECT_EQ("cb-data", after[0].token);
+    EXPECT_EQ(HistLogger::PUSH_FORMAT_DATA, after[0].format);
+    EXPECT_EQ("", after[0].device_name);
+    EXPECT_FALSE(after[0].approver);
+}
+
 TEST(PushTokenStoreTest, AReadOnlyOldDatabaseIsStillReadAndWritten)
 {
     const std::string path = oldDatabase("read_only.db");

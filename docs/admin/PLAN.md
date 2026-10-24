@@ -105,7 +105,7 @@ Les constats calaos-container portent sur `origin/main`.
     - `update_check`, `update_available`, `update_upgrade_all`, `update_upgrade(package)`, `update_status` ;
     - `system_reboot`, `system_restart` (redémarre le kiosque calaos-home), `system_info` ;
     - `mcp_regenerate`, traitée dans calaos_server ;
-    - en phase 2, `approver_list`, `approver_enroll`, `approver_confirm`, `console_open`.
+    - en phase 2, `approver_candidates`, `approver_list`, `approver_enroll`, `approver_confirm`, `approver_remove`, `code_request`, `code_verify`, `console_open`.
   - `package` validé par la règle de `docs/API.md` de calaos-container : regex `^[A-Za-z0-9.+-]+$`, premier caractère alphanumérique, pas de `..`, 128 caractères au plus.
   - `install/*`, `rollback_snapshot` et `network/*` ne sont jamais relayés.
   - `admin {action: update_status}` est accepté sans `admin_session` une fois l'admin défini, sous `secureTransport()`. `admin_event` est diffusé à toute connexion WS loguée, port 5454 compris : c'est la seule exception à « rien d'admin en clair ».
@@ -325,7 +325,7 @@ Chemin critique ≈ 13,5 j : Board, CC-040, CC2, CC1, CC3, CB3, RC1. CB2, CB1, C
 | Repo | Ticket | Contenu | Durée |
 |---|---|---|---|
 | calaos-container | AP1a | approbateurs et codes push : routes d'enrôlement, codes, limites, liaison à l'action, `push_code {approver_id, code_id}`, route bearer de récupération, invalidation de la session après 5 échecs de code | 1,75 j |
-| calaos_base | AP1b | consommation de `push_code` dans le client `/events` de CB3, `device_name` dans `register_push` et `push_tokens`, valeurs `approver_list`, `approver_enroll`, `approver_confirm`, `console_open` de la table | 1,25 j |
+| calaos_base | AP1b | consommation de `push_code` dans le client `/events` de CB3, `device_name` dans `register_push` et `push_tokens`, valeurs `approver_candidates`, `approver_list`, `approver_enroll` (sélection par `token_id`), `approver_confirm`, `approver_remove`, `code_request`, `code_verify`, `console_open` de la table, champs `code_id`/`code` d'`admin_set`, alertes `approver_set`/`approver_removed`, plateforme, date d'enregistrement et `last_seen` des approbateurs et des candidats | 1,25 j |
 | calaos_mobile | AP2 | déjà fusionné : `device_name` dans `register_push` ; `register_push` en mode HTTP envoyé avec les identifiants (aujourd'hui un échec de login par session) | 0,5 j |
 | calaos_mobile | AP2b | réglage dans l'app « Nom de cet appareil » (iOS 16 renvoie « iPhone »), avec renvoi de `register_push` au changement | 0,5 j |
 | calaos-container | CO1 | console via ttyd (socket Unix par console, `--once`, `--max-clients 1`), dépendance `ttyd`, route du ticket, limites, kill, ping, alerte `console_opened`, audit sur stdout | 1 j |

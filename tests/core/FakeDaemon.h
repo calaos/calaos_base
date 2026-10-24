@@ -145,6 +145,9 @@ public:
         progress = leakyProgress();
         job = leakyJob();
         alerts.clear();
+        alertData.clear();
+        approvers = nlohmann::json::array();
+        pushPayloads.clear();
         useRawHandshake = false;
         rawHandshakeBytes.clear();
         eventsRefusal = 0;
@@ -241,15 +244,31 @@ public:
             sendFrame(*s, 0x1, event.dump());
     }
 
-    //Persisted until acknowledged, like the daemon's admin_set/admin_reset
-    void raiseAlert(const std::string &type, const std::string &id)
+    //Persisted until acknowledged, like the daemon's alerts; extra is merged
+    //into data (device_name and token_id of the approver alerts)
+    void raiseAlert(const std::string &type, const std::string &id, const nlohmann::json &extra = nlohmann::json::object())
     {
         {
             std::lock_guard<std::mutex> l(mutex);
             alerts.push_back({ type, id });
+            alertData[id] = extra;
         }
         for (auto &s: openStreams())
             sendAlert(*s, type, id);
+    }
+
+    //What GET admin/approvers answers
+    void setApprovers(const nlohmann::json &list)
+    {
+        std::lock_guard<std::mutex> l(mutex);
+        approvers = list;
+    }
+
+    //What GET admin/push/{codeId} answers, once
+    void setPushPayload(const std::string &codeId, const std::string &token, const std::string &message)
+    {
+        std::lock_guard<std::mutex> l(mutex);
+        pushPayloads[codeId] = { { "token", token }, { "message", message } };
     }
 
     /* What the daemon does at each ping (app/events.go): a pending alert goes
@@ -289,9 +308,11 @@ public:
     size_t pingsReceived() { return pings; }
     size_t pongsReceived() { return pongs; }
 
-    static nlohmann::json alertEvent(const std::string &type, const std::string &id)
+    static nlohmann::json alertEvent(const std::string &type, const std::string &id, const nlohmann::json &extra = nlohmann::json::object())
     {
-        return { { "type", type }, { "data", { { "id", id }, { "ts", "2026-10-22T09:14:00Z" } } } };
+        nlohmann::json data = { { "id", id }, { "ts", "2026-10-22T09:14:00Z" } };
+        data.update(extra);
+        return { { "type", type }, { "data", data } };
     }
 
     std::vector<Request> requests()
@@ -354,7 +375,13 @@ private:
             if (!s.sentAlerts.insert(id).second)
                 return;
         }
-        sendFrame(s, 0x1, alertEvent(type, id).dump());
+        nlohmann::json extra;
+        {
+            std::lock_guard<std::mutex> l(mutex);
+            const auto it = alertData.find(id);
+            extra = it == alertData.end() ? nlohmann::json::object() : it->second;
+        }
+        sendFrame(s, 0x1, alertEvent(type, id, extra).dump());
     }
 
     std::mutex streamsMutex;
@@ -369,6 +396,9 @@ private:
     nlohmann::json progress = leakyProgress();
     nlohmann::json job = leakyJob();
     std::vector<std::pair<std::string, std::string>> alerts;
+    std::map<std::string, nlohmann::json> alertData;
+    nlohmann::json approvers = nlohmann::json::array();
+    std::map<std::string, nlohmann::json> pushPayloads;
     bool useRawHandshake = false;
     std::string rawHandshakeBytes;
 
@@ -696,6 +726,40 @@ private:
         return false;
     }
 
+    //The session-only approver and code routes; the code is always right
+    Response approverRoute(const Request &req, const nlohmann::json &body, bool hasSession)
+    {
+        Response res;
+        auto field = [&body](const char *k)
+        {
+            return body.is_object() && body.contains(k) && body[k].is_string() ? body[k].get<std::string>() : std::string();
+        };
+
+        if (!hasSession)
+        {
+            res.status = 401;
+            res.body = err("bad_session");
+        }
+        else if (req.method == "GET" && req.path == "/api/v2/admin/approvers")
+            res.body = ok(approvers);
+        else if (req.method == "POST" && req.path == "/api/v2/admin/approvers/enroll")
+            res.body = ok({ { "approver_id", "a000000000000002" }, { "code_id", "c000000000000001" }, { "expires_in", 60 } });
+        else if (req.method == "POST" && req.path == "/api/v2/admin/approvers/confirm")
+            res.body = ok({ { "id", "a000000000000002" }, { "device_name", "Pixel 8" }, { "token_id", "9a41f0c2d3e4b5a6" }, { "created_at", "2026-10-23T09:12:03Z" } });
+        else if (req.method == "POST" && req.path == "/api/v2/admin/approvers/remove")
+            res.body = ok({ { "approver_id", field("approver_id") } });
+        else if (req.method == "POST" && req.path == "/api/v2/admin/codes")
+            res.body = ok({ { "code_id", "c000000000000002" }, { "approver_id", "a000000000000001" }, { "expires_in", 60 } });
+        else if (req.method == "POST" && req.path == "/api/v2/admin/codes/verify")
+            res.body = ok({ { "action", "console_open" }, { "expires_in", 30 } });
+        else
+        {
+            res.status = 404;
+            res.body = err("not_found");
+        }
+        return res;
+    }
+
     //Called with the mutex held
     Response model(const Request &req)
     {
@@ -816,6 +880,29 @@ private:
         else if (req.method == "GET" && req.path == "/api/v2/system/info")
         {
             res.body = ok({ { "hostname", "calaos" }, { "uptime", 1234 }, { "cpu_usage", 3 }, { "mem_usage", 41 } });
+        }
+        else if (req.path.compare(0, 23, "/api/v2/admin/approvers") == 0 || req.path.compare(0, 19, "/api/v2/admin/codes") == 0)
+        {
+            res = approverRoute(req, body, hasSession);
+        }
+        else if (req.method == "GET" && req.path.compare(0, 19, "/api/v2/admin/push/") == 0)
+        {
+            const auto it = pushPayloads.find(req.path.substr(19));
+            if (hasSession)
+            {
+                res.status = 403;
+                res.body = err("not_allowed");
+            }
+            else if (it == pushPayloads.end())
+            {
+                res.status = 404;
+                res.body = err("not_found");
+            }
+            else
+            {
+                res.body = ok(it->second);
+                pushPayloads.erase(it);
+            }
         }
         else if (req.method == "POST" && req.path == "/api/v2/admin/alerts/ack")
         {

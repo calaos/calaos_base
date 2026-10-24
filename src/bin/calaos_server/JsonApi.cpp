@@ -3241,7 +3241,8 @@ bool JsonApi::registerPushToken(const Params &jParam)
 
     HistLogger::Instance().registerPushToken(jParam["token"],
                                              jParam["hardware"] == "ios" ? HistLogger::PUSH_HW_IOS : HistLogger::PUSH_HW_ANDROID,
-                                             pushFormatFromString(jParam["push_format"]));
+                                             pushFormatFromString(jParam["push_format"]),
+                                             printableText(jParam["device_name"], MaxDeviceName));
 
     return true;
 }

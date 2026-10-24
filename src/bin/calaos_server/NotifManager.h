@@ -51,6 +51,12 @@ public:
     void sendPushNotification(const string &message, const string &notifPicUuid = "", std::function<void(void)> callbackSent = {},
                               std::function<void(bool)> callbackDone = {});
 
+    /* Pushes message to that one registered token only, never to the others.
+     * callbackDone(false) when the token is not registered (any more) or the
+     * push failed. Neither the token nor the message is logged.
+     */
+    void sendPushNotificationTo(const string &token, const string &message, std::function<void(bool)> callbackDone = {});
+
     //Request body for push.calaos.fr (gorush), empty when no token can be served.
     static string buildPushBody(const vector<PushToken> &tokens, const string &message,
                                 const string &notifPicUuid, bool development);
@@ -60,6 +66,8 @@ public:
 
 private:
     NotifManager();
+
+    void post(const string &body, std::function<void(void)> callbackSent, std::function<void(bool)> callbackDone);
 
     static string pushServiceUrl;
 };

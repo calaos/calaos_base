@@ -21,6 +21,8 @@
 #include "AdminState.h"
 #include "EventManager.h"
 #include "HistLogger.h"
+#include "JsonApi.h"
+#include "JsonField.h"
 #include "NotifManager.h"
 #include "Timer.h"
 
@@ -240,14 +242,30 @@ void AdminState::saveAlerts()
         cErrorDom("admin") << "Cannot write " << alertsPath() << ", an alert replayed after a restart is stored again"; //LCOV_EXCL_LINE rename in a directory just written to
 }
 
-bool AdminState::storeAlert(const string &type, const string &id, std::function<void()> stored)
+string AdminState::alertMessage(const string &type, const Json &data)
 {
-    string message;
     if (type == "admin_set")
-        message = _("Admin password set on your Calaos box");
-    else if (type == "admin_reset")
-        message = _("Admin password removed from your Calaos box");
-    else
+        return _("Admin password set on your Calaos box");
+    if (type == "admin_reset")
+        return _("Admin password removed from your Calaos box");
+    if (type != "approver_set" && type != "approver_removed")
+        return string();
+
+    //No quote of the name may close the one around it
+    string name = JsonApi::printableText(JsonField::string(data, "device_name"), JsonApi::MaxDeviceName);
+    for (const char *quote: { "\"", "\u00ab", "\u00bb", "\u201c", "\u201d", "\u201e", "\u201f", "\u2033", "\u2036", "\uff02" })
+        Utils::replace_str(name, quote, "'");
+    if (name.empty())
+        name = "?";
+    const string prefix = type == "approver_set" ? _("New approver phone on your Calaos box: ")
+                                                 : _("Approver phone removed from your Calaos box: ");
+    return prefix + "\"" + name + "\"";
+}
+
+bool AdminState::storeAlert(const string &type, const string &id, std::function<void()> stored, const Json &data)
+{
+    const string message = alertMessage(type, data);
+    if (message.empty())
         return false;
 
     if (std::find(storedAlerts.begin(), storedAlerts.end(), id) != storedAlerts.end())
@@ -274,13 +292,17 @@ bool AdminState::storeAlert(const string &type, const string &id, std::function<
     return true;
 }
 
-void AdminState::pushAlert(const string &type, std::function<void(bool)> done)
+void AdminState::pushAlert(const string &type, std::function<void(bool)> done, const Json &data)
 {
-    const string message = type == "admin_set" ? _("Admin password set on your Calaos box")
-                                               : _("Admin password removed from your Calaos box");
+    const string message = alertMessage(type, data);
+
+    //Each approver change is its own alert: a decoy phone enrolled first must
+    //not silence the push of the next one
+    const bool approver = type == "approver_set" || type == "approver_removed";
+    const string key = approver ? type + ":" + JsonField::string(data, "token_id") : type;
 
     const double now = Utils::getMainLoopTime();
-    const auto last = lastAlertPush.find(type);
+    const auto last = lastAlertPush.find(key);
     if (last != lastAlertPush.end() && now - last->second < alertPushInterval)
     {
         cInfoDom("admin") << "Alert " << type << " stored without a push, one was sent less than "
@@ -292,15 +314,15 @@ void AdminState::pushAlert(const string &type, std::function<void(bool)> done)
 
     //No push yet reads as one infinitely long ago
     const double previous = last != lastAlertPush.end() ? last->second : -std::numeric_limits<double>::infinity();
-    lastAlertPush[type] = now;
+    lastAlertPush[key] = now;
 
     //A never destroyed singleton: `this` cannot dangle
-    NotifManager::Instance().sendPushNotification(message, string(), {}, [this, type, done, previous, now](bool sent)
+    NotifManager::Instance().sendPushNotification(message, string(), {}, [this, key, done, previous, now](bool sent)
                                                   {
         if (!sent)
         {
             //Unless a newer push of the type went out meanwhile
-            const auto stamp = lastAlertPush.find(type);
+            const auto stamp = lastAlertPush.find(key);
             if (stamp != lastAlertPush.end() && stamp->second == now)
                 stamp->second = previous;
         }

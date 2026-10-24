@@ -503,6 +503,19 @@ continue, sans message `data`. Aucun jeton n'est journalisé, ni en cas de
 succès ni en cas d'erreur SQL (le SQL étendu par sqlite_modern_cpp contient les
 valeurs liées et n'est jamais écrit).
 
+La colonne `device_name` (texte, `''` par défaut) est ajoutée de la même façon :
+c'est le nom choisi par l'app (`register_push`, champ `device_name`), nettoyé par
+`JsonApi::printableText()` (au plus 64 points de code, sans caractère de contrôle,
+bidi ni invisible). Un réenregistrement sans nom garde le nom connu. L'admin choisit
+son téléphone approbateur par ce nom (`admin {approver_candidates}`, voir
+[08_http_api.md](08_http_api.md#approbateurs-et-codes-push)). Un code push du daemon
+ne va qu'à un seul jeton : `NotifManager::sendPushNotificationTo()`, qui retrouve le
+jeton dans `push_tokens` (plateforme et format) et ne poste que lui. La colonne `approver`
+(entier, 0 par défaut, ajoutée avec `device_name`) marque le jeton d'un approbateur :
+un réenregistrement n'en change alors ni le nom ni le format. La colonne `registered_at`
+(texte) garde la date du premier enregistrement ; à sa création, les jetons existants
+reçoivent leur `created_at`, la date de leur dernier enregistrement.
+
 #### Requête envoyée à push.calaos.fr
 
 `NotifManager::buildPushBody()` produit le corps posté à

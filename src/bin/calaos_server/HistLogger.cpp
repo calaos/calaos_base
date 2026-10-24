@@ -48,7 +48,10 @@
                              "token TEXT, "                                    \
                              "hw_type INTEGER, "                               \
                              "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, " \
-                             "push_format INTEGER NOT NULL DEFAULT 0);"
+                             "push_format INTEGER NOT NULL DEFAULT 0, "        \
+                             "device_name TEXT NOT NULL DEFAULT '', "          \
+                             "approver INTEGER NOT NULL DEFAULT 0, "           \
+                             "registered_at TEXT NOT NULL DEFAULT '');"
 
 const char *const HistEventSql::ReadPage =
     "SELECT uuid, created_at, event_type, io_id, io_state, event_raw, pic_uid FROM events "
@@ -70,43 +73,76 @@ bool isLock(const sqlite::sqlite_exception &e)
 
 } //namespace
 
-bool PushTokenDb::prepare(sqlite::database &db, bool *locked)
+namespace
+{
+
+//True when the column was added
+bool addTokenColumn(sqlite::database &db, const char *name, const char *ddl)
+{
+    int count = 0;
+    db << "SELECT count(*) FROM pragma_table_info('push_tokens') WHERE name = ?;" << name >> count;
+    if (count > 0)
+        return false;
+
+    db << ddl;
+    cInfoDom("history") << "push_tokens: " << name << " column added";
+    return true;
+}
+
+} //namespace
+
+bool PushTokenDb::prepare(sqlite::database &db, bool *locked, bool *hasName)
 {
     if (locked)
         *locked = false;
 
+    //Tables from older servers: their tokens all belong to apps expecting
+    //the notification format, the default, and have no name
+    bool format = false, name = false;
     try
     {
         db << DB_CREATE_SQL_TOKENS;
-
-        int count = 0;
-        db << "SELECT count(*) FROM pragma_table_info('push_tokens') WHERE name = 'push_format';" >> count;
-        if (count > 0)
-            return true;
-
-        //Tables from older servers: their tokens all belong to apps expecting
-        //the notification format, the default.
-        db << "ALTER TABLE push_tokens ADD COLUMN push_format INTEGER NOT NULL DEFAULT 0;";
-        cInfoDom("history") << "push_tokens: push_format column added";
-        return true;
+        addTokenColumn(db, "push_format", "ALTER TABLE push_tokens ADD COLUMN push_format INTEGER NOT NULL DEFAULT 0;");
+        format = true;
+        addTokenColumn(db, "device_name", "ALTER TABLE push_tokens ADD COLUMN device_name TEXT NOT NULL DEFAULT '';");
+        addTokenColumn(db, "approver", "ALTER TABLE push_tokens ADD COLUMN approver INTEGER NOT NULL DEFAULT 0;");
+        //The first registration of older tokens is unknown: their last one is the best guess
+        if (addTokenColumn(db, "registered_at", "ALTER TABLE push_tokens ADD COLUMN registered_at TEXT NOT NULL DEFAULT '';"))
+            db << "UPDATE push_tokens SET registered_at = COALESCE(created_at, '');";
+        name = true;
     }
     catch (sqlite::sqlite_exception &e)
     {
         if (locked)
             *locked = isLock(e);
-        cWarningDom("history") << "push_tokens: cannot add push_format (" << e.get_code() << ": " << e.what()
-                               << "), tokens are served in the notification format meanwhile";
-        return false;
+        cWarningDom("history") << "push_tokens: cannot add " << (format ? "device_name" : "push_format") << " ("
+                               << e.get_code() << ": " << e.what() << "), tokens are served "
+                               << (format ? "without a name" : "in the notification format") << " meanwhile";
     }
+
+    if (hasName)
+        *hasName = name;
+    return format;
 }
 
-void PushTokenDb::save(sqlite::database &db, const PushToken &token, bool hasFormat)
+void PushTokenDb::save(sqlite::database &db, const PushToken &token, bool hasFormat, bool hasName)
 {
-    bool exists = false;
-    db << "SELECT id FROM push_tokens WHERE token = ?;" << token.token >> [&](int)
+    bool exists = false, approver = false;
+    db << (hasName ? "SELECT approver FROM push_tokens WHERE token = ?;" : "SELECT 0 FROM push_tokens WHERE token = ?;")
+       << token.token >>
+        [&](int a)
     {
         exists = true;
+        approver = a != 0;
     };
+
+    //Whoever knows an approver's token may register it: the name and the
+    //format the admin enrolled stay
+    if (approver)
+    {
+        db << "UPDATE push_tokens SET created_at = DATETIME('now') WHERE token = ?;" << token.token;
+        return;
+    }
 
     if (exists && hasFormat)
         db << "UPDATE push_tokens SET created_at = DATETIME('now'), push_format = ? WHERE token = ?;"
@@ -118,26 +154,37 @@ void PushTokenDb::save(sqlite::database &db, const PushToken &token, bool hasFor
            << token.token << token.hw_type << token.format;
     else
         db << "INSERT INTO push_tokens (token, hw_type) values (?, ?);" << token.token << token.hw_type;
+
+    if (!exists && hasName)
+        db << "UPDATE push_tokens SET registered_at = DATETIME('now') WHERE token = ?;" << token.token;
+
+    //An app that sends no name keeps the one it registered before
+    if (hasName && !token.device_name.empty())
+        db << "UPDATE push_tokens SET device_name = ? WHERE token = ?;" << token.device_name << token.token;
 }
 
-vector<PushToken> PushTokenDb::load(sqlite::database &db, bool hasFormat)
+vector<PushToken> PushTokenDb::load(sqlite::database &db, bool hasFormat, bool hasName)
 {
     vector<PushToken> tokens;
-    if (hasFormat)
+    const string sql = string("SELECT token, hw_type, ") + (hasFormat ? "push_format" : "0") + ", " +
+                       (hasName ? "COALESCE(device_name, ''), approver, registered_at" : "'', 0, ''") +
+                       ", COALESCE(created_at, '') FROM push_tokens;";
+    db << sql >> [&](string token, int hw_type, int push_format, string device_name, int approver, string registered_at,
+                     string created_at)
     {
-        db << "SELECT token, hw_type, push_format FROM push_tokens;" >> [&](string token, int hw_type, int push_format)
-        {
-            tokens.emplace_back(std::move(token), hw_type, push_format);
-        };
-    }
-    else
-    {
-        db << "SELECT token, hw_type FROM push_tokens;" >> [&](string token, int hw_type)
-        {
-            tokens.emplace_back(std::move(token), hw_type);
-        };
-    }
+        PushToken t(std::move(token), hw_type, push_format);
+        t.device_name = std::move(device_name);
+        t.approver = approver != 0;
+        t.registered_at = std::move(registered_at);
+        t.created_at = std::move(created_at);
+        tokens.push_back(std::move(t));
+    };
     return tokens;
+}
+
+void PushTokenDb::setApprover(sqlite::database &db, const string &token, bool approver)
+{
+    db << "UPDATE push_tokens SET approver = ? WHERE token = ?;" << (approver ? 1 : 0) << token;
 }
 
 void PushTokenDb::purge(sqlite::database &db)
@@ -156,6 +203,7 @@ public:
         WorkerReadSingle,
         WorkerTokenRegister,
         WorkerTokenGetAll,
+        WorkerTokenApprover,
     };
 
     int action = WorkerNoAction;
@@ -401,13 +449,23 @@ void HistLogger::getEvent(string uuid,
     eventQueue.push(a);
 }
 
-void HistLogger::registerPushToken(string token, int push_hw, int push_format)
+void HistLogger::registerPushToken(string token, int push_hw, int push_format, string device_name)
 {
     std::shared_ptr<HistWorkerAction> a = std::make_shared<HistWorkerAction>();
     a->action = HistWorkerAction::WorkerTokenRegister;
     a->token.token = token;
     a->token.hw_type = push_hw;
     a->token.format = push_format;
+    a->token.device_name = device_name;
+    eventQueue.push(a);
+}
+
+void HistLogger::setPushTokenApprover(string token, bool approver)
+{
+    std::shared_ptr<HistWorkerAction> a = std::make_shared<HistWorkerAction>();
+    a->action = HistWorkerAction::WorkerTokenApprover;
+    a->token.token = token;
+    a->token.approver = approver;
     eventQueue.push(a);
 }
 
@@ -467,7 +525,8 @@ void HistLogger::sqliteWorker()
 
     bool eventsLocked = false, tokensLocked = false;
     bool eventsReady = prepareEvents(db, eventsLocked);
-    bool pushFormat = PushTokenDb::prepare(db, &tokensLocked);
+    bool pushName = false;
+    bool pushFormat = PushTokenDb::prepare(db, &tokensLocked, &pushName);
     string lastCutoff;
 
     while (!done)
@@ -479,8 +538,8 @@ void HistLogger::sqliteWorker()
         //A lock at startup must not last until the next restart.
         if (!eventsReady && eventsLocked)
             eventsReady = prepareEvents(db, eventsLocked);
-        if (!pushFormat && tokensLocked)
-            pushFormat = PushTokenDb::prepare(db, &tokensLocked);
+        if ((!pushFormat || !pushName) && tokensLocked)
+            pushFormat = PushTokenDb::prepare(db, &tokensLocked, &pushName);
 
         //Never e.get_sql(): sqlite_modern_cpp expands it with the bound values,
         //event contents and push tokens included.
@@ -504,7 +563,7 @@ void HistLogger::sqliteWorker()
 
                 try
                 {
-                    PushTokenDb::save(db, ac->token, pushFormat);
+                    PushTokenDb::save(db, ac->token, pushFormat, pushName);
                     PushTokenDb::purge(db);
                 }
                 catch (sqlite::sqlite_exception &e)
@@ -512,13 +571,15 @@ void HistLogger::sqliteWorker()
                     cCriticalDom("history") << "Failed to save a push token: " << e.get_code() << ": " << e.what();
                 }
             }
+            else if (ac->action == HistWorkerAction::WorkerTokenApprover && pushName)
+                PushTokenDb::setApprover(db, ac->token.token, ac->token.approver);
             else if (ac->action == HistWorkerAction::WorkerTokenGetAll)
             {
                 cDebugDom("history") << "Reading from SQLite db all tokens";
 
                 try
                 {
-                    ac->tokens = PushTokenDb::load(db, pushFormat);
+                    ac->tokens = PushTokenDb::load(db, pushFormat, pushName);
                 }
                 catch (sqlite::sqlite_exception &e)
                 {
