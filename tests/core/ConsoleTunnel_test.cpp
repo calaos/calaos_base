@@ -1135,7 +1135,7 @@ TEST_F(ConsoleTunnelTest, TheSocketsCloseIsRelayedWithItsCode)
         else
             fakeConsole.hangUp();
         EXPECT_EQ(k.browser, c.waitClose()) << k.sent;
-        EXPECT_EQ("console closed", c.closeReason());
+        EXPECT_EQ(k.sent ? "exited" : "closed", c.closeReason());
         if (k.sent)
         {
             //Echoed as 1000 or 1001 before the socket is shut down
@@ -1145,6 +1145,36 @@ TEST_F(ConsoleTunnelTest, TheSocketsCloseIsRelayedWithItsCode)
             }));
             EXPECT_EQ(k.browser, socketCloseCode());
         }
+        c.sendClose(1000);
+        drainLoop(30);
+        fakeConsole.stop();
+    }
+}
+
+TEST_F(ConsoleTunnelTest, OnlyTheSocketsReasonTokensAreRelayed)
+{
+    struct Case
+    {
+        std::string sent;
+        std::string browser;
+    };
+    const std::vector<Case> cases = {
+        { "expired", "expired" },
+        { "admin_reset", "admin_reset" },
+        { "bad_code", "bad_code" },
+        { "rm -rf /", "closed" },
+        { "Expired", "closed" },
+        { "expired" + std::string(100, 'x'), "closed" },
+        { "", "closed" },
+    };
+    for (const Case &k: cases)
+    {
+        Json ready;
+        ConsoleClient c;
+        attached(c, ready);
+        fakeConsole.sendClose(1001, k.sent);
+        EXPECT_EQ(1001, c.waitClose()) << k.sent;
+        EXPECT_EQ(k.browser, c.closeReason()) << k.sent;
         c.sendClose(1000);
         drainLoop(30);
         fakeConsole.stop();
@@ -1208,6 +1238,7 @@ TEST_F(ConsoleTunnelTest, ASocketThatBreaksTheProtocolEndsTheConsole)
         for (const Sent &f: k.frames)
             fakeConsole.send(f.opcode, f.payload, f.fin, f.masked);
         EXPECT_EQ(1001, c.waitClose());
+        EXPECT_EQ("closed", c.closeReason());
         ASSERT_TRUE(pumpUntil([]()
                               {
             return fakeConsole.sawEof();

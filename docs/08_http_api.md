@@ -918,14 +918,29 @@ Le serveur l'annonce une fois :
 
 | Cause | Le navigateur reçoit | La socket reçoit |
 |---|---|---|
-| le daemon ferme en `1000` (shell sorti) ou `1001` (1 h, inactivité, `admin_set`, `admin_reset`, 5 codes faux, arrêt) | le même code, `console closed` | l'écho de son code |
-| le daemon ferme avec un autre code ou sans code | `1001`, `console closed` | `1001` |
-| la socket tombe sans trame de fermeture | `1001`, `console closed` | rien |
-| le daemon viole le protocole (trame masquée, fragment orphelin, message de plus de 1 Mio) | `1001`, `console closed` | `1002` ou `1009` |
+| le daemon ferme en `1000` (shell sorti) ou `1001` (1 h, inactivité, `admin_set`, `admin_reset`, 5 codes faux, arrêt) | le même code, sa raison si c'est un des jetons ci-dessous, `closed` sinon | l'écho de son code |
+| le daemon ferme avec un autre code ou sans code | `1001`, même règle pour la raison | `1001` |
+| la socket tombe sans trame de fermeture | `1001`, `closed` | rien |
+| le daemon viole le protocole (trame masquée, fragment orphelin, message de plus de 1 Mio) | `1001`, `closed` | `1002` ou `1009` |
 | le navigateur ferme en `1000` ou `1001` | (réponse à sa fermeture) | le même code |
 | le navigateur ferme avec un autre code, ou sa connexion tombe | | `1001` |
 | calaos_server ferme le WebSocket lui-même (trois pongs manqués, message de plus de 4 Mio, trame invalide, message vide) | son code (`1000`, `1009`, `1002`…) | `1000` pour `1000`, `1001` sinon, aussitôt |
 | un message du navigateur dépasse 64 Kio | `1009`, `message too big` | `1000` |
+
+Raison de fermeture relayée depuis le daemon : un jeton exact de cette liste, jamais son
+texte libre. Une raison absente, inconnue ou plus longue devient `closed`.
+
+| Raison | Sens |
+|---|---|
+| `closed` | fermeture sans cause précise, ou raison du daemon absente ou inconnue |
+| `exited` | le shell est sorti |
+| `expired` | la durée maximale d'une console (1 h) est atteinte |
+| `idle` | aucune saisie pendant le délai d'inactivité (15 min) |
+| `not_connected` | personne ne s'est attaché à la console à temps |
+| `shutdown` | le daemon s'arrête |
+| `admin_set` | le mot de passe admin vient d'être défini ou changé |
+| `admin_reset` | l'admin vient d'être réinitialisé |
+| `bad_code` | trop de codes push faux (5) |
 
 Une console ne se rattache pas : après une fermeture, en ouvrir une autre demande un nouveau
 code. Chaque ouverture lève l'alerte `console_opened` (push « Calaos: console opened » à tous les
