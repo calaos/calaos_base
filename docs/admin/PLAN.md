@@ -58,7 +58,7 @@ Les constats calaos-container portent sur `origin/main`.
     - récupération : `{"recovery": true}` avec le seul bearer, envoyé uniquement par `calaos-os admin set`, jamais relayé par calaos_server (hors table).
 
     Les trois invalident toutes les sessions et publient l'alerte `admin_set`. Le mode récupération est une limite assumée : quiconque tient le bearer peut l'utiliser, comme une RCE dans calaos_server.
-  - **Alertes** : le daemon n'a pas de client push. Il persiste `admin_set` et `admin_reset` dans `/mnt/calaos/admin/` et les rejoue à chaque nouvel abonné `/events` jusqu'à l'ack de calaos_server, qui l'envoie après avoir enregistré l'événement. Une alerte émise pendant l'arrêt de calaos_server arrive donc au redémarrage, et une seule fois. Elle ne porte ni token ni code.
+  - **Alertes** : le daemon n'a pas de client push. Il persiste `admin_set`, `admin_reset`, `approver_set`, `approver_removed` et `console_opened` dans `/mnt/calaos/admin/` et les rejoue à chaque nouvel abonné `/events` jusqu'à l'ack de calaos_server, qui l'envoie après avoir enregistré l'événement. Une alerte émise pendant l'arrêt de calaos_server arrive donc au redémarrage, et une seule fois. Elle ne porte ni token ni code.
   - Tout appel porteur d'une session est refusé sur `install/*`, `rollback_snapshot` et `network/*` (middleware). `system/reboot` répond 409 pendant un job.
   - Audit dans `/mnt/calaos/admin/audit.log` et sur stdout (donc journald, hors snapshot) : adresse du client, action, résultat, id de session.
     - L'id de session est formé des 8 premiers caractères hexadécimaux du SHA-256 de la session, jamais de la session elle-même.
@@ -112,6 +112,7 @@ Les constats calaos-container portent sur `origin/main`.
   - calaos_server est abonné en permanence à `/events` (CB3) et ne retransmet aux clients foyer, sous `admin_event`, que :
     - `upgrade_progress` ;
     - `admin_set` et `admin_reset`, avec l'horodatage seul.
+    - En phase 2, `approver_set` et `approver_removed` (levées par AP1a) et `console_opened` (levée par CO1) : mêmes règles de persistance, poussées à tous les téléphones par AP1b/CO2.
 
     Tout autre type est consommé ou ignoré, jamais retransmis.
   - Vocabulaire d'erreurs, défini une fois :
@@ -201,7 +202,7 @@ Exigence de Raoul : une installation existante monte vers les versions admin par
   - un événement persistant (`EventPushNotification`), affiché à chaque client au login suivant.
 
   Il n'y a aucune condition d'IP.
-- **Changer le mot de passe admin** : en phase 1, `admin_set` avec une session admin valide. À partir de la phase 2, il faut en plus le code push.
+- **Changer le mot de passe admin** : en phase 1, `admin_set` avec une session admin valide. Dès qu'un approbateur existe (phase 2), il faut en plus le code push.
 - **Récupération** : `calaos-os admin set` en SSH, sur le LAN ou via le VPN, mot de passe lu sur stdin (mode récupération). Aucune fenêtre de bootstrap ne s'ouvre.
 - **Retour à « non défini »** : `calaos-os admin reset`, cas rare.
   - La commande efface le hash, les approbateurs, les sessions, et tue les consoles ouvertes.
@@ -211,11 +212,13 @@ Exigence de Raoul : une installation existante monte vers les versions admin par
 ### Second facteur : code par push vers un téléphone approbateur (phase 2)
 - **Enrôlement**
   - Un admin déverrouillé choisit son téléphone parmi les tokens `register_push`, qui gagne un nom d'appareil (`device_name`, stocké dans `push_tokens`).
+  - Depuis iOS 16, sans droit spécial, tout iPhone se nomme « iPhone » (décision de Raoul, 2026-10-24) : Calaos mobile propose le réglage « Nom de cet appareil » (AP2b). `approver_candidates` renvoie aussi la plateforme, la date d'enregistrement et `last_seen`, que WA3 affiche.
   - Le daemon envoie un code **à ce seul token**, et l'utilisateur le tape dans la webapp : c'est la preuve qu'il possède le téléphone.
   - Le daemon stocke le token comme approbateur. Pas de secret d'appareil : rien n'est remis au téléphone, donc rien à voler par `register_push`.
   - Les routes daemon de l'enrôlement et du ticket console sont nommées dans `docs/API.md` par AP1a et CO1.
 - **Nombre d'approbateurs** : un seul suffit (décision de Raoul). Un second est possible en option.
-- **Rotation du token push** (réinstallation, restauration, purge à 30 jours) : c'est un ré-enrôlement. Le changement d'approbateur exige un code ; si l'ancien token est mort, on passe par le second approbateur s'il existe, sinon par `calaos-os admin reset` puis `admin set` en SSH (décision de Raoul, 2026-10-22). En attendant, les mises à jour et le reboot restent possibles avec le seul mot de passe admin : seuls la console, le réseau et le changement d'approbateur sont bloqués.
+- **Retrait** : le dernier approbateur ne se retire pas (`approver_last`). Pour changer de téléphone, on enrôle le nouveau puis on retire l'ancien ; un téléphone perdu se règle par `admin reset` en SSH.
+- **Rotation du token push** (réinstallation, restauration, purge à 30 jours) : elle oblige à se ré-enrôler. Le changement d'approbateur exige un code ; si l'ancien token est mort, on passe par le second approbateur s'il existe, sinon par `calaos-os admin reset` puis `admin set` en SSH (décision de Raoul, 2026-10-22). En attendant, les mises à jour et le reboot restent possibles avec le seul mot de passe admin : seuls la console, le réseau et le changement d'approbateur sont bloqués.
 - **Code**
   - 6 chiffres, valable 60 s, à usage unique.
   - Lié à la session daemon, à l'action et au hash des paramètres.
@@ -231,21 +234,21 @@ Exigence de Raoul : une installation existante monte vers les versions admin par
 
 ### Console web (phase 2)
 - **Principe**
-  - Shell root sur l'hôte, ouvert par le daemon dans un pty (`creack/pty`).
-  - Endpoint dédié `/api/console` : un tunnel brut dans calaos_server, sur le modèle de `McpProxyHandler`, qui injecte le bearer du daemon dans la première requête.
+  - Shell root sur l'hôte, servi par le paquet Debian **ttyd** (décision de Raoul, 2026-10-24) : le terminal n'est pas réimplémenté. Le daemon lance un ttyd par console, sur une socket Unix (`--once`, `--max-clients 1`). `ttyd` rejoint les dépendances du paquet calaos-container.
+  - Le daemon garde la barrière (code push, ticket à usage unique lié à la session), les limites et l'audit.
+  - Endpoint dédié `/api/console` : un tunnel brut dans calaos_server, sur le modèle de `McpProxyHandler`, qui injecte le bearer du daemon dans la première requête puis relaie vers la socket de ttyd.
   - Ce chemin est détecté avant le parseur HTTP et échappe à `checkHandshakeRequest` : le tunnel applique lui-même `secureTransport()` et le contrôle d'Origin sur les en-têtes détectés.
-  - Côté webapp, `@xterm/xterm` est chargé seulement sur la route console.
+  - Côté webapp, `@xterm/xterm` (thème Calaos) est chargé seulement sur la route console et parle le protocole WS de ttyd.
 - **Ouverture**
   - Admin déverrouillé, puis un code push **par ouverture**, qui délivre un ticket à usage unique de 30 s. Il n'y a pas de flag « console activée » : c'est le code qui active la console.
-  - Le ticket est envoyé dans la **première trame** WS, jamais dans l'URL (haproxy journalise les URL). Rien n'atteint le pty avant validation.
+  - Le ticket est envoyé dans la **première trame** WS, jamais dans l'URL (haproxy journalise les URL). Rien n'atteint ttyd ni le shell avant validation.
 - **Limites**
-  - Le pty est tué (SIGHUP au groupe) après 15 min d'inactivité, au bout d'1 h, à la coupure du WS ou au reset. Seules les entrées du pty réarment le délai d'inactivité, pas les pings.
-  - 2 sessions au maximum.
-  - `TERM` sur liste blanche, environnement explicite, resize borné, backpressure.
+  - Le ttyd et son shell sont tués après 15 min d'inactivité, au bout d'1 h, à l'invalidation de la session ou au reset. CO2 signale l'inactivité au daemon ; les pings ne la réarment pas.
+  - 2 consoles au maximum.
 - **Traçabilité**
-  - Push « Console ouverte » à chaque ouverture.
+  - Alerte persistée `console_opened` levée par CO1 à chaque ouverture ; AP1b/CO2 la poussent à tous les téléphones.
   - Audit dans `audit.log` et dans journald. Derrière un agent qui redirige vers loopback, l'identité se réduit à 127.0.0.1 : c'est la même limite que pour le MCP.
-  - Le tunnel brut ne passe pas par la classe `WebSocket`, qui pinge toutes les 15 s : le daemon pinge donc lui-même la console (toutes les 30 s).
+  - Le tunnel brut ne passe pas par la classe `WebSocket`, qui pinge toutes les 15 s : le côté daemon pingue donc lui-même le tunnel (toutes les 30 s), et le ping propre de ttyd (`-P`) reste à sa valeur par défaut. Les pings ne réarment jamais le délai d'inactivité : seule la saisie console du client compte.
 
 ## Parcours utilisateur
 - **Installation existante (3 étapes).** La première montée vers les versions admin se fait avec l'outil habituel (`calaos-os upgrade`, `apt upgrade` ou le bouton du kiosque), sans reboot ni étape de plus : les nouvelles versions sont actives à la fin du run. Tant qu'on ne définit pas l'admin, rien ne change. Ensuite : onglet Admin, puis « Définir le mot de passe admin » (un push part), puis « Mettre à jour ». Par la suite : Admin, mot de passe, Mettre à jour.
@@ -317,21 +320,22 @@ Toute nouvelle option est déclarée dans `src/lib/ConfigOptions.cpp`, et `docs/
 
 Chemin critique ≈ 13,5 j : Board, CC-040, CC2, CC1, CC3, CB3, RC1. CB2, CB1, CB4, WA1 et CI1 ont plusieurs jours de marge.
 
-### Phase 2 (≈ 9,25 j) : console web et téléphone approbateur
+### Phase 2 (≈ 9,75 j) : console web et téléphone approbateur
 
 | Repo | Ticket | Contenu | Durée |
 |---|---|---|---|
 | calaos-container | AP1a | approbateurs et codes push : routes d'enrôlement, codes, limites, liaison à l'action, `push_code {approver_id, code_id}`, route bearer de récupération, invalidation de la session après 5 échecs de code | 1,75 j |
 | calaos_base | AP1b | consommation de `push_code` dans le client `/events` de CB3, `device_name` dans `register_push` et `push_tokens`, valeurs `approver_list`, `approver_enroll`, `approver_confirm`, `console_open` de la table | 1,25 j |
-| calaos_mobile | AP2 | nom d'appareil dans `register_push` ; `register_push` en mode HTTP envoyé avec les identifiants (aujourd'hui un échec de login par session) | 0,5 j |
-| calaos-container | CO1 | console pty, route du ticket, limites, ping, audit sur stdout | 1 j |
-| calaos_base | CO2 | tunnel `/api/console`, `secureTransport()` et Origin sur les en-têtes détectés, bearer injecté | 1,25 j |
-| calaos-web-app | CO3 | vue console xterm | 1 j |
-| calaos-web-app | WA3 | enrôlement de l'approbateur, saisie du code | 1 j |
+| calaos_mobile | AP2 | déjà fusionné : `device_name` dans `register_push` ; `register_push` en mode HTTP envoyé avec les identifiants (aujourd'hui un échec de login par session) | 0,5 j |
+| calaos_mobile | AP2b | réglage dans l'app « Nom de cet appareil » (iOS 16 renvoie « iPhone »), avec renvoi de `register_push` au changement | 0,5 j |
+| calaos-container | CO1 | console via ttyd (socket Unix par console, `--once`, `--max-clients 1`), dépendance `ttyd`, route du ticket, limites, kill, ping, alerte `console_opened`, audit sur stdout | 1 j |
+| calaos_base | CO2 | tunnel `/api/console` vers la socket ttyd, `secureTransport()` et Origin sur les en-têtes détectés, bearer injecté, inactivité signalée au daemon, push `console_opened` | 1,25 j |
+| calaos-web-app | CO3 | vue console : xterm.js au thème Calaos, protocole WS de ttyd | 1 j |
+| calaos-web-app | WA3 | enrôlement de l'approbateur, saisie du code, affichage plateforme / date d'enregistrement / `last_seen` des candidats | 1 j |
 | calaos_mobile | CM2 | épinglage TOFU du certificat à la place de `ignoreSslErrors`, par hôte (IP LAN, nom DDNS, IP overlay), avec nouvelle confirmation en cas de changement de clé (renouvellement Let's Encrypt) | 1 j |
 | doc-website | DOC2 | console, approbateur, rotation | 0,5 j |
 
-Ordre phase 2 : AP1a ∥ AP2, puis AP1b, puis WA3 ; CO1 (après AP1a), puis CO2, puis CO3 ; CM2 indépendant ; DOC2 à la fin. La phase 2 démarre après RC1.
+Ordre phase 2 : AP1a ∥ AP2, puis AP2b, puis AP1b, puis WA3 ; CO1 (après AP1a), puis CO2, puis CO3 ; CM2 indépendant ; DOC2 à la fin. La phase 2 démarre après RC1. `admin/p7` n'atteint main/master qu'avec AP1a, AP1b, CO1 et WA3 (décision de Raoul, 2026-10-24) : un calaos_server plus ancien renvoie `internal` au changement de mot de passe dès qu'un code est exigé.
 
 ### Phase 3 : diagnostics et confort
 - Restart de services sur liste autorisée, logs bornés (`cn_pass=` masqué dans tout log affiché par la webapp), heure, liste blanche `calaos_config`, téléchargement de la sauvegarde.
@@ -389,6 +393,7 @@ Ordre phase 2 : AP1a ∥ AP2, puis AP1b, puis WA3 ; CO1 (après AP1a), puis CO2,
 - Webapp sur certificat auto-signé : l'utilisateur accepte un avertissement. Un MITM actif sur le LAN peut servir le port 80 en clair, et HSTS n'est pas possible. Un certificat Let's Encrypt via le DDNS supprime ce risque. Via un VPN sans certificat, comme MLSH, l'avertissement reste, mais le MITM n'est plus possible à l'intérieur du tunnel.
 - Le limiteur argon2 du daemon (environ 5 échecs par minute) permet à un tiers qui échoue en boucle de retarder les déverrouillages légitimes.
 - Sans second approbateur, une rotation du token push oblige à passer par SSH pour la console et le réseau (décision de Raoul, 2026-10-22).
+- Enrôlement au premier arrivé pendant une fenêtre sans approbateur (après la montée vers la phase 2, un reset ou un rollback) : détecté par l'alerte persistée `approver_set`, poussée à tous les téléphones, et corrigé par `calaos-os admin reset` (décision de Raoul, 2026-10-24).
 
 ## Vérification
 - **calaos-container** (tests Go) :
@@ -436,7 +441,9 @@ Ordre phase 2 : AP1a ∥ AP2, puis AP1b, puis WA3 ; CO1 (après AP1a), puis CO2,
   - un client foyer ne reçoit jamais `push_code` ;
   - `register_push` d'un token approbateur par un client foyer ne change rien à l'approbateur ; `device_name` stocké et proposé à l'admin ;
   - brute force du code bloqué après 5 essais, et session daemon invalidée (`bad_session` à l'appel suivant) ;
-  - ticket console non rejouable, pty tué à l'expiration, pings sans effet sur l'inactivité ;
+  - `approver_set` et `console_opened` : alerte persistée, rejouée jusqu'à l'ack, poussée à tous les téléphones ;
+  - retrait du dernier approbateur refusé (`approver_last`) ;
+  - ticket console non rejouable, ttyd tué à l'expiration, pings sans effet sur l'inactivité ;
   - `/api/console` refusé hors haproxy et avec un Origin étranger ;
   - entrée d'audit présente dans journald.
 - **Recette en VM (RC1)**, depuis l'image stable 4.5.0, sans aucune admin définie au départ :
