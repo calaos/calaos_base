@@ -185,8 +185,8 @@ void DaemonClient::configure()
     consoleDirectory = (envConsole && *envConsole) ? string(envConsole) : string(DefaultConsoleDir);
     if (!isConsoleDir(consoleDirectory))
     {
-        cErrorDom("admin") << "CALAOS_CONTAINER_CONSOLE_DIR refused, it must be an absolute path: "
-                              "the console is disabled";
+        cErrorDom("admin") << "CALAOS_CONTAINER_CONSOLE_DIR refused, it must be an absolute path without "
+                              "\".\" or \"..\" segments: the console is disabled";
         consoleDirectory.clear();
     }
 

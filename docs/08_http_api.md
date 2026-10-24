@@ -263,7 +263,9 @@ efface l'entrée. Pendant le blocage, HTTP répond 400 et WS répond
 L'adresse indexée est celle que haproxy a vue : le dernier élément de
 `X-Forwarded-For`, lu seulement quand le pair TCP est le loopback
 (`HttpClient::getEffectiveClientIp()`). Un client direct du LAN est indexé sur
-son pair TCP.
+son pair TCP. Un dernier élément qui n'est pas une adresse IPv4 ou IPv6 est
+ignoré : le pair TCP le remplace, dans le limiteur comme dans les journaux et
+dans `X-Calaos-Client-IP` envoyé au daemon.
 
 Tout processus du réseau de l'hôte atteint aussi le loopback et peut écrire
 n'importe quel `X-Forwarded-For`. Changer de nom à chaque essai donnerait un
@@ -271,8 +273,7 @@ nouveau délai à chaque fois, d'où un plafond (`LoginThrottle::key()`). Il
 s'applique par portée : login foyer, `admin:` et `service:` (`login_service`).
 Dans chaque portée, au plus 16 noms venus de l'en-tête et jamais connectés
 gardent leur propre compteur, jusqu'à 300 s sans essai. Au-delà, les nouveaux
-noms partagent le compteur `loopback-overflow`, freiné normalement. Il en va de
-même pour tout nom qui n'est pas une adresse IPv4 ou IPv6. Un login réussi par
+noms partagent le compteur `loopback-overflow`, freiné normalement. Un login réussi par
 ce compteur partagé ne l'efface pas.
 
 Un nom qui s'est connecté garde son compteur hors plafond tant qu'il réussit un
@@ -847,7 +848,7 @@ WebSocket du navigateur vers la socket privée de cette console (`ConsoleTunnel`
 | Champ | Règle |
 |---|---|
 | `type` | `"open"` |
-| `cn_user`, `cn_pass` | identifiants foyer, comme `login` (même `LoginThrottle`) |
+| `cn_user`, `cn_pass` | identifiants foyer, comme `login` (même `LoginThrottle`) ; vides, ils sont refusés (`login_failed`), même sur une box sans mot de passe foyer : la console est un shell root |
 | `admin_session` | la session qui a vérifié le code (64 hexadécimaux minuscules) |
 | `code_id` | le `code_id` vérifié par `console_open` (16 hexadécimaux minuscules) |
 | `columns`, `rows` | entiers JSON de 1 à 1000 : la taille de départ du terminal |
@@ -859,9 +860,10 @@ limiteur, `login_failed`), portée MCP (`not_allowed`, voir [Portée MCP](#port�
 (`invalid_request`), état admin (`admin_not_set`, `daemon_too_old`, `daemon_unreachable`,
 `admin_unavailable`), session absente ou mal formée (`bad_session`). Puis calaos_server appelle
 `POST admin/console {code_id, term}` avec `X-Calaos-Admin-Session`, `X-Calaos-Client-IP` et son
-bearer, et traduit : `bad_session` (session expirée, invalidée, ou autre que celle qui a vérifié
-le code), `code_expired` (droit inconnu, expiré, ou **déjà pris : un droit ne sert qu'une
-fois**), `console_limit` (avec `max`), `rate_limited`, `internal`.
+bearer, et traduit : `bad_session` (session expirée ou invalidée), `code_expired` (droit
+inconnu, expiré, demandé par une autre session que celle qui a vérifié le code, ou **déjà
+pris : un droit ne sert qu'une fois** ; le droit d'une autre session lui reste),
+`console_limit` (avec `max`), `rate_limited`, `internal`.
 
 calaos_server ne prend d'un client ni `console_id` ni chemin de socket. Il se connecte à
 `<répertoire>/console-<console_id>.sock`, reconstruit depuis un `console_id` de 16
@@ -917,10 +919,12 @@ Le serveur l'annonce une fois :
 | Cause | Le navigateur reçoit | La socket reçoit |
 |---|---|---|
 | le daemon ferme en `1000` (shell sorti) ou `1001` (1 h, inactivité, `admin_set`, `admin_reset`, 5 codes faux, arrêt) | le même code, `console closed` | l'écho de son code |
-| le daemon ferme avec un autre code, ou la socket tombe | `1001`, `console closed` | rien de plus |
+| le daemon ferme avec un autre code ou sans code | `1001`, `console closed` | `1001` |
+| la socket tombe sans trame de fermeture | `1001`, `console closed` | rien |
 | le daemon viole le protocole (trame masquée, fragment orphelin, message de plus de 1 Mio) | `1001`, `console closed` | `1002` ou `1009` |
 | le navigateur ferme en `1000` ou `1001` | (réponse à sa fermeture) | le même code |
 | le navigateur ferme avec un autre code, ou sa connexion tombe | | `1001` |
+| calaos_server ferme le WebSocket lui-même (trois pongs manqués, message de plus de 4 Mio, trame invalide, message vide) | son code (`1000`, `1009`, `1002`…) | `1000` pour `1000`, `1001` sinon, aussitôt |
 | un message du navigateur dépasse 64 Kio | `1009`, `message too big` | `1000` |
 
 Une console ne se rattache pas : après une fermeture, en ouvrir une autre demande un nouveau

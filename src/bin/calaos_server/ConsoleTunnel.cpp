@@ -236,8 +236,11 @@ bool ConsoleTunnel::authenticate(const Json &request)
     }
 
     const string &expected = McpServerManager::Instance().getServiceToken();
+    //Empty credentials match a box without household password: no root shell then
+    const string user = JsonField::string(request, "cn_user");
+    const string pass = JsonField::string(request, "cn_pass");
     const bool ok = service ? !expected.empty() && secureCompare(expected, JsonField::string(request, "token"))
-                            : checkCredentials(JsonField::string(request, "cn_user"), JsonField::string(request, "cn_pass"));
+                            : !user.empty() && !pass.empty() && checkCredentials(user, pass);
     if (!ok)
     {
         LoginThrottle::registerFailure(bucket, now);
@@ -432,7 +435,8 @@ void ConsoleTunnel::daemonFrames()
         else if (opcode == WebSocketFrame::OpCodeClose)
         {
             const uint16_t code = payload.size() >= 2 ? (uint16_t)(((uint8_t)payload[0] << 8) | (uint8_t)payload[1]) : 0;
-            finish(relayedCode(code), "console closed", code ? code : (uint16_t)WebSocketFrame::CloseCodeNormal);
+            //Never echoes a code that may not be sent (1005, 1006...)
+            finish(relayedCode(code), "console closed", relayedCode(code));
             return;
         }
         else if (opcode != WebSocketFrame::OpCodePong)
@@ -517,6 +521,7 @@ void ConsoleTunnel::refuse(const Json &error)
         state = State::Closed;
         DELETE_NULL(timer);
 
+        resumeClient();
         Json j = error;
         j["type"] = "error";
         sendData.emit(j.dump());
@@ -528,8 +533,17 @@ void ConsoleTunnel::refuse(const Json &error)
 void ConsoleTunnel::finish(uint16_t clientCode, const string &reason, uint16_t daemonCode)
 {
     state = State::Closed;
+    resumeClient();
     closeConnection.emit(clientCode, reason);
     closeDaemon(daemonCode);
+}
+
+void ConsoleTunnel::resumeClient()
+{
+    //Or the browser's close reply would wait for the close timeout
+    if (clientPaused)
+        client->read();
+    clientPaused = false;
 }
 
 void ConsoleTunnel::closeDaemon(uint16_t code)

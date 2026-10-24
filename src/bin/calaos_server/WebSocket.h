@@ -74,6 +74,7 @@ private:
     void reset(); //reset state machine
 
     bool checkHandshakeRequest();
+    void connectJsonApi();
     void processHandshake();
     void processFrame(const string &data);
     void processControlFrame();

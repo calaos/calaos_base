@@ -135,6 +135,7 @@ private:
     void refuse(const Json &error);
     //Once attached: closes the browser with clientCode, the socket with daemonCode
     void finish(uint16_t clientCode, const string &reason, uint16_t daemonCode);
+    void resumeClient();
     //0 closes the socket without a close frame
     void closeDaemon(uint16_t code);
 };

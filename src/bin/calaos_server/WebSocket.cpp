@@ -356,15 +356,8 @@ bool WebSocket::checkHandshakeRequest()
                 cWarningDom("websocket") << "Console refused: subprotocol " << ConsoleTunnel::Protocol << " not offered";
                 return false;
             }
-
-            console = new ConsoleTunnel(this, client_conn);
-            console->sendBinary.connect([this](const string &data)
-                                        {
-                sendBinaryMessage(data);
-            });
-            textMessageReceived.connect(sigc::mem_fun(*console, &ConsoleTunnel::clientText));
-            binaryMessageReceived.connect(sigc::mem_fun(*console, &ConsoleTunnel::clientBinary));
-            jsonApi = console;
+            //Created once the headers below are valid: its timer must not
+            //outlive a refused handshake
         }
         else
         {
@@ -372,14 +365,8 @@ bool WebSocket::checkHandshakeRequest()
             return false;
         }
 
-        jsonApi->sendData.connect([=](const string &data)
-        {
-            sendTextMessage(data);
-        });
-        jsonApi->closeConnection.connect([=](int c, const string &r)
-        {
-            sendCloseFrame(static_cast<uint16_t>(c), r);
-        });
+        if (jsonApi)
+            connectJsonApi();
     }
 
     //2. Must contains non empty Host
@@ -418,6 +405,19 @@ bool WebSocket::checkHandshakeRequest()
     {
         cWarningDom("websocket") << "wrong Sec-Websocket-Version";
         return false;
+    }
+
+    if (proto_ver == API_CONSOLE_WEBSOCKET && !jsonApi)
+    {
+        console = new ConsoleTunnel(this, client_conn);
+        console->sendBinary.connect([this](const string &data)
+                                    {
+            sendBinaryMessage(data);
+        });
+        textMessageReceived.connect(sigc::mem_fun(*console, &ConsoleTunnel::clientText));
+        binaryMessageReceived.connect(sigc::mem_fun(*console, &ConsoleTunnel::clientBinary));
+        jsonApi = console;
+        connectJsonApi();
     }
 
     //The handshake is correct, build our response
@@ -592,9 +592,26 @@ void WebSocket::processFrame(const string &data)
     }
 }
 
+void WebSocket::connectJsonApi()
+{
+    jsonApi->sendData.connect([this](const string &data)
+                              {
+        sendTextMessage(data);
+    });
+    jsonApi->closeConnection.connect([this](int c, const string &r)
+                                     {
+        sendCloseFrame(static_cast<uint16_t>(c), r);
+    });
+}
+
 void WebSocket::sendCloseFrame(uint16_t code, const string &reason, bool forceClose)
 {
     if (!isWebsocket) return;
+
+    //Every close, ours (pong timeout, size, framing) or the browser's, detaches
+    //the console at once
+    if (console)
+        console->clientClosing(code);
 
     //Already in closing state, do not send another close frame
     if (status == WSClosing) return;
@@ -701,9 +718,6 @@ void WebSocket::processControlFrame()
             code = WebSocketFrame::CloseCodeProtocolError;
             close_reason = "Wrong close status code";
         }
-
-        if (console)
-            console->clientClosing(code);
 
         if (status == WSOpened)
             sendCloseFrame(code, close_reason);

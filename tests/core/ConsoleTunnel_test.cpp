@@ -290,6 +290,7 @@ public:
         return closeCode;
     }
     const std::string &closeReason() const { return reason; }
+    bool disconnected() const { return tcpClosed; }
 
     void pause(bool p) { paused = p; }
 
@@ -770,6 +771,22 @@ TEST_F(ConsoleTunnelTest, TheMcpServiceScopeIsRefused)
     EXPECT_EQ(0u, consoleCalls());
 }
 
+TEST_F(ConsoleTunnelTest, EmptyHouseholdCredentialsNeverOpenAConsole)
+{
+    adminDefined();
+    fakeDaemon.grant(kCode);
+    Utils::set_config_option("cn_user", "");
+    Utils::set_config_option("cn_pass", "");
+
+    Json open = openMessage();
+    open["cn_user"] = "";
+    open["cn_pass"] = "";
+    ConsoleClient c;
+    c.connect();
+    EXPECT_EQ("login_failed", str(refusal(c, open), "error"));
+    EXPECT_EQ(0u, consoleCalls());
+}
+
 TEST_F(ConsoleTunnelTest, TheFieldsAreCheckedBeforeTheDaemonIsCalled)
 {
     adminDefined();
@@ -1121,12 +1138,12 @@ TEST_F(ConsoleTunnelTest, TheSocketsCloseIsRelayedWithItsCode)
         EXPECT_EQ("console closed", c.closeReason());
         if (k.sent)
         {
-            //The close is echoed before the socket is shut down
+            //Echoed as 1000 or 1001 before the socket is shut down
             ASSERT_TRUE(pumpUntil([]()
                                   {
                 return fakeConsole.sawEof();
             }));
-            EXPECT_EQ(k.sent, socketCloseCode());
+            EXPECT_EQ(k.browser, socketCloseCode());
         }
         c.sendClose(1000);
         drainLoop(30);
@@ -1276,6 +1293,65 @@ TEST_F(ConsoleTunnelTest, ASocketThatStopsReadingStopsTheBrowserBeingRead)
                           30000));
     EXPECT_TRUE(fakeConsole.input() == in);
     EXPECT_EQ(0u, c.unsent());
+}
+
+TEST_F(ConsoleTunnelTest, AWebSocketThatClosesItselfDetachesTheConsoleAtOnce)
+{
+    struct Case
+    {
+        int opcode;
+        std::string payload;
+        int browser;
+        int socket;
+    };
+    //An empty message and a continuation without a start: the WebSocket
+    //closes on its own, and the browser never answers that close here
+    for (const Case &k: { Case{ 0x2, "", 1000, 1000 }, Case{ 0x0, "x", 1002, 1001 } })
+    {
+        Json ready;
+        ConsoleClient c;
+        attached(c, ready);
+        c.sendFrame(k.opcode, k.payload);
+        EXPECT_EQ(k.browser, c.waitClose()) << k.opcode;
+        ASSERT_TRUE(pumpUntil([]()
+                              {
+            return fakeConsole.sawEof();
+        },
+                              2000))
+            << k.opcode;
+        EXPECT_EQ(k.socket, socketCloseCode());
+        fakeConsole.stop();
+    }
+}
+
+TEST_F(ConsoleTunnelTest, AConsoleThatEndsWhileTheBrowserIsPausedStillReadsItsClose)
+{
+    Json ready;
+    ConsoleClient c;
+    attached(c, ready);
+
+    fakeConsole.pause(true);
+    const std::string chunk = bytes(ConsoleTunnel::MaxClientMessage, 9);
+    for (int i = 0; i < 512 && c.unsent() == 0; i++)
+    {
+        c.sendBinary(chunk);
+        drainLoop(2);
+    }
+    drainLoop(500);
+    c.pump();
+    ASSERT_GT(c.unsent(), 0u) << "the browser was never paused, so this case measures nothing";
+
+    fakeConsole.sendClose(1000);
+    EXPECT_EQ(1000, c.waitClose());
+    c.sendClose(1000);
+    const auto start = steady_clock::now();
+    EXPECT_TRUE(pumpUntil([&c]()
+                          {
+        c.pump();
+        return c.disconnected();
+    },
+                          8000));
+    EXPECT_LT(std::chrono::duration_cast<milliseconds>(steady_clock::now() - start).count(), 5000);
 }
 
 /*
