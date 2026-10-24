@@ -308,6 +308,18 @@ jobs:
             exit 1
           fi
 
+      # The make check output names a failing program only; its own log says why
+      - name: Show test logs on failure
+        if: failure()
+        run: |
+          find tests -name '*.trs' -exec grep -lE ':test-result: (FAIL|ERROR)' {} + | while read -r trs; do
+            echo "--- $trs ---"
+            cat "$trs"
+            echo "--- ${trs%.trs}.log ---"
+            cat "${trs%.trs}.log" 2>/dev/null || echo "(no log)"
+            echo
+          done
+
       - name: Generate lcov report
         run: |
           lcov --directory . --capture --output-file coverage-run.info \
