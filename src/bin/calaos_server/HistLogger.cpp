@@ -107,13 +107,6 @@ bool PushTokenDb::prepare(sqlite::database &db, bool *locked, bool *hasName)
         addTokenColumn(db, "device_name", "ALTER TABLE push_tokens ADD COLUMN device_name TEXT NOT NULL DEFAULT '';");
         addTokenColumn(db, "approver", "ALTER TABLE push_tokens ADD COLUMN approver INTEGER NOT NULL DEFAULT 0;");
         addTokenColumn(db, "registered_at", "ALTER TABLE push_tokens ADD COLUMN registered_at TEXT NOT NULL DEFAULT '';");
-        //The first registration of older tokens is unknown: their last one is
-        //the best guess. At every open, as an older server run after a downgrade
-        //inserts rows without it; counted first, so a read-only base is not written
-        int unregistered = 0;
-        db << "SELECT count(*) FROM push_tokens WHERE registered_at = '' AND created_at IS NOT NULL;" >> unregistered;
-        if (unregistered > 0)
-            db << "UPDATE push_tokens SET registered_at = created_at WHERE registered_at = '' AND created_at IS NOT NULL;";
         name = true;
     }
     catch (sqlite::sqlite_exception &e)
@@ -123,6 +116,24 @@ bool PushTokenDb::prepare(sqlite::database &db, bool *locked, bool *hasName)
         cWarningDom("history") << "push_tokens: cannot add " << (format ? "device_name" : "push_format") << " ("
                                << e.get_code() << ": " << e.what() << "), tokens are served "
                                << (format ? "without a name" : "in the notification format") << " meanwhile";
+    }
+
+    //The first registration of older tokens is unknown: their last one is the
+    //best guess. At every open, as an older server run after a downgrade inserts
+    //rows without it. A failure, a read-only base, must not hide the names.
+    if (name)
+    {
+        try
+        {
+            int unregistered = 0;
+            db << "SELECT count(*) FROM push_tokens WHERE registered_at = '' AND created_at IS NOT NULL;" >> unregistered;
+            if (unregistered > 0)
+                db << "UPDATE push_tokens SET registered_at = created_at WHERE registered_at = '' AND created_at IS NOT NULL;";
+        }
+        catch (sqlite::sqlite_exception &e)
+        {
+            cWarningDom("history") << "push_tokens: registered_at not backfilled (" << e.get_code() << ": " << e.what() << ")";
+        }
     }
 
     if (hasName)

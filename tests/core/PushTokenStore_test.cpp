@@ -313,6 +313,21 @@ TEST(PushTokenStoreTest, AReadOnlyMigratedDatabaseKeepsItsNames)
     EXPECT_TRUE(PushTokenDb::prepare(db, &locked, &hasName));
     EXPECT_FALSE(locked);
     EXPECT_TRUE(hasName);
+
+    //A row left to fill cannot be written here: the names stay all the same
+    {
+        sqlite::database rw(path);
+        rw << "INSERT INTO push_tokens (token, hw_type, created_at) values ('ro-downgrade', 2, '2026-01-02 03:04:05');";
+    }
+    sqlite::database again(path, ro);
+    PushTest::StdoutCapture capture;
+    locked = true;
+    hasName = false;
+    EXPECT_TRUE(PushTokenDb::prepare(again, &locked, &hasName));
+    const std::string log = capture.stop();
+    EXPECT_FALSE(locked);
+    EXPECT_TRUE(hasName);
+    EXPECT_NE(std::string::npos, log.find("registered_at not backfilled")) << log;
 }
 
 TEST(PushTokenStoreTest, AReadOnlyOldDatabaseIsStillReadAndWritten)

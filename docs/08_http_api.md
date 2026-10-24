@@ -935,7 +935,9 @@ panneaux RemoteUI), un message non sollicité (sans `msg_id`) :
   suivants de la fenêtre n'ont que leur événement persistant. Un faux daemon sur le port 8000
   ne peut donc pas inonder les téléphones. Pour `approver_set` et `approver_removed`, la
   fenêtre est par téléphone (`token_id`) : l'enrôlement d'un second téléphone juste après un
-  premier est poussé lui aussi.
+  premier est poussé lui aussi. Pour `console_opened`, elle est par alerte (`id`) : chaque
+  ouverture est poussée, même juste après celle de l'admin ; les codes `console_open` du
+  daemon la bornent déjà.
 - Une alerte dont l'`id` est inutilisable est acquittée (si elle fait au plus 256 caractères)
   et journalisée, jamais enregistrée ni retransmise ; un événement imbriqué au-delà de 2048
   niveaux est ignoré (même limite que les requêtes des clients).

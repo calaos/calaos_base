@@ -300,9 +300,12 @@ void AdminState::pushAlert(const string &type, std::function<void(bool)> done, c
     const string message = alertMessage(type, data);
 
     //Each approver change is its own alert: a decoy phone enrolled first must
-    //not silence the push of the next one
+    //not silence the push of the next one. Every console opening is pushed: one
+    //opened right after the admin's own must still reach the phones.
     const bool approver = type == "approver_set" || type == "approver_removed";
-    const string key = approver ? type + ":" + JsonField::string(data, "token_id") : type;
+    const string key = type == "console_opened" ? type + ":" + JsonField::string(data, "id")
+                       : approver               ? type + ":" + JsonField::string(data, "token_id")
+                                                : type;
 
     const double now = Utils::getMainLoopTime();
     const auto last = lastAlertPush.find(key);

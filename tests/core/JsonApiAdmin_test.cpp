@@ -2495,6 +2495,26 @@ TEST_F(AdminEventsTest, AConsoleOpeningIsStoredPushedToEveryPhoneAndAckedOnce)
     quietPushes();
 }
 
+TEST_F(AdminEventsTest, EveryConsoleOpeningIsPushedWithinTheCooldown)
+{
+    HistLogger::Instance().registerPushToken("co2-console-token", HistLogger::PUSH_HW_ANDROID);
+    quietPushes();
+    AdminState::Instance().resetAlertPushes(AdminState::AlertPushInterval);
+    startEvents();
+
+    const char *text = "Calaos: console opened";
+    const size_t before = pushesOf(text);
+    fakeDaemon.raiseAlert("console_opened", "00000000000000d8", { { "session_audit_id", "1a2b3c4d" } });
+    fakeDaemon.raiseAlert("console_opened", "00000000000000d9", { { "session_audit_id", "5e6f7a8b" } });
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return fakeDaemon.pendingAlerts().empty() && pushesOf(text) == before + 2;
+    }));
+    drainLoop(300);
+    EXPECT_EQ(before + 2, pushesOf(text)) << "an opening right after another still reaches the phones";
+    quietPushes();
+}
+
 TEST_F(AdminEventsTest, AReplayAfterAReconnectPushesNothingTwice)
 {
     HistLogger::Instance().registerPushToken("cb3-push-token", HistLogger::PUSH_HW_ANDROID);
