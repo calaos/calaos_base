@@ -248,6 +248,9 @@ string AdminState::alertMessage(const string &type, const Json &data)
         return _("Admin password set on your Calaos box");
     if (type == "admin_reset")
         return _("Admin password removed from your Calaos box");
+    //Fixed: the alert's session_audit_id stays in the daemon's audit log
+    if (type == "console_opened")
+        return _("Calaos: console opened");
     if (type != "approver_set" && type != "approver_removed")
         return string();
 

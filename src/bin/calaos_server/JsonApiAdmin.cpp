@@ -533,10 +533,15 @@ void relayApprovers(const DaemonClient::Request &req, bool candidates, const std
                 const string id = JsonField::string(a, "token_id");
                 approverIds.insert(id);
                 const auto it = byId.find(id);
-                Json entry = a.is_object() ? a : Json::object();
+                if (candidates)
+                    continue;
+                //Known fields only, so a field a later daemon adds does not reach clients
+                Json entry = { { "id", JsonField::string(a, "id") },
+                               { "device_name", JsonApi::printableText(JsonField::string(a, "device_name"), JsonApi::MaxDeviceName) },
+                               { "token_id", id },
+                               { "created_at", JsonField::string(a, "created_at") } };
                 entry.update(phoneFields(it == byId.end() ? nullptr : it->second));
-                if (!candidates)
-                    list.push_back(entry);
+                list.push_back(entry);
             } //LCOV_EXCL_LINE gcov counts the exception cleanup of the loop body here
 
             for (const PushToken &t: candidates ? tokens : vector<PushToken>())

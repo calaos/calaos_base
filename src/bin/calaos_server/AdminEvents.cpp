@@ -119,7 +119,8 @@ void copyScalars(const Json &from, Json &to, std::initializer_list<const char *>
 
 bool isAlertType(const string &type)
 {
-    return type == "admin_set" || type == "admin_reset" || type == "approver_set" || type == "approver_removed";
+    return type == "admin_set" || type == "admin_reset" || type == "approver_set" || type == "approver_removed" ||
+           type == "console_opened";
 }
 
 //The daemon's rule for a push token: 1 to 4096 printable ASCII characters, no space

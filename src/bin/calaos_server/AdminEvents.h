@@ -87,8 +87,8 @@ public:
 
     /* The admin_event data for a daemon event, null when it is not forwarded.
      * Only upgrade_progress and the alerts (admin_set, admin_reset,
-     * approver_set, approver_removed, ts only) are: the job, the push codes
-     * and any future type stay on this side.
+     * approver_set, approver_removed, console_opened, ts only) are: the job,
+     * the push codes and any future type stay on this side.
      */
     static Json householdEventFor(const Json &event, const string &receivedAt);
 

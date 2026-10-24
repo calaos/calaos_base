@@ -748,15 +748,18 @@ retrait d'un approbateur. Les mises à jour, le reboot et le reste ne demandent 
   `Android device` / `iOS device` si l'app n'en a pas envoyé), `platform` (`ios` ou
   `android`, le `hardware` de `register_push` ; `desktop` est réservé, aucune app de bureau
   ne s'enregistre aujourd'hui), `registered_at` (premier `register_push` ; pour un jeton plus
-  ancien que la colonne, son dernier connu à la migration), `last_seen` (dernier
+  ancien que la colonne, ou enregistré par un serveur plus ancien après un retour en arrière,
+  son dernier connu à l'ouverture suivante de la base), `last_seen` (dernier
   `register_push`), dates RFC 3339 UTC, et `approver` (booléen JSON : ce `token_id` figure
   dans `approver_list`), le plus récemment vu d'abord. L'appel au daemon valide la session.
   Depuis iOS 16 tout iPhone se nomme `iPhone` : ces trois champs, avec la fin du `token_id`,
   permettent de distinguer deux téléphones de même nom.
-- **`approver_list`** rend la liste du daemon, dans son ordre et avec ses champs, et ajoute
-  à chaque approbateur `platform`, `registered_at` et `last_seen` lus dans `push_tokens`
-  par `token_id`. Un approbateur dont le jeton a quitté `push_tokens` (purge à 30 jours)
-  les a vides : il ne reçoit plus de codes tant que l'app ne s'est pas reconnectée.
+- **`approver_list`** rend la liste du daemon, dans son ordre, réduite à `id`,
+  `device_name` (nettoyé comme celui de `register_push`), `token_id` et `created_at` : un
+  champ ajouté plus tard par le daemon n'atteint pas les clients. Il ajoute à chaque
+  approbateur `platform`, `registered_at` et `last_seen` lus dans `push_tokens` par `token_id`.
+  Un approbateur dont le jeton a quitté `push_tokens` (purge à 30 jours) les a vides : il ne
+  reçoit plus de codes tant que l'app ne s'est pas reconnectée.
 - **`approver_enroll`** : le client nomme le téléphone par `params.token_id`. calaos_server le
   retrouve dans `push_tokens` et envoie lui-même au daemon **ce** jeton et **son**
   `device_name` ; tout `token`, `device_name` ou autre champ envoyé par le client est ignoré.
@@ -889,8 +892,8 @@ panneaux RemoteUI), un message non sollicité (sans `msg_id`) :
 ```
 
 - `ts` : horodatage RFC 3339 UTC. Pour `upgrade_progress`, c'est l'heure de réception par calaos_server. Pour les alertes `admin_set`, `admin_reset`,
-  `approver_set` et `approver_removed` c'est l'horodatage de l'alerte, **sans** `id` ni autre
-  champ (pas de `data`, ni `device_name` ni `token_id`).
+  `approver_set`, `approver_removed` et `console_opened` c'est l'horodatage de l'alerte, **sans**
+  `id` ni autre champ (pas de `data`, ni `device_name`, ni `token_id`, ni `session_audit_id`).
 - `upgrade_progress` : `data` est l'objet `<Status>` de `API.md` **filtré** (types JSON natifs),
   car un client foyer n'a pas à connaître l'inventaire des paquets de la box. Seuls passent, par
   liste blanche, `status`, `total_percent`, `current_step`, `current_percent`, `pkg_index`,
@@ -911,6 +914,9 @@ panneaux RemoteUI), un message non sollicité (sans `msg_id`) :
   (`"`, `«`, `»`, `“`, `”`, `„`, `‟`, `″`, `‶`, `＂`) deviennent `'`, et il ne commence
   jamais le message, pour ne pas pouvoir se faire passer pour la box. Un nom vide
   s'affiche `?`.
+- L'alerte `console_opened` (une console d'administration vient de s'ouvrir) suit le même
+  chemin, avec un texte fixe : `Calaos: console opened`. Son `session_audit_id` reste au
+  daemon : ni dans le push, ni dans l'événement persistant, ni dans `admin_event`.
 - calaos_server n'enregistre et ne retransmet une alerte qu'à sa
   première réception, **redémarrages compris** : les 64 derniers `id` enregistrés sont gardés
   dans le fichier `admin_alerts` de `Utils::getCachePath()` (à côté d'`admin_seen_set`). Une
@@ -1006,7 +1012,7 @@ délai de 5 s ci-dessous.
 | `daemon_too_old` : bascule sur « Redémarrez la box » | 2 min d'état persistant | webapp |
 | `rate_limited` | `retry_after` secondes (champ de l'erreur) | daemon, `LoginThrottle` |
 | Ping WS client | 15 s (existant) ; haproxy `timeout tunnel 3600s` | calaos_server |
-| Alertes `admin_set` / `admin_reset` / `approver_set` / `approver_removed` | persistées par le daemon jusqu'à l'ack, rejouées à chaque abonné `/events` | daemon |
+| Alertes `admin_set` / `admin_reset` / `approver_set` / `approver_removed` / `console_opened` | persistées par le daemon jusqu'à l'ack, rejouées à chaque abonné `/events` | daemon |
 | Code push | valable 60 s ; droit console 30 s après `code_verify` ; 10 s entre deux codes d'une session | daemon |
 
 ### Reconnexion et reprise de la webapp
