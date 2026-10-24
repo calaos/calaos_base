@@ -1203,6 +1203,7 @@ core_RemoteUIDeviceInfo_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -1224,6 +1225,7 @@ core_RemoteUIDeviceInfo_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/HttpClient
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -1356,6 +1358,7 @@ core_JsonApiCharacterization_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -1379,6 +1382,7 @@ core_JsonApiCharacterization_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -1430,6 +1434,7 @@ core_JsonApiPlaylist_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -1453,6 +1458,7 @@ core_JsonApiPlaylist_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Standar
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -1508,6 +1514,7 @@ core_JsonApiHome_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -1531,6 +1538,7 @@ core_JsonApiHome_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjp
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -1586,6 +1594,7 @@ core_JsonApiCameraSnapshot_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -1609,6 +1618,7 @@ core_JsonApiCameraSnapshot_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/S
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -1660,6 +1670,7 @@ core_JsonApiPlayerState_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -1684,6 +1695,7 @@ core_JsonApiPlayerState_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Stan
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -1750,6 +1762,7 @@ core_JsonApiScenario_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -1773,6 +1786,7 @@ core_JsonApiScenario_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Standar
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -1834,6 +1848,7 @@ core_JsonApiWsTransport_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -1857,6 +1872,7 @@ core_JsonApiWsTransport_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Stan
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -1907,6 +1923,7 @@ core_JsonApiEvents_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -1930,6 +1947,7 @@ core_JsonApiEvents_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardM
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -2001,6 +2019,7 @@ core_JsonApiMusicDb_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -2025,6 +2044,7 @@ core_JsonApiMusicDb_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Standard
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -2112,6 +2132,7 @@ core_JsonApiSession_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -2136,6 +2157,7 @@ core_JsonApiSession_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Standard
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -2212,6 +2234,7 @@ core_JsonApiAudioPayload_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -2236,6 +2259,7 @@ core_JsonApiAudioPayload_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Sta
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -2310,6 +2334,7 @@ core_JsonApiEventLog_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -2334,6 +2359,7 @@ core_JsonApiEventLog_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Standar
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -2394,6 +2420,7 @@ core_JsonApiInputGuards_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -2418,6 +2445,7 @@ core_JsonApiInputGuards_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Stan
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -2502,6 +2530,7 @@ core_AutoScenarioMigration_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -2525,6 +2554,7 @@ core_AutoScenarioMigration_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/S
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -2584,6 +2614,7 @@ core_JsonApiThrottleIdentity_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -2608,6 +2639,7 @@ core_JsonApiThrottleIdentity_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -2784,6 +2816,7 @@ core_JsonApiEmissionBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -2808,6 +2841,7 @@ core_JsonApiEmissionBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/St
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -3310,6 +3344,7 @@ core_SetStateGarbage_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT)                 \
@@ -3336,6 +3371,7 @@ core_SetStateGarbage_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Standar
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
@@ -3481,6 +3517,7 @@ core_EventWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -3505,6 +3542,7 @@ core_EventWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Standard
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -3703,6 +3741,7 @@ core_JsonApiModelWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -3727,6 +3766,7 @@ core_JsonApiModelWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/S
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -3845,6 +3885,7 @@ core_JsonApiStateWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -3869,6 +3910,7 @@ core_JsonApiStateWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/S
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -3909,6 +3951,7 @@ core_RemoteUIDevice_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -3933,6 +3976,7 @@ core_RemoteUIDevice_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Standard
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -4007,6 +4051,7 @@ core_JsonApiParamsWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -4031,6 +4076,7 @@ core_JsonApiParamsWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -4076,6 +4122,7 @@ core_JsonApiAudioWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -4100,6 +4147,7 @@ core_JsonApiAudioWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/S
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -4146,6 +4194,7 @@ core_JsonApiMusicDbWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -4170,6 +4219,7 @@ core_JsonApiMusicDbWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -4216,6 +4266,7 @@ core_JsonApiScenarioWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -4239,6 +4290,7 @@ core_JsonApiScenarioWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCa
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -4288,6 +4340,7 @@ core_JsonApiDispatchWireBytes_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -4312,6 +4365,7 @@ core_JsonApiDispatchWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCa
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -4377,6 +4431,7 @@ core_AutoScenarioDef_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -4400,6 +4455,7 @@ core_AutoScenarioDef_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Standar
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -4442,6 +4498,7 @@ core_AutoScenarioRules_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -4465,6 +4522,7 @@ core_AutoScenarioRules_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Stand
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -4516,6 +4574,7 @@ core_AutoScenarioUploadGuard_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -4539,6 +4598,7 @@ core_AutoScenarioUploadGuard_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -4612,6 +4672,7 @@ core_JsonApiRequestGuards_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -4637,6 +4698,7 @@ core_JsonApiRequestGuards_test_DEPENDENCIES = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -4685,6 +4747,7 @@ core_ScenarioMarkerRekey_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -4708,6 +4771,7 @@ core_ScenarioMarkerRekey_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Sta
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -4761,6 +4825,7 @@ core_IoParamNulGuard_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -4786,6 +4851,7 @@ core_IoParamNulGuard_test_DEPENDENCIES = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -5155,6 +5221,7 @@ core_HttpRequestLogSecret_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -5176,6 +5243,7 @@ core_HttpRequestLogSecret_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/HttpClie
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -5225,6 +5293,7 @@ PARSE_ERROR_TEST_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/Audio/AVRManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/Audio/AVRDenon.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/Audio/AVRMarantz.$(OBJEXT)                 \
@@ -5284,6 +5353,7 @@ INCOMING_LOG_STOCK_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -5432,6 +5502,7 @@ PEER_ADDRESS_FAMILY_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -5480,6 +5551,7 @@ LISTEN_ADDRESS_FALLBACK_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -5524,6 +5596,7 @@ OTA_RESCAN_GATE_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -5569,6 +5642,7 @@ SERVICE_SCOPE_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -5731,6 +5805,7 @@ SUB_DISPATCH_DEFAULT_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -5791,6 +5866,7 @@ core_DelParamIdGuard_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -5815,6 +5891,7 @@ core_DelParamIdGuard_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Standar
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -5860,6 +5937,7 @@ core_ImpulseOverflow_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT)            \
@@ -5886,6 +5964,7 @@ core_ImpulseOverflow_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Standar
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
@@ -5964,6 +6043,7 @@ core_StructuralParamGuard_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -5988,6 +6068,7 @@ core_StructuralParamGuard_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/St
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -6032,6 +6113,7 @@ core_ShutterPercentGrammar_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT)            \
@@ -6058,6 +6140,7 @@ core_ShutterPercentGrammar_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/S
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
@@ -6200,6 +6283,7 @@ core_ShutterBareGrammar_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT)            \
@@ -6226,6 +6310,7 @@ core_ShutterBareGrammar_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Stan
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
@@ -6309,6 +6394,7 @@ core_DerivedParamGuard_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -6333,6 +6419,7 @@ core_DerivedParamGuard_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Stand
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -7357,6 +7444,7 @@ core_DeviceApi_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -7380,6 +7468,7 @@ core_DeviceApi_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -7425,6 +7514,7 @@ core_DeviceFormat_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -7448,6 +7538,7 @@ core_DeviceFormat_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMj
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -7634,6 +7725,7 @@ core_ProtectedOutputWrites_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -7660,6 +7752,7 @@ core_ProtectedOutputWrites_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/S
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -7984,6 +8077,7 @@ CLIMATE_STATUS_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -8085,6 +8179,7 @@ core_ConditionOutputState_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -8113,6 +8208,7 @@ core_ConditionOutputState_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Outpu
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -8225,6 +8321,7 @@ core_OtaOfferTiming_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -8249,6 +8346,7 @@ core_OtaOfferTiming_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/Standard
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -8300,6 +8398,7 @@ core_HttpClientDropLog_test_LDADD = \
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
@@ -8321,6 +8420,7 @@ core_HttpClientDropLog_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/HttpClient.
                   $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
@@ -8377,6 +8477,24 @@ core_JsonApiAdmin_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
 core_JsonApiAdmin_test_LDADD = $(SERVICE_SCOPE_OBJECTS) \
                   $(CORE_TEST_LDADD)
 core_JsonApiAdmin_test_DEPENDENCIES = $(SERVICE_SCOPE_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#The /api/console tunnel (docs/08_http_api.md, Console) on a real HttpServer
+#bound on loopback, against a fake calaos-container and a fake console socket
+#in a temporary directory (CALAOS_CONTAINER_CONSOLE_DIR).
+if HAVE_GTEST
+TESTS += core/ConsoleTunnel_test
+check_PROGRAMS += core/ConsoleTunnel_test
+core_ConsoleTunnel_test_SOURCES = core/ConsoleTunnel_test.cpp \
+                  core/FakeConsole.h \
+                  core/FakeDaemon.h
+core_ConsoleTunnel_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
+core_ConsoleTunnel_test_LDADD = $(SERVICE_SCOPE_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_ConsoleTunnel_test_DEPENDENCIES = $(SERVICE_SCOPE_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif

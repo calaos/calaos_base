@@ -119,6 +119,14 @@ bool pumpUntil(const std::function<bool()> &done, int ms = 6000)
     return done();
 }
 
+std::string requestPaths()
+{
+    std::string out;
+    for (const FakeDaemon::Request &r: fakeDaemon.requests())
+        out += r.method + " " + r.path + (r.headers.count("x-calaos-admin-session") ? " (session)" : "") + "\n";
+    return out;
+}
+
 int pickFreePort()
 {
     const int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -593,7 +601,9 @@ TEST(JsonApiAdminRules, DaemonErrorsAreTranslated)
     };
 
     for (const char *same: { "bad_session", "bad_password", "password_too_short", "admin_already_set",
-                             "upgrade_in_progress", "not_allowed", "rate_limited", "package_held" })
+                             "upgrade_in_progress", "not_allowed", "rate_limited", "package_held",
+                             "approver_required", "approver_limit", "approver_exists", "approver_not_found",
+                             "approver_last", "code_required", "bad_code", "code_expired" })
     {
         const Json j = error(same);
         EXPECT_EQ(same, str(j, "error"));
@@ -604,6 +614,9 @@ TEST(JsonApiAdminRules, DaemonErrorsAreTranslated)
     EXPECT_EQ("3f9c", str(error("upgrade_in_progress", { { "job_id", "3f9c" } }), "job_id"));
     EXPECT_EQ("10", str(error("password_too_short", { { "min_length", 10 } }), "min_length"));
     EXPECT_FALSE(error("rate_limited", { { "retry_after", Json::array() } }).contains("retry_after"));
+    EXPECT_EQ("0", str(error("bad_code", { { "attempts_left", 0 } }), "attempts_left"));
+    EXPECT_EQ("2", str(error("approver_limit", { { "max", 2 } }), "max"));
+    EXPECT_FALSE(error("code_expired", { { "attempts_left", 3 } }).contains("attempts_left"));
 
     Utils::set_config_option("api_allowed_hosts", kHosts);
     const Json notSet = error("admin_not_set");
@@ -667,7 +680,10 @@ TEST(JsonApiAdminRules, DaemonCallTimeouts)
     for (const char *action: { "update_status", "update_available", "update_upgrade_all", "update_upgrade",
                                "system_reboot", "system_info" })
         EXPECT_EQ(4, JsonApi::adminRelayTimeout(action)) << action;
-    for (const char *other: { "mcp_regenerate", "console_open", "system_rollback_snapshot", "" })
+    for (const char *action: { "approver_list", "approver_candidates", "approver_enroll", "approver_confirm",
+                               "approver_remove", "code_request", "code_verify", "console_open" })
+        EXPECT_EQ(4, JsonApi::adminRelayTimeout(action)) << action;
+    for (const char *other: { "mcp_regenerate", "system_rollback_snapshot", "" })
         EXPECT_EQ(0, JsonApi::adminRelayTimeout(other)) << other;
 }
 
@@ -696,7 +712,46 @@ TEST(JsonApiAdminRules, AdminActionsComeFromTheClosedTable)
     for (const char *action: { "system_rollback_snapshot", "system/reboot", "update_installed", "admin_reset",
                                "network_list", "UPDATE_CHECK" })
         EXPECT_EQ("not_allowed", str(JsonApi::adminRequestRefusal(action, Json::object()), "error")) << action;
-    EXPECT_EQ("Not available yet", str(JsonApi::adminRequestRefusal("approver_list", Json::object()), "msg"));
+
+    const std::string code = "c000000000000001";
+    const std::string id = "a000000000000001";
+    for (const auto &ok: std::vector<std::pair<const char *, Json>>{
+             { "approver_list", Json::object() },
+             { "approver_candidates", Json::object() },
+             { "approver_enroll", { { "token_id", "9a41f0c2d3e4b5a6" } } },
+             { "approver_enroll", { { "token_id", "9a41f0c2d3e4b5a6" }, { "code_id", code }, { "code", "012345" } } },
+             { "approver_confirm", { { "code_id", code }, { "code", "123456" } } },
+             { "approver_remove", { { "approver_id", id }, { "code_id", code }, { "code", "123456" } } },
+             { "code_request", { { "code_action", "console_open" } } },
+             { "code_request", { { "code_action", "approver_enroll" }, { "approver_id", id } } },
+             { "code_request", { { "code_action", "admin_password" }, { "code_params", { { "password", "a long password" } } } } },
+             { "code_request", { { "code_action", "approver_remove" }, { "code_params", { { "approver_id", id } } } } },
+             { "code_verify", { { "code_id", code }, { "code", "123456" } } },
+             { "console_open", { { "code_id", code }, { "code", "123456" } } } })
+        EXPECT_TRUE(JsonApi::adminRequestRefusal(ok.first, Json{ { "params", ok.second } }).is_null()) << ok.first << " " << ok.second.dump();
+
+    for (const auto &bad: std::vector<std::pair<const char *, Json>>{
+             { "approver_enroll", Json::object() },
+             { "approver_enroll", { { "token_id", "9A41F0C2D3E4B5A6" } } },
+             { "approver_enroll", { { "token", "a-push-token" }, { "device_name", "Pixel" } } },
+             { "approver_enroll", { { "token_id", "9a41f0c2d3e4b5a6" }, { "code_id", code } } },
+             { "approver_confirm", { { "code_id", code } } },
+             { "approver_confirm", { { "code_id", code }, { "code", "12345" } } },
+             { "approver_confirm", { { "code_id", code }, { "code", "12345a" } } },
+             { "approver_confirm", { { "code_id", "../admin/reset00" }, { "code", "123456" } } },
+             { "approver_confirm", { { "code_id", code }, { "code", 123456 } } },
+             { "approver_remove", { { "code_id", code }, { "code", "123456" } } },
+             { "code_request", Json::object() },
+             { "code_request", { { "code_action", "network_config" } } },
+             { "code_request", { { "code_action", "console_open" }, { "code_params", "x" } } },
+             { "code_request", { { "code_action", "admin_password" } } },
+             { "code_request", { { "code_action", "admin_password" }, { "code_params", { { "password", std::string(1025, 'a') } } } } },
+             { "code_request", { { "code_action", "approver_remove" }, { "code_params", Json::object() } } },
+             { "code_request", { { "code_action", "console_open" }, { "approver_id", "first" } } },
+             { "code_verify", Json::object() },
+             { "console_open", Json::object() } })
+        EXPECT_EQ("invalid_request", str(JsonApi::adminRequestRefusal(bad.first, Json{ { "params", bad.second } }), "error"))
+            << bad.first << " " << bad.second.dump();
 
     const Json upgrade = { { "params", { { "package", "calaos-server" } } } };
     EXPECT_TRUE(JsonApi::adminRequestRefusal("update_upgrade", upgrade).is_null());
@@ -752,17 +807,18 @@ TEST(JsonApiAdminRules, TheHouseholdViewOfAnUpgradeHasNoInventory)
     EXPECT_TRUE(AdminEvents::householdJob(Json()).is_null());
 }
 
-TEST(JsonApiAdminRules, OnlyThreeEventTypesReachHouseholdClients)
+TEST(JsonApiAdminRules, OnlyTheProgressAndTheAlertsReachHouseholdClients)
 {
     const std::string now = "2026-10-23T10:00:00Z";
 
     const Json progress = AdminEvents::householdEventFor({ { "type", "upgrade_progress" }, { "data", FakeDaemon::leakyProgress() } }, now);
     EXPECT_EQ((Json{ { "type", "upgrade_progress" }, { "ts", now }, { "data", householdProgress() } }), progress);
 
-    for (const char *alert: { "admin_set", "admin_reset" })
+    const Json phone = { { "device_name", "Pixel 8" }, { "token_id", "9a41f0c2d3e4b5a6" }, { "session_audit_id", "1a2b3c4d" } };
+    for (const char *alert: { "admin_set", "admin_reset", "approver_set", "approver_removed", "console_opened" })
     {
-        const Json a = AdminEvents::householdEventFor(FakeDaemon::alertEvent(alert, "00000000000000a1"), now);
-        EXPECT_EQ((Json{ { "type", alert }, { "ts", "2026-10-22T09:14:00Z" } }), a) << "the id stays here";
+        const Json a = AdminEvents::householdEventFor(FakeDaemon::alertEvent(alert, "00000000000000a1", phone), now);
+        EXPECT_EQ((Json{ { "type", alert }, { "ts", "2026-10-22T09:14:00Z" } }), a) << "the id and the alert fields stay here";
         const Json noTs = AdminEvents::householdEventFor({ { "type", alert }, { "data", { { "id", "a1" }, { "ts", "<script>" } } } }, now);
         EXPECT_EQ(now, str(noTs, "ts"));
     }
@@ -1082,7 +1138,7 @@ TEST_F(JsonApiAdminTest, ADisabledClientIsUnreachable)
     WsClient ws;
     ASSERT_TRUE(ws.login("https"));
     expectError(ws.admin("admin_unlock", unlockData()), "admin_unavailable");
-    EXPECT_TRUE(fakeDaemon.requests().empty());
+    EXPECT_TRUE(fakeDaemon.requests().empty()) << requestPaths();
 
     ::setenv("CALAOS_CONTAINER_URL", env.base.c_str(), 1);
     DaemonClient::Instance().configure();
@@ -1299,7 +1355,7 @@ TEST_F(JsonApiAdminTest, PlainHttpAndPeersOutsideHaproxyAreRefused)
     expectError(lan.send(Json{ { "action", "get_mcp_info" }, { "cn_user", kUser }, { "cn_pass", kPass }, { "admin_session", FakeDaemon::Session } }.dump()),
                 "https_required");
 
-    EXPECT_TRUE(fakeDaemon.requests().empty());
+    EXPECT_TRUE(fakeDaemon.requests().empty()) << requestPaths();
 }
 
 /*******************************************************************************
@@ -1459,7 +1515,8 @@ TEST_F(JsonApiAdminTest, ConfigAndMcpInfoNeedASessionOnceTheAdminIsSet)
     expectError(httpJson(Json{ { "action", "config" }, { "type", "put" }, { "config_files", Json::object() } }, "https"),
                 "bad_session");
     expectError(httpJson(Json{ { "action", "get_mcp_info" } }, "https"), "bad_session");
-    EXPECT_TRUE(fakeDaemon.requests().empty()) << "a missing session must never reach the daemon";
+    EXPECT_TRUE(fakeDaemon.requests().empty()) << "a missing session must never reach the daemon\n"
+                                               << requestPaths();
 
     const Json config = httpJson(Json{ { "action", "config" }, { "type", "get" }, { "admin_session", FakeDaemon::Session } },
                                  "https");
@@ -1487,7 +1544,7 @@ TEST_F(JsonApiAdminTest, ASessionInTheQueryIsNeverRead)
     get.Add("cn_pass", kPass);
     get.Add("admin_session", FakeDaemon::Session);
     expectError(http.send("not json", get), "bad_session");
-    EXPECT_TRUE(fakeDaemon.requests().empty());
+    EXPECT_TRUE(fakeDaemon.requests().empty()) << requestPaths();
 }
 
 TEST_F(JsonApiAdminTest, SessionValidationFollowsTheDaemon)
@@ -1526,7 +1583,7 @@ TEST_F(JsonApiAdminTest, ChangeCredStaysAtHouseholdLevel)
     const Json answer = ws.ask(Json{ { "msg", "settings" }, { "msg_id", "s" }, { "data", { { "action", "change_cred" }, { "old_user", kUser }, { "old_pw", kPass }, { "new_user", kUser }, { "new_pw", "a new household password" } } } });
     EXPECT_EQ("true", str(answer["data"], "success")) << answer.dump();
     EXPECT_EQ("a new household password", Utils::get_config_option("cn_pass"));
-    EXPECT_TRUE(fakeDaemon.requests().empty());
+    EXPECT_TRUE(fakeDaemon.requests().empty()) << requestPaths();
 }
 
 /*******************************************************************************
@@ -1544,10 +1601,10 @@ TEST_F(JsonApiAdminTest, TheAdminMessageIsGatedBeforeAnyDaemonCall)
     expectError(ws.admin("admin", { { "action", 3 } }), "invalid_request");
     expectError(ws.admin("admin", { { "action", "system/install/start" } }), "not_allowed");
     expectError(ws.admin("admin", { { "action", "console_open" }, { "admin_session", FakeDaemon::Session } }),
-                "not_allowed");
+                "invalid_request");
     expectError(ws.admin("admin", { { "action", "update_check" } }), "bad_session");
     expectError(ws.admin("admin", { { "action", "system_reboot" }, { "admin_session", "" } }), "bad_session");
-    EXPECT_TRUE(fakeDaemon.requests().empty());
+    EXPECT_TRUE(fakeDaemon.requests().empty()) << requestPaths();
 
     //update_status passes the gate without a session
     const Json status = ws.admin("admin", { { "action", "update_status" } });
@@ -1742,7 +1799,7 @@ TEST_F(JsonApiAdminTest, PasswordsOverTheDaemonLimitAreRefusedHere)
     expectError(ws.admin("admin_unlock", { { "admin_pass", tooLong } }), "invalid_request");
     expectError(ws.admin("admin_set", { { "new_pass", tooLong }, { "admin_session", FakeDaemon::Session } }),
                 "invalid_request");
-    EXPECT_TRUE(fakeDaemon.requests().empty());
+    EXPECT_TRUE(fakeDaemon.requests().empty()) << requestPaths();
 
     expectError(ws.admin("admin_unlock", { { "admin_pass", std::string(1024, 'p') } }), "bad_password");
 }
@@ -2386,6 +2443,78 @@ TEST_F(AdminEventsTest, AnAlertIsRecordedRelayedAndAcknowledged)
                     .empty());
 }
 
+TEST_F(AdminEventsTest, AConsoleOpeningIsStoredPushedToEveryPhoneAndAckedOnce)
+{
+    HistLogger::Instance().registerPushToken("co2-console-token", HistLogger::PUSH_HW_ANDROID);
+    HistLogger::Instance().registerPushToken("co2-other-token", HistLogger::PUSH_HW_IOS);
+    quietPushes();
+
+    WsClient household;
+    ASSERT_TRUE(household.login(""));
+    startEvents();
+    ASSERT_TRUE(isAdminEvent(household.next(), "upgrade_progress"));
+
+    const char *text = "Calaos: console opened";
+    const size_t storedBefore = storedEvents(text);
+    fakeDaemon.raiseAlert("console_opened", "00000000000000d7", { { "session_audit_id", "1a2b3c4d" } });
+    const Json ev = household.next();
+    ASSERT_TRUE(isAdminEvent(ev, "console_opened")) << ev.dump();
+    EXPECT_EQ((Json{ { "type", "console_opened" }, { "ts", "2026-10-22T09:14:00Z" } }), ev["data"]) << "ts only";
+
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return fakeDaemon.pendingAlerts().empty() && pushesOf(text) == 1;
+    }));
+    EXPECT_EQ((Json{ { "ids", { "00000000000000d7" } } }), parse(fakeDaemon.last("/api/v2/admin/alerts/ack").body));
+    std::string body;
+    for (const FakeDaemon::Request &r: fakeDaemon.requests())
+        if (r.path == "/api/push" && r.body.find(text) != std::string::npos)
+            body = r.body;
+    EXPECT_NE(std::string::npos, body.find("co2-console-token"));
+    EXPECT_NE(std::string::npos, body.find("co2-other-token")) << "every phone";
+    EXPECT_EQ(std::string::npos, body.find("1a2b3c4d")) << "the audit id stays with the daemon";
+    EXPECT_EQ(storedBefore + 1, storedEvents(text)) << "the event shown at login, same text";
+
+    //A replayed copy is acked again, never stored, pushed or relayed again
+    const size_t acked = acks();
+    fakeDaemon.pushEvent(FakeDaemon::alertEvent("console_opened", "00000000000000d7", { { "session_audit_id", "1a2b3c4d" } }));
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return acks() == acked + 1;
+    }));
+    drainLoop(300);
+    EXPECT_EQ(1u, pushesOf(text));
+    EXPECT_EQ(storedBefore + 1, storedEvents(text));
+    for (const Json &f: adminEventsUntil(
+             household, [](const Json &)
+             {
+        return false;
+             },
+             300))
+        EXPECT_FALSE(isAdminEvent(f, "console_opened")) << "the household saw the alert twice";
+    quietPushes();
+}
+
+TEST_F(AdminEventsTest, EveryConsoleOpeningIsPushedWithinTheCooldown)
+{
+    HistLogger::Instance().registerPushToken("co2-console-token", HistLogger::PUSH_HW_ANDROID);
+    quietPushes();
+    AdminState::Instance().resetAlertPushes(AdminState::AlertPushInterval);
+    startEvents();
+
+    const char *text = "Calaos: console opened";
+    const size_t before = pushesOf(text);
+    fakeDaemon.raiseAlert("console_opened", "00000000000000d8", { { "session_audit_id", "1a2b3c4d" } });
+    fakeDaemon.raiseAlert("console_opened", "00000000000000d9", { { "session_audit_id", "5e6f7a8b" } });
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return fakeDaemon.pendingAlerts().empty() && pushesOf(text) == before + 2;
+    }));
+    drainLoop(300);
+    EXPECT_EQ(before + 2, pushesOf(text)) << "an opening right after another still reaches the phones";
+    quietPushes();
+}
+
 TEST_F(AdminEventsTest, AReplayAfterAReconnectPushesNothingTwice)
 {
     HistLogger::Instance().registerPushToken("cb3-push-token", HistLogger::PUSH_HW_ANDROID);
@@ -2649,10 +2778,10 @@ TEST_F(AdminEventsTest, RetriesAreBoundedInNumberOfAlerts)
 {
     HistLogger::Instance().registerPushToken("cb3-push-token", HistLogger::PUSH_HW_ANDROID);
     quietPushes();
-    //Long enough for the 70 first pushes to fail before any retry fires, and
-    //no watchdog reconnect: a new stream would replay all 70 alerts
+    //No retry fires until rearmRetries(), however slow the 70 first pushes
+    //are, and no watchdog reconnect: a new stream would replay all 70 alerts
     AdminEvents::Timings t = timings();
-    t.retryDelay = 4.0;
+    t.retryDelay = 3600.0;
     t.maxRetries = 1;
     t.ping = 5.0;
     t.silence = 60.0;
@@ -2672,15 +2801,19 @@ TEST_F(AdminEventsTest, RetriesAreBoundedInNumberOfAlerts)
         fakeDaemon.raiseAlert("admin_set", "000000000000f" + std::to_string(100 + i));
     ASSERT_TRUE(pumpUntil([&]()
                           {
-        return pushesOf("Admin password set") == 70;
+        return pushesOf("Admin password set") == 70 && acks() == 70;
     },
-                          15000));
+                          30000));
+    drainLoop(300);
+    EXPECT_EQ(64u, AdminEvents::Instance().retrySeries()) << "a full table refuses the 6 last series";
+
+    AdminEvents::Instance().rearmRetries(0.05);
     ASSERT_TRUE(pumpUntil([&]()
                           {
-        return pushesOf("Admin password set") == 70 + 64;
+        return pushesOf("Admin password set") == 70 + 64 && AdminEvents::Instance().retrySeries() == 0;
     },
                           15000));
-    drainLoop(1500);
+    drainLoop(500);
     EXPECT_EQ(70u + 64u, pushesOf("Admin password set")) << "64 alerts retried once, 6 refused";
     EXPECT_EQ(70u, acks());
 
@@ -3156,6 +3289,659 @@ TEST_F(AdminEventsTest, ProtocolErrorsDropTheStream)
     }
 }
 
+/*******************************************************************************
+ * Approvers and push codes
+ ******************************************************************************/
+
+namespace
+{
+
+std::vector<PushToken> pushTokens()
+{
+    bool done = false;
+    std::vector<PushToken> out;
+    HistLogger::Instance().getPushTokens([&](bool, string, const vector<PushToken> &tokens)
+                                         {
+        out = tokens;
+        done = true;
+    });
+    pumpUntil([&done]()
+              {
+        return done;
+    });
+    return out;
+}
+
+const PushToken *tokenNamed(const std::vector<PushToken> &tokens, const std::string &token)
+{
+    for (const PushToken &t: tokens)
+        if (t.token == token)
+            return &t;
+    return nullptr;
+}
+
+const char *const kCode = "c000000000000001";
+const char *const kApprover = "a000000000000001";
+
+} //namespace
+
+TEST(JsonApiAdminRules, DeviceNamesAreCutToPrintableText)
+{
+    EXPECT_EQ("Pixel 8", JsonApi::printableText("Pixel 8", 64));
+    EXPECT_EQ("Pixel 8", JsonApi::printableText("  Pixel\t\n   8\r\n ", 64));
+    EXPECT_EQ("Téléphone de Léa", JsonApi::printableText("Téléphone de Léa", 64));
+    //Bidi overrides and isolates, zero-width, BOM, soft hyphen, tags, C1
+    EXPECT_EQ("Pixelevil", JsonApi::printableText("Pixel\xe2\x80\xae\xe2\x81\xa6\xe2\x80\x8b\xef\xbb\xbf\xc2\xad\U000E0041\u0085evil", 64));
+    EXPECT_EQ("ab", JsonApi::printableText("a\xe2\x80\xa8"
+                                           "b\x7f",
+                                           64));
+    //Invalid UTF-8: a lone continuation, an overlong '/', a surrogate, a cut sequence
+    EXPECT_EQ("ab", JsonApi::printableText("a\x80\xc0\xaf\xed\xa0\x80"
+                                           "b\xe2\x82",
+                                           64));
+    EXPECT_EQ("", JsonApi::printableText("\x01\x02 \xe2\x80\x8f", 64));
+    //Fillers and blanks that render as nothing, variation selectors, the Arabic letter mark
+    EXPECT_EQ("", JsonApi::printableText("\xe3\x85\xa4\xe1\x85\x9f\xe2\xa0\x80\xef\xb8\x8f\xd8\x9c\xef\xbe\xa0", 64));
+    EXPECT_EQ("Pixel 8", JsonApi::printableText("Pixel 8\xe3\x85\xa4\xef\xb8\x8f\xf3\xa0\x84\x80", 64));
+    //Every Zs space is a plain one
+    EXPECT_EQ("", JsonApi::printableText("\xc2\xa0\xe2\x80\x83\xe3\x80\x80", 64));
+    EXPECT_EQ("Pixel 8", JsonApi::printableText("\xc2\xa0Pixel\xc2\xa0\xe2\x80\xaf 8\xe2\x80\x83", 64));
+
+    std::string accents;
+    for (int i = 0; i < 70; i++)
+        accents += "é";
+    const std::string cut = JsonApi::printableText(accents, JsonApi::MaxDeviceName);
+    EXPECT_EQ(128u, cut.size()) << "64 code points, never half of one";
+    EXPECT_EQ(64u, JsonApi::printableText(std::string(300, 'x'), 64).size());
+    EXPECT_EQ(64u, JsonApi::MaxDeviceName);
+}
+
+TEST(JsonApiAdminRules, TokenIdsAreTheDaemons)
+{
+    //First 16 hex characters of SHA-256("abc")
+    EXPECT_EQ("ba7816bf8f01cfea", JsonApi::pushTokenId("abc"));
+    EXPECT_EQ(16u, JsonApi::pushTokenId("").size());
+}
+
+TEST(JsonApiAdminRules, ApproverAlertsNeverStartWithTheName)
+{
+    const Json data = { { "device_name", "\"Calaos\": your box is hacked, call +33 1\xe2\x80\xae" }, { "token_id", "9a41f0c2d3e4b5a6" } };
+    EXPECT_EQ("New approver phone on your Calaos box: \"'Calaos': your box is hacked, call +33 1\"",
+              AdminState::alertMessage("approver_set", data));
+    EXPECT_EQ("Approver phone removed from your Calaos box: \"Pixel 8\"",
+              AdminState::alertMessage("approver_removed", { { "device_name", "Pixel 8" } }));
+    EXPECT_EQ("New approver phone on your Calaos box: \"?\"", AdminState::alertMessage("approver_set", Json()));
+    //No quote of the name closes the one around it
+    EXPECT_EQ("New approver phone on your Calaos box: \"Pixel 8'. Admin password removed. ' ' ' ' ' ' ' ' '\"",
+              AdminState::alertMessage("approver_set", { { "device_name", "Pixel 8\u201d. Admin password removed. \u201c \u00ab \u00bb \u201e \u201f \u2033 \u2036 \uff02 \"" } }));
+    EXPECT_EQ("Admin password set on your Calaos box", AdminState::alertMessage("admin_set", data));
+    EXPECT_EQ("Calaos: console opened", AdminState::alertMessage("console_opened", { { "session_audit_id", "1a2b3c4d" }, { "device_name", "Pixel 8" } }));
+    EXPECT_TRUE(AdminState::alertMessage("push_code", data).empty());
+}
+
+TEST_F(JsonApiAdminTest, RegisterPushStoresASanitizedDeviceName)
+{
+    WsClient ws;
+    ASSERT_TRUE(ws.login(""));
+    ws.post(Json{ { "msg", "register_push" }, { "data", { { "token", "ap1b-name-token" }, { "hardware", "android" }, { "device_name", "  Pixel\xe2\x80\xae\n 8  " } } } });
+    const Json http = httpJson(Json{ { "action", "register_push" }, { "cn_user", kUser }, { "cn_pass", kPass }, { "token", "ap1b-name-ios" }, { "hardware", "ios" }, { "device_name", std::string(100, 'n') } }, "");
+    EXPECT_EQ("true", str(http, "success")) << http.dump();
+
+    ASSERT_TRUE(pumpUntil([]()
+                          {
+        return tokenNamed(pushTokens(), "ap1b-name-token") && tokenNamed(pushTokens(), "ap1b-name-ios");
+    }));
+    auto tokens = pushTokens();
+    EXPECT_EQ("Pixel 8", tokenNamed(tokens, "ap1b-name-token")->device_name);
+    EXPECT_EQ(std::string(64, 'n'), tokenNamed(tokens, "ap1b-name-ios")->device_name);
+    EXPECT_EQ(HistLogger::PUSH_HW_IOS, tokenNamed(tokens, "ap1b-name-ios")->hw_type);
+
+    //An app that sends no name keeps the one it registered
+    ws.post(Json{ { "msg", "register_push" }, { "data", { { "token", "ap1b-name-token" }, { "hardware", "android" } } } });
+    drainLoop(100);
+    EXPECT_EQ("Pixel 8", tokenNamed(pushTokens(), "ap1b-name-token")->device_name);
+}
+
+TEST_F(JsonApiAdminTest, ApproverCandidatesNeverCarryAToken)
+{
+    HistLogger::Instance().registerPushToken("ap1b-candidate-a", HistLogger::PUSH_HW_ANDROID, HistLogger::PUSH_FORMAT_DATA, "Pixel 8");
+    HistLogger::Instance().registerPushToken("ap1b-candidate-b", HistLogger::PUSH_HW_IOS);
+    adminDefined();
+    fakeDaemon.setApprovers(Json::array({ { { "id", kApprover }, { "device_name", "Pixel 8" }, { "token_id", JsonApi::pushTokenId("ap1b-candidate-a") }, { "created_at", "2026-10-23T09:12:03Z" } } }));
+
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    const Json answer = ws.admin("admin", { { "action", "approver_candidates" }, { "admin_session", FakeDaemon::Session } });
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+    for (const PushToken &t: pushTokens())
+        EXPECT_EQ(std::string::npos, answer.dump().find(t.token)) << t.token << " in " << answer.dump();
+
+    const FakeDaemon::Request req = fakeDaemon.last("/api/v2/admin/approvers");
+    EXPECT_EQ("GET", req.method);
+    EXPECT_EQ(FakeDaemon::Session, req.headers.at("x-calaos-admin-session"));
+
+    std::map<std::string, Json> byId;
+    for (const Json &c: answer["result"])
+    {
+        EXPECT_EQ((std::set<std::string>{ "token_id", "device_name", "platform", "registered_at", "last_seen", "approver" }), [&c]()
+                  {
+            std::set<std::string> keys;
+            for (auto it = c.begin(); it != c.end(); ++it)
+                keys.insert(it.key());
+            return keys;
+        }()) << c.dump();
+        byId[str(c, "token_id")] = c;
+    }
+    const Json a = byId[JsonApi::pushTokenId("ap1b-candidate-a")];
+    const Json b = byId[JsonApi::pushTokenId("ap1b-candidate-b")];
+    EXPECT_EQ("Pixel 8", str(a, "device_name"));
+    EXPECT_TRUE(a["approver"].get<bool>());
+    EXPECT_EQ("iOS device", str(b, "device_name")) << "an app that sent no name";
+    EXPECT_FALSE(b["approver"].get<bool>());
+    EXPECT_EQ(20u, str(a, "last_seen").size());
+    EXPECT_EQ('T', str(a, "last_seen")[10]);
+    EXPECT_EQ(20u, str(a, "registered_at").size());
+    EXPECT_EQ("android", str(a, "platform"));
+    EXPECT_EQ("ios", str(b, "platform"));
+
+    //The daemon validates the session first
+    expectError(ws.admin("admin", { { "action", "approver_candidates" }, { "admin_session", std::string(64, 'e') } }), "bad_session");
+}
+
+TEST_F(JsonApiAdminTest, TheApproverListTellsPhonesOfTheSameNameApart)
+{
+    HistLogger::Instance().registerPushToken("ap1b-list-ios", HistLogger::PUSH_HW_IOS, HistLogger::PUSH_FORMAT_NOTIFICATION, "iPhone");
+    HistLogger::Instance().registerPushToken("ap1b-list-android", HistLogger::PUSH_HW_ANDROID, HistLogger::PUSH_FORMAT_DATA, "iPhone");
+    adminDefined();
+    const Json daemonList = Json::array({ { { "id", "a000000000000011" }, { "device_name", "iPhone" }, { "token_id", JsonApi::pushTokenId("ap1b-list-ios") }, { "created_at", "2026-10-23T09:12:03Z" } },
+                                          { { "id", "a000000000000012" }, { "device_name", "iPhone" }, { "token_id", JsonApi::pushTokenId("ap1b-list-android") }, { "created_at", "2026-10-23T09:13:03Z" } },
+                                          { { "id", "a000000000000013" }, { "device_name", "\u200bGone\u202e now" }, { "token_id", "00000000000000ff" }, { "created_at", "2026-10-23T09:14:03Z" }, { "future_field", "kept by the daemon" } } });
+    fakeDaemon.setApprovers(daemonList);
+
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    const Json answer = ws.admin("admin", { { "action", "approver_list" }, { "admin_session", FakeDaemon::Session } });
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+    for (const PushToken &t: pushTokens())
+        EXPECT_EQ(std::string::npos, answer.dump().find(t.token)) << t.token;
+
+    const Json &list = answer["result"];
+    ASSERT_EQ(3u, list.size()) << answer.dump();
+    for (size_t i = 0; i < 3; i++)
+        EXPECT_EQ(str(daemonList[i], "id"), str(list[i], "id")) << "the daemon's order and fields";
+    EXPECT_EQ("ios", str(list[0], "platform"));
+    EXPECT_EQ("android", str(list[1], "platform"));
+    EXPECT_EQ(20u, str(list[0], "registered_at").size());
+    EXPECT_EQ(20u, str(list[1], "last_seen").size());
+    EXPECT_EQ("2026-10-23T09:12:03Z", str(list[0], "created_at"));
+    //Its token left push_tokens: nothing to tell, and no code will reach it
+    EXPECT_EQ("", str(list[2], "platform"));
+    EXPECT_EQ("", str(list[2], "last_seen"));
+    //Only the fields known here, the name cleaned as register_push does
+    EXPECT_FALSE(list[2].contains("future_field")) << list[2].dump();
+    EXPECT_EQ(7u, list[2].size()) << list[2].dump();
+    EXPECT_EQ("Gone now", str(list[2], "device_name"));
+}
+
+TEST_F(JsonApiAdminTest, EnrolmentResolvesTheTokenItselfAndIgnoresTheClients)
+{
+    HistLogger::Instance().registerPushToken("ap1b-enrol-token", HistLogger::PUSH_HW_ANDROID, HistLogger::PUSH_FORMAT_DATA, "Phone of Lea");
+    HistLogger::Instance().registerPushToken("ap1b-enrol-noname", HistLogger::PUSH_HW_ANDROID);
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    const Json data = { { "action", "approver_enroll" },
+                        { "admin_session", FakeDaemon::Session },
+                        { "token", "attacker-token" },
+                        { "device_name", "Attacker" },
+                        { "params", { { "token_id", JsonApi::pushTokenId("ap1b-enrol-token") }, { "token", "attacker-token" }, { "device_name", "Attacker" } } } };
+    const Json answer = ws.admin("admin", data);
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+    EXPECT_EQ("c000000000000001", str(answer["result"], "code_id"));
+    EXPECT_EQ(std::string::npos, answer.dump().find("ap1b-enrol-token"));
+
+    FakeDaemon::Request req = fakeDaemon.last("/api/v2/admin/approvers/enroll");
+    EXPECT_EQ("POST", req.method);
+    EXPECT_EQ(FakeDaemon::Session, req.headers.at("x-calaos-admin-session"));
+    EXPECT_EQ((Json{ { "token", "ap1b-enrol-token" }, { "device_name", "Phone of Lea" } }), parse(req.body));
+
+    //With the approval code of an existing approver; a nameless app gets its platform
+    Json approved = data;
+    approved["params"] = { { "token_id", JsonApi::pushTokenId("ap1b-enrol-noname") }, { "code_id", kCode }, { "code", "123456" } };
+    ASSERT_EQ("true", str(ws.admin("admin", approved), "success"));
+    EXPECT_EQ((Json{ { "token", "ap1b-enrol-noname" }, { "device_name", "Android device" }, { "code_id", kCode }, { "code", "123456" } }),
+              parse(fakeDaemon.last("/api/v2/admin/approvers/enroll").body));
+
+    fakeDaemon.clearLog();
+    Json unknown = data;
+    unknown["params"] = { { "token_id", JsonApi::pushTokenId("attacker-token") } };
+    const Json refused = ws.admin("admin", unknown);
+    expectError(refused, "invalid_request");
+    EXPECT_EQ("Unknown token_id", str(refused, "msg"));
+    unknown["params"] = { { "token", "attacker-token" } };
+    expectError(ws.admin("admin", unknown), "invalid_request");
+    EXPECT_TRUE(daemonCalls().empty());
+}
+
+TEST_F(JsonApiAdminTest, ApproverAndCodeActionsCallTheirFixedRoutes)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    struct Row
+    {
+        const char *action;
+        Json params;
+        const char *method;
+        const char *path;
+        Json body; //null: none
+    };
+    const Json code = { { "code_id", kCode }, { "code", "123456" } };
+    const std::vector<Row> rows = {
+        { "approver_list", Json::object(), "GET", "/api/v2/admin/approvers", Json() },
+        { "approver_confirm", { { "code_id", kCode }, { "code", "123456" }, { "token", "x" } }, "POST", "/api/v2/admin/approvers/confirm", code },
+        { "approver_remove", { { "approver_id", kApprover }, { "code_id", kCode }, { "code", "123456" } }, "POST", "/api/v2/admin/approvers/remove", { { "approver_id", kApprover }, { "code_id", kCode }, { "code", "123456" } } },
+        { "code_request", { { "code_action", "console_open" }, { "code_params", { { "password", "smuggled" } } } }, "POST", "/api/v2/admin/codes", { { "action", "console_open" }, { "params", Json::object() } } },
+        { "code_request", { { "code_action", "admin_password" }, { "code_params", { { "password", "a new admin password" }, { "recovery", true } } }, { "approver_id", kApprover } }, "POST", "/api/v2/admin/codes", { { "action", "admin_password" }, { "params", { { "password", "a new admin password" } } }, { "approver_id", kApprover } } },
+        { "code_request", { { "code_action", "approver_remove" }, { "code_params", { { "approver_id", kApprover } } } }, "POST", "/api/v2/admin/codes", { { "action", "approver_remove" }, { "params", { { "approver_id", kApprover } } } } },
+        { "code_verify", code, "POST", "/api/v2/admin/codes/verify", code },
+        { "console_open", code, "POST", "/api/v2/admin/codes/verify", code },
+    };
+
+    for (const Row &row: rows)
+    {
+        fakeDaemon.clearLog();
+        const Json answer = ws.admin("admin", { { "action", row.action }, { "admin_session", FakeDaemon::Session }, { "path", "admin/reset" }, { "params", row.params } });
+        ASSERT_EQ("true", str(answer, "success")) << row.action << " " << answer.dump();
+
+        const auto log = daemonCalls();
+        ASSERT_EQ(1u, log.size()) << row.action;
+        EXPECT_EQ(row.method, log[0].method) << row.action;
+        EXPECT_EQ(row.path, log[0].path) << row.action;
+        EXPECT_EQ(FakeDaemon::Session, log[0].headers.at("x-calaos-admin-session")) << row.action;
+        EXPECT_EQ("127.0.0.1", log[0].headers.at("x-calaos-client-ip")) << row.action;
+        if (row.body.is_null())
+        {
+            EXPECT_TRUE(log[0].body.empty()) << row.action;
+        }
+        else
+        {
+            EXPECT_EQ(row.body, parse(log[0].body)) << row.action;
+        }
+    }
+
+    const Json grant = ws.admin("admin", { { "action", "console_open" }, { "admin_session", FakeDaemon::Session }, { "params", code } });
+    EXPECT_EQ((Json{ { "action", "console_open" }, { "expires_in", 30 } }), grant["result"]);
+
+    //A session-only route is never called without the header
+    fakeDaemon.clearLog();
+    expectError(ws.admin("admin", { { "action", "approver_list" } }), "bad_session");
+    EXPECT_TRUE(daemonCalls().empty());
+}
+
+TEST_F(JsonApiAdminTest, TheDaemonsCodeErrorsAreRelayed)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    struct Case
+    {
+        int status;
+        const char *code;
+        Json data;
+        const char *field;
+        const char *value;
+    };
+    for (const Case &c: std::vector<Case>{ { 403, "bad_code", { { "attempts_left", 3 } }, "attempts_left", "3" },
+                                           { 409, "approver_limit", { { "max", 2 } }, "max", "2" },
+                                           { 410, "code_expired", Json(), nullptr, nullptr },
+                                           { 409, "approver_required", Json(), nullptr, nullptr },
+                                           { 403, "code_required", Json(), nullptr, nullptr },
+                                           { 409, "approver_exists", Json(), nullptr, nullptr },
+                                           { 404, "approver_not_found", Json(), nullptr, nullptr },
+                                           { 409, "approver_last", Json(), nullptr, nullptr } })
+    {
+        fakeDaemon.setOverride([c](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                               {
+            if (req.path != "/api/v2/admin/approvers/remove")
+                return false;
+            res.status = c.status;
+            res.body = FakeDaemon::err(c.code, c.data);
+            return true;
+        });
+        const Json answer = ws.admin("admin", { { "action", "approver_remove" }, { "admin_session", FakeDaemon::Session }, { "params", { { "approver_id", kApprover }, { "code_id", kCode }, { "code", "123456" } } } });
+        expectError(answer, c.code);
+        EXPECT_NE("daemon says " + std::string(c.code), str(answer, "msg"));
+        if (c.field)
+        {
+            EXPECT_EQ(c.value, str(answer, c.field)) << answer.dump();
+        }
+    }
+}
+
+TEST_F(JsonApiAdminTest, APasswordChangeCarriesItsPushCode)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    const Json change = ws.admin("admin_set", { { "new_pass", "another long password" }, { "admin_session", FakeDaemon::Session }, { "code_id", kCode }, { "code", "654321" }, { "token", "x" } });
+    EXPECT_EQ("change", str(change, "mode")) << change.dump();
+    EXPECT_EQ((Json{ { "password", "another long password" }, { "code_id", kCode }, { "code", "654321" } }),
+              parse(fakeDaemon.last("/api/v2/admin/set").body));
+
+    fakeDaemon.clearLog();
+    expectError(ws.admin("admin_set", { { "new_pass", "another long password" }, { "admin_session", FakeDaemon::Session }, { "code_id", kCode } }),
+                "invalid_request");
+    expectError(ws.admin("admin_set", { { "new_pass", "another long password" }, { "admin_session", FakeDaemon::Session }, { "code_id", kCode }, { "code", "65432" } }),
+                "invalid_request");
+    EXPECT_TRUE(daemonCalls().empty());
+
+    fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/v2/admin/set")
+            return false;
+        res.status = 409;
+        res.body = FakeDaemon::err("approver_required");
+        return true;
+    });
+    expectError(ws.admin("admin_set", { { "new_pass", "another long password" }, { "admin_session", FakeDaemon::Session } }), "approver_required");
+    EXPECT_EQ(Json({ { "password", "another long password" } }), parse(fakeDaemon.last("/api/v2/admin/set").body));
+
+    //A bootstrap has no code to carry
+    fakeDaemon.setOverride(nullptr);
+    fakeDaemon.setAdminSet(false);
+    syncAdminState();
+    const Json boot = ws.admin("admin_set", { { "new_pass", "a long admin password" }, { "code_id", "x" } });
+    EXPECT_EQ("bootstrap", str(boot, "mode")) << boot.dump();
+    EXPECT_EQ(Json({ { "password", "a long admin password" } }), parse(fakeDaemon.last("/api/v2/admin/set").body));
+}
+
+TEST_F(AdminEventsTest, APushCodeGoesToItsTokenOnlyAndNeverToAClient)
+{
+    HistLogger::Instance().registerPushToken("ap1b-approver-token", HistLogger::PUSH_HW_ANDROID, HistLogger::PUSH_FORMAT_DATA, "Approver");
+    HistLogger::Instance().registerPushToken("ap1b-other-token", HistLogger::PUSH_HW_IOS);
+    quietPushes();
+
+    WsClient household;
+    ASSERT_TRUE(household.login(""));
+    startEvents();
+    ASSERT_TRUE(isAdminEvent(household.next(), "upgrade_progress"));
+
+    PushTest::StdoutCapture capture;
+    fakeDaemon.setPushPayload(kCode, "ap1b-approver-token", "Calaos admin code 482913: open the web console. Valid 60 s, never share it.");
+    fakeDaemon.pushEvent({ { "type", "push_code" }, { "data", { { "approver_id", kApprover }, { "code_id", kCode } } } });
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return pushesOf("482913") == 1;
+    }));
+    drainLoop(200);
+    const std::string log = capture.stop();
+
+    const FakeDaemon::Request fetch = fakeDaemon.last(std::string("/api/v2/admin/push/") + kCode);
+    EXPECT_EQ("GET", fetch.method);
+    EXPECT_EQ("Bearer " + std::string(kBearer), fetch.headers.at("authorization"));
+    EXPECT_EQ(0u, fetch.headers.count("x-calaos-admin-session"));
+
+    std::string body;
+    for (const FakeDaemon::Request &r: fakeDaemon.requests())
+        if (r.path == "/api/push" && r.body.find("482913") != std::string::npos)
+            body = r.body;
+    EXPECT_NE(std::string::npos, body.find("ap1b-approver-token"));
+    EXPECT_EQ(std::string::npos, body.find("ap1b-other-token")) << "one token only";
+    EXPECT_EQ(1u, pushesOf("482913"));
+
+    for (const char *secret: { "482913", "ap1b-approver-token" })
+        EXPECT_EQ(std::string::npos, log.find(secret)) << secret << " in " << log;
+
+    EXPECT_TRUE(adminEventsUntil(
+                    household, [](const Json &)
+                    {
+        return true;
+                    },
+                    300)
+                    .empty())
+        << "push_code is never forwarded";
+    quietPushes();
+}
+
+TEST_F(AdminEventsTest, APushCodeThatCannotBeServedIsDropped)
+{
+    HistLogger::Instance().registerPushToken("ap1b-approver-token", HistLogger::PUSH_HW_ANDROID);
+    quietPushes();
+    startEvents();
+    const size_t pushes = fakeDaemon.count("/api/push");
+
+    auto send = [](const std::string &codeId)
+    {
+        fakeDaemon.pushEvent({ { "type", "push_code" }, { "data", { { "approver_id", kApprover }, { "code_id", codeId } } } });
+    };
+    auto fetched = [](const std::string &codeId)
+    {
+        return pumpUntil([codeId]()
+                         {
+            return fakeDaemon.count("/api/v2/admin/push/" + codeId) == 1;
+        });
+    };
+
+    send("../alerts/ack000");
+    send("C000000000000001");
+    //Unknown to the daemon, a payload without a usable token or text, a token
+    //this server does not know
+    send("c0000000000000a1");
+    fakeDaemon.setPushPayload("c0000000000000a2", "", "Calaos admin code 111111: x");
+    send("c0000000000000a2");
+    fakeDaemon.setPushPayload("c0000000000000a3", "two words", "Calaos admin code 222222: x");
+    send("c0000000000000a3");
+    fakeDaemon.setPushPayload("c0000000000000a4", "ap1b-approver-token", "\x01\xe2\x80\xae");
+    send("c0000000000000a4");
+    fakeDaemon.setPushPayload("c0000000000000a5", "ap1b-unknown-token", "Calaos admin code 333333: x");
+    send("c0000000000000a5");
+    //Only the daemon's own wording goes out, whatever phone it names
+    const std::vector<std::pair<const char *, const char *>> wordings = {
+        { "c0000000000000b6", "Your Calaos box was reset, call 0800 000 000" },
+        { "c0000000000000b7", "Calaos admin code 44444: x" },
+        { "c0000000000000b8", "Calaos admin code 4444444: x" },
+        { "c0000000000000b9", "Calaos admin code 44444a: x" },
+        { "c0000000000000ba", "Calaos admin code 444444" },
+    };
+    for (const auto &w: wordings)
+    {
+        fakeDaemon.setPushPayload(w.first, "ap1b-approver-token", w.second);
+        send(w.first);
+    }
+    for (const auto &w: wordings)
+        EXPECT_TRUE(fetched(w.first)) << w.second;
+    for (const char *id: { "c0000000000000a1", "c0000000000000a2", "c0000000000000a3", "c0000000000000a4", "c0000000000000a5" })
+        EXPECT_TRUE(fetched(id)) << id;
+    drainLoop(300);
+
+    //By their texts: a push of an earlier test may still land meanwhile
+    for (const char *text: { "111111", "222222", "333333", "Calaos admin code 4444", "call 0800 000 000" })
+        EXPECT_EQ(0u, pushesOf(text)) << text;
+    EXPECT_GE(fakeDaemon.count("/api/push"), pushes);
+    for (const FakeDaemon::Request &r: fakeDaemon.requests())
+        EXPECT_EQ(std::string::npos, r.path.find("alerts/ack000")) << r.path;
+    EXPECT_EQ(0u, fakeDaemon.count("/api/v2/admin/push/C000000000000001"));
+}
+
+TEST_F(AdminEventsTest, PushCodesAreCappedPerHour)
+{
+    HistLogger::Instance().registerPushToken("ap1b-approver-token", HistLogger::PUSH_HW_ANDROID);
+    quietPushes();
+    AdminEvents::Timings t = timings();
+    t.maxCodePushes = 2;
+    AdminEvents::Instance().setTimings(t);
+    startEvents();
+
+    auto send = [](const char *id)
+    {
+        fakeDaemon.pushEvent({ { "type", "push_code" }, { "data", { { "approver_id", kApprover }, { "code_id", id } } } });
+    };
+
+    //Fetches that serve nothing, and phones this server does not know, cost nothing
+    fakeDaemon.setPushPayload("c0000000000000c3", "ap1b-unknown-token", "Calaos admin code 300003: x");
+    for (const char *id: { "c0000000000000c1", "c0000000000000c2", "c0000000000000c3" })
+    {
+        send(id);
+        ASSERT_TRUE(pumpUntil([id]()
+                              {
+            return fakeDaemon.count(std::string("/api/v2/admin/push/") + id) == 1;
+        })) << id;
+    }
+    drainLoop(200);
+
+    for (const auto &c: std::vector<std::pair<const char *, const char *>>{ { "c0000000000000d1", "100001" },
+                                                                            { "c0000000000000d2", "100002" },
+                                                                            { "c0000000000000d3", "100003" } })
+    {
+        fakeDaemon.setPushPayload(c.first, "ap1b-approver-token", std::string("Calaos admin code ") + c.second + ": x");
+        send(c.first);
+        const std::string code = c.second;
+        pumpUntil([&]()
+                  {
+            return pushesOf(code.c_str()) == 1;
+        },
+                  1500);
+        //The push counts once the push service has answered, which a coverage
+        //build on a busy runner takes its time to see
+        drainLoop(1500);
+    }
+    EXPECT_EQ(1u, pushesOf("100001"));
+    EXPECT_EQ(1u, pushesOf("100002"));
+    EXPECT_EQ(0u, pushesOf("100003"));
+    EXPECT_EQ(0u, fakeDaemon.count("/api/v2/admin/push/c0000000000000d3")) << "not even fetched";
+}
+
+TEST_F(AdminEventsTest, AnApproverAlertIsPushedToEveryPhoneBehindAFixedPrefix)
+{
+    HistLogger::Instance().registerPushToken("ap1b-approver-token", HistLogger::PUSH_HW_ANDROID);
+    HistLogger::Instance().registerPushToken("ap1b-other-token", HistLogger::PUSH_HW_IOS);
+    quietPushes();
+    adminDefined();
+
+    WsClient household;
+    ASSERT_TRUE(household.login(""));
+    startEvents();
+    ASSERT_TRUE(isAdminEvent(household.next(), "upgrade_progress"));
+
+    const Json phone = { { "device_name", "Your box is hacked, call 0800" }, { "token_id", "9a41f0c2d3e4b5a6" } };
+    fakeDaemon.raiseAlert("approver_set", "00000000000000e1", phone);
+    const Json ev = household.next();
+    ASSERT_TRUE(isAdminEvent(ev, "approver_set")) << ev.dump();
+    EXPECT_EQ((Json{ { "type", "approver_set" }, { "ts", "2026-10-22T09:14:00Z" } }), ev["data"]) << "ts only";
+
+    const char *text = "New approver phone on your Calaos box: \\\"Your box is hacked, call 0800\\\"";
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return fakeDaemon.pendingAlerts().empty() && pushesOf(text) == 1;
+    }));
+    std::string body;
+    for (const FakeDaemon::Request &r: fakeDaemon.requests())
+        if (r.path == "/api/push" && r.body.find(text) != std::string::npos)
+            body = r.body;
+    EXPECT_NE(std::string::npos, body.find("ap1b-approver-token"));
+    EXPECT_NE(std::string::npos, body.find("ap1b-other-token")) << "every phone";
+    EXPECT_EQ(1u, storedEvents(text)) << "the event shown at login, same text";
+
+    fakeDaemon.raiseAlert("approver_removed", "00000000000000e2", { { "device_name", "Pixel 8" } });
+    ASSERT_TRUE(isAdminEvent(household.next(), "approver_removed"));
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return pushesOf("Approver phone removed from your Calaos box: \\\"Pixel 8\\\"") == 1;
+    }));
+    EXPECT_EQ(1u, storedEvents("Approver phone removed from your Calaos box: \\\"Pixel 8\\\""));
+    //No push still in flight when the program exits
+    quietPushes();
+}
+
+TEST_F(JsonApiAdminTest, EachApproverPhoneHasItsOwnAlertCooldown)
+{
+    HistLogger::Instance().registerPushToken("ap1b-cooldown-token", HistLogger::PUSH_HW_ANDROID);
+    pushTokens();
+    AdminState::Instance().resetAlertPushes(AdminState::AlertPushInterval);
+
+    auto push = [](const char *name, const char *tokenId)
+    {
+        bool done = false;
+        AdminState::Instance().pushAlert(
+            "approver_set", [&done](bool)
+            {
+            done = true;
+            },
+            { { "device_name", name }, { "token_id", tokenId } });
+        pumpUntil([&done]()
+                  {
+            return done;
+        });
+    };
+    auto pushed = [](const char *name)
+    {
+        size_t n = 0;
+        for (const FakeDaemon::Request &r: fakeDaemon.requests())
+            if (r.path == "/api/push" && r.body.find(name) != std::string::npos)
+                n++;
+        return n;
+    };
+
+    //A decoy phone first does not silence the next one; the same phone again is
+    push("Decoy cooldown", "00000000000000d1");
+    push("Real cooldown", "00000000000000d2");
+    push("Again cooldown", "00000000000000d1");
+    EXPECT_EQ(1u, pushed("Decoy cooldown"));
+    EXPECT_EQ(1u, pushed("Real cooldown"));
+    EXPECT_EQ(0u, pushed("Again cooldown"));
+}
+
+TEST_F(AdminEventsTest, AnApproversTokenKeepsItsEnrolledNameAndFormat)
+{
+    HistLogger::Instance().registerPushToken("ap1b-locked-token", HistLogger::PUSH_HW_ANDROID, HistLogger::PUSH_FORMAT_DATA, "Phone of Lea");
+    quietPushes();
+    startEvents();
+
+    const std::string tokenId = JsonApi::pushTokenId("ap1b-locked-token");
+    //The vector is kept: tokenNamed points into it
+    auto approver = []()
+    {
+        const std::vector<PushToken> list = pushTokens();
+        const PushToken *t = tokenNamed(list, "ap1b-locked-token");
+        return t && t->approver;
+    };
+    fakeDaemon.raiseAlert("approver_set", "00000000000000f1", { { "device_name", "Phone of Lea" }, { "token_id", tokenId } });
+    ASSERT_TRUE(pumpUntil(approver));
+
+    //A household client that knows the token cannot rename it nor change its format
+    WsClient household;
+    ASSERT_TRUE(household.login(""));
+    household.post(Json{ { "msg", "register_push" }, { "data", { { "token", "ap1b-locked-token" }, { "hardware", "android" }, { "device_name", "Attacker was here" } } } });
+    drainLoop(200);
+    const std::vector<PushToken> tokens = pushTokens();
+    const PushToken *kept = tokenNamed(tokens, "ap1b-locked-token");
+    ASSERT_NE(nullptr, kept);
+    EXPECT_EQ("Phone of Lea", kept->device_name);
+    EXPECT_EQ(HistLogger::PUSH_FORMAT_DATA, kept->format);
+
+    //Removed, it is an ordinary token again
+    fakeDaemon.raiseAlert("approver_removed", "00000000000000f2", { { "device_name", "Phone of Lea" }, { "token_id", tokenId } });
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return !approver();
+    }));
+    household.post(Json{ { "msg", "register_push" }, { "data", { { "token", "ap1b-locked-token" }, { "hardware", "android" }, { "device_name", "Renamed" } } } });
+    ASSERT_TRUE(pumpUntil([]()
+                          {
+        const std::vector<PushToken> list = pushTokens();
+        const PushToken *t = tokenNamed(list, "ap1b-locked-token");
+        return t && t->device_name == "Renamed";
+    }));
+    EXPECT_EQ(HistLogger::PUSH_FORMAT_NOTIFICATION, tokenNamed(pushTokens(), "ap1b-locked-token")->format);
+    //The two alerts' pushes must not be in flight when the program exits
+    quietPushes();
+}
+
 /*
  * Own main: the server, the fake daemon, the configuration and the token file
  * must exist before the singletons read them. A fake calaos_mcp records every
@@ -3212,10 +3998,17 @@ int main(int argc, char **argv)
 
     const int rc = RUN_ALL_TESTS();
 
+    AdminEvents::Instance().stop();
+    AdminState::Instance().stop();
     McpServerManager::Instance().stop();
     fakeDaemon.stop();
     drainLoop(50);
     std::error_code ec;
     std::filesystem::remove_all(base, ec);
-    return rc;
+
+    //The singletons' destructors would write into the tree just removed and
+    //close uv handles after the loop's users are gone: skip them, as the other
+    //server tests do (the coverage shim still dumps the counters)
+    fflush(nullptr);
+    _exit(rc);
 }

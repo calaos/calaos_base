@@ -87,19 +87,26 @@ public:
     //daemon's port must not reach every phone once per alert it makes up
     static constexpr double AlertPushInterval = 600.0;
 
-    /* Stores the admin_set or admin_reset alert of the daemon as a persistent
-     * EventPushNotification shown at the next login, once per id: the id is
-     * saved in AlertsFileName, so a replay after a restart is not stored
-     * again. False, stored never called, for an id stored before or another
-     * type. stored runs once the history worker has written the event.
+    /* The text of an alert, empty for a type that is not one. The device_name
+     * of an approver alert is chosen by whoever enrolled the phone: it never
+     * starts the text and is quoted, so it cannot pass for the box speaking.
      */
-    bool storeAlert(const string &type, const string &id, std::function<void()> stored = {});
+    static string alertMessage(const string &type, const Json &data);
+
+    /* Stores an alert of the daemon (admin_set, admin_reset, approver_set,
+     * approver_removed, console_opened) as a persistent EventPushNotification
+     * shown at the next login, once per id: the id is saved in AlertsFileName,
+     * so a replay after a restart is not stored again. False, stored never
+     * called, for an id stored before or another type. stored runs once the
+     * history worker has written the event. data is the alert's, for its text.
+     */
+    bool storeAlert(const string &type, const string &id, std::function<void()> stored = {}, const Json &data = Json());
 
     /* Pushes the alert to every registered token, at most once per type
      * every AlertPushInterval. done(true) when it went out, nobody had a
      * token or the cooldown skipped it; done(false) when it failed.
      */
-    void pushAlert(const string &type, std::function<void(bool)> done = {});
+    void pushAlert(const string &type, std::function<void(bool)> done = {}, const Json &data = Json());
 
     //Reads AlertsFileName again; the ids stored in memory are forgotten
     void loadAlerts();

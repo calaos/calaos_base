@@ -283,7 +283,7 @@ void NotifManager::sendPushNotification(const string &message, const string &not
     cDebugDom(TAG) << "Sending push notification with message: " << message;
 
     HistLogger::Instance().getPushTokens(
-        [=](bool success, string errorMsg, const vector<PushToken> &tokens)
+        [=, this](bool success, string errorMsg, const vector<PushToken> &tokens)
         {
         if (!success)
         {
@@ -305,24 +305,59 @@ void NotifManager::sendPushNotification(const string &message, const string &not
 
         //The body carries the device tokens, it is never logged.
         cDebugDom(TAG) << "Sending notif to service for " << tokens.size() << " token(s)";
+        post(body, callbackSent, callbackDone);
+    });
+}
 
-        UrlDownloader *u = new UrlDownloader(pushServiceUrl, true);
-        u->m_signalComplete.connect([this, callbackSent, callbackDone](int statusCode)
-                                    {
-            cDebugDom(TAG) << "Push notif sent with code: " << statusCode;
-            //Optional: calling an empty one throws std::bad_function_call
-            if (callbackSent)
-                callbackSent();
-            if (callbackDone)
-                callbackDone(statusCode >= 200 && statusCode < 300);
-        });
-        if (!u->httpPost(string(), body))
+void NotifManager::sendPushNotificationTo(const string &token, const string &message, std::function<void(bool)> callbackDone)
+{
+    HistLogger::Instance().getPushTokens(
+        [this, token, message, callbackDone](bool success, string errorMsg, const vector<PushToken> &tokens)
         {
-            //LCOV_EXCL_START only reached when libcurl cannot create a handle
-            u->cancel();
+        //The platform and the format come from register_push: a token this
+        //server does not know cannot be addressed
+        vector<PushToken> one;
+        for (const auto &t: tokens)
+        {
+            if (t.token == token)
+            {
+                one.push_back(t);
+                break;
+            }
+        }
+
+        const string body = one.empty() ? string() : buildPushBody(one, message, string(), Utils::get_config_option("notif_development") == "true");
+        if (body.empty())
+        {
+            cWarningDom(TAG) << "Push not sent: " << (success ? string("the phone is not registered with this server any more") : errorMsg);
             if (callbackDone)
                 callbackDone(false);
-            //LCOV_EXCL_STOP
+            return;
         }
+
+        cDebugDom(TAG) << "Sending notif to service for one token";
+        post(body, {}, callbackDone);
     });
+}
+
+void NotifManager::post(const string &body, std::function<void(void)> callbackSent, std::function<void(bool)> callbackDone)
+{
+    UrlDownloader *u = new UrlDownloader(pushServiceUrl, true);
+    u->m_signalComplete.connect([callbackSent, callbackDone](int statusCode)
+                                {
+        cDebugDom(TAG) << "Push notif sent with code: " << statusCode;
+        //Optional: calling an empty one throws std::bad_function_call
+        if (callbackSent)
+            callbackSent();
+        if (callbackDone)
+            callbackDone(statusCode >= 200 && statusCode < 300);
+    });
+    if (!u->httpPost(string(), body))
+    {
+        //LCOV_EXCL_START only reached when libcurl cannot create a handle
+        u->cancel();
+        if (callbackDone)
+            callbackDone(false);
+        //LCOV_EXCL_STOP
+    }
 }

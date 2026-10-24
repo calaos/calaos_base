@@ -107,11 +107,12 @@ TEST(RelayIdentity, AnUnreadablePeerBuysNothing)
 TEST(RelayIdentity, AnIdentityThatIsNotAnAddressIsReplaced)
 {
     //The sidecar splits the value on a space; a forged entry carrying one must
-    //not be able to shift the field boundary.
+    //not be able to shift the field boundary. It is no address, so the peer
+    //stands for the client.
     Filter f("127.0.0.1", CRED);
     std::string out;
     ASSERT_TRUE(f.feed(get("X-Forwarded-For: evil ip\r\n"), out));
-    EXPECT_EQ(identities(out), std::vector<std::string>{CRED + " unknown"});
+    EXPECT_EQ(identities(out), std::vector<std::string>{ CRED + " 127.0.0.1" });
 }
 
 //----------------------------------------------------------------- the framing

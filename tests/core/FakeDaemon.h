@@ -24,8 +24,9 @@
  * A fake calaos-container, on a real loopback socket, answering the admin
  * routes of its docs/API.md. It runs on its own thread: the server under test
  * runs on the uv loop of the test thread, which keeps pumping while it waits.
- * Requests are served one at a time; each /api/v2/events stream gets a thread
- * of its own.
+ * Every connection is served on a thread of its own, so a slow answer or a
+ * burst never queues the next requests past their timeout; each
+ * /api/v2/events stream then keeps its thread.
  */
 
 #include "json.hpp"
@@ -94,7 +95,7 @@ public:
         a.sin_family = AF_INET;
         a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
         a.sin_port = htons(port);
-        if (bind(listenFd, (struct sockaddr *)&a, sizeof(a)) != 0 || listen(listenFd, 16) != 0)
+        if (bind(listenFd, (struct sockaddr *)&a, sizeof(a)) != 0 || listen(listenFd, SOMAXCONN) != 0)
         {
             fprintf(stderr, "FakeDaemon: cannot listen on %d: %s\n", port, strerror(errno));
             close(listenFd);
@@ -116,6 +117,9 @@ public:
         stopping = true;
         if (worker.joinable())
             worker.join();
+        for (Server &sv: servers)
+            sv.thread.join();
+        servers.clear();
         if (listenFd >= 0)
             close(listenFd);
         listenFd = -1;
@@ -145,6 +149,11 @@ public:
         progress = leakyProgress();
         job = leakyJob();
         alerts.clear();
+        alertData.clear();
+        approvers = nlohmann::json::array();
+        pushPayloads.clear();
+        grants.clear();
+        consoleId = DefaultConsoleId;
         useRawHandshake = false;
         rawHandshakeBytes.clear();
         eventsRefusal = 0;
@@ -241,15 +250,46 @@ public:
             sendFrame(*s, 0x1, event.dump());
     }
 
-    //Persisted until acknowledged, like the daemon's admin_set/admin_reset
-    void raiseAlert(const std::string &type, const std::string &id)
+    //Persisted until acknowledged, like the daemon's alerts; extra is merged
+    //into data (device_name and token_id of the approver alerts)
+    void raiseAlert(const std::string &type, const std::string &id, const nlohmann::json &extra = nlohmann::json::object())
     {
         {
             std::lock_guard<std::mutex> l(mutex);
             alerts.push_back({ type, id });
+            alertData[id] = extra;
         }
         for (auto &s: openStreams())
             sendAlert(*s, type, id);
+    }
+
+    /* POST admin/console answers a console of consoleDir named by the id. A
+     * code verified by admin/codes/verify is its grant, taken once. */
+    static constexpr const char *DefaultConsoleId = "4fbd81b12ca13a2b";
+    void setConsole(const std::string &dir, const std::string &id = DefaultConsoleId)
+    {
+        std::lock_guard<std::mutex> l(mutex);
+        consoleDir = dir;
+        consoleId = id;
+    }
+    void grant(const std::string &codeId)
+    {
+        std::lock_guard<std::mutex> l(mutex);
+        grants.insert(codeId);
+    }
+
+    //What GET admin/approvers answers
+    void setApprovers(const nlohmann::json &list)
+    {
+        std::lock_guard<std::mutex> l(mutex);
+        approvers = list;
+    }
+
+    //What GET admin/push/{codeId} answers, once
+    void setPushPayload(const std::string &codeId, const std::string &token, const std::string &message)
+    {
+        std::lock_guard<std::mutex> l(mutex);
+        pushPayloads[codeId] = { { "token", token }, { "message", message } };
     }
 
     /* What the daemon does at each ping (app/events.go): a pending alert goes
@@ -289,9 +329,11 @@ public:
     size_t pingsReceived() { return pings; }
     size_t pongsReceived() { return pongs; }
 
-    static nlohmann::json alertEvent(const std::string &type, const std::string &id)
+    static nlohmann::json alertEvent(const std::string &type, const std::string &id, const nlohmann::json &extra = nlohmann::json::object())
     {
-        return { { "type", type }, { "data", { { "id", id }, { "ts", "2026-10-22T09:14:00Z" } } } };
+        nlohmann::json data = { { "id", id }, { "ts", "2026-10-22T09:14:00Z" } };
+        data.update(extra);
+        return { { "type", type }, { "data", data } };
     }
 
     std::vector<Request> requests()
@@ -354,7 +396,13 @@ private:
             if (!s.sentAlerts.insert(id).second)
                 return;
         }
-        sendFrame(s, 0x1, alertEvent(type, id).dump());
+        nlohmann::json extra;
+        {
+            std::lock_guard<std::mutex> l(mutex);
+            const auto it = alertData.find(id);
+            extra = it == alertData.end() ? nlohmann::json::object() : it->second;
+        }
+        sendFrame(s, 0x1, alertEvent(type, id, extra).dump());
     }
 
     std::mutex streamsMutex;
@@ -369,6 +417,12 @@ private:
     nlohmann::json progress = leakyProgress();
     nlohmann::json job = leakyJob();
     std::vector<std::pair<std::string, std::string>> alerts;
+    std::map<std::string, nlohmann::json> alertData;
+    nlohmann::json approvers = nlohmann::json::array();
+    std::map<std::string, nlohmann::json> pushPayloads;
+    std::set<std::string> grants;
+    std::string consoleDir;
+    std::string consoleId = DefaultConsoleId;
     bool useRawHandshake = false;
     std::string rawHandshakeBytes;
 
@@ -583,6 +637,13 @@ private:
     int listenFd = -1;
     std::atomic<bool> stopping{ false };
     std::thread worker;
+    //Only run() and stop(), once run() has returned, touch it
+    struct Server
+    {
+        std::thread thread;
+        std::shared_ptr<std::atomic<bool>> done;
+    };
+    std::vector<Server> servers;
 
     std::mutex mutex;
     std::string bearer;
@@ -602,8 +663,26 @@ private:
             const int fd = accept4(listenFd, nullptr, nullptr, SOCK_CLOEXEC);
             if (fd < 0)
                 continue;
-            if (!serve(fd))
-                close(fd);
+
+            for (auto it = servers.begin(); it != servers.end();)
+            {
+                if (!*it->done)
+                {
+                    ++it;
+                    continue;
+                }
+                it->thread.join();
+                it = servers.erase(it);
+            }
+            Server sv;
+            sv.done = std::make_shared<std::atomic<bool>>(false);
+            sv.thread = std::thread([this, fd, done = sv.done]()
+                                    {
+                if (!serve(fd))
+                    close(fd);
+                *done = true;
+            });
+            servers.push_back(std::move(sv));
         }
     }
 
@@ -694,6 +773,51 @@ private:
 
         reply(fd, res);
         return false;
+    }
+
+    //The session-only approver and code routes; the code is always right
+    Response approverRoute(const Request &req, const nlohmann::json &body, bool hasSession)
+    {
+        Response res;
+        auto field = [&body](const char *k)
+        {
+            return body.is_object() && body.contains(k) && body[k].is_string() ? body[k].get<std::string>() : std::string();
+        };
+
+        if (!hasSession)
+        {
+            res.status = 401;
+            res.body = err("bad_session");
+        }
+        else if (req.method == "GET" && req.path == "/api/v2/admin/approvers")
+            res.body = ok(approvers);
+        else if (req.method == "POST" && req.path == "/api/v2/admin/approvers/enroll")
+            res.body = ok({ { "approver_id", "a000000000000002" }, { "code_id", "c000000000000001" }, { "expires_in", 60 } });
+        else if (req.method == "POST" && req.path == "/api/v2/admin/approvers/confirm")
+            res.body = ok({ { "id", "a000000000000002" }, { "device_name", "Pixel 8" }, { "token_id", "9a41f0c2d3e4b5a6" }, { "created_at", "2026-10-23T09:12:03Z" } });
+        else if (req.method == "POST" && req.path == "/api/v2/admin/approvers/remove")
+            res.body = ok({ { "approver_id", field("approver_id") } });
+        else if (req.method == "POST" && req.path == "/api/v2/admin/codes")
+            res.body = ok({ { "code_id", "c000000000000002" }, { "approver_id", "a000000000000001" }, { "expires_in", 60 } });
+        else if (req.method == "POST" && req.path == "/api/v2/admin/codes/verify")
+        {
+            grants.insert(field("code_id"));
+            res.body = ok({ { "action", "console_open" }, { "expires_in", 30 } });
+        }
+        //The grant of a verified code, taken once
+        else if (req.method == "POST" && req.path == "/api/v2/admin/console" && grants.erase(field("code_id")))
+            res.body = ok({ { "console_id", consoleId }, { "socket", consoleDir + "/console-" + consoleId + ".sock" }, { "ws_path", "/ws" }, { "ws_protocol", "calaos-console.v1" }, { "connect_within", 30 }, { "expires_in", 3600 }, { "idle_timeout", 900 } });
+        else if (req.method == "POST" && req.path == "/api/v2/admin/console")
+        {
+            res.status = 410;
+            res.body = err("code_expired");
+        }
+        else
+        {
+            res.status = 404;
+            res.body = err("not_found");
+        }
+        return res;
     }
 
     //Called with the mutex held
@@ -816,6 +940,30 @@ private:
         else if (req.method == "GET" && req.path == "/api/v2/system/info")
         {
             res.body = ok({ { "hostname", "calaos" }, { "uptime", 1234 }, { "cpu_usage", 3 }, { "mem_usage", 41 } });
+        }
+        else if (req.path.compare(0, 23, "/api/v2/admin/approvers") == 0 || req.path.compare(0, 19, "/api/v2/admin/codes") == 0 ||
+                 req.path == "/api/v2/admin/console")
+        {
+            res = approverRoute(req, body, hasSession);
+        }
+        else if (req.method == "GET" && req.path.compare(0, 19, "/api/v2/admin/push/") == 0)
+        {
+            const auto it = pushPayloads.find(req.path.substr(19));
+            if (hasSession)
+            {
+                res.status = 403;
+                res.body = err("not_allowed");
+            }
+            else if (it == pushPayloads.end())
+            {
+                res.status = 404;
+                res.body = err("not_found");
+            }
+            else
+            {
+                res.body = ok(it->second);
+                pushPayloads.erase(it);
+            }
         }
         else if (req.method == "POST" && req.path == "/api/v2/admin/alerts/ack")
         {
