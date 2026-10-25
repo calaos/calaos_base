@@ -996,7 +996,7 @@ quel, code en clair : `Calaos admin code NNNNNN: <purpose>. Valid 60 s, never sh
 Cette forme est retirée une release après la sortie de l'app mobile qui envoie `push_key`.
 
 **Journal.** Ni la clé, ni le nonce, ni `ct`, ni `tag`, ni le code, ni le jeton ne sont écrits,
-même à `debug_level 5` (un test de `JsonApiHardening` le fixe).
+même à `debug_level 5` (un test de `PushTokenStore_test` le fixe).
 
 #### Console web (`/api/console`)
 

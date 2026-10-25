@@ -509,12 +509,22 @@ c'est le nom choisi par l'app (`register_push`, champ `device_name`), nettoyé p
 bidi ni invisible). Un réenregistrement sans nom garde le nom connu. L'admin choisit
 son téléphone approbateur par ce nom (`admin {approver_candidates}`, voir
 [08_http_api.md](08_http_api.md#approbateurs-et-codes-push)). Un code push du daemon
-ne va qu'à un seul jeton : `NotifManager::sendPushNotificationTo()`, qui retrouve le
-jeton dans `push_tokens` (plateforme et format) et ne poste que lui. La colonne `approver`
+ne va qu'à un seul jeton : `NotifManager::sendAdminCodeTo()`, qui retrouve le
+jeton dans `push_tokens` (plateforme, format et clé) et ne poste que lui. La colonne `approver`
 (entier, 0 par défaut, ajoutée avec `device_name`) marque le jeton d'un approbateur :
 un réenregistrement n'en change alors ni le nom ni le format. La colonne `registered_at`
 (texte) garde la date du premier enregistrement ; à sa création, les jetons existants
 reçoivent leur `created_at`, la date de leur dernier enregistrement.
+
+La colonne `push_key` (texte, `''` par défaut) garde la clé push de `register_push`
+(64 hexadécimaux minuscules, validés par `JsonApi::pushKeyFromString()`, acceptée aussi
+hors `secureTransport()` : `JsonApi::PushKeyNeedsSecureTransport`). Un enregistrement
+sans clé valide garde la clé connue ; un approbateur prend sa première clé puis la garde.
+Elle est ajoutée à part : une base où elle ne peut pas l'être (verrou, lecture seule)
+garde ses noms et sert ses jetons sans clé, donc en texte hérité. Un jeton avec clé reçoit
+l'avis et le code chiffré (`NotifManager::buildAdminCodeBody()`, nonce de `RAND_bytes`),
+Android toujours en message data seul ; voir
+[08_http_api.md](08_http_api.md#code-push-chiffré).
 
 #### Requête envoyée à push.calaos.fr
 

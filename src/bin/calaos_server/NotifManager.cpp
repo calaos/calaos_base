@@ -24,9 +24,61 @@
 #include "Prefix.h"
 #include "libuvw.h"
 
+#include <openssl/crypto.h>
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+#include <openssl/rand.h>
+
+#include <algorithm>
+
 using namespace Calaos;
 
 static const char *TAG = "notif";
+
+namespace
+{
+
+string toHex(const string &bytes)
+{
+    static const char *hex = "0123456789abcdef";
+    string out(bytes.size() * 2, '0');
+    for (size_t i = 0; i < bytes.size(); i++)
+    {
+        const unsigned char c = (unsigned char)bytes[i];
+        out[2 * i] = hex[c >> 4];
+        out[2 * i + 1] = hex[c & 0x0f];
+    }
+    return out;
+}
+
+//Lowercase only, as register_push stores it
+bool fromHex(const string &hex, string &out)
+{
+    auto nibble = [](char c)
+    {
+        return c >= '0' && c <= '9' ? c - '0' : (c >= 'a' && c <= 'f' ? c - 'a' + 10 : -1);
+    };
+    out.clear();
+    if (hex.size() % 2)
+        return false;
+    for (size_t i = 0; i < hex.size(); i += 2)
+    {
+        const int hi = nibble(hex[i]), lo = nibble(hex[i + 1]);
+        if (hi < 0 || lo < 0)
+            return false;
+        out.push_back((char)(hi << 4 | lo));
+    }
+    return true;
+}
+
+bool hmacSha256(const string &key, const string &message, unsigned char out[32])
+{
+    unsigned int len = 0;
+    return HMAC(EVP_sha256(), key.data(), (int)key.size(), (const unsigned char *)message.data(), message.size(), out, &len) &&
+           len == 32;
+}
+
+} //namespace
 
 string NotifManager::pushServiceUrl = "https://push.calaos.fr/api/push";
 
@@ -309,33 +361,132 @@ void NotifManager::sendPushNotification(const string &message, const string &not
     });
 }
 
-void NotifManager::sendPushNotificationTo(const string &token, const string &message, std::function<void(bool)> callbackDone)
+string NotifManager::adminCodePurpose(const string &action)
+{
+    //Closed: the daemon's message never reaches a keyed phone
+    static const std::map<string, string> purposes = {
+        { "console_open", "open the web console" },
+        { "admin_password", "change the admin password" },
+        { "approver_enroll", "add an approver phone" },
+        { "approver_remove", "remove an approver phone" },
+        { "approver_confirm", "enroll this phone as the admin approver" },
+        { "network_config", "change the network configuration" },
+    };
+    const auto it = purposes.find(action);
+    return it == purposes.end() ? string() : it->second;
+}
+
+bool NotifManager::sealAdminCode(const string &keyHex, const AdminCode &code, const string &nonce, string &ctHex, string &tagHex)
+{
+    const bool digits = code.code.size() == 6 && std::all_of(code.code.begin(), code.code.end(), [](char c)
+                                                             {
+        return c >= '0' && c <= '9';
+                        });
+    string key;
+    if (!digits || nonce.size() != 16 || !fromHex(keyHex, key) || key.size() != 32)
+    {
+        OPENSSL_cleanse(&key[0], key.size());
+        return false;
+    }
+
+    //docs/08_http_api.md, "Code push chiffré": the phones replay these bytes
+    unsigned char ks[32], mac[32];
+    string ct(6, '\0');
+    bool ok = hmacSha256(key, "calaos-admin-code/enc" + code.codeId + nonce, ks);
+    for (size_t i = 0; i < ct.size(); i++)
+        ct[i] = (char)(code.code[i] ^ ks[i]);
+    ok = ok && hmacSha256(key, "calaos-admin-code/mac" + code.codeId + nonce + code.action + code.expires + ct, mac);
+
+    ctHex = toHex(ct);
+    tagHex = toHex(string((const char *)mac, 16));
+    OPENSSL_cleanse(&key[0], key.size());
+    OPENSSL_cleanse(ks, sizeof(ks));
+    return ok;
+}
+
+string NotifManager::buildAdminCodeBody(const PushToken &token, const AdminCode &code, const string &nonce, bool development)
+{
+    const string purpose = adminCodePurpose(code.action);
+    string ct, tag;
+    if (purpose.empty() || !sealAdminCode(token.push_key, code, nonce, ct, tag))
+        return string();
+
+    const string notice = "Calaos admin code to " + purpose + ". Open the Calaos app to read it.";
+    Json data = {
+        { "admin_code_id", code.codeId },
+        { "admin_code_action", code.action },
+        { "admin_code_expires", code.expires },
+        { "admin_code_nonce", toHex(nonce) },
+        { "admin_code_ct", ct },
+        { "admin_code_tag", tag },
+    };
+
+    Json notif;
+    if (token.hw_type == HistLogger::PUSH_HW_IOS)
+    {
+        notif = { { "tokens", Json::array({ token.token }) }, { "message", notice }, { "topic", "fr.calaos.CalaosMobile" }, { "data", data } };
+        notif["platform"] = 1;
+        notif["mutable_content"] = true;
+        if (development)
+            notif["development"] = true;
+    }
+    else if (token.hw_type == HistLogger::PUSH_HW_ANDROID)
+    {
+        //Data only whatever its push_format: a notification message would be
+        //shown by Android without the app storing the payload
+        data["title"] = "Calaos";
+        data["body"] = notice;
+        data["message"] = notice;
+        notif = { { "tokens", Json::array({ token.token }) }, { "android", { { "priority", "high" } } }, { "data", data } };
+        notif["platform"] = 2;
+    }
+    else
+    {
+        return string();
+    }
+
+    Json jnotif = { { "notifications", Json::array({ notif }) } };
+    return jnotif.dump(-1, ' ', true, Json::error_handler_t::replace);
+}
+
+void NotifManager::sendAdminCodeTo(const string &token, const AdminCode &code, std::function<void(bool)> callbackDone)
 {
     HistLogger::Instance().getPushTokens(
-        [this, token, message, callbackDone](bool success, string errorMsg, const vector<PushToken> &tokens)
+        [this, token, code, callbackDone](bool success, string errorMsg, const vector<PushToken> &tokens)
         {
-        //The platform and the format come from register_push: a token this
-        //server does not know cannot be addressed
-        vector<PushToken> one;
-        for (const auto &t: tokens)
+        //The platform, the format and the key come from register_push: a token
+        //this server does not know cannot be addressed
+        const auto one = std::find_if(tokens.begin(), tokens.end(), [&token](const PushToken &t)
+                                      {
+            return t.token == token;
+        });
+        const bool known = one != tokens.end();
+        //An older daemon gives no code to seal: its message is what the phone always got
+        const bool sealed = known && !one->push_key.empty() && !code.action.empty();
+        const bool development = Utils::get_config_option("notif_development") == "true";
+
+        string body;
+        if (sealed)
         {
-            if (t.token == token)
-            {
-                one.push_back(t);
-                break;
-            }
+            unsigned char nonce[16];
+            if (RAND_bytes(nonce, sizeof(nonce)) == 1)
+                body = buildAdminCodeBody(*one, code, string((const char *)nonce, sizeof(nonce)), development);
+        }
+        else if (known)
+        {
+            body = buildPushBody({ *one }, code.message, string(), development);
         }
 
-        const string body = one.empty() ? string() : buildPushBody(one, message, string(), Utils::get_config_option("notif_development") == "true");
         if (body.empty())
         {
-            cWarningDom(TAG) << "Push not sent: " << (success ? string("the phone is not registered with this server any more") : errorMsg);
+            const string why = !success ? errorMsg : (known ? string("no push could be built for this phone") : string("the phone is not registered with this server any more"));
+            cWarningDom(TAG) << "Push not sent: " << why;
             if (callbackDone)
                 callbackDone(false);
             return;
         }
 
-        cDebugDom(TAG) << "Sending notif to service for one token";
+        cDebugDom(TAG) << "Sending " << (sealed ? "an encrypted" : "a") << " code push to service for one token";
         post(body, {}, callbackDone);
     });
 }

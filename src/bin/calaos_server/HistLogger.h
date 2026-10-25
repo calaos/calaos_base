@@ -80,6 +80,8 @@ public:
     string created_at;
     //The first register_push; the last seen time for tokens older than the column
     string registered_at;
+    //register_push's push_key, 64 lowercase hex characters, empty when the app sent none
+    string push_key;
 };
 
 class HistLogger
@@ -115,9 +117,9 @@ public:
     };
 
     //Add a new device token to the db, or refresh it and update its format.
-    //An empty device_name keeps the one stored.
+    //An empty device_name or push_key keeps the one stored.
     void registerPushToken(string token, int push_hw, int push_format = PUSH_FORMAT_NOTIFICATION,
-                           string device_name = string());
+                           string device_name = string(), string push_key = string());
 
     //Marks the token as the daemon's approver (approver_set) or not any more
     void setPushTokenApprover(string token, bool approver);
@@ -146,11 +148,11 @@ namespace PushTokenDb
 //Creates the table and adds push_format, device_name and approver to tables
 //from older servers. False when push_format is still missing (database locked
 //or read only): tokens are then stored and read in the notification format.
-//*hasName tells the same of device_name, approver and registered_at. *locked tells a failure
-//that a later call may not hit.
-bool prepare(sqlite::database &db, bool *locked = nullptr, bool *hasName = nullptr);
-void save(sqlite::database &db, const PushToken &token, bool hasFormat, bool hasName = false);
-vector<PushToken> load(sqlite::database &db, bool hasFormat, bool hasName = false);
+//*hasName tells the same of device_name, approver and registered_at, *hasKey of
+//push_key. *locked tells a failure that a later call may not hit.
+bool prepare(sqlite::database &db, bool *locked = nullptr, bool *hasName = nullptr, bool *hasKey = nullptr);
+void save(sqlite::database &db, const PushToken &token, bool hasFormat, bool hasName = false, bool hasKey = false);
+vector<PushToken> load(sqlite::database &db, bool hasFormat, bool hasName = false, bool hasKey = false);
 void setApprover(sqlite::database &db, const string &token, bool approver);
 //Tokens not registered again for 30 days.
 void purge(sqlite::database &db);

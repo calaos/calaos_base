@@ -51,15 +51,39 @@ public:
     void sendPushNotification(const string &message, const string &notifPicUuid = "", std::function<void(void)> callbackSent = {},
                               std::function<void(bool)> callbackDone = {});
 
-    /* Pushes message to that one registered token only, never to the others.
-     * callbackDone(false) when the token is not registered (any more) or the
-     * push failed. Neither the token nor the message is logged.
+    //A code as GET admin/push/{code_id} hands it over; action and code are
+    //empty when the daemon predates them
+    struct AdminCode
+    {
+        string message;
+        string codeId;
+        string action;
+        string code;
+        //RFC 3339 UTC, to the second
+        string expires;
+    };
+
+    /* Pushes the code to that one registered token only, never to the others:
+     * encrypted with its push key when it has one and the daemon gave the
+     * code, the daemon's message otherwise. callbackDone(false) when the token
+     * is not registered (any more) or the push failed. Nothing of the token,
+     * the key or the code is logged.
      */
-    void sendPushNotificationTo(const string &token, const string &message, std::function<void(bool)> callbackDone = {});
+    void sendAdminCodeTo(const string &token, const AdminCode &code, std::function<void(bool)> callbackDone = {});
 
     //Request body for push.calaos.fr (gorush), empty when no token can be served.
     static string buildPushBody(const vector<PushToken> &tokens, const string &message,
                                 const string &notifPicUuid, bool development);
+
+    //The keyed form of a code push, nonce being 16 raw bytes; empty when the
+    //token has no usable key or the action is not in the closed table
+    static string buildAdminCodeBody(const PushToken &token, const AdminCode &code, const string &nonce, bool development);
+
+    //What a code of this action allows, empty outside the closed table
+    static string adminCodePurpose(const string &action);
+
+    //ct and tag as lowercase hex; false when the key is not 32 bytes or the code not 6 digits
+    static bool sealAdminCode(const string &keyHex, const AdminCode &code, const string &nonce, string &ctHex, string &tagHex);
 
     //Tests point the push at a local peer.
     static void setPushServiceUrl(const string &url);

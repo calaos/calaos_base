@@ -487,13 +487,15 @@ string rfc3339(const string &sqliteTime)
 }
 
 //What tells phones apart when they share a name (every iPhone is "iPhone"):
-//empty for an approver whose token left push_tokens
+//empty for an approver whose token left push_tokens. secure: its codes are
+//pushed encrypted.
 Json phoneFields(const PushToken *t)
 {
     const bool ios = t && t->hw_type == HistLogger::PUSH_HW_IOS;
     return Json{ { "platform", t ? (ios ? "ios" : "android") : "" },
                  { "registered_at", t ? rfc3339(t->registered_at) : string() },
-                 { "last_seen", t ? rfc3339(t->created_at) : string() } };
+                 { "last_seen", t ? rfc3339(t->created_at) : string() },
+                 { "secure", t && !t->push_key.empty() } };
 }
 
 /* approver_list and approver_candidates: the daemon's approvers joined with
