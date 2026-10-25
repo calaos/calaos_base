@@ -182,6 +182,8 @@ public:
     static std::vector<ConfigOption::Category> categories();
     static std::string categoryLabel(ConfigOption::Category c);
     static std::string typeLabel(ConfigOption::Type t);
+    //Stable machine id of a type ("bool", "email_list"...), untranslated
+    static const char *typeId(ConfigOption::Type t);
     //Translated "used by" description of a consumer bitmask
     static std::string consumerLabel(int mask);
     //"did you mean ...?" -- closest key within a small edit distance, or empty

@@ -316,17 +316,17 @@ service à portée restreinte (`serviceScope`). Voir
 Le token est comparé à l'option `mcp_service_token` de `local_config.xml`
 (`McpServerManager::getServiceToken()`). Un token non configuré n'accorde jamais
 l'accès ([JsonApiHandlerWS.cpp:530-566](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
-En session `serviceScope`, **13** messages sont refusés : `set_param`, `del_param`,
+En session `serviceScope`, **14** messages sont refusés : `set_param`, `del_param`,
 `audio_db`, `set_timerange`, `autoscenario`, `eventlog`, `register_push`,
-`settings`, `config`, les trois messages admin `admin_unlock`, `admin_set`, `admin`, et
-`console`, le message d'ouverture de [`/api/console`](#console-web-apiconsole)
-(`JsonApi::serviceScopeDeniedCommands()`, voir [Portée MCP](#portée-mcp)).
+`settings`, `config`, les trois messages admin `admin_unlock`, `admin_set`, `admin`,
+`console`, le message d'ouverture de [`/api/console`](#console-web-apiconsole), et l'action
+HTTP `config_backup` (`JsonApi::serviceScopeDeniedCommands()`, voir [Portée MCP](#portée-mcp)).
 
-⭐ **La portée est une propriété de la session, pas du transport.** Les treize sont
+⭐ **La portée est une propriété de la session, pas du transport.** Les quatorze sont
 refusées quel que soit le transport par lequel la session a été ouverte, et la
 charge utile du refus est **la même** des deux côtés — seule l'enveloppe change :
 `{"msg":"<msg>","msg_id":"<le vôtre>","data":{"error":"scope denied"}}` en
-WebSocket, `{"error":"scope denied"}` en HTTP. Les trois messages admin et `console` refusent
+WebSocket, `{"error":"scope denied"}` en HTTP. Les trois messages admin, `console` et `config_backup` refusent
 avec la forme d'erreur admin : `{"success":"false","error":"not_allowed","msg":"scope denied"}`.
 
 ℹ️ **Aujourd'hui aucune session HTTP ne peut être en portée de service** :
@@ -743,7 +743,7 @@ Relaye une action de la table fermée vers le daemon. **WS uniquement.**
 | `network_confirm` | `change_id` | `POST network/confirm` | oui | `{change_id, intf, state: "confirmed"}` |
 | `network_revert` | `change_id` | `POST network/revert` | oui | `{change_id, intf, state: "reverted"}` |
 | `config_list` | | aucun : traité dans calaos_server | oui | `{options: [...]}`, voir [Configuration](#configuration-config_list-config_set-config_backup) |
-| `config_set` | `key`, `value` | aucun : traité dans calaos_server | oui | `{key, value, restart_required}` |
+| `config_set` | `key`, `value` | aucun : traité dans calaos_server | oui | `{key, value, set, restart_required}` (un secret : sans `value`) |
 | `config_backup` | | aucun : traité dans calaos_server | oui | `{format, created_at, server_version, hostname, files}` |
 
 Chemins relatifs à `/api/v2/`. Jamais relayés, quoi que le client envoie : `system/install/*`,
@@ -1365,18 +1365,53 @@ Ni listées ni modifiables ici : `cn_user`, `cn_pass`, `calaos_user`, `calaos_pa
 `calaos_server_host`, `ota_firmware_path`, `notif_development`, et toute clé hors du registre.
 
 - **`config_list`** (sans `params`) → `{"options": [{"key", "group", "type", "description",
-  "value", "default", "secret", "set", "restart", "choices"?}]}`. `secret`, `set` et `restart` sont
-  des booléens JSON ; `value` est absent pour un secret.
-- **`config_set`** (`params.key`, `params.value`) → `{"key", "value", "restart_required": <bool>}`.
-  `value` est une chaîne ; `""` remet la valeur par défaut. Pour un secret, la réponse porte
-  `"set": true` et **aucune** valeur. Erreurs propres : `invalid_request` pour une clé hors de la
-  liste ou une valeur que le registre refuse (`msg` = la raison du registre, affichable).
-  `Config::BackupFiles()` précède l'écriture, qui suit le chemin de `calaos_config set` ; les clés
+  "value", "default", "secret", "set", "restart", "choices"?}]}`, une entrée par clé de la table,
+  dans son ordre. `secret`, `set` et `restart` sont des booléens JSON, tout le reste des chaînes :
+  - `type` : l'identifiant du registre (`ConfigOptions::typeId()`), l'un des 13 : `string`,
+    `bool`, `int`, `float`, `port`, `host`, `path`, `email`, `email_list`, `password`, `token`,
+    `enum`, `csv`. Un client traite un identifiant inconnu comme `string`.
+  - `group` : le groupe de la table ci-dessus (`Logging`, `Notifications`, `History`, `InfluxDB`,
+    `MCP`, `OTA`, `Origin`, `Location`, `Kiosk`), **jamais** la catégorie du registre (`smtp`,
+    `calaos_home`, `network`…).
+  - `description` : le libellé court du registre (`label()`, par exemple « SMTP port »), traduit
+    dans la langue de calaos_server ; jamais le texte long (`doc()`).
+  - `default` : la valeur par défaut littérale du registre, `""` quand l'option n'en a pas
+    (`smtp_port`, `user_emails`, `dpms_standby`, `lang`…).
+  - `set` : la clé a une valeur non vide dans `local_config.xml`. C'est tout ce qu'un secret dit.
+  - `value` : la valeur stockée, ou `default` quand la clé n'est pas stockée (`set` faux) ;
+    **absent** pour un secret, même défini.
+  - `restart` : la colonne de la table (`true` : prise en compte après un redémarrage de
+    calaos-server ; les clés Kiosk sont `false`, calaos-home les relit à son démarrage).
+  - `choices` : présent seulement quand le registre déclare une liste ; tableau des **valeurs
+    brutes** (chaînes), sans leurs libellés, dans l'ordre du registre. Un `bool` peut en déclarer
+    une : `ota_enabled` donne `["true", "1", "false", "0"]`.
+  - Un `bool` est actif quand `value` vaut `true` **ou** `1` (un fichier écrit à la main,
+    `ota_enabled`). Un client écrit toujours `true` ou `false`.
+- **`config_set`** (`params.key`, `params.value`, deux chaînes) → `{"key", "value", "set",
+  "restart_required"}`. `value` et `set` suivent la règle de `config_list`, relus après
+  l'écriture ; `restart_required` est la colonne `restart`. `""` supprime la clé, et les lectures
+  reprennent leur défaut : la réponse porte alors `default` (ou `""`) et `"set": false`. Pour un
+  secret, la réponse est `{"key", "set", "restart_required"}` sans **aucune** valeur (`set` vaut
+  `false` après un `""`). Erreurs propres, toutes `invalid_request` avec un `msg` affichable :
+  - `key is required` / `value is required` : champ absent ou qui n'est pas une chaîne ;
+  - `This key cannot be set here` : clé hors de la table (la comparaison est exacte) ;
+  - `value is longer than 4096 bytes`, `value must not contain a control character`
+    (octet < 0x20 ou 0x7f, NUL compris) ;
+  - sinon la raison du registre telle quelle (`ConfigOption::validate()`, traduite). Le registre
+    décide : `bool` accepte `true` et `false`, plus `1` et `0` là où il les liste
+    (`ota_enabled`) ; une plage, une liste, un format d'adresse ou de port sont les siens.
+
+  Ces contrôles précèdent la session : un refus n'appelle pas le daemon et n'écrit rien.
+  `Config::BackupFiles()` précède l'écriture, qui suit le chemin de `calaos_config set`
+  (`Utils::set_config_option()`, ou `del_config_option()` pour `""`) ; les clés
   « immédiat » agissent là où le code les relit déjà. `restart_required` : la webapp propose
-  `services_restart` sur `calaos-server`.
+  `services_restart` sur `calaos-server`. Un `local_config.xml` impossible à écrire : `internal`.
 - **`config_backup`** (sans `params`) → `{"format": "calaos-config-backup/1", "created_at",
   "server_version", "hostname", "files": {"io.xml", "rules.xml", "local_config.xml",
-  "widgets.xml"}}`, chaque valeur étant le contenu du fichier.
+  "widgets.xml"}}`, chaque valeur étant le contenu du fichier (`""` pour un fichier absent).
+  `created_at` est en RFC 3339 UTC à la seconde (`2026-10-25T12:34:56Z`), `server_version` la
+  version de calaos_server, `hostname` le nom d'hôte brut (`gethostname()`). Comme `config get`,
+  les IO et règles en mémoire sont d'abord réécrites dans `io.xml` et `rules.xml`.
 - La session est validée comme `mcp_regenerate`.
 - Le journal de calaos_server (`cInfoDom("admin")`) écrit `Admin config set <clé> by <ip> (session
   <id d'audit>)` et `Admin config backup by <ip>`, jamais une valeur.
@@ -1399,11 +1434,20 @@ Cache-Control: no-store
 X-Content-Type-Options: nosniff
 ```
 
-`<hostname>` est limité à `[A-Za-z0-9._-]` et coupé à 32 caractères ; vide une fois nettoyé, il
-devient `box`. `<YYYYMMDD-HHMM>` est la date de création en UTC (celle de `created_at`). `secureTransport()` et le
-contrôle d'Origin de `/api.php` s'appliquent. Sans `admin_session` valide : `bad_session` ; sur le
-port 5454 en clair : `https_required` ; dans les deux cas la charge d'erreur habituelle, aucun
-fichier et pas d'en-tête `Content-Disposition`. En portée service (MCP) : `not_allowed`.
+`<hostname>` est le `hostname` du document dont on n'a gardé que `[A-Za-z0-9._-]`, coupé à 32
+caractères ; vide une fois nettoyé, il devient `box`. `<YYYYMMDD-HHMM>` est la date de création en
+UTC (celle de `created_at`). `Content-Length` est présent, et `Cache-Control` n'apparaît qu'une
+fois. `secureTransport()` et le contrôle d'Origin de `/api.php` s'appliquent. Refus, tous **sans
+fichier** (pas d'en-tête `Content-Disposition`, aucun contenu de configuration) :
+
+- `admin_session` absente, vide, qui n'est pas une chaîne de 64 hex, ou refusée par le daemon :
+  `bad_session` ; transport non sûr (port 5454 en clair, pair hors loopback) : `https_required` ;
+  admin non défini ou daemon injoignable : le code de l'[état admin](#état-admin-et-règle-collante).
+  Charge d'erreur admin habituelle, statut 200.
+- Identifiants foyer faux : le refus foyer de toute action HTTP, statut **400** et fermeture de la
+  connexion (la webapp le lit comme « refus foyer »). Un corps qui n'est pas un objet JSON (session
+  dans l'URL) : 400 aussi, la session des paramètres GET n'est jamais lue.
+- En portée service (MCP) : `not_allowed`, `"msg": "scope denied"`.
 
 La sauvegarde contient des **secrets** (`cn_pass`, `mcp_token`, mots de passe de caméras dans
 `io.xml`) : ce que `config get` remet déjà à l'admin et ce dont une restauration a besoin. Le
@@ -1457,7 +1501,7 @@ champs), état (`AdminState`), présence et format de la session, appel du daemo
 
 `admin_unlock`, `admin_set`, `admin` et `console` rejoignent la liste des messages refusés en
 session service (13 au lieu de 9). En phase 3, l'action HTTP `config_backup` s'y ajoute
-(`not_allowed`), sans que ce compte soit mis à jour ; tout `admin {action}` de phase 3 hérite du refus de `admin`. Le refus a la forme d'erreur admin avec `not_allowed` et
+(`not_allowed`, 14 commandes) ; tout `admin {action}` de phase 3 hérite du refus de `admin`. Le refus a la forme d'erreur admin avec `not_allowed` et
 `"msg": "scope denied"`. Sur [`/api/console`](#console-web-apiconsole), un message d'ouverture
 qui s'authentifie avec le jeton de service (`token`, celui de `login_service`) ouvre une session
 de service et reçoit donc ce refus, sans appel au daemon.

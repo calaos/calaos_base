@@ -85,12 +85,12 @@ const char *const kAdminUser = "t360-admin";
 const char *const kAdminPass = "t360-admin-password";
 const char *const kServiceToken = "t360-service-token";
 
-//The thirteen, spelled out here and compared with the shipped rule. Two lists
+//The fourteen, spelled out here and compared with the shipped rule. Two lists
 //that must agree: the production one drives the loops, this one proves the
 //production one still says what the decision said.
 const char *const kExpectedDenied[] = { "set_param", "del_param", "audio_db", "set_timerange", "autoscenario",
                                         "eventlog", "register_push", "settings", "config",
-                                        "admin_unlock", "admin_set", "admin", "console" };
+                                        "admin_unlock", "admin_set", "admin", "console", "config_backup" };
 const size_t kDeniedCount = sizeof(kExpectedDenied) / sizeof(kExpectedDenied[0]);
 
 //The contrast. Without it, moving a command out of the guarded set would leave
@@ -537,7 +537,7 @@ TEST_F(JsonApiServiceScopeTest, TheRuleHoldsExactlyTheNamedCommands)
     const vector<string> &denied = JsonApi::serviceScopeDeniedCommands();
 
     ASSERT_EQ(kDeniedCount, denied.size())
-        << "the guarded set is not the thirteen commands any more, and every loop "
+        << "the guarded set is not the fourteen commands any more, and every loop "
            "of this file walks it";
 
     for (const char *name: kExpectedDenied)

@@ -37,6 +37,10 @@
 #include "HttpClient.h"
 #include "JsonApi.h"
 #include "JsonApiHandlerHttp.h"
+#include "AdminConfig.h"
+#include "ConfigOptions.h"
+#include "OriginPolicy.h"
+#include "version.h"
 #include "McpServerManager.h"
 #include "AdminEvents.h"
 #include "AdminState.h"
@@ -63,6 +67,7 @@
 #include <cstring>
 #include <fstream>
 #include <memory>
+#include <regex>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -4991,6 +4996,665 @@ TEST_F(AdminEventsTest, AnApproversTokenKeepsItsEnrolledNameAndFormat)
     EXPECT_EQ(HistLogger::PUSH_FORMAT_NOTIFICATION, tokenNamed(pushTokens(), "ap1b-locked-token")->format);
     //The two alerts' pushes must not be in flight when the program exits
     quietPushes();
+}
+
+/*******************************************************************************
+ * Configuration: config_list, config_set, config_backup
+ ******************************************************************************/
+
+namespace
+{
+
+struct ConfigRow
+{
+    const char *key;
+    const char *group;
+    bool restart;
+};
+
+//docs/08_http_api.md, Configuration, in its order
+const ConfigRow kConfigTable[] = {
+    { "debug_level", "Logging", true },
+    { "debug_domains", "Logging", true },
+    { "smtp_server", "Notifications", false },
+    { "smtp_port", "Notifications", false },
+    { "smtp_auth", "Notifications", false },
+    { "smtp_tls", "Notifications", false },
+    { "smtp_username", "Notifications", false },
+    { "smtp_password", "Notifications", false },
+    { "user_emails", "Notifications", false },
+    { "history_keep_days", "History", false },
+    { "influxdb_enabled", "InfluxDB", true },
+    { "influxdb_version", "InfluxDB", true },
+    { "influxdb_host", "InfluxDB", true },
+    { "influxdb_port", "InfluxDB", true },
+    { "influxdb_database", "InfluxDB", true },
+    { "influxdb_org", "InfluxDB", true },
+    { "influxdb_bucket", "InfluxDB", true },
+    { "influxdb_token", "InfluxDB", true },
+    { "influxdb_log_timeout", "InfluxDB", true },
+    { "mcp_rate_limit", "MCP", true },
+    { "mcp_ban_failures", "MCP", true },
+    { "mcp_ban_seconds", "MCP", true },
+    { "ota_enabled", "OTA", true },
+    { "ota_rescan_interval", "OTA", true },
+    { "api_allowed_hosts", "Origin", false },
+    { "latitude", "Location", false },
+    { "longitude", "Location", false },
+    { "show_cursor", "Kiosk", false },
+    { "dpms_enable", "Kiosk", false },
+    { "dpms_standby", "Kiosk", false },
+    { "lang", "Kiosk", false },
+};
+
+const char *const kAuditId = "a8ae6e6e"; //sha256(FakeDaemon::Session)[0..8]
+
+Json configAction(const std::string &action, const Json &params = Json(), const std::string &session = FakeDaemon::Session)
+{
+    Json data = { { "action", action }, { "admin_session", session } };
+    if (!params.is_null())
+        data["params"] = params;
+    return data;
+}
+
+Json setParams(const std::string &key, const std::string &value)
+{
+    return Json{ { "key", key }, { "value", value } };
+}
+
+std::string registryError(const std::string &key, const std::string &value)
+{
+    std::string error;
+    ConfigOptions::find(key)->validate(value, &error);
+    return error;
+}
+
+//"" when the header is absent
+std::string header(const std::string &response, const std::string &name)
+{
+    const std::string head = response.substr(0, response.find("\r\n\r\n") + 2);
+    const std::string needle = "\r\n" + name + ": ";
+    const size_t at = head.find(needle);
+    if (at == std::string::npos)
+        return std::string();
+    const size_t from = at + needle.size();
+    return head.substr(from, head.find("\r\n", from) - from);
+}
+
+size_t headerCount(const std::string &response, const std::string &name)
+{
+    const std::string head = response.substr(0, response.find("\r\n\r\n") + 2);
+    size_t n = 0;
+    for (size_t at = head.find("\r\n" + name + ": "); at != std::string::npos; at = head.find("\r\n" + name + ": ", at + 1))
+        n++;
+    return n;
+}
+
+//"200" of "HTTP/1.0 200 OK"
+std::string statusOf(const std::string &response)
+{
+    const size_t sp = response.find(' ');
+    return sp == std::string::npos ? std::string() : response.substr(sp + 1, 3);
+}
+
+std::string bodyOf(const std::string &response)
+{
+    const size_t sep = response.find("\r\n\r\n");
+    return sep == std::string::npos ? std::string() : response.substr(sep + 4);
+}
+
+std::string backupRequest(const Json &extra = Json::object(), const char *user = kUser, const char *pass = kPass)
+{
+    Json r = { { "action", "config_backup" }, { "cn_user", user }, { "cn_pass", pass } };
+    r.update(extra);
+    return r.dump();
+}
+
+std::vector<std::string> backupCopies()
+{
+    std::vector<std::string> out;
+    std::error_code ec;
+    const std::string root = Utils::getConfigFile("backups");
+    for (auto it = std::filesystem::recursive_directory_iterator(root, ec);
+         !ec && it != std::filesystem::recursive_directory_iterator(); it.increment(ec))
+    {
+        if (it->path().filename() == "local_config.xml")
+            out.push_back(it->path().string());
+    }
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+std::string fileText(const std::string &path)
+{
+    std::ifstream f(path);
+    std::stringstream ss;
+    ss << f.rdbuf();
+    return ss.str();
+}
+
+std::string localConfigText()
+{
+    return fileText(Utils::getConfigFile("local_config.xml"));
+}
+
+std::vector<FakeDaemon::Request> statusCalls()
+{
+    std::vector<FakeDaemon::Request> out;
+    for (const FakeDaemon::Request &r: fakeDaemon.requests())
+    {
+        if (r.path == "/api/v2/admin/status")
+            out.push_back(r);
+    }
+    return out;
+}
+
+//The response time of a backup, from its created_at
+std::time_t createdAtOf(const Json &doc)
+{
+    std::tm tm = {};
+    const std::string s = str(doc, "created_at");
+    if (!strptime(s.c_str(), "%Y-%m-%dT%H:%M:%SZ", &tm))
+        return 0;
+    return timegm(&tm);
+}
+
+} //namespace
+
+TEST(JsonApiAdminConfigRules, TheAllowlistIsTheTableOfTheContract)
+{
+    const auto &entries = AdminConfig::entries();
+    ASSERT_EQ(sizeof(kConfigTable) / sizeof(kConfigTable[0]), entries.size());
+    for (size_t i = 0; i < entries.size(); i++)
+    {
+        EXPECT_STREQ(kConfigTable[i].key, entries[i].key);
+        EXPECT_STREQ(kConfigTable[i].group, entries[i].group) << entries[i].key;
+        EXPECT_EQ(kConfigTable[i].restart, entries[i].restart) << entries[i].key;
+        EXPECT_NE(nullptr, ConfigOptions::find(entries[i].key)) << entries[i].key << " is not in the registry";
+        EXPECT_EQ(&entries[i], AdminConfig::find(entries[i].key));
+    }
+
+    std::vector<std::string> secrets;
+    for (const auto &e: entries)
+    {
+        if (ConfigOptions::find(e.key)->isSecret())
+            secrets.push_back(e.key);
+    }
+    EXPECT_EQ((std::vector<std::string>{ "smtp_password", "influxdb_token" }), secrets);
+
+    for (const char *never: { "cn_user", "cn_pass", "calaos_user", "calaos_password", "mcp_token", "mcp_service_token",
+                              "update_notified_hash", "port_api", "listen_address", "wwwroot", "debug_wwwroot",
+                              "debug_enabled", "calaos_server_host", "ota_firmware_path", "notif_development", "" })
+        EXPECT_EQ(nullptr, AdminConfig::find(never)) << never;
+    for (const ConfigOption &o: ConfigOptions::all())
+    {
+        const std::string &k = o.key();
+        const bool timeout = k.size() > 8 && k.compare(k.size() - 8, 8, "_timeout") == 0 && k != "influxdb_log_timeout";
+        if (k.rfind("max_", 0) == 0 || k.rfind("url_", 0) == 0 || timeout)
+        {
+            EXPECT_EQ(nullptr, AdminConfig::find(k)) << k;
+        }
+    }
+
+    for (const char *action: { "config_list", "config_set", "config_backup" })
+        EXPECT_TRUE(AdminConfig::isAction(action));
+    for (const char *action: { "config", "config_get", "CONFIG_LIST", "mcp_regenerate" })
+        EXPECT_FALSE(AdminConfig::isAction(action));
+}
+
+TEST(JsonApiAdminConfigRules, TypeIdsAreTheThirteenOfTheRegistry)
+{
+    using T = ConfigOption::Type;
+    const std::vector<std::pair<T, const char *>> ids = {
+        { T::String, "string" }, { T::Bool, "bool" }, { T::Int, "int" }, { T::Float, "float" }, { T::Port, "port" }, { T::Host, "host" }, { T::Path, "path" }, { T::Email, "email" }, { T::EmailList, "email_list" }, { T::Password, "password" }, { T::Token, "token" }, { T::Enum, "enum" }, { T::Csv, "csv" }
+    };
+    for (const auto &id: ids)
+        EXPECT_STREQ(id.second, ConfigOptions::typeId(id.first));
+}
+
+TEST(JsonApiAdminConfigRules, ConfigSetIsCheckedAgainstTheTableAndTheRegistry)
+{
+    for (const char *action: { "config_list", "config_backup" })
+        EXPECT_TRUE(JsonApi::adminRequestRefusal(action, Json::object()).is_null()) << action;
+
+    for (const auto &ok: std::vector<std::pair<const char *, std::string>>{
+             { "smtp_port", "2525" }, { "smtp_port", "" }, { "debug_level", "5" }, { "influxdb_version", "2" }, { "smtp_tls", "true" }, { "smtp_tls", "false" }, { "ota_enabled", "1" }, { "ota_enabled", "0" }, { "lang", "fr" }, { "user_emails", "a@example.org, b@example.org" }, { "latitude", "45.5" }, { "api_allowed_hosts", "calaos.example.net,box.local" }, { "smtp_password", "any \"secret\" <&>" } })
+        EXPECT_TRUE(JsonApi::adminRequestRefusal("config_set", Json{ { "params", setParams(ok.first, ok.second) } }).is_null())
+            << ok.first << "=" << ok.second;
+
+    auto refusal = [](const Json &params)
+    {
+        const Json j = JsonApi::adminRequestRefusal("config_set", Json{ { "params", params } });
+        EXPECT_EQ("invalid_request", str(j, "error")) << params.dump();
+        return str(j, "msg");
+    };
+
+    for (const char *key: { "cn_pass", "cn_user", "mcp_token", "listen_address", "port_api", "debug_enabled", "wwwroot",
+                            "no_such_key", "", "SMTP_PORT", "smtp_port " })
+        EXPECT_EQ("This key cannot be set here", refusal(setParams(key, "1"))) << key;
+
+    EXPECT_EQ("key is required", refusal(Json::object()));
+    EXPECT_EQ("key is required", refusal(Json{ { "key", 3 }, { "value", "1" } }));
+    EXPECT_EQ("value is required", refusal(Json{ { "key", "smtp_port" } }));
+    EXPECT_EQ("value is required", refusal(Json{ { "key", "smtp_port" }, { "value", 2525 } }));
+    EXPECT_EQ("value is required", refusal(Json{ { "key", "smtp_tls" }, { "value", true } }));
+    EXPECT_EQ("key is required", str(JsonApi::adminRequestRefusal("config_set", Json::object()), "msg"));
+
+    //The registry's own reason, as it says it
+    for (const auto &bad: std::vector<std::pair<const char *, std::string>>{
+             { "smtp_port", "0" }, { "smtp_port", "70000" }, { "smtp_port", "abc" }, { "debug_level", "9" }, { "influxdb_version", "3" }, { "smtp_tls", "1" }, { "smtp_tls", "yes" }, { "ota_enabled", "yes" }, { "lang", "xx" }, { "user_emails", "nobody" }, { "latitude", "91" }, { "latitude", "45,5" }, { "history_keep_days", "0" }, { "smtp_server", "http://smtp.example.org/" }, { "api_allowed_hosts", "a, ,b" } })
+    {
+        const std::string expected = registryError(bad.first, bad.second);
+        ASSERT_FALSE(expected.empty()) << bad.first << "=" << bad.second << " is accepted by the registry";
+        EXPECT_EQ(expected, refusal(setParams(bad.first, bad.second))) << bad.first << "=" << bad.second;
+    }
+
+    for (const int control: { 0, 1, 9, 10, 13, 31, 127 })
+        EXPECT_EQ("value must not contain a control character",
+                  refusal(setParams("smtp_username", std::string("a") + char(control) + "b")))
+            << control;
+    EXPECT_EQ("value is longer than 4096 bytes", refusal(setParams("smtp_username", std::string(4097, 'a'))));
+    EXPECT_TRUE(JsonApi::adminRequestRefusal("config_set", Json{ { "params", setParams("smtp_username", std::string(4096, 'a')) } }).is_null());
+}
+
+TEST(JsonApiAdminConfigRules, TheBackupFileNameIsSanitised)
+{
+    const std::time_t t = 1792931696; //2026-10-25T12:34:56Z
+    EXPECT_EQ("calaos-backup-calaos-box-20261025-1234.json", AdminConfig::backupFilename("calaos-box", t));
+    EXPECT_EQ("calaos-backup-Box_1.local-20261025-1234.json", AdminConfig::backupFilename("Box_1.local", t));
+    EXPECT_EQ("calaos-backup-evilfilenamex..y-20261025-1234.json",
+              AdminConfig::backupFilename("evil\"; filename=x/../y", t));
+    EXPECT_EQ("calaos-backup-" + std::string(32, 'a') + "-20261025-1234.json",
+              AdminConfig::backupFilename(std::string(40, 'a'), t));
+    EXPECT_EQ("calaos-backup-maison-20261025-1234.json", AdminConfig::backupFilename("maison\xc3\xa9", t));
+    EXPECT_EQ("calaos-backup-box-20261025-1234.json", AdminConfig::backupFilename("", t));
+    EXPECT_EQ("calaos-backup-box-20261025-1234.json", AdminConfig::backupFilename("\"/ \r\n", t));
+    //UTC, whatever the process time zone
+    EXPECT_EQ("calaos-backup-box-20260105-0307.json", AdminConfig::backupFilename("", 1767582420));
+}
+
+TEST_F(JsonApiAdminTest, ConfigListDescribesEveryAllowedKeyAndNoSecret)
+{
+    adminDefined();
+    Utils::set_config_option("smtp_password", "list-canary-smtp");
+    Utils::del_config_option("influxdb_token");
+    Utils::set_config_option("smtp_server", "smtp.example.org");
+    Utils::set_config_option("ota_enabled", "1");
+    Utils::del_config_option("smtp_port");
+    Utils::del_config_option("debug_level");
+
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    const Json answer = ws.admin("admin", configAction("config_list"));
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+    EXPECT_EQ(std::string::npos, answer.dump().find("list-canary-smtp"));
+
+    const Json options = answer["result"]["options"];
+    ASSERT_TRUE(options.is_array());
+    ASSERT_EQ(sizeof(kConfigTable) / sizeof(kConfigTable[0]), options.size());
+    for (size_t i = 0; i < options.size(); i++)
+    {
+        const Json &o = options[i];
+        const ConfigOption *opt = ConfigOptions::find(kConfigTable[i].key);
+        const std::string stored = Utils::get_config_option(kConfigTable[i].key);
+        const std::string def = opt->hasDef() ? opt->def() : std::string();
+        EXPECT_EQ(kConfigTable[i].key, str(o, "key"));
+        EXPECT_EQ(kConfigTable[i].group, str(o, "group")) << o.dump();
+        EXPECT_EQ(ConfigOptions::typeId(opt->type()), str(o, "type")) << o.dump();
+        EXPECT_EQ(opt->label(), str(o, "description")) << o.dump();
+        EXPECT_EQ(def, str(o, "default")) << o.dump();
+        EXPECT_EQ(Json(opt->isSecret()), o["secret"]) << o.dump();
+        EXPECT_EQ(Json(!stored.empty()), o["set"]) << o.dump();
+        EXPECT_EQ(Json(kConfigTable[i].restart), o["restart"]) << o.dump();
+        if (opt->isSecret())
+            EXPECT_FALSE(o.contains("value")) << o.dump();
+        else
+            EXPECT_EQ(stored.empty() ? def : stored, str(o, "value")) << o.dump();
+
+        if (opt->values().empty())
+        {
+            EXPECT_FALSE(o.contains("choices")) << o.dump();
+            continue;
+        }
+        Json choices = Json::array();
+        for (const auto &kv: opt->values())
+            choices.push_back(kv.first);
+        EXPECT_EQ(choices, o["choices"]) << o.dump();
+    }
+
+    auto option = [&options](const char *key)
+    {
+        for (const Json &o: options)
+        {
+            if (str(o, "key") == key)
+                return o;
+        }
+        return Json();
+    };
+    EXPECT_EQ(Json({ { "key", "smtp_password" }, { "group", "Notifications" }, { "type", "password" }, { "description", "SMTP password" }, { "default", "" }, { "secret", true }, { "set", true }, { "restart", false } }),
+              option("smtp_password"));
+    EXPECT_EQ(Json(false), option("influxdb_token")["set"]);
+    EXPECT_EQ("token", str(option("influxdb_token"), "type"));
+    EXPECT_EQ(Json({ { "key", "smtp_port" }, { "group", "Notifications" }, { "type", "port" }, { "description", "SMTP port" }, { "default", "" }, { "secret", false }, { "set", false }, { "restart", false }, { "value", "" } }),
+              option("smtp_port"));
+    EXPECT_EQ(Json({ "true", "1", "false", "0" }), option("ota_enabled")["choices"]);
+    EXPECT_EQ("1", str(option("ota_enabled"), "value"));
+    EXPECT_EQ("bool", str(option("ota_enabled"), "type"));
+    EXPECT_EQ(Json({ "0", "1", "2", "3", "4", "5" }), option("debug_level")["choices"]);
+    EXPECT_EQ("4", str(option("debug_level"), "value"));
+    EXPECT_EQ(Json(false), option("debug_level")["set"]);
+    EXPECT_EQ(Json({ "de", "en", "es", "fr", "hi", "nb", "pl", "ru" }), option("lang")["choices"]);
+    //The contract's group, not the registry's category (calaos_home, network)
+    EXPECT_EQ(ConfigOption::Category::CalaosHome, ConfigOptions::find("lang")->category());
+    EXPECT_EQ("Kiosk", str(option("lang"), "group"));
+    EXPECT_EQ("Origin", str(option("api_allowed_hosts"), "group"));
+    EXPECT_EQ(kHosts, str(option("api_allowed_hosts"), "value"));
+
+    const auto calls = statusCalls();
+    ASSERT_EQ(1u, calls.size()) << requestPaths();
+    EXPECT_EQ(FakeDaemon::Session, calls[0].headers.at("x-calaos-admin-session"));
+    EXPECT_EQ(1u, fakeDaemon.requests().size()) << requestPaths();
+    Utils::del_config_option("smtp_password");
+    Utils::del_config_option("ota_enabled");
+}
+
+TEST_F(JsonApiAdminTest, ConfigSetWritesAfterABackupAndLogsNoValue)
+{
+    adminDefined();
+    Utils::set_config_option("smtp_port", "25");
+    Utils::set_config_option("debug_level", "3");
+    const auto before = backupCopies();
+
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    PushTest::StdoutCapture capture;
+    const Json set = ws.admin("admin", configAction("config_set", setParams("smtp_port", "2525")));
+    const std::string log = capture.stop();
+    ASSERT_EQ("true", str(set, "success")) << set.dump();
+    EXPECT_EQ(Json({ { "key", "smtp_port" }, { "value", "2525" }, { "set", true }, { "restart_required", false } }),
+              set["result"]);
+    EXPECT_EQ("2525", Utils::get_config_option("smtp_port"));
+
+    //The copy taken before the write still holds the old value
+    const auto after = backupCopies();
+    ASSERT_EQ(before.size() + 1, after.size());
+    std::vector<std::string> added;
+    std::set_difference(after.begin(), after.end(), before.begin(), before.end(), std::back_inserter(added));
+    ASSERT_EQ(1u, added.size());
+    const std::string copy = fileText(added[0]);
+    EXPECT_NE(std::string::npos, copy.find("name=\"smtp_port\" value=\"25\"")) << copy;
+    EXPECT_EQ(std::string::npos, copy.find("2525")) << copy;
+
+    const std::string line = std::string("Admin config set smtp_port by 127.0.0.1 (session ") + kAuditId + ")";
+    const size_t at = log.find(line);
+    ASSERT_NE(std::string::npos, at) << log;
+    EXPECT_EQ(std::string::npos, log.substr(at, log.find('\n', at) - at).find("2525")) << log;
+    EXPECT_EQ(kAuditId, JsonApi::sessionAuditId(FakeDaemon::Session));
+
+    //"" resets: the key goes, the reading sites fall back to their default
+    const Json reset = ws.admin("admin", configAction("config_set", setParams("smtp_port", "")));
+    EXPECT_EQ(Json({ { "key", "smtp_port" }, { "value", "" }, { "set", false }, { "restart_required", false } }),
+              reset["result"]);
+    EXPECT_EQ(std::string::npos, localConfigText().find("\"smtp_port\""));
+    const Json level = ws.admin("admin", configAction("config_set", setParams("debug_level", "")));
+    EXPECT_EQ(Json({ { "key", "debug_level" }, { "value", "4" }, { "set", false }, { "restart_required", true } }),
+              level["result"]);
+    const Json ota = ws.admin("admin", configAction("config_set", setParams("ota_enabled", "1")));
+    EXPECT_EQ(Json({ { "key", "ota_enabled" }, { "value", "1" }, { "set", true }, { "restart_required", true } }),
+              ota["result"]);
+    EXPECT_EQ(before.size() + 4, backupCopies().size());
+
+    const auto calls = statusCalls();
+    EXPECT_EQ(4u, calls.size()) << requestPaths();
+    EXPECT_EQ(calls.size(), fakeDaemon.requests().size()) << "config_set is served here\n"
+                                                          << requestPaths();
+    Utils::del_config_option("ota_enabled");
+}
+
+TEST_F(JsonApiAdminTest, ASecretIsWriteOnly)
+{
+    adminDefined();
+    const std::string canary = "write-only-canary-7f3e";
+
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    PushTest::StdoutCapture capture;
+    const Json set = ws.admin("admin", configAction("config_set", setParams("smtp_password", canary)));
+    const Json token = ws.admin("admin", configAction("config_set", setParams("influxdb_token", canary + "-token")));
+    const Json list = ws.admin("admin", configAction("config_list"));
+    const std::string log = capture.stop();
+
+    EXPECT_EQ(Json({ { "key", "smtp_password" }, { "set", true }, { "restart_required", false } }), set["result"]) << set.dump();
+    EXPECT_EQ(Json({ { "key", "influxdb_token" }, { "set", true }, { "restart_required", true } }), token["result"]) << token.dump();
+    EXPECT_EQ(canary, Utils::get_config_option("smtp_password"));
+    EXPECT_EQ("true", str(list, "success"));
+    for (const std::string &text: { set.dump(), token.dump(), list.dump(), log })
+        EXPECT_EQ(std::string::npos, text.find(canary)) << text;
+    EXPECT_NE(std::string::npos, log.find("Admin config set smtp_password by 127.0.0.1")) << log;
+
+    const Json removed = ws.admin("admin", configAction("config_set", setParams("smtp_password", "")));
+    EXPECT_EQ(Json({ { "key", "smtp_password" }, { "set", false }, { "restart_required", false } }), removed["result"]);
+    EXPECT_EQ("", Utils::get_config_option("smtp_password"));
+    Utils::del_config_option("influxdb_token");
+}
+
+TEST_F(JsonApiAdminTest, ARefusedConfigSetWritesNothingAndCallsNoDaemon)
+{
+    adminDefined();
+    Utils::set_config_option("smtp_port", "25");
+    const std::string file = localConfigText();
+    const size_t copies = backupCopies().size();
+
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    for (const Json &params: { setParams("cn_pass", "stolen"), setParams("mcp_token", std::string(64, 'a')),
+                               setParams("listen_address", "0.0.0.0"), setParams("port_api", "80"),
+                               setParams("no_such_key", "1"), setParams("smtp_port", "0"),
+                               setParams("debug_level", "9"), setParams("smtp_tls", "1"), Json(), Json::object(),
+                               Json{ { "key", "smtp_port" }, { "value", 2525 } } })
+    {
+        const Json refused = ws.admin("admin", configAction("config_set", params));
+        expectError(refused, "invalid_request");
+    }
+    EXPECT_EQ(registryError("smtp_port", "0"),
+              str(ws.admin("admin", configAction("config_set", setParams("smtp_port", "0"))), "msg"));
+    EXPECT_EQ("This key cannot be set here",
+              str(ws.admin("admin", configAction("config_set", setParams("cn_pass", "x"))), "msg"));
+
+    EXPECT_EQ(file, localConfigText());
+    EXPECT_EQ(copies, backupCopies().size());
+    EXPECT_TRUE(fakeDaemon.requests().empty()) << requestPaths();
+}
+
+TEST_F(JsonApiAdminTest, TheAllowedHostsApplyAtTheNextOriginCheck)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    const Json set = ws.admin("admin", configAction("config_set", setParams("api_allowed_hosts", "admin.example.org")));
+    ASSERT_EQ("true", str(set, "success")) << set.dump();
+    EXPECT_EQ(Json({ { "key", "api_allowed_hosts" }, { "value", "admin.example.org" }, { "set", true }, { "restart_required", false } }),
+              set["result"]);
+
+    const std::vector<std::string> hosts = OriginPolicy::allowedHosts();
+    EXPECT_NE(hosts.end(), std::find(hosts.begin(), hosts.end(), "admin.example.org"));
+    EXPECT_EQ(hosts.end(), std::find(hosts.begin(), hosts.end(), "box.local"));
+    const OriginPolicy::Request behindHaproxy = { "127.0.0.1:443", "127.0.0.1", "https" };
+    EXPECT_TRUE(OriginPolicy::accepts("https://admin.example.org", behindHaproxy, {}, hosts));
+    EXPECT_FALSE(OriginPolicy::accepts("https://box.local", behindHaproxy, {}, hosts));
+}
+
+TEST_F(JsonApiAdminTest, ConfigActionsNeedHttpsAndAValidSessionAndRefuseTheServiceScope)
+{
+    adminDefined();
+    Utils::set_config_option("smtp_port", "25");
+    const std::string file = localConfigText();
+
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    WsClient plain;
+    ASSERT_TRUE(plain.login(""));
+    WsClient service;
+    ASSERT_TRUE(service.open("https"));
+    const Json s = service.ask(Json{ { "msg", "login_service" }, { "msg_id", "l" }, { "data", { { "token", kServiceToken } } } });
+    ASSERT_EQ("true", str(s["data"], "success")) << s.dump();
+
+    const std::vector<std::pair<std::string, Json>> actions = { { "config_list", Json() },
+                                                                { "config_set", setParams("smtp_port", "2525") },
+                                                                { "config_backup", Json() } };
+    for (const auto &a: actions)
+    {
+        expectError(ws.admin("admin", configAction(a.first, a.second, "")), "bad_session");
+        Json noSession = configAction(a.first, a.second);
+        noSession.erase("admin_session");
+        expectError(ws.admin("admin", noSession), "bad_session");
+        expectError(plain.admin("admin", configAction(a.first, a.second)), "https_required");
+        const Json refused = service.admin("admin", configAction(a.first, a.second));
+        expectError(refused, "not_allowed");
+        EXPECT_EQ("scope denied", str(refused, "msg"));
+    }
+    EXPECT_TRUE(fakeDaemon.requests().empty()) << requestPaths();
+
+    //A session the daemon does not know
+    for (const auto &a: actions)
+        expectError(ws.admin("admin", configAction(a.first, a.second, std::string(64, 'b'))), "bad_session");
+    EXPECT_EQ(3u, statusCalls().size()) << requestPaths();
+    EXPECT_EQ(file, localConfigText());
+
+    //The service scope has no websocket config_backup either
+    const Json direct = service.ask(Json{ { "msg", "config_backup" }, { "msg_id", "b" }, { "data", Json::object() } });
+    expectError(direct["data"], "not_allowed");
+
+    fakeDaemon.setAdminSet(false);
+    syncAdminState();
+    for (const auto &a: actions)
+        expectError(ws.admin("admin", configAction(a.first, a.second)), "admin_not_set");
+    EXPECT_EQ(file, localConfigText());
+}
+
+TEST_F(JsonApiAdminTest, TheBackupOverTheWebsocketHoldsTheFourFiles)
+{
+    adminDefined();
+    {
+        std::ofstream w(Utils::getConfigFile(WIDGET_CONFIG), std::ios::trunc);
+        w << "<?xml version=\"1.0\"?>\n<widgets><widget id=\"cfg-s\"/></widgets>\n";
+    }
+
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    PushTest::StdoutCapture capture;
+    const Json answer = ws.admin("admin", configAction("config_backup"));
+    const std::string log = capture.stop();
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump().substr(0, 400);
+
+    const Json doc = answer["result"];
+    EXPECT_EQ("calaos-config-backup/1", str(doc, "format"));
+    EXPECT_EQ(PKG_VERSION_STR, str(doc, "server_version"));
+    EXPECT_EQ(AdminConfig::hostname(), str(doc, "hostname"));
+    const std::time_t created = createdAtOf(doc);
+    EXPECT_LE(std::abs((long long)(std::time(nullptr) - created)), 60LL) << str(doc, "created_at");
+    EXPECT_EQ(20u, str(doc, "created_at").size());
+
+    ASSERT_TRUE(doc["files"].is_object());
+    EXPECT_EQ(4u, doc["files"].size()) << doc["files"].dump().substr(0, 400);
+    for (const char *name: { IO_CONFIG, RULES_CONFIG, LOCAL_CONFIG, WIDGET_CONFIG })
+        EXPECT_EQ(fileText(Utils::getConfigFile(name)), str(doc["files"], name)) << name;
+    //What a restore needs, secrets included
+    EXPECT_NE(std::string::npos, str(doc["files"], "local_config.xml").find(kPass));
+    EXPECT_NE(std::string::npos, str(doc["files"], "widgets.xml").find("cfg-s"));
+    EXPECT_NE(std::string::npos, log.find("Admin config backup by 127.0.0.1")) << log;
+    EXPECT_EQ(std::string::npos, log.find(kPass)) << log;
+}
+
+TEST_F(JsonApiAdminTest, TheHttpBackupIsADownloadNoCacheKeeps)
+{
+    adminDefined();
+    PushTest::StdoutCapture capture;
+    const std::string response = httpPost(backupRequest({ { "admin_session", FakeDaemon::Session } }), "https");
+    const std::string log = capture.stop();
+
+    ASSERT_EQ("200", statusOf(response)) << response.substr(0, 400);
+    EXPECT_EQ("application/json", header(response, "Content-Type"));
+    EXPECT_EQ("no-store", header(response, "Cache-Control"));
+    EXPECT_EQ(1u, headerCount(response, "Cache-Control"));
+    EXPECT_EQ("nosniff", header(response, "X-Content-Type-Options"));
+
+    const Json doc = parse(bodyOf(response));
+    ASSERT_TRUE(doc.is_object()) << response.substr(0, 400);
+    EXPECT_FALSE(doc.contains("success"));
+    EXPECT_EQ("calaos-config-backup/1", str(doc, "format"));
+    EXPECT_EQ(4u, doc["files"].size());
+    EXPECT_EQ(std::to_string(bodyOf(response).size()), header(response, "Content-Length"));
+
+    const std::string disposition = header(response, "Content-Disposition");
+    const std::string name = AdminConfig::backupFilename(str(doc, "hostname"), createdAtOf(doc));
+    EXPECT_EQ("attachment; filename=\"" + name + "\"", disposition);
+    //The webapp keeps the name only when it matches this
+    const std::regex webapp("^calaos-backup-[A-Za-z0-9._-]{1,32}-[0-9]{8}-[0-9]{4}\\.json$");
+    EXPECT_TRUE(std::regex_match(name, webapp)) << name;
+
+    EXPECT_NE(std::string::npos, log.find("Admin config backup by 127.0.0.1")) << log;
+    const auto calls = statusCalls();
+    ASSERT_EQ(1u, calls.size()) << requestPaths();
+    EXPECT_EQ(FakeDaemon::Session, calls[0].headers.at("x-calaos-admin-session"));
+}
+
+TEST_F(JsonApiAdminTest, ARefusedHttpBackupCarriesNoFile)
+{
+    adminDefined();
+
+    auto expectNoFile = [](const std::string &response, const std::string &status, const char *code)
+    {
+        EXPECT_EQ(status, statusOf(response)) << response.substr(0, 300);
+        EXPECT_EQ("", header(response, "Content-Disposition")) << response.substr(0, 300);
+        EXPECT_EQ(std::string::npos, response.find("calaos-config-backup")) << response.substr(0, 300);
+        EXPECT_EQ(std::string::npos, response.find(kPass)) << "the household password leaked";
+        if (code)
+            expectError(parse(bodyOf(response)), code);
+    };
+
+    const std::string ok = "200";
+    expectNoFile(httpPost(backupRequest(), "https"), ok, "bad_session");
+    expectNoFile(httpPost(backupRequest({ { "admin_session", "" } }), "https"), ok, "bad_session");
+    expectNoFile(httpPost(backupRequest({ { "admin_session", "nothex" } }), "https"), ok, "bad_session");
+    expectNoFile(httpPost(backupRequest({ { "admin_session", 7 } }), "https"), ok, "bad_session");
+    expectNoFile(httpPost(backupRequest({ { "admin_session", FakeDaemon::Session } }), ""), ok, "https_required");
+    expectNoFile(httpPost(backupRequest({ { "admin_session", FakeDaemon::Session } }), "http"), ok, "https_required");
+    EXPECT_TRUE(fakeDaemon.requests().empty()) << requestPaths();
+
+    //The household refusal keeps its shape: 400 and the connection closed
+    expectNoFile(httpPost(backupRequest({ { "admin_session", FakeDaemon::Session } }, kUser, "wrong"), "https"),
+                 "400", nullptr);
+    LoginThrottle::clear();
+
+    expectNoFile(httpPost(backupRequest({ { "admin_session", std::string(64, 'b') } }), "https"), ok, "bad_session");
+    EXPECT_EQ(1u, statusCalls().size()) << requestPaths();
+
+    //A LAN peer saying https is not haproxy
+    {
+        DirectHttp lan("192.168.1.20", "https");
+        expectError(lan.send(backupRequest({ { "admin_session", FakeDaemon::Session } })), "https_required");
+        ASSERT_EQ(1u, lan.responses.size());
+        expectNoFile(lan.responses.back(), ok, nullptr);
+    }
+
+    //Never from the query: a body that is not JSON is refused before the gate
+    {
+        DirectHttp http("127.0.0.1", "https");
+        Params get;
+        get.Add("action", "config_backup");
+        get.Add("cn_user", kUser);
+        get.Add("cn_pass", kPass);
+        get.Add("admin_session", FakeDaemon::Session);
+        http.send("not json", get);
+        ASSERT_EQ(1u, http.responses.size());
+        expectNoFile(http.responses.back(), "400", nullptr);
+    }
+    EXPECT_EQ(1u, fakeDaemon.requests().size()) << requestPaths();
+
+    fakeDaemon.setAdminSet(false);
+    syncAdminState();
+    expectNoFile(httpPost(backupRequest({ { "admin_session", FakeDaemon::Session } }), "https"), ok, "admin_not_set");
 }
 
 /*

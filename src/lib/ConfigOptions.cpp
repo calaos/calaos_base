@@ -1466,6 +1466,11 @@ std::string ConfigOptions::genMarkdown()
     return out.str();
 }
 
+const char *ConfigOptions::typeId(ConfigOption::Type t)
+{
+    return ::typeId(t);
+}
+
 std::string ConfigOptions::genJson()
 {
     Json doc;

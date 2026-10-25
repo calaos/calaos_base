@@ -81,6 +81,8 @@ calaos_server_SOURCES = \
         CalaosConfig.h                                  \
         ConsoleTunnel.cpp                               \
         ConsoleTunnel.h                                 \
+        AdminConfig.cpp                                 \
+        AdminConfig.h                                   \
         AdminEvents.cpp                                 \
         AdminEvents.h                                   \
         AdminState.cpp                                  \
