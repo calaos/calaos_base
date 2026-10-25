@@ -1509,7 +1509,8 @@ panneaux RemoteUI), un message non sollicité (sans `msg_id`) :
 - `network_rolled_back` (alerte du daemon : retour arrière par délai ou par redémarrage après
   l'échéance) suit le chemin d'`admin_set` (événement persistant affiché au login suivant,
   acquittement, déduplication sur `id`), avec `ts` et `data.intf` ; **aucun push** vers les
-  téléphones.
+  téléphones. Le texte de l'événement persistant est fixe, suivi du nom de l'interface (`?` s'il
+  n'est pas un nom d'interface valide) : `Network change rolled back on your Calaos box: eth0`.
 - C'est **tout** ce que reçoit un client foyer. `upgrade_job` n'est pas retransmis : pour
   connaître le job ou `reboot_required`, lire `admin {update_status}`. `push_code` est consommé
   par calaos_server (voir [Approbateurs et codes push](#approbateurs-et-codes-push)) et

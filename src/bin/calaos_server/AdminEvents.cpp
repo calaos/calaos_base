@@ -85,7 +85,7 @@ void copyScalars(const Json &from, Json &to, std::initializer_list<const char *>
 bool isAlertType(const string &type)
 {
     return type == "admin_set" || type == "admin_reset" || type == "approver_set" || type == "approver_removed" ||
-           type == "console_opened";
+           type == "console_opened" || type == "network_rolled_back";
 }
 
 //The daemon's rule for a push token: 1 to 4096 printable ASCII characters, no space
@@ -227,11 +227,35 @@ Json AdminEvents::householdEventFor(const Json &event, const string &receivedAt)
         return Json{ { "type", type }, { "ts", receivedAt }, { "data", householdStatus(data) } };
     }
 
+    const string intf = JsonField::string(data, "intf");
+    const bool knownIntf = JsonApi::isValidInterfaceName(intf);
+
     if (isAlertType(type))
     {
         const auto ts = data.is_object() ? data.find("ts") : data.end();
         const bool usable = data.is_object() && ts != data.end() && isToken(*ts, 40);
-        return Json{ { "type", type }, { "ts", usable ? ts->get<string>() : receivedAt } };
+        Json out = { { "type", type }, { "ts", usable ? ts->get<string>() : receivedAt } };
+        if (type == "network_rolled_back")
+            out["data"] = knownIntf ? Json{ { "intf", intf } } : Json::object();
+        return out;
+    }
+
+    //No address: these go to the plain port too
+    if (type == "network_pending" || type == "network_applied")
+    {
+        if (!knownIntf || !JsonApi::isDaemonId(JsonField::string(data, "change_id")))
+            return Json();
+        Json out = { { "intf", intf }, { "change_id", data["change_id"] } };
+        if (type == "network_pending")
+        {
+            const auto applied = data.find("applied_at");
+            const auto within = data.find("confirm_within");
+            if (applied == data.end() || !isToken(*applied, 40) || within == data.end() || !within->is_number_integer())
+                return Json();
+            out["applied_at"] = *applied;
+            out["confirm_within"] = *within;
+        }
+        return Json{ { "type", type }, { "ts", receivedAt }, { "data", out } };
     }
 
     return Json();
@@ -619,7 +643,9 @@ void AdminEvents::processAlert(const string &type, const Json &data)
     householdEvent.emit(householdEventFor(Json{ { "type", type }, { "data", data } }, utcNow()));
     if (type == "admin_set" || type == "admin_reset")
         AdminState::Instance().refresh();
-    push(type, id, data);
+    //The banner at the next login says it; no phone is woken for it
+    if (type != "network_rolled_back")
+        push(type, id, data);
 }
 
 void AdminEvents::markApprover(const string &tokenId, bool approver)

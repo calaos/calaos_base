@@ -90,9 +90,10 @@ public:
     sigc::signal<void, const Json &> householdEvent;
 
     /* The admin_event data for a daemon event, null when it is not forwarded.
-     * Only upgrade_progress and the alerts (admin_set, admin_reset,
-     * approver_set, approver_removed, console_opened, ts only) are: the job,
-     * the push codes and any future type stay on this side.
+     * Only upgrade_progress, the alerts (admin_set, admin_reset, approver_set,
+     * approver_removed, console_opened, ts only; network_rolled_back with its
+     * intf) and network_pending / network_applied are: the job, the push codes
+     * and any future type stay on this side.
      */
     static Json householdEventFor(const Json &event, const string &receivedAt);
 

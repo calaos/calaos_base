@@ -194,6 +194,10 @@ public:
     //The package rule of calaos-container's docs/API.md (Upgrade jobs)
     static bool isValidPackageName(const string &name);
 
+    //An interface name network_apply accepts: the daemon's rule, the route
+    //words of network/ and the loopback refused
+    static bool isValidInterfaceName(const string &name);
+
     //The `admin` message: null when the action is in the closed table and its
     //params are valid, the refusal otherwise
     static Json adminRequestRefusal(const string &action, const Json &request);

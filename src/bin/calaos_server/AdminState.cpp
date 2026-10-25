@@ -251,6 +251,11 @@ string AdminState::alertMessage(const string &type, const Json &data)
     //Fixed: the alert's session_audit_id stays in the daemon's audit log
     if (type == "console_opened")
         return _("Calaos: console opened");
+    if (type == "network_rolled_back")
+    {
+        const string intf = JsonField::string(data, "intf");
+        return _("Network change rolled back on your Calaos box: ") + (JsonApi::isValidInterfaceName(intf) ? intf : string("?"));
+    }
     if (type != "approver_set" && type != "approver_removed")
         return string();
 
