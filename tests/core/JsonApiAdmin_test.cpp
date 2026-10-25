@@ -2268,8 +2268,12 @@ std::vector<Case> validBoxRequests()
         { "time_set", { { "timezone", "Etc/GMT+1" }, { "ntp", true } } },
         { "time_set", { { "ntp", false } } },
         { "time_set", { { "ntp", false }, { "time", "2026-10-25T09:12:03Z" } } },
-        { "time_set", { { "time", "2020-01-01T00:30:00+01:00" } } },
+        { "time_set", { { "time", "2020-01-01T00:30:00-01:00" } } },
+        { "time_set", { { "time", "2101-01-01T00:30:00+01:00" } } },
         { "time_set", { { "time", "2100-12-31T23:59:59Z" } } },
+        { "time_set", { { "timezone", "Etc/GMT-1" } } },
+        { "logs_query", { { "since", "1970-01-01T00:00:00Z" }, { "until", "2100-12-31T23:59:59.999Z" } } },
+        { "logs_query", { { "since", "1969-12-31T23:30:00-01:00" } } },
         { "network_state", Json::object() },
         { "network_apply", withCode(staticNetwork()) },
         { "network_apply", withCode(changed(changed(changed(staticNetwork(), "gateway", nullptr), "dns_servers", nullptr), "search_domains", nullptr)) },
@@ -2356,6 +2360,14 @@ std::vector<Case> invalidBoxRequests()
         { "time_set", { { "ntp", 1 } } },
         { "time_set", { { "time", "2019-12-31T23:59:59Z" } } },
         { "time_set", { { "time", "2101-01-01T00:00:00Z" } } },
+        { "time_set", { { "time", "2020-01-01T00:30:00+01:00" } } },
+        { "time_set", { { "time", "2100-12-31T23:30:00-01:00" } } },
+        { "time_set", { { "timezone", "-Europe/Paris" } } },
+        { "logs_query", { { "since", "1969-12-31T23:59:59Z" } } },
+        { "logs_query", { { "until", "2101-01-01T00:00:00Z" } } },
+        { "logs_query", { { "since", "1970-01-01T00:30:00+01:00" } } },
+        { "logs_query", { { "cursor", "s=1 i=2" } } },
+        { "logs_query", { { "cursor", " " } } },
         { "time_set", { { "time", "now" } } },
         { "time_set", { { "timezone", "Europe/Paris" }, { "time", "now" } } },
         { "network_apply", staticNetwork() },
@@ -2646,13 +2658,55 @@ TEST_F(JsonApiAdminTest, ANetworkChangeWaitsForNetworkctl)
     //Longer than the 4 s default, as a slow networkctl reload makes it
     fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
                            {
-        if (req.path == "/api/v2/network/confirm")
-            res.delayMs = 4500;
-        return false;
+        if (req.path != "/api/v2/network/confirm")
+            return false;
+        res.delayMs = 4500;
+        res.body = FakeDaemon::ok({ { "change_id", kChange }, { "intf", "eth0" }, { "state", "confirmed" } });
+        return true;
     });
     const Json confirmed = ws.admin("admin", adminAction("network_confirm", { { "change_id", kChange } }), 9000);
     EXPECT_EQ("true", str(confirmed, "success")) << confirmed.dump();
     EXPECT_EQ("confirmed", str(confirmed["result"], "state"));
+}
+
+TEST_F(JsonApiAdminTest, AWriteWithoutAnswerHasAnUnknownOutcome)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    //Past calaos_server's own timeout: the daemon may still apply it
+    fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/v2/network/apply")
+            return false;
+        res.delayMs = (DaemonClient::NetworkChangeTimeout + 1) * 1000;
+        res.body = FakeDaemon::ok({ { "change_id", kChange } });
+        return true;
+    });
+    const Json late = ws.admin("admin", adminAction("network_apply", withCode(staticNetwork())), 45000);
+    EXPECT_EQ((Json{ { "success", "false" }, { "error", "daemon_unreachable" }, { "msg", "calaos-container is unreachable" }, { "outcome", "unknown" } }),
+              late);
+    fakeDaemon.setOverride(nullptr);
+
+    //A daemon gone silent: the same for the four writes, nothing for the others
+    fakeDaemon.stop();
+    const std::vector<Case> writes = { { "time_set", { { "ntp", true } } },
+                                       { "network_apply", withCode(staticNetwork()) },
+                                       { "network_confirm", { { "change_id", kChange } } },
+                                       { "network_revert", { { "change_id", kChange } } } };
+    for (const Case &c: writes)
+    {
+        const Json a = ws.admin("admin", adminAction(c.first, c.second));
+        expectError(a, "daemon_unreachable");
+        EXPECT_EQ("unknown", str(a, "outcome")) << c.first;
+    }
+    for (const Case &c: std::vector<Case>{ { "services_restart", { { "unit", "mosquitto" } } }, { "time_get", Json() }, { "network_state", Json() }, { "system_reboot", Json() } })
+    {
+        const Json a = ws.admin("admin", adminAction(c.first, c.second));
+        expectError(a, "daemon_unreachable");
+        EXPECT_FALSE(a.contains("outcome")) << c.first;
+    }
 }
 
 TEST_F(JsonApiAdminTest, BoxErrorsAreTranslated)

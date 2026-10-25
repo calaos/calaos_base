@@ -386,11 +386,22 @@ string servicesRestartBody(const Json &params, Json &body)
     return invalid;
 }
 
+//Days since 1970-01-01 of a civil date (Howard Hinnant's algorithm)
+long long daysFromCivil(int year, int mon, int day)
+{
+    const int y = year - (mon <= 2 ? 1 : 0);
+    const int era = (y >= 0 ? y : y - 399) / 400;
+    const int yoe = y - era * 400;
+    const int doy = (153 * (mon > 2 ? mon - 3 : mon + 9) + 2) / 5 + day - 1;
+    const int doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    return (long long)era * 146097 + doe - 719468;
+}
+
 /* An RFC 3339 date-time as Go's time.RFC3339 reads it (upper case T and Z, an
- * optional fraction): its year as written and its instant in seconds since the
- * epoch, without timegm() and the process time zone.
+ * optional fraction): its instant in seconds since the epoch, without timegm()
+ * and the process time zone.
  */
-bool parseRfc3339(const string &s, int &year, double &instant)
+bool parseRfc3339(const string &s, double &instant)
 {
     if (s.size() < 20 || s.size() > 35)
         return false;
@@ -406,7 +417,7 @@ bool parseRfc3339(const string &s, int &year, double &instant)
         return true;
     };
 
-    int mon, day, hour, min, sec;
+    int year, mon, day, hour, min, sec;
     if (!digits(0, 4, year) || s[4] != '-' || !digits(5, 2, mon) || s[7] != '-' || !digits(8, 2, day) || s[10] != 'T' ||
         !digits(11, 2, hour) || s[13] != ':' || !digits(14, 2, min) || s[16] != ':' || !digits(17, 2, sec))
         return false;
@@ -446,22 +457,22 @@ bool parseRfc3339(const string &s, int &year, double &instant)
     if (i != s.size())
         return false;
 
-    //Days from the civil date (Howard Hinnant's algorithm)
-    const int y = year - (mon <= 2 ? 1 : 0);
-    const int era = (y >= 0 ? y : y - 399) / 400;
-    const int yoe = y - era * 400;
-    const int doy = (153 * (mon > 2 ? mon - 3 : mon + 9) + 2) / 5 + day - 1;
-    const int doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    const long long days = (long long)era * 146097 + doe - 719468;
-    instant = double(days) * 86400.0 + hour * 3600 + min * 60 + sec - offset + fraction;
+    instant = double(daysFromCivil(year, mon, day)) * 86400.0 + hour * 3600 + min * 60 + sec - offset + fraction;
     return true;
 }
 
-bool isRfc3339(const string &s)
+//The daemon bounds the year of the UTC instant, not the one written
+bool isRfc3339InYears(const string &s, int from, int to)
 {
-    int year;
     double instant;
-    return parseRfc3339(s, year, instant);
+    return parseRfc3339(s, instant) && instant >= double(daysFromCivil(from, 1, 1)) * 86400.0 &&
+           instant < double(daysFromCivil(to + 1, 1, 1)) * 86400.0;
+}
+
+//journalctl cannot take every year
+bool isLogTime(const string &s)
+{
+    return isRfc3339InYears(s, 1970, 2100);
 }
 
 template <size_t N>
@@ -479,7 +490,7 @@ bool isLogCursor(const string &s)
 {
     return !s.empty() && s.size() <= 512 && std::all_of(s.begin(), s.end(), [](char c)
                                                         {
-        return c >= 0x20 && c < 0x7f;
+        return c > 0x20 && c < 0x7f;
     });
 }
 
@@ -537,7 +548,7 @@ string logsQueryBody(const Json &params, Json &body)
 
     string value;
     for (const auto &field: std::initializer_list<std::pair<const char *, bool (*)(const string &)>>{
-             { "since", isRfc3339 }, { "until", isRfc3339 }, { "text", isLogText }, { "cursor", isLogCursor }, { "direction", isLogDirection } })
+             { "since", isLogTime }, { "until", isLogTime }, { "text", isLogText }, { "cursor", isLogCursor }, { "direction", isLogDirection } })
     {
         if (!params.contains(field.first))
             continue;
@@ -549,10 +560,9 @@ string logsQueryBody(const Json &params, Json &body)
 
     if (body.contains("since") && body.contains("until"))
     {
-        int year;
         double since, until;
-        parseRfc3339(body["since"].get<string>(), year, since);
-        parseRfc3339(body["until"].get<string>(), year, until);
+        parseRfc3339(body["since"].get<string>(), since);
+        parseRfc3339(body["until"].get<string>(), until);
         if (since >= until)
             return "since must be before until";
     }
@@ -564,17 +574,16 @@ string logsQueryBody(const Json &params, Json &body)
 
 bool isTimezoneName(const string &s)
 {
-    return !s.empty() && s.size() <= 64 && std::all_of(s.begin(), s.end(), [](char c)
-                                                       {
+    //The daemon's rule: a leading '-' would read as an option of timedatectl
+    return !s.empty() && s.size() <= 64 && s[0] != '-' && std::all_of(s.begin(), s.end(), [](char c)
+                                                                      {
         return isAsciiAlnum(c) || c == '_' || c == '+' || c == '-' || c == '/';
     });
 }
 
 bool isBoxTime(const string &s)
 {
-    int year;
-    double instant;
-    return parseRfc3339(s, year, instant) && year >= 2020 && year <= 2100;
+    return isRfc3339InYears(s, 2020, 2100);
 }
 
 string timeSetBody(const Json &params, Json &body)
@@ -952,6 +961,14 @@ void relayCall(const DaemonClient::Request &req, bool household, bool sessionOpt
         Json failure = relayFailure(reply);
         if (req.method == "POST" && req.path == "system/time")
             addTimeSteps(reply, failure);
+        /* These run commands with their own limits on the daemon side, longer
+         * together than our timeout: silence does not mean "not applied", and
+         * a client that resent the write could apply it twice.
+         */
+        if (reply.kind == DaemonReply::Kind::Unreachable && req.method == "POST" &&
+            (req.path == "system/time" || req.path == "network/apply" || req.path == "network/confirm" ||
+             req.path == "network/revert"))
+            failure["outcome"] = "unknown";
         answer(failure);
     });
 }
