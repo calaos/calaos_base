@@ -65,6 +65,12 @@ public:
     static constexpr long UpdateCheckTimeout = 120;
     //system/restart waits for systemctl to restart the kiosk container
     static constexpr long RestartTimeout = 30;
+    //logs/query scans the journal for up to 5 s, then answers up to 1 MiB
+    static constexpr long LogsQueryTimeout = 10;
+    //system/time may run three timedatectl commands of 10 s each
+    static constexpr long TimeSetTimeout = 35;
+    //network/apply, confirm and revert wait for networkctl, up to 30 s each
+    static constexpr long NetworkChangeTimeout = 35;
 
     struct Request
     {

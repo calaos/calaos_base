@@ -469,7 +469,9 @@ Toute erreur admin a la même charge utile, aux deux transports :
   `attempts_left` avec `bad_code`, `max` avec `approver_limit` et `console_limit`,
   `change_id` et `expires_in` avec `network_pending`, `applied` (étapes déjà appliquées, séparées
   par `,`), `failed` (étape en échec) et `restart_required` (`"true"` ou `"false"`) avec
-  l'`internal` d'un `time_set` partiellement appliqué.
+  l'`internal` d'un `time_set` partiellement appliqué, `outcome` (`"unknown"`) avec le
+  `daemon_unreachable` ou l'`admin_unavailable` d'un `time_set`, `network_apply`,
+  `network_confirm` ou `network_revert` resté sans réponse (voir ci-dessous).
 - En WS la charge utile est sous `data`, avec `msg` et `msg_id` de l'enveloppe habituelle
   (attention : le `msg` de l'enveloppe est le nom du message, le `msg` de `data` est le texte
   d'erreur) :
@@ -756,7 +758,16 @@ tableaux de chaînes) ; une valeur d'un autre type (`"true"` pour un booléen, `
 priorité) est `invalid_request`. Le corps envoyé au daemon est reconstruit champ par champ à
 partir des `params` validés ; un malformé n'atteint jamais le daemon (deux barrières : le daemon
 applique les mêmes limites). `result` est le `data` du daemon, types compris, comme pour les
-actions de phase 1. Délais de calaos_server : 4 s, sauf `logs_query` (10 s) et `time_set` (35 s : le daemon peut enchaîner trois commandes `timedatectl` de 10 s au plus).
+actions de phase 1. Délais de calaos_server : 4 s, sauf `logs_query` (10 s), et 35 s pour `time_set`,
+`network_apply`, `network_confirm` et `network_revert` ; le client attend 40 s pour ces quatre.
+Le daemon peut y dépasser 35 s : chaque commande y a son propre délai, `timedatectl` 10 s
+(`time_set` en enchaîne jusqu'à six : liste des fuseaux, lecture de l'état, trois étapes, relecture),
+`networkctl` 30 s (`network_apply` en enchaîne trois, plus deux pour revenir en arrière si
+l'application échoue ; `network_revert` deux ; `network_confirm` un, après l'attente d'un
+changement concurrent). Sur ces quatre écritures, un délai dépassé ou une réponse illisible
+donne donc `daemon_unreachable` (ou `admin_unavailable`) avec **`"outcome": "unknown"`** :
+l'écriture a pu s'appliquer. Le client **ne la renvoie pas** ; il relit `network_state` ou
+`time_get` (voir [Heure de la box](#heure-de-la-box) et [Réseau](#réseau)).
 
 - **`update_status` sans session** : accepté une fois l'admin défini, sous
   `secureTransport()`. C'est ce qui permet à n'importe quel client foyer de reprendre l'affichage
@@ -1192,10 +1203,10 @@ sinon), avec les mêmes limites que le daemon :
 |---|---|
 | `sources` | tableau de 1 à 8 `id` connus ; défaut `["system"]` |
 | `priority` | niveau maximal affiché : entier JSON `0` à `7` **ou** nom (`emerg`, `alert`, `crit`, `err`, `warning`, `notice`, `info`, `debug`) ; la chaîne `"3"` est refusée |
-| `since`, `until` | RFC 3339 ; `since` égal ou postérieur à `until` est refusé |
+| `since`, `until` | RFC 3339, année 1970 à 2100 (de l'instant UTC) ; `since` égal ou postérieur à `until` est refusé |
 | `text` | au plus 256 caractères ; sous-chaîne insensible à la casse, jamais une expression régulière |
 | `lines` | entier de 1 à 1000 ; défaut 200 |
-| `cursor` | curseur d'une réponse précédente, au plus 512 caractères ASCII imprimables |
+| `cursor` | curseur d'une réponse précédente, 1 à 512 caractères ASCII imprimables, espace exclu |
 | `direction` | `backward` (défaut : les `lines` plus récentes avant `until` ou `cursor`) ou `forward` (les plus anciennes après `cursor`) ; `forward` sans `cursor` ni `since` est refusé |
 
 - Sans `since`, une requête `backward` couvre les 7 derniers jours.
@@ -1237,8 +1248,9 @@ true, "rtc": "<RFC 3339>" ou null}`.
 - **`time_get`** (sans `params`) → `<BoxTime>`.
 - **`time_zones`** (sans `params`) → `{"timezones": ["Africa/Abidjan", …]}`.
 - **`time_set`** → `<BoxTime>` plus `"restart_required": <bool>`. `params` : `timezone`
-  (`^[A-Za-z0-9_+\-/]{1,64}$` côté calaos_server ; le daemon vérifie qu'elle figure dans `time_zones`), `ntp` (booléen), `time` (RFC 3339,
-  année 2020 à 2100) ; chacun facultatif, **un au moins** (aucun : `invalid_request`,
+  (`^[A-Za-z0-9_+/][A-Za-z0-9_+\-/]{0,63}$`, la règle du daemon, qui vérifie en plus qu'elle
+  figure dans `time_zones`), `ntp` (booléen), `time` (RFC 3339, année 2020 à 2100 de l'instant
+  UTC : `2020-01-01T00:30:00+01:00` est refusé) ; chacun facultatif, **un au moins** (aucun : `invalid_request`,
   « no field to set »).
   - Ordre : `timezone`, puis `ntp` (`timedatectl set-ntp`, qui pilote `systemd-timesyncd`), puis
     `time`. `time` avec NTP actif après l'étape `ntp` : `invalid_request` (« ntp is active »).
@@ -1251,6 +1263,10 @@ true, "rtc": "<RFC 3339>" ou null}`.
     réel. calaos_server ajoute à cette erreur `restart_required` (`"true"` si `applied` contient
     `timezone`, `"false"` sinon) : un fuseau déjà changé demande le redémarrage même si l'étape
     suivante a échoué.
+  - **Sans réponse** (`daemon_unreachable` ou `admin_unavailable` avec `outcome: "unknown"`, voir
+    les délais plus haut) : ne pas renvoyer `time_set`. Relire `time_get` ; si son `timezone` est
+    celui envoyé alors qu'il différait avant, proposer le redémarrage comme pour
+    `restart_required: true`.
   - Un décalage de plus d'une heure se confirme côté client : reculer l'horloge casse la validité
     des certificats TLS et d'apt.
 - Les sessions, les codes, les consoles et le changement réseau en attente mesurent leur durée sur
@@ -1310,6 +1326,12 @@ changement à la fois.
 - Erreurs : `https_required`, `invalid_request`, `bad_session`, `admin_not_set`, `rate_limited`,
   `network_pending`, `upgrade_in_progress`, `approver_required`, `code_required`, `bad_code`,
   `code_expired`, `daemon_too_old`, `daemon_unreachable`, `admin_unavailable`, `internal`.
+- Délai de calaos_server pour `network_apply`, `network_confirm` et `network_revert` : 35 s ; le
+  client attend 40 s. Le daemon peut dépasser 35 s (voir les délais plus haut) : sans réponse,
+  `daemon_unreachable` (ou `admin_unavailable`) porte `outcome: "unknown"`. Le client ne renvoie
+  pas l'écriture : il relit `network_state` (`pending` et son `change_id` disent si l'application a
+  eu lieu et si la confirmation ou l'annulation a pris), ou attend `network_pending` /
+  `network_applied`. Renvoyer un `network_confirm` déjà pris répondrait `invalid_request`.
 - `network/list`, `network/trial` et l'ancienne route `network/{intf}` ne sont jamais relayées.
 
 #### Configuration (`config_list`, `config_set`, `config_backup`)
@@ -1511,7 +1533,7 @@ panneaux RemoteUI), un message non sollicité (sans `msg_id`) :
 - `network_rolled_back` (alerte du daemon : retour arrière par délai ou par redémarrage après
   l'échéance) suit le chemin d'`admin_set` (événement persistant affiché au login suivant,
   acquittement, déduplication sur `id`), avec `ts` et `data.intf` ; **aucun push** vers les
-  téléphones.
+  téléphones. Texte de l'événement persistant : voir le tableau ci-dessous.
 - C'est **tout** ce que reçoit un client foyer. `upgrade_job` n'est pas retransmis : pour
   connaître le job ou `reboot_required`, lire `admin {update_status}`. `push_code` est consommé
   par calaos_server (voir [Approbateurs et codes push](#approbateurs-et-codes-push)) et
@@ -1528,6 +1550,20 @@ panneaux RemoteUI), un message non sollicité (sans `msg_id`) :
 - L'alerte `console_opened` (une console d'administration vient de s'ouvrir) suit le même
   chemin, avec un texte fixe : `Calaos: console opened`. Son `session_audit_id` reste au
   daemon : ni dans le push, ni dans l'événement persistant, ni dans `admin_event`.
+- **Textes des alertes.** Chaque alerte enregistrée est un événement persistant de l'historique
+  (`eventlog`) : `event_type` `"22"` (`EventPushNotification`), `io_id` et `pic_uid` vides,
+  `event_raw` = `{"message": "<texte>", "pic_uid": ""}`. Le texte est fixe (seul le nom entre
+  guillemets ou l'interface varient), en anglais, et c'est sur lui que la bannière du login
+  reconnaît l'alerte ; le push, quand il y en a un, porte le même texte.
+
+  | Alerte | `message` | Push |
+  |---|---|:---:|
+  | `admin_set` | `Admin password set on your Calaos box` | oui |
+  | `admin_reset` | `Admin password removed from your Calaos box` | oui |
+  | `approver_set` | `New approver phone on your Calaos box: "<device_name>"` | oui |
+  | `approver_removed` | `Approver phone removed from your Calaos box: "<device_name>"` | oui |
+  | `console_opened` | `Calaos: console opened` | oui |
+  | `network_rolled_back` | `Network change rolled back on your Calaos box: <intf>`, `<intf>` étant le `data.intf` de l'alerte, ou `?` s'il n'est pas un nom d'interface valide (règle d'`intf` de `network_apply`, `lo` exclu) | non |
 - calaos_server n'enregistre et ne retransmet une alerte qu'à sa
   première réception, **redémarrages compris** : les 64 derniers `id` enregistrés sont gardés
   dans le fichier `admin_alerts` de `Utils::getCachePath()` (à côté d'`admin_seen_set`). Une

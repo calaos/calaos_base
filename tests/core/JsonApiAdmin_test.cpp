@@ -2203,6 +2203,586 @@ TEST_F(JsonApiAdminTest, APersistentBearerRefusalIsLoggedOnce)
 }
 
 /*******************************************************************************
+ * Services, logs, box time and network
+ ******************************************************************************/
+
+namespace
+{
+
+const char *const kChange = "5d0c8e1f2a3b4c6d";
+
+Json staticNetwork()
+{
+    return Json{ { "intf", "eth0" },
+                 { "dhcp", false },
+                 { "ipv4", "192.168.1.10/24" },
+                 { "gateway", "192.168.1.1" },
+                 { "dns_servers", Json::array({ "192.168.1.1", "9.9.9.9" }) },
+                 { "search_domains", Json::array({ "lan", "home.example." }) } };
+}
+
+Json withCode(Json params)
+{
+    params["code_id"] = "c000000000000002";
+    params["code"] = "123456";
+    return params;
+}
+
+Json changed(Json params, const char *key, const Json &value)
+{
+    if (value.is_null())
+        params.erase(key);
+    else
+        params[key] = value;
+    return params;
+}
+
+Json adminAction(const std::string &action, const Json &params = Json())
+{
+    Json data = { { "action", action }, { "admin_session", FakeDaemon::Session } };
+    if (!params.is_null())
+        data["params"] = params;
+    return data;
+}
+
+using Case = std::pair<std::string, Json>;
+
+std::vector<Case> validBoxRequests()
+{
+    const Json dhcp = { { "intf", "eth0" }, { "dhcp", true } };
+    return {
+        { "services_list", Json::object() },
+        { "services_restart", { { "unit", "mosquitto" } } },
+        { "services_restart", { { "unit", "calaos-ddns" } } },
+        { "logs_sources", Json::object() },
+        { "logs_query", Json::object() },
+        { "logs_query", { { "sources", Json::array({ "calaos-server", "kernel" }) }, { "priority", "warning" }, { "since", "2026-10-25T08:00:00Z" }, { "until", "2026-10-25T09:00:00.5+01:00" }, { "text", "wago" }, { "lines", 1000 }, { "cursor", "s=0b2a;i=1f;b=c3;m=4d;t=5e;x=6f" }, { "direction", "backward" } } },
+        { "logs_query", { { "priority", 0 }, { "lines", 1 } } },
+        { "logs_query", { { "priority", 7 }, { "since", "2024-02-29T23:59:59.123456789-12:30" } } },
+        { "logs_query", { { "direction", "forward" }, { "cursor", "s=1" } } },
+        { "logs_query", { { "direction", "forward" }, { "since", "2026-10-25T08:00:00Z" } } },
+        { "logs_query", { { "sources", Json::array({ "calaos-server", "calaos-home", "haproxy", "mosquitto", "zigbee2mqtt", "influxdb", "grafana", "system" }) } } },
+        { "logs_query", { { "text", std::string(256, 'a') }, { "cursor", std::string(512, '~') } } },
+        { "time_get", Json::object() },
+        { "time_zones", Json::object() },
+        { "time_set", { { "timezone", "Europe/Paris" } } },
+        { "time_set", { { "timezone", "Etc/GMT+1" }, { "ntp", true } } },
+        { "time_set", { { "ntp", false } } },
+        { "time_set", { { "ntp", false }, { "time", "2026-10-25T09:12:03Z" } } },
+        { "time_set", { { "time", "2020-01-01T00:30:00-01:00" } } },
+        { "time_set", { { "time", "2101-01-01T00:30:00+01:00" } } },
+        { "time_set", { { "time", "2100-12-31T23:59:59Z" } } },
+        { "time_set", { { "timezone", "Etc/GMT-1" } } },
+        { "logs_query", { { "since", "1970-01-01T00:00:00Z" }, { "until", "2100-12-31T23:59:59.999Z" } } },
+        { "logs_query", { { "since", "1969-12-31T23:30:00-01:00" } } },
+        { "network_state", Json::object() },
+        { "network_apply", withCode(staticNetwork()) },
+        { "network_apply", withCode(changed(changed(changed(staticNetwork(), "gateway", nullptr), "dns_servers", nullptr), "search_domains", nullptr)) },
+        { "network_apply", withCode(changed(staticNetwork(), "gateway", "")) },
+        { "network_apply", withCode(changed(staticNetwork(), "ipv4", "0.0.0.0/0")) },
+        { "network_apply", withCode(changed(staticNetwork(), "ipv4", "10.255.0.1/32")) },
+        { "network_apply", withCode(changed(staticNetwork(), "search_domains", Json::array({ "a-b.c", std::string(63, 'x') }))) },
+        { "network_apply", withCode(changed(staticNetwork(), "intf", "enp1s0.100")) },
+        { "network_apply", withCode(changed(staticNetwork(), "intf", "br_lan-2")) },
+        { "network_apply", withCode(dhcp) },
+        { "network_apply", withCode(changed(changed(dhcp, "ipv4", ""), "dns_servers", Json::array())) },
+        { "network_confirm", { { "change_id", kChange } } },
+        { "network_revert", { { "change_id", kChange } } },
+        { "code_request", { { "code_action", "network_config" }, { "code_params", staticNetwork() } } },
+        { "code_request", { { "code_action", "network_config" }, { "code_params", dhcp } } },
+    };
+}
+
+std::vector<Case> invalidBoxRequests()
+{
+    const Json net = withCode(staticNetwork());
+    const Json dhcp = withCode({ { "intf", "eth0" }, { "dhcp", true } });
+    std::vector<Case> bad = {
+        { "services_restart", Json::object() },
+        { "services_restart", { { "unit", "Mosquitto" } } },
+        { "services_restart", { { "unit", "mosquitto.service" } } },
+        { "services_restart", { { "unit", "../x" } } },
+        { "services_restart", { { "unit", "" } } },
+        { "services_restart", { { "unit", std::string(33, 'a') } } },
+        { "services_restart", { { "unit", 3 } } },
+        { "logs_query", { { "sources", "system" } } },
+        { "logs_query", { { "sources", Json::array() } } },
+        { "logs_query", { { "sources", Json::array({ "a", "b", "c", "d", "e", "f", "g", "h", "i" }) } } },
+        { "logs_query", { { "sources", Json::array({ "system", "systemd" }) } } },
+        { "logs_query", { { "sources", Json::array({ 3 }) } } },
+        { "logs_query", { { "priority", "3" } } },
+        { "logs_query", { { "priority", 8 } } },
+        { "logs_query", { { "priority", -1 } } },
+        { "logs_query", { { "priority", 3.5 } } },
+        { "logs_query", { { "priority", true } } },
+        { "logs_query", { { "priority", "WARNING" } } },
+        { "logs_query", { { "lines", 0 } } },
+        { "logs_query", { { "lines", 1001 } } },
+        { "logs_query", { { "lines", "200" } } },
+        { "logs_query", { { "lines", 2.0 } } },
+        { "logs_query", { { "lines", 18446744073709551615ull } } },
+        { "logs_query", { { "since", "2026-10-25 08:00:00Z" } } },
+        { "logs_query", { { "since", "2026-10-25T08:00:00" } } },
+        { "logs_query", { { "since", "2026-1a-25T08:00:00Z" } } },
+        { "logs_query", { { "since", "2026-10-25T08:00:00+0a:00" } } },
+        { "logs_query", { { "since", "2026-10-25t08:00:00z" } } },
+        { "logs_query", { { "since", "2026-13-01T00:00:00Z" } } },
+        { "logs_query", { { "since", "2026-02-29T00:00:00Z" } } },
+        { "logs_query", { { "since", "2026-10-25T24:00:00Z" } } },
+        { "logs_query", { { "since", "2026-10-25T08:60:00Z" } } },
+        { "logs_query", { { "since", "2026-10-25T08:00:60Z" } } },
+        { "logs_query", { { "since", "2026-10-25T08:00:00.Z" } } },
+        { "logs_query", { { "since", "2026-10-25T08:00:00.1234567890Z" } } },
+        { "logs_query", { { "since", "2026-10-25T08:00:00+0200" } } },
+        { "logs_query", { { "since", "2026-10-25T08:00:00+24:00" } } },
+        { "logs_query", { { "since", "2026-10-25T08:00:00Z " } } },
+        { "logs_query", { { "since", "-1" } } },
+        { "logs_query", { { "since", 12345 } } },
+        { "logs_query", { { "until", "yesterday" } } },
+        { "logs_query", { { "since", "2026-10-25T08:00:00Z" }, { "until", "2026-10-25T08:00:00Z" } } },
+        { "logs_query", { { "since", "2026-10-25T10:00:00+02:00" }, { "until", "2026-10-25T08:00:00Z" } } },
+        { "logs_query", { { "since", "2026-10-25T09:00:00Z" }, { "until", "2026-10-25T08:00:00Z" } } },
+        { "logs_query", { { "text", std::string(257, 'a') } } },
+        { "logs_query", { { "text", 5 } } },
+        { "logs_query", { { "cursor", "" } } },
+        { "logs_query", { { "cursor", std::string(513, 'c') } } },
+        { "logs_query", { { "cursor", "s=1\ni=2" } } },
+        { "logs_query", { { "cursor", "s=\xc3\xa9" } } },
+        { "logs_query", { { "direction", "up" } } },
+        { "logs_query", { { "direction", "forward" } } },
+        { "logs_query", { { "direction", "forward" }, { "until", "2026-10-25T08:00:00Z" } } },
+        { "time_set", Json::object() },
+        { "time_set", { { "zone", "Europe/Paris" } } },
+        { "time_set", { { "timezone", "Europe/Paris;reboot" } } },
+        { "time_set", { { "timezone", "" } } },
+        { "time_set", { { "timezone", std::string(65, 'a') } } },
+        { "time_set", { { "timezone", 3 } } },
+        { "time_set", { { "ntp", "true" } } },
+        { "time_set", { { "ntp", 1 } } },
+        { "time_set", { { "time", "2019-12-31T23:59:59Z" } } },
+        { "time_set", { { "time", "2101-01-01T00:00:00Z" } } },
+        { "time_set", { { "time", "2020-01-01T00:30:00+01:00" } } },
+        { "time_set", { { "time", "2100-12-31T23:30:00-01:00" } } },
+        { "time_set", { { "timezone", "-Europe/Paris" } } },
+        { "logs_query", { { "since", "1969-12-31T23:59:59Z" } } },
+        { "logs_query", { { "until", "2101-01-01T00:00:00Z" } } },
+        { "logs_query", { { "since", "1970-01-01T00:30:00+01:00" } } },
+        { "logs_query", { { "cursor", "s=1 i=2" } } },
+        { "logs_query", { { "cursor", " " } } },
+        { "time_set", { { "time", "now" } } },
+        { "time_set", { { "timezone", "Europe/Paris" }, { "time", "now" } } },
+        { "network_apply", staticNetwork() },
+        { "network_apply", changed(net, "code", "12345") },
+        { "network_apply", changed(net, "intf", nullptr) },
+        { "network_apply", changed(net, "dhcp", nullptr) },
+        { "network_apply", changed(net, "dhcp", "false") },
+        { "network_apply", changed(net, "ipv4", nullptr) },
+        { "network_apply", changed(net, "ipv4", 3) },
+        { "network_apply", changed(net, "dns_servers", "192.168.1.1") },
+        { "network_apply", changed(net, "dns_servers", Json::array({ 3 })) },
+        { "network_apply", changed(net, "dns_servers", Json::array({ "1.1.1.1", "1.1.1.2", "1.1.1.3", "1.1.1.4", "1.1.1.5" })) },
+        { "network_apply", changed(net, "dns_servers", Json::array({ "" })) },
+        { "network_apply", changed(net, "dns_servers", Json::array({ "1.2.3.04" })) },
+        { "network_apply", changed(net, "dns_servers", Json::array({ "2001:db8::1" })) },
+        { "network_apply", changed(net, "gateway", "fe80::1") },
+        { "network_apply", changed(net, "gateway", "192.168.1.1/24") },
+        { "network_apply", changed(net, "gateway", 3) },
+        { "network_apply", changed(net, "search_domains", Json::array({ "-lan" })) },
+        { "network_apply", changed(net, "search_domains", Json::array({ "lan-" })) },
+        { "network_apply", changed(net, "search_domains", Json::array({ "a..b" })) },
+        { "network_apply", changed(net, "search_domains", Json::array({ "." })) },
+        { "network_apply", changed(net, "search_domains", Json::array({ "" })) },
+        { "network_apply", changed(net, "search_domains", Json::array({ "lan_x" })) },
+        { "network_apply", changed(net, "search_domains", Json::array({ "lan\nDNS=1.1.1.1" })) },
+        { "network_apply", changed(net, "search_domains", Json::array({ std::string(64, 'x') })) },
+        { "network_apply", changed(net, "search_domains", Json::array({ std::string(63, 'a') + "." + std::string(63, 'b') + "." + std::string(63, 'c') + "." + std::string(63, 'd') })) },
+        { "network_apply", changed(net, "search_domains", Json::array({ "a", "b", "c", "d", "e" })) },
+        { "network_apply", changed(dhcp, "ipv4", "192.168.1.10/24") },
+        { "network_apply", changed(dhcp, "gateway", "192.168.1.1") },
+        { "network_apply", changed(dhcp, "dns_servers", Json::array({ "192.168.1.1" })) },
+        { "network_apply", changed(dhcp, "search_domains", Json::array({ "lan" })) },
+        { "network_confirm", Json::object() },
+        { "network_confirm", { { "change_id", "5D0C8E1F2A3B4C6D" } } },
+        { "network_revert", { { "change_id", "5d0c8e1f2a3b4c6" } } },
+        { "network_revert", { { "change_id", 5 } } },
+        { "code_request", { { "code_action", "network_config" } } },
+        { "code_request", { { "code_action", "network_config" }, { "code_params", changed(staticNetwork(), "ipv4", "192.168.1.10") } } },
+        { "code_request", { { "code_action", "network_config" }, { "code_params", changed(staticNetwork(), "intf", "lo") } } },
+    };
+
+    for (const char *ipv4: { "192.168.1.10", "192.168.01.10/24", "192.168.1.256/24", "192.168.1.10/33",
+                             "192.168.1.10/024", "192.168.1.10/", "192.168.1.10/a", "1.2.3/24", "1.2.3.4.5/24",
+                             "1..3.4/24", "::1/64", "1.2.3.4/24 ", "" })
+        bad.push_back({ "network_apply", changed(net, "ipv4", ipv4) });
+    for (const char *intf: { "lo", ".", "..", "apply", "Trial", "STATE", "list", "confirm", "revert", "-eth0",
+                             "eth0/x", "eth 0", "", "abcdefghijklmnop", "eth0;", "\xc3\xa9th0" })
+        bad.push_back({ "network_apply", changed(net, "intf", intf) });
+    return bad;
+}
+
+std::string refusalOf(const Case &c)
+{
+    return str(JsonApi::adminRequestRefusal(c.first, Json{ { "params", c.second } }), "error");
+}
+
+} //namespace
+
+TEST(JsonApiAdminRules, BoxActionsCheckTheirParamsAsTheDaemonDoes)
+{
+    for (const Case &c: validBoxRequests())
+        EXPECT_EQ("", refusalOf(c)) << c.first << " " << c.second.dump();
+    for (const Case &c: invalidBoxRequests())
+        EXPECT_EQ("invalid_request", refusalOf(c)) << c.first << " " << c.second.dump();
+
+    EXPECT_EQ("no field to set", str(JsonApi::adminRequestRefusal("time_set", Json::object()), "msg"));
+
+    EXPECT_TRUE(JsonApi::isValidInterfaceName("eth0"));
+    EXPECT_TRUE(JsonApi::isValidInterfaceName("wlan0"));
+    EXPECT_TRUE(JsonApi::isValidInterfaceName("lo0"));
+    EXPECT_TRUE(JsonApi::isValidInterfaceName(std::string(15, 'e')));
+    EXPECT_FALSE(JsonApi::isValidInterfaceName("lo"));
+    EXPECT_FALSE(JsonApi::isValidInterfaceName("Apply"));
+}
+
+TEST(JsonApiAdminRules, BoxActionTimeouts)
+{
+    EXPECT_EQ(10, DaemonClient::LogsQueryTimeout);
+    EXPECT_EQ(35, DaemonClient::TimeSetTimeout);
+    EXPECT_EQ(10, JsonApi::adminRelayTimeout("logs_query"));
+    EXPECT_EQ(35, JsonApi::adminRelayTimeout("time_set"));
+    EXPECT_EQ(35, DaemonClient::NetworkChangeTimeout);
+    for (const char *action: { "network_apply", "network_confirm", "network_revert" })
+        EXPECT_EQ(35, JsonApi::adminRelayTimeout(action)) << action;
+    for (const char *action: { "services_list", "services_restart", "logs_sources", "time_get", "time_zones",
+                               "network_state" })
+        EXPECT_EQ(4, JsonApi::adminRelayTimeout(action)) << action;
+}
+
+TEST(JsonApiAdminRules, APendingNetworkChangeIsTranslatedWithItsId)
+{
+    DaemonReply r;
+    r.kind = DaemonReply::Kind::Error;
+    r.code = "network_pending";
+    r.msg = "daemon text";
+    r.data = { { "change_id", kChange }, { "expires_in", 87 } };
+    const Json j = JsonApi::adminErrorFromReply(r);
+    EXPECT_EQ((Json{ { "success", "false" }, { "error", "network_pending" }, { "msg", "A network change is waiting for its confirmation" }, { "change_id", kChange }, { "expires_in", "87" } }),
+              j);
+
+    r.data = Json();
+    EXPECT_EQ(3u, JsonApi::adminErrorFromReply(r).size());
+}
+
+TEST_F(JsonApiAdminTest, EveryBoxActionCallsItsFixedRoute)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    const Json junk = { { "path", "network/trial" }, { "recovery", true }, { "unit_file", "/etc/passwd" } };
+    auto plus = [&junk](Json params)
+    {
+        params.update(junk);
+        return params;
+    };
+    const Json query = { { "sources", Json::array({ "calaos-server" }) }, { "priority", 4 }, { "since", "2026-10-25T08:00:00Z" }, { "until", "2026-10-25T09:00:00Z" }, { "text", "wago" }, { "lines", 50 }, { "cursor", "s=1;i=2" }, { "direction", "backward" } };
+    const Json timeSet = { { "timezone", "Europe/Paris" }, { "ntp", false } };
+
+    struct Row
+    {
+        const char *action;
+        Json params;
+        const char *method;
+        const char *path;
+        Json body; //null: none
+    };
+    const std::vector<Row> rows = {
+        { "services_list", plus(Json::object()), "GET", "/api/v2/system/services", Json() },
+        { "services_restart", plus({ { "unit", "mosquitto" } }), "POST", "/api/v2/system/services/restart", { { "unit", "mosquitto" } } },
+        { "logs_sources", plus(Json::object()), "GET", "/api/v2/logs/sources", Json() },
+        { "logs_query", plus(query), "POST", "/api/v2/logs/query", query },
+        { "logs_query", Json::object(), "POST", "/api/v2/logs/query", Json::object() },
+        { "time_get", plus(Json::object()), "GET", "/api/v2/system/time", Json() },
+        { "time_zones", plus(Json::object()), "GET", "/api/v2/system/timezones", Json() },
+        { "time_set", plus(timeSet), "POST", "/api/v2/system/time", timeSet },
+        { "network_state", plus(Json::object()), "GET", "/api/v2/network/state", Json() },
+        { "network_apply", plus(withCode(staticNetwork())), "POST", "/api/v2/network/apply", withCode(staticNetwork()) },
+        { "network_confirm", plus({ { "change_id", kChange }, { "intf", "eth1" } }), "POST", "/api/v2/network/confirm", { { "change_id", kChange } } },
+        { "network_revert", plus({ { "change_id", kChange } }), "POST", "/api/v2/network/revert", { { "change_id", kChange } } },
+    };
+
+    std::map<std::string, Json> results;
+    for (const Row &row: rows)
+    {
+        fakeDaemon.clearLog();
+        Json data = adminAction(row.action, row.params);
+        data["path"] = "network/trial";
+        const Json answer = ws.admin("admin", data);
+        ASSERT_EQ("true", str(answer, "success")) << row.action << " " << answer.dump();
+        results[row.action] = answer["result"];
+
+        const auto log = daemonCalls();
+        ASSERT_EQ(1u, log.size()) << row.action << "\n"
+                                  << requestPaths();
+        FakeDaemon::Request req = log[0];
+        EXPECT_EQ(row.method, req.method) << row.action;
+        EXPECT_EQ(row.path, req.path) << row.action;
+        EXPECT_EQ("Bearer " + std::string(kBearer), req.headers["authorization"]);
+        EXPECT_EQ(FakeDaemon::Session, req.headers["x-calaos-admin-session"]) << row.action;
+        EXPECT_EQ("127.0.0.1", req.headers["x-calaos-client-ip"]) << row.action;
+        if (row.body.is_null())
+            EXPECT_TRUE(req.body.empty()) << row.action << " " << req.body;
+        else
+            EXPECT_EQ(row.body, parse(req.body)) << row.action;
+    }
+
+    //result is the daemon's data, with its JSON types
+    for (const char *route: { "GET /api/v2/system/services", "GET /api/v2/logs/sources", "POST /api/v2/logs/query",
+                              "GET /api/v2/system/time", "GET /api/v2/system/timezones", "GET /api/v2/network/state" })
+    {
+        const std::string r = route;
+        const std::string action = r == "GET /api/v2/system/services"    ? "services_list"
+                                   : r == "GET /api/v2/logs/sources"     ? "logs_sources"
+                                   : r == "POST /api/v2/logs/query"      ? "logs_query"
+                                   : r == "GET /api/v2/system/time"      ? "time_get"
+                                   : r == "GET /api/v2/system/timezones" ? "time_zones"
+                                                                         : "network_state";
+        EXPECT_EQ(FakeDaemon::boxData(r), results[action]) << action;
+    }
+    EXPECT_TRUE(results["services_list"]["services"][1]["since"].is_null());
+    EXPECT_EQ(4, results["logs_query"]["entries"][0]["priority"].get<int>());
+    EXPECT_EQ((Json{ { "id", "mosquitto" }, { "state", "restarting" } }), results["services_restart"]);
+    EXPECT_TRUE(results["time_set"]["restart_required"].get<bool>());
+    EXPECT_FALSE(results["time_set"]["synchronized"].get<bool>());
+    EXPECT_EQ(120, results["network_apply"]["confirm_within"].get<int>());
+    EXPECT_EQ(87, results["network_state"]["pending"]["expires_in"].get<int>());
+    EXPECT_EQ("confirmed", str(results["network_confirm"], "state"));
+    EXPECT_EQ("reverted", str(results["network_revert"], "state"));
+}
+
+TEST_F(JsonApiAdminTest, TheNetworkCodeIsBoundToTheStringsAsTyped)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    auto codeParams = [&ws](const Json &typed)
+    {
+        fakeDaemon.clearLog();
+        Json typedPlus = typed;
+        typedPlus["code_id"] = "c000000000000009";
+        const Json answer = ws.admin("admin", adminAction("code_request", { { "code_action", "network_config" }, { "code_params", typedPlus } }));
+        EXPECT_EQ("true", str(answer, "success")) << answer.dump();
+        return parse(fakeDaemon.last("/api/v2/admin/codes").body);
+    };
+
+    EXPECT_EQ((Json{ { "action", "network_config" }, { "params", { { "intf", "eth0" }, { "dhcp", "false" }, { "ipv4", "192.168.1.10/24" }, { "gateway", "192.168.1.1" }, { "dns_servers", "192.168.1.1,9.9.9.9" }, { "search_domains", "lan,home.example." } } } }),
+              codeParams(staticNetwork()));
+
+    const Json dhcpBound = { { "action", "network_config" }, { "params", { { "intf", "eth0" }, { "dhcp", "true" }, { "ipv4", "" }, { "gateway", "" }, { "dns_servers", "" }, { "search_domains", "" } } } };
+    EXPECT_EQ(dhcpBound, codeParams({ { "intf", "eth0" }, { "dhcp", true } }));
+    EXPECT_EQ(dhcpBound, codeParams({ { "intf", "eth0" }, { "dhcp", true }, { "ipv4", "" }, { "dns_servers", Json::array() } }));
+
+    //No gateway, no list: the keys are still there, empty
+    const Json bare = changed(changed(changed(staticNetwork(), "gateway", nullptr), "dns_servers", nullptr), "search_domains", nullptr);
+    EXPECT_EQ((Json{ { "intf", "eth0" }, { "dhcp", "false" }, { "ipv4", "192.168.1.10/24" }, { "gateway", "" }, { "dns_servers", "" }, { "search_domains", "" } }),
+              codeParams(bare)["params"]);
+
+    //The apply that consumes it carries the same fields, as typed
+    fakeDaemon.clearLog();
+    const Json dhcpApply = withCode({ { "intf", "eth0" }, { "dhcp", true } });
+    EXPECT_EQ("true", str(ws.admin("admin", adminAction("network_apply", dhcpApply)), "success"));
+    EXPECT_EQ(dhcpApply, parse(fakeDaemon.last("/api/v2/network/apply").body));
+}
+
+TEST_F(JsonApiAdminTest, MalformedBoxParamsNeverReachTheDaemon)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    for (const Case &c: invalidBoxRequests())
+        expectError(ws.admin("admin", adminAction(c.first, c.second)), "invalid_request");
+    //A missing or malformed session is answered here: the bearer alone would authorize
+    for (const Case &c: validBoxRequests())
+    {
+        expectError(ws.admin("admin", { { "action", c.first }, { "params", c.second } }), "bad_session");
+        expectError(ws.admin("admin", { { "action", c.first }, { "params", c.second }, { "admin_session", "" } }), "bad_session");
+    }
+    EXPECT_TRUE(daemonCalls().empty()) << requestPaths();
+}
+
+TEST_F(JsonApiAdminTest, NeverRelayedRoutesStayOutOfReach)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    for (const char *action: { "network_trial", "network_list", "network_intf", "network_eth0", "network",
+                               "network/trial", "network_apply ", "Network_apply", "system_install_start",
+                               "system_install", "system_rollback_snapshot", "system_fs_status", "update_installed",
+                               "admin_reset", "admin_alerts_ack", "alerts_ack", "admin_push", "admin_set_recovery",
+                               "logs_follow", "services_stop", "services_start", "time_ntp", "config_backup_restore" })
+    {
+        const Json answer = ws.admin("admin", adminAction(action, withCode(staticNetwork())));
+        expectError(answer, "not_allowed");
+    }
+    EXPECT_TRUE(daemonCalls().empty()) << requestPaths();
+}
+
+TEST_F(JsonApiAdminTest, BoxActionsNeedHttpsAndRefuseTheServiceScope)
+{
+    adminDefined();
+    WsClient plain;
+    ASSERT_TRUE(plain.login(""));
+    WsClient service;
+    ASSERT_TRUE(service.open("https"));
+    const Json s = service.ask(Json{ { "msg", "login_service" }, { "msg_id", "l" }, { "data", { { "token", kServiceToken } } } });
+    ASSERT_EQ("true", str(s["data"], "success")) << s.dump();
+
+    for (const Case &c: validBoxRequests())
+    {
+        expectError(plain.admin("admin", adminAction(c.first, c.second)), "https_required");
+        const Json refused = service.admin("admin", adminAction(c.first, c.second));
+        expectError(refused, "not_allowed");
+        EXPECT_EQ("scope denied", str(refused, "msg"));
+    }
+    EXPECT_TRUE(daemonCalls().empty()) << requestPaths();
+}
+
+TEST_F(JsonApiAdminTest, ANetworkChangeWaitsForNetworkctl)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    //Longer than the 4 s default, as a slow networkctl reload makes it
+    fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/v2/network/confirm")
+            return false;
+        res.delayMs = 4500;
+        res.body = FakeDaemon::ok({ { "change_id", kChange }, { "intf", "eth0" }, { "state", "confirmed" } });
+        return true;
+    });
+    const Json confirmed = ws.admin("admin", adminAction("network_confirm", { { "change_id", kChange } }), 9000);
+    EXPECT_EQ("true", str(confirmed, "success")) << confirmed.dump();
+    EXPECT_EQ("confirmed", str(confirmed["result"], "state"));
+}
+
+TEST_F(JsonApiAdminTest, AWriteWithoutAnswerHasAnUnknownOutcome)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    //Past calaos_server's own timeout: the daemon may still apply it
+    fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/v2/network/apply")
+            return false;
+        res.delayMs = (DaemonClient::NetworkChangeTimeout + 1) * 1000;
+        res.body = FakeDaemon::ok({ { "change_id", kChange } });
+        return true;
+    });
+    const Json late = ws.admin("admin", adminAction("network_apply", withCode(staticNetwork())), 45000);
+    EXPECT_EQ((Json{ { "success", "false" }, { "error", "daemon_unreachable" }, { "msg", "calaos-container is unreachable" }, { "outcome", "unknown" } }),
+              late);
+    fakeDaemon.setOverride(nullptr);
+
+    //A daemon gone silent: the same for the four writes, nothing for the others
+    fakeDaemon.stop();
+    const std::vector<Case> writes = { { "time_set", { { "ntp", true } } },
+                                       { "network_apply", withCode(staticNetwork()) },
+                                       { "network_confirm", { { "change_id", kChange } } },
+                                       { "network_revert", { { "change_id", kChange } } } };
+    for (const Case &c: writes)
+    {
+        const Json a = ws.admin("admin", adminAction(c.first, c.second));
+        expectError(a, "daemon_unreachable");
+        EXPECT_EQ("unknown", str(a, "outcome")) << c.first;
+    }
+    for (const Case &c: std::vector<Case>{ { "services_restart", { { "unit", "mosquitto" } } }, { "time_get", Json() }, { "network_state", Json() }, { "system_reboot", Json() } })
+    {
+        const Json a = ws.admin("admin", adminAction(c.first, c.second));
+        expectError(a, "daemon_unreachable");
+        EXPECT_FALSE(a.contains("outcome")) << c.first;
+    }
+}
+
+TEST_F(JsonApiAdminTest, BoxErrorsAreTranslated)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    auto answerWith = [](const std::string &route, int status, const std::string &body)
+    {
+        fakeDaemon.setOverride([route, status, body](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                               {
+            if (req.method + " " + req.path != route)
+                return false;
+            res.status = status;
+            res.body = body;
+            return true;
+        });
+    };
+
+    //A time_set that failed half way: what stays applied, and the restart it needs
+    const Json tz = { { "timezone", "Europe/Paris" }, { "ntp", true } };
+    for (const auto &t: std::vector<std::pair<Json, Json>>{
+             { { { "applied", Json::array({ "timezone" }) }, { "failed", "ntp" } }, { { "applied", "timezone" }, { "failed", "ntp" }, { "restart_required", "true" } } },
+             { { { "applied", Json::array() }, { "failed", "timezone" } }, { { "applied", "" }, { "failed", "timezone" }, { "restart_required", "false" } } },
+             { { { "applied", Json::array({ "ntp", "timezone", "rm -rf", 3 }) }, { "failed", "../time" } }, { { "applied", "ntp,timezone" }, { "restart_required", "true" } } },
+             { Json(), Json::object() },
+             { { { "applied", "timezone" } }, Json::object() } })
+    {
+        answerWith("POST /api/v2/system/time", 500, FakeDaemon::err("internal", t.first));
+        Json expected = { { "success", "false" }, { "error", "internal" }, { "msg", "Internal error" } };
+        expected.update(t.second);
+        EXPECT_EQ(expected, ws.admin("admin", adminAction("time_set", tz))) << t.first.dump();
+    }
+    answerWith("GET /api/v2/system/time", 500, FakeDaemon::err("internal", { { "applied", Json::array({ "timezone" }) } }));
+    EXPECT_EQ(3u, ws.admin("admin", adminAction("time_get")).size()) << "only time_set has steps";
+
+    answerWith("POST /api/v2/network/apply", 409, FakeDaemon::err("network_pending", { { "change_id", kChange }, { "expires_in", 87 } }));
+    const Json pending = ws.admin("admin", adminAction("network_apply", withCode(staticNetwork())));
+    expectError(pending, "network_pending");
+    EXPECT_EQ(kChange, str(pending, "change_id"));
+    EXPECT_EQ("87", str(pending, "expires_in"));
+
+    answerWith("POST /api/v2/logs/query", 429, FakeDaemon::err("rate_limited", { { "retry_after", 1 } }));
+    const Json limited = ws.admin("admin", adminAction("logs_query", Json::object()));
+    expectError(limited, "rate_limited");
+    EXPECT_EQ("1", str(limited, "retry_after"));
+
+    answerWith("POST /api/v2/system/services/restart", 400, FakeDaemon::err("invalid_request"));
+    const Json unknown = ws.admin("admin", adminAction("services_restart", { { "unit", "ssh" } }));
+    expectError(unknown, "invalid_request");
+    EXPECT_EQ("daemon says invalid_request", str(unknown, "msg"));
+
+    answerWith("POST /api/v2/network/confirm", 409, FakeDaemon::err("upgrade_in_progress", { { "job_id", "3f9c2a7e5b1d4c80" } }));
+    expectError(ws.admin("admin", adminAction("network_confirm", { { "change_id", kChange } })), "upgrade_in_progress");
+
+    //A daemon older than the route: that panel only, the rest of the admin works
+    for (const char *action: { "services_list", "logs_query", "time_get", "network_state", "system_info" })
+    {
+        fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                               {
+            if (req.path == "/api/v2/admin/status")
+                return false;
+            res.status = 404;
+            res.body = FakeDaemon::err("not_found");
+            return true;
+        });
+        expectError(ws.admin("admin", adminAction(action, Json::object())), "daemon_too_old");
+        EXPECT_EQ(AdminState::Mode::Set, AdminState::Instance().mode()) << action;
+    }
+    fakeDaemon.setOverride(nullptr);
+    EXPECT_EQ("true", str(ws.admin("admin", adminAction("update_available")), "success"));
+}
+
+/*******************************************************************************
  * The /events client
  ******************************************************************************/
 
@@ -3288,6 +3868,98 @@ TEST_F(AdminEventsTest, ProtocolErrorsDropTheStream)
             return fakeDaemon.eventsAccepted() == accepted && AdminEvents::Instance().connected();
         })) << accepted;
     }
+}
+
+TEST(JsonApiAdminRules, NetworkEventsReachHouseholdClientsWithoutAddresses)
+{
+    const std::string now = "2026-10-25T09:12:04Z";
+    const Json pending = { { "type", "network_pending" }, { "data", { { "change_id", "5d0c8e1f2a3b4c6d" }, { "intf", "eth0" }, { "applied_at", "2026-10-25T09:12:03Z" }, { "confirm_within", 120 }, { "ipv4", "10.0.0.2/24" } } } };
+    EXPECT_EQ((Json{ { "type", "network_pending" }, { "ts", now }, { "data", { { "intf", "eth0" }, { "change_id", "5d0c8e1f2a3b4c6d" }, { "applied_at", "2026-10-25T09:12:03Z" }, { "confirm_within", 120 } } } }),
+              AdminEvents::householdEventFor(pending, now));
+    const Json applied = { { "type", "network_applied" }, { "data", { { "change_id", "5d0c8e1f2a3b4c6d" }, { "intf", "eth0" }, { "gateway", "10.0.0.1" } } } };
+    EXPECT_EQ((Json{ { "type", "network_applied" }, { "ts", now }, { "data", { { "intf", "eth0" }, { "change_id", "5d0c8e1f2a3b4c6d" } } } }),
+              AdminEvents::householdEventFor(applied, now));
+
+    for (const auto &bad: std::vector<std::pair<const char *, Json>>{ { "intf", "lo" },
+                                                                      { "intf", "../eth0" },
+                                                                      { "intf", 3 },
+                                                                      { "change_id", "5D0C8E1F2A3B4C6D" },
+                                                                      { "change_id", nullptr },
+                                                                      { "applied_at", "<script>alert(1)</script>" },
+                                                                      { "applied_at", nullptr },
+                                                                      { "confirm_within", "120" },
+                                                                      { "confirm_within", nullptr } })
+    {
+        Json e = pending;
+        if (bad.second.is_null())
+            e["data"].erase(bad.first);
+        else
+            e["data"][bad.first] = bad.second;
+        EXPECT_TRUE(AdminEvents::householdEventFor(e, now).is_null()) << e.dump();
+    }
+    EXPECT_TRUE(AdminEvents::householdEventFor({ { "type", "network_applied" }, { "data", { { "intf", "eth0" } } } }, now).is_null());
+    EXPECT_TRUE(AdminEvents::householdEventFor({ { "type", "network_pending" }, { "data", "eth0" } }, now).is_null());
+
+    EXPECT_EQ((Json{ { "type", "network_rolled_back" }, { "ts", "2026-10-22T09:14:00Z" }, { "data", { { "intf", "eth0" } } } }),
+              AdminEvents::householdEventFor(FakeDaemon::alertEvent("network_rolled_back", "0000000000000a71", { { "intf", "eth0" } }), now));
+    EXPECT_EQ((Json{ { "type", "network_rolled_back" }, { "ts", "2026-10-22T09:14:00Z" }, { "data", Json::object() } }),
+              AdminEvents::householdEventFor(FakeDaemon::alertEvent("network_rolled_back", "0000000000000a71", { { "intf", "eth0\n" } }), now));
+
+    EXPECT_EQ("Network change rolled back on your Calaos box: eth0",
+              AdminState::alertMessage("network_rolled_back", { { "intf", "eth0" } }));
+    EXPECT_EQ("Network change rolled back on your Calaos box: ?",
+              AdminState::alertMessage("network_rolled_back", { { "intf", "<b>eth0</b>" } }));
+}
+
+TEST_F(AdminEventsTest, NetworkEventsAreRelayedAndARollbackIsStoredWithoutAPush)
+{
+    HistLogger::Instance().registerPushToken("p3-network-token", HistLogger::PUSH_HW_ANDROID);
+    quietPushes();
+    adminDefined();
+
+    WsClient household;
+    ASSERT_TRUE(household.login("")); //the plain port gets them too
+    startEvents();
+    ASSERT_TRUE(isAdminEvent(household.next(), "upgrade_progress"));
+
+    fakeDaemon.pushEvent({ { "type", "network_pending" }, { "data", { { "change_id", "5d0c8e1f2a3b4c6d" }, { "intf", "eth0" }, { "applied_at", "2026-10-25T09:12:03Z" }, { "confirm_within", 120 } } } });
+    const Json pending = household.next();
+    ASSERT_TRUE(isAdminEvent(pending, "network_pending")) << pending.dump();
+    EXPECT_FALSE(pending.contains("msg_id"));
+    EXPECT_EQ(20u, str(pending["data"], "ts").size()) << "the time it was received";
+    EXPECT_EQ((Json{ { "intf", "eth0" }, { "change_id", "5d0c8e1f2a3b4c6d" }, { "applied_at", "2026-10-25T09:12:03Z" }, { "confirm_within", 120 } }),
+              pending["data"]["data"]);
+
+    fakeDaemon.pushEvent({ { "type", "network_applied" }, { "data", { { "change_id", "5d0c8e1f2a3b4c6d" }, { "intf", "eth0" } } } });
+    const Json applied = household.next();
+    ASSERT_TRUE(isAdminEvent(applied, "network_applied")) << applied.dump();
+    EXPECT_EQ((Json{ { "intf", "eth0" }, { "change_id", "5d0c8e1f2a3b4c6d" } }), applied["data"]["data"]);
+
+    const char *text = "Network change rolled back on your Calaos box: eth0";
+    const size_t storedBefore = storedEvents(text);
+    const size_t pushesBefore = fakeDaemon.count("/api/push");
+    fakeDaemon.raiseAlert("network_rolled_back", "0000000000000a71", { { "intf", "eth0" } });
+    const Json rolledBack = household.next();
+    ASSERT_TRUE(isAdminEvent(rolledBack, "network_rolled_back")) << rolledBack.dump();
+    EXPECT_EQ((Json{ { "type", "network_rolled_back" }, { "ts", "2026-10-22T09:14:00Z" }, { "data", { { "intf", "eth0" } } } }),
+              rolledBack["data"]);
+    ASSERT_TRUE(pumpUntil([]()
+                          {
+        return fakeDaemon.pendingAlerts().empty();
+    }));
+    EXPECT_EQ(storedBefore + 1, storedEvents(text)) << "the banner at the next login";
+
+    //Acked again when replayed, never stored twice, and no phone is pushed
+    const size_t acked = acks();
+    fakeDaemon.pushEvent(FakeDaemon::alertEvent("network_rolled_back", "0000000000000a71", { { "intf", "eth0" } }));
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return acks() == acked + 1;
+    }));
+    drainLoop(500);
+    EXPECT_EQ(storedBefore + 1, storedEvents(text));
+    EXPECT_EQ(pushesBefore, fakeDaemon.count("/api/push"));
+    EXPECT_EQ(0u, pushesOf("Network change"));
 }
 
 /*******************************************************************************
