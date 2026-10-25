@@ -519,7 +519,9 @@ reçoivent leur `created_at`, la date de leur dernier enregistrement.
 La colonne `push_key` (texte, `''` par défaut) garde la clé push de `register_push`
 (64 hexadécimaux minuscules, validés par `JsonApi::pushKeyFromString()`, acceptée aussi
 hors `secureTransport()` : `JsonApi::PushKeyNeedsSecureTransport`). Un enregistrement
-sans clé valide garde la clé connue ; un approbateur prend sa première clé puis la garde.
+sans clé valide garde la clé connue ; un approbateur prend sa première clé puis la garde, et
+`approver_set` lui écrit la clé qui a scellé son code `approver_confirm`
+(`AdminEvents::markApprover()`). La purge à 30 jours épargne les approbateurs.
 Elle est ajoutée à part : une base où elle ne peut pas l'être (verrou, lecture seule)
 garde ses noms et sert ses jetons sans clé, donc en texte hérité. Un jeton avec clé reçoit
 l'avis et le code chiffré (`NotifManager::buildAdminCodeBody()`, nonce de `RAND_bytes`),

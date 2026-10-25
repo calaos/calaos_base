@@ -51,7 +51,8 @@ string toHex(const string &bytes)
     return out;
 }
 
-//Lowercase only, as register_push stores it
+//Lowercase only, as register_push stores it. Reserved first so that the key
+//never sits in a buffer the final cleanse does not reach.
 bool fromHex(const string &hex, string &out)
 {
     auto nibble = [](char c)
@@ -61,6 +62,7 @@ bool fromHex(const string &hex, string &out)
     out.clear();
     if (hex.size() % 2)
         return false;
+    out.reserve(hex.size() / 2);
     for (size_t i = 0; i < hex.size(); i += 2)
     {
         const int hi = nibble(hex[i]), lo = nibble(hex[i + 1]);
@@ -391,11 +393,17 @@ bool NotifManager::sealAdminCode(const string &keyHex, const AdminCode &code, co
 
     //docs/08_http_api.md, "Code push chiffré": the phones replay these bytes
     unsigned char ks[32], mac[32];
+    if (!hmacSha256(key, "calaos-admin-code/enc" + code.codeId + nonce, ks))
+    {
+        //LCOV_EXCL_START only reached when OpenSSL has no SHA-256
+        OPENSSL_cleanse(&key[0], key.size());
+        return false;
+        //LCOV_EXCL_STOP
+    }
     string ct(6, '\0');
-    bool ok = hmacSha256(key, "calaos-admin-code/enc" + code.codeId + nonce, ks);
     for (size_t i = 0; i < ct.size(); i++)
         ct[i] = (char)(code.code[i] ^ ks[i]);
-    ok = ok && hmacSha256(key, "calaos-admin-code/mac" + code.codeId + nonce + code.action + code.expires + ct, mac);
+    const bool ok = hmacSha256(key, "calaos-admin-code/mac" + code.codeId + nonce + code.action + code.expires + ct, mac);
 
     ctHex = toHex(ct);
     tagHex = toHex(string((const char *)mac, 16));
@@ -449,7 +457,8 @@ string NotifManager::buildAdminCodeBody(const PushToken &token, const AdminCode 
     return jnotif.dump(-1, ' ', true, Json::error_handler_t::replace);
 }
 
-void NotifManager::sendAdminCodeTo(const string &token, const AdminCode &code, std::function<void(bool)> callbackDone)
+void NotifManager::sendAdminCodeTo(const string &token, const AdminCode &code,
+                                   std::function<void(bool sent, const string &sealedKey)> callbackDone)
 {
     HistLogger::Instance().getPushTokens(
         [this, token, code, callbackDone](bool success, string errorMsg, const vector<PushToken> &tokens)
@@ -482,12 +491,17 @@ void NotifManager::sendAdminCodeTo(const string &token, const AdminCode &code, s
             const string why = !success ? errorMsg : (known ? string("no push could be built for this phone") : string("the phone is not registered with this server any more"));
             cWarningDom(TAG) << "Push not sent: " << why;
             if (callbackDone)
-                callbackDone(false);
+                callbackDone(false, string());
             return;
         }
 
         cDebugDom(TAG) << "Sending " << (sealed ? "an encrypted" : "a") << " code push to service for one token";
-        post(body, {}, callbackDone);
+        const string sealedKey = sealed ? one->push_key : string();
+        post(body, {}, [callbackDone, sealedKey](bool sent)
+             {
+            if (callbackDone)
+                callbackDone(sent, sealedKey);
+        });
     });
 }
 

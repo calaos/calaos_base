@@ -121,8 +121,9 @@ public:
     void registerPushToken(string token, int push_hw, int push_format = PUSH_FORMAT_NOTIFICATION,
                            string device_name = string(), string push_key = string());
 
-    //Marks the token as the daemon's approver (approver_set) or not any more
-    void setPushTokenApprover(string token, bool approver);
+    //Marks the token as the daemon's approver (approver_set) or not any more.
+    //A provedKey, the one that sealed its approver_confirm code, becomes its key.
+    void setPushTokenApprover(string token, bool approver, string provedKey = string());
 
     //Get all push token devices
     void getPushTokens(std::function<void(bool success, string errorMsg, const vector<PushToken> &tokens)> callback);
@@ -153,9 +154,10 @@ namespace PushTokenDb
 bool prepare(sqlite::database &db, bool *locked = nullptr, bool *hasName = nullptr, bool *hasKey = nullptr);
 void save(sqlite::database &db, const PushToken &token, bool hasFormat, bool hasName = false, bool hasKey = false);
 vector<PushToken> load(sqlite::database &db, bool hasFormat, bool hasName = false, bool hasKey = false);
-void setApprover(sqlite::database &db, const string &token, bool approver);
-//Tokens not registered again for 30 days.
-void purge(sqlite::database &db);
+void setApprover(sqlite::database &db, const string &token, bool approver, const string &provedKey = string(),
+                 bool hasKey = false);
+//Tokens not registered again for 30 days, approvers kept when hasName.
+void purge(sqlite::database &db, bool hasName = false);
 } //namespace PushTokenDb
 
 //Statements of the paginated read and the retention purge, checked against

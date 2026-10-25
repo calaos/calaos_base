@@ -591,49 +591,113 @@ TEST(PushTokenStoreTest, TheWorkerStoresTheKeyAndAPushOfTheCodeLogsNoSecret)
     code.code = "482913";
     code.expires = "2026-10-25T09:13:03Z";
 
-    auto send = [](const char *token, const NotifManager::AdminCode &c, std::string &log)
+    //Neither token nor key nor code, whatever form the push took
+    const std::vector<std::string> secrets = { "482913", KeyC, keyedToken, keylessToken };
+    auto send = [&secrets](const char *token, const NotifManager::AdminCode &c, std::string &sealedKey)
     {
         PushTest::HttpPeer peer;
         NotifManager::setPushServiceUrl(peer.url());
         PushTest::StdoutCapture capture;
         auto done = std::make_shared<int>(-1);
-        NotifManager::Instance().sendAdminCodeTo(token, c, [done](bool ok)
+        auto key = std::make_shared<std::string>();
+        NotifManager::Instance().sendAdminCodeTo(token, c, [done, key](bool ok, const string &sealed)
                                                  {
             *done = ok ? 1 : 0;
+            *key = sealed;
         });
         PushTest::pumpUntil([done]()
                             {
             return *done >= 0;
         });
-        log = capture.stop();
+        const std::string log = capture.stop();
         EXPECT_EQ(1, *done) << token;
+        sealedKey = *key;
         const std::string req = peer.request();
         const size_t at = req.find("\r\n\r\n");
-        return at == std::string::npos ? Json() : Json::parse(req.substr(at + 4), nullptr, false);
+        const Json body = at == std::string::npos ? Json() : Json::parse(req.substr(at + 4), nullptr, false);
+        EXPECT_NE(std::string::npos, log.find("code push to service")) << "nothing was captured: " << log;
+        std::vector<std::string> found = secrets;
+        Json copy = body;
+        const Json data = copy.is_object() ? copy["notifications"][0]["data"] : Json();
+        for (const char *k: { "admin_code_nonce", "admin_code_ct", "admin_code_tag" })
+            if (data.is_object() && data.contains(k))
+                found.push_back(data[k].get<std::string>());
+        for (const std::string &secret: found)
+            EXPECT_EQ(std::string::npos, log.find(secret)) << secret << " in " << log;
+        return body;
     };
 
-    std::string log;
-    const Json sealed = send(keyedToken, code, log);
+    std::string sealedKey;
+    const Json sealed = send(keyedToken, code, sealedKey);
     const Json entry = sealed["notifications"][0];
     ASSERT_TRUE(entry.contains("data")) << sealed.dump();
     EXPECT_EQ("482913", PushTest::openAdminCode(KeyC, entry["data"]));
     EXPECT_EQ(std::string::npos, sealed.dump().find("482913")) << sealed.dump();
     EXPECT_FALSE(entry.contains("notification")) << "data only whatever its format";
-    EXPECT_NE(std::string::npos, log.find("encrypted code push")) << "nothing was captured: " << log;
-    std::vector<std::string> secrets = { "482913", KeyC, keyedToken };
-    for (const char *k: { "admin_code_nonce", "admin_code_ct", "admin_code_tag" })
-        secrets.push_back(entry["data"][k].get<std::string>());
-    for (const std::string &secret: secrets)
-        EXPECT_EQ(std::string::npos, log.find(secret)) << secret << " in " << log;
+    EXPECT_EQ(KeyC, sealedKey);
 
     //A keyless phone, and a keyed one when the daemon gave no code, get the daemon's text
-    const Json legacy = send(keylessToken, code, log);
+    const Json legacy = send(keylessToken, code, sealedKey);
     EXPECT_EQ(code.message, legacy["notifications"][0]["message"]) << legacy.dump();
+    EXPECT_EQ("", sealedKey);
     NotifManager::AdminCode old;
     old.message = code.message;
     old.codeId = code.codeId;
-    const Json oldDaemon = send(keyedToken, old, log);
+    const Json oldDaemon = send(keyedToken, old, sealedKey);
     EXPECT_EQ(code.message, oldDaemon["notifications"][0]["message"]) << oldDaemon.dump();
-    for (const std::string &secret: { std::string("482913"), KeyC, std::string(keyedToken) })
-        EXPECT_EQ(std::string::npos, log.find(secret)) << secret << " in " << log;
+    EXPECT_EQ("", sealedKey);
+}
+
+TEST(PushTokenStoreTest, ApproverSetFreezesTheKeyTheConfirmCodeWasSealedWith)
+{
+    sqlite::database db(phaseTwoDatabase("proved_key.db"));
+    ASSERT_TRUE(PushTokenDb::prepare(db));
+
+    //KeyA sealed the approver_confirm code the phone read; someone with the
+    //token and the household password registers KeyB before approver_set
+    PushTokenDb::save(db, withKey("race-phone", KeyA), true, true, true);
+    PushTokenDb::save(db, withKey("race-phone", KeyB), true, true, true);
+    EXPECT_EQ(KeyB, keyOf(db, "race-phone"));
+
+    PushTokenDb::setApprover(db, "race-phone", true, KeyA, true);
+    EXPECT_EQ(KeyA, keyOf(db, "race-phone")) << "the proven key, not the last written";
+    EXPECT_TRUE(find(PushTokenDb::load(db, true, true, true), "race-phone")->approver);
+    PushTokenDb::save(db, withKey("race-phone", KeyB), true, true, true);
+    EXPECT_EQ(KeyA, keyOf(db, "race-phone")) << "then frozen";
+
+    //Without the column, or on a removal, the key is not touched
+    PushTokenDb::setApprover(db, "race-phone", false, KeyC, true);
+    EXPECT_EQ(KeyA, keyOf(db, "race-phone"));
+    EXPECT_FALSE(find(PushTokenDb::load(db, true, true, true), "race-phone")->approver);
+    PushTokenDb::setApprover(db, "race-phone", true, KeyC, false);
+    EXPECT_EQ(KeyA, keyOf(db, "race-phone"));
+    EXPECT_TRUE(find(PushTokenDb::load(db, true, true, true), "race-phone")->approver);
+}
+
+TEST(PushTokenStoreTest, ThePurgeNeverDropsAnApprover)
+{
+    sqlite::database db(phaseTwoDatabase("purge_approver.db"));
+    ASSERT_TRUE(PushTokenDb::prepare(db));
+    PushTokenDb::save(db, withKey("p2-approver", KeyA), true, true, true);
+    PushTokenDb::save(db, withKey("p3-old-phone", KeyB), true, true, true);
+
+    //Neither phone opened the app for 30 days
+    db << "UPDATE push_tokens SET created_at = date('now', '-31 days');";
+    PushTokenDb::purge(db, true);
+    EXPECT_EQ(KeyA, keyOf(db, "p2-approver")) << "kept with its frozen key";
+    EXPECT_EQ("<missing>", keyOf(db, "p3-old-phone"));
+    PushTokenDb::save(db, withKey("p2-approver", KeyB), true, true, true);
+    EXPECT_EQ(KeyA, keyOf(db, "p2-approver")) << "still frozen";
+
+    //Freed, it ages out as any other phone
+    PushTokenDb::setApprover(db, "p2-approver", false);
+    db << "UPDATE push_tokens SET created_at = date('now', '-31 days');";
+    PushTokenDb::purge(db, true);
+    EXPECT_EQ("<missing>", keyOf(db, "p2-approver"));
+
+    //A base without the approver column purges by date alone
+    sqlite::database old(oldDatabase("purge_old.db"));
+    old << "UPDATE push_tokens SET created_at = date('now', '-31 days');";
+    PushTokenDb::purge(old);
+    EXPECT_EQ(0u, PushTokenDb::load(old, false).size());
 }

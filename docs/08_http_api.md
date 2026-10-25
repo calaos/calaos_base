@@ -813,8 +813,9 @@ retrait d'un approbateur. Les mises à jour, le reboot et le reste ne demandent 
   champ ajouté plus tard par le daemon n'atteint pas les clients. Il ajoute à chaque
   approbateur `platform`, `registered_at` et `last_seen` lus dans `push_tokens` par `token_id`,
   et, en phase 3, `secure` (booléen JSON, comme pour les candidats).
-  Un approbateur dont le jeton a quitté `push_tokens` (purge à 30 jours) les a vides et `secure`
-  vaut `false` : il ne reçoit plus de codes tant que l'app ne s'est pas reconnectée.
+  Un approbateur dont le jeton manque à `push_tokens` (jamais enregistré auprès de ce serveur,
+  ou purgé avant que ce serveur le sache approbateur) les a vides et `secure` vaut `false` : il ne
+  reçoit plus de codes tant que l'app ne s'est pas reconnectée.
 - **`approver_enroll`** : le client nomme le téléphone par `params.token_id`. calaos_server le
   retrouve dans `push_tokens` et envoie lui-même au daemon **ce** jeton et **son**
   `device_name` ; tout `token`, `device_name` ou autre champ envoyé par le client est ignoré.
@@ -852,11 +853,12 @@ retrait d'un approbateur. Les mises à jour, le reboot et le reste ne demandent 
   plus 20 codes sont poussés par heure glissante (le double du budget du daemon) ; seul un
   push parti compte, pas une récupération qui n'a rien servi ni un jeton inconnu. Au-delà, le
   `push_code` est ignoré. Un code perdu se redemande au bout de 10 s.
-- **Jeton purgé à 30 jours.** Un téléphone approbateur dont l'app ne s'est pas connectée
-  depuis 30 jours quitte `push_tokens` (purge de `register_push`) et ne reçoit plus de
-  codes, alors que le daemon le liste toujours et que `code_request` réussit : seul le
-  journal de calaos_server le dit. Il les reçoit de nouveau dès que l'app se reconnecte
-  (même jeton). `approver_candidates.last_seen` permet à la webapp d'avertir avant.
+- **Jeton purgé à 30 jours.** La purge de `register_push` ne touche jamais le jeton d'un
+  approbateur (marqué par `approver_set` ou d'après `approver_list`) : il garde son nom, son
+  format et sa clé gelés, et reçoit ses codes même si l'app ne s'est pas connectée depuis
+  30 jours. Libéré par `approver_removed` (ou absent de la liste du daemon), il vieillit comme
+  les autres. `approver_candidates.last_seen` permet à la webapp d'avertir d'un téléphone
+  approbateur qui ne se connecte plus.
 
 #### Code push chiffré
 
@@ -2427,7 +2429,7 @@ Réponse : `{"success":"true"}` (dans `data` en WebSocket, muette sans `msg_id`)
   format par celui de la requête : une requête sans `push_format` le remet en
   `notification`. L'app doit donc envoyer `push_format` à chaque
   enregistrement.
-- Les jetons non réenregistrés depuis 30 jours sont supprimés.
+- Les jetons non réenregistrés depuis 30 jours sont supprimés, sauf ceux des approbateurs.
 - `device_name` est **optionnel** et nettoyé avant d'être stocké dans `push_tokens` :
   UTF-8 invalide, caractères de contrôle, bidi (`U+202E`, `U+061C`…), invisibles,
   sélecteurs de variante et caractères de remplissage qui s'affichent vides (`U+3164`,
@@ -2452,7 +2454,9 @@ Réponse : `{"success":"true"}` (dans `data` en WebSocket, muette sans `msg_id`)
   approbateur : une **première** clé est acceptée (les approbateurs de la phase 2 n'en ont pas, et
   ils ne peuvent pas se ré-enrôler avec le même jeton : `approver_exists`, `approver_last`) ; dès
   qu'il en a une, elle est **gelée** (même règle que le nom et le format) et un autre `push_key`
-  ne fait que rafraîchir la date. Risque assumé de la première clé : qui détient le jeton et le
+  ne fait que rafraîchir la date. À l'`approver_set`, la clé gelée est celle qui a scellé le code
+  `approver_confirm` envoyé dans les 10 minutes précédentes, que le téléphone a prouvé détenir,
+  même si un autre `register_push` l'a remplacée entre-temps. Risque assumé de la première clé : qui détient le jeton et le
   mot de passe foyer peut la poser avant le téléphone, lire les codes (ce qu'il peut déjà faire
   en clair) et empêcher le vrai téléphone de les déchiffrer ; `secure` devient visible dans la
   webapp, et le remède est un second approbateur ou `calaos-os admin reset` en SSH. Une clé perdue

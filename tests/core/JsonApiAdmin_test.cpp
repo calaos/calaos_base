@@ -4076,6 +4076,125 @@ TEST_F(AdminEventsTest, AnUnusableActionOrCodeIsNotPushed)
         EXPECT_EQ(std::string::npos, log.find(secret)) << secret << " in " << log;
 }
 
+namespace
+{
+
+std::string storedKeyOf(const char *token)
+{
+    const std::vector<PushToken> tokens = pushTokens();
+    const PushToken *t = tokenNamed(tokens, token);
+    return t ? t->push_key : std::string("<missing>");
+}
+
+//The phone proves kPushKey by reading its approver_confirm code, then whoever
+//holds the token and the household password registers attackerKey
+void confirmThenRekey(WsClient &household, const char *token, const char *codeId, const std::string &attackerKey)
+{
+    household.post(Json{ { "msg", "register_push" }, { "data", { { "token", token }, { "hardware", "android" }, { "push_key", kPushKey } } } });
+    ASSERT_TRUE(pumpUntil([token]()
+                          {
+        return storedKeyOf(token) == kPushKey;
+    }));
+    fakeDaemon.setPushPayload(codeId, codePayload(token, "314159", "approver_confirm"));
+    fakeDaemon.pushEvent({ { "type", "push_code" }, { "data", { { "approver_id", kApprover }, { "code_id", codeId } } } });
+    ASSERT_TRUE(pumpUntil([token]()
+                          {
+        return pushesFor(token) == 1;
+    }));
+    //Its callback, which remembers the key, runs once the relay has answered
+    drainLoop(300);
+    EXPECT_EQ("314159", PushTest::openAdminCode(kPushKey, pushBodyFor(token)["notifications"][0]["data"]));
+
+    household.post(Json{ { "msg", "register_push" }, { "data", { { "token", token }, { "hardware", "android" }, { "push_key", attackerKey } } } });
+    ASSERT_TRUE(pumpUntil([token, &attackerKey]()
+                          {
+        return storedKeyOf(token) == attackerKey;
+    }));
+}
+
+bool approverFlagOf(const char *token)
+{
+    const std::vector<PushToken> tokens = pushTokens();
+    const PushToken *t = tokenNamed(tokens, token);
+    return t && t->approver;
+}
+
+} //namespace
+
+TEST_F(AdminEventsTest, ApproverSetFreezesTheKeyTheConfirmCodeWasSealedWith)
+{
+    const char *token = "p3-race-phone";
+    const std::string attackerKey(64, 'b');
+    WsClient household;
+    ASSERT_TRUE(household.login(""));
+    quietPushes();
+    startEvents();
+    confirmThenRekey(household, token, "c00000000000a001", attackerKey);
+
+    fakeDaemon.raiseAlert("approver_set", "00000000000000a1", { { "device_name", "Pixel" }, { "token_id", JsonApi::pushTokenId(token) } });
+    ASSERT_TRUE(pumpUntil([token]()
+                          {
+        return approverFlagOf(token) && storedKeyOf(token) == kPushKey;
+    })) << "the proven key, not the one registered since";
+    household.post(Json{ { "msg", "register_push" }, { "data", { { "token", token }, { "hardware", "android" }, { "push_key", attackerKey } } } });
+    drainLoop(300);
+    EXPECT_EQ(kPushKey, storedKeyOf(token)) << "then frozen";
+
+    //Every later code is the phone's to read, nobody else's
+    auto sealedFor = [token]()
+    {
+        std::vector<Json> out;
+        for (const FakeDaemon::Request &r: fakeDaemon.requests())
+            if (r.path == "/api/push" && r.body.find(token) != std::string::npos && r.body.find("admin_code_ct") != std::string::npos)
+                out.push_back(parse(r.body));
+        return out;
+    };
+    quietPushes();
+    fakeDaemon.setPushPayload("c00000000000a002", codePayload(token, "271828", "console_open"));
+    fakeDaemon.pushEvent({ { "type", "push_code" }, { "data", { { "approver_id", kApprover }, { "code_id", "c00000000000a002" } } } });
+    ASSERT_TRUE(pumpUntil([&sealedFor]()
+                          {
+        return sealedFor().size() == 2;
+    }));
+    const Json data = sealedFor().back()["notifications"][0]["data"];
+    EXPECT_EQ("271828", PushTest::openAdminCode(kPushKey, data));
+    EXPECT_EQ("", PushTest::openAdminCode(attackerKey, data));
+    quietPushes();
+}
+
+TEST_F(AdminEventsTest, AnApproverSetLongAfterTheConfirmCodeLeavesTheKeyAlone)
+{
+    AdminEvents::Timings t = timings();
+    t.provedKeyLife = 0.5;
+    AdminEvents::Instance().setTimings(t);
+    const char *token = "p3-late-phone";
+    const std::string laterKey(64, 'c');
+    WsClient household;
+    ASSERT_TRUE(household.login(""));
+    quietPushes();
+    startEvents();
+    confirmThenRekey(household, token, "c00000000000a003", laterKey);
+
+    //Another phone's confirm, later, drops the stale entry
+    drainLoop(700);
+    confirmThenRekey(household, "p3-late-other", "c00000000000a004", laterKey);
+    fakeDaemon.raiseAlert("approver_set", "00000000000000a2", { { "device_name", "Pixel" }, { "token_id", JsonApi::pushTokenId(token) } });
+    ASSERT_TRUE(pumpUntil([token]()
+                          {
+        return approverFlagOf(token);
+    }));
+    EXPECT_EQ(laterKey, storedKeyOf(token)) << "no proof left to bind: the key registered stays";
+
+    //approver_removed frees it as before
+    AdminEvents::Instance().setTimings(timings());
+    fakeDaemon.raiseAlert("approver_removed", "00000000000000a3", { { "device_name", "Pixel" }, { "token_id", JsonApi::pushTokenId(token) } });
+    ASSERT_TRUE(pumpUntil([token]()
+                          {
+        return !approverFlagOf(token);
+    }));
+    quietPushes();
+}
+
 TEST_F(AdminEventsTest, AnApproverAlertIsPushedToEveryPhoneBehindAFixedPrefix)
 {
     HistLogger::Instance().registerPushToken("ap1b-approver-token", HistLogger::PUSH_HW_ANDROID);

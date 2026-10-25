@@ -651,14 +651,33 @@ void AdminEvents::processAlert(const string &type, const Json &data)
 
 void AdminEvents::markApprover(const string &tokenId, bool approver)
 {
-    HistLogger::Instance().getPushTokens([tokenId, approver](bool, string, const vector<PushToken> &tokens)
+    //Taken once: a replayed approver_set leaves the key alone
+    string proved;
+    const auto it = provedKeys.find(tokenId);
+    if (it != provedKeys.end())
+    {
+        if (approver && Utils::getMainLoopTime() - it->second.at < timings.provedKeyLife)
+            proved = it->second.key;
+        provedKeys.erase(it);
+    }
+
+    HistLogger::Instance().getPushTokens([tokenId, approver, proved](bool, string, const vector<PushToken> &tokens)
                                          {
         for (const PushToken &t: tokens)
         {
-            if (t.approver != approver && JsonApi::pushTokenId(t.token) == tokenId)
-                HistLogger::Instance().setPushTokenApprover(t.token, approver);
+            if ((t.approver != approver || !proved.empty()) && JsonApi::pushTokenId(t.token) == tokenId)
+                HistLogger::Instance().setPushTokenApprover(t.token, approver, proved);
         }
     });
+}
+
+void AdminEvents::rememberProvedKey(const string &tokenId, const string &key)
+{
+    const double now = Utils::getMainLoopTime();
+    for (auto it = provedKeys.begin(); it != provedKeys.end();)
+        it = now - it->second.at >= timings.provedKeyLife ? provedKeys.erase(it) : std::next(it);
+    //Bounded by maxCodePushes: only a push that went out gets here
+    provedKeys[tokenId] = ProvedKey{ key, now };
 }
 
 void AdminEvents::processPushCode(const Json &data)
@@ -705,8 +724,12 @@ void AdminEvents::processPushCode(const Json &data)
         }
 
         //The token, the message and the code hold the second factor: none is logged
-        NotifManager::Instance().sendAdminCodeTo(token, code, [this, codeId](bool sent)
+        const bool confirm = code.action == "approver_confirm";
+        NotifManager::Instance().sendAdminCodeTo(token, code, [this, codeId, confirm, tokenId = JsonApi::pushTokenId(token)](bool sent, const string &sealedKey)
                                                  {
+            //Reading this code proves the phone holds this key: approver_set freezes it
+            if (sent && confirm && !sealedKey.empty())
+                rememberProvedKey(tokenId, sealedKey);
             //Only a push that went out counts: fetches that serve nothing, or
             //name no registered phone, as a squatter's, must not use up the
             //hour of the real daemon

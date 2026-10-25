@@ -211,14 +211,24 @@ vector<PushToken> PushTokenDb::load(sqlite::database &db, bool hasFormat, bool h
     return tokens;
 }
 
-void PushTokenDb::setApprover(sqlite::database &db, const string &token, bool approver)
+void PushTokenDb::setApprover(sqlite::database &db, const string &token, bool approver, const string &provedKey, bool hasKey)
 {
-    db << "UPDATE push_tokens SET approver = ? WHERE token = ?;" << (approver ? 1 : 0) << token;
+    //Whatever was registered since the phone read its approver_confirm code
+    //is not the key it proved
+    if (approver && hasKey && !provedKey.empty())
+        db << "UPDATE push_tokens SET approver = 1, push_key = ? WHERE token = ?;" << provedKey << token;
+    else
+        db << "UPDATE push_tokens SET approver = ? WHERE token = ?;" << (approver ? 1 : 0) << token;
 }
 
-void PushTokenDb::purge(sqlite::database &db)
+void PushTokenDb::purge(sqlite::database &db, bool hasName)
 {
-    db << "DELETE FROM push_tokens WHERE created_at <= date('now', '-30 days');";
+    //An approver's row is its frozen name, format and key: dropped, the next
+    //register_push would recreate it as a phone anyone can rekey
+    if (hasName)
+        db << "DELETE FROM push_tokens WHERE created_at <= date('now', '-30 days') AND approver = 0;";
+    else
+        db << "DELETE FROM push_tokens WHERE created_at <= date('now', '-30 days');";
 }
 
 class HistWorkerAction
@@ -490,12 +500,13 @@ void HistLogger::registerPushToken(string token, int push_hw, int push_format, s
     eventQueue.push(a);
 }
 
-void HistLogger::setPushTokenApprover(string token, bool approver)
+void HistLogger::setPushTokenApprover(string token, bool approver, string provedKey)
 {
     std::shared_ptr<HistWorkerAction> a = std::make_shared<HistWorkerAction>();
     a->action = HistWorkerAction::WorkerTokenApprover;
     a->token.token = token;
     a->token.approver = approver;
+    a->token.push_key = provedKey;
     eventQueue.push(a);
 }
 
@@ -594,7 +605,7 @@ void HistLogger::sqliteWorker()
                 try
                 {
                     PushTokenDb::save(db, ac->token, pushFormat, pushName, pushKey);
-                    PushTokenDb::purge(db);
+                    PushTokenDb::purge(db, pushName);
                 }
                 catch (sqlite::sqlite_exception &e)
                 {
@@ -602,7 +613,7 @@ void HistLogger::sqliteWorker()
                 }
             }
             else if (ac->action == HistWorkerAction::WorkerTokenApprover && pushName)
-                PushTokenDb::setApprover(db, ac->token.token, ac->token.approver);
+                PushTokenDb::setApprover(db, ac->token.token, ac->token.approver, ac->token.push_key, pushKey);
             else if (ac->action == HistWorkerAction::WorkerTokenGetAll)
             {
                 cDebugDom("history") << "Reading from SQLite db all tokens";
@@ -623,7 +634,7 @@ void HistLogger::sqliteWorker()
                 {
                     try
                     {
-                        PushTokenDb::purge(db);
+                        PushTokenDb::purge(db, pushName);
                     }
                     catch (sqlite::sqlite_exception &e)
                     {

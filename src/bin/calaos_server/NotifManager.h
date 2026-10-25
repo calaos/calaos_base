@@ -66,10 +66,12 @@ public:
     /* Pushes the code to that one registered token only, never to the others:
      * encrypted with its push key when it has one and the daemon gave the
      * code, the daemon's message otherwise. callbackDone(false) when the token
-     * is not registered (any more) or the push failed. Nothing of the token,
-     * the key or the code is logged.
+     * is not registered (any more) or the push failed; sealedKey is the key
+     * the code went out sealed with, empty for the daemon's message. Nothing
+     * of the token, the key or the code is logged.
      */
-    void sendAdminCodeTo(const string &token, const AdminCode &code, std::function<void(bool)> callbackDone = {});
+    void sendAdminCodeTo(const string &token, const AdminCode &code,
+                         std::function<void(bool sent, const string &sealedKey)> callbackDone = {});
 
     //Request body for push.calaos.fr (gorush), empty when no token can be served.
     static string buildPushBody(const vector<PushToken> &tokens, const string &message,
