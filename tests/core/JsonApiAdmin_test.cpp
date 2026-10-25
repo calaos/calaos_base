@@ -2318,6 +2318,8 @@ std::vector<Case> invalidBoxRequests()
         { "logs_query", { { "lines", 18446744073709551615ull } } },
         { "logs_query", { { "since", "2026-10-25 08:00:00Z" } } },
         { "logs_query", { { "since", "2026-10-25T08:00:00" } } },
+        { "logs_query", { { "since", "2026-1a-25T08:00:00Z" } } },
+        { "logs_query", { { "since", "2026-10-25T08:00:00+0a:00" } } },
         { "logs_query", { { "since", "2026-10-25t08:00:00z" } } },
         { "logs_query", { { "since", "2026-13-01T00:00:00Z" } } },
         { "logs_query", { { "since", "2026-02-29T00:00:00Z" } } },

@@ -1509,8 +1509,7 @@ panneaux RemoteUI), un message non sollicité (sans `msg_id`) :
 - `network_rolled_back` (alerte du daemon : retour arrière par délai ou par redémarrage après
   l'échéance) suit le chemin d'`admin_set` (événement persistant affiché au login suivant,
   acquittement, déduplication sur `id`), avec `ts` et `data.intf` ; **aucun push** vers les
-  téléphones. Le texte de l'événement persistant est fixe, suivi du nom de l'interface (`?` s'il
-  n'est pas un nom d'interface valide) : `Network change rolled back on your Calaos box: eth0`.
+  téléphones. Texte de l'événement persistant : voir le tableau ci-dessous.
 - C'est **tout** ce que reçoit un client foyer. `upgrade_job` n'est pas retransmis : pour
   connaître le job ou `reboot_required`, lire `admin {update_status}`. `push_code` est consommé
   par calaos_server (voir [Approbateurs et codes push](#approbateurs-et-codes-push)) et
@@ -1527,6 +1526,20 @@ panneaux RemoteUI), un message non sollicité (sans `msg_id`) :
 - L'alerte `console_opened` (une console d'administration vient de s'ouvrir) suit le même
   chemin, avec un texte fixe : `Calaos: console opened`. Son `session_audit_id` reste au
   daemon : ni dans le push, ni dans l'événement persistant, ni dans `admin_event`.
+- **Textes des alertes.** Chaque alerte enregistrée est un événement persistant de l'historique
+  (`eventlog`) : `event_type` `"22"` (`EventPushNotification`), `io_id` et `pic_uid` vides,
+  `event_raw` = `{"message": "<texte>", "pic_uid": ""}`. Le texte est fixe (seul le nom entre
+  guillemets ou l'interface varient), en anglais, et c'est sur lui que la bannière du login
+  reconnaît l'alerte ; le push, quand il y en a un, porte le même texte.
+
+  | Alerte | `message` | Push |
+  |---|---|:---:|
+  | `admin_set` | `Admin password set on your Calaos box` | oui |
+  | `admin_reset` | `Admin password removed from your Calaos box` | oui |
+  | `approver_set` | `New approver phone on your Calaos box: "<device_name>"` | oui |
+  | `approver_removed` | `Approver phone removed from your Calaos box: "<device_name>"` | oui |
+  | `console_opened` | `Calaos: console opened` | oui |
+  | `network_rolled_back` | `Network change rolled back on your Calaos box: <intf>`, `<intf>` étant le `data.intf` de l'alerte, ou `?` s'il n'est pas un nom d'interface valide (règle d'`intf` de `network_apply`, `lo` exclu) | non |
 - calaos_server n'enregistre et ne retransmet une alerte qu'à sa
   première réception, **redémarrages compris** : les 64 derniers `id` enregistrés sont gardés
   dans le fichier `admin_alerts` de `Utils::getCachePath()` (à côté d'`admin_seen_set`). Une

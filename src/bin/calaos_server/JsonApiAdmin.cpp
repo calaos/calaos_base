@@ -270,7 +270,7 @@ string joined(const vector<string> &list)
     for (const string &s: list)
         out += (out.empty() ? "" : ",") + s;
     return out;
-}
+} //LCOV_EXCL_LINE gcov counts the exception cleanup of the locals here
 
 /* The fields of network_apply, which are also the code_params of a
  * network_config code, checked with the daemon's v2 rules. body gets them as
