@@ -58,7 +58,7 @@ Les constats calaos-container portent sur `origin/main`.
     - récupération : `{"recovery": true}` avec le seul bearer, envoyé uniquement par `calaos-os admin set`, jamais relayé par calaos_server (hors table).
 
     Les trois invalident toutes les sessions et publient l'alerte `admin_set`. Le mode récupération est une limite assumée : quiconque tient le bearer peut l'utiliser, comme une RCE dans calaos_server.
-  - **Alertes** : le daemon n'a pas de client push. Il persiste `admin_set`, `admin_reset`, `approver_set`, `approver_removed` et `console_opened` dans `/mnt/calaos/admin/` et les rejoue à chaque nouvel abonné `/events` jusqu'à l'ack de calaos_server, qui l'envoie après avoir enregistré l'événement. Une alerte émise pendant l'arrêt de calaos_server arrive donc au redémarrage, et une seule fois. Elle ne porte ni token ni code.
+  - **Alertes** : le daemon n'a pas de client push. Il persiste `admin_set`, `admin_reset`, `approver_set`, `approver_removed` et `console_opened` (et, en phase 3, `network_rolled_back`, amendement (b)) dans `/mnt/calaos/admin/` et les rejoue à chaque nouvel abonné `/events` jusqu'à l'ack de calaos_server, qui l'envoie après avoir enregistré l'événement. Une alerte émise pendant l'arrêt de calaos_server arrive donc au redémarrage, et une seule fois. Elle ne porte ni token ni code.
   - Tout appel porteur d'une session est refusé sur `install/*`, `rollback_snapshot` et `network/*` (middleware), sauf, depuis la phase 3, `network/state`, `confirm`, `revert` et `apply` (amendement (b)). `system/reboot` répond 409 pendant un job.
   - Audit dans `/mnt/calaos/admin/audit.log` et sur stdout (donc journald, hors snapshot) : adresse du client, action, résultat, id de session.
     - L'id de session est formé des 8 premiers caractères hexadécimaux du SHA-256 de la session, jamais de la session elle-même.
@@ -114,7 +114,7 @@ Les constats calaos-container portent sur `origin/main`.
     - `admin_set` et `admin_reset`, avec l'horodatage seul.
     - En phase 2, `approver_set` et `approver_removed` (levées par AP1a) et `console_opened` (levée par CO1) : mêmes règles de persistance, poussées à tous les téléphones par AP1b/CO2.
 
-    Tout autre type est consommé ou ignoré, jamais retransmis.
+    Tout autre type est consommé ou ignoré, jamais retransmis. En phase 3, `network_pending`, `network_applied` et `network_rolled_back` le sont aussi (amendement (b)).
   - Vocabulaire d'erreurs, défini une fois :
 
     | Code | Cas | Message webapp |
@@ -226,7 +226,7 @@ Exigence de Raoul : une installation existante monte vers les versions admin par
   - Comparaison en temps constant.
 - **Envoi**
   - Le daemon publie `push_code {approver_id, code_id}` sur `/events`, sans token ni code.
-  - calaos_server récupère `{token, message}` par une route du daemon protégée par le bearer (`GET admin/push/<code_id>`), puis envoie par `NotifManager` : un seul client push.
+  - calaos_server récupère `{token, message}` (en phase 3 `{token, message, action, code, expires_in}`) par une route du daemon protégée par le bearer (`GET admin/push/<code_id>`), puis envoie par `NotifManager` : un seul client push.
   - Le token de l'approbateur ne sort jamais du daemon et de calaos_server, et `push_code` n'est jamais retransmis aux clients.
 - **Le téléphone approbateur n'a besoin que du push sortant** : il n'a pas à joindre la box. Seul l'enrôlement l'exige, sur le LAN ou via le VPN.
 - **Protège** : chaque ouverture de la console, le changement du mot de passe admin, le changement d'approbateur, la config réseau (phase 3).
@@ -368,7 +368,7 @@ Périmètre approuvé par Raoul le 2026-10-25, après une revue de sécurité do
 ### Amendements du 2026-10-25 (phase 3)
 Décisions de Raoul du 2026-10-25, issues de la revue de sécurité de la phase 3. Chaque amendement corrige le texte plus haut qu'il nomme.
 
-**(a) La clé d'appareil remplace « pas de secret d'appareil ».** Ce que le plan refusait (« Ce qu'on ne fait pas », enrôlement), c'était d'*authentifier* le téléphone par un secret (ECDSA, signatures, rotation). Cela reste refusé. En revanche, chaque téléphone a une **clé push** : 32 octets tirés par l'app, envoyés une fois par `register_push` (`push_key`), stockés dans `push_tokens`, **gelés tant que le téléphone est approbateur** (même règle que son nom et son format). Elle sert uniquement à chiffrer le code (HMAC-SHA256, construction fixée dans `docs/08_http_api.md`, avec des vecteurs de test) pour qu'il ne figure ni dans le texte de la notification, ni chez le relais push, FCM ou APNs, ni chez qui ne détient que le jeton. Le second facteur est inchangé : le code tapé dans la webapp. Le principe de « Envoi » est conservé : le téléphone n'a pas à joindre la box, le code arrive chiffré dans le push. Les apps sans clé (stores) reçoivent le texte actuel pendant une release, puis il est retiré.
+**(a) La clé d'appareil remplace « pas de secret d'appareil ».** Ce que le plan refusait (« Ce qu'on ne fait pas », enrôlement), c'était d'*authentifier* le téléphone par un secret (ECDSA, signatures, rotation). Cela reste refusé. En revanche, chaque téléphone a une **clé push** : 32 octets tirés par l'app, envoyés à chaque `register_push` (`push_key`), stockés dans `push_tokens`, **gelés une fois posés tant que le téléphone est approbateur** (même règle que son nom et son format) ; la première clé d'un approbateur de la phase 2, qui n'en a pas, est acceptée (il ne peut pas se ré-enrôler avec le même jeton), et une clé perdue se résout par un jeton neuf, un second approbateur ou `calaos-os admin reset`. Elle sert uniquement à chiffrer le code (HMAC-SHA256, construction fixée dans `docs/08_http_api.md`, avec des vecteurs de test) pour qu'il ne figure ni dans le texte de la notification, ni chez le relais push, FCM ou APNs, ni chez qui ne détient que le jeton. Le second facteur est inchangé : le code tapé dans la webapp. Le principe de « Envoi » est conservé : le téléphone n'a pas à joindre la box, le code arrive chiffré dans le push. Les apps sans clé (stores) reçoivent le texte actuel pendant une release, puis il est retiré.
 
 **(b) Le réseau est relayé.** `network/state`, `network/apply` (protégé par un code push de l'action `network_config`), `network/confirm` et `network/revert` sont relayés par calaos_server ; `network/list`, `network/trial` (alias du CLI) et l'ancienne route `network/{intf}` restent réservées au bearer et ne sont jamais relayées. Le plan disait « sous 60 s » : la fenêtre « appliquer puis confirmer » est de **120 s** (changer d'adresse, accepter de nouveau l'avertissement du certificat auto-signé, se reconnecter et déverrouiller prend en pratique plus d'une minute). Le changement s'applique en essai dans `/run/systemd/network` et n'entre dans `/etc` qu'à la confirmation : un redémarrage ou une coupure de courant revient donc en arrière par construction. N'importe quelle session admin vivante peut confirmer, depuis la nouvelle adresse. Un retour arrière lève l'alerte persistée `network_rolled_back`, sans push vers les téléphones.
 
