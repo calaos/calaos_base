@@ -207,14 +207,20 @@ Json AdminConfig::backup(std::time_t createdAt)
     Config::Instance().SaveConfigIO();
     Config::Instance().SaveConfigRule();
 
+    //widgets.xml has no reader; a missing file is left out so a restore never writes an empty one
     Json files = Json::object();
-    for (const char *name: { IO_CONFIG, RULES_CONFIG, LOCAL_CONFIG, WIDGET_CONFIG })
-        files[name] = Utils::getFileContent(Utils::getConfigFile(name).c_str());
+    for (const char *name: { IO_CONFIG, RULES_CONFIG, LOCAL_CONFIG })
+    {
+        const string path = Utils::getConfigFile(name);
+        if (FileUtils::exists(path))
+            files[name] = Utils::getFileContent(path.c_str());
+    }
 
-    return Json{ { "format", "calaos-config-backup/1" },
+    return Json{ { "format", "calaos-config-backup/2" },
                  { "created_at", utcStamp(createdAt, "%Y-%m-%dT%H:%M:%SZ") },
                  { "server_version", PKG_VERSION_STR },
                  { "hostname", hostname() },
+                 { "io_format", IO_FORMAT_DEVICES },
                  { "files", files } };
 }
 

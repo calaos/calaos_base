@@ -744,7 +744,7 @@ Relaye une action de la table fermée vers le daemon. **WS uniquement.**
 | `network_revert` | `change_id` | `POST network/revert` | oui | `{change_id, intf, state: "reverted"}` |
 | `config_list` | | aucun : traité dans calaos_server | oui | `{options: [...]}`, voir [Configuration](#configuration-config_list-config_set-config_backup) |
 | `config_set` | `key`, `value` | aucun : traité dans calaos_server | oui | `{key, value, set, restart_required}` (un secret : sans `value`) |
-| `config_backup` | | aucun : traité dans calaos_server | oui | `{format, created_at, server_version, hostname, files}` |
+| `config_backup` | | aucun : traité dans calaos_server | oui | `{format, created_at, server_version, hostname, io_format, files}` |
 
 Chemins relatifs à `/api/v2/`. Jamais relayés, quoi que le client envoie : `system/install/*`,
 `system/rollback_snapshot`, `system/fs_status`, `network/list`, `network/trial`, `network/{intf}`
@@ -1406,12 +1406,16 @@ Ni listées ni modifiables ici : `cn_user`, `cn_pass`, `calaos_user`, `calaos_pa
   (`Utils::set_config_option()`, ou `del_config_option()` pour `""`) ; les clés
   « immédiat » agissent là où le code les relit déjà. `restart_required` : la webapp propose
   `services_restart` sur `calaos-server`. Un `local_config.xml` impossible à écrire : `internal`.
-- **`config_backup`** (sans `params`) → `{"format": "calaos-config-backup/1", "created_at",
-  "server_version", "hostname", "files": {"io.xml", "rules.xml", "local_config.xml",
-  "widgets.xml"}}`, chaque valeur étant le contenu du fichier (`""` pour un fichier absent).
-  `created_at` est en RFC 3339 UTC à la seconde (`2026-10-25T12:34:56Z`), `server_version` la
-  version de calaos_server, `hostname` le nom d'hôte brut (`gethostname()`). Comme `config get`,
-  les IO et règles en mémoire sont d'abord réécrites dans `io.xml` et `rules.xml`.
+- **`config_backup`** (sans `params`) → `{"format": "calaos-config-backup/2", "created_at",
+  "server_version", "hostname", "io_format": <entier>, "files": {"io.xml", "rules.xml",
+  "local_config.xml"}}`, chaque valeur étant le contenu du fichier. Un fichier absent de la box est
+  **omis** de `files` (jamais une chaîne vide, qu'une restauration écrirait). `widgets.xml` n'y
+  est pas : aucun programme ne le lit. `created_at` est en RFC 3339 UTC à la seconde
+  (`2026-10-25T12:34:56Z`), `server_version` la version de calaos_server, `hostname` le nom
+  d'hôte brut (`gethostname()`), `io_format` le format d'`io.xml` de ce serveur (nombre JSON, le
+  même que `config get` : `2` aujourd'hui). Comme `config get`, les IO et règles en mémoire sont
+  d'abord réécrites dans `io.xml` et `rules.xml`. La webapp en fait l'archive zip du projet
+  installer ; le nom `….json` de l'action HTTP ne change pas.
 - La session est validée comme `mcp_regenerate`.
 - Le journal de calaos_server (`cInfoDom("admin")`) écrit `Admin config set <clé> by <ip> (session
   <id d'audit>)` et `Admin config backup by <ip>`, jamais une valeur.

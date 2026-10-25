@@ -38,6 +38,7 @@
 #include "JsonApi.h"
 #include "JsonApiHandlerHttp.h"
 #include "AdminConfig.h"
+#include "CalaosConfig.h"
 #include "ConfigOptions.h"
 #include "OriginPolicy.h"
 #include "version.h"
@@ -5532,9 +5533,10 @@ TEST_F(JsonApiAdminTest, ConfigActionsNeedHttpsAndAValidSessionAndRefuseTheServi
     EXPECT_EQ(file, localConfigText());
 }
 
-TEST_F(JsonApiAdminTest, TheBackupOverTheWebsocketHoldsTheFourFiles)
+TEST_F(JsonApiAdminTest, TheBackupOverTheWebsocketHoldsTheThreeFiles)
 {
     adminDefined();
+    //No program reads widgets.xml: it is never in the backup
     {
         std::ofstream w(Utils::getConfigFile(WIDGET_CONFIG), std::ios::trunc);
         w << "<?xml version=\"1.0\"?>\n<widgets><widget id=\"cfg-s\"/></widgets>\n";
@@ -5548,7 +5550,9 @@ TEST_F(JsonApiAdminTest, TheBackupOverTheWebsocketHoldsTheFourFiles)
     ASSERT_EQ("true", str(answer, "success")) << answer.dump().substr(0, 400);
 
     const Json doc = answer["result"];
-    EXPECT_EQ("calaos-config-backup/1", str(doc, "format"));
+    EXPECT_EQ("calaos-config-backup/2", str(doc, "format"));
+    EXPECT_EQ(Json(Calaos::IO_FORMAT_DEVICES), doc["io_format"]);
+    EXPECT_TRUE(doc["io_format"].is_number_integer());
     EXPECT_EQ(PKG_VERSION_STR, str(doc, "server_version"));
     EXPECT_EQ(AdminConfig::hostname(), str(doc, "hostname"));
     const std::time_t created = createdAtOf(doc);
@@ -5556,14 +5560,37 @@ TEST_F(JsonApiAdminTest, TheBackupOverTheWebsocketHoldsTheFourFiles)
     EXPECT_EQ(20u, str(doc, "created_at").size());
 
     ASSERT_TRUE(doc["files"].is_object());
-    EXPECT_EQ(4u, doc["files"].size()) << doc["files"].dump().substr(0, 400);
-    for (const char *name: { IO_CONFIG, RULES_CONFIG, LOCAL_CONFIG, WIDGET_CONFIG })
+    EXPECT_EQ(3u, doc["files"].size()) << doc["files"].dump().substr(0, 400);
+    for (const char *name: { IO_CONFIG, RULES_CONFIG, LOCAL_CONFIG })
         EXPECT_EQ(fileText(Utils::getConfigFile(name)), str(doc["files"], name)) << name;
+    EXPECT_FALSE(doc["files"].contains(WIDGET_CONFIG));
+    EXPECT_EQ(std::string::npos, answer.dump().find("cfg-s"));
     //What a restore needs, secrets included
     EXPECT_NE(std::string::npos, str(doc["files"], "local_config.xml").find(kPass));
-    EXPECT_NE(std::string::npos, str(doc["files"], "widgets.xml").find("cfg-s"));
     EXPECT_NE(std::string::npos, log.find("Admin config backup by 127.0.0.1")) << log;
     EXPECT_EQ(std::string::npos, log.find(kPass)) << log;
+}
+
+TEST_F(JsonApiAdminTest, AFileMissingOnTheBoxIsLeftOutOfTheBackup)
+{
+    const std::string path = Utils::getConfigFile(LOCAL_CONFIG);
+    const std::string saved = fileText(path);
+    ASSERT_FALSE(saved.empty());
+    ASSERT_EQ(0, ::unlink(path.c_str()));
+
+    const Json doc = AdminConfig::backup(1792931696);
+
+    {
+        std::ofstream f(path, std::ios::trunc);
+        f << saved;
+    }
+    EXPECT_EQ("2026-10-25T12:34:56Z", str(doc, "created_at"));
+    ASSERT_TRUE(doc["files"].is_object());
+    EXPECT_FALSE(doc["files"].contains(LOCAL_CONFIG)) << "an empty local_config.xml would be restored";
+    EXPECT_TRUE(doc["files"].contains(IO_CONFIG));
+    EXPECT_TRUE(doc["files"].contains(RULES_CONFIG));
+    EXPECT_EQ(2u, doc["files"].size());
+    EXPECT_EQ(saved, fileText(path));
 }
 
 TEST_F(JsonApiAdminTest, TheHttpBackupIsADownloadNoCacheKeeps)
@@ -5582,8 +5609,9 @@ TEST_F(JsonApiAdminTest, TheHttpBackupIsADownloadNoCacheKeeps)
     const Json doc = parse(bodyOf(response));
     ASSERT_TRUE(doc.is_object()) << response.substr(0, 400);
     EXPECT_FALSE(doc.contains("success"));
-    EXPECT_EQ("calaos-config-backup/1", str(doc, "format"));
-    EXPECT_EQ(4u, doc["files"].size());
+    EXPECT_EQ("calaos-config-backup/2", str(doc, "format"));
+    EXPECT_EQ(Json(Calaos::IO_FORMAT_DEVICES), doc["io_format"]);
+    EXPECT_EQ(3u, doc["files"].size());
     EXPECT_EQ(std::to_string(bodyOf(response).size()), header(response, "Content-Length"));
 
     const std::string disposition = header(response, "Content-Disposition");
