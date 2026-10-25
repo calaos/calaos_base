@@ -2437,8 +2437,11 @@ TEST(JsonApiAdminRules, BoxActionTimeouts)
     EXPECT_EQ(35, DaemonClient::TimeSetTimeout);
     EXPECT_EQ(10, JsonApi::adminRelayTimeout("logs_query"));
     EXPECT_EQ(35, JsonApi::adminRelayTimeout("time_set"));
+    EXPECT_EQ(35, DaemonClient::NetworkChangeTimeout);
+    for (const char *action: { "network_apply", "network_confirm", "network_revert" })
+        EXPECT_EQ(35, JsonApi::adminRelayTimeout(action)) << action;
     for (const char *action: { "services_list", "services_restart", "logs_sources", "time_get", "time_zones",
-                               "network_state", "network_apply", "network_confirm", "network_revert" })
+                               "network_state" })
         EXPECT_EQ(4, JsonApi::adminRelayTimeout(action)) << action;
 }
 
@@ -2632,6 +2635,24 @@ TEST_F(JsonApiAdminTest, BoxActionsNeedHttpsAndRefuseTheServiceScope)
         EXPECT_EQ("scope denied", str(refused, "msg"));
     }
     EXPECT_TRUE(daemonCalls().empty()) << requestPaths();
+}
+
+TEST_F(JsonApiAdminTest, ANetworkChangeWaitsForNetworkctl)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    //Longer than the 4 s default, as a slow networkctl reload makes it
+    fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path == "/api/v2/network/confirm")
+            res.delayMs = 4500;
+        return false;
+    });
+    const Json confirmed = ws.admin("admin", adminAction("network_confirm", { { "change_id", kChange } }), 9000);
+    EXPECT_EQ("true", str(confirmed, "success")) << confirmed.dump();
+    EXPECT_EQ("confirmed", str(confirmed["result"], "state"));
 }
 
 TEST_F(JsonApiAdminTest, BoxErrorsAreTranslated)

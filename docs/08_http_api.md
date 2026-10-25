@@ -756,7 +756,7 @@ tableaux de chaînes) ; une valeur d'un autre type (`"true"` pour un booléen, `
 priorité) est `invalid_request`. Le corps envoyé au daemon est reconstruit champ par champ à
 partir des `params` validés ; un malformé n'atteint jamais le daemon (deux barrières : le daemon
 applique les mêmes limites). `result` est le `data` du daemon, types compris, comme pour les
-actions de phase 1. Délais de calaos_server : 4 s, sauf `logs_query` (10 s) et `time_set` (35 s : le daemon peut enchaîner trois commandes `timedatectl` de 10 s au plus).
+actions de phase 1. Délais de calaos_server : 4 s, sauf `logs_query` (10 s), `time_set` (35 s : le daemon peut enchaîner trois commandes `timedatectl` de 10 s au plus) et `network_apply`, `network_confirm`, `network_revert` (35 s : `networkctl` a 30 s côté daemon).
 
 - **`update_status` sans session** : accepté une fois l'admin défini, sous
   `secureTransport()`. C'est ce qui permet à n'importe quel client foyer de reprendre l'affichage
@@ -1308,6 +1308,9 @@ changement à la fois.
 - Erreurs : `https_required`, `invalid_request`, `bad_session`, `admin_not_set`, `rate_limited`,
   `network_pending`, `upgrade_in_progress`, `approver_required`, `code_required`, `bad_code`,
   `code_expired`, `daemon_too_old`, `daemon_unreachable`, `admin_unavailable`, `internal`.
+- Délai de calaos_server pour `network_apply`, `network_confirm` et `network_revert` : 35 s (le
+  daemon laisse 30 s à `networkctl`) ; le client attend 40 s. Avant ce délai, un silence n'est pas un
+  échec : le changement a pu s'appliquer, `network_state` le dit.
 - `network/list`, `network/trial` et l'ancienne route `network/{intf}` ne sont jamais relayées.
 
 #### Configuration (`config_list`, `config_set`, `config_backup`)

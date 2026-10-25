@@ -686,9 +686,9 @@ const RelayRow relayTable[] = {
     { "time_zones", "GET", "system/timezones", true, DaemonClient::DefaultTimeout, nullptr },
     { "time_set", "POST", "system/time", true, DaemonClient::TimeSetTimeout, timeSetBody },
     { "network_state", "GET", "network/state", true, DaemonClient::DefaultTimeout, nullptr },
-    { "network_apply", "POST", "network/apply", true, DaemonClient::DefaultTimeout, networkApplyBody },
-    { "network_confirm", "POST", "network/confirm", true, DaemonClient::DefaultTimeout, changeIdBody },
-    { "network_revert", "POST", "network/revert", true, DaemonClient::DefaultTimeout, changeIdBody },
+    { "network_apply", "POST", "network/apply", true, DaemonClient::NetworkChangeTimeout, networkApplyBody },
+    { "network_confirm", "POST", "network/confirm", true, DaemonClient::NetworkChangeTimeout, changeIdBody },
+    { "network_revert", "POST", "network/revert", true, DaemonClient::NetworkChangeTimeout, changeIdBody },
 };
 
 const RelayRow *relayRow(const string &action)

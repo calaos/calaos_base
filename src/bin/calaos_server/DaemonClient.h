@@ -69,6 +69,8 @@ public:
     static constexpr long LogsQueryTimeout = 10;
     //system/time may run three timedatectl commands of 10 s each
     static constexpr long TimeSetTimeout = 35;
+    //network/apply, confirm and revert wait for networkctl, up to 30 s each
+    static constexpr long NetworkChangeTimeout = 35;
 
     struct Request
     {
