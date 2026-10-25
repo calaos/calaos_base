@@ -58,6 +58,8 @@ public:
         //Push codes fetched per rolling hour: twice the daemon's own budget,
         //so a squatter of its port cannot flood the phones with its texts
         size_t maxCodePushes = 20;
+        //How long the key that sealed an approver_confirm code waits for its approver_set
+        double provedKeyLife = 600.0;
     };
 
     //A daemon frame bigger than this is a protocol error
@@ -80,6 +82,7 @@ public:
     {
         timings = t;
         codePushes.clear();
+        provedKeys.clear();
     }
 
     //For the tests: the retry series held, and their timers fired after delay
@@ -156,8 +159,17 @@ private:
     void processFrames();
     void processMessage(const string &text);
     void processAlert(const string &type, const Json &data);
-    //Keeps the name and format of an approver's push_tokens row as enrolled
+    //Keeps the name and format of an approver's push_tokens row as enrolled,
+    //and the key it proved by reading its approver_confirm code
     void markApprover(const string &tokenId, bool approver);
+    struct ProvedKey
+    {
+        string key;
+        double at = 0.0;
+    };
+    //By token_id
+    map<string, ProvedKey> provedKeys;
+    void rememberProvedKey(const string &tokenId, const string &key);
     //Fetches the code's message by its id, pushes it to the approver's token only
     void processPushCode(const Json &data);
     void push(const string &type, const string &id, const Json &data);

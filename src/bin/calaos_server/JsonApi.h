@@ -335,6 +335,15 @@ public:
     //register_push's push_format, the notification format for anything unknown.
     static int pushFormatFromString(const string &value);
 
+    //register_push's push_key when it is 64 lowercase hex characters, empty otherwise
+    static string pushKeyFromString(const string &value);
+
+    /* Also taken over plain HTTP: the phones of the stores talk to port 5454 on
+     * the LAN, where whoever could read the key reads the household password
+     * too, and a refused key leaves the code in clear at the push service.
+     */
+    static constexpr bool PushKeyNeedsSecureTransport = false;
+
     //register_push's device_name: the admin picks an approver phone by it, and
     //every phone is pushed it when that phone becomes an approver
     static constexpr size_t MaxDeviceName = 64;

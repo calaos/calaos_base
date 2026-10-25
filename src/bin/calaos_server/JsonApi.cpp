@@ -3240,12 +3240,32 @@ bool JsonApi::registerPushToken(const Params &jParam)
         jParam["hardware"] != "ios")
         return false;
 
+    const bool keyTaken = !PushKeyNeedsSecureTransport || secureTransport();
+    const string pushKey = keyTaken ? pushKeyFromString(jParam["push_key"]) : string();
+
     HistLogger::Instance().registerPushToken(jParam["token"],
                                              jParam["hardware"] == "ios" ? HistLogger::PUSH_HW_IOS : HistLogger::PUSH_HW_ANDROID,
                                              pushFormatFromString(jParam["push_format"]),
-                                             printableText(jParam["device_name"], MaxDeviceName));
+                                             printableText(jParam["device_name"], MaxDeviceName), pushKey);
 
     return true;
+}
+
+string JsonApi::pushKeyFromString(const string &value)
+{
+    const bool valid = value.size() == 64 && std::all_of(value.begin(), value.end(), [](char c)
+                                                         {
+        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+                       });
+    if (valid || value.empty())
+        return valid ? value : string();
+
+    //Once and without the value: it may be a key with a typo
+    static bool warned = false;
+    if (!warned)
+        cWarningDom("network") << "register_push: push_key is not 64 lowercase hex characters, ignored";
+    warned = true;
+    return string();
 }
 
 int JsonApi::pushFormatFromString(const string &value)

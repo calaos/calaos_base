@@ -292,6 +292,13 @@ public:
         pushPayloads[codeId] = { { "token", token }, { "message", message } };
     }
 
+    //The same with the fields of a daemon serving encrypted pushes, or any other
+    void setPushPayload(const std::string &codeId, const nlohmann::json &payload)
+    {
+        std::lock_guard<std::mutex> l(mutex);
+        pushPayloads[codeId] = payload;
+    }
+
     /* What the daemon does at each ping (app/events.go): a pending alert goes
      * out again only on a stream it was never sent on. A copy on the same
      * stream, as after the subscribe race, is a pushEvent(alertEvent()). */
