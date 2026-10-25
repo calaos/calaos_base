@@ -58,8 +58,8 @@ Les constats calaos-container portent sur `origin/main`.
     - récupération : `{"recovery": true}` avec le seul bearer, envoyé uniquement par `calaos-os admin set`, jamais relayé par calaos_server (hors table).
 
     Les trois invalident toutes les sessions et publient l'alerte `admin_set`. Le mode récupération est une limite assumée : quiconque tient le bearer peut l'utiliser, comme une RCE dans calaos_server.
-  - **Alertes** : le daemon n'a pas de client push. Il persiste `admin_set`, `admin_reset`, `approver_set`, `approver_removed` et `console_opened` dans `/mnt/calaos/admin/` et les rejoue à chaque nouvel abonné `/events` jusqu'à l'ack de calaos_server, qui l'envoie après avoir enregistré l'événement. Une alerte émise pendant l'arrêt de calaos_server arrive donc au redémarrage, et une seule fois. Elle ne porte ni token ni code.
-  - Tout appel porteur d'une session est refusé sur `install/*`, `rollback_snapshot` et `network/*` (middleware). `system/reboot` répond 409 pendant un job.
+  - **Alertes** : le daemon n'a pas de client push. Il persiste `admin_set`, `admin_reset`, `approver_set`, `approver_removed` et `console_opened` (et, en phase 3, `network_rolled_back`, amendement (b)) dans `/mnt/calaos/admin/` et les rejoue à chaque nouvel abonné `/events` jusqu'à l'ack de calaos_server, qui l'envoie après avoir enregistré l'événement. Une alerte émise pendant l'arrêt de calaos_server arrive donc au redémarrage, et une seule fois. Elle ne porte ni token ni code.
+  - Tout appel porteur d'une session est refusé sur `install/*`, `rollback_snapshot` et `network/*` (middleware), sauf, depuis la phase 3, `network/state`, `confirm`, `revert` et `apply` (amendement (b)). `system/reboot` répond 409 pendant un job.
   - Audit dans `/mnt/calaos/admin/audit.log` et sur stdout (donc journald, hors snapshot) : adresse du client, action, résultat, id de session.
     - L'id de session est formé des 8 premiers caractères hexadécimaux du SHA-256 de la session, jamais de la session elle-même.
     - L'adresse du client vient de l'en-tête `X-Calaos-Client-IP` posé par calaos_server (défini dans `API.md`).
@@ -107,14 +107,14 @@ Les constats calaos-container portent sur `origin/main`.
     - `mcp_regenerate`, traitée dans calaos_server ;
     - en phase 2, `approver_candidates`, `approver_list`, `approver_enroll`, `approver_confirm`, `approver_remove`, `code_request`, `code_verify`, `console_open`.
   - `package` validé par la règle de `docs/API.md` de calaos-container : regex `^[A-Za-z0-9.+-]+$`, premier caractère alphanumérique, pas de `..`, 128 caractères au plus.
-  - `install/*`, `rollback_snapshot` et `network/*` ne sont jamais relayés.
+  - `install/*`, `rollback_snapshot` et `network/*` ne sont jamais relayés (phase 3 : `network/state`, `apply`, `confirm` et `revert` le sont, amendement (b)).
   - `admin {action: update_status}` est accepté sans `admin_session` une fois l'admin défini, sous `secureTransport()`. `admin_event` est diffusé à toute connexion WS loguée, port 5454 compris : c'est la seule exception à « rien d'admin en clair ».
   - calaos_server est abonné en permanence à `/events` (CB3) et ne retransmet aux clients foyer, sous `admin_event`, que :
     - `upgrade_progress` ;
     - `admin_set` et `admin_reset`, avec l'horodatage seul.
     - En phase 2, `approver_set` et `approver_removed` (levées par AP1a) et `console_opened` (levée par CO1) : mêmes règles de persistance, poussées à tous les téléphones par AP1b/CO2.
 
-    Tout autre type est consommé ou ignoré, jamais retransmis.
+    Tout autre type est consommé ou ignoré, jamais retransmis. En phase 3, `network_pending`, `network_applied` et `network_rolled_back` le sont aussi (amendement (b)).
   - Vocabulaire d'erreurs, défini une fois :
 
     | Code | Cas | Message webapp |
@@ -214,7 +214,7 @@ Exigence de Raoul : une installation existante monte vers les versions admin par
   - Un admin déverrouillé choisit son téléphone parmi les tokens `register_push`, qui gagne un nom d'appareil (`device_name`, stocké dans `push_tokens`).
   - Depuis iOS 16, sans droit spécial, tout iPhone se nomme « iPhone » (décision de Raoul, 2026-10-24) : Calaos mobile propose le réglage « Nom de cet appareil » (AP2b). `approver_candidates` renvoie aussi la plateforme, la date d'enregistrement et `last_seen`, que WA3 affiche.
   - Le daemon envoie un code **à ce seul token**, et l'utilisateur le tape dans la webapp : c'est la preuve qu'il possède le téléphone.
-  - Le daemon stocke le token comme approbateur. Pas de secret d'appareil : rien n'est remis au téléphone, donc rien à voler par `register_push`.
+  - Le daemon stocke le token comme approbateur. Pas de secret d'appareil qui authentifie le téléphone : rien n'est remis au téléphone par la box. Depuis la phase 3, le téléphone a sa propre clé push, qui ne sert qu'à lui cacher le code (amendement (a)).
   - Les routes daemon de l'enrôlement et du ticket console sont nommées dans `docs/API.md` par AP1a et CO1.
 - **Nombre d'approbateurs** : un seul suffit (décision de Raoul). Un second est possible en option.
 - **Retrait** : le dernier approbateur ne se retire pas (`approver_last`). Pour changer de téléphone, on enrôle le nouveau puis on retire l'ancien ; un téléphone perdu se règle par `admin reset` en SSH.
@@ -226,10 +226,10 @@ Exigence de Raoul : une installation existante monte vers les versions admin par
   - Comparaison en temps constant.
 - **Envoi**
   - Le daemon publie `push_code {approver_id, code_id}` sur `/events`, sans token ni code.
-  - calaos_server récupère `{token, message}` par une route du daemon protégée par le bearer (`GET admin/push/<code_id>`), puis envoie par `NotifManager` : un seul client push.
+  - calaos_server récupère `{token, message}` (en phase 3 `{token, message, action, code, expires_in}`) par une route du daemon protégée par le bearer (`GET admin/push/<code_id>`), puis envoie par `NotifManager` : un seul client push.
   - Le token de l'approbateur ne sort jamais du daemon et de calaos_server, et `push_code` n'est jamais retransmis aux clients.
 - **Le téléphone approbateur n'a besoin que du push sortant** : il n'a pas à joindre la box. Seul l'enrôlement l'exige, sur le LAN ou via le VPN.
-- **Protège** : chaque ouverture de la console, le changement du mot de passe admin, le changement d'approbateur, la config réseau.
+- **Protège** : chaque ouverture de la console, le changement du mot de passe admin, le changement d'approbateur, la config réseau (phase 3).
 - **Sans approbateur enrôlé**, ces actions sont indisponibles. Il reste la console SSH.
 
 ### Console web (phase 2)
@@ -338,23 +338,54 @@ Chemin critique ≈ 13,5 j : Board, CC-040, CC2, CC1, CC3, CB3, RC1. CB2, CB1, C
 Ordre phase 2 : AP1a ∥ AP2, puis AP2b, puis AP1b, puis WA3 ; CO1 (après AP1a), puis CO2, puis CO3 ; CM2 indépendant ; DOC2 à la fin. La phase 2 démarre après RC1. `admin/p7` n'atteint main/master qu'avec AP1a, AP1b, CO1 et WA3 (décision de Raoul, 2026-10-24) : un calaos_server plus ancien renvoie `internal` au changement de mot de passe dès qu'un code est exigé.
 
 ### Phase 3 : diagnostics et confort
-- Restart de services sur liste autorisée, logs bornés (`cn_pass=` masqué dans tout log affiché par la webapp), heure, liste blanche `calaos_config`, téléchargement de la sauvegarde.
-- Réseau, avec « appliquer puis confirmer » et retour automatique sous 60 s ; CC-051 (tests de validation réseau) avant.
-- Socket Unix entre haproxy et calaos_server : seul ce qui arrive dessus vient de haproxy, le TCP 5454 n'est plus cru pour XFF et XFP.
+Périmètre approuvé par Raoul le 2026-10-25, après une revue de sécurité dont toutes les recommandations sont retenues. Le design et ses contrats sont dans `docs/08_http_api.md` (calaos_server) et `docs/API.md` de calaos-container (daemon), branche d'intégration `admin/p8` dans calaos-container, calaos_base et calaos-web-app.
+
+**Dans le périmètre**
+- **P3-CODE** : le code push n'est plus dans le texte de la notification. Il est chiffré avec la clé push du téléphone, qui le déchiffre et l'affiche dans l'app (code, action, compte à rebours, copie). Le téléphone n'a toujours pas à joindre la box (amendement (a)).
+- **P3-SVC** : état de quinze unités et redémarrage de onze d'entre elles sur liste fermée ; `calaos-container`, `haproxy`, `systemd-networkd` et `ssh` en lecture seule. Session admin seulement.
+- **P3-LOGS**, avec l'heure de la box : logs du journal systemd bornés, filtrés par source, priorité, période et texte, avec masquage au mieux des secrets et suivi par interrogation d'un curseur toutes les 2 s ; lecture et réglage de l'heure et du fuseau, `systemd-timesyncd` (amendement (e)).
+- **P3-CFG** : liste blanche d'options de `local_config.xml` modifiables depuis la webapp (`config_list`, `config_set`), et téléchargement de la sauvegarde avec les secrets (`config_backup`, amendements (c) et (d)).
+- **P3-NET** : configuration réseau avec « appliquer puis confirmer » et retour automatique sous 120 s (amendement (b)) ; le ticket CC-051 (tests de validation réseau) est absorbé par le travail du daemon.
+- **CM1** : mises à jour, progression, reboot et informations système depuis Calaos mobile (amendement (f)).
+- Compléments décidés avec la revue : **P3-NET-CLI** (`calaos-os network state|apply|confirm|revert`, pour tester et réparer par SSH), **P3-RC** (recette en VM), **P3-DOC** (doc-website).
+
+**Hors périmètre, reporté**
+- Socket Unix entre haproxy et calaos_server : le TCP 5454 reste cru pour XFF et XFP.
 - `auth_token` zigbee2mqtt et mot de passe mosquitto générés par les scripts `_pre`.
-- Mises à jour depuis le mobile (CM1).
 - CC5 : apt dans une unit transitoire, seulement si CC-042 se révèle insuffisant à la recette.
-- Code affiché dans l'app plutôt que dans la notification.
-- Digests `@sha256` et JSON de releases signé (minisign).
-- Inventaire des devices utilisés, pour pouvoir sortir calaos-server de `--privileged`.
+- Digests `@sha256` et JSON de releases signé (minisign) : P3-SIGN.
+- Inventaire des devices utilisés, pour pouvoir sortir calaos-server de `--privileged` : P3-PRIV.
+- Wi-Fi (la box n'a pas de pile Wi-Fi).
 - CC-053 et CC-054 : quand on veut, sans lien avec l'admin.
+
+**Ordre**
+- Étape 1 : contrat du daemon (`docs/API.md`), puis contrat de calaos_server et ces amendements.
+- Étape 2, en parallèle selon les dépôts : daemon (code, puis réseau et services en fichiers disjoints, puis logs et heure), calaos_base (code push, relais), webapp (socle), mobile (CM1 d'abord, puis le code push, qui a besoin des vecteurs de test de `docs/08_http_api.md`).
+- Étape 3 : configuration côté serveur, CLI réseau, vues de la webapp (services, logs et heure, configuration, réseau, indicateur `secure`).
+- Étape 4 : recette en VM ; étape 5 : doc-website, puis `admin/p8` rejoint main/master d'un bloc (une webapp de phase 3 a besoin des lignes de relais de phase 3 ; un calaos_server de phase 3 tolère un daemon plus ancien, `daemon_too_old` par action).
+- Estimation : chaîne daemon 6 à 7 j, calaos_server environ 4 j, webapp environ 5 j, mobile environ 3 j, contrats 1 j, recette 1 j ; chemin critique 9 à 10 j.
+
+### Amendements du 2026-10-25 (phase 3)
+Décisions de Raoul du 2026-10-25, issues de la revue de sécurité de la phase 3. Chaque amendement corrige le texte plus haut qu'il nomme.
+
+**(a) La clé d'appareil remplace « pas de secret d'appareil ».** Ce que le plan refusait (« Ce qu'on ne fait pas », enrôlement), c'était d'*authentifier* le téléphone par un secret (ECDSA, signatures, rotation). Cela reste refusé. En revanche, chaque téléphone a une **clé push** : 32 octets tirés par l'app, envoyés à chaque `register_push` (`push_key`), stockés dans `push_tokens`, **gelés une fois posés tant que le téléphone est approbateur** (même règle que son nom et son format) ; la première clé d'un approbateur de la phase 2, qui n'en a pas, est acceptée (il ne peut pas se ré-enrôler avec le même jeton), et une clé perdue se résout par un jeton neuf, un second approbateur ou `calaos-os admin reset`. Elle sert uniquement à chiffrer le code (HMAC-SHA256, construction fixée dans `docs/08_http_api.md`, avec des vecteurs de test) pour qu'il ne figure ni dans le texte de la notification, ni chez le relais push, FCM ou APNs, ni chez qui ne détient que le jeton. Le second facteur est inchangé : le code tapé dans la webapp. Le principe de « Envoi » est conservé : le téléphone n'a pas à joindre la box, le code arrive chiffré dans le push. Les apps sans clé (stores) reçoivent le texte actuel pendant une release, puis il est retiré.
+
+**(b) Le réseau est relayé.** `network/state`, `network/apply` (protégé par un code push de l'action `network_config`), `network/confirm` et `network/revert` sont relayés par calaos_server ; `network/list`, `network/trial` (alias du CLI) et l'ancienne route `network/{intf}` restent réservées au bearer et ne sont jamais relayées. Le plan disait « sous 60 s » : la fenêtre « appliquer puis confirmer » est de **120 s** (changer d'adresse, accepter de nouveau l'avertissement du certificat auto-signé, se reconnecter et déverrouiller prend en pratique plus d'une minute). Le changement s'applique en essai dans `/run/systemd/network` et n'entre dans `/etc` qu'à la confirmation : un redémarrage ou une coupure de courant revient donc en arrière par construction. N'importe quelle session admin vivante peut confirmer, depuis la nouvelle adresse. Un retour arrière lève l'alerte persistée `network_rolled_back`, sans push vers les téléphones.
+
+**(c) La liste blanche n'est pas une frontière ; risque résiduel du `config put`.** La liste blanche de P3-CFG est un confort et un garde-fou, pas une limite de sécurité : le `config put` HTTP existant, protégé par la session admin, réécrit tout `local_config.xml` (`listen_address`, `port_api`, `cn_pass`, `mcp_token`, `api_allowed_hosts`, entre autres). Le plan ne prétend donc pas qu'une session admin ne peut pas déplacer calaos_server hors de haproxy ou l'ouvrir. Durcir `config put` par une liste d'interdits casserait l'éditeur de configuration de l'installer : non retenu.
+
+**(d) La sauvegarde contient les secrets.** Le fichier de `config_backup` (JSON, `io.xml`, `rules.xml`, `local_config.xml`, `widgets.xml`) porte les secrets que `config get` donne déjà à l'admin : `cn_pass`, `mcp_token`, mots de passe de caméras. C'est aussi ce dont une restauration a besoin. Il n'est servi qu'en https, à une session admin, avec `Cache-Control: no-store` et `X-Content-Type-Options: nosniff`, et n'est jamais journalisé. Il est enregistré en clair dans les téléchargements, ce que l'interface dit. La restauration reste `config put` ou l'installer.
+
+**(e) `systemd-timesyncd`, pas chrony.** Le client NTP de Calaos OS est `systemd-timesyncd` (l'image n'installe pas chrony). Le réglage de l'heure passe par `timedatectl`, dont `set-ntp` pilote timesyncd, et l'unité `systemd-timesyncd.service` figure dans la liste des services. Régler l'heure à la main n'est proposé que si l'horloge n'est pas synchronisée. Un changement de fuseau demande de redémarrer calaos-server (et calaos-home) : rien ne relit `/etc/timezone`, les processus lisent `/etc/localtime` à leur démarrage ; le daemon ne l'écrit pas et le signale par `restart_required`.
+
+**(f) Mises à jour depuis Calaos mobile.** La ligne « Admin depuis le mobile en phase 1 et 2 » ne vaut plus pour la phase 3 : Calaos mobile (CM1) peut vérifier et installer les mises à jour, suivre leur progression, redémarrer la box et lire les informations système, par le relais calaos_server existant, en https, avec le mot de passe admin. La session admin ne reste qu'en mémoire (15 min, effacée à la déconnexion et au retour de l'arrière-plan après expiration) ; aucun déverrouillage pendant qu'une confiance TLS est en attente, et la session est abandonnée si la clé épinglée change. Aucune action protégée par un code ; ni bootstrap, ni changement du mot de passe admin, ni approbateurs, ni console.
 
 ## Ce qu'on ne fait pas
 - Rôles ni `users.json`.
 - Cookies, sessions navigateur, JWT.
 - Confiance fondée sur l'IP.
 - Signatures ECDSA d'appareil, WebAuthn, TOTP, number matching. Le code push ne s'applique qu'aux actions listées en phase 2 ; tout le reste de l'admin n'exige que le mot de passe admin.
-- Secret d'appareil et rotation silencieuse du token approbateur.
+- Secret d'appareil qui authentifie le téléphone, et rotation silencieuse du token approbateur. Depuis le 2026-10-25, une **clé push** par appareil existe, mais elle ne sert qu'à chiffrer le code pour le cacher au relais push (amendement (a)).
 - Sous-volume btrfs pour `/mnt/calaos/admin`.
 - Patch de `haproxy.cfg` à l'exécution, et toute modification de `haproxy.cfg` sur une installation existante.
 - Étape manuelle pour la montée vers les versions admin (SSH, reboot, commande dédiée).
@@ -366,7 +397,7 @@ Ordre phase 2 : AP1a ∥ AP2, puis AP2b, puis AP1b, puis WA3 ; CO1 (après AP1a)
 - Reset par clé USB, ou par effacement de fichier et signal.
 - Rollback de snapshot à distance, installation disque à distance.
 - Mot de passe root SSH, calibration tactile.
-- Admin depuis le mobile en phase 1 et 2, sauf l'enrôlement de l'approbateur.
+- Admin depuis le mobile en phase 1 et 2, sauf l'enrôlement de l'approbateur. Depuis la phase 3 : seulement les mises à jour, leur progression, le reboot et les informations système (amendement (f)) ; ni bootstrap, ni changement du mot de passe admin, ni approbateurs, ni console.
 
 ## Risques résiduels acceptés
 - Une RCE dans calaos_server donne root (conteneur privilégié).
@@ -375,10 +406,12 @@ Ordre phase 2 : AP1a ∥ AP2, puis AP2b, puis AP1b, puis WA3 ; CO1 (après AP1a)
 - Quiconque tient le bearer du daemon peut réécrire le mot de passe admin par le mode récupération, comme une RCE dans calaos_server.
 - Un rollback restaure le mot de passe admin et le mot de passe foyer de l'époque.
 - Avec la console, un attaquant venu d'Internet doit disposer du mot de passe partagé, du mot de passe admin et du téléphone.
-- Un relais push compromis voit les codes, mais pas le mot de passe admin. Le relais n'authentifie pas l'émetteur : qui connaît un token peut pousser un faux message vers ce téléphone.
+- Un relais push compromis voit les codes des téléphones qui n'ont pas de clé push (apps des stores, pendant une release), mais pas le mot de passe admin ; avec une clé push (phase 3), il ne voit que le texte générique et la charge chiffrée. Le relais n'authentifie pas l'émetteur : qui connaît un token peut pousser un faux message vers ce téléphone.
 - Un MITM sur le LAN reste possible côté mobile jusqu'à CM2, et capte alors le token push du téléphone.
 - Une `admin_session` copiée (XSS, extension, journal tiers) est rejouable 15 min par toute connexion loguée au foyer : elle n'est pas liée à la connexion.
-- Le code est lisible sur l'écran verrouillé jusqu'à la phase 3.
+- Le code est lisible sur l'écran verrouillé tant que l'app du téléphone n'envoie pas de clé push (phase 3 : l'écran verrouillé ne montre plus aucun code).
+- Une session admin réécrit toutes les options de `local_config.xml` par le `config put` HTTP existant, `listen_address`, `port_api`, `cn_pass`, `mcp_token` et `api_allowed_hosts` compris. La liste blanche de la phase 3 n'est pas une frontière (amendement (c)).
+- La sauvegarde téléchargée par `config_backup` contient les secrets que `config get` remet déjà à l'admin ; elle est enregistrée en clair sur le poste de l'admin (amendement (d)).
 - Un rollback via GRUB, qui suppose un accès physique, réinstalle d'anciennes versions sans gating.
 - Avant le bootstrap, quiconque a le mot de passe partagé peut définir l'admin le premier. On le détecte par le push et la bannière, même si calaos_server était arrêté, et on répare par `calaos-os admin set`.
 - Un `api_allowed_hosts` posé avant le bootstrap par un détenteur du mot de passe foyer (via `config put`) reste en place ensuite ; l'écran de bootstrap l'affiche pour qu'on le vérifie.

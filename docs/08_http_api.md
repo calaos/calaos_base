@@ -375,6 +375,8 @@ et [JsonApiHandlerWS.cpp:116-229](../src/bin/calaos_server/JsonApiHandlerWS.cpp)
 
 Les messages `admin_unlock`, `admin_set` et `admin` ne sont pas comptés ici : voir
 [Administration](#administration-admin_unlock-admin_set-admin).
+L'action HTTP `config_backup` (phase 3) n'est pas comptée non plus : voir
+[Configuration](#configuration-config_list-config_set-config_backup).
 
 Action HTTP inconnue → `{"error":"unknown action"}` **si le corps était un JSON
 valide**, sinon HTTP 400 + fermeture
@@ -418,6 +420,14 @@ mesurable ; elle est plus large que ce que le tableau laisse lire.
 > webapp), jamais seule : un daemon AP1a exige un code pour changer le mot de passe admin, ce
 > qu'un calaos_server ou une webapp de phase 1 ne savent pas fournir (`internal`), et les
 > routes d'approbateur n'existent pas sur un daemon de phase 1.
+>
+> **Phase 3 (contrat).** Les actions de ce document marquées « phase 3 » (clé de chiffrement du
+> code push, services, logs, heure, réseau, `config_list` / `config_set` / `config_backup`) vivent
+> sur la branche d'intégration `admin/p8` et suivent la même règle : le contrat du **daemon** est
+> `docs/API.md` de calaos-container (branche `admin/p8`), qui fait foi pour les routes, les
+> limites et les codes du daemon ; ce texte fixe ce que calaos_server accepte du client, ce qu'il
+> envoie au daemon et ce qu'il rend. Un `calaos_server` de phase 3 tolère un daemon plus ancien
+> (voir `daemon_too_old` ci-dessous) ; une webapp de phase 3 exige un calaos_server de phase 3.
 
 ### Principe
 
@@ -456,7 +466,10 @@ Toute erreur admin a la même charge utile, aux deux transports :
 - Des champs facultatifs, **toujours des chaînes**, accompagnent certains codes :
   `retry_after` (secondes) avec `rate_limited`, `job_id` avec `upgrade_in_progress`,
   `min_length` avec `password_too_short`, `api_allowed_hosts` avec `admin_not_set`,
-  `attempts_left` avec `bad_code`, `max` avec `approver_limit`.
+  `attempts_left` avec `bad_code`, `max` avec `approver_limit` et `console_limit`,
+  `change_id` et `expires_in` avec `network_pending`, `applied` (étapes déjà appliquées, séparées
+  par `,`), `failed` (étape en échec) et `restart_required` (`"true"` ou `"false"`) avec
+  l'`internal` d'un `time_set` partiellement appliqué.
 - En WS la charge utile est sous `data`, avec `msg` et `msg_id` de l'enveloppe habituelle
   (attention : le `msg` de l'enveloppe est le nom du message, le `msg` de `data` est le texte
   d'erreur) :
@@ -487,7 +500,7 @@ Cas d'erreur d'un `config` / `get_mcp_info` refusé : la même charge utile
 | `bad_session` | 401 | `admin_session` absente, vide, inconnue, expirée ou invalidée (`admin_set`, `admin_reset`, 5 échecs de code push en phase 2) | redemander le mot de passe admin, **sans message d'erreur** |
 | `password_too_short` | 400 | nouveau mot de passe de moins de 10 caractères | afficher la longueur minimale (`min_length`) |
 | `https_required` | n/a | transport non sûr, voir [Transport](#transport-securetransport) | « Utilisez https:// » |
-| `daemon_too_old` | 404 | un ancien daemon, encore en mémoire, ne connaît pas les routes admin | « Activation de l'administration en cours », nouvel essai automatique ; « Redémarrez la box » seulement si l'état dure plus de 2 min |
+| `daemon_too_old` | 404 | un ancien daemon, encore en mémoire, ne connaît pas les routes admin, ou (phase 3) la route de **cette** action : un `404 not_found` sur une route de la table de relais ne peut venir que d'un daemon qui la précède | « Activation de l'administration en cours », nouvel essai automatique ; « Redémarrez la box » seulement si l'état dure plus de 2 min. Phase 3 : le panneau de l'action concernée seulement |
 | `daemon_unreachable` | n/a | daemon injoignable alors que l'admin a déjà été vu défini ; erreur de bearer persistante | réessayer |
 | `admin_unavailable` | n/a | daemon injoignable et admin jamais vu défini (Docker, dev, autre distribution) | « Administration indisponible (calaos-container injoignable ; disponible seulement sur Calaos OS) », nouvel essai automatique |
 | `upgrade_in_progress` | 409 | une mise à jour est déjà en cours (`update_check`, `update_upgrade*`, `system_reboot`) | « Une mise à jour est déjà en cours » |
@@ -504,10 +517,11 @@ Cas d'erreur d'un `config` / `get_mcp_info` refusé : la même charge utile
 | `bad_code` | 403 | code push faux, ou demandé pour une autre action ou d'autres paramètres ; porte `attempts_left`. Au 5ᵉ échec la session est invalidée (`bad_session` ensuite) | « Code incorrect, `attempts_left` essais restants » |
 | `code_expired` | 410 | code inconnu de la session, expiré (60 s), utilisé ou remplacé ; droit d'ouverture de la console expiré (30 s) ou déjà pris | demander un nouveau code |
 | `console_limit` | 409 | deux consoles sont déjà ouvertes ; porte `max` | « Deux consoles au plus sont ouvertes » |
+| `network_pending` | 409 | un changement réseau attend déjà sa confirmation (`network_apply`) ; porte `change_id` et `expires_in` | proposer de le confirmer ou de l'annuler (`network_confirm` / `network_revert`) |
 | `login_failed` | n/a | [`/api/console`](#console-web-apiconsole) seulement : identifiants foyer du message d'ouverture faux | retour à la connexion foyer |
 | `internal` | 500 | tout le reste ; le détail est dans le journal de calaos_server | message générique |
 
-Les codes de `invalid_request` à `internal` complètent le vocabulaire du plan : ils viennent
+`network_pending` est un code de phase 3. Les codes de `invalid_request` à `internal` complètent le vocabulaire du plan : ils viennent
 de la traduction des erreurs du daemon. Ceux d'`approver_required` à `login_failed` sont ceux
 du second facteur et de la console (phase 2).
 
@@ -521,13 +535,17 @@ de `API.md`) :
 | connexion refusée, délai dépassé, réponse invalide | `daemon_unreachable` ou `admin_unavailable`, selon [`AdminState`](#état-admin-et-règle-collante) |
 | `401` dont le `code` n'est pas `bad_session` (y compris un corps sans `code`), après relecture du token et **une** nouvelle tentative | `daemon_unreachable` |
 | `404` sur `GET /api/v2/admin/status` (quel que soit le corps), ou tout `404` sur `/api/v2/` dont le corps n'est pas une enveloppe avec un `code` | `daemon_too_old` |
-| `bad_session`, `bad_password`, `rate_limited`, `password_too_short`, `admin_not_set`, `admin_already_set`, `upgrade_in_progress`, `not_allowed`, `package_held`, `approver_required`, `approver_limit`, `approver_exists`, `approver_not_found`, `approver_last`, `code_required`, `bad_code`, `code_expired` | le même code |
+| `bad_session`, `bad_password`, `rate_limited`, `password_too_short`, `admin_not_set`, `admin_already_set`, `upgrade_in_progress`, `not_allowed`, `package_held`, `approver_required`, `approver_limit`, `approver_exists`, `approver_not_found`, `approver_last`, `code_required`, `bad_code`, `code_expired`, `console_limit`, `network_pending` | le même code |
 | `invalid_request`, `package_not_found` | le même code, avec le `msg` du daemon (affichable sans risque) |
-| `internal`, `not_found`, `method_not_allowed`, tout code inconnu | `internal` |
+| `not_found` sur une route de la table de relais (le chemin est fixé par la table : la route n'existe pas dans un daemon qui la précède) | `daemon_too_old`, pour cette action seulement |
+| `internal`, `not_found` sur tout autre appel de calaos_server (`admin/push/{code_id}`…), `method_not_allowed`, tout code inconnu | `internal` |
 
 `rate_limited` recopie `retry_after` ; `upgrade_in_progress` recopie `job_id` ;
 `password_too_short` recopie `min_length` (la longueur est vérifiée par le daemon seul) ;
-`bad_code` recopie `attempts_left` ; `approver_limit` recopie `max`. Chaque appel relayé porte `X-Calaos-Client-IP` (voir `API.md`, « request headers »), posé
+`bad_code` recopie `attempts_left` ; `approver_limit` et `console_limit` recopient `max` ;
+`network_pending` recopie `change_id` et `expires_in`. L'`internal` d'un `time_set` dont une étape a
+échoué recopie en plus `applied` et `failed` du `data` du daemon (voir [Heure de la box](#heure-de-la-box)).
+Chaque appel relayé porte `X-Calaos-Client-IP` (voir `API.md`, « request headers »), posé
 par calaos_server depuis `getEffectiveClientIp()`. Un `401` persistant du bearer sur
 `admin/status` compte comme « réponse invalide » pour `AdminState` (drapeau conservé). Un `401` sans
 `code: bad_session` est une erreur de **bearer**, jamais de session : sans cette distinction,
@@ -546,7 +564,9 @@ est en **loopback** (haproxy) **et** `X-Forwarded-Proto` vaut `https`. Un en-tê
 est un refus (fail closed). Aucune interface, aucune plage VPN n'est jugée sûre.
 
 - Requiert `secureTransport()` : `admin_unlock`, `admin_set`, **tous** les `admin`
-  (`update_status` compris) et, **une fois l'admin défini**, `config` et `get_mcp_info`.
+  (`update_status` et, en phase 3, `config_list`, `config_set`, `config_backup` compris), l'action
+  HTTP `config_backup` et, **une fois l'admin défini**, `config` et `get_mcp_info`. Aucune action
+  de phase 3 n'est servie sur le port 5454 en clair : `https_required`.
 - Ne le requiert pas : le reste de l'API foyer, ainsi que `config` et `get_mcp_info` tant que
   l'admin n'est pas défini.
 - Refus : `https_required`. La connexion WS n'est pas fermée et le handshake sur le port 5454
@@ -701,18 +721,42 @@ Relaye une action de la table fermée vers le daemon. **WS uniquement.**
 | `system_restart` | | `POST system/restart` (relance le kiosque `calaos-home`) | oui | `null` |
 | `system_info` | | `GET system/info` | oui | `{hostname, uptime, cpu_usage, mem_usage}` |
 | `mcp_regenerate` | | aucun : traité dans calaos_server | oui | `{}` |
-| `approver_list` | | `GET admin/approvers`, puis `push_tokens` de calaos_server | oui | `[<Approver>]` : `{id, device_name, token_id, created_at}` plus `platform`, `registered_at`, `last_seen`, jamais de jeton |
-| `approver_candidates` | | `GET admin/approvers`, puis `push_tokens` de calaos_server | oui | `[{token_id, device_name, platform, registered_at, last_seen, approver}]`, jamais de jeton |
+| `approver_list` | | `GET admin/approvers`, puis `push_tokens` de calaos_server | oui | `[<Approver>]` : `{id, device_name, token_id, created_at}` plus `platform`, `registered_at`, `last_seen`, `secure` (phase 3), jamais de jeton |
+| `approver_candidates` | | `GET admin/approvers`, puis `push_tokens` de calaos_server | oui | `[{token_id, device_name, platform, registered_at, last_seen, approver, secure}]`, jamais de jeton |
 | `approver_enroll` | `token_id`, `code_id`?, `code`? | `POST admin/approvers/enroll {token, device_name, code_id, code}` | oui | `{approver_id, code_id, expires_in}` |
 | `approver_confirm` | `code_id`, `code` | `POST admin/approvers/confirm` | oui | `<Approver>` |
 | `approver_remove` | `approver_id`, `code_id`, `code` | `POST admin/approvers/remove` | oui | `{approver_id}` |
 | `code_request` | `code_action`, `code_params`?, `approver_id`? | `POST admin/codes {action, params, approver_id}` | oui | `{code_id, approver_id, expires_in}` |
 | `code_verify` | `code_id`, `code` | `POST admin/codes/verify` | oui | `{action, expires_in}` |
 | `console_open` | `code_id`, `code` | `POST admin/codes/verify` ; le droit est pris par [`/api/console`](#console-web-apiconsole) | oui | `{action: "console_open", expires_in: 30}` |
+| `services_list` | | `GET system/services` | oui | `{services: [...]}`, voir [Services](#services) |
+| `services_restart` | `unit` | `POST system/services/restart {unit}` | oui | `{id, state: "restarting"}` |
+| `logs_sources` | | `GET logs/sources` | oui | `{sources: [{id, label}]}`, voir [Logs](#logs) |
+| `logs_query` | `sources`?, `priority`?, `since`?, `until`?, `text`?, `lines`?, `cursor`?, `direction`? | `POST logs/query`, corps reconstruit champ par champ | oui | `{entries, truncated, complete, next_cursor}` |
+| `time_get` | | `GET system/time` | oui | `<BoxTime>`, voir [Heure de la box](#heure-de-la-box) |
+| `time_zones` | | `GET system/timezones` | oui | `{timezones: [...]}` |
+| `time_set` | `timezone`?, `ntp`?, `time`? (un au moins) | `POST system/time` | oui | `<BoxTime>` plus `restart_required` |
+| `network_state` | | `GET network/state` | oui | `{interfaces, pending}`, voir [Réseau](#réseau) |
+| `network_apply` | `intf`, `dhcp`, `ipv4`?, `gateway`?, `dns_servers`?, `search_domains`?, `code_id`, `code` | `POST network/apply` | oui | `{change_id, intf, applied_at, confirm_within}` |
+| `network_confirm` | `change_id` | `POST network/confirm` | oui | `{change_id, intf, state: "confirmed"}` |
+| `network_revert` | `change_id` | `POST network/revert` | oui | `{change_id, intf, state: "reverted"}` |
+| `config_list` | | aucun : traité dans calaos_server | oui | `{options: [...]}`, voir [Configuration](#configuration-config_list-config_set-config_backup) |
+| `config_set` | `key`, `value` | aucun : traité dans calaos_server | oui | `{key, value, restart_required}` |
+| `config_backup` | | aucun : traité dans calaos_server | oui | `{format, created_at, server_version, hostname, files}` |
 
 Chemins relatifs à `/api/v2/`. Jamais relayés, quoi que le client envoie : `system/install/*`,
-`system/rollback_snapshot`, `system/fs_status`, `network/*`, `update/installed`,
-`admin/reset`, `admin/alerts/ack`, `admin/push/*`, `admin/set` avec `recovery`.
+`system/rollback_snapshot`, `system/fs_status`, `network/list`, `network/trial`, `network/{intf}`
+(l'ancienne route POST), `update/installed`, `admin/reset`, `admin/alerts/ack`, `admin/push/*`,
+`admin/set` avec `recovery`. Les routes `network/state`, `apply`, `confirm` et `revert` sont
+relayées (phase 3, voir [Réseau](#réseau)).
+
+**Types des `params` de phase 3.** Les `params` des actions de phase 3 gardent leurs types JSON
+(`dhcp`, `ntp` : booléens ; `lines` : entier ; `dns_servers`, `search_domains`, `sources` :
+tableaux de chaînes) ; une valeur d'un autre type (`"true"` pour un booléen, `"3"` pour une
+priorité) est `invalid_request`. Le corps envoyé au daemon est reconstruit champ par champ à
+partir des `params` validés ; un malformé n'atteint jamais le daemon (deux barrières : le daemon
+applique les mêmes limites). `result` est le `data` du daemon, types compris, comme pour les
+actions de phase 1. Délais de calaos_server : 4 s, sauf `logs_query` (10 s) et `time_set` (35 s : le daemon peut enchaîner trois commandes `timedatectl` de 10 s au plus).
 
 - **`update_status` sans session** : accepté une fois l'admin défini, sous
   `secureTransport()`. C'est ce qui permet à n'importe quel client foyer de reprendre l'affichage
@@ -738,7 +782,7 @@ Chemins relatifs à `/api/v2/`. Jamais relayés, quoi que le client envoie : `sy
 - Erreurs possibles : `https_required`, `invalid_request`, `not_allowed`, `bad_session`,
   `admin_not_set`, `upgrade_in_progress`, `package_not_found`, `package_held`, `rate_limited`,
   `approver_required`, `approver_limit`, `approver_exists`, `approver_not_found`,
-  `approver_last`, `code_required`, `bad_code`, `code_expired`,
+  `approver_last`, `code_required`, `bad_code`, `code_expired`, `network_pending`,
   `daemon_too_old`, `daemon_unreachable`, `admin_unavailable`, `internal`.
 
 #### Approbateurs et codes push
@@ -759,15 +803,18 @@ retrait d'un approbateur. Les mises à jour, le reboot et le reste ne demandent 
   ancien que la colonne, ou enregistré par un serveur plus ancien après un retour en arrière,
   son dernier connu à l'ouverture suivante de la base), `last_seen` (dernier
   `register_push`), dates RFC 3339 UTC, et `approver` (booléen JSON : ce `token_id` figure
-  dans `approver_list`), le plus récemment vu d'abord. L'appel au daemon valide la session.
+  dans `approver_list`) et, en phase 3, `secure` (booléen JSON : une clé push est stockée pour
+  ce jeton, voir [Code push chiffré](#code-push-chiffré)), le plus récemment vu d'abord. L'appel
+  au daemon valide la session.
   Depuis iOS 16 tout iPhone se nomme `iPhone` : ces trois champs, avec la fin du `token_id`,
   permettent de distinguer deux téléphones de même nom.
 - **`approver_list`** rend la liste du daemon, dans son ordre, réduite à `id`,
   `device_name` (nettoyé comme celui de `register_push`), `token_id` et `created_at` : un
   champ ajouté plus tard par le daemon n'atteint pas les clients. Il ajoute à chaque
-  approbateur `platform`, `registered_at` et `last_seen` lus dans `push_tokens` par `token_id`.
-  Un approbateur dont le jeton a quitté `push_tokens` (purge à 30 jours) les a vides : il ne
-  reçoit plus de codes tant que l'app ne s'est pas reconnectée.
+  approbateur `platform`, `registered_at` et `last_seen` lus dans `push_tokens` par `token_id`,
+  et, en phase 3, `secure` (booléen JSON, comme pour les candidats).
+  Un approbateur dont le jeton a quitté `push_tokens` (purge à 30 jours) les a vides et `secure`
+  vaut `false` : il ne reçoit plus de codes tant que l'app ne s'est pas reconnectée.
 - **`approver_enroll`** : le client nomme le téléphone par `params.token_id`. calaos_server le
   retrouve dans `push_tokens` et envoie lui-même au daemon **ce** jeton et **son**
   `device_name` ; tout `token`, `device_name` ou autre champ envoyé par le client est ignoré.
@@ -775,12 +822,13 @@ retrait d'un approbateur. Les mises à jour, le reboot et le reste ne demandent 
   `code_id` et `code` (ensemble ou pas du tout) portent le code `approver_enroll` d'un
   approbateur existant ; le premier enrôlement n'en demande pas. Le daemon envoie alors un code
   d'enrôlement au nouveau téléphone, à confirmer par `approver_confirm`.
-- **`code_request`** : `code_action` vaut `console_open`, `admin_password`, `approver_enroll`
-  ou `approver_remove` (`network_config` et toute autre valeur : `invalid_request`).
+- **`code_request`** : `code_action` vaut `console_open`, `admin_password`, `approver_enroll`,
+  `approver_remove` ou, en phase 3, `network_config` (toute autre valeur, `approver_confirm`
+  compris : `invalid_request`).
   `code_params` est reconstruit avec les seules clés liées par le daemon : `{password}` pour
   `admin_password` (le futur `new_pass`, 1 à 1024 octets), `{approver_id}` pour
-  `approver_remove`, `{}` pour les deux autres. `approver_id` choisit le téléphone (par défaut
-  le plus ancien).
+  `approver_remove`, `{}` pour les deux autres, et pour `network_config` les six chaînes
+  décrites dans [Réseau](#réseau). `approver_id` choisit le téléphone (par défaut le plus ancien).
 - **`code_verify` / `console_open`** (`params {code_id, code}`) : vérifient un code
   `console_open` ; la session reçoit un droit d'ouverture de la console à usage unique,
   valable 30 s, que le message d'ouverture de [`/api/console`](#console-web-apiconsole)
@@ -793,11 +841,14 @@ retrait d'un approbateur. Les mises à jour, le reboot et le reste ne demandent 
   10 codes par heure pour la box ; 5 codes faux invalident la session.
 - **Remise d'un code** : le daemon publie `push_code {approver_id, code_id}` sur `/events`,
   sans jeton ni code. calaos_server lit `GET admin/push/{code_id}` (bearer seul, une fois),
-  qui rend `{token, message}`, et pousse `message` (nettoyé, au plus 256 points de code) à
-  **ce seul jeton** s'il figure dans `push_tokens` : ni les autres téléphones, ni un client,
-  ni le journal ne voient le code ou le jeton. `push_code` n'est jamais retransmis. Le texte
-  doit commencer par le préfixe fixe du daemon, `Calaos admin code NNNNNN: ` (6 chiffres) ;
-  tout autre texte est ignoré, un faux daemon ne peut donc pas rédiger ses propres pushes. Au
+  qui rend `{token, message, action, code, expires_in}`, et pousse à **ce seul jeton** s'il
+  figure dans `push_tokens` : ni les autres téléphones, ni un client, ni le journal ne voient
+  le code ou le jeton. `push_code` n'est jamais retransmis. Deux formes, selon que le jeton a
+  une clé push (voir [Code push chiffré](#code-push-chiffré)) ou non : le **texte hérité**
+  (`message` nettoyé, au plus 256 points de code) pour un jeton sans clé, l'**avis** plus la
+  charge chiffrée pour un jeton avec clé. Dans les deux cas, `message` doit commencer par le
+  préfixe fixe du daemon, `Calaos admin code NNNNNN: ` (6 chiffres) ; tout autre texte est
+  ignoré, un faux daemon ne peut donc pas rédiger ses propres pushes. Au
   plus 20 codes sont poussés par heure glissante (le double du budget du daemon) ; seul un
   push parti compte, pas une récupération qui n'a rien servi ni un jeton inconnu. Au-delà, le
   `push_code` est ignoré. Un code perdu se redemande au bout de 10 s.
@@ -806,6 +857,146 @@ retrait d'un approbateur. Les mises à jour, le reboot et le reste ne demandent 
   codes, alors que le daemon le liste toujours et que `code_request` réussit : seul le
   journal de calaos_server le dit. Il les reçoit de nouveau dès que l'app se reconnecte
   (même jeton). `approver_candidates.last_seen` permet à la webapp d'avertir avant.
+
+#### Code push chiffré
+
+Phase 3. Le code de 6 chiffres ne figure plus dans le texte de la notification (écran verrouillé,
+relais push, FCM, APNs) : un téléphone qui a enregistré une **clé push** reçoit un avis générique
+et le code **chiffré avec cette clé**, que seuls le téléphone et calaos_server connaissent.
+L'application déchiffre et affiche le code ; le téléphone n'a pas à joindre la box. La clé
+n'authentifie rien : le second facteur reste le code tapé dans la webapp (voir
+`docs/admin/PLAN.md`, amendement (a) du 2026-10-25).
+
+**Clé.** 32 octets du CSPRNG de l'application, générés une fois, envoyés à chaque
+[`register_push`](#register_push) dans `push_key` (64 hexadécimaux minuscules). Elle est stockée
+dans `push_tokens.push_key` et ne quitte jamais calaos_server ni le téléphone.
+
+**Avis.** Texte composé par calaos_server à partir du seul champ `action` de la réponse du
+daemon (table fermée, jamais le `message` du daemon) :
+`Calaos admin code to <purpose>. Open the Calaos app to read it.`
+
+| `action` | `<purpose>` |
+|---|---|
+| `console_open` | `open the web console` |
+| `admin_password` | `change the admin password` |
+| `approver_enroll` | `add an approver phone` |
+| `approver_remove` | `remove an approver phone` |
+| `approver_confirm` | `enroll this phone as the admin approver` |
+| `network_config` | `change the network configuration` |
+
+Un `action` hors de cette table, ou un `code` qui n'est pas 6 chiffres ASCII : rien n'est poussé
+(journalisé sans valeur). **Daemon plus ancien** : sa réponse `{token, message}` n'a ni `action` ni
+`code` ; calaos_server pousse alors le texte hérité (`message`, sous le garde `isCodeMessage`)
+même à un jeton avec clé, ce que ce téléphone recevait déjà avant la phase 3. `approver_confirm` est le code d'enrôlement envoyé au **nouveau**
+téléphone : il est chiffré avec la clé de ce téléphone, ce qui prouve qu'il la détient.
+
+**Construction** (exacte ; `||` est la concaténation d'octets, dans cet ordre).
+
+```
+nonce = 16 octets du CSPRNG de calaos_server, un par code
+ks    = HMAC-SHA256(key, "calaos-admin-code/enc" || code_id || nonce)
+ct    = code_ascii[6] XOR ks[0..6)              les 6 premiers octets de ks
+tag   = HMAC-SHA256(key, "calaos-admin-code/mac" || code_id || nonce || action || expires || ct)[0..16)
+```
+
+- `key` : les 32 octets décodés de `push_key`. `code_ascii` : les 6 chiffres en ASCII.
+- `code_id` : ses 16 caractères hexadécimaux, en ASCII. `action` : son texte ASCII.
+- `expires` : le texte ASCII exact de `admin_code_expires`. `nonce` et `ct` : octets bruts.
+- `expires` = heure de la réponse du daemon plus `expires_in`, en UTC, à la seconde, au format
+  RFC 3339 avec `Z` (`2026-10-25T09:13:03Z`).
+- HMAC-SHA256 existe tel quel côté OpenSSL, `javax.crypto.Mac`, `CCHmac` et
+  `QMessageAuthenticationCode` : aucune autre primitive.
+
+**Charge utile chiffrée.** Six chaînes ; le bloc chiffré n'a aucune autre clé.
+
+| Clé | Contenu |
+|---|---|
+| `admin_code_id` | `code_id`, 16 hexadécimaux minuscules |
+| `admin_code_action` | `action` |
+| `admin_code_expires` | `expires`, RFC 3339 UTC à la seconde, suffixe `Z` |
+| `admin_code_nonce` | `nonce`, 32 hexadécimaux minuscules |
+| `admin_code_ct` | `ct`, 12 hexadécimaux minuscules |
+| `admin_code_tag` | `tag`, 32 hexadécimaux minuscules |
+
+**Forme poussée, par plateforme** (jamais `event_uuid`, jamais le code) :
+- iOS : l'avis en `message` (l'alerte), les six clés dans `data` (`mutable_content` est toujours
+  posé).
+- Android : un jeton avec clé reçoit **toujours** le message FCM data seul, quel que soit son
+  `push_format` (un message `notification` serait affiché par le système, application en arrière-plan,
+  sans appeler `onMessageReceived` : rien ne serait stocké). `data` porte `title` (`Calaos`),
+  `body` et `message` (l'avis, jamais le code) en plus des six clés.
+
+**Réception.** L'application stocke la charge telle que reçue avec l'heure de réception, sans
+cryptographie (service Android, extension iOS). À l'ouverture, au premier plan ou au tap, elle :
+
+1. refuse, **avant** le tag, une charge dont `admin_code_action` est hors de la table, dont
+   `admin_code_expires` ne vérifie pas `^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$` (la concaténation
+   `action || expires` n'a pas de préfixe de longueur : elle n'est sans ambiguïté que sous cette
+   forme) ou dont un champ hexadécimal n'a pas la bonne longueur ou n'est pas en minuscules ;
+2. recalcule `tag` à partir des **chaînes reçues** (sans reformater `expires`) et le compare **en
+   temps constant avant** de déchiffrer (`CRYPTO_memcmp` pour OpenSSL, `MessageDigest.isEqual`
+   en Java, `timingsafe_bcmp` sur iOS, une boucle de cumul par OU exclusif en C++ à côté de
+   `QMessageAuthenticationCode`) ;
+3. calcule `code = ct XOR ks[0..6)`.
+
+Un `tag` faux est abandonné sans bruit, journalisé sans valeur. **Échéance.** L'application ne
+compare **pas** `expires` à l'horloge du téléphone : une horloge de box en retard ou en avance ferait
+sinon abandonner tous les codes. Elle affiche le code pendant 60 s (durée de vie d'un code) à
+compter de l'heure de **réception**, puis l'abandonne ; le daemon applique l'échéance réelle
+(`code_expired`). `expires` reste authentifié par le tag, c'est une indication, pas un test. Ne
+jamais journaliser clé, nonce, `ct`, `tag`, code ni jeton. Les étiquettes `calaos-admin-code/enc`
+et `/mac` valent version 1 : un format futur change les étiquettes et les clés de la charge.
+
+**Vecteurs de test.** Calculés avec Python (`hmac`, `hashlib`) et recalculés avec la CLI
+`openssl dgst -sha256 -mac HMAC` (OpenSSL 3.5) dans un conteneur : les deux donnent les mêmes
+octets. Les implémentations de calaos_server et de calaos_mobile les rejouent.
+
+| | Vecteur 1 | Vecteur 2 | Vecteur 3 |
+|---|---|---|---|
+| `key` | `000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f` | idem | `a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5` |
+| `code_id` | `0123456789abcdef` | `fedcba9876543210` | `5d0c8e1f2a3b4c6d` |
+| `nonce` | `f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff` | `00112233445566778899aabbccddeeff` | `ffeeddccbbaa99887766554433221100` |
+| code | `482913` | `007351` | `999999` |
+| `action` | `console_open` | `network_config` | `approver_confirm` |
+| `expires` | `2026-10-25T09:13:03Z` | `2026-10-25T14:00:59Z` | `2026-12-31T23:59:59Z` |
+| `ks[0..6)` | `b10aebd59d39` | `87e90db85a5c` | `f5e5fbf8e244` |
+| `ct` | `8532d9ecac0a` | `b7d93a8b6f6d` | `ccdcc2c1db7d` |
+| `tag` | `9e72bd26d3926652bc157819dd26d995` | `f1bc83f4bdfbe0e9b6a47a65cb29248d` | `0a8b6d66ac8eb1bac575ad2505da6083` |
+
+Le vecteur 1 en `data`, tel que poussé :
+
+```json
+{"admin_code_id": "0123456789abcdef", "admin_code_action": "console_open",
+ "admin_code_expires": "2026-10-25T09:13:03Z", "admin_code_nonce": "f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+ "admin_code_ct": "8532d9ecac0a", "admin_code_tag": "9e72bd26d3926652bc157819dd26d995"}
+```
+
+Cas à refuser : le vecteur 1 avec un seul caractère du `tag` changé, avec un bit de `ct` changé
+(malléabilité d'un chiffrement par flot), avec `nonce` ou `code_id` changé, avec
+`admin_code_action` remplacé par `network_config`, avec `admin_code_expires` remplacé par
+`2026-10-25T09:13:04Z`, ou vérifié avec la clé du vecteur 3 ; dans tous ces cas le `tag` ne
+correspond pas. Le vecteur 1 tel quel est accepté tant que 60 s ne se sont pas écoulées depuis sa
+réception, quelle que soit l'horloge du téléphone (même en 2030), et abandonné ensuite.
+
+Recalcul (Python 3, `ks6` et `tag` en hexadécimal) :
+
+```python
+import hmac, hashlib
+def seal(key_hex, code_id, nonce_hex, code, action, expires):
+    key, nonce = bytes.fromhex(key_hex), bytes.fromhex(nonce_hex)
+    ks = hmac.new(key, b"calaos-admin-code/enc" + code_id.encode() + nonce, hashlib.sha256).digest()
+    ct = bytes(a ^ b for a, b in zip(code.encode(), ks[:6]))
+    tag = hmac.new(key, b"calaos-admin-code/mac" + code_id.encode() + nonce
+                   + action.encode() + expires.encode() + ct, hashlib.sha256).digest()[:16]
+    return ks[:6].hex(), ct.hex(), tag.hex()
+```
+
+**Texte hérité.** Un jeton **sans** clé (apps des stores) reçoit le `message` du daemon tel
+quel, code en clair : `Calaos admin code NNNNNN: <purpose>. Valid 60 s, never share it.`
+Cette forme est retirée une release après la sortie de l'app mobile qui envoie `push_key`.
+
+**Journal.** Ni la clé, ni le nonce, ni `ct`, ni `tag`, ni le code, ni le jeton ne sont écrits,
+même à `debug_level 5` (un test de `JsonApiHardening` le fixe).
 
 #### Console web (`/api/console`)
 
@@ -946,6 +1137,255 @@ Une console ne se rattache pas : après une fermeture, en ouvrir une autre deman
 code. Chaque ouverture lève l'alerte `console_opened` (push « Calaos: console opened » à tous les
 téléphones, voir [Événements](#événements-admin_event)).
 
+#### Services
+
+Phase 3. Contrat du daemon : `API.md`, « Services ». L'état des unités d'une liste fermée de Calaos
+OS et le redémarrage de certaines. Le client nomme un `id`, jamais une unité. Session admin
+seulement (pas de code push).
+
+`id` de la liste, dans l'ordre : `calaos-server`, `calaos-home`, `mosquitto`, `zigbee2mqtt`,
+`influxdb`, `grafana`, `hue2mqtt`, `envoy`, `olad`, `timesyncd`, `calaos-ddns` (oneshot : « lancer
+maintenant »), puis, en lecture seule, `calaos-container`, `haproxy`, `networkd`, `ssh`.
+
+**`services_list`** (sans `params`) → `result` : `{"services": [{"id", "unit", "kind",
+"restartable", "active_state", "sub_state", "enabled", "since"}]}`, recopié du daemon.
+`restartable` est un booléen, `kind` vaut `service` ou `oneshot`, `active_state` est l'`ActiveState`
+de systemd ou `not-found` (unité non installée), `since` est une date RFC 3339 UTC ou `null`.
+
+```json
+{"msg": "admin", "msg_id": "9",
+ "data": {"action": "services_restart", "admin_session": "9b1f…e4", "params": {"unit": "mosquitto"}}}
+```
+
+**`services_restart`** (`params.unit`) → `result` : `{"id": "mosquitto", "state": "restarting"}`.
+- calaos_server exige `unit` conforme à `^[a-z0-9-]{1,32}$`, sinon `invalid_request` sans appel au
+  daemon. Le daemon refuse un `id` inconnu ou non redémarrable (`calaos-container`, `haproxy`,
+  `networkd`, `ssh`) en `invalid_request` (« unknown or non-restartable service »).
+- `upgrade_in_progress` pendant un job, pour **toute** unité.
+- Le daemon répond d'abord, puis redémarre l'unité environ 500 ms plus tard : la réponse ne dit rien
+  du résultat, qui se lit en sondant `services_list`. Redémarrer `calaos-server` coupe la connexion
+  du client dans les secondes qui suivent ; ce n'est pas une erreur, le client reprend après un
+  nouveau login (voir [Reprise](#reconnexion-et-reprise-de-la-webapp)) avec la même `admin_session`.
+- Erreurs : `https_required`, `invalid_request`, `bad_session`, `admin_not_set`,
+  `upgrade_in_progress`, `rate_limited`, `daemon_too_old`, `daemon_unreachable`,
+  `admin_unavailable`, `internal`.
+
+#### Logs
+
+Phase 3. Contrat du daemon : `API.md`, « Logs ». Le daemon lit le journal systemd, borne,
+filtre et **masque** les messages. Session admin seulement. Les logs n'atteignent le navigateur
+que par https, jamais en diffusion.
+
+**`logs_sources`** (sans `params`) → `{"sources": [{"id", "label"}]}` : dix-sept sources dans
+l'ordre de `API.md` (`calaos-server`, `calaos-home`, `haproxy`, `mosquitto`, `zigbee2mqtt`,
+`influxdb`, `grafana`, `hue2mqtt`, `envoy`, `calaos-container`, `olad`, `timesyncd`, `calaos-ddns`,
+`networkd`, `ssh`, `kernel`, `system`). `label` est un texte anglais fixe ; la webapp traduit par
+`id`.
+
+**`logs_query`** → `result` : `{"entries": [...], "truncated", "complete", "next_cursor"}` du daemon.
+Tous les `params` sont facultatifs et validés par calaos_server avant tout appel (`invalid_request`
+sinon), avec les mêmes limites que le daemon :
+
+| Paramètre | Règle |
+|---|---|
+| `sources` | tableau de 1 à 8 `id` connus ; défaut `["system"]` |
+| `priority` | niveau maximal affiché : entier JSON `0` à `7` **ou** nom (`emerg`, `alert`, `crit`, `err`, `warning`, `notice`, `info`, `debug`) ; la chaîne `"3"` est refusée |
+| `since`, `until` | RFC 3339 ; `since` égal ou postérieur à `until` est refusé |
+| `text` | au plus 256 caractères ; sous-chaîne insensible à la casse, jamais une expression régulière |
+| `lines` | entier de 1 à 1000 ; défaut 200 |
+| `cursor` | curseur d'une réponse précédente, au plus 512 caractères ASCII imprimables |
+| `direction` | `backward` (défaut : les `lines` plus récentes avant `until` ou `cursor`) ou `forward` (les plus anciennes après `cursor`) ; `forward` sans `cursor` ni `since` est refusé |
+
+- Sans `since`, une requête `backward` couvre les 7 derniers jours.
+- `entries` : du plus ancien au plus récent dans les deux sens ; chaque entrée est `{"cursor", "ts",
+  "source", "unit", "priority", "pid"?, "message", "cut"?}`. `ts` est RFC 3339 UTC en
+  millisecondes, `priority` toujours un entier `0` à `7` dans la réponse, `message` est coupé à
+  2048 octets (`"cut": true`).
+- **`text` porte sur le message déjà masqué** : chercher la valeur d'un mot de passe ou d'un
+  jeton masqué ne trouve rien. La chaîne cherchée n'est jamais journalisée.
+- Une requête examine au plus 5000 entrées du journal ou 5 s. `complete: false` : la fenêtre a
+  pris fin avant `lines` résultats ; la réponse reste un succès avec les entrées lues.
+  `truncated: true` : la limite de 1 Mio a coupé la réponse (les entrées les plus éloignées du point
+  de départ sont retirées).
+- `next_cursor` est le curseur de la dernière entrée **examinée** dans le sens de la requête
+  (correspondante ou non), `null` si rien n'a été examiné ; si `truncated`, celui de la dernière
+  entrée gardée.
+- **Suivre** (« follow ») = le client répète `logs_query` en `forward` avec le dernier
+  `next_cursor`, toutes les 2 s, par ce même relais ; aucun flux, aucun état côté serveur.
+  « Charger plus ancien » = `backward` avec le premier curseur reçu.
+- Masquage (au mieux) : voir `API.md`, « Redaction » ; calaos_server n'en ajoute pas. Les
+  valeurs d'un mot de passe, d'un code ou d'une session ne sont de toute façon jamais écrites par
+  calaos_server.
+- Limites du daemon : 2 requêtes par seconde et par session, 4 `journalctl` en parallèle sur la
+  box ; au-delà `rate_limited` avec `retry_after` (le client attend ce délai). Un échec de
+  `journalctl` est `internal`.
+- Délai de calaos_server : 10 s ; le client attend environ 12 s (le daemon peut examiner 5 s, puis
+  répondre jusqu'à 1 Mio).
+- Erreurs : `https_required`, `invalid_request`, `bad_session`, `admin_not_set`, `rate_limited`,
+  `daemon_too_old`, `daemon_unreachable`, `admin_unavailable`, `internal`.
+
+#### Heure de la box
+
+Phase 3. Contrat du daemon : `API.md`, « Box time ». Session admin seulement. Le client NTP de
+Calaos OS est `systemd-timesyncd`.
+
+`<BoxTime>` : `{"now": "<RFC 3339 UTC>", "timezone": "Europe/Paris", "ntp": true, "synchronized":
+true, "rtc": "<RFC 3339>" ou null}`.
+
+- **`time_get`** (sans `params`) → `<BoxTime>`.
+- **`time_zones`** (sans `params`) → `{"timezones": ["Africa/Abidjan", …]}`.
+- **`time_set`** → `<BoxTime>` plus `"restart_required": <bool>`. `params` : `timezone`
+  (`^[A-Za-z0-9_+\-/]{1,64}$` côté calaos_server ; le daemon vérifie qu'elle figure dans `time_zones`), `ntp` (booléen), `time` (RFC 3339,
+  année 2020 à 2100) ; chacun facultatif, **un au moins** (aucun : `invalid_request`,
+  « no field to set »).
+  - Ordre : `timezone`, puis `ntp` (`timedatectl set-ntp`, qui pilote `systemd-timesyncd`), puis
+    `time`. `time` avec NTP actif après l'étape `ntp` : `invalid_request` (« ntp is active »).
+  - `restart_required` vaut `true` quand `timezone` a changé : la zone est lue par les processus
+    de la box à leur démarrage, le client propose donc `services_restart` sur `calaos-server` (et
+    `calaos-home` si `services_list` ne le donne pas en `not-found`).
+  - **Échec partiel.** La première étape qui échoue arrête la suite : `internal`, avec les champs
+    `applied` (étapes déjà appliquées, par exemple `timezone`) et `failed` (par exemple `ntp`), qui
+    viennent du `data` du daemon. Les étapes précédentes restent appliquées, `time_get` donne l'état
+    réel. calaos_server ajoute à cette erreur `restart_required` (`"true"` si `applied` contient
+    `timezone`, `"false"` sinon) : un fuseau déjà changé demande le redémarrage même si l'étape
+    suivante a échoué.
+  - Un décalage de plus d'une heure se confirme côté client : reculer l'horloge casse la validité
+    des certificats TLS et d'apt.
+- Les sessions, les codes, les consoles et le changement réseau en attente mesurent leur durée sur
+  l'horloge monotone : changer l'heure ne les allonge ni ne les raccourcit.
+- Erreurs : `https_required`, `invalid_request`, `bad_session`, `admin_not_set`, `rate_limited`,
+  `daemon_too_old`, `daemon_unreachable`, `admin_unavailable`, `internal`.
+
+#### Réseau
+
+Phase 3. Contrat du daemon : `API.md`, « Network configuration ». Un changement s'applique en
+**essai**, et ne devient permanent que si un client le **confirme** depuis la nouvelle adresse ;
+sans confirmation dans les **120 s**, le daemon revient seul en arrière, et un redémarrage de la box
+revient aussi en arrière (l'essai vit dans `/run`). IPv4 seulement, pas de Wi-Fi. Un seul
+changement à la fois.
+
+- **`network_state`** (sans `params`) → `{"interfaces": [{"name", "ipv4", "gateway", "mac", "state",
+  "dhcp", "dns_servers", "search_domains"}], "pending": {"change_id", "intf", "applied_at",
+  "expires_in"} ou null}`. Session admin seulement ; `expires_in` est le nombre de secondes
+  restantes. Une webapp rechargée y retrouve le compte à rebours (à calculer depuis `applied_at`,
+  pas depuis l'heure de réception).
+- **`network_apply`** protégé par un **code push** de l'action `network_config` : `code_request`
+  d'abord, puis `network_apply` avec `code_id` et `code`. Sans approbateur : `approver_required`.
+  `params` :
+
+  | Paramètre | Règle |
+  |---|---|
+  | `intf` | `^[a-zA-Z0-9_.-]{1,15}$`, ni `.`, ni `..`, ni `lo`, ni `apply`, `confirm`, `revert`, `state`, `list`, `trial` ; l'interface doit exister (le daemon le vérifie) |
+  | `dhcp` | booléen JSON |
+  | `ipv4` | CIDR IPv4 avec préfixe explicite (`192.168.1.10/24`) ; une adresse sans préfixe est refusée ; aucun zéro de tête dans un octet ; obligatoire si `dhcp` est faux |
+  | `gateway` | adresse IPv4, facultative (aucune ligne `Gateway=` si vide) |
+  | `dns_servers` | au plus 4 adresses IPv4 |
+  | `search_domains` | au plus 4 domaines |
+  | `code_id`, `code` | 16 hexadécimaux minuscules, 6 chiffres |
+
+  Avec `dhcp: true`, `ipv4`, `gateway`, `dns_servers` et `search_domains` sont absents ou vides,
+  sinon `invalid_request`. → `result` : `{"change_id": "<16 hex>", "intf", "applied_at": "<RFC 3339
+  UTC>", "confirm_within": 120}`. La box peut changer d'adresse avant que la réponse atteigne le
+  client : la connexion tombe, ce n'est pas une erreur.
+  Ordre des contrôles du daemon : corps, session, `network_pending` (409, avec `change_id` et
+  `expires_in`, le code reste utilisable), `upgrade_in_progress`, puis le code (`approver_required`,
+  `code_required`, `bad_code`, `code_expired`).
+- **Liaison du code.** Le code `network_config` est lié aux **chaînes validées telles qu'envoyées**,
+  six clés toujours présentes : `intf`, `dhcp` (`"true"` ou `"false"`), `ipv4`, `gateway`,
+  `dns_servers` (liste jointe par `,`), `search_domains` (liste jointe par `,`) ; `""` quand
+  absent ; aucune normalisation d'adresse. Pour `code_request` avec `code_action: "network_config"`,
+  le client envoie dans `code_params` les **mêmes champs typés** que `network_apply` (sans
+  `code_id` ni `code`) ; calaos_server les valide avec les mêmes règles et reconstruit les six
+  chaînes comme le daemon. Un champ modifié entre la demande du code et `network_apply` donne
+  `bad_code` (et consomme un des 5 essais de la session).
+- **`network_confirm`** et **`network_revert`** (`params.change_id`, 16 hexadécimaux minuscules) :
+  toute session admin **vivante** peut les appeler, pas seulement celle qui a appliqué (elle a pu se
+  reconnecter à la nouvelle adresse) ; aucun code. → `{"change_id", "intf", "state":
+  "confirmed"}` ou `"reverted"`. Un `change_id` inconnu ou terminé (confirmé, annulé, retour
+  arrière) : `invalid_request`.
+- Événements : voir [Événements](#événements-admin_event) (`network_pending`, `network_applied`,
+  `network_rolled_back`).
+- Erreurs : `https_required`, `invalid_request`, `bad_session`, `admin_not_set`, `rate_limited`,
+  `network_pending`, `upgrade_in_progress`, `approver_required`, `code_required`, `bad_code`,
+  `code_expired`, `daemon_too_old`, `daemon_unreachable`, `admin_unavailable`, `internal`.
+- `network/list`, `network/trial` et l'ancienne route `network/{intf}` ne sont jamais relayées.
+
+#### Configuration (`config_list`, `config_set`, `config_backup`)
+
+Phase 3. Traitée **dans calaos_server** (propriétaire des fichiers et du registre
+`ConfigOptions.cpp`) ; le daemon ne fait que valider la session (`GET admin/status` avec
+`X-Calaos-Admin-Session`, comme `mcp_regenerate`). Session admin seulement (pas de code push).
+
+La liste blanche est un confort et un garde-fou, **pas une frontière de sécurité** : le `config put`
+HTTP existant (session admin) réécrit toutes les options de `local_config.xml` (`listen_address`,
+`port_api`, `cn_pass`, `mcp_token` et `api_allowed_hosts` compris), comme le consigne
+`docs/admin/PLAN.md` (amendement (c)). Chaque clé est résolue dans le registre (`type`, choix, bornes, description), donc
+la validation est celle du registre. Attributs : `secret` (en écriture seule : jamais rendu, affiché
+« défini / non défini »), `restart` (prise en compte après un redémarrage de calaos-server).
+
+| Groupe | Clés | |
+|---|---|---|
+| Logging | `debug_level`, `debug_domains` | restart |
+| Notifications | `smtp_server`, `smtp_port`, `smtp_auth`, `smtp_tls`, `smtp_username`, `smtp_password` (secret), `user_emails` | immédiat |
+| History | `history_keep_days` | immédiat |
+| InfluxDB | `influxdb_enabled`, `influxdb_version`, `influxdb_host`, `influxdb_port`, `influxdb_database`, `influxdb_org`, `influxdb_bucket`, `influxdb_token` (secret), `influxdb_log_timeout` | restart |
+| MCP | `mcp_rate_limit`, `mcp_ban_failures`, `mcp_ban_seconds` | restart (sidecar) |
+| OTA | `ota_enabled`, `ota_rescan_interval` | restart |
+| Origin | `api_allowed_hosts` | immédiat (relu à chaque contrôle d'Origin, sans joker) |
+| Location | `latitude`, `longitude` | immédiat |
+| Kiosk | `show_cursor`, `dpms_enable`, `dpms_standby`, `lang` | pris par calaos-home à son prochain démarrage |
+
+Ni listées ni modifiables ici : `cn_user`, `cn_pass`, `calaos_user`, `calaos_password`,
+`mcp_token`, `mcp_service_token`, `update_notified_hash`, `port_api`, `listen_address`, `wwwroot`,
+`debug_wwwroot`, `debug_enabled`, `max_*`, les `*_timeout` du serveur HTTP, `url_*`,
+`calaos_server_host`, `ota_firmware_path`, `notif_development`, et toute clé hors du registre.
+
+- **`config_list`** (sans `params`) → `{"options": [{"key", "group", "type", "description",
+  "value", "default", "secret", "set", "restart", "choices"?}]}`. `secret`, `set` et `restart` sont
+  des booléens JSON ; `value` est absent pour un secret.
+- **`config_set`** (`params.key`, `params.value`) → `{"key", "value", "restart_required": <bool>}`.
+  `value` est une chaîne ; `""` remet la valeur par défaut. Pour un secret, la réponse porte
+  `"set": true` et **aucune** valeur. Erreurs propres : `invalid_request` pour une clé hors de la
+  liste ou une valeur que le registre refuse (`msg` = la raison du registre, affichable).
+  `Config::BackupFiles()` précède l'écriture, qui suit le chemin de `calaos_config set` ; les clés
+  « immédiat » agissent là où le code les relit déjà. `restart_required` : la webapp propose
+  `services_restart` sur `calaos-server`.
+- **`config_backup`** (sans `params`) → `{"format": "calaos-config-backup/1", "created_at",
+  "server_version", "hostname", "files": {"io.xml", "rules.xml", "local_config.xml",
+  "widgets.xml"}}`, chaque valeur étant le contenu du fichier.
+- La session est validée comme `mcp_regenerate`.
+- Le journal de calaos_server (`cInfoDom("admin")`) écrit `Admin config set <clé> by <ip> (session
+  <id d'audit>)` et `Admin config backup by <ip>`, jamais une valeur.
+- Erreurs : `https_required`, `invalid_request`, `not_allowed` (portée MCP), `bad_session`,
+  `admin_not_set`, `daemon_too_old`, `daemon_unreachable`, `admin_unavailable`, `internal`.
+
+**Sauvegarde en HTTP.** `config_backup` est aussi une **action HTTP** (corps JSON seulement,
+`admin_session` dans le corps, jamais dans l'URL) :
+
+```json
+{"action": "config_backup", "cn_user": "user", "cn_pass": "pass", "admin_session": "9b1f…e4"}
+```
+
+La réponse est le document de sauvegarde ci-dessus, tel quel (pas de `success`), avec :
+
+```
+Content-Type: application/json
+Content-Disposition: attachment; filename="calaos-backup-<hostname>-<YYYYMMDD-HHMM>.json"
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+```
+
+`<hostname>` est limité à `[A-Za-z0-9._-]` et coupé à 32 caractères ; vide une fois nettoyé, il
+devient `box`. `<YYYYMMDD-HHMM>` est la date de création en UTC (celle de `created_at`). `secureTransport()` et le
+contrôle d'Origin de `/api.php` s'appliquent. Sans `admin_session` valide : `bad_session` ; sur le
+port 5454 en clair : `https_required` ; dans les deux cas la charge d'erreur habituelle, aucun
+fichier et pas d'en-tête `Content-Disposition`. En portée service (MCP) : `not_allowed`.
+
+La sauvegarde contient des **secrets** (`cn_pass`, `mcp_token`, mots de passe de caméras dans
+`io.xml`) : ce que `config get` remet déjà à l'admin et ce dont une restauration a besoin. Le
+fichier tombe en clair dans les téléchargements, ce que l'interface dit. La restauration est hors
+périmètre (`config put`, installer).
+
 ### `config` et `get_mcp_info` une fois l'admin défini
 
 Ces deux actions **HTTP** existent déjà ([`config`](#config--clé-type-http-uniquement-2),
@@ -992,7 +1432,8 @@ champs), état (`AdminState`), présence et format de la session, appel du daemo
 ### Portée MCP
 
 `admin_unlock`, `admin_set`, `admin` et `console` rejoignent la liste des messages refusés en
-session service (13 au lieu de 9). Le refus a la forme d'erreur admin avec `not_allowed` et
+session service (13 au lieu de 9). En phase 3, l'action HTTP `config_backup` s'y ajoute
+(`not_allowed`), sans que ce compte soit mis à jour ; tout `admin {action}` de phase 3 hérite du refus de `admin`. Le refus a la forme d'erreur admin avec `not_allowed` et
 `"msg": "scope denied"`. Sur [`/api/console`](#console-web-apiconsole), un message d'ouverture
 qui s'authentifie avec le jeton de service (`token`, celui de `login_service`) ouvre une session
 de service et reçoit donc ce refus, sans appel au daemon.
@@ -1049,6 +1490,26 @@ panneaux RemoteUI), un message non sollicité (sans `msg_id`) :
   `error`, s'il est non vide, devient `upgrade failed` ; `current_pkg`, `message`,
   `packages[].name` et tout champ ajouté plus tard par le daemon sont retirés. Le premier
   `upgrade_progress` de chaque abonnement (instantané du daemon) est filtré de même.
+- Phase 3, changement réseau (`data` en types JSON natifs, `ts` = heure de réception par
+  calaos_server) :
+
+  ```json
+  {"msg": "admin_event", "data": {"type": "network_pending", "ts": "2026-10-25T09:12:04Z",
+   "data": {"intf": "eth0", "change_id": "5d0c8e1f2a3b4c6d", "applied_at": "2026-10-25T09:12:03Z", "confirm_within": 120}}}
+  {"msg": "admin_event", "data": {"type": "network_applied", "ts": "2026-10-25T09:12:40Z",
+   "data": {"intf": "eth0", "change_id": "5d0c8e1f2a3b4c6d"}}}
+  ```
+
+  `network_pending` : un changement attend sa confirmation ; après un redémarrage du daemon il est
+  republié une fois, avec l'`applied_at` d'origine et `confirm_within` = secondes restantes.
+  `network_applied` : il a été confirmé (le daemon n'y met pas `applied_at`). Ni l'un ni l'autre
+  n'est rejoué : un client qui se reconnecte lit `network_state`. Ils ne portent aucune adresse
+  (`intf`, `change_id`, et pour `network_pending` les durées), car ils partent aussi sur le port
+  5454 en clair.
+- `network_rolled_back` (alerte du daemon : retour arrière par délai ou par redémarrage après
+  l'échéance) suit le chemin d'`admin_set` (événement persistant affiché au login suivant,
+  acquittement, déduplication sur `id`), avec `ts` et `data.intf` ; **aucun push** vers les
+  téléphones.
 - C'est **tout** ce que reçoit un client foyer. `upgrade_job` n'est pas retransmis : pour
   connaître le job ou `reboot_required`, lire `admin {update_status}`. `push_code` est consommé
   par calaos_server (voir [Approbateurs et codes push](#approbateurs-et-codes-push)) et
@@ -1155,8 +1616,8 @@ délai de 5 s ci-dessous.
 | Délai | Valeur | Qui |
 |---|---|---|
 | Réponse à `admin_unlock` (client → « calaos-server trop ancien, mettez à jour la box ») | **5 s** | webapp (WA1). Une vérification légitime répond avant, car le daemon refuse tout de suite (`429`) une vérification concurrente au lieu de la mettre en file. Les 4 s supposent qu'une opération argon2id du daemon (CC1) tient en moins de 3 s sur la plus lente des box supportées. calaos_server ne met jamais lui-même en file un appel admin |
-| Appel de calaos_server au daemon | 4 s par défaut (connexion et réponse) ; **120 s pour `update_check`** (`apt-get update` synchrone) ; 30 s pour `system_restart` (`systemctl restart calaos-home` attend l'arrêt du conteneur du kiosque) | calaos_server (CB2/CB3) |
-| Réponse aux messages admin (client) | 5 s pour `admin_unlock`, `admin_set` et tout `admin` sauf `update_check` et `system_restart` ; 125 s pour `update_check` ; 35 s pour `system_restart` (au-delà des 30 s de calaos_server) | webapp (WA1) |
+| Appel de calaos_server au daemon | 4 s par défaut (connexion et réponse) ; 10 s pour `logs_query` ; 35 s pour `time_set` ; **120 s pour `update_check`** (`apt-get update` synchrone) ; 30 s pour `system_restart` (`systemctl restart calaos-home` attend l'arrêt du conteneur du kiosque) | calaos_server (CB2/CB3) |
+| Réponse aux messages admin (client) | 5 s pour `admin_unlock`, `admin_set` et tout `admin` sauf `update_check`, `system_restart`, `logs_query` et `time_set` ; 125 s pour `update_check` ; 35 s pour `system_restart` (au-delà des 30 s de calaos_server) ; 12 s pour `logs_query` (au-delà des 10 s de calaos_server) ; 40 s pour `time_set` (au-delà des 35 s de calaos_server) | webapp (WA1) |
 | Durée de la session admin | **15 min absolues** à l'émission, non glissantes | daemon |
 | Sondage de `admin/status` | 60 s ; 5 s pendant les 2 premières minutes tant que l'état est inconnu ; l'échec n'est journalisé qu'une fois | `AdminState` |
 | `admin_unavailable` : nouvel essai | toutes les 5 s pendant les 2 premières minutes, puis toutes les 60 s | webapp (WA1), même cadence que le sondage d'`AdminState` |
@@ -1167,6 +1628,8 @@ délai de 5 s ci-dessous.
 | Attachement à la socket de la console | 10 s, puis `daemon_unreachable` ; le daemon tue une console non attachée au bout de 30 s | calaos_server, daemon |
 | Console ouverte | 1 h absolue ; 15 min sans saisie ; ping du daemon toutes les 30 s, coupure sans pong en 60 s | daemon |
 | Alertes `admin_set` / `admin_reset` / `approver_set` / `approver_removed` / `console_opened` | persistées par le daemon jusqu'à l'ack, rejouées à chaque abonné `/events` | daemon |
+| Changement réseau en attente | 120 s pour confirmer (`confirm_within`), depuis `applied_at` ; retour arrière automatique ensuite | daemon |
+| Suivi des logs (`logs_query` en `forward`) | toutes les 2 s ; 2 requêtes par seconde et par session au plus | webapp, daemon |
 | Code push | valable 60 s ; droit console 30 s après `code_verify` ; 10 s entre deux codes d'une session | daemon |
 
 ### Reconnexion et reprise de la webapp
@@ -1197,6 +1660,12 @@ rattrape ainsi :
    signifie que celle-ci est invalidée : l'oublier. Les alertes manquées pendant une
    déconnexion sont rejouées par le daemon à calaos_server, qui les présente au login suivant
    (événement persistant).
+9. Phase 3, redémarrage de `calaos-server` (`services_restart`) : la connexion tombe dans les
+   secondes qui suivent, ce que le client traite comme « redémarrage » et non comme une erreur ;
+   il reprend aux étapes 1 à 3, puis sonde `services_list`.
+10. Phase 3, changement réseau : si l'adresse de la box change, le client rouvre la page à la
+    nouvelle adresse, se reconnecte, déverrouille, lit `network_state` (le changement en attente et
+    son échéance, calculée depuis `applied_at`), puis appelle `network_confirm` ou `network_revert`.
 
 Compatibilité : webapp neuve contre calaos_server ancien, `admin_unlock` reste sans réponse
 (voir Délais) ; installer ancien contre serveur neuf, le refus de `config get` est affiché
@@ -1942,6 +2411,7 @@ Réponse : `{"success":"true"}` (dans `data` en WebSocket, muette sans `msg_id`)
 | `hardware` | `android` ou `ios`, exactement | — (refus `"false"`) |
 | `push_format` | `notification` ou `data` (chaîne) | `notification` |
 | `device_name` | nom de l'appareil, affiché à l'admin | `''` (le nom connu est gardé) |
+| `push_key` | clé de chiffrement du code push, 64 hexadécimaux minuscules (phase 3) | absente (la clé connue est gardée) |
 
 - `push_format` est **optionnel** : les apps des stores (Android 3.1.x, iOS) ne
   l'envoient pas et gardent le format `notification`, inchangé.
@@ -1968,9 +2438,27 @@ Réponse : `{"success":"true"}` (dans `data` en WebSocket, muette sans `msg_id`)
   le jeton est enregistré, son nom connu reste. Le nom ne prouve rien : n'importe quel
   client foyer peut l'envoyer pour son jeton.
 - Le jeton d'un **approbateur** (marqué à l'alerte `approver_set`, et d'après
-  `approver_list` à chaque `approver_candidates`) garde le nom et le format de son
-  enrôlement : un `register_push` de ce jeton, par qui que ce soit, ne fait que
-  rafraîchir sa date. `approver_removed` le libère.
+  `approver_list` à chaque `approver_candidates`) garde le nom et le format de
+  son enrôlement : un `register_push` de ce jeton, par qui que ce soit, ne fait que
+  rafraîchir sa date (pour la clé push, voir plus bas). `approver_removed` le libère.
+- `push_key` (phase 3) est **optionnelle** : 32 octets du CSPRNG de l'app, en 64 hexadécimaux
+  minuscules, générés une fois et envoyés avec chaque enregistrement. Elle est stockée dans
+  `push_tokens.push_key` (colonne ajoutée à l'ouverture de la base) et sert uniquement à chiffrer
+  les codes push de ce jeton (voir [Code push chiffré](#code-push-chiffré)) ; elle n'authentifie
+  pas le téléphone. Une valeur qui n'est pas 64 hexadécimaux minuscules est **ignorée** (le jeton
+  est quand même enregistré) et un avertissement est journalisé une fois par processus, sans la
+  valeur. Une requête sans `push_key` valide ne change pas la clé déjà stockée.
+  Pour un jeton non approbateur, une nouvelle clé valide **remplace** l'ancienne. Pour un
+  approbateur : une **première** clé est acceptée (les approbateurs de la phase 2 n'en ont pas, et
+  ils ne peuvent pas se ré-enrôler avec le même jeton : `approver_exists`, `approver_last`) ; dès
+  qu'il en a une, elle est **gelée** (même règle que le nom et le format) et un autre `push_key`
+  ne fait que rafraîchir la date. Risque assumé de la première clé : qui détient le jeton et le
+  mot de passe foyer peut la poser avant le téléphone, lire les codes (ce qu'il peut déjà faire
+  en clair) et empêcher le vrai téléphone de les déchiffrer ; `secure` devient visible dans la
+  webapp, et le remède est un second approbateur ou `calaos-os admin reset` en SSH. Une clé perdue
+  par un approbateur dont le jeton ne change pas se résout de la même façon (jeton neuf par
+  réinstallation, ou `admin reset`). Un jeton sans clé reçoit le texte hérité.
+  Les listes `approver_candidates` et `approver_list` exposent `secure` (clé stockée ou non).
 
 ### `get_mcp_info` — **HTTP uniquement**
 
