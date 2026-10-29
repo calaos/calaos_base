@@ -72,6 +72,7 @@
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <link.h>
 #include <unistd.h>
 
 #include <chrono>
@@ -156,6 +157,26 @@ bool waitReadable(int fd, int budgetMs)
 }
 
 /*
+ * A sidecar built with a shared ASan runtime refuses to start unless that
+ * runtime comes first among its libraries, and LD_PRELOAD comes before its own
+ * dependencies: the runtime this suite runs under is preloaded ahead of the
+ * interposition. Empty when there is none.
+ */
+std::string sanitizerRuntime()
+{
+    std::string path;
+    ::dl_iterate_phdr([](struct dl_phdr_info *info, size_t, void *data) -> int
+    {
+        const char *name = info->dlpi_name;
+        if (!name || !::strstr(name, "/libasan.so"))
+            return 0;
+        *static_cast<std::string *>(data) = name;
+        return 1;
+    }, &path);
+    return path;
+}
+
+/*
  * The child's environment is built by hand rather than inherited with a
  * setenv(): the point of the injection is that it applies to THIS exec and to
  * nothing else in the suite.
@@ -172,7 +193,10 @@ std::vector<char *> childEnv(std::vector<std::string> &storage, bool inject)
 
     if (inject)
     {
-        storage.push_back(std::string("LD_PRELOAD=") + CALAOS_SELECTFAIL_PRELOAD);
+        const std::string runtime = sanitizerRuntime();
+        storage.push_back(std::string("LD_PRELOAD=") +
+                          (runtime.empty()? "": runtime + ":") +
+                          CALAOS_SELECTFAIL_PRELOAD);
         storage.push_back("CALAOS_SELECT_FAIL_AFTER=0");
     }
 
