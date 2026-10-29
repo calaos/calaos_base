@@ -36,7 +36,6 @@ public:
     EXTERN_PROC_CLIENT_CTOR(WagoProcess)
 
 protected:
-
     std::unique_ptr<WagoCtrl> wago;
     string wago_host;
     int wago_port = 502;

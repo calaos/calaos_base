@@ -166,13 +166,14 @@ std::string sanitizerRuntime()
 {
     std::string path;
     ::dl_iterate_phdr([](struct dl_phdr_info *info, size_t, void *data) -> int
-    {
+                      {
         const char *name = info->dlpi_name;
         if (!name || !::strstr(name, "/libasan.so"))
             return 0;
         *static_cast<std::string *>(data) = name;
         return 1;
-    }, &path);
+    },
+                      &path);
     return path;
 }
 
@@ -195,7 +196,7 @@ std::vector<char *> childEnv(std::vector<std::string> &storage, bool inject)
     {
         const std::string runtime = sanitizerRuntime();
         storage.push_back(std::string("LD_PRELOAD=") +
-                          (runtime.empty()? "": runtime + ":") +
+                          (runtime.empty() ? "" : runtime + ":") +
                           CALAOS_SELECTFAIL_PRELOAD);
         storage.push_back("CALAOS_SELECT_FAIL_AFTER=0");
     }
