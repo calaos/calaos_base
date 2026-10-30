@@ -218,10 +218,12 @@ private:
 };
 
 /* Read the object representation of a bool. A poisoned bool holds neither 0
- * nor 1, and reading it AS a bool is undefined; its byte is not. */
+ * nor 1, and reading it AS a bool is undefined; its byte is not. Not through
+ * readThrough<bool>(), whose return value is itself a bool. */
 unsigned char boolByte(const bool &b)
 {
-    return readThrough(b);
+    static_assert(sizeof(bool) == 1, "a bool is read as one byte");
+    return *reinterpret_cast<const volatile unsigned char *>(&b);
 }
 
 /* The toy the harness self test uses: one member the constructor writes, one

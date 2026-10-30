@@ -193,6 +193,11 @@ Idler::~Idler()
 
     handleIdler->stop();
     handleIdler->close();
+
+    //An Idler deleted from its own callback destroys idlerCallback mid-emit:
+    //sigc++ then skips its own clear() and leaks the bookkeeping of every
+    //slot still connected. clear() is safe during emission.
+    idlerCallback.clear();
 }
 
 void Idler::createIdler()
