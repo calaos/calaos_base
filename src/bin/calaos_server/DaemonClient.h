@@ -67,9 +67,9 @@ public:
     static constexpr long RestartTimeout = 30;
     //logs/query scans the journal for up to 5 s, then answers up to 1 MiB
     static constexpr long LogsQueryTimeout = 10;
-    //start and stop: the daemon gives systemctl 10 s
+    //start and stop: the daemon gives each step 10 s
     static constexpr long ServiceActionTimeout = 15;
-    //enable and disable can take up to 30 s (systemd reload)
+    //enable and disable chain several daemon steps of 10 s each, so they can exceed 35 s
     static constexpr long ServiceEnableTimeout = 35;
     //system/time may run three timedatectl commands of 10 s each
     static constexpr long TimeSetTimeout = 35;

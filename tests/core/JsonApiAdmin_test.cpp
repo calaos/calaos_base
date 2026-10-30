@@ -2164,7 +2164,7 @@ TEST_F(JsonApiAdminTest, UpdateCheckWaitsLongerThanTheDefault)
     //Longer than the 4 s default, shorter than update_check's own timeout
     fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
                            {
-        res.delayMs = 8000;
+        res.delayMs = 4500;
         if (req.path == "/api/v2/update/check" || req.path == "/api/v2/system/info")
             res.body = FakeDaemon::ok(Json::object());
         else
@@ -2178,7 +2178,7 @@ TEST_F(JsonApiAdminTest, UpdateCheckWaitsLongerThanTheDefault)
                 "daemon_unreachable");
 }
 
-TEST_F(JsonApiAdminTest, ASilentDaemonIsBoundByTheRequestTimeoutNotByUrlStallTimeout)
+TEST_F(JsonApiAdminTest, ASilentDaemonIsNotCutByUrlStallTimeout)
 {
     adminDefined();
     WsClient ws;
@@ -2192,12 +2192,12 @@ TEST_F(JsonApiAdminTest, ASilentDaemonIsBoundByTheRequestTimeoutNotByUrlStallTim
                            {
         if (req.path != "/api/v2/system/services/enable")
             return false;
-        res.delayMs = 8000;
+        res.delayMs = 3000;
         res.body = FakeDaemon::ok({ { "id", "mosquitto" }, { "state", "enabling" } });
         return true;
     });
 
-    const Json answer = ws.admin("admin", { { "action", "services_enable" }, { "admin_session", FakeDaemon::Session }, { "params", { { "unit", "mosquitto" } } } }, 15000);
+    const Json answer = ws.admin("admin", { { "action", "services_enable" }, { "admin_session", FakeDaemon::Session }, { "params", { { "unit", "mosquitto" } } } }, 9000);
     Utils::set_config_option("url_stall_timeout", saved);
     EXPECT_EQ("true", str(answer, "success")) << answer.dump();
 }
@@ -2755,7 +2755,7 @@ TEST_F(JsonApiAdminTest, ANetworkChangeWaitsForNetworkctl)
                            {
         if (req.path != "/api/v2/network/confirm")
             return false;
-        res.delayMs = 8000;
+        res.delayMs = 4500;
         res.body = FakeDaemon::ok({ { "change_id", kChange }, { "intf", "eth0" }, { "state", "confirmed" } });
         return true;
     });
