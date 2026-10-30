@@ -2485,6 +2485,38 @@ TEST(JsonApiAdminRules, BoxActionTimeouts)
         EXPECT_EQ(15, JsonApi::adminRelayTimeout(action)) << action;
 }
 
+TEST(JsonApiAdminRules, ServiceUnitsAreCheckedByteByByte)
+{
+    auto allowed = [](int c)
+    {
+        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || c == '-';
+    };
+
+    for (const char *action: kServiceActions)
+    {
+        auto refusal = [action](const std::string &unit)
+        {
+            return refusalOf({ action, { { "unit", unit } } });
+        };
+
+        for (int c = 0; c < 256; c++)
+        {
+            const std::string ch(1, (char)c);
+            const std::string expected = allowed(c) ? "" : "invalid_request";
+            EXPECT_EQ(expected, refusal(ch)) << action << " byte " << c;
+            EXPECT_EQ(expected, refusal("a" + ch + "b")) << action << " byte " << c;
+            EXPECT_EQ(expected, refusal("mosquitto" + ch)) << action << " byte " << c;
+        }
+
+        for (size_t len = 1; len <= 64; len++)
+        {
+            EXPECT_EQ(len <= 32 ? "" : "invalid_request", refusal(std::string(len, 'a'))) << action << " " << len;
+            EXPECT_EQ(len <= 32 ? "" : "invalid_request", refusal(std::string(len, '-'))) << action << " " << len;
+        }
+        EXPECT_EQ("invalid_request", refusal(""));
+    }
+}
+
 TEST(JsonApiAdminRules, APendingNetworkChangeIsTranslatedWithItsId)
 {
     DaemonReply r;
@@ -2863,6 +2895,54 @@ TEST_F(JsonApiAdminTest, ServiceActionsCopyTheRefusalsOfTheDaemon)
         answerWith(404, FakeDaemon::err("not_found"));
         expectError(ws.admin("admin", request), "daemon_too_old");
         EXPECT_EQ(AdminState::Mode::Set, AdminState::Instance().mode()) << action;
+    }
+}
+
+TEST_F(JsonApiAdminTest, ARefusedSessionOnAServiceActionIsNotRetriedAnonymously)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path.rfind("/api/v2/system/services/", 0) != 0)
+            return false;
+        res.status = 401;
+        res.body = FakeDaemon::err("bad_session");
+        return true;
+    });
+
+    for (const char *action: kServiceActions)
+    {
+        fakeDaemon.clearLog();
+        expectError(ws.admin("admin", adminAction(action, { { "unit", "mosquitto" } })), "bad_session");
+        const auto calls = daemonCalls();
+        ASSERT_EQ(1u, calls.size()) << action << "\n"
+                                    << requestPaths();
+        EXPECT_EQ(FakeDaemon::Session, calls[0].headers.at("x-calaos-admin-session")) << action;
+    }
+}
+
+TEST_F(JsonApiAdminTest, ServiceActionsRelayOnlyTheUnit)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    for (const char *action: kServiceActions)
+    {
+        fakeDaemon.clearLog();
+        Json params = { { "unit", "mosquitto" }, { "unit_file", "/etc/passwd" }, { "force", true }, { "units", Json::array({ "ssh" }) },
+                        { "path", "../network/apply" }, { "code", "123456" } };
+        Json data = adminAction(action, params);
+        data["unit"] = "ssh";
+        data["recovery"] = true;
+        EXPECT_EQ("true", str(ws.admin("admin", data), "success")) << action;
+        const auto calls = daemonCalls();
+        ASSERT_EQ(1u, calls.size()) << action << "\n"
+                                    << requestPaths();
+        EXPECT_EQ((Json{ { "unit", "mosquitto" } }), parse(calls[0].body)) << action;
     }
 }
 
