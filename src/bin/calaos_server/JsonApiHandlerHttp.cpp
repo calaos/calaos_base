@@ -1032,6 +1032,7 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
         {
             Utils::set_config_frozen(true);
             httpClient->setNeedRestart(true);
+            exitAfterConfigReplaced();
         }
     }
     else

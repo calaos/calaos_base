@@ -79,7 +79,8 @@ Entre les deux, `Utils::set_config_frozen(true)` rend sans effet `SaveConfigIO()
 et les écritures d'option : la configuration en mémoire est celle d'avant et ne doit pas repasser
 par-dessus les fichiers remplacés. Pour `config_restore`, le gel reste en place si une écriture a
 échoué après qu'un fichier a été remplacé, et tombe si rien ne l'a été. `config put` ne gèle que
-s'il réussit : c'est aussi le seul cas où il redémarre. `Utils::restore_config_file()` écrit seul
+s'il réussit : c'est aussi le seul cas où il redémarre, et un minuteur arrête la boucle sans attendre
+que la réponse parte, le client ayant pu disparaître. `Utils::restore_config_file()` écrit seul
 sous le gel, avec le verrou de `local_config.xml` : `<nom>.restore`, `fsync`, `rename`, sans suivre
 de lien symbolique.
 
@@ -328,7 +329,8 @@ chemin, en entier (dérivé,
 1. **Journalisation** de l'erreur de parse, avec la description pugixml et un **offset en
    octets** dans le fichier.
 2. **Préservation** de l'octet près du fichier corrompu dans
-   `<config>/backups/corrupt/<nom>.<AAAAMMJJ-HHMMSS>` — jamais écrasé silencieusement.
+   `<config>/backups/corrupt/<nom>.<AAAAMMJJ-HHMMSS>` — jamais écrasé silencieusement, en mode
+   `0600` comme les sauvegardes, car un fichier corrompu garde ses secrets.
    Épinglé par `CorruptIoXmlWithoutBackupDoesNotKillTheProcess`, qui compare le contenu préservé
    au contenu corrompu original (capturé,
    [tests/core/CalaosConfigRobustness_test.cpp:111-136](../tests/core/CalaosConfigRobustness_test.cpp)).

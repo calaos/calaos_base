@@ -49,8 +49,9 @@
  * ---------------------------------------------------------------------------
  * WHY THE ALERT CANNOT BE RAISED AT UPLOAD TIME
  * ---------------------------------------------------------------------------
- * A successful `config put` sets need_restart, and HttpClient::DataWritten()
- * stops the event loop as soon as the reply is out (HttpClient.cpp:476-481).
+ * A successful `config put` sets need_restart, HttpClient::DataWritten() stops
+ * the event loop as soon as the reply is out, and a short timer stops it anyway
+ * if the client has gone (JsonApi::exitAfterConfigReplaced()).
  * The alert channel is deferred by 30 seconds on purpose (CalaosConfig.cpp,
  * CONFIG_ALERT_DELAY_SEC) so that it fires with the loop up and the notifier
  * usable. An alert queued during the put would therefore be thrown away by the
@@ -101,6 +102,8 @@
 #include "ListeRoom.h"
 #include "ListeRule.h"
 #include "Scenario.h"
+#include "Timer.h"
+#include "libuvw.h"
 
 #include <pugixml.hpp>
 
@@ -413,6 +416,28 @@ protected:
         clearCoreState();
         loadConfig(ioXml, rulesXml);
         ListeRoom::Instance().checkAutoScenario();
+    }
+
+    //Timers left by the puts of earlier tests would stop the loop in their place.
+    void letEarlierRestartTimersExpire()
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(600));
+        uvw::Loop::getDefault()->run<uvw::Loop::Mode::NOWAIT>();
+    }
+
+    //Whether something stops the loop within `ms`. HttpTestRequest never writes
+    //to a socket, so its client plays one that left before the reply.
+    bool loopStopsWithin(int ms)
+    {
+        auto loop = uvw::Loop::getDefault();
+        bool expired = false;
+        Timer guard(ms / 1000.0, [&expired, &loop]()
+                    {
+            expired = true;
+            loop->stop();
+        });
+        loop->run();
+        return !expired;
     }
 
     /* ---------------------------------------------------------------------
@@ -1127,4 +1152,28 @@ TEST_F(AutoScenarioUploadGuardTest, APutCannotOverwriteARestoreUnderWay)
     EXPECT_EQ(ioBefore, ioXmlOnDisk());
     EXPECT_EQ(rulesBefore, rulesXmlOnDisk());
     EXPECT_TRUE(backupsOf("io.xml").empty());
+}
+
+TEST_F(AutoScenarioUploadGuardTest, APutRestartsEvenIfItsClientHasGone)
+{
+    loadHouse();
+    saveConfig();
+    letEarlierRestartTimersExpire();
+
+    ASSERT_EQ("true", uploadConfig("<?xml version=\"1.0\"?>\n<new/>\n", "<?xml version=\"1.0\"?>\n<new/>\n").value("success", ""));
+    ASSERT_TRUE(Utils::config_frozen());
+
+    EXPECT_TRUE(loopStopsWithin(3000)) << "frozen with no restart on the way";
+}
+
+TEST_F(AutoScenarioUploadGuardTest, ARefusedPutDoesNotRestart)
+{
+    loadHouse();
+    saveConfig();
+    letEarlierRestartTimersExpire();
+
+    Utils::set_config_frozen(true);
+    ASSERT_EQ("false", uploadConfig("<?xml version=\"1.0\"?>\n<new/>\n", "<?xml version=\"1.0\"?>\n<new/>\n").value("success", ""));
+
+    EXPECT_FALSE(loopStopsWithin(800));
 }

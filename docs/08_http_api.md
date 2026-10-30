@@ -2008,7 +2008,8 @@ fichiers connus sont acceptés et le contenu doit commencer par `<?xml`
 
 Un `put` réussi **gèle** la configuration jusqu'au redémarrage (`Utils::set_config_frozen()`, comme
 `config_restore`) : la mémoire tient encore ce qui vient d'être écrasé, et plus rien ne la réécrit
-sur le disque. Pendant le gel, un `put` est refusé sans rien toucher :
+sur le disque. Le redémarrage suit dans les 500 ms, même si le client a disparu avant la réponse.
+Pendant le gel, un `put` est refusé sans rien toucher :
 `{"success":"false","error":"The configuration is frozen until the restart"}`. Une sauvegarde ratée
 refuse aussi le `put`, avant toute écriture et sans redémarrage :
 `{"success":"false","error":"Could not copy the current files to backups, nothing was written"}`.
