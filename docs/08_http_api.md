@@ -964,7 +964,11 @@ Un `tag` faux est abandonné sans bruit, journalisé sans valeur. **Échéance.*
 compare **pas** `expires` à l'horloge du téléphone : une horloge de box en retard ou en avance ferait
 sinon abandonner tous les codes. Elle affiche le code pendant 60 s (durée de vie d'un code) à
 compter de l'heure de **réception**, puis l'abandonne ; le daemon applique l'échéance réelle
-(`code_expired`). `expires` reste authentifié par le tag, c'est une indication, pas un test. Ne
+(`code_expired`). `expires` reste authentifié par le tag, c'est une indication, pas un test.
+Pendant ces 60 s, un saut de l'horloge du téléphone abandonne le code : l'âge retenu est le plus
+grand de l'âge mural et de l'âge de l'horloge de boot, donc un saut en avant l'écourte, et une
+horloge murale reculée de plus de 2 s depuis la réception (ou un redémarrage) l'abandonne.
+`AdminCode.cpp` `remainingMs`. Ne
 jamais journaliser clé, nonce, `ct`, `tag`, code ni jeton. Les étiquettes `calaos-admin-code/enc`
 et `/mac` valent version 1 : un format futur change les étiquettes et les clés de la charge.
 
@@ -997,7 +1001,8 @@ Cas à refuser : le vecteur 1 avec un seul caractère du `tag` changé, avec un 
 `admin_code_action` remplacé par `network_config`, avec `admin_code_expires` remplacé par
 `2026-10-25T09:13:04Z`, ou vérifié avec la clé du vecteur 3 ; dans tous ces cas le `tag` ne
 correspond pas. Le vecteur 1 tel quel est accepté tant que 60 s ne se sont pas écoulées depuis sa
-réception, quelle que soit l'horloge du téléphone (même en 2030), et abandonné ensuite.
+réception, quelle que soit la date absolue de l'horloge du téléphone (même en 2030), pourvu que
+cette horloge ne saute pas pendant ces 60 s ; il est abandonné ensuite.
 
 Recalcul (Python 3, `ks6` et `tag` en hexadécimal) :
 
@@ -2671,7 +2676,10 @@ Réponse : `{"success":"true"}` (dans `data` en WebSocket, muette sans `msg_id`)
   son enrôlement : un `register_push` de ce jeton, par qui que ce soit, ne fait que
   rafraîchir sa date (pour la clé push, voir plus bas). `approver_removed` le libère.
 - `push_key` (phase 3) est **optionnelle** : 32 octets du CSPRNG de l'app, en 64 hexadécimaux
-  minuscules, générés une fois et envoyés avec chaque enregistrement. Elle est stockée dans
+  minuscules, générés une fois et envoyés avec chaque enregistrement, **y compris sur une connexion
+sans TLS** (`http://`, `ws://`) : sur un tel lien elle circule en clair, et qui l'observe peut
+déchiffrer les codes de ce jeton (le second facteur, le code tapé dans la webapp, reste requis).
+Elle est stockée dans
   `push_tokens.push_key` (colonne ajoutée à l'ouverture de la base) et sert uniquement à chiffrer
   les codes push de ce jeton (voir [Code push chiffré](#code-push-chiffré)) ; elle n'authentifie
   pas le téléphone. Une valeur qui n'est pas 64 hexadécimaux minuscules est **ignorée** (le jeton
