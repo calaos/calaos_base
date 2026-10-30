@@ -2933,8 +2933,7 @@ TEST_F(JsonApiAdminTest, ServiceActionsRelayOnlyTheUnit)
     for (const char *action: kServiceActions)
     {
         fakeDaemon.clearLog();
-        Json params = { { "unit", "mosquitto" }, { "unit_file", "/etc/passwd" }, { "force", true }, { "units", Json::array({ "ssh" }) },
-                        { "path", "../network/apply" }, { "code", "123456" } };
+        Json params = { { "unit", "mosquitto" }, { "unit_file", "/etc/passwd" }, { "force", true }, { "units", Json::array({ "ssh" }) }, { "path", "../network/apply" }, { "code", "123456" } };
         Json data = adminAction(action, params);
         data["unit"] = "ssh";
         data["recovery"] = true;
