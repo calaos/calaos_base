@@ -121,4 +121,5 @@ build_doc
 __pycache__
 homeassitant
 reolink_aio
-claudedocs/graft/
+claudedocs
+/graft/
