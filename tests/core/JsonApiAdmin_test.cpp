@@ -2164,7 +2164,7 @@ TEST_F(JsonApiAdminTest, UpdateCheckWaitsLongerThanTheDefault)
     //Longer than the 4 s default, shorter than update_check's own timeout
     fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
                            {
-        res.delayMs = 4500;
+        res.delayMs = 8000;
         if (req.path == "/api/v2/update/check" || req.path == "/api/v2/system/info")
             res.body = FakeDaemon::ok(Json::object());
         else
@@ -2176,6 +2176,31 @@ TEST_F(JsonApiAdminTest, UpdateCheckWaitsLongerThanTheDefault)
                           "success"));
     expectError(ws.admin("admin", { { "action", "system_info" }, { "admin_session", FakeDaemon::Session } }, 9000),
                 "daemon_unreachable");
+}
+
+TEST_F(JsonApiAdminTest, ASilentDaemonIsBoundByTheRequestTimeoutNotByUrlStallTimeout)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    //A 1 s stall bound stands for the 30 s default, without waiting 30 s
+    const std::string saved = Utils::get_config_option("url_stall_timeout");
+    ASSERT_TRUE(Utils::set_config_option("url_stall_timeout", "1"));
+    ASSERT_EQ("1", Utils::get_config_option("url_stall_timeout"));
+    fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/v2/system/services/enable")
+            return false;
+        res.delayMs = 8000;
+        res.body = FakeDaemon::ok({ { "id", "mosquitto" }, { "state", "enabling" } });
+        return true;
+    });
+
+    const Json answer = ws.admin("admin", { { "action", "services_enable" }, { "admin_session", FakeDaemon::Session },
+                                            { "params", { { "unit", "mosquitto" } } } }, 15000);
+    Utils::set_config_option("url_stall_timeout", saved);
+    EXPECT_EQ("true", str(answer, "success")) << answer.dump();
 }
 
 TEST_F(JsonApiAdminTest, APersistentBearerRefusalIsLoggedOnce)
@@ -2731,7 +2756,7 @@ TEST_F(JsonApiAdminTest, ANetworkChangeWaitsForNetworkctl)
                            {
         if (req.path != "/api/v2/network/confirm")
             return false;
-        res.delayMs = 4500;
+        res.delayMs = 8000;
         res.body = FakeDaemon::ok({ { "change_id", kChange }, { "intf", "eth0" }, { "state", "confirmed" } });
         return true;
     });

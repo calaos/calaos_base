@@ -1218,9 +1218,10 @@ recopié du daemon.
 - `enable` et `disable` agissent maintenant **et** au boot (`enable --now`, `disable --now`) : il
   n'y a pas d'activation sans démarrage. Un `stop` dure jusqu'au prochain redémarrage de la box,
   ou jusqu'à la prochaine mise à jour du paquet si l'unité est `enabled`.
-- Contrairement à `restart`, le daemon lance la commande **avant** de répondre (10 s au plus). Le résultat se lit
-  en sondant `services_list` (`active_state`, `startup`). Une commande qui sort en erreur est
-  `internal`, sans détail dans le message.
+- Contrairement à `restart`, le daemon met le job en file auprès de systemd (D-Bus) **avant** de
+  répondre ; il n'attend pas la fin du job. Chaque étape (lecture de l'unité, activation, rechargement,
+  démarrage ou arrêt) est bornée à 10 s. Le résultat se lit en sondant `services_list`
+  (`active_state`, `startup`). Une étape en erreur est `internal`, sans détail dans le message.
 - Délai de calaos_server : 15 s pour `start` et `stop` (le client attend 20 s), 35 s pour `enable`
   et `disable`, qui peuvent durer jusqu'à 30 s à cause du rechargement de systemd (le client
   attend 40 s).
