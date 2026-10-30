@@ -2178,6 +2178,30 @@ TEST_F(JsonApiAdminTest, UpdateCheckWaitsLongerThanTheDefault)
                 "daemon_unreachable");
 }
 
+TEST_F(JsonApiAdminTest, ASilentDaemonIsNotCutByUrlStallTimeout)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    //A 1 s stall bound stands for the 30 s default, without waiting 30 s
+    const std::string saved = Utils::get_config_option("url_stall_timeout");
+    ASSERT_TRUE(Utils::set_config_option("url_stall_timeout", "1"));
+    ASSERT_EQ("1", Utils::get_config_option("url_stall_timeout"));
+    fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/v2/system/services/enable")
+            return false;
+        res.delayMs = 3000;
+        res.body = FakeDaemon::ok({ { "id", "mosquitto" }, { "state", "enabling" } });
+        return true;
+    });
+
+    const Json answer = ws.admin("admin", { { "action", "services_enable" }, { "admin_session", FakeDaemon::Session }, { "params", { { "unit", "mosquitto" } } } }, 9000);
+    Utils::set_config_option("url_stall_timeout", saved);
+    EXPECT_EQ("true", str(answer, "success")) << answer.dump();
+}
+
 TEST_F(JsonApiAdminTest, APersistentBearerRefusalIsLoggedOnce)
 {
     adminDefined();
@@ -2481,8 +2505,11 @@ TEST(JsonApiAdminRules, BoxActionTimeouts)
                                "network_state" })
         EXPECT_EQ(4, JsonApi::adminRelayTimeout(action)) << action;
     EXPECT_EQ(15, DaemonClient::ServiceActionTimeout);
-    for (const char *action: kServiceActions)
+    for (const char *action: { "services_start", "services_stop" })
         EXPECT_EQ(15, JsonApi::adminRelayTimeout(action)) << action;
+    EXPECT_EQ(35, DaemonClient::ServiceEnableTimeout);
+    for (const char *action: { "services_enable", "services_disable" })
+        EXPECT_EQ(35, JsonApi::adminRelayTimeout(action)) << action;
 }
 
 TEST(JsonApiAdminRules, ServiceUnitsAreCheckedByteByByte)
