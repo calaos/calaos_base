@@ -2481,8 +2481,11 @@ TEST(JsonApiAdminRules, BoxActionTimeouts)
                                "network_state" })
         EXPECT_EQ(4, JsonApi::adminRelayTimeout(action)) << action;
     EXPECT_EQ(15, DaemonClient::ServiceActionTimeout);
-    for (const char *action: kServiceActions)
+    for (const char *action: { "services_start", "services_stop" })
         EXPECT_EQ(15, JsonApi::adminRelayTimeout(action)) << action;
+    EXPECT_EQ(35, DaemonClient::ServiceEnableTimeout);
+    for (const char *action: { "services_enable", "services_disable" })
+        EXPECT_EQ(35, JsonApi::adminRelayTimeout(action)) << action;
 }
 
 TEST(JsonApiAdminRules, ServiceUnitsAreCheckedByteByByte)
