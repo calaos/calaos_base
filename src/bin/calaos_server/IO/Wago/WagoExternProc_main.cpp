@@ -23,6 +23,8 @@
 #include "WagoCtrl.h"
 #include "WagoWire.h"
 
+#include <memory>
+
 class WagoProcess: public ExternProcClient
 {
 public:
@@ -34,8 +36,7 @@ public:
     EXTERN_PROC_CLIENT_CTOR(WagoProcess)
 
 protected:
-
-    WagoCtrl *wago = nullptr;
+    std::unique_ptr<WagoCtrl> wago;
     string wago_host;
     int wago_port = 502;
 
@@ -244,7 +245,7 @@ bool WagoProcess::setup(int &argc, char **&argv)
 
     cDebug() << "Wago host: " << wago_host << ":" << wago_port;
 
-    wago = new WagoCtrl(wago_host, wago_port);
+    wago = std::make_unique<WagoCtrl>(wago_host, wago_port);
 
     return true;
 }
