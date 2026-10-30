@@ -603,7 +603,8 @@ TEST_F(AutoScenarioUploadGuardTest, TwoUploadsLeaveTwoBackupsAndTheNewestIsTheSt
     ASSERT_GT(removeScenarioFromRulesXml(rulesOnce, marker), 0);
     ASSERT_EQ("true", str(uploadConfig(ioOnce, rulesOnce), "success"));
 
-    //second upload: everything goes
+    //second upload, the restart between them having lifted the freeze: everything goes
+    Utils::set_config_frozen(false);
     ASSERT_EQ("true", str(uploadConfig(ioXmlDocument(roomXml("Vide", "salon", std::string(), 0)),
                                        rulesXmlDocument(std::string())), "success"));
 
@@ -664,8 +665,10 @@ TEST_F(AutoScenarioUploadGuardTest, TwoUploadsInsideTheSameSecondStillLeaveTheSt
     const std::string stamp = backupSecondStamp();
 
     //first upload: the evening scenario goes. Second: everything goes. No wait
-    //between them - that is the whole point of the case.
+    //between them - that is the whole point of the case. The restart that lifts
+    //the freeze is not played: only the name of the backup folder is at stake.
     ASSERT_EQ("true", str(uploadConfig(ioOnce, rulesOnce), "success"));
+    Utils::set_config_frozen(false);
     ASSERT_EQ("true", str(uploadConfig(ioXmlDocument(roomXml("Vide", "salon", std::string(), 0)),
                                        rulesXmlDocument(std::string())), "success"));
 
@@ -1056,4 +1059,72 @@ TEST_F(AutoScenarioUploadGuardTest, TheUploadThatLegitimatelyDeletesAScenarioIsA
     ASSERT_TRUE(scenarioIo(wakeupId) != nullptr);
     EXPECT_EQ(1u, stepCountOf(wakeupId));
     EXPECT_EQ(1u, ListeRoom::Instance().getAutoScenarios().size());
+}
+
+/******************************************************************************
+ * What stops a put, and what a put stops
+ ******************************************************************************/
+
+//A plain file where the folder goes makes the backup fail, even for the root user of CI
+TEST_F(AutoScenarioUploadGuardTest, APutWhoseBackupFailsWritesNothingAndDoesNotFreeze)
+{
+    loadHouse();
+    saveConfig();
+    const std::string ioBefore = ioXmlOnDisk();
+    const std::string rulesBefore = rulesXmlOnDisk();
+
+    const std::string backups = configDir() + "/backups";
+    std::filesystem::remove_all(backups);
+    std::ofstream(backups) << "not a folder\n";
+
+    const Json answer = uploadConfig("<?xml version=\"1.0\"?>\n<new/>\n", "<?xml version=\"1.0\"?>\n<new/>\n");
+
+    EXPECT_EQ("false", answer.value("success", ""));
+    EXPECT_EQ("Could not copy the current files to backups, nothing was written", answer.value("error", ""));
+    EXPECT_EQ(ioBefore, ioXmlOnDisk());
+    EXPECT_EQ(rulesBefore, rulesXmlOnDisk());
+    EXPECT_FALSE(Utils::config_frozen());
+
+    std::filesystem::remove(backups);
+}
+
+TEST_F(AutoScenarioUploadGuardTest, APutHoldsBackEveryWriteUntilTheRestart)
+{
+    loadHouse();
+    saveConfig();
+
+    const std::string ioXml = "<?xml version=\"1.0\"?>\n<first/>\n";
+    const std::string rulesXml = "<?xml version=\"1.0\"?>\n<first-rules/>\n";
+    ASSERT_EQ("true", uploadConfig(ioXml, rulesXml).value("success", ""));
+    ASSERT_TRUE(Utils::config_frozen());
+
+    Config::Instance().SaveConfigIO();
+    Config::Instance().SaveConfigRule();
+    EXPECT_FALSE(Utils::set_config_option("smtp_server", "late.example.org"));
+    EXPECT_EQ(ioXml, ioXmlOnDisk());
+    EXPECT_EQ(rulesXml, rulesXmlOnDisk());
+
+    const size_t backups = backupsOf("io.xml").size();
+    const Json second = uploadConfig("<?xml version=\"1.0\"?>\n<second/>\n", "<?xml version=\"1.0\"?>\n<second/>\n");
+    EXPECT_EQ("false", second.value("success", ""));
+    EXPECT_EQ("The configuration is frozen until the restart", second.value("error", ""));
+    EXPECT_EQ(ioXml, ioXmlOnDisk());
+    EXPECT_EQ(rulesXml, rulesXmlOnDisk());
+    EXPECT_EQ(backups, backupsOf("io.xml").size());
+}
+
+TEST_F(AutoScenarioUploadGuardTest, APutCannotOverwriteARestoreUnderWay)
+{
+    loadHouse();
+    saveConfig();
+    const std::string ioBefore = ioXmlOnDisk();
+    const std::string rulesBefore = rulesXmlOnDisk();
+
+    Utils::set_config_frozen(true);
+    const Json answer = uploadConfig("<?xml version=\"1.0\"?>\n<new/>\n", "<?xml version=\"1.0\"?>\n<new/>\n");
+
+    EXPECT_EQ("false", answer.value("success", ""));
+    EXPECT_EQ(ioBefore, ioXmlOnDisk());
+    EXPECT_EQ(rulesBefore, rulesXmlOnDisk());
+    EXPECT_TRUE(backupsOf("io.xml").empty());
 }

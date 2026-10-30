@@ -1462,7 +1462,9 @@ Ni listées ni modifiables ici : `cn_user`, `cn_pass`, `calaos_user`, `calaos_pa
   `Config::BackupFiles()` précède l'écriture, qui suit le chemin de `calaos_config set`
   (`Utils::set_config_option()`, ou `del_config_option()` pour `""`) ; les clés
   « immédiat » agissent là où le code les relit déjà. `restart_required` : la webapp propose
-  `services_restart` sur `calaos-server`. Un `local_config.xml` impossible à écrire : `internal`.
+  `services_restart` sur `calaos-server`. Une sauvegarde ratée (rien n'est écrit), un
+  `local_config.xml` impossible à écrire ou une configuration gelée par une restauration ou un
+  `config put` en cours : `internal`.
 - **`config_backup`** (sans `params`) → `{"format": "calaos-config-backup/2", "created_at",
   "server_version", "hostname", "io_format": <entier>, "files": {"io.xml", "rules.xml",
   "local_config.xml"}}`, chaque valeur étant le contenu du fichier. Un fichier absent de la box est
@@ -1562,8 +1564,9 @@ absent en `dry_run` ; `restarting` est faux en `dry_run`.
   `listen_address`, `port_api`, `wwwroot`, `debug_wwwroot`, `calaos_server_host` et son ancien nom
   `calaos/host`, `ota_firmware_path`, `mcp_service_token`, `update_notified_hash`. Les clés inconnues
   ou obsolètes sont gardées (la migration du démarrage s'en charge). Si le `local_config.xml` de la
-  box est illisible, la restauration n'est pas refusée, puisqu'elle en est le remède : aucune clé
-  n'est gardée, `kept` est vide et l'échec est journalisé. Quand des valeurs changent, `warnings` le
+  box est illisible ou ne porte aucune option (XML bien formé à une autre racine, par exemple), la
+  restauration n'est pas refusée, puisqu'elle en est le remède : aucune clé n'est gardée, `kept` est
+  vide, `warnings` compare à une box vide et l'échec est journalisé. Quand des valeurs changent, `warnings` le
   dit, jamais avec les valeurs : `household_login_changes` (le login effectif change : `cn_user` et
   `cn_pass` s'ils sont tous deux renseignés, sinon `calaos_user` et `calaos_password`),
   `mcp_token_changes`, `ddns_changes`. `invalid_options` s'ajoute quand le champ du même nom, qui
@@ -2002,6 +2005,14 @@ Une fois l'admin défini, `config` exige `secureTransport()` et une `admin_sessi
 `type` inconnu → `{"success":"false"}`. En `put`, seuls les trois noms de
 fichiers connus sont acceptés et le contenu doit commencer par `<?xml`
 ([JsonApiHandlerHttp.cpp:594-686](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)).
+
+Un `put` réussi **gèle** la configuration jusqu'au redémarrage (`Utils::set_config_frozen()`, comme
+`config_restore`) : la mémoire tient encore ce qui vient d'être écrasé, et plus rien ne la réécrit
+sur le disque. Pendant le gel, un `put` est refusé sans rien toucher :
+`{"success":"false","error":"The configuration is frozen until the restart"}`. Une sauvegarde ratée
+refuse aussi le `put`, avant toute écriture et sans redémarrage :
+`{"success":"false","error":"Could not copy the current files to backups, nothing was written"}`.
+Les copies de `backups/` sont en 0600.
 
 **`io_format`** (entier) annonce le plus haut format d'`io.xml` que le serveur écrit et
 comprend ; 2 = peut contenir des `<calaos:device>` (`<calaos:home format="2">`, écrit dès qu'un
