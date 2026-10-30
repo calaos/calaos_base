@@ -38,7 +38,7 @@ private:
     void (*previousHandler)(int);
 };
 
-}
+} //namespace
 
 // Test fixture: builds a temporary directory tree:
 //   <root>/index.html
