@@ -27,6 +27,7 @@
 #include <sstream>
 #include <utility>
 #include <filesystem>
+#include <fstream>
 #include "FileUtils.h"
 #include "NotifManager.h"
 #include "AutoScenarioDef.h"
@@ -150,38 +151,38 @@ XmlLoadResult loadXmlDocument(pugi::xml_document &document, const string &file, 
 
     for (const string &backup: findBackupsNewestFirst(configName))
     {
-        //Parse the candidate in place first: a corrupt backup must not be
-        //copied over the live file
+        //Read once: the bytes written over the live file are the ones parsed here
+        std::ifstream in(backup, std::ios::binary);
+        std::stringstream content;
+        content << in.rdbuf();
+        const string bytes = content.str();
+
         pugi::xml_document candidate;
-        pugi::xml_parse_result candidateParsed = candidate.load_file(backup.c_str());
+        pugi::xml_parse_result candidateParsed = candidate.load_buffer(bytes.data(), bytes.size());
         if (!candidateParsed)
         {
-            cWarning() << "Backup " << backup << " has a parse error too ("
+            cWarning() << "Backup " << backup << " is unreadable or has a parse error too ("
                        << candidateParsed.description() << "), trying an older one";
             continue;
         }
 
-        if (!FileUtils::copyFile(backup, file))
+        //Written aside then renamed: a full disk must not cost the live file,
+        //its mode, or the chance to try an older backup
+        if (!Utils::restore_config_file(file, bytes))
         {
             cError() << "Unable to restore backup " << backup << ", trying an older one";
             continue;
         }
 
-        if (!document.load_file(file.c_str()))
-        {
-            //candidate parsed above, so this should never happen
-            cError() << "Restored " << backup << " but reloading " << file
-                     << " failed, trying an older one";
-            continue;
-        }
-
+        document.reset(candidate);
         cInfo() << configName << " restored from backup " << backup;
         res.loaded = true;
         res.restoredFrom = backup;
         return res;
     }
 
-    cError() << "No usable backup found for " << configName << ", config not loaded";
+    cError() << "No usable backup found for " << configName << ", config not loaded, "
+             << file << " left as it was";
     return res;
 }
 

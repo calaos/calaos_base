@@ -461,4 +461,254 @@ TEST_F(ConfigRobustnessTest, ABackupCutShortByTheDiskIsAFailure)
     for (const auto &entry: std::filesystem::recursive_directory_iterator(configDir() + "/backups", ec))
         EXPECT_NE(IO_CONFIG, entry.path().filename().string()) << entry.path();
 }
+
+/******************************************************************************
+ * Restoring a backup never costs the live file
+ ******************************************************************************/
+
+class ConfigRestoreTest: public ConfigRobustnessTest
+{
+protected:
+    static constexpr rlim_t kFileSizeLimit = 64 * 1024;
+
+    //Past RLIMIT_FSIZE a write stops short with EFBIG, as on a full disk
+    class FullDisk
+    {
+    public:
+        FullDisk()
+        {
+            ::getrlimit(RLIMIT_FSIZE, &saved);
+            previousHandler = std::signal(SIGXFSZ, SIG_IGN);
+            struct rlimit limited = saved;
+            limited.rlim_cur = kFileSizeLimit;
+            ::setrlimit(RLIMIT_FSIZE, &limited);
+        }
+        ~FullDisk()
+        {
+            ::setrlimit(RLIMIT_FSIZE, &saved);
+            std::signal(SIGXFSZ, previousHandler);
+        }
+
+    private:
+        struct rlimit saved;
+        void (*previousHandler)(int);
+    };
+
+    void TearDown() override
+    {
+        ::umask(savedUmask);
+        ConfigRobustnessTest::TearDown();
+    }
+
+    //Backup of configName dated secondsAgo, in its own folder
+    std::string putBackup(const std::string &folder, const char *configName,
+                          const std::string &content, time_t secondsAgo)
+    {
+        const std::string dir = configDir() + "/backups/" + folder;
+        EXPECT_TRUE(FileUtils::mkpath(dir));
+        const std::string path = dir + "/" + configName;
+        putFile(path, content);
+        setMTime(path, ::time(nullptr) - secondsAgo);
+        return path;
+    }
+
+    //Valid XML too big to get past the FullDisk limit
+    static std::string oversized(const std::string &xml)
+    {
+        return xml + "<!--" + std::string(4 * kFileSizeLimit, 'x') + "-->";
+    }
+
+    static void putLive(const std::string &path, const std::string &content, mode_t mode)
+    {
+        putFile(path, content);
+        ASSERT_EQ(0, ::chmod(path.c_str(), mode));
+    }
+
+    static mode_t modeOf(const std::string &path)
+    {
+        struct stat st;
+        EXPECT_EQ(0, ::lstat(path.c_str(), &st)) << path;
+        return st.st_mode & 07777;
+    }
+
+    //The temporary sits next to the live file, whatever its name
+    void expectNoTemporaryFor(const char *configName) const
+    {
+        const std::string name = configName;
+        for (const auto &entry: std::filesystem::directory_iterator(configDir()))
+        {
+            const std::string found = entry.path().filename().string();
+            EXPECT_TRUE(found == name || found.find(name) == std::string::npos) << found;
+        }
+    }
+
+    const mode_t savedUmask = ::umask(0);
+};
+
+TEST_F(ConfigRestoreTest, ACopyFailureFallsBackToAnOlderBackup)
+{
+    loadConfig();
+    const std::string good = getFile(ioXmlPath());
+    ASSERT_LT(good.size(), kFileSizeLimit);
+    putBackup("older", IO_CONFIG, good, 100);
+    putBackup("newer", IO_CONFIG, oversized(good), 50);
+
+    clearCoreState();
+    putLive(ioXmlPath(), "live file garbage <<<", 0640);
+    {
+        FullDisk disk;
+        Config::Instance().LoadConfigIO();
+    }
+
+    EXPECT_NE(nullptr, io(ID_BOOL_IN));
+    EXPECT_EQ(good, getFile(ioXmlPath()));
+    EXPECT_EQ(0640u, modeOf(ioXmlPath()));
+    expectNoTemporaryFor(IO_CONFIG);
+}
+
+TEST_F(ConfigRestoreTest, ACopyFailureLeavesTheLiveFileAsItWas)
+{
+    loadConfig();
+    putBackup("only", IO_CONFIG, oversized(getFile(ioXmlPath())), 50);
+
+    clearCoreState();
+    const std::string corrupt = "live file garbage <<<";
+    putLive(ioXmlPath(), corrupt, 0640);
+    {
+        FullDisk disk;
+        Config::Instance().LoadConfigIO();
+    }
+
+    EXPECT_EQ(nullptr, io(ID_BOOL_IN));
+    EXPECT_EQ(corrupt, getFile(ioXmlPath()));
+    EXPECT_EQ(0640u, modeOf(ioXmlPath()));
+    expectNoTemporaryFor(IO_CONFIG);
+}
+
+TEST_F(ConfigRestoreTest, ACopyFailureLeavesTheLiveRulesFileAsItWas)
+{
+    loadConfig();
+    putBackup("only", RULES_CONFIG, oversized(getFile(rulesXmlPath())), 50);
+
+    clearCoreState();
+    const std::string corrupt = "live file garbage <<<";
+    putLive(rulesXmlPath(), corrupt, 0600);
+    {
+        FullDisk disk;
+        Config::Instance().LoadConfigRule();
+    }
+
+    EXPECT_EQ(corrupt, getFile(rulesXmlPath()));
+    EXPECT_EQ(0600u, modeOf(rulesXmlPath()));
+    expectNoTemporaryFor(RULES_CONFIG);
+}
+
+TEST_F(ConfigRestoreTest, NoValidBackupLeavesTheLiveFileAsItWas)
+{
+    loadConfig();
+    putBackup("only", IO_CONFIG, "corrupt backup too <<<", 50);
+
+    clearCoreState();
+    const std::string corrupt = "live file garbage <<<";
+    putLive(ioXmlPath(), corrupt, 0600);
+    Config::Instance().LoadConfigIO();
+
+    EXPECT_EQ(nullptr, io(ID_BOOL_IN));
+    EXPECT_EQ(corrupt, getFile(ioXmlPath()));
+    EXPECT_EQ(0600u, modeOf(ioXmlPath()));
+    expectNoTemporaryFor(IO_CONFIG);
+}
+
+TEST_F(ConfigRestoreTest, AnUnreadableBackupIsSkipped)
+{
+    if (::geteuid() == 0)
+        GTEST_SKIP() << "root reads a file of mode 0000";
+
+    loadConfig();
+    const std::string good = getFile(ioXmlPath());
+    putBackup("older", IO_CONFIG, good, 100);
+    const std::string newer = putBackup("newer", IO_CONFIG, good, 50);
+    ASSERT_EQ(0, ::chmod(newer.c_str(), 0));
+
+    clearCoreState();
+    putLive(ioXmlPath(), "live file garbage <<<", 0600);
+    Config::Instance().LoadConfigIO();
+    ::chmod(newer.c_str(), 0600);
+
+    EXPECT_NE(nullptr, io(ID_BOOL_IN));
+    EXPECT_EQ(good, getFile(ioXmlPath()));
+}
+
+TEST_F(ConfigRestoreTest, TheRestoredFileKeepsTheModeOfTheLiveFile)
+{
+    loadConfig();
+    const std::string good = getFile(ioXmlPath());
+    putBackup("only", IO_CONFIG, good, 50);
+
+    for (mode_t mode: { 0600, 0640, 0644 })
+    {
+        clearCoreState();
+        putLive(ioXmlPath(), "live file garbage <<<", mode);
+        Config::Instance().LoadConfigIO();
+
+        EXPECT_EQ(good, getFile(ioXmlPath()));
+        EXPECT_EQ(mode, modeOf(ioXmlPath()));
+    }
+}
+
+//The one way to reach the restore with no live file: a link into a missing
+//folder, which the default config cannot be written through either
+TEST_F(ConfigRestoreTest, TheRestoredFileIsOwnerOnlyWhenThereWasNoLiveFile)
+{
+    loadConfig();
+    const std::string good = getFile(ioXmlPath());
+    putBackup("only", IO_CONFIG, good, 50);
+
+    clearCoreState();
+    ASSERT_EQ(0, ::unlink(ioXmlPath().c_str()));
+    const std::string missing = configDir() + "/missing/" IO_CONFIG;
+    ASSERT_EQ(0, ::symlink(missing.c_str(), ioXmlPath().c_str()));
+    Config::Instance().LoadConfigIO();
+
+    EXPECT_NE(nullptr, io(ID_BOOL_IN));
+    EXPECT_EQ(good, getFile(ioXmlPath()));
+    EXPECT_EQ(0600u, modeOf(ioXmlPath()));
+    expectNoTemporaryFor(IO_CONFIG);
+}
+
+TEST_F(ConfigRestoreTest, ASymlinkedLiveFileKeepsItsLink)
+{
+    loadConfig();
+    const std::string good = getFile(ioXmlPath());
+    putBackup("only", IO_CONFIG, good, 50);
+
+    clearCoreState();
+    const std::string persistent = configDir() + "/persistent";
+    ASSERT_TRUE(FileUtils::mkpath(persistent));
+    const std::string target = persistent + "/" IO_CONFIG;
+    putLive(target, "live file garbage <<<", 0640);
+    ASSERT_EQ(0, ::unlink(ioXmlPath().c_str()));
+    ASSERT_EQ(0, ::symlink(target.c_str(), ioXmlPath().c_str()));
+    Config::Instance().LoadConfigIO();
+
+    EXPECT_TRUE(std::filesystem::is_symlink(ioXmlPath()));
+    EXPECT_EQ(good, getFile(target));
+    EXPECT_EQ(0640u, modeOf(target));
+}
+
+TEST_F(ConfigRestoreTest, ARefusedRenameLeavesNoTemporary)
+{
+    loadConfig();
+    putBackup("only", IO_CONFIG, getFile(ioXmlPath()), 50);
+
+    clearCoreState();
+    ASSERT_EQ(0, ::unlink(ioXmlPath().c_str()));
+    ASSERT_TRUE(FileUtils::mkdir(ioXmlPath()));
+    Config::Instance().LoadConfigIO();
+
+    EXPECT_EQ(nullptr, io(ID_BOOL_IN));
+    EXPECT_TRUE(FileUtils::isDir(ioXmlPath()));
+    expectNoTemporaryFor(IO_CONFIG);
+    ::rmdir(ioXmlPath().c_str());
+}
 }

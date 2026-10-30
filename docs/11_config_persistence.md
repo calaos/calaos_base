@@ -337,10 +337,14 @@ chemin, en entier (dérivé,
 3. **Restauration** : les backups portant ce nom de fichier sont parcourus **du plus récent au
    plus ancien** (tri par date de modification). Chaque candidat est **d'abord parsé en place** —
    un backup lui-même corrompu est sauté avec un avertissement, et surtout jamais recopié sur le
-   fichier vivant. Le premier qui parse est restauré. Épinglé par
-   `BackupWalkSkipsCorruptNewestAndRestoresOlderOne`.
-4. Si **aucun** backup n'est exploitable, le serveur démarre avec une configuration **vide** pour
-   ce fichier. Il démarre quand même.
+   fichier vivant. Le premier qui parse est restauré par `Utils::restore_config_file()` :
+   `<fichier>.restore` à côté du fichier vivant, fsync, puis rename. Le fichier vivant garde son
+   mode, `0600` s'il n'existait pas, et un échec le laisse intact, sans temporaire, avant de
+   passer au backup suivant. Épinglé par `BackupWalkSkipsCorruptNewestAndRestoresOlderOne` et
+   `ACopyFailureFallsBackToAnOlderBackup`.
+4. Si **aucun** backup n'est exploitable, l'erreur est journalisée, le fichier vivant reste tel
+   quel et le serveur démarre avec une configuration **vide** pour ce fichier. Il démarre quand
+   même.
 5. **Une seule notification agrégée**, mail **+** push, envoyée **~30 s après le démarrage**
    (`CONFIG_ALERT_DELAY_SEC = 30.0`) : les chargements ont lieu avant que la boucle d'événements
    ne tourne, la notification est donc différée par un `Timer::singleShot`. Le message nomme le
