@@ -5931,7 +5931,7 @@ const char *const kBoxRules = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
                               "</calaos:rules>\n";
 
 const std::vector<std::string> kBoxBound = { "listen_address", "port_api", "wwwroot", "debug_wwwroot", "calaos_server_host",
-                                             "ota_firmware_path", "mcp_service_token", "update_notified_hash" };
+                                             "calaos/host", "ota_firmware_path", "mcp_service_token", "update_notified_hash" };
 
 using Options = std::vector<std::pair<std::string, std::string>>;
 
@@ -6179,7 +6179,7 @@ TEST_F(JsonApiAdminRestoreTest, ThePreviewAnswersWithoutTouchingAnything)
         "box": {"rooms": 1, "ios": 3, "devices": 2, "rules": 1},
         "io_format": 2,
         "kept": ["listen_address", "port_api", "wwwroot", "debug_wwwroot", "calaos_server_host",
-                 "ota_firmware_path", "mcp_service_token", "update_notified_hash"],
+                 "calaos/host", "ota_firmware_path", "mcp_service_token", "update_notified_hash"],
         "invalid_options": [],
         "warnings": ["devices_removed"],
         "restarting": false
@@ -6229,7 +6229,7 @@ TEST_F(JsonApiAdminRestoreTest, ARestoreReplacesTheFilesAndKeepsWhatBelongsToThe
         "box": {"rooms": 1, "ios": 3, "devices": 2, "rules": 1},
         "io_format": 2,
         "kept": ["listen_address", "port_api", "debug_wwwroot", "calaos_server_host",
-                 "ota_firmware_path", "mcp_service_token", "update_notified_hash"],
+                 "calaos/host", "ota_firmware_path", "mcp_service_token", "update_notified_hash"],
         "invalid_options": [],
         "warnings": ["devices_removed"],
         "restarting": true
@@ -6579,6 +6579,94 @@ TEST_F(JsonApiAdminRestoreTest, EveryWarningSaysWhatChangesWithoutItsValue)
     smaller["files"]["local_config.xml"] = localConfigOf(box);
     const Json removed = ws.admin("admin", configAction("config_restore", smaller));
     EXPECT_EQ((Json{ "devices_removed" }), removed["result"]["warnings"]) << removed.dump();
+}
+
+TEST_F(JsonApiAdminRestoreTest, TheLoginWarningFollowsTheLoginThatReallyApplies)
+{
+    WsClient ws;
+    openAdmin(ws);
+    writeFile(configPath("io.xml"), kRestoreIo);
+
+    struct Case
+    {
+        Options box;
+        Options backup;
+        bool warns;
+    };
+    const Options current = { { "cn_user", "lea" }, { "cn_pass", "a" } };
+    const Options legacy = { { "calaos_user", "lea" }, { "calaos_password", "a" } };
+    const std::vector<Case> cases = {
+        { current, current, false },
+        { legacy, legacy, false },
+        //The same login under its two names
+        { current, legacy, false },
+        { legacy, current, false },
+        //The legacy pair is not read while cn_user and cn_pass are both set
+        { current, { { "cn_user", "lea" }, { "cn_pass", "a" }, { "calaos_user", "tom" }, { "calaos_password", "b" } }, false },
+        { legacy, { { "calaos_user", "lea" }, { "calaos_password", "b" } }, true },
+        { legacy, { { "calaos_user", "tom" }, { "calaos_password", "a" } }, true },
+        { current, { { "cn_user", "lea" }, { "calaos_user", "lea" }, { "calaos_password", "b" } }, true },
+        //The fallback takes the pair, never one half of each
+        { current, { { "cn_user", "lea" }, { "cn_pass", "" }, { "calaos_user", "tom" }, { "calaos_password", "a" } }, true },
+        { legacy, { { "cn_user", "tom" }, { "calaos_user", "lea" }, { "calaos_password", "a" } }, false },
+    };
+
+    int index = 0;
+    for (const Case &c: cases)
+    {
+        for (const char *key: { "cn_user", "cn_pass", "calaos_user", "calaos_password" })
+            ::Utils::del_config_option(key);
+        for (const auto &o: c.box)
+            ::Utils::set_config_option(o.first, o.second);
+
+        Json params = restoreParams(true);
+        params["files"]["local_config.xml"] = localConfigOf(c.backup);
+        const Json answer = ws.admin("admin", configAction("config_restore", params));
+
+        ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+        EXPECT_EQ(c.warns ? Json{ "household_login_changes" } : Json::array(), answer["result"]["warnings"]) << "case " << index;
+        index++;
+    }
+}
+
+//A restore is the way out of a broken local_config.xml, so it goes on, and says what it lost
+TEST_F(JsonApiAdminRestoreTest, AnUnreadableBoxConfigStopsNothingAndLeavesATrace)
+{
+    WsClient ws;
+    openAdmin(ws);
+    writeFile(configPath("io.xml"), kRestoreIo);
+    writeFile(configPath("local_config.xml"), "<calaos:config");
+
+    Options sent = { { "smtp_server", "mail.example.org" } };
+    for (const std::string &key: kBoxBound)
+        sent.emplace_back(key, "from-the-backup");
+    Json params = restoreParams(true);
+    params["files"]["local_config.xml"] = localConfigOf(sent);
+
+    PushTest::StdoutCapture preview;
+    const Json checked = ws.admin("admin", configAction("config_restore", params));
+    const std::string previewLog = preview.stop();
+
+    ASSERT_EQ("true", str(checked, "success")) << checked.dump();
+    EXPECT_EQ(Json::array(), checked["result"]["kept"]);
+    EXPECT_NE(std::string::npos, previewLog.find("Unable to read the options of the box")) << previewLog;
+    EXPECT_EQ("<calaos:config", fileText(configPath("local_config.xml")));
+
+    params["dry_run"] = false;
+    PushTest::StdoutCapture capture;
+    const Json answer = ws.admin("admin", configAction("config_restore", params));
+    const std::string log = capture.stop();
+
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+    EXPECT_EQ(Json::array(), answer["result"]["kept"]);
+    EXPECT_NE(std::string::npos, log.find("Unable to read the options of the box")) << log;
+    EXPECT_EQ(std::string::npos, log.find("from-the-backup")) << log;
+
+    Params merged;
+    ASSERT_TRUE(Utils::get_config_options(merged));
+    EXPECT_EQ("mail.example.org", merged.get_param_const("smtp_server"));
+    for (const std::string &key: kBoxBound)
+        EXPECT_FALSE(merged.Exists(key)) << key;
 }
 
 TEST_F(JsonApiAdminRestoreTest, AFileWithoutFormatIsFormatOne)

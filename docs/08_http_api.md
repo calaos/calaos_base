@@ -1559,10 +1559,13 @@ absent en `dry_run` ; `restarting` est faux en `dry_run`.
   L'aperçu avertit par `devices_removed`.
 - **Fusion de `local_config.xml`** : chaque option vient de la sauvegarde, sauf une liste fixe de
   clés **liées à la box**, qui gardent la valeur courante de la box (ou restent absentes) :
-  `listen_address`, `port_api`, `wwwroot`, `debug_wwwroot`, `calaos_server_host`,
-  `ota_firmware_path`, `mcp_service_token`, `update_notified_hash`. Les clés inconnues ou obsolètes
-  sont gardées (la migration du démarrage s'en charge). Quand des valeurs changent, `warnings` le
-  dit, jamais avec les valeurs : `household_login_changes` (`cn_user` ou `cn_pass` diffèrent),
+  `listen_address`, `port_api`, `wwwroot`, `debug_wwwroot`, `calaos_server_host` et son ancien nom
+  `calaos/host`, `ota_firmware_path`, `mcp_service_token`, `update_notified_hash`. Les clés inconnues
+  ou obsolètes sont gardées (la migration du démarrage s'en charge). Si le `local_config.xml` de la
+  box est illisible, la restauration n'est pas refusée, puisqu'elle en est le remède : aucune clé
+  n'est gardée, `kept` est vide et l'échec est journalisé. Quand des valeurs changent, `warnings` le
+  dit, jamais avec les valeurs : `household_login_changes` (le login effectif change : `cn_user` et
+  `cn_pass` s'ils sont tous deux renseignés, sinon `calaos_user` et `calaos_password`),
   `mcp_token_changes`, `ddns_changes`. `invalid_options` s'ajoute quand le champ du même nom, qui
   liste les clés que le registre refuserait, n'est pas vide. Sans `local_config.xml` dans l'envoi, le fichier de la box n'est pas touché et
   l'avertissement `no_local_config` s'ajoute. Autres avertissements : `devices_removed`.

@@ -105,9 +105,10 @@ const RestoreFile RestoreFiles[] = {
     { LOCAL_CONFIG, "calaos:config", false },
 };
 
-//They describe this box, not the home: a backup never brings its own value
+//They describe this box, not the home: a backup never brings its own value.
+//calaos/host is the deprecated name of calaos_server_host.
 const std::vector<string> BoxBoundKeys = { "listen_address", "port_api", "wwwroot", "debug_wwwroot", "calaos_server_host",
-                                           "ota_firmware_path", "mcp_service_token", "update_notified_hash" };
+                                           "calaos/host", "ota_firmware_path", "mcp_service_token", "update_notified_hash" };
 
 //The children Room.cpp and Device.cpp turn into IOs
 const std::set<string> RoomIoTags = { "calaos:input", "calaos:output", "calaos:internal", "calaos:avr",
@@ -186,13 +187,25 @@ string boxFile(const char *name)
     return FileUtils::exists(path) ? Utils::getFileContent(path.c_str()) : string();
 }
 
+//The pair JsonApi::checkCredentials() compares: cn_* only when both are set
+std::pair<string, string> householdLogin(const Params &options)
+{
+    const string user = options.get_param_const("cn_user");
+    const string pass = options.get_param_const("cn_pass");
+    if (!user.empty() && !pass.empty())
+        return { user, pass };
+    return { options.get_param_const("calaos_user"), options.get_param_const("calaos_password") };
+}
+
 /* uploaded with the box-bound keys of the box. Only the text of a warning may
  * leave this function: the options hold passwords and tokens.
  */
 string mergeLocalConfig(const string &uploaded, Json &kept, Json &invalid, std::vector<string> &warnings)
 {
+    //Not a refusal: a restore is the way out of a broken local_config.xml
     Params box;
-    Utils::get_config_options(box);
+    if (!Utils::get_config_options(box))
+        cErrorDom("admin") << "Unable to read the options of the box: a restore keeps none of its box-bound keys";
 
     pugi::xml_document doc;
     parseConfig(doc, uploaded);
@@ -233,7 +246,7 @@ string mergeLocalConfig(const string &uploaded, Json &kept, Json &invalid, std::
     {
         return box.get_param_const(key) != backup.get_param_const(key);
     };
-    if (differs("cn_user") || differs("cn_pass"))
+    if (householdLogin(box) != householdLogin(backup))
         warnings.push_back("household_login_changes");
     if (differs("mcp_token"))
         warnings.push_back("mcp_token_changes");
