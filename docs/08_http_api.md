@@ -316,17 +316,17 @@ service à portée restreinte (`serviceScope`). Voir
 Le token est comparé à l'option `mcp_service_token` de `local_config.xml`
 (`McpServerManager::getServiceToken()`). Un token non configuré n'accorde jamais
 l'accès ([JsonApiHandlerWS.cpp:530-566](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
-En session `serviceScope`, **13** messages sont refusés : `set_param`, `del_param`,
+En session `serviceScope`, **14** messages sont refusés : `set_param`, `del_param`,
 `audio_db`, `set_timerange`, `autoscenario`, `eventlog`, `register_push`,
-`settings`, `config`, les trois messages admin `admin_unlock`, `admin_set`, `admin`, et
-`console`, le message d'ouverture de [`/api/console`](#console-web-apiconsole)
-(`JsonApi::serviceScopeDeniedCommands()`, voir [Portée MCP](#portée-mcp)).
+`settings`, `config`, les trois messages admin `admin_unlock`, `admin_set`, `admin`,
+`console`, le message d'ouverture de [`/api/console`](#console-web-apiconsole), et l'action
+HTTP `config_backup` (`JsonApi::serviceScopeDeniedCommands()`, voir [Portée MCP](#portée-mcp)).
 
-⭐ **La portée est une propriété de la session, pas du transport.** Les treize sont
+⭐ **La portée est une propriété de la session, pas du transport.** Les quatorze sont
 refusées quel que soit le transport par lequel la session a été ouverte, et la
 charge utile du refus est **la même** des deux côtés — seule l'enveloppe change :
 `{"msg":"<msg>","msg_id":"<le vôtre>","data":{"error":"scope denied"}}` en
-WebSocket, `{"error":"scope denied"}` en HTTP. Les trois messages admin et `console` refusent
+WebSocket, `{"error":"scope denied"}` en HTTP. Les trois messages admin, `console` et `config_backup` refusent
 avec la forme d'erreur admin : `{"success":"false","error":"not_allowed","msg":"scope denied"}`.
 
 ℹ️ **Aujourd'hui aucune session HTTP ne peut être en portée de service** :
@@ -422,8 +422,8 @@ mesurable ; elle est plus large que ce que le tableau laisse lire.
 > routes d'approbateur n'existent pas sur un daemon de phase 1.
 >
 > **Phase 3 (contrat).** Les actions de ce document marquées « phase 3 » (clé de chiffrement du
-> code push, services, logs, heure, réseau, `config_list` / `config_set` / `config_backup` / `config_restore`) vivent
-> sur la branche d'intégration `admin/p8` et suivent la même règle : le contrat du **daemon** est
+> code push, services, logs, heure, réseau, `config_list` / `config_set` / `config_backup` /
+> `config_restore`) vivent sur la branche d'intégration `admin/p8` et suivent la même règle : le contrat du **daemon** est
 > `docs/API.md` de calaos-container (branche `admin/p8`), qui fait foi pour les routes, les
 > limites et les codes du daemon ; ce texte fixe ce que calaos_server accepte du client, ce qu'il
 > envoie au daemon et ce qu'il rend. Un `calaos_server` de phase 3 tolère un daemon plus ancien
@@ -748,8 +748,8 @@ Relaye une action de la table fermée vers le daemon. **WS uniquement.**
 | `network_confirm` | `change_id` | `POST network/confirm` | oui | `{change_id, intf, state: "confirmed"}` |
 | `network_revert` | `change_id` | `POST network/revert` | oui | `{change_id, intf, state: "reverted"}` |
 | `config_list` | | aucun : traité dans calaos_server | oui | `{options: [...]}`, voir [Configuration](#configuration-config_list-config_set-config_backup) |
-| `config_set` | `key`, `value` | aucun : traité dans calaos_server | oui | `{key, value, restart_required}` |
-| `config_backup` | | aucun : traité dans calaos_server | oui | `{format, created_at, server_version, hostname, files}` |
+| `config_set` | `key`, `value` | aucun : traité dans calaos_server | oui | `{key, value, set, restart_required}` (un secret : sans `value`) |
+| `config_backup` | | aucun : traité dans calaos_server | oui | `{format, created_at, server_version, hostname, io_format, files}` |
 | `config_restore` | `files`, `dry_run` | aucun : traité dans calaos_server | oui | `{dry_run, files, backup, box, io_format, kept, warnings, previous?, restarting}`, voir [Restauration](#restauration-config_restore) |
 
 Chemins relatifs à `/api/v2/`. Jamais relayés, quoi que le client envoie : `system/install/*`,
@@ -767,7 +767,7 @@ applique les mêmes limites). `result` est le `data` du daemon, types compris, c
 actions de phase 1. Délais de calaos_server : 4 s, sauf `logs_query` (10 s), 15 s pour
 `services_start`, `services_stop`, `services_enable` et `services_disable` (plus que les 10 s du
 daemon : `enable` entraîne un rechargement de systemd), et 35 s pour `time_set`,
-`network_apply`, `network_confirm` et `network_revert` ; le client attend 40 s pour ces quatre.
+`network_apply`, `network_confirm` et `network_revert` ; le client attend 40 s pour `time_set` et les trois `network_*`.
 Le daemon peut y dépasser 35 s : chaque commande y a son propre délai, `timedatectl` 10 s
 (`time_set` en enchaîne jusqu'à six : liste des fuseaux, lecture de l'état, trois étapes, relecture),
 `networkctl` 30 s (`network_apply` en enchaîne trois, plus deux pour revenir en arrière si
@@ -1170,8 +1170,8 @@ redémarrage seul, `calaos-container`, `haproxy`, `networkd`, `ssh`. Le DDNS, re
 de ligne.
 
 **`services_list`** (sans `params`) → `result` : `{"services": [{"id", "unit", "kind",
-"actions", "restartable", "active_state", "sub_state", "enabled", "startup", "boot_unit", "since",
-"next_run"}]}`, recopié du daemon.
+"actions", "restartable", "active_state", "sub_state", "enabled", "startup", "boot_unit", "since"}]}`,
+recopié du daemon.
 - `kind` vaut `service`. `restartable` est un booléen, vrai quand `restart` est dans `actions`.
 - `actions` : les verbes que la ligne accepte, parmi `restart`, `start`, `stop`, `enable`,
   `disable`, dans cet ordre ; `[]` pour une ligne en lecture seule (`networkd`). Seul `restart`
@@ -1187,8 +1187,6 @@ de ligne.
 - `boot_unit` : l'unité sur laquelle `enable` et `disable` agissent, égale à `unit` pour toutes les
   lignes.
 - `since` est une date RFC 3339 UTC ou `null`.
-- `next_run` : `null` pour toutes les lignes. Il est réservé à l'échéance d'un minuteur ; le
-  minuteur DDNS reviendra avec le DDNS.
 
 ```json
 {"msg": "admin", "msg_id": "9",
@@ -1197,16 +1195,18 @@ de ligne.
 
 **`services_restart`** (`params.unit`) → `result` : `{"id": "mosquitto", "state": "restarting"}`.
 - calaos_server exige `unit` conforme à `^[a-z0-9-]{1,32}$`, sinon `invalid_request` sans appel au
-  daemon. Le daemon refuse un `id` inconnu ou non redémarrable (`calaos-container`, `haproxy`,
-  `networkd`, `ssh`) en `invalid_request` (« unknown or non-restartable service »).
+  daemon. Le daemon refuse un `id` inconnu ou non redémarrable (`networkd`) en `invalid_request`
+  (« unknown or non-restartable service »).
 - `upgrade_in_progress` pendant un job, pour **toute** unité.
 - Le daemon répond d'abord, puis redémarre l'unité environ 500 ms plus tard : la réponse ne dit rien
   du résultat, qui se lit en sondant `services_list`. Redémarrer `calaos-server` coupe la connexion
   du client dans les secondes qui suivent ; ce n'est pas une erreur, le client reprend après un
   nouveau login (voir [Reprise](#reconnexion-et-reprise-de-la-webapp)) avec la même `admin_session`.
 - Erreurs : `https_required`, `invalid_request`, `bad_session`, `admin_not_set`,
-  `upgrade_in_progress`, `service_unavailable`, `rate_limited`, `daemon_too_old`,
-  `daemon_unreachable`, `admin_unavailable`, `internal`.
+  `upgrade_in_progress`, `service_unavailable`, `network_pending` (409, avec `change_id` et
+  `expires_in` : un changement réseau attend sa confirmation, et le restart de `calaos-container`
+  le perdrait), `rate_limited`, `daemon_too_old`, `daemon_unreachable`, `admin_unavailable`,
+  `internal`.
 
 **`services_start`, `services_stop`, `services_enable`, `services_disable`** (`params.unit`) →
 `result` : `{"id": "mosquitto", "state": "starting"}`, avec `state` à `starting`, `stopping`,
@@ -1216,19 +1216,21 @@ de ligne.
   `invalid_request` sans appel au daemon. Le daemon refuse en `invalid_request` un `id` inconnu ou
   un verbe absent de `actions` (« action not allowed for this service »).
 - `enable` et `disable` agissent maintenant **et** au boot (`enable --now`, `disable --now`) : il
-  n'y a pas d'activation sans démarrage. Un `stop` dure jusqu'au prochain redémarrage de la box.
+  n'y a pas d'activation sans démarrage. Un `stop` dure jusqu'au prochain redémarrage de la box,
+  ou jusqu'à la prochaine mise à jour du paquet si l'unité est `enabled`.
 - Contrairement à `restart`, le daemon lance la commande **avant** de répondre (`systemctl ...
   --no-block`, 10 s au plus : le délai couvre la mise en file, pas le résultat). Le résultat se lit
   en sondant `services_list` (`active_state`, `startup`). Une commande qui sort en erreur est
   `internal`, sans détail dans le message.
 - Délai de calaos_server : 15 s, plus que les 10 s du daemon, car `enable` entraîne un rechargement
-  de systemd.
+  de systemd ; le client attend 20 s.
 - `upgrade_in_progress` pendant un job, pour toute unité. `service_unavailable` (409) : l'unité
   n'est pas installée (« the unit is not installed ») ou est masquée (« the unit is masked ») ; le
   masquage reste une décision prise en SSH. Le daemon relit l'état de l'unité avant de refuser, il
   ne se fie pas à la liste que le client a affichée.
 - Scope MCP : ces actions héritent du refus d'`admin` (`not_allowed`).
-- Erreurs : celles de `services_restart`.
+- Erreurs : celles de `services_restart`, sauf `network_pending` (seul `calaos-container` y est
+  exposé, et il n'a que `restart`).
 
 #### Logs
 
@@ -1413,18 +1415,57 @@ Ni listées ni modifiables ici : `cn_user`, `cn_pass`, `calaos_user`, `calaos_pa
 `calaos_server_host`, `ota_firmware_path`, `notif_development`, et toute clé hors du registre.
 
 - **`config_list`** (sans `params`) → `{"options": [{"key", "group", "type", "description",
-  "value", "default", "secret", "set", "restart", "choices"?}]}`. `secret`, `set` et `restart` sont
-  des booléens JSON ; `value` est absent pour un secret.
-- **`config_set`** (`params.key`, `params.value`) → `{"key", "value", "restart_required": <bool>}`.
-  `value` est une chaîne ; `""` remet la valeur par défaut. Pour un secret, la réponse porte
-  `"set": true` et **aucune** valeur. Erreurs propres : `invalid_request` pour une clé hors de la
-  liste ou une valeur que le registre refuse (`msg` = la raison du registre, affichable).
-  `Config::BackupFiles()` précède l'écriture, qui suit le chemin de `calaos_config set` ; les clés
+  "value", "default", "secret", "set", "restart", "choices"?}]}`, une entrée par clé de la table,
+  dans son ordre. `secret`, `set` et `restart` sont des booléens JSON, tout le reste des chaînes :
+  - `type` : l'identifiant du registre (`ConfigOptions::typeId()`), l'un des 13 : `string`,
+    `bool`, `int`, `float`, `port`, `host`, `path`, `email`, `email_list`, `password`, `token`,
+    `enum`, `csv`. Un client traite un identifiant inconnu comme `string`.
+  - `group` : le groupe de la table ci-dessus (`Logging`, `Notifications`, `History`, `InfluxDB`,
+    `MCP`, `OTA`, `Origin`, `Location`, `Kiosk`), **jamais** la catégorie du registre (`smtp`,
+    `calaos_home`, `network`…).
+  - `description` : le libellé court du registre (`label()`, par exemple « SMTP port »), traduit
+    dans la langue de calaos_server ; jamais le texte long (`doc()`).
+  - `default` : la valeur par défaut littérale du registre, `""` quand l'option n'en a pas
+    (`smtp_port`, `user_emails`, `dpms_standby`, `lang`…).
+  - `set` : la clé a une valeur non vide dans `local_config.xml`. C'est tout ce qu'un secret dit.
+  - `value` : la valeur stockée, ou `default` quand la clé n'est pas stockée (`set` faux) ;
+    **absent** pour un secret, même défini.
+  - `restart` : la colonne de la table (`true` : prise en compte après un redémarrage de
+    calaos-server ; les clés Kiosk sont `false`, calaos-home les relit à son démarrage).
+  - `choices` : présent seulement quand le registre déclare une liste ; tableau des **valeurs
+    brutes** (chaînes), sans leurs libellés, dans l'ordre du registre. Un `bool` peut en déclarer
+    une : `ota_enabled` donne `["true", "1", "false", "0"]`.
+  - Un `bool` est actif quand `value` vaut `true` **ou** `1` (un fichier écrit à la main,
+    `ota_enabled`). Un client écrit toujours `true` ou `false`.
+- **`config_set`** (`params.key`, `params.value`, deux chaînes) → `{"key", "value", "set",
+  "restart_required"}`. `value` et `set` suivent la règle de `config_list`, relus après
+  l'écriture ; `restart_required` est la colonne `restart`. `""` supprime la clé, et les lectures
+  reprennent leur défaut : la réponse porte alors `default` (ou `""`) et `"set": false`. Pour un
+  secret, la réponse est `{"key", "set", "restart_required"}` sans **aucune** valeur (`set` vaut
+  `false` après un `""`). Erreurs propres, toutes `invalid_request` avec un `msg` affichable :
+  - `key is required` / `value is required` : champ absent ou qui n'est pas une chaîne ;
+  - `This key cannot be set here` : clé hors de la table (la comparaison est exacte) ;
+  - `value is longer than 4096 bytes`, `value must not contain a control character`
+    (octet < 0x20 ou 0x7f, NUL compris) ;
+  - sinon la raison du registre telle quelle (`ConfigOption::validate()`, traduite). Le registre
+    décide : `bool` accepte `true` et `false`, plus `1` et `0` là où il les liste
+    (`ota_enabled`) ; une plage, une liste, un format d'adresse ou de port sont les siens.
+
+  Ces contrôles précèdent la session : un refus n'appelle pas le daemon et n'écrit rien.
+  `Config::BackupFiles()` précède l'écriture, qui suit le chemin de `calaos_config set`
+  (`Utils::set_config_option()`, ou `del_config_option()` pour `""`) ; les clés
   « immédiat » agissent là où le code les relit déjà. `restart_required` : la webapp propose
-  `services_restart` sur `calaos-server`.
-- **`config_backup`** (sans `params`) → `{"format": "calaos-config-backup/1", "created_at",
-  "server_version", "hostname", "files": {"io.xml", "rules.xml", "local_config.xml",
-  "widgets.xml"}}`, chaque valeur étant le contenu du fichier.
+  `services_restart` sur `calaos-server`. Un `local_config.xml` impossible à écrire : `internal`.
+- **`config_backup`** (sans `params`) → `{"format": "calaos-config-backup/2", "created_at",
+  "server_version", "hostname", "io_format": <entier>, "files": {"io.xml", "rules.xml",
+  "local_config.xml"}}`, chaque valeur étant le contenu du fichier. Un fichier absent de la box est
+  **omis** de `files` (jamais une chaîne vide, qu'une restauration écrirait). `widgets.xml` n'y
+  est pas : aucun programme ne le lit. `created_at` est en RFC 3339 UTC à la seconde
+  (`2026-10-25T12:34:56Z`), `server_version` la version de calaos_server, `hostname` le nom
+  d'hôte brut (`gethostname()`), `io_format` le format d'`io.xml` de ce serveur (nombre JSON, le
+  même que `config get` : `2` aujourd'hui). Comme `config get`, les IO et règles en mémoire sont
+  d'abord réécrites dans `io.xml` et `rules.xml`. La webapp en fait l'archive zip du projet
+  installer ; le nom `….json` de l'action HTTP ne change pas.
 - La session est validée comme `mcp_regenerate`.
 - Le journal de calaos_server (`cInfoDom("admin")`) écrit `Admin config set <clé> by <ip> (session
   <id d'audit>)` et `Admin config backup by <ip>`, jamais une valeur.
@@ -1447,11 +1488,20 @@ Cache-Control: no-store
 X-Content-Type-Options: nosniff
 ```
 
-`<hostname>` est limité à `[A-Za-z0-9._-]` et coupé à 32 caractères ; vide une fois nettoyé, il
-devient `box`. `<YYYYMMDD-HHMM>` est la date de création en UTC (celle de `created_at`). `secureTransport()` et le
-contrôle d'Origin de `/api.php` s'appliquent. Sans `admin_session` valide : `bad_session` ; sur le
-port 5454 en clair : `https_required` ; dans les deux cas la charge d'erreur habituelle, aucun
-fichier et pas d'en-tête `Content-Disposition`. En portée service (MCP) : `not_allowed`.
+`<hostname>` est le `hostname` du document dont on n'a gardé que `[A-Za-z0-9._-]`, coupé à 32
+caractères ; vide une fois nettoyé, il devient `box`. `<YYYYMMDD-HHMM>` est la date de création en
+UTC (celle de `created_at`). `Content-Length` est présent, et `Cache-Control` n'apparaît qu'une
+fois. `secureTransport()` et le contrôle d'Origin de `/api.php` s'appliquent. Refus, tous **sans
+fichier** (pas d'en-tête `Content-Disposition`, aucun contenu de configuration) :
+
+- `admin_session` absente, vide, qui n'est pas une chaîne de 64 hex, ou refusée par le daemon :
+  `bad_session` ; transport non sûr (port 5454 en clair, pair hors loopback) : `https_required` ;
+  admin non défini ou daemon injoignable : le code de l'[état admin](#état-admin-et-règle-collante).
+  Charge d'erreur admin habituelle, statut 200.
+- Identifiants foyer faux : le refus foyer de toute action HTTP, statut **400** et fermeture de la
+  connexion (la webapp le lit comme « refus foyer »). Un corps qui n'est pas un objet JSON (session
+  dans l'URL) : 400 aussi, la session des paramètres GET n'est jamais lue.
+- En portée service (MCP) : `not_allowed`, `"msg": "scope denied"`.
 
 La sauvegarde contient des **secrets** (`cn_pass`, `mcp_token`, mots de passe de caméras dans
 `io.xml`) : ce que `config get` remet déjà à l'admin et ce dont une restauration a besoin. Le
@@ -1580,7 +1630,7 @@ champs), état (`AdminState`), présence et format de la session, appel du daemo
 
 `admin_unlock`, `admin_set`, `admin` et `console` rejoignent la liste des messages refusés en
 session service (13 au lieu de 9). En phase 3, l'action HTTP `config_backup` s'y ajoute
-(`not_allowed`), sans que ce compte soit mis à jour ; tout `admin {action}` de phase 3 hérite du refus de `admin`. Le refus a la forme d'erreur admin avec `not_allowed` et
+(`not_allowed`, 14 commandes) ; tout `admin {action}` de phase 3 hérite du refus de `admin`. Le refus a la forme d'erreur admin avec `not_allowed` et
 `"msg": "scope denied"`. Sur [`/api/console`](#console-web-apiconsole), un message d'ouverture
 qui s'authentifie avec le jeton de service (`token`, celui de `login_service`) ouvre une session
 de service et reçoit donc ce refus, sans appel au daemon.
@@ -1778,7 +1828,7 @@ délai de 5 s ci-dessous.
 |---|---|---|
 | Réponse à `admin_unlock` (client → « calaos-server trop ancien, mettez à jour la box ») | **5 s** | webapp (WA1). Une vérification légitime répond avant, car le daemon refuse tout de suite (`429`) une vérification concurrente au lieu de la mettre en file. Les 4 s supposent qu'une opération argon2id du daemon (CC1) tient en moins de 3 s sur la plus lente des box supportées. calaos_server ne met jamais lui-même en file un appel admin |
 | Appel de calaos_server au daemon | 4 s par défaut (connexion et réponse) ; 10 s pour `logs_query` ; 15 s pour `services_start`, `services_stop`, `services_enable` et `services_disable` ; 35 s pour `time_set` ; **120 s pour `update_check`** (`apt-get update` synchrone) ; 30 s pour `system_restart` (`systemctl restart calaos-home` attend l'arrêt du conteneur du kiosque) | calaos_server (CB2/CB3) |
-| Réponse aux messages admin (client) | 5 s pour `admin_unlock`, `admin_set` et tout `admin` sauf `update_check`, `system_restart`, `logs_query`, `time_set` et `services_start` / `stop` / `enable` / `disable` (plus que les 15 s de calaos_server) ; 125 s pour `update_check` ; 35 s pour `system_restart` (au-delà des 30 s de calaos_server) ; 12 s pour `logs_query` (au-delà des 10 s de calaos_server) ; 40 s pour `time_set` (au-delà des 35 s de calaos_server) | webapp (WA1) |
+| Réponse aux messages admin (client) | 5 s pour `admin_unlock`, `admin_set` et tout `admin` sauf `update_check`, `system_restart`, `logs_query`, `time_set` et `services_start` / `stop` / `enable` / `disable` ; 125 s pour `update_check` ; 35 s pour `system_restart` (au-delà des 30 s de calaos_server) ; 12 s pour `logs_query` (au-delà des 10 s de calaos_server) ; 40 s pour `time_set` (au-delà des 35 s de calaos_server) ; 20 s pour `services_start` / `stop` / `enable` / `disable` (au-delà des 15 s de calaos_server) | webapp (WA1) |
 | Durée de la session admin | **15 min absolues** à l'émission, non glissantes | daemon |
 | Sondage de `admin/status` | 60 s ; 5 s pendant les 2 premières minutes tant que l'état est inconnu ; l'échec n'est journalisé qu'une fois | `AdminState` |
 | `admin_unavailable` : nouvel essai | toutes les 5 s pendant les 2 premières minutes, puis toutes les 60 s | webapp (WA1), même cadence que le sondage d'`AdminState` |

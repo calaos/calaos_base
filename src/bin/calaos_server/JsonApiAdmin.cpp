@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "JsonApi.h"
+#include "AdminConfig.h"
 #include "AdminEvents.h"
 #include "AdminState.h"
 #include "DaemonClient.h"
@@ -740,7 +741,8 @@ Json setSucceeded(const DaemonReply &reply, bool hasSession)
 
 bool JsonApi::isAdminCommand(const string &command)
 {
-    return command == "admin_unlock" || command == "admin_set" || command == "admin" || command == "console";
+    return command == "admin_unlock" || command == "admin_set" || command == "admin" || command == "console" ||
+           command == "config_backup";
 }
 
 Json JsonApi::adminError(const string &code, const string &msg)
@@ -874,8 +876,13 @@ bool JsonApi::isValidInterfaceName(const string &name)
 
 Json JsonApi::adminRequestRefusal(const string &action, const Json &request)
 {
-    if (action == "mcp_regenerate")
+    if (action == "mcp_regenerate" || action == "config_list" || action == "config_backup")
         return Json();
+    if (action == "config_set")
+    {
+        const string invalid = AdminConfig::setRefusal(paramsOf(request));
+        return invalid.empty() ? Json() : adminError("invalid_request", invalid);
+    }
 
     const RelayRow *row = relayRow(action);
     if (!row)
@@ -1130,6 +1137,47 @@ void JsonApi::relayAdmin(const string &action, const Json &request, const string
         relayEnroll(req, JsonField::string(params, "token_id"), answer);
     else
         relayCall(req, household, !row->session, answer);
+}
+
+string JsonApi::sessionAuditId(const string &session)
+{
+    return pushTokenId(session).substr(0, 8);
+}
+
+void JsonApi::configAdmin(const string &action, const Json &request, const string &session, const AdminAnswer &answer)
+{
+    const string ip = adminClientIp();
+    const Json params = paramsOf(request);
+    validateAdminSession(session, [action, params, session, ip, answer](const Json &error)
+                         {
+        if (!error.is_null())
+        {
+            answer(error);
+            return;
+        }
+
+        Json result;
+        if (action == "config_list")
+            result = AdminConfig::list();
+        else if (action == "config_backup")
+        {
+            result = AdminConfig::backup(std::time(nullptr));
+            cInfoDom("admin") << "Admin config backup by " << ip;
+        }
+        else
+        {
+            result = AdminConfig::set(params);
+            if (result.is_null())
+            {
+                answer(adminError("internal", string())); //LCOV_EXCL_LINE local_config.xml unwritable
+                return;                                   //LCOV_EXCL_LINE local_config.xml unwritable
+            }
+            //Never the value: it may be a password
+            cInfoDom("admin") << "Admin config set " << JsonField::string(params, "key") << " by " << ip
+                              << " (session " << sessionAuditId(session) << ")";
+        }
+        answer(Json{ { "success", "true" }, { "result", result } });
+    });
 }
 
 string JsonApi::printableText(const string &in, size_t maxCodePoints)

@@ -65,9 +65,11 @@ conf.saveStateCache();
 conf.BackupFiles();
 ```
 
-`BackupFiles()` n'a **qu'un seul appelant de production** : le handler HTTP `config`, juste avant
+`BackupFiles()` a **deux appelants de production** : le handler HTTP `config`, juste avant
 d'écraser les fichiers de config poussés par un client
-(dérivé, [JsonApiHandlerHttp.cpp:783](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)).
+(dérivé, [JsonApiHandlerHttp.cpp:783](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)), et
+`AdminConfig::set()` (`admin` / `config_set`, voir docs/08), juste avant d'écrire une option de
+`local_config.xml`.
 
 Le dossier est horodaté **à la seconde**, ce qui ne suffit pas à le rendre unique : jusqu'à T3.64
 deux `config put` dans la même seconde le partageaient, et le second **écrasait** la copie du
