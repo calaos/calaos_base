@@ -483,7 +483,7 @@ bool oneOf(const char *const (&list)[N], const string &s)
 }
 
 const char *const logSources[] = { "calaos-server", "calaos-home", "haproxy", "mosquitto", "zigbee2mqtt", "influxdb",
-                                   "grafana", "hue2mqtt", "envoy", "calaos-container", "olad", "timesyncd",
+                                   "grafana", "hue2mqtt", "envoy", "calaos-container", "olad", "ntp",
                                    "calaos-ddns", "networkd", "ssh", "kernel", "system" };
 const char *const logPriorities[] = { "emerg", "alert", "crit", "err", "warning", "notice", "info", "debug" };
 

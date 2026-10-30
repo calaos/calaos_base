@@ -1157,7 +1157,7 @@ OS et le redémarrage de certaines. Le client nomme un `id`, jamais une unité. 
 seulement (pas de code push).
 
 `id` de la liste, dans l'ordre : `calaos-server`, `calaos-home`, `mosquitto`, `zigbee2mqtt`,
-`influxdb`, `grafana`, `hue2mqtt`, `envoy`, `olad`, `timesyncd`, `calaos-ddns` (oneshot : « lancer
+`influxdb`, `grafana`, `hue2mqtt`, `envoy`, `olad`, `ntp`, `calaos-ddns` (oneshot : « lancer
 maintenant »), puis, en lecture seule, `calaos-container`, `haproxy`, `networkd`, `ssh`.
 
 **`services_list`** (sans `params`) → `result` : `{"services": [{"id", "unit", "kind",
@@ -1191,7 +1191,7 @@ que par https, jamais en diffusion.
 
 **`logs_sources`** (sans `params`) → `{"sources": [{"id", "label"}]}` : dix-sept sources dans
 l'ordre de `API.md` (`calaos-server`, `calaos-home`, `haproxy`, `mosquitto`, `zigbee2mqtt`,
-`influxdb`, `grafana`, `hue2mqtt`, `envoy`, `calaos-container`, `olad`, `timesyncd`, `calaos-ddns`,
+`influxdb`, `grafana`, `hue2mqtt`, `envoy`, `calaos-container`, `olad`, `ntp`, `calaos-ddns`,
 `networkd`, `ssh`, `kernel`, `system`). `label` est un texte anglais fixe ; la webapp traduit par
 `id`.
 
@@ -1240,7 +1240,8 @@ sinon), avec les mêmes limites que le daemon :
 #### Heure de la box
 
 Phase 3. Contrat du daemon : `API.md`, « Box time ». Session admin seulement. Le client NTP de
-Calaos OS est `systemd-timesyncd`.
+Calaos OS est chrony (`chrony.service`, sinon `systemd-timesyncd.service`) : id `ntp` dans les
+services et les journaux.
 
 `<BoxTime>` : `{"now": "<RFC 3339 UTC>", "timezone": "Europe/Paris", "ntp": true, "synchronized":
 true, "rtc": "<RFC 3339>" ou null}`.
@@ -1252,7 +1253,7 @@ true, "rtc": "<RFC 3339>" ou null}`.
   figure dans `time_zones`), `ntp` (booléen), `time` (RFC 3339, année 2020 à 2100 de l'instant
   UTC : `2020-01-01T00:30:00+01:00` est refusé) ; chacun facultatif, **un au moins** (aucun : `invalid_request`,
   « no field to set »).
-  - Ordre : `timezone`, puis `ntp` (`timedatectl set-ntp`, qui pilote `systemd-timesyncd`), puis
+  - Ordre : `timezone`, puis `ntp` (`timedatectl set-ntp`, qui pilote chrony), puis
     `time`. `time` avec NTP actif après l'étape `ntp` : `invalid_request` (« ntp is active »).
   - `restart_required` vaut `true` quand `timezone` a changé : la zone est lue par les processus
     de la box à leur démarrage, le client propose donc `services_restart` sur `calaos-server` (et
