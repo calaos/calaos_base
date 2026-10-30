@@ -323,6 +323,9 @@ void Config::LoadConfigIO()
 
 void Config::SaveConfigIO()
 {
+    if (Utils::config_frozen())
+        return;
+
     string file = Utils::getConfigFile(IO_CONFIG);
     string tmp = file + "_tmp";
 
@@ -469,6 +472,9 @@ void Config::LoadConfigRule()
 
 void Config::SaveConfigRule()
 {
+    if (Utils::config_frozen())
+        return;
+
     string file = Utils::getConfigFile(RULES_CONFIG);
     string tmp = file + "_tmp";
 
@@ -631,7 +637,7 @@ bool Config::ReadValueParams(string id, Params &value)
     return false;
 }
 
-void Config::BackupFiles()
+string Config::BackupFiles()
 {
     //getConfigFile() so backups land next to the config files actually in
     //use (getConfigPath() ignores the CALAOS_CONFIG override)
@@ -666,27 +672,26 @@ void Config::BackupFiles()
     if (FileUtils::exists(folder))
     {
         cError() << "Unable to pick a free backup folder next to " << base << ", skipping backup...";
-        return;
+        return string();
     }
 
     if (!FileUtils::mkpath(folder))
     {
         cError() << "Unable to create backup folder (" << folder << "), skipping backup...";
-        return;
+        return string();
     }
 
-    if (!FileUtils::copyFile(Utils::getConfigFile(IO_CONFIG), folder + "/" + IO_CONFIG))
+    bool complete = true;
+    for (const char *name: { IO_CONFIG, RULES_CONFIG, LOCAL_CONFIG })
     {
-        cError() << "Unable to backup file " << IO_CONFIG;
+        const string source = Utils::getConfigFile(name);
+        if (!FileUtils::exists(source) || FileUtils::copyFile(source, folder + "/" + name))
+            continue;
+        //LCOV_EXCL_START copyFile() only fails on a file the root user of CI cannot read
+        cError() << "Unable to backup file " << name;
+        complete = false;
+        //LCOV_EXCL_STOP
     }
 
-    if (!FileUtils::copyFile(Utils::getConfigFile(RULES_CONFIG), folder + "/" + RULES_CONFIG))
-    {
-        cError() << "Unable to backup file " << RULES_CONFIG;
-    }
-
-    if (!FileUtils::copyFile(Utils::getConfigFile(LOCAL_CONFIG), folder + "/" + LOCAL_CONFIG))
-    {
-        cError() << "Unable to backup file " << LOCAL_CONFIG;
-    }
+    return complete ? folder.substr(backFolder.size() + 1) : string();
 }

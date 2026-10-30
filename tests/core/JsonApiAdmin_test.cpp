@@ -523,12 +523,14 @@ protected:
         AdminState::Instance().observeUnreachable();
         AdminState::Instance().loadFlag();
         AdminState::Instance().resetAlertPushes(AdminState::AlertPushInterval);
+        Utils::set_config_frozen(false);
         drainLoop(10);
     }
 
     void TearDown() override
     {
         drainLoop(30);
+        Utils::set_config_frozen(false);
     }
 
     void adminDefined()
@@ -5184,7 +5186,7 @@ TEST_F(AdminEventsTest, AnApproversTokenKeepsItsEnrolledNameAndFormat)
 }
 
 /*******************************************************************************
- * Configuration: config_list, config_set, config_backup
+ * Configuration: config_list, config_set, config_backup, config_restore
  ******************************************************************************/
 
 namespace
@@ -5245,6 +5247,34 @@ Json configAction(const std::string &action, const Json &params = Json(), const 
 Json setParams(const std::string &key, const std::string &value)
 {
     return Json{ { "key", key }, { "value", value } };
+}
+
+//Two rooms, four IOs of which two in the one device, two rules
+const char *const kRestoreIo = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                               "<calaos:ioconfig xmlns:calaos=\"http://www.calaos.fr\">\n"
+                               "  <calaos:home format=\"2\">\n"
+                               "    <calaos:room name=\"Salon\" type=\"lounge\">\n"
+                               "      <calaos:input id=\"i1\" type=\"InternalBool\"/>\n"
+                               "      <calaos:device id=\"d1\" impl=\"thermostat\">\n"
+                               "        <calaos:internal id=\"i2\" type=\"InternalInt\"/>\n"
+                               "        <calaos:output id=\"o2\" type=\"InternalBool\"/>\n"
+                               "      </calaos:device>\n"
+                               "    </calaos:room>\n"
+                               "    <calaos:room name=\"Cave\" type=\"misc\">\n"
+                               "      <calaos:output id=\"o1\" type=\"InternalBool\"/>\n"
+                               "    </calaos:room>\n"
+                               "  </calaos:home>\n"
+                               "</calaos:ioconfig>\n";
+
+const char *const kRestoreRules = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                                  "<calaos:rules xmlns:calaos=\"http://www.calaos.fr\">\n"
+                                  "  <calaos:rule name=\"a\" type=\"t\"/>\n"
+                                  "  <calaos:rule name=\"b\" type=\"t\"/>\n"
+                                  "</calaos:rules>\n";
+
+Json restoreParams(bool dryRun)
+{
+    return Json{ { "files", { { "io.xml", kRestoreIo }, { "rules.xml", kRestoreRules } } }, { "dry_run", dryRun } };
 }
 
 std::string registryError(const std::string &key, const std::string &value)
@@ -5381,7 +5411,7 @@ TEST(JsonApiAdminConfigRules, TheAllowlistIsTheTableOfTheContract)
         }
     }
 
-    for (const char *action: { "config_list", "config_set", "config_backup" })
+    for (const char *action: { "config_list", "config_set", "config_backup", "config_restore" })
         EXPECT_TRUE(AdminConfig::isAction(action));
     for (const char *action: { "config", "config_get", "CONFIG_LIST", "mcp_regenerate" })
         EXPECT_FALSE(AdminConfig::isAction(action));
@@ -5686,7 +5716,8 @@ TEST_F(JsonApiAdminTest, ConfigActionsNeedHttpsAndAValidSessionAndRefuseTheServi
 
     const std::vector<std::pair<std::string, Json>> actions = { { "config_list", Json() },
                                                                 { "config_set", setParams("smtp_port", "2525") },
-                                                                { "config_backup", Json() } };
+                                                                { "config_backup", Json() },
+                                                                { "config_restore", restoreParams(true) } };
     for (const auto &a: actions)
     {
         expectError(ws.admin("admin", configAction(a.first, a.second, "")), "bad_session");
@@ -5703,7 +5734,7 @@ TEST_F(JsonApiAdminTest, ConfigActionsNeedHttpsAndAValidSessionAndRefuseTheServi
     //A session the daemon does not know
     for (const auto &a: actions)
         expectError(ws.admin("admin", configAction(a.first, a.second, std::string(64, 'b'))), "bad_session");
-    EXPECT_EQ(3u, statusCalls().size()) << requestPaths();
+    EXPECT_EQ(4u, statusCalls().size()) << requestPaths();
     EXPECT_EQ(file, localConfigText());
 
     //The service scope has no websocket config_backup either
@@ -5867,6 +5898,809 @@ TEST_F(JsonApiAdminTest, ARefusedHttpBackupCarriesNoFile)
     fakeDaemon.setAdminSet(false);
     syncAdminState();
     expectNoFile(httpPost(backupRequest({ { "admin_session", FakeDaemon::Session } }), "https"), ok, "admin_not_set");
+}
+
+/*******************************************************************************
+ * config_restore
+ ******************************************************************************/
+
+namespace
+{
+
+const char *const kConfigNames[] = { "io.xml", "rules.xml", "local_config.xml" };
+
+//One room, three IOs, two devices, one rule: what a restore replaces
+const char *const kBoxIo = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                           "<calaos:ioconfig xmlns:calaos=\"http://www.calaos.fr\">\n"
+                           "  <calaos:home format=\"2\">\n"
+                           "    <calaos:room name=\"Box\" type=\"misc\">\n"
+                           "      <calaos:device id=\"b1\" impl=\"thermostat\">\n"
+                           "        <calaos:input id=\"bi\" type=\"InternalBool\"/>\n"
+                           "      </calaos:device>\n"
+                           "      <calaos:device id=\"b2\" impl=\"thermostat\">\n"
+                           "        <calaos:output id=\"bo\" type=\"InternalBool\"/>\n"
+                           "      </calaos:device>\n"
+                           "      <calaos:audio id=\"ba\" type=\"Squeezebox\"/>\n"
+                           "    </calaos:room>\n"
+                           "  </calaos:home>\n"
+                           "</calaos:ioconfig>\n";
+
+const char *const kBoxRules = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                              "<calaos:rules xmlns:calaos=\"http://www.calaos.fr\">\n"
+                              "  <calaos:rule name=\"box\" type=\"t\"/>\n"
+                              "</calaos:rules>\n";
+
+const std::vector<std::string> kBoxBound = { "listen_address", "port_api", "wwwroot", "debug_wwwroot", "calaos_server_host",
+                                             "calaos/host", "ota_firmware_path", "mcp_service_token", "update_notified_hash" };
+
+using Options = std::vector<std::pair<std::string, std::string>>;
+
+std::string configPath(const std::string &name)
+{
+    return Utils::getConfigFile(name.c_str());
+}
+
+void writeFile(const std::string &path, const std::string &content)
+{
+    std::ofstream f(path, std::ios::trunc | std::ios::binary);
+    f << content;
+}
+
+//Values already escaped for an attribute
+std::string localConfigOf(const Options &options)
+{
+    std::string xml = "<?xml version=\"1.0\"?>\n<calaos:config xmlns:calaos=\"http://www.calaos.fr\">\n";
+    for (const auto &o: options)
+        xml += "  <calaos:option name=\"" + o.first + "\" value=\"" + o.second + "\"/>\n";
+    return xml + "</calaos:config>\n";
+}
+
+std::string boxState()
+{
+    std::string out;
+    for (const char *name: kConfigNames)
+        out += fileText(configPath(name)) + "\n---\n";
+    return out;
+}
+
+std::string rulesOfSize(size_t size)
+{
+    const std::string head = "<?xml version=\"1.0\"?>\n<calaos:rules xmlns:calaos=\"http://www.calaos.fr\"><!--";
+    const std::string tail = "--></calaos:rules>\n";
+    return head + std::string(size - head.size() - tail.size(), 'x') + tail;
+}
+
+std::vector<std::string> restoreLeftovers()
+{
+    std::vector<std::string> out;
+    for (const char *name: kConfigNames)
+    {
+        if (FileUtils::exists(configPath(name) + ".restore"))
+            out.push_back(name);
+    }
+    return out;
+}
+
+//Milliseconds until something stops the loop, -1 if nothing did within ms
+int64_t loopStopsWithin(int ms)
+{
+    auto loop = uvw::Loop::getDefault();
+    bool expired = false;
+    Timer guard(ms / 1000.0, [&expired, &loop]()
+                {
+        expired = true;
+        loop->stop();
+    });
+
+    const auto start = steady_clock::now();
+    loop->run();
+    const auto elapsed = std::chrono::duration_cast<milliseconds>(steady_clock::now() - start).count();
+    return expired ? -1 : elapsed;
+}
+
+class JsonApiAdminRestoreTest: public JsonApiAdminTest
+{
+protected:
+    void SetUp() override
+    {
+        JsonApiAdminTest::SetUp();
+
+        std::error_code ec;
+        std::filesystem::remove_all(configPath("backups"), ec);
+
+        savedLocalConfig = localConfigText();
+        //A token another test generated would raise mcp_token_changes everywhere
+        ::Utils::del_config_option("mcp_token");
+        writeFile(configPath("io.xml"), kBoxIo);
+        writeFile(configPath("rules.xml"), kBoxRules);
+    }
+
+    void TearDown() override
+    {
+        JsonApiAdminTest::TearDown();
+
+        writeFile(configPath("local_config.xml"), savedLocalConfig);
+        ::unlink(configPath("io.xml").c_str());
+        ::unlink(configPath("rules.xml").c_str());
+        for (const char *name: kConfigNames)
+        {
+            std::error_code ec;
+            std::filesystem::remove_all(configPath(name) + ".restore", ec);
+        }
+        std::error_code ec;
+        std::filesystem::remove_all(configPath("backups"), ec);
+    }
+
+    //A session and the box as this suite expects it, on a socket that survives the restore
+    void openAdmin(WsClient &ws)
+    {
+        adminDefined();
+        ASSERT_TRUE(ws.login("https"));
+    }
+
+    std::string savedLocalConfig;
+};
+
+} //namespace
+
+TEST(JsonApiAdminConfigRules, ConfigRestoreTakesOnlyThreeSoundFiles)
+{
+    const auto refusal = [](const Json &params)
+    {
+        const Json j = JsonApi::adminRequestRefusal("config_restore", Json{ { "params", params } });
+        EXPECT_EQ("invalid_request", str(j, "error"));
+        return str(j, "msg");
+    };
+    const auto withFile = [](const std::string &name, const Json &content)
+    {
+        Json params = restoreParams(true);
+        params["files"][name] = content;
+        return params;
+    };
+    const std::string good = localConfigOf({});
+
+    EXPECT_TRUE(JsonApi::adminRequestRefusal("config_restore", Json{ { "params", restoreParams(true) } }).is_null());
+    EXPECT_TRUE(JsonApi::adminRequestRefusal("config_restore", Json{ { "params", restoreParams(false) } }).is_null());
+    EXPECT_TRUE(JsonApi::adminRequestRefusal("config_restore", Json{ { "params", withFile("local_config.xml", good) } }).is_null());
+
+    EXPECT_EQ("files is required", str(JsonApi::adminRequestRefusal("config_restore", Json::object()), "msg"));
+    EXPECT_EQ("files is required", refusal(Json::object()));
+    EXPECT_EQ("files is required", refusal(Json{ { "files", "io.xml" } }));
+    EXPECT_EQ("files is required", refusal(Json{ { "files", Json::array() } }));
+
+    for (const char *name: { "widgets.xml", "../io.xml", "IO.XML", "io.xml.restore", "" })
+        EXPECT_EQ("Only io.xml, rules.xml and local_config.xml can be restored", refusal(withFile(name, good))) << name;
+
+    EXPECT_EQ("io.xml must be a string", refusal(withFile("io.xml", 3)));
+    EXPECT_EQ("rules.xml must be a string", refusal(withFile("rules.xml", Json())));
+    EXPECT_EQ("local_config.xml must be a string", refusal(withFile("local_config.xml", Json::object())));
+
+    for (const char *name: { "io.xml", "rules.xml" })
+    {
+        Json params = restoreParams(true);
+        params["files"].erase(name);
+        EXPECT_EQ(std::string(name) + " is required", refusal(params));
+    }
+
+    const std::string limit(2 * 1024 * 1024, 'x');
+    EXPECT_TRUE(JsonApi::adminRequestRefusal("config_restore", Json{ { "params", withFile("rules.xml", rulesOfSize(limit.size())) } }).is_null());
+    EXPECT_EQ("rules.xml is larger than 2 MiB", refusal(withFile("rules.xml", rulesOfSize(limit.size() + 1))));
+
+    const std::string open = "<?xml version=\"1.0\"?>\n<calaos:rules xmlns:calaos=\"http://www.calaos.fr\">";
+    EXPECT_EQ("rules.xml is not valid UTF-8", refusal(withFile("rules.xml", open + "\xff</calaos:rules>")));
+    EXPECT_EQ("rules.xml is not valid UTF-8", refusal(withFile("rules.xml", open + std::string(1, '\0') + "</calaos:rules>")));
+
+    EXPECT_EQ("io.xml does not start with <?xml", refusal(withFile("io.xml", "<calaos:ioconfig/>")));
+    EXPECT_EQ("io.xml does not start with <?xml", refusal(withFile("io.xml", " <?xml version=\"1.0\"?><calaos:ioconfig/>")));
+    EXPECT_EQ("io.xml does not start with <?xml", refusal(withFile("io.xml", "\xEF\xBB\xBF<?xml version=\"1.0\"?><calaos:ioconfig/>")));
+    EXPECT_EQ("rules.xml is not valid XML", refusal(withFile("rules.xml", open)));
+
+    EXPECT_EQ("io.xml does not have the root element calaos:ioconfig", refusal(withFile("io.xml", kRestoreRules)));
+    EXPECT_EQ("rules.xml does not have the root element calaos:rules", refusal(withFile("rules.xml", kRestoreIo)));
+    EXPECT_EQ("local_config.xml does not have the root element calaos:config", refusal(withFile("local_config.xml", kRestoreRules)));
+
+    const std::string newer = std::regex_replace(std::string(kRestoreIo), std::regex("format=\"2\""), "format=\"3\"");
+    EXPECT_EQ("io.xml was made by a newer Calaos (format 3)", refusal(withFile("io.xml", newer)));
+
+    Json noFlag = restoreParams(true);
+    noFlag.erase("dry_run");
+    EXPECT_EQ("dry_run must be true or false", refusal(noFlag));
+    noFlag["dry_run"] = "true";
+    EXPECT_EQ("dry_run must be true or false", refusal(noFlag));
+    noFlag["dry_run"] = 1;
+    EXPECT_EQ("dry_run must be true or false", refusal(noFlag));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ARefusalComesBeforeTheSessionAndTheDaemonAndWritesNothing)
+{
+    WsClient ws;
+    openAdmin(ws);
+    const std::string before = boxState();
+
+    Json bad = restoreParams(false);
+    bad["files"]["rules.xml"] = "not xml";
+
+    for (const std::string &session: { std::string(), std::string(64, 'b'), std::string(FakeDaemon::Session) })
+    {
+        const Json refused = ws.admin("admin", configAction("config_restore", bad, session));
+        expectError(refused, "invalid_request");
+        EXPECT_EQ("rules.xml does not start with <?xml", str(refused, "msg"));
+    }
+
+    EXPECT_EQ("files is required", str(ws.admin("admin", configAction("config_restore")), "msg"));
+
+    EXPECT_TRUE(fakeDaemon.requests().empty()) << requestPaths();
+    EXPECT_EQ(before, boxState());
+    EXPECT_FALSE(FileUtils::exists(configPath("backups")));
+    EXPECT_FALSE(Utils::config_frozen());
+}
+
+TEST_F(JsonApiAdminRestoreTest, Port5454IsRefusedWhateverTheBody)
+{
+    adminDefined();
+    WsClient plain;
+    ASSERT_TRUE(plain.login(""));
+    const std::string before = boxState();
+
+    Json bad = restoreParams(false);
+    bad["files"]["rules.xml"] = "<?xml version=\"1.0\"?><leak-marker/>";
+
+    for (const Json &request: { configAction("config_restore"), configAction("config_restore", restoreParams(false)), configAction("config_restore", bad) })
+    {
+        const Json refused = plain.admin("admin", request);
+        expectError(refused, "https_required");
+        EXPECT_EQ(std::string::npos, refused.dump().find("leak-marker")) << refused.dump();
+    }
+
+    EXPECT_TRUE(fakeDaemon.requests().empty()) << requestPaths();
+    EXPECT_EQ(before, boxState());
+}
+
+TEST_F(JsonApiAdminRestoreTest, ThePreviewAnswersWithoutTouchingAnything)
+{
+    WsClient ws;
+    openAdmin(ws);
+    for (const std::string &key: kBoxBound)
+        ::Utils::set_config_option(key, "box-" + key);
+    const std::string before = boxState();
+
+    Json params = restoreParams(true);
+    params["files"]["local_config.xml"] = localConfigOf({ { "cn_user", kUser }, { "cn_pass", kPass } });
+
+    PushTest::StdoutCapture capture;
+    const Json answer = ws.admin("admin", configAction("config_restore", params));
+    const std::string log = capture.stop();
+
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+    const Json expected = Json::parse(R"({
+        "dry_run": true,
+        "files": ["io.xml", "rules.xml", "local_config.xml"],
+        "backup": {"rooms": 2, "ios": 4, "devices": 1, "rules": 2},
+        "box": {"rooms": 1, "ios": 3, "devices": 2, "rules": 1},
+        "io_format": 2,
+        "kept": ["listen_address", "port_api", "wwwroot", "debug_wwwroot", "calaos_server_host",
+                 "calaos/host", "ota_firmware_path", "mcp_service_token", "update_notified_hash"],
+        "invalid_options": [],
+        "warnings": ["devices_removed"],
+        "restarting": false
+    })");
+    EXPECT_EQ(expected, answer["result"]) << answer.dump();
+
+    EXPECT_EQ("GET /api/v2/admin/status (session)\nGET /api/v2/update/status (session)\n", requestPaths());
+    EXPECT_NE(std::string::npos, log.find("Admin config restore check by 127.0.0.1 (session " + std::string(kAuditId) + ")")) << log;
+
+    EXPECT_EQ(before, boxState());
+    EXPECT_FALSE(FileUtils::exists(configPath("backups")));
+    EXPECT_TRUE(restoreLeftovers().empty());
+    EXPECT_FALSE(Utils::config_frozen());
+}
+
+TEST_F(JsonApiAdminRestoreTest, ARestoreReplacesTheFilesAndKeepsWhatBelongsToTheBox)
+{
+    WsClient ws;
+    openAdmin(ws);
+    for (const std::string &key: kBoxBound)
+    {
+        if (key != "wwwroot")
+            ::Utils::set_config_option(key, "box-" + key);
+    }
+    ::Utils::del_config_option("wwwroot");
+    const std::string previousLocal = localConfigText();
+
+    Options sent = { { "cn_user", kUser }, { "cn_pass", kPass }, { "old_option", "kept" }, { "smtp_password", "a&quot;b&lt;c&gt;&amp;d" } };
+    for (const std::string &key: kBoxBound)
+        sent.emplace_back(key, "from-the-backup");
+    Json params = restoreParams(false);
+    params["files"]["local_config.xml"] = localConfigOf(sent);
+
+    PushTest::StdoutCapture capture;
+    const Json answer = ws.admin("admin", configAction("config_restore", params));
+    const std::string log = capture.stop();
+
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+    const Json &result = answer["result"];
+    const std::string previous = str(result, "previous");
+    ASSERT_TRUE(std::regex_match(previous, std::regex("[0-9]{4}/[0-9]{2}/.+"))) << previous;
+
+    Json expected = Json::parse(R"({
+        "dry_run": false,
+        "files": ["io.xml", "rules.xml", "local_config.xml"],
+        "backup": {"rooms": 2, "ios": 4, "devices": 1, "rules": 2},
+        "box": {"rooms": 1, "ios": 3, "devices": 2, "rules": 1},
+        "io_format": 2,
+        "kept": ["listen_address", "port_api", "debug_wwwroot", "calaos_server_host",
+                 "calaos/host", "ota_firmware_path", "mcp_service_token", "update_notified_hash"],
+        "invalid_options": [],
+        "warnings": ["devices_removed"],
+        "restarting": true
+    })");
+    expected["previous"] = previous;
+    EXPECT_EQ(expected, result) << answer.dump();
+
+    EXPECT_EQ(kRestoreIo, fileText(configPath("io.xml")));
+    EXPECT_EQ(kRestoreRules, fileText(configPath("rules.xml")));
+    EXPECT_TRUE(restoreLeftovers().empty());
+
+    Params merged;
+    ASSERT_TRUE(Utils::get_config_options(merged));
+    EXPECT_EQ("kept", merged.get_param_const("old_option"));
+    EXPECT_EQ("a\"b<c>&d", merged.get_param_const("smtp_password"));
+    EXPECT_FALSE(merged.Exists("wwwroot"));
+    for (const std::string &key: kBoxBound)
+    {
+        if (key != "wwwroot")
+            EXPECT_EQ("box-" + key, merged.get_param_const(key));
+    }
+
+    const std::string saved = configPath("backups") + "/" + previous + "/";
+    EXPECT_EQ(kBoxIo, fileText(saved + "io.xml"));
+    EXPECT_EQ(kBoxRules, fileText(saved + "rules.xml"));
+    EXPECT_EQ(previousLocal, fileText(saved + "local_config.xml"));
+    EXPECT_TRUE(FileUtils::exists(configPath("backups") + "/autoscenario_upload.json"));
+
+    EXPECT_NE(std::string::npos, log.find("Admin config restore by 127.0.0.1 (session " + std::string(kAuditId) + "): io.xml,rules.xml,local_config.xml; previous files in backups/" + previous))
+        << log;
+    EXPECT_EQ(std::string::npos, log.find("from-the-backup")) << log;
+    EXPECT_EQ(std::string::npos, log.find("a&quot;b")) << log;
+    EXPECT_EQ(std::string::npos, log.find("calaos:rule")) << log;
+    EXPECT_EQ(std::string::npos, log.find(kPass)) << log;
+    EXPECT_EQ(std::string::npos, answer.dump().find("from-the-backup")) << answer.dump();
+}
+
+TEST_F(JsonApiAdminRestoreTest, AFileTheBoxDoesNotHaveIsNotABackupFailure)
+{
+    WsClient ws;
+    openAdmin(ws);
+    ASSERT_EQ(0, ::unlink(configPath("rules.xml").c_str()));
+
+    const Json answer = ws.admin("admin", configAction("config_restore", restoreParams(false)));
+
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+    EXPECT_EQ(0, answer["result"]["box"]["rules"].get<int>());
+    EXPECT_EQ((Json{ "no_local_config", "devices_removed" }), answer["result"]["warnings"]);
+    EXPECT_EQ((Json{ "io.xml", "rules.xml" }), answer["result"]["files"]);
+    EXPECT_EQ(kRestoreRules, fileText(configPath("rules.xml")));
+
+    const std::string saved = configPath("backups") + "/" + str(answer["result"], "previous") + "/";
+    EXPECT_EQ(kBoxIo, fileText(saved + "io.xml"));
+    EXPECT_FALSE(FileUtils::exists(saved + "rules.xml"));
+}
+
+TEST_F(JsonApiAdminRestoreTest, TheFreezeHoldsAgainstEverySaveUntilTheExit)
+{
+    WsClient ws;
+    openAdmin(ws);
+    const Json restored = ws.admin("admin", configAction("config_restore", restoreParams(false)));
+    ASSERT_EQ("true", str(restored, "success")) << restored.dump();
+    ASSERT_TRUE(Utils::config_frozen());
+    const std::string after = boxState();
+
+    Config::Instance().SaveConfigIO();
+    Config::Instance().SaveConfigRule();
+    EXPECT_FALSE(Utils::set_config_option("smtp_server", "late.example.org"));
+    EXPECT_FALSE(Utils::del_config_option("cn_user"));
+    EXPECT_EQ(after, boxState());
+
+    const Json set = ws.admin("admin", configAction("config_set", setParams("smtp_port", "2525")));
+    expectError(set, "internal");
+    EXPECT_EQ("Internal error", str(set, "msg"));
+    EXPECT_EQ(after, boxState());
+
+    //A concurrent backup saves first: it must hand out what is on the disk, not memory
+    const Json backup = ws.admin("admin", configAction("config_backup"));
+    ASSERT_EQ("true", str(backup, "success")) << backup.dump();
+    EXPECT_EQ(kRestoreIo, str(backup["result"]["files"], "io.xml"));
+    EXPECT_EQ(after, boxState());
+
+    const size_t folders = backupCopies().size();
+    const Json again = ws.admin("admin", configAction("config_restore", restoreParams(false)));
+    expectError(again, "internal");
+    EXPECT_EQ("A restore is already under way", str(again, "msg"));
+    EXPECT_FALSE(again.contains("previous")) << again.dump();
+    EXPECT_FALSE(again.contains("restarting")) << again.dump();
+    EXPECT_EQ(folders, backupCopies().size());
+    EXPECT_EQ(after, boxState());
+
+    //The contrast: what the freeze holds back does reach the disk otherwise
+    Utils::set_config_frozen(false);
+    Config::Instance().SaveConfigIO();
+    EXPECT_NE(kRestoreIo, fileText(configPath("io.xml")));
+    Config::Instance().SaveConfigRule();
+    EXPECT_NE(kRestoreRules, fileText(configPath("rules.xml")));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ASessionTheDaemonRefusesRestoresNothing)
+{
+    WsClient ws;
+    openAdmin(ws);
+    drainLoop(600);
+    const std::string before = boxState();
+
+    const Json answer = ws.admin("admin", configAction("config_restore", restoreParams(false), std::string(64, 'b')));
+
+    expectError(answer, "bad_session");
+    EXPECT_EQ("GET /api/v2/admin/status (session)\n", requestPaths());
+    EXPECT_EQ(before, boxState());
+    EXPECT_FALSE(FileUtils::exists(configPath("backups")));
+    EXPECT_TRUE(restoreLeftovers().empty());
+    EXPECT_FALSE(Utils::config_frozen());
+    EXPECT_EQ(-1, loopStopsWithin(800)) << "a refused session must not stop the server";
+}
+
+TEST_F(JsonApiAdminRestoreTest, ARunningUpgradeRefusesThePreviewAndTheRestore)
+{
+    WsClient ws;
+    openAdmin(ws);
+    const std::string before = boxState();
+
+    Json job = FakeDaemon::leakyJob();
+    job["status"] = "running";
+    fakeDaemon.setUpdateStatus(FakeDaemon::leakyProgress(), job);
+
+    for (const bool dryRun: { true, false })
+    {
+        const Json refused = ws.admin("admin", configAction("config_restore", restoreParams(dryRun)));
+        expectError(refused, "upgrade_in_progress");
+        EXPECT_EQ("3f9c2a7e5b1d4c80", str(refused, "job_id"));
+    }
+
+    job.erase("id");
+    fakeDaemon.setUpdateStatus(FakeDaemon::leakyProgress(), job);
+    const Json anonymous = ws.admin("admin", configAction("config_restore", restoreParams(false)));
+    expectError(anonymous, "upgrade_in_progress");
+    EXPECT_FALSE(anonymous.contains("job_id")) << anonymous.dump();
+
+    EXPECT_EQ(before, boxState());
+    EXPECT_FALSE(FileUtils::exists(configPath("backups")));
+    EXPECT_FALSE(Utils::config_frozen());
+
+    //Only a job that runs refuses: an idle daemon has none, an old one has ended
+    for (const Json &idle: { Json(), Json{ { "status", "done" } }, FakeDaemon::leakyJob() })
+    {
+        fakeDaemon.setUpdateStatus(FakeDaemon::leakyProgress(), idle);
+        const Json preview = ws.admin("admin", configAction("config_restore", restoreParams(true)));
+        EXPECT_EQ("true", str(preview, "success")) << preview.dump();
+    }
+}
+
+TEST_F(JsonApiAdminRestoreTest, ADaemonThatCannotTellWhetherAnUpgradeRunsRefusesTheRestore)
+{
+    WsClient ws;
+    openAdmin(ws);
+    const std::string before = boxState();
+
+    const auto failUpdateStatus = [](int status)
+    {
+        fakeDaemon.setOverride([status](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                               {
+            if (req.path != "/api/v2/update/status")
+                return false;
+            res.status = status;
+            res.body = "{}";
+            return true;
+        });
+    };
+
+    failUpdateStatus(404);
+    expectError(ws.admin("admin", configAction("config_restore", restoreParams(false))), "daemon_too_old");
+    failUpdateStatus(500);
+    expectError(ws.admin("admin", configAction("config_restore", restoreParams(false))), "daemon_unreachable");
+
+    EXPECT_EQ(before, boxState());
+    EXPECT_FALSE(FileUtils::exists(configPath("backups")));
+}
+
+TEST_F(JsonApiAdminRestoreTest, WithoutACopyInBackupsNothingIsRestored)
+{
+    WsClient ws;
+    openAdmin(ws);
+    drainLoop(600);
+    //mkpath() cannot make a folder under a plain file, even as root
+    writeFile(configPath("backups"), "");
+    const std::string before = boxState();
+
+    PushTest::StdoutCapture capture;
+    const Json answer = ws.admin("admin", configAction("config_restore", restoreParams(false)));
+    capture.stop();
+
+    expectError(answer, "internal");
+    EXPECT_EQ("Could not copy the current files to backups, nothing was restored", str(answer, "msg"));
+    EXPECT_FALSE(answer.contains("previous")) << answer.dump();
+    EXPECT_FALSE(answer.contains("restarting")) << answer.dump();
+    EXPECT_EQ(before, boxState());
+    EXPECT_TRUE(restoreLeftovers().empty());
+    EXPECT_FALSE(Utils::config_frozen());
+    EXPECT_EQ(-1, loopStopsWithin(800)) << "nothing changed, the server has no reason to stop";
+}
+
+TEST_F(JsonApiAdminRestoreTest, AWriteThatFailsFirstLeavesTheServerRunning)
+{
+    WsClient ws;
+    openAdmin(ws);
+    drainLoop(600);
+    const std::string before = boxState();
+    //open() of a directory fails for root too
+    ASSERT_EQ(0, ::mkdir((configPath("io.xml") + ".restore").c_str(), 0700));
+
+    PushTest::StdoutCapture capture;
+    const Json answer = ws.admin("admin", configAction("config_restore", restoreParams(false)));
+    const std::string log = capture.stop();
+
+    expectError(answer, "internal");
+    const std::string previous = str(answer, "previous");
+    ASSERT_FALSE(previous.empty()) << answer.dump();
+    EXPECT_EQ("previous files in backups/" + previous, str(answer, "msg"));
+    EXPECT_EQ("false", str(answer, "restarting"));
+    EXPECT_EQ(before, boxState());
+    EXPECT_FALSE(Utils::config_frozen());
+    EXPECT_EQ(kBoxIo, fileText(configPath("backups") + "/" + previous + "/io.xml"));
+    EXPECT_NE(std::string::npos, log.find("Unable to restore io.xml, previous files in backups/" + previous)) << log;
+
+    EXPECT_EQ(-1, loopStopsWithin(800)) << "nothing was replaced, the server has no reason to stop";
+    EXPECT_TRUE(Utils::set_config_option("smtp_server", "still.example.org"));
+}
+
+TEST_F(JsonApiAdminRestoreTest, AWriteThatFailsLaterStillRestartsAndStaysFrozen)
+{
+    WsClient ws;
+    openAdmin(ws);
+    drainLoop(600);
+    const std::string localBefore = localConfigText();
+    ASSERT_EQ(0, ::mkdir((configPath("rules.xml") + ".restore").c_str(), 0700));
+
+    const auto start = steady_clock::now();
+    PushTest::StdoutCapture capture;
+    const Json answer = ws.admin("admin", configAction("config_restore", restoreParams(false)));
+    capture.stop();
+
+    expectError(answer, "internal");
+    const std::string previous = str(answer, "previous");
+    ASSERT_FALSE(previous.empty()) << answer.dump();
+    EXPECT_EQ("previous files in backups/" + previous, str(answer, "msg"));
+    EXPECT_EQ("true", str(answer, "restarting"));
+
+    EXPECT_EQ(kRestoreIo, fileText(configPath("io.xml")));
+    EXPECT_EQ(kBoxRules, fileText(configPath("rules.xml")));
+    EXPECT_EQ(localBefore, localConfigText());
+    EXPECT_TRUE(Utils::config_frozen());
+    Config::Instance().SaveConfigIO();
+    EXPECT_EQ(kRestoreIo, fileText(configPath("io.xml")));
+
+    EXPECT_GE(loopStopsWithin(3000), 0) << "the memory no longer matches the disk";
+    EXPECT_GE(std::chrono::duration_cast<milliseconds>(steady_clock::now() - start).count(), 450);
+}
+
+TEST_F(JsonApiAdminRestoreTest, TheServerStopsItsLoopHalfASecondAfterTheAnswer)
+{
+    WsClient ws;
+    openAdmin(ws);
+    drainLoop(600);
+
+    const auto start = steady_clock::now();
+    const Json answer = ws.admin("admin", configAction("config_restore", restoreParams(false)));
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+
+    EXPECT_GE(loopStopsWithin(3000), 0) << "the server keeps running on a memory that is no longer the disk";
+    EXPECT_GE(std::chrono::duration_cast<milliseconds>(steady_clock::now() - start).count(), 450)
+        << "the answer has to leave before the loop stops";
+}
+
+TEST_F(JsonApiAdminRestoreTest, EveryWarningSaysWhatChangesWithoutItsValue)
+{
+    WsClient ws;
+    openAdmin(ws);
+    //Passes as a token, and only the port and the language refuse it
+    const std::string secret(64, 'e');
+    const Options box = { { "cn_user", kUser }, { "cn_pass", kPass }, { "mcp_token", std::string(64, 'a') }, { "ddns_token", "box-ddns" }, { "ddns_le_email", "box@example.org" } };
+    for (const auto &o: box)
+        ::Utils::set_config_option(o.first, o.second);
+    //As many devices as the backup: devices_removed stays out of these cases
+    writeFile(configPath("io.xml"), kRestoreIo);
+
+    struct Case
+    {
+        std::vector<std::string> changes;
+        Json warnings;
+        Json invalid;
+    };
+    const std::vector<Case> cases = {
+        { {}, Json::array(), Json::array() },
+        { { "old_option" }, Json::array(), Json::array() },
+        { { "cn_user" }, { "household_login_changes" }, Json::array() },
+        { { "cn_pass" }, { "household_login_changes" }, Json::array() },
+        { { "mcp_token" }, { "mcp_token_changes" }, Json::array() },
+        { { "ddns_token" }, { "ddns_changes" }, Json::array() },
+        { { "ddns_le_email" }, { "ddns_changes" }, Json::array() },
+        { { "smtp_port" }, { "invalid_options" }, { "smtp_port" } },
+        { { "cn_pass", "mcp_token", "ddns_token", "smtp_port", "lang" },
+          { "household_login_changes", "mcp_token_changes", "ddns_changes", "invalid_options" },
+          { "smtp_port", "lang" } },
+    };
+
+    for (const Case &c: cases)
+    {
+        Options sent = box;
+        for (const std::string &key: c.changes)
+        {
+            const auto same = std::find_if(sent.begin(), sent.end(), [&key](const auto &o)
+                                           {
+                return o.first == key;
+            });
+            if (same == sent.end())
+                sent.emplace_back(key, secret);
+            else
+                same->second = secret;
+        }
+
+        Json params = restoreParams(true);
+        params["files"]["local_config.xml"] = localConfigOf(sent);
+
+        //gtest prints to stdout: nothing may be asserted while the capture is on
+        PushTest::StdoutCapture capture;
+        const Json answer = ws.admin("admin", configAction("config_restore", params));
+        const std::string log = capture.stop();
+
+        ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+        EXPECT_EQ(c.warnings, answer["result"]["warnings"]) << c.warnings.dump();
+        EXPECT_EQ(c.invalid, answer["result"]["invalid_options"]) << c.warnings.dump();
+        EXPECT_EQ(std::string::npos, answer.dump().find(secret)) << answer.dump();
+        EXPECT_EQ(std::string::npos, log.find(secret)) << log;
+    }
+
+    const Json noLocal = ws.admin("admin", configAction("config_restore", restoreParams(true)));
+    ASSERT_EQ("true", str(noLocal, "success")) << noLocal.dump();
+    EXPECT_EQ((Json{ "no_local_config" }), noLocal["result"]["warnings"]);
+    EXPECT_EQ((Json{ "io.xml", "rules.xml" }), noLocal["result"]["files"]);
+    EXPECT_EQ(Json::array(), noLocal["result"]["kept"]);
+
+    //The box has one device more than the backup
+    writeFile(configPath("io.xml"), kBoxIo);
+    Json smaller = restoreParams(true);
+    smaller["files"]["local_config.xml"] = localConfigOf(box);
+    const Json removed = ws.admin("admin", configAction("config_restore", smaller));
+    EXPECT_EQ((Json{ "devices_removed" }), removed["result"]["warnings"]) << removed.dump();
+}
+
+TEST_F(JsonApiAdminRestoreTest, TheLoginWarningFollowsTheLoginThatReallyApplies)
+{
+    WsClient ws;
+    openAdmin(ws);
+    writeFile(configPath("io.xml"), kRestoreIo);
+
+    struct Case
+    {
+        Options box;
+        Options backup;
+        bool warns;
+    };
+    const Options current = { { "cn_user", "lea" }, { "cn_pass", "a" } };
+    const Options legacy = { { "calaos_user", "lea" }, { "calaos_password", "a" } };
+    const std::vector<Case> cases = {
+        { current, current, false },
+        { legacy, legacy, false },
+        //The same login under its two names
+        { current, legacy, false },
+        { legacy, current, false },
+        //The legacy pair is not read while cn_user and cn_pass are both set
+        { current, { { "cn_user", "lea" }, { "cn_pass", "a" }, { "calaos_user", "tom" }, { "calaos_password", "b" } }, false },
+        { legacy, { { "calaos_user", "lea" }, { "calaos_password", "b" } }, true },
+        { legacy, { { "calaos_user", "tom" }, { "calaos_password", "a" } }, true },
+        { current, { { "cn_user", "lea" }, { "calaos_user", "lea" }, { "calaos_password", "b" } }, true },
+        //The fallback takes the pair, never one half of each
+        { current, { { "cn_user", "lea" }, { "cn_pass", "" }, { "calaos_user", "tom" }, { "calaos_password", "a" } }, true },
+        { legacy, { { "cn_user", "tom" }, { "calaos_user", "lea" }, { "calaos_password", "a" } }, false },
+    };
+
+    int index = 0;
+    for (const Case &c: cases)
+    {
+        for (const char *key: { "cn_user", "cn_pass", "calaos_user", "calaos_password" })
+            ::Utils::del_config_option(key);
+        for (const auto &o: c.box)
+            ::Utils::set_config_option(o.first, o.second);
+
+        Json params = restoreParams(true);
+        params["files"]["local_config.xml"] = localConfigOf(c.backup);
+        const Json answer = ws.admin("admin", configAction("config_restore", params));
+
+        ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+        EXPECT_EQ(c.warns ? Json{ "household_login_changes" } : Json::array(), answer["result"]["warnings"]) << "case " << index;
+        index++;
+    }
+}
+
+//A restore is the way out of a broken local_config.xml, so it goes on, and says what it lost
+TEST_F(JsonApiAdminRestoreTest, AnUnreadableBoxConfigStopsNothingAndLeavesATrace)
+{
+    WsClient ws;
+    openAdmin(ws);
+    writeFile(configPath("io.xml"), kRestoreIo);
+    writeFile(configPath("local_config.xml"), "<calaos:config");
+
+    Options sent = { { "smtp_server", "mail.example.org" } };
+    for (const std::string &key: kBoxBound)
+        sent.emplace_back(key, "from-the-backup");
+    Json params = restoreParams(true);
+    params["files"]["local_config.xml"] = localConfigOf(sent);
+
+    PushTest::StdoutCapture preview;
+    const Json checked = ws.admin("admin", configAction("config_restore", params));
+    const std::string previewLog = preview.stop();
+
+    ASSERT_EQ("true", str(checked, "success")) << checked.dump();
+    EXPECT_EQ(Json::array(), checked["result"]["kept"]);
+    EXPECT_NE(std::string::npos, previewLog.find("Unable to read the options of the box")) << previewLog;
+    EXPECT_EQ("<calaos:config", fileText(configPath("local_config.xml")));
+
+    params["dry_run"] = false;
+    PushTest::StdoutCapture capture;
+    const Json answer = ws.admin("admin", configAction("config_restore", params));
+    const std::string log = capture.stop();
+
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+    EXPECT_EQ(Json::array(), answer["result"]["kept"]);
+    EXPECT_NE(std::string::npos, log.find("Unable to read the options of the box")) << log;
+    EXPECT_EQ(std::string::npos, log.find("from-the-backup")) << log;
+
+    Params merged;
+    ASSERT_TRUE(Utils::get_config_options(merged));
+    EXPECT_EQ("mail.example.org", merged.get_param_const("smtp_server"));
+    for (const std::string &key: kBoxBound)
+        EXPECT_FALSE(merged.Exists(key)) << key;
+}
+
+TEST_F(JsonApiAdminRestoreTest, AFileWithoutFormatIsFormatOne)
+{
+    WsClient ws;
+    openAdmin(ws);
+
+    Json params = restoreParams(true);
+    params["files"]["io.xml"] = std::regex_replace(std::string(kRestoreIo), std::regex(" format=\"2\""), "");
+    const Json answer = ws.admin("admin", configAction("config_restore", params));
+
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+    EXPECT_EQ(1, answer["result"]["io_format"].get<int>());
+}
+
+TEST_F(JsonApiAdminRestoreTest, TheWriteReplacesALeftoverButNeverFollowsALink)
+{
+    const std::string path = configPath("io.xml");
+    const std::string temporary = path + ".restore";
+
+    writeFile(temporary, "a crash left this");
+    EXPECT_TRUE(Utils::restore_config_file(path, "the new content"));
+    EXPECT_EQ("the new content", fileText(path));
+    EXPECT_FALSE(FileUtils::exists(temporary));
+
+    const std::string victim = configPath("victim");
+    writeFile(victim, "not to be written");
+    ASSERT_EQ(0, ::symlink(victim.c_str(), temporary.c_str()));
+    EXPECT_FALSE(Utils::restore_config_file(path, "through the link"));
+    EXPECT_EQ("not to be written", fileText(victim));
+    EXPECT_EQ("the new content", fileText(path));
+
+    ::unlink(temporary.c_str());
+    ::unlink(victim.c_str());
 }
 
 /*

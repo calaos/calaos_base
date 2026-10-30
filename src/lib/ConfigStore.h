@@ -45,6 +45,15 @@ bool get_config_options(Params &options);
 //reloaded at call time under the lock, so the keys that are in neither list
 //keep the value another process may have given them in the meantime.
 bool set_config_options(const Params &toSet, const std::vector<std::string> &toDelete = {});
+
+//While frozen, the option writers above fail, and so do Config::SaveConfigIO()
+//and SaveConfigRule(): config_restore has replaced the files on disk and the
+//process, still holding the old configuration, is about to restart.
+void set_config_frozen(bool frozen);
+bool config_frozen();
+
+//Replaces path, frozen or not, with exactly these bytes: <path>.restore, fsync, rename
+bool restore_config_file(const std::string &path, const std::string &content);
 }
 
 #endif

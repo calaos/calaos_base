@@ -588,6 +588,25 @@ TEST_F(JsonApiServiceScopeTest, TheGuardedSetIsRefusedOverARealServiceScopedWebs
     }
 }
 
+TEST_F(JsonApiServiceScopeTest, ARestoreIsRefusedBeforeItsBodyIsLookedAt)
+{
+    WsClient ws;
+    ASSERT_TRUE(loginService(ws))
+        << "no service scoped session was opened, so this case measures nothing";
+
+    //Malformed on purpose: the scope has to win over the validation of the body
+    for (const Json &params: { Json::object(), Json{ { "files", { { "widgets.xml", "x" } } } } })
+    {
+        const std::string answer = ws.ask(Json{
+            { "msg", "admin" }, { "msg_id", "sd" }, { "data", { { "action", "config_restore" }, { "params", params } } } });
+
+        ASSERT_FALSE(answer.empty());
+        const Json env = parse(answer);
+        ASSERT_TRUE(env.is_object()) << answer;
+        expectScopeRefusal("admin", env.value("data", Json::object()), answer);
+    }
+}
+
 TEST_F(JsonApiServiceScopeTest, TheReadCommandsAreNotRefusedOnTheSameRealSession)
 {
     WsClient ws;

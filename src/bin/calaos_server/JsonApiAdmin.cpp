@@ -26,6 +26,7 @@
 #include "HistLogger.h"
 #include "HttpClient.h"
 #include "JsonField.h"
+#include "libuvw.h"
 
 #include <openssl/evp.h>
 
@@ -888,6 +889,11 @@ Json JsonApi::adminRequestRefusal(const string &action, const Json &request)
         const string invalid = AdminConfig::setRefusal(paramsOf(request));
         return invalid.empty() ? Json() : adminError("invalid_request", invalid);
     }
+    if (action == "config_restore")
+    {
+        const string invalid = AdminConfig::restoreRefusal(paramsOf(request));
+        return invalid.empty() ? Json() : adminError("invalid_request", invalid);
+    }
 
     const RelayRow *row = relayRow(action);
     if (!row)
@@ -1149,10 +1155,109 @@ string JsonApi::sessionAuditId(const string &session)
     return pushTokenId(session).substr(0, 8);
 }
 
+namespace
+{
+
+//Null when no job runs
+Json upgradeRefusal(const Json &status)
+{
+    const auto job = status.find("job");
+    if (job == status.end() || JsonField::string(*job, "status") != "running")
+        return Json();
+
+    Json refusal = JsonApi::adminError("upgrade_in_progress", string());
+    if (job->contains("id"))
+        refusal["job_id"] = fieldToString((*job)["id"]);
+    return refusal;
+}
+
+//Not need_restart: that stops the loop as soon as the frame is written, and
+//only if the client is still there. The memory no longer matches the disk.
+void exitAfterRestore()
+{
+    Timer::singleShot(0.5, []()
+                      {
+        uvw::Loop::getDefault()->stop();
+    });
+}
+
+} //namespace
+
+void JsonApi::restoreConfig(const Json &params, const string &session, const AdminAnswer &answer)
+{
+    const string ip = adminClientIp();
+    const auto request = std::make_shared<const Json>(params);
+
+    validateAdminSession(session, [request, session, ip, answer](const Json &error)
+                         {
+        if (!error.is_null())
+        {
+            answer(error);
+            return;
+        }
+
+        DaemonClient::Request req;
+        req.path = "update/status";
+        req.session = session;
+        req.clientIp = ip;
+        DaemonClient::Instance().call(req, [request, session, ip, answer](const DaemonReply &reply)
+                                      {
+            if (reply.kind != DaemonReply::Kind::Ok)
+            {
+                answer(relayFailure(reply));
+                return;
+            }
+
+            const Json refusal = upgradeRefusal(reply.data);
+            if (!refusal.is_null())
+            {
+                answer(refusal);
+                return;
+            }
+
+            const string who = ip + " (session " + sessionAuditId(session) + ")";
+            if ((*request)["dry_run"].get<bool>())
+            {
+                cInfoDom("admin") << "Admin config restore check by " << who;
+                answer(Json{ { "success", "true" }, { "result", AdminConfig::restoreCheck(*request) } });
+                return;
+            }
+
+            const AdminConfig::RestoreOutcome outcome = AdminConfig::restore(*request);
+            if (outcome.result.is_null())
+            {
+                Json failure = adminError("internal", outcome.error);
+                if (!outcome.previous.empty())
+                {
+                    failure["previous"] = outcome.previous;
+                    failure["restarting"] = outcome.restarting ? "true" : "false";
+                }
+                answer(failure);
+            }
+            else
+            {
+                cInfoDom("admin") << "Admin config restore by " << who << ": "
+                                  << joined(outcome.result["files"].get<vector<string>>())
+                                  << "; previous files in backups/" << outcome.previous;
+                answer(Json{ { "success", "true" }, { "result", outcome.result } });
+            }
+
+            if (outcome.restarting)
+                exitAfterRestore();
+        });
+    });
+}
+
 void JsonApi::configAdmin(const string &action, const Json &request, const string &session, const AdminAnswer &answer)
 {
     const string ip = adminClientIp();
     const Json params = paramsOf(request);
+    if (action == "config_restore")
+    {
+        restoreConfig(params, session, answer);
+        return;
+    }
+
     validateAdminSession(session, [action, params, session, ip, answer](const Json &error)
                          {
         if (!error.is_null())
@@ -1174,8 +1279,8 @@ void JsonApi::configAdmin(const string &action, const Json &request, const strin
             result = AdminConfig::set(params);
             if (result.is_null())
             {
-                answer(adminError("internal", string())); //LCOV_EXCL_LINE local_config.xml unwritable
-                return;                                   //LCOV_EXCL_LINE local_config.xml unwritable
+                answer(adminError("internal", string()));
+                return;
             }
             //Never the value: it may be a password
             cInfoDom("admin") << "Admin config set " << JsonField::string(params, "key") << " by " << ip

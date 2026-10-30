@@ -22,8 +22,14 @@
 #include "CalaosConfig.h"
 #include "ConfigOptions.h"
 #include "JsonField.h"
+#include "MqttWire.h"
+#include "XmlUtils.h"
 #include "version.h"
 
+#include <pugixml.hpp>
+#include <iterator>
+#include <set>
+#include <sstream>
 #include <unistd.h>
 
 using namespace Calaos;
@@ -84,6 +90,221 @@ string utcStamp(std::time_t t, const char *format)
     return strftime(buf, sizeof(buf), format, &tm) ? string(buf) : string();
 }
 
+constexpr size_t MaxRestoreFileBytes = 2 * 1024 * 1024;
+
+struct RestoreFile
+{
+    const char *name;
+    const char *root;
+    bool required;
+};
+
+const RestoreFile RestoreFiles[] = {
+    { IO_CONFIG, "calaos:ioconfig", true },
+    { RULES_CONFIG, "calaos:rules", true },
+    { LOCAL_CONFIG, "calaos:config", false },
+};
+
+//They describe this box, not the home: a backup never brings its own value.
+//calaos/host is the deprecated name of calaos_server_host.
+const std::vector<string> BoxBoundKeys = { "listen_address", "port_api", "wwwroot", "debug_wwwroot", "calaos_server_host",
+                                           "calaos/host", "ota_firmware_path", "mcp_service_token", "update_notified_hash" };
+
+//The children Room.cpp and Device.cpp turn into IOs
+const std::set<string> RoomIoTags = { "calaos:input", "calaos:output", "calaos:internal", "calaos:avr",
+                                      "calaos:camera", "calaos:audio", "calaos:remote_ui" };
+const std::set<string> DeviceIoTags = { "calaos:input", "calaos:output", "calaos:internal" };
+
+bool parseConfig(pugi::xml_document &doc, const string &content)
+{
+    return doc.load_buffer(content.data(), content.size(), XmlUtils::CONFIG_PARSE_OPTIONS);
+}
+
+int ioFormat(const string &ioXml)
+{
+    pugi::xml_document doc;
+    parseConfig(doc, ioXml);
+    return doc.child("calaos:ioconfig").child("calaos:home").attribute("format").as_int(1);
+}
+
+string restoreFileRefusal(const RestoreFile &file, const string &content)
+{
+    const string name = file.name;
+    if (content.size() > MaxRestoreFileBytes)
+        return name + " is larger than 2 MiB";
+    //isStrictUtf8() lets a NUL through, and a NUL would cut the file at the first reader
+    if (content.find('\0') != string::npos || !MqttWire::isStrictUtf8(content.data(), content.size()))
+        return name + " is not valid UTF-8";
+    if (content.rfind("<?xml", 0) != 0)
+        return name + " does not start with <?xml";
+
+    pugi::xml_document doc;
+    if (!parseConfig(doc, content))
+        return name + " is not valid XML";
+    if (string(doc.document_element().name()) != file.root)
+        return name + " does not have the root element " + file.root;
+
+    const int format = name == IO_CONFIG ? ioFormat(content) : 0;
+    if (format > IO_FORMAT_DEVICES)
+        return name + " was made by a newer Calaos (format " + std::to_string(format) + ")";
+    return string();
+}
+
+//The same count for a backup and for the box, so the two can be compared
+Json countPieces(const string &ioXml, const string &rulesXml)
+{
+    int rooms = 0, ios = 0, devices = 0;
+
+    pugi::xml_document ioDoc;
+    parseConfig(ioDoc, ioXml);
+    for (pugi::xml_node room: ioDoc.child("calaos:ioconfig").child("calaos:home").children("calaos:room"))
+    {
+        rooms++;
+        for (pugi::xml_node node: room.children())
+        {
+            if (RoomIoTags.count(node.name()))
+                ios++;
+            if (string(node.name()) != "calaos:device")
+                continue;
+            devices++;
+            for (pugi::xml_node child: node.children())
+                ios += DeviceIoTags.count(child.name());
+        }
+    }
+
+    pugi::xml_document rulesDoc;
+    parseConfig(rulesDoc, rulesXml);
+    const auto ruleNodes = rulesDoc.child("calaos:rules").children("calaos:rule");
+    const auto rules = std::distance(ruleNodes.begin(), ruleNodes.end());
+
+    return Json{ { "rooms", rooms }, { "ios", ios }, { "devices", devices }, { "rules", rules } };
+}
+
+//A file the box does not have counts for nothing
+string boxFile(const char *name)
+{
+    const string path = Utils::getConfigFile(name);
+    return FileUtils::exists(path) ? Utils::getFileContent(path.c_str()) : string();
+}
+
+//The pair JsonApi::checkCredentials() compares: cn_* only when both are set
+std::pair<string, string> householdLogin(const Params &options)
+{
+    const string user = options.get_param_const("cn_user");
+    const string pass = options.get_param_const("cn_pass");
+    if (!user.empty() && !pass.empty())
+        return { user, pass };
+    return { options.get_param_const("calaos_user"), options.get_param_const("calaos_password") };
+}
+
+/* uploaded with the box-bound keys of the box. Only the text of a warning may
+ * leave this function: the options hold passwords and tokens.
+ */
+string mergeLocalConfig(const string &uploaded, Json &kept, Json &invalid, std::vector<string> &warnings)
+{
+    //Not a refusal: a restore is the way out of a broken local_config.xml
+    Params box;
+    if (!Utils::get_config_options(box))
+        cErrorDom("admin") << "Unable to read the options of the box: a restore keeps none of its box-bound keys";
+
+    pugi::xml_document doc;
+    parseConfig(doc, uploaded);
+    pugi::xml_node root = doc.child("calaos:config");
+
+    Params backup;
+    pugi::xml_node next;
+    for (pugi::xml_node option = root.child("calaos:option"); option; option = next)
+    {
+        next = option.next_sibling("calaos:option");
+        const string key = option.attribute("name").value();
+        const string value = option.attribute("value").value();
+
+        if (std::find(BoxBoundKeys.begin(), BoxBoundKeys.end(), key) != BoxBoundKeys.end())
+        {
+            root.remove_child(option);
+            continue;
+        }
+
+        backup.Add(key, value);
+        //A key the registry does not know is not refused: startup migrates it
+        const ConfigOption *opt = ConfigOptions::find(key);
+        if (opt && !opt->validate(value))
+            invalid.push_back(key);
+    }
+
+    for (const string &key: BoxBoundKeys)
+    {
+        if (!box.Exists(key))
+            continue;
+        pugi::xml_node option = root.append_child("calaos:option");
+        XmlUtils::setAttribute(option, "name", key);
+        XmlUtils::setAttribute(option, "value", box.get_param_const(key));
+        kept.push_back(key);
+    }
+
+    const auto differs = [&box, &backup](const char *key)
+    {
+        return box.get_param_const(key) != backup.get_param_const(key);
+    };
+    if (householdLogin(box) != householdLogin(backup))
+        warnings.push_back("household_login_changes");
+    if (differs("mcp_token"))
+        warnings.push_back("mcp_token_changes");
+    if (differs("ddns_token") || differs("ddns_le_email"))
+        warnings.push_back("ddns_changes");
+    if (!invalid.empty())
+        warnings.push_back("invalid_options");
+
+    std::ostringstream out;
+    doc.save(out, XmlUtils::CONFIG_INDENT);
+    return out.str();
+}
+
+struct RestorePlan
+{
+    Json result;
+    std::vector<std::pair<string, string>> writes;
+};
+
+RestorePlan planRestore(const Json &params)
+{
+    const Json &sent = params["files"];
+    const string ioXml = JsonField::string(sent, IO_CONFIG);
+    const string rulesXml = JsonField::string(sent, RULES_CONFIG);
+
+    RestorePlan plan;
+    plan.writes = { { IO_CONFIG, ioXml }, { RULES_CONFIG, rulesXml } };
+
+    Json kept = Json::array();
+    Json invalid = Json::array();
+    std::vector<string> warnings;
+    if (sent.contains(LOCAL_CONFIG))
+        plan.writes.emplace_back(LOCAL_CONFIG, mergeLocalConfig(JsonField::string(sent, LOCAL_CONFIG), kept, invalid, warnings));
+    else
+        warnings.push_back("no_local_config");
+
+    const Json backup = countPieces(ioXml, rulesXml);
+    const Json box = countPieces(boxFile(IO_CONFIG), boxFile(RULES_CONFIG));
+    if (backup["devices"] < box["devices"])
+        warnings.push_back("devices_removed");
+
+    Json files = Json::array();
+    for (const auto &write: plan.writes)
+        files.push_back(write.first);
+
+    const int format = ioFormat(ioXml);
+    plan.result = Json{ { "dry_run", true },
+                        { "files", files },
+                        { "backup", backup },
+                        { "box", box },
+                        { "io_format", format },
+                        { "kept", kept },
+                        { "invalid_options", invalid },
+                        { "warnings", warnings },
+                        { "restarting", false } };
+    return plan;
+}
+
 } //namespace
 
 const std::vector<AdminConfig::Entry> &AdminConfig::entries()
@@ -138,7 +359,7 @@ const AdminConfig::Entry *AdminConfig::find(const string &key)
 
 bool AdminConfig::isAction(const string &action)
 {
-    return action == "config_list" || action == "config_set" || action == "config_backup";
+    return action == "config_list" || action == "config_set" || action == "config_backup" || action == "config_restore";
 }
 
 Json AdminConfig::list()
@@ -197,7 +418,7 @@ Json AdminConfig::set(const Json &params)
     //An unset key makes every reading site fall back to its own default
     const bool written = value.empty() ? Utils::del_config_option(key) : Utils::set_config_option(key, value);
     if (!written)
-        return Json(); //LCOV_EXCL_LINE local_config.xml unwritable (CI runs as root)
+        return Json();
     return setResult(*e, *opt);
 }
 
@@ -222,6 +443,91 @@ Json AdminConfig::backup(std::time_t createdAt)
                  { "hostname", hostname() },
                  { "io_format", IO_FORMAT_DEVICES },
                  { "files", files } };
+}
+
+string AdminConfig::restoreRefusal(const Json &params)
+{
+    const auto files = params.find("files");
+    if (files == params.end() || !files->is_object())
+        return "files is required";
+
+    for (const auto &item: files->items())
+    {
+        const auto known = std::find_if(std::begin(RestoreFiles), std::end(RestoreFiles), [&item](const RestoreFile &file)
+                                        {
+            return item.key() == file.name;
+        });
+        if (known == std::end(RestoreFiles))
+            return "Only io.xml, rules.xml and local_config.xml can be restored";
+        if (!item.value().is_string())
+            return string(known->name) + " must be a string";
+    }
+
+    for (const RestoreFile &file: RestoreFiles)
+    {
+        if (!files->contains(file.name))
+        {
+            if (file.required)
+                return string(file.name) + " is required";
+            continue;
+        }
+
+        const string invalid = restoreFileRefusal(file, JsonField::string(*files, file.name));
+        if (!invalid.empty())
+            return invalid;
+    }
+
+    //Without the flag a preview would become a restore
+    const auto dryRun = params.find("dry_run");
+    if (dryRun == params.end() || !dryRun->is_boolean())
+        return "dry_run must be true or false";
+    return string();
+}
+
+Json AdminConfig::restoreCheck(const Json &params)
+{
+    return planRestore(params).result;
+}
+
+AdminConfig::RestoreOutcome AdminConfig::restore(const Json &params)
+{
+    RestoreOutcome outcome;
+    if (Utils::config_frozen())
+    {
+        outcome.error = "A restore is already under way";
+        return outcome;
+    }
+
+    RestorePlan plan = planRestore(params);
+
+    outcome.previous = Config::Instance().BackupFiles();
+    if (outcome.previous.empty())
+    {
+        outcome.error = "Could not copy the current files to backups, nothing was restored";
+        return outcome;
+    }
+    //The startup that follows compares against it, as after a config put
+    ListeRoom::Instance().snapshotAutoScenariosBeforeUpload();
+
+    Utils::set_config_frozen(true);
+    for (const auto &write: plan.writes)
+    {
+        if (!Utils::restore_config_file(Utils::getConfigFile(write.first.c_str()), write.second))
+        {
+            cErrorDom("admin") << "Unable to restore " << write.first << ", previous files in backups/" << outcome.previous;
+            outcome.error = "previous files in backups/" + outcome.previous;
+            //Nothing replaced: memory and disk still agree, the server goes on
+            Utils::set_config_frozen(outcome.restarting);
+            return outcome;
+        }
+        outcome.restarting = true;
+    }
+
+    outcome.result = plan.result;
+    outcome.result["dry_run"] = false;
+    outcome.result["previous"] = outcome.previous;
+    outcome.result["restarting"] = true;
+    return outcome;
 }
 
 string AdminConfig::backupFilename(const string &hostname, std::time_t createdAt)

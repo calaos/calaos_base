@@ -189,6 +189,32 @@ TEST(JsonApiRequestDescription, AKeyNobodyHereHasHeardOfIsWithheldBecauseItIsUnk
     EXPECT_NE(dump.find("local_config.xml"), std::string::npos) << dump;
 }
 
+TEST(JsonApiRequestDescription, TheFilesOfARestoreStayOutOfTheJournal)
+{
+    Json files;
+    files["io.xml"] = "<?xml version=\"1.0\"?><calaos:ioconfig>LEAK_IO_LEAK</calaos:ioconfig>";
+    files["local_config.xml"] = "<?xml version=\"1.0\"?><calaos:config><calaos:option name=\"cn_pass\" value=\"LEAK_PASS_LEAK\"/></calaos:config>";
+
+    Json data;
+    data["action"] = "config_restore";
+    data["admin_session"] = "LEAK_SESSION_LEAK";
+    data["params"]["files"] = files;
+    data["params"]["dry_run"] = false;
+
+    Json j;
+    j["msg"] = "admin";
+    j["msg_id"] = "1";
+    j["data"] = data;
+
+    const std::string dump = JsonApi::describeRequestForLog(j);
+
+    for (const char *leak: { "LEAK_IO_LEAK", "LEAK_PASS_LEAK", "LEAK_SESSION_LEAK" })
+        EXPECT_EQ(dump.find(leak), std::string::npos) << leak << ": " << dump;
+
+    EXPECT_NE(dump.find("msg=admin"), std::string::npos) << dump;
+    EXPECT_NE(dump.find("action=config_restore"), std::string::npos) << dump;
+}
+
 TEST(JsonApiRequestDescription, TheSecretOfSetParamTravelsUnderTheKeyValue)
 {
     //set_param is why a list of key NAMES cannot work even in principle: the

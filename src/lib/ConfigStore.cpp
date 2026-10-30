@@ -28,7 +28,9 @@
 
 #include <pugixml.hpp>
 
+#include <atomic>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <list>
 #include <mutex>
@@ -244,6 +246,10 @@ string Utils::getCacheFile(const char *cacheFile)
  * is reached from the atexit chain and used to lock this mutex after its own
  * destructor had run.
  */
+//Read under the config locks by the writers, so a write either ends before the
+//freeze or never happens
+static std::atomic<bool> configFrozen{ false };
+
 static std::mutex &configMutex()
 {
     static std::mutex *m = new std::mutex();
@@ -412,11 +418,12 @@ void splitPath(const string &path, string &dir, string &base)
     }
 }
 
-/* Write document to path, atomically and durably.
+/* Write path through print, atomically and durably.
  * Unlocked: the caller must hold the config locks.
  * On any failure the original file is left strictly untouched.
+ * An empty suffix picks a unique temporary name, otherwise it is <path><suffix>.
  */
-bool saveConfigDocument(const pugi::xml_document &document, const string &path, ConfigErrors &errors)
+bool writeConfigFile(const string &path, const string &suffix, const std::function<void(FILE *)> &print, ConfigErrors &errors)
 {
     char resolved[PATH_MAX];
     string target;
@@ -456,11 +463,13 @@ bool saveConfigDocument(const pugi::xml_document &document, const string &path, 
     //The temporary file must live in the same directory as the target,
     //rename() fails with EXDEV across filesystems. mkstemp() gives it a unique
     //name (two writers never collide) and creates it with mode 0600.
-    string tmpl = dir + "/." + base + ".XXXXXX";
+    string tmpl = suffix.empty() ? dir + "/." + base + ".XXXXXX" : target + suffix;
     std::vector<char> tmpPath(tmpl.begin(), tmpl.end());
     tmpPath.push_back('\0');
 
-    int fd = mkstemp(tmpPath.data());
+    //A file left by a crash is overwritten, a link planted there is not followed
+    int fd = suffix.empty() ? mkstemp(tmpPath.data())
+                            : open(tmpPath.data(), O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, S_IRUSR | S_IWUSR);
     if (fd < 0)
     {
         int err = errno;
@@ -522,15 +531,9 @@ bool saveConfigDocument(const pugi::xml_document &document, const string &path, 
 
     if (ok)
     {
-        //TiXmlDocument::SaveFile(FILE *) printed into an already open stream
-        //and reported the outcome as ferror(fp) == 0. pugixml prints into the
-        //same stream through xml_writer_file but returns void, so the failure
-        //is read back from the stream exactly the same way. Printing into the
-        //descriptor we already own is what keeps the write atomic: save_file()
-        //would want a path and would reopen (and re-create) the file behind
-        //mkstemp()'s back, losing the mode/owner set above.
-        pugi::xml_writer_file writer(fp);
-        document.save(writer, XmlUtils::CONFIG_INDENT);
+        //Neither pugixml nor fwrite() is asked for a status: the failure is
+        //read back from the stream, whoever printed.
+        print(fp);
 
         if (ferror(fp) != 0)
         {
@@ -587,6 +590,19 @@ bool saveConfigDocument(const pugi::xml_document &document, const string &path, 
     }
 
     return true;
+}
+
+bool saveConfigDocument(const pugi::xml_document &document, const string &path, ConfigErrors &errors)
+{
+    //Printing into the descriptor we already own is what keeps the write
+    //atomic: save_file() would want a path and would reopen (and re-create)
+    //the file behind mkstemp()'s back, losing the mode/owner copied there.
+    const auto print = [&document](FILE *fp)
+    {
+        pugi::xml_writer_file writer(fp);
+        document.save(writer, XmlUtils::CONFIG_INDENT);
+    };
+    return writeConfigFile(path, string(), print, errors);
 }
 
 /* Load local_config.xml. Unlocked: the caller must hold the config locks.
@@ -676,6 +692,13 @@ bool doGetConfigOptions(Params &options, ConfigErrors &errors)
 bool doSetConfigOptions(const Params &toSet, const std::vector<string> &toDelete, ConfigErrors &errors)
 {
     string file = Utils::getConfigFile(LOCAL_CONFIG);
+
+    if (configFrozen)
+    {
+        addError(errors, "Configuration frozen until the restart, not writing " + file);
+        return false;
+    }
+
     pugi::xml_document document;
 
     if (!loadConfigDocument(document, errors))
@@ -946,6 +969,39 @@ bool Utils::set_config_options(const Params &toSet, const std::vector<string> &t
 
         if (fileLock.canProceed())
             res = doSetConfigOptions(toSet, toDelete, errors);
+    }
+
+    flushConfigErrors(errors, false);
+
+    return res;
+}
+
+void Utils::set_config_frozen(bool frozen)
+{
+    configFrozen = frozen;
+}
+
+bool Utils::config_frozen()
+{
+    return configFrozen;
+}
+
+bool Utils::restore_config_file(const string &path, const string &content)
+{
+    const auto print = [&content](FILE *fp)
+    {
+        fwrite(content.data(), 1, content.size(), fp);
+    };
+
+    bool res = false;
+    ConfigErrors errors;
+
+    {
+        std::lock_guard<std::mutex> lock{ configMutex() };
+        ConfigFileLock fileLock(LOCK_EX, errors);
+
+        if (fileLock.canProceed())
+            res = writeConfigFile(path, ".restore", print, errors);
     }
 
     flushConfigErrors(errors, false);

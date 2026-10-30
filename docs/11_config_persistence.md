@@ -61,15 +61,24 @@ bool ok = conf.ReadValueParams("id-abc", params);
 // Flush explicite du cache (le destructeur le fait aussi)
 conf.saveStateCache();
 
-// Backup horodaté des trois fichiers de config
-conf.BackupFiles();
+// Backup horodaté des trois fichiers de config ; renvoie le dossier relatif à backups/,
+// vide si un fichier existant n'a pas pu être copié
+string folder = conf.BackupFiles();
 ```
 
-`BackupFiles()` a **deux appelants de production** : le handler HTTP `config`, juste avant
+`BackupFiles()` a **trois appelants de production** : le handler HTTP `config`, juste avant
 d'écraser les fichiers de config poussés par un client
-(dérivé, [JsonApiHandlerHttp.cpp:783](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)), et
+(dérivé, [JsonApiHandlerHttp.cpp:783](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)),
 `AdminConfig::set()` (`admin` / `config_set`, voir docs/08), juste avant d'écrire une option de
-`local_config.xml`.
+`local_config.xml`, et `AdminConfig::restore()` (`admin` / `config_restore`), pour qui un dossier
+vide annule tout : la copie est son seul moyen d'annuler.
+
+`config_restore` remplace les fichiers sous le serveur qui tourne, puis s'arrête. Entre les deux,
+`Utils::set_config_frozen(true)` rend sans effet `SaveConfigIO()`, `SaveConfigRule()` et les
+écritures d'option : la configuration en mémoire est celle d'avant et ne doit pas repasser par-dessus
+les fichiers restaurés. Le gel reste en place si une écriture a échoué après qu'un fichier a été
+remplacé, et tombe si rien ne l'a été. `Utils::restore_config_file()` écrit seul sous le gel, avec
+le verrou de `local_config.xml` : `<nom>.restore`, `fsync`, `rename`, sans suivre de lien symbolique.
 
 Le dossier est horodaté **à la seconde**, ce qui ne suffit pas à le rendre unique : jusqu'à T3.64
 deux `config put` dans la même seconde le partageaient, et le second **écrasait** la copie du
