@@ -397,4 +397,29 @@ TEST_F(ConfigRobustnessTest, ABackupWithNoFreeFolderInTheSecondIsRefusedAndWrite
     EXPECT_FALSE(std::filesystem::exists(base + "-1001"));
     EXPECT_TRUE(std::filesystem::is_empty(base));
 }
+
+//The sources are 0644 on purpose: the copy must not take after them, nor after the umask
+TEST_F(ConfigRobustnessTest, TheBackupCopiesAreReadableOnlyByTheirOwner)
+{
+    for (const char *name: { "io.xml", "rules.xml", "local_config.xml" })
+    {
+        const std::string source = configDir() + "/" + name;
+        if (!std::filesystem::exists(source))
+            std::ofstream(source) << "<?xml version=\"1.0\"?>\n";
+        ASSERT_EQ(0, ::chmod(source.c_str(), 0644));
+    }
+
+    const mode_t previous = ::umask(0);
+    const std::string folder = Config::Instance().BackupFiles();
+    ::umask(previous);
+    ASSERT_FALSE(folder.empty());
+
+    for (const char *name: { "io.xml", "rules.xml", "local_config.xml" })
+    {
+        struct stat st;
+        const std::string copy = configDir() + "/backups/" + folder + "/" + name;
+        ASSERT_EQ(0, ::stat(copy.c_str(), &st)) << copy;
+        EXPECT_EQ(0600u, st.st_mode & 07777) << copy;
+    }
+}
 }

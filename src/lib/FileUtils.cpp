@@ -102,7 +102,7 @@ bool FileUtils::isExecutable(const std::string &path)
     return ::access(path.c_str(), X_OK) == 0;
 }
 
-bool FileUtils::copyFile(const std::string &source, const std::string &dest)
+bool FileUtils::copyFile(const std::string &source, const std::string &dest, bool ownerOnly)
 {
     FILE *f1, *f2;
     char buf[16384];
@@ -116,9 +116,12 @@ bool FileUtils::copyFile(const std::string &source, const std::string &dest)
 
     f1 = fopen(source.c_str(), "rb");
     if (!f1) return false;
-    f2 = fopen(dest.c_str(), "wb");
+    //Not fopen(): the umask would leave a readable copy until a later chmod
+    const int fd = ::open(dest.c_str(), O_WRONLY | O_CREAT | O_TRUNC, ownerOnly ? 0600 : 0666);
+    f2 = (fd >= 0 && (!ownerOnly || fchmod(fd, 0600) == 0)) ? fdopen(fd, "wb") : nullptr;
     if (!f2)
     {
+        if (fd >= 0) ::close(fd); //LCOV_EXCL_LINE fchmod() and fdopen() do not fail on a file just opened
         fclose(f1);
         return false;
     }

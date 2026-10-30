@@ -433,7 +433,7 @@ static bool isWritable(const std::string &path);
 static bool isExecutable(const std::string &path);
 static bool rename(const std::string &src, const std::string &dst);
 static std::string filename(const std::string &path);
-static bool copyFile(const std::string &src, const std::string &dst);
+static bool copyFile(const std::string &src, const std::string &dst, bool ownerOnly = false);
 static std::vector<std::string> listDir(const std::string &path);
 
 static bool resolveSafePath(const std::string &root,

@@ -685,7 +685,8 @@ string Config::BackupFiles()
     for (const char *name: { IO_CONFIG, RULES_CONFIG, LOCAL_CONFIG })
     {
         const string source = Utils::getConfigFile(name);
-        if (!FileUtils::exists(source) || FileUtils::copyFile(source, folder + "/" + name))
+        //local_config.xml holds tokens and io.xml camera passwords
+        if (!FileUtils::exists(source) || FileUtils::copyFile(source, folder + "/" + name, true))
             continue;
         //LCOV_EXCL_START copyFile() only fails on a file the root user of CI cannot read
         cError() << "Unable to backup file " << name;

@@ -124,6 +124,49 @@ TEST_F(FileUtilsSafePathTest, AcceptsSymlinkInsideRoot)
     EXPECT_EQ(out, root + "/index.html");
 }
 
+//Under a wide umask, which is the case the mode must not depend on
+TEST_F(FileUtilsSafePathTest, AnOwnerOnlyCopyIs0600WhateverItReplaces)
+{
+    const std::string fresh = root + "/copy_fresh";
+    const std::string existing = root + "/copy_existing";
+    writeFile(existing, "old");
+    ASSERT_EQ(0, ::chmod(existing.c_str(), 0644));
+
+    const mode_t previous = ::umask(0);
+    const bool freshCopied = FileUtils::copyFile(root + "/index.html", fresh, true);
+    const bool existingCopied = FileUtils::copyFile(root + "/index.html", existing, true);
+    ::umask(previous);
+    ASSERT_TRUE(freshCopied);
+    ASSERT_TRUE(existingCopied);
+
+    struct stat st;
+    ASSERT_EQ(0, ::stat(fresh.c_str(), &st));
+    EXPECT_EQ(0600u, st.st_mode & 07777);
+    EXPECT_EQ(2, st.st_size);
+    ASSERT_EQ(0, ::stat(existing.c_str(), &st));
+    EXPECT_EQ(0600u, st.st_mode & 07777);
+    EXPECT_EQ(2, st.st_size);
+
+    ::unlink(fresh.c_str());
+    ::unlink(existing.c_str());
+}
+
+TEST_F(FileUtilsSafePathTest, APlainCopyStillFollowsTheUmask)
+{
+    const std::string dest = root + "/copy_plain";
+
+    const mode_t previous = ::umask(0022);
+    const bool copied = FileUtils::copyFile(root + "/index.html", dest);
+    ::umask(previous);
+    ASSERT_TRUE(copied);
+
+    struct stat st;
+    ASSERT_EQ(0, ::stat(dest.c_str(), &st));
+    EXPECT_EQ(0644u, st.st_mode & 07777);
+
+    ::unlink(dest.c_str());
+}
+
 TEST_F(FileUtilsSafePathTest, RootWithTrailingSlash)
 {
     std::string out;
