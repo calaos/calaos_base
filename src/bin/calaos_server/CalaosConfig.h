@@ -80,7 +80,11 @@ public:
     bool ReadValueIO(string id, string &value);
     bool ReadValueParams(string id, Params &value);
 
-    void BackupFiles();
+    /* Copies the config files to a new folder of backups/ and returns that
+     * folder relative to backups/ (2026/10/25-10-2026_17-14-15), empty when a
+     * file could not be saved. A config file that does not exist is not one.
+     */
+    string BackupFiles();
 
     /* Queue a message on the same deferred mail/push channel LoadConfigIO()/
      * LoadConfigRule() use, for a problem detected outside them - the

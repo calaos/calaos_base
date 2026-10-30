@@ -1525,14 +1525,17 @@ params  {"files": {"io.xml": "<?xml…", "rules.xml": "<?xml…", "local_config.
          "dry_run": <bool>}
 result  {"dry_run": <bool>, "files": ["io.xml", "rules.xml", "local_config.xml"],
          "backup": {"rooms", "ios", "devices", "rules"}, "box": {"rooms", "ios", "devices", "rules"},
-         "io_format": <int>, "kept": ["listen_address", …], "warnings": ["household_login_changes", …],
-         "previous": "2026/10/25-10-2026_17-14-15"?, "restarting": <bool>}
+         "io_format": <int>, "kept": ["listen_address", …], "invalid_options": ["smtp_port", …],
+         "warnings": ["household_login_changes", …], "previous": "2026/10/25-10-2026_17-14-15"?,
+         "restarting": <bool>}
 ```
 
 `files` reprend les valeurs du champ `files` d'une sauvegarde. `backup` et `box` comptent les pièces
-de la sauvegarde et celles de la box (pour que la webapp montre ce qui va changer) ; `kept` liste
-les clés de `local_config.xml` dont la box garde la valeur ; `previous` est le dossier de `backups/`
-qui contient l'état d'avant, absent en `dry_run` ; `restarting` est faux en `dry_run`.
+de la sauvegarde et celles de la box (pour que la webapp montre ce qui va changer) ; `io_format` est
+le format de l'`io.xml` envoyé (1 sans attribut) ; `kept` liste les clés de `local_config.xml` dont
+la box garde la valeur ; `invalid_options` liste les clés de la sauvegarde que le registre
+refuserait (voir plus bas) ; `previous` est le dossier de `backups/` qui contient l'état d'avant,
+absent en `dry_run` ; `restarting` est faux en `dry_run`.
 
 - **Validation, avant le contrôle de session et avant tout appel au daemon** : `invalid_request`,
   dont le `msg` est la raison, affichable. Elle refuse :
@@ -1542,7 +1545,8 @@ qui contient l'état d'avant, absent en `dry_run` ; `restarting` est faux en `dr
     `<?xml` ;
   - un fichier que pugixml n'analyse pas, ou dont la racine n'est pas celle attendue
     (`calaos:ioconfig`, `calaos:rules`, `calaos:config`) ;
-  - un `io.xml` dont le format dépasse `IO_FORMAT_DEVICES` (« made by a newer Calaos (format N) »).
+  - un `io.xml` dont le format dépasse `IO_FORMAT_DEVICES` (« made by a newer Calaos (format N) ») ;
+  - un `dry_run` absent ou qui n'est pas un booléen.
 
   Le refus de perte de devices du `config put` ne s'applique pas : une restauration est explicite.
   L'aperçu avertit par `devices_removed`.
@@ -1552,8 +1556,8 @@ qui contient l'état d'avant, absent en `dry_run` ; `restarting` est faux en `dr
   `ota_firmware_path`, `mcp_service_token`, `update_notified_hash`. Les clés inconnues ou obsolètes
   sont gardées (la migration du démarrage s'en charge). Quand des valeurs changent, `warnings` le
   dit, jamais avec les valeurs : `household_login_changes` (`cn_user` ou `cn_pass` diffèrent),
-  `mcp_token_changes`, `ddns_changes`. `invalid_options` liste les clés que le registre
-  refuserait. Sans `local_config.xml` dans l'envoi, le fichier de la box n'est pas touché et
+  `mcp_token_changes`, `ddns_changes`. `invalid_options` s'ajoute quand le champ du même nom, qui
+  liste les clés que le registre refuserait, n'est pas vide. Sans `local_config.xml` dans l'envoi, le fichier de la box n'est pas touché et
   l'avertissement `no_local_config` s'ajoute. Autres avertissements : `devices_removed`.
 - **Ordre** :
   1. validation ;
@@ -1567,12 +1571,16 @@ qui contient l'état d'avant, absent en `dry_run` ; `restarting` est faux en `dr
      concurrent ne réécrive pas la configuration en mémoire par-dessus les fichiers restaurés ;
   7. chaque fichier est écrit en `<nom>.restore`, `fsync`, puis `rename` ;
   8. la réponse porte `previous` et `restarting: true` ;
-  9. la boucle s'arrête environ 500 ms après l'envoi de la trame (le chemin de sortie du `config
-     put`) ; systemd relance calaos-server. Le client reprend après un nouveau login (voir
+  9. la boucle s'arrête environ 500 ms après l'envoi de la trame, comme à la sortie du `config
+     put` ; systemd relance calaos-server. Le client reprend après un nouveau login (voir
      [Reprise](#reconnexion-et-reprise-de-la-webapp)) avec la même `admin_session`.
 
-  Un échec d'écriture donne `internal` avec « previous files in backups/<dossier> », et le serveur
-  redémarre quand même si un fichier a été remplacé.
+  Un échec d'écriture donne `internal`, avec `msg` « previous files in backups/<dossier> » et deux
+  champs de plus, `previous` (le dossier) et `restarting` (`"true"` ou `"false"`, chaîne comme tout
+  champ d'une erreur). Le serveur redémarre quand même si un fichier a été remplacé
+  (`restarting: "true"`) ; sinon les sauvegardes sont dégelées et il continue. Un second
+  `config_restore` pendant le gel donne `internal` (« A restore is already under way ») sans ces
+  champs, comme l'échec de `BackupFiles()`.
 - **Taille** : le message WebSocket doit tenir dans `max_websocket_message_size` (4 Mio par
   défaut) ; la webapp le vérifie d'abord.
 - Erreurs : `https_required`, `invalid_request`, `bad_session`, `admin_not_set`,
