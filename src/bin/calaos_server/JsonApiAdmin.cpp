@@ -1171,17 +1171,17 @@ Json upgradeRefusal(const Json &status)
     return refusal;
 }
 
-//Not need_restart: that stops the loop as soon as the frame is written, and
-//only if the client is still there. The memory no longer matches the disk.
-void exitAfterRestore()
+} //namespace
+
+//Not need_restart alone: that stops the loop as soon as the frame is written,
+//and only if the client is still there.
+void JsonApi::exitAfterConfigReplaced()
 {
     Timer::singleShot(0.5, []()
                       {
         uvw::Loop::getDefault()->stop();
     });
 }
-
-} //namespace
 
 void JsonApi::restoreConfig(const Json &params, const string &session, const AdminAnswer &answer)
 {
@@ -1243,7 +1243,7 @@ void JsonApi::restoreConfig(const Json &params, const string &session, const Adm
             }
 
             if (outcome.restarting)
-                exitAfterRestore();
+                exitAfterConfigReplaced();
         });
     });
 }

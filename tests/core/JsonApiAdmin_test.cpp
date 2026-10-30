@@ -5573,6 +5573,30 @@ TEST_F(JsonApiAdminTest, ConfigListDescribesEveryAllowedKeyAndNoSecret)
     Utils::del_config_option("ota_enabled");
 }
 
+//A plain file where the folder goes makes the backup fail, even for the root user of CI
+TEST_F(JsonApiAdminTest, ConfigSetWritesNothingWhenTheBackupFails)
+{
+    adminDefined();
+    Utils::set_config_option("smtp_port", "25");
+    const std::string before = localConfigText();
+
+    const std::string backups = Utils::getConfigFile("backups");
+    std::filesystem::remove_all(backups);
+    std::ofstream(backups) << "not a folder\n";
+
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    PushTest::StdoutCapture capture;
+    const Json set = ws.admin("admin", configAction("config_set", setParams("smtp_port", "2525")));
+    const std::string log = capture.stop();
+
+    expectError(set, "internal");
+    EXPECT_EQ(before, localConfigText());
+    EXPECT_NE(std::string::npos, log.find("smtp_port was not written")) << log;
+
+    std::filesystem::remove(backups);
+}
+
 TEST_F(JsonApiAdminTest, ConfigSetWritesAfterABackupAndLogsNoValue)
 {
     adminDefined();
@@ -6667,6 +6691,29 @@ TEST_F(JsonApiAdminRestoreTest, AnUnreadableBoxConfigStopsNothingAndLeavesATrace
     EXPECT_EQ("mail.example.org", merged.get_param_const("smtp_server"));
     for (const std::string &key: kBoxBound)
         EXPECT_FALSE(merged.Exists(key)) << key;
+}
+
+//Parses without an error: only the count of options tells it from a real box config
+TEST_F(JsonApiAdminRestoreTest, ABoxConfigUnderAnotherRootLeavesATrace)
+{
+    WsClient ws;
+    openAdmin(ws);
+    writeFile(configPath("io.xml"), kRestoreIo);
+    writeFile(configPath("local_config.xml"), "<?xml version=\"1.0\"?>\n<other><option name=\"a\" value=\"b\"/></other>\n");
+
+    Options sent = { { "smtp_server", "mail.example.org" } };
+    for (const std::string &key: kBoxBound)
+        sent.emplace_back(key, "from-the-backup");
+    Json params = restoreParams(true);
+    params["files"]["local_config.xml"] = localConfigOf(sent);
+
+    PushTest::StdoutCapture capture;
+    const Json checked = ws.admin("admin", configAction("config_restore", params));
+    const std::string log = capture.stop();
+
+    ASSERT_EQ("true", str(checked, "success")) << checked.dump();
+    EXPECT_EQ(Json::array(), checked["result"]["kept"]);
+    EXPECT_NE(std::string::npos, log.find("Unable to read the options of the box")) << log;
 }
 
 TEST_F(JsonApiAdminRestoreTest, AFileWithoutFormatIsFormatOne)

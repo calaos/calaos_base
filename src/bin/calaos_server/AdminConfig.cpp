@@ -204,7 +204,8 @@ string mergeLocalConfig(const string &uploaded, Json &kept, Json &invalid, std::
 {
     //Not a refusal: a restore is the way out of a broken local_config.xml
     Params box;
-    if (!Utils::get_config_options(box))
+    //Well-formed under another root: read without error, and no option in it
+    if (!Utils::get_config_options(box) || box.size() == 0)
         cErrorDom("admin") << "Unable to read the options of the box: a restore keeps none of its box-bound keys";
 
     pugi::xml_document doc;
@@ -413,7 +414,11 @@ Json AdminConfig::set(const Json &params)
     if (!e || !opt)
         return Json(); //LCOV_EXCL_LINE setRefusal() refused it before
 
-    Config::Instance().BackupFiles();
+    if (Config::Instance().BackupFiles().empty())
+    {
+        cErrorDom("admin") << "Could not copy the current files to backups, " << key << " was not written";
+        return Json();
+    }
 
     //An unset key makes every reading site fall back to its own default
     const bool written = value.empty() ? Utils::del_config_option(key) : Utils::set_config_option(key, value);

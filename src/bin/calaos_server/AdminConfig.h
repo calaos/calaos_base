@@ -52,7 +52,8 @@ public:
     static std::string setRefusal(const Json &params);
 
     //Writes params once setRefusal() accepted them, after Config::BackupFiles().
-    //Null when local_config.xml could not be written.
+    //Null, with nothing written, when the backup failed, and when local_config.xml
+    //could not be written.
     static Json set(const Json &params);
 
     static Json backup(std::time_t createdAt);

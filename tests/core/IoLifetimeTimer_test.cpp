@@ -670,7 +670,7 @@ inline std::map<std::string, int> weighedOneShotSites()
         { "bin/calaos_server/CalaosConfig.cpp", 1 },                      //function local static singleton, no delete in the tree
         { "bin/calaos_server/EventManager.cpp", 1 },                      //idem
         { "bin/calaos_server/McpServerManager.cpp", 1 },                  //idem
-        { "bin/calaos_server/JsonApiAdmin.cpp", 1 },                      //exitAfterRestore(): captures nothing, stops the loop
+        { "bin/calaos_server/JsonApiAdmin.cpp", 1 },                      //exitAfterConfigReplaced(): captures nothing, stops the loop
         { "bin/calaos_server/JsonApiHandlerHttp.cpp", 1 },                //already guarded
         { "bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp", 1 }, //already guarded
         { "bin/calaos_server/Audio/AVRRose.cpp", 1 },                     //already guarded (wtag)

@@ -111,7 +111,8 @@ string preserveCorruptFile(const string &file, const string &configName)
     ss << std::put_time(&tm, "%Y%m%d-%H%M%S");
     string dest = dir + "/" + configName + "." + ss.str();
 
-    if (!FileUtils::copyFile(file, dest))
+    //Still the tokens and camera passwords of the file it was meant to be
+    if (!FileUtils::copyFile(file, dest, true))
     {
         cError() << "Unable to copy corrupt " << file << " to " << dest;
         return {};
@@ -685,12 +686,11 @@ string Config::BackupFiles()
     for (const char *name: { IO_CONFIG, RULES_CONFIG, LOCAL_CONFIG })
     {
         const string source = Utils::getConfigFile(name);
-        if (!FileUtils::exists(source) || FileUtils::copyFile(source, folder + "/" + name))
+        //local_config.xml holds tokens and io.xml camera passwords
+        if (!FileUtils::exists(source) || FileUtils::copyFile(source, folder + "/" + name, true))
             continue;
-        //LCOV_EXCL_START copyFile() only fails on a file the root user of CI cannot read
         cError() << "Unable to backup file " << name;
         complete = false;
-        //LCOV_EXCL_STOP
     }
 
     return complete ? folder.substr(backFolder.size() + 1) : string();

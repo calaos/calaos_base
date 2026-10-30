@@ -531,6 +531,8 @@ protected:
     //config_list, config_set, config_backup, served here once the session is valid
     void configAdmin(const string &action, const Json &request, const string &session, const AdminAnswer &answer);
     void restoreConfig(const Json &params, const string &session, const AdminAnswer &answer);
+    //The frozen memory no longer matches the disk: the process must go, client or not
+    static void exitAfterConfigReplaced();
     //One row of the relay table, for a request adminRequestRefusal() accepted
     void relayAdmin(const string &action, const Json &request, const string &session, const AdminAnswer &answer);
     string adminClientIp() const;

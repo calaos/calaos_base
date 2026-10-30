@@ -47,8 +47,10 @@ bool get_config_options(Params &options);
 bool set_config_options(const Params &toSet, const std::vector<std::string> &toDelete = {});
 
 //While frozen, the option writers above fail, and so do Config::SaveConfigIO()
-//and SaveConfigRule(): config_restore has replaced the files on disk and the
-//process, still holding the old configuration, is about to restart.
+//and SaveConfigRule(): config_restore or config put has replaced the files on
+//disk and the process, still holding the old configuration, is about to restart.
+//The flag is per process: other tools reload the file under its lock, they hold
+//no old configuration to write back.
 void set_config_frozen(bool frozen);
 bool config_frozen();
 

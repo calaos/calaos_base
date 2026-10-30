@@ -433,13 +433,16 @@ static bool isWritable(const std::string &path);
 static bool isExecutable(const std::string &path);
 static bool rename(const std::string &src, const std::string &dst);
 static std::string filename(const std::string &path);
-static bool copyFile(const std::string &src, const std::string &dst);
+static bool copyFile(const std::string &src, const std::string &dst, bool ownerOnly = false);
 static std::vector<std::string> listDir(const std::string &path);
 
 static bool resolveSafePath(const std::string &root,
                             const std::string &userPath,
                             std::string &outPath);
 ```
+
+`copyFile` renvoie `false` sur toute écriture ratée ou tronquée, y compris à la fermeture
+(disque plein), et retire alors la copie partielle si la cible est un fichier régulier.
 
 ⚠️ Il n'y a **ni `fileExists()`, ni `dirExists()`, ni `readFile()`, ni `writeFile()`** dans
 `FileUtils` : les noms sont `exists()` et `isDir()`, et la lecture d'un fichier entier se fait par

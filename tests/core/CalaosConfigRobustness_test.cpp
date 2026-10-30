@@ -43,6 +43,7 @@
 #include "FileUtils.h"
 
 #include <chrono>
+#include <csignal>
 #include <ctime>
 #include <iomanip>
 #include <filesystem>
@@ -52,6 +53,7 @@
 #include <thread>
 #include <vector>
 
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -396,5 +398,67 @@ TEST_F(ConfigRobustnessTest, ABackupWithNoFreeFolderInTheSecondIsRefusedAndWrite
     EXPECT_TRUE(result.empty());
     EXPECT_FALSE(std::filesystem::exists(base + "-1001"));
     EXPECT_TRUE(std::filesystem::is_empty(base));
+}
+
+//The sources are 0644 on purpose: the copy must not take after them, nor after the umask
+TEST_F(ConfigRobustnessTest, TheBackupCopiesAreReadableOnlyByTheirOwner)
+{
+    for (const char *name: { "io.xml", "rules.xml", "local_config.xml" })
+    {
+        const std::string source = configDir() + "/" + name;
+        if (!std::filesystem::exists(source))
+            std::ofstream(source) << "<?xml version=\"1.0\"?>\n";
+        ASSERT_EQ(0, ::chmod(source.c_str(), 0644));
+    }
+
+    const mode_t previous = ::umask(0);
+    const std::string folder = Config::Instance().BackupFiles();
+    ::umask(previous);
+    ASSERT_FALSE(folder.empty());
+
+    for (const char *name: { "io.xml", "rules.xml", "local_config.xml" })
+    {
+        struct stat st;
+        const std::string copy = configDir() + "/backups/" + folder + "/" + name;
+        ASSERT_EQ(0, ::stat(copy.c_str(), &st)) << copy;
+        EXPECT_EQ(0600u, st.st_mode & 07777) << copy;
+    }
+}
+
+TEST_F(ConfigRobustnessTest, TheCorruptCopyIsReadableOnlyByItsOwner)
+{
+    writeConfig("<?xml version=\"1.0\"?>\n<calaos:ioconfig BROKEN", CalaosTest::rulesXmlDocument(""));
+    ASSERT_EQ(0, ::chmod(ioXmlPath().c_str(), 0644));
+
+    const mode_t previous = ::umask(0);
+    Config::Instance().LoadConfigIO();
+    ::umask(previous);
+
+    std::vector<std::string> copies = corruptCopiesOf(IO_CONFIG);
+    ASSERT_EQ(1u, copies.size());
+    struct stat st;
+    ASSERT_EQ(0, ::stat(copies[0].c_str(), &st));
+    EXPECT_EQ(0600u, st.st_mode & 07777);
+}
+
+//Past RLIMIT_FSIZE a write stops short with EFBIG, as on a full disk
+TEST_F(ConfigRobustnessTest, ABackupCutShortByTheDiskIsAFailure)
+{
+    putFile(ioXmlPath(), std::string(64 * 1024, 'x'));
+
+    struct rlimit saved;
+    ASSERT_EQ(0, ::getrlimit(RLIMIT_FSIZE, &saved));
+    void (*previousHandler)(int) = std::signal(SIGXFSZ, SIG_IGN);
+    struct rlimit limited = saved;
+    limited.rlim_cur = 4096;
+    ASSERT_EQ(0, ::setrlimit(RLIMIT_FSIZE, &limited));
+    const std::string folder = Config::Instance().BackupFiles();
+    ::setrlimit(RLIMIT_FSIZE, &saved);
+    std::signal(SIGXFSZ, previousHandler);
+
+    EXPECT_TRUE(folder.empty());
+    std::error_code ec;
+    for (const auto &entry: std::filesystem::recursive_directory_iterator(configDir() + "/backups", ec))
+        EXPECT_NE(IO_CONFIG, entry.path().filename().string()) << entry.path();
 }
 }

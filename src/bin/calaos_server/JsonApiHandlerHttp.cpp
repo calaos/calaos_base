@@ -925,8 +925,10 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
 
         //Before the backup: a refused upload touches nothing.
         string refusal;
-        bool refused = false;
-        if (jfiles.is_object())
+        bool refused = Utils::config_frozen();
+        if (refused)
+            refusal = "The configuration is frozen until the restart";
+        else if (jfiles.is_object())
         {
             const Json::const_iterator ioIt = jfiles.find(IO_CONFIG);
             if (ioIt != jfiles.cend() && ioIt->is_string())
@@ -936,6 +938,13 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
                     refused = refuseIoXmlUpload(
                         ioXml, declaredIoFormat(jroot) >= Calaos::IO_FORMAT_DEVICES, refusal);
             }
+        }
+
+        //Do a backup before overwriting new files: they are overwritten in place
+        if (!refused && jfiles.is_object() && Config::Instance().BackupFiles().empty())
+        {
+            refused = true;
+            refusal = "Could not copy the current files to backups, nothing was written";
         }
 
         if (refused)
@@ -949,9 +958,6 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
 
         if (jfiles.is_object())
         {
-            //Do a backup before overwriting new files
-            Config::Instance().BackupFiles();
-
             /* Same instant, same reason as the backup above: what is about to
              * be overwritten is recorded so the startup that follows can name
              * the scenarios this upload takes away. It cannot be said here -
@@ -1020,8 +1026,14 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
 
         jret["success"] = ret?"true":"false";
 
+        //The memory still holds what was just overwritten: nothing may save it
+        //back before the restart
         if (ret)
+        {
+            Utils::set_config_frozen(true);
             httpClient->setNeedRestart(true);
+            exitAfterConfigReplaced();
+        }
     }
     else
     {
