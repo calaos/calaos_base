@@ -68,6 +68,7 @@ string messageFor(const string &code)
         { "code_expired", "The push code expired, request a new one" },
         { "console_limit", "Too many consoles are open" },
         { "network_pending", "A network change is waiting for its confirmation" },
+        { "service_unavailable", "This service is not available on this box" },
         { "login_failed", "Wrong household credentials" },
         { "internal", "Internal error" },
     };
@@ -377,8 +378,8 @@ bool isServiceId(const string &s)
     });
 }
 
-//The daemon tells which ids exist and which may be restarted
-string servicesRestartBody(const Json &params, Json &body)
+//The daemon tells which ids exist and which verbs each one allows
+string serviceUnitBody(const Json &params, Json &body)
 {
     string unit;
     const string invalid = stringField(params, "unit", isServiceId, unit);
@@ -484,7 +485,7 @@ bool oneOf(const char *const (&list)[N], const string &s)
 
 const char *const logSources[] = { "calaos-server", "calaos-home", "haproxy", "mosquitto", "zigbee2mqtt", "influxdb",
                                    "grafana", "hue2mqtt", "envoy", "calaos-container", "olad", "ntp",
-                                   "calaos-ddns", "networkd", "ssh", "kernel", "system" };
+                                   "networkd", "ssh", "kernel", "system" };
 const char *const logPriorities[] = { "emerg", "alert", "crit", "err", "warning", "notice", "info", "debug" };
 
 bool isLogCursor(const string &s)
@@ -689,7 +690,11 @@ const RelayRow relayTable[] = {
      */
     { "console_open", "POST", "admin/codes/verify", true, DaemonClient::DefaultTimeout, codeFields },
     { "services_list", "GET", "system/services", true, DaemonClient::DefaultTimeout, nullptr },
-    { "services_restart", "POST", "system/services/restart", true, DaemonClient::DefaultTimeout, servicesRestartBody },
+    { "services_restart", "POST", "system/services/restart", true, DaemonClient::DefaultTimeout, serviceUnitBody },
+    { "services_start", "POST", "system/services/start", true, DaemonClient::ServiceActionTimeout, serviceUnitBody },
+    { "services_stop", "POST", "system/services/stop", true, DaemonClient::ServiceActionTimeout, serviceUnitBody },
+    { "services_enable", "POST", "system/services/enable", true, DaemonClient::ServiceActionTimeout, serviceUnitBody },
+    { "services_disable", "POST", "system/services/disable", true, DaemonClient::ServiceActionTimeout, serviceUnitBody },
     { "logs_sources", "GET", "logs/sources", true, DaemonClient::DefaultTimeout, nullptr },
     { "logs_query", "POST", "logs/query", true, DaemonClient::LogsQueryTimeout, logsQueryBody },
     { "time_get", "GET", "system/time", true, DaemonClient::DefaultTimeout, nullptr },
@@ -798,7 +803,7 @@ Json JsonApi::adminErrorFromReply(const DaemonReply &reply)
                                                "not_allowed", "package_held", "approver_required", "approver_limit",
                                                "approver_exists", "approver_not_found", "approver_last",
                                                "code_required", "bad_code", "code_expired", "console_limit",
-                                               "network_pending" };
+                                               "network_pending", "service_unavailable" };
 
     if (reply.code == "admin_not_set")
         return adminNotSet();
