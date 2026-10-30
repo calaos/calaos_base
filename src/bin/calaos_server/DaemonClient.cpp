@@ -301,6 +301,8 @@ void DaemonClient::send(const Request &request, Callback callback, bool retried)
     if (!request.clientIp.empty())
         dl->setHeader("X-Calaos-Client-IP", request.clientIp);
     dl->setTimeout(request.timeout);
+    //url_stall_timeout (30 s) would cut a slow answer before the longer timeouts
+    dl->setStallTimeout(request.timeout + 1);
     //The poll repeats forever and AdminState logs the outcome once
     dl->setQuiet(true);
     //A redirect would carry the bearer and the session away from the loopback
