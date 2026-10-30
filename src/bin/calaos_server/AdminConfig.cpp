@@ -279,11 +279,12 @@ RestorePlan planRestore(const Json &params)
     for (const auto &write: plan.writes)
         files.push_back(write.first);
 
+    const int format = ioFormat(ioXml);
     plan.result = Json{ { "dry_run", true },
                         { "files", files },
                         { "backup", backup },
                         { "box", box },
-                        { "io_format", ioFormat(ioXml) },
+                        { "io_format", format },
                         { "kept", kept },
                         { "invalid_options", invalid },
                         { "warnings", warnings },
@@ -440,7 +441,7 @@ string AdminConfig::restoreRefusal(const Json &params)
     for (const auto &item: files->items())
     {
         const auto known = std::find_if(std::begin(RestoreFiles), std::end(RestoreFiles), [&item](const RestoreFile &file)
-        {
+                                        {
             return item.key() == file.name;
         });
         if (known == std::end(RestoreFiles))

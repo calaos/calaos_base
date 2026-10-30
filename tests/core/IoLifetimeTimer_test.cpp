@@ -662,26 +662,26 @@ inline std::map<std::string, int> weighedOneShotSites()
 {
     return {
         //src/lib
-        { "lib/Timer.cpp",                        2 }, //the two definitions
-        { "lib/Timer.h",                          2 }, //LifetimeTag's own two calls
-        { "lib/UrlDownloader.cpp",                4 }, //:122/:169/:264 serial guard, :816 deliberate `delete this`
+        { "lib/Timer.cpp", 2 },         //the two definitions
+        { "lib/Timer.h", 2 },           //LifetimeTag's own two calls
+        { "lib/UrlDownloader.cpp", 4 }, //:122/:169/:264 serial guard, :816 deliberate `delete this`
         //src/bin/calaos_server
-        { "bin/calaos_server/main.cpp",           1 }, //mem_fun on ListeRoom::Instance(), no `this`
-        { "bin/calaos_server/CalaosConfig.cpp",   1 }, //function local static singleton, no delete in the tree
-        { "bin/calaos_server/EventManager.cpp",   1 }, //idem
-        { "bin/calaos_server/McpServerManager.cpp", 1 }, //idem
-        { "bin/calaos_server/JsonApiAdmin.cpp",   1 },        //exitAfterRestore(): captures nothing, stops the loop
-        { "bin/calaos_server/JsonApiHandlerHttp.cpp", 1 },      //already guarded
+        { "bin/calaos_server/main.cpp", 1 },                              //mem_fun on ListeRoom::Instance(), no `this`
+        { "bin/calaos_server/CalaosConfig.cpp", 1 },                      //function local static singleton, no delete in the tree
+        { "bin/calaos_server/EventManager.cpp", 1 },                      //idem
+        { "bin/calaos_server/McpServerManager.cpp", 1 },                  //idem
+        { "bin/calaos_server/JsonApiAdmin.cpp", 1 },                      //exitAfterRestore(): captures nothing, stops the loop
+        { "bin/calaos_server/JsonApiHandlerHttp.cpp", 1 },                //already guarded
         { "bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp", 1 }, //already guarded
-        { "bin/calaos_server/Audio/AVRRose.cpp",  1 },          //already guarded (wtag)
-        { "bin/calaos_server/Audio/AVReceiver.cpp", 1 },        //already guarded (wtag)
-        { "bin/calaos_server/Audio/Squeezebox.cpp", 6 },        //sigc::trackable + mem_fun
-        { "bin/calaos_server/IPCam/Foscam.cpp",   1 },          //[=] that does NOT capture this
-        { "bin/calaos_server/LuaScript/ScriptExec.cpp", 1 },    //idem
-        { "bin/calaos_server/IO/OutputShutter.cpp", 2 },        //T3.34's own guard
-        { "bin/calaos_server/IO/OutputShutterSmart.cpp", 2 },   //T3.34's own guard
-        { "bin/calaos_server/IO/Gpio/GpioCtrl.cpp", 1 },        //already guarded
-        { "bin/calaos_server/IO/Reolink/ReolinkInputSwitch.cpp", 1 }, //already guarded
+        { "bin/calaos_server/Audio/AVRRose.cpp", 1 },                     //already guarded (wtag)
+        { "bin/calaos_server/Audio/AVReceiver.cpp", 1 },                  //already guarded (wtag)
+        { "bin/calaos_server/Audio/Squeezebox.cpp", 6 },                  //sigc::trackable + mem_fun
+        { "bin/calaos_server/IPCam/Foscam.cpp", 1 },                      //[=] that does NOT capture this
+        { "bin/calaos_server/LuaScript/ScriptExec.cpp", 1 },              //idem
+        { "bin/calaos_server/IO/OutputShutter.cpp", 2 },                  //T3.34's own guard
+        { "bin/calaos_server/IO/OutputShutterSmart.cpp", 2 },             //T3.34's own guard
+        { "bin/calaos_server/IO/Gpio/GpioCtrl.cpp", 1 },                  //already guarded
+        { "bin/calaos_server/IO/Reolink/ReolinkInputSwitch.cpp", 1 },     //already guarded
     };
 }
 

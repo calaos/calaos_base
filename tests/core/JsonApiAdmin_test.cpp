@@ -5960,7 +5960,7 @@ int64_t loopStopsWithin(int ms)
     auto loop = uvw::Loop::getDefault();
     bool expired = false;
     Timer guard(ms / 1000.0, [&expired, &loop]()
-    {
+                {
         expired = true;
         loop->stop();
     });
@@ -6365,7 +6365,7 @@ TEST_F(JsonApiAdminRestoreTest, ADaemonThatCannotTellWhetherAnUpgradeRunsRefuses
     const auto failUpdateStatus = [](int status)
     {
         fakeDaemon.setOverride([status](const FakeDaemon::Request &req, FakeDaemon::Response &res)
-        {
+                               {
             if (req.path != "/api/v2/update/status")
                 return false;
             res.status = status;
@@ -6516,7 +6516,7 @@ TEST_F(JsonApiAdminRestoreTest, EveryWarningSaysWhatChangesWithoutItsValue)
         for (const std::string &key: c.changes)
         {
             const auto same = std::find_if(sent.begin(), sent.end(), [&key](const auto &o)
-            {
+                                           {
                 return o.first == key;
             });
             if (same == sent.end())

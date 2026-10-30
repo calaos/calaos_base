@@ -42,11 +42,14 @@
 #include "CalaosConfig.h"
 #include "FileUtils.h"
 
+#include <chrono>
 #include <ctime>
+#include <iomanip>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <sys/stat.h>
@@ -359,6 +362,40 @@ TEST_F(ConfigRobustnessTest, DestructorFlushesPendingStates)
     std::string v;
     EXPECT_TRUE(Config::Instance().ReadValueIO("t24_shutdown", v));
     EXPECT_EQ("flushed", v);
+}
+
+TEST_F(ConfigRobustnessTest, ABackupWithNoFreeFolderInTheSecondIsRefusedAndWritesNothing)
+{
+    loadConfig();
+
+    const auto stamp = []()
+    {
+        const std::time_t t = std::time(nullptr);
+        const std::tm tm = *std::localtime(&t);
+        std::ostringstream ss;
+        ss << std::put_time(&tm, "%Y/%m/%d-%m-%Y_%H-%M-%S");
+        return ss.str();
+    };
+
+    //a full second to fill the folders in before the stamp moves on
+    const std::string start = stamp();
+    while (stamp() == start)
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+
+    const std::string base = configDir() + "/backups/" + stamp();
+    std::error_code ec;
+    std::filesystem::create_directories(base, ec);
+    ASSERT_FALSE(ec) << ec.message();
+    for (int i = 2;i <= 1000;i++)
+        std::filesystem::create_directories(base + "-" + std::to_string(i), ec);
+    ASSERT_FALSE(ec) << ec.message();
+
+    const std::string result = Config::Instance().BackupFiles();
+    ASSERT_EQ(base, configDir() + "/backups/" + stamp()) << "the second moved on while the case ran";
+
+    EXPECT_TRUE(result.empty());
+    EXPECT_FALSE(std::filesystem::exists(base + "-1001"));
+    EXPECT_TRUE(std::filesystem::is_empty(base));
 }
 
 }

@@ -1176,7 +1176,7 @@ Json upgradeRefusal(const Json &status)
 void exitAfterRestore()
 {
     Timer::singleShot(0.5, []()
-    {
+                      {
         uvw::Loop::getDefault()->stop();
     });
 }
@@ -1189,7 +1189,7 @@ void JsonApi::restoreConfig(const Json &params, const string &session, const Adm
     const auto request = std::make_shared<const Json>(params);
 
     validateAdminSession(session, [request, session, ip, answer](const Json &error)
-    {
+                         {
         if (!error.is_null())
         {
             answer(error);
@@ -1201,7 +1201,7 @@ void JsonApi::restoreConfig(const Json &params, const string &session, const Adm
         req.session = session;
         req.clientIp = ip;
         DaemonClient::Instance().call(req, [request, session, ip, answer](const DaemonReply &reply)
-        {
+                                      {
             if (reply.kind != DaemonReply::Kind::Ok)
             {
                 answer(relayFailure(reply));
