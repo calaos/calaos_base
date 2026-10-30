@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <fstream>
 #include <csignal>
+#include <fcntl.h>
 #include <string>
 #include <sys/resource.h>
 #include <sys/stat.h>
@@ -214,13 +215,23 @@ TEST_F(FileUtilsSafePathTest, ACopyThatFailsWhileWritingIsReported)
     ::unlink(big.c_str());
 }
 
-TEST_F(FileUtilsSafePathTest, AFailedCopyDoesNotRemoveADevice)
+//A FIFO, not /dev/full: without root a device could not be unlinked anyway. The
+//read end is held open so that the copy's open() does not block.
+TEST_F(FileUtilsSafePathTest, AFailedCopyLeavesANonRegularFileInPlace)
 {
-    ASSERT_FALSE(FileUtils::copyFile(root + "/index.html", "/dev/full"));
+    const std::string fifo = root + "/copy_fifo";
+    ASSERT_EQ(0, ::mkfifo(fifo.c_str(), 0600));
+    const int reader = ::open(fifo.c_str(), O_RDONLY | O_NONBLOCK);
+    ASSERT_GE(reader, 0);
+
+    EXPECT_FALSE(FileUtils::copyFile(root + "/sub", fifo));
 
     struct stat st;
-    ASSERT_EQ(0, ::stat("/dev/full", &st));
-    EXPECT_TRUE(S_ISCHR(st.st_mode));
+    EXPECT_EQ(0, ::lstat(fifo.c_str(), &st));
+    EXPECT_TRUE(S_ISFIFO(st.st_mode));
+
+    ::close(reader);
+    ::unlink(fifo.c_str());
 }
 
 TEST_F(FileUtilsSafePathTest, ATruncatedCopyIsReportedAndRemoved)
