@@ -2197,8 +2197,7 @@ TEST_F(JsonApiAdminTest, ASilentDaemonIsBoundByTheRequestTimeoutNotByUrlStallTim
         return true;
     });
 
-    const Json answer = ws.admin("admin", { { "action", "services_enable" }, { "admin_session", FakeDaemon::Session },
-                                            { "params", { { "unit", "mosquitto" } } } }, 15000);
+    const Json answer = ws.admin("admin", { { "action", "services_enable" }, { "admin_session", FakeDaemon::Session }, { "params", { { "unit", "mosquitto" } } } }, 15000);
     Utils::set_config_option("url_stall_timeout", saved);
     EXPECT_EQ("true", str(answer, "success")) << answer.dump();
 }
