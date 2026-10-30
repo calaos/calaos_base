@@ -397,3 +397,4 @@ TEST_F(ConfigRobustnessTest, ABackupWithNoFreeFolderInTheSecondIsRefusedAndWrite
     EXPECT_FALSE(std::filesystem::exists(base + "-1001"));
     EXPECT_TRUE(std::filesystem::is_empty(base));
 }
+}
