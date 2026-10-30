@@ -132,7 +132,10 @@ XmlLoadResult loadXmlDocument(pugi::xml_document &document, const string &file, 
 {
     XmlLoadResult res;
 
-    pugi::xml_parse_result parsed = document.load_file(file.c_str());
+    //pugixml sizes its buffer from ftell, which is LONG_MAX on a directory
+    pugi::xml_parse_result parsed;
+    if (!FileUtils::isDir(file))
+        parsed = document.load_file(file.c_str());
     if (parsed)
     {
         res.loaded = true;
