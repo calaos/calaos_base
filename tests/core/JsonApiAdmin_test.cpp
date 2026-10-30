@@ -610,7 +610,7 @@ TEST(JsonApiAdminRules, DaemonErrorsAreTranslated)
     for (const char *same: { "bad_session", "bad_password", "password_too_short", "admin_already_set",
                              "upgrade_in_progress", "not_allowed", "rate_limited", "package_held",
                              "approver_required", "approver_limit", "approver_exists", "approver_not_found",
-                             "approver_last", "code_required", "bad_code", "code_expired" })
+                             "approver_last", "code_required", "bad_code", "code_expired", "service_unavailable" })
     {
         const Json j = error(same);
         EXPECT_EQ(same, str(j, "error"));
@@ -2216,6 +2216,7 @@ namespace
 {
 
 const char *const kChange = "5d0c8e1f2a3b4c6d";
+const char *const kServiceActions[] = { "services_start", "services_stop", "services_enable", "services_disable" };
 
 Json staticNetwork()
 {
@@ -2259,7 +2260,13 @@ std::vector<Case> validBoxRequests()
     return {
         { "services_list", Json::object() },
         { "services_restart", { { "unit", "mosquitto" } } },
-        { "services_restart", { { "unit", "calaos-ddns" } } },
+        { "services_restart", { { "unit", "calaos-server" } } },
+        { "services_start", { { "unit", "mosquitto" } } },
+        { "services_stop", { { "unit", "mosquitto" } } },
+        { "services_enable", { { "unit", "mosquitto" } } },
+        { "services_disable", { { "unit", "mosquitto" } } },
+        { "services_stop", { { "unit", "zigbee2mqtt" } } },
+        { "services_enable", { { "unit", std::string(32, 'a') } } },
         { "logs_sources", Json::object() },
         { "logs_query", Json::object() },
         { "logs_query", { { "sources", Json::array({ "calaos-server", "kernel" }) }, { "priority", "warning" }, { "since", "2026-10-25T08:00:00Z" }, { "until", "2026-10-25T09:00:00.5+01:00" }, { "text", "wago" }, { "lines", 1000 }, { "cursor", "s=0b2a;i=1f;b=c3;m=4d;t=5e;x=6f" }, { "direction", "backward" } } },
@@ -2317,6 +2324,7 @@ std::vector<Case> invalidBoxRequests()
         { "logs_query", { { "sources", Json::array({ "a", "b", "c", "d", "e", "f", "g", "h", "i" }) } } },
         { "logs_query", { { "sources", Json::array({ "system", "systemd" }) } } },
         { "logs_query", { { "sources", Json::array({ "timesyncd" }) } } },
+        { "logs_query", { { "sources", Json::array({ "calaos-ddns" }) } } },
         { "logs_query", { { "sources", Json::array({ 3 }) } } },
         { "logs_query", { { "priority", "3" } } },
         { "logs_query", { { "priority", 8 } } },
@@ -2425,6 +2433,14 @@ std::vector<Case> invalidBoxRequests()
     for (const char *intf: { "lo", ".", "..", "apply", "Trial", "STATE", "list", "confirm", "revert", "-eth0",
                              "eth0/x", "eth 0", "", "abcdefghijklmnop", "eth0;", "\xc3\xa9th0" })
         bad.push_back({ "network_apply", changed(net, "intf", intf) });
+    for (const char *action: kServiceActions)
+    {
+        bad.push_back({ action, Json::object() });
+        for (const Json &unit: { Json("Mosquitto"), Json("mosquitto.service"), Json("../x"), Json("a b"), Json(""),
+                                 Json(std::string(33, 'a')), Json(3), Json(true), Json(nullptr),
+                                 Json::array({ "mosquitto" }) })
+            bad.push_back({ action, { { "unit", unit } } });
+    }
     return bad;
 }
 
@@ -2464,6 +2480,9 @@ TEST(JsonApiAdminRules, BoxActionTimeouts)
     for (const char *action: { "services_list", "services_restart", "logs_sources", "time_get", "time_zones",
                                "network_state" })
         EXPECT_EQ(4, JsonApi::adminRelayTimeout(action)) << action;
+    EXPECT_EQ(15, DaemonClient::ServiceActionTimeout);
+    for (const char *action: kServiceActions)
+        EXPECT_EQ(15, JsonApi::adminRelayTimeout(action)) << action;
 }
 
 TEST(JsonApiAdminRules, APendingNetworkChangeIsTranslatedWithItsId)
@@ -2507,6 +2526,10 @@ TEST_F(JsonApiAdminTest, EveryBoxActionCallsItsFixedRoute)
     const std::vector<Row> rows = {
         { "services_list", plus(Json::object()), "GET", "/api/v2/system/services", Json() },
         { "services_restart", plus({ { "unit", "mosquitto" } }), "POST", "/api/v2/system/services/restart", { { "unit", "mosquitto" } } },
+        { "services_start", plus({ { "unit", "mosquitto" } }), "POST", "/api/v2/system/services/start", { { "unit", "mosquitto" } } },
+        { "services_stop", plus({ { "unit", "mosquitto" } }), "POST", "/api/v2/system/services/stop", { { "unit", "mosquitto" } } },
+        { "services_enable", plus({ { "unit", "mosquitto" } }), "POST", "/api/v2/system/services/enable", { { "unit", "mosquitto" } } },
+        { "services_disable", plus({ { "unit", "mosquitto" } }), "POST", "/api/v2/system/services/disable", { { "unit", "mosquitto" } } },
         { "logs_sources", plus(Json::object()), "GET", "/api/v2/logs/sources", Json() },
         { "logs_query", plus(query), "POST", "/api/v2/logs/query", query },
         { "logs_query", Json::object(), "POST", "/api/v2/logs/query", Json::object() },
@@ -2560,6 +2583,10 @@ TEST_F(JsonApiAdminTest, EveryBoxActionCallsItsFixedRoute)
     EXPECT_TRUE(results["services_list"]["services"][1]["since"].is_null());
     EXPECT_EQ(4, results["logs_query"]["entries"][0]["priority"].get<int>());
     EXPECT_EQ((Json{ { "id", "mosquitto" }, { "state", "restarting" } }), results["services_restart"]);
+    EXPECT_EQ((Json{ { "id", "mosquitto" }, { "state", "starting" } }), results["services_start"]);
+    EXPECT_EQ((Json{ { "id", "mosquitto" }, { "state", "stopping" } }), results["services_stop"]);
+    EXPECT_EQ((Json{ { "id", "mosquitto" }, { "state", "enabling" } }), results["services_enable"]);
+    EXPECT_EQ((Json{ { "id", "mosquitto" }, { "state", "disabling" } }), results["services_disable"]);
     EXPECT_TRUE(results["time_set"]["restart_required"].get<bool>());
     EXPECT_FALSE(results["time_set"]["synchronized"].get<bool>());
     EXPECT_EQ(120, results["network_apply"]["confirm_within"].get<int>());
@@ -2630,7 +2657,7 @@ TEST_F(JsonApiAdminTest, NeverRelayedRoutesStayOutOfReach)
                                "network/trial", "network_apply ", "Network_apply", "system_install_start",
                                "system_install", "system_rollback_snapshot", "system_fs_status", "update_installed",
                                "admin_reset", "admin_alerts_ack", "alerts_ack", "admin_push", "admin_set_recovery",
-                               "logs_follow", "services_stop", "services_start", "time_ntp", "config_backup_restore" })
+                               "logs_follow", "services_reload", "services_mask", "time_ntp", "config_backup_restore" })
     {
         const Json answer = ws.admin("admin", adminAction(action, withCode(staticNetwork())));
         expectError(answer, "not_allowed");
@@ -2788,6 +2815,55 @@ TEST_F(JsonApiAdminTest, BoxErrorsAreTranslated)
     }
     fakeDaemon.setOverride(nullptr);
     EXPECT_EQ("true", str(ws.admin("admin", adminAction("update_available")), "success"));
+}
+
+TEST_F(JsonApiAdminTest, ServiceActionsCopyTheRefusalsOfTheDaemon)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    auto answerWith = [](int status, const std::string &body)
+    {
+        fakeDaemon.setOverride([status, body](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                               {
+            if (req.path.rfind("/api/v2/system/services/", 0) != 0)
+                return false;
+            res.status = status;
+            res.body = body;
+            return true;
+        });
+    };
+
+    for (const char *action: kServiceActions)
+    {
+        const Json request = adminAction(action, { { "unit", "mosquitto" } });
+
+        answerWith(409, FakeDaemon::err("service_unavailable"));
+        EXPECT_EQ((Json{ { "success", "false" }, { "error", "service_unavailable" }, { "msg", "This service is not available on this box" } }),
+                  ws.admin("admin", request));
+
+        answerWith(409, FakeDaemon::err("upgrade_in_progress", { { "job_id", "3f9c2a7e5b1d4c80" } }));
+        const Json busy = ws.admin("admin", request);
+        expectError(busy, "upgrade_in_progress");
+        EXPECT_EQ("3f9c2a7e5b1d4c80", str(busy, "job_id"));
+
+        answerWith(400, FakeDaemon::err("invalid_request"));
+        const Json refused = ws.admin("admin", request);
+        expectError(refused, "invalid_request");
+        EXPECT_EQ("daemon says invalid_request", str(refused, "msg"));
+
+        answerWith(500, FakeDaemon::err("internal"));
+        expectError(ws.admin("admin", request), "internal");
+
+        answerWith(401, FakeDaemon::err("bad_session"));
+        expectError(ws.admin("admin", request), "bad_session");
+
+        //A daemon older than these routes: that panel only
+        answerWith(404, FakeDaemon::err("not_found"));
+        expectError(ws.admin("admin", request), "daemon_too_old");
+        EXPECT_EQ(AdminState::Mode::Set, AdminState::Instance().mode()) << action;
+    }
 }
 
 /*******************************************************************************

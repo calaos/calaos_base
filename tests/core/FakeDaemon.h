@@ -374,6 +374,18 @@ public:
         log.clear();
     }
 
+    //Empty for a route that is not a verb of system/services
+    static std::string serviceActionState(const std::string &route)
+    {
+        for (const auto &verb: std::initializer_list<std::pair<const char *, const char *>>{
+                 { "restart", "restarting" }, { "start", "starting" }, { "stop", "stopping" }, { "enable", "enabling" }, { "disable", "disabling" } })
+        {
+            if (route == std::string("POST /api/v2/system/services/") + verb.first)
+                return verb.second;
+        }
+        return std::string();
+    }
+
     /* What the services, logs, time and network routes answer: data of every
      * JSON type, for the tests to check it is relayed as is. The POST routes
      * echo the fields they read. */
@@ -857,8 +869,8 @@ private:
 
         if (!data.is_null())
             res.body = ok(data);
-        else if (route == "POST /api/v2/system/services/restart")
-            res.body = ok({ { "id", field("unit") }, { "state", "restarting" } });
+        else if (const std::string state = serviceActionState(route); !state.empty())
+            res.body = ok({ { "id", field("unit") }, { "state", state } });
         else if (route == "POST /api/v2/system/time")
         {
             nlohmann::json t = boxData("GET /api/v2/system/time");
