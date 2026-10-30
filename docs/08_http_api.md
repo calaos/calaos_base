@@ -1219,14 +1219,15 @@ recopié du daemon.
   n'y a pas d'activation sans démarrage. Un `stop` dure jusqu'au prochain redémarrage de la box,
   ou jusqu'à la prochaine mise à jour du paquet si l'unité est `enabled`.
 - Contrairement à `restart`, le daemon met le job en file auprès de systemd (D-Bus) **avant** de
-  répondre ; il n'attend pas la fin du job. Chaque étape (lecture de l'unité, reset d'une unité
-  `failed`, activation, rechargement, démarrage ou arrêt) est bornée à 10 s. Le résultat se lit en
-  sondant `services_list` (`active_state`, `startup`). Une étape en erreur est `internal`, sans
-  détail dans le message.
+  répondre ; il n'attend pas la fin du job. Chaque étape (lecture de l'unité, reset,
+  activation, rechargement, démarrage ou arrêt) est bornée à 10 s. Le reset passe toujours avant
+  `start` et `enable`, et après `stop` et `disable` d'une unité `failed` ; son échec est seulement
+  journalisé. Le résultat se lit en sondant `services_list` (`active_state`, `startup`). Toute
+  autre étape en erreur est `internal`, sans détail dans le message.
 - Délai de calaos_server : 15 s pour `start` et `stop` (le client attend 20 s), 35 s pour `enable`
-  et `disable` (le client attend 40 s). Pires cas côté daemon, acceptés : `enable` et `disable`
-  d'une unité `failed` 50 s (`olad` : +2 s), `disable` d'une unité saine 40 s, `start` et `stop`
-  d'une unité `failed` 30 s, `stop` d'une unité saine 20 s ; `restart` 10 s visibles, avec une
+  et `disable` (le client attend 40 s). Pires cas côté daemon, acceptés : `enable` 50 s
+  (`olad` : +2 s), `disable` d'une unité `failed` 50 s, `disable` d'une unité saine 40 s,
+  `start` 30 s, `stop` d'une unité `failed` 30 s, `stop` d'une unité saine 20 s ; `restart` 10 s visibles, avec une
   réponse au relais en 4 s. Ces pires cas dépassent les coupes : sur délai dépassé, le relais
   répond `daemon_unreachable` sans `outcome`, mais l'action peut tout de même aboutir ; le client
   doit relire l'état (`services_list`) avant de renvoyer.
