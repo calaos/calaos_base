@@ -441,6 +441,9 @@ static bool resolveSafePath(const std::string &root,
                             std::string &outPath);
 ```
 
+`copyFile` renvoie `false` sur toute écriture ratée ou tronquée, y compris à la fermeture
+(disque plein), et retire alors la copie partielle si la cible est un fichier régulier.
+
 ⚠️ Il n'y a **ni `fileExists()`, ni `dirExists()`, ni `readFile()`, ni `writeFile()`** dans
 `FileUtils` : les noms sont `exists()` et `isDir()`, et la lecture d'un fichier entier se fait par
 `Utils::getFileContent()` (dérivé, `src/lib/Utils.h:147`).
