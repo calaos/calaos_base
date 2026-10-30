@@ -19,6 +19,8 @@
  **
  ******************************************************************************/
 #include "JsonApiHandlerHttp.h"
+#include "AdminConfig.h"
+#include "JsonField.h"
 #include "ListeRoom.h"
 #include "ListeRule.h"
 #include "PollListenner.h"
@@ -403,6 +405,8 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
                 processConfig(*doc);
             });
         }
+        else if (jsonParam["action"] == "config_backup")
+            processConfigBackup(jsonRootDoc);
         else if (jsonParam["action"] == "audio")
             processAudio(jsonRootDoc);
         else if (jsonParam["action"] == "audio_db")
@@ -453,6 +457,65 @@ void JsonApiHandlerHttp::sendJson(const Json &json)
     headers.Add("Content-Length", Utils::to_string(data.size()));
     string res = httpClient->buildHttpResponse(HTTP_200, headers, data);
     sendData.emit(res);
+}
+
+void JsonApiHandlerHttp::processConfigBackup(const Json &request)
+{
+    const AdminAnswer answer = guardedAnswer(std::bind(&JsonApiHandlerHttp::sendJson, this, std::placeholders::_1));
+    if (!secureTransport())
+    {
+        answer(adminError("https_required", string()));
+        return;
+    }
+
+    //The body only: haproxy logs URLs
+    const string session = JsonField::string(request, "admin_session");
+    const string ip = adminClientIp();
+    const AdminAnswer deliver = guardedAnswer([this, ip](const Json &)
+                                              {
+        sendConfigBackup(ip);
+    });
+
+    withAdminMode([this, answer, deliver, session]()
+                  {
+        const Json refusal = adminModeRefusal();
+        if (!refusal.is_null())
+        {
+            answer(refusal);
+            return;
+        }
+        if (!isValidAdminSession(session))
+        {
+            answer(adminError("bad_session", string()));
+            return;
+        }
+        validateAdminSession(session, [answer, deliver](const Json &error)
+                             {
+            if (error.is_null())
+                deliver(Json());
+            else
+                answer(error);
+        });
+    });
+}
+
+void JsonApiHandlerHttp::sendConfigBackup(const string &ip)
+{
+    const std::time_t now = std::time(nullptr);
+    const Json doc = AdminConfig::backup(now);
+    cInfoDom("admin") << "Admin config backup by " << ip;
+
+    const string data = doc.dump(-1, ' ', true, Json::error_handler_t::replace);
+    Params headers;
+    headers.Add("Connection", "Close");
+    headers.Add("Content-Type", "application/json");
+    headers.Add("Content-Disposition",
+                "attachment; filename=\"" + AdminConfig::backupFilename(AdminConfig::hostname(), now) + "\"");
+    //Passwords in clear: no cache may keep a copy, no browser may sniff it
+    headers.Add("Cache-Control", "no-store");
+    headers.Add("X-Content-Type-Options", "nosniff");
+    headers.Add("Content-Length", Utils::to_string(data.size()));
+    sendData.emit(httpClient->buildHttpResponse(HTTP_200, headers, data));
 }
 
 void JsonApiHandlerHttp::sendMcpInfo()

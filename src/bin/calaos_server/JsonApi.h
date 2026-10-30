@@ -362,6 +362,9 @@ public:
     //token_id, the only form of a token a client ever sees
     static string pushTokenId(const string &token);
 
+    //First 8 hex characters of the SHA-256 of a session, as the daemon's audit log names it
+    static string sessionAuditId(const string &session);
+
     //An approver id, a code id or a token_id: 16 lowercase hex characters
     static bool isDaemonId(const string &s);
 
@@ -525,6 +528,8 @@ protected:
     static Json adminModeRefusal();
     //GET admin/status with the session: done(null) when it is valid
     void validateAdminSession(const string &session, const AdminAnswer &done);
+    //config_list, config_set, config_backup, served here once the session is valid
+    void configAdmin(const string &action, const Json &request, const string &session, const AdminAnswer &answer);
     //One row of the relay table, for a request adminRequestRefusal() accepted
     void relayAdmin(const string &action, const Json &request, const string &session, const AdminAnswer &answer);
     string adminClientIp() const;

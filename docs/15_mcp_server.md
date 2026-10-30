@@ -239,13 +239,13 @@ Réponse d'un token invalide (capturé,
 }
 ```
 
-Dans la portée service, **treize** commandes sont refusées
+Dans la portée service, **quatorze** commandes sont refusées
 (`JsonApi::serviceScopeDeniedCommands()`) : `set_param`, `del_param`, `audio_db`,
-`set_timerange`, `autoscenario`, `eventlog`, `register_push`, `settings`, `config`, les trois
-messages admin `admin_unlock`, `admin_set` et `admin`, et `console` (l'ouverture de
-`/api/console`), qui refusent avec la forme d'erreur admin
-(`not_allowed`, voir `08_http_api.md`, « Portée MCP »). La portée est une
-propriété de la **session**, pas du transport : les treize sont refusées quel que soit le chemin par
+`set_timerange`, `autoscenario`, `eventlog`, `register_push`, `settings`, `config`,
+`config_backup`, les trois messages admin `admin_unlock`, `admin_set` et
+`admin`, et `console` (l'ouverture de `/api/console`). Les messages admin, `console` et
+`config_backup` refusent avec la forme d'erreur admin (`not_allowed`, voir `08_http_api.md`, « Portée MCP »). La portée est une
+propriété de la **session**, pas du transport : les quatorze sont refusées quel que soit le chemin par
 lequel la session a été ouverte, et la charge utile du refus est la même partout — seule
 l'enveloppe change. Le refus prend la forme d'un message dont le `msg` est **le nom de l'action
 refusée**, et dont le `data` porte `error` **sans** clé `success` (capturé,

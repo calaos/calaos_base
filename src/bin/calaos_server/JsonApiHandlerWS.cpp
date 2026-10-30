@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "JsonApiHandlerWS.h"
+#include "AdminConfig.h"
 #include "AdminEvents.h"
 #include "ListeRoom.h"
 #include "ListeRule.h"
@@ -786,6 +787,12 @@ void JsonApiHandlerWS::processAdminMessage(const Json &request, const string &cl
                 else
                     answer(adminError("internal", string())); //LCOV_EXCL_LINE CSPRNG or local_config.xml failure
             });
+            return;
+        }
+
+        if (AdminConfig::isAction(action))
+        {
+            configAdmin(action, request, session, answer);
             return;
         }
 

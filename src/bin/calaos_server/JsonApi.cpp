@@ -583,11 +583,11 @@ const vector<string> &JsonApi::serviceScopeDeniedCommands()
      * that a websocket route added later is born refused (put replaces the
      * configuration files). The admin messages, and console (the open message
      * of /api/console), are refused with the admin error shape (adminError(),
-     * not_allowed).
+     * not_allowed), and so is the HTTP config_backup.
      */
     static const vector<string> denied = { "set_param", "del_param", "audio_db", "set_timerange", "autoscenario",
                                            "eventlog", "register_push", "settings", "config",
-                                           "admin_unlock", "admin_set", "admin", "console" };
+                                           "admin_unlock", "admin_set", "admin", "console", "config_backup" };
 
     return denied;
 }
