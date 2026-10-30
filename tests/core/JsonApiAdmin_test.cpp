@@ -6298,6 +6298,26 @@ TEST_F(JsonApiAdminRestoreTest, TheFreezeHoldsAgainstEverySaveUntilTheExit)
     Utils::set_config_frozen(false);
     Config::Instance().SaveConfigIO();
     EXPECT_NE(kRestoreIo, fileText(configPath("io.xml")));
+    Config::Instance().SaveConfigRule();
+    EXPECT_NE(kRestoreRules, fileText(configPath("rules.xml")));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ASessionTheDaemonRefusesRestoresNothing)
+{
+    WsClient ws;
+    openAdmin(ws);
+    drainLoop(600);
+    const std::string before = boxState();
+
+    const Json answer = ws.admin("admin", configAction("config_restore", restoreParams(false), std::string(64, 'b')));
+
+    expectError(answer, "bad_session");
+    EXPECT_EQ("GET /api/v2/admin/status (session)\n", requestPaths());
+    EXPECT_EQ(before, boxState());
+    EXPECT_FALSE(FileUtils::exists(configPath("backups")));
+    EXPECT_TRUE(restoreLeftovers().empty());
+    EXPECT_FALSE(Utils::config_frozen());
+    EXPECT_EQ(-1, loopStopsWithin(800)) << "a refused session must not stop the server";
 }
 
 TEST_F(JsonApiAdminRestoreTest, ARunningUpgradeRefusesThePreviewAndTheRestore)
