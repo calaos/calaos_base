@@ -324,8 +324,14 @@ pas sur le nœud lui-même ; c'est cosmétique et connu.
 
 Un `io.xml` ou un `rules.xml` illisible **ne tue plus le démon** — c'était un `exit(-1)`. Le
 chemin, en entier (dérivé,
-[CalaosConfig.cpp:55-198](../src/bin/calaos_server/CalaosConfig.cpp)) :
+[CalaosConfig.cpp:127-232](../src/bin/calaos_server/CalaosConfig.cpp)) :
 
+0. **Seule une erreur de parse lance ce chemin.** Un fichier qu'on n'a pas pu lire (droits, I/O,
+   mémoire, dossier à la place du fichier) n'est pas corrompu : l'erreur est journalisée sans
+   backup ni copie, le fichier reste tel quel et le serveur démarre à vide pour lui. pugixml
+   rend `file_not_found` pour tout échec de `fopen` : le statut est revérifié par `stat`, et seul
+   un fichier réellement absent passe pour absent. Dans le doute, le fichier n'est jamais
+   remplacé.
 1. **Journalisation** de l'erreur de parse, avec la description pugixml et un **offset en
    octets** dans le fichier.
 2. **Préservation** de l'octet près du fichier corrompu dans
@@ -335,7 +341,7 @@ chemin, en entier (dérivé,
    au contenu corrompu original (capturé,
    [tests/core/CalaosConfigRobustness_test.cpp:111-136](../tests/core/CalaosConfigRobustness_test.cpp)).
 3. **Restauration** : les backups portant ce nom de fichier sont parcourus **du plus récent au
-   plus ancien** (tri par date de modification). Chaque candidat est **d'abord parsé en place** —
+   plus ancien** (tri par date de modification). Chaque candidat est **d'abord parsé en mémoire** —
    un backup lui-même corrompu est sauté avec un avertissement, et surtout jamais recopié sur le
    fichier vivant. Le premier qui parse est restauré par `Utils::restore_config_file()` :
    `<fichier>.restore` à côté du fichier vivant, fsync, puis rename. Le fichier vivant garde son
@@ -344,12 +350,16 @@ chemin, en entier (dérivé,
    `ACopyFailureFallsBackToAnOlderBackup`.
 4. Si **aucun** backup n'est exploitable, l'erreur est journalisée, le fichier vivant reste tel
    quel et le serveur démarre avec une configuration **vide** pour ce fichier. Il démarre quand
-   même.
+   même. La sauvegarde automatique de démarrage (`Config::SaveLoadedConfig()`, appelée par
+   `checkAutoScenario`) saute ce fichier et sauvegarde l'autre. Ce répit ne couvre qu'elle : toute
+   sauvegarde ultérieure, dont une sauvegarde explicite, le remplace par la configuration vide.
+   Même règle pour un fichier non lu (étape 0).
 5. **Une seule notification agrégée**, mail **+** push, envoyée **~30 s après le démarrage**
    (`CONFIG_ALERT_DELAY_SEC = 30.0`) : les chargements ont lieu avant que la boucle d'événements
    ne tourne, la notification est donc différée par un `Timer::singleShot`. Le message nomme le
    fichier, le chemin de la copie préservée, et le backup restauré — ou dit explicitement que la
-   configuration est **vide**.
+   configuration est **vide** et qu'une sauvegarde ultérieure remplacera le fichier. Un fichier
+   non lu a son propre message, sans copie ni mention de corruption.
 
 Le canal est **partagé** : depuis E4.2e, la même notification transporte aussi le rapport des
 **règles désactivées** faute d'un IO manquant, et T3.18 y ajoute la mention des **scénarios**

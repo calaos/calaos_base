@@ -50,6 +50,7 @@ struct XmlLoadResult
 {
     bool loaded = false;      //document is usable
     bool wasCorrupt = false;  //the file on disk failed to parse
+    bool readFailed = false;  //not read, its content may well be valid
     string corruptCopy;       //where the corrupt file was preserved
     string restoredFrom;      //backup restored over file, empty if none
 };
@@ -95,8 +96,8 @@ vector<string> findBackupsNewestFirst(const string &configName)
 }
 
 //Preserve a corrupt config file for later inspection, before a backup gets
-//restored over it (or before a later save overwrites it when the server had
-//to start with an empty config). Returns the preserved path, empty on error.
+//restored over it or a later save replaces it. Returns the preserved path,
+//empty on error.
 string preserveCorruptFile(const string &file, const string &configName)
 {
     string dir = Utils::getConfigFile("backups") + "/corrupt";
@@ -123,18 +124,40 @@ string preserveCorruptFile(const string &file, const string &configName)
     return dest;
 }
 
+//Only a parse error proves the content bad. pugixml reports every fopen
+//failure as status_file_not_found, so look at the file again: EACCES or
+//EMFILE on a valid file must not send it to the backups.
+bool isReadFailure(const pugi::xml_parse_result &parsed, const string &file)
+{
+    switch (parsed.status)
+    {
+    case pugi::status_file_not_found:
+    {
+        std::error_code ec;
+        return std::filesystem::status(file, ec).type() != std::filesystem::file_type::not_found;
+    }
+    case pugi::status_io_error:
+    case pugi::status_out_of_memory:
+    case pugi::status_internal_error: //the directory guard of loadXmlDocument
+        return true;
+    default:
+        return false;
+    }
+}
+
 //Load file into document. On a parse error, log it, preserve the corrupt
 //file, then walk the backups newest to oldest and restore the first one
-//that parses. loaded stays false only when no backup is usable (the server
-//then starts with an empty config). Never exits: a corrupt config must not
-//kill the daemon.
+//that parses. A file that could not be read is left alone: its content is
+//unknown. loaded stays false in that case and when no backup is usable.
+//Never exits: a corrupt config must not kill the daemon.
 XmlLoadResult loadXmlDocument(pugi::xml_document &document, const string &file, const string &configName)
 {
     XmlLoadResult res;
 
     //pugixml sizes its buffer from ftell, which is LONG_MAX on a directory
     pugi::xml_parse_result parsed;
-    if (!FileUtils::isDir(file))
+    const bool isDirectory = FileUtils::isDir(file);
+    if (!isDirectory)
         parsed = document.load_file(file.c_str());
     if (parsed)
     {
@@ -142,15 +165,35 @@ XmlLoadResult loadXmlDocument(pugi::xml_document &document, const string &file, 
         return res;
     }
 
-    res.wasCorrupt = true;
-    cError() << "There was a parse error in " << file;
-    cError() << parsed.description();
-    //pugixml reports a byte offset where the old TinyXML 1 reader (removed in
-    //E4.4e) reported a row; the offset is what it has, and it points at the
-    //same place in the file.
-    cError() << "In file " << file << " At offset " << parsed.offset;
+    if (isReadFailure(parsed, file))
+    {
+        res.readFailed = true;
+        //parsed.description() says "not found" for a file that is there
+        const char *reason = isDirectory ? "it is a directory"
+                             : parsed.status == pugi::status_file_not_found ? "it could not be opened"
+                             : parsed.description();
+        cError() << "Unable to read " << file << " (" << reason
+                 << "), config not loaded, no backup restored, file left as it was";
+        return res;
+    }
 
-    res.corruptCopy = preserveCorruptFile(file, configName);
+    //Nothing valid to lose: a dangling link, the skeleton could not go through it
+    const bool absent = parsed.status == pugi::status_file_not_found;
+
+    res.wasCorrupt = true;
+    if (absent)
+        cError() << file << " does not exist and could not be created";
+    else
+    {
+        cError() << "There was a parse error in " << file;
+        cError() << parsed.description();
+        //pugixml reports a byte offset where the old TinyXML 1 reader (removed in
+        //E4.4e) reported a row; the offset is what it has, and it points at the
+        //same place in the file.
+        cError() << "In file " << file << " At offset " << parsed.offset;
+
+        res.corruptCopy = preserveCorruptFile(file, configName);
+    }
 
     for (const string &backup: findBackupsNewestFirst(configName))
     {
@@ -179,19 +222,27 @@ XmlLoadResult loadXmlDocument(pugi::xml_document &document, const string &file, 
 
         document.reset(candidate);
         cInfo() << configName << " restored from backup " << backup;
+        if (res.corruptCopy.empty() && !absent)
+            cWarning() << "The corrupt bytes of " << file << " were not preserved and are lost";
         res.loaded = true;
         res.restoredFrom = backup;
         return res;
     }
 
     cError() << "No usable backup found for " << configName << ", config not loaded, "
-             << file << " left as it was";
+             << file << " left as it was until the next configuration save";
     return res;
 }
 
 //Human readable report of one recovery, used for the mail/push notification
 string configAlertMessage(const string &configName, const XmlLoadResult &res)
 {
+    if (res.readFailed)
+        return "The configuration file " + configName + " could not be read (see server logs)."
+               "\nIt was left as it was and no backup was restored, but the server started with "
+               "an EMPTY " + configName + " configuration, and any later configuration save "
+               "replaces the file.";
+
     string msg = "The configuration file " + configName + " was corrupt and could not be parsed.";
 
     if (!res.corruptCopy.empty())
@@ -202,7 +253,8 @@ string configAlertMessage(const string &configName, const XmlLoadResult &res)
     if (!res.restoredFrom.empty())
         msg += "\nThe configuration was automatically restored from backup: " + res.restoredFrom;
     else
-        msg += "\nNo usable backup was found: the server started with an EMPTY " + configName + " configuration.";
+        msg += "\nNo usable backup was found: the server started with an EMPTY " + configName +
+               " configuration. The file was left in place, but any later configuration save replaces it.";
 
     return msg;
 }
@@ -286,8 +338,9 @@ void Config::LoadConfigIO()
     pugi::xml_document document;
 
     XmlLoadResult xmlres = loadXmlDocument(document, file, IO_CONFIG);
-    if (xmlres.wasCorrupt)
+    if (xmlres.wasCorrupt || xmlres.readFailed)
         scheduleConfigAlert(configAlertMessage(IO_CONFIG, xmlres));
+    ioNotLoaded = !xmlres.loaded;
     if (!xmlres.loaded)
         return;
 
@@ -384,8 +437,9 @@ void Config::LoadConfigRule()
     pugi::xml_document document;
 
     XmlLoadResult xmlres = loadXmlDocument(document, file, RULES_CONFIG);
-    if (xmlres.wasCorrupt)
+    if (xmlres.wasCorrupt || xmlres.readFailed)
         scheduleConfigAlert(configAlertMessage(RULES_CONFIG, xmlres));
+    ruleNotLoaded = !xmlres.loaded;
     if (!xmlres.loaded)
         return;
 
@@ -512,6 +566,19 @@ void Config::SaveConfigRule()
     }
 
     cInfo() <<  "Done.";
+}
+
+void Config::SaveLoadedConfig()
+{
+    if (ioNotLoaded)
+        cError() << "Skipping the save of " << IO_CONFIG << ": it was not loaded";
+    else
+        SaveConfigIO();
+
+    if (ruleNotLoaded)
+        cError() << "Skipping the save of " << RULES_CONFIG << ": it was not loaded";
+    else
+        SaveConfigRule();
 }
 
 void Config::loadStateCache()

@@ -20,7 +20,9 @@
 // - m1: a parse error in io.xml/rules.xml used to exit(-1) the whole daemon.
 //   Now: log, preserve the corrupt file under backups/corrupt/, walk the
 //   backups (Config::BackupFiles() tree) newest to oldest and restore the
-//   first one that parses; give up gracefully (empty config) when none works.
+//   first one that parses; give up gracefully (empty config, live file kept)
+//   when none works. Only a parse error does that: a file that could not be
+//   read is left alone, and the startup save skips a file that did not load.
 //   Every corruption queues an alert message (getConfigAlerts()) that is
 //   later sent by mail+push through NotifManager (same mechanism as the
 //   battery/connected IO alerts) via Timer::singleShot. The send itself
@@ -542,6 +544,35 @@ protected:
         }
     }
 
+    //What main.cpp runs: the last step saves on its own, 0.1 s after the load
+    static void startServer()
+    {
+        Config::Instance().LoadConfigIO();
+        Config::Instance().LoadConfigRule();
+        ListeRoom::Instance().checkAutoScenario();
+    }
+
+    static bool contains(const std::string &text, const std::string &part)
+    {
+        return text.find(part) != std::string::npos;
+    }
+
+    //Rules that lost their IOs add an alert after the load one, and Config
+    //outlives the test: read them all, from where this test started.
+    std::string alerts() const
+    {
+        const std::vector<std::string> &all = Config::Instance().getConfigAlerts();
+        std::string text;
+        for (size_t i = alertsBefore; i < all.size(); i++)
+            text += all[i] + "\n";
+        return text;
+    }
+
+    //The default parse drops comments, so a save shows as this one vanishing
+    static constexpr const char *kDroppedBySave = "<!--dropped by a save-->";
+    static constexpr const char *kFromTheBackup = "<!--from the backup-->";
+
+    const size_t alertsBefore = Config::Instance().getConfigAlerts().size();
     const mode_t savedUmask = ::umask(0);
 };
 
@@ -611,12 +642,15 @@ TEST_F(ConfigRestoreTest, NoValidBackupLeavesTheLiveFileAsItWas)
     clearCoreState();
     const std::string corrupt = "live file garbage <<<";
     putLive(ioXmlPath(), corrupt, 0600);
+    testing::internal::CaptureStdout();
     Config::Instance().LoadConfigIO();
+    const std::string logged = testing::internal::GetCapturedStdout();
 
     EXPECT_EQ(nullptr, io(ID_BOOL_IN));
     EXPECT_EQ(corrupt, getFile(ioXmlPath()));
     EXPECT_EQ(0600u, modeOf(ioXmlPath()));
     expectNoTemporaryFor(IO_CONFIG);
+    EXPECT_TRUE(contains(logged, "left as it was until the next configuration save")) << logged;
 }
 
 TEST_F(ConfigRestoreTest, AnUnreadableBackupIsSkipped)
@@ -699,16 +733,191 @@ TEST_F(ConfigRestoreTest, ASymlinkedLiveFileKeepsItsLink)
 TEST_F(ConfigRestoreTest, ARefusedRenameLeavesNoTemporary)
 {
     loadConfig();
+    const std::string good = getFile(ioXmlPath());
+
+    clearCoreState();
+    ASSERT_EQ(0, ::unlink(ioXmlPath().c_str()));
+    ASSERT_TRUE(FileUtils::mkdir(ioXmlPath()));
+
+    EXPECT_FALSE(Utils::restore_config_file(ioXmlPath(), good));
+
+    EXPECT_TRUE(FileUtils::isDir(ioXmlPath()));
+    expectNoTemporaryFor(IO_CONFIG);
+    ::rmdir(ioXmlPath().c_str());
+}
+
+TEST_F(ConfigRestoreTest, TheStartupSaveLeavesAnUnloadedIoFileAlone)
+{
+    loadConfig();
+    const std::string rules = getFile(rulesXmlPath());
+    putBackup("only", IO_CONFIG, "corrupt backup too <<<", 50);
+
+    clearCoreState();
+    const std::string corrupt = "live file garbage <<<";
+    putLive(ioXmlPath(), corrupt, 0600);
+    putFile(rulesXmlPath(), rules + kDroppedBySave);
+    startServer();
+
+    EXPECT_EQ(corrupt, getFile(ioXmlPath()));
+    EXPECT_EQ(0600u, modeOf(ioXmlPath()));
+    EXPECT_FALSE(contains(getFile(rulesXmlPath()), kDroppedBySave));
+    EXPECT_TRUE(contains(alerts(), "any later configuration save replaces it")) << alerts();
+}
+
+TEST_F(ConfigRestoreTest, TheStartupSaveLeavesAnUnloadedRulesFileAlone)
+{
+    loadConfig();
+    const std::string ioXml = getFile(ioXmlPath());
+    putBackup("only", RULES_CONFIG, "corrupt backup too <<<", 50);
+
+    clearCoreState();
+    const std::string corrupt = "live file garbage <<<";
+    putLive(rulesXmlPath(), corrupt, 0600);
+    putFile(ioXmlPath(), ioXml + kDroppedBySave);
+    startServer();
+
+    EXPECT_EQ(corrupt, getFile(rulesXmlPath()));
+    EXPECT_EQ(0600u, modeOf(rulesXmlPath()));
+    EXPECT_FALSE(contains(getFile(ioXmlPath()), kDroppedBySave));
+}
+
+TEST_F(ConfigRestoreTest, AnExplicitSaveStillReplacesAnUnloadedFile)
+{
+    loadConfig();
+
+    clearCoreState();
+    const std::string corrupt = "live file garbage <<<";
+    putLive(ioXmlPath(), corrupt, 0600);
+    putLive(rulesXmlPath(), corrupt, 0600);
+    startServer();
+    Config::Instance().SaveConfigIO();
+    Config::Instance().SaveConfigRule();
+
+    EXPECT_TRUE(contains(getFile(ioXmlPath()), "calaos:ioconfig"));
+    EXPECT_TRUE(contains(getFile(rulesXmlPath()), "calaos:rules"));
+}
+
+TEST_F(ConfigRestoreTest, TheStartupSaveResumesOnceTheFilesLoadAgain)
+{
+    loadConfig();
+    const std::string ioXml = getFile(ioXmlPath());
+    const std::string rules = getFile(rulesXmlPath());
+
+    clearCoreState();
+    putLive(ioXmlPath(), "live file garbage <<<", 0600);
+    putLive(rulesXmlPath(), "live file garbage <<<", 0600);
+    startServer();
+
+    clearCoreState();
+    putFile(ioXmlPath(), ioXml + kDroppedBySave);
+    putFile(rulesXmlPath(), rules + kDroppedBySave);
+    startServer();
+
+    EXPECT_FALSE(contains(getFile(ioXmlPath()), kDroppedBySave));
+    EXPECT_FALSE(contains(getFile(rulesXmlPath()), kDroppedBySave));
+}
+
+TEST_F(ConfigRestoreTest, ARefusedOpenLeavesAValidFileWithItsBackupsUnused)
+{
+    if (::geteuid() == 0)
+        GTEST_SKIP() << "root reads a file of mode 0000";
+
+    loadConfig();
+    const std::string good = getFile(ioXmlPath());
+    putBackup("only", IO_CONFIG, good + kFromTheBackup, 50);
+
+    clearCoreState();
+    putLive(ioXmlPath(), good, 0);
+    testing::internal::CaptureStdout();
+    Config::Instance().LoadConfigIO();
+    const std::string logged = testing::internal::GetCapturedStdout();
+    Config::Instance().LoadConfigRule();
+    ListeRoom::Instance().checkAutoScenario();
+
+    EXPECT_EQ(0u, modeOf(ioXmlPath()));
+    ASSERT_EQ(0, ::chmod(ioXmlPath().c_str(), 0640));
+    EXPECT_EQ(good, getFile(ioXmlPath()));
+    EXPECT_EQ(nullptr, io(ID_BOOL_IN));
+    EXPECT_TRUE(corruptCopiesOf(IO_CONFIG).empty());
+    EXPECT_TRUE(contains(logged, "it could not be opened")) << logged;
+    EXPECT_TRUE(contains(alerts(), "could not be read")) << alerts();
+    EXPECT_FALSE(contains(alerts(), "corrupt")) << alerts();
+}
+
+TEST_F(ConfigRestoreTest, ARefusedOpenLeavesAValidRulesFileAlone)
+{
+    if (::geteuid() == 0)
+        GTEST_SKIP() << "root reads a file of mode 0000";
+
+    loadConfig();
+    const std::string good = getFile(rulesXmlPath());
+    putBackup("only", RULES_CONFIG, good + kFromTheBackup, 50);
+
+    clearCoreState();
+    putLive(rulesXmlPath(), good, 0);
+    startServer();
+
+    EXPECT_EQ(0u, modeOf(rulesXmlPath()));
+    ASSERT_EQ(0, ::chmod(rulesXmlPath().c_str(), 0640));
+    EXPECT_EQ(good, getFile(rulesXmlPath()));
+    EXPECT_TRUE(corruptCopiesOf(RULES_CONFIG).empty());
+    EXPECT_TRUE(contains(alerts(), "could not be read")) << alerts();
+}
+
+//Fails to open as root too: stat() gets ELOOP, not "no such file"
+TEST_F(ConfigRestoreTest, ALiveFileThatCannotBeOpenedIsNotReplaced)
+{
+    loadConfig();
+    putBackup("only", IO_CONFIG, getFile(ioXmlPath()), 50);
+
+    clearCoreState();
+    ASSERT_EQ(0, ::unlink(ioXmlPath().c_str()));
+    ASSERT_EQ(0, ::symlink(ioXmlPath().c_str(), ioXmlPath().c_str()));
+    startServer();
+
+    EXPECT_TRUE(std::filesystem::is_symlink(ioXmlPath()));
+    EXPECT_EQ(nullptr, io(ID_BOOL_IN));
+    EXPECT_TRUE(corruptCopiesOf(IO_CONFIG).empty());
+    EXPECT_TRUE(contains(alerts(), "could not be read")) << alerts();
+    ::unlink(ioXmlPath().c_str());
+}
+
+TEST_F(ConfigRestoreTest, ADirectoryInPlaceOfTheFileIsNotReplaced)
+{
+    loadConfig();
     putBackup("only", IO_CONFIG, getFile(ioXmlPath()), 50);
 
     clearCoreState();
     ASSERT_EQ(0, ::unlink(ioXmlPath().c_str()));
     ASSERT_TRUE(FileUtils::mkdir(ioXmlPath()));
+    testing::internal::CaptureStdout();
     Config::Instance().LoadConfigIO();
+    const std::string logged = testing::internal::GetCapturedStdout();
 
     EXPECT_EQ(nullptr, io(ID_BOOL_IN));
     EXPECT_TRUE(FileUtils::isDir(ioXmlPath()));
+    EXPECT_TRUE(corruptCopiesOf(IO_CONFIG).empty());
     expectNoTemporaryFor(IO_CONFIG);
+    EXPECT_TRUE(contains(logged, "it is a directory")) << logged;
+    EXPECT_TRUE(contains(alerts(), "could not be read")) << alerts();
     ::rmdir(ioXmlPath().c_str());
+}
+
+TEST_F(ConfigRestoreTest, ARestoreOverUnpreservedCorruptBytesSaysSo)
+{
+    loadConfig();
+    const std::string good = getFile(ioXmlPath());
+    putBackup("only", IO_CONFIG, good, 50);
+    putFile(corruptDir(), "");
+
+    clearCoreState();
+    putLive(ioXmlPath(), "live file garbage <<<", 0640);
+    testing::internal::CaptureStdout();
+    Config::Instance().LoadConfigIO();
+    const std::string logged = testing::internal::GetCapturedStdout();
+
+    EXPECT_EQ(good, getFile(ioXmlPath()));
+    EXPECT_TRUE(contains(logged, "were not preserved and are lost")) << logged;
+    EXPECT_TRUE(contains(alerts(), "could not be preserved")) << alerts();
 }
 }
