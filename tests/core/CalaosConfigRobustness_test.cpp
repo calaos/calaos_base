@@ -386,7 +386,7 @@ TEST_F(ConfigRobustnessTest, ABackupWithNoFreeFolderInTheSecondIsRefusedAndWrite
     std::error_code ec;
     std::filesystem::create_directories(base, ec);
     ASSERT_FALSE(ec) << ec.message();
-    for (int i = 2;i <= 1000;i++)
+    for (int i = 2; i <= 1000; i++)
         std::filesystem::create_directories(base + "-" + std::to_string(i), ec);
     ASSERT_FALSE(ec) << ec.message();
 
@@ -396,6 +396,4 @@ TEST_F(ConfigRobustnessTest, ABackupWithNoFreeFolderInTheSecondIsRefusedAndWrite
     EXPECT_TRUE(result.empty());
     EXPECT_FALSE(std::filesystem::exists(base + "-1001"));
     EXPECT_TRUE(std::filesystem::is_empty(base));
-}
-
 }
