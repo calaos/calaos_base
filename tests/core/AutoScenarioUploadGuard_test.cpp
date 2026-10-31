@@ -96,6 +96,7 @@
 
 #include "JsonApiCharacterization.h"
 
+#include "AdminConfig.h"
 #include "AutoScenario.h"
 #include "AutoScenarioDef.h"
 #include "CalaosConfig.h"
@@ -1533,6 +1534,14 @@ TEST_F(ConfigPutTest, AnUnknownNameOrANonStringValueIsRefusedBeforeAnyBackupOrWr
     expectRefused(Json{ { "io.xml", 123 } }, "io.xml is not a string");
     expectRefused(Json{ { "foo.xml", "x" }, { "io.xml", kIoRoot } }, "foo.xml is not a valid config filename");
     expectRefused(Json{ { "io.xml", kIoRoot }, { "rules.xml", nullptr } }, "rules.xml is not a string");
+}
+
+//Judging a name is the caller's job (the handler refuses it first); the content
+//check only knows the three config files.
+TEST_F(ConfigPutTest, TheContentCheckLeavesAnUnknownNameToTheCaller)
+{
+    EXPECT_TRUE(AdminConfig::putFileRefusal("foo.xml", "not xml").empty());
+    EXPECT_FALSE(AdminConfig::putFileRefusal("io.xml", "not xml").empty());
 }
 
 //rules.xml becomes a link into a directory where no temporary can be created;

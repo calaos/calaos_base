@@ -1029,9 +1029,9 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
         {
             //Some files may already be new: say which, and where the old ones are
             jret["error"] = replaced.empty()
-                ? writeError + ", the file was left as it was"
-                : writeError + "; already replaced: " + replaced + "; previous files in backups/" +
-                  backupFolder + "; the server restarts";
+                                ? writeError + ", the file was left as it was"
+                                : writeError + "; already replaced: " + replaced + "; previous files in backups/" +
+                                      backupFolder + "; the server restarts";
         }
 
         //The memory still holds what was just overwritten: nothing may save it
