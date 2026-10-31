@@ -335,6 +335,10 @@ table des loggers vivent jusqu'à la fin du processus, sans quoi un destructeur 
 réutilisait après leur propre destruction — c'est ce qui imprimait un chemin corrompu à chaque
 arrêt du serveur (dérivé, `src/lib/Logger.cpp:85-99`).
 
+⚠️ **Une écriture ratée ne coupe pas les logs.** `~LogStream()` efface l'état d'erreur de
+`std::cout` après chaque ligne, sans quoi plus rien ne sortirait, et rend `errno` à l'appelant :
+le logger ne remonte aucune erreur.
+
 ---
 
 ## Timer

@@ -1473,13 +1473,14 @@ Ni listées ni modifiables ici : `cn_user`, `cn_pass`, `calaos_user`, `calaos_pa
   `config put` en cours : `internal`.
 - **`config_backup`** (sans `params`) → `{"format": "calaos-config-backup/2", "created_at",
   "server_version", "hostname", "io_format": <entier>, "files": {"io.xml", "rules.xml",
-  "local_config.xml"}}`, chaque valeur étant le contenu du fichier. Un fichier absent de la box est
-  **omis** de `files` (jamais une chaîne vide, qu'une restauration écrirait). `widgets.xml` n'y
-  est pas : aucun programme ne le lit. `created_at` est en RFC 3339 UTC à la seconde
+  "local_config.xml"}}`, chaque valeur étant le contenu du fichier. Un fichier absent de la box,
+  illisible ou vide est **omis** de `files` (jamais une chaîne vide, qu'une restauration écrirait).
+  `widgets.xml` n'y est pas : aucun programme ne le lit. `created_at` est en RFC 3339 UTC à la seconde
   (`2026-10-25T12:34:56Z`), `server_version` la version de calaos_server, `hostname` le nom
   d'hôte brut (`gethostname()`), `io_format` le format d'`io.xml` de ce serveur (nombre JSON, le
   même que `config get` : `2` aujourd'hui). Comme `config get`, les IO et règles en mémoire sont
-  d'abord réécrites dans `io.xml` et `rules.xml`. La webapp en fait l'archive zip du projet
+  d'abord réécrites dans `io.xml` et `rules.xml`, sauf un fichier **non chargé** : voir
+  [Fichier non chargé](#fichier-non-chargé). La webapp en fait l'archive zip du projet
   installer ; le nom `….json` de l'action HTTP ne change pas.
 - La session est validée comme `mcp_regenerate`.
 - Le journal de calaos_server (`cInfoDom("admin")`) écrit `Admin config set <clé> by <ip> (session
@@ -1584,7 +1585,8 @@ absent en `dry_run` ; `restarting` est faux en `dry_run`.
   3. `GET update/status` : un job en cours donne `upgrade_in_progress` ;
   4. `dry_run: true` répond ici ; rien n'est écrit ;
   5. `Config::BackupFiles()`, qui renvoie désormais le dossier. Un échec donne `internal` et rien
-     n'est écrit (plus strict que `config put` : la copie est le moyen d'annuler) ;
+     n'est écrit (plus strict que `config put` : la copie est le moyen d'annuler). La copie ratée
+     d'un fichier non chargé n'est pas un échec : le remplacer est ce qui est demandé ;
   6. les sauvegardes de la configuration sont gelées jusqu'à la sortie (`SaveConfigIO`,
      `SaveConfigRule` et les écritures d'option deviennent sans effet), pour qu'un appel
      concurrent ne réécrive pas la configuration en mémoire par-dessus les fichiers restaurés ;
@@ -2005,7 +2007,7 @@ Une fois l'admin défini, `config` exige `secureTransport()` et une `admin_sessi
 
 | `type` | Effet | Réponse |
 |---|---|---|
-| `get` | sauvegarde puis relit `io.xml`, `rules.xml`, `local_config.xml` | `{"config_files":{…},"io_format":2,"success":"true"}` |
+| `get` | sauvegarde (sauf [fichier non chargé](#fichier-non-chargé)) puis relit `io.xml`, `rules.xml`, `local_config.xml` | `{"config_files":{…},"io_format":2,"success":"true"}` |
 | `put` | écrit les fichiers fournis dans `config_files` (et `io_format`, voir ci-dessous) après backup, puis **redémarre le serveur** une fois la réponse écrite | `{"success":"true"\|"false"}` ; refus : `{"success":"false","error":"…"}` |
 
 `type` inconnu → `{"success":"false"}`. En `put`, seuls les trois noms de
@@ -2019,7 +2021,30 @@ Pendant le gel, un `put` est refusé sans rien toucher :
 `{"success":"false","error":"The configuration is frozen until the restart"}`. Une sauvegarde ratée
 refuse aussi le `put`, avant toute écriture et sans redémarrage :
 `{"success":"false","error":"Could not copy the current files to backups, nothing was written"}`.
+La copie ratée d'un fichier non chargé ne refuse pas le `put` : il est le moyen de le remplacer.
 Les copies de `backups/` sont en 0600.
+
+#### Fichier non chargé
+
+`io.xml` ou `rules.xml` est **non chargé** quand il existe mais n'a rien donné au démarrage : il
+n'a pas pu être lu, il est corrompu sans backup exploitable, ou son élément racine n'est pas le
+bon. Le serveur tourne à vide pour ce fichier ; aucune sauvegarde ne l'écrit, seuls `config put`
+et `config_restore` le remplacent, et le redémarrage qui les suit le charge normalement. Un
+fichier absent n'est pas dans ce cas : c'est un premier démarrage, le squelette est créé.
+
+- **Lectures.** `config get` et `config_backup` n'écrivent rien sur ce fichier et répondent comme
+  d'habitude. Ils rendent les octets du disque, tels quels, pas le squelette ni un XML valide : une
+  telle sauvegarde `config_backup` n'est pas restaurable (`invalid_request`) pour ce fichier. Un
+  fichier illisible vaut une chaîne vide dans `config get`, et est omis de `config_backup`. Les
+  octets qui ne sont pas de l'UTF-8 ressortent en U+FFFD.
+- **Écritures.** Les `type` `create`, `delete`, `modify`, `add_schedule` et `del_schedule`
+  d'`autoscenario` touchent les deux fichiers : ils répondent `{"error":"config_not_loaded"}`, sans
+  rien changer en mémoire ni sur le disque. Le contrôle du payload et de `id` passe d'abord : sur un
+  `io.xml` non chargé, où ni les salles ni les scénarios n'existent, c'est donc le plus souvent
+  `invalid payload: …` ou `wrong input`. `set_timerange` et `reenable` ne changent qu'`io.xml` :
+  avec le seul `rules.xml` non chargé ils aboutissent, sinon `wrong input`. Le provisioning RemoteUI
+  ne trouve aucun écran dans un `io.xml` non chargé et répond 404
+  (`Invalid provisioning code`).
 
 **`io_format`** (entier) annonce le plus haut format d'`io.xml` que le serveur écrit et
 comprend ; 2 = peut contenir des `<calaos:device>` (`<calaos:home format="2">`, écrit dès qu'un
