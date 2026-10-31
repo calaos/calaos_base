@@ -222,6 +222,7 @@ public:
 
     void TearDown() override
     {
+        PushTest::settleHistory();
         std::error_code ec;
         std::filesystem::remove_all(base, ec);
     }
@@ -255,7 +256,10 @@ TEST(PushPayloadTest, SendWithoutAnyTokenPostsNothing)
         *done = true;
     });
     auto loop = uvw::Loop::getDefault();
-    for (int i = 0; i < 400 && !*done; i++)
+    //Wide bound: it only ever elapses when the worker is lost, a loaded host
+    //is not that.
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+    while (!*done && std::chrono::steady_clock::now() < deadline)
     {
         loop->run<uvw::Loop::Mode::NOWAIT>();
         std::this_thread::sleep_for(std::chrono::milliseconds(5));

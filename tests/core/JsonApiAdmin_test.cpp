@@ -112,7 +112,8 @@ void drainLoop(int ms)
     }
 }
 
-bool pumpUntil(const std::function<bool()> &done, int ms = 6000)
+//The bound is only reached by a lost answer, never by a loaded host.
+bool pumpUntil(const std::function<bool()> &done, int ms = 30000)
 {
     auto loop = uvw::Loop::getDefault();
     const auto deadline = steady_clock::now() + milliseconds(ms);

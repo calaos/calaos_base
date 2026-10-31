@@ -1193,13 +1193,21 @@ TEST_F(InternalThermostatTest, TheShortestPutBackDelayStillBoundsAFight)
     ASSERT_NE(addSimpleRule("heat_back_off", "tiny_heat", "==", "true", "tiny_heat", "false"), nullptr);
     auto heat = count("tiny_heat");
 
+    //A stalled host can end a fixed window after one turn of the loop: wait for
+    //the second put-back by its count, and let the upper bounds grow by one
+    //put-back per minute the window really lasted.
+    const auto t0 = Clock::now();
     temp("tiny", 19);
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return heat->count >= 2;
+    }, 30000));
     pumpFor(60);
-    EXPECT_GE(heat->count, 2);
-    EXPECT_LE(heat->count, 20);
+    EXPECT_LE(heat->count, 20 + msSince(t0) / 60);
     const int first = heat->count;
+    const auto t1 = Clock::now();
     pumpFor(60);
-    EXPECT_LE(heat->count - first, 6);
+    EXPECT_LE(heat->count - first, 6 + msSince(t1) / 60);
 }
 
 //The same holds for a stop the thermostat forces (mode off).

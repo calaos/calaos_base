@@ -58,7 +58,10 @@ std::vector<PushToken> migrated;
 bool pumpUntil(const std::function<bool()> &done)
 {
     auto loop = uvw::Loop::getDefault();
-    for (int i = 0; i < 400; i++)
+    //Wide bound: it only ever elapses when the worker is lost, a loaded host
+    //is not that.
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+    while (std::chrono::steady_clock::now() < deadline)
     {
         if (done())
             return true;
@@ -126,6 +129,7 @@ public:
 
     void TearDown() override
     {
+        PushTest::settleHistory();
         std::error_code ec;
         std::filesystem::remove_all(base, ec);
     }
