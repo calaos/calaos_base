@@ -262,9 +262,11 @@ protected:
         return done();
     }
 
+    //Returns as soon as the condition holds; the bound only caps a hang, and
+    //is wide because a loaded sanitizer run can stall the sqlite worker.
     static bool waitUntil(const std::function<bool()> &done)
     {
-        for (int i = 0;i < 400;i++)
+        for (int i = 0;i < 6000;i++)
         {
             if (done())
                 return true;
