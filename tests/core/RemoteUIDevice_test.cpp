@@ -29,6 +29,7 @@
 
 #include "IO/Device.h"
 #include "IO/RemoteUI/RemoteUI.h"
+#include "RemoteUIProvisioningHandler.h"
 #include "RemoteUIWebSocketHandler.h"
 #include "HttpClient.h"
 #include "IO/IOFactory.h"
@@ -36,9 +37,12 @@
 #include "libuvw.h"
 
 #include <chrono>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <thread>
+
+#include <sys/stat.h>
 
 using namespace Calaos;
 using namespace CalaosTest;
@@ -734,6 +738,37 @@ TEST_F(RemoteUIScopeTest, FramesWithoutAMessageTypeAreDropped)
     send(R"(["set_state"])");
     EXPECT_TRUE(sent.empty());
     EXPECT_NE(capture.text().find("frame without a message type"), std::string::npos);
+}
+
+TEST_F(RemoteUIDeviceTest, ProvisioningSavesALoadedFileAndLeavesAnUnloadedOneAsItWas)
+{
+    const char code[] = "PROV-1234";
+    const std::string body = Json{ { "code", code },
+                                   { "device_info", { { "type", "esp32" }, { "mac_address", "aa:bb:cc:dd:ee:ff" } } } }
+                                 .dump();
+    screen->set_param("provisioning_code", code);
+    RemoteUIProvisioningHandler provisioning(client.get());
+
+    ASSERT_EQ(std::string::npos, ioXmlOnDisk().find(code));
+    provisioning.processRequest("/api/v3/provision/request", "POST", body, Params());
+    ASSERT_NE(std::string::npos, ioXmlOnDisk().find(code));
+
+    handler.reset();
+    const std::string path = configDir() + "/" IO_CONFIG;
+    const std::string garbage = "live file garbage <<<";
+    {
+        std::ofstream f(path, std::ios::trunc);
+        f << garbage;
+    }
+    ASSERT_EQ(0, ::chmod(path.c_str(), 0640));
+    reloadFromDisk();
+
+    provisioning.processRequest("/api/v3/provision/request", "POST", body, Params());
+
+    EXPECT_EQ(garbage, ioXmlOnDisk());
+    struct stat st;
+    ASSERT_EQ(0, ::stat(path.c_str(), &st));
+    EXPECT_EQ(0640u, st.st_mode & 07777);
 }
 
 TEST_F(RemoteUIScopeTest, AHandlerWithoutAPanelServesNothing)

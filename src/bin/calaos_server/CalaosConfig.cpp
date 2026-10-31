@@ -51,6 +51,7 @@ struct XmlLoadResult
     bool loaded = false;      //document is usable
     bool wasCorrupt = false;  //the file on disk failed to parse
     bool readFailed = false;  //not read, its content may well be valid
+    bool absent = false;      //no file, and the skeleton could not be created
     string corruptCopy;       //where the corrupt file was preserved
     string restoredFrom;      //backup restored over file, empty if none
 };
@@ -148,9 +149,11 @@ bool isReadFailure(const pugi::xml_parse_result &parsed, const string &file)
 //Load file into document. On a parse error, log it, preserve the corrupt
 //file, then walk the backups newest to oldest and restore the first one
 //that parses. A file that could not be read is left alone: its content is
-//unknown. loaded stays false in that case and when no backup is usable.
-//Never exits: a corrupt config must not kill the daemon.
-XmlLoadResult loadXmlDocument(pugi::xml_document &document, const string &file, const string &configName)
+//unknown, and so is that of a valid XML file with another root than rootName,
+//from which nothing gets loaded. loaded stays false in those cases and when no
+//backup is usable. Never exits: a corrupt config must not kill the daemon.
+XmlLoadResult loadXmlDocument(pugi::xml_document &document, const string &file,
+                              const string &configName, const char *rootName)
 {
     XmlLoadResult res;
 
@@ -159,19 +162,21 @@ XmlLoadResult loadXmlDocument(pugi::xml_document &document, const string &file, 
     const bool isDirectory = FileUtils::isDir(file);
     if (!isDirectory)
         parsed = document.load_file(file.c_str());
-    if (parsed)
+    if (parsed && document.child(rootName))
     {
         res.loaded = true;
         return res;
     }
 
-    if (isReadFailure(parsed, file))
+    if (parsed || isReadFailure(parsed, file))
     {
         res.readFailed = true;
         //parsed.description() says "not found" for a file that is there
         const char *reason = parsed.description();
         if (isDirectory)
             reason = "it is a directory";
+        else if (parsed)
+            reason = "it has another root element";
         else if (parsed.status == pugi::status_file_not_found)
             reason = "it could not be opened";
         cError() << "Unable to read " << file << " (" << reason
@@ -183,6 +188,7 @@ XmlLoadResult loadXmlDocument(pugi::xml_document &document, const string &file, 
     const bool absent = parsed.status == pugi::status_file_not_found;
 
     res.wasCorrupt = true;
+    res.absent = absent;
     if (absent)
         cError() << file << " does not exist and could not be created";
     else
@@ -207,10 +213,11 @@ XmlLoadResult loadXmlDocument(pugi::xml_document &document, const string &file, 
 
         pugi::xml_document candidate;
         pugi::xml_parse_result candidateParsed = candidate.load_buffer(bytes.data(), bytes.size());
-        if (!candidateParsed)
+        if (!candidateParsed || !candidate.child(rootName))
         {
             cWarning() << "Backup " << backup << " is unreadable or has a parse error too ("
-                       << candidateParsed.description() << "), trying an older one";
+                       << (candidateParsed ? "another root element" : candidateParsed.description())
+                       << "), trying an older one";
             continue;
         }
 
@@ -232,31 +239,73 @@ XmlLoadResult loadXmlDocument(pugi::xml_document &document, const string &file, 
     }
 
     cError() << "No usable backup found for " << configName << ", config not loaded, "
-             << file << " left as it was until the next configuration save";
+             << file << " left as it was until a config put or a config_restore replaces it";
     return res;
+}
+
+//First start: the file truly is not there. FileUtils::exists() is false as
+//well for a file it could not look at, which is not a first start.
+void createSkeleton(const string &file, const char *content)
+{
+    std::error_code ec;
+    if (std::filesystem::status(file, ec).type() != std::filesystem::file_type::not_found)
+        return;
+
+    cWarning() << file << " does not exist, first start: creating an empty one";
+
+    //Through a dangling link too: its target may be a fresh persistent volume
+    std::ofstream conf(file.c_str(), std::ofstream::out);
+    conf << content;
+    conf.close();
+
+    //Saves keep the mode of the file they replace, so it is decided here
+    ::chmod(file.c_str(), 0600);
+}
+
+//Goes where a restore goes: mode and owner survive, a failure costs nothing
+void saveDocument(const pugi::xml_document &document, const string &file)
+{
+    cInfo() << "Saving " << file << "...";
+
+    std::ostringstream content;
+    document.save(content, XmlUtils::CONFIG_INDENT);
+
+    if (Utils::restore_config_file(file, content.str()))
+        cInfo() << "Done.";
+    else
+        cError() << "Unable to save " << file;
 }
 
 //Human readable report of one recovery, used for the mail/push notification
 string configAlertMessage(const string &configName, const XmlLoadResult &res)
 {
+    const string untilReplaced = "Changes to it are refused, and no save writes the file, until a "
+                                 "configuration upload or a restore replaces it.";
+
     if (res.readFailed)
         return "The configuration file " + configName +
                " could not be read (see server logs).\nIt was left as it was and no backup was "
                "restored, but the server started with an EMPTY " +
-               configName + " configuration, and any later configuration save replaces the file.";
+               configName + " configuration. " + untilReplaced;
 
-    string msg = "The configuration file " + configName + " was corrupt and could not be parsed.";
-
-    if (!res.corruptCopy.empty())
-        msg += "\nThe corrupt file was preserved at: " + res.corruptCopy;
+    string msg;
+    if (res.absent)
+        msg = "The configuration file " + configName + " does not exist and could not be created.";
     else
-        msg += "\nThe corrupt file could not be preserved (see server logs).";
+    {
+        msg = "The configuration file " + configName + " was corrupt and could not be parsed.";
+
+        if (!res.corruptCopy.empty())
+            msg += "\nThe corrupt file was preserved at: " + res.corruptCopy;
+        else
+            msg += "\nThe corrupt file could not be preserved (see server logs).";
+    }
 
     if (!res.restoredFrom.empty())
         msg += "\nThe configuration was automatically restored from backup: " + res.restoredFrom;
     else
         msg += "\nNo usable backup was found: the server started with an EMPTY " + configName +
-               " configuration. The file was left in place, but any later configuration save replaces it.";
+               " configuration. " + untilReplaced;
 
     return msg;
 }
@@ -327,22 +376,17 @@ void Config::LoadConfigIO()
 {
     std::string file = Utils::getConfigFile(IO_CONFIG);
 
-    if (!FileUtils::exists(file))
-    {
-        std::ofstream conf(file.c_str(), std::ofstream::out);
-        conf << "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" << std::endl;
-        conf << "<calaos:ioconfig xmlns:calaos=\"http://www.calaos.fr\">" << std::endl;
-        conf << "<calaos:home></calaos:home>" << std::endl;
-        conf << "</calaos:ioconfig>" << std::endl;
-        conf.close();
-    }
+    createSkeleton(file, "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n"
+                         "<calaos:ioconfig xmlns:calaos=\"http://www.calaos.fr\">\n"
+                         "<calaos:home></calaos:home>\n"
+                         "</calaos:ioconfig>\n");
 
     pugi::xml_document document;
 
-    XmlLoadResult xmlres = loadXmlDocument(document, file, IO_CONFIG);
+    XmlLoadResult xmlres = loadXmlDocument(document, file, IO_CONFIG, "calaos:ioconfig");
     if (xmlres.wasCorrupt || xmlres.readFailed)
         scheduleConfigAlert(configAlertMessage(IO_CONFIG, xmlres));
-    ioNotLoaded = !xmlres.loaded;
+    ioLoaded = xmlres.loaded;
     if (!xmlres.loaded)
         return;
 
@@ -386,10 +430,11 @@ void Config::SaveConfigIO()
     if (Utils::config_frozen())
         return;
 
-    string file = Utils::getConfigFile(IO_CONFIG);
-    string tmp = file + "_tmp";
-
-    cInfo() <<  "Saving " << file << "...";
+    if (!ioLoaded)
+    {
+        cError() << "Skipping the save of " << IO_CONFIG << ": it was not loaded";
+        return;
+    }
 
     pugi::xml_document document;
     XmlUtils::appendDeclaration(document);
@@ -405,43 +450,23 @@ void Config::SaveConfigIO()
         room->SaveToXml(node);
     }
 
-    if (!document.save_file(tmp.c_str(), XmlUtils::CONFIG_INDENT))
-    {
-        cError() << "Unable to save " << file << ": writing " << tmp << " failed";
-        FileUtils::unlink(tmp); //do not leave a partial tmp file behind
-        return;
-    }
-
-    //rename() alone is atomic, an unlink() first would open a window where
-    //no config file exists at all
-    if (::rename(tmp.c_str(), file.c_str()) != 0)
-    {
-        cError() << "Unable to move " << tmp << " to " << file << ": " << strerror(errno);
-        return;
-    }
-
-    cInfo() <<  "Done.";
+    saveDocument(document, Utils::getConfigFile(IO_CONFIG));
 }
 
 void Config::LoadConfigRule()
 {
     std::string file = Utils::getConfigFile(RULES_CONFIG);
 
-    if (!FileUtils::exists(file))
-    {
-        std::ofstream conf(file.c_str(), std::ofstream::out);
-        conf << "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" << std::endl;
-        conf << "<calaos:rules xmlns:calaos=\"http://www.calaos.fr\">" << std::endl;
-        conf << "</calaos:rules>" << std::endl;
-        conf.close();
-    }
+    createSkeleton(file, "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n"
+                         "<calaos:rules xmlns:calaos=\"http://www.calaos.fr\">\n"
+                         "</calaos:rules>\n");
 
     pugi::xml_document document;
 
-    XmlLoadResult xmlres = loadXmlDocument(document, file, RULES_CONFIG);
+    XmlLoadResult xmlres = loadXmlDocument(document, file, RULES_CONFIG, "calaos:rules");
     if (xmlres.wasCorrupt || xmlres.readFailed)
         scheduleConfigAlert(configAlertMessage(RULES_CONFIG, xmlres));
-    ruleNotLoaded = !xmlres.loaded;
+    rulesLoaded = xmlres.loaded;
     if (!xmlres.loaded)
         return;
 
@@ -536,10 +561,11 @@ void Config::SaveConfigRule()
     if (Utils::config_frozen())
         return;
 
-    string file = Utils::getConfigFile(RULES_CONFIG);
-    string tmp = file + "_tmp";
-
-    cInfo() <<  "Saving " << file << "...";
+    if (!rulesLoaded)
+    {
+        cError() << "Skipping the save of " << RULES_CONFIG << ": it was not loaded";
+        return;
+    }
 
     pugi::xml_document document;
     XmlUtils::appendDeclaration(document);
@@ -552,35 +578,7 @@ void Config::SaveConfigRule()
         rule->SaveToXml(rulesnode);
     }
 
-    if (!document.save_file(tmp.c_str(), XmlUtils::CONFIG_INDENT))
-    {
-        cError() << "Unable to save " << file << ": writing " << tmp << " failed";
-        FileUtils::unlink(tmp); //do not leave a partial tmp file behind
-        return;
-    }
-
-    //rename() alone is atomic, an unlink() first would open a window where
-    //no config file exists at all
-    if (::rename(tmp.c_str(), file.c_str()) != 0)
-    {
-        cError() << "Unable to move " << tmp << " to " << file << ": " << strerror(errno);
-        return;
-    }
-
-    cInfo() <<  "Done.";
-}
-
-void Config::SaveLoadedConfig()
-{
-    if (ioNotLoaded)
-        cError() << "Skipping the save of " << IO_CONFIG << ": it was not loaded";
-    else
-        SaveConfigIO();
-
-    if (ruleNotLoaded)
-        cError() << "Skipping the save of " << RULES_CONFIG << ": it was not loaded";
-    else
-        SaveConfigRule();
+    saveDocument(document, Utils::getConfigFile(RULES_CONFIG));
 }
 
 void Config::loadStateCache()
@@ -755,13 +753,25 @@ string Config::BackupFiles()
         return string();
     }
 
+    const std::pair<const char *, bool> sources[] = {
+        { IO_CONFIG, ioLoaded }, { RULES_CONFIG, rulesLoaded }, { LOCAL_CONFIG, true }
+    };
+
     bool complete = true;
-    for (const char *name: { IO_CONFIG, RULES_CONFIG, LOCAL_CONFIG })
+    for (const auto &[name, wasLoaded]: sources)
     {
         const string source = Utils::getConfigFile(name);
         //local_config.xml holds tokens and io.xml camera passwords
         if (!FileUtils::exists(source) || FileUtils::copyFile(source, folder + "/" + name, true))
             continue;
+
+        //Failing here would forbid the only uploads that can replace this file
+        if (!wasLoaded)
+        {
+            cWarning() << "Unable to backup file " << name << ", it was not loaded either";
+            continue;
+        }
+
         cError() << "Unable to backup file " << name;
         complete = false;
     }

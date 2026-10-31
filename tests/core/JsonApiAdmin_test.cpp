@@ -527,6 +527,15 @@ protected:
         drainLoop(10);
     }
 
+    //A server that started on an empty house: its saves write
+    static void loadEmptyHouse()
+    {
+        ::unlink(Utils::getConfigFile(IO_CONFIG).c_str());
+        ::unlink(Utils::getConfigFile(RULES_CONFIG).c_str());
+        Config::Instance().LoadConfigIO();
+        Config::Instance().LoadConfigRule();
+    }
+
     void TearDown() override
     {
         drainLoop(30);
@@ -5775,6 +5784,7 @@ TEST_F(JsonApiAdminTest, ConfigActionsNeedHttpsAndAValidSessionAndRefuseTheServi
 TEST_F(JsonApiAdminTest, TheBackupOverTheWebsocketHoldsTheThreeFiles)
 {
     adminDefined();
+    loadEmptyHouse();
     //No program reads widgets.xml: it is never in the backup
     {
         std::ofstream w(Utils::getConfigFile(WIDGET_CONFIG), std::ios::trunc);
@@ -5812,6 +5822,7 @@ TEST_F(JsonApiAdminTest, TheBackupOverTheWebsocketHoldsTheThreeFiles)
 
 TEST_F(JsonApiAdminTest, AFileMissingOnTheBoxIsLeftOutOfTheBackup)
 {
+    loadEmptyHouse();
     const std::string path = Utils::getConfigFile(LOCAL_CONFIG);
     const std::string saved = fileText(path);
     ASSERT_FALSE(saved.empty());
@@ -5835,6 +5846,7 @@ TEST_F(JsonApiAdminTest, AFileMissingOnTheBoxIsLeftOutOfTheBackup)
 TEST_F(JsonApiAdminTest, TheHttpBackupIsADownloadNoCacheKeeps)
 {
     adminDefined();
+    loadEmptyHouse();
     PushTest::StdoutCapture capture;
     const std::string response = httpPost(backupRequest({ { "admin_session", FakeDaemon::Session } }), "https");
     const std::string log = capture.stop();
@@ -6035,6 +6047,8 @@ protected:
         savedLocalConfig = localConfigText();
         //A token another test generated would raise mcp_token_changes everywhere
         ::Utils::del_config_option("mcp_token");
+        //Loaded, so that a save stopped here is stopped by the freeze
+        loadEmptyHouse();
         writeFile(configPath("io.xml"), kBoxIo);
         writeFile(configPath("rules.xml"), kBoxRules);
     }
@@ -6351,6 +6365,61 @@ TEST_F(JsonApiAdminRestoreTest, TheFreezeHoldsAgainstEverySaveUntilTheExit)
     EXPECT_NE(kRestoreIo, fileText(configPath("io.xml")));
     Config::Instance().SaveConfigRule();
     EXPECT_NE(kRestoreRules, fileText(configPath("rules.xml")));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ABackupOfAnUnloadedFileWritesNothing)
+{
+    const std::string garbage = "live file garbage <<<";
+    writeFile(configPath("rules.xml"), garbage);
+    ASSERT_EQ(0, ::chmod(configPath("rules.xml").c_str(), 0640));
+    Config::Instance().LoadConfigRule();
+    ASSERT_FALSE(Config::Instance().rulesFileLoaded());
+    WsClient ws;
+    openAdmin(ws);
+
+    const Json backup = ws.admin("admin", configAction("config_backup"));
+
+    ASSERT_EQ("true", str(backup, "success")) << backup.dump();
+    EXPECT_EQ(garbage, str(backup["result"]["files"], "rules.xml"));
+    EXPECT_EQ(garbage, fileText(configPath("rules.xml")));
+    struct stat st;
+    ASSERT_EQ(0, ::stat(configPath("rules.xml").c_str(), &st));
+    EXPECT_EQ(0640u, st.st_mode & 07777);
+    EXPECT_FALSE(FileUtils::exists(configPath("rules.xml") + ".restore"));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ARestoreIsTheWayOutOfAnUnloadedFile)
+{
+    //Empty files: this suite has no way to clear the house a reload would add to
+    loadEmptyHouse();
+    Json params = restoreParams(false);
+    params["files"]["io.xml"] = fileText(configPath("io.xml"));
+    params["files"]["rules.xml"] = fileText(configPath("rules.xml"));
+
+    writeFile(configPath("io.xml"), "live file garbage <<<");
+    writeFile(configPath("rules.xml"), "live file garbage <<<");
+    Config::Instance().LoadConfigIO();
+    Config::Instance().LoadConfigRule();
+    ASSERT_FALSE(Config::Instance().ioFileLoaded());
+    ASSERT_FALSE(Config::Instance().rulesFileLoaded());
+    WsClient ws;
+    openAdmin(ws);
+
+    const Json restored = ws.admin("admin", configAction("config_restore", params));
+
+    ASSERT_EQ("true", str(restored, "success")) << restored.dump();
+    EXPECT_EQ(str(params["files"], "io.xml"), fileText(configPath("io.xml")));
+    EXPECT_EQ(str(params["files"], "rules.xml"), fileText(configPath("rules.xml")));
+    //The copy taken first keeps the file that could not be read
+    const std::string saved = configPath("backups") + "/" + str(restored["result"], "previous") + "/";
+    EXPECT_EQ("live file garbage <<<", fileText(saved + "io.xml"));
+
+    Utils::set_config_frozen(false);
+    Config::Instance().LoadConfigIO();
+    Config::Instance().LoadConfigRule();
+
+    EXPECT_TRUE(Config::Instance().ioFileLoaded());
+    EXPECT_TRUE(Config::Instance().rulesFileLoaded());
 }
 
 TEST_F(JsonApiAdminRestoreTest, ASessionTheDaemonRefusesRestoresNothing)

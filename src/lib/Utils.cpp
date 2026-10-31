@@ -23,6 +23,8 @@
 #include <tcpsocket.h>
 #include "libuvw.h"
 
+#include <filesystem>
+
 using namespace Utils;
 
 double Utils::roundValue(double value, int precision)
@@ -73,6 +75,10 @@ char *Utils::argvOptionParam(char **begin, char **end, const std::string &option
 
 string Utils::getFileContent(const char *filename)
 {
+    //A directory opens, and tellg() then gives a size no buffer can hold
+    std::error_code ec;
+    if (std::filesystem::is_directory(filename, ec)) return "";
+
     ifstream ifs(filename, ios::in | ios::binary | ios::ate);
     if (!ifs) return "";
 

@@ -54,7 +54,8 @@ bool set_config_options(const Params &toSet, const std::vector<std::string> &toD
 void set_config_frozen(bool frozen);
 bool config_frozen();
 
-//Replaces path, frozen or not, with exactly these bytes: <path>.restore, fsync, rename
+//Replaces path, frozen or not, with exactly these bytes: <path>.restore, fsync,
+//rename. The mode and owner of the file are kept, a new file gets 0600.
 bool restore_config_file(const std::string &path, const std::string &content);
 }
 
