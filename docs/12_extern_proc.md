@@ -164,7 +164,8 @@ par `McpServerManager::stop()` (`McpServerManager.cpp:163-170`, cf.
 | `CALAOS_CONFIG_PATH` | `Utils::getConfigPath()` |
 | `CALAOS_LOG_LEVEL` | option de config `debug_level` |
 | `CALAOS_LOG_DOMAINS` | option de config `debug_domains` |
-| `CALAOS_FORCE_COLOR` | `Logger::isColorEnabled()` |
+| `CALAOS_FORCE_COLOR` | `1` si `Logger::isColorEnabled()`, sinon `0` |
+| `CALAOS_JOURNAL_PRIORITY` | `1` si `Logger::isJournalPriorityEnabled()`, sinon `0` |
 
 S'y ajoutent, **héritées du parent quand elles existent** (sinon transmises vides) : `PATH`,
 `HOME`, `LANG`, `LC_ALL`, `LANGUAGE`, `LD_LIBRARY_PATH`, `PWD`. L'environnement est
@@ -177,8 +178,15 @@ sous-processus.
 > autrement (`McpServerManager.cpp:238-245`).
 
 **stdout et stderr** du sous-processus sont capturés sur deux pipes séparés, découpés en
-lignes et réémis respectivement sur `std::cout` et `std::cerr` du serveur
-(`ExternProc.cpp:222-250`).
+lignes et réémis par le logger du serveur comme lignes de debug du domaine `process`
+(`ExternProc.cpp:236-268`). Un serveur au niveau par défaut ne les affiche donc pas :
+`debug_domains` à `process:5` les rend visibles.
+
+Quand le serveur écrit pour journald (`CALAOS_JOURNAL_PRIORITY`, voir `docs/13_utility_lib.md`),
+le sous-processus reçoit la même consigne et préfixe ses lignes. Le relais retire ce préfixe du
+texte et le reporte en tête de la ligne réémise : une erreur du pilote, une fois visible, arrive
+à journald en priorité 3. Le niveau du filtre ne change pas, c'est toujours celui du debug de
+`process`. Une ligne sans préfixe valide reste en priorité 7.
 
 ---
 
