@@ -70,10 +70,11 @@ int declaredIoFormat(const Json &jroot)
     return declared >= 1 && declared <= MAX_DECLARED_FORMAT ? (int)declared : 1;
 }
 
-//True when the upload must be refused, with the reason in `error`. With no
-//device on the server nothing is judged, an io.xml that does not parse
-//included. Otherwise an unparsable io.xml is refused whatever the client says,
-//and a client that did not declare io_format >= 2 may not touch the devices.
+//True when the upload must be refused, with the reason in `error`. Only the
+//devices are judged here (the content is putFileRefusal()'s): with none on the
+//server nothing is refused. Otherwise an unparsable io.xml is refused whatever
+//the client says, and a client that did not declare io_format >= 2 may not
+//touch the devices.
 bool refuseIoXmlUpload(const std::string &ioXml, bool clientKnowsDevices, std::string &error)
 {
     const size_t devices = ListeRoom::Instance().deviceCount();
@@ -944,17 +945,35 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
         //refused before the backup and before any write.
         if (!refused && jfiles.is_object())
         {
-            for (Json::const_iterator it = jfiles.cbegin(); it != jfiles.cend() && !refused; ++it)
+            //The reply carries the first fault; the others reach the journal
+            for (Json::const_iterator it = jfiles.cbegin(); it != jfiles.cend(); ++it)
             {
-                if (!it.value().is_string())
+                const string &skey = it.key();
+                string fault;
+                if (skey != IO_CONFIG && skey != RULES_CONFIG && skey != LOCAL_CONFIG)
+                    fault = skey + " is not a valid config filename";
+                else if (!it.value().is_string())
+                    fault = skey + " is not a string";
+                else
+                    fault = AdminConfig::putFileRefusal(skey, it.value().get<std::string>());
+
+                if (fault.empty())
                     continue;
-                refusal = AdminConfig::putFileRefusal(it.key(), it.value().get<std::string>());
-                refused = !refusal.empty();
+                if (refused)
+                    cErrorDom("network") << "config put refused, " << fault;
+                else
+                {
+                    refused = true;
+                    refusal = fault;
+                }
             }
         }
 
         //Backup before the files are replaced
-        if (!refused && jfiles.is_object() && Config::Instance().BackupFiles().empty())
+        string backupFolder;
+        if (!refused && jfiles.is_object())
+            backupFolder = Config::Instance().BackupFiles();
+        if (!refused && jfiles.is_object() && backupFolder.empty())
         {
             refused = true;
             refusal = "Could not copy the current files to backups, nothing was written";
@@ -969,7 +988,7 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
             return;
         }
 
-        bool replaced = false;
+        string replaced;
         string writeError;
 
         if (jfiles.is_object())
@@ -984,37 +1003,17 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
 
             for (Json::const_iterator it = jfiles.cbegin(); it != jfiles.cend(); ++it)
             {
+                //Names and types were judged above
                 const string skey = it.key();
-
-                if (it.value().is_string())
+                if (Utils::restore_config_file(Utils::getConfigFile(skey.c_str()),
+                                               it.value().get<std::string>()))
                 {
-                    if (skey != IO_CONFIG &&
-                        skey != RULES_CONFIG &&
-                        skey != LOCAL_CONFIG)
-                    {
-                        cErrorDom("network") << "Error, file " << skey << " is not a valid config filename";
-                        ret = false;
-                        continue;
-                    }
-
-                    //Content already judged above; c_str() as getConfigFile()
-                    //takes a const char *, and the whitelist has reduced skey
-                    //to one of three literals, so a NUL cannot reach here.
-                    if (Utils::restore_config_file(Utils::getConfigFile(skey.c_str()),
-                                                   it.value().get<std::string>()))
-                    {
-                        replaced = true;
-                    }
-                    else
-                    {
-                        cErrorDom("network") << "Error, could not write " << skey;
-                        writeError = "Could not write " + skey + ", the file was left as it was";
-                        ret = false;
-                    }
+                    replaced += (replaced.empty() ? "" : ", ") + skey;
                 }
                 else
                 {
-                    cErrorDom("network") << "Error, key " << skey << " is not a string";
+                    cErrorDom("network") << "Error, could not write " << skey;
+                    writeError = "Could not write " + skey;
                     ret = false;
                 }
             }
@@ -1027,12 +1026,18 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
 
         jret["success"] = ret?"true":"false";
         if (!writeError.empty())
-            jret["error"] = writeError;
+        {
+            //Some files may already be new: say which, and where the old ones are
+            jret["error"] = replaced.empty()
+                ? writeError + ", the file was left as it was"
+                : writeError + "; already replaced: " + replaced + "; previous files in backups/" +
+                  backupFolder + "; the server restarts";
+        }
 
         //The memory still holds what was just overwritten: nothing may save it
         //back before the restart. A write that failed after another file was
         //replaced leaves the same disk, so it restarts too.
-        if (ret || replaced)
+        if (ret || !replaced.empty())
         {
             Utils::set_config_frozen(true);
             httpClient->setNeedRestart(true);

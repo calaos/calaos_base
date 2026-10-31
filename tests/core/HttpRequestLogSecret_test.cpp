@@ -1456,19 +1456,29 @@ TEST_F(HttpRequestLogSecretTest, TheCeilingIsHeldToTheOverlapThisSuiteMeasures)
     };
 
     const std::vector<Probe> probes = {
-        { "the headers of a refused login", buildRequest(loginWire, credentialHeaders()), "", plantedValues(), {}, {}, "network" },
-        { "the query of a refused login", buildRequest(loginWire, credentialHeaders()), "", { query }, {}, {}, "Login failed" },
+        { "the headers of a refused login", buildRequest(loginWire, credentialHeaders()),
+          "", plantedValues(), {}, {}, "network" },
+        { "the query of a refused login", buildRequest(loginWire, credentialHeaders()),
+          "", { query }, {}, {}, "Login failed" },
         //Only the base64 travels; the plain form is measured all the same
         //because a journal can hand the secret back decoded.
-        { "a Basic credential", buildRequest("/api.php", basicHeaders), "", { basicEncoded, kBasicPlain }, {}, { basicEncoded }, "network" },
-        { "a query that carries a url", buildRequest(urlInQuery, credentialHeaders()), "", { urlInQuery.substr(urlInQuery.find('?') + 1) }, {}, {}, "network" },
-        { "the headers of a websocket handshake", buildRequest("/api", websocketHeaders()), "", plantedValues(), {}, {}, "Upgrading connection to WebSocket" },
-        { "the head of a websocket login frame", buildRequest("/api", websocketHeaders()), wsLogin, { kWsFramePassword }, {}, {}, "Got a new frame" },
-        { "the body of a websocket request", buildRequest("/api", websocketHeaders()), wsBody, { kWsInventedSecret }, {}, {}, "grimoire" },
-        { "an authenticated config upload", jsonPost(configPutBody(true)), "", uploaded, { emittedToken() }, {}, "config_files" },
-        { "an unauthenticated config upload", jsonPost(configPutBody(false)), "", uploaded, { emittedToken() }, {}, "config_files" },
+        { "a Basic credential", buildRequest("/api.php", basicHeaders),
+          "", { basicEncoded, kBasicPlain }, {}, { basicEncoded }, "network" },
+        { "a query that carries a url", buildRequest(urlInQuery, credentialHeaders()),
+          "", { urlInQuery.substr(urlInQuery.find('?') + 1) }, {}, {}, "network" },
+        { "the headers of a websocket handshake", buildRequest("/api", websocketHeaders()),
+          "", plantedValues(), {}, {}, "Upgrading connection to WebSocket" },
+        { "the head of a websocket login frame", buildRequest("/api", websocketHeaders()),
+          wsLogin, { kWsFramePassword }, {}, {}, "Got a new frame" },
+        { "the body of a websocket request", buildRequest("/api", websocketHeaders()),
+          wsBody, { kWsInventedSecret }, {}, {}, "grimoire" },
+        { "an authenticated config upload", jsonPost(configPutBody(true)),
+          "", uploaded, { emittedToken() }, {}, "config_files" },
+        { "an unauthenticated config upload", jsonPost(configPutBody(false)),
+          "", uploaded, { emittedToken() }, {}, "config_files" },
         { "a set_param", jsonPost(setParamBody()), "", { kSetParamSecret }, {}, {}, "param" },
-        { "the content of a refused config file", jsonPost(refused.str()), "", { kRefusedContentSecret }, {}, {}, "does not start with <?xml" },
+        { "the content of a refused config file", jsonPost(refused.str()),
+          "", { kRefusedContentSecret }, {}, {}, "does not start with <?xml" },
     };
 
     for (const Probe &p: probes)
