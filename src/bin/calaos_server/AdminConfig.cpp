@@ -474,11 +474,11 @@ Json AdminConfig::backup(std::time_t createdAt)
     }
 
     Json doc = Json{ { "format", "calaos-config-backup/2" },
-                        { "created_at", utcStamp(createdAt, "%Y-%m-%dT%H:%M:%SZ") },
-                        { "server_version", PKG_VERSION_STR },
-                        { "hostname", hostname() },
-                        { "io_format", IO_FORMAT_DEVICES },
-                        { "files", files } };
+                     { "created_at", utcStamp(createdAt, "%Y-%m-%dT%H:%M:%SZ") },
+                     { "server_version", PKG_VERSION_STR },
+                     { "hostname", hostname() },
+                     { "io_format", IO_FORMAT_DEVICES },
+                     { "files", files } };
     if (!unrestorable.empty())
         doc["unrestorable"] = unrestorable;
     return doc;
