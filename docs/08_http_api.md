@@ -1599,8 +1599,10 @@ absent en `dry_run` ; `restarting` est faux en `dry_run`.
      n'est écrit (plus strict que `config put` : la copie est le moyen d'annuler). La copie ratée
      d'un fichier non chargé n'est pas un échec : le remplacer est ce qui est demandé ;
   6. les sauvegardes de la configuration sont gelées jusqu'à la sortie (`SaveConfigIO`,
-     `SaveConfigRule` et les écritures d'option deviennent sans effet), pour qu'un appel
-     concurrent ne réécrive pas la configuration en mémoire par-dessus les fichiers restaurés ;
+     `SaveConfigRule` et les écritures d'option n'écrivent plus rien), pour qu'un appel
+     concurrent ne réécrive pas la configuration en mémoire par-dessus les fichiers restaurés. Une
+     modification reçue entre-temps répond `config_not_written`, voir
+     [Fichier non écrit](#fichier-non-écrit) ;
   7. chaque fichier est écrit en `<nom>.restore`, `fsync`, puis `rename` ;
   8. la réponse porte `previous` et `restarting: true` ;
   9. la boucle s'arrête environ 500 ms après l'envoi de la trame, comme à la sortie du `config
@@ -2056,6 +2058,34 @@ fichier absent n'est pas dans ce cas : c'est un premier démarrage, le squelette
   avec le seul `rules.xml` non chargé ils aboutissent, sinon `wrong input`. Le provisioning RemoteUI
   ne trouve aucun écran dans un `io.xml` non chargé et répond 404
   (`Invalid provisioning code`).
+
+#### Fichier non écrit
+
+`{"error":"config_not_written"}` : la modification demandée a été appliquée en mémoire, mais n'a pas
+atteint le disque. L'écriture a échoué (disque plein, droits, cible invalide), ou les sauvegardes
+sont gelées par un `config_restore` ou un `config put` qui se termine. Même réponse sur HTTP et sur
+WebSocket, pour les `type` `create`, `delete`, `modify`, `add_schedule` et `del_schedule`
+d'`autoscenario`, pour `set_timerange` et pour `reenable`.
+
+- **Pas d'annulation.** Le changement reste en mémoire et son événement est déjà parti : `autoscenario
+  list` le montre, le scénario tourne. La prochaine sauvegarde réussie, quelle qu'elle soit, le
+  porte sur le disque ; un redémarrage avant celle-ci le perd.
+- **Une erreur n'est pas un refus.** Après un `create`, le scénario existe sans que son `id` ait été
+  répondu, et le renvoyer en crée un second ; un `add_schedule` renvoyé ajoute une autre plage. Un
+  `delete` renvoyé répond `wrong input`, le scénario étant déjà retiré. `modify`, `del_schedule`,
+  `set_timerange` et `reenable` restent appliqués. Le client relit `autoscenario list` avant de
+  renvoyer quoi que ce soit.
+- **Écriture partielle.** Les deux fichiers sont toujours tentés : `io.xml` peut être écrit et
+  `rules.xml` non, ou l'inverse, et la réponse est la même. Le fichier qui a échoué reste tel
+  qu'il était.
+- **Fichier non chargé.** Il ne fait pas échouer ce qui n'a pas à l'écrire : `set_timerange` et
+  `reenable` aboutissent avec le seul `rules.xml` non chargé, comme plus haut, mais une écriture
+  ratée d'`io.xml` à côté reste `config_not_written`.
+- **Lectures.** `config get` et `config_backup` sauvegardent d'abord et répondent quoi qu'il
+  arrive, avec les octets du disque : l'échec est au journal, leur réponse ne change pas.
+- **Journal.** Le chemin et la cause, jamais le contenu du fichier. Sous le gel, aucune ligne
+  d'erreur : ce n'est pas une panne.
+- **Provisioning RemoteUI.** Voir [docs/07](07_remoteui.md#anti-abus) : un 500, sans identifiants.
 
 **`io_format`** (entier) annonce le plus haut format d'`io.xml` que le serveur écrit et
 comprend ; 2 = peut contenir des `<calaos:device>` (`<calaos:home format="2">`, écrit dès qu'un
@@ -2813,6 +2843,8 @@ elles contiennent une faute de frappe historique (`unkown` au lieu de
 | `wrong input` | [JsonApi.cpp:1777, 1815, 1898, 2004, 2030, 2157, 2180, 2203](../src/bin/calaos_server/JsonApi.cpp) | plage horaire ou scénario introuvable |
 | `scenario creation failed` | [JsonApi.cpp:1938, 1950](../src/bin/calaos_server/JsonApi.cpp) | |
 | `scenario modification failed` | [JsonApi.cpp:2136](../src/bin/calaos_server/JsonApi.cpp) | |
+| `config_not_loaded` | `CONFIG_NOT_LOADED`, [CalaosConfig.h](../src/bin/calaos_server/CalaosConfig.h) | `autoscenario` : un fichier à écrire n'a pas été chargé, rien n'a changé, voir [Fichier non chargé](#fichier-non-chargé) |
+| `config_not_written` | `CONFIG_NOT_WRITTEN`, [CalaosConfig.h](../src/bin/calaos_server/CalaosConfig.h) | `autoscenario`, `set_timerange` : changement en mémoire, pas sur le disque, voir [Fichier non écrit](#fichier-non-écrit) |
 | `uuid not found` | [HistLogger.cpp:292](../src/bin/calaos_server/HistLogger.cpp) | `eventlog` avec un `uuid` inconnu |
 | `history unavailable: <raison>` | [HistLogger.cpp:549](../src/bin/calaos_server/HistLogger.cpp) | `eventlog` : la requête SQL a échoué (ex. `database is locked`) — refus **asynchrone** ; la raison est le message générique de SQLite, jamais le contenu d'un événement |
 | `history is disabled` | [HistLogger.cpp:441](../src/bin/calaos_server/HistLogger.cpp) | `eventlog` : `events.db` n'a pas pu être ouvert au démarrage |

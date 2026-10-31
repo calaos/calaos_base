@@ -6369,6 +6369,20 @@ TEST_F(JsonApiAdminRestoreTest, TheFreezeHoldsAgainstEverySaveUntilTheExit)
     EXPECT_NE(kRestoreRules, fileText(configPath("rules.xml")));
 }
 
+TEST_F(JsonApiAdminRestoreTest, ABackupOverAFailedSaveAnswersWithWhatIsOnDisk)
+{
+    WsClient ws;
+    openAdmin(ws);
+    const std::string blocked = configPath("io.xml") + ".restore";
+    ASSERT_TRUE(std::filesystem::create_directory(blocked));
+
+    const Json backup = ws.admin("admin", configAction("config_backup"));
+
+    EXPECT_TRUE(std::filesystem::remove(blocked));
+    ASSERT_EQ("true", str(backup, "success")) << backup.dump();
+    EXPECT_EQ(fileText(configPath("io.xml")), str(backup["result"]["files"], "io.xml"));
+}
+
 TEST_F(JsonApiAdminRestoreTest, ABackupOfAnUnloadedFileWritesNothing)
 {
     const std::string garbage = "live file garbage <<<";

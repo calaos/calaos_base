@@ -636,7 +636,10 @@ réel. Défaut connu, consigné dans `docs/refactoring/FINDINGS.md`, **non corri
 Token et secret font 32 octets aléatoires encodés en 64 caractères hexadécimaux
 (dérivé, `…RemoteUIProvisioningHandler.cpp:386`, `:396`, `:402-409` et
 `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:393-399`). La configuration est persistée par
-`Config::Instance().SaveConfigIO()` (`…ProvisioningHandler.cpp:207`).
+`Config::Instance().SaveConfigIO()` (`…ProvisioningHandler.cpp:207`). Si elle ne l'est pas, le
+serveur répond 500 et ne donne aucun identifiant : un panneau qui les aurait reçus se croirait
+provisionné, et un redémarrage les ferait oublier au serveur. Ils restent en mémoire, sur le
+`RemoteUI`, et une nouvelle demande avec le même code rend ceux-là, une fois écrits.
 
 ### Anti-abus
 
@@ -651,7 +654,9 @@ Token et secret font 32 octets aléatoires encodés en 64 caractères hexadécim
 
 Réponses associées : `429 Too many requests or blacklisted` (`:133`),
 `413 Request body too large` (`:96`), `413 Device info fields too long` (`:124`),
-`404 Invalid provisioning code` (`:165`).
+`404 Invalid provisioning code` (`:165`),
+`500 Internal server error - configuration not written` (écriture ratée ou gel en cours, voir plus
+haut ; la limite de 10 s s'applique à la nouvelle demande).
 
 ---
 

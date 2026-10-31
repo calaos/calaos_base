@@ -203,8 +203,15 @@ void RemoteUIProvisioningHandler::handleProvisionRequest(const string &data)
                       << remote_ui->get_param("id");
     }
 
-    // Save configuration
-    Config::Instance().SaveConfigIO();
+    //A panel handed credentials that the next restart forgets could never log
+    //in again. The secrets stay in memory: a retry gets the same ones.
+    if (Config::Instance().SaveConfigIO() != Config::SaveResult::Written)
+    {
+        cErrorDom(TAG) << "RemoteUIProvisioningHandler: Provisioning of " << remote_ui->get_param("id")
+                       << " not written, no credentials sent";
+        sendErrorResponse("Internal server error - configuration not written", 500);
+        return;
+    }
 
     // Send provisioning response
     Json response = remote_ui->getProvisioningResponse();

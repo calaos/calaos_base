@@ -431,7 +431,8 @@ Json AdminConfig::set(const Json &params)
 Json AdminConfig::backup(std::time_t createdAt)
 {
     //The in-memory IOs and rules as config get hands them out, the bytes on
-    //disk for a file that was not loaded and so was not saved
+    //disk for a file that was not loaded and so was not saved. A failed save
+    //leaves the previous bytes there: this is a read, it answers all the same.
     Config::Instance().SaveConfigIO();
     Config::Instance().SaveConfigRule();
 

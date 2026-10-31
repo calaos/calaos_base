@@ -892,6 +892,7 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
 
     if (jsonParam["type"] == "get")
     {
+        //A read: a failed save is logged and leaves the previous bytes to hand out
         Config::Instance().SaveConfigIO();
         Config::Instance().SaveConfigRule();
 

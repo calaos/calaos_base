@@ -75,8 +75,8 @@ dossier vide annule tout : rien n'est écrit sans copie de ce qui serait perdu. 
 0600 dès leur création : `local_config.xml` porte des jetons, `io.xml` des mots de passe de caméra.
 
 `config_restore` et `config put` remplacent les fichiers sous le serveur qui tourne, puis l'arrêtent.
-Entre les deux, `Utils::set_config_frozen(true)` rend sans effet `SaveConfigIO()`, `SaveConfigRule()`
-et les écritures d'option : la configuration en mémoire est celle d'avant et ne doit pas repasser
+Entre les deux, `Utils::set_config_frozen(true)` empêche `SaveConfigIO()`, `SaveConfigRule()`
+et les écritures d'option d'écrire : la configuration en mémoire est celle d'avant et ne doit pas repasser
 par-dessus les fichiers remplacés. Pour `config_restore`, le gel reste en place si une écriture a
 échoué après qu'un fichier a été remplacé, et tombe si rien ne l'a été. `config put` ne gèle que
 s'il a réussi, ou si un fichier a été remplacé avant qu'un autre échoue : c'est aussi le seul
@@ -361,7 +361,9 @@ chemin, en entier (dérivé,
    l'erreur et sauvegardent l'autre. Seuls `config put` et `config_restore` le remplacent, en
    entier ; le redémarrage qui suit le charge normalement. Ce qui ne peut plus être persisté est
    refusé par l'API, pas perdu : `config_not_loaded`, voir
-   [docs/08](08_http_api.md#fichier-non-chargé). `Config::BackupFiles()` ne bloque pas sur la copie
+   [docs/08](08_http_api.md#fichier-non-chargé). Ne pas confondre avec un fichier chargé dont
+   l'écriture échoue : voir [Résultat d'une sauvegarde](#résultat-dune-sauvegarde).
+   `Config::BackupFiles()` ne bloque pas sur la copie
    ratée d'un tel fichier : ce serait interdire le seul moyen de le remplacer.
 5. **Une seule notification agrégée**, mail **+** push, envoyée **~30 s après le démarrage**
    (`CONFIG_ALERT_DELAY_SEC = 30.0`) : les chargements ont lieu avant que la boucle d'événements
@@ -473,6 +475,30 @@ changement de valeur ; `SaveValueIO`/`SaveValueParams` acceptent `save = false` 
 de la mise à jour mémoire. Le **destructeur** de `Config` détruit le timer puis force un dernier
 `saveStateCache()` — sans quoi jusqu'à 60 s d'états seraient perdus à l'arrêt (épinglé par
 `DestructorFlushesPendingStates`).
+
+---
+
+## Résultat d'une sauvegarde
+
+`SaveConfigIO()` et `SaveConfigRule()` rendent un `Config::SaveResult` :
+
+| Valeur | Sens | Journal |
+|---|---|---|
+| `Written` | le fichier est sur le disque | — |
+| `NotLoaded` | fichier non chargé, sauté et laissé tel quel | erreur |
+| `Frozen` | gel en cours, rien n'est tenté | rien |
+| `WriteFailed` | écriture ratée, le fichier vivant est intact | chemin et cause, jamais le contenu |
+
+Un échec ne défait rien : le changement reste en mémoire, la prochaine sauvegarde réussie le porte
+sur le disque, un redémarrage avant celle-ci le perd. Chaque appelant décide de ce que le résultat
+veut dire pour lui :
+
+| Appelant | Sort d'un échec |
+|---|---|
+| Actions de l'API qui modifient (`autoscenario`, `set_timerange`) | `config_not_written`, voir [docs/08](08_http_api.md#fichier-non-écrit). Les deux fichiers sont tentés. `NotLoaded` ne compte pas ici : ce qu'il interdit est déjà refusé par `config_not_loaded` |
+| Provisioning RemoteUI | 500 sans identifiants, voir [docs/07](07_remoteui.md#anti-abus) |
+| `config get`, `config_backup` | ignoré : une lecture sauvegarde au mieux et rend ce qu'il y a sur le disque |
+| Mise à jour automatique des scénarios (`ListeRoom::checkAutoScenario`) | ignoré, journalisé : le serveur continue |
 
 ---
 
