@@ -80,9 +80,14 @@ const char *const COLOR_LEVELS =
     "\033[34m[DBG]\033[36m prio\033[0m \033[1m(f.cpp:5)\033[0m debug\033[0m\r\n"
     "\033[31m\033[1m[???]\033[36m prio\033[0m \033[1m(f.cpp:6)\033[0m unknown\033[0m\r\n";
 
-enum class Destination { Pipe, File, Terminal };
+enum class Destination
+{
+    Pipe,
+    File,
+    Terminal
+};
 
-}
+} //namespace
 
 class LogJournalPriorityTest: public ::testing::Test
 {

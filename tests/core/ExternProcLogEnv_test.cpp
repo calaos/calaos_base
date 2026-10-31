@@ -124,14 +124,18 @@ int runProbe(const std::string &dir, const std::string &domains)
 
     const std::string script =
         std::string("#!/bin/sh\n"
-                    "env > '") + dir + "/env.tmp'\n"
-        "mv '" + dir + "/env.tmp' '" + dir + "/env.txt'\n"
-        "printf '%s\\n' '<3>[ERR] d (a.cpp:1) stand-in-error'\n"
-        "printf '%s\\n' '<4>[WRN] d (a.cpp:2) stand-in-warning'\n"
-        "printf '%s\\n' 'stand-in-bare-line'\n"
-        "printf '%s\\n' '<9>stand-in-out-of-range'\n"
-        "printf '%s\\n' '" + kLastOut + "'\n"
-        "printf '%s\\n' '" + kLastErr + "' >&2\n";
+                    "env > '") +
+        dir + "/env.tmp'\n"
+              "mv '" +
+        dir + "/env.tmp' '" + dir + "/env.txt'\n"
+                                    "printf '%s\\n' '<3>[ERR] d (a.cpp:1) stand-in-error'\n"
+                                    "printf '%s\\n' '<4>[WRN] d (a.cpp:2) stand-in-warning'\n"
+                                    "printf '%s\\n' 'stand-in-bare-line'\n"
+                                    "printf '%s\\n' '<9>stand-in-out-of-range'\n"
+                                    "printf '%s\\n' '" +
+        kLastOut + "'\n"
+                   "printf '%s\\n' '" +
+        kLastErr + "' >&2\n";
 
     if (!writeTextFile(dir + "/calaos_1wire", script) ||
         ::chmod((dir + "/calaos_1wire").c_str(), 0755) != 0 ||
@@ -148,17 +152,26 @@ int runProbe(const std::string &dir, const std::string &domains)
     {
         //A silence has no last line to wait for: the witness says the
         //stand-in runs, then the relay gets the time to read its output
-        finished = pumpLoopUntil([&]() { return exists(dir + "/env.txt"); }, 8000);
-        pumpLoopUntil([]() { return false; }, 300);
+        finished = pumpLoopUntil([&]()
+                                 {
+            return exists(dir + "/env.txt");
+        },
+                                 8000);
+        pumpLoopUntil([]()
+                      {
+            return false;
+        },
+                      300);
     }
     else
     {
         finished = pumpLoopUntil([&]()
-        {
+                                 {
             const std::string out = sink.str();
             return out.find("stand-in-last-stdout-line") != std::string::npos &&
                    out.find("stand-in-last-stderr-line") != std::string::npos;
-        }, 8000);
+        },
+                                 8000);
     }
 
     std::cout.rdbuf(saved);
