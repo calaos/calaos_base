@@ -940,7 +940,20 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
             }
         }
 
-        //Do a backup before overwriting new files: they are overwritten in place
+        //Same rules as config_restore: what would not load at the restart is
+        //refused before the backup and before any write.
+        if (!refused && jfiles.is_object())
+        {
+            for (Json::const_iterator it = jfiles.cbegin(); it != jfiles.cend() && !refused; ++it)
+            {
+                if (!it.value().is_string())
+                    continue;
+                refusal = AdminConfig::putFileRefusal(it.key(), it.value().get<std::string>());
+                refused = !refusal.empty();
+            }
+        }
+
+        //Backup before the files are replaced
         if (!refused && jfiles.is_object() && Config::Instance().BackupFiles().empty())
         {
             refused = true;
@@ -955,6 +968,9 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
             sendJson(jret);
             return;
         }
+
+        bool replaced = false;
+        string writeError;
 
         if (jfiles.is_object())
         {
@@ -981,33 +997,18 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
                         continue;
                     }
 
-                    string filecontent = it.value().get<std::string>();
-
-                    if (!Utils::strStartsWith(filecontent, "<?xml"))
+                    //Content already judged above; c_str() as getConfigFile()
+                    //takes a const char *, and the whitelist has reduced skey
+                    //to one of three literals, so a NUL cannot reach here.
+                    if (Utils::restore_config_file(Utils::getConfigFile(skey.c_str()),
+                                                   it.value().get<std::string>()))
                     {
-                        //The content itself is the upload: local_config.xml
-                        //carries mcp_token, io.xml every camera password of the
-                        //install. What was refused is knowable without it.
-                        cErrorDom("network") << "Error, file content for " << skey
-                                             << " is not XML (" << filecontent.size()
-                                             << " bytes), skipping...";
-                        continue;
-                    }
-
-                    //c_str() and not skey: getConfigFile() takes a const
-                    //char *, exactly as it did with jansson's key. The
-                    //whitelist above has already reduced skey to one of three
-                    //literals, so a NUL smuggled into a key cannot reach here.
-                    ofstream ofs(Utils::getConfigFile(skey.c_str()), ios::out | ios::trunc);
-
-                    if (ofs.is_open())
-                    {
-                        ofs << filecontent;
-                        ofs.close();
+                        replaced = true;
                     }
                     else
                     {
-                        cErrorDom("network") << "Error, key " << skey << " is not a string";
+                        cErrorDom("network") << "Error, could not write " << skey;
+                        writeError = "Could not write " + skey + ", the file was left as it was";
                         ret = false;
                     }
                 }
@@ -1025,10 +1026,13 @@ void JsonApiHandlerHttp::processConfig(const Json &jroot)
         }
 
         jret["success"] = ret?"true":"false";
+        if (!writeError.empty())
+            jret["error"] = writeError;
 
         //The memory still holds what was just overwritten: nothing may save it
-        //back before the restart
-        if (ret)
+        //back before the restart. A write that failed after another file was
+        //replaced leaves the same disk, so it restarts too.
+        if (ret || replaced)
         {
             Utils::set_config_frozen(true);
             httpClient->setNeedRestart(true);

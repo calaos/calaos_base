@@ -1201,8 +1201,8 @@ TEST_F(HttpRequestLogSecretTest, TheContentOfARefusedConfigFileIsNotRepublished)
     ASSERT_EQ(std::string::npos, ex.log.find("Login failed"))
         << "the upload never authenticated, so the refusing branch was never "
            "reached and this case measures nothing:\n" << ex.log;
-    ASSERT_NE(std::string::npos, ex.log.find("is not XML"))
-        << "the content was not refused for not being XML, so this case does "
+    ASSERT_NE(std::string::npos, ex.log.find("does not start with <?xml"))
+        << "the content was not refused for its first bytes, so this case does "
            "not exercise the site it is written for:\n" << ex.log;
 
     const size_t echo = longestEcho(ex.log, kRefusedContentSecret);
@@ -1477,7 +1477,7 @@ TEST_F(HttpRequestLogSecretTest, TheCeilingIsHeldToTheOverlapThisSuiteMeasures)
           "", uploaded, { emittedToken() }, {}, "config_files" },
         { "a set_param", jsonPost(setParamBody()), "", { kSetParamSecret }, {}, {}, "param" },
         { "the content of a refused config file", jsonPost(refused.str()),
-          "", { kRefusedContentSecret }, {}, {}, "is not XML" },
+          "", { kRefusedContentSecret }, {}, {}, "does not start with <?xml" },
     };
 
     for (const Probe &p: probes)

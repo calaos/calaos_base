@@ -1108,17 +1108,17 @@ TEST_F(IncomingLogStockLevelTest, AnUploadRefusedForItsKeyPublishesTheKeyAndNotI
 }
 
 /*
- * THE SAME FAMILY, ON THE BRANCH THAT HAS THE FILE CONTENT IN HAND. The size
+ * THE SAME FAMILY, ON THE BRANCH THAT HAS THE FILE CONTENT IN HAND. The reason
  * is published and the bytes are not, and that is what must not drift.
  */
-TEST_F(IncomingLogStockLevelTest, AnUploadRefusedForItsContentPublishesTheNameAndTheSize)
+TEST_F(IncomingLogStockLevelTest, AnUploadRefusedForItsContentPublishesTheNameAndTheReason)
 {
     const Exchange &ex = theRuns().uploadBadContent;
 
     ASSERT_TRUE(ex.connected) << "no connection to the server, this case measures nothing";
 
     const std::string stock = ex.stock();
-    ASSERT_TRUE(someLineHasAll(stock, {"is not XML"}))
+    ASSERT_TRUE(someLineHasAll(stock, {"does not start with <?xml"}))
         << "the content was not refused for not being XML, so the line this "
            "case is written for never ran:\n" << stock;
 
@@ -1127,9 +1127,9 @@ TEST_F(IncomingLogStockLevelTest, AnUploadRefusedForItsContentPublishesTheNameAn
     needles.push_back({ "the value of a body key this tree has never heard of", kBodySecret });
     expectNoRunSurvives(ex, needles, "the refused content line");
 
-    EXPECT_TRUE(someLineHasAll(stock, {"is not XML", "io.xml", "bytes"}))
-        << "the refusal no longer says which file was refused nor how big it "
-           "was, so nothing of the diagnosis is left:\n" << stock;
+    EXPECT_TRUE(someLineHasAll(stock, {"config put refused", "io.xml", "does not start with <?xml"}))
+        << "the refusal no longer says which file was refused and "
+           "why, so nothing of the diagnosis is left:\n" << stock;
 }
 
 /*

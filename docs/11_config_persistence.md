@@ -79,8 +79,10 @@ Entre les deux, `Utils::set_config_frozen(true)` rend sans effet `SaveConfigIO()
 et les écritures d'option : la configuration en mémoire est celle d'avant et ne doit pas repasser
 par-dessus les fichiers remplacés. Pour `config_restore`, le gel reste en place si une écriture a
 échoué après qu'un fichier a été remplacé, et tombe si rien ne l'a été. `config put` ne gèle que
-s'il réussit : c'est aussi le seul cas où il redémarre, et un minuteur arrête la boucle sans attendre
-que la réponse parte, le client ayant pu disparaître. `Utils::restore_config_file()` écrit seul
+s'il a réussi, ou si un fichier a été remplacé avant qu'un autre échoue : c'est aussi le seul cas où il redémarre, et un minuteur arrête la boucle sans attendre
+que la réponse parte, le client ayant pu disparaître. `config put` écrit lui aussi par `Utils::restore_config_file()` et juge d'abord chaque fichier avec
+les règles de `config_restore` (`AdminConfig::putFileRefusal`), avant la copie de `backups/`.
+`Utils::restore_config_file()` écrit seul
 sous le gel, avec le verrou de `local_config.xml` : `<nom>.restore`, `fsync`, `rename`, le temporaire
 ne suivant aucun lien symbolique.
 

@@ -2064,6 +2064,25 @@ avec N le nombre de devices du serveur. Un client qui déclare `io_format >= 2` 
 contenu n'est plus inspecté, supprimer des devices, le dernier compris, est intentionnel. Sans
 device côté serveur, ou sans clef `io.xml` dans `config_files`, rien n'est jugé.
 
+**Refus d'un contenu qui ne se chargerait pas.** Avant toute copie et toute écriture, chaque
+fichier de `config_files` passe les règles de `config_restore` (`restoreFileRefusal`) : 2 Mio au
+plus, UTF-8 sans NUL, commence par `<?xml`, XML qui s'analyse, élément racine attendu
+(`calaos:ioconfig` pour `io.xml`, `calaos:rules` pour `rules.xml`, `calaos:config` pour
+`local_config.xml`), format d'`io.xml` que le serveur comprend. Un seul fichier refusé refuse le
+`put` entier : `{"success":"false","error":"<raison>"}` (par exemple `io.xml does not have the
+root element calaos:ioconfig`, `rules.xml does not start with <?xml`), fichiers inchangés, aucune
+copie de `backups/`, pas de redémarrage. Avant ce contrôle, un contenu sans `<?xml` était
+ignoré sans erreur, avec `success:"true"` et un redémarrage ; un XML à la mauvaise racine était
+écrit puis restait non chargé au démarrage.
+
+**Écriture.** Chaque fichier est remplacé par `Utils::restore_config_file()` (temporaire du même
+dossier, `fsync`, `rename`, mode et propriétaire gardés, lien symbolique suivi). Un échec laisse
+le fichier vivant intact, sans temporaire, et répond
+`{"success":"false","error":"Could not write <fichier>, the file was left as it was"}`. Si un autre
+fichier du même envoi était déjà remplacé, le serveur redémarre quand même : le disque a changé.
+`put` reste la sortie d'un fichier non chargé : un contenu valide passe même si le fichier vivant
+est corrompu.
+
 ### `camera` — clé `type` (HTTP uniquement, 2)
 
 | `type` | Réponse |
