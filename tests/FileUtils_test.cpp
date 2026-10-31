@@ -4,9 +4,41 @@
 #include <cstdlib>
 #include <cstdio>
 #include <fstream>
+#include <csignal>
+#include <fcntl.h>
 #include <string>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+namespace
+{
+
+//Past the limit a write to a regular file stops short with EFBIG, as on a full disk
+class ScopedFileSizeLimit
+{
+public:
+    explicit ScopedFileSizeLimit(rlim_t bytes)
+    {
+        ::getrlimit(RLIMIT_FSIZE, &saved);
+        previousHandler = std::signal(SIGXFSZ, SIG_IGN);
+        struct rlimit limited = saved;
+        limited.rlim_cur = bytes;
+        ::setrlimit(RLIMIT_FSIZE, &limited);
+    }
+
+    ~ScopedFileSizeLimit()
+    {
+        ::setrlimit(RLIMIT_FSIZE, &saved);
+        std::signal(SIGXFSZ, previousHandler);
+    }
+
+private:
+    struct rlimit saved;
+    void (*previousHandler)(int);
+};
+
+} //namespace
 
 // Test fixture: builds a temporary directory tree:
 //   <root>/index.html
@@ -122,6 +154,137 @@ TEST_F(FileUtilsSafePathTest, AcceptsSymlinkInsideRoot)
     std::string out;
     EXPECT_TRUE(FileUtils::resolveSafePath(root, "link_inside", out));
     EXPECT_EQ(out, root + "/index.html");
+}
+
+//Under a wide umask, which is the case the mode must not depend on
+TEST_F(FileUtilsSafePathTest, AnOwnerOnlyCopyIs0600WhateverItReplaces)
+{
+    const std::string fresh = root + "/copy_fresh";
+    const std::string existing = root + "/copy_existing";
+    writeFile(existing, "old");
+    ASSERT_EQ(0, ::chmod(existing.c_str(), 0644));
+
+    const mode_t previous = ::umask(0);
+    const bool freshCopied = FileUtils::copyFile(root + "/index.html", fresh, true);
+    const bool existingCopied = FileUtils::copyFile(root + "/index.html", existing, true);
+    ::umask(previous);
+    ASSERT_TRUE(freshCopied);
+    ASSERT_TRUE(existingCopied);
+
+    struct stat st;
+    ASSERT_EQ(0, ::stat(fresh.c_str(), &st));
+    EXPECT_EQ(0600u, st.st_mode & 07777);
+    EXPECT_EQ(2, st.st_size);
+    ASSERT_EQ(0, ::stat(existing.c_str(), &st));
+    EXPECT_EQ(0600u, st.st_mode & 07777);
+    EXPECT_EQ(2, st.st_size);
+
+    ::unlink(fresh.c_str());
+    ::unlink(existing.c_str());
+}
+
+TEST_F(FileUtilsSafePathTest, APlainCopyStillFollowsTheUmask)
+{
+    const std::string dest = root + "/copy_plain";
+
+    const mode_t previous = ::umask(0022);
+    const bool copied = FileUtils::copyFile(root + "/index.html", dest);
+    ::umask(previous);
+    ASSERT_TRUE(copied);
+
+    struct stat st;
+    ASSERT_EQ(0, ::stat(dest.c_str(), &st));
+    EXPECT_EQ(0644u, st.st_mode & 07777);
+
+    ::unlink(dest.c_str());
+}
+
+//Small enough to stay in the stdio buffer: only fclose() meets the error
+TEST_F(FileUtilsSafePathTest, ACopyThatFailsWhenClosedIsReported)
+{
+    EXPECT_FALSE(FileUtils::copyFile(root + "/index.html", "/dev/full"));
+}
+
+TEST_F(FileUtilsSafePathTest, ACopyThatFailsWhileWritingIsReported)
+{
+    const std::string big = root + "/big";
+    writeFile(big, std::string(64 * 1024, 'x'));
+
+    EXPECT_FALSE(FileUtils::copyFile(big, "/dev/full"));
+
+    ::unlink(big.c_str());
+}
+
+//A FIFO, not /dev/full: without root a device could not be unlinked anyway. The
+//read end is held open so that the copy's open() does not block.
+TEST_F(FileUtilsSafePathTest, AFailedCopyLeavesANonRegularFileInPlace)
+{
+    const std::string fifo = root + "/copy_fifo";
+    ASSERT_EQ(0, ::mkfifo(fifo.c_str(), 0600));
+    const int reader = ::open(fifo.c_str(), O_RDONLY | O_NONBLOCK);
+    ASSERT_GE(reader, 0);
+
+    EXPECT_FALSE(FileUtils::copyFile(root + "/sub", fifo));
+
+    struct stat st;
+    EXPECT_EQ(0, ::lstat(fifo.c_str(), &st));
+    EXPECT_TRUE(S_ISFIFO(st.st_mode));
+
+    ::close(reader);
+    ::unlink(fifo.c_str());
+}
+
+TEST_F(FileUtilsSafePathTest, ATruncatedCopyIsReportedAndRemoved)
+{
+    const std::string big = root + "/big";
+    const std::string dest = root + "/copy_truncated";
+    writeFile(big, std::string(64 * 1024, 'x'));
+
+    bool copied;
+    {
+        ScopedFileSizeLimit limit(4096);
+        copied = FileUtils::copyFile(big, dest);
+    }
+
+    EXPECT_FALSE(copied);
+    EXPECT_FALSE(FileUtils::exists(dest));
+
+    ::unlink(big.c_str());
+    ::unlink(dest.c_str());
+}
+
+TEST_F(FileUtilsSafePathTest, ATruncatedCopyThroughASymlinkLeavesNoPartialTarget)
+{
+    const std::string big = root + "/big";
+    const std::string target = root + "/copy_target";
+    const std::string link = root + "/copy_link";
+    writeFile(big, std::string(64 * 1024, 'x'));
+    writeFile(target, "old");
+    ASSERT_EQ(0, ::symlink(target.c_str(), link.c_str()));
+
+    bool copied;
+    {
+        ScopedFileSizeLimit limit(4096);
+        copied = FileUtils::copyFile(big, link);
+    }
+
+    EXPECT_FALSE(copied);
+    EXPECT_FALSE(FileUtils::exists(target));
+
+    ::unlink(big.c_str());
+    ::unlink(target.c_str());
+    ::unlink(link.c_str());
+}
+
+//A directory opens, then every read fails with EISDIR
+TEST_F(FileUtilsSafePathTest, AnUnreadableSourceIsReportedAndLeavesNoCopy)
+{
+    const std::string dest = root + "/copy_of_dir";
+
+    EXPECT_FALSE(FileUtils::copyFile(root + "/sub", dest));
+    EXPECT_FALSE(FileUtils::exists(dest));
+
+    ::unlink(dest.c_str());
 }
 
 TEST_F(FileUtilsSafePathTest, RootWithTrailingSlash)

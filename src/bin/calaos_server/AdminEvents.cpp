@@ -40,14 +40,18 @@ namespace Calaos
 namespace
 {
 
-string utcNow()
+string utcAt(time_t t)
 {
-    const time_t t = ::time(nullptr);
     struct tm tmv;
     gmtime_r(&t, &tmv);
     char buf[32];
     strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tmv);
     return buf;
+}
+
+string utcNow()
+{
+    return utcAt(::time(nullptr));
 }
 
 //A short machine token from the daemon (status, step, kind): anything else is
@@ -85,7 +89,7 @@ void copyScalars(const Json &from, Json &to, std::initializer_list<const char *>
 bool isAlertType(const string &type)
 {
     return type == "admin_set" || type == "admin_reset" || type == "approver_set" || type == "approver_removed" ||
-           type == "console_opened";
+           type == "console_opened" || type == "network_rolled_back";
 }
 
 //The daemon's rule for a push token: 1 to 4096 printable ASCII characters, no space
@@ -111,6 +115,29 @@ bool isCodeMessage(const string &text)
                        {
         return c >= '0' && c <= '9';
     });
+}
+
+/* The fields a daemon serving encrypted pushes adds, an older one has none:
+ * false when they are there but unusable, nothing is pushed then.
+ */
+bool readCodeFields(const Json &data, NotifManager::AdminCode &code)
+{
+    if (!data.contains("action") && !data.contains("code"))
+        return true;
+
+    code.action = JsonField::string(data, "action");
+    code.code = JsonField::string(data, "code");
+    const auto in = data.find("expires_in");
+    const bool digits = code.code.size() == 6 && std::all_of(code.code.begin(), code.code.end(), [](char c)
+                                                             {
+        return c >= '0' && c <= '9';
+                        });
+    if (NotifManager::adminCodePurpose(code.action).empty() || !digits || in == data.end() || !in->is_number_integer() ||
+        in->get<long long>() < 0 || in->get<long long>() > 3600)
+        return false;
+
+    code.expires = utcAt(::time(nullptr) + (time_t)in->get<long long>());
+    return true;
 }
 
 bool isAlertId(const string &id)
@@ -227,11 +254,35 @@ Json AdminEvents::householdEventFor(const Json &event, const string &receivedAt)
         return Json{ { "type", type }, { "ts", receivedAt }, { "data", householdStatus(data) } };
     }
 
+    const string intf = JsonField::string(data, "intf");
+    const bool knownIntf = JsonApi::isValidInterfaceName(intf);
+
     if (isAlertType(type))
     {
         const auto ts = data.is_object() ? data.find("ts") : data.end();
         const bool usable = data.is_object() && ts != data.end() && isToken(*ts, 40);
-        return Json{ { "type", type }, { "ts", usable ? ts->get<string>() : receivedAt } };
+        Json out = { { "type", type }, { "ts", usable ? ts->get<string>() : receivedAt } };
+        if (type == "network_rolled_back")
+            out["data"] = knownIntf ? Json{ { "intf", intf } } : Json::object();
+        return out;
+    }
+
+    //No address: these go to the plain port too
+    if (type == "network_pending" || type == "network_applied")
+    {
+        if (!knownIntf || !JsonApi::isDaemonId(JsonField::string(data, "change_id")))
+            return Json();
+        Json out = { { "intf", intf }, { "change_id", data["change_id"] } };
+        if (type == "network_pending")
+        {
+            const auto applied = data.find("applied_at");
+            const auto within = data.find("confirm_within");
+            if (applied == data.end() || !isToken(*applied, 40) || within == data.end() || !within->is_number_integer())
+                return Json();
+            out["applied_at"] = *applied;
+            out["confirm_within"] = *within;
+        }
+        return Json{ { "type", type }, { "ts", receivedAt }, { "data", out } };
     }
 
     return Json();
@@ -619,19 +670,40 @@ void AdminEvents::processAlert(const string &type, const Json &data)
     householdEvent.emit(householdEventFor(Json{ { "type", type }, { "data", data } }, utcNow()));
     if (type == "admin_set" || type == "admin_reset")
         AdminState::Instance().refresh();
-    push(type, id, data);
+    //The banner at the next login says it; no phone is woken for it
+    if (type != "network_rolled_back")
+        push(type, id, data);
 }
 
 void AdminEvents::markApprover(const string &tokenId, bool approver)
 {
-    HistLogger::Instance().getPushTokens([tokenId, approver](bool, string, const vector<PushToken> &tokens)
+    //Taken once: a replayed approver_set leaves the key alone
+    string proved;
+    const auto it = provedKeys.find(tokenId);
+    if (it != provedKeys.end())
+    {
+        if (approver && Utils::getMainLoopTime() - it->second.at < timings.provedKeyLife)
+            proved = it->second.key;
+        provedKeys.erase(it);
+    }
+
+    HistLogger::Instance().getPushTokens([tokenId, approver, proved](bool, string, const vector<PushToken> &tokens)
                                          {
         for (const PushToken &t: tokens)
         {
-            if (t.approver != approver && JsonApi::pushTokenId(t.token) == tokenId)
-                HistLogger::Instance().setPushTokenApprover(t.token, approver);
+            if ((t.approver != approver || !proved.empty()) && JsonApi::pushTokenId(t.token) == tokenId)
+                HistLogger::Instance().setPushTokenApprover(t.token, approver, proved);
         }
     });
+}
+
+void AdminEvents::rememberProvedKey(const string &tokenId, const string &key)
+{
+    const double now = Utils::getMainLoopTime();
+    for (auto it = provedKeys.begin(); it != provedKeys.end();)
+        it = now - it->second.at >= timings.provedKeyLife ? provedKeys.erase(it) : std::next(it);
+    //Bounded by maxCodePushes: only a push that went out gets here
+    provedKeys[tokenId] = ProvedKey{ key, now };
 }
 
 void AdminEvents::processPushCode(const Json &data)
@@ -668,9 +740,22 @@ void AdminEvents::processPushCode(const Json &data)
             return;
         }
 
-        //The token and the message hold the second factor: neither is logged
-        NotifManager::Instance().sendPushNotificationTo(token, text, [this, codeId](bool sent)
-                                                        {
+        NotifManager::AdminCode code;
+        code.message = text;
+        code.codeId = codeId;
+        if (!readCodeFields(reply.data, code))
+        {
+            cWarningDom("admin") << "calaos-container handed push code " << codeId << " over with an unusable action or code, not pushed";
+            return;
+        }
+
+        //The token, the message and the code hold the second factor: none is logged
+        const bool confirm = code.action == "approver_confirm";
+        NotifManager::Instance().sendAdminCodeTo(token, code, [this, codeId, confirm, tokenId = JsonApi::pushTokenId(token)](bool sent, const string &sealedKey)
+                                                 {
+            //Reading this code proves the phone holds this key: approver_set freezes it
+            if (sent && confirm && !sealedKey.empty())
+                rememberProvedKey(tokenId, sealedKey);
             //Only a push that went out counts: fetches that serve nothing, or
             //name no registered phone, as a squatter's, must not use up the
             //hour of the real daemon

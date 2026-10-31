@@ -403,3 +403,301 @@ TEST(PushTokenStoreTest, ASendPostsEveryTokenAndLogsNone)
     EXPECT_EQ(std::string::npos, log.find(legacyToken)) << log;
     EXPECT_EQ(std::string::npos, log.find("old-android")) << log;
 }
+
+/******************************************************************************
+ * push_key
+ ******************************************************************************/
+
+namespace
+{
+
+const std::string KeyA(64, 'a');
+const std::string KeyB(64, 'b');
+const std::string KeyC = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
+
+//push_tokens as the servers before push_key left it, one approver enrolled
+std::string phaseTwoDatabase(const std::string &name)
+{
+    const std::string path = std::filesystem::path(dbPath).parent_path().string() + "/" + name;
+    sqlite::database db(path);
+    db << "CREATE TABLE push_tokens (id INTEGER PRIMARY KEY UNIQUE NOT NULL, token TEXT, hw_type INTEGER, "
+          "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, push_format INTEGER NOT NULL DEFAULT 0, "
+          "device_name TEXT NOT NULL DEFAULT '', approver INTEGER NOT NULL DEFAULT 0, "
+          "registered_at TEXT NOT NULL DEFAULT '');";
+    db << "INSERT INTO push_tokens (token, hw_type, push_format, device_name, approver, registered_at) "
+          "values ('p2-approver', 2, 1, 'Pixel', 1, '2026-01-02 03:04:05');";
+    return path;
+}
+
+PushToken withKey(const char *token, const std::string &key, int hw = HistLogger::PUSH_HW_ANDROID)
+{
+    PushToken t(string(token), hw, HistLogger::PUSH_FORMAT_DATA);
+    t.push_key = key;
+    return t;
+}
+
+std::string keyOf(sqlite::database &db, const char *token)
+{
+    const auto tokens = PushTokenDb::load(db, true, true, true);
+    const PushToken *t = find(tokens, token);
+    return t ? t->push_key : std::string("<missing>");
+}
+
+} //namespace
+
+TEST(PushTokenStoreTest, MigrationAddsThePushKeyColumnToAPhaseTwoBase)
+{
+    const std::string path = phaseTwoDatabase("phase_two.db");
+    sqlite::database db(path);
+    PushTest::StdoutCapture capture;
+    bool locked = true, hasName = false, hasKey = false;
+    EXPECT_TRUE(PushTokenDb::prepare(db, &locked, &hasName, &hasKey));
+    const std::string log = capture.stop();
+    EXPECT_FALSE(locked);
+    EXPECT_TRUE(hasName);
+    EXPECT_TRUE(hasKey);
+    EXPECT_NE(std::string::npos, log.find("push_key column added")) << log;
+
+    const auto tokens = PushTokenDb::load(db, true, true, true);
+    ASSERT_EQ(1u, tokens.size());
+    EXPECT_EQ("", tokens[0].push_key);
+    EXPECT_EQ("Pixel", tokens[0].device_name);
+    EXPECT_TRUE(tokens[0].approver);
+
+    sqlite::database again(path);
+    PushTest::StdoutCapture second;
+    EXPECT_TRUE(PushTokenDb::prepare(again, nullptr, nullptr, &hasKey));
+    EXPECT_EQ(std::string::npos, second.stop().find("column added"));
+    EXPECT_TRUE(hasKey);
+
+    //The singleton's own base, created with the column
+    sqlite::database own(dbPath);
+    int count = 0;
+    own << "SELECT count(*) FROM pragma_table_info('push_tokens') WHERE name = 'push_key';" >> count;
+    EXPECT_EQ(1, count);
+}
+
+TEST(PushTokenStoreTest, AnApproverTakesAFirstKeyThenKeepsIt)
+{
+    sqlite::database db(phaseTwoDatabase("frozen_key.db"));
+    ASSERT_TRUE(PushTokenDb::prepare(db));
+
+    //Enrolled before keys existed: the first one is taken
+    PushTokenDb::save(db, withKey("p2-approver", KeyA), true, true, true);
+    EXPECT_EQ(KeyA, keyOf(db, "p2-approver"));
+    PushTokenDb::save(db, withKey("p2-approver", KeyB), true, true, true);
+    EXPECT_EQ(KeyA, keyOf(db, "p2-approver")) << "frozen once set";
+    PushTokenDb::save(db, withKey("p2-approver", ""), true, true, true);
+    EXPECT_EQ(KeyA, keyOf(db, "p2-approver"));
+
+    //Freed by approver_removed, it takes a new key again
+    PushTokenDb::setApprover(db, "p2-approver", false);
+    PushTokenDb::save(db, withKey("p2-approver", KeyB), true, true, true);
+    EXPECT_EQ(KeyB, keyOf(db, "p2-approver"));
+
+    //A phone that is not an approver replaces its key, a keyless request leaves it
+    PushTokenDb::save(db, withKey("p3-phone", KeyA, HistLogger::PUSH_HW_IOS), true, true, true);
+    EXPECT_EQ(KeyA, keyOf(db, "p3-phone"));
+    PushTokenDb::save(db, withKey("p3-phone", KeyC, HistLogger::PUSH_HW_IOS), true, true, true);
+    EXPECT_EQ(KeyC, keyOf(db, "p3-phone"));
+    PushTokenDb::save(db, withKey("p3-phone", "", HistLogger::PUSH_HW_IOS), true, true, true);
+    EXPECT_EQ(KeyC, keyOf(db, "p3-phone"));
+
+    //Enrolled with its key: frozen from the start
+    PushTokenDb::setApprover(db, "p3-phone", true);
+    PushTokenDb::save(db, withKey("p3-phone", KeyB, HistLogger::PUSH_HW_IOS), true, true, true);
+    EXPECT_EQ(KeyC, keyOf(db, "p3-phone"));
+
+    //Without the column nothing is written nor read
+    PushTokenDb::save(db, withKey("p3-nocolumn", KeyA), true, true, false);
+    EXPECT_EQ("", find(PushTokenDb::load(db, true, true, false), "p3-nocolumn")->push_key);
+    EXPECT_EQ("", keyOf(db, "p3-nocolumn"));
+}
+
+TEST(PushTokenStoreTest, ALockOnThePushKeyColumnOnlyKeepsTheNames)
+{
+    const std::string path = phaseTwoDatabase("key_locked.db");
+    sqlite::database locker(path);
+    locker << "BEGIN IMMEDIATE;";
+    sqlite::database db(path);
+    bool locked = false, hasName = false, hasKey = true;
+    PushTest::StdoutCapture capture;
+    EXPECT_TRUE(PushTokenDb::prepare(db, &locked, &hasName, &hasKey));
+    const std::string log = capture.stop();
+    EXPECT_TRUE(locked);
+    EXPECT_TRUE(hasName);
+    EXPECT_FALSE(hasKey);
+    EXPECT_NE(std::string::npos, log.find("cannot add push_key")) << log;
+    EXPECT_NE(std::string::npos, log.find("without a push key")) << log;
+    const auto whileLocked = PushTokenDb::load(db, true, hasName, hasKey);
+    ASSERT_EQ(1u, whileLocked.size());
+    EXPECT_EQ("Pixel", whileLocked[0].device_name);
+    locker << "COMMIT;";
+
+    EXPECT_TRUE(PushTokenDb::prepare(db, &locked, &hasName, &hasKey));
+    EXPECT_FALSE(locked);
+    EXPECT_TRUE(hasKey);
+}
+
+TEST(PushTokenStoreTest, AReadOnlyPhaseTwoBaseKeepsItsNamesWithoutKeys)
+{
+    const std::string path = phaseTwoDatabase("read_only_phase_two.db");
+    sqlite::sqlite_config ro;
+    ro.flags = sqlite::OpenFlags::READONLY;
+    sqlite::database db(path, ro);
+    bool locked = true, hasName = false, hasKey = true;
+    EXPECT_TRUE(PushTokenDb::prepare(db, &locked, &hasName, &hasKey));
+    EXPECT_FALSE(locked);
+    EXPECT_TRUE(hasName);
+    EXPECT_FALSE(hasKey);
+    const auto tokens = PushTokenDb::load(db, true, hasName, hasKey);
+    ASSERT_EQ(1u, tokens.size());
+    EXPECT_EQ("Pixel", tokens[0].device_name);
+    EXPECT_EQ("", tokens[0].push_key);
+}
+
+TEST(PushTokenStoreTest, AnUnusablePushKeyIsIgnoredAndWarnedOnceWithoutItsValue)
+{
+    PushTest::StdoutCapture capture;
+    EXPECT_EQ(KeyC, JsonApi::pushKeyFromString(KeyC));
+    EXPECT_EQ("", JsonApi::pushKeyFromString(""));
+    const std::string upper = "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F";
+    for (const std::string &bad: { upper, KeyC.substr(2), KeyC + "00", std::string(63, 'a') + "g", std::string(64, ' ') })
+        EXPECT_EQ("", JsonApi::pushKeyFromString(bad)) << bad;
+    const std::string log = capture.stop();
+
+    size_t count = 0;
+    for (size_t at = log.find("push_key is not"); at != std::string::npos; at = log.find("push_key is not", at + 1))
+        count++;
+    EXPECT_EQ(1u, count) << log;
+    EXPECT_EQ(std::string::npos, log.find("0A0B0C")) << "the value itself is not logged";
+}
+
+TEST(PushTokenStoreTest, TheWorkerStoresTheKeyAndAPushOfTheCodeLogsNoSecret)
+{
+    const char *keyedToken = "jeton-cle-givre-solstice";
+    const char *keylessToken = "jeton-sans-cle-givre-solstice";
+    HistLogger::Instance().registerPushToken(keyedToken, HistLogger::PUSH_HW_ANDROID, HistLogger::PUSH_FORMAT_NOTIFICATION, "Pixel", KeyC);
+    HistLogger::Instance().registerPushToken(keylessToken, HistLogger::PUSH_HW_IOS);
+    const auto tokens = storedTokens();
+    ASSERT_NE(nullptr, find(tokens, keyedToken));
+    EXPECT_EQ(KeyC, find(tokens, keyedToken)->push_key);
+    EXPECT_EQ("", find(tokens, keylessToken)->push_key);
+
+    NotifManager::AdminCode code;
+    code.message = "Calaos admin code 482913: open the web console. Valid 60 s, never share it.";
+    code.codeId = "0123456789abcdef";
+    code.action = "console_open";
+    code.code = "482913";
+    code.expires = "2026-10-25T09:13:03Z";
+
+    //Neither token nor key nor code, whatever form the push took
+    const std::vector<std::string> secrets = { "482913", KeyC, keyedToken, keylessToken };
+    auto send = [&secrets](const char *token, const NotifManager::AdminCode &c, std::string &sealedKey)
+    {
+        PushTest::HttpPeer peer;
+        NotifManager::setPushServiceUrl(peer.url());
+        PushTest::StdoutCapture capture;
+        auto done = std::make_shared<int>(-1);
+        auto key = std::make_shared<std::string>();
+        NotifManager::Instance().sendAdminCodeTo(token, c, [done, key](bool ok, const string &sealed)
+                                                 {
+            *done = ok ? 1 : 0;
+            *key = sealed;
+        });
+        PushTest::pumpUntil([done]()
+                            {
+            return *done >= 0;
+        });
+        const std::string log = capture.stop();
+        EXPECT_EQ(1, *done) << token;
+        sealedKey = *key;
+        const std::string req = peer.request();
+        const size_t at = req.find("\r\n\r\n");
+        const Json body = at == std::string::npos ? Json() : Json::parse(req.substr(at + 4), nullptr, false);
+        EXPECT_NE(std::string::npos, log.find("code push to service")) << "nothing was captured: " << log;
+        std::vector<std::string> found = secrets;
+        Json copy = body;
+        const Json data = copy.is_object() ? copy["notifications"][0]["data"] : Json();
+        for (const char *k: { "admin_code_nonce", "admin_code_ct", "admin_code_tag" })
+            if (data.is_object() && data.contains(k))
+                found.push_back(data[k].get<std::string>());
+        for (const std::string &secret: found)
+            EXPECT_EQ(std::string::npos, log.find(secret)) << secret << " in " << log;
+        return body;
+    };
+
+    std::string sealedKey;
+    const Json sealed = send(keyedToken, code, sealedKey);
+    const Json entry = sealed["notifications"][0];
+    ASSERT_TRUE(entry.contains("data")) << sealed.dump();
+    EXPECT_EQ("482913", PushTest::openAdminCode(KeyC, entry["data"]));
+    EXPECT_EQ(std::string::npos, sealed.dump().find("482913")) << sealed.dump();
+    EXPECT_FALSE(entry.contains("notification")) << "data only whatever its format";
+    EXPECT_EQ(KeyC, sealedKey);
+
+    //A keyless phone, and a keyed one when the daemon gave no code, get the daemon's text
+    const Json legacy = send(keylessToken, code, sealedKey);
+    EXPECT_EQ(code.message, legacy["notifications"][0]["message"]) << legacy.dump();
+    EXPECT_EQ("", sealedKey);
+    NotifManager::AdminCode old;
+    old.message = code.message;
+    old.codeId = code.codeId;
+    const Json oldDaemon = send(keyedToken, old, sealedKey);
+    EXPECT_EQ(code.message, oldDaemon["notifications"][0]["message"]) << oldDaemon.dump();
+    EXPECT_EQ("", sealedKey);
+}
+
+TEST(PushTokenStoreTest, ApproverSetFreezesTheKeyTheConfirmCodeWasSealedWith)
+{
+    sqlite::database db(phaseTwoDatabase("proved_key.db"));
+    ASSERT_TRUE(PushTokenDb::prepare(db));
+
+    //KeyA sealed the approver_confirm code the phone read; someone with the
+    //token and the household password registers KeyB before approver_set
+    PushTokenDb::save(db, withKey("race-phone", KeyA), true, true, true);
+    PushTokenDb::save(db, withKey("race-phone", KeyB), true, true, true);
+    EXPECT_EQ(KeyB, keyOf(db, "race-phone"));
+
+    PushTokenDb::setApprover(db, "race-phone", true, KeyA, true);
+    EXPECT_EQ(KeyA, keyOf(db, "race-phone")) << "the proven key, not the last written";
+    EXPECT_TRUE(find(PushTokenDb::load(db, true, true, true), "race-phone")->approver);
+    PushTokenDb::save(db, withKey("race-phone", KeyB), true, true, true);
+    EXPECT_EQ(KeyA, keyOf(db, "race-phone")) << "then frozen";
+
+    //Without the column, or on a removal, the key is not touched
+    PushTokenDb::setApprover(db, "race-phone", false, KeyC, true);
+    EXPECT_EQ(KeyA, keyOf(db, "race-phone"));
+    EXPECT_FALSE(find(PushTokenDb::load(db, true, true, true), "race-phone")->approver);
+    PushTokenDb::setApprover(db, "race-phone", true, KeyC, false);
+    EXPECT_EQ(KeyA, keyOf(db, "race-phone"));
+    EXPECT_TRUE(find(PushTokenDb::load(db, true, true, true), "race-phone")->approver);
+}
+
+TEST(PushTokenStoreTest, ThePurgeNeverDropsAnApprover)
+{
+    sqlite::database db(phaseTwoDatabase("purge_approver.db"));
+    ASSERT_TRUE(PushTokenDb::prepare(db));
+    PushTokenDb::save(db, withKey("p2-approver", KeyA), true, true, true);
+    PushTokenDb::save(db, withKey("p3-old-phone", KeyB), true, true, true);
+
+    //Neither phone opened the app for 30 days
+    db << "UPDATE push_tokens SET created_at = date('now', '-31 days');";
+    PushTokenDb::purge(db, true);
+    EXPECT_EQ(KeyA, keyOf(db, "p2-approver")) << "kept with its frozen key";
+    EXPECT_EQ("<missing>", keyOf(db, "p3-old-phone"));
+    PushTokenDb::save(db, withKey("p2-approver", KeyB), true, true, true);
+    EXPECT_EQ(KeyA, keyOf(db, "p2-approver")) << "still frozen";
+
+    //Freed, it ages out as any other phone
+    PushTokenDb::setApprover(db, "p2-approver", false);
+    db << "UPDATE push_tokens SET created_at = date('now', '-31 days');";
+    PushTokenDb::purge(db, true);
+    EXPECT_EQ("<missing>", keyOf(db, "p2-approver"));
+
+    //A base without the approver column purges by date alone
+    sqlite::database old(oldDatabase("purge_old.db"));
+    old << "UPDATE push_tokens SET created_at = date('now', '-31 days');";
+    PushTokenDb::purge(old);
+    EXPECT_EQ(0u, PushTokenDb::load(old, false).size());
+}

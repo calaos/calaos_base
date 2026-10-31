@@ -45,11 +45,54 @@
 #include <string>
 #include <thread>
 
+#include <openssl/crypto.h>
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+
 #include "HistLogger.h"
 #include "libuvw.h"
 
 namespace PushTest
 {
+
+//The phone's side of an encrypted code push, written from docs/08 apart from
+//the server's: the code, or empty when the tag does not match.
+inline std::string openAdminCode(const std::string &keyHex, const Json &data)
+{
+    auto bytes = [](const std::string &hex)
+    {
+        std::string out;
+        for (size_t i = 0; i + 1 < hex.size(); i += 2)
+            out.push_back((char)std::stoi(hex.substr(i, 2), nullptr, 16));
+        return out;
+    };
+    auto field = [&data](const char *k)
+    {
+        return data.contains(k) && data[k].is_string() ? data[k].get<std::string>() : std::string();
+    };
+    auto mac = [](const std::string &key, const std::string &msg)
+    {
+        unsigned char out[32];
+        unsigned int len = 0;
+        HMAC(EVP_sha256(), key.data(), (int)key.size(), (const unsigned char *)msg.data(), msg.size(), out, &len);
+        return std::string((const char *)out, 32);
+    };
+
+    const std::string key = bytes(keyHex), nonce = bytes(field("admin_code_nonce")), ct = bytes(field("admin_code_ct"));
+    const std::string tag = bytes(field("admin_code_tag"));
+    const std::string id = field("admin_code_id");
+    if (key.size() != 32 || nonce.size() != 16 || ct.size() != 6 || tag.size() != 16)
+        return std::string();
+    const std::string want = mac(key, "calaos-admin-code/mac" + id + nonce + field("admin_code_action") +
+                                          field("admin_code_expires") + ct);
+    if (CRYPTO_memcmp(want.data(), tag.data(), 16) != 0)
+        return std::string();
+    const std::string ks = mac(key, "calaos-admin-code/enc" + id + nonce);
+    std::string code(6, '\0');
+    for (size_t i = 0; i < 6; i++)
+        code[i] = (char)(ct[i] ^ ks[i]);
+    return code;
+}
 
 inline bool pumpUntil(const std::function<bool()> &done)
 {

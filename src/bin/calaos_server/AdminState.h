@@ -94,7 +94,7 @@ public:
     static string alertMessage(const string &type, const Json &data);
 
     /* Stores an alert of the daemon (admin_set, admin_reset, approver_set,
-     * approver_removed, console_opened) as a persistent EventPushNotification
+     * approver_removed, console_opened, network_rolled_back) as a persistent EventPushNotification
      * shown at the next login, once per id: the id is saved in AlertsFileName,
      * so a replay after a restart is not stored again. False, stored never
      * called, for an id stored before or another type. stored runs once the

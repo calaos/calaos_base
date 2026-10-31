@@ -49,8 +49,9 @@
  * ---------------------------------------------------------------------------
  * WHY THE ALERT CANNOT BE RAISED AT UPLOAD TIME
  * ---------------------------------------------------------------------------
- * A successful `config put` sets need_restart, and HttpClient::DataWritten()
- * stops the event loop as soon as the reply is out (HttpClient.cpp:476-481).
+ * A successful `config put` sets need_restart, HttpClient::DataWritten() stops
+ * the event loop as soon as the reply is out, and a short timer stops it anyway
+ * if the client has gone (JsonApi::exitAfterConfigReplaced()).
  * The alert channel is deferred by 30 seconds on purpose (CalaosConfig.cpp,
  * CONFIG_ALERT_DELAY_SEC) so that it fires with the loop up and the notifier
  * usable. An alert queued during the put would therefore be thrown away by the
@@ -101,6 +102,8 @@
 #include "ListeRoom.h"
 #include "ListeRule.h"
 #include "Scenario.h"
+#include "Timer.h"
+#include "libuvw.h"
 
 #include <pugixml.hpp>
 
@@ -114,6 +117,9 @@
 #include <string>
 #include <thread>
 #include <vector>
+
+#include <sys/stat.h>
+#include <unistd.h>
 
 using namespace Calaos;
 using namespace CalaosTest;
@@ -415,6 +421,28 @@ protected:
         ListeRoom::Instance().checkAutoScenario();
     }
 
+    //Timers left by the puts of earlier tests would stop the loop in their place.
+    void letEarlierRestartTimersExpire()
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(600));
+        uvw::Loop::getDefault()->run<uvw::Loop::Mode::NOWAIT>();
+    }
+
+    //Whether something stops the loop within `ms`. HttpTestRequest never writes
+    //to a socket, so its client plays one that left before the reply.
+    bool loopStopsWithin(int ms)
+    {
+        auto loop = uvw::Loop::getDefault();
+        bool expired = false;
+        Timer guard(ms / 1000.0, [&expired, &loop]()
+                    {
+            expired = true;
+            loop->stop();
+        });
+        loop->run();
+        return !expired;
+    }
+
     /* ---------------------------------------------------------------------
      * Observables
      * ------------------------------------------------------------------ */
@@ -603,7 +631,8 @@ TEST_F(AutoScenarioUploadGuardTest, TwoUploadsLeaveTwoBackupsAndTheNewestIsTheSt
     ASSERT_GT(removeScenarioFromRulesXml(rulesOnce, marker), 0);
     ASSERT_EQ("true", str(uploadConfig(ioOnce, rulesOnce), "success"));
 
-    //second upload: everything goes
+    //second upload, the restart between them having lifted the freeze: everything goes
+    Utils::set_config_frozen(false);
     ASSERT_EQ("true", str(uploadConfig(ioXmlDocument(roomXml("Vide", "salon", std::string(), 0)),
                                        rulesXmlDocument(std::string())), "success"));
 
@@ -664,8 +693,10 @@ TEST_F(AutoScenarioUploadGuardTest, TwoUploadsInsideTheSameSecondStillLeaveTheSt
     const std::string stamp = backupSecondStamp();
 
     //first upload: the evening scenario goes. Second: everything goes. No wait
-    //between them - that is the whole point of the case.
+    //between them - that is the whole point of the case. The restart that lifts
+    //the freeze is not played: only the name of the backup folder is at stake.
     ASSERT_EQ("true", str(uploadConfig(ioOnce, rulesOnce), "success"));
+    Utils::set_config_frozen(false);
     ASSERT_EQ("true", str(uploadConfig(ioXmlDocument(roomXml("Vide", "salon", std::string(), 0)),
                                        rulesXmlDocument(std::string())), "success"));
 
@@ -1056,4 +1087,346 @@ TEST_F(AutoScenarioUploadGuardTest, TheUploadThatLegitimatelyDeletesAScenarioIsA
     ASSERT_TRUE(scenarioIo(wakeupId) != nullptr);
     EXPECT_EQ(1u, stepCountOf(wakeupId));
     EXPECT_EQ(1u, ListeRoom::Instance().getAutoScenarios().size());
+}
+
+/******************************************************************************
+ * What stops a put, and what a put stops
+ ******************************************************************************/
+
+//A plain file where the folder goes makes the backup fail, even for the root user of CI
+TEST_F(AutoScenarioUploadGuardTest, APutWhoseBackupFailsWritesNothingAndDoesNotFreeze)
+{
+    loadHouse();
+    saveConfig();
+    const std::string ioBefore = ioXmlOnDisk();
+    const std::string rulesBefore = rulesXmlOnDisk();
+
+    const std::string backups = configDir() + "/backups";
+    std::filesystem::remove_all(backups);
+    std::ofstream(backups) << "not a folder\n";
+
+    const Json answer = uploadConfig("<?xml version=\"1.0\"?>\n<new/>\n", "<?xml version=\"1.0\"?>\n<new/>\n");
+
+    EXPECT_EQ("false", answer.value("success", ""));
+    EXPECT_EQ("Could not copy the current files to backups, nothing was written", answer.value("error", ""));
+    EXPECT_EQ(ioBefore, ioXmlOnDisk());
+    EXPECT_EQ(rulesBefore, rulesXmlOnDisk());
+    EXPECT_FALSE(Utils::config_frozen());
+
+    std::filesystem::remove(backups);
+}
+
+TEST_F(AutoScenarioUploadGuardTest, APutHoldsBackEveryWriteUntilTheRestart)
+{
+    loadHouse();
+    saveConfig();
+
+    const std::string ioXml = "<?xml version=\"1.0\"?>\n<first/>\n";
+    const std::string rulesXml = "<?xml version=\"1.0\"?>\n<first-rules/>\n";
+    ASSERT_EQ("true", uploadConfig(ioXml, rulesXml).value("success", ""));
+    ASSERT_TRUE(Utils::config_frozen());
+
+    Config::Instance().SaveConfigIO();
+    Config::Instance().SaveConfigRule();
+    EXPECT_FALSE(Utils::set_config_option("smtp_server", "late.example.org"));
+    EXPECT_EQ(ioXml, ioXmlOnDisk());
+    EXPECT_EQ(rulesXml, rulesXmlOnDisk());
+
+    const size_t backups = backupsOf("io.xml").size();
+    const Json second = uploadConfig("<?xml version=\"1.0\"?>\n<second/>\n", "<?xml version=\"1.0\"?>\n<second/>\n");
+    EXPECT_EQ("false", second.value("success", ""));
+    EXPECT_EQ("The configuration is frozen until the restart", second.value("error", ""));
+    EXPECT_EQ(ioXml, ioXmlOnDisk());
+    EXPECT_EQ(rulesXml, rulesXmlOnDisk());
+    EXPECT_EQ(backups, backupsOf("io.xml").size());
+}
+
+TEST_F(AutoScenarioUploadGuardTest, APutCannotOverwriteARestoreUnderWay)
+{
+    loadHouse();
+    saveConfig();
+    const std::string ioBefore = ioXmlOnDisk();
+    const std::string rulesBefore = rulesXmlOnDisk();
+
+    Utils::set_config_frozen(true);
+    const Json answer = uploadConfig("<?xml version=\"1.0\"?>\n<new/>\n", "<?xml version=\"1.0\"?>\n<new/>\n");
+
+    EXPECT_EQ("false", answer.value("success", ""));
+    EXPECT_EQ(ioBefore, ioXmlOnDisk());
+    EXPECT_EQ(rulesBefore, rulesXmlOnDisk());
+    EXPECT_TRUE(backupsOf("io.xml").empty());
+}
+
+TEST_F(AutoScenarioUploadGuardTest, APutRestartsEvenIfItsClientHasGone)
+{
+    loadHouse();
+    saveConfig();
+    letEarlierRestartTimersExpire();
+
+    ASSERT_EQ("true", uploadConfig("<?xml version=\"1.0\"?>\n<new/>\n", "<?xml version=\"1.0\"?>\n<new/>\n").value("success", ""));
+    ASSERT_TRUE(Utils::config_frozen());
+
+    EXPECT_TRUE(loopStopsWithin(3000)) << "frozen with no restart on the way";
+}
+
+TEST_F(AutoScenarioUploadGuardTest, ARefusedPutDoesNotRestart)
+{
+    loadHouse();
+    saveConfig();
+    letEarlierRestartTimersExpire();
+
+    Utils::set_config_frozen(true);
+    ASSERT_EQ("false", uploadConfig("<?xml version=\"1.0\"?>\n<new/>\n", "<?xml version=\"1.0\"?>\n<new/>\n").value("success", ""));
+
+    EXPECT_FALSE(loopStopsWithin(800));
+}
+
+/******************************************************************************
+ * A config file that did not load: a read writes nothing, a change is refused
+ * and a put is the way out
+ ******************************************************************************/
+
+class UnloadedConfigFileTest: public AutoScenarioUploadGuardTest
+{
+protected:
+    static constexpr const char *kGarbage = "live file garbage <<<";
+    static constexpr mode_t kMode = 0640;
+
+    std::string pathOf(const char *name) const { return configDir() + "/" + name; }
+
+    static mode_t modeOf(const std::string &path)
+    {
+        struct stat st;
+        EXPECT_EQ(0, ::stat(path.c_str(), &st)) << path;
+        return st.st_mode & 07777;
+    }
+
+    //The server starts again on a file it cannot read, left on disk as it is
+    void restartOnGarbage(const char *name)
+    {
+        {
+            std::ofstream f(pathOf(name), std::ios::trunc);
+            f << kGarbage;
+        }
+        ASSERT_EQ(0, ::chmod(pathOf(name).c_str(), kMode));
+        reloadFromDisk();
+    }
+
+    void expectGarbageUntouched(const char *name) const
+    {
+        EXPECT_EQ(kGarbage, readWholeFile(pathOf(name)));
+        EXPECT_EQ(kMode, modeOf(pathOf(name)));
+        EXPECT_FALSE(std::filesystem::exists(pathOf(name) + ".restore"));
+    }
+
+    Json configGet()
+    {
+        HttpTestRequest req;
+        req.send(authenticated(Json{ { "action", "config" }, { "type", "get" } }));
+        EXPECT_EQ(1u, req.count());
+        if (req.count() != 1) return Json::object();
+        return req.bodyJson();
+    }
+
+    Json wsSetTimerange(WsTestSession &ws, const std::string &id)
+    {
+        ws.clear();
+        ws.send(Json{ { "msg", "set_timerange" }, { "msg_id", "1" }, { "data", { { "id", id }, { "months", "011111111111" } } } });
+        EXPECT_EQ(1u, ws.count());
+        if (ws.count() != 1) return Json::object();
+        return ws.lastData();
+    }
+
+    static Json createdScenario()
+    {
+        return Json{ { "type", "create" },
+                     { "name", "Added" },
+                     { "room_name", ROOM_NAME_E46H },
+                     { "room_type", ROOM_TYPE_E46H },
+                     { "steps", oneStep() } };
+    }
+
+    static Json modifiedScenario(const std::string &id)
+    {
+        return Json{ { "type", "modify" },
+                     { "id", id },
+                     { "name", "Renamed" },
+                     { "room_name", ROOM_NAME_E46H },
+                     { "room_type", ROOM_TYPE_E46H },
+                     { "steps", oneStep() } };
+    }
+
+private:
+    static Json oneStep()
+    {
+        return Json::array({ Json{ { "pause", "1" },
+                                   { "actions", Json::array({ Json{ { "io", IO_LAMP }, { "value", "true" } } }) } } });
+    }
+};
+
+TEST_F(UnloadedConfigFileTest, EveryChangeThatTouchesAnUnloadedRulesFileIsRefused)
+{
+    loadHouse();
+    std::string eveningId;
+    {
+        WsTestSession ws;
+        eveningId = createEveningScenario(ws);
+        ASSERT_FALSE(eveningId.empty());
+        ASSERT_FALSE(wsAutoscenario(ws, Json{ { "type", "add_schedule" }, { "id", eveningId } }).contains("error"));
+    }
+    saveConfig();
+    const std::string ioBefore = ioXmlOnDisk();
+    restartOnGarbage(RULES_CONFIG);
+    ASSERT_TRUE(Config::Instance().ioFileLoaded());
+    ASSERT_FALSE(Config::Instance().rulesFileLoaded());
+
+    WsTestSession ws;
+    const Json changes[] = { createdScenario(),
+                             modifiedScenario(eveningId),
+                             Json{ { "type", "delete" }, { "id", eveningId } },
+                             Json{ { "type", "del_schedule" }, { "id", eveningId } },
+                             Json{ { "type", "add_schedule" }, { "id", eveningId } } };
+    const size_t scenarios = ListeRoom::Instance().getAutoScenarios().size();
+    for (const Json &change: changes)
+        EXPECT_EQ("{\"error\":\"config_not_loaded\"}", wsAutoscenario(ws, change).dump()) << change.dump();
+
+    //Nothing changed in memory either: the answer is not a lie
+    EXPECT_EQ(scenarios, ListeRoom::Instance().getAutoScenarios().size());
+    ASSERT_NE(nullptr, scenarioIo(eveningId));
+    EXPECT_EQ(3u, stepCountOf(eveningId));
+    EXPECT_EQ(NAME_EVENING, scenarioIo(eveningId)->get_param("name"));
+    EXPECT_EQ(ioBefore, ioXmlOnDisk());
+    expectGarbageUntouched(RULES_CONFIG);
+}
+
+TEST_F(UnloadedConfigFileTest, NoChangeReachesAnUnloadedIoFile)
+{
+    loadHouse();
+    saveConfig();
+    const std::string rulesBefore = rulesXmlOnDisk();
+    restartOnGarbage(IO_CONFIG);
+    ASSERT_FALSE(Config::Instance().ioFileLoaded());
+    ASSERT_TRUE(Config::Instance().rulesFileLoaded());
+
+    WsTestSession ws;
+    //The room went with the file
+    EXPECT_NE(std::string::npos, wsAutoscenario(ws, createdScenario()).value("error", "").find("no room"));
+    const std::string unknown = "gone_with_the_file";
+    const Json changes[] = { modifiedScenario(unknown),
+                             Json{ { "type", "delete" }, { "id", unknown } },
+                             Json{ { "type", "add_schedule" }, { "id", unknown } },
+                             Json{ { "type", "del_schedule" }, { "id", unknown } },
+                             Json{ { "type", "reenable" }, { "id", unknown } } };
+    for (const Json &change: changes)
+        EXPECT_EQ("{\"error\":\"wrong input\"}", wsAutoscenario(ws, change).dump()) << change.dump();
+    EXPECT_EQ("wrong input", wsSetTimerange(ws, unknown).value("error", ""));
+
+    expectGarbageUntouched(IO_CONFIG);
+    EXPECT_EQ(rulesBefore, rulesXmlOnDisk());
+}
+
+//Those live in io.xml alone: nothing is lost by leaving rules.xml out
+TEST_F(UnloadedConfigFileTest, WhatOnlyLivesInIoXmlStillGoesThrough)
+{
+    loadHouse();
+    std::string eveningId;
+    std::string scheduleId;
+    {
+        WsTestSession ws;
+        eveningId = createEveningScenario(ws);
+        ASSERT_FALSE(eveningId.empty());
+        scheduleId = wsAutoscenario(ws, Json{ { "type", "add_schedule" }, { "id", eveningId } }).value("id", "");
+        ASSERT_FALSE(scheduleId.empty());
+    }
+    saveConfig();
+    const std::string ioBefore = ioXmlOnDisk();
+    restartOnGarbage(RULES_CONFIG);
+
+    WsTestSession ws;
+    EXPECT_EQ("true", wsSetTimerange(ws, scheduleId).value("success", ""));
+    EXPECT_EQ("true", wsAutoscenario(ws, Json{ { "type", "reenable" }, { "id", eveningId } }).value("success", ""));
+
+    EXPECT_NE(ioBefore, ioXmlOnDisk());
+    expectGarbageUntouched(RULES_CONFIG);
+}
+
+TEST_F(UnloadedConfigFileTest, AConfigGetHandsBackWhatIsOnDiskAndWritesNothing)
+{
+    loadHouse();
+    saveConfig();
+    const std::string goodRules = rulesXmlOnDisk();
+    restartOnGarbage(IO_CONFIG);
+
+    const Json reply = configGet();
+
+    EXPECT_EQ("true", reply.value("success", ""));
+    EXPECT_EQ(kGarbage, reply["config_files"].value("io.xml", ""));
+    EXPECT_EQ(goodRules, reply["config_files"].value("rules.xml", ""));
+    expectGarbageUntouched(IO_CONFIG);
+}
+
+TEST_F(UnloadedConfigFileTest, AConfigGetLeavesAnUnloadedRulesFileToo)
+{
+    loadHouse();
+    saveConfig();
+    restartOnGarbage(RULES_CONFIG);
+
+    EXPECT_EQ(kGarbage, configGet()["config_files"].value("rules.xml", ""));
+    expectGarbageUntouched(RULES_CONFIG);
+}
+
+TEST_F(UnloadedConfigFileTest, AConfigGetSurvivesADirectoryInPlaceOfTheFile)
+{
+    loadHouse();
+    saveConfig();
+    ASSERT_EQ(0, ::unlink(pathOf(IO_CONFIG).c_str()));
+    ASSERT_TRUE(std::filesystem::create_directory(pathOf(IO_CONFIG)));
+    reloadFromDisk();
+    ASSERT_FALSE(Config::Instance().ioFileLoaded());
+
+    const Json reply = configGet();
+
+    EXPECT_EQ("true", reply.value("success", ""));
+    EXPECT_EQ("", reply["config_files"].value("io.xml", "not there"));
+    EXPECT_TRUE(std::filesystem::is_directory(pathOf(IO_CONFIG)));
+    ::rmdir(pathOf(IO_CONFIG).c_str());
+}
+
+TEST_F(UnloadedConfigFileTest, AConfigPutIsTheWayOutAndTheRestartLoadsItNormally)
+{
+    loadHouse();
+    std::string eveningId;
+    {
+        WsTestSession ws;
+        eveningId = createEveningScenario(ws);
+    }
+    ASSERT_FALSE(eveningId.empty());
+    saveConfig();
+    const std::string ioXml = ioXmlOnDisk();
+    const std::string rulesXml = rulesXmlOnDisk();
+    restartOnGarbage(IO_CONFIG);
+    restartOnGarbage(RULES_CONFIG);
+    ASSERT_FALSE(Config::Instance().ioFileLoaded());
+    ASSERT_FALSE(Config::Instance().rulesFileLoaded());
+    letEarlierRestartTimersExpire();
+
+    EXPECT_EQ("true", uploadConfig(ioXml, rulesXml).value("success", ""));
+
+    EXPECT_EQ(ioXml, ioXmlOnDisk());
+    EXPECT_EQ(rulesXml, rulesXmlOnDisk());
+    EXPECT_EQ(kMode, modeOf(pathOf(IO_CONFIG)));
+    EXPECT_EQ(kMode, modeOf(pathOf(RULES_CONFIG)));
+
+    Utils::set_config_frozen(false);
+    reloadFromDisk();
+
+    EXPECT_TRUE(Config::Instance().ioFileLoaded());
+    EXPECT_TRUE(Config::Instance().rulesFileLoaded());
+    ASSERT_NE(nullptr, scenarioIo(eveningId));
+    EXPECT_EQ(3u, stepCountOf(eveningId));
+
+    //And the saves are back
+    WsTestSession ws;
+    EXPECT_EQ("true", wsAutoscenario(ws, Json{ { "type", "delete" }, { "id", eveningId } }).value("success", ""));
+    EXPECT_NE(ioXml, ioXmlOnDisk());
 }

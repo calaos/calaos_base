@@ -20,7 +20,8 @@ public:
     static bool isExecutable(const std::string &path);
     static bool rename(const std::string &src, const std::string &dst);
     static std::string filename(const std::string &path);
-    static bool copyFile(const std::string &src, const std::string &dst);
+    //ownerOnly: dst is 0600 from its creation on, even if it already existed
+    static bool copyFile(const std::string &src, const std::string &dst, bool ownerOnly = false);
     static std::vector<std::string> listDir(const std::string &path);
 
     // Safely resolve a user-supplied sub-path against a trusted root directory.

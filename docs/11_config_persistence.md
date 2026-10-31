@@ -61,13 +61,33 @@ bool ok = conf.ReadValueParams("id-abc", params);
 // Flush explicite du cache (le destructeur le fait aussi)
 conf.saveStateCache();
 
-// Backup horodaté des trois fichiers de config
-conf.BackupFiles();
+// Backup horodaté des trois fichiers de config ; renvoie le dossier relatif à backups/,
+// vide si un fichier existant n'a pas pu être copié
+string folder = conf.BackupFiles();
 ```
 
-`BackupFiles()` n'a **qu'un seul appelant de production** : le handler HTTP `config`, juste avant
+`BackupFiles()` a **trois appelants de production** : le handler HTTP `config`, juste avant
 d'écraser les fichiers de config poussés par un client
-(dérivé, [JsonApiHandlerHttp.cpp:783](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)).
+(dérivé, [JsonApiHandlerHttp.cpp:783](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)),
+`AdminConfig::set()` (`admin` / `config_set`, voir docs/08), juste avant d'écrire une option de
+`local_config.xml`, et `AdminConfig::restore()` (`admin` / `config_restore`). Pour les trois, un
+dossier vide annule tout : rien n'est écrit sans copie de ce qui serait perdu. Les copies sont en
+0600 dès leur création : `local_config.xml` porte des jetons, `io.xml` des mots de passe de caméra.
+
+`config_restore` et `config put` remplacent les fichiers sous le serveur qui tourne, puis l'arrêtent.
+Entre les deux, `Utils::set_config_frozen(true)` rend sans effet `SaveConfigIO()`, `SaveConfigRule()`
+et les écritures d'option : la configuration en mémoire est celle d'avant et ne doit pas repasser
+par-dessus les fichiers remplacés. Pour `config_restore`, le gel reste en place si une écriture a
+échoué après qu'un fichier a été remplacé, et tombe si rien ne l'a été. `config put` ne gèle que
+s'il réussit : c'est aussi le seul cas où il redémarre, et un minuteur arrête la boucle sans attendre
+que la réponse parte, le client ayant pu disparaître. `Utils::restore_config_file()` écrit seul
+sous le gel, avec le verrou de `local_config.xml` : `<nom>.restore`, `fsync`, `rename`, le temporaire
+ne suivant aucun lien symbolique.
+
+Le gel est **par processus**. `calaos_config` n'en voit rien, et n'a pas à en voir : il relit le
+fichier sous le verrou à chaque écriture et ne tient aucune configuration ancienne à réécrire.
+`calaos_mail` ne lit que des options ; `initConfigOptions()` n'y écrit que les valeurs par défaut
+absentes, sur le fichier relu de la même façon.
 
 Le dossier est horodaté **à la seconde**, ce qui ne suffit pas à le rendre unique : jusqu'à T3.64
 deux `config put` dans la même seconde le partageaient, et le second **écrasait** la copie du
@@ -304,27 +324,48 @@ pas sur le nœud lui-même ; c'est cosmétique et connu.
 
 Un `io.xml` ou un `rules.xml` illisible **ne tue plus le démon** — c'était un `exit(-1)`. Le
 chemin, en entier (dérivé,
-[CalaosConfig.cpp:55-198](../src/bin/calaos_server/CalaosConfig.cpp)) :
+[CalaosConfig.cpp:127-237](../src/bin/calaos_server/CalaosConfig.cpp)) :
 
+0. **Seule une erreur de parse, ou un fichier absent, lance ce chemin.** Un fichier qu'on n'a pas pu lire (droits, I/O,
+   mémoire, dossier à la place du fichier) n'est pas corrompu, pas plus qu'un XML valide sous un
+   autre élément racine que `calaos:ioconfig` ou `calaos:rules` : l'erreur est journalisée sans
+   backup ni copie, le fichier reste tel quel et le serveur démarre à vide pour lui. pugixml
+   rend `file_not_found` pour tout échec de `fopen` : le statut est revérifié par `stat`, et seul
+   un fichier réellement absent passe pour absent. Dans le doute, le fichier n'est jamais
+   remplacé. Un fichier absent, lui, est un premier démarrage : le squelette vide est créé en
+   `0600` et le journal le dit (`does not exist, first start: creating an empty one`). Il
+   n'arrive ici que si cette création a échoué.
 1. **Journalisation** de l'erreur de parse, avec la description pugixml et un **offset en
    octets** dans le fichier.
 2. **Préservation** de l'octet près du fichier corrompu dans
-   `<config>/backups/corrupt/<nom>.<AAAAMMJJ-HHMMSS>` — jamais écrasé silencieusement.
+   `<config>/backups/corrupt/<nom>.<AAAAMMJJ-HHMMSS>` — jamais écrasé silencieusement, en mode
+   `0600` comme les sauvegardes, car un fichier corrompu garde ses secrets.
    Épinglé par `CorruptIoXmlWithoutBackupDoesNotKillTheProcess`, qui compare le contenu préservé
    au contenu corrompu original (capturé,
    [tests/core/CalaosConfigRobustness_test.cpp:111-136](../tests/core/CalaosConfigRobustness_test.cpp)).
 3. **Restauration** : les backups portant ce nom de fichier sont parcourus **du plus récent au
-   plus ancien** (tri par date de modification). Chaque candidat est **d'abord parsé en place** —
-   un backup lui-même corrompu est sauté avec un avertissement, et surtout jamais recopié sur le
-   fichier vivant. Le premier qui parse est restauré. Épinglé par
-   `BackupWalkSkipsCorruptNewestAndRestoresOlderOne`.
-4. Si **aucun** backup n'est exploitable, le serveur démarre avec une configuration **vide** pour
-   ce fichier. Il démarre quand même.
+   plus ancien** (tri par date de modification). Chaque candidat est **d'abord parsé en mémoire** —
+   un backup lui-même corrompu ou sous un autre élément racine est sauté avec un avertissement,
+   et surtout jamais recopié sur le fichier vivant. Le premier qui parse est restauré par `Utils::restore_config_file()` :
+   `<fichier>.restore` à côté du fichier vivant, fsync, puis rename. Le fichier vivant garde son
+   mode, `0600` s'il n'existait pas, et un échec le laisse intact, sans temporaire, avant de
+   passer au backup suivant. Épinglé par `BackupWalkSkipsCorruptNewestAndRestoresOlderOne` et
+   `ACopyFailureFallsBackToAnOlderBackup`.
+4. Si **aucun** backup n'est exploitable, l'erreur est journalisée, le fichier vivant reste tel
+   quel et le serveur démarre avec une configuration **vide** pour ce fichier. Il démarre quand
+   même. Le fichier est **non chargé** (`Config::ioFileLoaded()`, `rulesFileLoaded()`), comme un
+   fichier non lu (étape 0) : `SaveConfigIO()` et `SaveConfigRule()` le sautent, journalisent
+   l'erreur et sauvegardent l'autre. Seuls `config put` et `config_restore` le remplacent, en
+   entier ; le redémarrage qui suit le charge normalement. Ce qui ne peut plus être persisté est
+   refusé par l'API, pas perdu : `config_not_loaded`, voir
+   [docs/08](08_http_api.md#fichier-non-chargé). `Config::BackupFiles()` ne bloque pas sur la copie
+   ratée d'un tel fichier : ce serait interdire le seul moyen de le remplacer.
 5. **Une seule notification agrégée**, mail **+** push, envoyée **~30 s après le démarrage**
    (`CONFIG_ALERT_DELAY_SEC = 30.0`) : les chargements ont lieu avant que la boucle d'événements
    ne tourne, la notification est donc différée par un `Timer::singleShot`. Le message nomme le
    fichier, le chemin de la copie préservée, et le backup restauré — ou dit explicitement que la
-   configuration est **vide**.
+   configuration est **vide**, et que seul un envoi de configuration ou une restauration remplacera
+   le fichier. Un fichier non lu a son propre message, sans copie ni mention de corruption.
 
 Le canal est **partagé** : depuis E4.2e, la même notification transporte aussi le rapport des
 **règles désactivées** faute d'un IO manquant, et T3.18 y ajoute la mention des **scénarios**
@@ -439,15 +480,19 @@ de la mise à jour mémoire. Le **destructeur** de `Config` détruit le timer pu
 ```
 ListeRoom → Room::SaveToXml() → IOBase::SaveToXml()
   → document pugixml complet
-  → écrit dans io.xml_tmp, puis rename() vers io.xml
+  → Utils::restore_config_file() : io.xml.restore, fsync, rename() vers io.xml
 ```
 
-L'écriture passe **toujours** par un fichier temporaire suivi d'un `rename()` : `rename()` seul
-est atomique, alors qu'un `unlink()` préalable ouvrirait une fenêtre pendant laquelle aucun
-fichier de config n'existe. Si l'écriture du temporaire échoue, il est supprimé et l'ancien
-fichier reste intact (dérivé,
-[CalaosConfig.cpp:313-348](../src/bin/calaos_server/CalaosConfig.cpp), épinglé par
-`SaveLeavesNoTemporaryFileBehind` et `FailedSaveKeepsThePreviousConfigIntact`).
+L'écriture passe **toujours** par `Utils::restore_config_file()`, celle de `config_restore` : un
+temporaire `<nom>.restore` du même dossier, `fsync`, puis `rename()`, seul atomique, alors qu'un
+`unlink()` préalable ouvrirait une fenêtre pendant laquelle aucun fichier de config n'existe. Le
+fichier garde son mode et son propriétaire (`0600` s'il est nouveau), et un lien symbolique reste
+un lien : c'est sa cible qui est remplacée. Si une étape échoue, le temporaire est supprimé et
+l'ancien fichier reste intact, sans que l'appelant le sache : la sauvegarde ne rend rien (dérivé,
+[CalaosConfig.cpp:265-277](../src/bin/calaos_server/CalaosConfig.cpp), épinglé par
+`SaveLeavesNoTemporaryFileBehind`, `FailedSaveKeepsThePreviousConfigIntact`,
+`ASaveKeepsTheModeOfTheFile` et `ASaveThatDoesNotFitLeavesTheFileAsItWas`). Un fichier non chargé
+n'est pas sauvegardé du tout, voir [Robustesse](#robustesse--configuration-corrompue-t24-décision-utilisateur).
 
 ---
 
@@ -460,7 +505,7 @@ temporaire + `rename()` :
 ListeRule → Rule::SaveToXml()
   → Condition::SaveToXml()
   → Action::SaveToXml()
-  → écrit dans rules.xml_tmp, puis rename() vers rules.xml
+  → Utils::restore_config_file() : rules.xml.restore, fsync, rename() vers rules.xml
 ```
 
 ⚠️ **Aucune règle n'est exclue de la sauvegarde**, pas même les règles d'auto-scénario : la

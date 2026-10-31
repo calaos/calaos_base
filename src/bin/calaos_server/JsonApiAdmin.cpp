@@ -19,17 +19,21 @@
  **
  ******************************************************************************/
 #include "JsonApi.h"
+#include "AdminConfig.h"
 #include "AdminEvents.h"
 #include "AdminState.h"
 #include "DaemonClient.h"
 #include "HistLogger.h"
 #include "HttpClient.h"
 #include "JsonField.h"
+#include "libuvw.h"
 
 #include <openssl/evp.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
+#include <map>
 #include <set>
 
 namespace
@@ -64,6 +68,8 @@ string messageFor(const string &code)
         { "bad_code", "Wrong push code" },
         { "code_expired", "The push code expired, request a new one" },
         { "console_limit", "Too many consoles are open" },
+        { "network_pending", "A network change is waiting for its confirmation" },
+        { "service_unavailable", "This service is not available on this box" },
         { "login_failed", "Wrong household credentials" },
         { "internal", "Internal error" },
     };
@@ -115,7 +121,8 @@ bool isPasswordValue(const string &s)
 //The push code actions of docs/API.md a client may ask a code for
 bool isCodeAction(const string &s)
 {
-    return s == "console_open" || s == "admin_password" || s == "approver_enroll" || s == "approver_remove";
+    return s == "console_open" || s == "admin_password" || s == "approver_enroll" || s == "approver_remove" ||
+           s == "network_config";
 }
 
 //Empty when from[key] is a string check() accepts, the invalid_request message otherwise
@@ -194,6 +201,419 @@ string enrollBody(const Json &params, Json &body)
     return optionalCodeFields(params, body);
 }
 
+bool isAsciiDigit(char c)
+{
+    return c >= '0' && c <= '9';
+}
+
+bool isAsciiAlnum(char c)
+{
+    return isAsciiDigit(c) || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+}
+
+//a.b.c.d, each octet 0..255 without a leading zero: the daemon binds the code
+//to the string as sent, so an address has a single spelling
+bool isStrictIPv4(const string &s)
+{
+    size_t i = 0;
+    for (int octet = 0; octet < 4; octet++)
+    {
+        if (octet > 0 && (i >= s.size() || s[i++] != '.'))
+            return false;
+        const size_t start = i;
+        int value = 0;
+        while (i < s.size() && isAsciiDigit(s[i]) && i - start < 3)
+            value = value * 10 + (s[i++] - '0');
+        if (i == start || value > 255 || (i - start > 1 && s[start] == '0'))
+            return false;
+    }
+    return i == s.size();
+}
+
+//An explicit prefix: network/apply refuses a bare address, unlike network/{intf}
+bool isIPv4Cidr(const string &s)
+{
+    const size_t slash = s.find('/');
+    if (slash == string::npos || !isStrictIPv4(s.substr(0, slash)))
+        return false;
+    const string bits = s.substr(slash + 1);
+    if (bits.empty() || bits.size() > 2 || !std::all_of(bits.begin(), bits.end(), isAsciiDigit) ||
+        (bits.size() > 1 && bits[0] == '0'))
+        return false;
+    return std::stoi(bits) <= 32;
+}
+
+//The daemon's search domain: labels of 1 to 63 characters that neither start
+//nor end with '-', an optional final dot
+bool isDomainName(const string &s)
+{
+    if (s.empty() || s.size() > 253 || !std::all_of(s.begin(), s.end(), [](char c)
+                                                    {
+        return isAsciiAlnum(c) || c == '.' || c == '-';
+        }))
+        return false;
+
+    const string name = s.back() == '.' ? s.substr(0, s.size() - 1) : s;
+    size_t start = 0;
+    while (true)
+    {
+        const size_t dot = name.find('.', start);
+        const string label = name.substr(start, dot == string::npos ? string::npos : dot - start);
+        if (label.empty() || label.size() > 63 || label.front() == '-' || label.back() == '-')
+            return false;
+        if (dot == string::npos)
+            return true;
+        start = dot + 1;
+    }
+}
+
+string joined(const vector<string> &list)
+{
+    string out;
+    for (const string &s: list)
+        out += (out.empty() ? "" : ",") + s;
+    return out;
+} //LCOV_EXCL_LINE gcov counts the exception cleanup of the locals here
+
+/* The fields of network_apply, which are also the code_params of a
+ * network_config code, checked with the daemon's v2 rules. body gets them as
+ * sent; bound gets the six strings the daemon binds the code to: the same
+ * joiner, the same spelling of the bool, "" when absent, no address
+ * normalised, or the code typed back would never match.
+ */
+string networkFields(const Json &from, Json &body, Json &bound)
+{
+    string intf;
+    const string invalid = stringField(from, "intf", JsonApi::isValidInterfaceName, intf);
+    if (!invalid.empty())
+        return invalid;
+    const auto dhcp = from.find("dhcp");
+    if (dhcp == from.end() || !dhcp->is_boolean())
+        return "dhcp is required";
+
+    const char *addressKeys[] = { "ipv4", "gateway" };
+    string addresses[2];
+    for (int i = 0; i < 2; i++)
+    {
+        const auto it = from.find(addressKeys[i]);
+        if (it != from.end() && !it->is_string())
+            return string("Invalid ") + addressKeys[i];
+        if (it != from.end())
+            addresses[i] = it->get<string>();
+    }
+
+    const char *listKeys[] = { "dns_servers", "search_domains" };
+    vector<string> lists[2];
+    for (int i = 0; i < 2; i++)
+    {
+        const auto it = from.find(listKeys[i]);
+        if (it == from.end())
+            continue;
+        if (!it->is_array() || it->size() > 4)
+            return string("Invalid ") + listKeys[i] + ": at most 4 entries";
+        for (const Json &v: *it)
+        {
+            if (!v.is_string())
+                return string("Invalid ") + listKeys[i];
+            lists[i].push_back(v.get<string>());
+        }
+    }
+
+    if (dhcp->get<bool>())
+    {
+        if (!addresses[0].empty() || !addresses[1].empty() || !lists[0].empty() || !lists[1].empty())
+            return "ipv4, gateway, dns_servers and search_domains must be empty with dhcp";
+    }
+    else
+    {
+        if (!isIPv4Cidr(addresses[0]))
+            return "Invalid ipv4: a.b.c.d/n is required without dhcp";
+        if (!addresses[1].empty() && !isStrictIPv4(addresses[1]))
+            return "Invalid gateway";
+        if (!std::all_of(lists[0].begin(), lists[0].end(), isStrictIPv4))
+            return "Invalid dns_servers";
+        if (!std::all_of(lists[1].begin(), lists[1].end(), isDomainName))
+            return "Invalid search_domains";
+    }
+
+    body["intf"] = intf;
+    body["dhcp"] = *dhcp;
+    for (int i = 0; i < 2; i++)
+    {
+        if (from.contains(addressKeys[i]))
+            body[addressKeys[i]] = addresses[i];
+        if (from.contains(listKeys[i]))
+            body[listKeys[i]] = lists[i];
+    }
+
+    bound = Json{ { "intf", intf },
+                  { "dhcp", dhcp->get<bool>() ? "true" : "false" },
+                  { "ipv4", addresses[0] },
+                  { "gateway", addresses[1] },
+                  { "dns_servers", joined(lists[0]) },
+                  { "search_domains", joined(lists[1]) } };
+    return string();
+}
+
+string networkApplyBody(const Json &params, Json &body)
+{
+    Json bound;
+    const string invalid = networkFields(params, body, bound);
+    return invalid.empty() ? codeFields(params, body) : invalid;
+}
+
+string changeIdBody(const Json &params, Json &body)
+{
+    string id;
+    const string invalid = stringField(params, "change_id", isDaemonId, id);
+    if (invalid.empty())
+        body["change_id"] = id;
+    return invalid;
+}
+
+bool isServiceId(const string &s)
+{
+    return !s.empty() && s.size() <= 32 && std::all_of(s.begin(), s.end(), [](char c)
+                                                       {
+        return isAsciiDigit(c) || (c >= 'a' && c <= 'z') || c == '-';
+    });
+}
+
+//The daemon tells which ids exist and which verbs each one allows
+string serviceUnitBody(const Json &params, Json &body)
+{
+    string unit;
+    const string invalid = stringField(params, "unit", isServiceId, unit);
+    if (invalid.empty())
+        body["unit"] = unit;
+    return invalid;
+}
+
+//Days since 1970-01-01 of a civil date (Howard Hinnant's algorithm)
+long long daysFromCivil(int year, int mon, int day)
+{
+    const int y = year - (mon <= 2 ? 1 : 0);
+    const int era = (y >= 0 ? y : y - 399) / 400;
+    const int yoe = y - era * 400;
+    const int doy = (153 * (mon > 2 ? mon - 3 : mon + 9) + 2) / 5 + day - 1;
+    const int doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    return (long long)era * 146097 + doe - 719468;
+}
+
+/* An RFC 3339 date-time as Go's time.RFC3339 reads it (upper case T and Z, an
+ * optional fraction): its instant in seconds since the epoch, without timegm()
+ * and the process time zone.
+ */
+bool parseRfc3339(const string &s, double &instant)
+{
+    if (s.size() < 20 || s.size() > 35)
+        return false;
+    auto digits = [&s](size_t pos, size_t n, int &out)
+    {
+        out = 0;
+        for (size_t i = pos; i < pos + n; i++)
+        {
+            if (i >= s.size() || !isAsciiDigit(s[i]))
+                return false;
+            out = out * 10 + (s[i] - '0');
+        }
+        return true;
+    };
+
+    int year, mon, day, hour, min, sec;
+    if (!digits(0, 4, year) || s[4] != '-' || !digits(5, 2, mon) || s[7] != '-' || !digits(8, 2, day) || s[10] != 'T' ||
+        !digits(11, 2, hour) || s[13] != ':' || !digits(14, 2, min) || s[16] != ':' || !digits(17, 2, sec))
+        return false;
+    static const int monthDays[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+    const bool leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+    if (mon < 1 || mon > 12 || day < 1 || day > monthDays[mon - 1] + (mon == 2 && leap ? 1 : 0) || hour > 23 ||
+        min > 59 || sec > 59)
+        return false;
+
+    size_t i = 19;
+    double fraction = 0.0;
+    if (s[i] == '.')
+    {
+        const size_t start = ++i;
+        double scale = 0.1;
+        while (i < s.size() && isAsciiDigit(s[i]))
+        {
+            fraction += (s[i++] - '0') * scale;
+            scale /= 10.0;
+        }
+        if (i == start || i - start > 9)
+            return false;
+    }
+
+    int offset = 0;
+    int oh, om;
+    if (i < s.size() && s[i] == 'Z')
+        i++;
+    else if (i < s.size() && (s[i] == '+' || s[i] == '-') && digits(i + 1, 2, oh) && i + 3 < s.size() &&
+             s[i + 3] == ':' && digits(i + 4, 2, om) && oh <= 23 && om <= 59)
+    {
+        offset = (s[i] == '-' ? -1 : 1) * (oh * 3600 + om * 60);
+        i += 6;
+    }
+    else
+        return false;
+    if (i != s.size())
+        return false;
+
+    instant = double(daysFromCivil(year, mon, day)) * 86400.0 + hour * 3600 + min * 60 + sec - offset + fraction;
+    return true;
+}
+
+//The daemon bounds the year of the UTC instant, not the one written
+bool isRfc3339InYears(const string &s, int from, int to)
+{
+    double instant;
+    return parseRfc3339(s, instant) && instant >= double(daysFromCivil(from, 1, 1)) * 86400.0 &&
+           instant < double(daysFromCivil(to + 1, 1, 1)) * 86400.0;
+}
+
+//journalctl cannot take every year
+bool isLogTime(const string &s)
+{
+    return isRfc3339InYears(s, 1970, 2100);
+}
+
+template <size_t N>
+bool oneOf(const char *const (&list)[N], const string &s)
+{
+    return std::find(std::begin(list), std::end(list), s) != std::end(list);
+}
+
+const char *const logSources[] = { "calaos-server", "calaos-home", "haproxy", "mosquitto", "zigbee2mqtt", "influxdb",
+                                   "grafana", "hue2mqtt", "envoy", "calaos-container", "olad", "ntp",
+                                   "networkd", "ssh", "kernel", "system" };
+const char *const logPriorities[] = { "emerg", "alert", "crit", "err", "warning", "notice", "info", "debug" };
+
+bool isLogCursor(const string &s)
+{
+    return !s.empty() && s.size() <= 512 && std::all_of(s.begin(), s.end(), [](char c)
+                                                        {
+        return c > 0x20 && c < 0x7f;
+    });
+}
+
+bool isLogDirection(const string &s)
+{
+    return s == "backward" || s == "forward";
+}
+
+//At most 256 code points: the request already passed as valid UTF-8
+bool isLogText(const string &s)
+{
+    return std::count_if(s.begin(), s.end(), [](char c)
+                         {
+        return (c & 0xc0) != 0x80;
+           }) <= 256;
+}
+
+bool isIntegerIn(const Json &v, long long min, long long max)
+{
+    return v.is_number_integer() && !(v.is_number_unsigned() && v.get<unsigned long long>() > (unsigned long long)max) &&
+           v.get<long long>() >= min && v.get<long long>() <= max;
+}
+
+//Every field optional, each checked with the daemon's limits of logs/query
+string logsQueryBody(const Json &params, Json &body)
+{
+    const auto sources = params.find("sources");
+    if (sources != params.end())
+    {
+        if (!sources->is_array() || sources->empty() || sources->size() > 8 ||
+            !std::all_of(sources->begin(), sources->end(), [](const Json &s)
+                         {
+            return s.is_string() && oneOf(logSources, s.get<string>());
+            }))
+            return "Invalid sources";
+        body["sources"] = *sources;
+    }
+
+    const auto priority = params.find("priority");
+    if (priority != params.end())
+    {
+        //A numeric string is refused: the daemon reads a name or a JSON number
+        if (!isIntegerIn(*priority, 0, 7) && !(priority->is_string() && oneOf(logPriorities, priority->get<string>())))
+            return "Invalid priority";
+        body["priority"] = *priority;
+    }
+
+    const auto lines = params.find("lines");
+    if (lines != params.end())
+    {
+        if (!isIntegerIn(*lines, 1, 1000))
+            return "Invalid lines";
+        body["lines"] = *lines;
+    }
+
+    string value;
+    for (const auto &field: std::initializer_list<std::pair<const char *, bool (*)(const string &)>>{
+             { "since", isLogTime }, { "until", isLogTime }, { "text", isLogText }, { "cursor", isLogCursor }, { "direction", isLogDirection } })
+    {
+        if (!params.contains(field.first))
+            continue;
+        const string invalid = stringField(params, field.first, field.second, value);
+        if (!invalid.empty())
+            return invalid;
+        body[field.first] = value;
+    }
+
+    if (body.contains("since") && body.contains("until"))
+    {
+        double since, until;
+        parseRfc3339(body["since"].get<string>(), since);
+        parseRfc3339(body["until"].get<string>(), until);
+        if (since >= until)
+            return "since must be before until";
+    }
+
+    if (JsonField::string(body, "direction") == "forward" && !body.contains("cursor") && !body.contains("since"))
+        return "A forward query needs a cursor or since";
+    return string();
+}
+
+bool isTimezoneName(const string &s)
+{
+    //The daemon's rule: a leading '-' would read as an option of timedatectl
+    return !s.empty() && s.size() <= 64 && s[0] != '-' && std::all_of(s.begin(), s.end(), [](char c)
+                                                                      {
+        return isAsciiAlnum(c) || c == '_' || c == '+' || c == '-' || c == '/';
+    });
+}
+
+bool isBoxTime(const string &s)
+{
+    return isRfc3339InYears(s, 2020, 2100);
+}
+
+string timeSetBody(const Json &params, Json &body)
+{
+    string value;
+    for (const auto &field: std::initializer_list<std::pair<const char *, bool (*)(const string &)>>{
+             { "timezone", isTimezoneName }, { "time", isBoxTime } })
+    {
+        if (!params.contains(field.first))
+            continue;
+        const string invalid = stringField(params, field.first, field.second, value);
+        if (!invalid.empty())
+            return invalid;
+        body[field.first] = value;
+    }
+
+    const auto ntp = params.find("ntp");
+    if (ntp != params.end())
+    {
+        if (!ntp->is_boolean())
+            return "Invalid ntp";
+        body["ntp"] = *ntp;
+    }
+
+    return body.empty() ? "no field to set" : string();
+}
+
 //params is rebuilt with the keys of the Push codes table of docs/API.md only
 string codeRequestBody(const Json &params, Json &body)
 {
@@ -218,6 +638,11 @@ string codeRequestBody(const Json &params, Json &body)
     {
         invalid = stringField(from, "approver_id", isDaemonId, value);
         bound["approver_id"] = value;
+    }
+    else if (action == "network_config")
+    {
+        Json typed = Json::object();
+        invalid = networkFields(from, typed, bound);
     }
     if (!invalid.empty())
         return invalid;
@@ -265,6 +690,21 @@ const RelayRow relayTable[] = {
      * open message of /api/console with the same session (ConsoleTunnel)
      */
     { "console_open", "POST", "admin/codes/verify", true, DaemonClient::DefaultTimeout, codeFields },
+    { "services_list", "GET", "system/services", true, DaemonClient::DefaultTimeout, nullptr },
+    { "services_restart", "POST", "system/services/restart", true, DaemonClient::DefaultTimeout, serviceUnitBody },
+    { "services_start", "POST", "system/services/start", true, DaemonClient::ServiceActionTimeout, serviceUnitBody },
+    { "services_stop", "POST", "system/services/stop", true, DaemonClient::ServiceActionTimeout, serviceUnitBody },
+    { "services_enable", "POST", "system/services/enable", true, DaemonClient::ServiceEnableTimeout, serviceUnitBody },
+    { "services_disable", "POST", "system/services/disable", true, DaemonClient::ServiceEnableTimeout, serviceUnitBody },
+    { "logs_sources", "GET", "logs/sources", true, DaemonClient::DefaultTimeout, nullptr },
+    { "logs_query", "POST", "logs/query", true, DaemonClient::LogsQueryTimeout, logsQueryBody },
+    { "time_get", "GET", "system/time", true, DaemonClient::DefaultTimeout, nullptr },
+    { "time_zones", "GET", "system/timezones", true, DaemonClient::DefaultTimeout, nullptr },
+    { "time_set", "POST", "system/time", true, DaemonClient::TimeSetTimeout, timeSetBody },
+    { "network_state", "GET", "network/state", true, DaemonClient::DefaultTimeout, nullptr },
+    { "network_apply", "POST", "network/apply", true, DaemonClient::NetworkChangeTimeout, networkApplyBody },
+    { "network_confirm", "POST", "network/confirm", true, DaemonClient::NetworkChangeTimeout, changeIdBody },
+    { "network_revert", "POST", "network/revert", true, DaemonClient::NetworkChangeTimeout, changeIdBody },
 };
 
 const RelayRow *relayRow(const string &action)
@@ -307,7 +747,8 @@ Json setSucceeded(const DaemonReply &reply, bool hasSession)
 
 bool JsonApi::isAdminCommand(const string &command)
 {
-    return command == "admin_unlock" || command == "admin_set" || command == "admin" || command == "console";
+    return command == "admin_unlock" || command == "admin_set" || command == "admin" || command == "console" ||
+           command == "config_backup";
 }
 
 Json JsonApi::adminError(const string &code, const string &msg)
@@ -362,7 +803,8 @@ Json JsonApi::adminErrorFromReply(const DaemonReply &reply)
                                                "admin_not_set", "admin_already_set", "upgrade_in_progress",
                                                "not_allowed", "package_held", "approver_required", "approver_limit",
                                                "approver_exists", "approver_not_found", "approver_last",
-                                               "code_required", "bad_code", "code_expired", "console_limit" };
+                                               "code_required", "bad_code", "code_expired", "console_limit",
+                                               "network_pending", "service_unavailable" };
 
     if (reply.code == "admin_not_set")
         return adminNotSet();
@@ -370,15 +812,19 @@ Json JsonApi::adminErrorFromReply(const DaemonReply &reply)
     if (sameCode.count(reply.code))
     {
         Json j = adminError(reply.code, string());
-        static const map<string, string> details = { { "rate_limited", "retry_after" },
-                                                     { "upgrade_in_progress", "job_id" },
-                                                     { "password_too_short", "min_length" },
-                                                     { "bad_code", "attempts_left" },
-                                                     { "approver_limit", "max" },
-                                                     { "console_limit", "max" } };
-        const auto it = details.find(reply.code);
-        if (it != details.end() && reply.data.is_object() && reply.data.contains(it->second))
+        static const std::multimap<string, string> details = { { "rate_limited", "retry_after" },
+                                                               { "upgrade_in_progress", "job_id" },
+                                                               { "password_too_short", "min_length" },
+                                                               { "bad_code", "attempts_left" },
+                                                               { "approver_limit", "max" },
+                                                               { "console_limit", "max" },
+                                                               { "network_pending", "change_id" },
+                                                               { "network_pending", "expires_in" } };
+        const auto range = details.equal_range(reply.code);
+        for (auto it = range.first; it != range.second; ++it)
         {
+            if (!reply.data.is_object() || !reply.data.contains(it->second))
+                continue;
             const string value = fieldToString(reply.data[it->second]);
             if (!value.empty())
                 j[it->second] = value;
@@ -409,10 +855,45 @@ bool JsonApi::isValidPackageName(const string &name)
     return true;
 }
 
+bool JsonApi::isValidInterfaceName(const string &name)
+{
+    //A leading '-' would read as an option of networkctl
+    if (name.empty() || name.size() > 15 || name == "." || name == ".." || name == "lo" || name[0] == '-')
+        return false;
+    if (!std::all_of(name.begin(), name.end(), [](char c)
+                     {
+        return isAsciiAlnum(c) || c == '_' || c == '.' || c == '-';
+        }))
+        return false;
+
+    //The daemon's router matches paths case-insensitively
+    string lower = name;
+    std::transform(lower.begin(), lower.end(), lower.begin(), [](char c)
+                   {
+        return (char)std::tolower((unsigned char)c);
+    });
+    for (const char *word: { "apply", "confirm", "revert", "state", "list", "trial" })
+    {
+        if (lower == word)
+            return false;
+    }
+    return true;
+}
+
 Json JsonApi::adminRequestRefusal(const string &action, const Json &request)
 {
-    if (action == "mcp_regenerate")
+    if (action == "mcp_regenerate" || action == "config_list" || action == "config_backup")
         return Json();
+    if (action == "config_set")
+    {
+        const string invalid = AdminConfig::setRefusal(paramsOf(request));
+        return invalid.empty() ? Json() : adminError("invalid_request", invalid);
+    }
+    if (action == "config_restore")
+    {
+        const string invalid = AdminConfig::restoreRefusal(paramsOf(request));
+        return invalid.empty() ? Json() : adminError("invalid_request", invalid);
+    }
 
     const RelayRow *row = relayRow(action);
     if (!row)
@@ -443,7 +924,36 @@ Json relayFailure(const DaemonReply &reply)
     else if (reply.kind == DaemonReply::Kind::TooOld)
         AdminState::Instance().observeTooOld();
 
+    //The table fixes the path: only a daemon older than this route says so.
+    //The other admin routes still work, so AdminState is left alone.
+    if (reply.kind == DaemonReply::Kind::Error && reply.code == "not_found")
+        return JsonApi::adminError("daemon_too_old", string());
+
     return JsonApi::adminErrorFromReply(reply);
+}
+
+/* The steps of a time_set that failed half way stay applied: the client learns
+ * which, and a timezone already changed needs the restart all the same.
+ */
+void addTimeSteps(const DaemonReply &reply, Json &answer)
+{
+    static const std::set<string> steps = { "timezone", "ntp", "time" };
+    const auto applied = reply.data.is_object() ? reply.data.find("applied") : reply.data.end();
+    if (reply.kind != DaemonReply::Kind::Error || reply.code != "internal" || !reply.data.is_object() ||
+        applied == reply.data.end() || !applied->is_array())
+        return;
+
+    vector<string> done;
+    for (const Json &step: *applied)
+    {
+        if (step.is_string() && steps.count(step.get<string>()))
+            done.push_back(step.get<string>());
+    }
+    answer["applied"] = joined(done);
+    answer["restart_required"] = std::find(done.begin(), done.end(), "timezone") != done.end() ? "true" : "false";
+    const string failed = JsonField::string(reply.data, "failed");
+    if (steps.count(failed))
+        answer["failed"] = failed;
 }
 
 void relayCall(const DaemonClient::Request &req, bool household, bool sessionOptional, const std::function<void(const Json &)> &answer)
@@ -466,7 +976,18 @@ void relayCall(const DaemonClient::Request &req, bool household, bool sessionOpt
             return;
         }
 
-        answer(relayFailure(reply));
+        Json failure = relayFailure(reply);
+        if (req.method == "POST" && req.path == "system/time")
+            addTimeSteps(reply, failure);
+        /* These run commands with their own limits on the daemon side, longer
+         * together than our timeout: silence does not mean "not applied", and
+         * a client that resent the write could apply it twice.
+         */
+        if (reply.kind == DaemonReply::Kind::Unreachable && req.method == "POST" &&
+            (req.path == "system/time" || req.path == "network/apply" || req.path == "network/confirm" ||
+             req.path == "network/revert"))
+            failure["outcome"] = "unknown";
+        answer(failure);
     });
 }
 
@@ -487,13 +1008,15 @@ string rfc3339(const string &sqliteTime)
 }
 
 //What tells phones apart when they share a name (every iPhone is "iPhone"):
-//empty for an approver whose token left push_tokens
+//empty for an approver whose token left push_tokens. secure: its codes are
+//pushed encrypted.
 Json phoneFields(const PushToken *t)
 {
     const bool ios = t && t->hw_type == HistLogger::PUSH_HW_IOS;
     return Json{ { "platform", t ? (ios ? "ios" : "android") : "" },
                  { "registered_at", t ? rfc3339(t->registered_at) : string() },
-                 { "last_seen", t ? rfc3339(t->created_at) : string() } };
+                 { "last_seen", t ? rfc3339(t->created_at) : string() },
+                 { "secure", t && !t->push_key.empty() } };
 }
 
 /* approver_list and approver_candidates: the daemon's approvers joined with
@@ -625,6 +1148,146 @@ void JsonApi::relayAdmin(const string &action, const Json &request, const string
         relayEnroll(req, JsonField::string(params, "token_id"), answer);
     else
         relayCall(req, household, !row->session, answer);
+}
+
+string JsonApi::sessionAuditId(const string &session)
+{
+    return pushTokenId(session).substr(0, 8);
+}
+
+namespace
+{
+
+//Null when no job runs
+Json upgradeRefusal(const Json &status)
+{
+    const auto job = status.find("job");
+    if (job == status.end() || JsonField::string(*job, "status") != "running")
+        return Json();
+
+    Json refusal = JsonApi::adminError("upgrade_in_progress", string());
+    if (job->contains("id"))
+        refusal["job_id"] = fieldToString((*job)["id"]);
+    return refusal;
+}
+
+} //namespace
+
+//Not need_restart alone: that stops the loop as soon as the frame is written,
+//and only if the client is still there.
+void JsonApi::exitAfterConfigReplaced()
+{
+    Timer::singleShot(0.5, []()
+                      {
+        uvw::Loop::getDefault()->stop();
+    });
+}
+
+void JsonApi::restoreConfig(const Json &params, const string &session, const AdminAnswer &answer)
+{
+    const string ip = adminClientIp();
+    const auto request = std::make_shared<const Json>(params);
+
+    validateAdminSession(session, [request, session, ip, answer](const Json &error)
+                         {
+        if (!error.is_null())
+        {
+            answer(error);
+            return;
+        }
+
+        DaemonClient::Request req;
+        req.path = "update/status";
+        req.session = session;
+        req.clientIp = ip;
+        DaemonClient::Instance().call(req, [request, session, ip, answer](const DaemonReply &reply)
+                                      {
+            if (reply.kind != DaemonReply::Kind::Ok)
+            {
+                answer(relayFailure(reply));
+                return;
+            }
+
+            const Json refusal = upgradeRefusal(reply.data);
+            if (!refusal.is_null())
+            {
+                answer(refusal);
+                return;
+            }
+
+            const string who = ip + " (session " + sessionAuditId(session) + ")";
+            if ((*request)["dry_run"].get<bool>())
+            {
+                cInfoDom("admin") << "Admin config restore check by " << who;
+                answer(Json{ { "success", "true" }, { "result", AdminConfig::restoreCheck(*request) } });
+                return;
+            }
+
+            const AdminConfig::RestoreOutcome outcome = AdminConfig::restore(*request);
+            if (outcome.result.is_null())
+            {
+                Json failure = adminError("internal", outcome.error);
+                if (!outcome.previous.empty())
+                {
+                    failure["previous"] = outcome.previous;
+                    failure["restarting"] = outcome.restarting ? "true" : "false";
+                }
+                answer(failure);
+            }
+            else
+            {
+                cInfoDom("admin") << "Admin config restore by " << who << ": "
+                                  << joined(outcome.result["files"].get<vector<string>>())
+                                  << "; previous files in backups/" << outcome.previous;
+                answer(Json{ { "success", "true" }, { "result", outcome.result } });
+            }
+
+            if (outcome.restarting)
+                exitAfterConfigReplaced();
+        });
+    });
+}
+
+void JsonApi::configAdmin(const string &action, const Json &request, const string &session, const AdminAnswer &answer)
+{
+    const string ip = adminClientIp();
+    const Json params = paramsOf(request);
+    if (action == "config_restore")
+    {
+        restoreConfig(params, session, answer);
+        return;
+    }
+
+    validateAdminSession(session, [action, params, session, ip, answer](const Json &error)
+                         {
+        if (!error.is_null())
+        {
+            answer(error);
+            return;
+        }
+
+        Json result;
+        if (action == "config_list")
+            result = AdminConfig::list();
+        else if (action == "config_backup")
+        {
+            result = AdminConfig::backup(std::time(nullptr));
+            cInfoDom("admin") << "Admin config backup by " << ip;
+        }
+        else
+        {
+            result = AdminConfig::set(params);
+            if (result.is_null())
+            {
+                answer(adminError("internal", string()));
+                return;
+            }
+            //Never the value: it may be a password
+            cInfoDom("admin") << "Admin config set " << JsonField::string(params, "key") << " by " << ip
+                              << " (session " << sessionAuditId(session) << ")";
+        }
+        answer(Json{ { "success", "true" }, { "result", result } });
+    });
 }
 
 string JsonApi::printableText(const string &in, size_t maxCodePoints)

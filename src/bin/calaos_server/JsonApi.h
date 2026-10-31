@@ -194,6 +194,10 @@ public:
     //The package rule of calaos-container's docs/API.md (Upgrade jobs)
     static bool isValidPackageName(const string &name);
 
+    //An interface name network_apply accepts: the daemon's rule, the route
+    //words of network/ and the loopback refused
+    static bool isValidInterfaceName(const string &name);
+
     //The `admin` message: null when the action is in the closed table and its
     //params are valid, the refusal otherwise
     static Json adminRequestRefusal(const string &action, const Json &request);
@@ -335,6 +339,15 @@ public:
     //register_push's push_format, the notification format for anything unknown.
     static int pushFormatFromString(const string &value);
 
+    //register_push's push_key when it is 64 lowercase hex characters, empty otherwise
+    static string pushKeyFromString(const string &value);
+
+    /* Also taken over plain HTTP: the phones of the stores talk to port 5454 on
+     * the LAN, where whoever could read the key reads the household password
+     * too, and a refused key leaves the code in clear at the push service.
+     */
+    static constexpr bool PushKeyNeedsSecureTransport = false;
+
     //register_push's device_name: the admin picks an approver phone by it, and
     //every phone is pushed it when that phone becomes an approver
     static constexpr size_t MaxDeviceName = 64;
@@ -348,6 +361,9 @@ public:
     //First 16 hex characters of the SHA-256 of a push token: the daemon's
     //token_id, the only form of a token a client ever sees
     static string pushTokenId(const string &token);
+
+    //First 8 hex characters of the SHA-256 of a session, as the daemon's audit log names it
+    static string sessionAuditId(const string &session);
 
     //An approver id, a code id or a token_id: 16 lowercase hex characters
     static bool isDaemonId(const string &s);
@@ -512,6 +528,11 @@ protected:
     static Json adminModeRefusal();
     //GET admin/status with the session: done(null) when it is valid
     void validateAdminSession(const string &session, const AdminAnswer &done);
+    //config_list, config_set, config_backup, served here once the session is valid
+    void configAdmin(const string &action, const Json &request, const string &session, const AdminAnswer &answer);
+    void restoreConfig(const Json &params, const string &session, const AdminAnswer &answer);
+    //The frozen memory no longer matches the disk: the process must go, client or not
+    static void exitAfterConfigReplaced();
     //One row of the relay table, for a request adminRequestRefusal() accepted
     void relayAdmin(const string &action, const Json &request, const string &session, const AdminAnswer &answer);
     string adminClientIp() const;

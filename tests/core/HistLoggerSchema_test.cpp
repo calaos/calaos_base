@@ -198,13 +198,13 @@ TEST(HistLoggerSchemaTest, OpeningAnOldDatabaseAddsTheIndexAndKeepsEveryRow)
 {
     ASSERT_EQ(9u, rowsBefore.size());
     EXPECT_EQ(rowsBefore, rowsAfter);
-    //The migration only adds the empty device_name and approver of the
-    //tokens, and their last registration as the first one
+    //The migration only adds the empty device_name, approver and push_key of
+    //the tokens, and their last registration as the first one
     std::vector<std::string> named;
     for (const std::string &t: tokensBefore)
     {
         const std::string createdAt = t.substr(t.find("'20"), 21);
-        named.push_back(t + "''|'0'|" + createdAt + "|");
+        named.push_back(t + "''|'0'|" + createdAt + "|''|");
     }
     EXPECT_EQ(named, tokensAfter);
 

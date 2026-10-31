@@ -1046,6 +1046,7 @@ tous côté serveur :
   à écraser (uid, nom, nombre d'étapes) ; le démarrage suivant **consomme** cet enregistrement,
   compare, et lève **une** alerte de configuration nommant ce qui a disparu
   (dérivé, `JsonApiHandlerHttp.cpp:773-779`, `ListeRoom.cpp:380-463`).
+  `config_restore` (docs/08) enregistre de la même façon avant de remplacer les fichiers.
 
 ⛔ **Rien n'est jamais refusé** : supprimer un scénario depuis l'installeur est légitime, et un
 serveur qui refuserait un téléversement au motif qu'il y manque quelque chose qu'il connaissait

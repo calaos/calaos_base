@@ -102,37 +102,46 @@ bool FileUtils::isExecutable(const std::string &path)
     return ::access(path.c_str(), X_OK) == 0;
 }
 
-bool FileUtils::copyFile(const std::string &source, const std::string &dest)
+bool FileUtils::copyFile(const std::string &source, const std::string &dest, bool ownerOnly)
 {
     FILE *f1, *f2;
     char buf[16384];
     char realpath1[PATH_MAX];
     char realpath2[PATH_MAX];
     size_t num;
-    size_t res;
 
     if (!realpath(source.c_str(), realpath1)) return false;
     if (realpath(dest.c_str(), realpath2) && !strcmp(realpath1, realpath2)) return false;
 
     f1 = fopen(source.c_str(), "rb");
     if (!f1) return false;
-    f2 = fopen(dest.c_str(), "wb");
+    //Not fopen(): the umask would leave a readable copy until a later chmod
+    const int fd = ::open(dest.c_str(), O_WRONLY | O_CREAT | O_TRUNC, ownerOnly ? 0600 : 0666);
+    f2 = (fd >= 0 && (!ownerOnly || fchmod(fd, 0600) == 0)) ? fdopen(fd, "wb") : nullptr;
     if (!f2)
     {
+        if (fd >= 0) ::close(fd); //LCOV_EXCL_LINE fchmod() and fdopen() do not fail on a file just opened
         fclose(f1);
         return false;
     }
 
-    while ((num = fread(buf, 1, sizeof(buf), f1)) > 0)
-    {
-        res = fwrite(buf, 1, num, f2);
-        if (res <= 0) cCriticalDom("file") <<  "Failed to fwrite !";
-    }
+    bool copied = true;
+    while (copied && (num = fread(buf, 1, sizeof(buf), f1)) > 0)
+        copied = fwrite(buf, 1, num, f2) == num;
+    if (ferror(f1)) copied = false;
+
+    struct stat st;
+    const bool regular = fstat(fileno(f2), &st) == 0 && S_ISREG(st.st_mode);
 
     fclose(f1);
-    fclose(f2);
+    //stdio buffers: a small file only reaches the disk here
+    if (fclose(f2) != 0) copied = false;
+    if (copied) return true;
 
-    return true;
+    cCriticalDom("file") << "Failed to copy " << source << " to " << dest;
+    //Through a symlink the partial copy is its target. A device is not ours to remove.
+    if (regular) ::unlink(realpath(dest.c_str(), realpath2) ? realpath2 : dest.c_str());
+    return false;
 }
 
 std::vector<std::string> FileUtils::listDir(const std::string &path)

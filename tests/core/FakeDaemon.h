@@ -292,6 +292,13 @@ public:
         pushPayloads[codeId] = { { "token", token }, { "message", message } };
     }
 
+    //The same with the fields of a daemon serving encrypted pushes, or any other
+    void setPushPayload(const std::string &codeId, const nlohmann::json &payload)
+    {
+        std::lock_guard<std::mutex> l(mutex);
+        pushPayloads[codeId] = payload;
+    }
+
     /* What the daemon does at each ping (app/events.go): a pending alert goes
      * out again only on a stream it was never sent on. A copy on the same
      * stream, as after the subscribe race, is a pushEvent(alertEvent()). */
@@ -365,6 +372,35 @@ public:
     {
         std::lock_guard<std::mutex> l(mutex);
         log.clear();
+    }
+
+    //Empty for a route that is not a verb of system/services
+    static std::string serviceActionState(const std::string &route)
+    {
+        for (const auto &verb: std::initializer_list<std::pair<const char *, const char *>>{
+                 { "restart", "restarting" }, { "start", "starting" }, { "stop", "stopping" }, { "enable", "enabling" }, { "disable", "disabling" } })
+        {
+            if (route == std::string("POST /api/v2/system/services/") + verb.first)
+                return verb.second;
+        }
+        return std::string();
+    }
+
+    /* What the services, logs, time and network routes answer: data of every
+     * JSON type, for the tests to check it is relayed as is. The POST routes
+     * echo the fields they read. */
+    static nlohmann::json boxData(const std::string &route)
+    {
+        static const std::map<std::string, nlohmann::json> data = {
+            { "GET /api/v2/system/services", { { "services", { { { "id", "mosquitto" }, { "unit", "mosquitto.service" }, { "kind", "service" }, { "restartable", true }, { "active_state", "active" }, { "sub_state", "running" }, { "enabled", "enabled" }, { "since", "2026-10-25T07:41:12Z" } }, { { "id", "ssh" }, { "unit", "ssh.service" }, { "kind", "service" }, { "restartable", false }, { "active_state", "not-found" }, { "sub_state", "" }, { "enabled", "" }, { "since", nullptr } } } } } },
+            { "GET /api/v2/logs/sources", { { "sources", { { { "id", "calaos-server" }, { "label", "Calaos server" } }, { { "id", "system" }, { "label", "Whole system" } } } } } },
+            { "POST /api/v2/logs/query", { { "entries", { { { "cursor", "s=1;i=2" }, { "ts", "2026-10-25T08:12:03.412Z" }, { "source", "calaos-server" }, { "unit", "calaos-server.service" }, { "priority", 4 }, { "pid", 812 }, { "message", "cn_pass=***" }, { "cut", true } } } }, { "truncated", false }, { "complete", true }, { "next_cursor", nullptr } } },
+            { "GET /api/v2/system/time", { { "now", "2026-10-25T09:12:03Z" }, { "timezone", "Europe/Paris" }, { "ntp", true }, { "synchronized", false }, { "rtc", nullptr } } },
+            { "GET /api/v2/system/timezones", { { "timezones", nlohmann::json::array({ "Africa/Abidjan", "Europe/Paris" }) } } },
+            { "GET /api/v2/network/state", { { "interfaces", { { { "name", "eth0" }, { "ipv4", "192.168.1.10/24" }, { "gateway", "192.168.1.1" }, { "mac", "dc:a6:32:00:00:01" }, { "state", "routable" }, { "dhcp", false }, { "dns_servers", nlohmann::json::array({ "192.168.1.1" }) }, { "search_domains", nlohmann::json::array() } } } }, { "pending", { { "change_id", "5d0c8e1f2a3b4c6d" }, { "intf", "eth0" }, { "applied_at", "2026-10-25T09:12:03Z" }, { "expires_in", 87 } } } } },
+        };
+        const auto it = data.find(route);
+        return it == data.end() ? nlohmann::json() : it->second;
     }
 
     static std::string ok(const nlohmann::json &data)
@@ -820,6 +856,46 @@ private:
         return res;
     }
 
+    //The session-allowed routes of services, logs, time and network; apply is session only
+    Response boxRoute(const Request &req, const nlohmann::json &body, bool hasSession)
+    {
+        Response res;
+        auto field = [&body](const char *k)
+        {
+            return body.is_object() && body.contains(k) ? body[k] : nlohmann::json();
+        };
+        const std::string route = req.method + " " + req.path;
+        const nlohmann::json data = boxData(route);
+
+        if (!data.is_null())
+            res.body = ok(data);
+        else if (const std::string state = serviceActionState(route); !state.empty())
+            res.body = ok({ { "id", field("unit") }, { "state", state } });
+        else if (route == "POST /api/v2/system/time")
+        {
+            nlohmann::json t = boxData("GET /api/v2/system/time");
+            if (body.is_object() && body.contains("timezone"))
+                t["timezone"] = body["timezone"];
+            t["restart_required"] = body.is_object() && body.contains("timezone");
+            res.body = ok(t);
+        }
+        else if (route == "POST /api/v2/network/apply" && !hasSession)
+        {
+            res.status = 401;
+            res.body = err("bad_session");
+        }
+        else if (route == "POST /api/v2/network/apply")
+            res.body = ok({ { "change_id", "5d0c8e1f2a3b4c6d" }, { "intf", field("intf") }, { "applied_at", "2026-10-25T09:12:03Z" }, { "confirm_within", 120 } });
+        else if (route == "POST /api/v2/network/confirm" || route == "POST /api/v2/network/revert")
+            res.body = ok({ { "change_id", field("change_id") }, { "intf", "eth0" }, { "state", req.path == "/api/v2/network/confirm" ? "confirmed" : "reverted" } });
+        else
+        {
+            res.status = 404;
+            res.body = err("not_found");
+        }
+        return res;
+    }
+
     //Called with the mutex held
     Response model(const Request &req)
     {
@@ -945,6 +1021,11 @@ private:
                  req.path == "/api/v2/admin/console")
         {
             res = approverRoute(req, body, hasSession);
+        }
+        else if (req.path.compare(0, 19, "/api/v2/system/serv") == 0 || req.path.compare(0, 13, "/api/v2/logs/") == 0 ||
+                 req.path.compare(0, 19, "/api/v2/system/time") == 0 || req.path.compare(0, 16, "/api/v2/network/") == 0)
+        {
+            res = boxRoute(req, body, hasSession);
         }
         else if (req.method == "GET" && req.path.compare(0, 19, "/api/v2/admin/push/") == 0)
         {

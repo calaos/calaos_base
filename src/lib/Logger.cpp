@@ -21,6 +21,8 @@
 #include "Logger.h"
 #include "Utils.h"
 
+#include <cerrno>
+
 static bool logger_isTerm_check()
 {
     const char *forceColor = getenv("CALAOS_FORCE_COLOR");
@@ -190,8 +192,13 @@ LogStream::~LogStream()
     s << colorBold() << "(" << logData->file << ":" << logData->line << ")" << colorReset() << " ";
     s << logData->stream.str() << colorReset() << std::endl;
 
+    //A failed write would otherwise silence every log that follows, and its
+    //errno would replace the one a caller is about to report
+    const int savedErrno = errno;
     std::cout << s.str();
     std::cout.flush();
+    std::cout.clear();
+    errno = savedErrno;
 }
 
 bool Logger::isColorEnabled()

@@ -41,6 +41,19 @@
 namespace
 {
 
+/* A scenario lives in both files: with one of them left unloaded a change would
+ * only be half written, so it is refused before anything moves.
+ */
+bool scenarioFilesLoaded()
+{
+    return Config::Instance().ioFileLoaded() && Config::Instance().rulesFileLoaded();
+}
+
+Json configNotLoadedError()
+{
+    return Params({ { "error", Calaos::CONFIG_NOT_LOADED } }).toJson();
+}
+
 /* E4.1o. jansson_string_get()'s contract, kept BY HAND for a nlohmann
  * document: the DEFAULT on an absent member, on a member that is not a JSON
  * string, and on a root that is not an object (json_object_get(NULL, k)
@@ -583,11 +596,11 @@ const vector<string> &JsonApi::serviceScopeDeniedCommands()
      * that a websocket route added later is born refused (put replaces the
      * configuration files). The admin messages, and console (the open message
      * of /api/console), are refused with the admin error shape (adminError(),
-     * not_allowed).
+     * not_allowed), and so is the HTTP config_backup.
      */
     static const vector<string> denied = { "set_param", "del_param", "audio_db", "set_timerange", "autoscenario",
                                            "eventlog", "register_push", "settings", "config",
-                                           "admin_unlock", "admin_set", "admin", "console" };
+                                           "admin_unlock", "admin_set", "admin", "console", "config_backup" };
 
     return denied;
 }
@@ -2812,6 +2825,9 @@ Json JsonApi::buildAutoscenarioCreate(const Json &jdata)
     if (!XmlUtils::isWritableAsAttribute(payload.name))
         return Params({{ "error", "invalid payload: name refused" }}).toJson();
 
+    if (!scenarioFilesLoaded())
+        return configNotLoadedError();
+
     Params params;
     params.Add(AutoScenarioDef::KEY_UID, AutoScenarioDef::newUid());
     params.Add("name", payload.name);
@@ -2875,6 +2891,9 @@ Json JsonApi::buildAutoscenarioDelete(const Json &jdata)
         return p.toJson();
     }
 
+    if (!scenarioFilesLoaded())
+        return configNotLoadedError();
+
     sc->getAutoScenario()->deleteAll();
 
     //delete the scenario IO
@@ -2909,6 +2928,9 @@ Json JsonApi::buildAutoscenarioModify(const Json &jdata)
     string err;
     if (!parseScenarioPayload(jdata, payload, err))
         return Params({{ "error", err }}).toJson();
+
+    if (!scenarioFilesLoaded())
+        return configNotLoadedError();
 
     AutoScenario *as = scenario->getAutoScenario();
 
@@ -2994,6 +3016,9 @@ Json JsonApi::buildAutoscenarioAddSchedule(const Json &jdata)
         return p.toJson();
     }
 
+    if (!scenarioFilesLoaded())
+        return configNotLoadedError();
+
     sc->getAutoScenario()->addSchedule();
 
     //addSchedule() leaves the time range null when the IO could not be built
@@ -3026,6 +3051,9 @@ Json JsonApi::buildAutoscenarioDelSchedule(const Json &jdata)
         Params p = {{ "error", "wrong input" }};
         return p.toJson();
     }
+
+    if (!scenarioFilesLoaded())
+        return configNotLoadedError();
 
     sc->getAutoScenario()->deleteSchedule();
 
@@ -3240,12 +3268,32 @@ bool JsonApi::registerPushToken(const Params &jParam)
         jParam["hardware"] != "ios")
         return false;
 
+    const bool keyTaken = !PushKeyNeedsSecureTransport || secureTransport();
+    const string pushKey = keyTaken ? pushKeyFromString(jParam["push_key"]) : string();
+
     HistLogger::Instance().registerPushToken(jParam["token"],
                                              jParam["hardware"] == "ios" ? HistLogger::PUSH_HW_IOS : HistLogger::PUSH_HW_ANDROID,
                                              pushFormatFromString(jParam["push_format"]),
-                                             printableText(jParam["device_name"], MaxDeviceName));
+                                             printableText(jParam["device_name"], MaxDeviceName), pushKey);
 
     return true;
+}
+
+string JsonApi::pushKeyFromString(const string &value)
+{
+    const bool valid = value.size() == 64 && std::all_of(value.begin(), value.end(), [](char c)
+                                                         {
+        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+                       });
+    if (valid || value.empty())
+        return valid ? value : string();
+
+    //Once and without the value: it may be a key with a typo
+    static bool warned = false;
+    if (!warned)
+        cWarningDom("network") << "register_push: push_key is not 64 lowercase hex characters, ignored";
+    warned = true;
+    return string();
 }
 
 int JsonApi::pushFormatFromString(const string &value)

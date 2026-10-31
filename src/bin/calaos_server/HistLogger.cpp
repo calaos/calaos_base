@@ -51,7 +51,8 @@
                              "push_format INTEGER NOT NULL DEFAULT 0, "        \
                              "device_name TEXT NOT NULL DEFAULT '', "          \
                              "approver INTEGER NOT NULL DEFAULT 0, "           \
-                             "registered_at TEXT NOT NULL DEFAULT '');"
+                             "registered_at TEXT NOT NULL DEFAULT '', "        \
+                             "push_key TEXT NOT NULL DEFAULT '');"
 
 const char *const HistEventSql::ReadPage =
     "SELECT uuid, created_at, event_type, io_id, io_state, event_raw, pic_uid FROM events "
@@ -91,14 +92,14 @@ bool addTokenColumn(sqlite::database &db, const char *name, const char *ddl)
 
 } //namespace
 
-bool PushTokenDb::prepare(sqlite::database &db, bool *locked, bool *hasName)
+bool PushTokenDb::prepare(sqlite::database &db, bool *locked, bool *hasName, bool *hasKey)
 {
     if (locked)
         *locked = false;
 
     //Tables from older servers: their tokens all belong to apps expecting
-    //the notification format, the default, and have no name
-    bool format = false, name = false;
+    //the notification format, the default, and have no name nor key
+    bool format = false, name = false, key = false;
     try
     {
         db << DB_CREATE_SQL_TOKENS;
@@ -108,14 +109,17 @@ bool PushTokenDb::prepare(sqlite::database &db, bool *locked, bool *hasName)
         addTokenColumn(db, "approver", "ALTER TABLE push_tokens ADD COLUMN approver INTEGER NOT NULL DEFAULT 0;");
         addTokenColumn(db, "registered_at", "ALTER TABLE push_tokens ADD COLUMN registered_at TEXT NOT NULL DEFAULT '';");
         name = true;
+        addTokenColumn(db, "push_key", "ALTER TABLE push_tokens ADD COLUMN push_key TEXT NOT NULL DEFAULT '';");
+        key = true;
     }
     catch (sqlite::sqlite_exception &e)
     {
         if (locked)
             *locked = isLock(e);
-        cWarningDom("history") << "push_tokens: cannot add " << (format ? "device_name" : "push_format") << " ("
-                               << e.get_code() << ": " << e.what() << "), tokens are served "
-                               << (format ? "without a name" : "in the notification format") << " meanwhile";
+        const char *column = name ? "push_key" : (format ? "device_name" : "push_format");
+        const char *meanwhile = name ? "without a push key" : (format ? "without a name" : "in the notification format");
+        cWarningDom("history") << "push_tokens: cannot add " << column << " (" << e.get_code() << ": " << e.what()
+                               << "), tokens are served " << meanwhile << " meanwhile";
     }
 
     //The first registration of older tokens is unknown: their last one is the
@@ -138,10 +142,12 @@ bool PushTokenDb::prepare(sqlite::database &db, bool *locked, bool *hasName)
 
     if (hasName)
         *hasName = name;
+    if (hasKey)
+        *hasKey = key;
     return format;
 }
 
-void PushTokenDb::save(sqlite::database &db, const PushToken &token, bool hasFormat, bool hasName)
+void PushTokenDb::save(sqlite::database &db, const PushToken &token, bool hasFormat, bool hasName, bool hasKey)
 {
     bool exists = false, approver = false;
     db << (hasName ? "SELECT approver FROM push_tokens WHERE token = ?;" : "SELECT 0 FROM push_tokens WHERE token = ?;")
@@ -153,10 +159,13 @@ void PushTokenDb::save(sqlite::database &db, const PushToken &token, bool hasFor
     };
 
     //Whoever knows an approver's token may register it: the name and the
-    //format the admin enrolled stay
+    //format the admin enrolled stay. So does its key once it has one; the
+    //first is taken, the approvers enrolled before keys existed have none.
     if (approver)
     {
         db << "UPDATE push_tokens SET created_at = DATETIME('now') WHERE token = ?;" << token.token;
+        if (hasKey && !token.push_key.empty())
+            db << "UPDATE push_tokens SET push_key = ? WHERE token = ? AND push_key = '';" << token.push_key << token.token;
         return;
     }
 
@@ -178,35 +187,48 @@ void PushTokenDb::save(sqlite::database &db, const PushToken &token, bool hasFor
     //An app that sends no name keeps the one it registered before
     if (hasName && !token.device_name.empty())
         db << "UPDATE push_tokens SET device_name = ? WHERE token = ?;" << token.device_name << token.token;
+    if (hasKey && !token.push_key.empty())
+        db << "UPDATE push_tokens SET push_key = ? WHERE token = ?;" << token.push_key << token.token;
 }
 
-vector<PushToken> PushTokenDb::load(sqlite::database &db, bool hasFormat, bool hasName)
+vector<PushToken> PushTokenDb::load(sqlite::database &db, bool hasFormat, bool hasName, bool hasKey)
 {
     vector<PushToken> tokens;
     const string sql = string("SELECT token, hw_type, ") + (hasFormat ? "push_format" : "0") + ", " +
                        (hasName ? "COALESCE(device_name, ''), approver, registered_at" : "'', 0, ''") +
-                       ", COALESCE(created_at, '') FROM push_tokens;";
+                       ", COALESCE(created_at, ''), " + (hasKey ? "push_key" : "''") + " FROM push_tokens;";
     db << sql >> [&](string token, int hw_type, int push_format, string device_name, int approver, string registered_at,
-                     string created_at)
+                     string created_at, string push_key)
     {
         PushToken t(std::move(token), hw_type, push_format);
         t.device_name = std::move(device_name);
         t.approver = approver != 0;
         t.registered_at = std::move(registered_at);
         t.created_at = std::move(created_at);
+        t.push_key = std::move(push_key);
         tokens.push_back(std::move(t));
     };
     return tokens;
 }
 
-void PushTokenDb::setApprover(sqlite::database &db, const string &token, bool approver)
+void PushTokenDb::setApprover(sqlite::database &db, const string &token, bool approver, const string &provedKey, bool hasKey)
 {
-    db << "UPDATE push_tokens SET approver = ? WHERE token = ?;" << (approver ? 1 : 0) << token;
+    //Whatever was registered since the phone read its approver_confirm code
+    //is not the key it proved
+    if (approver && hasKey && !provedKey.empty())
+        db << "UPDATE push_tokens SET approver = 1, push_key = ? WHERE token = ?;" << provedKey << token;
+    else
+        db << "UPDATE push_tokens SET approver = ? WHERE token = ?;" << (approver ? 1 : 0) << token;
 }
 
-void PushTokenDb::purge(sqlite::database &db)
+void PushTokenDb::purge(sqlite::database &db, bool hasName)
 {
-    db << "DELETE FROM push_tokens WHERE created_at <= date('now', '-30 days');";
+    //An approver's row is its frozen name, format and key: dropped, the next
+    //register_push would recreate it as a phone anyone can rekey
+    if (hasName)
+        db << "DELETE FROM push_tokens WHERE created_at <= date('now', '-30 days') AND approver = 0;";
+    else
+        db << "DELETE FROM push_tokens WHERE created_at <= date('now', '-30 days');";
 }
 
 class HistWorkerAction
@@ -466,7 +488,7 @@ void HistLogger::getEvent(string uuid,
     eventQueue.push(a);
 }
 
-void HistLogger::registerPushToken(string token, int push_hw, int push_format, string device_name)
+void HistLogger::registerPushToken(string token, int push_hw, int push_format, string device_name, string push_key)
 {
     std::shared_ptr<HistWorkerAction> a = std::make_shared<HistWorkerAction>();
     a->action = HistWorkerAction::WorkerTokenRegister;
@@ -474,15 +496,17 @@ void HistLogger::registerPushToken(string token, int push_hw, int push_format, s
     a->token.hw_type = push_hw;
     a->token.format = push_format;
     a->token.device_name = device_name;
+    a->token.push_key = push_key;
     eventQueue.push(a);
 }
 
-void HistLogger::setPushTokenApprover(string token, bool approver)
+void HistLogger::setPushTokenApprover(string token, bool approver, string provedKey)
 {
     std::shared_ptr<HistWorkerAction> a = std::make_shared<HistWorkerAction>();
     a->action = HistWorkerAction::WorkerTokenApprover;
     a->token.token = token;
     a->token.approver = approver;
+    a->token.push_key = provedKey;
     eventQueue.push(a);
 }
 
@@ -542,8 +566,8 @@ void HistLogger::sqliteWorker()
 
     bool eventsLocked = false, tokensLocked = false;
     bool eventsReady = prepareEvents(db, eventsLocked);
-    bool pushName = false;
-    bool pushFormat = PushTokenDb::prepare(db, &tokensLocked, &pushName);
+    bool pushName = false, pushKey = false;
+    bool pushFormat = PushTokenDb::prepare(db, &tokensLocked, &pushName, &pushKey);
     string lastCutoff;
 
     while (!done)
@@ -555,8 +579,8 @@ void HistLogger::sqliteWorker()
         //A lock at startup must not last until the next restart.
         if (!eventsReady && eventsLocked)
             eventsReady = prepareEvents(db, eventsLocked);
-        if ((!pushFormat || !pushName) && tokensLocked)
-            pushFormat = PushTokenDb::prepare(db, &tokensLocked, &pushName);
+        if ((!pushFormat || !pushName || !pushKey) && tokensLocked)
+            pushFormat = PushTokenDb::prepare(db, &tokensLocked, &pushName, &pushKey);
 
         //Never e.get_sql(): sqlite_modern_cpp expands it with the bound values,
         //event contents and push tokens included.
@@ -580,8 +604,8 @@ void HistLogger::sqliteWorker()
 
                 try
                 {
-                    PushTokenDb::save(db, ac->token, pushFormat, pushName);
-                    PushTokenDb::purge(db);
+                    PushTokenDb::save(db, ac->token, pushFormat, pushName, pushKey);
+                    PushTokenDb::purge(db, pushName);
                 }
                 catch (sqlite::sqlite_exception &e)
                 {
@@ -589,14 +613,14 @@ void HistLogger::sqliteWorker()
                 }
             }
             else if (ac->action == HistWorkerAction::WorkerTokenApprover && pushName)
-                PushTokenDb::setApprover(db, ac->token.token, ac->token.approver);
+                PushTokenDb::setApprover(db, ac->token.token, ac->token.approver, ac->token.push_key, pushKey);
             else if (ac->action == HistWorkerAction::WorkerTokenGetAll)
             {
                 cDebugDom("history") << "Reading from SQLite db all tokens";
 
                 try
                 {
-                    ac->tokens = PushTokenDb::load(db, pushFormat, pushName);
+                    ac->tokens = PushTokenDb::load(db, pushFormat, pushName, pushKey);
                 }
                 catch (sqlite::sqlite_exception &e)
                 {
@@ -610,7 +634,7 @@ void HistLogger::sqliteWorker()
                 {
                     try
                     {
-                        PushTokenDb::purge(db);
+                        PushTokenDb::purge(db, pushName);
                     }
                     catch (sqlite::sqlite_exception &e)
                     {

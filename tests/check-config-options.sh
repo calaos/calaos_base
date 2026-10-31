@@ -208,11 +208,15 @@ nb_obsolete=`wc -l <"$tmpdir/obsolete.keys" | tr -d ' '`
 #         The CLI validates it against the registry at run time instead.
 #   "args.params[0]"
 #         same file, `get` and `del` actions, key straight out of argv.
+#   "e.key"
+#         src/bin/calaos_server/AdminConfig.cpp, the allowlist of config_list:
+#         a static table whose keys tests/core/JsonApiAdmin_test.cpp checks
+#         against the registry one by one.
 # ---------------------------------------------------------------------------
 is_dynamic_key_exception()
 {
     case "$1" in
-        "string key"|"string _key"|"std::string key"|"_key"|"key"|"args.params[0]") return 0 ;;
+        "string key"|"string _key"|"std::string key"|"_key"|"key"|"args.params[0]"|"e.key") return 0 ;;
         *) return 1 ;;
     esac
 }
