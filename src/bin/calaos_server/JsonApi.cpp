@@ -68,8 +68,8 @@ bool notWritten(Config::SaveResult result)
     return result == Config::SaveResult::Frozen || result == Config::SaveResult::WriteFailed;
 }
 
-//rules.xml is attempted whatever became of io.xml, as it always was: the change
-//is already in memory, and one file on disk is closer to it than none.
+//rules.xml is attempted whatever became of io.xml: the change is already in
+//memory, and one file on disk is closer to it than none.
 bool saveConfigFiles()
 {
     const Config::SaveResult io = Config::Instance().SaveConfigIO();

@@ -46,7 +46,7 @@ L'appareil peut :
 Un IO de type `RemoteUI` représente un appareil embarqué dans le modèle de données. Il vit dans
 **`io.xml`**, sous un nœud de pièce, comme les autres IOs (dérivé,
 `src/bin/calaos_server/Room.cpp:171` ; le provisioning persiste via
-`Config::Instance().SaveConfigIO()`, `src/bin/calaos_server/RemoteUI/RemoteUIProvisioningHandler.cpp:207`).
+`Config::Instance().SaveConfigIO()`, `src/bin/calaos_server/RemoteUI/RemoteUIProvisioningHandler.cpp:208`).
 
 ### Paramètres déclarés
 
@@ -592,10 +592,10 @@ reste répond `404 Endpoint not found` (dérivé,
 ### Requête
 
 Clés obligatoires : `code` (chaîne) et `device_info` (objet), lequel doit porter `type` et
-`mac_address` (dérivé, `…RemoteUIProvisioningHandler.cpp:246-259`).
+`mac_address` (dérivé, `…RemoteUIProvisioningHandler.cpp:258-271`).
 
 ⚠️ **La spec dit `provisioning_code`, le code lit `code`**
-(`remote-ui.md:43-46` contre `RemoteUIProvisioningHandler.cpp:117` et `:246`).
+(`remote-ui.md:43-46` contre `RemoteUIProvisioningHandler.cpp:117` et `:258`).
 
 Les clés de `device_info` réellement consommées, et le paramètre d'IO où chacune atterrit
 (dérivé, `…RemoteUIProvisioningHandler.cpp:173-185`) : `hardware_id` → `device_type`,
@@ -618,7 +618,7 @@ Les clés de `device_info` réellement consommées, et le paramètre d'IO où ch
 ```
 
 En cas d'échec : `{"status": "error", "error": "…"}`
-(dérivé, `…RemoteUIProvisioningHandler.cpp:233-234`).
+(dérivé, `…RemoteUIProvisioningHandler.cpp:245-246`).
 
 ⚠️ **Aucun identifiant Wi-Fi n'est jamais renvoyé** — ce document l'affirmait avant la revue
 E4.5e ; les six clés ci-dessus sont la réponse complète.
@@ -634,12 +634,14 @@ Un appareil provisionné se retrouve donc pointé sur `localhost`, ce qui est fa
 réel. Défaut connu, consigné dans `docs/refactoring/FINDINGS.md`, **non corrigé**.
 
 Token et secret font 32 octets aléatoires encodés en 64 caractères hexadécimaux
-(dérivé, `…RemoteUIProvisioningHandler.cpp:386`, `:396`, `:402-409` et
+(dérivé, `…RemoteUIProvisioningHandler.cpp:398`, `:408`, `:414-421` et
 `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:393-399`). La configuration est persistée par
-`Config::Instance().SaveConfigIO()` (`…ProvisioningHandler.cpp:207`). Si elle ne l'est pas, le
+`Config::Instance().SaveConfigIO()` (`…ProvisioningHandler.cpp:208`). Si elle ne l'est pas, le
 serveur répond 500 et ne donne aucun identifiant : un panneau qui les aurait reçus se croirait
 provisionné, et un redémarrage les ferait oublier au serveur. Ils restent en mémoire, sur le
-`RemoteUI`, et une nouvelle demande avec le même code rend ceux-là, une fois écrits.
+`RemoteUI`, et une nouvelle demande avec le même code rend ceux-là, une fois écrits. Une écriture
+ratée est journalisée ; sous le gel, le 500 part sans ligne d'erreur, car un panneau en attente
+redemande toutes les 10 s.
 
 ### Anti-abus
 
@@ -714,7 +716,7 @@ diverge du code sur trois points, vérifiés au source :
    `<calaos:home>` (`remote-ui.md:524-526`) ; le chargeur lit `<calaos:remote_ui>` comme enfant d'une
    **pièce** (`Room.cpp:171`).
 3. **Clé du code de provisioning** : `provisioning_code` dans la spec (`remote-ui.md:43-46`), `code`
-   dans le code (`RemoteUIProvisioningHandler.cpp:117`, `:246`).
+   dans le code (`RemoteUIProvisioningHandler.cpp:117`, `:258`).
 
 Une quatrième incohérence est **interne au code** : la chaîne de type d'IO cherchée n'est pas la
 même partout — `RemoteUIManager` accepte `"RemoteUI"` ou `"remote_ui_output"`

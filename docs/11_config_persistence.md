@@ -75,8 +75,8 @@ dossier vide annule tout : rien n'est écrit sans copie de ce qui serait perdu. 
 0600 dès leur création : `local_config.xml` porte des jetons, `io.xml` des mots de passe de caméra.
 
 `config_restore` et `config put` remplacent les fichiers sous le serveur qui tourne, puis l'arrêtent.
-Entre les deux, `Utils::set_config_frozen(true)` empêche `SaveConfigIO()`, `SaveConfigRule()`
-et les écritures d'option d'écrire : la configuration en mémoire est celle d'avant et ne doit pas repasser
+Entre les deux, `Utils::set_config_frozen(true)` empêche `SaveConfigIO()`, `SaveConfigRule()` et les
+écritures d'option d'écrire : la configuration en mémoire est celle d'avant et ne doit pas repasser
 par-dessus les fichiers remplacés. Pour `config_restore`, le gel reste en place si une écriture a
 échoué après qu'un fichier a été remplacé, et tombe si rien ne l'a été. `config put` ne gèle que
 s'il a réussi, ou si un fichier a été remplacé avant qu'un autre échoue : c'est aussi le seul

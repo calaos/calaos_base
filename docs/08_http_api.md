@@ -2063,13 +2063,16 @@ fichier absent n'est pas dans ce cas : c'est un premier démarrage, le squelette
 
 `{"error":"config_not_written"}` : la modification demandée a été appliquée en mémoire, mais n'a pas
 atteint le disque. L'écriture a échoué (disque plein, droits, cible invalide), ou les sauvegardes
-sont gelées par un `config_restore` ou un `config put` qui se termine. Même réponse sur HTTP et sur
-WebSocket, pour les `type` `create`, `delete`, `modify`, `add_schedule` et `del_schedule`
-d'`autoscenario`, pour `set_timerange` et pour `reenable`.
+sont gelées par un `config_restore` ou un `config put` qui se termine. Même réponse sur HTTP (statut
+200, comme les autres erreurs de l'API) et sur WebSocket (dans `data`), pour les `type` `create`,
+`delete`, `modify`, `add_schedule`, `del_schedule` et `reenable` d'`autoscenario`, et pour
+`set_timerange`.
 
 - **Pas d'annulation.** Le changement reste en mémoire et son événement est déjà parti : `autoscenario
   list` le montre, le scénario tourne. La prochaine sauvegarde réussie, quelle qu'elle soit, le
-  porte sur le disque ; un redémarrage avant celle-ci le perd.
+  porte sur le disque ; un redémarrage avant celle-ci le perd. Sous le gel, c'est le redémarrage
+  qui suit qui le perd, sauf `config_restore` raté sans rien remplacer : le gel tombe et une
+  sauvegarde peut le porter.
 - **Une erreur n'est pas un refus.** Après un `create`, le scénario existe sans que son `id` ait été
   répondu, et le renvoyer en crée un second ; un `add_schedule` renvoyé ajoute une autre plage. Un
   `delete` renvoyé répond `wrong input`, le scénario étant déjà retiré. `modify`, `del_schedule`,
@@ -2084,7 +2087,7 @@ d'`autoscenario`, pour `set_timerange` et pour `reenable`.
 - **Lectures.** `config get` et `config_backup` sauvegardent d'abord et répondent quoi qu'il
   arrive, avec les octets du disque : l'échec est au journal, leur réponse ne change pas.
 - **Journal.** Le chemin et la cause, jamais le contenu du fichier. Sous le gel, aucune ligne
-  d'erreur : ce n'est pas une panne.
+  d'erreur, provisioning compris : ce n'est pas une panne.
 - **Provisioning RemoteUI.** Voir [docs/07](07_remoteui.md#anti-abus) : un 500, sans identifiants.
 
 **`io_format`** (entier) annonce le plus haut format d'`io.xml` que le serveur écrit et

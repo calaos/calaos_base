@@ -909,6 +909,27 @@ TEST_F(RemoteUIProvisioningAnswerTest, TheFreezeHandsOutNoCredentialsEither)
     EXPECT_EQ(before, ioXmlOnDisk());
 }
 
+TEST_F(RemoteUIProvisioningAnswerTest, EachPollUnderTheFreezeLogsNoErrorButAFailedWriteStillDoes)
+{
+    Utils::set_config_frozen(true);
+    std::string polled;
+    {
+        CoutCapture capture;
+        EXPECT_EQ(0u, provision("127.0.1.4").find("HTTP/1.1 500 Error\r\n"));
+        EXPECT_EQ(0u, provision("127.0.1.5").find("HTTP/1.1 500 Error\r\n"));
+        polled = capture.text();
+    }
+    Utils::set_config_frozen(false);
+    EXPECT_EQ(std::string::npos, polled.find("[ERR]")) << polled;
+
+    ASSERT_TRUE(std::filesystem::create_directory(blockedPath()));
+    CoutCapture capture;
+    EXPECT_EQ(0u, provision("127.0.1.6").find("HTTP/1.1 500 Error\r\n"));
+    EXPECT_NE(std::string::npos, capture.text().find("[ERR]"));
+    EXPECT_NE(std::string::npos, capture.text().find("not written, no credentials sent"));
+    EXPECT_TRUE(std::filesystem::remove(blockedPath()));
+}
+
 TEST_F(RemoteUIScopeTest, AHandlerWithoutAPanelServesNothing)
 {
     handler->attach(nullptr);
