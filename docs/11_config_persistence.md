@@ -324,7 +324,7 @@ pas sur le nœud lui-même ; c'est cosmétique et connu.
 
 Un `io.xml` ou un `rules.xml` illisible **ne tue plus le démon** — c'était un `exit(-1)`. Le
 chemin, en entier (dérivé,
-[CalaosConfig.cpp:127-232](../src/bin/calaos_server/CalaosConfig.cpp)) :
+[CalaosConfig.cpp:127-237](../src/bin/calaos_server/CalaosConfig.cpp)) :
 
 0. **Seule une erreur de parse lance ce chemin.** Un fichier qu'on n'a pas pu lire (droits, I/O,
    mémoire, dossier à la place du fichier) n'est pas corrompu : l'erreur est journalisée sans

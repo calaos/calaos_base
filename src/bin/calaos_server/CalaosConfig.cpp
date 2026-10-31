@@ -169,9 +169,11 @@ XmlLoadResult loadXmlDocument(pugi::xml_document &document, const string &file, 
     {
         res.readFailed = true;
         //parsed.description() says "not found" for a file that is there
-        const char *reason = isDirectory ? "it is a directory"
-                             : parsed.status == pugi::status_file_not_found ? "it could not be opened"
-                             : parsed.description();
+        const char *reason = parsed.description();
+        if (isDirectory)
+            reason = "it is a directory";
+        else if (parsed.status == pugi::status_file_not_found)
+            reason = "it could not be opened";
         cError() << "Unable to read " << file << " (" << reason
                  << "), config not loaded, no backup restored, file left as it was";
         return res;
@@ -238,10 +240,10 @@ XmlLoadResult loadXmlDocument(pugi::xml_document &document, const string &file, 
 string configAlertMessage(const string &configName, const XmlLoadResult &res)
 {
     if (res.readFailed)
-        return "The configuration file " + configName + " could not be read (see server logs)."
-               "\nIt was left as it was and no backup was restored, but the server started with "
-               "an EMPTY " + configName + " configuration, and any later configuration save "
-               "replaces the file.";
+        return "The configuration file " + configName +
+               " could not be read (see server logs).\nIt was left as it was and no backup was "
+               "restored, but the server started with an EMPTY " +
+               configName + " configuration, and any later configuration save replaces the file.";
 
     string msg = "The configuration file " + configName + " was corrupt and could not be parsed.";
 
