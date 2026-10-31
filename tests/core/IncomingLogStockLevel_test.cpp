@@ -1118,18 +1118,20 @@ TEST_F(IncomingLogStockLevelTest, AnUploadRefusedForItsContentPublishesTheNameAn
     ASSERT_TRUE(ex.connected) << "no connection to the server, this case measures nothing";
 
     const std::string stock = ex.stock();
-    ASSERT_TRUE(someLineHasAll(stock, {"does not start with <?xml"}))
+    ASSERT_TRUE(someLineHasAll(stock, { "does not start with <?xml" }))
         << "the content was not refused for not being XML, so the line this "
-           "case is written for never ran:\n" << stock;
+           "case is written for never ran:\n"
+        << stock;
 
     std::vector<Needle> needles = travellingNeedles();
     needles.push_back({ "the content of the refused config file", kUploadContentSecret });
     needles.push_back({ "the value of a body key this tree has never heard of", kBodySecret });
     expectNoRunSurvives(ex, needles, "the refused content line");
 
-    EXPECT_TRUE(someLineHasAll(stock, {"config put refused", "io.xml", "does not start with <?xml"}))
+    EXPECT_TRUE(someLineHasAll(stock, { "config put refused", "io.xml", "does not start with <?xml" }))
         << "the refusal no longer says which file was refused and "
-           "why, so nothing of the diagnosis is left:\n" << stock;
+           "why, so nothing of the diagnosis is left:\n"
+        << stock;
 }
 
 /*
