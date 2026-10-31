@@ -883,14 +883,15 @@ retrait d'un approbateur. Les mises à jour, le reboot et le reste ne demandent 
 
 Phase 3. Le code de 6 chiffres ne figure plus dans le texte de la notification (écran verrouillé,
 relais push, FCM, APNs) : un téléphone qui a enregistré une **clé push** reçoit un avis générique
-et le code **chiffré avec cette clé**, que seuls le téléphone et calaos_server connaissent.
+et le code **chiffré avec cette clé**, que le téléphone et calaos_server connaissent.
 L'application déchiffre et affiche le code ; le téléphone n'a pas à joindre la box. La clé
 n'authentifie rien : le second facteur reste le code tapé dans la webapp (voir
 `docs/admin/PLAN.md`, amendement (a) du 2026-10-25).
 
 **Clé.** 32 octets du CSPRNG de l'application, générés une fois, envoyés à chaque
 [`register_push`](#register_push) dans `push_key` (64 hexadécimaux minuscules). Elle est stockée
-dans `push_tokens.push_key` et ne quitte jamais calaos_server ni le téléphone.
+dans `push_tokens.push_key` et ne circule que dans `register_push`, en clair sur une connexion
+sans TLS (voir [`register_push`](#register_push)).
 
 **Avis.** Texte composé par calaos_server à partir du seul champ `action` de la réponse du
 daemon (table fermée, jamais le `message` du daemon) :
@@ -965,11 +966,11 @@ compare **pas** `expires` à l'horloge du téléphone : une horloge de box en re
 sinon abandonner tous les codes. Elle affiche le code pendant 60 s (durée de vie d'un code) à
 compter de l'heure de **réception**, puis l'abandonne ; le daemon applique l'échéance réelle
 (`code_expired`). `expires` reste authentifié par le tag, c'est une indication, pas un test.
-Pendant ces 60 s, un saut de l'horloge du téléphone abandonne le code : l'âge retenu est le plus
-grand de l'âge mural et de l'âge de l'horloge de boot, donc un saut en avant l'écourte, et une
-horloge murale reculée de plus de 2 s depuis la réception (ou un redémarrage) l'abandonne.
-`AdminCode.cpp` `remainingMs`. Ne
-jamais journaliser clé, nonce, `ct`, `tag`, code ni jeton. Les étiquettes `calaos-admin-code/enc`
+Pendant ces 60 s, l'âge retenu est le plus grand de l'âge mural et de l'âge de l'horloge de boot :
+une horloge avancée écourte le code, et l'abandonne si l'avance dépasse le temps restant ; une
+horloge reculée l'abandonne seulement si elle passe plus de 2 s avant l'heure de réception. Après
+un redémarrage, l'horloge de boot revenue sous sa valeur de réception l'abandonne, sinon l'âge
+mural décide (`remainingMs`, `src/AdminCode.cpp` de calaos_mobile). Ne jamais journaliser clé, nonce, `ct`, `tag`, code ni jeton. Les étiquettes `calaos-admin-code/enc`
 et `/mac` valent version 1 : un format futur change les étiquettes et les clés de la charge.
 
 **Vecteurs de test.** Calculés avec Python (`hmac`, `hashlib`) et recalculés avec la CLI
@@ -2689,9 +2690,10 @@ Réponse : `{"success":"true"}` (dans `data` en WebSocket, muette sans `msg_id`)
   rafraîchir sa date (pour la clé push, voir plus bas). `approver_removed` le libère.
 - `push_key` (phase 3) est **optionnelle** : 32 octets du CSPRNG de l'app, en 64 hexadécimaux
   minuscules, générés une fois et envoyés avec chaque enregistrement, **y compris sur une connexion
-sans TLS** (`http://`, `ws://`) : sur un tel lien elle circule en clair, et qui l'observe peut
-déchiffrer les codes de ce jeton (le second facteur, le code tapé dans la webapp, reste requis).
-Elle est stockée dans
+  sans TLS** (`http://`, `ws://`) : sur un tel lien elle circule en clair, comme le mot de passe
+  foyer ; qui l'observe peut déchiffrer ou forger les codes de ce jeton s'il obtient aussi la
+  charge, qui ne passe pas par ce lien, et il lui faut encore une session admin pour s'en servir.
+  Elle est stockée dans
   `push_tokens.push_key` (colonne ajoutée à l'ouverture de la base) et sert uniquement à chiffrer
   les codes push de ce jeton (voir [Code push chiffré](#code-push-chiffré)) ; elle n'authentifie
   pas le téléphone. Une valeur qui n'est pas 64 hexadécimaux minuscules est **ignorée** (le jeton
