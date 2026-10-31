@@ -266,7 +266,7 @@ protected:
     //is wide because a loaded sanitizer run can stall the sqlite worker.
     static bool waitUntil(const std::function<bool()> &done)
     {
-        for (int i = 0;i < 6000;i++)
+        for (int i = 0; i < 6000; i++)
         {
             if (done())
                 return true;
