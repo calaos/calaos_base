@@ -61,6 +61,10 @@ public:
     //Empty when config_restore may use params, the invalid_request message otherwise
     static std::string restoreRefusal(const Json &params);
 
+    //Empty when a config put may write content as the file name, the reason otherwise: the rules of
+    //config_restore. A name that is not one of the three files is not judged here.
+    static std::string putFileRefusal(const std::string &name, const std::string &content);
+
     //What restore() would do with params, once restoreRefusal() accepted them. Writes nothing.
     static Json restoreCheck(const Json &params);
 

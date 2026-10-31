@@ -1201,9 +1201,10 @@ TEST_F(HttpRequestLogSecretTest, TheContentOfARefusedConfigFileIsNotRepublished)
     ASSERT_EQ(std::string::npos, ex.log.find("Login failed"))
         << "the upload never authenticated, so the refusing branch was never "
            "reached and this case measures nothing:\n" << ex.log;
-    ASSERT_NE(std::string::npos, ex.log.find("is not XML"))
-        << "the content was not refused for not being XML, so this case does "
-           "not exercise the site it is written for:\n" << ex.log;
+    ASSERT_NE(std::string::npos, ex.log.find("does not start with <?xml"))
+        << "the content was not refused for its first bytes, so this case does "
+           "not exercise the site it is written for:\n"
+        << ex.log;
 
     const size_t echo = longestEcho(ex.log, kRefusedContentSecret);
     EXPECT_LT(echo, kMaxEcho)
@@ -1455,29 +1456,19 @@ TEST_F(HttpRequestLogSecretTest, TheCeilingIsHeldToTheOverlapThisSuiteMeasures)
     };
 
     const std::vector<Probe> probes = {
-        { "the headers of a refused login", buildRequest(loginWire, credentialHeaders()),
-          "", plantedValues(), {}, {}, "network" },
-        { "the query of a refused login", buildRequest(loginWire, credentialHeaders()),
-          "", { query }, {}, {}, "Login failed" },
+        { "the headers of a refused login", buildRequest(loginWire, credentialHeaders()), "", plantedValues(), {}, {}, "network" },
+        { "the query of a refused login", buildRequest(loginWire, credentialHeaders()), "", { query }, {}, {}, "Login failed" },
         //Only the base64 travels; the plain form is measured all the same
         //because a journal can hand the secret back decoded.
-        { "a Basic credential", buildRequest("/api.php", basicHeaders),
-          "", { basicEncoded, kBasicPlain }, {}, { basicEncoded }, "network" },
-        { "a query that carries a url", buildRequest(urlInQuery, credentialHeaders()),
-          "", { urlInQuery.substr(urlInQuery.find('?') + 1) }, {}, {}, "network" },
-        { "the headers of a websocket handshake", buildRequest("/api", websocketHeaders()),
-          "", plantedValues(), {}, {}, "Upgrading connection to WebSocket" },
-        { "the head of a websocket login frame", buildRequest("/api", websocketHeaders()),
-          wsLogin, { kWsFramePassword }, {}, {}, "Got a new frame" },
-        { "the body of a websocket request", buildRequest("/api", websocketHeaders()),
-          wsBody, { kWsInventedSecret }, {}, {}, "grimoire" },
-        { "an authenticated config upload", jsonPost(configPutBody(true)),
-          "", uploaded, { emittedToken() }, {}, "config_files" },
-        { "an unauthenticated config upload", jsonPost(configPutBody(false)),
-          "", uploaded, { emittedToken() }, {}, "config_files" },
+        { "a Basic credential", buildRequest("/api.php", basicHeaders), "", { basicEncoded, kBasicPlain }, {}, { basicEncoded }, "network" },
+        { "a query that carries a url", buildRequest(urlInQuery, credentialHeaders()), "", { urlInQuery.substr(urlInQuery.find('?') + 1) }, {}, {}, "network" },
+        { "the headers of a websocket handshake", buildRequest("/api", websocketHeaders()), "", plantedValues(), {}, {}, "Upgrading connection to WebSocket" },
+        { "the head of a websocket login frame", buildRequest("/api", websocketHeaders()), wsLogin, { kWsFramePassword }, {}, {}, "Got a new frame" },
+        { "the body of a websocket request", buildRequest("/api", websocketHeaders()), wsBody, { kWsInventedSecret }, {}, {}, "grimoire" },
+        { "an authenticated config upload", jsonPost(configPutBody(true)), "", uploaded, { emittedToken() }, {}, "config_files" },
+        { "an unauthenticated config upload", jsonPost(configPutBody(false)), "", uploaded, { emittedToken() }, {}, "config_files" },
         { "a set_param", jsonPost(setParamBody()), "", { kSetParamSecret }, {}, {}, "param" },
-        { "the content of a refused config file", jsonPost(refused.str()),
-          "", { kRefusedContentSecret }, {}, {}, "is not XML" },
+        { "the content of a refused config file", jsonPost(refused.str()), "", { kRefusedContentSecret }, {}, {}, "does not start with <?xml" },
     };
 
     for (const Probe &p: probes)
