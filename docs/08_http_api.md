@@ -1476,12 +1476,16 @@ Ni listées ni modifiables ici : `cn_user`, `cn_pass`, `calaos_user`, `calaos_pa
   "local_config.xml"}}`, chaque valeur étant le contenu du fichier. Un fichier absent de la box,
   illisible ou vide est **omis** de `files` (jamais une chaîne vide, qu'une restauration écrirait).
   `unrestorable` (champ additionnel, **absent** d'une archive saine) liste les fichiers que
-  `config_restore` refuserait tels quels : `[{"file": "io.xml" | "rules.xml", "cause":
-  "not_loaded" | "missing" | "unreadable" | "empty"}]`. `not_loaded` : le fichier existe mais
-  calaos_server ne l'a pas chargé (corrompu) ; l'archive porte alors ses octets, tels quels, et
-  aucun fichier de la box n'est écrit. L'archive est rendue dans tous les cas ; le champ ne contient
-  que des noms et des causes, jamais un contenu. `local_config.xml`, facultatif pour une
-  restauration, n'y figure jamais.
+  `config_restore` refuserait tels quels : `[{"file": "io.xml" | "rules.xml" | "local_config.xml",
+  "cause": "not_loaded" | "missing" | "unreadable" | "empty" | "refused"}]`. `not_loaded` : le
+  fichier existe mais calaos_server ne l'a pas chargé (corrompu ou illisible au démarrage) ;
+  l'archive porte alors ses octets, tels quels, et aucun fichier de la box n'est écrit. `refused` :
+  le fichier présent dans l'archive ne passe pas les contrôles de contenu de `config_restore`
+  (plus de 2 Mio, NUL ou non UTF-8, sans `<?xml` en tête, XML invalide, mauvaise racine, format
+  plus récent), `local_config.xml` compris ; le motif exact n'est pas rendu. `missing`, `unreadable`
+  et `empty` ne concernent que io.xml et rules.xml : un `local_config.xml` absent ou vide est
+  seulement omis de `files`, sans signal. L'archive est rendue dans tous les cas ; le champ ne
+  contient que des noms et des causes, jamais un contenu.
   `widgets.xml` n'y est pas : aucun programme ne le lit. `created_at` est en RFC 3339 UTC à la seconde
   (`2026-10-25T12:34:56Z`), `server_version` la version de calaos_server, `hostname` le nom
   d'hôte brut (`gethostname()`), `io_format` le format d'`io.xml` de ce serveur (nombre JSON, le

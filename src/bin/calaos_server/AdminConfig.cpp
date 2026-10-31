@@ -447,33 +447,41 @@ Json AdminConfig::backup(std::time_t createdAt)
             files[file.name] = content;
 
         //The archive still carries what is on disk; the restore would refuse it as a whole.
-        //local_config.xml is optional for a restore, so its absence is not a fault.
+        //local_config.xml may be absent, but when present it is judged like the others.
+        //The refusal text is not copied: it can hold a value read from the file.
         const char *cause = nullptr;
-        if (content.empty() && file.required)
+        if (content.empty())
         {
-            std::error_code ec;
-            const auto size = std::filesystem::is_regular_file(path, ec) ? std::filesystem::file_size(path, ec) : 1;
-            if (!std::filesystem::exists(path, ec))
-                cause = "missing";
-            else
-                cause = size == 0 && !ec ? "empty" : "unreadable";
+            if (file.required)
+            {
+                std::error_code ec;
+                const bool present = std::filesystem::exists(path, ec);
+                if (ec)
+                    cause = "unreadable";
+                else if (!present)
+                    cause = "missing";
+                else
+                    cause = std::filesystem::is_regular_file(path, ec) && !ec && std::filesystem::file_size(path, ec) == 0 && !ec ? "empty" : "unreadable";
+            }
         }
         else if ((file.name == string(IO_CONFIG) && !Config::Instance().ioFileLoaded()) ||
                  (file.name == string(RULES_CONFIG) && !Config::Instance().rulesFileLoaded()))
             cause = "not_loaded";
+        else if (!restoreFileRefusal(file, content).empty())
+            cause = "refused";
         if (cause)
             unrestorable.push_back({ { "file", file.name }, { "cause", cause } });
     }
 
-    Json backup = Json{ { "format", "calaos-config-backup/2" },
+    Json doc = Json{ { "format", "calaos-config-backup/2" },
                         { "created_at", utcStamp(createdAt, "%Y-%m-%dT%H:%M:%SZ") },
                         { "server_version", PKG_VERSION_STR },
                         { "hostname", hostname() },
                         { "io_format", IO_FORMAT_DEVICES },
                         { "files", files } };
     if (!unrestorable.empty())
-        backup["unrestorable"] = unrestorable;
-    return backup;
+        doc["unrestorable"] = unrestorable;
+    return doc;
 }
 
 string AdminConfig::restoreRefusal(const Json &params)

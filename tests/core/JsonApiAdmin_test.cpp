@@ -6491,6 +6491,104 @@ TEST_F(JsonApiAdminRestoreTest, ABackupOfAnUnloadedIoFileNamesIt)
     EXPECT_EQ("live file garbage <<<", fileText(configPath("io.xml")));
 }
 
+//A present file the restore would refuse is named, and nothing of the refusal is copied
+void expectRefused(const char *name, const Json &doc)
+{
+    ASSERT_TRUE(doc.contains("unrestorable")) << doc.dump().substr(0, 400);
+    ASSERT_EQ(1u, doc["unrestorable"].size()) << doc["unrestorable"].dump();
+    EXPECT_EQ(name, str(doc["unrestorable"][0], "file"));
+    EXPECT_EQ("refused", str(doc["unrestorable"][0], "cause"));
+    EXPECT_EQ(2u, doc["unrestorable"][0].size());
+    EXPECT_TRUE(doc["files"].contains(name));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ABackupSaysALocalConfigWithoutTheXmlDeclarationIsRefused)
+{
+    loadEmptyHouse();
+    const std::string live = "\n" + fileText(configPath("local_config.xml"));
+    writeFile(configPath("local_config.xml"), live);
+
+    const Json doc = AdminConfig::backup(1792931696);
+
+    expectRefused("local_config.xml", doc);
+    EXPECT_EQ(live, str(doc["files"], "local_config.xml"));
+    EXPECT_EQ(live, fileText(configPath("local_config.xml")));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ABackupSaysALocalConfigThatIsNotXmlIsRefused)
+{
+    loadEmptyHouse();
+    const std::string live = "<?xml version=\"1.0\"?><calaos:local_config";
+    writeFile(configPath("local_config.xml"), live);
+
+    expectRefused("local_config.xml", AdminConfig::backup(1792931696));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ABackupSaysALocalConfigWithAWrongRootIsRefused)
+{
+    loadEmptyHouse();
+    writeFile(configPath("local_config.xml"), "<?xml version=\"1.0\"?><other/>");
+
+    expectRefused("local_config.xml", AdminConfig::backup(1792931696));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ABackupSaysALocalConfigWithANulIsRefused)
+{
+    loadEmptyHouse();
+    std::string live = fileText(configPath("local_config.xml"));
+    live.insert(live.size() - 1, 1, '\0');
+    writeFile(configPath("local_config.xml"), live);
+
+    expectRefused("local_config.xml", AdminConfig::backup(1792931696));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ABackupSaysARulesFileOver2MiBIsRefused)
+{
+    loadEmptyHouse();
+    ASSERT_TRUE(Config::Instance().rulesFileLoaded());
+    //A frozen configuration is not saved, so the oversized file stays as it is
+    const std::string big = rulesOfSize(2 * 1024 * 1024 + 1);
+    writeFile(configPath("rules.xml"), big);
+    Utils::set_config_frozen(true);
+
+    const Json doc = AdminConfig::backup(1792931696);
+
+    expectRefused("rules.xml", doc);
+    EXPECT_EQ(big, str(doc["files"], "rules.xml"));
+    EXPECT_EQ(std::string::npos, doc["unrestorable"].dump().find("MiB"));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ARefusalOfTheFormatNeverCopiesTheNumberRead)
+{
+    loadEmptyHouse();
+    ASSERT_TRUE(Config::Instance().ioFileLoaded());
+    const std::string io = std::regex_replace(std::string(kRestoreIo), std::regex("format=\"2\""), "format=\"987654\"");
+    writeFile(configPath("io.xml"), io);
+    Utils::set_config_frozen(true);
+
+    const Json doc = AdminConfig::backup(1792931696);
+
+    expectRefused("io.xml", doc);
+    EXPECT_EQ(std::string::npos, doc.dump().find("newer")) << doc["unrestorable"].dump();
+    EXPECT_EQ(std::string::npos, doc["unrestorable"].dump().find("987654"));
+}
+
+TEST_F(JsonApiAdminRestoreTest, AFileThatCannotBeStatedIsNotTakenForAMissingFile)
+{
+    //exists() reports false with an error code here, as it does for EACCES on the folder
+    loadEmptyHouse();
+    const std::string folder = configPath("rules.xml");
+    ASSERT_EQ(0, ::unlink(folder.c_str()));
+    ASSERT_EQ(0, ::symlink("rules.xml", folder.c_str())) << "a link to itself makes stat() fail with ELOOP";
+    Utils::set_config_frozen(true);
+
+    const Json doc = AdminConfig::backup(1792931696);
+
+    ASSERT_TRUE(doc.contains("unrestorable")) << doc.dump().substr(0, 400);
+    EXPECT_EQ("unreadable", str(doc["unrestorable"][0], "cause"));
+    ::unlink(folder.c_str());
+}
+
 TEST_F(JsonApiAdminRestoreTest, AHealthyBackupKeepsItsExactShape)
 {
     loadEmptyHouse();
