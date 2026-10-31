@@ -267,6 +267,9 @@ void CoreFixture::clearCoreState()
      * every golden carrying one becomes order dependent.
      */
     AutoScenarioDef::resetIdAllocatorsForTests();
+
+    //config put freezes until the restart, and this is what a test has of one
+    Utils::set_config_frozen(false);
 }
 
 void CoreFixture::forgetIOState(const std::string &id)
