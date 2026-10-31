@@ -429,17 +429,19 @@ Json AdminConfig::set(const Json &params)
 
 Json AdminConfig::backup(std::time_t createdAt)
 {
-    //The in-memory IOs and rules as config get hands them out
+    //The in-memory IOs and rules as config get hands them out, the bytes on
+    //disk for a file that was not loaded and so was not saved
     Config::Instance().SaveConfigIO();
     Config::Instance().SaveConfigRule();
 
-    //widgets.xml has no reader; a missing file is left out so a restore never writes an empty one
+    //widgets.xml has no reader; a file with nothing to give is left out so a
+    //restore never writes an empty one
     Json files = Json::object();
     for (const char *name: { IO_CONFIG, RULES_CONFIG, LOCAL_CONFIG })
     {
-        const string path = Utils::getConfigFile(name);
-        if (FileUtils::exists(path))
-            files[name] = Utils::getFileContent(path.c_str());
+        const string content = Utils::getFileContent(Utils::getConfigFile(name).c_str());
+        if (!content.empty())
+            files[name] = content;
     }
 
     return Json{ { "format", "calaos-config-backup/2" },

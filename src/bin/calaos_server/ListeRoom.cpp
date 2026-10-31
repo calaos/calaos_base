@@ -389,7 +389,8 @@ void ListeRoom::checkAutoScenario()
     refreshBrokenScenarios();
 
     //Resave config, auto scenarios have probably created/deleted ios and rules
-    Config::Instance().SaveLoadedConfig();
+    Config::Instance().SaveConfigIO();
+    Config::Instance().SaveConfigRule();
 }
 
 void ListeRoom::rekeyDuplicateAutoScenarioUids()

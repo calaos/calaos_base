@@ -36,6 +36,9 @@ namespace Calaos
 //as io_format. A file without the attribute is format 1.
 constexpr int IO_FORMAT_DEVICES = 2;
 
+//Answer to a change that could not reach a config file left unloaded
+constexpr const char *CONFIG_NOT_LOADED = "config_not_loaded";
+
 class Config
 {
 private:
@@ -54,8 +57,8 @@ private:
     void scheduleConfigAlert(const string &message);
     void sendConfigAlerts();
 
-    bool ioNotLoaded = false;
-    bool ruleNotLoaded = false;
+    bool ioLoaded = false;
+    bool rulesLoaded = false;
 
 public:
     static Config &Instance()
@@ -68,12 +71,13 @@ public:
     void LoadConfigIO();
     void LoadConfigRule();
 
+    //A file that was not loaded is left out: the empty config in memory would
+    //replace it. Only config put and config_restore get past that.
     void SaveConfigIO();
     void SaveConfigRule();
 
-    //Save done on its own at startup. A file that failed to load is left out:
-    //the empty config in memory would replace it with nobody having asked.
-    void SaveLoadedConfig();
+    bool ioFileLoaded() const { return ioLoaded; }
+    bool rulesFileLoaded() const { return rulesLoaded; }
 
     //Reload/flush the IO state cache from/to disk. loadStateCache() is
     //called by the constructor, saveStateCache() by a 60s timer, by the
@@ -89,7 +93,8 @@ public:
 
     /* Copies the config files to a new folder of backups/ and returns that
      * folder relative to backups/ (2026/10/25-10-2026_17-14-15), empty when a
-     * file could not be saved. A config file that does not exist is not one.
+     * file could not be saved. A config file that does not exist is not one,
+     * nor is one that was not loaded: replacing it is what is being asked for.
      */
     string BackupFiles();
 

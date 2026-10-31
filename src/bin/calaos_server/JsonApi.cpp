@@ -41,6 +41,19 @@
 namespace
 {
 
+/* A scenario lives in both files: with one of them left unloaded a change would
+ * only be half written, so it is refused before anything moves.
+ */
+bool scenarioFilesLoaded()
+{
+    return Config::Instance().ioFileLoaded() && Config::Instance().rulesFileLoaded();
+}
+
+Json configNotLoadedError()
+{
+    return Params({{ "error", Calaos::CONFIG_NOT_LOADED }}).toJson();
+}
+
 /* E4.1o. jansson_string_get()'s contract, kept BY HAND for a nlohmann
  * document: the DEFAULT on an absent member, on a member that is not a JSON
  * string, and on a root that is not an object (json_object_get(NULL, k)
@@ -2812,6 +2825,9 @@ Json JsonApi::buildAutoscenarioCreate(const Json &jdata)
     if (!XmlUtils::isWritableAsAttribute(payload.name))
         return Params({{ "error", "invalid payload: name refused" }}).toJson();
 
+    if (!scenarioFilesLoaded())
+        return configNotLoadedError();
+
     Params params;
     params.Add(AutoScenarioDef::KEY_UID, AutoScenarioDef::newUid());
     params.Add("name", payload.name);
@@ -2875,6 +2891,9 @@ Json JsonApi::buildAutoscenarioDelete(const Json &jdata)
         return p.toJson();
     }
 
+    if (!scenarioFilesLoaded())
+        return configNotLoadedError();
+
     sc->getAutoScenario()->deleteAll();
 
     //delete the scenario IO
@@ -2909,6 +2928,9 @@ Json JsonApi::buildAutoscenarioModify(const Json &jdata)
     string err;
     if (!parseScenarioPayload(jdata, payload, err))
         return Params({{ "error", err }}).toJson();
+
+    if (!scenarioFilesLoaded())
+        return configNotLoadedError();
 
     AutoScenario *as = scenario->getAutoScenario();
 
@@ -2994,6 +3016,9 @@ Json JsonApi::buildAutoscenarioAddSchedule(const Json &jdata)
         return p.toJson();
     }
 
+    if (!scenarioFilesLoaded())
+        return configNotLoadedError();
+
     sc->getAutoScenario()->addSchedule();
 
     //addSchedule() leaves the time range null when the IO could not be built
@@ -3026,6 +3051,9 @@ Json JsonApi::buildAutoscenarioDelSchedule(const Json &jdata)
         Params p = {{ "error", "wrong input" }};
         return p.toJson();
     }
+
+    if (!scenarioFilesLoaded())
+        return configNotLoadedError();
 
     sc->getAutoScenario()->deleteSchedule();
 
