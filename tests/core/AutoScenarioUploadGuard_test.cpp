@@ -1478,7 +1478,7 @@ protected:
         EXPECT_FALSE(Utils::config_frozen());
     }
 
-    bool makeRulesUnwritable(std::string &real, std::string &roDir);
+    std::string blockRulesWrite();
 
     std::vector<std::string> strays() const
     {
@@ -1544,40 +1544,27 @@ TEST_F(ConfigPutTest, TheContentCheckLeavesAnUnknownNameToTheCaller)
     EXPECT_FALSE(AdminConfig::putFileRefusal("io.xml", "not xml").empty());
 }
 
-//rules.xml becomes a link into a directory where no temporary can be created;
-//the backups under the config directory stay possible. Returns the real file.
-bool ConfigPutTest::makeRulesUnwritable(std::string &real, std::string &roDir)
+//A link where the temporary of rules.xml goes: it is opened without following
+//links, so the write fails for the root user of CI too. Returns the link.
+std::string ConfigPutTest::blockRulesWrite()
 {
-    roDir = configDir() + "/ro";
-    real = roDir + "/rules.xml";
-    if (!std::filesystem::create_directory(roDir) ||
-        ::rename(pathOf(RULES_CONFIG).c_str(), real.c_str()) != 0 ||
-        ::symlink(real.c_str(), pathOf(RULES_CONFIG).c_str()) != 0 ||
-        ::chmod(roDir.c_str(), 0500) != 0)
-        return false;
-    if (::access(roDir.c_str(), W_OK) == 0)
-    {
-        ::chmod(roDir.c_str(), 0700);
-        return false;
-    }
-    return true;
+    const std::string blocker = pathOf(RULES_CONFIG) + ".restore";
+    EXPECT_EQ(0, ::symlink("/nonexistent", blocker.c_str()));
+    return blocker;
 }
 
 TEST_F(ConfigPutTest, AWriteThatFailsLeavesTheLiveFileAndNoTemporary)
 {
     settle();
-    std::string real, roDir;
-    if (!makeRulesUnwritable(real, roDir))
-        GTEST_SKIP() << "the directory stays writable (root)";
-    const std::string before = readWholeFile(real);
+    const std::string before = readWholeFile(pathOf(RULES_CONFIG));
+    const std::string blocker = blockRulesWrite();
 
     const Json reply = put(Json{ { "rules.xml", kRulesRoot } });
-    ASSERT_EQ(0, ::chmod(roDir.c_str(), 0700));
+    ::unlink(blocker.c_str());
 
     EXPECT_EQ("false", reply.value("success", ""));
     EXPECT_EQ("Could not write rules.xml, the file was left as it was", reply.value("error", "")) << reply.dump();
-    EXPECT_EQ(before, readWholeFile(real));
-    EXPECT_EQ(1, std::distance(std::filesystem::directory_iterator(roDir), std::filesystem::directory_iterator()));
+    EXPECT_EQ(before, readWholeFile(pathOf(RULES_CONFIG)));
     EXPECT_TRUE(strays().empty());
     EXPECT_FALSE(Utils::config_frozen());
 }
@@ -1585,19 +1572,17 @@ TEST_F(ConfigPutTest, AWriteThatFailsLeavesTheLiveFileAndNoTemporary)
 TEST_F(ConfigPutTest, AWriteThatFailsAfterAnotherFileWasReplacedFreezesAndNamesThem)
 {
     settle();
-    std::string real, roDir;
-    if (!makeRulesUnwritable(real, roDir))
-        GTEST_SKIP() << "the directory stays writable (root)";
-    const std::string before = readWholeFile(real);
+    const std::string before = readWholeFile(pathOf(RULES_CONFIG));
+    const std::string blocker = blockRulesWrite();
 
     const Json reply = put(Json{ { "io.xml", kIoRoot }, { "rules.xml", kRulesRoot } });
-    ASSERT_EQ(0, ::chmod(roDir.c_str(), 0700));
+    ::unlink(blocker.c_str());
 
     const std::string error = reply.value("error", "");
     EXPECT_EQ("false", reply.value("success", ""));
     EXPECT_EQ(0u, error.find("Could not write rules.xml; already replaced: io.xml; previous files in backups/")) << error;
     EXPECT_EQ(kIoRoot, readWholeFile(pathOf(IO_CONFIG)));
-    EXPECT_EQ(before, readWholeFile(real));
+    EXPECT_EQ(before, readWholeFile(pathOf(RULES_CONFIG)));
     EXPECT_TRUE(strays().empty());
     //Memory and disk now differ: nothing may save over the new file
     EXPECT_TRUE(Utils::config_frozen());
