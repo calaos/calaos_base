@@ -1363,13 +1363,18 @@ TEST_F(ConsoleTunnelTest, AConsoleThatEndsWhileTheBrowserIsPausedStillReadsItsCl
 
     fakeConsole.pause(true);
     const std::string chunk = bytes(ConsoleTunnel::MaxClientMessage, 9);
-    for (int i = 0; i < 512 && c.unsent() == 0; i++)
+    //The server may still read part of the backlog while the loop settles,
+    //so keep filling until a backlog survives a settle.
+    for (int round = 0; round < 20 && c.unsent() == 0; round++)
     {
-        c.sendBinary(chunk);
-        drainLoop(2);
+        for (int i = 0; i < 512 && c.unsent() == 0; i++)
+        {
+            c.sendBinary(chunk);
+            drainLoop(2);
+        }
+        drainLoop(500);
+        c.pump();
     }
-    drainLoop(500);
-    c.pump();
     ASSERT_GT(c.unsent(), 0u) << "the browser was never paused, so this case measures nothing";
 
     fakeConsole.sendClose(1000);

@@ -690,16 +690,36 @@ TEST_F(AutoScenarioUploadGuardTest, TwoUploadsInsideTheSameSecondStillLeaveTheSt
     ASSERT_GT(removeScenarioFromIoXml(ioOnce, marker), 0);
     ASSERT_GT(removeScenarioFromRulesXml(rulesOnce, marker), 0);
 
-    alignToNextSecond();
-    const std::string stamp = backupSecondStamp();
+    //A loaded host can push the pair over a second boundary, and then the case
+    //proves nothing: start again from the original state, on a fresh second.
+    std::string stamp;
+    for (int attempt = 0; attempt < 10; attempt++)
+    {
+        if (attempt > 0)
+        {
+            std::error_code ec;
+            std::filesystem::remove_all(configDir() + "/backups", ec);
+            clearCoreState();
+            loadConfig(ioOriginal, rulesOriginal);
+            ListeRoom::Instance().checkAutoScenario();
+            Utils::set_config_frozen(false);
+        }
 
-    //first upload: the evening scenario goes. Second: everything goes. No wait
-    //between them - that is the whole point of the case. The restart that lifts
-    //the freeze is not played: only the name of the backup folder is at stake.
-    ASSERT_EQ("true", str(uploadConfig(ioOnce, rulesOnce), "success"));
-    Utils::set_config_frozen(false);
-    ASSERT_EQ("true", str(uploadConfig(ioXmlDocument(roomXml("Vide", "salon", std::string(), 0)),
-                                       rulesXmlDocument(std::string())), "success"));
+        alignToNextSecond();
+        stamp = backupSecondStamp();
+
+        //first upload: the evening scenario goes. Second: everything goes. No wait
+        //between them - that is the whole point of the case. The restart that lifts
+        //the freeze is not played: only the name of the backup folder is at stake.
+        ASSERT_EQ("true", str(uploadConfig(ioOnce, rulesOnce), "success"));
+        Utils::set_config_frozen(false);
+        ASSERT_EQ("true", str(uploadConfig(ioXmlDocument(roomXml("Vide", "salon", std::string(), 0)),
+                                           rulesXmlDocument(std::string())),
+                              "success"));
+
+        if (stamp == backupSecondStamp())
+            break;
+    }
 
     //without this the case would be vacuous: uploads that straddle a second
     //boundary do not collide and pass whatever BackupFiles() names its folder

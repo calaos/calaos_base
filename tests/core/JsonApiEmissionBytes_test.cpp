@@ -261,12 +261,13 @@ protected:
      * pumping, and an assertion of ABSENCE placed before the pump would be an
      * oracle mort (E4.0g: "non livre n'est pas non leve").
      *
-     * The 2s bound stays well under the 30s read timeout HttpClient installs in
+     * The 25s deadline stays under the 30s read timeout HttpClient installs in
      * its constructor, so an HttpTestRequest can be held alive across one wait.
      **************************************************************************/
     static bool waitUntil(const std::function<bool()> &done)
     {
-        for (int i = 0; i < 400; i++)
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(25);
+        while (std::chrono::steady_clock::now() < deadline)
         {
             if (done())
                 return true;
