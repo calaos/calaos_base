@@ -51,7 +51,7 @@ bool scenarioFilesLoaded()
 
 Json configNotLoadedError()
 {
-    return Params({{ "error", Calaos::CONFIG_NOT_LOADED }}).toJson();
+    return Params({ { "error", Calaos::CONFIG_NOT_LOADED } }).toJson();
 }
 
 /* E4.1o. jansson_string_get()'s contract, kept BY HAND for a nlohmann

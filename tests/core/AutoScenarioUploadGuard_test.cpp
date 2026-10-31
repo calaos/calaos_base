@@ -1222,7 +1222,7 @@ protected:
     Json configGet()
     {
         HttpTestRequest req;
-        req.send(authenticated(Json{{ "action", "config" }, { "type", "get" }}));
+        req.send(authenticated(Json{ { "action", "config" }, { "type", "get" } }));
         EXPECT_EQ(1u, req.count());
         if (req.count() != 1) return Json::object();
         return req.bodyJson();
@@ -1231,8 +1231,7 @@ protected:
     Json wsSetTimerange(WsTestSession &ws, const std::string &id)
     {
         ws.clear();
-        ws.send(Json{{ "msg", "set_timerange" }, { "msg_id", "1" },
-                     { "data", {{ "id", id }, { "months", "011111111111" }} }});
+        ws.send(Json{ { "msg", "set_timerange" }, { "msg_id", "1" }, { "data", { { "id", id }, { "months", "011111111111" } } } });
         EXPECT_EQ(1u, ws.count());
         if (ws.count() != 1) return Json::object();
         return ws.lastData();
@@ -1240,28 +1239,28 @@ protected:
 
     static Json createdScenario()
     {
-        return Json{{ "type", "create" },
-                    { "name", "Added" },
-                    { "room_name", ROOM_NAME_E46H },
-                    { "room_type", ROOM_TYPE_E46H },
-                    { "steps", oneStep() }};
+        return Json{ { "type", "create" },
+                     { "name", "Added" },
+                     { "room_name", ROOM_NAME_E46H },
+                     { "room_type", ROOM_TYPE_E46H },
+                     { "steps", oneStep() } };
     }
 
     static Json modifiedScenario(const std::string &id)
     {
-        return Json{{ "type", "modify" },
-                    { "id", id },
-                    { "name", "Renamed" },
-                    { "room_name", ROOM_NAME_E46H },
-                    { "room_type", ROOM_TYPE_E46H },
-                    { "steps", oneStep() }};
+        return Json{ { "type", "modify" },
+                     { "id", id },
+                     { "name", "Renamed" },
+                     { "room_name", ROOM_NAME_E46H },
+                     { "room_type", ROOM_TYPE_E46H },
+                     { "steps", oneStep() } };
     }
 
 private:
     static Json oneStep()
     {
-        return Json::array({ Json{{ "pause", "1" },
-                                  { "actions", Json::array({ Json{{ "io", IO_LAMP }, { "value", "true" }} }) }} });
+        return Json::array({ Json{ { "pause", "1" },
+                                   { "actions", Json::array({ Json{ { "io", IO_LAMP }, { "value", "true" } } }) } } });
     }
 };
 
@@ -1273,7 +1272,7 @@ TEST_F(UnloadedConfigFileTest, EveryChangeThatTouchesAnUnloadedRulesFileIsRefuse
         WsTestSession ws;
         eveningId = createEveningScenario(ws);
         ASSERT_FALSE(eveningId.empty());
-        ASSERT_FALSE(wsAutoscenario(ws, Json{{ "type", "add_schedule" }, { "id", eveningId }}).contains("error"));
+        ASSERT_FALSE(wsAutoscenario(ws, Json{ { "type", "add_schedule" }, { "id", eveningId } }).contains("error"));
     }
     saveConfig();
     const std::string ioBefore = ioXmlOnDisk();
@@ -1284,9 +1283,9 @@ TEST_F(UnloadedConfigFileTest, EveryChangeThatTouchesAnUnloadedRulesFileIsRefuse
     WsTestSession ws;
     const Json changes[] = { createdScenario(),
                              modifiedScenario(eveningId),
-                             Json{{ "type", "delete" }, { "id", eveningId }},
-                             Json{{ "type", "del_schedule" }, { "id", eveningId }},
-                             Json{{ "type", "add_schedule" }, { "id", eveningId }} };
+                             Json{ { "type", "delete" }, { "id", eveningId } },
+                             Json{ { "type", "del_schedule" }, { "id", eveningId } },
+                             Json{ { "type", "add_schedule" }, { "id", eveningId } } };
     const size_t scenarios = ListeRoom::Instance().getAutoScenarios().size();
     for (const Json &change: changes)
         EXPECT_EQ("{\"error\":\"config_not_loaded\"}", wsAutoscenario(ws, change).dump()) << change.dump();
@@ -1314,10 +1313,10 @@ TEST_F(UnloadedConfigFileTest, NoChangeReachesAnUnloadedIoFile)
     EXPECT_NE(std::string::npos, wsAutoscenario(ws, createdScenario()).value("error", "").find("no room"));
     const std::string unknown = "gone_with_the_file";
     const Json changes[] = { modifiedScenario(unknown),
-                             Json{{ "type", "delete" }, { "id", unknown }},
-                             Json{{ "type", "add_schedule" }, { "id", unknown }},
-                             Json{{ "type", "del_schedule" }, { "id", unknown }},
-                             Json{{ "type", "reenable" }, { "id", unknown }} };
+                             Json{ { "type", "delete" }, { "id", unknown } },
+                             Json{ { "type", "add_schedule" }, { "id", unknown } },
+                             Json{ { "type", "del_schedule" }, { "id", unknown } },
+                             Json{ { "type", "reenable" }, { "id", unknown } } };
     for (const Json &change: changes)
         EXPECT_EQ("{\"error\":\"wrong input\"}", wsAutoscenario(ws, change).dump()) << change.dump();
     EXPECT_EQ("wrong input", wsSetTimerange(ws, unknown).value("error", ""));
@@ -1336,7 +1335,7 @@ TEST_F(UnloadedConfigFileTest, WhatOnlyLivesInIoXmlStillGoesThrough)
         WsTestSession ws;
         eveningId = createEveningScenario(ws);
         ASSERT_FALSE(eveningId.empty());
-        scheduleId = wsAutoscenario(ws, Json{{ "type", "add_schedule" }, { "id", eveningId }}).value("id", "");
+        scheduleId = wsAutoscenario(ws, Json{ { "type", "add_schedule" }, { "id", eveningId } }).value("id", "");
         ASSERT_FALSE(scheduleId.empty());
     }
     saveConfig();
@@ -1345,7 +1344,7 @@ TEST_F(UnloadedConfigFileTest, WhatOnlyLivesInIoXmlStillGoesThrough)
 
     WsTestSession ws;
     EXPECT_EQ("true", wsSetTimerange(ws, scheduleId).value("success", ""));
-    EXPECT_EQ("true", wsAutoscenario(ws, Json{{ "type", "reenable" }, { "id", eveningId }}).value("success", ""));
+    EXPECT_EQ("true", wsAutoscenario(ws, Json{ { "type", "reenable" }, { "id", eveningId } }).value("success", ""));
 
     EXPECT_NE(ioBefore, ioXmlOnDisk());
     expectGarbageUntouched(RULES_CONFIG);
@@ -1428,6 +1427,6 @@ TEST_F(UnloadedConfigFileTest, AConfigPutIsTheWayOutAndTheRestartLoadsItNormally
 
     //And the saves are back
     WsTestSession ws;
-    EXPECT_EQ("true", wsAutoscenario(ws, Json{{ "type", "delete" }, { "id", eveningId }}).value("success", ""));
+    EXPECT_EQ("true", wsAutoscenario(ws, Json{ { "type", "delete" }, { "id", eveningId } }).value("success", ""));
     EXPECT_NE(ioXml, ioXmlOnDisk());
 }

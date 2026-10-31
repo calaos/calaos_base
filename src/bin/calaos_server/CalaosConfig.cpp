@@ -265,13 +265,13 @@ void createSkeleton(const string &file, const char *content)
 //Goes where a restore goes: mode and owner survive, a failure costs nothing
 void saveDocument(const pugi::xml_document &document, const string &file)
 {
-    cInfo() <<  "Saving " << file << "...";
+    cInfo() << "Saving " << file << "...";
 
     std::ostringstream content;
     document.save(content, XmlUtils::CONFIG_INDENT);
 
     if (Utils::restore_config_file(file, content.str()))
-        cInfo() <<  "Done.";
+        cInfo() << "Done.";
     else
         cError() << "Unable to save " << file;
 }
@@ -280,7 +280,7 @@ void saveDocument(const pugi::xml_document &document, const string &file)
 string configAlertMessage(const string &configName, const XmlLoadResult &res)
 {
     const string untilReplaced = "Changes to it are refused, and no save writes the file, until a "
-                             "configuration upload or a restore replaces it.";
+                                 "configuration upload or a restore replaces it.";
 
     if (res.readFailed)
         return "The configuration file " + configName +
