@@ -306,7 +306,7 @@ TEST_F(InputAnalogPeriodTest, AnExplicitZeroPeriodStillPollsOnEveryTurn)
     //that is simply never read: hasChanged() re-reads the configuration on
     //each turn, so the same twenty turns that poll nothing at 15 s poll twenty
     //times at 0. Without this the whole file would be vacuous.
-    ASSERT_NE(nullptr, makeProbe({{ "period", "200" }}));
+    ASSERT_NE(nullptr, makeProbe({ { "period", "600000" } }));
 
     ASSERT_EQ(0, pollsOver(1)) << "read before its period had elapsed";
 

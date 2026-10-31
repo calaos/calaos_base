@@ -70,6 +70,7 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -274,6 +275,9 @@ Run measure(const Ask &ask, int tag)
     const pid_t pid = fork();
     if (pid == 0)
     {
+        //The child aborts on purpose: no core helper (systemd-coredump, abrt)
+        //on the host for it. The signal is unchanged.
+        prctl(PR_SET_DUMPABLE, 0);
         const int lf = open(logPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
         if (lf >= 0)
         {

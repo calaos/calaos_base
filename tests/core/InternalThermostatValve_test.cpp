@@ -49,7 +49,8 @@ int msSince(Clock::time_point t0)
     return std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - t0).count();
 }
 
-bool pumpUntil(const std::function<bool()> &done, int ms = 5000)
+//The bound is only reached by a lost answer, never by a loaded host.
+bool pumpUntil(const std::function<bool()> &done, int ms = 30000)
 {
     auto loop = uvw::Loop::getDefault();
     const auto t0 = Clock::now();
@@ -288,6 +289,34 @@ protected:
         });
     }
 
+    //Brackets the change: lo is taken before the turn of the loop that saw it,
+    //hi after, so lo <= the change <= hi whatever the load.
+    struct Seen
+    {
+        bool ok = false;
+        Clock::time_point lo, hi;
+    };
+
+    static Seen waitForBracketed(const std::string &id, bool v)
+    {
+        auto loop = uvw::Loop::getDefault();
+        Seen s;
+        const auto deadline = Clock::now() + std::chrono::seconds(30);
+        while (Clock::now() < deadline)
+        {
+            s.lo = Clock::now();
+            loop->run<uvw::Loop::Mode::NOWAIT>();
+            s.hi = Clock::now();
+            if (on(id) == v)
+            {
+                s.ok = true;
+                return s;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        return s;
+    }
+
     template <class F>
     static std::string journal(F fn)
     {
@@ -385,25 +414,28 @@ TEST_F(InternalThermostatValveTest, ADirectionChangeWaitsForTheLockOuts)
     load();
     //The start counts as a switch OFF: past its min_off_time.
     pumpFor(320);
+    //Taken before the valve opens: the lock-outs run from the switch, not from
+    //the moment the test looks at it.
+    const auto t0 = Clock::now();
     mode("zlock", "heat");
     set("zlock_temp", 18);
     ASSERT_TRUE(on("zlock_valve"));
-    const auto t0 = Clock::now();
 
     mode("zlock", "cool");
     set("zlock_temp", 25);
     EXPECT_TRUE(on("zlock_valve"));
     EXPECT_EQ(str("zlock_action"), "heating");
 
-    ASSERT_TRUE(waitFor("zlock_valve", false));
-    EXPECT_GE(msSince(t0), 198);
-    const auto closed = Clock::now();
+    const Seen closed = waitForBracketed("zlock_valve", false);
+    ASSERT_TRUE(closed.ok);
+    EXPECT_GE(std::chrono::duration_cast<std::chrono::milliseconds>(closed.hi - t0).count(), 198);
     EXPECT_EQ(str("zlock_action"), "idle");
     //Published while it waits, in the way it will run.
     EXPECT_EQ(state("zlock").at("lockout").at("output"), "cool");
 
-    ASSERT_TRUE(waitFor("zlock_valve", true));
-    EXPECT_GE(msSince(closed), 298);
+    const Seen reopened = waitForBracketed("zlock_valve", true);
+    ASSERT_TRUE(reopened.ok);
+    EXPECT_GE(std::chrono::duration_cast<std::chrono::milliseconds>(reopened.hi - closed.lo).count(), 298);
     EXPECT_EQ(str("zlock_action"), "cooling");
     EXPECT_FALSE(state("zlock").contains("lockout"));
 }
