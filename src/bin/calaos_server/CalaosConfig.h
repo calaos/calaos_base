@@ -54,6 +54,9 @@ private:
     void scheduleConfigAlert(const string &message);
     void sendConfigAlerts();
 
+    bool ioNotLoaded = false;
+    bool ruleNotLoaded = false;
+
 public:
     static Config &Instance()
     {
@@ -67,6 +70,10 @@ public:
 
     void SaveConfigIO();
     void SaveConfigRule();
+
+    //Save done on its own at startup. A file that failed to load is left out:
+    //the empty config in memory would replace it with nobody having asked.
+    void SaveLoadedConfig();
 
     //Reload/flush the IO state cache from/to disk. loadStateCache() is
     //called by the constructor, saveStateCache() by a 60s timer, by the
