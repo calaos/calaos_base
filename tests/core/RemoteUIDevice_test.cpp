@@ -37,12 +37,17 @@
 #include "libuvw.h"
 
 #include <chrono>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <thread>
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 using namespace Calaos;
 using namespace CalaosTest;
@@ -165,6 +170,62 @@ void pumpFor(int ms, const std::function<bool()> &done = nullptr)
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
 }
+
+//A panel at the far end of a real socket, to read what the server answers it
+class ConnectedPanel
+{
+public:
+    explicit ConnectedPanel(const char *address)
+    {
+        const int listener = ::socket(AF_INET, SOCK_STREAM, 0);
+        struct sockaddr_in server = {};
+        server.sin_family = AF_INET;
+        server.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        socklen_t length = sizeof(server);
+        EXPECT_EQ(0, ::bind(listener, (struct sockaddr *)&server, length));
+        EXPECT_EQ(0, ::listen(listener, 1));
+        EXPECT_EQ(0, ::getsockname(listener, (struct sockaddr *)&server, &length));
+
+        peer = ::socket(AF_INET, SOCK_STREAM, 0);
+        struct sockaddr_in local = {};
+        local.sin_family = AF_INET;
+        EXPECT_EQ(1, ::inet_pton(AF_INET, address, &local.sin_addr));
+        EXPECT_EQ(0, ::bind(peer, (struct sockaddr *)&local, sizeof(local)));
+        EXPECT_EQ(0, ::connect(peer, (struct sockaddr *)&server, sizeof(server)));
+
+        auto tcp = uvw::Loop::getDefault()->resource<uvw::TcpHandle>();
+        tcp->open(::accept(listener, nullptr, nullptr));
+        ::close(listener);
+        client = std::make_shared<PanelClient>(tcp);
+    }
+
+    ~ConnectedPanel()
+    {
+        client->handle->close();
+        client.reset();
+        pumpEventLoop(2);
+        ::close(peer);
+    }
+
+    std::string received()
+    {
+        std::string text;
+        pumpFor(2000, [this, &text]
+                {
+            char chunk[4096];
+            const ssize_t count = ::recv(peer, chunk, sizeof(chunk), MSG_DONTWAIT);
+            if (count > 0)
+                text.append(chunk, count);
+            return !text.empty();
+        });
+        return text;
+    }
+
+    std::shared_ptr<PanelClient> client;
+
+private:
+    int peer = -1;
+};
 
 } //namespace
 
@@ -769,6 +830,104 @@ TEST_F(RemoteUIDeviceTest, ProvisioningSavesALoadedFileAndLeavesAnUnloadedOneAsI
     struct stat st;
     ASSERT_EQ(0, ::stat(path.c_str(), &st));
     EXPECT_EQ(0640u, st.st_mode & 07777);
+}
+
+class RemoteUIProvisioningAnswerTest: public RemoteUIDeviceTest
+{
+protected:
+    static constexpr const char *kCode = "PROV-5678";
+
+    void SetUp() override
+    {
+        RemoteUIDeviceTest::SetUp();
+        screen->set_param("provisioning_code", kCode);
+        saveConfig();
+    }
+
+    //The rate limit counts per address and outlives a test: one address per call
+    std::string provision(const char *panelAddress)
+    {
+        ConnectedPanel panel(panelAddress);
+        RemoteUIProvisioningHandler provisioning(panel.client.get());
+        const std::string body = Json{ { "code", kCode },
+                                       { "device_info", { { "type", "esp32" }, { "mac_address", "aa:bb:cc:dd:ee:ff" } } } }
+                                     .dump();
+        provisioning.processRequest("/api/v3/provision/request", "POST", body, Params());
+        return panel.received();
+    }
+
+    std::string blockedPath() const { return configDir() + "/" IO_CONFIG ".restore"; }
+
+    static Json bodyOf(const std::string &response)
+    {
+        const size_t headers = response.find("\r\n\r\n");
+        return headers == std::string::npos ? Json() : Json::parse(response.substr(headers + 4), nullptr, false);
+    }
+};
+
+TEST_F(RemoteUIProvisioningAnswerTest, ASaveThatFailsHandsOutNoCredentialsAndARetryGetsTheSameOnes)
+{
+    const std::string before = ioXmlOnDisk();
+    ASSERT_TRUE(std::filesystem::create_directory(blockedPath()));
+
+    CoutCapture capture;
+    const std::string refused = provision("127.0.1.1");
+
+    const std::string secret = screen->get_param("device_secret");
+    const std::string token = screen->get_param("auth_token");
+    ASSERT_FALSE(secret.empty());
+    ASSERT_FALSE(token.empty());
+    EXPECT_EQ(0u, refused.find("HTTP/1.1 500 Error\r\n")) << refused;
+    EXPECT_EQ("{\"error\":\"Internal server error - configuration not written\",\"status\":\"error\"}",
+              bodyOf(refused).dump());
+    EXPECT_EQ(before, ioXmlOnDisk());
+    EXPECT_NE(capture.text().find("not written, no credentials sent"), std::string::npos);
+    EXPECT_EQ(capture.text().find(secret), std::string::npos);
+    EXPECT_EQ(capture.text().find(token), std::string::npos);
+
+    EXPECT_TRUE(std::filesystem::remove(blockedPath()));
+    const std::string accepted = provision("127.0.1.2");
+
+    EXPECT_EQ(0u, accepted.find("HTTP/1.1 200 OK\r\n")) << accepted;
+    const Json credentials = bodyOf(accepted);
+    EXPECT_EQ("accepted", credentials.value("status", ""));
+    EXPECT_EQ(secret, credentials.value("device_secret", ""));
+    EXPECT_EQ(token, credentials.value("auth_token", ""));
+    EXPECT_NE(std::string::npos, ioXmlOnDisk().find(secret));
+}
+
+TEST_F(RemoteUIProvisioningAnswerTest, TheFreezeHandsOutNoCredentialsEither)
+{
+    const std::string before = ioXmlOnDisk();
+    Utils::set_config_frozen(true);
+
+    const std::string refused = provision("127.0.1.3");
+
+    Utils::set_config_frozen(false);
+    EXPECT_EQ(0u, refused.find("HTTP/1.1 500 Error\r\n")) << refused;
+    EXPECT_EQ(std::string::npos, refused.find("device_secret")) << refused;
+    EXPECT_EQ(before, ioXmlOnDisk());
+}
+
+TEST_F(RemoteUIProvisioningAnswerTest, EachPollUnderTheFreezeLogsNoErrorButAFailedWriteStillDoes)
+{
+    Utils::set_config_frozen(true);
+    std::string polled;
+    {
+        CoutCapture capture;
+        EXPECT_EQ(0u, provision("127.0.1.4").find("HTTP/1.1 500 Error\r\n"));
+        EXPECT_EQ(0u, provision("127.0.1.5").find("HTTP/1.1 500 Error\r\n"));
+        polled = capture.text();
+    }
+    Utils::set_config_frozen(false);
+    EXPECT_EQ(std::string::npos, polled.find("[ERR]")) << polled;
+
+    ASSERT_TRUE(std::filesystem::create_directory(blockedPath()));
+    CoutCapture capture;
+    EXPECT_EQ(0u, provision("127.0.1.6").find("HTTP/1.1 500 Error\r\n"));
+    EXPECT_NE(std::string::npos, capture.text().find("[ERR]"));
+    EXPECT_NE(std::string::npos, capture.text().find("not written, no credentials sent"));
+    EXPECT_TRUE(std::filesystem::remove(blockedPath()));
 }
 
 TEST_F(RemoteUIScopeTest, AHandlerWithoutAPanelServesNothing)

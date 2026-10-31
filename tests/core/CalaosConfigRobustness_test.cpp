@@ -1005,6 +1005,76 @@ TEST_F(ConfigRestoreTest, ASaveThatDoesNotFitLeavesTheFileAsItWas)
     expectNoTemporaryFor(IO_CONFIG);
 }
 
+TEST_F(ConfigRestoreTest, ASaveSaysWhatBecameOfTheFile)
+{
+    using Result = Config::SaveResult;
+
+    loadConfig();
+    EXPECT_EQ(Result::Written, Config::Instance().SaveConfigIO());
+    EXPECT_EQ(Result::Written, Config::Instance().SaveConfigRule());
+
+    ASSERT_NE(nullptr, io(ID_BOOL_IN));
+    io(ID_BOOL_IN)->set_param("name", std::string(4 * kFileSizeLimit, 'x'));
+    {
+        FullDisk disk;
+        EXPECT_EQ(Result::WriteFailed, Config::Instance().SaveConfigIO());
+    }
+
+    Utils::set_config_frozen(true);
+    EXPECT_EQ(Result::Frozen, Config::Instance().SaveConfigIO());
+    EXPECT_EQ(Result::Frozen, Config::Instance().SaveConfigRule());
+    Utils::set_config_frozen(false);
+
+    clearCoreState();
+    putFile(ioXmlPath(), "live file garbage <<<");
+    putFile(rulesXmlPath(), "live file garbage <<<");
+    Config::Instance().LoadConfigIO();
+    Config::Instance().LoadConfigRule();
+    EXPECT_EQ(Result::NotLoaded, Config::Instance().SaveConfigIO());
+    EXPECT_EQ(Result::NotLoaded, Config::Instance().SaveConfigRule());
+}
+
+TEST_F(ConfigRestoreTest, ARulesSaveThatFailsIsReportedAndLeavesTheFileAsItWas)
+{
+    loadConfig();
+    const std::string before = getFile(rulesXmlPath());
+    const std::string blocked = rulesXmlPath() + ".restore";
+    ASSERT_TRUE(std::filesystem::create_directory(blocked));
+
+    EXPECT_EQ(Config::SaveResult::WriteFailed, Config::Instance().SaveConfigRule());
+
+    EXPECT_EQ(before, getFile(rulesXmlPath()));
+    EXPECT_TRUE(std::filesystem::remove(blocked));
+}
+
+TEST_F(ConfigRestoreTest, AStartupSaveThatFailsIsLoggedAndTheServerGoesOn)
+{
+    loadConfig();
+    const std::string ioBefore = getFile(ioXmlPath());
+    const std::string rulesBefore = getFile(rulesXmlPath());
+    const std::string ioBlocked = ioXmlPath() + ".restore";
+    const std::string rulesBlocked = rulesXmlPath() + ".restore";
+    ASSERT_TRUE(std::filesystem::create_directory(ioBlocked));
+    ASSERT_TRUE(std::filesystem::create_directory(rulesBlocked));
+
+    clearCoreState();
+    testing::internal::CaptureStdout();
+    startServer();
+    const std::string logged = testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(contains(logged, "Unable to save " + ioXmlPath())) << logged;
+    EXPECT_TRUE(contains(logged, "Unable to save " + rulesXmlPath())) << logged;
+    EXPECT_EQ(ioBefore, getFile(ioXmlPath()));
+    EXPECT_EQ(rulesBefore, getFile(rulesXmlPath()));
+    EXPECT_NE(nullptr, io(ID_BOOL_IN));
+
+    //The server still answers for its files: the next save goes through
+    EXPECT_TRUE(std::filesystem::remove(ioBlocked));
+    EXPECT_TRUE(std::filesystem::remove(rulesBlocked));
+    EXPECT_EQ(Config::SaveResult::Written, Config::Instance().SaveConfigIO());
+    EXPECT_EQ(Config::SaveResult::Written, Config::Instance().SaveConfigRule());
+}
+
 /******************************************************************************
  * A missing file is a first start, not a file that failed to load
  ******************************************************************************/

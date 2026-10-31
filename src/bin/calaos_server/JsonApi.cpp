@@ -54,6 +54,29 @@ Json configNotLoadedError()
     return Params({ { "error", Calaos::CONFIG_NOT_LOADED } }).toJson();
 }
 
+Json configNotWrittenError()
+{
+    return Params({ { "error", Calaos::CONFIG_NOT_WRITTEN } }).toJson();
+}
+
+/* What an answer has to own up to. An unloaded file is not part of it: the
+ * actions that need the file refused before changing anything, the others
+ * do not touch it.
+ */
+bool notWritten(Config::SaveResult result)
+{
+    return result == Config::SaveResult::Frozen || result == Config::SaveResult::WriteFailed;
+}
+
+//rules.xml is attempted whatever became of io.xml: the change is already in
+//memory, and one file on disk is closer to it than none.
+bool saveConfigFiles()
+{
+    const Config::SaveResult io = Config::Instance().SaveConfigIO();
+    const Config::SaveResult rules = Config::Instance().SaveConfigRule();
+    return !notWritten(io) && !notWritten(rules);
+}
+
 /* E4.1o. jansson_string_get()'s contract, kept BY HAND for a nlohmann
  * document: the DEFAULT on an absent member, on a member that is not a JSON
  * string, and on a root that is not an object (json_object_get(NULL, k)
@@ -2775,8 +2798,8 @@ Json JsonApi::buildJsonSetTimerange(const Json &jdata)
     }
 
     //Resave config
-    Config::Instance().SaveConfigIO();
-    Config::Instance().SaveConfigRule();
+    if (!saveConfigFiles())
+        return configNotWrittenError();
 
     Params p = {{ "success", "true" }};
     return p.toJson();
@@ -2874,8 +2897,8 @@ Json JsonApi::buildAutoscenarioCreate(const Json &jdata)
                          { { "id", scenario->get_param("id") } });
 
     //Resave config, auto scenarios have probably created/deleted ios and rules
-    Config::Instance().SaveConfigIO();
-    Config::Instance().SaveConfigRule();
+    if (!saveConfigFiles())
+        return configNotWrittenError();
 
     Params p = {{ "id", scenario->get_param("id") }};
     return p.toJson();
@@ -2903,8 +2926,8 @@ Json JsonApi::buildAutoscenarioDelete(const Json &jdata)
                          { { "id", id } });
 
     //Resave config
-    Config::Instance().SaveConfigIO();
-    Config::Instance().SaveConfigRule();
+    if (!saveConfigFiles())
+        return configNotWrittenError();
 
     Params p = {{ "success", "true" }};
     return p.toJson();
@@ -2999,8 +3022,8 @@ Json JsonApi::buildAutoscenarioModify(const Json &jdata)
                          { { "id", scenario->get_param("id") } });
 
     //Resave config
-    Config::Instance().SaveConfigIO();
-    Config::Instance().SaveConfigRule();
+    if (!saveConfigFiles())
+        return configNotWrittenError();
 
     Params p = {{ "success", "true" }};
     return p.toJson();
@@ -3035,8 +3058,8 @@ Json JsonApi::buildAutoscenarioAddSchedule(const Json &jdata)
                          { { "id", sc->get_param("id") } });
 
     //Resave config
-    Config::Instance().SaveConfigIO();
-    Config::Instance().SaveConfigRule();
+    if (!saveConfigFiles())
+        return configNotWrittenError();
 
     Params p = {{ "id", range->get_param("id") }};
     return p.toJson();
@@ -3061,8 +3084,8 @@ Json JsonApi::buildAutoscenarioDelSchedule(const Json &jdata)
                          { { "id", sc->get_param("id") } });
 
     //Resave config
-    Config::Instance().SaveConfigIO();
-    Config::Instance().SaveConfigRule();
+    if (!saveConfigFiles())
+        return configNotWrittenError();
 
     Params p = {{ "success", "true" }};
     return p.toJson();
@@ -3093,7 +3116,8 @@ Json JsonApi::buildAutoscenarioReenable(const Json &jdata)
 
     //The flag lives in io.xml (a param of the Scenario IO), so only that one
     //has to be rewritten: no rule was touched.
-    Config::Instance().SaveConfigIO();
+    if (notWritten(Config::Instance().SaveConfigIO()))
+        return configNotWrittenError();
 
     Params p = {{ "success", "true" }};
     return p.toJson();

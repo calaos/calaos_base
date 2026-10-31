@@ -263,17 +263,21 @@ void createSkeleton(const string &file, const char *content)
 }
 
 //Goes where a restore goes: mode and owner survive, a failure costs nothing
-void saveDocument(const pugi::xml_document &document, const string &file)
+Config::SaveResult saveDocument(const pugi::xml_document &document, const string &file)
 {
     cInfo() << "Saving " << file << "...";
 
     std::ostringstream content;
     document.save(content, XmlUtils::CONFIG_INDENT);
 
-    if (Utils::restore_config_file(file, content.str()))
-        cInfo() << "Done.";
-    else
+    if (!Utils::restore_config_file(file, content.str()))
+    {
         cError() << "Unable to save " << file;
+        return Config::SaveResult::WriteFailed;
+    }
+
+    cInfo() << "Done.";
+    return Config::SaveResult::Written;
 }
 
 //Human readable report of one recovery, used for the mail/push notification
@@ -425,15 +429,15 @@ void Config::LoadConfigIO()
     cInfo() <<  "Done. ";
 }
 
-void Config::SaveConfigIO()
+Config::SaveResult Config::SaveConfigIO()
 {
     if (Utils::config_frozen())
-        return;
+        return SaveResult::Frozen;
 
     if (!ioLoaded)
     {
         cError() << "Skipping the save of " << IO_CONFIG << ": it was not loaded";
-        return;
+        return SaveResult::NotLoaded;
     }
 
     pugi::xml_document document;
@@ -450,7 +454,7 @@ void Config::SaveConfigIO()
         room->SaveToXml(node);
     }
 
-    saveDocument(document, Utils::getConfigFile(IO_CONFIG));
+    return saveDocument(document, Utils::getConfigFile(IO_CONFIG));
 }
 
 void Config::LoadConfigRule()
@@ -556,15 +560,15 @@ void Config::LoadConfigRule()
     }
 }
 
-void Config::SaveConfigRule()
+Config::SaveResult Config::SaveConfigRule()
 {
     if (Utils::config_frozen())
-        return;
+        return SaveResult::Frozen;
 
     if (!rulesLoaded)
     {
         cError() << "Skipping the save of " << RULES_CONFIG << ": it was not loaded";
-        return;
+        return SaveResult::NotLoaded;
     }
 
     pugi::xml_document document;
@@ -578,7 +582,7 @@ void Config::SaveConfigRule()
         rule->SaveToXml(rulesnode);
     }
 
-    saveDocument(document, Utils::getConfigFile(RULES_CONFIG));
+    return saveDocument(document, Utils::getConfigFile(RULES_CONFIG));
 }
 
 void Config::loadStateCache()

@@ -39,6 +39,9 @@ constexpr int IO_FORMAT_DEVICES = 2;
 //Answer to a change that could not reach a config file left unloaded
 constexpr const char *CONFIG_NOT_LOADED = "config_not_loaded";
 
+//Answer to a change that holds in memory but did not reach its config files
+constexpr const char *CONFIG_NOT_WRITTEN = "config_not_written";
+
 class Config
 {
 private:
@@ -71,10 +74,18 @@ public:
     void LoadConfigIO();
     void LoadConfigRule();
 
+    enum class SaveResult
+    {
+        Written,
+        NotLoaded,
+        Frozen,
+        WriteFailed,
+    };
+
     //A file that was not loaded is left out: the empty config in memory would
     //replace it. Only config put and config_restore get past that.
-    void SaveConfigIO();
-    void SaveConfigRule();
+    SaveResult SaveConfigIO();
+    SaveResult SaveConfigRule();
 
     bool ioFileLoaded() const { return ioLoaded; }
     bool rulesFileLoaded() const { return rulesLoaded; }
