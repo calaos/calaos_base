@@ -96,6 +96,7 @@
 
 #include "JsonApiCharacterization.h"
 
+#include "AdminConfig.h"
 #include "AutoScenario.h"
 #include "AutoScenarioDef.h"
 #include "CalaosConfig.h"
@@ -1105,7 +1106,7 @@ TEST_F(AutoScenarioUploadGuardTest, APutWhoseBackupFailsWritesNothingAndDoesNotF
     std::filesystem::remove_all(backups);
     std::ofstream(backups) << "not a folder\n";
 
-    const Json answer = uploadConfig("<?xml version=\"1.0\"?>\n<new/>\n", "<?xml version=\"1.0\"?>\n<new/>\n");
+    const Json answer = uploadConfig("<?xml version=\"1.0\"?>\n<calaos:ioconfig/>\n", "<?xml version=\"1.0\"?>\n<calaos:rules/>\n");
 
     EXPECT_EQ("false", answer.value("success", ""));
     EXPECT_EQ("Could not copy the current files to backups, nothing was written", answer.value("error", ""));
@@ -1121,8 +1122,8 @@ TEST_F(AutoScenarioUploadGuardTest, APutHoldsBackEveryWriteUntilTheRestart)
     loadHouse();
     saveConfig();
 
-    const std::string ioXml = "<?xml version=\"1.0\"?>\n<first/>\n";
-    const std::string rulesXml = "<?xml version=\"1.0\"?>\n<first-rules/>\n";
+    const std::string ioXml = "<?xml version=\"1.0\"?>\n<calaos:ioconfig/>\n";
+    const std::string rulesXml = "<?xml version=\"1.0\"?>\n<calaos:rules/>\n";
     ASSERT_EQ("true", uploadConfig(ioXml, rulesXml).value("success", ""));
     ASSERT_TRUE(Utils::config_frozen());
 
@@ -1133,7 +1134,7 @@ TEST_F(AutoScenarioUploadGuardTest, APutHoldsBackEveryWriteUntilTheRestart)
     EXPECT_EQ(rulesXml, rulesXmlOnDisk());
 
     const size_t backups = backupsOf("io.xml").size();
-    const Json second = uploadConfig("<?xml version=\"1.0\"?>\n<second/>\n", "<?xml version=\"1.0\"?>\n<second/>\n");
+    const Json second = uploadConfig("<?xml version=\"1.0\"?>\n<calaos:ioconfig/>\n", "<?xml version=\"1.0\"?>\n<calaos:rules/>\n");
     EXPECT_EQ("false", second.value("success", ""));
     EXPECT_EQ("The configuration is frozen until the restart", second.value("error", ""));
     EXPECT_EQ(ioXml, ioXmlOnDisk());
@@ -1149,7 +1150,7 @@ TEST_F(AutoScenarioUploadGuardTest, APutCannotOverwriteARestoreUnderWay)
     const std::string rulesBefore = rulesXmlOnDisk();
 
     Utils::set_config_frozen(true);
-    const Json answer = uploadConfig("<?xml version=\"1.0\"?>\n<new/>\n", "<?xml version=\"1.0\"?>\n<new/>\n");
+    const Json answer = uploadConfig("<?xml version=\"1.0\"?>\n<calaos:ioconfig/>\n", "<?xml version=\"1.0\"?>\n<calaos:rules/>\n");
 
     EXPECT_EQ("false", answer.value("success", ""));
     EXPECT_EQ(ioBefore, ioXmlOnDisk());
@@ -1163,7 +1164,7 @@ TEST_F(AutoScenarioUploadGuardTest, APutRestartsEvenIfItsClientHasGone)
     saveConfig();
     letEarlierRestartTimersExpire();
 
-    ASSERT_EQ("true", uploadConfig("<?xml version=\"1.0\"?>\n<new/>\n", "<?xml version=\"1.0\"?>\n<new/>\n").value("success", ""));
+    ASSERT_EQ("true", uploadConfig("<?xml version=\"1.0\"?>\n<calaos:ioconfig/>\n", "<?xml version=\"1.0\"?>\n<calaos:rules/>\n").value("success", ""));
     ASSERT_TRUE(Utils::config_frozen());
 
     EXPECT_TRUE(loopStopsWithin(3000)) << "frozen with no restart on the way";
@@ -1176,7 +1177,7 @@ TEST_F(AutoScenarioUploadGuardTest, ARefusedPutDoesNotRestart)
     letEarlierRestartTimersExpire();
 
     Utils::set_config_frozen(true);
-    ASSERT_EQ("false", uploadConfig("<?xml version=\"1.0\"?>\n<new/>\n", "<?xml version=\"1.0\"?>\n<new/>\n").value("success", ""));
+    ASSERT_EQ("false", uploadConfig("<?xml version=\"1.0\"?>\n<calaos:ioconfig/>\n", "<?xml version=\"1.0\"?>\n<calaos:rules/>\n").value("success", ""));
 
     EXPECT_FALSE(loopStopsWithin(800));
 }
@@ -1429,4 +1430,178 @@ TEST_F(UnloadedConfigFileTest, AConfigPutIsTheWayOutAndTheRestartLoadsItNormally
     WsTestSession ws;
     EXPECT_EQ("true", wsAutoscenario(ws, Json{ { "type", "delete" }, { "id", eveningId } }).value("success", ""));
     EXPECT_NE(ioXml, ioXmlOnDisk());
+}
+
+/******************************************************************************
+ * config put: the content is judged before any write, and the write is atomic
+ ******************************************************************************/
+
+class ConfigPutTest: public UnloadedConfigFileTest
+{
+protected:
+    static constexpr const char *kIoRoot = "<?xml version=\"1.0\"?>\n<calaos:ioconfig/>\n";
+    static constexpr const char *kRulesRoot = "<?xml version=\"1.0\"?>\n<calaos:rules/>\n";
+
+    Json put(const Json &files)
+    {
+        HttpTestRequest req;
+        req.send(authenticated(Json{ { "action", "config" }, { "type", "put" }, { "config_files", files } }));
+        EXPECT_EQ(1u, req.count());
+        if (req.count() != 1) return Json::object();
+        return req.bodyJson();
+    }
+
+    //Both files in place with a mode that is not the umask's, nothing stored yet
+    void settle()
+    {
+        loadHouse();
+        saveConfig();
+        ASSERT_EQ(0, ::chmod(pathOf(IO_CONFIG).c_str(), 0600));
+        ASSERT_EQ(0, ::chmod(pathOf(RULES_CONFIG).c_str(), 0600));
+        letEarlierRestartTimersExpire();
+    }
+
+    void expectRefused(const Json &files, const std::string &reason)
+    {
+        const std::string ioBefore = readWholeFile(pathOf(IO_CONFIG));
+        const std::string rulesBefore = readWholeFile(pathOf(RULES_CONFIG));
+        const size_t backups = backupsOf("io.xml").size();
+
+        const Json reply = put(files);
+
+        EXPECT_EQ("false", reply.value("success", ""));
+        EXPECT_NE(std::string::npos, reply.value("error", "").find(reason)) << reply.dump();
+        EXPECT_EQ(ioBefore, readWholeFile(pathOf(IO_CONFIG)));
+        EXPECT_EQ(rulesBefore, readWholeFile(pathOf(RULES_CONFIG)));
+        EXPECT_EQ(0600, modeOf(pathOf(IO_CONFIG)));
+        EXPECT_EQ(backups, backupsOf("io.xml").size());
+        EXPECT_FALSE(Utils::config_frozen());
+    }
+
+    std::string blockRulesWrite();
+
+    std::vector<std::string> strays() const
+    {
+        std::vector<std::string> res;
+        for (const auto &e: std::filesystem::directory_iterator(configDir()))
+        {
+            const std::string name = e.path().filename().string();
+            if (name.find(".restore") != std::string::npos || name.rfind(".io.xml.", 0) == 0 ||
+                name.rfind(".rules.xml.", 0) == 0)
+                res.push_back(name);
+        }
+        return res;
+    }
+};
+
+TEST_F(ConfigPutTest, AWrongRootIsRefusedWithTheFilesAndTheBackupsUntouched)
+{
+    settle();
+    expectRefused(Json{ { "io.xml", "<?xml version=\"1.0\"?>\n<first/>\n" }, { "rules.xml", kRulesRoot } },
+                  "io.xml does not have the root element calaos:ioconfig");
+    expectRefused(Json{ { "io.xml", kIoRoot }, { "rules.xml", kIoRoot } },
+                  "rules.xml does not have the root element calaos:rules");
+}
+
+TEST_F(ConfigPutTest, ABrokenOrEmptyContentIsRefusedWithTheFilesAndTheBackupsUntouched)
+{
+    settle();
+    expectRefused(Json{ { "io.xml", "<?xml version=\"1.0\"?><calaos:ioconfig><calaos:home" } }, "io.xml is not valid XML");
+    expectRefused(Json{ { "rules.xml", "" } }, "rules.xml does not start with <?xml");
+    expectRefused(Json{ { "io.xml", kIoRoot }, { "local_config.xml", "not xml" } },
+                  "local_config.xml does not start with <?xml");
+}
+
+TEST_F(ConfigPutTest, AValidPutOverACorruptedFileIsAccepted)
+{
+    settle();
+    restartOnGarbage(IO_CONFIG);
+    ASSERT_FALSE(Config::Instance().ioFileLoaded());
+
+    EXPECT_EQ("true", put(Json{ { "io.xml", kIoRoot } }).value("success", ""));
+    EXPECT_EQ(kIoRoot, readWholeFile(pathOf(IO_CONFIG)));
+    EXPECT_EQ(kMode, modeOf(pathOf(IO_CONFIG)));
+
+    Utils::set_config_frozen(false);
+    reloadFromDisk();
+    EXPECT_TRUE(Config::Instance().ioFileLoaded());
+    EXPECT_TRUE(strays().empty());
+}
+
+TEST_F(ConfigPutTest, AnUnknownNameOrANonStringValueIsRefusedBeforeAnyBackupOrWrite)
+{
+    settle();
+    expectRefused(Json{ { "io.xml", 123 } }, "io.xml is not a string");
+    expectRefused(Json{ { "foo.xml", "x" }, { "io.xml", kIoRoot } }, "foo.xml is not a valid config filename");
+    expectRefused(Json{ { "io.xml", kIoRoot }, { "rules.xml", nullptr } }, "rules.xml is not a string");
+}
+
+//Judging a name is the caller's job (the handler refuses it first); the content
+//check only knows the three config files.
+TEST_F(ConfigPutTest, TheContentCheckLeavesAnUnknownNameToTheCaller)
+{
+    EXPECT_TRUE(AdminConfig::putFileRefusal("foo.xml", "not xml").empty());
+    EXPECT_FALSE(AdminConfig::putFileRefusal("io.xml", "not xml").empty());
+}
+
+//A link where the temporary of rules.xml goes: it is opened without following
+//links, so the write fails for the root user of CI too. Returns the link.
+std::string ConfigPutTest::blockRulesWrite()
+{
+    const std::string blocker = pathOf(RULES_CONFIG) + ".restore";
+    EXPECT_EQ(0, ::symlink("/nonexistent", blocker.c_str()));
+    return blocker;
+}
+
+TEST_F(ConfigPutTest, AWriteThatFailsLeavesTheLiveFileAndNoTemporary)
+{
+    settle();
+    const std::string before = readWholeFile(pathOf(RULES_CONFIG));
+    const std::string blocker = blockRulesWrite();
+
+    const Json reply = put(Json{ { "rules.xml", kRulesRoot } });
+    ::unlink(blocker.c_str());
+
+    EXPECT_EQ("false", reply.value("success", ""));
+    EXPECT_EQ("Could not write rules.xml, the file was left as it was", reply.value("error", "")) << reply.dump();
+    EXPECT_EQ(before, readWholeFile(pathOf(RULES_CONFIG)));
+    EXPECT_TRUE(strays().empty());
+    EXPECT_FALSE(Utils::config_frozen());
+}
+
+TEST_F(ConfigPutTest, AWriteThatFailsAfterAnotherFileWasReplacedFreezesAndNamesThem)
+{
+    settle();
+    const std::string before = readWholeFile(pathOf(RULES_CONFIG));
+    const std::string blocker = blockRulesWrite();
+
+    const Json reply = put(Json{ { "io.xml", kIoRoot }, { "rules.xml", kRulesRoot } });
+    ::unlink(blocker.c_str());
+
+    const std::string error = reply.value("error", "");
+    EXPECT_EQ("false", reply.value("success", ""));
+    EXPECT_EQ(0u, error.find("Could not write rules.xml; already replaced: io.xml; previous files in backups/")) << error;
+    EXPECT_EQ(kIoRoot, readWholeFile(pathOf(IO_CONFIG)));
+    EXPECT_EQ(before, readWholeFile(pathOf(RULES_CONFIG)));
+    EXPECT_TRUE(strays().empty());
+    //Memory and disk now differ: nothing may save over the new file
+    EXPECT_TRUE(Utils::config_frozen());
+}
+
+TEST_F(ConfigPutTest, ThePutKeepsTheModeAndFollowsTheLink)
+{
+    settle();
+    const std::string real = configDir() + "/real_rules.xml";
+    ASSERT_EQ(0, ::rename(pathOf(RULES_CONFIG).c_str(), real.c_str()));
+    ASSERT_EQ(0, ::chmod(real.c_str(), 0640));
+    ASSERT_EQ(0, ::symlink(real.c_str(), pathOf(RULES_CONFIG).c_str()));
+
+    EXPECT_EQ("true", put(Json{ { "rules.xml", kRulesRoot } }).value("success", ""));
+
+    EXPECT_TRUE(std::filesystem::is_symlink(pathOf(RULES_CONFIG)));
+    EXPECT_EQ(kRulesRoot, readWholeFile(real));
+    EXPECT_EQ(0640, modeOf(real));
+    EXPECT_TRUE(strays().empty());
+    ::unlink(pathOf(RULES_CONFIG).c_str());
+    ::unlink(real.c_str());
 }

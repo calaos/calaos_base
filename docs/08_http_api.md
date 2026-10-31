@@ -2065,11 +2065,36 @@ Si le serveur détient au moins un device (les devices inertes d'impl inconnue c
 la requête ne déclare pas `io_format >= 2`, le `put` est refusé en entier : ni backup, ni
 écriture (`rules.xml` et `local_config.xml` compris), ni redémarrage. Un `io.xml` qui ne
 s'analyse pas est toujours refusé, déclaration ou non, avec `"error":"io.xml does not parse"`
-(sans device côté serveur il reste accepté, comme avant). Réponse :
+(sans device côté serveur, c'est le paragraphe suivant qui le juge). Réponse :
 `{"success":"false","error":"update calaos_installer: this io.xml would drop N device(s)"}`
-avec N le nombre de devices du serveur. Un client qui déclare `io_format >= 2` est cru : le
-contenu n'est plus inspecté, supprimer des devices, le dernier compris, est intentionnel. Sans
-device côté serveur, ou sans clef `io.xml` dans `config_files`, rien n'est jugé.
+avec N le nombre de devices du serveur. Un client qui déclare `io_format >= 2` est cru :
+supprimer des devices, le dernier compris, est intentionnel. Sans device côté serveur, ou sans
+clef `io.xml` dans `config_files`, ce contrôle ne refuse rien ; le contenu est jugé comme
+ci-dessous.
+
+**Refus d'un contenu qui ne se chargerait pas.** Avant toute copie et toute écriture, chaque
+clef de `config_files` doit être `io.xml`, `rules.xml` ou `local_config.xml` et sa valeur une
+chaîne (sinon `"error":"<clef> is not a valid config filename"` ou
+`"error":"<clef> is not a string"`), puis chaque fichier passe les règles de `config_restore` (`restoreFileRefusal`) : 2 Mio au
+plus, UTF-8 sans NUL, commence par `<?xml`, XML qui s'analyse, élément racine attendu
+(`calaos:ioconfig` pour `io.xml`, `calaos:rules` pour `rules.xml`, `calaos:config` pour
+`local_config.xml`), format d'`io.xml` que le serveur comprend. Un seul fichier refusé refuse le
+`put` entier : `{"success":"false","error":"<raison>"}` (par exemple `io.xml does not have the
+root element calaos:ioconfig`, `rules.xml does not start with <?xml`), fichiers inchangés, aucune
+copie de `backups/`, pas de redémarrage. Avant ce contrôle, un contenu sans `<?xml` était
+ignoré sans erreur, avec `success:"true"` et un redémarrage ; un XML à la mauvaise racine était
+écrit puis restait non chargé au démarrage.
+
+**Écriture.** Chaque fichier est remplacé par `Utils::restore_config_file()` (temporaire du même
+dossier, `fsync`, `rename`, mode et propriétaire gardés, lien symbolique suivi). Un échec laisse
+le fichier vivant intact, sans temporaire, et répond
+`{"success":"false","error":"Could not write <fichier>, the file was left as it was"}`. Si un autre
+fichier du même envoi était déjà remplacé, le serveur redémarre quand même (le disque a changé,
+sans transaction : les fichiers déjà remplacés restent) et l'erreur les nomme :
+`"Could not write <fichier>; already replaced: <fichiers>; previous files in backups/<dossier>; the
+server restarts"`.
+`put` reste la sortie d'un fichier non chargé : un contenu valide passe même si le fichier vivant
+est corrompu.
 
 ### `camera` — clé `type` (HTTP uniquement, 2)
 

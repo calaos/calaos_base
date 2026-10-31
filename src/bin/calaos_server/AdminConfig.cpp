@@ -515,6 +515,16 @@ string AdminConfig::restoreRefusal(const Json &params)
     return string();
 }
 
+string AdminConfig::putFileRefusal(const string &name, const string &content)
+{
+    for (const RestoreFile &file: RestoreFiles)
+    {
+        if (name == file.name)
+            return restoreFileRefusal(file, content);
+    }
+    return string();
+}
+
 Json AdminConfig::restoreCheck(const Json &params)
 {
     return planRestore(params).result;
