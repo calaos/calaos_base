@@ -6420,14 +6420,22 @@ TEST_F(JsonApiAdminRestoreTest, ABackupSaysARulesFileThatDidNotLoadCannotBeResto
 {
     loadEmptyHouse();
     const std::string garbage = "live file garbage <<<";
-    expectUnrestorableRules([&](const std::string &path) { writeFile(path, garbage); }, "not_loaded", garbage);
+    expectUnrestorableRules([&](const std::string &path)
+                            {
+        writeFile(path, garbage);
+    },
+                            "not_loaded", garbage);
     EXPECT_EQ(garbage, fileText(configPath("rules.xml")));
 }
 
 TEST_F(JsonApiAdminRestoreTest, ABackupSaysAMissingRulesFileCannotBeRestored)
 {
     loadEmptyHouse();
-    expectUnrestorableRules([](const std::string &path) { writeFile(path, "live file garbage <<<"); }, "not_loaded",
+    expectUnrestorableRules([](const std::string &path)
+                            {
+        writeFile(path, "live file garbage <<<");
+    },
+                            "not_loaded",
                             "live file garbage <<<");
     ASSERT_EQ(0, ::unlink(configPath("rules.xml").c_str()));
 
@@ -6443,7 +6451,11 @@ TEST_F(JsonApiAdminRestoreTest, ABackupSaysAMissingRulesFileCannotBeRestored)
 TEST_F(JsonApiAdminRestoreTest, ABackupSaysAnEmptyRulesFileCannotBeRestored)
 {
     loadEmptyHouse();
-    expectUnrestorableRules([](const std::string &path) { writeFile(path, ""); }, "empty", "");
+    expectUnrestorableRules([](const std::string &path)
+                            {
+        writeFile(path, "");
+    },
+                            "empty", "");
     EXPECT_EQ("", fileText(configPath("rules.xml")));
 }
 
@@ -6454,8 +6466,8 @@ TEST_F(JsonApiAdminRestoreTest, ABackupSaysAnUnreadableRulesFileCannotBeRestored
     expectUnrestorableRules(
         [](const std::string &path)
         {
-            ASSERT_EQ(0, ::unlink(path.c_str()));
-            ASSERT_EQ(0, ::mkdir(path.c_str(), 0755));
+        ASSERT_EQ(0, ::unlink(path.c_str()));
+        ASSERT_EQ(0, ::mkdir(path.c_str(), 0755));
         },
         "unreadable", "");
     EXPECT_TRUE(std::filesystem::is_directory(configPath("rules.xml")));
