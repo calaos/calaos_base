@@ -1198,10 +1198,11 @@ TEST_F(InternalThermostatTest, TheShortestPutBackDelayStillBoundsAFight)
     //put-back per minute the window really lasted.
     const auto t0 = Clock::now();
     temp("tiny", 19);
-    ASSERT_TRUE(pumpUntil([&]()
-                          {
+    auto twice = [&]()
+    {
         return heat->count >= 2;
-    }, 30000));
+    };
+    ASSERT_TRUE(pumpUntil(twice, 30000));
     pumpFor(60);
     EXPECT_LE(heat->count, 20 + msSince(t0) / 60);
     const int first = heat->count;

@@ -714,7 +714,8 @@ TEST_F(AutoScenarioUploadGuardTest, TwoUploadsInsideTheSameSecondStillLeaveTheSt
         ASSERT_EQ("true", str(uploadConfig(ioOnce, rulesOnce), "success"));
         Utils::set_config_frozen(false);
         ASSERT_EQ("true", str(uploadConfig(ioXmlDocument(roomXml("Vide", "salon", std::string(), 0)),
-                                           rulesXmlDocument(std::string())), "success"));
+                                           rulesXmlDocument(std::string())),
+                              "success"));
 
         if (stamp == backupSecondStamp())
             break;
