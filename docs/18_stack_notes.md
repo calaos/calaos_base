@@ -34,7 +34,7 @@ Règle d'équipe : rien n'est installé sur l'hôte, ni toolchain ni dépendance
 - L'objet device de `get_home` est construit dans `src/bin/calaos_server/IO/Device.cpp:455-461` (`ios` toujours présent) ; `io_changed` porte `state` (le mode) et `device` (`Device.cpp:514-522`), avec un debounce de 0,1 s.
 - `gui_type`, `family` et `impl` sont en minuscules (`Device.cpp:33-38,63`) : un client qui compare en casse mixte ne matchera rien. Les devices sont visibles par défaut (`Device.cpp:64-66`).
 - `set_state` accepte une chaîne JSON ou un simple nom de mode (`Device.cpp:333-352`).
-- Chaque client construit son sélecteur de mode depuis `capabilities.modes` (émis par `ClimateBase.cpp:526-533`) : web `useClimate.ts:83`, remote_ui `climate_logic.cpp:121`, mobile `ClimateLogic.js`. Ne pas coder en dur la liste des modes : elle dépend de l'appareil.
+- Chaque client construit son sélecteur de mode depuis `capabilities.modes` (émis par `ClimateBase.cpp:528-535`) : web `useClimate.ts:83`, remote_ui `climate_logic.cpp:121`, mobile `ClimateLogic.js`. Ne pas coder en dur la liste des modes : elle dépend de l'appareil.
 - La plage n'est affichée qu'avec `target_temp_range` : web `climate.ts:27-38`, remote_ui `climate_logic.cpp:122,199`.
 - Le type de widget Remote UI du climate est `Climate` (majuscule), posé par l'installer (`calaos_installer/src/WidgetModel.cpp:289,315`) ; le serveur n'en définit pas.
 
