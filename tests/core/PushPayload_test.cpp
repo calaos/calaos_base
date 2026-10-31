@@ -222,7 +222,7 @@ public:
 
     void TearDown() override
     {
-        PushTest::settleHistory();
+        EXPECT_TRUE(PushTest::settleHistory()) << "the history worker did not drain";
         std::error_code ec;
         std::filesystem::remove_all(base, ec);
     }

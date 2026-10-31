@@ -249,24 +249,15 @@ protected:
      * HistLogger pushes the query to its sqlite worker thread and wakes the main
      * loop back up through a uvw AsyncHandle. Nothing arrives without pumping.
      *
-     * The 2s bound is deliberate and well under the 30s read timeout Timer that
-     * HttpClient's constructor installs (trap 2 of the harness header), so an
-     * HttpTestRequest can safely be held alive across one of these waits.
+     * The 25s deadline stays under the 30s read timeout Timer that HttpClient's
+     * constructor installs (trap 2 of the harness header), so an HttpTestRequest
+     * can be held alive across one of these waits. It returns as soon as the
+     * condition holds; the deadline only caps a hang.
      **************************************************************************/
-    //Each statement on a locked database first waits out HistLogger's busy
-    //timeout.
-    static bool waitLocked(const std::function<bool()> &done)
-    {
-        for (int i = 0; i < 10 && !done(); i++)
-            waitUntil(done);
-        return done();
-    }
-
-    //Returns as soon as the condition holds; the bound only caps a hang, and
-    //is wide because a loaded sanitizer run can stall the sqlite worker.
     static bool waitUntil(const std::function<bool()> &done)
     {
-        for (int i = 0; i < 6000; i++)
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(25);
+        while (std::chrono::steady_clock::now() < deadline)
         {
             if (done())
                 return true;
@@ -274,6 +265,13 @@ protected:
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
         return done();
+    }
+
+    //Each statement on a locked database first waits out HistLogger's busy
+    //timeout, which fits in the same deadline.
+    static bool waitLocked(const std::function<bool()> &done)
+    {
+        return waitUntil(done);
     }
 
     /***************************************************************************
