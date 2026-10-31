@@ -50,6 +50,7 @@
 #include <iomanip>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -457,6 +458,9 @@ TEST_F(ConfigRobustnessTest, ABackupCutShortByTheDiskIsAFailure)
     const std::string folder = Config::Instance().BackupFiles();
     ::setrlimit(RLIMIT_FSIZE, &saved);
     std::signal(SIGXFSZ, previousHandler);
+    //make check sends stdout to a file, past the limit too: the failed log write leaves
+    //std::cout in error, and every later log of this program would vanish
+    std::cout.clear();
 
     EXPECT_TRUE(folder.empty());
     std::error_code ec;
@@ -489,6 +493,7 @@ protected:
         {
             ::setrlimit(RLIMIT_FSIZE, &saved);
             std::signal(SIGXFSZ, previousHandler);
+            std::cout.clear(); //a log written past the limit fails the stream, see above
         }
 
     private:
