@@ -73,6 +73,7 @@
 #include <string>
 #include <thread>
 #include <filesystem>
+#include <functional>
 #include <vector>
 
 using namespace Calaos;
@@ -5840,6 +5841,7 @@ TEST_F(JsonApiAdminTest, AFileMissingOnTheBoxIsLeftOutOfTheBackup)
     EXPECT_TRUE(doc["files"].contains(IO_CONFIG));
     EXPECT_TRUE(doc["files"].contains(RULES_CONFIG));
     EXPECT_EQ(2u, doc["files"].size());
+    EXPECT_FALSE(doc.contains("unrestorable")) << "local_config.xml is optional for a restore";
     EXPECT_EQ(saved, fileText(path));
 }
 
@@ -6386,6 +6388,108 @@ TEST_F(JsonApiAdminRestoreTest, ABackupOfAnUnloadedFileWritesNothing)
     ASSERT_EQ(0, ::stat(configPath("rules.xml").c_str(), &st));
     EXPECT_EQ(0640u, st.st_mode & 07777);
     EXPECT_FALSE(FileUtils::exists(configPath("rules.xml") + ".restore"));
+}
+
+//rules.xml is put in `state` and reloaded, so the server does not hold it
+void expectUnrestorableRules(const std::function<void(const std::string &)> &state, const char *cause,
+                             const std::string &expectedRulesFile)
+{
+    state(configPath("rules.xml"));
+    Config::Instance().LoadConfigRule();
+    ASSERT_FALSE(Config::Instance().rulesFileLoaded());
+
+    const Json doc = AdminConfig::backup(1792931696);
+
+    ASSERT_TRUE(doc.contains("unrestorable")) << doc.dump().substr(0, 400);
+    ASSERT_EQ(1u, doc["unrestorable"].size()) << doc["unrestorable"].dump();
+    EXPECT_EQ("rules.xml", str(doc["unrestorable"][0], "file"));
+    EXPECT_EQ(cause, str(doc["unrestorable"][0], "cause"));
+    EXPECT_EQ(2u, doc["unrestorable"][0].size());
+    EXPECT_EQ(std::string("calaos-config-backup/2"), str(doc, "format"));
+    ASSERT_TRUE(doc["files"].is_object());
+    if (expectedRulesFile.empty())
+        EXPECT_FALSE(doc["files"].contains("rules.xml"));
+    else
+        EXPECT_EQ(expectedRulesFile, str(doc["files"], "rules.xml"));
+    EXPECT_EQ(fileText(configPath("io.xml")), str(doc["files"], "io.xml"));
+    if (!expectedRulesFile.empty())
+        EXPECT_EQ(std::string::npos, doc["unrestorable"].dump().find(expectedRulesFile));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ABackupSaysARulesFileThatDidNotLoadCannotBeRestored)
+{
+    loadEmptyHouse();
+    const std::string garbage = "live file garbage <<<";
+    expectUnrestorableRules([&](const std::string &path) { writeFile(path, garbage); }, "not_loaded", garbage);
+    EXPECT_EQ(garbage, fileText(configPath("rules.xml")));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ABackupSaysAMissingRulesFileCannotBeRestored)
+{
+    loadEmptyHouse();
+    expectUnrestorableRules([](const std::string &path) { writeFile(path, "live file garbage <<<"); }, "not_loaded",
+                            "live file garbage <<<");
+    ASSERT_EQ(0, ::unlink(configPath("rules.xml").c_str()));
+
+    const Json doc = AdminConfig::backup(1792931696);
+
+    ASSERT_TRUE(doc.contains("unrestorable")) << doc.dump().substr(0, 400);
+    ASSERT_EQ(1u, doc["unrestorable"].size()) << doc.dump().substr(0, 400);
+    EXPECT_EQ("missing", str(doc["unrestorable"][0], "cause"));
+    EXPECT_FALSE(doc["files"].contains("rules.xml"));
+    EXPECT_FALSE(FileUtils::exists(configPath("rules.xml")));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ABackupSaysAnEmptyRulesFileCannotBeRestored)
+{
+    loadEmptyHouse();
+    expectUnrestorableRules([](const std::string &path) { writeFile(path, ""); }, "empty", "");
+    EXPECT_EQ("", fileText(configPath("rules.xml")));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ABackupSaysAnUnreadableRulesFileCannotBeRestored)
+{
+    loadEmptyHouse();
+    //A folder in place of the file opens but gives no bytes
+    expectUnrestorableRules(
+        [](const std::string &path)
+        {
+            ASSERT_EQ(0, ::unlink(path.c_str()));
+            ASSERT_EQ(0, ::mkdir(path.c_str(), 0755));
+        },
+        "unreadable", "");
+    EXPECT_TRUE(std::filesystem::is_directory(configPath("rules.xml")));
+    ::rmdir(configPath("rules.xml").c_str());
+}
+
+TEST_F(JsonApiAdminRestoreTest, ABackupOfAnUnloadedIoFileNamesIt)
+{
+    loadEmptyHouse();
+    writeFile(configPath("io.xml"), "live file garbage <<<");
+    Config::Instance().LoadConfigIO();
+    ASSERT_FALSE(Config::Instance().ioFileLoaded());
+
+    const Json doc = AdminConfig::backup(1792931696);
+
+    ASSERT_TRUE(doc.contains("unrestorable")) << doc.dump().substr(0, 400);
+    ASSERT_EQ(1u, doc["unrestorable"].size()) << doc.dump().substr(0, 400);
+    EXPECT_EQ("io.xml", str(doc["unrestorable"][0], "file"));
+    EXPECT_EQ("not_loaded", str(doc["unrestorable"][0], "cause"));
+    EXPECT_EQ("live file garbage <<<", str(doc["files"], "io.xml"));
+    EXPECT_EQ("live file garbage <<<", fileText(configPath("io.xml")));
+}
+
+TEST_F(JsonApiAdminRestoreTest, AHealthyBackupKeepsItsExactShape)
+{
+    loadEmptyHouse();
+
+    const Json doc = AdminConfig::backup(1792931696);
+
+    std::vector<std::string> keys;
+    for (const auto &item: doc.items())
+        keys.push_back(item.key());
+    std::sort(keys.begin(), keys.end());
+    EXPECT_EQ((std::vector<std::string>{ "created_at", "files", "format", "hostname", "io_format", "server_version" }), keys);
 }
 
 TEST_F(JsonApiAdminRestoreTest, ARestoreIsTheWayOutOfAnUnloadedFile)
