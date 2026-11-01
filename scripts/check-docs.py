@@ -652,7 +652,7 @@ def wiring_test():
                        % (rc, said))
     finally:
         shutil.rmtree(top, ignore_errors=True)
-    return ['wiring: ' + line for line in bad] + only_test()
+    return ['wiring: ' + line for line in bad]
 
 
 def only_test():
@@ -708,6 +708,39 @@ def only_test():
         rc2, said2 = sweep(top, docs)
         if rc != 0 or rc2 != 0:
             bad.append('repeated --only did not repin both: %r' % said2)
+
+        sweep(top, docs, do_write=True)
+        settled = pinfile()
+        rc, said = sweep(top, docs, do_write=True,
+                         only=['d.md', 'docs/d.md'])
+        rc2, said2 = sweep(top, docs)
+        if rc != 0 or rc2 != 0 or pinfile() != settled:
+            bad.append('the same document given twice to --only duplicated '
+                       'its pins: rc=%d, then %d' % (rc, rc2))
+
+        for argv, want in ((['--write-pins', '--only=d.md'], ['d.md']),
+                           (['--write-pins', '--only', 'd.md'], ['d.md'])):
+            got = parse_args(argv)
+            if got[0] != want or got[2]:
+                bad.append('%r was not read as --only d.md: %r' % (argv, got))
+        if not parse_args(['--only=d.md'])[2]:
+            bad.append('--only= without --write-pins was accepted')
+        if not parse_args(['--write-pins', '--only='])[2]:
+            bad.append('--only= with no document was accepted')
+
+        os.remove(pin_path)
+        rc, said = sweep(top, docs, do_write=True, only=['d.md'])
+        if (rc != 2 or os.path.exists(pin_path)
+                or not any('full `--write-pins`' in l for l in said)):
+            bad.append('--only with no pin file was not refused untouched: '
+                       'rc=%d, %r' % (rc, said))
+        with open(pin_path, 'w') as fh:
+            fh.write('docs/d.md\t1\tbroken\n')
+        rc, said = sweep(top, docs, do_write=True, only=['d.md'])
+        if rc != 2 or not any('restore' in l for l in said) \
+                or any('full `--write-pins`' in l for l in said):
+            bad.append('a malformed pin file got the full-repin advice: %r'
+                       % said)
     finally:
         shutil.rmtree(top, ignore_errors=True)
     return ['only: ' + line for line in bad]
@@ -830,6 +863,7 @@ def self_test():
                                % (label, fragment, said))
 
     bad.extend(wiring_test())
+    bad.extend(only_test())
     bad.extend(digest_width_test())
 
     counted, stat = read_once(COUNTED[0], COUNTED[1])
@@ -850,7 +884,9 @@ def self_test():
           '%d accepted), plus seven passes through `sweep()` itself -- the '
           'pin file absent, written, honoured, drifted, repaired by hand in '
           'its digest, rewritten by hand in its readable column, and '
-          'malformed -- plus %d scopes pinned at the scale of the tree, whose '
+          'malformed -- plus the `--only` passes (unknown, repeated, '
+          'duplicated, pin file absent or malformed, `--only=` parsed) '
+          'plus %d scopes pinned at the scale of the tree, whose '
           'digests must stay pairwise distinct and must all redden under a '
           'one-line shift, the collision detector reddened against a digest '
           'narrowed to two characters'
@@ -883,11 +919,14 @@ def sweep(top, docs, do_write=False, only=None):
             if doc not in docs:
                 return 2, ['FAIL: --only %s: no such document; nothing '
                            'written' % name]
-            chosen.append(doc)
+            if doc not in chosen:
+                chosen.append(doc)
         pins, why = load_pins(pin_path)
         if pins is None:
-            return 2, ['FAIL: ' + why + ' -- `--only` amends a pin file, '
-                       'run a full `--write-pins` first']
+            advice = ('`--only` amends a pin file, run a full `--write-pins` '
+                      'first' if not os.path.exists(pin_path) else
+                      'restore the pin file from git')
+            return 2, ['FAIL: ' + why + ' -- ' + advice]
         records = []
         problems, _stat = scan(top, chosen, records=records)
         kept = [(d, n, q, dg, h) for (d, n, q), (dg, h) in pins.items()
@@ -934,22 +973,35 @@ def sweep(top, docs, do_write=False, only=None):
     return (1 if problems else 0), said
 
 
-def main(argv):
-    if not self_test():
-        return 2
-    if '--self-test' in argv:
-        return 0
-
+def parse_args(argv):
+    """(only, given, error).  `--only=X` must narrow like `--only X`: read as
+    an unknown flag it would silently become a full repin."""
     only = []
     given = []
     args = iter(argv)
     for a in args:
         if a == '--only':
             only.append(next(args, ''))
+        elif a.startswith('--only='):
+            only.append(a[len('--only='):])
         elif not a.startswith('-'):
             given.append(a)
     if only and '--write-pins' not in argv:
-        print('FAIL: --only narrows --write-pins; it does nothing alone')
+        return only, given, '--only narrows --write-pins; it does nothing alone'
+    if '' in only:
+        return only, given, '--only needs a document'
+    return only, given, None
+
+
+def main(argv):
+    if not self_test():
+        return 2
+    if '--self-test' in argv:
+        return 0
+
+    only, given, err = parse_args(argv)
+    if err:
+        print('FAIL: ' + err)
         return 2
     top = (given[0] if given else os.environ.get('abs_top_srcdir')
            or os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
