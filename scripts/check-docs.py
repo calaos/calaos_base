@@ -36,7 +36,9 @@ WHAT A PIN IS NOT.  It says what a reference designates, never that it
 designates the right thing -- regenerating the file after a refactoring is
 exactly the gesture that once carried a wrong target forward with fidelity.
 The red is a TRIGGER for the reader of the diff; `--write-pins` is the reader's
-answer, not a way to make the red go away.
+answer, not a way to make the red go away.  `--write-pins --only <doc>`
+(repeatable; `docs/x.md` or `x.md`) repins just the named documents and keeps
+every other pin as it is, so only the references actually read are accepted.
 
 DELIBERATELY NON-BLOCKING, DELIBERATELY OUT OF `make check`.  A false red on
 documentation at every refactoring would end up disarmed, and a check one
@@ -650,7 +652,65 @@ def wiring_test():
                        % (rc, said))
     finally:
         shutil.rmtree(top, ignore_errors=True)
-    return ['wiring: ' + line for line in bad]
+    return ['wiring: ' + line for line in bad] + only_test()
+
+
+def only_test():
+    """`--write-pins --only` repins one document and leaves the rest alone."""
+    import shutil
+    import tempfile
+
+    bad = []
+    top = tempfile.mkdtemp(prefix='check-docs-only.')
+    try:
+        os.makedirs(os.path.join(top, 'docs'))
+        os.makedirs(os.path.join(top, 'src'))
+        os.makedirs(os.path.join(top, os.path.dirname(PIN_NAME)))
+        for name in ('d.md', 'e.md'):
+            with open(os.path.join(top, 'docs', name), 'w') as fh:
+                fh.write('see `src/a.cpp:2`.\n')
+        with open(os.path.join(top, 'src/a.cpp'), 'w') as fh:
+            fh.write('a\ntarget();\n')
+        docs = ['docs/d.md', 'docs/e.md']
+        pin_path = os.path.join(top, PIN_NAME)
+
+        def pinfile():
+            with open(pin_path, encoding='utf-8') as fh:
+                return fh.read()
+
+        rc, said = sweep(top, docs, do_write=True)
+        full = pinfile()
+        with open(os.path.join(top, 'src/a.cpp'), 'w') as fh:
+            fh.write('inserted\na\ntarget();\n')
+
+        rc, said = sweep(top, docs, do_write=True, only=['nope.md'])
+        if rc != 2 or pinfile() != full:
+            bad.append('an unknown document was not refused untouched: rc=%d'
+                       % rc)
+
+        rc, said = sweep(top, docs, do_write=True, only=['d.md'])
+        after = pinfile()
+        rc2, said2 = sweep(top, docs)
+        lines = [l for l in said2 if l.startswith('FAIL')]
+        if rc != 0 or after == full:
+            bad.append('--only wrote nothing for the named document: rc=%d'
+                       % rc)
+        if (len(lines) != 1 or 'docs/e.md' not in lines[0]
+                or 'docs/d.md' in lines[0]):
+            bad.append('--only did not leave exactly the other document '
+                       'drifted: %r' % lines)
+        if [l for l in after.splitlines() if 'docs/e.md' in l] != \
+                [l for l in full.splitlines() if 'docs/e.md' in l]:
+            bad.append('--only changed the pins of a document it was not '
+                       'given')
+
+        rc, said = sweep(top, docs, do_write=True, only=['docs/d.md', 'e.md'])
+        rc2, said2 = sweep(top, docs)
+        if rc != 0 or rc2 != 0:
+            bad.append('repeated --only did not repin both: %r' % said2)
+    finally:
+        shutil.rmtree(top, ignore_errors=True)
+    return ['only: ' + line for line in bad]
 
 
 # Measured on the real tree (2026-09-14): 1448 pins over 1260 DISTINCT
@@ -802,8 +862,12 @@ def self_test():
     return True
 
 
-def sweep(top, docs, do_write=False):
+def sweep(top, docs, do_write=False, only=None):
     """Everything main() does once the self-test has passed, as a value.
+
+    `only` (with `do_write`) is a list of documents, as `docs/x.md` or `x.md`:
+    just their pins are recalculated, every other line of the pin file is kept
+    as it is, so drift in the other documents stays red until it is read.
 
     Factored out because the hole already measured on this very probe
     (`F-DOCS-1`) is that its corpora call `scan()` with the documents in
@@ -812,6 +876,28 @@ def sweep(top, docs, do_write=False):
     """
     said = []
     pin_path = os.path.join(top, PIN_NAME)
+    if do_write and only:
+        chosen = []
+        for name in only:
+            doc = name if name.startswith('docs/') else 'docs/' + name
+            if doc not in docs:
+                return 2, ['FAIL: --only %s: no such document; nothing '
+                           'written' % name]
+            chosen.append(doc)
+        pins, why = load_pins(pin_path)
+        if pins is None:
+            return 2, ['FAIL: ' + why + ' -- `--only` amends a pin file, '
+                       'run a full `--write-pins` first']
+        records = []
+        problems, _stat = scan(top, chosen, records=records)
+        kept = [(d, n, q, dg, h) for (d, n, q), (dg, h) in pins.items()
+                if d not in chosen]
+        write_pins(pin_path, kept + records)
+        said.append('check-docs: %d references of %s pinned into %s, %d '
+                    'others left as they were; read the diff before '
+                    'committing it'
+                    % (len(records), ', '.join(chosen), PIN_NAME, len(kept)))
+        return (1 if problems else 0), said
     if do_write:
         records = []
         problems, _stat = scan(top, docs, records=records)
@@ -854,7 +940,17 @@ def main(argv):
     if '--self-test' in argv:
         return 0
 
-    given = [a for a in argv if not a.startswith('-')]
+    only = []
+    given = []
+    args = iter(argv)
+    for a in args:
+        if a == '--only':
+            only.append(next(args, ''))
+        elif not a.startswith('-'):
+            given.append(a)
+    if only and '--write-pins' not in argv:
+        print('FAIL: --only narrows --write-pins; it does nothing alone')
+        return 2
     top = (given[0] if given else os.environ.get('abs_top_srcdir')
            or os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
     top = os.path.abspath(top)
@@ -862,7 +958,8 @@ def main(argv):
     docs = sorted('docs/' + n for n in os.listdir(docdir)
                   if n.endswith('.md'))
 
-    rc, said = sweep(top, docs, do_write='--write-pins' in argv)
+    rc, said = sweep(top, docs, do_write='--write-pins' in argv,
+                     only=only or None)
     for line in said:
         print(line)
     return rc
