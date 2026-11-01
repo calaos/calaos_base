@@ -20,6 +20,7 @@
  ******************************************************************************/
 #include "IPCam.h"
 #include "ListeRoom.h"
+#include "PictureResizer.h"
 
 using namespace Calaos;
 
@@ -109,29 +110,114 @@ void IPCam::downloadSnapshot(std::function<void(const string &)> dataCb)
         //T2.19: insecure unless the device opts in to hardening with
         //insecure="false" (local cameras commonly serve self-signed HTTPS)
         cameraSnapDl->setInsecureFromParam(get_param("insecure"));
+        //Polled by clients: the host of a camera does not go to the journal
+        cameraSnapDl->setQuiet(true);
         cameraSnapDl->m_signalCompleteData.connect([=](const string &downloadedData, int status)
-        {
-            lastSnapshot = downloadedData;
+                                                   {
             if (status == 200)
             {
-                snapshotDataCb(downloadedData);
+                finishSnapshot(downloadedData);
             }
             else
             {
-                cErrorDom("network") << "Failed to get image for camera at url: " << Utils::urlForLog(getPictureUrl()) << " failed with code: " << status;
-                snapshotDataCb({});
+                cErrorDom("network") << "Failed to get camera image, status: " << status;
+                finishSnapshot({});
             }
         });
     }
 
+    snapshotWaiters.push_back(std::move(dataCb));
+
     if (cameraSnapDl->isRunning())
+        return;
+
+    if (!cameraSnapDl->httpGet())
+        finishSnapshot({});
+}
+
+void IPCam::finishSnapshot(const string &data)
+{
+    //A waiter may start the next download, which clears the buffer behind data
+    string frame = data;
+    auto waiters = std::move(snapshotWaiters);
+    snapshotWaiters.clear();
+
+    for (auto &waiter: waiters)
+        waiter(frame);
+}
+
+void IPCam::downloadThumbnail(int width, std::function<void(const string &)> dataCb)
+{
+    auto waiting = thumbnailWaiters.find(width);
+    if (waiting != thumbnailWaiters.end())
     {
-        //T3.40: lastSnapshot is a member; a camera deleted before the next
-        //loop turn used to have this read run on freed memory.
-        ioAlive.singleShot(0, [this, dataCb]() { dataCb(lastSnapshot); });
+        waiting->second.push_back(std::move(dataCb));
         return;
     }
 
-    snapshotDataCb = dataCb;
-    cameraSnapDl->httpGet();
+    if (thumbnailWaiters.size() >= maxThumbnailWidths)
+    {
+        PictureResizer::Instance().reportFallback(PictureResizer::Fallback::Busy);
+        downloadSnapshot(std::move(dataCb));
+        return;
+    }
+
+    thumbnailWaiters[width].push_back(std::move(dataCb));
+
+    downloadSnapshot([this, alive = ioAlive.token(), width](const string &data)
+                     {
+        if (alive.expired()) return;
+        resizeSnapshot(width, data);
+    });
+}
+
+void IPCam::resizeSnapshot(int width, const string &data)
+{
+    if (data.empty())
+    {
+        finishThumbnail(width, data);
+        return;
+    }
+
+    auto &resizer = PictureResizer::Instance();
+    auto source = std::make_shared<const string>(data);
+
+    bool accepted = resizer.submit(source, width,
+                                   [this, alive = ioAlive.token(), width, source](JpegThumbnail::Result result)
+                                   {
+        if (alive.expired()) return;
+
+        auto &resizer = PictureResizer::Instance();
+        switch (result.status)
+        {
+        case JpegThumbnail::Status::Resized:
+            finishThumbnail(width, result.data);
+            return;
+        case JpegThumbnail::Status::Unchanged:
+            break;
+        case JpegThumbnail::Status::Failed:
+            resizer.reportFallback(PictureResizer::Fallback::Undecodable);
+            break;
+        case JpegThumbnail::Status::Unavailable:
+            resizer.reportFallback(PictureResizer::Fallback::NoDecoder);
+            break;
+        }
+        finishThumbnail(width, *source);
+    });
+
+    if (!accepted)
+    {
+        resizer.reportFallback(PictureResizer::Fallback::Busy);
+        finishThumbnail(width, *source);
+    }
+}
+
+void IPCam::finishThumbnail(int width, const string &data)
+{
+    auto waiting = thumbnailWaiters.find(width);
+    auto waiters = std::move(waiting->second);
+    thumbnailWaiters.erase(waiting);
+
+    for (auto &waiter: waiters)
+        waiter(data);
 }

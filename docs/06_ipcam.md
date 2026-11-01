@@ -98,11 +98,27 @@ de la chaîne de `else if`).
 ### Instantanés
 
 `downloadSnapshot()` réutilise **un seul** `UrlDownloader` par caméra. Si un transfert est déjà en
-cours, l'appelant reçoit **immédiatement le dernier instantané connu** (`lastSnapshot`), par un
-`Timer::singleShot(0, …)`, au lieu de déclencher un second transfert
-(dérivé, [IPCam/IPCam.cpp:124-128](../src/bin/calaos_server/IPCam/IPCam.cpp)). Un échec HTTP
-(statut ≠ 200) rappelle le callback avec une **chaîne vide**, après avoir journalisé l'URL
-**masquée** (dérivé, [IPCam/IPCam.cpp:116-120](../src/bin/calaos_server/IPCam/IPCam.cpp)).
+cours, l'appelant **rejoint la liste d'attente** (`snapshotWaiters`) et reçoit la frame de ce
+transfert, sans en déclencher un second : `finishSnapshot()` sert tous les appelants de la liste
+(dérivé, [IPCam/IPCam.cpp:105-147](../src/bin/calaos_server/IPCam/IPCam.cpp)). Un échec HTTP
+(statut ≠ 200) rappelle chacun avec une **chaîne vide**, et seul le statut est journalisé, jamais
+l'URL. Le Synology passe par la même liste : ses appelants concurrents partagent sa chaîne de
+requêtes. Aucune frame n'est gardée entre deux transferts.
+
+### Miniatures
+
+`downloadThumbnail(width, cb)` sert `camera` / `get_picture` avec `width`. Il rejoint au besoin
+le transfert en cours, puis confie la frame à `PictureResizer`, qui borne les décodages et les
+exécute hors de la boucle principale par `JpegThumbnail::resize()`. Les clients d'une même largeur
+partagent le décodage ; au-delà de 4 largeurs en cours sur une caméra, l'appelant reçoit la frame
+d'origine. Une caméra supprimée pendant le téléchargement ou le décodage ne rappelle personne : le
+callback est porté par `ioAlive`.
+
+libjpeg est **optionnelle**, libjpeg-turbo en pratique : `configure` ne teste que l'en-tête
+`jpeglib.h` et `jpeg_mem_src` (`HAVE_LIBJPEG`, ligne `Camera thumbnails (libjpeg)` du résumé
+de `configure`). Sans elle, ou pour une frame illisible, hors bornes ou une file pleine, la frame
+part en pleine résolution : bornes et journal des replis sont dans
+[08_http_api.md](08_http_api.md).
 
 ---
 
@@ -215,7 +231,7 @@ déclarer une caméra sans PTZ, **omettre le paramètre**.
 
 La branche « contenu non-JPEG » de `getSnapshot()` appelait `cb({})` puis **retombait** sur
 `cb(data)` : le callback de fin de transfert partait **deux fois** sur une erreur ou un corps
-JSON, ce qui rejouait le traitement et corrompait l'état interne (`isRunning`, `lastSnapshot`).
+JSON, ce qui rejouait le traitement et corrompait l'état interne (`isRunning`).
 Il n'y a désormais **qu'un seul site d'appel**, et la décision « image ou rien » est isolée dans
 une fonction pure :
 
@@ -272,8 +288,8 @@ Deux familles d'accès, **HTTP uniquement** pour la seconde :
 
 | requête | réponse |
 |---|---|
-| `action: get_camera_pic` | JPEG **encodé en base64** dans un document JSON |
-| `camera` / `type: get_picture` | octets `image/jpeg` **bruts** |
+| `action: get_camera_pic` | JPEG **encodé en base64** dans un document JSON, un processus par requête |
+| `camera` / `type: get_picture` | octets `image/jpeg` **bruts**, `width` optionnel, partagé entre clients |
 | `camera` / `type: get_video` | flux MJPEG relayé |
 
 (dérivé, [JsonApiHandlerHttp.cpp:586-591,913,962-990](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) ;

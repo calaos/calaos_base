@@ -302,6 +302,10 @@ calaos_server_SOURCES = \
         IPCam/Foscam.h                                  \
         IPCam/IPCam.cpp                                 \
         IPCam/IPCam.h                                   \
+        IPCam/JpegThumbnail.cpp                         \
+        IPCam/JpegThumbnail.h                           \
+        IPCam/PictureResizer.cpp                        \
+        IPCam/PictureResizer.h                          \
         IPCam/Planet.cpp                                \
         IPCam/Planet.h                                  \
         IPCam/StandardMjpeg.cpp                         \
@@ -392,6 +396,7 @@ calaos_server_SOURCES = \
 calaos_server_LDADD =                                   \
         @CALAOS_COMMON_LIBS@                            \
         @CALAOS_SERVER_LIBS@                            \
+        @JPEG_LIBS@                                     \
         @INTLLIBS@                                      \
         @PTHREAD_CFLAGS@                                \
         $(top_builddir)/src/lib/libcalaos_common.la

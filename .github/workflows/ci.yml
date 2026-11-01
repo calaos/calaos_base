@@ -41,7 +41,7 @@ jobs:
               autoconf automake libtool autopoint gettext \
               libsigc++-2.0-dev libcurl4-openssl-dev \
               libluajit2-5.1-dev libsqlite3-dev libssl-dev libuv1-dev \
-              libpugixml-dev \
+              libpugixml-dev libjpeg62-turbo-dev \
               libgtest-dev \
               python3 python3-pip \
               locales \
@@ -255,7 +255,7 @@ jobs:
               autoconf automake libtool autopoint gettext \
               libsigc++-2.0-dev libcurl4-openssl-dev \
               libluajit2-5.1-dev libsqlite3-dev libssl-dev libuv1-dev \
-              libpugixml-dev \
+              libpugixml-dev libjpeg62-turbo-dev \
               libgtest-dev \
               lcov python3
 

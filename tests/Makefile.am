@@ -34,6 +34,11 @@ dist_check_SCRIPTS += check-gentemplates.sh
 TESTS += check-iodoc-generation.sh
 dist_check_SCRIPTS += check-iodoc-generation.sh
 
+#check-calaos-picture.sh: one download per run, no URL in the journal, and the
+#exit status that tells the server whether the picture was resized.
+TESTS += check-calaos-picture.sh
+dist_check_SCRIPTS += check-calaos-picture.sh
+
 # T2.14: python suites (tests/python/, from T1.8 + T1.16) wired into make
 # check through a wrapper. PYTHON comes from AM_PATH_PYTHON via
 # AM_TESTS_ENVIRONMENT above.
@@ -199,6 +204,8 @@ CORE_SERVER_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/Rule.$(OBJEXT)                       \
                   $(CALAOS_SERVER_BUILDDIR)/Audio/AudioPlayer.$(OBJEXT)          \
                   $(CALAOS_SERVER_BUILDDIR)/IPCam/IPCam.$(OBJEXT)                \
+$(CALAOS_SERVER_BUILDDIR)/IPCam/JpegThumbnail.$(OBJEXT)        \
+$(CALAOS_SERVER_BUILDDIR)/IPCam/PictureResizer.$(OBJEXT)       \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Device.$(OBJEXT)                  \
                   $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT)              \
                   $(CALAOS_SERVER_BUILDDIR)/IO/IODoc.$(OBJEXT)                   \
@@ -234,6 +241,7 @@ CORE_TEST_CPPFLAGS = $(AM_CPPFLAGS)                    \
 CORE_TEST_LDADD = $(CORE_SERVER_OBJECTS) \
                   @CALAOS_COMMON_LIBS@ \
                   @CALAOS_SERVER_LIBS@ \
+                  @JPEG_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 
@@ -1577,6 +1585,7 @@ if HAVE_GTEST
 TESTS += core/JsonApiCameraSnapshot_test
 check_PROGRAMS += core/JsonApiCameraSnapshot_test
 core_JsonApiCameraSnapshot_test_SOURCES = core/JsonApiCameraSnapshot_test.cpp \
+                  core/JpegTestFrames.h \
                   core/JsonApiCharacterization.cpp \
                   core/JsonApiCharacterization.h \
                   core/CalaosCoreFixture.cpp \
@@ -8547,4 +8556,16 @@ core_ExternProcLogEnv_test_LDADD = $(EXTERN_PROC_LOG_ENV_OBJECTS) \
                   $(CORE_TEST_LDADD)
 core_ExternProcLogEnv_test_DEPENDENCIES = $(EXTERN_PROC_LOG_ENV_OBJECTS) \
                   $(CORE_TEST_DEPS)
+endif
+
+if HAVE_GTEST
+TESTS += core/JpegThumbnail_test
+check_PROGRAMS += core/JpegThumbnail_test
+core_JpegThumbnail_test_SOURCES = core/JpegThumbnail_test.cpp \
+                  core/JpegTestFrames.h
+core_JpegThumbnail_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -DCALAOS_PICTURE_SCRIPT='"$(abs_top_srcdir)/src/bin/tools/calaos_picture"'
+core_JpegThumbnail_test_LDADD = $(CORE_TEST_LDADD)
+core_JpegThumbnail_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
 endif

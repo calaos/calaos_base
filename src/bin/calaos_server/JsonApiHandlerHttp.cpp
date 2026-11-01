@@ -33,6 +33,7 @@
 #include "HttpClient.h"
 #include "libuvw.h"
 #include "McpServerManager.h"
+#include "PictureResizer.h"
 
 #include <pugixml.hpp>
 
@@ -184,6 +185,38 @@ inline void collectStringItems(const Json &jroot, vector<string> &iolist)
 
 } //namespace
 
+//Exit code of calaos_picture when it delivers the original image
+static const int CALAOS_PICTURE_NOT_RESIZED = 3;
+
+int JsonApiHandlerHttp::pictureProcesses = 0;
+
+//Read on each request so a change of local_config.xml needs no restart. Each
+//process holds a whole decoded frame: the default is a memory ceiling, not a CPU one.
+static int maxPictureProcesses()
+{
+    static const int DefaultMaxPictureProcesses = 6;
+    static const uint64_t MaxMaxPictureProcesses = 1000;
+    static std::string warned;
+
+    const std::string value = Utils::get_config_option("max_picture_processes");
+    if (value.empty())
+        return DefaultMaxPictureProcesses;
+
+    const uint64_t v = TransportLimits::parseLimit(value, 0, 1, MaxMaxPictureProcesses);
+    if (v == 0)
+    {
+        //Once per distinct bad value: this runs on every picture request
+        if (warned != value)
+        {
+            warned = value;
+            cWarningDom("ipcam") << "max_picture_processes is not a whole number between 1 and "
+                                 << MaxMaxPictureProcesses << ", using " << DefaultMaxPictureProcesses;
+        }
+        return DefaultMaxPictureProcesses;
+    }
+    return static_cast<int>(v);
+}
+
 JsonApiHandlerHttp::JsonApiHandlerHttp(HttpClient *client):
     JsonApi(client)
 {
@@ -192,13 +225,12 @@ JsonApiHandlerHttp::JsonApiHandlerHttp(HttpClient *client):
 
 JsonApiHandlerHttp::~JsonApiHandlerHttp()
 {
+    //Only asks calaos_picture to stop: the handle stays open so that libuv reaps
+    //the process, and its ExitEvent gives the slot back.
     //pid > 0 guard: a handle whose spawn failed keeps pid 0, and killing
     //pid 0 would SIGTERM our whole process group (see ~ExternProcServer)
-    if (exe_thumb && exe_thumb->referenced() && exe_thumb->pid() > 0)
-    {
+    if (exe_thumb_running && exe_thumb && exe_thumb->pid() > 0)
         exe_thumb->kill(SIGTERM);
-        exe_thumb->close();
-    }
 
     releaseCameraDl();
     FileUtils::unlink(tempfname);
@@ -741,25 +773,11 @@ void JsonApiHandlerHttp::processGetCover()
             return;
         }
 
-        exe_thumb = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
-        exe_thumb->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
-        {
-            h.close();
-            exe_thumb_running = false;
-            this->exeFinished(ev.status);
+        runPictureCommand(buildPictureCommand(data.svalue, width, rotate),
+                          [this](int status)
+                          {
+            exeFinished(status);
         });
-        exe_thumb->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &h)
-        {
-            cDebugDom("process") << "Process error: " << ev.what();
-            h.close();
-            exe_thumb_running = false;
-            this->exeFinished(1);
-        });
-
-        Utils::CStrArray arr(buildPictureCommand(data.svalue, width, rotate));
-        cInfoDom("network") << "Executing command: " << arr.toString();
-        exe_thumb->spawn(arr.at(0), arr.data());
-        exe_thumb_running = true;
     });
 }
 
@@ -787,25 +805,58 @@ void JsonApiHandlerHttp::processGetCameraPic()
         return;
     }
 
-    exe_thumb = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
-    exe_thumb->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
-    {
-        h.close();
-        exe_thumb_running = false;
-        this->exeFinished(ev.status);
+    runPictureCommand(buildPictureCommand(camera->getPictureUrl(), width, rotate),
+                      [this](int status)
+                      {
+        exeFinished(status);
     });
-    exe_thumb->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &h)
+}
+
+void JsonApiHandlerHttp::runPictureCommand(const vector<string> &args, std::function<void(int)> finished)
+{
+    if (pictureProcesses >= maxPictureProcesses())
     {
+        sendJson(Json{ { "success", "false" },
+                       { "error_str", "too many pictures in progress" } });
+        return;
+    }
+
+    //Before spawn: a failing spawn publishes its ErrorEvent synchronously
+    pictureProcesses++;
+    exe_thumb_running = true;
+
+    //The slot is the process's, not the handler's: it comes back when the process
+    //has really exited, even if the client left meanwhile (~JsonApiHandlerHttp).
+    //The exit callback only touches this after checking that the handler is still alive.
+    std::weak_ptr<bool> alive = handlerAlive;
+
+    exe_thumb = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
+    exe_thumb->once<uvw::ExitEvent>([this, alive, finished](const uvw::ExitEvent &ev, auto &h)
+                                    {
+        h.close();
+        pictureProcesses--;
+        if (alive.expired())
+            return;
+        exe_thumb_running = false;
+
+        if (ev.status == CALAOS_PICTURE_NOT_RESIZED)
+            PictureResizer::Instance().reportFallback(PictureResizer::Fallback::NoConvert);
+
+        finished(ev.status == CALAOS_PICTURE_NOT_RESIZED ? 0 : ev.status);
+    });
+    exe_thumb->once<uvw::ErrorEvent>([this, finished](const uvw::ErrorEvent &ev, auto &h)
+                                     {
         cDebugDom("process") << "Process error: " << ev.what();
         h.close();
+        pictureProcesses--;
+        //No alive check: libuv reports this error synchronously from spawn(),
+        //while the handler is necessarily alive.
         exe_thumb_running = false;
-        this->exeFinished(1);
+        finished(1);
     });
 
-    Utils::CStrArray arr(buildPictureCommand(camera->getPictureUrl(), width, rotate));
-    cInfoDom("network") << "Executing command: " << arr.toString();
+    Utils::CStrArray arr(args);
     exe_thumb->spawn(arr.at(0), arr.data());
-    exe_thumb_running = true;
 }
 
 bool JsonApiHandlerHttp::checkPictureParams(const string &width, const string &rotate)
@@ -1131,15 +1182,11 @@ void JsonApiHandlerHttp::processAudio(const Json &jdataDoc)
                 return;
             }
 
-            exe_thumb = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
-            exe_thumb->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
+            auto finished = [this](int status)
             {
-                h.close();
-                exe_thumb_running = false;
-                if (ev.status != 0)
+                if (status != 0)
                 {
-                    this->sendJson(Json{{ "success", "false" },
-                                        { "error_str", "unable to load data from url" }});
+                    exeFinished(status);
                     return;
                 }
 
@@ -1148,20 +1195,9 @@ void JsonApiHandlerHttp::processAudio(const Json &jdataDoc)
                 headers.Add("Content-Type", "image/jpeg");
                 string res = httpClient->buildHttpResponse(HTTP_200, headers, Utils::getFileContent(tempfname.c_str()));
                 sendData.emit(res);
+            };
 
-            });
-            exe_thumb->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &h)
-            {
-                cDebugDom("process") << "Process error: " << ev.what();
-                h.close();
-                exe_thumb_running = false;
-                this->exeFinished(1);
-            });
-
-            Utils::CStrArray arr(buildPictureCommand(data.svalue, string(), string()));
-            cInfoDom("network") << "Executing command: " << arr.toString();
-            exe_thumb->spawn(arr.at(0), arr.data());
-            exe_thumb_running = true;
+            runPictureCommand(buildPictureCommand(data.svalue, string(), string()), finished);
         });
     }
     else
@@ -1327,9 +1363,20 @@ void JsonApiHandlerHttp::processCamera()
 
     if (jsonParam["type"] == "get_picture")
     {
+        string width;
+        if (jsonParam.Exists("width"))
+            width = jsonParam["width"];
+
+        if (!width.empty() && !isValidIntParam(width, 1, 10000))
+        {
+            sendJson({ { "error", "invalid width parameter" } });
+            return;
+        }
+
         /* T3.17d: the snapshot is a real HTTP round trip to the camera, and
          * IPCam parks this callback in a member of its own until the transfer
-         * completes (IPCam.cpp:130). The client can hang up in between, and
+         * completes (IPCam::snapshotWaiters), then for the time of a resize.
+         * The client can hang up in between, and
          * that deletes the whole handler - HttpClient::~HttpClient() does
          * `delete jsonApi` (HttpClient.cpp:162). A late answer would then
          * format its response through a freed httpClient and emit it on a
@@ -1345,12 +1392,13 @@ void JsonApiHandlerHttp::processCamera()
          *
          * The camera needs no by-id re-lookup, unlike the audio chains of
          * T3.17a-c: this callback never dereferences `camera`, and ~IPCam()
-         * deletes the downloader that owns the callback, so a camera deleted
-         * mid-transfer cannot call us back at all.
+         * destroys the waiters and the downloader, and expires the token of a
+         * resize in flight, so a camera deleted mid-transfer cannot call us
+         * back at all.
          */
         std::weak_ptr<bool> alive = handlerAlive;
 
-        camera->downloadSnapshot([this, alive](const string &downloadedData)
+        auto answer = [this, alive](const string &downloadedData)
         {
             if (alive.expired())
                 return;
@@ -1372,7 +1420,12 @@ void JsonApiHandlerHttp::processCamera()
                 string res = httpClient->buildHttpResponse(HTTP_200, headers, downloadedData);
                 sendData.emit(res);
             }
-        });
+        };
+
+        if (width.empty())
+            camera->downloadSnapshot(answer);
+        else
+            camera->downloadThumbnail(std::stoi(width), answer);
     }
     else if (jsonParam["type"] == "get_video")
     {

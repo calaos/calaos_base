@@ -1,12 +1,20 @@
 #!/bin/bash
 
-#Usage:
-#calaos_picture <url> <filename> [width] [rotate]
+# Usage: calaos_picture <url> <filename> [-w|--width width] [-r|--rotate degrees]
+#
+# Exit codes:
+#   0  filename holds the image, resized and rotated as asked
+#   1  nothing was written: bad usage, or the download failed
+#   3  filename holds the image as downloaded: ImageMagick is missing or failed
 
-set -x
+showUsage()
+{
+    echo "Usage: calaos_picture <url> <filename> -w|--width [width] -r|--rotate [rotate]"
+    exit 1
+}
 
 # Parse command line arguments
-OPTIONS=$(getopt -o r:w: --long rotate:,width: -- "$@")
+OPTIONS=$(getopt -o r:w: --long rotate:,width: -- "$@") || showUsage
 eval set -- "$OPTIONS"
 
 # Set default values
@@ -33,15 +41,6 @@ done
 url="$1"
 filename="$2"
 
-# Download file from URL
-curl -o "$filename" "$url"
-
-showUsage()
-{
-    echo "Usage: calaos_picture <url> <filename> -w|--width [width] -r|--rotate [rotate]"
-    exit 1
-}
-
 if [ "$url" == "" ]; then
     showUsage
 fi
@@ -49,31 +48,69 @@ if [ "$filename" == "" ]; then
     showUsage
 fi
 
-if ! which curl > /dev/null 2>&1 ; then
+if ! command -v curl > /dev/null 2>&1 ; then
     echo "curl is not installed."
     exit 1
 fi
 
-curl "$url" --output "${filename}"_curl
+work="${filename}_curl"
+converted="${filename}_conv"
+childPid=""
 
-if ! which convert > /dev/null 2>&1 ; then
-    echo "imagemagick is not installed. Resizing is not done."
-    mv "${filename}"_curl "${filename}"
-    exit 0
-fi
+# The server sends SIGTERM when its client leaves and counts this script as
+# running until it exits. A foreground command defers the trap until it ends,
+# so curl and convert run in the background and cleanup stops and reaps them.
+cleanup()
+{
+    if [ -n "$childPid" ]; then
+        kill "$childPid" 2> /dev/null
+        wait "$childPid" 2> /dev/null
+    fi
+    rm -f "$work" "$converted"
+}
+trap cleanup EXIT
+trap 'exit 1' TERM
+
+curl -s --fail --max-time 30 --output "$work" --url "$url" &
+childPid=$!
+wait "$childPid" || exit 1
+childPid=""
 
 if [ "$width" == "" ] && [ "$rotate" == "" ]; then
-    mv "${filename}"_curl "${filename}"
+    mv "$work" "$filename"
     exit 0
 fi
+
+keepOriginal()
+{
+    echo "$1 Image is not resized."
+    mv "$work" "$filename"
+    exit 3
+}
+
+if ! command -v convert > /dev/null 2>&1 || ! command -v timeout > /dev/null 2>&1 ; then
+    keepOriginal "imagemagick or timeout is not installed."
+fi
+
+# convert goes to a file of its own: a convert stopped half way must not leave
+# a truncated frame in place of the original.
+transform()
+{
+    timeout -k 2 30 convert "$work" "$@" "$converted" &
+    childPid=$!
+    wait "$childPid"
+    local status=$?
+    childPid=""
+    [ "$status" -eq 0 ] && mv "$converted" "$work"
+}
 
 # Resize image and rotate before resizing
 if [ ! "$rotate" == "" ]; then
-    convert "${filename}"_curl -rotate "${rotate}" "${filename}_curl"
+    transform -rotate "$rotate" || keepOriginal "convert failed."
 fi
 
 if [ ! "$width" == "" ]; then
-    convert "${filename}"_curl  -thumbnail "${width}" "${filename}_curl"
+    transform -thumbnail "$width" || keepOriginal "convert failed."
 fi
 
-mv "${filename}"_curl "${filename}"
+mv "$work" "$filename"
