@@ -7,6 +7,9 @@ from typing import Dict
 
 colorama.init(strip=False)
 
+def _stdout_is_tty() -> bool:
+    return sys.stdout.isatty() if hasattr(sys.stdout, 'isatty') else False
+
 class CalaosFormatter(logging.Formatter):
     COLOR_MAP = {
         'CRITICAL': colorama.Fore.MAGENTA,
@@ -16,10 +19,20 @@ class CalaosFormatter(logging.Formatter):
         'DEBUG': colorama.Fore.BLUE,
     }
 
+    # Same contract as Logger.cpp: journald reads <n> at the head of each line
+    JOURNAL_PRIORITY = {
+        'CRITICAL': 2,
+        'ERROR': 3,
+        'WARNING': 4,
+        'INFO': 6,
+        'DEBUG': 7,
+    }
+
     def __init__(self):
         super().__init__()
+        self.journal = os.environ.get('CALAOS_JOURNAL_PRIORITY') == '1' and not _stdout_is_tty()
         self.force_color = os.environ.get('CALAOS_FORCE_COLOR') == '1'
-        self.is_terminal = self.force_color or (sys.stdout.isatty() if hasattr(sys.stdout, 'isatty') else False)
+        self.is_terminal = not self.journal and (self.force_color or _stdout_is_tty())
 
     def _get_color(self, level_name: str) -> str:
         if not self.is_terminal:
@@ -35,6 +48,8 @@ class CalaosFormatter(logging.Formatter):
         reset = colorama.Style.RESET_ALL if color else ''
         domain = self._format_domain(record)
         filename = os.path.basename(record.pathname)
+        cyan = colorama.Fore.CYAN if self.is_terminal else ''
+        bright = colorama.Style.BRIGHT if self.is_terminal else ''
 
         level_marker = {
             'DEBUG': '[DBG]',
@@ -44,12 +59,18 @@ class CalaosFormatter(logging.Formatter):
             'CRITICAL': '[CRI]'
         }.get(record.levelname, '[???]')
 
-        return (
+        text = (
             f"{color}{level_marker}"
-            f"{colorama.Fore.CYAN} {domain}{reset} "
-            f"{colorama.Style.BRIGHT}({filename}:{record.lineno}){reset} "
+            f"{cyan} {domain}{reset} "
+            f"{bright}({filename}:{record.lineno}){reset} "
             f"{record.getMessage()}{reset}"
         )
+
+        if not self.journal:
+            return text
+
+        prefix = f"<{self.JOURNAL_PRIORITY.get(record.levelname, 6)}>"
+        return prefix + text.replace('\n', '\n' + prefix)
 
 # Calaos debug levels (0-4, higher = more verbose) mapped to Python logging
 # levels (10-50, higher = more severe). Level N shows messages of the mapped

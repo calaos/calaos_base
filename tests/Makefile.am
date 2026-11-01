@@ -8515,3 +8515,36 @@ core_OriginPolicy_test_DEPENDENCIES = $(SERVICE_SCOPE_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#The bytes Logger writes per level, on a pipe, a file and a terminal. Logger
+#decides once from the environment and from stdout, hence a program per
+#configuration: LogJournalPriority_helper is run by the test, not listed in TESTS.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += LogJournalPriority_test
+check_PROGRAMS += LogJournalPriority_test LogJournalPriority_helper
+LogJournalPriority_test_SOURCES = LogJournalPriority_test.cpp
+LogJournalPriority_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+
+LogJournalPriority_helper_SOURCES = LogJournalPriority_helper.cpp
+LogJournalPriority_helper_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#What a sidecar is told about logging and what the relay does of the priority
+#it writes, through a real OwCtrl and a stand-in sidecar.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ExternProcLogEnv_test
+check_PROGRAMS += core/ExternProcLogEnv_test
+core_ExternProcLogEnv_test_SOURCES = core/ExternProcLogEnv_test.cpp
+core_ExternProcLogEnv_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire
+EXTERN_PROC_LOG_ENV_OBJECTS = $(CALAOS_SERVER_BUILDDIR)/IO/OneWire/OWCtrl.$(OBJEXT)
+core_ExternProcLogEnv_test_LDADD = $(EXTERN_PROC_LOG_ENV_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_ExternProcLogEnv_test_DEPENDENCIES = $(EXTERN_PROC_LOG_ENV_OBJECTS) \
+                  $(CORE_TEST_DEPS)
+endif

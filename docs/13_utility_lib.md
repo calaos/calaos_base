@@ -327,8 +327,32 @@ niveau global (dérivé, `src/lib/Logger.cpp:117`). Ces deux clés sont **relay�
 externes et au sidecar MCP** par les variables d'environnement `CALAOS_LOG_LEVEL` et
 `CALAOS_LOG_DOMAINS` (dérivé, `src/bin/calaos_server/McpServerManager.cpp:250-251`), consommées
 côté Python par `src/lib/calaos-python/calaos_extern_proc/logger.py:95` et `:106`.
-La seule variable d'environnement lue par le logger C++ lui-même est `CALAOS_FORCE_COLOR`
-(dérivé, `src/lib/Logger.cpp:26`).
+Le logger C++ lit lui-même deux variables d'environnement, une seule fois, à l'initialisation
+statique : `CALAOS_FORCE_COLOR` (dérivé, `src/lib/Logger.cpp:43`) et
+`CALAOS_JOURNAL_PRIORITY` (dérivé, `src/lib/Logger.cpp:32`).
+
+**Priorité journald.** Avec `CALAOS_JOURNAL_PRIORITY=1` exactement, et si `stdout` n'est pas un
+terminal, chaque ligne écrite commence par `<n>`, `n` étant la priorité syslog du niveau :
+critique 2, erreur 3, warning 4, info 6, debug 7, niveau inconnu 6 (dérivé,
+`src/lib/Logger.cpp:179`). Le préfixe est répété sur chaque ligne d'un message multi-ligne, car
+journald découpe sur `\n` et lirait la suite en priorité 6. Ce mode retire les couleurs, même
+avec `CALAOS_FORCE_COLOR=1`. Sur un terminal la variable est sans effet ; sans elle, rien ne
+change, ni en test ni vers un fichier.
+
+`start_calaos_server` (dépôt pkgdebs) pose cette variable et lance le conteneur en
+`--log-driver=passthrough` : le stdout du serveur est alors le socket de flux de journald, le
+seul transport qui lit `<n>`. conmon, le chemin par défaut, ne lit ce préfixe qu'à partir de sa
+version 2.2. Conséquences mesurées sur un banc conmon 2.1.6 / podman 4.3.1 / systemd 252 :
+
+- `podman logs calaos-server` refuse de répondre (code 125) : le journal passe par
+  `journalctl -u calaos-server`.
+- `CONTAINER_NAME` disparaît et `_TRANSPORT` vaut `stdout` ; `_SYSTEMD_UNIT` reste.
+- journald coupe une ligne à 48 Kio, et les morceaux suivants tombent en priorité 6 (conmon
+  coupe à 8 Kio, tout en priorité 6).
+- Une ligne sans préfixe, stderr compris, est en priorité 6 (stderr était en 3 avec conmon).
+- Si journald se fige, l'écriture finit par bloquer, comme avec conmon, mais plus tard : environ
+  2,6 Mo contre 170 Ko au banc.
+- Un redémarrage de journald ne coupe pas le flux, même après un `kill -9`.
 
 ⚠️ **Ces singletons ne sont jamais détruits (T3.14)**, délibérément : le cache de niveaux et la
 table des loggers vivent jusqu'à la fin du processus, sans quoi un destructeur statique les

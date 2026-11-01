@@ -257,8 +257,11 @@ void ExternProcServer::relayChildOutput(string &buf, const char *stream, bool at
         else
             return;
 
-        cDebugDom("process") << procName << " " << stream << ": "
-                             << buf.substr(0, take) << note;
+        string line = buf.substr(0, take);
+        const int priority = Logger::isJournalPriorityEnabled() ? Logger::takeJournalPriority(line) : -1;
+
+        cDebugDom("process").withJournalPriority(priority) << procName << " " << stream << ": "
+                                                           << line << note;
         buf.erase(0, drop);
     }
 }
@@ -473,7 +476,8 @@ void ExternProcServer::spawnProcess(const string &process, const string &name, c
         "CALAOS_CONFIG_PATH=" + Utils::getConfigPath(),
         "CALAOS_LOG_LEVEL=" + Utils::get_config_option("debug_level"),
         "CALAOS_LOG_DOMAINS=" + Utils::get_config_option("debug_domains"),
-        "CALAOS_FORCE_COLOR=" + Logger::isColorEnabled(),
+        string("CALAOS_FORCE_COLOR=") + (Logger::isColorEnabled() ? "1" : "0"),
+        string("CALAOS_JOURNAL_PRIORITY=") + (Logger::isJournalPriorityEnabled() ? "1" : "0"),
         parentEnvVar("PATH"),
         parentEnvVar("HOME"),
         parentEnvVar("LANG"),

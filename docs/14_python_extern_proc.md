@@ -239,6 +239,7 @@ Variables d'environnement, injectées par `ExternProcServer::startProcess()`
 | `CALAOS_LOG_LEVEL` | entier **0 à 4** | `4` (tout, jusqu'au debug) |
 | `CALAOS_LOG_DOMAINS` | `"dom:level,dom2:level"` | aucun override de domaine |
 | `CALAOS_FORCE_COLOR` | exactement `"1"` | couleurs seulement si `stdout` est un tty |
+| `CALAOS_JOURNAL_PRIORITY` | exactement `"1"`, hors tty | pas de préfixe `<n>` ; ce mode retire les couleurs |
 
 Les niveaux Calaos sont traduits en niveaux `logging` Python (intégral, `logger.py:57-63`) :
 
@@ -452,6 +453,7 @@ apparaît **deux fois** dans l'alternation d'actions de `:183` (bénin).
 | `CALAOS_LOG_LEVEL` | Niveau de log global, **0 à 4** |
 | `CALAOS_LOG_DOMAINS` | Niveaux par domaine (`"dom:level,dom2:level"`) |
 | `CALAOS_FORCE_COLOR` | `"1"` force les couleurs ANSI |
+| `CALAOS_JOURNAL_PRIORITY` | `"1"` préfixe chaque ligne par sa priorité journald (`<n>`), hors tty |
 
 Ces variables sont injectées par `calaos_server` au lancement du sous-processus via
 `ExternProcServer::startProcess()` (`ExternProc.cpp:260-273`). Elles **remplacent**
