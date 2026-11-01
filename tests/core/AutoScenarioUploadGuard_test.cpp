@@ -96,6 +96,7 @@
 
 #include "JsonApiCharacterization.h"
 
+#include "AdminConfig.h"
 #include "AutoScenario.h"
 #include "AutoScenarioDef.h"
 #include "CalaosConfig.h"
@@ -689,16 +690,36 @@ TEST_F(AutoScenarioUploadGuardTest, TwoUploadsInsideTheSameSecondStillLeaveTheSt
     ASSERT_GT(removeScenarioFromIoXml(ioOnce, marker), 0);
     ASSERT_GT(removeScenarioFromRulesXml(rulesOnce, marker), 0);
 
-    alignToNextSecond();
-    const std::string stamp = backupSecondStamp();
+    //A loaded host can push the pair over a second boundary, and then the case
+    //proves nothing: start again from the original state, on a fresh second.
+    std::string stamp;
+    for (int attempt = 0; attempt < 10; attempt++)
+    {
+        if (attempt > 0)
+        {
+            std::error_code ec;
+            std::filesystem::remove_all(configDir() + "/backups", ec);
+            clearCoreState();
+            loadConfig(ioOriginal, rulesOriginal);
+            ListeRoom::Instance().checkAutoScenario();
+            Utils::set_config_frozen(false);
+        }
 
-    //first upload: the evening scenario goes. Second: everything goes. No wait
-    //between them - that is the whole point of the case. The restart that lifts
-    //the freeze is not played: only the name of the backup folder is at stake.
-    ASSERT_EQ("true", str(uploadConfig(ioOnce, rulesOnce), "success"));
-    Utils::set_config_frozen(false);
-    ASSERT_EQ("true", str(uploadConfig(ioXmlDocument(roomXml("Vide", "salon", std::string(), 0)),
-                                       rulesXmlDocument(std::string())), "success"));
+        alignToNextSecond();
+        stamp = backupSecondStamp();
+
+        //first upload: the evening scenario goes. Second: everything goes. No wait
+        //between them - that is the whole point of the case. The restart that lifts
+        //the freeze is not played: only the name of the backup folder is at stake.
+        ASSERT_EQ("true", str(uploadConfig(ioOnce, rulesOnce), "success"));
+        Utils::set_config_frozen(false);
+        ASSERT_EQ("true", str(uploadConfig(ioXmlDocument(roomXml("Vide", "salon", std::string(), 0)),
+                                           rulesXmlDocument(std::string())),
+                              "success"));
+
+        if (stamp == backupSecondStamp())
+            break;
+    }
 
     //without this the case would be vacuous: uploads that straddle a second
     //boundary do not collide and pass whatever BackupFiles() names its folder
@@ -1105,7 +1126,7 @@ TEST_F(AutoScenarioUploadGuardTest, APutWhoseBackupFailsWritesNothingAndDoesNotF
     std::filesystem::remove_all(backups);
     std::ofstream(backups) << "not a folder\n";
 
-    const Json answer = uploadConfig("<?xml version=\"1.0\"?>\n<new/>\n", "<?xml version=\"1.0\"?>\n<new/>\n");
+    const Json answer = uploadConfig("<?xml version=\"1.0\"?>\n<calaos:ioconfig/>\n", "<?xml version=\"1.0\"?>\n<calaos:rules/>\n");
 
     EXPECT_EQ("false", answer.value("success", ""));
     EXPECT_EQ("Could not copy the current files to backups, nothing was written", answer.value("error", ""));
@@ -1121,8 +1142,8 @@ TEST_F(AutoScenarioUploadGuardTest, APutHoldsBackEveryWriteUntilTheRestart)
     loadHouse();
     saveConfig();
 
-    const std::string ioXml = "<?xml version=\"1.0\"?>\n<first/>\n";
-    const std::string rulesXml = "<?xml version=\"1.0\"?>\n<first-rules/>\n";
+    const std::string ioXml = "<?xml version=\"1.0\"?>\n<calaos:ioconfig/>\n";
+    const std::string rulesXml = "<?xml version=\"1.0\"?>\n<calaos:rules/>\n";
     ASSERT_EQ("true", uploadConfig(ioXml, rulesXml).value("success", ""));
     ASSERT_TRUE(Utils::config_frozen());
 
@@ -1133,7 +1154,7 @@ TEST_F(AutoScenarioUploadGuardTest, APutHoldsBackEveryWriteUntilTheRestart)
     EXPECT_EQ(rulesXml, rulesXmlOnDisk());
 
     const size_t backups = backupsOf("io.xml").size();
-    const Json second = uploadConfig("<?xml version=\"1.0\"?>\n<second/>\n", "<?xml version=\"1.0\"?>\n<second/>\n");
+    const Json second = uploadConfig("<?xml version=\"1.0\"?>\n<calaos:ioconfig/>\n", "<?xml version=\"1.0\"?>\n<calaos:rules/>\n");
     EXPECT_EQ("false", second.value("success", ""));
     EXPECT_EQ("The configuration is frozen until the restart", second.value("error", ""));
     EXPECT_EQ(ioXml, ioXmlOnDisk());
@@ -1149,7 +1170,7 @@ TEST_F(AutoScenarioUploadGuardTest, APutCannotOverwriteARestoreUnderWay)
     const std::string rulesBefore = rulesXmlOnDisk();
 
     Utils::set_config_frozen(true);
-    const Json answer = uploadConfig("<?xml version=\"1.0\"?>\n<new/>\n", "<?xml version=\"1.0\"?>\n<new/>\n");
+    const Json answer = uploadConfig("<?xml version=\"1.0\"?>\n<calaos:ioconfig/>\n", "<?xml version=\"1.0\"?>\n<calaos:rules/>\n");
 
     EXPECT_EQ("false", answer.value("success", ""));
     EXPECT_EQ(ioBefore, ioXmlOnDisk());
@@ -1163,7 +1184,7 @@ TEST_F(AutoScenarioUploadGuardTest, APutRestartsEvenIfItsClientHasGone)
     saveConfig();
     letEarlierRestartTimersExpire();
 
-    ASSERT_EQ("true", uploadConfig("<?xml version=\"1.0\"?>\n<new/>\n", "<?xml version=\"1.0\"?>\n<new/>\n").value("success", ""));
+    ASSERT_EQ("true", uploadConfig("<?xml version=\"1.0\"?>\n<calaos:ioconfig/>\n", "<?xml version=\"1.0\"?>\n<calaos:rules/>\n").value("success", ""));
     ASSERT_TRUE(Utils::config_frozen());
 
     EXPECT_TRUE(loopStopsWithin(3000)) << "frozen with no restart on the way";
@@ -1176,7 +1197,7 @@ TEST_F(AutoScenarioUploadGuardTest, ARefusedPutDoesNotRestart)
     letEarlierRestartTimersExpire();
 
     Utils::set_config_frozen(true);
-    ASSERT_EQ("false", uploadConfig("<?xml version=\"1.0\"?>\n<new/>\n", "<?xml version=\"1.0\"?>\n<new/>\n").value("success", ""));
+    ASSERT_EQ("false", uploadConfig("<?xml version=\"1.0\"?>\n<calaos:ioconfig/>\n", "<?xml version=\"1.0\"?>\n<calaos:rules/>\n").value("success", ""));
 
     EXPECT_FALSE(loopStopsWithin(800));
 }
@@ -1429,4 +1450,467 @@ TEST_F(UnloadedConfigFileTest, AConfigPutIsTheWayOutAndTheRestartLoadsItNormally
     WsTestSession ws;
     EXPECT_EQ("true", wsAutoscenario(ws, Json{ { "type", "delete" }, { "id", eveningId } }).value("success", ""));
     EXPECT_NE(ioXml, ioXmlOnDisk());
+}
+
+/******************************************************************************
+ * A change that did not reach its file: the answer owns up to it
+ ******************************************************************************/
+
+class UnwrittenConfigFileTest: public UnloadedConfigFileTest
+{
+protected:
+    enum class Transport
+    {
+        WebSocket,
+        Http,
+    };
+
+    static constexpr const char *kNotWritten = "{\"error\":\"config_not_written\"}";
+    static constexpr const char *kNotLoaded = "{\"error\":\"config_not_loaded\"}";
+    static constexpr const char *kCanary = "canary only the file holds";
+
+    //In the way of the temporary of the atomic write: stops a root process too,
+    //and one file at a time
+    void blockWritesTo(const char *name) const
+    {
+        ASSERT_TRUE(std::filesystem::create_directory(pathOf(name) + ".restore"));
+    }
+
+    void unblockWritesTo(const char *name) const
+    {
+        ASSERT_TRUE(std::filesystem::remove(pathOf(name) + ".restore"));
+    }
+
+    void blockBothFiles() const
+    {
+        blockWritesTo(IO_CONFIG);
+        blockWritesTo(RULES_CONFIG);
+    }
+
+    void unblockBothFiles() const
+    {
+        unblockWritesTo(IO_CONFIG);
+        unblockWritesTo(RULES_CONFIG);
+    }
+
+    void houseOnDisk()
+    {
+        loadHouse();
+        WsTestSession ws;
+        eveningId = createEveningScenario(ws);
+        ASSERT_FALSE(eveningId.empty());
+        scheduleId = wsAutoscenario(ws, Json{ { "type", "add_schedule" }, { "id", eveningId } }).value("id", "");
+        ASSERT_FALSE(scheduleId.empty());
+        ListeRoom::Instance().get_io(IO_LAMP)->set_param("canary", kCanary);
+        saveConfig();
+        ASSERT_NE(std::string::npos, ioXmlOnDisk().find(kCanary));
+        ioBefore = ioXmlOnDisk();
+        rulesBefore = rulesXmlOnDisk();
+    }
+
+    Json timerange() const
+    {
+        return Json{ { "id", scheduleId }, { "months", "011111111111" } };
+    }
+
+    Json reenable() const
+    {
+        return Json{ { "type", "reenable" }, { "id", eveningId } };
+    }
+
+    std::vector<Json> everyChange() const
+    {
+        return { timerange(),
+                 createdScenario(),
+                 modifiedScenario(eveningId),
+                 Json{ { "type", "add_schedule" }, { "id", eveningId } },
+                 Json{ { "type", "del_schedule" }, { "id", eveningId } },
+                 Json{ { "type", "delete" }, { "id", eveningId } },
+                 reenable() };
+    }
+
+    Json answerTo(Transport transport, const Json &change)
+    {
+        const bool scenario = change.contains("type");
+        if (transport == Transport::WebSocket)
+        {
+            WsTestSession ws;
+            return scenario ? wsAutoscenario(ws, change) : wsSetTimerange(ws, change.value("id", ""));
+        }
+
+        Json request = change;
+        request["action"] = scenario ? "autoscenario" : "set_timerange";
+        HttpTestRequest req;
+        req.send(authenticated(request));
+        EXPECT_EQ(1u, req.count());
+        if (req.count() != 1) return Json::object();
+        return req.bodyJson();
+    }
+
+    //Same answer as one change, plus what it logged
+    Json answerTo(Transport transport, const Json &change, std::string &logged)
+    {
+        testing::internal::CaptureStdout();
+        const Json answer = answerTo(transport, change);
+        logged = testing::internal::GetCapturedStdout();
+        return answer;
+    }
+
+    static void expectNoFileContentIn(const std::string &logged)
+    {
+        EXPECT_EQ(std::string::npos, logged.find(kCanary)) << logged;
+        EXPECT_EQ(std::string::npos, logged.find("<calaos:")) << logged;
+    }
+
+    std::string eveningId;
+    std::string scheduleId;
+    std::string ioBefore;
+    std::string rulesBefore;
+};
+
+TEST_F(UnwrittenConfigFileTest, EveryChangeThatReachesNoFileSaysSoOnBothTransports)
+{
+    houseOnDisk();
+    const size_t changes = everyChange().size();
+
+    for (Transport transport: { Transport::WebSocket, Transport::Http })
+    {
+        for (size_t i = 0; i < changes; i++)
+        {
+            const Json change = everyChange()[i];
+            SCOPED_TRACE(change.dump());
+            blockBothFiles();
+
+            std::string logged;
+            EXPECT_EQ(kNotWritten, answerTo(transport, change, logged).dump());
+
+            EXPECT_EQ(ioBefore, ioXmlOnDisk());
+            EXPECT_EQ(rulesBefore, rulesXmlOnDisk());
+            EXPECT_NE(std::string::npos, logged.find("Unable to save")) << logged;
+            expectNoFileContentIn(logged);
+
+            unblockBothFiles();
+            reloadFromDisk();
+        }
+    }
+}
+
+TEST_F(UnwrittenConfigFileTest, AFailedIoFileStillLetsTheRulesFileBeWritten)
+{
+    houseOnDisk();
+    blockWritesTo(IO_CONFIG);
+
+    std::string logged;
+    EXPECT_EQ(kNotWritten, answerTo(Transport::Http, Json{ { "type", "delete" }, { "id", eveningId } }, logged).dump());
+
+    EXPECT_EQ(ioBefore, ioXmlOnDisk());
+    EXPECT_NE(rulesBefore, rulesXmlOnDisk());
+    EXPECT_NE(std::string::npos, logged.find(IO_CONFIG)) << logged;
+    EXPECT_EQ(std::string::npos, logged.find("Unable to save " + pathOf(RULES_CONFIG))) << logged;
+    expectNoFileContentIn(logged);
+    unblockWritesTo(IO_CONFIG);
+}
+
+TEST_F(UnwrittenConfigFileTest, AFailedRulesFileIsAnsweredOnceTheIoFileIsWritten)
+{
+    houseOnDisk();
+    blockWritesTo(RULES_CONFIG);
+
+    std::string logged;
+    EXPECT_EQ(kNotWritten, answerTo(Transport::Http, Json{ { "type", "delete" }, { "id", eveningId } }, logged).dump());
+
+    EXPECT_NE(ioBefore, ioXmlOnDisk());
+    EXPECT_EQ(rulesBefore, rulesXmlOnDisk());
+    EXPECT_NE(std::string::npos, logged.find(RULES_CONFIG)) << logged;
+    expectNoFileContentIn(logged);
+    unblockWritesTo(RULES_CONFIG);
+}
+
+TEST_F(UnwrittenConfigFileTest, ReenableAnswersForTheOnlyFileItWrites)
+{
+    houseOnDisk();
+    blockWritesTo(RULES_CONFIG);
+
+    EXPECT_EQ("true", answerTo(Transport::WebSocket, reenable()).value("success", ""));
+    EXPECT_EQ("true", answerTo(Transport::Http, reenable()).value("success", ""));
+
+    unblockWritesTo(RULES_CONFIG);
+}
+
+TEST_F(UnwrittenConfigFileTest, TheChangeHoldsInMemoryUntilASaveCarriesItOrARestartDropsIt)
+{
+    houseOnDisk();
+    const size_t scenarios = ListeRoom::Instance().getAutoScenarios().size();
+    blockBothFiles();
+
+    EXPECT_EQ(kNotWritten, answerTo(Transport::WebSocket, createdScenario()).dump());
+    EXPECT_EQ(scenarios + 1, ListeRoom::Instance().getAutoScenarios().size());
+
+    //The error does not tell a retry that the first one holds: it adds another
+    EXPECT_EQ(kNotWritten, answerTo(Transport::WebSocket, createdScenario()).dump());
+    EXPECT_EQ(scenarios + 2, ListeRoom::Instance().getAutoScenarios().size());
+
+    EXPECT_EQ(kNotWritten, answerTo(Transport::WebSocket, modifiedScenario(eveningId)).dump());
+    EXPECT_EQ("Renamed", scenarioIo(eveningId)->get_param("name"));
+
+    EXPECT_EQ(kNotWritten, answerTo(Transport::WebSocket, Json{ { "type", "delete" }, { "id", eveningId } }).dump());
+    EXPECT_EQ(nullptr, scenarioIo(eveningId));
+    EXPECT_EQ("{\"error\":\"wrong input\"}",
+              answerTo(Transport::WebSocket, Json{ { "type", "delete" }, { "id", eveningId } }).dump());
+
+    unblockBothFiles();
+    EXPECT_EQ(ioBefore, ioXmlOnDisk());
+    EXPECT_EQ(rulesBefore, rulesXmlOnDisk());
+
+    //A restart before any save goes back to the files...
+    reloadFromDisk();
+    ASSERT_NE(nullptr, scenarioIo(eveningId));
+    EXPECT_EQ(NAME_EVENING, scenarioIo(eveningId)->get_param("name"));
+    EXPECT_EQ(scenarios, ListeRoom::Instance().getAutoScenarios().size());
+
+    //...and any later save carries what memory held
+    blockBothFiles();
+    EXPECT_EQ(kNotWritten, answerTo(Transport::Http, createdScenario()).dump());
+    unblockBothFiles();
+    EXPECT_EQ("true", answerTo(Transport::Http, timerange()).value("success", ""));
+    EXPECT_NE(std::string::npos, ioXmlOnDisk().find("Added"));
+    reloadFromDisk();
+    EXPECT_EQ(scenarios + 1, ListeRoom::Instance().getAutoScenarios().size());
+    EXPECT_FALSE(std::filesystem::exists(pathOf(IO_CONFIG) + ".restore"));
+    EXPECT_FALSE(std::filesystem::exists(pathOf(RULES_CONFIG) + ".restore"));
+}
+
+TEST_F(UnwrittenConfigFileTest, TheFreezeIsAnsweredTheSameAndLogsNoFailure)
+{
+    houseOnDisk();
+    const size_t changes = everyChange().size();
+
+    for (Transport transport: { Transport::WebSocket, Transport::Http })
+    {
+        for (size_t i = 0; i < changes; i++)
+        {
+            const Json change = everyChange()[i];
+            SCOPED_TRACE(change.dump());
+            Utils::set_config_frozen(true);
+
+            std::string logged;
+            EXPECT_EQ(kNotWritten, answerTo(transport, change, logged).dump());
+
+            EXPECT_EQ(ioBefore, ioXmlOnDisk());
+            EXPECT_EQ(rulesBefore, rulesXmlOnDisk());
+            EXPECT_EQ(std::string::npos, logged.find("Unable to save")) << logged;
+
+            Utils::set_config_frozen(false);
+            reloadFromDisk();
+        }
+    }
+}
+
+TEST_F(UnwrittenConfigFileTest, AnUnloadedRulesFileHidesNeitherAFailedIoFileNorItsOwnRefusal)
+{
+    houseOnDisk();
+    restartOnGarbage(RULES_CONFIG);
+    blockWritesTo(IO_CONFIG);
+
+    EXPECT_EQ(kNotWritten, answerTo(Transport::WebSocket, timerange()).dump());
+    EXPECT_EQ(kNotWritten, answerTo(Transport::Http, reenable()).dump());
+
+    EXPECT_EQ(kNotLoaded, answerTo(Transport::WebSocket, createdScenario()).dump());
+    EXPECT_EQ(kNotLoaded, answerTo(Transport::Http, createdScenario()).dump());
+
+    EXPECT_EQ(ioBefore, ioXmlOnDisk());
+    unblockWritesTo(IO_CONFIG);
+    expectGarbageUntouched(RULES_CONFIG);
+}
+
+TEST_F(UnwrittenConfigFileTest, AConfigGetAnswersTheSameOverAFailedSave)
+{
+    houseOnDisk();
+    const Json before = configGet();
+    ASSERT_EQ(ioBefore, before["config_files"].value("io.xml", ""));
+    ListeRoom::Instance().get_io(IO_LAMP)->set_param("canary", "only in memory");
+    blockBothFiles();
+
+    testing::internal::CaptureStdout();
+    const Json reply = configGet();
+    const std::string logged = testing::internal::GetCapturedStdout();
+
+    EXPECT_EQ(before.dump(), reply.dump());
+    EXPECT_NE(std::string::npos, logged.find("Unable to save")) << logged;
+    expectNoFileContentIn(logged);
+    unblockBothFiles();
+}
+
+/******************************************************************************
+ * config put: the content is judged before any write, and the write is atomic
+ ******************************************************************************/
+
+class ConfigPutTest: public UnloadedConfigFileTest
+{
+protected:
+    static constexpr const char *kIoRoot = "<?xml version=\"1.0\"?>\n<calaos:ioconfig/>\n";
+    static constexpr const char *kRulesRoot = "<?xml version=\"1.0\"?>\n<calaos:rules/>\n";
+
+    Json put(const Json &files)
+    {
+        HttpTestRequest req;
+        req.send(authenticated(Json{ { "action", "config" }, { "type", "put" }, { "config_files", files } }));
+        EXPECT_EQ(1u, req.count());
+        if (req.count() != 1) return Json::object();
+        return req.bodyJson();
+    }
+
+    //Both files in place with a mode that is not the umask's, nothing stored yet
+    void settle()
+    {
+        loadHouse();
+        saveConfig();
+        ASSERT_EQ(0, ::chmod(pathOf(IO_CONFIG).c_str(), 0600));
+        ASSERT_EQ(0, ::chmod(pathOf(RULES_CONFIG).c_str(), 0600));
+        letEarlierRestartTimersExpire();
+    }
+
+    void expectRefused(const Json &files, const std::string &reason)
+    {
+        const std::string ioBefore = readWholeFile(pathOf(IO_CONFIG));
+        const std::string rulesBefore = readWholeFile(pathOf(RULES_CONFIG));
+        const size_t backups = backupsOf("io.xml").size();
+
+        const Json reply = put(files);
+
+        EXPECT_EQ("false", reply.value("success", ""));
+        EXPECT_NE(std::string::npos, reply.value("error", "").find(reason)) << reply.dump();
+        EXPECT_EQ(ioBefore, readWholeFile(pathOf(IO_CONFIG)));
+        EXPECT_EQ(rulesBefore, readWholeFile(pathOf(RULES_CONFIG)));
+        EXPECT_EQ(0600, modeOf(pathOf(IO_CONFIG)));
+        EXPECT_EQ(backups, backupsOf("io.xml").size());
+        EXPECT_FALSE(Utils::config_frozen());
+    }
+
+    std::string blockRulesWrite();
+
+    std::vector<std::string> strays() const
+    {
+        std::vector<std::string> res;
+        for (const auto &e: std::filesystem::directory_iterator(configDir()))
+        {
+            const std::string name = e.path().filename().string();
+            if (name.find(".restore") != std::string::npos || name.rfind(".io.xml.", 0) == 0 ||
+                name.rfind(".rules.xml.", 0) == 0)
+                res.push_back(name);
+        }
+        return res;
+    }
+};
+
+TEST_F(ConfigPutTest, AWrongRootIsRefusedWithTheFilesAndTheBackupsUntouched)
+{
+    settle();
+    expectRefused(Json{ { "io.xml", "<?xml version=\"1.0\"?>\n<first/>\n" }, { "rules.xml", kRulesRoot } },
+                  "io.xml does not have the root element calaos:ioconfig");
+    expectRefused(Json{ { "io.xml", kIoRoot }, { "rules.xml", kIoRoot } },
+                  "rules.xml does not have the root element calaos:rules");
+}
+
+TEST_F(ConfigPutTest, ABrokenOrEmptyContentIsRefusedWithTheFilesAndTheBackupsUntouched)
+{
+    settle();
+    expectRefused(Json{ { "io.xml", "<?xml version=\"1.0\"?><calaos:ioconfig><calaos:home" } }, "io.xml is not valid XML");
+    expectRefused(Json{ { "rules.xml", "" } }, "rules.xml does not start with <?xml");
+    expectRefused(Json{ { "io.xml", kIoRoot }, { "local_config.xml", "not xml" } },
+                  "local_config.xml does not start with <?xml");
+}
+
+TEST_F(ConfigPutTest, AValidPutOverACorruptedFileIsAccepted)
+{
+    settle();
+    restartOnGarbage(IO_CONFIG);
+    ASSERT_FALSE(Config::Instance().ioFileLoaded());
+
+    EXPECT_EQ("true", put(Json{ { "io.xml", kIoRoot } }).value("success", ""));
+    EXPECT_EQ(kIoRoot, readWholeFile(pathOf(IO_CONFIG)));
+    EXPECT_EQ(kMode, modeOf(pathOf(IO_CONFIG)));
+
+    Utils::set_config_frozen(false);
+    reloadFromDisk();
+    EXPECT_TRUE(Config::Instance().ioFileLoaded());
+    EXPECT_TRUE(strays().empty());
+}
+
+TEST_F(ConfigPutTest, AnUnknownNameOrANonStringValueIsRefusedBeforeAnyBackupOrWrite)
+{
+    settle();
+    expectRefused(Json{ { "io.xml", 123 } }, "io.xml is not a string");
+    expectRefused(Json{ { "foo.xml", "x" }, { "io.xml", kIoRoot } }, "foo.xml is not a valid config filename");
+    expectRefused(Json{ { "io.xml", kIoRoot }, { "rules.xml", nullptr } }, "rules.xml is not a string");
+}
+
+//Judging a name is the caller's job (the handler refuses it first); the content
+//check only knows the three config files.
+TEST_F(ConfigPutTest, TheContentCheckLeavesAnUnknownNameToTheCaller)
+{
+    EXPECT_TRUE(AdminConfig::putFileRefusal("foo.xml", "not xml").empty());
+    EXPECT_FALSE(AdminConfig::putFileRefusal("io.xml", "not xml").empty());
+}
+
+//A link where the temporary of rules.xml goes: it is opened without following
+//links, so the write fails for the root user of CI too. Returns the link.
+std::string ConfigPutTest::blockRulesWrite()
+{
+    const std::string blocker = pathOf(RULES_CONFIG) + ".restore";
+    EXPECT_EQ(0, ::symlink("/nonexistent", blocker.c_str()));
+    return blocker;
+}
+
+TEST_F(ConfigPutTest, AWriteThatFailsLeavesTheLiveFileAndNoTemporary)
+{
+    settle();
+    const std::string before = readWholeFile(pathOf(RULES_CONFIG));
+    const std::string blocker = blockRulesWrite();
+
+    const Json reply = put(Json{ { "rules.xml", kRulesRoot } });
+    ::unlink(blocker.c_str());
+
+    EXPECT_EQ("false", reply.value("success", ""));
+    EXPECT_EQ("Could not write rules.xml, the file was left as it was", reply.value("error", "")) << reply.dump();
+    EXPECT_EQ(before, readWholeFile(pathOf(RULES_CONFIG)));
+    EXPECT_TRUE(strays().empty());
+    EXPECT_FALSE(Utils::config_frozen());
+}
+
+TEST_F(ConfigPutTest, AWriteThatFailsAfterAnotherFileWasReplacedFreezesAndNamesThem)
+{
+    settle();
+    const std::string before = readWholeFile(pathOf(RULES_CONFIG));
+    const std::string blocker = blockRulesWrite();
+
+    const Json reply = put(Json{ { "io.xml", kIoRoot }, { "rules.xml", kRulesRoot } });
+    ::unlink(blocker.c_str());
+
+    const std::string error = reply.value("error", "");
+    EXPECT_EQ("false", reply.value("success", ""));
+    EXPECT_EQ(0u, error.find("Could not write rules.xml; already replaced: io.xml; previous files in backups/")) << error;
+    EXPECT_EQ(kIoRoot, readWholeFile(pathOf(IO_CONFIG)));
+    EXPECT_EQ(before, readWholeFile(pathOf(RULES_CONFIG)));
+    EXPECT_TRUE(strays().empty());
+    //Memory and disk now differ: nothing may save over the new file
+    EXPECT_TRUE(Utils::config_frozen());
+}
+
+TEST_F(ConfigPutTest, ThePutKeepsTheModeAndFollowsTheLink)
+{
+    settle();
+    const std::string real = configDir() + "/real_rules.xml";
+    ASSERT_EQ(0, ::rename(pathOf(RULES_CONFIG).c_str(), real.c_str()));
+    ASSERT_EQ(0, ::chmod(real.c_str(), 0640));
+    ASSERT_EQ(0, ::symlink(real.c_str(), pathOf(RULES_CONFIG).c_str()));
+
+    EXPECT_EQ("true", put(Json{ { "rules.xml", kRulesRoot } }).value("success", ""));
+
+    EXPECT_TRUE(std::filesystem::is_symlink(pathOf(RULES_CONFIG)));
+    EXPECT_EQ(kRulesRoot, readWholeFile(real));
+    EXPECT_EQ(0640, modeOf(real));
+    EXPECT_TRUE(strays().empty());
+    ::unlink(pathOf(RULES_CONFIG).c_str());
+    ::unlink(real.c_str());
 }

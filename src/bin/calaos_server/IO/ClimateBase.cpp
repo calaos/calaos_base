@@ -34,6 +34,8 @@ const char *const LOW = "target_temp_low";
 const char *const HIGH = "target_temp_high";
 const char *const REFUSED_BY_IO = "the linked IO refused the value";
 
+ClimateBase::LoopClock injectedLoopClock = nullptr;
+
 //A disabled or read-only IO refuses a write: the log must still say why.
 bool written(bool ok, string &reason)
 {
@@ -624,8 +626,16 @@ uint64_t ClimateBase::toMs(double seconds)
     return static_cast<uint64_t>(std::llround(std::min(seconds, 1e9) * 1000));
 }
 
+void ClimateBase::setLoopClock(LoopClock clock)
+{
+    injectedLoopClock = clock;
+}
+
 uint64_t ClimateBase::loopNow()
 {
+    if (injectedLoopClock)
+        return injectedLoopClock();
+
     auto loop = uvw::Loop::getDefault();
     loop->update();
     return loop->now().count();

@@ -749,7 +749,7 @@ Relaye une action de la table fermée vers le daemon. **WS uniquement.**
 | `network_revert` | `change_id` | `POST network/revert` | oui | `{change_id, intf, state: "reverted"}` |
 | `config_list` | | aucun : traité dans calaos_server | oui | `{options: [...]}`, voir [Configuration](#configuration-config_list-config_set-config_backup) |
 | `config_set` | `key`, `value` | aucun : traité dans calaos_server | oui | `{key, value, set, restart_required}` (un secret : sans `value`) |
-| `config_backup` | | aucun : traité dans calaos_server | oui | `{format, created_at, server_version, hostname, io_format, files}` |
+| `config_backup` | | aucun : traité dans calaos_server | oui | `{format, created_at, server_version, hostname, io_format, files}` plus `unrestorable` si un fichier n'est pas restaurable |
 | `config_restore` | `files`, `dry_run` | aucun : traité dans calaos_server | oui | `{dry_run, files, backup, box, io_format, kept, warnings, previous?, restarting}`, voir [Restauration](#restauration-config_restore) |
 
 Chemins relatifs à `/api/v2/`. Jamais relayés, quoi que le client envoie : `system/install/*`,
@@ -1475,6 +1475,17 @@ Ni listées ni modifiables ici : `cn_user`, `cn_pass`, `calaos_user`, `calaos_pa
   "server_version", "hostname", "io_format": <entier>, "files": {"io.xml", "rules.xml",
   "local_config.xml"}}`, chaque valeur étant le contenu du fichier. Un fichier absent de la box,
   illisible ou vide est **omis** de `files` (jamais une chaîne vide, qu'une restauration écrirait).
+  `unrestorable` (champ additionnel, **absent** d'une archive saine) liste les fichiers que
+  `config_restore` refuserait tels quels : `[{"file": "io.xml" | "rules.xml" | "local_config.xml",
+  "cause": "not_loaded" | "missing" | "unreadable" | "empty" | "refused"}]`. `not_loaded` : le
+  fichier existe mais calaos_server ne l'a pas chargé (corrompu ou illisible au démarrage) ;
+  l'archive porte alors ses octets, tels quels, et aucun fichier de la box n'est écrit. `refused` :
+  le fichier présent dans l'archive ne passe pas les contrôles de contenu de `config_restore`
+  (plus de 2 Mio, NUL ou non UTF-8, sans `<?xml` en tête, XML invalide, mauvaise racine, format
+  plus récent), `local_config.xml` compris ; le motif exact n'est pas rendu. `missing`, `unreadable`
+  et `empty` ne concernent que io.xml et rules.xml : un `local_config.xml` absent ou vide est
+  seulement omis de `files`, sans signal. L'archive est rendue dans tous les cas ; le champ ne
+  contient que des noms et des causes, jamais un contenu.
   `widgets.xml` n'y est pas : aucun programme ne le lit. `created_at` est en RFC 3339 UTC à la seconde
   (`2026-10-25T12:34:56Z`), `server_version` la version de calaos_server, `hostname` le nom
   d'hôte brut (`gethostname()`), `io_format` le format d'`io.xml` de ce serveur (nombre JSON, le
@@ -1588,8 +1599,10 @@ absent en `dry_run` ; `restarting` est faux en `dry_run`.
      n'est écrit (plus strict que `config put` : la copie est le moyen d'annuler). La copie ratée
      d'un fichier non chargé n'est pas un échec : le remplacer est ce qui est demandé ;
   6. les sauvegardes de la configuration sont gelées jusqu'à la sortie (`SaveConfigIO`,
-     `SaveConfigRule` et les écritures d'option deviennent sans effet), pour qu'un appel
-     concurrent ne réécrive pas la configuration en mémoire par-dessus les fichiers restaurés ;
+     `SaveConfigRule` et les écritures d'option n'écrivent plus rien), pour qu'un appel
+     concurrent ne réécrive pas la configuration en mémoire par-dessus les fichiers restaurés. Une
+     modification reçue entre-temps répond `config_not_written`, voir
+     [Fichier non écrit](#fichier-non-écrit) ;
   7. chaque fichier est écrit en `<nom>.restore`, `fsync`, puis `rename` ;
   8. la réponse porte `previous` et `restarting: true` ;
   9. la boucle s'arrête environ 500 ms après l'envoi de la trame, comme à la sortie du `config
@@ -2046,6 +2059,37 @@ fichier absent n'est pas dans ce cas : c'est un premier démarrage, le squelette
   ne trouve aucun écran dans un `io.xml` non chargé et répond 404
   (`Invalid provisioning code`).
 
+#### Fichier non écrit
+
+`{"error":"config_not_written"}` : la modification demandée a été appliquée en mémoire, mais n'a pas
+atteint le disque. L'écriture a échoué (disque plein, droits, cible invalide), ou les sauvegardes
+sont gelées par un `config_restore` ou un `config put` qui se termine. Même réponse sur HTTP (statut
+200, comme les autres erreurs de l'API) et sur WebSocket (dans `data`), pour les `type` `create`,
+`delete`, `modify`, `add_schedule`, `del_schedule` et `reenable` d'`autoscenario`, et pour
+`set_timerange`.
+
+- **Pas d'annulation.** Le changement reste en mémoire et son événement est déjà parti : `autoscenario
+  list` le montre, le scénario tourne. La prochaine sauvegarde réussie, quelle qu'elle soit, le
+  porte sur le disque ; un redémarrage avant celle-ci le perd. Sous le gel, c'est le redémarrage
+  qui suit qui le perd, sauf `config_restore` raté sans rien remplacer : le gel tombe et une
+  sauvegarde peut le porter.
+- **Une erreur n'est pas un refus.** Après un `create`, le scénario existe sans que son `id` ait été
+  répondu, et le renvoyer en crée un second ; un `add_schedule` renvoyé ajoute une autre plage. Un
+  `delete` renvoyé répond `wrong input`, le scénario étant déjà retiré. `modify`, `del_schedule`,
+  `set_timerange` et `reenable` restent appliqués. Le client relit `autoscenario list` avant de
+  renvoyer quoi que ce soit.
+- **Écriture partielle.** Les deux fichiers sont toujours tentés : `io.xml` peut être écrit et
+  `rules.xml` non, ou l'inverse, et la réponse est la même. Le fichier qui a échoué reste tel
+  qu'il était.
+- **Fichier non chargé.** Il ne fait pas échouer ce qui n'a pas à l'écrire : `set_timerange` et
+  `reenable` aboutissent avec le seul `rules.xml` non chargé, comme plus haut, mais une écriture
+  ratée d'`io.xml` à côté reste `config_not_written`.
+- **Lectures.** `config get` et `config_backup` sauvegardent d'abord et répondent quoi qu'il
+  arrive, avec les octets du disque : l'échec est au journal, leur réponse ne change pas.
+- **Journal.** Le chemin et la cause, jamais le contenu du fichier. Sous le gel, aucune ligne
+  d'erreur, provisioning compris : ce n'est pas une panne.
+- **Provisioning RemoteUI.** Voir [docs/07](07_remoteui.md#anti-abus) : un 500, sans identifiants.
+
 **`io_format`** (entier) annonce le plus haut format d'`io.xml` que le serveur écrit et
 comprend ; 2 = peut contenir des `<calaos:device>` (`<calaos:home format="2">`, écrit dès qu'un
 device existe). Une réponse sans `io_format` vient d'un serveur de format 1 : un client ne doit
@@ -2058,11 +2102,36 @@ Si le serveur détient au moins un device (les devices inertes d'impl inconnue c
 la requête ne déclare pas `io_format >= 2`, le `put` est refusé en entier : ni backup, ni
 écriture (`rules.xml` et `local_config.xml` compris), ni redémarrage. Un `io.xml` qui ne
 s'analyse pas est toujours refusé, déclaration ou non, avec `"error":"io.xml does not parse"`
-(sans device côté serveur il reste accepté, comme avant). Réponse :
+(sans device côté serveur, c'est le paragraphe suivant qui le juge). Réponse :
 `{"success":"false","error":"update calaos_installer: this io.xml would drop N device(s)"}`
-avec N le nombre de devices du serveur. Un client qui déclare `io_format >= 2` est cru : le
-contenu n'est plus inspecté, supprimer des devices, le dernier compris, est intentionnel. Sans
-device côté serveur, ou sans clef `io.xml` dans `config_files`, rien n'est jugé.
+avec N le nombre de devices du serveur. Un client qui déclare `io_format >= 2` est cru :
+supprimer des devices, le dernier compris, est intentionnel. Sans device côté serveur, ou sans
+clef `io.xml` dans `config_files`, ce contrôle ne refuse rien ; le contenu est jugé comme
+ci-dessous.
+
+**Refus d'un contenu qui ne se chargerait pas.** Avant toute copie et toute écriture, chaque
+clef de `config_files` doit être `io.xml`, `rules.xml` ou `local_config.xml` et sa valeur une
+chaîne (sinon `"error":"<clef> is not a valid config filename"` ou
+`"error":"<clef> is not a string"`), puis chaque fichier passe les règles de `config_restore` (`restoreFileRefusal`) : 2 Mio au
+plus, UTF-8 sans NUL, commence par `<?xml`, XML qui s'analyse, élément racine attendu
+(`calaos:ioconfig` pour `io.xml`, `calaos:rules` pour `rules.xml`, `calaos:config` pour
+`local_config.xml`), format d'`io.xml` que le serveur comprend. Un seul fichier refusé refuse le
+`put` entier : `{"success":"false","error":"<raison>"}` (par exemple `io.xml does not have the
+root element calaos:ioconfig`, `rules.xml does not start with <?xml`), fichiers inchangés, aucune
+copie de `backups/`, pas de redémarrage. Avant ce contrôle, un contenu sans `<?xml` était
+ignoré sans erreur, avec `success:"true"` et un redémarrage ; un XML à la mauvaise racine était
+écrit puis restait non chargé au démarrage.
+
+**Écriture.** Chaque fichier est remplacé par `Utils::restore_config_file()` (temporaire du même
+dossier, `fsync`, `rename`, mode et propriétaire gardés, lien symbolique suivi). Un échec laisse
+le fichier vivant intact, sans temporaire, et répond
+`{"success":"false","error":"Could not write <fichier>, the file was left as it was"}`. Si un autre
+fichier du même envoi était déjà remplacé, le serveur redémarre quand même (le disque a changé,
+sans transaction : les fichiers déjà remplacés restent) et l'erreur les nomme :
+`"Could not write <fichier>; already replaced: <fichiers>; previous files in backups/<dossier>; the
+server restarts"`.
+`put` reste la sortie d'un fichier non chargé : un contenu valide passe même si le fichier vivant
+est corrompu.
 
 ### `camera` — clé `type` (HTTP uniquement, 2)
 
@@ -2777,6 +2846,8 @@ elles contiennent une faute de frappe historique (`unkown` au lieu de
 | `wrong input` | [JsonApi.cpp:1777, 1815, 1898, 2004, 2030, 2157, 2180, 2203](../src/bin/calaos_server/JsonApi.cpp) | plage horaire ou scénario introuvable |
 | `scenario creation failed` | [JsonApi.cpp:1938, 1950](../src/bin/calaos_server/JsonApi.cpp) | |
 | `scenario modification failed` | [JsonApi.cpp:2136](../src/bin/calaos_server/JsonApi.cpp) | |
+| `config_not_loaded` | `CONFIG_NOT_LOADED`, [CalaosConfig.h](../src/bin/calaos_server/CalaosConfig.h) | `autoscenario` : un fichier à écrire n'a pas été chargé, rien n'a changé, voir [Fichier non chargé](#fichier-non-chargé) |
+| `config_not_written` | `CONFIG_NOT_WRITTEN`, [CalaosConfig.h](../src/bin/calaos_server/CalaosConfig.h) | `autoscenario`, `set_timerange` : changement en mémoire, pas sur le disque, voir [Fichier non écrit](#fichier-non-écrit) |
 | `uuid not found` | [HistLogger.cpp:292](../src/bin/calaos_server/HistLogger.cpp) | `eventlog` avec un `uuid` inconnu |
 | `history unavailable: <raison>` | [HistLogger.cpp:549](../src/bin/calaos_server/HistLogger.cpp) | `eventlog` : la requête SQL a échoué (ex. `database is locked`) — refus **asynchrone** ; la raison est le message générique de SQLite, jamais le contenu d'un événement |
 | `history is disabled` | [HistLogger.cpp:441](../src/bin/calaos_server/HistLogger.cpp) | `eventlog` : `events.db` n'a pas pu être ouvert au démarrage |

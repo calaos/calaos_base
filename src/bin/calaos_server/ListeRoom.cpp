@@ -388,7 +388,8 @@ void ListeRoom::checkAutoScenario()
     //Must run before the save below: it is what persists the flag.
     refreshBrokenScenarios();
 
-    //Resave config, auto scenarios have probably created/deleted ios and rules
+    //Resave config, auto scenarios have probably created/deleted ios and rules.
+    //A failure is logged by the save and must not stop a starting server.
     Config::Instance().SaveConfigIO();
     Config::Instance().SaveConfigRule();
 }

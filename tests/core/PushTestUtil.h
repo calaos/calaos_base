@@ -109,6 +109,25 @@ inline bool pumpUntil(const std::function<bool()> &done)
     return done();
 }
 
+//The HistLogger worker only goes idle once it has answered: a directory
+//removed before that makes its late writes fail with a disk I/O error.
+inline bool settleHistory()
+{
+    auto done = std::make_shared<bool>(false);
+    HistLogger::Instance().getPushTokens([done](bool, std::string, const std::vector<PushToken> &)
+                                         {
+        *done = true;
+    });
+    auto loop = uvw::Loop::getDefault();
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+    while (!*done && std::chrono::steady_clock::now() < deadline)
+    {
+        loop->run<uvw::Loop::Mode::NOWAIT>();
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    return *done;
+}
+
 struct TokensAnswer
 {
     bool received = false;

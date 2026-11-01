@@ -286,17 +286,18 @@ TEST_F(DeviceFormatTest, PutThatDoesNotParseIsAlwaysRefused)
     expectRefusedWith(putIo(broken, Json(2)), "io.xml does not parse", before);
 }
 
-//Nothing to protect, so nothing is judged: the pre-CORE-3 behavior.
-TEST_F(DeviceFormatTest, PutThatDoesNotParseIsAcceptedWithoutDevices)
+//Even with nothing to protect: it would not load at the restart.
+TEST_F(DeviceFormatTest, PutThatDoesNotParseIsRefusedWithoutDevices)
 {
     reload(houseXml(plainIo(), false));
     saveConfig();
+    const std::string before = ioXmlOnDisk();
 
-    const std::string broken = "<?xml version=\"1.0\"?><calaos:ioconfig><calaos:home";
-    PutResult res = putIo(broken);
-    EXPECT_EQ(res.reply.value("success", std::string()), "true");
-    EXPECT_TRUE(res.restart);
-    EXPECT_EQ(ioXmlOnDisk(), broken);
+    PutResult res = putIo("<?xml version=\"1.0\"?><calaos:ioconfig><calaos:home");
+    EXPECT_EQ(res.reply.value("success", std::string()), "false");
+    EXPECT_EQ(res.reply.value("error", std::string()), "io.xml is not valid XML");
+    EXPECT_FALSE(res.restart);
+    EXPECT_EQ(ioXmlOnDisk(), before);
 }
 
 TEST_F(DeviceFormatTest, DevicesWithoutIdAreCountedOneByOne)
@@ -394,13 +395,26 @@ TEST_F(DeviceFormatTest, DeclaredClientUploadIsNotInspectedBeyondParsing)
     loadTwoDevices();
     saveConfig();
 
-    //A newer format and a device without id: nothing in there is judged.
-    std::string upload = houseXml(plainIo() + "    <calaos:device type=\"climate\" impl=\"x\" />\n", true);
-    upload.replace(upload.find("format=\"2\""), 10, "format=\"3\"");
+    //A device without id: nothing in there is judged.
+    const std::string upload = houseXml(plainIo() + "    <calaos:device type=\"climate\" impl=\"x\" />\n", true);
     PutResult res = putIo(upload, Json(2));
     EXPECT_EQ(res.reply.value("success", std::string()), "true");
     EXPECT_TRUE(res.restart);
     EXPECT_EQ(ioXmlOnDisk(), upload);
+}
+
+TEST_F(DeviceFormatTest, DeclaredClientUploadOfANewerFormatIsRefused)
+{
+    loadTwoDevices();
+    saveConfig();
+    const std::string before = ioXmlOnDisk();
+
+    std::string upload = houseXml(plainIo(), true);
+    upload.replace(upload.find("format=\"2\""), 10, "format=\"3\"");
+    PutResult res = putIo(upload, Json(2));
+    EXPECT_EQ(res.reply.value("success", std::string()), "false");
+    EXPECT_FALSE(res.restart);
+    EXPECT_EQ(ioXmlOnDisk(), before);
 }
 
 TEST_F(DeviceFormatTest, PutWithoutDevicesOnAHouseWithoutDevicesIsAccepted)

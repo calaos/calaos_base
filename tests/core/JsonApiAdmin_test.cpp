@@ -73,6 +73,7 @@
 #include <string>
 #include <thread>
 #include <filesystem>
+#include <functional>
 #include <vector>
 
 using namespace Calaos;
@@ -112,7 +113,8 @@ void drainLoop(int ms)
     }
 }
 
-bool pumpUntil(const std::function<bool()> &done, int ms = 6000)
+//The bound is only reached by a lost answer, never by a loaded host.
+bool pumpUntil(const std::function<bool()> &done, int ms = 30000)
 {
     auto loop = uvw::Loop::getDefault();
     const auto deadline = steady_clock::now() + milliseconds(ms);
@@ -5840,6 +5842,7 @@ TEST_F(JsonApiAdminTest, AFileMissingOnTheBoxIsLeftOutOfTheBackup)
     EXPECT_TRUE(doc["files"].contains(IO_CONFIG));
     EXPECT_TRUE(doc["files"].contains(RULES_CONFIG));
     EXPECT_EQ(2u, doc["files"].size());
+    EXPECT_FALSE(doc.contains("unrestorable")) << "local_config.xml is optional for a restore";
     EXPECT_EQ(saved, fileText(path));
 }
 
@@ -6367,6 +6370,20 @@ TEST_F(JsonApiAdminRestoreTest, TheFreezeHoldsAgainstEverySaveUntilTheExit)
     EXPECT_NE(kRestoreRules, fileText(configPath("rules.xml")));
 }
 
+TEST_F(JsonApiAdminRestoreTest, ABackupOverAFailedSaveAnswersWithWhatIsOnDisk)
+{
+    WsClient ws;
+    openAdmin(ws);
+    const std::string blocked = configPath("io.xml") + ".restore";
+    ASSERT_TRUE(std::filesystem::create_directory(blocked));
+
+    const Json backup = ws.admin("admin", configAction("config_backup"));
+
+    EXPECT_TRUE(std::filesystem::remove(blocked));
+    ASSERT_EQ("true", str(backup, "success")) << backup.dump();
+    EXPECT_EQ(fileText(configPath("io.xml")), str(backup["result"]["files"], "io.xml"));
+}
+
 TEST_F(JsonApiAdminRestoreTest, ABackupOfAnUnloadedFileWritesNothing)
 {
     const std::string garbage = "live file garbage <<<";
@@ -6386,6 +6403,218 @@ TEST_F(JsonApiAdminRestoreTest, ABackupOfAnUnloadedFileWritesNothing)
     ASSERT_EQ(0, ::stat(configPath("rules.xml").c_str(), &st));
     EXPECT_EQ(0640u, st.st_mode & 07777);
     EXPECT_FALSE(FileUtils::exists(configPath("rules.xml") + ".restore"));
+}
+
+//rules.xml is put in `state` and reloaded, so the server does not hold it
+void expectUnrestorableRules(const std::function<void(const std::string &)> &state, const char *cause,
+                             const std::string &expectedRulesFile)
+{
+    state(configPath("rules.xml"));
+    Config::Instance().LoadConfigRule();
+    ASSERT_FALSE(Config::Instance().rulesFileLoaded());
+
+    const Json doc = AdminConfig::backup(1792931696);
+
+    ASSERT_TRUE(doc.contains("unrestorable")) << doc.dump().substr(0, 400);
+    ASSERT_EQ(1u, doc["unrestorable"].size()) << doc["unrestorable"].dump();
+    EXPECT_EQ("rules.xml", str(doc["unrestorable"][0], "file"));
+    EXPECT_EQ(cause, str(doc["unrestorable"][0], "cause"));
+    EXPECT_EQ(2u, doc["unrestorable"][0].size());
+    EXPECT_EQ(std::string("calaos-config-backup/2"), str(doc, "format"));
+    ASSERT_TRUE(doc["files"].is_object());
+    if (expectedRulesFile.empty())
+        EXPECT_FALSE(doc["files"].contains("rules.xml"));
+    else
+        EXPECT_EQ(expectedRulesFile, str(doc["files"], "rules.xml"));
+    EXPECT_EQ(fileText(configPath("io.xml")), str(doc["files"], "io.xml"));
+    if (!expectedRulesFile.empty())
+        EXPECT_EQ(std::string::npos, doc["unrestorable"].dump().find(expectedRulesFile));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ABackupSaysARulesFileThatDidNotLoadCannotBeRestored)
+{
+    loadEmptyHouse();
+    const std::string garbage = "live file garbage <<<";
+    expectUnrestorableRules([&](const std::string &path)
+                            {
+        writeFile(path, garbage);
+    },
+                            "not_loaded", garbage);
+    EXPECT_EQ(garbage, fileText(configPath("rules.xml")));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ABackupSaysAMissingRulesFileCannotBeRestored)
+{
+    loadEmptyHouse();
+    expectUnrestorableRules([](const std::string &path)
+                            {
+        writeFile(path, "live file garbage <<<");
+    },
+                            "not_loaded",
+                            "live file garbage <<<");
+    ASSERT_EQ(0, ::unlink(configPath("rules.xml").c_str()));
+
+    const Json doc = AdminConfig::backup(1792931696);
+
+    ASSERT_TRUE(doc.contains("unrestorable")) << doc.dump().substr(0, 400);
+    ASSERT_EQ(1u, doc["unrestorable"].size()) << doc.dump().substr(0, 400);
+    EXPECT_EQ("missing", str(doc["unrestorable"][0], "cause"));
+    EXPECT_FALSE(doc["files"].contains("rules.xml"));
+    EXPECT_FALSE(FileUtils::exists(configPath("rules.xml")));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ABackupSaysAnEmptyRulesFileCannotBeRestored)
+{
+    loadEmptyHouse();
+    expectUnrestorableRules([](const std::string &path)
+                            {
+        writeFile(path, "");
+    },
+                            "empty", "");
+    EXPECT_EQ("", fileText(configPath("rules.xml")));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ABackupSaysAnUnreadableRulesFileCannotBeRestored)
+{
+    loadEmptyHouse();
+    //A folder in place of the file opens but gives no bytes
+    expectUnrestorableRules(
+        [](const std::string &path)
+        {
+        ASSERT_EQ(0, ::unlink(path.c_str()));
+        ASSERT_EQ(0, ::mkdir(path.c_str(), 0755));
+        },
+        "unreadable", "");
+    EXPECT_TRUE(std::filesystem::is_directory(configPath("rules.xml")));
+    ::rmdir(configPath("rules.xml").c_str());
+}
+
+TEST_F(JsonApiAdminRestoreTest, ABackupOfAnUnloadedIoFileNamesIt)
+{
+    loadEmptyHouse();
+    writeFile(configPath("io.xml"), "live file garbage <<<");
+    Config::Instance().LoadConfigIO();
+    ASSERT_FALSE(Config::Instance().ioFileLoaded());
+
+    const Json doc = AdminConfig::backup(1792931696);
+
+    ASSERT_TRUE(doc.contains("unrestorable")) << doc.dump().substr(0, 400);
+    ASSERT_EQ(1u, doc["unrestorable"].size()) << doc.dump().substr(0, 400);
+    EXPECT_EQ("io.xml", str(doc["unrestorable"][0], "file"));
+    EXPECT_EQ("not_loaded", str(doc["unrestorable"][0], "cause"));
+    EXPECT_EQ("live file garbage <<<", str(doc["files"], "io.xml"));
+    EXPECT_EQ("live file garbage <<<", fileText(configPath("io.xml")));
+}
+
+//A present file the restore would refuse is named, and nothing of the refusal is copied
+void expectRefused(const char *name, const Json &doc)
+{
+    ASSERT_TRUE(doc.contains("unrestorable")) << doc.dump().substr(0, 400);
+    ASSERT_EQ(1u, doc["unrestorable"].size()) << doc["unrestorable"].dump();
+    EXPECT_EQ(name, str(doc["unrestorable"][0], "file"));
+    EXPECT_EQ("refused", str(doc["unrestorable"][0], "cause"));
+    EXPECT_EQ(2u, doc["unrestorable"][0].size());
+    EXPECT_TRUE(doc["files"].contains(name));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ABackupSaysALocalConfigWithoutTheXmlDeclarationIsRefused)
+{
+    loadEmptyHouse();
+    const std::string live = "\n" + fileText(configPath("local_config.xml"));
+    writeFile(configPath("local_config.xml"), live);
+
+    const Json doc = AdminConfig::backup(1792931696);
+
+    expectRefused("local_config.xml", doc);
+    EXPECT_EQ(live, str(doc["files"], "local_config.xml"));
+    EXPECT_EQ(live, fileText(configPath("local_config.xml")));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ABackupSaysALocalConfigThatIsNotXmlIsRefused)
+{
+    loadEmptyHouse();
+    const std::string live = "<?xml version=\"1.0\"?><calaos:local_config";
+    writeFile(configPath("local_config.xml"), live);
+
+    expectRefused("local_config.xml", AdminConfig::backup(1792931696));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ABackupSaysALocalConfigWithAWrongRootIsRefused)
+{
+    loadEmptyHouse();
+    writeFile(configPath("local_config.xml"), "<?xml version=\"1.0\"?><other/>");
+
+    expectRefused("local_config.xml", AdminConfig::backup(1792931696));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ABackupSaysALocalConfigWithANulIsRefused)
+{
+    loadEmptyHouse();
+    std::string live = fileText(configPath("local_config.xml"));
+    live.insert(live.size() - 1, 1, '\0');
+    writeFile(configPath("local_config.xml"), live);
+
+    expectRefused("local_config.xml", AdminConfig::backup(1792931696));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ABackupSaysARulesFileOver2MiBIsRefused)
+{
+    loadEmptyHouse();
+    ASSERT_TRUE(Config::Instance().rulesFileLoaded());
+    //A frozen configuration is not saved, so the oversized file stays as it is
+    const std::string big = rulesOfSize(2 * 1024 * 1024 + 1);
+    writeFile(configPath("rules.xml"), big);
+    Utils::set_config_frozen(true);
+
+    const Json doc = AdminConfig::backup(1792931696);
+
+    expectRefused("rules.xml", doc);
+    EXPECT_EQ(big, str(doc["files"], "rules.xml"));
+    EXPECT_EQ(std::string::npos, doc["unrestorable"].dump().find("MiB"));
+}
+
+TEST_F(JsonApiAdminRestoreTest, ARefusalOfTheFormatNeverCopiesTheNumberRead)
+{
+    loadEmptyHouse();
+    ASSERT_TRUE(Config::Instance().ioFileLoaded());
+    const std::string io = std::regex_replace(std::string(kRestoreIo), std::regex("format=\"2\""), "format=\"987654\"");
+    writeFile(configPath("io.xml"), io);
+    Utils::set_config_frozen(true);
+
+    const Json doc = AdminConfig::backup(1792931696);
+
+    expectRefused("io.xml", doc);
+    EXPECT_EQ(std::string::npos, doc.dump().find("newer")) << doc["unrestorable"].dump();
+    EXPECT_EQ(std::string::npos, doc["unrestorable"].dump().find("987654"));
+}
+
+TEST_F(JsonApiAdminRestoreTest, AFileThatCannotBeStatedIsNotTakenForAMissingFile)
+{
+    //exists() reports false with an error code here, as it does for EACCES on the folder
+    loadEmptyHouse();
+    const std::string folder = configPath("rules.xml");
+    ASSERT_EQ(0, ::unlink(folder.c_str()));
+    ASSERT_EQ(0, ::symlink("rules.xml", folder.c_str())) << "a link to itself makes stat() fail with ELOOP";
+    Utils::set_config_frozen(true);
+
+    const Json doc = AdminConfig::backup(1792931696);
+
+    ASSERT_TRUE(doc.contains("unrestorable")) << doc.dump().substr(0, 400);
+    EXPECT_EQ("unreadable", str(doc["unrestorable"][0], "cause"));
+    ::unlink(folder.c_str());
+}
+
+TEST_F(JsonApiAdminRestoreTest, AHealthyBackupKeepsItsExactShape)
+{
+    loadEmptyHouse();
+
+    const Json doc = AdminConfig::backup(1792931696);
+
+    std::vector<std::string> keys;
+    for (const auto &item: doc.items())
+        keys.push_back(item.key());
+    std::sort(keys.begin(), keys.end());
+    EXPECT_EQ((std::vector<std::string>{ "created_at", "files", "format", "hostname", "io_format", "server_version" }), keys);
 }
 
 TEST_F(JsonApiAdminRestoreTest, ARestoreIsTheWayOutOfAnUnloadedFile)

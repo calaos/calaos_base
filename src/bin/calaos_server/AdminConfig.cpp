@@ -27,6 +27,7 @@
 #include "version.h"
 
 #include <pugixml.hpp>
+#include <filesystem>
 #include <iterator>
 #include <set>
 #include <sstream>
@@ -430,26 +431,58 @@ Json AdminConfig::set(const Json &params)
 Json AdminConfig::backup(std::time_t createdAt)
 {
     //The in-memory IOs and rules as config get hands them out, the bytes on
-    //disk for a file that was not loaded and so was not saved
+    //disk for a file that was not loaded and so was not saved. A failed save
+    //leaves the previous bytes there: this is a read, it answers all the same.
     Config::Instance().SaveConfigIO();
     Config::Instance().SaveConfigRule();
 
     //widgets.xml has no reader; a file with nothing to give is left out so a
     //restore never writes an empty one
     Json files = Json::object();
-    for (const char *name: { IO_CONFIG, RULES_CONFIG, LOCAL_CONFIG })
+    Json unrestorable = Json::array();
+    for (const RestoreFile &file: RestoreFiles)
     {
-        const string content = Utils::getFileContent(Utils::getConfigFile(name).c_str());
+        const string path = Utils::getConfigFile(file.name);
+        const string content = Utils::getFileContent(path.c_str());
         if (!content.empty())
-            files[name] = content;
+            files[file.name] = content;
+
+        //The archive still carries what is on disk; the restore would refuse it as a whole.
+        //local_config.xml may be absent, but when present it is judged like the others.
+        //The refusal text is not copied: it can hold a value read from the file.
+        const char *cause = nullptr;
+        if (content.empty())
+        {
+            if (file.required)
+            {
+                std::error_code ec;
+                const bool present = std::filesystem::exists(path, ec);
+                if (ec)
+                    cause = "unreadable";
+                else if (!present)
+                    cause = "missing";
+                else
+                    cause = std::filesystem::is_regular_file(path, ec) && !ec && std::filesystem::file_size(path, ec) == 0 && !ec ? "empty" : "unreadable";
+            }
+        }
+        else if ((file.name == string(IO_CONFIG) && !Config::Instance().ioFileLoaded()) ||
+                 (file.name == string(RULES_CONFIG) && !Config::Instance().rulesFileLoaded()))
+            cause = "not_loaded";
+        else if (!restoreFileRefusal(file, content).empty())
+            cause = "refused";
+        if (cause)
+            unrestorable.push_back({ { "file", file.name }, { "cause", cause } });
     }
 
-    return Json{ { "format", "calaos-config-backup/2" },
-                 { "created_at", utcStamp(createdAt, "%Y-%m-%dT%H:%M:%SZ") },
-                 { "server_version", PKG_VERSION_STR },
-                 { "hostname", hostname() },
-                 { "io_format", IO_FORMAT_DEVICES },
-                 { "files", files } };
+    Json doc = Json{ { "format", "calaos-config-backup/2" },
+                     { "created_at", utcStamp(createdAt, "%Y-%m-%dT%H:%M:%SZ") },
+                     { "server_version", PKG_VERSION_STR },
+                     { "hostname", hostname() },
+                     { "io_format", IO_FORMAT_DEVICES },
+                     { "files", files } };
+    if (!unrestorable.empty())
+        doc["unrestorable"] = unrestorable;
+    return doc;
 }
 
 string AdminConfig::restoreRefusal(const Json &params)
@@ -488,6 +521,16 @@ string AdminConfig::restoreRefusal(const Json &params)
     const auto dryRun = params.find("dry_run");
     if (dryRun == params.end() || !dryRun->is_boolean())
         return "dry_run must be true or false";
+    return string();
+}
+
+string AdminConfig::putFileRefusal(const string &name, const string &content)
+{
+    for (const RestoreFile &file: RestoreFiles)
+    {
+        if (name == file.name)
+            return restoreFileRefusal(file, content);
+    }
     return string();
 }
 
