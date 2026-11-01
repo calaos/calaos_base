@@ -346,6 +346,37 @@ TEST_F(InFlightDownloadTest, ASynologyCameraWalksTheWholeChain)
     EXPECT_EQ(peer.requests(), 4);
 }
 
+//The two api probes (hops 0 and 2) answering an error end the chain with an
+//empty frame, and the next download starts over from the first probe.
+TEST_F(InFlightDownloadTest, ASynologyApiProbeFailureAnswersAnEmptyFrame)
+{
+    for (int hop : { 0, 2 })
+    {
+        SCOPED_TRACE("hop " + std::to_string(hop));
+
+        std::vector<Reply> chain = synoChain();
+        chain[hop] = { "text/plain", "", "503 Service Unavailable" };
+
+        ScriptedPeer peer(chain, -1);
+        IPCam *cam = dynamic_cast<IPCam *>(createIO(synoParams("fb5_syno_probe_" + std::to_string(hop), peer)));
+        ASSERT_NE(cam, nullptr);
+
+        auto frame = std::make_shared<std::string>("unset");
+        cam->downloadSnapshot([frame](const string &data)
+                              {
+            *frame = data;
+        });
+
+        ASSERT_TRUE(pumpUntil([frame]()
+                              {
+            return *frame != "unset";
+        },
+                              5000));
+        EXPECT_EQ(*frame, "");
+        EXPECT_EQ(peer.requests(), hop + 1);
+    }
+}
+
 //Each of the four requests of the chain in turn is the one in flight when
 //the camera is deleted: nothing of the camera runs once it answers, and the
 //chain stops there.

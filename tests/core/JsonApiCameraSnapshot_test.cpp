@@ -70,6 +70,7 @@
 
 #include "JsonApiCharacterization.h"
 
+#include "AudioPlayer.h"
 #include "IPCam.h"
 #include "ListeRoom.h"
 #include "PictureResizer.h"
@@ -102,6 +103,8 @@ namespace
 {
 
 const char *const CAMERA_ID = "t317d_camera";
+const char *const PLAYER_ID = "p3cp_player";
+const char *const COVER_URL = "http://p3cp-cover.invalid/cover.jpg";
 const char *const CAMERA_URL = "http://t317d-camera.invalid/snapshot?token=t317d";
 
 //A recognisable, non empty "jpeg". The production code never looks at the
@@ -350,6 +353,22 @@ private:
     std::string dir;
     bool ready = false;
 };
+
+//Answers the cover url synchronously, like a player whose cover is already known.
+class FakeCoverPlayer: public AudioPlayer
+{
+public:
+    FakeCoverPlayer(Params &p): AudioPlayer(p) {}
+
+    std::string coverUrl;
+
+    void get_album_cover(AudioRequest_cb cb, AudioPlayerData = AudioPlayerData()) override
+    {
+        AudioPlayerData d;
+        d.svalue = coverUrl;
+        cb(d);
+    }
+};
 }
 
 class JsonApiCameraSnapshotTest: public JsonApiCharacterizationTest
@@ -360,6 +379,7 @@ protected:
         JsonApiCharacterizationTest::SetUp();
 
         forgetIOState(CAMERA_ID);
+        forgetIOState(PLAYER_ID);
 
         loadConfig();
 
@@ -443,6 +463,38 @@ protected:
             requests.back()->send(pictureRequest(CAMERA_ID, width));
         }
         return requests;
+    }
+
+    static FakeCoverPlayer *addPlayer(const std::string &cover)
+    {
+        Params p;
+        p.Add("id", PLAYER_ID);
+        p.Add("name", "Fake cover player");
+        p.Add("type", "FakeCoverPlayer");
+
+        FakeCoverPlayer *player = new FakeCoverPlayer(p);
+        player->coverUrl = cover;
+
+        firstRoom()->AddIO(player);
+        ListeRoom::Instance().addIOHash(player);
+        return player;
+    }
+
+    static Json coverRequest()
+    {
+        return authenticated(Json{
+            { "action", "get_cover" },
+            { "id", PLAYER_ID },
+        });
+    }
+
+    static Json audioCoverRequest()
+    {
+        return authenticated(Json{
+            { "action", "audio" },
+            { "audio_action", "get_cover" },
+            { "id", PLAYER_ID },
+        });
     }
 
     static Json cameraPicRequest(const std::string &width = std::string())
@@ -1365,6 +1417,100 @@ TEST_F(JsonApiCameraSnapshotTest, CameraPicFailureAnswersAndFreesItsPlace)
                                     { "success", "false" } };
         EXPECT_JSON_EQ(expected, req.body());
     }
+}
+
+/*******************************************************************************
+ * Album covers go through the same helper as the camera pictures.
+ ******************************************************************************/
+
+TEST_F(JsonApiCameraSnapshotTest, GetCoverRunsTheToolOnTheCoverUrl)
+{
+    addPlayer(COVER_URL);
+    FakePictureTool tool("printf frame > \"$2\"\n");
+    ASSERT_TRUE(tool.isReady());
+
+    HttpTestRequest req;
+    req.send(coverRequest());
+    ASSERT_TRUE(pumpUntil([&req]()
+                          {
+        return req.count() == 1;
+    }));
+
+    const Json expected = Json{ { "contenttype", "image/jpeg" },
+                                { "data", "ZnJhbWU=" },
+                                { "encoding", "base64" },
+                                { "success", "true" } };
+    EXPECT_JSON_EQ(expected, req.body());
+    EXPECT_EQ(std::vector<std::string>{ COVER_URL }, tool.runs());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, GetCoverWithoutUrlRunsNothing)
+{
+    addPlayer("");
+    FakePictureTool tool("printf frame > \"$2\"\n");
+    ASSERT_TRUE(tool.isReady());
+
+    HttpTestRequest req;
+    req.send(coverRequest());
+
+    ASSERT_EQ(1u, req.count());
+    const Json expected = Json{ { "error_str", "unable to get url" },
+                                { "success", "false" } };
+    EXPECT_JSON_EQ(expected, req.body());
+    EXPECT_TRUE(tool.runs().empty());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, AudioGetCoverAnswersTheFileAsAJpeg)
+{
+    addPlayer(COVER_URL);
+    FakePictureTool tool("printf frame > \"$2\"\n");
+    ASSERT_TRUE(tool.isReady());
+
+    HttpTestRequest req;
+    req.send(audioCoverRequest());
+    ASSERT_TRUE(pumpUntil([&req]()
+                          {
+        return req.count() == 1;
+    }));
+
+    EXPECT_EQ("HTTP/1.0 200 OK", req.statusLine());
+    EXPECT_EQ("image/jpeg", req.header("Content-Type"));
+    EXPECT_EQ("frame", req.body());
+    EXPECT_EQ(std::vector<std::string>{ COVER_URL }, tool.runs());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, AudioGetCoverWithoutUrlRunsNothing)
+{
+    addPlayer("");
+    FakePictureTool tool("printf frame > \"$2\"\n");
+    ASSERT_TRUE(tool.isReady());
+
+    HttpTestRequest req;
+    req.send(audioCoverRequest());
+
+    ASSERT_EQ(1u, req.count());
+    const Json expected = Json{ { "error_str", "unable to get url" },
+                                { "success", "false" } };
+    EXPECT_JSON_EQ(expected, req.body());
+    EXPECT_TRUE(tool.runs().empty());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, AudioGetCoverFailureAnswersTheError)
+{
+    addPlayer(COVER_URL);
+    FakePictureTool tool("exit 1\n");
+    ASSERT_TRUE(tool.isReady());
+
+    HttpTestRequest req;
+    req.send(audioCoverRequest());
+    ASSERT_TRUE(pumpUntil([&req]()
+                          {
+        return req.count() == 1;
+    }));
+
+    const Json expected = Json{ { "error_str", "unable to load data from url" },
+                                { "success", "false" } };
+    EXPECT_JSON_EQ(expected, req.body());
 }
 
 TEST_F(JsonApiCameraSnapshotTest, CameraPicMissingToolAnswersAndFreesItsPlace)

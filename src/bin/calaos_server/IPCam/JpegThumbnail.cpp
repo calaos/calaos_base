@@ -110,9 +110,9 @@ boolean outputExhausted(j_compress_ptr encoder)
 
 bool acceptable(const jpeg_decompress_struct &decoder)
 {
-    if (decoder.image_width == 0 || decoder.image_height == 0)
-        return false;
-    if (decoder.image_width > maxSide || decoder.image_height > maxSide)
+    // libjpeg already refuses an empty frame; kept as a single test so this guard needs no unreachable branch.
+    if (decoder.image_width == 0 || decoder.image_height == 0 ||
+        decoder.image_width > maxSide || decoder.image_height > maxSide)
         return false;
     if (uint64_t(decoder.image_width) * decoder.image_height > maxPixels)
         return false;
