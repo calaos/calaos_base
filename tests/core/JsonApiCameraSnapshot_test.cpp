@@ -1329,7 +1329,7 @@ void JsonApiCameraSnapshotTest::expectPictureLimit(size_t limit)
         running.back()->send(cameraPicRequest("320"));
     }
     ASSERT_TRUE(pumpUntil([&]()
-    {
+                          {
         return tool.runs().size() == limit;
     }));
 
@@ -1348,7 +1348,7 @@ void JsonApiCameraSnapshotTest::expectPictureLimit(size_t limit)
     HttpTestRequest next;
     next.send(cameraPicRequest("320"));
     EXPECT_TRUE(pumpUntil([&]()
-    {
+                          {
         return tool.runs().size() == limit + 1;
     }));
     EXPECT_EQ(0u, next.count());
@@ -1383,7 +1383,7 @@ TEST_F(JsonApiCameraSnapshotTest, CameraPicInvalidLimitFallsBackToSixAndWarnsOnc
         ASSERT_TRUE(Utils::set_config_option("max_picture_processes", bad));
 
         const std::string log = captureStdout([this]()
-        {
+                                              {
             expectPictureLimit(6);
         });
 
