@@ -46,7 +46,7 @@ public:
 
 private:
     //Each one downloads and decodes a whole frame, in its own process
-    static constexpr int maxPictureProcesses = 4;
+    static constexpr int maxPictureProcesses = 10;
     static int pictureProcesses;
 
     std::shared_ptr<uvw::ProcessHandle> exe_thumb;

@@ -1310,21 +1310,21 @@ TEST_F(JsonApiCameraSnapshotTest, RealTruncatedFrameIsSentAsItCame)
  * bounded, and it tells a frame it could not resize from a failure.
  ******************************************************************************/
 
-TEST_F(JsonApiCameraSnapshotTest, CameraPicRunsFourProcessesAtMost)
+TEST_F(JsonApiCameraSnapshotTest, CameraPicRunsTenProcessesAtMost)
 {
     addCamera(SNAPSHOT_BYTES);
     FakePictureTool tool("exec sleep 30\n");
     ASSERT_TRUE(tool.isReady());
 
     Requests running;
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 10; i++)
     {
         running.push_back(std::make_unique<HttpTestRequest>());
         running.back()->send(cameraPicRequest("320"));
     }
     ASSERT_TRUE(pumpUntil([&tool]()
                           {
-        return tool.runs().size() == 4;
+        return tool.runs().size() == 10;
     }));
 
     HttpTestRequest refused;
@@ -1342,7 +1342,7 @@ TEST_F(JsonApiCameraSnapshotTest, CameraPicRunsFourProcessesAtMost)
     next.send(cameraPicRequest("320"));
     EXPECT_TRUE(pumpUntil([&tool]()
                           {
-        return tool.runs().size() == 5;
+        return tool.runs().size() == 11;
     }));
     EXPECT_EQ(0u, next.count());
 }
